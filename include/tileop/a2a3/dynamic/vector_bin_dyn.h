@@ -118,11 +118,13 @@ TILEOP void T_BIN_PAIR(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsi
         uint16_t lenBurst = (S0S1 * S0S2 * S0S3 * sizeof(T) + BLOCK_SIZE - 1) / BLOCK_SIZE;
         copy_ubuf_to_ubuf(dst, src0, 0, S0S0, lenBurst, 0, 0);
         pipe_barrier(PIPE_V);
+        return;
     } else if ((src0T0 == 0 || src0T1 == 0 || src0T2 == 0 || src0T3 == 0) &&
         (src1T0 != 0 && src1T1 != 0 && src1T2 != 0 && src1T3 != 0)) {
         uint16_t lenBurst = (S1S1 * S1S2 * S1S3 * sizeof(T) + BLOCK_SIZE - 1) / BLOCK_SIZE;
         copy_ubuf_to_ubuf(dst, src1, 0, S1S0, lenBurst, 0, 0);
         pipe_barrier(PIPE_V);
+        return;
     } else if ((src0T0 == 0 || src0T1 == 0 || src0T2 == 0 || src0T3 == 0) &&
         (src1T0 == 0 || src1T1 == 0 || src1T2 == 0 || src1T3 == 0)) {
         return;

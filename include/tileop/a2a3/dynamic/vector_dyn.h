@@ -804,6 +804,7 @@ TILEOP void DynTrowsumline_(__ubuf__ T *dst, __ubuf__ T *src0, unsigned TShape0,
                 set_vector_mask(-1, -1);
             } else {
                 vadd(dst, dst, src0 + j * srcRawShape1, repeatTime - 1, 1, 1, 1, 8, 8, 8);
+                pipe_barrier(PIPE_V);
                 SetContinuousMask(remainElm);
                 vadd(dst + (repeatTime - 1) * rptElm, dst + (repeatTime - 1) * rptElm,
                     src0 + j * srcRawShape1 + (repeatTime - 1) * rptElm, 1, 1, 1, 1, 8, 8, 8);
@@ -836,12 +837,14 @@ TILEOP void DynTrowsumline_(__ubuf__ T *dst, __ubuf__ T *src0, unsigned TShape0,
                 } else {
                     vcopy((__ubuf__ uint32_t *)(dst + i * dstRawShape2), (__ubuf__ uint32_t *)(src0 + i * srcRawShape2),
                         repeatTime - 1, 1, 1, 8, 8);
+                    pipe_barrier(PIPE_V);
                     SetContinuousMask(remainElm);
                     vcopy((__ubuf__ uint32_t *)(dst + i * dstRawShape2 + (repeatTime - 1) * rptElm),
                         (__ubuf__ uint32_t *)(src0 + i * srcRawShape2 + (repeatTime - 1) * rptElm), 1, 1, 1, 8, 8);
                     set_vector_mask(-1, -1);
                 }
             }
+            pipe_barrier(PIPE_V);
         }
         pipe_barrier(PIPE_V);
         for (unsigned i = 1; i < TShape0; i++) {
@@ -859,6 +862,7 @@ TILEOP void DynTrowsumline_(__ubuf__ T *dst, __ubuf__ T *src0, unsigned TShape0,
                         vadd(dst + j * dstRawShape2, dst + j * dstRawShape2,
                             src0 + i * srcRawShape1 * srcRawShape2 + j * srcRawShape2, repeatTime - 1, 1, 1, 1, 8, 8,
                             8);
+                        pipe_barrier(PIPE_V);
                         set_vector_mask(0, (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(remainElm)) - 1UL));
                         vadd(dst + j * dstRawShape2 + (repeatTime - 1) * rptElm,
                             dst + j * dstRawShape2 + (repeatTime - 1) * rptElm,
@@ -874,6 +878,7 @@ TILEOP void DynTrowsumline_(__ubuf__ T *dst, __ubuf__ T *src0, unsigned TShape0,
         for (unsigned i = 0; i < TShape0; i++) {
             DynTrowsumline_<T, srcRawShape2>(
                 dst + i * dstRawShape1 * dstRawShape2, src0 + i * srcRawShape1 * srcRawShape2, TShape1, TShape2);
+            pipe_barrier(PIPE_V);
         }
     }
 }
@@ -905,6 +910,7 @@ TILEOP void DynTrowsumline_(
                         vcopy((__ubuf__ uint32_t *)(dst + i * dstRawShape2 * dstRawShape3 + j * dstRawShape3),
                             (__ubuf__ uint32_t *)(src0 + i * srcRawShape2 * srcRawShape3 + j * srcRawShape3),
                             repeatTime - 1, 1, 1, 8, 8);
+                        pipe_barrier(PIPE_V);
                         SetContinuousMask(remainElm);
                         vcopy((__ubuf__ uint32_t *)(dst + i * dstRawShape2 * dstRawShape3 + j * dstRawShape3 +
                                                     (repeatTime - 1) * rptElm),
@@ -914,6 +920,7 @@ TILEOP void DynTrowsumline_(
                         set_vector_mask(-1, -1);
                     }
                 }
+                pipe_barrier(PIPE_V);
             }
         }
         pipe_barrier(PIPE_V);
@@ -942,6 +949,7 @@ TILEOP void DynTrowsumline_(
                                 src0 + i * srcRawShape1 * srcRawShape2 * srcRawShape3 +
                                     j * srcRawShape2 * srcRawShape3 + k * srcRawShape3,
                                 repeatTime - 1, 1, 1, 1, 8, 8, 8);
+                            pipe_barrier(PIPE_V);
                             set_vector_mask(
                                 0, (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(remainElm)) - 1UL));
                             vadd(dst + j * dstRawShape2 * dstRawShape3 + k * dstRawShape3 + (repeatTime - 1) * rptElm,
@@ -952,6 +960,7 @@ TILEOP void DynTrowsumline_(
                             set_vector_mask(-1, -1);
                         }
                     }
+                    pipe_barrier(PIPE_V);
                 }
             }
         }
@@ -980,6 +989,7 @@ TILEOP void DynTrowmaxline_(__ubuf__ T *dst, __ubuf__ T *src0, unsigned TShape0,
             set_vector_mask(-1, -1);
         } else {
             vcopy((__ubuf__ uint32_t *)dst, (__ubuf__ uint32_t *)src0, repeatTime - 1, 1, 1, 8, 8);
+            pipe_barrier(PIPE_V);
             SetContinuousMask(remainElm);
             vcopy((__ubuf__ uint32_t *)(dst + (repeatTime - 1) * rptElm),
                 (__ubuf__ uint32_t *)(src0 + (repeatTime - 1) * rptElm), 1, 1, 1, 8, 8);
@@ -998,6 +1008,7 @@ TILEOP void DynTrowmaxline_(__ubuf__ T *dst, __ubuf__ T *src0, unsigned TShape0,
                 set_vector_mask(-1, -1);
             } else {
                 vmax(dst, dst, src0 + j * srcRawShape1, repeatTime - 1, 1, 1, 1, 8, 8, 8);
+                pipe_barrier(PIPE_V);
                 SetContinuousMask(remainElm);
                 vmax(dst + (repeatTime - 1) * rptElm, dst + (repeatTime - 1) * rptElm,
                     src0 + j * srcRawShape1 + (repeatTime - 1) * rptElm, 1, 1, 1, 1, 8, 8, 8);
@@ -1030,12 +1041,14 @@ TILEOP void DynTrowmaxline_(__ubuf__ T *dst, __ubuf__ T *src0, unsigned TShape0,
                 } else {
                     vcopy((__ubuf__ uint32_t *)(dst + i * dstRawShape2), (__ubuf__ uint32_t *)(src0 + i * srcRawShape2),
                         repeatTime - 1, 1, 1, 8, 8);
+                    pipe_barrier(PIPE_V);
                     SetContinuousMask(remainElm);
                     vcopy((__ubuf__ uint32_t *)(dst + i * dstRawShape2 + (repeatTime - 1) * rptElm),
                         (__ubuf__ uint32_t *)(src0 + i * srcRawShape2 + (repeatTime - 1) * rptElm), 1, 1, 1, 8, 8);
                     set_vector_mask(-1, -1);
                 }
             }
+            pipe_barrier(PIPE_V);
         }
         pipe_barrier(PIPE_V);
         for (unsigned i = 1; i < TShape0; i++) {
@@ -1053,6 +1066,7 @@ TILEOP void DynTrowmaxline_(__ubuf__ T *dst, __ubuf__ T *src0, unsigned TShape0,
                         vmax(dst + j * dstRawShape2, dst + j * dstRawShape2,
                             src0 + i * srcRawShape1 * srcRawShape2 + j * srcRawShape2, repeatTime - 1, 1, 1, 1, 8, 8,
                             8);
+                        pipe_barrier(PIPE_V);
                         set_vector_mask(0, (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(remainElm)) - 1UL));
                         vmax(dst + j * dstRawShape2 + (repeatTime - 1) * rptElm,
                             dst + j * dstRawShape2 + (repeatTime - 1) * rptElm,
@@ -1099,6 +1113,7 @@ TILEOP void DynTrowmaxline_(
                         vcopy((__ubuf__ uint32_t *)(dst + i * dstRawShape2 * dstRawShape3 + j * dstRawShape3),
                             (__ubuf__ uint32_t *)(src0 + i * srcRawShape2 * srcRawShape3 + j * srcRawShape3),
                             repeatTime - 1, 1, 1, 8, 8);
+                        pipe_barrier(PIPE_V);
                         SetContinuousMask(remainElm);
                         vcopy((__ubuf__ uint32_t *)(dst + i * dstRawShape2 * dstRawShape3 + j * dstRawShape3 +
                                                     (repeatTime - 1) * rptElm),
@@ -1108,6 +1123,7 @@ TILEOP void DynTrowmaxline_(
                         set_vector_mask(-1, -1);
                     }
                 }
+                pipe_barrier(PIPE_V);
             }
         }
         pipe_barrier(PIPE_V);
@@ -1136,6 +1152,7 @@ TILEOP void DynTrowmaxline_(
                                 src0 + i * srcRawShape1 * srcRawShape2 * srcRawShape3 +
                                     j * srcRawShape2 * srcRawShape3 + k * srcRawShape3,
                                 repeatTime - 1, 1, 1, 1, 8, 8, 8);
+                            pipe_barrier(PIPE_V);
                             set_vector_mask(
                                 0, (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(remainElm)) - 1UL));
                             vmax(dst + j * dstRawShape2 * dstRawShape3 + k * dstRawShape3 + (repeatTime - 1) * rptElm,
@@ -1146,6 +1163,7 @@ TILEOP void DynTrowmaxline_(
                             set_vector_mask(-1, -1);
                         }
                     }
+                    pipe_barrier(PIPE_V);
                 }
             }
         }
@@ -1174,6 +1192,7 @@ TILEOP void DynTrowminline_(__ubuf__ T *dst, __ubuf__ T *src0, unsigned TShape0,
             set_vector_mask(-1, -1);
         } else {
             vcopy((__ubuf__ uint32_t *)dst, (__ubuf__ uint32_t *)src0, repeatTime - 1, 1, 1, 8, 8);
+            pipe_barrier(PIPE_V);
             SetContinuousMask(remainElm);
             vcopy((__ubuf__ uint32_t *)(dst + (repeatTime - 1) * rptElm),
                 (__ubuf__ uint32_t *)(src0 + (repeatTime - 1) * rptElm), 1, 1, 1, 8, 8);
@@ -1192,6 +1211,7 @@ TILEOP void DynTrowminline_(__ubuf__ T *dst, __ubuf__ T *src0, unsigned TShape0,
                 set_vector_mask(-1, -1);
             } else {
                 vmin(dst, dst, src0 + j * srcRawShape1, repeatTime - 1, 1, 1, 1, 8, 8, 8);
+                pipe_barrier(PIPE_V);
                 SetContinuousMask(remainElm);
                 vmin(dst + (repeatTime - 1) * rptElm, dst + (repeatTime - 1) * rptElm,
                     src0 + j * srcRawShape1 + (repeatTime - 1) * rptElm, 1, 1, 1, 1, 8, 8, 8);
@@ -1224,12 +1244,14 @@ TILEOP void DynTrowminline_(__ubuf__ T *dst, __ubuf__ T *src0, unsigned TShape0,
                 } else {
                     vcopy((__ubuf__ uint32_t *)(dst + i * dstRawShape2), (__ubuf__ uint32_t *)(src0 + i * srcRawShape2),
                         repeatTime - 1, 1, 1, 8, 8);
+                    pipe_barrier(PIPE_V);
                     SetContinuousMask(remainElm);
                     vcopy((__ubuf__ uint32_t *)(dst + i * dstRawShape2 + (repeatTime - 1) * rptElm),
                         (__ubuf__ uint32_t *)(src0 + i * srcRawShape2 + (repeatTime - 1) * rptElm), 1, 1, 1, 8, 8);
                     set_vector_mask(-1, -1);
                 }
             }
+            pipe_barrier(PIPE_V);
         }
         pipe_barrier(PIPE_V);
         for (unsigned i = 1; i < TShape0; i++) {
@@ -1247,6 +1269,7 @@ TILEOP void DynTrowminline_(__ubuf__ T *dst, __ubuf__ T *src0, unsigned TShape0,
                         vmin(dst + j * dstRawShape2, dst + j * dstRawShape2,
                             src0 + i * srcRawShape1 * srcRawShape2 + j * srcRawShape2, repeatTime - 1, 1, 1, 1, 8, 8,
                             8);
+                        pipe_barrier(PIPE_V);
                         set_vector_mask(0, (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(remainElm)) - 1UL));
                         vmin(dst + j * dstRawShape2 + (repeatTime - 1) * rptElm,
                             dst + j * dstRawShape2 + (repeatTime - 1) * rptElm,
@@ -1293,6 +1316,7 @@ TILEOP void DynTrowminline_(
                         vcopy((__ubuf__ uint32_t *)(dst + i * dstRawShape2 * dstRawShape3 + j * dstRawShape3),
                             (__ubuf__ uint32_t *)(src0 + i * srcRawShape2 * srcRawShape3 + j * srcRawShape3),
                             repeatTime - 1, 1, 1, 8, 8);
+                        pipe_barrier(PIPE_V);
                         SetContinuousMask(remainElm);
                         vcopy((__ubuf__ uint32_t *)(dst + i * dstRawShape2 * dstRawShape3 + j * dstRawShape3 +
                                                     (repeatTime - 1) * rptElm),
@@ -1302,6 +1326,7 @@ TILEOP void DynTrowminline_(
                         set_vector_mask(-1, -1);
                     }
                 }
+                pipe_barrier(PIPE_V);
             }
         }
         pipe_barrier(PIPE_V);
@@ -1330,6 +1355,7 @@ TILEOP void DynTrowminline_(
                                 src0 + i * srcRawShape1 * srcRawShape2 * srcRawShape3 +
                                     j * srcRawShape2 * srcRawShape3 + k * srcRawShape3,
                                 repeatTime - 1, 1, 1, 1, 8, 8, 8);
+                            pipe_barrier(PIPE_V);
                             set_vector_mask(
                                 0, (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(remainElm)) - 1UL));
                             vmin(dst + j * dstRawShape2 * dstRawShape3 + k * dstRawShape3 + (repeatTime - 1) * rptElm,
@@ -1340,6 +1366,7 @@ TILEOP void DynTrowminline_(
                             set_vector_mask(-1, -1);
                         }
                     }
+                    pipe_barrier(PIPE_V);
                 }
             }
         }
