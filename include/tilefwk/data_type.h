@@ -128,6 +128,10 @@ inline std::string DataType2String(DataType t) {
         case DT_BF16: return "DT_BF16";
         case DT_HF8: return "DT_HF8";
         case DT_HF4: return "DT_HF4";
+        case DT_UINT8: return "DT_UINT8";
+        case DT_UINT16: return "DT_UINT16";
+        case DT_UINT32: return "DT_UINT32";
+        case DT_UINT64: return "DT_UINT64";
         default: throw std::invalid_argument("Unknown DataType");
     }
 }
@@ -168,6 +172,10 @@ inline std::string DataType2CCEStr(DataType t) {
         case DT_BF16: return "bfloat16_t";
         case DT_HF8: return "hfloat8";
         case DT_HF4: return "hfloat4";
+        case DT_UINT8: return "uint8_t";
+        case DT_UINT16: return "uint16_t";
+        case DT_UINT32: return "uint32_t";
+        case DT_UINT64: return "uint64_t";
         default: throw std::invalid_argument("Unknown DataType");
     }
 }
@@ -260,12 +268,15 @@ inline size_t BytesOf(DataType t) {
         case DT_INT4:
         case DT_HF4: return HF4_DATA_WIDTH; // 4bits still need 1 byte
         case DT_INT8:
+        case DT_UINT8:
         case DT_FP8:
         case DT_HF8: return HF8_DATA_WIDTH;
         case DT_INT16:
+        case DT_UINT16:
         case DT_FP16:
         case DT_BF16: return BF16_DATA_WIDTH;
         case DT_INT32:
+        case DT_UINT32:
         case DT_FP32: return FP32_DATA_WIDTH;
         case DT_INT64: return INT64_DATA_WIDTH;
         default: throw std::invalid_argument("Unknown DataType");

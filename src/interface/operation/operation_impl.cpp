@@ -332,7 +332,8 @@ void ExpandTile(Function &function, const struct ExpandInfo &expandInfo) {
     newOp.SetAttribute(OP_ATTR_PREFIX + "validShape", resultTile->GetDynValidShape());
 }
 
-void ExpandTile(Function &function, const TileShape &tileShape, int dimIdx, const struct ExpandInfo &expandInfo) {
+void ExpandTile(Function &function, const TileShape &tileShape, int dimIdx, const struct ExpandInfo &expandInfo,
+    std::vector<SymbolicScalar> validShape) {
     if (static_cast<size_t>(dimIdx) == expandInfo.result->shape.size()) {
         ExpandTile(function, expandInfo);
         return;
@@ -342,7 +343,7 @@ void ExpandTile(Function &function, const TileShape &tileShape, int dimIdx, cons
         expandInfo.offset[dimIdx] = i;
         expandInfo.viewShape[dimIdx] =
             std::min(expandInfo.result->shape[dimIdx] - i, static_cast<int64_t>(vecTile[dimIdx]));
-        ExpandTile(function, tileShape, dimIdx + 1, expandInfo);
+        ExpandTile(function, tileShape, dimIdx + 1, expandInfo, validShape);
     }
 }
 
@@ -366,12 +367,25 @@ void Expand(Function &function, const TileShape &tileShape, const LogicalTensorP
 
     result->UpdateDynValidShape(outValidShape);
     struct ExpandInfo expandInfo(operand, result, viewShape, offset, expandDim);
-    ExpandTile(function, tileShape, 0, expandInfo);
+    ExpandTile(function, tileShape, 0, expandInfo, outValidShape);
 }
 
 void TiledExpand(Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand,
-    const LogicalTensorPtr &result) {
-    Expand(function, tileShape, operand, result);
+    const LogicalTensorPtr &result, const std::vector<SymbolicScalar> &validShape) {
+    CheckExpandTensorVaild(operand, result);
+    ASSERT(function.GetGraphType() == GraphType::TILE_GRAPH);
+    
+    std::vector<int64_t> offset(result->shape.size(), 0);
+    std::vector<int64_t> viewShape(result->shape.size(), 1);
+    int expandDim = -1;
+    for (size_t i = 0; i < result->shape.size(); ++i) {
+        if (operand->shape[i] != result->shape[i]) {
+            expandDim = i; 
+        }
+    }
+    result->UpdateDynValidShape(validShape);
+    struct ExpandInfo expandInfo(operand, result, viewShape, offset, expandDim);
+    ExpandTile(function, tileShape, 0, expandInfo, validShape);
 }
 
 void TensorExpand(Function &function, const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
@@ -1899,17 +1913,26 @@ Tensor Expand(const Tensor &operand, DataType dataType, const std::vector<int64_
 
     ASSERT(operand->shape.size() == shape.size());
     auto result = Tensor(dataType, shape);
-    Program::GetInstance().AddOperation(Opcode::OP_EXPAND, {operand.GetStorage()}, {result.GetStorage()});
+    CALL(Expand, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(), result.GetStorage());
     return result;
 }
 
-Tensor Expand(const Tensor &operand, const std::vector<int64_t> &dstShape) {
+Tensor TensorExpandOperation(Function &function, const LogicalTensorPtr &operand, const std::vector<int64_t> &dstShape,
+    const std::vector<SymbolicScalar> &validShape) {
+    auto result = std::make_shared<LogicalTensor>(function, operand->Datatype(), dstShape, validShape);
+    auto &op = function.AddOperation(Opcode::OP_EXPAND, {operand}, {result});
+
+    op.SetAttribute(OP_ATTR_PREFIX + "shape", dstShape);
+    op.SetAttribute(OP_ATTR_PREFIX + "validShape", validShape);
+    function.UpdateTensorDataUsage(op);
+    return result;
+}
+
+Tensor Expand(const Tensor &operand, const std::vector<int64_t> &dstShape, std::vector<SymbolicScalar> validShape) {
     DECLARE_TRACER();
 
     ASSERT(operand->shape.size() == dstShape.size());
-    Tensor result(operand.GetStorage()->Datatype(), dstShape);
-    CALL(Expand, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(), result.GetStorage());
-    return result;
+    RETURN_CALL(ExpandOperation, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(), dstShape, validShape);
 }
 
 void TiledReduceExpandNew(Function &function, const TileShape &tileShape, const std::string &op,
@@ -3982,7 +4005,9 @@ void npu::tile_fwk::ExpandOperationInto(Function &function, const TileShape &til
         }
         case Opcode::OP_EXPAND: {
             UnaryOperationOperandCheck(iOperand, oOperand);
-            TiledExpand(function, tileShape, iOperand[0], oOperand[0]);
+            std::vector<SymbolicScalar> validShape;
+            op.GetAttr(OP_ATTR_PREFIX + "validShape", validShape);
+            TiledExpand(function, tileShape, iOperand[0], oOperand[0], validShape);
             break;
         }
         case Opcode::OP_ROWEXPMAX: {

@@ -365,6 +365,39 @@ def matmul_golden_func(inputs: list, config: dict):
 
     return [tensor_c]
 
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestExpand/ExpandOperationTest.TestExpand",
+    ]
+)
+def gen_expand_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs: list, config: dict):
+        params = config.get("params")
+        output_dtype = config.get("output_tensors")[0].get("dtype")
+        output_shape = config.get("output_tensors")[0].get("shape")
+        dst_dtype = params.get("dst_dtype", output_dtype)
+        dst_shape = params.get("dst_shape", output_shape)
+        if inputs[0].dtype == bfloat16:
+            dtype_out = get_dtype_by_name(dst_dtype)
+            x = inputs[0].astype(dtype_out)
+        else:
+            dtype_out = get_dtype_by_name(dst_dtype, True)
+            if dtype_out is None:
+                x = inputs[0].astype(get_dtype_by_name(dst_dtype))
+            else:
+                x = torch.from_numpy(inputs[0])
+                if dtype_out == torch.bfloat16:
+                    x = x.to(torch.float32).numpy().astype(bfloat16)
+                else:
+                    x = x.to(dtype_out).numpy()
+
+        x = np.broadcast_to(x, np.array(dst_shape))
+        x = np.copy(x)
+        return [x]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Expand", golden_func, output, case_index)
 
 @GoldenRegister.reg_golden_func(
     case_names=[

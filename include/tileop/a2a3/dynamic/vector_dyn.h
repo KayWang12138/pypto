@@ -542,58 +542,116 @@ TILEOP void DynTrowminsingle_(
     }
 }
 
+TILEOP uint16_t DupB8ToB16(uint8_t value) {
+    auto u16 = static_cast<uint16_t>(value);
+    return u16 + (u16 * 0x100);   // 相当于 extended | (extended << 8)
+}
+
+TILEOP uint16_t DupB8ToB16(int8_t value) {
+    auto ub8 = static_cast<uint8_t>(value);
+    return DupB8ToB16(ub8);
+}
+
+template<typename T>
+struct VdupTrait {
+    static constexpr bool isB8 = (std::is_same_v<T, int8_t> || std::is_same_v<T, uint8_t>);
+
+    using DupType = std::conditional_t<isB8, int16_t, T>;
+
+    TILEOP DupType DupValue(T value) {
+        if constexpr (isB8) {
+            return DupB8ToB16(value);
+        } else {
+            return value;
+        }
+    }
+
+    TILEOP uint64_t DupSize(uint64_t size)
+    {
+        if constexpr (isB8) {
+            // UB是32B对齐，这是安全的
+            return (size + sizeof(DupType) - 1) / sizeof(DupType);
+        } else {
+            return size;
+        }
+    }
+
+    TILEOP constexpr uint64_t DupDstStride(uint64_t stride)
+    {
+        if constexpr (isB8) {
+            return stride / sizeof(DupType);
+        } else {
+            return stride;
+        }
+    }
+};
+
+template<typename T, unsigned dstStride, unsigned srcStride>
+TILEOP void BatchVdup(__ubuf__ T *dst, __ubuf__ T *src, unsigned batchSize, unsigned dupSize)
+{
+    using DupType = typename VdupTrait<T>::DupType;
+    auto dupDst = (__ubuf__ DupType *)dst;
+    dupSize = VdupTrait<T>::DupSize(dupSize);
+    uint64_t shape1Repeat = static_cast<uint64_t>(dupSize * sizeof(T) / REPEAT_BYTE);
+    constexpr unsigned dupDstStride = VdupTrait<T>::DupDstStride(dstStride);
+
+    if (shape1Repeat < 1) {
+        // 16 1 -> 16 16
+        SetContinuousMask(dupSize);
+        for (int i = 0; i < batchSize; i++) {
+            set_flag(PIPE_V, PIPE_S, EVENT_ID7);
+            wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
+            T tmp = (T)(*(src + i * srcStride));
+            DupType dupValue = VdupTrait<T>::DupValue(tmp);
+            set_flag(PIPE_S, PIPE_V, EVENT_ID7);
+            wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
+            vector_dup(dupDst + i * dupDstStride, dupValue, 1, 1, 0, 0, 0);
+        }
+        set_vector_mask(-1, -1);
+    } else {
+        // 16 1 -> 16 64
+        constexpr unsigned reptEleNum = REPEAT_BYTE / sizeof(T);
+        uint64_t remainNum = static_cast<uint64_t>(dupSize % reptEleNum);
+        unsigned numLoop = shape1Repeat / REPEAT_MAX;
+        unsigned remainAfterLoop = shape1Repeat % REPEAT_MAX;
+        for (int i = 0; i < batchSize; i++) {
+            set_flag(PIPE_V, PIPE_S, EVENT_ID7);
+            wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
+            T tmp = (T)(*(src + i * srcStride));
+            DupType dupValue = VdupTrait<T>::DupValue(tmp);
+            set_flag(PIPE_S, PIPE_V, EVENT_ID7);
+            wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
+            if (numLoop) {
+                for (int j = 0; j < numLoop; j++) {
+                    vector_dup(dupDst + i * dupDstStride + j * reptEleNum * REPEAT_MAX, dupValue, REPEAT_MAX, 1, 1, 8, 0);
+                }
+            }
+            if (remainAfterLoop) {
+                vector_dup(dupDst + i * dupDstStride + numLoop * reptEleNum * REPEAT_MAX, dupValue, remainAfterLoop, 1, 1, 8, 0);
+            }
+            if (remainNum) {
+                SetContinuousMask(remainNum);
+                vector_dup(dupDst + i * dupDstStride + shape1Repeat * reptEleNum, dupValue, 1, 1, 1, 8, 0);
+                set_vector_mask(-1, -1);
+            }
+        }
+    }
+}
 // dim2
 template <typename T, unsigned dstRawShape1, unsigned srcRawShape1, unsigned axis>
 TILEOP void DynTexpand_(
     __ubuf__ T *dst, __ubuf__ T *src, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0, unsigned srcShape1) {
     if (axis == 0) {
         // 1 16 -> 16 16
+        if (dstShape1 == 0 || dstShape0 == 0) {
+            return;
+        }
         uint64_t blockLen = (dstShape1 * sizeof(T) + BLOCK_SIZE - 1) / BLOCK_SIZE;
         for (int i = 0; i < dstShape0; i++) {
             copy_ubuf_to_ubuf(dst + i * dstRawShape1, src, 0, 1, blockLen, 1, 1);
         }
     } else if (axis == 1) {
-        uint64_t shape1Repeat = static_cast<uint64_t>(dstShape1 * sizeof(T) / REPEAT_BYTE);
-        if (shape1Repeat < 1) {
-            // 16 1 -> 16 16
-            SetContinuousMask(dstShape1);
-            for (int i = 0; i < dstShape0; i++) {
-                set_flag(PIPE_V, PIPE_S, EVENT_ID7);
-                wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
-                T tmp = (T)(*(src + i * srcRawShape1));
-                set_flag(PIPE_S, PIPE_V, EVENT_ID7);
-                wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
-                vector_dup(dst + i * dstRawShape1, tmp, 1, 1, 0, 0, 0);
-            }
-            set_vector_mask(-1, -1);
-        } else {
-            // 16 1 -> 16 64
-            constexpr unsigned reptEleNum = REPEAT_BYTE / sizeof(T);
-            uint64_t remainNum = static_cast<uint64_t>(dstShape1 % reptEleNum);
-            unsigned numLoop = shape1Repeat / REPEAT_MAX;
-            unsigned remainAfterLoop = shape1Repeat % REPEAT_MAX;
-            for (int i = 0; i < dstShape0; i++) {
-                set_flag(PIPE_V, PIPE_S, EVENT_ID7);
-                wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
-                T tmp = (T)(*(src + i * srcRawShape1));
-                set_flag(PIPE_S, PIPE_V, EVENT_ID7);
-                wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
-                if (numLoop) {
-                    for (int j = 0; j < numLoop; j++) {
-                        vector_dup(dst + i * dstRawShape1 + j * reptEleNum * REPEAT_MAX, tmp, REPEAT_MAX, 1, 1, 8, 0);
-                    }
-                }
-                if (remainAfterLoop) {
-                    vector_dup(
-                        dst + i * dstRawShape1 + numLoop * reptEleNum * REPEAT_MAX, tmp, remainAfterLoop, 1, 1, 8, 0);
-                }
-                if (remainNum) {
-                    SetContinuousMask(remainNum);
-                    vector_dup(dst + i * dstRawShape1 + shape1Repeat * reptEleNum, tmp, 1, 1, 1, 8, 0);
-                    set_vector_mask(-1, -1);
-                }
-            }
-        }
+        BatchVdup<T, dstRawShape1, srcRawShape1>(dst, src, dstShape0, dstShape1);
     }
 }
 // dim3
@@ -611,6 +669,9 @@ TILEOP void DynTexpand_(__ubuf__ T *dst, __ubuf__ T *src, unsigned dstShape0, un
         }
     } else if (axis == 0) {
         // 1 16 16 -> 16 16 16
+        if (dstShape2 == 0 || dstShape1 == 0) {
+            return;
+        }
         uint64_t blockLen = (dstShape2 * sizeof(T) + BLOCK_SIZE - 1) / BLOCK_SIZE;
         uint64_t srcGap = (srcRawShape2 * sizeof(T) + BLOCK_SIZE - 1) / BLOCK_SIZE - blockLen;
         uint64_t dstGap = (dstRawShape2 * sizeof(T) + BLOCK_SIZE - 1) / BLOCK_SIZE - blockLen;
@@ -626,6 +687,9 @@ TILEOP void DynTexpand_(__ubuf__ T *dst, __ubuf__ T *src, unsigned dstShape0, un
     unsigned dstShape3, unsigned srcShape0, unsigned srcShape1, unsigned srcShape2, unsigned srcShape3) {
     if (axis == 0) {
         // 1 16 16 16 -> 16 16 16 16
+        if (dstShape3 == 0 || dstShape2 == 0) {
+            return;
+        }
         uint64_t blockLen = (dstShape3 * sizeof(T) + BLOCK_SIZE - 1) / BLOCK_SIZE;
         uint64_t srcGap = (srcRawShape3 * sizeof(T) + BLOCK_SIZE - 1) / BLOCK_SIZE - blockLen;
         uint64_t dstGap = (dstRawShape3 * sizeof(T) + BLOCK_SIZE - 1) / BLOCK_SIZE - blockLen;
