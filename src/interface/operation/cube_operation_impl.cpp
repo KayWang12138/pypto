@@ -335,7 +335,7 @@ void TiledInnerAMulB(Function &function, const TileShape &tileShape, const std::
         }
     }
     // 3的含义：gm累加场景的输入tensor数量为3
-    if (operandVec.size() == 3) {
+    if (operandVec.size() == SHAPE_DIM3) {
         DoAMulB<true, isTransA, isTransB>(
             function, aggregations, operandVec[SHAPE_DIM2], {tileShape, cTensorPtr}, matmulSize);
     } else {
@@ -362,6 +362,10 @@ void TensorInnerAMulB(
     ASSERT(operand1->shape.size() == operand2->shape.size());
     ASSERT(operand1->shape[1] == operand2->shape[0]);
     if (!operand1->GetDynValidShape().empty() && !operand2->GetDynValidShape().empty()) {
+        if (operandVec.size() == SHAPE_DIM3) {
+            const auto operand3 = operandVec[2];
+            operand3->UpdateDynValidShape({operand1->GetDynValidShape()[0], operand2->GetDynValidShape()[1]});
+        }
         result->UpdateDynValidShape({operand1->GetDynValidShape()[0], operand2->GetDynValidShape()[1]});
     }
     auto &op = function.AddOperation(Opcode::OP_A_MUL_B, operandVec, {result});
@@ -557,6 +561,10 @@ void TensorInnerAMulBt(Function &function, const LogicalTensorPtr &operand1, con
 void TensorInnerAMulBt(Function &function, const LogicalTensorPtr &operand1, const LogicalTensorPtr &operand2,
     const LogicalTensorPtr &operand3, const LogicalTensorPtr &result) {
     ASSERT(operand1->shape.size() == operand2->shape.size());
+    if (!operand1->GetDynValidShape().empty() && !operand2->GetDynValidShape().empty()) {
+        operand3->UpdateDynValidShape({operand1->GetDynValidShape()[0], operand2->GetDynValidShape()[0]});
+        result->UpdateDynValidShape({operand1->GetDynValidShape()[0], operand2->GetDynValidShape()[0]});
+    }
     auto &op = function.AddOperation(Opcode::OP_A_MUL_BT, {operand1, operand2, operand3}, {result});
     SetMatmulAttr(op);
 }
@@ -571,6 +579,17 @@ void TensorInnerAtMulB(Function &function, const LogicalTensorPtr &operand1, con
     SetMatmulAttr(op);
 }
 
+void TensorInnerAtMulB(Function &function, const LogicalTensorPtr &operand1, const LogicalTensorPtr &operand2,
+                       const LogicalTensorPtr &operand3, const LogicalTensorPtr &result) {
+    ASSERT(operand1->shape.size() == operand2->shape.size());
+    if (!operand1->GetDynValidShape().empty() && !operand2->GetDynValidShape().empty()) {
+        operand3->UpdateDynValidShape({operand1->GetDynValidShape()[1], operand2->GetDynValidShape()[1]});
+        result->UpdateDynValidShape({operand1->GetDynValidShape()[1], operand2->GetDynValidShape()[1]});
+    }
+    auto &op = function.AddOperation(Opcode::OP_AT_MUL_B, {operand1, operand2, operand3}, {result});
+    SetMatmulAttr(op);
+}
+
 void TensorInnerAtMulBt(Function &function, const LogicalTensorPtr &operand1, const LogicalTensorPtr &operand2,
     const LogicalTensorPtr &result) {
     ASSERT(operand1->shape.size() == operand2->shape.size());
@@ -578,6 +597,17 @@ void TensorInnerAtMulBt(Function &function, const LogicalTensorPtr &operand1, co
         result->UpdateDynValidShape({operand1->GetDynValidShape()[1], operand2->GetDynValidShape()[0]});
     }
     auto &op = function.AddOperation(Opcode::OP_AT_MUL_BT, {operand1, operand2}, {result});
+    SetMatmulAttr(op);
+}
+
+void TensorInnerAtMulBt(Function &function, const LogicalTensorPtr &operand1, const LogicalTensorPtr &operand2,
+                        const LogicalTensorPtr &operand3, const LogicalTensorPtr &result) {
+    ASSERT(operand1->shape.size() == operand2->shape.size());
+    if (!operand1->GetDynValidShape().empty() && !operand2->GetDynValidShape().empty()) {
+        operand3->UpdateDynValidShape({operand1->GetDynValidShape()[1], operand2->GetDynValidShape()[0]});
+        result->UpdateDynValidShape({operand1->GetDynValidShape()[1], operand2->GetDynValidShape()[0]});
+    }
+    auto &op = function.AddOperation(Opcode::OP_AT_MUL_BT, {operand1, operand2, operand3}, {result});
     SetMatmulAttr(op);
 }
 
@@ -618,6 +648,18 @@ void AtMulBImpl(
 }
 
 template <bool isCMatrixNZ>
+void AtMulBImpl(DataType dataType, const LogicalTensorPtr &operand1, const LogicalTensorPtr &operand2,
+                const LogicalTensorPtr &operand3, LogicalTensorPtr &result) {
+    CheckMatMulOperandsValid<true, false, isCMatrixNZ>(dataType, operand1, operand2);
+    ASSERT(dataType == DataType::DT_FP32 || dataType == DataType::DT_FP16 || dataType == DataType::DT_BF16 ||
+           dataType == DataType::DT_INT32);
+    if constexpr (isCMatrixNZ) {
+        result->tensorfmt = TileOpFormat::TILEOP_NZ;
+    }
+    CALL(InnerAtMulB, *Program::GetInstance().GetCurrentFunction(), operand1, operand2, operand3, result);
+}
+
+template <bool isCMatrixNZ>
 void AtMulBtImpl(
     DataType dataType, const LogicalTensorPtr &operand1, const LogicalTensorPtr &operand2, LogicalTensorPtr &result) {
     CheckMatMulOperandsValid<true, true, isCMatrixNZ>(dataType, operand1, operand2);
@@ -627,6 +669,18 @@ void AtMulBtImpl(
         result->tensorfmt = TileOpFormat::TILEOP_NZ;
     }
     CALL(InnerAtMulBt, *Program::GetInstance().GetCurrentFunction(), operand1, operand2, result);
+}
+
+template <bool isCMatrixNZ>
+void AtMulBtImpl(DataType dataType, const LogicalTensorPtr &operand1, const LogicalTensorPtr &operand2,
+                 const LogicalTensorPtr &operand3, LogicalTensorPtr &result) {
+    CheckMatMulOperandsValid<true, true, isCMatrixNZ>(dataType, operand1, operand2);
+    ASSERT(dataType == DataType::DT_FP32 || dataType == DataType::DT_FP16 || dataType == DataType::DT_BF16 ||
+           dataType == DataType::DT_INT32);
+    if constexpr (isCMatrixNZ) {
+        result->tensorfmt = TileOpFormat::TILEOP_NZ;
+    }
+    CALL(InnerAtMulBt, *Program::GetInstance().GetCurrentFunction(), operand1, operand2, operand3, result);
 }
 
 // A mul transpose B
@@ -700,6 +754,21 @@ Tensor At_MUL_B(DataType dataType, const Tensor &operand1, const Tensor &operand
 }
 
 template <bool isCMatrixNZ>
+Tensor At_MUL_B(DataType dataType, const Tensor &operand1, const Tensor &operand2, const Tensor &operand3,
+                const void *lr) {
+    DECLARE_TRACERX(lr);
+    Tensor result(dataType, {operand1->shape[1], operand2->shape[1]});
+    if constexpr (isCMatrixNZ) {
+        ASSERT(BytesOf(dataType) > 0);
+        int64_t c0Size = dataType == DataType::DT_INT32 ? ALIGN_SIZE_16 : ALIGN_SIZE_32 / BytesOf(dataType);
+        result = Tensor(dataType, {operand1->shape[1], CeilAlign(operand2->shape[1], c0Size)});
+    }
+    AtMulBImpl<isCMatrixNZ>(dataType, operand1.GetStorage(), operand2.GetStorage(), operand3.GetStorage(),
+                            result.GetStorage());
+    return result;
+}
+
+template <bool isCMatrixNZ>
 Tensor At_MUL_Bt(DataType dataType, const Tensor &operand1, const Tensor &operand2, const void *lr) {
     DECLARE_TRACERX(lr);
     Tensor result(dataType, {operand1->shape[1], operand2->shape[0]});
@@ -709,6 +778,21 @@ Tensor At_MUL_Bt(DataType dataType, const Tensor &operand1, const Tensor &operan
         result = Tensor(dataType, {operand1->shape[1], CeilAlign(operand2->shape[0], c0Size)});
     }
     AtMulBtImpl<isCMatrixNZ>(dataType, operand1.GetStorage(), operand2.GetStorage(), result.GetStorage());
+    return result;
+}
+
+template <bool isCMatrixNZ>
+Tensor At_MUL_Bt(DataType dataType, const Tensor &operand1, const Tensor &operand2, const Tensor &operand3,
+                 const void *lr) {
+    DECLARE_TRACERX(lr);
+    Tensor result(dataType, {operand1->shape[1], operand2->shape[0]});
+    if constexpr (isCMatrixNZ) {
+        ASSERT(BytesOf(dataType) > 0);
+        int64_t c0Size = dataType == DataType::DT_INT32 ? ALIGN_SIZE_16 : ALIGN_SIZE_32 / BytesOf(dataType);
+        result = Tensor(dataType, {operand1->shape[1], CeilAlign(operand2->shape[0], c0Size)});
+    }
+    AtMulBtImpl<isCMatrixNZ>(dataType, operand1.GetStorage(), operand2.GetStorage(), operand3.GetStorage(),
+                             result.GetStorage());
     return result;
 }
 
@@ -728,13 +812,15 @@ Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix) {
 // inteface: k spilt
 template <bool isATrans, bool isBTrans, bool isCMatrixNZ>
 Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const Tensor &cMatrix) {
-    static_assert(!isATrans); // A trans not supported now
     if constexpr (!isATrans && !isBTrans) {
         return A_MUL_B<isCMatrixNZ>(outType, aMatrix, bMatrix, cMatrix, __builtin_return_address(0));
     } else if constexpr (!isATrans && isBTrans) {
         return A_MUL_Bt<isCMatrixNZ>(outType, aMatrix, bMatrix, cMatrix, __builtin_return_address(0));
+    } else if constexpr (isATrans && !isBTrans) {
+        return At_MUL_B<isCMatrixNZ>(outType, aMatrix, bMatrix, cMatrix, __builtin_return_address(0));
+    } else {
+        return At_MUL_Bt<isCMatrixNZ>(outType, aMatrix, bMatrix, cMatrix, __builtin_return_address(0));
     }
-    return Tensor();
 }
 
 template Tensor Matmul<false, false, false>(DataType, const Tensor &, const Tensor &);
@@ -749,6 +835,10 @@ template Tensor Matmul<false, false, false>(DataType, const Tensor &, const Tens
 template Tensor Matmul<false, true, false>(DataType, const Tensor &, const Tensor &, const Tensor &);
 template Tensor Matmul<false, false, true>(DataType, const Tensor &, const Tensor &, const Tensor &);
 template Tensor Matmul<false, true, true>(DataType, const Tensor &, const Tensor &, const Tensor &);
+template Tensor Matmul<true, false, false>(DataType, const Tensor &, const Tensor &, const Tensor &);
+template Tensor Matmul<true, true, false>(DataType, const Tensor &, const Tensor &, const Tensor &);
+template Tensor Matmul<true, false, true>(DataType, const Tensor &, const Tensor &, const Tensor &);
+template Tensor Matmul<true, true, true>(DataType, const Tensor &, const Tensor &, const Tensor &);
 
 template <bool isTransA, bool isTransB, bool isCMatrixNZ>
 Tensor ABatchMulB3D(DataType dataType, const Tensor &operand1, const Tensor &operand2) {

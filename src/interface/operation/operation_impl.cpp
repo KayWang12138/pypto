@@ -96,7 +96,7 @@ std::string GetUnaryOpName() {
         case UnaryOpType::ABS:
             return "ABS";
         case UnaryOpType::LN:
-            return "LN"; 
+            return "LN";
         default:
             assert(false && "unknown unary op type");
             return "";
@@ -1242,7 +1242,7 @@ void InnerTiledScatterElementS(size_t cur, Function &function, const TileShape &
     // 按照dstShape进行切分
     auto &vecTile = tileShape.GetVecTile();
     if (vecTile[axis] < dstTensor->shape[axis]) {
-        ALOG_ERROR_F("the axis:%d is not allowed to be cut. tileshape:%lld dstshape:%lld", axis, vecTile[axis], 
+        ALOG_ERROR_F("the axis:%d is not allowed to be cut. tileshape:%lld dstshape:%lld", axis, vecTile[axis],
             dstTensor->shape[axis]);
         ASSERT(vecTile[axis] >= dstTensor->shape[axis]);
     }
@@ -2486,7 +2486,7 @@ Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, in
     axis = axis < 0 ? self->shape.size() + axis : axis;
     CheckScatterElementSParamsInvalid(self, indices, axis, reduce);
     Tensor result(self->tensor->datatype, self->shape);
-    Program::GetInstance().GetCurrentFunction()->AddOperation(Opcode::OP_REGISTER_COPY, {self.GetStorage()}, 
+    Program::GetInstance().GetCurrentFunction()->AddOperation(Opcode::OP_REGISTER_COPY, {self.GetStorage()},
         {result.GetStorage()});
     CALL(ScatterElementS, *Program::GetInstance().GetCurrentFunction(), {result.GetStorage(), self.GetStorage(),
          indices.GetStorage(), src, axis, reduce});
@@ -2838,7 +2838,7 @@ std::tuple<Tensor, Tensor> TopK(const Tensor &operand, const int &k, int axis = 
     const auto len = static_cast<int>(operand->shape.size());
     ASSERT(axis == (len - 1) || axis == -1) << "TopK only support last axis";
     axis = axis >= 0 ? axis : (axis + len);
-    
+
     auto topkOutShape = operand->shape;
     topkOutShape[axis] = k;
     auto valueResult = Tensor(operand->tensor->datatype, topkOutShape);
@@ -3232,7 +3232,7 @@ Tensor Reduce(const std::vector<Tensor> &aggregation, const ReduceMode reduceMod
             return elem.GetStorage();
         });
     auto o0 = iOperand[0];
-    Tensor result(o0->Datatype(), o0->shape);
+    Tensor result(o0->Datatype(), o0->shape, "", o0->GetTileOpFormat());
     auto& op = Program::GetInstance().AddOperation(Opcode::OP_REDUCE_ACC, iOperand, { result.GetStorage() });
     op.SetAttribute(Matrix::ACC_A_MUL_B, 1);
     return result;
