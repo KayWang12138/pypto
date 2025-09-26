@@ -197,11 +197,11 @@ void bind_controller(py::module &m) {
         .def(py::init<const SymbolicScalar & /* rangeEnd */>())
         .def(py::init<std::int64_t>()) // C++ Implicit conversion int64_t -> SymbolicScalar
         .def("dump", (std::string (LoopRange::*)())&LoopRange::Dump)
-        .def("begin", (SymbolicScalar & (LoopRange::*)()) & LoopRange::Begin,
+        .def("begin", (SymbolicScalar& (LoopRange::*)()) & LoopRange::Begin,
             py::return_value_policy::reference_internal)
-        .def("end", (SymbolicScalar & (LoopRange::*)()) & LoopRange::End, py::return_value_policy::reference_internal)
+        .def("end", (SymbolicScalar& (LoopRange::*)()) & LoopRange::End, py::return_value_policy::reference_internal)  
         .def(
-            "step", (SymbolicScalar & (LoopRange::*)()) & LoopRange::Step, py::return_value_policy::reference_internal);
+            "step", (SymbolicScalar& (LoopRange::*)()) & LoopRange::Step, py::return_value_policy::reference_internal); 
 
     py::class_<FunctionConfig>(m, "func_config")
         .def(py::init<>())

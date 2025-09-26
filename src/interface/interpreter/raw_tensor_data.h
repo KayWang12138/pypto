@@ -102,7 +102,7 @@ struct RawTensorData : public std::vector<uint8_t> {
 #define CASE_DATA_TYPE_DIS(ast2Type, dataType, calcType, index) \
     case ast2Type: return Element(ast2Type, static_cast<calcType>(Get<dataType>(index)))
             break;
-            DISPATCH_DATA_TYPE(CASE_DATA_TYPE_DIS, index)
+            DISPATCH_DATA_TYPE(CASE_DATA_TYPE_DIS, index);
 #undef CASE_DATA_TYPE_DIS
             case DT_BOOL: return Element(DT_BOOL, Get<bool>(index));
             default: ASSERT(false); return Element();

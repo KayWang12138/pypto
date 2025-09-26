@@ -98,7 +98,7 @@ inline constexpr std::underlying_type_t<T> ToUnderlying(T value) {
 
 template <typename T>
 inline void HashCombine(std::size_t &seed, const T &val) {
-    seed ^= std::hash<T>()(val) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    seed ^= std::hash<T>()(val) + 0x9e3779b9 + (seed << 0x6) + (seed >> 0x2);
 }
 
 template <typename T>
@@ -292,7 +292,7 @@ struct OrderedSet : std::unordered_map<T, int> {
         return GetIndex(data);
     }
 
-    typedef T OrderElementType;
+    using OrderElementType = T ;
     typename std::vector<OrderElementType>::iterator begin() { return order.begin(); }
     typename std::vector<OrderElementType>::iterator end() { return order.end(); }
 
@@ -344,7 +344,7 @@ struct OrderedSet : std::unordered_map<T, int> {
 
 template <typename Key, typename T, class Hash = std::hash<Key>>
 struct OrderedMap {
-    typedef typename std::pair<Key, T> OrderElementType;
+    using OrderElementType = typename std::pair<Key, T>;
     typename std::vector<OrderElementType>::iterator begin() { return orderData.begin(); }
     typename std::vector<OrderElementType>::iterator end() { return orderData.end(); }
 
@@ -551,7 +551,7 @@ struct TimeStamp {
 
     static uint64_t CurrentTime() {
         struct timeval tv;
-        gettimeofday(&tv, NULL);
+        gettimeofday(&tv, nullptr);
         return tv.tv_sec * 1000000 + tv.tv_usec; // 1000000 is us per sec
     }
 

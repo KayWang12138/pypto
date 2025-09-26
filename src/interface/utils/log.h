@@ -75,6 +75,7 @@ public:
 
 private:
     StdLogger(const StdLogger &) = delete;
+    StdLogger &operator=(const StdLogger &) = delete;
 };
 
 class FileLogger {
@@ -99,6 +100,7 @@ public:
 
 private:
     FileLogger(const FileLogger &) = delete;
+    FileLogger &operator=(const FileLogger &) = delete;
 };
 
 class LineLogger : public std::vector<std::string> {

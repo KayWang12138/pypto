@@ -46,7 +46,7 @@ inline std::string to_string(npu::tile_fwk::float16 data) {
     f(DT_UINT16, uint16_t, uint64_t, ##__VA_ARGS__);   \
     f(DT_UINT32, uint32_t, uint64_t, ##__VA_ARGS__);   \
     f(DT_UINT64, uint64_t, uint64_t, ##__VA_ARGS__);   \
-    f(DT_DOUBLE, double, double, ##__VA_ARGS__);
+    f(DT_DOUBLE, double, double, ##__VA_ARGS__)
 
 namespace npu::tile_fwk {
 

@@ -42,7 +42,7 @@ using Call5EntryType = uint64_t (*)(uint64_t, uint64_t, uint64_t, uint64_t, uint
 
 using Call5EntryType = uint64_t (*)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t);
 
-#define RUNTIME_FINISH_FUNCKEY ((uint64_t)(-1))
+#define RUNTIME_FINISH_FUNCKEY (static_cast<uint64_t>(-1))
 
 #define RuntimeGetInputShapeDimSize(input) ((input)->shape.dimSize)
 #define RuntimeGetInputShapeDim(input, n) ((input)->shape.dim[(n)])

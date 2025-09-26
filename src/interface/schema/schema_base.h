@@ -44,7 +44,9 @@ struct TypeBase {
 
 template<typename Ty0, typename ...Tys>
 struct MaxTypeSize {
-    constexpr static int size = std::max((size_t)sizeof(Ty0), (size_t)MaxTypeSize<Tys...>::size);
+    constexpr static int size = std::max(
+        static_cast<size_t>(sizeof(Ty0)), 
+        static_cast<size_t>(MaxTypeSize<Tys...>::size));
 };
 template<typename Ty0>
 struct MaxTypeSize<Ty0> {
@@ -205,7 +207,7 @@ private:
 
 template<typename Ty0>
 struct AttributeCall_1 : AttributeId {
-    typedef AttributeId Base;
+    using Base = AttributeId;
     AttributeCall_1() = default;
     AttributeCall_1(const std::string &name)
         : Base(name) {}
@@ -222,7 +224,7 @@ private:
 
 template<typename Ty0, typename Ty1>
 struct AttributeCall_2 : AttributeCall_1<Ty0> {
-    typedef AttributeCall_1<Ty0> Base;
+    using Base = AttributeCall_1<Ty0>;
     AttributeCall_2() = default;
     AttributeCall_2(const std::string &name)
         : Base(name) {};
@@ -239,7 +241,7 @@ private:
 
 template<typename Ty0, typename Ty1, typename Ty2>
 struct AttributeCall_3 : AttributeCall_2<Ty0, Ty1> {
-    typedef AttributeCall_2<Ty0, Ty1> Base;
+    using Base = AttributeCall_2<Ty0, Ty1>;
     AttributeCall_3() = default;
     AttributeCall_3(const std::string &name)
         : Base(name) {};
@@ -256,7 +258,7 @@ private:
 
 template<typename Ty0, typename Ty1, typename Ty2, typename Ty3>
 struct AttributeCall_4 : AttributeCall_3<Ty0, Ty1, Ty2> {
-    typedef AttributeCall_3<Ty0, Ty1, Ty2> Base;
+    using Base = AttributeCall_3<Ty0, Ty1, Ty2>;
     AttributeCall_4() = default;
     AttributeCall_4(const std::string &name)
         : Base(name) {};
@@ -273,7 +275,7 @@ private:
 
 template<typename Ty0, typename Ty1, typename Ty2, typename Ty3, typename Ty4>
 struct AttributeCall_5 : AttributeCall_4<Ty0, Ty1, Ty2, Ty3> {
-    typedef AttributeCall_4<Ty0, Ty1, Ty2, Ty3> Base;
+    using Base = AttributeCall_4<Ty0, Ty1, Ty2, Ty3>;
     AttributeCall_5() = default;
     AttributeCall_5(const std::string &name)
         : Base(name) {};
@@ -290,7 +292,7 @@ private:
 
 template<typename Ty0, typename Ty1, typename Ty2, typename Ty3, typename Ty4, typename Ty5>
 struct AttributeCall_6 : AttributeCall_5<Ty0, Ty1, Ty2, Ty3, Ty4> {
-    typedef AttributeCall_5<Ty0, Ty1, Ty2, Ty3, Ty4> Base;
+    using Base = AttributeCall_5<Ty0, Ty1, Ty2, Ty3, Ty4>;
     AttributeCall_6() = default;
     AttributeCall_6(const std::string &name)
         : Base(name) {};
@@ -325,7 +327,7 @@ static inline std::string UnionTypeDump(const Ty0 *arg0) {
 
 template<typename Ty0, typename ...Tys>
 struct UnionTypeSelect {
-    typedef UnionTypeSelect<Tys...> Base;
+    using Base = UnionTypeSelect<Tys...>;
     UnionTypeSelect() = default;
 
     void Construct(const Ty0 &arg0, unsigned char *thisUnionData) {
@@ -432,6 +434,7 @@ private:
 
     // Currently, move is not allowed.
     UnionType(UnionType<Ty0, Tys...> &&arg) = delete;
+    UnionType<Ty0, Tys...> &operator=(UnionType<Ty0, Tys...> &&arg) = delete;
 };
 
 #define SCHEMA_DEF_TYPE_INHERIT(name, baseType) \

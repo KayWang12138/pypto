@@ -51,7 +51,7 @@ bool Element::Cast<bool>() const {
     return false;
 }
 
-DISPATCH_DATA_TYPE(ELEMENT_CAST)
+DISPATCH_DATA_TYPE(ELEMENT_CAST);
 
 
 #define CALC_ADD(lhs, rhs) ((lhs) + (rhs))
