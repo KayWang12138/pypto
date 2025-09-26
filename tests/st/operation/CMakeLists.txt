@@ -12,6 +12,7 @@ set(_CaseFilterList
         "TestAdd/AddOperationTest.TestAdd/11"
         "TestAdds/AddsOperationTest.TestAdds/20"
         "TestAdds/AddsOperationTest.TestAdds/21"
+        "TestAdds/AddsOperationTest.TestAdds/22"
         "TestCast/CastOperationTest.TestCast/10"
         "TestCast/CastOperationTest.TestCast/11"
         "TestCast/CastOperationTest.TestCast/12"

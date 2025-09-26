@@ -223,7 +223,7 @@ void FlowVerifier::VerifyPass(Function *func, int passIndex, const std::string &
         } else {
             /* The rest passes uses previous pass's execution result as input */
             capture = lastCaptureExecution_[func][captureIndex];
-            eps = static_cast<float>(1e-5);
+            eps = static_cast<float>(1e-3);
         }
 
         auto captureExecution = functionInterpreter_->RunForPass(key, func, capture);

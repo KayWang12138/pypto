@@ -65,6 +65,7 @@ void bind_operation(py::module &m) {
     m.def("abs", [](const Tensor &operand) { return npu::tile_fwk::Abs(operand); }, "Tensor abs.");
     m.def("reciprocal", [](const Tensor &operand) { return npu::tile_fwk::Reciprocal(operand); }, "Tensor reciprocal.");
     m.def("sqrt", [](const Tensor &operand) { return npu::tile_fwk::Sqrt(operand); }, "Tensor sqrt.");
+    m.def("neg", [](const Tensor &operand) { return npu::tile_fwk::Neg(operand); }, "Tensor neg.");
 
     m.def(
         "cast",

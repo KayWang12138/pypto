@@ -119,6 +119,12 @@ void bind_controller(py::module &m) {
 
     m.def("dump", []() { return Program::GetInstance().Dump(); });
 
+    m.def(
+        "set_codegen_config", 
+        [](const std::string &key, const bool &value) {
+            ConfigManager::Instance().SetCodeGenConfig<bool>(key, value); }, 
+        py::arg("key"), py::arg("value"));
+
     py::class_<RecordFunc>(m, "record_func")
         .def(py::init<const std::string &>(), py::arg("name"))
         .def(py::init<const std::string &, const FunctionConfig>(), py::arg("name"), py::arg("func_config"))

@@ -278,7 +278,7 @@ TILEOP void T_BIN_VS(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
         }
         if constexpr (remainAfterLoop) {
             if (strideOverFlag) {
-                for (unsigned j = 0; j < REPEAT_MAX; j++) {
+                for (unsigned j = 0; j < remainAfterLoop; j++) {
                     V_BIN_FUNC_VS((__ubuf__ T *)(dst + numLoop * REPEAT_MAX * DS + j * DS),
                         src0 + numLoop * REPEAT_MAX * SS0 + j * SS0, src1, 1, 1, 1, 1, 1);
                 }
