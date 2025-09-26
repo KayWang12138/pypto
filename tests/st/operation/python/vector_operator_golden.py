@@ -829,6 +829,32 @@ def gen_maxs_op_golden(case_name: str, output: Path, case_index: int = None) -> 
     return gen_op_golden("MaxS", golden_func, output, case_index)
 
 
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestConcat/ConcatOperationTest.TestConcat",
+    ]
+)
+def gen_concat_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+
+    def golden_func(inputs, config: dict):
+        params = config.get("params")
+        axis = params["axis"]
+        output_tensors_type = config["output_tensors"][0]["dtype"]
+        inputdata_type = get_dtype_by_name(output_tensors_type)
+        if inputdata_type == bfloat16:
+            inputs_tensors = [torch.as_tensor(x.astype(np.float32)).to(torch.float16) for x in inputs]
+        else:
+            inputs_tensors = [torch.as_tensor(x) for x in inputs]
+        res = torch.cat(inputs_tensors, dim=axis)
+        if inputdata_type == bfloat16:
+            res = res.to(torch.float32).numpy().astype(bfloat16)
+            return [res]
+        return [res.numpy()]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Concat", golden_func, output, case_index)
+
+
 def main() -> bool:
     # 用例名称
     case_name_list: List[str] = [
