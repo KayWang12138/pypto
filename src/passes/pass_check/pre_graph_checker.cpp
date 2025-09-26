@@ -24,20 +24,34 @@ Status PreGraphProcessChecker::DoPreCheck(Function &function) {
         return FAILED;
     }
     for (auto &op : function.Operations()) {
+        // 校验是否切分
         if (op.GetSubgraphID() == NOT_IN_SUBGRAPH) {
             ALOG_ERROR_F("%s[%d] is not partitioned.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
             return FAILED;
         }
-        if ((op.GetOpcode() != Opcode::OP_ASSEMBLE) && (op.GetOpcode() != Opcode::OP_VIEW) && 
+        if ((op.GetOpcode() != Opcode::OP_ASSEMBLE) && (op.GetOpcode() != Opcode::OP_VIEW) &&
             (op.GetOpcode() != Opcode::OP_RESHAPE)) {
             continue;
         }
+        if ((op.GetIOperands().size() != 1) || (op.GetOOperands().size() != 1)) {
+            // 校验非空单输入单输出
+            ALOG_ERROR_F("PreGraphProcess Precheck] Invalid %s[%d], input num: %d, output num: %d",
+                op.GetOpcodeStr().c_str(), op.opmagic, op.GetIOperands().size(), op.GetOOperands().size());
+            return FAILED;
+        }
         auto tensorIn = op.GetIOperands().front();
         auto tensorOut = op.GetOOperands().front();
+        if ((tensorIn == nullptr) || (tensorIn == nullptr)) {
+            // 校验输入输出非空
+            ALOG_ERROR_F("PreGraphProcess Precheck] Invalid %s[%d], has nullptr input/output",
+                op.GetOpcodeStr().c_str(), op.opmagic);
+            return FAILED;
+        }
         if (tensorIn->GetMemoryTypeOriginal() != tensorOut->GetMemoryTypeOriginal()) {
-            ALOG_ERROR_F("unmatched input output memory type for reshape opmagic: %d, input mem type: %s, output mem type: %s", 
-                op.opmagic,
-                MemoryTypeToString(tensorIn->GetMemoryTypeOriginal()).c_str(),
+            // 校验输入输出mem类型相同
+            ALOG_ERROR_F("[PreGraphProcess Precheck] runmatched input output memory type for %s[%d], input mem type: "
+                         "%s, output mem type: %s",
+                op.GetOpcodeStr().c_str(), op.opmagic, MemoryTypeToString(tensorIn->GetMemoryTypeOriginal()).c_str(),
                 MemoryTypeToString(tensorOut->GetMemoryTypeOriginal()).c_str());
             return FAILED;
         }
@@ -172,7 +186,7 @@ Status PreGraphProcessChecker::PostCheckAssemble(Function &function, const Opera
     return FAILED;
 }
 
-bool PreGraphProcessChecker::VerifyViewResult (const Operation &op) {
+bool PreGraphProcessChecker::VerifyViewResult(const Operation &op) {
     auto viewIn = op.GetIOperands().front();
     auto viewOut = op.GetOOperands().front();
     for (LogicalTensorPtr in : op.GetIOperands()) {
@@ -231,7 +245,8 @@ Status PreGraphProcessChecker::PostCheckView(Function &function, const Operation
     return FAILED;
 }
 
-Status PreGraphProcessChecker::HandleScenarioReshapeOutCast(Function &function, const Operation &op, const LogicalTensorPtr reshapeIn) {
+Status PreGraphProcessChecker::HandleScenarioReshapeOutCast(
+    Function &function, const Operation &op, const LogicalTensorPtr reshapeIn) {
     for (Operation *producer : reshapeIn->GetProducers()) {
         if (producer->GetOpcode() == Opcode::OP_VIEW) {
             ALOG_ERROR_F("Reshape[%d]->outcast Unsupported OP connection scenaios: reshape->outcast input tensor "
@@ -301,9 +316,8 @@ Status PreGraphProcessChecker::VerifyReshapeResult(
             return FAILED;
         }
         if (consumer->GetOpcode() == Opcode::OP_RESHAPE && function.IsFromOutCast(consumer->GetOOperands().front())) {
-            ALOG_ERROR_F(
-                "Reshape[%d] Unsupported OP connection scenaios: reshape input tensor has reshape->outcast consumer op[%d]",
-                op.GetOpMagic(), consumer->GetOpMagic());
+            ALOG_ERROR_F("Reshape[%d] Unsupported OP connection scenaios: reshape input tensor has reshape->outcast "
+                         "consumer op[%d]", op.GetOpMagic(), consumer->GetOpMagic());
             return FAILED;
         }
     }
@@ -326,15 +340,14 @@ Status PreGraphProcessChecker::PostCheckReshape(Function &function, const Operat
         auto outSubgraphId = reshapeIn->GetSubgraphID();
         if (opSubgraphId != inputSubgraphId || opSubgraphId != outSubgraphId) {
             // local buffer 上的reshape，输入/输出/op的子图编号相同
-            ALOG_ERROR_F("OP_RESHAPE[%d], op subGraphId: %d, input subGraphId: %d, output subGraphId: %d,", 
+            ALOG_ERROR_F("OP_RESHAPE[%d], op subGraphId: %d, input subGraphId: %d, output subGraphId: %d,",
                 op.GetOpMagic(), opSubgraphId, inputSubgraphId, outSubgraphId);
             return FAILED;
         }
-        
+
         // Debug Print
-        ALOG_DEBUG_F(" check done, input magic %d (raw %d), output magic %d (raw %d)",
-            reshapeIn->magic, reshapeIn->GetRawMagic(), reshapeOut->magic,
-            reshapeOut->GetRawMagic());
+        ALOG_DEBUG_F(" check done, input magic %d (raw %d), output magic %d (raw %d)", reshapeIn->magic,
+            reshapeIn->GetRawMagic(), reshapeOut->magic, reshapeOut->GetRawMagic());
         auto childOp = *(reshapeOut->GetConsumers().begin());
         ALOG_DEBUG_F(" child op: %s, opmagic: %d", childOp->GetOpcodeStr().c_str(), childOp->opmagic);
         ALOG_DEBUG_F(" child op output magic %d (raw %d)", childOp->GetOOperands()[0]->magic,

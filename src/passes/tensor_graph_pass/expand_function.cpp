@@ -122,6 +122,7 @@ Status ExpandFunction::Expandfunction(Function &function) const {
         }
         SourceLocation::SetLocation(op->GetLocation());
         bool needCopy = CheckAssembleNeedCopy(function, op);
+        ALOG_DEBUG_F("[ExpandFunction] %s[%d] needCopy: %d", op->GetOpcodeStr().c_str(), op->GetOpMagic(), needCopy);
         if (op->GetOpcode() == Opcode::OP_VIEW || (op->GetOpcode() == Opcode::OP_ASSEMBLE && !needCopy) || op->GetOpcode() == Opcode::OP_PAD) {
             auto &newOp = function.AddOperation(op->GetOpcode(), op->GetIOperands(), op->GetOOperands());
             newOp.SetOpAttribute(op->GetOpAttribute());

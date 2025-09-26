@@ -167,7 +167,7 @@ void InplaceProcess::AlignCopyInConsumer(std::shared_ptr<LogicalTensor> tensorGm
                 newFromOffset.push_back(opAttr->GetFromOffset()[i] + OpImmediate::Specified(SymbolicScalar(tensorGm->offset[i])));
             }
             opAttr->SetFromOffset(newFromOffset);
-            opAttr->SetRawShape(OpImmediate::Specified(tensorGm->tensor->GetRawShape()));
+            opAttr->SetRawShape(OpImmediate::Specified(tensorGm->tensor->GetDynRawShape()));
         }
     }
 }
@@ -185,7 +185,7 @@ void InplaceProcess::AlignCopyOutProducer(std::shared_ptr<LogicalTensor> tensorG
                 newToOffset.push_back(opAttr->GetToOffset()[i] + OpImmediate::Specified(SymbolicScalar(tensorGm->offset[i])));
             }
             opAttr->SetToOffset(newToOffset);
-            opAttr->SetRawShape(OpImmediate::Specified(tensorGm->tensor->GetRawShape()));
+            opAttr->SetRawShape(OpImmediate::Specified(tensorGm->tensor->GetDynRawShape()));
             ALOG_DEBUG_F("InplaceProcess::AlignCopyOutProducer update Attr for %s[%d].",
                 producerOp->GetOpcodeStr().c_str(), producerOp->GetOpMagic());
         }

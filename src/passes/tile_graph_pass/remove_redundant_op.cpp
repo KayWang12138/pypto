@@ -19,6 +19,36 @@
 using namespace npu::tile_fwk;
 namespace npu::tile_fwk {
 namespace {
+bool EqualShapeInOut(const Operation &op) {
+    auto in = op.GetIOperands().front();
+    auto out = op.GetOOperands().front();
+    // 比较静态shape
+    bool equalShape = (in->GetShape() == out->GetShape());
+    // 比较动态dynValidShape_
+    bool equalDynValidShape = true;
+    if (!in->GetDynValidShape().empty() && !out->GetDynValidShape().empty()) {
+        auto inDynValidShape = in->GetDynValidShape();
+        auto outDynValidShape = out->GetDynValidShape();
+        for (size_t i = 0; i < inDynValidShape.size(); i++) {
+            // 比较SymbolicScalar dump后的string是否相等
+            // 可能是 1.concrete value; 2.symbol; 3.expression
+            if (inDynValidShape[i].Dump() == outDynValidShape[i].Dump()) {
+                continue;
+            } else {
+                equalDynValidShape = false;
+                break;
+            }
+        }
+    } else if (in->GetDynValidShape().empty() && out->GetDynValidShape().empty()) {
+        // 输入和输出同时没有 dynamic valid shape
+        equalDynValidShape = true;
+    } else {
+        // 输入和输出必须同时有 dynamic valid shape
+        equalDynValidShape = false;
+    }
+    return (equalShape && equalDynValidShape);
+}
+
 Status ProcessRegCopy(const Operation &op, const Function &function, bool &needToDelete) {
     auto regCopyIn = op.iOperand.front();
     if (regCopyIn == nullptr) {return FAILED;}
@@ -133,17 +163,7 @@ Status ProcessView(const Operation &op, Function &function, bool &needToDelete) 
     if (in == nullptr) {return FAILED;}
     auto out = op.oOperand.front();
     if (out == nullptr) {return FAILED;}
-    auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
-    if (viewOpAttribute) {
-        auto newDynValidShape = viewOpAttribute->GetToDynValidShape();
-        std::vector<int64_t> validShape;
-        for (auto validSym : newDynValidShape) {
-            if (!validSym.ConcreteValid()) {needToDelete = false; return SUCCESS;}
-            validShape.push_back(validSym.Concrete());
-        }
-        if (!newDynValidShape.empty() && out->shape != validShape) { needToDelete = false; return SUCCESS; }
-    }
-    if (in->shape == out->shape && in->GetMemoryTypeOriginal() == out->GetMemoryTypeOriginal()) {
+    if (EqualShapeInOut(op) && in->GetMemoryTypeOriginal() == out->GetMemoryTypeOriginal()) {
         auto consumerOps = function.FindConsumers(op);
         if (consumerOps.empty()) {
             auto producerOps = op.ProducerOps();

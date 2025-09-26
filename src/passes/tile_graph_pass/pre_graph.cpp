@@ -19,6 +19,28 @@
 
 namespace npu::tile_fwk {
 
+std::vector<OpImmediate> SumOffset(const std::vector<OpImmediate> offset1, const std::vector<OpImmediate> offset2) {
+    std::vector<OpImmediate> res;
+    for (size_t i = 0; i < offset1.size(); i++) {
+        res.push_back(offset1[i] + offset2[i]);
+    }
+    return res;
+}
+
+// 当前op为Copy Out时，需要将后继Assemble上的offset累加到当前op的CopyOpAttr上
+void UpdateCopyOutAttr(Operation *op, Operation *opNext) {
+    auto opAttr = std::static_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
+    auto opNextAttr = std::static_pointer_cast<AssembleOpAttribute>(opNext->GetOpAttribute());
+    if (opNextAttr->GetToDynOffset().size() != 0) {
+        if (op->GetOpcode() != Opcode::OP_COPY_OUT) {
+            opAttr->SetToOffset(OpImmediate::Specified(opNextAttr->GetToDynOffset()));
+        } else {
+            opAttr->SetToOffset(SumOffset(OpImmediate::Specified(opNextAttr->GetToDynOffset()), opAttr->GetToOffset()));
+        }
+    }
+    opAttr->SetRawShape(OpImmediate::Specified(op->GetOOperands().front()->tensor->GetDynRawShape()));
+}
+
 /* 将某个op的输入是expected的替换为newTensor并刷新Producer、Consumer关系 */
 void SubstituteInput(Operation *op, LogicalTensorPtr &expected, LogicalTensorPtr &newTensor) {
     for (auto &input : op->iOperand) {
@@ -310,13 +332,10 @@ void PreGraphProcess::DeleteRedundantAssemble(Function &function) const {
                 oriOutputBackUp = producer->oOperand[0]; // producer --> oriOutputBackUp(input) --> op
                 producer->ReplaceOutput(output, oriOutputBackUp);
                 output->isSubGraphBoundary = true;
-                if (!IsCopyOut(producer->GetOpcode())) { continue;}
-                auto opAttr = std::static_pointer_cast<CopyOpAttribute>(producer->GetOpAttribute());
-                auto consOpAttr = std::static_pointer_cast<AssembleOpAttribute>(cons->GetOpAttribute());
-                if (consOpAttr->GetToDynOffset().size() != 0) {
-                    opAttr->SetToOffset(OpImmediate::Specified(consOpAttr->GetToDynOffset()));
+                if (!IsCopyOut(producer->GetOpcode())) { 
+                    continue;
                 }
-                opAttr->SetRawShape(OpImmediate::Specified(output->tensor->GetRawShape()));
+                UpdateCopyOutAttr(producer, cons);
             }
         }
         HandleForAssembleFromInOut(function, concurrentAssembles, producersBackup);
@@ -513,18 +532,18 @@ void PreGraphProcess::UpdateCopyOpIsCube(Operation &op) const {
     }
 }
 
-void PreGraphProcess::InitializeTensorColor(Operation &op) const {	
-    const int newColor = op.GetSubgraphID();	
-    for (auto &input : op.GetIOperands()) {	
-        if (input->GetProducers().size() == 0) {	
-            input->subGraphID = newColor;	
-        }	
-    }	
-    for (auto &output : op.GetOOperands()) {	
-        TileRange range;	
-        range.memId = output->tensor->GetRawMagic();	
+void PreGraphProcess::InitializeTensorColor(Operation &op) const {
+    const int newColor = op.GetSubgraphID();
+    for (auto &input : op.GetIOperands()) {
+        if (input->GetProducers().size() == 0) {
+            input->subGraphID = newColor;
+        }
+    }
+    for (auto &output : op.GetOOperands()) {
+        TileRange range;
+        range.memId = output->tensor->GetRawMagic();
         output->subGraphID = newColor;
-    }	
+    }
 }
 
 bool IsDiffSubgraphId(int &oriSubgraphId, Operation *op) {
@@ -857,16 +876,6 @@ Status PreGraphProcess::RunOnFunction(Function &function) {
         }
         if (IsCopyIn(op.GetOpcode()) && op.GetOpcode() != Opcode::OP_COPY_IN) {
             ProcessMoveInOperation(op);
-        }
-        if ((op.GetOpcode() == Opcode::OP_ASSEMBLE) || (op.GetOpcode() == Opcode::OP_RESHAPE)) {
-            // 校验单输入单输出，且输入输出mem类型相同
-            if ((op.GetIOperands().size() != 1) || (op.GetOOperands().size() != 1) ||
-                (op.GetIOperands().front() == nullptr) || (op.GetOOperands().front() == nullptr) ||
-                (op.GetIOperands().front()->GetMemoryTypeOriginal() !=
-                    op.GetOOperands().front()->GetMemoryTypeOriginal())) {
-                ALOG_ERROR_F("Invalid Op %s[%d], please check.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
-                return FAILED;
-            }
         }
     }
     ProcessSameInOutOp(function);
