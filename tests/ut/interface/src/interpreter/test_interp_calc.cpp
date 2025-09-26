@@ -132,6 +132,60 @@ TEST_F(TorchAdaptorTest, UnaryOps) {
         calc::Expand(out, self);
         ASSERT_ALLCLOSE(out, golden);
     }
+    {
+        // cast (torch modes) - integer targets with ties/non-ties
+        // values: +2.5, -2.5, +2.4, -2.4, +2.6, -2.6
+        std::vector<float> vals = {2.5f, -2.5f, 2.4f, -2.4f, 2.6f, -2.6f};
+        auto self = makeTensorData(DT_FP32, {6, 1}, vals);
+
+        // default (integer dst): torch.round behavior
+        {
+            auto out = makeTensorData(DT_INT32, {6, 1}, 0);
+            std::vector<int32_t> exp = {2, -2, 2, -2, 3, -3};
+            auto golden = makeTensorData(DT_INT32, {6, 1}, exp);
+            calc::Cast(out, self);
+            ASSERT_ALLCLOSE(out, golden);
+        }
+        // explicit CAST_ROUND
+        {
+            auto out = makeTensorData(DT_INT32, {6, 1}, 0);
+            std::vector<int32_t> exp = {2, -2, 2, -2, 3, -3};
+            auto golden = makeTensorData(DT_INT32, {6, 1}, exp);
+            calc::Cast(out, self, CAST_ROUND);
+            ASSERT_ALLCLOSE(out, golden);
+        }
+        // CAST_FLOOR
+        {
+            auto out = makeTensorData(DT_INT32, {6, 1}, 0);
+            std::vector<int32_t> exp = {2, -3, 2, -3, 2, -3};
+            auto golden = makeTensorData(DT_INT32, {6, 1}, exp);
+            calc::Cast(out, self, CAST_FLOOR);
+            ASSERT_ALLCLOSE(out, golden);
+        }
+        // CAST_CEIL
+        {
+            auto out = makeTensorData(DT_INT32, {6, 1}, 0);
+            std::vector<int32_t> exp = {3, -2, 3, -2, 3, -2};
+            auto golden = makeTensorData(DT_INT32, {6, 1}, exp);
+            calc::Cast(out, self, CAST_CEIL);
+            ASSERT_ALLCLOSE(out, golden);
+        }
+        // CAST_TRUNC
+        {
+            auto out = makeTensorData(DT_INT32, {6, 1}, 0);
+            std::vector<int32_t> exp = {2, -2, 2, -2, 2, -2};
+            auto golden = makeTensorData(DT_INT32, {6, 1}, exp);
+            calc::Cast(out, self, CAST_TRUNC);
+            ASSERT_ALLCLOSE(out, golden);
+        }
+        // float targets: pass-through
+        {
+            auto out = makeTensorData(DT_FP32, {6, 1}, 0.0f);
+            auto golden = makeTensorData(DT_FP32, {6, 1}, vals);
+            calc::Cast(out, self);
+            ASSERT_ALLCLOSE(out, golden);
+        }
+    }
 }
 
 TEST_F(TorchAdaptorTest, BinaryOps) {
@@ -303,6 +357,22 @@ TEST_F(TorchAdaptorTest, BinaryOpsS) {
         auto out = makeTensorData(DT_FP32, {16, 16}, 0.0f);
         auto golden = makeTensorData(DT_FP32, {16, 16}, 2.5f);
         calc::DivS(out, self, elem);
+        ASSERT_ALLCLOSE(out, golden);
+    }
+    {
+        auto self = makeTensorData(DT_FP32, {16, 16}, 4.0f);
+        auto elem = Element(DT_FP32, 1.0f);
+        auto out = makeTensorData(DT_FP32, {16, 16}, 0.0f);
+        auto golden = makeTensorData(DT_FP32, {16, 16}, -3.0f);
+        calc::SubS(out, self, elem, true);
+        ASSERT_ALLCLOSE(out, golden);
+    }
+    {
+        auto self = makeTensorData(DT_FP32, {16, 16}, 5.0f);
+        auto elem = Element(DT_FP32, 2.0f);
+        auto out = makeTensorData(DT_FP32, {16, 16}, 0.0f);
+        auto golden = makeTensorData(DT_FP32, {16, 16}, 0.4f);
+        calc::DivS(out, self, elem, true);
         ASSERT_ALLCLOSE(out, golden);
     }
 }

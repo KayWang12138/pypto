@@ -138,7 +138,7 @@ void Ln(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
         auto tout = From(out);                                                                            \
         if (reverse) {                                                                                    \
             torch::full_out(tout, out->GetShape(), From(scalar));                              \
-            torch::op_out(tout, From(self), tout);                                                        \
+            torch::op_out(tout, tout, From(self));                                                        \
         } else {                                                                                          \
             torch::op_out(tout, From(self), From(scalar));                                                \
         }                                                                                                 \
@@ -170,8 +170,21 @@ void Div(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataP
 }
 
 void Cast(LogicalTensorDataPtr out, LogicalTensorDataPtr self, CastMode mode) {
-    (void)mode;
-    From(out) = From(self);
+    if (mode == CastMode::CAST_ROUND) {
+        From(out) = From(self).round();
+    } else if (mode == CastMode::CAST_FLOOR) {
+        From(out) = From(self).floor();
+    } else if (mode == CastMode::CAST_CEIL) {
+        From(out) = From(self).ceil();
+    } else if (mode == CastMode::CAST_TRUNC) {
+        From(out) = From(self).trunc();
+    } else {
+        if (IsFloat(out->GetDataType())) {
+            From(out) = From(self);
+        } else {
+            From(out) = From(self).round();
+        }
+    }
 }
 
 void Min(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
