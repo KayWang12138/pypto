@@ -27,7 +27,7 @@ target_link_libraries(tile_fwk_simulation_pv
             tile_fwk_intf_pub
             $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>
 )
-TileFwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_simulation_pv)
+PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_simulation_pv)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_simulation_pv)
 
 install(TARGETS tile_fwk_simulation_pv

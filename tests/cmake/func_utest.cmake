@@ -46,7 +46,7 @@ function(PTO_Fwk_UTest_AddCaseLib)
                 GTest::gtest
     )
     # 后检查
-    TileFwk_AnalysisTargetHeaderFiles(TARGET ${ARG_TARGET})
+    PTO_Fwk_AnalysisTargetHeaderFiles(TARGET ${ARG_TARGET})
 
     set(PTO_Fwk_UTestCaseLibraries       ${PTO_Fwk_UTestCaseLibraries}       ${ARG_TARGET}            CACHE INTERNAL "" FORCE)
     set(PTO_Fwk_UTestCaseLdLibrariesExt  ${PTO_Fwk_UTestCaseLdLibrariesExt}  ${ARG_LD_LIBRARIES_EXT}  CACHE INTERNAL "" FORCE)
@@ -210,8 +210,9 @@ function(PTO_Fwk_UTest_RunPytest)
             ${ARGN}
     )
     # 执行
-    PTO_Fwk_GTest_RunPytest(
+    PTO_Fwk_GTest_RunPytest(_PyTestTarget
             PYTEST_INI              ${ARG_PYTEST_INI}
             TARGET_NAME_PREFIX      ${PTO_Fwk_UTestNamePrefix}
     )
+    set(_PyTestTarget)
 endfunction()

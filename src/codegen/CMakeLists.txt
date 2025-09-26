@@ -22,7 +22,7 @@ target_link_libraries(tile_fwk_codegen
             tile_fwk_intf_pub
             $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>
 )
-TileFwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_codegen)
+PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_codegen)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_codegen)
 
 install(TARGETS tile_fwk_codegen

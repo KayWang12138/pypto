@@ -33,7 +33,7 @@ target_link_libraries(pto_impl
             tile_fwk_operator
             tile_fwk_compiler
             tile_fwk_simulation
-            $<$<AND:$<BOOL:${ENABLE_BUILD_WITH_CANN}>,$<OR:$<BOOL:${ENABLE_TESTS_UTEST}>,$<BOOL:${ENABLE_TESTS_STEST}>,$<BOOL:${ENABLE_TESTS_STEST_DISTRIBUTED}>>>:tile_fwk_runtime>
+            $<$<AND:$<BOOL:${ENABLE_BUILD_WITH_CANN}>,$<BOOL:${ENABLE_TESTS}>>:tile_fwk_runtime>
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub

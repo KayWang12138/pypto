@@ -26,7 +26,7 @@ if (ENABLE_BUILD_WITH_CANN)
                 -DCMAKE_C_COMPILER_LAUNCHER=${CMAKE_C_COMPILER_LAUNCHER}
                 -DCMAKE_CXX_COMPILER_LAUNCHER=${CMAKE_CXX_COMPILER_LAUNCHER}
                 <SOURCE_DIR>
-            INSTALL_COMMAND ${CMAKE_COMMAND} -E copy <BINARY_DIR>/libtilefwk_backend_server.so ${CMAKE_BINARY_DIR}/
+            INSTALL_COMMAND ${CMAKE_COMMAND} -E copy <BINARY_DIR>/libtilefwk_backend_server.so ${PTO_FWK_BIN_ROOT}/
             BUILD_ALWAYS TRUE
             BUILD_BYPRODUCTS
                 ${PTO_FWK_BIN_ROOT}/libtilefwk_backend_server.so
@@ -76,7 +76,7 @@ target_link_libraries(tile_fwk_compiler
             $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>
 )
 
-TileFwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_compiler)
+PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_compiler)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_compiler)
 
 install(TARGETS tile_fwk_compiler

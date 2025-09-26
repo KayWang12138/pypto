@@ -46,7 +46,7 @@ target_link_libraries(tile_fwk_interface
             dl
             Threads::Threads
 )
-TileFwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_interface)
+PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_interface)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_interface)
 
 if (ENABLE_TORCH_VERIFIER)

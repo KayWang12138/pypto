@@ -247,7 +247,7 @@ Parameters:
   multi_value_keywords:
       PYTEST_PARAM_EXT              : [Optional] pytest 额外补充参数
 ]]
-function(PTO_Fwk_GTest_RunPytest)
+function(PTO_Fwk_GTest_RunPytest OUT_TARGET)
     cmake_parse_arguments(
             ARG
             ""
@@ -263,6 +263,7 @@ function(PTO_Fwk_GTest_RunPytest)
     add_library(${_Target} SHARED)
     target_sources(${_Target} PRIVATE ${_MainStub})
     add_dependencies(${_Target} pto_impl)
+    set(${OUT_TARGET} ${_Target} PARENT_SCOPE)
 
     # 处理 pytest.ini
     if (NOT ARG_PYTEST_INI)

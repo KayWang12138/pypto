@@ -39,8 +39,10 @@ option(ENABLE_TESTS_EXECUTE_DEVICE_ID "Auto execute tests executable with Device
 option(ENABLE_TESTS_EXECUTE_PARALLEL "Auto execute tests executable parallel" OFF)
 option(ENABLE_TESTS_EXECUTE_PARALLEL_TIMEOUT "Auto execute tests executable parallel timeout" OFF)
 option(ENABLE_TESTS_UTEST "Enable UTest"  OFF)
+option(ENABLE_TESTS_UTEST_PYTHON "Enable UTest Python"  OFF)
 option(ENABLE_TESTS_STEST "Enable STest"  OFF)
 option(ENABLE_TESTS_STEST_DISTRIBUTED "Enable STest(Distributed)"  OFF)
+option(ENABLE_TESTS_STEST_PYTHON "Enable STest(Python)"  OFF)
 option(ENABLE_TESTS_STEST_GOLDEN_PATH "Specific STest Golden Path"  OFF)
 option(ENABLE_TESTS_STEST_GOLDEN_PATH_CLEAN "Clean STest Golden"  OFF)
 option(ENABLE_TESTS_STEST_BINARY_CACHE "Enable STest Binary Cache" OFF)
@@ -81,11 +83,11 @@ endif ()
 add_subdirectory(src)
 add_subdirectory(python/op_compile)
 
-if (ENABLE_TESTS_UTEST OR ENABLE_TESTS_STEST OR ENABLE_TESTS_STEST_DISTRIBUTED)
+if (ENABLE_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif ()
 
 install(DIRECTORY include/
-    DESTINATION lib/tilefwk/ OPTIONAL
+        DESTINATION lib/tilefwk/ OPTIONAL
 )

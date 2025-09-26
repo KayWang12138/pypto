@@ -22,7 +22,7 @@ target_link_libraries(tile_fwk_operator
             tile_fwk_intf_pub
             tile_fwk_interface
 )
-TileFwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_operator)
+PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_operator)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_operator)
 
 install(TARGETS tile_fwk_operator

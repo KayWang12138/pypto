@@ -22,7 +22,7 @@ target_link_libraries(tile_fwk_passes
             dl
             Threads::Threads
 )
-TileFwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_passes)
+PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_passes)
 #PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_passes)
 
 install(TARGETS tile_fwk_passes

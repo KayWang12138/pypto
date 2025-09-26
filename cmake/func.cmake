@@ -84,7 +84,7 @@ Parameters:
   one_value_keywords:
       TARGET                        : [Required] 指定目标名称
 ]]
-function(TileFwk_AnalysisTargetHeaderFiles)
+function(PTO_Fwk_AnalysisTargetHeaderFiles)
     cmake_parse_arguments(
             ARG
             ""

@@ -23,9 +23,8 @@ if (ENABLE_TESTS_UTEST)
 
     # 可执行程序
     PTO_Fwk_UTest_AddExe_RunExe(TARGET ${PTO_Fwk_UTestNamePrefix})
+endif ()
 
-    # python
-    if (ENABLE_BUILD_PTO_FWK_PYTHON AND ENABLE_BUILD_WITH_CANN)
-        # PTO_Fwk_UTest_RunPytest()
-    endif ()
+if (ENABLE_TESTS_UTEST_PYTHON AND ENABLE_BUILD_WITH_CANN)
+    PTO_Fwk_UTest_RunPytest()
 endif ()

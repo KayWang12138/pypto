@@ -52,7 +52,7 @@ target_link_libraries(tile_fwk_executor
             slog
 )
 
-TileFwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_executor)
+PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_executor)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_executor)
 
 install(TARGETS tile_fwk_executor

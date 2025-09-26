@@ -62,7 +62,7 @@ if ((ENABLE_BUILD_WITH_CANN) AND (NOT PRODUCT_SIDE STREQUAL "device"))
                 ${PROJECT_BINARY_DIR}/src/machine/kernel/kernel_host.o
     )
 endif ()
-TileFwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_runtime)
+PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_runtime)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_runtime)
 
 install(TARGETS tile_fwk_runtime

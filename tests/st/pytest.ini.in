@@ -18,4 +18,4 @@ testpaths = @PTO_FWK_PYTHON_TESTS_PATH@/python
 norecursedirs = .venv node_modules build dist .git __pycache__
 
 # 可选：设置详细输出
-addopts = -v
+addopts = -vv

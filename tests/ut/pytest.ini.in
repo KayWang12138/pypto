@@ -12,10 +12,10 @@
 python_files = test_*.py
 
 # 指定要搜索的测试目录
-testpaths = @PTO_FWK_PYTHON_TESTS_PATH@/python
+testpaths = @PTO_FWK_PYTHON_TESTS_PATH@/python/../../st/python/ut/
 
 # 忽略不需要的目录
 norecursedirs = .venv node_modules build dist .git __pycache__
 
 # 可选：设置详细输出
-addopts = -v
+addopts = -vv

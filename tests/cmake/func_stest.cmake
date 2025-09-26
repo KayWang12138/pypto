@@ -54,7 +54,7 @@ function(PTO_Fwk_STest_AddLib)
             GTest::gtest
     )
     # 后检查
-    TileFwk_AnalysisTargetHeaderFiles(TARGET ${ARG_TARGET})
+    PTO_Fwk_AnalysisTargetHeaderFiles(TARGET ${ARG_TARGET})
     # STest 暂不支持并行执行
     set(PTO_Fwk_STestCaseLibraries            ${PTO_Fwk_STestCaseLibraries}            ${ARG_TARGET}            CACHE INTERNAL "" FORCE)
     set(PTO_Fwk_STestCaseLdLibrariesExt       ${PTO_Fwk_STestCaseLdLibrariesExt}       ${ARG_LD_LIBRARIES_EXT}  CACHE INTERNAL "" FORCE)
@@ -296,7 +296,9 @@ function(PTO_Fwk_STest_AddExe_RunExe)
             SOURCES                     ${_Sources}
             PRIVATE_LINK_LIBRARIES      ${PTO_Fwk_STestNamePrefix}_intf_pub tile_fwk_compiler ${PTO_Fwk_STestCaseLibraries}
     )
-    # PyPTO
+    add_dependencies(${ARG_TARGET} tile_fwk_server)
+
+    # PyPTO, 依赖 CI 任务拆分
     if (TARGET ${ARG_TARGET}_python)
         add_dependencies(${ARG_TARGET} ${ARG_TARGET}_python)
     endif ()
@@ -502,8 +504,9 @@ function(PTO_Fwk_STest_RunPytest)
             ${ARGN}
     )
     # 执行
-    PTO_Fwk_GTest_RunPytest(
+    PTO_Fwk_GTest_RunPytest(_PyTestTarget
             TARGET_NAME_PREFIX      ${PTO_Fwk_STestNamePrefix}
             PYTEST_INI              ${ARG_PYTEST_INI}
     )
+    add_dependencies(${_PyTestTarget} tile_fwk_server)
 endfunction()

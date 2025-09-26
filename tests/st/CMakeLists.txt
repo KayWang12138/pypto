@@ -12,10 +12,6 @@ if (ENABLE_TESTS_STEST OR ENABLE_TESTS_STEST_DISTRIBUTED)
 endif ()
 
 if (ENABLE_TESTS_STEST)
-    if (ENABLE_BUILD_PTO_FWK_PYTHON)
-        PTO_Fwk_STest_RunPytest()
-    endif ()
-
     add_subdirectory(operator)
     add_subdirectory(operation)
     add_subdirectory(machine)
@@ -27,4 +23,8 @@ endif ()
 
 if (ENABLE_TESTS_STEST_DISTRIBUTED)
     add_subdirectory(distributed)
+endif ()
+
+if (ENABLE_TESTS_STEST_PYTHON)
+    PTO_Fwk_STest_RunPytest()
 endif ()

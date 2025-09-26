@@ -60,12 +60,16 @@ class BuildCtrl:
         # 控制标记/参数预处理(tests)
         self.utest_enable: bool = False  # UTest 使能标记
         self.utest_cases_filter: Optional[str] = None  # 指定 UTest 所需执行用例
+        self.utest_python_enable: bool = False  # Python UTest 使能标记
+        self.utest_python_cases_filter: Optional[str] = None  # 指定 Python UTest 所需执行用例
         self.stest_enable: bool = False  # STest 使能标记
         self.stest_cases_filter: Optional[str] = None  # 指定 STest 所需执行用例
+        self.stest_distributed_enable: bool = False  # distributed STest 使能标记
+        self.stest_distributed_cases_filter: Optional[str] = None  # 指定 distributed STest 所需执行用例
+        self.stest_python_enable: bool = False  # Python STest 使能标记
+        self.stest_python_cases_filter: Optional[str] = None  # 指定 Python STest 所需执行用例
         self.stest_golden_path: Optional[Path] = None  # STest 指定 Golden 路径
         self.stest_golden_path_clean: bool = args.stest_golden_path_clean  # STest 清理 Golden 标记
-        self.stest_distributed_enable: bool = False  # distributed test 使能标记
-        self.stest_distributed_cases_filter: Optional[str] = None  # 指定 distributed test 所需执行用例
         self.stest_device_id: str = ""
         self.stest_enable_binary_cache: bool = False
         self.stest_dump_json: bool = args.stest_dump_json
@@ -124,21 +128,31 @@ class BuildCtrl:
         desc += f"\n\tBuild Targets            : {self.build_targets}"
         desc += (f"\n\tBuild UTest              : Flag({self.utest_enable}), "
                  f"Filter({get_filter_str(self.utest_cases_filter)})")
+        desc += (f"\n\tBuild UTest(Python)      : Flag({self.utest_python_enable}), "
+                 f"Filter({get_filter_str(self.utest_python_cases_filter)})")
         desc += (f"\n\tBuild STest              : Flag({self.stest_enable}), "
                  f"Filter({get_filter_str(self.stest_cases_filter)}) DeviceID({self.stest_device_id})")
         desc += (f"\n\tBuild STest(Distributed) : Flag({self.stest_distributed_enable}), "
                  f"Filter({get_filter_str(self.stest_distributed_cases_filter)})")
+        desc += (f"\n\tBuild STest(Python)      : Flag({self.stest_python_enable}), "
+                 f"Filter({get_filter_str(self.stest_python_cases_filter)})")
         desc += (f"\n\tTests Execute            : Flag({self.tests_auto_execute}),"
                  f" Parallel({self.tests_auto_execute_parallel}),"
                  f" PrintJson({self.stest_dump_json}),"
                  f" BinaryCache({self.stest_enable_binary_cache})")
         desc += f"\n\tTests Changed            : File({self.tests_changed_file})"
+        desc += f"\n\tTests Interpreter        : {self.tests_interpreter_config}"
         desc += f"\nOthers"
         desc += f"\n\tSource  Root Dir         : {self.src_root}"
         desc += f"\n\tBuild   Root Dir         : {self.build_root}"
         desc += f"\n\tInstall Root Dir         : {self.install_root}"
-        desc += f"\n\tTests Interpreter        : {self.tests_interpreter_config}"
         return desc
+
+    @property
+    def tests_enable(self) -> bool:
+        ut_enable: bool = self.utest_enable or self.utest_python_enable
+        st_enable: bool = self.stest_enable or self.stest_distributed_enable or self.stest_python_enable
+        return ut_enable or st_enable
 
     @classmethod
     def main(cls):
@@ -180,16 +194,22 @@ class BuildCtrl:
         parser.add_argument("-u", "--utest", nargs="?", type=str, default="",
                             help="utest, enable UTest scene, specific UTest case filter, "
                                  "multiple test cases are separated by ':'/',' .")
+        parser.add_argument("--utest_python", nargs="?", type=str, default="",
+                            help="utest, enable Python UTest scene, specific Python UTest case filter, "
+                                 "multiple Python test cases are separated by ':'/',' .")
         parser.add_argument("-s", "--stest", nargs="?", type=str, default="",
                             help="stest, enable STest scene, specific STest case filter, "
                                  "multiple test cases are separated by ':'/',' .")
+        parser.add_argument("--stest_distributed", nargs="?", type=str, default="",
+                            help="stest, enable Distributed STest scene, Distributed STest case filter, "
+                                 "multiple distributed test cases are separated by ':'/',' .")
+        parser.add_argument("--stest_python", nargs="?", type=str, default="",
+                            help="stest, enable Python STest scene, Python STest case filter, "
+                                 "multiple Python test cases are separated by ':'/',' .")
         parser.add_argument("--stest_golden_path", nargs="?", type=str, default="",
                             help="Specific STest golden path.")
         parser.add_argument("--stest_golden_path_clean", action="store_true", default=False,
                             help="Clean STest golden.")
-        parser.add_argument("--stest_distributed", nargs="?", type=str, default="",
-                            help="stest, enable Distributed STest scene, Distributed STest case filter, "
-                                 "multiple distributed test cases are separated by ':'/',' .")
         parser.add_argument("--disable_auto_execute", action="store_false", default=True,
                             help="Disable auto execute STest/Utest with build.")
         parser.add_argument("-d", "--device", nargs="?", type=int, action="append",
@@ -216,7 +236,7 @@ class BuildCtrl:
         parser.add_argument("-pv", "--pvmodel", action="store_true", default=False,
                             help="Enable PVModel mode.")
         parser.add_argument("--enable_interpreter_config", action="store_true", default=False,
-                            help="enable STest Interpreter Config")                    
+                            help="enable STest Interpreter Config")
 
     @classmethod
     def _add_argument_build_tools(cls, parser):
@@ -290,10 +310,15 @@ class BuildCtrl:
 
         # UTest
         self.utest_enable, self.utest_cases_filter = _init_args(_args=args.utest)
+        # UTest Python 场景
+        self.utest_python_enable, self.utest_python_cases_filter = _init_args(_args=args.utest_python)
         # STest
         self.stest_enable, self.stest_cases_filter = _init_args(_args=args.stest)
         # STest Distributed
         self.stest_distributed_enable, self.stest_distributed_cases_filter = _init_args(_args=args.stest_distributed)
+        # STest Python
+        self.stest_python_enable, self.stest_python_cases_filter = _init_args(_args=args.stest_python)
+        self.stest_python_enable = True if self.stest_enable else self.stest_python_enable  # 依赖 CI 任务拆分
         # STest Golden
         if args.stest_golden_path is None:  # 未传参
             self.stest_golden_path = Path(self.build_root, "tests/st/golden")
@@ -460,14 +485,17 @@ class BuildCtrl:
     def _configure_tests(self) -> str:
         cmd = ""
         # 公共
-        if self.utest_enable or self.stest_enable or self.stest_distributed_enable:
+        if self.tests_enable:
             cmd += self._gen_cmd(opt="ENABLE_TESTS_EXECUTE", ctr=self.tests_auto_execute)
             cmd += self._gen_cmd(opt="ENABLE_TESTS_EXECUTE_PARALLEL",
                                  ctr=self.tests_auto_execute and self.tests_auto_execute_parallel)
         # UTest
         cmd += self._gen_cmd(opt="ENABLE_TESTS_UTEST", ctr=self.utest_enable, tv=f"{self.utest_cases_filter}")
+        # UTest Python 场景
+        cmd += self._gen_cmd(opt="ENABLE_TESTS_UTEST_PYTHON", ctr=self.utest_python_enable,
+                             tv=f"{self.utest_python_cases_filter}")
         # STest 公共
-        if self.stest_enable or self.stest_distributed_enable:
+        if self.stest_enable or self.stest_distributed_enable or self.stest_python_enable:
             # Golden
             cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_GOLDEN_PATH_CLEAN", ctr=self.stest_golden_path_clean)
             cmd += f" -DENABLE_TESTS_STEST_GOLDEN_PATH={self.stest_golden_path}"
@@ -487,6 +515,8 @@ class BuildCtrl:
                              tv=f"{self.stest_distributed_cases_filter}")
         # STest Interpreter Config
         cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_INTERPRETER_CONFIG", ctr=self.tests_interpreter_config)
+        # STest Python
+        cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_PYTHON", ctr=self.stest_python_enable)
         return cmd
 
     def _configure_tools_build(self) -> str:
