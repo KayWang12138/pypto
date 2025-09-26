@@ -111,13 +111,12 @@ Status SrcDstBufferMergeImpl::Init(const std::vector<Operation *> &opList) {
 
 bool SrcDstBufferMergeImpl::CheckIgnoreScene(const Operation *oriOps) {
     /* use opcode is unfavorable for reading and modification, maybe use opcalctype */
-    const std::set<Opcode> ignoreOps = {Opcode::OP_UB_COPY_IN, Opcode::OP_UB_COPY_OUT, Opcode::OP_UB_ALLOC,
-        Opcode::OP_L0C_COPY_OUT, Opcode::OP_ROWMAX, Opcode::OP_ROWEXPSUM, Opcode::OP_REMOTE_GATHER,
-        Opcode::OP_ROWEXPMAX, Opcode::OP_TRANSPOSE_VNCHWCONV, Opcode::OP_COPY_IN, Opcode::OP_COPY_OUT,
-        Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ROWSUM_SINGLE, Opcode::OP_MAX_POOL, Opcode::OP_COPY_UB_TO_UB,
-        Opcode::OP_PAIRMAX,  Opcode::OP_PAIRMIN, Opcode::OP_PAIRSUM, Opcode::OP_ROWMIN_SINGLE};
-
+    const std::set<Opcode> ignoreOps = {Opcode::OP_UB_ALLOC, Opcode::OP_COPY_IN, Opcode::OP_COPY_OUT};
     if (ignoreOps.count(oriOps->GetOpcode()) != 0) {
+        return true;
+    }
+    
+    if (oriOps->HasStaticAttribute(OpAttributeKey::excludeBufferReuse)) {
         return true;
     }
 
@@ -276,7 +275,7 @@ bool SrcDstBufferMergeImpl::CanSrcDstReuse(const Operation *ops,
     if (ops->GetOOperands().size() == 0) {
         return false;
     }
-    if (ops->GetOpcode() == Opcode::OP_SCATTER_ELEMENT) {
+    if (std::find(SCATTER_ELEMENT_OPS.begin(), DISTRIBUTED_OPS.end(), ops->GetOpcode()) != DISTRIBUTED_OPS.end()) {
         if (ioperand == ops->GetIOperands()[0]) {
             return true;
         }

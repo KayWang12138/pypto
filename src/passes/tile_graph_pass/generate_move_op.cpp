@@ -45,11 +45,6 @@ Status GenerateMoveOp::PostCheck(Function &function) {
     return checker.DoPostCheck(function);
 }
 
-bool GenerateMoveOp::HasGmInput(Operation &op) const {
-    return (op.GetOpcode() == Opcode::OP_INDEX_OUTCAST) || (op.GetOpcode() == Opcode::OP_COMM_WAIT_FLAG) ||
-        (op.GetOpcode() == Opcode::OP_SHMEM_WAIT_UNTIL);
-}
-
 bool GenerateMoveOp::HasSpecificConsumer(const Operation &op) const {
     auto viewResult = op.GetOOperands()[0];
     auto consumersCopy = viewResult->GetConsumers();

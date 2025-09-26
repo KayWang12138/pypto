@@ -58,6 +58,8 @@ const std::string OpAttributeKey::panzBlockSize = "PA_NZ_BLOCK_SIZE";
 const std::string OpAttributeKey::reduceMode = "REDUCE_MODE";
 const std::string OpAttributeKey::inputCombineAxisDone = "input_combine_axis_done"; // only for flow verify tool
 const std::string OpAttributeKey::outputCombineAxisDone = "output_combine_axis_done"; // flow verify tool only
+const std::string OpAttributeKey::requiresBoundaryCopy = "requires_boundary_copy";
+const std::string OpAttributeKey::excludeBufferReuse = "exclude_buffer_reuse";
 
 const std::string ConvOpAttributeKey::cin = "CIN";
 const std::string ConvOpAttributeKey::cout = "COUT";

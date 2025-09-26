@@ -391,33 +391,34 @@ void PreGraphProcess::ProcessMoveInOperation(Operation &op) const {
 }
 
 void PreGraphProcess::InsertTemporaryCopyIn(Function &function, Operation &op) const {
-    if (std::find(DISTRIBUTED_OPS.begin(), DISTRIBUTED_OPS.end(), op.GetOpcode()) != DISTRIBUTED_OPS.end()) {
-        for (auto &input : op.GetIOperands()) {
-            if (input->GetProducers().size() == 0 && input->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
-                // insert Copy_In before the op
-                input->isSubGraphBoundary = false;
-                LogicalTensors operandGm;
-                LogicalTensorPtr tensorGM = std::make_shared<LogicalTensor>(function, input->Datatype(), input->shape);
-                GraphUtils::CopyDynStatus(tensorGM, input);
-                tensorGM->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
-                tensorGM->SetMemoryTypeToBe(MemoryType::MEM_DEVICE_DDR);
-                tensorGM->isSubGraphBoundary = true;
-                tensorGM->subGraphID = op.GetSubgraphID();
-                operandGm.push_back(tensorGM);
-                function.GetTensorMap().Insert(tensorGM);
+    if (!op.HasStaticAttribute(OpAttributeKey::requiresBoundaryCopy)) {
+          return;
+    }
+    for (auto &input : op.GetIOperands()) {
+        if (input->GetProducers().size() == 0 && input->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
+            // insert Copy_In before the op
+            input->isSubGraphBoundary = false;
+            LogicalTensors operandGm;
+            LogicalTensorPtr tensorGM = std::make_shared<LogicalTensor>(function, input->Datatype(), input->shape);
+            GraphUtils::CopyDynStatus(tensorGM, input);
+            tensorGM->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
+            tensorGM->SetMemoryTypeToBe(MemoryType::MEM_DEVICE_DDR);
+            tensorGM->isSubGraphBoundary = true;
+            tensorGM->subGraphID = op.GetSubgraphID();
+            operandGm.push_back(tensorGM);
+            function.GetTensorMap().Insert(tensorGM);
 
-                LogicalTensors operandUb;
-                operandUb.push_back(input);
+            LogicalTensors operandUb;
+            operandUb.push_back(input);
 
-                // add UB_Alloc && UB_COPY_IN
-                auto &ubCopyIn = function.AddRawOperation(Opcode::OP_COPY_IN, operandGm, operandUb);
-                ubCopyIn.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-                    OpImmediate::Specified(input->GetTensorOffset()), MemoryType::MEM_UB,
-                    OpImmediate::Specified(input->GetShape()), OpImmediate::Specified(input->tensor->GetDynRawShape()),
-                    OpImmediate::Specified(input->GetDynValidShape())));
-                ubCopyIn.SetAttribute(OpAttributeKey::isCube, false);
-                ubCopyIn.UpdateSubgraphID(op.GetSubgraphID());
-            }
+            // add UB_Alloc && UB_COPY_IN
+            auto &ubCopyIn = function.AddRawOperation(Opcode::OP_COPY_IN, operandGm, operandUb);
+            ubCopyIn.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+                OpImmediate::Specified(input->GetTensorOffset()), MemoryType::MEM_UB,
+                OpImmediate::Specified(input->GetShape()), OpImmediate::Specified(input->tensor->GetDynRawShape()),
+                OpImmediate::Specified(input->GetDynValidShape())));
+            ubCopyIn.SetAttribute(OpAttributeKey::isCube, false);
+            ubCopyIn.UpdateSubgraphID(op.GetSubgraphID());
         }
     }
 }

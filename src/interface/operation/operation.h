@@ -69,6 +69,8 @@ public:
     static const std::string inplaceInfo;
     static const std::string cacheMode;
     static const std::string panzBlockSize;
+    static const std::string requiresBoundaryCopy;
+    static const std::string excludeBufferReuse;
     static const std::string reduceMode;
 };
 
@@ -222,6 +224,14 @@ public:
 
     [[nodiscard]] bool HasAttribute(const std::string &key) const {
         return HasAttr(key);
+    }
+
+    [[nodiscard]] bool HasStaticAttribute(const std::string &attribute) const {
+        if (attribute.empty()) {
+            return false;
+        }
+        std::vector<std::string> attrs = OpcodeManager::Inst().GetAttrs(opcode_);
+        return std::find(attrs.begin(), attrs.end(), attribute) != attrs.end();
     }
 
     [[nodiscard]] std::map<std::string, npu::tile_fwk::Any> GetAllAttribute() const;

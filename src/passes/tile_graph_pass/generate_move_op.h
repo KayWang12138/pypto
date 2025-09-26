@@ -40,7 +40,6 @@ private:
     void CreateMoveOpForView(Operation &op) const;
     void CreateMoveOpForAssemble(Operation &op) const;
     void CreateMoveOpForConvert(Operation &op) const;
-    bool HasGmInput(Operation &op) const;
 };
 }
 #endif // PASS_GENERATE_MOVE_OP_H_

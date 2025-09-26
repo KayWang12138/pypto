@@ -252,6 +252,8 @@ TEST_F(MergeSrcDstBufferTest, PairMaxNotReplaced) {
     std::vector<std::string> opNames{"PAIRMAX"};
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
     EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    Operation *pairMaxOp = G.GetOp("PAIRMAX");
+    pairMaxOp->SetAttribute(OpAttributeKey::excludeBufferReuse, true);
     EXPECT_EQ(G.SetInCast({"t1"}), true);
     EXPECT_EQ(G.SetOutCast({"t2"}), true);
     Function *function = G.GetFunction();

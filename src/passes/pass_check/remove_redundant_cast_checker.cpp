@@ -22,7 +22,7 @@ Status RemoveRedundantCastChecker::DoPreCheck(Function &function) {
     std::vector<Operation *> opList = function.Operations().DuplicatedOpList();
     for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
         Operation *op = opList[opIdx];
-        if (op->GetOpcode() != Opcode::OP_CAST) {
+        if (std::find(CAST_OPS.begin(), CAST_OPS.end(), op->GetOpcode()) == CAST_OPS.end()) {
             continue;
         }
         if (op->GetIOperands().size() != 1) {
