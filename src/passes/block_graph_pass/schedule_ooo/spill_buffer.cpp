@@ -91,7 +91,6 @@ Status OoOScheduler::UpdateTensorAttr(
     LogicalTensorPtr tensor, MemoryType memType, LogicalTensorPtr spillTensor, int spillMemId) {
     tensor->SetMemoryTypeToBe(memType);
     tensor->SetMemoryTypeOriginal(memType);
-    tensor->subGraphID = subGraphID;
     tensor->oriShape = spillTensor->oriShape;
     tensor->SetMagic(++maxTensorMagic);
     tensor->UpdateDynValidShape(spillTensor->GetDynValidShape());
@@ -132,7 +131,6 @@ void OoOScheduler::UpdateOpAttr(
         }
     }
     op.UpdateLatency(opLatency);
-    op.UpdateSubgraphID(subGraphID);
     op.opmagic = ++maxOpMagic;
 }
 

@@ -51,12 +51,6 @@ TEST_F(AddAllocTest, TestAddAlloc) {
     Function *function = subGraph.GetFunction();
     EXPECT_NE(function, nullptr);
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     AddAlloc addalloc;
     Status res = addalloc.AddAndCheckAlloc(*function);
     EXPECT_EQ(res, SUCCESS);
@@ -85,12 +79,6 @@ TEST_F(AddAllocTest, TestAddAllocInplace) {
     std::shared_ptr<LogicalTensor> tensor2 = subGraph.GetTensor("t11");
     tensor2->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
         subGraph.GetTensor("t5")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
-
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
 
     AddAlloc addalloc;
     Status res = addalloc.AddAndCheckAlloc(*function);
@@ -122,12 +110,6 @@ TEST_F(AddAllocTest, TestAddAllocAssemble) {
     tensor2->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
         subGraph.GetTensor("t5")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     AddAlloc addalloc;
     Status res = addalloc.AddAndCheckAlloc(*function);
     EXPECT_EQ(res, SUCCESS);
@@ -156,12 +138,6 @@ TEST_F(AddAllocTest, TestAddAllocView) {
     tensor2->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
         subGraph.GetTensor("t3")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     AddAlloc addalloc;
     Status res = addalloc.AddAndCheckAlloc(*function);
     EXPECT_EQ(res, SUCCESS);
@@ -189,12 +165,6 @@ TEST_F(AddAllocTest, TestAddAllocErrorMemId) {
     tensor2->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
         subGraph.GetTensor("t3")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     AddAlloc addalloc;
     Status res = addalloc.AddAndCheckAlloc(*function);
     EXPECT_EQ(res, FAILED);
@@ -220,12 +190,6 @@ TEST_F(AddAllocTest, TestAddAllocErrorMemorymap) {
     std::shared_ptr<LogicalTensor> tensor2 = subGraph.GetTensor("t6");
     tensor2->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
         subGraph.GetTensor("t3")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
-
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
 
     AddAlloc addalloc;
     Status res = addalloc.AddAndCheckAlloc(*function);

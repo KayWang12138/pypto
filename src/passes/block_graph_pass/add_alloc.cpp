@@ -103,7 +103,7 @@ Status AddAlloc::SetTensorAllocMsg(Operation *op,
             continue;
         }
         if (op->GetOutputOperand(i)->memorymap.find(BLOCK_GRAPH_DEFAULT_COLOR) == op->GetOutputOperand(i)->memorymap.end()) {
-            ALOG_ERROR_F("Cannot find memorymap in subgraph[%d]", op->GetSubgraphID());
+            ALOG_ERROR_F("Cannot find memorymap");
             return FAILED;
         }
         if (UpdateTensorAllocMsg(op, i, allocMagic, tensorAllocMsgMap) != SUCCESS) {
@@ -130,7 +130,7 @@ Status AddAlloc::FindTensorAllocMsg(Operation *op,
     return SUCCESS;
 }
 
-Status AddAlloc::GenAllocOpcode(int subgraphID, const Opcode &allocOpcode, const TensorAllocMsg& tensorAllocMsg, Function& function) {
+Status AddAlloc::GenAllocOpcode(const Opcode &allocOpcode, const TensorAllocMsg& tensorAllocMsg, Function& function) {
     int maxOpMagic = -1;
     for (auto &op : function.Operations()) {
         maxOpMagic = std::max(maxOpMagic, op.GetOpMagic());
@@ -141,7 +141,6 @@ Status AddAlloc::GenAllocOpcode(int subgraphID, const Opcode &allocOpcode, const
         }
         auto &allocOp = function.AddOperation(allocOpcode, {}, 
             std::vector<std::shared_ptr<LogicalTensor>>({oOperand}));
-        allocOp.UpdateSubgraphID(subgraphID);
         if (tensorAllocMsg.producer[0]->HasAttr(OpAttributeKey::tag)) {
             allocOp.SetAttribute(OpAttributeKey::tag, tensorAllocMsg.producer[0]->GetStringAttribute(OpAttributeKey::tag));
         }
@@ -151,7 +150,6 @@ Status AddAlloc::GenAllocOpcode(int subgraphID, const Opcode &allocOpcode, const
 }
 
 Status AddAlloc::CreateAllocNode(const TensorAllocMsg& tensorAllocMsg, Function& function) {
-    auto subgraphID = function.Operations().begin()->GetSubgraphID();
     auto iter = allocOpcodeMap.find(tensorAllocMsg.memType);
     if (iter != allocOpcodeMap.end()) {
         ALOG_DEBUG_F("create alloc node for memtype [%d]", static_cast<int>(tensorAllocMsg.memType));
@@ -160,7 +158,7 @@ Status AddAlloc::CreateAllocNode(const TensorAllocMsg& tensorAllocMsg, Function&
             return FAILED; 
         }
         Opcode allocOpcode = iter->second;
-        if (GenAllocOpcode(subgraphID, allocOpcode, tensorAllocMsg, function)) {
+        if (GenAllocOpcode(allocOpcode, tensorAllocMsg, function)) {
             ALOG_ERROR_F("GenAllocOpcode failed."); 
             return FAILED; 
         }

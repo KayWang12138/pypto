@@ -271,26 +271,28 @@ TEST_F(PreGraphTest, TestVCPartition) {
     //Initialize PassManager
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("PreGraphTestStrategy", {
-    {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
-    {      "InferMemoryConflict",      "InferMemoryConflict",  PassType::TYPE_TENSOR_GRAPH},
-    {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
-    {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
-    {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
-    {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
-    {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
-    {             "SplitReshape",             "SplitReshape",    PassType::TYPE_TILE_GRAPH},
-    {        "RemoveRedundantOp",        "RemoveRedundantOp",    PassType::TYPE_TILE_GRAPH},
-    {        "GenerateMoveOp_01",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
-    {              "CubeProcess",              "CubeProcess",    PassType::TYPE_TILE_GRAPH},
-    {        "GraphPartition",        "GraphPartition",    PassType::TYPE_TILE_GRAPH},
-    {         "NBufferMerge",         "NBufferMerge",    PassType::TYPE_TILE_GRAPH},
-    {          "UpdateMemoryMap",          "UpdateMemoryMap",    PassType::TYPE_TILE_GRAPH},
-    {        "GenerateMoveOp_02",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
-    {   "SplitLargeLocalRawTensor",   "SplitLargeLocalRawTensor",    PassType::TYPE_TILE_GRAPH},
-    {         "InsertInterGraphCopy",         "InsertInterGraphCopy",    PassType::TYPE_TILE_GRAPH},
-    { "CommonOperationEliminate", "CommonOperationEliminate",    PassType::TYPE_TILE_GRAPH},
-    {        "L1CopyInReuseMerge",        "L1CopyInReuseMerge",    PassType::TYPE_TILE_GRAPH},
-
+        {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
+        {      "InferMemoryConflict",      "InferMemoryConflict",  PassType::TYPE_TENSOR_GRAPH},
+        {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
+        {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
+        {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
+        {             "SplitReshape",             "SplitReshape",    PassType::TYPE_TILE_GRAPH},
+        {           "SplitRawTensor",           "SplitRawTensor",    PassType::TYPE_TILE_GRAPH},
+        {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
+        {  "InferDiscontinuousInput",  "InferDiscontinuousInput",    PassType::TYPE_TILE_GRAPH},
+        {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
+        {        "RemoveRedundantOp",        "RemoveRedundantOp",    PassType::TYPE_TILE_GRAPH},
+        {        "GenerateMoveOp_01",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
+        {              "CubeProcess",              "CubeProcess",    PassType::TYPE_TILE_GRAPH},
+        {           "GraphPartition",           "GraphPartition",    PassType::TYPE_TILE_GRAPH},
+        {             "NBufferMerge",             "NBufferMerge",    PassType::TYPE_TILE_GRAPH},
+        {     "IntraSubgraphAdapter",     "IntraSubgraphAdapter",    PassType::TYPE_TILE_GRAPH},
+        {        "GenerateMoveOp_02",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
+        { "CommonOperationEliminate", "CommonOperationEliminate",    PassType::TYPE_TILE_GRAPH},
+        {       "L1CopyInReuseMerge",       "L1CopyInReuseMerge",    PassType::TYPE_TILE_GRAPH},
+        {           "PadLocalBuffer",           "PadLocalBuffer",    PassType::TYPE_TILE_GRAPH},
+        {   "RemoveUnalignedReshape",   "RemoveUnalignedReshape",    PassType::TYPE_TILE_GRAPH},
+        {           "InplaceProcess",           "InplaceProcess",    PassType::TYPE_TILE_GRAPH},
     });
     ConfigManager::Instance();
 
@@ -357,20 +359,28 @@ TEST_F(PreGraphTest, TestVCPartition) {
 TEST_F(PreGraphTest, TestAssemble) {
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("PreGraphTestStrategy", {
-    {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
-    {      "InferMemoryConflict",      "InferMemoryConflict",  PassType::TYPE_TENSOR_GRAPH},
-    {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
-    {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
-    {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
-    {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
-    {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
-    {             "SplitReshape",             "SplitReshape",    PassType::TYPE_TILE_GRAPH},
-    {        "RemoveRedundantOp",        "RemoveRedundantOp",    PassType::TYPE_TILE_GRAPH},
-    {           "GenerateMoveOp",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
-    {        "GraphPartition",        "GraphPartition",    PassType::TYPE_TILE_GRAPH},
-    {   "SplitLargeLocalRawTensor",   "SplitLargeLocalRawTensor",    PassType::TYPE_TILE_GRAPH},
-    {         "InsertInterGraphCopy",         "InsertInterGraphCopy",    PassType::TYPE_TILE_GRAPH},
-    { "CommonOperationEliminate", "CommonOperationEliminate",    PassType::TYPE_TILE_GRAPH},
+        {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
+        {      "InferMemoryConflict",      "InferMemoryConflict",  PassType::TYPE_TENSOR_GRAPH},
+        {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
+        {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
+        {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
+        {             "SplitReshape",             "SplitReshape",    PassType::TYPE_TILE_GRAPH},
+        {           "SplitRawTensor",           "SplitRawTensor",    PassType::TYPE_TILE_GRAPH},
+        {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
+        {  "InferDiscontinuousInput",  "InferDiscontinuousInput",    PassType::TYPE_TILE_GRAPH},
+        {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
+        {        "RemoveRedundantOp",        "RemoveRedundantOp",    PassType::TYPE_TILE_GRAPH},
+        {        "GenerateMoveOp_01",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
+        {              "CubeProcess",              "CubeProcess",    PassType::TYPE_TILE_GRAPH},
+        {           "GraphPartition",           "GraphPartition",    PassType::TYPE_TILE_GRAPH},
+        {             "NBufferMerge",             "NBufferMerge",    PassType::TYPE_TILE_GRAPH},
+        {     "IntraSubgraphAdapter",     "IntraSubgraphAdapter",    PassType::TYPE_TILE_GRAPH},
+        {        "GenerateMoveOp_02",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
+        { "CommonOperationEliminate", "CommonOperationEliminate",    PassType::TYPE_TILE_GRAPH},
+        {       "L1CopyInReuseMerge",       "L1CopyInReuseMerge",    PassType::TYPE_TILE_GRAPH},
+        {           "PadLocalBuffer",           "PadLocalBuffer",    PassType::TYPE_TILE_GRAPH},
+        {   "RemoveUnalignedReshape",   "RemoveUnalignedReshape",    PassType::TYPE_TILE_GRAPH},
+        {           "InplaceProcess",           "InplaceProcess",    PassType::TYPE_TILE_GRAPH},
 
     });
     int dim1 = 8;
@@ -406,7 +416,7 @@ TEST_F(PreGraphTest, TestAssemble) {
 
     // ================== Verify the effect of the Pass ==================
     auto updated_operations = func->Operations();
-    int opSize = 28;
+    int opSize = 30;
 
     EXPECT_EQ(updated_operations.size(), opSize) << "After the Pass, there should be 30 operations";
     EXPECT_EQ(tensorMagicWithColorSet.size() > 0, true) << "There should be many tensor magic with color";
@@ -421,25 +431,28 @@ config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("PreGraphTestStrategy", {
-    {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
-    {      "InferMemoryConflict",      "InferMemoryConflict",  PassType::TYPE_TENSOR_GRAPH},
-    {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
-    {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
-    {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
-    {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
-    {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
-    {             "SplitReshape",             "SplitReshape",    PassType::TYPE_TILE_GRAPH},
-    {        "RemoveRedundantOp",        "RemoveRedundantOp",    PassType::TYPE_TILE_GRAPH},
-    {        "GenerateMoveOp_01",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
-    {              "CubeProcess",              "CubeProcess",    PassType::TYPE_TILE_GRAPH},
-    {        "GraphPartition",        "GraphPartition",    PassType::TYPE_TILE_GRAPH},
-    {         "NBufferMerge",         "NBufferMerge",    PassType::TYPE_TILE_GRAPH},
-    {          "UpdateMemoryMap",          "UpdateMemoryMap",    PassType::TYPE_TILE_GRAPH},
-    {        "GenerateMoveOp_02",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
-    {   "SplitLargeLocalRawTensor",   "SplitLargeLocalRawTensor",    PassType::TYPE_TILE_GRAPH},
-    {         "InsertInterGraphCopy",         "InsertInterGraphCopy",    PassType::TYPE_TILE_GRAPH},
-    { "CommonOperationEliminate", "CommonOperationEliminate",    PassType::TYPE_TILE_GRAPH},
-    {        "L1CopyInReuseMerge",        "L1CopyInReuseMerge",    PassType::TYPE_TILE_GRAPH},
+        {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
+        {      "InferMemoryConflict",      "InferMemoryConflict",  PassType::TYPE_TENSOR_GRAPH},
+        {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
+        {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
+        {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
+        {             "SplitReshape",             "SplitReshape",    PassType::TYPE_TILE_GRAPH},
+        {           "SplitRawTensor",           "SplitRawTensor",    PassType::TYPE_TILE_GRAPH},
+        {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
+        {  "InferDiscontinuousInput",  "InferDiscontinuousInput",    PassType::TYPE_TILE_GRAPH},
+        {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
+        {        "RemoveRedundantOp",        "RemoveRedundantOp",    PassType::TYPE_TILE_GRAPH},
+        {        "GenerateMoveOp_01",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
+        {              "CubeProcess",              "CubeProcess",    PassType::TYPE_TILE_GRAPH},
+        {           "GraphPartition",           "GraphPartition",    PassType::TYPE_TILE_GRAPH},
+        {             "NBufferMerge",             "NBufferMerge",    PassType::TYPE_TILE_GRAPH},
+        {     "IntraSubgraphAdapter",     "IntraSubgraphAdapter",    PassType::TYPE_TILE_GRAPH},
+        {        "GenerateMoveOp_02",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
+        { "CommonOperationEliminate", "CommonOperationEliminate",    PassType::TYPE_TILE_GRAPH},
+        {       "L1CopyInReuseMerge",       "L1CopyInReuseMerge",    PassType::TYPE_TILE_GRAPH},
+        {           "PadLocalBuffer",           "PadLocalBuffer",    PassType::TYPE_TILE_GRAPH},
+        {   "RemoveUnalignedReshape",   "RemoveUnalignedReshape",    PassType::TYPE_TILE_GRAPH},
+        {           "InplaceProcess",           "InplaceProcess",    PassType::TYPE_TILE_GRAPH},
     });
     ConfigManager::Instance();
 
@@ -486,29 +499,37 @@ config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     // ================== Verify the effect of the Pass ==================
     auto updated_operations = func->Operations();
-    int opSize = 32;
+    int opSize = 24;
 
-    EXPECT_EQ(updated_operations.size(), opSize) << "After the Pass, there should be 32 operations";
+    EXPECT_EQ(updated_operations.size(), opSize) << "After the Pass, there should be 24 operations";
     EXPECT_EQ(tensorMagicWithColorSet.size() > 0, true) << "There should be many tensor magic with color";
 }
 
 TEST_F(PreGraphTest, TestROWMAX_SINGLE) {
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("PreGraphTestStrategy", {
-    {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
-    {      "InferMemoryConflict",      "InferMemoryConflict",  PassType::TYPE_TENSOR_GRAPH},
-    {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
-    {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
-    {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
-    {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
-    {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
-    {             "SplitReshape",             "SplitReshape",    PassType::TYPE_TILE_GRAPH},
-    {        "RemoveRedundantOp",        "RemoveRedundantOp",    PassType::TYPE_TILE_GRAPH},
-    {           "GenerateMoveOp",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
-    {        "GraphPartition",        "GraphPartition",    PassType::TYPE_TILE_GRAPH},
-    {   "SplitLargeLocalRawTensor",   "SplitLargeLocalRawTensor",    PassType::TYPE_TILE_GRAPH},
-    {         "InsertInterGraphCopy",         "InsertInterGraphCopy",    PassType::TYPE_TILE_GRAPH},
-    { "CommonOperationEliminate", "CommonOperationEliminate",    PassType::TYPE_TILE_GRAPH},
+        {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
+        {      "InferMemoryConflict",      "InferMemoryConflict",  PassType::TYPE_TENSOR_GRAPH},
+        {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
+        {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
+        {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
+        {             "SplitReshape",             "SplitReshape",    PassType::TYPE_TILE_GRAPH},
+        {           "SplitRawTensor",           "SplitRawTensor",    PassType::TYPE_TILE_GRAPH},
+        {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
+        {  "InferDiscontinuousInput",  "InferDiscontinuousInput",    PassType::TYPE_TILE_GRAPH},
+        {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
+        {        "RemoveRedundantOp",        "RemoveRedundantOp",    PassType::TYPE_TILE_GRAPH},
+        {        "GenerateMoveOp_01",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
+        {              "CubeProcess",              "CubeProcess",    PassType::TYPE_TILE_GRAPH},
+        {           "GraphPartition",           "GraphPartition",    PassType::TYPE_TILE_GRAPH},
+        {             "NBufferMerge",             "NBufferMerge",    PassType::TYPE_TILE_GRAPH},
+        {     "IntraSubgraphAdapter",     "IntraSubgraphAdapter",    PassType::TYPE_TILE_GRAPH},
+        {        "GenerateMoveOp_02",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
+        { "CommonOperationEliminate", "CommonOperationEliminate",    PassType::TYPE_TILE_GRAPH},
+        {       "L1CopyInReuseMerge",       "L1CopyInReuseMerge",    PassType::TYPE_TILE_GRAPH},
+        {           "PadLocalBuffer",           "PadLocalBuffer",    PassType::TYPE_TILE_GRAPH},
+        {   "RemoveUnalignedReshape",   "RemoveUnalignedReshape",    PassType::TYPE_TILE_GRAPH},
+        {           "InplaceProcess",           "InplaceProcess",    PassType::TYPE_TILE_GRAPH},
 
     });
 

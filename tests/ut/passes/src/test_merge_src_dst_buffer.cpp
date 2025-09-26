@@ -57,55 +57,44 @@ TEST_F(MergeSrcDstBufferTest, AppointInplace) {
     std::shared_ptr<LogicalTensor> tensor1 = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, shape);
     tensor1->SetMemoryTypeOriginal(MEM_DEVICE_DDR);
     tensor1->SetMemoryTypeToBe(MEM_DEVICE_DDR);
-    tensor1->subGraphID = 0;
 
     std::shared_ptr<LogicalTensor> tensor2 = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, shape);
     tensor2->SetMemoryTypeOriginal(MEM_DEVICE_DDR);
     tensor2->SetMemoryTypeToBe(MEM_DEVICE_DDR);
-    tensor2->subGraphID = 0;
 
     std::shared_ptr<LogicalTensor> tensor3 = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, shape);
     tensor3->SetMemoryTypeOriginal(MEM_UB);
     tensor3->SetMemoryTypeToBe(MEM_UB);
-    tensor3->subGraphID = 0;
 
     std::shared_ptr<LogicalTensor> tensor4 = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, shape);
     tensor4->SetMemoryTypeOriginal(MEM_UB);
     tensor4->SetMemoryTypeToBe(MEM_UB);
-    tensor4->subGraphID = 0;
 
     std::shared_ptr<LogicalTensor> tensor5 = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, shape);
     tensor5->SetMemoryTypeOriginal(MEM_UB);
     tensor5->SetMemoryTypeToBe(MEM_UB);
-    tensor5->subGraphID = 0;
 
     auto &alloc1 = function.AddOperation(Opcode::OP_UB_ALLOC, {}, std::vector<std::shared_ptr<LogicalTensor>>({tensor3}));
     alloc1.UpdateLatency(1);
-    alloc1.UpdateSubgraphID(0);
     auto &copyin1 =
         function.AddOperation(Opcode::OP_COPY_IN, std::vector<std::shared_ptr<LogicalTensor>>({tensor1}),
                               std::vector<std::shared_ptr<LogicalTensor>>({tensor3}));
     copyin1.SetOpAttribute(std::make_shared<CopyOpAttribute>(
             OpImmediate::Specified(offset), MEM_UB, shapeImme, shapeImme, std::vector<npu::tile_fwk::OpImmediate>()));
-    copyin1.UpdateSubgraphID(0);
 
     auto &alloc2 = function.AddOperation(Opcode::OP_UB_ALLOC, {}, std::vector<std::shared_ptr<LogicalTensor>>({tensor4}));
     alloc2.UpdateLatency(1);
-    alloc2.UpdateSubgraphID(0);
     auto &copyin2 =
         function.AddOperation(Opcode::OP_COPY_IN, std::vector<std::shared_ptr<LogicalTensor>>({tensor2}),
                               std::vector<std::shared_ptr<LogicalTensor>>({tensor4}));
     copyin2.SetOpAttribute(std::make_shared<CopyOpAttribute>(
             OpImmediate::Specified(offset), MEM_UB, shapeImme, shapeImme, std::vector<npu::tile_fwk::OpImmediate>()));
-    copyin2.UpdateSubgraphID(0);
 
     auto &alloc3 = function.AddOperation(Opcode::OP_UB_ALLOC, {}, std::vector<std::shared_ptr<LogicalTensor>>({tensor5}));
     alloc3.UpdateLatency(1);
-    alloc3.UpdateSubgraphID(0);
     auto &add1 =
         function.AddOperation(Opcode::OP_ADD, std::vector<std::shared_ptr<LogicalTensor>>({tensor3, tensor4}),
                               std::vector<std::shared_ptr<LogicalTensor>>({tensor5}));
-    add1.UpdateSubgraphID(0);
     add1.SetAttribute(OpAttributeKey::inplaceIdx, 0);
 
     SrcDstBufferMergeImpl srcDstMerge;
@@ -121,15 +110,6 @@ void MergeSrcDstBufferTest::StubInputOutput(Function *function) {
     Function *rootFunc = function;
     rootFunc->programs_.insert(std::pair<uint64_t, Function*>(1, function));
     function->rootFunc_ = rootFunc;
-
-    for (auto &subProgram : function->rootFunc_->programs_) {
-        auto opList = subProgram.second->Operations().DuplicatedOpList();
-
-        opList.front()->UpdateSubgraphID(0);
-        for (auto &op : opList) {
-            op->UpdateSubgraphID(0);
-        }
-    }
 }
 
 TEST_F(MergeSrcDstBufferTest, AddReplaced) {

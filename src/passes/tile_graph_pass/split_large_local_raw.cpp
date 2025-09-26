@@ -88,20 +88,6 @@ void SplitLargeLocalRawTensor::UpdateProducerAssemble(
     }
 }
 
-void SplitLargeLocalRawTensor::UpdateMemID(Function &function) const {
-    for (auto &op : function.Operations()) {
-        for (auto &input : op.GetIOperands()) {
-            for (auto &rangePair : input->memorymap) {
-                rangePair.second.memId = input->tensor->GetRawMagic();
-            }
-        }
-        for (auto &output : op.GetOOperands()) {
-            for (auto &rangePair : output->memorymap) {
-                rangePair.second.memId = output->tensor->GetRawMagic();
-            }
-        }
-    }
-}
 bool SplitLargeLocalRawTensor::ShouldProcessTensor(Function& function, const LogicalTensorPtr& tensor) const {
     // 检查MemoryType和shape条件
     if ((tensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) ||
@@ -175,7 +161,6 @@ void SplitLargeLocalRawTensor::SplitLargeLocalRaw(Function &function) const {
 Status SplitLargeLocalRawTensor::RunOnFunction(Function &function) {
     ALOG_INFO_F("===> Start SplitLargeLocalRaw.");
     SplitLargeLocalRaw(function);
-    UpdateMemID(function);
     ALOG_INFO_F("===> End SplitLargeLocalRaw.");
     return SUCCESS;
 }

@@ -37,7 +37,6 @@
 #include "passes/tile_graph_pass/duplicate_view.h"
 #include "passes/tile_graph_pass/l1_copy_reuse.h"
 #include "passes/tile_graph_pass/merge_view_assemble.h"
-#include "passes/tile_graph_pass/insert_copy_op.h"
 #include "passes/tile_graph_pass/intra_subgraph_adapter.h"
 #include "passes/tile_graph_pass/pad_local_buffer.h"
 #include "passes/tile_graph_pass/inplace_process.h"
@@ -46,7 +45,6 @@
 #include "passes/tile_graph_pass/n_buffer_merge.h"
 #include "passes/tile_graph_pass/split_large_local_raw.h"
 #include "passes/tile_graph_pass/split_raw.h"
-#include "passes/tile_graph_pass/update_memory_map.h"
 #include "passes/tile_graph_pass/split_large_fanout_tensor.h"
 #include "passes/tile_graph_pass/cube_process.h"
 #include "passes/tile_graph_pass/remove_unaligned_reshape_op.h"
@@ -76,7 +74,6 @@ PassManager &PassManager::Instance() {
 
 void RegPass() {
     REG_PASS(GlobalMemoryReuse);
-    REG_PASS(UpdateMemoryMap);
     REG_PASS(SubgraphToFunction);
     REG_PASS(GraphPartition);
     REG_PASS(InsertSync);
@@ -92,7 +89,6 @@ void RegPass() {
     REG_PASS(NBufferMerge);
     REG_PASS(L1CopyInReuseMerge);
     REG_PASS(MergeViewAssemble);
-    REG_PASS(InsertInterGraphCopy);
     REG_PASS(IntraSubgraphAdapter);
     REG_PASS(PadLocalBuffer);
     REG_PASS(InplaceProcess);

@@ -126,7 +126,6 @@ private:
     std::map<PipeType, IssueQueue> issueQueues;
     std::unordered_map<MemoryType, int64_t> inChipMemorySize;
 
-    int subGraphID;
     Function &function_;
     int issueId{0};
     uint64_t spillIssueCnt{0};
@@ -236,7 +235,6 @@ public:
     OoOScheduler(Function &function) : function_(function) {}
 
     std::vector<Operation *> GetNewOperations() { return newOperations_; }
-    int GetSubgraphID() { return subGraphID; }
     int workspaceOffset{0};
     int clock{0};
     OoOSchedulerCheck oooCheck;

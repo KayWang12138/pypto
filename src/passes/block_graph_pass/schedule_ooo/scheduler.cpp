@@ -761,7 +761,6 @@ Status OoOScheduler::Schedule(const std::vector<Operation *> &operations) {
         return SUCCESS;
     }
     PrintOpList(operations);
-    subGraphID = operations.front()->GetSubgraphID();
     if (Init(operations) != SUCCESS) { 
         ALOG_ERROR_F("Init failed!"); 
         return FAILED; 

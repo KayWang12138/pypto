@@ -49,28 +49,26 @@ IssueEntryPtr GetIssueEntry(const std::string& name, ComputationalGraphBuilder s
     return nullptr;
 }
 
-void SetTensorAttr(LogicalTensorPtr tensor, MemoryType memType, int subGraphId, int memId) {
+void SetTensorAttr(LogicalTensorPtr tensor, MemoryType memType, int memId) {
     tensor->SetMemoryTypeOriginal(memType);
     tensor->SetMemoryTypeToBe(memType);
-    tensor->subGraphID = subGraphId;
     tensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId = memId;
     tensor->UpdateDynValidShape({SymbolicScalar("S0"), SymbolicScalar("S1")});
 }
 
-void SetAllocAttr(Operation &alloc, int latency, int subGraphId) {
+void SetAllocAttr(Operation &alloc, int latency) {
     alloc.UpdateLatency(latency);
-    alloc.UpdateSubgraphID(subGraphId);
 }
 
 LogicalTensorPtr CreateTensor(Function &currFunction, DataType dateType, std::vector<int64_t> shape, MemoryType memType, int memId) {
     LogicalTensorPtr tensor = std::make_shared<LogicalTensor>(currFunction, dateType, shape);
-    SetTensorAttr(tensor, memType, 0, memId);
+    SetTensorAttr(tensor, memType, memId);
     return tensor;
 }
 
-Operation &CreateAllocOp(Function &currFunction, LogicalTensorPtr tensor, int latency, int subGraphId) {
+Operation &CreateAllocOp(Function &currFunction, LogicalTensorPtr tensor, int latency) {
     Operation &alloc = currFunction.AddOperation(Opcode::OP_UB_ALLOC, {}, LogicalTensors({tensor}));
-    SetAllocAttr(alloc, latency, subGraphId);
+    SetAllocAttr(alloc, latency);
     return alloc;
 }
 
@@ -78,7 +76,6 @@ Operation &CreateCopyOp(Function &currFunction, Opcode opcode, LogicalTensorPtr 
     std::vector<int64_t> offset = {0, 0};
     auto &copy = currFunction.AddOperation(opcode, LogicalTensors({inTensor}), LogicalTensors({outTensor}));
     auto shapeImme = OpImmediate::Specified(shape);
-    copy.UpdateSubgraphID(0);
     if (opcode == Opcode::OP_COPY_IN) {
         copy.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(offset), MEM_UB, shapeImme, shapeImme));
     }
@@ -88,9 +85,8 @@ Operation &CreateCopyOp(Function &currFunction, Opcode opcode, LogicalTensorPtr 
     return copy;
 }
 
-Operation &CreateAddOp(Function &currFunction, LogicalTensorPtr inTensor1, LogicalTensorPtr inTensor2, LogicalTensorPtr outTensor, int subGraphId) {
+Operation &CreateAddOp(Function &currFunction, LogicalTensorPtr inTensor1, LogicalTensorPtr inTensor2, LogicalTensorPtr outTensor) {
     auto &add = currFunction.AddOperation(Opcode::OP_ADD, LogicalTensors({inTensor1, inTensor2}), LogicalTensors({outTensor}));
-    add.UpdateSubgraphID(subGraphId);
     return add;
 }
 
@@ -129,22 +125,20 @@ TEST_F(ScheduleOoOTest, TestMainScheduleOoO) {
     auto tensor7 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_DEVICE_DDR, 7);
     auto tensor8 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_UB, 8);
     auto tensor9 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_UB, 9);
-    auto &alloc1 = CreateAllocOp(*currFunctionPtr, tensor3, 1, 0);
-    auto &alloc2 = CreateAllocOp(*currFunctionPtr, tensor4, 1, 0);
-    auto &alloc3 = CreateAllocOp(*currFunctionPtr, tensor5, 1, 0);
-    auto &alloc4 = CreateAllocOp(*currFunctionPtr, tensor6, 1, 0);
-    auto &alloc5 = CreateAllocOp(*currFunctionPtr, tensor8, 1, 0);
-    auto &alloc6 = CreateAllocOp(*currFunctionPtr, tensor9, 1, 0);
+    auto &alloc1 = CreateAllocOp(*currFunctionPtr, tensor3, 1);
+    auto &alloc2 = CreateAllocOp(*currFunctionPtr, tensor4, 1);
+    auto &alloc3 = CreateAllocOp(*currFunctionPtr, tensor5, 1);
+    auto &alloc4 = CreateAllocOp(*currFunctionPtr, tensor6, 1);
+    auto &alloc5 = CreateAllocOp(*currFunctionPtr, tensor8, 1);
+    auto &alloc6 = CreateAllocOp(*currFunctionPtr, tensor9, 1);
     auto &copyin1 = CreateCopyOp(*currFunctionPtr, Opcode::OP_COPY_IN, tensor1, tensor3, shape);
     auto &copyin2 = CreateCopyOp(*currFunctionPtr, Opcode::OP_COPY_IN, tensor2, tensor4, shape);
-    auto &add1 = CreateAddOp(*currFunctionPtr, tensor3, tensor4, tensor5, 0);
-    auto &add2 = CreateAddOp(*currFunctionPtr, tensor3, tensor4, tensor6, 0);
-    auto &add3 = CreateAddOp(*currFunctionPtr, tensor6, tensor4, tensor8, 0);
-    auto &add4 = CreateAddOp(*currFunctionPtr, tensor8, tensor5, tensor9, 0);
+    auto &add1 = CreateAddOp(*currFunctionPtr, tensor3, tensor4, tensor5);
+    auto &add2 = CreateAddOp(*currFunctionPtr, tensor3, tensor4, tensor6);
+    auto &add3 = CreateAddOp(*currFunctionPtr, tensor6, tensor4, tensor8);
+    auto &add4 = CreateAddOp(*currFunctionPtr, tensor8, tensor5, tensor9);
     (void)alloc1, (void)alloc2, (void)alloc3, (void)alloc4, (void)alloc5, (void)alloc6,
     (void)copyin1, (void)copyin2, (void)add1, (void)add2, (void)add3, (void)add4;
-    auto &copyout = CreateCopyOp(*currFunctionPtr, Opcode::OP_COPY_OUT, tensor9, tensor7, shape);
-    copyout.UpdateSubgraphID(0);
     for (auto &program : rootFuncPtr->rootFunc_->programs_) {
         ReorderOperations(*(program.second));
     }
@@ -180,14 +174,7 @@ TEST_F(ScheduleOoOTest, TestDependencies) {
     Function *function = subGraph.GetFunction();
     EXPECT_NE(function, nullptr);
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_NE(GetIssueEntry("RowMax1", subGraph, ooOScheduler), nullptr);
     IssueEntryPtr issue = GetIssueEntry("RowMax1", subGraph, ooOScheduler);
@@ -218,14 +205,7 @@ TEST_F(ScheduleOoOTest, TestDependenciesView) {
             subGraph.GetTensor("t2")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
     }
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     IssueEntryPtr copyin = GetIssueEntry("Copyin1", subGraph, ooOScheduler);
     EXPECT_NE(copyin, nullptr);
@@ -268,14 +248,7 @@ TEST_F(ScheduleOoOTest, TestDependenciesAssemble) {
             subGraph.GetTensor("t4")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
     }
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     IssueEntryPtr alloc = GetIssueEntry("Alloc1", subGraph, ooOScheduler);
     EXPECT_NE(alloc, nullptr);
@@ -305,14 +278,7 @@ TEST_F(ScheduleOoOTest, TestDependenciesInplace) {
     tensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
         subGraph.GetTensor("t2")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     IssueEntryPtr add = GetIssueEntry("Add1", subGraph, ooOScheduler);
     EXPECT_NE(add, nullptr);
@@ -339,14 +305,7 @@ TEST_F(ScheduleOoOTest, TestDependenciesFailed) {
     tensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
         subGraph.GetTensor("t2")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     std::rotate(ooOScheduler.issueEntries.begin(), ooOScheduler.issueEntries.begin() + 1, ooOScheduler.issueEntries.end());
     ooOScheduler.InitDependencies();
@@ -372,14 +331,7 @@ TEST_F(ScheduleOoOTest, TestSpillCopyIn) {
     Function *function = subGraph.GetFunction();
     EXPECT_NE(function, nullptr);
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
@@ -405,14 +357,7 @@ TEST_F(ScheduleOoOTest, TestSpill) {
     Function *function = subGraph.GetFunction();
     EXPECT_NE(function, nullptr);
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
@@ -448,14 +393,7 @@ TEST_F(ScheduleOoOTest, TestSpillInplace) {
     tensor2->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
         subGraph.GetTensor("t5")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
@@ -497,14 +435,7 @@ TEST_F(ScheduleOoOTest, TestSpillMultiTensor) {
     std::shared_ptr<LogicalTensor> tensor2 = subGraph.GetTensor("t6");
     tensor2->shape = {128, 128};
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
@@ -537,14 +468,7 @@ TEST_F(ScheduleOoOTest, TestSpillView) {
     tensor2->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
         subGraph.GetTensor("t3")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
@@ -577,14 +501,7 @@ TEST_F(ScheduleOoOTest, TestSpillAssemble) {
     tensor2->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
         subGraph.GetTensor("t5")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
@@ -613,14 +530,7 @@ TEST_F(ScheduleOoOTest, TestSpillFragFailed) {
     std::shared_ptr<LogicalTensor> tensor = subGraph.GetTensor("t3");
     tensor->shape = {32, 32};
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
@@ -648,12 +558,6 @@ TEST_F(ScheduleOoOTest, TestSpillL0AFailed) {
     Function *function = subGraph.GetFunction();
     EXPECT_NE(function, nullptr);
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     EXPECT_NE(subGraph.GetTensor("t10"), nullptr);
     std::shared_ptr<LogicalTensor> tensor1 = subGraph.GetTensor("t9");
     tensor1->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
@@ -663,7 +567,6 @@ TEST_F(ScheduleOoOTest, TestSpillL0AFailed) {
         subGraph.GetTensor("t8")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
 
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
@@ -687,14 +590,7 @@ TEST_F(ScheduleOoOTest, TestSchedule) {
     Function *function = subGraph.GetFunction();
     EXPECT_NE(function, nullptr);
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Schedule(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     IssueEntryPtr add = GetIssueEntry("Add2", subGraph, ooOScheduler);
@@ -727,14 +623,7 @@ TEST_F(ScheduleOoOTest, TestScheduleInplace) {
     tensor2->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
         subGraph.GetTensor("t5")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Schedule(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     IssueEntryPtr copyin = GetIssueEntry("Copyin1", subGraph, ooOScheduler);
@@ -776,14 +665,7 @@ TEST_F(ScheduleOoOTest, TestScheduleView) {
         subGraph.GetTensor("t3")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
     tensor2->shape = {32, 32};
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Schedule(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     IssueEntryPtr copyin = GetIssueEntry("Copyin1", subGraph, ooOScheduler);
@@ -827,14 +709,7 @@ TEST_F(ScheduleOoOTest, TestScheduleAssemble) {
     std::shared_ptr<LogicalTensor> tensor3 = subGraph.GetTensor("t5");
     tensor3->shape = {32, 32};
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Schedule(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     IssueEntryPtr copyin1 = GetIssueEntry("Copyin1", subGraph, ooOScheduler);
@@ -870,14 +745,7 @@ TEST_F(ScheduleOoOTest, TestScheduleSpillCopyIn) {
     Function *function = subGraph.GetFunction();
     EXPECT_NE(function, nullptr);
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
@@ -907,14 +775,7 @@ TEST_F(ScheduleOoOTest, TestScheduleSpill) {
     Function *function = subGraph.GetFunction();
     EXPECT_NE(function, nullptr);
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
@@ -956,14 +817,7 @@ TEST_F(ScheduleOoOTest, TestScheduleSpillInplace) {
     tensor2->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
         subGraph.GetTensor("t5")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
@@ -1003,14 +857,7 @@ TEST_F(ScheduleOoOTest, TestScheduleSpillView) {
     tensor2->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
         subGraph.GetTensor("t3")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
@@ -1043,14 +890,7 @@ TEST_F(ScheduleOoOTest, TestScheduleSpillAssemble) {
     tensor2->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
         subGraph.GetTensor("t5")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
@@ -1078,14 +918,7 @@ TEST_F(ScheduleOoOTest, TestScheduleSpillFragFailed) {
     std::shared_ptr<LogicalTensor> tensor = subGraph.GetTensor("t3");
     tensor->shape = {32, 32};
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
@@ -1124,14 +957,7 @@ TEST_F(ScheduleOoOTest, TestScheduleSpillL0AFailed) {
     tensor2->shape = {256, 128};
     subGraph.GetTensor("t8")->shape = {256, 128};
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
@@ -1161,14 +987,7 @@ TEST_F(ScheduleOoOTest, TestScheduleReshape) {
     Function *function = subGraph.GetFunction();
     EXPECT_NE(function, nullptr);
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Schedule(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
 }
@@ -1186,14 +1005,7 @@ TEST_F(ScheduleOoOTest, TestSingleCopyin1) {
     Function *function = subGraph.GetFunction();
     EXPECT_NE(function, nullptr);
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Schedule(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, FAILED);
 }
@@ -1211,14 +1023,7 @@ TEST_F(ScheduleOoOTest, TestSingleCopyin2) {
     Function *function = subGraph.GetFunction();
     EXPECT_NE(function, nullptr);
 
-    for (size_t i = 0; i < opNames.size(); i++) {
-        EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
-        Operation *op = subGraph.GetOp(opNames[i]);
-        op->UpdateSubgraphID(0);
-    }
-
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Schedule(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, FAILED);
 }
@@ -1242,13 +1047,11 @@ TEST_F(ScheduleOoOTest, TestUpdateTensorAttr_DDR) {
     std::shared_ptr<LogicalTensor> tensor1 = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, shape);
     tensor1->SetMemoryTypeOriginal(MEM_DEVICE_DDR);
     tensor1->SetMemoryTypeToBe(MEM_DEVICE_DDR);
-    tensor1->subGraphID = 0;
     tensor1->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId = 1;
 
     std::shared_ptr<LogicalTensor> tensor3 = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, shape);
     tensor3->SetMemoryTypeOriginal(MEM_UB);
     tensor3->SetMemoryTypeToBe(MEM_UB);
-    tensor3->subGraphID = 0;
     tensor3->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId = 3;
 
     OoOScheduler oooSchedule(function);
@@ -1261,13 +1064,11 @@ TEST_F(ScheduleOoOTest, TestUpdateTensorAttr_UB) {
     std::shared_ptr<LogicalTensor> tensor1 = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, shape);
     tensor1->SetMemoryTypeOriginal(MEM_DEVICE_DDR);
     tensor1->SetMemoryTypeToBe(MEM_DEVICE_DDR);
-    tensor1->subGraphID = 0;
     tensor1->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId = 1;
 
     std::shared_ptr<LogicalTensor> tensor3 = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, shape);
     tensor3->SetMemoryTypeOriginal(MEM_UB);
     tensor3->SetMemoryTypeToBe(MEM_UB);
-    tensor3->subGraphID = 0;
     tensor3->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId = 3;
 
     OoOScheduler oooSchedule(function);
@@ -1282,12 +1083,10 @@ TEST_F(ScheduleOoOTest, TestGetSpillTensor) {
     std::shared_ptr<LogicalTensor> tensor3 = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, shape);
     tensor3->SetMemoryTypeOriginal(MEM_UB);
     tensor3->SetMemoryTypeToBe(MEM_UB);
-    tensor3->subGraphID = 0;
     tensor3->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId = 3;
 
     auto &alloc1 = function.AddOperation(Opcode::OP_UB_ALLOC, {}, std::vector<std::shared_ptr<LogicalTensor>>({tensor3}));
     alloc1.UpdateLatency(1);
-    alloc1.UpdateSubgraphID(0);
 
     LogicalTensorPtr tensor = nullptr;
     auto allocIssue = std::make_shared<IssueEntry>(alloc1, 1);
@@ -1304,18 +1103,15 @@ TEST_F(ScheduleOoOTest, TestCheckAllocIssue) {
     std::shared_ptr<LogicalTensor> tensor3 = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, shape);
     tensor3->SetMemoryTypeOriginal(MEM_UB);
     tensor3->SetMemoryTypeToBe(MEM_UB);
-    tensor3->subGraphID = 0;
     tensor3->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId = 3;
 
     std::shared_ptr<LogicalTensor> tensor2 = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, shape);
     tensor3->SetMemoryTypeOriginal(MEM_UB);
     tensor3->SetMemoryTypeToBe(MEM_UB);
-    tensor3->subGraphID = 0;
     tensor3->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId = 1;
 
     auto &alloc1 = function.AddOperation(Opcode::OP_UB_ALLOC, {}, std::vector<std::shared_ptr<LogicalTensor>>({tensor3, tensor2}));
     alloc1.UpdateLatency(1);
-    alloc1.UpdateSubgraphID(0);
 
     OoOScheduler oooSchedule(function);
     oooSchedule.Init(function.Operations().DuplicatedOpList());

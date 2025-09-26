@@ -36,7 +36,6 @@ _checkmode_dict = {
     "PartitionVCPass": 1,
     "GraphPartition": 1,
     "SplitLargeLocalRawTensor": 1,
-    "InsertInterGraphCopy": 1,
     "CommonOperationEliminate": 1,
     "PreGraphProcess": 1,
     "PadLocalBuffer": 1,

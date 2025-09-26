@@ -59,7 +59,7 @@ private:
     Status UpdateTensorAllocMsg(Operation *op, size_t i, const std::vector<int> &allocMagic, std::unordered_map<int, TensorAllocMsg> &tensorAllocMsgMap) const;
     Status FindTensorAllocMsg(Operation *op, std::unordered_map<int, TensorAllocMsg> &tensorAllocMsgMap) const;
     Status CreateAllocNode(const TensorAllocMsg &tensorAllocMsg, Function &function);
-    Status GenAllocOpcode(int subgraphID, const Opcode &allocOpcode, const TensorAllocMsg& tensorAllocMsg, Function& function);
+    Status GenAllocOpcode(const Opcode &allocOpcode, const TensorAllocMsg& tensorAllocMsg, Function& function);
     Status GenTensorAllocMsgMap(Function &function, std::unordered_map<int, TensorAllocMsg> &tensorAllocMsgMap) const;
     Status SetTensorAllocMsg(Operation *op, std::unordered_map<int, TensorAllocMsg> &tensorAllocMsgMap, const std::vector<int> &allocMagic) const;
 
