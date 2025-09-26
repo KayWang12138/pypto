@@ -70,9 +70,9 @@ int64_t CalcCyclesCommon(const std::string &op, int64_t shapeSize, DataType dtyp
         cyclePerRepeat = 1;
     }
 
-    int64_t repeatCount = (totalSize - BYTES_PER_REPEAT) / BYTES_PER_REPEAT + 1;
+    int64_t repeatCount = (totalSize + BYTES_PER_REPEAT - 1) / BYTES_PER_REPEAT;
     int64_t latency = GetLatency(op, dtype);
-    int64_t cycle = latency + repeatCount * cyclePerRepeat - 1;
+    int64_t cycle = latency + (repeatCount - 1) * cyclePerRepeat;
     return cycle;
 }
 
