@@ -28,6 +28,12 @@ PTO_Fwk_GTest_AddExe(
         PRIVATE_LINK_LIBRARIES  ${_PrivateLinkLibraries}
 )
 
+# PyPTO, 依赖 CI 任务拆分, 先通过依赖确保上板顺序
+if (TARGET ${PTO_Fwk_STestNamePrefix}_python)
+    message(STATUS "Add Dependencies ${_Target} -> ${PTO_Fwk_STestNamePrefix}_python")
+    add_dependencies(${_Target} ${PTO_Fwk_STestNamePrefix}_python)
+endif ()
+
 # 用例可执行程序(执行)
 # aicpuWaitFlag_single_test_reduce_scatter_int32_32_32_4 "4"
 # aicpuWaitFlag和aiv两方式_单Tensor和多Tensor_算子名称_数据类型_row_col_卡数 卡数

@@ -298,8 +298,9 @@ function(PTO_Fwk_STest_AddExe_RunExe)
     )
     add_dependencies(${ARG_TARGET} tile_fwk_server)
 
-    # PyPTO, 依赖 CI 任务拆分
+    # PyPTO, 依赖 CI 任务拆分, 先通过依赖确保上板顺序
     if (TARGET ${ARG_TARGET}_python)
+        message(STATUS "Add Dependencies ${ARG_TARGET} -> ${ARG_TARGET}_python")
         add_dependencies(${ARG_TARGET} ${ARG_TARGET}_python)
     endif ()
 

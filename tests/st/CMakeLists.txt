@@ -7,6 +7,10 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
+if (ENABLE_TESTS_STEST_PYTHON)
+    PTO_Fwk_STest_RunPytest()
+endif ()
+
 if (ENABLE_TESTS_STEST OR ENABLE_TESTS_STEST_DISTRIBUTED)
     add_subdirectory(utils)
 endif ()
@@ -23,8 +27,4 @@ endif ()
 
 if (ENABLE_TESTS_STEST_DISTRIBUTED)
     add_subdirectory(distributed)
-endif ()
-
-if (ENABLE_TESTS_STEST_PYTHON)
-    PTO_Fwk_STest_RunPytest()
 endif ()
