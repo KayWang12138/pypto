@@ -132,7 +132,7 @@ std::string GenSubFuncCall(std::map<std::string, Function *> &leafDict, CoreType
   return head_file;
 }
 
-static int LinkObject(const std::string &src_objs, std::string &objPath, bool relocate) {
+static int LinkObject(const std::string &src_objs, std::string &objPath, bool relocate, const std::string &key) {
   size_t cmdSize = src_objs.size() + objPath.size() + CMD_SIZE_1K;
   std::string ccecCmd;
   ccecCmd.resize(cmdSize);
@@ -145,7 +145,15 @@ static int LinkObject(const std::string &src_objs, std::string &objPath, bool re
     return ret;
   }
   ALOG_DEBUG_F("Link ccec command:[%s].", ccecCmd.c_str());
-  ret = std::system(ccecCmd.c_str());
+  const std::string linkScript = "link_" + key + "_" + std::to_string(getpid()) + ".sh";
+  const std::string chCmd = "chmod +x " + linkScript;
+  const std::string ldCmd = "./" + linkScript;
+  std::ofstream script(linkScript.c_str());
+  script << "#!/bin/bash\n";
+  script << ccecCmd.c_str();
+  script.close();
+  (void)std::system(chCmd.c_str());
+  ret = std::system(ldCmd.c_str());
   if (ret != 0) {
     ALOG_ERROR_F("Link kernel failed.");
   }
@@ -171,7 +179,7 @@ int CompileAICoreKernel(std::map<std::string, Function *> &leafDict, dynamic::En
       auto ret = CompileCoreMachine(mid_aic_obj, true, tilingKey, headFile);
       ASSERT(ret == 0);
       src_aic_obj << mid_aic_obj;
-      ret = LinkObject(src_aic_obj.str(), aic_obj, true);
+      ret = LinkObject(src_aic_obj.str(), aic_obj, true, "aic");
       ASSERT(ret == 0);
       return;
   };
@@ -184,7 +192,7 @@ int CompileAICoreKernel(std::map<std::string, Function *> &leafDict, dynamic::En
       auto ret = CompileCoreMachine(mid_aiv_obj, false, tilingKey, headFile);
       ASSERT(ret == 0);
       src_aiv_obj << mid_aiv_obj;
-      ret = LinkObject(src_aiv_obj.str(), aiv_obj, true);
+      ret = LinkObject(src_aiv_obj.str(), aiv_obj, true, "aiv");
       ASSERT(ret == 0);
       return;
   };
@@ -195,7 +203,7 @@ int CompileAICoreKernel(std::map<std::string, Function *> &leafDict, dynamic::En
   src_obj << " " << aic_obj << " " << aiv_obj;
   kernelPath = ccePath + "dy_kernel_" + std::to_string(tilingKey) + ".o";
   ALOG_DEBUG_F("Compile dynamic kernel to %s.", kernelPath.c_str());
-  auto ret = LinkObject(src_obj.str(), kernelPath, false);
+  auto ret = LinkObject(src_obj.str(), kernelPath, false, "mix");
   return ret;
 }
 
