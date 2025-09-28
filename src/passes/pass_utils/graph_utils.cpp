@@ -43,21 +43,13 @@ Operation &GraphUtils::AddDynRawOperation(Function &function, const Opcode opCod
 
 Operation &GraphUtils::AddViewOperation(Function &function, const ViewOp &view, const std::vector<std::vector<SymbolicScalar>> &outDynShape) {
     auto &newOp = AddDynOperation(function, Opcode::OP_VIEW, {view.input}, {view.output}, outDynShape);
-    std::vector<SymbolicScalar> toDynShape = view.output->GetDynValidShape();
-    auto viewAttribute =std::make_shared<ViewOpAttribute>(view.fromOffset);
-    viewAttribute->SetToDynValidShape(toDynShape);
-    viewAttribute->SetToType(view.toType);
-    newOp.SetOpAttribute(viewAttribute);
-    UpdateViewAttr(function, newOp);
+    SetViewAttr(function, newOp, view);
     return newOp;
 }
 
 Operation &GraphUtils::AddAssembleOperation(Function &function, const AssembleOp &assemble, const std::vector<std::vector<SymbolicScalar>> &outDynShape) {
     auto &newOp = function.AddRawOperation(Opcode::OP_ASSEMBLE, {assemble.input}, {assemble.output});
-    auto assembleOpAttribute = std::make_shared<AssembleOpAttribute>(assemble.from, assemble.toOffset);
-    auto fromValidShape = assemble.input->GetDynValidShape();
-    assembleOpAttribute->SetFromDynValidShape(fromValidShape);
-    newOp.SetOpAttribute(assembleOpAttribute);
+    SetAssembleAttr(newOp, assemble);
     SetDynShape(&newOp, outDynShape);
     return newOp;
 }
@@ -77,41 +69,29 @@ Operation &GraphUtils::AddReshapeOperation(Function &function, LogicalTensorPtr 
     return newOp;
 }
 
-void GraphUtils::SetCopyInAttr(Operation *newOp, const CopyInOutOp &copy, const std::vector<std::vector<SymbolicScalar>> &outDynShape) {
+void GraphUtils::SetCopyInAttr(Operation &op, const CopyInOutOp &copy) {
     auto copyAttr = std::make_shared<CopyOpAttribute>(copy.Offset, copy.from, copy.shape, copy.rawShape, copy.fromDynValidShape);
-    newOp->SetOpAttribute(copyAttr);
-    SetDynShape(newOp, outDynShape);
-    newOp->UpdateSubgraphID(copy.output->subGraphID);
+    op.SetOpAttribute(copyAttr);
 }
 
-void GraphUtils::SetCopyOutAttr(Operation *newOp, const CopyInOutOp &copy, const std::vector<std::vector<SymbolicScalar>> &outDynShape) {
+void GraphUtils::SetCopyOutAttr(Operation &op, const CopyInOutOp &copy) {
     auto copyAttr = std::make_shared<CopyOpAttribute>(copy.from, copy.Offset, copy.shape, copy.rawShape, copy.fromDynValidShape);
-    newOp->SetOpAttribute(copyAttr);
-    SetDynShape(newOp, outDynShape);
-    newOp->UpdateSubgraphID(copy.input->subGraphID);
+    op.SetOpAttribute(copyAttr);
 }
 
 Operation &GraphUtils::AddCopyInOperation(Function &function, const CopyInOutOp &copy, const std::vector<std::vector<SymbolicScalar>> &outDynShape) {
     auto &newOp = function.AddOperation(Opcode::OP_COPY_IN, {copy.input}, {copy.output});
-    SetCopyInAttr(&newOp, copy, outDynShape);
-    return newOp;
-}
-
-Operation &GraphUtils::AddCopyInRawOperation(Function &function, const CopyInOutOp &copy, const std::vector<std::vector<SymbolicScalar>> &outDynShape) {
-    auto &newOp = function.AddRawOperation(Opcode::OP_COPY_IN, {copy.input}, {copy.output});
-    SetCopyInAttr(&newOp, copy, outDynShape);
+    SetCopyInAttr(newOp, copy);
+    SetDynShape(&newOp, outDynShape);
+    newOp.UpdateSubgraphID(copy.output->subGraphID);
     return newOp;
 }
 
 Operation &GraphUtils::AddCopyOutOperation(Function &function, const CopyInOutOp &copy, const std::vector<std::vector<SymbolicScalar>> &outDynShape) {
     auto &newOp = function.AddOperation(Opcode::OP_COPY_OUT, {copy.input}, {copy.output});
-    SetCopyOutAttr(&newOp, copy, outDynShape);
-    return newOp;
-}
-
-Operation &GraphUtils::AddCopyOutRawOperation(Function &function, const CopyInOutOp &copy, const std::vector<std::vector<SymbolicScalar>> &outDynShape) {
-    auto &newOp = function.AddRawOperation(Opcode::OP_COPY_OUT, {copy.input}, {copy.output});
-    SetCopyOutAttr(&newOp, copy, outDynShape);
+    SetCopyOutAttr(newOp, copy);
+    SetDynShape(&newOp, outDynShape);
+    newOp.UpdateSubgraphID(copy.input->subGraphID);
     return newOp;
 }
 
@@ -130,6 +110,22 @@ void GraphUtils::UpdateViewAttr(Function &function, Operation &op) {
             viewAttribute->SetFromOffset(fromOffset, fromDynOffset);
         }
     }
+}
+
+void GraphUtils::SetViewAttr(Function &function, Operation &op, const ViewOp &view) {
+    std::vector<SymbolicScalar> toDynShape = view.output->GetDynValidShape();
+    auto viewAttribute =std::make_shared<ViewOpAttribute>(view.fromOffset);
+    viewAttribute->SetToDynValidShape(toDynShape);
+    viewAttribute->SetToType(view.toType);
+    op.SetOpAttribute(viewAttribute);
+    UpdateViewAttr(function, op);
+}
+
+void GraphUtils::SetAssembleAttr(Operation &op, const AssembleOp &assemble) {
+    auto assembleOpAttribute = std::make_shared<AssembleOpAttribute>(assemble.from, assemble.toOffset);
+    auto fromValidShape = assemble.input->GetDynValidShape();
+    assembleOpAttribute->SetFromDynValidShape(fromValidShape);
+    op.SetOpAttribute(assembleOpAttribute);
 }
 }
 }

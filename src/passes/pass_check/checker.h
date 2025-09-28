@@ -25,11 +25,44 @@ namespace npu {
 namespace tile_fwk {
 class Checker {
 public:
+    /**
+     * \brief Destroy the Checker object
+     */
     virtual ~Checker() = default;
+    /**
+     * \brief Do the PreCheck for current pass.
+     *        If not overriden, check nothing and return SUCCESS.
+     * \param function : This parameter indicates the function to be checked.
+     * \return Status, indicating whether the function passes the precheck.
+     */
     virtual Status DoPreCheck(Function &function);
+    /**
+     * \brief Do the PostCheck for current pass.
+     *        If not overriden, check nothing and return SUCCESS.
+     * \param function : This parameter indicates the function to be checked.
+     * \return Status, indicating whether the function passes the postcheck.
+     */
     virtual Status DoPostCheck(Function &function);
 protected:
+    /**
+     * \brief Check whether consumers and producers of the tensor are valid (not null).
+     * \param tensor : This parameter indicates the source tensor.
+     * \return Status, indicating whether the tensor has null consumer or null producer.
+     */
+    Status CheckConsumerProducer(const LogicalTensorPtr &tensor);
+    /**
+     * \brief Check whether the function has invalid op (null op).
+     * \param function : This parameter indicates the function to be checked.
+     * \return Status, indicating whether the function has null op.
+     */
     Status CheckValidOp(Function &function);
+    /**
+     * \brief Check whether ops are valid (has null input/output).
+     *        Besides, check whether the input and the output has null consumer/producer.
+     * \param function : This parameter indicates the function to be checked.
+     * \return Status, indicating whether the function has an op with null input/output,
+     *                 or there exists an op has an input or output with null consumer/producer.
+     */
     Status CheckOpIOValid(Function &function);
 };
 } // namespace tile_fwk

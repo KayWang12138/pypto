@@ -27,6 +27,22 @@ Status Checker::DoPostCheck(Function &function) {
     return SUCCESS;
 }
 
+Status Checker::CheckConsumerProducer(const LogicalTensorPtr &tensor) {
+    for (const auto &producer : tensor->GetProducers()) {
+        if (producer == nullptr) {
+            ALOG_ERROR_F("Found null producer in tensor.");
+            return FAILED;
+        }
+    }
+    for (const auto &consumer : tensor->GetConsumers()) {
+        if (consumer == nullptr) {
+            ALOG_ERROR_F("Found null consumer in tensor.");
+            return FAILED;
+        }
+    }
+    return SUCCESS;
+}
+
 Status Checker::CheckValidOp(Function &function) {
     for (const auto &op : function.Operations().DuplicatedOpList()) {
         if (op == nullptr) {
@@ -44,10 +60,18 @@ Status Checker::CheckOpIOValid(Function &function) {
                 ALOG_ERROR_F("The input of op[%d] is null", op->opmagic);
                 return FAILED;
             }
+            if (CheckConsumerProducer(input) != SUCCESS) {
+                ALOG_ERROR_F("CheckConsumerProducer for op[%d]'s input failed!", op->opmagic);
+                return FAILED;
+            }
         }
         for (const auto &output : op->oOperand) {
             if (output == nullptr) {
                 ALOG_ERROR_F("The output of op[%d] is null", op->opmagic);
+                return FAILED;
+            }
+            if (CheckConsumerProducer(output) != SUCCESS) {
+                ALOG_ERROR_F("CheckConsumerProducer for op[%d]'s output failed!", op->opmagic);
                 return FAILED;
             }
         }

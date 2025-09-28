@@ -51,9 +51,7 @@ bool EqualShapeInOut(const Operation &op) {
 
 Status ProcessRegCopy(const Operation &op, const Function &function, bool &needToDelete) {
     auto regCopyIn = op.iOperand.front();
-    if (regCopyIn == nullptr) {return FAILED;}
     auto regCopyOut= op.oOperand.front();
-    if (regCopyOut == nullptr) {return FAILED;}
     if (regCopyIn->shape == regCopyOut->shape && regCopyIn->GetMemoryTypeOriginal() == regCopyOut->GetMemoryTypeOriginal()) {
         /*
         register copy 输入和输出且memtype相同，无拷贝意义
@@ -62,9 +60,11 @@ Status ProcessRegCopy(const Operation &op, const Function &function, bool &needT
         */
         auto consumerOps = function.FindConsumers(op);
         /* register copy 一定有后继op*/
-        if (consumerOps.empty()) {return FAILED;}
+        if (consumerOps.empty()) {
+            ALOG_ERROR_F("[RemoveRedundantOp] OP_REG_COPY[%d]'s output must have consumer", op.opmagic);
+            return FAILED;
+        }
         for (auto &consumerOp : consumerOps) {
-            if (consumerOp == nullptr) {return FAILED;}
             consumerOp->ReplaceInput(regCopyIn, regCopyOut);
         }
         needToDelete = true;
@@ -92,8 +92,10 @@ Status ProcessAssembleDDR(const Operation &op, const LogicalTensorPtr &assembleI
         return SUCCESS;
     }
     /* DDR --> Assemble --> OUTCAST */
-    if (assembleOut->nodetype != NodeType::OUTCAST) {return FAILED;}
-    if (!function.IsFromOutCast(assembleOut)) {return FAILED;}
+    if (assembleOut->nodetype != NodeType::OUTCAST || !function.IsFromOutCast(assembleOut)) {
+        ALOG_ERROR_F("[RemoveRedundantOp] OP_ASSEMBLE[%d]'s output has no consumer but is not outcast", op.opmagic);
+        return FAILED;
+    }
     ALOG_DEBUG_F("[RemoveRedundantOp] OP_ASSEMBLE has no consumers, opmagic: %d", op.opmagic);
     auto childOpsBackup = assembleIn->GetConsumers();
     for (auto &childOp : childOpsBackup) {
@@ -122,9 +124,11 @@ Status ProcessAssembleUB(const Operation &op, const LogicalTensorPtr &ASSEMBLE_i
     */
     auto consumerOps = function.FindConsumers(op);
     /* UB 上的 ASSEMBLE 一定有后继op*/
-    if (consumerOps.empty()) {return FAILED;}
+    if (consumerOps.empty()) {
+        ALOG_ERROR_F("[RemoveRedundantOp] OP_ASSEMBLE[%d]'s output for ub must have consumer", op.opmagic);
+        return FAILED;
+    }
     for (auto &consumerOp : consumerOps) {
-        if (consumerOp == nullptr) {return FAILED;}
         consumerOp->ReplaceInput(ASSEMBLE_in, ASSEMBLE_out);
     }
     needToDelete = true;
@@ -134,13 +138,7 @@ Status ProcessAssembleUB(const Operation &op, const LogicalTensorPtr &ASSEMBLE_i
 
 Status ProcessAssemble(const Operation &op, Function &function, bool &needToDelete) {
     auto ASSEMBLE_in = op.iOperand.front();
-    if (ASSEMBLE_in == nullptr) {
-        return FAILED;
-    }
     auto ASSEMBLE_out = op.oOperand.front();
-    if (ASSEMBLE_out == nullptr) {
-        return FAILED;
-    }
     if (ASSEMBLE_in->shape != ASSEMBLE_out->shape) {
         return SUCCESS;
     }
@@ -149,10 +147,12 @@ Status ProcessAssemble(const Operation &op, Function &function, bool &needToDele
     }
     if (ASSEMBLE_in->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
         ProcessAssembleDDR(op, ASSEMBLE_in, ASSEMBLE_out, function, needToDelete)) {
+        ALOG_ERROR_F("[RemoveRedundantOp] ProcessAssembleDDR failed!");
         return FAILED;
     }
     if (ASSEMBLE_in->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
         ProcessAssembleUB(op, ASSEMBLE_in, ASSEMBLE_out, function, needToDelete)) {
+        ALOG_ERROR_F("[RemoveRedundantOp] ProcessAssembleUB failed!");
         return FAILED;
     }
     return SUCCESS;
@@ -160,20 +160,16 @@ Status ProcessAssemble(const Operation &op, Function &function, bool &needToDele
 
 Status ProcessView(const Operation &op, Function &function, bool &needToDelete) {
     auto in = op.iOperand.front();
-    if (in == nullptr) {return FAILED;}
     auto out = op.oOperand.front();
-    if (out == nullptr) {return FAILED;}
     if (EqualShapeInOut(op) && in->GetMemoryTypeOriginal() == out->GetMemoryTypeOriginal()) {
         auto consumerOps = function.FindConsumers(op);
         if (consumerOps.empty()) {
             auto producerOps = op.ProducerOps();
             for (auto &producerOp : producerOps) {
-                if (producerOp == nullptr) {return FAILED;}
                 producerOp->ReplaceOutput(out, in);
             }
         } else {
             for (auto &consumerOp : consumerOps) {
-                if (consumerOp == nullptr) {return FAILED;}
                 consumerOp->ReplaceInput(in, out);
             }
         }
@@ -182,7 +178,6 @@ Status ProcessView(const Operation &op, Function &function, bool &needToDelete) 
     }
     if (out->GetConsumers().size() == 1) {
         auto childOp = *(out->GetConsumers().begin());
-        if (childOp == nullptr) {return FAILED;}
         if (childOp->GetOpcode() == Opcode::OP_COMM_WAIT_FLAG) {
             childOp->ReplaceInput(in, out);
             needToDelete = true;
@@ -207,11 +202,12 @@ inputTensor    --> child2
             \ --> child3
 */
 Status ProcessExpand(const Operation &op, bool &needToDelete) {
-    if (op.GetIOperands().size() != 1 || op.GetOOperands().size() != 1) {return FAILED;}
+    if (op.GetIOperands().size() != 1 || op.GetOOperands().size() != 1) {
+        ALOG_ERROR_F("[RemoveRedundantOp] Expand[%d] has incorrect input/output num!", op.opmagic);
+        return FAILED;
+    }
     auto inputTensor = op.GetIOperands().front();
-    if (inputTensor == nullptr) {return FAILED;}
     auto outputTensor = op.GetOOperands().front();
-    if (outputTensor == nullptr) {return FAILED;}
     if (inputTensor->shape.size() != outputTensor->shape.size()) {return SUCCESS;}
     needToDelete = true;
     for (size_t dimIdx = 0; dimIdx < inputTensor->shape.size(); dimIdx++) {
@@ -225,8 +221,14 @@ Status ProcessExpand(const Operation &op, bool &needToDelete) {
 
 Status RemoveRedundantOp::RunOnFunction(Function &function) {
     ALOG_INFO_F("===> Start RemoveRedundantOp");
-    if (DeleteRedundantOps(function) != SUCCESS) {return FAILED;}
-    if (RemoveDummyExpand(function) != SUCCESS) {return FAILED;}
+    if (DeleteRedundantOps(function) != SUCCESS) {
+        ALOG_ERROR_F("[RemoveRedundantOp] DeleteRedundantOps failed!");
+        return FAILED;
+    }
+    if (RemoveDummyExpand(function) != SUCCESS) {
+        ALOG_ERROR_F("[RemoveRedundantOp] RemoveDummyExpand failed!");
+        return FAILED;
+    }
     ALOG_INFO_F("===> End RemoveRedundantOp");
     return SUCCESS;
 }
@@ -246,7 +248,10 @@ Status RemoveRedundantOp::RemoveDummyExpand(Function &function) const {
     bool needToDelete;
     for (auto &op: function.Operations()) {
         if (op.GetOpcode() == Opcode::OP_EXPAND) {
-            if (ProcessExpand(op, needToDelete) != SUCCESS) {return FAILED;}
+            if (ProcessExpand(op, needToDelete) != SUCCESS) {
+                ALOG_ERROR_F("[RemoveRedundantOp] ProcessExpand failed!");
+                return FAILED;
+            }
             if (needToDelete) {
                 dummyOp.push_back(&op);
                 ALOG_INFO_F("Delete OP_EXPAND opmagic: %d.", op.opmagic);
@@ -257,7 +262,10 @@ Status RemoveRedundantOp::RemoveDummyExpand(Function &function) const {
         function.UpdateOperandBeforeRemoveOp(*op, false);
     }
     for (auto op : dummyOp) {
-        if (op->IsDeleted()) {return FAILED;}
+        if (op->IsDeleted()) {
+            ALOG_ERROR_F("[RemoveRedundantOp] Found invalid op[%d]!", op->opmagic);
+            return FAILED;
+        }
         op->SetAsDeleted();
     }
     function.EraseOperations(true);
@@ -269,15 +277,24 @@ Status RemoveRedundantOp::NeedToDelete(const Operation &op, Function &function, 
     auto opcode = op.GetOpcode();
     switch (opcode) {
         case Opcode::OP_REGISTER_COPY: {
-            if (ProcessRegCopy(op, function, needToDelete)) {return FAILED;}
+            if (ProcessRegCopy(op, function, needToDelete)) {
+                ALOG_ERROR_F("[RemoveRedundantOp] ProcessRegCopy failed!");
+                return FAILED;
+            }
             break;
         }
         case Opcode::OP_ASSEMBLE: {
-            if (ProcessAssemble(op, function, needToDelete)) {return FAILED;}
+            if (ProcessAssemble(op, function, needToDelete)) {
+                ALOG_ERROR_F("[RemoveRedundantOp] ProcessAssemble failed!");
+                return FAILED;
+            }
             break;
         }
         case Opcode::OP_VIEW: {
-            if (ProcessView(op, function, needToDelete)) {return FAILED;}
+            if (ProcessView(op, function, needToDelete)) {
+                ALOG_ERROR_F("[RemoveRedundantOp] ProcessView failed!");
+                return FAILED;
+            }
             break;
         }
         default:
@@ -290,7 +307,10 @@ Status RemoveRedundantOp::DeleteRedundantOps(Function &function) const {
     std::vector<Operation *> redundantOp;
     bool needToDelete;
     for (auto &op : function.Operations()) {
-        if (NeedToDelete(op, function, needToDelete) != SUCCESS) {return FAILED;}
+        if (NeedToDelete(op, function, needToDelete) != SUCCESS) {
+            ALOG_ERROR_F("[RemoveRedundantOp] NeedToDelete failed!");
+            return FAILED;
+        }
         if (needToDelete) {
             redundantOp.push_back(&op);
         }
@@ -300,7 +320,10 @@ Status RemoveRedundantOp::DeleteRedundantOps(Function &function) const {
         function.UpdateOperandBeforeRemoveOp(*op, false);
     }
     for (auto op : redundantOp) {
-        if (op->IsDeleted()) {return FAILED;}
+        if (op->IsDeleted()) {
+            ALOG_ERROR_F("[RemoveRedundantOp] Found invalid op[%d]!", op->opmagic);
+            return FAILED;
+        }
         op->SetAsDeleted();
     }
     function.EraseOperations(true);
