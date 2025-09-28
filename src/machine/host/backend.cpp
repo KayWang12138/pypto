@@ -724,14 +724,14 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, cons
         encodeDevAscendFunctionParam.slot = slot;
 
         uint64_t size = 0;
-        EncodeDevAscendFunction(encodeDevAscendFunctionParam, size, nullptr);
+        EncodeDevAscendFunction(function, encodeDevAscendFunctionParam, size, nullptr);
 
         attr->devEncodeList[devRootKey].resize(size);
         DevAscendFunction *funcBin = reinterpret_cast<DevAscendFunction *>(&attr->devEncodeList[devRootKey][0]);
         funcBin->rootHash = devRoot->GetFunctionHash().GetHash();
         funcBin->funcKey = devRootKey;
         funcBin->stackWorkSpaceSize = devTile->GetStackWorkespaceSize();
-        EncodeDevAscendFunction(encodeDevAscendFunctionParam, size, funcBin);
+        EncodeDevAscendFunction(function, encodeDevAscendFunctionParam, size, funcBin);
         funcBin->Reloc(-reinterpret_cast<int64_t>(funcBin), true);
     }
 

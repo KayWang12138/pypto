@@ -21,6 +21,7 @@
 #include "interface/tensor/raw_tensor.h"
 #include "interface/operation/operation.h"
 #include "interface/function/function.h"
+#include "interface/program/program.h"
 #include "interface/configs/config_manager.h"
 
 #include <algorithm>
@@ -377,6 +378,7 @@ void DevAscendFunction::InitOperation(
         const std::vector<int32_t> &outcastStitchIndexList,
         const std::vector<int> &noPredOpList,
         const std::vector<int> &noSuccOpList,
+        const std::unordered_map<Operation *, std::vector<int>> &copyOutResolveSuccIndexListDict,
         bool fillContent) {
     noPredOpList_.HostInitDataSizeOffset(initOffset, noPredOpList.size());
     noSuccOpList_.HostInitDataSizeOffset(initOffset, noSuccOpList.size());
@@ -406,6 +408,7 @@ void DevAscendFunction::InitOperation(
     int operandSize = 0;
     int staticAttrSize = 0;
     int succSize = 0;
+    int copyOutResolveSuccIndexSize = 0;
     for (size_t i = 0; i < callList.size(); i++) {
         Operation *op = callList[i];
         auto callop = std::static_pointer_cast<CallOpAttribute>(callList[i]->GetOpAttribute());
@@ -413,18 +416,21 @@ void DevAscendFunction::InitOperation(
         operandSize += op->GetIOperands().size() + op->GetOOperands().size();
         staticAttrSize += callop->GetLinearArgList().size();
         succSize += callOpSuccDict.find(op)->second.size();
+        copyOutResolveSuccIndexSize += copyOutResolveSuccIndexListDict.find(op)->second.size();
     }
     operationOperandInfoList_.HostInitDataSizeOffset(initOffset, operandSize);
     operationAttrList_.HostInitDataSizeOffset(initOffset, staticAttrSize);
     opAttrOffsetList_.HostInitDataSizeOffset(initOffset, callList.size());
     opCalleeList_.HostInitDataSizeOffset(initOffset, callList.size());
     operationSuccList_.HostInitDataSizeOffset(initOffset, succSize);
+    operationCopyOutResolveSuccIndexList_.HostInitDataSizeOffset(initOffset, copyOutResolveSuccIndexSize);
 
     ONFILLCONTENT {
         DevAscendFunctionDuppedData *dupData = reinterpret_cast<DevAscendFunctionDuppedData *>(&At(duppedData_, 0));
         operandSize = 0;
         staticAttrSize = 0;
         succSize = 0;
+        copyOutResolveSuccIndexSize = 0;
         for (size_t i = 0; i < callList.size(); i++) {
             Operation *op = callList[i];
             auto callop = std::static_pointer_cast<CallOpAttribute>(callList[i]->GetOpAttribute());
@@ -488,6 +494,15 @@ void DevAscendFunction::InitOperation(
                 dupData->GetOperationCurrPredCount(succ)++;
             }
             succSize += opSuccSize;
+
+            // Fill copyout resolve
+            const std::vector<int> &copyOutResolveSuccIndexList = copyOutResolveSuccIndexListDict.find(op)->second;
+            int opCopyOutResolveSuccIndexSize = copyOutResolveSuccIndexList.size();
+            staticField.depGraphCopyOutResolveSuccIndexList.AssignRangeOffsetSize(operationCopyOutResolveSuccIndexList_, copyOutResolveSuccIndexSize, opCopyOutResolveSuccIndexSize);
+            for (int j = 0; j < opCopyOutResolveSuccIndexSize; j++) {
+                At(staticField.depGraphCopyOutResolveSuccIndexList, j) = copyOutResolveSuccIndexList[j];
+            }
+            copyOutResolveSuccIndexSize += copyOutResolveSuccIndexList.size();
         }
         for (size_t i = 0; i < callList.size(); i++) {
             Operation *op = callList[i];
@@ -746,6 +761,8 @@ struct EncodeDevAscendFunctionInfo {
 
     std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> incastOpAttrDict;
     std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> outcastOpAttrDict;
+
+    std::unordered_map<Operation *, std::vector<int>> copyOutResolveSuccIndexListDict;
 
     static DevShape InitShape(const std::vector<int64_t> &shape) {
         DevShape initShape;
@@ -1010,10 +1027,14 @@ struct EncodeDevAscendFunctionInfo {
         return cceCodeInfoList[leafIndex].coreType;
     }
 
-    void removeRedundantCall(std::vector<Operation *> &/* callOpList */) {
+    void RemoveDeadHubCall(std::vector<Operation *> &/* callOpList */) {
         std::vector<Operation *> deadCallOps;
         for (auto &[callOp, succOps] : callOpSuccDict) {
             if (GetCoreType(callOp) == static_cast<int>(CoreType::HUB) && succOps.size() == 0) {
+                /*  Find all hub callop that has no successors, mark it is no need to schedule:
+                 *  1. mark pred to be zero
+                 *  2. remove it from the successor of all callop
+                 */
                 callOpPredDict[callOp] = 0;
                 deadCallOps.push_back(callOp);
             }
@@ -1025,7 +1046,8 @@ struct EncodeDevAscendFunctionInfo {
         }
     }
 
-    void optimizeCallopSuccs(std::vector<Operation *> &callOpList, int optimizeLimit) {
+    void ReplaceSuccessorWithHub(std::vector<Operation *> &callOpList, int optimizeLimit) {
+        // dict from successor set to callop set that has the successor.
         OrderedMap<OrderedSet<Operation *>, OrderedSet<Operation *>, Hasher> predDict;
         for (auto &callOp : callOpList) {
             if (callOpSuccDict.count(callOp)) {
@@ -1067,12 +1089,12 @@ struct EncodeDevAscendFunctionInfo {
         ALOG_INFO_F("total out: %d\n", outCount);
     }
 
-    inline void findAllReachableNodes(int start_node, std::unordered_map<int, std::vector<int>>& outGraph,
+    inline void FindAllReachableNodes(int start_node, std::unordered_map<int, std::vector<int>>& outGraph,
                                         std::vector<std::unordered_set<int>>& reachable, std::vector<int>& visited) {
         reachable[start_node].insert(start_node);
-        for (int v : outGraph[start_node]) { 
+        for (int v : outGraph[start_node]) {
             if (visited[v] == 0) {
-                findAllReachableNodes(v, outGraph, reachable, visited);
+                FindAllReachableNodes(v, outGraph, reachable, visited);
             }
             reachable[start_node].insert(reachable[v].begin(), reachable[v].end());
         }
@@ -1084,7 +1106,7 @@ struct EncodeDevAscendFunctionInfo {
         std::vector<int> visited(colorNum, 0);
         for (int i = 0; i < colorNum; ++i) {
             if (visited[i] == 0) {
-                findAllReachableNodes(i, colorOutGraph, reachable, visited); // DFS记忆化计算
+                FindAllReachableNodes(i, colorOutGraph, reachable, visited); // DFS记忆化计算
             }
         }
         for (int u = 0; u < colorNum; ++u) {
@@ -1113,20 +1135,25 @@ struct EncodeDevAscendFunctionInfo {
         FindRedundantEdges(colorNum, redundantColorOutGraph);
         // Erase redundant edges
         for (int i = 0; i < colorNum; i++) {
+            // make redundantColorOutGraph[i]'s order grow
             std::sort(redundantColorOutGraph[i].begin(), redundantColorOutGraph[i].end());
             ALOG_INFO_F("Redundant outgraph of %d is %s", i, IntVecToStr(redundantColorOutGraph[i]).c_str());
             // update color_out_graph
             std::vector<int> newGraph;
             size_t j = 0U;
+            // for each i -> * -> k && i -> k
             for (int k : redundantColorOutGraph[i]) {
+                // for each i -> x before x is k (so that x != k), add i -> x
                 while (colorOutGraph[i][j] != k) {
                     newGraph.push_back(colorOutGraph[i][j]);
                     callOpSuccDict[callopList[i]].Insert(callopList[colorOutGraph[i][j]]);
                     callOpPredDict[callopList[colorOutGraph[i][j]]]++;
                     j++;
                 }
+                // until x == k, skip x
                 j++;
             }
+            // add i -> x, where x is the rest (larger than the largest k)
             while (j < colorOutGraph[i].size()) {
                 newGraph.push_back(colorOutGraph[i][j]);
                 callOpSuccDict[callopList[i]].Insert(callopList[colorOutGraph[i][j]]);
@@ -1178,6 +1205,7 @@ struct EncodeDevAscendFunctionInfo {
     }
 
     EncodeDevAscendFunctionInfo(
+            Function *dyndev,
             const std::unordered_map<uint64_t, int> &tHashIndexDict,
             const std::vector<CceCodeInfo> &tCceCodeInfoList,
             const SymbolicExpressionTable *tExpressionTable,
@@ -1186,8 +1214,9 @@ struct EncodeDevAscendFunctionInfo {
               calleeHashIndexDict(tHashIndexDict),
               cceCodeInfoList(tCceCodeInfoList),
               expressionTable(tExpressionTable) {
+        (void)dyndev;
         std::unordered_map<std::shared_ptr<LogicalTensor>, OrderedSet<Operation *>> consumerDict;
-        std::unordered_map<Operation *, int> callopNumDict;
+        std::unordered_map<Operation *, int> callopIndexDict;
 
         rawName = devRoot->GetRawName();
 
@@ -1200,7 +1229,7 @@ struct EncodeDevAscendFunctionInfo {
         std::vector<Operation *> callopList;
         for (auto &op : devRoot->Operations()) {
             if (op.GetOpcode() == Opcode::OP_CALL) {
-                callopNumDict[&op] = callopList.size();
+                callopIndexDict[&op] = callopList.size();
                 callopList.push_back(&op);
 
                 for (auto &i : op.GetIOperands()) {
@@ -1218,21 +1247,50 @@ struct EncodeDevAscendFunctionInfo {
             callOpPredDict[op] = 0;
             callOpSuccDict[op].clear();
         }
+
+        FunctionCache &cache = Program::GetInstance().GetFunctionCache();
+        std::unordered_map<Operation *, std::unordered_map<Operation *, int>> producerConsumerOOperandIndexDict;
         for (auto &op : callopList) {
+            Function *devLeafFunc = cache.GetCacheFunction(op->GetCalleeHash());
+            std::shared_ptr<LeafFuncAttribute> leafAttr = devLeafFunc != nullptr ? devLeafFunc->GetLeafFuncAttribute() : nullptr;
+
             for (auto &o : op->GetOOperands()) {
                 for (auto &consumer : consumerDict[o]) {
                     if (consumer->GetOpcode() != Opcode::OP_CALL) {
+                        // This should be prevented from the above: only call op is considered as consumer
                         continue;
                     }
                     if (op == consumer) {
+                        // Consumer and producer can not be the same.
                         continue;
                     }
-                    colorOutGraph[callopNumDict[op]].push_back(callopNumDict[consumer]);
+                    // Index for callop to its ooperand's consumer callop index list
+                    colorOutGraph[callopIndexDict[op]].push_back(callopIndexDict[consumer]);
+
+                    if (producerConsumerOOperandIndexDict.count(op) && producerConsumerOOperandIndexDict[op].count(consumer)) {
+                        // There might be multiple ooperand of op that is consumed by the same consumer. So when
+                        // it happens, we need to select the ooperand with the biggest counter.
+                        int currIndex = producerConsumerOOperandIndexDict[op][consumer];
+                        int oIndex = op->GetOOperandIndex(o);
+                        if (leafAttr != nullptr && leafAttr->outcastCopyOutResolveCounterList.size() != 0) {
+                            // When there is leaf, and the root is marked as resolve, the leafAttr records the biggest counter.
+                            int currCounter = leafAttr->outcastCopyOutResolveCounterList[currIndex];
+                            int oCounter = leafAttr->outcastCopyOutResolveCounterList[oIndex];
+                            if (oCounter > currCounter) {
+                                producerConsumerOOperandIndexDict[op][consumer] = oIndex;
+                            }
+                        } else {
+                            // Otherwise, we use any, which is the first
+                        }
+                    } else {
+                        producerConsumerOOperandIndexDict[op][consumer] = op->GetOOperandIndex(o);
+                    }
                 }
             }
         }
         for (size_t i = 0; i < callopList.size(); i++) {
             std::sort(colorOutGraph[i].begin(), colorOutGraph[i].end());
+            // remove repeated index in ooperand's consumer callop index list
             colorOutGraph[i].resize(std::unique(colorOutGraph[i].begin(), colorOutGraph[i].end()) -
                                 colorOutGraph[i].begin());
         }
@@ -1240,10 +1298,60 @@ struct EncodeDevAscendFunctionInfo {
         EraseRedundantColorEdges(callopList);
         PrintColorGraph(callopList.size());
 
-        removeRedundantCall(callopList);
-        optimizeCallopSuccs(callopList, 10); // add dummp op at least 10 depends can be reduced
+        RemoveDeadHubCall(callopList);
+        ReplaceSuccessorWithHub(callopList, 10); // add dummp op at least 10 depends can be reduced
 
         AddDummyCallsAtBeginningAndEnding(callopList);
+
+        for (auto &[callop, succSet] : callOpSuccDict) {
+            Function *devLeafFunc = cache.GetCacheFunction(callop->GetCalleeHash());
+            if (devLeafFunc == nullptr) {
+                ASSERT(GetCoreType(callop) == static_cast<int>(CoreType::HUB));
+                copyOutResolveSuccIndexListDict[callop] = std::vector<int>({0});
+                continue;
+            }
+            std::shared_ptr<LeafFuncAttribute> leafAttr = devLeafFunc->GetLeafFuncAttribute();
+            if (leafAttr->outcastCopyOutResolveCounterList.size() == 0) {
+                copyOutResolveSuccIndexListDict[callop] = std::vector<int>({0});
+                continue;
+            }
+
+            std::vector<OrderedSet<Operation *>> copyOutResolveSetList;
+            copyOutResolveSetList.resize(leafAttr->copyOutResolveSize);
+
+            OrderedSet<Operation *> nonCopyOutResolveSuccSet;
+            for (auto &succ : succSet) {
+                if (producerConsumerOOperandIndexDict.count(callop) && producerConsumerOOperandIndexDict[callop].count(succ)) {
+                    auto ooperandIndex = producerConsumerOOperandIndexDict[callop][succ];
+                    int copyOutResolveCounter = leafAttr->outcastCopyOutResolveCounterList[ooperandIndex];
+                    copyOutResolveSetList[copyOutResolveCounter].Insert(succ);
+                } else {
+                    nonCopyOutResolveSuccSet.Insert(succ);
+                }
+            }
+
+            std::vector<int> copyOutResolveSuccIndexList;
+            std::vector<Operation *> copyOutResolveSuccList;
+            for (int k = 0; k < leafAttr->copyOutResolveSize; k++) {
+                OrderedSet<Operation *> &succ = copyOutResolveSetList[k];
+                copyOutResolveSuccIndexList.push_back(copyOutResolveSuccList.size());
+                copyOutResolveSuccList.insert(copyOutResolveSuccList.end(), succ.begin(), succ.end());
+            }
+            copyOutResolveSuccIndexList.push_back(copyOutResolveSuccList.size());
+            ASSERT(copyOutResolveSuccIndexList[0] == 0);
+            copyOutResolveSuccList.insert(copyOutResolveSuccList.end(), nonCopyOutResolveSuccSet.begin(), nonCopyOutResolveSuccSet.end());
+
+            // Assert: succ set are the same
+            ASSERT(std::set<Operation *>(succSet.begin(), succSet.end()) == std::set<Operation *>(copyOutResolveSuccList.begin(), copyOutResolveSuccList.end()));
+
+            succSet.Clear();
+            for (Operation *copyOutResolveSucc : copyOutResolveSuccList) {
+                // Assert: no duplicated item in copyOutResolveSuccList
+                ASSERT(succSet.Insert(copyOutResolveSucc));
+            }
+
+            copyOutResolveSuccIndexListDict[callop] = copyOutResolveSuccIndexList;
+        }
 
         std::unordered_map<Operation *, int> callopCoreTypeDict;
         for (auto &op : callopList) {
@@ -1300,6 +1408,13 @@ struct EncodeDevAscendFunctionInfo {
 
         EncodeIncasts();
         EncodeOutCasts();
+
+        // dummy op might be inserted in EncodeOutcast, add dummy copy out resolve.
+        for (auto &op : callList) {
+            if (!copyOutResolveSuccIndexListDict.count(op)) {
+                copyOutResolveSuccIndexListDict[op] = std::vector<int>({0});
+            }
+        }
     }
 
     void Init(DevAscendFunction *devFunc, const EncodeDevAscendFunctionParam &param, bool fillContent) {
@@ -1314,13 +1429,16 @@ struct EncodeDevAscendFunctionInfo {
         devFunc->InitRawTensorAndMemoryRequirement(initOffset, incastRawTensorList, outcastRawTensorList,
             rawTensorList, rawMagicToRawTensor, rawAttrs, param, expressionTable, fillContent);
         devFunc->InitTensor(initOffset, tensorList, rawTensorList, fillContent);
-        devFunc->InitOperation(initOffset, expressionTable, callList, tensorList, rawTensorList, callOpPredDict, callOpSuccDict, calleeHashIndexDict, outcastStitchIndexList, noPredOpList, noSuccOpList, fillContent);
+        devFunc->InitOperation(
+                initOffset, expressionTable, callList, tensorList, rawTensorList,
+                callOpPredDict, callOpSuccDict, calleeHashIndexDict, outcastStitchIndexList,
+                noPredOpList, noSuccOpList, copyOutResolveSuccIndexListDict, fillContent);
         devFunc->InitIncastOutcast(initOffset, incastList, outcastList, tensorList, incastOpAttrDict, outcastOpAttrDict, slot, rawName, fillContent);
     }
 };
 
-void EncodeDevAscendFunction(const EncodeDevAscendFunctionParam &param, uint64_t &offset, DevAscendFunction *base) {
-    EncodeDevAscendFunctionInfo encodeInfo(param.calleeHashIndexDict, param.cceCodeInfoList, param.expressionTable, param.devRoot);
+void EncodeDevAscendFunction(Function *dyndev, const EncodeDevAscendFunctionParam &param, uint64_t &offset, DevAscendFunction *base) {
+    EncodeDevAscendFunctionInfo encodeInfo(dyndev, param.calleeHashIndexDict, param.cceCodeInfoList, param.expressionTable, param.devRoot);
 
     if (base == nullptr) {
         DevAscendFunction devfunc;

@@ -203,7 +203,12 @@ struct CoreFuncParam {
     __gm__ npu::tile_fwk::DynFuncData *funcData;
     __gm__ uint64_t *opAttrs;
     __gm__ uint64_t *exprTbl;
+    uint32_t taskId;
 };
+
+#define TASKID_TASK_BITS 20
+#define FuncID(id)       (id >> TASKID_TASK_BITS)
+#define TaskID(id)       (id & ((1 << TASKID_TASK_BITS) - 1))
 
 #define SYM_VALUE_LEN 63
 #define SYM_VALUE_MASK ((1UL << SYM_VALUE_LEN) - 1)

@@ -114,7 +114,6 @@ private:
     std::string GenAlloc(SymbolManager &manager, BufferType bufferType, npu::tile_fwk::DataType dataType,
         const npu::tile_fwk::TileRange &range) const;
 
-    bool IsCube(const OperationsViewer &operationList) const;
     std::string GetParamType(const Function &func) const;
 
     std::string GenDynParamForExpr(const npu::tile_fwk::Function &func) const;

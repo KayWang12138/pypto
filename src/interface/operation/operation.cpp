@@ -32,6 +32,7 @@
 #include "passes/pass_utils/pass_utils.h"
 
 namespace npu::tile_fwk {
+const std::string OpAttributeKey::aicpuCall = "AICPU_CALL";
 const std::string OpAttributeKey::color = "COLOR";
 const std::string OpAttributeKey::scalar = "SCALAR";
 const std::string OpAttributeKey::dynScalar = "DYN_SCALAR";
@@ -500,31 +501,35 @@ std::shared_ptr<Operation> Operation::LoadJson(
     return op;
 }
 
-std::string Operation::DumpSSA() const {
+std::string Operation::DumpSSA(const std::string &prefix) const {
     std::ostringstream oss;
-    for (size_t i = 0; i < oOperand.size(); i++) {
-        if (i > 0) {
-            oss << ", ";
-        }
-        oss << oOperand[i]->DumpSSA(false, true, true);
-        if (i == oOperand.size() - 1) {
-            oss << " = ";
+
+    if (GetCommentList().size() != 0) {
+        for (auto &c : GetCommentList()) {
+            oss << prefix << "/*" + c + "*/\n";
         }
     }
+
+    oss << prefix;
+    for (size_t i = 0; i < oOperand.size(); i++) {
+        oss << ((i != 0) ? ", " : "");
+        oss << oOperand[i]->DumpSSA(false, true, true);
+        oss << ((i == oOperand.size() - 1) ? " = " : "");
+    }
     oss << "!" << GetOpMagic() << " " << GetOpcodeStr(true);
+    for (size_t i = 0; i < iOperand.size(); i++) {
+        oss << ((i == 0) ? " " : ", ");
+        oss << iOperand[i]->DumpSSA(false, true, false);
+    }
     if (opAttribute_ != nullptr) {
         oss << " " << opAttribute_->Dump();
     }
-
-    for (size_t i = 0; i < iOperand.size(); i++) {
-        if (i == 0) {
-            oss << " ";
-        } else if (i > 0) {
-            oss << ", ";
-        }
-        oss << iOperand[i]->DumpSSA(false, true, false);
+    if (GetAllAttr().size()) {
+        oss << " " << DumpAttr();
     }
-    oss << " " << DumpAttr();
+    if (OpcodeManager::Inst().IsSync(GetOpcode())) {
+        oss << " #sync{" << GetSyncQueue().Dump() << "}";
+    }
     oss << "\n";
     return oss.str();
 }
@@ -591,6 +596,25 @@ LogicalTensorPtr Operation::GetOutputOperand(const size_t index) const {
         return nullptr;
     }
     return oOperand[index];
+}
+
+int Operation::GetIOperandIndex(const LogicalTensorPtr &ioperand) const {
+    for (size_t i = 0; i < iOperand.size(); ++i) {
+        ASSERT(iOperand[i] != nullptr);
+        if (iOperand[i] == ioperand) {
+            return (int)i;
+        }
+    }
+    return -1;
+}
+int Operation::GetOOperandIndex(const LogicalTensorPtr &ooperand) const {
+    for (size_t i = 0; i < oOperand.size(); ++i) {
+        ASSERT(oOperand[i] != nullptr);
+        if (oOperand[i] == ooperand) {
+            return (int)i;
+        }
+    }
+    return -1;
 }
 
 std::unordered_set<Operation *> Operation::ConsumerOps() const {

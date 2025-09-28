@@ -62,6 +62,7 @@
 #include "passes/block_graph_pass/infer_param_index.h"
 #include "passes/block_graph_pass/add_alloc.h"
 #include "passes/block_graph_pass/remove_alloc.h"
+#include "passes/block_graph_pass/copy_out_resolve.h"
 #include "passes/block_graph_pass/merge_src_dst_buffer.h"
 #include "passes/block_graph_pass/dyn_attr_to_static.h"
 #include "passes/pass_config/pass_config_manager.h"
@@ -105,6 +106,7 @@ void RegPass() {
     REG_PASS(InferParamIndex);
     REG_PASS(AddAlloc);
     REG_PASS(RemoveAlloc);
+    REG_PASS(CopyOutResolve);
     REG_PASS(SrcDstBufferMerge);
     REG_PASS(LoopUnroll);
     REG_PASS(DynAttrToStatic);
@@ -144,6 +146,7 @@ void PassManager::RegDefaultStrategy() {
             {              "OoOSchedule",              "OoOSchedule",   PassType::TYPE_BLOCK_GRAPH},
             {        "GlobalMemoryReuse",        "GlobalMemoryReuse",   PassType::TYPE_BLOCK_GRAPH},
             {              "RemoveAlloc",              "RemoveAlloc",   PassType::TYPE_BLOCK_GRAPH},
+            {           "CopyOutResolve",           "CopyOutResolve",   PassType::TYPE_BLOCK_GRAPH},
             {               "InsertSync",               "InsertSync",   PassType::TYPE_BLOCK_GRAPH},
             {           "CodegenPreproc",           "CodegenPreproc",   PassType::TYPE_BLOCK_GRAPH},
     });

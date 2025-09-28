@@ -362,17 +362,17 @@ void DeviceRunner::Dump() {
 
 /**************************** DynamicFunction *****************************/
 int DeviceRunner::DynamicLaunchSynchronize(rtStream_t aicpuStream, rtStream_t aicoreStream) {
-    int rc = rtStreamSynchronize(aicoreStream);
-    rc += rtStreamSynchronize(aicpuStream);
+    int rcAicore = rtStreamSynchronize(aicoreStream);
+    int rcAicpu = rtStreamSynchronize(aicpuStream);
 
     if (IsAstDataDumpEnabled()) {
         ALOG_DEBUG_F("DataDumpServerInit is called \n");
         AdxDataDumpServerUnInit();
     }
-    if (rc != 0) {
-        ALOG_ERROR_F("sync stream failed %d", rc);
+    if (rcAicore != 0 || rcAicpu != 0) {
+        ALOG_ERROR_F("sync stream failed aicpu:%d aicore:%d", rcAicpu, rcAicore);
     }
-    return rc;
+    return rcAicore + rcAicpu;
 }
 
 int DeviceRunner::launchDynamicAiCore(rtStream_t aicoreStream, AstKernelArgs *kernelArgs) {
@@ -446,17 +446,20 @@ int DeviceRunner::RunPrepare(rtStream_t aicpuStream, rtStream_t aicoreStream) {
     aclrtEvent event;
     rc = aclrtCreateEvent(&event);
     if (rc < 0) {
-        ALOG_INFO_F("aclrtCreateEvent failed %d\n", rc);
+        ALOG_ERROR_F("aclrtCreateEvent failed %d\n", rc);
+        return rc;
     }
 
     rc = aclrtRecordEvent(event, aicpuStream);
     if (rc < 0) {
-        ALOG_INFO_F("aclrtRecordEvent failed %d\n", rc);
+        ALOG_ERROR_F("aclrtRecordEvent failed %d\n", rc);
+        return rc;
     }
 
     rc = aclrtStreamWaitEvent(aicoreStream, event);
     if (rc < 0) {
-        ALOG_INFO_F("aclrtStreamWaitEvent failed %d\n", rc);
+        ALOG_ERROR_F("aclrtStreamWaitEvent failed %d\n", rc);
+        return rc;
     }
 
     KernelArgs kernelArgs = {};
@@ -468,7 +471,7 @@ int DeviceRunner::RunPrepare(rtStream_t aicpuStream, rtStream_t aicoreStream) {
             sizeof(kernelArgs),
             RT_MEMCPY_HOST_TO_DEVICE);
     }
-    return rc;
+    return 0;
 }
 
 int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t taskId, AstKernelArgs *kernelArgs, int blockdim, int launchAicpuNum) {
@@ -499,8 +502,10 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream,
     }
 
     rc = RunPrepare(aicpuStream, aicoreStream);
-    if (rc < 0)
+    if (rc < 0) {
+        ALOG_ERROR_F("prepare failed %d\n", rc);
         return rc;
+    }
 
     rc = launchDynamicAiCore(aicoreStream, kernelArgs);
     if (rc < 0) {
@@ -508,7 +513,8 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream,
         return rc;
     }
 
-    if (launchDynamicAiCpuInit(aicpuStream, kernelArgs) < 0) {
+    rc = launchDynamicAiCpuInit(aicpuStream, kernelArgs);
+    if (rc < 0) {
         ALOG_ERROR_F("launch aicpu init failed %d\n", rc);
         return rc;
     }

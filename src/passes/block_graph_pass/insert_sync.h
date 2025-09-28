@@ -86,7 +86,7 @@ private:
 };
 
 using IndexOp = std::pair<int, Operation *>;
-enum class PipeSeq { AIC_MTE2 = 0, AIC_MTE1, AIC_M, AIC_FIX, AIV_MTE2, AIV_V, AIV_MTE3, AIC_MTE3, AIV_S, PIPE_END };
+enum class PipeSeq { AIC_MTE2 = 0, AIC_MTE1, AIC_M, AIC_FIX, AIV_MTE2, AIV_V, AIV_MTE3, AIC_MTE3, AIV_S, AIC_S, PIPE_END };
 
 class PipeSync {
 public:

@@ -42,8 +42,15 @@ using Json = nlohmann::json;
 namespace npu::tile_fwk {
 constexpr size_t NON_GROUP = -1;
 constexpr int32_t TILE_STR_PREFIX_LEN = 5;
+
+#define AICPU_CALL_NUM_COPYOUT_RESOLVE 1
+#define AICPU_CALL_NUM_BIT 16
+#define AICPU_CALL_ARG_BIT 16
+#define AICPU_CALL_TASK_BIT 32
+
 class OpAttributeKey {
 public:
+    static const std::string aicpuCall;
     static const std::string scalar;
     static const std::string dynScalar;
     static const std::string isGlobalInput;
@@ -167,6 +174,10 @@ public:
 
     Function *BelongTo() const { return function_; }
 
+    const QueueType &GetQueueType() const { return queueType; }
+
+    const OpSyncQueue &GetSyncQueue() const { return syncQueue_; }
+
     const TileShape &GetTileShape() const { return tileShape_; }
     void UpdateTileShape(const TileShape newTileShape) { tileShape_ = newTileShape; }
 
@@ -241,7 +252,7 @@ public:
     static std::shared_ptr<Operation> LoadJson(Function &cur,
         const std::unordered_map<int, std::shared_ptr<LogicalTensor>> &tensorDict, const Json &opDump);
 
-    [[nodiscard]] std::string DumpSSA() const;
+    [[nodiscard]] std::string DumpSSA(const std::string &prefix="") const;
 
     [[nodiscard]] std::string Dump() const;
 
@@ -260,6 +271,9 @@ public:
     LogicalTensorPtr GetInputOperand(const size_t index) const;
 
     LogicalTensorPtr GetOutputOperand(const size_t index) const;
+
+    int GetIOperandIndex(const LogicalTensorPtr &ioperand) const;
+    int GetOOperandIndex(const LogicalTensorPtr &ooperand) const;
 
     void ReplaceInputOperand(const LogicalTensorPtr &originInput, const LogicalTensorPtr &newInput);
 
@@ -457,6 +471,9 @@ public:
     std::vector<std::reference_wrapper<SymbolicScalar>> GetDynamicAttributeList();
     SourceLocationPtr GetLocation() const { return location_; }
 
+    const std::vector<std::string> &GetCommentList() const { return commentList_; }
+    std::vector<std::string> &GetCommentList() { return commentList_; }
+
 private:
     Opcode opcode_{Opcode::OP_UNKNOWN};
     int subgraphID_{NOT_IN_SUBGRAPH};
@@ -478,6 +495,8 @@ private:
     SourceLocationPtr location_ {nullptr};
     std::array<std::string, static_cast<int>(SemanticLabelType::LABEL_COUNT)> semanticLabels_;
     Function *function_;
+
+    std::vector<std::string> commentList_;
 };
 using OperationPtr = std::shared_ptr<Operation>;
 

@@ -215,7 +215,11 @@ enum class Opcode {
     // End: add for TOPK and ArgSort
     // Begin: add for Reduce Atomic
     OP_REDUCE_ACC,
-    // Begin: add for Reduce Atomic
+    // End: add for Reduce Atomic
+    // Begin: aicpu-aicore communication
+    OP_AICPU_CALL_AIC,
+    OP_AICPU_CALL_AIV,
+    // End: aicpu-aicore communication
     OP_MAX_POOL,
     // Begin: parallel sort
     OP_SORT,
@@ -355,6 +359,10 @@ public:
 
     inline bool IsCopyInOrOut(Opcode opCode) const { return IsCopyIn(opCode) || IsCopyOut(opCode); }
 
+    inline bool IsSync(Opcode opcode) const {
+        return opcode == Opcode::OP_SYNC_SRC || opcode == Opcode::OP_SYNC_DST;
+    }
+
 private:
     struct OpcodeInfo {
         Opcode opcode;
@@ -446,7 +454,7 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_TRANSP
 Opcode::OP_LN, Opcode::OP_ABS, Opcode::OP_RSQRT, Opcode::OP_SQRT, Opcode::OP_RECIPROCAL, Opcode::OP_CAST, Opcode::OP_ADDS, Opcode::OP_SUBS,
     Opcode::OP_MULS, Opcode::OP_DIVS, Opcode::OP_MAXS, Opcode::OP_MINS, Opcode::OP_PAIRMAX, Opcode::OP_PAIRSUM, Opcode::OP_ROWMAX_SINGLE,
     Opcode::OP_ROWSUM_SINGLE, Opcode::OP_EXPAND, Opcode::OP_VEC_DUP, Opcode::OP_MAXIMUM, Opcode::OP_L1_TO_L0A,
-    Opcode::OP_L1_TO_L0_BT, Opcode::OP_L1_TO_L0B, Opcode::OP_L1_TO_L0_AT, Opcode::OP_A_MUL_B, Opcode::OP_A_MULACC_B, 
+    Opcode::OP_L1_TO_L0_BT, Opcode::OP_L1_TO_L0B, Opcode::OP_L1_TO_L0_AT, Opcode::OP_A_MUL_B, Opcode::OP_A_MULACC_B,
     Opcode::OP_A_MUL_BT, Opcode::OP_AT_MUL_B, Opcode::OP_AT_MUL_BT,
     Opcode::OP_ROWSUMLINE, Opcode::OP_ADD_BRC, Opcode::OP_ADD_BRC, Opcode::OP_SUB_BRC,
     Opcode::OP_MUL_BRC, Opcode::OP_DIV_BRC, Opcode::OP_MAX_BRC, Opcode::OP_GATHER, Opcode::OP_S_ADDS, Opcode::OP_S_SUBS,

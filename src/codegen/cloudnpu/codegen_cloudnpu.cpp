@@ -34,21 +34,6 @@
 namespace npu::tile_fwk {
 const std::string ENV_ASCEND_HOME_PATH = "ASCEND_HOME_PATH";
 
-bool CodeGenCloudNPU::IsCube(const OperationsViewer &operationList) const {
-    auto isL1CopyIn = [](const Operation &op) {
-        return op.GetOpcode() == Opcode::OP_COPY_IN && !(op.oOperand.empty()) &&
-               op.oOperand[ID0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1;
-    };
-
-    for (const auto &oper : operationList) {
-        if (isL1CopyIn(oper)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
 void PrintOperand(const std::string &operIO, std::shared_ptr<LogicalTensor> operand) {
     ALOG_INFO_F("insert %s magic: %d, tensor: %s, memory map is: ", operIO.c_str(), operand->GetMagic(),
         operand->Dump().c_str());
@@ -163,6 +148,10 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
         ASSERT(tileOpSourceCode.find("CG_ERROR") == tileOpSourceCode.npos) << "gen op invalid" << op.Dump();
 
         allocSourceRegion += allocSourceCode;
+
+        for (auto &c : op.GetCommentList()) {
+            tileOpSourceRegion += "/*" + c + "*/\n";
+        }
         tileOpSourceRegion += tileOpSourceCode;
 
         if (!allocSourceCode.empty()) {
@@ -270,7 +259,7 @@ void CodeGenCloudNPU::GenCode(
                 return;
             }
             isUnderDynamicFunction_ = subFunc->IsUnderDynamicFunction();
-            bool isCube = IsCube(subFunc->Operations());
+            bool isCube = subFunc->IsCube();
             CompileInfo compileInfo(topFunc, ctx.cceDir, subFuncPair.first, isCube, isUnderDynamicFunction_);
             VFCodeGen vfCodeGen;
             vfCodeGen.GenCode(subFunc, compileInfo.GetVFHeaderAbsPath());
@@ -289,14 +278,17 @@ void CodeGenCloudNPU::GenCode(
 }
 
 void CodeGenCloudNPU::UpdateSubFunc(std::pair<uint64_t, Function *> subFuncPair, const CompileInfo &compileInfo) const {
-    auto subFunc = subFuncPair.second;
-    std::shared_ptr<LeafFuncAttribute> attr = std::make_shared<LeafFuncAttribute>();
+    auto leafFunc = subFuncPair.second;
+    std::shared_ptr<LeafFuncAttribute> attr = leafFunc->GetLeafFuncAttribute();
+    if (attr == nullptr) {
+        attr = std::make_shared<LeafFuncAttribute>();
+    }
     attr->kernelName = compileInfo.GetKernelName();
     attr->binPath = compileInfo.GetBinAbsPath();
     attr->kernelDeclare = compileInfo.GetFuncDeclare();
     CoreType coreType = compileInfo.IsCube() ? CoreType::AIC : CoreType::AIV;
     attr->coreType = coreType;
-    subFunc->SetLeafFuncAttribute(attr);
+    leafFunc->SetLeafFuncAttribute(attr);
 }
 
 bool CodeGenCloudNPU::IsNeedDumpCCE(const std::string &inputFile) const {
@@ -481,11 +473,13 @@ int CodeGenCloudNPU::CompileCCE(const CompileInfo &compileInfo, const std::strin
 
     std::string coreType = compileInfo.IsCube() ? "dav-c220-cube" : "dav-c220-vec";
     std::string includePath = GetIncludePathForCompileCCE();
+    const std::string corePredefine = compileInfo.IsCube() ? "-D__AIC__" : "-D__AIV__";
 
     std::ostringstream oss;
     oss << "ccec " << compileOptions << " -c -O3 -g -x cce -std=c++17 "
         << "--cce-aicore-only "
         << "--cce-aicore-arch=" << coreType << " "
+        << corePredefine << " "
         << "-mllvm -cce-aicore-stack-size=0x8000 "
         << "-mllvm -cce-aicore-function-stack-size=0x8000 "
         << "-mllvm -cce-aicore-record-overflow=false "
@@ -521,7 +515,7 @@ bool CodeGenCloudNPU::HandleForAICpuSubFunc(Function &subFunc) {
         if (op.GetCoreType() != CoreType::AICPU) {
             continue;
         }
-        
+
         code.push_back(static_cast<int32_t>(op.GetOpcode()));
         code.push_back(static_cast<int32_t>(op.GetOOperands().size()));
         for (size_t i = 0; i < op.GetOOperands().size(); ++i) {

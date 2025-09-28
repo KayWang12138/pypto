@@ -39,7 +39,7 @@ Status CodegenPreproc::SaveGmTensorParamIdxToOp(Function &func) const {
     std::map<int, std::vector<Operation *>> gmParamInCallFunc;
     for (auto &subProgram : func.rootFunc_->programs_) {
         gmParamInCallFunc.clear();
-        for (auto &op : subProgram.second->Operations()) {
+        for (auto &op : subProgram.second->Operations(false)) {
             if (IsNeedSave(op)) {
                 int coaIndex = IsCopyIn(op.GetOpcode()) ? op.GetIOpAttrOffset(0) : op.GetOOpAttrOffset(0);
                 gmParamInCallFunc[coaIndex].emplace_back(&op);
@@ -86,7 +86,7 @@ Status CodegenPreproc::ProcessAxis(Operation &op, std::vector<bool> attr, bool i
 
 Status CodegenPreproc::ForceCombineAxis(Function &func) const {
     for (auto &subProgram : func.rootFunc_->programs_) {
-        for (auto &op : subProgram.second->Operations()) {
+        for (auto &op : subProgram.second->Operations(false)) {
             if (op.HasAttr(OP_ATTR_PREFIX + "input_combine_axis")) {
                 std::vector<bool> attrIn;
                 op.GetAttr(OP_ATTR_PREFIX + "input_combine_axis", attrIn);

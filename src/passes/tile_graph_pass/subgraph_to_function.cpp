@@ -398,6 +398,7 @@ Status SubgraphToFunction::ProcessSubgraph(
     Program::GetInstance().BeginFunction(leafName, FunctionType::STATIC, GraphType::BLOCK_GRAPH);
     auto leafFunc = Program::GetInstance().GetCurrentFunction();
     leafFunc->SetProgramOp(subgraph);
+    leafFunc->SetLeafFuncAttribute(std::make_shared<LeafFuncAttribute>());
     InsertParameter(i, leafFunc);
 
     //In EndFunction to calculate cache hash

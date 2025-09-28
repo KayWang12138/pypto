@@ -84,7 +84,7 @@ struct sdma_l2_cmo_desc {
 };
 
 #define SDMA_FILE "/dev/sdma"
- 
+
 #define IOCTL_SDMA_L2_CMO  _IOW('s', 3, struct sdma_l2_cmo_desc)
 
 struct DeviceTaskCtrl {
@@ -428,7 +428,7 @@ private:
         if (READY_QUE_LIFO_SWITCH && !firstLock[static_cast<int>(type)]) {
             memcpy_s(readyId, taskCount * sizeof(uint64_t),
                 reinterpret_cast<uint8_t *>(&readyQue->elem[readyQue->tail - taskCount]), taskCount * sizeof(uint64_t));
-            readyQue->tail -= taskCount;            
+            readyQue->tail -= taskCount;
         } else {
             readyQue->head += taskCount;
         }
@@ -1095,7 +1095,7 @@ private:
         /* write to MAINBASE reg must be done before close 0x18 */
         __sync_synchronize();
         ForEachManageAicore([this](auto coreIdx) {
-          WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE); 
+          WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE);
           volatile KernelArgs *arg = (KernelArgs *)(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
           arg->shakeBuffer[0] = 0;
           arg->shakeBuffer[SHAK_BUF_COREFUNC_DATA_INDEX] = 0;

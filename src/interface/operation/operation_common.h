@@ -57,6 +57,12 @@ public:
         gMBufId = j["gm_buf_id"].get<int>();
         offset_ = j["offset"].get<std::vector<int>>();
     }
+
+    std::string Dump() const {
+        std::ostringstream oss;
+        oss << PipeTypeName(pipeId_) << "," << PipeTypeName(trigPipeId_) << "," << eventId_;
+        return oss.str();
+    }
 };
 }
 

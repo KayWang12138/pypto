@@ -26,5 +26,6 @@
 #include "fixpipe.h"
 #include "distributed.h"
 #include "distributed_shmem.h"
+#include "dynamic/aicpu_call.h"
 
 #endif

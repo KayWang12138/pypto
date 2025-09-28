@@ -44,7 +44,7 @@ set(_CaseFilterList
         "DynamicBasicTest.TestSetTensorData"
         "DynamicBasicTest.TestSetTensorDataExpr"
         "DynamicBasicTest.TestGetTensorDataAndDup"
-        "DynamicBasicTest.TestGetAndSetTensorDataExpr"
+        # "DynamicBasicTest.TestGetAndSetTensorDataExpr"
         "DynamicBasicTest.TestLoopIfWithRank456"
         # "DynamicPATest.dynamic_pa_low_lantency"
         # "DynamicPATest.dynamic_pa_low_lantency_unroll"

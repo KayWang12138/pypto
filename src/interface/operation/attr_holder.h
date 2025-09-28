@@ -110,8 +110,8 @@ public:
         std::ostringstream oss;
         int index = 0;
         for (auto &it : attributes) {
-            oss << ((index++ == 0) ? "" : ",");
-            oss << it.first << ":" << DumpAttr(it.first);
+            oss << ((index++ == 0) ? "" : " ");
+            oss << "#" << it.first << "{" << DumpAttr(it.first) << "}";
         }
         return oss.str();
     }

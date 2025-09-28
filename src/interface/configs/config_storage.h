@@ -56,6 +56,7 @@ const std::string NBUFFER_NUM = "nbuffer_num";
 const std::string L1_REUSE_NUM = "l1_reuse_num";
 const std::string CUBE_NBUFFER_NUM = "cube_nbuffer_num";
 const std::string DB_TYPE = "db_type";
+const std::string COPYOUT_RESOLVE_COALESCING = "copyout_resolve_coalescing";
 
 class ConfigStorage {
 public:
@@ -87,6 +88,7 @@ public:
         configs_[SG_CUBE_PARALLEL_NUM] = sg_cube_parallel_num;
         configs_[SG_SKIP_PARTITION] = false;
         configs_[VEC_NBUFFER_MAP] = std::map<int, int>({});
+        configs_[COPYOUT_RESOLVE_COALESCING] = 0;
     }
 
     template <typename T>

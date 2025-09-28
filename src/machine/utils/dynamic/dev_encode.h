@@ -443,6 +443,7 @@ struct DevAscendOperation {
     int32_t outcastStitchIndex;
     uint32_t depGraphPredCount;
     DevLocalVector<int> depGraphSuccList;
+    DevLocalVector<int> depGraphCopyOutResolveSuccIndexList;
     uint64_t debugOpmagic; // DEBUG_ONLY
 };
 
@@ -610,6 +611,8 @@ private:
     DevLocalVector<int> opAttrOffsetList_;
     DevLocalVector<int> opCalleeList_;
     DevLocalVector<int> operationSuccList_;
+    DevLocalVector<int> operationCopyOutResolveSuccIndexList_;
+
     DevLocalVector<DevAscendFunctionIncast> incastList;
     DevLocalVector<DevAscendFunctionOutcast> outcastList;
     DevLocalVector<int> slotList;
@@ -643,6 +646,7 @@ public:
      *      DevAscendOperationOperandInfo                       operationOperandListData[];
      *      SymInt                                              operationAttrListData[];
      *      int                                                 operationSuccListData[];
+     *      int                                                 operationCopyOutResolveSuccIndexData[];
      *      DevAscendFunctionIncast                             incastListData[];
      *      DevAscendFunctionOutcast                            outcastListData[];
      *      int                                                 slotListData[];
@@ -761,6 +765,13 @@ public:
             succDataList.push_back(At(succList, j));
         }
         oss << " " << schema::succ(succDataList).Dump();
+
+        const DevLocalVector<int> &copyOutResolveCounterIndexList = GetOperationDepGraphCopyOutResolveSuccIndexList(operationIndex);
+        std::vector<int64_t> outSuccIndexDataList;
+        for (size_t j = 0; j < copyOutResolveCounterIndexList.size(); j++) {
+            outSuccIndexDataList.push_back(At(copyOutResolveCounterIndexList, j));
+        }
+        oss << " " << schema::outSuccIndex(outSuccIndexDataList).Dump();
         return oss.str();
     }
 
@@ -1055,10 +1066,20 @@ public:
         return At(operationList_, operationIndex).depGraphSuccList;
     }
 
+    inline const DevLocalVector<int> &GetOperationDepGraphCopyOutResolveSuccIndexList(int operationIndex) const {
+        return At(operationList_, operationIndex).depGraphCopyOutResolveSuccIndexList;
+    }
+
     inline const int *GetOperationDepGraphSuccAddr(int operationIndex, size_t &size) const {
         auto &succList = At(operationList_, operationIndex).depGraphSuccList;
         size = succList.size();
         return &At(succList, 0);
+    }
+
+    inline const int *GetOperationDepGraphCopyOutResolveSuccIndexAddr(int operationIndex, size_t &size) const {
+        auto &succIndexList = At(operationList_, operationIndex).depGraphCopyOutResolveSuccIndexList;
+        size = succIndexList.size();
+        return &At(succIndexList, 0);
     }
 
     inline size_t GetIncastSize() const { return incastList.size(); }
@@ -1424,7 +1445,7 @@ private:
             const OrderedSet<Operation *> &callList,
             const std::vector<std::shared_ptr<LogicalTensor>> &incastTensorList,
             const std::vector<std::shared_ptr<LogicalTensor>> &outcastTensorList,
-            const std::unordered_map<Operation *, OrderedSet<Operation *>> &callOpSuccDict, bool fillContent);
+            const std::unordered_map<Operation *, OrderedSet<Operation *>> &callOpSuccDict,bool fillContent);
     void FillOutputSlotMark(const IncastOutcastLink *inoutLink, std::vector<bool>& isOutputSlotMarks);
     void InitRawTensorAndMemoryRequirement(
             uintdevptr_t &initOffset,
@@ -1457,6 +1478,7 @@ private:
             const std::vector<int32_t> &outcastStitchIndexList,
             const std::vector<int> &noPredOpList,
             const std::vector<int> &noSuccOpList,
+            const std::unordered_map<Operation *, std::vector<int>> &copyOutResolveSuccIndexListDict,
             bool fillContent);
 
     void InitIncastOutcast(uintdevptr_t &initOffset, const std::vector<std::shared_ptr<LogicalTensor>> &incastTensorList,
@@ -1911,7 +1933,7 @@ struct DevAscendFunctionDupped {
     void DumpTensorAddrInfo(std::vector<std::string> &infos, uint32_t seqNo, uint32_t funcIdx) {
         // seqNo,taskId,rawMagic,address,dtype,bytesOfDtype,(shapes,)
         auto *srcFunc = GetSource();
- 
+
         auto dumpOperand = [&](const DevAscendOperationOperandInfo &operandInfo, size_t opIdx) {
             std::stringstream os;
             uint64_t rawIdx = srcFunc->GetTensor(operandInfo.tensorIndex)->rawIndex;
@@ -1921,7 +1943,7 @@ struct DevAscendFunctionDupped {
                 GetRawTensorAddrEx(rawIdx) << "," <<
                 BriefDataType2String(rawTensor->dataType) << "," <<
                 BytesOf(rawTensor->dataType);
- 
+
             uint32_t dimSize = rawTensor->GetDim();
             os << ",(";
             bool isFirstDim = true;
@@ -1934,11 +1956,11 @@ struct DevAscendFunctionDupped {
                 os << rawTensor->shape.At(i, GetExpressionAddr());
             }
             os << ")";
- 
+
             os << "\n";
             infos.emplace_back(std::move(os).str());
         };
- 
+
         for (size_t opIdx = 0; opIdx < srcFunc->GetOperationSize(); opIdx++) {
             for (size_t iopIdx = 0; iopIdx < srcFunc->GetOperationIOperandSize(opIdx); iopIdx++) {
                 auto &iopInfo = srcFunc->GetOperationIOperandInfo(opIdx, iopIdx);
@@ -1951,7 +1973,7 @@ struct DevAscendFunctionDupped {
         }
     }
 #endif // DEBUG_INFINITE_LIFETIME
- 
+
     // Return result lines
     std::vector<std::string> DumpLeafs(uint32_t seqNo, uint32_t funcIdx) {
         std::vector<std::string> lines;
@@ -1961,12 +1983,12 @@ struct DevAscendFunctionDupped {
             oss.clear();
             oss.str("");
         };
- 
+
         auto *srcFunc = GetSource();
- 
+
         oss << "seqNo=" << seqNo << ", rootHash=" << srcFunc->rootHash;
         flushStream();
- 
+
         auto dumpRawShape = [&](DevAscendRawTensor *rawTensor, uint32_t dimSize) {
             oss << "        rawShape=[";
             bool isFirstDim = true;
@@ -1981,12 +2003,12 @@ struct DevAscendFunctionDupped {
             oss << "]";
             flushStream();
         };
- 
+
         auto dumpOperandShape = [&](uint32_t dimSize, size_t opIdx, size_t operandIdx, bool isIn) {
             uint64_t offset[DEV_SHAPE_DIM_MAX];
             uint64_t shape[DEV_SHAPE_DIM_MAX];
             GetTensorOffsetAndShape(offset, shape, dimSize, opIdx, operandIdx, isIn);
- 
+
             oss << "          offset=[";
             bool isFirstDim = true;
             for (uint32_t i = 0; i < dimSize; i++) {
@@ -1999,7 +2021,7 @@ struct DevAscendFunctionDupped {
             }
             oss << "]";
             flushStream();
- 
+
             oss << "           shape=[";
             isFirstDim = true;
             for (uint32_t i = 0; i < dimSize; i++) {
@@ -2013,40 +2035,40 @@ struct DevAscendFunctionDupped {
             oss << "]";
             flushStream();
         };
- 
+
         for (size_t opIdx = 0; opIdx < srcFunc->GetOperationSize(); opIdx++) {
             size_t iopNum = srcFunc->GetOperationIOperandSize(opIdx);
             size_t oopNum = srcFunc->GetOperationOOperandSize(opIdx);
             oss << "> taskId = " << MakeTaskID(funcIdx, opIdx) << ", opIdx=" << opIdx << ", #iop=" << iopNum << ", #oop=" << oopNum;
             flushStream();
- 
+
             for (size_t iopIdx = 0; iopIdx < iopNum; iopIdx++) {
                 uint64_t rawIdx = srcFunc->GetOperationIOperand(opIdx, iopIdx)->rawIndex;
                 auto *rawTensor = srcFunc->GetRawTensor(rawIdx);
- 
+
                 oss << "    iop [" << std::setw(3) << iopIdx << "]: rawMagic=" << rawTensor->rawMagic
                     << ", addr=0x" << std::hex << GetRawTensorAddrEx(rawIdx) << std::dec;
                 flushStream();
- 
+
                 uint32_t dimSize = rawTensor->GetDim();
                 dumpOperandShape(dimSize, opIdx, iopIdx, true);
                 dumpRawShape(rawTensor, dimSize);
             }
- 
+
             for (size_t oopIdx = 0; oopIdx < oopNum; oopIdx++) {
                 uint64_t rawIdx = srcFunc->GetOperationOOperand(opIdx, oopIdx)->rawIndex;
                 auto *rawTensor = srcFunc->GetRawTensor(rawIdx);
- 
+
                 oss << "    oop [" << std::setw(3) << oopIdx << "]: rawMagic=" << rawTensor->rawMagic
                     << ", addr=0x" << std::hex << GetRawTensorAddrEx(rawIdx) << std::dec;
                 flushStream();
- 
+
                 uint32_t dimSize = rawTensor->GetDim();
                 dumpOperandShape(dimSize, opIdx, oopIdx, false);
                 dumpRawShape(rawTensor, dimSize);
             }
         }
- 
+
         return lines;
     }
 
@@ -2147,7 +2169,7 @@ private:
     WsAllocation dupTiny_;
 };
 
-void EncodeDevAscendFunction(const EncodeDevAscendFunctionParam &param, uint64_t &offset, DevAscendFunction *base);
+void EncodeDevAscendFunction(Function *dyndev, const EncodeDevAscendFunctionParam &param, uint64_t &offset, DevAscendFunction *base);
 
 struct DevAscendProgramSymbol {
     DevRelocVector<char> name;

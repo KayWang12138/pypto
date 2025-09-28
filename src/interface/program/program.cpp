@@ -220,6 +220,7 @@ bool Program::BeginFunction(const std::string &funcName,
     currentFunctionPtr_->paramConfigs_.sgCubeParallelNum = GetConfig().Get<int>(SG_CUBE_PARALLEL_NUM);
     currentFunctionPtr_->paramConfigs_.sgVecParallelNum = GetConfig().Get<int>(SG_VEC_PARALLEL_NUM);
     currentFunctionPtr_->paramConfigs_.sgSkipPartition = GetConfig().Get<bool>(SG_SKIP_PARTITION);
+    currentFunctionPtr_->paramConfigs_.copyOutResolveCoalescing = GetConfig().Get<int>(COPYOUT_RESOLVE_COALESCING);
     return true;
 }
 

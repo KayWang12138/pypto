@@ -107,6 +107,8 @@ public:
 
     std::string GenPoolOp() const;
 
+    std::string GenAicpuCallOp() const;
+
     std::string GenOpCode() const override {
         auto iter = opsGenMap_.find(opCode);
         if (iter != opsGenMap_.end()) {
@@ -521,6 +523,10 @@ private:
         // for performace optimization
         {                    Opcode::OP_PHASE1,              []() { return "SUBKERNEL_PHASE1\n"; }},
         {                    Opcode::OP_PHASE2,              []() { return "SUBKERNEL_PHASE2\n"; }},
+
+        // for aicpu call
+        {            Opcode::OP_AICPU_CALL_AIC,              [this]() { return GenAicpuCallOp(); }},
+        {            Opcode::OP_AICPU_CALL_AIV,              [this]() { return GenAicpuCallOp(); }},
     };
 };
 

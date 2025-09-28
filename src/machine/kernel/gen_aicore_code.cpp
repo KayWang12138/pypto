@@ -388,9 +388,6 @@ INLINE void PmuTestEnd(__gm__ KernelArgs *args) {
 #endif
 }
 
-#define TASKID_TASK_BITS 20
-#define FuncID(id)       (id >> TASKID_TASK_BITS)
-#define TaskID(id)       (id & ((1 << TASKID_TASK_BITS) - 1))
 #define FuncNum(id)      TaskID(id)
 
 INLINE void ExecStaticCoreFunctionKernel(ExecuteContext *ctx, uint32_t taskId) {
@@ -427,7 +424,7 @@ INLINE void ExecDynCoreFunctionKernel(ExecuteContext *ctx, uint32_t taskId) {
 
     auto funcData = &ctx->funcDataList[FuncID(taskId)];
     auto opAttrs = &funcData->opAttrs[funcData->opAtrrOffsets[TaskID(taskId)]];
-    CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl};
+    CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl, taskId};
     CallSubFuncTask(opAttrs[0], &param, funcData->stackWorkSpaceAddr + blockIdx * funcData->stackWorkSpaceSize,
                     (__gm__ int64_t *)funcData->hcclContext);
     SetStatus(ctx->args, STAGE_FINISH_EXEC_COREFUNC_KERNEL);

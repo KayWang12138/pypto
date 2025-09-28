@@ -159,6 +159,17 @@ private:
     const std::unordered_map<const Operation *, int> &opPosition_;
 };
 
+struct LeafFuncAttribute {
+    std::string kernelName;    // 异构子图kernel函数名
+    std::string binPath;       // 异构子图二进制文件路径
+    std::string kernelDeclare; // 异构子图代码的kernel声明，用于后续整体调用
+    CoreType coreType{CoreType::INVALID};
+    std::vector<int32_t> aicpuLeafCode;
+
+    std::vector<int> outcastCopyOutResolveCounterList;
+    int copyOutResolveSize{0};
+};
+
 struct DynloopFunctionPathCondition {
     bool isSat_;
     SymbolicScalar cond_;
@@ -415,6 +426,7 @@ struct ParamConfigs {
     int sgCubeParallelNum{24};
     bool sgSkipPartition{false};
     std::map<int, int> vecNBufferMap;
+    int copyOutResolveCoalescing{0};
 };
 
 struct FunctionParamInfo {
@@ -505,6 +517,8 @@ public:
     std::vector<Operation *> GetCallopList() const;
     std::vector<std::shared_ptr<CallOpAttribute>> GetCallopAttrList() const;
     std::vector<Function *> GetCalleeFunctionList() const;
+
+    bool IsCube() const;
 
     Function *GetRootFunction() const { return rootFunc_; }
 

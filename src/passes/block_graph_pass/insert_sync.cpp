@@ -306,6 +306,7 @@ std::string PipeSync::PipeSeqName(PipeSeq seq) const{
         case PipeSeq::AIV_MTE3: return "AIV_MTE3";
         case PipeSeq::AIC_MTE3: return "AIC_MTE3";
         case PipeSeq::AIV_S: return "AIV_S";
+        case PipeSeq::AIC_S: return "AIC_S";
         case PipeSeq::PIPE_END: return "PIPE_END";
         default: return "ILLEGAL";
     }
@@ -320,7 +321,8 @@ std::map<PipeSync::PipeCoreReal, PipeSeq, PipeSync::PipeCoreRealCompare> PipeSyn
     {   {PIPE_V, CoreType::AIV},    PipeSeq::AIV_V},
     {{PIPE_MTE3, CoreType::AIV}, PipeSeq::AIV_MTE3},
     {{PIPE_MTE3, CoreType::AIC}, PipeSeq::AIC_MTE3},
-    {   {PIPE_S, CoreType::AIV},    PipeSeq::AIV_S}
+    {   {PIPE_S, CoreType::AIV},    PipeSeq::AIV_S},
+    {   {PIPE_S, CoreType::AIC},    PipeSeq::AIC_S},
 };
 
 std::map<PipeSeq, PipeSync::PipeCoreReal> PipeSync::seq2pipe = {
@@ -332,7 +334,8 @@ std::map<PipeSeq, PipeSync::PipeCoreReal> PipeSync::seq2pipe = {
     {   PipeSeq::AIV_V,    {PIPE_V, CoreType::AIV}},
     {PipeSeq::AIV_MTE3, {PIPE_MTE3, CoreType::AIV}},
     {PipeSeq::AIC_MTE3, {PIPE_MTE3, CoreType::AIC}},
-    {   PipeSeq::AIV_S,    {PIPE_S, CoreType::AIV}}
+    {   PipeSeq::AIV_S,    {PIPE_S, CoreType::AIV}},
+    {   PipeSeq::AIC_S,    {PIPE_S, CoreType::AIC}},
 };
 
 PipeSeq PipeSync::GetPipeSeq(PipeSync::PipeCoreReal pipe) {
@@ -368,7 +371,7 @@ Status PipeSync::AdjustCopyInCfg(TileOpCfg &opcfg, Operation *opptr) {
         opcfg.pipeIdEnd_ = PipeType::PIPE_MTE2;
         opcfg.coreType_ = CoreType::AIC;
         return SUCCESS;
-    } 
+    }
     if (dstMemType == MemoryType::MEM_UB) {
         opcfg.pipeIdStart_ = PipeType::PIPE_MTE2;
         opcfg.pipeIdEnd_ = PipeType::PIPE_MTE2;
@@ -1027,8 +1030,8 @@ bool PipeSync::BufOverlap(const TileRange &range1, int magic1, const TileRange &
 bool PipeSync::CheckWawDependency(const Operation *opSet, const Operation *opWait, size_t k, size_t idx) const {
     for (size_t setIdx = 0; setIdx < opSet->GetOOperands().size(); setIdx++) {
         for (size_t waitIdx = 0; waitIdx < opWait->GetOOperands().size(); waitIdx++) {
-            if (opSet->GetOOperands()[setIdx]->GetMemoryTypeOriginal() == opWait->GetOOperands()[waitIdx]->GetMemoryTypeOriginal() && 
-                BufOverlap(opSet->GetOOperands()[setIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR], opSet->GetOOperands()[setIdx]->GetMagic(), 
+            if (opSet->GetOOperands()[setIdx]->GetMemoryTypeOriginal() == opWait->GetOOperands()[waitIdx]->GetMemoryTypeOriginal() &&
+                BufOverlap(opSet->GetOOperands()[setIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR], opSet->GetOOperands()[setIdx]->GetMagic(),
                     opWait->GetOOperands()[waitIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR], opWait->GetOOperands()[waitIdx]->GetMagic())) {
                 ALOG_DEBUG_F("        %d %zu %s and %d %zu %s has WAW data dependency", opSet->GetOpMagic(), k, opSet->GetOpcodeStr().c_str(),
                     opWait->GetOpMagic(), idx, opWait->GetOpcodeStr().c_str());
@@ -1046,7 +1049,7 @@ bool PipeSync::CheckRawDependency(const Operation *opSet, const Operation *opWai
             auto ddrTensorSame = opSet->GetOOperands()[outIdx]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
                 opWait->GetIOperands()[inIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId ==
                 opSet->GetOOperands()[outIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
-            auto overlap = BufOverlap(opWait->GetIOperands()[inIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR], opWait->GetIOperands()[inIdx]->GetMagic(), 
+            auto overlap = BufOverlap(opWait->GetIOperands()[inIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR], opWait->GetIOperands()[inIdx]->GetMagic(),
                 opSet->GetOOperands()[outIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR], opSet->GetOOperands()[outIdx]->GetMagic());
             if (memTypeSame && (overlap || ddrTensorSame)) {
                 ALOG_DEBUG_F("        %d %zu %s and %d %zu %s has RAW data dependency", opSet->GetOpMagic(), k, opSet->GetOpcodeStr().c_str(),
@@ -1065,7 +1068,7 @@ bool PipeSync::CheckWarDependency(const Operation *opSet, const Operation *opWai
             auto ddrTensorSame = opSet->GetIOperands()[inIdx]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
                 opWait->GetOOperands()[outIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId ==
                 opSet->GetIOperands()[inIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
-            auto overlap = BufOverlap(opSet->GetIOperands()[inIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR], opSet->GetIOperands()[inIdx]->GetMagic(), 
+            auto overlap = BufOverlap(opSet->GetIOperands()[inIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR], opSet->GetIOperands()[inIdx]->GetMagic(),
                 opWait->GetOOperands()[outIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR], opWait->GetOOperands()[outIdx]->GetMagic());
             if (memTypeSame && (overlap || ddrTensorSame)) {
                 ALOG_DEBUG_F("        %d %zu %s and %d %zu %s has WAR data dependency", opSet->GetOpMagic(), k, opSet->GetOpcodeStr().c_str(),
@@ -1153,7 +1156,7 @@ bool PipeSync::CheckNotIgnorableCase(size_t prev, size_t curr, const std::vector
     if (prevOpPipeCore != PipeCoreReal{PIPE_V, CoreType::AIV} && prevOpPipeCore != PipeCoreReal{PIPE_M, CoreType::AIC}) {
         return false;
     }
-    // only consider single output 
+    // only consider single output
     if (prevOp->GetOOperands().size() != 1) {
         return false;
     }

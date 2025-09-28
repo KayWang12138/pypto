@@ -2228,6 +2228,25 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(VecScalMode mode) const {
     return buffer;
 }
 
+static const std::unordered_map<int, std::string> aicpuCallNumDict = {
+    {AICPU_CALL_NUM_COPYOUT_RESOLVE, "AICPU_CALL_NUM_COPYOUT_RESOLVE"},
+};
+
+std::string CodeGenOpCloudNPU::GenAicpuCallOp() const {
+    ASSERT(opAttrs.count(OpAttributeKey::aicpuCall));
+    uint32_t call = static_cast<uint32_t>(npu::tile_fwk::AnyCast<int64_t>(opAttrs.find(OpAttributeKey::aicpuCall)->second));
+    uint16_t callNum = call >> AICPU_CALL_ARG_BIT;
+    uint16_t callArg = call & ((1 << AICPU_CALL_ARG_BIT) - 1);
+
+    std::ostringstream oss;
+    std::string callNumName = std::to_string(callNum);
+    if (aicpuCallNumDict.count(callNum)) {
+        callNumName = aicpuCallNumDict.find(callNum)->second;
+    }
+    oss << tileOpName << "<" << callNumName << "," << callArg << ">(GET_CURRENT_TASKID());\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::GenPoolOp() const {
     const int poolParamsSize = 8;
     ASSERT(poolParams.size() == poolParamsSize);

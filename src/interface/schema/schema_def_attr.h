@@ -35,6 +35,9 @@ SCHEMA_DEF_ATTR(pred, Int64Type);
 SCHEMA_DEF_TYPE_ARRAY(OperationList, operation);
 SCHEMA_DEF_ATTR(succ, OperationList);
 
+SCHEMA_DEF_TYPE_ARRAY(outSuccIndexList, Int64Type);
+SCHEMA_DEF_ATTR(outSuccIndex, outSuccIndexList);
+
 SCHEMA_DEF_TYPE_ARRAY(ExpressionTable, Int64Type);
 SCHEMA_DEF_ATTR(expr, ExpressionTable);
 SCHEMA_DEF_ATTR(range, AddressType, AddressType);

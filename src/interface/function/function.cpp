@@ -262,6 +262,20 @@ OperationsViewer Function::Operations(bool sorted) {
     return OperationsViewer(operations_, opPosition_);
 }
 
+bool Function::IsCube() const {
+    auto isL1CopyIn = [](const Operation &op) {
+        return op.GetOpcode() == Opcode::OP_COPY_IN && !(op.oOperand.empty()) &&
+               op.oOperand[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1;
+    };
+
+    for (const auto &oper : OperationsViewer(operations_, opPosition_)) {
+        if (isL1CopyIn(oper)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 OperationsViewer Function::OperationsAfterOOO()
 {
     return OperationsViewer(operationsAfterOOO_, opPositionAfterOOO_);
@@ -2212,10 +2226,13 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     std::vector<std::string> semanticLabelData = funcDump["semantic_label"].get<std::vector<std::string>>();
     func->semanticLabels_.insert(semanticLabelData.begin(), semanticLabelData.end());
 
-    if (funcDump.count("leaf_func_attr") != 0 && funcDump["leaf_func_attr"].count("coretype") != 0) {
+    if (func->GetGraphType() == GraphType::BLOCK_GRAPH && func->GetLeafFuncAttribute() == nullptr) {
         std::shared_ptr<LeafFuncAttribute> attr = std::make_shared<LeafFuncAttribute>();
-        attr->coreType = static_cast<CoreType>(funcDump["leaf_func_attr"]["coretype"].get<int>());
         func->SetLeafFuncAttribute(attr);
+    }
+    if (funcDump.count("leaf_func_attr") != 0 && funcDump["leaf_func_attr"].count("coretype") != 0) {
+        std::shared_ptr<LeafFuncAttribute> attr = func->GetLeafFuncAttribute();
+        attr->coreType = static_cast<CoreType>(funcDump["leaf_func_attr"]["coretype"].get<int>());
     }
 
     if (funcDump.count("root_func_magic") != 0) {
@@ -2684,7 +2701,8 @@ std::string Function::DumpSSA() const {
     ss << DumpSSAOutcast(INDENT_TWO) << "\n";
     ss << DumpSSAAttribute(INDENT_TWO) << "\n";
     for (size_t i = 0; i < operations_.size(); ++i) {
-        ss << PREFIX << operations_[i]->DumpSSA(); // Operation dump
+        auto op = operations_[i];
+        ss << op->DumpSSA(PREFIX); // Operation dump
     }
     ss << "}\n";
     return ss.str();
