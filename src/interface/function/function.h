@@ -79,6 +79,7 @@ struct FunctionCallArgs {
     LogicalTensors oOperands;
     std::vector<int> iOpAttrOffset;
     std::vector<int> oOpAttrOffset;
+    std::map<int, SymbolicScalar> outIndexToExpr;
     std::vector<std::vector<SymbolicScalar>> argList;
 };
 
@@ -517,6 +518,7 @@ public:
 
     std::vector<std::vector<SymbolicScalar>> NormalizeCoa(
         std::vector<int> &iOffset, std::vector<int> &oOffset);
+    void GetOutcastSymbolicExpr(std::map<int, SymbolicScalar>& tabel);
 
     void DumpTopoFile(const std::string &fileName) const;
     std::string DumpSSA() const;
@@ -531,7 +533,8 @@ public:
     bool OperationLoopCheck();
     void ValidCheck() const;
 
-    std::shared_ptr<OpAttribute> CreateCallOpAttribute(const std::vector<std::vector<SymbolicScalar>> &argList);
+    std::shared_ptr<OpAttribute> CreateCallOpAttribute(const std::vector<std::vector<SymbolicScalar>> &argList,
+        const std::map<int, SymbolicScalar> &outIndexToExpr);
 
     bool IsEager() const { return functionType_ == FunctionType::EAGER; }
     bool IsStatic() const { return !IsEager() && !IsFunctionType(FunctionType::DYNAMIC); }

@@ -24,9 +24,36 @@ constexpr uint64_t VECTOR_PRE_SIZE = 1024;
 struct TensorInfo {
     uint64_t rawAddr;
     uint32_t dim;
+    uint64_t rawIndex;
     std::vector<uint32_t> offset;
     std::vector<uint32_t> shape;
     std::vector<uint32_t> rawShape;
     std::vector<uint32_t> dynValidShape;
 };
+
+inline uint64_t GetVirtualAddrBist(uint64_t val, uint64_t start, uint64_t end)
+{
+    return (((val) >> (start)) & ((1UL << ((end) - (start) + 1UL)) - 1UL));
+}
+
+inline uint64_t GetVirtaulAddrOffset(uint64_t val)
+{
+    constexpr uint64_t offsetStart = 0UL; 
+    constexpr uint64_t offsetEnd = 57UL; 
+    return GetVirtualAddrBist(val, offsetStart, offsetEnd);
+}
+
+inline uint64_t GetVirtaulAddrGroupIndex(uint64_t val)
+{
+    constexpr uint64_t groupIndexStart = 58UL; 
+    constexpr uint64_t groupIndexEnd = 59UL; 
+    return GetVirtualAddrBist(val, groupIndexStart, groupIndexEnd);
+}
+
+inline uint64_t GetVirtaulAddrMemType(uint64_t val)
+{
+    constexpr uint64_t memTypeStart = 60UL; 
+    constexpr uint64_t memTypeEnd = 61UL; 
+    return GetVirtualAddrBist(val, memTypeStart, memTypeEnd);
+}
 }

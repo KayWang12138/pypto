@@ -156,10 +156,11 @@ private:
         return vec;
     }
 
-    inline uint64_t GetRawAddr(const uint64_t dstRankId, const uint64_t offsetPerRank) {
-        constexpr uint32_t groupIndex = 0;
-        struct TileOp::HcclCombinOpParam* hcclOpParam = (struct TileOp::HcclCombinOpParam*)hcclContextAddr_[groupIndex];
-        return hcclOpParam->windowsIn[dstRankId] + offsetPerRank * hcclOpParam->rankNum;   
+    inline uint64_t GetRawAddr(const uint64_t addr, const uint64_t dstRankId) {
+        uint64_t groupIndex = npu::tile_fwk::Distributed::GetVirtaulAddrGroupIndex(addr);
+        uint64_t offset = npu::tile_fwk::Distributed::GetVirtaulAddrOffset(addr);
+        auto hcclOpParam = (struct TileOp::HcclCombinOpParam*)hcclContextAddr_[groupIndex];
+        return hcclOpParam->windowsIn[dstRankId] + offset;
     }
 
     inline npu::tile_fwk::Distributed::TensorInfo GetTensorInfo(const uint64_t taskId)
@@ -174,6 +175,7 @@ private:
         auto &code = curDevTask_->aicpuLeafBinary[callList[opIndex]].aicpuLeafCode;
         uint32_t index = code[5]; // waitUntil 对应5，后续由各个aicpu op从code中解析出index
         npu::tile_fwk::Distributed::TensorInfo info;
+        info.rawIndex = GetCoa(index, opAttrs, expressionTable);
         ++index; // 跳过 rawIndex
         info.dim = 4; // 由shmem维度是4，后面也可以写入aicpuleaf code中
         info.offset = GetCoaVector(index, info.dim, opAttrs, expressionTable);
@@ -184,8 +186,8 @@ private:
         index += info.dim;
         info.dynValidShape = GetCoaVector(index, info.dim, opAttrs, expressionTable);
         const uint32_t dstRankId = info.offset[0];
-        const uint32_t offsetPerRank = 128 * 256 * 4; // todo: 约定在 windowsIn 里先放 data 再放 signal，所以要加上 data 的偏移
-        info.rawAddr = GetRawAddr(dstRankId, offsetPerRank);
+        auto desc = &funcData.rawTensorDesc[info.rawIndex];
+        info.rawAddr = GetRawAddr(funcData.rawTensorAddr[desc->offsetOrIndex], dstRankId);
 
         return info;
     }

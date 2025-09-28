@@ -445,6 +445,10 @@ public:
                         slotList[slotIndex].desc = desc;
                     }
                 }
+            } else if (devRootSrc->GetOutcast(i).exprListIndex != -1) {
+                uint64_t *exprTbl = devRootDup.GetExpressionAddr();
+                uint64_t addr = exprTbl[devRootSrc->GetOutcast(i).exprListIndex];
+                desc = AddressDescriptor(addr);
             } else {
                 desc = AddressDescriptor(outcastBaseAddr + devRootSrc->GetOutcastRawTensor(i)->addrOffset);
             }

@@ -578,13 +578,15 @@ FunctionCallArgs Function::EndFunction(const std::shared_ptr<TensorSlotScope> &s
     }
     std::vector<int> iOffset;
     std::vector<int> oOffset;
+    std::map<int, SymbolicScalar> outIndexToExpr;
     std::vector< std::vector<SymbolicScalar>> argList;
     if (graphType_ == GraphType::BLOCK_GRAPH) {
         argList = NormalizeCoa(iOffset, oOffset);
+        GetOutcastSymbolicExpr(outIndexToExpr);
     }
     ComputeHash();
     return {std::move(inArgumentList), std::move(outArgumentList), std::move(iOffset), std::move(oOffset),
-        std::move(argList)};
+        std::move(outIndexToExpr), std::move(argList)};
 }
 
 void Function::AddWhenNotExistOrAssert(const std::shared_ptr<LogicalTensor> &tensor,
@@ -2441,6 +2443,17 @@ static std::vector<SymbolicScalar> NormalizeTensor(LogicalTensorPtr operand, int
     return operandCoaList;
 }
 
+void Function::GetOutcastSymbolicExpr(std::map<int, SymbolicScalar>& tabel) {
+    for (size_t i = 0; i< outCasts_.size(); i++) {
+        auto op = *outCasts_[i]->GetProducers().begin();
+        if (op->GetOpcode() == Opcode::OP_BIND_TENSOR) {
+            if (op->HasAttr(OpAttributeKey::bindTensor) && (op->GetOOperands().size() == 1UL)) {
+                tabel[i] = op->GetSymbolicScalarAttribute(OpAttributeKey::bindTensor);
+            }
+        }
+    }
+}
+
 std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(
     std::vector<int> &iOffset, std::vector<int> &oOffset) {
     std::unordered_map<int, Operation *> opmagicToOp;
@@ -2513,6 +2526,14 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(
                 std::vector<SymbolicScalar> valueCoaList;
                 MaybeNormalizeValue(valueCoaList, dynScalar, coaIndex, valueToIndex);
                 op->SetAttribute(OpAttributeKey::dynScalar, dynScalar);
+                coaLists.emplace_back(valueCoaList);
+                coaIndex += 1;
+            }
+        } else if (op->GetOpcode() == Opcode::OP_BIND_TENSOR) {
+            if (op->HasAttr(OpAttributeKey::bindTensor) && (op->GetOOperands().size() == 1UL)) {
+                SymbolicScalar bindTensor = op->GetSymbolicScalarAttribute(OpAttributeKey::bindTensor);
+                std::vector<SymbolicScalar> valueCoaList;
+                MaybeNormalizeValue(valueCoaList, bindTensor, coaIndex, valueToIndex);
                 coaLists.emplace_back(valueCoaList);
                 coaIndex += 1;
             }
@@ -3162,7 +3183,8 @@ void Function::ValidCheck() const {
     }
 }
 
-std::shared_ptr<OpAttribute> Function::CreateCallOpAttribute(const std::vector<std::vector<SymbolicScalar>> &argList) {
+std::shared_ptr<OpAttribute> Function::CreateCallOpAttribute(const std::vector<std::vector<SymbolicScalar>> &argList,
+    const std::map<int, SymbolicScalar> &outIndexToExpr) {
     FunctionHash hash;
     if (rootFunc_ != nullptr) {
         /* has rootFunc, then current function is cutted */
@@ -3170,7 +3192,7 @@ std::shared_ptr<OpAttribute> Function::CreateCallOpAttribute(const std::vector<s
     } else {
         hash = ComputeHash();
     }
-    auto opAttribute = std::make_shared<CallOpAttribute>(hash, argList, GetMagicName());
+    auto opAttribute = std::make_shared<CallOpAttribute>(hash, argList, GetMagicName(), outIndexToExpr);
     return opAttribute;
 }
 

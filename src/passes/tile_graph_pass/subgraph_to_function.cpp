@@ -608,6 +608,9 @@ std::shared_ptr<LogicalTensor> GetTensorDataSubgraphTensor(Operation *refOp) {
         case Opcode::OP_VEC_DUP:
             subgraphTensor = refOp->GetOOperands()[0];
             break;
+        case Opcode::OP_BIND_TENSOR:
+            subgraphTensor = refOp->GetOOperands()[0];
+            break;
         default:
             break;
     }

@@ -36,6 +36,40 @@ struct CopyParams {
     uint16_t dstStride;
 };
 
+TILEOP uint64_t GetVirtualAddrBist(uint64_t val, uint64_t start, uint64_t end)
+{
+    return (((val) >> (start)) & ((1UL << ((end) - (start) + 1UL)) - 1UL));
+}
+
+TILEOP uint64_t GetVirtaulAddrOffset(uint64_t val)
+{
+    constexpr uint64_t offsetStart = 0UL; 
+    constexpr uint64_t offsetEnd = 57UL; 
+    return GetVirtualAddrBist(val, offsetStart, offsetEnd);
+}
+
+TILEOP uint64_t GetVirtaulAddrGroupIndex(uint64_t val)
+{
+    constexpr uint64_t groupIndexStart = 58UL; 
+    constexpr uint64_t groupIndexEnd = 59UL; 
+    return GetVirtualAddrBist(val, groupIndexStart, groupIndexEnd);
+}
+
+TILEOP uint64_t GetVirtaulAddrMemType(uint64_t val)
+{
+    constexpr uint64_t memTypeStart = 60UL; 
+    constexpr uint64_t memTypeEnd = 61UL; 
+    return GetVirtualAddrBist(val, memTypeStart, memTypeEnd);
+}
+
+template<typename T>
+TILEOP __gm__ T* MapVirtaulAddr(__gm__ int64_t *hcclContext, __gm__ T* vAddr, uint32_t dstRankId)
+{
+    auto groupIndex = GetVirtaulAddrGroupIndex((uint64_t)vAddr);
+    auto offset = GetVirtaulAddrOffset((uint64_t)vAddr);
+    return (__gm__ T*)(((__gm__ TileOp::HcclCombinOpParam *)hcclContext[groupIndex])->windowsIn[dstRankId] + offset);
+}
+
 template<typename T>
 TILEOP void Conv2FP32(__ubuf__ float* dst, __ubuf__ T* src, uint8_t repeat, uint16_t dstBlockStride,
     uint16_t srcBlocakStride, uint8_t dstRepeatStride, uint8_t srcRepeatStride)
@@ -153,18 +187,20 @@ TILEOP void ShmemPut(__gm__ int32_t* dummy, __ubuf__ T* buffer, __gm__ T* nonShm
     (void)shmemDataRawShape0;
     (void)dummy;
     __gm__ T* nonShmemDataAddr = nonShmemDataBaseAddr + nonShmemDataOffset0 * nonShmemDataRawShape1 + nonShmemDataOffset1;
-    __gm__ T* shmemDataAddr = shmemDataBaseAddr + shmemDataOffset1 * shmemDataRawShape2 * shmemDataRawShape3 + shmemDataOffset2 * shmemDataRawShape3 + shmemDataOffset3;
+    __gm__ T* shmemDataAddr = MapVirtaulAddr<T>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) +
+        shmemDataOffset1 * shmemDataRawShape2 * shmemDataRawShape3 + shmemDataOffset2 * shmemDataRawShape3 + shmemDataOffset3;
      CopyGmToGm<T, tileRowShape, tileColShape, bufferRowShape, bufferColShape, srcStride, dstStride>(shmemDataAddr, buffer, nonShmemDataAddr);
 }
 
 template<int64_t value, AtomicType atomicType>
-TILEOP void ShmemSignal(__ubuf__ int32_t* buffer, __gm__ int32_t* dummy, __gm__ int32_t* shmemSignalBaseAddr,
+TILEOP void ShmemSignal(__gm__ int32_t* dummyOut, __ubuf__ int32_t* buffer, __gm__ int32_t* dummy, __gm__ int32_t* shmemSignalBaseAddr,
     uint32_t shmemSignalOffset0, uint32_t shmemSignalOffset1, uint32_t shmemSignalOffset2, uint32_t shmemSignalOffset3,
     uint32_t shmemSignalRawShape0, uint32_t shmemSignalRawShape1, uint32_t shmemSignalRawShape2, uint32_t shmemSignalRawShape3, __gm__ int64_t *hcclContext)
 {
     (void)shmemSignalRawShape0;
     (void)dummy;
-    __gm__ int32_t* shmemSignalAddr = shmemSignalBaseAddr + shmemSignalOffset1 * shmemSignalRawShape2 * shmemSignalRawShape3 + shmemSignalOffset2 * shmemSignalRawShape3 + shmemSignalOffset3;
+    __gm__ int32_t* shmemSignalAddr = MapVirtaulAddr<int32_t>(hcclContext, shmemSignalBaseAddr, shmemSignalOffset0) +
+        shmemSignalOffset1 * shmemSignalRawShape2 * shmemSignalRawShape3 + shmemSignalOffset2 * shmemSignalRawShape3 + shmemSignalOffset3;
     const uint16_t sid = 0;
     const uint16_t nBurst = 1;
     const uint16_t lenBurst = 1;
@@ -194,7 +230,8 @@ TILEOP void ShmemGet(__gm__ T* nonShmemDataBaseAddr, __ubuf__ T* buffer, __gm__ 
     (void)shmemDataRawShape0;
     (void)dummy;
     __gm__ T* nonShmemDataAddr = nonShmemDataBaseAddr + nonShmemDataOffset0 * nonShmemDataRawShape1 + nonShmemDataOffset1;
-    __gm__ T* shmemDataAddr = shmemDataBaseAddr + shmemDataOffset1 * shmemDataRawShape2 * shmemDataRawShape3 + shmemDataOffset2 * shmemDataRawShape3 + shmemDataOffset3;
+    __gm__ T* shmemDataAddr = MapVirtaulAddr<T>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) +
+        shmemDataOffset1 * shmemDataRawShape2 * shmemDataRawShape3 + shmemDataOffset2 * shmemDataRawShape3 + shmemDataOffset3;
     CopyGmToGm<T, tileRowShape, tileColShape, bufferRowShape, bufferColShape, srcStride, dstStride>(nonShmemDataAddr, buffer, shmemDataAddr);
 }
 

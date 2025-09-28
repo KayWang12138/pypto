@@ -60,6 +60,7 @@ const std::string OpAttributeKey::inputCombineAxisDone = "input_combine_axis_don
 const std::string OpAttributeKey::outputCombineAxisDone = "output_combine_axis_done"; // flow verify tool only
 const std::string OpAttributeKey::requiresBoundaryCopy = "requires_boundary_copy";
 const std::string OpAttributeKey::excludeBufferReuse = "exclude_buffer_reuse";
+const std::string OpAttributeKey::bindTensor = "BIND_TENSOR";
 
 const std::string ConvOpAttributeKey::cin = "CIN";
 const std::string ConvOpAttributeKey::cout = "COUT";
@@ -927,6 +928,15 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
                     for (auto &scalar : *scalars) {
                         dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(scalar));
                     }
+                }
+            } break;
+        case Opcode::OP_BIND_TENSOR:
+            {
+                auto &attrDict = GetAllAttr();
+                auto it = attrDict.find(OpAttributeKey::bindTensor);
+                if (it != attrDict.end()) {
+                    auto &value = *npu::tile_fwk::AnyCast<SymbolicScalar>(&it->second);
+                    dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(value));
                 }
             } break;
         default:

@@ -319,7 +319,7 @@ OpcodeManager::OpcodeManager() {
      */
     registerInfo(Opcode::OP_SHMEM_SIGNAL, OpCoreType::AIV, "SHMEM_SIGNAL",
         {MemoryType::MEM_DEVICE_DDR /* dummy */, MemoryType::MEM_DEVICE_DDR /* shmemSignal */},
-        {MemoryType::MEM_UB /* buffer */},
+        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB /* buffer */},
         {"TileOp::Distributed::ShmemSignal", PIPE_S, PIPE_S, CoreType::AIV},
         OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
     /*
@@ -354,6 +354,9 @@ OpcodeManager::OpcodeManager() {
         {MemoryType::MEM_DEVICE_DDR /* out */, MemoryType::MEM_UB /* ubTensor */},
         {"TileOp::Distributed::ShmemReduce", PIPE_S, PIPE_S, CoreType::AIV},
         OpCalcType::DISTRIBUTED);
+    registerInfo(Opcode::OP_BIND_TENSOR, OpCoreType::AIV, "BIND_TENSOR",
+        {}, {MemoryType::MEM_DEVICE_DDR}, {"TileOp::Distributed::ShmemGet", PIPE_S, PIPE_S, CoreType::AIV},
+        OpCalcType::DISTRIBUTED, {OP_ATTR_PREFIX + "BindTensor"});
 
     registerInfo(Opcode::OP_NOP, OpCoreType::ANY, "NOP", {}, {}, {}, OpCalcType::OTHER);
     registerInfo(Opcode::OP_REDUCE_ACC, OpCoreType::GMATOMIC, "REDUCE_ACC", {MEM_DEVICE_DDR, MEM_DEVICE_DDR}, {MEM_DEVICE_DDR}, {}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "atomic_add"});

@@ -143,6 +143,7 @@ void Program::CreateCallerCalleeLink(Function *caller, Function *callee) {
         .oOperands = caller->outCasts_,
         .iOpAttrOffset = {},
         .oOpAttrOffset = {},
+        .outIndexToExpr = {},
         .argList = {},
     };
     currentFunctionPtr_ = callee;
@@ -227,7 +228,7 @@ Operation &Program::ConnectCallerGusket(Function &caller, FunctionCallArgs &args
     //  1. Submit to machine
     //  2. Draw graph
     auto &callFunc = caller.AddRawOperation(Opcode::OP_CALL, args.iOperands, args.oOperands, false);
-    callFunc.SetOpAttribute(currentFunctionPtr_->CreateCallOpAttribute(args.argList));
+    callFunc.SetOpAttribute(currentFunctionPtr_->CreateCallOpAttribute(args.argList, args.outIndexToExpr));
     callFunc.SetOpOffset(args.iOpAttrOffset, args.oOpAttrOffset);
     if (caller.IsFunctionType({FunctionType::DYNAMIC, FunctionType::DYNAMIC_LOOP_PATH})) {
         // Keep callOp order under DYNAMIC and DYNAMIC_LOOP_PATH function
@@ -641,7 +642,7 @@ int Program::EndFunction(const bool isWaitTaskFinished)
     if (currentFunctionPtr_->HasParent()) {
         auto &callop =
             currentFunctionPtr_->Parent().AddOperation(Opcode::OP_CALL, funcArgs.iOperands, funcArgs.oOperands, false);
-        callop.SetOpAttribute(currentFunctionPtr_->CreateCallOpAttribute(funcArgs.argList));
+        callop.SetOpAttribute(currentFunctionPtr_->CreateCallOpAttribute(funcArgs.argList, funcArgs.outIndexToExpr));
         callop.SetOpOffset(funcArgs.iOpAttrOffset, funcArgs.oOpAttrOffset);
     }
     HostMachine::GetInstance().SubTask(currentFunctionPtr_);

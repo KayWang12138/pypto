@@ -487,6 +487,7 @@ struct DevAscendFunctionOutcast {
     int stitchPolicyFullCoverProducerHubOpIdx;
     DevLocalVector<DevAscendFunctionCallOperandUse> stitchPolicyFullCoverProducerList;
     DevLocalVector<uint32_t> stitchPolicyFullCoverProducerAllOpIdxList;
+    int exprListIndex;
 };
 
 struct AddressDescriptor {
@@ -563,6 +564,7 @@ struct InoutOperationAttr {
     DevCellMatchTableDesc cellMatchTableDesc;
 
     std::vector<uint32_t> useOpList;
+    int bindTensorExprIndex{-1};
 };
 
 struct DevAscendFunction {

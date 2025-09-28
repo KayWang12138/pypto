@@ -293,7 +293,8 @@ public:
     CallOpAttribute() = default;
 
     CallOpAttribute(const FunctionHash &calleeHash, const std::vector<std::vector<SymbolicScalar>> &argList,
-        const std::string &calleMagicName = "", const std::vector<SymbolicScalar> &linearArgList = {});
+        const std::string &calleMagicName = "", const std::map<int, SymbolicScalar> &outIndexToExpr = {},
+        const std::vector<SymbolicScalar> &linearArgList = {});
 
     std::string Dump() const override;
     Json DumpDynJson() override;
@@ -313,6 +314,13 @@ public:
     std::vector<std::vector<SymbolicScalar>> &GetArgList() { return argList_; }
     const std::vector<SymbolicScalar> &GetLinearArgList();
     std::vector<int64_t> GetLinearImmediateArgList(int begin, int end, bool returnEmptyForSymbolic);
+    std::optional<SymbolicScalar> GetOutcastSymbolicExpr(int index) const {
+        auto it = outIndexToExpr_.find(index);
+        if (it == outIndexToExpr_.end()) {
+            return std::nullopt;
+        }
+        return std::make_optional(it->second);
+    }
 
     std::shared_ptr<SubfuncInvokeInfoTy> invokeInfo_;
 
@@ -326,6 +334,7 @@ private:
     FunctionHash calleeHash_;
     std::vector<std::vector<SymbolicScalar>> argList_;
     std::vector<SymbolicScalar> linearArgList_;
+    std::map<int, SymbolicScalar> outIndexToExpr_;
 };
 
 class ConvertOpAttribute : public OpAttribute {

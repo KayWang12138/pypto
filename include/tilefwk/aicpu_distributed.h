@@ -14,8 +14,14 @@
  */
 
 #pragma once
-
+#include "aicpu_runtime.h"
 #include "tileop/hccl_context.h"
 
 #define RUNTIME_GetHcclRankId(groupIndex) \
      ((TileOp::HcclCombinOpParam *)(startArgs->hcclContextAddr[groupIndex]))->rankId
+
+#define RUNTIME_BindTensor(groupIndex, memType, size) \
+    [&](void *ctx, uint64_t tgroupIndex, uint64_t tmemType, uint64_t tsize) -> uint64_t { \
+        uint64_t param[] = {tgroupIndex, tmemType, tsize}; \
+        return (uint64_t)callRootList[CallRootStage::T_CALLROOT_SHMEM_ALLOC](ctx, (uint64_t)(&param)); \
+    }(ctx, groupIndex, memType, size)

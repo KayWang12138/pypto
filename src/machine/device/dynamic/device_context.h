@@ -445,7 +445,8 @@ struct DeviceStitchContext {
             desc = outcastDesc;
 #else
             auto *outcastRawTensor = dup.GetSource()->GetOutcastRawTensor(desc.outcastIdx);
-            if (slot.IsFixedAddress() || outcastRawTensor->linkedIncastId != -1) {
+            if (slot.IsFixedAddress() || (outcastRawTensor->linkedIncastId != -1) ||
+                (dup.GetSource()->GetOutcast(desc.outcastIdx).exprListIndex != -1)) {
                  desc = outcastDesc;
                  continue;
              }
@@ -1329,7 +1330,8 @@ struct DeviceExecuteContext {
         CallRootEntryType callRootList[static_cast<uint32_t>(CallRootStage::T_CALLROOT_MAX)] = {
             DeviceExecuteCallAlloc,
             DeviceExecuteCallStitch,
-            DeviceExecuteRuntimerLog
+            DeviceExecuteRuntimerLog,
+            DeviceExecuteShmemAlloctor,
         };
         execProg.controlFlowBinary.CallControlFlow(this, symbolTable.data(), callRootList, startArgs);
         PerfEnd(PERF_EVT_CONTROL_FLOW);
@@ -1479,6 +1481,23 @@ private:
         (void)value;
 #endif
         return nullptr;
+    }
+
+    static void *DeviceExecuteShmemAlloctor(void *ctx_, uint64_t value) {
+        (void)ctx_;
+        uint64_t groupIndex = ((uint64_t*)value)[0];
+        uint64_t memType = ((uint64_t*)value)[1];
+        uint64_t size = ((uint64_t*)value)[2];
+        static uint64_t offset = 0UL;
+        constexpr uint64_t OFFSET_BITS = 58UL;
+        constexpr uint64_t GROUP_BITS = 2UL;
+        constexpr uint64_t MEMTYPE_BITS = 2UL;
+        constexpr uint64_t GROUP_SHIFT = OFFSET_BITS;
+        constexpr uint64_t MEMTYPE_SHIFT = GROUP_SHIFT + GROUP_BITS;
+        constexpr uint64_t FILL_SHIFT = MEMTYPE_SHIFT + MEMTYPE_BITS;
+        uint64_t vaddr = offset | (groupIndex << GROUP_SHIFT) | (memType << MEMTYPE_SHIFT) | (1UL << FILL_SHIFT);
+        offset += size;
+        return (void*)vaddr;
     }
 };
 } // namespace dynamic

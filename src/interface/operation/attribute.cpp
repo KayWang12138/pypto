@@ -254,8 +254,10 @@ std::shared_ptr<OpAttribute> AssembleOpAttribute::Clone() const {
 }
 
 CallOpAttribute::CallOpAttribute(const FunctionHash &calleeHash, const std::vector<std::vector<SymbolicScalar>> &argList,
-        const std::string &calleMagicName, const std::vector<SymbolicScalar> &linearArgList)
-    : invokeInfo_(std::make_shared<SubfuncInvokeInfoTy>()), calleeHash_(calleeHash), argList_(argList), linearArgList_(linearArgList) {
+        const std::string &calleMagicName, const std::map<int, SymbolicScalar> &outIndexToExpr,
+        const std::vector<SymbolicScalar> &linearArgList)
+    : invokeInfo_(std::make_shared<SubfuncInvokeInfoTy>()), calleeHash_(calleeHash), argList_(argList),
+    linearArgList_(linearArgList), outIndexToExpr_(outIndexToExpr) {
     // Make dump happy
     calleeBracketName_ = calleeHash_.Data() + "[" + calleeHash_.Data() + "]";
     calleMagicName_ = calleMagicName;
@@ -384,7 +386,8 @@ std::shared_ptr<CallOpAttribute> CallOpAttribute::DeserializeFrom(const Json& at
     for (int i = 0; i < linearArgSize; i++) {
         linearArgList.push_back(LoadSymbolicScalar(attrJsonReal[despos++]));
     }
-    auto ret = std::make_shared<CallOpAttribute>(calleeHash, argList, "", linearArgList);
+    std::map<int, SymbolicScalar> outIndexToExpr;
+    auto ret = std::make_shared<CallOpAttribute>(calleeHash, argList, "", outIndexToExpr, linearArgList);
     if (attrJson.count("invoke_info") != 0) {
         auto &invokeInfoJson = attrJson["invoke_info"];
         ret->invokeInfo_->LoadJson(invokeInfoJson, function);
@@ -393,7 +396,8 @@ std::shared_ptr<CallOpAttribute> CallOpAttribute::DeserializeFrom(const Json& at
 }
 
 std::shared_ptr<OpAttribute> CallOpAttribute::Clone() const {
-    return std::make_shared<CallOpAttribute>(calleeHash_, argList_, calleMagicName_, linearArgList_);
+    return std::make_shared<CallOpAttribute>(calleeHash_, argList_, calleMagicName_, outIndexToExpr_,
+        linearArgList_);
 }
 
 Json CallOpAttribute::DumpInvokeInfoJson()

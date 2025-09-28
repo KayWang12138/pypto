@@ -534,6 +534,7 @@ void DevAscendFunction::InitIncastOutcast(
                 outcast.tensorIndex = tlist.GetIndex(outcastTensorList[i]);
                 outcast.dim = outAttr.dim;
                 outcast.cellMatchTableDesc = outAttr.cellMatchTableDesc;
+                outcast.exprListIndex = outAttr.bindTensorExprIndex;
             }
         }
     }
@@ -853,6 +854,11 @@ struct EncodeDevAscendFunctionInfo {
                 }
                 ALOG_DEBUG_F("outcast oOperandIdx for outcast %d %d is %d", o->magic, o->GetRawMagic(), k);
                 outcastUseOpSet.insert(j);
+                auto expr = callAttr->GetOutcastSymbolicExpr(k);
+                outcastOpAttr.bindTensorExprIndex = -1;
+                if ((expr.has_value()) && (expressionTable != nullptr)) {
+                    outcastOpAttr.bindTensorExprIndex = expressionTable->LookupPrimaryExpressionIndex(expr.value());
+                }
             }
 
             if (stitchPolicyFullCoverProducer.operationIdx != -1) {

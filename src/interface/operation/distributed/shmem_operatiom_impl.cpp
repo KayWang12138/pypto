@@ -39,13 +39,16 @@ Tensor AddShmemPut(const Tensor &in, const Tensor &shmemDataTile, const int tile
     return dummy;
 }
 
-void AddShmemSignal(const Tensor &dummy, const Tensor &shmemSignalTile, AtomicType atomicType)
+Tensor AddShmemSignal(const Tensor &dummy, const Tensor &shmemSignalTile, AtomicType atomicType)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
-    auto &op= function.AddOperation("SHMEM_SIGNAL", {dummy.GetStorage()}, {shmemSignalTile.GetStorage()});
+    auto dummyOut = std::make_shared<LogicalTensor>(function, DT_INT32, dummy.GetShape());
+    auto &op= function.AddOperation("SHMEM_SIGNAL", {dummy.GetStorage(), shmemSignalTile.GetStorage()}, {dummyOut});
     int64_t value = 1;
     op.SetAttr("Value", value);
     op.SetAttr("AtomicType", atomicType);
+    op.SetAttr(OpAttributeKey::dontTouch, true);
+    return dummyOut;
 }
 
 Tensor AddShmemGet(const Tensor &dummy, const Tensor &shmemDataTile)
@@ -58,12 +61,12 @@ Tensor AddShmemGet(const Tensor &dummy, const Tensor &shmemDataTile)
     return tempOutTile;
 }
 
-Tensor AddWaitUntil(const Tensor &in, const Tensor &shmemSignalTile, const int tileCount, const int64_t value)
+Tensor AddWaitUntil(const Tensor &dummyIn, const Tensor &shmemSignalTile, const int tileCount, const int64_t value)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
     Shape shape {tileCount, 1};
     auto dummy = std::make_shared<LogicalTensor>(function, DT_INT32, shape);
-    auto &op= function.AddOperation("SHMEM_WAIT_UNTIL", {in.GetStorage(), shmemSignalTile.GetStorage()}, {dummy});
+    auto &op= function.AddOperation("SHMEM_WAIT_UNTIL", {dummyIn.GetStorage(), shmemSignalTile.GetStorage()}, {dummy});
     op.SetAttr("Value", value);
     return dummy;
 }
@@ -79,6 +82,18 @@ void AddShmemReduce(const Tensor &in, const Tensor &shmData, const Tensor &dummy
     } else {
         op.SetAttr("FP32Mode", false);
     }
+}
+
+Tensor CreateShmemTensor(int32_t rankSize, int32_t groupIndex, DataType dataType, const Shape &shape)
+{
+    auto &function = *Program::GetInstance().GetCurrentFunction();
+    Shape shmemShape{rankSize, rankSize};
+    shmemShape.insert(shmemShape.end(), shape.begin(), shape.end());
+    auto shmemTensor = std::make_shared<LogicalTensor>(function, dataType, shmemShape);
+    auto &op = function.AddOperation("BIND_TENSOR", {}, {shmemTensor});
+    op.SetAttribute(OpAttributeKey::bindTensor, BindTensor(groupIndex, 0,
+        BytesOf(dataType) * rankSize * std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<int64_t>())));
+    return shmemTensor;
 }
 
 void AllGatherDyn(const Tensor &in, const char *group, Tensor &out)
@@ -108,23 +123,27 @@ void AllGatherDyn(const Tensor &in, const char *group, Tensor &out)
 
         SymbolicScalar thisRank = GetHcclRankId(groupIndex);
 
-        auto shmemData = ShmemTensorMgr::GetInstance().CreateTensor(
-            rankSize, groupIndex, in.GetDataType(), shmDataShape);
-        auto shmemSignal = ShmemTensorMgr::GetInstance().CreateTensor(rankSize, groupIndex, DT_INT32, shmSignalShape);
+        Tensor shmemData;
+        Tensor shmemSignal;
+        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+            (void)index;
+            shmemData = CreateShmemTensor(rankSize, groupIndex, in.GetDataType(), shmDataShape);
+            shmemSignal = CreateShmemTensor(rankSize, groupIndex, DT_INT32, shmSignalShape);
+        }
         AtomicType atomicType = AtomicType::SET;
         LOOP("L0", FunctionType::DYNAMIC_LOOP, dynRankId, LoopRange(0, rankSize, 1)) {
-            auto shmemDataTile = ShmemTensorMgr::GetInstance().GetView(shmemData,
+            auto shmemDataTile = View(shmemData,
                 {1, 1, row, col}, std::vector<SymbolicScalar>{dynRankId, thisRank, 0, 0});
-            auto shmemSignalTile = ShmemTensorMgr::GetInstance().GetView(shmemSignal,
+            auto shmemSignalTile = View(shmemSignal,
                 {1, 1, tileCount, 8}, std::vector<SymbolicScalar>{dynRankId, thisRank, 0, 0});
             auto dummy = AddShmemPut(in, shmemDataTile, tileCount);
-            AddShmemSignal(dummy, shmemSignalTile, atomicType);
+            auto dummySignal = AddShmemSignal(dummy, shmemSignalTile, atomicType);
 
-            auto shmemDataLocal = ShmemTensorMgr::GetInstance().GetView(shmemData,
+            auto shmemDataLocal = View(shmemData,
                 {1, 1, row, col}, std::vector<SymbolicScalar>{thisRank, dynRankId, 0, 0});
-            auto shmemSignalLocal = ShmemTensorMgr::GetInstance().GetView(shmemSignal,
+            auto shmemSignalLocal = View(shmemSignal,
                 {1, 1, tileCount, 8}, std::vector<SymbolicScalar>{thisRank, dynRankId, 0, 0});
-            auto dummyLocal = AddWaitUntil(in, shmemSignalLocal, tileCount, 1);
+            auto dummyLocal = AddWaitUntil(dummySignal, shmemSignalLocal, tileCount, 1);
             auto tempOutTile = AddShmemGet(dummyLocal, shmemDataLocal);
             Assemble(tempOutTile, {dynRankId * row , 0}, out);
         }

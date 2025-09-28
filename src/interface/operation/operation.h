@@ -72,6 +72,7 @@ public:
     static const std::string requiresBoundaryCopy;
     static const std::string excludeBufferReuse;
     static const std::string reduceMode;
+    static const std::string bindTensor;
 };
 
 

@@ -40,7 +40,8 @@ const std::unordered_set<Opcode> USE_LESS_OPS = {
     Opcode::OP_VIEW, 
     Opcode::OP_ASSEMBLE, 
     Opcode::OP_COMM_WAIT_FLAG, 
-    Opcode::OP_SHMEM_WAIT_UNTIL
+    Opcode::OP_SHMEM_WAIT_UNTIL,
+    Opcode::OP_BIND_TENSOR
 };
 
 struct IssueEntry {

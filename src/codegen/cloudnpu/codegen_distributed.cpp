@@ -94,7 +94,7 @@ std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapes() const
         oss << ", " << nonShmemDataOffsets << ", " << nonShmemDataRawShapes
             << ", " << shmemDataOffsets << ", " << shmemDataRawShapes;
     } else if (opCode == Opcode::OP_SHMEM_CLEAR_SIGNAL || opCode == Opcode::OP_SHMEM_SIGNAL) {
-        constexpr int32_t shmemSignalIndex = 2;
+        int32_t shmemSignalIndex = (opCode == Opcode::OP_SHMEM_SIGNAL) ? 3 : 2; // 2、3指shmemSignal是第几个operand
         constexpr int32_t shmemSignalDim = 4;
         auto [shmemSignalOffsets, shmemSignalRawShapes] = GenOffsetsAndRawShapes(shmemSignalIndex, shmemSignalDim);
         oss << ", " << shmemSignalOffsets << ", " << shmemSignalRawShapes;

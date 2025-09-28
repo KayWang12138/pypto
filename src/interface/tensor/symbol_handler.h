@@ -35,7 +35,8 @@ enum class SymbolHandlerId : uint64_t {
     GetViewValidShapeDim,
     IsLoopBegin,
     IsLoopEnd,
-    GetHcclRankId
+    GetHcclRankId,
+    BindTensor
 };
 
 const std::unordered_map<std::string, SymbolHandlerId> symbolHandlerIndexDict = {
@@ -52,7 +53,8 @@ const std::unordered_map<std::string, SymbolHandlerId> symbolHandlerIndexDict = 
     {"GetViewValidShapeDim", SymbolHandlerId::GetViewValidShapeDim},
     {"IsLoopBegin", SymbolHandlerId::IsLoopBegin},
     {"IsLoopEnd", SymbolHandlerId::IsLoopEnd},
-    {"GetHcclRankId", SymbolHandlerId::GetHcclRankId}
+    {"GetHcclRankId", SymbolHandlerId::GetHcclRankId},
+    {"BindTensor", SymbolHandlerId::BindTensor},
 };
 
 struct SymbolHandler {

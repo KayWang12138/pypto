@@ -27,7 +27,8 @@ enum CallRootStage {
     T_CALLROOT_ALLOC = 0,
     T_CALLROOT_STITCH = 1,
     T_CALLROOT_LOG = 2,
-    T_CALLROOT_MAX = 3,
+    T_CALLROOT_SHMEM_ALLOC = 3,
+    T_CALLROOT_MAX = 4,
 };
 
 using Call1EntryType = uint64_t (*)(uint64_t);

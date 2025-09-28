@@ -203,7 +203,7 @@ enum class Opcode {
     OP_SHMEM_WAIT_UNTIL,
     OP_SHMEM_GET,
     OP_SHMEM_REDUCE,
-
+    OP_BIND_TENSOR,
     // Begin: add for TOPK and ArgSort
     OP_TOPK,
     OP_TILEDMRGSORT,
@@ -466,7 +466,7 @@ const std::unordered_set<Opcode> DISTRIBUTED_OPS{
     Opcode::OP_MOE_FFN_TO_ATTN, Opcode::OP_MOE_ATTN_COMBINE, Opcode::OP_SEND_TO_ROUTING_EXPERT,
     Opcode::OP_SEND_TO_SHARED_EXPERT, Opcode::OP_COPY_TO_LOCAL_EXPERT, Opcode::OP_DISPATCH_SET_FLAG,
     Opcode::OP_FFN_SCHED, Opcode::OP_FFN_BATCHING, Opcode::OP_SHMEM_PUT, Opcode::OP_SHMEM_SIGNAL, Opcode::OP_SHMEM_GET,
-    Opcode::OP_SHMEM_REDUCE};
+    Opcode::OP_SHMEM_REDUCE, Opcode::OP_BIND_TENSOR};
 
 inline bool IsAllocOpCode(Opcode opCode) {
     return (ALLOC_OPCODE.count(opCode) != 0);

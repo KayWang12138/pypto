@@ -26,4 +26,11 @@ SymbolicScalar GetHcclRankId(int32_t groupIndex) {
     SymbolicScalar getHcclRankId(name);
     return getHcclRankId(groupIndex);
 }
+
+SymbolicScalar BindTensor(uint64_t groupIndex, uint64_t memType, uint64_t size) {
+    std::string name = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::BindTensor);
+    name = AddRuntimePrefix(name);
+    SymbolicScalar bindTensor(name);
+    return bindTensor(groupIndex, memType, size);
+}
 }
