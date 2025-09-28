@@ -245,7 +245,6 @@ void SelectedAttentionFlashCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Ten
         curActSeq.AsIntermediateVariable();
         LOOP("LOOP_L1_s1_SA", FunctionType::DYNAMIC_LOOP, s1Idx, LoopRange(0, s1Sym, 1)) {
             LOOP("LOOP_L2_n2_SA", FunctionType::DYNAMIC_LOOP, n2Idx, LoopRange(0, n2Sym, 1)) { // GQA场景
-
                 SymbolicScalar curKvSlcSeq = 0;
                 config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, false);
                 SymbolicScalar sSlc = (curActSeq - s1Sym + 1 + s1Idx - cmpBlockSize + slcBlockSize) / slcBlockSize;

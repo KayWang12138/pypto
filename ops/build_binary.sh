@@ -46,7 +46,8 @@ function package_machine()
     OLD_IFS="$IFS"
     IFS=","
     for unit in $COMPUTE_UNIT; do
-        rm -rf ${temp_path} && mkdir -p ${temp_path}
+        [ -n "${temp_path}" ] && rm -rf ${temp_path}
+        mkdir -p ${temp_path}
         cp -rf ${BINARY_OUTPUT_PATH}/${unit}/tile_fwk_machine ${temp_path}
         pushd ${BUILD_PATH} > /dev/null
         tar czf ${tar_file} aicpu_kernels_device

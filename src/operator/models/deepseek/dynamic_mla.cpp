@@ -244,23 +244,22 @@ void MlaProlog(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
 
                 kvCacheOut = Reshape(kvCacheOutDview, {blockNum, blockSize, n2, kvLoraRank});
                 krCacheOut = Reshape(krCacheOutDview, {blockNum, blockSize, n2, qkRopeHeadDim});
-
             } else {
                 Tensor kRopeRes = Reshape(kRopeView, {tileB, 1, s, qkRopeHeadDim});
                 auto cacheIndexDview = View(cacheIndex, {tileB, s}, {bOffset, 0});
                 tileShape = {1, 1, 1, kvLoraRank};
                 TileShape::Current().SetVecTile(tileShape);
                 auto kvCacheDview = View(kvCache, {tileB, 1, s2, kvLoraRank}, {bOffset, 0, 0, 0});
-                kvCacheOut = ScatterUpdate(kvCacheDview, cacheIndexDview, kNope, -2);
+                int kvCacheNum = -2;
+                kvCacheOut = ScatterUpdate(kvCacheDview, cacheIndexDview, kNope, kvCacheNum);
 
                 tileShape = {1, 1, 1, qkRopeHeadDim};
                 TileShape::Current().SetVecTile(tileShape);
                 auto krCacheDview = View(krCache, {tileB, 1, s2, qkRopeHeadDim}, {bOffset, 0, 0, 0});
-                krCacheOut = ScatterUpdate(krCacheDview, cacheIndexDview, kRopeRes, -2); // -2
+                krCacheOut = ScatterUpdate(krCacheDview, cacheIndexDview, kRopeRes, kvCacheNum); // -2
             }
             Assemble(queryOutDview, outputOffset, queryOut);
             Assemble(qRopeView, outputOffset, queryRopeOut);
-
         }
     }
 }
