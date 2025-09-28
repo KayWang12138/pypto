@@ -1625,15 +1625,15 @@ static constexpr uint64_t KIBI = UINT64_C(1024);
 static constexpr uint64_t MEBI = UINT64_C(1024) * 1024;
 static constexpr uint64_t GIBI = UINT64_C(1024) * 1024 * 1024;
 
-static LocalWorkspaceResult CalcAicoreLocalWorkspace(DevAscendProgram &devProg) {
-    LocalWorkspaceResult res;
-    struct SlotInfo {
-        bool isOutputSlot{false};
-        bool asWriteSlot{false};
-        bool isAssemble{false};
-    };
-    std::vector<SlotInfo> slots(devProg.slotSize);
+struct SlotInfo {
+    bool isOutputSlot{false};
+    bool asWriteSlot{false};
+    bool isAssemble{false};
+    uint64_t maxAssembleDstMemReq{0};
+};
 
+static std::vector<SlotInfo> MarkOutputAssembleSlots(DevAscendProgram &devProg) {
+    std::vector<SlotInfo> slots(devProg.slotSize);
     std::vector<int> outputSlotIdxList = devProg.GetOutputTensorSlotIndexList();
     for (int outputSlotIdx : outputSlotIdxList) {
         slots[outputSlotIdx].isOutputSlot = true;
@@ -1641,43 +1641,52 @@ static LocalWorkspaceResult CalcAicoreLocalWorkspace(DevAscendProgram &devProg) 
     for (auto slotIdx : devProg.GetAssembleTensorSlotIndexList()) {
         slots[slotIdx].isAssemble = true;
     }
+    return slots;
+}
 
-    auto isOutputSlot = [&slots](auto func, auto idx) {
-        auto &toSlotList = func->GetOutcast(idx).toSlotList;
+static bool IsOutputSlot(const std::vector<SlotInfo> &slots, DevAscendFunction *func, size_t idx) {
+    auto &toSlotList = func->GetOutcast(idx).toSlotList;
+    for (size_t j = 0; j < toSlotList.size(); j++) {
+        int slotIdx = func->At(toSlotList, j);
+        if (slots[slotIdx].isOutputSlot) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool IsAssembleSlot(std::vector<SlotInfo> &slots, DevAscendFunction *func, size_t idx) {
+    auto &toSlotList = func->GetOutcast(idx).toSlotList;
+    bool isAssemble = false;
+    for (size_t j = 0; j < toSlotList.size(); j++) {
+        int slotIdx = func->At(toSlotList, j);
+        if (slots[slotIdx].isAssemble) {
+            isAssemble = true;
+            break;
+        }
+    }
+    if (isAssemble) {
         for (size_t j = 0; j < toSlotList.size(); j++) {
             int slotIdx = func->At(toSlotList, j);
-            if (slots[slotIdx].isOutputSlot) {
-                return true;
-            }
+            slots[slotIdx].maxAssembleDstMemReq = std::max(slots[slotIdx].maxAssembleDstMemReq,
+                func->GetOutcastRawTensor(idx)->maxPossibleMemReq);
         }
-        return false;
-    };
-    auto isAssembleSlot = [&slots](auto func, auto idx) {
-        auto &toSlotList = func->GetOutcast(idx).toSlotList;
-        for (size_t j = 0; j < toSlotList.size(); j++) {
-            int slotIdx = func->At(toSlotList, j);
-            if (slots[slotIdx].isAssemble) {
-                return true;
-            }
-        }
-        return false;
-    };
+    }
+    return isAssemble;
+};
+
+static LocalWorkspaceResult CalcAicoreLocalWorkspace(DevAscendProgram &devProg) {
+    std::vector<SlotInfo> slots = MarkOutputAssembleSlots(devProg);
 
     uint64_t maxInnerWorkspace = 0;
     uint64_t maxOutcastWorkspace = 0;
     uint64_t maxSlotMemReq = 0;
-    uint64_t globalTensorMem = 0;
-
     uint64_t maxStackWorkspace = 0;
     for (auto &&devEncodeData : devProg.devEncodeList) {
         DevAscendFunction *devFunc = reinterpret_cast<DevAscendFunction *>(devEncodeData.Data());
         for (size_t i = 0; i < devFunc->GetOutcastSize(); i++) {
-            if (isOutputSlot(devFunc, i)) {
-                continue;
-            }
-
-            if (isAssembleSlot(devFunc, i)) {
-                globalTensorMem += devFunc->GetOutcastRawTensor(i)->maxPossibleMemReq;
+            if (IsOutputSlot(slots, devFunc, i) || IsAssembleSlot(slots, devFunc, i)) {
+                // DAssemble budgets were update onto slots and would be added up later
                 continue;
             }
 
@@ -1695,6 +1704,12 @@ static LocalWorkspaceResult CalcAicoreLocalWorkspace(DevAscendProgram &devProg) 
         maxStackWorkspace = std::max(maxStackWorkspace, static_cast<uint64_t>(devFunc->stackWorkSpaceSize));
     }
 
+    uint64_t globalTensorMem = std::accumulate(slots.begin(), slots.end(), UINT64_C(0),
+        [](uint64_t acc, const SlotInfo &slot) {
+            return acc + (slot.isAssemble ? slot.maxAssembleDstMemReq : 0);
+        });
+
+    LocalWorkspaceResult res;
     res.slotStandardMemReq = maxSlotMemReq;
     res.globalTensorMem = globalTensorMem;
     res.rootFuncStandardMemReq = maxInnerWorkspace;
