@@ -638,7 +638,7 @@ std::string CodeGenOpCloudNPU::PrintTransposeDataMoveDynamic(const PrintTranspos
     const std::string &gmDtypeStr = param.gmDtypeStr;
     std::string dstVar = GenGmParamVar(ID0);
 
-    int dim = static_cast<int>(paramIdxForDynShape[ID0].size());
+    int dim = static_cast<int>(rawShape[ID0].size());
     std::vector<std::string> gmShapeExpr = GenGetParamMacroPacked(ID0, dim, PREFIX_STR_RAW_SHAPE);
     FillIntVecWithDummyInHead<std::string>(gmShapeExpr, SHAPE_DIM4 - dim, "1");
     ALOG_INFO_F("dynamic gmShape param: %s", IntVecToStr(gmShapeExpr).c_str());
@@ -691,7 +691,7 @@ std::string CodeGenOpCloudNPU::PrintTransposeDataMoveDynamicUnaligned(const Prin
     const std::string &gmDtypeStr = param.gmDtypeStr;
     std::string gmVar = GenGmParamVar(gmIdx);
 
-    int dim = static_cast<int>(paramIdxForDynShape[gmIdx].size());
+    int dim = static_cast<int>(rawShape[gmIdx].size());
     std::vector<std::string> gmShapeExpr = GenGetParamMacroPacked(gmIdx, dim, PREFIX_STR_RAW_SHAPE);
     FillIntVecWithDummyInHead<std::string>(gmShapeExpr, SHAPE_DIM5 - dim, "1");
     ALOG_INFO_F("dynamic gmShape param: %s", IntVecToStr(gmShapeExpr).c_str());

@@ -35,11 +35,17 @@ bool CodeGenOpCloudNPU::GetAttr(const std::string &key, T &value) const {
 }
 
 CodeGenOpCloudNPU::DynamicParamPackMTE CodeGenOpCloudNPU::PrepareDynamicShapeInfoForMTE(
-    int dynShapeIdx, int ShapeDim, bool isNeedGmOffset) const {
+    int dynShapeIdx, int shapeDim, bool isGmSpill) const {
     CodeGenOpCloudNPU::DynamicParamPackMTE pack;
-    int dim = static_cast<int>(paramIdxForDynShape[dynShapeIdx].size());
-    pack.gmShapeExpr = GenGetParamMacroPacked(dynShapeIdx, dim, PREFIX_STR_RAW_SHAPE);
-    FillIntVecWithDummyInHead<std::string>(pack.gmShapeExpr, ShapeDim - dim, "1");
+    int dim = static_cast<int>(rawShape[dynShapeIdx].size());
+    if (isGmSpill) {
+        for (auto s : dynShapeFromAttr[dynShapeIdx]) {
+            pack.gmShapeExpr.emplace_back(SymbolicExpressionTable::BuildExpression(s.GetSpecifiedValue()));
+        }
+    } else {
+        pack.gmShapeExpr = GenGetParamMacroPacked(dynShapeIdx, dim, PREFIX_STR_RAW_SHAPE);
+    }
+    FillIntVecWithDummyInHead<std::string>(pack.gmShapeExpr, shapeDim - dim, "1");
     ALOG_INFO_F("dynamic gmShape param: %s", IntVecToStr(pack.gmShapeExpr).c_str());
 
     if (offsetGmSymbolic[dynShapeIdx][ID0].IsValid()) {
@@ -47,13 +53,13 @@ CodeGenOpCloudNPU::DynamicParamPackMTE CodeGenOpCloudNPU::PrepareDynamicShapeInf
     } else {
         pack.gmOffsetExpr = GenGetParamMacroPacked(dynShapeIdx, dim, PREFIX_STR_OFFSET);
     }
-    FillIntVecWithDummyInHead<std::string>(pack.gmOffsetExpr, ShapeDim - dim, "0");
+    FillIntVecWithDummyInHead<std::string>(pack.gmOffsetExpr, shapeDim - dim, "0");
     ALOG_INFO_F("dynamic gmOffset param: %s", IntVecToStr(pack.gmOffsetExpr).c_str());
 
     for (const auto &gs : pack.gmShapeExpr) {
         pack.paramList.emplace_back(gs);
     }
-    if (isNeedGmOffset) {
+    if (!isGmSpill) {
         for (const auto &go : pack.gmOffsetExpr) {
             pack.paramList.emplace_back(go);
         }
@@ -823,7 +829,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamic(const PrintMemCopyWithU
     FillIntVecWithDummyInHead<int64_t>(newOriginShape, MAX_DIM - originShape[localIdx].size(), 1);
     const std::vector<int64_t> &localRawShape = NormalizeShape(rawShape[localIdx], SHAPE_DIM5);
 
-    auto paramPack = PrepareDynamicShapeInfoForMTE(gmIdx, MAX_DIM, !param.isSpillIntoGM);
+    auto paramPack = PrepareDynamicShapeInfoForMTE(gmIdx, MAX_DIM, param.isSpillIntoGM);
 
     std::ostringstream os;
     std::vector<std::string> paramList;
@@ -861,7 +867,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamicSupportUnaligned(const P
     FillIntVecWithDummyInHead<SymbolicScalar>(newDynamicShape, MAX_DIM - dynamicValidShape[localIdx].size(), 1);
     const std::vector<int64_t> &localRawShape = NormalizeShape(rawShape[localIdx], SHAPE_DIM5);
 
-    auto paramPack = PrepareDynamicShapeInfoForMTE(gmIdx, MAX_DIM, !param.isSpillIntoGM);
+    auto paramPack = PrepareDynamicShapeInfoForMTE(gmIdx, MAX_DIM, param.isSpillIntoGM);
     std::vector<std::string> gmShapeExpr = paramPack.gmOffsetExpr;
     std::vector<std::string> gmOffsetExpr = paramPack.gmOffsetExpr;
 

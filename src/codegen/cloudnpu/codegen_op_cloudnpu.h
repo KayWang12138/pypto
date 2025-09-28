@@ -364,7 +364,7 @@ private:
     };
 
     DynamicParamPackMTE PrepareDynamicShapeInfoForMTE(
-        int dynShapeIdx, int ShapeDim = SHAPE_DIM4, bool isNeedGmOffset = true) const;
+        int dynShapeIdx, int ShapeDim = SHAPE_DIM4, bool isGmSpill = false) const;
 
     std::string PrintReduceLastAxis(const PrintUnaryTmpBuffParam &param) const;
     std::string PrintReduceLastAxisDynamicUnalign(const PrintUnaryTmpBuffParam &param) const;

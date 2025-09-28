@@ -68,7 +68,7 @@ void CodeGenOp::UpdateShape(const Operation &oper, const LogicalTensor &logicalT
     std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(oper.GetOpAttribute());
     ASSERT(attr != nullptr) << ": missing OpAttr in copy op: \n" << oper.Dump();
     shape[operandIdx] = ToVecInt(attr->GetSpecifiedShape(1));
-    paramIdxForDynShape[operandIdx] = attr->GetShape();
+    dynShapeFromAttr[operandIdx] = attr->GetShape(); // used for spilling GM scene
     ALOG_INFO_F("attrShape(from op CopyOpAttribute) = %s", IntVecToStr(shape[operandIdx]).c_str());
 }
 
