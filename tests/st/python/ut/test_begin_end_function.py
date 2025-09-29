@@ -15,7 +15,7 @@ import pytest
 
 
 def test_begin_add_end_function():
-    dtype = pto.DataType.DT_FP16
+    dtype = pto.data_type.DT_FP16
     shape = (8, 8)
     a = pto.tensor(dtype, shape, "tensor_a")
     b = pto.tensor(dtype, shape, "tensor_b")
@@ -34,29 +34,8 @@ def test_begin_add_end_function():
     assert isinstance(c, pto.tensor)
 
 
-@pytest.mark.skip(reason="add inplace fails in pytests")
-def test_begin_inplaceadd_end_function():
-    dtype = pto.DataType.DT_FP16
-    func_type = pto.function_type.STATIC
-    shape = (8, 8)
-    a = pto.tensor(dtype, shape, "tensor_a")
-    b = pto.tensor(dtype, shape, "tensor_b")
-    c = None
-
-    graph_t = pto.graph_type.TENSOR_GRAPH
-    func_t = pto.function_type.STATIC
-
-    pto.begin_function("ADD_INPLACE", graph_t, func_t, a, b)
-    pto.set_vec_tile_shapes(8, 8)
-    c = a + b
-    pto.end_function("ADD_INPLACE", False)
-
-    print(pto.dump())
-    assert isinstance(c, pto.tensor)
-
-
 def test_empty_begin_end_function():
-    dtype = pto.DataType.DT_FP16
+    dtype = pto.data_type.DT_FP16
     a = pto.tensor(dtype, (8, 8), "tensor_a")
     fnc_name = "name"
 

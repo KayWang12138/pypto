@@ -636,6 +636,7 @@ void TestDynamicAttention(std::vector<int64_t> &params, PaTileShapeConfig &paTil
                 blockTable, actSeqs, paOut, blockSize, softmaxScale, paTileConfig, /*---*/
                 weightUV, weightO, weightOScaleW, postOut, 1e-5f, 1e-5f, cacheMode);
 }
+} // namespace mla
 
 int main(){
     int b = 4;
@@ -664,7 +665,6 @@ int main(){
     tileConfig.c2TileShape = {nTile, nTile, 64, 64, 128, 128};
     tileConfig.v2TileShape = {nTile, 64};
 
-    TestDynamicAttention<npu::tile_fwk::float16, splitReduceLastDim, splitK, nz>(params, tileConfig, false);
+    mla::TestDynamicAttention<npu::tile_fwk::float16, splitReduceLastDim, splitK, nz>(params, tileConfig, false);
     std::cout << "finished" << std::endl;
 }
-} // namespace mla

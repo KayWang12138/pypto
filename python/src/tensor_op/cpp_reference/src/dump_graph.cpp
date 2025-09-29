@@ -26,7 +26,7 @@ using namespace npu::tile_fwk;
 int main() {
     Program::GetInstance().GetConfig().Reset();
 
-    std::vector<int> shape{1, 2, 256, 128, 2};
+    std::vector<int64_t> shape{1, 2, 256, 128, 2};
     Tensor a(DT_FP32, shape, "a");
     TileShape::Current().SetVecTile(1, 1, 32, 32, 2);
 

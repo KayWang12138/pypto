@@ -28,26 +28,35 @@ void bind_operation(py::module &m) {
     m.def("mul", [](const Tensor &left, const Tensor &right) { return npu::tile_fwk::Mul(left, right); }, "Tensor mul.");
     m.def("div", [](const Tensor &left, const Tensor &right) { return npu::tile_fwk::Div(left, right); }, "Tensor div.");
     m.def(
-        "view_",
-        [](const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<int64_t> &offsets) {
-            return npu::tile_fwk::View(operand, shapes, offsets); }, 
+        "View",
+        [](const Tensor &operand, const std::vector<int64_t> &shapes, const py::sequence &offsets) {
+            bool has_symbolic = false;
+            for (const auto &item : offsets) {
+                if (py::isinstance<SymbolicScalar>(item)) {
+                    has_symbolic = true;
+                    break;
+                }
+            }
+            if (has_symbolic) {
+                std::vector<SymbolicScalar> symbolic_offsets;
+                symbolic_offsets.reserve(py::len(offsets));
+                for (const auto &item : offsets) {
+                    symbolic_offsets.push_back(item.cast<SymbolicScalar>());
+                }
+                return npu::tile_fwk::View(operand, shapes, symbolic_offsets);
+            } else {
+                std::vector<int64_t> int_offsets;
+                int_offsets.reserve(py::len(offsets));
+                for (const auto &item : offsets) {
+                    int_offsets.push_back(item.cast<int64_t>());
+                }
+                return npu::tile_fwk::View(operand, shapes, int_offsets);
+            }
+        },
         py::arg("operand"), py::arg("shapes"), py::arg("offsets"),
-        "Tensor view.");
+        "Create a view of a tensor. The 'offsets' can contain symbolic scalars." );
     m.def(
-        "view_",
-        [](const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<SymbolicScalar> &newOffsets) {
-            return npu::tile_fwk::View(operand, shapes, newOffsets); }, 
-        py::arg("operand"), py::arg("shapes"), py::arg("new_offsets"),
-        "Tensor dview.");
-    m.def(
-        "view_",
-        [](const Tensor &operand, const std::vector<int64_t> &shapes,
-            const std::initializer_list<SymbolicScalar> &newOffsets) {
-            return npu::tile_fwk::View(operand, shapes, newOffsets); }, 
-        py::arg("operand"), py::arg("shapes"), py::arg("new_offsets"),
-        "Tensor dview.");
-    m.def(
-        "view_",
+        "View",
         [](const Tensor &operand, const std::vector<int64_t> &shapes,
             const std::vector<SymbolicScalar> &newValidShapes, const std::vector<SymbolicScalar> &newOffsets) {
             return npu::tile_fwk::View(operand, shapes, newValidShapes, newOffsets); }, 
@@ -125,7 +134,7 @@ void bind_operation(py::module &m) {
         { return npu::tile_fwk::VectorDuplicate(src, dType, dstShape, validShape); },
         py::arg("src"), py::arg("dType"), py::arg("dstShape"), py::arg("validShape") = std::vector<SymbolicScalar>{},
         "Tensor vector duplicate.");
-    m.def("reshape_", [](const Tensor &input, const std::vector<int64_t> &dstShape,
+    m.def("Reshape", [](const Tensor &input, const std::vector<int64_t> &dstShape,
         const std::vector<SymbolicScalar> validShape) { return npu::tile_fwk::Reshape(input, dstShape, validShape); },
         py::arg("input"), py::arg("dstShape"), py::arg("validShape") = std::vector<SymbolicScalar>{},
         "Tensor reshape.");
@@ -435,13 +444,13 @@ void bind_operation(py::module &m) {
         py::arg("in"), py::arg("scale"), py::arg("combine_info"), py::arg("group"), "Tensor moe combine.");
 
     m.def(
-        "assemble_",
+        "Assemble",
         [](const std::vector<std::pair<Tensor, std::vector<int64_t>>> &tensor_int_pairs) {
             return npu::tile_fwk::Assemble(tensor_int_pairs);
         },
         "Tensor assemble");
     m.def(
-        "assemble_",
+        "Assemble",
         [](const Tensor &tensor, const std::vector<SymbolicScalar> &dynOffset, Tensor &dest) {
             npu::tile_fwk::Assemble(tensor, dynOffset, dest);
         },

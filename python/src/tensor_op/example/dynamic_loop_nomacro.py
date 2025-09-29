@@ -14,14 +14,14 @@ import pto
 
 
 def main():
-    dtype = pto.DataType.DT_FP16
+    dtype = pto.data_type.DT_FP16
     shape = (128, 128)
     a = pto.tensor(dtype, shape, "PTO_TENSOR_a")
     b = pto.tensor(dtype, shape, "PTO_TENSOR_b")
 
     with pto.dyn_function("MAIN", [a], [b]):
         pto.set_vec_tile_shapes(64, 64)
-        with pto.loop_function("Dynamic", "k", pto.loop_range_(10)) as rlf:
+        with pto.loop_function("Dynamic", "k", pto.loop_range(10)) as rlf:
             for k in rlf:
                 b.move(pto.add(a, a))
 

@@ -15,7 +15,7 @@ import sys
 import os
 
 def test_record_if_branch():
-    dtype = pto.DataType.DT_FP16
+    dtype = pto.data_type.DT_FP16
     shape = (32, 32)
     a = pto.tensor(dtype, shape, "tensor_a")
     b = pto.tensor(dtype, shape, "tensor_b")
@@ -23,7 +23,7 @@ def test_record_if_branch():
 
     with pto.dyn_function("ADD_IF", [a, b], [c]):
         pto.set_vec_tile_shapes(8, 8)
-        loop_range = pto.loop_range_(2)
+        loop_range = pto.loop_range(2)
         with pto.loop_function(
             "LOOP",
             "k",

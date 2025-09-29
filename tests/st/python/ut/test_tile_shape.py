@@ -22,7 +22,7 @@ def test_tile_shape_reset():
 
 def test_tile_shape_dump():
     tile_shape = pto.tile_shape()
-    tile_shape.to_string(pto.TileType.VEC)
+    tile_shape.to_string(pto.tile_type.VEC)
     tile_shape.to_string()
 
     assert tile_shape is not None
@@ -31,7 +31,7 @@ def test_tile_shape_dump():
 def test_tile_shape_specify_static_rank_id():
     tile_shape = pto.tile_shape()
     rank_id = 1
-    tile_shape.set_disk_rank_id(rank_id)
+    tile_shape.set_dist_rank_id(rank_id)
 
     assert tile_shape is not None
 

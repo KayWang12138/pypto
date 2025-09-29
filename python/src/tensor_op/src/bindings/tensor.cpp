@@ -21,16 +21,33 @@ namespace pypto {
 void bind_tensor(py::module &m){
     py::class_<Tensor>(m, "tensor")
         .def(py::init<>())
-        .def(py::init<DataType, std::vector<int64_t>, std::string>(), py::arg("dtype"), py::arg("shape"),
-            py::arg("name") = "int_init")
-        .def(py::init<DataType, std::vector<SymbolicScalar>, std::string>(), py::arg("dtype"), py::arg("shape"),
-            py::arg("name") = "SymbolicScalar_init")
-        .def(py::init<DataType, std::vector<int64_t>, std::string, TileOpFormat>(),
-            py::arg("dtype"), py::arg("shape"), py::arg("name") = "", py::arg("format") = TileOpFormat::TILEOP_ND)
+        .def(py::init([](DataType dtype, const py::sequence& shape, const std::string& name, TileOpFormat format) {
+            bool has_symbolic = false;
+            for (const auto& item : shape) {
+                if (py::isinstance<SymbolicScalar>(item)) {
+                    has_symbolic = true;
+                    break;
+                }
+            }
+            if (has_symbolic) {
+                std::vector<SymbolicScalar> symbolic_shape;
+                symbolic_shape.reserve(py::len(shape));
+                for (const auto& item : shape) {
+                    symbolic_shape.push_back(item.cast<SymbolicScalar>());
+                }
+                return std::make_unique<Tensor>(dtype, symbolic_shape, name, format);
+            } else {
+                std::vector<int64_t> int_shape;
+                int_shape.reserve(py::len(shape));
+                for (const auto& item : shape) {
+                    int_shape.push_back(item.cast<int64_t>());
+                }
+                return std::make_unique<Tensor>(dtype, int_shape, name, format);
+            }
+        }),
+        py::arg("dtype"), py::arg("shape"), py::arg("name") = "", py::arg("format") = TileOpFormat::TILEOP_ND)
         .def(py::init<DataType, std::vector<int64_t>, uint8_t *, std::string, TileOpFormat>(),
             py::arg("dtype"), py::arg("shape"),  py::arg("data_ptr"), py::arg("name"), py::arg("format") = TileOpFormat::TILEOP_ND)
-        .def(py::init<DataType, std::vector<SymbolicScalar>, std::string, TileOpFormat>(),
-            py::arg("dtype"), py::arg("shape"), py::arg("name") = "", py::arg("format") = TileOpFormat::TILEOP_ND)
         .def(
             "__add__", [](Tensor &self, Tensor tensor) { return npu::tile_fwk::Add(self, tensor); }, "Tensor add.")
         .def("get_dtype", &Tensor::GetDataType)

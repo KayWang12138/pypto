@@ -14,7 +14,7 @@ import pto
 
 
 def init_tensors():
-    dtype = pto.DataType.DT_FP32
+    dtype = pto.data_type.DT_FP32
     shape = (128, 128)
     a = pto.tensor(dtype, shape, "a")
     b = pto.tensor(dtype, shape, "b")
@@ -27,7 +27,7 @@ def main():
     with pto.dyn_function("main", [a, b], [c], []):
 
         pto.set_vec_tile_shapes(16, 16)
-        loop_range = pto.loop_range_(10)
+        loop_range = pto.loop_range(10)
 
         with pto.loop_function(
             "Dynamic",

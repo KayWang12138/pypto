@@ -28,7 +28,7 @@ int main() {
     config.Reset();
     config.Set("ONLY_CODEGEN", true);
 
-    std::vector<int> shape = {128, 2, 64, 128};
+    std::vector<int64_t> shape = {128, 2, 64, 128};
     Tensor input_a(DT_FP32, shape, "A");
     Tensor input_b(DT_FP32, shape,  "B");
     Tensor output(DT_FP32, shape, "C");

@@ -15,7 +15,7 @@ import sys
 import os
 
 def init_tensors():
-    dtype = pto.DataType.DT_FP32
+    dtype = pto.data_type.DT_FP32
     shape = (128, 128)
     a = pto.tensor(dtype, shape, "a")
     b = pto.tensor(dtype, shape, "b")
@@ -31,7 +31,7 @@ def test_dynamic_loop_nomacro():
         with pto.loop_function(
             "LOOP",
             "k",
-            pto.loop_range_(10),
+            pto.loop_range(10),
         ) as rlf:
 
             for k in rlf:

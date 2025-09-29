@@ -33,6 +33,9 @@ void bind_symbolic_scalar(py::module &m) {
         .def(py::init<std::string, NotLessThan, NotGreaterThan>(), py::arg("name"), py::arg("<"), py::arg(">"))
         .def(py::init<std::string, int64_t>(), py::arg("name"), py::arg("value"));
 
+    py::implicitly_convertible<int64_t, SymbolicScalar>();
+    py::implicitly_convertible<int, SymbolicScalar>();
+
     _SymbolicScalar
         .def("is_immediate", &SymbolicScalar::IsImmediate)
         .def("is_symbol", &SymbolicScalar::IsSymbol)
@@ -69,7 +72,12 @@ void bind_symbolic_scalar(py::module &m) {
         .def("max", &SymbolicScalar::Max, py::arg("other"));
 
     _SymbolicScalar
-        .def("__int__", &SymbolicScalar::operator int, "Convert to an integer if concrete value is valid.")
+        .def("__int__", [](const SymbolicScalar &self) {
+            if (!self.ConcreteValid()) {
+                throw std::runtime_error("Cannot convert to int: concrete value is not valid!");
+            }
+            return self.operator int();  //&SymbolicScalar::operator int
+        }, "Convert to an integer if concrete value is valid.")
         .def("__str__", &SymbolicScalar::Dump, "String representation for print().")
         .def("__repr__", &SymbolicScalar::Dump, "String representation for display.");
 

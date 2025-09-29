@@ -10,29 +10,19 @@
 # ======================================================================================================================
 """
 """
-import pto
+
+from pto import pto_impl
 
 
-def init_tensors():
-    dtype = pto.data_type.DT_FP32
-    shape = (128, 128)
-    a = pto.tensor(dtype, shape, "a")
-    b = pto.tensor(dtype, shape, "b")
-    c = pto.tensor(dtype, shape, "b")
-    return a, b, c
-
-
-def main():
-    a, b, c = init_tensors()
-
-    func_cfg = pto.function_config(pto.function_type.STATIC)
-    recorder = pto.record_func("main", func_cfg, [a, b])
-    pto.set_vec_tile_shapes(16, 16)
-    c.move(pto.add(a, b))
-    del recorder
-
-    print(pto.dump())
-
-
-if __name__ == "__main__":
-    main()
+def convert_to_symbolic(value):
+    if value is None:
+        return value
+    if isinstance(value, int):
+        return pto_impl.symbolic_scalar(value)
+    if isinstance(value, list):
+        return [convert_to_symbolic(v) for v in value]
+    if not isinstance(value, pto_impl.symbolic_scalar):
+        raise TypeError(
+            f"Expected value to be int, list, or symbolic_scalar, but got {type(value)}"
+        )
+    return value

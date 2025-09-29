@@ -22,7 +22,7 @@ FUNC_T = pto.function_type.STATIC
 
 
 def vector_add():
-    dtype = pto.DataType.DT_FP32
+    dtype = pto.data_type.DT_FP32
     shape = (128, 2, 64, 128)
     a = pto.tensor(dtype, shape, "A")
     b = pto.tensor(dtype, shape, "B")
@@ -36,7 +36,7 @@ def vector_add():
 
 
 def vector_sub():
-    dtype = pto.DataType.DT_FP32
+    dtype = pto.data_type.DT_FP32
     shape = (128, 2, 64, 128)
     a = pto.tensor(dtype, shape, "A")
     b = pto.tensor(dtype, shape, "B")
@@ -50,7 +50,7 @@ def vector_sub():
 
 
 def vector_mul():
-    dtype = pto.DataType.DT_FP32
+    dtype = pto.data_type.DT_FP32
     shape = (128, 2, 64, 128)
     a = pto.tensor(dtype, shape, "A")
     b = pto.tensor(dtype, shape, "B")
@@ -64,7 +64,7 @@ def vector_mul():
 
 
 def vector_div():
-    dtype = pto.DataType.DT_FP32
+    dtype = pto.data_type.DT_FP32
     shape = (128, 2, 64, 128)
     a = pto.tensor(dtype, shape, "A")
     b = pto.tensor(dtype, shape, "B")
@@ -78,7 +78,7 @@ def vector_div():
 
 
 def vector_view():
-    dtype = pto.DataType.DT_FP32
+    dtype = pto.data_type.DT_FP32
     shape = (128, 2, 64, 128)
     a = pto.tensor(dtype, shape, "A")
     b = pto.tensor(dtype, shape, "B")
@@ -97,14 +97,14 @@ def vector_view():
 
 
 def vector_cast_exp():
-    dtype = pto.DataType.DT_FP32
+    dtype = pto.data_type.DT_FP32
     shape = (128, 2, 64, 128)
     a = pto.tensor(dtype, shape, "A")
     b = None
 
     with pto.pto_function("exp", GRAPH_T, FUNC_T, a):
         pto.set_vec_tile_shapes(32, 1, 16, 32)
-        b = pto.cast(pto.exp(a), pto.DataType.DT_FP16, pto.cast_mode.CAST_FLOOR)
+        b = pto.cast(pto.exp(a), pto.data_type.DT_FP16, pto.cast_mode.CAST_FLOOR)
 
     assert isinstance(b, pto.tensor)
     print(b.get_shape())
@@ -112,9 +112,9 @@ def vector_cast_exp():
 
 
 def vector_element():
-    a = pto.element(pto.DataType.DT_FP32, 1.0)
-    b = pto.element(pto.DataType.DT_INT64, 2)
-    c = pto.element(pto.DataType.DT_UINT64, 3)
+    a = pto.element(pto.data_type.DT_FP32, 1.0)
+    b = pto.element(pto.data_type.DT_INT64, 2)
+    c = pto.element(pto.data_type.DT_UINT64, 3)
     print(
         a.get_data_type(),
         a.get_signed_data(),
@@ -137,7 +137,7 @@ def vector_element():
     # DataType.DT_UINT64 3 3 1.5e-323
     # b c have both signed and unsigned data, which is not expected
 
-    dtype = pto.DataType.DT_FP32
+    dtype = pto.data_type.DT_FP32
     shape = (128, 2, 64, 128)
     d = pto.tensor(dtype, shape, "D")
     e = None
@@ -151,7 +151,7 @@ def vector_element():
 
 
 def vector_maximum():
-    dtype = pto.DataType.DT_FP32
+    dtype = pto.data_type.DT_FP32
     shape = (128, 2, 64, 128)
     a = pto.tensor(dtype, shape, "A")
     b = pto.tensor(dtype, shape, "B")
@@ -167,7 +167,7 @@ def vector_maximum():
 
 
 def vector_row_sum_single():
-    dtype = pto.DataType.DT_FP32
+    dtype = pto.data_type.DT_FP32
     shape = (128, 2, 64, 128)
     a = pto.tensor(dtype, shape, "A")
     b = None
@@ -182,7 +182,7 @@ def vector_row_sum_single():
 
 
 def vector_row_max_single():
-    dtype = pto.DataType.DT_FP32
+    dtype = pto.data_type.DT_FP32
     shape = (128, 2, 64, 128)
     a = pto.tensor(dtype, shape, "A")
     b = None
@@ -197,7 +197,7 @@ def vector_row_max_single():
 
 
 def vector_rms_norm():
-    dtype = pto.DataType.DT_FP32
+    dtype = pto.data_type.DT_FP32
     shape = (128, 2, 64, 128)
     a = pto.tensor(dtype, shape, "A")
     b = None
@@ -212,7 +212,7 @@ def vector_rms_norm():
 
 
 def vector_reciprocal():
-    dtype = pto.DataType.DT_FP32
+    dtype = pto.data_type.DT_FP32
     shape = (128, 2, 64, 128)
     a = pto.tensor(dtype, shape, "A")
     b = None
@@ -227,7 +227,7 @@ def vector_reciprocal():
 
 
 def vector_assemble():
-    dtype = pto.DataType.DT_FP32
+    dtype = pto.data_type.DT_FP32
     shape = (128, 128)
     offsets = (0, 0)
     tensor = pto.tensor(dtype, shape, "tensor")

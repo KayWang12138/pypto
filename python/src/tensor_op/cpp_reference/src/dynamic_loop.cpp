@@ -25,7 +25,7 @@
 using namespace npu::tile_fwk;
 
 int main(){
-    std::vector<int> shape = {128, 128};
+    std::vector<int64_t> shape = {128, 128};
     Tensor a(DT_FP32, shape, "a");
     Tensor b(DT_FP32, shape, "b");
     FUNCTION("main", FunctionType::DYNAMIC, {a}, {b}) {

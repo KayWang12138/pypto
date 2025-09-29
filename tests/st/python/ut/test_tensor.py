@@ -14,7 +14,7 @@ import pto
 
 
 def test_init_tensor():
-    expected_dtype = pto.DataType.DT_FP16
+    expected_dtype = pto.data_type.DT_FP16
     shape = [32, 1]
     tensor = pto.tensor(expected_dtype, shape, "tensor_a")
 
@@ -24,7 +24,7 @@ def test_init_tensor():
 
 
 def test_init_tensor_no_name():
-    expected_dtype = pto.DataType.DT_FP16
+    expected_dtype = pto.data_type.DT_FP16
     shape = [32, 1]
     tensor = pto.tensor(expected_dtype, shape)
 
@@ -33,7 +33,7 @@ def test_init_tensor_no_name():
 
 
 def test_tensor_get_shape():
-    dtype = pto.DataType.DT_FP16
+    dtype = pto.data_type.DT_FP16
     expected_shape = [32, 1]
     tensor = pto.tensor(dtype, expected_shape, "tensor_a")
     actual = tensor.get_shape()
@@ -44,7 +44,7 @@ def test_tensor_get_shape():
 
 
 def test_tensor_shape_property():
-    dtype = pto.DataType.DT_FP16
+    dtype = pto.data_type.DT_FP16
     expected_shape = [32, 1]
     tensor = pto.tensor(dtype, expected_shape, "tensor_a")
     actual = tensor.shape
