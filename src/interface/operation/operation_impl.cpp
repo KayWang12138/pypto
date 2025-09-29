@@ -27,6 +27,7 @@
 #include "interface/utils/common.h"
 #include "interface/utils/log.h"
 #include "interface/utils/operator_tracer.h"
+#include "passes/pass_utils/graph_utils.h"
 
 using namespace npu::tile_fwk;
 
@@ -1292,7 +1293,8 @@ void TiledScatterElementS(Function &function, const TileShape &tileShape, const 
 }
 
 void TensorScatterElementS(Function &function, const ScatterElementSPara& scatterPara) {
-    auto &op = function.AddOperation(Opcode::OP_SCATTER_ELEMENT, {scatterPara.srcInput, scatterPara.idxInput}, {scatterPara.dstTensor});
+    auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_SCATTER_ELEMENT, {scatterPara.srcInput, 
+        scatterPara.idxInput}, {scatterPara.dstTensor});
     op.SetAttribute(OP_ATTR_PREFIX + "axis", scatterPara.axis);
     op.SetAttribute(OpAttributeKey::scalar, scatterPara.scalar);
     op.SetAttribute(OpAttributeKey::reduceMode, scatterPara.reduceMode);
@@ -2546,11 +2548,10 @@ Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, in
     axis = axis < 0 ? self->shape.size() + axis : axis;
     CheckScatterElementSParamsInvalid(self, indices, axis, reduce);
     Tensor result(self->tensor->datatype, self->shape);
-    Program::GetInstance().GetCurrentFunction()->AddOperation(Opcode::OP_REGISTER_COPY, {self.GetStorage()},
-        {result.GetStorage()});
-    CALL(ScatterElementS, *Program::GetInstance().GetCurrentFunction(), {result.GetStorage(), self.GetStorage(),
-         indices.GetStorage(), src, axis, reduce});
-    return result;
+    GraphUtils::AddDynOperation(*Program::GetInstance().GetCurrentFunction(), Opcode::OP_REGISTER_COPY, 
+        {self.GetStorage()}, {result.GetStorage()});
+
+    return Scatter_(result, indices, src, axis, reduce);
 }
 
 Tensor Scatter_(const Tensor &self, const Tensor &indices, const Element &src, int axis, std::string reduce) {

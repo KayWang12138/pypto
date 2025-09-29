@@ -85,7 +85,8 @@ void ReduceAcc(LogicalTensorDataPtr out, const std::vector<LogicalTensorDataPtr>
 void Copy(LogicalTensorDataPtr out, LogicalTensorDataPtr self, bool trans = false);
 void ScatterUpdate(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index, int axis = -2,
     std::string cacheMode = "BSND", int blockSize = 1);
-
+void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index, const Element &src, 
+    int axis, std::string reduce = "");
 void BitSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t axis, bool descending);
 
 void Extract(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int mod, bool descending);

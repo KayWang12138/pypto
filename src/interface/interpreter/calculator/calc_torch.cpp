@@ -661,4 +661,17 @@ void ScatterUpdate(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalT
     }
 }
 
+void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index, const Element &src, 
+    int axis, std::string reduce) {
+    auto output = From(out);
+    auto inputSelf = From(self);
+    auto inputIndices = From(index);
+
+    if (reduce.empty()) {
+        From(out) = torch::scatter(inputSelf, axis, inputIndices, From(src));
+    } else {
+        From(out) = torch::scatter(inputSelf, axis, inputIndices, From(src), reduce);
+    }
+}
+
 } // namespace npu::tile_fwk::calc

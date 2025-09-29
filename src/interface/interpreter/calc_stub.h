@@ -67,7 +67,8 @@ inline void Transpose(LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, int64
 inline void ReduceAcc(LogicalTensorDataPtr, const std::vector<LogicalTensorDataPtr> &) {}
 inline void Copy(LogicalTensorDataPtr, LogicalTensorDataPtr, bool) {}
 inline void ScatterUpdate(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int, std::string, int) {}
-
+inline void Scatter(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, int, 
+    std::string) {}
 inline void FormatND2NZ(LogicalTensorDataPtr, LogicalTensorDataPtr) {}
 inline void FormatNZ2ND(LogicalTensorDataPtr, LogicalTensorDataPtr) {}
 inline void MatMul(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr,

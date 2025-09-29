@@ -332,6 +332,36 @@ TEST_F(TorchAdaptorTest, BinaryOps) {
         calc::ScatterUpdate(out, self, index, -2, "PA_BSND", 2); // blocksize设置为2
         ASSERT_ALLCLOSE(out, golden);
     }
+    {
+        // scatter replace
+        std::vector<float> selfData = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+                                       1.0f, 1.0f, 1.0f, 1.0f, 1.0f,};
+        std::vector<int64_t> indicesData = {1, 0, 1, 1,};
+        std::vector<float> gdata = {1.0f, 2.0f, 1.0f, 1.0f, 1.0f,
+                                    2.0f, 1.0f, 2.0f, 2.0f, 1.0f,};
+        auto src = Element(DT_FP32, 2.0f);
+        auto self = makeTensorData(DT_FP32, {2, 5}, selfData);
+        auto indices = makeTensorData(DT_INT64, {1, 4}, indicesData);
+        auto out = makeTensorData(DT_FP32, {2, 5}, 0.0f);
+        auto golden = makeTensorData(DT_FP32, {2, 5}, gdata);
+        calc::Scatter(out, self, indices, src, 0);
+        ASSERT_ALLCLOSE(out, golden);
+    }
+    {
+        // scatter add
+        std::vector<float> selfData = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+                                       1.0f, 1.0f, 1.0f, 1.0f, 1.0f,};
+        std::vector<int64_t> indicesData = {1, 0, 1, 1,};
+        std::vector<float> gdata = {1.0f, 3.0f, 1.0f, 1.0f, 1.0f,
+                                    3.0f, 1.0f, 3.0f, 3.0f, 1.0f,};
+        auto src = Element(DT_FP32, 2.0f);
+        auto self = makeTensorData(DT_FP32, {2, 5}, selfData);
+        auto indices = makeTensorData(DT_INT64, {1, 4}, indicesData);
+        auto out = makeTensorData(DT_FP32, {2, 5}, 0.0f);
+        auto golden = makeTensorData(DT_FP32, {2, 5}, gdata);
+        calc::Scatter(out, self, indices, src, 0, "add");
+        ASSERT_ALLCLOSE(out, golden);
+    }
 }
 
 TEST_F(TorchAdaptorTest, BinaryOpsS) {

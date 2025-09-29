@@ -199,6 +199,20 @@ void ExecuteOpIndexOutcast(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_INDEX_OUTCAST, Opcode::OP_INDEX_OUTCAST, ExecuteOpIndexOutcast);
 
+void ExecuteOpScatter(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ioperandDataViewList->size() == SIZE_TWO);
+    auto oop = ctx->ooperandInplaceDataViewList->at(0);
+    auto self = ctx->ioperandDataViewList->at(0);
+    auto indices = ctx->ioperandDataViewList->at(1);
+    int axis = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "axis");
+    auto src = Element(DT_FP32, 0.0f);
+    ctx->op->GetAttr(OpAttributeKey::scalar, src);
+    std::string reduce = ctx->op->GetStringAttribute(OpAttributeKey::reduceMode);
+
+    calc::Scatter(oop, self, indices, src, axis, reduce);
+}
+REGISTER_CALC_OP(OP_SCATTER_ELEMENT, Opcode::OP_SCATTER_ELEMENT, ExecuteOpScatter);
+
 void ExecuteOpExtract(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ioperandDataViewList->size() == 1);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
