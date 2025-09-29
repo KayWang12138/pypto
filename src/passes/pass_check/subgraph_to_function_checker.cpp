@@ -176,7 +176,7 @@ Status SubGraphToFuncChecker::InAndOutGraphConsistencyCheck(
         ALOG_ERROR_F("inEdgeGraph size %zu, outEdgeGraph size %zu", inEdgeGraph.size(), outEdgeGraph.size());
         return FAILED;
     }
-    
+
     std::vector<size_t> nodeColIdx = std::vector<size_t>(inEdgeGraph.size(), 0);
     for (size_t i = 0; i < inEdgeGraph.size(); i++) {
         for (size_t j = 0; j < inEdgeGraph[i].size(); j++) {
@@ -203,7 +203,7 @@ Status SubGraphToFuncChecker::InAndOutGraphConsistencyCheck(
             return FAILED;
         }
     }
-    
+
     return SUCCESS;
 }
 
@@ -212,7 +212,7 @@ Status SubGraphToFuncChecker::CheckInAndOutGraphMatch(Function &function) {
     inGraph_.resize(operationViewer.size());
     outGraph_.resize(operationViewer.size());
     for (size_t i = 0; i < operationViewer.size(); i++) {
-        std::sort(inGraph_[i].begin(), inGraph_[i].end());   
+        std::sort(inGraph_[i].begin(), inGraph_[i].end());
     }
     if (BuildInGraph(function) != SUCCESS) {
         ALOG_ERROR_F("Build inGraph failed");
@@ -249,7 +249,7 @@ Status SubGraphToFuncChecker::CheckSubGraphBoundary(Function &function) {
         int subGraphId = op.GetSubgraphID();
         for (size_t k = 0; k < op.iOperand.size(); k++) {
             auto iOperand = op.GetInputOperand(k);
-            auto producers = iOperand->GetProducers();            
+            auto producers = iOperand->GetProducers();
             // 特殊情况：如果producer有且只有view操作，在Rule 1中不需要标记为子图边界
             bool hasOnlyViewProducers = HasOnlyViewProducers(producers);
             // Rule 1: Operands from DDR memory must be marked as subgraph boundary
@@ -262,7 +262,7 @@ Status SubGraphToFuncChecker::CheckSubGraphBoundary(Function &function) {
         }
         for (size_t k = 0; k < op.oOperand.size(); k++) {
             auto oOperand = op.GetOutputOperand(k);
-            auto producers = oOperand->GetProducers();            
+            auto producers = oOperand->GetProducers();
             // 特殊情况：如果producer有且只有view操作，在Rule 1中不需要标记为子图边界
             bool hasOnlyViewProducers = HasOnlyViewProducers(producers);
             // Rule 1: Operands from DDR memory must be marked as subgraph boundary
@@ -283,7 +283,7 @@ Status SubGraphToFuncChecker::DoPreCheck(Function &function) {
         ALOG_ERROR_F("CheckSubGraphTopo failed");
         return FAILED;
     }
-    
+
     // Check subgraph boundary
     if (CheckSubGraphBoundary(function) != SUCCESS) {
         ALOG_ERROR_F("CheckSubGraphBoundary failed");
@@ -342,7 +342,7 @@ Status SubGraphToFuncChecker::ColorOutGraphCheck(Function &function) const {
             if (iSubGraphId == jSubGraphId || jSubGraphId < 0) {
                 continue;
             }
-            
+
             auto it = std::find(colorOutGraph_[iSubGraphId].begin(), colorOutGraph_[iSubGraphId].end(), jSubGraphId);
             if (it != colorOutGraph_[iSubGraphId].end()) { // found edge
                 int index = std::distance(colorOutGraph_[iSubGraphId].begin(), it);
@@ -372,6 +372,7 @@ Status SubGraphToFuncChecker::ColorOutGraphCheck(Function &function) const {
 Status SubGraphToFuncChecker::DoPostCheck(Function &function) {
     // Check colorInGraph_ and colorOutGraph_ consistency
     ALOG_INFO_F("Start PostCheck for SubgraphToFunction!");
+    
     // 只在静态流程中检查静态专用的图信息
     if (function.GetFunctionType() == FunctionType::STATIC) {
         if (InAndOutGraphConsistencyCheck(colorInGraph_, colorOutGraph_) != SUCCESS) {
@@ -401,90 +402,9 @@ Status SubGraphToFuncChecker::DoPostCheck(Function &function) {
         }
     }
 
-    // Check the mapping relationships in psgToESgMap
-    for (auto [psgId, esgId] : psgToESgMap_) {
-        if (CheckSinglePsgEsgMapping(function, psgId, esgId) != SUCCESS) { ALOG_ERROR_F("Failed to check mapping between psg %d and esg %d", psgId, esgId); return FAILED; }
-    }
-    return SUCCESS;
-}
-    
-Status SubGraphToFuncChecker::CheckSinglePsgEsgMapping(Function &function, uint32_t psgId, uint32_t esgId) {
-    auto iter = function.rootFunc_->programs_.find(psgId);
-    if (iter == function.rootFunc_->programs_.end()) { ALOG_ERROR_F("Psg %d not found in program", psgId); return FAILED; }
-    auto operations = function.rootFunc_->Operations();
-    const Operation* targetCallOp = nullptr;
-    for (size_t i = 0; i < operations.size(); ++i) {
-        const auto& op = operations[i];
-        uint32_t currentSubgraphId = op.GetSubgraphID();
-        if (currentSubgraphId == esgId) {
-            targetCallOp = &op;
-            break;
-        }
-    }
-    if (!targetCallOp) {
-        ALOG_ERROR_F("No callOp found with subgraphId %u", esgId);
-        return FAILED;
-    }
-    Operation* nonConstTargetCallOp = const_cast<Operation*>(targetCallOp);
-    auto &esg = nonConstTargetCallOp->GetSubFuncInvokeInfo();
-    auto &psg = iter->second->GetParameter();
-    ALOG_DEBUG_F("start match psg %d - esg %d\n", psgId, esgId);
-    if (!CompareParamLists(esg.GetIncastTensorParamList(), psg.inCastArgs_, "Incast", psgId, esgId)) { ALOG_ERROR_F("Incast parameter lists mismatch between psg %d and esg %d", psgId, esgId); return FAILED; }
-    if (!CompareParamLists(esg.GetOutcastTensorParamList(), psg.outCastArgs_, "Outcast", psgId, esgId)) { ALOG_ERROR_F("Outcast parameter lists mismatch between psg %d and esg %d", psgId, esgId); return FAILED; }
-    if (!CompareParamLists(esg.GetTensorParamList(), psg.tensorsArgs_, "Tensor", psgId, esgId)) { ALOG_ERROR_F("Tensor parameter lists mismatch between psg %d and esg %d", psgId, esgId); return FAILED; }
     return SUCCESS;
 }
 
-template <typename ESGParamType, typename PSGParamContainer>
-bool SubGraphToFuncChecker::CompareParamListsImpl(
-    const std::vector<ESGParamType>& esgParams, 
-    const PSGParamContainer& psgParams, 
-    const std::string &paramType, uint32_t psgId, uint32_t esgId) const
-{
-    if (esgParams.size() != psgParams.size()) {
-        ALOG_ERROR_F("Psg %d esg %d %s size mismatch[%zu : %zu]", psgId, esgId, paramType.c_str(), esgParams.size(), psgParams.size());
-        return false;
-    }
-    for (size_t i = 0; i < esgParams.size(); i++) {
-        const auto& e = esgParams[i];
-        const auto& p = psgParams[i];
-        // 动态shape豁免检查
-        if (p.shape[0] == kShapePlaceholderForParameterized) {
-            ALOG_DEBUG_F("Skip dynamic shape check");
-            continue;
-        }
-        if (!(p.CompareParam(e))) {
-            ALOG_ERROR_F("Psg %d esg %d %s shape mismatch at %zu", psgId, esgId, paramType.c_str(), i);
-            return false;
-        }
-    }
-    return true;
-}
-
-bool SubGraphToFuncChecker::CompareParamLists(
-    const std::vector<SubfuncInvokeInfoTy::IncastParamPackTy>& esgParams, 
-    const SubfuncParam::InCastParamListTy& psgParams, 
-    const std::string &paramType, uint32_t psgId, uint32_t esgId) const
-{
-    return CompareParamListsImpl(esgParams, psgParams, paramType, psgId, esgId);
-}
-        
-bool SubGraphToFuncChecker::CompareParamLists(
-    const std::vector<SubfuncInvokeInfoTy::OutcastParamPackTy>& esgParams, 
-    const SubfuncParam::OutCastParamListTy& psgParams, 
-    const std::string &paramType, uint32_t psgId, uint32_t esgId) const   
-{
-    return CompareParamListsImpl(esgParams, psgParams, paramType, psgId, esgId);
-}
-
-bool SubGraphToFuncChecker::CompareParamLists(
-    const std::vector<SubfuncInvokeInfoTy::TensorParamPackTy>& esgParams, 
-    const SubfuncParam::TensorParamListTy& psgParams, 
-    const std::string& paramType, uint32_t psgId, uint32_t esgId) const
-{
-    return CompareParamListsImpl(esgParams, psgParams, paramType, psgId, esgId);  
-}
-        
 Status SubGraphToFuncChecker::VerifySingleOpTopology(Function &function, size_t opIndex) {
     const auto &callOps = function.rootFunc_->Operations();
     // 通过 subgraphId 查找对应的 currentOp
@@ -495,12 +415,12 @@ Status SubGraphToFuncChecker::VerifySingleOpTopology(Function &function, size_t 
             break;
         }
     }
-    
+
     if (currentOp == nullptr) {
         ALOG_ERROR_F("Cannot find operation with subgraphId %zu", opIndex);
         return FAILED;
     }
-    
+
     auto consumers = currentOp->ConsumerOps();
     auto producers = currentOp->ProducerOps();
     ALOG_DEBUG_F("=================Call ===============%zu", opIndex);
@@ -516,8 +436,8 @@ Status SubGraphToFuncChecker::VerifySingleOpTopology(Function &function, size_t 
     }
     if (consumersNoSelf.size() < topoInfo.outGraph.size()) { ALOG_ERROR_F("Call %zu %d consumers size are %zu and %zu", opIndex, currentOp->opmagic, consumersNoSelf.size(), topoInfo.outGraph.size()); return FAILED; }
     for (auto succ : topoInfo.outGraph) {
-        const int consumerSubgraphId = static_cast<int>(succ); 
-        
+        const int consumerSubgraphId = static_cast<int>(succ);
+
         // 通过 subgraphId 查找预期的消费者op
         Operation* expectedConsumer = nullptr;
         for (const auto& op : callOps) {
@@ -526,7 +446,7 @@ Status SubGraphToFuncChecker::VerifySingleOpTopology(Function &function, size_t 
                 break;
             }
         }
-        
+
         if (expectedConsumer == nullptr) {
             ALOG_ERROR_F("Cannot find expected consumer with subgraphId %d", consumerSubgraphId);
             return FAILED;
@@ -534,8 +454,8 @@ Status SubGraphToFuncChecker::VerifySingleOpTopology(Function &function, size_t 
         if (consumers.count(expectedConsumer) == 0) { ALOG_ERROR_F("Cannot find consumer %d for call %zu", succ, opIndex); return FAILED; }
     }
     return SUCCESS;
-}        
-        
+}
+
 Status SubGraphToFuncChecker::CheckReadyStateConsistency(Function &function, size_t opIndex) {
     auto &topology = function.rootFunc_->topoInfo_.topology_;
     // Calculate actual predecessor count
@@ -544,7 +464,7 @@ Status SubGraphToFuncChecker::CheckReadyStateConsistency(Function &function, siz
     for (size_t j = 0; j < topology.size(); j++) {
         if (opIndex == j) {
             continue;
-        }    
+        }
         auto &otherEntry = topology[j];
         if (std::find(otherEntry.outGraph.begin(), otherEntry.outGraph.end(), opIndex) != otherEntry.outGraph.end()) {
             actualPredCount++;
@@ -567,8 +487,5 @@ void SubGraphToFuncChecker::SetColorGraph(const std::vector<std::vector<int>> &c
     colorOutGraph_ = colorOutGraph;
 }
 
-void SubGraphToFuncChecker::SetPsgToESgMap(const std::multimap<int, int> &psgToESgMap) {
-    psgToESgMap_ = psgToESgMap;
-}
 } // namespace tile_fwk
 } // namespace npu

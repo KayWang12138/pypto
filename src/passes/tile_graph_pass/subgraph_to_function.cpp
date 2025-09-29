@@ -516,10 +516,6 @@ Status SubgraphToFunction::IslandToFunction(Function &function) {
 
     auto graphNum = nLIST.size();
     ALOG_INFO_F("#### Compressed Graph #### %zu, total_Graph %zu", programIdx, graphNum);
-    for (auto &p : psgToESgMap) {
-        ALOG_INFO_F("#### after SymbolizeFunction PSgToESgMap[%d] = %d ####", p.first, p.second);
-    }
-
     return SUCCESS;
 }
 
@@ -757,7 +753,6 @@ Status SubgraphToFunction::PostCheck(Function &function) {
         checker.SetInOutGraph(staticProcessor_.inGraph, staticProcessor_.outGraph);
         checker.SetColorGraph(staticProcessor_.colorInGraph, staticProcessor_.colorOutGraph);
     }
-    checker.SetPsgToESgMap(psgToESgMap);
     return checker.DoPostCheck(function);
 }
 
