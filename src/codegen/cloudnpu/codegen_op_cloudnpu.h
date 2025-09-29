@@ -65,6 +65,8 @@ public:
 
     std::string GenGatherElementOp() const;
 
+    std::string GenRangeOp() const;
+
     struct PrintScatterElemParam {
         int axis;
         unsigned reduceOp;
@@ -397,6 +399,9 @@ private:
         {               Opcode::OP_L1_TO_L0_AT,                [this]() { return GenMemL1ToL0(); }},
         // cast op
         {                      Opcode::OP_CAST,                   [this]() { return GenCastOp(); }},
+
+        // range op
+        {                     Opcode::OP_RANGE,                  [this]() { return GenRangeOp(); }},
 
         // binary op: vector operations
         {                       Opcode::OP_ADD,                 [this]() { return GenBinaryOp(); }},

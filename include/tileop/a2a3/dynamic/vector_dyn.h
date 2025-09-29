@@ -2117,6 +2117,81 @@ TILEOP void DynTSmaxs(__ubuf__ T *dst, __ubuf__ T *src, float scalar, unsigned T
     wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
 }
 
+
+const int32_t DEFAULT_REPEAT_STRIDE = 8;
+const int32_t NUM_EIGHT = 8;
+const int32_t ONE_BLK_SIZE = 32;
+template <typename T, unsigned dstShape0>
+TILEOP void DynRange(__ubuf__ T *dst, unsigned oriShape0, T start, T step) {
+    int32_t eleCntOfOneBlock = ONE_BLK_SIZE / sizeof(T);
+    // block One
+    if (oriShape0 <= eleCntOfOneBlock) {
+        for (int32_t j = 0; j < oriShape0; j++) {
+            *(dst + j) = start + step * (T)j;
+        }
+        return;
+    } 
+    for (int32_t j = 0; j < eleCntOfOneBlock; j++) {
+        *(dst + j) = start + step * (T)j;
+    }
+    // block 2~8
+    int32_t loopN = 0;
+    int32_t tailSize = 0;
+    int32_t eleCntOfOneRep = ONE_BLK_SIZE * DEFAULT_REPEAT_STRIDE / sizeof(T);
+    if (oriShape0 >= eleCntOfOneRep) {
+        loopN = DEFAULT_REPEAT_STRIDE - 1;
+    } else {
+        loopN = oriShape0 / eleCntOfOneBlock - 1;
+        tailSize = oriShape0 % eleCntOfOneBlock;
+    }
+    set_flag(PIPE_S, PIPE_V, EVENT_ID7);
+    wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
+
+    for (int i = 0; i < loopN; i++) {
+        set_mask_count();
+        set_vector_mask(0, eleCntOfOneBlock);
+        vadds(dst + (i + 1) * eleCntOfOneBlock, dst + i * eleCntOfOneBlock, step * (T)eleCntOfOneBlock, 1, 1, 1,
+            NUM_EIGHT, NUM_EIGHT);
+        pipe_barrier(PIPE_V);
+        set_mask_norm();
+        set_vector_mask(-1, -1);
+    }
+
+    if (tailSize > 0) {
+        set_mask_count();
+        set_vector_mask(0, tailSize);
+        vadds(dst + (loopN + 1) * eleCntOfOneBlock, dst + loopN * eleCntOfOneBlock, step * (T)eleCntOfOneBlock, 1, 1, 1,
+            NUM_EIGHT, NUM_EIGHT);
+        pipe_barrier(PIPE_V);
+        set_mask_norm();
+        set_vector_mask(-1, -1);
+    }
+
+    if (oriShape0 <= eleCntOfOneRep) {
+        return;
+    }
+    // Repeat
+    loopN = oriShape0 / eleCntOfOneRep - 1;
+    tailSize = oriShape0 % eleCntOfOneRep;
+
+    for (int i = 0; i < loopN; i++) {
+        vadds(dst + (i+1) * eleCntOfOneRep, dst + i * eleCntOfOneRep, step * (T)eleCntOfOneRep, 1, 1, 1, NUM_EIGHT,
+        NUM_EIGHT);
+        pipe_barrier(PIPE_V);
+    }
+    
+    if (tailSize > 0) {
+        set_mask_count();
+        set_vector_mask(0, tailSize);
+        vadds(dst + (loopN + 1) * eleCntOfOneRep, dst + loopN * eleCntOfOneRep, step * (T)eleCntOfOneRep, 1, 1, 1,
+            NUM_EIGHT, NUM_EIGHT);
+        pipe_barrier(PIPE_V);
+        set_mask_norm();
+        set_vector_mask(-1, -1);
+    }
+    return;
+}
+
 template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0, unsigned srcShape1, int axis, int offset, int isLargest>
 TILEOP void DynBitSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, unsigned oriShape1) {
     // 生成index数据,首先创建一个1~8的数组,之后扩展到TShape1,构成0~TShape1的index数组

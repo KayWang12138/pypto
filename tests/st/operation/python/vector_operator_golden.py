@@ -764,6 +764,21 @@ def gen_topk_op_golden(case_name: str, output: Path, case_index: int = None) -> 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("TopK", golden_func, output, case_index)
 
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestRange/RangeOperationTest.TestRange",
+    ]
+)
+def gen_numpy_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    def golden_func(inputs: list, config: dict):
+        params = config.get("params")
+        start = params["start"]
+        end = params["end"]
+        step = params["step"]
+        return [np.arange(start, end, step)]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Range", golden_func, output, case_index)
 
 @GoldenRegister.reg_golden_func(
     case_names=[

@@ -1527,6 +1527,56 @@ std::string CodeGenOpCloudNPU::PrintGatherElementDynamicUnaligned(const PrintGat
     return oss.str();
 }
 
+std::string CodeGenOpCloudNPU::GenRangeOp() const {
+    // only support 1 dim
+    std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+
+    std::vector dstShape = this->rawShape[0];
+
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+
+    AppendLocalBufferVarOffset(std::vector{&dVar});
+
+    auto start = opAttrs.at(OP_ATTR_PREFIX + "START");
+    auto step = opAttrs.at(OP_ATTR_PREFIX + "STEP");
+    std::string startVal;
+    std::string stepVal;
+    ASSERT(start.HasValue() && step.HasValue()) << "GenRangeOp failed ";
+
+    switch (operandDtype[ID0]) {
+        case DataType::DT_FP32:
+            startVal = std::to_string(npu::tile_fwk::AnyCast<Element>(start).Cast<float>());
+            stepVal = std::to_string(npu::tile_fwk::AnyCast<Element>(step).Cast<float>());
+            break;
+        case DataType::DT_INT32:
+            startVal = std::to_string(npu::tile_fwk::AnyCast<Element>(start).Cast<int>());
+            stepVal = std::to_string(npu::tile_fwk::AnyCast<Element>(step).Cast<int>());
+            break;
+        case DataType::DT_INT64:
+            startVal = std::to_string(npu::tile_fwk::AnyCast<Element>(start).Cast<int64_t>());
+            stepVal = std::to_string(npu::tile_fwk::AnyCast<Element>(step).Cast<int64_t>());
+            break;
+        default: ALOG_ERROR_F("GenRangeOp: Unsupport type: DataType=%d", operandDtype[ID0]); return "CG_ERROR";
+    }
+    std::ostringstream oss;
+    std::vector<std::string> paramList;
+    paramList.emplace_back(dstDtypeStr);
+    paramList.emplace_back(std::to_string(dstShape[ID0]));
+
+    std::string templateParam = JoinString(paramList, ", ");
+    // func actual param
+    paramList.clear();
+    std::string dst = "(" + GetAddrTypeByOperandType(BUF_UB) + " " + dstDtypeStr + "*)" + dVar;
+    paramList.emplace_back(dst);
+    auto dstValidShape = dynamicValidShape[ID0];
+    paramList.emplace_back(dstValidShape[ID0].Dump());
+    paramList.emplace_back(startVal);
+    paramList.emplace_back(stepVal);
+    std::string tiloOpCallParam = JoinString(paramList, ", ");
+    oss << tileOpName << "<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::GenGatherElementOp() const {
     std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
     std::string s1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);

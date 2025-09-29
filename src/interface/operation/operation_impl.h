@@ -80,6 +80,8 @@ constexpr int32_t NUM_VALUE_16 = 16;
 constexpr int32_t NUM_VALUE_31 = 31;
 constexpr int32_t NUM_VALUE_32 = 32;
 constexpr int32_t NUM_VALUE_64 = 64;
+const int INT_MAX_VALUE = 2147483647;
+const int INT_MIN_VALUE = -2147483648;
 
 struct ExpandInfo {
     const std::shared_ptr<LogicalTensor> &srcTensor;

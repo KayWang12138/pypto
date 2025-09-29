@@ -188,6 +188,7 @@ Tensor Concat(const std::vector<Tensor> &tensorList, int axis);
 Tensor NewCompact(const Tensor &operand);
 Tensor Pad(const Tensor &old, const std::vector<int64_t> &newShape);
 Tensor LogicalNot(const Tensor &operand);
+Tensor Range(const Element &start, const Element &end, const Element &step);
 
 Tensor Assign(const Tensor &operand);
 

@@ -2841,6 +2841,141 @@ Tensor NewCompact(const Tensor &operand)
     return result;
 }
 
+template <typename T, DataType dataType>
+Element GetCurStartElement(Element start, Element step, int id){
+    T startValue;
+    T stepValue;
+    if (dataType == DT_INT32 || dataType == DT_INT64) {
+        startValue = start.GetSignedData();
+        stepValue = step.GetSignedData();
+    } else if (dataType == DT_FP32) {
+        startValue = (float)start.GetFloatData();
+        stepValue = (float)step.GetFloatData();
+    }
+    T curStartValue = startValue + id * stepValue;
+    Element curStart(dataType, curStartValue);
+    return curStart;
+}
+
+void TiledRange(Function &function, const TileShape &tileShape, const Element start, const Element step,
+    const LogicalTensorPtr &result) {
+    TileInfo resultTileInfo(result->shape.size(), result->offset.size());
+    auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < result->shape[0]; i += vecTile[0]) {
+        resultTileInfo.offset[0] = i;
+        resultTileInfo.shape[0] = std::min(result->shape[0] - resultTileInfo.offset[0], vecTile[0]);
+        int64_t curSizeValue = resultTileInfo.shape[0];
+        Element curSize(DT_INT64, curSizeValue);
+        Element curStart;
+        if (start.GetDataType() == DT_INT32) {
+            curStart = GetCurStartElement<int32_t, DT_INT32>(start, step, i);
+        } else if (start.GetDataType() == DT_INT64) {
+            curStart = GetCurStartElement<int64_t, DT_INT64>(start, step, i);
+        } else if (start.GetDataType() == DT_FP32) {
+            curStart = GetCurStartElement<float, DT_FP32>(start, step, i);
+        } else {
+            throw std::invalid_argument("Unknown DataType");
+        }
+        auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
+        auto &op = function.AddOperation(Opcode::OP_RANGE, {}, {resultTile});
+        op.SetAttribute(OP_ATTR_PREFIX + "START", curStart);
+        op.SetAttribute(OP_ATTR_PREFIX + "SIZE", curSize);
+        op.SetAttribute(OP_ATTR_PREFIX + "STEP", step);
+    }
+    return;
+}
+
+LogicalTensorPtr TensorRange(Function &function, LogicalTensorPtr &result, Element &start, Element &step) {
+    auto &op = function.AddOperation(Opcode::OP_RANGE, {}, {result});
+    op.SetAttribute(OP_ATTR_PREFIX + "START", start);
+    op.SetAttribute(OP_ATTR_PREFIX + "STEP", step);
+    return result;
+}
+
+inline long LongCeilDiv(long a, long b){
+    if(b == 0){
+        return 0;
+    }
+    return (a + (b - 1)) / b;
+}
+
+const float EPSILON = (float)1e-8;
+template <typename T, DataType dataType>
+int64_t GetRangeResSize(Element &start, Element &end, Element &step){
+    int64_t resultSize;
+    if(dataType == DT_INT32 || dataType == DT_INT64){
+        T startValue = start.GetSignedData();
+        T endValue = end.GetSignedData();
+        T stepValue = step.GetSignedData();
+        assert(abs(stepValue) > 0);
+        resultSize = static_cast<int64_t>(LongCeilDiv(static_cast<int64_t>(endValue) - static_cast<int64_t>(startValue), static_cast<int64_t>(stepValue)));
+    }else if(dataType == DT_FP32){
+        T startValue = (float)start.GetFloatData();
+        T endValue = (float)end.GetFloatData();
+        T stepValue = (float)step.GetFloatData();
+        assert(abs(stepValue) > EPSILON);
+        resultSize = static_cast<int64_t>(std::ceil((endValue - startValue) / stepValue));
+    }
+    return resultSize;
+}
+
+Tensor RealRange(Element &start, Element &end, Element &step) {
+    DECLARE_TRACER();
+    std::vector<int64_t> resTensorShape;
+    int64_t resultSize;
+    if (start.GetDataType() == DT_INT32) {
+        resultSize = GetRangeResSize<int32_t, DT_INT32>(start, end, step);
+    } else if(start.GetDataType() == DT_INT64) {
+        resultSize = GetRangeResSize<int64_t, DT_INT64>(start, end, step);
+    } else if(start.GetDataType() == DT_FP32) {
+        resultSize = GetRangeResSize<float, DT_FP32>(start, end, step);
+    } else {
+        throw std::invalid_argument("Unknown DataType");
+    }    
+    assert(resultSize >= 0);
+    resTensorShape.push_back(resultSize);
+    auto resTensor = Tensor(start.GetDataType(), resTensorShape);
+    RETURN_CALL(Range, *Program::GetInstance().GetCurrentFunction(), resTensor.GetStorage(), start, step);
+}
+
+DataType GetResultDataType(const Element &start, const Element &end, const Element &step) {
+    DataType startType = start.GetDataType();
+    DataType endType = end.GetDataType();
+    DataType stepType = step.GetDataType();
+    assert(startType == DT_FP32 || startType == DT_INT64 || startType == DT_INT32);
+    assert(endType == DT_FP32 || endType == DT_INT64 || endType == DT_INT32);
+    assert(stepType == DT_FP32 || stepType == DT_INT64 || stepType == DT_INT32);
+    if (startType == DT_FP32 || endType == DT_FP32 || stepType == DT_FP32) {
+        return DT_FP32;
+    }
+    int64_t startValue = start.GetSignedData();
+    int64_t endValue = end.GetSignedData();
+    int64_t stepValue = step.GetSignedData();
+    bool startFlag = startValue <= INT_MAX_VALUE && startValue >= INT_MIN_VALUE;
+    bool endFlag = endValue <= INT_MAX_VALUE && endValue >= INT_MIN_VALUE;
+    bool stepFlag = stepValue <= INT_MAX_VALUE && stepValue >= INT_MIN_VALUE;
+    if (startFlag && endFlag && stepFlag) {
+        return DT_INT32;
+    }
+    return DT_INT64;
+}
+
+Element GetElementWithDataType(const Element &element, DataType dataType) {
+    if (element.GetDataType() == DT_FP32) {
+        return Element(dataType, element.GetFloatData());
+    }
+    return Element(dataType, element.GetSignedData());
+}
+
+Tensor Range(const Element &start, const Element &end, const Element &step) {
+    DataType dataType = GetResultDataType(start, end, step);
+    assert(dataType == DT_FP32 || dataType == DT_INT32);
+    Element realStart = GetElementWithDataType(start, dataType);
+    Element realEnd = GetElementWithDataType(end, dataType);
+    Element realStep = GetElementWithDataType(step, dataType);
+    return RealRange(realStart, realEnd, realStep);
+}
+
 const std::string TOPK_AXIS = OP_ATTR_PREFIX + "axis";
 const std::string TOPK_ORDER = OP_ATTR_PREFIX + "order";
 const std::string TOPK_KVALUE = OP_ATTR_PREFIX + "kvalue";
@@ -4163,6 +4298,12 @@ void npu::tile_fwk::ExpandOperationInto(Function &function, const TileShape &til
             auto nValue = (op.HasAttr(OP_ATTR_PREFIX + "act_n")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_n") : 0;
             Matrix::TiledInnerAMulB<true, true>(
                 function, tileShape, iOperand, oOperand[0], {mValue, kValue, nValue});
+            break;
+        }
+        case Opcode::OP_RANGE: {
+            Element start = op.GetElementAttribute(OP_ATTR_PREFIX + "START");
+            Element step = op.GetElementAttribute(OP_ATTR_PREFIX + "STEP");
+            TiledRange(function, tileShape, start, step, oOperand[0]);
             break;
         }
         case Opcode::OP_BITSORT: {

@@ -8,6 +8,8 @@
 # ======================================================================================================================
 
 set(_CaseFilterList
+        "TestRange/RangeOperationTest.TestRange/0"
+        "TestRange/RangeOperationTest.TestRange/1"
         "TestAdd/AddOperationTest.TestAdd/10"
         "TestAdd/AddOperationTest.TestAdd/11"
         "TestConcat/ConcatOperationTest.TestConcat/0"
