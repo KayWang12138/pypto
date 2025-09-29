@@ -40,7 +40,7 @@ void TestNZFormat(int bs, int m, int k, int n) {
     uint8_t* mat_c_ptr = allocDevAddr(outputSize);
 
     PROGRAM("BATCHMATMUL") {
-        Program::GetInstance().GetConfig().Reset();
+        config::Reset();
         TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
         auto afmt = IsANZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
         auto bfmt = IsBNZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
@@ -122,7 +122,7 @@ void TestNZFormatBatch(int bs, int m, int k, int n) {
     uint8_t* mat_c_ptr = allocDevAddr(outputSize);
 
     PROGRAM("BATCHMATMUL") {
-        Program::GetInstance().GetConfig().Reset();
+        config::Reset();
         TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
         auto afmt = IsANZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
         auto bfmt = IsBNZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;

@@ -19,7 +19,7 @@
 #include "interface/tensor/raw_tensor.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/configs/config_storage.h"
+
 
 using namespace npu::tile_fwk;
 
@@ -30,7 +30,7 @@ public:
     static void SetUpTestCase() {}
 
     void SetUp() override {
-        Program::GetInstance().GetConfig().Reset();
+        config::Reset();
     }
 
     void TearDown() override {}
@@ -293,7 +293,7 @@ void TestNZFormatBatch(int bs, int m, int k, int n) {
     std::vector<int64_t> batch_shape_b = {nLen, kLen};
     std::vector<int64_t> batch_shape_c = {bs*m, n};
     PROGRAM("BATCHMATMUL") {
-        Program::GetInstance().GetConfig().Reset();
+        config::Reset();
         TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
         auto afmt = IsANZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
         auto bfmt = IsBNZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;

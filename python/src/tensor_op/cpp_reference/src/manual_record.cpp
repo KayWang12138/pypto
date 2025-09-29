@@ -19,7 +19,6 @@
 #include "interface/tensor/raw_tensor.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/configs/config_storage.h"
 
 using namespace npu::tile_fwk;
 

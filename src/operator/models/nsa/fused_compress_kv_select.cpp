@@ -106,23 +106,23 @@ Tensor BatchMlpCompress(const Tensor &x, const Tensor &w1, const Tensor &w2, Mlp
     auto v1Tile = tileConfig.v1TileShape;
 
     TileShape::Current().SetVecTile(NUM_128, NUM_128);
-    ConfigManager::Instance().SetSemanticLabel("MlpCompress-1");
+    config::SetSemanticLabel("MlpCompress-1");
     TileShape::Current().SetCubeTile({c1Tile[NUM_VALUE_0], c1Tile[NUM_VALUE_1]},
         {c1Tile[NUM_VALUE_2], c1Tile[NUM_VALUE_3]}, {c1Tile[NUM_VALUE_4], c1Tile[NUM_VALUE_5]}, true);
     auto firstMm = Matrix::Matmul<false, false>(DT_FP32, x, w1); // (b, 2 * cmpBlockSize * d)
     TileShape::Current().SetVecTile(v1Tile[NUM_VALUE_0], v1Tile[NUM_VALUE_1]);
-    ConfigManager::Instance().SetSemanticLabel("MlpCompress-2");
+    config::SetSemanticLabel("MlpCompress-2");
     auto sigTensor = Sigmoid(firstMm);
-    ConfigManager::Instance().SetSemanticLabel("MlpCompress-3");
+    config::SetSemanticLabel("MlpCompress-3");
     auto castTensor = Cast(sigTensor, xDtype);
 
-    ConfigManager::Instance().SetSemanticLabel("MlpCompress-4");
+    config::SetSemanticLabel("MlpCompress-4");
     TileShape::Current().SetCubeTile({c2Tile[NUM_VALUE_0], c2Tile[NUM_VALUE_1]},
         {c2Tile[NUM_VALUE_2], c2Tile[NUM_VALUE_3]}, {c2Tile[NUM_VALUE_4], c2Tile[NUM_VALUE_5]}, true);
     auto res = Matrix::Matmul<false, false>(xDtype, castTensor, w2); // (b, d)
-    ConfigManager::Instance().SetSemanticLabel("MlpCompress-5");
+    config::SetSemanticLabel("MlpCompress-5");
     TileShape::Current().SetVecTile(v1Tile[NUM_VALUE_0], v1Tile[NUM_VALUE_1]);
-    ConfigManager::Instance().SetSemanticLabel("");
+    config::SetSemanticLabel("");
     return res;
 }
 
@@ -139,37 +139,37 @@ Tensor MlpCompress(const Tensor &x, const Tensor &w1, const Tensor &w2, MlpCmpTi
     const int n = x->shape[NUM_VALUE_1];
     const int d = x->shape[NUM_VALUE_2];
 
-    ConfigManager::Instance().SetSemanticLabel("MlpCompress-0");
+    config::SetSemanticLabel("MlpCompress-0");
     TileShape::Current().SetVecTile(transTile[NUM_VALUE_0], transTile[NUM_VALUE_1], transTile[NUM_VALUE_2]);
     auto xCast = Cast(x, DT_FP32);
     auto xTrans = Transpose(xCast, {NUM_VALUE_0, NUM_VALUE_1}); // (n2, cmpBlockSize, d)
     TileShape::Current().SetVecTile(1, NUM_32, NUM_128);
-    ConfigManager::Instance().SetSemanticLabel("MlpCompress-1");
+    config::SetSemanticLabel("MlpCompress-1");
     auto xRe2 = Reshape(xTrans, {n, s * d}); // (n2, cmpBlockSize * d)
     TileShape::Current().SetVecTile(1, NUM_64);
-    ConfigManager::Instance().SetSemanticLabel("MlpCompress-1.5");
+    config::SetSemanticLabel("MlpCompress-1.5");
     auto xCast2 = Cast(xRe2, xDtype);
 
-    ConfigManager::Instance().SetSemanticLabel("MlpCompress-2");
+    config::SetSemanticLabel("MlpCompress-2");
     TileShape::Current().SetCubeTile({c1Tile[NUM_VALUE_0], c1Tile[NUM_VALUE_1]},
         {c1Tile[NUM_VALUE_2], c1Tile[NUM_VALUE_3]}, {c1Tile[NUM_VALUE_4], c1Tile[NUM_VALUE_5]}, true);
     auto firstMm = Matrix::Matmul<false, false>(DT_FP32, xCast2, w1); // (n2, 2 * cmpBlockSize * d)
     TileShape::Current().SetVecTile(v1Tile[NUM_VALUE_0], v1Tile[NUM_VALUE_1]);
-    ConfigManager::Instance().SetSemanticLabel("MlpCompress-3");
+    config::SetSemanticLabel("MlpCompress-3");
     auto sigTensor = Sigmoid(firstMm);
-    ConfigManager::Instance().SetSemanticLabel("MlpCompress-4");
+    config::SetSemanticLabel("MlpCompress-4");
     auto castTensor = Cast(sigTensor, x->Datatype());
 
-    ConfigManager::Instance().SetSemanticLabel("MlpCompress-5");
+    config::SetSemanticLabel("MlpCompress-5");
     TileShape::Current().SetCubeTile({c2Tile[NUM_VALUE_0], c2Tile[NUM_VALUE_1]},
         {c2Tile[NUM_VALUE_2], c2Tile[NUM_VALUE_3]}, {c2Tile[NUM_VALUE_4], c2Tile[NUM_VALUE_5]}, true);
     auto res = Matrix::Matmul<false, false>(DT_FP32, castTensor, w2); // (n2, d)
-    ConfigManager::Instance().SetSemanticLabel("MlpCompress-6");
+    config::SetSemanticLabel("MlpCompress-6");
     auto resRe = Reshape(res, {NUM_VALUE_1, n, d});
-    ConfigManager::Instance().SetSemanticLabel("MlpCompress-7");
+    config::SetSemanticLabel("MlpCompress-7");
     TileShape::Current().SetVecTile(v2Tile[NUM_VALUE_0], v2Tile[NUM_VALUE_1], v2Tile[NUM_VALUE_2]);
     auto resCast = Cast(resRe, xDtype); // (1, n2, d)
-    ConfigManager::Instance().SetSemanticLabel("");
+    config::SetSemanticLabel("");
     return resCast;
 }
 
@@ -179,16 +179,16 @@ std::tuple<Tensor, Tensor> CmpAttn(
     auto c2Tile = tileConfig.c2TileShape;
     auto v1Tile = tileConfig.v1TileShape;
     auto qDtype = q->Datatype();
-    ConfigManager::Instance().SetSemanticLabel("CmpAttention-MatMul1");
+    config::SetSemanticLabel("CmpAttention-MatMul1");
     TileShape::Current().SetCubeTile({c1Tile[NUM_VALUE_0], c1Tile[NUM_VALUE_1]},
         {c1Tile[NUM_VALUE_2], c1Tile[NUM_VALUE_3]}, {c1Tile[NUM_VALUE_4], c1Tile[NUM_VALUE_5]}, true);
     auto mm1 = Matrix::Matmul<false, true>(DT_FP32, q, k); // (g, effSeq)
     TileShape::Current().SetVecTile(v1Tile[NUM_VALUE_0], v1Tile[NUM_VALUE_1]);
-    ConfigManager::Instance().SetSemanticLabel("CmpAttention-Softmax");
+    config::SetSemanticLabel("CmpAttention-Softmax");
     auto softmaxRes = SoftmaxNew(mm1);                         // (g, effSeq)
     auto scaleRes = MulS(softmaxRes, Element(DT_FP32, scale)); // (g, effSeq)
     auto castScale = Cast(scaleRes, qDtype);
-    ConfigManager::Instance().SetSemanticLabel("CmpAttention-MatMul2");
+    config::SetSemanticLabel("CmpAttention-MatMul2");
     TileShape::Current().SetCubeTile({c2Tile[NUM_VALUE_0], c2Tile[NUM_VALUE_1]},
         {c2Tile[NUM_VALUE_2], c2Tile[NUM_VALUE_3]}, {c2Tile[NUM_VALUE_4], c2Tile[NUM_VALUE_5]}, true);
     auto mm2 = Matrix::Matmul<false, false>(DT_FP32, castScale, v); // (g, dN)
@@ -264,7 +264,7 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
         auto actualVaildLen = (((curKvLen - NUM_32) / 16 + 1) + 3) / 4 - 3; // 125
         // Concat All Blocks
         LOOP("CMP_LOOP_BLOCKNUM", FunctionType::DYNAMIC_LOOP, blockIdx, LoopRange(blockLoop), {}, true) {
-            ConfigManager::Instance().SetSemanticLabel("BeforeBlockConcat");
+            config::SetSemanticLabel("BeforeBlockConcat");
             SymbolicScalar curBlockIdx = GetInputData(blockTable, {bIdx, blockIdx});
             auto curKv = View(kvCache, {blockSize, n2 * dN}, {curBlockIdx * blockSize, 0});
             auto curKr = View(krCache, {blockSize, n2 * dR}, {curBlockIdx * blockSize, 0});
@@ -281,7 +281,7 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
             Assemble(curKr2, {blockIdx * blockSize, 0, 0}, krTensor);
             Assemble(curKv2, {blockIdx * blockSize, 0, 0}, fullK);
             Assemble(curKr2, {blockIdx * blockSize, 0, dN}, fullK);
-            ConfigManager::Instance().SetSemanticLabel("AfterBlockConcat");
+            config::SetSemanticLabel("AfterBlockConcat");
         }
         // Kv Compress
         auto mlpLoop = (curKvLen - cmpBlockSize) / cmpStride + NUM_VALUE_1;
@@ -297,7 +297,7 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
             auto krTmp2 = Cast(krTmp1, kDtype);
 
             // LocalRope
-            ConfigManager::Instance().SetSemanticLabel("MlpLocalRope");
+            config::SetSemanticLabel("MlpLocalRope");
             auto krRope = MlpSingleRope(krTmp2, cosTmp, sinTmp, tileConfig.mlpRopeTile); // (cmpBlockSize, n2, dR)
 
             TileShape::Current().SetVecTile(1, NUM_32, 1, NUM_64);
@@ -311,7 +311,7 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
             Tensor kCat(kDtype, {cmpBlockSize, n2, dN + dR}, "kConcat");
             Assemble(kvTmp2, {0, 0, 0}, kCat);
             Assemble(krRope, {0, 0, dN}, kCat);
-            ConfigManager::Instance().SetSemanticLabel("MlpCompress");
+            config::SetSemanticLabel("MlpCompress");
             auto kMlp = MlpCompress(kCat, mlpWk1, mlpWk2, tileConfig.mlpCmpTile); // (1, n2, dK)
             Assemble(kMlp, {cmpIdx, 0, 0}, kCmpTensor); // (maxCmpBlockSize * blockSize, n2 * dK)
             auto MlpReshape = Reshape(kMlp, {1, 1, n2, dK});

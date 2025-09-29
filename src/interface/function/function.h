@@ -417,15 +417,14 @@ struct ParamConfigs {
     int sgParallelNum{1};
     int sgCopyInThreshold{2*1024*1024};
     uint8_t machineConfig_{0}; // machine config
-    std::map<int, int> l1ReuseMap;
-    std::map<int, int> cubeNBufferMap;
-    std::string OoOPreScheduleMethodDefault{"PriorDFS"};
-    std::map<std::string,std::string> OoOPreScheduleMethodMap;
+    std::map<int64_t, int64_t> l1ReuseMap;
+    std::map<int64_t, int64_t> cubeNBufferMap;
+    std::string OoOPreScheduleMethod{"PriorDFS"};
     int nBufferMergeMode{1};
     int sgVecParallelNum{48};
     int sgCubeParallelNum{24};
     bool sgSkipPartition{false};
-    std::map<int, int> vecNBufferMap;
+    std::map<int64_t, int64_t> vecNBufferMap;
     int copyOutResolveCoalescing{0};
 };
 
@@ -664,8 +663,8 @@ public:
         return std::all_of(operations_.begin(), operations_.end(), [](auto &op) {
             Opcode opcode = op->GetOpcode();
             // 扩展支持的算子类型：RESHAPE、VIEW、ASSEMBLE
-            return opcode == Opcode::OP_RESHAPE || 
-                opcode == Opcode::OP_VIEW || 
+            return opcode == Opcode::OP_RESHAPE ||
+                opcode == Opcode::OP_VIEW ||
                 opcode == Opcode::OP_ASSEMBLE;
         });
     }

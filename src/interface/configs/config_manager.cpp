@@ -20,6 +20,7 @@
 #include <string>
 #include "interface/inner/config.h"
 #include "interface/utils/common.h"
+#include "interface/utils/log.h"
 #include "interface/utils/file_utils.h"
 
 #ifdef SRCPATH
@@ -46,39 +47,12 @@ static const nlohmann::json *GetJsonNode(const nlohmann::json &root, const std::
     return curr;
 }
 
-static void LoadConfig(const nlohmann::json& root, const std::string &key = "") {
-    if (root.is_object()) {
-        for (auto &element : root.items()) {
-            if (key.empty()) {
-                LoadConfig(element.value(), element.key());
-            } else {
-                LoadConfig(element.value(), key + "." + element.key());
-            }
-        }
-    } else if (root.is_array()) {
-        std::vector<int64_t> valueArray;
-        for (auto &element : root) {
-            if (element.is_number()) {
-                valueArray.emplace_back(element);
-            }
-        }
-        SetOptionOverlay(key, valueArray);
-    } else if (root.is_string()) {
-        SetOptionOverlay(key, root.get<std::string>());
-    } else if (root.is_number()) {
-        SetOptionOverlay(key, root.get<int64_t>());
-    } else if (root.is_boolean()) {
-        SetOptionOverlay(key, root.get<bool>());
-    }
-}
-
 static const nlohmann::json *GetJsonChild(const nlohmann::json &root, const std::string &key) {
     return GetJsonNode(root, {key});
 }
 
 ConfigManager::ConfigManager() {
     Initialize();
-    LoadConfig(originJson_);
     LoggerManager::FileLoggerRegister(LogFile(), true);
 }
 
@@ -182,7 +156,7 @@ static std::string CreateLogTopFolder() {
             folderPath = std::move(envStr);
         }
     } else {
-        folderPath = folderPath + "/" + "output_" + timestamp.str(); 
+        folderPath = folderPath + "/" + "output_" + timestamp.str();
     }
     res = CreateDir(folderPath);
     ASSERT(res) << "Failed to create directory: " << folderPath;

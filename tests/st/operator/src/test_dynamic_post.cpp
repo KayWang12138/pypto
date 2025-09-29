@@ -97,7 +97,7 @@ void TestAttentionPost(const TestPostParams &params, const PostTileConfig &tileC
     CreateQuantTensorAndData(wOQuant);
     inputDataList.emplace_back(wOQuant.scale.dataPtr);
     inputDataList.emplace_back(wOQuant.smooth.dataPtr);
-    
+
     ProgramData::GetInstance().AppendInputs({inputDataList});
 
     ProgramData::GetInstance().AppendOutputs({outputDataList});
@@ -121,8 +121,8 @@ void TestAttentionPost(const TestPostParams &params, const PostTileConfig &tileC
 
 void PerformanceConfig() {
     const int cycle_upper_bound = 500000;
-    Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_UPPER_BOUND, cycle_upper_bound);
-    Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {{0, 4}});
+    config::SetPassOption(SG_CYCLE_UPPER_BOUND, cycle_upper_bound);
+    config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{{0, 4}});
 }
 
 ////// fp16, nz, quant

@@ -2065,29 +2065,29 @@ void PaPostDebugCastFirstMm5SplitK(Tensor &postIn, Tensor &weightUV, Tensor &wei
         {postIn, weightUV, weightO, weightOScaleW}, {postOut}) {
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 32;
-        Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_UPPER_BOUND, 500000);  // 300000(1024/167us)   700000(512/174us)   500000(512/171us)
+        config::SetPassOption(SG_CYCLE_UPPER_BOUND, 500000);  // 300000(1024/167us)   700000(512/174us)   500000(512/171us)
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto postInUnit = View(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
             auto r1Res = Reshape(postInUnit, {bTile*S, N, kvLoraRank}); // 128个
-            ConfigManager::Instance().SetSemanticLabel("CAST+TRANSPOSE1");
+            config::SetSemanticLabel("CAST+TRANSPOSE1");
             TileShape::Current().SetVecTile({std::min(32, bTile * S), 2, kvLoraRank}); // raw (bTile*1, 128, 512)
             auto cast1 = Cast(r1Res, DT_BF16);
             auto t1Res = Transpose(cast1, {0, 1}); // (N, bTile * S, kvLoraRank)    // 128个
 
-            Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {{0, 4}});
-            ConfigManager::Instance().SetSemanticLabel("BMM4");
+            config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{{0, 4}});
+            config::SetSemanticLabel("BMM4");
             TileShape::Current().SetCubeTile({std::min(32, bTile * S), std::min(32, bTile * S)},
                 {std::min(256L, kvLoraRank), std::min(512L, kvLoraRank)}, {vHeadDim, vHeadDim},
                 true);                                                 // raw bTile*1  512   128   // 128/4个
             auto bmmRes = Matrix::BatchMatmul(dtype, t1Res, weightUV); // (N, bTile, kvLoraRank) * (N, kvLoraRank, vHeadDim) -> (N, bTile, vHeadDim)
 
-            ConfigManager::Instance().SetSemanticLabel("TRANSPOSE3");
+            config::SetSemanticLabel("TRANSPOSE3");
             TileShape::Current().SetVecTile(4, std::min(32, bTile * S), vHeadDim); // raw (128, bTile*1, 128)
             auto t3Res = Transpose(bmmRes, {0, 1}); // (N, bTile, vHeadDim) -> (bTile, N, vHeadDim) // 128个
-            ConfigManager::Instance().SetSemanticLabel("RESHAPE2");
+            config::SetSemanticLabel("RESHAPE2");
             auto r2Res = Reshape(t3Res, {bTile * S, N * vHeadDim}); // (bTile * S, N, vHeadDim) -> (bTile * S, N*vHeadDim)
 
-            ConfigManager::Instance().SetSemanticLabel("QUANT");
+            config::SetSemanticLabel("QUANT");
             TileShape::Current().SetVecTile(1, N * vHeadDim); // raw (bTile*1, 128*128)
             auto quantA = Quant(r2Res);
             auto quantizedA = std::get<0>(quantA); //(bTile * S, N*vHeadDim)
@@ -2112,14 +2112,14 @@ void PaPostDebugCastFirstMm5SplitK(Tensor &postIn, Tensor &weightUV, Tensor &wei
             TileShape::Current().SetVecTile(std::min(32, bTile * S), std::min(512L, H)); // 14个
             Tensor res = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);
 
-            ConfigManager::Instance().SetSemanticLabel("CMMC");
+            config::SetSemanticLabel("CMMC");
             TileShape::Current().SetVecTile(std::min(32, bTile * S), std::min(32L, H)); // raw (bTile*1, 7168)
             res = Cast(res, DataType::DT_FP32);
             res = Mul(res, dequantScaleA);   // (B*S, 1)
             Tensor weightOScaleW2Dim = Reshape(weightOScaleW, {1, H});
             res = Mul(res, weightOScaleW2Dim);   // (1, H)  // 224个
             Tensor bmm5Res = Cast(res, DataType::DT_BF16, CAST_RINT);
-            ConfigManager::Instance().SetSemanticLabel("RESHAPE3");
+            config::SetSemanticLabel("RESHAPE3");
             auto postOutTmp = Reshape(bmm5Res, {bTile, S, H});
 
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile, 0, 0};
@@ -2142,29 +2142,29 @@ void PaPostDebugCastFirstMm5NormalUnSplitK(Tensor &postIn, Tensor &weightUV, Ten
         {postIn, weightUV, weightO, weightOScaleW}, {postOut}) {
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 32;
-        Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_UPPER_BOUND, 500000);  // 300000(1024/167us)   700000(512/174us)   500000(512/171us)
+        config::SetPassOption(SG_CYCLE_UPPER_BOUND, 500000);  // 300000(1024/167us)   700000(512/174us)   500000(512/171us)
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto postInUnit = View(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
             auto r1Res = Reshape(postInUnit, {bTile*S, N, kvLoraRank}); // 128个
-            ConfigManager::Instance().SetSemanticLabel("CAST+TRANSPOSE1");
+            config::SetSemanticLabel("CAST+TRANSPOSE1");
             TileShape::Current().SetVecTile({std::min(32, bTile * S), 2, kvLoraRank}); // raw (bTile*1, 128, 512)
             auto cast1 = Cast(r1Res, DT_BF16);
             auto t1Res = Transpose(cast1, {0, 1}); // (N, bTile * S, kvLoraRank)    // 128个
 
-            Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {{0, 4}});
-            ConfigManager::Instance().SetSemanticLabel("BMM4");
+            config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{{0, 4}});
+            config::SetSemanticLabel("BMM4");
             TileShape::Current().SetCubeTile({std::min(32, bTile * S), std::min(32, bTile * S)},
                 {std::min(256L, kvLoraRank), std::min(512L, kvLoraRank)}, {vHeadDim, vHeadDim},
                 true);                                                 // raw bTile*1  512   128   // 128/4个
             auto bmmRes = Matrix::BatchMatmul(dtype, t1Res, weightUV); // (N, bTile, kvLoraRank) * (N, kvLoraRank, vHeadDim) -> (N, bTile, vHeadDim)
 
-            ConfigManager::Instance().SetSemanticLabel("TRANSPOSE3");
+            config::SetSemanticLabel("TRANSPOSE3");
             TileShape::Current().SetVecTile(4, std::min(32, bTile * S), vHeadDim); // raw (128, bTile*1, 128)
             auto t3Res = Transpose(bmmRes, {0, 1}); // (N, bTile, vHeadDim) -> (bTile, N, vHeadDim) // 128个
-            ConfigManager::Instance().SetSemanticLabel("RESHAPE2");
+            config::SetSemanticLabel("RESHAPE2");
             auto r2Res = Reshape(t3Res, {bTile * S, N * vHeadDim}); // (bTile * S, N, vHeadDim) -> (bTile * S, N*vHeadDim)
 
-            ConfigManager::Instance().SetSemanticLabel("QUANT");
+            config::SetSemanticLabel("QUANT");
             TileShape::Current().SetVecTile(1, N * vHeadDim); // raw (bTile*1, 128*128)
             auto quantA = Quant(r2Res);
             auto quantizedA = std::get<0>(quantA); //(bTile * S, N*vHeadDim)
@@ -2177,14 +2177,14 @@ void PaPostDebugCastFirstMm5NormalUnSplitK(Tensor &postIn, Tensor &weightUV, Ten
                 true); // raw  bTile*1  16k  7168
             Tensor res = npu::tile_fwk::Matrix::Matmul(DataType::DT_INT32, quantizedA, weightO);
 
-            ConfigManager::Instance().SetSemanticLabel("CMMC");
+            config::SetSemanticLabel("CMMC");
             TileShape::Current().SetVecTile(std::min(32, bTile * S), std::min(32L, H)); // raw (bTile*1, 7168)
             res = Cast(res, DataType::DT_FP32);
             res = Mul(res, dequantScaleA);   // (B*S, 1)
             Tensor weightOScaleW2Dim = Reshape(weightOScaleW, {1, H});
             res = Mul(res, weightOScaleW2Dim);   // (1, H)  // 224个
             Tensor bmm5Res = Cast(res, DataType::DT_BF16, CAST_RINT);
-            ConfigManager::Instance().SetSemanticLabel("RESHAPE3");
+            config::SetSemanticLabel("RESHAPE3");
             auto postOutTmp = Reshape(bmm5Res, {bTile, S, H});
 
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile, 0, 0};
@@ -2641,7 +2641,7 @@ void PageAttentionPostBf16(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache
         }
 
         SymbolicScalar B = attentionOut->shape[0] / N; // S=1
-        Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_UPPER_BOUND, NUM_500000);
+        config::SetPassOption(SG_CYCLE_UPPER_BOUND, NUM_500000);
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / (bTile <= 0 ? 1 : bTile), 1), PowersOf2(maxUnrollTimes), true) {
             auto postInUnit = View(attentionOut, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
             TileShape::Current().SetVecTile({std::min(32L, bTile * S * N), kvLoraRank});

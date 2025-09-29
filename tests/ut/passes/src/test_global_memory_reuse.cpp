@@ -39,7 +39,7 @@ public:
 
     void SetUp() override {
         Program::GetInstance().Reset();
-        Program::GetInstance().GetConfig().Reset();
+        config::Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
     }
@@ -59,7 +59,7 @@ public:
         * [3*dim+1, 4*dim]: validshape
         */
         symbolicScalar.push_back(SymbolicScalar(rawTensor->GetRawTensor()->GetTensorInfo().tensorIndex));
-        
+
         symbolicScalar.reserve(offset.size() * 4); // 预留4倍空间
         symbolicScalar.insert(symbolicScalar.end(), offset.begin(), offset.end());
         symbolicScalar.insert(symbolicScalar.end(), shape.begin(), shape.end());
@@ -361,7 +361,7 @@ TEST_F(TestGlobalMemoryReuse, CanReuseSeriesOpConnMultiSizeDiff) {
     Status status = allocator.Allocate();
 
     EXPECT_EQ(status, SUCCESS);
-    EXPECT_EQ(allocator.size_, 64 * 64 * 4 + 32 * 32 * 4); // allocate 2 large tensor memory, shape: 64*64, size: 4 and shape: 32*32, size: 4 
+    EXPECT_EQ(allocator.size_, 64 * 64 * 4 + 32 * 32 * 4); // allocate 2 large tensor memory, shape: 64*64, size: 4 and shape: 32*32, size: 4
 }
 
 TEST_F(TestGlobalMemoryReuse, AbnormalNullRootFunction) {
@@ -544,29 +544,29 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseNormal) {
     leafG3.SetOutCast({"leaffunc3_mat_d"});
     // set CallOpAttribute for op
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction1;
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall1 = std::make_shared<CallOpAttribute>(leafFunc1.ComputeHash(), symbolicScalarFunction1);
     G.GetOp("call1")->SetOpAttribute(opAttributeCall1);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction2;
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall2 = std::make_shared<CallOpAttribute>(leafFunc2.ComputeHash(), symbolicScalarFunction2);
     G.GetOp("call2")->SetOpAttribute(opAttributeCall2);
-    
+
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction3;
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
-    
+
     function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
     function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
@@ -669,25 +669,25 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseOutputActualRawmagic) {
     leafG3.SetOutCast({"leaffunc3_mat_d"});
     // set CallOpAttribute for op
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction1;
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall1 = std::make_shared<CallOpAttribute>(leafFunc1.ComputeHash(), symbolicScalarFunction1);
     G.GetOp("call1")->SetOpAttribute(opAttributeCall1);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction2;
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall2 = std::make_shared<CallOpAttribute>(leafFunc2.ComputeHash(), symbolicScalarFunction2);
     G.GetOp("call2")->SetOpAttribute(opAttributeCall2);
-    
+
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction3;
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
@@ -794,29 +794,29 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseInputActualRawmagic) {
     leafG3.SetOutCast({"leaffunc3_mat_d"});
     // set CallOpAttribute for op
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction1;
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall1 = std::make_shared<CallOpAttribute>(leafFunc1.ComputeHash(), symbolicScalarFunction1);
     G.GetOp("call1")->SetOpAttribute(opAttributeCall1);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction2;
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall2 = std::make_shared<CallOpAttribute>(leafFunc2.ComputeHash(), symbolicScalarFunction2);
     G.GetOp("call2")->SetOpAttribute(opAttributeCall2);
-    
+
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction3;
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
-    
+
     function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
     function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
@@ -918,29 +918,29 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseInputLessThanOutput) {
     leafG3.SetOutCast({"leaffunc3_mat_d"});
     // set CallOpAttribute for op
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction1;
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall1 = std::make_shared<CallOpAttribute>(leafFunc1.ComputeHash(), symbolicScalarFunction1);
     G.GetOp("call1")->SetOpAttribute(opAttributeCall1);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction2;
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(63), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall2 = std::make_shared<CallOpAttribute>(leafFunc2.ComputeHash(), symbolicScalarFunction2);
     G.GetOp("call2")->SetOpAttribute(opAttributeCall2);
-    
+
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction3;
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
-    
+
     function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
     function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
@@ -1042,29 +1042,29 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseInputEightTimesOutput) {
     leafG3.SetOutCast({"leaffunc3_mat_d"});
     // set CallOpAttribute for op
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction1;
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall1 = std::make_shared<CallOpAttribute>(leafFunc1.ComputeHash(), symbolicScalarFunction1);
     G.GetOp("call1")->SetOpAttribute(opAttributeCall1);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction2;
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(8), SymbolicScalar(128)});
     auto opAttributeCall2 = std::make_shared<CallOpAttribute>(leafFunc2.ComputeHash(), symbolicScalarFunction2);
     G.GetOp("call2")->SetOpAttribute(opAttributeCall2);
-    
+
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction3;
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(8), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(8), SymbolicScalar(128)});
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
-    
+
     function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
     function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
@@ -1166,29 +1166,29 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseInputLessThanEightTimesOutput
     leafG3.SetOutCast({"leaffunc3_mat_d"});
     // set CallOpAttribute for op
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction1;
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall1 = std::make_shared<CallOpAttribute>(leafFunc1.ComputeHash(), symbolicScalarFunction1);
     G.GetOp("call1")->SetOpAttribute(opAttributeCall1);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction2;
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(9), SymbolicScalar(128)});
     auto opAttributeCall2 = std::make_shared<CallOpAttribute>(leafFunc2.ComputeHash(), symbolicScalarFunction2);
     G.GetOp("call2")->SetOpAttribute(opAttributeCall2);
-    
+
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction3;
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(9), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(9), SymbolicScalar(128)});
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
-    
+
     function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
     function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
@@ -1290,29 +1290,29 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseDim) {
     leafG3.SetOutCast({"leaffunc3_mat_d"});
     // set CallOpAttribute for op
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction1;
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall1 = std::make_shared<CallOpAttribute>(leafFunc1.ComputeHash(), symbolicScalarFunction1);
     G.GetOp("call1")->SetOpAttribute(opAttributeCall1);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction2;
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(1), SymbolicScalar(63), SymbolicScalar(128)});
     auto opAttributeCall2 = std::make_shared<CallOpAttribute>(leafFunc2.ComputeHash(), symbolicScalarFunction2);
     G.GetOp("call2")->SetOpAttribute(opAttributeCall2);
-    
+
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction3;
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(1), SymbolicScalar(63), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(1), SymbolicScalar(63), SymbolicScalar(128)});
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
-    
+
     function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
     function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
@@ -1414,29 +1414,29 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseDataType) {
     leafG3.SetOutCast({"leaffunc3_mat_d"});
     // set CallOpAttribute for op
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction1;
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall1 = std::make_shared<CallOpAttribute>(leafFunc1.ComputeHash(), symbolicScalarFunction1);
     G.GetOp("call1")->SetOpAttribute(opAttributeCall1);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction2;
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall2 = std::make_shared<CallOpAttribute>(leafFunc2.ComputeHash(), symbolicScalarFunction2);
     G.GetOp("call2")->SetOpAttribute(opAttributeCall2);
-    
+
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction3;
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
-    
+
     function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
     function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
@@ -1538,29 +1538,29 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseNotMaxmunAxisNotEqual) {
     leafG3.SetOutCast({"leaffunc3_mat_d"});
     // set CallOpAttribute for op
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction1;
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall1 = std::make_shared<CallOpAttribute>(leafFunc1.ComputeHash(), symbolicScalarFunction1);
     G.GetOp("call1")->SetOpAttribute(opAttributeCall1);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction2;
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(127)});
     auto opAttributeCall2 = std::make_shared<CallOpAttribute>(leafFunc2.ComputeHash(), symbolicScalarFunction2);
     G.GetOp("call2")->SetOpAttribute(opAttributeCall2);
-    
+
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction3;
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(127)});
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(127)});
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
-    
+
     function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
     function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
@@ -1689,39 +1689,39 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseNormal2) {
     leafG4.SetOutCast({"leaffunc4_mat_d"});
     // set CallOpAttribute for op
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction1;
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall1 = std::make_shared<CallOpAttribute>(leafFunc1.ComputeHash(), symbolicScalarFunction1);
     G.GetOp("call1")->SetOpAttribute(opAttributeCall1);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction2;
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(64)});
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(64)});
     auto opAttributeCall2 = std::make_shared<CallOpAttribute>(leafFunc2.ComputeHash(), symbolicScalarFunction2);
     G.GetOp("call2")->SetOpAttribute(opAttributeCall2);
-    
+
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction3;
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(64)});
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_b, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_b,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(64)});
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_f, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_f,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction4;
-    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_a,
                               {SymbolicScalar(32), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(64)});
-    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(64)});
     auto opAttributeCall4 = std::make_shared<CallOpAttribute>(leafFunc4.ComputeHash(), symbolicScalarFunction4);
     G.GetOp("call4")->SetOpAttribute(opAttributeCall4);
-    
+
     function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
     function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
@@ -1859,39 +1859,39 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseNormal3) {
     leafG4.SetOutCast({"leaffunc4_mat_d"});
     // set CallOpAttribute for op
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction1;
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall1 = std::make_shared<CallOpAttribute>(leafFunc1.ComputeHash(), symbolicScalarFunction1);
     G.GetOp("call1")->SetOpAttribute(opAttributeCall1);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction2;
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
     auto opAttributeCall2 = std::make_shared<CallOpAttribute>(leafFunc2.ComputeHash(), symbolicScalarFunction2);
     G.GetOp("call2")->SetOpAttribute(opAttributeCall2);
-    
+
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction3;
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_b, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_b,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_f, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_f,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction4;
-    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_a,
                               {SymbolicScalar(32), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
     auto opAttributeCall4 = std::make_shared<CallOpAttribute>(leafFunc4.ComputeHash(), symbolicScalarFunction4);
     G.GetOp("call4")->SetOpAttribute(opAttributeCall4);
-    
+
     function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
     function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
@@ -2029,39 +2029,39 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseOffsetNotImmediate1) {
     leafG4.SetOutCast({"leaffunc4_mat_d"});
     // set CallOpAttribute for op
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction1;
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall1 = std::make_shared<CallOpAttribute>(leafFunc1.ComputeHash(), symbolicScalarFunction1);
     G.GetOp("call1")->SetOpAttribute(opAttributeCall1);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction2;
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a,
                               {SymbolicScalar(0), SymbolicScalar("x")}, {SymbolicScalar(32), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
     auto opAttributeCall2 = std::make_shared<CallOpAttribute>(leafFunc2.ComputeHash(), symbolicScalarFunction2);
     G.GetOp("call2")->SetOpAttribute(opAttributeCall2);
-    
+
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction3;
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_b, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_b,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_f, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_f,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction4;
-    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_a,
                               {SymbolicScalar(32), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
     auto opAttributeCall4 = std::make_shared<CallOpAttribute>(leafFunc4.ComputeHash(), symbolicScalarFunction4);
     G.GetOp("call4")->SetOpAttribute(opAttributeCall4);
-    
+
     function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
     function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
@@ -2195,39 +2195,39 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseOffsetNotImmediate2) {
     leafG4.SetOutCast({"leaffunc4_mat_d"});
     // set CallOpAttribute for op
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction1;
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall1 = std::make_shared<CallOpAttribute>(leafFunc1.ComputeHash(), symbolicScalarFunction1);
     G.GetOp("call1")->SetOpAttribute(opAttributeCall1);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction2;
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
     auto opAttributeCall2 = std::make_shared<CallOpAttribute>(leafFunc2.ComputeHash(), symbolicScalarFunction2);
     G.GetOp("call2")->SetOpAttribute(opAttributeCall2);
-    
+
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction3;
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_b, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_b,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_f, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_f,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction4;
-    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_a,
                               {SymbolicScalar("x"), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
     auto opAttributeCall4 = std::make_shared<CallOpAttribute>(leafFunc4.ComputeHash(), symbolicScalarFunction4);
     G.GetOp("call4")->SetOpAttribute(opAttributeCall4);
-    
+
     function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
     function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
@@ -2361,39 +2361,39 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseShapeNotImmediate1) {
     leafG4.SetOutCast({"leaffunc4_mat_d"});
     // set CallOpAttribute for op
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction1;
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall1 = std::make_shared<CallOpAttribute>(leafFunc1.ComputeHash(), symbolicScalarFunction1);
     G.GetOp("call1")->SetOpAttribute(opAttributeCall1);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction2;
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar("x")});
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
     auto opAttributeCall2 = std::make_shared<CallOpAttribute>(leafFunc2.ComputeHash(), symbolicScalarFunction2);
     G.GetOp("call2")->SetOpAttribute(opAttributeCall2);
-    
+
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction3;
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_b, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_b,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_f, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_f,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction4;
-    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_a,
                               {SymbolicScalar(32), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
     auto opAttributeCall4 = std::make_shared<CallOpAttribute>(leafFunc4.ComputeHash(), symbolicScalarFunction4);
     G.GetOp("call4")->SetOpAttribute(opAttributeCall4);
-    
+
     function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
     function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
@@ -2531,39 +2531,39 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseShapeNotImmediate2) {
     leafG4.SetOutCast({"leaffunc4_mat_d"});
     // set CallOpAttribute for op
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction1;
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall1 = std::make_shared<CallOpAttribute>(leafFunc1.ComputeHash(), symbolicScalarFunction1);
     G.GetOp("call1")->SetOpAttribute(opAttributeCall1);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction2;
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
     auto opAttributeCall2 = std::make_shared<CallOpAttribute>(leafFunc2.ComputeHash(), symbolicScalarFunction2);
     G.GetOp("call2")->SetOpAttribute(opAttributeCall2);
-    
+
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction3;
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_b, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_b,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_f, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_f,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction4;
-    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_a,
                               {SymbolicScalar(32), SymbolicScalar(0)}, {SymbolicScalar("x"), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
     auto opAttributeCall4 = std::make_shared<CallOpAttribute>(leafFunc4.ComputeHash(), symbolicScalarFunction4);
     G.GetOp("call4")->SetOpAttribute(opAttributeCall4);
-    
+
     function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
     function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
@@ -2697,39 +2697,39 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseNormalOverlap) {
     leafG4.SetOutCast({"leaffunc4_mat_d"});
     // set CallOpAttribute for op
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction1;
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall1 = std::make_shared<CallOpAttribute>(leafFunc1.ComputeHash(), symbolicScalarFunction1);
     G.GetOp("call1")->SetOpAttribute(opAttributeCall1);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction2;
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
     auto opAttributeCall2 = std::make_shared<CallOpAttribute>(leafFunc2.ComputeHash(), symbolicScalarFunction2);
     G.GetOp("call2")->SetOpAttribute(opAttributeCall2);
-    
+
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction3;
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_b, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_b,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_f, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_f,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction4;
-    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_a,
                               {SymbolicScalar(31), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
     auto opAttributeCall4 = std::make_shared<CallOpAttribute>(leafFunc4.ComputeHash(), symbolicScalarFunction4);
     G.GetOp("call4")->SetOpAttribute(opAttributeCall4);
-    
+
     function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
     function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
@@ -2867,37 +2867,37 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseNormal4) {
     leafG3.SetOutCast({"leaffunc3_mat_f"});
     // set CallOpAttribute for op
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction1;
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_e, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_e,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_f, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_f,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall1 = std::make_shared<CallOpAttribute>(leafFunc1.ComputeHash(), symbolicScalarFunction1);
     G.GetOp("call1")->SetOpAttribute(opAttributeCall1);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction2;
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_b, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_b,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_h, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_h,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(16), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_i, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_i,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(8), SymbolicScalar(128)});
     auto opAttributeCall2 = std::make_shared<CallOpAttribute>(leafFunc2.ComputeHash(), symbolicScalarFunction2);
     G.GetOp("call2")->SetOpAttribute(opAttributeCall2);
-    
+
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction3;
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_b, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_b,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_f, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_f,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
-    
+
     function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
     function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
@@ -3035,37 +3035,37 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseNormal5) {
     leafG3.SetOutCast({"leaffunc3_mat_f"});
     // set CallOpAttribute for op
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction1;
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_e, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_e,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_f, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_f,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall1 = std::make_shared<CallOpAttribute>(leafFunc1.ComputeHash(), symbolicScalarFunction1);
     G.GetOp("call1")->SetOpAttribute(opAttributeCall1);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction2;
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_b, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_b,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(32), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_h, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_h,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(8), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_i, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_i,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(16), SymbolicScalar(128)});
     auto opAttributeCall2 = std::make_shared<CallOpAttribute>(leafFunc2.ComputeHash(), symbolicScalarFunction2);
     G.GetOp("call2")->SetOpAttribute(opAttributeCall2);
-    
+
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction3;
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_b, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_b,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_f, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_f,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
-    
+
     function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
     function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
@@ -3237,53 +3237,53 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseMultiOpSerialConn) {
     leafG6.SetOutCast({"leaffunc6_mat_d"});
     // set CallOpAttribute for op
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction1;
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall1 = std::make_shared<CallOpAttribute>(leafFunc1.ComputeHash(), symbolicScalarFunction1);
     G.GetOp("call1")->SetOpAttribute(opAttributeCall1);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction2;
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall2 = std::make_shared<CallOpAttribute>(leafFunc2.ComputeHash(), symbolicScalarFunction2);
     G.GetOp("call2")->SetOpAttribute(opAttributeCall2);
-    
+
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction3;
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction4;
-    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall4 = std::make_shared<CallOpAttribute>(leafFunc4.ComputeHash(), symbolicScalarFunction4);
     G.GetOp("call4")->SetOpAttribute(opAttributeCall4);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction5;
-    SetSymbolicScalarFunction(symbolicScalarFunction5, leaffunc5_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction5, leaffunc5_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction5, leaffunc5_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction5, leaffunc5_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall5 = std::make_shared<CallOpAttribute>(leafFunc5.ComputeHash(), symbolicScalarFunction5);
     G.GetOp("call5")->SetOpAttribute(opAttributeCall5);
-    
+
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction6;
-    SetSymbolicScalarFunction(symbolicScalarFunction6, leaffunc6_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction6, leaffunc6_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction6, leaffunc6_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction6, leaffunc6_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall6 = std::make_shared<CallOpAttribute>(leafFunc6.ComputeHash(), symbolicScalarFunction6);
     G.GetOp("call6")->SetOpAttribute(opAttributeCall6);
-    
+
     function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
     function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
@@ -3456,53 +3456,53 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseMultiOpParallelConn) {
     leafG6.SetOutCast({"leaffunc6_mat_d"});
     // set CallOpAttribute for op
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction1;
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction1, leaffunc1_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(64), SymbolicScalar(128)});
     auto opAttributeCall1 = std::make_shared<CallOpAttribute>(leafFunc1.ComputeHash(), symbolicScalarFunction1);
     G.GetOp("call1")->SetOpAttribute(opAttributeCall1);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction2;
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(16), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction2, leaffunc2_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(16), SymbolicScalar(128)});
     auto opAttributeCall2 = std::make_shared<CallOpAttribute>(leafFunc2.ComputeHash(), symbolicScalarFunction2);
     G.GetOp("call2")->SetOpAttribute(opAttributeCall2);
-    
+
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction3;
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_a,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(16), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction3, leaffunc3_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(16), SymbolicScalar(128)});
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction4;
-    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_a,
                               {SymbolicScalar(16), SymbolicScalar(0)}, {SymbolicScalar(16), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction4, leaffunc4_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(16), SymbolicScalar(128)});
     auto opAttributeCall4 = std::make_shared<CallOpAttribute>(leafFunc4.ComputeHash(), symbolicScalarFunction4);
     G.GetOp("call4")->SetOpAttribute(opAttributeCall4);
 
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction5;
-    SetSymbolicScalarFunction(symbolicScalarFunction5, leaffunc5_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction5, leaffunc5_mat_a,
                               {SymbolicScalar(32), SymbolicScalar(0)}, {SymbolicScalar(16), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction5, leaffunc5_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction5, leaffunc5_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(16), SymbolicScalar(128)});
     auto opAttributeCall5 = std::make_shared<CallOpAttribute>(leafFunc5.ComputeHash(), symbolicScalarFunction5);
     G.GetOp("call5")->SetOpAttribute(opAttributeCall5);
-    
+
     std::vector<std::vector<SymbolicScalar>> symbolicScalarFunction6;
-    SetSymbolicScalarFunction(symbolicScalarFunction6, leaffunc6_mat_a, 
+    SetSymbolicScalarFunction(symbolicScalarFunction6, leaffunc6_mat_a,
                               {SymbolicScalar(48), SymbolicScalar(0)}, {SymbolicScalar(16), SymbolicScalar(128)});
-    SetSymbolicScalarFunction(symbolicScalarFunction6, leaffunc6_mat_d, 
+    SetSymbolicScalarFunction(symbolicScalarFunction6, leaffunc6_mat_d,
                               {SymbolicScalar(0), SymbolicScalar(0)}, {SymbolicScalar(16), SymbolicScalar(128)});
     auto opAttributeCall6 = std::make_shared<CallOpAttribute>(leafFunc6.ComputeHash(), symbolicScalarFunction6);
     G.GetOp("call6")->SetOpAttribute(opAttributeCall6);
-    
+
     function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
     function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3

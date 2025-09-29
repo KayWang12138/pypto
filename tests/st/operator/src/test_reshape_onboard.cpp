@@ -235,7 +235,7 @@ TEST_F(OnBoardTest, test_reshape_matmul_mul) {
     uint64_t outputSize = c_size * sizeof(float);
     uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("RESHAPE_WITH_MM") {
-        Program::GetInstance().GetConfig().Reset();
+        config::Reset();
         constexpr AttentionCubeTileConfig TEMP_DFS_CUBE_CFG = {32, 32, 32, 32, 32, 32, 32, 32};
         TileShape::Current().SetCubeTile({TEMP_DFS_CUBE_CFG.c1L0, TEMP_DFS_CUBE_CFG.c1L1M},
             {TEMP_DFS_CUBE_CFG.c1L0, TEMP_DFS_CUBE_CFG.c1L1K}, {TEMP_DFS_CUBE_CFG.c1L0, TEMP_DFS_CUBE_CFG.c1L1N});

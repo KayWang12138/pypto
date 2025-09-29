@@ -116,9 +116,9 @@ TEST_F(OnBoardPaCostTest, test_page_attention_hight_throughput) {
     const int cycle_lower_bound = 2048;
     const int l1_reuse = 4;
     const int copyin_threshold = 2 * 1024 * 1024;
-    Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_LOWER_BOUND, cycle_lower_bound);
-    Program::GetInstance().GetConfig().Set<int>(L1_REUSE, l1_reuse);
-    Program::GetInstance().GetConfig().Set<int>(COPYIN_THRESHOLD, copyin_threshold);
+    config::SetPassOption(SG_CYCLE_LOWER_BOUND, cycle_lower_bound);
+    config::SetPassOption(L1_REUSE, l1_reuse);
+    config::SetPassOption(COPYIN_THRESHOLD, copyin_threshold);
 
     TileFwkInit("");
     std::unordered_map<std::string, int> params = {

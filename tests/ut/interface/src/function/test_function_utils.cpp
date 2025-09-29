@@ -14,7 +14,6 @@
  */
 
 #include "gtest/gtest.h"
-#include "interface/configs/config_storage.h"
 #include "passes/pass_utils/pass_utils.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"

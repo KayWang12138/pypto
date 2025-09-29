@@ -77,13 +77,13 @@ TEST_F(DynamicTest, TestPartial) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (blockSize))) {
             Tensor block = View(q, {blockSize, blockSize}, {batchId * blockSize, 0});
             SymbolicScalar curSeq = GetInputData(seq, {batchId});
-            ConfigManager::Instance().SetSemanticLabel("add");
+            config::SetSemanticLabel("add");
             Tensor add = Add(block, block);
             Assemble(add, {curSeq * blockSize, 0}, mid);
         }
         LOOP("SUM", FunctionType::DYNAMIC_LOOP, _, LoopRange(1)) {
             (void)_;
-            ConfigManager::Instance().SetSemanticLabel("adds");
+            config::SetSemanticLabel("adds");
             out = AddS(mid, Element(DT_FP32, 1.0f));
         }
     }

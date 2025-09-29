@@ -24,12 +24,10 @@ class DyNsa : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
     void SetUp() override {
         npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac::SetUp();
         config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-        Program::GetInstance().GetConfig().Set<int>(NBUFFER_MERGE_MODE, 1);
-        Program::GetInstance().GetConfig().Set<int>(L1_REUSE, NUM_4);
-        Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {
-                                                                                         {NUM_3, NUM_4}
-        });
-        Program::GetInstance().GetConfig().Set<int>(COPYIN_THRESHOLD, NUM_2 * NUM_1024 * NUM_1024);
+        config::SetPassOption(NBUFFER_MERGE_MODE, 1);
+        config::SetPassOption(L1_REUSE, NUM_4);
+        config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{{NUM_3, NUM_4}});
+        config::SetPassOption(COPYIN_THRESHOLD, NUM_2 * NUM_1024 * NUM_1024);
     }
 };
 

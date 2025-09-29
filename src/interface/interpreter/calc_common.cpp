@@ -141,7 +141,7 @@ std::string FormatString(const std::string &s, OperationInterpreter *opInter,
     size_t pos = 0;
     size_t tpos = 0, spos = 0;
     int edgeItems = 0, precision = 0;
-    GetPrintOptions(edgeItems, precision);
+    config::GetPrintOptions(edgeItems, precision);
     while (pos < s.size()) {
         if (s[pos] == '{') {
             size_t end = s.find('}', pos + 1);

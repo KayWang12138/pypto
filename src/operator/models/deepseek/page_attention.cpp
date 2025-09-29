@@ -23,7 +23,6 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/tensor/tensormap.h"
 #include "interface/configs/config_manager.h"
-#include "interface/configs/config_storage.h"
 #include "interface/utils/common.h"
 #include "interface/utils/id_gen.h"
 #include "interface/utils/log.h"
@@ -90,7 +89,7 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
                     auto vj = View(vNopeCache, {curS2Tile, dN}, {std::min(curSeq - bn * blockSize, blockSize), dN},
                                                   {curBlockIdx * blockSize, 0});
 
-                    ConfigManager::Instance().SetSemanticLabel("MatMul");
+                    config::SetSemanticLabel("MatMul");
                     TileShape::Current().SetCubeTile(
                         {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]});
                     TileShape::Current().SetMatrixSize({qi.GetShape()[0], 0, kj.GetShape()[0]});
@@ -98,10 +97,10 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
                     sij.SetName("sij");
                     TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
 
-                    ConfigManager::Instance().SetSemanticLabel("SoftMax");
+                    config::SetSemanticLabel("SoftMax");
                     auto sijScale = MulS(sij, Element(sij->Datatype(), softmaxScale)); // (curNTile, curS2Tile)
 
-                    ConfigManager::Instance().SetSemanticLabel("SoftMax");
+                    config::SetSemanticLabel("SoftMax");
                     auto tildaMij = RowMaxSingle(sijScale); // (curNTile, curS2Tile) -> (curNTile, 1)
                     auto tsub =
                         Sub(sijScale, tildaMij); // (curNTile, curS2Tile) - (curNTile, 1) -> (curNTile, curS2Tile)
@@ -112,14 +111,14 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
                     IF (IsLoopBegin(bn, 0)) {
                         TileShape::Current().SetCubeTile(
                             {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]});
-                        ConfigManager::Instance().SetSemanticLabel("b1-matmul2");
+                        config::SetSemanticLabel("b1-matmul2");
                         TileShape::Current().SetMatrixSize(
                             {tildaPijF16.GetShape()[0], tildaPijF16.GetShape()[1], vj.GetShape()[1]});
                         auto oiTmp = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);; // (curNTile, curS2Tile), (curS2Tile, dN) -> (curNTile, dN)
                         TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
-                        ConfigManager::Instance().SetSemanticLabel("b1-after-matmul2");
+                        config::SetSemanticLabel("b1-after-matmul2");
                         IF (IsLoopEnd(bn, bnPerBatch)) {
-                            ConfigManager::Instance().SetSemanticLabel("b1-after-matmul2");
+                            config::SetSemanticLabel("b1-after-matmul2");
                             oiUpdate = Div(oiTmp, tildaLij); // (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
                             Assemble(oiUpdate, oiOffset, attentionOut);
                         } ELSE {
@@ -132,7 +131,7 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
                         auto li = liUpdate;
                         auto mi = miUpdate;
 
-                        ConfigManager::Instance().SetSemanticLabel("Softmax-acc");
+                        config::SetSemanticLabel("Softmax-acc");
                         auto miNew = Maximum(mi, tildaMij); // (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
                         auto t1 = Sub(mi, miNew);           // (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
                         auto t2 = Exp(t1);
@@ -143,7 +142,7 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
                         auto liNew = Add(t6, t5);    // (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
 
                         auto q3 = Mul(oi, t2); // (curNTile, dN), (curNTile, 1) -> (curNTile, dN)
-                        ConfigManager::Instance().SetSemanticLabel("bn-matmul2");
+                        config::SetSemanticLabel("bn-matmul2");
                         TileShape::Current().SetCubeTile(
                             {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]});
                         TileShape::Current().SetMatrixSize(
@@ -151,7 +150,7 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
                         auto q1 = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16,
                             vj); // (curNTile, curS2Tile), (curS2Tile, dN) -> (curNTile, dN)
                         TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
-                        ConfigManager::Instance().SetSemanticLabel("bn-after-matmul2");
+                        config::SetSemanticLabel("bn-after-matmul2");
                         auto q2 = Mul(q1, t4);    // (nTileCur, dN), (nTileCur, 1) -> (nTileCur, dN)
                         auto oiTmp = Add(q3, q2); // (nTileCur, dN), (nTileCur, dN) -> (nTileCur, dN)
                         IF (IsLoopEnd(bn, bnPerBatch)) {

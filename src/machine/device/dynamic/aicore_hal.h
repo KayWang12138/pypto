@@ -15,7 +15,7 @@
 
 #pragma once
 
-#include "tilefwk/common_def.h"
+#include "tilefwk/aicpu_common.h"
 #include "machine/device/dynamic/aicore_prof.h"
 #include "machine/device/dynamic/costmodel_utils.h"
 

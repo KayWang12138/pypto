@@ -159,7 +159,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
 
                     auto curVAttn = curCmpKv; // cmpKv tensor can be reused by cmpV tensor
                     curVAttn.SetName("curVAttn");
-                    ConfigManager::Instance().SetSemanticLabel("Cmp-Attn-C1");
+                    config::SetSemanticLabel("Cmp-Attn-C1");
                     TileShape::Current().SetCubeTile(
                         {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]});
                     auto sij = Matrix::Matmul<false, true>(
@@ -168,7 +168,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
 
                     TileShape::Current().SetVecTile(vecTile, vecTile);
                     sij = View(sij, {blockSize, n1}, {curValidSeq, n1}, {0, 0});
-                    ConfigManager::Instance().SetSemanticLabel("Cmp-Attn-V1");
+                    config::SetSemanticLabel("Cmp-Attn-V1");
                     auto sijScale = MulS(sij, Element(sij->Datatype(), softmaxScale)); // (blockSize, n1)
                     // reduceMax首轴不支持切分
                     auto tildaMij = RowMaxSingle(sijScale, 0); // (1, n1)
@@ -177,14 +177,14 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                     auto tildaPijB16 = Cast(tildaPij, kDtype); // (blockSize, n1)
                     auto tildaLij = RowSumSingle(tildaPij, 0); // (1, n1)
                     IF(IsLoopBegin(blockIdx, 0)) {
-                        ConfigManager::Instance().SetSemanticLabel("Cmp-Attn-First-Block-C2");
+                        config::SetSemanticLabel("Cmp-Attn-First-Block-C2");
                         TileShape::Current().SetCubeTile(
                             {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]});
                         // auto tildaPijB16T = Transpose(tildaPijB16, {0, 1}); // (blockSize, n1) -> (n1, blockSize)
                         auto oiTmp = Matrix::Matmul<true, false>(DataType::DT_FP32, tildaPijB16,
                             curVAttn); // (n1, blockSize), (blockSize, dN) -> (n1, dN)
                         oiTmp.SetName("oiTmp");
-                        ConfigManager::Instance().SetSemanticLabel("Cmp-Attn-First-Block-V2");
+                        config::SetSemanticLabel("Cmp-Attn-First-Block-V2");
                         TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                         IF(IsLoopEnd(blockIdx, curCmpBlock)) {
                             oiUpdate = Div(oiTmp, Reshape(tildaLij, {n1, 1})); // (n1, dN), (n1, 1) -> (n1, dN)
@@ -201,7 +201,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                         miUpdate = tildaMij; // (1, n1)
                     }
                     ELSE {
-                        ConfigManager::Instance().SetSemanticLabel("Cmp-Attn-Other-Update-V1");
+                        config::SetSemanticLabel("Cmp-Attn-Other-Update-V1");
                         auto oi = oiUpdate;                 // (n1, dN)
                         auto li = liUpdate;                 // (1, n1)
                         auto mi = miUpdate;                 // (1, n1)
@@ -215,7 +215,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                         auto liNew = Add(t6, t5);           // (1, n1), (1, n1) -> (1, n1)
 
                         auto q3 = Mul(oi, Reshape(t2, {n1, 1})); // (n1, dN), (n1, 1) -> (n1, dN)
-                        ConfigManager::Instance().SetSemanticLabel("Cmp-Attn-Other-Update-C2");
+                        config::SetSemanticLabel("Cmp-Attn-Other-Update-C2");
                         TileShape::Current().SetCubeTile(
                             {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]});
 
@@ -223,7 +223,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                         auto q1 = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijB16T,
                             curVAttn); // (n1, blockSize), (blockSize, dN) -> (n1, dN)
                         q1.SetName("q1");
-                        ConfigManager::Instance().SetSemanticLabel("Cmp-Attn-Other-Update-V2");
+                        config::SetSemanticLabel("Cmp-Attn-Other-Update-V2");
                         TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                         auto q2 = Mul(q1, Reshape(t4, {n1, 1})); // (n1, dN), (n1, 1) -> (n1, dN)
                         auto oiTmp = Add(q3, q2);                // (n1, dN), (n1, dN) -> (n1, dN)

@@ -245,7 +245,7 @@ void HostMachine::StashTask(Function* function) {
 
     std::lock_guard<std::mutex> lock(stashQueueMutex_);
     stashedFuncQueue_.Push(std::make_tuple(function,
-        Program::GetInstance().GetConfig(),
+        config::Duplicate(),
         ConfigManager::Instance().GetInternalConfig(),
         ConfigManager::Instance().GetJsonData()));
 }
@@ -254,7 +254,7 @@ void HostMachine::SubAllStashedTask() {
     std::lock_guard<std::mutex> lock(stashQueueMutex_);
     while (!stashedFuncQueue_.Empty()) {
         auto funcData = stashedFuncQueue_.Pop();
-        Program::GetInstance().SetConfig(std::get<static_cast<size_t>(StashType::ProgramConfig)>(funcData));
+        config::Restore(std::get<static_cast<size_t>(StashType::ProgramConfig)>(funcData));
         ConfigManager::Instance().SetInternalConfig(std::get<static_cast<size_t>(StashType::InternalConfig)>(funcData));
         ConfigManager::Instance().SetJsonData(std::get<static_cast<size_t>(StashType::ConfigJson)>(funcData));
         SubTask(std::get<0>(funcData));

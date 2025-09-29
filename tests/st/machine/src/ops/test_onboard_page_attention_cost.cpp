@@ -162,7 +162,7 @@ TEST_F(OnBoardPaCostTest, test_page_attention_low_latency_cost) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
     config::SetOperationConfig("FORCE_COMBINE_AXIS", true);
-    Program::GetInstance().GetConfig().Set<std::map<int, int>>(L1_REUSE_MAP, {{1,4}});
+    config::SetPassOption(L1_REUSE_MAP, std::map<int64_t, int64_t>{{1,4}});
 
     TileFwkInit("");
     IfaCommonTestInner(lowLatencyParams, lowLatencyTileParams, true);
@@ -186,11 +186,11 @@ TEST_F(OnBoardPaCostTest, test_page_attention_hight_throughput_cost) {
     const int l1_reuse = 4;
     const int cube_nbuffer = 2;
     const int copyin_threshold = 2 * 1024 * 1024;
-    Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_LOWER_BOUND, cycle_lower_bound);
-    Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_UPPER_BOUND, cycle_upper_bound);
-    Program::GetInstance().GetConfig().Set<int>(L1_REUSE, l1_reuse);
-    Program::GetInstance().GetConfig().Set<int>(CUBE_NBUFFER, cube_nbuffer);
-    Program::GetInstance().GetConfig().Set<int>(COPYIN_THRESHOLD, copyin_threshold);
+    config::SetPassOption(SG_CYCLE_LOWER_BOUND, cycle_lower_bound);
+    config::SetPassOption(SG_CYCLE_UPPER_BOUND, cycle_upper_bound);
+    config::SetPassOption(L1_REUSE, l1_reuse);
+    config::SetPassOption(CUBE_NBUFFER, cube_nbuffer);
+    config::SetPassOption(COPYIN_THRESHOLD, copyin_threshold);
     TileFwkInit("");
     IfaCommonTestInner(hightThroughputParams, hightThroughputTileParams, true);
 }

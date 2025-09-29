@@ -41,7 +41,7 @@ public:
 
     void SetUp() override {
         Program::GetInstance().Reset();
-        Program::GetInstance().GetConfig().Reset();
+        config::Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
     }
 
@@ -380,7 +380,7 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load)
     std::vector<int64_t> shapeB = {bs, k, n};
     std::vector<int64_t> shapeC = {bs, m, n};
 
-    Program::GetInstance().GetConfig().Reset();
+    config::Reset();
     TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
     Tensor matA(DT_FP16, shapeA, "MatA", TileOpFormat::TILEOP_NZ);
     Tensor matB(DT_FP16, shapeB, "MatB", TileOpFormat::TILEOP_ND);

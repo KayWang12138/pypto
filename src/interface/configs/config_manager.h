@@ -152,7 +152,6 @@ struct InternalGlobalConfig {
     std::string logTopFolder;
     std::string logTensorGraphFolder;
     std::string logFile;
-    std::array<std::string, static_cast<int>(SemanticLabelType::LABEL_COUNT)> semanticLabels;
 };
 
 class ConfigManager {
@@ -167,17 +166,6 @@ public:
     PassType GetEnabledLastPassType() const { return globalPassConfigs_.enabledLastPassType; }
     PassConfigs GetPassConfigs(const std::string &strategy, const std::string &identifier) const;
     void PassConfigsDebugInfo(const std::string &strategy, const std::vector<std::string> &identifiers) const;
-
-    template <SemanticLabelType Type = SemanticLabelType::TAG_INDEX>
-    void SetSemanticLabel(std::string label) {
-        static_assert(Type < SemanticLabelType::LABEL_COUNT);
-        globalConfigs_.semanticLabels[static_cast<int>(Type)] = std::move(label);
-    }
-    template <SemanticLabelType Type = SemanticLabelType::TAG_INDEX>
-    const std::string &GetSemanticLabel() const {
-        static_assert(Type < SemanticLabelType::LABEL_COUNT);
-        return globalConfigs_.semanticLabels[static_cast<int>(Type)];
-    }
 
     const InternalGlobalConfig &GetInternalConfig() const { return globalConfigs_; }
     void SetInternalConfig(const InternalGlobalConfig &globalConfig) { globalConfigs_ = globalConfig; }
@@ -460,10 +448,6 @@ inline const std::string &LogTensorGraphFolder() {
 
 inline const std::string &LogFile() {
     return ConfigManager::Instance().LogFile();
-}
-
-inline void Reset() {
-    ConfigManager::Instance().Reset();
 }
 
 inline Status SetPassStrategy(const std::string s) {

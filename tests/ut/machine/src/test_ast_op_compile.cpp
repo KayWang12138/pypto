@@ -28,7 +28,7 @@ using namespace npu::tile_fwk;
 class TestAstOpCompile : public testing::Test {
 public:
     static void SetUpTestCase() {
-        Program::GetInstance().GetConfig().Reset();
+        config::Reset();
     }
 
     static void TearDownTestCase() {}

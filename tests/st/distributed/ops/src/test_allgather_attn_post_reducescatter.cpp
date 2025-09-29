@@ -53,12 +53,12 @@ void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam)
     FunctionConfig funConfig(FunctionType::STATIC);
     ;
     FUNCTION("Allgather_AttnPost_ReduceScatter", funConfig, {agIn, wLora, wOut, out}) {
-        ConfigManager::Instance().SetSemanticLabel("AllGather");
+        config::SetSemanticLabel("AllGather");
         TileShape::Current().SetDistTile({64, b * n * s / rankSize / 64, 0}, {kvLoraRank, 1, 0}, {1, rankSize, 0});
         TileShape::Current().SetDistRankId(rankId);
         Tensor agOut = AllGather(agIn, group);
 
-        ConfigManager::Instance().SetSemanticLabel("AttnPost");
+        config::SetSemanticLabel("AttnPost");
         TileShape::Current().SetVecTile({4, 16, 1, kvLoraRank});
         Tensor attnIn = Reshape(agOut, {b, s, n, kvLoraRank});
         TileShape::Current().SetVecTile({4, 16, 1, kvLoraRank});
@@ -76,7 +76,7 @@ void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam)
         TileShape::Current().SetCubeTile({16, 16}, {256, 256}, {128, 128});
         Tensor attnOut = Matrix::Matmul<false, false>(dtype, r2Res, wOut);
 
-        ConfigManager::Instance().SetSemanticLabel("ReduceScatter");
+        config::SetSemanticLabel("ReduceScatter");
         TileShape::Current().SetDistTile({16, b * s / rankSize / 16, 0}, {h, 1, 0}, {1, rankSize, 0});
         TileShape::Current().SetDistRankId(rankId);
         out = ReduceScatter(attnOut, group, DistReduceType::DIST_REDUCE_ADD);

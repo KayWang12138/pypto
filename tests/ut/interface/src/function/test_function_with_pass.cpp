@@ -20,7 +20,6 @@
 #include "passes/pass_utils/pass_utils.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/configs/config_storage.h"
 #include "interface/tensor/expected_value.h"
 #include "interface/tensor/float.h"
 using namespace std;
@@ -35,13 +34,13 @@ public:
     void SetUp() override {
         std::cout << "-----------------------------SetUp-------------------------------" << std::endl;
         Program::GetInstance().Reset();
-        Program::GetInstance().GetConfig().Reset();
+        config::Reset();
         TileShape::Current().SetVecTile(16, 16);
     }
 
     void TearDown() override {
         Program::GetInstance().Reset();
-        Program::GetInstance().GetConfig().Reset();
+        config::Reset();
     }
 
     bool TestContinuous(const std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> &testcase) {

@@ -53,7 +53,7 @@ TEST_F(MoEGatePart1OnBoardTest, test_moe_gate_part1) {
 
     // process
     PROGRAM("MOE_GATE_PART1") {
-        Program::GetInstance().GetConfig().Reset();
+        config::Reset();
         TileShape::Current().SetCubeTile({16, 16}, {512, 512}, {64, 64});
         TileShape::Current().SetVecTile({16, 64});
         Tensor input_e_score_bias(DataType::DT_FP32, input_e_score_bias_shape, (uint8_t *)input_e_score_bias_ptr, "InputEScoresCorrectionBias");

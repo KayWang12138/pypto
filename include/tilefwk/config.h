@@ -15,32 +15,147 @@
 
 #pragma once
 #include <string>
+#include <map>
 #include <vector>
+#include <stdexcept>
 
 namespace npu::tile_fwk {
 
 enum class MachineScheduleConfig {
-    DEFAULT_SCH = 0x0, // default sch mode:L2CACHE_AFFINITY_SCH(disable) MULTI_CORE_FAIR_SCH(disable)
-    L2CACHE_AFFINITY_SCH = 0x1, // Dispatch the most recently ready task to maximize cache reuse
-    MULTI_CORE_FAIR_SCH = 0x2 // Fair scheduling refers to maintaining as balanced a distribution of tasks across cores as possible,
-                              // Enabling this configuration will introduce some additional public scheduling overhead.
+    /**
+     * \brief Default schedule mode: L2CACHE_AFFINITY_SCH(disable) MULTI_CORE_FAIR_SCH(disable)
+     */
+    DEFAULT_SCH = 0x0,
+
+    /**
+     * \brief Dispatch the most recently ready task to maximize cache reuse
+     */
+    L2CACHE_AFFINITY_SCH = 0x1,
+
+    /**
+     * \brief Fair scheduling refers to maintaining as balanced a distribution of tasks across cores as possible,
+     *        Enabling this configuration will introduce some additional public scheduling overhead.
+     */
+    MULTI_CORE_FAIR_SCH = 0x2
 };
 
-class Config {
-public:
-    Config(const Config&) = delete;
-    Config& operator=(const Config&) = delete;
-    // bool和int64_t类型函数重载，使用时可能存在二义性，须明确其类型
-    static void SetOption(const std::string &key, bool value);
-    static void SetOption(const std::string &key, int64_t value);
-    static void SetOption(const std::string &key, const std::string &value);
-    static void SetOption(const std::string &key, std::vector<int64_t> &value);
+namespace config {
+namespace internal {
+    void SetOption(const std::string &key, int64_t value);
+    void SetOption(const std::string &key, const std::string &value);
+    void SetOption(const std::string &key, const std::vector<int64_t> &value);
+    void SetOption(const std::string &key, const std::map<int64_t, int64_t> &value);
+}
 
-    static void SetBuildStatic(bool isStatic);
-    static std::string ToString();
-private:
-    Config() = default;
-    ~Config() = default;
-};
+/**
+ * \brief Check if option exists
+ *
+ * \param key config option key
+ * \return true if option exists, false otherwise
+ */
+bool HasOption(const std::string &key);
 
-} // end npu::tile_fwk
+template <typename T>
+void SetOption(const std::string &key, const T &value) {
+    if (!HasOption(key)) {
+        throw std::runtime_error("Option " + key + " does not exist");
+    }
+    internal::SetOption(key, value);
+}
+
+/**
+ * \brief Set pass options
+ *
+ * \param key config option key
+ *  - cycle_upper_bound:
+ *      upper bound of schedule cycles for each subgraph
+ *      default: 512
+ *  - cycle_lower_bound:
+ *      lower bound of schedule cycles for each subgraph
+ *      default: 10000
+ * \param value config option value
+ */
+template <typename T>
+void SetPassOption(const std::string &key, const T &value) {
+    SetOption("pass." + key, value);
+}
+
+/**
+ * \brief Set codegen options
+ *
+ * \param key config option key
+ * \param value config option value
+ */
+template <typename T>
+void SetCodeGenOption(const std::string &key, const T &value) {
+    SetOption("codegen." + key, value);
+}
+
+/**
+ * \brief Set runtime options
+ *
+ * \param key config option key
+ * \param value config option value
+ */
+template <typename T>
+void SetRuntimeOption(const std::string &key, const T &value) {
+    SetOption("runtime." + key, value);
+}
+
+/**
+ * \brief Set host options
+ *
+ * \param key config option key
+ * \param value config option value
+ */
+template <typename T>
+void SetHostOption(const std::string &key, const T &value) {
+    SetOption("host." + key, value);
+}
+
+
+/**
+ * \brief Set tensor print options
+ *
+ * \param edgeItems print max items in tensor head and tail
+ * \param precision print precision
+ */
+void SetPrintOptions(int edgeItems, int precision);
+
+/**
+ * \brief Get tensor print options
+ *
+ * \param edgeItems print max items in tensor head and tail
+ * \param precision print precision
+ */
+void GetPrintOptions(int &edgeItems, int &precision);
+
+/**
+ * \brief Set the Semantic Label object
+ *
+ * \param label semantic label
+ * \note label will be attached to subsequent operations
+ */
+void SetSemanticLabel(const std::string &label);
+
+/**
+ * \brief Set the Build static function or not
+ *
+ * \param isStatic true: build static function, false: build dynamic function
+ */
+void SetBuildStatic(bool isStatic);
+
+/**
+ * \brief Dump all config options
+ *
+ * \return std::string config options string
+ */
+std::string Dump();
+
+/**
+ * \brief Reset config options to default values
+ */
+void Reset();
+}; // namespace config
+
+} // namespace npu::tile_fwk

@@ -20,7 +20,6 @@
 #include "tilefwk/tilefwk_op.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/configs/config_storage.h"
 
 using namespace npu::tile_fwk;
 
@@ -28,7 +27,7 @@ class DynamicOpsTest : public testing::Test {
 public:
     void SetUp() override {
         Program::GetInstance().Reset();
-        Program::GetInstance().GetConfig().Reset();
+        config::Reset();
         ProgramData::GetInstance().Reset();
         config::SetPlatformConfig(KEY_VERIFY_THREAD_NUMBER, 2);
         config::SetHostConfig(KEY_ONLY_CODEGEN, true);

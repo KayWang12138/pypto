@@ -251,7 +251,7 @@ public:
     ExecuteInfo exeInfo;
     uint64_t calleeHash{};
 
-    std::string semanticLabels;
+    std::string semanticLabel;
 
     bool scalarVld = false;
     Element scalarVal;

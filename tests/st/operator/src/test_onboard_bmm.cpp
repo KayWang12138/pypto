@@ -220,7 +220,7 @@ void TestBatchMatmulA8W8O32(std::vector<int64_t> shape_a_in, std::vector<int64_t
     uint8_t* mat_c_ptr = allocDevAddr(outputSize);
 
     PROGRAM("BATCHMATMUL") {
-        Program::GetInstance().GetConfig().Reset();
+        config::Reset();
         Tensor matA(DataType::DT_INT8, shape_a, (uint8_t *)mat_a_ptr, "MatA");
         Tensor matB(DataType::DT_INT8, shape_b, (uint8_t *)mat_b_ptr, "MatB");
         Tensor matC(DataType::DT_INT32, shape_c, mat_c_ptr, "MatC");
@@ -264,7 +264,7 @@ void TestBatchMatmulA8W8O32ACC(std::vector<int64_t> shape_a_in, std::vector<int6
     uint8_t* mat_c_ptr = allocDevAddr(outputSize);
 
     PROGRAM("BATCHMATMUL") {
-        Program::GetInstance().GetConfig().Reset();
+        config::Reset();
         Tensor matA(DataType::DT_INT8, shape_a, (uint8_t *)mat_a_ptr, "MatA");
         Tensor matB(DataType::DT_INT8, shape_b, (uint8_t *)mat_b_ptr, "MatB");
         Tensor matC(DataType::DT_INT32, shape_c, mat_c_ptr, "MatC");

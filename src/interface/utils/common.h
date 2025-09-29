@@ -79,11 +79,6 @@ constexpr const int SHAPE_INNER_AXIS_MAX_SIZE = 65535;
 constexpr const int SHAPE_BUFFER_MAX_SIZE = 32;
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
-enum class SemanticLabelType {
-    TAG_INDEX,
-    LABEL_COUNT,
-};
-
 inline int64_t AlignUp(int64_t value, int64_t alignment) {
     if (alignment == 0) {
         return value;

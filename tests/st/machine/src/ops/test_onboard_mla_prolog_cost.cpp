@@ -694,9 +694,9 @@ void attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
 
 TEST_F(MlaPrologOnBoardCostTest, test_MlaProlog_float16_32_128_1_4096_7168_1536_quant) {  // b_n_s_s2_h_q_lora_rank
     const int nbuffer_merge_mode = 2;
-    Program::GetInstance().GetConfig().Set<int>(NBUFFER_MERGE_MODE, nbuffer_merge_mode);
-    Program::GetInstance().GetConfig().Set<std::map<int, int>>(VEC_NBUFFER_MAP, {{-1, 2}});
-    Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 4);
+    config::SetPassOption(NBUFFER_MERGE_MODE, nbuffer_merge_mode);
+    config::SetPassOption(VEC_NBUFFER_MAP,  std::map<int64_t, int64_t>{{-1, 2}});
+    config::SetPassOption(L1_REUSE, 4);
     int& h = std::get<int>(g_deepseekConfig["hiddenSize"]);
     int& n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
     int& qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);

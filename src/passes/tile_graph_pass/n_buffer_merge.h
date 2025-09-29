@@ -34,26 +34,26 @@ private:
     void InitParam(OperationsViewer &opOriList);
     void GetOpHash(std::vector<uint64_t> &hashList, const std::string op, int idx);
     void GetOpHashReverse(std::vector<uint64_t> &hashList, const std::string op, int idx);
-    void GetColorHash(const OperationsViewer &opOriList, 
-                      std::vector<uint64_t> &hashColor, 
+    void GetColorHash(const OperationsViewer &opOriList,
+                      std::vector<uint64_t> &hashColor,
                       std::map<uint64_t, std::vector<int>> &hashMap);
-    Status CheckAndFixColorOrder(OperationsViewer &opOriList, 
+    Status CheckAndFixColorOrder(OperationsViewer &opOriList,
                                int &color1, std::vector<int> &colorCycles1,
                                std::vector<std::vector<int>> &colorNode1);
     std::map<int, size_t> GetIsoColorMergeNum(const OperationsViewer &opOriList,
                                                    const std::map<uint64_t, std::vector<int>> &hashMap) const;
     std::vector<std::vector<int>> SortColorWithInput(std::vector<int> &colorValues) const;
-    Status MergeProcess(const OperationsViewer &opOriList, 
-                        std::map<uint64_t, std::vector<int>> &hashMap, 
-                        std::map<int, size_t> &hashMergeNum, 
+    Status MergeProcess(const OperationsViewer &opOriList,
+                        std::map<uint64_t, std::vector<int>> &hashMap,
+                        std::map<int, size_t> &hashMergeNum,
                         std::vector<uint64_t> &hashColor);
-    Status ColorTopo(int &color1, 
-                     std::vector<std::vector<int>> &inputColor, 
-                     std::vector<std::vector<int>> &outputColor, 
+    Status ColorTopo(int &color1,
+                     std::vector<std::vector<int>> &inputColor,
+                     std::vector<std::vector<int>> &outputColor,
                      OperationsViewer &opOriList);
-    void MergePingPong(std::vector<std::vector<int>> &sortedColors, 
-                       const OperationsViewer &opOriList, 
-                       std::vector<uint64_t> &hashColor, 
+    void MergePingPong(std::vector<std::vector<int>> &sortedColors,
+                       const OperationsViewer &opOriList,
+                       std::vector<uint64_t> &hashColor,
                        int &numDBmerge);
     std::map<int, size_t> SetNumDB(std::map<uint64_t, std::vector<int>> &hashMap);
 private:
@@ -67,7 +67,7 @@ private:
     int nBufferMergeMode;
     int sgVecParallelNum;
     int sgCubeParallelNum;
-    std::map<int, int> vecNBufferMap;
+    std::map<int64_t, int64_t> vecNBufferMap;
     std::unordered_map<uint64_t, int> hashOrder;
     enum ModeType {
         noMerge = 0,

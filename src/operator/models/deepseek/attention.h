@@ -18,7 +18,6 @@
 #include "interface/inner/pre_def.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/configs/config_storage.h"
 #include "dynamic_mla.h"
 #include "page_attention.h"
 
@@ -31,5 +30,5 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
     Tensor &blockTable, Tensor &actSeqs, Tensor &paOut, int blockSize, float softmaxScale, PaTileShapeConfig &paTileConfig, /*---*/
     Tensor &weightUV, Tensor &weightO, Tensor &weightOScaleW, Tensor &postOut,
     float epsilonCq = 1e-5f, float epsilonCkv = 1e-5f, std::string cacheMode = "BNSD");
- 
+
 } // namespace npu::tile_fwk

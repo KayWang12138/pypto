@@ -44,14 +44,14 @@ namespace {
 TEST_F(DynamicResolveTest, TestResolve) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetCodeGenConfig(KEY_CODEGEN_EXPRESSION_FUSION, true);
-    Program::GetInstance().GetConfig().Set<int>(COPYIN_THRESHOLD, 100 * 1024 * 1024);
-    Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_LOWER_BOUND, 1024);
-    Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_UPPER_BOUND, 1024);
-    Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 32);
-    Program::GetInstance().GetConfig().Set<int>(SG_PARALLEL_NUM, 2);
-    Program::GetInstance().GetConfig().Set<int>(NBUFFER_MERGE_MODE, 2);
-    Program::GetInstance().GetConfig().Set<std::map<int, int>>(VEC_NBUFFER_MAP, {{-1, 16}});
-    Program::GetInstance().GetConfig().Set<int>(COPYOUT_RESOLVE_COALESCING, 10);
+    config::SetPassOption(COPYIN_THRESHOLD, 100 * 1024 * 1024);
+    config::SetPassOption(SG_CYCLE_LOWER_BOUND, 1024);
+    config::SetPassOption(SG_CYCLE_UPPER_BOUND, 1024);
+    config::SetPassOption(L1_REUSE, 32);
+    config::SetPassOption(SG_PARALLEL_NUM, 2);
+    config::SetPassOption(NBUFFER_MERGE_MODE, 2);
+    config::SetPassOption<std::map<int64_t, int64_t>>(VEC_NBUFFER_MAP, {{-1, 16}});
+    config::SetPassOption<int>(COPYOUT_RESOLVE_COALESCING, 10);
 
     static constexpr int v64 = 64;
     static constexpr int v128 = 128;

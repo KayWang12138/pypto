@@ -19,12 +19,11 @@
 #include "interface/tensor/raw_tensor.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/configs/config_storage.h"
 
 using namespace npu::tile_fwk;
 
 int main() {
-    Program::GetInstance().GetConfig().Reset();
+    config::Reset();
 
     std::vector<int64_t> shape{1, 2, 256, 128, 2};
     Tensor a(DT_FP32, shape, "a");

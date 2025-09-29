@@ -23,7 +23,6 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/tensor/tensormap.h"
 #include "interface/configs/config_manager.h"
-#include "interface/configs/config_storage.h"
 #include "interface/utils/common.h"
 #include "interface/utils/id_gen.h"
 #include "interface/utils/log.h"
@@ -58,12 +57,12 @@ void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc
     auto v2Tile = tileConfig.v2TileShape;
 
     /******** tune params ********/
-    // Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {});
-    // Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 0);
-    // Program::GetInstance().GetConfig().Set<int>(COPYIN_THRESHOLD, 1 * 1024 * 1024);
-    // Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_UPPER_BOUND, 100000);
-    // Program::GetInstance().GetConfig().Set<int>(SG_PARALLEL_NUM, 2);
-    // Program::GetInstance().GetConfig().Set<int>(CUBE_NBUFFER, 2);
+    // config::SetPassOption(CUBE_NBUFFER_MAP,  std::map<int64_t, int64_t>{});
+    // config::SetPassOption(L1_REUSE, 0);
+    // config::SetPassOption(COPYIN_THRESHOLD, 1 * 1024 * 1024);
+    // config::SetPassOption(SG_CYCLE_UPPER_BOUND, 100000);
+    // config::SetPassOption(SG_PARALLEL_NUM, 2);
+    // config::SetPassOption(CUBE_NBUFFER, 2);
     // config::SetOperationConfig("FORCE_COMBINE_AXIS", true);
 
     SymbolicScalar batchSizeSym = kvSlcActSeqs->shape[0]; // b
@@ -96,7 +95,7 @@ void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc
                         int curS2Tile = s2Tile;
                         SymbolicScalar curKvOffset = bIdx * s1N2S2Sym + s1Idx * n2S2Sym + s2Idx * curS2Tile;
 
-                        ConfigManager::Instance().SetSemanticLabel("Sa");
+                        config::SetSemanticLabel("Sa");
                         // View, 临时规避改成 View
                         auto qn = View(qNope, {curGTile, dN}, {curGTile, dN}, {curOffset, 0});
                         auto qr = View(qRope, {curGTile, dR}, {curGTile, dR}, {curOffset, 0});
@@ -112,12 +111,12 @@ void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc
                         // C1
                         TileShape::Current().SetCubeTile(
                             {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, true);
-                        ConfigManager::Instance().SetSemanticLabel("Sa_QkMM");
+                        config::SetSemanticLabel("Sa_QkMM");
                         TileShape::Current().SetMatrixSize({qi.GetShape()[0], 0, kj.GetShape()[0]});
                         auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj);
 
                         // V1
-                        ConfigManager::Instance().SetSemanticLabel("Sa_Qkvec1");
+                        config::SetSemanticLabel("Sa_Qkvec1");
                         TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
                         auto sijScale = MulS(sij, Element(sij->Datatype(), softmaxScale));
                         auto tildaMij = RowMaxSingle(sijScale); // (curGTile, curS2Tile) -> (curGTile, 1)
@@ -130,14 +129,14 @@ void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc
                             // C2
                             TileShape::Current().SetCubeTile(
                                 {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]}, true);
-                            ConfigManager::Instance().SetSemanticLabel("Sa_KvMm");
+                            config::SetSemanticLabel("Sa_KvMm");
                             TileShape::Current().SetMatrixSize(
                                 {tildaPijF16.GetShape()[0], tildaPijF16.GetShape()[1], vj.GetShape()[1]});
                             auto oiTmp = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
                             TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                             IF (IsLoopEnd(s2Idx, bnPerBatch)) { // PATH3
                                 // V2
-                                ConfigManager::Instance().SetSemanticLabel("Sa_KvVec2");
+                                config::SetSemanticLabel("Sa_KvVec2");
                                 oiUpdate = Div(oiTmp, tildaLij);
                                 TileShape::Current().SetVecTile(1, 1, v2Tile[0], v2Tile[1]);
                                 auto oiUpdate4Dim = AddS(Reshape(oiUpdate, {1, 1, curGTile, dN}), Element(oiUpdate->Datatype(), float(0)));
@@ -148,7 +147,7 @@ void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc
                             liUpdate = tildaLij;
                             miUpdate = tildaMij;
                         } ELSE {
-                            ConfigManager::Instance().SetSemanticLabel("Sa_UpdateVec2");
+                            config::SetSemanticLabel("Sa_UpdateVec2");
                             auto oi = oiUpdate;
                             auto li = liUpdate;
                             auto mi = miUpdate;
@@ -165,7 +164,7 @@ void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc
                             auto q3 = Mul(oi, t2);
                             TileShape::Current().SetCubeTile(
                                 {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]}, true);
-                            ConfigManager::Instance().SetSemanticLabel("Sa_UpdateMM2");
+                            config::SetSemanticLabel("Sa_UpdateMM2");
                             TileShape::Current().SetMatrixSize(
                                 {tildaPijF16.GetShape()[0], tildaPijF16.GetShape()[1], vj.GetShape()[1]});
                             auto q1 = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);

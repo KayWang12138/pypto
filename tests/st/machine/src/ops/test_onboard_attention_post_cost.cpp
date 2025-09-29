@@ -239,8 +239,8 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_n128_onlymm5) {
         // TileShape::Current().SetVecTile({1, 1, 1, kvLoraRank});
         Tensor t2Res = Reshape(attenRes0, {N, B * S, kvLoraRank});
 
-        // Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 6);
-        Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {{0, 2}});
+        // config::SetPassOption(L1_REUSE, 6);
+        config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{{0, 2}});
         TileShape::Current().SetCubeTile({std::min(32, B * S), std::min(32, B * S)},
             {std::min(256, kvLoraRank), std::min(256, kvLoraRank)},
             {std::min(128, vHeadDim), std::min(128, vHeadDim)}); // M 16对齐
@@ -415,8 +415,8 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_n128_onlymm5He) {
         // TileShape::Current().SetVecTile({16, 1, 1, kvLoraRank});
         Tensor t2Res = Reshape(attenRes0, {N, B * S, kvLoraRank}); // (128, 32, 1, 512)
 
-        // Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 6);
-        Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {{0, 2}});
+        // config::SetPassOption(L1_REUSE, 6);
+        config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{{0, 2}});
         TileShape::Current().SetCubeTile({std::min(32, B * S), std::min(32, B * S)},
             {std::min(256, kvLoraRank), std::min(256, kvLoraRank)},
             {std::min(128, vHeadDim), std::min(128, vHeadDim)}); // 改变M大小，生成256个块
@@ -557,7 +557,7 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_batch4_onlymm5K) {
         Tensor attenRes0 = Transpose(inputI, {0, 1}); // (4,32,1,512) -> (32,4,1,512)
         Tensor t2Res = Reshape(attenRes0, {N, B * S, kvLoraRank}); // (32,4,1,512) -> (32,4,512)
 
-        Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {{0, 2}});
+        config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{{0, 2}});
         TileShape::Current().SetCubeTile({4, 4}, {std::min(256, kvLoraRank), std::min(256, kvLoraRank)},
             {std::min(128, vHeadDim), std::min(128, vHeadDim)}); // 32/2 ge
         // [n,bs,kvLoraRank] * [n, kvLoraRank, vHeadDim] = [n,bs,vHeadDim]
@@ -705,15 +705,15 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_n128_onlymm5K) {
     Tensor mm5fp32(DT_FP32, mm5Int32ShapeT, mm5fp32_ptr, "mm5fp32");
     Tensor t1I(dType, t1Shape, (uint8_t *)t1Ptr, "E");
 
-    Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_UPPER_BOUND, 300000);  // 300000(167us)
+    config::SetPassOption(SG_CYCLE_UPPER_BOUND, 300000);  // 300000(167us)
     TileFwkBeginFunction("ATTENTION_POST_T", {inputI, wUvI, wUvScaleWi, wOi, wOscaleWi, outputT, mm5Int32, mm5fp32});
     {
         TileShape::Current().SetVecTile({B, 2, 1, kvLoraRank}); // 128个
         Tensor attenRes0 = Transpose(inputI, {0, 1}); // (32, 128, 1, 512)
         Tensor t2Res = Reshape(attenRes0, {N, B * S, kvLoraRank}); // (128, 32, 1, 512)
 
-        // 原AscendProgram::GetInstance().GetConfig().Set<int>(L1_REUSE, 6);
-        Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {{0, 4}});
+        // 原Ascendconfig::SetPassOption(L1_REUSE, 6);
+        config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{{0, 4}});
         TileShape::Current().SetCubeTile({std::min(32, B * S), std::min(32, B * S)},
             {std::min(256, kvLoraRank), std::min(256, kvLoraRank)},
             {std::min(128, vHeadDim), std::min(128, vHeadDim)}); // 128/4 个
@@ -889,8 +889,8 @@ TEST_F(OnBoardCostTest, dynamic_pa_post_static_cast_first) {
         TileShape::Current().SetVecTile({B * 1, 2, kvLoraRank});
         Tensor t1Res = Transpose(r1Res, {0, 1}); // (32, 128, 512)
 
-        // 原AscendProgram::GetInstance().GetConfig().Set<int>(L1_REUSE, 6);
-        Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {{0, 4}});
+        // 原Ascendconfig::SetPassOption(L1_REUSE, 6);
+        config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{{0, 4}});
         TileShape::Current().SetCubeTile({std::min(32, B * S), std::min(32, B * S)},
             {std::min(256, kvLoraRank), std::min(256, kvLoraRank)},
             {std::min(128, vHeadDim), std::min(128, vHeadDim)}); // 128/4 个

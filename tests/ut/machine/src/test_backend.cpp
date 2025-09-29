@@ -25,7 +25,7 @@ class TestSuite_Backend : public testing::Test {};
 TEST_F(TestSuite_Backend, AihacBackend_Err1) {
     config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
     try {
-        Program::GetInstance().GetConfig().Reset();
+        config::Reset();
     } catch (std::runtime_error&) {
     }
 }
@@ -34,7 +34,7 @@ TEST_F(TestSuite_Backend, SimulationBackend_Err1) {
     config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, false);
     config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, true);
     try {
-        Program::GetInstance().GetConfig().Reset();
+        config::Reset();
     } catch (std::runtime_error&) {
     }
 }

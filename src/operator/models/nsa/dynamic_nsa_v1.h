@@ -20,7 +20,6 @@
 #include "interface/inner/pre_def.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/program/program.h"
-#include "interface/configs/config_storage.h"
 #include "operator/models/nsa/nsa_selected_attention.h"
 #include "operator/models/deepseek/dynamic_mla.h"
 #include "operator/models/nsa/win_attention.h"

@@ -21,3 +21,4 @@
 #include "tilefwk/tile_shape.h"
 #include "tilefwk/error.h"
 #include "tilefwk/tensor.h"
+#include "tilefwk/config.h"

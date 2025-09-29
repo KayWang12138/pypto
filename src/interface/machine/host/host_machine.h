@@ -128,7 +128,7 @@ private:
     std::atomic<bool> stopFlag_{false};
 
     /* 线程管理 */
-    int compileThreadCount_{1}; 
+    int compileThreadCount_{1};
     int agentThreadCount_{1};
     std::mutex compileQueueMutex_;
     std::mutex agentQueueMutex_;
@@ -140,7 +140,7 @@ private:
     SafeQueue<std::unique_ptr<MachineTask>> compileQueue_; // 待编译任务
     SafeQueue<std::unique_ptr<MachineTask>> agentQueue_; // 待device agent处理任务
     SafeQueue<std::unique_ptr<MachineTask>> finishQueue_; // device machine 处理结束任务
-    SafeQueue<std::tuple<Function *, ConfigStorage, InternalGlobalConfig,
+    SafeQueue<std::tuple<Function *, std::shared_ptr<ConfigStorage>, InternalGlobalConfig,
                          nlohmann::json>> stashedFuncQueue_; // stash func
 
     /* 后端管理 */

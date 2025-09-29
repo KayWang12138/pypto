@@ -85,6 +85,22 @@ public:
         return fname;
     }
 
+    static std::string ToLower(const std::string &str) {
+        std::string res(str);
+        for (auto &c : res) {
+            c = std::tolower(c);
+        }
+        return res;
+    }
+
+    static std::string ToUpper(const std::string &str) {
+        std::string res(str);
+        for (auto &c : res) {
+            c = std::toupper(c);
+        }
+        return res;
+    }
+
     // memcpy_s内部限制了待拷贝目的buffer的字节数，若大于SECUREC_MEM_MAX_LEN（int32最大值0x7fffffff），会报错返回错误码ERANGE
     static void DataCopy(void *dest, size_t destMax, const void *src, size_t count) {
         ASSERT(destMax >= count);

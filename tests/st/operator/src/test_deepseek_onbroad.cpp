@@ -68,7 +68,7 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer) {
     Tensor finalout(DataType::DT_FP32, { b*s, h }, (uint8_t *)outputPtr, "finalout");
 
     PROGRAM("MOE_INFER") {
-        Program::GetInstance().GetConfig().Reset();
+        config::Reset();
         TileShape::Current().SetCubeTile({std::min(128, b * s), std::min(128, b * s)}, {64, 64}, {64, 64});
 
         TileShape::Current().SetVecTile(64, nRoutedExperts); // for Assemble
@@ -170,7 +170,7 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer_singleout) {
     Tensor finalout(DT_FP32, { b*s, h }, (uint8_t *)outputPtr, "finalout");
 
     PROGRAM("MOE_INFER") {
-        Program::GetInstance().GetConfig().Reset();
+        config::Reset();
         TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64});
 
         TileShape::Current().SetVecTile(64, nRoutedExperts); // for Assemble
@@ -242,7 +242,7 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer_singleout_singlemlp) {
     Tensor finalout(DT_FP32, { b*s, h }, (uint8_t *)outputPtr, "finalout");
 
     PROGRAM("MOE_INFER") {
-        Program::GetInstance().GetConfig().Reset();
+        config::Reset();
         TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64});
 
         TileShape::Current().SetVecTile(64, nRoutedExperts); // for Assemble
@@ -323,9 +323,9 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer_singleout_singlemlp_withquant)
     Tensor finalout(DT_FP32, { b*s, h }, (uint8_t *)outputPtr, "finalout");
 
     PROGRAM("MOE_INFER_SINGLEMLP_QUANT") {
-        Program::GetInstance().GetConfig().Reset();
+        config::Reset();
         TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64});
-        Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 4);
+        config::SetPassOption(L1_REUSE, 4);
 
         TileShape::Current().SetVecTile(64, nRoutedExperts); // for Assemble
 

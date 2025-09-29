@@ -20,7 +20,6 @@
 #include "interface/inner/pre_def.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/program/program.h"
-#include "interface/configs/config_storage.h"
 
 namespace npu::tile_fwk {
     struct KvSlcTileShapeConfig {

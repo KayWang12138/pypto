@@ -36,7 +36,7 @@ public:
     static void TearDownTestCase() {}
     void SetUp() override {
         Program::GetInstance().Reset();
-        Program::GetInstance().GetConfig().Reset();
+        config::Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetHostConfig(KEY_STRATEGY, "GraphPartitionTestStrategy");
     }

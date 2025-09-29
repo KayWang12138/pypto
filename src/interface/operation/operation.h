@@ -25,7 +25,7 @@
 #include "interface/inner/any.h"
 #include "interface/inner/pre_def.h"
 #include "tilefwk/tilefwk_op.h"
-#include "interface/configs/config_storage.h"
+#include "interface/inner/config.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/tile_shape.h"
 #include "interface/utils/common.h"
@@ -417,19 +417,8 @@ public:
     auto GroupID() const { return groupID_; }
     void SetGroupID(size_t groupID) const { groupID_ = groupID; }
 
-    template <SemanticLabelType Type = SemanticLabelType::TAG_INDEX>
-    auto GetSemanticLabel() {
-        static_assert(Type < SemanticLabelType::LABEL_COUNT);
-        return semanticLabels_[static_cast<int>(Type)];
-    }
-    template <SemanticLabelType Type = SemanticLabelType::TAG_INDEX>
-    void SetSemanticLabel(std::string label) {
-        static_assert(Type < SemanticLabelType::LABEL_COUNT);
-        semanticLabels_[static_cast<int>(Type)] = std::move(label);
-    }
-
-    const auto &GetSemanticLabels() const { return semanticLabels_; }
-    std::string GetSemanticLabelsStr() const;
+    void SetSemanticLabel(const std::string &label) { semanticLabel_ = label; }
+    const std::string &GetSemanticLabel() const { return semanticLabel_; }
 
     void SetAsDeleted() { isDeleted_ = true; }
     void SetAsNotDeleted() { isDeleted_ = false; }
@@ -493,7 +482,7 @@ private:
     bool isDeleted_{false};
 
     SourceLocationPtr location_ {nullptr};
-    std::array<std::string, static_cast<int>(SemanticLabelType::LABEL_COUNT)> semanticLabels_;
+    std::string semanticLabel_;
     Function *function_;
 
     std::vector<std::string> commentList_;

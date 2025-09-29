@@ -272,7 +272,7 @@ void TestQuantMM(std::vector<int64_t>& shapeA, std::vector<int64_t>& shapeW) {
     uint8_t* matRes_ptr = allocDevAddr(outputSize);
 
     PROGRAM("QUANTMM") {
-        Program::GetInstance().GetConfig().Reset();
+        config::Reset();
         std::vector<int64_t> vecTileShape  = {VALUE32, VALUE64};
         TileShape::Current().SetCubeTile({VALUE32, VALUE32}, {VALUE128, VALUE128}, {VALUE128, VALUE128});
         TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[1]);
@@ -329,7 +329,7 @@ void TestQuantMM3D(std::vector<int64_t>& shapeA, std::vector<int64_t>& shapeW) {
     uint8_t* matRes_ptr = allocDevAddr(outputSize);
 
     PROGRAM("QUANTMM") {
-        Program::GetInstance().GetConfig().Reset();
+        config::Reset();
         TileShape::Current().SetCubeTile({VALUE32, VALUE32}, {VALUE128, VALUE128}, {VALUE128, VALUE128});
         TileShape::Current().SetVecTile(VALUE8, VALUE8, VALUE32);
         Tensor matA(DataType::DT_BF16, shapeA, (uint8_t *)matA_ptr, "MatA");

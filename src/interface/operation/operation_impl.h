@@ -19,12 +19,12 @@
 #include <string>
 #include <unordered_set>
 #include "tilefwk/tensor.h"
-#include "interface/configs/config_storage.h"
+#include "interface/inner/config.h"
 #include "opcode.h"
 #include "tilefwk/tile_shape.h"
 
 namespace npu::tile_fwk {
-    
+
 class Function;
 class Operation;
 using LogicalTensorPtr = std::shared_ptr<LogicalTensor>;

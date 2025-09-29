@@ -16,7 +16,7 @@
 #include "distributed_common.h"
 #include <vector>
 #include "interface/utils/common.h"
-#include "interface/configs/config_storage.h"
+#include "interface/inner/config.h"
 #include "interface/utils/log.h"
 
 namespace npu::tile_fwk {
@@ -71,7 +71,7 @@ void CheckAndGetTileInfo(int rowTotal, int colTotal, const TileShape &tileShape,
     } else {
         tileInfo.col = {colTotal, 1, 0};
     }
-    ALOG_INFO_F("Distributed opinfo: row=[%d %d %d], col=[%d %d %d]", 
+    ALOG_INFO_F("Distributed opinfo: row=[%d %d %d], col=[%d %d %d]",
         tileInfo.row[DIST_HEAD_SHAPE], tileInfo.row[DIST_HEAD_COUNT], tileInfo.row[DIST_TAIL_SHAPE],
         tileInfo.col[DIST_HEAD_SHAPE], tileInfo.col[DIST_HEAD_COUNT], tileInfo.col[DIST_TAIL_SHAPE]);
 }

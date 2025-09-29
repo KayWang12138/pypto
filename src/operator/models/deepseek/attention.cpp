@@ -24,7 +24,6 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/tensor/tensormap.h"
 #include "interface/configs/config_manager.h"
-#include "interface/configs/config_storage.h"
 #include "interface/utils/common.h"
 #include "interface/utils/id_gen.h"
 #include "interface/utils/log.h"
@@ -82,12 +81,12 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
         {postOut}, {{kvCacheOut, kvCache}, {krCacheOut, krCache}}) {
         /******** mla_prolog ********/
         SymbolicScalar bLoop = b / tileB;
-        Program::GetInstance().GetConfig().Set<int>(NBUFFER_MERGE_MODE, 1);
-        Program::GetInstance().GetConfig().Set<int>(L1_REUSE, NUM_4); //L1reuse合并的左矩阵或者右矩阵数量
-        Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {{NUM_3, NUM_4}});   //从NUM_3个mm开始设置CubeNBuffer数量为NUM_4；CubeNBuffer：设置同构的mm计算合并入一个图
-        Program::GetInstance().GetConfig().Set<int>(COPYIN_THRESHOLD, NUM_2 * NUM_1024 * NUM_1024);   // CubeNBuffer、L1reuse合并时copyin的cycle上限
-        Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_UPPER_BOUND, NUM_100000);    // 设置切图与合图后子图的Latency的上限
-        Program::GetInstance().GetConfig().Set<int>(SG_PARALLEL_NUM, NUM_2);       // 设置子图合并的并行度下限（子图数量大于等于parallelThreshold才可合并）
+        config::SetPassOption(NBUFFER_MERGE_MODE, 1);
+        config::SetPassOption(L1_REUSE, NUM_4); //L1reuse合并的左矩阵或者右矩阵数量
+        config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{{NUM_3, NUM_4}});   //从NUM_3个mm开始设置CubeNBuffer数量为NUM_4；CubeNBuffer：设置同构的mm计算合并入一个图
+        config::SetPassOption(COPYIN_THRESHOLD, NUM_2 * NUM_1024 * NUM_1024);   // CubeNBuffer、L1reuse合并时copyin的cycle上限
+        config::SetPassOption(SG_CYCLE_UPPER_BOUND, NUM_100000);    // 设置切图与合图后子图的Latency的上限
+        config::SetPassOption(SG_PARALLEL_NUM, NUM_2);       // 设置子图合并的并行度下限（子图数量大于等于parallelThreshold才可合并）
 
         LOOP("LOOP_L0_bIdx_mla_prolog", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bLoop, 1)) {
             SymbolicScalar bOffset = bIdx * tileB;
@@ -99,7 +98,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
             bool isSmooth = (smoothScalesCq.GetStorage() != nullptr);
             std::cout << "isQuant +++ " << isQuant << std::endl;
             auto xView = View(tokenX, {tileB, s, h}, {bOffset, 0, 0});
-            ConfigManager::Instance().SetSemanticLabel("mlaPre");
+            config::SetSemanticLabel("mlaPre");
 
             auto qKv = mlaPre(xView, wDq, wUqQr, wDkvKr, gammaCq, epsilonCq, quantInputs, false, isSmooth);
             Tensor q = qKv[0];     // [b*s, n*qHeadDim]
@@ -107,7 +106,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
 
             // dequant: int32 -> fp32 -> *scale -> fp16/bf16
             if (isQuant) {
-                ConfigManager::Instance().SetSemanticLabel("Quant");
+                config::SetSemanticLabel("Quant");
                 std::vector<int64_t> tileShape = {std::min(NUM_32, tileBS), NUM_64};
                 TileShape::Current().SetVecTile(tileShape);
                 auto qTmpFp32 = Cast(q, DataType::DT_FP32);
@@ -118,44 +117,44 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                 q = Cast(qTmpDequantChannel, dtype);
             }
 
-            ConfigManager::Instance().SetSemanticLabel("Reshape0");
+            config::SetSemanticLabel("Reshape0");
             auto qTmp = Reshape(q, {tileB, s, n, qHeadDim});
             std::vector<int64_t> tileShape = {std::min(NUM_32, tileB), 1, 1, NUM_64};
             TileShape::Current().SetVecTile(tileShape);
 
             /******** q ********/
-            ConfigManager::Instance().SetSemanticLabel("q");
+            config::SetSemanticLabel("q");
             Tensor qNope = View(qTmp, {tileB, s, n, qkNopeHeadDim}, {0, 0, 0, 0}); // [b,s,n,qkNopeHeadDim]
             tileShape = {tileB, 1, 1, NUM_128};
             TileShape::Current().SetVecTile(tileShape);
             Tensor qNopeRes = Reshape(qNope, {tileBS, n, qkNopeHeadDim}); // [bs,n,qkNopeHeadDim]
             tileShape = {std::min(NUM_32, tileBS), 1, qkNopeHeadDim};     // {NUM_2, NUM_32, qkNopeHeadDim}
             TileShape::Current().SetVecTile(tileShape);
-            ConfigManager::Instance().SetSemanticLabel("Transpose0");
+            config::SetSemanticLabel("Transpose0");
             Tensor qNopeTrans = Transpose(qNopeRes, {0, 1}); // [n,bs,qkNopeHeadDim]
 
             int c0 = NUM_16;
             int m = (std::min(NUM_32, tileBS) + c0 - 1) / c0 * c0;
             TileShape::Current().SetCubeTile({m, m}, {NUM_256, NUM_256}, {NUM_128, NUM_128}, true);
-            ConfigManager::Instance().SetSemanticLabel("BatchMatmul");
+            config::SetSemanticLabel("BatchMatmul");
             Tensor qNopeNew = Matrix::BatchMatmul(dtype, qNopeTrans, wUk);
 
             tileShape = {1, std::min(NUM_32, tileBS), kvLoraRank}; // {NUM_16, NUM_2, kvLoraRank}
             TileShape::Current().SetVecTile(tileShape);
-            ConfigManager::Instance().SetSemanticLabel("Transpose1");
+            config::SetSemanticLabel("Transpose1");
             Tensor qNopeNewTrans = Transpose(qNopeNew, {0, 1}); // [bs,n,kvLoraRank]
 
             /******** kv ********/
-            ConfigManager::Instance().SetSemanticLabel("kv");
+            config::SetSemanticLabel("kv");
             Tensor compressedKv = View(kvTmp, {tileB, s, kvLoraRank}, {0, 0, 0}); // [b,s,kvLoraRank]
             tileShape = {NUM_2, 1, NUM_512};
             TileShape::Current().SetVecTile(tileShape);
-            ConfigManager::Instance().SetSemanticLabel("RmsNorm");
+            config::SetSemanticLabel("RmsNorm");
             Tensor compressedKvNorm = RmsNorm(compressedKv, gammaCkv, epsilonCkv); // [b,s,kvLoraRank]
             Tensor kNope = Reshape(compressedKvNorm, {tileB, 1, s, kvLoraRank});   // [b,1,s,kvLoraRank]
 
             /******** RoPE ********/
-            ConfigManager::Instance().SetSemanticLabel("RoPE");
+            config::SetSemanticLabel("RoPE");
             Tensor kPeView = View(kvTmp, {tileB, s, qkRopeHeadDim}, {0, 0, kvLoraRank}); // [b,s,qkRopeHeadDim]
             tileShape = {std::min(NUM_32, tileB), 1, qkRopeHeadDim};
             TileShape::Current().SetVecTile(tileShape);
@@ -165,7 +164,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
             Tensor sinView = View(sin, {tileB, s, qkRopeHeadDim}, {bOffset, 0, 0});
             Tensor kRopeView(kPeRes->Datatype(), {tileB, s, 1, qkRopeHeadDim}, "kRopeView"); // [b,1,s,qkRopeHeadDim]
             Tensor qRopeView(kPeRes->Datatype(), {tileB, s, n, qkRopeHeadDim}, "qRopeView");
-            ConfigManager::Instance().SetSemanticLabel("ApplyRotaryPosEmbV2");
+            config::SetSemanticLabel("ApplyRotaryPosEmbV2");
             ApplyRotaryPosEmbV2(qPeView, kPeRes, cosView, sinView, qRopeView, kRopeView, NUM_2, ropeConfig);
 
             if (cacheMode != "BNSD") {
@@ -190,25 +189,25 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                 kvCacheOut = Reshape(kvCacheOutDview, {blockNum, blockSize, n2, kvLoraRank});
                 krCacheOut = Reshape(krCacheOutDview, {blockNum, blockSize, n2, qkRopeHeadDim});
             } else {
-                ConfigManager::Instance().SetSemanticLabel("Reshape1");
+                config::SetSemanticLabel("Reshape1");
                 Tensor kRopeRes = Reshape(kRopeView, {tileB, 1, s, qkRopeHeadDim});
-                ConfigManager::Instance().SetSemanticLabel("kvCache");
+                config::SetSemanticLabel("kvCache");
                 auto cacheIndexDview = View(cacheIndex, {tileB, s}, {bOffset, 0});
                 /******** kvCache ********/
                 tileShape = {1, 1, 1, kvLoraRank};
                 TileShape::Current().SetVecTile(tileShape);
                 // kvCache: [b,1,s2,kvLoraRank], output3
                 auto kvCacheDview = View(kvCache, {tileB, 1, s2, kvLoraRank}, {bOffset, 0, 0, 0});
-                ConfigManager::Instance().SetSemanticLabel("ScatterUpdate0");
+                config::SetSemanticLabel("ScatterUpdate0");
                 auto kvCacheOutDview = ScatterUpdate(kvCacheDview, cacheIndexDview, kNope, -2);
 
                 /******** krCache ********/
-                ConfigManager::Instance().SetSemanticLabel("krCache");
+                config::SetSemanticLabel("krCache");
                 tileShape = {1, 1, 1, qkRopeHeadDim};
                 TileShape::Current().SetVecTile(tileShape);
                 // krCache: [b,1,s2,qkRopeHeadDim], output4
                 auto krCacheDview = View(krCache, {tileB, 1, s2, qkRopeHeadDim}, {bOffset, 0, 0, 0});
-                ConfigManager::Instance().SetSemanticLabel("ScatterUpdate1");
+                config::SetSemanticLabel("ScatterUpdate1");
                 auto krCacheOutDview = ScatterUpdate(krCacheDview, cacheIndexDview, kRopeRes, -2);
 
                 auto kvCacheOutDviewNew = Reshape(kvCacheOutDview, {tileB*1*s2, kvLoraRank});
@@ -228,12 +227,12 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
         SymbolicScalar nQ = qNopeOut->shape[0] / batchSizeScalar;
         SymbolicScalar nLoop = nQ / nTile;
 
-        Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {});
-        Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 0);
-        Program::GetInstance().GetConfig().Set<int>(COPYIN_THRESHOLD, 1 * NUM_1024 * NUM_1024);
-        Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_UPPER_BOUND, NUM_100000);
-        Program::GetInstance().GetConfig().Set<int>(SG_PARALLEL_NUM, NUM_2);
-        Program::GetInstance().GetConfig().Set<int>(CUBE_NBUFFER, NUM_2);
+        config::SetPassOption(CUBE_NBUFFER_MAP,  std::map<int64_t, int64_t>{});
+        config::SetPassOption(L1_REUSE, 0);
+        config::SetPassOption(COPYIN_THRESHOLD, 1 * NUM_1024 * NUM_1024);
+        config::SetPassOption(SG_CYCLE_UPPER_BOUND, NUM_100000);
+        config::SetPassOption(SG_PARALLEL_NUM, NUM_2);
+        config::SetPassOption(CUBE_NBUFFER, NUM_2);
         config::SetOperationConfig("FORCE_COMBINE_AXIS", true);
 
         LOOP("LOOP_L0_bIdx_pa", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, batchSizeScalar, 1), {}, true) {
@@ -250,7 +249,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                 std::vector<SymbolicScalar> oiOffset = {curOffset, 0}; // (B*N*S, d)
 
                 LOOP("LOOP_L2_bn", FunctionType::DYNAMIC_LOOP, bn, LoopRange(0, bnPerBatch, 1), PowersOf2(1)) {
-                    ConfigManager::Instance().SetSemanticLabel("pa");
+                    config::SetSemanticLabel("pa");
                     // 当前qn，qr和qi放入内层Loop，避免Concat单独切成一个小图
                     int curS2Tile = blockSize;
                     auto qn = View(qNopeOut, {curNTile, dN}, {curOffset, 0});
@@ -273,10 +272,10 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
 
                     TileShape::Current().SetCubeTile(
                         {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, true);
-                    ConfigManager::Instance().SetSemanticLabel("paQkMM");
+                    config::SetSemanticLabel("paQkMM");
                     TileShape::Current().SetMatrixSize({qi.GetShape()[0], 0, kj.GetShape()[0]});
                     auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj); // (curNTile, dN+dR), (curS2Tile, dN+dR) -> (curNTile, curS2Tile)
-                    ConfigManager::Instance().SetSemanticLabel("paQkvec1");
+                    config::SetSemanticLabel("paQkvec1");
                     TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
                     auto sijScale = MulS(sij, Element(DataType::DT_FP32, static_cast<double>(softmaxScale))); // (curNTile, curS2Tile)
 
@@ -289,13 +288,13 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                     IF (IsLoopBegin(bn, 0)) {
                         TileShape::Current().SetCubeTile(
                             {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]}, true);
-                        ConfigManager::Instance().SetSemanticLabel("paKvMm");
+                        config::SetSemanticLabel("paKvMm");
                         TileShape::Current().SetMatrixSize(
                             {tildaPijF16.GetShape()[0], tildaPijF16.GetShape()[1], vj.GetShape()[1]});
                         auto oiTmp = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
                         TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                         IF (IsLoopEnd(bn, bnPerBatch)) {
-                            ConfigManager::Instance().SetSemanticLabel("paKvVec2");
+                            config::SetSemanticLabel("paKvVec2");
                             oiUpdate = Div(oiTmp, tildaLij); // (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
                             Assemble(oiUpdate, oiOffset, paOut);
                         } ELSE {
@@ -304,7 +303,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                         liUpdate = tildaLij;
                         miUpdate = tildaMij;
                     } ELSE {
-                        ConfigManager::Instance().SetSemanticLabel("paUpdateVec2");
+                        config::SetSemanticLabel("paUpdateVec2");
                         auto oi = oiUpdate;
                         auto li = liUpdate;
                         auto mi = miUpdate;
@@ -321,7 +320,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                         auto q3 = Mul(oi, t2); // (curNTile, dN), (curNTile, 1) -> (curNTile, dN)
                         TileShape::Current().SetCubeTile(
                             {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]}, true);
-                        ConfigManager::Instance().SetSemanticLabel("paUpdateMM2");
+                        config::SetSemanticLabel("paUpdateMM2");
                         TileShape::Current().SetMatrixSize(
                             {tildaPijF16.GetShape()[0], tildaPijF16.GetShape()[1], vj.GetShape()[1]});
                         auto q1 = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
@@ -342,15 +341,15 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
         }
 
         /******** post ********/
-        Program::GetInstance().GetConfig().Set<int>(COPYIN_THRESHOLD, 1 * NUM_1024 * NUM_1024);
-        Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_UPPER_BOUND, NUM_500000);
-        Program::GetInstance().GetConfig().Set<int>(SG_PARALLEL_NUM, NUM_20);
-        Program::GetInstance().GetConfig().Set<int>(CUBE_NBUFFER, 1);
+        config::SetPassOption(COPYIN_THRESHOLD, 1 * NUM_1024 * NUM_1024);
+        config::SetPassOption(SG_CYCLE_UPPER_BOUND, NUM_500000);
+        config::SetPassOption(SG_PARALLEL_NUM, NUM_20);
+        config::SetPassOption(CUBE_NBUFFER, 1);
         config::SetOperationConfig("FORCE_COMBINE_AXIS", false);
-        Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {{0, 4}});
+        config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{{0, 4}});
         TileShape::Current().SetMatrixSize({});
         LOOP("PaPost", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(bLoop), {}, true) {
-            ConfigManager::Instance().SetSemanticLabel("Post");
+            config::SetSemanticLabel("Post");
             auto postInUnit = View(paOut, {tileB * s * n, kvLoraRank}, {bIdx * tileB * s * n, 0});
 
             auto r1Res = Reshape(postInUnit, {tileB*s, n, kvLoraRank}); // 128个

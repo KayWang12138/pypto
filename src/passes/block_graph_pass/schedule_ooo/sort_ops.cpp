@@ -59,7 +59,7 @@ std::vector<int32_t> GetLayerTasks(std::map<int, std::set<int>> &depthToEntries,
     return tasks;
 }
 
-Status EntryInOutGraph(std::vector<IssueEntryPtr> &issueEntries, std::vector<std::set<int>> &entryInGraph, 
+Status EntryInOutGraph(std::vector<IssueEntryPtr> &issueEntries, std::vector<std::set<int>> &entryInGraph,
     std::vector<std::set<int>> &entryOutGraph, std::unordered_map<int, IssueEntryPtr> issueEntryMap) {
     entryInGraph.clear();
     entryOutGraph.clear();
@@ -351,12 +351,8 @@ Status OoOScheduler::PriorDFS(std::unordered_map<Opcode, int> preNodePriority) {
 Status OoOScheduler::SortOps() {
     std::string sortMethodStr;
     std::string funcName = function_.GetMagicName();
-    auto funcNameToSortMethod = function_.paramConfigs_.OoOPreScheduleMethodMap;
-    if (funcNameToSortMethod.count(funcName) > 0) {
-        sortMethodStr = funcNameToSortMethod[funcName];
-    } else {
-        sortMethodStr = function_.paramConfigs_.OoOPreScheduleMethodDefault;
-    }
+
+    sortMethodStr = function_.paramConfigs_.OoOPreScheduleMethod;
     if (sortMethodStr == "PriorDFS") {
         std::unordered_map<Opcode, int> preNodePriority = {
             // ALLOC 节点优先级最高，因为一个节点的前序ALLOC节点要在最靠近该节点的地方访问。
@@ -374,15 +370,15 @@ Status OoOScheduler::SortOps() {
             {Opcode::OP_L0C_COPY_UB, 2}, {Opcode::OP_UB_COPY_L1, 2},
             // 最后访问其它计算节点（其它节点默认的优先级为10）。
         };
-        if (PriorDFS(preNodePriority) != SUCCESS) { 
-            ALOG_ERROR_F("PriorDFS failed."); 
-            return FAILED; 
+        if (PriorDFS(preNodePriority) != SUCCESS) {
+            ALOG_ERROR_F("PriorDFS failed.");
+            return FAILED;
         }
     } else if (sortMethodStr == "LayerBasedDFS") {
         const int layerDepth = 10;
-        if (LayerBasedDFS(layerDepth) != SUCCESS) { 
-            ALOG_ERROR_F("LayerBasedDFS failed."); 
-            return FAILED; 
+        if (LayerBasedDFS(layerDepth) != SUCCESS) {
+            ALOG_ERROR_F("LayerBasedDFS failed.");
+            return FAILED;
         }
     } else {
         ALOG_ERROR_F("PreSchedule method not recognized.");

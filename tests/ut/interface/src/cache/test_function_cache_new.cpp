@@ -17,7 +17,6 @@
 #include <thread>
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/configs/config_storage.h"
 #include "interface/function/function.h"
 #include "interface/cache/function_cache.h"
 

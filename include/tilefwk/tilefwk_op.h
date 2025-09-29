@@ -67,22 +67,6 @@ void PrintIf(SymbolicScalar cond, Args... args) {
 }
 
 /**
- * \brief Set tensor print options
- *
- * \param edgeItems print max items in tensor head and tail
- * \param precision print precision
- */
-void SetPrintOptions(int edgeItems, int precision);
-
-/**
- * \brief Get tensor print options
- *
- * \param edgeItems print max items in tensor head and tail
- * \param precision print precision
- */
-void GetPrintOptions(int &edgeItems, int &precision);
-
-/**
  * \brief Dump a tensor to file
  *
  * \param cond Dump the tensor only `cond` evaluate result is none zero

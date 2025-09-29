@@ -26,39 +26,39 @@ using ref_tensors = std::vector<std::reference_wrapper<const Tensor>>;
 namespace pypto {
 void bind_controller_config(py::module &m) {
     m.def(
-        "SetConfig", 
+        "SetConfig",
         [](const std::string &key, const int &value) {
-            Program::GetInstance().GetConfig().Set<int>(key, value); }, 
+            config::SetPassOption(key, value); },
         py::arg("key"), py::arg("value"));
     m.def(
-        "SetConfig", 
-        [](const std::string &key, const std::map<int, int> &value) { 
-            Program::GetInstance().GetConfig().Set<std::map<int, int>>(key, value); }, 
+        "SetConfig",
+        [](const std::string &key, const std::map<int64_t, int64_t> &value) {
+            config::SetPassOption(key, value); },
         py::arg("key"), py::arg("value"));
     m.def(
-        "SetMatrixSize", 
+        "SetMatrixSize",
         [](const std::vector<int64_t>& size) {
-            TileShape::Current().SetMatrixSize(size); }, 
+            TileShape::Current().SetMatrixSize(size); },
         py::arg("size"));
     m.def(
-        "SetOperationConfig", 
+        "SetOperationConfig",
         [](const std::string &key, const bool &value) {
-            ConfigManager::Instance().SetOperationConfig<bool>(key, value); }, 
+            ConfigManager::Instance().SetOperationConfig<bool>(key, value); },
         py::arg("key"), py::arg("value"));
     m.def(
-        "SetPassConfig", 
+        "SetPassConfig",
         [](const std::string &strategy, const std::string &identifier, const std::string &key, const bool &value) {
-            ConfigManager::Instance().SetPassConfig<bool>(strategy, identifier, key, value); }, 
+            ConfigManager::Instance().SetPassConfig<bool>(strategy, identifier, key, value); },
         py::arg("strategy"), py::arg("identifier"), py::arg("key"), py::arg("value"));
     m.def(
-        "SetHostConfig", 
+        "SetHostConfig",
         [](const std::string &key, const bool &value) {
-            ConfigManager::Instance().SetHostConfig<bool>(key, value); }, 
+            ConfigManager::Instance().SetHostConfig<bool>(key, value); },
         py::arg("key"), py::arg("value"));
     m.def(
-        "SetCodeGenConfig", 
+        "SetCodeGenConfig",
         [](const std::string &key, const bool &value) {
-            ConfigManager::Instance().SetCodeGenConfig<bool>(key, value); }, 
+            ConfigManager::Instance().SetCodeGenConfig<bool>(key, value); },
         py::arg("key"), py::arg("value"));
 }
 
@@ -134,7 +134,6 @@ void bind_controller_set_tile(py::module &m) {
         "Set cube tile shapes with specified dimensions");
 }
 
-
 void bind_controller_function(py::module &m) {
     m.def("BeginFunction", [](const std::string &funcName, GraphType graphType, FunctionType funcType, py::args args) {
         std::vector<std::reference_wrapper<Tensor>> tensors;
@@ -143,7 +142,7 @@ void bind_controller_function(py::module &m) {
             tensors.push_back(a.cast<Tensor &>());
         }
         Program::GetInstance().Reset();
-        Program::GetInstance().GetConfig().Reset();
+        config::Reset();
         Program::GetInstance().BeginFunction(FUNCTION_PREFIX + funcName, funcType, graphType, tensors);
     });
     m.def("EndFunction", [](const std::string &funcName, bool generateCall) {
@@ -198,9 +197,9 @@ void bind_controller_loop(py::module &m) {
         .def("Dump", (std::string (LoopRange::*)())&LoopRange::Dump)
         .def("Begin", (SymbolicScalar& (LoopRange::*)()) & LoopRange::Begin,
             py::return_value_policy::reference_internal)
-        .def("End", (SymbolicScalar& (LoopRange::*)()) & LoopRange::End, 
+        .def("End", (SymbolicScalar& (LoopRange::*)()) & LoopRange::End,
             py::return_value_policy::reference_internal)
-        .def("Step", (SymbolicScalar& (LoopRange::*)()) & LoopRange::Step, 
+        .def("Step", (SymbolicScalar& (LoopRange::*)()) & LoopRange::Step,
             py::return_value_policy::reference_internal);
     py::class_<FunctionConfig>(m, "FunctionConfig")
         .def(py::init<>())
@@ -215,9 +214,8 @@ void bind_controller_loop(py::module &m) {
 void bind_controller_utils(py::module &m) {
     m.def("Dump", []() { return Program::GetInstance().Dump(); });
     m.def(
-        "SetSemanticLabel", 
-        [](const std::string &label) {
-            ConfigManager::Instance().SetSemanticLabel(label); }, 
+        "SetSemanticLabel",
+        [](const std::string &label) { config::SetSemanticLabel(label); },
         py::arg("label"));
     m.def("BytesOf", [](DataType t) { return BytesOf(t); });
     m.def("PowersOf2", &PowersOf2, py::arg("n"));

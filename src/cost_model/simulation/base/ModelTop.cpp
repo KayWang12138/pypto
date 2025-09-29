@@ -148,7 +148,7 @@ void SimSys::BuildPipes(uint64_t index, std::shared_ptr<CoreMachine> coreMachine
             pipeMachine->pipeImpl = GetPipeImpl(static_cast<CorePipeType>(pipeType));
             pipeMachine->sim = GetShared();
             AddMachine(pipeMachine);
- 
+
             std::string pipeName = "Pipe_" + std::to_string(pipeSeq);
             totalTraceLogger->SetProcessName(pipeName, pipeMachine->machineId, GetMachineSeq(coreMachine->machineId));
             totalTraceLogger->SetThreadName("Core_Machine_View", pipeMachine->machineId, pipeMachine->coreTid);
@@ -156,7 +156,7 @@ void SimSys::BuildPipes(uint64_t index, std::shared_ptr<CoreMachine> coreMachine
             pipeMachine->parentMachine = coreMachine;
             pipeMachine->Build();
             pipeMachine->l2cacheMachine = config.mteUseL2Cache ? l2Cache : nullptr;
- 
+
             pipeMachineIndex[pipeType].emplace_back(pipeId);
             numTileopSentToPipe[pipeType].emplace_back(0);
             pipeMachines.emplace_back(pipeMachine);
@@ -545,7 +545,7 @@ void SimSys::DumpTasksTopo(const TaskMap &taskMap, std::string prefix)
         sJson["successors"] = Json::array();
         sJson["predecessors"] = Json::array();
         sJson["remainingPredecessors"] = task.second->remainingPredecessors;
-        sJson["semanticLabel"] = task.second->semanticLabels;
+        sJson["semanticLabel"] = task.second->semanticLabel;
         for (const auto &successor : task.second->successors) {
             sJson["successors"].push_back(successor);
         }

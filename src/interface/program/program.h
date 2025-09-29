@@ -48,10 +48,6 @@ public: // public api for torch
 
     bool QueryAndUpdateCurrentFunction();
 
-    ConfigStorage &GetConfig() { return config_; }
-    const ConfigStorage &GetConfig() const { return config_; }
-    void SetConfig(const ConfigStorage &config) { config_ = config; }
-
     Distributed::CommGroupRecorder &GetCommGroupRecorder() { return commGroupRecorder_; }
     Distributed::CommBarrierManager &GetCommBarrierManager() { return commBarrierManager_; }
 
@@ -122,7 +118,6 @@ private:
     std::string currentFunctionMagicName_;
     Function *currentFunctionPtr_;
     Function *lastFunc_{nullptr};
-    ConfigStorage config_;
     Function *currentDynamicFunctionPtr_{nullptr};
     FunctionCache functionCache_;
     bool operatorChecker_{false};

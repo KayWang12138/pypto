@@ -32,7 +32,7 @@ public:
 
     void SetUp() override {
         Program::GetInstance().Reset();
-        Program::GetInstance().GetConfig().Reset();
+        config::Reset();
     }
 
     void TearDown() override {}

@@ -69,11 +69,11 @@ TEST(OnBoardTestAstInGraph, test_fa_all2all_128) {
 
     std::string bin_path = MachineDump::PrepareBinPath();
 
-    Program::GetInstance().GetConfig().Reset();
+    config::Reset();
     config::SetHostConfig(KEY_DUMP_BIN_AND_JSON, true);
     config::SetHostConfig(KEY_DUMP_BIN_AND_JSON_PATH, bin_path);
 
-    Program::GetInstance().GetConfig().Set<int>(NBUFFER_MERGE_MODE, 1);
+    config::SetPassOption(NBUFFER_MERGE_MODE, 1);
     Tensor Q(DataType::DT_FP16, shape, (uint8_t *)q_ptr, "Q");
     Tensor K(DataType::DT_FP16, shape, (uint8_t *)k_ptr, "K");
     Tensor V(DataType::DT_FP16, shape, (uint8_t *)v_ptr, "V");
@@ -182,7 +182,7 @@ TEST(OnBoardTestAstInGraph, test_add1) {
     std::vector<int64_t> shape = {row, col};
     void *x_ptr = readToDev(GetGoldenDir() + "/add_x.bin", capacity);
     void *y_ptr = readToDev(GetGoldenDir() + "/add_y.bin", capacity);
-    Program::GetInstance().GetConfig().Reset();
+    config::Reset();
     config::SetHostConfig(KEY_DUMP_BIN_AND_JSON, true);
     TileShape::Current().SetVecTile({8, 8});
     Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");

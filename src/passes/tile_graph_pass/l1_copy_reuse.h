@@ -43,9 +43,9 @@ class L1CopyInReuseRunner {
                                       const int opIdx, const int ioperandIdx);
     void RemoveUselessViews(Function &func) const;
     Status GetDuplicateOps(std::vector<Operation *> &opOriList, const std::vector<int> &opIdx);
-    void TackleOp(int i, Operation *op, std::vector<std::vector<int>> &replacedInputs, 
+    void TackleOp(int i, Operation *op, std::vector<std::vector<int>> &replacedInputs,
                         std::vector<std::vector<int>> &replacedOutputs);
-    Status Phase1(Function &func, int color, std::vector<std::vector<int>> &colorNode, 
+    Status Phase1(Function &func, int color, std::vector<std::vector<int>> &colorNode,
                   std::vector<int> &colorCopyIn, std::vector<uint64_t> &hashColor);
     Status L1MergeProcess(OperationsViewer &opOriList, std::vector<std::vector<int>> &colorNode,
                           std::vector<uint64_t> &hashColor, std::vector<int> &colorCopyIn,
@@ -61,9 +61,9 @@ class L1CopyInReuseRunner {
     std::unordered_map<uint64_t, std::vector<int>> hashMap;
     std::unordered_map<uint64_t, int> hashOrder;
     int numLR;
-    std::map<int, int> numLRMap;
+    std::map<int64_t, int64_t> numLRMap;
     int numDB_;
-    std::map<int, int> numDBMap;
+    std::map<int64_t, int64_t> numDBMap;
     int copyInThreshold;
 };
 

@@ -246,7 +246,7 @@ void DeviceMachine::BuildSubtasksFromRootFuncTopo()
         subtask->fixedLatency = topoEntry.fixedLatency;
         subtask->fixedLatencyVal = topoEntry.fixedLatencyVal;
         if (uint64_t(startFunc->tileOps.size()) > topoEntry.eSgId) {
-            subtask->semanticLabels = startFunc->tileOps[topoEntry.eSgId]->semanticLabels;
+            subtask->semanticLabel = startFunc->tileOps[topoEntry.eSgId]->semanticLabel;
         }
         GetSim()->taskToHash[subtask->taskId] = subtask->functionHash;
         for (auto &out : topoEntry.outGraph) {

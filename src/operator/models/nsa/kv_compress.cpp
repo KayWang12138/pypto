@@ -99,7 +99,7 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
 
             Tensor kNopeBlock(kDtype, {cmpBlockSize, dN}, "kNopeBlock");
             Tensor kRopeBlock(kDtype, {cmpBlockSize, dR}, "kRopeBlock");
-            ConfigManager::Instance().SetSemanticLabel("BlockConcat");
+            config::SetSemanticLabel("BlockConcat");
             IF(tableLoop == 1) {
                 auto blockIdx = GetInputData(blockTable, {bIdx, blockStartIdx});
                 kNopeBlock = View(kvCache, {cmpBlockSize, dN}, {blockIdx * blockSize + blockStartOffset, 0});
@@ -125,12 +125,12 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
 
             // LocalRope
             TileShape::Current().SetVecTile(1, NUM_32, NUM_64);
-            ConfigManager::Instance().SetSemanticLabel("MlpLocalRope");
+            config::SetSemanticLabel("MlpLocalRope");
             auto cosTmp = View(mlpCos, {1, cmpBlockSize, dR}, {bIdx, 0, 0});
             auto sinTmp = View(mlpSin, {1, cmpBlockSize, dR}, {bIdx, 0, 0});
             auto kRopeEmbed = BatchMlpSingleRope(kRopeBlock, cosTmp, sinTmp, tileConfig.mlpRopeTile);
 
-            ConfigManager::Instance().SetSemanticLabel("MlpCompress");
+            config::SetSemanticLabel("MlpCompress");
             Assemble(kNopeBlock, {bIdx, 0, 0}, batchConcatNR);
             Assemble(kRopeEmbed, {bIdx, 0, dN}, batchConcatNR);
         }

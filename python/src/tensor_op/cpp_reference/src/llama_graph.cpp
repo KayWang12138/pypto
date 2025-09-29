@@ -19,7 +19,6 @@
 #include "interface/tensor/raw_tensor.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/configs/config_storage.h"
 
 using namespace npu::tile_fwk;
 
@@ -285,7 +284,7 @@ Tensor LlamaLayer(Tensor hiddenStates, const Tensor &attnWight, const Tensor &de
 }
 
 int main() {
-    Program::GetInstance().GetConfig().Reset();
+    config::Reset();
     AttentionDims dimsCfg = {1, 1, 128, 128, DFT_SINGLE_M, DFT_SINGLE_N};
     int b = dimsCfg.b;
     int n = dimsCfg.n;

@@ -17,7 +17,7 @@ from .utils import Tensor, Instruction, CustStruct, Tuple, Var, Vector, ConfigMa
 
 def parse_ut_code(func_name: str, args: Sequence[Union[Tensor, CustStruct, ConfigMap, Var, Vector]], \
           return_type: str) -> str:
-    
+
     args_str = get_args_str(args)
     helper = CodeHelper()
     helper(f'{return_type} {func_name}({args_str});\n\n')
@@ -34,7 +34,7 @@ def parse_ut_code(func_name: str, args: Sequence[Union[Tensor, CustStruct, Confi
             arg_list.append(f'v{arg.idx}')
         else:
             raise NotImplementedError
-    
+
     helper("config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);\n")
     helper('FUNCTION("CUSTOM_FUNC") {')
     helper.ir()
@@ -44,7 +44,7 @@ def parse_ut_code(func_name: str, args: Sequence[Union[Tensor, CustStruct, Confi
     helper('ALOG_INFO(Program::GetInstance().Dump());')
     helper.il()
     helper('}')
-    
+
     return helper.res
 
 
@@ -73,7 +73,7 @@ tsr{arg.idx}_output({shape_str.replace(", ", " * ")});')
             helper(f'EXPECT_EQ(ret{arg.idx}, true);')
     helper.il()
     helper('}')
-    
+
 
 def parse_st_code(func_name: str, args: Sequence[Union[Tensor, CustStruct, ConfigMap, Var, Vector]], \
           return_type: str) -> str:
@@ -94,7 +94,7 @@ def parse_st_code(func_name: str, args: Sequence[Union[Tensor, CustStruct, Confi
     args_str = get_args_str(args)
     helper = CodeHelper()
     gen_st_prefix_code(helper, return_type, func_name, args_str)
-    
+
     arg_list = []
     for arg in args:
         if isinstance(arg, Tensor):
@@ -114,11 +114,11 @@ def parse_st_code(func_name: str, args: Sequence[Union[Tensor, CustStruct, Confi
             arg_list.append(f'v{arg.idx}')
         else:
             raise NotImplementedError
-    
+
     func_arg_list = list(filter(lambda x: 'v' not in x, arg_list))
     helper(f'PROGRAM("CUSTOM") {{')
     helper.ir()
-    helper('Program::GetInstance().GetConfig().Reset();')
+    helper('config::Reset();')
     helper(f'FUNCTION("CUSTOM_FUNC", {{.funcType = FunctionType::STATIC}}, {{{", ".join(func_arg_list)}}}) {{')
     helper.ir()
     helper(f'{func_name}({", ".join(arg_list)});')
@@ -127,9 +127,9 @@ def parse_st_code(func_name: str, args: Sequence[Union[Tensor, CustStruct, Confi
     helper.il()
     helper('}')
     helper('DevFuncRunner::Run(Program::GetInstance().GetLastFunction());\n')
-    
+
     gen_st_suffix_code(helper, args, cpp_dtype_mapper)
-    
+
     return helper.res
 
 
@@ -150,14 +150,13 @@ def gen_ast_ut_code(directory_path: str, operator_name: str, \
         "tilefwk/tilefwk_op.h",
         "tilefwk/tilefwk.h",
         "interface/inner/tilefwk.h",
-        "interface/configs/config_storage.h",
         "interface/tensor/logical_tensor.h",
         "interface/tensor/raw_tensor.h",
         "interface/interpreter/raw_tensor_data.h",
         "interface/configs/config_manager.h",
         "interface/tensor/float.h"
     ]
-    
+
     ast_ut_code_prefix = gen_ast_prefix_code(ast_ut_include_file_list)
     ast_ut_code_prefix += f'\nclass {operator_name}Test : public testing::Test {{\n'
     ast_ut_code_prefix += 'public:\n'
@@ -167,12 +166,12 @@ def gen_ast_ut_code(directory_path: str, operator_name: str, \
     ast_ut_code_prefix += 'void TearDown() override {}\n};\n\n'
 
     ut_code = parse_ut_code(operator_name, args, return_type)
-    
+
     ast_ut_code_suffix = '} // namespace'
-    
+
     with open(Path(directory_path, f'tests/ut/operator/src/test_{operator_name}.cpp'), 'w') as f:
         f.write(ast_ut_code_prefix)
-        f.write(ut_code)       
+        f.write(ut_code)
         f.write(ast_ut_code_suffix)
 
 
@@ -183,16 +182,16 @@ def gen_ast_st_code(directory_path: str, operator_name: str, \
         "test_suite_stest_ops.h",
         "test_dev_func_runner.h"
     ]
-    
+
     ast_st_code_prefix = gen_ast_prefix_code(ast_st_include_file_list)
     st_code = parse_st_code(operator_name, args, return_type)
     ast_st_code_suffix = '} // namespace'
-    
+
     with open(Path(directory_path, f'tests/st/operator/src/test_{operator_name}.cpp'), 'w') as f:
         f.write(ast_st_code_prefix)
-        f.write(st_code)        
+        f.write(st_code)
         f.write(ast_st_code_suffix)
-            
+
 
 def gen_ast_golden_script(directory_path: str, operator_name: str, args: Sequence):
     numpy_dtype_mapper = {
@@ -209,7 +208,7 @@ def gen_ast_golden_script(directory_path: str, operator_name: str, args: Sequenc
         'DataType::DT_UINT32': 'np.uint32',
         'DataType::DT_UINT64': 'np.uint64'
     }
-    
+
     golden_script_code = \
 f'''import sys
 import logging
@@ -232,7 +231,7 @@ if __name__ == "__main__":
     from golden_register import GoldenRegister  # 单独调试 import 失败, 需确认上文中 '系统 import 路径' 配置正确
 else:
     from golden_register import GoldenRegister
-    
+
 @GoldenRegister.reg_golden_func(
     case_names=[
         "{operator_name}Test.stest"
@@ -257,8 +256,8 @@ def run(case_name: str, output: Path) -> bool:
     golden_script_code += "    ################ golden logic finish ###################"
     for tsr in output_tsr:
         golden_script_code += f"\n    {tsr}.tofile(Path(output, '{tsr}_golden.bin'))\n"
-        
-        
+
+
     golden_script_code += \
 f'''
     return True
@@ -285,5 +284,3 @@ if __name__ == "__main__":
 '''
     with open(Path(directory_path, f'tests/cmake/scripts/golden/op/test_{operator_name}.py'), 'w') as f:
         f.write(golden_script_code)
-            
-        

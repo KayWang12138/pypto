@@ -162,9 +162,7 @@ Operation::Operation(
                 ASSERT((lastAxis * BytesOf(dataType)) % BLOCK_SIZE == 0) << "vec tile should be 32B align";
             }
         }
-        if (!ConfigManager::Instance().GetSemanticLabel().empty()) {
-            SetSemanticLabel(ConfigManager::Instance().GetSemanticLabel());
-        }
+        SetSemanticLabel(GetSemanticLabel());
         location_ = SourceLocation::GetLocation();
     }
 
@@ -341,7 +339,7 @@ Json Operation::DumpJson(bool dumpTensor) const {
     }
 
     opDump["opmagic"] = GetOpMagic();
-    opDump["semantic_label"] = semanticLabels_;
+    opDump["semantic_label"] = {semanticLabel_};
     if (location_ && config::GetPlatformConfig(KEY_DUMP_SOURCE_LOCATION, 0)) {
         opDump["file"] = location_->GetFileName();
         opDump["line"] = location_->GetLineno();
@@ -432,8 +430,7 @@ std::shared_ptr<Operation> Operation::LoadJson(
     int opMagic = opDump["opmagic"].get<int>();
     std::shared_ptr<Operation> op = std::make_shared<Operation>(cur, opcode, ioperands, ooperands, true, opMagic);
 
-    op->semanticLabels_ =
-        opDump["semantic_label"].get<std::array<std::string, static_cast<int>(SemanticLabelType::LABEL_COUNT)>>();
+    op->semanticLabel_ = opDump["semantic_label"].get<std::vector<std::string>>()[0];
 
     if (opDump.count("file")) {
         op->location_ = std::make_shared<SourceLocation>(opDump["file"].get<std::string>(), opDump["line"].get<int>());
@@ -822,24 +819,6 @@ void Operation::ReplaceOutput(
             break;
         }
     }
-}
-
-std::string Operation::GetSemanticLabelsStr() const
-{
-    if (semanticLabels_.empty()) {
-        return "";
-    }
-    std::stringstream ss;
-    size_t count = 0;
-    size_t size = semanticLabels_.size();
-    for (const auto &label : semanticLabels_) {
-        ss << label;
-        if (count < size - 1) {
-            ss << "_";
-        }
-        count++;
-    }
-    return ss.str();
 }
 
 void Operation::SetSubFuncInvokeInfo(const SubfuncInvokeInfoTy &invokeInfo) {

@@ -88,7 +88,7 @@ void Program::Reset() {
     functionMagicNameStack_.clear();
     currentFunctionMagicName_ = PROGRAM_ENTRY_FUNCTION_NAME;
     operatorChecker_ = false;
-    config_.Reset();
+    config::Reset();
     aliveTensors_.clear();
     functionCache_.Reset();
     functionSequence_.clear();
@@ -204,23 +204,22 @@ bool Program::BeginFunction(const std::string &funcName,
         GetTensorSlotManager()->BeginScope(currentFunctionPtr_);
     }
 
-    currentFunctionPtr_->paramConfigs_.l1ReuseNum = GetConfig().Get<int>(L1_REUSE);
-    currentFunctionPtr_->paramConfigs_.cubeNBufferNum = GetConfig().Get<int>(CUBE_NBUFFER);
-    currentFunctionPtr_->paramConfigs_.sgCycleUpperBound = GetConfig().Get<int>(SG_CYCLE_UPPER_BOUND);
-    currentFunctionPtr_->paramConfigs_.sgCycleLowerBound = GetConfig().Get<int>(SG_CYCLE_LOWER_BOUND);
-    currentFunctionPtr_->paramConfigs_.sgParallelNum = GetConfig().Get<int>(SG_PARALLEL_NUM);
-    currentFunctionPtr_->paramConfigs_.sgCopyInThreshold = GetConfig().Get<int>(COPYIN_THRESHOLD);
-    currentFunctionPtr_->paramConfigs_.machineConfig_ = GetConfig().Get<uint8_t>(MACHINE_CONFIG);
-    currentFunctionPtr_->paramConfigs_.l1ReuseMap = GetConfig().Get<std::map<int, int>>(L1_REUSE_MAP);
-    currentFunctionPtr_->paramConfigs_.cubeNBufferMap = GetConfig().Get<std::map<int, int>>(CUBE_NBUFFER_MAP);
-    currentFunctionPtr_->paramConfigs_.OoOPreScheduleMethodDefault = GetConfig().Get<std::string>(OOO_PRESCHEDULE_METHOD_DEFAULT);
-    currentFunctionPtr_->paramConfigs_.OoOPreScheduleMethodMap = GetConfig().Get<std::map<std::string,std::string>>(OOO_PRESCHEDULE_METHOD);
-    currentFunctionPtr_->paramConfigs_.vecNBufferMap = GetConfig().Get<std::map<int, int>>(VEC_NBUFFER_MAP);
-    currentFunctionPtr_->paramConfigs_.nBufferMergeMode = GetConfig().Get<int>(NBUFFER_MERGE_MODE);
-    currentFunctionPtr_->paramConfigs_.sgCubeParallelNum = GetConfig().Get<int>(SG_CUBE_PARALLEL_NUM);
-    currentFunctionPtr_->paramConfigs_.sgVecParallelNum = GetConfig().Get<int>(SG_VEC_PARALLEL_NUM);
-    currentFunctionPtr_->paramConfigs_.sgSkipPartition = GetConfig().Get<bool>(SG_SKIP_PARTITION);
-    currentFunctionPtr_->paramConfigs_.copyOutResolveCoalescing = GetConfig().Get<int>(COPYOUT_RESOLVE_COALESCING);
+    currentFunctionPtr_->paramConfigs_.l1ReuseNum = config::GetPassOption<int>(L1_REUSE);
+    currentFunctionPtr_->paramConfigs_.cubeNBufferNum = config::GetPassOption<int>(CUBE_NBUFFER);
+    currentFunctionPtr_->paramConfigs_.sgCycleUpperBound = config::GetPassOption<int>(SG_CYCLE_UPPER_BOUND);
+    currentFunctionPtr_->paramConfigs_.sgCycleLowerBound = config::GetPassOption<int>(SG_CYCLE_LOWER_BOUND);
+    currentFunctionPtr_->paramConfigs_.sgParallelNum = config::GetPassOption<int>(SG_PARALLEL_NUM);
+    currentFunctionPtr_->paramConfigs_.sgCopyInThreshold = config::GetPassOption<int>(COPYIN_THRESHOLD);
+    currentFunctionPtr_->paramConfigs_.machineConfig_ = config::GetPassOption<uint8_t>(MACHINE_CONFIG);
+    currentFunctionPtr_->paramConfigs_.l1ReuseMap = config::GetPassOption<std::map<int64_t, int64_t>>(L1_REUSE_MAP);
+    currentFunctionPtr_->paramConfigs_.cubeNBufferMap = config::GetPassOption<std::map<int64_t, int64_t>>(CUBE_NBUFFER_MAP);
+    currentFunctionPtr_->paramConfigs_.OoOPreScheduleMethod = config::GetPassOption<std::string>(OOO_PRESCHEDULE_METHOD);
+    currentFunctionPtr_->paramConfigs_.vecNBufferMap = config::GetPassOption<std::map<int64_t, int64_t>>(VEC_NBUFFER_MAP);
+    currentFunctionPtr_->paramConfigs_.nBufferMergeMode = config::GetPassOption<int>(NBUFFER_MERGE_MODE);
+    currentFunctionPtr_->paramConfigs_.sgCubeParallelNum = config::GetPassOption<int>(SG_CUBE_PARALLEL_NUM);
+    currentFunctionPtr_->paramConfigs_.sgVecParallelNum = config::GetPassOption<int>(SG_VEC_PARALLEL_NUM);
+    currentFunctionPtr_->paramConfigs_.sgSkipPartition = config::GetPassOption<bool>(SG_SKIP_PARTITION);
+    currentFunctionPtr_->paramConfigs_.copyOutResolveCoalescing = config::GetPassOption<int>(COPYOUT_RESOLVE_COALESCING);
     return true;
 }
 

@@ -27,7 +27,6 @@ CUBE_NBUFFER_MAP = "cube_nbuffer_map"
 LOAD_BALANCE = "load_balance"
 COPYIN_THRESHOLD = "copyin_threshold"
 MACHINE_CONFIG = "machine_config"
-OOO_PRESCHEDULE_METHOD_DEFAULT = "ooo_preschedule_method_default"
 OOO_PRESCHEDULE_METHOD = "ooo_preschedule_method"
 NBUFFER_MERGE_MODE = "nbuffer_merge_mode"
 VEC_NBUFFER_MAP = "vec_nbuffer_map"
@@ -97,7 +96,7 @@ def mla_pre(**kwargs) -> List[pto.tensor]:
     m = (min(32, bs) + c0 - 1) // c0 * c0  # 32
     tie_m = min(32, m)  # 32
     pto.set_cube_tile_shapes([tie_m, tie_m], [256, 256], [64, 64])  # 256, 64
-    
+
     q_mm_res = pto.tensor()
     if split_k:
         def inside_if_split_k():
@@ -137,7 +136,7 @@ def mla_pre(**kwargs) -> List[pto.tensor]:
     else:
         # use tileM will core dump
         pto.set_cube_tile_shapes([tie_m, tie_m], [256, 256], [64, 64])  # 256, 64
-    
+
     q = pto.matmul(d_type_quant_out, norm_res, w_uq_qr)  # bf16  // quant: A8W8O32 -> bf16
     qkv_pre_res.append(q)
 
@@ -165,7 +164,7 @@ def mla_pre(**kwargs) -> List[pto.tensor]:
         inside_if_split()
     else:
         compressed_kv.move(pto.matmul(d_type, input_tensor, w_dkv_kr))  # bf16
-    
+
     compressed_kv_res = pto.reshape(compressed_kv, [b, s, w_dkv_kr.shape[1]])
     qkv_pre_res.append(compressed_kv_res)
 
@@ -257,11 +256,11 @@ def attention(**kwargs):
             pto.set_config(NBUFFER_MERGE_MODE, 1)
             pto.set_config(L1_REUSE, NUM_4)  # L1reuse合并的左矩阵或者右矩阵数量
             # 从NUM_3个mm开始设置CubeNBuffer数量为NUM_4；CubeNBuffer：设置同构的mm计算合并入一个图
-            pto.set_config(CUBE_NBUFFER_MAP, {NUM_3: NUM_4})   
+            pto.set_config(CUBE_NBUFFER_MAP, {NUM_3: NUM_4})
             pto.set_config(COPYIN_THRESHOLD, NUM_2 * NUM_1024 * NUM_1024)   # CubeNBuffer、L1reuse合并时copyin的cycle上限
             pto.set_config(SG_CYCLE_UPPER_BOUND, NUM_100000)    # 设置切图与合图后子图的Latency的上限
             # 设置子图合并的并行度下限（子图数量大于等于parallelThreshold才可合并）
-            pto.set_config(SG_PARALLEL_NUM, NUM_2)       
+            pto.set_config(SG_PARALLEL_NUM, NUM_2)
             # LOOP("LOOP_L0_bIdx_mla_prolog", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bLoop, 1)) {
             with pto.loop_function("LOOP_L0_bIdx_mla_prolog", "b_idx", pto.loop_range(0, b_loop, 1)) as b_idx_loop:
                 for b_idx in b_idx_loop:
@@ -374,18 +373,18 @@ def attention(**kwargs):
                                 ########## kvCache ##########
                                 tile_shape = [1, kv_lora_rank]
                                 pto.set_vec_tile_shapes(*tile_shape)
-                                kv_cache_out_dview = pto.scatter_update(kv_cache_res, cache_index_dview, k_nope, 
+                                kv_cache_out_dview = pto.scatter_update(kv_cache_res, cache_index_dview, k_nope,
                                                                         SCATTER_UPDATE_DIM, cache_mode, block_size)
 
                                 ########## krCache ##########
                                 tile_shape = [1, qk_rope_head_dim]
                                 pto.set_vec_tile_shapes(*tile_shape)
-                                kr_cache_out_dview = pto.scatter_update(kr_cache_res, cache_index_dview, k_rope_res, 
+                                kr_cache_out_dview = pto.scatter_update(kr_cache_res, cache_index_dview, k_rope_res,
                                                                         SCATTER_UPDATE_DIM, cache_mode, block_size)
 
-                                kv_cache_out.move(pto.reshape(kv_cache_out_dview, 
+                                kv_cache_out.move(pto.reshape(kv_cache_out_dview,
                                                               [block_num, block_size, n2, kv_lora_rank]))
-                                kr_cache_out.move(pto.reshape(kr_cache_out_dview, 
+                                kr_cache_out.move(pto.reshape(kr_cache_out_dview,
                                                               [block_num, block_size, n2, qk_rope_head_dim]))
                             inside_if_cache_mode()
                         else:
@@ -408,15 +407,15 @@ def attention(**kwargs):
                                 tile_shape = [1, 1, 1, qk_rope_head_dim]
                                 pto.set_vec_tile_shapes(*tile_shape)
                                 # krCache: [b,1,s2,qkRopeHeadDim], output4
-                                kr_cache_dview = pto.view(kr_cache, [tile_b, 1, s2, qk_rope_head_dim], 
+                                kr_cache_dview = pto.view(kr_cache, [tile_b, 1, s2, qk_rope_head_dim],
                                                           [b_offset, 0, 0, 0])
                                 pto.set_semantic_label("ScatterUpdate1")
-                                kr_cache_out_dview = pto.scatter_update(kr_cache_dview, cache_index_dview, 
+                                kr_cache_out_dview = pto.scatter_update(kr_cache_dview, cache_index_dview,
                                                                         k_rope_res, -2)
 
-                                kv_cache_out_dview_new = pto.reshape(kv_cache_out_dview, 
+                                kv_cache_out_dview_new = pto.reshape(kv_cache_out_dview,
                                                                      [tile_b * 1 * s2, kv_lora_rank])
-                                kr_cache_out_dview_new = pto.reshape(kr_cache_out_dview, 
+                                kr_cache_out_dview_new = pto.reshape(kr_cache_out_dview,
                                                                      [tile_b * 1 * s2, qk_rope_head_dim])
                                 pto.assemble(kv_cache_out_dview_new, [b_offset * s2, 0], kv_cache_out)
                                 pto.assemble(kr_cache_out_dview_new, [b_offset * s2, 0], kr_cache_out)
@@ -433,7 +432,7 @@ def attention(**kwargs):
             n_q = q_nope_out.shape[0] // batch_size_scalar
             n_loop = n_q // n_tile
 
-            pto.set_config(CUBE_NBUFFER_MAP, {})
+            pto.set_config(CUBE_NBUFFER_MAP,  std::map<int64_t, int64_t>{})
             pto.set_config(L1_REUSE, 0)
             pto.set_config(COPYIN_THRESHOLD, 1 * NUM_1024 * NUM_1024)
             pto.set_config(SG_CYCLE_UPPER_BOUND, NUM_100000)
@@ -442,7 +441,7 @@ def attention(**kwargs):
             pto.set_operation_config("FORCE_COMBINE_AXIS", True)
 
             # LOOP("LOOP_L0_bIdx_pa", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, batchSizeScalar, 1), {}, true) {
-            with pto.loop_function("LOOP_L0_bIdx_pa", "b_idx", 
+            with pto.loop_function("LOOP_L0_bIdx_pa", "b_idx",
                                    pto.loop_range(0, batch_size_scalar, 1), set(), True) as b_idx_loop:
                 for b_idx in b_idx_loop:
                     def inside_b_idx_loop_pa(b_idx):
@@ -486,21 +485,21 @@ def attention(**kwargs):
 
                                                 cur_block_idx = pto.get_input_data(block_table, [b_idx, bn])
                                                 cur_block_idx.as_intermediate_variable()
-                                                kn = pto.view(kv_cache_out, [cur_s2_tile, d_n], 
+                                                kn = pto.view(kv_cache_out, [cur_s2_tile, d_n],
                                                               [min(cur_seq - bn * block_size, block_size), d_n],
                                                               [cur_block_idx * block_size, 0])
-                                                kr = pto.view(kr_cache_out, [cur_s2_tile, d_r], 
+                                                kr = pto.view(kr_cache_out, [cur_s2_tile, d_r],
                                                               [min(cur_seq - bn * block_size, block_size), d_r],
                                                               [cur_block_idx * block_size, 0])
                                                 kj = pto.tensor(dtype, [cur_s2_tile, d_n + d_r], "kj", pa_format)
                                                 pto.assemble(kn, [0, 0], kj)
                                                 pto.assemble(kr, [0, d_n], kj)
-                                                vj = pto.view(kv_cache_out, [cur_s2_tile, d_n], 
+                                                vj = pto.view(kv_cache_out, [cur_s2_tile, d_n],
                                                               [min(cur_seq - bn * block_size, block_size), d_n],
                                                               [cur_block_idx * block_size, 0])
 
                                                 pto.set_cube_tile_shapes(
-                                                    [c1_tile[0], c1_tile[1]], [c1_tile[2], c1_tile[3]], 
+                                                    [c1_tile[0], c1_tile[1]], [c1_tile[2], c1_tile[3]],
                                                     [c1_tile[4], c1_tile[5]], True)
                                                 pto.set_semantic_label("paQkMM")
                                                 pto.set_matrix_size([qi.shape[0], 0, kj.shape[0]])
@@ -512,12 +511,12 @@ def attention(**kwargs):
                                                 sij_scale = pto.mul_s(
                                                     sij, pto.element(pto.data_type.DT_FP32, float(softmax_scale)))
                                                 # (curNTile, curS2Tile) -> (curNTile, 1)
-                                                tilda_mij = pto.row_max_single(sij_scale)  
+                                                tilda_mij = pto.row_max_single(sij_scale)
                                                 tsub = pto.sub(sij_scale, tilda_mij)
                                                 tilda_pij = pto.exp(tsub)
                                                 tilda_pij_f16 = pto.cast(tilda_pij, dtype)
                                                 # (nTileCur, s2TileCur) -> (nTileCur, 1)
-                                                tilda_lij = pto.row_sum_single(tilda_pij)  
+                                                tilda_lij = pto.row_sum_single(tilda_pij)
 
                                                 if pto.cond(pto.is_loop_begin(bn, 0)):
                                                     def inside_if_loop_begin():
@@ -527,15 +526,15 @@ def attention(**kwargs):
                                                             [c2_tile[4], c2_tile[5]], True)
                                                         pto.set_semantic_label("paKvMm")
                                                         pto.set_matrix_size(
-                                                            [tilda_pij_f16.shape[0], tilda_pij_f16.shape[1], 
+                                                            [tilda_pij_f16.shape[0], tilda_pij_f16.shape[1],
                                                              vj.shape[1]])
-                                                        oi_tmp = pto.matmul(pto.data_type.DT_FP32, tilda_pij_f16, 
+                                                        oi_tmp = pto.matmul(pto.data_type.DT_FP32, tilda_pij_f16,
                                                                             vj, False, False)
                                                         pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                                                         if pto.cond(pto.is_loop_end(bn, bn_per_batch)):
                                                             pto.set_semantic_label("paKvVec2")
                                                             # (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
-                                                            oi_update.move(pto.div(oi_tmp, tilda_lij))  
+                                                            oi_update.move(pto.div(oi_tmp, tilda_lij))
                                                             pto.assemble(oi_update, oi_offset, pa_out)
                                                         else:
                                                             oi_update.move(oi_tmp)
@@ -551,37 +550,37 @@ def attention(**kwargs):
                                                         mi = mi_update
                                                         # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
                                                         mi_new = pto.maximum(mi, tilda_mij)
-                                                        # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)  
-                                                        t1 = pto.sub(mi, mi_new)           
+                                                        # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
+                                                        t1 = pto.sub(mi, mi_new)
                                                         t2 = pto.exp(t1)
                                                         # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
-                                                        t3 = pto.sub(tilda_mij, mi_new)  
+                                                        t3 = pto.sub(tilda_mij, mi_new)
                                                         t4 = pto.exp(t3)
                                                         # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
                                                         t5 = pto.mul(t4, tilda_lij)
-                                                        # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)  
-                                                        t6 = pto.mul(t2, li)       
                                                         # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
-                                                        li_new = pto.add(t6, t5)    
+                                                        t6 = pto.mul(t2, li)
+                                                        # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
+                                                        li_new = pto.add(t6, t5)
                                                         # (curNTile, dN), (curNTile, 1) -> (curNTile, dN)
-                                                        q3 = pto.mul(oi, t2)  
+                                                        q3 = pto.mul(oi, t2)
                                                         pto.set_cube_tile_shapes(
-                                                            [c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]], 
+                                                            [c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]],
                                                             [c2_tile[4], c2_tile[5]], True)
                                                         pto.set_semantic_label("paUpdateMM2")
                                                         pto.set_matrix_size(
-                                                            [tilda_pij_f16.shape[0], 
+                                                            [tilda_pij_f16.shape[0],
                                                              tilda_pij_f16.shape[1], vj.shape[1]])
-                                                        q1 = pto.matmul(pto.data_type.DT_FP32, tilda_pij_f16, vj, 
+                                                        q1 = pto.matmul(pto.data_type.DT_FP32, tilda_pij_f16, vj,
                                                                         False, False)
                                                         pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                                                         # (nTileCur, dN), (nTileCur, 1) -> (nTileCur, dN)
-                                                        q2 = pto.mul(q1, t4)    
+                                                        q2 = pto.mul(q1, t4)
                                                         # (nTileCur, dN), (nTileCur, dN) -> (nTileCur, dN)
-                                                        oi_tmp = pto.add(q3, q2)  
+                                                        oi_tmp = pto.add(q3, q2)
                                                         if pto.cond(pto.is_loop_end(bn, bn_per_batch)):
                                                             # (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
-                                                            oi_update.move(pto.div(oi_tmp, li_new))  
+                                                            oi_update.move(pto.div(oi_tmp, li_new))
                                                             pto.assemble(oi_update, oi_offset, pa_out)
                                                         else:
                                                             oi_update.move(oi_tmp)
@@ -631,12 +630,12 @@ def attention(**kwargs):
                             [min(256, kv_lora_rank), min(512, kv_lora_rank)],
                             [v_head_dim, v_head_dim], True)  # raw tileB*1  512   128   # 128/4个
                         # (n, tileB, kvLoraRank) * (n, kvLoraRank, vHeadDim) -> (n, tileB, vHeadDim)
-                        bmm_res = pto.batch_matmul(dtype, t1_res, weight_uv)  
+                        bmm_res = pto.batch_matmul(dtype, t1_res, weight_uv)
 
                         pto.set_vec_tile_shapes(NUM_4, min(NUM_32, tile_b * s), v_head_dim)  # raw (128, tileB*1, 128)
                         t3_res = pto.transpose(bmm_res, [0, 1])  # (n, tileB, vHeadDim) -> (tileB, n, vHeadDim) # 128个
                         # (tileB * s, n, vHeadDim) -> (tileB * s, n*vHeadDim)
-                        r2_res = pto.reshape(t3_res, [tile_b * s, n * v_head_dim])  
+                        r2_res = pto.reshape(t3_res, [tile_b * s, n * v_head_dim])
 
                         pto.set_vec_tile_shapes(1, n * v_head_dim)  # raw (tileB*1, 128*128)
                         quant_a = pto.quant(r2_res)

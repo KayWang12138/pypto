@@ -419,7 +419,7 @@ public:
     std::vector<uint64_t> successors;
     std::vector<int> incasts;
     std::vector<int> outcasts;
-    std::string semanticLabels;
+    std::string semanticLabel;
     MachineType machineType = MachineType::UNKNOWN;
 
     // fixed latency
@@ -440,9 +440,9 @@ public:
     {
         std::string colorLabel;
         if (mode == 1) {
-            colorLabel = semanticLabels;
+            colorLabel = semanticLabel;
         } else if (mode > 1) {
-            colorLabel = semanticLabels + " " + DecimalTo26(psgId);
+            colorLabel = semanticLabel + " " + DecimalTo26(psgId);
         }
         if (colorLabel.empty()) {
             colorLabel = DecimalTo26(psgId);

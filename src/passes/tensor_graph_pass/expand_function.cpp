@@ -129,7 +129,7 @@ Status ExpandFunction::Expandfunction(Function &function) const {
             newOp.CopyAttrFrom(*op, OP_EMUOP_PREFIX);
             continue;
         }
-        ConfigManager::Instance().SetSemanticLabel(op->GetSemanticLabels()[0]);
+        config::SetSemanticLabel(op->GetSemanticLabel());
         size_t opListPreSize = function.Operations(false).size();
         ExpandOperationInto(function, op->GetTileShape(), op->GetOpcode(), op->GetIOperands(), op->GetOOperands(), *op);
         auto opListPost = function.Operations(false);

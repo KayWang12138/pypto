@@ -53,7 +53,7 @@ public:
 
     void SetUp() override {
         Program::GetInstance().Reset();
-        Program::GetInstance().GetConfig().Reset();
+        config::Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetHostConfig(KEY_STRATEGY, "SplitReshapeTestStrategy");
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
@@ -1386,7 +1386,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
     std::vector<int64_t> viewOffset2 = {kNumZero, kNumZero, kNumZero, kNumTwo};
     std::vector<SymbolicScalar> validShape = {SymbolicScalar("a0"), SymbolicScalar("a1"), kNumOne, kNumFour};
     std::vector<SymbolicScalar> dynInputShape = {SymbolicScalar("a0"), SymbolicScalar("a1"), kNumTwo};
-    
+
     std::shared_ptr<RawTensor> ddrRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape2);
     std::shared_ptr<RawTensor> ddrRawTensor2 = std::make_shared<RawTensor>(DT_FP32, shape3);
     auto input1 = std::make_shared<LogicalTensor>(*func, ddrRawTensor1, assembleOffset1, shape1, dynInputShape);
@@ -1401,7 +1401,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
     output1->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
     auto output2 = std::make_shared<LogicalTensor>(*func, ddrRawTensor2, viewOffset2, shape4);
     output2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    
+
     auto &assemble_op1 = func->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor1});
     auto assemble_Attr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset1);
     assemble_op1.SetOpAttribute(assemble_Attr1);
@@ -1465,7 +1465,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
     EXPECT_EQ(assembleOpAttribute1->GetToOffset(), assembleOffset1);
     auto assembleOpAttribute2 = dynamic_cast<AssembleOpAttribute *>(newAssemble2->GetOpAttribute().get());
     EXPECT_EQ(assembleOpAttribute2->GetToOffset(), assembleOffset2);
-    
+
     auto reshapeSource1 = newAssemble1->GetOutputOperand(kSizeZero);
     auto reshapeSource2 = newAssemble2->GetOutputOperand(kSizeZero);
     EXPECT_NE(reshapeSource1, reshapeSource2);
@@ -1535,7 +1535,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
 {2,2,2} -> assemble -> {2,2,2} -> reshape -> {4,2} -> view -> {2,2}
 {2,2,2} -> assemble -> {2,2,2} -> reshape -> {4,2} -> view -> {2,2}
                                                    -> view -> {2,2}
-{2,2,a}                {2,2,a}               {4,a}           
+{2,2,a}                {2,2,a}               {4,a}
                    {4, Max(0, GetViewValidShapeDim(a,2,2))}
 */
 TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
@@ -1674,7 +1674,7 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
     std::vector<SymbolicScalar> reshapeDynOutput2 = reshapeOutput2->GetDynValidShape();
     EXPECT_TRUE(reshape1->GetAttr(OP_ATTR_PREFIX + "validShape", reshapeAttrValidShape1));
     EXPECT_TRUE(reshape2->GetAttr(OP_ATTR_PREFIX + "validShape", reshapeAttrValidShape2));
-    
+
     EXPECT_EQ(reshapeDynOutput1.size(), kNumTwo);
     EXPECT_EQ(reshapeDynOutput2.size(), kNumTwo);
     EXPECT_EQ(reshapeAttrValidShape1.size(), kNumTwo);
@@ -1723,7 +1723,7 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
 {2,2,2} -> assemble -> reshape -> {2,2,2,2} -> view -> {2,2,2,2}
 {2,2,2} -> assemble -> reshape -> {2,2,2,2} -> view -> {2,2,2,2}
 {2,2,2} -> assemble ->
-{2,2,a}           {2,4,a}         {2,2,2,a}       
+{2,2,a}           {2,4,a}         {2,2,2,a}
                         {2,2,2,Max(0, RUNTIME_GetViewValidShapeDim(a,0,2))}
 */
 TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
@@ -1742,7 +1742,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
     std::vector<int64_t> viewOffset2 = {kNumZero, kNumTwo, kNumZero, kNumZero};
     std::vector<SymbolicScalar> validShape = {kNumTwo, kNumFour, kNumTwo, SymbolicScalar("a")};
     std::vector<SymbolicScalar> dynInputShape = {kNumTwo, kNumTwo, SymbolicScalar("a")};
-    
+
     std::shared_ptr<RawTensor> ddrRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape2);
     std::shared_ptr<RawTensor> ddrRawTensor2 = std::make_shared<RawTensor>(DT_FP32, shape3);
     auto input1 = std::make_shared<LogicalTensor>(*func, ddrRawTensor1, assembleOffset1, shape1, dynInputShape);
@@ -1869,14 +1869,14 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
     EXPECT_NE(reshape1, reshape2);
     auto reshapeOutput1 = reshape1->GetOutputOperand(kSizeZero);
     auto reshapeOutput2 = reshape2->GetOutputOperand(kSizeZero);
-    
+
     std::vector<SymbolicScalar> reshapeAttrValidShape1;
     std::vector<SymbolicScalar> reshapeAttrValidShape2;
     std::vector<SymbolicScalar> reshapeDynOutput1 = reshapeOutput1->GetDynValidShape();
     std::vector<SymbolicScalar> reshapeDynOutput2 = reshapeOutput2->GetDynValidShape();
     EXPECT_TRUE(reshape1->GetAttr(OP_ATTR_PREFIX + "validShape", reshapeAttrValidShape1));
     EXPECT_TRUE(reshape2->GetAttr(OP_ATTR_PREFIX + "validShape", reshapeAttrValidShape2));
-    
+
     EXPECT_EQ(reshapeDynOutput1.size(), kNumFour);
     EXPECT_EQ(reshapeDynOutput2.size(), kNumFour);
     std::vector<std::string> expectValidShape = {

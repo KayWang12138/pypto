@@ -26,7 +26,7 @@ class ExpectedValueTest : public testing::Test {
 public:
     void SetUp() override {
         Program::GetInstance().Reset();
-        Program::GetInstance().GetConfig().Reset();
+        config::Reset();
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, false);
     }

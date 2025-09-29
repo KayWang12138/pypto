@@ -187,7 +187,7 @@ bool TileOpCompile(const std::string &opType, const uint64_t configKey, const st
         ALOG_WARN("Fail to init host machine backend.");
         return false;
     }
-    Program::GetInstance().GetConfig().Reset();
+    config::Reset();
     config::SetHostConfig(KEY_DUMP_BIN_AND_JSON, true);
     config::SetHostConfig(KEY_DUMP_BIN_AND_JSON_PATH, dumpPath);
     config::SetHostConfig(KEY_DUMP_KERNEL_NAME, kernelName);

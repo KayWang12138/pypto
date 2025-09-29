@@ -37,13 +37,13 @@ public:
 
     void SetUp() override {
         Program::GetInstance().Reset();
-        Program::GetInstance().GetConfig().Reset();
+        config::Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-        Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 4);
-        Program::GetInstance().GetConfig().Set<std::map<int, int>>(L1_REUSE_MAP, {{0,2}});
-        Program::GetInstance().GetConfig().Set<int>(CUBE_NBUFFER, 1);
-        Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {{0,1}});
+        config::SetPassOption(L1_REUSE, 4);
+        config::SetPassOption(L1_REUSE_MAP, std::map<int64_t, int64_t>{{0,2}});
+        config::SetPassOption(CUBE_NBUFFER, 1);
+        config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{{0,1}});
     }
 
     void TearDown() override {}
@@ -143,7 +143,7 @@ TEST_F(L1CopyInReuseTest, TestNormal) {
     function->paramConfigs_.cubeNBufferMap = {{1, 2}};
     function->paramConfigs_.l1ReuseNum = l1_reuse_num;
     function->paramConfigs_.l1ReuseMap = {{1, 2}};
-    function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num; 
+    function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;
     function->SetTotalSubGraphCount(subGraphNum);
     L1CopyInReuseMerge LCRM;
     EXPECT_EQ(LCRM.RunOnFunction(*function), SUCCESS);
@@ -182,7 +182,7 @@ TEST_F(L1CopyInReuseTest, TestNoL1Num) {
     function->paramConfigs_.cubeNBufferNum = cube_nbuffer_num;
     function->paramConfigs_.cubeNBufferMap = {{1, 2}};
     function->paramConfigs_.l1ReuseMap = {{1, 2}};
-    function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num; 
+    function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;
     function->SetTotalSubGraphCount(subGraphNum);
     L1CopyInReuseMerge LCRM;
     EXPECT_EQ(LCRM.RunOnFunction(*function), SUCCESS);
@@ -222,7 +222,7 @@ TEST_F(L1CopyInReuseTest, TestNoL1Map) {
     function->paramConfigs_.cubeNBufferNum = cube_nbuffer_num;
     function->paramConfigs_.cubeNBufferMap = {{1, 2}};
     function->paramConfigs_.l1ReuseNum = l1_reuse_num;
-    function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num; 
+    function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;
     function->SetTotalSubGraphCount(subGraphNum);
     L1CopyInReuseMerge LCRM;
     EXPECT_EQ(LCRM.RunOnFunction(*function), SUCCESS);

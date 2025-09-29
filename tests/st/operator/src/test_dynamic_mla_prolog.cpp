@@ -38,12 +38,10 @@ struct TestShapeParams {
 };
 
 void PerformanceConfig() {
-    Program::GetInstance().GetConfig().Set<int>(NBUFFER_MERGE_MODE, 1);
-    Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 4);
-    Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {
-        {3, 4}
-    });
-    Program::GetInstance().GetConfig().Set<int>(COPYIN_THRESHOLD, 2 * 1024 * 1024);
+    config::SetPassOption(NBUFFER_MERGE_MODE, 1);
+    config::SetPassOption(L1_REUSE, 4);
+    config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{{3, 4}});
+    config::SetPassOption(COPYIN_THRESHOLD, 2 * 1024 * 1024);
 }
 
 template <typename T>

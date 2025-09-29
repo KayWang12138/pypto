@@ -160,12 +160,10 @@ void DynamicNsa(const Tensor &x, const Tensor &wDq, const Tensor &wUqQr, const T
     },
         {postOut, cmpAttnOut, cmpSoftmax, fullK, cmpK, topkRes, topkInput},
         {{kvCacheOut, kvCache}, {krCacheOut, krCache}}) {
-        Program::GetInstance().GetConfig().Set<int>(NBUFFER_MERGE_MODE, 1);
-        Program::GetInstance().GetConfig().Set<int>(L1_REUSE, NUM_4);
-        Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {
-                                                                                         {NUM_3, NUM_4}
-        });
-        Program::GetInstance().GetConfig().Set<int>(COPYIN_THRESHOLD, NUM_2 * NUM_1024 * NUM_1024);
+        config::SetPassOption(NBUFFER_MERGE_MODE, 1);
+        config::SetPassOption(L1_REUSE, NUM_4);
+        config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{{NUM_3, NUM_4}});
+        config::SetPassOption(COPYIN_THRESHOLD, NUM_2 * NUM_1024 * NUM_1024);
 
         int b = x->shape[0];
         int s = x->shape[1]; // s=1
@@ -270,10 +268,8 @@ void DynamicNsa(const Tensor &x, const Tensor &wDq, const Tensor &wUqQr, const T
         Tensor attentionOut(dtype, {b, s, n1, vDim}, "attentionOut");
         GenAttn(gatingScore, cmpAttnOut16Tmp, slcAttn, winAtten, attentionOut); // [b,s,n1,vDim] fp16
 
-        Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_UPPER_BOUND, 500000); // 500000
-        Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {
-                                                                                         {0, 4}
-        });
+        config::SetPassOption(SG_CYCLE_UPPER_BOUND, 500000); // 500000
+        config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{{0, 4}});
         // Loop_barrier
         // subgraph-7: postOut [b,s,h]
         PostCompute(attentionOut, postTensors, postConfig, postOut);

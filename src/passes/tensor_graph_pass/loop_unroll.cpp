@@ -60,7 +60,7 @@ std::vector<SymbolicScalar> LoopUnroll::ConvertToSymbolicScalar(std::vector<int6
     return staticSymbolicValidShape;
 }
 
-Status LoopUnroll::AddNewOperation(Operation *localOp, 
+Status LoopUnroll::AddNewOperation(Operation *localOp,
         const std::unordered_map<int, LogicalTensorPtr> tensorLocal2Global,
         std::unordered_map<Operation *, std::vector<int64_t>> opDynOffsetMap,
         std::unordered_map<Operation *, std::vector<int64_t>> opDynShapeMap) {
@@ -123,7 +123,7 @@ Status LoopUnroll::UpdateCloneOpAttributes(Operation *localOp, Operation *cloneO
         auto staticSymbolicOffset = ConvertToSymbolicScalar(opDynOffsetMap[localOp]);
         if (cloneOp->GetOpcode() == Opcode::OP_VIEW) {
             auto viewAttr = std::dynamic_pointer_cast<ViewOpAttribute>(cloneOp->GetOpAttribute());
-            if (viewAttr && !viewAttr->GetFromDynOffset().empty()) {                
+            if (viewAttr && !viewAttr->GetFromDynOffset().empty()) {
                 viewAttr->SetFromOffset(opDynOffsetMap[localOp], staticSymbolicOffset);
             }
         } else if (cloneOp->GetOpcode() == Opcode::OP_ASSEMBLE) {
@@ -242,7 +242,7 @@ Status LoopUnroll::ExpandDynamicLoop(Operation *callop) {
         }
         UpdateGlobalTensorWAW();
         if (ExpandDynamicFunction(expandCallop) != SUCCESS) {
-            ALOG_ERROR_F("%s[%d] ExpandDynamic failed.", expandCallop->GetOpcodeStr().c_str(), 
+            ALOG_ERROR_F("%s[%d] ExpandDynamic failed.", expandCallop->GetOpcodeStr().c_str(),
                 expandCallop->GetOpMagic());
             return FAILED;
         }
@@ -335,36 +335,21 @@ Status LoopUnroll::CreateLoopUnrollFunc(Function *function) {
     Program::GetInstance().InsertFuncToFunctionMap(funcMagicName, std::move(newFunc));
     Program::GetInstance().GetCurrentFunction()->SetUnderDynamicFunction(true);
 
-    Program::GetInstance().GetCurrentFunction()->paramConfigs_.l1ReuseNum = 
-        Program::GetInstance().GetConfig().Get<int>(L1_REUSE);
-    Program::GetInstance().GetCurrentFunction()->paramConfigs_.cubeNBufferNum = 
-        Program::GetInstance().GetConfig().Get<int>(CUBE_NBUFFER);
-    Program::GetInstance().GetCurrentFunction()->paramConfigs_.sgCycleUpperBound = 
-        Program::GetInstance().GetConfig().Get<int>(SG_CYCLE_UPPER_BOUND);
-    Program::GetInstance().GetCurrentFunction()->paramConfigs_.sgCycleLowerBound = 
-        Program::GetInstance().GetConfig().Get<int>(SG_CYCLE_LOWER_BOUND);
-    Program::GetInstance().GetCurrentFunction()->paramConfigs_.sgParallelNum = 
-        Program::GetInstance().GetConfig().Get<int>(SG_PARALLEL_NUM);
-    Program::GetInstance().GetCurrentFunction()->paramConfigs_.sgCopyInThreshold = 
-        Program::GetInstance().GetConfig().Get<int>(COPYIN_THRESHOLD);
-    Program::GetInstance().GetCurrentFunction()->paramConfigs_.machineConfig_ = 
-        Program::GetInstance().GetConfig().Get<uint8_t>(MACHINE_CONFIG);
-    Program::GetInstance().GetCurrentFunction()->paramConfigs_.l1ReuseMap = 
-        Program::GetInstance().GetConfig().Get<std::map<int, int>>(L1_REUSE_MAP);
-    Program::GetInstance().GetCurrentFunction()->paramConfigs_.cubeNBufferMap = 
-        Program::GetInstance().GetConfig().Get<std::map<int, int>>(CUBE_NBUFFER_MAP);
-    Program::GetInstance().GetCurrentFunction()->paramConfigs_.OoOPreScheduleMethodDefault = 
-        Program::GetInstance().GetConfig().Get<std::string>(OOO_PRESCHEDULE_METHOD_DEFAULT);
-    Program::GetInstance().GetCurrentFunction()->paramConfigs_.OoOPreScheduleMethodMap = 
-        Program::GetInstance().GetConfig().Get<std::map<std::string,std::string>>(OOO_PRESCHEDULE_METHOD);
-    Program::GetInstance().GetCurrentFunction()->paramConfigs_.vecNBufferMap = 
-        Program::GetInstance().GetConfig().Get<std::map<int, int>>(VEC_NBUFFER_MAP);
-    Program::GetInstance().GetCurrentFunction()->paramConfigs_.nBufferMergeMode = 
-        Program::GetInstance().GetConfig().Get<int>(NBUFFER_MERGE_MODE);
-    Program::GetInstance().GetCurrentFunction()->paramConfigs_.sgCubeParallelNum = 
-        Program::GetInstance().GetConfig().Get<int>(SG_CUBE_PARALLEL_NUM);
-    Program::GetInstance().GetCurrentFunction()->paramConfigs_.sgVecParallelNum = 
-        Program::GetInstance().GetConfig().Get<int>(SG_VEC_PARALLEL_NUM);
+    auto &paramConfigs = Program::GetInstance().GetCurrentFunction()->paramConfigs_;
+    paramConfigs.l1ReuseNum = config::GetPassOption<int>(L1_REUSE);
+    paramConfigs.cubeNBufferNum = config::GetPassOption<int>(CUBE_NBUFFER);
+    paramConfigs.sgCycleUpperBound = config::GetPassOption<int>(SG_CYCLE_UPPER_BOUND);
+    paramConfigs.sgCycleLowerBound = config::GetPassOption<int>(SG_CYCLE_LOWER_BOUND);
+    paramConfigs.sgParallelNum = config::GetPassOption<int>(SG_PARALLEL_NUM);
+    paramConfigs.sgCopyInThreshold = config::GetPassOption<int>(COPYIN_THRESHOLD);
+    paramConfigs.machineConfig_ = config::GetPassOption<uint8_t>(MACHINE_CONFIG);
+    paramConfigs.l1ReuseMap = config::GetPassOption<std::map<int64_t, int64_t>>(L1_REUSE_MAP);
+    paramConfigs.cubeNBufferMap = config::GetPassOption<std::map<int64_t, int64_t>>(CUBE_NBUFFER_MAP);
+    paramConfigs.OoOPreScheduleMethod = config::GetPassOption<std::string>(OOO_PRESCHEDULE_METHOD);
+    paramConfigs.vecNBufferMap = config::GetPassOption<std::map<int64_t, int64_t>>(VEC_NBUFFER_MAP);
+    paramConfigs.nBufferMergeMode = config::GetPassOption<int>(NBUFFER_MERGE_MODE);
+    paramConfigs.sgCubeParallelNum = config::GetPassOption<int>(SG_CUBE_PARALLEL_NUM);
+    paramConfigs.sgVecParallelNum = config::GetPassOption<int>(SG_VEC_PARALLEL_NUM);
     topFunction_ = Program::GetInstance().GetCurrentFunction();
     return SUCCESS;
 }
@@ -376,7 +361,7 @@ Status LoopUnroll::TopFunctionUnroll(Function *function, std::vector<Operation *
     }
     for (auto incast : function->GetIncast()) {
         if (function->GetInCastSlot(incast).size() != 1) {
-            ALOG_ERROR_F("Incast[%d] has multi slot[%d], not support now.", incast->GetMagic(), 
+            ALOG_ERROR_F("Incast[%d] has multi slot[%d], not support now.", incast->GetMagic(),
                 function->GetInCastSlot(incast).size());
             return FAILED;
         }
@@ -580,7 +565,7 @@ void LoopUnroll::UpdateGlobalTensorWAW() {
     }
 }
 
-bool LoopUnroll::IsWARDepend(const int slotIdx, std::set<LogicalTensorPtr> input2Global) {    
+bool LoopUnroll::IsWARDepend(const int slotIdx, std::set<LogicalTensorPtr> input2Global) {
     auto globalTensor = lastWriteMap_.at(slotIdx);
     if (globalTensor.first->GetConsumers().empty()) {
         return false;
@@ -608,7 +593,7 @@ void LoopUnroll::FindSlotDepend(const Operation *op, std::set<LogicalTensorPtr> 
     }
 }
 
-bool LoopUnroll::IsOverlapping(std::pair<std::vector<int64_t>, std::vector<int64_t>> tensor1, 
+bool LoopUnroll::IsOverlapping(std::pair<std::vector<int64_t>, std::vector<int64_t>> tensor1,
     std::pair<std::vector<int64_t>, std::vector<int64_t>> tensor2) {
     for (size_t i = 0; i < tensor1.first.size(); ++i) {
         int64_t aStart = tensor1.second[i];

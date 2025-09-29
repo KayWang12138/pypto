@@ -1868,7 +1868,7 @@ Json Function::DumpJson(bool useTable) {
     funcDump["_sg_cube_parallel_num"] = paramConfigs_.sgCubeParallelNum;
     funcDump["_sg_skip_partition"] = paramConfigs_.sgSkipPartition;
     funcDump["_total_subgraph_count"] = totalSubGraphCount_;
-    funcDump["_ooo_preschedule_method_default"] = paramConfigs_.OoOPreScheduleMethodDefault;
+    funcDump["_ooo_preschedule_method"] = paramConfigs_.OoOPreScheduleMethod;
 
     if (useTable) {
         std::vector<std::pair<int, std::vector<int>>> incasts;
@@ -2191,7 +2191,7 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     func->paramConfigs_.sgSkipPartition = funcDump["_sg_skip_partition"].get<bool>();
     auto subGraphCount = funcDump["_total_subgraph_count"].get<size_t>();
     func->SetTotalSubGraphCount(subGraphCount);
-    func->paramConfigs_.OoOPreScheduleMethodDefault = funcDump["_ooo_preschedule_method_default"].get<std::string>();
+    func->paramConfigs_.OoOPreScheduleMethod = funcDump["_ooo_preschedule_method"].get<std::string>();
 
     std::vector<std::vector<int>> incastSlot;
     for (auto &iDump : funcDump["incasts"]) {
@@ -2575,7 +2575,7 @@ void Function::DumpTopoFile(const std::string &fileName) const
             continue;
         }
         sJson["funcName"] = calleeMagicNameList_[id];
-        sJson["semanticLabel"] = operations_[topo.esgId]->GetSemanticLabelsStr();
+        sJson["semanticLabel"] = operations_[topo.esgId]->GetSemanticLabel();
         totalTopoJson.push_back(sJson);
     }
     std::ofstream ofs(fileName);

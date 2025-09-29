@@ -12,7 +12,7 @@
 #include <cstddef>
 #include <vector>
 #include <unordered_map>
-#include "tilefwk/common_def.h"
+#include "tilefwk/aicpu_common.h"
 
 namespace npu::tile_fwk {
 struct DevAscendProgram {

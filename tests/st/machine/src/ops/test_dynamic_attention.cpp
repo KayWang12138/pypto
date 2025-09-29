@@ -28,7 +28,7 @@ void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileCon
     (void) timeThreshold;
 
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-    Program::GetInstance().GetConfig().Set<uint8_t>(MACHINE_CONFIG, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH));
+    config::SetPassOption(MACHINE_CONFIG, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH));
 
     std::string cacheMode = "PA_NZ";
 

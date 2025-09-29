@@ -86,15 +86,15 @@ class AscppModule(ABC):
             else:
                 raise NotImplementedError()
             self._gen_code(res)
-            
+
             self.debug()
             context.stack_out_module()
-            
+
             self._initialized = True
 
         if not self._initialized:
             self._args = []
-            self.inst_list = []            
+            self.inst_list = []
             self._n_returned_tensors = 0
             self._current_endif = None
             self._current_startif = None
@@ -156,10 +156,10 @@ class AscppModule(ABC):
     def debug(cls, *args: Any):
         ...
 
-    @abstractmethod    
+    @abstractmethod
     def init(self):
         ...
-        
+
     @abstractmethod
     def forward(self) -> Union[
         None, Tensor, tuple[Tensor, ...], list[Tensor]]:
@@ -167,7 +167,7 @@ class AscppModule(ABC):
 
     def run_sim(self, *args: Union[Tensor, CustStruct, Var, Vector]):
         return context.sim.run(self.__class__.__name__, args)
-    
+
     def set_idx(self, idx: int):
         self.idx = idx
 
@@ -280,7 +280,7 @@ class AscppModule(ABC):
                     gen_result_code_sub(mod, result_code, generated_structs_list)
                     if is_gen_ast:
                         result_code.append(mod.code.replace("::forward", ""))
-                    else: 
+                    else:
                         result_code.append(mod.init_code)
                         result_code.append(mod.code)
                     generated_class_list.append(type(mod))
@@ -304,12 +304,12 @@ class AscppModule(ABC):
             current_depth += 1
         traversed_class_list.reverse()
         return gen_result_code(traversed_class_list)
-        
+
     def gen_code(self, target_file: str):
         result_code = self.gen_src_code()
         with open(target_file, 'w') as f:
             f.write('\n\n'.join(result_code))
-        
+
     def gen_ast_code(self, directory_path: str):
         ast_include_file_list = [
             "interface/operation/operation_impl.h",
@@ -322,7 +322,6 @@ class AscppModule(ABC):
             "interface/inner/tilefwk.h",
             "interface/tensor/tensormap.h",
             "interface/configs/config_manager.h",
-            "interface/configs/config_storage.h",
             "interface/utils/common.h",
             "interface/utils/id_gen.h",
             "interface/utils/log.h"
@@ -330,7 +329,7 @@ class AscppModule(ABC):
         ast_code_prefix = gen_ast_prefix_code(ast_include_file_list)
         ast_code_suffix = "} // namespace"
         result_code = self.gen_src_code(is_gen_ast=True)
-        
+
         src_operator_folder = Path(directory_path, 'src/operator/custom')
         if not os.path.exists(src_operator_folder):
             os.mkdir(src_operator_folder)
@@ -340,18 +339,18 @@ class AscppModule(ABC):
             f.write(ast_code_prefix)
             f.write('\n\n'.join(result_code))
             f.write(ast_code_suffix)
-        
+
         gen_ast_ut_code(directory_path, operator_name, self._args, self._return_type)
         gen_ast_st_code(directory_path, operator_name, self._args, self._return_type)
         gen_ast_golden_script(directory_path, operator_name, self._args)
-        
+
     def _gen_init(self):
         # Get list of variables
         variables = []
         indexes_to_change = []
         for k, v in vars(self).items():
             if isinstance(v, Tensor):
-                tsr = self.create_tensor()                
+                tsr = self.create_tensor()
                 tsr.assign(v)
                 variables.append(tsr)
                 indexes_to_change.append((k, tsr))
