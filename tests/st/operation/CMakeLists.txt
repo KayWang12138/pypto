@@ -10,6 +10,8 @@
 set(_CaseFilterList
         "TestAdd/AddOperationTest.TestAdd/10"
         "TestAdd/AddOperationTest.TestAdd/11"
+        "TestConcat/ConcatOperationTest.TestConcat/0"
+        "TestConcat/ConcatOperationTest.TestConcat/1"
         "TestAdds/AddsOperationTest.TestAdds/20"
         "TestAdds/AddsOperationTest.TestAdds/21"
         "TestAdds/AddsOperationTest.TestAdds/22"

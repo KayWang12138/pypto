@@ -842,7 +842,7 @@ def gen_concat_op_golden(case_name: str, output: Path, case_index: int = None) -
         output_tensors_type = config["output_tensors"][0]["dtype"]
         inputdata_type = get_dtype_by_name(output_tensors_type)
         if inputdata_type == bfloat16:
-            inputs_tensors = [torch.as_tensor(x.astype(np.float32)).to(torch.float16) for x in inputs]
+            inputs_tensors = [torch.as_tensor(x.astype(np.float32)).to(torch.bfloat16) for x in inputs]
         else:
             inputs_tensors = [torch.as_tensor(x) for x in inputs]
         res = torch.cat(inputs_tensors, dim=axis)
