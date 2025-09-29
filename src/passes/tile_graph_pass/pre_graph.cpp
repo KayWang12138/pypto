@@ -831,7 +831,7 @@ Status PreGraphProcess::UpdateCubeOp(Function &function) {
                 continue;
             }
             if (function.IsFromInCast(input)) {
-                ALOG_WARN_F("CubeProcess::UpdateCubeOp: OP_A_MUL_B iOperand tensor[%d] is incast.", input->GetMagic());
+                ALOG_WARN_F("PreGraphProcess::UpdateCubeOp: OP_A_MUL_B iOperand tensor[%d] is incast.", input->GetMagic());
                 continue;
             }
             input->tensor = finalOutput->tensor;

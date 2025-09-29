@@ -9,16 +9,16 @@
  */
 
 /*!
- * \file cube_process.cpp
+ * \file split_k.cpp
  * \brief
  */
 
-#include "cube_process.h"
+#include "split_k.h"
 
 namespace npu {
 namespace tile_fwk {
-Status CubeProcess::PreCheck(Function &function) {
-    ALOG_INFO_F("PreCheck for CubeProcess.");
+Status SplitK::PreCheck(Function &function) {
+    ALOG_INFO_F("PreCheck for SplitK.");
     if (!function.LoopCheck().empty()) {
         ALOG_ERROR_F("Loopcheck failed before PreGraph");
         return FAILED;
@@ -27,14 +27,14 @@ Status CubeProcess::PreCheck(Function &function) {
         if (op.GetOpcode() == Opcode::OP_A_MUL_B && op.GetOpcode() == Opcode::OP_A_MULACC_B) {
             // L0C tensor 有且只有一个非空consumer op
             if (op.GetOOperands().size() != 1) {
-                ALOG_ERROR_F("[CubeProcess] invalid op: %s[%d] has output num not equal to ONE.",
+                ALOG_ERROR_F("[SplitK] invalid op: %s[%d] has output num not equal to ONE.",
                     op.GetOpcodeStr().c_str(), op.GetOpMagic());
                 return FAILED;
             }
             auto output = op.GetOOperands().front();
             if ((output->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) || (output->GetConsumers().size() != 1) 
                 || (*output->GetConsumers().begin() == nullptr)) {
-                ALOG_ERROR_F("[CubeProcess] %s[%d] has invalid output tenosr[%d].",
+                ALOG_ERROR_F("[SplitK] %s[%d] has invalid output tenosr[%d].",
                     op.GetOpcodeStr().c_str(), op.GetOpMagic(), output->magic);
                 return FAILED;
             }
@@ -43,27 +43,27 @@ Status CubeProcess::PreCheck(Function &function) {
             // Reduce Acc 的输入和输出必须都是DDR类型
             for (auto &in : op.GetIOperands()) {
                 if (in->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
-                    ALOG_ERROR_F("[CubeProcess] %s[%d] has non-DDR input tenosr[%d]",
+                    ALOG_ERROR_F("[SplitK] %s[%d] has non-DDR input tenosr[%d]",
                         op.GetOpcodeStr().c_str(), op.GetOpMagic(), in->magic);
                     return FAILED;
                 }
             }
             for (auto &out : op.GetOOperands()) {
                 if (out->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
-                    ALOG_ERROR_F("[CubeProcess] %s[%d] has non-DDR output tenosr[%d]",
+                    ALOG_ERROR_F("[SplitK] %s[%d] has non-DDR output tenosr[%d]",
                         op.GetOpcodeStr().c_str(), op.GetOpMagic(), out->magic);
                     return FAILED;
                 }
             }
         }
     }
-    ALOG_INFO_F("PreCheck for CubeProcess success.");
+    ALOG_INFO_F("PreCheck for SplitK success.");
     return SUCCESS;
 }
 
 // verstion 2.0
-Status CubeProcess::RunOnFunction(Function &function) {
-    ALOG_INFO_F("===> start CubeProcess");
+Status SplitK::RunOnFunction(Function &function) {
+    ALOG_INFO_F("===> start SplitK");
     if (EliminateReduceAcc(function) != SUCCESS) {
         ALOG_ERROR_F("Eliminate ReduceAcc failed.");
         return FAILED;
@@ -72,11 +72,11 @@ Status CubeProcess::RunOnFunction(Function &function) {
         ALOG_ERROR_F("Eliminate dead operation failed in CommonOperationEliminate.");
         return FAILED;
     }
-    ALOG_INFO_F("===> End CubeProcess");
+    ALOG_INFO_F("===> End SplitK");
     return SUCCESS;
 }
 
-Status CubeProcess::EliminateReduceAcc(Function &function) {
+Status SplitK::EliminateReduceAcc(Function &function) {
     /*
     Before:
     A_MUL_B --> L0C --> Copy_Out --> \

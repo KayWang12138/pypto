@@ -9,8 +9,8 @@
  */
 
 /*!
- * \file test_cube_process.cpp
- * \brief Unit test for CubeProcess pass.
+ * \file test_split_k.cpp
+ * \brief Unit test for SplitK pass.
  */
 
 #include <fstream>
@@ -24,7 +24,7 @@
 #include "interface/program/program.h"
 #include "passes/pass_manager.h"
 #include "interface/configs/config_manager.h"
-#include "passes/tile_graph_pass/cube_process.h"
+#include "passes/tile_graph_pass/split_k.h"
 #include "passes/tile_graph_pass/pre_graph.h"
 #include "computational_graph_builder.h"
 #include "ut_json/ut_json_tool.h"
@@ -33,7 +33,7 @@ using namespace npu::tile_fwk;
 
 namespace npu {
 namespace tile_fwk {
-class CubeProcessTest : public testing::Test {
+class SplitKTest : public testing::Test {
 public:
     static void SetUpTestCase() {}
 
@@ -43,7 +43,7 @@ public:
         Program::GetInstance().Reset();
         Program::GetInstance().GetConfig().Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-        // config::SetHostConfig(KEY_STRATEGY, "CubeProcessTestStrategy");
+        // config::SetHostConfig(KEY_STRATEGY, "SplitKTestStrategy");
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
     }
 
@@ -115,7 +115,7 @@ public:
         // run pass
         Function *function = G.GetFunction();
         EXPECT_NE(function, nullptr);
-        CubeProcess passLocal;
+        SplitK passLocal;
         passLocal.Run(*function, "", "", 0);
         PreGraphProcess preGraphPass;
         preGraphPass.UpdateCubeOp(*function);
@@ -126,31 +126,31 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(CubeProcessTest, Test_MM_FP16) {
+TEST_F(SplitKTest, Test_MM_FP16) {
     CheckL0cType(DataType::DT_FP16, DataType::DT_FP16, DataType::DT_FP32);
 }
 
-TEST_F(CubeProcessTest, Test_MM_BF16) {
+TEST_F(SplitKTest, Test_MM_BF16) {
     CheckL0cType(DataType::DT_BF16, DataType::DT_BF16, DataType::DT_FP32);
 }
 
-TEST_F(CubeProcessTest, Test_MM_FP32) {
+TEST_F(SplitKTest, Test_MM_FP32) {
     CheckL0cType(DataType::DT_FP32, DataType::DT_FP32, DataType::DT_FP32);
 }
 
-TEST_F(CubeProcessTest, Test_MM_INT8) {
+TEST_F(SplitKTest, Test_MM_INT8) {
     CheckL0cType(DataType::DT_INT8, DataType::DT_INT8, DataType::DT_INT32);
 }
 
-TEST_F(CubeProcessTest, Test_MM_INT16) {
+TEST_F(SplitKTest, Test_MM_INT16) {
     CheckL0cType(DataType::DT_INT16, DataType::DT_INT16, DataType::DT_INT32);
 }
 
-TEST_F(CubeProcessTest, Test_MM_INT32) {
+TEST_F(SplitKTest, Test_MM_INT32) {
     CheckL0cType(DataType::DT_INT32, DataType::DT_INT32, DataType::DT_INT32);
 }
 
-TEST_F(CubeProcessTest, TestReducAccSplitKOn) {
+TEST_F(SplitKTest, TestReducAccSplitKOn) {
     ComputationalGraphBuilder G;
     // add tensor
     DataType inputAstDtype = DataType::DT_FP16;
@@ -265,7 +265,7 @@ TEST_F(CubeProcessTest, TestReducAccSplitKOn) {
     }
     EXPECT_NE(opReduceAccCount, 0);
     // run pass
-    CubeProcess passLocal;
+    SplitK passLocal;
     passLocal.Run(*function, "", "", 0);
     // check after pass
     opReduceAccCount = 0;
@@ -278,7 +278,7 @@ TEST_F(CubeProcessTest, TestReducAccSplitKOn) {
 }
 
 
-TEST_F(CubeProcessTest, TestReducAccSplitKOff) {
+TEST_F(SplitKTest, TestReducAccSplitKOff) {
     ComputationalGraphBuilder G;
     // add tensor
     DataType inputAstDtype = DataType::DT_FP16;
@@ -391,7 +391,7 @@ TEST_F(CubeProcessTest, TestReducAccSplitKOff) {
     }
     EXPECT_EQ(opReduceAccCount, 0);
     // run pass
-    CubeProcess passLocal;
+    SplitK passLocal;
     passLocal.Run(*function, "", "", 0);
     // check after pass
     opReduceAccCount = 0;
@@ -406,7 +406,7 @@ TEST_F(CubeProcessTest, TestReducAccSplitKOff) {
     EXPECT_EQ(opCountBefore, opCountAfter);
 }
 
-TEST_F(CubeProcessTest, TestReducAccInputLess) {
+TEST_F(SplitKTest, TestReducAccInputLess) {
     ComputationalGraphBuilder G;
     // add tensor
     DataType inputAstDtype = DataType::DT_FP16;
@@ -461,7 +461,7 @@ TEST_F(CubeProcessTest, TestReducAccInputLess) {
     }
     EXPECT_NE(opReduceAccCount, 0);
     // run pass
-    CubeProcess passLocal;
+    SplitK passLocal;
     passLocal.Run(*function, "", "", 0);
     // check after pass
     opReduceAccCount = 0;
@@ -473,7 +473,7 @@ TEST_F(CubeProcessTest, TestReducAccInputLess) {
     EXPECT_NE(opReduceAccCount, 0);
 }
 
-TEST_F(CubeProcessTest, TestReducAccOutPutMore) {
+TEST_F(SplitKTest, TestReducAccOutPutMore) {
     ComputationalGraphBuilder G;
     // add tensor
     DataType inputAstDtype = DataType::DT_FP16;
@@ -591,7 +591,7 @@ TEST_F(CubeProcessTest, TestReducAccOutPutMore) {
     }
     EXPECT_NE(opReduceAccCount, 0);
     // run pass
-    CubeProcess passLocal;
+    SplitK passLocal;
     passLocal.Run(*function, "", "", 0);
     // check after pass
     opReduceAccCount = 0;
@@ -603,7 +603,7 @@ TEST_F(CubeProcessTest, TestReducAccOutPutMore) {
     EXPECT_NE(opReduceAccCount, 0);
 }
 
-TEST_F(CubeProcessTest, Test_MM_FP16_Atomic_On) {
+TEST_F(SplitKTest, Test_MM_FP16_Atomic_On) {
     int m = 32;
     int n = 512;
     int k = 128;
@@ -642,7 +642,7 @@ TEST_F(CubeProcessTest, Test_MM_FP16_Atomic_On) {
     }
 }
 
-TEST_F(CubeProcessTest, TestAnzBnd) {
+TEST_F(SplitKTest, TestAnzBnd) {
     ComputationalGraphBuilder G;
     // add tensor
     DataType inputAstDtype = DataType::DT_FP16;
@@ -685,7 +685,7 @@ TEST_F(CubeProcessTest, TestAnzBnd) {
     // run pass
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
-    CubeProcess passLocal;
+    SplitK passLocal;
     passLocal.Run(*function, "", "", 0);
     PreGraphProcess preGraphPass;
     preGraphPass.UpdateCubeOp(*function);
@@ -698,7 +698,7 @@ TEST_F(CubeProcessTest, TestAnzBnd) {
     EXPECT_EQ(opL1CopyInB->GetIntAttribute(COPY_IS_NZ), 0);
 }
 
-TEST_F(CubeProcessTest, TestAnzBndL1) {
+TEST_F(SplitKTest, TestAnzBndL1) {
     ComputationalGraphBuilder G;
     // add tensor
     DataType inputAstDtype = DataType::DT_FP16;
@@ -772,7 +772,7 @@ TEST_F(CubeProcessTest, TestAnzBndL1) {
     // run pass
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
-    CubeProcess passLocal;
+    SplitK passLocal;
     passLocal.Run(*function, "", "", 0);
     PreGraphProcess preGraphPass;
     preGraphPass.UpdateCubeOp(*function);
@@ -785,7 +785,7 @@ TEST_F(CubeProcessTest, TestAnzBndL1) {
     EXPECT_EQ(opL1CopyInB->GetIntAttribute(COPY_IS_NZ), 0);
 }
 
-TEST_F(CubeProcessTest, TestAndBndCnz) {
+TEST_F(SplitKTest, TestAndBndCnz) {
     ComputationalGraphBuilder G;
     // add tensor
     DataType inputAstDtype = DataType::DT_FP16;
@@ -861,7 +861,7 @@ TEST_F(CubeProcessTest, TestAndBndCnz) {
     // run pass
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
-    CubeProcess passLocal;
+    SplitK passLocal;
     passLocal.Run(*function, "", "", 0);
     PreGraphProcess preGraphPass;
     preGraphPass.UpdateCubeOp(*function);
@@ -884,7 +884,7 @@ TEST_F(CubeProcessTest, TestAndBndCnz) {
     EXPECT_EQ(opL0cCopyOut1->GetIntAttribute(L0C_COPY_OUT_INNER), 128);
 }
 
-TEST_F(CubeProcessTest, TestGatherOnL1) {
+TEST_F(SplitKTest, TestGatherOnL1) {
     ComputationalGraphBuilder G;
     // INCAST mat_a, mat_b, OUTCAST mat_c
     DataType inputAstDtype = DataType::DT_FP16;
@@ -1000,7 +1000,7 @@ TEST_F(CubeProcessTest, TestGatherOnL1) {
     EXPECT_NE(function, nullptr);
 
     // run pass
-    CubeProcess passLocal;
+    SplitK passLocal;
     Status res = passLocal.Run(*function, "", "", 0);
     PreGraphProcess preGraphPass;
     preGraphPass.UpdateCubeOp(*function);

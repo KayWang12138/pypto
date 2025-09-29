@@ -46,7 +46,7 @@
 #include "passes/tile_graph_pass/split_large_local_raw.h"
 #include "passes/tile_graph_pass/split_raw.h"
 #include "passes/tile_graph_pass/split_large_fanout_tensor.h"
-#include "passes/tile_graph_pass/cube_process.h"
+#include "passes/tile_graph_pass/split_k.h"
 #include "passes/tile_graph_pass/remove_unaligned_reshape_op.h"
 #include "passes/tile_graph_pass/split_reshape.h"
 #include "passes/tile_graph_pass/infer_dyn_shape.h"
@@ -101,7 +101,7 @@ void RegPass() {
     REG_PASS(RemoveUnalignedReshape);
     REG_PASS(CodegenPreproc);
     REG_PASS(SplitLargeFanoutTensor);
-    REG_PASS(CubeProcess);
+    REG_PASS(SplitK);
     REG_PASS(InferDynShape);
     REG_PASS(InferParamIndex);
     REG_PASS(AddAlloc);
@@ -127,11 +127,11 @@ void PassManager::RegDefaultStrategy() {
             {  "InferDiscontinuousInput",  "InferDiscontinuousInput",    PassType::TYPE_TILE_GRAPH},
             {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
             {        "RemoveRedundantOp",        "RemoveRedundantOp",    PassType::TYPE_TILE_GRAPH},
-            {              "CubeProcess",              "CubeProcess",    PassType::TYPE_TILE_GRAPH},
+            {                   "SplitK",                   "SplitK",    PassType::TYPE_TILE_GRAPH},
             {           "GraphPartition",           "GraphPartition",    PassType::TYPE_TILE_GRAPH},
             {             "NBufferMerge",             "NBufferMerge",    PassType::TYPE_TILE_GRAPH},
             {     "IntraSubgraphAdapter",     "IntraSubgraphAdapter",    PassType::TYPE_TILE_GRAPH},
-            {        "GenerateMoveOp_02",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
+            {           "GenerateMoveOp",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
             { "CommonOperationEliminate", "CommonOperationEliminate",    PassType::TYPE_TILE_GRAPH},
             {       "L1CopyInReuseMerge",       "L1CopyInReuseMerge",    PassType::TYPE_TILE_GRAPH},
             {           "PadLocalBuffer",           "PadLocalBuffer",    PassType::TYPE_TILE_GRAPH},

@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file cube_process.h
+ * \file split_k.h
  * \brief
  */
 
@@ -33,10 +33,10 @@ namespace npu::tile_fwk {
 
 const std::string ACC_A_MUL_B = OP_ATTR_PREFIX + "atomic_add";
 
-class CubeProcess : public Pass {
+class SplitK : public Pass {
 public:
-    CubeProcess() : Pass("CubeProcess") {}
-    ~CubeProcess() override = default;
+    SplitK() : Pass("SplitK") {}
+    ~SplitK() override = default;
 
     Status PreCheck(Function &function) override;
     Status RunOnFunction(Function &function) override;
