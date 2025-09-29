@@ -128,6 +128,7 @@ inline std::string DataType2String(DataType t) {
         case DT_BF16: return "DT_BF16";
         case DT_HF8: return "DT_HF8";
         case DT_HF4: return "DT_HF4";
+        case DT_BOOL: return "DT_BOOL";
         case DT_UINT8: return "DT_UINT8";
         case DT_UINT16: return "DT_UINT16";
         case DT_UINT32: return "DT_UINT32";
@@ -172,6 +173,7 @@ inline std::string DataType2CCEStr(DataType t) {
         case DT_BF16: return "bfloat16_t";
         case DT_HF8: return "hfloat8";
         case DT_HF4: return "hfloat4";
+        case DT_BOOL: return "bool";
         case DT_UINT8: return "uint8_t";
         case DT_UINT16: return "uint16_t";
         case DT_UINT32: return "uint32_t";
@@ -269,6 +271,7 @@ inline size_t BytesOf(DataType t) {
         case DT_HF4: return HF4_DATA_WIDTH; // 4bits still need 1 byte
         case DT_INT8:
         case DT_UINT8:
+        case DT_BOOL:
         case DT_FP8:
         case DT_HF8: return HF8_DATA_WIDTH;
         case DT_INT16:
@@ -278,6 +281,7 @@ inline size_t BytesOf(DataType t) {
         case DT_INT32:
         case DT_UINT32:
         case DT_FP32: return FP32_DATA_WIDTH;
+        case DT_UINT64:
         case DT_INT64: return INT64_DATA_WIDTH;
         default: throw std::invalid_argument("Unknown DataType");
     }

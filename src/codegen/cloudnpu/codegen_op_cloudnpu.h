@@ -49,6 +49,8 @@ public:
     std::string GenUnaryOp() const;
     std::string GenUnaryOpWithTmpBuff() const;
 
+    std::string GenLogicalNotOp() const;
+
     std::string GenBinaryOp() const;
     std::string GenVectorScalarOp() const;
 
@@ -446,6 +448,8 @@ private:
         {                Opcode::OP_ROWMINLINE,                  [this]() { return GenUnaryOp(); }},
         {                       Opcode::OP_ABS,                  [this]() { return GenUnaryOp(); }},
         {                        Opcode::OP_LN,                  [this]() { return GenUnaryOp(); }},
+        // logicalnot
+        {           Opcode::OP_LOGICALNOT,                  [this]() { return GenLogicalNotOp(); }},
 
         // unary with temp buffer
         {                   Opcode::OP_COMPACT,       [this]() { return GenUnaryOpWithTmpBuff(); }},

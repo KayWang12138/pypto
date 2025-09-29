@@ -48,6 +48,10 @@ struct Input {
     TileInfo tileInfo;
 };
 
+enum class LogicalNotOpType {
+    OP_LOGICALNOT,
+};
+
 enum class TransposeOpType {
     TRANSPOSE_MOVEIN,
     TRANSPOSE_MOVEOUT,
@@ -2098,6 +2102,62 @@ void TiledVecDup(Function &function, const TileShape &tileShape, size_t cur, con
     }
 }
 
+void TiledLogicalNotOperation(Function& function, const TileShape& tileShape, size_t cur,
+        Input& input, const LogicalTensorPtr& result) {
+    if (cur == input.tensor->shape.size()) {
+        auto tile = input.tensor->View(function, input.tileInfo.shape, input.tileInfo.offset);
+        auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
+
+        std::vector<int64_t> castConditionShape({2048});
+        auto castConditionTensor = std::make_shared<LogicalTensor>(function, DT_FP16, castConditionShape);
+
+        DataType selectDtype;
+        if (input.tensor.GetDataType() == DT_FP32) {
+            selectDtype = DT_FP32;
+        } else {
+            selectDtype = DT_FP16;
+        }
+        auto compareConditionTensor = std::make_shared<LogicalTensor>(function, selectDtype, castConditionShape);
+        auto oneConditionTensor = std::make_shared<LogicalTensor>(function, selectDtype, castConditionShape);
+
+        std::vector<int64_t> vcmpBitResultShape({2048 / 8});
+        auto vcmpBitResultTensor = std::make_shared<LogicalTensor>(function, DT_INT8, vcmpBitResultShape);
+        std::vector<int64_t> startAddrUBShape({1});
+        auto startAddrUBTensor = std::make_shared<LogicalTensor>(function, DT_UINT64, startAddrUBShape);
+        function.AddOperation(Opcode::OP_LOGICALNOT, {tile}, {resultTile, castConditionTensor, compareConditionTensor,
+                                                            vcmpBitResultTensor, startAddrUBTensor, oneConditionTensor});
+        return;
+    }
+
+    auto& vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < input.tensor->shape[cur]; i += vecTile[cur]) {
+        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - i, vecTile[cur]);
+        input.tileInfo.offset[cur] = i;
+        TiledLogicalNotOperation(function, tileShape, cur + 1, input, result);
+    }
+}
+
+void TiledLogicalNotOperation(Function& function, const TileShape& tileShape,
+        const LogicalTensorPtr& operand, const LogicalTensorPtr& result) {
+    assert(operand->shape.size() == operand->offset.size());
+
+    TileInfo tileInfo(result->shape.size(), result->offset.size());
+    auto input = Input{operand, tileInfo};
+    TiledLogicalNotOperation(function, tileShape, 0, input, result);
+}
+
+LogicalTensorPtr TensorLogicalNotOperation(Function& function, LogicalTensorPtr operand) {
+    auto result = std::make_shared<LogicalTensor>(function, DT_BOOL, operand->shape, operand->GetDynValidShape());
+    function.AddOperation(Opcode::OP_LOGICALNOT, {operand}, {result});
+    return result;
+}
+
+Tensor LogicalNot(const Tensor &operand) {
+    DECLARE_TRACER();
+
+    RETURN_CALL(LogicalNotOperation, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage());
+}
+
 void TiledVecDup(Function &function, const TileShape &tileShape, const Element &value, const SymbolicScalar &dynValue,
     std::vector<int64_t> &shape, const std::vector<SymbolicScalar> &validShape, const LogicalTensorPtr &results) {
     TileInfo resultTileInfo(results->shape.size(), results->offset.size());
@@ -3859,6 +3919,10 @@ void npu::tile_fwk::ExpandOperationInto(Function &function, const TileShape &til
             TiledBinaryOperationAllScalar<BinaryOpType::S_MUL>(function, tileShape, iOperand[0],
             op.GetElementAttribute(OpAttributeKey::scalar), oOperand[0],
             op.GetBoolAttribute(OP_ATTR_PREFIX + "reverseOperand"));
+            break;
+        }
+        case Opcode::OP_LOGICALNOT: {
+            TiledLogicalNotOperation(function, tileShape, iOperand[0], oOperand[0]);
             break;
         }
         case Opcode::OP_S_SUBS: {

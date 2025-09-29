@@ -44,6 +44,14 @@ static LogicalTensorDataPtr makeTensorData(DataType t, const std::vector<int64_t
 #define ASSERT_ALLCLOSE(self, other) \
     ASSERT(calc::AllClose(self, other)) << "lhs:\n" << self->ToString() << "\nrhs:\n" << other->ToString() << "\n"
 
+TEST_F(TorchAdaptorTest, LogicalNot) {
+    auto self = makeTensorData(DT_FP32, {16, 16}, 4.0f);
+    auto out = makeTensorData(DT_BOOL, {16, 16}, true);
+    auto golden = makeTensorData(DT_BOOL, {16, 16}, false);
+    calc::LogicalNot(out, self);
+    ASSERT_ALLCLOSE(out, golden);
+}
+
 TEST_F(TorchAdaptorTest, UnaryOps) {
     {
         // rsqrt

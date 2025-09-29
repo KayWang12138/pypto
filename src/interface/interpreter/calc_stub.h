@@ -28,6 +28,7 @@ inline void Rsqrt(LogicalTensorDataPtr, LogicalTensorDataPtr) {}
 inline void Sqrt(LogicalTensorDataPtr, LogicalTensorDataPtr) {}
 inline void Abs(LogicalTensorDataPtr, LogicalTensorDataPtr) {}
 inline void Ln(LogicalTensorDataPtr, LogicalTensorDataPtr) {}
+inline void LogicalNot(LogicalTensorDataPtr, LogicalTensorDataPtr) {}
 
 inline void AddS(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, bool) {}
 inline void SubS(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, bool) {}

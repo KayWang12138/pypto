@@ -124,6 +124,9 @@ private:
                 case DataType::DT_INT32:
                     readGoldenCmp<int32_t>(tensor, testCase.goldenPaths[i], i, 0);
                     break;
+                case DataType::DT_BOOL:
+                    readGoldenCmp<int8_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    break;
                 case DataType::DT_UINT8:
                     readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
                     break;

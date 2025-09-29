@@ -65,7 +65,9 @@ set(_CaseFilterList
         "TestTranspose/TransposeOperationTest.TestTranspose/18"
         "TestVectorDuplicate/VectorDuplicateOperationTest.TestVectorDuplicate/0"
         "TestVectorDuplicate/VectorDuplicateOperationTest.TestVectorDuplicate/5"
-        "TestVectorDuplicate/VectorDuplicateOperationTest.TestVectorDuplicate/9"        
+        "TestVectorDuplicate/VectorDuplicateOperationTest.TestVectorDuplicate/9"
+        "TestLogicalNot/LogicalNotOperationTest.TestLogicalNot/1"
+        "TestLogicalNot/LogicalNotOperationTest.TestLogicalNot/4" 
 )
 
 set(_Target ${PTO_Fwk_STestNamePrefix}_operation)

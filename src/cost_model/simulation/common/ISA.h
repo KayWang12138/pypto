@@ -60,6 +60,7 @@ const std::map<std::string, CorePipeType> SCHED_CORE_PIPE_TYPE { // Unary Vector
     {"MUL_BRC", CorePipeType::PIPE_VECTOR_ALU},
     {"DIV_BRC", CorePipeType::PIPE_VECTOR_ALU},
     {"MAX_BRC", CorePipeType::PIPE_VECTOR_ALU},
+    {"LOGICALNOT", CorePipeType::PIPE_VECTOR_ALU},
     {"S_MINS", CorePipeType::PIPE_VECTOR_ALU},
     {"TRANSPOSE", CorePipeType::PIPE_VECTOR_ALU},
     {"TRANSPOSE_MOVEOUT", CorePipeType::PIPE_MTE_OUT},

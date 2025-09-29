@@ -43,6 +43,7 @@ void Rsqrt(LogicalTensorDataPtr out, LogicalTensorDataPtr self);
 void Sqrt(LogicalTensorDataPtr out, LogicalTensorDataPtr self);
 void Abs(LogicalTensorDataPtr out, LogicalTensorDataPtr self);
 void Ln(LogicalTensorDataPtr out, LogicalTensorDataPtr self);
+void LogicalNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self);
 
 void AddS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false);
 void SubS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false);

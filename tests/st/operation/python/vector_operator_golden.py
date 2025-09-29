@@ -539,6 +539,22 @@ def gen_add_op_golden(case_name: str, output: Path, case_index: int = None) -> b
 
 @GoldenRegister.reg_golden_func(
     case_names=[
+        "TestLogicalNot/LogicalNotOperationTest.TestLogicalNot",
+    ]
+)
+def gen_logical_not_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs: list, _config: dict):
+        x = torch.tensor(inputs[0])
+        x = torch.logical_not(x)
+        return [np.array(x)]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("LogicalNot", golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
         "TestSub/SubOperationTest.TestSub",
     ]
 )

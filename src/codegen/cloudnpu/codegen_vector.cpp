@@ -494,9 +494,9 @@ std::string CodeGenOpCloudNPU::GenUnaryOp() const {
         return PrintReduceEx({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     } else if (opCode == Opcode::OP_ROWSUMLINE || opCode == Opcode::OP_ROWMAXLINE || opCode == Opcode::OP_ROWMINLINE) {
         return PrintRowSumline({s0Var, dVar, srcDtypeStr, dstDtypeStr});
-    } else if (opCode == Opcode::OP_EXP || opCode == Opcode::OP_SQRT || opCode == Opcode::OP_ABS ||
+    } else if (opCode == Opcode::OP_EXP || opCode == Opcode::OP_SQRT || opCode == Opcode::OP_ABS || 
                opCode == Opcode::OP_RECIPROCAL || opCode == Opcode::OP_NEG || opCode == Opcode::OP_RSQRT ||
-               opCode == Opcode::OP_LN) {
+               opCode == Opcode::OP_LN || opCode == Opcode::OP_LOGICALNOT) {
         return PrintUnary({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     } else if (opCode == Opcode::OP_COPY_UB_TO_UB) {
         return PrintVcopy({s0Var, dVar, srcDtypeStr, dstDtypeStr});
@@ -2490,4 +2490,72 @@ std::string CodeGenOpCloudNPU::GenCompareAndSwapOp() const {
     return os.str();
 }
 
+std::string CodeGenOpCloudNPU::GenLogicalNotOp() const{
+    // Support 2 dim
+        enum class OpIdx : int {
+        resIdx = 0,
+        castIdx,
+        cmpIdx,
+        vcmpIdx,
+        startAddrIdx,
+        oneCondIdx,
+        srcIdx
+    };
+
+    std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::resIdx)]);
+    std::string castVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::castIdx)]);
+    std::string cmpVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::cmpIdx)]);
+    std::string vcmpVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::vcmpIdx)]);
+    std::string startAddrVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::startAddrIdx)]);
+    std::string oneCondVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::oneCondIdx)]);
+    std::string srcVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::srcIdx)]);
+
+    std::vector dstShape = this->rawShape[ToUnderlying(OpIdx::resIdx)];
+    std::vector srcShape = this->rawShape[ToUnderlying(OpIdx::srcIdx)];
+
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::resIdx)]);
+    std::string castDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::castIdx)]);
+    std::string cmpDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::cmpIdx)]);
+    std::string vcmpDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::vcmpIdx)]);
+    std::string startAddrDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::startAddrIdx)]);
+    std::string oneCondDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::oneCondIdx)]);
+    std::string srcDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::srcIdx)]);
+
+    AppendLocalBufferVarOffset(std::vector{&dstVar, &castVar, &cmpVar, &vcmpVar, &startAddrVar, &oneCondVar, &srcVar});
+    
+    std::ostringstream os;
+    std::vector<std::string> paramList;
+    paramList.emplace_back(srcDtypeStr);
+    paramList.emplace_back(cmpDtypeStr);
+    int dim = dstShape.size();
+    for (auto i = 1; i < dim; i++) {
+        paramList.emplace_back(std::to_string(dstShape[i]));
+    }
+    for (auto i = 1; i < dim; i++) {
+        paramList.emplace_back(std::to_string(srcShape[i]));
+    }
+    
+    std::string templateParam = JoinString(paramList, ", ");
+
+    paramList.clear();
+
+    paramList.emplace_back("(__ubuf__ " + dstDtypeStr + "*)" + dstVar);
+    paramList.emplace_back("(__ubuf__ " + srcDtypeStr + "*)" + srcVar);
+    paramList.emplace_back("(__ubuf__ " + castDtypeStr + "*)" + castVar);
+    paramList.emplace_back("(__ubuf__ " + cmpDtypeStr + "*)" + cmpVar);
+    paramList.emplace_back("(__ubuf__ " + vcmpDtypeStr + "*)" + vcmpVar);
+    paramList.emplace_back("(__ubuf__ " + startAddrDtypeStr + "*)" + startAddrVar);
+    paramList.emplace_back("(__ubuf__ " + oneCondDtypeStr + "*)" + oneCondVar);
+
+    auto dynSrcShape = dynamicValidShape[ToUnderlying(OpIdx::srcIdx)];
+    for (auto dyn : dynSrcShape) {
+        paramList.emplace_back(dyn.Dump());
+    }
+    std::string tiloOpCallParam = JoinString(paramList, ", ");
+
+    os << tileOpName.c_str() << "<" << templateParam << ">"
+       << "(" << tiloOpCallParam << ");\n";
+
+    return os.str();
+}
 } // namespace npu::tile_fwk
