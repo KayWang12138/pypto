@@ -275,7 +275,7 @@ bool SrcDstBufferMergeImpl::CanSrcDstReuse(const Operation *ops,
     if (ops->GetOOperands().size() == 0) {
         return false;
     }
-    if (std::find(SCATTER_ELEMENT_OPS.begin(), DISTRIBUTED_OPS.end(), ops->GetOpcode()) != DISTRIBUTED_OPS.end()) {
+    if (std::find(SCATTER_ELEMENT_OPS.begin(), SCATTER_ELEMENT_OPS.end(), ops->GetOpcode()) != SCATTER_ELEMENT_OPS.end()) {
         if (ioperand == ops->GetIOperands()[0]) {
             return true;
         }
