@@ -49,6 +49,8 @@ set(_CaseFilterList
         "TestRsqrt/RsqrtOperationTest.TestRsqrt/2"
         "TestRsqrt/RsqrtOperationTest.TestRsqrt/3"
         "TestSqrt/SqrtOperationTest.TestSqrt/0"
+        "TestLog/LogOperationTest.TestLog/2"
+        "TestLog/LogOperationTest.TestLog/5"
         "TestSub/SubOperationTest.TestSub/2"
         "TestSub/SubOperationTest.TestSub/3"
         "TestSubs/SubsOperationTest.TestSubs/0"

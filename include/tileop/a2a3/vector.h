@@ -153,6 +153,12 @@ constexpr unsigned REPEAT_STRIDE_MAX = 255;
 #include "vector_una.h"
 #undef T_UNA
 #undef V_UNA_FUNC
+// LN
+#define T_UNA Tln_
+#define V_UNA_FUNC vln
+#include "vector_una.h"
+#undef T_UNA
+#undef V_UNA_FUNC
 
 template <typename T, unsigned T0, unsigned T1, unsigned DS, unsigned SS, unsigned TS>
 TILEOP void Ttranspose_vnchwconv_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
