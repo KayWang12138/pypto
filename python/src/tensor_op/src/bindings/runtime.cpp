@@ -162,9 +162,15 @@ std::string DeviceRunOnceDataFromHost(py::list &inputPythonDataList, py::list &o
     return "";
 }
 
-std::string DeviceRunOnceDataFromDevice(py::list &inputDeviceAddrList, py::list &outputDeviceAddrList, py::int_ incomingStreamPython) {
+std::string OperatorDeviceRunOnceDataFromDevice(py::int_ pythonOperatorPython, py::list &inputDeviceAddrList, py::list &outputDeviceAddrList, py::int_ incomingStreamPython) {
+    auto opAddr = static_cast<uintptr_t>(pythonOperatorPython);
+    if (opAddr == 0) {
+        return "invalid operator";
+    }
+    ExportedOperator *op = reinterpret_cast<ExportedOperator *>(opAddr);
+
     (void)incomingStreamPython;
-    Function *func = Program::GetInstance().GetLastFunction();
+    Function *func = op->GetFunction();
     if (!func->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC, GraphType::TENSOR_GRAPH)) {
         return "Invalid function format";
     }
@@ -199,8 +205,7 @@ std::string DeviceRunOnceDataFromDevice(py::list &inputDeviceAddrList, py::list 
 
     auto aicpuStream = incomingStream;
     auto aicoreStream = DeviceGetAicoreStream();
-    int rc = DeviceLaunchOnceWithDeviceTensorData(
-        Program::GetInstance().GetLastFunction(), inputList, outputList, aicpuStream, aicoreStream, false);
+    int rc = ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(op, inputList, outputList, aicpuStream, aicoreStream, false);
     if (rc < 0) {
         return "device run failed";
     }
@@ -215,11 +220,24 @@ void DeviceFini() {
     DeviceLauncherFini();
 }
 
+uintptr_t OperatorBegin() {
+    auto op = ExportedOperatorBegin();
+    auto opAddr = reinterpret_cast<uintptr_t>(op);
+    return opAddr;
+}
+
+void OperatorEnd(uintptr_t opAddr) {
+    ExportedOperator *op = reinterpret_cast<ExportedOperator *>(opAddr);
+    ExportedOperatorEnd(op);
+}
+
 void BindRuntime(py::module &m) {
     m.def("DeviceInit", &DeviceInit);
     m.def("DeviceFini", &DeviceFini);
     m.def("DeviceRunOnceDataFromHost", &DeviceRunOnceDataFromHost);
-    m.def("DeviceRunOnceDataFromDevice", &DeviceRunOnceDataFromDevice);
+    m.def("OperatorDeviceRunOnceDataFromDevice", &OperatorDeviceRunOnceDataFromDevice);
+    m.def("OperatorBegin", OperatorBegin);
+    m.def("OperatorEnd", OperatorEnd);
 }
 
 #else

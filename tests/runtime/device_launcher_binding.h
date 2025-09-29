@@ -54,8 +54,37 @@ struct DeviceLauncherConfig {
     DeviceLauncherConfig(const std::vector<std::uint64_t> &addrs) : hcclContext(addrs) {}
 };
 
-int DeviceLaunchOnceWithDeviceTensorData(
-        Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
+class CachedOperator {
+public:
+    static uint8_t **GetInputListDevAddrHolder(CachedOperator *cachedOperator) {
+        return cachedOperator == nullptr ? nullptr : &cachedOperator->inputListDevAddr_;
+    }
+    static uint8_t **GetOutputListDevAddrHolder(CachedOperator *cachedOperator) {
+        return cachedOperator == nullptr ? nullptr : &cachedOperator->outputListDevAddr_;
+    }
+    static uint8_t **GetWorkspaceDevAddrHolder(CachedOperator *cachedOperator) {
+        return cachedOperator == nullptr ? nullptr : &cachedOperator->workspaceDevAddr_;
+    }
+    static uint8_t **GetCfgDataDevAddrHolder(CachedOperator *cachedOperator) {
+        return cachedOperator == nullptr ? nullptr : &cachedOperator->cfgDataDevAddr_;
+    }
+private:
+    uint8_t *inputListDevAddr_{nullptr};
+    uint8_t *outputListDevAddr_{nullptr};
+    uint8_t *workspaceDevAddr_{nullptr};
+    uint8_t *cfgDataDevAddr_{nullptr};
+};
+
+class ExportedOperator : public CachedOperator {
+public:
+    void ResetFunction(Function *func) { func_ = func; }
+    Function *GetFunction() const { return func_; }
+private:
+    Function *func_;
+};
+
+int ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(
+        ExportedOperator *op, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
         DeviceStream aicpuStream, DeviceStream aicoreStream, bool streamSynchronize,
         const DeviceLauncherConfig &config = DeviceLauncherConfig());
 
@@ -66,6 +95,10 @@ int HasInplaceArgs(Function *function);
 void DeviceLauncherInit();
 
 void DeviceLauncherFini();
+
+ExportedOperator *ExportedOperatorBegin();
+
+void ExportedOperatorEnd(ExportedOperator *op);
 
 }
 

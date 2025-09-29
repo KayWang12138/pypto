@@ -35,8 +35,8 @@ int EmulationLauncher::EmulationLaunchOnceWithHostTensorData(
     std::cout << "!!! Emulation Launch " << "\n";
 
     AstKernelArgs kArgs;
-    DeviceLauncher::DeviceInitTilingData(EmulationMemoryUtils(), kArgs, function, config);
-    DeviceLauncher::DeviceInitKernelInOuts(EmulationMemoryUtils(), kArgs, inputList, outputList);
+    DeviceLauncher::DeviceInitTilingData(EmulationMemoryUtils(), kArgs, function, config, nullptr);
+    DeviceLauncher::DeviceInitKernelInOuts(EmulationMemoryUtils(), kArgs, inputList, outputList, nullptr);
 
     constexpr int threadNum = 6;
     std::thread aicpuThreadList[threadNum];
@@ -81,7 +81,7 @@ int EmulationLauncher::EmulationRunOnce(Function *function, const DeviceLauncher
     auto &outputDataList = ProgramData::GetInstance().GetOutputDataList();
     std::vector<DeviceTensorData> inputDeviceDataList;
     std::vector<DeviceTensorData> outputDeviceDataList;
-    std::tie(inputDeviceDataList, outputDeviceDataList) = DeviceLauncher::BuildInputOutput(EmulationMemoryUtils(), inputDataList, outputDataList);
+    std::tie(inputDeviceDataList, outputDeviceDataList) = DeviceLauncher::BuildInputOutputFromHost(EmulationMemoryUtils(), inputDataList, outputDataList);
     int rc = EmulationLaunchOnceWithHostTensorData(function, inputDeviceDataList, outputDeviceDataList, config);
     return rc;
 }

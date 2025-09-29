@@ -79,21 +79,28 @@ protected:
 };
 
 struct DeviceMemoryUtils {
-    uint8_t *AllocDev(size_t size) {
+    uint8_t *AllocDev(size_t size, uint8_t **cachedDevAddrHolder) {
         uint8_t *devPtr = nullptr;
-        machine::GetRA()->AllocDevAddr(&devPtr, size);
+        if (cachedDevAddrHolder == nullptr) {
+            machine::GetRA()->AllocDevAddr(&devPtr, size);
+        } else if (*cachedDevAddrHolder == nullptr) {
+            machine::GetRA()->AllocDevAddr(&devPtr, size);
+            *cachedDevAddrHolder = devPtr;
+        } else {
+            devPtr = *cachedDevAddrHolder;
+        }
         return devPtr;
     }
 
-    uint8_t *CopyToDev(uint8_t *data, uint64_t size) {
-        uint8_t *devPtr = AllocDev(size);
+    uint8_t *CopyToDev(uint8_t *data, uint64_t size, uint8_t **cachedDevAddrHolder) {
+        uint8_t *devPtr = AllocDev(size, cachedDevAddrHolder);
         rtMemcpy(devPtr, size, data, size, RT_MEMCPY_HOST_TO_DEVICE);
         return devPtr;
     }
 
     template <typename T>
-    T *CopyToDev(std::vector<T> data) {
-        return (T *)CopyToDev((uint8_t *)data.data(), data.size() * sizeof(T));
+    T *CopyToDev(std::vector<T> data, uint8_t **cachedDevAddrHolder) {
+        return (T *)CopyToDev((uint8_t *)data.data(), data.size() * sizeof(T), cachedDevAddrHolder);
     }
 
     void CopyFromDev(uint8_t *data, uint8_t *devPtr, uint64_t size) {
@@ -102,7 +109,7 @@ struct DeviceMemoryUtils {
 
     uint8_t *CopyToDev(RawTensorData &data) {
         if (data.GetDevPtr() == nullptr) {
-            auto devPtr = CopyToDev((uint8_t *)data.data(), data.size());
+            auto devPtr = CopyToDev((uint8_t *)data.data(), data.size(), nullptr);
             data.SetDevPtr(devPtr);
         }
         return data.GetDevPtr();
@@ -132,7 +139,8 @@ public:
             DeviceMemoryTy devMem,
             AstKernelArgs &kArgs,
             Function *func,
-            const DeviceLauncherConfig &config) {
+            const DeviceLauncherConfig &config,
+            CachedOperator *cachedOperator) {
         const std::vector<uint8_t> &devProgData = GetDevProg(func);
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
         devProg->devArgs.nrAic = kDefaultAicNum;
@@ -148,8 +156,9 @@ public:
         for (size_t i = 0; i < devProg->commGroupNum; i++) {
             devProg->hcclContext[i] = config.hcclContext[i];
         }
-        kArgs.workspace = (int64_t *)devMem.AllocDev(devProg->workspaceSize);
-        kArgs.cfgdata = (int64_t *)devMem.CopyToDev(GetDevProg(func));
+
+        kArgs.workspace = (int64_t *)devMem.AllocDev(devProg->workspaceSize, CachedOperator::GetWorkspaceDevAddrHolder(cachedOperator));
+        kArgs.cfgdata = (int64_t *)devMem.CopyToDev(GetDevProg(func), CachedOperator::GetCfgDataDevAddrHolder(cachedOperator));
         kArgs.machineConfig = devProg->devArgs.machineConfig;
         return;
     }
@@ -159,7 +168,8 @@ public:
             DeviceMemoryTy devMem,
             AstKernelArgs &kArgs,
             const std::vector<DeviceTensorData> &inputList,
-            const std::vector<DeviceTensorData> &outputList) {
+            const std::vector<DeviceTensorData> &outputList,
+            CachedOperator *cachedOperator) {
         auto buildInouts = [&](const std::vector<DeviceTensorData> &tensorDataList) {
             std::vector<DevTensorData> geTensors;
             for (size_t k = 0; k < tensorDataList.size(); k++) {
@@ -170,18 +180,20 @@ public:
                 }
                 geTensors.emplace_back(DevAscendTensorDataCreator::Create(addr, tensorData.GetShape()));
             }
-            std::vector<int64_t> outs = DevAscendTensorDataCreator::Encode(geTensors);
-            return devMem.CopyToDev(outs);
+            std::vector<int64_t> encoded = DevAscendTensorDataCreator::Encode(geTensors);
+            return encoded;
         };
-        kArgs.inputs = buildInouts(inputList);
-        kArgs.outputs = buildInouts(outputList);
+        std::vector<int64_t> encodedInputList = buildInouts(inputList);
+        std::vector<int64_t> encodedOutputList = buildInouts(outputList);
+        kArgs.inputs = devMem.CopyToDev(encodedInputList, CachedOperator::GetInputListDevAddrHolder(cachedOperator));
+        kArgs.outputs = devMem.CopyToDev(encodedOutputList, CachedOperator::GetOutputListDevAddrHolder(cachedOperator));
         ALOG_INFO_F("Inputs %p outputs %p workspace %p cfgdata %p", kArgs.inputs, kArgs.outputs, kArgs.workspace,
             kArgs.cfgdata);
         return;
     }
 
     template<typename DeviceMemoryTy>
-    static std::pair<std::vector<DeviceTensorData>, std::vector<DeviceTensorData>> BuildInputOutput(
+    static std::pair<std::vector<DeviceTensorData>, std::vector<DeviceTensorData>> BuildInputOutputFromHost(
             DeviceMemoryTy devMem,
             const std::vector<RawTensorDataPtr> &inputDataList,
             const std::vector<RawTensorDataPtr> &outputDataList) {
@@ -225,7 +237,7 @@ public:
 
     static int DeviceLaunchOnceWithDeviceTensorData(
             Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
-            rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize,
+            rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator,
             const DeviceLauncherConfig &config = DeviceLauncherConfig());
 
     static int DeviceRunOnce(Function *function, const DeviceLauncherConfig &config = DeviceLauncherConfig());

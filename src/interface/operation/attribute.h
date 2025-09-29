@@ -19,6 +19,7 @@
 #include <vector>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include "interface/inner/hash_buffer.h"
 #include "tilefwk/error.h"
 #include "tilefwk/data_type.h"

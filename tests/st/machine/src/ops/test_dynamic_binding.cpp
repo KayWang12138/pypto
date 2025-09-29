@@ -184,6 +184,8 @@ TEST_F(DynamicBindingTest, TestDeviceCompute) {
         RawTensorData::CreateTensor<int32_t>(output, outputGolden),
     });
 
+    ExportedOperator *op = ExportedOperatorBegin();
+
     FUNCTION("main", funConfig, {inputA, inputB}, {output}) {
         LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(m / tiling32)) {
             auto tmpA = View(inputA, {tiling32, tiling32}, {0, i * tiling32});
@@ -193,6 +195,8 @@ TEST_F(DynamicBindingTest, TestDeviceCompute) {
         }
     }
 
+    ExportedOperatorEnd(op);
+
     std::vector<DeviceTensorData> inputList = {
         DeviceTensorData((uintdevptr_t)inputADevAddr, inputA.GetShape()),
         DeviceTensorData((uintdevptr_t)inputBDevAddr, inputB.GetShape()),
@@ -201,9 +205,9 @@ TEST_F(DynamicBindingTest, TestDeviceCompute) {
         DeviceTensorData((uintdevptr_t)outputDevAddr, output.GetShape()),
     };
 
-    auto aicpuStream = machine::GetRA()->GetStreamAICPU();
-    auto aicoreStream = machine::GetRA()->GetStream();
-    EXPECT_EQ(0, DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(Program::GetInstance().GetLastFunction(), inputList, outputList, aicpuStream, aicoreStream, true));
+    auto aicpuStream = reinterpret_cast<DeviceStream>(machine::GetRA()->GetStreamAICPU());
+    auto aicoreStream = reinterpret_cast<DeviceStream>(machine::GetRA()->GetStream());
+    EXPECT_EQ(0, ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(op, inputList, outputList, aicpuStream, aicoreStream, true));
 
     agent->CopyFromDev((uint8_t *)outputData.data(), outputDevAddr, outputData.size() * sizeof(int32_t));
 

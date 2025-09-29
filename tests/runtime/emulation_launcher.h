@@ -36,19 +36,21 @@
 namespace npu::tile_fwk::dynamic {
 
 struct EmulationMemoryUtils {
-    uint8_t *AllocDev(size_t size) {
+    uint8_t *AllocDev(size_t size, uint8_t **cachedDevAddrHolder) {
+        (void)cachedDevAddrHolder;
         uint8_t *devPtr = machine::GetRA()->AllocHostAddr(size);
         return devPtr;
     }
 
     uint8_t *CopyToDev(uint8_t *data, uint64_t size) {
-        uint8_t *devPtr = AllocDev(size);
+        uint8_t *devPtr = AllocDev(size, nullptr);
         memcpy_s(devPtr, size, data, size);
         return devPtr;
     }
 
     template <typename T>
-    T *CopyToDev(std::vector<T> data) {
+    T *CopyToDev(std::vector<T> data, uint8_t **cachedDevAddrHolder) {
+        (void)cachedDevAddrHolder;
         return (T *)CopyToDev((uint8_t *)data.data(), data.size() * sizeof(T));
     }
 

@@ -499,7 +499,7 @@ int CodeGenCloudNPU::CompileCCE(const CompileInfo &compileInfo, const std::strin
 
     ret = std::system(ccecCmd.c_str());
     if (ret != 0) {
-        ALOG_INFO_F("CompileCce ccec failed %d", ret);
+        ALOG_ERROR_F("CompileCce ccec failed %d: %s", ret, ccecCmd.c_str());
     }
     return ret;
 }

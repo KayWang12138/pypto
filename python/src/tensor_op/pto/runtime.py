@@ -18,7 +18,7 @@ import torch
 
 device_init = pto_impl.DeviceInit
 device_fini = pto_impl.DeviceFini
-device_run_once_data_from_device = pto_impl.DeviceRunOnceDataFromDevice
+device_run_once_data_from_device = pto_impl.OperatorDeviceRunOnceDataFromDevice
 
 
 def _fill_data_to_target_inplace(output_list, target):
@@ -100,16 +100,29 @@ def device_run_once_data_from_host(input_list: List, output_list: List):
         _fill_data_to_target_inplace(src_data, output)
 
 
-def jit(origin_func):
-    def onboard_func(input_list, output_list):
-        pto_impl.DeviceInit()
+class PythonOperator:
+    def __init__(self, origin_func):
+        handler = pto_impl.OperatorBegin()
         origin_func()
+        pto_impl.OperatorEnd(handler)
+        self._handler = handler
+
+    def __call__(self, input_list, output_list):
         stream = torch.npu.current_stream()
         stream.synchronize()
-        pto_impl.DeviceRunOnceDataFromDevice([input.data_ptr() for input in input_list],
-                                             [output.data_ptr() for output in output_list],
-                                             stream.npu_stream)
+        pto_impl.OperatorDeviceRunOnceDataFromDevice(
+            self._handler,
+            [input.data_ptr() for input in input_list],
+            [output.data_ptr() for output in output_list],
+            stream.npu_stream)
         stream.synchronize()
-        pto_impl.DeviceFini()
-        return None
-    return onboard_func
+
+    @property
+    def handler(self):
+        return self._handler
+
+
+def jit(origin_func):
+    pto_impl.DeviceInit()
+    op = PythonOperator(origin_func)
+    return op

@@ -34,7 +34,7 @@ struct MemoryHelper {
     MemoryHelper(bool isTest) : isTest_(isTest) {}
 
     uint8_t *CopyToDev(uint8_t *data, uint64_t size) {
-        uint8_t *devPtr = AllocDev(size);
+        uint8_t *devPtr = AllocDev(size, nullptr);
         if (isTest_)
             memcpy_s(devPtr, size, data, size);
         else
@@ -49,7 +49,8 @@ struct MemoryHelper {
             rtMemcpy(data, size, devPtr, size, RT_MEMCPY_DEVICE_TO_HOST);
     }
 
-    uint8_t *AllocDev(size_t size) {
+    uint8_t *AllocDev(size_t size, uint8_t **cachedDevAddrHolder) {
+        (void)cachedDevAddrHolder;
         uint8_t *devPtr = nullptr;
         if (isTest_)
             devPtr = machine::GetRA()->AllocHostAddr(size);
@@ -59,7 +60,7 @@ struct MemoryHelper {
     }
 
     uint8_t *AllocZero(uint64_t size) {
-        uint8_t *devPtr = AllocDev(size);
+        uint8_t *devPtr = AllocDev(size, nullptr);
         if (isTest_)
             memset(devPtr, 0, size);
         else
@@ -68,7 +69,8 @@ struct MemoryHelper {
     }
 
     template <typename T>
-    T *CopyToDev(std::vector<T> data) {
+    T *CopyToDev(std::vector<T> data, uint8_t **cachedDevAddrHolder) {
+        (void)cachedDevAddrHolder;
         return (T *)CopyToDev((uint8_t *)data.data(), data.size() * sizeof(T));
     }
 
@@ -139,7 +141,7 @@ private:
             return;
         }
         AstKernelArgs kArgs;
-        DeviceInitTilingData(MemoryHelper(true), kArgs, function_, config_);
+        DeviceInitTilingData(MemoryHelper(true), kArgs, function_, config_, nullptr);
         for (int i = 0; i < config_.repeatNum; i++) {
             InitKernelInOuts(kArgs, inputs, outputs, true);
             std::cout << "!!! Run CostModel " << i << "\n";
@@ -230,7 +232,7 @@ private:
         if (rc == 0 || rc == ACL_ERROR_REPEAT_INITIALIZE) {
             rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
             AstKernelArgs kArgs;
-            DeviceInitTilingData(MemoryHelper(false), kArgs, function_, config_);
+            DeviceInitTilingData(MemoryHelper(false), kArgs, function_, config_, nullptr);
             auto aicpuStream = machine::GetRA()->GetStreamAICPU();
             auto aicoreStream = machine::GetRA()->GetStream();
             for (int i = 0; i < config_.repeatNum; i++) {
@@ -321,8 +323,8 @@ private:
         const std::vector<RawTensorDataPtr> &outputTensors, bool isTest) {
         std::vector<DeviceTensorData> inputList;
         std::vector<DeviceTensorData> outputList;
-        std::tie(inputList, outputList) = BuildInputOutput(MemoryHelper(isTest), inputTensors, outputTensors);
-        DeviceInitKernelInOuts(MemoryHelper(isTest), kArgs, inputList, outputList);
+        std::tie(inputList, outputList) = BuildInputOutputFromHost(MemoryHelper(isTest), inputTensors, outputTensors);
+        DeviceInitKernelInOuts(MemoryHelper(isTest), kArgs, inputList, outputList, nullptr);
         ALOG_INFO_F("Inputs %p outputs %p workspace %p cfgdata %p", kArgs.inputs, kArgs.outputs, kArgs.workspace,
             kArgs.cfgdata);
         return;

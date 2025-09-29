@@ -29,7 +29,7 @@ DeviceLauncherContext &DeviceLauncherContext::Get() {
 
 int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
-        rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize,
+        rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator,
         const DeviceLauncherConfig &config) {
     std::cout << "!!! Kernel Launch " << "\n";
     if (function != nullptr && function->GetDyndevAttribute() != nullptr) {
@@ -39,8 +39,8 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     if (rc == 0 || rc == ACL_ERROR_REPEAT_INITIALIZE) {
         rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
         AstKernelArgs kArgs;
-        DeviceInitTilingData(DeviceMemoryUtils(), kArgs, function, config);
-        DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList);
+        DeviceInitTilingData(DeviceMemoryUtils(), kArgs, function, config, cachedOperator);
+        DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList, cachedOperator);
         rc = DeviceRunner::Get().DynamicLaunch(aicpuStream, aicoreStream, 0, &kArgs, config.blockdim, config.aicpuNum);
         if (rc < 0) {
             return rc;
@@ -59,8 +59,8 @@ int DeviceLauncher::DeviceRunOnce(Function *function, const DeviceLauncherConfig
     auto aicoreStream = machine::GetRA()->GetStream();
     std::vector<DeviceTensorData> inputDeviceDataList;
     std::vector<DeviceTensorData> outputDeviceDataList;
-    std::tie(inputDeviceDataList, outputDeviceDataList) = BuildInputOutput(DeviceMemoryUtils(), inputDataList, outputDataList);
-    int rc = DeviceLaunchOnceWithDeviceTensorData(function, inputDeviceDataList, outputDeviceDataList, aicpuStream, aicoreStream, true, config);
+    std::tie(inputDeviceDataList, outputDeviceDataList) = BuildInputOutputFromHost(DeviceMemoryUtils(), inputDataList, outputDataList);
+    int rc = DeviceLaunchOnceWithDeviceTensorData(function, inputDeviceDataList, outputDeviceDataList, aicpuStream, aicoreStream, true, nullptr, config);
     CopyFromDev(DeviceMemoryUtils(), outputDataList);
     if (HasInplaceArgs(function)) {
         CopyFromDev(DeviceMemoryUtils(), inputDataList);
@@ -78,13 +78,13 @@ DeviceStream DeviceGetAicoreStream() {
     return reinterpret_cast<DeviceStream>(aicoreStreamValue);
 }
 
-int DeviceLaunchOnceWithDeviceTensorData(
-        Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
+int ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(
+        ExportedOperator *op, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
         DeviceStream aicpuStream, DeviceStream aicoreStream, bool streamSynchronize,
         const DeviceLauncherConfig &config) {
     rtStream_t aicpuStreamValue = reinterpret_cast<rtStream_t>(aicpuStream);
     rtStream_t aicoreStreamValue = reinterpret_cast<rtStream_t>(aicoreStream);
-    return DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(function, inputList, outputList, aicpuStreamValue, aicoreStreamValue, streamSynchronize, config);
+    return DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(op->GetFunction(), inputList, outputList, aicpuStreamValue, aicoreStreamValue, streamSynchronize, op, config);
 }
 
 int DeviceRunOnce(Function *function, const DeviceLauncherConfig &config) {
@@ -101,6 +101,18 @@ void DeviceLauncherInit() {
 
 void DeviceLauncherFini() {
     DeviceLauncherContext::Get().DeviceFini();
+}
+
+static std::unordered_map<ExportedOperator *, std::shared_ptr<ExportedOperator>> exportedOperatorDict;
+
+ExportedOperator *ExportedOperatorBegin() {
+    std::shared_ptr<ExportedOperator> op = std::make_shared<ExportedOperator>();
+    exportedOperatorDict[op.get()] = op;
+    return op.get();
+}
+
+void ExportedOperatorEnd(ExportedOperator *op) {
+    op->ResetFunction(Program::GetInstance().GetLastFunction());
 }
 
 }

@@ -120,15 +120,6 @@ def test_device_run_data_from_device():
     tiling = 32
     n, m = tiling * 1, tiling * 1
 
-    # prepare data
-    a_rawdata = torch.tensor([[k * 100 + v for v in range(m)] for k in range(n)])
-    a_data = a_rawdata.to(dtype=torch.int32, device=f'npu:{device_id}')
-    b_data = torch.zeros((n, m), dtype=torch.int32, device=f'npu:{device_id}')
-
-    # def inputs and outputs
-    inputs = [a_data]
-    outputs = [b_data]
-
     # def dynamic function
     @pto.jit
     def cust_dyn_func():
@@ -144,12 +135,26 @@ def test_device_run_data_from_device():
                         b.move(pto.add(a, b))
         assert isinstance(b, pto.tensor)
 
+    # prepare data
+    a_rawdata = torch.tensor([[k * 100 + v for v in range(m)] for k in range(n)])
+    a_data = a_rawdata.to(dtype=torch.int32, device=f'npu:{device_id}')
+    b_data = torch.zeros((n, m), dtype=torch.int32, device=f'npu:{device_id}')
+    # def inputs and outputs
+    inputs = [a_data]
+    outputs = [b_data]
     cust_dyn_func(inputs, outputs)
-
     # get data and compare result
     a_data_cpu = a_data.cpu()
     b_data_cpu = b_data.cpu()
-
+    # verify
     a_data_list = [c for r in a_data_cpu.tolist() for c in r]
     b_data_list = [c for r in b_data_cpu.tolist() for c in r]
     assert b_data_list == [v * 11 for v in a_data_list]
+
+    c_rawdata = torch.tensor([[k * 1000 + v for v in range(m)] for k in range(n)])
+    c_data = a_rawdata.to(dtype=torch.int32, device=f'npu:{device_id}')
+    d_data = torch.zeros((n, m), dtype=torch.int32, device=f'npu:{device_id}')
+    cust_dyn_func([c_data], [d_data])
+    c_data_list = [c for r in c_data.cpu().tolist() for c in r]
+    d_data_list = [c for r in d_data.cpu().tolist() for c in r]
+    assert d_data_list == [v * 11 for v in c_data_list]
