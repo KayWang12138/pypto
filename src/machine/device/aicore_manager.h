@@ -239,8 +239,10 @@ public:
         if (ret != npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
             DEV_ERROR("wait tail aiv task timeout .\n");
         }
-        while (!aicpuTaskManager_.Finished()) {
-            (void)aicpuTaskManager_.TaskProcess();
+        if (aicpuIdx_ == 1) {
+            while (!aicpuTaskManager_.Finished()) {
+                (void)aicpuTaskManager_.TaskProcess();
+            }
         }
         return ret;
     }

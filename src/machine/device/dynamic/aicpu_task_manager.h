@@ -30,10 +30,8 @@
 #include "machine/utils/machine_ws_intf.h"
 #include "interface/operation/opcode.h"
 #include "interface/utils/common.h"
-#include "tileop/hccl_context.h"
 
 namespace npu::tile_fwk::dynamic {
-constexpr uint32_t AICPU_QUEUE_SIZE = 1024;
 
 class AicpuTaskManager {
 public:
@@ -42,8 +40,8 @@ public:
         SHMEM_BARRIER_ALL,
         TASK_TYPE_NUM,
     };
-    using InitCallBack = std::function<void(npu::tile_fwk::dynamic::DynDeviceTask*)>;
-    using EnqueueOpCallBack = std::function<void(uint64_t, npu::tile_fwk::Distributed::TensorInfo&)>;
+    using InitCallBack = std::function<void(DynDeviceTask *)>;
+    using EnqueueOpCallBack = std::function<void(uint64_t, const npu::tile_fwk::dynamic::DevRelocVector<int32_t> &)>;
     using PollCompletedCallBack = std::function<void(std::vector<uint64_t> &)>;
 
     inline void TaskCallBackRegister() {}
@@ -74,9 +72,8 @@ public:
     // 仅AICPU_0会调用
     void Init(DynDeviceTask *deviceTask) {
         curDevTask_ = deviceTask;
-        funcDataList_ = reinterpret_cast<DynFuncData*>(curDevTask_->dynFuncData + 1);
+        funcDataList_ = reinterpret_cast<DynFuncData*>(deviceTask->dynFuncData + 1);
         readyQueue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(deviceTask->devTask.readyAicpuFunctionQue);
-        hcclContextAddr_ = funcDataList_->hcclContext;
         for (auto &init : initCallBack_) {
             init(deviceTask);
         }
@@ -136,70 +133,16 @@ private:
         return taskType;
     }
 
-    inline uint64_t GetCoa(const uint32_t index, __gm__ uint64_t* opAttrs, __gm__ uint64_t* expressionTable)
-    {
-        constexpr uint64_t valueLength = 63;
-        constexpr uint64_t valueMask = (1UL << valueLength) - 1;
-        const uint64_t encodedValue = opAttrs[index];
-        const bool isExpression = (encodedValue >> valueLength) & 1;
-        const uint64_t decodedValue = encodedValue & valueMask;
-        return isExpression ? expressionTable[decodedValue] : decodedValue;
-    }
-
-    inline std::vector<uint32_t> GetCoaVector(const uint32_t baseIndex, const uint32_t dim, __gm__ uint64_t* opAttrs,
-        __gm__ uint64_t* expressionTable)
-    {
-        std::vector<uint32_t> vec(dim);
-        for (uint32_t i = 0; i < dim; ++i) {
-            vec[i] = GetCoa(baseIndex + i, opAttrs, expressionTable);
-        }
-        return vec;
-    }
-
-    inline uint64_t GetRawAddr(const uint64_t addr, const uint64_t dstRankId) {
-        uint64_t groupIndex = npu::tile_fwk::Distributed::GetVirtaulAddrGroupIndex(addr);
-        uint64_t offset = npu::tile_fwk::Distributed::GetVirtaulAddrOffset(addr);
-        auto hcclOpParam = (struct TileOp::HcclCombinOpParam*)hcclContextAddr_[groupIndex];
-        return hcclOpParam->windowsIn[dstRankId] + offset;
-    }
-
-    inline npu::tile_fwk::Distributed::TensorInfo GetTensorInfo(const uint64_t taskId)
-    {
-        auto funcId = FuncID(taskId);
-        auto opIndex = TaskID(taskId);
-        auto &funcData = funcDataList_[funcId];
-        auto opAttrs = &funcData.opAttrs[funcData.opAtrrOffsets[opIndex]];
-        auto expressionTable = funcData.exprTbl;
-
-        auto callList = curDevTask_->cacheList[funcId].calleList;
-        auto &code = curDevTask_->aicpuLeafBinary[callList[opIndex]].aicpuLeafCode;
-        uint32_t index = code[5]; // waitUntil 对应5，后续由各个aicpu op从code中解析出index
-        npu::tile_fwk::Distributed::TensorInfo info;
-        info.rawIndex = GetCoa(index, opAttrs, expressionTable);
-        ++index; // 跳过 rawIndex
-        info.dim = 4; // 由shmem维度是4，后面也可以写入aicpuleaf code中
-        info.offset = GetCoaVector(index, info.dim, opAttrs, expressionTable);
-        index += info.dim;
-        info.shape = GetCoaVector(index, info.dim, opAttrs, expressionTable);
-        index += info.dim;
-        info.rawShape = GetCoaVector(index, info.dim, opAttrs, expressionTable);
-        index += info.dim;
-        info.dynValidShape = GetCoaVector(index, info.dim, opAttrs, expressionTable);
-        const uint32_t dstRankId = info.offset[0];
-        auto desc = &funcData.rawTensorDesc[info.rawIndex];
-        info.rawAddr = GetRawAddr(funcData.rawTensorAddr[desc->offsetOrIndex], dstRankId);
-
-        return info;
-    }
-
-    inline void TaskDispatch(uint64_t elem) {
-        auto taskType = GetTaskType(elem);
+    inline void TaskDispatch(uint64_t taskId) {
+        auto taskType = GetTaskType(taskId);
         if (taskType < TaskType::TASK_TYPE_NUM) {
             auto enqueueOp = enqueueOpCallBack_[static_cast<uint64_t>(taskType)];
-            auto tensor = GetTensorInfo(elem);
-            enqueueOp(elem, tensor);
+            auto funcId = FuncID(taskId);
+            auto opIndex = TaskID(taskId);
+            auto callList = curDevTask_->cacheList[funcId].calleList;
+            auto &code = curDevTask_->aicpuLeafBinary[callList[opIndex]].aicpuLeafCode;
+            enqueueOp(taskId, code);
         }
-        tasks_.push(elem);
     }
 
     ReadyCoreFunctionQueue *readyQueue_{nullptr};
@@ -212,8 +155,6 @@ private:
     std::array<PollCompletedCallBack, TaskType::TASK_TYPE_NUM> pollCompletedCallBack_;
 
     DynDeviceTask *curDevTask_;
-    npu::tile_fwk::DynFuncData *funcDataList_;
-    uint64_t *hcclContextAddr_;
-    std::queue<uint64_t> tasks_;
+    DynFuncData *funcDataList_;
 };
 } // namespace npu::tile_fwk

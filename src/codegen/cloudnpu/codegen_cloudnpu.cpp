@@ -508,24 +508,44 @@ bool CodeGenCloudNPU::HandleForAICpuSubFunc(Function &subFunc) {
     if (!subFunc.IsAicpuSubFunction().first) {
         return false;
     }
-
     std::vector<int32_t> code;
+    constexpr int32_t paramSizePerOperand = 2; // 每个 operand 都有 dim 和 coaIndex
     auto operationList = subFunc.Operations(false);
     for (const auto &op : operationList) {
         if (op.GetCoreType() != CoreType::AICPU) {
             continue;
         }
-
-        code.push_back(static_cast<int32_t>(op.GetOpcode()));
-        code.push_back(static_cast<int32_t>(op.GetOOperands().size()));
-        for (size_t i = 0; i < op.GetOOperands().size(); ++i) {
-            code.push_back(op.GetOOpAttrOffset(i));
+        std::map<std::string, npu::tile_fwk::Any> map = op.GetAllAttribute();
+        auto it = map.find("AicpuOpParams");
+        std::vector<int64_t> attrs;
+        if (it != map.end()) {
+            attrs = npu::tile_fwk::AnyCast<std::vector<int64_t>>(it->second);
         }
-        code.push_back(static_cast<int32_t>(op.GetIOperands().size()));
+        code.push_back(static_cast<int32_t>(op.GetOpcode()));
+
+        code.push_back(op.GetOOperands().size() * paramSizePerOperand);
+        for (size_t i = 0; i < op.GetOOperands().size(); ++i) {
+            code.push_back(op.GetOutputOperand(i)->shape.size());
+            code.push_back(op.GetOOpAttrOffset(i));   
+        }
+
+        code.push_back(op.GetIOperands().size() * paramSizePerOperand);
         for (size_t i = 0; i < op.GetIOperands().size(); ++i) {
-            code.push_back(op.GetIOpAttrOffset(i));
+            code.push_back(op.GetInputOperand(i)->shape.size());
+            code.push_back(op.GetIOpAttrOffset(i));   
+        }
+
+        if (attrs.size() != 0) {
+            code.push_back(static_cast<int32_t>(attrs.size()));
+            for (size_t i = 0; i < attrs.size(); ++i) {
+                code.push_back(static_cast<int32_t>(attrs[i]));
+            }
         }
         break;
+    }
+
+    if (code.size() % 2 != 0) { // 确保 code.size() 是 2 的倍数，间接保证 code 占用的字节数是 8 的倍数
+        code.push_back(0);
     }
 
     std::shared_ptr<LeafFuncAttribute> attr = std::make_shared<LeafFuncAttribute>();

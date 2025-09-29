@@ -34,7 +34,7 @@ void TestMoeCombine(OpTestParam &testParam);
 void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam);
 void TestDynAllGather(OpTestParam &testParam);
 void TestShmemReduceScatter(OpTestParam &testParam);
-
+void TestDynAllGatherMatmulReducescatter(OpTestParam &testParam);
 } // namespace Distributed
 } // namespace npu::tile_fwk
 

@@ -35,7 +35,7 @@ struct BarrierInfo {
 class ShmemBarrierAll {
 public:
     void Init(npu::tile_fwk::dynamic::DynDeviceTask* deviceTask);
-    void EnqueueOp(uint64_t taskId, TensorInfo& info);
+    void EnqueueOp(uint64_t taskId, const npu::tile_fwk::dynamic::DevRelocVector<int32_t> &aicpuCode);
     void PollCompleted(std::vector<uint64_t>& completed);
 
 private:
@@ -46,7 +46,8 @@ private:
     uint16_t winExpIndex_{0};
     uint64_t round_{1};
     uint32_t rankSize_{0};
-
+    AicpuParamInfo paramInfo_;
+    
     bool Ready(BarrierInfo& info);
 };
 

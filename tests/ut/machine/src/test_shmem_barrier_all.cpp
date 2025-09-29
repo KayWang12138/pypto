@@ -81,12 +81,16 @@ struct MockData {
 
 void TestShmemBarrierAll(const uint32_t rankSize, const uint32_t tileOpCount)
 {
+    constexpr int codeSize = 9;
+    auto data = std::make_unique<int32_t[]>(codeSize);
+    int32_t initData[codeSize] = {153, 2, 0, 0, 2, 0, 0, 1, 0};
+    std::copy(initData, initData + codeSize, data.get());
+    npu::tile_fwk::dynamic::DevRelocVector<int32_t> aicpuCode(codeSize, data.get());
     MockData mockData(rankSize);
-    npu::tile_fwk::Distributed::TensorInfo info;
     std::vector<std::vector<uint64_t>> completedTasks(rankSize);
     for (uint32_t tileOpIndex = 0; tileOpIndex < tileOpCount; ++tileOpIndex) {
         for (uint32_t rankIndex = 0; rankIndex < rankSize; ++rankIndex) {
-            mockData.barriers[rankIndex].EnqueueOp(tileOpIndex, info);
+            mockData.barriers[rankIndex].EnqueueOp(tileOpIndex, aicpuCode);
         }
         for (uint32_t rankIndex = 0; rankIndex < rankSize; ++rankIndex) {
             mockData.barriers[rankIndex].PollCompleted(completedTasks[rankIndex]);

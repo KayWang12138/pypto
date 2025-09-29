@@ -49,12 +49,17 @@ TEST_F(TestDistributedAllGather, TestAllGatherDyn)
 {
     const char *group = "hcom123";
 
-    TileShape::Current().SetDistTile({16, 1, 0}, {32, 1, 0}, {2, 1, 0});
-    TileShape::Current().SetDistRankId(0);
-
     Tensor in(DT_FP16, {16, 32}, "in");
     Tensor out(DT_FP16, {32, 32}, "out");
-    AllGatherDyn(in, group, out);
+    Tensor barrierDummy(DT_INT32, {1, 1}, "barrierDummy");
+    FunctionConfig funConfig;
+    FUNCTION("ALLGATHER", funConfig, {in}, {out}) {
+        TileShape::Current().SetDistTile(
+                {16, 1, 0},
+                {32, 1, 0},
+                {1, 4, 0});
+        ShmemAllGather(in, barrierDummy, group, out);
+    }
 
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "L0" + SUB_FUNC_SUFFIX);
     npu::tile_fwk::CodeGenCtx ctx;

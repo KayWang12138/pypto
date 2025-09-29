@@ -31,20 +31,19 @@ void ShmemBarrierAll::Init(npu::tile_fwk::dynamic::DynDeviceTask* deviceTask)
     npu::tile_fwk::DynFuncHeader* header = deviceTask->dynFuncData;
     DEV_ASSERT(header != nullptr);
     auto* data = reinterpret_cast<npu::tile_fwk::DynFuncData*>(header + 1);
-    DEV_ASSERT((data != nullptr) && (data->hcclContext != nullptr));
+    DEV_ASSERT(data != nullptr);
     hcclContext_ = data->hcclContext;
 }
 
-void ShmemBarrierAll::EnqueueOp(uint64_t taskId, TensorInfo& info)
+void ShmemBarrierAll::EnqueueOp(uint64_t taskId, const npu::tile_fwk::dynamic::DevRelocVector<int32_t> &aicpuCode)
 {
-    (void)info;
-
-    constexpr uint32_t groupIndex = 0;
+    paramInfo_ = DecodeAicpuCode(aicpuCode);
+    int32_t groupIndex = aicpuCode[paramInfo_.attrIndex]; // groupIndex在前端传入参数的第一个位置
     TileOp::HcclCombinOpParam* hcclOpParam = reinterpret_cast<TileOp::HcclCombinOpParam*>(hcclContext_[groupIndex]);
     rankSize_ = hcclOpParam->rankNum;
     for (uint32_t rankId = 0; rankId < rankSize_; rankId++) {
         uint64_t* winExp = reinterpret_cast<uint64_t*>(hcclOpParam->windowsExp[rankId]);
-        winExp[winExpIndex_]++;
+        __atomic_fetch_add(&winExp[winExpIndex_], 1, __ATOMIC_SEQ_CST);
     }
 
     if (tileOpCount_ == barrierInfo_.size()) {

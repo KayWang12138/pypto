@@ -49,7 +49,12 @@ std::string CodeGenOpCloudNPU::GenTemplateParams() const
         int64_t bufferColShape = bufferShape[1];
         std::vector<int64_t> originTensorShape = rawShape[ID3]; // 切块之前的shape
         int64_t stride = originTensorShape[originTensorShape.size() - ID1];
-        oss << "<" << GetTemplateDType() << ", " << tileRowShape << ", " << tileColShape << ", " << bufferRowShape << ", " << bufferColShape << ", " << stride << ", " << stride << ">";
+        npu::tile_fwk::Distributed::AtomicType atomicType = npu::tile_fwk::Distributed::AtomicType::ADD;
+        if (opAttrs.count("AtomicType") != 0) {
+            atomicType = npu::tile_fwk::AnyCast<npu::tile_fwk::Distributed::AtomicType>(opAttrs.at("AtomicType"));
+        }
+        oss << "<" << GetTemplateDType() << ", " << tileRowShape << ", " << tileColShape << ", " << bufferRowShape <<
+            ", " << bufferColShape << ", " << stride << ", " << stride << ", " << npu::tile_fwk::Distributed::AtomicTypeToString(atomicType) << ">";
     } else if (opCode == Opcode::OP_SHMEM_SIGNAL) {
         int64_t value = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at("Value")); 
         npu::tile_fwk::Distributed::AtomicType atomicType = npu::tile_fwk::AnyCast<npu::tile_fwk::Distributed::AtomicType>(opAttrs.at("AtomicType"));
@@ -61,7 +66,7 @@ std::string CodeGenOpCloudNPU::GenTemplateParams() const
     } else if (opAttrs.count("extraTemplateParam") != 0) {
         std::string extraTemplateParam = npu::tile_fwk::AnyCast<std::string>(opAttrs.at("extraTemplateParam"));
         oss << "<" << GetTemplateDType() << ", " << extraTemplateParam << ">";
-    } else if (opCode != Opcode::OP_SHMEM_CLEAR_SIGNAL) {
+    } else {
         oss << "<" << GetTemplateDType() << ">";
     }
     return oss.str();

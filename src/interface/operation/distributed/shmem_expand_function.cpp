@@ -23,10 +23,11 @@ void TiledShmemPut(Function &function, const TileShape &tileShape,
     const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
     const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op)
 {
-    ASSERT(iOperand.size() == 2UL) << "TiledShmemPut iOperand size is not equal to 2";
+    ASSERT(iOperand.size() == 3UL) << "TiledShmemPut iOperand size is not equal to 3";
     ASSERT(oOperand.size() == 1UL) << "TiledShmemSignal oOperand size is not equal to 1";
     std::shared_ptr<LogicalTensor> in = iOperand[0];
     std::shared_ptr<LogicalTensor> shmData = iOperand[1];
+    std::shared_ptr<LogicalTensor> barrierDummy = iOperand[2]; // operand 2
     std::shared_ptr<LogicalTensor> dummy = oOperand[0];
     ASSERT(in->shape.size() == 2UL);
     ASSERT(shmData->shape.size() == 4UL);
@@ -60,7 +61,7 @@ void TiledShmemPut(Function &function, const TileShape &tileShape,
             }
             auto ubTensor = std::make_shared<LogicalTensor>(function, in->Datatype(), bufferShape);
 
-            auto& tileop = function.AddOperation("SHMEM_PUT", {inTile, shmDataTile}, {dummyTile, ubTensor});
+            auto& tileop = function.AddOperation("SHMEM_PUT", {inTile, shmDataTile, barrierDummy}, {dummyTile, ubTensor});
             tileop.SetAttr("AtomicType", atomicType);
             tileIndex++;
         }
@@ -120,7 +121,9 @@ void TiledShmemWaitUntil(Function &function, const TileShape &tileShape,
     const int64_t rowCount = tileRow[1] + (tileRow[2] == 0 ? 0 : 1); // 1和2分别表示头快和尾块数
     const int64_t colCount = tileCol[1] + (tileCol[2] == 0 ? 0 : 1); // 1和2分别表示头快和尾块数
     int64_t value;
+    std::vector<int64_t> extraAttrs;
     op.GetAttr("Value", value);
+    op.GetAttr("AicpuOpParams", extraAttrs);
     int tileIndex = 0;
     for (int64_t rowIdx = 0; rowIdx < rowCount; rowIdx++) {
         for (int64_t colIdx = 0; colIdx < colCount; colIdx++) {
@@ -130,6 +133,7 @@ void TiledShmemWaitUntil(Function &function, const TileShape &tileShape,
 
             auto& tileop = function.AddOperation("SHMEM_WAIT_UNTIL", {dummyInTile, shmSignalTile}, {dummyTile});
             tileop.SetAttr("Value", value);
+            tileop.SetAttr("AicpuOpParams", extraAttrs);
             tileIndex++;
         }
     }
@@ -183,6 +187,50 @@ void TiledShmemGet(Function &function, const TileShape &tileShape,
     }
 }
 
+void TiledShmemClearSignal(Function &function, const TileShape &tileShape,
+    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
+    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op)
+{
+    (void)op;
+    ASSERT(iOperand.size() == 2UL) << "TiledShmemGet iOperand size is not equal to 2";
+    ASSERT(oOperand.size() == 1UL) << "TiledShmemGet oOperand size is not equal to 1";
+    std::shared_ptr<LogicalTensor> in = iOperand[0];
+    std::shared_ptr<LogicalTensor> signal = iOperand[1];
+    std::shared_ptr<LogicalTensor> dummy = oOperand[0];
+    ASSERT(signal->shape.size() == 4UL);
+    const int64_t oriRow = in->shape[0];
+    const int64_t oriCol = in->shape[1];
+    const int64_t tileLen = signal->shape[3];
+    const auto tileRow = tileShape.GetDistTileRow();
+    const auto tileCol = tileShape.GetDistTileCol();
+    const int64_t rowStep = tileRow[0];
+    const int64_t colStep = tileCol[0];
+    int tileIndex = 0;
+    for (int64_t rowIdx = 0; rowIdx < oriRow; rowIdx += rowStep) {
+        auto rowSize = std::min(oriRow - rowIdx, rowStep);
+        for (int64_t colIdx = 0; colIdx < oriCol; colIdx += colStep) {
+            auto colSize = std::min(oriCol - colIdx, colStep);
+            auto signalTile = signal->View(function, {1, 1, 1, tileLen}, {0, 0, tileIndex, 0});
+            auto inTile = in->View(function, {rowSize, colSize}, {rowIdx, colIdx});
+            Shape ubShape = {tileLen};
+            auto ubTensor = std::make_shared<LogicalTensor>(function, signal->Datatype(), ubShape);
+            function.AddOperation("SHMEM_CLEAR_SIGNAL", {signal, inTile}, {dummy, ubTensor});
+            tileIndex++;
+        }
+    }
+}
+
+void TiledShmemBarrier(Function &function, const TileShape &tileShape,
+    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
+    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op)
+{
+    (void)tileShape;
+    (void)op;
+    auto& tileop = function.AddOperation("SHMEM_BARRIER_ALL", iOperand, oOperand);
+    std::vector<int64_t> extraAttrs;
+    op.GetAttr("AicpuOpParams", extraAttrs);
+    tileop.SetAttr("AicpuOpParams", extraAttrs);
+}
 
 Shape GetReduceUbShape(int64_t rowSize, int64_t colSize, DataType dType, bool fp32Mode)
 {

@@ -116,17 +116,25 @@ void TestDynAllGather(OpTestParam &testParam)
     int32_t outSize = M * N * testParam.rankSize;
 
     Shape shape{M, N};
+    Shape outShape{testParam.rankSize * M, N};
     Tensor in(dType, shape, "in");
+    Tensor barrierDummy(DT_INT32, {1, 1}, "barrierDummy");
+    Tensor out(dType, outShape, "out");
 
     std::vector<int32_t> inPtr = ReadToVector<int32_t>(GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", shape);
 
-    Shape outShape{testParam.rankSize * M, N};
-    Tensor out(dType, outShape, "out");
-
-    AllGatherDyn(in, testParam.group, out);
+    FunctionConfig funConfig;
+    FUNCTION("ALLGATHER", funConfig, {in, barrierDummy}, {out}) {
+        TileShape::Current().SetDistTile(
+            {M, 1, 0},
+            {N, 1, 0},
+            {1, 4, 0});
+        ShmemAllGather(in, barrierDummy, testParam.group, out);
+    }
 
     ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<int32_t>(in, inPtr)
+        RawTensorData::CreateTensor<int32_t>(in, inPtr),
+        RawTensorData::CreateTensorZero(barrierDummy)
     });
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateTensorZero(out)

@@ -38,13 +38,21 @@ private:
 class ShmemWaitUntil {
 public:
     void Init(npu::tile_fwk::dynamic::DynDeviceTask *dynDeviceTask);
-    void EnqueueOp(uint64_t taskId, TensorInfo& info);
+    void EnqueueOp(uint64_t taskId, const npu::tile_fwk::dynamic::DevRelocVector<int32_t> &aicpuCode);
     void PollCompleted(std::vector<uint64_t> &completed);
 
 private:
     std::vector<SignalTileOp> signalTileOp_{VECTOR_PRE_SIZE};
     std::vector<bool> done_ = std::vector<bool>(VECTOR_PRE_SIZE, false);
     uint32_t signalTileOpCount_{0};
+
+    npu::tile_fwk::dynamic::DynDeviceTask *dynDeviceTask_;
+    npu::tile_fwk::DynFuncData *funcDataList_;
+    uint64_t *hcclContextAddr_;
+    AicpuParamInfo paramInfo_;
+
+    uint64_t GetRawAddr(const uint64_t addr, const uint64_t dstRankId);
+    TensorInfo GetTensorInfo(uint64_t taskId, const npu::tile_fwk::dynamic::DevRelocVector<int32_t> &aicpuCode);
 };
 
 } // namespace npu::tile_fwk::Distributed

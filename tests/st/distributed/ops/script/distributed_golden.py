@@ -155,6 +155,81 @@ class DistributedTestGolden:
         params.numpy().tofile(params_path)
 
     @staticmethod
+    def gen_input_tensor(shape: Tuple[int], dtype: torch.dtype, world_size: int, output_dir: Path, filename: str):
+        input_tensor_list = []
+        for rank in range(world_size):
+            if dtype == torch.int32 or dtype == torch.int16 or dtype == torch.int8:
+                input_tensor = torch.randint(-10, 10, shape, dtype=dtype)
+            else:
+                input_tensor = torch.randn(shape, dtype=dtype)
+            DistributedTestGolden.save_tensor(input_tensor, output_dir, f'{filename}_rank_{rank}.bin')
+            input_tensor_list.append(input_tensor)
+        return input_tensor_list
+
+    @staticmethod
+    def gen_all_gather_case1(input_tensor_list, world_size, output_dir: Path, filename):
+        logging.error(f"world_size========={world_size}")
+        if world_size <= 1:
+            logging.error("world_size must be greater than 1")
+            return False
+        allgather_out_tensor_list = []
+        for rank in range(world_size):
+            if rank == 0:
+                output_tensor = input_tensor_list[rank]
+            else:
+                output_tensor = torch.cat((output_tensor, input_tensor_list[rank]), dim=0)
+        for rank in range(world_size):
+            DistributedTestGolden.save_tensor(output_tensor, output_dir, f'{filename}_rank_{rank}.bin')
+            allgather_out_tensor_list.append(output_tensor)
+        return allgather_out_tensor_list
+
+    @staticmethod
+    def gen_tensor_add(
+            input_tensor_list: List[torch.Tensor], dtype: torch.dtype, world_size: int, output_dir: Path, filename: str,
+        ):
+        out_tensor_list = []
+        for rank in range(world_size):
+            t = input_tensor_list[rank]
+            if dtype == torch.float16 or dtype == torch.bfloat16:
+                t = t.to(torch.float32)
+
+            res = torch.add(t, t)
+            if dtype == torch.float16 or dtype == torch.bfloat16:
+                res = res.to(dtype)
+            DistributedTestGolden.save_tensor(res, output_dir, f'{filename}_rank_{rank}.bin')
+            out_tensor_list.append(res)
+        return out_tensor_list
+
+    @staticmethod
+    def gen_reduce_scatter_case1(
+            input_tensor_list, row, dtype, world_size, output_dir: Path, filename, reduce_type: str = "sum",
+        ):
+        if dtype == torch.bfloat16:
+            for i in range(len(input_tensor_list)):
+                input_tensor_list[i] = input_tensor_list[i].to(torch.float32)
+        
+        # 现阶段只有sum操作
+        if reduce_type == "sum":
+            output_tensor = torch.sum(torch.stack(input_tensor_list, dim=0), dim=0).to(dtype)
+        elif reduce_type == "max":
+            output_tensor = torch.max(torch.stack(input_tensor_list, dim=0), dim=0)[0].to(dtype)
+        elif reduce_type == "min":
+            output_tensor = torch.min(torch.stack(input_tensor_list, dim=0), dim=0)[0].to(dtype)
+        else:
+            logging.error("ReduceScatter only supports three operations: sum, max and min.")
+            return False
+
+        row_out = row // world_size
+        out_tensor_list = []
+        if dtype == torch.bfloat16:
+            output_tensor = output_tensor.to(torch.bfloat16)
+        for rank in range(world_size):
+            rank_output_tensor = output_tensor[rank * row_out: (rank + 1) * row_out]
+            DistributedTestGolden.save_tensor(rank_output_tensor, output_dir, f'{filename}_rank_{rank}.bin')
+            out_tensor_list.append(rank_output_tensor)
+        return out_tensor_list
+
+    @staticmethod
     def gen_all_gather_case(row, col, world_size, dtype, output_dir: Path):
         if world_size <= 1:
             logging.error("world_size must be greater than 1")
@@ -202,6 +277,35 @@ class DistributedTestGolden:
         )
         DistributedTestGolden.gen_moe_dispatch_case(case, output)
         logging.debug("Case(%s), Golden generated success.", case_name)
+        return True
+    
+    @staticmethod
+    def dist_allgather_matmul_reducescatter(case_name: str, output: Path):
+        case_info = DistributedTestGolden.split_case_name(case_name, 2)
+        row, col = case_info['shape']
+        DistributedTestGolden.save_params([row, col], case_info['dtype'], case_info['rank'], output)
+        
+        input_tensor_list = DistributedTestGolden.gen_input_tensor((row, col), case_info['dtype'], case_info['rank'], 
+                output, "input")
+        
+        # ag
+        ag_out_tensor_list = DistributedTestGolden.gen_all_gather_case1(input_tensor_list, int(case_info['rank']),
+                                                                        output, "allgather")
+
+        # matmul ag [row, col]   mm[col, col]
+        matmul_tensor_list = DistributedTestGolden.gen_input_tensor((col, col), case_info['dtype'], case_info['rank'], 
+            output, "matmul")
+        
+        # ag and matmul ag [row, col]   mm[col, col]
+        ag_add_tensor_list = DistributedTestGolden.gen_tensor_add(ag_out_tensor_list,  
+                    case_info['dtype'], case_info['rank'], output, "ag_add")
+
+        rs_out_tensor_list = DistributedTestGolden.gen_reduce_scatter_case1(ag_add_tensor_list, row * case_info['rank'],
+                    case_info['dtype'], case_info['rank'], output, "rs")
+
+        # ag
+        DistributedTestGolden.gen_all_gather_case1(rs_out_tensor_list, int(case_info['rank']), output,
+                                                   "double_allgather")        
         return True
 
     @staticmethod
@@ -264,7 +368,8 @@ class DistributedTestGolden:
             "DistributedTest.aivWaitFlag_multi_test_all_gather_float16_32_32_4",
             "DistributedTest.aivWaitFlag_single_test_moe_dispatch_bfloat16_rank_size_4",
             "DistributedTest.test_dyn_all_gather_int32_128_256_4",
-            "DistributedTest.shmem_reduce_scatter_float32_128_256_4",
+            "DistributedTest.shmem_reduce_scatter_int32_128_256_4",
+            "DistributedTest.dyn_allgather_matmul_reducescatter_int32_128_256_4",
         ]
     )
     def dist_operator_golden_gen_func(case_name: str, output: Path) -> bool:
@@ -275,6 +380,8 @@ class DistributedTestGolden:
             ret = DistributedTestGolden.dist_all_gather(case_name, output)
         elif "moe_dispatch" in case_name:
             ret = DistributedTestGolden.dist_moe_dispatch(case_name, output)
+        elif "allgather_matmul_reducescatter" in case_name:
+            ret = DistributedTestGolden.dist_allgather_matmul_reducescatter(case_name, output)
         if not ret:
             logging.error("Can't get func to gen golden, Case(%s)", case_name)
         return ret

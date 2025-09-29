@@ -287,8 +287,8 @@ OpcodeManager::OpcodeManager() {
      * 2. buffer 的使用说明：根据需要初始化一个一维的 LogicalTensor，类型为 int32_t、大小为 Signal 区的 Signal 个数，256B 对齐，因为底层使用 vector_dup，vector_dup 每次处理的数据要求 256B 对齐
      */
     registerInfo(Opcode::OP_SHMEM_CLEAR_SIGNAL, OpCoreType::AIV, "SHMEM_CLEAR_SIGNAL",
-        {MemoryType::MEM_DEVICE_DDR /* shmemSignalRaw */},
-        {MemoryType::MEM_DEVICE_DDR /* shmemSignal */, MemoryType::MEM_UB /* buffer */},
+        {MemoryType::MEM_DEVICE_DDR /* shmemSignalRaw */, MemoryType::MEM_DEVICE_DDR /* in */},
+        {MemoryType::MEM_DEVICE_DDR /* dummy */, MemoryType::MEM_UB /* buffer */},
         {"TileOp::Distributed::ShmemClearSignal", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED);
     /*
      * 1. TileOp 的说明：同步通信域内所有卡
@@ -304,7 +304,7 @@ OpcodeManager::OpcodeManager() {
      *    a. dummy：用于保证 SHMEM_SIGNAL 在 SHMEM_PUT 之后执行
      */
     registerInfo(Opcode::OP_SHMEM_PUT, OpCoreType::AIV, "SHMEM_PUT",
-        {MemoryType::MEM_DEVICE_DDR /* nonShmemData */, MemoryType::MEM_DEVICE_DDR /* shmemData */},
+        {MemoryType::MEM_DEVICE_DDR /* nonShmemData */, MemoryType::MEM_DEVICE_DDR /* shmemData */, MemoryType::MEM_DEVICE_DDR /* dummpy */},
         {MemoryType::MEM_DEVICE_DDR /* dummy */, MemoryType::MEM_UB /* buffer */},
         {"TileOp::Distributed::ShmemPut", PIPE_S, PIPE_S, CoreType::AIV},
         OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});

@@ -131,9 +131,8 @@ void TestShmemReduceScatter(OpTestParam &testParam)
         LOOP("LOOP", FunctionType::DYNAMIC_LOOP, idx, LoopRange(1)) {
             (void)idx;
             TileShape::Current().SetDistTile({rowOut, 1, 0}, {col, 1, 0}, {1, testParam.rankSize, 0});
-            TileShape::Current().SetDistRankId(testParam.rankId);
-            out = Distributed::ShmemReduceScatter(in, testParam.group,
-                npu::tile_fwk::Distributed::DistReduceType::DIST_REDUCE_ADD);
+            Distributed::ShmemReduceScatter(in, testParam.group,
+                npu::tile_fwk::Distributed::DistReduceType::DIST_REDUCE_ADD, out);
         }
     }
 

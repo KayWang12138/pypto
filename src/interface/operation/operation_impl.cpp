@@ -4254,6 +4254,14 @@ void npu::tile_fwk::ExpandOperationInto(Function &function, const TileShape &til
             npu::tile_fwk::Distributed::TiledShmemBindTensor(function, tileShape, iOperand, oOperand, op);
             break;
         }
+        case Opcode::OP_SHMEM_CLEAR_SIGNAL: {
+            npu::tile_fwk::Distributed::TiledShmemClearSignal(function, tileShape, iOperand, oOperand, op);
+            break;
+        }
+        case Opcode::OP_SHMEM_BARRIER_ALL: {
+            npu::tile_fwk::Distributed::TiledShmemBarrier(function, tileShape, iOperand, oOperand, op);
+            break;
+        }
         default: {
             ASLOGE("Unsupported opcode %d, opmagic is %d", static_cast<int>(opCode), op.GetOpMagic());
             ASSERT(false) << "Unsupported opcode " << static_cast<int>(opCode) << ", opmagic is " << op.GetOpMagic();
