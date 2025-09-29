@@ -201,8 +201,8 @@ def gen_dynamic_mm_golden(case_name: str, output: Path) -> bool:
         "DynamicMatmulTest.mm_AT_BT_AND_BND_bf16",
         "DynamicMatmulTest.mm_AT_B_ANZ_BND_fp16_UNALIGN",
         "DynamicMatmulTest.mm_AT_B_AND_BND_fp32_UNALIGN",
+        "DynamicMatmulTest.mm_AT_BT_AND_BND_fp32",
         "DynamicMatmulTest.test1_fp32",
-        "DynamicMatmulTest.test2_fp32",
 
     ]
 )
