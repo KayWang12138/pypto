@@ -9,15 +9,24 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 """ """
-import os
-import sys
+from test_case_class_vector_operations import CastTestCase
+from test_case_desc import TensorDesc
+import pto
 
 
-if __name__ == "__main__":
-    import_path = os.getcwd() + "/tests/st/operation/python/"
-    if import_path not in sys.path:
-        sys.path.append(import_path)
-    from operation_test_case_runner import parse_args, run_test_case
-
-    args = parse_args()
-    run_test_case(args)
+def test_tensor_cast():
+    original_shape = (64, 64)
+    input_tensors = [TensorDesc("A", original_shape, "fp32", [-100, 100])]
+    output_tensors = [TensorDesc("B", original_shape, "int32", [-100, 100])]
+    view_shape = (32, 32)
+    tile_shape = (32, 32)
+    test_case = CastTestCase(
+        0,
+        "Cast_test_0",
+        input_tensors,
+        output_tensors,
+        view_shape,
+        tile_shape,
+        {"mode": pto.cast_mode.CAST_NONE},
+    )
+    test_case.exec(True)

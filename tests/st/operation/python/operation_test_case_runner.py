@@ -11,6 +11,7 @@
 """ """
 import argparse
 import os
+import signal
 import subprocess
 from convert_test_case_data_to_json import convert_data_to_json
 from analyze_test_case_log import TestCaseLogAnalyzer
@@ -21,7 +22,7 @@ class OperationTestCaseRunner:
         self.work_path = os.getcwd()
         self.input_file = os.path.abspath(config.input_file)
         self.op = config.op
-        self.index = [args.start_index, args.end_index]
+        self.index = [config.start_index, config.end_index]
         self.report_file = os.path.abspath(config.report)
         self.device = config.device
         self.json_only = config.json_only
@@ -60,8 +61,12 @@ class OperationTestCaseRunner:
         ) as process:
             try:
                 stdout, stderr = process.communicate()
+            except KeyboardInterrupt:
+                _pgid = os.getpgid(process.pid)
+                os.killpg(_pgid, signal.SIGINT)
             except Exception:
                 process.kill()
+                raise
             finally:
                 stdout = stdout or ""
                 stderr = stderr or ""
@@ -201,8 +206,3 @@ def run_test_case(args):
     runner = OperationTestCaseRunner(args)
     runner.clear_cache_files()
     runner.run()
-
-
-if __name__ == "__main__":
-    args = parse_args()
-    run_test_case(args)

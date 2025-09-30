@@ -12,139 +12,15 @@
 import logging
 import os
 import json
+from pathlib import Path
+import sys
 from dataclasses import dataclass
 import pandas as pd
-
-
-class DataRange:
-    def __init__(self, min, max):
-        self._min = min
-        self._max = max
-
-    @property
-    def min(self):
-        return self._min
-
-    @property
-    def max(self):
-        return self._max
-
-    def dump_to_json(self) -> dict:
-        return {"min": self._min, "max": self._max}
-
-
-class TensorData:
-    def __init__(
-        self,
-        name: str,
-        shape: list,
-        dtype: str,
-        data_range: list,
-        tensor_format: str = None,
-        is_trans: bool = None,
-    ):
-        self._name = name
-        self._shape = shape
-        self._dtype = dtype
-        self._data_range = (
-            None if data_range is None else DataRange(data_range[0], data_range[1])
-        )
-        self._format = tensor_format
-        self._is_trans = is_trans
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def shape(self) -> list:
-        return self._shape
-
-    @property
-    def dtype(self) -> str:
-        return self._dtype
-
-    @property
-    def data_range(self) -> DataRange:
-        return self._data_range
-
-    def dump_to_json(self) -> dict:
-        json_content = {"name": self._name, "shape": self._shape, "dtype": self._dtype}
-        if self._data_range is not None:
-            json_content["data_range"] = self._data_range.dump_to_json()
-        if self._format is not None:
-            json_content["format"] = self._format
-        if self._is_trans is not None:
-            json_content["is_trans"] = self._is_trans
-        return json_content
-
-
-class TestCaseData:
-    def __init__(
-        self,
-        case_index: str,
-        case_name: str,
-        operation: str,
-        input_tensors: list,
-        output_tensors: list,
-        view_shape: list,
-        tile_shape: list,
-        params: dict,
-    ):
-        self._case_index = case_index
-        self._case_name = case_name
-        self._operation = operation
-        self._input_tensors = input_tensors
-        self._output_tensors = output_tensors
-        self._view_shape = view_shape
-        self._tile_shape = tile_shape
-        self._params = params
-
-    @property
-    def index(self) -> str:
-        return self._case_index
-
-    @property
-    def name(self) -> str:
-        return self._case_name
-
-    @property
-    def operation(self) -> str:
-        return self._operation
-
-    @property
-    def input_tensors(self) -> list:
-        return self._input_tensors
-
-    @property
-    def output_tensors(self) -> list:
-        return self._output_tensors
-
-    @property
-    def view_shape(self) -> list:
-        return self._view_shape
-
-    @property
-    def tile_shape(self) -> list:
-        return self._tile_shape
-
-    @property
-    def params(self) -> dict:
-        return self._params
-
-    def dump_to_json(self) -> dict:
-        return {
-            "case_index": self._case_index,
-            "case_name": self._case_name,
-            "operation": self._operation,
-            "input_tensors": list(map(lambda x: x.dump_to_json(), self._input_tensors)),
-            "output_tensors": list(
-                map(lambda x: x.dump_to_json(), self._output_tensors)
-            ),
-            "view_shape": self._view_shape,
-            "tile_shape": self._tile_shape,
-            "params": self._params,
-        }
+tools_path: Path = Path(Path(__file__).parent, "../../utils/python")
+if str(tools_path) not in sys.path:
+    sys.path.append(str(tools_path))
+from test_case_desc import TensorDesc, TestCaseDesc
+from test_case_tools import parse_list_str
 
 
 @dataclass
@@ -165,17 +41,17 @@ class TestDataReader:
 
     def convert_row_data(self, row):
         row_data = row.to_dict()
-        input_shape = self.str_to_list(row_data.pop("input_shape"))
+        input_shape = parse_list_str(row_data.pop("input_shape"))
         if not isinstance(input_shape[0], (list, tuple)):
             input_shape = [input_shape]
-        input_dtype = self.str_to_list(row_data.pop("input_dtype"))
-        data_range = self.str_to_list(row_data.pop("input_datarange"))
+        input_dtype = parse_list_str(row_data.pop("input_dtype"))
+        data_range = parse_list_str(row_data.pop("input_datarange"))
         if not isinstance(data_range[0], (list, tuple)):
             data_range = [data_range]
         assert len(input_shape) == len(input_dtype)
         assert len(input_shape) == len(data_range)
 
-        input_format_list = self.str_to_list(row_data.pop("input_format"))
+        input_format_list = parse_list_str(row_data.pop("input_format"))
         assert len(input_format_list) == len(input_shape)
 
         is_trans_list = []
@@ -198,7 +74,7 @@ class TestDataReader:
         input_tensors = []
         for idx in range(len(input_shape)):
             input_tensors.append(
-                TensorData(
+                TensorDesc(
                     "input" + str(idx),
                     input_shape[idx],
                     input_dtype[idx],
@@ -207,17 +83,17 @@ class TestDataReader:
                     is_trans=is_trans_list[idx],
                 )
             )
-        output_shape = self.str_to_list(row_data.pop("output_shape"))
+        output_shape = parse_list_str(row_data.pop("output_shape"))
         if not isinstance(output_shape[0], (list, tuple)):
             output_shape = [output_shape]
-        output_dtype = self.str_to_list(row_data.pop("output_dtype"))
-        output_format_list = self.str_to_list(row_data.pop("output_format"))
+        output_dtype = parse_list_str(row_data.pop("output_dtype"))
+        output_format_list = parse_list_str(row_data.pop("output_format"))
         assert len(output_format_list) == len(output_shape)
 
         output_tensors = []
         for idx in range(len(output_shape)):
             output_tensors.append(
-                TensorData(
+                TensorDesc(
                     "output" + str(idx),
                     output_shape[idx],
                     output_dtype[idx],
@@ -226,10 +102,10 @@ class TestDataReader:
                     is_trans=None,
                 )
             )
-        view_shape = self.str_to_list(row_data.pop("view_shape"))
+        view_shape = parse_list_str(row_data.pop("view_shape"))
         if isinstance(view_shape[0], (list, tuple)) and len(view_shape[0]) > 1:
             view_shape = view_shape[0]
-        tile_shape = self.str_to_list(row_data.pop("tile_shape"))
+        tile_shape = parse_list_str(row_data.pop("tile_shape"))
         params = {
             k: "" if pd.isna(v) or pd.isnull(v) else v for k, v in row_data.items()
         }
@@ -240,7 +116,7 @@ class TestDataReader:
         params["func_id"] = int(params.pop("func_id", "-1"))
         dims = row_data.get("dims", None)
         if dims is not None and not pd.isna(dims) and not pd.isnull(dims):
-            params["dims"] = self.str_to_list(row_data.get("dims"))
+            params["dims"] = parse_list_str(row_data.get("dims"))
         first_dim = row_data.get("first_dim", None)
         if (
             first_dim is not None
@@ -257,11 +133,11 @@ class TestDataReader:
             params["second_dim"] = int(second_dim)
         count = row_data.get("count", None)
         if count is not None:
-            params["count"] = self.str_to_list(row_data.get("count"))
+            params["count"] = parse_list_str(row_data.get("count"))
         islargest = row_data.get("islargest", None)
         if islargest is not None:
             params["islargest"] = [
-                bool(x) for x in self.str_to_list(row_data.get("islargest"))
+                bool(x) for x in parse_list_str(row_data.get("islargest"))
             ]
         axis = row_data.get("axis", None)
         if axis is not None and not pd.isna(axis) and not pd.isnull(axis):
@@ -277,7 +153,7 @@ class TestDataReader:
         )
         self.extend_matmul_param(matmulparam, params)
 
-        return TestCaseData(
+        return TestCaseDesc(
             row_data.get("case_index"),
             row_data.get("case_name"),
             row_data.get("operation"),
@@ -302,28 +178,6 @@ class TestDataReader:
                 )
             test_case["json_file"] = json_file
         return test_case
-
-    def str_to_list(self, input: str):
-        ret_list = []
-        input = input.replace(" ", "")
-        if input.startswith("{") or input.startswith("["):
-            input = input[1:-1]
-        element_split_ident = " "
-        if "{" in input:
-            element_split_ident = "},{"
-        if "[" in input:
-            element_split_ident = "],["
-        if element_split_ident in input:
-            for sub_str in input.split(element_split_ident):
-                ret_list.append(self.str_to_list(sub_str))
-        else:
-            for sub_str in input.split(","):
-                is_num = sub_str.isdecimal() or (
-                    (sub_str.startswith("-") or sub_str.startswith("+"))
-                    and sub_str[1:].isdecimal()
-                )
-                ret_list.append(int(sub_str) if is_num else sub_str)
-        return ret_list
 
     def str_to_bool(self, input_str: str):
         if input_str is None:

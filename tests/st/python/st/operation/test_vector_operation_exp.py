@@ -9,15 +9,22 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 """ """
-import os
-import sys
+from test_case_class_vector_operations import ExpTestCase
+from test_case_desc import TensorDesc
 
 
-if __name__ == "__main__":
-    import_path = os.getcwd() + "/tests/st/operation/python/"
-    if import_path not in sys.path:
-        sys.path.append(import_path)
-    from operation_test_case_runner import parse_args, run_test_case
-
-    args = parse_args()
-    run_test_case(args)
+def test_tensor_exp():
+    original_shape = (64, 64)
+    input_tensors = [TensorDesc("A", original_shape, "fp32", [-100, 100])]
+    output_tensors = [TensorDesc("B", original_shape, "fp32", [-100, 100])]
+    view_shape = (32, 32)
+    tile_shape = (32, 32)
+    test_case = ExpTestCase(
+        0,
+        "Exp_test_0",
+        input_tensors,
+        output_tensors,
+        view_shape,
+        tile_shape,
+    )
+    test_case.exec(False)

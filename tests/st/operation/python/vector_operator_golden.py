@@ -25,28 +25,10 @@ from bfloat16 import bfloat16
 import torch
 import copy
 
-
-def get_dtype_by_name(name: str, is_torch: bool = False):
-    str_to_dtype = {
-        "int8": [np.int8, torch.int8],
-        "int16": [np.int16, torch.int16],
-        "int32": [np.int32, torch.int32],
-        "int64": [np.int64, torch.int64],
-        "fp16": [np.float16, torch.float16],
-        "fp32": [np.float32, torch.float32],
-        "fp64": [np.float64, torch.float64],
-        "uint8": [np.uint8, torch.uint8],
-        "uint16": [np.uint16, None],
-        "uint32": [np.uint32, None],
-        "uint64": [np.uint64, None],
-        "bool": [np.bool_, torch.bool],
-        "double": [np.float64, torch.double],
-        "complex64": [np.complex64, torch.complex64],
-        "complex128": [np.complex128, torch.complex64],
-        "bf16": [bfloat16, torch.bfloat16],
-    }
-    return str_to_dtype.get(name, [np.float32, torch.float32])[is_torch]
-
+tools_path: Path = Path(Path(__file__).parent, "../../utils/python")
+if str(tools_path) not in sys.path:
+    sys.path.append(str(tools_path))
+from test_case_tools import get_dtype_by_name
 
 if __name__ == "__main__":
     # 日志级别
