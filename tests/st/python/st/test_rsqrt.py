@@ -31,8 +31,8 @@ def test_vector_operation_rsqrt():
     b = pto.tensor(pto.DataType.DT_FP32, shape, "RSQRT_TENSOR_b")
 
     with pto.dyn_function("RSQRT", [a], [b]):
-        loop_range_b = pto.loop_range_(int(np.ceil(n / view_shape[0])))
-        loop_range_s = pto.loop_range_(int(np.ceil(m / view_shape[1])))
+        loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
+        loop_range_s = pto.loop_range(int(np.ceil(m / view_shape[1])))
         with pto.loop_function("LOOP_RSQRT_L0", "b_idx", loop_range_b) as bloop:
             with pto.loop_function("LOOP_RSQRT_L1", "s_idx", loop_range_s) as sloop:
                 for b_idx in bloop:

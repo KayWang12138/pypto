@@ -31,8 +31,8 @@ def test_vector_operation_log():
     b = pto.tensor(pto.DataType.DT_FP32, (n, m), "LOG_TENSOR_b")
 
     with pto.dyn_function("LOG", [a], [b]):
-        loop_range_b = pto.loop_range_(int(np.ceil(n / view_shape[0])))
-        loop_range_s = pto.loop_range_(int(np.ceil(m / view_shape[1])))
+        loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
+        loop_range_s = pto.loop_range(int(np.ceil(m / view_shape[1])))
         with pto.loop_function("LOOP_LOG_L0", "b_idx", loop_range_b) as bloop:
             with pto.loop_function("LOOP_LOG_L1", "s_idx", loop_range_s) as sloop:
                 for b_idx in bloop:
@@ -68,8 +68,8 @@ def test_vector_operation_log2():
     b = pto.tensor(pto.DataType.DT_FP32, (n, m), "LOG2_TENSOR_b")
 
     with pto.dyn_function("LOG2", [a], [b]):
-        loop_range_b = pto.loop_range_(int(np.ceil(n / view_shape[0])))
-        loop_range_s = pto.loop_range_(int(np.ceil(m / view_shape[1])))
+        loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
+        loop_range_s = pto.loop_range(int(np.ceil(m / view_shape[1])))
         with pto.loop_function("LOOP_LOG2_L0", "b_idx", loop_range_b) as bloop:
             with pto.loop_function("LOOP_LOG2_L1", "s_idx", loop_range_s) as sloop:
                 for b_idx in bloop:
@@ -105,8 +105,8 @@ def test_vector_operation_log10():
     b = pto.tensor(pto.DataType.DT_FP32, (n, m), "LOG10_TENSOR_b")
 
     with pto.dyn_function("LOG10", [a], [b]):
-        loop_range_b = pto.loop_range_(int(np.ceil(n / view_shape[0])))
-        loop_range_s = pto.loop_range_(int(np.ceil(m / view_shape[1])))
+        loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
+        loop_range_s = pto.loop_range(int(np.ceil(m / view_shape[1])))
         with pto.loop_function("LOOP_LOG10_L0", "b_idx", loop_range_b) as bloop:
             with pto.loop_function("LOOP_LOG10_L1", "s_idx", loop_range_s) as sloop:
                 for b_idx in bloop:
