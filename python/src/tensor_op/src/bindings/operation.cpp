@@ -59,7 +59,7 @@ void bind_operation(py::module &m) {
         "View",
         [](const Tensor &operand, const std::vector<int64_t> &shapes,
             const std::vector<SymbolicScalar> &newValidShapes, const std::vector<SymbolicScalar> &newOffsets) {
-            return npu::tile_fwk::View(operand, shapes, newValidShapes, newOffsets); }, 
+            return npu::tile_fwk::View(operand, shapes, newValidShapes, newOffsets); },
         py::arg("operand"), py::arg("shapes"), py::arg("new_valid_shapes"), py::arg("new_offsets"),
         "Tensor dview_pad.");
 
@@ -141,7 +141,7 @@ void bind_operation(py::module &m) {
         py::arg("input"), py::arg("dstShape"), py::arg("validShape") = std::vector<SymbolicScalar>{},
         "Tensor reshape.");
     m.def(
-        "reduce", 
+        "reduce",
         [](const std::vector<Tensor> &aggregation, const ReduceMode &reduceMode) {
             return npu::tile_fwk::Reduce(aggregation, reduceMode);
         },
@@ -211,42 +211,52 @@ void bind_operation(py::module &m) {
 
     m.def(
         "matmul",
-        [](DataType out_type, const Tensor &a, const Tensor &b, bool a_trans, bool b_trans) {
-            if (a_trans) {
-                if (b_trans) {
-                    return npu::tile_fwk::Matrix::Matmul<true, true>(out_type, a, b);
-                } else {
-                    return npu::tile_fwk::Matrix::Matmul<true, false>(out_type, a, b);
-                }
+        [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_b, bool a_trans, bool b_trans,
+            bool c_matrix_nz) {
+            if (!a_trans && !b_trans && !c_matrix_nz) {
+                return Matrix::Matmul<false, false, false>(out_type, tensor_a, tensor_b);
+            } else if (!a_trans && !b_trans && c_matrix_nz) {
+                return Matrix::Matmul<false, false, true>(out_type, tensor_a, tensor_b);
+            } else if (!a_trans && b_trans && !c_matrix_nz) {
+                return Matrix::Matmul<false, true, false>(out_type, tensor_a, tensor_b);
+            } else if (!a_trans && b_trans && c_matrix_nz) {
+                return Matrix::Matmul<false, true, true>(out_type, tensor_a, tensor_b);
+            } else if (a_trans && !b_trans && !c_matrix_nz) {
+                return Matrix::Matmul<true, false, false>(out_type, tensor_a, tensor_b);
+            } else if (a_trans && !b_trans && c_matrix_nz) {
+                return Matrix::Matmul<true, false, true>(out_type, tensor_a, tensor_b);
+            } else if (a_trans && b_trans && !c_matrix_nz) {
+                return Matrix::Matmul<true, true, false>(out_type, tensor_a, tensor_b);
             } else {
-                if (b_trans) {
-                    return npu::tile_fwk::Matrix::Matmul<false, true>(out_type, a, b);
-                } else {
-                    return npu::tile_fwk::Matrix::Matmul<false, false>(out_type, a, b);
-                }
+                return Matrix::Matmul<true, true, true>(out_type, tensor_a, tensor_b);
             }
         },
-        py::arg("out_type"), py::arg("a"), py::arg("b"), py::arg("a_trans") = false, py::arg("b_trans") = false,
-        "Matrix multiply.");
+        py::arg("out_type"), py::arg("tensor_a"), py::arg("tensor_b"), py::arg("a_trans") = false,
+        py::arg("b_trans") = false, py::arg("c_matrix_nz") = false, "Matrix multiply.");
     m.def(
         "batch_matmul",
-        [](DataType out_type, const Tensor &a, const Tensor &b, bool a_trans, bool b_trans) {
-            if (a_trans) {
-                if (b_trans) {
-                    return npu::tile_fwk::Matrix::BatchMatmul<true, true>(out_type, a, b);
-                } else {
-                    return npu::tile_fwk::Matrix::BatchMatmul<true, false>(out_type, a, b);
-                }
+        [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_b, bool a_trans, bool b_trans,
+            bool c_matrix_nz) {
+            if (!a_trans && !b_trans && !c_matrix_nz) {
+                return Matrix::BatchMatmul<false, false, false>(out_type, tensor_a, tensor_b);
+            } else if (!a_trans && !b_trans && c_matrix_nz) {
+                return Matrix::BatchMatmul<false, false, true>(out_type, tensor_a, tensor_b);
+            } else if (!a_trans && b_trans && !c_matrix_nz) {
+                return Matrix::BatchMatmul<false, true, false>(out_type, tensor_a, tensor_b);
+            } else if (!a_trans && b_trans && c_matrix_nz) {
+                return Matrix::BatchMatmul<false, true, true>(out_type, tensor_a, tensor_b);
+            } else if (a_trans && !b_trans && !c_matrix_nz) {
+                return Matrix::BatchMatmul<true, false, false>(out_type, tensor_a, tensor_b);
+            } else if (a_trans && !b_trans && c_matrix_nz) {
+                return Matrix::BatchMatmul<true, false, true>(out_type, tensor_a, tensor_b);
+            } else if (a_trans && b_trans && !c_matrix_nz) {
+                return Matrix::BatchMatmul<true, true, false>(out_type, tensor_a, tensor_b);
             } else {
-                if (b_trans) {
-                    return npu::tile_fwk::Matrix::BatchMatmul<false, true>(out_type, a, b);
-                } else {
-                    return npu::tile_fwk::Matrix::BatchMatmul<false, false>(out_type, a, b);
-                }
+                return Matrix::BatchMatmul<true, true, true>(out_type, tensor_a, tensor_b);
             }
         },
         py::arg("out_type"), py::arg("a"), py::arg("b"), py::arg("a_trans") = false, py::arg("b_trans") = false,
-        "Batch matrix multiply.");
+        py::arg("c_matrix_nz") = false, "Batch matrix multiply.");
 
     m.def(
         "sort",

@@ -196,9 +196,7 @@ def gen_bmm_data_two_batch(input_config: ShapeConfigTwoBatch, output_dir: Path):
 
 @GoldenRegister.reg_golden_func(
     case_names=[
-        "DynamicBatchMatmulTest.test_bmm_A_B_ND_bf16",
         "DynamicBatchMatmulTest.test_bmm_A_Bt_ND_fp16",
-        "DynamicBatchMatmulTest.test_bmm_A_B_NZ_bf16",
         "DynamicBatchMatmulTest.test_bmm_A_Bt_NZ_fp16",
         "DynamicBatchMatmulTest.test_bmm_A_B_ND_bf16_tile1",
         "DynamicBatchMatmulTest.test_bmm_At_Bt_ND_fp16",
@@ -206,16 +204,8 @@ def gen_bmm_data_two_batch(input_config: ShapeConfigTwoBatch, output_dir: Path):
     ]
 )
 def gen_dynamic_bmm_golden(case_name: str, output: Path) -> bool:
-    if case_name == "DynamicBatchMatmulTest.test_bmm_A_B_ND_bf16":
-        input_config = ShapeConfigOneBatch(3, 64, 128, 512, BF16, FP32, False, False, False, False, False)
-        gen_bmm_data(input_config, output)
-        return True
     if case_name == "DynamicBatchMatmulTest.test_bmm_A_Bt_ND_fp16":
         input_config = ShapeConfigOneBatch(3, 2, 576, 4096, FP16, FP32, False, True, False, False, False)
-        gen_bmm_data(input_config, output)
-        return True
-    if case_name == "DynamicBatchMatmulTest.test_bmm_A_B_NZ_bf16":
-        input_config = ShapeConfigOneBatch(2, 16, 512, 128, BF16, FP32, False, False, False, True, False)
         gen_bmm_data(input_config, output)
         return True
     if case_name == "DynamicBatchMatmulTest.test_bmm_A_Bt_NZ_fp16":

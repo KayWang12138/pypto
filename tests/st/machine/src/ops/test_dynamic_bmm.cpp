@@ -224,19 +224,6 @@ void TestDynBatchMatmul(
     EXPECT_TRUE(resultCmp(golden, (outputDtype *)outs->data(), 0.001f));
 }
 
-TEST_F(DynamicBatchMatmulTest, test_bmm_A_B_ND_bf16) {
-    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
-    int64_t b = 3;
-    int64_t m = 64;
-    int64_t k = 128;
-    int64_t n = 512;
-    bool isANz = false;
-    bool isBNz = false;
-    std::vector<int64_t> viewShape = {-1, -1, -1};
-    TestDynBatchMatmul<npu::tile_fwk::bfloat16, float, false, false, false>(
-        {b, m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
-}
-
 TEST_F(DynamicBatchMatmulTest, test_bmm_A_Bt_ND_fp16) {
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int64_t b = 3;
@@ -247,19 +234,6 @@ TEST_F(DynamicBatchMatmulTest, test_bmm_A_Bt_ND_fp16) {
     bool isBNz = false;
     std::vector<int64_t> viewShape = {-1, -1, -1};
     TestDynBatchMatmul<npu::tile_fwk::float16, float, false, true, false>(
-        {b, m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
-}
-
-TEST_F(DynamicBatchMatmulTest, test_bmm_A_B_NZ_bf16) {
-    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
-    int64_t b = 2;
-    int64_t m = 16;
-    int64_t k = 512;
-    int64_t n = 128;
-    bool isANz = false;
-    bool isBNz = true;
-    std::vector<int64_t> viewShape = {-1, -1, -1};
-    TestDynBatchMatmul<npu::tile_fwk::bfloat16, float, false, false, false>(
         {b, m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
 }
 

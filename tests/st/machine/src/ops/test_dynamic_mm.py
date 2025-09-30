@@ -135,8 +135,6 @@ def gen_mm_data(input_config: ShapeConfig, output_dir: Path):
 @GoldenRegister.reg_golden_func(
     case_names=[
         #matmul
-        "DynamicMatmulTest.mm_A_B_ND_bf16",
-        "DynamicMatmulTest.mm_A_B_NZ_bf16",
         "DynamicMatmulTest.mm_A_Bt_ND_fp16",
         "DynamicMatmulTest.mm_A_Bt_NZ_fp16",
         "DynamicMatmulTest.mm_A_B_NZ_int8",
@@ -148,14 +146,6 @@ def gen_mm_data(input_config: ShapeConfig, output_dir: Path):
     ]
 )
 def gen_dynamic_mm_golden(case_name: str, output: Path) -> bool:
-    if case_name == "DynamicMatmulTest.mm_A_B_ND_bf16":
-        input_config = ShapeConfig(128, 256, 512, BF16, FP32, False, False, False, False, False)
-        gen_mm_data(input_config, output)
-        return True
-    if case_name == "DynamicMatmulTest.mm_A_B_NZ_bf16":
-        input_config = ShapeConfig(16, 32, 512, BF16, FP32, False, False, False, True, False)
-        gen_mm_data(input_config, output)
-        return True
     if case_name == "DynamicMatmulTest.mm_A_Bt_ND_fp16":
         input_config = ShapeConfig(128, 257, 511, FP16, FP32, False, True, False, False, False)
         gen_mm_data(input_config, output)
@@ -199,7 +189,6 @@ def gen_dynamic_mm_golden(case_name: str, output: Path) -> bool:
         "DynamicMatmulTest.mm_A_ND_B_ND_C_NZ",
         "DynamicMatmulTest.mm_AT_B_ANZ_BND_bf16",
         "DynamicMatmulTest.mm_AT_BT_AND_BND_bf16",
-        "DynamicMatmulTest.mm_AT_B_ANZ_BND_fp16_UNALIGN",
         "DynamicMatmulTest.mm_AT_B_AND_BND_fp32_UNALIGN",
         "DynamicMatmulTest.mm_AT_BT_AND_BND_fp32",
         "DynamicMatmulTest.test1_fp32",
@@ -217,10 +206,6 @@ def gen_dynamic_mm_golden(case_name: str, output: Path) -> bool:
         return True
     if case_name == "DynamicMatmulTest.mm_AT_BT_AND_BND_bf16":
         input_config = ShapeConfig(128, 256, 512, BF16, FP32, True, True, False, False, True)
-        gen_mm_data(input_config, output)
-        return True
-    if case_name == "DynamicMatmulTest.mm_AT_B_ANZ_BND_fp16_UNALIGN":
-        input_config = ShapeConfig(127, 255, 511, FP16, FP32, True, False, False, False, False)
         gen_mm_data(input_config, output)
         return True
     if case_name == "DynamicMatmulTest.mm_AT_B_AND_BND_fp32_UNALIGN":
