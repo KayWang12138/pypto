@@ -76,3 +76,4 @@ inline void MatMul(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorData
 inline void BitSort(LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, bool) {}
 inline void Extract(LogicalTensorDataPtr, LogicalTensorDataPtr, int, bool) {}
 inline void Topk(LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, int64_t, bool) {}
+inline void Gather(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t) {}

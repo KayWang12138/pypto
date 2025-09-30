@@ -1055,15 +1055,16 @@ void TiledGatherOperation(Function &function, const TileShape &tileShape, size_t
             paramsInput.tileInfo.offset[cur] = i % paramsInput.tensor->shape[cur];
             paramsInput.tileInfo.shape[cur] =
                 std::min(paramsInput.tensor->shape[cur] - paramsInput.tileInfo.offset[cur], tmpTile);
-        } else if (cur >= static_cast<size_t>(axis) && (cur < static_cast<size_t>(axis) + indicesInput.tensor->shape.size())) {
+        } else if (cur >= static_cast<size_t>(axis) &&
+                   (cur < static_cast<size_t>(axis) + indicesInput.tensor->shape.size())) {
             // 当前属于indices的gather轴
             // params[axis]不切
             paramsInput.tileInfo.offset[axis] = 0;
             paramsInput.tileInfo.shape[axis] = paramsInput.tensor->shape[axis];
             // 处理indices的tileInfo
-            indicesInput.tileInfo.offset[cur] = i % indicesInput.tensor->shape[cur];
-            indicesInput.tileInfo.shape[cur] =
-                std::min(indicesInput.tensor->shape[cur] - indicesInput.tileInfo.offset[cur], tmpTile);
+            indicesInput.tileInfo.offset[cur - axis] = i % indicesInput.tensor->shape[cur - axis];
+            indicesInput.tileInfo.shape[cur - axis] =
+                std::min(indicesInput.tensor->shape[cur - axis] - indicesInput.tileInfo.offset[cur - axis], tmpTile);
         } else {
             // 在result中gather轴的内层轴
             int paramHighAxis = cur - indicesInput.tensor->shape.size() + 1;
@@ -1086,8 +1087,6 @@ std::vector<int64_t> GatherOperationResultShape(
     if (axis < 0) {
         axis = axis + paramsRank;
     }
-    assert(axis == paramsRank - 2); // 当前支持-2轴
-
     // result shape: params.shape[:aixs] + indices.shape + params.shape[axis+1:]
     std::vector<int64_t> resultShape = params->shape;
     resultShape.erase(resultShape.begin() + axis);
@@ -1096,9 +1095,8 @@ std::vector<int64_t> GatherOperationResultShape(
     return resultShape;
 }
 
-void TiledGatherOperation(Function &function, const TileShape &tileShape,
-    const LogicalTensorPtr &params, const LogicalTensorPtr &indices, int axis,
-    const LogicalTensorPtr &result) {
+void TiledGatherOperation(Function &function, const TileShape &tileShape, const LogicalTensorPtr &params,
+    const LogicalTensorPtr &indices, int axis, const LogicalTensorPtr &result) {
     // Check Operands Valid
     std::vector<int64_t> expectedShape = GatherOperationResultShape(params, indices, axis);
     assert(result->shape.size() == expectedShape.size());
@@ -1106,6 +1104,12 @@ void TiledGatherOperation(Function &function, const TileShape &tileShape,
     assert(params->shape.size() == params->offset.size());
     assert(indices->shape.size() == indices->offset.size());
 
+    assert(result->shape.size() <= NUM_VALUE_5);
+    assert(indices->shape.size() <= NUM_VALUE_2);
+    if (axis < 0) {
+        axis += params->shape.size();
+    }
+    assert(axis >= 0 && axis < static_cast<int>(params->shape.size()));
     TileInfo paramsTileInfo(params->shape.size(), params->offset.size());
     TileInfo indicesTileInfo(indices->shape.size(), indices->offset.size());
     TileInfo resultTileInfo(result->shape.size(), result->offset.size());
@@ -1114,11 +1118,21 @@ void TiledGatherOperation(Function &function, const TileShape &tileShape,
     TiledGatherOperation(function, tileShape, 0, paramsInput, indicesInput, axis, result, resultTileInfo);
 }
 
-LogicalTensorPtr TiledGatherOperation(Function &function, const TileShape &tileShape,
-    const LogicalTensorPtr &params, const LogicalTensorPtr &indices, int axis) {
+LogicalTensorPtr TiledGatherOperation(Function &function, const TileShape &tileShape, const LogicalTensorPtr &params,
+    const LogicalTensorPtr &indices, int axis) {
     std::vector<int64_t> resultShape = GatherOperationResultShape(params, indices, axis);
     auto result = std::make_shared<LogicalTensor>(function, params->Datatype(), resultShape);
 
+    assert(params->shape.size() == params->offset.size());
+    assert(indices->shape.size() == indices->offset.size());
+
+    assert(result->shape.size() <= NUM_VALUE_5);
+    assert(indices->shape.size() <= NUM_VALUE_2);
+    if (axis < 0) {
+        axis += params->shape.size();
+    }
+    
+    assert(axis >= 0 && axis < static_cast<int>(params->shape.size()));
     TileInfo paramsTileInfo(params->shape.size(), params->offset.size());
     TileInfo indicesTileInfo(indices->shape.size(), indices->offset.size());
     TileInfo resultTileInfo(result->shape.size(), result->offset.size());
@@ -1129,12 +1143,25 @@ LogicalTensorPtr TiledGatherOperation(Function &function, const TileShape &tileS
     return result;
 }
 
-LogicalTensorPtr TensorGatherOperation(Function &function,
-    const LogicalTensorPtr &params, const LogicalTensorPtr &indices, int axis) {
+LogicalTensorPtr TensorGatherOperation(
+    Function &function, const LogicalTensorPtr &params, const LogicalTensorPtr &indices, int axis) {
     std::vector<int64_t> resultShape = GatherOperationResultShape(params, indices, axis);
     auto result = std::make_shared<LogicalTensor>(function, params->Datatype(), resultShape);
-
-    auto &op = function.AddOperation(Opcode::OP_GATHER, {params, indices}, {result});
+    std::vector<std::vector<SymbolicScalar>> outValidShape{};
+    const auto &paramsDynShape = params->GetDynValidShape();
+    const auto &indicesDynShape = indices->GetDynValidShape();
+    std::vector<SymbolicScalar> shapeVec{};
+    for (int i = 0; i < axis; i++) {
+        shapeVec.push_back(paramsDynShape[i]);
+    }
+    for (const auto &dim : indicesDynShape) {
+        shapeVec.push_back(dim);
+    }
+    for (int i = axis + 1; i < static_cast<int>(paramsDynShape.size()); i++) {
+        shapeVec.push_back(paramsDynShape[i]);
+    }
+    outValidShape.push_back(shapeVec);
+    auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_GATHER, {params, indices}, {result}, outValidShape);
     op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
 
     return result;

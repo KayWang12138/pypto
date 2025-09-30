@@ -1376,34 +1376,52 @@ std::string CodeGenOpCloudNPU::PrintGatherDynamicUnaligned(const PrintGatherPara
     const std::string &dVar = param.dVar;
     const std::string &s0Var = param.s0Var;
     const std::string &s1Var = param.s1Var;
+    const int64_t axis = param.axis;
     std::vector dstShape = this->rawShape[ID0];
     std::vector src0Shape = this->rawShape[ID1];
-    std::vector<int64_t> dos = NormalizeShape(originShape[ID0], SHAPE_DIM4);
-    std::vector<int64_t> ss = NormalizeShape(src0Shape, SHAPE_DIM4);
-    std::vector<int64_t> ds = NormalizeShape(dstShape, SHAPE_DIM4);
+    std::vector src1Shape = this->rawShape[ID2];
 
-    auto dynDstShape = dynamicValidShape[ID0];
-    FillIntVecWithDummyInHead<SymbolicScalar>(dynDstShape, SHAPE_DIM4 - dynamicValidShape[ID0].size(), 1);
+    auto mul = [](uint32_t data, const int64_t in) { return data * in; };
+    std::vector<int64_t> indexShape = NormalizeShape(src1Shape, SHAPE_DIM4);
 
+    size_t inputRank = src0Shape.size();
+    size_t outputRank = dstShape.size();
+    int afterAxis = inputRank - axis - 1;
+    int outputUBStride = dstShape[outputRank - afterAxis - 1];
+    uint32_t before = std::accumulate(src0Shape.begin(), src0Shape.begin() + axis, 1, mul);
+    uint32_t after = axis == (static_cast<int64_t>(src0Shape.size() - 1)) ?
+                         1 :
+                         std::accumulate(src0Shape.begin() + axis + 1, src0Shape.end(), 1, mul);
+    auto dynIndexShape = dynamicValidShape[ID2];
+    FillIntVecWithDummyInHead<SymbolicScalar>(dynIndexShape, SHAPE_DIM4 - dynamicValidShape[ID2].size(), 1);
     std::ostringstream os;
     std::vector<std::string> paramList;
     paramList.emplace_back(src0DtypeStr);
     paramList.emplace_back(src1DtypeStr);
-    paramList.emplace_back("/*SS*/");
-    paramList.emplace_back(std::to_string(ss[ID3]));
-    paramList.emplace_back("/*DS*/");
-    paramList.emplace_back(std::to_string(ds[ID3]));
-    std::string templateParam = JoinString(paramList, ", ");
+    paramList.emplace_back("/*before*/");
+    paramList.emplace_back(std::to_string(before));
 
+    paramList.emplace_back("/*after*/");
+    paramList.emplace_back(std::to_string(after));
+    paramList.emplace_back("/*axis_shape*/");
+    paramList.emplace_back(std::to_string(src0Shape[axis]));
+
+    for (int i = 0; i < SHAPE_DIM4; i++) {
+        paramList.emplace_back(std::to_string(indexShape[i]));
+    }
+
+    paramList.emplace_back(std::to_string(outputUBStride));
+    std::string templateParam = JoinString(paramList, ", ");
     paramList.clear();
+
     std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
     std::string src0 = "(__ubuf__ " + src0DtypeStr + "*)" + s0Var;
     std::string src1 = "(__ubuf__ " + src1DtypeStr + "*)" + s1Var;
     paramList.emplace_back(dst);
     paramList.emplace_back(src0);
     paramList.emplace_back(src1);
-    for (int i = 1; i < SHAPE_DIM4; i++) {
-        paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dynDstShape[i]));
+    for (int i = 0; i < SHAPE_DIM4; i++) {
+        paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dynIndexShape[i]));
     }
 
     std::string tiloOpCallParam = JoinString(paramList, ", ");
@@ -1425,44 +1443,23 @@ std::string CodeGenOpCloudNPU::GenGatherOp() const {
     std::string s1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
+    ASSERT(opAttrs.find("op_attr_axis") != opAttrs.end()) << "GenGatherOp: There is nop axis attribute here";
+    const int64_t axis = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at("op_attr_axis"));
     // shape: dst, src0, src1
-    int dstRank = shape[ID0].size();
     int src0Rank = shape[ID1].size();
-    int src1Rank = shape[ID2].size();
-
-    // support following cases:
-    // [case1] src0: [S2,D], src1: [S], axis: 0, dst: [S,D]
-    // [case2] src0: [S2,D], src1: [B,S], axis: 0, dst: [B,S,D]
-    ASSERT(src0Rank == RANK2) << "GenGatherOp: src0 shape rank is not supported!";
-    ASSERT((src1Rank == RANK1 || src1Rank == RANK2)) << "GenGatherOp: src1 shape rank is not supported!";
-    ASSERT((dstRank == RANK2 || dstRank == RANK3)) << "GenGatherOp: dst shape rank is not supported!";
+    ASSERT(src0Rank <= RANK4) << "GenGatherOp: src0 shape rank is not supported!";
 
     std::vector dstShape = this->rawShape[0];
-    if (dstRank == RANK2) {
-        ALOG_INFO_F("GenGatherOp, dst Shape is [%d,%d]", dstShape[ID0], dstShape[ID1]);
-    } else if (dstRank == RANK3) {
-        ALOG_INFO_F("GenGatherOp, dst Shape is [%d,%d,%d]", dstShape[ID0], dstShape[ID1], dstShape[ID2]);
-    }
 
     std::vector src0Shape = this->rawShape[1];
     ALOG_INFO_F("GenGatherOp, src0 Shape is [%d,%d]", src0Shape[0], src0Shape[1]);
 
-    char buffer[256] = "CG_ERROR";
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
     std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID1]);
     std::string src1DtypeStr = DataType2CCEStr(operandDtype[ID2]);
 
-    AppendLocalBufferVarOffset(std::vector{&dVar, &s0Var, &s1Var});
-    int ret = 0;
-    if (src0Rank == RANK2 && (src1Rank == RANK1 || src1Rank == RANK2)) {
-        // [case1] src0: [S2,D], src1: [S], axis: 0, dst: [S,D]
-        return PrintGather({s0Var, s1Var, dVar, src0DtypeStr, src1DtypeStr, dstDtypeStr});
-    } else {
-        ASSERT(0) << "GenGatherOp: input shape is not supported yet!";
-    }
-    ASSERT(ret >= 0) << "genGatherOp sprintf_s failed ";
-    std::string ostring(buffer);
-    return ostring;
+    AppendLocalBufferVarOffset({&dVar, &s0Var, &s1Var});
+    return PrintGather({s0Var, s1Var, dVar, src0DtypeStr, src1DtypeStr, dstDtypeStr, axis});
 }
 
 std::string CodeGenOpCloudNPU::PrintGatherElementStatic(const PrintGatherEleParam &param) const {

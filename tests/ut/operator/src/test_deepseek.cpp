@@ -385,8 +385,8 @@ TEST_F(FunctionTest, TestTranspose_BNSD_BSND) {
     ALOG_INFO(Program::GetInstance().Dump());
 }
 
-TEST_F(FunctionTest, TestGatherAxis0Indices1) {
-    TileShape::Current().SetVecTile(1, 32, 128);
+TEST_F(FunctionTest, TestGatherAxis0Indices2_1) {
+    TileShape::Current().SetVecTile(32, 128);
     // TileShape::Current().SetVecTile(1, 32, 64);
     // tile graph
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
@@ -394,7 +394,7 @@ TEST_F(FunctionTest, TestGatherAxis0Indices1) {
     std::vector<int64_t> shape1 = {16, 1024};
     // std::vector<int64_t> shape1 = {16, 256};
     // std::vector<int64_t> shape1 = {16, 128};
-    std::vector<int64_t> shape2 = {1, 64};
+    std::vector<int64_t> shape2 = {64};
     // std::vector<int64_t> resShape = {1, 64, 128};
     int axis = 0;
     Tensor params(DT_FP32, shape1, "params");
@@ -408,14 +408,37 @@ TEST_F(FunctionTest, TestGatherAxis0Indices1) {
     ALOG_INFO(Program::GetInstance().Dump());
 }
 
-TEST_F(FunctionTest, TestGatherAxis0Indices2) {
+TEST_F(FunctionTest, TestGatherAxis1Indices2_1) {
     TileShape::Current().SetVecTile(32, 128);
+    // TileShape::Current().SetVecTile(1, 32, 64);
+    // tile graph
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-    std::vector<int64_t> shape1 = {16, 512};
+    std::vector<int64_t> shape1 = {1024, 16};
+    // std::vector<int64_t> shape1 = {16, 256};
+    // std::vector<int64_t> shape1 = {16, 128};
     std::vector<int64_t> shape2 = {64};
+    // std::vector<int64_t> resShape = {1, 64, 128};
+    int axis = 1;
+    Tensor params(DT_FP32, shape1, "params");
+    Tensor indices(DT_INT32, shape2, "indices");
+    Tensor res;
+
+    FUNCTION("A") {
+        res = Gather(params, indices, axis);
+    }
+
+    ALOG_INFO(Program::GetInstance().Dump());
+}
+
+TEST_F(FunctionTest, TestGatherAxis3Indices4_2) {
+    TileShape::Current().SetVecTile(4, 3, 8, 8, 8);
+    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+
+    std::vector<int64_t> shape1 = {8, 8, 17, 20};
+    std::vector<int64_t> shape2 = {32, 15};
     // std::vector<int64_t> resShape = {64, 512};
-    int axis = 0;
+    int axis = 3;
     Tensor params(DT_FP32, shape1, "params");
     Tensor indices(DT_INT32, shape2, "indices");
     Tensor res;

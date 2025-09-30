@@ -2001,28 +2001,60 @@ TILEOP void DynTtranspose_vnchwconv_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ 
         tmp += TS1 * TS2 * TS3 * TS4;
     }
 }
+/**
+ * T input 参数类型
+ * T2 indices 参数类型
+ * input [a,b,c,d],axis=1,index [e,f]
+ * result [a,e,f,c,d]
+ * before axis轴之前乘积，a
+ * after axis轴之后乘积，一次拷贝的长度，cd
+ * axis_shape  input在轴上的长度，b
+ * UBIndexS*  是index在每个维度的stride，在codegen阶段会扩充到四维，[e,f]->[1,1,e,f]
+ * UBOutputS 是output中对应的f，主要是应对 tileshape 不对齐的场景
+ *      假设index的维度是[5,5]，经过pass之后，会变成[5,8]，但是output形状是[a,5,5,c,align(d)]
+ * TShape* 是index的validshape，用于遍历
+ */
+template <typename T, typename T2, unsigned before, unsigned after, unsigned axis_shape, unsigned UBIndexS0,
+    unsigned UBIndexS1, unsigned UBIndexS2, unsigned UBIndexS3, unsigned UBOutputS>
+TILEOP void DynTgather_(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1, unsigned TShape0, unsigned TShape1,
+    unsigned TShape2, unsigned TShape3) {
+    const uint16_t lenBurst = (after * sizeof(T) + BLOCK_SIZE - 1) / BLOCK_SIZE; // 一次拷贝的长度
+    constexpr uint32_t indexStride34 = UBIndexS3 * UBIndexS2;
+    constexpr uint32_t indexStride234 = UBIndexS3 * UBIndexS2 * UBIndexS1;
+    constexpr uint32_t indexStride1234 = UBIndexS3 * UBIndexS2 * UBIndexS1 * UBIndexS0;
 
-// [case1] params: [src0Shape0,src0Shape1], indices: [TShape0], axis: 0, output: [TShape0,TShape1]
-// [case2] params: [src0Shape0,src0Shape1], indices: [TShape0,TShape1], axis: 0, output: [TShape0,TShape1,TShape2]
-template <typename T, typename T2, unsigned src0Shape2, unsigned dst0Shape2>
-TILEOP void DynTgather_(
-    __ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1, unsigned TShape0, unsigned TShape1, unsigned TShape2) {
-    const uint16_t lenBurst = (TShape2 * sizeof(T) + BLOCK_SIZE - 1) / BLOCK_SIZE;
-
-    for (int i = 0; i < TShape0; ++i) {
-        for (int j = 0; j < TShape1; ++j) {
-            set_flag(PIPE_V, PIPE_S, EVENT_ID7);
-            wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
-            T2 index = (T2)(*(src1 + j)); // src1[i,j]
-            set_flag(PIPE_S, PIPE_V, EVENT_ID7);
-            wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
-
-            // dst, src, sid, nBurst, lenBurst, srcStride, dstStride
-            copy_ubuf_to_ubuf(dst + j * dst0Shape2, src0 + index * src0Shape2, 0, 1, lenBurst, 1, 1);
+    constexpr uint32_t oututStride34 = UBOutputS * UBIndexS2;
+    constexpr uint32_t oututStride234 = UBOutputS * UBIndexS2 * UBIndexS1;
+    constexpr uint32_t oututStride1234 = UBOutputS * UBIndexS2 * UBIndexS1 * UBIndexS0;
+    __ubuf__ T2 *index = src1;
+    __ubuf__ T *output = dst;
+    for (int i = 0; i < before; ++i) {
+        for (int j = 0; j < TShape0; ++j) {
+            for (int k = 0; k < TShape1; k++) {
+                for (int l = 0; l < TShape2; l++) {
+                    src1 = index + j * indexStride234 + k * indexStride34 + l * UBIndexS3;
+                    dst = output + (j * oututStride234 + k * oututStride34 + l * UBOutputS) * after;
+                    for (int m = 0; m < TShape3; m++) {
+                        if constexpr (after == 1) {
+                            pipe_barrier(PIPE_ALL);
+                            T2 indexInput = (T2)(*(src1 + m));
+                            dst[m] = src0[indexInput];
+                            pipe_barrier(PIPE_ALL);
+                        } else {
+                            set_flag(PIPE_V, PIPE_S, EVENT_ID7);
+                            wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
+                            T2 indexInput = (T2)(*(src1 + m));
+                            set_flag(PIPE_S, PIPE_V, EVENT_ID7);
+                            wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
+                            // dst, src, sid, nBurst, lenBurst, srcStride, dstStride
+                            copy_ubuf_to_ubuf(dst + m * after, src0 + indexInput * after, 0, 1, lenBurst, 1, 1);
+                        }
+                    }
+                }
+            }
         }
-
-        dst += TShape1 * dst0Shape2;
-        src1 += TShape1;
+        src0 += after * axis_shape;
+        output += oututStride1234 * after;
     }
 }
 

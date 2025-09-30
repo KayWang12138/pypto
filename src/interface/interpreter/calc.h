@@ -88,6 +88,7 @@ void ScatterUpdate(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalT
 void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index, const Element &src, 
     int axis, std::string reduce = "");
 void BitSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t axis, bool descending);
+void Gather(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices, int64_t axis);
 
 void Extract(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int mod, bool descending);
 

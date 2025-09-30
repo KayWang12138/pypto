@@ -38,8 +38,9 @@ test_cases = [
         "FunctionTest.TestExpTensorFunctionDim2",
         "FunctionTest.TestSin",
         "FunctionTest.TestCos",
-        "FunctionTest.TestGatherAxis0Indices1",
-        "FunctionTest.TestGatherAxis0Indices2",
+        "FunctionTest.TestGatherAxis0Indices2_1"
+        "FunctionTest.TestGatherAxis1Indices2_1"
+        "FunctionTest.TestGatherAxis3Indices4_2"
         "FunctionTest.TestGatherElementAxis1Indices2",
         "FunctionTest.TestGatherElementAxis0Indices2",
         "FunctionTest.TestScatter_",

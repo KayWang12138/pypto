@@ -253,6 +253,7 @@ private:
         const std::string &src0DtypeStr;
         const std::string &src1DtypeStr;
         const std::string &dstDtypeStr;
+        const int64_t axis;
     };
     std::string PrintGather(const PrintGatherParam &param) const;
     std::string PrintGatherDynamicUnaligned(const PrintGatherParam &param) const;

@@ -137,7 +137,7 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_S_DIV, OpCoreType::AIV, "S_DIV", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::TSdiv", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis});
     registerInfo(Opcode::OP_S_MAX, OpCoreType::AIV, "S_MAX", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::TSmax", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis});
     registerInfo(Opcode::OP_S_MIN, OpCoreType::AIV, "S_MIN", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::TSmin", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis});
-    registerInfo(Opcode::OP_GATHER, OpCoreType::AIV, "GATHER", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tgather", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "axis"});
+    registerInfo(Opcode::OP_GATHER, OpCoreType::AIV, "GATHER", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tgather", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "axis", OpAttributeKey::excludeBufferReuse});
     registerInfo(Opcode::OP_GATHER_ELEMENT, OpCoreType::AIV, "GATHER_ELEMENT",
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::TgatherElement", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "axis"});
     registerInfo(Opcode::OP_SCATTER_ELEMENT, OpCoreType::AIV, "SCATTER_ELEMENT",

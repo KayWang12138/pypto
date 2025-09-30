@@ -780,6 +780,119 @@ def gen_numpy_op_golden(case_name: str, output: Path, case_index: int = None) ->
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Range", golden_func, output, case_index)
 
+
+class GatherError(Exception):
+    pass
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestGather/GatherOperationTest.TestGather",
+    ]
+)
+def gen_gather_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    
+    def golden_func(inputs: list, config: dict):
+        
+        def _normalize_axis(axis, ndim):
+            """把 axis 转成 [0, ndim) 区间"""
+            if axis < 0:
+                axis += ndim
+            if not (0 <= axis < ndim):
+                raise GatherError(f"axis={axis} 越界，ndim={ndim}")
+            return axis
+        
+        def np_gather(params, indices, axis=0, batch_dims=0, *, validate_indices=True):
+            """
+            用 NumPy 模拟 TensorFlow 的 tf.gather。
+            当 batch_dims==0 时直接走 np.take；当 batch_dims>0 时手动做 batch 切片再拼接。
+            """
+            p = np.asarray(params)
+            idx = np.asarray(indices)
+
+            # ---- 基础校验 ----
+            if not np.issubdtype(idx.dtype, np.integer):
+                raise GatherError("indices 必须是整数类型")
+            if p.ndim == 0:
+                raise GatherError("params 必须至少 1 维")
+
+            axis = _normalize_axis(axis, p.ndim)
+
+            # ---- batch_dims 归一化 ----
+            if batch_dims < 0:
+                batch_dims += min(p.ndim, idx.ndim)
+            if not (0 <= batch_dims <= axis):
+                raise GatherError("batch_dims 必须满足 0<=batch_dims<=axis")
+
+            # ---- batch_dims == 0：直接 np.take ----
+            if batch_dims == 0:
+                if validate_indices:
+                    size = p.shape[axis]
+                    if idx.size > 0:
+                        low, high = idx.min(), idx.max()
+                        if low < -size or high >= size:
+                            raise IndexError("indices 越界")
+                mode = 'raise' if validate_indices else 'wrap'
+                return np.take(p, idx, axis=axis, mode=mode)
+
+            # ---- batch_dims > 0：逐 batch 切片 ----
+            if idx.ndim < batch_dims:
+                raise GatherError("indices 的秩必须 >= batch_dims")
+
+            # 前 batch_dims 维必须完全对齐，否则按 TF 语义报错
+            if p.shape[:batch_dims] != idx.shape[:batch_dims]:
+                raise GatherError("params 与 indices 的前 batch_dims 维不一致")
+
+            # 先做一次轴搬运，把 axis 移到 batch_dims 后面，方便后面统一处理
+            move_to = batch_dims  # 目标位置
+            if axis != move_to:
+                p = np.moveaxis(p, axis, move_to)
+                # 注意：搬完后真正的 轴 就是 move_to
+                axis = move_to
+
+            # 结果形状模板
+            res_shape = (
+                p.shape[:batch_dims] +           # 保留的 batch 维
+                idx.shape[batch_dims:] +         # indices 带来的新维
+                p.shape[batch_dims + 1:]         # 剩下的数据维
+            )
+
+            # 提前分配结果
+            res = np.empty(res_shape, dtype=p.dtype)
+
+            # 遍历所有 batch 切片
+            for b in np.ndindex(p.shape[:batch_dims]):
+                # 取出当前 batch 的 params 切片，形状 (...,)  1D 轴
+                p_slice = p[b]          # shape: [D_axis] + p.shape[batch_dims+1:]
+                # 取出当前 batch 的 indices 切片
+                idx_slice = idx[b]      # shape: idx.shape[batch_dims:]
+
+                if validate_indices:
+                    size = p_slice.shape[0]
+                    if idx_slice.size > 0:
+                        low, high = idx_slice.min(), idx_slice.max()
+                        if low < -size or high >= size:
+                            raise IndexError("indices 越界")
+
+                mode = 'raise' if validate_indices else 'wrap'
+                gathered = np.take(p_slice, idx_slice, axis=0, mode=mode)
+                # 写回结果
+                res[b] = gathered
+
+            # 最后把 axis 搬回原始位置
+            if move_to != axis:
+                res = np.moveaxis(res, move_to, axis)
+            return res
+            
+        params = config.get("params")
+        axis = params["axis"]
+        res = np_gather(inputs[0], inputs[1], axis)
+        return [res]
+    
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Gather", golden_func, output, case_index)
+    
+
 @GoldenRegister.reg_golden_func(
     case_names=[
         "TestGatherElement/GatherElementOperationTest.TestGatherElement",

@@ -361,6 +361,24 @@ void Expand(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     }
     From(out) = tself;
 }
+void Gather(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices, int64_t axis) {
+    auto tout = From(out);
+    auto tparams = From(params);
+    auto tindices = From(indices);
+    auto paramsRank = params->GetShape().size();
+    if (axis < 0) {
+        axis += paramsRank;
+    }
+    TORCH_CHECK(axis >= 0 && axis < static_cast<int64_t>(paramsRank), "axis out of range");
+    auto idxFlat = tindices.to(torch::kLong).reshape({-1});
+    auto gathered = tparams.index_select(/*dim=*/axis, /*index=*/idxFlat);
+    std::vector<int64_t> outSize{};
+    outSize.insert(outSize.end(), tparams.sizes().begin(), tparams.sizes().begin() + axis);
+    outSize.insert(outSize.end(), tindices.sizes().begin(), tindices.sizes().end());
+    outSize.insert(outSize.end(), tparams.sizes().begin() + axis + 1, tparams.sizes().end());
+    tout = tout.view(outSize);
+    tout.copy_(gathered.reshape(outSize));
+}
 
 void Copy(LogicalTensorDataPtr out, LogicalTensorDataPtr self, bool trans) {
     if (trans) {
