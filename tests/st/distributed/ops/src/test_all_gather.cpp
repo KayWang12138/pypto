@@ -124,11 +124,12 @@ void TestDynAllGather(OpTestParam &testParam)
     std::vector<int32_t> inPtr = ReadToVector<int32_t>(GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", shape);
 
     FunctionConfig funConfig;
+    int32_t tileNum = 8;
     FUNCTION("ALLGATHER", funConfig, {in, barrierDummy}, {out}) {
         TileShape::Current().SetDistTile(
-            {M, 1, 0},
-            {N, 1, 0},
-            {1, 4, 0});
+            {M / tileNum, tileNum, M % tileNum},
+            {N / tileNum, tileNum, N % tileNum},
+            {1, testParam.rankSize, 0});
         ShmemAllGather(in, barrierDummy, testParam.group, out);
     }
 

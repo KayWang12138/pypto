@@ -101,5 +101,4 @@ inline AicpuParamInfo DecodeAicpuCode(const npu::tile_fwk::dynamic::DevRelocVect
     }
     return paramInfo;
 }
-
 }

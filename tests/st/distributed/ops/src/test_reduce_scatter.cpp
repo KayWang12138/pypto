@@ -127,10 +127,14 @@ void TestShmemReduceScatter(OpTestParam &testParam)
         GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
 
     FunctionConfig funcConfig;
+    int32_t tileNum = 2;
     FUNCTION("ShmemReduceScatter", funcConfig, {in}, {out}) {
         LOOP("LOOP", FunctionType::DYNAMIC_LOOP, idx, LoopRange(1)) {
             (void)idx;
-            TileShape::Current().SetDistTile({rowOut, 1, 0}, {col, 1, 0}, {1, testParam.rankSize, 0});
+            TileShape::Current().SetDistTile(
+                {rowOut / tileNum, tileNum, rowOut % tileNum}, 
+                {col / tileNum, tileNum, col % tileNum}, 
+                {1, testParam.rankSize, 0});
             Distributed::ShmemReduceScatter(in, testParam.group,
                 npu::tile_fwk::Distributed::DistReduceType::DIST_REDUCE_ADD, out);
         }
