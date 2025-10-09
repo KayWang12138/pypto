@@ -72,6 +72,7 @@ constexpr uint64_t NBLOCK_PER_MASK_B16 = 4;
 constexpr uint64_t BLOCK_SIZE = 32;
 constexpr uint64_t REPEAT_MAX = 255;
 constexpr uint64_t REPEAT_BYTE = 256;
+constexpr uint64_t REPEAT_STRIDE_MAX = 4095;
 
 inline TILEOP void SetContinuousMask(unsigned n) {
     set_vector_mask(static_cast<uint64_t>(

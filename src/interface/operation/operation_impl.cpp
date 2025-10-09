@@ -3206,85 +3206,102 @@ void TiledTopK(Function &function, const TileShape & tileShape, size_t cur, Inpu
             mrgsortOp.SetAttribute(TOPK_ORDER, static_cast<int>(isLargest));
             sortList.push_back(mrgsortTile);
         }
-
-        int repeatNum = (axisTileNum - 1) / NUM_VALUE_3;
-        int remain = axisTileNum < NUM_VALUE_4 ? axisTileNum % NUM_VALUE_4 : (axisTileNum - 1) % NUM_VALUE_3;
-        tileMrgsortShape[axis] = remain > 0 ?
-            (repeatNum + 1) * tileMrgsortShape[axis] : repeatNum * tileMrgsortShape[axis];
-        auto mrgsortBuffer = std::make_shared<LogicalTensor>(function, valueResult->Datatype(),
-            tileMrgsortShape, source->GetDynValidShape());
-        std::vector<LogicalTensorPtr> tiledMrgsortList;
+        std::vector<int64_t> mrgsortResultOffset(mrgsortShape.size(), 0);
         std::vector<int64_t> tempShape = sortList[0]->shape;
         tempShape[axis] = NUM_VALUE_4 * tempShape[axis];
         for (size_t i = 0; i < tempShape.size() - 1; ++i) {
             tempShape[i] = 1;
         }
-        auto tempTensor = std::make_shared<LogicalTensor>(function, valueResult->Datatype(),
-            tempShape, source->GetDynValidShape());
-        std::vector<int64_t> mrgsortResultOffset(mrgsortShape.size(), 0);
-        if (repeatNum > 0) {
-            auto mrgsortResult = mrgsortBuffer->View(function, sortList[0]->shape, mrgsortResultOffset);
-            auto &mrgSortMultiQue0 = function.AddOperation(Opcode::OP_TILEDMRGSORT, {sortList[0],
-                sortList[1], sortList[NUM_VALUE_2], sortList[NUM_VALUE_3]}, {mrgsortResult, tempTensor});
-            mrgSortMultiQue0.SetAttribute(TOPK_VALIDBIT, NUM_VALUE_4);
-            mrgSortMultiQue0.SetAttribute(TOPK_KVALUE, k);
-            tiledMrgsortList.push_back(mrgsortResult);
-            for (int repeat = 1; repeat < repeatNum; ++repeat) {
-                tempTensor = std::make_shared<LogicalTensor>(function, valueResult->Datatype(),
+        tileMrgsortShape[axis] = tileMrgsortShape[axis] * axisTileNum;
+        auto mrgsortBuffer = std::make_shared<LogicalTensor>(function, valueResult->Datatype(),
+            tileMrgsortShape, source->GetDynValidShape());
+        std::vector<LogicalTensorPtr> tiledMrgsortList;
+        for (int i = 0; i < axisTileNum; i+=NUM_VALUE_4) {
+            if ((axisTileNum - i) == NUM_VALUE_3) {
+                auto tempTensor = std::make_shared<LogicalTensor>(function, valueResult->Datatype(),
                     tempShape, source->GetDynValidShape());
-                mrgsortResultOffset[axis] = repeat * sortList[0]->shape[axis];
+                mrgsortResultOffset[axis] = i / NUM_VALUE_4 * sortList[0]->shape[axis];
                 auto mrgsortRepeatResult = mrgsortBuffer->View(function, sortList[0]->shape, mrgsortResultOffset);
-                auto &mrgSortMultiQue1 = function.AddOperation(Opcode::OP_TILEDMRGSORT, {tiledMrgsortList.back(),
-                    sortList[repeat * NUM_VALUE_3 + 1], sortList[repeat * NUM_VALUE_3 + NUM_VALUE_2],
-                    sortList[repeat * NUM_VALUE_3 + NUM_VALUE_3]}, {mrgsortRepeatResult, tempTensor});
-                mrgSortMultiQue1.SetAttribute(TOPK_VALIDBIT, NUM_VALUE_4);
-                mrgSortMultiQue1.SetAttribute(TOPK_KVALUE, k);
-                tiledMrgsortList.push_back(mrgsortRepeatResult);
-            }
-            if (remain == NUM_VALUE_2) {
-                tempTensor = std::make_shared<LogicalTensor>(function, valueResult->Datatype(),
-                    tempShape, source->GetDynValidShape());
-                mrgsortResultOffset[axis] = repeatNum * sortList[0]->shape[axis];
-                auto mrgsortRemainResult = mrgsortBuffer->View(function, sortList[0]->shape, mrgsortResultOffset);
-                auto &mrgSortMultiQue2 = function.AddOperation(Opcode::OP_TILEDMRGSORT, {tiledMrgsortList.back(),
-                    sortList[axisTileNum - remain], sortList[axisTileNum - remain + 1],
-                    sortList[axisTileNum - remain + 1]}, {mrgsortRemainResult, tempTensor});
-                mrgSortMultiQue2.SetAttribute(TOPK_VALIDBIT, NUM_VALUE_3);
-                mrgSortMultiQue2.SetAttribute(TOPK_KVALUE, k);
-                tiledMrgsortList.push_back(mrgsortRemainResult);
-            }
-            if (remain == NUM_VALUE_1) {
-                tempTensor = std::make_shared<LogicalTensor>(function, valueResult->Datatype(),
-                    tempShape, source->GetDynValidShape());
-                mrgsortResultOffset[axis] = repeatNum * sortList[0]->shape[axis];
-                auto mrgsortRemainResult = mrgsortBuffer->View(function, sortList[0]->shape, mrgsortResultOffset);
-                auto &mrgSortMultiQue2 = function.AddOperation(Opcode::OP_TILEDMRGSORT, {tiledMrgsortList.back(),
-                    sortList[axisTileNum - remain], sortList[axisTileNum - remain],
-                    sortList[axisTileNum - remain]}, {mrgsortRemainResult, tempTensor});
-                mrgSortMultiQue2.SetAttribute(TOPK_VALIDBIT, NUM_VALUE_2);
-                mrgSortMultiQue2.SetAttribute(TOPK_KVALUE, k);
-                tiledMrgsortList.push_back(mrgsortRemainResult);
-            }
-        } else {
-            if (remain == NUM_VALUE_3) {
-                auto mrgsortRemainResult = mrgsortBuffer->View(function, sortList[0]->shape, mrgsortResultOffset);
-                auto &mrgSortMultiQue = function.AddOperation(Opcode::OP_TILEDMRGSORT, {sortList[0],
-                    sortList[1], sortList[NUM_VALUE_2], sortList[NUM_VALUE_2]}, {mrgsortRemainResult, tempTensor});
+                auto &mrgSortMultiQue = function.AddOperation(Opcode::OP_TILEDMRGSORT, {sortList[i],
+                    sortList[i + 1], sortList[i + NUM_VALUE_2], sortList[i + NUM_VALUE_2]},
+                    {mrgsortRepeatResult, tempTensor});
                 mrgSortMultiQue.SetAttribute(TOPK_VALIDBIT, NUM_VALUE_3);
                 mrgSortMultiQue.SetAttribute(TOPK_KVALUE, k);
-                tiledMrgsortList.push_back(mrgsortRemainResult);
-            }
-            if (remain == NUM_VALUE_2) {
-                auto mrgsortRemainResult = mrgsortBuffer->View(function, sortList[0]->shape, mrgsortResultOffset);
-                auto &mrgSortMultiQue = function.AddOperation(Opcode::OP_TILEDMRGSORT, {sortList[0],
-                    sortList[1], sortList[1], sortList[1]}, {mrgsortRemainResult, tempTensor});
+                tiledMrgsortList.push_back(mrgsortRepeatResult);
+            } else if ((axisTileNum - i) == NUM_VALUE_2) {
+                auto tempTensor = std::make_shared<LogicalTensor>(function, valueResult->Datatype(),
+                    tempShape, source->GetDynValidShape());
+                mrgsortResultOffset[axis] = i / NUM_VALUE_4 * sortList[0]->shape[axis];
+                auto mrgsortRepeatResult = mrgsortBuffer->View(function, sortList[0]->shape, mrgsortResultOffset);
+                auto &mrgSortMultiQue = function.AddOperation(Opcode::OP_TILEDMRGSORT, {sortList[i],
+                    sortList[i + 1], sortList[i + 1], sortList[i + 1]},
+                    {mrgsortRepeatResult, tempTensor});
                 mrgSortMultiQue.SetAttribute(TOPK_VALIDBIT, NUM_VALUE_2);
                 mrgSortMultiQue.SetAttribute(TOPK_KVALUE, k);
-                tiledMrgsortList.push_back(mrgsortRemainResult);
+                tiledMrgsortList.push_back(mrgsortRepeatResult);
+            } else if ((axisTileNum - i) == 1) {
+                tiledMrgsortList.push_back(sortList[i]);
+            } else {
+                auto tempTensor = std::make_shared<LogicalTensor>(function, valueResult->Datatype(),
+                    tempShape, source->GetDynValidShape());
+                mrgsortResultOffset[axis] = i / NUM_VALUE_4 * sortList[0]->shape[axis];
+                auto mrgsortRepeatResult = mrgsortBuffer->View(function, sortList[0]->shape, mrgsortResultOffset);
+                auto &mrgSortMultiQue = function.AddOperation(Opcode::OP_TILEDMRGSORT, {sortList[i],
+                    sortList[i + 1], sortList[i + NUM_VALUE_2], sortList[i + NUM_VALUE_3]},
+                    {mrgsortRepeatResult, tempTensor});
+                mrgSortMultiQue.SetAttribute(TOPK_VALIDBIT, NUM_VALUE_4);
+                mrgSortMultiQue.SetAttribute(TOPK_KVALUE, k);
+                tiledMrgsortList.push_back(mrgsortRepeatResult);
             }
-            if (remain == NUM_VALUE_1) {
-                tiledMrgsortList.push_back(sortList[0]);
+        }
+        int roundNum = 0;
+        int width = 1;
+        while (width < axisTileNum) {
+            width = width << NUM_VALUE_2;
+            roundNum++;
+        }
+        int tileResultIdx = 0;
+        for (int i = 1; i < roundNum; ++i) {
+            int tileResultNum = tiledMrgsortList.size();
+            for (int j = tileResultIdx; j < tileResultNum; j+=NUM_VALUE_4) {
+                if ((tileResultNum - j) == NUM_VALUE_3) {
+                    auto tempTensor = std::make_shared<LogicalTensor>(function, valueResult->Datatype(),
+                        tempShape, source->GetDynValidShape());
+                    mrgsortResultOffset[axis] = tileResultNum * sortList[0]->shape[axis];
+                    auto mrgsortRepeatResult = mrgsortBuffer->View(function, sortList[0]->shape, mrgsortResultOffset);
+                    auto &mrgSortMultiQue = function.AddOperation(Opcode::OP_TILEDMRGSORT, {tiledMrgsortList[j],
+                        tiledMrgsortList[j + 1], tiledMrgsortList[j + NUM_VALUE_2], tiledMrgsortList[j + NUM_VALUE_2]},
+                        {mrgsortRepeatResult, tempTensor});
+                    mrgSortMultiQue.SetAttribute(TOPK_VALIDBIT, NUM_VALUE_3);
+                    mrgSortMultiQue.SetAttribute(TOPK_KVALUE, k);
+                    tiledMrgsortList.push_back(mrgsortRepeatResult);
+                } else if ((tileResultNum - j) == NUM_VALUE_2) {
+                    auto tempTensor = std::make_shared<LogicalTensor>(function, valueResult->Datatype(),
+                        tempShape, source->GetDynValidShape());
+                    mrgsortResultOffset[axis] = tileResultNum * sortList[0]->shape[axis];
+                    auto mrgsortRepeatResult = mrgsortBuffer->View(function, sortList[0]->shape, mrgsortResultOffset);
+                    auto &mrgSortMultiQue = function.AddOperation(Opcode::OP_TILEDMRGSORT, {tiledMrgsortList[j],
+                        tiledMrgsortList[j + 1], tiledMrgsortList[j + 1], tiledMrgsortList[j + 1]},
+                        {mrgsortRepeatResult, tempTensor});
+                    mrgSortMultiQue.SetAttribute(TOPK_VALIDBIT, NUM_VALUE_2);
+                    mrgSortMultiQue.SetAttribute(TOPK_KVALUE, k);
+                    tiledMrgsortList.push_back(mrgsortRepeatResult);
+                } else if ((tileResultNum - j) == 1) {
+                    tiledMrgsortList.push_back(tiledMrgsortList[j]);
+                } else {
+                    auto tempTensor = std::make_shared<LogicalTensor>(function, valueResult->Datatype(),
+                        tempShape, source->GetDynValidShape());
+                    mrgsortResultOffset[axis] = tileResultNum * sortList[0]->shape[axis];
+                    auto mrgsortRepeatResult = mrgsortBuffer->View(function, sortList[0]->shape, mrgsortResultOffset);
+                    auto &mrgSortMultiQue = function.AddOperation(Opcode::OP_TILEDMRGSORT, {tiledMrgsortList[j],
+                        tiledMrgsortList[j + 1], tiledMrgsortList[j + NUM_VALUE_2], tiledMrgsortList[j + NUM_VALUE_3]},
+                        {mrgsortRepeatResult, tempTensor});
+                    mrgSortMultiQue.SetAttribute(TOPK_VALIDBIT, NUM_VALUE_4);
+                    mrgSortMultiQue.SetAttribute(TOPK_KVALUE, k);
+                    tiledMrgsortList.push_back(mrgsortRepeatResult);
+                }
             }
+            tileResultIdx = tileResultNum;
         }
         auto valueTile = valueResult->View(function, resultTileInfo.shape, resultTileInfo.offset);
         auto &valueOp = function.AddOperation(Opcode::OP_EXTRACT, {tiledMrgsortList.back()}, {valueTile});

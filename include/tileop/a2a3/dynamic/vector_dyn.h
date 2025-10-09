@@ -2260,9 +2260,12 @@ TILEOP void DynBitSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, uns
         // 计算duplicate的mask
         uint64_t mask = ~(((static_cast<uint64_t>(1)) << oriShape1) - 1);
         mask = mask & 0xFFFFFFFF;
-        set_mask_norm();
-        set_vector_mask(0, mask);
-        vector_dup(dst + 3 * srcShape1Align, FLOAT_MIN, oriShape0, 1, 1, dstShape1 * sizeof(float) / 32, (int64_t)0);
+        constexpr uint16_t dstRepeatStride = dstShape1 * sizeof(float) / 32;
+        if constexpr (dstRepeatStride < REPEAT_STRIDE_MAX) {
+            set_mask_norm();
+            set_vector_mask(0, mask);
+            vector_dup(dst + 3 * srcShape1Align, FLOAT_MIN, oriShape0, 1, 1, dstRepeatStride, (int64_t)0);
+        }
         pipe_barrier(PIPE_V);
         for (int rowIdx = 0; rowIdx < oriShape0; rowIdx++) {
             vbitsort((__ubuf__ float *)dst + rowIdx * dstShape1,
@@ -2295,7 +2298,11 @@ TILEOP void DynBitSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, uns
 
     if (oriShape1 > 32) {
         int32_t repeat_sort32 = oriShape1 / 32;
+        int32_t max_repeat_num = repeat_sort32 / REPEAT_MAX;
+        int32_t remain_max_repeat = repeat_sort32 % REPEAT_MAX;
         int32_t tail_sort32 = oriShape1 % 32;
+        set_flag(PIPE_S, PIPE_V, EVENT_ID7);
+        wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
         for (int rowIdx = 0; rowIdx < oriShape0; rowIdx++) {
             __ubuf__ float *srcData = reinterpret_cast<__ubuf__ float *>(src) + rowIdx * srcShape1;
             __ubuf__ float *dstData = reinterpret_cast<__ubuf__ float *>(dst) + rowIdx * dstShape1;
@@ -2315,6 +2322,21 @@ TILEOP void DynBitSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, uns
                 copy_ubuf_to_ubuf(srcData, src + rowIdx * srcShape1, 0, 1, lenBurst, 0, 0);
                 pipe_barrier(PIPE_V);
             }
+            if (max_repeat_num > 0) {
+                for (int j = 0; j < max_repeat_num; ++j) {
+                    vbitsort(dstData + j * REPEAT_MAX * 64, srcData + j * REPEAT_MAX * 32,
+                        idx + j * REPEAT_MAX * 32, REPEAT_MAX);
+                    pipe_barrier(PIPE_V);
+                }
+                if (remain_max_repeat) {
+                    vbitsort(dstData + max_repeat_num * REPEAT_MAX * 64, srcData + max_repeat_num * REPEAT_MAX * 32,
+                        idx + max_repeat_num * REPEAT_MAX * 32, remain_max_repeat);
+                    pipe_barrier(PIPE_V);
+                }
+            }else {
+                vbitsort(dstData, srcData, idx, repeat_sort32);
+                pipe_barrier(PIPE_V);
+            }
             // 首先逐32个数进行排序,需要补齐不对齐的部分
             if (tail_sort32 > 0) {
                 // 非整块的时候,首先对尾部补充-nan
@@ -2323,13 +2345,9 @@ TILEOP void DynBitSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, uns
                 set_vector_mask(0, mask);
                 vector_dup(srcData + repeat_sort32 * 32, FLOAT_MIN, 1, 1, 1, 8, (int64_t)0);
                 pipe_barrier(PIPE_V);
-                vbitsort(dstData, srcData, idx, repeat_sort32 + 1);
+                vbitsort(dstData + repeat_sort32 * 64, srcData + repeat_sort32 * 32, idx + repeat_sort32 * 32, 1);
                 pipe_barrier(PIPE_V);
                 set_vector_mask(-1, -1);
-            } else {
-                // 整块时,直接进行逐32元素排序
-                vbitsort(dstData, srcData, idx, repeat_sort32);
-                pipe_barrier(PIPE_V);
             }
             pipe_barrier(PIPE_V);
         }
