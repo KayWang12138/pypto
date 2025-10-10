@@ -1358,7 +1358,12 @@ Status PipeSync::ProcessViewOrder(Operation *opPtr, std::vector<Operation *> &op
     auto minIt = opLog.end();
     for (auto &consumer : consumers) {
         auto it = std::find(opLog.begin(), opLog.end(), consumer);
-        if (it != opLog.end() && it < minIt) {
+        if (it == opLog.end()) {
+            ALOG_ERROR_F("Consumer of VIEW op: %d %s is not in the subgraph, ProcessViewAssembleOrder failed",
+                consumer->GetOpMagic(), consumer->GetOpcodeStr().c_str());
+            return FAILED;
+        }
+        if (it < minIt) {
             minIt = it;
         }
     }
@@ -1376,6 +1381,11 @@ Status PipeSync::ProcessAssembleOrder(Operation *opPtr, std::vector<Operation *>
     auto maxIt = opLog.begin();
     for (auto &producer : producers) {
         auto it = std::find(opLog.begin(), opLog.end(), producer);
+        if (it == opLog.end()) {
+            ALOG_ERROR_F("Producer of ASSEMBLE op: %d %s is not in the subgraph, ProcessViewAssembleOrder failed",
+                producer->GetOpMagic(), producer->GetOpcodeStr().c_str());
+            return FAILED;
+        }
         if (it != opLog.begin() && it > maxIt) {
             maxIt = it;
         }
