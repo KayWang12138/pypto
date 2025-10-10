@@ -980,6 +980,53 @@ def gen_concat_op_golden(case_name: str, output: Path, case_index: int = None) -
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Concat", golden_func, output, case_index)
 
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestCompare/CompareOperationTest.TestCompare",
+        "TestCompareBitMode/CompareOperationTest.TestCompareBitMode"
+    ]
+)
+def gen_compare_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    
+    def golden_func(inputs: list, config: dict):
+        params = config.get("params", {})
+        operation = params["compare_op"]
+        mode = params.get("mode", "bool")
+        input1 = torch.tensor(inputs[0])
+
+        if len(inputs) > 1:
+            input2 = torch.tensor(inputs[1])
+        else:
+            input2 = params.get("other", 0)
+        cmp_operations = {
+            "eq": torch.eq,
+            "ne": torch.ne,
+            "lt": torch.lt,
+            "le": torch.le,
+            "gt": torch.gt,
+            "ge": torch.ge,
+        }
+        result = cmp_operations[operation](input1, input2)
+        if mode == "bit":
+            bool_np = result.numpy()
+
+            last_dim = bool_np.shape[-1] if bool_np.shape else 0
+            if last_dim % 8 != 0:
+                raise ValueError(
+                    f"Last dimension {last_dim} must be divisible by 8 in BIT mode"
+                )
+            new_shape = list(bool_np.shape[:-1]) + [last_dim // 8, 8]
+            bool_reshaped = bool_np.reshape(new_shape)
+            bitmask = np.packbits(bool_reshaped, axis=-1, bitorder="little")
+            bitmask = bitmask.reshape(bool_np.shape[:-1] + (last_dim // 8,))
+            result = torch.tensor(bitmask, dtype=torch.uint8)
+        else:
+            result = result.to(torch.bool)
+
+        return [result.numpy()]
+    logging.debug("Case(%s),  Compare Golden creating...", case_name)
+    return gen_op_golden("Compare", golden_func, output, case_index)
+
 
 def main() -> bool:
     # 用例名称
@@ -993,7 +1040,5 @@ def main() -> bool:
         output.mkdir(parents=True, exist_ok=True)
         ret = gen_add_op_golden(case_name=cs, output=output)
     return ret
-
-
 if __name__ == "__main__":
     exit(0 if main() else 1)

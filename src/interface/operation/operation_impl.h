@@ -51,6 +51,7 @@ enum class BinaryOpType {
     S_DIV,
     S_MAX,
     MAXIMUM,
+    CMP,
 };
 enum class UnaryOpType {
     EXP,

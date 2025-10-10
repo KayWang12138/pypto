@@ -27,6 +27,19 @@ class Element;
 constexpr const int TILE_VEC_DIMS = 2;
 constexpr const int TILE_CUBE_DIMS = 6;
 
+enum class CmpOperationType {
+    EQ,
+    NE,
+    LT,
+    LE,
+    GT,
+    GE,
+};
+enum class CmpModeType {
+    BOOL,
+    BIT,
+};
+
 namespace internal {
 struct PrintHelper {
     SymbolicScalar cond;
@@ -152,6 +165,7 @@ Tensor DivS(const Tensor &operand1, const Element &operand2);
 Tensor MulS(const Tensor &operand1, const Element &operand2);
 Tensor MinS(const Tensor &operand1, const Element &operand2);
 Tensor MaxS(const Tensor &operand1, const Element &operand2);
+Tensor Compare(const Tensor &operand1, const Tensor &operand2, CmpOperationType operation, CmpModeType mode);
 
 Tensor Unsqueeze(const Tensor &old, int unsqueezeDimNum);
 

@@ -158,7 +158,7 @@ private:
     std::string GenVectorScalarOpByMode(VecScalMode mode) const;
     std::string GenVectorScalarOpScalarMode() const;
     std::string GenCubeOp(bool zeroC) const;
-
+    std::string GenCmpOp() const;
     struct PrintDupOpParam {
         const std::string &dVar;
         const std::string &dstDtypeStr;
@@ -537,6 +537,8 @@ private:
         // for aicpu call
         {            Opcode::OP_AICPU_CALL_AIC,              [this]() { return GenAicpuCallOp(); }},
         {            Opcode::OP_AICPU_CALL_AIV,              [this]() { return GenAicpuCallOp(); }},
+        //cmp op
+        {                  Opcode::OP_CMP,                         [this]() { return GenCmpOp(); }},
     };
 };
 

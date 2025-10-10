@@ -71,6 +71,11 @@ void ElewiseInferFunc(Operation* op,
             inputValidShape.push_back(minDim);
         }
     }
+    
+    int64_t mode = 0;
+    if (op->GetAttr(OP_ATTR_PREFIX + "cmp_mode", mode) && mode == 1) {
+        inputValidShape[inputValidShape.size() - 1] = inputValidShape[inputValidShape.size() - 1] / 8; // 8 bit to 1 byte
+    }
 
     for (auto output : op->GetOOperands()) {
         outValidShapes.push_back(inputValidShape);
@@ -111,6 +116,7 @@ REGISTER_INFER_SHAPE_FUNC(OP_S_MAX, Opcode::OP_S_MAX, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_S_MIN, Opcode::OP_S_MIN, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_REGISTER_COPY, Opcode::OP_REGISTER_COPY, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_SCATTER_ELEMENT, Opcode::OP_SCATTER_ELEMENT, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_CMP, Opcode::OP_CMP, ElewiseInferFunc);
 
 void IndexOutCastInferFunc(Operation* op,
                       std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
