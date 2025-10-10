@@ -22,8 +22,8 @@ namespace pypto {
 PYBIND11_MODULE(pto_impl, m) {
     m.doc() = "PyPTO";
     bind_enum(m);
-    bind_tensor(m);
-    bind_symbolic_scalar(m);
+    BindTensor(m);
+    BindSymbolicScalar(m);
     bind_controller(m);
     bind_operation(m);
     BindRuntime(m);

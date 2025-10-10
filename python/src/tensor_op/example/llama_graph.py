@@ -248,8 +248,8 @@ def llama_layer(
     shape_reduce = [bns, 1]
     # max and sum are not used
 
-    m = pto.tensor(pto.DT_FP32, shape_reduce, "m_temp")
-    l = pto.tensor(pto.DT_FP32, shape_reduce, "l_temp")
+    m = pto.tensor(shape_reduce, pto.DT_FP32, "m_temp")
+    l = pto.tensor(shape_reduce, pto.DT_FP32, "l_temp")
     attention_out = multi_attention(
         hidden_states, attn_weight, m, l, at_dims, vec_cfg, cube_cfg
     )
@@ -265,7 +265,7 @@ def llama_layer(
     residual = hidden_states
     hidden_states = pto.rms_norm(hidden_states)
 
-    mlp_res = pto.tensor(pto.DT_FP32, shape, "tmp")
+    mlp_res = pto.tensor(shape, pto.DT_FP32, "tmp")
 
     a = pto.cast(hidden_states, pto.DT_FP16)
     gate = pto.matmul(pto.DT_FP32, a, ffn_weight)
@@ -294,11 +294,11 @@ if __name__ == "__main__":
     n = dims_cfg.n
     s = dims_cfg.s
     d = dims_cfg.d
-    H = pto.tensor(pto.DT_FP32, [b * s, n * d], "H")
-    AW = pto.tensor(pto.DT_FP16, [n * d, n * d * 3], "AW")
-    DW = pto.tensor(pto.DT_FP16, [n * d, n * d], "DW")
-    FW = pto.tensor(pto.DT_FP16, [n * d, n * d * 3], "FW")
-    res = pto.tensor(pto.DT_FP32, [b * s, n * d], "Res")
+    H = pto.tensor([b * s, n * d], pto.DT_FP32, "H")
+    AW = pto.tensor([n * d, n * d * 3], pto.DT_FP16, "AW")
+    DW = pto.tensor([n * d, n * d], pto.DT_FP16, "DW")
+    FW = pto.tensor([n * d, n * d * 3], pto.DT_FP16, "FW")
+    res = pto.tensor([b * s, n * d], pto.DT_FP32, "Res")
 
     graph_t = pto.graph_type.TENSOR_GRAPH
     func_t = pto.function_type.STATIC

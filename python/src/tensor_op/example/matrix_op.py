@@ -23,8 +23,8 @@ FUNC_T = pto.function_type.STATIC
 
 def matrix_matmul():
     dtype = pto.data_type.DT_FP32
-    a = pto.tensor(dtype, (32, 64), "A")
-    b = pto.tensor(dtype, (64, 32), "B")
+    a = pto.tensor((32, 64), dtype, "A")
+    b = pto.tensor((64, 32), dtype, "B")
     c = None
 
     with pto.pto_function("MATMUL", GRAPH_T, FUNC_T, a, b):

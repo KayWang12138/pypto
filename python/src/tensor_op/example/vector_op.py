@@ -24,8 +24,8 @@ FUNC_T = pto.function_type.STATIC
 def vector_add():
     dtype = pto.data_type.DT_FP32
     shape = (128, 2, 64, 128)
-    a = pto.tensor(dtype, shape, "A")
-    b = pto.tensor(dtype, shape, "B")
+    a = pto.tensor(shape, dtype, "A")
+    b = pto.tensor(shape, dtype, "B")
     c = None
 
     with pto.pto_function("ADD", GRAPH_T, FUNC_T, a, b):
@@ -38,8 +38,8 @@ def vector_add():
 def vector_sub():
     dtype = pto.data_type.DT_FP32
     shape = (128, 2, 64, 128)
-    a = pto.tensor(dtype, shape, "A")
-    b = pto.tensor(dtype, shape, "B")
+    a = pto.tensor(shape, dtype, "A")
+    b = pto.tensor(shape, dtype, "B")
     c = None
 
     with pto.pto_function("SUB", GRAPH_T, FUNC_T, a, b):
@@ -52,8 +52,8 @@ def vector_sub():
 def vector_mul():
     dtype = pto.data_type.DT_FP32
     shape = (128, 2, 64, 128)
-    a = pto.tensor(dtype, shape, "A")
-    b = pto.tensor(dtype, shape, "B")
+    a = pto.tensor(shape, dtype, "A")
+    b = pto.tensor(shape, dtype, "B")
     c = None
 
     with pto.pto_function("MUL", GRAPH_T, FUNC_T, a, b):
@@ -66,8 +66,8 @@ def vector_mul():
 def vector_div():
     dtype = pto.data_type.DT_FP32
     shape = (128, 2, 64, 128)
-    a = pto.tensor(dtype, shape, "A")
-    b = pto.tensor(dtype, shape, "B")
+    a = pto.tensor(shape, dtype, "A")
+    b = pto.tensor(shape, dtype, "B")
     c = None
 
     with pto.pto_function("DIV", GRAPH_T, FUNC_T, a, b):
@@ -80,8 +80,8 @@ def vector_div():
 def vector_view():
     dtype = pto.data_type.DT_FP32
     shape = (128, 2, 64, 128)
-    a = pto.tensor(dtype, shape, "A")
-    b = pto.tensor(dtype, shape, "B")
+    a = pto.tensor(shape, dtype, "A")
+    b = pto.tensor(shape, dtype, "B")
     c = None
 
     with pto.pto_function("VIEW", GRAPH_T, FUNC_T, a, b):
@@ -99,7 +99,7 @@ def vector_view():
 def vector_cast_exp():
     dtype = pto.data_type.DT_FP32
     shape = (128, 2, 64, 128)
-    a = pto.tensor(dtype, shape, "A")
+    a = pto.tensor(shape, dtype, "A")
     b = None
 
     with pto.pto_function("exp", GRAPH_T, FUNC_T, a):
@@ -139,7 +139,7 @@ def vector_element():
 
     dtype = pto.data_type.DT_FP32
     shape = (128, 2, 64, 128)
-    d = pto.tensor(dtype, shape, "D")
+    d = pto.tensor(shape, dtype, "D")
     e = None
     f = None
     with pto.pto_function("ELEMENT", GRAPH_T, FUNC_T, d):
@@ -153,8 +153,8 @@ def vector_element():
 def vector_maximum():
     dtype = pto.data_type.DT_FP32
     shape = (128, 2, 64, 128)
-    a = pto.tensor(dtype, shape, "A")
-    b = pto.tensor(dtype, shape, "B")
+    a = pto.tensor(shape, dtype, "A")
+    b = pto.tensor(shape, dtype, "B")
     c = None
 
     with pto.pto_function("MAXIMUM", GRAPH_T, FUNC_T, a, b):
@@ -169,7 +169,7 @@ def vector_maximum():
 def vector_row_sum_single():
     dtype = pto.data_type.DT_FP32
     shape = (128, 2, 64, 128)
-    a = pto.tensor(dtype, shape, "A")
+    a = pto.tensor(shape, dtype, "A")
     b = None
 
     with pto.pto_function("ROW_SUM_SINGLE", GRAPH_T, FUNC_T, a):
@@ -184,7 +184,7 @@ def vector_row_sum_single():
 def vector_row_max_single():
     dtype = pto.data_type.DT_FP32
     shape = (128, 2, 64, 128)
-    a = pto.tensor(dtype, shape, "A")
+    a = pto.tensor(shape, dtype, "A")
     b = None
 
     with pto.pto_function("ROW_MAX_SINGLE", GRAPH_T, FUNC_T, a):
@@ -199,7 +199,7 @@ def vector_row_max_single():
 def vector_rms_norm():
     dtype = pto.data_type.DT_FP32
     shape = (128, 2, 64, 128)
-    a = pto.tensor(dtype, shape, "A")
+    a = pto.tensor(shape, dtype, "A")
     b = None
 
     with pto.pto_function("RMS_NORM", GRAPH_T, FUNC_T, a):
@@ -214,7 +214,7 @@ def vector_rms_norm():
 def vector_reciprocal():
     dtype = pto.data_type.DT_FP32
     shape = (128, 2, 64, 128)
-    a = pto.tensor(dtype, shape, "A")
+    a = pto.tensor(shape, dtype, "A")
     b = None
 
     with pto.pto_function("RECIPROCAL", GRAPH_T, FUNC_T, a):
@@ -230,7 +230,7 @@ def vector_assemble():
     dtype = pto.data_type.DT_FP32
     shape = (128, 128)
     offsets = (0, 0)
-    tensor = pto.tensor(dtype, shape, "tensor")
+    tensor = pto.tensor(shape, dtype, "tensor")
     c = None
 
     with pto.pto_function("ASSEMBLE", GRAPH_T, FUNC_T, tensor):

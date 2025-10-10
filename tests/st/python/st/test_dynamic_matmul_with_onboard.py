@@ -278,9 +278,9 @@ def create_tensor(dtype, ori_shape, tensor_name, format_nz, transposed=None):
     else:
         assert False, "tensor name not found in matmul"
     if format_nz:
-        return pto.tensor(convert_np_dtype_to_pto_dtype(dtype), shape, tensor_name, pto.tile_op_format.TILEOP_NZ)
+        return pto.tensor(shape, convert_np_dtype_to_pto_dtype(dtype), tensor_name, pto.tile_op_format.TILEOP_NZ)
     else:
-        return pto.tensor(convert_np_dtype_to_pto_dtype(dtype), shape, tensor_name)
+        return pto.tensor(shape, convert_np_dtype_to_pto_dtype(dtype), tensor_name)
 
 
 def ceil_div_util(a, b):

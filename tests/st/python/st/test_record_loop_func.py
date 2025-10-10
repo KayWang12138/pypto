@@ -17,9 +17,9 @@ import os
 def init_tensors():
     dtype = pto.data_type.DT_FP32
     shape = (128, 128)
-    a = pto.tensor(dtype, shape, "a")
-    b = pto.tensor(dtype, shape, "b")
-    c = pto.tensor(dtype, shape, "c")
+    a = pto.tensor(shape, dtype, "a")
+    b = pto.tensor(shape, dtype, "b")
+    c = pto.tensor(shape, dtype, "c")
     return a, b, c
 
 

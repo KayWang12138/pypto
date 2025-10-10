@@ -17,8 +17,8 @@ FUNC_T = pto.function_type.STATIC
 
 def test_matrix_matmul():
     dtype = pto.data_type.DT_FP32
-    a = pto.tensor(dtype, (32, 64), "A")
-    b = pto.tensor(dtype, (64, 32), "B")
+    a = pto.tensor((32, 64), dtype, "A")
+    b = pto.tensor((64, 32), dtype, "B")
     c = None
 
     with pto.pto_function("MATMUL", GRAPH_T, FUNC_T, a, b):
@@ -39,8 +39,8 @@ def test_matrix_matmul():
 
 def test_matrix_batch_matmul():
     dtype = pto.data_type.DT_FP32
-    a = pto.tensor(dtype, (2, 64, 32), "A")
-    b = pto.tensor(dtype, (2, 32, 64), "B")
+    a = pto.tensor((2, 64, 32), dtype, "A")
+    b = pto.tensor((2, 32, 64), dtype, "B")
     c = None
 
     with pto.pto_function("BATCH_MATMUL", GRAPH_T, FUNC_T, a, b):

@@ -16,7 +16,7 @@ import pto
 def test_init_tensor():
     expected_dtype = pto.data_type.DT_FP16
     shape = [32, 1]
-    tensor = pto.tensor(expected_dtype, shape, "tensor_a")
+    tensor = pto.tensor(shape, expected_dtype, "tensor_a")
 
     assert tensor.get_dtype() == expected_dtype, "[Tensor] get_dtype is wrong!"
     assert tensor.shape == shape, "[Tensor] shape is wrong!"
@@ -26,7 +26,7 @@ def test_init_tensor():
 def test_init_tensor_no_name():
     expected_dtype = pto.data_type.DT_FP16
     shape = [32, 1]
-    tensor = pto.tensor(expected_dtype, shape)
+    tensor = pto.tensor(shape, expected_dtype)
 
     assert tensor.get_dtype() == expected_dtype, "[Tensor] get_dtype is wrong!"
     assert tensor.shape == shape, "[Tensor] shape is wrong!"
@@ -35,7 +35,7 @@ def test_init_tensor_no_name():
 def test_tensor_get_shape():
     dtype = pto.data_type.DT_FP16
     expected_shape = [32, 1]
-    tensor = pto.tensor(dtype, expected_shape, "tensor_a")
+    tensor = pto.tensor(expected_shape, dtype, "tensor_a")
     actual = tensor.get_shape()
 
     assert (
@@ -46,7 +46,7 @@ def test_tensor_get_shape():
 def test_tensor_shape_property():
     dtype = pto.data_type.DT_FP16
     expected_shape = [32, 1]
-    tensor = pto.tensor(dtype, expected_shape, "tensor_a")
+    tensor = pto.tensor(expected_shape, dtype, "tensor_a")
     actual = tensor.shape
 
     assert (

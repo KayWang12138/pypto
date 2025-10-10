@@ -18,8 +18,8 @@
 using namespace npu::tile_fwk;
 
 namespace pypto {
-void bind_tensor(py::module &m){
-    py::class_<Tensor>(m, "tensor")
+void BindTensor(py::module &m){
+    py::class_<Tensor>(m, "Tensor")
         .def(py::init<>())
         .def(py::init([](DataType dtype, const py::sequence& shape, const std::string& name, TileOpFormat format) {
             bool has_symbolic = false;
@@ -49,19 +49,19 @@ void bind_tensor(py::module &m){
         .def(py::init<DataType, std::vector<int64_t>, uint8_t *, std::string, TileOpFormat>(),
             py::arg("dtype"), py::arg("shape"),  py::arg("data_ptr"), py::arg("name"), py::arg("format") = TileOpFormat::TILEOP_ND)
         .def(
-            "__add__", [](Tensor &self, Tensor tensor) { return npu::tile_fwk::Add(self, tensor); }, "Tensor add.")
-        .def("get_dtype", &Tensor::GetDataType)
+            "__add__", [](Tensor &self, Tensor other) { return npu::tile_fwk::Add(self, other); }, "Tensor add.")
+        .def("GetDataType", &Tensor::GetDataType)
         .def_property_readonly(
             "shape", py::overload_cast<>(&Tensor::GetShape, py::const_), py::return_value_policy::reference_internal)
-        .def("get_shape", py::overload_cast<>(&Tensor::GetShape, py::const_),
+        .def("GetShape", py::overload_cast<>(&Tensor::GetShape, py::const_),
             py::return_value_policy::reference_internal)
-        .def("get_shape_at",py::overload_cast<int>(&Tensor::GetShape, py::const_),py::arg("axis"))
-        .def("assign",
+        .def("GetShapeAt", py::overload_cast<int>(&Tensor::GetShape, py::const_), py::arg("axis"))
+        .def("Assign",
             py::overload_cast<const Tensor&>(&Tensor::operator=),
             "Assigns from another tensor by copying its content.",
             py::return_value_policy::reference_internal
         )
-        .def("move",
+        .def("Move",
             [](Tensor &self, Tensor &other) -> Tensor& {
                 self = std::move(other);
                 return self;
@@ -70,18 +70,18 @@ void bind_tensor(py::module &m){
             py::arg("other"),
             py::return_value_policy::reference_internal
         )
-        .def("set_cache_policy", &Tensor::SetCachePolicy, py::arg("policy"), py::arg("value"))
-        .def("get_cache_policy", &Tensor::GetCachePolicy, py::arg("policy"))
-        .def("has_storage", [](const Tensor &self) { return self.GetStorage(false) != nullptr; })
-        .def("id", &Tensor::Id, "Get the index of the tensor.")
+        .def("SetCachePolicy", &Tensor::SetCachePolicy, py::arg("policy"), py::arg("value"))
+        .def("GetCachePolicy", &Tensor::GetCachePolicy, py::arg("policy"))
+        .def("GetStorage", [](const Tensor &self) { return self.GetStorage(false) != nullptr; })
+        .def("Id", &Tensor::Id, "Get the index of the tensor.")
         .def_property_readonly("id", &Tensor::Id, "Get the index of the tensor.");
-    m.def("get_input_shape", &GetInputShape, py::arg("index"), py::arg("input_index"),
-         "Get the shape of the input at the specified index.");
-    m.def("get_input_data", &GetInputData, py::arg("index"), py::arg("data_offsets"),
+    m.def("GetInputShape", &GetInputShape, py::arg("tensor"), py::arg("axis"),
+         "Get the shape of the input at the specified axis.");
+    m.def("GetInputData", &GetInputData, py::arg("tensor"), py::arg("offset"),
         "Get the input data at the specified offsets.");
-    m.def("get_tensor_data", &GetTensorData, py::arg("index"), py::arg("data_offsets"),
+    m.def("GetTensorData", &GetTensorData, py::arg("tensor"), py::arg("offset"),
         "Get the tensor data at the specified offsets.");
-    m.def("set_tensor_data", &SetTensorData, py::arg("value"), py::arg("src_offset"), py::arg("dst_offset"),
+    m.def("SetTensorData", &SetTensorData, py::arg("value"), py::arg("offset"), py::arg("dst"),
         "Set the tensor data at the destination offset from the source value.");
 
     py::class_<Element>(m, "element")

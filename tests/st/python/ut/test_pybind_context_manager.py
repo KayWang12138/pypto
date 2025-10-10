@@ -20,9 +20,9 @@ import pto
 def test_pybind_context_manager():
     dtype = pto.data_type.DT_FP16
     shape = (8, 8)
-    a = pto.tensor(dtype, shape, "tensor_a")
-    b = pto.tensor(dtype, shape, "tensor_a")
-    c = pto.tensor(dtype, shape, "tensor_c")
+    a = pto.tensor(shape, dtype, "tensor_a")
+    b = pto.tensor(shape, dtype, "tensor_a")
+    c = pto.tensor(shape, dtype, "tensor_c")
 
     with pto.pto_function("fnc_name", a, b):
         pto.set_vec_tile_shapes(8, 8)

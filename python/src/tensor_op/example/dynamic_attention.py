@@ -148,7 +148,7 @@ def mla_pre(**kwargs) -> List[pto.tensor]:
             nonlocal compressed_kv
             pto.set_vec_tile_shapes(min(32, bs), 64)  # 32, 64
             kv_n = w_dkv_kr.shape[1]
-            tmp_c_kv = pto.tensor(pto.data_type.DT_FP32, [bs, kv_n], "tmp_kv")
+            tmp_c_kv = pto.tensor([bs, kv_n], pto.data_type.DT_FP32, "tmp_kv")
             tmp_c_kv.move(pto.mul_s(tmp_c_kv, pto.element(pto.data_type.DT_FP32, 0.0)))
             matmul_result_kv = []
             k_split_kv = 7
@@ -353,8 +353,8 @@ def attention(**kwargs):
                         cos_view = pto.view(cos, [tile_b, s, qk_rope_head_dim], [b_offset, 0, 0])
                         sin_view = pto.view(sin, [tile_b, s, qk_rope_head_dim], [b_offset, 0, 0])
                         ## -> [b,1,s,qkRopeHeadDim]
-                        k_rope_view = pto.tensor(k_pe_res.get_dtype(), [tile_b, s, 1, qk_rope_head_dim], "kRopeView")
-                        q_rope_view = pto.tensor(k_pe_res.get_dtype(), [tile_b, s, n, qk_rope_head_dim], "qRopeView")
+                        k_rope_view = pto.tensor([tile_b, s, 1, qk_rope_head_dim], k_pe_res.get_dtype(), "kRopeView")
+                        q_rope_view = pto.tensor([tile_b, s, n, qk_rope_head_dim], k_pe_res.get_dtype(), "qRopeView")
                         pto.set_semantic_label("ApplyRotaryPosEmbV2")
                         pto.apply_rotary_pos_emb_v2(q_pe_view, k_pe_res, cos_view, sin_view, q_rope_view,
                                                      k_rope_view, NUM_2, rope_config)
@@ -455,9 +455,9 @@ def attention(**kwargs):
                                 def inside_n_idx_loop(b_idx, n_idx, bn_per_batch):
                                     nonlocal pa_out, n_tile
                                     cur_n_tile = n_tile
-                                    oi_update = pto.tensor(pto.data_type.DT_FP32, [n_tile, d_n], "oiUpdate")
-                                    li_update = pto.tensor(pto.data_type.DT_FP32, [n_tile, 1], "liUpdate")
-                                    mi_update = pto.tensor(pto.data_type.DT_FP32, [n_tile, 1], "miUpdate")
+                                    oi_update = pto.tensor([n_tile, d_n], pto.data_type.DT_FP32, "oiUpdate")
+                                    li_update = pto.tensor([n_tile, 1], pto.data_type.DT_FP32, "liUpdate")
+                                    mi_update = pto.tensor([n_tile, 1], pto.data_type.DT_FP32, "miUpdate")
                                     # 当前curOffset没放到更内层循环，避免重复bnPerBatch次的DAssemble操作
                                     cur_offset = b_idx * n_q + n_idx * n_tile
                                     oi_offset = [cur_offset, 0]  # (B*N*S, d)
@@ -479,7 +479,7 @@ def attention(**kwargs):
                                                 cur_s2_tile = block_size
                                                 qn = pto.view(q_nope_out, [cur_n_tile, d_n], [cur_offset, 0])
                                                 qr = pto.view(q_rope_out, [cur_n_tile, d_r], [cur_offset, 0])
-                                                qi = pto.tensor(dtype, [cur_n_tile, d_n + d_r], "qi")
+                                                qi = pto.tensor([cur_n_tile, d_n + d_r], dtype, "qi")
                                                 pto.assemble(qn, [0, 0], qi)
                                                 pto.assemble(qr, [0, d_n], qi)
 
@@ -491,7 +491,7 @@ def attention(**kwargs):
                                                 kr = pto.view(kr_cache_out, [cur_s2_tile, d_r],
                                                               [min(cur_seq - bn * block_size, block_size), d_r],
                                                               [cur_block_idx * block_size, 0])
-                                                kj = pto.tensor(dtype, [cur_s2_tile, d_n + d_r], "kj", pa_format)
+                                                kj = pto.tensor([cur_s2_tile, d_n + d_r], dtype, "kj", pa_format)
                                                 pto.assemble(kn, [0, 0], kj)
                                                 pto.assemble(kr, [0, d_n], kj)
                                                 vj = pto.view(kv_cache_out, [cur_s2_tile, d_n],
@@ -732,41 +732,41 @@ def test_dynamic_attention(params, pa_tile_config, is_quant=False, cache_mode="B
     weight_format = pto.tile_op_format.TILEOP_NZ if False else pto.tile_op_format.TILEOP_ND  # nz = false
     pa_format = pto.tile_op_format.TILEOP_NZ if cache_mode == "PA_NZ" else pto.tile_op_format.TILEOP_ND
     #mla_prolog
-    x = pto.tensor(d_type, x_shape, "x")
-    w_dq = pto.tensor(d_type, w_qa_shape, "wDq", weight_format)
-    w_uq_qr = pto.tensor(d_type_quant_in, w_qb_shape, "wUqQr", weight_format)
+    x = pto.tensor(x_shape, d_type, "x")
+    w_dq = pto.tensor(w_qa_shape, d_type, "wDq", weight_format)
+    w_uq_qr = pto.tensor(w_qb_shape, d_type_quant_in, "wUqQr", weight_format)
     if use_pre_fetch:
         w_dq.set_cache_policy(pto.cache_policy.PREFETCH, True)
         w_uq_qr.set_cache_policy(pto.cache_policy.PREFETCH, True)
 
-    w_dkv_kr = pto.tensor(d_type, w_kv_a_shape, "wDkvKr", weight_format)
-    w_uk = pto.tensor(d_type, w_kv_b_k_shape, "wUk", weight_format)
-    gamma_cq = pto.tensor(d_type, gamma_cq_shape, "gamma_cq")
-    gamma_ckv = pto.tensor(d_type, gamma_ckv_shape, "gamma_ckv")
-    cos = pto.tensor(d_type, cos_shape, "cos")
-    sin = pto.tensor(d_type, cos_shape, "sin")
-    kv_len = pto.tensor(pto.data_type.DT_INT64, kv_len_shape, "kv_len")
-    kv_cache = pto.tensor(d_type, kv_cache_shape, "kv_cache", pa_format)
-    kr_cache = pto.tensor(d_type, kr_cache_shape, "kr_cache", pa_format)
+    w_dkv_kr = pto.tensor(w_kv_a_shape, d_type, "wDkvKr", weight_format)
+    w_uk = pto.tensor(w_kv_b_k_shape, d_type, "wUk", weight_format)
+    gamma_cq = pto.tensor(gamma_cq_shape, d_type, "gamma_cq")
+    gamma_ckv = pto.tensor(gamma_ckv_shape, d_type, "gamma_ckv")
+    cos = pto.tensor(cos_shape, d_type, "cos")
+    sin = pto.tensor(cos_shape, d_type, "sin")
+    kv_len = pto.tensor(kv_len_shape, pto.data_type.DT_INT64, "kv_len")
+    kv_cache = pto.tensor(kv_cache_shape, d_type, "kv_cache", pa_format)
+    kr_cache = pto.tensor(kr_cache_shape, d_type, "kr_cache", pa_format)
 
-    output_q = pto.tensor(d_type, [b * s * n, kv_lora_rank], "output_q")
-    output_q_rope = pto.tensor(d_type, [b * s * n, qk_rope_head_dim], "output_q_rope")
-    output_kv_cache = pto.tensor(d_type, [b * 1 * s2, kv_lora_rank], "output_kv_cache", pa_format)
-    output_kr_cache = pto.tensor(d_type, [b * 1 * s2, qk_rope_head_dim], "output_kr_cache", pa_format)
+    output_q = pto.tensor([b * s * n, kv_lora_rank], d_type, "output_q")
+    output_q_rope = pto.tensor([b * s * n, qk_rope_head_dim], d_type, "output_q_rope")
+    output_kv_cache = pto.tensor([b * 1 * s2, kv_lora_rank], d_type, "output_kv_cache", pa_format)
+    output_kr_cache = pto.tensor([b * 1 * s2, qk_rope_head_dim], d_type, "output_kr_cache", pa_format)
 
-    fake_out = pto.tensor(d_type, [b * s, n, qk_nope_head_dim], "fakeOut")
-    fake_out1 = pto.tensor(d_type, [n, b * s, qk_nope_head_dim], "fakeOut1")
+    fake_out = pto.tensor([b * s, n, qk_nope_head_dim], d_type, "fakeOut")
+    fake_out1 = pto.tensor([n, b * s, qk_nope_head_dim], d_type, "fakeOut1")
     # pa
-    block_table = pto.tensor(pto.data_type.DT_INT32, [b, max_block_num_per_batch], "blockTable")
-    act_seqs = pto.tensor(pto.data_type.DT_INT32, [b], "actSeqs")
+    block_table = pto.tensor([b, max_block_num_per_batch], pto.data_type.DT_INT32, "blockTable")
+    act_seqs = pto.tensor([b], pto.data_type.DT_INT32, "actSeqs")
     #out mla
-    pa_out = pto.tensor(pto.data_type.DT_FP32, [b * n * s, kv_lora_rank], "paOut")
+    pa_out = pto.tensor([b * n * s, kv_lora_rank], pto.data_type.DT_FP32, "paOut")
     #post
-    weight_uv = pto.tensor(d_type, [n, kv_lora_rank, v_head_dim], "weightUV")
-    weight_o = pto.tensor(pto.data_type.DT_INT8, [n * v_head_dim, h], "weightO")
-    weight_o_scale_w = pto.tensor(pto.data_type.DT_FP32, [1, h], "weightOScaleW")
+    weight_uv = pto.tensor([n, kv_lora_rank, v_head_dim], d_type, "weightUV")
+    weight_o = pto.tensor([n * v_head_dim, h], pto.data_type.DT_INT8, "weightO")
+    weight_o_scale_w = pto.tensor([1, h], pto.data_type.DT_FP32, "weightOScaleW")
     # output
-    post_out = pto.tensor(d_type, [b, s, h], "postOut")
+    post_out = pto.tensor([b, s, h], d_type, "postOut")
 
     tile_b = b
     rope_config = pto.rope_tile_shape_config_new()

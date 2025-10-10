@@ -16,8 +16,8 @@ import pto
 def main():
     dtype = pto.data_type.DT_FP16
     shape = (128, 128)
-    a = pto.tensor(dtype, shape, "PTO_TENSOR_a")
-    b = pto.tensor(dtype, shape, "PTO_TENSOR_b")
+    a = pto.tensor(shape, dtype, "PTO_TENSOR_a")
+    b = pto.tensor(shape, dtype, "PTO_TENSOR_b")
 
     with pto.dyn_function("MAIN", [a], [b]):
         pto.set_vec_tile_shapes(64, 64)

@@ -18,11 +18,11 @@ def convert_to_symbolic(value):
     if value is None:
         return value
     if isinstance(value, int):
-        return pto_impl.symbolic_scalar(value)
+        return pto_impl.SymbolicScalar(value)
     if isinstance(value, list):
         return [convert_to_symbolic(v) for v in value]
-    if not isinstance(value, pto_impl.symbolic_scalar):
+    if not isinstance(value, pto_impl.SymbolicScalar):
         raise TypeError(
-            f"Expected value to be int, list, or symbolic_scalar, but got {type(value)}"
+            f"Expected value to be int, list, or SymbolicScalar, but got {type(value)}"
         )
     return value

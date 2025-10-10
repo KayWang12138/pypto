@@ -63,9 +63,9 @@ is_loop_end = pto_impl.IsLoopEnd
 @contextmanager
 def dyn_function(
     name: str,
-    in_tensors: List[pto_impl.tensor],
-    out_tensors: List[pto_impl.tensor],
-    inplace_tensors: List[Tuple[pto_impl.tensor, pto_impl.tensor]] = None,
+    in_tensors: List[pto_impl.Tensor],
+    out_tensors: List[pto_impl.Tensor],
+    inplace_tensors: List[Tuple[pto_impl.Tensor, pto_impl.Tensor]] = None,
 ) -> pto_impl.RecordFunc:
     if inplace_tensors is None:
         inplace_tensors = []
@@ -84,7 +84,7 @@ def dyn_function(
         logging.debug("Exiting DYNAMIC function: %s", name)
 
 
-def cond(scalar: pto_impl.symbolic_scalar):
+def cond(scalar: pto_impl.SymbolicScalar):
     frame = inspect.currentframe().f_back
     return pto_impl.RecordIfBranch(scalar, frame.f_code.co_filename, frame.f_lineno)
 

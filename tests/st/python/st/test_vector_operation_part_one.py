@@ -26,9 +26,9 @@ def test_vector_operation_add():
     view_shape = (16, 16)
     tile_shape = (8, 8)
     pto.DeviceInit()
-    a = pto.tensor(dtype, shape, "ADD_TENSOR_a")
-    b = pto.tensor(dtype, shape, "ADD_TENSOR_b")
-    c = pto.tensor(dtype, shape, "ADD_TENSOR_c")
+    a = pto.tensor(shape, dtype, "ADD_TENSOR_a")
+    b = pto.tensor(shape, dtype, "ADD_TENSOR_b")
+    c = pto.tensor(shape, dtype, "ADD_TENSOR_c")
 
     with pto.dyn_function("ADD", [a, b], [c]):
         loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
@@ -67,9 +67,9 @@ def test_vector_operation_div():
     view_shape = (16, 16)
     tile_shape = (8, 8)
     pto.DeviceInit()
-    a = pto.tensor(dtype, shape, "DIV_TENSOR_a")
-    b = pto.tensor(dtype, shape, "DIV_TENSOR_b")
-    c = pto.tensor(dtype, shape, "DIV_TENSOR_c")
+    a = pto.tensor(shape, dtype, "DIV_TENSOR_a")
+    b = pto.tensor(shape, dtype, "DIV_TENSOR_b")
+    c = pto.tensor(shape, dtype, "DIV_TENSOR_c")
 
     with pto.dyn_function("DIV", [a, b], [c]):
         loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
@@ -110,9 +110,9 @@ def test_vector_operation_mul():
     view_shape = (16, 16)
     tile_shape = (8, 8)
     pto.DeviceInit()
-    a = pto.tensor(dtype, shape, "MUL_TENSOR_a")
-    b = pto.tensor(dtype, shape, "MUL_TENSOR_b")
-    c = pto.tensor(dtype, shape, "MUL_TENSOR_c")
+    a = pto.tensor(shape, dtype, "MUL_TENSOR_a")
+    b = pto.tensor(shape, dtype, "MUL_TENSOR_b")
+    c = pto.tensor(shape, dtype, "MUL_TENSOR_c")
 
     with pto.dyn_function("MUL", [a, b], [c]):
         loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
@@ -151,9 +151,9 @@ def test_vector_operation_sub():
     view_shape = (16, 16)
     tile_shape = (8, 8)
     pto.DeviceInit()
-    a = pto.tensor(dtype, shape, "SUB_TENSOR_a")
-    b = pto.tensor(dtype, shape, "SUB_TENSOR_b")
-    c = pto.tensor(dtype, shape, "SUB_TENSOR_c")
+    a = pto.tensor(shape, dtype, "SUB_TENSOR_a")
+    b = pto.tensor(shape, dtype, "SUB_TENSOR_b")
+    c = pto.tensor(shape, dtype, "SUB_TENSOR_c")
 
     with pto.dyn_function("SUB", [a, b], [c]):
         loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
@@ -192,8 +192,8 @@ def test_vector_operation_abs():
     view_shape = (16, 16)
     tile_shape = (8, 8)
     pto.DeviceInit()
-    a = pto.tensor(dtype, shape, "ABS_TENSOR_a")
-    b = pto.tensor(dtype, shape, "ABS_TENSOR_b")
+    a = pto.tensor(shape, dtype, "ABS_TENSOR_a")
+    b = pto.tensor(shape, dtype, "ABS_TENSOR_b")
 
     with pto.dyn_function("ABS", [a], [b]):
         loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
@@ -227,8 +227,8 @@ def test_vector_operation_sqrt():
     view_shape = (16, 16)
     tile_shape = (8, 8)
     pto.DeviceInit()
-    a = pto.tensor(pto.data_type.DT_FP32, shape, "SQRT_TENSOR_a")
-    b = pto.tensor(pto.data_type.DT_FP32, shape, "SQRT_TENSOR_b")
+    a = pto.tensor(shape, pto.data_type.DT_FP32, "SQRT_TENSOR_a")
+    b = pto.tensor(shape, pto.data_type.DT_FP32, "SQRT_TENSOR_b")
 
     with pto.dyn_function("SQRT", [a], [b]):
         loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
@@ -262,8 +262,8 @@ def test_vector_operation_neg():
 
     pto.DeviceInit()
 
-    a = pto.tensor(pto.data_type.DT_FP32, (n, m), "NEG_TENSOR_a")
-    b = pto.tensor(pto.data_type.DT_FP32, (n, m), "NEG_TENSOR_b")
+    a = pto.tensor((n, m), pto.data_type.DT_FP32, "NEG_TENSOR_a")
+    b = pto.tensor((n, m), pto.data_type.DT_FP32, "NEG_TENSOR_b")
 
     with pto.dyn_function("NEG", [a], [b]):
         loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))

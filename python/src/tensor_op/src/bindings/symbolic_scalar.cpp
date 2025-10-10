@@ -18,11 +18,11 @@
 using namespace npu::tile_fwk;
 
 namespace pypto {
-void bind_symbolic_scalar(py::module &m) {
-    py::class_<NotLessThan>(m, "not_less_than").def(py::init<int64_t>(), py::arg("threshold"));
-    py::class_<NotGreaterThan>(m, "not_greater_than").def(py::init<int64_t>(), py::arg("threshold"));
+void BindSymbolicScalar(py::module &m) {
+    py::class_<NotLessThan>(m, "NotLessThan").def(py::init<int64_t>(), py::arg("threshold"));
+    py::class_<NotGreaterThan>(m, "NotGreaterThan").def(py::init<int64_t>(), py::arg("threshold"));
 
-    py::class_<SymbolicScalar> _SymbolicScalar(m, "symbolic_scalar");
+    py::class_<SymbolicScalar> _SymbolicScalar(m, "SymbolicScalar");
 
     _SymbolicScalar
         .def(py::init<>())
@@ -37,12 +37,12 @@ void bind_symbolic_scalar(py::module &m) {
     py::implicitly_convertible<int, SymbolicScalar>();
 
     _SymbolicScalar
-        .def("is_immediate", &SymbolicScalar::IsImmediate)
-        .def("is_symbol", &SymbolicScalar::IsSymbol)
-        .def("is_expression", &SymbolicScalar::IsExpression)
-        .def("is_valid", &SymbolicScalar::IsValid)
-        .def("concrete_valid", &SymbolicScalar::ConcreteValid)
-        .def("concrete", py::overload_cast<>(&SymbolicScalar::Concrete, py::const_))
+        .def("IsImmediate", &SymbolicScalar::IsImmediate)
+        .def("IsSymbol", &SymbolicScalar::IsSymbol)
+        .def("IsExpression", &SymbolicScalar::IsExpression)
+        .def("IsValid", &SymbolicScalar::IsValid)
+        .def("ConcreteValid", &SymbolicScalar::ConcreteValid)
+        .def("Concrete", py::overload_cast<>(&SymbolicScalar::Concrete, py::const_))
         .def("__eq__", &SymbolicScalar::Eq) // Total ordering / comparisons
         .def("__ne__", &SymbolicScalar::Ne)
         .def("__lt__", &SymbolicScalar::Lt)
@@ -65,11 +65,11 @@ void bind_symbolic_scalar(py::module &m) {
         });
 
     _SymbolicScalar
-        .def("as_intermediate_variable", &SymbolicScalar::AsIntermediateVariable)
-        .def("is_intermediate_variable", &SymbolicScalar::IsIntermediateVariable)
-        .def("dump", &SymbolicScalar::Dump)
-        .def("min", &SymbolicScalar::Min, py::arg("other"))
-        .def("max", &SymbolicScalar::Max, py::arg("other"));
+        .def("AsIntermediateVariable", &SymbolicScalar::AsIntermediateVariable)
+        .def("IsIntermediateVariable", &SymbolicScalar::IsIntermediateVariable)
+        .def("Dump", &SymbolicScalar::Dump)
+        .def("Min", &SymbolicScalar::Min, py::arg("other"))
+        .def("Max", &SymbolicScalar::Max, py::arg("other"));
 
     _SymbolicScalar
         .def("__int__", [](const SymbolicScalar &self) {

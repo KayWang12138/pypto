@@ -24,3 +24,5 @@ from .runtime import device_init, device_fini, device_run_once_data_from_host, d
 from .controller import *  # noqa
 from .enum import *  # noqa
 from .operation import *  # noqa
+from .symbolic_scalar import *  # noqa
+from .tensor import *  # noqa

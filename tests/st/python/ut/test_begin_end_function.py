@@ -17,8 +17,8 @@ import pytest
 def test_begin_add_end_function():
     dtype = pto.data_type.DT_FP16
     shape = (8, 8)
-    a = pto.tensor(dtype, shape, "tensor_a")
-    b = pto.tensor(dtype, shape, "tensor_b")
+    a = pto.tensor(shape, dtype, "tensor_a")
+    b = pto.tensor(shape, dtype, "tensor_b")
     c = None
 
     graph_t = pto.graph_type.TENSOR_GRAPH
@@ -36,7 +36,7 @@ def test_begin_add_end_function():
 
 def test_empty_begin_end_function():
     dtype = pto.data_type.DT_FP16
-    a = pto.tensor(dtype, (8, 8), "tensor_a")
+    a = pto.tensor((8, 8), dtype, "tensor_a")
     fnc_name = "name"
 
     graph_t = pto.graph_type.TENSOR_GRAPH

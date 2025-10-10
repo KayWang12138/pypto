@@ -27,8 +27,8 @@ def test_vector_operation_log():
 
     pto.DeviceInit()
 
-    a = pto.tensor(pto.DataType.DT_FP32, (n, m), "LOG_TENSOR_a")
-    b = pto.tensor(pto.DataType.DT_FP32, (n, m), "LOG_TENSOR_b")
+    a = pto.tensor((n, m), pto.DataType.DT_FP32, "LOG_TENSOR_a")
+    b = pto.tensor((n, m), pto.DataType.DT_FP32, "LOG_TENSOR_b")
 
     with pto.dyn_function("LOG", [a], [b]):
         loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
@@ -64,8 +64,8 @@ def test_vector_operation_log2():
 
     pto.DeviceInit()
 
-    a = pto.tensor(pto.DataType.DT_FP32, (n, m), "LOG2_TENSOR_a")
-    b = pto.tensor(pto.DataType.DT_FP32, (n, m), "LOG2_TENSOR_b")
+    a = pto.tensor((n, m), pto.DataType.DT_FP32, "LOG2_TENSOR_a")
+    b = pto.tensor((n, m), pto.DataType.DT_FP32, "LOG2_TENSOR_b")
 
     with pto.dyn_function("LOG2", [a], [b]):
         loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
@@ -101,8 +101,8 @@ def test_vector_operation_log10():
 
     pto.DeviceInit()
 
-    a = pto.tensor(pto.DataType.DT_FP32, (n, m), "LOG10_TENSOR_a")
-    b = pto.tensor(pto.DataType.DT_FP32, (n, m), "LOG10_TENSOR_b")
+    a = pto.tensor((n, m), pto.DataType.DT_FP32, "LOG10_TENSOR_a")
+    b = pto.tensor((n, m), pto.DataType.DT_FP32, "LOG10_TENSOR_b")
 
     with pto.dyn_function("LOG10", [a], [b]):
         loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))

@@ -27,8 +27,8 @@ def test_vector_operation_rsqrt():
     view_shape = (16, 16)
     tile_shape = (8, 8)
     pto.DeviceInit()
-    a = pto.tensor(pto.DataType.DT_FP32, shape, "RSQRT_TENSOR_a")
-    b = pto.tensor(pto.DataType.DT_FP32, shape, "RSQRT_TENSOR_b")
+    a = pto.tensor(shape, pto.DataType.DT_FP32, "RSQRT_TENSOR_a")
+    b = pto.tensor(shape, pto.DataType.DT_FP32, "RSQRT_TENSOR_b")
 
     with pto.dyn_function("RSQRT", [a], [b]):
         loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))

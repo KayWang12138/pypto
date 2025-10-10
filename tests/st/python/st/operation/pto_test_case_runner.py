@@ -71,8 +71,8 @@ class PTOTestCaseRunner(TestCaseRunner):
     def input_tensors(self):
         return [
             pto.tensor(
-                get_pto_dtype_by_name(input_tensor.dtype),
                 input_tensor.shape,
+                get_pto_dtype_by_name(input_tensor.dtype),
                 input_tensor.name,
             )
             for input_tensor in self._input_tensors
@@ -101,8 +101,8 @@ class PTOTestCaseRunner(TestCaseRunner):
     def output_tensors(self):
         return [
             pto.tensor(
-                get_pto_dtype_by_name(output_tensor.dtype),
                 output_tensor.shape,
+                get_pto_dtype_by_name(output_tensor.dtype),
                 output_tensor.name,
             )
             for output_tensor in self._output_tensors

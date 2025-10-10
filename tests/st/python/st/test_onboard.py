@@ -24,8 +24,8 @@ def test_device_run_data_from_host_numpy():
 
     pto.device_init()
 
-    a = pto.tensor(pto.data_type.DT_FP32, (n, m, k), "PTO_TENSOR_a")
-    b = pto.tensor(pto.data_type.DT_FP32, (n, m, k), "PTO_TENSOR_b")
+    a = pto.tensor((n, m, k), pto.data_type.DT_FP32, "PTO_TENSOR_a")
+    b = pto.tensor((n, m, k), pto.data_type.DT_FP32, "PTO_TENSOR_b")
 
     pto.set_vec_tile_shapes(tiling, tiling, tiling)
     with pto.dyn_function("MAIN", [a], [b]):
@@ -55,8 +55,8 @@ def test_device_run_data_from_host_torch():
 
     pto.device_init()
 
-    a = pto.tensor(pto.data_type.DT_FP32, (n, m), "PTO_TENSOR_a")
-    b = pto.tensor(pto.data_type.DT_FP32, (n, m), "PTO_TENSOR_b")
+    a = pto.tensor((n, m), pto.data_type.DT_FP32, "PTO_TENSOR_a")
+    b = pto.tensor((n, m), pto.data_type.DT_FP32, "PTO_TENSOR_b")
 
     pto.set_vec_tile_shapes(tiling, tiling)
     with pto.dyn_function("MAIN", [a], [b]):
@@ -86,8 +86,8 @@ def test_device_run_data_from_host():
 
     pto.device_init()
 
-    a = pto.tensor(pto.data_type.DT_INT32, (n, m), "PTO_TENSOR_a")
-    b = pto.tensor(pto.data_type.DT_INT32, (n, m), "PTO_TENSOR_b")
+    a = pto.tensor((n, m), pto.data_type.DT_INT32, "PTO_TENSOR_a")
+    b = pto.tensor((n, m), pto.data_type.DT_INT32, "PTO_TENSOR_b")
 
     pto.set_vec_tile_shapes(tiling, tiling)
     with pto.dyn_function("MAIN", [a], [b]):
@@ -123,8 +123,8 @@ def test_device_run_data_from_device():
     # def dynamic function
     @pto.jit
     def cust_dyn_func():
-        a = pto.tensor(pto.data_type.DT_INT32, (n, m), "PTO_TENSOR_a_cust")
-        b = pto.tensor(pto.data_type.DT_INT32, (n, m), "PTO_TENSOR_b_cust")
+        a = pto.tensor((n, m), pto.data_type.DT_INT32, "PTO_TENSOR_a_cust")
+        b = pto.tensor((n, m), pto.data_type.DT_INT32, "PTO_TENSOR_b_cust")
         pto.set_vec_tile_shapes(tiling, tiling)
         with pto.dyn_function("MAIN", [a], [b]):
             with pto.loop_function("s0", "k", pto.loop_range(10)) as rlf:
