@@ -140,20 +140,7 @@ set(_CaseFilterList
         #===========================================================================
         # matmul功能用例
         #===========================================================================
-        "DynamicMatmulTest.mm_A_Bt_ND_fp16"
-        "DynamicMatmulTest.mm_A_Bt_NZ_fp16"
-        "DynamicMatmulTest.mm_A_B_NZ_int8"
-        "DynamicMatmulTest.mm_A_Bt_NZ_int8"
-        "DynamicMatmulTest.mm_A_B_ND_bf16_tile1"
-        "DynamicMatmulTest.mm_A_Bt_ND_fp16_tile2"
-        "DynamicMatmulTest.mm_A_B_NZ_int8_tile3"
-        "DynamicMatmulTest.mm_A_Bt_NZ_int8_tile4"
-        "DynamicMatmulTest.mm_A_ND_B_ND_C_NZ"
-        "DynamicMatmulTest.mm_AT_B_ANZ_BND_bf16"
-        "DynamicMatmulTest.mm_AT_BT_AND_BND_bf16"
-        "DynamicMatmulTest.mm_AT_B_AND_BND_fp32_UNALIGN"
-        "DynamicMatmulTest.mm_AT_BT_AND_BND_fp32"
-        "DynamicMatmulTest.test1_fp32"
+        
         #===========================================================================
         # matmul Interpreter 功能用例
         #===========================================================================
@@ -166,11 +153,7 @@ set(_CaseFilterList
         #===========================================================================
          # batchMatmul功能用例
         #===========================================================================
-        "DynamicBatchMatmulTest.test_bmm_A_Bt_ND_fp16"
-        "DynamicBatchMatmulTest.test_bmm_A_Bt_NZ_fp16"
-        "DynamicBatchMatmulTest.test_bmm_A_B_ND_bf16_tile1"
-        "DynamicBatchMatmulTest.test_bmm_At_Bt_ND_fp16"
-        "DynamicBatchMatmulTest.test_bmm_At_Bt_ANZ_BND_fp16"
+        
         #===========================================================================
          # batchMatmul Interpreter 功能用例
         #===========================================================================

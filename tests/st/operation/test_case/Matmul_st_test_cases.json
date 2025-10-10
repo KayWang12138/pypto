@@ -1,0 +1,725 @@
+{
+    "test_cases": [
+        {
+            "case_index": 0,
+            "case_name": "Matmul_M_255_K_513_N_511_transA_N_transB_N_formatA_ND_formatB_ND_dtypeA_fp16_dtypeB_fp16_formatC_ND_dtypeC_fp16",
+            "operation": "Matmul",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [255, 513],
+                    "dtype": "fp16",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "ND",
+                    "is_trans": false
+                },
+                {
+                    "name": "input1",
+                    "shape": [513, 511],
+                    "dtype": "fp16",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "ND",
+                    "is_trans": false
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [255, 511],
+                    "dtype": "fp16",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [-1, -1],
+            "tile_shape": [[64, 64], [256, 512], [32, 32]],
+            "params": {
+                "enable": 1,
+                "broadcast": false,
+                "func_id": 0,
+                "transA": false,
+                "transB": false,
+                "isAMatrixNz": false,
+                "isBMatrixNz": false,
+                "isCMatrixNz": false,
+                "outDtype": "fp16",
+                "enableKSplit": false
+            }
+        },
+        {
+            "case_index": 1,
+            "case_name": "Matmul_M_224_K_80_N_160_transA_T_transB_T_formatA_NZ_formatB_NZ_dtypeA_fp16_dtypeB_fp16_formatC_NZ_dtypeC_fp16",
+            "operation": "Matmul",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [80, 224],
+                    "dtype": "fp16",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "NZ",
+                    "is_trans": true
+                },
+                {
+                    "name": "input1",
+                    "shape": [160, 80],
+                    "dtype": "fp16",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "NZ",
+                    "is_trans": true
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [224, 160],
+                    "dtype": "fp16",
+                    "format": "NZ"
+                }
+            ],
+            "view_shape": [160, 192],
+            "tile_shape": [[128, 128], [128, 128], [128, 256]],
+            "params": {
+                "enable": 1,
+                "broadcast": false,
+                "func_id": 0,
+                "transA": true,
+                "transB": true,
+                "isAMatrixNz": true,
+                "isBMatrixNz": true,
+                "isCMatrixNz": true,
+                "outDtype": "fp16",
+                "enableKSplit": false
+            }
+        },
+        {
+            "case_index": 2,
+            "case_name": "Matmul_M_272_K_304_N_336_transA_T_transB_N_formatA_NZ_formatB_ND_dtypeA_fp16_dtypeB_fp16_formatC_NZ_dtypeC_fp16",
+            "operation": "Matmul",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [304, 272],
+                    "dtype": "fp16",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "NZ",
+                    "is_trans": true
+                },
+                {
+                    "name": "input1",
+                    "shape": [304, 336],
+                    "dtype": "fp16",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "ND",
+                    "is_trans": false
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [272, 336],
+                    "dtype": "fp16",
+                    "format": "NZ"
+                }
+            ],
+            "view_shape": [-1, 256],
+            "tile_shape": [[128, 256], [64, 256], [64, 256]],
+            "params": {
+                "enable": 1,
+                "broadcast": false,
+                "func_id": 0,
+                "transA": true,
+                "transB": false,
+                "isAMatrixNz": true,
+                "isBMatrixNz": false,
+                "isCMatrixNz": true,
+                "outDtype": "fp16",
+                "enableKSplit": false
+            }
+        },
+        {
+            "case_index": 3,
+            "case_name": "Matmul_M_515_K_336_N_368_transA_N_transB_T_formatA_ND_formatB_NZ_dtypeA_fp16_dtypeB_fp16_formatC_ND_dtypeC_fp16",
+            "operation": "Matmul",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [515, 336],
+                    "dtype": "fp16",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "ND",
+                    "is_trans": false
+                },
+                {
+                    "name": "input1",
+                    "shape": [368, 336],
+                    "dtype": "fp16",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "NZ",
+                    "is_trans": true
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [515, 368],
+                    "dtype": "fp16",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [122, -1],
+            "tile_shape": [[256, 256], [64, 128], [64, 128]],
+            "params": {
+                "enable": 1,
+                "broadcast": false,
+                "func_id": 0,
+                "transA": false,
+                "transB": true,
+                "isAMatrixNz": false,
+                "isBMatrixNz": true,
+                "isCMatrixNz": false,
+                "outDtype": "fp16",
+                "enableKSplit": false
+            }
+        },
+        {
+            "case_index": 4,
+            "case_name": "Matmul_M_240_K_317_N_752_transA_N_transB_N_formatA_ND_formatB_ND_dtypeA_bf16_dtypeB_bf16_formatC_NZ_dtypeC_bf16",
+            "operation": "Matmul",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [240, 317],
+                    "dtype": "bf16",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "ND",
+                    "is_trans": false
+                },
+                {
+                    "name": "input1",
+                    "shape": [317, 752],
+                    "dtype": "bf16",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "ND",
+                    "is_trans": false
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [240, 752],
+                    "dtype": "bf16",
+                    "format": "NZ"
+                }
+            ],
+            "view_shape": [119, 208],
+            "tile_shape": [[64, 256], [128, 512], [128, 256]],
+            "params": {
+                "enable": 1,
+                "broadcast": false,
+                "func_id": 0,
+                "transA": false,
+                "transB": false,
+                "isAMatrixNz": false,
+                "isBMatrixNz": false,
+                "isCMatrixNz": true,
+                "outDtype": "bf16",
+                "enableKSplit": false
+            }
+        },
+        {
+            "case_index": 5,
+            "case_name": "Matmul_M_400_K_496_N_432_transA_N_transB_T_formatA_NZ_formatB_NZ_dtypeA_bf16_dtypeB_bf16_formatC_ND_dtypeC_bf16",
+            "operation": "Matmul",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [400, 496],
+                    "dtype": "bf16",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "NZ",
+                    "is_trans": false
+                },
+                {
+                    "name": "input1",
+                    "shape": [432, 496],
+                    "dtype": "bf16",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "NZ",
+                    "is_trans": true
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [400, 432],
+                    "dtype": "bf16",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [176, 208],
+            "tile_shape": [[64, 128], [64, 256], [256, 512]],
+            "params": {
+                "enable": 1,
+                "broadcast": false,
+                "func_id": 0,
+                "transA": false,
+                "transB": true,
+                "isAMatrixNz": true,
+                "isBMatrixNz": true,
+                "isCMatrixNz": false,
+                "outDtype": "bf16",
+                "enableKSplit": false
+            }
+        },
+        {
+            "case_index": 6,
+            "case_name": "Matmul_M_254_K_259_N_514_transA_N_transB_N_formatA_ND_formatB_ND_dtypeA_fp16_dtypeB_fp16_formatC_ND_dtypeC_fp32",
+            "operation": "Matmul",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [254, 259],
+                    "dtype": "fp16",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "ND",
+                    "is_trans": false
+                },
+                {
+                    "name": "input1",
+                    "shape": [259, 514],
+                    "dtype": "fp16",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "ND",
+                    "is_trans": false
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [254, 514],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [-1, -1],
+            "tile_shape": [[128, 128], [64, 64], [128, 256]],
+            "params": {
+                "enable": 1,
+                "broadcast": false,
+                "func_id": 0,
+                "transA": false,
+                "transB": false,
+                "isAMatrixNz": false,
+                "isBMatrixNz": false,
+                "isCMatrixNz": false,
+                "outDtype": "fp32",
+                "enableKSplit": false
+            }
+        },
+        {
+            "case_index": 7,
+            "case_name": "Matmul_M_384_K_272_N_368_transA_T_transB_T_formatA_NZ_formatB_NZ_dtypeA_bf16_dtypeB_bf16_formatC_NZ_dtypeC_fp32",
+            "operation": "Matmul",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [272, 384],
+                    "dtype": "bf16",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "NZ",
+                    "is_trans": true
+                },
+                {
+                    "name": "input1",
+                    "shape": [368, 272],
+                    "dtype": "bf16",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "NZ",
+                    "is_trans": true
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [384, 368],
+                    "dtype": "fp32",
+                    "format": "NZ"
+                }
+            ],
+            "view_shape": [-1, 272],
+            "tile_shape": [[256, 512], [64, 128], [64, 128]],
+            "params": {
+                "enable": 1,
+                "broadcast": false,
+                "func_id": 0,
+                "transA": true,
+                "transB": true,
+                "isAMatrixNz": true,
+                "isBMatrixNz": true,
+                "isCMatrixNz": true,
+                "outDtype": "fp32",
+                "enableKSplit": false
+            }
+        },
+        {
+            "case_index": 8,
+            "case_name": "Matmul_M_416_K_431_N_510_transA_T_transB_N_formatA_NZ_formatB_ND_dtypeA_bf16_dtypeB_bf16_formatC_ND_dtypeC_fp32",
+            "operation": "Matmul",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [432, 416],
+                    "dtype": "bf16",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "NZ",
+                    "is_trans": true
+                },
+                {
+                    "name": "input1",
+                    "shape": [432, 510],
+                    "dtype": "bf16",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "ND",
+                    "is_trans": false
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [416, 510],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [384, 601],
+            "tile_shape": [[128, 128], [64, 256], [256, 256]],
+            "params": {
+                "enable": 1,
+                "broadcast": false,
+                "func_id": 0,
+                "transA": true,
+                "transB": false,
+                "isAMatrixNz": true,
+                "isBMatrixNz": false,
+                "isCMatrixNz": false,
+                "outDtype": "fp32",
+                "enableKSplit": false
+            }
+        },
+        {
+            "case_index": 9,
+            "case_name": "Matmul_M_352_K_688_N_592_transA_N_transB_T_formatA_ND_formatB_NZ_dtypeA_bf16_dtypeB_bf16_formatC_NZ_dtypeC_fp32",
+            "operation": "Matmul",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [352, 688],
+                    "dtype": "bf16",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "ND",
+                    "is_trans": false
+                },
+                {
+                    "name": "input1",
+                    "shape": [592, 688],
+                    "dtype": "bf16",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "NZ",
+                    "is_trans": true
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [352, 592],
+                    "dtype": "fp32",
+                    "format": "NZ"
+                }
+            ],
+            "view_shape": [20, 192],
+            "tile_shape": [[128, 256], [64, 128], [256, 512]],
+            "params": {
+                "enable": 1,
+                "broadcast": false,
+                "func_id": 0,
+                "transA": false,
+                "transB": true,
+                "isAMatrixNz": false,
+                "isBMatrixNz": true,
+                "isCMatrixNz": true,
+                "outDtype": "fp32",
+                "enableKSplit": false
+            }
+        },
+        {
+            "case_index": 10,
+            "case_name": "Matmul_M_432_K_257_N_272_transA_T_transB_N_formatA_ND_formatB_ND_dtypeA_fp16_dtypeB_fp16_formatC_NZ_dtypeC_fp32",
+            "operation": "Matmul",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [257, 432],
+                    "dtype": "fp16",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "ND",
+                    "is_trans": true
+                },
+                {
+                    "name": "input1",
+                    "shape": [257, 272],
+                    "dtype": "fp16",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "ND",
+                    "is_trans": false
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [432, 272],
+                    "dtype": "fp32",
+                    "format": "NZ"
+                }
+            ],
+            "view_shape": [63, -1],
+            "tile_shape": [[128, 128], [64, 64], [256, 256]],
+            "params": {
+                "enable": 1,
+                "broadcast": false,
+                "func_id": 0,
+                "transA": true,
+                "transB": false,
+                "isAMatrixNz": false,
+                "isBMatrixNz": false,
+                "isCMatrixNz": true,
+                "outDtype": "fp32",
+                "enableKSplit": false
+            }
+        },
+        {
+            "case_index": 11,
+            "case_name": "Matmul_M_592_K_624_N_432_transA_N_transB_T_formatA_NZ_formatB_NZ_dtypeA_fp16_dtypeB_fp16_formatC_ND_dtypeC_fp32",
+            "operation": "Matmul",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [592, 624],
+                    "dtype": "fp16",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "NZ",
+                    "is_trans": false
+                },
+                {
+                    "name": "input1",
+                    "shape": [432, 624],
+                    "dtype": "fp16",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "NZ",
+                    "is_trans": true
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [592, 432],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [80, 48],
+            "tile_shape": [[64, 128], [128, 256], [128, 256]],
+            "params": {
+                "enable": 1,
+                "broadcast": false,
+                "func_id": 0,
+                "transA": false,
+                "transB": true,
+                "isAMatrixNz": true,
+                "isBMatrixNz": true,
+                "isCMatrixNz": false,
+                "outDtype": "fp32",
+                "enableKSplit": false
+            }
+        },
+        {
+            "case_index": 12,
+            "case_name": "Matmul_M_511_K_255_N_513_transA_N_transB_N_formatA_ND_formatB_ND_dtypeA_fp32_dtypeB_fp32_formatC_ND_dtypeC_fp32",
+            "operation": "Matmul",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [511, 255],
+                    "dtype": "fp32",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "ND",
+                    "is_trans": false
+                },
+                {
+                    "name": "input1",
+                    "shape": [255, 513],
+                    "dtype": "fp32",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "ND",
+                    "is_trans": false
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [511, 513],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [-1, -1],
+            "tile_shape": [[64, 128], [64, 64], [64, 256]],
+            "params": {
+                "enable": 1,
+                "broadcast": false,
+                "func_id": 0,
+                "transA": false,
+                "transB": false,
+                "isAMatrixNz": false,
+                "isBMatrixNz": false,
+                "isCMatrixNz": false,
+                "outDtype": "fp32",
+                "enableKSplit": false
+            }
+        },
+        {
+            "case_index": 13,
+            "case_name": "Matmul_M_257_K_376_N_464_transA_T_transB_N_formatA_ND_formatB_NZ_dtypeA_fp32_dtypeB_fp32_formatC_NZ_dtypeC_fp32",
+            "operation": "Matmul",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [257, 376],
+                    "dtype": "fp32",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "ND",
+                    "is_trans": false
+                },
+                {
+                    "name": "input1",
+                    "shape": [464, 376],
+                    "dtype": "fp32",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "NZ",
+                    "is_trans": true
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [257, 464],
+                    "dtype": "fp32",
+                    "format": "NZ"
+                }
+            ],
+            "view_shape": [201, -1],
+            "tile_shape": [[64, 128], [128, 128], [128, 128]],
+            "params": {
+                "enable": 1,
+                "broadcast": false,
+                "func_id": 0,
+                "transA": false,
+                "transB": true,
+                "isAMatrixNz": false,
+                "isBMatrixNz": true,
+                "isCMatrixNz": true,
+                "outDtype": "fp32",
+                "enableKSplit": false
+            }
+        },
+        {
+            "case_index": 14,
+            "case_name": "Matmul_M_168_K_129_N_592_transA_N_transB_T_formatA_ND_formatB_ND_dtypeA_fp32_dtypeB_fp32_formatC_NZ_dtypeC_fp32",
+            "operation": "Matmul",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [168, 129],
+                    "dtype": "fp32",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "ND",
+                    "is_trans": false
+                },
+                {
+                    "name": "input1",
+                    "shape": [592, 129],
+                    "dtype": "fp32",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "ND",
+                    "is_trans": true
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [168, 592],
+                    "dtype": "fp32",
+                    "format": "NZ"
+                }
+            ],
+            "view_shape": [-1, 160],
+            "tile_shape": [[128, 128], [128, 128], [32, 128]],
+            "params": {
+                "enable": 1,
+                "broadcast": false,
+                "func_id": 0,
+                "transA": false,
+                "transB": true,
+                "isAMatrixNz": false,
+                "isBMatrixNz": false,
+                "isCMatrixNz": true,
+                "outDtype": "fp32",
+                "enableKSplit": false
+            }
+        },
+        {
+            "case_index": 15,
+            "case_name": "Matmul_M_184_K_384_N_296_transA_T_transB_N_formatA_NZ_formatB_NZ_dtypeA_fp32_dtypeB_fp32_formatC_ND_dtypeC_fp32",
+            "operation": "Matmul",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [384, 184],
+                    "dtype": "fp32",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "NZ",
+                    "is_trans": true
+                },
+                {
+                    "name": "input1",
+                    "shape": [384, 296],
+                    "dtype": "fp32",
+                    "data_range": { "min": -3, "max": 3 },
+                    "format": "NZ",
+                    "is_trans": false
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [184, 296],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [184, 256],
+            "tile_shape": [[128, 128], [64, 64], [64, 64]],
+            "params": {
+                "enable": 1,
+                "broadcast": false,
+                "func_id": 0,
+                "transA": true,
+                "transB": false,
+                "isAMatrixNz": true,
+                "isBMatrixNz": true,
+                "isCMatrixNz": false,
+                "outDtype": "fp32",
+                "enableKSplit": false
+            }
+        }
+    ]
+}
+    
