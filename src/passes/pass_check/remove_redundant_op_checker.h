@@ -30,8 +30,8 @@ public:
     Status DoPostCheck(Function &function) override;
 private:
     Status PreCheckAssemble(const Operation &op, const LogicalTensorPtr &in);
-    Status PreCheckView(const Operation &op, const LogicalTensorPtr &in);
-    Status ProcessPreCheck(const Operation &op);
+    Status PreCheckView(Function &function, const Operation &op, const LogicalTensorPtr &in);
+    Status ProcessPreCheck(Function &function, const Operation &op);
     Status PostCheckAssemble(const Operation &op);
     Status PostCheckView(const Operation &op);
     Status PostCheckRegCopy(const Operation &op);

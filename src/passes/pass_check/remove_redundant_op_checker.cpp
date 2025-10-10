@@ -44,16 +44,20 @@ Status RemoveRedundantOpChecker::PreCheckAssemble(const Operation &op, const Log
     return SUCCESS;
 }
 
-Status RemoveRedundantOpChecker::PreCheckView(const Operation &op, const LogicalTensorPtr &in) {
+Status RemoveRedundantOpChecker::PreCheckView(Function &function, const Operation &op, const LogicalTensorPtr &in) {
     auto out = op.oOperand.front();
     if (in->shape == out->shape && op.ConsumerOps().empty() && in->GetConsumers().size() > 1) {
         ALOG_ERROR_F("There is another op consumes the input of a view op without consumer!");
         return FAILED;
     }
+    if (function.IsFromOutCast(out)) {
+        ALOG_ERROR_F("The output of the op is an outCast!");
+        return FAILED;
+    }
     return SUCCESS;
 }
 
-Status RemoveRedundantOpChecker::ProcessPreCheck(const Operation &op) {
+Status RemoveRedundantOpChecker::ProcessPreCheck(Function &function, const Operation &op) {
     if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
         auto assemble_in = op.iOperand.front();
         if (PreCheckAssemble(op, assemble_in) != SUCCESS) {
@@ -64,7 +68,7 @@ Status RemoveRedundantOpChecker::ProcessPreCheck(const Operation &op) {
     }
     if (op.GetOpcode() == Opcode::OP_VIEW) {
         auto view_in = op.iOperand.front();
-        if (PreCheckView(op, view_in) != SUCCESS) {
+        if (PreCheckView(function, op, view_in) != SUCCESS) {
             ALOG_ERROR_F("PreCheck for view op[%d] failed!", op.GetOpMagic());
             return FAILED;
         }  
@@ -211,7 +215,7 @@ Status RemoveRedundantOpChecker::DoPreCheck(Function &function) {
         return FAILED;
     }
     for (auto &op : function.Operations()) {
-        if (ProcessPreCheck(op) != SUCCESS) {
+        if (ProcessPreCheck(function, op) != SUCCESS) {
             ALOG_ERROR_F("PreCheck for RemoveRedundantOp failed!");
             return FAILED;
         }

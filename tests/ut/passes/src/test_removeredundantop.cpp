@@ -580,6 +580,38 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest11) {
     EXPECT_EQ(regcopy_num, kNumOne);
 }
 
+TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest12) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestRemoveRedundantOp", "TestRemoveRedundantOp", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    std::vector<int64_t> shape1 = {kNumEight, kNumExpFour};
+    auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    auto ubTensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    auto outCast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    auto outCast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    auto outCast3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    auto outCast4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    auto outCast5 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    currFunctionPtr->AddOperation(Opcode::OP_EXP, {inCast}, {ubTensor1});
+    currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor1}, {outCast1});
+    currFunctionPtr->AddOperation(Opcode::OP_EXP, {outCast1}, {outCast5});
+    currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor1}, {ubTensor2});
+    currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {ubTensor3});
+    currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor3}, {outCast2});
+    currFunctionPtr->AddOperation(Opcode::OP_RECIPROCAL, {ubTensor3}, {outCast3});
+    currFunctionPtr->AddOperation(Opcode::OP_SQRT, {ubTensor3}, {outCast4});
+    currFunctionPtr->inCasts_.push_back(inCast);
+    currFunctionPtr->outCasts_.push_back(outCast1);
+    currFunctionPtr->outCasts_.push_back(outCast2);
+    currFunctionPtr->outCasts_.push_back(outCast3);
+    currFunctionPtr->outCasts_.push_back(outCast4);
+    currFunctionPtr->outCasts_.push_back(outCast5);
+    RemoveRedundantOp removeredundantpass;
+    EXPECT_NE(removeredundantpass.PreCheck(*currFunctionPtr), SUCCESS);
+}
+
 /*
 view->exp(end assemble)->view(end assemble)->expand(end assemble)->exp(end assemble)
                                                                  ->exp(end assemble)
