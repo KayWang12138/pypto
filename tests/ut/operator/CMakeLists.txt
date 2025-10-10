@@ -116,6 +116,9 @@ set(_CaseFilterList
         "DynamicTestWinAttenDebugUt.TestOnboardWinAttnTest_FP16"
         # Softmax
         "DynamicSoftmaxUtest.utest_softmax_dyn"
+        # GenGatedScore
+        "DynamicGenGatedScoreUtest.utest_gen_gated_score_plus_dyn"
+        "DynamicGenGatedScoreUtest.utest_gen_gated_score_dyn"
 
 )
 
