@@ -24,8 +24,8 @@
 #include "interface/program/program.h"
 #include "passes/pass_manager.h"
 #include "interface/configs/config_manager.h"
-#include "passes/tile_graph_pass/split_k.h"
-#include "passes/tile_graph_pass/pre_graph.h"
+#include "passes/tile_graph_pass/graph_optimization/split_k.h"
+#include "passes/tile_graph_pass/graph_constraint/pre_graph.h"
 #include "computational_graph_builder.h"
 #include "ut_json/ut_json_tool.h"
 

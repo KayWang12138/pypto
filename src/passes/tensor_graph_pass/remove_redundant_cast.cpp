@@ -16,7 +16,7 @@
 #include "remove_redundant_cast.h"
 #include "interface/tensor/logical_tensor.h"
 #include "passes/pass_check/remove_redundant_cast_checker.h"
-#include "passes/tile_graph_pass/dead_operation_eliminate.h"
+#include "passes/pass_utils/dead_operation_eliminate.h"
 
 namespace npu {
 namespace tile_fwk {

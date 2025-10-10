@@ -15,7 +15,7 @@
 
 #include "merge_view_assemble.h"
 #include "interface/operation/attribute.h"
-#include "passes/tile_graph_pass/dead_operation_eliminate.h"
+#include "passes/pass_utils/dead_operation_eliminate.h"
 
 namespace npu::tile_fwk {
 Status MergeViewAssemble::RunOnFunction(Function &function) {

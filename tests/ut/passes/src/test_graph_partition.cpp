@@ -20,7 +20,7 @@
 #include "tilefwk/data_type.h"
 #include "tilefwk/tilefwk_op.h"
 #include "interface/function/function.h"
-#include "passes/tile_graph_pass/iso_partitioner.h"
+#include "passes/tile_graph_pass/graph_partition/iso_partitioner.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "passes/pass_manager.h"

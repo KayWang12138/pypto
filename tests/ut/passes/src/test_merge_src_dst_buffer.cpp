@@ -21,7 +21,7 @@
 #include "passes/pass_registry.h"
 #include "interface/configs/config_manager.h"
 #include "ut_json/ut_json_tool.h"
-#include "passes/block_graph_pass/merge_src_dst_buffer.h"
+#include "passes/block_graph_pass/memory_reuse/merge_src_dst_buffer.h"
 #include "passes/pass_utils/pass_utils.h"
 #include "computational_graph_builder.h"
 #include <fstream>

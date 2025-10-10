@@ -9,23 +9,12 @@
  */
 
 /*!
- * \file ut_json_tool.h
- * \brief Unit test for PartitionVC2 pass.
+ * \file schedule.h
+ * \brief
  */
-
-#include "gtest/gtest.h"
-#include "tilefwk/tilefwk_op.h"
-#include "interface/function/function.h"
-#include "tilefwk/tilefwk.h"
-#include "interface/inner/tilefwk.h"
-#include "passes/pass_manager.h"
-#include "interface/configs/config_manager.h"
-#include <fstream>
-#include <vector>
-#include <string>
-
-using namespace npu::tile_fwk;
-
-void DumpJsonFile(Json programJson, std::string jsonFilePath);
-
-Json LoadJsonFile(std::string jsonFilePath);
+#ifndef PASS_SCHEDULE_H
+#define PASS_SCHEDULE_H
+#include "passes/block_graph_pass/schedule_ooo/add_alloc.h"
+#include "passes/block_graph_pass/schedule_ooo/remove_alloc.h"
+#include "passes/block_graph_pass/schedule_ooo/schedule_ooo.h"
+#endif

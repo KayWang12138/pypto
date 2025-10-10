@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "passes/tile_graph_pass/generate_move_op.h"
+#include "passes/tile_graph_pass/data_path/generate_move_op.h"
 #include "interface/function/function.h"
 #include "interface/operation/operation.h"
 #include "interface/tensor/logical_tensor.h"
@@ -21,7 +21,7 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "passes/pass_check/generate_move_op_checker.h"
-#include "passes/tile_graph_pass/dead_operation_eliminate.h"
+#include "passes/pass_utils/dead_operation_eliminate.h"
 
 namespace npu::tile_fwk {
 Status GenerateMoveOp::RunOnFunction(Function &function) {

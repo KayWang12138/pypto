@@ -23,7 +23,7 @@
 #include "passes/pass_manager.h"
 #include "interface/configs/config_manager.h"
 #include "ut_json/ut_json_tool.h"
-#include "passes/tile_graph_pass/split_large_fanout_tensor.h"
+#include "passes/tile_graph_pass/graph_optimization/split_large_fanout_tensor.h"
 #include "computational_graph_builder.h"
 
 using namespace npu::tile_fwk;

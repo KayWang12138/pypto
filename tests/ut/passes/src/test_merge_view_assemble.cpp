@@ -21,7 +21,7 @@
 #include "interface/configs/config_manager.h"
 #include "computational_graph_builder.h"
 #include "ut_json/ut_json_tool.h"
-#include "passes/tile_graph_pass/merge_view_assemble.h"
+#include "passes/tile_graph_pass/graph_optimization/merge_view_assemble.h"
 #include <fstream>
 #include <vector>
 #include <string>

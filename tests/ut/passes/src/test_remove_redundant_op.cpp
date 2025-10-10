@@ -21,7 +21,7 @@
 #include "passes/pass_manager.h"
 #include "interface/configs/config_manager.h"
 #include "ut_json/ut_json_tool.h"
-#include "passes/tile_graph_pass/remove_redundant_op.h"
+#include "passes/tile_graph_pass/graph_optimization/remove_redundant_op.h"
 #include <fstream>
 #include <vector>
 #include <string>

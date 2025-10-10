@@ -23,7 +23,7 @@
 #include "ut_json/ut_json_tool.h"
 
 #define private public
-#include "passes/tile_graph_pass/dead_operation_eliminate.h"
+#include "passes/pass_utils/dead_operation_eliminate.h"
 
 namespace npu {
 namespace tile_fwk{

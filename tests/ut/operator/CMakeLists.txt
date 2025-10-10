@@ -103,7 +103,6 @@ set(_CaseFilterList
         "DynamicPATest.dynamic_pa_low_lantency_unroll"
         "DynamicPATest.dynamic_pa_low_lantency_manual_unroll"
         "DynamicPATest.dynamic_pa_high_throughput_only_batch_loop"
-        "DynamicPATest.AllocatorCoverage"
         "DynamicPATest.dynamic_pa_low_lantency_pass_unroll"
 
         #

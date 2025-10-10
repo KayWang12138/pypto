@@ -21,7 +21,7 @@
 #include "passes/pass_registry.h"
 #include "interface/configs/config_manager.h"
 #include "computational_graph_builder.h"
-#include "passes/tile_graph_pass/common_operation_eliminate.h"
+#include "passes/tile_graph_pass/graph_partition/common_operation_eliminate.h"
 #include <fstream>
 #include <vector>
 #include <string>

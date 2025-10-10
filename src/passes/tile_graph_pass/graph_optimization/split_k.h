@@ -9,12 +9,13 @@
  */
 
 /*!
- * \file split_large_local_raw.h
+ * \file split_k.h
  * \brief
  */
 
-#ifndef SPLIT_LARGE_LOCAL_RAW_PASS_H
-#define SPLIT_LARGE_LOCAL_RAW_PASS_H
+#ifndef CUBE_PROCESS_H
+#define CUBE_PROCESS_H
+
 #include <vector>
 
 #include "interface/operation/opcode.h"
@@ -29,20 +30,16 @@
 
 namespace npu::tile_fwk {
 
-const std::string LOCAL_RAW_SYMBOL_PREFIX = "raw_for_";
+const std::string ACC_A_MUL_B = OP_ATTR_PREFIX + "atomic_add";
 
-class SplitLargeLocalRawTensor : public Pass {
+class SplitK : public Pass {
 public:
-    SplitLargeLocalRawTensor() : Pass("SplitLargeLocalRawTensor") {}
-    ~SplitLargeLocalRawTensor() override = default;
+    SplitK() : Pass("SplitK") {}
+    ~SplitK() override = default;
 
-private:
+    Status PreCheck(Function &function) override;
     Status RunOnFunction(Function &function) override;
-    void UpdateConsumerView(Function &function, const LogicalTensorPtr &logicalTensor, std::vector<int64_t> &diff) const;
-    void UpdateProducerAssemble(Function &function, const LogicalTensorPtr &logicalTensor, std::vector<int64_t> &diff) const;
-    void SplitLargeLocalRaw(Function &function) const;
-    bool ShouldProcessTensor(Function& function, const LogicalTensorPtr& tensor) const;
-    std::vector<int64_t> UpdateOffset(std::vector<int64_t> &offset, std::vector<int64_t> &diff) const;
+    Status EliminateReduceAcc(Function &function);
 };
-} // namespace npu::tile_fwk
-#endif // SPLIT_LARGE_LOCAL_RAW_PASS_H
+}
+#endif // CUBE_PROCESS_H

@@ -16,7 +16,6 @@
 #include <queue>
 #include "interface/function/function.h"
 #include "infer_dyn_shape.h"
-#include "passes/pass_utils/parallel_tool.h"
 #include "passes/pass_check/infer_dyn_shape_checker.h"
 namespace npu {
 namespace tile_fwk {
@@ -35,18 +34,15 @@ Status InferDynShape::InferShape(Function& function){
     }
     std::vector<std::vector<size_t>> opInGraph(opList.size());
     std::vector<std::vector<size_t>> opOutGraph(opList.size());
-    ParallelTool::Instance().Parallel_for(0, opList.size(),1,[&](int st,int et,int tid) {
-        (void) tid;
-        for (int opIdx = st; opIdx < et; opIdx++) {
-            auto& op = opList[opIdx];
-            for (auto producer : op->ProducerOpsOrdered()) {
-                opInGraph[opMagic2Idx[op->GetOpMagic()]].push_back(opMagic2Idx[producer->GetOpMagic()]);
-            }
-            for (auto consumer : op->ConsumerOpsOrdered()) {
-                opOutGraph[opMagic2Idx[op->GetOpMagic()]].push_back(opMagic2Idx[consumer->GetOpMagic()]);
-            }
+    for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
+        auto& op = opList[opIdx];
+        for (auto producer : op->ProducerOpsOrdered()) {
+            opInGraph[opMagic2Idx[op->GetOpMagic()]].push_back(opMagic2Idx[producer->GetOpMagic()]);
         }
-    });
+        for (auto consumer : op->ConsumerOpsOrdered()) {
+            opOutGraph[opMagic2Idx[op->GetOpMagic()]].push_back(opMagic2Idx[consumer->GetOpMagic()]);
+        }
+    }
     bool isInferIndex = false;
     TopoProgramUtils::TopoProgram(opList, opInGraph, opOutGraph, isInferIndex);
     return SUCCESS;

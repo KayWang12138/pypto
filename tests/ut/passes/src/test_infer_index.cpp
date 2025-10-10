@@ -20,7 +20,7 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/operation/op_infer_shape_impl.h"
-#include "passes/tile_graph_pass/infer_dyn_shape.h"
+#include "passes/tile_graph_pass/graph_constraint/infer_dyn_shape.h"
 #include "interface/operation/attribute.h"
 #include "passes/block_graph_pass/infer_param_index.h"
 

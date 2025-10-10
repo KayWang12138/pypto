@@ -18,9 +18,8 @@
 #include <vector>
 #include <climits>
 
-#include "interface/operation/opcode.h"
 #include "tilefwk/data_type.h"
-
+#include "interface/operation/opcode.h"
 #include "passes/pass_interface/pass.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/function/function.h"

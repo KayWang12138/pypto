@@ -9,30 +9,14 @@
  */
 
 /*!
- * \file group_operations.h
+ * \file graph_partition.h
  * \brief
  */
 
-#ifndef PASS_GROUP_OPERATIONS_H_
-#define PASS_GROUP_OPERATIONS_H_
-
-#include <vector>
-#include "passes/pass_interface/pass.h"
-#include "tilefwk/data_type.h"
-
-namespace npu::tile_fwk {
-class GroupOperationsOp : public Pass {
-public:
-    GroupOperationsOp() : Pass("GroupOperationsOp") {}
-    ~GroupOperationsOp() override = default;
-
-private:
-    Status RunOnFunction(Function &function) override;
-
-    void RunOnOperation(Function &function, Operation &op) const;
-
-    std::map<MemoryType, std::set<MemoryType>> memoryLinks;
-};
-
-}
-#endif // PASS_GROUP_OPERATIONS_H_
+#ifndef PASS_GRAPH_PARTITION_H
+#define PASS_GRAPH_PARTITION_H
+#include "passes/tile_graph_pass/graph_partition/iso_partitioner.h"
+#include "passes/tile_graph_pass/graph_partition/n_buffer_merge.h"
+#include "passes/tile_graph_pass/graph_partition/l1_copy_reuse.h"
+#include "passes/tile_graph_pass/graph_partition/common_operation_eliminate.h"
+#endif

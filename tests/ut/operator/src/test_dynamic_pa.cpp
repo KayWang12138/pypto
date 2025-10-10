@@ -15,7 +15,7 @@
 
 #include <gtest/gtest.h>
 #include "operator/models/deepseek/page_attention.h"
-#include "passes/block_graph_pass/global_memory_reuse.h"
+#include "interface/configs/config_manager.h"
 
 using namespace npu::tile_fwk;
 
@@ -293,21 +293,4 @@ TEST_F(DynamicPATest, dynamic_pa_high_throughput_only_batch_loop) {
     int maxUnrollTimes = 4;
     PageAttentionHighThroughput(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize,
         softmaxScale, paOut, tileConfig, maxUnrollTimes);
-}
-
-TEST_F(DynamicPATest, AllocatorCoverage) {
-    Tensor qNope1(DT_BF16, {64, 64}, "qNope1");
-    Tensor qNope2(DT_BF16, {64}, "qNope2");
-    Tensor qNope3(DT_BF16, {64, 32}, "qNope3");
-    Tensor qNope4(DT_BF16, {32, 64}, "qNope4");
-    WorkspaceInfo outWspInfo(1, 0, 8192, qNope1.GetStorage());
-    WorkspaceInfo inWspInfo1(1, 0, 128, qNope2.GetStorage());
-    WorkspaceInfo inWspInfo2(1, 0, 4096, qNope3.GetStorage());
-    WorkspaceInfo inWspInfo3(1, 0, 4096, qNope4.GetStorage());
-
-    Allocator::IsRawQualified(outWspInfo, inWspInfo1);
-
-    Allocator::IsRawQualified(outWspInfo, inWspInfo2);
-
-    Allocator::IsRawQualified(outWspInfo, inWspInfo3);
 }

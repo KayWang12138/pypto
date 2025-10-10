@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "passes/tile_graph_pass/dead_operation_eliminate.h"
+#include "dead_operation_eliminate.h"
 #include <queue>
 #include <chrono>
 #include "interface/tensor/logical_tensor.h"

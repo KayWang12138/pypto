@@ -23,7 +23,7 @@
 #include "interface/configs/config_manager.h"
 
 #define private public
-#include "passes/tile_graph_pass/remove_redundant_op.h"
+#include "passes/tile_graph_pass/graph_optimization/remove_redundant_op.h"
 
 namespace npu {
 namespace tile_fwk{

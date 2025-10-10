@@ -23,7 +23,7 @@
 #include "interface/configs/config_manager.h"
 
 #define private public
-#include "passes/tile_graph_pass/duplicate_view.h"
+#include "passes/tile_graph_pass/graph_optimization/duplicate_view.h"
 
 namespace npu {
 namespace tile_fwk{

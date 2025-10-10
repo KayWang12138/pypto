@@ -13,10 +13,10 @@
  * \brief
  */
 
-#include "passes/tile_graph_pass/common_operation_eliminate.h"
+#include "common_operation_eliminate.h"
 #include <unordered_map>
 #include "interface/tensor/logical_tensor.h"
-#include "passes/tile_graph_pass/dead_operation_eliminate.h"
+#include "passes/pass_utils/dead_operation_eliminate.h"
 #include "passes/pass_check/common_operation_eliminate_checker.h"
 
 namespace npu::tile_fwk {

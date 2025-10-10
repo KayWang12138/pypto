@@ -19,8 +19,8 @@
 #include <vector>
 #include <string>
 #include "interface/function/function.h"
-#include "passes/tile_graph_pass/remove_unaligned_reshape_op.h"
-#include "passes/tile_graph_pass/pad_local_buffer.h"
+#include "passes/tile_graph_pass/graph_constraint/remove_unaligned_reshape_op.h"
+#include "passes/tile_graph_pass/graph_constraint/pad_local_buffer.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "passes/pass_manager.h"

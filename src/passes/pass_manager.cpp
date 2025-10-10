@@ -30,40 +30,18 @@
 #include "passes/tensor_graph_pass/expand_function.h"
 #include "passes/tensor_graph_pass/loop_unroll.h"
 //  tile graph pass
-#include "passes/tile_graph_pass/generate_move_op.h"
-#include "passes/tile_graph_pass/dead_operation_eliminate.h"
-#include "passes/tile_graph_pass/common_operation_eliminate.h"
-#include "passes/tile_graph_pass/assign_memory_type.h"
-#include "passes/tile_graph_pass/duplicate_view.h"
-#include "passes/tile_graph_pass/l1_copy_reuse.h"
-#include "passes/tile_graph_pass/merge_view_assemble.h"
-#include "passes/tile_graph_pass/intra_subgraph_adapter.h"
-#include "passes/tile_graph_pass/pad_local_buffer.h"
-#include "passes/tile_graph_pass/inplace_process.h"
-#include "passes/tile_graph_pass/pre_graph.h"
-#include "passes/tile_graph_pass/remove_redundant_op.h"
-#include "passes/tile_graph_pass/n_buffer_merge.h"
-#include "passes/tile_graph_pass/split_large_local_raw.h"
-#include "passes/tile_graph_pass/split_raw.h"
-#include "passes/tile_graph_pass/split_large_fanout_tensor.h"
-#include "passes/tile_graph_pass/split_k.h"
-#include "passes/tile_graph_pass/remove_unaligned_reshape_op.h"
-#include "passes/tile_graph_pass/split_reshape.h"
-#include "passes/tile_graph_pass/infer_dyn_shape.h"
-#include "passes/tile_graph_pass/iso_partitioner.h"
-#include "passes/tile_graph_pass/infer_dyn_shape.h"
-#include "passes/tile_graph_pass/infer_discontinuous_input.h"
-// execute graph pass
-#include "passes/block_graph_pass/global_memory_reuse.h"
+#include "passes/tile_graph_pass/graph_partition/graph_partition.h"
+#include "passes/tile_graph_pass/graph_optimization/graph_optimization.h"
+#include "passes/tile_graph_pass/graph_constraint/graph_constraint.h"
+#include "passes/tile_graph_pass/data_path/data_path.h"
 #include "passes/tile_graph_pass/subgraph_to_function.h"
+// execute graph pass
+#include "passes/block_graph_pass/memory_reuse/memory_reuse.h"
 #include "passes/block_graph_pass/insert_sync.h"
-#include "passes/block_graph_pass/schedule_ooo/schedule_ooo.h"
+#include "passes/block_graph_pass/schedule_ooo/schedule.h"
 #include "passes/block_graph_pass/codegen_preproc.h"
 #include "passes/block_graph_pass/infer_param_index.h"
-#include "passes/block_graph_pass/add_alloc.h"
-#include "passes/block_graph_pass/remove_alloc.h"
 #include "passes/block_graph_pass/copy_out_resolve.h"
-#include "passes/block_graph_pass/merge_src_dst_buffer.h"
 #include "passes/block_graph_pass/dyn_attr_to_static.h"
 #include "passes/pass_config/pass_config_manager.h"
 
@@ -95,7 +73,6 @@ void RegPass() {
     REG_PASS(InplaceProcess);
     REG_PASS(PreGraphProcess);
     REG_PASS(RemoveRedundantOp);
-    REG_PASS(SplitLargeLocalRawTensor);
     REG_PASS(SplitRawTensor);
     REG_PASS(SplitReshape);
     REG_PASS(RemoveUnalignedReshape);

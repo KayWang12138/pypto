@@ -9,23 +9,12 @@
  */
 
 /*!
- * \file ut_json_tool.h
- * \brief Unit test for PartitionVC2 pass.
+ * \file merge_src_dst_buffer.h
+ * \brief
  */
 
-#include "gtest/gtest.h"
-#include "tilefwk/tilefwk_op.h"
-#include "interface/function/function.h"
-#include "tilefwk/tilefwk.h"
-#include "interface/inner/tilefwk.h"
-#include "passes/pass_manager.h"
-#include "interface/configs/config_manager.h"
-#include <fstream>
-#include <vector>
-#include <string>
-
-using namespace npu::tile_fwk;
-
-void DumpJsonFile(Json programJson, std::string jsonFilePath);
-
-Json LoadJsonFile(std::string jsonFilePath);
+#ifndef PASS_MEMORY_REUSE_H
+#define PASS_MEMORY_REUSE_H
+#include "passes/block_graph_pass/memory_reuse/merge_src_dst_buffer.h"
+#include "passes/block_graph_pass/memory_reuse/global_memory_reuse.h"
+#endif

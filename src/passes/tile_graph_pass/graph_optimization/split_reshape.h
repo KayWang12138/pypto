@@ -20,7 +20,7 @@
 #include "interface/tensor/logical_tensor.h"
 #include "interface/configs/config_manager.h"
 #include "passes/pass_utils/pass_common_defs.h"
-#include "passes/tile_graph_pass/dead_operation_eliminate.h"
+#include "passes/pass_utils/dead_operation_eliminate.h"
 #include "passes/pass_interface/pass.h"
 
 namespace npu::tile_fwk {

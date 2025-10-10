@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "passes/tile_graph_pass/iso_partitioner.h"
+#include "iso_partitioner.h"
 #include <iostream>
 #include <deque>
 #include <algorithm>

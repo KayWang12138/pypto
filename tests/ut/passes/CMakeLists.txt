@@ -160,8 +160,6 @@ set(_CaseFilterList
         "TestExpandFunctionPass.ExpandFunctionUTest6"
         "TestExpandFunctionPass.ExpandFunctionSTest1"
         "TestExpandFunctionPass.ExpandFunctionSTest2"
-        "SplitLargeLocalRawTest.SplitLocalRaw"
-        "SplitLargeLocalRawTest.GraphBoundaryOnUb"
         "InplaceProcessTest.CopyInDirectAssemble"
         "InplaceProcessTest.InplaceProcessViewOnL1"
         "InplaceProcessTest.InplaceProcessAssembleOnGm"

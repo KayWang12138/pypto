@@ -19,8 +19,8 @@
 #include "interface/function/function.h"
 #include "interface/tensor/logical_tensor.h"
 #include "passes/pass_utils/reschedule_utils.h"
+#include "passes/pass_utils/dead_operation_eliminate.h"
 #include "passes/pass_interface/pass.h"
-#include "passes/tile_graph_pass/dead_operation_eliminate.h"
 #include "passes/pass_utils/pass_utils.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
@@ -67,7 +67,7 @@ class L1CopyInReuseRunner {
     int copyInThreshold;
 };
 
-class L1CopyInReuseMerge : public Pass, public DeadOperationEliminator {
+class L1CopyInReuseMerge : public Pass {
 public:
     L1CopyInReuseMerge() : Pass("L1CopyInReuseMerge") {}
     ~L1CopyInReuseMerge() override = default;
@@ -79,7 +79,8 @@ private:
         if (L1CopyInReuse(function) == FAILED) {
           return FAILED;
         }
-        EliminateDeadOperationBackward(function);
+        DeadOperationEliminator eliminator;
+        eliminator.EliminateDeadOperationBackward(function);
         ALOG_INFO_F("===> Finish L1CopyInReuseMerge.");
         return SUCCESS;
     }

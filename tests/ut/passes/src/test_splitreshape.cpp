@@ -22,7 +22,7 @@
 #include "interface/configs/config_manager.h"
 
 #define private public
-#include "passes/tile_graph_pass/split_reshape.h"
+#include "passes/tile_graph_pass/graph_optimization/split_reshape.h"
 
 namespace npu {
 namespace tile_fwk{

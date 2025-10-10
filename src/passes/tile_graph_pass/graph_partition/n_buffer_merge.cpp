@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "passes/tile_graph_pass/n_buffer_merge.h"
+#include "n_buffer_merge.h"
 #include "passes/pass_utils/reschedule_utils.h"
 #include "interface/utils/log.h"
 #include "passes/pass_utils/parallel_tool.h"

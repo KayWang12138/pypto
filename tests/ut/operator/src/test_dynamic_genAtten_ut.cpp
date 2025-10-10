@@ -15,7 +15,7 @@
 
 #include <gtest/gtest.h>
 #include "operator/models/nsa/gen_Attention.h"
-#include "passes/block_graph_pass/global_memory_reuse.h"
+#include "interface/configs/config_manager.h"
 
 using namespace npu::tile_fwk;
 

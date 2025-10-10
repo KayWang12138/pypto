@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "passes/tile_graph_pass/split_large_fanout_tensor.h"
+#include "split_large_fanout_tensor.h"
 #include "passes/pass_utils/graph_utils.h"
 
 namespace npu::tile_fwk {

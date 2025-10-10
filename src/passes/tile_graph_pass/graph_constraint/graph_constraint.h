@@ -9,23 +9,16 @@
  */
 
 /*!
- * \file ut_json_tool.h
- * \brief Unit test for PartitionVC2 pass.
+ * \file graph_constraint.h
+ * \brief
  */
 
-#include "gtest/gtest.h"
-#include "tilefwk/tilefwk_op.h"
-#include "interface/function/function.h"
-#include "tilefwk/tilefwk.h"
-#include "interface/inner/tilefwk.h"
-#include "passes/pass_manager.h"
-#include "interface/configs/config_manager.h"
-#include <fstream>
-#include <vector>
-#include <string>
+#ifndef GRAPH_CONSTRAINT_H
+#define GRAPH_CONSTRAINT_H
+#include "passes/tile_graph_pass/graph_constraint/pad_local_buffer.h"
+#include "passes/tile_graph_pass/graph_constraint/inplace_process.h"
+#include "passes/tile_graph_pass/graph_constraint/pre_graph.h"
+#include "passes/tile_graph_pass/graph_constraint/remove_unaligned_reshape_op.h"
+#include "passes/tile_graph_pass/graph_constraint/infer_dyn_shape.h"
 
-using namespace npu::tile_fwk;
-
-void DumpJsonFile(Json programJson, std::string jsonFilePath);
-
-Json LoadJsonFile(std::string jsonFilePath);
+#endif

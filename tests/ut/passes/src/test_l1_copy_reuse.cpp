@@ -24,7 +24,7 @@
 #include <vector>
 #include <string>
 #include "computational_graph_builder.h"
-#include "passes/tile_graph_pass/l1_copy_reuse.h"
+#include "passes/tile_graph_pass/graph_partition/l1_copy_reuse.h"
 
 using namespace npu::tile_fwk;
 namespace npu {

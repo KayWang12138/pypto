@@ -14,6 +14,7 @@
  */
 
 #include "split_k.h"
+#include "passes/pass_utils/dead_operation_eliminate.h"
 
 namespace npu {
 namespace tile_fwk {

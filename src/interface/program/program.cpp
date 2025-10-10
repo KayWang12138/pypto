@@ -30,7 +30,6 @@
 #include "interface/function/function.h"
 #include "interface/interpreter/flow_verifier.h"
 #include "interface/machine/host/host_machine.h"
-#include "passes/tile_graph_pass/assign_memory_type.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
