@@ -15,51 +15,12 @@
 
 #ifndef PASS_ISO_PARTITIONER_H
 #define PASS_ISO_PARTITIONER_H
-#include "interface/function/function.h"
-#include "tilefwk/tilefwk.h"
+#include "passes/tile_graph_pass/supernode_graph_builder.h"
 #include "passes/pass_interface/pass.h"
 
 namespace npu::tile_fwk {
 
 enum class GraphExtendResult { EXTEND_SUCCESS, EXTEND_LINK_EXHAUST, EXTEND_NODE_EXHAUST };
-
-class OperationGraphInfo {
-public:
-    uint64_t GetHash(const Operation *op) const;
-    bool CoreTypeMergeable(const std::set<OpCoreType> &coreTypes) const;
-    std::vector<int32_t> GetSameLevelOpIdx(int32_t opIdx, Opcode opLabel) const;
-    std::vector<Operation*> opList_;
-    std::unordered_map<int32_t, int32_t> magic2Idx_;
-    std::vector<std::set<int32_t>> inGraph_;
-    std::vector<std::set<int32_t>> outGraph_;
-    std::vector<uint64_t> opHashList_;
-    std::vector<OpCoreType> opCoreType_;
-    bool useCVMixPartition_ = false;
-};
-
-class NodeGraphInfo {
-public:
-    Status Build(const std::shared_ptr<OperationGraphInfo> operationGraphInfo,
-                 const std::vector<std::pair<int32_t, int32_t>> &mergePair, bool markIsCube);
-    Status AvoidLoop(const std::shared_ptr<OperationGraphInfo> operationGraphInfo,
-                     std::vector<int32_t> &parent, std::vector<std::vector<int32_t>> &node2Op, bool &updated);
-    Status BuildInOutGraph(const std::shared_ptr<OperationGraphInfo> operationGraphInfo, bool markIsCube);
-    int32_t FindParent(std::vector<int32_t> &parent, int32_t i);
-    Status MergeSrcToDstIsland(const std::shared_ptr<OperationGraphInfo> operationGraphInfo,
-                               std::vector<int32_t> &parent, int32_t src, int32_t dst);
-    int32_t GetNodeCycle(int32_t nodeIdx) const;
-    std::vector<std::vector<int32_t>> node2Op_;
-    std::vector<int32_t> op2Node_;
-    std::vector<std::set<int32_t>> nodeInGraph_;
-    std::vector<std::set<int32_t>> nodeOutGraph_;
-    std::vector<std::vector<int32_t>> nodeInGraphList_;
-    std::vector<std::vector<int32_t>> nodeOutGraphList_;
-    std::vector<OpCoreType> nodeCoreType_;
-    std::vector<int32_t> nodeCycles_;
-    std::vector<bool> nodeMergeable_;
-    std::vector<uint64_t> nodeHashList_;
-    std::unordered_map<uint64_t, std::vector<int32_t>> hash2NodeMap_;
-};
 
 class SubGraph {
 public:
@@ -115,20 +76,14 @@ public:
     std::shared_ptr<NodeGraphInfo> superNodeInfo_;
 };
 
-class IsoPartitioner {
+class IsoPartitioner : public SuperNodeGraphBuilder {
 public:
     Status PartitionGraph(Function &function);
     Status SetParameter(int32_t cycleUpperBound, int32_t parallelNum, int32_t cycleLowerBound, 
                         bool useReduceBalanceHash=true, bool skipPartition=false);
 
 private:
-    Status BuildOpGraph(const std::vector<Operation*> &opList);
-    Status BuildSuperNodeGraph();
-    Status BuildHashValues();
     Status BuildIsomorphismGroups();
-    std::vector<std::pair<int32_t, int32_t>> GetReduceNodeMergePair() const;
-    Status BuildReduceNodeHash(std::shared_ptr<NodeGraphInfo> reduceNodeInfo);
-    Status BuildBalanceOpHash(std::vector<uint64_t> &opHashList);
     Status IsomorphismGroupMergeStep(bool nonIsoGraphsMerge);
     Status IsomorphismGroupMergeProcess(bool nonIsoGraphsMerge);
     Status UpdatePartitionResult(Function &function);
@@ -142,13 +97,8 @@ private:
                                                  std::vector<std::vector<int32_t>> &isoNodeList,
                                                  std::vector<int32_t> &isoIdx2color, bool nonIsoGraphsMerge);
     bool SuitableForMergeCheck(int32_t currColor, int32_t mergeColor, bool nonIsoGraphsMerge) const;
-    uint64_t CombineHash(const uint64_t h1, const uint64_t h2) const;
-    std::shared_ptr<OperationGraphInfo> operationInfo_;
-    std::shared_ptr<NodeGraphInfo> superNodeInfo_;
     std::vector<std::shared_ptr<IsomorphismGraphGroup>> isoSubGroups_;
     int32_t tryMergeLoopNum_ = 100;
-    bool useReduceBalanceHash_ = true;
-    bool useCVMixPartition_ = false;
     bool skipPartition_ = false;
     int32_t cycleUB_ = -1;
     int32_t parallelNum_ = -1;
