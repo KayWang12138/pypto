@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file add_alloc_checker.cpp
+ * \file infer_dyn_shape_checker.h
  * \brief
  */
 

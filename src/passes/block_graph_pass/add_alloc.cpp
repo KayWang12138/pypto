@@ -14,14 +14,8 @@
  */
 
 #include "add_alloc.h"
-#include "passes/pass_check/add_alloc_checker.h"
 
 namespace npu::tile_fwk {
-Status AddAlloc::PreCheck(Function &function) {
-    AddAllocChecker checker;
-    return checker.DoPreCheck(function);
-}
-
 Status AddAlloc::GenTensorAllocMsgMap(Function &function, 
     std::unordered_map<int, TensorAllocMsg> &tensorAllocMsgMap) const {
     for (auto& op : function.Operations().DuplicatedOpList()) {
