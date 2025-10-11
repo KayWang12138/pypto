@@ -223,14 +223,14 @@ void ExecuteOpExtract(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_EXTRACT, Opcode::OP_EXTRACT, ExecuteOpExtract);
 
-void ExecuteOpGATHER(ExecuteOperationContext *ctx) {
+void ExecuteOpGather(ExecuteOperationContext *ctx) {
     auto output = ctx->ooperandInplaceDataViewList->at(0);
     auto parmas = ctx->ioperandDataViewList->at(0);
     auto indices = ctx->ioperandDataViewList->at(1);
     int axis = ctx->op->GetIntAttribute("op_attr_axis");
     calc::Gather(output, parmas, indices, axis);
 }
-REGISTER_CALC_OP(OP_GATHER, Opcode::OP_GATHER, ExecuteOpGATHER);
+REGISTER_CALC_OP(OP_GATHER, Opcode::OP_GATHER, ExecuteOpGather);
 
 void ExecuteOpMrgSort(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ioperandDataViewList->size() == 1);

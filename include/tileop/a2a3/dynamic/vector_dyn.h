@@ -2137,6 +2137,15 @@ TILEOP void DynTgather_(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1, un
     constexpr uint32_t oututStride1234 = UBOutputS * UBIndexS2 * UBIndexS1 * UBIndexS0;
     __ubuf__ T2 *index = src1;
     __ubuf__ T *output = dst;
+    /**
+     * gather 操作在 registerInfo 的时候，指定流水为 PIPE_V ，但是当after 为1，也就是 axis
+     * 是最后一个维度的时候，会变化成 PIPE_S 操作。
+     */
+    if constexpr (after == 1) {
+        set_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
+        wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
+    }
+
     for (int i = 0; i < before; ++i) {
         for (int j = 0; j < TShape0; ++j) {
             for (int k = 0; k < TShape1; k++) {
@@ -2145,10 +2154,8 @@ TILEOP void DynTgather_(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1, un
                     dst = output + (j * oututStride234 + k * oututStride34 + l * UBOutputS) * after;
                     for (int m = 0; m < TShape3; m++) {
                         if constexpr (after == 1) {
-                            pipe_barrier(PIPE_ALL);
                             T2 indexInput = (T2)(*(src1 + m));
                             dst[m] = src0[indexInput];
-                            pipe_barrier(PIPE_ALL);
                         } else {
                             set_flag(PIPE_V, PIPE_S, EVENT_ID7);
                             wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
@@ -2164,6 +2171,10 @@ TILEOP void DynTgather_(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1, un
         }
         src0 += after * axis_shape;
         output += oututStride1234 * after;
+    }
+    if constexpr (after == 1) {
+        set_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
+        wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
     }
 }
 

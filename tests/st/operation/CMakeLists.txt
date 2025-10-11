@@ -82,7 +82,7 @@ set(_CaseFilterList
         "TestTopK/TopKOperationTest.TestTopK/6"
         "TestGather/GatherOperationTest.TestGather/6"
         "TestGather/GatherOperationTest.TestGather/0"
-        "TestGather/GatherOperationTest.TestGather/1"
+        "TestGather/GatherOperationTest.TestGather/22"
         "TestTranspose/TransposeOperationTest.TestTranspose/0"
         "TestTranspose/TransposeOperationTest.TestTranspose/2"
         "TestTranspose/TransposeOperationTest.TestTranspose/13"

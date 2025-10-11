@@ -1279,23 +1279,19 @@ LogicalTensorPtr TiledGatherOperation(Function &function, const TileShape &tileS
 
 LogicalTensorPtr TensorGatherOperation(
     Function &function, const LogicalTensorPtr &params, const LogicalTensorPtr &indices, int axis) {
-    std::vector<int64_t> resultShape = GatherOperationResultShape(params, indices, axis);
-    auto result = std::make_shared<LogicalTensor>(function, params->Datatype(), resultShape);
-    std::vector<std::vector<SymbolicScalar>> outValidShape{};
     const auto &paramsDynShape = params->GetDynValidShape();
     const auto &indicesDynShape = indices->GetDynValidShape();
-    std::vector<SymbolicScalar> shapeVec{};
-    for (int i = 0; i < axis; i++) {
-        shapeVec.push_back(paramsDynShape[i]);
+    const int paramsRank = paramsDynShape.size();
+    if (axis < 0) {
+        axis += paramsRank;
+        ASSERT(axis >= 0 && axis < paramsRank) << "The configuration of the axis is incorrect";
     }
-    for (const auto &dim : indicesDynShape) {
-        shapeVec.push_back(dim);
-    }
-    for (int i = axis + 1; i < static_cast<int>(paramsDynShape.size()); i++) {
-        shapeVec.push_back(paramsDynShape[i]);
-    }
-    outValidShape.push_back(shapeVec);
-    auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_GATHER, {params, indices}, {result}, outValidShape);
+    std::vector<int64_t> resultShape = GatherOperationResultShape(params, indices, axis);
+    auto result = std::make_shared<LogicalTensor>(function, params->Datatype(), resultShape);
+    std::vector<SymbolicScalar> outValidShape = paramsDynShape;
+    outValidShape.erase(outValidShape.begin() + axis);
+    outValidShape.insert(outValidShape.begin() + axis, indicesDynShape.begin(), indicesDynShape.end());
+    auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_GATHER, {params, indices}, {result}, {outValidShape});
     op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
 
     return result;
