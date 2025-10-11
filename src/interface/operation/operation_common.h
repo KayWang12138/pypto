@@ -60,7 +60,7 @@ public:
 
     std::string Dump() const {
         std::ostringstream oss;
-        oss << PipeTypeName(pipeId_) << "," << PipeTypeName(trigPipeId_) << "," << eventId_;
+        oss << GetPipeTypeDict().Find(pipeId_) << "," << GetPipeTypeDict().Find(trigPipeId_) << "," << eventId_;
         return oss.str();
     }
 };

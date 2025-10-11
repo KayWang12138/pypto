@@ -268,7 +268,7 @@ std::string PipeSync::DepOp::DumpDepOp(std::vector<Operation *> opLog) {
 
 std::string PipeSync::IssueQueue::DumpIssueQueue(std::vector<Operation *> opLogPtr) {
     std::stringstream ss;
-    ss << "pipe type: " << PipeTypeName(selfPipeCore.pipe) << ", Op in this pipe: {";
+    ss << "pipe type: " << GetPipeTypeDict().Find(selfPipeCore.pipe) << ", Op in this pipe: {";
     for (auto op : ops) {
         ss << opLogPtr[op]->GetOpMagic() << " " << opLogPtr[op]->GetOpcodeStr() << ", ";
     }
@@ -281,7 +281,7 @@ std::string PipeSync::PipeDepInfo::DumpPipeDepInfo() {
     ss << "    wait idx: " << waitIdx << "\n";
     ss << "    setPipes:" << "\n";
     for (auto pair : setPipes) {
-        ss << "        pipetype: " << PipeTypeName(pair.first.pipe) << "  opidx: " << pair.second << "\n";
+        ss << "        pipetype: " << GetPipeTypeDict().Find(pair.first.pipe) << "  opidx: " << pair.second << "\n";
     }
     return ss.str();
 }
@@ -289,7 +289,7 @@ std::string PipeSync::PipeDepInfo::DumpPipeDepInfo() {
 std::string PipeSync::DumpLatestPipeDepMap() {
     std::stringstream ss;
     for (auto pair : latestPipeDep_) {
-        ss << "current pipe type: " << PipeTypeName(pair.first.pipe) << "\n";
+        ss << "current pipe type: " << GetPipeTypeDict().Find(pair.first.pipe) << "\n";
         ss << pair.second.DumpPipeDepInfo() << "\n";
     }
     return ss.str();
@@ -661,6 +661,9 @@ Status PipeSync::InjectSync(Function &function, std::vector<Operation *> opLogPt
 }
 
 int PipeSync::GetMaxEventId(const PipePair &pp) {
+    if (pp.first.core != pp.second.core) {
+        return CV_EVENT_NUM;
+    }
     PipePair ppReverse = {pp.second, pp.first};
     auto it1 = doublePipeOp.find(pp);
     auto it2 = doublePipeOp.find(ppReverse);
@@ -971,7 +974,9 @@ Status PipeSync::RelaxFakeDataDep(std::vector<IndexOp> &syncedOpLog) {
 }
 
 bool PipeSync::GenSyncOp(PipeCoreReal set, PipeCoreReal wait, int eventId, bool isSet, Operation *op) {
-    if (set.core != wait.core && !config::GetPassGlobalConfig("enable_cv_fuse", false)) {
+    if (set.core != wait.core) {
+        op->SetOpCode(isSet ? Opcode::OP_CV_SYNC_SRC : Opcode::OP_CV_SYNC_DST);
+        op->syncQueue_ = {set.pipe, wait.pipe, set.core, wait.core, eventId};
         return true;
     }
     if (set.pipe != wait.pipe) {
@@ -993,13 +998,8 @@ bool PipeSync::GenSyncOp(PipeCoreReal set, PipeCoreReal wait, int eventId, bool 
 }
 
 Status PipeSync::GetEventId(const PipePair &pp, int &eventId) {
-    if (pp.first.core != pp.second.core && !config::GetPassGlobalConfig("enable_cv_fuse", false)) {
-        // CV sync
-        eventId = cvSyncEventId++;
-        return SUCCESS;
-    }
-    if (pp.first.pipe == pp.second.pipe) {
-        // Barrier.V
+    if (pp.first.pipe == pp.second.pipe && pp.first.core == pp.second.core) {
+        // Pipe Barrier
         eventId = -1;
         return SUCCESS;
     }
@@ -1467,11 +1467,11 @@ Status InsertSync::InsertSyncMainLoop(Function *subGraphFunc) {
     subGraphFunc->ScheduleBy(opListNew, true);
     ALOG_DEBUG_F("==========================================================================================");
     for (const auto &op : subGraphFunc->Operations().DuplicatedOpList()) {
-        if (op->GetOpcodeStr() == "SYNC_SRC" || op->GetOpcodeStr() == "SYNC_DST" || op->GetOpcodeStr() == "BAR.V" ||
-            op->GetOpcodeStr() == "BAR.M") {
-            ALOG_DEBUG_F("Output operation %d: %s, setpipe type: %s, waitpipe type: %s, eventid: %d", op->GetOpMagic(),
-                op->GetOpcodeStr().c_str(), PipeTypeName(op->syncQueue_.pipeId_).c_str(),
-                PipeTypeName(op->syncQueue_.trigPipeId_).c_str(), op->syncQueue_.eventId_);
+        if (op->GetOpcodeStr().find("SYNC_SRC") != std::string::npos || op->GetOpcodeStr().find("SYNC_DST") != std::string::npos
+            || op->GetOpcode() == Opcode::OP_BAR_V || op->GetOpcode() == Opcode::OP_BAR_M) {
+            ALOG_DEBUG_F("Output operation %d: %s, setpipe type: %s, setcore type: %s, waitpipe type: %s, waitcore type: %s, eventid: %d",
+                op->GetOpMagic(), op->GetOpcodeStr().c_str(), GetPipeTypeDict().Find(op->syncQueue_.pipeId_).c_str(), GetCoreTypeDict().Find(op->syncQueue_.coreType_).c_str(),
+                GetPipeTypeDict().Find(op->syncQueue_.trigPipeId_).c_str(), GetCoreTypeDict().Find(op->syncQueue_.trigCoreType_).c_str(), op->syncQueue_.eventId_);
             continue;
         }
         ALOG_DEBUG_F("Output operation %d: %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());

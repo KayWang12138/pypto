@@ -271,6 +271,26 @@ inline const BiMap<CoreType> &GetCoreTypeDict()
     return dict;
 };
 
+inline const BiMap<PipeType> &GetPipeTypeDict()
+{
+    static BiMap<PipeType> dict {
+        {
+            {PipeType::PIPE_S, "PIPE_S"},
+            {PipeType::PIPE_V, "PIPE_V"},
+            {PipeType::PIPE_M, "PIPE_M"},
+            {PipeType::PIPE_MTE1, "PIPE_MTE1"},
+            {PipeType::PIPE_MTE2, "PIPE_MTE2"},
+            {PipeType::PIPE_MTE3, "PIPE_MTE3"},
+            {PipeType::PIPE_ALL, "PIPE_ALL"},
+            {PipeType::PIPE_MTE4, "PIPE_MTE4"},
+            {PipeType::PIPE_MTE5, "PIPE_MTE5"},
+            {PipeType::PIPE_V2, "PIPE_V2"},
+            {PipeType::PIPE_FIX, "PIPE_FIX"},
+        }
+    };
+    return dict;
+};
+
 template <typename T>
 struct OrderedSet : std::unordered_map<T, int> {
     bool Insert(const T &data) {
@@ -447,23 +467,6 @@ inline std::string ShapeStrCompact(const std::vector<int> &shape) {
     }
 
     return std::string(shapeBuffer);
-}
-
-inline std::string PipeTypeName(PipeType type) {
-    switch (type) {
-        case PIPE_S: return "PIPE_S";
-        case PIPE_V: return "PIPE_V";
-        case PIPE_M: return "PIPE_M";
-        case PIPE_MTE1: return "PIPE_MTE1";
-        case PIPE_MTE2: return "PIPE_MTE2";
-        case PIPE_MTE3: return "PIPE_MTE3";
-        case PIPE_ALL: return "PIPE_ALL";
-        case PIPE_MTE4: return "PIPE_MTE4";
-        case PIPE_MTE5: return "PIPE_MTE5";
-        case PIPE_V2: return "PIPE_V2";
-        case PIPE_FIX: return "PIPE_FIX";
-        default: return "ILLEGAL";
-    }
 }
 
 // 辅助函数：去除字符串两端空格

@@ -260,9 +260,9 @@ private:
     static std::vector<PipePair> dataDepPair;
 
     static constexpr int EVENT_NUM = 8;
+    static constexpr int CV_EVENT_NUM = 16;
     static constexpr int EVENT_ID7 = 7;
     static constexpr int IGNORABLE_REPEAT_SIZE = 16;
-    int cvSyncEventId{0};
     int maxOpMagic{0};
     int minimalMergeOverlap{25};
     std::unordered_map<PipePair, std::vector<int>, PipePairHash> doublePipeOp; // pipepair, opmagic
