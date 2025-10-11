@@ -120,8 +120,7 @@ bool SrcDstBufferMergeImpl::CheckIgnoreScene(const Operation *oriOps) {
         return true;
     }
 
-    if (oriOps->HasAttr(OpAttributeKey::isCube) &&
-        oriOps->GetBoolAttribute(OpAttributeKey::isCube)) {
+    if (OpcodeManager::Inst().GetCoreType(oriOps->GetOpcode()) == OpCoreType::AIC) {
         return true;
     }
     for (auto &output : oriOps->GetOOperands()) {
