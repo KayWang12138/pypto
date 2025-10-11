@@ -431,9 +431,9 @@ void Allocator::MarkNonOverlappingConsumerTensors() {
 
             bool canReuse = true;
 
-            // 单个消费者直接标记ConsumerAccessNoOverlap属性
+            // 单个消费者直接认为消费者无重叠
             if (outputTensor->GetConsumers().size() == 1) {
-                outputTensor->SetAttr("ConsumerAccessNoOverlap", true);
+                tensorConsumerNoOverlap_.emplace(outputTensor->GetMagic());
                 continue;
             }
 
@@ -448,7 +448,7 @@ void Allocator::MarkNonOverlappingConsumerTensors() {
             // 检查所有消费者的内存重叠情况
             bool noOverlap = CheckAllConsumerAccessNoOverlap(consumerOffsets, consumerShapes);
             if (noOverlap) {
-                outputTensor->SetAttr("ConsumerAccessNoOverlap", true);
+                tensorConsumerNoOverlap_.emplace(outputTensor->GetMagic());
             }
         }
     }
@@ -648,9 +648,7 @@ bool Allocator::TryReuseInputForOutput(
     // 获取候选输入tensor
     LogicalTensorPtr candidateInput = callOp.GetIOperands()[incastIdx];
     // 检查输入tensor的消费者访问重叠情况，决定该候选输入tensor的内存是否可以被复用
-    bool consumerNoOverlap = false;
-    (void)candidateInput->GetAttr("ConsumerAccessNoOverlap", consumerNoOverlap);
-    if (!consumerNoOverlap) {
+    if (tensorConsumerNoOverlap_.count(candidateInput->GetMagic()) == 0) {
         if (!CheckAllConsumersConnectedToOp(candidateInput, callOp)) {
             ALOG_DEBUG_F("input %d has multiple consumers not linked to %d.", candidateInput->magic, callOp.opmagic);
             return false;

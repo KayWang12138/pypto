@@ -126,6 +126,7 @@ private:
     Function *function_;
     std::unordered_set<int> rootInCasts_;
     std::unordered_set<int> rootOutCasts_;
+    std::unordered_set<int> tensorConsumerNoOverlap_;
     
     // 使用 map 存储，key 为 function 指针
     // function内，outcast可以和哪个incast复用gm内存，-1表示不能复用
