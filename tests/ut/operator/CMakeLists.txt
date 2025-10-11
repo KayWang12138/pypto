@@ -116,10 +116,13 @@ set(_CaseFilterList
         "DynamicTestWinAttenDebugUt.TestOnboardWinAttnTest_FP16"
         # Softmax
         "DynamicSoftmaxUtest.utest_softmax_dyn"
+
         # GenGatedScore
         "DynamicGenGatedScoreUtest.utest_gen_gated_score_plus_dyn"
         "DynamicGenGatedScoreUtest.utest_gen_gated_score_dyn"
 
+        # LightningIndexerProlog
+        "DynamicLightningIndexerPrologUtest.utest_lightning_indexer_prolog"
 )
 
 set(_Target ${PTO_Fwk_UTestNamePrefix}_operator)
