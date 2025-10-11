@@ -36,8 +36,7 @@ struct SubOpMetaData {
 static void SubOperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {inputs[0], inputs[1]}, {outputs[0]}) {
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         auto args = static_cast<const SubOpFuncArgs *>(opArgs);
@@ -89,8 +88,7 @@ static void SubOperationExeFunc2Dims(
 static void SubOperationExeFunc3Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {inputs[0], inputs[1]}, {outputs[0]}) {
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         SymbolicScalar thirdDim = inputs[0]->shape[2];
@@ -128,8 +126,7 @@ static void SubOperationExeFunc3Dims(
 static void SubOperationExeFunc4Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {inputs[0], inputs[1]}, {outputs[0]}) {
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         SymbolicScalar thirdDim = inputs[0]->shape[2];

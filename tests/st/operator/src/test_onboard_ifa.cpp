@@ -39,9 +39,8 @@ TEST_F(OnBoardIFATest, test_32_128_sub_32_1) {
         Tensor output(DataType::DT_FP32, shape1, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("SUB_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("SUB_T", {input_a, input_b, output}) {
             output = Sub(input_a, input_b);
         }
     }
@@ -73,9 +72,8 @@ TEST_F(OnBoardIFATest, test_32_1_sub_32_1) {
         Tensor output(DataType::DT_FP32, shape1, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("SUB_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("SUB_T", {input_a, input_b, output}) {
             output = Sub(input_a, input_b);
         }
     }
@@ -107,9 +105,8 @@ TEST_F(OnBoardIFATest, test_32_512_add_32_1) {
         Tensor output(DataType::DT_FP32, shape1, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ADD_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ADD_T", {input_a, input_b, output}) {
             output = Add(input_a, input_b);
         }
     }
@@ -142,9 +139,8 @@ TEST_F(OnBoardIFATest, test_32_1_mul_32_1) {
         Tensor output(DataType::DT_FP32, shape1, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("MUL_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("MUL_T", {input_a, input_b, output}) {
             output = Mul(input_a, input_b);
         }
     }
@@ -176,9 +172,8 @@ TEST_F(OnBoardIFATest, test_32_512_mul_32_1) {
         Tensor output(DataType::DT_FP32, shape1, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("MUL_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("MUL_T", {input_a, input_b, output}) {
             // add RowSumSingle to test brc case
             auto input_c = RowSumSingle(input_b);
             output = Mul(input_a, input_c);
@@ -208,9 +203,8 @@ TEST_F(OnBoardIFATest, test_32_128_tileop_exp) {
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("EXP_T", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("EXP_T", {input_a, output}) {
             output = Exp(input_a);
         }
     }
@@ -239,9 +233,8 @@ TEST_F(OnBoardIFATest, test_32_1_tileop_exp) {
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("EXP_T", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("EXP_T", {input_a, output}) {
             output = Exp(input_a);
         }
     }
@@ -274,9 +267,8 @@ TEST_F(OnBoardIFATest, test_32_1_maximum) {
         Tensor output(DataType::DT_FP32, shape1, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("Max_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("Max_T", {input_a, input_b, output}) {
             output = Maximum(input_a, input_b);
         }
     }
@@ -305,9 +297,8 @@ TEST_F(OnBoardIFATest, test_32_1_reciprocal) {
         Tensor output(DataType::DT_FP32, shape1, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("Max_T", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("Max_T", {input_a, output}) {
             output = Reciprocal(input_a);
         }
     }
@@ -343,9 +334,8 @@ TEST_F(OnBoardIFATest, test_operation_32_128_row_max_single) {
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RowMaxSingle", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RowMaxSingle", {input_a, output}) {
             output = RowMaxSingle(input_a, -1);
         }
     }
@@ -381,9 +371,8 @@ TEST_F(OnBoardIFATest, test_operation_32_128_row_sum_single) {
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RowSumSingle", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RowSumSingle", {input_a, output}) {
             output = RowSumSingle(input_a, -1);
         }
     }
@@ -421,9 +410,8 @@ TEST_F(OnBoardIFATest, test_concat_32_512_32_64) {
         Tensor input_b(DataType::DT_FP32, shape2, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, outShape, (uint8_t *)out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("CONCAT_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("CONCAT_T", {input_a, input_b, output}) {
             output = Concat(std::vector<Tensor>{input_a, input_b}, -1);
         }
     }
@@ -467,9 +455,8 @@ TEST_F(OnBoardIFATest, test_concat_32_tensor) {
 
         TileShape::Current().SetVecTile({32, 64});
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("CONCAT_T", funConfig, iOTensors) {
+        config::SetBuildStatic(true);
+        FUNCTION("CONCAT_T", iOTensors) {
             output = Concat(inputTensors, 0);
         }
     }

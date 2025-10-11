@@ -80,8 +80,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, merge_two_dynamic_dim) {
     Tensor out_real(DT_FP32, {b * sq, d});
     std::vector<float> golden = genDateAndExe(q_real, out_real, 1);
 
-    FunctionConfig funConfig;
-    FUNCTION("MAIN_FUNC", funConfig, {q}, {out}) {
+    FUNCTION("MAIN_FUNC", {q}, {out}) {
         Tensor qReshape(DT_FP32, {GetInputShape(q, 0) * GetInputShape(q, 1), d}, "qReshape");
         LOOP("LOOP_RESHAPE", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(0,1,1), {}, true) {
             (void) batchId;
@@ -121,8 +120,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_exchange_dim) {
     Tensor out_real(DT_FP32, {d, sq, m});
     std::vector<float> golden = genDateAndExe(q_real, out_real, 1);
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {q}, {out}) {
+    FUNCTION("main", {q}, {out}) {
         Tensor q_reshape(DT_FP32, {GetInputShape(q, 1), GetInputShape(q, 0), m});
         // reshape
         LOOP("L1", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)){
@@ -162,8 +160,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_reshape_special) {
     Tensor out_real(DT_FP32, {4, 4, m});
     std::vector<float> golden = genDateAndExe(q_real, out_real, 1);
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {q}, {out}) {
+    FUNCTION("main", {q}, {out}) {
         Tensor q_reshape(DT_FP32, {GetInputShape(q, 0) * GetInputShape(q, 1) / 4, 4, m});
         // reshape
         LOOP("L1", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)){
@@ -203,8 +200,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_op_reshape_op) {
     Tensor out_real(DT_FP32, {b * sq, d});
     std::vector<float> golden = genDateAndExe(q_real, out_real, 2);
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {q}, {out}) {   
+    FUNCTION("main", {q}, {out}) {   
         // op
         Tensor addTmp(DT_FP32, {b, GetInputShape(q, 1), d});
         LOOP("L1", FunctionType::DYNAMIC_LOOP, sqIdx, LoopRange(GetInputShape(q, 1))) {
@@ -237,6 +233,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_src_op_dst_op) {
     TileShape::Current().SetVecTile(1, 16, 16);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
     SetInterpreterConfig();
+
     int sq = 5;
     int d = -1;
     int m = 8;
@@ -285,8 +282,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_src_op_dst_op) {
         RawTensorData::CreateTensor<float>(outDstReal, outDstGolden),
     });
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {q}, {outSrc, outDst}) {
+    FUNCTION("main", {q}, {outSrc, outDst}) {
         Tensor q_reshape(DT_FP32, {GetInputShape(q, 0) * GetInputShape(q, 1), m});
         LOOP("reshapeInplace", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)){
             (void)index;

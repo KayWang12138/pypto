@@ -58,9 +58,8 @@ TEST_F(TestCodegenDynUna, TestAbsDynamic) {
     Tensor input_a(DataType::DT_FP16, srcShape, "A");
     Tensor output(DataType::DT_FP16, dstShape, "C");
 
-    FunctionConfig funConfig(FunctionType::STATIC);
-    ;
-    FUNCTION("ABS_T", funConfig, {input_a, output}) {
+    config::SetBuildStatic(true);
+    FUNCTION("ABS_T", {input_a, output}) {
         output = Abs(input_a);
     }
     auto function = Program::GetInstance().GetFunctionByRawName("TENSOR_ABS_T");
@@ -98,9 +97,8 @@ TEST_F(TestCodegenDynUna, TestDynExpand) {
     Tensor output(DT_FP32, shape, "C");
 
     std::string funcName = "ADD";
-    FunctionConfig funConfig(FunctionType::STATIC);
-    ;
-    FUNCTION(funcName, funConfig, {inputA, inputB, output}) {
+    config::SetBuildStatic(true);
+    FUNCTION(funcName, {inputA, inputB, output}) {
         output = Add(inputA, inputB);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);

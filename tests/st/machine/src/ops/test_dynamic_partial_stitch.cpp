@@ -71,8 +71,7 @@ TEST_F(DynamicTest, TestPartial) {
         RawTensorData::CreateTensor<float>(out, goldenData),
     });
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {q, seq}, {out}) {
+    FUNCTION("main", {q, seq}, {out}) {
         Tensor mid(vType, midShape, "mid");
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (blockSize))) {
             Tensor block = View(q, {blockSize, blockSize}, {batchId * blockSize, 0});

@@ -48,6 +48,7 @@ TEST_F(SimulationAccTest, TestAddTensorFunctionDim4) {
 
     TileShape::Current().SetVecTile(1, 1, 32, 32);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Add(a, b);
     }
@@ -67,6 +68,7 @@ TEST_F(SimulationAccTest, TestAddTensorFunctionDim4_1) {
 
     TileShape::Current().SetVecTile(2, 2, 32, 32);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Add(a, b);
     }
@@ -86,6 +88,7 @@ TEST_F(SimulationAccTest, TestAddTensorFunctionDim2) {
 
     TileShape::Current().SetVecTile(8, 16);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Add(a, b);
     }
@@ -105,6 +108,7 @@ TEST_F(SimulationAccTest, TestAddTensorFunctionDim2_1) {
 
     TileShape::Current().SetVecTile(32, 32);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Add(a, b);
     }
@@ -124,6 +128,7 @@ TEST_F(SimulationAccTest, TestAddTensorFunctionDim2_2) {
 
     TileShape::Current().SetVecTile(128, 128);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Add(a, b);
     }
@@ -143,6 +148,7 @@ TEST_F(SimulationAccTest, TestSubTensorFunctionDim2) {
 
     TileShape::Current().SetVecTile(32, 32);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Sub(a, b);
     }
@@ -162,6 +168,7 @@ TEST_F(SimulationAccTest, TestSubTensorFunctionDim2_1) {
 
     TileShape::Current().SetVecTile(64, 64);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Sub(a, b);
     }
@@ -181,6 +188,7 @@ TEST_F(SimulationAccTest, TestSubTensorFunctionDim2_2) {
 
     TileShape::Current().SetVecTile(128, 128);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Sub(a, b);
     }
@@ -200,6 +208,7 @@ TEST_F(SimulationAccTest, TestMulTensorFunctionDim2) {
 
     TileShape::Current().SetVecTile(32, 32);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Mul(a, b);
     }
@@ -219,6 +228,7 @@ TEST_F(SimulationAccTest, TestMulTensorFunctionDim2_1) {
 
     TileShape::Current().SetVecTile(128, 128);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Mul(a, b);
     }
@@ -238,6 +248,7 @@ TEST_F(SimulationAccTest, TestMulTensorFunctionDim2_2) {
 
     TileShape::Current().SetVecTile(128, 128);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Mul(a, b);
     }
@@ -257,6 +268,7 @@ TEST_F(SimulationAccTest, TestMulTensorFunctionDim2_3) {
 
     TileShape::Current().SetVecTile(16, 16);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Mul(a, b);
     }
@@ -276,6 +288,7 @@ TEST_F(SimulationAccTest, TestDivTensorFunctionDim2) {
 
     TileShape::Current().SetVecTile(32, 32);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Div(a, b);
     }
@@ -295,6 +308,7 @@ TEST_F(SimulationAccTest, TestDivTensorFunctionDim2_1) {
 
     TileShape::Current().SetVecTile(128, 128);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Div(a, b);
     }
@@ -314,6 +328,7 @@ TEST_F(SimulationAccTest, TestDivTensorFunctionDim2_2) {
 
     TileShape::Current().SetVecTile(128, 128);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Div(a, b);
     }
@@ -333,6 +348,7 @@ TEST_F(SimulationAccTest, TestDivTensorFunctionDim2_3) {
 
     TileShape::Current().SetVecTile(16, 16);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Div(a, b);
     }
@@ -353,6 +369,7 @@ TEST_F(SimulationAccTest, TestAddScalarFunctionDim2) {
 
     TileShape::Current().SetVecTile(32, 32);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         d = AddS(a, value);
     }
@@ -373,6 +390,7 @@ TEST_F(SimulationAccTest, TestAddScalarFunctionDim2_1) {
 
     TileShape::Current().SetVecTile(128, 128);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         d = AddS(a, value);
     }
@@ -393,6 +411,7 @@ TEST_F(SimulationAccTest, TestAddScalarFunctionDim2_2) {
 
     TileShape::Current().SetVecTile(128, 128);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         d = AddS(a, value);
     }
@@ -413,6 +432,7 @@ TEST_F(SimulationAccTest, TestAddScalarFunctionDim2_3) {
 
     TileShape::Current().SetVecTile(16, 16);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         d = AddS(a, value);
     }
@@ -433,6 +453,7 @@ TEST_F(SimulationAccTest, TestSubScalarFunctionDim2) {
 
     TileShape::Current().SetVecTile(32, 32);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         d = SubS(a, value);
     }
@@ -453,6 +474,7 @@ TEST_F(SimulationAccTest, TestSubScalarFunctionDim2_1) {
 
     TileShape::Current().SetVecTile(128, 128);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         d = SubS(a, value);
     }
@@ -473,6 +495,7 @@ TEST_F(SimulationAccTest, TestSubScalarFunctionDim2_2) {
 
     TileShape::Current().SetVecTile(128, 128);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         d = SubS(a, value);
     }
@@ -493,6 +516,7 @@ TEST_F(SimulationAccTest, TestSubScalarFunctionDim2_3) {
 
     TileShape::Current().SetVecTile(16, 16);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         d = SubS(a, value);
     }
@@ -513,6 +537,7 @@ TEST_F(SimulationAccTest, TestMulScalarFunctionDim2) {
 
     TileShape::Current().SetVecTile(32, 32);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         d = MulS(a, value);
     }
@@ -533,6 +558,7 @@ TEST_F(SimulationAccTest, TestMulScalarFunctionDim2_1) {
 
     TileShape::Current().SetVecTile(128, 128);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         d = MulS(a, value);
     }
@@ -553,6 +579,7 @@ TEST_F(SimulationAccTest, TestMulScalarFunctionDim2_2) {
 
     TileShape::Current().SetVecTile(32, 32);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         d = MulS(a, value);
     }
@@ -573,6 +600,7 @@ TEST_F(SimulationAccTest, TestMulScalarFunctionDim2_3) {
 
     TileShape::Current().SetVecTile(16, 16);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         d = MulS(a, value);
     }
@@ -593,6 +621,7 @@ TEST_F(SimulationAccTest, TestDivScalarFunctionDim2) {
 
     TileShape::Current().SetVecTile(32, 32);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         d = DivS(a, value);
     }
@@ -613,6 +642,7 @@ TEST_F(SimulationAccTest, TestDivScalarFunctionDim2_1) {
 
     TileShape::Current().SetVecTile(128, 128);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         d = DivS(a, value);
     }
@@ -633,6 +663,7 @@ TEST_F(SimulationAccTest, TestDivScalarFunctionDim2_2) {
 
     TileShape::Current().SetVecTile(128, 128);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         d = DivS(a, value);
     }
@@ -653,6 +684,7 @@ TEST_F(SimulationAccTest, TestDivScalarFunctionDim2_3) {
 
     TileShape::Current().SetVecTile(16, 16);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         d = DivS(a, value);
     }
@@ -671,6 +703,7 @@ TEST_F(SimulationAccTest, TestSqrtTensorFunctionDim2) {
 
     TileShape::Current().SetVecTile(32, 32);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Sqrt(a);
     }
@@ -687,6 +720,7 @@ TEST_F(SimulationAccTest, TestSqrtTensorFunctionDim2_1) {
 
     TileShape::Current().SetVecTile(128, 128);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Sqrt(a);
     }
@@ -703,6 +737,7 @@ TEST_F(SimulationAccTest, TestSqrtTensorFunctionDim2_2) {
 
     TileShape::Current().SetVecTile(128, 128);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Sqrt(a);
     }
@@ -719,6 +754,7 @@ TEST_F(SimulationAccTest, TestSqrtTensorFunctionDim2_3) {
 
     TileShape::Current().SetVecTile(16, 16);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Sqrt(a);
     }
@@ -735,6 +771,7 @@ TEST_F(SimulationAccTest, TestExpTensorFunctionDim2) {
 
     TileShape::Current().SetVecTile(32, 32);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Exp(a);
     }
@@ -751,6 +788,7 @@ TEST_F(SimulationAccTest, TestExpTensorFunctionDim2_1) {
 
     TileShape::Current().SetVecTile(128, 128);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Exp(a);
     }
@@ -767,6 +805,7 @@ TEST_F(SimulationAccTest, TestExpTensorFunctionDim2_2) {
 
     TileShape::Current().SetVecTile(128, 128);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Exp(a);
     }
@@ -783,6 +822,7 @@ TEST_F(SimulationAccTest, TestExpTensorFunctionDim2_3) {
 
     TileShape::Current().SetVecTile(16, 16);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Exp(a);
     }
@@ -799,6 +839,7 @@ TEST_F(SimulationAccTest, TestReciprocalTensorFunctionDim2) {
 
     TileShape::Current().SetVecTile(32, 32);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Reciprocal(a);
     }
@@ -815,6 +856,7 @@ TEST_F(SimulationAccTest, TestReciprocalTensorFunctionDim2_1) {
 
     TileShape::Current().SetVecTile(128, 128);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Reciprocal(a);
     }
@@ -831,6 +873,7 @@ TEST_F(SimulationAccTest, TestReciprocalTensorFunctionDim2_2) {
 
     TileShape::Current().SetVecTile(128, 128);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Reciprocal(a);
     }
@@ -847,6 +890,7 @@ TEST_F(SimulationAccTest, TestReciprocalTensorFunctionDim2_3) {
 
     TileShape::Current().SetVecTile(16, 16);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Reciprocal(a);
     }
@@ -865,6 +909,7 @@ TEST_F(SimulationAccTest, TestExpandTensorFunctionDim2_1) {
 
     std::vector<int64_t> vec{32, 32};
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Expand(a, vec);
     }
@@ -883,6 +928,7 @@ TEST_F(SimulationAccTest, TestExpandTensorFunctionDim2_2) {
 
     std::vector<int64_t> vec{64, 64};
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Expand(a, vec);
     }
@@ -901,6 +947,7 @@ TEST_F(SimulationAccTest, TestExpandTensorFunctionDim2_3) {
 
     std::vector<int64_t> vec{64, 64};
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Expand(a, vec);
     }
@@ -920,6 +967,7 @@ TEST_F(SimulationAccTest, TestExpandTensorFunctionDim2_4) {
 
     std::vector<int64_t> vec{128, 128};
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Expand(a, vec);
     }
@@ -936,6 +984,7 @@ TEST_F(SimulationAccTest, TestRowSumSingleTensorFunctionDim2_1) {
 
     TileShape::Current().SetVecTile(16, 16);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = RowSumSingle(a, 0);
     }
@@ -952,6 +1001,7 @@ TEST_F(SimulationAccTest, TestRowSumSingleTensorFunctionDim2_2) {
 
     TileShape::Current().SetVecTile(32, 32);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = RowSumSingle(a, 0);
     }
@@ -968,6 +1018,7 @@ TEST_F(SimulationAccTest, TestRowSumSingleTensorFunctionDim2_3) {
 
     TileShape::Current().SetVecTile(64, 64);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = RowSumSingle(a, 0);
     }
@@ -984,6 +1035,7 @@ TEST_F(SimulationAccTest, TestRowSumSingleTensorFunctionDim2_4) {
 
     TileShape::Current().SetVecTile(64, 64);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = RowSumSingle(a, 0);
     }
@@ -1000,6 +1052,7 @@ TEST_F(SimulationAccTest, TestRowMaxSingleTensorFunctionDim2_1) {
 
     TileShape::Current().SetVecTile(16, 16);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = RowMaxSingle(a, 0);
     }
@@ -1016,6 +1069,7 @@ TEST_F(SimulationAccTest, TestRowMaxSingleTensorFunctionDim2_2) {
 
     TileShape::Current().SetVecTile(32, 32);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = RowMaxSingle(a, 0);
     }
@@ -1032,6 +1086,7 @@ TEST_F(SimulationAccTest, TestRowMaxSingleTensorFunctionDim2_3) {
 
     TileShape::Current().SetVecTile(64, 64);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = RowMaxSingle(a, 0);
     }
@@ -1048,6 +1103,7 @@ TEST_F(SimulationAccTest, TestRowMaxSingleTensorFunctionDim2_4) {
 
     TileShape::Current().SetVecTile(64, 64);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = RowMaxSingle(a, 0);
     }
@@ -1064,6 +1120,7 @@ TEST_F(SimulationAccTest, TestCastTensorFunctionDim2_1) {
 
     TileShape::Current().SetVecTile(16, 16);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Cast(a, DT_INT32, CAST_ROUND);
     }
@@ -1080,6 +1137,7 @@ TEST_F(SimulationAccTest, TestCastTensorFunctionDim2_2) {
 
     TileShape::Current().SetVecTile(32, 32);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Cast(a, DT_INT32, CAST_ROUND);
     }
@@ -1096,6 +1154,7 @@ TEST_F(SimulationAccTest, TestCastTensorFunctionDim2_3) {
 
     TileShape::Current().SetVecTile(64, 64);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Cast(a, DT_INT32, CAST_ROUND);
     }
@@ -1112,6 +1171,7 @@ TEST_F(SimulationAccTest, TestCastTensorFunctionDim2_4) {
 
     TileShape::Current().SetVecTile(128, 128);
 
+    config::SetBuildStatic(true);
     FUNCTION("A") {
         c = Cast(a, DT_INT32, CAST_ROUND);
     }

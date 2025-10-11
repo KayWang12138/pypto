@@ -48,9 +48,8 @@ void TopKOnBoardFunc(TopKParams& params){
         auto output = std::make_tuple(Tensor(DataType::DT_FP32, output_shape, out_ptr, "npu_val"),
                                       Tensor(DataType::DT_FP32, output_shape, out_ptr1, "resDics"));
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("TOPK_T", funConfig, {input_a, std::get<0>(output), std::get<1>(output)}) {
+        config::SetBuildStatic(true);
+        FUNCTION("TOPK_T", {input_a, std::get<0>(output), std::get<1>(output)}) {
             output = TopK(input_a, k, -1, isLargest);
         }
     }

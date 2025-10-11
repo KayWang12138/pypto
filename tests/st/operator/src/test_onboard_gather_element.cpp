@@ -47,9 +47,8 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_70_8_40_1) {
         Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");
         Tensor output(DataType::DT_FP32, shape2, out_ptr, "output");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("GATHER_ELEMET_T", funConfig, {input_src0, input_src1, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("GATHER_ELEMET_T", {input_src0, input_src1, output}) {
             output = GatherElement(input_src0, input_src1, axis);
         }
     }
@@ -91,9 +90,8 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_8_32_1) {
         Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");
         Tensor output(DataType::DT_FP32, shape2, out_ptr, "output");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("GATHER_ELEMET_T", funConfig, {input_src0, input_src1, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("GATHER_ELEMET_T", {input_src0, input_src1, output}) {
             output = GatherElement(input_src0, input_src1, axis);
         }
     }
@@ -136,9 +134,8 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_7_32_1) {
         Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");
         Tensor output(DataType::DT_FP32, shape2, out_ptr, "output");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("GATHER_ELEMET_T", funConfig, {input_src0, input_src1, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("GATHER_ELEMET_T", {input_src0, input_src1, output}) {
             output = GatherElement(input_src0, input_src1, axis);
         }
     }
@@ -181,9 +178,8 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_7_32_0) {
         Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");
         Tensor output(DataType::DT_FP32, shape2, out_ptr, "output");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("GATHER_ELEMET_T", funConfig, {input_src0, input_src1, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("GATHER_ELEMET_T", {input_src0, input_src1, output}) {
             output = GatherElement(input_src0, input_src1, axis);
         }
         DevFuncRunner::Run(Program::GetInstance().GetLastFunction());

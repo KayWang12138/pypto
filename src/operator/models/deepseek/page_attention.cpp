@@ -45,8 +45,7 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
     auto c2Tile = tileConfig.c2TileShape;
     auto v2Tile = tileConfig.v2TileShape;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs}, {attentionOut}) {
         SymbolicScalar batchSize = blockTable->shape[0];
         SymbolicScalar nQ = qNope->shape[0] / batchSize;
@@ -182,8 +181,8 @@ void PageAttentionWithImmScalar(Tensor &qNope, Tensor &kNopeCache, Tensor &vNope
     auto v1Tile = tileConfig.v1TileShape;
     auto c2Tile = tileConfig.c2TileShape;
     auto v2Tile = tileConfig.v2TileShape;
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+
+    FUNCTION("main",
         {qNope, kNopeCache, vNopeCache, qRope, kRopeCache}, {attentionOut}) {
         int batchSize((int64_t)blockTable.size());
         SymbolicScalar nQ = qNope->shape[0] / batchSize;
@@ -295,7 +294,6 @@ void PageAttentionWithImmScalar(Tensor &qNope, Tensor &kNopeCache, Tensor &vNope
     }
 }
 
-
 void PageAttentionWithManualUnroll(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &qRope, Tensor &kRopeCache,
     Tensor &blockTable, Tensor &actSeqs, int blockSize, float softmaxScale, Tensor &attentionOut,
     PaTileShapeConfig &tileConfig, int maxUnrollTimes) {
@@ -312,8 +310,8 @@ void PageAttentionWithManualUnroll(Tensor &qNope, Tensor &kNopeCache, Tensor &vN
     auto v2Tile = tileConfig.v2TileShape;
 
     int div2 = 2;
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+
+    FUNCTION("main",
         {qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs}, {attentionOut}) {
         SymbolicScalar batchSize = blockTable->shape[0];
         SymbolicScalar nQ = qNope->shape[0] / batchSize;
@@ -437,8 +435,7 @@ void PageAttentionHighThroughput(Tensor &qNope, Tensor &kNopeCache, Tensor &vNop
     auto c2Tile = tileConfig.c2TileShape;
     auto v2Tile = tileConfig.v2TileShape;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs}, {attentionOut}) {
         SymbolicScalar batchSize = blockTable->shape[0];
         SymbolicScalar nQ = qNope->shape[0] / batchSize;

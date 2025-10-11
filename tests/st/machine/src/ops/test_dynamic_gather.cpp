@@ -66,8 +66,7 @@ TEST_F(DynamicGatherTest, TestDynamicGatherDim2) {
         RawTensorData::CreateTensor<float>(out, golden),
     });
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {q, indices, actSeqs}, {out}) {
+    FUNCTION("main", {q, indices, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
             int axis = 0;
             SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0});
@@ -127,8 +126,7 @@ TEST_F(DynamicGatherTest, TestDynamicGatherDim3) {
         RawTensorData::CreateTensor<float>(out, golden),
     });
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {q, indices, actSeqs}, {out}) {
+    FUNCTION("main", {q, indices, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
             int axis = 0;
             SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0});

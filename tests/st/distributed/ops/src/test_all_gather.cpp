@@ -48,10 +48,8 @@ void TestAllGather(OpTestParam &testParam)
         Tensor in(dType, inShape, (uint8_t *)xPtr, "in");
         Tensor out(dType, outShape, outPtr, "out");
 
-        ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("AllGather", funConfig, {in, out}) {
+        config::SetBuildStatic(true);
+        FUNCTION("AllGather", {in, out}) {
             TileShape::Current().SetDistTile({outM / testParam.rankSize, testParam.rankSize, 0},
                 {N / testParam.rankSize, testParam.rankSize, 0}, {1, testParam.rankSize, 0});
             TileShape::Current().SetDistRankId(testParam.rankId);
@@ -91,10 +89,8 @@ void TestAllGatherEx(OpTestParam &testParam)
         std::vector<std::reference_wrapper<Tensor>> tensorParams(outs.begin(), outs.end());
         tensorParams.emplace_back(in);
 
-        ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("AllGather_Ex", funConfig, tensorParams) {
+        config::SetBuildStatic(true);
+        FUNCTION("AllGather_Ex", tensorParams) {
             TileShape::Current().SetDistTile({M / 2, 2, 0}, {N / 2, 2, 0}, {1, testParam.rankSize, 0});
             TileShape::Current().SetDistRankId(testParam.rankId);
             Distributed::AllGather(in, outs, testParam.group);
@@ -123,9 +119,8 @@ void TestDynAllGather(OpTestParam &testParam)
 
     std::vector<int32_t> inPtr = ReadToVector<int32_t>(GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", shape);
 
-    FunctionConfig funConfig;
     int32_t tileNum = 8;
-    FUNCTION("ALLGATHER", funConfig, {in, barrierDummy}, {out}) {
+    FUNCTION("ALLGATHER", {in, barrierDummy}, {out}) {
         TileShape::Current().SetDistTile(
             {M / tileNum, tileNum, M % tileNum},
             {N / tileNum, tileNum, N % tileNum},

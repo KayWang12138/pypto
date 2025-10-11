@@ -54,9 +54,8 @@ TEST_F(OnBoardTest, test_query_states_fp16_b32_n2) {
         Tensor query_states(
             DataType::DT_FP16, {b, num_heads, s, kvLoraRank + qkRopeHeadDim}, (uint8_t *)out_ptr, "query_states");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("QUERY_STATES_T", funConfig, {q, q_pe_rope, kvBProjWK, query_states}) {
+        config::SetBuildStatic(true);
+        FUNCTION("QUERY_STATES_T", {q, q_pe_rope, kvBProjWK, query_states}) {
             Tensor q_nope = View(q, {b, s, num_heads, qkNopeHeadDim}, {0, 0, 0, 0});
             TileShape::Current().SetVecTile(1, 128, 1, 64); // --> SetVecTileShapes(1, 1, 128, 64)
             Tensor q_nope1 = Reshape(q_nope, {b * s, num_heads, qkNopeHeadDim});
@@ -122,9 +121,8 @@ TEST_F(OnBoardTest, test_query_states_fp16_b32_n16) {
         Tensor query_states(
             DataType::DT_FP16, {b, num_heads, s, kvLoraRank + qkRopeHeadDim}, (uint8_t *)out_ptr, "query_states");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("QUERY_STATES_T", funConfig, {q, q_pe_rope, kvBProjWK, query_states}) {
+        config::SetBuildStatic(true);
+        FUNCTION("QUERY_STATES_T", {q, q_pe_rope, kvBProjWK, query_states}) {
             Tensor q_nope = View(q, {b, s, num_heads, qkNopeHeadDim}, {0, 0, 0, 0});
             TileShape::Current().SetVecTile(1, 1, 32, 128); // --> SetVecTileShapes(1, 1, 128, 64)
             Tensor q_nope1 = Reshape(q_nope, {b * s, num_heads, qkNopeHeadDim});
@@ -190,9 +188,8 @@ TEST_F(OnBoardTest, test_query_states_fp16_b32_n32) {
         Tensor query_states(
             DataType::DT_FP16, {b, num_heads, s, kvLoraRank + qkRopeHeadDim}, (uint8_t *)out_ptr, "query_states");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("QUERY_STATES_T", funConfig, {q, q_pe_rope, kvBProjWK, query_states}) {
+        config::SetBuildStatic(true);
+        FUNCTION("QUERY_STATES_T", {q, q_pe_rope, kvBProjWK, query_states}) {
             Tensor q_nope = View(q, {b, s, num_heads, qkNopeHeadDim}, {0, 0, 0, 0});
             TileShape::Current().SetVecTile(1, 1, 32, 128); // --> SetVecTileShapes(1, 1, 128, 64)
             Tensor q_nope1 = Reshape(q_nope, {b * s, num_heads, qkNopeHeadDim});
@@ -259,9 +256,8 @@ TEST_F(OnBoardTest, test_query_states_bf16_b32_n2) {
         Tensor query_states(
             dType, {b, num_heads, s, kvLoraRank + qkRopeHeadDim}, (uint8_t *)out_ptr, "query_states");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("QUERY_STATES_T", funConfig, {q, q_pe_rope, kvBProjWK, query_states}) {
+        config::SetBuildStatic(true);
+        FUNCTION("QUERY_STATES_T", {q, q_pe_rope, kvBProjWK, query_states}) {
             Tensor q_nope = View(q, {b, s, num_heads, qkNopeHeadDim}, {0, 0, 0, 0});
             TileShape::Current().SetVecTile(1, 128, 1, 64); // --> SetVecTileShapes(1, 1, 128, 64)
             Tensor q_nope1 = Reshape(q_nope, {b * s, num_heads, qkNopeHeadDim});
@@ -327,9 +323,8 @@ TEST_F(OnBoardTest, test_query_states_bf16_b32_n2_concat) {
         Tensor query_states(
             dType, {b, num_heads, s, kvLoraRank + qkRopeHeadDim}, (uint8_t *)out_ptr, "query_states");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("QUERY_STATES_T", funConfig, {q, q_pe_rope, kvBProjWK, query_states}) {
+        config::SetBuildStatic(true);
+        FUNCTION("QUERY_STATES_T", {q, q_pe_rope, kvBProjWK, query_states}) {
             TileShape::Current().SetVecTile(1, 1, 1, 512);
             Tensor q_nope_new4 = Transpose(q, {1, 2}); //(b, num_heads, s, kvLoraRank)
             TileShape::Current().SetVecTile(2, 2, 1, 512);
@@ -381,9 +376,8 @@ TEST_F(OnBoardTest, test_query_states_bf16_b32_n2_nocat) {
         Tensor query_states(
             dType, {b, num_heads, s, kvLoraRank}, (uint8_t *)out_ptr, "query_states");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("QUERY_STATES_T", funConfig, {q, q_pe_rope, kvBProjWK, query_states}) {
+        config::SetBuildStatic(true);
+        FUNCTION("QUERY_STATES_T", {q, q_pe_rope, kvBProjWK, query_states}) {
             Tensor q_nope = View(q, {b, s, num_heads, qkNopeHeadDim}, {0, 0, 0, 0});
             TileShape::Current().SetVecTile(1, 128, 1, 64); // --> SetVecTileShapes(1, 1, 128, 64)
             Tensor q_nope1 = Reshape(q_nope, {b * s, num_heads, qkNopeHeadDim});
@@ -450,9 +444,8 @@ TEST_F(OnBoardTest, test_query_states_bf16_b32_n16) {
         Tensor query_states(
             dType, {b, num_heads, s, kvLoraRank + qkRopeHeadDim}, (uint8_t *)out_ptr, "query_states");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("QUERY_STATES_T", funConfig, {q, q_pe_rope, kvBProjWK, query_states}) {
+        config::SetBuildStatic(true);
+        FUNCTION("QUERY_STATES_T", {q, q_pe_rope, kvBProjWK, query_states}) {
             Tensor q_nope = View(q, {b, s, num_heads, qkNopeHeadDim}, {0, 0, 0, 0});
             TileShape::Current().SetVecTile(1, 1, 32, 128); // --> SetVecTileShapes(1, 1, 128, 64)
             Tensor q_nope1 = Reshape(q_nope, {b * s, num_heads, qkNopeHeadDim});
@@ -519,9 +512,8 @@ TEST_F(OnBoardTest, test_query_states_bf16_b32_n32) {
         Tensor query_states(
             dType, {b, num_heads, s, kvLoraRank + qkRopeHeadDim}, (uint8_t *)out_ptr, "query_states");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("QUERY_STATES_T", funConfig, {q, q_pe_rope, kvBProjWK, query_states}) {
+        config::SetBuildStatic(true);
+        FUNCTION("QUERY_STATES_T", {q, q_pe_rope, kvBProjWK, query_states}) {
             Tensor q_nope = View(q, {b, s, num_heads, qkNopeHeadDim}, {0, 0, 0, 0});
             TileShape::Current().SetVecTile(1, 1, 32, 128); // --> SetVecTileShapes(1, 1, 128, 64)
             Tensor q_nope1 = Reshape(q_nope, {b * s, num_heads, qkNopeHeadDim});

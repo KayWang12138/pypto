@@ -116,7 +116,6 @@ void UTestCmpKv(CmpAttnTile& tileConfig) {
 
     compressKv(kvCache, krCache, cmpKvCache, cmpKrCache, blockTable, cmpCacheIndex, actSeqLen, mlpWk1, mlpWk2, mlpCos,
         mlpSin, cmpKvCache, cmpKrCache, auxTensor, cmpBlockSize, cmpStride, rs, tileConfig);
-
 }
 
 TEST_F(KvCmpUtest, kv_compress_ut) {

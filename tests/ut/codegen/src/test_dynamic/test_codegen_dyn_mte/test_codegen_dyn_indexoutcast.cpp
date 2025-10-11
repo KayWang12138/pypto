@@ -68,9 +68,8 @@ TEST_F(TestCodegenDynIndexOutCast, IndexOutCast) {
     Tensor key_states(DataType::DT_FP32, shape2, "key_states"); // [16,16]
 
     std::string funcName = "ScatterUpdate";
-    FunctionConfig funConfig(FunctionType::STATIC);
-    ;
-    FUNCTION(funcName, funConfig, {kv_len, key_states, past_key_states}) {
+    config::SetBuildStatic(true);
+    FUNCTION(funcName, {kv_len, key_states, past_key_states}) {
         past_key_states = ScatterUpdate(past_key_states, kv_len, key_states, -2);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
@@ -134,8 +133,7 @@ TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned) {
     Tensor keyStates(DT_INT32, {h, h}, "keyStates");
 
     std::string funcName = "ScatterUpdate";
-    FunctionConfig funConfig;
-    FUNCTION(funcName + "Main", funConfig, {idxs, keyStates}, {output}) {
+    FUNCTION(funcName + "Main", {idxs, keyStates}, {output}) {
         LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
             output = ScatterUpdate(output, idxs, keyStates, minusTwo);

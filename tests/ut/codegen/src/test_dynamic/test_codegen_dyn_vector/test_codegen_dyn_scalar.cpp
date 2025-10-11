@@ -53,9 +53,8 @@ TEST_F(TestCodegenDynScalar, TestScalarAdds) {
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, shape, "res");
     std::string funcName = "ScalarAddS";
-    FunctionConfig funConfig(FunctionType::STATIC);
-    ;
-    FUNCTION(funcName, funConfig, {input, output}) {
+    config::SetBuildStatic(true);
+    FUNCTION(funcName, {input, output}) {
         output = ScalarAddS(input, Element(DataType::DT_FP32, 127.0), true);
     }
     auto function = Program::GetInstance().GetFunctionByRawName("TENSOR_" + funcName);
@@ -92,9 +91,8 @@ TEST_F(TestCodegenDynScalar, TestScalarDivs) {
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, shape, "res");
     std::string funcName = "ScalarDivS";
-    FunctionConfig funConfig(FunctionType::STATIC);
-    ;
-    FUNCTION(funcName, funConfig, {input, output}) {
+    config::SetBuildStatic(true);
+    FUNCTION(funcName, {input, output}) {
         output = ScalarDivS(input, Element(DataType::DT_FP32, 127.0), true);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);

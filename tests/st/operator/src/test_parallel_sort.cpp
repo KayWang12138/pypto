@@ -68,8 +68,8 @@ void SortStaticTest(int tileSize){
     readInput(GetGoldenDir() + "/yidx.bin", yIdxGolden);
 
     ConfigManager::Instance();
-    FunctionConfig funConfig(FunctionType::STATIC);
-    FUNCTION("Sort", funConfig, {x, y, yIdx}) {
+    config::SetBuildStatic(true);
+    FUNCTION("Sort", {x, y, yIdx}) {
         TileShape::Current().SetVecTile({1, tileSize});
         std::tie(y, yIdx) = Sort(x, descending);
     }
@@ -120,8 +120,7 @@ void SortTest(int tileSize){
     std::vector<RawTensorDataPtr> outputDataList = {yData, yIdxData};
     std::vector<RawTensorDataPtr> inputDataList = {xData};
 
-    FunctionConfig funConfig;
-    FUNCTION("Sort", funConfig, {x}, {y, yIdx}) {
+    FUNCTION("Sort", {x}, {y, yIdx}) {
         LOOP("LOOP_1", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(1)) {
             UNUSED(bIdx);
             TileShape::Current().SetVecTile({1, tileSize});
@@ -169,8 +168,7 @@ void SortWithIndexTest(int tileSize){
     std::vector<RawTensorDataPtr> outputDataList = {yData, yIdxData};
     std::vector<RawTensorDataPtr> inputDataList = {xData, idxData};
 
-    FunctionConfig funConfig;
-    FUNCTION("Sort", funConfig, {x, idx}, {y, yIdx}) {
+    FUNCTION("Sort", {x, idx}, {y, yIdx}) {
         LOOP("LOOP_1", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(1)) {
             UNUSED(bIdx);
             TileShape::Current().SetVecTile({1, tileSize});
@@ -215,8 +213,7 @@ void TopKTest(int tileSize){
     std::vector<RawTensorDataPtr> outputDataList = {yIdxData};
     std::vector<RawTensorDataPtr> inputDataList = {xData};
 
-    FunctionConfig funConfig;
-    FUNCTION("TopK", funConfig, {x}, {yIdx}) {
+    FUNCTION("TopK", {x}, {yIdx}) {
         LOOP("LOOP_1", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(1)) {
             UNUSED(bIdx);
             TileShape::Current().SetVecTile({1, tileSize});

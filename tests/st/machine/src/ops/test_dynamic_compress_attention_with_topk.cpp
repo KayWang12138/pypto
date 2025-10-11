@@ -147,8 +147,7 @@ TestCmpAttnTopk params:
         qNopeData, qRopeData, cmpKvCacheData, cmpKrCacheData, cmpBlockTableData, actSeqData, auxData};
     std::vector<RawTensorDataPtr> outputDataList = {cmpAttnData, topkResData};
 
-    FunctionConfig funConfig;
-    FUNCTION("CompressAttentionWithTopK", funConfig,
+    FUNCTION("CompressAttentionWithTopK",
         {qNope, qRope, cmpKvCache, cmpKrCache, cmpBlockTable, actSeq, auxTensor}, {cmpAttn, topkRes}) {
         CompressAttentionWithTopK(qNope, qRope, cmpKvCache, cmpKrCache, cmpBlockTable, actSeq, auxTensor, cmpAttn,
             topkRes, blockSize, cmpBlockSize, cmpStride, slcBlockSize, softmaxScale, n1, topk, front, near, tileConfig);

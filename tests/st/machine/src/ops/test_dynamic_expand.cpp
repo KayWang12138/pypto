@@ -60,8 +60,7 @@ TEST_F(DynamicExpandTest, TestDynamicExpandUnalign) {
         RawTensorData::CreateTensor<float>(out, golden),
     });
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {q}, {out}) {
+    FUNCTION("main", {q}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
             Tensor q0 = View(q, {1, d}, {1, d}, {batchId, 0});
             auto tmp = Expand(q0, {100, d});

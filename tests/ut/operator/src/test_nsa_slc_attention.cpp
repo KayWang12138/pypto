@@ -88,7 +88,6 @@ void TestSaUT(std::vector<int> &input_param, SaTileShapeConfig& tileConfig, SaCo
     Tensor saOut(DT_FP32, saOutShape, "saOut");
 
     SlcAttn(qNope, qRope, kSlc, vSlc, actSeqs, nq, nkv, softmaxScale, saOut, tileConfig);
-
 }
 
 TEST_F(SlcAttnUtest, slc_attn_fp16) {

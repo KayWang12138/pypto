@@ -25,6 +25,9 @@ using ref_tensors = std::vector<std::reference_wrapper<const Tensor>>;
 
 namespace pypto {
 void bind_controller_config(py::module &m) {
+    m.def("SetBuildStatic", [](const bool &value) {
+            config::SetBuildStatic(value); }, 
+        py::arg("value"));
     m.def(
         "SetConfig",
         [](const std::string &key, const int &value) {
@@ -150,14 +153,13 @@ void bind_controller_function(py::module &m) {
     });
     py::class_<RecordFunc>(m, "RecordFunc")
         .def(py::init<const std::string &>(), py::arg("name"))
-        .def(py::init<const std::string &, const FunctionConfig>(), py::arg("name"), py::arg("func_config"))
-        .def(py::init<const std::string &, const FunctionConfig, const std::vector<std::reference_wrapper<Tensor>> &>(),
-            py::arg("name"), py::arg("func_config"), py::arg("explicit_op_args"))
+        .def(py::init<const std::string &, const std::vector<std::reference_wrapper<Tensor>> &>(),
+            py::arg("name"), py::arg("explicit_op_args"))
         .def(
-            py::init<const std::string &, const FunctionConfig&, const ref_tensors &, const ref_tensors &,
+            py::init<const std::string &, const ref_tensors &, const ref_tensors &,
                 const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>>
                     &>(),
-            py::arg("name"), py::arg("func_config"), py::arg("start_args_input_tensor_list"),
+            py::arg("name"), py::arg("start_args_input_tensor_list"),
             py::arg("start_args_output_tensor_list"), py::arg("in_place_args"));
     py::class_<RecordLoopFunc>(m, "RecordLoopFunc")
         .def(py::init<const std::string &, FunctionType, const std::string &, const LoopRange &, const std::set<int> &,
@@ -201,11 +203,7 @@ void bind_controller_loop(py::module &m) {
             py::return_value_policy::reference_internal)
         .def("Step", (SymbolicScalar& (LoopRange::*)()) & LoopRange::Step,
             py::return_value_policy::reference_internal);
-    py::class_<FunctionConfig>(m, "FunctionConfig")
-        .def(py::init<>())
-        .def(py::init<FunctionType>(),
-             py::arg("funcType") = FunctionType::DYNAMIC)
-        .def_readwrite("func_type", &FunctionConfig::funcType);
+
     m.def("IsLoopBegin", &IsLoopBegin, py::arg("symbol"), py::arg("begin"));
     m.def("IsLoopEnd", &IsLoopEnd, py::arg("symbol"), py::arg("end"));
 }

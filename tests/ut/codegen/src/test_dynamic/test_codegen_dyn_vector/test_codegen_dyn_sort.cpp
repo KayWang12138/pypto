@@ -73,9 +73,8 @@ TestContext prepareSortParamForUT(Opcode opcode) {
     Tensor output(DT_FP32, shape, "C");
 
     std::string funcName = "ADD";
-    FunctionConfig funConfig(FunctionType::STATIC);
-    ;
-    FUNCTION(funcName, funConfig, {inputA, inputB, output}) {
+    config::SetBuildStatic(true);
+    FUNCTION(funcName, {inputA, inputB, output}) {
         output = Add(inputA, inputB);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);

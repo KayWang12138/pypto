@@ -42,8 +42,7 @@ static void Scatter_OperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {inputs[0], inputs[1]}, {outputs[0]}) {
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar src_firstDim = inputs[0]->shape[0];
         SymbolicScalar src_secondDim = inputs[0]->shape[1];
         SymbolicScalar idx_firstDim = inputs[1]->shape[0];
@@ -80,8 +79,7 @@ static void Scatter_OperationExeFunc2DimsNoReduceOp(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {inputs[0], inputs[1]}, {outputs[0]}) {
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar src_firstDim = inputs[0]->shape[0];
         SymbolicScalar src_secondDim = inputs[0]->shape[1];
         SymbolicScalar idx_firstDim = inputs[1]->shape[0];
@@ -115,8 +113,7 @@ static void Scatter_OperationExeFunc3Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {inputs[0], inputs[1]}, {outputs[0]}) {
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar src_firstDim = inputs[0]->shape[0];
         SymbolicScalar src_secondDim = inputs[0]->shape[1];
         SymbolicScalar src_thirdDim = inputs[0]->shape[2];
@@ -159,8 +156,7 @@ static void Scatter_OperationExeFunc3Dims(
 
 static void Scatter_OperationExeFunc4Dims(const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {inputs[0], inputs[1]}, {outputs[0]}) {
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar src_firstDim = inputs[0]->shape[0];
         SymbolicScalar src_secondDim = inputs[0]->shape[1];
         SymbolicScalar src_thirdDim = inputs[0]->shape[2];

@@ -117,9 +117,8 @@ void TestMlaProlog(std::vector<int> &params) {
             {1, 32, 1, 64, 64} // for transpose, [b,n,s,d/2,2]
         };
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("MlaProlog_T", funConfig, {x, w_qa, w_qb, w_kv_a, w_kv_b_k, position_ids,
+        config::SetBuildStatic(true);
+        FUNCTION("MlaProlog_T", {x, w_qa, w_qb, w_kv_a, w_kv_b_k, position_ids,
                 cos, sin, past_key_states, kv_len, output_q}) {
             auto q_kv = Attention.MlaPrologFoward(x, position_ids, cos, sin, kv_len, past_key_states, ropeTileConfig);
             output_q = q_kv[0];
@@ -163,9 +162,8 @@ TEST_F(HostMachineCompileTest, test_codegen_by_json) {
     Tensor output(DT_FP32, shape, "C");
 
     std::string name = "ADD_DIM2_BY_JSON";
-    FunctionConfig funConfig(FunctionType::STATIC);
-    ;
-    FUNCTION(name, funConfig, {input_a, input_b, output}) {
+    config::SetBuildStatic(true);
+    FUNCTION(name, {input_a, input_b, output}) {
         output = Add(input_a, input_b);
     }
 

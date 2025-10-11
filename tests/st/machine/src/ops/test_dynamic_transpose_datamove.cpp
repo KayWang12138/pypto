@@ -61,8 +61,7 @@ TEST_F(DynamicDatamoveTest, TestDynamicDatamove) {
         RawTensorData::CreateTensor<float>(out, golden),
     });
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {input, actSeqs}, {out}) {
+    FUNCTION("main", {input, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
             SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0});
 

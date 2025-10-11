@@ -61,8 +61,7 @@ TEST_F(DynamicTransposeTest, TestDynamicVnchwconv) {
         RawTensorData::CreateTensor<float>(out, golden),
     });
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {q, actSeqs}, {out}) {
+    FUNCTION("main", {q, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (sq))) {
             SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0});
 

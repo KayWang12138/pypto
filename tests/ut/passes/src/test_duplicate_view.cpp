@@ -86,6 +86,7 @@ TEST_F(DuplicateViewTest, TestThreeConsumersAfterView) {
     Tensor out_tensor2(DT_FP32, shape2, "out_tensor1");
     Tensor out_tensor3(DT_FP32, shape2, "out_tensor1");
 
+    config::SetBuildStatic(true);
     FUNCTION("DuplicateViewFunction") {
         out_tensor1 = Reshape(in_tensor, shape2);
         out_tensor2 = Reshape(in_tensor, shape2);
@@ -136,6 +137,7 @@ TEST_F(DuplicateViewTest, TestOneConsumersAfterView) {
     Tensor in_tensor(DT_FP32, shape1, "in_tensor");
     Tensor out_tensor1(DT_FP32, shape2, "out_tensor1");
 
+    config::SetBuildStatic(true);
     FUNCTION("DuplicateViewFunction") {
         out_tensor1 = Reshape(in_tensor, shape2);
 

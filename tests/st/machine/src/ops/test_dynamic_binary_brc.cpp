@@ -62,9 +62,7 @@ TEST_F(DynamicBrcTest, TestDynamicMulBrcUnalign) {
     ProgramData::GetInstance().AppendGoldens({
         RawTensorData::CreateTensor<float>(out, golden),
     });
-
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {input_a, input_b, curSeq}, {out}) {
+    FUNCTION("main", {input_a, input_b, curSeq}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
             auto seq = GetInputData(curSeq, {batchId, 0});
             Tensor input_a0 = View(input_a, {sq, d}, {seq, d}, {batchId * sq, 0});

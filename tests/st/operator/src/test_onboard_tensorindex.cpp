@@ -49,9 +49,8 @@ TEST_F(TensorIndexOnBoardTest, test_tensorindex_float_32_64_1_32) {
         Tensor output(DataType::DT_FP32, shape2, out_ptr, "output");
 
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("TensorIndex_T", funConfig, {input_src0, input_src1, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("TensorIndex_T", {input_src0, input_src1, output}) {
             output = TensorIndex(input_src0, input_src1);
         }
     }
@@ -96,9 +95,8 @@ TEST_F(TensorIndexOnBoardTest, test_tensorindex_float_64_256_1_64) {
         Tensor output(DataType::DT_FP32, shape2, out_ptr, "output");
 
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("TensorIndex_T", funConfig, {input_src0, input_src1, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("TensorIndex_T", {input_src0, input_src1, output}) {
             output = TensorIndex(input_src0, input_src1);
         }
     }
@@ -145,9 +143,8 @@ TEST_F(TensorIndexOnBoardTest, test_tensorindex_float_1_64_32_1) {
         Tensor output(DataType::DT_FP32, shape2, out_ptr, "output");
 
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("TensorIndex_T", funConfig, {input_src0, input_src1, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("TensorIndex_T", {input_src0, input_src1, output}) {
             output = TensorIndex(input_src0, input_src1);
         }
     }
@@ -191,9 +188,8 @@ TEST_F(TensorIndexOnBoardTest, test_tensorindex_float_64_512_16_64) {
         Tensor output(DataType::DT_FP32, shape2, out_ptr, "output");
 
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("TensorIndex_T", funConfig, {input_src0, input_src1, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("TensorIndex_T", {input_src0, input_src1, output}) {
             output = TensorIndex(input_src0, input_src1);
         }
     }
@@ -236,9 +232,8 @@ TEST_F(TensorIndexOnBoardTest, test_tensorindex_float_8_7168_64_moe) {
         Tensor output(DataType::DT_FP32, shape2, out_ptr, "output");
 
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("TensorIndex_T", funConfig, {input_src0, input_src1, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("TensorIndex_T", {input_src0, input_src1, output}) {
             output = TensorIndex(input_src0, input_src1);
         }
     }

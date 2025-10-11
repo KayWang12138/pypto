@@ -90,8 +90,7 @@ void SoftmaxDynamicCompute(Tensor &input, Tensor &output) {
 }
 
 void SoftmaxDynamic(Tensor &input, Tensor &output) {
-    FunctionConfig funConfig;
-    FUNCTION("SOFTMAX_DYNAMIC_EXAMPLE", funConfig, {input}, {output}) {
+    FUNCTION("SOFTMAX_DYNAMIC_EXAMPLE", {input}, {output}) {
         SoftmaxDynamicCompute(input, output);
     }
 }

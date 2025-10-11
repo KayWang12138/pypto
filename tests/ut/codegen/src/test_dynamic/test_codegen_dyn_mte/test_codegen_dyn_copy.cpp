@@ -56,9 +56,8 @@ std::string TestL0COutBody(bool isDynamicUnalign) {
     Tensor output(DT_FP32, shape, "C");
 
     std::string funcName = "ADD";
-    FunctionConfig funConfig(FunctionType::STATIC);
-    ;
-    FUNCTION(funcName, funConfig, {inputA, inputB, output}) {
+    config::SetBuildStatic(true);
+    FUNCTION(funcName, {inputA, inputB, output}) {
         output = Add(inputA, inputB);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
@@ -135,9 +134,8 @@ std::string TestL1CopyInBody(bool isNz = false, int outerValueForNz = 0, int inn
     Tensor output(DT_FP32, shape, "C");
 
     std::string funcName = "ADD";
-    FunctionConfig funConfig(FunctionType::STATIC);
-    ;
-    FUNCTION(funcName, funConfig, {inputA, inputB, output}) {
+    config::SetBuildStatic(true);
+    FUNCTION(funcName, {inputA, inputB, output}) {
         output = Add(inputA, inputB);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
@@ -220,9 +218,8 @@ TEST_F(TestCodegenDynCopy, UBCopyIn) {
     Tensor output(DT_FP32, shape, "C");
 
     std::string funcName = "ADD";
-    FunctionConfig funConfig(FunctionType::STATIC);
-    ;
-    FUNCTION(funcName, funConfig, {inputA, inputB, output}) {
+    config::SetBuildStatic(true);
+    FUNCTION(funcName, {inputA, inputB, output}) {
         output = Add(inputA, inputB);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);

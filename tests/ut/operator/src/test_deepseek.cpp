@@ -143,9 +143,8 @@ TEST_F(FunctionTest, test_fa_new) {
     Tensor M(DataType::DT_FP32, shape_reduce, "M");
     Tensor L(DataType::DT_FP32, shape_reduce, "L");
     Tensor Res(DT_FP32, shape, "Res");
-    FunctionConfig funConfig(FunctionType::STATIC);
-    ;
-    FUNCTION("FA", funConfig, {Q, K, V, M, L, Res}) {
+    config::SetBuildStatic(true);
+    FUNCTION("FA", {Q, K, V, M, L, Res}) {
         TileShape::Current().SetVecTile({16, 128});
         TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
         Res = FlashAttentionNew(Q, K, V, M, L, atDims);
@@ -687,7 +686,6 @@ TEST_F(FunctionTest, TestRoPE) {
         ApplyRotaryPosEmb(q, k, cos, sin, positionIds, qEmbed, kEmbed, 1, ropeTileConfig);
     }
 
-
     ALOG_INFO(Program::GetInstance().Dump());
 }
 
@@ -736,7 +734,6 @@ TEST_F(FunctionTest, TestRoPEDeepseekV3) {
         // auto kPeTrans = Transpose(Reshape(kPe, {b, s, 1, d}), {1, 2}); // [b,s,d]->[b,s,1,d]->[b,1,s,d]
         ApplyRotaryPosEmb(qPeTrans, kPeReshape, cos, sin, positionIds, qEmbed, kEmbed, 1, ropeTileConfig);
     }
-
 
     ALOG_INFO(Program::GetInstance().Dump());
 }
@@ -1027,7 +1024,6 @@ TEST_F(FunctionTest, Test_qkvPre2) {
 }
 
 TEST_F(FunctionTest, Test_deepseekAttention_s_1) {
-
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     int b = 2; //  32
@@ -1118,7 +1114,6 @@ TEST_F(FunctionTest, TestArgSort) {
 }
 
 TEST_F(FunctionTest, Test_deepseekAttention_pre) {
-
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     int b = 2; //  32
@@ -1352,9 +1347,8 @@ TEST_F(FunctionTest, Test_ScalarOp) {
     TileShape::Current().SetVecTile({128, 32});
     Tensor input_a(DT_FP32, shape, "A");
     auto output = Tensor(DT_FP32, shape, "res"); // std::make_tuple(Tensor(DT_FP32, shape, "res"), Tensor(DT_FP32, shape, "resDics"));
-    FunctionConfig funConfig(FunctionType::STATIC);
-    ;
-    FUNCTION("ScalarAddS", funConfig) {
+    config::SetBuildStatic(true);
+    FUNCTION("ScalarAddS") {
         auto a = ScalarAddS(input_a, Element(DataType::DT_FP32, F_127), true);
         auto b = ScalarSubS(a, Element(DataType::DT_FP32, F_127), true);
         auto c = ScalarMulS(b, Element(DataType::DT_FP32, F_127), true);
@@ -1373,9 +1367,8 @@ TEST_F(FunctionTest, TestPad) {
     Tensor b;
     TileShape::Current().SetVecTile(8, 8);
 
-    FunctionConfig funConfig(FunctionType::STATIC);
-    ;
-    FUNCTION("Pad", funConfig) {
+    config::SetBuildStatic(true);
+    FUNCTION("Pad") {
         b = Pad(a, newShape);
     }
     ALOG_INFO(Program::GetInstance().Dump());

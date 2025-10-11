@@ -52,7 +52,6 @@ Program::Program() : currentFunctionPtr_(nullptr) {
     CreateInitFunction();
 
     HostMachine::GetInstance().Init(HostMachineMode::SERVER);
-    ConfigManager::Instance().Initialize();
     std::string envLogLevel;
     GetEnv("GLOBAL_LOG_LEVEL", envLogLevel);
     if (envLogLevel.empty()) {
@@ -82,6 +81,7 @@ Program &Program::GetInstance() {
 }
 
 void Program::Reset() {
+    config::SetBuildStatic(false);
     name_.clear();
     functionmap_.clear();
     functionMagicNameStack_.clear();
@@ -92,7 +92,6 @@ void Program::Reset() {
     functionCache_.Reset();
     functionSequence_.clear();
     CreateInitFunction();
-    ConfigManager::Instance().Initialize();
     tensorSlotManager_ = nullptr;
     currentFunctionPtr_ = functionmap_[currentFunctionMagicName_].get();
 }
@@ -693,10 +692,6 @@ void Program::VerifyExecuteGraph() {
     flowVerifier.VerifyExecuteGraph();
 }
 
-RecordFunc::RecordFunc(const std::string &name) : funcName(FUNCTION_PREFIX + name) {
-    Program::GetInstance().BeginFunction(funcName);
-}
-
 void static MergeAllFuncDupIocast(Function* func) {
     if(func == nullptr) {
         auto rootFunc = Program::GetInstance().GetFunctionByMagicName(PROGRAM_ENTRY_FUNCTION_NAME);
@@ -731,25 +726,25 @@ void static MergeAllFuncDupIocast(Function* func) {
     }
 }
 
-RecordFunc::RecordFunc(const std::string &name, const FunctionConfig &funConfig) : funcName(FUNCTION_PREFIX + name) {
-    Program::GetInstance().BeginFunction(funcName, funConfig.funcType);
+RecordFunc::RecordFunc(const std::string &name) : funcName(FUNCTION_PREFIX + name) {
+    Program::GetInstance().BeginFunction(funcName, config::GetFunctionType());
 }
 
-RecordFunc::RecordFunc(const std::string &name, const FunctionConfig &funConfig,
+RecordFunc::RecordFunc(const std::string &name,
     const std::vector<std::reference_wrapper<Tensor>> &explicitOpArgs)
     : funcName(FUNCTION_PREFIX + name) {
     // RecordFunc start with TENSOR_GRAPH
-    Program::GetInstance().BeginFunction(funcName, funConfig.funcType, GraphType::TENSOR_GRAPH, explicitOpArgs);
+    Program::GetInstance().BeginFunction(funcName, config::GetFunctionType(), GraphType::TENSOR_GRAPH, explicitOpArgs);
 }
 
-RecordFunc::RecordFunc(const std::string &name, const FunctionConfig &funConfig,
+RecordFunc::RecordFunc(const std::string &name, 
     const std::vector<std::reference_wrapper<const Tensor>> &startArgsInputTensorList,
     const std::vector<std::reference_wrapper<const Tensor>> &startArgsOutputTensorList,
     const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>> &inplaceArgs)
     : funcName(FUNCTION_PREFIX + name) {
-    ASSERT(funConfig.funcType == FunctionType::DYNAMIC);
+    ASSERT(config::GetFunctionType() == FunctionType::DYNAMIC);
 
-    Program::GetInstance().BeginFunction(funcName, funConfig.funcType);
+    Program::GetInstance().BeginFunction(funcName, config::GetFunctionType());
 
     std::shared_ptr<TensorSlotManager> manager = Program::GetInstance().GetTensorSlotManager();
     for (auto &param : startArgsInputTensorList) {

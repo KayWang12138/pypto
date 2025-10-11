@@ -615,9 +615,8 @@ TEST_F(SplitKTest, Test_MM_FP16_Atomic_On) {
         Tensor final_out(outputAstDtype, shape_c, "final_out");
         auto kSplit = 4;
         auto kSplitSize = k / kSplit;
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("MM_FP16_Atomic_On", funConfig, {mat_a, mat_b, final_out}) {
+        config::SetBuildStatic(true);
+        FUNCTION("MM_FP16_Atomic_On", {mat_a, mat_b, final_out}) {
             TileShape::Current().SetVecTile(64, 64);
             Tensor tmpC(outputAstDtype, shape_c, "tmp_c");
             tmpC = MulS(tmpC, Element(DataType::DT_FP32, 0.0f));

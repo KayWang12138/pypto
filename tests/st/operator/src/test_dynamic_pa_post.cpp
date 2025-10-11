@@ -256,8 +256,7 @@ void PageAttentionPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Te
     auto H = weightO->shape[1];
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, weightUV, weightO, weightOScaleW},
         {postOut}) {
         SymbolicScalar nLoop = nQ / nTile;

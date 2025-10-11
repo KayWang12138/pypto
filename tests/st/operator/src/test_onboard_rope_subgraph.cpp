@@ -70,9 +70,8 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3) {
             {1, 32, 1, 64, 64} // for transpose
         };
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RoPE", funConfig, {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RoPE", {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed}) {
             TileShape::Current().SetVecTile({1, 1, 32, 64});
             auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
@@ -172,9 +171,8 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_fp16) {
             {1, 32, 1, 64, 64} // for transpose
         };
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RoPE", funConfig, {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RoPE", {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed}) {
             TileShape::Current().SetVecTile({1, 1, 32, 64});
             auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
@@ -257,9 +255,8 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_fp16_2ba
             {1, 32, 1, 64, 64} // for transpose
         };
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RoPE", funConfig, {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RoPE", {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed}) {
             TileShape::Current().SetVecTile({1, 1, 32, 64});
             auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
@@ -342,9 +339,8 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_bf16) {
             {1, 32, 1, 64, 64} // for transpose
         };
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RoPE", funConfig, {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RoPE", {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed}) {
             TileShape::Current().SetVecTile({1, 1, 32, 64});
             auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
@@ -426,9 +422,8 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_bf16_32b
             {1, 32, 1, 64, 64} // for transpose, [b,n,s,d/2,2]
         };
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RoPE", funConfig, {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RoPE", {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed}) {
             TileShape::Current().SetVecTile({1, 1, 32, 64});
             auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
@@ -511,9 +506,8 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_bf16_2ba
             {1, 32, 1, 64, 64} // for transpose, [b,n,s,d/2,2]
         };
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RoPE", funConfig, {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RoPE", {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed}) {
             TileShape::Current().SetVecTile({1, 1, 32, 64});
             auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
@@ -622,9 +616,8 @@ TEST_F(RoPESubGraphOnBoardTest, test_CD_bf16_32batch) {
             {1, 32, 1, 64, 64} // for transpose, [b,n,s,d/2,2]
         };
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RoPE", funConfig, {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed, past_key_states, compressed_kv, kv_len}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RoPE", {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed, past_key_states, compressed_kv, kv_len}) {
             TileShape::Current().SetVecTile({1, 1, 32, 64});
             auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
@@ -751,9 +744,8 @@ TEST_F(RoPESubGraphOnBoardTest, test_CD_bf16_32batch_4k) {
             {1, 32, 1, 64, 64} // for transpose, [b,n,s,d/2,2]
         };
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RoPE", funConfig, {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed, past_key_states, compressed_kv, kv_len}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RoPE", {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed, past_key_states, compressed_kv, kv_len}) {
             TileShape::Current().SetVecTile({1, 1, 32, 64});
             auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 

@@ -50,11 +50,8 @@ void TestReduceScatter(OpTestParam &testParam)
         Tensor in(dType, inShape,  (uint8_t *)xPtr, "in");
         Tensor out(dType, outShape, outPtr, "out");
 
-        ConfigManager::Instance();
-
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("REDUCESCATTER_F", funConfig, {in, out}) {
+        config::SetBuildStatic(true);
+        FUNCTION("REDUCESCATTER_F", {in, out}) {
             TileShape::Current().SetDistTile({M / 2, 2, 0}, {N / 2, 2, 0}, {1, testParam.rankSize, 0});
             TileShape::Current().SetDistRankId(testParam.rankId);
             out = Distributed::ReduceScatter(in, testParam.group,
@@ -97,11 +94,9 @@ void TestReduceScatterEx(OpTestParam &testParam)
         }
         std::vector<std::reference_wrapper<Tensor>> paras(inVec.begin(), inVec.end());
         paras.emplace_back(out);
-        ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("REDUCESCATTER_EX", funConfig, paras) {
+        config::SetBuildStatic(true);
+        FUNCTION("REDUCESCATTER_EX", paras) {
             TileShape::Current().SetDistTile({M / 2, 2, 0}, {N / 2, 2, 0}, {1, testParam.rankSize, 0});
             TileShape::Current().SetDistRankId(testParam.rankId);
             out = Distributed::ReduceScatter(inVec, testParam.group,
@@ -126,9 +121,8 @@ void TestShmemReduceScatter(OpTestParam &testParam)
     std::vector<T> inData = ReadToVector<T>(
         GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
 
-    FunctionConfig funcConfig;
     int32_t tileNum = 2;
-    FUNCTION("ShmemReduceScatter", funcConfig, {in}, {out}) {
+    FUNCTION("ShmemReduceScatter", {in}, {out}) {
         LOOP("LOOP", FunctionType::DYNAMIC_LOOP, idx, LoopRange(1)) {
             (void)idx;
             TileShape::Current().SetDistTile(

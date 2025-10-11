@@ -34,8 +34,7 @@ void PaPostDebugCastFirstR1(Tensor &postIn, Tensor &r1Out) {
     auto kvLoraRank = 512;
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {postIn}, {r1Out}) {
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 8;
@@ -94,8 +93,7 @@ void PaPostDebugCastFirstT1(Tensor &postIn, Tensor &t1Out) {
     auto kvLoraRank = 512;
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {postIn}, {t1Out}) {
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 8;
@@ -157,8 +155,7 @@ void PaPostDebugCastFirstBmm4(Tensor &postIn, Tensor &weightUV, Tensor &bmm4Out)
     auto vHeadDim = weightUV->shape[2];
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {postIn, weightUV}, {bmm4Out}) {
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int64_t bTile = 8;
@@ -230,8 +227,7 @@ void PaPostDebugCastFirstCrtb4tr(Tensor &postIn, Tensor &weightUV, Tensor &r2Out
     auto vHeadDim = weightUV->shape[2];
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {postIn, weightUV}, {r2Out}) {
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 8;
@@ -307,8 +303,7 @@ void PaPostDebugCastFirstOnlyT1(Tensor &r1Res, Tensor &t1Out) {
     auto kvLoraRank = 512;
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {r1Res}, {t1Out}) {
         SymbolicScalar B = r1Res->shape[0]; // S=1
         const int bTile = 8;
@@ -368,8 +363,7 @@ void PaPostNewOnlyBmm4(Tensor &bmm4In, Tensor &weightUV, Tensor &bmm4Out) {
     auto vHeadDim = weightUV->shape[2];
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {bmm4In, weightUV}, {bmm4Out}) {
         SymbolicScalar B = bmm4In->shape[1] / S; // S=1
         const int bTile = 8;
@@ -439,8 +433,7 @@ void PaPostNewOnlyBmm4Fail(Tensor &bmm4In, Tensor &weightUV, Tensor &bmm4Out) {
     auto vHeadDim = weightUV->shape[2];
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {bmm4In, weightUV}, {bmm4Out}) {
         SymbolicScalar B = bmm4In->shape[1] / S; // S=1
         const int bTile = 8;
@@ -509,8 +502,7 @@ void PaPostNewOnlyMm5Nd(Tensor &quant0In, Tensor &weightO, Tensor &mm5Out) {
     auto H = 7168;
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {quant0In, weightO}, {mm5Out}) {
         SymbolicScalar B = quant0In->shape[0] / S; // S=1
         std::cout<<"B: "<<B<<std::endl;
@@ -579,8 +571,7 @@ void PaPostNewOnlyMm5NdK(Tensor &quant0In, Tensor &weightO, Tensor &mm5Out) {
     auto H = 7168;
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {quant0In, weightO}, {mm5Out}) {
         SymbolicScalar B = quant0In->shape[0] / S; // S=1
         std::cout<<"B: "<<B<<std::endl;
@@ -663,8 +654,7 @@ void PaPostNewMm5NdkUnquantR3(Tensor &quant0In, Tensor &weightO, Tensor &weightO
     auto H = 7168;
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {quant0In, weightO, weightOScaleW, quantOutFp32}, {postOut}) {
         SymbolicScalar B = quant0In->shape[0] / S; // S=1
         std::cout<<"B: "<<B<<std::endl;
@@ -764,8 +754,7 @@ void PaPostNewOnlyMm5Nz(Tensor &quant0In, Tensor &weightO, Tensor &mm5Out) {
     auto H = 7168;
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {quant0In, weightO}, {mm5Out}) {
         SymbolicScalar B = quant0In->shape[0] / S; // S=1
         std::cout<<"B: "<<B<<std::endl;
@@ -834,8 +823,7 @@ void PaPostNewOnlyMm5NzK(Tensor &quant0In, Tensor &weightO, Tensor &mm5Out) {
     auto H = 7168;
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {quant0In, weightO}, {mm5Out}) {
         SymbolicScalar B = quant0In->shape[0] / S; // S=1
         std::cout<<"B: "<<B<<std::endl;
@@ -916,8 +904,7 @@ void PaPostDebugCastFirst(Tensor &postIn, Tensor &cast1Out) {
     auto kvLoraRank = 512;
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {postIn}, {cast1Out}) {
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 8;
@@ -976,8 +963,7 @@ void PaPostCastFirstQuant(Tensor &postIn, Tensor &r2In, Tensor &weightUV, Tensor
     auto vHeadDim = weightUV->shape[2];
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {postIn,r2In, weightUV, weightO, weightOScaleW}, {quantInt8Out, quantFp32Out}) {
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 8;
@@ -1065,8 +1051,7 @@ void PaPostCastFirstT3r2(Tensor &bmm4In, Tensor &weightUV, Tensor &weightO, Tens
     auto vHeadDim = weightUV->shape[2];
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {bmm4In,weightUV, weightO, weightOScaleW}, {r2Out}) {
         SymbolicScalar B = bmm4In->shape[1] / S; // S=1
         const int bTile = 8;
@@ -1142,8 +1127,7 @@ void PaPostCastFirstT3(Tensor &bmm4In, Tensor &t3Out) {
     auto vHeadDim = 128;
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {bmm4In}, {t3Out}) {
         SymbolicScalar B = bmm4In->shape[1] / S; // S=1
         const int bTile = 8;
@@ -1201,8 +1185,7 @@ void PaPostCastFirstR2(Tensor &t3In, Tensor &r2Out) {
     auto vHeadDim = 128;
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {t3In}, {r2Out}) {
         SymbolicScalar B = t3In->shape[0] / S; // S=1
         const int bTile = 8;
@@ -1261,8 +1244,7 @@ void PaPostCastFirstUnquantR3(Tensor &postIn, Tensor &weightUV, Tensor &weightO,
     auto H = weightO->shape[1];
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {postIn,weightUV, weightO, weightOScaleW, quantOutFp32}, {postOut}) {
         SymbolicScalar B = postIn->shape[0] / S; // S=1
         const int bTile = 8;
@@ -1348,8 +1330,7 @@ void PaPostDebugCastFirstCrtb4trQuant(Tensor &postIn, Tensor &weightUV, Tensor &
     auto vHeadDim = weightUV->shape[2];
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {postIn, weightUV}, {quantInt8Out, quantFp32Out}) {
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 8;
@@ -1442,8 +1423,7 @@ void PaPostDebugCastFirstCrtb4trQuantFail(Tensor &postIn, Tensor &weightUV, Tens
     auto vHeadDim = weightUV->shape[2];
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {postIn, weightUV}, {quantInt8Out, quantFp32Out}) {
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 8;
@@ -1535,8 +1515,7 @@ void PaPostDebugCastFirstCrtb4trQMM5ND(Tensor &postIn, Tensor &weightUV, Tensor 
     auto H = weightO->shape[1];
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {postIn, weightUV, weightO}, {mm5Out}) {
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 8;
@@ -1631,8 +1610,7 @@ void PaPostDebugCastFirstCrtb4trQMM5NDk(Tensor &postIn, Tensor &weightUV, Tensor
     auto H = weightO->shape[1];
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {postIn, weightUV, weightO}, {mm5Out}) {
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 8;
@@ -1740,8 +1718,7 @@ void PaPostDebugCastFirstMm5UnsplitKLow(Tensor &postIn, Tensor &weightUV, Tensor
     auto H = weightO->shape[1];
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {postIn, weightUV, weightO, weightOScaleW}, {postOut}) {
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 2;
@@ -1900,8 +1877,7 @@ void PaPostDebugCastFirstMm5UnsplitK(Tensor &postIn, Tensor &weightUV, Tensor &w
     auto H = weightO->shape[1];
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {postIn, weightUV, weightO, weightOScaleW}, {postOut}) {
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 8;
@@ -2060,8 +2036,7 @@ void PaPostDebugCastFirstMm5SplitK(Tensor &postIn, Tensor &weightUV, Tensor &wei
     auto H = weightO->shape[1];
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {postIn, weightUV, weightO, weightOScaleW}, {postOut}) {
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 32;
@@ -2137,8 +2112,7 @@ void PaPostDebugCastFirstMm5NormalUnSplitK(Tensor &postIn, Tensor &weightUV, Ten
     auto H = weightO->shape[1];
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {postIn, weightUV, weightO, weightOScaleW}, {postOut}) {
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 32;
@@ -2353,8 +2327,7 @@ void PaPostDebugCastFirstMm5SplitKLow(Tensor &postIn, Tensor &weightUV, Tensor &
     auto H = weightO->shape[1];
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {postIn, weightUV, weightO, weightOScaleW}, {postOut}) {
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 2;
@@ -2415,6 +2388,7 @@ void PaPostDebugCastFirstMm5SplitKLow(Tensor &postIn, Tensor &weightUV, Tensor &
         }
     }
 }
+
 TEST_F(DynamicAttentionPostTest, dynamic_pa_post_new_mm5nz_splitk_low) {
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
 
@@ -2540,8 +2514,7 @@ void PageAttentionPostBf16(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache
     auto H = weightO->shape[1];
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, postIn, weightUV, weightO, weightOScaleW},
         {attentionOut, postOut}) {
         SymbolicScalar nLoop = nQ / nTile;

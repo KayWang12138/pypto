@@ -165,7 +165,6 @@ TEST_F(GraphTest, TestAttentionPost) {
 }
 
 TEST_F(GraphTest, Test_deepseekAttention_s_1) {
-
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     int b = 2; //  32
@@ -212,7 +211,6 @@ TEST_F(GraphTest, Test_deepseekAttention_s_1) {
 }
 
 TEST_F(GraphTest, Test_deepseekAttention_pre) {
-
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     int b = 2; //  32
@@ -289,9 +287,8 @@ TEST_F(GraphTest, test_operation_rope_subgraph_deepseekv3_bf16_32batch) {
             {1, 32, 1, 64, 64} // for transpose, [b,n,s,d/2,2]
         };
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RoPE", funConfig, {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RoPE", {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed}) {
             TileShape::Current().SetVecTile({1, 1, 32, 64});
             auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
@@ -361,9 +358,8 @@ TEST_F(GraphTest, test_operation_tensor_16_16_64_64_tileop_add) {
     Tensor input_b(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
 
-    FunctionConfig funConfig(FunctionType::STATIC);
-    ;
-    FUNCTION("ADD_T", funConfig) {
+    config::SetBuildStatic(true);
+    FUNCTION("ADD_T") {
         TileShape::Current().SetVecTile({16, 16});
         output = Add(input_a, input_b);
     }
@@ -449,18 +445,15 @@ void TestMlaPrologV2(std::vector<int> &params, int inputType, bool isQuant = fal
             Tensor w_qb_scale = Tensor(DT_FP32, w_qb_scale_shape, "w_qb_scale");
             quantInputs.dequantScaleWUqQr = w_qb_scale;
 
-            FunctionConfig funConfig(FunctionType::STATIC);
-            ;
-            FUNCTION("MlaProlog_T", funConfig, {x, w_qa, w_qb, w_qb_scale, w_kv_b_k, w_kv_a,
+            config::SetBuildStatic(true);
+            FUNCTION("MlaProlog_T", {x, w_qa, w_qb, w_qb_scale, w_kv_b_k, w_kv_a,
                 gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache, kr_cache, output_q, output_q_rope}) {
                 MlaProlog(x, w_qa, w_qb, w_kv_b_k, w_kv_a, gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache, kr_cache,
                     quantInputs, ropeConfig, output_q, output_q_rope, kv_cache, kr_cache, 1e-5f, 1e-5f,  "BNSD", splitReduceLastDim,  splitK);
             };
-
         } else {
-            FunctionConfig funConfig(FunctionType::STATIC);
-            ;
-            FUNCTION("MlaProlog_T", funConfig, {x, w_qa, w_qb, w_kv_b_k, w_kv_a,
+            config::SetBuildStatic(true);
+            FUNCTION("MlaProlog_T", {x, w_qa, w_qb, w_kv_b_k, w_kv_a,
                 gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache, kr_cache, output_q, output_q_rope}) {
                 MlaProlog(x, w_qa, w_qb, w_kv_b_k, w_kv_a, gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache, kr_cache,
                     quantInputs, ropeConfig, output_q, output_q_rope, kv_cache, kr_cache, 1e-5f, 1e-5f,  "BNSD", splitReduceLastDim,  splitK);
@@ -583,9 +576,8 @@ void TestMlaProlog(std::vector<int> &params) {
             {1, 32, 1, 64, 64} // for transpose, [b,n,s,d/2,2]
         };
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("MlaProlog_T", funConfig, {x, w_qa, w_qb, w_kv_a, w_kv_b_k, position_ids,
+        config::SetBuildStatic(true);
+        FUNCTION("MlaProlog_T", {x, w_qa, w_qb, w_kv_a, w_kv_b_k, position_ids,
                                                                        cos, sin, past_key_states, kv_len, output_q}) {
             auto q_kv = Attention.MlaPrologFoward(x, position_ids, cos, sin, kv_len, past_key_states, ropeTileConfig);
             output_q = q_kv[0];
@@ -623,8 +615,8 @@ TEST_F(GraphTest, test_attention_bf16_4_1024_1024_32_256) {  // b_n_s_s2_h_q_lor
 
 void TestLoopTailBlock(const Tensor &t0, const Tensor &blockTable, Tensor &out, int s) {
     int blockSize = 64;
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {t0, blockTable}, {out}) {
+
+    FUNCTION("main", {t0, blockTable}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShape(t0, 0) / s)) {
             SymbolicScalar size = GetInputData(blockTable, {i, 0});
             Tensor t0s = View(t0, {s, s}, {size, s}, {blockSize * i, 0});
@@ -655,9 +647,8 @@ TEST_F(GraphTest, TestTranspose_MLA_3D_2_add) {
     PROGRAM("Transpose") {
         Tensor input(DataType::DT_FP32, shape, "input");
         Tensor output(DataType::DT_FP32, resShape, "res");
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("MLA_3D_2", funConfig, {input, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("MLA_3D_2", {input, output}) {
             TileShape::Current().SetVecTile(NUM_2, NUM_2, NUM_128);
             auto tmp = Transpose(input, {0, 1});
             TileShape::Current().SetVecTile(NUM_8, NUM_8, NUM_128);
@@ -678,9 +669,8 @@ TEST_F(GraphTest, TestTranspose_MLA_3D_2_reshape) {
         Tensor input(DataType::DT_FP32, shape, "input");
         Tensor output1(DataType::DT_FP32, transposeShape, "res1");
         Tensor output2(DataType::DT_FP32, resShape, "res2");
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("MLA_3D_2", funConfig, {input, output1, output2}) {
+        config::SetBuildStatic(true);
+        FUNCTION("MLA_3D_2", {input, output1, output2}) {
             TileShape::Current().SetVecTile(NUM_2, NUM_2, NUM_128);
             output1 = Transpose(input, {0, 1}); // [8, 32, 128] --> [32, 8, 128]
             TileShape::Current().SetVecTile(NUM_8, NUM_8, NUM_128);

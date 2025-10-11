@@ -58,8 +58,7 @@ void PrologPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &q
 
     Tensor attentionOut(DT_FP32, qNope->shape, "attentionOut");
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, weightUV, weightO}, {postOut}) {
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(batchSize)) {
             SymbolicScalar curSeq = GetInputData(actSeqs, {bIdx});
@@ -151,9 +150,8 @@ void PrologPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &q
             }
         }
 
-        FunctionConfig funConfig2(FunctionType::STATIC);
-        ;
-        FUNCTION("PaPost", funConfig2) {
+        config::SetBuildStatic(true);
+        FUNCTION("PaPost") {
             TileShape::Current().SetVecTile({32, dN});
             auto attenRes = Reshape(attentionOut, {batchSize, nQ, dN}); // (b*sQ*nQ, dN), sQ=1
 
@@ -180,7 +178,6 @@ void PrologPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &q
 
             TileShape::Current().SetVecTile({batchSize * sQ, 32});
             postOut = Reshape(postMm, {batchSize, sQ, hiddenSize});
-            std::cout << "111111" << std::endl;
         }
     }
 }
@@ -206,8 +203,7 @@ void PageAttentionAddS(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Te
     auto kvLoraRank = 512;
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs}, {attentionOut, postOut}) {
         SymbolicScalar nLoop = nQ / nTile;
 
@@ -349,8 +345,7 @@ void PageAttentionAddSSingleOutput(Tensor &qNope, Tensor &kNopeCache, Tensor &vN
     auto kvLoraRank = 512;
     int S = 1;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig,
+    FUNCTION("main",
         {qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs}, {postOut}) {
         SymbolicScalar nLoop = nQ / nTile;
 

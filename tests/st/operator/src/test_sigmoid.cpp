@@ -39,9 +39,8 @@ TEST_F(SigmoidTest, test_32_32_tileop_sigmoid) {
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("SIGMOID", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("SIGMOID", {input_a, output}) {
             output = Sigmoid(input_a);
         }
     }
@@ -76,9 +75,8 @@ TEST_F(SigmoidTest, test_32_256_tileop_sigmoid_realcase) {
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("SIGMOID", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("SIGMOID", {input_a, output}) {
             output = Sigmoid(input_a);
         }
     }
@@ -114,9 +112,8 @@ TEST_F(SigmoidTest, test_2_32_32_tileop_sigmoid) {
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("SIGMOID", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("SIGMOID", {input_a, output}) {
             output = Sigmoid(input_a);
         }
     }
@@ -153,9 +150,8 @@ TEST_F(SigmoidTest, test_2_2_32_32_tileop_sigmoid) {
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("SIGMOID", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("SIGMOID", {input_a, output}) {
             output = Sigmoid(input_a);
         }
     }

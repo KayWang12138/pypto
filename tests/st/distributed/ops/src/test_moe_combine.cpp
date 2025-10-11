@@ -69,11 +69,8 @@ void TestMoeCombine(OpTestParam &testParam)
         Tensor scale(DataType::DT_FP32, scaleShape, scalePtr, "scale");
         Tensor out(dType, outShape, outPtr, "out");
 
-        ConfigManager::Instance();
-
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("Moe_Combine", funConfig, {in, combineInfo, scale, out}) {
+        config::SetBuildStatic(true);
+        FUNCTION("Moe_Combine", {in, combineInfo, scale, out}) {
             TileShape::Current().SetDistRankId(testParam.rankId);
             out = Distributed::MoeCombine(in, scale, combineInfo, testParam.group);
         }

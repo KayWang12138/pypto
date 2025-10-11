@@ -23,6 +23,7 @@ set_vec_tile_shapes = pto_impl.SetVecTile
 get_vec_tile_shapes = pto_impl.GetVecTile
 set_cube_tile_shapes = pto_impl.SetCubeTile
 set_config = pto_impl.SetConfig
+set_build_static = pto_impl.SetBuildStatic
 set_matrix_size = pto_impl.SetMatrixSize
 set_semantic_label = pto_impl.SetSemanticLabel
 set_operation_config = pto_impl.SetOperationConfig
@@ -39,7 +40,6 @@ record_func = RecordFunc = pto_impl.RecordFunc
 record_loop_func = RecordLoopFunc = pto_impl.RecordLoopFunc
 record_if_branch = RecordIfBranch = pto_impl.RecordIfBranch
 vec_tile = VecTile = pto_impl.VecTile
-function_config = FunctionConfig = pto_impl.FunctionConfig
 
 TileShape = pto_impl.TileShape
 TileShape.reset = TileShape.Reset
@@ -69,9 +69,8 @@ def dyn_function(
 ) -> pto_impl.RecordFunc:
     if inplace_tensors is None:
         inplace_tensors = []
-    func_cfg = pto_impl.FunctionConfig(pto_impl.FunctionType.DYNAMIC)
     record_func_ = pto_impl.RecordFunc(
-        name, func_cfg, in_tensors, out_tensors, inplace_tensors
+        name, in_tensors, out_tensors, inplace_tensors
     )
     logging.debug("Entering DYNAMIC function: %s", name)
     try:

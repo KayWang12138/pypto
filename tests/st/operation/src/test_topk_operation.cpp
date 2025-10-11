@@ -51,8 +51,7 @@ void TopKOpExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outpu
         CeilDiv(firstDim, firstViewShape),
         CeilDiv(secondDim, secondViewShape)
     };
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {inputs[0]}, {outputs[0], outputs[1]}) {
+    FUNCTION("main", {inputs[0]}, {outputs[0], outputs[1]}) {
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loop[IDX_DIM0])) {
             LOOP("LOOP_L1_bIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loop[IDX_DIM1])) {
                 std::vector<SymbolicScalar> offset = { bIdx * args->viewShape_[0], sIdx * args->viewShape_[1] };
@@ -83,8 +82,7 @@ void TopKOpExeFunc3D(const std::vector<Tensor>& inputs, std::vector<Tensor>& out
         CeilDiv(secondDim, secondViewShape),
         CeilDiv(thirdDim, thirdViewShape)
     };
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {inputs[0]}, {outputs[0], outputs[1]}) {
+    FUNCTION("main", {inputs[0]}, {outputs[0], outputs[1]}) {
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loop[IDX_DIM0])) {
             LOOP("LOOP_L1_bIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loop[IDX_DIM1])) {
                 LOOP("LOOP_L2_bIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(loop[IDX_DIM2])) {
@@ -125,8 +123,7 @@ void TopKOpExeFunc4D(const std::vector<Tensor>& inputs, std::vector<Tensor>& out
         CeilDiv(thirdDim, thirdViewShape),
         CeilDiv(forthDim, forthViewShape)
     };
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {inputs[0]}, {outputs[0], outputs[1]}) {
+    FUNCTION("main", {inputs[0]}, {outputs[0], outputs[1]}) {
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loop[IDX_DIM0])) {
             LOOP("LOOP_L1_bIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loop[IDX_DIM1])) {
                 LOOP("LOOP_L2_bIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(loop[IDX_DIM2])) {

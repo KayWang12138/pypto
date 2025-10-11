@@ -441,8 +441,7 @@ void WinAttentionDebugCompute(const Tensor &qNope, Tensor &vNopeCache, const Ten
 void WinAttentionDebug(const Tensor &qNope, Tensor &vNopeCache, const Tensor &qRope, Tensor &kRopeCache, int nQ, int nKv,
     Tensor &blockTable, Tensor &actSeqs, int windowSize, int blockSize, float softmaxScale, Tensor &attentionOut,
     WinAttenTileShapeConfig &tileConfig) {
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {qNope, vNopeCache, qRope, kRopeCache, blockTable, actSeqs}, {attentionOut}) {
+    FUNCTION("main", {qNope, vNopeCache, qRope, kRopeCache, blockTable, actSeqs}, {attentionOut}) {
         WinAttentionDebugCompute(qNope, vNopeCache, qRope, kRopeCache, nQ, nKv, blockTable, actSeqs, windowSize, blockSize,
             softmaxScale, attentionOut, tileConfig);
     }
@@ -451,8 +450,7 @@ void WinAttentionDebug(const Tensor &qNope, Tensor &vNopeCache, const Tensor &qR
 void WinAttention(const Tensor &qNope, Tensor &vNopeCache, const Tensor &qRope, Tensor &kRopeCache, int nQ, int nKv,
     Tensor &blockTable, Tensor &actSeqs, int windowSize, int blockSize, float softmaxScale, Tensor &attentionOut,
     WinAttenTileShapeConfig &tileConfig) {
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {qNope, vNopeCache, qRope, kRopeCache, blockTable, actSeqs}, {attentionOut}) {
+    FUNCTION("main", {qNope, vNopeCache, qRope, kRopeCache, blockTable, actSeqs}, {attentionOut}) {
         WinAttentionCompute(qNope, vNopeCache, qRope, kRopeCache, nQ, nKv, blockTable, actSeqs, windowSize, blockSize,
             softmaxScale, attentionOut, tileConfig);
     }
@@ -461,8 +459,7 @@ void WinAttention(const Tensor &qNope, Tensor &vNopeCache, const Tensor &qRope, 
 void WinAttentionFlash(const Tensor &qNope, Tensor &vNopeCache, const Tensor &qRope, Tensor &kRopeCache, int nQ, int nKv,
     Tensor &blockTable, Tensor &actSeqs, int windowSize, int blockSize, float softmaxScale, Tensor &attentionOut,
     WinAttenTileShapeConfig &tileConfig) {
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {qNope, vNopeCache, qRope, kRopeCache, blockTable, actSeqs}, {attentionOut}) {
+    FUNCTION("main", {qNope, vNopeCache, qRope, kRopeCache, blockTable, actSeqs}, {attentionOut}) {
         WinAttentionComputeFlash(qNope, vNopeCache, qRope, kRopeCache, nQ, nKv, blockTable, actSeqs, windowSize, blockSize,
             softmaxScale, attentionOut, tileConfig);
     }

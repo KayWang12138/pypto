@@ -69,8 +69,7 @@ TEST_F(DynamicReshapeUnalignTest, test_add_dim) {
         RawTensorData::CreateTensor<float>(out, golden),
     });
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {q, actSeqs}, {out}) {
+    FUNCTION("main", {q, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (sq))) {
             SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0, 0});
             Tensor q0 = View(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
@@ -126,8 +125,7 @@ TEST_F(DynamicReshapeUnalignTest, test_merge_dim) {
         RawTensorData::CreateTensor<float>(out, golden),
     });
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {q, actSeqs}, {out}) {
+    FUNCTION("main", {q, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
             //
             SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0, 0});
@@ -196,8 +194,7 @@ TEST_F(DynamicReshapeUnalignTest, test_split_dim) {
         RawTensorData::CreateTensor<float>(out, golden),
     });
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {q, actSeqs}, {out}) {
+    FUNCTION("main", {q, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
             SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0, 0});
             SymbolicScalar curDim = GetInputData(actSeqs, {batchId, 1, 0});

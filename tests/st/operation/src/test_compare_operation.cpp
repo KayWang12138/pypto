@@ -46,14 +46,13 @@ static void CompareOperationExeFunc2Dims(
     std::vector<Tensor> &outputs, 
     const OpFuncArgs *opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    FunctionConfig funConfig;
     auto args = static_cast<const CompareOpFuncArgs *>(opArgs);
     SymbolicScalar firstDim = std::max(inputs[0]->shape[0], inputs[1]->shape[0]);
     SymbolicScalar secondDim = std::max(inputs[0]->shape[1], inputs[1]->shape[1]);
     const int firstViewShape = args->viewShape_[0];
     const int secondViewShape = args->viewShape_[1];
     const int broadcastFlag = 1; 
-    FUNCTION("main", funConfig, {inputs[0], inputs[1]}, {outputs[0]}) {
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, 
              LoopRange(0, CeilDiv(firstDim, firstViewShape), 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, 
@@ -136,7 +135,6 @@ static void CompareOperationExeFunc3Dims(
     std::vector<Tensor> &outputs, 
     const OpFuncArgs *opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    FunctionConfig funConfig;
     // 解析参数
     auto args = static_cast<const CompareOpFuncArgs *>(opArgs);
     SymbolicScalar firstDim = inputs[0]->shape[0];
@@ -145,7 +143,7 @@ static void CompareOperationExeFunc3Dims(
     const int firstViewShape = args->viewShape_[0];
     const int secondViewShape = args->viewShape_[1];
     const int thirdViewShape = args->viewShape_[2];
-    FUNCTION("main", funConfig, {inputs[0], inputs[1]}, {outputs[0]}) {
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, 
              LoopRange(0, CeilDiv(firstDim, firstViewShape), 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, 
@@ -179,7 +177,6 @@ static void CompareOperationExeFunc4Dims(
     std::vector<Tensor> &outputs, 
     const OpFuncArgs *opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    FunctionConfig funConfig;
     // 解析参数
     auto args = static_cast<const CompareOpFuncArgs *>(opArgs);
     SymbolicScalar firstDim = inputs[0]->shape[0];
@@ -191,7 +188,7 @@ static void CompareOperationExeFunc4Dims(
     const int thirdViewShape = args->viewShape_[2];
     const int fourthViewShape = args->viewShape_[3];
     const int broadcastFlag = 1;
-    FUNCTION("main", funConfig, {inputs[0], inputs[1]}, {outputs[0]}) {
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, 
              LoopRange(0, CeilDiv(firstDim, firstViewShape), 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, 

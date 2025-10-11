@@ -62,9 +62,8 @@ void RunLLamaLayer(const AttentionDims &dimsCfg, float threadhold = 0.001f) {
         Tensor FW(DataType::DT_FP16, {n * d, n * d * 3}, (uint8_t *)fw_ptr, "FW");
         Tensor Res(DataType::DT_FP32, {b * s, n * d},  out_ptr, "Res");
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("LLAMA", funConfig, {H, AW, DW, FW, Res}) {
+        config::SetBuildStatic(true);
+        FUNCTION("LLAMA", {H, AW, DW, FW, Res}) {
             Res = LlamaLayer(H, AW, DW, FW, dimsCfg, SMALL_DFS_VEC_CFG, DFS_CUBE_CFG);
         }
     }

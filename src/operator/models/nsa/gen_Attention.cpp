@@ -82,8 +82,7 @@ void GenAttentionCompute(Tensor &cmpAtten, Tensor &selAtten, Tensor &winAtten, T
 }
 
 void GenAttention(Tensor &cmpAtten, Tensor &selAtten, Tensor &winAtten, Tensor &gatingScore, Tensor &attentionOut, GenAttenTileShapeConfig &tileConfig) {
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {cmpAtten, selAtten, winAtten, gatingScore}, {attentionOut}) {
+    FUNCTION("main", {cmpAtten, selAtten, winAtten, gatingScore}, {attentionOut}) {
         GenAttentionCompute(cmpAtten, selAtten, winAtten, gatingScore, attentionOut, tileConfig);
 }
 }

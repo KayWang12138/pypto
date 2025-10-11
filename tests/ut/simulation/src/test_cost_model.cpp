@@ -55,10 +55,8 @@ void RunLLamaLayerCostModel(const AttentionDims &dimsCfg, float threadhold = 0.0
         Tensor DW(DataType::DT_FP16, {n * d, n * d}, "DW");
         Tensor FW(DataType::DT_FP16, {n * d, n * d * 3}, "FW");
         Tensor Res(DT_FP32, {b * s, n * d}, "Res");
-        ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("LLAMA", funConfig, {H, AW, DW, FW, Res}) {
+        config::SetBuildStatic(true);
+        FUNCTION("LLAMA", {H, AW, DW, FW, Res}) {
             Res = LlamaLayer(H, AW, DW, FW, dimsCfg, SMALL_DFS_VEC_CFG, DFS_CUBE_CFG);
         }
         config::SetPassStrategy("OOO");
@@ -527,8 +525,7 @@ protected:
 };
 
 void CostModelTestLoopViewAssemble(const Tensor &t0, const Tensor &t1, const Tensor &blockTable, Tensor &out, int s) {
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {t0, t1, blockTable}, {out}) {
+    FUNCTION("main", {t0, t1, blockTable}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShape(t0, 0) / s)) {
             SymbolicScalar idx = GetInputData(blockTable, {i, 0});
             Tensor t0s = View(t0, {s, s}, {idx * s, 0});

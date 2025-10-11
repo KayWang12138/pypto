@@ -180,9 +180,8 @@ TEST_F(GenerateMoveOpPassTest, AssembleViewToCopy) {
 
         Function* originFunction = nullptr;
         std::vector<int> originOpmagic;
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ADD", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ADD", {input_a, input_b, output}) {
             config::SetPassStrategy("GenerateMoveOpPassTestStrategy");
 
             auto tmp_a_0 = View(input_a, shape2, {0,0});
@@ -276,9 +275,8 @@ TEST_F(GenerateMoveOpPassTest, ConvertToCopy) {
         ConfigManager::Instance();
 
         std::vector<int> originOpmagic;
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ADD", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ADD", {input_a, input_b, output}) {
             config::SetPassStrategy("GenerateMoveOpPassTestStrategy");
 
             auto tmp_a_0 = View(input_a, shape2, {0,0});

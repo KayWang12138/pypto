@@ -145,8 +145,7 @@ int main() { // b_n_s_s2_h_q_lora_rank
     Tensor k_slcOut(DT_FP16, {b * s * n2 * topK * l_prime, rope_dim + kv_lora_rank}, "k_slcOut");
     Tensor v_slcOut(DT_FP16, {b * s * n2 * topK * l_prime, kv_lora_rank}, "v_slcOut");
     Tensor kvSlcActSeqs(DT_INT32, {b, s}, "kvSlcActSeqs");
-    FunctionConfig funConfig;
-    FUNCTION("main_slc", funConfig,
+    FUNCTION("main_slc",
         {topk_tensor, topk_tensor_shape, kvNopeCache, kRopeCache, kvActSeqs, blockTable}, {k_slcOut, v_slcOut, kvSlcActSeqs}) {
         KvSlcCompute(topk_tensor, topk_tensor_shape, kvNopeCache, kRopeCache, kvActSeqs, front, near, topK, l_prime, n2, blockTable, blockSize, k_slcOut, v_slcOut, kvSlcActSeqs, tileConfig);
     }

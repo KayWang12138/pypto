@@ -75,8 +75,7 @@ TEST_F(DynamicBindingTest, TestDefaultCompute) {
         RawTensorData::CreateTensor<int32_t>(output, outputGolden),
     });
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {inputA, inputB}, {output}) {
+    FUNCTION("main", {inputA, inputB}, {output}) {
         LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(m / tiling32)) {
             auto tmpA = View(inputA, {tiling32, tiling32}, {0, i * tiling32});
             auto tmpB = View(inputB, {tiling32, tiling32}, {0, i * tiling32});
@@ -117,9 +116,8 @@ TEST_F(DynamicBindingTest, TestDeviceRunDataFromHost) {
         RawTensorData::CreateTensor<int32_t>(output, outputGolden),
     });
 
-    FunctionConfig funConfig;
     TileShape::Current().SetVecTile(tiling32, tiling32);
-    FUNCTION("main", funConfig, {input}, {output}) {
+    FUNCTION("main", {input}, {output}) {
         LOOP("s0", FunctionType::DYNAMIC_LOOP, k, LoopRange(10)) {
             IF (k == 0) {
                 output = Add(input, input);
@@ -167,8 +165,6 @@ TEST_F(DynamicBindingTest, TestDeviceCompute) {
     agent->CopyToDev(inputADevAddr, (uint8_t *)inputAData.data(), inputAData.size() * sizeof(int32_t));
     agent->CopyToDev(inputBDevAddr, (uint8_t *)inputBData.data(), inputBData.size() * sizeof(int32_t));
 
-    FunctionConfig funConfig;
-
     Tensor inputA(DT_INT32, {n, m}, "inputA");
     Tensor inputB(DT_INT32, {n, m}, "inputB");
     Tensor output(DT_INT32, {n, m}, "output");
@@ -186,7 +182,7 @@ TEST_F(DynamicBindingTest, TestDeviceCompute) {
 
     ExportedOperator *op = ExportedOperatorBegin();
 
-    FUNCTION("main", funConfig, {inputA, inputB}, {output}) {
+    FUNCTION("main", {inputA, inputB}, {output}) {
         LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(m / tiling32)) {
             auto tmpA = View(inputA, {tiling32, tiling32}, {0, i * tiling32});
             auto tmpB = View(inputB, {tiling32, tiling32}, {0, i * tiling32});

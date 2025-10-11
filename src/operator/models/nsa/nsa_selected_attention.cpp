@@ -399,8 +399,7 @@ void SelectedAttention(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &kRopeCa
     const Tensor &qNope, const Tensor &qRope, Tensor &attentionOut,
     int nQ, int nKv, float softmaxScale, int front, int near, int topk, int blockSize, int cmpBlockSize, int slcBlockSize,
     SATileShapeConfig saTileConfig) {
-    FunctionConfig funConfig;
-    FUNCTION("SA_MAIN", funConfig,
+    FUNCTION("SA_MAIN",
         {topKIndcies, kvNopeCache, kRopeCache, kvActSeqs, blockTable, qNope, qRope},
         {attentionOut}) {
         SelectedAttentionCompute(topKIndcies, kvNopeCache, kRopeCache, kvActSeqs, blockTable,

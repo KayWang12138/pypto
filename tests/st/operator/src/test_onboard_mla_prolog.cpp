@@ -145,9 +145,8 @@ void TestMlaProlog(std::vector<int> &params, string dataPath, bool isQuant = fal
                 {1, 32, 1, 64, 64} // for transpose, [b,n,s,d/2,2]
             };
 
-            FunctionConfig funConfig(FunctionType::STATIC);
-            ;
-            FUNCTION("MlaProlog_T", funConfig, {x, w_qa, w_qb, w_qb_scale, w_kv_a, w_kv_b_k, position_ids,
+            config::SetBuildStatic(true);
+            FUNCTION("MlaProlog_T", {x, w_qa, w_qb, w_qb_scale, w_kv_a, w_kv_b_k, position_ids,
                     cos, sin, past_key_states, kv_len, output_q}) {
                 auto q_kv = Attention.MlaPrologFoward(x, position_ids, cos, sin, kv_len, past_key_states, ropeTileConfig, isQuant);
                 output_q = q_kv[0];
@@ -164,9 +163,8 @@ void TestMlaProlog(std::vector<int> &params, string dataPath, bool isQuant = fal
                 {1, 32, 1, 64, 64} // for transpose, [b,n,s,d/2,2]
             };
 
-            FunctionConfig funConfig(FunctionType::STATIC);
-            ;
-            FUNCTION("MlaProlog_T", funConfig, {x, w_qa, w_qb, w_kv_a, w_kv_b_k, position_ids,
+            config::SetBuildStatic(true);
+            FUNCTION("MlaProlog_T", {x, w_qa, w_qb, w_kv_a, w_kv_b_k, position_ids,
                     cos, sin, past_key_states, kv_len, output_q}) {
                 auto q_kv = Attention.MlaPrologFoward(x, position_ids, cos, sin, kv_len, past_key_states, ropeTileConfig, isQuant);
                 output_q = q_kv[0];
@@ -475,9 +473,8 @@ void Attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
                 {1, 32, 1, 64, 64} // for transpose, [b,nq,s1,d/2,2]
             };
 
-            FunctionConfig funConfig(FunctionType::STATIC);
-            ;
-            FUNCTION("MlaProlog_T", funConfig, {x, w_qa, w_qb, w_qb_scale, w_kv_a, w_kv_b_k, position_ids,
+            config::SetBuildStatic(true);
+            FUNCTION("MlaProlog_T", {x, w_qa, w_qb, w_qb_scale, w_kv_a, w_kv_b_k, position_ids,
                                                                            cos, sin, past_key_states, kv_len, output_q}) {
                 auto q_kv = Attention.MlaPrologFoward(x, position_ids, cos, sin, kv_len, past_key_states, ropeTileConfig, isQuant);
                 output_q = q_kv[0];
@@ -494,9 +491,8 @@ void Attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
                 {1, 32, 1, 64, 64} // for transpose, [b,nq,s1,d/2,2]
             };
 
-            FunctionConfig funConfig(FunctionType::STATIC);
-            ;
-            FUNCTION("MlaProlog_T", funConfig,
+            config::SetBuildStatic(true);
+            FUNCTION("MlaProlog_T",
                 {x, w_qa, w_qb, w_kv_a, w_kv_b_k, position_ids, cos, sin, past_key_states, kv_len, output_q,
                     q0, q1, k0, k1, v0,
                     attentionOut,
@@ -903,9 +899,8 @@ void attention_high(std::vector<int> &params, string dataPath, bool isQuant = fa
                 {1, 32, 1, 64, 64} // for transpose, [b,nq,s1,d/2,2]
             };
 
-            FunctionConfig funConfig(FunctionType::STATIC);
-            ;
-            FUNCTION("MlaProlog_T", funConfig, {x, w_qa, w_qb, w_qb_scale, w_kv_a, w_kv_b_k, position_ids,
+            config::SetBuildStatic(true);
+            FUNCTION("MlaProlog_T", {x, w_qa, w_qb, w_qb_scale, w_kv_a, w_kv_b_k, position_ids,
                                                                            cos, sin, past_key_states, kv_len, output_q}) {
                 auto q_kv = attention.MlaPrologFoward(x, position_ids, cos, sin, kv_len, past_key_states, ropeTileConfig, isQuant);
                 output_q = q_kv[0];
@@ -922,9 +917,8 @@ void attention_high(std::vector<int> &params, string dataPath, bool isQuant = fa
                 {1, 32, 1, 64, 64} // for transpose, [b,nq,s1,d/2,2]
             };
 
-            FunctionConfig funConfig(FunctionType::STATIC);
-            ;
-            FUNCTION("MlaProlog_T", funConfig,
+            config::SetBuildStatic(true);
+            FUNCTION("MlaProlog_T",
                 {x, w_qa, w_qb, w_kv_a, w_kv_b_k, position_ids, cos, sin, past_key_states, kv_len, output_q,
                     q0, q1, k0, k1, v0,
                     attentionOut,

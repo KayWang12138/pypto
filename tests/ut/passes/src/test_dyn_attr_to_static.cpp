@@ -97,8 +97,7 @@ TEST_F(DynAttrToStaticTest, TestGetTensorData) {
         RawTensorData::CreateConstantTensor<float>(output, 0.0f),
     });
 
-    FunctionConfig funConfig;
-    FUNCTION("test_coa", funConfig, {inputA, inputC}, {output}) {
+    FUNCTION("test_coa", {inputA, inputC}, {output}) {
         LOOP("loop", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
             Tensor t0 = AddS(inputA, Element(DT_INT32, (int64_t)2)); // t0[i, j] -> inputA[i, j] + 2 -> i * n + j + 2
@@ -150,8 +149,7 @@ TEST_F(DynAttrToStaticTest, TestSetTensorData) {
         RawTensorData::CreateConstantTensor<int32_t>(output, 0),
     });
 
-    FunctionConfig funConfig;
-    FUNCTION("test_coa", funConfig, {}, {output}) {
+    FUNCTION("test_coa", {}, {output}) {
         LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n)) {
             LOOP("Step1", FunctionType::DYNAMIC_LOOP, j, LoopRange(n)) {
                 for (int k = 0; k < n; k++) {
@@ -204,8 +202,7 @@ TEST_F(DynAttrToStaticTest, TestDynExpression) {
         RawTensorData::CreateConstantTensor<float>(out, 0.001f),
     });
 
-    FunctionConfig funConfig;
-    FUNCTION("test_coa", funConfig, {q}, {out}) {
+    FUNCTION("test_coa", {q}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
             Tensor q0 = View(q, {1, d}, {1, d}, {batchId, 0});
             auto tmp = Expand(q0, {100, d});

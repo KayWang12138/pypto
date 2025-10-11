@@ -77,9 +77,8 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer) {
         Tensor topkIdx = Tensor(DataType::DT_INT32, topKShape, (uint8_t *)topkIdxPtr, "topkIdx");
         Tensor topkWeight = Tensor(DataType::DT_FP32, topKShape, (uint8_t *)topkWeightPtr, "topkWeight");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("MOE_INFER_F", funConfig,
+        config::SetBuildStatic(true);
+        FUNCTION("MOE_INFER_F",
             {hiddenStates, topkIdx, topkWeight, ffnWeight1, ffnWeight2, ffnWeight3, idxs, sortedTokens, outs,
                 finalout}) {
             finalout = deepseekMoEInfer.MoeInfer(hiddenStates, topkIdx, topkWeight, ffnWeight1, ffnWeight2,
@@ -179,9 +178,8 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer_singleout) {
         Tensor topkIdx = Tensor(DT_INT32, topKShape, (uint8_t *)topkIdxPtr, "topkIdx");
         Tensor topkWeight = Tensor(DT_FP32, topKShape, (uint8_t *)topkWeightPtr, "topkWeight");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("MOE_INFER_F", funConfig,
+        config::SetBuildStatic(true);
+        FUNCTION("MOE_INFER_F",
             { hiddenStates, topkIdx, topkWeight, ffnWeight1, ffnWeight2, ffnWeight3,  finalout }) {
                 finalout = deepseekMoEInfer.MoeInfer(hiddenStates, topkIdx, topkWeight, ffnWeight1, ffnWeight2, ffnWeight3, nRoutedExperts);
         }
@@ -251,9 +249,8 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer_singleout_singlemlp) {
         Tensor topkIdx = Tensor(DT_INT32, topKShape, (uint8_t *)topkIdxPtr, "topkIdx");
         Tensor topkWeight = Tensor(DT_FP32, topKShape, (uint8_t *)topkWeightPtr, "topkWeight");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("MOE_INFER_F", funConfig,
+        config::SetBuildStatic(true);
+        FUNCTION("MOE_INFER_F",
             { hiddenStates, topkIdx, topkWeight, ffnWeight1, ffnWeight2, ffnWeight3,  finalout }) {
                 finalout = deepseekMoEInfer.MoeInferSingleMlp(hiddenStates, topkIdx, topkWeight, ffnWeight1, ffnWeight2, ffnWeight3, nRoutedExperts);
         }
@@ -333,9 +330,8 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer_singleout_singlemlp_withquant)
         Tensor topkIdx = Tensor(DT_INT32, topKShape, (uint8_t *)topkIdxPtr, "topkIdx");
         Tensor topkWeight = Tensor(DT_FP32, topKShape, (uint8_t *)topkWeightPtr, "topkWeight");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("MOE_INFER_F", funConfig,
+        config::SetBuildStatic(true);
+        FUNCTION("MOE_INFER_F",
             { hiddenStates, topkIdx, topkWeight, ffnWeight1, ffnWeight2, ffnWeight3, ffnwight1Scale, ffnwight2Scale, ffnwight3Scale, finalout }) {
                 finalout = deepseekMoEInfer.MoeInferSingleMlpQuant(hiddenStates, topkIdx, topkWeight, ffnWeight1, ffnWeight2, ffnWeight3,  ffnwight1Scale, ffnwight2Scale, ffnwight3Scale, nRoutedExperts);
         }

@@ -94,8 +94,7 @@ void TestCmpAttnTopk(CmpAttnTopkTile &tileConfig, std::vector<int> input_param, 
     std::vector<float> attnGolden(b * s1 * n1 * dn, 0.0);
     std::vector<int32_t> topkGolden(b * s1 * topk, 0);
 
-    FunctionConfig funConfig;
-    FUNCTION("CompressAttentionWithTopK", funConfig,
+    FUNCTION("CompressAttentionWithTopK",
         {qNope, qRope, cmpKvCache, cmpKrCache, cmpBlockTable, actSeq, auxTensor}, {cmpAttn, topkRes}) {
         CompressAttentionWithTopK(qNope, qRope, cmpKvCache, cmpKrCache, cmpBlockTable, actSeq, auxTensor, cmpAttn,
             topkRes, blockSize, cmpBlockSize, cmpStride, slcBlockSize, softmaxScale, n1, topk, front, near, tileConfig);

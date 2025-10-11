@@ -42,9 +42,8 @@ TEST_F(ExpandOnBoardTest, test_expand_32_1_to_32_32) {
         Tensor input_a(DataType::DT_FP32, srcShape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, dstShape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("EXPAND_T", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("EXPAND_T", {input_a, output}) {
             output = Expand(input_a, dstShape);
         }
     }
@@ -86,9 +85,8 @@ TEST_F(ExpandOnBoardTest, test_expand_32_8_1_to_32_8_32) {
         Tensor input_a(DataType::DT_FP32, srcShape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, dstShape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("EXPAND_T", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("EXPAND_T", {input_a, output}) {
             output = Expand(input_a, dstShape);
         }
     }
@@ -125,9 +123,8 @@ TEST_F(ExpandOnBoardTest, test_expand_32_1_to_32_23) {
         Tensor input_a(DT_FP32, srcShape, (uint8_t *)x_ptr, "A");
         Tensor output(DT_FP32, dstShape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("EXPAND_T", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("EXPAND_T", {input_a, output}) {
             output = Expand(input_a, dstShape);
         }
     }
@@ -165,9 +162,8 @@ TEST_F(ExpandOnBoardTest, test_expand_32_8_1_to_32_8_23) {
         Tensor input_a(DT_FP32, srcShape, (uint8_t *)x_ptr, "A");
         Tensor output(DT_FP32, dstShape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("EXPAND_T", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("EXPAND_T", {input_a, output}) {
             output = Expand(input_a, dstShape);
         }
     }
@@ -200,9 +196,8 @@ TEST_F(ExpandOnBoardTest, test_expand_for_4_dim) {
         Tensor input_a(DT_FP32, srcShape, (uint8_t *)x_ptr, "A");
         Tensor output(DT_FP32, dstShape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("EXPAND_T", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("EXPAND_T", {input_a, output}) {
             output = Expand(input_a, dstShape);
         }
     }
@@ -239,9 +234,8 @@ TEST_F(ExpandOnBoardTest, test_expand_1_1_to_1_16384) {
         Tensor input_a(DT_FP32, srcShape, (uint8_t *)x_ptr, "A");
         Tensor output(DT_FP32, dstShape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("EXPAND_T", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("EXPAND_T", {input_a, output}) {
             output = Expand(input_a, dstShape);
         }
     }

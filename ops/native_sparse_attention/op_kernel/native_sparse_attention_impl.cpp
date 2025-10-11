@@ -25,8 +25,8 @@ void DynamicDD(uint64_t configKey) {
 
     TileShape::Current().SetVecTile(s, s);
     TileShape::Current().SetCubeTile({s, s}, {s, s}, {s, s});
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {t0, t1, blockTable}, {out}) {
+
+    FUNCTION("main", {t0, t1, blockTable}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShape(t0, 0) / s)) {
             SymbolicScalar idx = GetInputData(blockTable, {i, 0});
             Tensor t0s = View(t0, {s, s}, {idx * s, 0});

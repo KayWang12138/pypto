@@ -40,8 +40,7 @@ constexpr int AXIS3 = 3;
 static void GatherOperationExeFunc2_1Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {inputs[0], inputs[1]}, {outputs[0]}) {
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar src_firstDim = inputs[0]->shape[0];
         SymbolicScalar src_secondDim = inputs[0]->shape[1];
         SymbolicScalar idx_firstDim = inputs[1]->shape[0];
@@ -89,8 +88,7 @@ static void GatherOperationExeFunc2_1Dims(
 static void GatherOperationExeFunc2_2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {inputs[0], inputs[1]}, {outputs[0]}) {
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar src_firstDim = inputs[0]->shape[0];
         SymbolicScalar src_secondDim = inputs[0]->shape[1];
         SymbolicScalar idx_firstDim = inputs[1]->shape[0];
@@ -152,8 +150,7 @@ static void GatherOperationExeFunc2_2Dims(
 static void GatherOperationExeFunc3_1Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {inputs[0], inputs[1]}, {outputs[0]}) {
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar src_firstDim = inputs[0]->shape[0];
         SymbolicScalar src_secondDim = inputs[0]->shape[1];
         SymbolicScalar src_thirdDim = inputs[0]->shape[2];
@@ -237,8 +234,7 @@ static void GatherOperationExeFunc3_1Dims(
 static void GatherOperationExeFunc3_2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {inputs[0], inputs[1]}, {outputs[0]}) {
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar src_firstDim = inputs[0]->shape[0];
         SymbolicScalar src_secondDim = inputs[0]->shape[1];
         SymbolicScalar src_thirdDim = inputs[0]->shape[2];
@@ -345,8 +341,7 @@ static void GatherOperationExeFunc3_2Dims(
 static void GatherOperationExeFunc4_1Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {inputs[0], inputs[1]}, {outputs[0]}) {
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar src_firstDim = inputs[0]->shape[0];
         SymbolicScalar src_secondDim = inputs[0]->shape[1];
         SymbolicScalar src_thirdDim = inputs[0]->shape[2];
@@ -484,8 +479,7 @@ static void GatherOperationExeFunc4_1Dims(
 static void GatherOperationExeFunc4_2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {inputs[0], inputs[1]}, {outputs[0]}) {
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar src_firstDim = inputs[0]->shape[0];
         SymbolicScalar src_secondDim = inputs[0]->shape[1];
         SymbolicScalar src_thirdDim = inputs[0]->shape[2];

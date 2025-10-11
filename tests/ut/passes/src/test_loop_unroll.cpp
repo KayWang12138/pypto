@@ -60,8 +60,7 @@ TEST_F(LoopUnrollTest, TestInnerLoopOrder) {
     Tensor inputB(DT_FP32, {tileNum, vecLen}, "inputB");
     Tensor output(DT_FP32, {1, vecLen}, "out");
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {inputA, inputB}, {output}) {
+    FUNCTION("main", {inputA, inputB}, {output}) {
         LOOP("Outer", FunctionType::DYNAMIC_LOOP, i, LoopRange(tileNum)) {
             Tensor tileB(DT_FP32, {1, vecLen}, "tileB");
             LOOP("Inner", FunctionType::DYNAMIC_LOOP, j, LoopRange(1)) {
@@ -97,8 +96,7 @@ TEST_F(LoopUnrollTest, test_only_reshape2) {
     Tensor q(DT_FP32, qShape, "q");
     Tensor out(DT_FP32, {bSq, d}, "out");
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {q}, {out}) {
+    FUNCTION("main", {q}, {out}) {
         Tensor qReshape(DT_FP32, {bSq, d}, "qReshape");
         LOOP("LOOP_RESHAPE", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(0,1,1), {}, true) {
             (void) batchId;
@@ -134,8 +132,7 @@ TEST_F(LoopUnrollTest, TestLoopIfWithRank) {
     int three = 3;
     int six = 6;
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {t0, r0}, {out}) {
+    FUNCTION("main", {t0, r0}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(len)) {
             IF(i < three) {
                 IF(IsLoopEnd(i, len)) {
@@ -152,9 +149,8 @@ TEST_F(LoopUnrollTest, TestLoopIfWithRank) {
                 }
             }
         }
-        FunctionConfig funConfig2(FunctionType::STATIC);
-        ;
-        FUNCTION("S1", funConfig2) {
+        config::SetBuildStatic(true);
+        FUNCTION("S1") {
             out = AddS(r0, Element(DataType::DT_FP32, 1.0));
         }
     }

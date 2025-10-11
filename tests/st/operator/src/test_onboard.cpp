@@ -70,9 +70,8 @@ TEST_F(OnBoardTest, test_sin_dim2_float32) {
         Tensor input_x(dtype, shape, (uint8_t *)x_ptr, "x");
         Tensor output(dtype, shape, out_ptr, "sin");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("SIN_T", funConfig, {input_x, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("SIN_T", {input_x, output}) {
             output = Sin(input_x);
         }
     }
@@ -102,9 +101,8 @@ TEST_F(OnBoardTest, test_cos_dim4_float16) {
         Tensor input_x(dtype, shape, (uint8_t *)x_ptr, "x");
         Tensor output(dtype, shape, out_ptr, "sin");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("COS_T", funConfig, {input_x, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("COS_T", {input_x, output}) {
             output = Cos(input_x);
         }
     }
@@ -153,9 +151,8 @@ TEST_F(OnBoardTest, test_gather_float_case1) {
         Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");
         Tensor output(DataType::DT_FP32, shape2, out_ptr, "output");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("GATHER_T", funConfig, {input_src0, input_src1, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("GATHER_T", {input_src0, input_src1, output}) {
             output = Gather(input_src0, input_src1, axis);
         }
     }
@@ -203,9 +200,8 @@ TEST_F(OnBoardTest, test_gather_float_case2) {
         Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");
         Tensor output(DataType::DT_FP32, shape2, out_ptr, "output");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("GATHER_T", funConfig, {input_src0, input_src1, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("GATHER_T", {input_src0, input_src1, output}) {
             output = Gather(input_src0, input_src1, axis);
         }
     }
@@ -256,9 +252,8 @@ TEST_F(OnBoardTest, test_gather_float_case3) {
         Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");
         Tensor output(DataType::DT_FP32, shape2, out_ptr, "output");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("GATHER_T", funConfig, {input_src0, input_src1, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("GATHER_T", {input_src0, input_src1, output}) {
             output = Gather(input_src0, input_src1, axis);
         }
     }
@@ -305,9 +300,8 @@ TEST_F(OnBoardTest, test_gather_float_case4) {
         Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");
         Tensor output(DataType::DT_FP32, shape2, out_ptr, "output");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("GATHER_T", funConfig, {input_src0, input_src1, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("GATHER_T", {input_src0, input_src1, output}) {
             output = Gather(input_src0, input_src1, axis);
         }
     }
@@ -370,9 +364,8 @@ TEST_F(OnBoardTest, test_concat_4) {
         Tensor input_c(DataType::DT_FP32, shape3, (uint8_t *)z_ptr, "C");
         Tensor output;
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("CONCAT_T", funConfig) {
+        config::SetBuildStatic(true);
+        FUNCTION("CONCAT_T") {
             output = Concat(std::vector<Tensor>{input_a, input_b, input_c}, 0);
         }
     }
@@ -403,9 +396,8 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_64_64_tileop_add) {
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ADD_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ADD_T", {input_a, input_b, output}) {
             output = Add(input_a, input_b);
         }
     }
@@ -436,9 +428,8 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_64_65_tileop_add_unalign) {
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ADD_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ADD_T", {input_a, input_b, output}) {
             output = Add(input_a, input_b);
         }
     }
@@ -470,9 +461,8 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_39_65_tileop_add_unalign) {
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ADD_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ADD_T", {input_a, input_b, output}) {
             output = Add(input_a, input_b);
         }
     }
@@ -504,9 +494,8 @@ TEST_F(OnBoardTest, test_operation_tensor_32_1_tileop_add_unalign) {
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ADD_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ADD_T", {input_a, input_b, output}) {
             output = Add(input_a, input_b);
         }
     }
@@ -538,9 +527,8 @@ TEST_F(OnBoardTest, test_operation_tensor_32_1_tileop_sub_unalign) {
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("SUB_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("SUB_T", {input_a, input_b, output}) {
             output = Sub(input_a, input_b);
         }
     }
@@ -572,9 +560,8 @@ TEST_F(OnBoardTest, test_operation_tensor_32_1_tileop_mul_unalign) {
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("MUL_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("MUL_T", {input_a, input_b, output}) {
             output = Mul(input_a, input_b);
         }
     }
@@ -604,9 +591,8 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_64_64_tileop_sub) {
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("SUB_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("SUB_T", {input_a, input_b, output}) {
             output = Sub(input_a, input_b);
         }
     }
@@ -635,9 +621,8 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_64_64_tileop_mul) {
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("MUL_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("MUL_T", {input_a, input_b, output}) {
             output = Mul(input_a, input_b);
         }
     }
@@ -666,9 +651,8 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_64_64_tileop_div) {
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("DIV_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("DIV_T", {input_a, input_b, output}) {
             output = Div(input_a, input_b);
         }
     }
@@ -697,9 +681,8 @@ TEST_F(OnBoardTest, test_operation_tensor_8_80_80_tileop_add) {
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ADD_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ADD_T", {input_a, input_b, output}) {
             output = Add(input_a, input_b);
         }
     }
@@ -728,9 +711,8 @@ TEST_F(OnBoardTest, test_operation_tensor_8_80_80_tileop_sub) {
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("SUB_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("SUB_T", {input_a, input_b, output}) {
             output = Sub(input_a, input_b);
         }
     }
@@ -759,9 +741,8 @@ TEST_F(OnBoardTest, test_operation_tensor_8_80_80_tileop_mul) {
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("MUL_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("MUL_T", {input_a, input_b, output}) {
             output = Mul(input_a, input_b);
         }
     }
@@ -790,9 +771,8 @@ TEST_F(OnBoardTest, test_operation_tensor_8_80_80_tileop_div) {
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("DIV_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("DIV_T", {input_a, input_b, output}) {
             output = Div(input_a, input_b);
         }
     }
@@ -821,9 +801,8 @@ TEST_F(OnBoardTest, test_operation_tensor_64_128_tileop_add) {
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ADD_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ADD_T", {input_a, input_b, output}) {
             output = Add(input_a, input_b);
         }
     }
@@ -852,9 +831,8 @@ TEST_F(OnBoardTest, test_operation_tensor_64_128_tileop_sub) {
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("SUB_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("SUB_T", {input_a, input_b, output}) {
             output = Sub(input_a, input_b);
         }
     }
@@ -883,9 +861,8 @@ TEST_F(OnBoardTest, test_operation_tensor_64_128_tileop_mul) {
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("MUL_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("MUL_T", {input_a, input_b, output}) {
             output = Mul(input_a, input_b);
         }
     }
@@ -914,9 +891,8 @@ TEST_F(OnBoardTest, test_operation_tensor_64_128_tileop_div) {
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("DIV_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("DIV_T", {input_a, input_b, output}) {
             output = Div(input_a, input_b);
         }
     }
@@ -945,9 +921,8 @@ TEST_F(OnBoardTest, test_operation_tensor_dim4_add) {
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ADD_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ADD_T", {input_a, input_b, output}) {
             output = Add(input_a, input_b);
         }
     }
@@ -975,9 +950,8 @@ TEST_F(OnBoardTest, test_operation_tensor_dim2_add) {
         Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ADD_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ADD_T", {input_a, input_b, output}) {
             output = Add(input_a, input_b);
         }
     }
@@ -1009,9 +983,8 @@ TEST_F(OnBoardTest, test_operation_tensor_2_2_8_8_expand_add) {
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ADD_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ADD_T", {input_a, input_b, output}) {
             output = Add(input_a, input_b);
         }
     }
@@ -1046,9 +1019,8 @@ TEST_F(OnBoardTest, test_operation_tensor_1_n_to_m_n_mul) {
         Tensor output(DataType::DT_FP32, shape1, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("MUL_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("MUL_T", {input_a, input_b, output}) {
             output = Mul(input_a, input_b);
         }
     }
@@ -1078,9 +1050,8 @@ TEST_F(OnBoardTest, test_operation_tensor_4_4_16_16_expand_add) {
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ADD_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ADD_T", {input_a, input_b, output}) {
             output = Add(input_a, input_b);
         }
     }
@@ -1115,9 +1086,8 @@ TEST_F(OnBoardTest, test_operation_tensor_1_1_32_to_16_32_32_expand_add) {
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ADD_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ADD_T", {input_a, input_b, output}) {
             output = Add(input_a, input_b);
         }
     }
@@ -1152,9 +1122,8 @@ TEST_F(OnBoardTest, test_operation_tensor_8_16_1_to_8_16_16_expand_add) {
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ADD_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ADD_T", {input_a, input_b, output}) {
             output = Add(input_a, input_b);
         }
     }
@@ -1184,9 +1153,8 @@ TEST_F(OnBoardTest, test_operation_tensor_8_8_1_to_8_8_7168_expand_Mul_moe) {
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("MUL_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("MUL_T", {input_a, input_b, output}) {
             output = Mul(input_b, input_a);
         }
     }
@@ -1216,9 +1184,8 @@ TEST_F(OnBoardTest, test_operation_tensor_8_8_1_to_8_8_7168_expand_sub) {
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("SUB_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("SUB_T", {input_a, input_b, output}) {
             output = Sub(input_a, input_b);
         }
     }
@@ -1248,9 +1215,8 @@ TEST_F(OnBoardTest, test_operation_tensor_8_1_16_to_8_16_16_expand_add) {
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ADD_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ADD_T", {input_a, input_b, output}) {
             output = Add(input_a, input_b);
         }
     }
@@ -1279,9 +1245,8 @@ TEST_F(OnBoardTest, test_operation_tensor_1_16_16_to_8_16_16_expand_add) {
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ADD_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ADD_T", {input_a, input_b, output}) {
             output = Add(input_a, input_b);
         }
     }
@@ -1310,9 +1275,8 @@ TEST_F(OnBoardTest, test_operation_tensor_8_1_1_to_8_16_16_expand_add) {
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ADD_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ADD_T", {input_a, input_b, output}) {
             output = Add(input_a, input_b);
         }
     }
@@ -1341,9 +1305,8 @@ TEST_F(OnBoardTest, test_operation_tensor_1_1_1_to_8_16_16_expand_add) {
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ADD_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ADD_T", {input_a, input_b, output}) {
             output = Add(input_a, input_b);
         }
     }
@@ -1375,9 +1338,8 @@ TEST_F(OnBoardTest, test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_add) {
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ADD_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ADD_T", {input_a, input_b, output}) {
             output = Add(input_a, input_b);
         }
     }
@@ -1408,9 +1370,8 @@ TEST_F(OnBoardTest, test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_sub) {
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("SUB_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("SUB_T", {input_a, input_b, output}) {
             output = Sub(input_a, input_b);
         }
     }
@@ -1441,9 +1402,8 @@ TEST_F(OnBoardTest, test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_mul) {
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("MUL_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("MUL_T", {input_a, input_b, output}) {
             output = Mul(input_a, input_b);
         }
     }
@@ -1474,9 +1434,8 @@ TEST_F(OnBoardTest, test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_div) {
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("MUL_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("MUL_T", {input_a, input_b, output}) {
             output = Div(input_a, input_b);
         }
     }
@@ -1507,9 +1466,8 @@ TEST_F(OnBoardTest, test_operation_tensor_8_8_1_1_to_8_8_1_256_tileop_sub) {
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ADD_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ADD_T", {input_a, input_b, output}) {
             output = Sub(input_a, input_b);
         }
     }
@@ -1540,9 +1498,8 @@ TEST_F(OnBoardTest, test_operation_tensor_1_1_1_64_to_1_128_1_64_tileop_mul01) {
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("MUL_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("MUL_T", {input_a, input_b, output}) {
             output = Mul(input_a, input_b);
         }
     }
@@ -1574,9 +1531,8 @@ TEST_F(OnBoardTest, test_operation_tensor_1_1_1_64_to_1_128_1_64_tileop_mul02) {
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("MUL_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("MUL_T", {input_a, input_b, output}) {
             output = Mul(input_a, input_b);
         }
     }
@@ -1608,9 +1564,8 @@ TEST_F(OnBoardTest, test_operation_tensor_1_1_64_to_32_1_64_tileop_mul03) {
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("MUL_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("MUL_T", {input_a, input_b, output}) {
             output = Mul(input_a, input_b);
         }
     }
@@ -1640,9 +1595,8 @@ TEST_F(OnBoardTest, test_operation_tensor_8_8_1_to_8_8_7168_expand_mul) {
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ADD_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ADD_T", {input_a, input_b, output}) {
             TileShape::Current().SetVecTile({8, 8, 128});
             output = Mul(input_a, input_b);
         }
@@ -1671,9 +1625,8 @@ TEST_F(OnBoardTest, test_unary_operation_32_32_tileop_exp) {
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("EXP_T", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("EXP_T", {input_a, output}) {
             output = Exp(input_a);
         }
     }
@@ -1699,9 +1652,8 @@ TEST_F(OnBoardTest, test_unary_operation_16_32_32_tileop_exp) {
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("EXP_T", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("EXP_T", {input_a, output}) {
             output = Exp(input_a);
         }
     }
@@ -1728,9 +1680,8 @@ TEST_F(OnBoardTest, test_unary_operation_16_16_64_64_tileop_exp) {
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("EXP_T", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("EXP_T", {input_a, output}) {
             output = Exp(input_a);
         }
     }
@@ -1757,9 +1708,8 @@ TEST_F(OnBoardTest, test_unary_operation_32_32_tileop_sqrt) {
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("SQRT_T", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("SQRT_T", {input_a, output}) {
             output = Sqrt(input_a);
         }
     }
@@ -1786,9 +1736,8 @@ TEST_F(OnBoardTest, test_unary_operation_16_32_32_tileop_sqrt) {
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("SQRT_T", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("SQRT_T", {input_a, output}) {
             output = Sqrt(input_a);
         }
     }
@@ -1815,9 +1764,8 @@ TEST_F(OnBoardTest, test_unary_operation_16_16_64_64_tileop_sqrt) {
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("SQRT_T", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("SQRT_T", {input_a, output}) {
             output = Sqrt(input_a);
         }
     }
@@ -1845,9 +1793,8 @@ TEST_F(OnBoardTest, test_unary_operation_16_16_64_70_tileop_sqrt) {
         Tensor input_a(DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DT_FP32, shape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("SQRT_T", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("SQRT_T", {input_a, output}) {
             output = Sqrt(input_a);
         }
     }
@@ -1874,9 +1821,8 @@ TEST_F(OnBoardTest, test_unary_operation_32_32_tileop_reciprocal) {
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RECIPROCAL_T", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RECIPROCAL_T", {input_a, output}) {
             output = Reciprocal(input_a);
         }
     }
@@ -1903,9 +1849,8 @@ TEST_F(OnBoardTest, test_unary_operation_16_32_32_tileop_reciprocal) {
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RECIPROCAL_T", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RECIPROCAL_T", {input_a, output}) {
             output = Reciprocal(input_a);
         }
     }
@@ -1932,9 +1877,8 @@ TEST_F(OnBoardTest, test_unary_operation_16_16_64_64_tileop_reciprocal) {
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RECIPROCAL_T", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RECIPROCAL_T", {input_a, output}) {
             output = Reciprocal(input_a);
         }
     }
@@ -1962,9 +1906,8 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_add) {
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ADD_S", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ADD_S", {input_a, output}) {
             output = AddS(input_a, value);
         }
     }
@@ -1992,9 +1935,8 @@ TEST_F(OnBoardTest, test_operation_add_vs_dim2_unalign) {
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ADD_S", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ADD_S", {input_a, output}) {
             output = AddS(input_a, value);
         }
     }
@@ -2022,9 +1964,8 @@ TEST_F(OnBoardTest, test_operation_mul_vs_dim3_unalign) {
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("MUL_S", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("MUL_S", {input_a, output}) {
             output = MulS(input_a, value);
         }
     }
@@ -2052,9 +1993,8 @@ TEST_F(OnBoardTest, test_operation_sub_vs_dim4_unalign) {
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("SUB_S", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("SUB_S", {input_a, output}) {
             output = SubS(input_a, value);
         }
     }
@@ -2082,9 +2022,8 @@ TEST_F(OnBoardTest, test_operation_div_vs_dim1_unalign) {
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("DIV_S", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("DIV_S", {input_a, output}) {
             output = DivS(input_a, value);
         }
     }
@@ -2110,9 +2049,8 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_add_FP16) {
         Tensor input_a(DataType::DT_FP16, shape, (uint8_t *)x_ptr, "A");
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DataType::DT_FP16, shape, out_ptr, "C");
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ADD_S", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ADD_S", {input_a, output}) {
             output = AddS(input_a, value);
         }
     }
@@ -2142,9 +2080,8 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_sub) {
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("SUB_S", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("SUB_S", {input_a, output}) {
             output = SubS(input_a, value);
         }
     }
@@ -2171,9 +2108,8 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_mul) {
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("MUL_S", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("MUL_S", {input_a, output}) {
             output = MulS(input_a, value);
         }
     }
@@ -2200,9 +2136,8 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_div) {
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("DIV_S", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("DIV_S", {input_a, output}) {
             output = DivS(input_a, value);
         }
     }
@@ -2229,9 +2164,8 @@ TEST_F(OnBoardTest, test_operation_scalar_dim1_div) {
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("DIV_S", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("DIV_S", {input_a, output}) {
             // auto reshapeInput = Reshape(input_a, {1 * col});
             output = DivS(input_a, value);
             // output = Reshape(reshapeOutput, shape);
@@ -2260,9 +2194,8 @@ TEST_F(OnBoardTest, test_operation_scalar_dim3_add) {
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ADD_S", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ADD_S", {input_a, output}) {
             output = AddS(input_a, value);
         }
     }
@@ -2289,9 +2222,8 @@ TEST_F(OnBoardTest, test_operation_scalar_dim4_add) {
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ADD_S", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ADD_S", {input_a, output}) {
             output = AddS(input_a, value);
         }
     }
@@ -2318,9 +2250,8 @@ TEST_F(OnBoardTest, test_operation_scalar_dim3_sub) {
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("SUB_S", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("SUB_S", {input_a, output}) {
             output = SubS(input_a, value);
         }
     }
@@ -2347,9 +2278,8 @@ TEST_F(OnBoardTest, test_operation_scalar_dim4_sub) {
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("SUB_S", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("SUB_S", {input_a, output}) {
             output = SubS(input_a, value);
         }
     }
@@ -2376,9 +2306,8 @@ TEST_F(OnBoardTest, test_operation_scalar_dim3_mul) {
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("MUL_S", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("MUL_S", {input_a, output}) {
             output = MulS(input_a, value);
         }
     }
@@ -2405,9 +2334,8 @@ TEST_F(OnBoardTest, test_operation_scalar_dim4_mul) {
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("MUL_S", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("MUL_S", {input_a, output}) {
             output = MulS(input_a, value);
         }
     }
@@ -2435,9 +2363,8 @@ TEST_F(OnBoardTest, test_operation_scalar_32_32_1_256_mul) {
         Element value(DataType::DT_FP32, 0.07256f);
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("MUL_S", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("MUL_S", {input_a, output}) {
             output = MulS(input_a, value);
         }
     }
@@ -2464,9 +2391,8 @@ TEST_F(OnBoardTest, test_operation_scalar_dim3_div) {
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("DIV_S", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("DIV_S", {input_a, output}) {
             output = DivS(input_a, value);
         }
     }
@@ -2493,9 +2419,8 @@ TEST_F(OnBoardTest, test_operation_scalar_dim4_div) {
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("DIV_S", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("DIV_S", {input_a, output}) {
             output = DivS(input_a, value);
         }
     }
@@ -2527,9 +2452,8 @@ TEST_F(OnBoardTest, test_operation_tensor_16_32_32_to_16_32_1_tileop_mul) {
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ADD_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ADD_T", {input_a, input_b, output}) {
             output = Mul(input_a, input_b);
         }
     }
@@ -2578,9 +2502,8 @@ TEST_F(OnBoardTest, test_scatterupdate_case1) {
         Tensor key_states(DataType::DT_FP32, {B, 1, S, kvLoraRank + qkRopeHeadDim}, "past_key_states");
         Tensor past_key_states_new(DataType::DT_FP32, {B, 1, S2, kvLoraRank + qkRopeHeadDim}, "past_key_states_new");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("SCATTERUPDATE_T", funConfig) {
+        config::SetBuildStatic(true);
+        FUNCTION("SCATTERUPDATE_T") {
             past_key_states_new = ScatterUpdate(past_key_states, kv_len, key_states, -2);
         }
     }
@@ -2612,9 +2535,8 @@ TEST_F(OnBoardTest, test_mul_large_row) {
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
         ConfigManager::Instance();
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("MUL_T", funConfig, {input_a, input_b, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("MUL_T", {input_a, input_b, output}) {
             output = Mul(input_a, input_b);
         }
     }

@@ -41,9 +41,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single) {
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RowMaxSingle", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RowMaxSingle", {input_a, output}) {
             output = RowMaxSingle(input_a, -1);
         }
     }
@@ -80,9 +79,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single) {
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RowSumSingle", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RowSumSingle", {input_a, output}) {
             output = RowSumSingle(input_a, -1);
         }
     }
@@ -120,9 +118,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_3dim) {
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RowMaxSingle", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RowMaxSingle", {input_a, output}) {
             output = RowMaxSingle(input_a, -1);
         }
     }
@@ -161,9 +158,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_mla_rmsNor
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RowSumSingle", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RowSumSingle", {input_a, output}) {
             output = RowSumSingle(input_a, -1);
         }
     }
@@ -203,9 +199,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax) {
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RowMaxSingle", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RowMaxSingle", {input_a, output}) {
             output = RowMaxSingle(input_a, -1);
         }
     }
@@ -245,9 +240,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax_un
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RowMaxSingle", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RowMaxSingle", {input_a, output}) {
             output = RowMaxSingle(input_a, -1);
         }
     }
@@ -287,9 +281,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_4dim_softmax) {
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RowSumSingle", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RowSumSingle", {input_a, output}) {
             output = RowSumSingle(input_a, -1);
         }
     }
@@ -327,9 +320,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_moe) {
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("Reduce3dimMoe", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("Reduce3dimMoe", {input_a, output}) {
             output = RowSumSingle(input_a, 1);
         }
     }
@@ -367,9 +359,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_big_moe) {
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("Reduce3dimMoeBig", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("Reduce3dimMoeBig", {input_a, output}) {
             output = RowSumSingle(input_a, 1);
         }
     }
@@ -405,9 +396,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_2dim_moe) {
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("Reduce2dimMoeBig", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("Reduce2dimMoeBig", {input_a, output}) {
             output = RowSumSingle(input_a, 0);
         }
     }
@@ -444,9 +434,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis0_unalign) {
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outShape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("Reduce4dimMoe", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("Reduce4dimMoe", {input_a, output}) {
             output = RowSumSingle(input_a, 0);
         }
     }
@@ -483,9 +472,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis1_unalign) {
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outShape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("Reduce4dimMoe", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("Reduce4dimMoe", {input_a, output}) {
             output = RowSumSingle(input_a, 1);
         }
     }
@@ -521,9 +509,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis2_unalign) {
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outShape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("Reduce4dimMoe", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("Reduce4dimMoe", {input_a, output}) {
             output = RowSumSingle(input_a, 2);
         }
     }
@@ -559,9 +546,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign) {
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RowSumSingle", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RowSumSingle", {input_a, output}) {
             output = RowSumSingle(input_a, -1);
         }
     }
@@ -598,9 +584,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign_4_93) {
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RowSumSingle", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RowSumSingle", {input_a, output}) {
             output = RowSumSingle(input_a, -1);
         }
     }
@@ -639,9 +624,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign_4d) {
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RowSumSingle", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RowSumSingle", {input_a, output}) {
             output = RowSumSingle(input_a, -1);
         }
     }
@@ -678,9 +662,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign) {
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RowMaxSingle", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RowMaxSingle", {input_a, output}) {
             output = RowMaxSingle(input_a, -1);
         }
     }
@@ -717,9 +700,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign_4_93) {
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RowMaxSingle", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RowMaxSingle", {input_a, output}) {
             output = RowMaxSingle(input_a, -1);
         }
     }
@@ -758,9 +740,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign_4d) {
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         ConfigManager::Instance();
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RowMaxSingle", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RowMaxSingle", {input_a, output}) {
             output = RowMaxSingle(input_a, -1);
         }
     }

@@ -82,8 +82,7 @@ TEST_F(DynamicResolveTest, TestResolve) {
         RawTensorData::CreateConstantTensor<float>(output, 0),
     });
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {inputA, inputB, inputC}, {output}) {
+    FUNCTION("main", {inputA, inputB, inputC}, {output}) {
         LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
             std::vector<Tensor> tensorList;

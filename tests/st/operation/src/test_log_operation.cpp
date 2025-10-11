@@ -37,8 +37,7 @@ struct LogOpMetaData {
 
 static void LogOperationExeFunc1Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
+    FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         const struct LogOpFuncArgs *args = static_cast<const LogOpFuncArgs *>(opArgs);
         const int firstViewShape = args->viewShape_[0];
@@ -57,8 +56,7 @@ static void LogOperationExeFunc1Dims(
 
 static void LogOperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
+    FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         const struct LogOpFuncArgs *args = static_cast<const LogOpFuncArgs *>(opArgs);
@@ -83,8 +81,7 @@ static void LogOperationExeFunc2Dims(
 
 static void LogOperationExeFunc3Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
+    FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         SymbolicScalar thirdDim = inputs[0]->shape[2];
@@ -116,8 +113,7 @@ static void LogOperationExeFunc3Dims(
 static void LogOperationExeFunc4Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
+    FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         SymbolicScalar thirdDim = inputs[0]->shape[2];

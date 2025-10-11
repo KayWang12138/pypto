@@ -47,9 +47,8 @@ void TestNZFormat(int bs, int m, int k, int n) {
         Tensor matA(inputType, shape_a, (uint8_t *)mat_a_ptr, "MatA", afmt);
         Tensor matB(inputType, shape_b, (uint8_t *)mat_b_ptr, "MatB", bfmt);
         Tensor matC(outputType, shape_c, mat_c_ptr, "MatC");
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("BATCHMATMUL", funConfig, {matA, matB, matC}) {
+        config::SetBuildStatic(true);
+        FUNCTION("BATCHMATMUL", {matA, matB, matC}) {
             matC = npu::tile_fwk::Matrix::Matmul(outputType, matA, matB);
         }
     }
@@ -130,9 +129,8 @@ void TestNZFormatBatch(int bs, int m, int k, int n) {
         Tensor matB(inputType, batch_shape_b, (uint8_t *)mat_b_ptr, "MatB", bfmt);
         Tensor matC(outputType, batch_shape_c, mat_c_ptr, "MatC");
         std::vector<Tensor> matrixVec;
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("BATCHMATMUL", funConfig, {matA, matB, matC}) {
+        config::SetBuildStatic(true);
+        FUNCTION("BATCHMATMUL", {matA, matB, matC}) {
             std::vector<std::pair<Tensor, std::vector<int64_t>>> assembleVec;
             for (size_t index = 0; index < (size_t)bs; ++index) {
                 auto inputA = View(matA, {m, k}, {(int)index*m, 0});
@@ -191,9 +189,8 @@ void TestNZFormatACC(int bs, int m, int k, int n) {
     Tensor mat_b(inputType, shape_b, (uint8_t *)mat_b_ptr, "MatB", bfmt);
     Tensor mat_c(outputType, shape_c, mat_c_ptr, "MatC");
 
-    FunctionConfig funConfig(FunctionType::STATIC);
-    ;
-    FUNCTION("Matmul_T", funConfig, {mat_a, mat_b, mat_c}) {
+    config::SetBuildStatic(true);
+    FUNCTION("Matmul_T", {mat_a, mat_b, mat_c}) {
         TileShape::Current().SetVecTile(64, 64);
         Tensor tmpC(outputType, shape_c, "tmp_c");
         tmpC = MulS(tmpC, Element(DataType::DT_FP32, 0.0f));

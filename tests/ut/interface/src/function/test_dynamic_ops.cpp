@@ -77,8 +77,7 @@ TEST_F(DynamicOpsTest, Assemble) {
         RawTensorData::CreateConstantTensor<float>(out, 3.0),
     });
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {t0, t1}, {out}) {
+    FUNCTION("main", {t0, t1}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
             auto t0a = View(t0, {s, s}, {0, 0});
@@ -120,8 +119,7 @@ TEST_F(DynamicOpsTest, AssembleFp16) {
         RawTensorData::CreateConstantTensor<npu::tile_fwk::float16>(out, 3.0),
     });
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {t0, t1}, {out}) {
+    FUNCTION("main", {t0, t1}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(3)) {
             auto t0a = View(t0, {s, s}, {0, 0});
             auto t0b = View(t0, {s, s}, {s, 0});
@@ -217,8 +215,7 @@ TEST_F(DynamicOpsTest, OpsElementWise) {
         RawTensorData::CreateConstantTensor<float>(out, r0Data),
     });
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {t0, t1, t2, t3, t4, t5}, {out}) {
+    FUNCTION("main", {t0, t1, t2, t3, t4, t5}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(npu::tile_fwk::GetInputData(t5, {n - 1, s - 1, m * s - 1}))) {
             IF (i == 0) {
                 out = Add(t0, t1); // +t0, +t1
@@ -319,8 +316,7 @@ TEST_F(DynamicOpsTest, OpsElementWiseFp16) {
         RawTensorData::CreateConstantTensor<npu::tile_fwk::float16>(out, r0Data),
     });
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {t0, t1, t2, t3, t4}, {out}) {
+    FUNCTION("main", {t0, t1, t2, t3, t4}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(loopCount)) {
             IF (i == 0) {
                 out = Add(t0, t1); // +t0, +t1
@@ -401,8 +397,7 @@ TEST_F(DynamicOpsTest, Cube) {
         RawTensorData::CreateTensor<EltType>(t2, t2Data),
     });
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {t0, t1}, {t2}) {
+    FUNCTION("main", {t0, t1}, {t2}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
             t2 = Matrix::Matmul(eltType, t0, t1); // int32
@@ -435,8 +430,7 @@ TEST_F(DynamicOpsTest, TestGetAndSetTensorDataExpr) {
         RawTensorData::CreateTensor<int32_t>(output, golden),
     });
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {input}, {output}) {
+    FUNCTION("main", {input}, {output}) {
         LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n)) {
             LOOP("Step1", FunctionType::DYNAMIC_LOOP, j, LoopRange(n)) {
                 auto add = Add(input, input);
@@ -542,8 +536,7 @@ TEST_F(DynamicOpsTest, MatmulAcc) {
     auto golden = RawTensorData::CreateConstantTensor<float>(out, 65.0f);
     ProgramData::GetInstance().PrepareData({d0, d1, d2}, {out0}, {golden});
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {t0, t1, t2}, {out}) {
+    FUNCTION("main", {t0, t1, t2}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
             auto v0 = View(t0, {64, 64}, {64, 64});
@@ -571,8 +564,7 @@ TEST_F(DynamicOpsTest, GetTensorData) {
 
     ProgramData::GetInstance().PrepareData({t0Data}, {outData}, {golden});
 
-    FunctionConfig config;
-    FUNCTION("main", config, {t0}, {out}) {
+    FUNCTION("main", {t0}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(2)) {
             auto v = VectorDuplicate(Element(DT_INT32, 32), DT_INT32, {16, 16});
             auto index = GetTensorData(v, {0, 0});

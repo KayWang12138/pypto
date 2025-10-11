@@ -26,7 +26,7 @@ template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool sp
 void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileConfig, string dataPath,
         uint64_t timeThreshold, bool isQuant = false, bool isSmooth = false) {
     (void) timeThreshold;
-
+    
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
     config::SetPassOption(MACHINE_CONFIG, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH));
 

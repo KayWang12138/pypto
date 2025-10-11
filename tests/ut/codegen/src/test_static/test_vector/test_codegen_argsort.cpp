@@ -52,9 +52,8 @@ TEST_F(TestCodegenArgSort, TestArgSort) {
     Tensor output(DT_FP32, output_shape, "resDics");
 
     std::string funcName = "ARGSORT_T";
-    FunctionConfig funConfig(FunctionType::STATIC);
-    ;
-    FUNCTION(funcName, funConfig, {input_a, output}) {
+    config::SetBuildStatic(true);
+    FUNCTION(funcName, {input_a, output}) {
         output = ArgSort(input_a, -1);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);

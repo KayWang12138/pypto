@@ -39,9 +39,8 @@ TEST_F(RmsNormTest, test_32_32_tileop_rmsnorm) {
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RMSNORM_T", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RMSNORM_T", {input_a, output}) {
             output = RmsNorm(input_a);
         }
     }
@@ -77,9 +76,8 @@ TEST_F(RmsNormTest, test_2_32_32_tileop_rmsnorm) {
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RMSNORM_T", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RMSNORM_T", {input_a, output}) {
             output = RmsNorm(input_a);
         }
     }
@@ -116,9 +114,8 @@ TEST_F(RmsNormTest, test_2_2_32_32_tileop_rmsnorm) {
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RMSNORM_T", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RMSNORM_T", {input_a, output}) {
             output = RmsNorm(input_a);
         }
     }
@@ -153,9 +150,8 @@ TEST_F(RmsNormTest, test_32_256_tileop_rmsnorm_fp16) {
         Tensor input_a(DataType::DT_FP16, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP16, outshape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RMSNORM_T", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RMSNORM_T", {input_a, output}) {
             output = RmsNorm(input_a);
         }
     }
@@ -190,9 +186,8 @@ TEST_F(RmsNormTest, test_32_1536_tileop_rmsnorm_fp16_realCase) {
         Tensor input_a(DataType::DT_FP16, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP16, outshape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RMSNORM_T", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RMSNORM_T", {input_a, output}) {
             output = RmsNorm(input_a);
         }
     }
@@ -228,9 +223,8 @@ TEST_F(RmsNormTest, test_2_32_256_tileop_rmsnorm_fp16) {
         Tensor input_a(DataType::DT_FP16, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP16, outshape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RMSNORM_T", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RMSNORM_T", {input_a, output}) {
             output = RmsNorm(input_a);
         }
     }
@@ -269,9 +263,8 @@ TEST_F(RmsNormTest, test_32_1536_tileop_rmsnorm_gamma_fp16_realCase) {
         Tensor input_gamma(DataType::DT_FP16, gammaShape, (uint8_t *)gamma_ptr, "B");
         Tensor output(DataType::DT_FP16, outshape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RMSNORM_T", funConfig, {input_a, input_gamma, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RMSNORM_T", {input_a, input_gamma, output}) {
             output = RmsNorm(input_a, input_gamma, 1e-5f);
         }
     }
@@ -311,9 +304,8 @@ TEST_F(RmsNormTest, test_2_1_512_tileop_rmsnorm_gamma_fp16_realCase) {
         Tensor input_gamma(DataType::DT_FP16, gammaShape, (uint8_t *)gamma_ptr, "B");
         Tensor output(DataType::DT_FP16, outshape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("RMSNORM_T", funConfig, {input_a, input_gamma, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("RMSNORM_T", {input_a, input_gamma, output}) {
             output = RmsNorm(input_a, input_gamma, 1e-5f);
         }
     }

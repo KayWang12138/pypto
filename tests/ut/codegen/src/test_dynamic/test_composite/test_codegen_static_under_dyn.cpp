@@ -29,19 +29,17 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {}
+    void SetUp() override { Program::GetInstance().Reset(); }
 
     void TearDown() override {}
 };
 
 void TestStaticLoop(const Tensor &t0, const Tensor &t1, const Tensor &t2, Tensor &out, int s) {
     constexpr int LOOP_ITERATIONS = 8;
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {t0, t1, t2}, {out}) {
+    FUNCTION("main", {t0, t1, t2}, {out}) {
         Tensor s0Out;
-        FunctionConfig funConfig2(FunctionType::STATIC);
-        ;
-        FUNCTION("S0", funConfig2) {
+        config::SetBuildStatic(true);
+        FUNCTION("S0") {
             s0Out = Sub(t1, t0);
         }
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(LOOP_ITERATIONS)) {

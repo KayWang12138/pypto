@@ -52,8 +52,8 @@ void SortTest(const SortParams &params){
     Tensor y(dType, shape, "y");
     Tensor yIdx(idxDType, shape, "yIdx");
 
-    FunctionConfig funConfig(FunctionType::STATIC);
-    FUNCTION("Sort", funConfig, {x, y, yIdx}) {
+    config::SetBuildStatic(true);
+    FUNCTION("Sort", {x, y, yIdx}) {
         TileShape::Current().SetVecTile({1, tileSize});
         std::tie(y, yIdx) = Sort(x, descending);
     }
@@ -74,8 +74,8 @@ void SortWithIndexTest(const SortParams &params){
     Tensor y(dType, shape, "y");
     Tensor yIdx(idxDType, shape, "yIdx");
 
-    FunctionConfig funConfig(FunctionType::STATIC);
-    FUNCTION("Sort", funConfig, {x, idx, y, yIdx}) {
+    config::SetBuildStatic(true);
+    FUNCTION("Sort", {x, idx, y, yIdx}) {
         TileShape::Current().SetVecTile({1, tileSize});
         std::tie(y, yIdx) = SortWithIndex(x, idx, descending);
     }

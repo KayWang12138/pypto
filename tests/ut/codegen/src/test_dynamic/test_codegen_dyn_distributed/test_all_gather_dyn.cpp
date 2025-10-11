@@ -52,8 +52,7 @@ TEST_F(TestDistributedAllGather, TestAllGatherDyn)
     Tensor in(DT_FP16, {16, 32}, "in");
     Tensor out(DT_FP16, {32, 32}, "out");
     Tensor barrierDummy(DT_INT32, {1, 1}, "barrierDummy");
-    FunctionConfig funConfig;
-    FUNCTION("ALLGATHER", funConfig, {in}, {out}) {
+    FUNCTION("ALLGATHER", {in}, {out}) {
         TileShape::Current().SetDistTile(
                 {16, 1, 0},
                 {32, 1, 0},

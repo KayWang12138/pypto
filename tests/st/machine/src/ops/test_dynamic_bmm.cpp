@@ -47,11 +47,12 @@ static void NonSplitFunc(const Tensor &tensor_a, const Tensor &tensor_b, Tensor 
     std::vector<SymbolicScalar> aValidShape = {aShape[0], aShape[1], aShape[2]};
     const auto &bShape = tensor_b.GetShape();
     std::vector<SymbolicScalar> bValidShape = {bShape[0], bShape[1], bShape[2]};
+
     int64_t m = transA ? aShape[2] : aShape[1];
     int64_t k = transA ? aShape[1] : aShape[2];
     int64_t n = transB ? bShape[1] : bShape[2];
-    FunctionConfig funConfig;
-    FUNCTION("testNoSplit", funConfig, {tensor_a, tensor_b}, {tensor_c}) {
+
+    FUNCTION("testNoSplit", {tensor_a, tensor_b}, {tensor_c}) {
         LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(1)) {
             Tensor dyn_a = View(tensor_a, aShape, aValidShape, {0, mIdx, 0});
             Tensor dyn_b = View(tensor_b, bShape, bValidShape, {0, 0, 0});
@@ -68,11 +69,12 @@ static void MSplitFunc(
     std::vector<SymbolicScalar> aValidShape = {aShape[0], aShape[1], aShape[2]};
     const auto &bShape = tensor_b.GetShape();
     std::vector<SymbolicScalar> bValidShape = {bShape[0], bShape[1], bShape[2]};
+
     int64_t n = transB ? bShape[1] : bShape[2];
     int64_t m = transA ? aShape[2] : aShape[1];
     int64_t k = transA ? aShape[1] : aShape[2];
-    FunctionConfig funConfig;
-    FUNCTION("testMSplit", funConfig, {tensor_a, tensor_b}, {tensor_c}) {
+
+    FUNCTION("testMSplit", {tensor_a, tensor_b}, {tensor_c}) {
         LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx,
             LoopRange(0, CeilDivSymbolicScalar(transA ? aShape[BMM_SHAPE_N_DIM] : aShape[1], viewShape[1]), 1)) {
             Tensor dyn_a;
@@ -98,11 +100,12 @@ static void NSplitFunc(
     std::vector<SymbolicScalar> aValidShape = {aShape[0], aShape[1], aShape[2]};
     const auto &bShape = tensor_b.GetShape();
     std::vector<SymbolicScalar> bValidShape = {bShape[0], bShape[1], bShape[2]};
+
     int64_t m = transA ? aShape[2] : aShape[1];
     int64_t k = transA ? aShape[1] : aShape[2];
     int64_t n = transB ? bShape[1] : bShape[2];
-    FunctionConfig funConfig;
-    FUNCTION("testNSplit", funConfig, {tensor_a, tensor_b}, {tensor_c}) {
+
+    FUNCTION("testNSplit", {tensor_a, tensor_b}, {tensor_c}) {
         LOOP("nLoop", FunctionType::DYNAMIC_LOOP, nIdx,
             LoopRange(0, CeilDivSymbolicScalar(transB ? bShape[1] : bShape[BMM_SHAPE_N_DIM], viewShape[BMM_SHAPE_N_DIM]), 1)) {
             Tensor dyn_a = View(tensor_a, aShape, aValidShape, {0, 0, 0});
@@ -128,11 +131,12 @@ static void MNSplitFunc(
     std::vector<SymbolicScalar> aValidShape = {aShape[0], aShape[1], aShape[2]};
     const auto &bShape = tensor_b.GetShape();
     std::vector<SymbolicScalar> bValidShape = {bShape[0], bShape[1], bShape[2]};
+
     int64_t m = transA ? aShape[2] : aShape[1];
     int64_t n = transB ? bShape[1] : bShape[2];
     int64_t k = transA ? aShape[1] : aShape[2];
-    FunctionConfig funConfig;
-    FUNCTION("testNSplit", funConfig, {tensor_a, tensor_b}, {tensor_c}) {
+
+    FUNCTION("testNSplit", {tensor_a, tensor_b}, {tensor_c}) {
         LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx,
             LoopRange(0, CeilDivSymbolicScalar(transA ? aShape[BMM_SHAPE_N_DIM] : aShape[1], viewShape[1]), 1)) {
             LOOP("nLoop", FunctionType::DYNAMIC_LOOP, nIdx,

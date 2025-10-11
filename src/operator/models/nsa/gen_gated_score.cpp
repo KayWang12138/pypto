@@ -104,8 +104,7 @@ void GenGatedScoreComputePrefill(const Tensor &x, const Tensor &gateW1, const Te
 }
 
 void GenGatedScoreFuncPrefill(const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, Tensor &gatingScore) {
-    FunctionConfig funConfig;
-    FUNCTION("GENGATEDSCORE", funConfig, {x, gateW1, gateW2}, {gatingScore}) {
+    FUNCTION("GENGATEDSCORE", {x, gateW1, gateW2}, {gatingScore}) {
         GenGatedScoreComputePrefillPlus(x, gateW1, gateW2, gatingScore);
     }
 }

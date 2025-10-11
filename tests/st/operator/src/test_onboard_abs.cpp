@@ -43,9 +43,8 @@ TEST_F(AbsOnBoardTest, test_abs_8_4608) {
         Tensor input_a(DataType::DT_FP16, srcShape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP16, dstShape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ABS_T", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ABS_T", {input_a, output}) {
             output = Abs(input_a);
         }
     }
@@ -85,9 +84,8 @@ TEST_F(AbsOnBoardTest, test_abs_8_4609) {
         Tensor input_a(DT_FP16, srcShape, (uint8_t *)x_ptr, "A");
         Tensor output(DT_FP16, dstShape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ABS_T", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ABS_T", {input_a, output}) {
             output = Abs(input_a);
         }
     }
@@ -127,9 +125,8 @@ TEST_F(AbsOnBoardTest, test_abs_1_16384) {
         Tensor input_a(DT_FP16, srcShape, (uint8_t *)x_ptr, "A");
         Tensor output(DT_FP16, dstShape, out_ptr, "C");
 
-        FunctionConfig funConfig(FunctionType::STATIC);
-        ;
-        FUNCTION("ABS_T", funConfig, {input_a, output}) {
+        config::SetBuildStatic(true);
+        FUNCTION("ABS_T", {input_a, output}) {
             output = Abs(input_a);
         }
     }

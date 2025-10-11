@@ -228,8 +228,7 @@ void TestAuxTensor() {
     std::vector<T> auxTensorGolden((rc + rs - 1) * auxVecLen, 0.0);
     readInput(GetGoldenDir() + "/aux_tensor.bin", auxTensorGolden);
 
-    FunctionConfig funConfig;
-    FUNCTION("FuncAuxTensor", funConfig, {}, {auxTensor}) {
+    FUNCTION("FuncAuxTensor", {}, {auxTensor}) {
         LOOP("COMPRESS_LOOP_BATCH", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(1)) {
             (void)bIdx;
             TileShape::Current().SetVecTile(1, auxVecLen);

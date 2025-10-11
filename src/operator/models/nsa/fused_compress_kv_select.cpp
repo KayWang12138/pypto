@@ -422,8 +422,7 @@ void FusedCompressKvSelect(const Tensor &qNope, const Tensor &qRope, const Tenso
     Tensor &fullK, Tensor &cmpK, Tensor &firstRope, Tensor &firstRopeInput, Tensor &topkRes, Tensor &topkInput,
     const int blockSize, const int cmpBlockSize, const int cmpStride, const float softmaxScale, const int n1,
     const int n2, CmpAttnTile &tileConfig) {
-    FunctionConfig funConfig;
-    FUNCTION("FusedCompressKvSelect", funConfig,
+    FUNCTION("FusedCompressKvSelect",
         {qNope, qRope, kvCache, krCache, cmpKvCache, cmpKrCache, blockTable, cmpBlockTable, actSeqLen, actCmpSeqLen,
             mlpWk1, mlpWk2, mlpCos, mlpSin},
         {cmpAttnOut, cmpAttnOut16, cmpSoftmax, fullK, cmpK, firstRope, firstRopeInput, topkRes, topkInput}) {

@@ -106,8 +106,8 @@ void DynamicDD(uint64_t configKey) {
     Tensor &t1 = inputTensors.at(1);
     Tensor &blockTable = inputTensors.at(2);
     Tensor &out = outputTensors.at(0);
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {t0, t1, blockTable}, {out}) {
+
+    FUNCTION("main", {t0, t1, blockTable}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShape(t0, 0) / s)) {
             SymbolicScalar idx = GetInputData(blockTable, {i, 0});
             Tensor t0s = View(t0, {s, s}, {idx * s, 0});

@@ -75,8 +75,8 @@ def test_record_function_static():
     b = pto.tensor((8, 8), dtype, "tensor_b")
     c = pto.tensor((8, 8), dtype, "tensor_c")
 
-    func_cfg = pto.function_config(pto.function_type.STATIC)
-    recorder = pto.record_func("ADD_FNC", func_cfg, [a, b, c])
+    pto.set_build_static(True)
+    recorder = pto.record_func("ADD_FNC", [a, b, c])
     pto.set_vec_tile_shapes(8, 8)
     c.move(pto.add(a, b))
     del recorder

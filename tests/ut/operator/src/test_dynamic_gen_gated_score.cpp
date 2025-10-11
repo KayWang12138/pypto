@@ -59,8 +59,7 @@ TEST_F(DynamicGenGatedScoreUtest, utest_gen_gated_score_plus_dyn) {
     Tensor w2(dType, w2Shape, "w2");
     Tensor gatingScore(dType, gatingScoreShape, "gatingScore");
     
-    FunctionConfig funConfig;
-    FUNCTION("UTGENGATEDSCOREPLUS", funConfig, {x, w1, w2}, {gatingScore}) {
+    FUNCTION("UTGENGATEDSCOREPLUS", {x, w1, w2}, {gatingScore}) {
         GenGatedScoreComputePrefillPlus(x, w1, w2, gatingScore);
     }
 }
@@ -86,8 +85,7 @@ TEST_F(DynamicGenGatedScoreUtest, utest_gen_gated_score_dyn) {
     Tensor w2(dType, w2Shape, "w2");
     Tensor gatingScore(dType, gatingScoreShape, "gatingScore");
     
-    FunctionConfig funConfig;
-    FUNCTION("UTGENGATEDSCORE", funConfig, {x, w1, w2}, {gatingScore}) {
+    FUNCTION("UTGENGATEDSCORE", {x, w1, w2}, {gatingScore}) {
         GenGatedScoreComputePrefill(x, w1, w2, gatingScore);
     }
 }

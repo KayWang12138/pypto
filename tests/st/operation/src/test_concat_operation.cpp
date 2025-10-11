@@ -82,7 +82,6 @@ static std::vector<std::reference_wrapper<const Tensor>> AsRef(const std::vector
 static void ConcatOperationExeFuncDoubleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    FunctionConfig funConfig;
     auto inputRefs = AsRef(inputs);
     auto args = static_cast<const ConcatOpFuncArgs *>(opArgs);
     int axis=0;
@@ -92,7 +91,7 @@ static void ConcatOperationExeFuncDoubleCut(
         axis=args->axis_;
     }
 
-    FUNCTION("main", funConfig, inputRefs, {outputs[0]}) {
+    FUNCTION("main", inputRefs, {outputs[0]}) {
         std::vector<SymbolicScalar> noConcatAxisDimensions = GetNoAxisDims(inputs, axis);
         std::vector<int64_t> noConcatAxisViewShapes = GetNoAxisViewShapes(args->viewShape_, axis);
         const int bloop = CeilDiv(noConcatAxisDimensions[0], noConcatAxisViewShapes[0]);
@@ -120,7 +119,6 @@ static void ConcatOperationExeFuncDoubleCut(
 static void ConcatOperationExeFuncTripleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    FunctionConfig funConfig;
     auto inputRefs = AsRef(inputs);
     auto args = static_cast<const ConcatOpFuncArgs *>(opArgs);
     int axis=0;
@@ -129,7 +127,7 @@ static void ConcatOperationExeFuncTripleCut(
     }else {
         axis=args->axis_;
     }
-    FUNCTION("main", funConfig, inputRefs, {outputs[0]}) {
+    FUNCTION("main", inputRefs, {outputs[0]}) {
         std::vector<SymbolicScalar> noConcatAxisDimensions = GetNoAxisDims(inputs, axis);
         std::vector<int64_t> noConcatAxisViewShapes = GetNoAxisViewShapes(args->viewShape_, axis);
         const int bloop = CeilDiv(noConcatAxisDimensions[0], noConcatAxisViewShapes[0]);
@@ -181,7 +179,6 @@ static void ConcatOperationExeFuncTripleCut(
 static void ConcatOperationExeFuncQuadraticCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    FunctionConfig funConfig;
     auto inputRefs = AsRef(inputs);
     int axis=0;
     auto args = static_cast<const ConcatOpFuncArgs *>(opArgs);
@@ -190,7 +187,7 @@ static void ConcatOperationExeFuncQuadraticCut(
     }else {
         axis=args->axis_;
     }
-    FUNCTION("main", funConfig, inputRefs, {outputs[0]}) {
+    FUNCTION("main", inputRefs, {outputs[0]}) {
         std::vector<SymbolicScalar> noConcatAxisDimensions = GetNoAxisDims(inputs, axis);
         std::vector<int64_t> noConcatAxisViewShapes = GetNoAxisViewShapes(args->viewShape_, axis);
         const int bloop = CeilDiv(noConcatAxisDimensions[0], noConcatAxisViewShapes[0]);

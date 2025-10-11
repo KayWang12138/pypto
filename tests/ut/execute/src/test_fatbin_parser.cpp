@@ -44,8 +44,7 @@ void DynamicAdd(uint64_t configKey) {
     Tensor t2(DT_FP32, {32, 32}, "t2");
     Tensor t3(DT_FP32, {32, 32}, "t3");
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {t0, t1}, {t3}, {{t2, t0}}) {
+    FUNCTION("main", {t0, t1}, {t3}, {{t2, t0}}) {
         LOOP("l0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
             t3 = Add(t0, t1);

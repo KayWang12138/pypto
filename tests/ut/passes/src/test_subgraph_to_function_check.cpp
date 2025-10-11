@@ -60,8 +60,7 @@ TEST_F(SubgraphToFunctionCheckTest, TestPrePostCheck) {
         RawTensorData::CreateConstantTensor<float>(c2, 0.0f),
     });
 
-    FunctionConfig funConfig;
-    FUNCTION("SimpleTest", funConfig, {a, b}, {c1, c2}) {
+    FUNCTION("SimpleTest", {a, b}, {c1, c2}) {
         Tensor temp1 = Add(a, b);
         temp1 = Mul(temp1, a);
         c1 = Sub(temp1, b);

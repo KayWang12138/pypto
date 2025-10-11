@@ -42,8 +42,7 @@ struct RowMinSingleOperationMetadata {
 
 void RowMinSingle2DOperationExeFunc(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
+    FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         auto args = static_cast<const RowMinSingleOpFuncArgs *>(opArgs);
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
@@ -80,8 +79,7 @@ void RowMinSingle2DOperationExeFunc(
 
 void RowMinSingle3DOperationExeFunc(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
+    FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         auto args = static_cast<const RowMinSingleOpFuncArgs *>(opArgs);
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
@@ -124,8 +122,7 @@ void RowMinSingle3DOperationExeFunc(
 
 void RowMinSingle4DOperationExeFunc(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
+    FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         auto args = static_cast<const RowMinSingleOpFuncArgs *>(opArgs);
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];

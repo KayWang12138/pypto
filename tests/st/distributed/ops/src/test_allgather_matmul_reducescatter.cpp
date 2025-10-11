@@ -48,8 +48,7 @@ void TestDynAllGatherMatmulReducescatter(OpTestParam &testParam)
     ProgramData::GetInstance().AppendInputs({RawTensorData::CreateTensor<float>(in, inPtr)});
     ProgramData::GetInstance().AppendOutputs({RawTensorData::CreateTensorZero(out)});
 
-    FunctionConfig funConfig;
-    FUNCTION("ALLGATHER and ALLGATHER", funConfig, {in}, {out}) {
+    FUNCTION("ALLGATHER and ALLGATHER", {in}, {out}) {
         LOOP("ALLGATHER1", FunctionType::DYNAMIC_LOOP, dynRankId, LoopRange(0, 1, 1)) {
             (void)dynRankId;
             TileShape::Current().SetDistTile({row, 1, 0}, {col, 1, 0}, {1, testParam.rankSize, 0});

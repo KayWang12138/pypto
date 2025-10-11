@@ -25,8 +25,8 @@ def init_tensors():
 def main():
     a, b, c = init_tensors()
 
-    func_cfg = pto.function_config(pto.function_type.STATIC)
-    recorder = pto.record_func("main", func_cfg, [a, b])
+    pto.set_build_static(True)
+    recorder = pto.record_func("main", [a, b])
     pto.set_vec_tile_shapes(16, 16)
     c.move(pto.add(a, b))
     del recorder
