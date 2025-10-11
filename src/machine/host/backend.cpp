@@ -555,7 +555,7 @@ std::vector<SymbolicExpressionTable *> GetAllExpressionTable(DyndevFunctionAttri
 }
 
 static void ConstructCodeInfo(struct EncodeDevAscendFunctionParam &encodeDevAscendFunctionParam,
-    std::map<std::string, Function *> &leafDict, std::shared_ptr<DyndevFunctionAttribute> attr) {
+    std::map<uint64_t, Function *> &leafDict, std::shared_ptr<DyndevFunctionAttribute> attr) {
     attr->cceCodeInfo.resize(leafDict.size() + 1);
     /* cceIdx 0 for dummy callop */
     attr->cceCodeInfo[0].coreType = static_cast<uint32_t>(CoreType::HUB);
@@ -564,19 +564,18 @@ static void ConstructCodeInfo(struct EncodeDevAscendFunctionParam &encodeDevAsce
     encodeDevAscendFunctionParam.calleeHashIndexDict[0] = 0;
 
     int leafIndex = 1;
-    for (auto &[name, leaf] : leafDict) {
+    for (auto &[hash, leaf] : leafDict) {
       auto leafFuncAttr = leaf->GetLeafFuncAttribute();
       ASSERT(leafFuncAttr != nullptr);
 
-      encodeDevAscendFunctionParam.calleeHashIndexDict[leaf->ComputeHash().GetHash()] = leafIndex;
-      attr->devLeafIndex2Hash[leafIndex] = leaf->GetFunctionHash().GetHash();
-      ALOG_INFO("Dyndev.codegen: [", leafIndex, "] hash=", leaf->ComputeHash(), " name=", name, " binpath=",
-                leafFuncAttr->binPath);
+      encodeDevAscendFunctionParam.calleeHashIndexDict[hash] = leafIndex;
+      attr->devLeafIndex2Hash[leafIndex] = hash;
+      ALOG_INFO("Dyndev.codegen: [", leafIndex, "] hash=", hash, " binpath=", leafFuncAttr->binPath);
       attr->cceCodeInfo[leafIndex].coreType = static_cast<uint32_t>(leafFuncAttr->coreType);
       if (leaf->IsDummyFunction())
         attr->cceCodeInfo[leafIndex].coreType = static_cast<uint32_t>(CoreType::HUB);
       attr->cceCodeInfo[leafIndex].psgId = leaf->GetProgramId();
-      attr->cceCodeInfo[leafIndex].funcHash = leaf->GetFunctionHash().GetHash();
+      attr->cceCodeInfo[leafIndex].funcHash = hash;
       attr->cceCodeInfo[leafIndex].aicpuLeafCode = leafFuncAttr->aicpuLeafCode;
       leafIndex++;
     }
@@ -600,7 +599,7 @@ bool IsNeedDumpAicpuKernel(const std::string &inputFile) {
 
 static void CompileDyndevFunction(Function *function, FunctionCache &cache, const std::string &ccePath,
                                   std::string &kernelPath) {
-    if (npu::tile_fwk::ConfigManager::Instance().GetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, false)) {                                
+    if (npu::tile_fwk::ConfigManager::Instance().GetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, false)) {
         PassManager::Instance().RunPass(Program::GetInstance(), *function, "ScalarOptimize");
     }
 
@@ -673,7 +672,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, cons
     }
     AlignUpTo(attr->devControlFlowBinary, 0x8, 0);
 
-    std::map<std::string, Function *> leafDict;
+    std::map<uint64_t, Function *> leafDict;
     for (auto &devRoot : attr->funcGroup.devRootList) {
         if (npu::tile_fwk::ConfigManager::Instance().GetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, false)) {
             Function *devTile = attr->rootTileDict[devRoot];
@@ -683,11 +682,14 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, cons
             codeGen.GenCode(*devTile, {});
         }
 
-        for (auto &[hash, leaf] : devRoot->programs_) {
-            (void) hash;
-            if (!leafDict.count(leaf->GetRawName())) {
-                leafDict[leaf->GetRawName()] = leaf;
+        for (auto &[psgId, leaf] : devRoot->programs_) {
+            (void)psgId;
+            auto hash = leaf->GetFunctionHash().GetHash();
+            if (!leafDict.count(hash)) {
+                leafDict[hash] = leaf;
                 ALOG_INFO("Dyndev.codegen: ", leaf->GetRawName());
+            } else {
+                ALOG_ERROR(" Duplicate func hash ", hash, " name ", leaf->GetRawName());
             }
         }
     }

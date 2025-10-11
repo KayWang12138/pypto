@@ -180,16 +180,6 @@ struct FunctionFrame {
         return view;
     }
 
-    std::vector<std::shared_ptr<LogicalTensorData>> AllocateDataViewList(
-        const std::vector<std::shared_ptr<LogicalTensor>> &tensorList, const std::vector<std::vector<int64_t>> &offsetList,
-        const std::vector<std::vector<int64_t>> &validShapeList) {
-        std::vector<std::shared_ptr<LogicalTensorData>> dataViewList(tensorList.size());
-        for (size_t i = 0; i < tensorList.size(); i++) {
-            dataViewList[i] = AllocateDataView(tensorList[i], offsetList[i], validShapeList[i]);
-        }
-        return dataViewList;
-    }
-
 private:
     void DoAddTensorDataView(
             const std::shared_ptr<LogicalTensor> &tensor,
@@ -258,8 +248,7 @@ constexpr int EXEC_DUMP_LEVEL_TENSOR = 2;
 enum class VerifyType { INVALID, TENSOR_GRAPH, PASS, EXECUTE_GRAPH };
 
 struct FunctionInterpreter {
-    FunctionInterpreter(int threadCount)
-        : operationInterpreter(std::make_shared<OperationInterpreter>(threadCount)) {}
+    FunctionInterpreter() : operationInterpreter(std::make_shared<OperationInterpreter>()) {}
 
     Function *entry_;
     std::unordered_map<FunctionHash, Function *> calleeHashDict;
@@ -284,8 +273,6 @@ struct FunctionInterpreter {
     uint64_t totalTimeUsage{0};
 
     VerifyType verifyType{VerifyType::INVALID};
-
-    int GetThreadCount() const { return operationInterpreter->GetThreadCount(); }
 
     std::vector<std::shared_ptr<LogicalTensorData>> &GetInputDataViewList() {
         return operationInterpreter->evaluateSymbol->GetInputDataViewList();
@@ -387,17 +374,6 @@ struct FunctionInterpreter {
         auto ret = frame.AllocateDataView(tensor, offset, validShape);
         return ret;
     }
-    std::vector<std::shared_ptr<LogicalTensorData>> AllocateDataViewList(
-        FunctionFrame &frame, const std::vector<std::shared_ptr<LogicalTensor>> &tensorList) {
-        std::vector<std::vector<int64_t>> offsetList(tensorList.size());
-        std::vector<std::vector<int64_t>> validShapeList(tensorList.size());
-        for (size_t k = 0; k < tensorList.size(); k++) {
-            offsetList[k] = EvaluateOffset(tensorList[k]->GetOffset(), tensorList[k]->GetDynOffset());
-            validShapeList[k] = EvaluateValidShape(tensorList[k]->GetDynValidShape());
-        }
-        auto ret = frame.AllocateDataViewList(tensorList, offsetList, validShapeList);
-        return ret;
-    }
 
     void ExecuteOpCallLeaf(ExecuteOperationContext *ctx) {
         Function *callee = GetCallee(ctx->op);
@@ -406,19 +382,44 @@ struct FunctionInterpreter {
         ExecuteFunctionFrame(callee, ctx->op, inoutDataPair);
     }
 
-    void ExecuteOperation(FunctionFrame &frame, Operation *op) {
-        auto ioperandDataViewList = frame.GetDataViewList(op->GetIOperands());
-        for (size_t index = 0; index < ioperandDataViewList.size(); index++) {
-            if (ioperandDataViewList[index] == nullptr) {
-                auto iop = op->GetIOperands()[index];
-                ASSERT(op->GetOpcode() == Opcode::OP_CALL);
-                ioperandDataViewList[index] = AllocateDataView(frame, iop);
+    int GetInplaceIndex(Operation *op, int pos) {
+        struct {
+            Opcode opcode;
+            int oPos;
+            int iPos;
+        } inplaceInfo[] = {
+            {Opcode::OP_INDEX_OUTCAST, 0, 2}
+        };
+        for (auto &info : inplaceInfo) {
+            if (info.opcode == op->GetOpcode() && pos == info.oPos) {
+                return info.iPos;
             }
         }
-        auto ooperandDataViewList = AllocateDataViewList(frame, op->GetOOperands());
-        ExecuteOperationContext ctx = {&frame, {}, op, &ioperandDataViewList, {}, &ooperandDataViewList};
+        return -1;
+    }
 
-        if(op->GetOpcode() == Opcode::OP_CALL) {
+    void ExecuteOperation(FunctionFrame &frame, Operation *op) {
+        auto iOpDataList = frame.GetDataViewList(op->GetIOperands());
+        for (size_t index = 0; index < iOpDataList.size(); index++) {
+            if (iOpDataList[index] == nullptr) {
+                auto iop = op->GetIOperands()[index];
+                ASSERT(op->GetOpcode() == Opcode::OP_CALL);
+                iOpDataList[index] = AllocateDataView(frame, iop);
+            }
+        }
+        std::vector<std::shared_ptr<LogicalTensorData>> oOpDataList;
+        for (size_t i = 0; i < op->GetOOperands().size(); i++) {
+            auto oop = op->GetOOperands()[i];
+            if (auto index = GetInplaceIndex(op, i); index != -1) {
+                oOpDataList.push_back(iOpDataList[index]);
+                frame.AddDataView(oop, oOpDataList.back());
+            } else {
+                oOpDataList.push_back(AllocateDataView(frame, oop));
+            }
+        }
+        ExecuteOperationContext ctx = {&frame, {}, op, &iOpDataList, {}, &oOpDataList};
+
+        if (op->GetOpcode() == Opcode::OP_CALL) {
             ExecuteOpCallLeaf(&ctx);
         } else {
             TimeStamp ts;
@@ -426,9 +427,9 @@ struct FunctionInterpreter {
             opUsage[op->GetOpcodeStr()] += ts.Duration();
         }
         auto *ooperandDumpList =
-            (&ctx)->ooperandInplaceDataViewList ? (&ctx)->ooperandInplaceDataViewList : (&ctx)->ooperandDataViewList;
+            ctx.ooperandInplaceDataViewList ? ctx.ooperandInplaceDataViewList : ctx.ooperandDataViewList;
         TimeStamp ts;
-        DumpOperationTensor((&ctx)->op, ooperandDumpList, (&ctx)->ioperandDataViewList);
+        DumpOperationTensor(ctx.op, ooperandDumpList, ctx.ioperandDataViewList);
         dumpOperationUsage += ts.Duration();
     }
 

@@ -181,7 +181,7 @@ protected:
 #ifdef RUN_WITH_ASCEND_CAMODEL
         // don't call aclInit, it will cause camodel running fail
 #else
-        aclInit(nullptr);
+        aclInited = aclInit(nullptr) == 0;
 #endif
         Init();
     }
@@ -215,6 +215,18 @@ public:
         rtFree(devAddr);
     }
 
+    void Finalize() {
+        if (aclInited) {
+            DestroyMemory();
+            DestroyStream();
+#ifndef RUN_WITH_ASCEND_CAMODEL
+            aclFinalize();
+#endif
+        }
+
+        ALOG_DEBUG_F("RuntimeAgent: runtime quit");
+    }
+
 private:
     void Init() {
         ALOG_INFO_F("RuntimeAgent: Init acl runtime!");
@@ -223,15 +235,8 @@ private:
         CreateStream();
     }
 
-public:
-    void Finalize() {
-        DestroyMemory();
-        DestroyStream();
-#ifndef RUN_WITH_ASCEND_CAMODEL
-        aclFinalize();
-#endif
-        ALOG_DEBUG_F("RuntimeAgent: runtime quit");
-    }
+private:
+    bool aclInited {false};
 };
 
 namespace machine {

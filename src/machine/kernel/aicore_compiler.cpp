@@ -81,7 +81,7 @@ static int CompileCoreMachine(const std::string &objFile, bool isCube, uint64_t 
   return ret;
 }
 
-std::string GenSubFuncCall(std::map<std::string, Function *> &leafDict, CoreType coreType,
+std::string GenSubFuncCall(std::map<uint64_t, Function *> &leafDict, CoreType coreType,
     dynamic::EncodeDevAscendFunctionParam &param, const std::string &ccePath, uint64_t tilingKey,
     std::stringstream &src_obj) {
   std::stringstream code;
@@ -160,7 +160,7 @@ static int LinkObject(const std::string &src_objs, std::string &objPath, bool re
   return ret;
 }
 
-int CompileAICoreKernel(std::map<std::string, Function *> &leafDict, dynamic::EncodeDevAscendFunctionParam &param,
+int CompileAICoreKernel(std::map<uint64_t, Function *> &leafDict, dynamic::EncodeDevAscendFunctionParam &param,
                         const std::string &ccePath, std::string &kernelPath) {
   if (ccePath.empty()) {
     ALOG_ERROR_F("No cce path.");

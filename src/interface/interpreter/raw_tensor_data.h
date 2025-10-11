@@ -23,6 +23,7 @@
 #include "tilefwk/data_type.h"
 #include "tilefwk/tensor.h"
 #include "interface/inner/element.h"
+#include "interface/inner/config.h"
 #include "interface/tensor/tensor_offset.h"
 
 
@@ -341,7 +342,7 @@ struct LogicalTensorData {
         return DumpData(INDENT_TWO, elementDumpList);
     }
 
-    std::string ToString(int precision = 4, int edgeItems = 3) const;
+    std::string ToString(const PrintOptions *options = nullptr) const;
 
     void Save(const std::string &filepath) const;
     void SaveFile(const char *filepath) const;

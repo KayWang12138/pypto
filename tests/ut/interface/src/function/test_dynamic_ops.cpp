@@ -29,7 +29,6 @@ public:
         Program::GetInstance().Reset();
         config::Reset();
         ProgramData::GetInstance().Reset();
-        config::SetPlatformConfig(KEY_VERIFY_THREAD_NUMBER, 2);
         config::SetHostConfig(KEY_ONLY_CODEGEN, true);
         if (strcmp(calc::Model(), "torch")) {
             GTEST_SKIP() << "torch missing skip the verify test";
@@ -357,7 +356,6 @@ TEST_F(DynamicOpsTest, Cube) {
     config::SetPlatformConfig(KEY_VERIFY_PASS_DUMP_TENSOR, true);
     config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, false);
     config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_TENSOR, true);
-    config::SetPlatformConfig(KEY_VERIFY_THREAD_NUMBER, 1);
 
     int n = 4;
     int k = 1024;

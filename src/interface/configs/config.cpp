@@ -48,8 +48,10 @@ struct ConfigStorage {
     void Reset() {
         funcType = FunctionType::DYNAMIC;
         sematicLabel = "";
-        edgeItems = 3; // 3 edge items
-        precision = 4; // 4 float precision
+        printOption.edgeItems = 3; // 3 edge items
+        printOption.precision = 4; // 4 float precision
+        printOption.threshold = 1000; // 1000 default threshold
+        printOption.linewidth = 80; // 80 max line width
         for (auto &[key, val] : g_passConfig) {
             options["pass." + key] = val;
         }
@@ -58,10 +60,7 @@ struct ConfigStorage {
     FunctionType funcType;
     std::string sematicLabel;
     std::unordered_map<std::string, ValueType> options;
-
-    // print options
-    int edgeItems;
-    int precision;
+    PrintOptions printOption;
 };
 
 namespace config {
@@ -90,11 +89,14 @@ bool HasOption(const std::string &key) {
 
 std::string Dump() {
     std::ostringstream oss;
+    auto &printOption = g_config.printOption;
 
     oss << "funcType: " << (g_config.funcType == FunctionType::DYNAMIC ? "dynamic" : "static") << std::endl;
     oss << "sematicLabel: " << g_config.sematicLabel << std::endl;
-    oss << "printOption.edgeItems: " << g_config.edgeItems << std::endl;
-    oss << "printOption.precision: " << g_config.precision << std::endl;
+    oss << "printOption.edgeItems: " << printOption.edgeItems << std::endl;
+    oss << "printOption.precision: " << printOption.precision << std::endl;
+    oss << "printOption.threshold: " << printOption.threshold << std::endl;
+    oss << "printOption.linewidth: " << printOption.linewidth << std::endl;
 
     for (auto &it : g_config.options) {
         if (std::holds_alternative<int64_t>(it.second)) {
@@ -147,14 +149,15 @@ void internal::SetOption(const std::string &key, const std::map<int64_t, int64_t
     g_config.options[StringUtils::ToLower(key)] = value;
 }
 
-void SetPrintOptions(int edgeItems, int precision) {
-    g_config.edgeItems = edgeItems;
-    g_config.precision = precision;
+void SetPrintOptions(int edgeItems, int precision, int threshold, int linewidth) {
+    g_config.printOption.edgeItems = edgeItems;
+    g_config.printOption.precision = precision;
+    g_config.printOption.threshold = threshold;
+    g_config.printOption.linewidth = linewidth;
 }
 
-void GetPrintOptions(int &edgeItems, int &precision) {
-    edgeItems = g_config.edgeItems;
-    precision = g_config.precision;
+PrintOptions &GetPrintOptions() {
+    return g_config.printOption;
 }
 
 void Reset() {

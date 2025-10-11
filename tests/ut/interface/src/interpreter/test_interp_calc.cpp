@@ -453,7 +453,7 @@ TEST_F(TorchAdaptorTest, BinaryPairOps) {
     }
 }
 
-TEST_F(TorchAdaptorTest, MulMul) {
+TEST_F(TorchAdaptorTest, MatMul) {
     {
         // matmul
         auto self = makeTensorData(DT_FP32, {8, 16}, 1.0f);
@@ -527,11 +527,20 @@ TEST_F(TorchAdaptorTest, MulMul) {
         ASSERT_ALLCLOSE(out, golden);
     }
     {
-        // matmul cast
+        // matmul fp16 @ fp16 -> fp32
         auto self = makeTensorData(DT_FP16, {8, 16}, float16(1.0));
         auto other = makeTensorData(DT_FP16, {16, 8}, float16(1.0));
         auto out = makeTensorData(DT_FP32, {8, 8}, 1.0f);
         auto golden = makeTensorData(DT_FP32, {8, 8}, 16.0f);
+        calc::MatMul(out, self, other);
+        ASSERT_ALLCLOSE(out, golden);
+    }
+    {
+        // matmul fp16 @ fp16 -> fp16
+        auto self = makeTensorData(DT_FP16, {8, 16}, float16(1.0));
+        auto other = makeTensorData(DT_FP16, {16, 8}, float16(1.0));
+        auto out = makeTensorData(DT_FP16, {8, 8}, float16(1.0f));
+        auto golden = makeTensorData(DT_FP16, {8, 8}, float16(16.0f));
         calc::MatMul(out, self, other);
         ASSERT_ALLCLOSE(out, golden);
     }
@@ -896,6 +905,8 @@ TEST_F(TorchAdaptorTest, Print) {
     std::cout << t1->ToString() << std::endl;
     auto t2 = makeTensorData(DT_FP32, {4, 4, 1024, 512}, 4.0f);
     std::cout << t2->ToString() << std::endl;
+    auto t3 = makeTensorData(DT_FP32, {4, 128}, 4.0f);
+    std::cout << t3->ToString() << std::endl;
 }
 
 static inline int64_t alignup(int64_t x, int64_t align) {

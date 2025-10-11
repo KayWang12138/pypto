@@ -72,7 +72,7 @@ inline void Scatter(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDat
 inline void FormatND2NZ(LogicalTensorDataPtr, LogicalTensorDataPtr) {}
 inline void FormatNZ2ND(LogicalTensorDataPtr, LogicalTensorDataPtr) {}
 inline void MatMul(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr,
-                   MatMulSetParam &) {}
+                   MatMulParam &) {}
 inline void BitSort(LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, bool) {}
 inline void Extract(LogicalTensorDataPtr, LogicalTensorDataPtr, int, bool) {}
 inline void Topk(LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, int64_t, bool) {}

@@ -25,7 +25,7 @@
 
 namespace npu::tile_fwk::calc {
 
-struct MatMulSetParam {
+struct MatMulParam {
     bool aTrans = false;
     bool bTrans = false;
     int64_t kStep = 0;
@@ -99,7 +99,7 @@ void FormatNZ2ND(LogicalTensorDataPtr out, LogicalTensorDataPtr self);
 void FormatND2NZ(LogicalTensorDataPtr out, LogicalTensorDataPtr self);
 
 void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, LogicalTensorDataPtr acc,
-    MatMulSetParam &param);
+    MatMulParam &param);
 }
 
 #ifndef ENABLE_VERIFIER
@@ -113,14 +113,14 @@ inline std::ostream &operator<<(std::ostream &os, LogicalTensorDataPtr self) {
 
 template <bool aTrans = false, bool bTrans = false>
 inline void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, int64_t kStep = 0) {
-    MatMulSetParam param = {aTrans, bTrans, kStep};
+    MatMulParam param = {aTrans, bTrans, kStep};
     MatMul(out, self, other, nullptr, param);
 }
 
 template <bool aTrans = false, bool bTrans = false>
 inline void AccMatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other,
                       LogicalTensorDataPtr acc = nullptr, int64_t kStep = 0) {
-    MatMulSetParam param = {aTrans, bTrans, kStep};
+    MatMulParam param = {aTrans, bTrans, kStep};
     MatMul(out, self, other, acc, param);
 }
 

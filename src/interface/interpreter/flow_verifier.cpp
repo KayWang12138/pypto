@@ -125,8 +125,7 @@ void FlowVerifier::VerifyTensorGraph(Function *entry,
         controlFlowSymbolDict[AddArgPrefix(outputNameList[i])] = SymbolicScalar(i);
     }
 
-    int threadCount = config::GetPlatformConfig(KEY_VERIFY_THREAD_NUMBER, 64);
-    functionInterpreter_ = std::make_shared<FunctionInterpreter>(threadCount);
+    functionInterpreter_ = std::make_shared<FunctionInterpreter>();
     functionInterpreter_->Initialize(entry, inputDataViewList_);
     functionInterpreter_->verifyType = VerifyType::TENSOR_GRAPH;
     UpdateInterpreterCache();

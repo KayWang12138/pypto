@@ -45,7 +45,7 @@ using Funcs = std::function<void(ExecuteOperationContext*)>;
 
 class OperationInterpreter {
 public:
-    OperationInterpreter(int threadCount) : evaluateSymbol(std::make_shared<EvaluateSymbol>()), pool(threadCount) {}
+    OperationInterpreter() : evaluateSymbol(std::make_shared<EvaluateSymbol>()) {}
 
     std::shared_ptr<EvaluateSymbol> evaluateSymbol;
 
@@ -64,10 +64,6 @@ public:
     void ExecuteOperation(ExecuteOperationContext *ctx);
 
     util::ThreadPool &GetPool() { return pool; }
-
-    util::ThreadPool* GetPoolPtr() { return &pool; }
-
-    int GetThreadCount() const { return pool.GetThreadCount(); }
 
     // 注册默认函数
     static void RegisterFunc(const Opcode opcode, Funcs func) {
@@ -98,14 +94,12 @@ private:
         return result;
     }
 
-    OperationInterpreter() = default;
-
     static std::unordered_map<Opcode, Funcs>& operationInterpreterFuncs_() {
         static std::unordered_map<Opcode, Funcs> instance;
         return instance;
     }
 
-    util::ThreadPool pool{64};
+    util::ThreadPool pool{0x2};
 };
 
 #define REGISTER_CALC_OP(OpCoreStr, OpType, FuncName) \

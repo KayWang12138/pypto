@@ -313,38 +313,41 @@ static void MatmulSplitK(torch::Tensor &out, const torch::Tensor &lhs, const tor
 }
 
 void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, LogicalTensorDataPtr acc,
-            MatMulSetParam &param) {
-    auto tensorOut = From(out);
-    auto outDtype = tensorOut.scalar_type();
-    if (outDtype == at::ScalarType::Half) {
-        outDtype = at::ScalarType::Float;
+            MatMulParam &param) {
+    auto tout = From(out);
+    auto dtype = tout.scalar_type();
+    auto calcType = dtype;
+    if (dtype == torch::kFloat16 || dtype == torch::kBFloat16) {
+        calcType = torch::kFloat;
+        tout = tout.to(calcType);
     }
-    auto tensorSelf = From(self);
-    auto tensorOther = From(other);
+
+    auto tself = From(self);
+    auto tother = From(other);
     if (acc) {
-        tensorOut.copy_(From(acc));
+        tout.copy_(From(acc));
     } else {
-        tensorOut.zero_();
+        tout.zero_();
     }
     if (param.aTrans) {
-        tensorSelf.transpose_(-1, AXIS_TO_LAST);
+        tself.transpose_(-1, AXIS_TO_LAST);
     }
     if (param.bTrans) {
-        tensorOther.transpose_(-1, AXIS_TO_LAST);
+        tother.transpose_(-1, AXIS_TO_LAST);
     }
-    if (tensorSelf.scalar_type() != outDtype) {
-        tensorSelf = tensorSelf.to(outDtype);
+    if (tself.scalar_type() != calcType) {
+        tself = tself.to(calcType);
     }
-    if (tensorOther.scalar_type() != outDtype) {
-        tensorOther = tensorOther.to(outDtype);
+    if (tother.scalar_type() != calcType) {
+        tother = tother.to(calcType);
     }
     if (!param.kStep || param.kStep == self->GetShape(-1)) {
-        tensorOut.add_(torch::matmul(tensorSelf, tensorOther));
+        tout.add_(torch::matmul(tself, tother));
     } else {
-        MatmulSplitK(tensorOut, tensorSelf, tensorOther, param.kStep);
+        MatmulSplitK(tout, tself, tother, param.kStep);
     }
-    if (tensorOut.scalar_type() == at::ScalarType::Half) {
-        tensorOut = tensorOut.to(at::ScalarType::Half);
+    if (calcType != dtype) {
+        From(out) = tout.to(dtype);
     }
 }
 

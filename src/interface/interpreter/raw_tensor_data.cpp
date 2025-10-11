@@ -161,9 +161,19 @@ void LogicalTensorData::SaveFile(const char *filepath) const {
     return Save(filepath);
 }
 
-std::string LogicalTensorData::ToString(int precision, int edgeItems) const {
+std::string LogicalTensorData::ToString(const PrintOptions *options) const {
     std::stringstream os;
     int64_t axes[0x8] = {0}; // max dim is 8
+
+    if (options == nullptr) {
+        options = &config::GetPrintOptions();
+    }
+
+    int edgeItems = options->edgeItems;
+    int64_t totalItems = std::accumulate(shape_.begin(), shape_.end(), (int64_t)1, std::multiplies<int64_t>());
+    if (options->threshold > totalItems) {
+        edgeItems = options->threshold;
+    }
 
     std::function<void(int dim)> printImpl;
     int ndim = shape_.size();
@@ -175,7 +185,8 @@ std::string LogicalTensorData::ToString(int precision, int edgeItems) const {
         }
     };
 
-    auto print1d = [&](int s, int e) {
+    auto print1d = [&](int dim, int s, int e) {
+        int pos = os.tellp();
         for (int i = s; i < e; i++) {
             if (i != 0)
                 os << " ";
@@ -186,7 +197,12 @@ std::string LogicalTensorData::ToString(int precision, int edgeItems) const {
             else if (elem.IsUnsigned())
                 os << elem.GetUnsignedData();
             else
-                os << std::fixed << std::setprecision(precision) << elem.GetFloatData();
+                os << std::setprecision(options->precision) << elem.GetFloatData();
+            if (os.tellp() >= pos + options->linewidth) {
+                os << "\n";
+                repeat(' ', dim);
+                pos = os.tellp() + 1L;
+            }
         }
     };
 
@@ -205,11 +221,11 @@ std::string LogicalTensorData::ToString(int precision, int edgeItems) const {
         os << "[";
         if (dim == ndim - 1) {
             if (shape[dim] > 0x2 * edgeItems) {
-                print1d(0, edgeItems);
+                print1d(dim, 0, edgeItems);
                 os << " ...";
-                print1d(shape[dim] - edgeItems, shape[dim]);
+                print1d(dim, shape[dim] - edgeItems, shape[dim]);
             } else {
-                print1d(0, shape[dim]);
+                print1d(dim, 0, shape[dim]);
             }
         } else {
             if (shape[dim] > 0x2 * edgeItems) {

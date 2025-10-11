@@ -19,7 +19,7 @@
 #include "machine/utils/dynamic/dev_encode.h"
 
 namespace npu::tile_fwk {
-int CompileAICoreKernel(std::map<std::string, Function *> &leafDict, dynamic::EncodeDevAscendFunctionParam &param,
+int CompileAICoreKernel(std::map<uint64_t, Function *> &leafDict, dynamic::EncodeDevAscendFunctionParam &param,
                         const std::string &ccePath, std::string &kernelPath);
 }
 

@@ -119,16 +119,10 @@ void SetHostOption(const std::string &key, const T &value) {
  *
  * \param edgeItems print max items in tensor head and tail
  * \param precision print precision
+ * \param threshold threshold to use ...
+ * \param linewidth max line width
  */
-void SetPrintOptions(int edgeItems, int precision);
-
-/**
- * \brief Get tensor print options
- *
- * \param edgeItems print max items in tensor head and tail
- * \param precision print precision
- */
-void GetPrintOptions(int &edgeItems, int &precision);
+void SetPrintOptions(int edgeItems, int precision, int threshold, int linewidth);
 
 /**
  * \brief Set the Semantic Label object

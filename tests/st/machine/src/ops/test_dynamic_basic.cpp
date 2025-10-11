@@ -1322,4 +1322,29 @@ TEST_F(DynamicBasicTest, TestSelectAttention) {
 #endif
 }
 
+TEST_F(DynamicBasicTest, DuplicateName) {
+    Tensor t0(DT_FP32, {32, 32}, "t0");
+    Tensor out(DT_FP32, {64, 64}, "out");
+
+    auto t0Data = RawTensorData::CreateConstantTensor<float>(t0, 1.0f);
+    auto outData = RawTensorData::CreateConstantTensor<float>(out, 0.0f);
+    auto golden = RawTensorData::CreateConstantTensor<float>(out, 2.0f);
+
+    ProgramData::GetInstance().PrepareData({t0Data}, {outData}, {golden});
+
+    auto dupTile = [&](std::vector<int64_t> offset, bool isAdd) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(2)) {
+            (void)i;
+            auto v = isAdd ? Add(t0, t0) : Sub(t0, t0);
+            Assemble(v, SymbolicScalar::FromConcrete(offset), out);
+        }
+    };
+    FunctionConfig config;
+    FUNCTION("main", config, {t0}, {out}) {
+        dupTile({0, 0}, true);
+        dupTile({0, 32}, true);
+        dupTile({32, 0}, false);
+        dupTile({32, 32}, false);
+    }
+}
 }

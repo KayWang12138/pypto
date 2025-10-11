@@ -42,6 +42,13 @@ constexpr const char *COPYOUT_RESOLVE_COALESCING = "copyout_resolve_coalescing";
 
 struct ConfigStorage;
 
+struct PrintOptions {
+    int edgeItems;
+    int precision;
+    int threshold;
+    int linewidth;
+};
+
 namespace config {
 FunctionType GetFunctionType();
 
@@ -88,5 +95,7 @@ DEFINE_CONFIG_GROUP(Host, "host")
 
 std::shared_ptr<ConfigStorage> Duplicate();
 void Restore(std::shared_ptr<ConfigStorage> config);
+
+PrintOptions &GetPrintOptions();
 } // namespace config
 } // namespace npu::tile_fwk
