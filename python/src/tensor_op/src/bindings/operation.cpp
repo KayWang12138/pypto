@@ -467,5 +467,11 @@ void bind_operation(py::module &m) {
             npu::tile_fwk::Assemble(tensor, dynOffset, dest);
         },
         "Tensor dassemble");
+    m.def(
+        "maxs",
+        [](const Tensor &operand1, const Element &operand2) {
+            return npu::tile_fwk::MaxS(operand1, operand2);
+        }
+    );
 }
 } // namespace pypto
