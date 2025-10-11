@@ -139,9 +139,9 @@ struct DynDeviceTask {
         DEV_ERROR("[DumpTensor] seqNo,taskId,rawMagic,address,dtype,bytesOfDtype,(shapes,)");
         DEV_ERROR("[DumpTensor] >>>");
         for (auto &info : infos) {
-            DEV_ERROR("%s", info.c_str());
+            DEV_ERROR("[DumpTensor] %s", info.c_str());
         }
-        DEV_ERROR("[DumpTensor] <<<<");
+        DEV_ERROR("[DumpTensor] <<<");
     }
 #endif
 };
