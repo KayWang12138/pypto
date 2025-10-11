@@ -77,6 +77,7 @@ private:
     void HandleForAssembleFromInOut(Function &function, std::unordered_set<Operation *> &concurrentAssembles, 
         std::set<Operation *, LogicalTensor::CompareOp> &producersBackup) const;
     void HandleForReshapeToOutcast(Function &function) const;
+    Status CheckValidCube(const Operation &op);
     Status UpdateCubeOp(Function &function);
     Status UpdateCopyAttr(Operation &op) const;
     Status AddL1CopyInAttr(

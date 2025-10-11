@@ -52,6 +52,27 @@ void SubstituteInput(Operation *op, LogicalTensorPtr &expected, LogicalTensorPtr
     }
 }
 
+/*
+resetDdr: A_MUL_B的清零后DDR输入，数据边表依赖
+copyOutOp: 当前A_MUL_B链路最终搬出的L0C_Copy_Out
+功能: 当前Matmul链路最终的CopyOut属性需要与清零时的CopyOut属性对齐
+限制条件: 依赖前端使能切K场景下，Matmul的tile展开中显示对清零后的Gm按C矩阵的切分大小做切分
+*/
+void AlignCopyOutAttr(LogicalTensorPtr &resetDdr, Operation *copyOutOp) {
+    if (resetDdr->GetProducers().size() == 1) {
+        auto ddrResetCopyOut = *resetDdr->GetProducers().begin();
+        if (ddrResetCopyOut->GetOpcode() != Opcode::OP_COPY_OUT) {
+            ALOG_ERROR_F("DDR reset Op requires to be OP_COPY_OUT, but %s[%d].", 
+                ddrResetCopyOut->GetOpcodeStr().c_str(), ddrResetCopyOut->GetOpMagic());
+            return;
+        }
+        auto ddrResetCopyOutAttr = std::static_pointer_cast<CopyOpAttribute>(ddrResetCopyOut->GetOpAttribute());
+        auto L0CCopyOutAttr = std::static_pointer_cast<CopyOpAttribute>(copyOutOp->GetOpAttribute());
+        ddrResetCopyOutAttr->SetRawShape(L0CCopyOutAttr->GetRawShape());
+        ddrResetCopyOutAttr->SetToOffset(L0CCopyOutAttr->GetToOffset());
+    }
+}
+
 bool CalculateNewRawShape(const std::vector<int64_t> &oriShape, const std::vector<int64_t> &newShape,
     const std::vector<int64_t> &oriRawShape, std::vector<int64_t> &newRawShape) {
     std::vector<int64_t> oriScale;
@@ -802,20 +823,43 @@ Status PreGraphProcess::UpdateCopyAttr(Operation &op) const {
     return SUCCESS;
 }
 
+Status PreGraphProcess::CheckValidCube(const Operation &op) {
+    /* 校验有且只有一个输出 */
+    if (op.GetOOperands().size() != 1) {
+        ALOG_ERROR_F("%s[%d] has output num != 1.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+        return FAILED;
+    }
+    /* 校验输出: 1. 非空，2. mem类型为L0C, 3.有消费者 */
+    auto outputL0C = op.GetOOperands().front();
+    if (outputL0C == nullptr) {
+        ALOG_ERROR_F("%s[%d] output is nullptr.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+        return FAILED;
+    }
+    if (outputL0C->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
+        ALOG_ERROR_F("%s[%d] output is NOT L0C.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+        return FAILED;
+    }
+    if (outputL0C->GetConsumers().size() < 1) {
+        ALOG_ERROR_F("%s[%d] output has EMPTY consumers.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+        return FAILED;
+    }
+    return SUCCESS;
+}
+
 Status PreGraphProcess::UpdateCubeOp(Function &function) {
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_A_MUL_B && op.GetOpcode() != Opcode::OP_A_MULACC_B) {
             continue;
+        }
+        if (CheckValidCube(op) != SUCCESS) {
+            ALOG_ERROR_F("%s[%d] is invalid.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+            return FAILED;
         }
         for (auto &input : op.GetIOperands()) {
             if (input->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
                 continue;
             }
             // Align copy out GM with the reset GM
-            if (op.GetOOperands().size() != 1) {
-                ALOG_ERROR_F("%s[%d] has output num != 1.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
-                return FAILED;
-            }
             auto outputL0C = op.GetOOperands().front();
             auto chainEndCopyOut = *(outputL0C->GetConsumers().begin());
             // recursively find: MatMul -> L0C -> Copy_Out -> Gm
@@ -835,17 +879,17 @@ Status PreGraphProcess::UpdateCubeOp(Function &function) {
                 continue;
             }
             input->tensor = finalOutput->tensor;
+            /*
+            强制要求当前Matmul链路输出的Gm仅存在一个清零的Op，暂时通过指定清零和ReduceAcc使用的vec tilesize与tileM x tileN相同
+            后续通过前端提供使能切K的API保证
+            */
+            AlignCopyOutAttr(input, chainEndCopyOut);
         }
         for (auto &output: op.GetOOperands()) {
-            if (output->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
-                continue;
-            }
-            // force setting the  data type
+            // force setting the data type
             if (IsFloat(output)) {
                 output->tensor->datatype = DataType::DT_FP32;
-                continue;
-            }
-            if (IsInt(output)) {
+            } else if (IsInt(output)) {
                 output->tensor->datatype = DataType::DT_INT32;
             }
         }
@@ -859,10 +903,6 @@ Status PreGraphProcess::UpdateCubeOp(Function &function) {
 
 Status PreGraphProcess::RunOnFunction(Function &function) {
     ALOG_INFO_F("===> start PreGraph");
-    if (UpdateCubeOp(function) != SUCCESS) {
-        ALOG_ERROR_F("Update Cube attr failed.");
-        return FAILED;
-    }
     PreColorSort(function);
     auto opList = function.Operations();
     for (auto &op : opList) {
@@ -881,6 +921,10 @@ Status PreGraphProcess::RunOnFunction(Function &function) {
     }
     ProcessSameInOutOp(function);
     DeleteRedundantAssemble(function);
+    if (UpdateCubeOp(function) != SUCCESS) {
+        ALOG_ERROR_F("Update Cube attr failed.");
+        return FAILED;
+    }
     ALOG_INFO_F("===> End PreGraph");
     return SUCCESS;
 }

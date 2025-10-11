@@ -3646,8 +3646,6 @@ void TiledReduceAcc(Function &function, const TileShape &tileShape,
     TileInfo tileInfo1(result->shape.size(), result->offset.size());
     TileInfo tileInfo2(result->shape.size(), result->offset.size());
     TileInfo resultTileInfo(result->shape.size(), result->offset.size());
-    auto input1 = Input{operandVec[0], tileInfo1};
-    auto input2 = Input{operandVec[1], tileInfo2};
     std::vector<Input> inputVec;
     for (size_t index = 0; index < operandVec.size(); ++index) {
         TileInfo tileInfo(result->shape.size(), result->offset.size());

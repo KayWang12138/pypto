@@ -49,7 +49,7 @@ Status PreGraphProcessChecker::DoPreCheck(Function &function) {
         }
         if (tensorIn->GetMemoryTypeOriginal() != tensorOut->GetMemoryTypeOriginal()) {
             // 校验输入输出mem类型相同
-            ALOG_ERROR_F("[PreGraphProcess Precheck] runmatched input output memory type for %s[%d], input mem type: "
+            ALOG_ERROR_F("[PreGraphProcess Precheck] unmatched input output memory type for %s[%d], input mem type: "
                          "%s, output mem type: %s",
                 op.GetOpcodeStr().c_str(), op.opmagic, MemoryTypeToString(tensorIn->GetMemoryTypeOriginal()).c_str(),
                 MemoryTypeToString(tensorOut->GetMemoryTypeOriginal()).c_str());

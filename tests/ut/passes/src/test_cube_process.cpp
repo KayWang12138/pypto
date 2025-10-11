@@ -462,6 +462,8 @@ TEST_F(SplitKTest, TestReducAccInputLess) {
     EXPECT_NE(opReduceAccCount, 0);
     // run pass
     SplitK passLocal;
+    Status preCheckResult = passLocal.PreCheck(*function);
+    EXPECT_EQ(preCheckResult, SUCCESS);
     passLocal.Run(*function, "", "", 0);
     // check after pass
     opReduceAccCount = 0;
@@ -470,7 +472,7 @@ TEST_F(SplitKTest, TestReducAccInputLess) {
             opReduceAccCount++;
         }
     }
-    EXPECT_NE(opReduceAccCount, 0);
+    EXPECT_EQ(opReduceAccCount, 0);
 }
 
 TEST_F(SplitKTest, TestReducAccOutPutMore) {
@@ -592,15 +594,8 @@ TEST_F(SplitKTest, TestReducAccOutPutMore) {
     EXPECT_NE(opReduceAccCount, 0);
     // run pass
     SplitK passLocal;
-    passLocal.Run(*function, "", "", 0);
-    // check after pass
-    opReduceAccCount = 0;
-    for(auto &op : function->Operations()) {
-        if(op.GetOpcode() == Opcode::OP_REDUCE_ACC) {
-            opReduceAccCount++;
-        }
-    }
-    EXPECT_NE(opReduceAccCount, 0);
+    Status preCheckResult = passLocal.PreCheck(*function);
+    EXPECT_NE(preCheckResult, SUCCESS);
 }
 
 TEST_F(SplitKTest, Test_MM_FP16_Atomic_On) {

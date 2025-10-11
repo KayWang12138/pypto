@@ -28,30 +28,40 @@ Status SplitK::PreCheck(Function &function) {
         if (op.GetOpcode() == Opcode::OP_A_MUL_B && op.GetOpcode() == Opcode::OP_A_MULACC_B) {
             // L0C tensor 有且只有一个非空consumer op
             if (op.GetOOperands().size() != 1) {
-                ALOG_ERROR_F("[SplitK] invalid op: %s[%d] has output num not equal to ONE.",
+                ALOG_ERROR_F("[SplitK] PreCheck Failed, invalid op: %s[%d] has output num not equal to ONE.",
                     op.GetOpcodeStr().c_str(), op.GetOpMagic());
                 return FAILED;
             }
             auto output = op.GetOOperands().front();
             if ((output->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) || (output->GetConsumers().size() != 1) 
                 || (*output->GetConsumers().begin() == nullptr)) {
-                ALOG_ERROR_F("[SplitK] %s[%d] has invalid output tenosr[%d].",
+                ALOG_ERROR_F("[SplitK] PreCheck Failed, %s[%d] has invalid output tenosr[%d].",
                     op.GetOpcodeStr().c_str(), op.GetOpMagic(), output->magic);
                 return FAILED;
             }
         }
         if (op.GetOpcode() == Opcode::OP_REDUCE_ACC) {
+            // 输入数量不能小于1
+            if (op.GetIOperands().size() < 1) {
+                ALOG_ERROR_F("[CubeProcess] PreCheck Failed, %s[%d] has input num less than 1.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+                return FAILED;
+            }
+            // 输出数量必须等于1
+            if (op.GetOOperands().size() != 1) {
+                ALOG_ERROR_F("[CubeProcess] PreCheck Failed, %s[%d] has output num != 1.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+                return FAILED;
+            }
             // Reduce Acc 的输入和输出必须都是DDR类型
             for (auto &in : op.GetIOperands()) {
                 if (in->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
-                    ALOG_ERROR_F("[SplitK] %s[%d] has non-DDR input tenosr[%d]",
+                    ALOG_ERROR_F("[SplitK] PreCheck Failed, %s[%d] has non-DDR input tenosr[%d]",
                         op.GetOpcodeStr().c_str(), op.GetOpMagic(), in->magic);
                     return FAILED;
                 }
             }
             for (auto &out : op.GetOOperands()) {
                 if (out->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
-                    ALOG_ERROR_F("[SplitK] %s[%d] has non-DDR output tenosr[%d]",
+                    ALOG_ERROR_F("[SplitK] PreCheck Failed, %s[%d] has non-DDR output tenosr[%d]",
                         op.GetOpcodeStr().c_str(), op.GetOpMagic(), out->magic);
                     return FAILED;
                 }
@@ -100,15 +110,6 @@ Status SplitK::EliminateReduceAcc(Function &function) {
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() == Opcode::OP_REDUCE_ACC) {
             ALOG_INFO_F("ATOMIC_ADD, opmagic: %d", op.GetOpMagic());
-            if (op.GetIOperands().size() <= 1) {
-                ALOG_ERROR_F("%s[%d] has input num less than 1", op.GetOpcodeStr().c_str(), op.GetOpMagic());
-                return FAILED;
-            }
-            if (op.GetOOperands().size() != 1) {
-                ALOG_ERROR_F("%s[%d] has output num != 1", op.GetOpcodeStr().c_str(), op.GetOpMagic());
-                return FAILED;
-            }
-
             auto reduceOut = op.GetOOperands().front();
             reduceOut->GetProducers().clear();
 
