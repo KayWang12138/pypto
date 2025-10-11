@@ -49,7 +49,7 @@ set(_DistributedGTestCaseFilterConfig
         "DistributedTest.aivWaitFlag_single_test_moe_dispatch_bfloat16_rank_size_4" "4"
         "DistributedTest.aivWaitFlag_single_test_moe_combine_bfloat16_rank_size_4" "4"
         "DistributedTest.allgather_attn_post_reducescatter_b64_s1_n32_lora256_dim128_h128_rank4_bf16" "4"
-        "DistributedTest.test_dyn_all_gather_int32_128_256_4" "4"
+        "DistributedTest.shmem_all_gather_int32_128_256_4" "4"
         "DistributedTest.shmem_reduce_scatter_int32_128_256_4" "4"
 )
 set(_LdLibrariesExt

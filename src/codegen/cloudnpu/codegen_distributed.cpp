@@ -23,91 +23,144 @@
 
 namespace npu::tile_fwk {
 
+using AtomicType = npu::tile_fwk::Distributed::AtomicType;
+
+void CheckInRange(int64_t value)
+{
+    if (value < std::numeric_limits<uint32_t>::min() || value > std::numeric_limits<uint32_t>::max()) {
+        throw std::out_of_range("Invalid value: " + std::to_string(value));
+    }
+}
+
 std::string CodeGenOpCloudNPU::GetTemplateDType() const
 {
-    if (opCode == Opcode::OP_FFN_BATCHING) {
-        return DataType2CCEStr(operandDtype[0]);
-    } else if (opCode == Opcode::OP_MOE_ATTN_COMBINE) {
-        return DataType2CCEStr(operandDtype[0]);
-    } else if (opCode == Opcode::OP_DISPATCH_SET_FLAG) {
-        return DataType2CCEStr(operandDtype[4]); // 从 operand 4 获取 T
+    int32_t operandIndex{1};
+    switch (opCode) {
+        case Opcode::OP_FFN_BATCHING:
+        case Opcode::OP_MOE_ATTN_COMBINE: {
+            operandIndex = 0;
+            break;
+        }
+        case Opcode::OP_DISPATCH_SET_FLAG: {
+            operandIndex = 4; // 从 operand 4 获取 T
+            break;
+        }
+        default: {
+            break;
+        }
     }
-    return DataType2CCEStr(operandDtype[1]);
+    return DataType2CCEStr(operandDtype[operandIndex]);
+}
+
+void CodeGenOpCloudNPU::GenExtraTemplateParamsForPutAndGet(std::ostringstream& oss) const {
+    // 必须从 shmemData 取 shape，不能从 nonShmemData 取
+    // 如果从 nonShmemData 取，ShmemGet 会取到 assemble 后的 shape，不符合预期
+    int32_t shmemDataIndex = 3;
+    const std::vector<int64_t>& tileShape = originShape[shmemDataIndex]; // originShape 是切块后的 shape
+    int64_t tileRowShape = tileShape[tileShape.size() - 2];
+    int64_t tileColShape = tileShape[tileShape.size() - 1];
+
+    int32_t bufferIndex = 1;
+    const std::vector<int64_t>& bufferShape = originShape[bufferIndex];
+    int64_t bufferRowShape = bufferShape[0];
+    int64_t bufferColShape = bufferShape[1];
+
+    const std::vector<int64_t>& originTensorShape = rawShape[shmemDataIndex]; // rawShape 是切块前的 shape
+    int64_t stride = originTensorShape[originTensorShape.size() - 1];
+
+    AtomicType atomicType = AtomicType::SET;
+    if (auto it = opAttrs.find("AtomicType"); it != opAttrs.end()) {
+        atomicType = npu::tile_fwk::AnyCast<AtomicType>(it->second);
+    }
+
+    CheckInRange(tileRowShape);
+    CheckInRange(tileColShape);
+    CheckInRange(bufferRowShape);
+    CheckInRange(bufferColShape);
+    CheckInRange(stride);
+
+    oss << "<" << GetTemplateDType() << ", " << tileRowShape << ", " << tileColShape << ", " << bufferRowShape
+        << ", " << bufferColShape << ", " << stride << ", " << stride << ", "
+        << npu::tile_fwk::Distributed::AtomicTypeToString(atomicType) << ">";
 }
 
 std::string CodeGenOpCloudNPU::GenTemplateParams() const
 {
     std::ostringstream oss;
-    if ((opCode == Opcode::OP_SHMEM_PUT) || (opCode == Opcode::OP_SHMEM_GET)) {
-        std::vector<int64_t> tileShape = originShape[ID3];
-        int64_t tileRowShape = tileShape[tileShape.size() - ID2];
-        ASSERT(tileRowShape > 0 && tileRowShape <= std::numeric_limits<uint16_t>::max()) << "tileRowShape is not valid";
-        int64_t tileColShape = tileShape[tileShape.size() - ID1];
-        ASSERT(tileColShape > 0 && tileColShape <= std::numeric_limits<uint16_t>::max()) << "tileColShape is not valid";
-        std::vector<int64_t> bufferShape = originShape[ID1];
-        int64_t bufferRowShape = bufferShape[0];
-        int64_t bufferColShape = bufferShape[1];
-        std::vector<int64_t> originTensorShape = rawShape[ID3]; // 切块之前的shape
-        int64_t stride = originTensorShape[originTensorShape.size() - ID1];
-        npu::tile_fwk::Distributed::AtomicType atomicType = npu::tile_fwk::Distributed::AtomicType::ADD;
-        if (opAttrs.count("AtomicType") != 0) {
-            atomicType = npu::tile_fwk::AnyCast<npu::tile_fwk::Distributed::AtomicType>(opAttrs.at("AtomicType"));
+    switch (opCode) {
+        case Opcode::OP_SHMEM_PUT:
+        case Opcode::OP_SHMEM_GET: {
+            GenExtraTemplateParamsForPutAndGet(oss);
+            break;
         }
-        oss << "<" << GetTemplateDType() << ", " << tileRowShape << ", " << tileColShape << ", " << bufferRowShape <<
-            ", " << bufferColShape << ", " << stride << ", " << stride << ", " << npu::tile_fwk::Distributed::AtomicTypeToString(atomicType) << ">";
-    } else if (opCode == Opcode::OP_SHMEM_SIGNAL) {
-        int64_t value = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at("Value")); 
-        npu::tile_fwk::Distributed::AtomicType atomicType = npu::tile_fwk::AnyCast<npu::tile_fwk::Distributed::AtomicType>(opAttrs.at("AtomicType"));
-        oss << "<" << std::to_string(value) << ", " << npu::tile_fwk::Distributed::AtomicTypeToString(atomicType) << ">";
-    } else if (opCode == Opcode::OP_SHMEM_REDUCE) {
-        std::string extraTemplateParam = npu::tile_fwk::AnyCast<std::string>(opAttrs.at("extraTemplateParam"));
-        std::vector<int64_t> outShape = rawShape[ID0];
-        oss << "<" << GetTemplateDType() << ", " << extraTemplateParam << ", " << outShape[0] << ", " << outShape[1] << ">";
-    } else if (opAttrs.count("extraTemplateParam") != 0) {
-        std::string extraTemplateParam = npu::tile_fwk::AnyCast<std::string>(opAttrs.at("extraTemplateParam"));
-        oss << "<" << GetTemplateDType() << ", " << extraTemplateParam << ">";
-    } else {
-        oss << "<" << GetTemplateDType() << ">";
+        case Opcode::OP_SHMEM_SIGNAL: {
+            int64_t value = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at("Value"));
+            AtomicType atomicType = npu::tile_fwk::AnyCast<AtomicType>(opAttrs.at("AtomicType"));
+            oss << "<" << std::to_string(value) << ", " << npu::tile_fwk::Distributed::AtomicTypeToString(atomicType)
+                << ">";
+            break;
+        }
+        case Opcode::OP_SHMEM_REDUCE: {
+            std::string extraTemplateParam = npu::tile_fwk::AnyCast<std::string>(opAttrs.at("extraTemplateParam"));
+
+            int32_t outIndex = 0;
+            const std::vector<int64_t> outShape = rawShape[outIndex];
+            int64_t row = outShape[0];
+            int64_t col = outShape[1];
+
+            oss << "<" << GetTemplateDType() << ", " << extraTemplateParam << ", " << row << ", " << col << ">";
+            break;
+        }
+        default: {
+            if (opAttrs.count("extraTemplateParam") != 0) {
+                std::string extraTemplateParam = npu::tile_fwk::AnyCast<std::string>(opAttrs.at("extraTemplateParam"));
+                oss << "<" << GetTemplateDType() << ", " << extraTemplateParam << ">";
+            } else {
+                oss << "<" << GetTemplateDType() << ">";
+            }
+            break;
+        }
     }
     return oss.str();
 }
 
-std::pair<std::string, std::string> CodeGenOpCloudNPU::GenOffsetsAndRawShapes(int32_t operandIndex, int32_t dim) const
+std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapes(int32_t operandIndex, int32_t dim) const
 {
     std::string offsets = GenGetParamMacroPacked(operandIndex, dim, PREFIX_STR_OFFSET)[0];
     std::string rawShapes = GenGetParamMacroPacked(operandIndex, dim, PREFIX_STR_RAW_SHAPE)[0];
-    return {offsets, rawShapes};
+    return ", " + offsets + ", " + rawShapes;
 }
 
 std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapes() const
 {
     std::ostringstream oss;
-    if ((opCode == Opcode::OP_SHMEM_PUT) || (opCode == Opcode::OP_SHMEM_GET)) {
-        int32_t nonShmemDataIndex{0};
-        int32_t shmemDataIndex{0};
-        if (opCode == Opcode::OP_SHMEM_PUT) {
-            nonShmemDataIndex = 2; // nonShmemData 是 operand 2
-            shmemDataIndex = 3; // shmemData 是 operand 3
-        } else {
-            nonShmemDataIndex = 0; // nonShmemData 是 operand 0
-            shmemDataIndex = 3; // shmemData 是 operand 3
+    switch (opCode) {
+        case Opcode::OP_SHMEM_PUT:
+        case Opcode::OP_SHMEM_GET: {
+            int32_t nonShmemDataIndex = (opCode == Opcode::OP_SHMEM_PUT) ? 2 : 0;
+            int32_t shmemDataIndex = 3;
+            int32_t nonShmemDataDim = 2;
+            int32_t shmemDataDim = 4;
+            oss << GenOffsetsAndRawShapes(nonShmemDataIndex, nonShmemDataDim)
+                << GenOffsetsAndRawShapes(shmemDataIndex, shmemDataDim);
+            break;
         }
-        constexpr int32_t nonShmemDataDim = 2;
-        constexpr int32_t shmemDataDim = 4;
-        auto [nonShmemDataOffsets, nonShmemDataRawShapes] = GenOffsetsAndRawShapes(nonShmemDataIndex, nonShmemDataDim);
-        auto [shmemDataOffsets, shmemDataRawShapes] = GenOffsetsAndRawShapes(shmemDataIndex, shmemDataDim);
-        oss << ", " << nonShmemDataOffsets << ", " << nonShmemDataRawShapes
-            << ", " << shmemDataOffsets << ", " << shmemDataRawShapes;
-    } else if (opCode == Opcode::OP_SHMEM_CLEAR_SIGNAL || opCode == Opcode::OP_SHMEM_SIGNAL) {
-        int32_t shmemSignalIndex = (opCode == Opcode::OP_SHMEM_SIGNAL) ? 3 : 2; // 2、3指shmemSignal是第几个operand
-        constexpr int32_t shmemSignalDim = 4;
-        auto [shmemSignalOffsets, shmemSignalRawShapes] = GenOffsetsAndRawShapes(shmemSignalIndex, shmemSignalDim);
-        oss << ", " << shmemSignalOffsets << ", " << shmemSignalRawShapes;
-    } else if (opCode == Opcode::OP_SHMEM_REDUCE) {
-        constexpr int32_t outIndex = 0;
-        constexpr int32_t outDim = 2;
-        auto [outOffsets, outRawShape] = GenOffsetsAndRawShapes(outIndex, outDim);
-        oss << ", " << outOffsets << ", " << outRawShape;
+        case Opcode::OP_SHMEM_CLEAR_SIGNAL:
+        case Opcode::OP_SHMEM_SIGNAL: {
+            int32_t shmemSignalIndex = (opCode == Opcode::OP_SHMEM_SIGNAL) ? 3 : 2;
+            int32_t shmemSignalDim = 4;
+            oss << GenOffsetsAndRawShapes(shmemSignalIndex, shmemSignalDim);
+            break;
+        }
+        case Opcode::OP_SHMEM_REDUCE: {
+            int32_t outIndex = 0;
+            int32_t outDim = 2;
+            oss << GenOffsetsAndRawShapes(outIndex, outDim);
+            break;
+        }
+        default: {
+            break;
+        }
     }
     return oss.str();
 }
@@ -115,8 +168,8 @@ std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapes() const
 std::string CodeGenOpCloudNPU::GenDistOp() const
 {
     std::ostringstream oss;
-    oss << tileOpName << GenTemplateParams() << "(" << GenParamsStr() << GenOffsetsAndRawShapes() <<
-        ", hcclContext);\n";
+    oss << tileOpName << GenTemplateParams() << "(" << GenParamsStr() << GenOffsetsAndRawShapes()
+        << ", hcclContext);\n";
     return oss.str();
 }
 

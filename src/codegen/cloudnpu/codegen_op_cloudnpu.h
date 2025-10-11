@@ -106,8 +106,9 @@ public:
     std::string GenDistOp() const;
     std::string GetTemplateDType() const;
     std::string GenTemplateParams() const;
+    void GenExtraTemplateParamsForPutAndGet(std::ostringstream& oss) const;
     std::string GenOffsetsAndRawShapes() const;
-    std::pair<std::string, std::string> GenOffsetsAndRawShapes(int32_t operandIndex, int32_t dim) const;
+    std::string GenOffsetsAndRawShapes(int32_t operandIndex, int32_t dim) const;
 
     std::string GenPoolOp() const;
 
