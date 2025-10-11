@@ -284,6 +284,17 @@ Status NodeGraphInfo::Build(const std::shared_ptr<OperationGraphInfo> operationG
     return SUCCESS;
 }
 
+bool NodeGraphInfo::GetNodeMergeable(const std::shared_ptr<OperationGraphInfo> operationGraphInfo, int32_t nodeIdx)
+{
+    bool isMergeable = !(node2Op_[nodeIdx].size() == 1 &&
+                         operationGraphInfo->opList_[node2Op_[nodeIdx][0]]->GetOpcode() == Opcode::OP_RESHAPE &&
+                         ((nodeInGraph_[nodeIdx].size() > 1 && nodeOutGraph_[nodeIdx].size() > 1) ||
+                         (nodeInGraph_[nodeIdx].size() > 1 && nodeOutGraph_[nodeIdx].size() == 0) ||
+                         (nodeInGraph_[nodeIdx].size() == 0 && nodeOutGraph_[nodeIdx].size() > 1))
+                         );
+    return isMergeable;
+}
+
 Status NodeGraphInfo::BuildInOutGraph(const std::shared_ptr<OperationGraphInfo> operationGraphInfo, bool markIsCube)
 {
     nodeInGraph_.resize(node2Op_.size());
@@ -316,9 +327,7 @@ Status NodeGraphInfo::BuildInOutGraph(const std::shared_ptr<OperationGraphInfo> 
                 break;
             }
         }
-        nodeMergeable_[i] = !(node2Op_[i].size() == 1 &&
-                              operationGraphInfo->opList_[node2Op_[i][0]]->GetOpcode() == Opcode::OP_RESHAPE &&
-                              nodeInGraph_[i].size() > 1 && nodeOutGraph_[i].size() > 1);
+        nodeMergeable_[i] = GetNodeMergeable(operationGraphInfo, i);
         if (!markIsCube) {
             continue;
         }
