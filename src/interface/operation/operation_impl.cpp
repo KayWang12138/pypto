@@ -1325,7 +1325,7 @@ void TiledGatherElementOperation(Function &function, const TileShape &tileShape,
         } else {
             paramsInput.tileInfo.offset[cur] = i % paramsInput.tensor->shape[cur];
             paramsInput.tileInfo.shape[cur] =
-                std::min(indicesInput.tensor->shape[cur] - indicesInput.tileInfo.offset[cur], tmpTile);
+                std::min(paramsInput.tensor->shape[cur] - paramsInput.tileInfo.offset[cur], tmpTile);
             // 处理indices的tileInfo
             indicesInput.tileInfo.offset[cur] = i % indicesInput.tensor->shape[cur];
             indicesInput.tileInfo.shape[cur] =
@@ -1358,7 +1358,6 @@ void TiledGatherElementOperation(Function &function, const TileShape &tileShape,
 LogicalTensorPtr TensorGatherElementOperation(Function &function,
     const LogicalTensorPtr &params, const LogicalTensorPtr &indices, int axis) {
     auto result = std::make_shared<LogicalTensor>(function, params->Datatype(), indices->shape);
-
     auto &op = function.AddOperation(Opcode::OP_GATHER_ELEMENT, {params, indices}, {result});
     op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
 
@@ -2388,7 +2387,8 @@ void ToFile(const Tensor &operand, const std::string &fname, const std::vector<S
 
 Tensor GatherElement(const Tensor &params, const Tensor &indices, int axis) {
     DECLARE_TRACER();
-
+    ASSERT(axis < static_cast<int>(params->shape.size()) && axis >= - static_cast<int>(params->shape.size()));
+    axis = axis < 0 ? params->shape.size() + axis : axis; //支持负轴
     RETURN_CALL(GatherElementOperation, *Program::GetInstance().GetCurrentFunction(), params.GetStorage(),
         indices.GetStorage(), axis);
 }

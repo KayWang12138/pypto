@@ -886,7 +886,10 @@ def gen_gatherelement_op_golden(case_name: str, output: Path, case_index: int = 
         params = config.get("params")
         axis = params["axis"]
         src = torch.from_numpy(inputs[0])
-        indices = torch.from_numpy(inputs[1])
+        if inputs[1].dtype == np.int32:
+            indices = torch.from_numpy(inputs[1]).long()
+        else:
+            indices = torch.from_numpy(inputs[1])
 
         res = src.gather(axis, indices).numpy()
 

@@ -1870,21 +1870,88 @@ TILEOP void DynTtransposeMoveIn_(__ubuf__ T *dst, __gm__ T *src, unsigned TShape
     }
 }
 
-template <typename T, typename T2, unsigned src0Shape1, unsigned src1Shape1, unsigned dstShape1, unsigned axis>
+//dim2
+template <typename T, typename T2, unsigned src0RawShape1, unsigned src1RawShape1, unsigned dstRawShape1, unsigned axis>
 TILEOP void DynTgatherElement(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1, unsigned TShape0, unsigned TShape1) {
-    constexpr uint16_t lenBurst = 1;
     set_flag(PIPE_V, PIPE_S, EVENT_ID7);
     wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
     for (int i = 0; i < TShape0; ++i) {
         for (int j = 0; j < TShape1; ++j) {
-            T2 index = (T2)(*(src1 + i * src1Shape1 + j)); // src1[i,j]
-            int srcOffset = 0;
+            T2 index = (T2)(*(src1 + i * src1RawShape1 + j)); // indices[i,j]
+            int src0Offset = 0;
             if constexpr (axis == 0) {
-                srcOffset = index * src0Shape1 + j;
+                src0Offset = index * src0RawShape1 + j; // src[indices[i,j],j]
             } else {
-                srcOffset = i * src0Shape1 + index;
+                src0Offset = i * src0RawShape1 + index; // src[i,indices[i,j]]
             }
-            dst[i * dstShape1 + j] = src0[srcOffset];
+            dst[i * dstRawShape1 + j] = src0[src0Offset];
+        }
+    }
+    set_flag(PIPE_S, PIPE_V, EVENT_ID7);
+    wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
+}
+
+// dim3
+template <typename T, typename T2, unsigned src0RawShape1, unsigned src0RawShape2, unsigned src1RawShape1,
+    unsigned src1RawShape2, unsigned dstRawShape1, unsigned dstRawShape2, unsigned axis>
+TILEOP void DynTgatherElement(
+    __ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1, unsigned TShape0, unsigned TShape1, unsigned TShape2) {
+    set_flag(PIPE_V, PIPE_S, EVENT_ID7);
+    wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
+    for (int i = 0; i < TShape0; ++i) {
+        for (int j = 0; j < TShape1; ++j) {
+            for (int k = 0; k < TShape2; ++k) {
+                T2 index = (T2)(*(src1 + i * src1RawShape1 * src1RawShape2 + j * src1RawShape2 + k)); // index[i,j,k]
+                int src0Offset = 0;
+                int dstOffset = i * dstRawShape1 * dstRawShape2 + j * dstRawShape2 + k;
+                if constexpr (axis == 0) {
+                    src0Offset = index * src0RawShape1 * src0RawShape2 + j * src0RawShape2 + k;
+                } else if (axis == 1) {
+                    src0Offset = i * src0RawShape1 * src0RawShape2 + index * src0RawShape2 + k;
+                } else {
+                    src0Offset = i * src0RawShape1 * src0RawShape2 + j * src0RawShape2 + index;
+                }
+                dst[dstOffset] = src0[src0Offset];
+            }
+        }
+    }
+    set_flag(PIPE_S, PIPE_V, EVENT_ID7);
+    wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
+}
+
+// dim4
+template <typename T, typename T2, unsigned src0RawShape1, unsigned src0RawShape2, unsigned src0RawShape3,
+    unsigned src1RawShape1, unsigned src1RawShape2, unsigned src1RawShape3, unsigned dstRawShape1,
+    unsigned dstRawShape2, unsigned dstRawShape3, unsigned axis>
+TILEOP void DynTgatherElement(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1, unsigned TShape0, unsigned TShape1,
+    unsigned TShape2, unsigned TShape3) {
+    set_flag(PIPE_V, PIPE_S, EVENT_ID7);
+    wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
+    for (int i = 0; i < TShape0; ++i) {
+        for (int j = 0; j < TShape1; ++j) {
+            for (int k = 0; k < TShape2; ++k) {
+                for (int l = 0; l < TShape3; ++l) {
+                    T2 index = (T2)(*(src1 + i * src1RawShape1 * src1RawShape2 * src1RawShape3 +
+                                      j * src1RawShape2 * src1RawShape3 + k * src1RawShape3 + l)); // index[i,j,k,l]
+                    int src0Offset = 0;
+                    int dstOffset = i * dstRawShape1 * dstRawShape2 * dstRawShape3 + j * dstRawShape2 * dstRawShape3 +
+                                    k * dstRawShape3 + l;
+                    if constexpr (axis == 0) {
+                        src0Offset = index * src0RawShape1 * src0RawShape2 * src0RawShape3 +
+                                     j * src0RawShape2 * src0RawShape3 + k * src0RawShape3 + l;
+                    } else if (axis == 1) {
+                        src0Offset = i * src0RawShape1 * src0RawShape2 * src0RawShape3 +
+                                     index * src0RawShape2 * src0RawShape3 + k * src0RawShape3 + l;
+                    } else if (axis == 2) {
+                        src0Offset = i * src0RawShape1 * src0RawShape2 * src0RawShape3 +
+                                     j * src0RawShape2 * src0RawShape3 + index * src0RawShape3 + l;
+                    } else {
+                        src0Offset = i * src0RawShape1 * src0RawShape2 * src0RawShape3 +
+                                     j * src0RawShape2 * src0RawShape3 + k * src0RawShape3 + index;
+                    }
+                    dst[dstOffset] = src0[src0Offset];
+                }
+            }
         }
     }
     set_flag(PIPE_S, PIPE_V, EVENT_ID7);
