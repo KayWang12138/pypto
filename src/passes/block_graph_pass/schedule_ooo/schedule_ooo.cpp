@@ -62,7 +62,7 @@ Status OoOSchedule::RunOnFunction(Function &function) {
 
 void OoOSchedule::DoHealthCheckAfter(Function &function, const std::string &folderPath) {
     for (auto &scheduler : schedulerMap) {
-        auto fileName = folderPath + '/' + scheduler.second.oooCheck.jsonFileName + "_Kernel_Graph_Health_Report.json";
+        auto fileName = folderPath + '/' + scheduler.second.oooCheck.jsonFileName + "_Block_Graph_Health_Report.json";
         auto it = function.rootFunc_->programs_.find(scheduler.first);
         if (it != function.rootFunc_->programs_.end()) {
             auto subFunc = it->second;

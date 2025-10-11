@@ -94,7 +94,7 @@ Status OoOSchedulerCheck::HealthCheckOoOSchedule() {
     return SUCCESS;
 }
 
-void OoOSchedulerCheck::HealthCheckKernelGraph(Function *function) {
+void OoOSchedulerCheck::HealthCheckBlockGraph(Function *function) {
     report["totalOpCount"] = function->Operations().size();
     auto &tensors = function->GetTensorMap().inverseMap_;
     size_t maxProducers = 0;
@@ -144,7 +144,7 @@ Status OoOSchedulerCheck::DoHealthCheck(Function *function, const std::string &f
         ALOG_ERROR_F("DoHealthCheck failed at HealthCheckOoOSchedule!");
         return FAILED;
     }
-    HealthCheckKernelGraph(function);
+    HealthCheckBlockGraph(function);
     std::ofstream file(fileName);
     file << report.dump(1) << std::endl;
     file.close();

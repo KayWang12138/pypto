@@ -29,7 +29,7 @@ public:
     Status DoHealthCheck(Function *function, const std::string &fileName);
     void HealthCheckSpillInfo();
     Status HealthCheckOoOSchedule();
-    void HealthCheckKernelGraph(Function *function);
+    void HealthCheckBlockGraph(Function *function);
     std::string jsonFileName;
     bool doHealthCheck{false};
     int workspaceOffset{0};
