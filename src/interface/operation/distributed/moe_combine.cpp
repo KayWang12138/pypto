@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
  * This file is a part of the CANN Open Software.
  * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ void DealTileFFN2Attn(FFN2AttnTileArgs &args)
     std::shared_ptr<LogicalTensor> tilingTensor = args.iOperand[DIST_INDEX_TWO];
     auto inTile = in->View(args.function, shape, offset);
 
-    std::vector<int64_t> flagShape =  {1, 64};
+    std::vector<int64_t> flagShape = {1, 64};
     auto flag = std::make_shared<LogicalTensor>(args.function, DataType::DT_INT32, flagShape);
 
     // CombineInfo不切tile
@@ -84,7 +84,7 @@ void DealTileAttnCombine(AttnCombineTileArgs &args)
     auto outTile = out->View(args.function, shape, offset);
 
     // 申请UB, 两块fp32 UB, 用来进行fp32计算
-    std::vector<int64_t> ubShape =  {1, args.tilingInfo.colShape};
+    std::vector<int64_t> ubShape = {1, args.tilingInfo.colShape};
     auto mulFP32 = std::make_shared<LogicalTensor>(args.function, DataType::DT_FP32, ubShape);
     auto sumFP32 = std::make_shared<LogicalTensor>(args.function, DataType::DT_FP32, ubShape);
 

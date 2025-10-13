@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
  * This file is a part of the CANN Open Software.
  * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -139,7 +139,6 @@ void TiledDispatchFFNBatching(Function &function, const TileShape &tileShape,
     op.GetAttr("DISPATCH_FFN_BUFFER_SHAPE", bufferShape);
     TileProcess(FFNBatchingOpCallback, args, bufferShape);
 }
-
 
 void TiledDispatchFFNSched(Function &function, const TileShape &tileShape,
     const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
@@ -434,7 +433,7 @@ Tensor MoeDispatch(const Tensor &tokenTensor, const Tensor &tokenExpertTable, Te
     }
 
     TileShape::Current().SetDistTileRow({1, TOTAL_EXPERT_NUM, 0});
-    auto dummy = DispatchSetFlag(tokenExpertTable, syncTensor, tilingTensor,  group);
+    auto dummy = DispatchSetFlag(tokenExpertTable, syncTensor, tilingTensor, group);
 
     // 48 * 48 * 512B
     Tensor recvTokenCntOut(DataType::DT_INT32, {AIV_NUM * AIV_NUM, 128},
@@ -444,12 +443,12 @@ Tensor MoeDispatch(const Tensor &tokenTensor, const Tensor &tokenExpertTable, Te
         {static_cast<int>(tokenTensor->shape[1]), 1, 0}, // 不切 x
         {TOTAL_EXPERT_NUM / AIV_NUM, AIV_NUM, 0});       // 暂不处理不整除的场景
 
-    std::vector<std::shared_ptr<LogicalTensor>> schedInOperands {dummy.GetStorage(), tilingTensor.GetStorage()};
-    std::vector<std::shared_ptr<LogicalTensor>> schedOutOperands {recvTokenCntOut.GetStorage()};
+    std::vector<std::shared_ptr<LogicalTensor>> schedInOperands{dummy.GetStorage(), tilingTensor.GetStorage()};
+    std::vector<std::shared_ptr<LogicalTensor>> schedOutOperands{recvTokenCntOut.GetStorage()};
     DispatchFFNSched(schedInOperands, schedOutOperands, group);
 
-    std::vector<std::shared_ptr<LogicalTensor>> iOperands {recvTokenCntOut.GetStorage(), tilingTensor.GetStorage()};
-    std::vector<std::shared_ptr<LogicalTensor>> oOperands {expandX.GetStorage(), validCnt.GetStorage()};
+    std::vector<std::shared_ptr<LogicalTensor>> iOperands{recvTokenCntOut.GetStorage(), tilingTensor.GetStorage()};
+    std::vector<std::shared_ptr<LogicalTensor>> oOperands{expandX.GetStorage(), validCnt.GetStorage()};
     DispatchFFNBatching(iOperands, oOperands, group, tokenTensor);
 
     return expandX;

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
  * This file is a part of the CANN Open Software.
  * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -61,7 +61,8 @@ void TiledShmemPut(Function &function, const TileShape &tileShape,
             }
             auto ubTensor = std::make_shared<LogicalTensor>(function, in->Datatype(), bufferShape);
 
-            auto& tileop = function.AddOperation("SHMEM_PUT", {inTile, shmDataTile, barrierDummy}, {dummyTile, ubTensor});
+            auto& tileop = function.AddOperation("SHMEM_PUT", {inTile, shmDataTile, barrierDummy},
+                {dummyTile, ubTensor});
             tileop.SetAttr("AtomicType", atomicType);
             tileIndex++;
         }
@@ -85,8 +86,8 @@ void TiledShmemSignal(Function &function, const TileShape &tileShape,
     op.GetAttr("AtomicType", atomicType);
     op.GetAttr("Value", value);
     const int64_t tileLen = shmSignal->shape[3];
-    const int64_t rowCount = tileRow[1] + (tileRow[2] == 0? 0 : 1);
-    const int64_t colCount = tileCol[1] + (tileCol[2] == 0? 0 : 1);
+    const int64_t rowCount = tileRow[1] + (tileRow[2] == 0 ? 0 : 1);
+    const int64_t colCount = tileCol[1] + (tileCol[2] == 0 ? 0 : 1);
     int tileIndex = 0;
     for (int64_t rowIdx = 0; rowIdx < rowCount; rowIdx++) {
         for (int64_t colIdx = 0; colIdx < colCount; colIdx++) {
@@ -267,7 +268,7 @@ void TiledShmemReduce(Function &function, const TileShape &tileShape,
     const int64_t colStep = tileCol[0];
     bool fp32Mode;
     op.GetAttr("FP32Mode", fp32Mode);
-    std::string extraTemplateParam = fp32Mode? "true" : "false";
+    std::string extraTemplateParam = fp32Mode ? "true" : "false";
     int tileIndex = 0;
     for (int64_t rowIdx = 0; rowIdx < oriRow; rowIdx += rowStep) {
         auto rowSize = std::min(oriRow - rowIdx, rowStep);
