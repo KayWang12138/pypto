@@ -36,6 +36,11 @@ static RawTensorDataPtr HostCastPythonToNative(const std::shared_ptr<LogicalTens
     nativeData = std::make_shared<RawTensorData>(dataType, shape);
     int64_t size = py::len(pythonData);
     switch (dataType) {
+    case DataType::DT_INT64: {
+            for (int64_t i = 0; i < size; i++) {
+                nativeData->Get<int64_t>(i) = static_cast<int64_t>(py::int_((pythonData.attr("__getitem__")(i))));
+            }
+        } break;
     case DataType::DT_INT32: {
             for (int64_t i = 0; i < size; i++) {
                 nativeData->Get<int32_t>(i) = static_cast<int32_t>(py::int_((pythonData.attr("__getitem__")(i))));
@@ -67,6 +72,7 @@ static RawTensorDataPtr HostCastPythonToNative(const std::shared_ptr<LogicalTens
         }
     } break;
     default:
+        ALOG_ERROR_F("HostCastPythonToNative DataType:%d is not supported", static_cast<int>(dataType));
         break;
     }
     return nativeData;
@@ -76,6 +82,11 @@ static void HostCastNativeToPython(const std::shared_ptr<LogicalTensor> &tensor,
     DataType dataType = tensor->Datatype();
     int64_t size = nativeData->GetSize();
     switch (dataType) {
+    case DataType::DT_INT64: {
+            for (int64_t i = 0; i < size; i++) {
+                pythonData.attr("__setitem__")(i, nativeData->Get<int64_t>(i));
+            }
+        } break;
     case DataType::DT_INT32: {
             for (int64_t i = 0; i < size; i++) {
                 pythonData.attr("__setitem__")(i, nativeData->Get<int32_t>(i));
@@ -107,6 +118,7 @@ static void HostCastNativeToPython(const std::shared_ptr<LogicalTensor> &tensor,
             }
         } break;
     default:
+        ALOG_ERROR_F("HostCastNativeToPython DataType:%d is not supported", static_cast<int>(dataType));
         break;
     }
 }
