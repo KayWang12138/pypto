@@ -23,29 +23,6 @@
 #include "interface/utils/log.h"
 
 namespace npu::tile_fwk {
-std::string JoinString(const std::vector<std::string> &strList, const std::string &conj) {
-    std::ostringstream oss;
-    std::string prefix = "/*";
-    for (size_t i = 0; i < strList.size(); i++) {
-        if (i != 0) {
-            if (strList[i - 1].substr(0, prefix.length()) == prefix) {
-                oss << " ";
-            } else {
-                oss << conj;
-            }
-        }
-        oss << strList[i];
-    }
-    return oss.str();
-}
-
-std::string PrintParams(const std::pair<std::string, std::string> &delimiter, const std::vector<std::string> &params,
-    const std::string &conj) {
-    std::ostringstream oss;
-    oss << delimiter.first << JoinString(params, conj) << delimiter.second;
-    return oss.str();
-}
-
 std::vector<int64_t> NormalizeShape(const std::vector<int64_t> &shapeVec, unsigned dim) {
     std::vector<int64_t> normalizedVec(dim, 1);
     for (size_t i = 0; i < shapeVec.size(); i++) {

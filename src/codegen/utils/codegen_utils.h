@@ -32,9 +32,30 @@ inline void FillIntVecWithDummyInHead(std::vector<T> &input, unsigned padNum, T 
     }
 }
 
-std::string JoinString(const std::vector<std::string> &str_list, const std::string &conj);
-std::string PrintParams(const std::pair<std::string, std::string> &delimiter, const std::vector<std::string> &params,
-    const std::string &conj);
+template <typename T = std::string>
+std::string JoinString(const std::vector<T> &strList, const std::string &conj) {
+    std::ostringstream oss;
+    std::string prefix = "/*";
+    for (size_t i = 0; i < strList.size(); i++) {
+        if (i != 0) {
+            if (std::is_same_v<T, std::string> && strList[i - 1].substr(0, prefix.length()) == prefix) {
+                oss << " ";
+            } else {
+                oss << conj;
+            }
+        }
+        oss << strList[i];
+    }
+    return oss.str();
+}
+
+template <typename T = std::string>
+std::string PrintParams(
+    const std::pair<std::string, std::string> &delimiter, const std::vector<T> &params, const std::string &conj) {
+    std::ostringstream oss;
+    oss << delimiter.first << JoinString<T>(params, conj) << delimiter.second;
+    return oss.str();
+}
 
 std::vector<int64_t> NormalizeShape(const std::vector<int64_t> &shapeVec, unsigned dim);
 
