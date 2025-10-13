@@ -14,29 +14,30 @@ import pto
 
 
 def init_tensors():
-    dtype = pto.data_type.DT_FP32
+    dtype = pto.DataType.DT_FP32
     shape = (128, 128)
-    a = pto.tensor(shape, dtype, "a")
-    b = pto.tensor(shape, dtype, "b")
-    c = pto.tensor(shape, dtype, "c")
+    a = pto.tensor(dtype, shape, "a")
+    b = pto.tensor(dtype, shape, "b")
+    c = pto.tensor(dtype, shape, "c")
     return a, b, c
 
 
 def main():
-    a, b, c = init_tensors()
-    with pto.dyn_function("main", [a, b], [c], []):
-
+    a, b, _ = init_tensors()
+    with pto.dyn_function("main", [a], [b], []):
         pto.set_vec_tile_shapes(16, 16)
-        loop_range = pto.loop_range(10)
+        for in_idx in pto.range(5, name="in_loop1"):
+            if pto.cond(in_idx < 2):
+                b.move(pto.add(a, a))
 
-        with pto.loop_function(
-            "Dynamic",
-            "k",
-            loop_range,
-        ) as rlf:
-            for _ in rlf:
-                c[:] = pto.add(a, b)
-    print(pto.dump())
+        for in_idx in pto.range(5, name="in_loop2"):
+            if pto.cond(in_idx < 2):
+                b.move(pto.add(b, a))
+
+        for idx in pto.range(5, name="in_loop2"):
+            if pto.cond(idx < 2):
+                b.move(pto.add(b, a))
+
 
 if __name__ == "__main__":
     main()

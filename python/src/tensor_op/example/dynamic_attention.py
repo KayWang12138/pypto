@@ -103,7 +103,7 @@ def mla_pre(**kwargs) -> List[pto.tensor]:
             nonlocal q_mm_res
             tmp_c = pto.tensor(pto.data_type.DT_FP32, [bs, q_lora_rank], "tmp_q")
             pto.set_vec_tile_shapes(min(32, bs), 128)  # 32, 128
-            tmp_c.move(pto.mul_s(tmp_c, pto.element(pto.data_type.DT_FP32, 0.0)))
+            tmp_c[:] = pto.mul_s(tmp_c, pto.element(pto.data_type.DT_FP32, 0.0))
             matmul_result = []
             k_split = 7
             k_split_size = h // k_split
@@ -114,10 +114,10 @@ def mla_pre(**kwargs) -> List[pto.tensor]:
                 matmul_result.append(tmp)
             q_mm_res_f32 = pto.reduce(matmul_result, pto.reduce_mode.ATOMIC_ADD)
             pto.set_vec_tile_shapes(min(32, bs), 128)  # 32, 128
-            q_mm_res.move(pto.cast(q_mm_res_f32, d_type))
+            q_mm_res[:] = pto.cast(q_mm_res_f32, d_type)
         inside_if_split_k()
     else:
-        q_mm_res.move(pto.matmul(d_type, input_tensor, w_dq))  # bf16
+        q_mm_res[:] = pto.matmul(d_type, input_tensor, w_dq)  # bf16
 
     pto.set_vec_tile_shapes(min(8, bs), q_lora_rank)  # 8
     norm_res = pto.rms_norm(q_mm_res, gamma_cq, epsilon_cq)
@@ -129,8 +129,8 @@ def mla_pre(**kwargs) -> List[pto.tensor]:
             norm_quant_res = pto.quant(norm_res, True, True, smooth_scales_cq)
         else:
             norm_quant_res = pto.quant(norm_res)  # int8
-        norm_res.move(norm_quant_res[0])
-        norm_dequant_scale.move(norm_quant_res[1])
+        norm_res[:] = norm_quant_res[0]
+        norm_dequant_scale[:] = norm_quant_res[1]
         pto.set_cube_tile_shapes(
             [tie_m, tie_m], [256, 256], [256, 256])  # 256
     else:
@@ -149,7 +149,7 @@ def mla_pre(**kwargs) -> List[pto.tensor]:
             pto.set_vec_tile_shapes(min(32, bs), 64)  # 32, 64
             kv_n = w_dkv_kr.shape[1]
             tmp_c_kv = pto.tensor([bs, kv_n], pto.data_type.DT_FP32, "tmp_kv")
-            tmp_c_kv.move(pto.mul_s(tmp_c_kv, pto.element(pto.data_type.DT_FP32, 0.0)))
+            tmp_c_kv[:] = (pto.mul_s(tmp_c_kv, pto.element(pto.data_type.DT_FP32, 0.0)))
             matmul_result_kv = []
             k_split_kv = 7
             k_split_size_kv = h // k_split_kv
@@ -160,11 +160,11 @@ def mla_pre(**kwargs) -> List[pto.tensor]:
                 matmul_result_kv.append(tmp)
             kv_mm_res_f32 = pto.reduce(matmul_result_kv, pto.reduce_mode.ATOMIC_ADD)
             pto.set_vec_tile_shapes(min(32, bs), 64)  # 32, 64
-            compressed_kv.move(pto.cast(kv_mm_res_f32, d_type))
+            compressed_kv[:] = pto.cast(kv_mm_res_f32, d_type)
         inside_if_split()
     else:
-        compressed_kv.move(pto.matmul(d_type, input_tensor, w_dkv_kr))  # bf16
-
+        compressed_kv[:] = pto.matmul(d_type, input_tensor, w_dkv_kr)  # bf16
+    
     compressed_kv_res = pto.reshape(compressed_kv, [b, s, w_dkv_kr.shape[1]])
     qkv_pre_res.append(compressed_kv_res)
 
@@ -262,177 +262,177 @@ def attention(**kwargs):
             # 设置子图合并的并行度下限（子图数量大于等于parallelThreshold才可合并）
             pto.set_config(SG_PARALLEL_NUM, NUM_2)
             # LOOP("LOOP_L0_bIdx_mla_prolog", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bLoop, 1)) {
-            with pto.loop_function("LOOP_L0_bIdx_mla_prolog", "b_idx", pto.loop_range(0, b_loop, 1)) as b_idx_loop:
-                for b_idx in b_idx_loop:
-                    def inside_b_idx_loop_prolog(b_idx):
-                        nonlocal n_tile, pa_out, kv_cache_out, kr_cache_out
-                        b_offset = b_idx * tile_b
-                        output_offset = [b_offset, 0, 0, 0]
+            for b_idx in pto.loop(0, b_loop, 1, name="LOOP_L0_bIdx_mla_prolog", idx_name="b_idx"):
+                def inside_b_idx_loop_prolog(b_idx):
+                    nonlocal n_tile, pa_out, kv_cache_out, kr_cache_out
+                    b_offset = b_idx * tile_b
+                    output_offset = [b_offset, 0, 0, 0]
 
-                        dequant_scale_w_uq_qr = quant_inputs.dequant_scale_w_uq_qr
-                        is_quant = (dequant_scale_w_uq_qr.has_storage() if dequant_scale_w_uq_qr is not None else False)
-                        smooth_scales_cq = quant_inputs.smooth_scales_cq
-                        is_smooth = (smooth_scales_cq.has_storage() if smooth_scales_cq is not None else False)
-                        logging.info(f"is_quant +++ {is_quant}")
-                        x_view = pto.view(token_x, [tile_b, s, h], [b_offset, 0, 0])
-                        pto.set_semantic_label("mlaPre")
+                    dequant_scale_w_uq_qr = quant_inputs.dequant_scale_w_uq_qr
+                    is_quant = (dequant_scale_w_uq_qr.has_storage() if dequant_scale_w_uq_qr is not None else False)
+                    smooth_scales_cq = quant_inputs.smooth_scales_cq
+                    is_smooth = (smooth_scales_cq.has_storage() if smooth_scales_cq is not None else False)
+                    logging.info(f"is_quant +++ {is_quant}")
+                    x_view = pto.view(token_x, [tile_b, s, h], [b_offset, 0, 0])
+                    pto.set_semantic_label("mlaPre")
 
-                        q_kv = mla_pre(
-                            token_x=x_view,
-                            w_dq=w_dq,
-                            w_uq_qr=w_uq_qr,
-                            w_dkv_kr=w_dkv_kr,
-                            gamma_cq=gamma_cq,
-                            epsilon_cq=epsilon_cq,
-                            quant_inputs=quant_inputs,
-                            split_k=False,
-                            is_smooth=is_smooth)
-                        q = q_kv[0]      # [b*s, n*qHeadDim]
-                        kv_tmp = q_kv[1]  # [b,s,kvLoraRank+qkRopeHeadDim]
+                    q_kv = mla_pre(
+                        token_x=x_view,
+                        w_dq=w_dq,
+                        w_uq_qr=w_uq_qr,
+                        w_dkv_kr=w_dkv_kr,
+                        gamma_cq=gamma_cq,
+                        epsilon_cq=epsilon_cq,
+                        quant_inputs=quant_inputs,
+                        split_k=False,
+                        is_smooth=is_smooth)
+                    q = q_kv[0]      # [b*s, n*qHeadDim]
+                    kv_tmp = q_kv[1]  # [b,s,kvLoraRank+qkRopeHeadDim]
 
-                        # dequant: int32 -> fp32 -> *scale -> fp16/bf16
-                        if is_quant:
-                            def inside_quant():
-                                nonlocal q
-                                pto.set_semantic_label("Quant")
-                                tile_shape = [min(NUM_32, tile_bs), NUM_64]
-                                pto.set_vec_tile_shapes(*tile_shape)
-                                q_tmp_fp32 = pto.cast(q, pto.data_type.DT_FP32)
-                                q_tmp_dequant_scale = q_kv[2]
-                                q_tmp_dequant_per_token = pto.mul(q_tmp_fp32, q_tmp_dequant_scale)
-                                q_tmp_dequant_channel = pto.mul(q_tmp_dequant_per_token, dequant_scale_w_uq_qr)
+                    # dequant: int32 -> fp32 -> *scale -> fp16/bf16
+                    if is_quant:
+                        def inside_quant():
+                            nonlocal q
+                            pto.set_semantic_label("Quant")
+                            tile_shape = [min(NUM_32, tile_bs), NUM_64]
+                            pto.set_vec_tile_shapes(*tile_shape)
+                            q_tmp_fp32 = pto.cast(q, pto.DataType.DT_FP32)
+                            q_tmp_dequant_scale = q_kv[2]
+                            q_tmp_dequant_per_token = pto.mul(q_tmp_fp32, q_tmp_dequant_scale)
+                            q_tmp_dequant_channel = pto.mul(q_tmp_dequant_per_token, dequant_scale_w_uq_qr)
 
-                                q.move(pto.cast(q_tmp_dequant_channel, dtype))
-                            inside_quant()
+                            q[:] = pto.cast(q_tmp_dequant_channel, dtype)
+                        inside_quant()
 
-                        pto.set_semantic_label("Reshape0")
-                        q_tmp = pto.reshape(q, [tile_b, s, n, q_head_dim])
-                        tile_shape = [min(NUM_32, tile_b), 1, 1, NUM_64]
-                        pto.set_vec_tile_shapes(*tile_shape)
+                    pto.set_semantic_label("Reshape0")
+                    q_tmp = pto.reshape(q, [tile_b, s, n, q_head_dim])
+                    tile_shape = [min(NUM_32, tile_b), 1, 1, NUM_64]
+                    pto.set_vec_tile_shapes(*tile_shape)
 
-                        ########## q ##########
-                        pto.set_semantic_label("q")
-                        q_nope = pto.view(q_tmp, [tile_b, s, n, qk_nope_head_dim], [0, 0, 0, 0]) # [b,s,n,qkNopeHeadDim]
-                        tile_shape = [tile_b, 1, 1, NUM_128]
-                        pto.set_vec_tile_shapes(*tile_shape)
-                        q_nope_res = pto.reshape(q_nope, [tile_bs, n, qk_nope_head_dim])  # [bs,n,qkNopeHeadDim]
-                        tile_shape = [min(NUM_32, tile_bs), 1, qk_nope_head_dim]     # {NUM_2, NUM_32, qkNopeHeadDim}
-                        pto.set_vec_tile_shapes(*tile_shape)
-                        pto.set_semantic_label("Transpose0")
-                        q_nope_trans = pto.transpose(q_nope_res, [0, 1])  # [n,bs,qkNopeHeadDim]
+                    ########## q ##########
+                    pto.set_semantic_label("q")
+                    q_nope = pto.view(q_tmp, [tile_b, s, n, qk_nope_head_dim], [0, 0, 0, 0]) # [b,s,n,qkNopeHeadDim]
+                    tile_shape = [tile_b, 1, 1, NUM_128]
+                    pto.set_vec_tile_shapes(*tile_shape)
+                    q_nope_res = pto.reshape(q_nope, [tile_bs, n, qk_nope_head_dim])  # [bs,n,qkNopeHeadDim]
+                    tile_shape = [min(NUM_32, tile_bs), 1, qk_nope_head_dim]     # {NUM_2, NUM_32, qkNopeHeadDim}
+                    pto.set_vec_tile_shapes(*tile_shape)
+                    pto.set_semantic_label("Transpose0")
+                    q_nope_trans = pto.transpose(q_nope_res, [0, 1])  # [n,bs,qkNopeHeadDim]
 
-                        c0 = NUM_16
-                        m = (min(NUM_32, tile_bs) + c0 - 1) // c0 * c0
-                        pto.set_cube_tile_shapes([m, m], [NUM_256, NUM_256], [NUM_128, NUM_128], True)
-                        pto.set_semantic_label("BatchMatmul")
-                        q_nope_new = pto.batch_matmul(dtype, q_nope_trans, w_uk)
+                    c0 = NUM_16
+                    m = (min(NUM_32, tile_bs) + c0 - 1) // c0 * c0
+                    pto.set_cube_tile_shapes([m, m], [NUM_256, NUM_256], [NUM_128, NUM_128], True)
+                    pto.set_semantic_label("BatchMatmul")
+                    q_nope_new = pto.batch_matmul(dtype, q_nope_trans, w_uk)
 
-                        tile_shape = [1, min(NUM_32, tile_bs), kv_lora_rank]  # {NUM_16, NUM_2, kvLoraRank}
-                        pto.set_vec_tile_shapes(*tile_shape)
-                        pto.set_semantic_label("Transpose1")
-                        q_nope_new_trans = pto.transpose(q_nope_new, [0, 1])  # [bs,n,kvLoraRank]
+                    tile_shape = [1, min(NUM_32, tile_bs), kv_lora_rank]  # {NUM_16, NUM_2, kvLoraRank}
+                    pto.set_vec_tile_shapes(*tile_shape)
+                    pto.set_semantic_label("Transpose1")
+                    q_nope_new_trans = pto.transpose(q_nope_new, [0, 1])  # [bs,n,kvLoraRank]
 
-                        ########## kv ##########
-                        pto.set_semantic_label("kv")
-                        compressed_kv = pto.view(kv_tmp, [tile_b, s, kv_lora_rank], [0, 0, 0])  # [b,s,kvLoraRank]
-                        tile_shape = [NUM_2, 1, NUM_512]
-                        pto.set_vec_tile_shapes(*tile_shape)
-                        pto.set_semantic_label("RmsNorm")
-                        compressed_kv_norm = pto.rms_norm(compressed_kv, gamma_ckv, epsilon_ckv)  # [b,s,kvLoraRank]
-                        k_nope = pto.reshape(compressed_kv_norm, [tile_b, 1, s, kv_lora_rank])    # [b,1,s,kvLoraRank]
+                    ########## kv ##########
+                    pto.set_semantic_label("kv")
+                    compressed_kv = pto.view(kv_tmp, [tile_b, s, kv_lora_rank], [0, 0, 0])  # [b,s,kvLoraRank]
+                    tile_shape = [NUM_2, 1, NUM_512]
+                    pto.set_vec_tile_shapes(*tile_shape)
+                    pto.set_semantic_label("RmsNorm")
+                    compressed_kv_norm = pto.rms_norm(compressed_kv, gamma_ckv, epsilon_ckv)  # [b,s,kvLoraRank]
+                    k_nope = pto.reshape(compressed_kv_norm, [tile_b, 1, s, kv_lora_rank])    # [b,1,s,kvLoraRank]
 
-                        ########## RoPE ##########
-                        pto.set_semantic_label("RoPE")
-                        # -> [b,s,qkRopeHeadDim]
-                        k_pe_view = pto.view(kv_tmp, [tile_b, s, qk_rope_head_dim], [0, 0, kv_lora_rank])
-                        tile_shape = [min(NUM_32, tile_b), 1, qk_rope_head_dim]
-                        pto.set_vec_tile_shapes(*tile_shape)
-                        # -> [b,s,1,qkRopeHeadDim]
-                        k_pe_res = pto.reshape(k_pe_view, [tile_b, s, 1, qk_rope_head_dim])
-                        q_pe_view = pto.view(q_tmp, [tile_b, s, n, qk_rope_head_dim], [0, 0, 0, qk_nope_head_dim])
-                        cos_view = pto.view(cos, [tile_b, s, qk_rope_head_dim], [b_offset, 0, 0])
-                        sin_view = pto.view(sin, [tile_b, s, qk_rope_head_dim], [b_offset, 0, 0])
-                        ## -> [b,1,s,qkRopeHeadDim]
-                        k_rope_view = pto.tensor([tile_b, s, 1, qk_rope_head_dim], k_pe_res.get_dtype(), "kRopeView")
-                        q_rope_view = pto.tensor([tile_b, s, n, qk_rope_head_dim], k_pe_res.get_dtype(), "qRopeView")
-                        pto.set_semantic_label("ApplyRotaryPosEmbV2")
-                        pto.apply_rotary_pos_emb_v2(q_pe_view, k_pe_res, cos_view, sin_view, q_rope_view,
-                                                     k_rope_view, NUM_2, rope_config)
+                    ########## RoPE ##########
+                    pto.set_semantic_label("RoPE")
+                    # -> [b,s,qkRopeHeadDim]
+                    k_pe_view = pto.view(kv_tmp, [tile_b, s, qk_rope_head_dim], [0, 0, kv_lora_rank])
+                    tile_shape = [min(NUM_32, tile_b), 1, qk_rope_head_dim]
+                    pto.set_vec_tile_shapes(*tile_shape)
+                    # -> [b,s,1,qkRopeHeadDim]
+                    k_pe_res = pto.reshape(k_pe_view, [tile_b, s, 1, qk_rope_head_dim])
+                    q_pe_view = pto.view(q_tmp, [tile_b, s, n, qk_rope_head_dim], [0, 0, 0, qk_nope_head_dim])
+                    cos_view = pto.view(cos, [tile_b, s, qk_rope_head_dim], [b_offset, 0, 0])
+                    sin_view = pto.view(sin, [tile_b, s, qk_rope_head_dim], [b_offset, 0, 0])
+                    ## -> [b,1,s,qkRopeHeadDim]
+                    k_rope_view = pto.tensor([tile_b, s, 1, qk_rope_head_dim], k_pe_res.get_dtype(), "kRopeView")
+                    q_rope_view = pto.tensor([tile_b, s, n, qk_rope_head_dim], k_pe_res.get_dtype(), "qRopeView")
+                    pto.set_semantic_label("ApplyRotaryPosEmbV2")
+                    pto.apply_rotary_pos_emb_v2(q_pe_view, k_pe_res, cos_view, sin_view, q_rope_view,
+                                                    k_rope_view, NUM_2, rope_config)
 
-                        if cache_mode != "BNSD":
-                            def inside_if_cache_mode():
-                                nonlocal kv_cache_out, kr_cache_out
-                                block_num = kv_cache.shape[0]
-                                n2 = kv_cache.shape[2]
-                                kv_cache_res = pto.reshape(kv_cache, [block_num * block_size * n2, kv_lora_rank])
-                                kr_cache_res = pto.reshape(kr_cache, [block_num * block_size * n2, qk_rope_head_dim])
-                                cache_index_dview = pto.view(cache_index, [tile_b, s], [b_offset, 0])
-                                k_nope.move(pto.reshape(k_nope, [tile_b * s, kv_lora_rank]))  # [b*s,kvLoraRank]
-                                k_rope_res = pto.reshape(k_rope_view, [tile_b * s * 1, qk_rope_head_dim])
+                    if cache_mode != "BNSD":
+                        def inside_if_cache_mode():
+                            nonlocal kv_cache_out, kr_cache_out
+                            block_num = kv_cache.shape[0]
+                            n2 = kv_cache.shape[2]
+                            kv_cache_res = pto.reshape(kv_cache, [block_num * block_size * n2, kv_lora_rank])
+                            kr_cache_res = pto.reshape(kr_cache, [block_num * block_size * n2, qk_rope_head_dim])
+                            cache_index_dview = pto.view(cache_index, [tile_b, s], [b_offset, 0])
+                            k_nope[:] = pto.reshape(k_nope, [tile_b * s, kv_lora_rank])  # [b*s,kvLoraRank]
+                            k_rope_res = pto.reshape(k_rope_view, [tile_b * s * 1, qk_rope_head_dim])
 
-                                ########## kvCache ##########
-                                tile_shape = [1, kv_lora_rank]
-                                pto.set_vec_tile_shapes(*tile_shape)
-                                kv_cache_out_dview = pto.scatter_update(kv_cache_res, cache_index_dview, k_nope,
-                                                                        SCATTER_UPDATE_DIM, cache_mode, block_size)
+                            ########## kvCache ##########
+                            tile_shape = [1, kv_lora_rank]
+                            pto.set_vec_tile_shapes(*tile_shape)
+                            kv_cache_out_dview = pto.scatter_update(kv_cache_res, cache_index_dview, k_nope,
+                                                                    SCATTER_UPDATE_DIM, cache_mode, block_size)
 
-                                ########## krCache ##########
-                                tile_shape = [1, qk_rope_head_dim]
-                                pto.set_vec_tile_shapes(*tile_shape)
-                                kr_cache_out_dview = pto.scatter_update(kr_cache_res, cache_index_dview, k_rope_res,
-                                                                        SCATTER_UPDATE_DIM, cache_mode, block_size)
+                            ########## krCache ##########
+                            tile_shape = [1, qk_rope_head_dim]
+                            pto.set_vec_tile_shapes(*tile_shape)
+                            kr_cache_out_dview = pto.scatter_update(kr_cache_res, cache_index_dview, k_rope_res,
+                                                                    SCATTER_UPDATE_DIM, cache_mode, block_size)
 
-                                kv_cache_out.move(pto.reshape(kv_cache_out_dview,
-                                                              [block_num, block_size, n2, kv_lora_rank]))
-                                kr_cache_out.move(pto.reshape(kr_cache_out_dview,
-                                                              [block_num, block_size, n2, qk_rope_head_dim]))
-                            inside_if_cache_mode()
-                        else:
-                            def inside_else_cache_mode():
-                                nonlocal kv_cache_out, kr_cache_out
-                                pto.set_semantic_label("Reshape1")
-                                k_rope_res = pto.reshape(k_rope_view, [tile_b, 1, s, qk_rope_head_dim])
-                                pto.set_semantic_label("kvCache")
-                                cache_index_dview = pto.view(cache_index, [tile_b, s], [b_offset, 0])
-                                ########## kvCache ##########
-                                tile_shape = [1, 1, 1, kv_lora_rank]
-                                pto.set_vec_tile_shapes(*tile_shape)
-                                # kvCache: [b,1,s2,kvLoraRank], output3
-                                kv_cache_dview = pto.view(kv_cache, [tile_b, 1, s2, kv_lora_rank], [b_offset, 0, 0, 0])
-                                pto.set_semantic_label("ScatterUpdate0")
-                                kv_cache_out_dview = pto.scatter_update(kv_cache_dview, cache_index_dview, k_nope, -2)
+                            kv_cache_out[:] = pto.reshape(kv_cache_out_dview,
+                                                            [block_num, block_size, n2, kv_lora_rank])
+                            kr_cache_out[:] = pto.reshape(kr_cache_out_dview,
+                                                            [block_num, block_size, n2, qk_rope_head_dim])
+                        inside_if_cache_mode()
+                    else:
+                        def inside_else_cache_mode():
+                            nonlocal kv_cache_out, kr_cache_out
+                            pto.set_semantic_label("Reshape1")
+                            k_rope_res = pto.reshape(k_rope_view, [tile_b, 1, s, qk_rope_head_dim])
+                            pto.set_semantic_label("kvCache")
+                            cache_index_dview = pto.view(cache_index, [tile_b, s], [b_offset, 0])
+                            ########## kvCache ##########
+                            tile_shape = [1, 1, 1, kv_lora_rank]
+                            pto.set_vec_tile_shapes(*tile_shape)
+                            # kvCache: [b,1,s2,kvLoraRank], output3
+                            kv_cache_dview = pto.view(kv_cache, [tile_b, 1, s2, kv_lora_rank], [b_offset, 0, 0, 0])
+                            pto.set_semantic_label("ScatterUpdate0")
+                            kv_cache_out_dview = pto.scatter_update(kv_cache_dview, cache_index_dview, k_nope, -2)
 
-                                ########## krCache ##########
-                                pto.set_semantic_label("krCache")
-                                tile_shape = [1, 1, 1, qk_rope_head_dim]
-                                pto.set_vec_tile_shapes(*tile_shape)
-                                # krCache: [b,1,s2,qkRopeHeadDim], output4
-                                kr_cache_dview = pto.view(kr_cache, [tile_b, 1, s2, qk_rope_head_dim],
-                                                          [b_offset, 0, 0, 0])
-                                pto.set_semantic_label("ScatterUpdate1")
-                                kr_cache_out_dview = pto.scatter_update(kr_cache_dview, cache_index_dview,
-                                                                        k_rope_res, -2)
+                            ########## krCache ##########
+                            pto.set_semantic_label("krCache")
+                            tile_shape = [1, 1, 1, qk_rope_head_dim]
+                            pto.set_vec_tile_shapes(*tile_shape)
+                            # krCache: [b,1,s2,qkRopeHeadDim], output4
+                            kr_cache_dview = pto.view(kr_cache, [tile_b, 1, s2, qk_rope_head_dim],
+                                                        [b_offset, 0, 0, 0])
+                            pto.set_semantic_label("ScatterUpdate1")
+                            kr_cache_out_dview = pto.scatter_update(kr_cache_dview, cache_index_dview,
+                                                                    k_rope_res, -2)
 
-                                kv_cache_out_dview_new = pto.reshape(kv_cache_out_dview,
-                                                                     [tile_b * 1 * s2, kv_lora_rank])
-                                kr_cache_out_dview_new = pto.reshape(kr_cache_out_dview,
-                                                                     [tile_b * 1 * s2, qk_rope_head_dim])
-                                pto.assemble(kv_cache_out_dview_new, [b_offset * s2, 0], kv_cache_out)
-                                pto.assemble(kr_cache_out_dview_new, [b_offset * s2, 0], kr_cache_out)
-                            inside_else_cache_mode()
+                            kv_cache_out_dview_new = pto.reshape(kv_cache_out_dview,
+                                                                    [tile_b * 1 * s2, kv_lora_rank])
+                            kr_cache_out_dview_new = pto.reshape(kr_cache_out_dview,
+                                                                    [tile_b * 1 * s2, qk_rope_head_dim])
+                            pto.assemble(kv_cache_out_dview_new, [b_offset * s2, 0], kv_cache_out)
+                            pto.assemble(kr_cache_out_dview_new, [b_offset * s2, 0], kr_cache_out)
+                        inside_else_cache_mode()
 
-                        query_out_dview_new = pto.reshape(q_nope_new_trans, [tile_b * s * n, kv_lora_rank])
-                        q_rope_view_new = pto.reshape(q_rope_view, [tile_b * s * n, qk_rope_head_dim])
-                        pto.assemble(query_out_dview_new, [b_offset * s * n, 0], q_nope_out)
-                        pto.assemble(q_rope_view_new, [b_offset * s, 0], q_rope_out)
-                    inside_b_idx_loop_prolog(b_idx)
-            # } # LOOP("LOOP_L0_bIdx_mla_prolog") ends
+                    query_out_dview_new = pto.reshape(q_nope_new_trans, [tile_b * s * n, kv_lora_rank])
+                    q_rope_view_new = pto.reshape(q_rope_view, [tile_b * s * n, qk_rope_head_dim])
+                    pto.assemble(query_out_dview_new, [b_offset * s * n, 0], q_nope_out)
+                    pto.assemble(q_rope_view_new, [b_offset * s, 0], q_rope_out)
+                inside_b_idx_loop_prolog(b_idx)
+
+            # LOOP("LOOP_L0_bIdx_mla_prolog") ends
             ########## pa ##########
             batch_size_scalar = block_table.shape[0]
             n_q = q_nope_out.shape[0] // batch_size_scalar
             n_loop = n_q // n_tile
 
-            pto.set_config(CUBE_NBUFFER_MAP,  std::map<int64_t, int64_t>{})
+            pto.set_config(CUBE_NBUFFER_MAP, {})
             pto.set_config(L1_REUSE, 0)
             pto.set_config(COPYIN_THRESHOLD, 1 * NUM_1024 * NUM_1024)
             pto.set_config(SG_CYCLE_UPPER_BOUND, NUM_100000)
@@ -528,18 +528,18 @@ def attention(**kwargs):
                                                         pto.set_matrix_size(
                                                             [tilda_pij_f16.shape[0], tilda_pij_f16.shape[1],
                                                              vj.shape[1]])
-                                                        oi_tmp = pto.matmul(pto.data_type.DT_FP32, tilda_pij_f16,
+                                                        oi_tmp = pto.matmul(pto.DataType.DT_FP32, tilda_pij_f16,
                                                                             vj, False, False)
                                                         pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                                                         if pto.cond(pto.is_loop_end(bn, bn_per_batch)):
                                                             pto.set_semantic_label("paKvVec2")
                                                             # (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
-                                                            oi_update.move(pto.div(oi_tmp, tilda_lij))
+                                                            oi_update[:] = pto.div(oi_tmp, tilda_lij)
                                                             pto.assemble(oi_update, oi_offset, pa_out)
                                                         else:
-                                                            oi_update.move(oi_tmp)
-                                                        li_update.move(tilda_lij)
-                                                        mi_update.move(tilda_mij)
+                                                            oi_update[:] = oi_tmp
+                                                        li_update[:] = tilda_lij
+                                                        mi_update[:] = tilda_mij
                                                     inside_if_loop_begin()
                                                 else:
                                                     def inside_else_loop_begin():
@@ -571,7 +571,7 @@ def attention(**kwargs):
                                                         pto.set_matrix_size(
                                                             [tilda_pij_f16.shape[0],
                                                              tilda_pij_f16.shape[1], vj.shape[1]])
-                                                        q1 = pto.matmul(pto.data_type.DT_FP32, tilda_pij_f16, vj,
+                                                        q1 = pto.matmul(pto.DataType.DT_FP32, tilda_pij_f16, vj,
                                                                         False, False)
                                                         pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                                                         # (nTileCur, dN), (nTileCur, 1) -> (nTileCur, dN)
@@ -580,12 +580,12 @@ def attention(**kwargs):
                                                         oi_tmp = pto.add(q3, q2)
                                                         if pto.cond(pto.is_loop_end(bn, bn_per_batch)):
                                                             # (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
-                                                            oi_update.move(pto.div(oi_tmp, li_new))
+                                                            oi_update[:] = pto.div(oi_tmp, li_new)
                                                             pto.assemble(oi_update, oi_offset, pa_out)
                                                         else:
-                                                            oi_update.move(oi_tmp)
-                                                        li_update.move(li_new)
-                                                        mi_update.move(mi_new)
+                                                            oi_update[:] = oi_tmp
+                                                        li_update[:] = li_new
+                                                        mi_update[:] = mi_new
                                                     inside_else_loop_begin()
                                             inside_bn_loop(
                                                 b_idx=b_idx,
@@ -649,10 +649,10 @@ def attention(**kwargs):
                         res = pto.matmul(pto.data_type.DT_INT32, quantized_a, weight_o)
 
                         pto.set_vec_tile_shapes(min(NUM_32, tile_b * s), min(NUM_32, h))  # raw (tileB*1, 7168)
-                        res.move(pto.cast(res, pto.data_type.DT_FP32))
-                        res.move(pto.mul(res, dequant_scale_a))   # (B*s, 1)
+                        res[:] = pto.cast(res, pto.data_type.DT_FP32)
+                        res[:] = pto.mul(res, dequant_scale_a)   # (B*s, 1)
                         weight_o_scale_w_2dim = pto.reshape(weight_o_scale_w, [1, h])
-                        res.move(pto.mul(res, weight_o_scale_w_2dim))   # (1, h)  # 224个
+                        res[:] = pto.mul(res, weight_o_scale_w_2dim)   # (1, h)  # 224个
                         bmm5_res = pto.cast(res, pto.data_type.DT_FP16, pto.cast_mode.CAST_RINT)
                         post_out_tmp = pto.reshape(bmm5_res, [tile_b, s, h])
 
@@ -809,6 +809,10 @@ def test_dynamic_attention(params, pa_tile_config, is_quant=False, cache_mode="B
         epsilon_cq=1e-5,
         epsilon_ckv=1e-5,
         cache_mode=cache_mode)
+
+    graph_dump = pto.dump()
+    with open('dump_dynamic_attention.txt', 'w') as f:
+        print(graph_dump, file=f)
 
 
 def main():

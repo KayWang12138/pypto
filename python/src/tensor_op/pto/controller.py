@@ -12,7 +12,7 @@
 """
 
 from contextlib import contextmanager
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 import inspect
 import logging
 from pto import pto_impl
@@ -132,3 +132,24 @@ def pto_function(
         # TODO(anastasios): make false input param.
         pto_impl.EndFunction(name, False)
         logging.debug("Exiting context: %s", name)
+
+def loop(start: int, end: Optional[int] = None, step: Optional[int] = None, **kwargs):
+    "Syntactic sugar for loop function"
+    defaults = {
+        "name": "LOOP",
+        "idx_name": "K",
+        "unroll_list": set(),
+        "submit_before_loop": False,
+    }
+    config = {**defaults, **kwargs}  # kwargs overrides defaults
+    name, idx_name = config["name"], config["idx_name"]
+    unroll_list = config["unroll_list"]
+    submit_before_loop = config["submit_before_loop"]
+    start_s = pto_impl.SymbolicScalar(start) if end is not None else pto_impl.SymbolicScalar(0)
+    end_s = pto_impl.SymbolicScalar(end) if end is not None else pto_impl.SymbolicScalar(start)
+    step_s = pto_impl.SymbolicScalar(step) if step is not None else pto_impl.SymbolicScalar(1)
+    with loop_function(
+        name, idx_name, loop_range(start_s, end_s, step_s), unroll_list, submit_before_loop
+    ) as rlf:
+        for k in rlf:
+            yield k

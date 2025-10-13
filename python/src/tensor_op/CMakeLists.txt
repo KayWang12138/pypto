@@ -11,6 +11,7 @@ pybind11_add_module(pto_impl
         MODULE
             src/pybind11.cpp
             src/bindings/enum.cpp
+            src/bindings/element.cpp
             src/bindings/tensor.cpp
             src/bindings/symbolic_scalar.cpp
             src/bindings/controller.cpp

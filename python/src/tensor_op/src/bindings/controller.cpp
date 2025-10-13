@@ -21,50 +21,42 @@
 using namespace npu::tile_fwk;
 using ref_tensors = std::vector<std::reference_wrapper<const Tensor>>;
 
-using ref_tensors = std::vector<std::reference_wrapper<const Tensor>>;
-
 namespace pypto {
 void bind_controller_config(py::module &m) {
     m.def("SetBuildStatic", [](const bool &value) {
             config::SetBuildStatic(value); }, 
         py::arg("value"));
     m.def(
-        "SetConfig",
-        [](const std::string &key, const int &value) {
-            config::SetPassOption(key, value); },
+        "SetConfig", [](const std::string &key, const int &value) { config::SetPassOption(key, value); },
         py::arg("key"), py::arg("value"));
     m.def(
         "SetConfig",
-        [](const std::string &key, const std::map<int64_t, int64_t> &value) {
-            config::SetPassOption(key, value); },
+        [](const std::string &key, const std::map<int64_t, int64_t> &value) { config::SetPassOption(key, value); },
         py::arg("key"), py::arg("value"));
     m.def(
-        "SetMatrixSize",
-        [](const std::vector<int64_t>& size) {
-            TileShape::Current().SetMatrixSize(size); },
+        "SetMatrixSize", [](const std::vector<int64_t> &size) { TileShape::Current().SetMatrixSize(size); },
         py::arg("size"));
     m.def(
         "SetOperationConfig",
         [](const std::string &key, const bool &value) {
-            ConfigManager::Instance().SetOperationConfig<bool>(key, value); },
+            ConfigManager::Instance().SetOperationConfig<bool>(key, value);
+        },
         py::arg("key"), py::arg("value"));
     m.def(
         "SetPassConfig",
         [](const std::string &strategy, const std::string &identifier, const std::string &key, const bool &value) {
-            ConfigManager::Instance().SetPassConfig<bool>(strategy, identifier, key, value); },
+            ConfigManager::Instance().SetPassConfig<bool>(strategy, identifier, key, value);
+        },
         py::arg("strategy"), py::arg("identifier"), py::arg("key"), py::arg("value"));
     m.def(
         "SetHostConfig",
-        [](const std::string &key, const bool &value) {
-            ConfigManager::Instance().SetHostConfig<bool>(key, value); },
+        [](const std::string &key, const bool &value) { ConfigManager::Instance().SetHostConfig<bool>(key, value); },
         py::arg("key"), py::arg("value"));
     m.def(
         "SetCodeGenConfig",
-        [](const std::string &key, const bool &value) {
-            ConfigManager::Instance().SetCodeGenConfig<bool>(key, value); },
+        [](const std::string &key, const bool &value) { ConfigManager::Instance().SetCodeGenConfig<bool>(key, value); },
         py::arg("key"), py::arg("value"));
 }
-
 
 void bind_controller_tile_shape(py::module &m) {
     py::class_<TileShape>(m, "TileShape")
@@ -73,29 +65,31 @@ void bind_controller_tile_shape(py::module &m) {
         .def("toString", &TileShape::toString, py::arg("tile_type") = TileType::MAX)
         .def("GetVecTile", py::overload_cast<>(&TileShape::GetVecTile))
         .def("GetVecTile", py::overload_cast<>(&TileShape::GetVecTile, py::const_))
-        .def("SetVecTile", [](TileShape &self, py::args args) {
-            std::vector<int64_t> v;
-            v.reserve(args.size());
-            for (auto &a : args) {
-                v.push_back(a.cast<int>()); // require ints
-            }
-            self.SetVecTile(v);
-        })
+        .def("SetVecTile",
+            [](TileShape &self, py::args args) {
+                std::vector<int64_t> v;
+                v.reserve(args.size());
+                for (auto &a : args) {
+                    v.push_back(a.cast<int>()); // require ints
+                }
+                self.SetVecTile(v);
+            })
         .def("SetDistRankId", &TileShape::SetDistRankId);
     py::class_<VecTile>(m, "VecTile")
         .def(py::init<>())
         .def_readwrite("tile", &VecTile::tile)
-        .def("valid", &VecTile::valid,
-             "Check if all elements are positive and non-empty")
-        .def("__getitem__", [](const VecTile& vt, int index) {
-            if (index < 0 || index >= static_cast<int>(vt.size())) {
-                throw py::index_error("Index out of range");
-            }
-            return vt[index];
-        }, py::arg("index"))
+        .def("valid", &VecTile::valid, "Check if all elements are positive and non-empty")
+        .def(
+            "__getitem__",
+            [](const VecTile &vt, int index) {
+                if (index < 0 || index >= static_cast<int>(vt.size())) {
+                    throw py::index_error("Index out of range");
+                }
+                return vt[index];
+            },
+            py::arg("index"))
         .def("__len__", &VecTile::size, "Get the size of the tile");
 }
-
 
 void bind_controller_set_tile(py::module &m) {
     m.def("SetVecTile", [](py::args args) {
@@ -107,20 +101,21 @@ void bind_controller_set_tile(py::module &m) {
         TileShape::Current().SetVecTile(v);
     });
     m.def("GetVecTile", []() { return TileShape::Current().GetVecTile(); });
-    m.def("SetCubeTile",
-        [](const std::vector<int64_t>& mvec, const std::vector<int64_t>& kvec,
-        const std::vector<int64_t>& nvec, bool setL1Tile = false) {
+    m.def(
+        "SetCubeTile",
+        [](const std::vector<int64_t> &mvec, const std::vector<int64_t> &kvec, const std::vector<int64_t> &nvec,
+            bool setL1Tile = false) {
             if (mvec.size() > MAX_M_DIM_SIZE) {
-                throw py::value_error("Parameter 'm' must have exactly " +
-                                    std::to_string(MAX_M_DIM_SIZE) + " elements");
+                throw py::value_error(
+                    "Parameter 'm' must have exactly " + std::to_string(MAX_M_DIM_SIZE) + " elements");
             }
             if (kvec.size() > MAX_K_DIM_SIZE) {
-                throw py::value_error("Parameter 'k' must have exactly " +
-                                    std::to_string(MAX_K_DIM_SIZE) + " elements");
+                throw py::value_error(
+                    "Parameter 'k' must have exactly " + std::to_string(MAX_K_DIM_SIZE) + " elements");
             }
             if (nvec.size() > MAX_N_DIM_SIZE) {
-                throw py::value_error("Parameter 'n' must have exactly " +
-                                    std::to_string(MAX_N_DIM_SIZE) + " elements");
+                throw py::value_error(
+                    "Parameter 'n' must have exactly " + std::to_string(MAX_N_DIM_SIZE) + " elements");
             }
 
             std::array<int64_t, MAX_M_DIM_SIZE> marr = {0};
@@ -171,19 +166,16 @@ void bind_controller_function(py::module &m) {
         .def("IterationBegin", &RecordLoopFunc::IterationBegin)
         .def("IterationNext", &RecordLoopFunc::IterationNext)
         .def("IterationEnd", &RecordLoopFunc::IterationEnd)
-        .def(
-            "__iter__",
-            [](RecordLoopFunc &c) {
-                // Return Python iterator from C++ begin/end
-                return py::make_iterator(c.begin(), c.end());
-            },
-            py::keep_alive<0, 1>()); // Keep container alive while iterator is used;
+        .def("__iter__", [](RecordLoopFunc &c) {
+            // Return Python iterator from C++ begin/end
+            return py::make_iterator(c.begin(), c.end());
+        });
+
     py::class_<RecordLoopFunc::Iterator>(m, "RecordLoopFunc_Iterator")
         .def(py::init<RecordLoopFunc &, const SymbolicScalar &>(), py::arg("rlf"), py::arg("scalar"));
     py::class_<RecordLoopFunc::IteratorEnd>(m, "RecordLoopFunc_IteratorEnd")
         .def(py::init<RecordLoopFunc &, const SymbolicScalar &>(), py::arg("rlf"), py::arg("scalar"));
 }
-
 
 void bind_controller_loop(py::module &m) {
     py::class_<RecordIfBranch>(m, "RecordIfBranch")
@@ -197,28 +189,23 @@ void bind_controller_loop(py::module &m) {
         .def(py::init<const SymbolicScalar & /* rangeEnd */>())
         .def(py::init<std::int64_t>()) // C++ Implicit conversion int64_t -> SymbolicScalar
         .def("Dump", (std::string (LoopRange::*)())&LoopRange::Dump)
-        .def("Begin", (SymbolicScalar& (LoopRange::*)()) & LoopRange::Begin,
+        .def("Begin", (SymbolicScalar & (LoopRange::*)()) & LoopRange::Begin,
             py::return_value_policy::reference_internal)
-        .def("End", (SymbolicScalar& (LoopRange::*)()) & LoopRange::End,
-            py::return_value_policy::reference_internal)
-        .def("Step", (SymbolicScalar& (LoopRange::*)()) & LoopRange::Step,
-            py::return_value_policy::reference_internal);
+        .def("End", (SymbolicScalar & (LoopRange::*)()) & LoopRange::End, py::return_value_policy::reference_internal)
+        .def(
+            "Step", (SymbolicScalar & (LoopRange::*)()) & LoopRange::Step, py::return_value_policy::reference_internal);
 
     m.def("IsLoopBegin", &IsLoopBegin, py::arg("symbol"), py::arg("begin"));
     m.def("IsLoopEnd", &IsLoopEnd, py::arg("symbol"), py::arg("end"));
 }
 
-
 void bind_controller_utils(py::module &m) {
     m.def("Dump", []() { return Program::GetInstance().Dump(); });
-    m.def(
-        "SetSemanticLabel",
-        [](const std::string &label) { config::SetSemanticLabel(label); },
-        py::arg("label"));
+    m.def("SetSemanticLabel", [](const std::string &label) { config::SetSemanticLabel(label); }, py::arg("label"));
     m.def("BytesOf", [](DataType t) { return BytesOf(t); });
     m.def("PowersOf2", &PowersOf2, py::arg("n"));
+    m.def("reset", []() { Program::GetInstance().Reset(); });
 }
-
 
 void bind_controller(py::module &m) {
     bind_controller_config(m);
