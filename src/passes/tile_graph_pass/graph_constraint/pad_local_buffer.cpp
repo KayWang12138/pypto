@@ -57,23 +57,7 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
         IntVecToStr(in->tensor->rawshape).c_str());
 }
 
-size_t PadLocalBuffer::GetPaddingValue(Operation &op, LogicalTensorPtr &in, OpCalcType calcType) {
-    bool needTilePadding = op.GetBoolAttribute(OpAttributeKey::tilePadding);
-    if (!needTilePadding && calcType == OpCalcType::MOVE_OUT) {
-        auto &producers = in->GetProducers();
-        for (auto &prod : producers) {
-            needTilePadding = needTilePadding || prod->GetBoolAttribute(OpAttributeKey::tilePadding);
-        }
-    }
-    if (needTilePadding) {
-        const auto &vTileShape = op.GetTileShape().GetVecTile().tile;
-        if (vTileShape.size() != in->shape.size()) {
-            ALOG_DEBUG_F("VTileShape [size %zu] dims %s and shape size %zu mismatch for of op %d %s.", vTileShape.size(),
-                IntVecToStr(vTileShape).c_str(), in->shape.size(), op.opmagic, op.GetOpcodeStr().c_str());
-            return 1;
-        }
-        return vTileShape[in->shape.size() - 1];
-    }
+size_t PadLocalBuffer::GetPaddingValue(LogicalTensorPtr &in) {
     auto bytes = BytesOf(in->Datatype());
     auto paddingIter = BLOCK_PADDING_DIM.find(bytes);
     if (paddingIter == BLOCK_PADDING_DIM.end()) {
@@ -99,12 +83,12 @@ void PadLocalBuffer::PadVector(Operation &op, LogicalTensorPtr &in, std::unorder
         ALOG_DEBUG_F("Vector Op %d %s input %d, not handle unalign.", op.opmagic, op.GetOpcodeStr().c_str(), in->magic);
         return;
     }
-    size_t paddingValue =  GetPaddingValue(op, in, calcType);
+    size_t paddingValue = GetPaddingValue(in);
     size_t lastIdx = in->shape.size() - 1;
     in->oriShape = in->shape;
     int64_t lastDim = static_cast<int64_t>(in->shape[lastIdx]);
-    if (calcType == OpCalcType::BROADCAST && op.HasAttr(OpAttributeKey::broadcastLastAxis)) {
-        lastDim = op.GetIntAttribute(OpAttributeKey::broadcastLastAxis);
+    if (calcType == OpCalcType::BROADCAST && broadcastLastAxis_.find(op.opmagic) != broadcastLastAxis_.end()) {
+        lastDim = broadcastLastAxis_[op.opmagic];
     }
     int64_t shapeAfterPad = Pad(lastDim, paddingValue);
     in->shape[lastIdx] = shapeAfterPad;
@@ -118,15 +102,6 @@ void PadLocalBuffer::PadVector(Operation &op, LogicalTensorPtr &in, std::unorder
         // BROADCAST_LAST_AXIS来对齐，当前这样处理是有问题的
         in->tensor->rawshape[lastIdx] = Pad(in->tensor->oriRawshape[lastIdx], in->shape[lastIdx]);
         visitedRaw.emplace(in->tensor);
-    }
-    if (in->tensor->oriRawshape[lastIdx] != in->tensor->rawshape[lastIdx]) {
-        ALOG_DEBUG_F(
-            "op %d %s input has been changed, setAttribute shapepadded\n", op.opmagic, op.GetOpcodeStr().c_str());
-        op.SetAttribute(OpAttributeKey::shapePadded, true);
-        for (auto &prod : in->GetProducers()) {
-            prod->SetAttribute(OpAttributeKey::shapePadded, true);
-            ALOG_DEBUG_F("op %d %s setAttribute shapepadded\n", prod->opmagic, prod->GetOpcodeStr().c_str());
-        }
     }
 }
 
@@ -280,7 +255,7 @@ void PadLocalBuffer::ProcessBroadcast(Operation &op, size_t blockPadding) {
         maxLastAxis = std::max(maxLastAxis, in->shape.back());
     }
     if (!existLessBlock) {
-        op.SetAttribute(OpAttributeKey::broadcastLastAxis, maxLastAxis);
+        broadcastLastAxis_[op.opmagic] = maxLastAxis;
     }
 }
 

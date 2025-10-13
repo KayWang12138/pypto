@@ -40,7 +40,7 @@ public:
 private:
     Status RunOnFunction(Function &function) override;
     void PadMatmul(Operation &op, LogicalTensorPtr &in);
-    size_t GetPaddingValue(Operation &op, LogicalTensorPtr &in, OpCalcType calcType);
+    size_t GetPaddingValue(LogicalTensorPtr &in);
     void PadVector(Operation &op, LogicalTensorPtr &in, std::unordered_set<std::shared_ptr<RawTensor>> &visitedRaw, bool noPadding);
     bool IsExpandLastDim(const Operation &op);
     void TraverseCopyInConsumers(Function &function, Operation *consumer, std::unordered_set<LogicalTensorPtr> &visitedTensors);
@@ -54,6 +54,7 @@ private:
     void DoPadding(Function &function);
     Status ProcessTranspose(Function &function);
     bool processTranspose_;
+    std::unordered_map<int64_t, int64_t> broadcastLastAxis_;
 };
 } // namespace
 #endif  // PAD_LOCAL_BUFFER_H

@@ -51,6 +51,7 @@ public:
 
 private:
     void CollectReshapeOps(Function &function);
+    bool CheckUnaligned(Operation &op);
     LogicalTensorPtr InsertIOTensor(Function &function, Operation &op, std::unordered_map<OverlaprawMagic, std::shared_ptr<RawTensor>> &rawIO, LogicalTensorPtr &ioTensor);
     std::vector<CopyOutOpMemUnalign> copyOuts;
     std::vector<CopyInOpMemUnalign> copyIns;

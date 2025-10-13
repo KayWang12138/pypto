@@ -69,14 +69,38 @@ LogicalTensorPtr RemoveUnalignedReshape::InsertIOTensor(Function &function, Oper
     return newReshapeIO;
 }
 
+bool RemoveUnalignedReshape::CheckUnaligned(Operation &op) {
+    int lastIdx;
+    for (const auto &input : op.GetIOperands()) {
+        if (input != nullptr && input->tensor != nullptr) {
+            lastIdx = input->shape.size() - 1;
+            if (input->shape.size() == input->tensor->oriRawshape.size() &&
+                input->shape.size() == input->tensor->rawshape.size() && 
+                input->tensor->oriRawshape[lastIdx] != input->tensor->rawshape[lastIdx]) {
+                return true;
+            }
+        }
+    }
+    for (const auto &output : op.GetOOperands()) {
+        if (output != nullptr && output->tensor != nullptr) {
+            lastIdx = output->shape.size() - 1;
+            if (output->shape.size() == output->tensor->oriRawshape.size() &&
+                output->shape.size() == output->tensor->rawshape.size() && 
+                output->tensor->oriRawshape[lastIdx] != output->tensor->rawshape[lastIdx]) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 void RemoveUnalignedReshape::CollectReshapeOps(Function &function) {
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_RESHAPE) {
             continue;
         }
 
-        bool isUnalign = op.GetBoolAttribute(OpAttributeKey::shapePadded);
-        if (!isUnalign) {
+        if (!CheckUnaligned(op)) {
             continue;
         }
 
