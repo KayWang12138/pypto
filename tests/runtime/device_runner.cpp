@@ -444,19 +444,19 @@ int DeviceRunner::RunPrepare(rtStream_t aicpuStream, rtStream_t aicoreStream) {
     int rc;
 
     aclrtEvent event;
-    rc = aclrtCreateEvent(&event);
+    rc = aclrtCreateEventExWithFlag(&event, ACL_EVENT_SYNC);
     if (rc < 0) {
         ALOG_ERROR_F("aclrtCreateEvent failed %d\n", rc);
         return rc;
     }
 
-    rc = aclrtRecordEvent(event, aicpuStream);
+    rc = aclrtRecordEvent(event, aicoreStream);
     if (rc < 0) {
         ALOG_ERROR_F("aclrtRecordEvent failed %d\n", rc);
         return rc;
     }
 
-    rc = aclrtStreamWaitEvent(aicoreStream, event);
+    rc = aclrtStreamWaitEvent(aicpuStream, event);
     if (rc < 0) {
         ALOG_ERROR_F("aclrtStreamWaitEvent failed %d\n", rc);
         return rc;
@@ -471,6 +471,28 @@ int DeviceRunner::RunPrepare(rtStream_t aicpuStream, rtStream_t aicoreStream) {
             sizeof(kernelArgs),
             RT_MEMCPY_HOST_TO_DEVICE);
     }
+    return 0;
+}
+
+int DeviceRunner::RunPost(rtStream_t aicpuStream, rtStream_t aicoreStream) {
+    int rc;
+
+    aclrtEvent event;
+    rc = aclrtCreateEventExWithFlag(&event, ACL_EVENT_SYNC);
+    if (rc < 0) {
+        ALOG_INFO_F("aclrtCreateEvent failed %d\n", rc);
+    }
+
+    rc = aclrtRecordEvent(event, aicpuStream);
+    if (rc < 0) {
+        ALOG_INFO_F("aclrtRecordEvent failed %d\n", rc);
+    }
+
+    rc = aclrtStreamWaitEvent(aicoreStream, event);
+    if (rc < 0) {
+        ALOG_INFO_F("aclrtStreamWaitEvent failed %d\n", rc);
+    }
+
     return 0;
 }
 
@@ -524,6 +546,8 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream,
         ALOG_ERROR_F("launch aicpu failed %d\n", rc);
         return rc;
     }
+
+    rc = RunPost(aicpuStream, aicoreStream);
     return rc;
 }
 

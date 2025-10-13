@@ -240,6 +240,8 @@ public:
             rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator,
             const DeviceLauncherConfig &config = DeviceLauncherConfig());
 
+    static int DeviceSynchronize(rtStream_t aicpuStream, rtStream_t aicoreStream);
+
     static int DeviceRunOnce(Function *function, const DeviceLauncherConfig &config = DeviceLauncherConfig());
 };
 

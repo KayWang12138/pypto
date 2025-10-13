@@ -215,11 +215,26 @@ std::string OperatorDeviceRunOnceDataFromDevice(py::int_ pythonOperatorPython, p
         return "invalid incoming stream";
     }
 
-    auto aicpuStream = incomingStream;
-    auto aicoreStream = DeviceGetAicoreStream();
+    auto aicoreStream = incomingStream;
+    auto aicpuStream = DeviceGetAicpuStream();
     int rc = ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(op, inputList, outputList, aicpuStream, aicoreStream, false);
     if (rc < 0) {
         return "device run failed";
+    }
+    return "";
+}
+
+std::string OperatorDeviceSynchronize(py::int_ incomingStreamPython) {
+    auto incomingStream = static_cast<uintptr_t>(incomingStreamPython);
+    if (incomingStream == 0) {
+        return "invalid incoming stream";
+    }
+
+    auto aicpuStream = incomingStream;
+    auto aicoreStream = DeviceGetAicoreStream();
+    int rc = DeviceSynchronize(aicpuStream, aicoreStream);
+    if (rc < 0) {
+        return "device sync failed";
     }
     return "";
 }
@@ -248,6 +263,7 @@ void BindRuntime(py::module &m) {
     m.def("DeviceFini", &DeviceFini);
     m.def("DeviceRunOnceDataFromHost", &DeviceRunOnceDataFromHost);
     m.def("OperatorDeviceRunOnceDataFromDevice", &OperatorDeviceRunOnceDataFromDevice);
+    m.def("OperatorDeviceSynchronize", &OperatorDeviceSynchronize);
     m.def("OperatorBegin", OperatorBegin);
     m.def("OperatorEnd", OperatorEnd);
 }

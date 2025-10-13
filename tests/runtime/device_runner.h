@@ -80,6 +80,7 @@ private:
     int launchDynamicAiCore(rtStream_t aicoreStream, AstKernelArgs *kernelArgs);
     int launchDynamicAiCpu(rtStream_t aicpuStream, AstKernelArgs *kArgs);
     int RunPrepare(rtStream_t aicpuStream, rtStream_t aicoreStream);
+    int RunPost(rtStream_t aicpuStream, rtStream_t aicoreStream);
     int launchDynamicAiCpuInit(rtStream_t aicpuStream, AstKernelArgs *kArgs);
     void InitAiCpuSoBin();
 private:

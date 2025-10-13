@@ -143,6 +143,8 @@ def test_device_run_data_from_device():
     inputs = [a_data]
     outputs = [b_data]
     cust_dyn_func(inputs, outputs)
+
+    pto.device_synchronize()
     # get data and compare result
     a_data_cpu = a_data.cpu()
     b_data_cpu = b_data.cpu()
@@ -158,3 +160,67 @@ def test_device_run_data_from_device():
     c_data_list = [c for r in c_data.cpu().tolist() for c in r]
     d_data_list = [c for r in d_data.cpu().tolist() for c in r]
     assert d_data_list == [v * 11 for v in c_data_list]
+
+
+def test_device_run_data_from_device_mix_nodep():
+    try:
+        import torch
+        import torch_npu
+    except e as ImportError:
+        torch = None
+        torch_npu = None
+
+    device_id = os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0)
+    torch.npu.set_device(device_id)
+
+    tiling = 32
+    n, k, m = tiling * 8, tiling * 8, tiling * 8
+
+    # def dynamic function
+    @pto.jit
+    def matmul_add():
+        a = pto.tensor((n, k), pto.DataType.DT_INT8, 'a')
+        b = pto.tensor((k, m), pto.DataType.DT_INT8, 'b')
+        c = pto.tensor((n, m), pto.DataType.DT_INT32, 'c')
+        d = pto.tensor((n, m), pto.DataType.DT_INT32, 'd')
+        pto.set_vec_tile_shapes(tiling, tiling)
+        pto.set_cube_tile_shapes([tiling, tiling], [tiling, tiling], [tiling, tiling])
+        with pto.dyn_function("MAIN", [a, b, c], [d]):
+            with pto.loop_function("s0", "i", pto.loop_range(1)) as rlf:
+                for i in rlf:
+                    a0 = pto.view(a, [n, k], [0, 0])
+                    b0 = pto.view(b, [k, m], [0, 0])
+                    d.move(pto.add(pto.matmul(pto.DataType.DT_INT32, a0, b0), c))
+                    del a0
+                    del b0
+
+    # prepare data
+    c_data_list = []
+    d_data_list = []
+
+    count = 16
+
+    a_rawdata = torch.tensor([[1] * k] * n)
+    b_rawdata = torch.tensor([[1] * m] * k)
+    a_data = a_rawdata.to(dtype=torch.int8, device=f'npu:{device_id}')
+    b_data = b_rawdata.to(dtype=torch.int8, device=f'npu:{device_id}')
+
+    for idx in range(count):
+        c_rawdata = torch.tensor([[idx] * m] * n)
+        c_data = c_rawdata.to(dtype=torch.int32, device=f'npu:{device_id}')
+        c_data_list.append(c_data)
+
+        d_data = torch.zeros((n, m), dtype=torch.int32, device=f'npu:{device_id}')
+        d_data_list.append(d_data)
+
+        # def inputs and outputs
+        inputs = [a_data, b_data, c_data]
+        outputs = [d_data]
+        matmul_add(inputs, outputs)
+
+    pto.device_synchronize()
+
+    for idx in range(count):
+        # get data and compare result
+        d_data_inlist = [c for r in d_data_list[idx].cpu().tolist() for c in r]
+        assert d_data_inlist == [k + idx] * len(d_data_inlist)

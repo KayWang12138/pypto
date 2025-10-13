@@ -88,6 +88,8 @@ int ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(
         DeviceStream aicpuStream, DeviceStream aicoreStream, bool streamSynchronize,
         const DeviceLauncherConfig &config = DeviceLauncherConfig());
 
+int DeviceSynchronize(DeviceStream aicpuStream, DeviceStream aicoreStream);
+
 int DeviceRunOnce(Function *function, const DeviceLauncherConfig &config = DeviceLauncherConfig());
 
 int HasInplaceArgs(Function *function);

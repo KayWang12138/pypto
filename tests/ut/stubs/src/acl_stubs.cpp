@@ -50,6 +50,13 @@ aclError aclrtCreateEvent(aclrtEvent *event)
     return 0;
 }
 
+aclError aclrtCreateEventExWithFlag(aclrtEvent *event, uint32_t flag)
+{
+    (void)event;
+    (void)flag;
+    return 0;
+}
+
 aclError aclInit(const char *configPath)
 {
     (void)configPath;

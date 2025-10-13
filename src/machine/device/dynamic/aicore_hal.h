@@ -378,7 +378,7 @@ public:
             reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
         args->taskEntry.reserved[0] = static_cast<uint32_t>(dotStatus);
         volatile int64_t *shakeBuffer = args->shakeBuffer;
-        uint32_t cycles_start = GetCycles();
+        uint64_t cycles_start = GetCycles();
         while ((*shakeBuffer & 0xFFFFFFFF) != AICORE_SAY_HELLO) {
             if (GetCycles() - cycles_start > HAND_SHAKE_TIMEOUT) {
                 DEV_ERROR("hand shake %d timeout.\n", coreIdx);

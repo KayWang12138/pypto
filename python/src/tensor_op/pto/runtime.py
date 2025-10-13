@@ -109,13 +109,11 @@ class PythonOperator:
 
     def __call__(self, input_list, output_list):
         stream = torch.npu.current_stream()
-        stream.synchronize()
         pto_impl.OperatorDeviceRunOnceDataFromDevice(
             self._handler,
             [input.data_ptr() for input in input_list],
             [output.data_ptr() for output in output_list],
             stream.npu_stream)
-        stream.synchronize()
 
     @property
     def handler(self):
@@ -126,3 +124,8 @@ def jit(origin_func):
     pto_impl.DeviceInit()
     op = PythonOperator(origin_func)
     return op
+
+
+def device_synchronize():
+    stream = torch.npu.current_stream()
+    pto_impl.OperatorDeviceSynchronize(stream.npu_stream)

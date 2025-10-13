@@ -52,6 +52,11 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     return rc;
 }
 
+int DeviceLauncher::DeviceSynchronize(rtStream_t aicpuStream, rtStream_t aicoreStream) {
+    int rc = DeviceRunner::Get().DynamicLaunchSynchronize(aicpuStream, aicoreStream);
+    return rc;
+}
+
 int DeviceLauncher::DeviceRunOnce(Function *function, const DeviceLauncherConfig &config) {
     auto &inputDataList = ProgramData::GetInstance().GetInputDataList();
     auto &outputDataList = ProgramData::GetInstance().GetOutputDataList();
@@ -85,6 +90,12 @@ int ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(
     rtStream_t aicpuStreamValue = reinterpret_cast<rtStream_t>(aicpuStream);
     rtStream_t aicoreStreamValue = reinterpret_cast<rtStream_t>(aicoreStream);
     return DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(op->GetFunction(), inputList, outputList, aicpuStreamValue, aicoreStreamValue, streamSynchronize, op, config);
+}
+
+int DeviceSynchronize(DeviceStream aicpuStream, DeviceStream aicoreStream) {
+    rtStream_t aicpuStreamValue = reinterpret_cast<rtStream_t>(aicpuStream);
+    rtStream_t aicoreStreamValue = reinterpret_cast<rtStream_t>(aicoreStream);
+    return DeviceLauncher::DeviceSynchronize(aicpuStreamValue, aicoreStreamValue);
 }
 
 int DeviceRunOnce(Function *function, const DeviceLauncherConfig &config) {
