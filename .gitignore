@@ -24,3 +24,5 @@ summary
 log
 tilefwk_*
 tmp
+
+cmake-build-debug

@@ -173,9 +173,7 @@ Tensor TensorIndex(const Tensor &params, const Tensor &indices);
 Tensor ScatterUpdate(const Tensor &dst, const Tensor &index, const Tensor &src, int axis = -2,
     std::string cacheMode = "PA_BNSD", int chunkSize = 1);
 
-Tensor Expand(const Tensor &operand, const std::vector<int64_t> &dstShape,
-    std::vector<SymbolicScalar> validShape = {});
-Tensor Expand(const Tensor &operand, DataType dataType, const std::vector<int64_t> &shape);
+Tensor Expand(const Tensor &self, const std::vector<int64_t> &dstShape, std::vector<SymbolicScalar> validShape = {});
 
 Tensor Sin(Tensor operand);
 Tensor Cos(Tensor operand);

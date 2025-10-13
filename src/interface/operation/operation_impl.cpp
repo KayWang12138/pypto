@@ -387,9 +387,17 @@ void Expand(Function &function, const TileShape &tileShape, const LogicalTensorP
     for (size_t i = 0; i < result->shape.size(); ++i) {
         if (operand->shape[i] != result->shape[i]) {
             expandDim = i;
-            outValidShape.push_back(other->GetDynValidShape()[i]);
+            if (other->GetDynValidShape().empty()) {
+                outValidShape.push_back(other->shape[i]);
+            } else {
+                outValidShape.push_back(other->GetDynValidShape()[i]);
+            }
         } else {
-            outValidShape.push_back(operand->GetDynValidShape()[i]);
+            if (operand->GetDynValidShape().empty()) {
+                outValidShape.push_back(operand->shape[i]);
+            } else {
+                outValidShape.push_back(operand->GetDynValidShape()[i]);
+            }
         }
     }
 
@@ -414,10 +422,6 @@ void TiledExpand(Function &function, const TileShape &tileShape, const LogicalTe
     result->UpdateDynValidShape(validShape);
     struct ExpandInfo expandInfo(operand, result, viewShape, offset, expandDim);
     ExpandTile(function, tileShape, 0, expandInfo, validShape);
-}
-
-void TensorExpand(Function &function, const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
-    function.AddOperation(Opcode::OP_EXPAND, {operand}, {result});
 }
 
 // [m,n] + [m, 1]
@@ -2075,15 +2079,6 @@ Tensor ScalarMaxS(const Tensor &operand, const Element &value, bool reverseOpera
         operand.GetStorage(), value, reverseOperand);
 }
 
-Tensor Expand(const Tensor &operand, DataType dataType, const std::vector<int64_t> &shape) {
-    DECLARE_TRACER();
-
-    ASSERT(operand->shape.size() == shape.size());
-    auto result = Tensor(dataType, shape);
-    CALL(Expand, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(), result.GetStorage());
-    return result;
-}
-
 Tensor TensorExpandOperation(Function &function, const LogicalTensorPtr &operand, const std::vector<int64_t> &dstShape,
     const std::vector<SymbolicScalar> &validShape) {
     auto result = std::make_shared<LogicalTensor>(function, operand->Datatype(), dstShape, validShape);
@@ -2095,11 +2090,11 @@ Tensor TensorExpandOperation(Function &function, const LogicalTensorPtr &operand
     return result;
 }
 
-Tensor Expand(const Tensor &operand, const std::vector<int64_t> &dstShape, std::vector<SymbolicScalar> validShape) {
+Tensor Expand(const Tensor &self, const std::vector<int64_t> &dstShape, std::vector<SymbolicScalar> validShape) {
     DECLARE_TRACER();
 
-    ASSERT(operand->shape.size() == dstShape.size());
-    RETURN_CALL(ExpandOperation, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(), dstShape, validShape);
+    ASSERT(self->shape.size() == dstShape.size());
+    RETURN_CALL(ExpandOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), dstShape, validShape);
 }
 
 void TiledReduceExpandNew(Function &function, const TileShape &tileShape, const std::string &op,

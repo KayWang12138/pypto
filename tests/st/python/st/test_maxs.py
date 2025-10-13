@@ -29,8 +29,8 @@ def test_maxs():
     set_codegen_config("SUPPORT_DYNAMIC_UNALIGNED", True)
     DeviceInit()
 
-    x = tensor(pto.DataType.DT_INT32, (first_dim, second_dim), "Operand1")
-    y = tensor(pto.DataType.DT_INT32, (first_dim, second_dim), "Output")
+    x = tensor((first_dim, second_dim), pto.DataType.DT_INT32, "Operand1")
+    y = tensor((first_dim, second_dim), pto.DataType.DT_INT32, "Output")
     scalar = element(pto.DataType.DT_INT32, scalar_data)
 
     bloop_range = math.ceil(first_dim / view_shape[0])

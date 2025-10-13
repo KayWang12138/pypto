@@ -165,13 +165,10 @@ void bind_operation(py::module &m) {
         py::arg("dst"), py::arg("index"), py::arg("src"), py::arg("axis") = SCATTER_UPDATE_DIM, py::arg("cacheMode") = "PA_BNSD",
         py::arg("chunkSize") = 1, "Tensor scatter update.");
     m.def(
-        "expand", [](const Tensor &operand, const std::vector<int64_t> &dstShape) {
-            return npu::tile_fwk::Expand(operand, dstShape);
-        }, "Tensor expand.");
-    m.def(
-        "expand", [](const Tensor &operand, DataType dataType, const std::vector<int64_t> &shape) {
-            return npu::tile_fwk::Expand(operand, dataType, shape);
-        }, "Tensor expand.");
+        "expand", [](const Tensor &self, const std::vector<int64_t> &dstShape, std::vector<SymbolicScalar> validShape) {
+            return npu::tile_fwk::Expand(self, dstShape, validShape); },
+            py::arg("self"), py::arg("dstShape"), py::arg("validShape") = std::vector<SymbolicScalar>{},
+            "Tensor expand.");
     m.def(
         "sin", [](const Tensor &operand) { return npu::tile_fwk::Sin(operand); },
         "Tensor sin.");

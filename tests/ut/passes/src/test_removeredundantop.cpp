@@ -691,7 +691,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpSTest2) {
     FUNCTION("STCase2") {
         exp = Exp(input);
         view = View(exp, shape2, {kNumZero, kNumZero});
-        expand = Expand(view, DT_FP16, shape3);
+        expand = Expand(view, shape3);
         output1 = Exp(expand);
         output2 = Exp(expand);
     }
