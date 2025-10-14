@@ -98,6 +98,7 @@ protected:
     DataType operandDtype[MAX_OPERANDS] = {
         DataType::DT_BOTTOM, DataType::DT_BOTTOM, DataType::DT_BOTTOM, DataType::DT_BOTTOM};
     Element extOperandVal;
+    Element extOperandValSecond;
     std::vector<int64_t> offset[MAX_OPERANDS] = {};
     std::vector<int64_t> shape[MAX_OPERANDS] = {};
     std::vector<int64_t> rawShape[MAX_OPERANDS] = {};

@@ -182,6 +182,10 @@ void CodeGenOp::UpdateCodegenOpInfoByTensor(
 void CodeGenOp::UpdateOpAttribute(const npu::tile_fwk::Operation &ops) {
     opAttrs = ops.GetAllAttr();
     isInputForceCombineAxis = ops.HasAttr(OpAttributeKey::inputCombineAxis);
+    if(ops.HasAttr(OpAttributeKey::dynScalar)) {
+        extOperandValSecond = ops.GetElementAttribute(OpAttributeKey::dynScalar);
+    }
+
     ConvertAttribute(ops);
 }
 

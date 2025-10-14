@@ -107,6 +107,11 @@ const std::map<std::string, CorePipeType> SCHED_CORE_PIPE_TYPE { // Unary Vector
     {"A_MULACC_B", CorePipeType::PIPE_CUBE},
     {"A_MUL_Bt", CorePipeType::PIPE_CUBE},
     {"A_MULACC_Bt", CorePipeType::PIPE_CUBE},
+    // Ternary Vector
+    {"WHERE_TT", CorePipeType::PIPE_VECTOR_ALU},
+    {"WHERE_TS", CorePipeType::PIPE_VECTOR_ALU},
+    {"WHERE_ST", CorePipeType::PIPE_VECTOR_ALU},
+    {"WHERE_SS", CorePipeType::PIPE_VECTOR_ALU},
     // ANY
     {"DUPLICATE", CorePipeType::PIPE_VECTOR_ALU},
     // Move

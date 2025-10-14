@@ -167,6 +167,11 @@ Tensor MinS(const Tensor &operand1, const Element &operand2);
 Tensor MaxS(const Tensor &operand1, const Element &operand2);
 Tensor Compare(const Tensor &operand1, const Tensor &operand2, CmpOperationType operation, CmpModeType mode);
 
+Tensor Where(const Tensor &condition, const Tensor &input, const Tensor &other);
+Tensor Where(const Tensor &condition, const Tensor &input, const Element &other);
+Tensor Where(const Tensor &condition, const Element &input, const Tensor &other);
+Tensor Where(const Tensor &condition, const Element &input, const Element &other);
+
 Tensor Unsqueeze(const Tensor &old, int unsqueezeDimNum);
 
 Tensor TensorIndex(const Tensor &params, const Tensor &indices);

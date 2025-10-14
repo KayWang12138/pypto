@@ -186,6 +186,18 @@ void bind_operation(py::module &m) {
         "logical_not", [](const Tensor &operand) { return npu::tile_fwk::LogicalNot(operand); },
         "Tensor logical not.");
     m.def(
+        "where", [](const Tensor &a, const Tensor &b, const Tensor &c) { return npu::tile_fwk::Where(a, b, c); },
+        "Tensor where.");
+    m.def(
+        "where", [](const Tensor &a, const Tensor &b, const Element &c) { return npu::tile_fwk::Where(a, b, c); },
+        "Tensor where.");
+    m.def(
+        "where", [](const Tensor &a, const Element &b, const Tensor &c) { return npu::tile_fwk::Where(a, b, c); },
+        "Tensor where.");
+    m.def(
+        "where", [](const Tensor &a, const Element &b, const Element &c) { return npu::tile_fwk::Where(a, b, c); },
+        "Tensor where.");
+    m.def(
         "assign", [](const Tensor &operand) { return npu::tile_fwk::Assign(operand); },
         "Tensor assign.");
     m.def(

@@ -729,6 +729,37 @@ def gen_transpose_op_golden(case_name: str, output: Path, case_index: int = None
 
 @GoldenRegister.reg_golden_func(
     case_names=[
+        "TestWhere/WhereOperationTest.TestWhere",
+    ]
+)
+def gen_where_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs: list, config: dict):
+        condition = torch.from_numpy(inputs[0])
+        x = torch.from_numpy(inputs[1])
+        y = torch.from_numpy(inputs[2])
+        params = config.get("params")
+        flag = params["flag"]
+        x_scalar = params["x_scalar"]
+        y_scalar = params["y_scalar"]
+        if flag == 0:
+            res = torch.where(condition, x, y)
+        elif flag == 1:
+            res = torch.where(condition, x, y_scalar)
+        elif flag == 2:
+            res = torch.where(condition, x_scalar, y)
+        elif flag == 3:
+            res = torch.where(condition, x_scalar, y_scalar)
+        else:
+            raise ValueError(f"Invalid flag value: {flag}")
+        res = res.numpy()
+        return [res]
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Where", golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
         "TestTopK/TopKOperationTest.TestTopK",
     ]
 )

@@ -33,6 +33,12 @@ std::vector<int64_t> NormalizeShape(const std::vector<int64_t> &shapeVec, unsign
     return normalizedVec;
 }
 
+std::string formatFloatAsG9(float f){
+    std::ostringstream os;
+    os <<std::setprecision(9) << f;
+    return os.str();
+}
+
 std::string GetTypeForB16B32(const DataType &dtype) {
     if (BytesOf(dtype) == K_BYTES_OF16_BIT) {
         return "uint16_t";

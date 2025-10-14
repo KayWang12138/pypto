@@ -113,6 +113,29 @@ public:
     std::string GenPoolOp() const;
 
     std::string GenAicpuCallOp() const;
+    enum class WhereOpIdx : int {
+        resIdx = 0,
+        castIdx,
+        cmpIdx,
+        vcmpResIdx,
+        startUBIdx,
+        inputTempIdx,
+        outputTmpIdx,
+        condIdx,
+        src0Idx,
+        src1Idx,
+        count
+    };
+    struct WhereParam {
+        std::vector<std::string> templateList;
+        std::vector<std::string> paramList;
+        std::vector<std::string> dynParamList;
+        std::vector<std::string> varExpr;
+        std::vector<std::string> dataTypeExpr;
+    };
+    WhereParam prepareWhereParam() const;
+    std::string GenWhereOp() const;
+    std::string printWhereOp(const WhereParam &param) const;
 
     std::string GenOpCode() const override {
         auto iter = opsGenMap_.find(opCode);
@@ -478,6 +501,11 @@ private:
 
         // vector dup
         {                   Opcode::OP_VEC_DUP,                    [this]() { return GenDupOp(); }},
+        // vector where
+        {                    Opcode::OP_WHERE_SS,              [this]() { return GenWhereOp(); }},
+        {                    Opcode::OP_WHERE_TS,              [this]() { return GenWhereOp(); }},
+        {                    Opcode::OP_WHERE_ST,              [this]() { return GenWhereOp(); }},
+        {                    Opcode::OP_WHERE_TT,              [this]() { return GenWhereOp(); }},
 
         // index outcast
         {             Opcode::OP_INDEX_OUTCAST,           [this]() { return GenIndexOutCastOp(); }},

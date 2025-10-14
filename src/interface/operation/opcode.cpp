@@ -176,7 +176,19 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_UB_COPY_IN, OpCoreType::AIV, "UB_COPY_IN", {MemoryType::MEM_DEVICE_DDR}, {MemoryType::MEM_UB}, {"TileOp::UBCopyIn", PIPE_MTE2, PIPE_MTE2, CoreType::AIV}, OpCalcType::MOVE_IN, {OpAttributeKey::excludeBufferReuse});
     registerInfo(Opcode::OP_UB_COPY_OUT, OpCoreType::AIV, "UB_COPY_OUT", {MemoryType::MEM_UB}, {MemoryType::MEM_DEVICE_DDR}, {"TileOp::UBCopyOut", PIPE_MTE3, PIPE_MTE3, CoreType::AIV}, OpCalcType::MOVE_OUT, {OpAttributeKey::excludeBufferReuse});
     registerInfo(Opcode::OP_REG_ALLOC, OpCoreType::AIV, "REG_ALLOC", {}, {MemoryType::MEM_VECTOR_REG}, {"REG_ALLOC", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::SYS);
-
+    // TERNARY VECTOR
+    registerInfo(Opcode::OP_WHERE_TT, OpCoreType::AIV, "WHERE_TT",
+        {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {"TileOp::Where_TT", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE, {OpAttributeKey::scalar});
+    registerInfo(Opcode::OP_WHERE_TS, OpCoreType::AIV, "WHERE_TS",
+        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {"TileOp::Where_TS", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE, {OpAttributeKey::scalar});
+    registerInfo(Opcode::OP_WHERE_ST, OpCoreType::AIV, "WHERE_ST",
+        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {"TileOp::Where_ST", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE, {OpAttributeKey::scalar});
+    registerInfo(Opcode::OP_WHERE_SS, OpCoreType::AIV, "WHERE_SS",
+        {MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {"TileOp::Where_SS", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE, {OpAttributeKey::scalar, OpAttributeKey::dynScalar});
     // AIC
     registerInfo(Opcode::OP_A_MUL_B, OpCoreType::AIC, "A_MUL_B", {MemoryType::MEM_L0A, MemoryType::MEM_L0B, MemoryType::MEM_DEVICE_DDR}, {MemoryType::MEM_L0C}, {"TileOp::Tmad", PIPE_M, PIPE_M, CoreType::AIC}, OpCalcType::MATMUL);
     registerInfo(Opcode::OP_A_MULACC_B, OpCoreType::AIC, "A_MULACC_B", {MemoryType::MEM_L0A, MemoryType::MEM_L0B, MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR}, {MemoryType::MEM_L0C}, {"TileOp::Tmad", PIPE_M, PIPE_M, CoreType::AIC}, OpCalcType::MATMUL);
