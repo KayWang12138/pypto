@@ -2336,7 +2336,6 @@ TILEOP void DynTSmaxs(__ubuf__ T *dst, __ubuf__ T *src, float scalar, unsigned T
     wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
 }
 
-
 const int32_t DEFAULT_REPEAT_STRIDE = 8;
 const int32_t NUM_EIGHT = 8;
 const int32_t ONE_BLK_SIZE = 32;
@@ -2349,7 +2348,7 @@ TILEOP void DynRange(__ubuf__ T *dst, unsigned oriShape0, T start, T step) {
             *(dst + j) = start + step * (T)j;
         }
         return;
-    } 
+    }
     for (int32_t j = 0; j < eleCntOfOneBlock; j++) {
         *(dst + j) = start + step * (T)j;
     }
@@ -2394,11 +2393,11 @@ TILEOP void DynRange(__ubuf__ T *dst, unsigned oriShape0, T start, T step) {
     tailSize = oriShape0 % eleCntOfOneRep;
 
     for (int i = 0; i < loopN; i++) {
-        vadds(dst + (i+1) * eleCntOfOneRep, dst + i * eleCntOfOneRep, step * (T)eleCntOfOneRep, 1, 1, 1, NUM_EIGHT,
-        NUM_EIGHT);
+        vadds(dst + (i + 1) * eleCntOfOneRep, dst + i * eleCntOfOneRep, step * (T)eleCntOfOneRep, 1, 1, 1, NUM_EIGHT,
+            NUM_EIGHT);
         pipe_barrier(PIPE_V);
     }
-    
+
     if (tailSize > 0) {
         set_mask_count();
         set_vector_mask(0, tailSize);

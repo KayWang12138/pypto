@@ -44,6 +44,7 @@ void Sqrt(LogicalTensorDataPtr out, LogicalTensorDataPtr self);
 void Abs(LogicalTensorDataPtr out, LogicalTensorDataPtr self);
 void Ln(LogicalTensorDataPtr out, LogicalTensorDataPtr self);
 void LogicalNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self);
+void Range(LogicalTensorDataPtr out, const Element &start, const Element &end, const Element &step);
 
 void AddS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false);
 void SubS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false);

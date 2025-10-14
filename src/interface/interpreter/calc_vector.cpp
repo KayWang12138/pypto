@@ -212,6 +212,42 @@ void ExecuteOpScatter(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_SCATTER_ELEMENT, Opcode::OP_SCATTER_ELEMENT, ExecuteOpScatter);
 
+template <typename T, DataType dataType>
+Element GetEndBySize(Element start, Element size, Element step) {
+    T startValue;
+    T stepValue;
+    if (dataType == DT_INT32 || dataType == DT_INT64) {
+        startValue = start.GetSignedData();
+        stepValue = step.GetSignedData();
+    } else if (dataType == DT_FP32) {
+        startValue = (float)start.GetFloatData();
+        stepValue = (float)step.GetFloatData();
+    }
+    T endValue = startValue + size.GetSignedData() * stepValue - stepValue / 2;
+    Element end(dataType, endValue);
+    return end;
+}
+
+void ExecuteOpRange(ExecuteOperationContext *ctx) {
+    auto oop = ctx->ooperandInplaceDataViewList->at(0);
+    auto start = ctx->op->GetElementAttribute(OP_ATTR_PREFIX + "START");
+    auto size = ctx->op->GetElementAttribute(OP_ATTR_PREFIX + "SIZE");
+    auto step = ctx->op->GetElementAttribute(OP_ATTR_PREFIX + "STEP");
+    Element end;
+    if (start.GetDataType() == DT_INT32) {
+        end = GetEndBySize<int32_t, DT_INT32>(start, size, step);
+    } else if (start.GetDataType() == DT_INT64) {
+        end = GetEndBySize<int64_t, DT_INT64>(start, size, step);
+    } else if (start.GetDataType() == DT_FP32) {
+        end = GetEndBySize<float, DT_FP32>(start, size, step);
+    } else {
+        std::string errorMessage = "Unsupported DataType " + DataType2String(start.GetDataType());
+        throw std::invalid_argument(errorMessage.c_str());
+    }
+    calc::Range(oop, start, end, step);
+}
+REGISTER_CALC_OP(OP_RANGE, Opcode::OP_RANGE, ExecuteOpRange);
+
 void ExecuteOpExtract(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ioperandDataViewList->size() == 1);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);

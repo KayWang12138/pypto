@@ -52,6 +52,14 @@ TEST_F(TorchAdaptorTest, LogicalNot) {
     ASSERT_ALLCLOSE(out, golden);
 }
 
+TEST_F(TorchAdaptorTest, Range) {
+    std::vector<float> gdata = {1.1, 2.2, 3.3, 4.4, 5.5, 6.6, 7.7};
+    auto out = makeTensorData(DT_FP32, {7}, 0.0f);
+    auto golden = makeTensorData(DT_FP32, {7}, gdata);
+    calc::Range(out, Element(DT_FP32, 1.1f), Element(DT_INT32, 8), Element(DT_FP32, 1.1f));
+    ASSERT_ALLCLOSE(out, golden);
+}
+
 TEST_F(TorchAdaptorTest, UnaryOps) {
     {
         // rsqrt

@@ -228,8 +228,7 @@ void BroadcastInferFunc(Operation* op,
 REGISTER_INFER_SHAPE_FUNC(OP_EXPAND, Opcode::OP_EXPAND, BroadcastInferFunc);
 
 // Range infer shape func
-void RangeInferFunc(Operation* op,
-                        std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+void RangeInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
     std::vector<SymbolicScalar> outValidShape;
     Element size = op->GetElementAttribute(OP_ATTR_PREFIX + "SIZE");
     outValidShape.push_back(SymbolicScalar(size.GetSignedData()));

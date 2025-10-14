@@ -212,6 +212,11 @@ void MaxS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &el
     torch::clamp_min_out(tout, From(self), From(elem));
 }
 
+void Range(LogicalTensorDataPtr out, const Element &start, const Element &end, const Element &step) {
+    auto tout = From(out);
+    torch::range_out(tout, From(start), From(end), From(step));
+}
+
 #define DEFINE_BINARY_PAIR_OPS(Name, bop)                                                              \
     void Pair##Name(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) { \
         auto big = self, small = other;                                                                \

@@ -58,18 +58,19 @@ class RangeOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aiha
 INSTANTIATE_TEST_SUITE_P(TestRange, RangeOperationTest,
     ::testing::ValuesIn(GetOpMetaData<RangeOpMetaData>({RangeOperationExeFunc}, "Range")));
 
-Element GetElementByType(DataType dataType, nlohmann::json test_data, string name){
-    if(dataType == DT_FP32){
+Element GetElementByType(DataType dataType, nlohmann::json test_data, string name) {
+    if (dataType == DT_FP32) {
         Element element(dataType, GetValueByName<float>(test_data, name));
         return element;
-    }else if(dataType == DT_INT32){
+    } else if (dataType == DT_INT32) {
         Element element(dataType, GetValueByName<int32_t>(test_data, name));
         return element;
-    }else if(dataType == DT_INT64){
+    } else if (dataType == DT_INT64) {
         Element element(dataType, GetValueByName<int64_t>(test_data, name));
         return element;
-    }else {
-        throw std::invalid_argument("Unknown DataType");
+    } else {
+        std::string errorMessage = "Unsupported DataType " + DataType2String(dataType);
+        throw std::invalid_argument(errorMessage.c_str());
     }
     Element element(dataType, GetValueByName<int64_t>(test_data, name));
     return element;
@@ -80,9 +81,9 @@ TEST_P(RangeOperationTest, TestRange) {
     nlohmann::json test_data = GetParam().test_data_;
     testCase.inputTensors = GetInputTensors(test_data);
     testCase.outputTensors = GetOutputTensors(test_data);
-    Element start = GetElementByType(testCase.outputTensors[0].GetDataType(), test_data, "start");
-    Element end = GetElementByType(testCase.outputTensors[0].GetDataType(), test_data, "end");
-    Element step = GetElementByType(testCase.outputTensors[0].GetDataType(), test_data, "step");
+    Element start = GetElementByType(testCase.inputTensors[0].GetDataType(), test_data, "start");
+    Element end = GetElementByType(testCase.inputTensors[1].GetDataType(), test_data, "end");
+    Element step = GetElementByType(testCase.inputTensors[2].GetDataType(), test_data, "step");
     auto args = RangeOpFuncArgs(start, end, step, GetViewShape(test_data), GetTileShape(test_data));
     testCase.args = &args;
     testCase.opFunc = GetParam().opFunc_;
