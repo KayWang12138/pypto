@@ -35,6 +35,7 @@ FlowVerifier::CompareResult FlowVerifier::VerifyResult(
         case DT_UINT32: return CompareData<uint32_t>(goldenDataView, outputDataView, eps);
         case DT_UINT64: return CompareData<uint64_t>(goldenDataView, outputDataView, eps);
         case DT_DOUBLE: return CompareData<double>(goldenDataView, outputDataView, eps);
+        case DT_BOOL: return CompareData<uint8_t>(goldenDataView, outputDataView, eps);
         default: ASSERT(false); break;
     }
     return CompareResult();

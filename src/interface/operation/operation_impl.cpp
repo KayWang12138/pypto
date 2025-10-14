@@ -49,10 +49,6 @@ struct Input {
     TileInfo tileInfo;
 };
 
-enum class LogicalNotOpType {
-    OP_LOGICALNOT,
-};
-
 enum class TransposeOpType {
     TRANSPOSE_MOVEIN,
     TRANSPOSE_MOVEOUT,

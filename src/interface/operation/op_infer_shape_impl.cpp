@@ -102,7 +102,6 @@ REGISTER_INFER_SHAPE_FUNC(OP_RECIPROCAL, Opcode::OP_RECIPROCAL, ElewiseInferFunc
 REGISTER_INFER_SHAPE_FUNC(OP_SUBS, Opcode::OP_SUBS, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_MAXS, Opcode::OP_MAXS, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_MINS, Opcode::OP_MINS, ElewiseInferFunc);
-REGISTER_INFER_SHAPE_FUNC(OP_LOGICALNOT, Opcode::OP_LOGICALNOT, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_S_ADDS, Opcode::OP_S_ADDS, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_S_SUBS, Opcode::OP_S_SUBS, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_S_MULS, Opcode::OP_S_MULS, ElewiseInferFunc);
@@ -150,6 +149,18 @@ void GatherElementInferFunc(Operation* op,
 }
 REGISTER_INFER_SHAPE_FUNC(OP_GATHER_ELEMENT, Opcode::OP_GATHER_ELEMENT, GatherElementInferFunc);
 
+void LogicalNotInferFunc(Operation* op,
+                        std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    ElewiseInferFunc(op, outValidShapes);
+    outValidShapes.erase(outValidShapes.begin() + 1, outValidShapes.end());
+    const int64_t COUNT_SIZE = 2048;
+    outValidShapes.push_back({COUNT_SIZE});
+    outValidShapes.push_back({COUNT_SIZE});
+    outValidShapes.push_back({COUNT_SIZE / 8});
+    outValidShapes.push_back({1});
+    outValidShapes.push_back({COUNT_SIZE});
+}
+REGISTER_INFER_SHAPE_FUNC(OP_LOGICALNOT, Opcode::OP_LOGICALNOT, LogicalNotInferFunc);
 
 void PairReduceInferFunc(Operation* op,
                         std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
