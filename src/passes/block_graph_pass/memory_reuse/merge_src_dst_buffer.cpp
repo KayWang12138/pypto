@@ -135,7 +135,7 @@ bool SrcDstBufferMergeImpl::CheckIgnoreScene(const Operation *oriOps) {
 }
 
 std::pair<bool, Status> SrcDstBufferMergeImpl::CheckHasInplaced(const Operation *oriOps, const Operation *ops,
-    std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors, int &inIdx) {
+    std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors) {
     if (oriOps->HasAttr(OpAttributeKey::inplaceInfo)) {
         std::map<int, int> inplaceInfo;
         if (!oriOps->GetAttr(OpAttributeKey::inplaceInfo, inplaceInfo)) {
@@ -153,32 +153,11 @@ std::pair<bool, Status> SrcDstBufferMergeImpl::CheckHasInplaced(const Operation 
         }
         return std::make_pair(true, SUCCESS);
     }
-    if (oriOps->HasAttr(OpAttributeKey::inplaceIdx)) {
-        inIdx = oriOps->GetIntAttribute(OpAttributeKey::inplaceIdx);
-        if (oriOps->GetIOperands().size() <= static_cast<size_t>(inIdx) ||
-            oriOps->GetOOperands().size() <= static_cast<size_t>(0)) {
-            ALOG_ERROR_F("Operands size error, in:%d, out:%d, inIdx:%d",
-                oriOps->GetIOperands().size(), oriOps->GetOOperands().size(), inIdx);
-            return std::make_pair(false, FAILED);
-        }
-
-        auto in = ops->GetIOperands()[inIdx];
-        auto out = ops->GetOOperands()[0];
-        if (in->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId == out->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId) {
-            return std::make_pair(true, SUCCESS);
-        }
-        out->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId = in->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
-        tensorConsumers_[in->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId].insert(
-            tensorConsumers_[out->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId].begin(),
-            tensorConsumers_[out->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId].end());
-        replacedTensors[out->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId] = in;
-        return std::make_pair(true, SUCCESS);
-    }
     return std::make_pair(false, SUCCESS);
 }
 
 bool SrcDstBufferMergeImpl::FindReplaced(const Operation *oriOps, const Operation *ops,
-    std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors, int &inIdx) {
+    std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors) {
     for (auto in : oriOps->GetIOperands()) {
         if (in != nullptr && CanSrcDstReuse(oriOps, in, true)) {
             // 当前输出复用输入
@@ -188,8 +167,6 @@ bool SrcDstBufferMergeImpl::FindReplaced(const Operation *oriOps, const Operatio
             if (inTensorMagic == outTensorMagic) {
                 continue;
             }
-            ALOG_DEBUG_F("Op [%d] %s reuse src [%d] buffer",
-                oriOps->GetOpMagic(), oriOps->GetOpcodeStr().c_str(), inIdx);
             ALOG_DEBUG_F("Set out tensor %d reuse src tensor %d", out->GetMagic(), in->GetMagic());
             out->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId = in->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
             if (tensorConsumers_[outTensorMagic].size() > tensorConsumers_[inTensorMagic].size()) {
@@ -198,7 +175,6 @@ bool SrcDstBufferMergeImpl::FindReplaced(const Operation *oriOps, const Operatio
             replacedTensors[outTensorMagic] = in;
             return true;
         }
-        inIdx++;
     }
 
     return false;
@@ -237,15 +213,14 @@ Status SrcDstBufferMergeImpl::Run(Function &func) {
             if (CheckIgnoreScene(oriOps[i])) {
                 continue;
             }
-            int inIdx = 0;
-            auto hasInplaced = CheckHasInplaced(oriOps[i], opList[i], replacedTensors, inIdx);
+            auto hasInplaced = CheckHasInplaced(oriOps[i], opList[i], replacedTensors);
             if (hasInplaced.second == FAILED) {
                 return FAILED;
             }
             if (hasInplaced.first) {
                 continue;
             }
-            bool findReplaced = FindReplaced(oriOps[i], opList[i], replacedTensors, inIdx);
+            bool findReplaced = FindReplaced(oriOps[i], opList[i], replacedTensors);
             if (!findReplaced) {
                 NotFindReplacedProcess(opList[i], replacedTensors);
             }
