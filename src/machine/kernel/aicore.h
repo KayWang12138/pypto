@@ -17,21 +17,6 @@
 #include <cstdint>
 #include "tilefwk/aicpu_common.h"
 #include "tilefwk/core_func_data.h"
-#ifndef __gm__
-#define __gm__
-#endif
-
-#ifndef __global__
-#define __global__
-#endif
-
-#ifndef __aicore__
-#define __aicore__ [aicore]
-#endif
-
-#ifndef INLINE
-#define INLINE __attribute__((always_inline)) inline __aicore__
-#endif
 
 #define TO_ENTRY_IMPL(name, line, key, type) (name##line##key##type)
 #define TO_ENTRY(name, key, type) TO_ENTRY_IMPL(name, _, key, type)

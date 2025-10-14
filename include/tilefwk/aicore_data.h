@@ -18,10 +18,16 @@
 
 #ifndef __gm__
 #define __gm__
+#define __aicore__
+#define INLINE inline
+#define __TILE_FWK_HOST__
+#else
+#define __aicore__ [aicore]
+#define INLINE __attribute__((always_inline)) inline __aicore__
 #endif
 
 namespace npu::tile_fwk {
-    
+
 const uint32_t HCCL_GROUP_NUM = 2;
 const uint32_t RAW_TENSOR_LOCATION_LOCAL = 0;
 const uint32_t RAW_TENSOR_LOCATION_INCAST = 1;
@@ -32,7 +38,7 @@ struct DevShape {
     int dimSize{0};
     int dim[DEV_SHAPE_DIM_MAX];
 
-#ifndef __aicore__
+#ifdef __TILE_FWK_HOST__
     int64_t GetSize() const {
         int64_t size = 1;
         for (int idx = 0; idx < dimSize; idx++) {

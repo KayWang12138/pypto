@@ -162,7 +162,7 @@ Operation::Operation(
                 ASSERT((lastAxis * BytesOf(dataType)) % BLOCK_SIZE == 0) << "vec tile should be 32B align";
             }
         }
-        SetSemanticLabel(GetSemanticLabel());
+        SetSemanticLabel(config::GetSemanticLabel());
         location_ = SourceLocation::GetLocation();
     }
 

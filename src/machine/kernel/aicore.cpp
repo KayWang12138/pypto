@@ -17,6 +17,7 @@
 #include <cstdint>
 #include "tilefwk/aicpu_common.h"
 #include "tilefwk/aicore_runtime.h"
+#include "tilefwk/aicore_print.h"
 #include "tilefwk/core_func_data.h"
 #include "machine/kernel/aicore.h"
 #include "machine/utils/device_switch.h"
@@ -64,6 +65,9 @@ struct ExecuteContext {
     uint32_t seqNo;
     __gm__ DynFuncData *funcDataList;
     __gm__ CoreFunctionData *staticFuncData;
+#if ENABLE_AICORE_PRINT
+    AicoreLogger logger;
+#endif
 };
 
 typedef void (*StaticKernelFunc)(__gm__ int64_t *param, int64_t gmStackAddr, __gm__ int64_t *hcclContext, __gm__ int64_t *oriAddr);
@@ -255,7 +259,11 @@ INLINE void ExecDynCoreFunctionKernel(ExecuteContext *ctx, uint32_t taskId) {
 
     auto funcData = &ctx->funcDataList[FuncID(taskId)];
     auto opAttrs = &funcData->opAttrs[funcData->opAtrrOffsets[TaskID(taskId)]];
-    CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl, taskId};
+#if ENABLE_AICORE_PRINT
+    CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl, taskId, ctx->logger.context()};
+#else
+    CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl, taskId, nullptr};
+#endif
     CallSubFuncTask(opAttrs[0], &param, funcData->stackWorkSpaceAddr + blockIdx * funcData->stackWorkSpaceSize,
                     (__gm__ int64_t *)funcData->hcclContext);
     SetStatus(ctx->args, STAGE_FINISH_EXEC_COREFUNC_KERNEL);
@@ -274,6 +282,12 @@ INLINE void InitCtx(ExecuteContext *ctx, uint64_t coreFuncData, bool isDyn) {
         __gm__ DynFuncHeader *header = (__gm__ DynFuncHeader *)coreFuncData;
         ctx->seqNo = header->seqNo;
         ctx->funcDataList = (__gm__ npu::tile_fwk::DynFuncData *)(header + 1);
+#if ENABLE_AICORE_PRINT
+        auto buffer = reinterpret_cast<__gm__ uint8_t *>(ctx->args->shakeBuffer[SHAK_BUF_PRINT_BUFFER_INDEX]);
+        if (ctx->logger.GetBuffer() != buffer) {
+            ctx->logger.Init(buffer, PRINT_BUFFER_SIZE);
+        }
+#endif
         dcci((__gm__ void *)0, ENTIRE_DATA_CACHE, CACHELINE_OUT);
         return;
     }

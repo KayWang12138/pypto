@@ -17,6 +17,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <cstdlib>
 
 #include "aicore_manager.h"
 #include "device_utils.h"
@@ -24,8 +25,24 @@
 #include "machine/utils/dynamic/dev_encode.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/utils/device_log.h"
+#include "tilefwk/aicore_print.h"
 #include "device_utils.h"
 namespace npu::tile_fwk::dynamic {
+
+struct AicoreLogManager {
+    AicoreLogManager() {
+        data_ = aligned_alloc(PAGE_SIZE, MAX_AICORE_NUM * PRINT_BUFFER_SIZE);
+        uint8_t *buf = (uint8_t *)data_;
+        for (uint32_t i = 0; i < MAX_AICORE_NUM; i++) {
+            logger[i].Init(buf, PRINT_BUFFER_SIZE);
+            buf += PRINT_BUFFER_SIZE;
+        }
+    }
+    ~AicoreLogManager() { free(data_); }
+
+    void *data_;
+    AicoreLogger logger[MAX_AICORE_NUM];
+};
 
 class DeviceMachine {
 public:
@@ -145,7 +162,9 @@ public:
             DEV_INFO("thread start ignore ");
             return DEVICE_MACHINE_OK;
         }
-
+#if ENABLE_AICORE_PRINT
+        aicoreManager_[threadIdx]->InitLogger(logManager.logger);
+#endif
         ret = aicoreManager_[threadIdx]->Run(threadIdx, args, initTaskCtrl);
         DEV_INFO("thread  %d end , ret = %d", threadIdx, ret);
         return ret;
@@ -305,5 +324,8 @@ private:
     AicpuTaskManager aicpuTaskManager_;
     uint32_t schAicpuNum_{MAX_SCHEDULE_AICPU_NUM};
     std::unique_ptr<AiCoreManager> aicoreManager_[MAX_SCHEDULE_AICPU_NUM];
+#if ENABLE_AICORE_PRINT
+    AicoreLogManager logManager;
+#endif
 };
 } // namespace npu::tile_fwk

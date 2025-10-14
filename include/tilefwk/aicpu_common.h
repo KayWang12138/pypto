@@ -33,7 +33,7 @@ constexpr int REG_LOW_TASK_PING = 0;
 constexpr int REG_LOW_TASK_PONG = 1;
 constexpr int MAX_DFX_TASK_NUM_PER_CORE = 10000;
 
-constexpr int SHAK_BUF_BATCH_TASK_INDEX = 5;
+constexpr int SHAK_BUF_PRINT_BUFFER_INDEX = 5;
 constexpr int SHAK_BUF_COREFUNC_DATA_INDEX = 6;
 constexpr int SHAK_BUF_DFX_DATA_INDEX = 7;
 
@@ -42,6 +42,7 @@ constexpr int FUNC_ID_BATCH = 0x7FF;
 const uint64_t SHARED_BUFFER_SIZE = 512;
 const uint64_t PMU_BUFFER_SIZE = 4096;
 const uint64_t DEVICE_QUEUE_SIZE = 512;
+const uint64_t PRINT_BUFFER_SIZE = 16384;
 
 constexpr const int DEV_SHAPE_DIM_NUM_2 = 2;
 constexpr const int DEV_SHAPE_DIM_NUM_3 = 3;

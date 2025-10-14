@@ -25,6 +25,8 @@ namespace npu::tile_fwk {
 #define DEBUG_SWITCH 0
 #define DEBUG_INFINITE_LIFETIME 0
 
+#define ENABLE_AICORE_PRINT 0
+
 #define PERF_SWITCH 0
 
 #if DEBUG_SWITCH == 0

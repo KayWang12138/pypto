@@ -283,15 +283,6 @@ public:
                   coreIdx, taskId, taskIds[coreIdx].size(), time + timeCost);
     }
 
-    inline void SendTaskBatch(int coreIdx, uint64_t regVal, uint64_t taskData) {
-        if constexpr (IsDeviceMode()) {
-            volatile KernelArgs *arg = args_[coreIdx];
-            arg->shakeBuffer[SHAK_BUF_BATCH_TASK_INDEX] = static_cast<int64_t>(taskData);
-        }
-        __sync_synchronize();
-        SetReadyQueue(coreIdx, regVal);
-    }
-
     int64_t GetSharedBuffer() { return sharedBuffer_; }
 
     inline void MapRegistersForAllCores(int aicNum) {
@@ -361,10 +352,11 @@ public:
         return arg->shakeBuffer[0x2];
     }
 
-    inline void InitTaskData(int coreIdx, int64_t funcdata) {
+    inline void InitTaskData(int coreIdx, int64_t funcdata, int64_t buffer) {
         if constexpr (IsDeviceMode()) {
             volatile KernelArgs *arg = args_[coreIdx];
             arg->shakeBuffer[SHAK_BUF_COREFUNC_DATA_INDEX] = funcdata;
+            arg->shakeBuffer[SHAK_BUF_PRINT_BUFFER_INDEX] = buffer;
         } else {
             if (costModel_) {
                 costModel_->InitData(coreIdx, funcdata);

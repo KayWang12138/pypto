@@ -23,6 +23,7 @@
 #include <semaphore.h>
 #include "securec.h"
 #include "tilefwk/config.h"
+#include "tilefwk/aicore_print.h"
 #include "interface/utils/common.h"
 #include "interface/operation/opcode.h"
 #include "interface/schema/schema.h"
@@ -164,6 +165,10 @@ public:
     explicit AiCoreManager(AicpuTaskManager &aicpuTaskManager) : aicpuTaskManager_(aicpuTaskManager), aicoreProf_(*this){};
     ~AiCoreManager(){};
 
+    void InitLogger(AicoreLogger *logger) {
+        logger_ = logger;
+    }
+
     inline void InitTaskData(DeviceTaskCtrl *taskCtrl) {
         curTaskCtrl_ = taskCtrl;
         curDevTask_ = taskCtrl->devTask;
@@ -177,7 +182,10 @@ public:
             auto dyntask = (DynDeviceTask *)curDevTask_;
             funcdata = static_cast<int64_t>(PtrToValue(dyntask->dynFuncData));
         }
-        ForEachManageAicore([&](int coreIdx) { aicoreHal_.InitTaskData(coreIdx, funcdata); });
+        ForEachManageAicore([&](int coreIdx) {
+            auto logbuf = logger_ ? logger_[coreIdx].GetBuffer() : nullptr;
+            aicoreHal_.InitTaskData(coreIdx, funcdata, (uint64_t)logbuf);
+        });
 
         readyAicCoreFunctionQue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(curDevTask_->readyAicCoreFunctionQue);
         readyAivCoreFunctionQue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(curDevTask_->readyAivCoreFunctionQue);
@@ -220,6 +228,14 @@ public:
         sent += (sentAic + sentAiv + resolveHubCnt_);
         resolveHubCnt_ = 0;
         return sent;
+    }
+
+    void DumpAicoreLog(int coreIdx) {
+        const int bufSize = 512;
+        char buf[bufSize];
+        while (logger_[coreIdx].read(buf, bufSize)) {
+            DEV_INFO("core-%d %s", coreIdx, buf);
+        }
     }
 
     inline int RunTask(DeviceTaskCtrl *taskCtrl) {
@@ -1302,6 +1318,10 @@ private:
         if constexpr (!IsDeviceMode())
             return;
 
+#if ENABLE_AICORE_PRINT
+        DumpAicoreLog(coreIdx);
+#endif
+
         volatile TaskStat *stat = aicoreHal_.GetTaskStat(coreIdx, 0);
 
 #if PROF_DFX_HOST_PREPARE_MEMORY_MODE != 1
@@ -1383,7 +1403,7 @@ private:
     std::vector<TaskInfo> recvFinTask_[MAX_AICORE_NUM];
     std::vector<TaskInfo> recvAckTask_[MAX_AICORE_NUM];
 #endif
-
+    AicoreLogger *logger_{nullptr};
     friend class AiCoreProf;
 };
 }

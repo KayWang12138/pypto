@@ -16,6 +16,8 @@
 #ifndef AICORE_RUNTIME_H
 #define AICORE_RUNTIME_H
 
+#include <cstdint>
+
 #include "tilefwk/aicore_data.h"
 #include "tileop/hccl_context.h"
 
@@ -25,10 +27,6 @@
 #define DEBUG_OFFSET_FOR_B64 DEFAULT_TOTAL_BLOCK_NUM *CACHELINE_SIZE_FOR_B64 / sizeof(int64_t)
 #define DEBUG_SIZE_PER_CORE (1 * 1024 * 1024)
 #define PAD_LIMIT 512
-
-#ifndef INLINE
-#define INLINE __attribute__((always_inline)) inline[aicore]
-#endif
 
 const int SHAKE_SAY_HELLO = 100;
 const int SHAKE_HELLO_ACK = 200;
@@ -199,11 +197,14 @@ INLINE uint64_t GetLengthPrivate(volatile RingBuffer<T, SIZE> *Q) {
     return (Q->rear - Q->front + Q->MAX_SIZE) % Q->MAX_SIZE;
 }
 
+struct LogContext;
+
 struct CoreFuncParam {
     __gm__ npu::tile_fwk::DynFuncData *funcData;
     __gm__ uint64_t *opAttrs;
     __gm__ uint64_t *exprTbl;
     uint32_t taskId;
+    LogContext *ctx;
 };
 
 #define TASKID_TASK_BITS 20
