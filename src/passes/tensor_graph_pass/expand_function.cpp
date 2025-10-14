@@ -55,7 +55,6 @@ bool CheckAssembleNeedCopy(Function &function, const std::shared_ptr<Operation> 
     }
     for (size_t i = 1; i < op->oOperand[0]->shape.size(); i++) {
         if (op->oOperand[0]->shape[i] != op->iOperand[0]->shape[i]) {
-            op->SetAttr("NeedCopy", true);
             ALOG_INFO_F("assemble %d need to check expansion.",  op->GetOpMagic());
             return true;
         }
