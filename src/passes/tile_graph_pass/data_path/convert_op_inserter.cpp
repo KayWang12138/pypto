@@ -289,11 +289,6 @@ bool ConvertInserter::isAllConsumersValid(const std::set<Operation *> &consumers
             (consumer->GetOOperands().front()->nodetype != NodeType::OUTCAST)){
             return false;
         }
-        bool needCopy = false;
-        (void)consumer->GetAttr("NeedCopy", needCopy);
-        if (needCopy) {
-            return false;
-        }
     }
     return true;
 }

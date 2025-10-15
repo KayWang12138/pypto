@@ -329,6 +329,9 @@ void SplitLargeFanoutTensor::EraseRedundantCopyIn(Function &function) {
         bool isViewToL1 = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get())->GetTo() == MemoryType::MEM_L1;
         auto viewAttr = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
         auto consumers = op.oOperand.front()->GetConsumers();
+        if (consumers.empty()) {
+            continue;
+        }
         bool allChildrenView = std::all_of(consumers.begin(), consumers.end(),
             [=](const Operation *opNext) {
                 if (opNext->GetOpcode() != Opcode::OP_VIEW) {
