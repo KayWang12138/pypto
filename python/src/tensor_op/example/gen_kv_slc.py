@@ -141,15 +141,15 @@ if __name__ == '__main__':
     max_seq_all_batch = max(seq)
     max_block_num_per_batch = math.ceil(max_seq_all_batch / block_size)
 
-    top_k_indcies = pto.tensor(pto.DataType.DT_INT32, [b, s, topk - front - near], "top_k_indcies")
-    top_k_tensor_shape = pto.tensor(pto.DataType.DT_INT32, [b, s], "top_k_tensor_shape")
-    kv_nope_cache = pto.tensor(pto.DataType.DT_FP16, [int(block_num * block_size), n2 * kv_lora_rank], "kv_nope_cache")
-    k_rope_cache = pto.tensor(pto.DataType.DT_FP16, [int(block_num * block_size), n2 * rope_dim], "k_rope_cache")
-    kv_act_seqs = pto.tensor(pto.DataType.DT_INT32, [b], "kv_act_seqs")
-    block_table = pto.tensor(pto.DataType.DT_INT32, [b, max_block_num_per_batch], "block_table")
-    k_slc_out = pto.tensor(pto.DataType.DT_FP16, [b * s * n2 * topk * l_prime, rope_dim + kv_lora_rank], "k_slc_out")
-    v_slc_out = pto.tensor(pto.DataType.DT_FP16, [b * s * n2 * topk * l_prime, kv_lora_rank], "v_slc_out")
-    kv_slc_act_seqs = pto.tensor(pto.DataType.DT_INT32, [b, s], "kv_slc_act_seqs")
+    top_k_indcies = pto.tensor([b, s, topk - front - near], pto.DataType.DT_INT32, "top_k_indcies")
+    top_k_tensor_shape = pto.tensor([b, s], pto.DataType.DT_INT32, "top_k_tensor_shape")
+    kv_nope_cache = pto.tensor([int(block_num * block_size), n2 * kv_lora_rank], pto.DataType.DT_FP16, "kv_nope_cache")
+    k_rope_cache = pto.tensor([int(block_num * block_size), n2 * rope_dim], pto.DataType.DT_FP16, "k_rope_cache")
+    kv_act_seqs = pto.tensor([b], pto.DataType.DT_INT32, "kv_act_seqs")
+    block_table = pto.tensor([b, max_block_num_per_batch], pto.DataType.DT_INT32, "block_table")
+    k_slc_out = pto.tensor([b * s * n2 * topk * l_prime, rope_dim + kv_lora_rank], pto.DataType.DT_FP16, "k_slc_out")
+    v_slc_out = pto.tensor([b * s * n2 * topk * l_prime, kv_lora_rank], pto.DataType.DT_FP16, "v_slc_out")
+    kv_slc_act_seqs = pto.tensor([b, s], pto.DataType.DT_INT32, "kv_slc_act_seqs")
     input_tensors = [
         top_k_indcies, top_k_tensor_shape, kv_nope_cache, 
         k_rope_cache, kv_act_seqs, block_table

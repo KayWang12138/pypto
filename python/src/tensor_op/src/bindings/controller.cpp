@@ -171,6 +171,7 @@ void bind_controller_function(py::module &m) {
         .def("IterationBegin", &RecordLoopFunc::IterationBegin)
         .def("IterationNext", &RecordLoopFunc::IterationNext)
         .def("IterationEnd", &RecordLoopFunc::IterationEnd)
+        .def("MatchUnrollTimes", &RecordLoopFunc::MatchUnrollTimes)
         .def("__iter__", [](RecordLoopFunc &c) {
             // Return Python iterator from C++ begin/end
             return py::make_iterator(c.begin(), c.end());

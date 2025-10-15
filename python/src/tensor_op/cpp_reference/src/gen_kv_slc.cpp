@@ -13,23 +13,9 @@ See LICENSE in the root of the software repository for the full text of the Lice
 \file page_attention.cpp
 \brief
 */
-#include "tilefwk/tilefwk_op.h"
-#include "interface/inner/pre_def.h"
-#include "tilefwk/tilefwk.h"
-#include "interface/program/program.h"
-#include "interface/configs/config_storage.h"
-#include "interface/operation/operation_impl.h"
-#include "interface/operation/operation.h"
+
 #include "interface/function/function.h"
-#include "tilefwk/tensor.h"
-#include "interface/tensor/logical_tensor.h"
-#include "interface/tensor/raw_tensor.h"
-#include "interface/tensor/tensormap.h"
 #include "interface/configs/config_manager.h"
-#include "interface/configs/config_storage.h"
-#include "interface/utils/common.h"
-#include "interface/utils/id_gen.h"
-#include "interface/utils/log.h"
 
 using namespace npu::tile_fwk;
 
@@ -79,8 +65,12 @@ void KvSlcCompute(Tensor &topK_indcies, Tensor &topK_tensor_shape, Tensor &kvNop
                         positions = topk_index * prime_value;
                     }
                     slcSeqLen = slcSeqLen + prime_value;
-                    SymbolicScalar blockIdxInBatch = positions / blockSize;
-                    SymbolicScalar tail = positions % blockSize;
+                    SymbolicScalar blockIdxInBatch;
+                    SymbolicScalar tail;
+                    if (blockSize != 0) {
+                        blockIdxInBatch = positions / blockSize;
+                        tail = positions % blockSize;
+                    }
                     SymbolicScalar slcBlockIdx = GetInputData(blockTable, {batchIdx, blockIdxInBatch});
                     TileShape::Current().SetVecTile(v0Tile[0], v0Tile[1]);
                     auto kv_slcBlock = View(kvNopeCache, {l_prime, kv_lora_rank}, {slcBlockIdx * blockSize + tail, nkvIdx * kv_lora_rank});
@@ -108,7 +98,6 @@ void KvSlcCompute(Tensor &topK_indcies, Tensor &topK_tensor_shape, Tensor &kvNop
 }
 
 }
-
 
 int main() { // b_n_s_s2_h_q_lora_rank
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
