@@ -221,18 +221,6 @@ void TiledShmemClearSignal(Function &function, const TileShape &tileShape,
     }
 }
 
-void TiledShmemBarrier(Function &function, const TileShape &tileShape,
-    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
-    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op)
-{
-    (void)tileShape;
-    (void)op;
-    auto& tileop = function.AddOperation("SHMEM_BARRIER_ALL", iOperand, oOperand);
-    std::vector<int64_t> extraAttrs;
-    op.GetAttr("AicpuOpParams", extraAttrs);
-    tileop.SetAttr("AicpuOpParams", extraAttrs);
-}
-
 Shape GetReduceUbShape(int64_t rowSize, int64_t colSize, DataType dType, bool fp32Mode)
 {
     Shape ubShape;

@@ -39,7 +39,6 @@ target_sources(tile_fwk_server
             aicore_prof.cpp
             distributed/comm_wait_flag.cpp
             distributed/shmem_wait_until.cpp
-            distributed/shmem_barrier_all.cpp
             dynamic/device_machine.cpp
             dynamic/aicore_prof.cpp
             device_log.cpp

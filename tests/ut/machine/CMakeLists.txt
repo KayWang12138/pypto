@@ -40,7 +40,6 @@ set(_CaseFilterList
         # distributed
         "CommWaitFlagTest.CommWaitFlag_EnqueueOp_and_PollCompleted_success"
         "ShmemWaitUntilTest.*"
-        "ShmemBarrierAllTest.*"
         "SlabWsAllocatorTest.*"
         # Platform
         "PlatformTest.TestPlatfromCase1"
@@ -61,7 +60,6 @@ list(APPEND _Sources ${PTO_FWK_SRC_ROOT}/src/machine/device/device_machine.cpp)
 list(APPEND _Sources ${PTO_FWK_SRC_ROOT}/src/machine/device/device_log.cpp)
 list(APPEND _Sources ${PTO_FWK_SRC_ROOT}/src/machine/device/distributed/comm_wait_flag.cpp)
 list(APPEND _Sources ${PTO_FWK_SRC_ROOT}/src/machine/device/distributed/shmem_wait_until.cpp)
-list(APPEND _Sources ${PTO_FWK_SRC_ROOT}/src/machine/device/distributed/shmem_barrier_all.cpp)
 
 PTO_Fwk_UTest_AddCaseLib(
         TARGET ${_Target}

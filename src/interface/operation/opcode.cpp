@@ -306,11 +306,6 @@ OpcodeManager::OpcodeManager() {
         {MemoryType::MEM_DEVICE_DDR /* dummy */, MemoryType::MEM_UB /* buffer */},
         {"TileOp::Distributed::ShmemClearSignal", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED);
     /*
-     * 1. TileOp 的说明：同步通信域内所有卡
-     */
-    registerInfo(Opcode::OP_SHMEM_BARRIER_ALL, OpCoreType::AICPU, "SHMEM_BARRIER_ALL", {}, {},
-        TileOpCfg(), OpCalcType::DISTRIBUTED);
-    /*
      * 1. TileOp 的说明：把非 SHMEM 的数据传输到 SHMEM
      * 2. 支持的属性：
      *    a. AtomicType：类型为 AtomicType，默认值为 AtomicType::SET

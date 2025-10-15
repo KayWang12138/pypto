@@ -26,7 +26,6 @@
 #include "machine/utils/dynamic/dev_workspace.h"
 #include "machine/device/distributed/common.h"
 #include "machine/device/distributed/shmem_wait_until.h"
-#include "machine/device/distributed/shmem_barrier_all.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "interface/operation/opcode.h"
 #include "interface/utils/common.h"
@@ -37,7 +36,6 @@ class AicpuTaskManager {
 public:
     enum TaskType {
         SHMEM_WAIT_UNTIL = 0,
-        SHMEM_BARRIER_ALL,
         TASK_TYPE_NUM,
     };
     using InitCallBack = std::function<void(DynDeviceTask *)>;
@@ -48,7 +46,6 @@ public:
 
     AicpuTaskManager() {
         TaskCallBackResigter<npu::tile_fwk::Distributed::ShmemWaitUntil>(TaskType::SHMEM_WAIT_UNTIL, shmemWaitUntil_);
-        TaskCallBackResigter<npu::tile_fwk::Distributed::ShmemBarrierAll>(TaskType::SHMEM_BARRIER_ALL, shmemBarrierAll_);
     };
     ~AicpuTaskManager() {};
 
@@ -127,7 +124,6 @@ private:
         auto taskType = TaskType::TASK_TYPE_NUM;
         switch (code[0]) {
             case static_cast<uint32_t>(Opcode::OP_SHMEM_WAIT_UNTIL): taskType = TaskType::SHMEM_WAIT_UNTIL; break;
-            case static_cast<uint32_t>(Opcode::OP_SHMEM_BARRIER_ALL): taskType = TaskType::SHMEM_BARRIER_ALL; break;
             default: break;
         }
         return taskType;
@@ -148,7 +144,6 @@ private:
     ReadyCoreFunctionQueue *readyQueue_{nullptr};
 
     npu::tile_fwk::Distributed::ShmemWaitUntil shmemWaitUntil_;
-    npu::tile_fwk::Distributed::ShmemBarrierAll shmemBarrierAll_;
 
     std::array<InitCallBack, TaskType::TASK_TYPE_NUM> initCallBack_;
     std::array<EnqueueOpCallBack, TaskType::TASK_TYPE_NUM> enqueueOpCallBack_;

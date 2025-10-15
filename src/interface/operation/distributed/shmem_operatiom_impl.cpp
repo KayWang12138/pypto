@@ -113,16 +113,6 @@ Tensor AddShmemClearSignal(const Tensor &in, const Tensor &shmemSignalTile, cons
     return dummy;
 }
 
-Tensor AddShmemBarrier(const Tensor &clearSignalDummy, int hcclGroupIndex)
-{
-    auto &function = *Program::GetInstance().GetCurrentFunction();
-    auto dummy = std::make_shared<LogicalTensor>(function, DT_INT32, Shape{1, 1});
-    auto& op = function.AddOperation("SHMEM_BARRIER_ALL", {clearSignalDummy.GetStorage()}, {dummy});
-    std::vector<int64_t> param = {static_cast<int64_t>(hcclGroupIndex)};
-    op.SetAttr("AicpuOpParams", param);
-    return dummy;
-}
-
 Tensor CreateShmemTensor(int32_t rankSize, int32_t hcclGroupIndex, DataType dataType, const Shape &shape)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
@@ -145,17 +135,30 @@ Tensor Barrier(const Tensor &in, const char *group)
     SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
 
     Tensor shmemSignal;
+    Tensor shmemBarrierSignal;
     Tensor barrierDummy(DT_INT32, {1, 1}, "barrierDummy");
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
+
         shmemSignal = CreateShmemTensor(rankSize, hcclGroupIndex, DT_INT32, shmSignalShape);
+
+        // 虽然创建出来的 tensor 的 shape 是 {rankSize, rankSize, 1, 8}，但其实只需要用到最前面的 {rankSize, 1, 1, 8}
+        shmemBarrierSignal = CreateShmemTensor(rankSize, hcclGroupIndex, DT_INT32, Shape{1, 8});
     }
     LOOP("Barrier", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
         auto shmemSignalTile =
             View(shmemSignal, {1, 1, tileCount, 8}, std::vector<SymbolicScalar>{rankSize, rankSize, 0, 0});
         auto clearSignalDummy = AddShmemClearSignal(in, shmemSignalTile, tileCount);
-        barrierDummy = AddShmemBarrier(clearSignalDummy, hcclGroupIndex);
+
+        for (int32_t rank = 0; rank < rankSize; rank++) {
+            auto shmemBarrierSignalTile =
+                View(shmemBarrierSignal, {1, 1, 1, 8}, std::vector<SymbolicScalar>{rank, 0, 0, 0});
+            AddShmemSignal(clearSignalDummy, shmemBarrierSignalTile, AtomicType::ADD);
+        }
+        auto shmemBarrierSignalLocal =
+            View(shmemBarrierSignal, {1, 1, 1, 8}, std::vector<SymbolicScalar>{thisRank, 0, 0, 0});
+        barrierDummy = AddWaitUntil(clearSignalDummy, shmemBarrierSignalLocal, 1, hcclGroupIndex, rankSize);
     }
     return barrierDummy;
 }

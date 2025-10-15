@@ -79,6 +79,10 @@ void TestDynAllGatherMatmulReducescatter(OpTestParam &testParam)
     config.runModel = false;
     config.hcclContext = hcclContext;
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
+
+    auto output = ProgramData::GetInstance().GetOutputData(0);
+    int32_t outSize = row * testParam.rankSize * col;
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/double_allgather_rank_", outSize, output->GetDevPtr(), testParam));
 }
 
 } // namespace Distributed
