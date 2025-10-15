@@ -59,7 +59,6 @@ bool GenerateMoveOp::HasSpecificConsumer(const Operation &op) const {
 }
 
 void GenerateMoveOp::ConvertViewToCopyInWhenInputGm(Operation &op, ViewOpAttribute *viewOpAttribute) const {
-    auto nextOp = *(op.oOperand[0]->GetConsumers().begin());
     op.SetOpCode(Opcode::OP_COPY_IN); // 将view转化为copyin
     auto copyAttr = std::make_shared<CopyOpAttribute>(
         OpImmediate::Specified(viewOpAttribute->GetFromTensorOffset()),
@@ -69,9 +68,6 @@ void GenerateMoveOp::ConvertViewToCopyInWhenInputGm(Operation &op, ViewOpAttribu
     );
     op.GetOOperands()[0]->UpdateDynValidShape(viewOpAttribute->GetToDynValidShape());
     op.SetOpAttribute(copyAttr);
-    if (nextOp->HasAttr(OpAttributeKey::tag)) {
-        op.SetAttribute(OpAttributeKey::tag, nextOp->GetStringAttribute(OpAttributeKey::tag));
-    }
 }
 
 void GenerateMoveOp::CreateMoveOpForView(Operation &op) const {
@@ -99,10 +95,6 @@ void GenerateMoveOp::CreateMoveOpForAssemble(Operation &op) const {
         return;
     }
     op.SetOpCode(Opcode::OP_COPY_OUT);
-    auto preOp = *(op.iOperand[0]->GetProducers().begin());
-    if (preOp->HasAttr(OpAttributeKey::tag)) {
-        op.SetAttribute(OpAttributeKey::tag, preOp->GetStringAttribute(OpAttributeKey::tag));
-    }
     if (assembleOpAttribute->GetFrom() != ASSEMBLE_in->GetMemoryTypeOriginal()) {
         ALOG_WARN_F(" Assemble op from Attr is different from iOperand, opmagic: %d, do force setting.", op.opmagic);
     }

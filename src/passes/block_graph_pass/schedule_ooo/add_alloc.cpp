@@ -135,9 +135,6 @@ Status AddAlloc::GenAllocOpcode(const Opcode &allocOpcode, const TensorAllocMsg&
         }
         auto &allocOp = function.AddOperation(allocOpcode, {}, 
             std::vector<std::shared_ptr<LogicalTensor>>({oOperand}));
-        if (tensorAllocMsg.producer[0]->HasAttr(OpAttributeKey::tag)) {
-            allocOp.SetAttribute(OpAttributeKey::tag, tensorAllocMsg.producer[0]->GetStringAttribute(OpAttributeKey::tag));
-        }
         allocOp.opmagic = maxOpMagic + 1;
     }
     return SUCCESS;
