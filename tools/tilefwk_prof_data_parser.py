@@ -236,8 +236,8 @@ def prepare_workflow_data(infile, task_id_flag, output):
 
 def data_supple(ndata, task_ids, core_data):
     cols_nr = ndata.shape[1]
-    all_data = np.zeros((75, cols_nr), np.int32)
-    all_core_tasks = np.zeros_like(all_data)
+    all_data = np.zeros((75, cols_nr))
+    all_core_tasks = np.zeros((75, cols_nr), np.int32)
     all_core_list = list(range(75))
     for i in range(75):
         if i in core_data:
