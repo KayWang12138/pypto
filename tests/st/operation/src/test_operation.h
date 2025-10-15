@@ -54,22 +54,27 @@ struct TestCaseDesc {
 };
 
 struct MatmulTestCaseParam {
-    bool transA;
-    bool transB;
-    bool isAMatrixNz;
-    bool isBMatrixNz;
-    bool isCMatrixNz;
-    DataType outDtype;
+    bool transA = false;
+    bool transB = false;
+    bool isAMatrixNz = false;
+    bool isBMatrixNz = false;
+    bool isCMatrixNz = false;
+    DataType outDtype = DT_FP32;
+    bool enableKSplit = false;
 };
 
 class TestExecutor {
 public:
+    static void setGMNotClear() {
+        gmClearFlag = false;
+    }
     static void runTest(const TestCaseDesc& testCase) {
         init();
         verifyOpResults(testCase);
     }
 
 private:
+    static inline bool gmClearFlag = true;
     static void init() {
         config::SetHostConfig(npu::tile_fwk::KEY_ONLY_CODEGEN, true);
         config::SetCodeGenConfig(npu::tile_fwk::KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
@@ -93,7 +98,21 @@ private:
         // 设置输出Tensor
         std::vector<RawTensorDataPtr> outputs;
         for (const auto& tensor : testCase.outputTensors) {
-            outputs.push_back(RawTensorData::CreateTensorZero(tensor));
+            if (gmClearFlag) {
+                outputs.push_back(RawTensorData::CreateTensorZero(tensor));
+            } else {
+                switch (tensor.GetDataType()) {
+                    case DataType::DT_FP32:
+                        outputs.push_back(RawTensorData::CreateConstantTensor<float>(tensor, 1.0));
+                        break;
+                    case DataType::DT_INT32:
+                        outputs.push_back(RawTensorData::CreateConstantTensor<int32_t>(tensor, 1));
+                        break;
+                    default:
+                        ASSERT_TRUE(false) << "no support dtype " << tensor.GetDataType();
+                        break;
+                }
+            }
         }
         ProgramData::GetInstance().AppendOutputs({outputs});
 
@@ -103,6 +122,10 @@ private:
         DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
         ASSERT_EQ(testCase.goldenPaths.size(), testCase.outputTensors.size());
+        readGoldenCmpType(testCase);
+    }
+
+    static void readGoldenCmpType(const TestCaseDesc& testCase) {
         for (size_t i = 0; i < testCase.outputTensors.size(); ++i) {
             auto& tensor = testCase.outputTensors[i];
             switch (tensor.GetDataType()) {
@@ -209,6 +232,13 @@ private:
         ProgramData::GetInstance().AppendInputs({inputs});
 
         ASSERT_EQ(testCase.goldenPaths.size(), testCase.outputTensors.size());
+        appendGoldenType(testCase);
+
+        std::vector<Tensor> nonConstOutputs = testCase.outputTensors;
+        testCase.opFunc(testCase.inputTensors, nonConstOutputs, testCase.args);
+    }
+
+    static void appendGoldenType(const TestCaseDesc& testCase) {
         for (size_t i = 0; i < testCase.outputTensors.size(); ++i) {
             auto& tensor = testCase.outputTensors[i];
             switch (tensor.GetDataType()) {
@@ -244,9 +274,6 @@ private:
                     break;
             }
         }
-
-        std::vector<Tensor> nonConstOutputs = testCase.outputTensors;
-        testCase.opFunc(testCase.inputTensors, nonConstOutputs, testCase.args);
     }
 
     template<typename T>
@@ -372,6 +399,7 @@ T GetValueByName(const nlohmann::json &json_data, const std::string &name) {
     param.isBMatrixNz = GetValueByName<bool>(json_data, "isBMatrixNz");
     param.isCMatrixNz = GetValueByName<bool>(json_data, "isCMatrixNz");
     param.outDtype = GetDataType(GetValueByName<std::string>(json_data, "outDtype"));
+    param.enableKSplit = GetValueByName<bool>(json_data, "enableKSplit");
     return param;
 }
 

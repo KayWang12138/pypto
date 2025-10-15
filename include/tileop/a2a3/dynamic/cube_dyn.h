@@ -469,7 +469,7 @@ TILEOP void DynL1ToL0B(__cb__ T *dst, __cbuf__ T *src, unsigned dstK, unsigned d
         // set featureMap 0-15 for w(srcK) 16-31(1)
         uint64_t config = srcK | (1 << 16);
         set_fmatrix_b(config);
-        img2colv2_cbuf_to_cb(dst,src, dstN, dstK, 0, 0, 1, 1, 1, 1, 1, 1, false, false, false, true, srcN);
+        img2colv2_cbuf_to_cb(dst, src, dstN, dstK, 0, 0, 1, 1, 1, 1, 1, 1, false, false, false, true, srcN);
         return;
     }
 
