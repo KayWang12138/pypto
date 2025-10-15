@@ -158,7 +158,6 @@ void LightningIndexerPrologCompute(
     Tensor qr2D(inputs.qr->Datatype(), {b * seq, qLoraRank}, "qr2D");
     Tensor cos2D(inputs.cos->Datatype(), {b * seq, ropeHeadDim}, "cos2D");
     Tensor sin2D(inputs.sin->Datatype(), {b * seq, ropeHeadDim}, "sin2D");
-    Tensor kCacheIndex2D(inputs.kCacheIndex->Datatype(), {b * seq, 1}, "kCacheIndex2D");
     Tensor lnW2D(inputs.lnW->Datatype(), {1, inputs.lnW->shape[0]});
     Tensor lnBias2D(inputs.lnBias->Datatype(), {1, inputs.lnBias->shape[0]});
 
@@ -168,7 +167,6 @@ void LightningIndexerPrologCompute(
         ReshapeInplace(inputs.qr, qr2D);
         ReshapeInplace(inputs.cos, cos2D);
         ReshapeInplace(inputs.sin, sin2D);
-        ReshapeInplace(inputs.kCacheIndex, kCacheIndex2D);
         ReshapeInplace(inputs.lnW, lnW2D);
         ReshapeInplace(inputs.lnBias, lnBias2D);
     }
@@ -234,7 +232,7 @@ void LightningIndexerPrologCompute(
                 kNope = Cast(Cast(kNope, DT_FP32), kType);
                 auto kUpdate = Concat({kRoped, kNope}, -1); // {tileBS, headDim}
                 auto kUpdate4D = Reshape(kUpdate, {tileBS, 1, 1, headDim});
-                auto index = View(kCacheIndex2D, {tileBS, 1}, {actBS, 1}, {bsIdx, 0});
+                auto index = View(inputs.kCacheIndex, {tileBS, 1}, {actBS, 1}, {bsIdx, 0});
 
                 TileShape::Current().SetVecTile(tileBS, NUM_128, NUM_128, NUM_128);
                 outputs.kCacheOut = ScatterUpdate(inputs.kCache, index, kUpdate4D, SCATTER_UPADATE_DIM, "PA_BSND", params.blockSize);

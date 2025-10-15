@@ -66,9 +66,9 @@ def gated_score_mlp_standard_prefill(x, w1, w2):
 
 
 def gated_score_mlp_standard_prefill_plus(x, w1, w2):
-    x = torch.from_numpy(x)
-    w1 = torch.from_numpy(w1)
-    w2 = torch.from_numpy(w2)
+    x = torch.from_numpy(x).to(torch.float32)
+    w1 = torch.from_numpy(w1).to(torch.float32)
+    w2 = torch.from_numpy(w2).to(torch.float32)
     b, s, h = x.shape
     _, n3 = w2.shape
     n = n3 // 3
