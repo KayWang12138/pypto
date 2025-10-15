@@ -135,6 +135,7 @@ void BindTensor(py::module &m) {
         .def("GetCachePolicy", &Tensor::GetCachePolicy, py::arg("policy"))
         .def("GetStorage", [](const Tensor &self) { return self.GetStorage(false) != nullptr; })
         .def("Id", &Tensor::Id, "Get the index of the tensor.")
+        .def("SetName", &Tensor::SetName, py::arg("name"))
         .def_property_readonly("id", &Tensor::Id, "Get the index of the tensor.");
     m.def("GetInputShape", &GetInputShape, py::arg("tensor"), py::arg("axis"),
         "Get the shape of the input at the specified axis.");

@@ -26,6 +26,7 @@ void BindSymbolicScalar(py::module &m) {
 
     _SymbolicScalar
         .def(py::init<>())
+        .def(py::init<const SymbolicScalar &>(), py::arg("val"))
         .def(py::init<std::string>(), py::arg("name"))
         .def(py::init<std::int64_t>(), py::arg("value"))
         .def(py::init<std::string, NotLessThan>(), py::arg("name"), py::arg(">"))

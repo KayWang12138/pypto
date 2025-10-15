@@ -53,3 +53,4 @@ tensor.has_storage = pto_impl.Tensor.GetStorage
 tensor.id = pto_impl.Tensor.Id
 tensor.set_cache_policy = pto_impl.Tensor.SetCachePolicy
 tensor.get_cache_policy = pto_impl.Tensor.GetCachePolicy
+tensor.set_name = pto_impl.Tensor.SetName
