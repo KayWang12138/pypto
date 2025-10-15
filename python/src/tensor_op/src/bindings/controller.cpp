@@ -56,6 +56,11 @@ void bind_controller_config(py::module &m) {
         "SetCodeGenConfig",
         [](const std::string &key, const bool &value) { ConfigManager::Instance().SetCodeGenConfig<bool>(key, value); },
         py::arg("key"), py::arg("value"));
+    m.def(
+        "SetPlatformConfig", 
+        [](const std::string &key, const bool &value) {
+            ConfigManager::Instance().SetPlatformConfig<bool>(key, value); }, 
+        py::arg("key"), py::arg("value"));
 }
 
 void bind_controller_tile_shape(py::module &m) {

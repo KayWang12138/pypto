@@ -30,6 +30,7 @@ set_operation_config = pto_impl.SetOperationConfig
 set_pass_config = pto_impl.SetPassConfig
 set_host_config = pto_impl.SetHostConfig
 set_codegen_config = pto_impl.SetCodeGenConfig
+set_platform_config = pto_impl.SetPlatformConfig
 bytes_of = pto_impl.BytesOf
 dump = pto_impl.Dump
 powers_of_2 = pto_impl.PowersOf2
