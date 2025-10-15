@@ -262,7 +262,7 @@ endif ()
 # SecureC
 if (BUILD_OPEN_PROJECT)
     set(BoundsCheck_DirName "libboundscheck-v1.1.16")
-    get_filename_component(BoundsCheck_Dir "${PTO_FWK_SRC_ROOT}/3rd/${BoundsCheck_DirName}" REALPATH)
+    get_filename_component(BoundsCheck_Dir "${PTO_FWK_SRC_ROOT}/third_party/3rd/${BoundsCheck_DirName}" REALPATH)
     if (NOT (EXISTS "${BoundsCheck_Dir}" AND EXISTS "${BoundsCheck_Dir}/CMakeLists.txt"))
         message(WARNING "Can't get BoundsCheck/HwSecureC Source, Please make sure BoundsCheck has been installed.")
     else ()
