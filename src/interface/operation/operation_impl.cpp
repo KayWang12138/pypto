@@ -4194,6 +4194,64 @@ std::tuple<Tensor, Tensor> SortWithIndex(const Tensor &x, const Tensor &idx, boo
     return std::tie(y, yIdx);
 }
 
+// topk for ds3.2-Day0
+const std::string TOPK_START_INDEX = OP_ATTR_PREFIX + "start_index";
+const std::string TOPK_MERGE_SIZE = OP_ATTR_PREFIX + "merge_size";
+const std::string TOPK_INDEX = OP_ATTR_PREFIX + "is_index";
+const std::string TOPK_K = OP_ATTR_PREFIX + "k";
+
+void TiledTopKSort(Function &function, const LogicalTensorPtr &x, const LogicalTensorPtr &y, const LogicalTensorPtr &temp, const SymbolicScalar &dynValue, int idxStart) {
+    auto &op = function.AddOperation(Opcode::OP_TOPK_SORT, {x}, {y, temp});
+    op.SetAttribute(TOPK_START_INDEX, idxStart);
+    if (dynValue.IsValid()) {
+        op.SetAttribute(OpAttributeKey::dynScalar, dynValue);
+    }
+}
+
+std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, int idxStart) {
+    constexpr int32_t kFactorSize = NUM_VALUE_2;
+    auto shape = x->shape;
+    shape[1] *= kFactorSize;
+    auto y = Tensor(x->tensor->datatype, shape);
+    auto temp = Tensor(x->tensor->datatype, shape);
+    TiledTopKSort(*Program::GetInstance().GetCurrentFunction(), x.GetStorage(), y.GetStorage(), temp.GetStorage(), SymbolicScalar(), idxStart);
+    return std::tie(y, temp);
+}
+
+std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, const SymbolicScalar &idxStart) {
+    constexpr int32_t kFactorSize = NUM_VALUE_2;
+    auto shape = x->shape;
+    shape[1] *= kFactorSize;
+    auto y = Tensor(x->tensor->datatype, shape);
+    auto temp = Tensor(x->tensor->datatype, shape);
+    TiledTopKSort(*Program::GetInstance().GetCurrentFunction(), x.GetStorage(), y.GetStorage(), temp.GetStorage(), idxStart, 0);
+    return std::tie(y, temp);
+}
+
+void TiledTopKMerge(Function &function, const LogicalTensorPtr &x, const LogicalTensorPtr &y, int mergeSize) {
+    auto &op = function.AddOperation(Opcode::OP_TOPK_MERGE, {x}, {y});
+     op.SetAttribute(TOPK_MERGE_SIZE, mergeSize);
+}
+
+Tensor TopKMerge(const Tensor &x, int mergeSize) {
+    auto y = Tensor(x->tensor->datatype, x->shape);
+    TiledTopKMerge(*Program::GetInstance().GetCurrentFunction(), x.GetStorage(), y.GetStorage(), mergeSize);
+    return y;
+}
+
+void TiledTopKExtract(Function &function, const LogicalTensorPtr &x, const LogicalTensorPtr &y, int k, bool isIndex) {
+    auto &op = function.AddOperation(Opcode::OP_TOPK_EXTRACT, {x}, {y});
+    op.SetAttribute(TOPK_K, k);
+    op.SetAttribute(TOPK_INDEX, static_cast<int>(isIndex));
+}
+
+Tensor TopKExtract(const Tensor &x, int k, bool isIndex) {
+    DataType dType = isIndex ? DataType::DT_INT32 : x->tensor->datatype;
+    auto y = Tensor(dType, {1, k});
+    TiledTopKExtract(*Program::GetInstance().GetCurrentFunction(), x.GetStorage(), y.GetStorage(), k, isIndex);
+    return y;
+}
+
 // view op
 Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<int64_t> &offsets) {
     DECLARE_TRACER();
@@ -4810,6 +4868,26 @@ void npu::tile_fwk::ExpandOperationInto(Function &function, const TileShape &til
             int kValue = op.GetIntAttribute(TOPK_KVALUE);
             int isLargest = op.GetIntAttribute(TOPK_ORDER);
             TiledTopK(function, tileShape, iOperand[0], oOperand[0], oOperand[1], axis, kValue, isLargest);
+            break;
+        }
+        case Opcode::OP_TOPK_SORT: {
+            int idxStart = op.GetIntAttribute(TOPK_START_INDEX);
+            SymbolicScalar dynIdxStart;
+            if (op.HasAttr(OpAttributeKey::dynScalar)) {
+                dynIdxStart = op.GetSymbolicScalarAttribute(OpAttributeKey::dynScalar);
+            }
+            TiledTopKSort(function, iOperand[0], oOperand[0], oOperand[1], dynIdxStart, idxStart);
+            break;
+        }
+        case Opcode::OP_TOPK_MERGE: {
+            int mergeSize = op.GetIntAttribute(TOPK_MERGE_SIZE);
+            TiledTopKMerge(function, iOperand[0], oOperand[0], mergeSize);
+            break;
+        }
+        case Opcode::OP_TOPK_EXTRACT: {
+            int k = op.GetIntAttribute(TOPK_K);
+            int isIndex = op.GetIntAttribute(TOPK_INDEX);
+            TiledTopKExtract(function, iOperand[0], oOperand[0], k, isIndex);
             break;
         }
         case Opcode::OP_SORT: {

@@ -3255,6 +3255,94 @@ TILEOP void Merge(__ubuf__ T *y, __ubuf__ idxT *yIdx, __ubuf__ T *tmp, __ubuf__ 
     }
 }
 
+template <typename T, unsigned xShape0, unsigned xShape1, int mergeSize>
+TILEOP void TopKMerge(__ubuf__ T *y, __ubuf__ T *x) {
+    // x == y == xShape1 x 2
+    __ubuf__ float *src = y;
+    __ubuf__ float *dst = x;
+    uint32_t z = mergeSize;
+    for (;z * 4 <= xShape1; z *= 4) {
+        __ubuf__ float *swap = src;
+        src = dst;
+        dst = swap;
+        uint64_t config = 0;
+        uint32_t repeat_mrg = xShape1 / z / 4;
+        config |= uint64_t(repeat_mrg);         // Xt[7:0]: repeat time
+        config |= (uint64_t(0b1111) << 8);      // Xt[11:8]: 4-bit mask signal
+        config |= (uint64_t(0b0) << 12);        // Xt[12]: 1-enable input list exhausted suspension
+
+        // 每次计算的数据
+        uint64_t lengthData = 0;
+        lengthData |= (uint64_t(z));
+        lengthData |= (uint64_t(z) << 16);
+        lengthData |= (uint64_t(z) << 32);
+        lengthData |= (uint64_t(z) << 48);
+
+        __ubuf__ float *addr[4] = {(__ubuf__ float *)(src), (__ubuf__ float *)(src + z * 2), (__ubuf__ float *)(src + z * 4), (__ubuf__ float *)(src + z * 6)};
+        pipe_barrier(PIPE_V);
+        vmrgsort4(dst, addr, lengthData, config);
+        pipe_barrier(PIPE_V);
+    }
+    if (z * 2 == xShape1) {
+        __ubuf__ float *swap = src;
+        src = dst;
+        dst = swap;
+        uint64_t config = 0;
+        uint32_t repeat_mrg = 1;
+        config |= uint64_t(repeat_mrg);         // Xt[7:0]: repeat time
+        config |= (uint64_t(0b11) << 8);        // Xt[11:8]: 4-bit mask signal
+        config |= (uint64_t(0b0) << 12);        // Xt[12]: 1-enable input list exhausted suspension
+
+        // 每次计算的数据
+        uint64_t lengthData = 0;
+        lengthData |= (uint64_t(z));
+        lengthData |= (uint64_t(z) << 16);
+
+        __ubuf__ float *addr[4] = {(__ubuf__ float *)(src), (__ubuf__ float *)(src + z * 2), (__ubuf__ float *)(0), (__ubuf__ float *)(0)};
+        pipe_barrier(PIPE_V);
+        vmrgsort4(dst, addr, lengthData, config);
+        pipe_barrier(PIPE_V);
+    }
+    if (dst != y) {
+        copy_ubuf_to_ubuf((__ubuf__ void *)y, (__ubuf__ void *)dst, 0, xShape1 * 2 / 8, 1, 0, 0);
+        pipe_barrier(PIPE_V);
+    }
+}
+
+template <typename T, unsigned xShape0, unsigned xShape1>
+TILEOP void TopKSortWithIndex(__ubuf__ T *y, __ubuf__ T *tmp, __ubuf__ T *x) {
+    // idx stored at y
+    constexpr uint32_t bitSortLength = 32;
+    constexpr uint32_t repeat = xShape1 / bitSortLength;
+    if constexpr (repeat <= 255) {
+        vbitsort(tmp, x, (__ubuf__ uint32_t *)y, repeat);
+    } else {
+        vbitsort(tmp, x, (__ubuf__ uint32_t *)y, repeat / 2);
+        vbitsort(tmp + xShape1, x + xShape1 / 2, (__ubuf__ uint32_t *)y + xShape1 / 2, repeat / 2);
+    }
+    pipe_barrier(PIPE_V);
+    // vms4
+    TopKMerge<T, xShape0, xShape1, 32>(y, tmp);
+}
+
+template <typename T, unsigned xShape0, unsigned xShape1, int idxStart>
+TILEOP void TopKSort(__ubuf__ T *y, __ubuf__ T *tmp, __ubuf__ T *x) {
+    // x x 2 = y = tmp == xShape1 x 2
+    GenSortIndex<T, T, xShape1>((__ubuf__ T*)y, tmp, idxStart);
+    TopKSortWithIndex<T, xShape0, xShape1>(y, tmp, x);
+}
+
+template <typename U, typename T, unsigned yShape0, unsigned yShape1, unsigned xShape0, unsigned xShape1, int isIndex, int k>
+TILEOP void TopKExtract(__ubuf__ U *y, __ubuf__ T *x) {
+    // x = xShape1 x 2, y = yShape1
+    if constexpr (isIndex == 0) {
+        vreducev2((__ubuf__ uint32_t *)y, (__ubuf__ uint32_t *)x, (__ubuf__ uint32_t *)x, k / 32, 1, 1, 8, 0);
+    } else {
+        vreducev2((__ubuf__ uint32_t *)y, (__ubuf__ uint32_t *)x, (__ubuf__ uint32_t *)x, k / 32, 1, 2, 8, 0);
+    }
+    pipe_barrier(PIPE_V);
+}
+
 } // namespace TileOp
 
 #endif

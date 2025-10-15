@@ -218,6 +218,11 @@ enum class Opcode {
     OP_EXTRACT,
     OP_FUSED_OP,
     // End: add for TOPK and ArgSort
+    // Begin: topk for DS3.2-Day0
+    OP_TOPK_SORT,
+    OP_TOPK_MERGE,
+    OP_TOPK_EXTRACT,
+    // End: topk for DS3.2-Day0
     // Begin: add for Reduce Atomic
     OP_REDUCE_ACC,
     // End: add for Reduce Atomic
@@ -469,6 +474,7 @@ Opcode::OP_LN, Opcode::OP_ABS, Opcode::OP_RSQRT, Opcode::OP_SQRT, Opcode::OP_REC
     Opcode::OP_MUL_BRC, Opcode::OP_DIV_BRC, Opcode::OP_MAX_BRC, Opcode::OP_GATHER, Opcode::OP_S_ADDS, Opcode::OP_S_SUBS,
     Opcode::OP_S_DIVS, Opcode::OP_S_MULS, Opcode::OP_S_MAXS, Opcode::OP_BITSORT, Opcode::OP_MRGSORT, Opcode::OP_CMP,
     Opcode::OP_EXTRACT, Opcode::OP_TILEDMRGSORT, Opcode::OP_ROWMAXLINE, Opcode::OP_PAIRMIN,Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWMINLINE,
+    Opcode::OP_TOPK_SORT, Opcode::OP_TOPK_MERGE, Opcode::OP_TOPK_EXTRACT,
     Opcode::OP_SCATTER_ELEMENT, Opcode::OP_TRANSPOSE_MOVEIN, Opcode::OP_SORT, Opcode::OP_COMPARE_SWAP, Opcode::OP_MERGE};
 
 const std::unordered_set<Opcode> FIX_COPY_IN_OPS{Opcode::OP_FIX_COPY_IN, Opcode::OP_FIX_COPY_IN_QUANT_PRE,

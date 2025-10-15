@@ -101,6 +101,10 @@ public:
     std::string GenCompareAndSwapOp() const;
     std::string GenMergeOp() const;
 
+    std::string GenTopKSortOp() const;
+    std::string GenTopKMergeOp() const;
+    std::string GenTopKExtractOp() const;
+
     std::string GenParamsStr() const;
 
     std::string GenDistOp() const;
@@ -515,6 +519,10 @@ private:
         {                   Opcode::OP_MRGSORT,                [this]() { return GenMrgSortOp(); }},
         {                   Opcode::OP_EXTRACT,                [this]() { return GenExtractOp(); }},
         {                   Opcode::OP_TILEDMRGSORT,      [this]() { return GenTiledMrgSortOp(); }},
+
+        {                   Opcode::OP_TOPK_SORT,              [this]() { return GenTopKSortOp(); }},
+        {                   Opcode::OP_TOPK_MERGE,             [this]() { return GenTopKMergeOp(); }},
+        {                   Opcode::OP_TOPK_EXTRACT,           [this]() { return GenTopKExtractOp(); }},
 
         // parallel sort
         {                   Opcode::OP_SORT,                   [this]() { return GenSortOp(); }},

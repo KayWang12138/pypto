@@ -3161,6 +3161,23 @@ TILEOP void DynWhere_SS(__ubuf__ T *dst, __ubuf__ half *castCondition, __ubuf__ 
     }
 }
 
+template <typename T, unsigned xShape0, unsigned xShape1>
+TILEOP void DynTopKSort(__ubuf__ T *y, __ubuf__ T *tmp, __ubuf__ T *x, uint32_t idxStart) {
+    // x x 2 = y = tmp == xShape1 x 2
+    GenSortIndex<T, T, xShape1>((__ubuf__ T*)y, tmp, idxStart);
+    TopKSortWithIndex<T, xShape0, xShape1>(y, tmp, x);
+}
+
+template <typename T, unsigned xShape0, unsigned xShape1, int mergeSize>
+TILEOP void DynTopKMerge(__ubuf__ T *y, __ubuf__ T *x) {
+    TileOp::TopKMerge<T, xShape0, xShape1, mergeSize>(y, x);
+}
+
+template <typename U, typename T, unsigned yShape0, unsigned yShape1, unsigned xShape0, unsigned xShape1, int isIndex, int k>
+TILEOP void DynTopKExtract(__ubuf__ U *y, __ubuf__ T *x) {
+    TileOp::TopKExtract<U, T, yShape0, yShape1, xShape0, xShape1, isIndex, k>(y, x);
+}
+
 } // namespace TileOp
 
 #endif // TILE_FWK_VECTOR_DYN_H

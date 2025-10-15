@@ -384,6 +384,16 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_MERGE, OpCoreType::AIV, "MERGE",
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
         {"TileOp::Merge", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OpAttributeKey::inplaceInfo, OP_ATTR_PREFIX + "order", OP_ATTR_PREFIX + "full_sort"});
+    // topk for DS3.2-Day0
+    registerInfo(Opcode::OP_TOPK_SORT, OpCoreType::AIV, "TOPK_SORT",
+        {MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {"TileOp::TopKSort", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "start_index"});
+    registerInfo(Opcode::OP_TOPK_MERGE, OpCoreType::AIV, "TOPK_MERGE",
+        {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+        {"TileOp::TopKMerge", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OpAttributeKey::excludeBufferReuse, OP_ATTR_PREFIX + "merge_size"});
+    registerInfo(Opcode::OP_TOPK_EXTRACT, OpCoreType::AIV, "TOPK_EXTRACT",
+        {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+        {"TileOp::TopKExtract", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "is_index", OP_ATTR_PREFIX + "k"});
 
     // check register ok
     // clang-format on
