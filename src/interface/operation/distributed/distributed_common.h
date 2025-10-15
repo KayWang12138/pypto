@@ -31,6 +31,7 @@
 #include "interface/operation/operation.h"
 #include "interface/configs/config_manager.h"
 #include "distributed_expand.h"
+#include "tilefwk/comm_group_recorder.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {
@@ -200,7 +201,7 @@ struct CommGroupInfo {
     std::optional<int> rankId{std::nullopt};
     CommGroupInfo(const char *group, const TileShape &tileShape)
     {
-        groupIndex = static_cast<int32_t>(Program::GetInstance().GetCommGroupRecorder().Input(std::string(group)));
+        groupIndex = static_cast<int32_t>(CommGroupRecorder::GetInstance().Input(std::string(group)));
         if (tileShape.GetDistRankId() >= 0) {
             rankId = std::make_optional(tileShape.GetDistRankId());
         }

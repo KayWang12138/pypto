@@ -27,6 +27,7 @@
 #include "machine/host/machine_compiler.h"
 #include "machine/cache_manager/cache_manager.h"
 #include "machine/platform/platform_manager.h"
+#include "tilefwk/comm_group_recorder.h"
 
 namespace npu::tile_fwk {
 int32_t TileFwkInit(const std::string &socVersion) {
@@ -51,7 +52,7 @@ void *TileFwkCompile() {
     auto deviceAgentTask = new DeviceAgentTask(task); // need free somewhere
     auto function = deviceAgentTask->compileTask->GetFunction();
     deviceAgentTask->compileInfo.distTilingManager = function->GetDistTilingManager();
-    deviceAgentTask->compileInfo.commGroups = Program::GetInstance().GetCommGroupRecorder().Output();
+    deviceAgentTask->compileInfo.commGroups = Distributed::CommGroupRecorder::GetInstance().Output();
     std::string kernelPath;
     // if disk cache is matched, try to recover task info and bin
     if (task->GetCacheReuseType() == CacheReuseType::Bin) {

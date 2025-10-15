@@ -9,15 +9,15 @@
  */
 
 /**
- * \file distributed.h
+ * \file symbolic_distributed.cpp
  * \brief
  */
 
-#pragma once
-
 #include <string>
 #include "interface/tensor/symbol_handler.h"
+#include "interface/tensor/symbolic_scalar.h"
 #include "tilefwk/symbolic_scalar.h"
+#include "tilefwk/symbolic_distributed.h"
 
 namespace npu::tile_fwk {
 SymbolicScalar GetHcclRankId(int32_t groupIndex) {

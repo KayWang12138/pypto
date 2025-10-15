@@ -25,7 +25,7 @@
 #include "interface/utils/common.h"
 #include "interface/utils/log.h"
 #include "distributed_common.h"
-#include "comm_barrier_manager.h"
+#include "tilefwk/comm_group_recorder.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {
@@ -191,7 +191,7 @@ Tensor ReduceScatterImpl(const T &in, const char *group, DistReduceType reduceTy
 {
     static_assert((std::is_same_v<T, const npu::tile_fwk::Tensor &>) ||
         (std::is_same_v<T, const std::vector<npu::tile_fwk::Tensor>&>), "T must be Tensor or std::vector<Tensor>");
-    int groupIndex = static_cast<int>(Program::GetInstance().GetCommGroupRecorder().Input(std::string(group)));
+    int groupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
     CommGroupInfo groupInfo;
     const TileShape &tileShape = TileShape::Current();
     CheckAndGetGroupInfo(groupIndex, tileShape, groupInfo);

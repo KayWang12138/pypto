@@ -23,46 +23,26 @@
 
 namespace npu::tile_fwk {
 namespace Distributed {
+
 class CommGroupRecorder {
 public:
-    CommGroupRecorder() = default;
-    ~CommGroupRecorder() {};
+    static CommGroupRecorder &GetInstance();
+
+    CommGroupRecorder(const CommGroupRecorder &) = delete;
+    CommGroupRecorder &operator=(const CommGroupRecorder &) = delete;
 
     // 注册组，返回对应的 groupIndex（自动去重）
-    inline uint32_t Input(const std::string &groupName)
-    {
-        auto it = name2Index_.find(groupName);
-        if (it != name2Index_.end()) {
-            return it->second; // 已存在，返回现有 index
-        }
-
-        // 新组：记录映射关系
-        uint32_t newIndex = index2Name_.size();
-        ASSERT(newIndex < DIST_COMM_GROUP_NUM);
-
-        index2Name_.push_back(groupName);
-        name2Index_[groupName] = newIndex;
-        return newIndex;
-    }
+    uint32_t Input(const std::string &hcclGroupName);
 
     // 获取所有 groupName 的列表（按 index 顺序）
-    inline const std::vector<std::string> &Output() const { return index2Name_; }
+    const std::vector<std::string> &Output() const;
 
-    static inline std::string PrintString(std::vector<std::string> &commGroups)
-    {
-        std::ostringstream oss;
-        oss << "distributed comm groups: [";
-        for (size_t i = 0; i < commGroups.size(); ++i) {
-            if (i > 0) {
-                oss << ", ";
-            }
-            oss << commGroups[i];
-        }
-        oss << "]";
-        return oss.str();
-    }
+    std::string PrintString(std::vector<std::string> &commGroups);
 
 private:
+    CommGroupRecorder() = default;
+    ~CommGroupRecorder() =default;
+    
     std::unordered_map<std::string, uint32_t> name2Index_;
     std::vector<std::string> index2Name_;
 };

@@ -25,7 +25,6 @@
 #include "interface/utils/common.h"
 #include "interface/utils/log.h"
 #include "distributed_common.h"
-#include "comm_barrier_manager.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {

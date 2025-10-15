@@ -24,7 +24,6 @@
 #include "interface/utils/common.h"
 #include "interface/utils/log.h"
 #include "distributed_common.h"
-#include "comm_barrier_manager.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {
@@ -170,7 +169,7 @@ Operation& TensorGraphAddOp(const std::string &opName, const std::vector<std::sh
     std::shared_ptr<LogicalTensor> tilingTensor = iOperands[1];
 
     int32_t groupIndex = static_cast<int32_t>(
-        Program::GetInstance().GetCommGroupRecorder().Input(std::string(group)));
+        CommGroupRecorder::GetInstance().Input(std::string(group)));
     CommGroupInfo groupInfo;
     const TileShape &tileShape = TileShape::Current();
     CheckAndGetGroupInfo(groupIndex, tileShape, groupInfo);

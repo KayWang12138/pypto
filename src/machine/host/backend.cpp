@@ -29,6 +29,7 @@
 #include "machine/host/device_agent_task.h"
 #include "kernel/aicore_compiler.h"
 #include "interface/utils/op_info_manager.h"
+#include "tilefwk/comm_group_recorder.h"
 
 using namespace npu::tile_fwk::dynamic;
 namespace npu::tile_fwk {
@@ -59,7 +60,7 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
     deviceAgentTask->SetAsync(false);
     deviceAgentTask->SetOpOriginArgsInfo(function->GetOpOriginArgsInfo());
     deviceAgentTask->compileInfo.distTilingManager = function->GetDistTilingManager();
-    deviceAgentTask->compileInfo.commGroups = Program::GetInstance().GetCommGroupRecorder().Output();
+    deviceAgentTask->compileInfo.commGroups = npu::tile_fwk::Distributed::CommGroupRecorder::GetInstance().Output();
     std::string kernelPath;
     // recover task info and bin
     if (task->GetCacheReuseType() == CacheReuseType::Bin) {
@@ -610,7 +611,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, cons
     FindAllExpression(cache, linker, function);
 
     FillL2PrefetchInfo(attr);
-    attr->commGroupNum = Program::GetInstance().GetCommGroupRecorder().Output().size();
+    attr->commGroupNum = npu::tile_fwk::Distributed::CommGroupRecorder::GetInstance().Output().size();
     auto slotManager = Program::GetInstance().GetTensorSlotManager();
     attr->inoutLink = slotManager->BuildIncastOutcastLink(function->GetRawName());
 

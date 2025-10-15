@@ -17,7 +17,7 @@
 #include "distributed_common.h"
 #include "interface/operation/operation.h"
 #include "interface/function/function.h"
-#include "tilefwk/distributed.h"
+#include "tilefwk/symbolic_distributed.h"
 #include "tilefwk/tensor.h"
 #include "interface/tensor/logical_tensor.h"
 #include "tilefwk/tilefwk.h"
@@ -26,6 +26,7 @@
 #include "interface/utils/common.h"
 #include "interface/utils/log.h"
 #include "tilefwk/shmem_tensor_manager.h"
+#include "tilefwk/comm_group_recorder.h"
 
 namespace npu::tile_fwk::Distributed {
 std::pair<int, int> GetRankSizeAndTileCount()
@@ -136,7 +137,7 @@ Tensor CreateShmemTensor(int32_t rankSize, int32_t hcclGroupIndex, DataType data
 
 Tensor Barrier(const Tensor &in, const char *group)
 {
-    int hcclGroupIndex = static_cast<int>(Program::GetInstance().GetCommGroupRecorder().Input(std::string(group)));
+    int hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
     auto [rankSize, tileCount] = GetRankSizeAndTileCount();
 
     Shape shmSignalShape = {tileCount, 8};
@@ -161,7 +162,7 @@ Tensor Barrier(const Tensor &in, const char *group)
 
 void ShmemAllGather(const Tensor &in, const Tensor &barrierDummy, const char *group, Tensor &out)
 {
-    int hcclGroupIndex = static_cast<int>(Program::GetInstance().GetCommGroupRecorder().Input(std::string(group)));
+    int hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
     auto [rankSize, tileCount] = GetRankSizeAndTileCount();
     int row = in.GetShape(0);
     int col = in.GetShape(1);
@@ -199,7 +200,7 @@ void ShmemAllGather(const Tensor &in, const Tensor &barrierDummy, const char *gr
 void ShmemReduceScatter(Tensor &in, const char* group, DistReduceType reduceType, Tensor &out)
 {
     (void)reduceType;
-    int hcclGroupIndex = static_cast<int>(Program::GetInstance().GetCommGroupRecorder().Input(std::string(group)));
+    int hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
     auto [rankSize, tileCount] = GetRankSizeAndTileCount();
     int row = in.GetShape(0);
     int col = in.GetShape(1);

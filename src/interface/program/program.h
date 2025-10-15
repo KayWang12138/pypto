@@ -15,8 +15,6 @@
 
 #pragma once
 
-#include "interface/operation/distributed/comm_group_recorder.h"
-#include "interface/operation/distributed/comm_barrier_manager.h"
 #include "interface/function/function.h"
 #include "interface/cache/function_cache.h"
 #include "passes/pass_manager.h"
@@ -47,9 +45,6 @@ public: // public api for torch
         const std::vector<std::shared_ptr<LogicalTensor>> &oOperand);
 
     bool QueryAndUpdateCurrentFunction();
-
-    Distributed::CommGroupRecorder &GetCommGroupRecorder() { return commGroupRecorder_; }
-    Distributed::CommBarrierManager &GetCommBarrierManager() { return commBarrierManager_; }
 
     std::string Name() const { return name_; }
     void SetName(std::string nStr) { name_ = nStr; }
@@ -124,9 +119,6 @@ private:
     std::unordered_set<Tensor *> aliveTensors_;
     std::map<std::string, std::shared_ptr<npu::tile_fwk::Function>> functionmap_;
     std::shared_ptr<TensorSlotManager> tensorSlotManager_;
-
-    Distributed::CommGroupRecorder commGroupRecorder_;
-    Distributed::CommBarrierManager commBarrierManager_;
 
     void CreateInitFunction();
     Operation *FinishCurrentFunction(const std::shared_ptr<TensorSlotScope> &scope, bool generateCall);

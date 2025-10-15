@@ -24,6 +24,7 @@
 #include "interface/program/program.h"
 #include "interface/utils/common.h"
 #include "interface/utils/log.h"
+#include "tilefwk/comm_group_recorder.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {
@@ -251,7 +252,7 @@ void TiledDistBroadCast(Function &function, const TileShape &tileShape,
     if (iOperand.size() != 2UL || oOperand.size() != 1UL) {
         ALOG_ERROR_F("TiledDistBroadCast iOperand size=%lu, oOperand size=%lu", iOperand.size(), oOperand.size());
         return;
-    }
+}
     std::shared_ptr<LogicalTensor> in = iOperand[0];
     std::shared_ptr<LogicalTensor> tilingTensor = iOperand[1];
     std::shared_ptr<LogicalTensor> out = oOperand[0];
@@ -272,7 +273,7 @@ void TiledDistBroadCast(Function &function, const TileShape &tileShape,
 template <typename T>
 void AllGatherImpl(const Tensor &in, T &out, const char *group)
 {
-    int groupIndex = static_cast<int>(Program::GetInstance().GetCommGroupRecorder().Input(std::string(group)));
+    int groupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
     const TileShape &tileShape = TileShape::Current();
     CommGroupInfo groupInfo;
     CheckAndGetGroupInfo(groupIndex, tileShape, groupInfo);
