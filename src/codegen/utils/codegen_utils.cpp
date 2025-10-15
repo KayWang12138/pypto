@@ -33,10 +33,19 @@ std::vector<int64_t> NormalizeShape(const std::vector<int64_t> &shapeVec, unsign
     return normalizedVec;
 }
 
-std::string formatFloatAsG9(float f){
-    std::ostringstream os;
-    os <<std::setprecision(9) << f;
-    return os.str();
+std::string formatFloatAsG9(float f) {
+    constexpr int PRECISION = 9;
+    std::ostringstream oss;
+    if (std::isinf(f)) {
+        if (f > 0) {
+            oss << "pos_inf";
+        } else {
+            oss << "neg_inf";
+        }
+    } else {
+        oss << std::setprecision(PRECISION) << f;
+    }
+    return oss.str();
 }
 
 std::string GetTypeForB16B32(const DataType &dtype) {

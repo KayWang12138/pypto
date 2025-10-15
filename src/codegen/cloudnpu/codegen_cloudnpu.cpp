@@ -112,6 +112,21 @@ std::string CodeGenCloudNPU::GenFuncEnd() {
     return "}\n";
 }
 
+std::string CodeGenCloudNPU::GenLimitValue(bool hasNan, bool hasPosInf, bool hasNegInf) const {
+    std::ostringstream define;
+    static const std::map<std::string, std::pair<bool, const char *>> constants = {
+        {"pos_inf", {hasPosInf, "0x7f800000"}},
+        {"neg_inf", {hasNegInf, "0xff800000"}},
+        {    "nan",    {hasNan, "0x7fc00000"}}
+    };
+    for (const auto &[name, value] : constants) {
+        if (value.first) {
+            define << "static const float " << name << " = " << value.second << ";\n";
+        }
+    }
+    return define.str();
+}
+
 std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) const {
     OperationsViewer operationList = subFunc.Operations(false);
     if (operationList.IsEmpty()) {
@@ -126,6 +141,9 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
     std::string tileOpSourceRegion;
     auto locToOffsetMap = GenRealizeIdMap(subFunc.GetParameter());
 
+    bool hasNan{false};
+    bool hasPosInf{false};
+    bool hasNegInf{false};
     for (const auto &op : operationList) {
         ALOG_INFO_F(
             "======================== Op CodeGenNPU Start ========================\nGen OP IS: %s", op.Dump().c_str());
@@ -143,6 +161,11 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
             ALOG_INFO_F(": failed to init CodeGenOpCloudNPU from an operation: %s \n", op.Dump().c_str());
             break;
         }
+        // update hasNan, hasPosInf, hasNegInf
+        hasNan |= cop.hasNan;
+        hasPosInf |= cop.hasPosInf;
+        hasNegInf |= cop.hasNegInf;
+
         cop.UpdateTileTensorInfo();
         std::string tileOpSourceCode = cop.GenOpCode();
         ASSERT(tileOpSourceCode.find("CG_ERROR") == tileOpSourceCode.npos) << "gen op invalid" << op.Dump();
@@ -161,11 +184,12 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
         ALOG_INFO_F("------------------------ Op CodeGenNPU Finish -----------------------");
     }
 
+    std::string limitValue = GenLimitValue(hasNan, hasPosInf, hasNegInf);
     std::string dynParamDef = GenDynParamForExpr(subFunc);
     std::string usingType = symbolMgr.GenUsingList();
     std::string tileTensorDef = symbolMgr.GenTileTensorDefList();
     std::ostringstream oss;
-    oss << allocSourceRegion << dynParamDef << usingType << tileTensorDef << tileOpSourceRegion;
+    oss << limitValue << allocSourceRegion << dynParamDef << usingType << tileTensorDef << tileOpSourceRegion;
     std::string programCode = oss.str();
     return programCode;
 }

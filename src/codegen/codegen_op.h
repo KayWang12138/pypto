@@ -80,6 +80,10 @@ public:
 
     virtual std::string GenOpCode() const = 0;
 
+    bool hasNan{false};
+    bool hasPosInf{false};
+    bool hasNegInf{false};
+
 protected:
     std::string GenOpAttr() const;
 

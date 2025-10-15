@@ -18,6 +18,7 @@
 
 #include <iostream>
 #include <vector>
+#include <cmath>
 
 #include "codegen/codegen_common.h"
 #include "tilefwk/data_type.h"

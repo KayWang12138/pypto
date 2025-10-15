@@ -152,8 +152,31 @@ bool CodeGenOp::Init(const npu::tile_fwk::Operation &ops) {
     GetGmParamIdx(ops);
     syncQueue = ops.syncQueue_;
 
+    auto checkValue = [&](float value) {
+        if (std::isnan(value)) {
+            hasNan = true;
+        }
+        if (std::isinf(value)) {
+            if (value > 0) {
+                hasPosInf = true;
+            } else {
+                hasNegInf = true;
+            }
+        }
+    };
+
     if (ops.HasAttr(OpAttributeKey::scalar)) {
         extOperandVal = ops.GetElementAttribute(OpAttributeKey::scalar);
+        float value = extOperandVal.Cast<float>();
+        checkValue(value);
+    }
+    if (opAttrs.count(OpAttributeKey::dynScalar)) {
+        extOperandValSecond = ops.GetElementAttribute(OpAttributeKey::dynScalar);
+        auto scalar = opAttrs.at(OpAttributeKey::dynScalar);
+        if (scalar.Type() == typeid(float)) {
+            float value = extOperandValSecond.Cast<float>();
+            checkValue(value);
+        }
     }
     UpdateOpAttribute(ops);
 
@@ -182,9 +205,6 @@ void CodeGenOp::UpdateCodegenOpInfoByTensor(
 void CodeGenOp::UpdateOpAttribute(const npu::tile_fwk::Operation &ops) {
     opAttrs = ops.GetAllAttr();
     isInputForceCombineAxis = ops.HasAttr(OpAttributeKey::inputCombineAxis);
-    if(ops.HasAttr(OpAttributeKey::dynScalar)) {
-        extOperandValSecond = ops.GetElementAttribute(OpAttributeKey::dynScalar);
-    }
 
     ConvertAttribute(ops);
 }

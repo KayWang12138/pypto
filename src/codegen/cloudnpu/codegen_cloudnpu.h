@@ -105,6 +105,7 @@ private:
     std::string GenFuncBody(Function &subFunc, Function &topFunc) const;
     static std::string GenFuncEnd();
     static std::string GenKernelName(Function &topFunc, uint64_t programId);
+    std::string GenLimitValue(bool hasNan, bool hasPosInf, bool hasNegInf) const;
 
     bool IsNeedDumpCCE(const std::string &inputFile) const;
     void DumpCCE(const std::string &name, const std::string &code) const;
