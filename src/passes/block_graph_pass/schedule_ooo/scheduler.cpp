@@ -101,9 +101,6 @@ void OoOScheduler::PrintSpillFailedInfo(IssueEntryPtr allocIssue, MemoryType buf
 
 void OoOScheduler::PrintDependencies() {
     for (const auto &issue : issueEntries) {
-        if (issue->tileOp.GetBoolAttribute(OpAttributeKey::dontTouch)) {
-            continue;
-        }
         ALOG_DEBUG_F("%s, latency: %d.", issue->GetOpInfo(), issue->tileOp.GetLatency());
         for (const auto &preId : issue->predecessors) {
             auto pre = issueEntryMap[preId];
