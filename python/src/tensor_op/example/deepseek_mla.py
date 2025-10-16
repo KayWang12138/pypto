@@ -341,7 +341,7 @@ class DeepSeekAttention:
         q_a_proj_norm = pto.cast(q_a_proj_norm_fp32, d_type)
 
         pto.set_cube_tile_shapes([min(NUM_64, bs), min(NUM_64, bs)], [NUM_256, NUM_256], [NUM_64, NUM_64])
-        q_fp32 = pto.matmul(pto.data_type.DTFP32, q_a_proj_norm, self.q_b_proj_w, False, False)
+        q_fp32 = pto.matmul(pto.data_type.DT_FP32, q_a_proj_norm, self.q_b_proj_w, False, False)
         q_res = pto.reshape(q_fp32, [b, s, self.num_heads, self.q_head_dim])
 
         pto.set_cube_tile_shapes([min(NUM_64, bs), min(NUM_64, bs)], [NUM_256, NUM_256], [NUM_64, NUM_64])
