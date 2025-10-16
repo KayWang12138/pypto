@@ -12,7 +12,7 @@
 """
 
 from contextlib import contextmanager
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Set
 import inspect
 import logging
 from pto import pto_impl
@@ -94,7 +94,7 @@ def loop_function(
     name: str,
     loop_name: str,
     loop_range_: pto_impl.LoopRange,
-    unroll_list: set[int] = None,
+    unroll_list: Set[int] = None,
     submit_before_loop: bool = False,
 ) -> pto_impl.RecordLoopFunc:
     if unroll_list is None:
