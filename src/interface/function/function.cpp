@@ -2483,7 +2483,8 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(
            should be normalized also */
         if (op->GetOpcode() == Opcode::OP_VEC_DUP ||
             op->GetOpcode() == Opcode::OP_RESHAPE ||
-            op->GetOpcode() == Opcode::OP_EXPAND) {
+            op->GetOpcode() == Opcode::OP_EXPAND || 
+            op->GetOpcode() == Opcode::OP_LOAD) {
             extraOutcasts.emplace_back(op.get(), 0);
         }
     }
@@ -2527,7 +2528,7 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(
     }
 
     for (auto [op, k]: extraOutcasts) {
-        if (op->GetOOpAttrOffset(0) != -1)
+        if (op->GetOOpAttrOffset(k) != -1)
             continue;
         auto operandCoaList = NormalizeTensor(op->GetOOperands()[k], coaIndex);
         op->SetOOpAttrOffset(k, coaIndex);

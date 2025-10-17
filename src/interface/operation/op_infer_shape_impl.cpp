@@ -241,6 +241,16 @@ void RangeInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &out
 }
 REGISTER_INFER_SHAPE_FUNC(OP_RANGE, Opcode::OP_RANGE, RangeInferFunc);
 
+void LoadInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
+    auto iOperands = op->GetIOperands();
+    assert(iOperands.size() == NUM2);
+    auto offsetValidShape = iOperands[1]->GetDynValidShape();
+    for (auto output : op->GetOOperands()) {
+        outValidShapes.push_back(offsetValidShape);
+    }
+}
+REGISTER_INFER_SHAPE_FUNC(OP_LOAD, Opcode::OP_LOAD, LoadInferFunc);
+
 // reduce infer shape func
 void ReduceInferFunc(Operation* op,
                         std::vector<std::vector<SymbolicScalar>>& outValidShapes) {

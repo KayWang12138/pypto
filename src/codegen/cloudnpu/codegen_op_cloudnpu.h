@@ -46,6 +46,8 @@ public:
     std::string GenUBCopyIn() const;
     std::string GenUBCopyOut() const;
 
+    std::string GenLoadOp() const;
+
     std::string GenUnaryOp() const;
     std::string GenUnaryOpWithTmpBuff() const;
 
@@ -428,6 +430,8 @@ private:
         {               Opcode::OP_L1_TO_L0_AT,                [this]() { return GenMemL1ToL0(); }},
         // cast op
         {                      Opcode::OP_CAST,                   [this]() { return GenCastOp(); }},
+        // load op
+        {                      Opcode::OP_LOAD,                   [this]() { return GenLoadOp(); }},
 
         // range op
         {                     Opcode::OP_RANGE,                  [this]() { return GenRangeOp(); }},

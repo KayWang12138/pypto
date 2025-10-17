@@ -3784,6 +3784,47 @@ void TiledExtract(Function &function, const TileShape &tileShape,
     TiledExtract(function, tileShape, 0, input, resOperand, resultTileInfo, maskMode, kValue, isLargest);
 }
 
+void TiledLoad(Function &function, const TileShape &tileShape, size_t cur, TileInfo &tileInfo,
+    const LogicalTensorPtr &src, const LogicalTensorPtr &offsets, const LogicalTensorPtr &output) {
+    if (cur == offsets->GetShape().size()) {
+        auto offsetsTile = offsets->View(function, tileInfo.shape, tileInfo.offset);
+        auto outputTile = output->View(function, tileInfo.shape, tileInfo.offset);
+        function.AddOperation(Opcode::OP_LOAD, {src, offsetsTile}, {outputTile});
+        return;
+    }
+    const auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < offsets->GetShape()[cur]; i += vecTile[cur]) {
+        tileInfo.shape[cur] = std::min(offsets->GetShape()[cur] - i, vecTile[cur]);
+        tileInfo.offset[cur] = i;
+        TiledLoad(function, tileShape, cur + 1, tileInfo, src, offsets, output);
+    }
+}
+
+void TiledLoad(Function &function, const TileShape &tileShape, const LogicalTensorPtr &src,
+    const LogicalTensorPtr &offsets, const LogicalTensorPtr &output) {
+    ASSERT(offsets->GetShape() == output->GetShape());
+    ASSERT(src->Datatype() == output->Datatype());
+    TileInfo tileInfo(offsets->GetShape().size(), offsets->GetOffset().size());
+    TiledLoad(function, tileShape, 0, tileInfo, src, offsets, output);
+}
+
+void TensorLoad(
+    Function &function, const LogicalTensorPtr &src, const LogicalTensorPtr &offsets, const LogicalTensorPtr &output) {
+    ASSERT(offsets->GetShape() == output->GetShape());
+    ASSERT(src->Datatype() == output->Datatype());
+    function.AddOperation(Opcode::OP_LOAD, {src, offsets}, {output});
+}
+
+Tensor Load(const Tensor &src, const Tensor &offsets) {
+    Tensor result(src.GetDataType(), offsets->GetShape());
+    if (!offsets.GetStorage()->GetDynValidShape().empty()) {
+        result.GetStorage()->UpdateDynValidShape(offsets.GetStorage()->GetDynValidShape());
+    }
+    CALL(Load, *Program::GetInstance().GetCurrentFunction(), src.GetStorage(), offsets.GetStorage(),
+        result.GetStorage());
+    return result;
+}
+
 Tensor ArgSort(const Tensor &operand, int axis = -1, bool isLargest) {
     DECLARE_TRACER();
     const auto len = static_cast<int>(operand->shape.size());
@@ -4558,6 +4599,10 @@ void npu::tile_fwk::ExpandOperationInto(Function &function, const TileShape &til
             TiledBinaryOperationAllScalar<BinaryOpType::S_MUL>(function, tileShape, iOperand[0],
             op.GetElementAttribute(OpAttributeKey::scalar), oOperand[0],
             op.GetBoolAttribute(OP_ATTR_PREFIX + "reverseOperand"));
+            break;
+        }
+        case Opcode::OP_LOAD: {
+            TiledLoad(function, tileShape, iOperand[0], iOperand[1], oOperand[0]);
             break;
         }
         case Opcode::OP_LOGICALNOT: {

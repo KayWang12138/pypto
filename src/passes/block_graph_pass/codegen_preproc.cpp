@@ -44,6 +44,10 @@ Status CodegenPreproc::SaveGmTensorParamIdxToOp(Function &func) const {
                 int coaIndex = IsCopyIn(op.GetOpcode()) ? op.GetIOpAttrOffset(0) : op.GetOOpAttrOffset(0);
                 gmParamInCallFunc[coaIndex].emplace_back(&op);
             }
+            if (op.GetOpcode() == Opcode::OP_LOAD) {
+                int addrPos = op.GetIOpAttrOffset(0);
+                gmParamInCallFunc[addrPos].emplace_back(&op);
+            }
         }
         ALOG_INFO_F("%d:%sgmParamInCallFunc size: %zu", __LINE__, __FUNCTION__, gmParamInCallFunc.size());
         int tensorParamIdx{0};

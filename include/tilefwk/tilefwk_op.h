@@ -102,6 +102,8 @@ void Assemble(const Tensor &tensor, const std::vector<SymbolicScalar> &dynOffset
 Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, const std::vector<SymbolicScalar> &validShape={});
 void ReshapeInplace(const Tensor &operand, Tensor &dst);
 
+Tensor Load(const Tensor &src, const Tensor &offsets);
+
 Tensor VectorDuplicate(const Element &src, DataType dtype, const std::vector<int64_t> &dstShape,
     std::vector<SymbolicScalar> validShape = {});
 Tensor VectorDuplicate(const SymbolicScalar &src, DataType dtype, const std::vector<int64_t> &dstShape,

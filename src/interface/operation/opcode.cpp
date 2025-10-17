@@ -249,6 +249,7 @@ OpcodeManager::OpcodeManager() {
         {MemoryType::MEM_DEVICE_DDR}, {"TileOp::TIndexoutcast", PIPE_MTE3, PIPE_MTE3, CoreType::AIV}, OpCalcType::MOVE_OUT, {"axis", OpAttributeKey::inputCombineAxis, OpAttributeKey::cacheMode, OpAttributeKey::panzBlockSize});
     registerInfo(Opcode::OP_CONVERT, OpCoreType::ANY, "CONVERT", {}, {}, {}, OpCalcType::SYS);
     registerInfo(Opcode::OP_COPY_IN, OpCoreType::ANY, "COPY_IN", {}, {}, {}, OpCalcType::MOVE_IN, {OpAttributeKey::outputCombineAxis, OpAttributeKey::excludeBufferReuse});
+    registerInfo(Opcode::OP_LOAD, OpCoreType::AIV, "LOAD", {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Load", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::OTHER);
     registerInfo(Opcode::OP_COPY_OUT, OpCoreType::ANY, "COPY_OUT", {}, {}, {}, OpCalcType::MOVE_OUT, {OP_ATTR_PREFIX + "atomic_add", OpAttributeKey::inputCombineAxis, OpAttributeKey::excludeBufferReuse});
     // Special
     registerInfo(Opcode::OP_CALL, OpCoreType::ANY, "CALL", {}, {}, {}, OpCalcType::SYS);

@@ -80,6 +80,7 @@ public:
     static const std::string excludeBufferReuse;
     static const std::string reduceMode;
     static const std::string bindTensor;
+    static const std::string startOffset;
 };
 
 

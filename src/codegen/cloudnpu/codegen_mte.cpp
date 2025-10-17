@@ -896,6 +896,54 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamicSupportUnaligned(const P
     return os.str();
 }
 
+std::string CodeGenOpCloudNPU::GenLoadOp() const {
+    const DataType dstDtype = operandDtype[ID0];
+    const DataType srcDtype = operandDtype[ID1];
+    const DataType offsetsDtype = operandDtype[ID2];
+    ASSERT(dstDtype == srcDtype);
+
+    std::string srcVar = GenGmParamVar(0);
+    std::string offsetsVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
+    std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+
+    auto dstRawShapes = rawShape[ID0];
+    auto offsetsRawShapes = rawShape[ID2];
+    auto dstOriShapes = dynamicValidShape[ID0];
+    auto offsetsOriShapes = dynamicValidShape[ID2];
+    ASSERT(dstRawShapes == offsetsRawShapes);
+    ASSERT(dstOriShapes.size() == offsetsOriShapes.size());
+
+    char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
+    std::string dstDtypeStr = DataType2CCEStr(dstDtype);
+    std::string srcDtypeStr = DataType2CCEStr(srcDtype);
+    std::string offsetsDtypeStr = DataType2CCEStr(offsetsDtype);
+
+    ASSERT(dstDtypeStr == srcDtypeStr);
+    ASSERT(offsetsDtypeStr == "int64_t" || offsetsDtypeStr == "int32_t");
+
+    int ret = -1;
+    if (dstRawShapes.size() == SHAPE_DIM2) {
+        ret = sprintf_s(buffer, sizeof(buffer),
+            "%s<%s, %s, %lld>((__ubuf__ %s *)%s, (__gm__ %s *)%s, (__ubuf__ %s *)%s, %s, %s);\n",
+            tileOpName.c_str(), dstDtypeStr.c_str(), offsetsDtypeStr.c_str(), dstRawShapes[1], dstDtypeStr.c_str(),
+            dstVar.c_str(), srcDtypeStr.c_str(), srcVar.c_str(), offsetsDtypeStr.c_str(), offsetsVar.c_str(),
+            dstOriShapes[0].Dump().c_str(), dstOriShapes[1].Dump().c_str());
+    } else if (dstRawShapes.size() == SHAPE_DIM3) {
+        ret = sprintf_s(buffer, sizeof(buffer),
+            "%s<%s, %s, %lld, %lld>((__ubuf__ %s *)%s, (__gm__ %s *)%s, (__ubuf__ %s *)%s, %s, %s, %s);\n",
+            tileOpName.c_str(), dstDtypeStr.c_str(), offsetsDtypeStr.c_str(), dstRawShapes[1], dstRawShapes[2],
+            dstDtypeStr.c_str(), dstVar.c_str(), srcDtypeStr.c_str(), srcVar.c_str(), offsetsDtypeStr.c_str(),
+            offsetsVar.c_str(), dstOriShapes[0].Dump().c_str(), dstOriShapes[1].Dump().c_str(), dstOriShapes[2].Dump().c_str());
+    } else {
+        ASSERT(false) << "unsupport dim " << dstRawShapes.size() << " , only support 2 or 3 now.";
+    }
+
+    ASSERT(ret >= 0) << "GenLoadOp sprintf_s failed ";
+    std::cout << buffer << std::endl;
+    std::string ostring(buffer);
+    return ostring;
+}
+
 std::string CodeGenOpCloudNPU::PrintMemCopyWithUBTileTensor() const {
     std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(SISOIdx::DST_IDX)]);
     std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(SISOIdx::SRC_IDX)]);
