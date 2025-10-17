@@ -62,9 +62,9 @@ void TestDynAllGatherMatmulReducescatter(OpTestParam &testParam)
         }
         LOOP("REDUCESCATTER", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void)index;
-            TileShape::Current().SetDistTile({row * testParam.rankSize, 1, 0}, {col, 1, 0}, {1, testParam.rankSize, 0});
-            Distributed::ShmemReduceScatter(allGatherMatmul, testParam.group,
-                npu::tile_fwk::Distributed::DistReduceType::DIST_REDUCE_ADD, reduceScatterOut);
+            TileShape::Current().SetDistTile({row, 1, 0}, {col, 1, 0}, {1, testParam.rankSize, 0});
+            Distributed::ShmemReduceScatter(allGatherMatmul, testParam.group, DistReduceType::DIST_REDUCE_ADD,
+                reduceScatterOut);
         }
         LOOP("ALLGATHER2", FunctionType::DYNAMIC_LOOP, dynRankId, LoopRange(0, 1, 1)) {
            (void)dynRankId;

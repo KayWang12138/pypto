@@ -205,34 +205,6 @@ def generate_reduce_scatter_golden(case_name: str, save_dir: pathlib.Path):
     reduce_scatter_and_save(inputs, row, rank_size, save_dir, 'output')
 
 
-def generate_allgather_matmul_reducescatter_golden(case_name: str, save_dir: pathlib.Path):
-    dim = 2
-    case = parse_base_case(case_name, dim)
-    row, col = case.shape
-    rank_size, dtype = case.rank_size, case.dtype
-
-    validate_rank_size(rank_size)
-
-    params = (row, col, get_dtype_num(dtype))
-    save_params(params, save_dir)
-    
-    all_gather_inputs = gen_random_tensor_list((row, col), dtype, rank_size, save_dir, 'input')
-
-    all_gather_outputs = all_gather_and_save(all_gather_inputs, rank_size, save_dir, 'allgather')
-
-    gen_random_tensor_list((col, col), dtype, rank_size, save_dir, 'matmul')  # 暂时没用到
-
-    add_output = all_gather_outputs[0] + all_gather_outputs[0]
-    add_outputs = []
-    for rank in range(rank_size):
-        save_tensor(add_output, save_dir / f'ag_add_rank_{rank}.bin')
-        add_outputs.append(add_output)
-
-    reduce_scatter_outputs = reduce_scatter_and_save(add_outputs, row * rank_size, rank_size, save_dir, 'rs')
-
-    all_gather_and_save(reduce_scatter_outputs, rank_size, save_dir, 'double_allgather')
-
-
 def gen_golden_input_data(case: MoeCase, save_dir: pathlib.Path) -> Tuple[List[torch.Tensor], List[torch.Tensor]]:
     x_list = []
     expert_ids_list = []
@@ -470,6 +442,34 @@ def generate_moe_combine_golden(case_name: str, save_dir: pathlib.Path):
         rank_size=rank_size,
     )
     gen_combine_case(combine_case, save_dir, dispatch_save_dir)
+
+
+def generate_allgather_matmul_reducescatter_golden(case_name: str, save_dir: pathlib.Path):
+    dim = 2
+    case = parse_base_case(case_name, dim)
+    row, col = case.shape
+    rank_size, dtype = case.rank_size, case.dtype
+
+    validate_rank_size(rank_size)
+
+    params = (row, col, get_dtype_num(dtype))
+    save_params(params, save_dir)
+    
+    all_gather_inputs = gen_random_tensor_list((row, col), dtype, rank_size, save_dir, 'input')
+
+    all_gather_outputs = all_gather_and_save(all_gather_inputs, rank_size, save_dir, 'allgather')
+
+    gen_random_tensor_list((col, col), dtype, rank_size, save_dir, 'matmul')  # 暂时没用到
+
+    add_output = all_gather_outputs[0] + all_gather_outputs[0]
+    add_outputs = []
+    for rank in range(rank_size):
+        save_tensor(add_output, save_dir / f'ag_add_rank_{rank}.bin')
+        add_outputs.append(add_output)
+
+    reduce_scatter_outputs = reduce_scatter_and_save(add_outputs, row * rank_size, rank_size, save_dir, 'rs')
+
+    all_gather_and_save(reduce_scatter_outputs, rank_size, save_dir, 'double_allgather')
 
 
 def gen_allgather_attnpost_reducescatter_case(case: AllGatherAttnPostReducescatterCase, save_dir: pathlib.Path) -> None:
