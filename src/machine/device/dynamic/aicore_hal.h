@@ -237,8 +237,13 @@ public:
 
     inline void WaitFinQueue(int coreStart, int coreEnd, uint64_t val) {
         for (int idx = coreStart; idx < coreEnd; idx++) {
-            while (*finishRegQueues_[GetPhyIdByBlockId(idx)] != val)
-                ;
+            uint64_t startCycle = GetCycles();
+            while (*finishRegQueues_[GetPhyIdByBlockId(idx)] != val) {
+                if (GetCycles() - startCycle > TIMEOUT_CYCLES) {
+                    DEV_ERROR("CoreId: %d cannot get finish Flag", idx);
+                    break;
+                }
+            }
         }
     }
 
