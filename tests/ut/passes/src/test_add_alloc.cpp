@@ -74,11 +74,11 @@ TEST_F(AddAllocTest, TestAddAllocInplace) {
 
     EXPECT_NE(subGraph.GetTensor("t11"), nullptr);
     std::shared_ptr<LogicalTensor> tensor1 = subGraph.GetTensor("t10");
-    tensor1->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
-        subGraph.GetTensor("t5")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
+    tensor1->memoryrange.memId =
+        subGraph.GetTensor("t5")->memoryrange.memId;
     std::shared_ptr<LogicalTensor> tensor2 = subGraph.GetTensor("t11");
-    tensor2->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
-        subGraph.GetTensor("t5")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
+    tensor2->memoryrange.memId =
+        subGraph.GetTensor("t5")->memoryrange.memId;
 
     AddAlloc addalloc;
     Status res = addalloc.AddAndCheckAlloc(*function);
@@ -104,11 +104,11 @@ TEST_F(AddAllocTest, TestAddAllocAssemble) {
 
     EXPECT_NE(subGraph.GetTensor("t9"), nullptr);
     std::shared_ptr<LogicalTensor> tensor1 = subGraph.GetTensor("t9");
-    tensor1->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
-        subGraph.GetTensor("t5")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
+    tensor1->memoryrange.memId =
+        subGraph.GetTensor("t5")->memoryrange.memId;
     std::shared_ptr<LogicalTensor> tensor2 = subGraph.GetTensor("t6");
-    tensor2->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
-        subGraph.GetTensor("t5")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
+    tensor2->memoryrange.memId =
+        subGraph.GetTensor("t5")->memoryrange.memId;
 
     AddAlloc addalloc;
     Status res = addalloc.AddAndCheckAlloc(*function);
@@ -132,11 +132,11 @@ TEST_F(AddAllocTest, TestAddAllocView) {
 
     EXPECT_NE(subGraph.GetTensor("t6"), nullptr);
     std::shared_ptr<LogicalTensor> tensor1 = subGraph.GetTensor("t5");
-    tensor1->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
-        subGraph.GetTensor("t3")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
+    tensor1->memoryrange.memId =
+        subGraph.GetTensor("t3")->memoryrange.memId;
     std::shared_ptr<LogicalTensor> tensor2 = subGraph.GetTensor("t6");
-    tensor2->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
-        subGraph.GetTensor("t3")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
+    tensor2->memoryrange.memId =
+        subGraph.GetTensor("t3")->memoryrange.memId;
 
     AddAlloc addalloc;
     Status res = addalloc.AddAndCheckAlloc(*function);
@@ -160,10 +160,10 @@ TEST_F(AddAllocTest, TestAddAllocErrorMemId) {
 
     EXPECT_NE(subGraph.GetTensor("t6"), nullptr);
     std::shared_ptr<LogicalTensor> tensor1 = subGraph.GetTensor("t5");
-    tensor1->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId = -1;
+    tensor1->memoryrange.memId = -1;
     std::shared_ptr<LogicalTensor> tensor2 = subGraph.GetTensor("t6");
-    tensor2->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
-        subGraph.GetTensor("t3")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
+    tensor2->memoryrange.memId =
+        subGraph.GetTensor("t3")->memoryrange.memId;
 
     AddAlloc addalloc;
     Status res = addalloc.AddAndCheckAlloc(*function);
@@ -186,10 +186,10 @@ TEST_F(AddAllocTest, TestAddAllocErrorMemorymap) {
 
     EXPECT_NE(subGraph.GetTensor("t6"), nullptr);
     std::shared_ptr<LogicalTensor> tensor1 = subGraph.GetTensor("t5");
-    tensor1->memorymap.clear();
+    tensor1->memoryrange.memId = -1;
     std::shared_ptr<LogicalTensor> tensor2 = subGraph.GetTensor("t6");
-    tensor2->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
-        subGraph.GetTensor("t3")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
+    tensor2->memoryrange.memId =
+        subGraph.GetTensor("t3")->memoryrange.memId;
 
     AddAlloc addalloc;
     Status res = addalloc.AddAndCheckAlloc(*function);

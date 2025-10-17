@@ -18,15 +18,6 @@
 
 namespace npu::tile_fwk {
 AllocKey SymbolManager::CreateAllocKey(const std::shared_ptr<LogicalTensor> &tensor) const {
-    const auto &memMap = tensor->memorymap;
-    if (memMap.size() == 0) {
-        ALOG_ERROR_F("%s: empty memorymap in tensor: ", __FUNCTION__);
-        ALOG_ERROR_F("    %s", tensor->Dump().c_str());
-
-        ASSERT(false);
-        return {};
-    }
-
     auto memType = tensor->GetMemoryTypeOriginal();
     if (OPERAND_TYPE_TO_MEMORY_TYPE.count(memType) == 0) {
         ALOG_ERROR_F("%s: invalid memory type(%d) of tensor: ", __FUNCTION__, static_cast<size_t>(memType));
@@ -36,7 +27,7 @@ AllocKey SymbolManager::CreateAllocKey(const std::shared_ptr<LogicalTensor> &ten
         return {};
     }
 
-    const TileRange &range = memMap.begin()->second;
+    const TileRange &range = tensor->memoryrange;
     auto bufferType = OPERAND_TYPE_TO_MEMORY_TYPE.at(memType);
     AllocKey key = AllocKey(bufferType, range.start, range.end);
     return key;

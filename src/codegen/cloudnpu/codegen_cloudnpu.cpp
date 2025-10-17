@@ -37,10 +37,8 @@ const std::string ENV_ASCEND_HOME_PATH = "ASCEND_HOME_PATH";
 void PrintOperand(const std::string &operIO, std::shared_ptr<LogicalTensor> operand) {
     ALOG_INFO_F("insert %s magic: %d, tensor: %s, memory map is: ", operIO.c_str(), operand->GetMagic(),
         operand->Dump().c_str());
-    for (auto kv : operand->memorymap) {
-        ALOG_INFO_F(
-            "subgraph id: %d, range is [%d, %d, %d]\n", kv.first, kv.second.start, kv.second.end, kv.second.memId);
-    }
+    ALOG_INFO_F(
+        "range is [%d, %d, %d]\n", operand->memoryrange.start, operand->memoryrange.end, operand->memoryrange.memId);
 }
 
 bool HasAllocAttr(const std::shared_ptr<LogicalTensor> &tensor) {
@@ -200,7 +198,7 @@ std::string CodeGenCloudNPU::GenAllocForLocalBuffer(const Operation &op, SymbolM
                                       const std::shared_ptr<LogicalTensor> &operand) -> std::string {
         if (HasAllocAttr(operand)) {
             ALOG_INFO_F("operand has an alloc attr, need to gen extra alloc\n%s", operand->Dump().c_str());
-            std::optional<std::string> allocCodeMaybe = GenExtraAlloc(symbolMgr, operand, op);
+            std::optional<std::string> allocCodeMaybe = GenExtraAlloc(symbolMgr, operand);
             if (allocCodeMaybe.has_value()) {
                 return allocCodeMaybe.value();
             }
@@ -340,14 +338,7 @@ void CodeGenCloudNPU::DumpCCE(const std::string &fileName, const std::string &co
 }
 
 std::optional<std::string> CodeGenCloudNPU::GenExtraAlloc(
-    SymbolManager &symbolMgr, const std::shared_ptr<LogicalTensor> &tensor, const Operation &op) const {
-    const auto &memMap = tensor->memorymap;
-    if (memMap.size() == 0) {
-        ALOG_ERROR_F("%s: empty memorymap of op:", __FUNCTION__);
-        ALOG_ERROR_F("    %s", op.Dump().c_str());
-        return std::nullopt;
-    }
-
+    SymbolManager &symbolMgr, const std::shared_ptr<LogicalTensor> &tensor) const {
     auto memType = tensor->GetMemoryTypeOriginal();
     if (OPERAND_TYPE_TO_MEMORY_TYPE.find(memType) == OPERAND_TYPE_TO_MEMORY_TYPE.end()) {
         ALOG_ERROR_F("%s: invalid memory type(%d) of tensor tensor: ", __FUNCTION__, static_cast<size_t>(memType));
@@ -355,10 +346,10 @@ std::optional<std::string> CodeGenCloudNPU::GenExtraAlloc(
         return std::nullopt;
     }
 
-    const TileRange &range = memMap.begin()->second;
+    const TileRange &memRange = tensor->memoryrange;
     auto bufferType = OPERAND_TYPE_TO_MEMORY_TYPE.at(memType);
 
-    return GenAlloc(symbolMgr, bufferType, tensor->Datatype(), range);
+    return GenAlloc(symbolMgr, bufferType, tensor->Datatype(), memRange);
 }
 
 std::string GenAllocVarName(const std::string &prefix, const TileRange &range) {

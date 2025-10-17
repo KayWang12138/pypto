@@ -135,7 +135,7 @@ std::shared_ptr<LogicalTensor> LogicalTensor::Clone(Function &dstFunc, bool crea
     }
     newTensor->tensorfmt = tensorfmt;
 
-    newTensor->memorymap = memorymap;
+    newTensor->memoryrange = memoryrange;
     newTensor->memoryTypeOriginal_ = memoryTypeOriginal_;
     newTensor->memoryTypeToBe_ = memoryTypeToBe_;
     newTensor->readyTime_ = readyTime_;
@@ -178,19 +178,9 @@ Json LogicalTensor::DumpJson(bool dumpRawTensor) const {
         tensorDump["subgraphid"] = subGraphID;
     }
 
-    if (memorymap.size() != 0) {
-        Json memoryrange = Json::object();
-        Json liferange = Json::object();
-        Json memoryid = Json::object();
-        for (auto &[sgid, range] : memorymap) {
-            memoryrange[std::to_string(sgid)] = Json(std::vector<std::size_t>({range.start, range.end}));
-            liferange[std::to_string(sgid)] = Json(std::vector<int>({range.lifeStart, range.lifeEnd}));
-            memoryid[std::to_string(sgid)] = Json(range.memId);
-        }
-        tensorDump["mem_range"] = memoryrange;
-        tensorDump["life_range"] = liferange;
-        tensorDump["mem_id"] = memoryid;
-    }
+    tensorDump["mem_range"] = Json(std::vector<std::size_t>({memoryrange.start, memoryrange.end}));
+    tensorDump["life_range"] = Json(std::vector<int>({memoryrange.lifeStart, memoryrange.lifeEnd}));
+    tensorDump["mem_id"] = Json(memoryrange.memId);
 
     if (GetMemoryTypeOriginal() != MemoryType::MEM_UNKNOWN || GetMemoryTypeToBe() != MemoryType::MEM_UNKNOWN) {
         Json memorytype = Json::object();
@@ -261,20 +251,15 @@ std::shared_ptr<LogicalTensor> LogicalTensor::LoadJson(Function &function,
     }
     tensorJson->isSubGraphBoundary = tensorDump["subgraph_boundary"].get<bool>();
     if (tensorDump.count("mem_range")) {
-        for (auto &[sgid, range] : tensorDump["mem_range"].items()) {
-            tensorJson->memorymap[std::stoll(sgid)] = TileRange(range[0].get<int>(), range[1].get<int>());
-        }
+        tensorJson->memoryrange =
+            TileRange(tensorDump["mem_range"][0].get<int>(), tensorDump["mem_range"][1].get<int>());
     }
     if (tensorDump.count("life_range")) {
-        for (auto &[sgid, range] : tensorDump["life_range"].items()) {
-            tensorJson->memorymap[std::stoll(sgid)].lifeStart = range[0].get<int>();
-            tensorJson->memorymap[std::stoll(sgid)].lifeEnd = range[1].get<int>();
-        }
+        tensorJson->memoryrange.lifeStart = tensorDump["life_range"][0].get<int>();
+        tensorJson->memoryrange.lifeEnd = tensorDump["life_range"][1].get<int>();
     }
     if (tensorDump.count("mem_id")) {
-        for (auto &[sgid, memid] : tensorDump["mem_id"].items()) {
-            tensorJson->memorymap[std::stoll(sgid)].memId = memid.get<int>();
-        }
+        tensorJson->memoryrange.memId = tensorDump["mem_id"].get<int>();
     }
     if (tensorDump.count("mem_type")) {
         auto &memorytype = tensorDump["mem_type"];

@@ -75,9 +75,9 @@ TEST_F(TestCodegenSpillOut, UBSpillOut) {
     ubTensor->SetMemoryTypeToBe(MemoryType::MEM_UB);
     ubTensor->SetMagic(3);
     ubTensor->SetAttr(OpAttributeKey::needAlloc, true);
-    ubTensor->memorymap[0].memId = 0;
-    ubTensor->memorymap[0].start = 0;
-    ubTensor->memorymap[0].end = 0;
+    ubTensor->memoryrange.memId = 0;
+    ubTensor->memoryrange.start = 0;
+    ubTensor->memoryrange.end = 0;
 
     auto &op = function->AddOperation(Opcode::OP_COPY_OUT, {ubTensor}, {ddrTensor});
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_UB, OpImmediate::Specified({0, 0}), shapeImme, shapeImme));
@@ -126,9 +126,9 @@ TEST_F(TestCodegenSpillOut, L1SpillOut) {
     l1Tensor->SetMemoryTypeToBe(MemoryType::MEM_L1);
     l1Tensor->SetMagic(3);
     l1Tensor->SetAttr(OpAttributeKey::needAlloc, true);
-    l1Tensor->memorymap[0].memId = 0;
-    l1Tensor->memorymap[0].start = 0;
-    l1Tensor->memorymap[0].end = 0;
+    l1Tensor->memoryrange.memId = 0;
+    l1Tensor->memoryrange.start = 0;
+    l1Tensor->memoryrange.end = 0;
 
     auto &op = function->AddOperation(Opcode::OP_L1_COPY_OUT, {l1Tensor}, {ddrTensor});
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_L1, OpImmediate::Specified({0, 0}), shapeImme, shapeImme));

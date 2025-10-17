@@ -27,7 +27,6 @@ public:
     Status Run(Function &func);
 
 private:
-    void ResetMemoryMap(Function &function) const;
     void InitializeTensorMemorymap(Operation &op) const;
     void InitTensorMaxSize(const LogicalTensorPtr &output);
     void InitOpOutput(const Operation *op);

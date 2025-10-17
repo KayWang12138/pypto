@@ -92,8 +92,8 @@ public:
     void GenCode(
         const std::string &jsonPath, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) override;
     int CompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const;
-    std::optional<std::string> GenExtraAlloc(SymbolManager &memAlloc, const std::shared_ptr<LogicalTensor> &tensor,
-        const npu::tile_fwk::Operation &op) const;
+    std::optional<std::string> GenExtraAlloc(
+            SymbolManager &memAlloc, const std::shared_ptr<LogicalTensor> &tensor) const;
     std::string GenAllocForLocalBuffer(const Operation &op, SymbolManager &memAlloc) const;
 
 private:

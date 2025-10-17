@@ -79,9 +79,9 @@ void TestTransposeDataMoveBody(int dim = 3) {
     localTensor->SetMemoryTypeToBe(MemoryType::MEM_UB);
     localTensor->SetMagic(3);
     localTensor->SetAttr(OpAttributeKey::needAlloc, true);
-    localTensor->memorymap[0].memId = 0;
-    localTensor->memorymap[0].start = 0;
-    localTensor->memorymap[0].end = 0;
+    localTensor->memoryrange.memId = 0;
+    localTensor->memoryrange.start = 0;
+    localTensor->memoryrange.end = 0;
 
     auto &op = function->AddOperation(Opcode::OP_TRANSPOSE_MOVEOUT, {localTensor}, {ddrTensor});
     op.SetAttribute(OP_ATTR_PREFIX + "shape", shape);

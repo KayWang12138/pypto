@@ -79,7 +79,7 @@ IssueEntryPtr OoOScheduler::GetBufLastWriteIssue(IssueEntryPtr issue, int curMem
             continue;
         }
         for (auto& outTensor : curIssue->tileOp.GetOOperands()) {
-            if (outTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId == curMemId) {
+            if (outTensor->memoryrange.memId == curMemId) {
                 return curIssue;
             }
         }
@@ -99,11 +99,11 @@ Status OoOScheduler::UpdateTensorAttr(
             ALOG_ERROR_F("Cannot find Tensor[%d] in localBufferMap.", spillMemId);
             return FAILED;
         }
-        tensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR] =
+        tensor->memoryrange =
             TileRange(workspaceOffset, workspaceOffset + localBufferMap[spillMemId]->size, workspaceMemId++);
         workspaceOffset += localBufferMap[spillMemId]->size;
     } else {
-        tensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId = maxTensorMagic;
+        tensor->memoryrange.memId = maxTensorMagic;
         localBufferMap[maxTensorMagic] = std::make_shared<LocalBuffer>(
             maxTensorMagic, ShapeCeilAlign(tensor->GetShape(), tensor->Datatype()), tensor->GetMemoryTypeOriginal());
         if (localBufferMap[maxTensorMagic] == nullptr) {
@@ -141,8 +141,8 @@ void OoOScheduler::ReplaceTensorMemId(IssueEntryPtr &issue, int oldMemId, int ne
         }
     }
     for (auto &outTensor : issue->tileOp.GetOOperands()) {
-        if (outTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId == oldMemId) {
-            outTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId = newMemId;
+        if (outTensor->memoryrange.memId == oldMemId) {
+            outTensor->memoryrange.memId = newMemId;
         }
     }
 }

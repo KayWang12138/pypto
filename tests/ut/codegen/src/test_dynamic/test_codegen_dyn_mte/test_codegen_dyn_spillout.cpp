@@ -77,7 +77,7 @@ TEST_F(TestCodegenDynSpillOut, UBSpillOut) {
     ubTensor->SetMagic(3);
     ubTensor->SetAttr(OpAttributeKey::needAlloc, true);
     ubTensor->UpdateDynValidShape({SymbolicScalar("S0"), SymbolicScalar("S1")});
-    ubTensor->memorymap.emplace(0, TileRange{0, 0, 0});
+    ubTensor->memoryrange = TileRange{0, 0, 0};
 
     auto &op = function->AddOperation(Opcode::OP_COPY_OUT, {ubTensor}, {ddrTensor});
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_UB, OpImmediate::Specified({0, 0}), shapeImme, shapeImme));
@@ -129,7 +129,7 @@ TEST_F(TestCodegenDynSpillOut, L1SpillOut) {
     l1Tensor->SetMagic(3);
     l1Tensor->SetAttr(OpAttributeKey::needAlloc, true);
     l1Tensor->UpdateDynValidShape({SymbolicScalar("S0"), SymbolicScalar("S1")});
-    l1Tensor->memorymap.emplace(0, TileRange{0, 0, 0});
+    l1Tensor->memoryrange = TileRange{0, 0, 0};
 
     auto &op = function->AddOperation(Opcode::OP_COPY_OUT, {l1Tensor}, {ddrTensor});
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_L1, OpImmediate::Specified({0, 0}), shapeImme, shapeImme));

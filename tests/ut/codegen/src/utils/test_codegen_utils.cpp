@@ -31,9 +31,9 @@ std::shared_ptr<LogicalTensor> CreateLogicalTensor(const LogicalTensorInfo &info
     localTensor->SetMemoryTypeOriginal(info.memType);
     localTensor->SetMemoryTypeToBe(info.memType);
     localTensor->SetAttr(OpAttributeKey::needAlloc, true);
-    localTensor->memorymap[0].memId = 0;
-    localTensor->memorymap[0].start = 0;
-    localTensor->memorymap[0].end = 0;
+    localTensor->memoryrange.memId = 0;
+    localTensor->memoryrange.start = 0;
+    localTensor->memoryrange.end = 0;
     if (info.magic != -1) {
         localTensor->SetMagic(info.magic);
     }

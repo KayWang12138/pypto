@@ -142,9 +142,9 @@ TEST_F(MergeSrcDstBufferTest, AddReplaced) {
         if (op.GetOpcode() == Opcode::OP_ADD) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
-            EXPECT_NE(outputTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId, -1);
-            EXPECT_EQ(outputTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId,
-                inputTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId);
+            EXPECT_NE(outputTensor->memoryrange.memId, -1);
+            EXPECT_EQ(outputTensor->memoryrange.memId,
+                inputTensor->memoryrange.memId);
             break;
         }
     }
@@ -183,9 +183,9 @@ TEST_F(MergeSrcDstBufferTest, AddHasInReplaced) {
         if (op.GetOpcode() == Opcode::OP_ADD) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
-            EXPECT_NE(outputTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId, -1);
-            EXPECT_EQ(outputTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId,
-                inputTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId);
+            EXPECT_NE(outputTensor->memoryrange.memId, -1);
+            EXPECT_EQ(outputTensor->memoryrange.memId,
+                inputTensor->memoryrange.memId);
             break;
         }
     }
@@ -215,9 +215,9 @@ TEST_F(MergeSrcDstBufferTest, CopyInNotReplaced) {
         if (op.GetOpcode() == Opcode::OP_COPY_IN) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
-            EXPECT_NE(outputTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId, -1);
-            EXPECT_NE(outputTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId,
-                inputTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId);
+            EXPECT_NE(outputTensor->memoryrange.memId, -1);
+            EXPECT_NE(outputTensor->memoryrange.memId,
+                inputTensor->memoryrange.memId);
             break;
         }
     }
@@ -251,9 +251,9 @@ TEST_F(MergeSrcDstBufferTest, PairMaxNotReplaced) {
         if (op.GetOpcode() == Opcode::OP_PAIRMAX) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
-            EXPECT_NE(outputTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId, -1);
-            EXPECT_NE(outputTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId,
-                inputTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId);
+            EXPECT_NE(outputTensor->memoryrange.memId, -1);
+            EXPECT_NE(outputTensor->memoryrange.memId,
+                inputTensor->memoryrange.memId);
             break;
         }
     }
@@ -289,9 +289,9 @@ TEST_F(MergeSrcDstBufferTest, IsCubeNotReplaced) {
         if (op.GetOpcode() == Opcode::OP_PAIRMAX) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
-            EXPECT_NE(outputTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId, -1);
-            EXPECT_NE(outputTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId,
-                inputTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId);
+            EXPECT_NE(outputTensor->memoryrange.memId, -1);
+            EXPECT_NE(outputTensor->memoryrange.memId,
+                inputTensor->memoryrange.memId);
             break;
         }
     }
@@ -335,9 +335,9 @@ TEST_F(MergeSrcDstBufferTest, AddDiffMemTypeNotReplaced) {
         if (op.GetOpcode() == Opcode::OP_ADD) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
-            EXPECT_NE(outputTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId, -1);
-            EXPECT_NE(outputTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId,
-                inputTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId);
+            EXPECT_NE(outputTensor->memoryrange.memId, -1);
+            EXPECT_NE(outputTensor->memoryrange.memId,
+                inputTensor->memoryrange.memId);
             break;
         }
     }
@@ -369,9 +369,9 @@ TEST_F(MergeSrcDstBufferTest, AddDiffShapeNotReplaced) {
         if (op.GetOpcode() == Opcode::OP_ADD) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
-            EXPECT_NE(outputTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId, -1);
-            EXPECT_NE(outputTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId,
-                inputTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId);
+            EXPECT_NE(outputTensor->memoryrange.memId, -1);
+            EXPECT_NE(outputTensor->memoryrange.memId,
+                inputTensor->memoryrange.memId);
             break;
         }
     }
@@ -403,9 +403,9 @@ TEST_F(MergeSrcDstBufferTest, AddDiffDataTypeNotReplaced) {
         if (op.GetOpcode() == Opcode::OP_ADD) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
-            EXPECT_NE(outputTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId, -1);
-            EXPECT_NE(outputTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId,
-                inputTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId);
+            EXPECT_NE(outputTensor->memoryrange.memId, -1);
+            EXPECT_NE(outputTensor->memoryrange.memId,
+                inputTensor->memoryrange.memId);
             break;
         }
     }
@@ -436,9 +436,9 @@ TEST_F(MergeSrcDstBufferTest, AddMultiConsumerNotReplaced) {
         if (op.GetOpcode() == Opcode::OP_ADD) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
-            EXPECT_NE(outputTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId, -1);
-            EXPECT_NE(outputTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId,
-                inputTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId);
+            EXPECT_NE(outputTensor->memoryrange.memId, -1);
+            EXPECT_NE(outputTensor->memoryrange.memId,
+                inputTensor->memoryrange.memId);
             break;
         }
     }

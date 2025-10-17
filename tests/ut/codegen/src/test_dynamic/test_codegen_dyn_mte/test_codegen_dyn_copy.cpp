@@ -79,9 +79,9 @@ std::string TestL0COutBody(bool isDynamicUnalign) {
     localTensor->SetMemoryTypeToBe(MemoryType::MEM_L0C);
     localTensor->SetMagic(3);
     localTensor->SetAttr(OpAttributeKey::needAlloc, true);
-    localTensor->memorymap[0].memId = 0;
-    localTensor->memorymap[0].start = 0;
-    localTensor->memorymap[0].end = 0;
+    localTensor->memoryrange.memId = 0;
+    localTensor->memoryrange.start = 0;
+    localTensor->memoryrange.end = 0;
     if(isDynamicUnalign){
         std::vector<SymbolicScalar> dynValidShape = {64, 64};
         localTensor->UpdateDynValidShape(dynValidShape);
@@ -154,9 +154,9 @@ std::string TestL1CopyInBody(bool isNz = false, int outerValueForNz = 0, int inn
     localTensor->SetMemoryTypeToBe(MemoryType::MEM_L1);
     localTensor->SetMagic(3);
     localTensor->SetAttr(OpAttributeKey::needAlloc, true);
-    localTensor->memorymap[0].memId = 0;
-    localTensor->memorymap[0].start = 0;
-    localTensor->memorymap[0].end = 0;
+    localTensor->memoryrange.memId = 0;
+    localTensor->memoryrange.start = 0;
+    localTensor->memoryrange.end = 0;
 
     auto &op = function->AddOperation(Opcode::OP_COPY_IN, {ddrTensor}, {localTensor});
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_L1, OpImmediate::Specified({0, 0}), shapeImme, shapeImme));
@@ -238,9 +238,9 @@ TEST_F(TestCodegenDynCopy, UBCopyIn) {
     localTensor->SetMemoryTypeToBe(MemoryType::MEM_UB);
     localTensor->SetMagic(3);
     localTensor->SetAttr(OpAttributeKey::needAlloc, true);
-    localTensor->memorymap[0].memId = 0;
-    localTensor->memorymap[0].start = 0;
-    localTensor->memorymap[0].end = 0;
+    localTensor->memoryrange.memId = 0;
+    localTensor->memoryrange.start = 0;
+    localTensor->memoryrange.end = 0;
 
     auto &op = function->AddOperation(Opcode::OP_COPY_IN, {ddrTensor}, {localTensor});
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_UB, OpImmediate::Specified({0, 0}), shapeImme, shapeImme));

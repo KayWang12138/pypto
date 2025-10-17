@@ -35,21 +35,9 @@ bool OoOScheduleChecker::PreCheckTensorInfo(const LogicalTensorPtr tensor) {
     if (tensor->isSubGraphBoundary) {
         return true;
     }
-    
-    // memorymap对应的memoryid不为-1
-    bool hasMemMap = false;
-    // tensor memorymap应该只有一项
-    for (auto &range : tensor->memorymap) {
-        if (range.first == BLOCK_GRAPH_DEFAULT_COLOR) {
-            hasMemMap = true;
-            if (range.second.memId == -1) {
-                ALOG_ERROR_F("%d Tensor memorymap[%d] memId does not exist, OoOSchedule Precheck failed!", tensor->GetMagic(), BLOCK_GRAPH_DEFAULT_COLOR);
-                return false;
-            }
-        }
-    }
-    if (!hasMemMap) {
-        ALOG_ERROR_F(": %d Tensor does not have valid memorymap, OoOSchedule Precheck failed!", tensor->GetMagic());
+    // memoryrange对应的memoryid不为-1
+    if (tensor->memoryrange.memId == -1) {
+        ALOG_ERROR_F("%d Tensor memId does not exist, OoOSchedule Precheck failed!", tensor->GetMagic());
         return false;
     }
     return true;
@@ -85,9 +73,9 @@ bool OoOScheduleChecker::PreCheckOpInfo(const Operation *op) {
     // 检查输出不在DDR上的Op
     if (op->GetOOperands()[0]->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
         // 输入tensor的memid要与输出tensor的memid保持一致
-        int memId = op->GetOOperands()[0]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
+        int memId = op->GetOOperands()[0]->memoryrange.memId;
         for (auto inTensor : op->GetIOperands()) {
-            if (inTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId != memId &&
+            if (inTensor->memoryrange.memId != memId &&
                 inTensor->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
                 ALOG_ERROR_F("%d %s input output tensors memId does not match, OoOSchedule Precheck failed!", op->GetOpMagic(), op->GetOpcodeStr().c_str());
                 return false;
@@ -226,8 +214,8 @@ bool OoOScheduleChecker::PostCheckTensorMagic(std::set<int> tensorSet, const Log
 bool OoOScheduleChecker::PostCheckLocalTensor(const LogicalTensorPtr tensor, const int programIdx) {
     MemoryType memType = tensor->GetMemoryTypeOriginal();
     if (memType == MemoryType::MEM_UB || memType == MemoryType::MEM_L1 || memType == MemoryType::MEM_L0A || memType == MemoryType::MEM_L0B || memType == MemoryType::MEM_L0C) {
-        int memoryrange = tensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].end - tensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].start;
-        if (memoryrange == 0) {
+        int memoryRange = tensor->memoryrange.end - tensor->memoryrange.start;
+        if (memoryRange == 0) {
             ALOG_ERROR_F("Program %d: %d tensor memory range is 0, OoOSchedule Postcheck failed!", programIdx, tensor->GetMagic());
             return false;
         }
@@ -236,7 +224,7 @@ bool OoOScheduleChecker::PostCheckLocalTensor(const LogicalTensorPtr tensor, con
             tensorshape *= num;
         }
         int tensorsize = tensorshape * BytesOf(tensor->Datatype());
-        if (memoryrange < tensorsize) {
+        if (memoryRange < tensorsize) {
             ALOG_ERROR_F("Program %d: %d tensor memory range < tensor size, OoOSchedule Postcheck failed!", programIdx, tensor->GetMagic());
             return false;
         }
@@ -247,7 +235,7 @@ bool OoOScheduleChecker::PostCheckLocalTensor(const LogicalTensorPtr tensor, con
 bool OoOScheduleChecker::PostCheckGlobalTensor(const LogicalTensorPtr tensor, const int programIdx) {
     MemoryType memType = tensor->GetMemoryTypeOriginal();
     if (memType == MemoryType::MEM_DEVICE_DDR && !(tensor->isSubGraphBoundary)) {
-        if (tensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId == -1) {
+        if (tensor->memoryrange.memId == -1) {
             ALOG_ERROR_F("Program %d: %d global tensor memid is -1, OoOSchedule Postcheck failed!", programIdx, tensor->GetMagic());
             return false;
         }

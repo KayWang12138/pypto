@@ -70,7 +70,7 @@ public:
     std::vector<std::weak_ptr<LogicalTensor>> conflicterTensors;
     std::vector<std::shared_ptr<LogicalTensor>> overlapper;
 
-    std::map<int, TileRange> memorymap; // subgraphID -> memoryRange
+    TileRange memoryrange;
 
     LogicalTensor(Function &function, DataType t, Shape tshape, std::string tname = "",
         NodeType tnodetype = NodeType::LOCAL, TileOpFormat ttensorfmt = TileOpFormat::TILEOP_ND);

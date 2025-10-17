@@ -35,13 +35,14 @@ bool ComputationalGraphBuilder::AddTensor(DataType dataType, const std::vector<i
 bool ComputationalGraphBuilder::AddTensor(DataType dataType, const std::vector<int64_t>& tileShape,
                                           MemoryType memType, const std::string& name, int subGraphID)
 {
+    (void) subGraphID;
     if (!AddTensor(dataType, tileShape, name)) {
         return false;
     }
     auto tensor = GetTensor(name);
     tensor->SetMemoryTypeBoth(memType, true);
     tensor->subGraphID = subGraphID;
-    tensor->memorymap[subGraphID].memId = tensor->GetMagic();
+    tensor->memoryrange.memId = tensor->GetMagic();
     tensors_[name] = tensor;
     return true;
 }

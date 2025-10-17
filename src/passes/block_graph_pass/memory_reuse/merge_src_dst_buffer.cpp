@@ -17,40 +17,28 @@
 
 namespace npu::tile_fwk {
 
-void SrcDstBufferMergeImpl::ResetMemoryMap(Function &function) const {
-    /* 初始化所有tensor的memorymap */
-    for (auto &op : function.Operations()) {
-        for (auto &input : op.GetIOperands()) {
-            input->memorymap.clear();
-        }
-        for (auto &output : op.GetOOperands()) {
-            output->memorymap.clear();
-        }
-    }
-}
-
 void SrcDstBufferMergeImpl::InitializeTensorMemorymap(Operation &op) const {
     for (auto &input : op.GetIOperands()) {
         TileRange range;
         range.memId = input->tensor->GetRawMagic();
-        input->memorymap[BLOCK_GRAPH_DEFAULT_COLOR] = range;
+        input->memoryrange = range;
     }
     for (auto &output : op.GetOOperands()) {
         TileRange range;
         range.memId = output->tensor->GetRawMagic();
-        output->memorymap[BLOCK_GRAPH_DEFAULT_COLOR] = range;
+        output->memoryrange = range;
     }
 }
 
 void SrcDstBufferMergeImpl::InitTensorMaxSize(const LogicalTensorPtr &output) {
     for (auto &consumer : output->GetConsumers()) {
-        tensorConsumers_[output->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId].insert(consumer->GetOpMagic());
-        if (tensorMaxSize_.find(output->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId) == tensorMaxSize_.end()) {
-            tensorMaxSize_[output->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId] = output->GetDataSize();
+        tensorConsumers_[output->memoryrange.memId].insert(consumer->GetOpMagic());
+        if (tensorMaxSize_.find(output->memoryrange.memId) == tensorMaxSize_.end()) {
+            tensorMaxSize_[output->memoryrange.memId] = output->GetDataSize();
             continue;
         }
-        tensorMaxSize_[output->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId] =
-            std::max(tensorMaxSize_[output->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId], output->GetDataSize());
+        tensorMaxSize_[output->memoryrange.memId] =
+            std::max(tensorMaxSize_[output->memoryrange.memId], output->GetDataSize());
     }
 }
 
@@ -71,14 +59,8 @@ void SrcDstBufferMergeImpl::InitOpOutput(const Operation *op) {
             ++outId;
             continue;
         }
-        if (output->memorymap.find(BLOCK_GRAPH_DEFAULT_COLOR) == output->memorymap.end()) {
-            ALOG_DEBUG_F("Op:%s, magic:%d, output id:%d does not have memorymap",
-                op->GetOpcodeStr().c_str(), op->GetOpMagic(), outId);
-            ++outId;
-            continue;
-        }
-        if (output->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId == -1) {
-            output->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId = output->GetMagic();
+        if (output->memoryrange.memId == -1) {
+            output->memoryrange.memId = output->GetMagic();
         }
         InitTensorMaxSize(output);
         ++outId;
@@ -127,9 +109,6 @@ bool SrcDstBufferMergeImpl::CheckIgnoreScene(const Operation *oriOps) {
         if (output == nullptr) {
             return true;
         }
-        if (output->memorymap.find(BLOCK_GRAPH_DEFAULT_COLOR) == output->memorymap.end()) {
-            return true;
-        }
     }
     return false;
 }
@@ -145,11 +124,11 @@ std::pair<bool, Status> SrcDstBufferMergeImpl::CheckHasInplaced(const Operation 
         for (auto &[iIdx, oIdx] : inplaceInfo) {
             auto in = ops->GetIOperands()[iIdx];
             auto out = ops->GetOOperands()[oIdx];
-            out->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId = in->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
-            tensorConsumers_[in->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId].insert(
-                tensorConsumers_[out->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId].begin(),
-                tensorConsumers_[out->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId].end());
-            replacedTensors[out->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId] = in;
+            out->memoryrange.memId = in->memoryrange.memId;
+            tensorConsumers_[in->memoryrange.memId].insert(
+                tensorConsumers_[out->memoryrange.memId].begin(),
+                tensorConsumers_[out->memoryrange.memId].end());
+            replacedTensors[out->memoryrange.memId] = in;
         }
         return std::make_pair(true, SUCCESS);
     }
@@ -162,13 +141,13 @@ bool SrcDstBufferMergeImpl::FindReplaced(const Operation *oriOps, const Operatio
         if (in != nullptr && CanSrcDstReuse(oriOps, in, true)) {
             // 当前输出复用输入
             auto out = ops->GetOOperands()[0];
-            auto inTensorMagic = in->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
-            auto outTensorMagic = out->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
+            auto inTensorMagic = in->memoryrange.memId;
+            auto outTensorMagic = out->memoryrange.memId;
             if (inTensorMagic == outTensorMagic) {
                 continue;
             }
             ALOG_DEBUG_F("Set out tensor %d reuse src tensor %d", out->GetMagic(), in->GetMagic());
-            out->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId = in->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
+            out->memoryrange.memId = in->memoryrange.memId;
             if (tensorConsumers_[outTensorMagic].size() > tensorConsumers_[inTensorMagic].size()) {
                 tensorConsumers_[inTensorMagic] = tensorConsumers_[outTensorMagic];
             }
@@ -183,13 +162,13 @@ bool SrcDstBufferMergeImpl::FindReplaced(const Operation *oriOps, const Operatio
 void SrcDstBufferMergeImpl::NotFindReplacedProcess(const Operation *ops,
     std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors) {
     for (auto &out : ops->GetOOperands()) {
-        auto outTensorMagic = out->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
+        auto outTensorMagic = out->memoryrange.memId;
         ALOG_DEBUG_F("Op %d out tensor magic: %d", ops->GetOpMagic(), outTensorMagic);
         if (replacedTensors.find(outTensorMagic) != replacedTensors.end()) {
             ALOG_DEBUG_F("Find tensor: %d  replaced by tensor: %d", 
-                outTensorMagic, replacedTensors[outTensorMagic]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId);
-            out->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
-                replacedTensors[outTensorMagic]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
+                outTensorMagic, replacedTensors[outTensorMagic]->memoryrange.memId);
+            out->memoryrange.memId =
+                replacedTensors[outTensorMagic]->memoryrange.memId;
         }
     }
 }
@@ -201,7 +180,6 @@ Status SrcDstBufferMergeImpl::Run(Function &func) {
     }
     for (auto &subProgram : func.rootFunc_->programs_) {
         ALOG_INFO_F("Merge src dst for program id : [%lu]", subProgram.first);
-        ResetMemoryMap(*subProgram.second);
         auto opList = subProgram.second->Operations().DuplicatedOpList();
         if (Init(opList) != SUCCESS) {
             return FAILED;
@@ -235,7 +213,7 @@ bool SrcDstBufferMergeImpl::CheckAssembleReuse(const LogicalTensorPtr &outOperan
             continue;
         }
         for (auto assembleOutTensor : consumer->GetOOperands()) {
-            if (assembleOutTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId == outOperand->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId) {
+            if (assembleOutTensor->memoryrange.memId == outOperand->memoryrange.memId) {
                 ALOG_DEBUG_F("Assemble cannot be reused.");
                 return false;
             }
@@ -261,8 +239,8 @@ bool SrcDstBufferMergeImpl::CanSrcDstReuse(const Operation *ops,
         return false;
     }
     // tile shape 必须一样
-    if (tensorMaxSize_[outOperand->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId] !=
-        tensorMaxSize_[ioperand->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId]) {
+    if (tensorMaxSize_[outOperand->memoryrange.memId] !=
+        tensorMaxSize_[ioperand->memoryrange.memId]) {
         ALOG_DEBUG_F("Datasize is not same");
         return false;
     }
@@ -275,7 +253,7 @@ bool SrcDstBufferMergeImpl::CanSrcDstReuse(const Operation *ops,
         return false;
     }
     // 确保复用UB buffer后不会被覆写
-    auto iter = tensorConsumers_.find(ioperand->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId);
+    auto iter = tensorConsumers_.find(ioperand->memoryrange.memId);
     if (iter != tensorConsumers_.end() && iter->second.size() > 1) {
         ALOG_DEBUG_F("Has more 1 output");
         return false;
