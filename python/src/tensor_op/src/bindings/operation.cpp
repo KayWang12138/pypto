@@ -97,7 +97,10 @@ void bind_operation(py::module &m) {
     m.def(
         "div_s", [](const Tensor &left, const Element &right) { return npu::tile_fwk::DivS(left, right); },
         "Tensor div scalar.");
-
+    m.def(
+        "range",
+        [](const Element &start, const Element &end, const Element &step) { return npu::tile_fwk::Range(start, end, step); },
+        py::arg("start"), py::arg("end"), py::arg("step"), "Tensor range.");
     m.def(
         "row_max_single", [](const Tensor &operand, int axis) { return npu::tile_fwk::RowMaxSingle(operand, axis); },
         py::arg("operand"), py::arg("axis") = -1, "Tensor row max single.");

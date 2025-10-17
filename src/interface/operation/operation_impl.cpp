@@ -3267,7 +3267,7 @@ Tensor NewCompact(const Tensor &operand)
 }
 
 template <typename T, DataType dataType>
-Element GetCurStartElement(Element start, Element step, int id){
+Element GetCurStartElement(Element start, Element step, int id) {
     T startValue;
     T stepValue;
     if (dataType == DT_INT32 || dataType == DT_INT64) {
@@ -3325,17 +3325,21 @@ template <typename T, DataType dataType>
 int64_t GetRangeResSize(Element &start, Element &end, Element &step) {
     int64_t resultSize;
     if (dataType == DT_INT32 || dataType == DT_INT64) {
-        T startValue = start.GetSignedData();
-        T endValue = end.GetSignedData();
-        T stepValue = step.GetSignedData();
-        ASSERT(abs(stepValue) > 0);
-        resultSize = static_cast<int64_t>(CeilDiv<int64_t>(
-            static_cast<int64_t>(endValue) - static_cast<int64_t>(startValue), static_cast<int64_t>(stepValue)));
+        int64_t startValue = start.GetSignedData();
+        int64_t endValue = end.GetSignedData();
+        int64_t stepValue = step.GetSignedData();
+        if (abs(stepValue) <= 0) {
+            ASSERT(false && "stepValue must not be 0");
+        }
+        resultSize = (endValue - startValue) % stepValue ? (endValue - startValue) / stepValue + 1 :
+                                                           (endValue - startValue) / stepValue;
     } else if (dataType == DT_FP32) {
         T startValue = (float)start.GetFloatData();
         T endValue = (float)end.GetFloatData();
         T stepValue = (float)step.GetFloatData();
-        ASSERT(abs(stepValue) > EPSILON);
+        if (abs(stepValue) <= EPSILON) {
+            ASSERT(false && "stepValue must not be 0");
+        }
         resultSize = static_cast<int64_t>(std::ceil((endValue - startValue) / stepValue));
     }
     return resultSize;
@@ -3355,7 +3359,9 @@ Tensor RealRange(Element &start, Element &end, Element &step) {
         std::string errorMessage = "Unsupported DataType " + DataType2String(start.GetDataType());
         throw std::invalid_argument(errorMessage.c_str());
     }
-    ASSERT(resultSize >= 0);
+    if (resultSize < 0) {
+        ASSERT(false && "The positivity or negativity of the step must be aligned with the end-start");
+    }
     resTensorShape.push_back(resultSize);
     auto resTensor = Tensor(start.GetDataType(), resTensorShape);
     RETURN_CALL(Range, *Program::GetInstance().GetCurrentFunction(), resTensor.GetStorage(), start, step);
@@ -3365,9 +3371,18 @@ DataType GetResultDataType(const Element &start, const Element &end, const Eleme
     DataType startType = start.GetDataType();
     DataType endType = end.GetDataType();
     DataType stepType = step.GetDataType();
-    ASSERT(startType == DT_FP32 || startType == DT_INT64 || startType == DT_INT32);
-    ASSERT(endType == DT_FP32 || endType == DT_INT64 || endType == DT_INT32);
-    ASSERT(stepType == DT_FP32 || stepType == DT_INT64 || stepType == DT_INT32);
+    if (startType != DT_FP32 && startType != DT_INT64 && startType != DT_INT32) {
+        std::string errorMessage = "Unsupported Start DataType " + DataType2String(start.GetDataType());
+        ASSERT(false && errorMessage.c_str());
+    }
+    if (endType != DT_FP32 && endType != DT_INT64 && endType != DT_INT32) {
+        std::string errorMessage = "Unsupported End DataType " + DataType2String(start.GetDataType());
+        ASSERT(false && errorMessage.c_str());
+    }
+    if (stepType != DT_FP32 && stepType != DT_INT64 && stepType != DT_INT32) {
+        std::string errorMessage = "Unsupported Step DataType " + DataType2String(start.GetDataType());
+        ASSERT(false && errorMessage.c_str());
+    }
     if (startType == DT_FP32 || endType == DT_FP32 || stepType == DT_FP32) {
         return DT_FP32;
     }
@@ -3396,6 +3411,10 @@ Element GetElementWithDataType(const Element &element, DataType dataType) {
 
 Tensor Range(const Element &start, const Element &end, const Element &step) {
     DataType dataType = GetResultDataType(start, end, step);
+    if (dataType != DT_FP32 && dataType != DT_INT32) {
+        std::string errorMessage = "Unsupported DataType " + DataType2String(start.GetDataType());
+        ASSERT(false && errorMessage.c_str());
+    }
     ASSERT(dataType == DT_FP32 || dataType == DT_INT32);
     Element realStart = GetElementWithDataType(start, dataType);
     Element realEnd = GetElementWithDataType(end, dataType);

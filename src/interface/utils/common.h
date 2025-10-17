@@ -504,15 +504,6 @@ inline int CeilDiv(int a, int b) {
     return (a + (b - 1)) / b;
 }
 
-// 向上取整除法
-template <typename T>
-inline T CeilDiv(T a, T b) {
-    if (b == 0) {
-        return 0;
-    }
-    return (a + (b - 1)) / b;
-}
-
 // 向下取整除法
 inline int FloorDiv(int a, int b) {
     return a / b;
