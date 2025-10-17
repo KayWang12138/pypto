@@ -690,7 +690,7 @@ std::string CodeGenOpCloudNPU::PrintScatterElementSOpStatic(const PrintScatterEl
     templateParams.emplace_back(std::to_string(s1os[ToUnderlying(DISOIdx::DST_IDX)]));
     templateParams.emplace_back(std::to_string(s1os[ToUnderlying(DISOIdx::SRC0_IDX)]));
     std::string templateParamStr = JoinString(templateParams, ", ");
-    templateParamStr += GenOpAttr();
+    templateParamStr += ", " + std::to_string(param.axis);
 
     std::vector<std::string> callParams;
     callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(DISOIdx::DST_IDX)] + "*)" + dstVar);
@@ -709,15 +709,14 @@ std::string CodeGenOpCloudNPU::PrintScatterElementSOpDynamicUnaligned(const Prin
     const std::string &dstVar = param.dVar;
     const std::string &src0Var = param.s0Var;
     const std::string &src1Var = param.s1Var;
-    std::vector<int64_t> &drs = param.dstRawShape;
-    std::vector<int64_t> &s1rs = param.src1RawShape;
+    std::vector<int64_t> dstRawShape = NormalizeShape(param.dstRawShape, SHAPE_DIM4);
+    std::vector<int64_t> src1RawShape = NormalizeShape(param.src1RawShape, SHAPE_DIM4);
     const std::string *dataTypeExpr = param.dataTypeExpr;
     const Element &scala = extOperandVal;
 
-    size_t dynDim = shape[ToUnderlying(DISOIdx::DST_IDX)].size();
     auto dynSrc1Shape = dynamicValidShape[ToUnderlying(DISOIdx::SRC1_IDX)];
     FillIntVecWithDummyInHead<SymbolicScalar>(
-        dynSrc1Shape, dynDim - dynamicValidShape[ToUnderlying(DISOIdx::SRC1_IDX)].size(), 1);
+        dynSrc1Shape, SHAPE_DIM4 - dynamicValidShape[ToUnderlying(DISOIdx::SRC1_IDX)].size(), 1);
 
     char scalarTmpBuffer[BUFFER_SIZE_512] = "CG_ERROR";
     int ret =
@@ -729,14 +728,15 @@ std::string CodeGenOpCloudNPU::PrintScatterElementSOpDynamicUnaligned(const Prin
     std::vector<std::string> templateParams;
     templateParams.emplace_back(dataTypeExpr[ToUnderlying(DISOIdx::DST_IDX)]);
     templateParams.emplace_back(dataTypeExpr[ToUnderlying(DISOIdx::SRC1_IDX)]);
-    for (size_t i = 1; i < dynDim; ++i) {
-        templateParams.emplace_back(std::to_string(s1rs[i]));
+    for (size_t i = 1; i < src1RawShape.size(); ++i) {
+        templateParams.emplace_back(std::to_string(src1RawShape[i]));
     }
-    for (size_t i = 1; i < dynDim; ++i) {
-        templateParams.emplace_back(std::to_string(drs[i]));
+    for (size_t i = 1; i < dstRawShape.size(); ++i) {
+        templateParams.emplace_back(std::to_string(dstRawShape[i]));
     }
-    templateParams.emplace_back(std::to_string(param.axis));
-    templateParams.emplace_back(std::to_string(param.reduceOp));
+    int axis = param.axis + SHAPE_DIM4 - param.src1RawShape.size();
+    templateParams.emplace_back(std::to_string(axis));
+    templateParams.emplace_back(std::to_string(param.scatterMode));
     std::string templateParamStr = JoinString(templateParams, ", ");
 
     std::vector<std::string> callParams;
@@ -745,7 +745,7 @@ std::string CodeGenOpCloudNPU::PrintScatterElementSOpDynamicUnaligned(const Prin
     callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(DISOIdx::SRC0_IDX)] + "*)" + src0Var);
     callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(DISOIdx::SRC1_IDX)] + "*)" + src1Var);
     callParams.emplace_back("(" + src2_dtypestr + ")" + scalarTmpBuffer);
-    for (size_t i = 0; i < dynDim; ++i) {
+    for (size_t i = 0; i < SHAPE_DIM4; ++i) {
         callParams.emplace_back(SymbolicExpressionTable::BuildExpression(dynSrc1Shape[i]));
     }
     std::string callParamStr = JoinString(callParams, ", ");
@@ -755,30 +755,11 @@ std::string CodeGenOpCloudNPU::PrintScatterElementSOpDynamicUnaligned(const Prin
     return oss.str();
 }
 
-unsigned CodeGenOpCloudNPU::GetScatterElementSReduceOperation(const std::string &reduceMode) const {
-    enum class ReduceOp : unsigned { ReplaceOperation, AddOperation, MultiplyOperation, UnknownOperation };
-    ReduceOp reduceOp = ReduceOp::UnknownOperation;
-
-    if (reduceMode.empty()) {
-        reduceOp = ReduceOp::ReplaceOperation;
-    } else if (reduceMode == "add") {
-        reduceOp = ReduceOp::AddOperation;
-    } else if (reduceMode == "multiply") {
-        reduceOp = ReduceOp::MultiplyOperation;
-    } else {
-        ALOG_ERROR_F(
-            "GetScatterElementSReduceOperation reduceMode is not supported, reduceMode is %s", reduceMode.c_str());
-    }
-
-    return ToUnderlying(reduceOp);
-}
-
 std::string CodeGenOpCloudNPU::GenScatterElementSOp() const {
-    ASSERT(opAttrs.count(OpAttributeKey::reduceMode)) << "cannot get reduceMode attr";
+    ASSERT(opAttrs.count(OP_ATTR_PREFIX + "scatter_mode")) << "cannot get scatter mode attr";
     ASSERT(opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
     int axis = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "axis"));
-    std::string reduceMode = npu::tile_fwk::AnyCast<std::string>(opAttrs.at(OpAttributeKey::reduceMode));
-    unsigned reduceOp = GetScatterElementSReduceOperation(reduceMode);
+    int scatterMode = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "scatter_mode"));
     const DataType dstDtype = operandDtype[ToUnderlying(DISOIdx::DST_IDX)];
     const DataType src0Dtype = operandDtype[ToUnderlying(DISOIdx::SRC0_IDX)];
     const DataType src1Dtype = operandDtype[ToUnderlying(DISOIdx::SRC1_IDX)];
@@ -807,10 +788,10 @@ std::string CodeGenOpCloudNPU::GenScatterElementSOp() const {
 
     if (isSupportDynamicUnaligned) {
         return PrintScatterElementSOpDynamicUnaligned(
-            {axis, reduceOp, dstVar, src0Var, src1Var, dstRawShape, src1RawShape, dataTypeExpr});
+            {axis, scatterMode, dstVar, src0Var, src1Var, dstRawShape, src1RawShape, dataTypeExpr});
     }
     return PrintScatterElementSOpStatic(
-        {axis, reduceOp, dstVar, src0Var, src1Var, dstRawShape, src1RawShape, dataTypeExpr});
+        {axis, scatterMode, dstVar, src0Var, src1Var, dstRawShape, src1RawShape, dataTypeExpr});
 }
 
 std::string CodeGenOpCloudNPU::PrintExtractStatic() const {

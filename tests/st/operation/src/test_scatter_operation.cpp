@@ -16,17 +16,17 @@
 #include "test_operation.h"
 
 using namespace tile_fwk::test_operation;
-namespace {
+namespace ScatterOperation {
 struct ScatterOpFuncArgs : public OpFuncArgs {
     ScatterOpFuncArgs(const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape, int axis, 
-        Element &value, const std::string &reduce) : 
+        Element &value, ScatterMode reduce) : 
         viewShape_(viewShape), tileShape_(tileShape), axis_(axis), value_(value), reduce_(reduce) {}
 
     std::vector<int64_t> viewShape_;
     std::vector<int64_t> tileShape_;
     int axis_;
     Element value_;
-    const std::string reduce_;
+    ScatterMode reduce_;
 };
 
 struct ScatterOpMetaData {
@@ -215,15 +215,25 @@ INSTANTIATE_TEST_SUITE_P(TestScatter, ScatterOperationTest,
         ScatterOperationExeFunc2DimsNoReduceOp},
         "Scatter")));
 
+const std::map<std::string, ScatterMode> &GetScatterModeMap() {
+    static const std::map<std::string, ScatterMode> scatterModeMap = {
+        {"", ScatterMode::NONE},
+        {"None", ScatterMode::NONE},
+        {"add", ScatterMode::ADD},
+        {"multiply", ScatterMode::MULTIPLY},
+    };
+    return scatterModeMap;
+}
+
 TEST_P(ScatterOperationTest, TestScatter) {
     TestCaseDesc testCase;
     auto test_data = GetParam().test_data_;
     testCase.inputTensors = GetInputTensors(test_data);
     testCase.outputTensors = GetOutputTensors(test_data);
-    auto axis = static_cast<CastMode>(GetValueByName<int>(test_data, "axis"));
+    auto axis = GetValueByName<int>(test_data, "axis");
     auto dtype = testCase.outputTensors.at(0).GetDataType();
     Element value(dtype, GetValueByName<float>(test_data, "src"));
-    auto reduce = GetValueByName<std::string>(test_data, "reduce");
+    auto reduce = GetMapValByName(GetScatterModeMap(), GetValueByName<std::string>(test_data, "reduce"));
     auto args = ScatterOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data), axis, value, reduce);
     testCase.args = &args;
     testCase.opFunc = GetParam().opFunc_;

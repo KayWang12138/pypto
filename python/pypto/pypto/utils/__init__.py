@@ -13,7 +13,7 @@ from .aggrvec import AggregationVec
 from .codehelper import CodeHelper
 from .configmap import ConfigMap
 from .custstruct import CustStruct
-from .enums import DATATYPE, ReduceMode, CastMode
+from .enums import DATATYPE, ReduceMode, CastMode, ScatterMode
 from .instruction import Instruction
 from .shape import Shape
 from .std_tuple import Tuple

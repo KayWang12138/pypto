@@ -352,7 +352,7 @@ TEST_F(TorchAdaptorTest, BinaryOps) {
         auto indices = makeTensorData(DT_INT64, {1, 4}, indicesData);
         auto out = makeTensorData(DT_FP32, {2, 5}, 0.0f);
         auto golden = makeTensorData(DT_FP32, {2, 5}, gdata);
-        calc::Scatter(out, self, indices, src, 0);
+        calc::Scatter(out, self, indices, src, 0, 0);
         ASSERT_ALLCLOSE(out, golden);
     }
     {
@@ -367,7 +367,7 @@ TEST_F(TorchAdaptorTest, BinaryOps) {
         auto indices = makeTensorData(DT_INT64, {1, 4}, indicesData);
         auto out = makeTensorData(DT_FP32, {2, 5}, 0.0f);
         auto golden = makeTensorData(DT_FP32, {2, 5}, gdata);
-        calc::Scatter(out, self, indices, src, 0, "add");
+        calc::Scatter(out, self, indices, src, 0, 1);
         ASSERT_ALLCLOSE(out, golden);
     }
 }

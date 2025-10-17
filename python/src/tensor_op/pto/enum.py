@@ -23,3 +23,4 @@ function_type = pto_impl.FunctionType
 graph_type = pto_impl.GraphType
 cast_mode = pto_impl.CastMode
 tile_type = pto_impl.TileType
+scatter_mode = pto_impl.ScatterMode

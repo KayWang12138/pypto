@@ -206,7 +206,7 @@ void ExecuteOpScatter(ExecuteOperationContext *ctx) {
     int axis = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "axis");
     auto src = Element(DT_FP32, 0.0f);
     ctx->op->GetAttr(OpAttributeKey::scalar, src);
-    std::string reduce = ctx->op->GetStringAttribute(OpAttributeKey::reduceMode);
+    int reduce = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "scatter_mode");
 
     calc::Scatter(oop, self, indices, src, axis, reduce);
 }

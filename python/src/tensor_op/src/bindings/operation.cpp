@@ -120,13 +120,13 @@ void bind_operation(py::module &m) {
     m.def("compact", [](const Tensor &operand) { return npu::tile_fwk::Compact(operand); }, "Tensor compact.");
     m.def("indexput", [](const Tensor &src, std::vector<Tensor> indices, const Tensor &values)
         { return npu::tile_fwk::IndexPut(src, indices, values); }, "Tensor indexput.");
-    m.def("scatter_", [](const Tensor &self, const Tensor &indices, const Element &src, int axis, std::string reduce)
+    m.def("scatter_", [](const Tensor &self, const Tensor &indices, const Element &src, int axis, ScatterMode reduce)
         { return npu::tile_fwk::Scatter_(self, indices, src, axis, reduce); },
-        py::arg("self"), py::arg("indices"), py::arg("src"), py::arg("axis"), py::arg("reduce") = "",
+        py::arg("self"), py::arg("indices"), py::arg("src"), py::arg("axis"), py::arg("reduce") = ScatterMode::NONE,
         "Tensor scatter element inplace.");
-    m.def("scatter", [](const Tensor &self, const Tensor &indices, const Element &src, int axis, std::string reduce)
+    m.def("scatter", [](const Tensor &self, const Tensor &indices, const Element &src, int axis, ScatterMode reduce)
         { return npu::tile_fwk::Scatter(self, indices, src, axis, reduce); },
-        py::arg("self"), py::arg("indices"), py::arg("src"), py::arg("axis"), py::arg("reduce") = "",
+        py::arg("self"), py::arg("indices"), py::arg("src"), py::arg("axis"), py::arg("reduce") = ScatterMode::NONE,
         "Tensor scatter element noninplace.");
     m.def("gather_element", [](const Tensor &params, const Tensor &indices, int axis)
         { return npu::tile_fwk::GatherElement(params, indices, axis); }, "Tensor gather element.");

@@ -1627,7 +1627,7 @@ struct ScatterElementSPara {
     const LogicalTensorPtr &idxInput;
     const Element& scalar;
     const int axis;
-    const std::string &reduceMode;
+    const int scatterMode;
 };
 
 void InnerTiledScatterElementS(size_t cur, Function &function, const TileShape &tileShape,
@@ -1637,7 +1637,7 @@ void InnerTiledScatterElementS(size_t cur, Function &function, const TileShape &
     const LogicalTensorPtr &idxInput = scatterPara.idxInput;
     const Element& scalar = scatterPara.scalar;
     const int axis = scatterPara.axis;
-    const std::string &reduceMode = scatterPara.reduceMode;
+    const int mode = scatterPara.scatterMode;
 
     if (cur == dstTensor->shape.size()) {
         // add Operation
@@ -1647,7 +1647,7 @@ void InnerTiledScatterElementS(size_t cur, Function &function, const TileShape &
         auto &op = function.AddOperation(Opcode::OP_SCATTER_ELEMENT, {srcTile, idxTile}, {dstTile});
         op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
         op.SetAttribute(OpAttributeKey::scalar, scalar);
-        op.SetAttribute(OpAttributeKey::reduceMode, reduceMode);
+        op.SetAttribute(OP_ATTR_PREFIX + "scatter_mode", mode);
         return;
     }
 
@@ -1704,7 +1704,7 @@ void TensorScatterElementS(Function &function, const ScatterElementSPara& scatte
         scatterPara.idxInput}, {scatterPara.dstTensor});
     op.SetAttribute(OP_ATTR_PREFIX + "axis", scatterPara.axis);
     op.SetAttribute(OpAttributeKey::scalar, scatterPara.scalar);
-    op.SetAttribute(OpAttributeKey::reduceMode, scatterPara.reduceMode);
+    op.SetAttribute(OP_ATTR_PREFIX + "scatter_mode", scatterPara.scatterMode);
 }
 
 void UnalignPadTmpBufTile(std::vector<int64_t> &shape, int blockElem) {
@@ -2956,21 +2956,19 @@ Tensor ScatterUpdate(const Tensor &dst, const Tensor &index, const Tensor &src, 
 }
 
 static void CheckScatterElementSParamsInvalid(const Tensor &self, const Tensor &indices, int axis, 
-    const std::string &reduceMode)
+    const ScatterMode reduce)
 {
     ASSERT(self->shape.size() == indices->shape.size());
     ASSERT(axis < static_cast<int>(self->shape.size()));
-    ASSERT(reduceMode.empty() || (reduceMode == "add") || (reduceMode == "multiply"));
+    ASSERT(reduce <=  ScatterMode::UNKNOWN);
     for (size_t i = 0; i < self->shape.size(); i++) {
         ASSERT(indices->shape[i] <= self->shape[i]);
     }
 }
 
-Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, int axis, std::string reduce) {
+Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, int axis, ScatterMode reduce) {
     DECLARE_TRACER();
 
-    axis = axis < 0 ? self->shape.size() + axis : axis;
-    CheckScatterElementSParamsInvalid(self, indices, axis, reduce);
     Tensor result(self->tensor->datatype, self->shape);
     GraphUtils::AddDynOperation(*Program::GetInstance().GetCurrentFunction(), Opcode::OP_REGISTER_COPY, 
         {self.GetStorage()}, {result.GetStorage()});
@@ -2978,7 +2976,7 @@ Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, in
     return Scatter_(result, indices, src, axis, reduce);
 }
 
-Tensor Scatter_(const Tensor &self, const Tensor &indices, const Element &src, int axis, std::string reduce) {
+Tensor Scatter_(const Tensor &self, const Tensor &indices, const Element &src, int axis, ScatterMode reduce) {
     DECLARE_TRACER();
 
     axis = axis < 0 ? self->shape.size() + axis : axis;
@@ -2986,7 +2984,7 @@ Tensor Scatter_(const Tensor &self, const Tensor &indices, const Element &src, i
     Tensor result(self->tensor->datatype, self->shape);
     result.GetStorage()->tensor->SetTensorInfo(self.GetStorage()->tensor->GetTensorInfo());
     CALL(ScatterElementS, *Program::GetInstance().GetCurrentFunction(), {result.GetStorage(), self.GetStorage(),
-         indices.GetStorage(), src, axis, reduce});
+         indices.GetStorage(), src, axis, static_cast<int>(reduce)});
     return result;
 }
 
@@ -4764,8 +4762,8 @@ void npu::tile_fwk::ExpandOperationInto(Function &function, const TileShape &til
         case Opcode::OP_SCATTER_ELEMENT: {
             int axis = op.GetIntAttribute(OP_ATTR_PREFIX + "axis");
             Element scalar = op.GetElementAttribute(OpAttributeKey::scalar);
-            std::string reduceMode = op.GetStringAttribute(OpAttributeKey::reduceMode);
-            TiledScatterElementS(function, tileShape, {oOperand[0], iOperand[0], iOperand[1], scalar, axis, reduceMode});
+            int scatterMode = op.GetIntAttribute(OP_ATTR_PREFIX + "scatter_mode");
+            TiledScatterElementS(function, tileShape, {oOperand[0], iOperand[0], iOperand[1], scalar, axis, scatterMode});
             break;
         }
         case Opcode::OP_INDEX_PUT: {

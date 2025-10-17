@@ -62,6 +62,12 @@ void bind_enum(py::module &m){
         .value("ATOMIC_ADD", ReduceMode::ATOMIC_ADD)
         .export_values();
 
+    py::enum_<ScatterMode>(m, "ScatterMode")
+        .value("NONE", ScatterMode::NONE)
+        .value("ADD", ScatterMode::ADD)
+        .value("MULTIPLY", ScatterMode::MULTIPLY)
+        .export_values();
+
     py::enum_<MemoryType>(m, "MemoryType")
         .value("MEM_UB", MemoryType::MEM_UB)
         .value("MEM_L1", MemoryType::MEM_L1)

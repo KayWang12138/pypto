@@ -367,6 +367,16 @@ T GetValueByName(const nlohmann::json &json_data, const std::string &name) {
     return data.at(name).get<T>();
 }
 
+template <typename T1, typename T2>
+T2 GetMapValByName(const std::map<T1, T2> &map_data, const T1 &name) {
+    auto it = map_data.find(name);
+    if (it != map_data.end()) {
+        return it->second;
+    }
+    ASSERT(0) << "failed to get map val: " << name;
+    return T2(0);
+}
+
 [[maybe_unused]] static std::vector<int64_t> GetViewShape(const nlohmann::json &json_data) {
     return GetValueByName<std::vector<int64_t>>(json_data, "view_shape");
 }

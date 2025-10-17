@@ -687,16 +687,18 @@ void ScatterUpdate(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalT
     }
 }
 
+static const std::vector<std::string> scatterModeString = {"add", "multiply"};
+
 void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index, const Element &src, 
-    int axis, std::string reduce) {
+    int axis, int reduce) {
     auto output = From(out);
     auto inputSelf = From(self);
     auto inputIndices = From(index);
 
-    if (reduce.empty()) {
+    if (reduce == 0) {
         From(out) = torch::scatter(inputSelf, axis, inputIndices, From(src));
     } else {
-        From(out) = torch::scatter(inputSelf, axis, inputIndices, From(src), reduce);
+        From(out) = torch::scatter(inputSelf, axis, inputIndices, From(src), scatterModeString.at(reduce - 1));
     }
 }
 

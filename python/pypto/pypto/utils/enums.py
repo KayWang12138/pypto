@@ -31,3 +31,9 @@ class CastMode:
     CEIL = "CAST_CEIL"
     TRUNC = "CAST_TRUNC"
     ODD = "CAST_ODD"
+
+
+class ScatterMode:
+    NONE = "NONE"
+    ADD = "ADD"
+    MULTIPLY = "MULTIPLY"

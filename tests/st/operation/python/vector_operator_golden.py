@@ -939,13 +939,13 @@ def scatter_golden_func(inputs, config: dict):
 
     if inputs[0].dtype == bfloat16:
         src = torch.from_numpy(inputs[0].astype(np.float32))
-        if len(reduceop) == 0:
+        if len(reduceop) == 0 or reduceop == "None":
             res = src.scatter(axis, indices, scalar).numpy().astype(bfloat16)
         else:
             res = src.scatter(axis, indices, scalar, reduce=reduceop).numpy().astype(bfloat16)
     else:
         src = torch.from_numpy(inputs[0])
-        if len(reduceop) == 0:
+        if len(reduceop) == 0 or reduceop == "None":
             res = src.scatter(axis, indices, scalar).numpy()
         else:
             res = src.scatter(axis, indices, scalar, reduce=reduceop).numpy()

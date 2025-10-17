@@ -122,6 +122,14 @@ Tensor Ln(const Tensor &operand);
 Tensor Duplicate(const Tensor &operand);
 Tensor Gather(const Tensor &params, const Tensor &indices, int axis);
 Tensor GatherElement(const Tensor &params, const Tensor &indices, int axis);
+
+enum class ScatterMode {
+    NONE,
+    ADD,
+    MULTIPLY,
+    UNKNOWN,
+};
+
 /**
  * \brief Write the scalar value of src into self Tensor, with the write position specified by the indices Tensor.
  *
@@ -129,10 +137,11 @@ Tensor GatherElement(const Tensor &params, const Tensor &indices, int axis);
  * \param indices : the index Tensor of element to be dispersed.
  * \param src : scalar value to be dispersed.
  * \param axis : axis to be indexed.
- * \param reduce : reduction operation to be applied. Support "add","multiply". "" is default.
+ * \param reduce : scatter reduction mode to be applied. Support NONE, ADD, MULTIPLY. NONE is default.
  * \return Tensor
  */
-Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, int axis, std::string reduce = "");
+Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, int axis, 
+    ScatterMode reduce = ScatterMode::NONE);
 /**
  * \brief Write the scalar value of src into self Tensor, with the write position specified by the indices Tensor. It is
  * the inplace version of Scatter
@@ -141,10 +150,11 @@ Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, in
  * \param indices : the index Tensor of element to be dispersed.
  * \param src : scalar value to be dispersed.
  * \param axis : axis to be indexed.
- * \param reduce : reduction operation to be applied. Support "add","multiply". "" is default.
+ * \param reduce : scatter reduction mode to be applied. Support NONE, ADD, MULTIPLY. NONE is default.
  * \return Tensor
  */
-Tensor Scatter_(const Tensor &self, const Tensor &indices, const Element &src, int axis, std::string reduce = "");
+Tensor Scatter_(const Tensor &self, const Tensor &indices, const Element &src, int axis, 
+    ScatterMode reduce = ScatterMode::NONE);
 Tensor IndexPut(const Tensor &src, std::vector<Tensor> indices, const Tensor &values);
 
 Tensor RowSumExpand(const Tensor &operand);

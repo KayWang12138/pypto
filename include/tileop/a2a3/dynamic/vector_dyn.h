@@ -1975,58 +1975,7 @@ INLINE void ScatterElementSReduceOp(__ubuf__ T *dst, int dstOffset, float src2, 
 }
 
 constexpr unsigned REDUCE_OP_MAX = 3;
-// 2dim
-template <typename T, typename T2, unsigned src1RawShape1, unsigned dstRawShape1, unsigned axis, unsigned reduceOp>
-TILEOP void DynTscatterElementS(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1, float src2, 
-    unsigned src1Shape0, unsigned src1Shape1) {
-    static_assert(reduceOp < REDUCE_OP_MAX, "Unsupport reduceOp");
-    set_flag(PIPE_V, PIPE_S, EVENT_ID7);
-    wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
-    for (int i = 0; i < src1Shape0; ++i) {
-        for (int j = 0; j < src1Shape1; ++j) {
-            T2 index = (T2)(*(src1 + i * src1RawShape1 + j)); // index[i,j]
-            int dstOffset = 0;
-            if constexpr (axis == 0) {
-                dstOffset = index * dstRawShape1 + j;    // dst[ index[i,j] ][j]
-            } else {
-                dstOffset = i * dstRawShape1 + index;   // dst[i][ index[i,j] ]
-            }
-            ScatterElementSReduceOp<T>(dst, dstOffset, src2, reduceOp);
-        }
-    }
-    set_flag(PIPE_S, PIPE_V, EVENT_ID7);
-    wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
-}
-
-// 3dim
-template <typename T, typename T2, unsigned src1RawShape1, unsigned src1RawShape2, unsigned dstRawShape1, 
-    unsigned dstRawShape2, unsigned axis, unsigned reduceOp>
-TILEOP void DynTscatterElementS(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1, float src2, unsigned src1Shape0, 
-    unsigned src1Shape1, unsigned src1Shape2) {
-    static_assert(reduceOp < REDUCE_OP_MAX, "Unsupport reduceOp");
-    set_flag(PIPE_V, PIPE_S, EVENT_ID7);
-    wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
-    for (int i = 0; i < src1Shape0; ++i) {
-        for (int j = 0; j < src1Shape1; ++j) {
-            for (int k = 0; k < src1Shape2; ++k) {
-                T2 index = (T2)(*(src1 + i * src1RawShape1 * src1RawShape2 + j * src1RawShape2 + k));
-                int dstOffset = 0;
-                if constexpr (axis == 0) {
-                    dstOffset = index * dstRawShape1 * dstRawShape2 + j * dstRawShape2 + k;
-                } else if (axis == 1) {
-                    dstOffset = i * dstRawShape1 * dstRawShape2 + index * dstRawShape2 + k;
-                } else {
-                    dstOffset = i * dstRawShape1 * dstRawShape2 + j * dstRawShape2 + index;
-                }
-                ScatterElementSReduceOp<T>(dst, dstOffset, src2, reduceOp);
-            }
-        }
-    }
-    set_flag(PIPE_S, PIPE_V, EVENT_ID7);
-    wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
-}
-
-// 4dim
+// 2-4dim
 template <typename T, typename T2, unsigned src1RawShape1, unsigned src1RawShape2, unsigned src1RawShape3,
     unsigned dstRawShape1, unsigned dstRawShape2, unsigned dstRawShape3, unsigned axis, unsigned reduceOp>
 TILEOP void DynTscatterElementS(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1, float src2, unsigned src1Shape0,
