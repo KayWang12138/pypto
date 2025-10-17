@@ -846,6 +846,60 @@ Status PreGraphProcess::CheckValidCube(const Operation &op) {
     return SUCCESS;
 }
 
+Status PreGraphProcess::UpdateL0cDtype(Operation &op) {
+    std::pair<DataType, DataType> inputDtypes = std::make_pair(DataType::DT_FP16, DataType::DT_FP16);
+    for (auto &input : op.GetIOperands()) {
+        if (input->GetMemoryTypeOriginal() == MemoryType::MEM_L0A) {
+            inputDtypes.first = input->Datatype();
+        } else if (input->GetMemoryTypeOriginal() == MemoryType::MEM_L0B) {
+            inputDtypes.second = input->Datatype();
+        }
+    }
+    if (supportDtypeMap.count(inputDtypes)) {
+        DataType outDtype = supportDtypeMap.at(inputDtypes);
+        for (auto &output: op.GetOOperands()) {
+            output->tensor->datatype = outDtype;
+        }
+        return SUCCESS;
+    } else {
+        ALOG_ERROR_F("%s[%d] has unsupport input dtypes (L0A: %s, L0B: %s), update L0C dtype Failed.",
+            op.GetOpcodeStr().c_str(), op.GetOpMagic(), 
+            BriefDataType2String(inputDtypes.first).c_str(),
+            BriefDataType2String(inputDtypes.second).c_str());
+        return FAILED;
+    }
+}
+
+std::pair<Operation *, Operation *> PreGraphProcess::GetLastMmCopyOut(Operation &op) {
+    auto outputL0C = op.GetOOperands().front();
+    auto chainEndCopyOut = *(outputL0C->GetConsumers().begin());
+    size_t depth_ = 0;
+    // recursively find: MatMul -> L0C -> Copy_Out -> Gm
+    while (chainEndCopyOut->GetOpcode() != Opcode::OP_COPY_OUT) {
+        outputL0C = chainEndCopyOut->GetOOperands().front();
+        chainEndCopyOut = *(outputL0C->GetConsumers().begin());
+        depth_ += 1;
+    }
+    if (chainEndCopyOut == nullptr) {
+        ALOG_ERROR_F("%s[%d] has nullptr L0C_Copy_Out.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+        return {nullptr, nullptr};
+    }
+    if (chainEndCopyOut->GetOOperands().size() != 1) {
+        ALOG_ERROR_F("%s[%d] has more than ONE outputs.", chainEndCopyOut->GetOpcodeStr().c_str(), chainEndCopyOut->GetOpMagic());
+        return {nullptr, nullptr};
+    }
+    auto finalOutput = chainEndCopyOut->GetOOperands().front();
+    if (finalOutput->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+        ALOG_ERROR_F("%s[%d] has invlid output memType: %s, expect: MEM_DEVICE_DDR.",
+            chainEndCopyOut->GetOpcodeStr().c_str(), chainEndCopyOut->GetOpMagic(),
+            MemoryTypeToString(finalOutput->GetMemoryTypeOriginal()).c_str());
+        return {nullptr, nullptr};
+    }
+    // Copy_Out 的上游Op即为最后一个Matmul
+    auto lastMm = *chainEndCopyOut->ProducerOps().begin();
+    return {lastMm, chainEndCopyOut};
+}
+
 Status PreGraphProcess::UpdateCubeOp(Function &function) {
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_A_MUL_B && op.GetOpcode() != Opcode::OP_A_MULACC_B) {
@@ -855,29 +909,24 @@ Status PreGraphProcess::UpdateCubeOp(Function &function) {
             ALOG_ERROR_F("%s[%d] is invalid.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
             return FAILED;
         }
+        auto lastMmCopyOut = GetLastMmCopyOut(op);
+        auto lastMm = lastMmCopyOut.first;
+        auto chainEndCopyOut = lastMmCopyOut.second;
+        if (lastMm == nullptr || chainEndCopyOut == nullptr) {
+            ALOG_ERROR_F("Get the last MatMul and L0C_Copy_Out for %s[%d] failed.", 
+                op.GetOpcodeStr().c_str(), op.GetOpMagic());
+            return FAILED;
+        }
         for (auto &input : op.GetIOperands()) {
             if (input->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
                 continue;
             }
             // Align copy out GM with the reset GM
-            auto outputL0C = op.GetOOperands().front();
-            auto chainEndCopyOut = *(outputL0C->GetConsumers().begin());
-            // recursively find: MatMul -> L0C -> Copy_Out -> Gm
-            while (chainEndCopyOut->GetOpcode() != Opcode::OP_COPY_OUT ) {
-                outputL0C = chainEndCopyOut->GetOOperands().front();
-                chainEndCopyOut = *(outputL0C->GetConsumers().begin());
-            }
-            if (chainEndCopyOut == nullptr || chainEndCopyOut->GetOOperands().size() != 1) {
-                continue;
-            }
-            auto finalOutput = chainEndCopyOut->GetOOperands().front();
-            if (finalOutput->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
-                continue;
-            }
             if (function.IsFromInCast(input)) {
                 ALOG_WARN_F("PreGraphProcess::UpdateCubeOp: OP_A_MUL_B iOperand tensor[%d] is incast.", input->GetMagic());
                 continue;
             }
+            auto finalOutput = lastMm->GetOOperands().front();
             input->tensor = finalOutput->tensor;
             /*
             强制要求当前Matmul链路输出的Gm仅存在一个清零的Op，暂时通过指定清零和ReduceAcc使用的vec tilesize与tileM x tileN相同
@@ -885,13 +934,9 @@ Status PreGraphProcess::UpdateCubeOp(Function &function) {
             */
             AlignCopyOutAttr(input, chainEndCopyOut);
         }
-        for (auto &output: op.GetOOperands()) {
-            // force setting the data type
-            if (IsFloat(output)) {
-                output->tensor->datatype = DataType::DT_FP32;
-            } else if (IsInt(output)) {
-                output->tensor->datatype = DataType::DT_INT32;
-            }
+        if (UpdateL0cDtype(op) != SUCCESS) {
+            ALOG_ERROR_F("Update L0C dtype for %s[%d] failed.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+            return FAILED;
         }
         if (UpdateCopyAttr(op) != SUCCESS) {
             ALOG_ERROR_F("Set Attr for %s[%d] failed.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
