@@ -80,6 +80,7 @@ void FlowVerifier::VerifyTensorGraph(Function *entry,
     outputDataViewList_ = outputDataViewList;
     goldenDataViewList_ = goldenDataViewList;
 
+    ASSERT(!strcmp(calc::Model(), "torch")) << "Tensor graph verification requires torch model. Current model: '" << calc::Model() << "'. Please enable torch backend for tensor graph verification.";
     auto attr = entry->GetDyndevAttribute();
     std::vector<int> inputSlotList = slotManager->LookupSlotIndexConst(attr->startArgsInputTensorList);
     std::vector<int> outputSlotList = slotManager->LookupSlotIndexConst(attr->startArgsOutputTensorList);
