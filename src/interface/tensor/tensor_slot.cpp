@@ -21,6 +21,18 @@
 
 namespace npu::tile_fwk {
 
+// 根据nameDict里记录的name出现次数，为多次同命名的名称添加递增后缀
+static void AddNameSuffix(std::string &name, std::unordered_map<std::string, int> &nameDict) {
+    auto it = nameDict.find(name);
+    if (it != nameDict.end()) {
+        ++(it->second);
+        name += "_" + std::to_string(it->second);
+        AddNameSuffix(name, nameDict);
+    } else {
+        nameDict[name] = 0;
+    }
+}
+
 std::string TensorSlot::GetSymbolName() const {
     std::string name;
     const Tensor *t = reinterpret_cast<const Tensor *>(GetSlot());
@@ -295,7 +307,11 @@ void TensorSlotManager::MarkInput(const Tensor &tensor) {
     inputSlotDict[slot] = inputSlotList.size();
     inputSlotList.push_back(slot);
     auto logicalTensor = tensor.GetStorage(false);
-    inputNameList.push_back(logicalTensor ? logicalTensor->tensor->symbol : "unknown");
+    
+    std::string inputName = 
+        logicalTensor ? logicalTensor->tensor->symbol : "untitled";
+    AddNameSuffix(inputName, nameDict);
+    inputNameList.push_back(inputName);
 
     LogOperation(slot, "input");
 }
@@ -306,7 +322,11 @@ void TensorSlotManager::MarkOutput(const Tensor &tensor) {
     outputSlotDict[slot] = outputSlotList.size();
     outputSlotList.push_back(slot);
     auto logicalTensor = tensor.GetStorage(false);
-    outputNameList.push_back(logicalTensor ? logicalTensor->tensor->symbol : "unknown");
+
+    std::string outputName = 
+        logicalTensor ? logicalTensor->tensor->symbol : "untitled";
+    AddNameSuffix(outputName, nameDict);
+    outputNameList.push_back(outputName);
 
     LogOperation(slot, "output");
 }

@@ -196,6 +196,7 @@ struct TensorSlotManager {
     std::unordered_map<TensorSlot, int> outputSlotDict;
     std::vector<std::string> outputNameList;
     std::unordered_map<TensorSlot, TensorSlot> inplaceDict;
+    std::unordered_map<std::string, int> nameDict;
 
     std::set<int> partialUpdateSlotIndexSet;
 
