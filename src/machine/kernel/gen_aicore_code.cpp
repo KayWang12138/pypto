@@ -526,9 +526,10 @@ extern "C" __global__ __aicore__ void KERNEL_ENTRY(__OPTYPE__, __TILINGKEY__)(in
 )!!!";
 }
 
-std::string GenAndGetAicoreCodeSrcPath() {
-    std::string codeSrcPath = "./aicore.cpp";
-    DumpFile(kAicoreSrcCode, codeSrcPath);
-    return RealPath(codeSrcPath);
+bool GenAicoreSrcFile(const std::string &codeSrcPath) {
+    if (RealPath(codeSrcPath).empty()) {
+        DumpFile(kAicoreSrcCode, codeSrcPath);
+    }
+    return !RealPath(codeSrcPath).empty();
 }
 }

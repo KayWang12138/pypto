@@ -34,9 +34,8 @@ constexpr const char* BISHENG_LD_CMD = "ld.lld";
 }
 
 static int CompileCoreMachine(const std::string &objFile, bool isCube, uint64_t tilingKey,
-                              const std::string &headFile) {
-  const std::string srcFile = GenAndGetAicoreCodeSrcPath();
-  ALOG_INFO_F("Compile src file is [%s], kernel type[%d].", srcFile.c_str(), isCube);
+                              const std::string &headFile, const std::string &aicoreSrcFile) {
+  ALOG_INFO_F("Compile src file is [%s], kernel type[%d].", aicoreSrcFile.c_str(), isCube);
   const std::string cc_opt = isCube ? "dav-c220-cube" : "dav-c220-vec";
   const std::string coreType = isCube ? "-D__AIC__" : "-D__AIV__";
   const auto &opType = OpInfoManager::GetInstance().GetOpType();
@@ -68,7 +67,7 @@ static int CompileCoreMachine(const std::string &objFile, bool isCube, uint64_t 
                    BISHENG_PROGRAM_CMD, cc_opt.c_str(), std::to_string(tilingKey).c_str(), opType.c_str(),
                    headFile.c_str(), hasSubFunc.c_str(), coreType.c_str(), includePath.c_str(), includePath.c_str(),
                    GetCurrentSharedLibPath().c_str(), GetCurrentSharedLibPath().c_str(),
-                   objFile.c_str(), srcFile.c_str());
+                   objFile.c_str(), aicoreSrcFile.c_str());
   if (ret < 0) {
     ALOG_ERROR_F("Compile aicore construct cmd failed.");
     return ret;
@@ -168,14 +167,18 @@ int CompileAICoreKernel(std::map<uint64_t, Function *> &leafDict, dynamic::Encod
   uint64_t tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
   std::string aic_obj = ccePath + "dy_kernel_aic_" + std::to_string(tilingKey) + ".o";
   std::string aiv_obj = ccePath + "dy_kernel_aiv_" + std::to_string(tilingKey) + ".o";
-
+  std::string aicoreSrcFile = ccePath + "aicore.cpp";
+  if (!GenAicoreSrcFile(aicoreSrcFile)) {
+    ALOG_ERROR_F("Fail to generate aicore src file.");
+    return -1;
+  }
   std::deque<std::function<void(void)>> tasks;
-  std::function task = [&ccePath, &leafDict, &param, &aic_obj, &tilingKey]() {
+  std::function task = [&ccePath, &leafDict, &param, &aic_obj, &aicoreSrcFile, &tilingKey]() {
       // gen switch case func
       std::stringstream src_aic_obj;
       auto headFile = GenSubFuncCall(leafDict, CoreType::AIC, param, ccePath, tilingKey, src_aic_obj);
       std::string mid_aic_obj = ccePath + "mid_kernel_aic_" + std::to_string(tilingKey) + ".o";
-      auto ret = CompileCoreMachine(mid_aic_obj, true, tilingKey, headFile);
+      auto ret = CompileCoreMachine(mid_aic_obj, true, tilingKey, headFile, aicoreSrcFile);
       ASSERT(ret == 0);
       src_aic_obj << mid_aic_obj;
       ret = LinkObject(src_aic_obj.str(), aic_obj, ccePath, true, "aic");
@@ -184,11 +187,11 @@ int CompileAICoreKernel(std::map<uint64_t, Function *> &leafDict, dynamic::Encod
   };
   tasks.push_back(task);
 
-  std::function task1 = [&ccePath, &leafDict, &param, &aiv_obj, &tilingKey]() {
+  std::function task1 = [&ccePath, &leafDict, &param, &aiv_obj, &aicoreSrcFile, &tilingKey]() {
       std::stringstream src_aiv_obj;
       auto headFile = GenSubFuncCall(leafDict, CoreType::AIV, param, ccePath, tilingKey, src_aiv_obj);
       std::string mid_aiv_obj = ccePath + "mid_kernel_aiv_" + std::to_string(tilingKey) + ".o";
-      auto ret = CompileCoreMachine(mid_aiv_obj, false, tilingKey, headFile);
+      auto ret = CompileCoreMachine(mid_aiv_obj, false, tilingKey, headFile, aicoreSrcFile);
       ASSERT(ret == 0);
       src_aiv_obj << mid_aiv_obj;
       ret = LinkObject(src_aiv_obj.str(), aiv_obj, ccePath, true, "aiv");

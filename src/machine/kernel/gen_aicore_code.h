@@ -18,5 +18,5 @@
 #include <string>
 
 namespace npu::tile_fwk {
-std::string GenAndGetAicoreCodeSrcPath();
+bool GenAicoreSrcFile(const std::string &codeSrcPath);
 }
