@@ -136,6 +136,7 @@ TILEOP void T_BIN_PAIR(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsi
         unsigned src0Mrg = S0S1 * S0S2 * S0S3;
         unsigned src1Mrg = S1S1 * S1S2 * S1S3;
         T_BIN_PAIR<T, MRGDS, MRGS0, MRGS1>(dst, src0, src1, src0T0, src0Mrg, src1T0, src1Mrg);
+        pipe_barrier(PIPE_V);
         return;
     }
     if ((S0S1 != 1 || S1S1 != 1) && src0T1 != src1T1) {
@@ -149,6 +150,7 @@ TILEOP void T_BIN_PAIR(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsi
             dst += DS1 * DS2 * DS3;
             src0 += S0S1 * S0S2 * S0S3;
             src1 += S1S1 * S1S2 * S1S3;
+            pipe_barrier(PIPE_V);
         }
         return;
     }
@@ -161,6 +163,7 @@ TILEOP void T_BIN_PAIR(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsi
             dst_ += DS2 * DS3;
             src0_ += S0S2 * S0S3;
             src1_ += S1S2 * S1S3;
+            pipe_barrier(PIPE_V);
         }
         dst += DS1 * DS2 * DS3;
         src0 += S0S1 * S0S2 * S0S3;
