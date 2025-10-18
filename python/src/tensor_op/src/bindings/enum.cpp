@@ -119,6 +119,20 @@ void bind_enum(py::module &m){
         .value("MAX", TileType::MAX)
         .export_values();
 
+    py::enum_<CmpOperationType>(m, "CmpOperationType")
+        .value("EQ", CmpOperationType::EQ)
+        .value("NE", CmpOperationType::NE)
+        .value("LT", CmpOperationType::LT)
+        .value("LE", CmpOperationType::LE)
+        .value("GT", CmpOperationType::GT)
+        .value("GE", CmpOperationType::GE)
+        .export_values();
+
+    py::enum_<CmpModeType>(m, "CmpModeType")
+        .value("BOOL", CmpModeType::BOOL)
+        .value("BIT", CmpModeType::BIT)
+        .export_values();
+
     py::enum_<LogBaseType>(m, "LogBaseType")
         .value("LOG_e", LogBaseType::LOG_e)
         .value("LOG_2", LogBaseType::LOG_2)

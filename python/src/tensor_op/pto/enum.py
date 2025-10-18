@@ -24,3 +24,5 @@ graph_type = pto_impl.GraphType
 cast_mode = pto_impl.CastMode
 tile_type = pto_impl.TileType
 scatter_mode = pto_impl.ScatterMode
+cmp_operation_type = pto_impl.CmpOperationType
+cmp_mode_type = pto_impl.CmpModeType

@@ -71,6 +71,11 @@ static RawTensorDataPtr HostCastPythonToNative(const std::shared_ptr<LogicalTens
             nativeData->Get<bfloat16>(i) = static_cast<float>(py::float_((pythonData.attr("__getitem__")(i))));
         }
     } break;
+    case DataType::DT_BOOL: {
+        for (int64_t i = 0; i < size; i++) {
+            nativeData->Get<bool>(i) = static_cast<bool>(py::bool_((pythonData.attr("__getitem__")(i))));
+        }
+    } break;
     default:
         ALOG_ERROR_F("HostCastPythonToNative DataType:%d is not supported", static_cast<int>(dataType));
         break;
@@ -115,6 +120,11 @@ static void HostCastNativeToPython(const std::shared_ptr<LogicalTensor> &tensor,
     case DataType::DT_BF16: {
             for (int64_t i = 0; i < size; i++) {
                 pythonData.attr("__setitem__")(i, static_cast<float>(nativeData->Get<bfloat16>(i)));
+            }
+        } break;
+    case DataType::DT_BOOL: {
+            for (int64_t i = 0; i < size; i++) {
+                pythonData.attr("__setitem__")(i, nativeData->Get<bool>(i));
             }
         } break;
     default:

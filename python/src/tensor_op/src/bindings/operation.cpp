@@ -443,8 +443,14 @@ void bind_operation(py::module &m) {
     m.def(
         "all_gather",
         [](const Tensor &in, const char *group) {
-        return npu::tile_fwk::Distributed::AllGather(in, group); },
+            return npu::tile_fwk::Distributed::AllGather(in, group); },
         py::arg("in"), py::arg("group"), "Tensor all gather.");
+    m.def(
+        "compare",
+        [](const Tensor &operand1, const Tensor &operand2, CmpOperationType operation, CmpModeType mode) {
+            return npu::tile_fwk::Compare(operand1, operand2, operation, mode);
+        },
+        py::arg("operand1"), py::arg("operand2"), py::arg("operation"), py::arg("mode"), "Tensor compare.");
     m.def(
         "reduce_scatter",
         [](const std::vector<Tensor> &in, const char *group, Distributed::DistReduceType reduce_type) {
