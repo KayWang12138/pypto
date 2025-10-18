@@ -26,43 +26,50 @@ Status DuplicateView::RunOnFunction(Function &function) {
     return SUCCESS;
 }
 
-Status DuplicateView::RunOnOperation(Function &function, Operation &operation, std::vector<std::pair<LogicalTensorPtr, LogicalTensorPtr>> &viewResults) const {
-    auto opcode = operation.GetOpcode();
-    if (opcode != Opcode::OP_VIEW) {
-        return SUCCESS;
-    }
+Status DuplicateView::ViewWithoutL1(Function &function, Operation &operation) const {
+    auto iOperand = operation.iOperand[0];
     for (auto &oOperand : operation.oOperand) {
-        std::unordered_set<const Operation *> newViewOps;
         if (oOperand == nullptr) {return FAILED;}
         if (oOperand->GetConsumers().size() == 1) {
             continue;
         }
-        auto consumers = oOperand->GetConsumers(); // copy consumers to avoid erase while iteration
+        auto consumers = oOperand->GetConsumers();
         for (auto &consumer : consumers) {
             if (consumer == nullptr) {return FAILED;}
             if (consumer->GetOpcode() == Opcode::OP_VIEW) {
                 continue;
             }
-            auto viewResult = std::make_shared<LogicalTensor>(function, oOperand->Datatype(), oOperand->shape,
-                oOperand->GetDynValidShape(), "View_" + oOperand->tensor->symbol, oOperand->nodetype);
-            if (viewResult == nullptr) {return FAILED;}
-            viewResult->UpdateOffset(oOperand->GetTensorOffset());
-            viewResults.emplace_back(std::make_pair(oOperand, viewResult));
-            consumer->ReplaceInput(viewResult, oOperand);
+            auto dst = oOperand->Clone(function, true);
+            if (dst == nullptr) {return FAILED;}
+            consumer->ReplaceInput(dst, oOperand);
+            auto &newOp = function.AddRawOperation(Opcode::OP_VIEW, {iOperand}, {dst});
+            auto oriViewAttr = dynamic_cast<ViewOpAttribute *>(operation.GetOpAttribute().get());
+            auto newOffset = oriViewAttr->GetFromOffset();
+            auto newDynOffset = oriViewAttr->GetFromDynOffset();
+            auto newDynValidShape = oriViewAttr->GetToDynValidShape();
+            auto newViewAttr = std::make_shared<ViewOpAttribute>(newOffset, newDynOffset, newDynValidShape);
+            newOp.SetOpAttribute(newViewAttr);
         }
     }
     return SUCCESS;
 }
 
-Status DuplicateView::DuplicateViewPass(Function &function) const {
-    std::vector<std::pair<LogicalTensorPtr, LogicalTensorPtr>> viewResults;
-    for (auto &op : function.Operations()) {
-        if (RunOnOperation(function, op, viewResults) != SUCCESS) {return FAILED;}
+Status DuplicateView::RunOnOperation(Function &function, Operation &operation) const {
+    auto opcode = operation.GetOpcode();
+    if (opcode != Opcode::OP_VIEW) {
+        return SUCCESS;
     }
-    for (auto &viewResult : viewResults) {
-        auto &viewOp = function.AddRawOperation(Opcode::OP_VIEW, {viewResult.first}, {viewResult.second});
-        auto &tensorOffset = viewResult.second->GetTensorOffset();
-        viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(tensorOffset.GetOffset(), tensorOffset.GetDynOffset(), viewResult.second->GetDynValidShape()));
+    auto viewAttr = dynamic_cast<ViewOpAttribute *>(operation.GetOpAttribute().get());
+    if (viewAttr->GetTo() == MEM_L1) {
+        return SUCCESS;
+    } else {
+        return ViewWithoutL1(function, operation);
+    }
+}
+
+Status DuplicateView::DuplicateViewPass(Function &function) const {
+    for (auto &op : function.Operations()) {
+        if (RunOnOperation(function, op) != SUCCESS) {return FAILED;}
     }
     return SUCCESS;
 }

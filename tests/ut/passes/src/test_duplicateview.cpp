@@ -76,7 +76,9 @@ TEST_F(TestDuplicateViewPass, DuplicateViewUTest1) {
     auto ubTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
 
-    currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor});
+    auto &veiwOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor});
+    auto &tensorOffset = inCast->GetTensorOffset();
+    veiwOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(tensorOffset.GetOffset(), tensorOffset.GetDynOffset(), ubTensor->GetDynValidShape()));
     currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor}, {outCast});
 
     currFunctionPtr->inCasts_.push_back(inCast);
@@ -117,9 +119,13 @@ TEST_F(TestDuplicateViewPass, DuplicateViewUTest2) {
     auto outCast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     auto outCast3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
 
-    currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor});
+    auto &veiwOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor});
+    auto &tensorOffset = inCast->GetTensorOffset();
+    veiwOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(tensorOffset.GetOffset(), tensorOffset.GetDynOffset(), ubTensor->GetDynValidShape()));
     auto &exp_op = currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor}, {outCast1});
     auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor}, {outCast2});
+    auto &tensorOffset1 = ubTensor->GetTensorOffset();
+    view_op.SetOpAttribute(std::make_shared<ViewOpAttribute>(tensorOffset1.GetOffset(), tensorOffset1.GetDynOffset(), outCast2->GetDynValidShape()));
     auto &sqrt_op = currFunctionPtr->AddOperation(Opcode::OP_SQRT, {ubTensor}, {outCast3});
 
     currFunctionPtr->inCasts_.push_back(inCast);
@@ -179,8 +185,12 @@ TEST_F(TestDuplicateViewPass, DuplicateViewUTest3) {
     auto outCast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     auto outCast3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
 
-    currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor1});
-    currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor2});
+    auto &veiwOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor1});
+    auto &tensorOffset = inCast->GetTensorOffset();
+    veiwOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(tensorOffset.GetOffset(), tensorOffset.GetDynOffset(), ubTensor1->GetDynValidShape()));
+    auto &veiwOp1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor2});
+    auto &tensorOffset1 = inCast->GetTensorOffset();
+    veiwOp1.SetOpAttribute(std::make_shared<ViewOpAttribute>(tensorOffset1.GetOffset(), tensorOffset1.GetDynOffset(), ubTensor2->GetDynValidShape()));
     auto &div_op1 = currFunctionPtr->AddOperation(Opcode::OP_DIV, {ubTensor1, ubTensor1}, {outCast1});
     auto &div_op2 = currFunctionPtr->AddOperation(Opcode::OP_DIV, {ubTensor1, ubTensor2}, {outCast2});
     auto &div_op3 = currFunctionPtr->AddOperation(Opcode::OP_DIV, {ubTensor2, ubTensor2}, {outCast3});

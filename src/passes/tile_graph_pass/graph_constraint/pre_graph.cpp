@@ -622,6 +622,13 @@ void PreGraphProcess::SetTensorBoundary(Function &function) const {
             op.GetOOperands().front()->isSubGraphBoundary = true;
             continue;
         }
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            /* GM上的View*/
+            auto viewOut = op.GetOOperands().front();
+            bool isBoundary = (viewOut->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR);
+            viewOut->isSubGraphBoundary = isBoundary;
+            continue;
+        }
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
             /* GM上的Assemble*/
             auto assembleIn = op.GetIOperands().front();
@@ -739,7 +746,7 @@ Status PreGraphProcess::AddL1CopyInAttr(
         tensorL0 = L1CopyInOp->GetIOperands().front();
         L1CopyInOp = *(tensorL0->GetProducers().begin());
     }
-    if (L1CopyInOp->GetOpcode() != Opcode::OP_COPY_IN) {
+    if (L1CopyInOp->GetOpcode() != Opcode::OP_COPY_IN && L1CopyInOp->GetOpcode() != Opcode::OP_GATHER_IN_L1) {
         ALOG_DEBUG_F("L0 tesnor[%d] has invalid corresponding L1CopyInOp, please check.", input->magic);
         return FAILED;
     }

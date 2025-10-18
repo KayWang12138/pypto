@@ -121,9 +121,10 @@ enum class Opcode {
     OP_INDEX_OUTCAST,
     OP_REGISTER_COPY,
     OP_CONVERT,
-    OP_LOAD,
     OP_COPY_IN,
     OP_COPY_OUT,
+    OP_GATHER_IN_L1,
+    OP_LOAD,
     // Special
     OP_CALL,
     OP_CALL_NOT_EXPAND,

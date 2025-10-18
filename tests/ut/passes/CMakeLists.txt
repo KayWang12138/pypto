@@ -110,8 +110,6 @@ set(_CaseFilterList
         "AddAllocTest.TestAddAllocView"
         "AddAllocTest.TestAddAllocErrorMemId"
         "AddAllocTest.TestAddAllocErrorMemorymap"
-        "DuplicateViewTest.TestThreeConsumersAfterView"
-        "DuplicateViewTest.TestOneConsumersAfterView"
         "TestDuplicateViewPass.DuplicateViewUTest1"
         "TestDuplicateViewPass.DuplicateViewUTest2"
         "TestDuplicateViewPass.DuplicateViewUTest3"

@@ -9,30 +9,27 @@
  */
 
 /*!
- * \file duplicate_view.h
+ * \file duplicate_gather_in.h
  * \brief
  */
 
-#ifndef PASS_DUPLICATE_VIEW_H_
-#define PASS_DUPLICATE_VIEW_H_
+#pragma once
 
 #include <vector>
 #include "passes/pass_interface/pass.h"
 namespace npu::tile_fwk {
 /*
-    DuplicateView: 对于一个view OP，如果存在多消费者的情况，则为每一个消费者创建一个新的view OP
+    DuplicateGatherIn: 对于一个GatherIn OP，如果存在多消费者的情况，则为每一个消费者创建一个新的GatherIn OP
 */
-class DuplicateView : public Pass {
+class DuplicateGatherIn : public Pass {
 public:
-    DuplicateView() : Pass("DuplicateView") {}
-    ~DuplicateView() override = default;
+    DuplicateGatherIn() : Pass("DuplicateGatherIn") {}
+    ~DuplicateGatherIn() override = default;
 
 private:
     Status RunOnFunction(Function &function) override;
-    Status RunOnOperation(Function &function, Operation &operation) const;
-    Status DuplicateViewPass(Function &function) const;
-    Status ViewWithoutL1(Function &function, Operation &operation) const;
+    Status ProcessOp(Function &function, Operation &operation) const;
+    Status Process(Function &function) const;
 };
 
 }
-#endif // PASS_DUPLICATE_VIEW_H_

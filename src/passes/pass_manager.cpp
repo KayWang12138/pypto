@@ -45,6 +45,8 @@
 #include "passes/block_graph_pass/dyn_attr_to_static.h"
 #include "passes/pass_config/pass_config_manager.h"
 
+#include "passes/tile_graph_pass/duplicate_gather_in.h"
+
 namespace npu::tile_fwk {
 PassManager &PassManager::Instance() {
     static PassManager instance;
@@ -62,6 +64,7 @@ void RegPass() {
     REG_PASS(GenerateMoveOp);
     REG_PASS(AssignMemoryType);
     REG_PASS(DuplicateView);
+    REG_PASS(DuplicateGatherIn);
     REG_PASS(RemoveRedundantReshape);
     REG_PASS(RemoveRedundantCast);
     REG_PASS(InferMemoryConflict);
@@ -102,6 +105,8 @@ void PassManager::RegDefaultStrategy() {
             {           "SplitRawTensor",           "SplitRawTensor",    PassType::TYPE_TILE_GRAPH},
             {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
             {  "InferDiscontinuousInput",  "InferDiscontinuousInput",    PassType::TYPE_TILE_GRAPH},
+            {        "DuplicateGatherIn",        "DuplicateGatherIn",    PassType::TYPE_TILE_GRAPH},
+            {           "DuplicateView2",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
             {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
             {        "RemoveRedundantOp",        "RemoveRedundantOp",    PassType::TYPE_TILE_GRAPH},
             {                   "SplitK",                   "SplitK",    PassType::TYPE_TILE_GRAPH},
@@ -111,6 +116,7 @@ void PassManager::RegDefaultStrategy() {
             {           "GenerateMoveOp",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
             { "CommonOperationEliminate", "CommonOperationEliminate",    PassType::TYPE_TILE_GRAPH},
             {       "L1CopyInReuseMerge",       "L1CopyInReuseMerge",    PassType::TYPE_TILE_GRAPH},
+            {"CommonOperationEliminate2", "CommonOperationEliminate",    PassType::TYPE_TILE_GRAPH},
             {           "PadLocalBuffer",           "PadLocalBuffer",    PassType::TYPE_TILE_GRAPH},
             {   "RemoveUnalignedReshape",   "RemoveUnalignedReshape",    PassType::TYPE_TILE_GRAPH},
             {           "InplaceProcess",           "InplaceProcess",    PassType::TYPE_TILE_GRAPH},
