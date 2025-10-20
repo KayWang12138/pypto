@@ -206,6 +206,53 @@ TILEOP void TIndexoutcast(__gm__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1) {
 }
 // DMA
 
+template <typename T1, typename T2, int64_t rawShape1>
+TILEOP void Load(__ubuf__ T1 *dst, __gm__ T1 *src, __ubuf__ T2 *offsets, int64_t originShape0, int64_t originShape1) {
+    static_assert(std::is_same_v<T2, int32_t> || std::is_same_v<T2, int64_t>);
+    pipe_barrier(PIPE_ALL);
+    if (rawShape1 == originShape1) {
+        int64_t total = originShape0 * originShape1;
+        for (int64_t i = 0; i < total; i++) {
+            dst[i] = src[offsets[i]];
+        }
+    } else {
+        int64_t idx = 0;
+        for (int64_t i = 0; i < originShape0; i++) {
+            for (int64_t j = 0; j < originShape1; j++) {
+                dst[idx] = src[offsets[idx]];
+                idx++;
+            }
+            idx += rawShape1 - originShape1;
+        }
+    }
+    pipe_barrier(PIPE_ALL);
+}
+
+template <typename T1, typename T2, int64_t rawShape1, int64_t rawShape2>
+TILEOP void Load(__ubuf__ T1 *dst, __gm__ T1 *src, __ubuf__ T2 *offsets, int64_t originShape0, int64_t originShape1, int64_t originShape2) {
+    static_assert(std::is_same_v<T2, int32_t> || std::is_same_v<T2, int64_t>);
+    pipe_barrier(PIPE_ALL);
+    if (rawShape1 == originShape1 && rawShape2 == originShape2) {
+        int64_t total = originShape0 * originShape1 * originShape2;
+        for (int64_t i = 0; i < total; i ++) {
+            dst[i] = src[offsets[i]];
+        }
+    } else {
+        int64_t idx = 0;
+        for (int64_t i = 0; i < originShape0; i ++) {
+            for (int64_t j = 0; j < originShape1; j ++) {
+                for (int64_t k = 0; k < originShape2; k++) {
+                    dst[idx] = src[offsets[idx]];
+                    idx++;
+                }
+                idx += rawShape2 - originShape2;
+            }
+            idx += (rawShape1 - originShape1) * rawShape2;
+        }
+    }
+    pipe_barrier(PIPE_ALL);
+}
+
 } // namespace TileOp
 
 #endif
