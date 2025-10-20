@@ -126,7 +126,7 @@ def main():
         print("empty pmu list")
         return
     print("end parser pmu data")
-    table_header = ["thread id", "task id", "stream id", "core id", "sub graph id", "sub task id", "total cycle"]
+    table_header = ["thread id", "task id", "stream id", "core id", "seqNo", "sub task id", "total cycle"]
     table_pmu_header = []
     if args.pmuEvent == 1:
         table_pmu_header = ["cube_fp16_exec", "cube_int8_exec", "vec_fp32_exec", "vec_fp16_128lane_exec",

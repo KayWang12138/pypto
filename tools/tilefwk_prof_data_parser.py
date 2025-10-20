@@ -194,7 +194,7 @@ def prepare_workflow_data(infile, task_id_flag, output):
     for i in range(max_task_nr):
         labels += [f"delay{i}", f"compute{i}"] # label list添加max task个数的延迟字符串f"delay{i}"和f"compute{i}"
 
-    labels_task_info = ["coreId", "subgraphId", "taskId", "startCycle", "endCycle"]
+    labels_task_info = ["coreId", "seqNo", "subgraphId", "taskId", "startCycle", "endCycle"]
     task_info_data = np.empty((0, len(labels_task_info)), np.uint64)
 
     cols_nr, core_nr = len(labels), len(jdata)
@@ -216,10 +216,11 @@ def prepare_workflow_data(infile, task_id_flag, output):
                 task_ids[i][j * 2+1] = task["taskId"]
             else:
                 task_ids[i][j * 2+1] = task["subGraphId"]
-            task_info[1] = task["subGraphId"]
-            task_info[2] = task["taskId"]
-            task_info[3] = task["execStart"]
-            task_info[4] = task["execEnd"]
+            task_info[1] = task.get("seqNo", 0)
+            task_info[2] = task["subGraphId"]
+            task_info[3] = task["taskId"]
+            task_info[4] = task["execStart"]
+            task_info[5] = task["execEnd"]
             task_info_data = np.vstack((task_info_data, task_info))
             core_type_list.append(data['coreType'])
     df = pd.DataFrame(task_info_data, columns=labels_task_info)

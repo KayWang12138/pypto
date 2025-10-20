@@ -295,13 +295,14 @@ INLINE void SendRegAck(uint32_t taskIdx) {
 }
 
 INLINE void SetTaskStatistic(__gm__ KernelArgs *args, int32_t& dfxPose,
-                             int32_t taskId, int32_t subGraphId, int64_t tStart)
+                             int32_t taskId, int32_t subGraphId, int64_t tStart, uint16_t seqNo = 0)
 {
     __gm__ volatile TaskStat *stat = &args->taskStat[dfxPose];
     stat->subGraphId = subGraphId;
     stat->taskId = taskId;
     stat->execStart = tStart;
     stat->execEnd = get_sys_cnt();
+    stat->seqNo = seqNo;
     dcci(stat, SINGLE_CACHE_LINE, CACHELINE_OUT);
 }
 
@@ -426,7 +427,7 @@ INLINE void ExecDynCoreFunctionKernel(ExecuteContext *ctx, uint32_t taskId) {
     AddMetricStatistic(ctx->args, ctx->seqNo, taskId, opAttrs[0], t1);
 #if PROF_DFX_HOST_PREPARE_MEMORY_MODE != 1
     static int32_t taskDfxPos = REG_LOW_TASK_PING;
-    SetTaskStatistic(ctx->args, taskDfxPos, taskId, opAttrs[0], t1);
+    SetTaskStatistic(ctx->args, taskDfxPos, taskId, opAttrs[0], t1, ctx->seqNo);
 #endif
 }
 #endif

@@ -153,7 +153,7 @@ const uint16_t AIC_EVENT_LIST[MAX_PMU_CNT] = {
 };
 
 struct MsprofAicpuAstPmuData {
-    uint32_t subGraphId{0};
+    uint32_t seqNo{0};
     uint32_t taskId{0};
     uint64_t totalCyc{0};
     uint32_t pmuCnt0{0}; // 单个task不能超过3s, 按50MHZ计算

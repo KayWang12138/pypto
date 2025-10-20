@@ -452,7 +452,7 @@ void AiCoreProf::ProfGetAiCpuTaskStat(int &threadIdx, struct AiCpuTaskStat *aiCp
 
 void AiCoreProf::FillPmuData(MsprofAicpuAstPmuData &data, int32_t &coreIdx, uint32_t &subGraphId, uint32_t &taskId,
     const struct TaskStat *taskStat) const {
-    data.subGraphId = subGraphId;
+    data.seqNo = taskStat->seqNo;
     data.taskId = taskId;
     data.totalCyc = *(pmuCnt8Plain_[coreIdx]) + (static_cast<uint64_t>(*(pmuCnt9Plain_[coreIdx])) << HIG_32BIT);
     data.pmuCnt0 = *(pmuCnt0Plain_[coreIdx]);
@@ -463,7 +463,7 @@ void AiCoreProf::FillPmuData(MsprofAicpuAstPmuData &data, int32_t &coreIdx, uint
     data.pmuCnt5 = *(pmuCnt5Plain_[coreIdx]);
     data.pmuCnt6 = *(pmuCnt6Plain_[coreIdx]);
     data.pmuCnt7 = *(pmuCnt7Plain_[coreIdx]);
-    (void)taskStat;
+    (void)subGraphId;
 }
 
 inline void AiCoreProf::ProfGetPmu(
@@ -472,7 +472,7 @@ inline void AiCoreProf::ProfGetPmu(
     FillPmuData(data, coreIdx, subGraphId, taskId, taskStat);
     DEV_DEBUG("aicore profiling pmu info, core id: %d: (%u, %u | %lu | %p=%u, %p=%u, %p=%u, %p=%u, "
               "%p=%u, %p=%u, %p=%u, %p=%u).",
-        coreIdx, data.subGraphId, data.taskId, data.totalCyc, pmuCnt0Plain_[coreIdx], data.pmuCnt0,
+        coreIdx, data.seqNo, data.taskId, data.totalCyc, pmuCnt0Plain_[coreIdx], data.pmuCnt0,
         pmuCnt1Plain_[coreIdx], data.pmuCnt1, pmuCnt2Plain_[coreIdx], data.pmuCnt2, pmuCnt3Plain_[coreIdx],
         data.pmuCnt3, pmuCnt4Plain_[coreIdx], data.pmuCnt4, pmuCnt5Plain_[coreIdx], data.pmuCnt5,
         pmuCnt6Plain_[coreIdx], data.pmuCnt6, pmuCnt7Plain_[coreIdx], data.pmuCnt7);
