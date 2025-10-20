@@ -880,12 +880,10 @@ Status PreGraphProcess::UpdateL0cDtype(Operation &op) {
 std::pair<Operation *, Operation *> PreGraphProcess::GetLastMmCopyOut(Operation &op) {
     auto outputL0C = op.GetOOperands().front();
     auto chainEndCopyOut = *(outputL0C->GetConsumers().begin());
-    size_t depth_ = 0;
     // recursively find: MatMul -> L0C -> Copy_Out -> Gm
     while (chainEndCopyOut->GetOpcode() != Opcode::OP_COPY_OUT) {
         outputL0C = chainEndCopyOut->GetOOperands().front();
         chainEndCopyOut = *(outputL0C->GetConsumers().begin());
-        depth_ += 1;
     }
     if (chainEndCopyOut == nullptr) {
         ALOG_ERROR_F("%s[%d] has nullptr L0C_Copy_Out.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
@@ -933,7 +931,7 @@ Status PreGraphProcess::UpdateCubeOp(Function &function) {
                 ALOG_WARN_F("PreGraphProcess::UpdateCubeOp: OP_A_MUL_B iOperand tensor[%d] is incast.", input->GetMagic());
                 continue;
             }
-            auto finalOutput = lastMm->GetOOperands().front();
+            auto finalOutput = chainEndCopyOut->GetOOperands().front();
             input->tensor = finalOutput->tensor;
             /*
             强制要求当前Matmul链路输出的Gm仅存在一个清零的Op，暂时通过指定清零和ReduceAcc使用的vec tilesize与tileM x tileN相同
