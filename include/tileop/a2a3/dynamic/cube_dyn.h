@@ -561,5 +561,65 @@ TILEOP void DynTmad(__cc__ Tc *c, __ca__ Ta *a, __cb__ Tb *b, uint16_t m, uint16
     pipe_barrier(PIPE_M);
 }
 
+// nd2nz
+// unsupport unaligned, no misaligned scenes now
+template <typename T, typename T2, int64_t dstRawShape0, int64_t offsetRawShape1, int64_t srcColumnStartOffset>
+TILEOP void GatherInL1(__cbuf__ T *dst, int64_t dstOriginShape0, int64_t dstOriginShape1, __gm__ T *src,
+    int64_t srcRawShape1, __gm__ T2 *offsets, int64_t offsetsRowStartOffset, int64_t offsetsColumnStartOffset) {
+    static_assert(std::is_same_v<T2, int32_t> || std::is_same_v<T2, int64_t>);
+
+    constexpr uint16_t c0Size = BLOCK_SIZE / sizeof(T);
+    uint16_t nBurst = dstOriginShape1 / c0Size;
+    constexpr uint16_t lenBurst = c0Size * sizeof(T) / BLOCK_SIZE; // = 1, unit: BLOCK_SIZE
+    static_assert(lenBurst == 1);
+    constexpr uint16_t srcStride = 0;
+    uint16_t dstStride = (dstOriginShape0 + 15) / 16 * 16 - 1;
+
+    int64_t offsetsStartOffset = offsetsRowStartOffset * offsetRawShape1 + offsetsColumnStartOffset;
+
+    pipe_barrier(PIPE_ALL);
+    if (dstOriginShape1 % c0Size > 0) {
+        constexpr uint16_t nValue = 1;
+        uint16_t dValue = dstOriginShape1;
+        uint16_t srcDValue = srcRawShape1;
+
+        constexpr uint16_t ndNum = 1;
+        constexpr uint16_t srcNdMatrixStride = 0;
+        constexpr uint16_t dstNzNStride = 1;
+        constexpr uint16_t dstNzMatrixStride = 1;
+        uint16_t dstNzC0Stride = (dstOriginShape0 + 15) / 16 * 16;
+
+        if constexpr (std::is_same<T, int8_t>::value) {
+            for (int64_t i = 0; i < dstOriginShape0; i++) {
+                copy_gm_to_cbuf_multi_nd2nz_b8((__cbuf__ T *)dst + i * c0Size,
+                    (__gm__ T *)src + offsets[i + offsetsStartOffset] * srcRawShape1 + srcColumnStartOffset, 0 /*sid*/,
+                    ndNum, nValue, dValue, srcNdMatrixStride, srcDValue, dstNzC0Stride, dstNzNStride, dstNzMatrixStride);
+            }
+        }
+
+        if constexpr (std::is_same<T, half>::value || std::is_same<T, bfloat16_t>::value) {
+            for (int64_t i = 0; i < dstOriginShape0; i++) {
+                copy_gm_to_cbuf_multi_nd2nz_b16((__cbuf__ T *)dst + i * c0Size,
+                    (__gm__ T *)src + offsets[i + offsetsStartOffset] * srcRawShape1 + srcColumnStartOffset, 0 /*sid*/,
+                    ndNum, nValue, dValue, srcNdMatrixStride, srcDValue, dstNzC0Stride, dstNzNStride, dstNzMatrixStride);
+            }
+        }
+
+        if constexpr (std::is_same<T, float>::value) {
+            for (int64_t i = 0; i < dstOriginShape0; i++) {
+                copy_gm_to_cbuf_multi_nd2nz_b32s((__cbuf__ T *)dst + i * c0Size,
+                    (__gm__ T *)src + offsets[i + offsetsStartOffset] * srcRawShape1 + srcColumnStartOffset, 0 /*sid*/,
+                    ndNum, nValue, dValue, srcNdMatrixStride, srcDValue, dstNzC0Stride, dstNzNStride, dstNzMatrixStride);
+            }
+        }
+    } else {
+        for (int64_t i = 0; i < dstOriginShape0; i++) {
+            copy_gm_to_cbuf(dst + i * c0Size, src + offsets[i + offsetsStartOffset] * srcRawShape1 + srcColumnStartOffset,
+                0 /*sid*/, nBurst, lenBurst, 0, dstStride, PAD_NONE);
+        }
+    }
+    pipe_barrier(PIPE_ALL);
+}
+
 } // namespace TileOp
 #endif // TILE_FWK_CUBE_DYN_H

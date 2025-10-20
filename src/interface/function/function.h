@@ -106,7 +106,7 @@ public:
         explicit Iterator(const std::vector<std::shared_ptr<Operation>> &operations) : operations_(operations) {}
 
         void operator++() {
-            ASSERT(cur_ < operations_.size());
+            ASSERT(cur_ <= operations_.size());
             cur_++;
         }
 

@@ -407,13 +407,13 @@ void TiledExpand(Function &function, const TileShape &tileShape, const LogicalTe
     const LogicalTensorPtr &result, const std::vector<SymbolicScalar> &validShape) {
     CheckExpandTensorVaild(operand, result);
     ASSERT(function.GetGraphType() == GraphType::TILE_GRAPH);
-    
+
     std::vector<int64_t> offset(result->shape.size(), 0);
     std::vector<int64_t> viewShape(result->shape.size(), 1);
     int expandDim = -1;
     for (size_t i = 0; i < result->shape.size(); ++i) {
         if (operand->shape[i] != result->shape[i]) {
-            expandDim = i; 
+            expandDim = i;
         }
     }
     result->UpdateDynValidShape(validShape);
@@ -509,8 +509,8 @@ std::vector<int64_t> BinaryOperationResultShape(
     return resultShape;
 }
 
-void TiledCompareOperationImpl(Function &function, const TileShape &tileShape, size_t cur, Input &input1, Input &input2, 
-    const LogicalTensorPtr & result, TileInfo &resultTileInfo, CmpOperationType operation, CmpModeType mode) 
+void TiledCompareOperationImpl(Function &function, const TileShape &tileShape, size_t cur, Input &input1, Input &input2,
+    const LogicalTensorPtr & result, TileInfo &resultTileInfo, CmpOperationType operation, CmpModeType mode)
 {
     if (cur == result->shape.size()) {
         auto inputTile1 = input1.tensor->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
@@ -528,7 +528,7 @@ void TiledCompareOperationImpl(Function &function, const TileShape &tileShape, s
         auto vselResultTensor = std::make_shared<LogicalTensor>(function, input1.tensor.GetDataType(), vselResult);
         std::vector<int64_t> startAddrUBShape({1});
         auto startAddrUBTensor = std::make_shared<LogicalTensor>(function, DT_UINT64, startAddrUBShape);
-        auto& op = function.AddOperation(Opcode::OP_CMP, {inputTile1, inputTile2}, 
+        auto& op = function.AddOperation(Opcode::OP_CMP, {inputTile1, inputTile2},
             {resultTile, vcmpBitResultTensor, zeroCondTensor, oneCondTensor, vselResultTensor, startAddrUBTensor});
 
         op.SetAttribute(OP_ATTR_PREFIX + "cmp_operation", static_cast<int64_t>(operation));
@@ -544,7 +544,7 @@ void TiledCompareOperationImpl(Function &function, const TileShape &tileShape, s
         input1.tileInfo.shape[cur] = std::min(input1.tensor->shape[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
         input2.tileInfo.offset[cur] = i % input2.tensor->shape[cur];
         input2.tileInfo.shape[cur] = std::min(input2.tensor->shape[cur] - input2.tileInfo.offset[cur], vecTile[cur]);
-        TiledCompareOperationImpl(function, tileShape, cur + 1, input1, input2, result, resultTileInfo, 
+        TiledCompareOperationImpl(function, tileShape, cur + 1, input1, input2, result, resultTileInfo,
             operation, mode);
     }
 }
@@ -639,8 +639,8 @@ void TiledAssemble(Function &function, const TileShape &tileShape,
     TiledAssemble(function, tileShape, 0, input, result, attr);
 }
 
-LogicalTensorPtr TensorCompareOperation(Function& function, const Tensor& operand1, const Tensor& operand2, 
-    CmpOperationType operation, CmpModeType mode) 
+LogicalTensorPtr TensorCompareOperation(Function& function, const Tensor& operand1, const Tensor& operand2,
+    CmpOperationType operation, CmpModeType mode)
 {
     auto operandT1 = operand1.GetStorage();
     auto operandT2 = operand2.GetStorage();
@@ -1244,7 +1244,7 @@ void TiledWhereOperation(Function &function, const TileShape &tileShape, const L
             otherPtr = tmp;
         }
     }
-    
+
     TileInfo tileInfoCondition(result->shape.size(), result->offset.size());
     auto inputCondition = Input{conditionPtr, tileInfoCondition};
     TileInfo resultTileInfo(result->shape.size(), result->offset.size());
@@ -1516,7 +1516,7 @@ LogicalTensorPtr TiledGatherOperation(Function &function, const TileShape &tileS
     if (axis < 0) {
         axis += params->shape.size();
     }
-    
+
     assert(axis >= 0 && axis < static_cast<int>(params->shape.size()));
     TileInfo paramsTileInfo(params->shape.size(), params->offset.size());
     TileInfo indicesTileInfo(indices->shape.size(), indices->offset.size());
@@ -1702,7 +1702,7 @@ void TiledScatterElementS(Function &function, const TileShape &tileShape, const 
 }
 
 void TensorScatterElementS(Function &function, const ScatterElementSPara& scatterPara) {
-    auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_SCATTER_ELEMENT, {scatterPara.srcInput, 
+    auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_SCATTER_ELEMENT, {scatterPara.srcInput,
         scatterPara.idxInput}, {scatterPara.dstTensor});
     op.SetAttribute(OP_ATTR_PREFIX + "axis", scatterPara.axis);
     op.SetAttribute(OpAttributeKey::scalar, scatterPara.scalar);
@@ -2939,7 +2939,13 @@ Tensor ScatterUpdate(const Tensor &dst, const Tensor &index, const Tensor &src, 
 
     CheckScatterUpdateInvalid(dst, index, src);
     axis = axis < 0 ? dst->shape.size() + axis : axis;
-    Tensor result(dst->tensor->datatype, dst->shape);
+
+    Tensor result(dst->tensor->datatype, dst->GetShape());
+    if (std::find(dst->GetShape().begin(), dst->GetShape().end(), -1) != dst->GetShape().end()) {
+        Tensor resTmp(dst->tensor->datatype, dst->GetDynValidShape());
+        result = resTmp;
+    }
+
     result.GetStorage()->tensor->SetTensorInfo(dst.GetStorage()->tensor->GetTensorInfo());
     result.GetStorage()->tensorfmt = dst.GetStorage()->tensorfmt;
 
@@ -2957,7 +2963,7 @@ Tensor ScatterUpdate(const Tensor &dst, const Tensor &index, const Tensor &src, 
     return result;
 }
 
-static void CheckScatterElementSParamsInvalid(const Tensor &self, const Tensor &indices, int axis, 
+static void CheckScatterElementSParamsInvalid(const Tensor &self, const Tensor &indices, int axis,
     const ScatterMode reduce)
 {
     ASSERT(self->shape.size() == indices->shape.size());
@@ -2972,7 +2978,7 @@ Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, in
     DECLARE_TRACER();
 
     Tensor result(self->tensor->datatype, self->shape);
-    GraphUtils::AddDynOperation(*Program::GetInstance().GetCurrentFunction(), Opcode::OP_REGISTER_COPY, 
+    GraphUtils::AddDynOperation(*Program::GetInstance().GetCurrentFunction(), Opcode::OP_REGISTER_COPY,
         {self.GetStorage()}, {result.GetStorage()});
 
     return Scatter_(result, indices, src, axis, reduce);
@@ -3009,6 +3015,7 @@ void TensorInnerAssign(Function &function, const LogicalTensorPtr &operand, cons
 
 Tensor Assign(const Tensor &operand) {
     Tensor result(operand->Datatype(), operand->shape);
+    result->UpdateDynValidShape(operand->GetDynValidShape());
     CALL(InnerAssign, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(), result.GetStorage());
     return result;
 }
@@ -4006,7 +4013,7 @@ std::tuple<Tensor, Tensor, Tensor> L1Sort(const Tensor &x, int idxStart, bool de
     return std::tie(y, yIdx, temp);
 }
 
-void TiledCompareAndSwap(Function &function, const LogicalTensorPtr &x0, const LogicalTensorPtr &idx0, const LogicalTensorPtr &x1, const LogicalTensorPtr &idx1, 
+void TiledCompareAndSwap(Function &function, const LogicalTensorPtr &x0, const LogicalTensorPtr &idx0, const LogicalTensorPtr &x1, const LogicalTensorPtr &idx1,
     const LogicalTensorPtr &y0, const LogicalTensorPtr &yIdx0, const LogicalTensorPtr &y1, const LogicalTensorPtr &yIdx1, int descending) {
     auto &op = function.AddOperation(Opcode::OP_COMPARE_SWAP, {x0, idx0, x1, idx1}, {y0, yIdx0, y1, yIdx1});
     op.SetAttribute(SORT_ORDER, static_cast<int>(descending));
@@ -4019,7 +4026,7 @@ std::tuple<Tensor, Tensor, Tensor, Tensor> L1CompareAndSwap(const Tensor &x0, co
     Tensor yIdx0(idx0->Datatype(), idx0->shape);
     Tensor y1(x1->Datatype(), x1->shape);
     Tensor yIdx1(idx1->Datatype(), idx1->shape);
-    TiledCompareAndSwap(*Program::GetInstance().GetCurrentFunction(), x0.GetStorage(), idx0.GetStorage(), x1.GetStorage(), idx1.GetStorage(), 
+    TiledCompareAndSwap(*Program::GetInstance().GetCurrentFunction(), x0.GetStorage(), idx0.GetStorage(), x1.GetStorage(), idx1.GetStorage(),
         y0.GetStorage(), yIdx0.GetStorage(), y1.GetStorage(), yIdx1.GetStorage(), descending);
     return std::tie(y0, yIdx0, y1, yIdx1);
 }
@@ -4116,7 +4123,7 @@ void MergeStep(SortTileMap &tileMap, int offset, int mergeSize, int tileSize, bo
         auto mergeResult = L1Merge(src, srcIdx, descending, false);
         auto res = std::get<0>(mergeResult);
         auto resIdx = std::get<1>(mergeResult);
-        
+
         if (mergeSize < maxStep) {
             tileMap[idx0] = {View(res, {1, halfSize}, {0, 0}), View(resIdx, {1, halfSize}, {0, 0})};
             tileMap[idx1] = {View(res, {1, halfSize}, {0, halfSize}), View(resIdx, {1, halfSize}, {0, halfSize})};
@@ -4449,6 +4456,55 @@ void Assemble(const Tensor &tensor, const std::vector<SymbolicScalar> &dynOffset
     Program::GetInstance().GetTensorSlotManager()->TensorWrite(dest, true);
 }
 
+template <bool isB, bool isTrans>
+void TiledGatherInL1(Function &function, const TileShape &tileShape, const LogicalTensorPtr &src,
+    const LogicalTensorPtr &offsets, const LogicalTensorPtr &dst) {
+    const auto &cubeTile = tileShape.GetCubeTile();
+
+    auto [firstDimTileShape, secondDimTileShape] = !isB ? std::pair<int64_t, int64_t>{cubeTile.m[1], cubeTile.k[1]} :
+                                                          std::pair<int64_t, int64_t>{cubeTile.k[1], cubeTile.n[1]};
+    if constexpr (isTrans) {
+        std::swap(firstDimTileShape, secondDimTileShape);
+    }
+
+    for (int64_t i = 0; i < dst->GetShape()[0]; i += firstDimTileShape) {
+        auto shape0 = std::min(dst->GetShape()[0] - i, firstDimTileShape);
+        for (int64_t j = 0; j < dst->GetShape()[1]; j += secondDimTileShape) {
+            auto shape1 = std::min(dst->GetShape()[1] - j, secondDimTileShape);
+            auto dstTile = dst->View(function, {shape0, shape1}, {i, j});
+            auto offsetsTile = offsets->View(function, {1, shape0}, {0, i});
+            auto &op = function.AddOperation(Opcode::OP_GATHER_IN_L1, {src, offsetsTile}, {dstTile});
+            op.SetAttribute(OpAttributeKey::startOffset, j);
+        }
+    }
+}
+
+template <bool isB, bool isTrans>
+Tensor GatherInL1(const Tensor &src, const Tensor &offsets, int size) {
+    constexpr int32_t NUM_SIZE = 2;
+    ASSERT(src.GetShape().size() == NUM_SIZE);
+    ASSERT(offsets.GetShape().size() == NUM_SIZE); // offsets必须是两维是因为不支持1维的Tensor
+    ASSERT(offsets.GetShape()[0] == 1);
+    ASSERT(size <= src.GetShape()[1]);
+    ASSERT(!offsets.GetStorage()->GetDynValidShape().empty());
+
+    Tensor dst(src->Datatype(), {offsets.GetShape()[1], size});
+    if (!offsets.GetStorage()->GetDynValidShape().empty()) {
+        dst.GetStorage()->UpdateDynValidShape(
+            {offsets.GetStorage()->GetDynValidShape()[1], src.GetStorage()->GetDynValidShape()[1]});
+    }
+    auto &op = Program::GetInstance().GetCurrentFunction()->AddOperation(
+        Opcode::OP_GATHER_IN_L1, {src.GetStorage(), offsets.GetStorage()}, {dst.GetStorage()});
+    op.SetAttribute("isB", isB);
+    op.SetAttribute("isTrans", isTrans);
+    return dst;
+}
+
+template Tensor GatherInL1<false, false>(const Tensor &, const Tensor &, int);
+template Tensor GatherInL1<false, true>(const Tensor &, const Tensor &, int);
+template Tensor GatherInL1<true, false>(const Tensor &, const Tensor &, int);
+template Tensor GatherInL1<true, true>(const Tensor &, const Tensor &, int);
+
 static int64_t CalculateCapacity(const std::vector<int64_t> &shape) {
     int64_t capacity = 1;
     for (size_t i = 0; i < shape.size(); i++) {
@@ -4578,6 +4634,25 @@ void npu::tile_fwk::ExpandOperationInto(Function &function, const TileShape &til
     const std::vector<LogicalTensorPtr> &iOperand,
     const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
     switch (opCode) {
+        case Opcode::OP_GATHER_IN_L1: {
+            bool isB = op.GetBoolAttribute("isB");
+            bool isTrans = op.GetBoolAttribute("isTrans");
+            if (isB) {
+                if (isTrans) {
+                    TiledGatherInL1<true, true>(function, tileShape, iOperand[0], iOperand[1], oOperand[0]);
+                } else {
+                    TiledGatherInL1<true, false>(function, tileShape, iOperand[0], iOperand[1], oOperand[0]);
+                }
+            } else {
+                if (isTrans) {
+                    TiledGatherInL1<false, true>(function, tileShape, iOperand[0], iOperand[1], oOperand[0]);
+                } else {
+                    TiledGatherInL1<false, false>(function, tileShape, iOperand[0], iOperand[1], oOperand[0]);
+                }
+            }
+
+            break;
+        }
         case Opcode::OP_ADDS: {
             TiledBinaryOperationScalar<BinaryOpType::ADD>(function, tileShape, iOperand[0],
                 op.GetElementAttribute(OpAttributeKey::scalar), oOperand[0]);

@@ -18,6 +18,7 @@
 #include <array>
 #include <sstream>
 
+#include "tilefwk/symbolic_scalar.h"
 #include "tilefwk/tensor.h"
 #include "tilefwk/element.h"
 
@@ -98,6 +99,8 @@ Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes,
 Tensor Assemble(const std::vector<std::pair<Tensor, std::vector<int64_t>>> &tensors);
 void Assemble(const Tensor &tensor, const std::vector<SymbolicScalar> &dynOffset, Tensor &dest);
 
+template<bool isB, bool isTrans>
+Tensor GatherInL1(const Tensor &src, const Tensor &offsets, int size);
 
 Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, const std::vector<SymbolicScalar> &validShape={});
 void ReshapeInplace(const Tensor &operand, Tensor &dst);

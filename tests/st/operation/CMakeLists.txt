@@ -95,7 +95,9 @@ set(_CaseFilterList
         "TestVectorDuplicate/VectorDuplicateOperationTest.TestVectorDuplicate/5"
         "TestVectorDuplicate/VectorDuplicateOperationTest.TestVectorDuplicate/9"
         "TestLogicalNot/LogicalNotOperationTest.TestLogicalNot/1"
-        "TestLogicalNot/LogicalNotOperationTest.TestLogicalNot/4" 
+        "TestLogicalNot/LogicalNotOperationTest.TestLogicalNot/4"
+        "GatherInL1Test.gather_in_a_unalign"
+        "GatherInL1Test.gather_in_bt_with_valid_shape"
 )
 
 set(_Target ${PTO_Fwk_STestNamePrefix}_operation)

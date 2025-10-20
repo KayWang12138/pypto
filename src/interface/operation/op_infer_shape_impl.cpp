@@ -57,7 +57,7 @@ void ElewiseInferFunc(Operation* op,
 
         auto flag = false;
         auto minDim = SymbolicScalar();
-        for (auto dim : dimValidShape[i]) {            
+        for (auto dim : dimValidShape[i]) {
             if (!(dim.IsImmediate())) {
                 inputValidShape.push_back(dim);
                 flag = true;
@@ -71,7 +71,7 @@ void ElewiseInferFunc(Operation* op,
             inputValidShape.push_back(minDim);
         }
     }
-    
+
     int64_t mode = 0;
     if (op->GetAttr(OP_ATTR_PREFIX + "cmp_mode", mode) && mode == 1) {
         inputValidShape[inputValidShape.size() - 1] = inputValidShape[inputValidShape.size() - 1] / 8; // 8 bit to 1 byte
@@ -302,6 +302,20 @@ void InferFunc4Gather(Operation* op, std::vector<std::vector<SymbolicScalar>>& o
     }
 }
 REGISTER_INFER_SHAPE_FUNC(OP_GATHER, Opcode::OP_GATHER, InferFunc4Gather);
+
+void InferFuncGatherInL1(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
+    auto iOperands = op->GetIOperands();
+    assert(iOperands.size() == NUM2);
+    auto srcValidShape = iOperands[0]->GetDynValidShape();
+    auto offsetValidShape = iOperands[1]->GetDynValidShape();
+    auto srcStartColumnOffset = op->GetIntAttribute(OpAttributeKey::startOffset);
+    ASSERT(op->GetOOperands().size() == 1);
+    for (auto output : op->GetOOperands()) {
+        outValidShapes.push_back(
+            {offsetValidShape[1], std::min(srcValidShape[1] - srcStartColumnOffset, output->GetShape()[1])});
+    }
+}
+REGISTER_INFER_SHAPE_FUNC(OP_GATHER_IN_L1, Opcode::OP_GATHER_IN_L1, InferFuncGatherInL1);
 
 // matmul infer shape func
 void MatmulInferFunc(Operation* op,

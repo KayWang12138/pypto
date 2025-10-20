@@ -47,6 +47,7 @@ public:
     std::string GenUBCopyOut() const;
 
     std::string GenLoadOp() const;
+    std::string GenGatherInL1() const;
 
     std::string GenUnaryOp() const;
     std::string GenUnaryOpWithTmpBuff() const;
@@ -418,6 +419,7 @@ private:
         // L1 <-> GM/BT/L1
         {                Opcode::OP_L1_COPY_IN,              [this]() { return GenMemL1CopyIn(); }},
         {               Opcode::OP_L1_COPY_OUT,             [this]() { return GenMemL1CopyOut(); }},
+        {              Opcode::OP_GATHER_IN_L1,               [this]() { return GenGatherInL1(); }},
 
         // L0C <-> GM
         {              Opcode::OP_L0C_COPY_OUT,            [this]() { return GenMemL0CCopyOut(); }},
@@ -531,7 +533,7 @@ private:
         {                   Opcode::OP_SORT,                   [this]() { return GenSortOp(); }},
         {                   Opcode::OP_COMPARE_SWAP,              [this]() { return GenCompareAndSwapOp(); }},
         {                   Opcode::OP_MERGE,                  [this]() { return GenMergeOp(); }},
-        
+
         // matmul
         {                   Opcode::OP_A_MUL_B,             [this]() { return GenCubeOpMatmul(); }},
         {                  Opcode::OP_A_MUL_BT,             [this]() { return GenCubeOpMatmul(); }},

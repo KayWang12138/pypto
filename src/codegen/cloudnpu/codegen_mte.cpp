@@ -977,4 +977,49 @@ std::string CodeGenOpCloudNPU::GenAddrExpr(const std::string &addrExpr, unsigned
 
     return oss.str();
 }
+
+std::string CodeGenOpCloudNPU::GenGatherInL1() const {
+    const DataType dstDtype = operandDtype[ID0];
+    const DataType srcDtype = operandDtype[ID1];
+    const DataType offsetsDtype = operandDtype[ID2];
+    ASSERT(dstDtype == srcDtype);
+
+    std::string srcVar = GenGmParamVar(0);
+    std::string offsetsVar = GenGmParamVar(1);
+    std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+
+    auto dstRawShapes = rawShape[ID0];
+    auto srcRawShapes = rawShape[ID1];
+    auto offsetsRawShapes = rawShape[ID2];
+    auto dstOriShapes = dynamicValidShape[ID0];
+    ASSERT(srcRawShapes.size() == SHAPE_DIM2);
+    ASSERT(dstRawShapes.size() == SHAPE_DIM2);
+    ASSERT(offsetsRawShapes.size() == SHAPE_DIM2);
+    ASSERT(dstOriShapes.size() == SHAPE_DIM2);
+
+    auto offsetsStartOffsets = GenParamIdxExprByIndex(1, 2, PREFIX_STR_OFFSET);
+
+    char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
+    std::string dstDtypeStr = DataType2CCEStr(dstDtype);
+    std::string srcDtypeStr = DataType2CCEStr(srcDtype);
+    std::string offsetsDtypeStr = DataType2CCEStr(offsetsDtype);
+
+    ASSERT(dstDtypeStr == srcDtypeStr);
+    ASSERT(offsetsDtypeStr == "int64_t" || offsetsDtypeStr == "int32_t");
+
+    auto startOffset = opAttrs.at(OpAttributeKey::startOffset);
+    ASSERT(startOffset.HasValue() && (startOffset.Type() == typeid(int64_t)));
+    auto srcColumnStartOffset = npu::tile_fwk::AnyCast<int64_t>(startOffset);
+
+    auto ret = sprintf_s(buffer, sizeof(buffer),
+        "%s<%s, %s, %lld, %lld, %lld>((__cbuf__ %s *)%s, %s, %s, (__gm__ %s *)%s, %lld, (__gm__ %s *)%s, %s, %s);\n",
+        tileOpName.c_str(), dstDtypeStr.c_str(), offsetsDtypeStr.c_str(), dstRawShapes[ID0], offsetsRawShapes[ID1], srcColumnStartOffset,
+        dstDtypeStr.c_str(), dstVar.c_str(), dstOriShapes[ID0].Dump().c_str(), dstOriShapes[ID1].Dump().c_str(), srcDtypeStr.c_str(), srcVar.c_str(),
+        srcRawShapes[1], offsetsDtypeStr.c_str(), offsetsVar.c_str(), offsetsStartOffsets[ID0].c_str(), offsetsStartOffsets[ID1].c_str());
+
+    ASSERT(ret >= 0) << "GenGatherInL1 sprintf_s failed ";
+    std::cout << buffer << std::endl;
+    std::string ostring(buffer);
+    return ostring;
+}
 } // namespace npu::tile_fwk

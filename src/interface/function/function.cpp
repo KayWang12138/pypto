@@ -24,6 +24,7 @@
 #include "interface/tensor/tensor_offset.h"
 #include "interface/utils/id_gen.h"
 #include "interface/utils/log.h"
+#include "tilefwk/data_type.h"
 #include "tilefwk/symbolic_scalar.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
@@ -264,8 +265,9 @@ OperationsViewer Function::Operations(bool sorted) {
 
 bool Function::IsCube() const {
     auto isL1CopyIn = [](const Operation &op) {
-        return op.GetOpcode() == Opcode::OP_COPY_IN && !(op.oOperand.empty()) &&
-               op.oOperand[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1;
+        return (op.GetOpcode() == Opcode::OP_COPY_IN && !(op.oOperand.empty()) &&
+                   op.oOperand[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1) ||
+               op.GetOpcode() == Opcode::OP_GATHER_IN_L1;
     };
 
     for (const auto &oper : OperationsViewer(operations_, opPosition_)) {
@@ -2483,8 +2485,9 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(
            should be normalized also */
         if (op->GetOpcode() == Opcode::OP_VEC_DUP ||
             op->GetOpcode() == Opcode::OP_RESHAPE ||
-            op->GetOpcode() == Opcode::OP_EXPAND || 
-            op->GetOpcode() == Opcode::OP_LOAD) {
+            op->GetOpcode() == Opcode::OP_EXPAND ||
+            op->GetOpcode() == Opcode::OP_LOAD ||
+            op->GetOpcode() == Opcode::OP_GATHER_IN_L1) {
             extraOutcasts.emplace_back(op.get(), 0);
         }
     }
@@ -2497,6 +2500,9 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(
     SymbolicScalar getParamOffset = SymbolicScalar(AddRuntimeCoaPrefix("GET_PARAM_OFFSET"));
     for (auto [opmagic, k] : incastPosition) {
         auto op = opmagicToOp[opmagic];
+        if (op->GetIOpAttrOffset(k) != -1) {
+            continue;
+        }
         std::vector<SymbolicScalar> operandCoaList;
         if (IsCopyIn(op->GetOpcode()) && k == 0) {
             operandCoaList = NormalizeCopyIn(op, coaIndex, valueToIndex);
