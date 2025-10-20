@@ -90,8 +90,7 @@ void SubgraphToFunction::RecordConnectionWithProducers(RecordInfo recordInfo, Su
             continue;
         }
         assembleRawMagic.push_back(iOperand->GetRawMagic());
-        iter.RecordConnection(eSgId, i, nLIST[i][j]->GetIntAttribute(OpAttributeKey::seqNo), k,
-            iOperand->GetRawMagic() /*placeHolder*/, offset,
+        iter.RecordConnection(eSgId, i, k, iOperand->GetRawMagic() /*placeHolder*/, offset,
             shape, iOperand->tensor->rawshape,
             iOperand->Datatype(), iOperand, nLIST[i][j]->opmagic);
     }
@@ -105,8 +104,8 @@ void SubgraphToFunction::RecordIncastInfo(Function &function, RecordInfo recordI
     Offset offset = recordInfo.offset;
     Shape shape = recordInfo.shape;
     if (function.IsFromInCast(iOperand) || function.IsFromOutCast(iOperand)) {
-        iter.RecordTensorArg(nLIST[i][j]->GetIntAttribute(OpAttributeKey::seqNo), k, iOperand->GetRawMagic(), offset,
-            shape, iOperand->tensor->rawshape, iOperand->Datatype(), false, iOperand, nLIST[i][j]->opmagic);
+        iter.RecordTensorArg(k, iOperand->GetRawMagic(), offset, shape, iOperand->tensor->rawshape, 
+            iOperand->Datatype(), false, iOperand, nLIST[i][j]->opmagic);
         return;
     }
     if (!iOperand->isSubGraphBoundary || iOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
@@ -118,7 +117,7 @@ void SubgraphToFunction::RecordIncastInfo(Function &function, RecordInfo recordI
         return;
     }
     if (IsCopyIn(nLIST[i][j]->GetOpcode())) {
-        iter.RecordConnection(i, i, nLIST[i][j]->GetIntAttribute(OpAttributeKey::seqNo), k, iOperand->GetRawMagic(),
+        iter.RecordConnection(i, i, k, iOperand->GetRawMagic(),
             offset, shape, iOperand->tensor->rawshape, iOperand->Datatype(), iOperand, nLIST[i][j]->opmagic);
     }
 }
@@ -152,8 +151,8 @@ void SubgraphToFunction::RecordOutcastInfo(Function &function, RecordInfo record
     Offset offset = recordInfo.offset;
     Shape shape = recordInfo.shape;
     if (function.IsFromOutCast(oOperand) || function.IsFromInCast(oOperand)) {
-        iter.RecordTensorArg(nLIST[i][j]->GetIntAttribute(OpAttributeKey::seqNo), k, oOperand->GetRawMagic(), offset,
-            shape, oOperand->tensor->rawshape, oOperand->Datatype(), true, oOperand, nLIST[i][j]->opmagic);
+        iter.RecordTensorArg(k, oOperand->GetRawMagic(), offset, shape, oOperand->tensor->rawshape, 
+            oOperand->Datatype(), true, oOperand, nLIST[i][j]->opmagic);
         return;
     }
     // boundary outCasts_
@@ -173,8 +172,7 @@ void SubgraphToFunction::RecordOutcastInfo(Function &function, RecordInfo record
         relatedIncastList.push_back(typename SubfuncInvokeInfoTy::SuccessorIncastRecTy(
             eSgId, connectedTgtOperandIdx, nullptr, consumer->GetOpMagic()));
     }
-    iter.RecordOutcast(i, nLIST[i][j]->GetIntAttribute(OpAttributeKey::seqNo), k,
-        refCount, oOperand->GetRawMagic(),
+    iter.RecordOutcast(i, k, refCount, oOperand->GetRawMagic(),
         relatedIncastList, offset, shape,
         oOperand->tensor->rawshape, oOperand->Datatype(), oOperand,
         nLIST[i][j]->opmagic);
@@ -215,7 +213,6 @@ void SubgraphToFunction::ConstructnList(Function &function) {
 void SubgraphToFunction::RecordEsgIncastOutcast(Function &function) {
     for(int i = 0; i < static_cast<int>(nLIST.size()); i++){
         for (size_t j = 0; j < nLIST[i].size(); j++) {
-            nLIST[i][j]->SetAttribute(OpAttributeKey::seqNo, static_cast<int>(j));
             // 4.1 Record iOperand info, global tensor and incast
             for (size_t k = 0; k < nLIST[i][j]->iOperand.size(); k++) {
                 RecordEsgIncast(function, i, j, k);
@@ -234,7 +231,7 @@ void SubgraphToFunction::RecordIncastOutcast(Function &function) {
     for (size_t i = 0; i < nLIST.size(); i++) {
         subFuncInvokeInfos.push_back(SubfuncInvokeInfoTy());
     }
-    // 3. Construct subgraph with seqNo, and label boundary.
+    // 3. Construct subgraph with label boundary.
     RecordEsgIncastOutcast(function);
     // 4. Incast， Outcast，Construct connection using connetion and outcast
     for (auto &item : subFuncInvokeInfos) {
@@ -261,11 +258,10 @@ void SubgraphToFunction::ProcessInputOperands(Function* rootFunc, Operation& til
         if (IsCopyIn(tileOp.GetOpcode())){
             ProcessCopyInOperand(tileOp, offset, shape);
         }
-        int seqNo = tileOp.GetIntAttribute(OpAttributeKey::seqNo);
         if (rootFunc->IsFromInCast(iOperand) || rootFunc->IsFromOutCast(iOperand)) {
             // Offsets are a part of each parameter, but we need to keep their original value to
             // keep track of dependencies within a subgraph.
-            pSgParamInfo.AppendTensorParam(seqNo, k, iOperand->GetRawMagic(), shape, offset, name, tParamLoc,
+            pSgParamInfo.AppendTensorParam(k, iOperand->GetRawMagic(), shape, offset, name, tParamLoc,
                 iOperand->tensor->GetSymbol(), iOperand->tensor->GetDataType());
             tileOp.inParamLocation_.push_back(tParamLoc);
             tParamLoc++;
@@ -274,7 +270,7 @@ void SubgraphToFunction::ProcessInputOperands(Function* rootFunc, Operation& til
         if (!iOperand->isSubGraphBoundary || iOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
             continue;
         }
-        pSgParamInfo.AppendIncastParam(seqNo, k, iOperand->GetRawMagic(), shape, offset, name, iParamLoc,
+        pSgParamInfo.AppendIncastParam(k, iOperand->GetRawMagic(), shape, offset, name, iParamLoc,
             iOperand->tensor->GetSymbol(), iOperand->tensor->GetDataType());
         tileOp.inParamLocation_.push_back(iParamLoc);
         iParamLoc++;
@@ -290,9 +286,8 @@ void SubgraphToFunction::ProcessOutputOperands(Function* rootFunc, Operation& ti
         if (IsCopyOut(tileOp.GetOpcode())){
             ProcessCopyOutOperand(tileOp, offset, shape);
         }
-        int seqNo = tileOp.GetIntAttribute(OpAttributeKey::seqNo);
         if (rootFunc->IsFromOutCast(oOperand) || rootFunc->IsFromInCast(oOperand)) {
-            pSgParamInfo.AppendTensorParam(seqNo, k, oOperand->GetRawMagic(), shape, offset, name, tParamLoc,
+            pSgParamInfo.AppendTensorParam(k, oOperand->GetRawMagic(), shape, offset, name, tParamLoc,
                 oOperand->tensor->GetSymbol(), oOperand->tensor->GetDataType());
             tileOp.outParamLocation_.push_back(tParamLoc);
             tParamLoc++;
@@ -301,7 +296,7 @@ void SubgraphToFunction::ProcessOutputOperands(Function* rootFunc, Operation& ti
         if (!oOperand->isSubGraphBoundary || oOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
             continue;
         }
-        pSgParamInfo.AppendOutcastParam(seqNo, k, oOperand->GetRawMagic(), tileOp.outcastRefcount, shape, offset, name,
+        pSgParamInfo.AppendOutcastParam(k, oOperand->GetRawMagic(), tileOp.outcastRefcount, shape, offset, name,
             oParamLoc, oOperand->tensor->GetSymbol(), oOperand->tensor->GetDataType());
         tileOp.outParamLocation_.push_back(oParamLoc);
         oParamLoc++;

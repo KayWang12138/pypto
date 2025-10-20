@@ -265,7 +265,7 @@ void SubfuncInvokeInfoTy::Print(const std::string &extInfo) const {
 
     ss << "---- Tensors: \n";
     for (auto &tensorArg : tensorArgs_) {
-        ss << "seqNo: " << tensorArg.seqNo << ", Op:" << tensorArg.operandIdx << ", $" << tensorArg.realDDRId;
+        ss << "Op:" << tensorArg.operandIdx << ", $" << tensorArg.realDDRId;
         ss << "\n";
     }
 
@@ -273,7 +273,6 @@ void SubfuncInvokeInfoTy::Print(const std::string &extInfo) const {
         osm << "SrcESgId: " << std::get<0>(conn) << ", ";
         osm << "DstESgId: " << std::get<1>(conn) << ", ";
         const InCastInfoTy &icInfo = std::get<2>(conn);
-        osm << "seqNo: " << icInfo.seqNo << ",";
         osm << "DstOprn: " << icInfo.operandIdx << ",";
         int ddrId = icInfo.realIncastDDRId;
         osm << "ddrId: " << (ddrId != -1 ? ("$" + std::to_string(ddrId)) : "NOT_CONNECTED") << "\n";
@@ -287,7 +286,6 @@ void SubfuncInvokeInfoTy::Print(const std::string &extInfo) const {
     ss << "---- OutCast: \n";
     for (auto &outCast : outCasts_) {
         ss << "SrcESgId: " << outCast.srcESgId << ", ";
-        ss << "SrcSeqNo: " << outCast.seqNo << ", ";
         ss << "RefCount: " << outCast.refCount << ", ";
         int ddrId = outCast.realOutCastDDRId;
         ss << "ddrId: " << (ddrId != -1 ? "$" + ddrId : "NOT_CONNECTED");
@@ -436,7 +434,6 @@ Json SubfuncInvokeInfoTy::ToJson() const {
     for (const auto &conn : connections_) {
         Json jdata;
         auto &incast = std::get<2>(conn);
-        jdata["seqNo"] = incast.seqNo;
         jdata["operandIdx"] = incast.operandIdx;
         jdata["ddrId"] = incast.realIncastDDRId;
         jdata["shape"] = incast.shape;
@@ -447,7 +444,6 @@ Json SubfuncInvokeInfoTy::ToJson() const {
 
     for (const auto &outcast : outCasts_) {
         Json jdata;
-        jdata["seqNo"] = outcast.seqNo;
         jdata["operandIdx"] = outcast.operandIdx;
         jdata["ddrId"] = outcast.realOutCastDDRId;
         jdata["shape"] = outcast.shape;
@@ -463,7 +459,6 @@ Json SubfuncInvokeInfoTy::ToJson() const {
 
     for (const auto &tensor : tensorArgs_) {
         Json jdata;
-        jdata["seqNo"] = tensor.seqNo;
         jdata["operandIdx"] = tensor.operandIdx;
         jdata["ddrId"] = tensor.realDDRId;
         jdata["shape"] = tensor.shape;
@@ -601,7 +596,6 @@ Json SubfuncParam::ToJson() const {
     Json j, jins, jouts, jtensors;
     for (auto &incast : inCastArgs_) {
         Json jdata;
-        jdata["seqNo"] = incast.seqNo;
         jdata["operandIdx"] = incast.operandIdx;
         jdata["ddrId"] = incast.symDDRId;
         jdata["shape"] = incast.shape;
@@ -615,7 +609,6 @@ Json SubfuncParam::ToJson() const {
 
     for (auto &outcast : outCastArgs_) {
         Json jdata;
-        jdata["seqNo"] = outcast.seqNo;
         jdata["operandIdx"] = outcast.operandIdx;
         jdata["ddrId"] = outcast.symDDRId;
         jdata["shape"] = outcast.shape;
@@ -629,7 +622,6 @@ Json SubfuncParam::ToJson() const {
 
     for (auto &tensor : tensorsArgs_) {
         Json jdata;
-        jdata["seqNo"] = tensor.seqNo;
         jdata["operandIdx"] = tensor.operandIdx;
         jdata["ddrId"] = tensor.symDDRId;
         jdata["shape"] = tensor.shape;
@@ -652,21 +644,21 @@ void SubfuncParam::FromJson(const Json& params) {
     tensorsArgs_.clear();
     outCastArgs_.clear();
     for (auto &ele : params["incasts"]) {
-        AppendIncastParam(ele["seqNo"].get<int>(), ele["operandIdx"].get<int>(), ele["ddrId"].get<int>(),
+        AppendIncastParam(ele["operandIdx"].get<int>(), ele["ddrId"].get<int>(),
             ele["shape"].get<std::vector<int64_t>>(), ele["offset"].get<std::vector<int64_t>>(),
             ele["name"].get<std::string>(), ele["loc"].get<int>(), ele["symbol"].get<std::string>(),
             static_cast<DataType>(ele["data_type"].get<int>()));
     }
 
     for (auto &ele : params["outcasts"]) {
-        AppendOutcastParam(ele["seqNo"].get<int>(), ele["operandIdx"].get<int>(), ele["ddrId"].get<int>(), 0,
+        AppendOutcastParam(ele["operandIdx"].get<int>(), ele["ddrId"].get<int>(), 0,
             ele["shape"].get<std::vector<int64_t>>(), ele["offset"].get<std::vector<int64_t>>(),
             ele["name"].get<std::string>(), ele["loc"].get<int>(), ele["symbol"].get<std::string>(),
             static_cast<DataType>(ele["data_type"].get<int>()));
     }
 
     for (auto &ele : params["tensors"]) {
-        AppendTensorParam(ele["seqNo"].get<int>(), ele["operandIdx"].get<int>(), ele["ddrId"].get<int>(),
+        AppendTensorParam(ele["operandIdx"].get<int>(), ele["ddrId"].get<int>(),
             ele["shape"].get<std::vector<int64_t>>(), ele["offset"].get<std::vector<int64_t>>(),
             ele["name"].get<std::string>(), ele["loc"].get<int>(), ele["symbol"].get<std::string>(),
             static_cast<DataType>(ele["data_type"].get<int>()));

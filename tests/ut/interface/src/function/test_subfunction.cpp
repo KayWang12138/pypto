@@ -42,15 +42,15 @@ public:
 TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_PrintInvokeInfo) {
     SubfuncInvokeInfoTy subfuncInvokeInfo;
 
-    subfuncInvokeInfo.RecordTensorArg(0, 0, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, false, nullptr, 10);
-    subfuncInvokeInfo.RecordTensorArg(1, 1, 456, {0, 0}, {128, 128}, {128, 128}, DataType::DT_FP32, false, nullptr, 20);
+    subfuncInvokeInfo.RecordTensorArg(0, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, false, nullptr, 10);
+    subfuncInvokeInfo.RecordTensorArg(1, 456, {0, 0}, {128, 128}, {128, 128}, DataType::DT_FP32, false, nullptr, 20);
 
-    subfuncInvokeInfo.RecordConnection(2, 2, 2, 2, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 30);
-    subfuncInvokeInfo.RecordConnection(3, 3, 3, 3, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 40);
+    subfuncInvokeInfo.RecordConnection(2, 2, 2, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 30);
+    subfuncInvokeInfo.RecordConnection(3, 3, 3, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 40);
 
     std::vector<SubfuncInvokeInfoTy::SuccessorIncastRecTy> inCasts;
-    subfuncInvokeInfo.RecordOutcast(4, 4, 0, 4, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 50);
-    subfuncInvokeInfo.RecordOutcast(5, 5, 0, 5, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 60);
+    subfuncInvokeInfo.RecordOutcast(4, 0, 4, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 50);
+    subfuncInvokeInfo.RecordOutcast(5, 0, 5, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 60);
 
     subfuncInvokeInfo.DoFinishRecord();
     subfuncInvokeInfo.ConstructActualInvokeParam(123);
@@ -62,15 +62,15 @@ TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_PrintInvokeInfo) {
 TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_PrettyPrintInvokeInfo1) {
     SubfuncInvokeInfoTy subfuncInvokeInfo;
 
-    subfuncInvokeInfo.RecordTensorArg(0, 0, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, false, nullptr, 10);
-    subfuncInvokeInfo.RecordTensorArg(1, 1, 456, {0, 0}, {128, 128}, {128, 128}, DataType::DT_FP32, false, nullptr, 20);
+    subfuncInvokeInfo.RecordTensorArg(0, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, false, nullptr, 10);
+    subfuncInvokeInfo.RecordTensorArg(1, 456, {0, 0}, {128, 128}, {128, 128}, DataType::DT_FP32, false, nullptr, 20);
 
-    subfuncInvokeInfo.RecordConnection(2, 2, 2, 2, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 30);
-    subfuncInvokeInfo.RecordConnection(3, 3, 3, 3, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 40);
+    subfuncInvokeInfo.RecordConnection(2, 2, 2, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 30);
+    subfuncInvokeInfo.RecordConnection(3, 3, 3, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 40);
 
     std::vector<SubfuncInvokeInfoTy::SuccessorIncastRecTy> inCasts;
-    subfuncInvokeInfo.RecordOutcast(4, 4, 0, 4, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 50);
-    subfuncInvokeInfo.RecordOutcast(5, 5, 0, 5, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 60);
+    subfuncInvokeInfo.RecordOutcast(4, 0, 4, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 50);
+    subfuncInvokeInfo.RecordOutcast(5, 0, 5, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 60);
 
     subfuncInvokeInfo.DoFinishRecord();
     subfuncInvokeInfo.ConstructActualInvokeParam(123);
@@ -82,15 +82,15 @@ TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_PrettyPrintInvokeInfo1) {
 TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_DumpInvokeInfo1) {
     SubfuncInvokeInfoTy subfuncInvokeInfo;
 
-    subfuncInvokeInfo.RecordTensorArg(0, 0, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, false, nullptr, 10);
-    subfuncInvokeInfo.RecordTensorArg(1, 1, 456, {0, 0}, {128, 128}, {128, 128}, DataType::DT_FP32, false, nullptr, 20);
+    subfuncInvokeInfo.RecordTensorArg(0, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, false, nullptr, 10);
+    subfuncInvokeInfo.RecordTensorArg(1, 456, {0, 0}, {128, 128}, {128, 128}, DataType::DT_FP32, false, nullptr, 20);
 
-    subfuncInvokeInfo.RecordConnection(2, 2, 2, 2, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 30);
-    subfuncInvokeInfo.RecordConnection(3, 3, 3, 3, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 40);
+    subfuncInvokeInfo.RecordConnection(2, 2, 2, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 30);
+    subfuncInvokeInfo.RecordConnection(3, 3, 3, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 40);
 
     std::vector<SubfuncInvokeInfoTy::SuccessorIncastRecTy> inCasts;
-    subfuncInvokeInfo.RecordOutcast(4, 4, 0, 4, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 50);
-    subfuncInvokeInfo.RecordOutcast(5, 5, 0, 5, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 60);
+    subfuncInvokeInfo.RecordOutcast(4, 0, 4, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 50);
+    subfuncInvokeInfo.RecordOutcast(5, 0, 5, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 60);
 
     subfuncInvokeInfo.DoFinishRecord();
     subfuncInvokeInfo.ConstructActualInvokeParam(123);
@@ -103,15 +103,15 @@ TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_DumpInvokeInfo1) {
 TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_LookupInvokeArgs1) {
     SubfuncInvokeInfoTy subfuncInvokeInfo;
 
-    subfuncInvokeInfo.RecordTensorArg(0, 0, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, false, nullptr, 10);
-    subfuncInvokeInfo.RecordTensorArg(1, 1, 456, {0, 0}, {128, 128}, {128, 128}, DataType::DT_FP32, false, nullptr, 20);
+    subfuncInvokeInfo.RecordTensorArg(0, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, false, nullptr, 10);
+    subfuncInvokeInfo.RecordTensorArg(1, 456, {0, 0}, {128, 128}, {128, 128}, DataType::DT_FP32, false, nullptr, 20);
 
-    subfuncInvokeInfo.RecordConnection(2, 2, 2, 2, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 30);
-    subfuncInvokeInfo.RecordConnection(3, 3, 3, 3, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 40);
+    subfuncInvokeInfo.RecordConnection(2, 2, 2, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 30);
+    subfuncInvokeInfo.RecordConnection(3, 3, 3, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 40);
 
     std::vector<SubfuncInvokeInfoTy::SuccessorIncastRecTy> inCasts;
-    subfuncInvokeInfo.RecordOutcast(4, 4, 0, 4, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 50);
-    subfuncInvokeInfo.RecordOutcast(5, 5, 0, 5, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 60);
+    subfuncInvokeInfo.RecordOutcast(4, 0, 4, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 50);
+    subfuncInvokeInfo.RecordOutcast(5, 0, 5, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 60);
 
     subfuncInvokeInfo.DoFinishRecord();
     subfuncInvokeInfo.ConstructActualInvokeParam(123);
@@ -126,15 +126,15 @@ TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_LookupInvokeArgs1) {
 TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_Print1) {
     SubfuncInvokeInfoTy subfuncInvokeInfo;
 
-    subfuncInvokeInfo.RecordTensorArg(0, 0, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, false, nullptr, 10);
-    subfuncInvokeInfo.RecordTensorArg(1, 1, 456, {0, 0}, {128, 128}, {128, 128}, DataType::DT_FP32, false, nullptr, 20);
+    subfuncInvokeInfo.RecordTensorArg(0, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, false, nullptr, 10);
+    subfuncInvokeInfo.RecordTensorArg(1, 456, {0, 0}, {128, 128}, {128, 128}, DataType::DT_FP32, false, nullptr, 20);
 
-    subfuncInvokeInfo.RecordConnection(2, 2, 2, 2, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 30);
-    subfuncInvokeInfo.RecordConnection(3, 3, 3, 3, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 40);
+    subfuncInvokeInfo.RecordConnection(2, 2, 2, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 30);
+    subfuncInvokeInfo.RecordConnection(3, 3, 3, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 40);
 
     std::vector<SubfuncInvokeInfoTy::SuccessorIncastRecTy> inCasts;
-    subfuncInvokeInfo.RecordOutcast(4, 4, 0, 4, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 50);
-    subfuncInvokeInfo.RecordOutcast(5, 5, 0, 5, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 60);
+    subfuncInvokeInfo.RecordOutcast(4, 0, 4, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 50);
+    subfuncInvokeInfo.RecordOutcast(5, 0, 5, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 60);
 
     subfuncInvokeInfo.Print("extra_info");
 
