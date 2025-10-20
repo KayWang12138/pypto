@@ -136,7 +136,7 @@ def incre_flash_attention(**kwargs):
                 li_update = li_new
                 mi_update = mi_new
             tiled_out.append(oi_update)
-    attention_out.move(pto.concat(tiled_out, 0))
+    attention_out[:] = pto.concat(tiled_out, 0)
 
 if __name__ == "__main__":
     s2 = 256

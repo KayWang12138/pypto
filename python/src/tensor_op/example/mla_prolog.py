@@ -79,7 +79,7 @@ def qkv_pre(**kwargs) -> List[pto.tensor]:
     if split_k:
         tmp_c = pto.tensor([bs, q_lora_rank], pto.DataType.DT_FP32, "tmp_q")
         pto.set_vec_tile_shapes(min(NUM_32, bs), NUM_128)  # 32, 128
-        tmp_c.move(pto.mul_s(tmp_c, pto.element(pto.DataType.DT_FP32, 0.0)))
+        tmp_c[:] = pto.mul_s(tmp_c, pto.element(pto.DataType.DT_FP32, 0.0))
         matmul_result = []
         k_split = 7
         k_split_size = h // k_split
@@ -90,9 +90,9 @@ def qkv_pre(**kwargs) -> List[pto.tensor]:
             matmul_result.append(tmp)
         q_mm_res_f32 = pto.reduce(matmul_result, pto.reduce_mode.ATOMIC_ADD)
         pto.set_vec_tile_shapes(min(NUM_32, bs), NUM_128)  # 32, 128
-        q_mm_res.move(pto.cast(q_mm_res_f32, d_type))
+        q_mm_res[:] = pto.cast(q_mm_res_f32, d_type)
     else:
-        q_mm_res.move(pto.matmul(d_type, input_tensor, w_dq))  # bf16
+        q_mm_res[:] = pto.matmul(d_type, input_tensor, w_dq)  # bf16
     
     if split_reduce_last_dim:
         pto.set_vec_tile_shapes(min(NUM_16, bs), NUM_128)
@@ -107,8 +107,8 @@ def qkv_pre(**kwargs) -> List[pto.tensor]:
             norm_quant_res = pto.quant(norm_res, True, True, smooth_scales_cq)
         else:
             norm_quant_res = pto.quant(norm_res)
-        norm_res.move(norm_quant_res[0])
-        norm_dequant_scale.move(norm_quant_res[1])
+        norm_res[:] = norm_quant_res[0]
+        norm_dequant_scale[:] = norm_quant_res[1]
         pto.set_cube_tile_shapes(
             [tie_m, tie_m], [NUM_256, NUM_256], [NUM_256, NUM_256])  # 256
     else:
@@ -124,7 +124,7 @@ def qkv_pre(**kwargs) -> List[pto.tensor]:
         pto.set_vec_tile_shapes(min(NUM_32, bs), NUM_64)  # 32, 64
         kv_n = w_dkv_kr.shape[1]
         tmp_c_kv = pto.tensor([bs, kv_n], pto.DataType.DT_FP32, "tmp_kv")
-        tmp_c_kv.move(pto.mul_s(tmp_c_kv, pto.element(pto.DataType.DT_FP32, 0.0)))
+        tmp_c_kv[:] = pto.mul_s(tmp_c_kv, pto.element(pto.DataType.DT_FP32, 0.0))
         matmul_result_kv = []
         k_split_kv = 7
         k_split_size_kv = h // k_split_kv
@@ -135,9 +135,9 @@ def qkv_pre(**kwargs) -> List[pto.tensor]:
             matmul_result_kv.append(tmp)
         kv_mm_res_f32 = pto.reduce(matmul_result_kv, pto.reduce_mode.ATOMIC_ADD)
         pto.set_vec_tile_shapes(min(NUM_32, bs), NUM_64)  # 32, 64
-        compressed_kv.move(pto.cast(kv_mm_res_f32, d_type))
+        compressed_kv[:] = pto.cast(kv_mm_res_f32, d_type)
     else:
-        compressed_kv.move(pto.matmul(d_type, input_tensor, w_dkv_kr))  # bf16
+        compressed_kv[:] = pto.matmul(d_type, input_tensor, w_dkv_kr)  # bf16
 
     compressed_kv_res = pto.reshape(compressed_kv, [b, s, w_dkv_kr.shape[1]])
     qkv_pre_res.append(compressed_kv_res)
@@ -224,7 +224,7 @@ def mla_prolog(**kwargs):
         q_tmp_dequant_scale = q_kv[2]
         q_tmp_dequant_per_token = pto.mul(q_tmp_fp32, q_tmp_dequant_scale)
         q_tmp_dequant_channel = pto.mul(q_tmp_dequant_per_token, dequant_scale_w_uq_qr)
-        q.move(pto.cast(q_tmp_dequant_channel, d_type))
+        q[:] = pto.cast(q_tmp_dequant_channel, d_type)
     
     q_tmp = pto.reshape(q, [b, s, n, q_head_dim])
     tile_shape = [b, 1, 1, NUM_64]
@@ -248,7 +248,7 @@ def mla_prolog(**kwargs):
     tile_shape = [1, b_s, kv_lora_rank]  # {NUM_16, NUM_2, kvLoraRank}
     pto.set_vec_tile_shapes(*tile_shape)
     q_nope_new_trans = pto.transpose(q_nope_new, [0, 1])  # [bs,n,kvLoraRank]
-    query_out.move(pto.reshape(q_nope_new_trans, [b, s, n, kv_lora_rank]))
+    query_out[:] = pto.reshape(q_nope_new_trans, [b, s, n, kv_lora_rank])
 
     ########## kv ##########
     compressed_kv = pto.view(kv_tmp, [b, s, kv_lora_rank], [0, 0, 0])
@@ -279,13 +279,13 @@ def mla_prolog(**kwargs):
         tile_shape = [1, kv_lora_rank]
         pto.set_vec_tile_shapes(*tile_shape)
         kv_cache_updata = pto.scatter_update(kv_cache_res, cache_index, k_nope, -2, cache_mode)
-        kv_cache_out.move(pto.reshape(kv_cache_updata, [block_num, block_size, n2, kv_lora_rank]))
+        kv_cache_out[:] = pto.reshape(kv_cache_updata, [block_num, block_size, n2, kv_lora_rank])
 
         ########## krCache ##########
         tile_shape = [1, qk_rope_head_dim]
         pto.set_vec_tile_shapes(*tile_shape)
         kr_cache_update = pto.scatter_update(kr_cache_res, cache_index, k_rope_res, -2, cache_mode)
-        kr_cache_out.move(pto.reshape(kr_cache_update, [block_num, block_size, n2, qk_rope_head_dim]))
+        kr_cache_out[:] = pto.reshape(kr_cache_update, [block_num, block_size, n2, qk_rope_head_dim])
     else:
         k_nope = pto.reshape(compressed_kv_norm, [b, 1, s, kv_lora_rank])
         k_rope_res = pto.reshape(k_rope, [b, 1, s, qk_rope_head_dim])
@@ -293,7 +293,7 @@ def mla_prolog(**kwargs):
         ########## kvCache ##########
         tile_shape = [1, 1, 1, kv_lora_rank]
         pto.set_vec_tile_shapes(*tile_shape)
-        kv_cache_out.move(pto.scatter_update(kr_cache, cache_index, k_rope_res, -2))
+        kv_cache_out[:] = pto.scatter_update(kr_cache, cache_index, k_rope_res, -2)
 
 
 def test_mla_prolog_v2(**kwargs):
