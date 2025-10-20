@@ -502,6 +502,7 @@ std::string CodeGenOpCloudNPU::GenGatherOp() const {
 }
 
 std::string CodeGenOpCloudNPU::PrintGatherElementStatic(const PrintGatherEleParam &param) const {
+    // Static only support 2Dim
     const std::string &dVar = param.dVar;
     const std::string &s0Var = param.s0Var;
     const std::string &s1Var = param.s1Var;
@@ -532,17 +533,18 @@ std::string CodeGenOpCloudNPU::PrintGatherElementStatic(const PrintGatherElePara
 }
 
 std::string CodeGenOpCloudNPU::PrintGatherElementDynamicUnaligned(const PrintGatherEleParam &param) const {
+    //support 2-4 dims
     const std::string &dVar = param.dVar;
     const std::string &s0Var = param.s0Var;
     const std::string &s1Var = param.s1Var;
-    std::vector<int64_t> &dstRawShape = param.dstRawShape;
-    std::vector<int64_t> &src0RawShape = param.src0RawShape;
-    std::vector<int64_t> &src1RawShape = param.src1RawShape;
+    std::vector<int64_t> dstRawShape = NormalizeShape(param.dstRawShape, SHAPE_DIM4);
+    std::vector<int64_t> src0RawShape = NormalizeShape(param.src0RawShape, SHAPE_DIM4);
+    std::vector<int64_t> src1RawShape = NormalizeShape(param.src1RawShape, SHAPE_DIM4);
     const std::string *dataTypeExpr = param.dataTypeExpr;
     // template param
     std::ostringstream oss;
     std::vector<std::string> paramList;
-    paramList.insert(paramList.end(), {dataTypeExpr[ID1], dataTypeExpr[ID2]});
+    paramList.insert(paramList.end(), {dataTypeExpr[ToUnderlying(DISOIdx::SRC0_IDX)], dataTypeExpr[ToUnderlying(DISOIdx::SRC1_IDX)]});
     for (size_t i = 1; i < src0RawShape.size(); ++i) {
         paramList.emplace_back(std::to_string(src0RawShape[i]));
     }
@@ -552,16 +554,18 @@ std::string CodeGenOpCloudNPU::PrintGatherElementDynamicUnaligned(const PrintGat
     for (size_t i = 1; i < dstRawShape.size(); ++i) {
         paramList.emplace_back(std::to_string(dstRawShape[i]));
     }
-    paramList.emplace_back(std::to_string(param.axis));
+    int axis = param.axis + SHAPE_DIM4 - param.src1RawShape.size();
+    paramList.emplace_back(std::to_string(axis));
     std::string templateParam = JoinString(paramList, ", ");
     // func actual param
     paramList.clear();
-    std::string dst = "(__ubuf__ " + dataTypeExpr[ID0] + "*)" + dVar;
-    std::string src0 = "(__ubuf__ " + dataTypeExpr[ID1] + "*)" + s0Var;
-    std::string src1 = "(__ubuf__ " + dataTypeExpr[ID2] + "*)" + s1Var;
+    std::string dst = "(__ubuf__ " + dataTypeExpr[ToUnderlying(DISOIdx::DST_IDX)] + "*)" + dVar;
+    std::string src0 = "(__ubuf__ " + dataTypeExpr[ToUnderlying(DISOIdx::SRC0_IDX)] + "*)" + s0Var;
+    std::string src1 = "(__ubuf__ " + dataTypeExpr[ToUnderlying(DISOIdx::SRC1_IDX)] + "*)" + s1Var;
     paramList.insert(paramList.end(), {dst, src0, src1});
-    auto dstValidShape = dynamicValidShape[ID0];
-    for (size_t i = 0; i < dstValidShape.size(); ++i) {
+    auto dstValidShape = dynamicValidShape[ToUnderlying(DISOIdx::DST_IDX)];
+    FillIntVecWithDummyInHead<SymbolicScalar>(dstValidShape, SHAPE_DIM4 - dstValidShape.size(), 1);
+    for (int i = 0; i < SHAPE_DIM4; i++) {
         paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dstValidShape[i]));
     }
     std::string tiloOpCallParam = JoinString(paramList, ", ");
@@ -621,39 +625,42 @@ std::string CodeGenOpCloudNPU::GenRangeOp() const {
 }
 
 std::string CodeGenOpCloudNPU::GenGatherElementOp() const {
-    std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
-    std::string s1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
-    std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+    std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC0_IDX)]);
+    std::string s1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC1_IDX)]);
+    std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(DISOIdx::DST_IDX)]);
 
-    std::vector dstShape = this->rawShape[0];
-    ALOG_INFO_F("GenGatherElementOp, dst Shape is %s ", IntVecToStr(dstShape).c_str());
+    // shape: dst, src0, src1
+    int dstRank = shape[ToUnderlying(DISOIdx::DST_IDX)].size();
+    int src0Rank = shape[ToUnderlying(DISOIdx::SRC0_IDX)].size();
+    int src1Rank = shape[ToUnderlying(DISOIdx::SRC1_IDX)].size();
 
-    std::vector src0Shape = this->rawShape[1];
-    ALOG_INFO_F("GenGatherElementOp, src0 Shape is %s ", IntVecToStr(src0Shape).c_str());
+    ASSERT(src0Rank <= RANK4) << "GenGatherElementOp: src0 shape rank is not supported!";
+    ASSERT(src1Rank <= RANK4) << "GenGatherElementOp: src1 shape rank is not supported!";
+    ASSERT(dstRank <= RANK4) << "GenGatherElementOp: dst shape rank is not supported!";
 
-    std::vector src1Shape = this->rawShape[2];
-    ALOG_INFO_F("GenGatherElementOp, src1 Shape is %s ", IntVecToStr(src1Shape).c_str());
-
-    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
-    std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID1]);
-    std::string src1DtypeStr = DataType2CCEStr(operandDtype[ID2]);
-
+    std::vector dstShape = this->rawShape[ToUnderlying(DISOIdx::DST_IDX)];
+    std::vector src0Shape = this->rawShape[ToUnderlying(DISOIdx::SRC0_IDX)];
+    std::vector src1Shape = this->rawShape[ToUnderlying(DISOIdx::SRC1_IDX)];
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(DISOIdx::DST_IDX)]);
+    std::string src0DtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(DISOIdx::SRC0_IDX)]);
+    std::string src1DtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(DISOIdx::SRC1_IDX)]);
     AppendLocalBufferVarOffset(std::vector{&dVar, &s0Var, &s1Var});
 
-    std::vector<int64_t> dos = originShape[0];
+    // [case1] src0: [S2,D], src1: [B,S], axis: 0, dst: [B,S]
+    std::vector<int64_t> dos = originShape[ID0];
     std::vector<int64_t> s0s = src0Shape;
     std::vector<int64_t> s1s = src1Shape;
     std::vector<int64_t> ds = dstShape;
     std::string dataTypeExpr[3] = {dstDtypeStr, src0DtypeStr, src1DtypeStr};
-    int gatherAxis{-1};
+    int gatherEleAxis{-1};
     auto axis = opAttrs.at(OP_ATTR_PREFIX + "axis");
     if (axis.HasValue()) {
-        gatherAxis = npu::tile_fwk::AnyCast<int64_t>(axis);
+        gatherEleAxis = npu::tile_fwk::AnyCast<int64_t>(axis);
     }
     if (isSupportDynamicUnaligned) {
-        return PrintGatherElementDynamicUnaligned({gatherAxis, dVar, s0Var, s1Var, dos, ds, s0s, s1s, dataTypeExpr});
+        return PrintGatherElementDynamicUnaligned({gatherEleAxis, dVar, s0Var, s1Var, dos, ds, s0s, s1s, dataTypeExpr});
     }
-    return PrintGatherElementStatic({gatherAxis, dVar, s0Var, s1Var, dos, ds, s0s, s1s, dataTypeExpr});
+    return PrintGatherElementStatic({gatherEleAxis, dVar, s0Var, s1Var, dos, ds, s0s, s1s, dataTypeExpr});
 }
 
 std::string CodeGenOpCloudNPU::PrintScatterElementSOpStatic(const PrintScatterElemParam &param) const {

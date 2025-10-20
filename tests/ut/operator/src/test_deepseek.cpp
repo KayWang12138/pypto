@@ -480,7 +480,7 @@ TEST_F(FunctionTest, TestGatherElementAxis1Indices2) {
     Tensor res;
 
     FUNCTION("A") {
-        res = GatherElement(params, indices, axis);
+        res = GatherElements(params, indices, axis);
     }
     // Program::GetInstance().GraphCheck();
     //
@@ -501,7 +501,7 @@ TEST_F(FunctionTest, TestGatherElementAxis0Indices2) {
     Tensor res;
 
     FUNCTION("A") {
-        res = GatherElement(params, indices, axis);
+        res = GatherElements(params, indices, axis);
     }
     // Program::GetInstance().GraphCheck();
     //

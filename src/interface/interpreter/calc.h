@@ -76,6 +76,7 @@ void RowMaxSingle(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim);
 
 void ExpandS(LogicalTensorDataPtr out, const Element &scalar);
 void Expand(LogicalTensorDataPtr out, LogicalTensorDataPtr self);
+void GatherElements(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices, int axis);
 
 void Reshape(LogicalTensorDataPtr out, LogicalTensorDataPtr self);
 void Permute(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const std::vector<int64_t> &dim);

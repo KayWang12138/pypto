@@ -150,7 +150,7 @@ TEST_F(TestCodegenDynBinary, TestGatherEle) {
     std::string funcName = "GATHER_ELEMET_T";
     config::SetBuildStatic(true);
     FUNCTION(funcName, {inputScores, inputTmpScores, outputTensor}) {
-        outputTensor = GatherElement(inputTmpScores, inputScores, 1); // [b*s,8]
+        outputTensor = GatherElements(inputTmpScores, inputScores, 1); // [b*s,8]
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);

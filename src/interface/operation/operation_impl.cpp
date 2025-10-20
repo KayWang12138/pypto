@@ -1609,7 +1609,9 @@ void TiledGatherElementOperation(Function &function, const TileShape &tileShape,
 LogicalTensorPtr TensorGatherElementOperation(Function &function,
     const LogicalTensorPtr &params, const LogicalTensorPtr &indices, int axis) {
     auto result = std::make_shared<LogicalTensor>(function, params->Datatype(), indices->shape);
-    auto &op = function.AddOperation(Opcode::OP_GATHER_ELEMENT, {params, indices}, {result});
+    std::vector<std::vector<SymbolicScalar>> outValidShape;
+    outValidShape.push_back(indices->GetDynValidShape());
+    auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_GATHER_ELEMENT, {params, indices}, {result}, outValidShape);
     op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
 
     return result;
@@ -2647,7 +2649,7 @@ void ToFile(const Tensor &operand, const std::string &fname, const std::vector<S
     function->UpdateTensorDataUsage(op);
 }
 
-Tensor GatherElement(const Tensor &params, const Tensor &indices, int axis) {
+Tensor GatherElements(const Tensor &params, const Tensor &indices, int axis) {
     DECLARE_TRACER();
     ASSERT(axis < static_cast<int>(params->shape.size()) && axis >= - static_cast<int>(params->shape.size()));
     axis = axis < 0 ? params->shape.size() + axis : axis; //支持负轴

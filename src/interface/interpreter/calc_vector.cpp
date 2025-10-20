@@ -330,4 +330,14 @@ REGISTER_CALC_OP(OP_S_MULS, Opcode::OP_S_MULS, ExecuteOpBinaryScalar<Opcode::OP_
 REGISTER_CALC_OP(OP_S_DIVS, Opcode::OP_S_DIVS, ExecuteOpBinaryScalar<Opcode::OP_DIVS>);
 REGISTER_CALC_OP(OP_S_MAXS, Opcode::OP_S_MAXS, ExecuteOpBinaryScalar<Opcode::OP_S_MAXS>);
 REGISTER_CALC_OP(OP_S_MINS, Opcode::OP_S_MINS, ExecuteOpBinaryScalar<Opcode::OP_S_MINS>);
+
+void ExecuteOpGatherElement(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto &params = ctx->ioperandDataViewList->at(0);
+    auto &indices = ctx->ioperandDataViewList->at(1);
+    int axis = ctx->op->GetIntAttribute("op_attr_axis");
+    calc::GatherElements(ret, params, indices, axis);
+}
+REGISTER_CALC_OP(OP_GATHER_ELEMENT, Opcode::OP_GATHER_ELEMENT, ExecuteOpGatherElement);
 }

@@ -341,7 +341,7 @@ public:
         // _, topkIdx = torch.topk(tmpScores, k=self.top_k, dim=-1, sorted=False)
         auto topkIdx = std::get<1>(TopK(tmpScores, numExpertsPerTok, -1)); // [b*s,256]->[b*s,8]
         // topkWeight = scores.gather(1, topkIdx)
-        auto topkWeight = GatherElement(scores, topkIdx, 1); // [b*s,8]
+        auto topkWeight = GatherElements(scores, topkIdx, 1); // [b*s,8]
 
         /* norm gate to sum 1 */
         // denominator = topkWeight.sum(dim=-1, keepdim=True) + 1e-20

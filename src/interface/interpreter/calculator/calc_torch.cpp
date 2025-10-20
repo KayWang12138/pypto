@@ -388,6 +388,13 @@ void Gather(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensor
     tout.copy_(gathered.reshape(outSize));
 }
 
+void GatherElements(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices, int axis) {
+    auto ret = From(out);
+    auto src = From(params);
+    auto index = From(indices).to(torch::kInt64);
+    torch::gather_out(ret, src, axis, index);
+}
+
 void Copy(LogicalTensorDataPtr out, LogicalTensorDataPtr self, bool trans) {
     if (trans) {
         From(out) = From(self).transpose_(-1, AXIS_TO_LAST);

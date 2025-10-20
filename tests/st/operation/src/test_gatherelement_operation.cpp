@@ -65,7 +65,7 @@ static void GatherElementOperationExeFunc2Dims(
                     {bIdx * firstViewShape, sIdx * secondViewShape});
 
                 TileShape::Current().SetVecTile(args->tileShape_);
-                auto res = GatherElement(tileTensor0, tileTensor1, args->axis_);
+                auto res = GatherElements(tileTensor0, tileTensor1, args->axis_);
                 Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
             }
         }
@@ -107,7 +107,7 @@ static void GatherElementOperationExeFunc3Dims(
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
 
                     TileShape::Current().SetVecTile(args->tileShape_);
-                    auto res = GatherElement(tileTensor0, tileTensor1, args->axis_);
+                    auto res = GatherElements(tileTensor0, tileTensor1, args->axis_);
                     Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                 }
             }
@@ -160,7 +160,7 @@ static void GatherElementOperationExeFunc4Dims(
                                     qIdx * forthViewShape});
 
                         TileShape::Current().SetVecTile(args->tileShape_);
-                        auto res = GatherElement(tileTensor0, tileTensor1, args->axis_);
+                        auto res = GatherElements(tileTensor0, tileTensor1, args->axis_);
                         Assemble(res,
                             {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
                                 qIdx * forthViewShape},

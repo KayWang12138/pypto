@@ -49,7 +49,7 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_70_8_40_1) {
 
         config::SetBuildStatic(true);
         FUNCTION("GATHER_ELEMET_T", {input_src0, input_src1, output}) {
-            output = GatherElement(input_src0, input_src1, axis);
+            output = GatherElements(input_src0, input_src1, axis);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -92,7 +92,7 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_8_32_1) {
 
         config::SetBuildStatic(true);
         FUNCTION("GATHER_ELEMET_T", {input_src0, input_src1, output}) {
-            output = GatherElement(input_src0, input_src1, axis);
+            output = GatherElements(input_src0, input_src1, axis);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -136,7 +136,7 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_7_32_1) {
 
         config::SetBuildStatic(true);
         FUNCTION("GATHER_ELEMET_T", {input_src0, input_src1, output}) {
-            output = GatherElement(input_src0, input_src1, axis);
+            output = GatherElements(input_src0, input_src1, axis);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -180,7 +180,7 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_7_32_0) {
 
         config::SetBuildStatic(true);
         FUNCTION("GATHER_ELEMET_T", {input_src0, input_src1, output}) {
-            output = GatherElement(input_src0, input_src1, axis);
+            output = GatherElements(input_src0, input_src1, axis);
         }
         DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 

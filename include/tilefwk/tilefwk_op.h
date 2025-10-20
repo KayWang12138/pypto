@@ -121,7 +121,7 @@ Tensor Ln(const Tensor &operand);
 
 Tensor Duplicate(const Tensor &operand);
 Tensor Gather(const Tensor &params, const Tensor &indices, int axis);
-Tensor GatherElement(const Tensor &params, const Tensor &indices, int axis);
+Tensor GatherElements(const Tensor &params, const Tensor &indices, int axis);
 
 enum class ScatterMode {
     NONE,

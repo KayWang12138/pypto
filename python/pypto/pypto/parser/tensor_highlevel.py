@@ -221,7 +221,7 @@ def gather_element(h: CodeHelper, inst: Instruction):
         raise Exception()
 
     axis_str = get_var_str(inst.src[2])
-    h(f'auto tsr{inst.dst.idx} = GatherElement(tsr{inst.src[0].idx}, tsr{inst.src[1].idx}, {axis_str});')
+    h(f'auto tsr{inst.dst.idx} = GatherElements(tsr{inst.src[0].idx}, tsr{inst.src[1].idx}, {axis_str});')
 
 
 def tensor_index(h: CodeHelper, inst: Instruction):

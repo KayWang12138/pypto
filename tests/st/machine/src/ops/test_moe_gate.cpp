@@ -140,7 +140,7 @@ void MoEGateOnBoardFunc(MoEGateParams& opsParams) {
         // Part4
         TileShape::Current().SetVecTile({1, 256});
         output_topk_idx = std::get<1>(TopK(output_tmp_scores, numExpertsPerTopk, -1)); // [b*s,256]->[b*s,8]
-        auto topk_weight = GatherElement(output_scores, output_topk_idx, 1); // [b*s,8]
+        auto topk_weight = GatherElements(output_scores, output_topk_idx, 1); // [b*s,8]
         auto topk_weight_sum = RowSumSingle(topk_weight, 1);      // [b*s,8]->[b*s,1]
         auto denominator = AddS(topk_weight_sum, Element(DataType::DT_FP32, DF_1E_20)); // [b*s,1]
         output_topk_weight = Div(topk_weight, denominator); // [b*s,numExpertsPerTopk]

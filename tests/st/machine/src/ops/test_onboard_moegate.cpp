@@ -333,7 +333,7 @@ TEST_F(MoegateOnBoardTest, test_moegate_graph3_graph4_case_32_1_7168) {
         auto tmp_scores = Add(score1, score2);
 
         auto topk_idx = std::get<1>(TopK(tmp_scores, numExpertsPerTopk, -1)); // [b*s,256]->[b*s,8]
-        auto topk_weight = GatherElement(scores, topk_idx, 1); // [b*s,8]
+        auto topk_weight = GatherElements(scores, topk_idx, 1); // [b*s,8]
         auto topk_weight_sum = RowSumSingle(topk_weight, 1);      // [b*s,8]->[b*s,1]
         auto denominator = AddS(topk_weight_sum, Element(DataType::DT_FP32, 1e-20f)); // [b*s,1]
         outputTensor = Div(topk_weight, denominator); // [b*s,8]

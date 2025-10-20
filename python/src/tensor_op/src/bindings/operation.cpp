@@ -129,7 +129,7 @@ void bind_operation(py::module &m) {
         py::arg("self"), py::arg("indices"), py::arg("src"), py::arg("axis"), py::arg("reduce") = ScatterMode::NONE,
         "Tensor scatter element noninplace.");
     m.def("gather_element", [](const Tensor &params, const Tensor &indices, int axis)
-        { return npu::tile_fwk::GatherElement(params, indices, axis); }, "Tensor gather element.");
+        { return npu::tile_fwk::GatherElements(params, indices, axis); }, "Tensor gather element.");
     m.def("gather", [](const Tensor &params, const Tensor &indices, int axis)
         { return npu::tile_fwk::Gather(params, indices, axis); }, "Tensor gather.");
     m.def("duplicate", [](const Tensor &operand) { return npu::tile_fwk::Duplicate(operand); }, "Tensor duplicate.");
