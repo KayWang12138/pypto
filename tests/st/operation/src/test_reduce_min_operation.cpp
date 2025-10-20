@@ -122,40 +122,53 @@ void RowMinSingle3DOperationExeFunc(
 
 void RowMinSingle4DOperationExeFunc(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    auto args = static_cast<const RowMinSingleOpFuncArgs *>(opArgs);
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
-        auto args = static_cast<const RowMinSingleOpFuncArgs *>(opArgs);
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         SymbolicScalar thirdDim = inputs[0]->shape[2];
-        SymbolicScalar fourthDim = inputs[0]->shape[3];
-        const int firstViewShape = args->viewShape_[0];
-        const int secondViewShape = args->viewShape_[1];
-        const int thirdViewShape = args->viewShape_[2];
-        const int fourthViewShape = args->viewShape_[3];
-
-        const int bloop = CeilDiv(firstDim, firstViewShape);
-        const int sloop = CeilDiv(secondDim, secondViewShape);
-        const int mloop = CeilDiv(thirdDim, thirdViewShape);
-        const int nloop = CeilDiv(fourthDim, fourthViewShape);
-
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                LOOP("LOOP_L2_mIdx", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mloop, 1)) {
-                    LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
-                        auto viewTensor =
-                            View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
-                                {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                    std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                                    std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
-                                    std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
-                                {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
-                                    nIdx * fourthViewShape});
+        SymbolicScalar lastDim = inputs[0]->shape[3];
+        int dim = args->dims_[0];
+        if (dim < 0) {
+            dim = static_cast<int>(inputs[0]->shape.size()) + dim;
+        }
+        SymbolicScalar viewShape[] = {
+            args->viewShape_[0], args->viewShape_[1],
+            args->viewShape_[2], args->viewShape_[3]
+        };
+        int loops[] = {
+            CeilDiv(inputs[0]->shape[0], viewShape[0]),
+            CeilDiv(inputs[0]->shape[1], viewShape[1]),
+            CeilDiv(inputs[0]->shape[2], viewShape[2]),
+            CeilDiv(inputs[0]->shape[3], viewShape[3])
+        };
+        viewShape[dim] = 0;
+        loops[dim] = 1;
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loops[IDX_DIM0])) {
+            LOOP("LOOP_L1_bIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loops[IDX_DIM1])) {
+                LOOP("LOOP_L2_bIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(loops[IDX_DIM2])) {
+                    LOOP("LOOP_L3_bIdx", FunctionType::DYNAMIC_LOOP, qIdx, LoopRange(loops[IDX_DIM3])) {
+                        std::vector<SymbolicScalar> offset = {
+                            bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2], qIdx * viewShape[3]
+                        };
+                        auto viewTensor = View(inputs[0],
+                            {
+                                viewShape[0] == 0 ? firstDim : viewShape[0],
+                                viewShape[1] == 0 ? secondDim : viewShape[1],
+                                viewShape[2] == 0 ? thirdDim : viewShape[2],
+                                viewShape[3] == 0 ? lastDim : viewShape[3]
+                            },
+                            {
+                                viewShape[0] == 0 ? firstDim : std::min(firstDim - bIdx * viewShape[0], viewShape[0]),
+                                viewShape[1] == 0 ? secondDim : std::min(secondDim - sIdx * viewShape[1], viewShape[1]),
+                                viewShape[2] == 0 ? thirdDim : std::min(thirdDim - nIdx * viewShape[2], viewShape[2]),
+                                viewShape[3] == 0 ? lastDim : std::min(lastDim - qIdx * viewShape[3], viewShape[3])
+                            },
+                            offset);
                         TileShape::Current().SetVecTile(args->tileShape_);
                         auto res = RowMinSingle(viewTensor, args->dims_[0]);
-                        Assemble(res,
-                            {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
-                                nIdx * fourthViewShape},
-                            outputs[0]);
+                        Assemble(res, offset, outputs[0]);
                     }
                 }
             }
