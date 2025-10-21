@@ -40,10 +40,11 @@ struct RowMinSingleOperationMetadata {
     nlohmann::json test_data_;
 };
 
-void RowMinSingle2DOperationExeFunc(
-    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+void RowMinSingleOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
+                                const OpFuncArgs* opArgs) {
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    auto args = static_cast<const RowMinSingleOpFuncArgs *>(opArgs);
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
-        auto args = static_cast<const RowMinSingleOpFuncArgs *>(opArgs);
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         int dim = args->dims_[0];
@@ -51,36 +52,31 @@ void RowMinSingle2DOperationExeFunc(
             dim = static_cast<int>(inputs[0]->shape.size()) + dim;
         }
         SymbolicScalar viewShape[] = {args->viewShape_[0], args->viewShape_[1]};
-        int loops[] = {
-            CeilDiv(inputs[0]->shape[0], viewShape[0]),
-            CeilDiv(inputs[0]->shape[1], viewShape[1])
-        };
         viewShape[dim] = 0;
-        loops[dim] = 1;
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, loops[IDX_DIM0], 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, loops[IDX_DIM1], 1)) {
-                auto viewTensor = View(inputs[0],
-                    {
-                        viewShape[0] == 0 ? firstDim : viewShape[0],
-                        viewShape[1] == 0 ? secondDim : viewShape[1]
-                    },
-                    {
-                        viewShape[0] == 0 ? firstDim : std::min(firstDim - bIdx * viewShape[0], viewShape[0]),
-                        viewShape[1] == 0 ? secondDim : std::min(secondDim - sIdx * viewShape[1], viewShape[1])
-                    },
-                    {bIdx * viewShape[0], sIdx * viewShape[1]});
-                TileShape::Current().SetVecTile(args->tileShape_);
-                auto res = RowMinSingle(viewTensor, args->dims_[0]);
-                    Assemble(res, {bIdx * viewShape[0], sIdx * viewShape[1]}, outputs[0]);
-            }
+        const int batch = CeilDiv(inputs[0]->shape[1 - dim], viewShape[1 - dim]);
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(batch)) {
+            auto viewTensor = View(inputs[0],
+                {
+                    viewShape[0] == 0 ? firstDim : viewShape[0],
+                    viewShape[1] == 0 ? secondDim : viewShape[1]
+                },
+                {
+                    viewShape[0] == 0 ? firstDim : std::min(firstDim - bIdx * viewShape[0], viewShape[0]),
+                    viewShape[1] == 0 ? secondDim : std::min(secondDim - bIdx * viewShape[1], viewShape[1])
+                },
+                {bIdx * viewShape[0], bIdx * viewShape[1]});
+            TileShape::Current().SetVecTile(args->tileShape_);
+            auto res = RowMinSingle(viewTensor, args->dims_[0]);
+            Assemble(res, {bIdx * viewShape[0], bIdx * viewShape[1]}, outputs[0]);
         }
     }
 }
 
 void RowMinSingle3DOperationExeFunc(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    auto args = static_cast<const RowMinSingleOpFuncArgs *>(opArgs);
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
-        auto args = static_cast<const RowMinSingleOpFuncArgs *>(opArgs);
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         SymbolicScalar lastDim = inputs[0]->shape[2];
@@ -182,7 +178,7 @@ class RowMinSingleOperationTest
 INSTANTIATE_TEST_SUITE_P(TestRowMinSingle, RowMinSingleOperationTest,
     ::testing::ValuesIn(
         GetOpMetaData<RowMinSingleOperationMetadata>(
-            {RowMinSingle2DOperationExeFunc, RowMinSingle3DOperationExeFunc, RowMinSingle4DOperationExeFunc},
+            {RowMinSingleOperationExeFunc, RowMinSingle3DOperationExeFunc, RowMinSingle4DOperationExeFunc},
             "RowMinSingle")));
 
 TEST_P(RowMinSingleOperationTest, TestRowMinSingle) {

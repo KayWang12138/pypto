@@ -532,10 +532,12 @@ TILEOP void DynTrowminsingle_(
         __ubuf__ T *dst_ = dst;
         __ubuf__ T *src_ = src;
         for (int j = 0; j < OS1; ++j) {
-            TileOp::DynTrowminsingle_<T, DS3, SS3, TBS3>(dst_, src_, tmp, OS2, OS3);
-            dst_ += DS3 * DS2;
-            src_ += SS3 * SS2;
-            pipe_barrier(PIPE_V);
+            if (OS2 != 0 && OS3 != 0) {
+                TileOp::DynTrowminsingle_<T, DS3, SS3, TBS3>(dst_, src_, tmp, OS2, OS3);
+                dst_ += DS3 * DS2;
+                src_ += SS3 * SS2;
+                pipe_barrier(PIPE_V);
+            }
         }
         dst += DS1 * DS2 * DS3;
         src += SS1 * SS2 * SS3;
