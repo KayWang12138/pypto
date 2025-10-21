@@ -41,7 +41,7 @@ template<typename T = npu::tile_fwk::float16>
 void genAtten(GenAttenTileShapeConfig &tileConfig) {
     SetInterpreterConfig();
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-    config::SetPassOption(MACHINE_CONFIG, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH));
+    config::SetRuntimeOption(MACHINE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH));
 
     int paramsSize = 4;
     std::vector<int> inputParam(paramsSize);

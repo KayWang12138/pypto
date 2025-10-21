@@ -32,7 +32,6 @@ static std::map<std::string, ValueType> g_passConfig = {
     {CUBE_NBUFFER, 1},
     {CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{}},
     {COPYIN_THRESHOLD, 1024 * 1024},
-    {MACHINE_CONFIG, 0},
     {OOO_PRESCHEDULE_METHOD, "PriorDFS"},
     {NBUFFER_MERGE_MODE, 1},
     {VEC_NBUFFER_MAP, std::map<int64_t, int64_t>{}},
@@ -40,6 +39,14 @@ static std::map<std::string, ValueType> g_passConfig = {
     {SG_CUBE_PARALLEL_NUM, 24},
     {SG_SKIP_PARTITION, false},
     {COPYOUT_RESOLVE_COALESCING, 0},
+};
+
+static std::map<std::string, ValueType> g_runtimeConfig = {
+    {MACHINE_SCHED_MODE, 0},
+    {WORKSPACE_RECYCLE_PERIOD, 10},
+    {ESTIMATED_STITCH_TASK_MAX_LOOP_NUM, 50},
+    {FIRST_STITCH_TASK_LOOP_NUM, 30},
+    {SUBSEQ_STITCH_TASK_INCR_LOOP_NUM, 30}, // Increasing loop number
 };
 
 struct ConfigStorage {
@@ -54,6 +61,9 @@ struct ConfigStorage {
         printOption.linewidth = 80; // 80 max line width
         for (auto &[key, val] : g_passConfig) {
             options["pass." + key] = val;
+        }
+        for (auto &[key, val] : g_runtimeConfig) {
+            options["runtime." + key] = val;
         }
     }
 

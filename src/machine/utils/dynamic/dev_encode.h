@@ -2210,6 +2210,8 @@ struct DevAscendProgram {
     uint64_t hcclContext[HCCL_GROUP_NUM];
     uint64_t commGroupNum;
     uint32_t workspaceRecyclePeriod;
+    uint16_t firstStitchTaskLoopNum;
+    uint16_t stitchTaskIncrLoopNum;
     DevRelocVector<DevAscendProgramSymbol> symbolTable;
     DevRelocVector<char> symbolTableNameList;
     uint64_t expressionTableSize;
@@ -2288,6 +2290,9 @@ struct DevAscendProgram {
         oss << "DevProgram {\n";
         oss << INDENTINNER << "#aicoreLocalWorkspaceSize:" << aicoreLocalWorkspaceSize << "\n";
         oss << INDENTINNER << "#aicpuCoherentWorkspaceSize:" << aicpuCoherentWorkspaceSize << "\n";
+        oss << INDENTINNER << "#machineSchMode:" << devArgs.machineConfig << "\n";
+        oss << INDENTINNER << "#firstStitchTaskLoopNum:" << firstStitchTaskLoopNum << "\n";
+        oss << INDENTINNER << "#stitchTaskIncrLoopNum:" << stitchTaskIncrLoopNum << "\n";
         oss << INDENTINNER << "#slot:" << slotSize << "\n";
         oss << INDENTINNER << "#symbolCount:" << symbolTable.size() << "\n";
         for (size_t i = 0; i < symbolTable.size(); i++) {

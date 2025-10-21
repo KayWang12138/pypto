@@ -1203,6 +1203,7 @@ struct DeviceExecuteContext {
 
     DevAscendProgram *devProg{nullptr};
     DeviceExecuteProgram execProg;
+    uint16_t stitchTaskLoopNumThreshold{MAX_CACHED_FUNC_NUM};
 
     DeviceWorkspaceAllocator workspace;
 
@@ -1295,6 +1296,10 @@ struct DeviceExecuteContext {
         this->devProg = startArgs->devProg;
 
         workspace.Init(startArgs);
+        if (devProg->firstStitchTaskLoopNum > 0) {
+            stitchTaskLoopNumThreshold = std::min<uint16_t>(devProg->firstStitchTaskLoopNum, MAX_CACHED_FUNC_NUM);
+            DEV_INFO("first stitch task loop num threshold is %u.", stitchTaskLoopNumThreshold);
+        }
 
         slotContext.InitAllocator(workspace, devProg->slotSize);
         slotContext.FillInputOutputSlot(devProg, startArgs);
@@ -1400,9 +1405,12 @@ struct DeviceExecuteContext {
     void *CallRootFunctionAlloc(uint64_t rootKey) {
         DevAscendFunction *devRoot = devProg->GetFunction(rootKey);
         DEV_INFO("prepare one func %p %s.", devRoot, devRoot->GetRawName());
-        if (stitchContext.Size() == MAX_CACHED_FUNC_NUM ||
+        if (stitchContext.Size() == stitchTaskLoopNumThreshold ||
             stitchContext.stitchedCallOpSize() + devRoot->GetOperationSize() > MAX_READY_QUE_ELM_SIZE) {
             SubmitToAicoreAndRecycleMemory(false);
+            stitchTaskLoopNumThreshold =
+                std::min<uint16_t>(stitchTaskLoopNumThreshold + devProg->stitchTaskIncrLoopNum, MAX_CACHED_FUNC_NUM);
+            DEV_INFO("next stitch task loop num threshold is %u.", stitchTaskLoopNumThreshold);
         }
         DEV_TRACE_DEBUG(REvent(GetRuid(rootKey), RActDup(devRoot->GetRawName())));
 

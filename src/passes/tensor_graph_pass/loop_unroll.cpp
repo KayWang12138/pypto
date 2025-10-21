@@ -342,7 +342,9 @@ Status LoopUnroll::CreateLoopUnrollFunc(Function *function) {
     paramConfigs.sgCycleLowerBound = config::GetPassOption<int>(SG_CYCLE_LOWER_BOUND);
     paramConfigs.sgParallelNum = config::GetPassOption<int>(SG_PARALLEL_NUM);
     paramConfigs.sgCopyInThreshold = config::GetPassOption<int>(COPYIN_THRESHOLD);
-    paramConfigs.machineConfig_ = config::GetPassOption<uint8_t>(MACHINE_CONFIG);
+    paramConfigs.machineConfig_ = config::GetRuntimeOption<uint8_t>(MACHINE_SCHED_MODE);
+    paramConfigs.firstStitchTaskLoopNum_= config::GetRuntimeOption<uint16_t>(FIRST_STITCH_TASK_LOOP_NUM);
+    paramConfigs.stitchTaskIncrLoopNum_ = config::GetRuntimeOption<uint16_t>(SUBSEQ_STITCH_TASK_INCR_LOOP_NUM);
     paramConfigs.l1ReuseMap = config::GetPassOption<std::map<int64_t, int64_t>>(L1_REUSE_MAP);
     paramConfigs.cubeNBufferMap = config::GetPassOption<std::map<int64_t, int64_t>>(CUBE_NBUFFER_MAP);
     paramConfigs.OoOPreScheduleMethod = config::GetPassOption<std::string>(OOO_PRESCHEDULE_METHOD);

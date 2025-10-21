@@ -27,7 +27,6 @@ constexpr const char *L1_REUSE_MAP = "l1_reuse_map";
 constexpr const char *CUBE_NBUFFER = "cube_nbuffer";
 constexpr const char *CUBE_NBUFFER_MAP = "cube_nbuffer_map";
 constexpr const char *COPYIN_THRESHOLD = "copyin_threshold";
-constexpr const char *MACHINE_CONFIG = "machine_config";
 constexpr const char *OOO_PRESCHEDULE_METHOD = "ooo_preschedule_method";
 constexpr const char *NBUFFER_MERGE_MODE = "nbuffer_merge_mode";
 constexpr const char *VEC_NBUFFER_MAP = "vec_nbuffer_map";
@@ -39,6 +38,13 @@ constexpr const char *L1_REUSE_NUM = "l1_reuse_num";
 constexpr const char *CUBE_NBUFFER_NUM = "cube_nbuffer_num";
 constexpr const char *DB_TYPE = "db_type";
 constexpr const char *COPYOUT_RESOLVE_COALESCING = "copyout_resolve_coalescing";
+
+//runtime
+constexpr const char *MACHINE_SCHED_MODE = "machine_sched_mode";
+constexpr const char *WORKSPACE_RECYCLE_PERIOD = "workspace_recycle_period";
+constexpr const char *ESTIMATED_STITCH_TASK_MAX_LOOP_NUM = "estimated_stitch_task_max_loop_num";
+constexpr const char *FIRST_STITCH_TASK_LOOP_NUM = "first_stitch_task_loop_num";
+constexpr const char *SUBSEQ_STITCH_TASK_INCR_LOOP_NUM = "subseq_stitch_task_incr_loop_num";
 
 struct ConfigStorage;
 

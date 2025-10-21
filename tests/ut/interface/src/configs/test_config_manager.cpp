@@ -38,10 +38,10 @@ TEST_F(TestConfigManager, GlobalConfig) {
 
 TEST_F(TestConfigManager, HostConfigs) {
     {
-        auto ret = config::GetHostConfig("workspace_recycle_period", 0);
+        auto ret = config::GetRuntimeOption<int>(WORKSPACE_RECYCLE_PERIOD);
         EXPECT_EQ(ret, 10);
-        config::SetHostConfig("workspace_recycle_period", 20);
-        ret = config::GetHostConfig("workspace_recycle_period", 0);
+        config::SetRuntimeOption<int>(WORKSPACE_RECYCLE_PERIOD, 20);
+        ret = config::GetRuntimeOption<int>(WORKSPACE_RECYCLE_PERIOD);
         EXPECT_EQ(ret, 20);
     }
 

@@ -28,8 +28,8 @@ void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileCon
     (void) timeThreshold;
     
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-    config::SetPassOption(MACHINE_CONFIG, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH));
-
+    config::SetRuntimeOption(MACHINE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH));
+    config::SetRuntimeOption(FIRST_STITCH_TASK_LOOP_NUM, 128);
     std::string cacheMode = "PA_NZ";
 
     int b = params[0];
@@ -423,8 +423,8 @@ TEST_F(DynamicAttention, high_throughput_quant_smooth_nz) { // b_n_s_s2_h_q_lora
     paTileConfig.v2TileShape = {16, 256};
 
     // Set Stitching window optimization
-    config::SetHostConfig("workspace_recycle_period", 11);
-    config::SetHostConfig("estimated_stitching_count", 32);
+    config::SetRuntimeOption<int>(WORKSPACE_RECYCLE_PERIOD, 11);
+    config::SetRuntimeOption<int>(ESTIMATED_STITCH_TASK_MAX_LOOP_NUM, 32);
 
     TestDynamicAttention<npu::tile_fwk::float16, int8_t, splitK, nz>(params, paTileConfig, GetGoldenDir(), 10000,
             isQuant, isSmooth);

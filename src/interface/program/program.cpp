@@ -208,7 +208,9 @@ bool Program::BeginFunction(const std::string &funcName,
     currentFunctionPtr_->paramConfigs_.sgCycleLowerBound = config::GetPassOption<int>(SG_CYCLE_LOWER_BOUND);
     currentFunctionPtr_->paramConfigs_.sgParallelNum = config::GetPassOption<int>(SG_PARALLEL_NUM);
     currentFunctionPtr_->paramConfigs_.sgCopyInThreshold = config::GetPassOption<int>(COPYIN_THRESHOLD);
-    currentFunctionPtr_->paramConfigs_.machineConfig_ = config::GetPassOption<uint8_t>(MACHINE_CONFIG);
+    currentFunctionPtr_->paramConfigs_.machineConfig_ = config::GetRuntimeOption<uint8_t>(MACHINE_SCHED_MODE);
+    currentFunctionPtr_->paramConfigs_.firstStitchTaskLoopNum_= config::GetRuntimeOption<uint16_t>(FIRST_STITCH_TASK_LOOP_NUM);
+    currentFunctionPtr_->paramConfigs_.stitchTaskIncrLoopNum_ = config::GetRuntimeOption<uint16_t>(SUBSEQ_STITCH_TASK_INCR_LOOP_NUM);
     currentFunctionPtr_->paramConfigs_.l1ReuseMap = config::GetPassOption<std::map<int64_t, int64_t>>(L1_REUSE_MAP);
     currentFunctionPtr_->paramConfigs_.cubeNBufferMap = config::GetPassOption<std::map<int64_t, int64_t>>(CUBE_NBUFFER_MAP);
     currentFunctionPtr_->paramConfigs_.OoOPreScheduleMethod = config::GetPassOption<std::string>(OOO_PRESCHEDULE_METHOD);

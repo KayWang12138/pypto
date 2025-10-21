@@ -417,6 +417,8 @@ struct ParamConfigs {
     int sgParallelNum{1};
     int sgCopyInThreshold{2*1024*1024};
     uint8_t machineConfig_{0}; // machine config
+    uint16_t firstStitchTaskLoopNum_{0};
+    uint16_t stitchTaskIncrLoopNum_{0};
     std::map<int64_t, int64_t> l1ReuseMap;
     std::map<int64_t, int64_t> cubeNBufferMap;
     std::string OoOPreScheduleMethod{"PriorDFS"};

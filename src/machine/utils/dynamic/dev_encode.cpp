@@ -1731,16 +1731,14 @@ struct LocalWorkspaceResult {
     uint64_t standardStackWorkspacePerCore{0};
 };
 
-static int EstimatedStitchingCount() {
-    static constexpr int DEFAULT_VALUE = 5;
-    static int value = config::GetHostConfig("estimated_stitching_count", DEFAULT_VALUE);
+int EstimatedStitchingCount() {
+    int value = config::GetRuntimeOption<int>(ESTIMATED_STITCH_TASK_MAX_LOOP_NUM);
     ASSERT(value > 0);
     return value;
 }
 
-static int WorkspaceRecyclePeriod() {
-    static constexpr int DEFAULT_VALUE = 5;
-    static int value = config::GetHostConfig("workspace_recycle_period", DEFAULT_VALUE);
+int WorkspaceRecyclePeriod() {
+    int value = config::GetRuntimeOption<int>(WORKSPACE_RECYCLE_PERIOD);
     ASSERT(value > 0);
     return value;
 }
@@ -1893,6 +1891,8 @@ void EncodeDevAscendProgram(Function *func, uint64_t &offset, DevAscendProgram *
         base->stitchPoolSize = CalcStitchWorkspace(*base);
         base->devArgs.machineConfig = func->paramConfigs_.machineConfig_;
         base->workspaceRecyclePeriod = WorkspaceRecyclePeriod();
+        base->firstStitchTaskLoopNum = func->paramConfigs_.firstStitchTaskLoopNum_;
+        base->stitchTaskIncrLoopNum = func->paramConfigs_.stitchTaskIncrLoopNum_;
 
 #if DEBUG_INFINITE_LIFETIME
         base->debugDumpTensorMemReq = 8 * GIBI;
