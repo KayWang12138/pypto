@@ -19,7 +19,6 @@
 #include <unistd.h>
 #include "interface/configs/config_manager.h"
 #include "pass_interface/pass.h"
-#include "pass_interface/pass_type.h"
 #include "pass_registry.h"
 #include "interface/tensor/expected_value.h"
 #include "tilefwk/error.h"
@@ -96,50 +95,50 @@ void RegPass() {
 void PassManager::RegDefaultStrategy() {
     RegisterStrategy(
         "PVC2_OOO", {
-            {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
-            {      "InferMemoryConflict",      "InferMemoryConflict",  PassType::TYPE_TENSOR_GRAPH},
-            {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
-            {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
-            {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
-            {             "SplitReshape",             "SplitReshape",    PassType::TYPE_TILE_GRAPH},
-            {           "SplitRawTensor",           "SplitRawTensor",    PassType::TYPE_TILE_GRAPH},
-            {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
-            {  "InferDiscontinuousInput",  "InferDiscontinuousInput",    PassType::TYPE_TILE_GRAPH},
-            {        "DuplicateGatherIn",        "DuplicateGatherIn",    PassType::TYPE_TILE_GRAPH},
-            {           "DuplicateView2",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
-            {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
-            {        "RemoveRedundantOp",        "RemoveRedundantOp",    PassType::TYPE_TILE_GRAPH},
-            {                   "SplitK",                   "SplitK",    PassType::TYPE_TILE_GRAPH},
-            {           "GraphPartition",           "GraphPartition",    PassType::TYPE_TILE_GRAPH},
-            {             "NBufferMerge",             "NBufferMerge",    PassType::TYPE_TILE_GRAPH},
-            {     "IntraSubgraphAdapter",     "IntraSubgraphAdapter",    PassType::TYPE_TILE_GRAPH},
-            {           "GenerateMoveOp",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
-            { "CommonOperationEliminate", "CommonOperationEliminate",    PassType::TYPE_TILE_GRAPH},
-            {       "L1CopyInReuseMerge",       "L1CopyInReuseMerge",    PassType::TYPE_TILE_GRAPH},
-            {"CommonOperationEliminate2", "CommonOperationEliminate",    PassType::TYPE_TILE_GRAPH},
-            {           "PadLocalBuffer",           "PadLocalBuffer",    PassType::TYPE_TILE_GRAPH},
-            {   "RemoveUnalignedReshape",   "RemoveUnalignedReshape",    PassType::TYPE_TILE_GRAPH},
-            {           "InplaceProcess",           "InplaceProcess",    PassType::TYPE_TILE_GRAPH},
-            {          "PreGraphProcess",          "PreGraphProcess",    PassType::TYPE_TILE_GRAPH},
-            {            "InferDynShape",            "InferDynShape",    PassType::TYPE_TILE_GRAPH},
-            {       "SubgraphToFunction",       "SubgraphToFunction",    PassType::TYPE_TILE_GRAPH},
-            {          "InferParamIndex",          "InferParamIndex",   PassType::TYPE_BLOCK_GRAPH},
-            {        "SrcDstBufferMerge",        "SrcDstBufferMerge",   PassType::TYPE_BLOCK_GRAPH},
-            {                 "AddAlloc",                 "AddAlloc",   PassType::TYPE_BLOCK_GRAPH},
-            {              "OoOSchedule",              "OoOSchedule",   PassType::TYPE_BLOCK_GRAPH},
-            {        "GlobalMemoryReuse",        "GlobalMemoryReuse",   PassType::TYPE_BLOCK_GRAPH},
-            {              "RemoveAlloc",              "RemoveAlloc",   PassType::TYPE_BLOCK_GRAPH},
-            {           "CopyOutResolve",           "CopyOutResolve",   PassType::TYPE_BLOCK_GRAPH},
-            {               "InsertSync",               "InsertSync",   PassType::TYPE_BLOCK_GRAPH},
-            {           "CodegenPreproc",           "CodegenPreproc",   PassType::TYPE_BLOCK_GRAPH},
+            {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
+            {      "InferMemoryConflict",      "InferMemoryConflict"},
+            {           "ExpandFunction",           "ExpandFunction"},
+            {            "DuplicateView",            "DuplicateView"},
+            {        "MergeViewAssemble",        "MergeViewAssemble"},
+            {             "SplitReshape",             "SplitReshape"},
+            {           "SplitRawTensor",           "SplitRawTensor"},
+            {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor"},
+            {  "InferDiscontinuousInput",  "InferDiscontinuousInput"},
+            {        "DuplicateGatherIn",        "DuplicateGatherIn"},
+            {           "DuplicateView2",            "DuplicateView"},
+            {         "AssignMemoryType",         "AssignMemoryType"},
+            {        "RemoveRedundantOp",        "RemoveRedundantOp"},
+            {                   "SplitK",                   "SplitK"},
+            {           "GraphPartition",           "GraphPartition"},
+            {             "NBufferMerge",             "NBufferMerge"},
+            {     "IntraSubgraphAdapter",     "IntraSubgraphAdapter"},
+            {           "GenerateMoveOp",           "GenerateMoveOp"},
+            { "CommonOperationEliminate", "CommonOperationEliminate"},
+            {       "L1CopyInReuseMerge",       "L1CopyInReuseMerge"},
+            {"CommonOperationEliminate2", "CommonOperationEliminate"},
+            {           "PadLocalBuffer",           "PadLocalBuffer"},
+            {   "RemoveUnalignedReshape",   "RemoveUnalignedReshape"},
+            {           "InplaceProcess",           "InplaceProcess"},
+            {          "PreGraphProcess",          "PreGraphProcess"},
+            {            "InferDynShape",            "InferDynShape"},
+            {       "SubgraphToFunction",       "SubgraphToFunction"},
+            {          "InferParamIndex",          "InferParamIndex"},
+            {        "SrcDstBufferMerge",        "SrcDstBufferMerge"},
+            {                 "AddAlloc",                 "AddAlloc"},
+            {              "OoOSchedule",              "OoOSchedule"},
+            {        "GlobalMemoryReuse",        "GlobalMemoryReuse"},
+            {              "RemoveAlloc",              "RemoveAlloc"},
+            {           "CopyOutResolve",           "CopyOutResolve"},
+            {               "InsertSync",               "InsertSync"},
+            {           "CodegenPreproc",           "CodegenPreproc"},
     });
     RegisterStrategy(
         "FunctionUnroll", {
-            {               "LoopUnroll",               "LoopUnroll",  PassType::TYPE_TENSOR_GRAPH}
+            {               "LoopUnroll",               "LoopUnroll"}
     });
     RegisterStrategy(
         "ScalarOptimize", {
-            {               "DynAttrToStatic",     "DynAttrToStatic",  PassType::TYPE_BLOCK_GRAPH}
+            {               "DynAttrToStatic",     "DynAttrToStatic"}
     });
 }
 

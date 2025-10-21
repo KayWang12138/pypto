@@ -280,7 +280,7 @@ TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeSTest1) {
     EXPECT_EQ(func->Operations().size(), kSizeThirteen);
 
     passManager.RegisterStrategy("RemoveRedundantReshapeTestStrategy", {
-        {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
+        {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
     });
     EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "RemoveRedundantReshapeTestStrategy"), SUCCESS);
 

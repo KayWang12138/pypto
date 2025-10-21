@@ -88,9 +88,9 @@ public:
 TEST_F(PassManagerTest, TestPassManager) {
     REG_PASS(PassTestCast);
     PassManager::Instance().RegisterStrategy("PM_TEST", {
-                        {   "PassTestCast1",   "PassTestCast1",  PassType::TYPE_TENSOR_GRAPH}});
+                        {   "PassTestCast1",   "PassTestCast1"}});
     PassManager::Instance().RegisterStrategy("PM_TEST2", {
-                        {   "PassTestCast1",   "PassTestCast1",  PassType::TYPE_TENSOR_GRAPH}});
+                        {   "PassTestCast1",   "PassTestCast1"}});
     auto errPasses = PassManager::Instance().GetStrategyPasses("PM_TEST1");
     EXPECT_TRUE(errPasses.empty());
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPassManager", "TestPassManager", nullptr);
@@ -123,9 +123,9 @@ TEST_F(PassManagerTest, TestPassBase) {
 
 TEST_F(PassManagerTest, TestPassStrategy) {
     PassManager::Instance().RegisterStrategy("StrategyTest", {
-                        {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
-                        {      "InferMemoryConflict",      "InferMemoryConflict",  PassType::TYPE_TENSOR_GRAPH},
-                        {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH}});
+                        {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
+                        {      "InferMemoryConflict",      "InferMemoryConflict"},
+                        {           "ExpandFunction",           "ExpandFunction"}});
     // user define
     auto strategyPasses = PassManager::Instance().GetStrategyPasses("StrategyTest");
     EXPECT_TRUE(!strategyPasses.empty());
@@ -139,8 +139,8 @@ TEST_F(PassManagerTest, TestPassStrategy) {
 
 TEST_F(PassManagerTest, TestPassReg) {
     PassManager::Instance().RegisterStrategy("TestPassReg", {
-                        {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
-                        {   "RemoveRedundantReshape",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH}});
+                        {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
+                        {   "RemoveRedundantReshape",           "ExpandFunction"}});
     // user define
     auto strategyPasses = PassManager::Instance().GetStrategyPasses("TestPassReg");
     EXPECT_TRUE(strategyPasses.size() == 1);
@@ -161,7 +161,7 @@ void GetGraph(ComputationalGraphBuilder &G) {
 
 TEST_F(PassManagerTest, TestPassDFX) {
     PassManager::Instance().RegisterStrategy("TestPassDFX", {
-                        {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH}});
+                        {   "RemoveRedundantReshape",   "RemoveRedundantReshape"}});
     ComputationalGraphBuilder G;
     GetGraph(G);
     Function *function = G.GetFunction();

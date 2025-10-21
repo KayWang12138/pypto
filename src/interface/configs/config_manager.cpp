@@ -65,20 +65,6 @@ const nlohmann::json *ConfigManager::GetJsonNode(const nlohmann::json &root, con
     return ::npu::tile_fwk::GetJsonNode(root, keys);
 }
 
-static PassType StringToPassType(const std::string &str, PassType defaultValue) {
-    static std::map<std::string, PassType> passTypeStrMap = {
-        { "tensor_graph",  PassType::TYPE_TENSOR_GRAPH},
-        {   "tile_graph",    PassType::TYPE_TILE_GRAPH},
-        {"execute_graph", PassType::TYPE_BLOCK_GRAPH}
-    };
-
-    if (auto it = passTypeStrMap.find(str); it != passTypeStrMap.end()) {
-        return it->second;
-    }
-
-    return defaultValue;
-}
-
 Status ConfigManager::Initialize() {
     if (isInit_) {
         ASLOGI("ConfigManager has been initialized.");
@@ -271,8 +257,6 @@ static PassConfigs InternalGetPassConfigs(const nlohmann::json &root, const Glob
 static std::map<std::string, std::function<void(GlobalPassConfigs &, const nlohmann::json &)>> g_assignGlobalConfigFns = {
     {    "enable_pass_configs",
      [](GlobalPassConfigs &configs, const nlohmann::json &node) { configs.enablePassConfigs = node.get<bool>(); }},
-    { "enabled_last_pass_type",
-     [](GlobalPassConfigs &configs, const nlohmann::json &node) { configs.enabledLastPassType = StringToPassType(node.get<std::string>(), PassType::TYPE_BLOCK_GRAPH); }},
     {   "default_pass_configs",
      [](GlobalPassConfigs &configs, const nlohmann::json &node) { configs.defaultPassConfigs = InternalGetPassConfigs(node, nullptr); }},
 };

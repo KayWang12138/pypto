@@ -76,7 +76,6 @@
     },
     "pass_global_configs": {
         "enable_pass_configs": true,
-        "enabled_last_pass_type": "execute_graph",
         "enable_cv_fuse": false,
         "pass_thread_num": 1,
         "default_pass_configs": {

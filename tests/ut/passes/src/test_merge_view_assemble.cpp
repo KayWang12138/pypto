@@ -62,10 +62,10 @@ TEST_F(MergeViewAssembleTest, TestMergeViewAssemble) {
 
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("ViewAssembleTestStrategy", {
-        {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
-        {      "InferMemoryConflict",      "InferMemoryConflict",  PassType::TYPE_TENSOR_GRAPH},
-        {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
-        {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
+        {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
+        {      "InferMemoryConflict",      "InferMemoryConflict"},
+        {           "ExpandFunction",           "ExpandFunction"},
+        {            "DuplicateView",            "DuplicateView"},
     });
 
     Function* originFunction = nullptr;

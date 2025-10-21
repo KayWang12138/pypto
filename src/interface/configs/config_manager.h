@@ -22,7 +22,6 @@
 #include <set>
 #include "interface/utils/common.h"
 #include "interface/utils/log.h"
-#include "passes/pass_interface/pass_type.h"
 
 namespace npu::tile_fwk {
 using JsonExpcetion = nlohmann::json::exception;
@@ -139,7 +138,6 @@ struct PassConfigs {
 };
 
 struct GlobalPassConfigs {
-    PassType enabledLastPassType{PassType::TYPE_BLOCK_GRAPH};
     bool enablePassConfigs{false};
     PassConfigs defaultPassConfigs;
 };
@@ -162,7 +160,6 @@ public:
     Status Initialize();
 
     const GlobalPassConfigs &GetGlobalConfigs() const { return globalPassConfigs_; }
-    PassType GetEnabledLastPassType() const { return globalPassConfigs_.enabledLastPassType; }
     PassConfigs GetPassConfigs(const std::string &strategy, const std::string &identifier) const;
     void PassConfigsDebugInfo(const std::string &strategy, const std::vector<std::string> &identifiers) const;
 

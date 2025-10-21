@@ -73,14 +73,14 @@ TEST_F(RemoveRedundantOpTest, TestIntermediateOutcast) {
     std::vector<int64_t> resShape{bs, n, d};
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("RemoveRedundantOpTestStrategy", {
-    {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
-    {      "InferMemoryConflict",      "InferMemoryConflict",  PassType::TYPE_TENSOR_GRAPH},
-    {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
-    {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
-    {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
-    {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
-    {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
-    {             "SplitReshape",             "SplitReshape",    PassType::TYPE_TILE_GRAPH},
+    {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
+    {      "InferMemoryConflict",      "InferMemoryConflict"},
+    {           "ExpandFunction",           "ExpandFunction"},
+    {            "DuplicateView",            "DuplicateView"},
+    {        "MergeViewAssemble",        "MergeViewAssemble"},
+    {         "AssignMemoryType",         "AssignMemoryType"},
+    {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor"},
+    {             "SplitReshape",             "SplitReshape"},
     });
     ConfigManager::Instance();
 
@@ -142,14 +142,14 @@ TEST_F(RemoveRedundantOpTest, TestInternalAssembleView) {
     std::vector<int64_t> resShape{bs, n, d};
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("RemoveRedundantOpTestStrategy", {
-    {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
-    {      "InferMemoryConflict",      "InferMemoryConflict",  PassType::TYPE_TENSOR_GRAPH},
-    {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
-    {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
-    {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
-    {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
-    {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
-    {             "SplitReshape",             "SplitReshape",    PassType::TYPE_TILE_GRAPH},
+    {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
+    {      "InferMemoryConflict",      "InferMemoryConflict"},
+    {           "ExpandFunction",           "ExpandFunction"},
+    {            "DuplicateView",            "DuplicateView"},
+    {        "MergeViewAssemble",        "MergeViewAssemble"},
+    {         "AssignMemoryType",         "AssignMemoryType"},
+    {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor"},
+    {             "SplitReshape",             "SplitReshape"},
     });
     ConfigManager::Instance();
 

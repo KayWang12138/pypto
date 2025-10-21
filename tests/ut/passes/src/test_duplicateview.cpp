@@ -273,7 +273,7 @@ TEST_F(TestDuplicateViewPass, DuplicateViewSTest1) {
     EXPECT_EQ(func->Operations().size(), kNumEleven);
 
     passManager.RegisterStrategy("DuplicateViewTestStrategy", {
-        {   "DuplicateView",   "DuplicateView",  PassType::TYPE_TILE_GRAPH},
+        {   "DuplicateView",   "DuplicateView"},
     });
     auto ret = passManager.RunPass(Program::GetInstance(), *func, "DuplicateViewTestStrategy");
     EXPECT_EQ(ret, SUCCESS);

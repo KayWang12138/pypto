@@ -52,7 +52,7 @@ public:
 TEST_F(L1CopyInReuseTest, TwoCopyIn) {
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("L1ReusePassStrategy", {
-        {        "L1CopyInReuseMerge",        "L1CopyInReuseMerge",    PassType::TYPE_TILE_GRAPH},
+        {        "L1CopyInReuseMerge",        "L1CopyInReuseMerge"},
     });
     config::SetHostConfig(KEY_STRATEGY, "L1ReusePassStrategy");
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestL1CopyInReuse", "TestL1CopyInReuse", nullptr);

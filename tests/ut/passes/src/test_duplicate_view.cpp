@@ -72,7 +72,7 @@ TEST_F(DuplicateViewTest, TestThreeConsumersAfterView) {
     //Initialize PassManager
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("DuplicateViewTestStrategy", {
-    {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
+    {            "DuplicateView",            "DuplicateView"},
     });
     ConfigManager::Instance();
 
@@ -125,7 +125,7 @@ TEST_F(DuplicateViewTest, TestOneConsumersAfterView) {
     //Initialize PassManager
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("DuplicateViewTestStrategy", {
-    {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
+    {            "DuplicateView",            "DuplicateView"},
     });
     ConfigManager::Instance();
 

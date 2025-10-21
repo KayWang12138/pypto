@@ -55,7 +55,7 @@ TEST_F(RemoveRedundantReshapeTest, TestSameInputOutputShape) {
     // Initialize PassManager
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("ReshapeTestStrategy", {
-        { "RemoveRedundantReshape", "RemoveRedundantReshape", PassType::TYPE_TENSOR_GRAPH},
+        { "RemoveRedundantReshape", "RemoveRedundantReshape"},
     });
     ConfigManager::Instance();
 
@@ -105,7 +105,7 @@ TEST_F(RemoveRedundantReshapeTest, TestReshapeChain) {
     // Initialize PassManager
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("ReshapeTestStrategy", {
-        { "RemoveRedundantReshape", "RemoveRedundantReshape", PassType::TYPE_TENSOR_GRAPH},
+        { "RemoveRedundantReshape", "RemoveRedundantReshape"},
     });
     ConfigManager::Instance();
 
@@ -163,7 +163,7 @@ TEST_F(RemoveRedundantReshapeTest, TestReplaceInput) {
     // Initialize PassManager
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("ReshapeTestStrategy",
-        {{"RemoveRedundantReshape", "RemoveRedundantReshape", PassType::TYPE_TENSOR_GRAPH}}
+        {{"RemoveRedundantReshape", "RemoveRedundantReshape"}}
     );
 
     TileShape::Current().SetVecTile({1, 64, 64});

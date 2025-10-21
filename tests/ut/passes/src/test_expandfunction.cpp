@@ -331,7 +331,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionSTest1) {
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase1");
     EXPECT_EQ(func->Operations().size(), kSizeThree);
     passManager.RegisterStrategy("ExpandFunctionTestStrategy", {
-        {   "ExpandFunction",   "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
+        {   "ExpandFunction",   "ExpandFunction"},
     });
     auto ret = passManager.RunPass(Program::GetInstance(), *func, "ExpandFunctionTestStrategy");
     EXPECT_EQ(ret, SUCCESS);
@@ -405,7 +405,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionSTest2) {
     ConstructGraphST2();
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase2");
     passManager.RegisterStrategy("ExpandFunctionTestStrategy", {
-        {   "ExpandFunction",   "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
+        {   "ExpandFunction",   "ExpandFunction"},
     });
     auto ret = passManager.RunPass(Program::GetInstance(), *func, "ExpandFunctionTestStrategy");
     EXPECT_EQ(ret, SUCCESS);
