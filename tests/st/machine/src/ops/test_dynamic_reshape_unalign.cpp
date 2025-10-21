@@ -26,7 +26,7 @@ class DynamicReshapeUnalignTest : public npu::tile_fwk::stest::TestSuite_STest_O
 public:
     void SetUp() override {
         npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac::SetUp();
-        config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+        config::SetHostOption(ONLY_CODEGEN, true);
     }
 };
 
@@ -34,7 +34,7 @@ public:
 TEST_F(DynamicReshapeUnalignTest, test_add_dim) {
     SetInterpreterConfig();
     TileShape::Current().SetVecTile(64, 64);
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 2;
     int sq = 64;
@@ -90,7 +90,7 @@ TEST_F(DynamicReshapeUnalignTest, test_add_dim) {
 TEST_F(DynamicReshapeUnalignTest, test_merge_dim) {
     SetInterpreterConfig();
     TileShape::Current().SetVecTile(1, 16, 16);
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 2;
     int sq = 10;
@@ -148,7 +148,7 @@ TEST_F(DynamicReshapeUnalignTest, test_merge_dim) {
 TEST_F(DynamicReshapeUnalignTest, test_split_dim) {
     SetInterpreterConfig();
     TileShape::Current().SetVecTile(1, 16, 16);
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 2;
     int sq = 6;

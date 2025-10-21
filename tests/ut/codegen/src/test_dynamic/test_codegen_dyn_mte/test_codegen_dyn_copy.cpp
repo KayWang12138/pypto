@@ -63,7 +63,7 @@ std::string TestL0COutBody(bool isDynamicUnalign) {
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     function->SetUnderDynamicFunction(true);
     if (isDynamicUnalign) {
-        ConfigManager::Instance().SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+        config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     }
     std::shared_ptr<RawTensor> ddrRawTensor =
         std::make_shared<RawTensor>(DataType::DT_FP32, shape, "L0CToOut", dummyRawMagic);

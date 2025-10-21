@@ -63,7 +63,7 @@ void TestAddDynBody(const std::vector<int64_t> &shape, const std::vector<int64_t
 
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
-    ConfigManager::Instance().SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     for (auto &subFunc : function->rootFunc_->programs_) {
         for (auto &op : subFunc.second->Operations()) {
             if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) || OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
@@ -111,7 +111,7 @@ TEST_F(TestCodegenDynBinary, TestAddsDynamic) {
     auto function = Program::GetInstance().GetFunctionByRawName("TENSOR_ADD_S");
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
-    ConfigManager::Instance().SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     for (auto &subFunc : function->rootFunc_->programs_) {
         for (auto &op : subFunc.second->Operations()) {
             if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) || OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
@@ -155,7 +155,7 @@ TEST_F(TestCodegenDynBinary, TestGatherEle) {
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
-    ConfigManager::Instance().SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     for (auto &subFunc : function->rootFunc_->programs_) {
         for (auto &op : subFunc.second->Operations()) {
             if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) || OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
@@ -178,9 +178,9 @@ TEST_F(TestCodegenDynBinary, TestGatherEle) {
 }
 
 TEST_F(TestCodegenDynBinary, AddUnalignLayout) {
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(64, 64);
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_LAYOUT, true);
     // NEXTNEXT: delete after tileop adapted layout mode
     config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);

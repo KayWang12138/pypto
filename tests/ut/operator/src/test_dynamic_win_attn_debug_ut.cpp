@@ -52,7 +52,7 @@ constexpr int NUM_1024 = 1024;
 
 template <typename T = npu::tile_fwk::float16>
 void TestWinAttenUt(WinAttenTileShapeConfig& tileConfig) {
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 
     DataType dType = DT_FP32;
     if (std::is_same<T, npu::tile_fwk::float16>::value) {

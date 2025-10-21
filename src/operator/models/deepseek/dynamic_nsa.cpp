@@ -114,7 +114,7 @@ void GenSlc(const Tensor &x, Tensor &trans0res, Tensor &reduce0res, Tensor &tran
         }
         LOOP("LOOP_topk1", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, 1, 1), {}, true) {
             (void)sIdx;
-            config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+            config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
             std::vector<Tensor> res = GenTopkIndices(tmpOut, s_slc, actualTopk, actualVaildLen, true);
             out = res[1];
             topkInd = res[0];
@@ -165,7 +165,7 @@ void GenSlcV2(const Tensor &x, Tensor &out, int validSize, int l_prime, int d, i
         }
         LOOP("LOOP_topk1", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, 1, 1), {}, true) {
             (void)sIdx;
-            config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+            config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
             std::vector<Tensor> res = GenTopkIndices(tmpOut, s_slc, actualTopk, actualVaildLen, true);
             out = res[1];
         }

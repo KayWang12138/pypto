@@ -91,7 +91,7 @@ TEST_F(DynamicLightningIndexerPrologUtest, utest_lightning_indexer_prolog) {
 
     auto params = ReadParams(ropeTileConfigs, indexerConfigs, -1);
     PerformanceConfig();
-    config::SetHostConfig(npu::tile_fwk::KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 
     // inputs
     DataType dType = DT_BF16;

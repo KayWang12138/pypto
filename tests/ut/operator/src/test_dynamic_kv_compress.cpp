@@ -119,7 +119,7 @@ void UTestCmpKv(CmpAttnTile& tileConfig) {
 }
 
 TEST_F(KvCmpUtest, kv_compress_ut) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     CmpAttnTile config;
     // Block concat tile
     config.castTile = {128, 64}; // {blockSize, n2 * d}

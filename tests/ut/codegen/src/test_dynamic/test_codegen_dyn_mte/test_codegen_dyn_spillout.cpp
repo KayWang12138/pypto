@@ -44,7 +44,7 @@ public:
 };
 
 TEST_F(TestCodegenDynSpillOut, UBSpillOut) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     const std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
@@ -97,7 +97,7 @@ TEST_F(TestCodegenDynSpillOut, UBSpillOut) {
 }
 
 TEST_F(TestCodegenDynSpillOut, L1SpillOut) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     const std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);

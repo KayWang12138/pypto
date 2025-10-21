@@ -69,7 +69,7 @@ TEST_F(DynamicPAPOSTTest, dynamic_prolog_post_low_lantency) {
     Tensor weightO(DT_BF16, {nq * vHeadDim, h}, "weightO");
     Tensor postOut(DT_FP32, {b, sq, h}, "postOut");
 
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
     std::vector<uint8_t> devProgBinary;
 
     PrologPost(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, weightUV, weightO, blockSize,
@@ -118,7 +118,7 @@ TEST_F(DynamicPAPOSTTest, dynamic_prolog_post_low_lantency) {
 }
 
 void testPaAdds(PaTileShapeConfig& tileConfig, int maxUnrollTimes = 1, bool manualUnroll = false, bool outputPaOut = true) {
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
     std::vector<uint8_t> devProgBinary;
     int paramsSize = 8;
     std::vector<int> input_param(paramsSize);
@@ -416,7 +416,7 @@ void PageAttentionPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Te
 }
 
 void testPaPost(PaTileShapeConfig& tileConfig, int maxUnrollTimes = 1, bool manualUnroll = false) {
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
     std::vector<uint8_t> devProgBinary;
 
     int paramsSize = 8;

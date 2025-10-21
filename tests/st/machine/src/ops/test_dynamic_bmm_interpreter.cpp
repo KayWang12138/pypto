@@ -30,8 +30,8 @@ class DynamicBatchMatmulInterpreterTest : public npu::tile_fwk::stest::TestSuite
 
 template <typename InputT, typename OutputT, bool IsBtrans = false, bool IsBNZ = false>
 void TestDynBatchMatmul(int b, int m, int k, int n, string dataPath) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 
     SetInterpreterConfig();
 
@@ -88,8 +88,8 @@ void TestDynBatchMatmul(int b, int m, int k, int n, string dataPath) {
 
 template <typename InputT, typename OutputT, bool IsBtrans = false, bool IsBNZ = false>
 void TestDynBatchMatmul4D(vector<int> b1, vector<int> b2, int m, int k, int n, string dataPath) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 
     config::SetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, true);
     config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);

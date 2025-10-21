@@ -38,7 +38,7 @@ struct RangeOpMetaData {
 
 static void RangeOperationExeFunc(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
         auto args = static_cast<const RangeOpFuncArgs *>(opArgs);
         Element start = args->start_;

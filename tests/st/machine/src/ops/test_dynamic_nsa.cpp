@@ -23,7 +23,7 @@ using namespace npu::tile_fwk::dynamic;
 class DyNsa : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
     void SetUp() override {
         npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac::SetUp();
-        config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+        config::SetHostOption(ONLY_CODEGEN, true);
         config::SetPassOption(NBUFFER_MERGE_MODE, 1);
         config::SetPassOption(L1_REUSE, NUM_4);
         config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{{NUM_3, NUM_4}});
@@ -442,7 +442,7 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_8k_dyn) {
     params.b = 1;
     params.s2 = NUM_8192;
     params.n2 = 1;
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     TestGenslc<float16>(params, params.s2);
 }
 
@@ -451,7 +451,7 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_4k_dyn) {
     params.b = 1;
     params.s2 = NUM_4096;
     params.n2 = 1;
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     TestGenslc<float16>(params, params.s2);
 }
 
@@ -460,7 +460,7 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_4k1_dyn) {
     params.b = 1;
     params.s2 = NUM_4096;
     params.n2 = 1;
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     TestGenslc<float16>(params, params.s2 + 1);
 }
 
@@ -469,7 +469,7 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_6k1_dyn) {
     params.b = 1;
     params.s2 = NUM_6144;
     params.n2 = 1;
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     TestGenslc<float16>(params, params.s2 + 1);
 }
 

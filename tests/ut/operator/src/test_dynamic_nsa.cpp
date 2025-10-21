@@ -21,7 +21,7 @@ using namespace npu::tile_fwk;
 
 class DyNsa : public testing::Test {
     void SetUp() override {
-        config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+        config::SetHostOption(ONLY_CODEGEN, true);
         config::SetPassOption(NBUFFER_MERGE_MODE, 1);
         config::SetPassOption(L1_REUSE, 4);
         config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{{3, 4}});
@@ -101,6 +101,26 @@ void TestGenslc(const SimpleParams &params,int topk_actual_len = 0, bool isGenSl
     }
 }
 
+template <typename T = float16>
+void TestGenslcV2(const SimpleParams &params, int topk_actual_len = 0) {
+    int n = params.n;
+    int s2 = params.s2;
+    int windowStride = 16, windowSize = 32;
+    int s_cmp = (s2 - windowSize) / windowStride + 1;
+    int s_cmp_valid = (topk_actual_len - windowSize) / windowStride + 1;
+    int validSize = (s_cmp_valid + 3) / 4;
+
+    DataType dType = (std::is_same<T, float16>::value) ? DT_FP16 : DT_BF16;
+
+    std::vector<int64_t> x_shape = {n, s_cmp};
+    std::vector<int64_t> resShape = {1, 13};
+
+    Tensor x(dType, x_shape, "x");
+    Tensor res(DT_FP32, resShape, "res");
+
+    GenSlcV2(x, res, validSize);
+}
+
 TEST_F(DyNsa, GateScore_b16_s1_fp) {
     SimpleParams params = SimpleParams::getHighParams();
     params.b = NUM_16;
@@ -170,7 +190,7 @@ TEST_F(DyNsa, GenSlc_b1_s1_fp_4k) {
     params.b = 1;
     params.s2 = NUM_4096 * 2;
     params.n2 = 1;
-    //    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    //    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     TestGenslc<npu::tile_fwk::float16>(params,4096,true);
 }
 
@@ -179,7 +199,7 @@ TEST_F(DyNsa, GenSlc_b1_s1_fp_6k1) {
     params.b = 1;
     params.s2 = NUM_4096 * 2;
     params.n2 = 1;
-    //    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    //    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     TestGenslc<npu::tile_fwk::float16>(params,(4096+1024*2)+1,true);
 }
 
@@ -189,7 +209,7 @@ TEST_F(DyNsa, GenSlc_b1_s1_fp_4k1) {
     params.b = 1;
     params.s2 = NUM_4096 * 2;
     params.n2 = 1;
-    //    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    //    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     TestGenslc<npu::tile_fwk::float16>(params,4096+1,true);
 }
 
@@ -199,7 +219,7 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_8k_dyn) {
     params.b = 1;
     params.s2 = NUM_4096 * NUM_2;
     params.n2 = 1;
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     TestGenslc<npu::tile_fwk::float16>(params,params.s2);
 }
 
@@ -209,7 +229,7 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_4k_dyn) {
     params.b = 1;
     params.s2 = NUM_4096;
     params.n2 = 1;
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     TestGenslc<npu::tile_fwk::float16>(params,params.s2);
 }
 
@@ -218,7 +238,7 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_4k1_dyn) {
     params.b = 1;
     params.s2 = NUM_4096;
     params.n2 = 1;
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     TestGenslc<npu::tile_fwk::float16>(params,params.s2+1);
 }
 
@@ -228,7 +248,7 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_6k1_dyn) {
     params.b = 1;
     params.s2 = NUM_4096 + NUM_1024 * 2;
     params.n2 = 1;
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     TestGenslc<npu::tile_fwk::float16>(params,params.s2+1);
 }
 
@@ -264,4 +284,12 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_6k1) {
     params.s2 = NUM_4096 * 2;
     params.n2 = 1;
     TestGenslc<npu::tile_fwk::float16>(params,6*1024+1);
+}
+
+TEST_F(DyNsa, GenSlc_b1_s1_fp_6k1_v2) {
+    SimpleParams params = SimpleParams::getHighParams();
+    params.b = 1;
+    params.s2 = NUM_8192;
+    params.n2 = 1;
+    TestGenslcV2<npu::tile_fwk::float16>(params, NUM_6144 + 1);
 }

@@ -60,7 +60,7 @@ const std::string KEY_VERIFY_DUMP_PERF_DATA = "VERIFY_DUMP_PERF_DATA";
 /* Host KEYs */
 const std::string KEY_STRATEGY = "STRATEGY";
 const std::string KEY_ENABLE_BINARY_CACHE = "ENABLE_BINARY_CACHE";
-const std::string KEY_ONLY_CODEGEN = "ONLY_CODEGEN";
+const std::string KEY_ONLY_CODEGEN = "only_codegen";
 const std::string KEY_DUMP_BIN_AND_JSON = "DUMP_BIN_AND_JSON";
 const std::string KEY_DUMP_BIN_AND_JSON_PATH = "DUMP_BIN_AND_JSON_PATH";
 const std::string KEY_DUMP_KERNEL_NAME = "DUMP_KERNEL_NAME";
@@ -87,12 +87,12 @@ const std::string KEY_EXEC_VERIFIER = "EXEC_VERIFIER";
 const std::string KEY_AICPU_WAIT_FLAG_ENABLE = "AICPU_WAIT_FLAG_ENABLE";
 
 /* CodeGen KEYs */
-const std::string KEY_SUPPORT_DYNAMIC_UNALIGNED = "SUPPORT_DYNAMIC_UNALIGNED";
+const std::string KEY_SUPPORT_DYNAMIC_UNALIGNED = "support_dynamic_unaligned";
 const std::string KEY_PARALLEL_THREAD_NUM = "PARALLEL_THREAD_NUM";
 const std::string KEY_CODEGEN_BY_JSON = "CODEGEN_BY_JSON";
 const std::string KEY_CODEGEN_DUMP_TO_OUTPUT = "CODEGEN_DUMP_TO_OUTPUT"; // if true, dump cce to output directory
 const std::string KEY_CODEGEN_FORCE_DUMP_CCE_ON_EXIST = "CODEGEN_FORCE_DUMP_CCE_ON_EXIST"; // if true, don't dump cce when file exists
-const std::string KEY_CODEGEN_EXPRESSION_FUSION = "CODEGEN_EXPRESSION_FUSION"; // if true, add inclue to fusion header
+const std::string KEY_CODEGEN_EXPRESSION_FUSION = "codegen_expression_fusion"; // if true, add inclue to fusion header
 const std::string KEY_COMPILE_CCE_BY_MACHINE = "COMPILE_CCE_BY_MACHINE";       // if true, compile cce in machine agent
 const std::string KEY_CODEGEN_SUPPORT_LAYOUT = "CODEGEN_SUPPORT_LAYOUT";       // if true, gen code with layout mode
 const std::string KEY_CODEGEN_NEED_COMPILE = "CODEGEN_NEED_COMPILE";       // if true, gen code & compile code

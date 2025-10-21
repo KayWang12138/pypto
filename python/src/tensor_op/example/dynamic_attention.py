@@ -31,12 +31,12 @@ NBUFFER_MERGE_MODE = "nbuffer_merge_mode"
 VEC_NBUFFER_MAP = "vec_nbuffer_map"
 SG_CUBE_PARALLEL_NUM = "sg_cube_parallel_num"
 SG_VEC_PARALLEL_NUM = "sg_vec_parallel_num"
-KEY_ONLY_CODEGEN = "ONLY_CODEGEN"
 MACHINE_SCHED_MODE = "machine_sched_mode"
 WORKSPACE_RECYCLE_PERIOD = "workspace_recycle_period"
 ESTIMATED_STITCH_TASK_MAX_LOOP_NUM = "estimated_stitch_task_max_loop_num"
 FIRST_STITCH_TASK_LOOP_NUM = "first_stitch_task_loop_num"
 SUBSEQ_STITCH_TASK_INCR_LOOP_NUM = "subseq_stitch_task_incr_loop_num"
+KEY_ONLY_CODEGEN = "only_codegen"
 
 SCATTER_UPDATE_DIM = -2
 NUM_2 = 2

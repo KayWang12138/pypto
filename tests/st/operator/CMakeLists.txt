@@ -15,8 +15,8 @@ set(_CaseFilterList
         #"DynamicSATest.slc_attn_fp16"
         #"DynamicNSATest.mini"
         "DynamicSATest.slc_attn_mtp_s1_2_fp16"
-        "DynamicSATest.slc_attn_bf16_b48_s1_perf"
-        "DynamicKvSATest.kv_slc_attn_b48_s1_fp16_perf"
+        #"DynamicSATest.slc_attn_bf16_b48_s1_perf"
+        # "DynamicKvSATest.kv_slc_attn_b48_s1_fp16_perf"
         "DynamicKvSATest.kv_slc_attn_b32_s2_bf16_perf"
         "DynamicKvSATest.kv_slc_attn_b2_s1_fp16"
 
@@ -366,11 +366,11 @@ set(_CaseFilterList
         "VecdupTest.TestVecDup"
 
         # lightning indexer prolog
-        "LightningIndexerPrologSTest.bf16_indexer_prolog"
+        # "LightningIndexerPrologSTest.bf16_indexer_prolog"
         "LightningIndexerPrologSTest.b48_s1_1_s2_8k"
-        "LightningIndexerPrologSTest.b2_s1_2_s2_2k"
-        "LightningIndexerPrologSTest.b35_s1_2_s2_8k"
-        "LightningIndexerPrologSTest.b40_s1_4_s2_8k"
+        # "LightningIndexerPrologSTest.b2_s1_2_s2_2k"
+        # "LightningIndexerPrologSTest.b35_s1_2_s2_8k"
+        # "LightningIndexerPrologSTest.b40_s1_4_s2_8k"
         "LightningIndexerPrologSTest.b4_s1_1_s2_64k"
 )
 

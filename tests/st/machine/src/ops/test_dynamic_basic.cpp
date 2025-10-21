@@ -30,7 +30,7 @@ class DynamicBasicTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac 
 public:
     void SetUp() override {
         npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac::SetUp();
-        config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+        config::SetHostOption(ONLY_CODEGEN, true);
         TileShape::Current().SetVecTile(32, 32);
         TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
     }
@@ -740,7 +740,7 @@ TEST_F(DynamicBasicTest, TestGetTensorData) {
 
 TEST_F(DynamicBasicTest, TestGetTensorDataCrossFunction) {
     SetInterpreterConfig();
-    ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, true);
+    config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
     TileShape::Current().SetCubeTile({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
@@ -824,8 +824,8 @@ TEST_F(DynamicBasicTest, TestGetTensorDataCrossFunction) {
 
 TEST_F(DynamicBasicTest, TestGetTensorDataUnalign) {
     SetInterpreterConfig();
-    ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, true);
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
     TileShape::Current().SetCubeTile({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
@@ -906,7 +906,7 @@ TEST_F(DynamicBasicTest, TestGetTensorDataUnalign) {
 TEST_F(DynamicBasicTest, TestGetTensorDataExpr) {
     SetInterpreterConfig();
     int tiling = 32;
-    ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, true);
+    config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
     TileShape::Current().SetVecTile(tiling, tiling);
     TileShape::Current().SetCubeTile({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
 
@@ -1061,7 +1061,7 @@ TEST_F(DynamicBasicTest, TestSetTensorData) {
 
 TEST_F(DynamicBasicTest, TestSetTensorDataExpr) {
     SetInterpreterConfig();
-    ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, true);
+    config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
 
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling, tiling);
@@ -1144,7 +1144,7 @@ TEST_F(DynamicBasicTest, TestGetTensorDataAndDup) {
 
 TEST_F(DynamicBasicTest, TestGetAndSetTensorDataExpr) {
     SetInterpreterConfig();
-    ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, true);
+    config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
 
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling, tiling);
@@ -1188,7 +1188,7 @@ TEST_F(DynamicBasicTest, TestGetAndSetTensorDataExpr) {
 }
 
 TEST_F(DynamicBasicTest, TestSelectAttention) {
-    ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, true);
+    config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
 
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling, tiling);

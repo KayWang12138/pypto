@@ -155,8 +155,8 @@ template <typename inputDtype, typename outputDtype, bool transA, bool transB, b
 void TestDynMatmul(
     const std::vector<int64_t>& mmShape, bool isANz, bool isBNz, const std::vector<int64_t> &viewShape, string dataPath) {
     SetInterpreterConfig();
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 
     if (mmShape.size() != MM_SHAPE_SIZE || viewShape.size() != MM_VIEW_SHAPE_SIZE) {
         return;

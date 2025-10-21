@@ -41,7 +41,7 @@ static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::strin
 
 template <typename T = npu::tile_fwk::bfloat16>
 void TestCmpKv(CmpAttnTile &tileConfig) {
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 
     int paramsSize = 13;
     std::vector<int32_t> input_param(paramsSize);
@@ -166,7 +166,7 @@ KVCompress params:
 
 TEST_F(DynKVCmp, KVCmpBatch48float16) {
     SetInterpreterConfig();
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
 
     CmpAttnTile config;
     // Block concat tile
@@ -187,7 +187,7 @@ TEST_F(DynKVCmp, KVCmpBatch48float16) {
 
 TEST_F(DynKVCmp, KVCmpBatch32bf16) {
     SetInterpreterConfig();
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
 
     CmpAttnTile config;
     // Block concat tile
@@ -208,7 +208,7 @@ TEST_F(DynKVCmp, KVCmpBatch32bf16) {
 
 template <typename T = npu::tile_fwk::bfloat16>
 void TestAuxTensor() {
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 
     int paramsSize = 13;
     std::vector<int32_t> input_param(paramsSize);
@@ -249,7 +249,7 @@ void TestAuxTensor() {
 }
 
 TEST_F(DynKVCmp, AuxVectorBuildFloat32) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
     // // 精度工具
     // config::SetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, true);
     // config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);

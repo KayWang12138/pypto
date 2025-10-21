@@ -122,7 +122,7 @@ IndexerPrologOutputGolden<T> PrepareIndexerPrologOutputsGolden(const IndexerProl
 
 template <typename T = npu::tile_fwk::bfloat16, bool nz = true>
 void TesLightningIndexerProlog(const IndexerShapeParams &params) {
-    config::SetHostConfig(npu::tile_fwk::KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 
     // inputs
     DataType dType = (std::is_same<T, npu::tile_fwk::bfloat16>::value) ? DT_BF16 : DT_FP16;

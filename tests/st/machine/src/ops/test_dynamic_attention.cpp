@@ -27,7 +27,7 @@ void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileCon
         uint64_t timeThreshold, bool isQuant = false, bool isSmooth = false) {
     (void) timeThreshold;
     
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
     config::SetRuntimeOption(MACHINE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH));
     config::SetRuntimeOption(FIRST_STITCH_TASK_LOOP_NUM, 128);
     std::string cacheMode = "PA_NZ";

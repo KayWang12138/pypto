@@ -26,9 +26,9 @@ class DynamicBrcTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {}
 TEST_F(DynamicBrcTest, TestDynamicMulBrcUnalign) {
     SetInterpreterConfig();
     config::SetOperationConfig("FORCE_COMBINE_AXIS", true);
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(32, 128);
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 2;
     int sq = 32;

@@ -42,8 +42,8 @@ public:
 namespace {
 
 TEST_F(DynamicResolveTest, TestResolve) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_EXPRESSION_FUSION, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
     config::SetPassOption(COPYIN_THRESHOLD, 100 * 1024 * 1024);
     config::SetPassOption(SG_CYCLE_LOWER_BOUND, 1024);
     config::SetPassOption(SG_CYCLE_UPPER_BOUND, 1024);

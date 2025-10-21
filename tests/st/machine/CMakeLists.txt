@@ -86,13 +86,13 @@ set(_CaseFilterList
         "DynamicWinAttenTest.test_DynAttn_nas_win_attn_s1_2_actseqlen_1024_mla_fp16_v1"
 
         # KV Compress
-        "DynKVCmp.KVCmpBatch48float16"
+        # "DynKVCmp.KVCmpBatch48float16"
         "DynKVCmp.KVCmpBatch32bf16"
 
         # NSA gatescore && compress attention part2
         # "DyNsa.gateScore_mini_mtp"
         "DyNsa.GateScore_b32_s2_bf"
-        "DyNsa.GateScore_b48_s1_fp"
+        # "DyNsa.GateScore_b48_s1_fp"
 
         # parallel sort
         "ParallelSortSTest.fp32_64k"

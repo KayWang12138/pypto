@@ -42,7 +42,7 @@ public:
 };
 
 void pre() {
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 }
 
 TEST_F(FunctionTest, TestAddTensorFunctionDim4) {
@@ -1584,7 +1584,7 @@ TEST_F(FunctionTest, low_PAND) {
 }
 
 TEST_F(FunctionTest, dynamic_prolog_post_low_lantency) {
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 
     int b = 2;
     int sq = 1;
@@ -1633,7 +1633,7 @@ TEST_F(FunctionTest, dynamic_prolog_post_low_lantency) {
 }
 
 TEST_F(FunctionTest, dynamic_page_attention_adds) {
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 
     config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
     std::vector<uint8_t> devProgBinary;
@@ -1681,7 +1681,7 @@ TEST_F(FunctionTest, dynamic_page_attention_adds) {
 }
 
 TEST_F(FunctionTest, dynamic_page_attention_adds_single_single_out) {
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 
     config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
     std::vector<uint8_t> devProgBinary;

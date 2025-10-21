@@ -40,7 +40,7 @@ public:
 };
 
 void testffn() {
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 
     TileShape::Current().SetVecTile(32, 128);
     TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
@@ -66,7 +66,7 @@ void testffn() {
 }
 
 void testffnquant() {
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 
     TileShape::Current().SetVecTile(32, 128);
     TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});

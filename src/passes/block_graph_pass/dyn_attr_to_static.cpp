@@ -193,7 +193,7 @@ Status DynAttrToStatic::TryRemoveDynAttr(Function* leafFunc, std::vector<Operati
     }
 
     // 3. 为dynParam的赋值刷新coa宏
-    unsigned isSupportUnaligned = ConfigManager::Instance().GetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, false);
+    unsigned isSupportUnaligned = config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_UNALIGNED);
     if (!isSupportUnaligned) {
         return SUCCESS;
     }

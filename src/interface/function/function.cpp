@@ -1181,7 +1181,7 @@ unsigned long Function::ComputeHashOrderless() const {
     }
     // temporary avoidance, switch SUPPORT_DYNAMIC_UNALIGNED has an unexpected effect on dynamic binary reuse
     if (functionType_ == FunctionType::DYNAMIC) {
-        ss << "dynamic unaligned:" << ConfigManager::Instance().GetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, false);
+        ss << "dynamic unaligned:" << config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_UNALIGNED);
     }
     std::hash<std::string> hasher;
     auto result = hasher(ss.str());

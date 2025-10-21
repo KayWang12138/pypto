@@ -37,7 +37,7 @@ struct WhereOpMetaData {
 
 static void WhereOperationExeFuncDoubleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-        config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+        config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
         FUNCTION("main", {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
             SymbolicScalar firstDim = max(inputs[0]->shape[0], max(inputs[1]->shape[0], inputs[2]->shape[0]));
@@ -168,7 +168,7 @@ static void WhereOperationExeFuncDoubleCut(
 
 static void WhereOperationExeFuncTripleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     FUNCTION("main", {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
@@ -227,7 +227,7 @@ static void WhereOperationExeFuncTripleCut(
 
 static void WhereOperationExeFuncQuadrupleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     FUNCTION("main", {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];

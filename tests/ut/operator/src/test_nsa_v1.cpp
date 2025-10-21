@@ -347,7 +347,7 @@ TEST_F(NSAUtest, nsa_b_16_fp16) {
 
 TEST_F(NSAUtest, nsa_b_16_fp16_debug) {
     NSASimpleParams params = NSASimpleParams::getDecodeParams();
-    ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, true);
+    config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
     std::vector<int> inputParams = {16, 1, 8192, 128, 1, 0, 0};
 
     params.b = inputParams[0]; // 16

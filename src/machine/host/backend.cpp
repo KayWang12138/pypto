@@ -77,7 +77,7 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
         deviceAgentTask->compileInfo.PrintDistributed();
         deviceAgentTask->compileInfo.workSpaceStackSize = function->GetStackWorkespaceSize();
 
-        if (npu::tile_fwk::ConfigManager::Instance().GetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, false)) {
+        if (config::GetCodeGenOption<bool>(CODEGEN_EXPRESSION_FUSION)) {
             if (function->GetGraphType() == GraphType::TILE_GRAPH) {
                 // When expression fusion, don't need tile graph codegen.
                 return 0;
@@ -102,7 +102,7 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
         }
     }
 
-    if (config::GetHostConfig(KEY_ONLY_CODEGEN, false)) {
+    if (config::GetHostOption<bool>(ONLY_CODEGEN)) {
         ALOG_INFO("only gen code switch enabled, push finish queue.");
         return 0;
     }
@@ -600,7 +600,7 @@ bool IsNeedDumpAicpuKernel(const std::string &inputFile) {
 
 static void CompileDyndevFunction(Function *function, FunctionCache &cache, const std::string &ccePath,
                                   std::string &kernelPath) {
-    if (npu::tile_fwk::ConfigManager::Instance().GetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, false)) {
+    if (config::GetCodeGenOption<bool>(CODEGEN_EXPRESSION_FUSION)) {
         PassManager::Instance().RunPass(Program::GetInstance(), *function, "ScalarOptimize");
     }
 
@@ -675,9 +675,9 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, cons
 
     std::map<uint64_t, Function *> leafDict;
     for (auto &devRoot : attr->funcGroup.devRootList) {
-        if (npu::tile_fwk::ConfigManager::Instance().GetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, false)) {
+        if (config::GetCodeGenOption<bool>(CODEGEN_EXPRESSION_FUSION)) {
             Function *devTile = attr->rootTileDict[devRoot];
-            config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, devTile->paramConfigs_.dynamicUnalignedOps);
+            config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, devTile->paramConfigs_.dynamicUnalignedOps);
             npu::tile_fwk::CodeGenCtx codeGenCtx("", GetEmitPath("kernel_aicore"));
             npu::tile_fwk::CodeGen codeGen(codeGenCtx);
             codeGen.GenCode(*devTile, {});
@@ -766,7 +766,7 @@ MachineTask *GenCode(
         codeGen.GenCode(jsonPath, invokeParaOffset);
         task->SetFunction(Program::GetInstance().GetCurrentFunction());
     } else if (function->GetGraphType() == GraphType::TILE_GRAPH) {
-        if (!npu::tile_fwk::ConfigManager::Instance().GetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, false)) {
+        if (!config::GetCodeGenOption<bool>(CODEGEN_EXPRESSION_FUSION)) {
             codeGen.GenCode(*function, invokeParaOffset);
         }
     } else {

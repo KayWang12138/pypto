@@ -50,7 +50,7 @@ TEST_F(MlpTest, test_16_7168_tileop)
 
     // 创建PROGRAM
     PROGRAM("MLP") {
-        config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+        config::SetHostOption(ONLY_CODEGEN, true);
         TileShape::Current().SetVecTile(32, 256);
         TileShape::Current().SetCubeTile({32, 32}, {128, 256}, {128, 128});
 

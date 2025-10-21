@@ -55,8 +55,8 @@ def dynamic_batch_matmul_onboard_util(input_config: BatchMatmulShapeConfig):
     # onboard prepare
     device_id = os.environ.get("TILE_FWK_STEST_DEVICE_ID", 0)
     pto.DeviceInit()
-    pto.set_host_config("ONLY_CODEGEN", True)
-    pto.set_codegen_config("SUPPORT_DYNAMIC_UNALIGNED", True)
+    pto.set_host_config("only_codegen", True)
+    pto.set_codegen_config("support_dynamic_unaligned", True)
     pto.set_cube_tile_shapes(input_config.m_tile_shape, input_config.k_tile_shape, input_config.n_tile_shape)
 
     tensor_a = batch_matmu_create_tensor(input_config.in_dtype, input_config.ori_shape, "tensor_a",

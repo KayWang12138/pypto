@@ -546,7 +546,7 @@ void CostModelTestLoopViewAssemble(const Tensor &t0, const Tensor &t1, const Ten
 }
 
 TEST_F(CostModelDynTest, TestDD) {
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
     constexpr int tilingX = 32;
     constexpr int tilingY = 32;
     TileShape::Current().SetVecTile(tilingX, tilingY);

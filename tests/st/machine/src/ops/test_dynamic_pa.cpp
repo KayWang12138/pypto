@@ -56,7 +56,7 @@ struct PaConfig {
 
 void testPa(PaTileShapeConfig& tileConfig, PaConfig config) {
     SetInterpreterConfig();
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 
     std::vector<uint8_t> devProgBinary;
     int paramsSize = 8;
@@ -234,7 +234,7 @@ TEST_F(DynamicPATest, dynamic_pa_low_lantency_manual_unroll) {
 }
 
 TEST_F(DynamicPATest, dynamic_pa_low_lantency_dyn_valid_shape) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     PaTileShapeConfig tileConfig;
     const int nTile = 32;
     const int blockSize = 128;
@@ -276,7 +276,7 @@ TEST_F(DynamicPATest, dynamic_pa_high_throughput_only_batch_loop) {
 }
 
 TEST_F(DynamicPATest, dynamic_pa_high_throughput_dview_large_dyn_valid_shape) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     PaTileShapeConfig tileConfig;
     const int nTile = 128;
     tileConfig.headNumQTile = nTile;
@@ -291,7 +291,7 @@ TEST_F(DynamicPATest, dynamic_pa_high_throughput_dview_large_dyn_valid_shape) {
 }
 
 TEST_F(DynamicPATest, dynamic_pa_noflash_unalign) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     PaTileShapeConfig tileConfig;
     const int nTile = 32;
     const int blockSize = 128;
@@ -306,7 +306,7 @@ TEST_F(DynamicPATest, dynamic_pa_noflash_unalign) {
 }
 
 TEST_F(DynamicPATest, dynamic_pa_noflash) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     PaTileShapeConfig tileConfig;
     const int nTile = 32;
     const int blockSize = 128;
@@ -321,7 +321,7 @@ TEST_F(DynamicPATest, dynamic_pa_noflash) {
 }
 
 TEST_F(DynamicPATest, dynamic_pa_low_lantency_dyn_unalign) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     PaTileShapeConfig tileConfig;
     const int nTile = 32;
     const int blockSize = 128;
@@ -336,7 +336,7 @@ TEST_F(DynamicPATest, dynamic_pa_low_lantency_dyn_unalign) {
 }
 
 TEST_F(DynamicPATest, dynamic_pa_high_throughput_dview_large_dyn_unalign) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     PaTileShapeConfig tileConfig;
     const int nTile = 128;
     tileConfig.headNumQTile = nTile;

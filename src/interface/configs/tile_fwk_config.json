@@ -29,7 +29,7 @@
             "ENABLE_BINARY_CACHE": false,
             "workspace_recycle_period": 10,
             "estimated_stitching_count": 50,
-            "ONLY_CODEGEN":false,
+            "only_codegen":false,
             "DUMP_BIN_AND_JSON": false,
             "DUMP_BIN_AND_JSON_PATH": "",
             "DUMP_KERNEL_NAME":""
@@ -58,11 +58,11 @@
         },
         "codegen_configs": {
             "PARALLEL_THREAD_NUM" : 8,
-            "SUPPORT_DYNAMIC_UNALIGNED" : false,
+            "support_dynamic_unaligned" : false,
             "CODEGEN_BY_JSON": false,
             "CODEGEN_DUMP_TO_OUTPUT": true,
             "CODEGEN_FORCE_DUMP_CCE_ON_EXIST": true,
-            "CODEGEN_EXPRESSION_FUSION": false,
+            "codegen_expression_fusion": false,
             "COMPILE_CCE_BY_MACHINE": false,
             "CODEGEN_SUPPORT_LAYOUT": false,
             "CODEGEN_NEED_COMPILE": true

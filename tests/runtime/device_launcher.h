@@ -54,7 +54,7 @@ public:
         Program::GetInstance().Reset();
         ProgramData::GetInstance().Reset();
 
-        config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+        config::SetHostOption(ONLY_CODEGEN, true);
     }
 
     void DeviceFini() {

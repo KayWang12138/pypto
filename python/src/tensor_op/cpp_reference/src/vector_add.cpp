@@ -25,7 +25,7 @@ using namespace npu::tile_fwk;
 int main() {
     auto config = Program::GetInstance().GetConfig();
     config.Reset();
-    config.Set("ONLY_CODEGEN", true);
+    config.Set("only_codegen", true);
 
     std::vector<int64_t> shape = {128, 2, 64, 128};
     Tensor input_a(DT_FP32, shape, "A");

@@ -470,7 +470,7 @@ void TestStaticLoopStatic(const Tensor &t0, const Tensor &t1, const Tensor &t2, 
 }
 
 TEST_F(DynamicFunctionTest, TestStaticLoopStatic) {
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(32, 32);
     TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
 
@@ -878,7 +878,7 @@ TEST_F(DynamicFunctionTest, TestInnerLoopOrder) {
 }
 
 TEST_F(DynamicFunctionTest, TestGetInputDataInt32Dim3) {
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(32, 32, 32);
     TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
 
@@ -909,7 +909,7 @@ TEST_F(DynamicFunctionTest, TestGetInputDataInt32Dim3) {
 }
 
 TEST_F(DynamicFunctionTest, TestGetInputDataInt32Dim4) {
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(16, 16, 16, 16);
 
     int s = 16;

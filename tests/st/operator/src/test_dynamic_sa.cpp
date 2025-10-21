@@ -37,7 +37,7 @@ struct SaConfig {
 template <typename T = npu::tile_fwk::float16>
 void TestSa(SaTileShapeConfig& tileConfig, SaConfig config) {
     SetInterpreterConfig();
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 
     DataType dType = DT_FP32;
     if (std::is_same<T, npu::tile_fwk::float16>::value) {
@@ -130,7 +130,7 @@ void TestSa(SaTileShapeConfig& tileConfig, SaConfig config) {
 }
 
 TEST_F(DynamicSATest, slc_attn_fp16) { // 测试项：fp16, flash小块
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
     SaTileShapeConfig tileConfig;
     const int gTile = 128; // for gLoop split
     const int sTile = 128; // for s2Loop split
@@ -145,7 +145,7 @@ TEST_F(DynamicSATest, slc_attn_fp16) { // 测试项：fp16, flash小块
 }
 
 TEST_F(DynamicSATest, slc_attn_mtp_s1_2_fp16) { // 测试项：fp16, s1=2, g切分, flash大块
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     SaTileShapeConfig tileConfig;
     const int gTile = 64; // for gLoop split
     const int sTile = 512; // for s2Loop split
@@ -160,7 +160,7 @@ TEST_F(DynamicSATest, slc_attn_mtp_s1_2_fp16) { // 测试项：fp16, s1=2, g切�
 }
 
 TEST_F(DynamicSATest, slc_attn_bf16_b48_s1_perf) { // 测试项：性能用例，bf16, b=48, s1=1
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     SaTileShapeConfig tileConfig;
     const int gTile = 128; // for gLoop split
     const int sTile = 1024; // for s2Loop split

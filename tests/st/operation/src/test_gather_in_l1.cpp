@@ -45,12 +45,12 @@ struct NSASimpleParams {
 class GatherInL1Test : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
     void SetUp() override {
         TestSuite_STest_Ops_Aihac::SetUp();
-        config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-        config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+        config::SetHostOption(ONLY_CODEGEN, true);
+        config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     }
     void TearDown() override {
-        config::SetHostConfig(KEY_ONLY_CODEGEN, false);
-        config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, false);
+        config::SetHostOption(ONLY_CODEGEN, false);
+        config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, false);
         TestSuite_STest_Ops_Aihac::TearDown();
     }
 };

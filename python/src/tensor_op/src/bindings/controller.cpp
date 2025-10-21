@@ -53,8 +53,8 @@ void bind_controller_config(py::module &m) {
         [](const std::string &key, const bool &value) { ConfigManager::Instance().SetHostConfig<bool>(key, value); },
         py::arg("key"), py::arg("value"));
     m.def(
-        "SetCodeGenConfig",
-        [](const std::string &key, const bool &value) { ConfigManager::Instance().SetCodeGenConfig<bool>(key, value); },
+        "SetCodeGenOption",
+        [](const std::string &key, const bool &value) { config::SetCodeGenOption<bool>(key, value); },
         py::arg("key"), py::arg("value"));
     m.def(
         "SetPlatformConfig", 

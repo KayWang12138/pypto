@@ -78,8 +78,8 @@ static Tensor CallKSplitMatmulOp(const Tensor &tensorA, const Tensor &tensorB, c
 
 static void MatmulOperationExeFuncNoSplit(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 
     auto args = static_cast<const MatmulOpFuncArgs *>(opArgs);
     bool transA = args->param_.transA;
@@ -151,8 +151,8 @@ static void MatmulOperationExeFuncSplitK(const std::vector<Tensor> &inputs, std:
 
 static void MatmulOperationExeFuncSplitM(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 
     auto args = static_cast<const MatmulOpFuncArgs *>(opArgs);
     const int64_t mView = args->viewShape_[0];
@@ -230,8 +230,8 @@ static void MatmulOperationExeFuncSplitMK(const std::vector<Tensor> &inputs, std
 
 static void MatmulOperationExeFuncSplitN(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 
     auto args = static_cast<const MatmulOpFuncArgs *>(opArgs);
     bool transA = args->param_.transA;
@@ -309,8 +309,8 @@ static void MatmulOperationExeFuncSplitKN(const std::vector<Tensor> &inputs, std
 
 static void MatmulOperationExeFuncSplitMN(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 
     auto args = static_cast<const MatmulOpFuncArgs *>(opArgs);
     bool transA = args->param_.transA;
@@ -398,8 +398,8 @@ static void MatmulOperationExeFuncSplitMKN(const std::vector<Tensor> &inputs, st
 
 static void MatmulOperationExeFunc(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 
     auto args = static_cast<const MatmulOpFuncArgs *>(opArgs);
     TileShape::Current().SetCubeTile({args->tileShape_[0][0], args->tileShape_[0][1]},

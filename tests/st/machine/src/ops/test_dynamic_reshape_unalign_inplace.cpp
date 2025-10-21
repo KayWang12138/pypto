@@ -26,7 +26,7 @@ class DynamicReshapeUnalignImplaceTest : public npu::tile_fwk::stest::TestSuite_
 public:
     void SetUp() override {
         npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac::SetUp();
-        config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+        config::SetHostOption(ONLY_CODEGEN, true);
     }
 };
 
@@ -64,7 +64,7 @@ std::vector<float> genDateAndExe(Tensor in, Tensor out, int opCount){
 
 TEST_F(DynamicReshapeUnalignImplaceTest, merge_two_dynamic_dim) {
     SetInterpreterConfig();
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     int b = -1;
     int sq = -1;
     int d = 64;
@@ -104,7 +104,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, merge_two_dynamic_dim) {
 TEST_F(DynamicReshapeUnalignImplaceTest, test_exchange_dim) {
     SetInterpreterConfig();
     TileShape::Current().SetVecTile(1, 16, 16);
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int sq = 12;
     int d = -1;
@@ -144,7 +144,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_exchange_dim) {
 TEST_F(DynamicReshapeUnalignImplaceTest, test_reshape_special) {
     SetInterpreterConfig();
     TileShape::Current().SetVecTile(1, 16, 16);
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int sq = 8;
     int d = -1;
@@ -183,7 +183,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_reshape_special) {
 TEST_F(DynamicReshapeUnalignImplaceTest, test_op_reshape_op) {
     SetInterpreterConfig();
     TileShape::Current().SetVecTile(1, 4, 32);
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetPassConfig("PVC2_OOO", "SplitReshape", "DISABLE_PASS", true);
 
     int b = 2;
@@ -231,7 +231,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_op_reshape_op) {
 
 TEST_F(DynamicReshapeUnalignImplaceTest, test_src_op_dst_op) {
     TileShape::Current().SetVecTile(1, 16, 16);
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     SetInterpreterConfig();
 
     int sq = 5;

@@ -40,7 +40,7 @@ constexpr int NUM_1024 = 1024;
 template <typename T = npu::tile_fwk::float16>
 void TestWinAtten(WinAttenTileShapeConfig& tileConfig) {
     SetInterpreterConfig();
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 
     DataType dType = DT_FP32;
     if (std::is_same<T, npu::tile_fwk::float16>::value) {
@@ -134,7 +134,7 @@ void TestWinAtten(WinAttenTileShapeConfig& tileConfig) {
 }
 
 TEST_F(DynamicWinAttenTest, test_DynAttn_nas_win_attn_s1_2_actseqlen_1024_mla_fp16_v1) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
     WinAttenTileShapeConfig tileConfig;
     const int gTileSize = NUM_128; // for gLoop split
     const int skvTileSize = NUM_512; // for flash split
@@ -151,7 +151,7 @@ TEST_F(DynamicWinAttenTest, test_DynAttn_nas_win_attn_s1_2_actseqlen_1024_mla_fp
 }
 
 TEST_F(DynamicWinAttenTest, test_DynAttn_nas_win_attn_s1_2_actseqlen_1023_mla_fp16_unalign) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
     WinAttenTileShapeConfig tileConfig;
     const int gTileSize = NUM_128; // for gLoop split
     const int skvTileSize = NUM_512; // for flash split
@@ -168,7 +168,7 @@ TEST_F(DynamicWinAttenTest, test_DynAttn_nas_win_attn_s1_2_actseqlen_1023_mla_fp
 }
 
 TEST_F(DynamicWinAttenTest, test_DynAttn_nas_win_attn_s1_2_actseqlen_1024_mla_bf16) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
     WinAttenTileShapeConfig tileConfig;
     const int gTileSize = NUM_128; // for gLoop split
     const int skvTileSize = NUM_512; // for flash split
@@ -185,7 +185,7 @@ TEST_F(DynamicWinAttenTest, test_DynAttn_nas_win_attn_s1_2_actseqlen_1024_mla_bf
 }
 
 TEST_F(DynamicWinAttenTest, test_DynAttn_nas_win_attn_s1_2_actseqlen_1023_mla_bf16_unalign) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
     WinAttenTileShapeConfig tileConfig;
     const int gTileSize = NUM_128; // for gLoop split
     const int skvTileSize = NUM_512; // for flash split

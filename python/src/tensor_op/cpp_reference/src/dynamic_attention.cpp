@@ -512,7 +512,7 @@ template <typename T = npu::tile_fwk::float16, bool splitReduceLastDim = false, 
 void TestDynamicAttention(std::vector<int64_t> &params, PaTileShapeConfig &paTileConfig,
      bool isQuant = false, std::string cacheMode = "BNSD") {
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 
     int b = params[0];
     int s = params[1];

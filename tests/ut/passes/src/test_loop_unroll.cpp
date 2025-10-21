@@ -85,7 +85,7 @@ TEST_F(LoopUnrollTest, TestInnerLoopOrder) {
 
 // Test GetTileShape
 TEST_F(LoopUnrollTest, test_only_reshape2) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 1;
     int sq = 128;

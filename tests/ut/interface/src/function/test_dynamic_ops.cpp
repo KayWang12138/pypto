@@ -29,7 +29,7 @@ public:
         Program::GetInstance().Reset();
         config::Reset();
         ProgramData::GetInstance().Reset();
-        config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+        config::SetHostOption(ONLY_CODEGEN, true);
         if (strcmp(calc::Model(), "torch")) {
             GTEST_SKIP() << "torch missing skip the verify test";
         }
@@ -406,7 +406,7 @@ TEST_F(DynamicOpsTest, Cube) {
 }
 
 TEST_F(DynamicOpsTest, TestGetAndSetTensorDataExpr) {
-    ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, true);
+    config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
 
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling, tiling);

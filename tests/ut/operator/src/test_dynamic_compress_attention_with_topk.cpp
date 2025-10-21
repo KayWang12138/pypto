@@ -26,12 +26,12 @@
 using namespace npu::tile_fwk;
 
 class CmpAttnTopk : public testing::Test {
-    void SetUp() override { config::SetHostConfig(KEY_ONLY_CODEGEN, true); }
+    void SetUp() override { config::SetHostOption(ONLY_CODEGEN, true); }
 };
 
 template <typename T = npu::tile_fwk::bfloat16>
 void TestCmpAttnTopk(CmpAttnTopkTile &tileConfig, std::vector<int> input_param, std::vector<int> actSeqLen) {
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 
     DataType dType = DT_FP32;
     if (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
@@ -102,7 +102,7 @@ void TestCmpAttnTopk(CmpAttnTopkTile &tileConfig, std::vector<int> input_param, 
 }
 
 void CommonTestConfig() {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
 
     CmpAttnTopkTile config;
     config.topkTile = {1, 1, 128};

@@ -261,7 +261,7 @@ Operation *Program::FinishCurrentFunction(const std::shared_ptr<TensorSlotScope>
 // End the current function and pop the function index from the stack
 std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string &funcName,
                                                                           bool generateCall) {
-    currentFunctionPtr_->paramConfigs_.dynamicUnalignedOps = ConfigManager::Instance().GetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, false);
+    currentFunctionPtr_->paramConfigs_.dynamicUnalignedOps = config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_UNALIGNED);
     std::shared_ptr<TensorSlotScope> scope = nullptr;
     // root & leaf do not need scope, use tensor/tile graph's
     if (currentFunctionPtr_->GetGraphType() != GraphType::BLOCK_GRAPH &&

@@ -130,18 +130,18 @@ TEST_F(DistributedTest, allgather_attn_post_reducescatter_b64_s1_n32_lora256_dim
 }
 
 TEST_F(DistributedTest, shmem_all_gather_int32_128_256_4) {
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
     Distributed::TestDynAllGather(testParam);
 }
 
 TEST_F(DistributedTest, shmem_reduce_scatter_int32_128_256_4)
 {
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
     Distributed::TestShmemReduceScatter(testParam);
 }
 
 TEST_F(DistributedTest, shmem_allgather_matmul_reducescatter_int32_128_256_4) {
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
     Distributed::TestDynAllGatherMatmulReducescatter(testParam);
 }
 } // namespace Distributed

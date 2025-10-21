@@ -109,7 +109,7 @@ void DynamicFFNQuant(const Tensor &hiddenStatesQuant, const Tensor &hiddenStates
 
 void TestDynamicFFN()
 {
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 
     TileShape::Current().SetVecTile(NUM_32, NUM_128);
     TileShape::Current().SetCubeTile({NUM_32, NUM_32}, {NUM_128, NUM_128}, {NUM_128, NUM_128});
@@ -136,7 +136,7 @@ void TestDynamicFFN()
 
 void TestDynamicFFNQuant()
 {
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(NUM_32, NUM_128);
     TileShape::Current().SetCubeTile({NUM_32, NUM_32}, {NUM_128, NUM_128}, {NUM_128, NUM_128});
 

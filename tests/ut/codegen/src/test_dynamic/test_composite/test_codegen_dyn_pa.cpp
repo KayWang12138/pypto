@@ -43,7 +43,7 @@ public:
 };
 
 void testPa(PaTileShapeConfig &tileConfig, int maxUnrollTimes = 1) {
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 
     int b = 4;
     int sq = 1;
@@ -87,7 +87,7 @@ void testPa(PaTileShapeConfig &tileConfig, int maxUnrollTimes = 1) {
 }
 
 TEST_F(TestCodegenDynPa, PaHighThroughputDviewLargeDynamicValidShape) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     PaTileShapeConfig tileConfig;
     const int nTile = 128;
     tileConfig.headNumQTile = nTile;

@@ -49,7 +49,7 @@ template <typename T = npu::tile_fwk::float16, bool nz = true, typename wUvDType
     typename wODType = int8_t, bool isSmoothWo = false>
 void TestAttentionPost(const TestPostParams &params, const PostTileConfig &tileConfig, float precision) {
     SetInterpreterConfig();
-    config::SetHostConfig(npu::tile_fwk::KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
     int b = params.b;
     int n = params.n;
     int s = params.s;

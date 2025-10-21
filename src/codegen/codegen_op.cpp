@@ -119,8 +119,8 @@ bool CodeGenOp::Init(const npu::tile_fwk::Operation &ops) {
 
     ALOG_INFO_F("%s: init CodeGenOp from npu::tile_fwk::Operation", __FUNCTION__);
 
-    isSupportDynamicUnaligned = functionType == FunctionType::DYNAMIC_LOOP_PATH &&
-                                ConfigManager::Instance().GetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, false);
+    isSupportDynamicUnaligned =
+        functionType == FunctionType::DYNAMIC_LOOP_PATH && config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_UNALIGNED);
     isSupportLayout = ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_SUPPORT_LAYOUT, false);
 
     UpdateTileOpInfo(ops);

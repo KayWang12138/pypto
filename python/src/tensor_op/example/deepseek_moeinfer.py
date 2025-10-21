@@ -13,7 +13,7 @@
 import pto
 
 # RuntimeConfig KEYS
-KEY_ONLY_CODEGEN = "ONLY_CODEGEN"
+KEY_ONLY_CODEGEN = "only_codegen"
 
 F_1 = 1.0
 F_NEGA_1 = -1.0

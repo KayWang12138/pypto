@@ -100,7 +100,7 @@ void KvSlcCompute(Tensor &topK_indcies, Tensor &topK_tensor_shape, Tensor &kvNop
 }
 
 int main() { // b_n_s_s2_h_q_lora_rank
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
     KvSlcTileShapeConfig tileConfig;
     const int nTile = 32;
     tileConfig.v0TileShape = {nTile, 32};

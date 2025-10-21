@@ -37,7 +37,7 @@ public:
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetHostConfig(KEY_STRATEGY, "PVC2_OOO");
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
-        config::SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, true);
+        config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
         config::SetPassConfig("PVC2_OOO", "SubgraphToFunction", "PRINT_FUNCTION", true);
     }
     void TearDown() override {}
@@ -183,7 +183,7 @@ TEST_F(DynAttrToStaticTest, TestSetTensorData) {
 }
 
 TEST_F(DynAttrToStaticTest, TestDynExpression) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     TileShape::Current().SetVecTile(64, 64);
 
     int b = 1;

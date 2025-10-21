@@ -81,7 +81,7 @@ static std::vector<std::reference_wrapper<const Tensor>> AsRef(const std::vector
 
 static void ConcatOperationExeFuncDoubleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     auto inputRefs = AsRef(inputs);
     auto args = static_cast<const ConcatOpFuncArgs *>(opArgs);
     int axis=0;
@@ -118,7 +118,7 @@ static void ConcatOperationExeFuncDoubleCut(
 
 static void ConcatOperationExeFuncTripleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     auto inputRefs = AsRef(inputs);
     auto args = static_cast<const ConcatOpFuncArgs *>(opArgs);
     int axis=0;
@@ -178,7 +178,7 @@ static void ConcatOperationExeFuncTripleCut(
 
 static void ConcatOperationExeFuncQuadraticCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     auto inputRefs = AsRef(inputs);
     int axis=0;
     auto args = static_cast<const ConcatOpFuncArgs *>(opArgs);

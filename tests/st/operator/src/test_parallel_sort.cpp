@@ -91,8 +91,8 @@ void SortStaticTest(int tileSize){
 
 template <typename T = float, typename idxT = int>
 void SortTest(int tileSize){
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     
     std::vector<int> params(2);
     readInput<int>(GetGoldenDir() + "/params.bin", params);
@@ -137,8 +137,8 @@ void SortTest(int tileSize){
 
 template <typename T = float, typename idxT = int>
 void SortWithIndexTest(int tileSize){
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     
     std::vector<int> params(2);
     readInput<int>(GetGoldenDir() + "/params.bin", params);
@@ -185,8 +185,8 @@ void SortWithIndexTest(int tileSize){
 
 template <typename T = float, typename idxT = int>
 void TopKTest(int tileSize){
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     
     std::vector<int> params(3);
     readInput<int>(GetGoldenDir() + "/params.bin", params);

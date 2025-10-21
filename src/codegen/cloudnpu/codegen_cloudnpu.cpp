@@ -50,7 +50,7 @@ bool HasAllocAttr(const std::shared_ptr<LogicalTensor> &tensor) {
 std::string CodeGenCloudNPU::GenInclude(const VFCodeGen &vfCg) const {
     std::ostringstream include;
     // expression fusion
-    if (ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_EXPRESSION_FUSION, false)) {
+    if (config::GetCodeGenOption<bool>(CODEGEN_EXPRESSION_FUSION)) {
         uint64_t tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
         std::string expFileName = "../kernel_aicpu/expression_" + std::to_string(tilingKey) + ".h";
         // expression.h depend on __TILE_FWK_AICORE__
@@ -222,7 +222,7 @@ std::string CodeGenCloudNPU::GenAllocForLocalBuffer(const Operation &op, SymbolM
 // GET_PARAM_OFFSET_BY_IDX(param, n, base, dim, idx)
 // GET_PARAM_VALID_SHAPE_BY_IDX(param, n, base, dim, idx)
 std::string CodeGenCloudNPU::GenDynParamForExpr(const Function &func) const {
-    unsigned isSupportUnaligned = ConfigManager::Instance().GetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, false);
+    unsigned isSupportUnaligned = config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_UNALIGNED);
     if (!isSupportUnaligned) {
         return {};
     }

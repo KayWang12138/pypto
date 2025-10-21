@@ -48,7 +48,7 @@ static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::strin
 
 template <typename T = npu::tile_fwk::bfloat16>
 void TestCmpKvSel(CmpAttnTile &tileConfig) {
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 
     DataType dType = DT_FP32;
     if (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
@@ -201,7 +201,7 @@ void TestCmpKvSel(CmpAttnTile &tileConfig) {
 }
 
 TEST_F(DynamicCmpKvSel, dynamic_NSA_case_no_flash) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
     // // 精度工具
     // config::SetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, true);
     // config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);
@@ -239,7 +239,7 @@ TEST_F(DynamicCmpKvSel, dynamic_NSA_case_no_flash) {
 }
 
 TEST_F(DynamicCmpKvSel, debug_dynamic_NSA_case_no_flash) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
 
     CmpAttnTile config;
     // Block concat tile

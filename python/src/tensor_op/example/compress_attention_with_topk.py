@@ -17,7 +17,7 @@ import math
 import pto
 
 
-KEY_ONLY_CODEGEN = "ONLY_CODEGEN"
+KEY_ONLY_CODEGEN = "only_codegen"
 
 SHAPE_DIM0 = 0
 SHAPE_DIM1 = 1

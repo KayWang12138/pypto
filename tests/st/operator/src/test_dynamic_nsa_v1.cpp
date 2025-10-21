@@ -28,7 +28,7 @@ using namespace npu::tile_fwk::dynamic;
 class DynamicNSATest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 void SetPreConfig() {
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 }
 
 template <typename T>
@@ -569,7 +569,7 @@ TEST_F(DynamicNSATest, nsa_b_16_s1_1_s2_8192_h_7168_fp16_quant) {
 template <bool ci = false, bool debug = false>
 void test_common(NSASimpleParams params) {
     int paramsSize = 7;
-    ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, debug);
+    config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, debug);
     config::SetPassConfig("PVC2_OOO", "SplitReshape", "DISABLE_PASS", true);
     std::vector<int> inputParams(paramsSize);
     readInput<int>(GetGoldenDir() + "/input_params.bin", inputParams); // 在golden中保存了变化的参数，便于调试

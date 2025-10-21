@@ -49,6 +49,15 @@ static std::map<std::string, ValueType> g_runtimeConfig = {
     {SUBSEQ_STITCH_TASK_INCR_LOOP_NUM, 30}, // Increasing loop number
 };
 
+static std::map<std::string, ValueType> g_hostConfig = {
+    {ONLY_CODEGEN, false},
+};
+
+static std::map<std::string, ValueType> g_codegenConfig = {
+    {SUPPORT_DYNAMIC_UNALIGNED, false},
+    {CODEGEN_EXPRESSION_FUSION, false},
+};
+
 struct ConfigStorage {
     ConfigStorage() { Reset(); }
 
@@ -64,6 +73,13 @@ struct ConfigStorage {
         }
         for (auto &[key, val] : g_runtimeConfig) {
             options["runtime." + key] = val;
+        }
+        for (auto &[key, val] : g_hostConfig) {
+            options["host." + key] = val;
+        }
+
+        for (auto &[key, val] : g_codegenConfig) {
+            options["codegen." + key] = val;
         }
     }
 

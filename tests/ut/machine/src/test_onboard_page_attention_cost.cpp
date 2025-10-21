@@ -39,7 +39,7 @@ TEST_F(OnBoardPaCostTest, test_page_attention_low_latency) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
     config::SetOperationConfig("FORCE_COMBINE_AXIS", true);
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 
     TileFwkInit("");
     std::unordered_map<std::string, int> params = {
@@ -112,7 +112,7 @@ TEST_F(OnBoardPaCostTest, test_page_attention_hight_throughput) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
     config::SetOperationConfig("FORCE_COMBINE_AXIS", true);
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
     const int cycle_lower_bound = 2048;
     const int l1_reuse = 4;
     const int copyin_threshold = 2 * 1024 * 1024;

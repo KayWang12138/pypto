@@ -25,13 +25,13 @@ class DynamicReshapeTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aiha
 public:
     void SetUp() override {
         npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac::SetUp();
-        config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+        config::SetHostOption(ONLY_CODEGEN, true);
     }
 };
 
 TEST_F(DynamicReshapeTest, test_only_reshape) {
     SetInterpreterConfig();
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 1;
     int sq = 128;
@@ -88,7 +88,7 @@ TEST_F(DynamicReshapeTest, test_only_reshape) {
 
 TEST_F(DynamicReshapeTest, test_only_reshape2) {
     SetInterpreterConfig();
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 2;
     int sq = 32;
@@ -140,7 +140,7 @@ TEST_F(DynamicReshapeTest, test_only_reshape2) {
 }
 
 TEST_F(DynamicReshapeTest, test_dyn_reshape) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = -1;
     int sq = 128;
@@ -189,7 +189,7 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape) {
 
 TEST_F(DynamicReshapeTest, test_dyn_reshape2) {
     SetInterpreterConfig();
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = -1;
     int sq = 128;
@@ -246,7 +246,7 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape2) {
 }
 
 TEST_F(DynamicReshapeTest, test_dyn_reshape1111) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     TileShape::Current().SetVecTile(32, 64);
 
     Tensor A(DT_FP32, {128, 64}, "A");
@@ -289,7 +289,7 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape1111) {
 
 
 TEST_F(DynamicReshapeTest, test_dyn_reshape22222) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     TileShape::Current().SetVecTile(32, 64);
 
     Tensor A(DT_FP32, {128, 64}, "A");
@@ -327,7 +327,7 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape22222) {
 // test reshape unaligned infershape
 TEST_F(DynamicReshapeTest, test_reshape_unalign) {
     TileShape::Current().SetVecTile(64, 64);
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 2;
     int sq = 64;
@@ -382,7 +382,7 @@ TEST_F(DynamicReshapeTest, test_assemble_diff_tile) {
     SetInterpreterConfig();
     TileShape::Current().SetCubeTile({16, 16}, {128, 128}, {128, 128});
 
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int batch = 2;
     int s1 = 16;
@@ -445,7 +445,7 @@ TEST_F(DynamicReshapeTest, test_assemble_diff_tile) {
 // test View + Reshape + Assemble 4->2 + op  2batch will wrong
 TEST_F(DynamicReshapeTest, test_reshape_dassemble_4_2) {
     TileShape::Current().SetVecTile(1, 1, 64, 64);
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 2;
     int s = 1;
@@ -511,7 +511,7 @@ TEST_F(DynamicReshapeTest, test_reshape_dassemble_4_2) {
 // test View + Reshape + Assemble 2->3
 TEST_F(DynamicReshapeTest, test_reshape_dassemble) {
     TileShape::Current().SetVecTile(64, 64);
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 1;
     int sq = 64;
@@ -568,7 +568,7 @@ TEST_F(DynamicReshapeTest, test_reshape_dassemble) {
 // ===================  reshape + op + reshape  ??????
 TEST_F(DynamicReshapeTest, test_reshape_op_reshape) {
     TileShape::Current().SetVecTile(1, 1, 64, 64);
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 2;
     int s = 1;

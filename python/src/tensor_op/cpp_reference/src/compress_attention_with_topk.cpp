@@ -357,7 +357,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
 template <typename T = npu::tile_fwk::bfloat16>
 void TestCmpAttnTopk(CmpAttnTopkTile &tileConfig, std::vector<int> input_param, std::vector<int> actSeqLen)
 {
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
 
     DataType dType = DT_FP32;
     if (std::is_same<T, npu::tile_fwk::bfloat16>::value) {

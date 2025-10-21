@@ -76,8 +76,8 @@ public:
 private:
     static inline bool gmClearFlag = true;
     static void init() {
-        config::SetHostConfig(npu::tile_fwk::KEY_ONLY_CODEGEN, true);
-        config::SetCodeGenConfig(npu::tile_fwk::KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+        config::SetHostOption(ONLY_CODEGEN, true);
+        config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     }
 
     static void verifyOpResults(const TestCaseDesc& testCase) {
@@ -205,8 +205,8 @@ private:
         config::SetPlatformConfig(npu::tile_fwk::KEY_VERIFY_EXECUTE_GRAPH_DUMP_OPERATION, true);
         config::SetPlatformConfig(npu::tile_fwk::KEY_VERIFY_EXECUTE_GRAPH_DUMP_TENSOR, true);
 
-        config::SetHostConfig(npu::tile_fwk::KEY_ONLY_CODEGEN, true);
-        config::SetCodeGenConfig(npu::tile_fwk::KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+        config::SetHostOption(ONLY_CODEGEN, true);
+        config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     }
 
     static void verifyOpResults(const TestCaseDesc& testCase) {

@@ -27,8 +27,8 @@ class DynamicMatmulUTest : public testing::Test {};
 template <typename InputT, typename OutputT, bool IsBtrans = false, bool IsBNZ = false>
 void TestDynMatmul(int m, int k, int n) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     int nb = n;
     int kb = k;
     int ka = k;

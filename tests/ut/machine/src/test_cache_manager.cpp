@@ -62,7 +62,7 @@ TEST(CacheManagerUnitTest, test_match_cache) {
 
 TEST(CacheManagerUnitTest, test_page_attention) {
     Program::GetInstance().Reset();
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
     PaTileShapeConfig tileConfig;
     const int nTile = 32;
     tileConfig.headNumQTile = nTile;

@@ -129,7 +129,7 @@ static void ExpandOperationExeFunc3Dims(
 
 static void ExpandOperationExeFunc4Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         std::vector<SymbolicScalar> inputsShape = {inputs[0]->shape[0], inputs[0]->shape[1], inputs[0]->shape[2], inputs[0]->shape[3]};
         std::vector<SymbolicScalar> outputsShape = {outputs[0]->shape[0], outputs[0]->shape[1], outputs[0]->shape[2], outputs[0]->shape[3]};

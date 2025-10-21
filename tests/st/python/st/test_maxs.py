@@ -26,8 +26,8 @@ def test_maxs():
     scalar_data = 5
     first_dim, second_dim = 128, 128
     view_shape, tile_shape = (64, 64), (32, 32)
-    set_codegen_config("SUPPORT_DYNAMIC_UNALIGNED", True)
     DeviceInit()
+    set_codegen_config("support_dynamic_unaligned", True)
 
     x = tensor((first_dim, second_dim), pto.DataType.DT_INT32, "Operand1")
     y = tensor((first_dim, second_dim), pto.DataType.DT_INT32, "Output")
