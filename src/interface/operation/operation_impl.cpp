@@ -4588,6 +4588,7 @@ Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, cons
     auto newShape = CheckAndInferShape(operand->shape, dstshape);
     if (ReshapeNeedCopy(operand)) {
         Tensor copyOperand(operand->Datatype(), operand->shape, "", operand->tensorfmt);
+        copyOperand->UpdateDynValidShape(operand.GetStorage()->GetDynValidShape());
         CALL(InnerAssign, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(),
             copyOperand.GetStorage());
         Tensor result(copyOperand->Datatype(), newShape, "", operand->tensorfmt);
