@@ -19,6 +19,7 @@
 namespace npu::tile_fwk::calc {
 
 #define AXIS_TO_LAST -2
+#define NUM_VALUE_8 8
 constexpr int BLOCK_SIZE = 32;
 
 #define CALC_ASSERT(cond, ...) TORCH_CHECK(cond, __VA_ARGS__)
@@ -247,6 +248,58 @@ void MaxS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &el
 void Range(LogicalTensorDataPtr out, const Element &start, const Element &end, const Element &step) {
     auto tout = From(out);
     torch::range_out(tout, From(start), From(end), From(step));
+}
+
+void Compare(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other,
+             CmpOperationType operation, CmpModeType mode) {
+    auto tout = From(out);
+    auto tself = From(self);
+    auto tother = From(other);
+    torch::Tensor tmp_result;
+    switch (operation) {
+        case CmpOperationType::EQ:
+            tmp_result = torch::eq(tself, tother);
+            break;
+        case CmpOperationType::NE:
+            tmp_result = torch::ne(tself, tother);
+            break;
+        case CmpOperationType::LT:
+            tmp_result = torch::lt(tself, tother);
+            break;
+        case CmpOperationType::LE:
+            tmp_result = torch::le(tself, tother);
+            break;
+        case CmpOperationType::GT:
+            tmp_result = torch::gt(tself, tother);
+            break;
+        case CmpOperationType::GE:
+            tmp_result = torch::ge(tself, tother);
+            break;
+    }
+    if (mode == CmpModeType::BIT) {
+        if (tmp_result.dim() > 0) {
+            int64_t last_dim = tmp_result.size(-1);
+            CALC_ASSERT(last_dim % NUM_VALUE_8 == 0, "Last dimension must be divisible by 8 in BIT mode");
+            auto shape = tmp_result.sizes().vec();
+            shape.back() = last_dim / NUM_VALUE_8;
+            torch::Tensor packed = torch::empty(shape, torch::kUInt8);
+            auto tmp_data = tmp_result.data_ptr<bool>();
+            auto packed_data = packed.data_ptr<uint8_t>();
+            const int64_t num_elements = tmp_result.numel();
+            for (int64_t i = 0; i < num_elements / NUM_VALUE_8; ++i) {
+                uint8_t byte = 0;
+                for (int j = 0; j < NUM_VALUE_8; ++j) {
+                    if (tmp_data[i * NUM_VALUE_8 + j]) {
+                        byte |= (1 << j);
+                    }
+                }
+                packed_data[i] = byte;
+            }
+            tout.copy_(packed);
+        }
+    } else {
+        tout.copy_(tmp_result);
+    }
 }
 
 #define DEFINE_BINARY_PAIR_OPS(Name, bop)                                                              \

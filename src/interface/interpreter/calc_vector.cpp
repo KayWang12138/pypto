@@ -286,6 +286,20 @@ void ExecuteOpRange(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_RANGE, Opcode::OP_RANGE, ExecuteOpRange);
 
+void ExecuteOpCompare(ExecuteOperationContext *ctx) {
+    auto oop = ctx->ooperandInplaceDataViewList->at(0);
+    auto iop_self = ctx->ioperandDataViewList->at(0);
+    auto iop_other = ctx->ioperandDataViewList->at(1);
+    auto operation = static_cast<npu::tile_fwk::calc::CmpOperationType>(
+        ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation")
+    );
+    auto mode = static_cast<npu::tile_fwk::calc::CmpModeType>(
+        ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "cmp_mode")
+    );
+    calc::Compare(oop, iop_self, iop_other, operation, mode);
+}
+REGISTER_CALC_OP(OP_CMP, Opcode::OP_CMP, ExecuteOpCompare);
+
 void ExecuteOpExtract(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ioperandDataViewList->size() == 1);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);

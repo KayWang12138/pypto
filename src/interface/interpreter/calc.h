@@ -31,6 +31,19 @@ struct MatMulParam {
     int64_t kStep = 0;
 };
 
+enum class CmpOperationType {
+    EQ,
+    NE,
+    LT,
+    LE,
+    GT,
+    GE,
+};
+enum class CmpModeType {
+    BOOL,
+    BIT,
+};
+
 extern "C" {
 const char *Model();
 void Dump(std::ostream &os, LogicalTensorDataPtr self);
@@ -49,6 +62,8 @@ void WhereSS(LogicalTensorDataPtr out, LogicalTensorDataPtr condition, const Ele
 void Ln(LogicalTensorDataPtr out, LogicalTensorDataPtr self);
 void LogicalNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self);
 void Range(LogicalTensorDataPtr out, const Element &start, const Element &end, const Element &step);
+void Compare(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, 
+    CmpOperationType operation, CmpModeType mode);
 
 void AddS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false);
 void SubS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false);

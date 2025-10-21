@@ -60,6 +60,15 @@ TEST_F(TorchAdaptorTest, Range) {
     ASSERT_ALLCLOSE(out, golden);
 }
 
+TEST_F(TorchAdaptorTest, Compare) {
+    auto self = makeTensorData(DT_FP32, {16, 16}, 4.0f);
+    auto other = makeTensorData(DT_FP32, {16, 16}, 4.0f);
+    auto out = makeTensorData(DT_BOOL, {16, 16}, false);
+    auto golden = makeTensorData(DT_BOOL, {16, 16}, true);
+    calc::Compare(out, self, other, npu::tile_fwk::calc::CmpOperationType::EQ, npu::tile_fwk::calc::CmpModeType::BOOL);
+    ASSERT_ALLCLOSE(out, golden);
+}
+
 TEST_F(TorchAdaptorTest, UnaryOps) {
     {
         // rsqrt

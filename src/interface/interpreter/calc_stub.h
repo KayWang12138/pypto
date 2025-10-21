@@ -34,6 +34,7 @@ inline void WhereSS(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &,
 inline void Ln(LogicalTensorDataPtr, LogicalTensorDataPtr) {}
 inline void LogicalNot(LogicalTensorDataPtr, LogicalTensorDataPtr) {}
 inline void Range(LogicalTensorDataPtr, const Element &, const Element &, const Element &) {}
+inline void Compare(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, CmpOperationType, CmpModeType) {}
 
 inline void AddS(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, bool) {}
 inline void SubS(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, bool) {}
