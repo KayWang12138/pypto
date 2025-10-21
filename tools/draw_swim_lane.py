@@ -102,6 +102,8 @@ class TaskInfo:
         res["args"]["ooperand-hint"] = self.outoperand_label
         res["args"]["execution-hint"] = self.get_task_execution_time_analysis()
         res["args"]["color"] = self.color_label
+        res["args"]["taskId"] = self.origin_task_id
+        res["args"]["seqNo"] = self.origin_seq_no
         res["cat"] = "event"
         res["id"] = event_id
         res["name"] = self.get_task_name()
@@ -121,6 +123,8 @@ class TaskInfo:
         res["args"] = {}
         res["args"]["ioperand-hint"] = self.inoperand_label
         res["args"]["ooperand-hint"] = self.outoperand_label
+        res["args"]["taskId"] = self.origin_task_id
+        res["args"]["seqNo"] = self.origin_seq_no
         if len(self.func_name) == 0:
             res["funcName"] = "Func"
         else:
@@ -409,6 +413,8 @@ def build_swim_info(swim_data, topo_data, label_type: int = 0):
             entry.root_index = topo_task.get("rootIndex", -1)
             entry.root_hash = topo_task.get("rootHash", -1)
             entry.opmagic = topo_task.get("opMagic", -1)
+            origin_task_id = topo_task.get("oriTaskId", 0)
+            origin_seq_no = topo_task.get("oriSeqNo", 0)
 
             # should assert entry.psg_id_in_dyn == topo_task.get('leafIndex', -1) after dyn-static same code
             if label_type == 1:
@@ -895,6 +901,8 @@ def load_dyn_topo(file_path, func_data):
             topo.append(
                 {
                     "taskId": seq_no << 32 | task_id,
+                    "oriTaskId": task_id,
+                    "oriSeqNo": seq_no,
                     "successors": [seq_no << 32 | x for x in succs],
                     "coreType": core_type,
                     "rootIndex": root_index,
