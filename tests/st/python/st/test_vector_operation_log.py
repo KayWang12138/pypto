@@ -41,7 +41,7 @@ def test_vector_operation_log():
                                           pto.symbolic_scalar(n)), min(pto.symbolic_scalar(m) - b_idx * view_shape[1],
                                           pto.symbolic_scalar(m))], [b_idx * view_shape[0], s_idx * view_shape[1]])
                         pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
-                        tile_a.move(pto.log(tile_a, pto.LogBaseType.LOG_e))
+                        tile_a.move(pto.log(tile_a, pto.LogBaseType.LOG_E))
                         pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
                         del tile_a
     a_tensor = np.random.uniform(0.001, 100, [n, m]).astype(np.float32)

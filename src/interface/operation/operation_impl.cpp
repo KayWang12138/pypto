@@ -1756,34 +1756,34 @@ void TiledInnerTranspose(Function &function, const TileShape &tileShape,
     TiledInnerTranspose<T>(function, tileShape, 0, input, result, shape);
 }
 
-void TensorInnerTranspose(Function &function, const LogicalTensorPtr &operand,
-    const LogicalTensorPtr &result, std::vector<int> transposeShape) {
-    if (transposeShape[0] != (int)operand->shape.size() - 1 && transposeShape[1] != (int)operand->shape.size() - 1) {
-        auto &operation = function.AddOperation(Opcode::OP_TRANSPOSE_MOVEOUT, {operand}, {result});
-        operation.SetAttribute(OP_ATTR_PREFIX + "shape", transposeShape);
+void TensorInnerTranspose(Function &function, const LogicalTensorPtr &self,
+    const LogicalTensorPtr &result, std::vector<int> perm) {
+    if (perm[0] != (int)self->shape.size() - 1 && perm[1] != (int)self->shape.size() - 1) {
+        auto &operation = function.AddOperation(Opcode::OP_TRANSPOSE_MOVEOUT, {self}, {result});
+        operation.SetAttribute(OP_ATTR_PREFIX + "shape", perm);
         return;
     }
 
-    if (transposeShape[0] == (int)operand->shape.size() - 2 &&        // last 2 dims transpose
-        transposeShape[1] == (int)operand->shape.size() - 1) {
-        auto &operation = function.AddOperation(Opcode::OP_TRANSPOSE_VNCHWCONV, {operand}, {result});
-        operation.SetAttribute(OP_ATTR_PREFIX + "shape", transposeShape);
+    if (perm[0] == (int)self->shape.size() - 2 &&        // last 2 dims transpose
+        perm[1] == (int)self->shape.size() - 1) {
+        auto &operation = function.AddOperation(Opcode::OP_TRANSPOSE_VNCHWCONV, {self}, {result});
+        operation.SetAttribute(OP_ATTR_PREFIX + "shape", perm);
         return;
     }
 
-    ASSERT(operand->shape.size() == 3 || operand->shape.size() == 4)  // input should be 3 or 4 dims
+    ASSERT(self->shape.size() == 3 || self->shape.size() == 4)  // input should be 3 or 4 dims
         << "Transpose shape should be [A1,T1,A2,T2] or [T1,A2,T2].";
 
     // [A1,T1,A2,T2] to [A1,A2,T1,T2] or [T1,A2,T2] to [A2,T1,T2]
     auto oldVecTileShapes = TileShape::Current().GetVecTile();
     auto newVecTileShape = oldVecTileShapes;
-    std::vector<int64_t> tmpShape(operand->shape);
+    std::vector<int64_t> tmpShape(self->shape);
     int dim1 = (tmpShape.size() == 3) ? 0 : 1;   // if input is 3 dims, dim1 = 0, otherwise dim1 = 1
     int dim2 = (tmpShape.size() == 3) ? 1 : 2;   // if input is 3 dims, dim2 = 1, otherwise dim2 = 2
     std::swap(tmpShape[dim1], tmpShape[dim2]);
     std::swap(newVecTileShape[dim1], newVecTileShape[dim2]);
-    auto moveInResult = std::make_shared<LogicalTensor>(function, operand->Datatype(), tmpShape);
-    auto &inOp = function.AddOperation(Opcode::OP_TRANSPOSE_MOVEIN, {operand}, {moveInResult});
+    auto moveInResult = std::make_shared<LogicalTensor>(function, self->Datatype(), tmpShape);
+    auto &inOp = function.AddOperation(Opcode::OP_TRANSPOSE_MOVEIN, {self}, {moveInResult});
     inOp.SetAttribute(OP_ATTR_PREFIX + "shape", std::vector<int>{dim1, dim2});
     TileShape::Current().SetVecTile(newVecTileShape);
 
@@ -1793,7 +1793,7 @@ void TensorInnerTranspose(Function &function, const LogicalTensorPtr &operand,
     dim2 = (tmpShape.size() == 3) ? 2 : 3;   // if input is 3 dims, dim2 = 2, otherwise dim2 = 3
     std::swap(tmpShape[dim1], tmpShape[dim2]);
     std::swap(newVecTileShape[dim1], newVecTileShape[dim2]);
-    auto vnchwconvResult = std::make_shared<LogicalTensor>(function, operand->Datatype(), tmpShape);
+    auto vnchwconvResult = std::make_shared<LogicalTensor>(function, self->Datatype(), tmpShape);
     auto &convOp = function.AddOperation(Opcode::OP_TRANSPOSE_VNCHWCONV, {moveInResult}, {vnchwconvResult});
     convOp.SetAttribute(OP_ATTR_PREFIX + "shape", std::vector<int>{dim1, dim2});
     TileShape::Current().SetVecTile(newVecTileShape);
@@ -1881,40 +1881,40 @@ bool MergeTransposeAxis(const Tensor &operand, std::vector<int64_t>& inputShape,
     return true;
 }
 
-Tensor Transpose(const Tensor &operand, std::vector<int> transposeShape) {
+Tensor Transpose(const Tensor &self, std::vector<int> perm) {
     DECLARE_TRACER();
-    ASSERT(transposeShape.size() == 2) << "Transpose dim num should be 2."; // transposeShape should be 2 dims
-    ASSERT(transposeShape[0] < (int)operand->shape.size()) << "Transpose dim should less than " << operand->shape.size();
-    ASSERT(transposeShape[1] < (int)operand->shape.size()) << "Transpose dim should less than " << operand->shape.size();
+    ASSERT(perm.size() == 2) << "Transpose dim num should be 2."; // perm should be 2 dims
+    ASSERT(perm[0] < (int)self->shape.size()) << "Transpose dim should less than " << self->shape.size();
+    ASSERT(perm[1] < (int)self->shape.size()) << "Transpose dim should less than " << self->shape.size();
 
-    std::sort(transposeShape.begin(), transposeShape.end());
-    if ((operand->shape[transposeShape[0]] == 1 && operand->shape[transposeShape[1]] == 1) ||
-        transposeShape[0] == transposeShape[1]) {
-        return operand;
+    std::sort(perm.begin(), perm.end());
+    if ((self->shape[perm[0]] == 1 && self->shape[perm[1]] == 1) ||
+        perm[0] == perm[1]) {
+        return self;
     }
     auto oldVecTileShapes = TileShape::Current().GetVecTile();
-    ASSERT(oldVecTileShapes.size() == operand->shape.size()) << "TileShape dim num should same to input.";
-    auto oldValidShapes = operand.GetStorage()->GetDynValidShape();
+    ASSERT(oldVecTileShapes.size() == self->shape.size()) << "TileShape dim num should same to input.";
+    auto oldValidShapes = self.GetStorage()->GetDynValidShape();
     if (oldValidShapes.empty()) {
-        oldValidShapes = SymbolicScalar::FromConcrete(operand->shape);
+        oldValidShapes = SymbolicScalar::FromConcrete(self->shape);
     }
-    ASSERT(oldValidShapes.size() == operand->shape.size()) << "ValidShape dim num should same to input.";
+    ASSERT(oldValidShapes.size() == self->shape.size()) << "ValidShape dim num should same to input.";
 
     std::vector<int64_t> newInputShape;
     std::vector<int64_t> newVecTileShape;
-    std::vector<int> newTransposeShape = transposeShape;
+    std::vector<int> newTransposeShape = perm;
     std::vector<SymbolicScalar> newValidShape = oldValidShapes;
-    std::vector<int64_t> resultShape(operand->shape);
-    std::swap(resultShape[transposeShape[0]], resultShape[transposeShape[1]]);
-    if (!MergeTransposeAxis(operand, newInputShape, newVecTileShape, newValidShape, newTransposeShape)) {
-        Tensor result(operand->Datatype(), resultShape);
-        CALL(InnerTranspose, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(), result.GetStorage(),
-             transposeShape);
+    std::vector<int64_t> resultShape(self->shape);
+    std::swap(resultShape[perm[0]], resultShape[perm[1]]);
+    if (!MergeTransposeAxis(self, newInputShape, newVecTileShape, newValidShape, newTransposeShape)) {
+        Tensor result(self->Datatype(), resultShape);
+        CALL(InnerTranspose, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), result.GetStorage(),
+             perm);
         return result;
     }
-    std::swap(oldValidShapes[transposeShape[0]], oldValidShapes[transposeShape[1]]);
+    std::swap(oldValidShapes[perm[0]], oldValidShapes[perm[1]]);
 
-    auto tmpInputTensor = Reshape(operand, newInputShape, newValidShape);
+    auto tmpInputTensor = Reshape(self, newInputShape, newValidShape);
     TileShape::Current().SetVecTile(newVecTileShape);
     auto tmpOutputTensor = Transpose(tmpInputTensor, newTransposeShape);
     TileShape::Current().SetVecTile(oldVecTileShapes);
@@ -2089,11 +2089,11 @@ Tensor Cast(const Tensor &operand, DataType newDataType, CastMode mode) {
         operand.GetStorage(), newDataType, mode);
 }
 
-Tensor Exp(const Tensor &operand) {
+Tensor Exp(const Tensor &self) {
     DECLARE_TRACER();
 
     RETURN_CALL(
-        UnaryOperation<UnaryOpType::EXP>, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage());
+        UnaryOperation<UnaryOpType::EXP>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
 }
 
 Tensor Ln(const Tensor &operand) {
@@ -2103,23 +2103,23 @@ Tensor Ln(const Tensor &operand) {
         operand.GetStorage());
 }
 
-Tensor Log(const Tensor &operand, LogBaseType base) {
+Tensor Log(const Tensor &self, LogBaseType base) {
     DECLARE_TRACER();
-    ASSERT(base == LogBaseType::LOG_e || base == LogBaseType::LOG_2 || base == LogBaseType::LOG_10);
-    ASSERT(operand->tensor->datatype == DataType::DT_FP16 || operand->tensor->datatype == DataType::DT_FP32);
+    ASSERT(base == LogBaseType::LOG_E || base == LogBaseType::LOG_2 || base == LogBaseType::LOG_10);
+    ASSERT(self->tensor->datatype == DataType::DT_FP16 || self->tensor->datatype == DataType::DT_FP32);
 
-    auto operandCast = Tensor(DataType::DT_FP32, operand->shape);
-    if (operand->tensor->datatype == DataType::DT_FP16) {
+    auto operandCast = Tensor(DataType::DT_FP32, self->shape);
+    if (self->tensor->datatype == DataType::DT_FP16) {
         operandCast = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
-            operand.GetStorage(), DataType::DT_FP32, CastMode::CAST_NONE);
+            self.GetStorage(), DataType::DT_FP32, CastMode::CAST_NONE);
     } else {
-        operandCast = operand;
+        operandCast = self;
     }
 
-    auto resTensor = Tensor(DataType::DT_FP32, operand->shape);
+    auto resTensor = Tensor(DataType::DT_FP32, self->shape);
     resTensor = CALL(UnaryOperation<UnaryOpType::LN>, *Program::GetInstance().GetCurrentFunction(), operandCast.GetStorage());
 
-    auto resTensorBeforeCast = Tensor(DataType::DT_FP32, operand->shape);
+    auto resTensorBeforeCast = Tensor(DataType::DT_FP32, self->shape);
     if (base == LogBaseType::LOG_2) {
         resTensorBeforeCast = CALL(BinaryOperationScalar<BinaryOpType::DIV>, *Program::GetInstance().GetCurrentFunction(),
             resTensor.GetStorage(), Element(DataType::DT_FP32, std::log(static_cast<float>(NUM_VALUE_2))));
@@ -2130,7 +2130,7 @@ Tensor Log(const Tensor &operand, LogBaseType base) {
         resTensorBeforeCast = resTensor;
     }
 
-    if (operand->tensor->datatype == DataType::DT_FP16) {
+    if (self->tensor->datatype == DataType::DT_FP16) {
         RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
             resTensorBeforeCast.GetStorage(), DataType::DT_FP16, CastMode::CAST_NONE);
     }
@@ -2561,24 +2561,24 @@ void TiledLogicalNotOperation(Function& function, const TileShape& tileShape, si
 }
 
 void TiledLogicalNotOperation(Function& function, const TileShape& tileShape,
-        const LogicalTensorPtr& operand, const LogicalTensorPtr& result) {
-    assert(operand->shape.size() == operand->offset.size());
+        const LogicalTensorPtr& self, const LogicalTensorPtr& result) {
+    assert(self->shape.size() == self->offset.size());
 
     TileInfo tileInfo(result->shape.size(), result->offset.size());
-    auto input = Input{operand, tileInfo};
+    auto input = Input{self, tileInfo};
     TiledLogicalNotOperation(function, tileShape, 0, input, result);
 }
 
-LogicalTensorPtr TensorLogicalNotOperation(Function& function, LogicalTensorPtr operand) {
-    auto result = std::make_shared<LogicalTensor>(function, DT_BOOL, operand->shape, operand->GetDynValidShape());
-    function.AddOperation(Opcode::OP_LOGICALNOT, {operand}, {result});
+LogicalTensorPtr TensorLogicalNotOperation(Function& function, LogicalTensorPtr self) {
+    auto result = std::make_shared<LogicalTensor>(function, DT_BOOL, self->shape, self->GetDynValidShape());
+    function.AddOperation(Opcode::OP_LOGICALNOT, {self}, {result});
     return result;
 }
 
-Tensor LogicalNot(const Tensor &operand) {
+Tensor LogicalNot(const Tensor &self) {
     DECLARE_TRACER();
 
-    RETURN_CALL(LogicalNotOperation, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage());
+    RETURN_CALL(LogicalNotOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
 }
 
 void TiledVecDup(Function &function, const TileShape &tileShape, const Element &value, const SymbolicScalar &dynValue,
@@ -3458,11 +3458,11 @@ void TensorExtractOperation(Function &function, LogicalTensorPtr operand, Logica
     op.SetAttribute(TOPK_ORDER, static_cast<int>(isLargest));
 }
 
-void TensorTopK(Function &function, const LogicalTensorPtr &operand, LogicalTensorPtr &valueResult,
+void TensorTopK(Function &function, const LogicalTensorPtr &self, LogicalTensorPtr &valueResult,
     LogicalTensorPtr &indexResult, int k, int axis, bool isLargest) {
-    if (!operand->GetDynValidShape().empty()) {
+    if (!self->GetDynValidShape().empty()) {
         std::vector<SymbolicScalar> outValidShape;
-        for (auto shape : operand->GetDynValidShape()) {
+        for (auto shape : self->GetDynValidShape()) {
             outValidShape.push_back(shape);
         }
         outValidShape[axis] = SymbolicScalar(k);
@@ -3470,24 +3470,24 @@ void TensorTopK(Function &function, const LogicalTensorPtr &operand, LogicalTens
         indexResult->UpdateDynValidShape(outValidShape);
     }
 
-    auto &op = function.AddOperation(Opcode::OP_TOPK, {operand}, {valueResult, indexResult});
+    auto &op = function.AddOperation(Opcode::OP_TOPK, {self}, {valueResult, indexResult});
     op.SetAttribute(TOPK_AXIS, axis);
     op.SetAttribute(TOPK_KVALUE, k);
     op.SetAttribute(TOPK_ORDER, static_cast<int>(isLargest));
     return;
 }
 
-std::tuple<Tensor, Tensor> TopK(const Tensor &operand, const int &k, int axis = -1, bool isLargest) {
+std::tuple<Tensor, Tensor> TopK(const Tensor &self, int k, int axis, bool isLargest) {
     DECLARE_TRACER();
-    const auto len = static_cast<int>(operand->shape.size());
+    const auto len = static_cast<int>(self->shape.size());
     ASSERT(axis == (len - 1) || axis == -1) << "TopK only support last axis";
     axis = axis >= 0 ? axis : (axis + len);
 
-    auto topkOutShape = operand->shape;
+    auto topkOutShape = self->shape;
     topkOutShape[axis] = k;
-    auto valueResult = Tensor(operand->tensor->datatype, topkOutShape);
+    auto valueResult = Tensor(self->tensor->datatype, topkOutShape);
     auto indexResult = Tensor(DataType::DT_INT32, topkOutShape);
-    CALL(TopK, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(), valueResult.GetStorage(),
+    CALL(TopK, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), valueResult.GetStorage(),
      indexResult.GetStorage(), k, axis, isLargest);
     return std::tie(valueResult, indexResult);
 }

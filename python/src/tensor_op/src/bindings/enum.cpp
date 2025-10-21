@@ -134,7 +134,7 @@ void bind_enum(py::module &m){
         .export_values();
 
     py::enum_<LogBaseType>(m, "LogBaseType")
-        .value("LOG_e", LogBaseType::LOG_e)
+        .value("LOG_E", LogBaseType::LOG_E)
         .value("LOG_2", LogBaseType::LOG_2)
         .value("LOG_10", LogBaseType::LOG_10)
         .export_values();

@@ -168,7 +168,7 @@ TEST_P(LogOperationTest, TestLog) {
     std::string baseStr = GetValueByName<std::string>(test_data, "base");
     LogBaseType base;
     if (baseStr == "e") {
-        base = LogBaseType::LOG_e;
+        base = LogBaseType::LOG_E;
     } else if (baseStr == "2") {
         base = LogBaseType::LOG_2;
     } else if (baseStr == "10") {

@@ -111,10 +111,10 @@ Tensor VectorDuplicate(const Element &src, DataType dtype, const std::vector<int
     std::vector<SymbolicScalar> validShape = {});
 Tensor VectorDuplicate(const SymbolicScalar &src, DataType dtype, const std::vector<int64_t> &dstShape,
     std::vector<SymbolicScalar> validShape = {});
-Tensor Transpose(const Tensor &operand, std::vector<int> transposeShape);
+Tensor Transpose(const Tensor &self, std::vector<int> perm);
 Tensor Cast(const Tensor &operand, DataType newDataType, CastMode mode = CAST_NONE);
 
-Tensor Exp(const Tensor &operand);
+Tensor Exp(const Tensor &self);
 Tensor Neg(const Tensor &operand);
 Tensor Rsqrt(const Tensor &operand);
 Tensor Sqrt(const Tensor &operand);
@@ -203,12 +203,12 @@ Tensor RmsNorm(const Tensor &operand, const Tensor &gamma, float epsilon = 1e-05
 Tensor Concat(const std::vector<Tensor> &tensorList, int axis);
 Tensor NewCompact(const Tensor &operand);
 Tensor Pad(const Tensor &old, const std::vector<int64_t> &newShape);
-Tensor LogicalNot(const Tensor &operand);
+Tensor LogicalNot(const Tensor &self);
 Tensor Range(const Element &start, const Element &end, const Element &step);
 
 Tensor Assign(const Tensor &operand);
 
-std::tuple<Tensor, Tensor> TopK(const Tensor &operand, const int &k, int axis, bool isLargest = true);
+std::tuple<Tensor, Tensor> TopK(const Tensor &self, int k, int axis = -1, bool isLargest = true);
 Tensor ArgSort(const Tensor &operand, int axis, bool isLargest = true);
 
 /**
@@ -273,11 +273,11 @@ Tensor Maxpool(const Tensor &operand, const std::vector<int> &pools, const std::
     const std::vector<int> &paddings);
 
 enum class LogBaseType {
-    LOG_e,
+    LOG_E,
     LOG_2,
     LOG_10,
 };
-Tensor Log(const Tensor &operand, LogBaseType base = LogBaseType::LOG_e);
+Tensor Log(const Tensor &self, LogBaseType base = LogBaseType::LOG_E);
 
 struct IfaTileShapeConfig {
     int blockSize;

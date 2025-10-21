@@ -63,12 +63,12 @@ void bind_operation(py::module &m) {
         py::arg("operand"), py::arg("shapes"), py::arg("new_valid_shapes"), py::arg("new_offsets"),
         "Tensor dview_pad.");
 
-    m.def("exp", [](const Tensor &operand) { return npu::tile_fwk::Exp(operand); }, "Tensor exp.");
+    m.def("exp", [](const Tensor &self) { return npu::tile_fwk::Exp(self); }, "Tensor exp.");
 
     m.def(
         "transpose",
-        [](const Tensor &operand, const std::vector<int> &transposeShape) {
-            return npu::tile_fwk::Transpose(operand, transposeShape);
+        [](const Tensor &self, const std::vector<int> &perm) {
+            return npu::tile_fwk::Transpose(self, perm);
         },
         "Tensor transpose.");
     m.def("abs", [](const Tensor &operand) { return npu::tile_fwk::Abs(operand); }, "Tensor abs.");
@@ -76,7 +76,7 @@ void bind_operation(py::module &m) {
     m.def("rsqrt", [](const Tensor &operand) { return npu::tile_fwk::Rsqrt(operand); }, "Tensor rsqrt.");
     m.def("sqrt", [](const Tensor &operand) { return npu::tile_fwk::Sqrt(operand); }, "Tensor sqrt.");
     m.def("neg", [](const Tensor &operand) { return npu::tile_fwk::Neg(operand); }, "Tensor neg.");
-    m.def("log", [](const Tensor &operand, const LogBaseType base) { return npu::tile_fwk::Log(operand, base); }, "Tensor log.");
+    m.def("log", [](const Tensor &self, const LogBaseType base) { return npu::tile_fwk::Log(self, base); }, "Tensor log.");
 
     m.def(
         "cast",
@@ -186,7 +186,7 @@ void bind_operation(py::module &m) {
         "new_compact", [](const Tensor &operand) { return npu::tile_fwk::NewCompact(operand); },
         "Tensor new compact.");
     m.def(
-        "logical_not", [](const Tensor &operand) { return npu::tile_fwk::LogicalNot(operand); },
+        "logical_not", [](const Tensor &self) { return npu::tile_fwk::LogicalNot(self); },
         "Tensor logical not.");
     m.def(
         "where", [](const Tensor &a, const Tensor &b, const Tensor &c) { return npu::tile_fwk::Where(a, b, c); },
@@ -220,8 +220,8 @@ void bind_operation(py::module &m) {
             return npu::tile_fwk::Pad(old, newShape);
         }, "Tensor pad.");
     m.def(
-        "topk", [](const Tensor &operand, const int &k, int axis, bool islargest) {
-            return npu::tile_fwk::TopK(operand, k, axis, islargest);
+        "topk", [](const Tensor &self, int k, int axis, bool islargest) {
+            return npu::tile_fwk::TopK(self, k, axis, islargest);
         },
         py::arg("operand"), py::arg("k"), py::arg("axis"), py::arg("islargest") = true, "Tensor topk.");
 
