@@ -122,7 +122,6 @@ protected:
     int addrOffset[MAX_OPERANDS] = {};
     std::vector<long> convParams;
     std::vector<int> poolParams;
-    RawTensor::ShmemInfo shmemInfo[MAX_OPERANDS] = {};
 
     std::map<std::string, npu::tile_fwk::Any> opAttrs;
 

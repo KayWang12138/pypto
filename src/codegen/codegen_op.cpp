@@ -395,14 +395,12 @@ void CodeGenOp::GetGmParamIdx(const npu::tile_fwk::Operation &oper) {
         for (size_t i = 0; i < oper.GetOOperands().size(); ++i) {
             if (oper.GetOOperands()[i]->GetMemoryTypeToBe() == MEM_DEVICE_DDR) {
                 paramLocation[i] = oper.GetOOpAttrOffset(i);
-                shmemInfo[i] = oper.GetOOperands()[i]->tensor->GetShmemInfo();
             }
         }
         size_t iOffset = oper.GetOOperands().size() == 0 ? 1 : oper.GetOOperands().size();
         for (size_t i = 0; i < oper.GetIOperands().size(); ++i) {
             if (oper.GetIOperands()[i]->GetMemoryTypeToBe() == MEM_DEVICE_DDR) {
                 paramLocation[i + iOffset] = oper.GetIOpAttrOffset(i);
-                shmemInfo[i + iOffset] = oper.GetIOperands()[i]->tensor->GetShmemInfo();
             }
         }
         return;

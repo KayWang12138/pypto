@@ -117,7 +117,6 @@ std::shared_ptr<LogicalTensor> LogicalTensor::Clone(Function &dstFunc, bool crea
         rawTensor->SetSymbol(tensor->GetSymbol());
         rawTensor->actualRawmagic = tensor->actualRawmagic;
         rawTensor->UpdateDynRawShape(tensor->GetDynRawShape());
-        rawTensor->SetShmemInfo(tensor->GetShmemInfo());
         rawTensor->memoryId = tensor->memoryId;
     }
 
@@ -142,7 +141,6 @@ std::shared_ptr<LogicalTensor> LogicalTensor::Clone(Function &dstFunc, bool crea
     newTensor->remainingTime_ = remainingTime_;
     newTensor->semanticLabels_ = semanticLabels_;
     newTensor->dynOffset_ = dynOffset_;
-    newTensor->tensor->SetShmemInfo(rawTensor->GetShmemInfo());
     dstFunc.GetTensorMap().Insert(newTensor, false);
     return newTensor;
 }

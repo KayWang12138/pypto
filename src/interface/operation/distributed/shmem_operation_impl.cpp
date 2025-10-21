@@ -25,8 +25,6 @@
 #include "interface/program/program.h"
 #include "interface/utils/common.h"
 #include "interface/utils/log.h"
-#include "tilefwk/shmem_tensor_manager.h"
-#include "tilefwk/comm_group_recorder.h"
 
 namespace npu::tile_fwk::Distributed {
 std::pair<int, int> GetRankSizeAndTileCount()
