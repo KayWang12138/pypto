@@ -3584,50 +3584,38 @@ void TiledTopK(Function &function, const TileShape & tileShape, size_t cur, Inpu
         std::vector<int64_t> vecTileAlign = vecTile.tile;
         vecTileAlign[axis] = (vecTile[axis] + blockSize - 1) / blockSize * blockSize;
         auto axisTileNum = (source->shape[axis] + vecTileAlign[axis] - 1) / vecTileAlign[axis];
-
-        auto bitsortShape = source->shape;
         auto axisBlockSizeAlign = vecTileAlign[axis];
-        bitsortShape[axis] = axisTileNum * axisBlockSizeAlign * kFactorSize;
-        auto bitsortResult = std::make_shared<LogicalTensor>(function, source->Datatype(),
-            bitsortShape, source->GetDynValidShape());
-        auto mrgsortShape = source->shape;
-        mrgsortShape[axis] = (k + kBlockFpNum - 1) / kBlockFpNum * kBlockFpNum * NUM_VALUE_2 * axisTileNum;
-        auto mrgsortResult0 = std::make_shared<LogicalTensor>(function, source->Datatype(),
-            mrgsortShape, source->GetDynValidShape());
-
-        std::vector<int64_t> tileBitsortShape = bitsortShape;
-        std::vector<int64_t> tileBitsortOffset(tileBitsortShape.size(), 0);
-        std::vector<int64_t> tileMrgsortShape = mrgsortShape;
-        std::vector<int64_t> tileMrgsortOffset(tileMrgsortShape.size(), 0);
+        std::vector<int64_t> tileBitsortShape = source->shape;
+        std::vector<int64_t> tileMrgsortShape = source->shape;
         std::vector<int64_t> tileSourceShape = source->shape;
         std::vector<int64_t> tileSourceOffset(tileSourceShape.size(), 0);
-
-        LogicalTensorPtr mrgsortTile;
         std::vector<LogicalTensorPtr> sortList;
-        std::vector<int64_t> mrgsortTileShape;
+        auto dynValidShape = source->GetDynValidShape();
         for (int i = 0; i < input.tensor->shape[axis]; i += vecTileAlign[axis]) {
             tileSourceShape[axis] = std::min(vecTileAlign[axis], source->shape[axis] - i);
             tileSourceOffset[axis] = i;
             auto inputTile = source->View(function, tileSourceShape, tileSourceOffset);
             auto tileBitsortRemain = (source->shape[axis] - i + blockSize -1) / blockSize * blockSize;
             tileBitsortShape[axis] = std::min(axisBlockSizeAlign * kFactorSize, tileBitsortRemain * kFactorSize);
-            tileBitsortOffset[axis] = static_cast<int64_t>(i / vecTileAlign[axis] * axisBlockSizeAlign * kFactorSize);
-            auto bitsortTile = bitsortResult->View(function, tileBitsortShape, tileBitsortOffset);
+            dynValidShape[axis] = inputTile->GetDynValidShape()[axis] * kFactorSize;
+            auto bitsortTile = std::make_shared<LogicalTensor>(function, source->Datatype(),
+                tileBitsortShape, dynValidShape);
             auto &bitsortOp = function.AddOperation(Opcode::OP_BITSORT, {inputTile}, {bitsortTile});
             bitsortOp.SetAttribute(TOPK_AXIS, axis);
             bitsortOp.SetAttribute(TOPK_ORDER, static_cast<int>(isLargest));
             bitsortOp.SetAttribute(TOPK_OFFSET, static_cast<int>(i));
 
             tileMrgsortShape[axis] = (k + kBlockFpNum - 1) / kBlockFpNum * kBlockFpNum * NUM_VALUE_2;
-            tileMrgsortOffset[axis] = static_cast<int64_t>(i / vecTileAlign[axis] * tileMrgsortShape[axis]);
-            mrgsortTile = mrgsortResult0->View(function, tileMrgsortShape, tileMrgsortOffset);
+            dynValidShape[axis] = (k + kBlockFpNum - 1) / kBlockFpNum * kBlockFpNum * NUM_VALUE_2;
+            auto mrgsortTile = std::make_shared<LogicalTensor>(function, source->Datatype(),
+                tileMrgsortShape, dynValidShape);
             auto &mrgsortOp = function.AddOperation(Opcode::OP_MRGSORT, {bitsortTile}, {mrgsortTile});
             mrgsortOp.SetAttribute(TOPK_AXIS, axis);
             mrgsortOp.SetAttribute(TOPK_KVALUE, k);
             mrgsortOp.SetAttribute(TOPK_ORDER, static_cast<int>(isLargest));
             sortList.push_back(mrgsortTile);
         }
-        std::vector<int64_t> mrgsortResultOffset(mrgsortShape.size(), 0);
+        std::vector<int64_t> mrgsortResultOffset(tileMrgsortShape.size(), 0);
         std::vector<int64_t> tempShape = sortList[0]->shape;
         tempShape[axis] = NUM_VALUE_4 * tempShape[axis];
         for (size_t i = 0; i < tempShape.size() - 1; ++i) {
