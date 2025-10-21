@@ -1191,7 +1191,11 @@ unsigned long Function::ComputeHashOrderless() const {
 }
 
 void Function::EraseOperations(bool eraseRelatedTensor, bool sorted) {
+    std::unordered_set<LogicalTensorPtr> inOutCastSet(inCasts_.begin(), inCasts_.end());
+    inOutCastSet.insert(outCasts_.begin(), outCasts_.end());
     std::vector<std::shared_ptr<Operation>> operations;
+    std::unordered_set<std::shared_ptr<LogicalTensor>> removeCandidiateTensor; 
+    std::unordered_set<std::shared_ptr<LogicalTensor>> removeProducerTensor; 
     for (auto &op : operations_) {
         if (!op->IsDeleted()) {
             operations.emplace_back(op);
@@ -1200,30 +1204,35 @@ void Function::EraseOperations(bool eraseRelatedTensor, bool sorted) {
         ASSERT(op->IsDeleted());
         for (auto &input : op->GetIOperands()) {
             input->RemoveConsumer(op.get());
-            if (input->GetConsumers().empty() && eraseRelatedTensor && input->nodetype == NodeType::LOCAL) {
-                GetTensorMap().Erase(input);
-                for (auto &producer : input->GetProducers()) {
-                    if (producer->BelongTo() == this) {
-                        producer->GetOOperands().clear();
-                    }
-                }
-            }
+            removeCandidiateTensor.insert(input);
         }
 
         for (auto &output : op->GetOOperands()) {
             output->RemoveProducer(op.get());
-            if (output->GetProducers().empty() && eraseRelatedTensor && output->nodetype == NodeType::LOCAL) {
-                GetTensorMap().Erase(output);
-                for (auto &consumer : output->GetConsumers()) {
+            removeCandidiateTensor.insert(output);
+            removeProducerTensor.insert(output);
+        }
+    }
+    operations_ = operations;
+
+    if (eraseRelatedTensor) {
+        for (auto tensorPtr : removeCandidiateTensor) {
+            if (inOutCastSet.count(tensorPtr) != 0) {
+                continue;
+            }
+            if (tensorPtr->GetProducers().empty() && tensorPtr->GetConsumers().empty()) {
+                GetTensorMap().Erase(tensorPtr);
+            } 
+            else if (removeProducerTensor.count(tensorPtr) > 0 && tensorPtr->GetProducers().empty()) {
+                GetTensorMap().Erase(tensorPtr);
+                for (auto &consumer : tensorPtr->GetConsumers()) {
                     if (consumer->BelongTo() == this) {
-                        consumer->EraseInput(output);
+                        consumer->EraseInput(tensorPtr);
                     }
                 }
             }
         }
     }
-    operations_ = operations;
-
     if (sorted) {
         SortOperations();
     }
