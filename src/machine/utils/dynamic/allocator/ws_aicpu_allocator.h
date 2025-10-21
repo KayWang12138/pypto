@@ -15,7 +15,6 @@
 
 #pragma once
 
-#include "ws_rt_allocator.h"
 #include "seq_ws_allocator.h"
 
 namespace npu::tile_fwk::dynamic {

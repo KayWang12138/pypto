@@ -61,7 +61,6 @@ public:
 
         WsAllocation allocation;
         allocation.ptr = node->ptr;
-        allocation.node_ = reinterpret_cast<void *>(0xDEADBEEFDEADBEFF);
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
         allocation.category_ = WsMemCategory::TENSOR_ROOTFUNC_OUTCAST_SLOT;
         allocation.rawMemReq_ = slotStandardMemReq_;

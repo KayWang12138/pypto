@@ -51,7 +51,7 @@ struct WsSlabStageAllocMem {
 
     WsSlabStageAllocMem& operator=(const WsSlabStageAllocMem& other) {
         if (this != &other) {
-            canFree.store(other.canFree.load(std::memory_order_relaxed), 
+            canFree.store(other.canFree.load(std::memory_order_relaxed),
                          std::memory_order_relaxed);
             aicpuCoherentStageMem = other.aicpuCoherentStageMem;
             aicpuStitchStageMem = other.aicpuStitchStageMem;
@@ -616,7 +616,6 @@ public:
 
         WsAllocation allocation;
         allocation.ptr = reinterpret_cast<uintdevptr_t>(ptr);
-        allocation.node_ = reinterpret_cast<void *>(0xDEADBEEFDEADBEFF);
         return allocation;
     }
 

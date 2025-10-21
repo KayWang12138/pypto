@@ -17,8 +17,6 @@
 
 #include "slab_ws_allocator.h"
 #include "ws_allocator_basics.h"
-#include "ws_allocator.h"
-#include "ws_rt_allocator.h"
 #include "ws_aicore_slot_allocator.h"
 #include "seq_ws_allocator.h"
 #include "ws_allocator_counter.h"

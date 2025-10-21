@@ -16,6 +16,7 @@
 #ifdef ENABLE_BUILD_WITH_CANN
 #include "emulation_launcher.h"
 
+#include <thread>
 #include "machine/host/backend.h"
 
 extern "C" int __attribute__((weak)) DynTileFwkBackendKernelServer(void *targ) {

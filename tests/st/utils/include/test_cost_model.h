@@ -16,6 +16,7 @@
 #pragma once
 
 #include <gtest/gtest.h>
+#include <thread>
 #include "interface/interpreter/raw_tensor_data.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "device_runner.h"
@@ -31,7 +32,7 @@ using namespace CostModel;
 extern "C" int DynTileFwkBackendKernelServer(void *targ);
 extern "C" int DynTileFwkBackendKernelServerInit(void *targ);
 
-class AiCorePvModelImpl : public AiCoreModel 
+class AiCorePvModelImpl : public AiCoreModel
 {
 private:
     std::shared_ptr<DynPvModel> pv_;
@@ -52,7 +53,7 @@ public:
         DynFuncHeader *header = reinterpret_cast<DynFuncHeader*>(funcdata);
         DynFuncData *data = reinterpret_cast<DynFuncData*>(header + 1);
         pv_->Run(data, coreIdx, FuncID(taskId), TaskID(taskId));
-    } 
+    }
 };
 
 class CostModelDynFuncRunner {

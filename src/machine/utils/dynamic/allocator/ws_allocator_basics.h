@@ -39,8 +39,6 @@ inline constexpr const char *GetCategoryName(WsMemCategory category) {
     return WS_MEM_CATEGORY_NAMELIST[ToUnderlying(category)];
 }
 struct WsAllocation {
-    friend class WsAllocator;
-    friend class WsRtAllocator;
     friend class WsAicoreLocalSlotAllocator;
     friend class SeqWsAllocator;
     friend class WsAllocatorCounter;
@@ -50,7 +48,7 @@ struct WsAllocation {
 
     uintdevptr_t ptr{0};
 
-    operator bool() const { return node_ != nullptr; }
+    operator bool() const { return ptr != 0; }
 
     template <typename T>
     T *As() { return reinterpret_cast<T *>(ptr); }
@@ -60,7 +58,6 @@ struct WsAllocation {
 
     void Invalidate() {
         ptr = 0;
-        node_ = nullptr;
     }
 
     const char *GetCategoryName() const {
@@ -71,7 +68,6 @@ struct WsAllocation {
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
     }
 
-    void *node_{nullptr};
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
     size_t rawMemReq_{0};
     WsMemCategory category_{WsMemCategory::UNCLASSIFIED};

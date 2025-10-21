@@ -16,6 +16,7 @@
 #pragma once
 
 #include <gtest/gtest.h>
+#include <thread>
 #include <cstdint>
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/configs/config_manager.h"
