@@ -81,7 +81,7 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
 
         LOOP("BEFORE_KV_COMPRESS", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(b), {}, true) {
             // Construct align-shape tensors for store dynamic seqs
-            auto curKvLen = GetInputData(actSeqLen, {bIdx});
+            auto curKvLen = GetTensorData(actSeqLen, {bIdx});
             auto t1 = curKvLen % cmpStride == 0;
             auto t2 = curKvLen >= cmpBlockSize;
             auto blockStartIdx = (curKvLen - cmpBlockSize) / blockSize;
@@ -100,17 +100,17 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
             Tensor kRopeBlock(kDtype, {cmpBlockSize, dR}, "kRopeBlock");
             config::SetSemanticLabel("BlockConcat");
             IF(tableLoop == 1) {
-                auto blockIdx = GetInputData(blockTable, {bIdx, blockStartIdx});
+                auto blockIdx = GetTensorData(blockTable, {bIdx, blockStartIdx});
                 kNopeBlock = View(kvCache, {cmpBlockSize, dN}, {blockIdx * blockSize + blockStartOffset, 0});
                 kRopeBlock = View(krCache, {cmpBlockSize, dR}, {blockIdx * blockSize + blockStartOffset, 0});
             }
             ELSE { // tableLoop == 2
-                auto blockIdx0 = GetInputData(blockTable, {bIdx, blockStartIdx});
+                auto blockIdx0 = GetTensorData(blockTable, {bIdx, blockStartIdx});
                 auto kNopeBlock0 =
                     View(kvCache, {cmpBlockSize / 2, dN}, {(blockIdx0 + 1) * blockSize - cmpBlockSize / 2, 0});
                 auto kRopeBlock0 =
                     View(krCache, {cmpBlockSize / 2, dR}, {(blockIdx0 + 1) * blockSize - cmpBlockSize / 2, 0});
-                auto blockIdx1 = GetInputData(blockTable, {bIdx, blockStartIdx + 1});
+                auto blockIdx1 = GetTensorData(blockTable, {bIdx, blockStartIdx + 1});
                 auto kNopeBlock1 = View(kvCache, {cmpBlockSize / 2, dN}, {blockIdx1 * blockSize, 0});
                 auto kRopeBlock1 = View(krCache, {cmpBlockSize / 2, dR}, {blockIdx1 * blockSize, 0});
                 TileShape::Current().SetVecTile(cmpBlockSize, dN);
@@ -148,7 +148,7 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
         Tensor batchRopeResult(kDtype, {b, dR}, "batchRopeResult");
         LOOP("AFTER_KV_COMPRESS", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(b), {}, true) {
             // Construct align-shape tensors for store dynamic seqs
-            auto curKvLen = GetInputData(actSeqLen, {bIdx});
+            auto curKvLen = GetTensorData(actSeqLen, {bIdx});
             auto t1 = curKvLen % cmpStride == 0;
             auto t2 = curKvLen >= cmpBlockSize;
             TileShape::Current().SetVecTile(NUM_32, NUM_64);
@@ -161,7 +161,7 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
             ELSE {
                 auto cmpKvCacheDim2 = Reshape(cmpKvCache, {cmpBlockNum * blockSize * n2, dN});
                 auto cmpKrCacheDim2 = Reshape(cmpKrCache, {cmpBlockNum * blockSize * n2, dR});
-                auto index = GetInputData(cmpCacheIndex, {bIdx, s1 - 1});
+                auto index = GetTensorData(cmpCacheIndex, {bIdx, s1 - 1});
                 kNopeCmp = View(cmpKvCacheDim2, {1, dN}, {index, 0});
                 kRopeCmp = View(cmpKrCacheDim2, {1, dR}, {index, 0});
             }

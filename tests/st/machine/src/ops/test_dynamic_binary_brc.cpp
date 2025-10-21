@@ -64,7 +64,7 @@ TEST_F(DynamicBrcTest, TestDynamicMulBrcUnalign) {
     });
     FUNCTION("main", {input_a, input_b, curSeq}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
-            auto seq = GetInputData(curSeq, {batchId, 0});
+            auto seq = GetTensorData(curSeq, {batchId, 0});
             Tensor input_a0 = View(input_a, {sq, d}, {seq, d}, {batchId * sq, 0});
             Tensor input_b0 = View(input_b, {sq, 8}, {seq, 8}, {batchId * sq, 0});
             auto input_c = RowSumSingle(input_b0);

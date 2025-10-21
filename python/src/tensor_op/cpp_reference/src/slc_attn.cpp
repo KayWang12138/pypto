@@ -93,7 +93,7 @@ void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc
 
     LOOP("LOOP_L0_b_SA", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, batchSizeSym, 1), {}, true) {
         LOOP("LOOP_L1_s1_SA", FunctionType::DYNAMIC_LOOP, s1Idx, LoopRange(0, s1Sym, 1)) {
-            SymbolicScalar curKvSlcSeq = GetInputData(kvSlcActSeqs, {bIdx, s1Idx}); // 每一个S1的k_slc/v_slc都不同
+            SymbolicScalar curKvSlcSeq = GetTensorData(kvSlcActSeqs, {bIdx, s1Idx}); // 每一个S1的k_slc/v_slc都不同
             SymbolicScalar curSeq = std::max(curKvSlcSeq - s1Sym + 1 + s1Idx, 0); // for MTP s1!= 1 casual计算
             curSeq.AsIntermediateVariable();
             SymbolicScalar bnPerBatch = (curSeq + s2Tile - 1) / s2Tile;

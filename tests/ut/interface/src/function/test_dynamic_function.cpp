@@ -898,7 +898,7 @@ TEST_F(DynamicFunctionTest, TestGetInputDataInt32Dim3) {
     SymbolicScalar loopCount = 0;
 
     FUNCTION("main", {t5}, {out}) {
-        LOOP("s1", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputData(t5,  {npu::tile_fwk::SymbolicScalar("0"), npu::tile_fwk::SymbolicScalar("1"), npu::tile_fwk::SymbolicScalar("2")}) / s)) {
+        LOOP("s1", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetTensorData(t5,  {npu::tile_fwk::SymbolicScalar("0"), npu::tile_fwk::SymbolicScalar("1"), npu::tile_fwk::SymbolicScalar("2")}) / s)) {
             loopCount = loopCount + i;
             out = AddS(t5, Element(DataType::DT_FP32, static_cast<double>(1.0)));
         }
@@ -929,7 +929,7 @@ TEST_F(DynamicFunctionTest, TestGetInputDataInt32Dim4) {
     SymbolicScalar loopCount = 0;
 
     FUNCTION("main", {t5}, {out}) {
-        LOOP("s1", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputData(t5, {npu::tile_fwk::SymbolicScalar("0"), npu::tile_fwk::SymbolicScalar("1"), npu::tile_fwk::SymbolicScalar("2"), npu::tile_fwk::SymbolicScalar("3")}) / s)) {
+        LOOP("s1", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetTensorData(t5, {npu::tile_fwk::SymbolicScalar("0"), npu::tile_fwk::SymbolicScalar("1"), npu::tile_fwk::SymbolicScalar("2"), npu::tile_fwk::SymbolicScalar("3")}) / s)) {
             loopCount = loopCount + i;
             out = AddS(t5, Element(DataType::DT_FP32, static_cast<double>(1.0)));
         }

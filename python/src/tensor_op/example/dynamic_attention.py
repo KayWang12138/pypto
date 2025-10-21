@@ -450,7 +450,7 @@ def attention(**kwargs):
                 for b_idx in b_idx_loop:
                     def inside_b_idx_loop_pa(b_idx):
                         nonlocal pa_out
-                        cur_seq = pto.get_input_data(act_seqs, [b_idx])
+                        cur_seq = pto.get_tensor_data(act_seqs, [b_idx])
                         bn_per_batch = (cur_seq + block_size - 1) // block_size
                         bn_per_batch.as_intermediate_variable()
                         # LOOP("LOOP_L1_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nLoop, 1)) {
@@ -487,7 +487,7 @@ def attention(**kwargs):
                                                 pto.assemble(qn, [0, 0], qi)
                                                 pto.assemble(qr, [0, d_n], qi)
 
-                                                cur_block_idx = pto.get_input_data(block_table, [b_idx, bn])
+                                                cur_block_idx = pto.get_tensor_data(block_table, [b_idx, bn])
                                                 cur_block_idx.as_intermediate_variable()
                                                 kn = pto.view(kv_cache_out, [cur_s2_tile, d_n],
                                                               [min(cur_seq - bn * block_size, block_size), d_n],

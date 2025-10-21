@@ -216,7 +216,7 @@ TEST_F(DynamicOpsTest, OpsElementWise) {
     });
 
     FUNCTION("main", {t0, t1, t2, t3, t4, t5}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(npu::tile_fwk::GetInputData(t5, {n - 1, s - 1, m * s - 1}))) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(npu::tile_fwk::GetTensorData(t5, {n - 1, s - 1, m * s - 1}))) {
             IF (i == 0) {
                 out = Add(t0, t1); // +t0, +t1
             } ELSE {

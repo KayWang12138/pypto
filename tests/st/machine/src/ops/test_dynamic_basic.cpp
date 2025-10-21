@@ -86,7 +86,7 @@ TEST_F(DynamicBasicTest, TestHybridLoopIf2) {
 void TestLoopViewAssemble(const Tensor &t0, const Tensor &t1, const Tensor &blockTable, Tensor &out, int s) {
     FUNCTION("main", {t0, t1, blockTable}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShape(t0, 0) / s)) {
-            SymbolicScalar idx = GetInputData(blockTable, {i, 0});
+            SymbolicScalar idx = GetTensorData(blockTable, {i, 0});
             Tensor t0s = View(t0, {s, s}, {idx * s, 0});
 
             Tensor qi(DT_FP32, {s, 2*s}, "qi");
@@ -796,7 +796,7 @@ TEST_F(DynamicBasicTest, TestGetTensorDataCrossFunction) {
             auto t0 = AddS(inputA, Element(DT_INT32, (int64_t)2)); // t0[i, j] -> inputA[i, j] + 2 -> i * n + j + 2
             v0 = GetTensorData(t0, {0, 1}); // t0[0, 1] -> 0 * n + 1 + 2 -> 3
             v1 = GetTensorData(t0, {0, 2}); // t0[0, 2] -> 0 * n + 2 + 2 -> 4
-            v2 = v0 + v1 + GetInputData(inputA, {0, 1});
+            v2 = v0 + v1 + GetTensorData(inputA, {0, 1});
         }
         LOOP("Step1", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
@@ -886,7 +886,7 @@ TEST_F(DynamicBasicTest, TestGetTensorDataUnalign) {
             auto t0 = AddS(inputA, Element(DT_INT32, (int64_t)2)); // t0[i, j] -> inputA[i, j] + 2 -> i * n + j + 2
             v0 = GetTensorData(t0, {0, 1}); // t0[0, 1] -> 0 * n + 1 + 2 -> 3
             v1 = GetTensorData(t0, {0, 2}); // t0[0, 2] -> 0 * n + 2 + 2 -> 4
-            v2 = v0 + v1 + GetInputData(inputA, {0, 1});
+            v2 = v0 + v1 + GetTensorData(inputA, {0, 1});
         }
         LOOP("Step1", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
@@ -944,8 +944,8 @@ TEST_F(DynamicBasicTest, TestGetTensorDataExpr) {
             Tensor t0 = AddS(inputA, Element(DT_INT32, (int64_t)2)); // t0[i, j] -> inputA[i, j] + 2 -> i * n + j + 2
             SymbolicScalar v0 = GetTensorData(t0, {0, 1}); // t0[0, 1] + 2 -> 0 * n + 1 + 2 -> 3
             SymbolicScalar v1 = GetTensorData(t0, {0, 2}); // t0[0, 2] + 2 -> 0 * n + 2 + 2 -> 4
-            SymbolicScalar v2 = GetInputData(inputA, {0, 1}); // inputA[0, 1] -> 1
-            SymbolicScalar v3 = GetInputData(inputA, {0, 2}); // inputA[0, 2] -> 2
+            SymbolicScalar v2 = GetTensorData(inputA, {0, 1}); // inputA[0, 1] -> 1
+            SymbolicScalar v3 = GetTensorData(inputA, {0, 2}); // inputA[0, 2] -> 2
             auto t2 = View(inputC, {n, n}, {0, (v0 + v2 + i / i) * n}); // {0, (3 + 1 + 1) * n} -> {0, 5 * n}
             auto t3 = View(inputC, {n, n}, {0, (v1 + v3 + i / i) * n}); // {0, (4 + 2 + 1) * n} -> {0, 7 * n}
             output = Mul(t2, t3);
@@ -1258,7 +1258,7 @@ TEST_F(DynamicBasicTest, TestSelectAttention) {
                 (void)j;
                 for (int k = 0; k < topk; k++) {
                     SymbolicScalar s = GetTensorData(index, {i, j + k}); // index[i, j + k] -> j + k
-                    SymbolicScalar slcBlockIdx = GetInputData(table, {i, s}); // table[i, s] -> s
+                    SymbolicScalar slcBlockIdx = GetTensorData(table, {i, s}); // table[i, s] -> s
                     auto k0 = View(c0, {n, n}, {0, s * n});
                     auto k1 = View(c1, {n, n}, {0, slcBlockIdx * n});
 

@@ -288,7 +288,7 @@ SymbolicScalar GetInputShape(const Tensor &t, int n);
  * @param offset positional shift applied to the each axis of the tensor
  * @return SymbolicScalar
  */
-SymbolicScalar GetInputData(const Tensor &t, const std::vector<SymbolicScalar> &offset);
+SymbolicScalar GetTensorData(const Tensor &t, const std::vector<SymbolicScalar> &offset);
 
 /**
  * @brief Determines if the current iteration is the start of loop
@@ -308,6 +308,5 @@ SymbolicScalar IsLoopBegin(const SymbolicScalar &symbol, const SymbolicScalar &b
  */
 SymbolicScalar IsLoopEnd(const SymbolicScalar &symbol, const SymbolicScalar &end);
 
-SymbolicScalar GetTensorData(const Tensor &t, const std::vector<SymbolicScalar> &off);
 void SetTensorData(const SymbolicScalar &v, const std::vector<SymbolicScalar> &off, Tensor &dst);
 } // namespace npu::tile_fwk

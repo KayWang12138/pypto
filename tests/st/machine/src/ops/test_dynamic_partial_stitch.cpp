@@ -75,7 +75,7 @@ TEST_F(DynamicTest, TestPartial) {
         Tensor mid(vType, midShape, "mid");
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (blockSize))) {
             Tensor block = View(q, {blockSize, blockSize}, {batchId * blockSize, 0});
-            SymbolicScalar curSeq = GetInputData(seq, {batchId});
+            SymbolicScalar curSeq = GetTensorData(seq, {batchId});
             config::SetSemanticLabel("add");
             Tensor add = Add(block, block);
             Assemble(add, {curSeq * blockSize, 0}, mid);

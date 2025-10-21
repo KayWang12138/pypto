@@ -37,11 +37,11 @@ void KvSlcCompute(Tensor &topK_indcies, Tensor &topK_tensor_shape, Tensor &kvNop
     SymbolicScalar kv_lora_rank = kvNopeCache.GetShape(1) / n2;
     SymbolicScalar rope_dim = kRopeCache.GetShape(1) / n2;
     LOOP("LOOP_L0_batchIdx", FunctionType::DYNAMIC_LOOP, batchIdx, LoopRange(0, b, 1), {}, true) {
-        SymbolicScalar curActSeq = GetInputData(kvActSeqs, {batchIdx});
+        SymbolicScalar curActSeq = GetTensorData(kvActSeqs, {batchIdx});
         LOOP("LOOP_L1_slcIdx", FunctionType::DYNAMIC_LOOP, slcIdx, LoopRange(0, s, 1)) {
             LOOP("LOOP_L2_kvSlcIdx", FunctionType::DYNAMIC_LOOP, nkvIdx, LoopRange(0, n2, 1)) {
                 TileShape::Current().SetVecTile(v0Tile[0], v0Tile[1]);
-                SymbolicScalar s_slc = GetInputData(topK_tensor_shape, {batchIdx, slcIdx});
+                SymbolicScalar s_slc = GetTensorData(topK_tensor_shape, {batchIdx, slcIdx});
                 SymbolicScalar positions = 0;
                 SymbolicScalar prime_value = l_prime;
                 SymbolicScalar slcSeqLen = 0;
@@ -60,7 +60,7 @@ void KvSlcCompute(Tensor &topK_indcies, Tensor &topK_tensor_shape, Tensor &kvNop
                             TileShape::Current().SetVecTile(1, 1, NUM16);
                             topk_index = GetTensorData(topK_indcies, {batchIdx, slcIdx, topKIdx - front});
                         } else {
-                            topk_index = GetInputData(topK_indcies, {batchIdx, slcIdx, topKIdx - front});
+                            topk_index = GetTensorData(topK_indcies, {batchIdx, slcIdx, topKIdx - front});
                         }
                         positions = topk_index * prime_value;
                     }
@@ -71,7 +71,7 @@ void KvSlcCompute(Tensor &topK_indcies, Tensor &topK_tensor_shape, Tensor &kvNop
                         blockIdxInBatch = positions / blockSize;
                         tail = positions % blockSize;
                     }
-                    SymbolicScalar slcBlockIdx = GetInputData(blockTable, {batchIdx, blockIdxInBatch});
+                    SymbolicScalar slcBlockIdx = GetTensorData(blockTable, {batchIdx, blockIdxInBatch});
                     TileShape::Current().SetVecTile(v0Tile[0], v0Tile[1]);
                     auto kv_slcBlock = View(kvNopeCache, {l_prime, kv_lora_rank}, {slcBlockIdx * blockSize + tail, nkvIdx * kv_lora_rank});
                     auto kRope_slcBlock = View(kRopeCache, {l_prime, rope_dim}, {slcBlockIdx * blockSize + tail, nkvIdx * rope_dim});

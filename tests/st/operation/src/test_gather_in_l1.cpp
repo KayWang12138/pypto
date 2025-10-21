@@ -292,8 +292,8 @@ TEST_F(GatherInL1Test, gather_in_a_with_valid_shape) {
     FUNCTION("test", {src, offsets, unit, info}, {dst}) {
         LOOP("LOOP", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, 1, 1)) {
             (void)sIdx;
-            auto len = GetInputData(info, {0, 0});
-            auto start = GetInputData(info, {0, 1});
+            auto len = GetTensorData(info, {0, 0});
+            auto start = GetTensorData(info, {0, 1});
             TileShape::Current().SetCubeTile({32, 32}, {64, 64}, {128, 128});
 
             Tensor subOffsets = View(offsets, offsets.GetShape(), {1, len}, {0, start});
@@ -398,8 +398,8 @@ TEST_F(GatherInL1Test, gather_in_bt_with_valid_shape) {
     FUNCTION("test", {src, offsets, unit, info}, {dst}) {
         LOOP("LOOP", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, 1, 1)) {
             (void)sIdx;
-            auto len = GetInputData(info, {0, 0});
-            auto start = GetInputData(info, {0, 1});
+            auto len = GetTensorData(info, {0, 0});
+            auto start = GetTensorData(info, {0, 1});
             TileShape::Current().SetCubeTile({32, 32}, {64, 64}, {128, 128});
 
             Tensor subOffsets = View(offsets, offsets.GetShape(), {1, len}, {0, start});

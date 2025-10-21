@@ -139,13 +139,9 @@ void BindTensor(py::module &m) {
         .def_property_readonly("id", &Tensor::Id, "Get the index of the tensor.");
     m.def("GetInputShape", &GetInputShape, py::arg("tensor"), py::arg("axis"),
         "Get the shape of the input at the specified axis.");
-    m.def("GetInputData", &GetInputData, py::arg("tensor"), py::arg("offset"),
-        "Get the input data at the specified offsets.");
     m.def("GetTensorData", &GetTensorData, py::arg("tensor"), py::arg("offset"),
         "Get the tensor data at the specified offsets.");
     m.def("SetTensorData", &SetTensorData, py::arg("value"), py::arg("offset"), py::arg("dst"),
         "Set the tensor data at the destination offset from the source value.");
-
-    m.def("get_input_data", &GetInputData, py::arg("tensor"), py::arg("offset"));
 }
 } // namespace pypto

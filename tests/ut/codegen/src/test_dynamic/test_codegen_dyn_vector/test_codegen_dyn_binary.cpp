@@ -200,7 +200,7 @@ TEST_F(TestCodegenDynBinary, AddUnalignLayout) {
 
     FUNCTION("main", {input1, input2, curSeq}, {out}) {
         LOOP(loopName, FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
-            auto seq = GetInputData(curSeq, {batchId, 0});
+            auto seq = GetTensorData(curSeq, {batchId, 0});
             Tensor intput11 = View(input1, {sq, d}, {seq, d}, {batchId, 0});
             Tensor intput22 = View(input2, {sq, d}, {seq, d}, {batchId, 0});
             auto tmp = Add(intput11, intput22);

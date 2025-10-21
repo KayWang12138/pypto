@@ -121,7 +121,7 @@ def compress_attention_with_topk(**kwargs):
         inside_ub_reshape_idx_loop()
     for b_idx in pto.loop(0, b, 1, name="CMP_ATTN_LOOP_BATCH", idx_name="bIdx"):
         def inside_b_idx_loop(b_idx):
-            cur_seq = pto.get_input_data(act_seq, [b_idx])
+            cur_seq = pto.get_tensor_data(act_seq, [b_idx])
             for s1_idx in pto.loop(0, s1, 1, name="CMP_ATTN_LOOP_S1", idx_name="s1Idx"):
                 def inside_s1_idx_loop(b_idx, s1_idx):
                     if cmp_stride == 0:
@@ -143,7 +143,7 @@ def compress_attention_with_topk(**kwargs):
                     for block_idx in pto.loop(0, cur_cmp_block, 1, name="CMP_ATTN_LOOP_BLOCK", idx_name="blockIdx"):
                         def inside_block_idx_loop(b_idx, block_idx):
                             cur_block_idx = pto.convert_to_symbolic(
-                                pto.get_input_data(cmp_block_table, [b_idx, block_idx]))
+                                pto.get_tensor_data(cmp_block_table, [b_idx, block_idx]))
                             cur_block_idx.as_intermediate_variable()
 
                             cur_valid_seq = (cas_cmp_seq - block_idx * block_size).min(block_size)

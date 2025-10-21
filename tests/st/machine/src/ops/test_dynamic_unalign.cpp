@@ -39,7 +39,7 @@ void TestLoopTailBlock(const Tensor &t0, const Tensor &blockTable, Tensor &out, 
 
     FUNCTION("main", {t0, blockTable}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShape(t0, 0) / s)) {
-            SymbolicScalar size = GetInputData(blockTable, {i, 0});
+            SymbolicScalar size = GetTensorData(blockTable, {i, 0});
             Tensor t0s = View(t0, {s, s}, {size, s}, {blockSize * i, 0});
             Tensor t1 = Add(t0s, t0s);
             Assemble(t1, {blockSize * i, 0}, out);
@@ -144,7 +144,7 @@ TEST_F(DynamicUnalignTest, test_mm_unalign) {
 
     FUNCTION("main", {qRope, qNope, kRope, kNope, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(qRope, 0) / (nq * s1))) {
-            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId});
+            SymbolicScalar curSeq = GetTensorData(actSeqs, {batchId});
 
             Tensor qr = View(qRope, {nq * s1, dR}, {nq * s1, dR}, {batchId * nq * s1, 0});
             Tensor qn = View(qNope, {nq * s1, dN}, {nq * s1, dN}, {batchId * nq * s1, 0});
@@ -221,7 +221,7 @@ TEST_F(DynamicUnalignTest, test_mm2_unalign) {
 
     FUNCTION("main", {qk, v, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(qk, 0) / (nq * s1))) {
-            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId});
+            SymbolicScalar curSeq = GetTensorData(actSeqs, {batchId});
 
             Tensor qk0 = View(qk, {nq * s1, nk * s2}, {nq * s1, nk * curSeq}, {batchId * nq * s1, 0});
             Tensor v0 = View(v, {nk * s2, d}, {nk * curSeq, d}, {batchId * nk * s2, 0});
@@ -278,7 +278,7 @@ TEST_F(DynamicUnalignTest, test_rowmaxsingle_unalign) {
 
     FUNCTION("main", {q, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (nTile))) {
-            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0});
+            SymbolicScalar curSeq = GetTensorData(actSeqs, {batchId, 0});
 
             Tensor q0 = View(q, {nTile, blockSize}, {nTile, curSeq}, {batchId * nTile, 0});
             auto tmp = RowMaxSingle(q0);
@@ -331,7 +331,7 @@ TEST_F(DynamicUnalignTest, test_rowsumsingle_unalign) {
 
     FUNCTION("main", {q, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (nTile))) {
-            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0});
+            SymbolicScalar curSeq = GetTensorData(actSeqs, {batchId, 0});
 
             Tensor q0 = View(q, {nTile, blockSize}, {nTile, curSeq}, {batchId * nTile, 0});
             auto tmp = RowSumSingle(q0, -1);
@@ -380,7 +380,7 @@ TEST_F(DynamicUnalignTest, test_unary_unalign) {
 
     FUNCTION("main", {q, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (sq))) {
-            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0, 0});
+            SymbolicScalar curSeq = GetTensorData(actSeqs, {batchId, 0, 0});
 
             Tensor q0 = View(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
             auto tmp = Exp(q0);

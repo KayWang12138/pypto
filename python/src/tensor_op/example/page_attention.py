@@ -71,7 +71,7 @@ def page_attention(**kwargs):
             with pto.loop_function("LOOP_L0_bIdx", "b_idx", pto.loop_range(0, batch_size, 1)) as b_idx_loop:
                 for b_idx in b_idx_loop:
                     def inside_b_idx_loop(b_idx):
-                        cur_seq = pto.get_input_data(act_seqs, [b_idx])
+                        cur_seq = pto.get_tensor_data(act_seqs, [b_idx])
                         bn_per_batch = (cur_seq + block_size - 1) // block_size
                         bn_per_batch.as_intermediate_variable()
                         with pto.loop_function("LOOP_L1_nIdx", "n_idx", pto.loop_range(0, n_loop, 1)) as n_idx_loop:
@@ -106,7 +106,7 @@ def page_attention(**kwargs):
                                                 pto.assemble(qn, [0, 0], qi)
                                                 pto.assemble(qr, [0, d_n], qi)
 
-                                                cur_block_idx = pto.get_input_data(block_table, [b_idx, bn])
+                                                cur_block_idx = pto.get_tensor_data(block_table, [b_idx, bn])
                                                 cur_block_idx.as_intermediate_variable()
                                                 kn = pto.view(k_nope_cache, [cur_s2_tile, d_n], 
                                                               [(cur_seq - bn * block_size).min(block_size), d_n],
@@ -461,7 +461,7 @@ def page_attention_with_manual_unroll(**kwargs):
             with pto.loop_function("LOOP_L0_bIdx", "b_idx", pto.loop_range(0, batch_size, 1)) as b_idx_loop:
                 for b_idx in b_idx_loop:
                     def inside_b_idx_loop(b_idx):
-                        cur_seq = pto.get_input_data(act_seqs, [b_idx])
+                        cur_seq = pto.get_tensor_data(act_seqs, [b_idx])
                         bn_per_batch = cur_seq // block_size
                         bn_per_batch.as_intermediate_variable()
                         with pto.loop_function("LOOP_L1_nIdx", "n_idx", pto.loop_range(0, n_loop, 1)) as n_idx_loop:
@@ -500,7 +500,7 @@ def page_attention_with_manual_unroll(**kwargs):
                                                         sub_krs = []
                                                         sub_vjs = []
                                                         for idx_offset in range(unroll_times):
-                                                            cur_block_idx = pto.get_input_data(block_table, 
+                                                            cur_block_idx = pto.get_tensor_data(block_table, 
                                                             [b_idx, bn + idx_offset])
                                                             sub_kns.append(
                                                                 pto.view(k_nope_cache, [block_size, d_n], 
@@ -648,7 +648,7 @@ def page_attention_high_throughput(**kwargs):
             pto.powers_of_2(max_unroll_times)) as b_idx_loop:
                 for b_idx in b_idx_loop:
                     def inside_b_idx_loop(b_idx):
-                        cur_seq = pto.get_input_data(act_seqs, [b_idx])
+                        cur_seq = pto.get_tensor_data(act_seqs, [b_idx])
                         bn_per_batch = (cur_seq + block_size - 1) // block_size
                         bn_per_batch.as_intermediate_variable()
                         
@@ -667,7 +667,7 @@ def page_attention_high_throughput(**kwargs):
                         pto.assemble(qn, [0, 0], qi)
                         pto.assemble(qr, [0, d_n], qi)
 
-                        cur_block_idx = pto.get_input_data(block_table, [b_idx, 0])
+                        cur_block_idx = pto.get_tensor_data(block_table, [b_idx, 0])
                         cur_block_idx.as_intermediate_variable()
                         kn = pto.view(k_nope_cache, [cur_s2_tile, d_n], 
                                         [min(cur_seq, block_size), d_n],

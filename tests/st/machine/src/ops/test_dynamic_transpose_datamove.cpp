@@ -63,7 +63,7 @@ TEST_F(DynamicDatamoveTest, TestDynamicDatamove) {
 
     FUNCTION("main", {input, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
-            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0});
+            SymbolicScalar curSeq = GetTensorData(actSeqs, {batchId, 0});
 
             Tensor input0 = View(input, {n, sq, d}, {n, curSeq, d}, {batchId, 0, 0});
             auto tmp = Transpose(input0, {0, 1});

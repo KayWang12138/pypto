@@ -259,13 +259,13 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
         Tensor kCmpTensor(kDtype, {maxCmpBlockNum * blockSize, n2, dK}, "kCmpTensor");
         Tensor tmpOut(DataType::DT_FP32, {1, s_slc}, "tmpout");
         Tensor softmaxTmp(DataType::DT_FP32, {n, s_cmp}, "softmaxTmp");
-        auto curKvLen = GetInputData(actSeqLen, {bIdx});
+        auto curKvLen = GetTensorData(actSeqLen, {bIdx});
         auto blockLoop = (curKvLen + blockSize - NUM_VALUE_1) / blockSize;
         auto actualVaildLen = (((curKvLen - NUM_32) / 16 + 1) + 3) / 4 - 3; // 125
         // Concat All Blocks
         LOOP("CMP_LOOP_BLOCKNUM", FunctionType::DYNAMIC_LOOP, blockIdx, LoopRange(blockLoop), {}, true) {
             config::SetSemanticLabel("BeforeBlockConcat");
-            SymbolicScalar curBlockIdx = GetInputData(blockTable, {bIdx, blockIdx});
+            SymbolicScalar curBlockIdx = GetTensorData(blockTable, {bIdx, blockIdx});
             auto curKv = View(kvCache, {blockSize, n2 * dN}, {curBlockIdx * blockSize, 0});
             auto curKr = View(krCache, {blockSize, n2 * dR}, {curBlockIdx * blockSize, 0});
             TileShape::Current().SetVecTile(NUM_128, NUM_64);

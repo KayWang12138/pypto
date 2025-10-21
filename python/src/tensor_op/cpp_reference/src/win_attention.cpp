@@ -93,7 +93,7 @@ void WinAttentionCompute(const Tensor &qNope, Tensor &vNopeCache, const Tensor &
     SymbolicScalar tableLoop = 0;
 
     LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bLoop, 1), {}, true) {
-        SymbolicScalar curActualSeqSize = GetInputData(actSeqs, {bIdx});
+        SymbolicScalar curActualSeqSize = GetTensorData(actSeqs, {bIdx});
         LOOP("LOOP_L1_s1Idx", FunctionType::DYNAMIC_LOOP, s1Idx, LoopRange(0, s1Loop, 1)) {
             winActualSize = std::min(windowSize, (curActualSeqSize - s1Size + s1Idx + 1));
             blockEndIndex = (curActualSeqSize + blockSize - 1) / blockSize - 1;
@@ -109,7 +109,7 @@ void WinAttentionCompute(const Tensor &qNope, Tensor &vNopeCache, const Tensor &
                     Tensor kPart(dtype, {NUM_9 * blockSize, (dNopeSize + dRopeSize)}, "kPart");
                     for(auto tIdx = 0; tIdx < NUM_9; tIdx++) {
                         SymbolicScalar curidx = blockStartIndex + tIdx;
-                        SymbolicScalar curBlockIdx = GetInputData(blockTable, {bIdx, curidx});
+                        SymbolicScalar curBlockIdx = GetTensorData(blockTable, {bIdx, curidx});
 
                         TileShape::Current().SetVecTile(nopeTile[0], nopeTile[1]);
                         auto kNope = View(vNopeCache, {blockSize, dNopeSize}, {curBlockIdx * blockSize, n2Idx * dNopeSize});
@@ -211,7 +211,7 @@ void WinAttentionComputeFlash(const Tensor &qNope, Tensor &vNopeCache, const Ten
     SymbolicScalar tableLoop = 0;
 
     LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bLoop, 1), {}, true) {
-        SymbolicScalar curActualSeqSize = GetInputData(actSeqs, {bIdx});
+        SymbolicScalar curActualSeqSize = GetTensorData(actSeqs, {bIdx});
         Tensor kPart(dtype, {bSize * s1Size * NUM_9 * blockSize, (dNopeSize + dRopeSize)}, "kPart");
         LOOP("LOOP_L1_s1Idx", FunctionType::DYNAMIC_LOOP, s1Idx, LoopRange(0, s1Loop, 1)) {
             winActualSize = std::min(windowSize, (curActualSeqSize - s1Size + s1Idx + 1));
@@ -233,7 +233,7 @@ void WinAttentionComputeFlash(const Tensor &qNope, Tensor &vNopeCache, const Ten
                     SymbolicScalar kvTensorIdx = (bIdx * s1Size + s1Idx) * NUM_9 * blockSize;
                     LOOP("LOOP_L2_tIdx", FunctionType::DYNAMIC_LOOP, tIdx, LoopRange(0, tableLoop, 1)) {
                         SymbolicScalar curidx = blockStartIndex + tIdx;
-                        SymbolicScalar curBlockIdx = GetInputData(blockTable, {bIdx, curidx});
+                        SymbolicScalar curBlockIdx = GetTensorData(blockTable, {bIdx, curidx});
 
                         TileShape::Current().SetVecTile(nopeTile[0], nopeTile[1]);
                         auto kNope = View(vNopeCache, {blockSize, dNopeSize}, {curBlockIdx * blockSize, n2Idx * dNopeSize});
@@ -377,7 +377,7 @@ void WinAttentionDebugCompute(const Tensor &qNope, Tensor &vNopeCache, const Ten
     SymbolicScalar tableLoop = 0;
 
     LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bLoop, 1), {}, true) {
-        SymbolicScalar curActualSeqSize = GetInputData(actSeqs, {bIdx});
+        SymbolicScalar curActualSeqSize = GetTensorData(actSeqs, {bIdx});
         LOOP("LOOP_L1_s1Idx", FunctionType::DYNAMIC_LOOP, s1Idx, LoopRange(0, s1Loop, 1)) {
             winActualSize = std::min(windowSize, (curActualSeqSize - s1Size + s1Idx + 1));
             blockEndIndex = (curActualSeqSize + blockSize - 1) / blockSize - 1;
@@ -391,7 +391,7 @@ void WinAttentionDebugCompute(const Tensor &qNope, Tensor &vNopeCache, const Ten
                     Tensor vPart(dtype, {5 * blockSize, dNopeSize}, "vPart");
                     LOOP("LOOP_L2_tIdx", FunctionType::DYNAMIC_LOOP, tIdx, LoopRange(0, tableLoop, 1), {}, true) {
                         SymbolicScalar curidx = blockStartIndex + tIdx;
-                        SymbolicScalar curBlockIdx = GetInputData(blockTable, {bIdx, curidx});
+                        SymbolicScalar curBlockIdx = GetTensorData(blockTable, {bIdx, curidx});
 
                         auto kNope = View(vNopeCache, {blockSize, dNopeSize}, {curBlockIdx * blockSize, n2Idx * dNopeSize});
                         TileShape::Current().SetVecTile(nopeTile[0], nopeTile[1]);

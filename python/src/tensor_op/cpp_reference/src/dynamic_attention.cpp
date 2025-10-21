@@ -352,7 +352,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
         config::SetOperationConfig("FORCE_COMBINE_AXIS", true);
 
         LOOP("LOOP_L0_bIdx_pa", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, batchSizeScalar, 1), {}, true) {
-            SymbolicScalar curSeq = GetInputData(actSeqs, {bIdx});
+            SymbolicScalar curSeq = GetTensorData(actSeqs, {bIdx});
             SymbolicScalar bnPerBatch = (curSeq + blockSize - 1) / blockSize;
             bnPerBatch.AsIntermediateVariable();
             LOOP("LOOP_L1_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nLoop, 1)) {
@@ -374,7 +374,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                     Assemble(qn, {0, 0}, qi);
                     Assemble(qr, {0, dN}, qi);
 
-                    SymbolicScalar curBlockIdx = GetInputData(blockTable, {bIdx, bn});
+                    SymbolicScalar curBlockIdx = GetTensorData(blockTable, {bIdx, bn});
                     curBlockIdx.AsIntermediateVariable();
                     auto kn = View(kvCacheOut, {curS2Tile, dN}, {std::min(curSeq - bn * blockSize, blockSize), dN},
                                                   {curBlockIdx * blockSize, 0});

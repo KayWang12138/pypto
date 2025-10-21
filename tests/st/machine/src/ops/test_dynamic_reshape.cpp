@@ -341,7 +341,7 @@ TEST_F(DynamicReshapeTest, test_reshape_unalign) {
 
     FUNCTION("main", {q, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (sq))) {
-            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0, 0});
+            SymbolicScalar curSeq = GetTensorData(actSeqs, {batchId, 0, 0});
 
             Tensor q0 = View(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
             auto tmp0 = Reshape(q0, {1, sq, d}, {1, curSeq, d});
@@ -421,7 +421,7 @@ TEST_F(DynamicReshapeTest, test_assemble_diff_tile) {
 
     FUNCTION("main", {a, b, actSeqs}, {out}) {
         LOOP("LOOP_BATCH", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(GetInputShape(a, 0) / s1)) {
-            SymbolicScalar actS2 = GetInputData(actSeqs, {bIdx});
+            SymbolicScalar actS2 = GetTensorData(actSeqs, {bIdx});
 
             Tensor aView = View(a, {s1, s2}, {s1, s2}, {bIdx*s1, 0});
             Tensor bView = View(b, {s2, d}, {s2, actS2}, {bIdx*s2, 0});

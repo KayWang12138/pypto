@@ -13,7 +13,6 @@ from pto import pto_impl
 
 
 get_input_shape = pto_impl.GetInputShape
-get_input_data = pto_impl.GetInputData
 get_tensor_data = pto_impl.GetTensorData
 set_tensor_data = pto_impl.SetTensorData
 

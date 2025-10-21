@@ -341,7 +341,6 @@ SymbolicScalar GetInputDataInt32Dim4(const Tensor &t, SymbolicScalar off0, Symbo
 }
 
 SymbolicScalar GetInputData(const Tensor &t, const std::vector<SymbolicScalar> &offset) {
-    ASSERT(t.GetDataType() == DT_INT32);
     ASSERT(t.Dim() == offset.size());
     ASSERT(t.Dim() >0 && t.Dim() <= 0x4);
     if (t.Dim() == 0x1) {
@@ -389,12 +388,30 @@ SymbolicScalar DoGetTensorDataInt32(SymbolHandlerId handlerId, const Tensor &t, 
     return getRuntimeHandler(argList);
 }
 
+static std::vector<std::reference_wrapper<const Tensor>>::iterator FindTensor (
+    const Tensor &key, std::vector<std::reference_wrapper<const Tensor>> &vec) {
+    for (auto it = vec.begin(); it != vec.end(); ++it) {
+        if (&key == &(it->get())) {
+            return it;
+        }
+    }
+    return vec.end();
+}
+
 constexpr int MAX_GET_TENSOR_DATA_DIM = 4;
-SymbolicScalar GetTensorData(const Tensor &t, const std::vector<SymbolicScalar> &off) {
+SymbolicScalar GetTensorData(const Tensor &t, const std::vector<SymbolicScalar> &offset) {
     ASSERT(t.GetDataType() == DT_INT32);
-    ASSERT(off.size() <= MAX_GET_TENSOR_DATA_DIM);
-    SymbolHandlerId handlerId = static_cast<SymbolHandlerId>(static_cast<int>(SymbolHandlerId::GetTensorDataInt32Dim1) + off.size() - 1) ;
-    return DoGetTensorDataInt32(handlerId, t, off);
+    auto funcPtr = Program::GetInstance().GetCurrentDynamicFunction();
+    if (funcPtr) {
+        auto inputTensorList = funcPtr->GetDyndevAttribute()->startArgsInputTensorList;
+        if (FindTensor(t, inputTensorList) != inputTensorList.end()) {
+            return GetInputData(t, offset);
+        }
+    }
+    
+    ASSERT(offset.size() <= MAX_GET_TENSOR_DATA_DIM);
+    SymbolHandlerId handlerId = static_cast<SymbolHandlerId>(static_cast<int>(SymbolHandlerId::GetTensorDataInt32Dim1) + offset.size() - 1) ;
+    return DoGetTensorDataInt32(handlerId, t, offset);
 }
 
 static

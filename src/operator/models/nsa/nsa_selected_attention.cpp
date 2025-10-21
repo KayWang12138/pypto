@@ -83,7 +83,7 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
     LOOP("LOOP_L0_b_SA", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, batchSizeSym, 1), {}, true) {
-        SymbolicScalar curActSeq = GetInputData(kvActSeqs, {bIdx});
+        SymbolicScalar curActSeq = GetTensorData(kvActSeqs, {bIdx});
         curActSeq.AsIntermediateVariable();
         LOOP("LOOP_L1_s1_SA", FunctionType::DYNAMIC_LOOP, s1Idx, LoopRange(0, s1Sym, 1)) {
             LOOP("LOOP_L2_n2_SA", FunctionType::DYNAMIC_LOOP, n2Idx, LoopRange(0, n2Sym, 1)) { // GQA场景
@@ -116,7 +116,7 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
                                     TileShape::Current().SetVecTile(1, 1, NUM16);
                                     topkIndex = GetTensorData(topKIndcies, {bIdx, s1Idx, topKIdx - front});
                                 } else {
-                                    topkIndex = GetInputData(topKIndcies, {bIdx, s1Idx, topKIdx - front});
+                                    topkIndex = GetTensorData(topKIndcies, {bIdx, s1Idx, topKIdx - front});
                                 }
 
                                 positions = topkIndex * slcBlockSize;
@@ -124,7 +124,7 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
                             curKvSlcSeq = curKvSlcSeq + std::min(slcBlockSize, curActSeq - positions);
                             SymbolicScalar blockIdxInBatch = positions / blockSize;
                             SymbolicScalar tail = positions % blockSize;
-                            SymbolicScalar slcBlockIdx = GetInputData(blockTable, {bIdx, blockIdxInBatch});
+                            SymbolicScalar slcBlockIdx = GetTensorData(blockTable, {bIdx, blockIdxInBatch});
                             TileShape::Current().SetVecTile(v0Tile[0], v0Tile[1]);
                             auto kvSlcBlock = View(kvNopeCache, {slcBlockSize, dN}, {slcBlockIdx * blockSize + tail, n2Idx * dN});
                             auto krSlcBlock = View(kRopeCache, {slcBlockSize, dR}, {slcBlockIdx * blockSize + tail, n2Idx * dR});
@@ -240,7 +240,7 @@ void SelectedAttentionFlashCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Ten
     SymbolicScalar s2Sym = n2S2Sym / n2Sym; // s2
 
     LOOP("LOOP_L0_b_SA", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, batchSizeSym, 1), {}, true) {
-        SymbolicScalar curActSeq = GetInputData(kvActSeqs, {bIdx});
+        SymbolicScalar curActSeq = GetTensorData(kvActSeqs, {bIdx});
         curActSeq.AsIntermediateVariable();
         LOOP("LOOP_L1_s1_SA", FunctionType::DYNAMIC_LOOP, s1Idx, LoopRange(0, s1Sym, 1)) {
             LOOP("LOOP_L2_n2_SA", FunctionType::DYNAMIC_LOOP, n2Idx, LoopRange(0, n2Sym, 1)) { // GQA场景
@@ -267,7 +267,7 @@ void SelectedAttentionFlashCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Ten
                                 TileShape::Current().SetVecTile(1, 1, NUM16);
                                 topkIndex = GetTensorData(topKIndcies, {bIdx, s1Idx, topKIdx - front});
                             } else {
-                                topkIndex = GetInputData(topKIndcies, {bIdx, s1Idx, topKIdx - front});
+                                topkIndex = GetTensorData(topKIndcies, {bIdx, s1Idx, topKIdx - front});
                             }
 
                             positions = topkIndex * slcBlockSize;
@@ -275,7 +275,7 @@ void SelectedAttentionFlashCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Ten
                         curKvSlcSeq = curKvSlcSeq + std::min(slcBlockSize, curActSeq - positions);
                         SymbolicScalar blockIdxInBatch = positions / blockSize;
                         SymbolicScalar tail = positions % blockSize;
-                        SymbolicScalar slcBlockIdx = GetInputData(blockTable, {bIdx, blockIdxInBatch});
+                        SymbolicScalar slcBlockIdx = GetTensorData(blockTable, {bIdx, blockIdxInBatch});
                         TileShape::Current().SetVecTile(v0Tile[0], v0Tile[1]);
                         auto kvSlcBlock = View(kvNopeCache, {slcBlockSize, dN}, {slcBlockIdx * blockSize + tail, n2Idx * dN});
                         auto krSlcBlock = View(kRopeCache, {slcBlockSize, dR}, {slcBlockIdx * blockSize + tail, n2Idx * dR});

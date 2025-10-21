@@ -71,7 +71,7 @@ TEST_F(DynamicReshapeUnalignTest, test_add_dim) {
 
     FUNCTION("main", {q, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (sq))) {
-            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0, 0});
+            SymbolicScalar curSeq = GetTensorData(actSeqs, {batchId, 0, 0});
             Tensor q0 = View(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
             auto tmp0 = Reshape(q0, {1, sq, d}, {1, curSeq, d});
             TileShape::Current().SetVecTile(1, 64, 64);
@@ -128,7 +128,7 @@ TEST_F(DynamicReshapeUnalignTest, test_merge_dim) {
     FUNCTION("main", {q, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
             //
-            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0, 0});
+            SymbolicScalar curSeq = GetTensorData(actSeqs, {batchId, 0, 0});
 
             Tensor q0 = View(q, {1, sq, d}, {1, curSeq, d}, {batchId, 0, 0});
             auto tmp0 = Reshape(q0, {1, sq * d}, {1, curSeq * d});
@@ -196,8 +196,8 @@ TEST_F(DynamicReshapeUnalignTest, test_split_dim) {
 
     FUNCTION("main", {q, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
-            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0, 0});
-            SymbolicScalar curDim = GetInputData(actSeqs, {batchId, 1, 0});
+            SymbolicScalar curSeq = GetTensorData(actSeqs, {batchId, 0, 0});
+            SymbolicScalar curDim = GetTensorData(actSeqs, {batchId, 1, 0});
             Tensor q0 = View(q, {1, sq, d}, {1, curSeq, curDim}, {batchId, 0, 0});
             auto tmp0 = Reshape(q0, {1, sq, 5, d/5}, {1, curSeq, 4, curDim/4});
             TileShape::Current().SetVecTile(1, 16, 16, 16);

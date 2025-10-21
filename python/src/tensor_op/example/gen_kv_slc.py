@@ -54,7 +54,7 @@ def kv_slc_compute(**kwargs):
     with pto.loop_function("LOOP_L0_batchIdx", "batch_idx", pto.loop_range(0, b, 1)) as batch_idx_loop:
         for batch_idx in batch_idx_loop:
             def inside_batch_idx_loop(batch_idx):
-                cur_act_seq = pto.get_input_data(kv_act_seqs, [batch_idx])
+                cur_act_seq = pto.get_tensor_data(kv_act_seqs, [batch_idx])
                 with pto.loop_function("LOOP_L1_slcIdx", "slc_idx", pto.loop_range(0, s, 1)) as slc_idx_loop:
                     for slc_idx in slc_idx_loop:
                         def inside_slc_idx_loop(slc_idx):
@@ -63,7 +63,7 @@ def kv_slc_compute(**kwargs):
                                 for nkv_idx in nkv_idx_loop:
                                     def inside_nkv_idx_loop(nkv_idx):
                                         pto.set_vec_tile_shapes(v0_tile[0], v0_tile[1])
-                                        s_slc = pto.get_input_data(top_k_tensor_shape, [batch_idx, slc_idx])
+                                        s_slc = pto.get_tensor_data(top_k_tensor_shape, [batch_idx, slc_idx])
                                         positions = 0
                                         prime_value = l_prime
                                         slc_seq_len = 0
@@ -77,13 +77,13 @@ def kv_slc_compute(**kwargs):
                                                     topk_index = pto.get_tensor_data(top_k_indcies, [batch_idx, slc_idx, 
                                                     pto.symbolic_scalar(top_k_idx - front)])
                                                 else:
-                                                    topk_index = pto.get_input_data(top_k_indcies, [batch_idx, slc_idx, 
+                                                    topk_index = pto.get_tensor_data(top_k_indcies, [batch_idx, slc_idx, 
                                                     pto.symbolic_scalar(top_k_idx - front)])
                                                 positions = topk_index * prime_value
                                             slc_seq_len = slc_seq_len + prime_value
                                             block_idx_in_batch = positions // pto.symbolic_scalar(block_size)
                                             tail = positions % block_size
-                                            slc_block_idx = pto.get_input_data(block_table, 
+                                            slc_block_idx = pto.get_tensor_data(block_table, 
                                             [batch_idx, block_idx_in_batch])
                                             pto.set_vec_tile_shapes(v0_tile[0], v0_tile[1])
                                             kv_slc_block = pto.view(kv_nope_cache, [l_prime, kv_lora_rank], 

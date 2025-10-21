@@ -117,7 +117,7 @@ def selected_attention_compute(**kwargs):
         for b_idx in b_idx_loop:
             def inside_b_loop_sa(b_idx):
                 # nonlocal sa_out
-                cur_act_seq = pto.get_input_data(kv_act_seqs, [b_idx])
+                cur_act_seq = pto.get_tensor_data(kv_act_seqs, [b_idx])
                 cur_act_seq.as_intermediate_variable()
                 with pto.loop_function("LOOP_L1_s1_SA", "s1_idx", pto.loop_range(0, s1_sym, 1)) as s1_idx_loop:
                     for s1_idx in s1_idx_loop:
@@ -166,7 +166,7 @@ def selected_attention_compute(**kwargs):
                                                                         [b_idx, s1_idx, pto.symbolic_scalar(top_k_idx 
                                                                                                             - front)])
                                                                 else:
-                                                                    top_k_index = pto.get_input_data(top_k_indices, 
+                                                                    top_k_index = pto.get_tensor_data(top_k_indices, 
                                                                         [b_idx, s1_idx, pto.symbolic_scalar(top_k_idx 
                                                                                                             - front)])
                                                                 positions = top_k_index * slc_block_size 
@@ -175,7 +175,7 @@ def selected_attention_compute(**kwargs):
                                                             block_idx_in_batch = positions // pto.symbolic_scalar(
                                                                                                             block_size)
                                                             tail = positions % block_size
-                                                            slc_block_idx = pto.get_input_data(block_table, 
+                                                            slc_block_idx = pto.get_tensor_data(block_table, 
                                                                                         [b_idx, block_idx_in_batch])
                                                             pto.set_vec_tile_shapes(v0_tile[0], v0_tile[1])
                                                             kv_slc_block = pto.view(kv_nope_cache, 
