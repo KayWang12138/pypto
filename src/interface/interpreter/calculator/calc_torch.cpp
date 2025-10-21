@@ -133,6 +133,38 @@ void Abs(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     torch::abs_out(tout, From(self));
 }
 
+void WhereTT(LogicalTensorDataPtr out, LogicalTensorDataPtr condition, LogicalTensorDataPtr input, LogicalTensorDataPtr other) {
+    torch::Tensor tout = From(out);
+    torch::Tensor tcondition = From(condition);
+    torch::Tensor tinput = From(input);
+    torch::Tensor tother = From(other);
+    torch::where_out(tout, tcondition, tinput, tother);
+}
+
+void WhereTS(LogicalTensorDataPtr out, LogicalTensorDataPtr condition, LogicalTensorDataPtr input, const Element &other) {
+    torch::Tensor tout = From(out);
+    torch::Tensor tcondition = From(condition);
+    torch::Tensor tinput = From(input);
+    torch::Tensor tother = torch::tensor(static_cast<float>(other.GetFloatData()), torch::kFloat32);
+    torch::where_out(tout, tcondition, tinput, tother);
+}
+
+void WhereST(LogicalTensorDataPtr out, LogicalTensorDataPtr condition, const Element &input, LogicalTensorDataPtr other) {
+    torch::Tensor tout = From(out);
+    torch::Tensor tcondition = From(condition);
+    torch::Tensor tinput = torch::tensor(static_cast<float>(input.GetFloatData()), torch::kFloat32);
+    torch::Tensor tother = From(other);
+    torch::where_out(tout, tcondition, tinput, tother);
+}
+
+void WhereSS(LogicalTensorDataPtr out, LogicalTensorDataPtr condition, const Element &input, const Element &other) {
+    torch::Tensor tout = From(out);
+    torch::Tensor tcondition = From(condition);
+    torch::Tensor tinput = torch::tensor(static_cast<float>(input.GetFloatData()), torch::kFloat32);
+    torch::Tensor tother = torch::tensor(static_cast<float>(other.GetFloatData()), torch::kFloat32);
+    torch::where_out(tout, tcondition, tinput, tother);
+}
+
 void Ln(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto tout = From(out);
     torch::log_out(tout, From(self));

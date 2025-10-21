@@ -423,6 +423,45 @@ TEST_F(TorchAdaptorTest, BinaryOpsS) {
     }
 }
 
+TEST_F(TorchAdaptorTest, Where) {
+    {
+        auto out = makeTensorData(DT_FP32, {16, 16}, 0.0f);
+        auto condition = makeTensorData(DT_BOOL, {16, 16}, false);
+        auto input = makeTensorData(DT_FP32, {16, 16}, 6.0f);
+        auto other = makeTensorData(DT_FP32, {16, 16}, 4.0f);
+        auto golden = makeTensorData(DT_FP32, {16, 16}, 4.0f);
+        calc::WhereTT(out, condition, input, other);
+        ASSERT_ALLCLOSE(out, golden);
+    }
+    {
+        auto out = makeTensorData(DT_FP32, {16, 16}, 0.0f);
+        auto condition = makeTensorData(DT_BOOL, {16, 16}, false);
+        auto input = makeTensorData(DT_FP32, {16, 16}, 6.0f);
+        auto other = Element(DT_FP32, 4.0f);
+        auto golden = makeTensorData(DT_FP32, {16, 16}, 4.0f);
+        calc::WhereTS(out, condition, input, other);
+        ASSERT_ALLCLOSE(out, golden);
+    }
+    {
+        auto out = makeTensorData(DT_FP32, {16, 16}, 0.0f);
+        auto condition = makeTensorData(DT_BOOL, {16, 16}, false);
+        auto input = Element(DT_FP32, 6.0f);
+        auto other = makeTensorData(DT_FP32, {16, 16}, 4.0f);
+        auto golden = makeTensorData(DT_FP32, {16, 16}, 4.0f);
+        calc::WhereST(out, condition, input, other);
+        ASSERT_ALLCLOSE(out, golden);
+    }
+    {
+        auto out = makeTensorData(DT_FP32, {16, 16}, 0.0f);
+        auto condition = makeTensorData(DT_BOOL, {16, 16}, false);
+        auto input = Element(DT_FP32, 6.0f);
+        auto other = Element(DT_FP32, 4.0f);
+        auto golden = makeTensorData(DT_FP32, {16, 16}, 4.0f);
+        calc::WhereSS(out, condition, input, other);
+        ASSERT_ALLCLOSE(out, golden);
+    }
+}
+
 LogicalTensorDataPtr makePartialGolden(int n, int p, float v1, float v2) {
     std::vector<float> ret(n * n, 0);
     for (int i = 0; i < n; i++) {

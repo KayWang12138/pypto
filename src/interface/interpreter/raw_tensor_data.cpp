@@ -152,6 +152,7 @@ void LogicalTensorData::Save(const std::string &filepath) const {
         case DT_UINT32: HandleSave<uint32_t>(fdata, totalSize, rowSize); break;
         case DT_UINT64: HandleSave<uint64_t>(fdata, totalSize, rowSize); break;
         case DT_DOUBLE: HandleSave<double>(fdata, totalSize, rowSize); break;
+        case DT_BOOL: HandleSave<bool>(fdata, totalSize, rowSize); break;
         default: ASSERT(false); break;
     }
     fclose(fdata);

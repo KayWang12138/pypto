@@ -80,6 +80,44 @@ void ExecuteOpVecDup(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_VEC_DUP, Opcode::OP_VEC_DUP, ExecuteOpVecDup);
 
+void ExecuteOpWhereTT(ExecuteOperationContext *ctx) {
+    auto result = ctx->ooperandInplaceDataViewList->at(0);
+    auto condition = ctx->ioperandDataViewList->at(0);
+    auto input = ctx->ioperandDataViewList->at(1);
+    auto other = ctx->ioperandDataViewList->at(2);
+    calc::WhereTT(result, condition, input, other);
+}
+REGISTER_CALC_OP(OP_WHERE_TT, Opcode::OP_WHERE_TT, ExecuteOpWhereTT);
+
+void ExecuteOpWhereTS(ExecuteOperationContext *ctx) {
+    auto result = ctx->ooperandInplaceDataViewList->at(0);
+    auto condition = ctx->ioperandDataViewList->at(0);
+    auto input = ctx->ioperandDataViewList->at(1);
+    auto other = ctx->op->GetElementAttribute(OpAttributeKey::scalar);
+    // OpAttributeKey::dynScalar
+    calc::WhereTS(result, condition, input, other);
+}
+REGISTER_CALC_OP(OP_WHERE_TS, Opcode::OP_WHERE_TS, ExecuteOpWhereTS);
+
+void ExecuteOpWhereST(ExecuteOperationContext *ctx) {
+    auto result = ctx->ooperandInplaceDataViewList->at(0);
+    auto condition = ctx->ioperandDataViewList->at(0);
+    auto other = ctx->ioperandDataViewList->at(1);
+    auto input = ctx->op->GetElementAttribute(OpAttributeKey::scalar);
+    // OpAttributeKey::dynScalar
+    calc::WhereST(result, condition, input, other);
+}
+REGISTER_CALC_OP(OP_WHERE_ST, Opcode::OP_WHERE_ST, ExecuteOpWhereST);
+
+void ExecuteOpWhereSS(ExecuteOperationContext *ctx) {
+    auto result = ctx->ooperandInplaceDataViewList->at(0);
+    auto condition = ctx->ioperandDataViewList->at(0);
+    auto input = ctx->op->GetElementAttribute(OpAttributeKey::scalar);
+    auto other = ctx->op->GetElementAttribute(OpAttributeKey::dynScalar);
+    calc::WhereSS(result, condition, input, other);
+}
+REGISTER_CALC_OP(OP_WHERE_SS, Opcode::OP_WHERE_SS, ExecuteOpWhereSS);
+
 template <Opcode opcode>
 void ExecuteOpReduce(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);

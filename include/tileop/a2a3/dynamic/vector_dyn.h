@@ -2795,7 +2795,7 @@ TILEOP void ProcessWhere(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1,
 
     set_cmpmask((__ubuf__ uint64_t *)startAddrUB);
     pipe_barrier(PIPE_V);
-    vsel(dst, src0, src1, (uint64_t)571780540465409ULL);
+    vsel(dst, src0, src1, 16, 1, 1, 1, 8, 8, 8, 2);
 }
 
 template <typename T, unsigned DS, unsigned CS, unsigned SS0>
@@ -2805,7 +2805,7 @@ TILEOP void DynWhere_TT(__ubuf__ T *dst, __ubuf__ half *castCondition,
                         __ubuf__ T *otherTempTensor, __ubuf__ bool *condition,
                         __ubuf__ T *src0, __ubuf__ T *src1, unsigned T0, unsigned T1) {
     unsigned COUNT_MAX_BYTE = 4096;
-    unsigned elementsPerCount = COUNT_MAX_BYTE / sizeof(T);
+    unsigned elementsPerCount = COUNT_MAX_BYTE / sizeof(float);
     unsigned numCountPerLine = T1 / elementsPerCount;
     unsigned numRemainPerLine = T1 % elementsPerCount;
     for (int i = 0; i < T0; i++) {
@@ -2869,7 +2869,7 @@ TILEOP void DynWhere_TS(__ubuf__ T *dst, __ubuf__ half *castCondition,
                     __ubuf__ T *otherTempTensor, __ubuf__ bool *condition,
                     __ubuf__ T *src0, T src1, unsigned T0, unsigned T1) {
     unsigned COUNT_MAX_BYTE = 4096;
-    unsigned elementsPerCount = COUNT_MAX_BYTE / sizeof(T);
+    unsigned elementsPerCount = COUNT_MAX_BYTE / sizeof(float);
     unsigned numCountPerLine = T1 / elementsPerCount;
     unsigned numRemainPerLine = T1 % elementsPerCount;
     set_vector_mask((uint64_t)-1, (uint64_t)-1);
@@ -2936,7 +2936,7 @@ TILEOP void DynWhere_ST(__ubuf__ T *dst, __ubuf__ half *castCondition,
                     __ubuf__ T *otherTempTensor, __ubuf__ bool *condition,
                     T src0, __ubuf__ T *src1, unsigned T0, unsigned T1) {
     unsigned COUNT_MAX_BYTE = 4096;
-    unsigned elementsPerCount = COUNT_MAX_BYTE / sizeof(T);
+    unsigned elementsPerCount = COUNT_MAX_BYTE / sizeof(float);
     unsigned numCountPerLine = T1 / elementsPerCount;
     unsigned numRemainPerLine = T1 % elementsPerCount;
     set_vector_mask((uint64_t)-1, (uint64_t)-1);
@@ -3004,7 +3004,7 @@ TILEOP void DynWhere_SS(__ubuf__ T *dst, __ubuf__ half *castCondition,
                     __ubuf__ T *otherTempTensor, __ubuf__ bool *condition,
                     T src0, T src1, unsigned T0, unsigned T1) {
     unsigned COUNT_MAX_BYTE = 4096;
-    unsigned elementsPerCount = COUNT_MAX_BYTE / sizeof(T);
+    unsigned elementsPerCount = COUNT_MAX_BYTE / sizeof(float);
     unsigned numCountPerLine = T1 / elementsPerCount;
     unsigned numRemainPerLine = T1 % elementsPerCount;
     set_vector_mask((uint64_t)-1, (uint64_t)-1);

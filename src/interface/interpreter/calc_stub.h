@@ -27,6 +27,10 @@ inline void Neg(LogicalTensorDataPtr, LogicalTensorDataPtr) {}
 inline void Rsqrt(LogicalTensorDataPtr, LogicalTensorDataPtr) {}
 inline void Sqrt(LogicalTensorDataPtr, LogicalTensorDataPtr) {}
 inline void Abs(LogicalTensorDataPtr, LogicalTensorDataPtr) {}
+inline void WhereTT(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr) {}
+inline void WhereTS(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &) {}
+inline void WhereST(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, LogicalTensorDataPtr) {}
+inline void WhereSS(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, const Element &) {}
 inline void Ln(LogicalTensorDataPtr, LogicalTensorDataPtr) {}
 inline void LogicalNot(LogicalTensorDataPtr, LogicalTensorDataPtr) {}
 inline void Range(LogicalTensorDataPtr, const Element &, const Element &, const Element &) {}

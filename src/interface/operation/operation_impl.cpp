@@ -1121,17 +1121,17 @@ void TiledWhereOperation(Function &function, const TileShape &tileShape, size_t 
         unsigned COUNT_MAX_BYTE = 4096;
         auto conditionTile = condition.tensor->View(function, condition.tileInfo.shape, condition.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
-        std::vector<int64_t> castConditionShape({static_cast<int64_t>(COUNT_MAX_BYTE / BytesOf(inputDatatype))});
+        std::vector<int64_t> castConditionShape({static_cast<int64_t>(COUNT_MAX_BYTE / BytesOf(DT_FP32))});
         auto castConditionTensor = std::make_shared<LogicalTensor>(function, DT_FP16, castConditionShape);
-        std::vector<int64_t> compareConditionShape({static_cast<int64_t>(COUNT_MAX_BYTE / BytesOf(inputDatatype))});
+        std::vector<int64_t> compareConditionShape({static_cast<int64_t>(COUNT_MAX_BYTE / BytesOf(DT_FP32))});
         auto compareConditionTensor = std::make_shared<LogicalTensor>(function, DT_FP16, compareConditionShape);
-        std::vector<int64_t> vcmpBitResultShape({static_cast<int64_t>(COUNT_MAX_BYTE / BytesOf(inputDatatype) / 8)});
+        std::vector<int64_t> vcmpBitResultShape({static_cast<int64_t>(COUNT_MAX_BYTE / BytesOf(DT_FP32) / 8)});
         auto vcmpBitResultTensor = std::make_shared<LogicalTensor>(function, DT_INT8, vcmpBitResultShape);
         std::vector<int64_t> startAddrUBShape({1});
         auto startAddrUBTensor = std::make_shared<LogicalTensor>(function, DT_UINT64, startAddrUBShape);
-        std::vector<int64_t> inputTempShape({static_cast<int64_t>(COUNT_MAX_BYTE / BytesOf(inputDatatype))});
+        std::vector<int64_t> inputTempShape({static_cast<int64_t>(COUNT_MAX_BYTE / BytesOf(DT_FP32))});
         auto inputTempTensor = std::make_shared<LogicalTensor>(function, inputDatatype, inputTempShape);
-        std::vector<int64_t> otherTempShape({static_cast<int64_t>(COUNT_MAX_BYTE / BytesOf(inputDatatype))});
+        std::vector<int64_t> otherTempShape({static_cast<int64_t>(COUNT_MAX_BYTE / BytesOf(DT_FP32))});
         auto otherTempTensor = std::make_shared<LogicalTensor>(function, inputDatatype, otherTempShape);
         if constexpr (std::is_same_v<U, Input> && std::is_same_v<W, Input>) {
             auto inputTile = input.tensor->View(function, input.tileInfo.shape, input.tileInfo.offset);
@@ -1273,10 +1273,9 @@ void TiledWhereOperation(Function &function, const TileShape &tileShape, const L
 
 LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &condition,
                         const Tensor &input, const Tensor &other) {
-    DECLARE_TRACER();
-    assert(condition->shape.size() == condition->offset.size());
-    assert(input->shape.size() == input->offset.size());
-    assert(other->shape.size() == other->offset.size());
+    ASSERT(condition->shape.size() == condition->offset.size());
+    ASSERT(input->shape.size() == input->offset.size());
+    ASSERT(other->shape.size() == other->offset.size());
     auto conditionT0 = condition.GetStorage();
     auto inputT1 = input.GetStorage();
     auto otherT2 = other.GetStorage();
@@ -1292,16 +1291,15 @@ LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &conditio
     CheckBinOpOperandsValid(inputT1, otherT2);
     std::vector<int64_t> resultShape = BinaryOperationResultShape(inputT1, otherT2);
     auto result = std::make_shared<LogicalTensor>(function, input->Datatype(), resultShape);
-    function.AddOperation(Opcode::OP_WHERE_TT, {conditionT0, inputT1, otherT2}, {result});
+    GraphUtils::AddDynOperation(function, Opcode::OP_WHERE_TT, {conditionT0, inputT1, otherT2}, {result});
     return result;
 }
 
 
 LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &condition,
                         const Tensor &input, const Element &other) {
-    DECLARE_TRACER();
-    assert(condition->shape.size() == condition->offset.size());
-    assert(input->shape.size() == input->offset.size());
+    ASSERT(condition->shape.size() == condition->offset.size());
+    ASSERT(input->shape.size() == input->offset.size());
     auto conditionT0 = condition.GetStorage();
     auto inputT1 = input.GetStorage();
     std::vector<int> broadCastShape;
@@ -1315,7 +1313,7 @@ LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &conditio
     inputT1 = BinaryOperationBroadCast(inputT1, broadCastShape);
     std::vector<int64_t> resultShape = BinaryOperationResultShape(inputT1, inputT1);
     auto result = std::make_shared<LogicalTensor>(function, inputT1->Datatype(), resultShape);
-    auto &op = function.AddOperation(Opcode::OP_WHERE_TS, {conditionT0, inputT1}, {result});
+    auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_WHERE_TS, {conditionT0, inputT1}, {result});
     op.SetAttribute(OpAttributeKey::scalar, other);
     return result;
 }
@@ -1323,9 +1321,8 @@ LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &conditio
 
 LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &condition,
                         const Element &input, const Tensor &other) {
-    DECLARE_TRACER();
-    assert(condition->shape.size() == condition->offset.size());
-    assert(other->shape.size() == other->offset.size());
+    ASSERT(condition->shape.size() == condition->offset.size());
+    ASSERT(other->shape.size() == other->offset.size());
     auto conditionT0 = condition.GetStorage();
     auto otherT1 = other.GetStorage();
     std::vector<int> broadCastShape;
@@ -1339,19 +1336,18 @@ LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &conditio
     otherT1 = BinaryOperationBroadCast(otherT1, broadCastShape);
     std::vector<int64_t> resultShape = BinaryOperationResultShape(otherT1, otherT1);
     auto result = std::make_shared<LogicalTensor>(function, otherT1->Datatype(), resultShape);
-    auto &op = function.AddOperation(Opcode::OP_WHERE_ST, {conditionT0, otherT1}, {result});
+    auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_WHERE_ST, {conditionT0, otherT1}, {result});
     op.SetAttribute(OpAttributeKey::scalar, input);
     return result;
 }
 
 LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &condition,
                         const Element &input, const Element &other) {
-    DECLARE_TRACER();
-    assert(condition->shape.size() == condition->offset.size());
+    ASSERT(condition->shape.size() == condition->offset.size());
     auto conditionT0 = condition.GetStorage();
     std::vector<int64_t> resultShape = BinaryOperationResultShape(conditionT0, conditionT0);
     auto result = std::make_shared<LogicalTensor>(function, input.GetDataType(), resultShape);
-    auto &op = function.AddOperation(Opcode::OP_WHERE_SS, {conditionT0}, {result});
+    auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_WHERE_SS, {conditionT0}, {result});
     op.SetAttribute(OpAttributeKey::scalar, input);
     op.SetAttribute(OpAttributeKey::dynScalar, other);
     return result;

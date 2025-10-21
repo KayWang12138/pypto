@@ -113,10 +113,6 @@ REGISTER_INFER_SHAPE_FUNC(OP_S_MUL, Opcode::OP_S_MUL, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_S_DIV, Opcode::OP_S_DIV, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_S_MAX, Opcode::OP_S_MAX, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_S_MIN, Opcode::OP_S_MIN, ElewiseInferFunc);
-REGISTER_INFER_SHAPE_FUNC(OP_WHERE_TT, Opcode::OP_WHERE_TT, ElewiseInferFunc);
-REGISTER_INFER_SHAPE_FUNC(OP_WHERE_TS, Opcode::OP_WHERE_TS, ElewiseInferFunc);
-REGISTER_INFER_SHAPE_FUNC(OP_WHERE_ST, Opcode::OP_WHERE_ST, ElewiseInferFunc);
-REGISTER_INFER_SHAPE_FUNC(OP_WHERE_SS, Opcode::OP_WHERE_SS, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_REGISTER_COPY, Opcode::OP_REGISTER_COPY, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_SCATTER_ELEMENT, Opcode::OP_SCATTER_ELEMENT, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_CMP, Opcode::OP_CMP, ElewiseInferFunc);
@@ -276,6 +272,23 @@ REGISTER_INFER_SHAPE_FUNC(OP_ROWMIN_SINGLE, Opcode::OP_ROWMIN_SINGLE, ReduceInfe
 REGISTER_INFER_SHAPE_FUNC(OP_ROWSUM_SINGLE, Opcode::OP_ROWSUM_SINGLE, ReduceInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_ROWMAX_COMBINE_AXIS_SINGLE, Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, ReduceInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_ROWSUM_COMBINE_AXIS_SINGLE, Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, ReduceInferFunc);
+
+void WhereNotInferFunc(Operation* op,
+                        std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    ElewiseInferFunc(op, outValidShapes);
+    outValidShapes.erase(outValidShapes.begin() + 1, outValidShapes.end());
+    const int64_t COUNT_SIZE = 2048;
+    outValidShapes.push_back({COUNT_SIZE});
+    outValidShapes.push_back({COUNT_SIZE});
+    outValidShapes.push_back({COUNT_SIZE / 8});
+    outValidShapes.push_back({1});
+    outValidShapes.push_back({COUNT_SIZE});
+    outValidShapes.push_back({COUNT_SIZE});
+}
+REGISTER_INFER_SHAPE_FUNC(OP_WHERE_TT, Opcode::OP_WHERE_TT, WhereNotInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_WHERE_TS, Opcode::OP_WHERE_TS, WhereNotInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_WHERE_ST, Opcode::OP_WHERE_ST, WhereNotInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_WHERE_SS, Opcode::OP_WHERE_SS, WhereNotInferFunc);
 
 // Gather infer shape func
 void InferFunc4Gather(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
