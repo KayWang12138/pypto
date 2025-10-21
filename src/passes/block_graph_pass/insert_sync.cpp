@@ -1179,9 +1179,9 @@ bool PipeSync::IgnorableIntraPipeDep(size_t prev, size_t curr, const std::vector
     auto outputShape = prevOp->GetOOperands()[0]->shape;
     auto dtype = prevOp->GetOOperands()[0]->tensor->datatype;
     int repeatsize = std::accumulate(outputShape.begin(), outputShape.end(), 1, std::multiplies<int64_t>()) * BytesOf(dtype) / 256;
-    // pipe_barrier can be safely ignored when intrins REPEAT > 16
+    // pipe_barrier can be safely ignored when intrins REPEAT > 24
     if (repeatsize > IGNORABLE_REPEAT_SIZE) {
-        ALOG_DEBUG_F("        %d %s and %d %s dependency is ignorable because pipeBarrier can be safely ignored when intrins REPEAT > 16, now REPEAT is %d",
+        ALOG_DEBUG_F("        %d %s and %d %s dependency is ignorable because pipeBarrier can be safely ignored when intrins REPEAT > 24, now REPEAT is %d",
             opLogPtr[prev]->GetOpMagic(), opLogPtr[prev]->GetOpcodeStr().c_str(), opLogPtr[curr]->GetOpMagic(), opLogPtr[curr]->GetOpcodeStr().c_str(), repeatsize);
         return true;
     }
