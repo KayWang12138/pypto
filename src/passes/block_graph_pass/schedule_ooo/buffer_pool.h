@@ -71,6 +71,8 @@ class BufferPool {
     size_t UpdateIdx(size_t &i, size_t sizeNeedSpill, size_t startAddr, const std::vector<std::tuple<int, size_t, size_t>> &allocatedBufs);
     Status GetSpillGroup(size_t sizeNeedSpill, std::vector<std::vector<int>> &canSpillGroups);
     std::vector<uint32_t> GetBufferSlices();
+    std::vector<int> GetAddrSortedBufs();
+    bool isAllocate(const uint32_t tensorId);
   private:
     MemoryType memType_{MemoryType::MEM_UNKNOWN};
     uint64_t memSize_{0};

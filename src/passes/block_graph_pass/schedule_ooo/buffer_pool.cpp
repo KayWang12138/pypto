@@ -143,6 +143,29 @@ Status BufferPool::Allocate(LocalBufferPtr tensor) {
     return FAILED;
 }
 
+std::vector<int> BufferPool::GetAddrSortedBufs() {
+    std::vector<int> memIds;
+    for (auto &[memId, slice] : bufferSlices) {
+        (void)slice;
+        memIds.push_back(memId);
+    }
+    std::sort(memIds.begin(), memIds.end(), [&](int a, int b) {
+        return bufferSlices[a].offset < bufferSlices[b].offset;
+    });
+    return memIds;
+}
+
+uint64_t BufferPool::GetMemSize() {
+    return memSize_;
+}
+
+bool BufferPool::isAllocate(const uint32_t tensorId) {
+    if (bufferSlices.find(tensorId) == bufferSlices.end()) {
+        return false;
+    }
+    return true;
+}
+ 
 Status BufferPool::Free(const uint32_t tensorId) {
     if (bufferSlices.find(tensorId) == bufferSlices.end()) { ALOG_ERROR_F("Tensor[%d] not in bufferSlices", tensorId); return FAILED; }
     ALOG_DEBUG_F("    Free tensor[%u], range:[%lu, %lu]", tensorId,

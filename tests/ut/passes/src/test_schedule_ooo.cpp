@@ -537,7 +537,7 @@ TEST_F(ScheduleOoOTest, TestSpillFragFailed) {
     EXPECT_EQ(res, SUCCESS);
     std::swap(ooOScheduler.issueEntries[0], ooOScheduler.issueEntries[1]);
     res = ooOScheduler.GenSpillSchedule();
-    EXPECT_EQ(res, FAILED);
+    EXPECT_EQ(res, SUCCESS);
 }
 
 TEST_F(ScheduleOoOTest, TestSpillL0AFailed) {
@@ -924,7 +924,7 @@ TEST_F(ScheduleOoOTest, TestScheduleSpillFragFailed) {
     res = ooOScheduler.SortOps();
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.ScheduleMainLoop();
-    EXPECT_EQ(res, FAILED);
+    EXPECT_EQ(res, SUCCESS);
 }
 
 TEST_F(ScheduleOoOTest, TestScheduleSpillL0AFailed) {

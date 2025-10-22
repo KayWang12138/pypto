@@ -230,6 +230,9 @@ private:
     IssueEntryPtr GetBufLastWriteIssue(IssueEntryPtr issue, int curMemId);
     OoOSchedulerCheck::SpillInfo RecordSpillInfo(MemoryType bufferType, int memId, LocalBufferPtr allocIssue, 
         LogicalTensorPtr spillOutTensor, bool needCopyOut);
+    bool HasEnoughBuffer(IssueEntryPtr allocIssue, MemoryType memType);
+    bool CanAllocateAll(std::vector<LocalBufferPtr> tensors, MemoryType memType);
+    int GetMemidAllocPriority(int memId);
 
 public:
     Status Schedule(const std::vector<Operation *> &operations);
