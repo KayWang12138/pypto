@@ -253,6 +253,32 @@ void Duration::OutputBeginEndTrace(std::ofstream &os, std::map<Pid, Process> &mP
     os << endInfo << std::endl;
 }
 
+Json Duration::ToJson()
+{
+    Json root;
+
+    if (!start.catagory.empty()) {
+        root["cat"] = start.catagory;
+    }
+    root["ph"] = "X";
+    root["id"] = start.id;
+    root["name"] = start.name;
+    root["pid"] = start.pid;
+    root["tid"] = start.tid;
+    root["ts"] = start.timestamp;
+    root["dur"] = end.timestamp - start.timestamp;
+
+    if (!start.hint.empty()) {
+        Json args;
+        args["event-hint"] = start.hint;
+        args["color"] = start.GetColor();
+        root["args"] = std::move(args);
+    }
+
+    return root;
+}
+
+
 void TraceLogger::SetProcessName(std::string name, CostModel::Pid pid, size_t coreIdx)
 {
     mProcesses[pid] = Process{
@@ -763,8 +789,7 @@ Json TraceLogger::ToJson()
     }
 
     for (auto &duration : mDurations) {
-        traceEvents.emplace_back(duration.second.start.ToJson());
-        traceEvents.emplace_back(duration.second.end.ToJson());
+        traceEvents.emplace_back(duration.second.ToJson());
     }
 
     int flowIndex = 0;

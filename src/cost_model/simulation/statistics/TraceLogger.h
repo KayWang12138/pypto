@@ -115,6 +115,7 @@ struct Duration {
                                   std::map<PTid, Thread> &mThreads, const uint64_t sysClockTicks);
     void OutputBeginEndTrace(std::ofstream &os, std::map<Pid, Process> &mProcesses,
                              std::map<PTid, Thread> &mThreads, const uint64_t sysClockTicks);
+    Json ToJson();
 };
 
 struct Flow {

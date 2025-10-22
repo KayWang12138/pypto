@@ -181,12 +181,13 @@ def get_tensors_life_range(func_hash, func_hash_data):
         return tensors_life_range
     for tensor in tensors:
         life_range = []
-        for it in tensor.get('life_range').values():
-            if it and it[0] == -1 and it[1] == -1:
-                continue
-            else:
-                life_range = it
-                break
+        if 'life_range' not in tensor:
+            continue
+        it = tensor.get('life_range')
+        if it and it[0] == -1 and it[1] == -1:
+            continue
+        else:
+            life_range = it
         tensors_life_data[tensor['magic']] = life_range
         if len(life_range) > 0:
             max_life_range = max(max_life_range, life_range[1])
