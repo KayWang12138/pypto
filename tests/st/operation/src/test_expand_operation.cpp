@@ -47,10 +47,21 @@ static void ExpandOperationExeFunc2Dims(
         const int sloop = CeilDiv(outputsShape[1], viewShape[1]);
         int expandAxis = -1;
         for (size_t i = 0; i < inputsShape.size(); i++) {
-            if (inputsShape[i] == outputsShape[i]) {
-                inputViewShape[i] = viewShape[i];
-            } else {
+            if (inputsShape[i] != outputsShape[i]) {
                 expandAxis = i;
+            }
+        }
+        if (expandAxis == -1) {
+            for (size_t i = 0; i < inputsShape.size(); i++) {
+                if (inputsShape[i] != 1) {
+                    inputViewShape[i] = viewShape[i];
+                }
+            }
+        } else {
+            for (size_t i = 0; i < inputsShape.size(); i++) {
+                if (inputsShape[i] == outputsShape[i]) {
+                    inputViewShape[i] = viewShape[i];
+                }
             }
         }
 
@@ -62,7 +73,7 @@ static void ExpandOperationExeFunc2Dims(
                 if (expandAxis == 0) {
                     inputValidShape[0] = 1;
                     inputOffset[0] = 0;
-                } else {
+                } else if (expandAxis == 1) {
                     inputValidShape[1] = 1;
                     inputOffset[1] = 0;
                 }
@@ -91,10 +102,21 @@ static void ExpandOperationExeFunc3Dims(
         const int nloop = CeilDiv(outputsShape[2], viewShape[2]);
         int expandAxis = -1;
         for (size_t i = 0; i < inputsShape.size(); i++) {
-            if (inputsShape[i] == outputsShape[i]) {
-                inputViewShape[i] = viewShape[i];
-            } else {
+            if (inputsShape[i] != outputsShape[i]) {
                 expandAxis = i;
+            }
+        }
+        if (expandAxis == -1) {
+            for (size_t i = 0; i < inputsShape.size(); i++) {
+                if (inputsShape[i] != 1) {
+                    inputViewShape[i] = viewShape[i];
+                }
+            }
+        } else {
+            for (size_t i = 0; i < inputsShape.size(); i++) {
+                if (inputsShape[i] == outputsShape[i]) {
+                    inputViewShape[i] = viewShape[i];
+                }
             }
         }
 
@@ -111,7 +133,7 @@ static void ExpandOperationExeFunc3Dims(
                     } else if (expandAxis == 1) {
                         inputValidShape[1] = 1;
                         inputOffset[1] = 0;
-                    } else {
+                    } else if (expandAxis == 2) {
                         inputValidShape[2] = 1;
                         inputOffset[2] = 0;
                     }
@@ -144,10 +166,21 @@ static void ExpandOperationExeFunc4Dims(
         const int mloop = CeilDiv(outputsShape[3], viewShape[3]);
         int expandAxis = -1;
         for (size_t i = 0; i < inputsShape.size(); i++) {
-            if (inputsShape[i] == outputsShape[i]) {
-                inputViewShape[i] = viewShape[i];
-            } else {
+            if (inputsShape[i] != outputsShape[i]) {
                 expandAxis = i;
+            }
+        }
+        if (expandAxis == -1) {
+            for (size_t i = 0; i < inputsShape.size(); i++) {
+                if (inputsShape[i] != 1) {
+                    inputViewShape[i] = viewShape[i];
+                }
+            }
+        } else {
+            for (size_t i = 0; i < inputsShape.size(); i++) {
+                if (inputsShape[i] == outputsShape[i]) {
+                    inputViewShape[i] = viewShape[i];
+                }
             }
         }
 
@@ -169,7 +202,7 @@ static void ExpandOperationExeFunc4Dims(
                         } else if (expandAxis == 2) {
                             inputValidShape[2] = 1;
                             inputOffset[2] = 0;
-                        } else {
+                        } else if (expandAxis == 3) {
                             inputValidShape[3] = 1;
                             inputOffset[3] = 0;
                         }

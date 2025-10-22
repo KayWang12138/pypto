@@ -2359,6 +2359,17 @@ Tensor Expand(const Tensor &self, const std::vector<int64_t> &dstShape, std::vec
     DECLARE_TRACER();
 
     ASSERT(self->shape.size() == dstShape.size());
+
+    if (validShape.empty()) {
+        for (size_t i = 0; i < dstShape.size(); ++i) {
+            if (self->shape[i] != dstShape[i]) {
+                validShape.emplace_back(dstShape[i]);
+            } else {
+                validShape.emplace_back(self->shape[i]);
+            }
+        }
+    }
+
     RETURN_CALL(ExpandOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), dstShape, validShape);
 }
 
