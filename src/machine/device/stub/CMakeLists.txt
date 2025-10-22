@@ -9,6 +9,11 @@
 
 cmake_minimum_required(VERSION 3.16)
 
+if (ENABLE_BUILD_WITH_CANN)
+    set(CMAKE_C_COMPILER "${ASCEND_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc/bin/aarch64-target-linux-gnu-gcc")
+    set(CMAKE_CXX_COMPILER "${ASCEND_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc/bin/aarch64-target-linux-gnu-g++")
+endif ()
+
 add_library(slog_stub SHARED)
 
 target_sources(slog_stub

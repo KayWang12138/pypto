@@ -11,7 +11,6 @@ cmake_minimum_required(VERSION 3.16)
 
 project(tile_fwk_server LANGUAGES C CXX)
 
-
 ########################################################################################################################
 # 基础配置
 ########################################################################################################################
@@ -19,30 +18,25 @@ if(BUILD_OPEN_PROJECT)
     add_subdirectory(stub)
 endif()
 
-# 路径配置
 get_filename_component(PTO_FWK_SRC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../.." ABSOLUTE)
-
-# 公开编译开关
-option(BUILD_OPEN_PROJECT   "Build open Tile Framework project."  ON)
 
 # 缺省编译配置, 编译函数
 set(CMAKE_SKIP_RPATH TRUE)
+if (ENABLE_BUILD_WITH_CANN)
+    set(CMAKE_C_COMPILER "${ASCEND_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc/bin/aarch64-target-linux-gnu-gcc")
+    set(CMAKE_CXX_COMPILER "${ASCEND_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc/bin/aarch64-target-linux-gnu-g++")
+endif ()
 
 ########################################################################################################################
 # 编译流程
 ########################################################################################################################
 
+file(GLOB_RECURSE _Device_Srcs *.cpp)
+file(GLOB_RECURSE _Stub_Srcs stub/*.cpp)
+list(REMOVE_ITEM _Device_Srcs ${_Stub_Srcs})
+
 add_library(tile_fwk_server SHARED)
-target_sources(tile_fwk_server
-        PRIVATE
-            device_machine.cpp
-            aicore_prof.cpp
-            distributed/comm_wait_flag.cpp
-            distributed/shmem_wait_until.cpp
-            dynamic/device_machine.cpp
-            dynamic/aicore_prof.cpp
-            device_log.cpp
-)
+target_sources(tile_fwk_server PRIVATE ${_Device_Srcs})
 target_compile_options(tile_fwk_server
         PRIVATE
             -Wall
@@ -77,7 +71,6 @@ target_link_libraries(tile_fwk_server
             $<$<TARGET_EXISTS:intf_pub>:$<BUILD_INTERFACE:intf_pub>>
 )
 set_target_properties(tile_fwk_server PROPERTIES OUTPUT_NAME tilefwk_backend_server)
-
 
 install(TARGETS tile_fwk_server
         LIBRARY DESTINATION lib OPTIONAL

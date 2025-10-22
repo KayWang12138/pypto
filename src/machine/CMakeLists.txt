@@ -10,27 +10,7 @@
 
 if (ENABLE_BUILD_WITH_CANN)
     add_subdirectory(kernel)
-endif ()
-
-
-if (ENABLE_BUILD_WITH_CANN)
-    ExternalProject_Add(tile_fwk_server
-            SOURCE_DIR ${PTO_FWK_SRC_ROOT}/src/machine/device
-            CONFIGURE_COMMAND ${CMAKE_COMMAND}
-                -G ${CMAKE_GENERATOR}
-                -DBUILD_OPEN_PROJECT=${BUILD_OPEN_PROJECT}
-                -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-                -DASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_PACKAGE_PATH}
-                -DCMAKE_C_COMPILER=${ASCEND_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc/bin/aarch64-target-linux-gnu-gcc
-                -DCMAKE_CXX_COMPILER=${ASCEND_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc/bin/aarch64-target-linux-gnu-g++
-                -DCMAKE_C_COMPILER_LAUNCHER=${CMAKE_C_COMPILER_LAUNCHER}
-                -DCMAKE_CXX_COMPILER_LAUNCHER=${CMAKE_CXX_COMPILER_LAUNCHER}
-                <SOURCE_DIR>
-            INSTALL_COMMAND ${CMAKE_COMMAND} -E copy <BINARY_DIR>/libtilefwk_backend_server.so ${PTO_FWK_BIN_ROOT}/
-            BUILD_ALWAYS TRUE
-            BUILD_BYPRODUCTS
-                ${PTO_FWK_BIN_ROOT}/libtilefwk_backend_server.so
-    )
+    add_subdirectory(device)
 endif ()
 
 file(GLOB_RECURSE _Compiler_Srcs
