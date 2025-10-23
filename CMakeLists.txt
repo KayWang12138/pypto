@@ -20,6 +20,10 @@ project(PTO_Framework
 # 路径配置
 get_filename_component(PTO_FWK_SRC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}" REALPATH)
 get_filename_component(PTO_FWK_BIN_ROOT "${CMAKE_CURRENT_BINARY_DIR}" REALPATH)
+
+message(STATUS "PTO_FWK_SRC_ROOT=${PTO_FWK_SRC_ROOT}")
+message(STATUS "PTO_FWK_BIN_ROOT=${PTO_FWK_BIN_ROOT}")
+
 # 公开编译开关(common)
 option(BUILD_OPEN_PROJECT   "Build open Tile Framework project."  ON)
 if (DEFINED AC_ENABLE_FRAMEWORK_WITHOUT_CANN)
@@ -88,6 +92,19 @@ if (ENABLE_TESTS)
     add_subdirectory(tests)
 endif ()
 
-install(DIRECTORY include/
-        DESTINATION lib/tilefwk/ OPTIONAL
-)
+if (BUILD_OPEN_PROJECT AND ENABLE_BUILD_PTO_FWK_PYTHON)
+    install(DIRECTORY include/tileop/ DESTINATION pto/lib/include/tileop OPTIONAL)
+
+    install(FILES include/tilefwk/aicpu_common.h        DESTINATION pto/lib/include/tilefwk)
+    install(FILES include/tilefwk/aicpu_distributed.h   DESTINATION pto/lib/include/tilefwk)
+    install(FILES include/tilefwk/aicpu_runtime.h       DESTINATION pto/lib/include/tilefwk)
+
+    install(FILES include/tilefwk/aicore_data.h         DESTINATION pto/lib/include/tilefwk)
+    install(FILES include/tilefwk/aicore_print.h        DESTINATION pto/lib/include/tilefwk)
+    install(FILES include/tilefwk/aicore_runtime.h      DESTINATION pto/lib/include/tilefwk)
+    install(FILES include/tilefwk/core_func_data.h      DESTINATION pto/lib/include/tilefwk)
+else ()
+    install(DIRECTORY include/
+            DESTINATION lib/tilefwk/ OPTIONAL
+    )
+endif ()

@@ -27,6 +27,8 @@ if (ENABLE_BUILD_WITH_CANN)
     set(CMAKE_CXX_COMPILER "${ASCEND_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc/bin/aarch64-target-linux-gnu-g++")
 endif ()
 
+message(STATUS "CMAKE_GENERATOR=${CMAKE_GENERATOR}")
+
 ########################################################################################################################
 # 编译流程
 ########################################################################################################################
@@ -72,7 +74,9 @@ target_link_libraries(tile_fwk_server
 )
 set_target_properties(tile_fwk_server PROPERTIES OUTPUT_NAME tilefwk_backend_server)
 
-install(TARGETS tile_fwk_server
-        LIBRARY DESTINATION lib OPTIONAL
-)
-
+if (BUILD_OPEN_PROJECT AND ENABLE_BUILD_PTO_FWK_PYTHON)
+else ()
+    install(TARGETS tile_fwk_server
+            LIBRARY DESTINATION lib OPTIONAL
+    )
+endif ()

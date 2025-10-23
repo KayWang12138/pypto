@@ -11,6 +11,7 @@
 if (ENABLE_BUILD_WITH_CANN)
     add_subdirectory(kernel)
     add_subdirectory(device)
+    add_subdirectory(runtime)
 endif ()
 
 file(GLOB_RECURSE _Compiler_Srcs
@@ -59,6 +60,10 @@ target_link_libraries(tile_fwk_compiler
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_compiler)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_compiler)
 
-install(TARGETS tile_fwk_compiler
-        LIBRARY DESTINATION lib OPTIONAL
-)
+if (BUILD_OPEN_PROJECT AND ENABLE_BUILD_PTO_FWK_PYTHON)
+    install(TARGETS tile_fwk_compiler LIBRARY DESTINATION pto/lib OPTIONAL)
+else ()
+    install(TARGETS tile_fwk_compiler
+            LIBRARY DESTINATION lib OPTIONAL
+    )
+endif ()

@@ -28,14 +28,18 @@ target_include_directories(pto_impl
 target_link_libraries(pto_impl
         PRIVATE
             $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>
-            tile_fwk_passes
             tile_fwk_interface
+            tile_fwk_passes
             tile_fwk_codegen
             tile_fwk_operator
             tile_fwk_compiler
             tile_fwk_simulation
-            $<$<AND:$<BOOL:${ENABLE_BUILD_WITH_CANN}>,$<BOOL:${ENABLE_TESTS}>>:tile_fwk_runtime>
+            tile_fwk_runtime
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub
 )
+
+if (BUILD_OPEN_PROJECT AND ENABLE_BUILD_PTO_FWK_PYTHON)
+    install(TARGETS pto_impl LIBRARY DESTINATION pto OPTIONAL)
+endif ()

@@ -8,10 +8,11 @@
 # ======================================================================================================================
 
 file(GLOB_RECURSE _Runtime_Srcs *.cpp)
-add_definitions(-DSRCPATH="${PTO_FWK_SRC_ROOT}")
 add_library(tile_fwk_runtime SHARED)
 target_sources(tile_fwk_runtime PRIVATE ${_Runtime_Srcs})
 target_include_directories(tile_fwk_runtime
+        PUBLIC
+            ${PTO_FWK_SRC_ROOT}/src/machine/runtime
         PUBLIC  # 编译 CANN 场景依赖
             $<$<AND:$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>,$<BOOL:${ENABLE_BUILD_WITH_CANN}>>:${TOP_DIR}/inc>
             $<$<AND:$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>,$<BOOL:${ENABLE_BUILD_WITH_CANN}>>:${TOP_DIR}/abl/msprof/inc>
@@ -26,13 +27,14 @@ target_include_directories(tile_fwk_runtime
             $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${ENABLE_BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/runtime>
             $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${ENABLE_BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/msprof>
         PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR}
             ${PTO_FWK_SRC_ROOT}/src/cost_model
 )
 target_compile_definitions(tile_fwk_runtime
         PUBLIC
             $<$<BOOL:${ENABLE_BUILD_WITH_CANN}>:ENABLE_BUILD_WITH_CANN>
             $<$<BOOL:${ENABLE_TESTS_STEST_INTERPRETER_CONFIG}>:ENABLE_TESTS_STEST_INTERPRETER_CONFIG>
+        PRIVATE
+           $<$<OR:$<BOOL:${ENABLE_TESTS_UTEST}>,$<BOOL:${ENABLE_TESTS_STEST}>,$<BOOL:${ENABLE_TESTS_STEST_DISTRIBUTED}>>:SRCPATH="${PTO_FWK_SRC_ROOT}">
 )
 target_link_directories(tile_fwk_runtime
         PUBLIC
@@ -65,6 +67,10 @@ endif ()
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_runtime)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_runtime)
 
-install(TARGETS tile_fwk_runtime
-        LIBRARY DESTINATION lib OPTIONAL
-)
+if (BUILD_OPEN_PROJECT AND ENABLE_BUILD_PTO_FWK_PYTHON)
+    install(TARGETS tile_fwk_runtime LIBRARY DESTINATION pto/lib OPTIONAL)
+else ()
+    install(TARGETS tile_fwk_runtime
+            LIBRARY DESTINATION lib OPTIONAL
+    )
+endif ()

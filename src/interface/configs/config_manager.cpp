@@ -70,15 +70,17 @@ Status ConfigManager::Initialize() {
         ASLOGI("ConfigManager has been initialized.");
         return SUCCESS;
     }
-    std::string configJsonFilePath = GetEnvVar(tilefwkConfigEnvName);
-    std::string builtinConfigJsonFilePath = GetCurrentSharedLibPath() + "/../conf/tile_fwk_config.json";
-
-    if (configJsonFilePath.size() == 0) {
-        configJsonFilePath = builtinConfigJsonFilePath;
+    /* 环境变量优先生效 */
+    std::string jsonFilePath = GetEnvVar(tilefwkConfigEnvName);
+    if (jsonFilePath.empty()) {
+        jsonFilePath = RealPath(GetCurrentSharedLibPath() + "/../configs/tile_fwk_config.json");
+        if (!FileExist(jsonFilePath)) {
+            jsonFilePath = RealPath(GetCurrentSharedLibPath() + "/../conf/tile_fwk_config.json");
+        }
     }
 
-    ASLOGI("Start to parse op_json_file %s", configJsonFilePath.c_str());
-    if (!ReadJsonFile(configJsonFilePath, json_)) {
+    ASLOGI("Start to parse op_json_file %s", jsonFilePath.c_str());
+    if (!ReadJsonFile(jsonFilePath, json_)) {
         ASLOGE("ReadJsonFile failed.");
         return FAILED;
     }

@@ -26,7 +26,6 @@ target_include_directories(${_Target}
             $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${ENABLE_BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/runtime>
             $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${ENABLE_BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/msprof>
         INTERFACE
-            ${PTO_FWK_SRC_ROOT}/tests/runtime
             ${PTO_FWK_SRC_ROOT}/src/cost_model
 )
 target_compile_definitions(${_Target}
@@ -42,6 +41,7 @@ target_link_directories(${_Target}
 )
 target_link_libraries(${_Target}
         INTERFACE
+            tile_fwk_runtime
             ${PTO_Fwk_STestNamePrefix}_intf_pub
             $<$<BOOL:${ENABLE_BUILD_WITH_CANN}>:ascendcl>
             $<$<BOOL:${ENABLE_BUILD_WITH_CANN}>:runtime>

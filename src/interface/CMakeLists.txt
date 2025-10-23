@@ -94,21 +94,26 @@ if (ENABLE_TORCH_VERIFIER)
     )
 endif() ## ENABLE_TORCH_VERIFIER
 
-install(TARGETS tile_fwk_interface
-        LIBRARY DESTINATION lib OPTIONAL
-)
+if (BUILD_OPEN_PROJECT AND ENABLE_BUILD_PTO_FWK_PYTHON)
+        install(TARGETS tile_fwk_interface LIBRARY DESTINATION pto/lib OPTIONAL)
+        install(FILES configs/tile_fwk_config.json DESTINATION pto/configs)
+else ()
+        install(TARGETS tile_fwk_interface
+                LIBRARY DESTINATION lib OPTIONAL
+        )
 
-add_custom_target(
-        tile_fwk_config.json ALL
-        DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config.json
-)
+        add_custom_target(
+                tile_fwk_config.json ALL
+                DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config.json
+        )
 
-add_custom_command(
-        OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config.json
-        COMMAND cp ${CMAKE_CURRENT_LIST_DIR}/configs/tile_fwk_config.json ${CMAKE_CURRENT_BINARY_DIR}
-)
+        add_custom_command(
+                OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config.json
+                COMMAND cp ${CMAKE_CURRENT_LIST_DIR}/configs/tile_fwk_config.json ${CMAKE_CURRENT_BINARY_DIR}
+        )
 
-install(FILES
-        ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config.json
-        DESTINATION lib OPTIONAL
-)
+        install(FILES
+                ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config.json
+                DESTINATION lib OPTIONAL
+        )
+endif()

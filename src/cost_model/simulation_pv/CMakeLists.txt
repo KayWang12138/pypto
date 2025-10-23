@@ -30,6 +30,9 @@ target_link_libraries(tile_fwk_simulation_pv
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_simulation_pv)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_simulation_pv)
 
-install(TARGETS tile_fwk_simulation_pv
-        LIBRARY DESTINATION lib OPTIONAL
-)
+if (BUILD_OPEN_PROJECT AND ENABLE_BUILD_PTO_FWK_PYTHON)
+else ()
+    install(TARGETS tile_fwk_simulation_pv
+            LIBRARY DESTINATION lib OPTIONAL
+    )
+endif ()

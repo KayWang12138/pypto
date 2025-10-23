@@ -34,13 +34,16 @@ target_link_libraries(tile_fwk_simulation_ca
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_simulation_ca)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_simulation_ca)
 
-install(TARGETS tile_fwk_simulation_ca
-        LIBRARY DESTINATION lib OPTIONAL
-)
+if (BUILD_OPEN_PROJECT AND ENABLE_BUILD_PTO_FWK_PYTHON)
+    install(TARGETS tile_fwk_simulation_ca LIBRARY DESTINATION pto/lib OPTIONAL)
+else ()
+    install(TARGETS tile_fwk_simulation_ca
+            LIBRARY DESTINATION lib OPTIONAL
+    )
+endif ()
 
 
 # 新增CCE前仿二进制
-
 add_executable(get_cce_simulation)
 target_sources(get_cce_simulation PRIVATE tools/GenSimulation.cpp)
 target_include_directories(get_cce_simulation
@@ -54,8 +57,4 @@ target_link_libraries(get_cce_simulation
             tile_fwk_simulation_ca
             dl
             Threads::Threads
-)
-
-install(TARGETS get_cce_simulation
-       RUNTIME DESTINATION bin OPTIONAL
 )

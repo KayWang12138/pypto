@@ -12,6 +12,7 @@
 
 Python3环境分析.
 """
+import sys
 import argparse
 import logging
 import importlib
@@ -23,10 +24,20 @@ class Analysis:
 
     def __init__(self, args):
         self.executable: Path = Path(args.executable[0]).resolve()
+        self.print_python_version_id: bool = args.print_python_version_id
         self.print_pybind11_dir: bool = args.print_pybind11_dir
         self.print_torch_version: bool = args.print_torch_version
         self.judge_pytest_installed: bool = args.judge_pytest_installed
         self.judge_pytest_forked_installed: bool = args.judge_pytest_forked_installed
+
+    @staticmethod
+    def analysis_python_version_id() -> str:
+        """获取 python3 version(major.minor)
+
+        :return: python3 version(major.minor)
+        """
+        ver = sys.version_info
+        return f"{ver.major}.{ver.minor}"
 
     @staticmethod
     def analysis_pybind11_dir() -> str:
@@ -80,6 +91,8 @@ class Analysis:
         parser = argparse.ArgumentParser(description=f"Python3-Environ Analysis.", epilog="Best Regards!")
         parser.add_argument("-e", "--executable", nargs=1, type=str, required=True,
                             help="Specific python3 executable path.")
+        parser.add_argument("--print_python_version_id", action="store_true", default=False,
+                        help="Print Python3 version(major.minor).")
         parser.add_argument("--print_pybind11_dir", action="store_true", default=False,
                             help="Print pip3::pybind11 dir.")
         parser.add_argument("--print_torch_version", action="store_true", default=False,
@@ -93,7 +106,9 @@ class Analysis:
         return ctrl.analysis()
 
     def analysis(self) -> str:
-        if self.print_pybind11_dir:
+        if self.print_python_version_id:
+            return self.analysis_python_version_id()
+        elif self.print_pybind11_dir:
             return self.analysis_pybind11_dir()
         elif self.print_torch_version:
             return self.analysis_torch_version()

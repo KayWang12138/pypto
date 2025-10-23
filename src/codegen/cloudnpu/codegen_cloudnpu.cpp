@@ -488,6 +488,7 @@ int CodeGenCloudNPU::CompileCCE(const CompileInfo &compileInfo, const std::strin
 
     std::string coreType = compileInfo.IsCube() ? "dav-c220-cube" : "dav-c220-vec";
     std::string includePath = GetIncludePathForCompileCCE();
+    std::string curSoPath = GetCurrentSharedLibPath();
     const std::string corePredefine = compileInfo.IsCube() ? "-D__AIC__" : "-D__AIV__";
 
     std::ostringstream oss;
@@ -503,6 +504,9 @@ int CodeGenCloudNPU::CompileCCE(const CompileInfo &compileInfo, const std::strin
         << "-I" << includePath << "/tileop/a2a3 "
         << "-I" << includePath << "/tilefwk "
         << "-I" << includePath << " "
+        << "-I" << curSoPath << "/include/tileop/a2a3 "
+        << "-I" << curSoPath << "/include/tilefwk "
+        << "-I" << curSoPath << "/include "
         << "-o " << objFile << " " << srcFile;
 
     std::string ccecCmd = oss.str();
@@ -541,13 +545,13 @@ bool CodeGenCloudNPU::HandleForAICpuSubFunc(Function &subFunc) {
         code.push_back(op.GetOOperands().size() * paramSizePerOperand);
         for (size_t i = 0; i < op.GetOOperands().size(); ++i) {
             code.push_back(op.GetOutputOperand(i)->shape.size());
-            code.push_back(op.GetOOpAttrOffset(i));   
+            code.push_back(op.GetOOpAttrOffset(i));
         }
 
         code.push_back(op.GetIOperands().size() * paramSizePerOperand);
         for (size_t i = 0; i < op.GetIOperands().size(); ++i) {
             code.push_back(op.GetInputOperand(i)->shape.size());
-            code.push_back(op.GetIOpAttrOffset(i));   
+            code.push_back(op.GetIOpAttrOffset(i));
         }
 
         if (attrs.size() != 0) {

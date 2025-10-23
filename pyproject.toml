@@ -1,0 +1,16 @@
+[build-system]
+requires = [
+"scikit-build-core>=0.11.6",
+"pybind11>=2.0.1",
+]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "pto"
+version = "1.0.0"
+description = "PTO"
+readme = "README.md"
+requires-python = ">=3.8"
+
+[tool.scikit-build]
+wheel.packages = ["python/src/tensor_op/pto/"]

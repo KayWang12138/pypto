@@ -19,7 +19,6 @@ target_include_directories(${_Target}
         PUBLIC
             include
             ../ops/include
-            ${PTO_FWK_SRC_ROOT}/tests/runtime
 )
 target_link_libraries(${_Target}
         PRIVATE

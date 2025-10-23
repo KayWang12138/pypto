@@ -22,7 +22,7 @@ dvcTestPlatform
 output
 summary
 log
-tilefwk_*
 tmp
 
 cmake-build-debug
+dist

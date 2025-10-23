@@ -25,9 +25,13 @@ target_link_libraries(tile_fwk_codegen
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_codegen)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_codegen)
 
-install(TARGETS tile_fwk_codegen
-        LIBRARY DESTINATION lib OPTIONAL
-)
-install(DIRECTORY tileop
-        DESTINATION lib/tilefwk/ OPTIONAL
-)
+if (BUILD_OPEN_PROJECT AND ENABLE_BUILD_PTO_FWK_PYTHON)
+        install(TARGETS tile_fwk_codegen LIBRARY DESTINATION pto/lib OPTIONAL)
+else ()
+        install(TARGETS tile_fwk_codegen
+                LIBRARY DESTINATION lib OPTIONAL
+        )
+        install(DIRECTORY tileop
+                DESTINATION lib/tilefwk/ OPTIONAL
+        )
+endif()

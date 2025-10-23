@@ -25,6 +25,10 @@ target_link_libraries(tile_fwk_operator
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_operator)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_operator)
 
-install(TARGETS tile_fwk_operator
-        LIBRARY DESTINATION lib OPTIONAL
-)
+if (BUILD_OPEN_PROJECT AND ENABLE_BUILD_PTO_FWK_PYTHON)
+    install(TARGETS tile_fwk_operator LIBRARY DESTINATION pto/lib OPTIONAL)
+else ()
+    install(TARGETS tile_fwk_operator
+            LIBRARY DESTINATION lib OPTIONAL
+    )
+endif ()

@@ -25,21 +25,26 @@ target_link_libraries(tile_fwk_passes
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_passes)
 #PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_passes)
 
-install(TARGETS tile_fwk_passes
-        LIBRARY DESTINATION lib OPTIONAL
-)
+if (BUILD_OPEN_PROJECT AND ENABLE_BUILD_PTO_FWK_PYTHON)
+        install(TARGETS tile_fwk_passes LIBRARY DESTINATION pto/lib OPTIONAL)
+        install(FILES pass_config/tile_fwk_platform_info.json DESTINATION pto/configs)
+else ()
+        install(TARGETS tile_fwk_passes
+                LIBRARY DESTINATION lib OPTIONAL
+        )
 
-add_custom_target(
-        tile_fwk_platform_info.json ALL
-        DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_platform_info.json
-)
+        add_custom_target(
+                tile_fwk_platform_info.json ALL
+                DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_platform_info.json
+        )
 
-add_custom_command(
-        OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_platform_info.json
-        COMMAND cp ${CMAKE_CURRENT_LIST_DIR}/pass_config/tile_fwk_platform_info.json ${CMAKE_CURRENT_BINARY_DIR}
-)
+        add_custom_command(
+                OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_platform_info.json
+                COMMAND cp ${CMAKE_CURRENT_LIST_DIR}/pass_config/tile_fwk_platform_info.json ${CMAKE_CURRENT_BINARY_DIR}
+        )
 
-install(FILES
-        ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_platform_info.json
-        DESTINATION lib OPTIONAL
-)
+        install(FILES
+                ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_platform_info.json
+                DESTINATION lib OPTIONAL
+        )
+endif()

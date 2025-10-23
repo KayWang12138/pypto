@@ -133,18 +133,22 @@ Status PlatformConfig::SetMemoryPath(std::vector<std::string>& pathDesc, std::st
 Status PlatformConfig::InitPlatformConfig(DPlatform platformId) {
     platformId_ = platformId;
     auto platformIdStr = PlatformIdToString(platformId);
-    std::string platformConfigPath = GetEnvVar(platformConfigEnvName);
-    std::string builtinPlatformConfigPath = GetCurrentSharedLibPath() + "/../conf/tile_fwk_platform_info.json";
+
+    /* 环境变量优先生效 */
+    std::string jsonFilePath = GetEnvVar(platformConfigEnvName);
+    if (jsonFilePath.empty()) {
+        jsonFilePath = RealPath(GetCurrentSharedLibPath() + "/../configs/tile_fwk_platform_info.json");
+        if (!FileExist(jsonFilePath)) {
+            jsonFilePath = RealPath(GetCurrentSharedLibPath() + "/../conf/tile_fwk_platform_info.json");
+        }
+    }
     JsonNodeParser jsonParser;
-    if (platformConfigPath.size() > 0 && jsonParser.Initialize(platformConfigPath) != SUCCESS) {
+    if (jsonFilePath.size() > 0 && jsonParser.Initialize(jsonFilePath) != SUCCESS) {
         ALOG_ERROR_F("Platform %s config file %s is not available, please set %s properly.",
-            platformIdStr.c_str(), platformConfigPath.c_str(), platformConfigEnvName.c_str());
+            platformIdStr.c_str(), jsonFilePath.c_str(), platformConfigEnvName.c_str());
         return FAILED;
     }
-    if (platformConfigPath.size() == 0 && jsonParser.Initialize(builtinPlatformConfigPath) != SUCCESS) {
-        ALOG_ERROR_F("Platform %s config is not available.", platformIdStr.c_str());
-        return FAILED;
-    }
+
     if (auto root = jsonParser.GetRootNode()) {
         auto memLimits = jsonParser.GetJsonInnerNode(*root, {platformIdStr, MEM_LIMITS_STR});
         if (memLimits == nullptr) {

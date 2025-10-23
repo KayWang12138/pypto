@@ -17,13 +17,13 @@ import sys
 import argparse
 import logging
 import multiprocessing
-import re
 import shlex
 import shutil
 import signal
 import subprocess
 import json
 import math
+import dataclasses
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List, Dict, Tuple, Any
@@ -38,11 +38,164 @@ if str(g_src_tools) not in sys.path:
 import work_flow as wf
 
 
+class ArgParser:
+
+    @staticmethod
+    def get_opt(opt: Optional[str]) -> Tuple[bool, Optional[str]]:
+        """ 初始化可指定 str 的 args """
+        if opt is None:
+            return True, "ON"   # 指定 对应参数 但未指定内容
+        elif opt == "":
+            return False, None  # 未指定 对应参数
+        else:
+            return True, opt    # 指定 对应参数 且指定内容
+
+
 class BuildCtrl:
     """ 构建过程控制.
 
     本类包含由命令行指定或解析出的控制标记/参数, 以控制构建过程执行.
     """
+
+
+    @dataclasses.dataclass
+    class BuildParam:
+        """ 构建相关参数
+        """
+        targets: Optional[List[str]] = None  # 编译目标
+        job_num: int = min(int(math.ceil(float(multiprocessing.cpu_count()) * 0.8)), 16) # 使用核数
+        clean: bool = False  # 强制清理 Build-Tree 及 Install-Tree 标记
+        timeout: Optional[int] = None  # 构建超时时长
+        type_: Optional[str] = None  # 构建类型
+        asan: bool = False
+        ubsan: bool = False
+        gcov: bool = False
+        clang_path: Optional[Path] = None
+
+        def __init__(self, args):
+            self.targets = args.targets
+            self.job_num = args.job_num if args.job_num > 0 else self.job_num
+            self.clean = args.clean
+            self.timeout = None if args.timeout == 0 else args.timeout
+            self.type_ = args.build_type
+            self.asan = args.asan
+            self.ubsan = args.ubsan
+            self.gcov = args.gcov
+            # clang
+            if args.clang is None:  # 指定 clang 参数, 但未指定具体路径, 此时需尝试寻找
+                cmd = "which clang"
+                ret = subprocess.run(shlex.split(cmd), capture_output=True, check=True, text=True, encoding='utf-8')
+                ret.check_returncode()
+                self.clang_path = Path(ret.stdout).resolve()
+            elif args.clang == "":  # 未指定 clang 参数
+                self.clang_path = None
+            else:  # 指定 clang 参数, 并指定具体路径
+                self.clang_path = Path(args.clang)
+            if self.clang_path is not None:
+                self.clang_path = Path(self.clang_path).resolve().parent
+                if not self.clang_path.exists():
+                    raise ValueError(f"Clang install path not exist, path={self.clang_path}")
+
+
+    @dataclasses.dataclass
+    class TestsParam:
+        """ Tests 相关参数
+        """
+        changed_file: Optional[Path] = None  # 修改文件路径
+        auto_execute: bool = False  # 用例自动执行
+        auto_execute_parallel: bool = False  # 用例并行执行
+        interpreter_config: bool = False
+
+        def __init__(self, args):
+            self.changed_file = None if not args.changed_files else Path(args.changed_files).resolve()
+            self.auto_execute = args.disable_auto_execute
+            self.auto_execute_parallel = self.ci_model
+            self.interpreter_config = args.enable_interpreter_config
+
+        @property
+        def ci_model(self) -> bool:
+            return True if self.changed_file else False
+
+
+    @dataclasses.dataclass
+    class UTestParam:
+        """ UTest 相关参数
+        """
+        enable: bool = False  # UTest 使能标记
+        cases_filter: Optional[str] = None  # 指定 UTest 所需执行用例
+        python_enable: bool = False  # Python UTest 使能标记
+        python_cases_filter: Optional[str] = None  # 指定 Python UTest 所需执行用例
+
+        def __init__(self, args):
+            self.enable, self.cases_filter = ArgParser.get_opt(opt=args.utest)
+            self.python_enable, self.python_cases_filter = ArgParser.get_opt(opt=args.utest_python)
+
+
+    @dataclasses.dataclass
+    class STestParam:
+        """ STest 相关参数
+        """
+        enable: bool = False  # STest 使能标记
+        cases_filter: Optional[str] = None  # 指定 STest 所需执行用例
+        distributed_enable: bool = False  # distributed STest 使能标记
+        distributed_cases_filter: Optional[str] = None  # 指定 distributed STest 所需执行用例
+        python_enable: bool = False  # Python STest 使能标记
+        python_cases_filter: Optional[str] = None  # 指定 Python STest 所需执行用例
+        golden_path_clean: bool = False  # STest 清理 Golden 标记
+        golden_path: Optional[Path] = None  # STest 指定 Golden 路径
+        device_id: str = ""
+        enable_binary_cache: bool = False
+        dump_json: bool = False
+
+        def __init__(self, args, tests, build_root: Path):
+            self.enable, self.cases_filter = ArgParser.get_opt(opt=args.stest)
+            self.distributed_enable, self.distributed_cases_filter = ArgParser.get_opt(opt=args.stest_distributed)
+            self.python_enable, self.python_cases_filter = ArgParser.get_opt(opt=args.stest_python)
+            self.python_enable = True if self.enable else self.python_enable  # 依赖 CI 任务拆分
+            # Golden Path
+            self.golden_path_clean = args.stest_golden_path_clean
+            if args.stest_golden_path is None:  # 未传参
+                self.golden_path = Path(build_root, "tests/st/golden")
+            elif args.stest_golden_path == "":  # 未指定
+                self.golden_path = Path(build_root, "tests/st/golden")
+            else:
+                self.golden_path = Path(args.stest_golden_path).resolve()
+            self.golden_path.mkdir(parents=True, exist_ok=True)
+            # DeviceId
+            devs = ["0"]
+            if args.device is not None:
+                devs = [str(d) for d in list(set(args.device)) if d is not None and str(d) != ""]
+            self.device_id = ":".join(devs)
+            #
+            self.enable_binary_cache = tests.ci_model
+            self.dump_json = args.stest_dump_json
+
+
+    @dataclasses.dataclass
+    class ToolsParam:
+        """ Tools 相关参数
+        """
+        cases_csv_file: Optional[Path] = None
+        intercept_flag: bool = False
+        prof_enable: bool = False
+        prof_level: str = "l1"
+        output_clean: bool = False
+        prof_warn_up_cnt: Optional[int] = None
+        prof_try_cnt: Optional[int] = None
+        prof_max_cnt: Optional[int] = None
+
+        def init_param(self, args):
+            self.output_clean = args.tools_output_clean
+            self.intercept_flag = args.intercept
+            self.cases_csv_file = Path(args.cases_csv_file[0]).resolve() if args.cases_csv_file else None
+
+        def init_param_profiling(self, args):
+            self.prof_enable = True
+            self.prof_level = args.prof_level
+            self.prof_warn_up_cnt = args.prof_warn_up_cnt[0] if args.prof_warn_up_cnt else None
+            self.prof_try_cnt = args.prof_try_cnt[0] if args.prof_try_cnt else None
+            self.prof_max_cnt = args.prof_max_cnt[0] if args.prof_max_cnt else None
+
 
     def __init__(self, args):
         # 路径
@@ -51,50 +204,17 @@ class BuildCtrl:
         self.install_root: Path = Path(self.build_root.parent, "output")
         # 控制标记/参数预处理(common)
         self.backend_type = "npu" if args.backend is None else args.backend
-        self.build_targets: Optional[List[str]] = args.targets  # 编译阶段的编译目标
-        self.build_job_num: int = args.job_num if args.job_num > 0 else min(int(math.ceil(float(multiprocessing.cpu_count()) * 0.8)), 16)
-        self.forced_clean: bool = args.clean  # 强制清理 Build-Tree 及 Install-Tree 标记
-        self.timeout = None if args.timeout == 0 else args.timeout  # 构建超时时长
-        self.build_type: Optional[str] = args.build_type
-        self.init_param_common()
+        self.build: BuildCtrl.BuildParam = BuildCtrl.BuildParam(args=args)
         # 控制标记/参数预处理(tests)
-        self.utest_enable: bool = False  # UTest 使能标记
-        self.utest_cases_filter: Optional[str] = None  # 指定 UTest 所需执行用例
-        self.utest_python_enable: bool = False  # Python UTest 使能标记
-        self.utest_python_cases_filter: Optional[str] = None  # 指定 Python UTest 所需执行用例
-        self.stest_enable: bool = False  # STest 使能标记
-        self.stest_cases_filter: Optional[str] = None  # 指定 STest 所需执行用例
-        self.stest_distributed_enable: bool = False  # distributed STest 使能标记
-        self.stest_distributed_cases_filter: Optional[str] = None  # 指定 distributed STest 所需执行用例
-        self.stest_python_enable: bool = False  # Python STest 使能标记
-        self.stest_python_cases_filter: Optional[str] = None  # 指定 Python STest 所需执行用例
-        self.stest_golden_path: Optional[Path] = None  # STest 指定 Golden 路径
-        self.stest_golden_path_clean: bool = args.stest_golden_path_clean  # STest 清理 Golden 标记
-        self.stest_device_id: str = ""
-        self.stest_enable_binary_cache: bool = False
-        self.stest_dump_json: bool = args.stest_dump_json
-        self.tests_auto_execute: bool = args.disable_auto_execute
-        self.tests_auto_execute_parallel: bool = False
-        self.tests_changed_file: Optional[Path] = args.changed_files
-        self.init_param_tests(args=args)
+        self.tests: BuildCtrl.TestsParam = BuildCtrl.TestsParam(args=args)
+        self.utest: BuildCtrl.UTestParam = BuildCtrl.UTestParam(args=args)
+        self.stest: BuildCtrl.STestParam = BuildCtrl.STestParam(args=args, tests=self.tests, build_root=self.build_root)
         # 控制标记/参数预处理(build_tools)
-        self.clang_path: Optional[Path] = None
-        self.asan: bool = args.asan
-        self.ubsan: bool = args.ubsan
-        self.gcov: bool = args.gcov
         self.prof = args.prof
         self.pe = args.pe
-        self.init_param_build_tools(args=args)
         # 控制标记/参数预处理(tools)
-        self.tools_cases_csv_file: Optional[Path] = None
-        self.tools_intercept_flag: bool = False
-        self.tools_prof_enable: bool = False
-        self.tools_prof_level: str = "l1"
-        self.tools_output_clean: bool = False
-        self.tools_prof_warn_up_cnt: Optional[int] = None
-        self.tools_prof_try_cnt: Optional[int] = None
-        self.tools_prof_max_cnt: Optional[int] = None
-
+        self.tools: BuildCtrl.ToolsParam = BuildCtrl.ToolsParam()
+        # Model
         self.sim = args.sim
         self.sim_with_onboard_aicpu = args.sim_with_onboard_aicpu
         self.back_annotation_aicpu = args.back_annotation_aicpu
@@ -102,7 +222,6 @@ class BuildCtrl:
         self.calendar = args.calendar
         self.pvmodel = args.pvmodel
         self.replay_file_path = args.replay_file_path
-        self.tests_interpreter_config: bool = args.enable_interpreter_config
 
     def __str__(self):
 
@@ -122,26 +241,26 @@ class BuildCtrl:
         desc += f"\n\tPython3                  : {sys.executable} ({ver.major}.{ver.minor}.{ver.micro})"
         desc += f"\nArgs Param"
         desc += f"\n\tBackend Type             : {self.backend_type}"
-        desc += f"\n\tForced Clean             : {self.forced_clean}"
-        desc += f"\n\tBuild Job Num            : {self.build_job_num}"
-        desc += f"\n\tBuild Type               : {self.build_type}"
-        desc += f"\n\tBuild Targets            : {self.build_targets}"
-        desc += (f"\n\tBuild UTest              : Flag({self.utest_enable}), "
-                 f"Filter({get_filter_str(self.utest_cases_filter)})")
-        desc += (f"\n\tBuild UTest(Python)      : Flag({self.utest_python_enable}), "
-                 f"Filter({get_filter_str(self.utest_python_cases_filter)})")
-        desc += (f"\n\tBuild STest              : Flag({self.stest_enable}), "
-                 f"Filter({get_filter_str(self.stest_cases_filter)}) DeviceID({self.stest_device_id})")
-        desc += (f"\n\tBuild STest(Distributed) : Flag({self.stest_distributed_enable}), "
-                 f"Filter({get_filter_str(self.stest_distributed_cases_filter)})")
-        desc += (f"\n\tBuild STest(Python)      : Flag({self.stest_python_enable}), "
-                 f"Filter({get_filter_str(self.stest_python_cases_filter)})")
-        desc += (f"\n\tTests Execute            : Flag({self.tests_auto_execute}),"
-                 f" Parallel({self.tests_auto_execute_parallel}),"
-                 f" PrintJson({self.stest_dump_json}),"
-                 f" BinaryCache({self.stest_enable_binary_cache})")
-        desc += f"\n\tTests Changed            : File({self.tests_changed_file})"
-        desc += f"\n\tTests Interpreter        : {self.tests_interpreter_config}"
+        desc += f"\n\tForced Clean             : {self.build.clean}"
+        desc += f"\n\tBuild Job Num            : {self.build.job_num}"
+        desc += f"\n\tBuild Type               : {self.build.type_}"
+        desc += f"\n\tBuild Targets            : {self.build.targets}"
+        desc += (f"\n\tBuild UTest              : Flag({self.utest.enable}), "
+                 f"Filter({get_filter_str(self.utest.cases_filter)})")
+        desc += (f"\n\tBuild UTest(Python)      : Flag({self.utest.python_enable}), "
+                 f"Filter({get_filter_str(self.utest.python_cases_filter)})")
+        desc += (f"\n\tBuild STest              : Flag({self.stest.enable}), "
+                 f"Filter({get_filter_str(self.stest.cases_filter)}) DeviceID({self.stest.device_id})")
+        desc += (f"\n\tBuild STest(Distributed) : Flag({self.stest.distributed_enable}), "
+                 f"Filter({get_filter_str(self.stest.distributed_cases_filter)})")
+        desc += (f"\n\tBuild STest(Python)      : Flag({self.stest.python_enable}), "
+                 f"Filter({get_filter_str(self.stest.python_cases_filter)})")
+        desc += (f"\n\tTests Execute            : Flag({self.tests.auto_execute}),"
+                 f" Parallel({self.tests.auto_execute_parallel}),"
+                 f" PrintJson({self.stest.dump_json}),"
+                 f" BinaryCache({self.stest.enable_binary_cache})")
+        desc += f"\n\tTests Changed            : File({self.tests.changed_file})"
+        desc += f"\n\tTests Interpreter        : {self.tests.interpreter_config}"
         desc += f"\nOthers"
         desc += f"\n\tSource  Root Dir         : {self.src_root}"
         desc += f"\n\tBuild   Root Dir         : {self.build_root}"
@@ -150,8 +269,8 @@ class BuildCtrl:
 
     @property
     def tests_enable(self) -> bool:
-        ut_enable: bool = self.utest_enable or self.utest_python_enable
-        st_enable: bool = self.stest_enable or self.stest_distributed_enable or self.stest_python_enable
+        ut_enable: bool = self.utest.enable or self.utest.python_enable
+        st_enable: bool = self.stest.enable or self.stest.distributed_enable or self.stest.python_enable
         return ut_enable or st_enable
 
     @classmethod
@@ -185,9 +304,9 @@ class BuildCtrl:
         if 'func' in args:
             args.func(args=args, ctrl=ctrl)
         logging.info("%s", ctrl)
-        ctrl.clean()
-        ctrl.configure()
-        ctrl.build()
+        ctrl.clean_process()
+        ctrl.configure_process()
+        ctrl.build_process()
 
     @classmethod
     def _add_argument_tests(cls, parser):
@@ -287,101 +406,28 @@ class BuildCtrl:
     def _gen_cmd_path(cls, opt: str, v: Path) -> str:
         return cls._gen_cmd_str(opt=opt, v=str(v))
 
-    def init_param_common(self):
-        if self.timeout is not None:
-            ret = subprocess.run(shlex.split("uname -m"), capture_output=True, check=True, text=True, encoding='utf-8')
-            ret.check_returncode()
-            hardware_processor_type = re.sub('[\r\n\t]', '', ret.stdout)
-            self.timeout = self.timeout if hardware_processor_type == "x86_64" else self.timeout * 2
-
-    def init_param_tests(self, args):
-        def _init_args(_args: Optional[str]) -> Tuple[bool, Optional[str]]:
-            """ 初始化可指定 str 的 args """
-            if _args is None:
-                return True, "ON"   # 指定 对应参数 但未指定内容
-            elif _args == "":
-                return False, None  # 未指定 对应参数
-            else:
-                return True, _args  # 指定 对应参数 且指定内容
-
-        self.tests_changed_file = None if not self.tests_changed_file else Path(self.tests_changed_file).resolve()
-        self.tests_auto_execute_parallel = True if self.tests_changed_file is not None else False
-        self.stest_enable_binary_cache = True if self.tests_changed_file is not None else False
-
-        # UTest
-        self.utest_enable, self.utest_cases_filter = _init_args(_args=args.utest)
-        # UTest Python 场景
-        self.utest_python_enable, self.utest_python_cases_filter = _init_args(_args=args.utest_python)
-        # STest
-        self.stest_enable, self.stest_cases_filter = _init_args(_args=args.stest)
-        # STest Distributed
-        self.stest_distributed_enable, self.stest_distributed_cases_filter = _init_args(_args=args.stest_distributed)
-        # STest Python
-        self.stest_python_enable, self.stest_python_cases_filter = _init_args(_args=args.stest_python)
-        self.stest_python_enable = True if self.stest_enable else self.stest_python_enable  # 依赖 CI 任务拆分
-        # STest Golden
-        if args.stest_golden_path is None:  # 未传参
-            self.stest_golden_path = Path(self.build_root, "tests/st/golden")
-        elif args.stest_golden_path == "":  # 未指定
-            self.stest_golden_path = Path(self.build_root, "tests/st/golden")
-        else:
-            self.stest_golden_path = Path(args.stest_golden_path).resolve()
-        self.stest_golden_path.mkdir(parents=True, exist_ok=True)
-        # STest 并行加速
-        devs = ["0"]
-        if args.device is not None:
-            devs = [str(d) for d in list(set(args.device)) if d is not None and str(d) != ""]
-        self.stest_device_id = ":".join(devs)
-
-    def init_param_build_tools(self, args):
-        if args.clang is None:  # 指定 clang 参数, 但未指定具体路径, 此时需尝试寻找
-            cmd = "which clang"
-            ret = subprocess.run(shlex.split(cmd), capture_output=True, check=True, text=True, encoding='utf-8')
-            ret.check_returncode()
-            self.clang_path = Path(ret.stdout).resolve()
-        elif args.clang == "":  # 未指定 clang 参数
-            self.clang_path = None
-        else:  # 指定 clang 参数, 并指定具体路径
-            self.clang_path = Path(args.clang)
-        if self.clang_path is not None:
-            self.clang_path = Path(self.clang_path).resolve().parent
-            if not self.clang_path.exists():
-                raise ValueError(f"Clang install path not exist, path={self.clang_path}")
-
-    def init_param_tools(self, args):
-        self.tools_output_clean = args.tools_output_clean
-        self.tools_intercept_flag = args.intercept
-        self.tools_cases_csv_file = Path(args.cases_csv_file[0]).resolve() if args.cases_csv_file else None
-
-    def init_param_tools_profiling(self, args):
-        self.tools_prof_enable = True
-        self.tools_prof_level = args.prof_level
-        self.tools_prof_warn_up_cnt = args.prof_warn_up_cnt[0] if args.prof_warn_up_cnt else None
-        self.tools_prof_try_cnt = args.prof_try_cnt[0] if args.prof_try_cnt else None
-        self.tools_prof_max_cnt = args.prof_max_cnt[0] if args.prof_max_cnt else None
-
-    def clean(self):
+    def clean_process(self):
         """ 清理中间结果, 清理内容包括构建树, 安装树全部内容. """
-        if self.forced_clean:
+        if self.build.clean:
             if self.build_root.exists():
                 logging.info("Clean Build-Tree(%s)", self.build_root)
                 shutil.rmtree(self.build_root)
             if self.install_root.exists():
                 logging.info("Clean Install-Tree(%s)", self.install_root)
                 shutil.rmtree(self.install_root)
-        if self.stest_enable_binary_cache:
+        if self.stest.enable_binary_cache:
             binary_cache_path = Path(Path.home(), "ast_data")
             if binary_cache_path.exists():
                 shutil.rmtree(binary_cache_path)
                 logging.info("Clean Binary Cache Path(%s)", binary_cache_path)
 
-    def configure(self):
+    def configure_process(self):
         """ CMake Configure 阶段流程. """
         # 基本配置, 当前 CMake 中有调用 python3 的情况, 传入 python3 解释器, 保证所使用的 python3 版本一致
         ver = sys.version_info
         cmd = f"cmake -S {self.src_root} -B {self.build_root} -DPython3_EXECUTABLE={sys.executable}"
         cmd += f" -DPython3_FIND_STRATEGY=LOCATION -DPython3_FIND_VERSION={ver.major}.{ver.minor}"
-        cmd += f" -DCMAKE_BUILD_TYPE={self.build_type}" if self.build_type else ""
+        cmd += f" -DCMAKE_BUILD_TYPE={self.build.type_}" if self.build.type_ else ""
         # common 相关配置
         #    SocVersion, Backend 相关配置, SocVersion相关配置暂不支持
         if self.backend_type == "npu":
@@ -400,19 +446,19 @@ class BuildCtrl:
         ret.check_returncode()
         self._gen_simulation_json()
 
-    def build(self):
+    def build_process(self):
         """ CMake Build 阶段流程. """
         # prof使能初始化
         update_env = {}
         if self.prof == 1 or self.prof == 2:
             update_env = wf.ini(self.build_root, self.prof, self.pe)
         cmd_list: List[str] = []
-        if self.build_targets:
-            for t in self.build_targets:
-                cmd = f"cmake --build {self.build_root} --target {t} -- -j {self.build_job_num}"
+        if self.build.targets:
+            for t in self.build.targets:
+                cmd = f"cmake --build {self.build_root} --target {t} -- -j {self.build.job_num}"
                 cmd_list.append(cmd)
         else:
-            cmd = f"cmake --build {self.build_root} -- -j {self.build_job_num}"
+            cmd = f"cmake --build {self.build_root} -- -j {self.build.job_num}"
             cmd_list.append(cmd)
         for i, c in enumerate(cmd_list):
             ts = datetime.now(tz=timezone.utc)
@@ -463,7 +509,7 @@ class BuildCtrl:
         with subprocess.Popen(shlex.split(cmd), env=env, text=True, encoding='utf-8',
                               start_new_session=True) as process:
             try:
-                stdout, stderr = process.communicate(timeout=self.timeout)
+                stdout, stderr = process.communicate(timeout=self.build.timeout)
             except subprocess.TimeoutExpired:
                 _stop_pg(_p=process)
                 raise
@@ -479,51 +525,52 @@ class BuildCtrl:
             ret_code = process.poll()
             if check and ret_code:
                 raise subprocess.CalledProcessError(ret_code, process.args, output=stdout, stderr=stderr)
-        self.timeout = self.timeout - (datetime.now(tz=timezone.utc) - ts).seconds if self.timeout else self.timeout
+        if self.build.timeout:
+            self.build.timeout = self.build.timeout - (datetime.now(tz=timezone.utc) - ts).seconds
         return subprocess.CompletedProcess(process.args, ret_code, stdout, stderr)
 
     def _configure_tests(self) -> str:
         cmd = ""
         # 公共
         if self.tests_enable:
-            cmd += self._gen_cmd(opt="ENABLE_TESTS_EXECUTE", ctr=self.tests_auto_execute)
+            cmd += self._gen_cmd(opt="ENABLE_TESTS_EXECUTE", ctr=self.tests.auto_execute)
             cmd += self._gen_cmd(opt="ENABLE_TESTS_EXECUTE_PARALLEL",
-                                 ctr=self.tests_auto_execute and self.tests_auto_execute_parallel)
+                                 ctr=self.tests.auto_execute and self.tests.auto_execute_parallel)
         # UTest
-        cmd += self._gen_cmd(opt="ENABLE_TESTS_UTEST", ctr=self.utest_enable, tv=f"{self.utest_cases_filter}")
+        cmd += self._gen_cmd(opt="ENABLE_TESTS_UTEST", ctr=self.utest.enable, tv=f"{self.utest.cases_filter}")
         # UTest Python 场景
-        cmd += self._gen_cmd(opt="ENABLE_TESTS_UTEST_PYTHON", ctr=self.utest_python_enable,
-                             tv=f"{self.utest_python_cases_filter}")
+        cmd += self._gen_cmd(opt="ENABLE_TESTS_UTEST_PYTHON", ctr=self.utest.python_enable,
+                             tv=f"{self.utest.python_cases_filter}")
         # STest 公共
-        if self.stest_enable or self.stest_distributed_enable or self.stest_python_enable:
+        if self.stest.enable or self.stest.distributed_enable or self.stest.python_enable:
             # Golden
-            cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_GOLDEN_PATH_CLEAN", ctr=self.stest_golden_path_clean)
-            cmd += f" -DENABLE_TESTS_STEST_GOLDEN_PATH={self.stest_golden_path}"
+            cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_GOLDEN_PATH_CLEAN", ctr=self.stest.golden_path_clean)
+            cmd += f" -DENABLE_TESTS_STEST_GOLDEN_PATH={self.stest.golden_path}"
             # BinaryCache
-            cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_BINARY_CACHE", ctr=self.stest_enable_binary_cache)
+            cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_BINARY_CACHE", ctr=self.stest.enable_binary_cache)
             # DumJson
-            cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_DUMP_JSON", ctr=self.stest_dump_json)
+            cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_DUMP_JSON", ctr=self.stest.dump_json)
         # STest
-        if self.stest_enable:
+        if self.stest.enable:
             # DeviceId
-            cmd += f" -DENABLE_TESTS_EXECUTE_DEVICE_ID={self.stest_device_id}"
-            cmd += f" -DENABLE_TESTS_STEST={self.stest_cases_filter}"
+            cmd += f" -DENABLE_TESTS_EXECUTE_DEVICE_ID={self.stest.device_id}"
+            cmd += f" -DENABLE_TESTS_STEST={self.stest.cases_filter}"
         else:
             cmd += f" -DENABLE_TESTS_STEST=OFF"
         # STest, Distributed
-        cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_DISTRIBUTED", ctr=self.stest_distributed_enable,
-                             tv=f"{self.stest_distributed_cases_filter}")
+        cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_DISTRIBUTED", ctr=self.stest.distributed_enable,
+                             tv=f"{self.stest.distributed_cases_filter}")
         # STest Interpreter Config
-        cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_INTERPRETER_CONFIG", ctr=self.tests_interpreter_config)
+        cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_INTERPRETER_CONFIG", ctr=self.tests.interpreter_config)
         # STest Python
-        cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_PYTHON", ctr=self.stest_python_enable)
+        cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_PYTHON", ctr=self.stest.python_enable)
         return cmd
 
     def _configure_tools_build(self) -> str:
         cmd = ""
 
         def _check_clang_toolchain(_opt: str, _b: str) -> Tuple[bool, str]:
-            _p: Path = Path(self.clang_path, _b)
+            _p: Path = Path(self.build.clang_path, _b)
             if _p.exists():
                 return True, self._gen_cmd_path(opt=_opt, v=_p)
             logging.error("Clang Toolchain %s not exist.", _p)
@@ -542,40 +589,40 @@ class BuildCtrl:
             return _rst, _cmd if _rst else ""
 
         # Clang
-        if self.clang_path is not None:
+        if self.build.clang_path is not None:
             ret, clang_cmd = _gen_clang_cmd()
             if not ret:
-                raise RuntimeError(f"Clang({self.clang_path}) not complete.")
+                raise RuntimeError(f"Clang({self.build.clang_path}) not complete.")
             cmd += clang_cmd
 
-        cmd += self._gen_cmd(opt="ENABLE_ASAN", ctr=self.asan)
-        cmd += self._gen_cmd(opt="ENABLE_UBSAN", ctr=self.ubsan)
-        cmd += self._gen_cmd(opt="ENABLE_GCOV", ctr=self.gcov)
+        cmd += self._gen_cmd(opt="ENABLE_ASAN", ctr=self.build.asan)
+        cmd += self._gen_cmd(opt="ENABLE_UBSAN", ctr=self.build.ubsan)
+        cmd += self._gen_cmd(opt="ENABLE_GCOV", ctr=self.build.gcov)
         return cmd
 
     def _configure_tools(self) -> str:
         cmd = ""
         # tools 公共参数
-        if self.tools_prof_enable:
-            cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_TOOLS_OUTPUT_CLEAN", ctr=self.tools_output_clean)
-            cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_TOOLS_INTERCEPT", ctr=self.tools_intercept_flag)
-            if self.tools_cases_csv_file:
-                cmd += f" -DENABLE_TESTS_STEST_TOOLS_CASE_FILE={self.tools_cases_csv_file}"
+        if self.tools.prof_enable:
+            cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_TOOLS_OUTPUT_CLEAN", ctr=self.tools.output_clean)
+            cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_TOOLS_INTERCEPT", ctr=self.tools.intercept_flag)
+            if self.tools.cases_csv_file:
+                cmd += f" -DENABLE_TESTS_STEST_TOOLS_CASE_FILE={self.tools.cases_csv_file}"
         # Profiling 工具参数
         cmd += self._configure_tools_profiling()
         return cmd
 
     def _configure_tools_profiling(self) -> str:
         cmd = ""
-        if self.tools_prof_enable:
+        if self.tools.prof_enable:
             cmd += f" -DENABLE_TESTS_STEST_TOOLS_PROF=ON"
-            cmd += f" -DENABLE_TESTS_STEST_TOOLS_PROF_LEVEL={self.tools_prof_level}"
+            cmd += f" -DENABLE_TESTS_STEST_TOOLS_PROF_LEVEL={self.tools.prof_level}"
             cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_TOOLS_PROF_WARN_UP_CNT",
-                                 ctr=self.tools_prof_warn_up_cnt is not None, tv=f"{self.tools_prof_warn_up_cnt}")
+                                 ctr=self.tools.prof_warn_up_cnt is not None, tv=f"{self.tools.prof_warn_up_cnt}")
             cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_TOOLS_PROF_TRY_CNT",
-                                 ctr=self.tools_prof_try_cnt is not None, tv=f"{self.tools_prof_try_cnt}")
+                                 ctr=self.tools.prof_try_cnt is not None, tv=f"{self.tools.prof_try_cnt}")
             cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_TOOLS_PROF_MAX_CNT",
-                                 ctr=self.tools_prof_max_cnt is not None, tv=f"{self.tools_prof_max_cnt}")
+                                 ctr=self.tools.prof_max_cnt is not None, tv=f"{self.tools.prof_max_cnt}")
         else:
             cmd += f" -DENABLE_TESTS_STEST_TOOLS_PROF=OFF"
         return cmd
@@ -684,8 +731,8 @@ class BuildCtrl:
 class SubCommandMgr:
     @classmethod
     def init_param_tools_profiling(cls, args, ctrl: BuildCtrl):
-        ctrl.init_param_tools(args=args)
-        ctrl.init_param_tools_profiling(args=args)
+        ctrl.tools.init_param(args=args)
+        ctrl.tools.init_param_profiling(args=args)
 
 
 if __name__ == "__main__":
