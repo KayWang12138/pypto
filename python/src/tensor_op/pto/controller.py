@@ -35,8 +35,8 @@ def get_vec_tile_shapes() -> List[int]:
     return pto_impl.GetVecTile()
 
 
-def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], set_l1_tile: bool = False):
-    pto_impl.SetCubeTile(m, k, n, set_l1_tile)
+def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int]):
+    pto_impl.SetCubeTile(m, k, n)
 
 
 def set_build_static(static: bool):

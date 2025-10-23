@@ -31,7 +31,7 @@ def test_maxs():
 
     x = tensor((first_dim, second_dim), pto.DT_INT32, "Operand1")
     y = tensor((first_dim, second_dim), pto.DT_INT32, "Output")
-    scalar = element(pto.DT_INT32, scalar_data)
+    scalar = pto.element(pto.DT_INT32, scalar_data)
 
     bloop_range = math.ceil(first_dim / view_shape[0])
     sloop_range = math.ceil(second_dim / view_shape[1])
@@ -47,11 +47,11 @@ def test_maxs():
                 tile_tensor_0 = view(
                     x, view_shape,
                     [
-                        min(
+                        pto.min(
                             symbolic_scalar(first_dim) - b_idx * first_view_shape,
                             symbolic_scalar(first_view_shape)
                         ),
-                        min(
+                        pto.min(
                             symbolic_scalar(second_dim) - s_idx * second_view_shape,
                             symbolic_scalar(second_view_shape)
                         ),

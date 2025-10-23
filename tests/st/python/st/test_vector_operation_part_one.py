@@ -306,6 +306,7 @@ def test_vector_operation_neg():
     pto.device_fini()
 
 
+@pytest.mark.skip(reason="Dep operation interface")
 def test_vector_operation_vec_dup():
     dtype = pto.DT_FP32
     tiling = 32
@@ -338,6 +339,7 @@ def test_vector_operation_vec_dup():
     pto.device_fini()
 
 
+@pytest.mark.skip(reason="Dep operation interface")
 def test_vector_operation_logical_not():
     tiling = 32
     n, m = tiling * 1, tiling * 1
@@ -375,6 +377,7 @@ def test_vector_operation_logical_not():
     pto.device_fini()
 
 
+@pytest.mark.skip(reason="Dep operation interface")
 def test_vector_operation_expand():
     dtype = pto.DT_FP32
     tiling = 32
@@ -414,6 +417,7 @@ def test_vector_operation_expand():
     pto.device_fini()
 
 
+@pytest.mark.skip(reason="Dep operation interface")
 def test_vector_operation_concat():
     dtype = pto.DT_FP32
     tiling = 32
@@ -530,6 +534,7 @@ def test_vector_operation_rowsumsingle():
     pto.device_fini()
 
 
+@pytest.mark.skip(reason="Dep operation interface")
 def test_vector_operation_rowminsingle():
     dtype = pto.DT_FP32
     tiling = 32

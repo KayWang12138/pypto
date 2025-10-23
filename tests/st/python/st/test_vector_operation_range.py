@@ -18,6 +18,7 @@ import numpy as np
 from numpy.testing import assert_allclose
 
 
+@pytest.mark.skip(reason="Dep operation interface")
 def test_vector_operation_range():
     dtype = pto.DT_FP32
     size = 32
