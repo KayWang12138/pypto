@@ -27,7 +27,7 @@
 #include "interface/operation/operation.h"
 #include "passes/tile_graph_pass/subgraph_to_function.h"
 #include "passes/tile_graph_pass/static_subgraph_processor.h"
-#include "passes/pass_manager.h"
+#include "passes/pass_mgr/pass_manager.h"
 #include "ut_json/ut_json_tool.h"
 
 namespace npu {

@@ -17,7 +17,7 @@
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "passes/pass_manager.h"
+#include "passes/pass_mgr/pass_manager.h"
 #include "ut_json/ut_json_tool.h"
 #include "passes/tile_graph_pass/data_path/generate_move_op.h"
 #include "passes/tile_graph_pass/data_path/convert_op_inserter.h"

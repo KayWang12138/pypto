@@ -22,7 +22,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
-#include "passes/pass_manager.h"
+#include "passes/pass_mgr/pass_manager.h"
 #include "interface/configs/config_manager.h"
 #include "passes/tile_graph_pass/graph_optimization/split_k.h"
 #include "passes/tile_graph_pass/graph_constraint/pre_graph.h"

@@ -19,7 +19,7 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
 #include "passes/tile_graph_pass/data_path/assign_memory_type.h"
-#include "passes/pass_manager.h"
+#include "passes/pass_mgr/pass_manager.h"
 #include "passes/pass_config/pass_config_manager.h"
 #include <fstream>
 #include <vector>

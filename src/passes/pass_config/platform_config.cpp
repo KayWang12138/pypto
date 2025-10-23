@@ -77,7 +77,7 @@ static std::unordered_map<std::string, MemoryType> jsonNodeToMemoryType = {
 
 static std::unordered_map<std::string, NpuCoreType> jsonNodeToCoreType = {
     {AICORE_STR, NpuCoreType::AICORE},
-    {CUBE_CORE_STR, NpuCoreType::AICORE},
+    {CUBE_CORE_STR, NpuCoreType::CUBECORE},
     {VECTOR_CORE_STR, NpuCoreType::VECTORCORE}
 };
 

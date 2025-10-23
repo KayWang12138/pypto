@@ -23,4 +23,5 @@
 #include "passes/tile_graph_pass/graph_optimization/split_k.h"
 #include "passes/tile_graph_pass/graph_optimization/infer_discontinuous_input.h"
 #include "passes/tile_graph_pass/graph_optimization/split_reshape.h"
+#include "passes/tile_graph_pass/graph_optimization/duplicate_gather_in.h"
 #endif

@@ -15,7 +15,7 @@
 
 #ifndef PASS_ISO_PARTITIONER_H
 #define PASS_ISO_PARTITIONER_H
-#include "passes/tile_graph_pass/supernode_graph_builder.h"
+#include "supernode_graph_builder.h"
 #include "passes/pass_interface/pass.h"
 
 namespace npu::tile_fwk {

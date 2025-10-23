@@ -16,13 +16,13 @@
 #include <vector>
 #include <string>
 #include "gtest/gtest.h"
-#include "passes/pass_manager.h"
+#include "passes/pass_mgr/pass_manager.h"
 #include "tilefwk/tilefwk_op.h"
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
-#include "passes/pass_registry.h"
+#include "passes/pass_mgr/pass_registry.h"
 #include "ut_json/ut_json_tool.h"
 #include "computational_graph_builder.h"
 #include "interface/utils/file_utils.h"

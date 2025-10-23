@@ -18,7 +18,7 @@
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "passes/pass_manager.h"
+#include "passes/pass_mgr/pass_manager.h"
 #include "interface/configs/config_manager.h"
 #include "passes/block_graph_pass/schedule_ooo/schedule_ooo.h"
 #include "operator/models/deepseek/deepseek_mla.h"

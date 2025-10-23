@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "passes/tile_graph_pass/supernode_graph_builder.h"
+#include "supernode_graph_builder.h"
 #include <iostream>
 #include <deque>
 #include <algorithm>

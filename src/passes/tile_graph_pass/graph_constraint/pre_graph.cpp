@@ -708,10 +708,13 @@ Status PreGraphProcess::PreColorSort(Function &function)
         }
         DFSVisit(visited, preColor, newColorMap, colorInGraph, colorOutGraph);
     }
+    std::set<int> subgraphSet;
     for (auto &op : function.Operations()) {
         int opColor = op.GetSubgraphID();
+        subgraphSet.insert(opColor);
         op.UpdateSubgraphID(newColorMap[opColor]);
     }
+    function.SetTotalSubGraphCount(subgraphSet.size());
     return SUCCESS;
 }
 

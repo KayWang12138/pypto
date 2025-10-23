@@ -30,6 +30,7 @@
 #include "kernel/aicore_compiler.h"
 #include "interface/utils/op_info_manager.h"
 #include "tilefwk/comm_group_recorder.h"
+#include "passes/pass_mgr/pass_manager.h"
 
 using namespace npu::tile_fwk::dynamic;
 namespace npu::tile_fwk {

@@ -17,7 +17,7 @@
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "passes/pass_manager.h"
+#include "passes/pass_mgr/pass_manager.h"
 #include "interface/configs/config_manager.h"
 #include <nlohmann/json.hpp>
 #include <fstream>

@@ -17,8 +17,7 @@
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "passes/pass_manager.h"
-#include "passes/pass_registry.h"
+#include "passes/pass_mgr/pass_manager.h"
 #include "interface/configs/config_manager.h"
 #include <fstream>
 #include <vector>
@@ -50,11 +49,6 @@ public:
 };
 
 TEST_F(L1CopyInReuseTest, TwoCopyIn) {
-    PassManager &passManager = PassManager::Instance();
-    passManager.RegisterStrategy("L1ReusePassStrategy", {
-        {        "L1CopyInReuseMerge",        "L1CopyInReuseMerge"},
-    });
-    config::SetHostConfig(KEY_STRATEGY, "L1ReusePassStrategy");
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestL1CopyInReuse", "TestL1CopyInReuse", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
@@ -101,12 +95,10 @@ TEST_F(L1CopyInReuseTest, TwoCopyIn) {
     currFunctionPtr->outCasts_.push_back(tensor4);
 
     // Call the pass
-    const std::string passName = "L1CopyInReuseMerge";
-    const std::string identifier = "L1CopyInReuseMerge";
-    auto pass = PassRegistry::GetInstance().CreatePass(passName);
-    pass->PreCheck(*currFunctionPtr);
-    pass->Run(*currFunctionPtr, config::GetPassStrategy(), identifier);
-    pass->PostCheck(*currFunctionPtr);
+    L1CopyInReuseMerge pass;
+    pass.PreCheck(*currFunctionPtr);
+    pass.RunOnFunction(*currFunctionPtr);
+    pass.PostCheck(*currFunctionPtr);
 }
 
 TEST_F(L1CopyInReuseTest, TestNormal) {
