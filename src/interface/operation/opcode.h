@@ -172,6 +172,7 @@ enum class Opcode {
     OP_UB_COPY_L1_ND,
     OP_COPY_L1_TO_L1,
     OP_COPY_UB_TO_UB,
+    OP_L0C_COPY_L1,
 
     // Scala
     OP_SYNC_SRC,
@@ -477,7 +478,8 @@ Opcode::OP_LN, Opcode::OP_ABS, Opcode::OP_RSQRT, Opcode::OP_SQRT, Opcode::OP_REC
     Opcode::OP_S_DIVS, Opcode::OP_S_MULS, Opcode::OP_S_MAXS, Opcode::OP_BITSORT, Opcode::OP_MRGSORT, Opcode::OP_CMP,
     Opcode::OP_EXTRACT, Opcode::OP_TILEDMRGSORT, Opcode::OP_ROWMAXLINE, Opcode::OP_PAIRMIN,Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWMINLINE,
     Opcode::OP_TOPK_SORT, Opcode::OP_TOPK_MERGE, Opcode::OP_TOPK_EXTRACT,
-    Opcode::OP_SCATTER_ELEMENT, Opcode::OP_TRANSPOSE_MOVEIN, Opcode::OP_SORT, Opcode::OP_COMPARE_SWAP, Opcode::OP_MERGE};
+    Opcode::OP_SCATTER_ELEMENT, Opcode::OP_TRANSPOSE_MOVEIN, Opcode::OP_SORT, Opcode::OP_COMPARE_SWAP, Opcode::OP_MERGE,
+    Opcode::OP_L0C_COPY_L1};
 
 const std::unordered_set<Opcode> FIX_COPY_IN_OPS{Opcode::OP_FIX_COPY_IN, Opcode::OP_FIX_COPY_IN_QUANT_PRE,
     Opcode::OP_FIX_COPY_IN_RELU_PRE, Opcode::OP_FIX_COPY_IN_RELU_POST, Opcode::OP_FIX_COPY_IN_QUANT_POST,
