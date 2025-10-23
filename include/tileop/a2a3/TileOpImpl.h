@@ -28,4 +28,10 @@
 #include "distributed_shmem.h"
 #include "dynamic/aicpu_call.h"
 
+#ifdef SUPPORT_TILE_TENSOR
+#include "utils/layout.h"
+#include "../vec_binary.h"
+#include "../dma_copy.h"
+#endif
+
 #endif

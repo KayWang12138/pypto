@@ -16,6 +16,10 @@
 #ifndef __LOGICALTENSOR_TILEOP_COMMON__
 #define __LOGICALTENSOR_TILEOP_COMMON__
 
+#ifdef SUPPORT_TILE_TENSOR
+#include "PTOTileLib/include/common/pto_tileop.hpp"
+#endif
+
 #ifndef __aicore__
 #define __aicore__ [aicore]
 #endif
@@ -55,6 +59,7 @@
     wait_flag(PIPE_MTE1, PIPE_MTE2, EVENT_ID7)
 #endif
 
+namespace TileOp {
 enum CastMode {
     CAST_NONE = 0,
     CAST_RINT = 1,  // round to nearest, tie to even
@@ -72,7 +77,8 @@ constexpr uint64_t NBLOCK_PER_MASK_B16 = 4;
 constexpr uint64_t BLOCK_SIZE = 32;
 constexpr uint64_t REPEAT_MAX = 255;
 constexpr uint64_t REPEAT_BYTE = 256;
-constexpr uint64_t REPEAT_STRIDE_MAX = 4095;
+constexpr uint64_t REPEAT_STRIDE_MAX = 255;
+constexpr uint64_t DUP_REPEAT_STRIDE_MAX = 4095;
 
 inline TILEOP void SetContinuousMask(unsigned n) {
     set_vector_mask(static_cast<uint64_t>(
@@ -103,6 +109,7 @@ INLINE unsigned CalcLinearOffset(
 // Calculation linear offset for multi-dimension tensor
 INLINE unsigned CalcLinearOffset(unsigned GmShape1, unsigned Offset0, unsigned Offset1) {
     return Offset1 + Offset0 * GmShape1;
+}
 }
 
 #endif

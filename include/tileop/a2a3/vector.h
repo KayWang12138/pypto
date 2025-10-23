@@ -20,13 +20,8 @@
 #include <type_traits>
 
 namespace TileOp {
-
-constexpr uint64_t REPEAT_MAX = 255;
-constexpr uint64_t REPEAT_BYTE = 256;
-constexpr uint64_t BLOCK_SIZE = 32;
 constexpr const uint64_t HALF_MASK = 64;
 constexpr const uint64_t BLOCK_MAX_PER_REPEAT = 8;
-constexpr unsigned REPEAT_STRIDE_MAX = 255;
 
 // Binary op
 // ADD

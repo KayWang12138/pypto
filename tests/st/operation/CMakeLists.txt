@@ -54,7 +54,7 @@ set(_CaseFilterList
         "TestMul/MulOperationTest.TestMul/22"
         "TestMul/MulOperationTest.TestMul/25"
         "TestMul/MulOperationTest.TestMul/26"
-        "TestMul/MulOperationTest.TestMul/27"
+        #"TestMul/MulOperationTest.TestMul/27"
         "TestMuls/MulsOperationTest.TestMuls/13"
         "TestMuls/MulsOperationTest.TestMuls/14"
         "TestMuls/MulsOperationTest.TestMuls/15"

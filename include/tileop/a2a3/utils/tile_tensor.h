@@ -23,17 +23,25 @@ struct TileTensor
 {
     using Type = T;
     using LayoutType = LA;
+    using Shape = typename LA::Shape;
+    using Stride = typename LA::Stride;
+    using TileShape = typename LA::TileShape;
     static constexpr Hardware FORMAT = FMT;
 
-    __aicore__ inline TileTensor(__ubuf__ T *addr, LA layout) : addr_(addr), layout_(layout) {}
-    __aicore__ inline TileTensor(__ubuf__ T *addr) : addr_(addr) {}
-    __aicore__ inline __ubuf__ T *GetAddr() { return addr_; }
+    __aicore__ inline TileTensor(T *addr, LA layout) : addr_(addr), layout_(layout) {}
+    __aicore__ inline TileTensor(T *addr, Shape shape) : addr_(addr), layout_(LA(shape)) {}
+
+    __aicore__ inline TileTensor(T *addr) : addr_(addr) {}
+    __aicore__ inline T *GetAddr() { return addr_; }
     __aicore__ inline LA GetLayout() { return layout_; }
     __aicore__ inline const LA GetLayout() const { return layout_; }
+    __aicore__ inline constexpr bool IsStaticLayout() const { return layout_.IsStaticLayout(); }
     __aicore__ inline constexpr Hardware GetPhyType() { return FORMAT; }
+    __aicore__ inline Shape GetShape() { return layout_.GetShape(); }
+    __aicore__ inline Stride GetStride() { return layout_.GetStride(); }
 
  private:
-    __ubuf__ T *addr_;
+    T *addr_;
     LA layout_;
 };
 

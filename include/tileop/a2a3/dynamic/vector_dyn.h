@@ -2354,7 +2354,7 @@ TILEOP void DynBitSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, uns
         uint64_t mask = ~(((static_cast<uint64_t>(1)) << oriShape1) - 1);
         mask = mask & 0xFFFFFFFF;
         constexpr uint16_t dstRepeatStride = dstShape1 * sizeof(float) / 32;
-        if constexpr (dstRepeatStride < REPEAT_STRIDE_MAX) {
+        if constexpr (dstRepeatStride < DUP_REPEAT_STRIDE_MAX) {
             set_mask_norm();
             set_vector_mask(0, mask);
             vector_dup(dst + 3 * srcShape1Align, FLOAT_MIN, oriShape0, 1, 1, dstRepeatStride, (int64_t)0);
