@@ -206,14 +206,9 @@ Status ProcessExpand(const Operation &op, bool &needToDelete) {
         ALOG_ERROR_F("[RemoveRedundantOp] Expand[%d] has incorrect input/output num!", op.opmagic);
         return FAILED;
     }
-    auto inputTensor = op.GetIOperands().front();
-    auto outputTensor = op.GetOOperands().front();
-    if (inputTensor->shape.size() != outputTensor->shape.size()) {return SUCCESS;}
-    needToDelete = true;
-    for (size_t dimIdx = 0; dimIdx < inputTensor->shape.size(); dimIdx++) {
-        if (inputTensor->shape[dimIdx] != outputTensor->shape[dimIdx]) {
-            needToDelete = false;
-        }
+    needToDelete = false;
+    if (EqualShapeInOut(op)) {
+        needToDelete = true;
     }
     return SUCCESS;
 }

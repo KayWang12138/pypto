@@ -613,6 +613,47 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest12) {
 }
 
 /*
+TESTRemoveDummyExpand2
+inCast{8,16}->expand->ubTensor{8,16}->sqrt->outCast
+inCast{8,16}->sqrt->outCast
+*/
+TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest13) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestRemoveRedundantOp", "TestRemoveRedundantOp", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    // Prepare the graph
+    std::vector<int64_t> shape = {kNumEight, kNumExpFour};
+    std::vector<SymbolicScalar> dynValidShape = {kNumEight, SymbolicScalar("a")};
+    auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto ubTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    inCast->UpdateDynValidShape(dynValidShape);
+    ubTensor->UpdateDynValidShape(dynValidShape);
+
+    currFunctionPtr->AddOperation(Opcode::OP_EXPAND, {inCast}, {ubTensor});
+    currFunctionPtr->AddOperation(Opcode::OP_SQRT, {ubTensor}, {outCast});
+    
+    currFunctionPtr->inCasts_.push_back(inCast);
+    currFunctionPtr->outCasts_.push_back(outCast);
+
+    RemoveRedundantOp removeredundantpass;
+    EXPECT_NE(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundantpass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
+
+    uint32_t expand_num = kNumZero;
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_EXPAND) {
+            ++expand_num;
+        } else if (op.GetOpcode() == Opcode::OP_SQRT) {
+            EXPECT_EQ(op.GetInputOperandSize(), kSizeOne);
+            EXPECT_EQ(op.GetInputOperand(kSizeZero), inCast);
+        }
+    }
+    EXPECT_EQ(expand_num, kNumZero);
+}
+
+/*
 view->exp(end assemble)->view(end assemble)->expand(end assemble)->exp(end assemble)
                                                                  ->exp(end assemble)
 
