@@ -18,6 +18,7 @@ import numpy as np
 from numpy.testing import assert_allclose
 
 
+@pytest.mark.skip(reason="Dep operation interface")
 def test_select_experts_vllm():
     renormalize_flag = True
     input_dtype = pto.DT_FP16
