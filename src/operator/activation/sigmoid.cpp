@@ -36,7 +36,7 @@ constexpr float F_NEGA_1 = -1.0;
 
 Tensor Sigmoid(Tensor &input) {
     // 1/(1+exp(-x))
-    auto dtype = input->Datatype();
+    auto dtype = input.GetStorage()->Datatype();
     if (dtype != DT_FP32) {
         input = Cast(input, DataType::DT_FP32);
     }

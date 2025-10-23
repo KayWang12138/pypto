@@ -1309,7 +1309,7 @@ void Function::UpdateTensorDataUsage(Operation &op) {
         std::vector<int64_t> importShape(assemble->GetShape().size(), 1);
         std::vector<int64_t> importOffset(assemble->GetShape().size(), 0);
         auto import = View(*assemble, importShape, importOffset);
-        auto importOp = *import->GetProducers().begin();
+        auto importOp = *import.GetStorage()->GetProducers().begin();
         SetEmuOpcode(importOp, EMUOP_TENSOR_GETDATA_IMPORT);
         GetTensorDataSetIndex(importOp, index);
         importDict[index] = importOp;

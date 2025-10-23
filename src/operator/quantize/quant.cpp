@@ -77,12 +77,12 @@ Tensor QuantMM(const Tensor &operand1, const Tensor &operand2, const Tensor &deq
     auto quantizedA = std::get<0>(quantA);
     auto dequantScaleA = std::get<1>(quantA);
     Tensor res;
-    if (operand1->shape.size() == NUM_VALUE_2) {
+    if (operand1.GetShape().size() == NUM_VALUE_2) {
         res = Matmul<false, false>(DataType::DT_INT32, quantizedA, operand2);
-    } else if (operand1->shape.size() == NUM_VALUE_3) {
+    } else if (operand1.GetShape().size() == NUM_VALUE_3) {
         res = BatchMatmul(DataType::DT_INT32, quantizedA, operand2);
     } else {
-        assert(operand1->shape.size() <= NUM_VALUE_3);
+        assert(operand1.GetShape().size() <= NUM_VALUE_3);
     }
     res = Cast(res, DataType::DT_FP32);
     res = Mul(res, dequantScaleA);

@@ -29,13 +29,13 @@ std::vector<Tensor> mlaPre(const Tensor &tokenX, const Tensor &wDq, const Tensor
     bool isQuant = (dequantScaleWUqQr.GetStorage() != nullptr);
     Tensor smoothScalesCq = quantInputs.smoothScalesCq;
 
-    int b = tokenX->shape[0];
-    int s = tokenX->shape[1];
-    int h = tokenX->shape[2];
+    int b = tokenX.GetShape()[0];
+    int s = tokenX.GetShape()[1];
+    int h = tokenX.GetShape()[2];
     int bs = b * s;
-    int q_lora_rank = wDq->shape[1];
+    int q_lora_rank = wDq.GetShape()[1];
 
-    DataType dType = tokenX->Datatype();
+    DataType dType = tokenX.GetStorage()->Datatype();
     DataType dTypeQuantOut = isQuant ? DataType::DT_INT32 : dType;
     std::vector<Tensor> qkvPreRes;
 
@@ -96,7 +96,7 @@ std::vector<Tensor> mlaPre(const Tensor &tokenX, const Tensor &wDq, const Tensor
     Tensor compressedKv;
     if (splitK) {
         TileShape::Current().SetVecTile(std::min(32, bs), 64); // 32, 64
-        int kv_n = wDkvKr->shape[1];
+        int kv_n = wDkvKr.GetShape()[1];
         Tensor tmpC_kv(DT_FP32, {bs, kv_n}, "tmp_kv");
         tmpC_kv = MulS(tmpC_kv, Element(DataType::DT_FP32, 0.0f));
         std::vector<Tensor> matmulResult_kv;
@@ -114,7 +114,7 @@ std::vector<Tensor> mlaPre(const Tensor &tokenX, const Tensor &wDq, const Tensor
     } else {
         compressedKv = Matrix::Matmul(dType, input, wDkvKr); // bf16
     }
-    Tensor compressedKvRes = Reshape(compressedKv, {b, s, (int)wDkvKr->shape[1]});
+    Tensor compressedKvRes = Reshape(compressedKv, {b, s, (int)wDkvKr.GetShape()[1]});
     qkvPreRes.emplace_back(compressedKvRes);
 
     if (isQuant) {
@@ -130,18 +130,18 @@ void MlaProlog(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
     Tensor &queryOut, Tensor &queryRopeOut, Tensor &kvCacheOut, Tensor &krCacheOut, float epsilonCq, float epsilonCkv,
     std::string cacheMode, bool splitK, bool isSmooth) {
     // params check
-    assert(tokenX->shape.size() == SHAPE_DIM3 && wUk->shape.size() == SHAPE_DIM3 && sin->shape.size() == SHAPE_DIM3);
+    assert(tokenX.GetShape().size() == SHAPE_DIM3 && wUk.GetShape().size() == SHAPE_DIM3 && sin.GetShape().size() == SHAPE_DIM3);
     assert(cacheMode == "BNSD" || cacheMode == "PA_BSND" || cacheMode == "PA_NZ");
-    DataType dType = tokenX->Datatype();
-    int b = tokenX->shape[0];
-    int s = tokenX->shape[1]; // s=1
-    int h = tokenX->shape[2];
-    int s2 = kvCache->shape[2];
+    DataType dType = tokenX.GetStorage()->Datatype();
+    int b = tokenX.GetShape()[0];
+    int s = tokenX.GetShape()[1]; // s=1
+    int h = tokenX.GetShape()[2];
+    int s2 = kvCache.GetShape()[2];
     // [n, qkNopeHeadDim, kvLoraRank]
-    int n = wUk->shape[0];
-    int qkNopeHeadDim = wUk->shape[1];
-    int kvLoraRank = wUk->shape[2];
-    int qkRopeHeadDim = sin->shape[2]; // [b,s,qkRopeHeadDim]
+    int n = wUk.GetShape()[0];
+    int qkNopeHeadDim = wUk.GetShape()[1];
+    int kvLoraRank = wUk.GetShape()[2];
+    int qkRopeHeadDim = sin.GetShape()[2]; // [b,s,qkRopeHeadDim]
     int qHeadDim = qkNopeHeadDim + qkRopeHeadDim;
 
     int tileB = b;
@@ -215,14 +215,14 @@ void MlaProlog(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
             Tensor qPeView = View(qTmp, {tileB, s, n, qkRopeHeadDim}, {0, 0, 0, qkNopeHeadDim});
             Tensor cosView = View(cos, {tileB, s, qkRopeHeadDim}, {bOffset, 0, 0});
             Tensor sinView = View(sin, {tileB, s, qkRopeHeadDim}, {bOffset, 0, 0});
-            Tensor kRopeView(kPeRes->Datatype(), {tileB, s, 1, qkRopeHeadDim}, "kRopeView"); // [b,1,s,qkRopeHeadDim]
-            Tensor qRopeView(kPeRes->Datatype(), {tileB, s, n, qkRopeHeadDim}, "qRopeView");
+            Tensor kRopeView(kPeRes.GetStorage()->Datatype(), {tileB, s, 1, qkRopeHeadDim}, "kRopeView"); // [b,1,s,qkRopeHeadDim]
+            Tensor qRopeView(kPeRes.GetStorage()->Datatype(), {tileB, s, n, qkRopeHeadDim}, "qRopeView");
             ApplyRotaryPosEmbV2(qPeView, kPeRes, cosView, sinView, qRopeView, kRopeView, 2, ropeConfig); // 2
             Tensor kvCacheOutDview, krCacheOutDview;
             if (cacheMode != "BNSD") {
-                int blockNum = kvCache->shape[0];
-                int blockSize = kvCache->shape[1];
-                int n2 = kvCache->shape[2];
+                int blockNum = kvCache.GetShape()[0];
+                int blockSize = kvCache.GetShape()[1];
+                int n2 = kvCache.GetShape()[2];
                 Tensor kvCacheRes = Reshape(kvCache, {blockNum * blockSize * n2, kvLoraRank});
                 Tensor krCacheRes = Reshape(krCache, {blockNum * blockSize * n2, qkRopeHeadDim});
                 auto cacheIndexDview = View(cacheIndex, {tileB, s}, {bOffset, 0});
@@ -281,13 +281,13 @@ std::vector<Tensor> PreCompute(const Tensor &tokenX, const Tensor &wDq, const Te
     Tensor smoothScalesCq = quantInputs.smoothScalesCq;
     bool isSmooth = (smoothScalesCq.GetStorage() != nullptr);
 
-    int b = tokenX->shape[0];
-    int s = tokenX->shape[1];
-    int h = tokenX->shape[2];
+    int b = tokenX.GetShape()[0];
+    int s = tokenX.GetShape()[1];
+    int h = tokenX.GetShape()[2];
     int bs = b * s;
-    int q_lora_rank = wDq->shape[1];
+    int q_lora_rank = wDq.GetShape()[1];
 
-    DataType dType = tokenX->Datatype();
+    DataType dType = tokenX.GetStorage()->Datatype();
     DataType dTypeQuantAOut = isQuantA ? DataType::DT_INT32 : dType;
     DataType dTypeQuantBOut = isQuantB ? DataType::DT_INT32 : dType;
     std::vector<Tensor> qkvPreRes;
@@ -381,21 +381,21 @@ void MlaPrologCompute(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUq
     const MlaTileConfig &tileConfig, Tensor &queryOut, Tensor &queryRopeOut, Tensor &kvCacheOut, Tensor &krCacheOut,
     float epsilonCq, float epsilonCkv, std::string cacheMode) {
     // params check
-    assert(tokenX->shape.size() == 3 && wUk->shape.size() == 3 && sin->shape.size() == 3); // shape dim 3
-    assert(kvCache->shape.size() == 4 && krCache->shape.size() == 4); // shape dim 4
+    assert(tokenX.GetShape().size() == 3 && wUk.GetShape().size() == 3 && sin.GetShape().size() == 3); // shape dim 3
+    assert(kvCache.GetShape().size() == 4 && krCache.GetShape().size() == 4); // shape dim 4
     assert(cacheMode == "PA_BSND" || cacheMode == "PA_NZ");
-    DataType dType = tokenX->Datatype();
-    int h = tokenX->shape[2]; // 2
+    DataType dType = tokenX.GetStorage()->Datatype();
+    int h = tokenX.GetShape()[2]; // 2
     // [n, qkNopeHeadDim, kvLoraRank]
-    int n = wUk->shape[0];
-    int qkNopeHeadDim = wUk->shape[1];
-    int kvLoraRank = wUk->shape[2];
-    int qkRopeHeadDim = sin->shape[2]; // [b,s,qkRopeHeadDim], 2
+    int n = wUk.GetShape()[0];
+    int qkNopeHeadDim = wUk.GetShape()[1];
+    int kvLoraRank = wUk.GetShape()[2];
+    int qkRopeHeadDim = sin.GetShape()[2]; // [b,s,qkRopeHeadDim], 2
     int qHeadDim = qkNopeHeadDim + qkRopeHeadDim;
     // kvCache: [block_num, block_size, n2, kv_lora_rank], n2=1
-    int blockNum = kvCache->shape[0];
-    int blockSize = kvCache->shape[1];
-    int n2 = kvCache->shape[2];
+    int blockNum = kvCache.GetShape()[0];
+    int blockSize = kvCache.GetShape()[1];
+    int n2 = kvCache.GetShape()[2];
     assert(qkNopeHeadDim == 128 || qkRopeHeadDim == 64); // support 128, 64
 
     int tileB = tileConfig.tileB;
@@ -464,8 +464,8 @@ void MlaPrologCompute(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUq
             Tensor qPeView = View(qTmp, {tileB, tileS, n, qkRopeHeadDim}, {0, 0, 0, qkNopeHeadDim});
             Tensor cosView = View(cos, {tileB, tileS, qkRopeHeadDim}, {bOffset, sOffset, 0});
             Tensor sinView = View(sin, {tileB, tileS, qkRopeHeadDim}, {bOffset, sOffset, 0});
-            Tensor qRopeView(kPeRes->Datatype(), {tileB, tileS, n, qkRopeHeadDim}, "qRopeView");
-            Tensor kRopeView(kPeRes->Datatype(), {tileB, tileS, 1, qkRopeHeadDim}, "kRopeView");
+            Tensor qRopeView(kPeRes.GetStorage()->Datatype(), {tileB, tileS, n, qkRopeHeadDim}, "qRopeView");
+            Tensor kRopeView(kPeRes.GetStorage()->Datatype(), {tileB, tileS, 1, qkRopeHeadDim}, "kRopeView");
             ApplyRotaryPosEmbV2(qPeView, kPeRes, cosView, sinView, qRopeView, kRopeView,
                 2, ropeConfig); // 2 is unsqueeze dim
 

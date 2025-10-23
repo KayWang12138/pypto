@@ -183,7 +183,7 @@ private:
                 auto &d = dataList[i];
                 if (d) {
                     EXPECT_EQ(t.GetDataType(), d->GetDataType());
-                    EXPECT_EQ(t->GetShape(), d->GetShape());
+                    EXPECT_EQ(t.GetShape(), d->GetShape());
                 }
             }
         };

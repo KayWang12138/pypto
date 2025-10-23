@@ -36,7 +36,7 @@ Tensor RmsNorm(const Tensor &operand) {
     auto fp32Operand = Cast(operand, DataType::DT_FP32);
     // y = x^2 / n
     auto y = Mul(fp32Operand, fp32Operand);
-    y = MulS(y, Element(DataType::DT_FP32, 1.0f / operand->shape[operand->shape.size() - 1]));
+    y = MulS(y, Element(DataType::DT_FP32, 1.0f / operand.GetShape()[operand.GetShape().size() - 1]));
 
     // ReduceSum(x^2 / n) + Eps
     y = RowSumSingle(y);
@@ -47,19 +47,19 @@ Tensor RmsNorm(const Tensor &operand) {
     Element src(DataType::DT_FP32, 1.0f);
     auto ones = VectorDuplicate(src, DT_FP32, y.GetShape());
     y = Div(ones, y);
-    return Cast(Mul(fp32Operand, y), operand->Datatype());
+    return Cast(Mul(fp32Operand, y), operand.GetStorage()->Datatype());
 }
 
 Tensor RmsNorm(const Tensor &operand, const Tensor &gamma, float epsilon) {
     auto fp32Operand = Cast(operand, DataType::DT_FP32);
-    int size = operand->shape.size();
+    int size = operand.GetShape().size();
     std::vector<int64_t> shape(size, 1);
-    shape[size - 1] = gamma->shape[0];
+    shape[size - 1] = gamma.GetShape()[0];
     auto gammaCast = Reshape(gamma, shape);
     auto gammaOperand = Cast(gammaCast, DataType::DT_FP32);
     // y = x^2 / n
     auto y = Mul(fp32Operand, fp32Operand);
-    y = MulS(y, Element(DataType::DT_FP32, 1.0f / operand->shape[operand->shape.size() - 1]));
+    y = MulS(y, Element(DataType::DT_FP32, 1.0f / operand.GetShape()[operand.GetShape().size() - 1]));
 
     // ReduceSum(x^2 / n) + Eps
     y = RowSumSingle(y);
@@ -72,7 +72,7 @@ Tensor RmsNorm(const Tensor &operand, const Tensor &gamma, float epsilon) {
     y = Div(ones, y);
     y = Mul(fp32Operand, y);
     y = Mul(gammaOperand, y);
-    y = Cast(y, operand->Datatype());
+    y = Cast(y, operand.GetStorage()->Datatype());
 
     return y;
 }

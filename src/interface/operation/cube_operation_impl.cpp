@@ -357,25 +357,25 @@ template void TiledInnerAMulB<true, true>(Function &, const TileShape &, const s
     const LogicalTensorPtr &, const std::vector<int64_t> &);
 
 void CheckOperandShape(const Tensor &operand1, const Tensor &operand2) {
-    ASSERT(operand1->shape.size() == operand2->shape.size());
-    ASSERT(operand1->shape.size() == operand1->offset.size());
-    ASSERT(operand2->shape.size() == operand2->offset.size());
+    ASSERT(operand1.GetShape().size() == operand2.GetShape().size());
+    ASSERT(operand1.GetShape().size() == operand1.GetStorage()->offset.size());
+    ASSERT(operand2.GetShape().size() == operand2.GetStorage()->offset.size());
 
-    ASSERT(operand1->shape.size() >= SHAPE_DIM2)
+    ASSERT(operand1.GetShape().size() >= SHAPE_DIM2)
         << "The dimension of operand1 must be larger than 2! The dimensin of operand1:"
-        << operand1->shape.size() << std::endl;
+        << operand1.GetShape().size() << std::endl;
 
-    ASSERT(operand2->shape.size() >= SHAPE_DIM2)
+    ASSERT(operand2.GetShape().size() >= SHAPE_DIM2)
         << "The dimension of operand2 must be larger than 2! The dimensin of operand2:"
-        << operand2->shape.size() << std::endl;
+        << operand2.GetShape().size() << std::endl;
 
-    for (size_t i = 0; i < operand1->shape.size(); ++i) {
-        ASSERT(operand1->shape[i] > 0) << "The value of the " << i << "-th dimension of operand1 must be larger than 0"
+    for (size_t i = 0; i < operand1.GetShape().size(); ++i) {
+        ASSERT(operand1.GetShape()[i] > 0) << "The value of the " << i << "-th dimension of operand1 must be larger than 0"
         << std::endl;
     }
 
-    for (size_t i = 0; i < operand2->shape.size(); ++i) {
-        ASSERT(operand2->shape[i] > 0) << "The value of the " << i << "-th dimension of operand2 must be larger than 0"
+    for (size_t i = 0; i < operand2.GetShape().size(); ++i) {
+        ASSERT(operand2.GetShape()[i] > 0) << "The value of the " << i << "-th dimension of operand2 must be larger than 0"
          << std::endl;
     }
 }
@@ -409,7 +409,7 @@ void CheckCubeTiling(const Tensor &operand1, const Tensor &operand2) {
     ASSERT(nL0 * BytesOf(operand2.GetDataType()) % ALIGN_SIZE_32 == 0)
         << "Current length of nL0: " << (kL0 * BytesOf(operand1.GetDataType()))
         << " bytes, the length must be aligned to 32 bytes" << std::endl;
-    if (operand1->GetTileOpFormat() == TileOpFormat::TILEOP_ND) {
+    if (operand1.GetStorage()->GetTileOpFormat() == TileOpFormat::TILEOP_ND) {
         if constexpr (isTransA) { // For ND A transpose, mL0 must be 32B aligned
             ASSERT(mL0 * BytesOf(operand1.GetDataType()) % ALIGN_SIZE_32 == 0)
                 << "Current length of mL0: " << (mL0 * BytesOf(operand1.GetDataType()))
@@ -419,21 +419,21 @@ void CheckCubeTiling(const Tensor &operand1, const Tensor &operand2) {
 }
 
 void CheckOperandShapeBound(const Tensor &operand) {
-    auto opFormat = operand->GetTileOpFormat();
+    auto opFormat = operand.GetStorage()->GetTileOpFormat();
     if (opFormat == TileOpFormat::TILEOP_ND) {
-        ASSERT(operand->shape.back() <= SHAPE_INNER_AXIS_MAX_SIZE)
-            << "Current inner axis: " << operand->shape.back()
+        ASSERT(operand.GetShape().back() <= SHAPE_INNER_AXIS_MAX_SIZE)
+            << "Current inner axis: " << operand.GetShape().back()
             << ", when input is ND format, inner axis must be less than 65535" << std::endl;
 
-        ASSERT(operand->shape[operand->shape.size() - SHAPE_DIM2] <= std::numeric_limits<int32_t>::max())
-            << "Current outer axis: " << (operand->shape[operand->shape.size() - SHAPE_DIM2])
+        ASSERT(operand.GetShape()[operand.GetShape().size() - SHAPE_DIM2] <= std::numeric_limits<int32_t>::max())
+            << "Current outer axis: " << (operand.GetShape()[operand.GetShape().size() - SHAPE_DIM2])
             << ", when input is ND format, outer axis must be less than 2^31 - 1" << std::endl;
     } else {
-        ASSERT(operand->shape.back() * BytesOf(operand.GetDataType()) % ALIGN_SIZE_32 == 0)
-            << "Current inner axis: " << operand->shape.back() << ", when input "
+        ASSERT(operand.GetShape().back() * BytesOf(operand.GetDataType()) % ALIGN_SIZE_32 == 0)
+            << "Current inner axis: " << operand.GetShape().back() << ", when input "
             << "is NZ format, inner axis shape must be 32-byte aligned" << std::endl;
-        ASSERT(operand->shape[operand->shape.size() - SHAPE_DIM2] % ALIGN_SIZE_16 == 0)
-            << "Current outer axis: " << operand->shape[operand->shape.size() - SHAPE_DIM2] << ", when input "
+        ASSERT(operand.GetShape()[operand.GetShape().size() - SHAPE_DIM2] % ALIGN_SIZE_16 == 0)
+            << "Current outer axis: " << operand.GetShape()[operand.GetShape().size() - SHAPE_DIM2] << ", when input "
             << "is NZ format, outer axis shape must be 16-element aligned" << std::endl;
     }
 }
@@ -444,8 +444,8 @@ void CheckNZFormatAligned(const Tensor &operand1, const Tensor &operand2) {
     const int64_t kL0 = cubeTile.k[0];
     const int64_t mL0 = cubeTile.m[0];
     const int64_t nL0 = cubeTile.n[0];
-    auto opFormatA = operand1->GetTileOpFormat();
-    auto opFormatB = operand2->GetTileOpFormat();
+    auto opFormatA = operand1.GetStorage()->GetTileOpFormat();
+    auto opFormatB = operand2.GetStorage()->GetTileOpFormat();
     if (opFormatA == TileOpFormat::TILEOP_NZ) {
         if constexpr (isTransA) {
             ASSERT(mL0 * BytesOf(operand1.GetDataType()) % ALIGN_SIZE_32 == 0)
@@ -482,7 +482,7 @@ void CheckCMatrixNZFormatAligned(const DataType &outType, const Tensor &operand)
     auto &cubeType = TileShape::Current().GetCubeTile();
     const int64_t nL0 = cubeType.n[0];
     if constexpr (isCMatrixNZ) {
-        int64_t nView = isTransB ? operand->shape[0] : operand->shape[1];
+        int64_t nView = isTransB ? operand.GetShape()[0] : operand.GetShape()[1];
         if (outType == DataType::DT_INT32) {
             ASSERT(nView % ALIGN_SIZE_16 == 0)
                 << "Current nView: " << nView
@@ -630,11 +630,11 @@ void AtMulBtImpl(DataType dataType, const std::vector<LogicalTensorPtr> &iOperan
 template <bool isCMatrixNZ>
 Tensor A_MUL_B(DataType dataType, const Tensor &operand1, const Tensor &operand2, const void *lr) {
     DECLARE_TRACERX(lr);
-    Tensor result(dataType, {operand1->shape[0], operand2->shape[1]});
+    Tensor result(dataType, {operand1.GetShape()[0], operand2.GetShape()[1]});
     if constexpr (isCMatrixNZ) {
         ASSERT(BytesOf(dataType) > 0);
         int64_t c0Size = dataType == DataType::DT_INT32 ? ALIGN_SIZE_16 : ALIGN_SIZE_32 / BytesOf(dataType);
-        result = Tensor(dataType, {operand1->shape[0], CeilAlign(operand2->shape[1], c0Size)});
+        result = Tensor(dataType, {operand1.GetShape()[0], CeilAlign(operand2.GetShape()[1], c0Size)});
     }
     AMulBImpl<isCMatrixNZ>(dataType, {operand1.GetStorage(), operand2.GetStorage()}, result.GetStorage());
     return result;
@@ -644,11 +644,11 @@ template <bool isCMatrixNZ>
 Tensor A_MUL_B(
     DataType dataType, const Tensor &operand1, const Tensor &operand2, const Tensor &operand3, const void *lr) {
     DECLARE_TRACERX(lr);
-    Tensor result(dataType, {operand3->shape[0], operand3->shape[1]});
+    Tensor result(dataType, {operand3.GetShape()[0], operand3.GetShape()[1]});
     if constexpr (isCMatrixNZ) {
         ASSERT(BytesOf(dataType) > 0);
         int64_t c0Size = dataType == DataType::DT_INT32 ? ALIGN_SIZE_16 : ALIGN_SIZE_32 / BytesOf(dataType);
-        result = Tensor(dataType, {operand3->shape[0], CeilAlign(operand3->shape[1], c0Size)});
+        result = Tensor(dataType, {operand3.GetShape()[0], CeilAlign(operand3.GetShape()[1], c0Size)});
     }
     AMulBImpl<isCMatrixNZ>(
         dataType, {operand1.GetStorage(), operand2.GetStorage(), operand3.GetStorage()}, result.GetStorage());
@@ -659,11 +659,11 @@ Tensor A_MUL_B(
 template <bool isCMatrixNZ>
 Tensor A_MUL_Bt(DataType dataType, const Tensor &operand1, const Tensor &operand2, const void *lr) {
     DECLARE_TRACERX(lr);
-    Tensor result(dataType, {operand1->shape[0], operand2->shape[0]});
+    Tensor result(dataType, {operand1.GetShape()[0], operand2.GetShape()[0]});
     if constexpr (isCMatrixNZ) {
         ASSERT(BytesOf(dataType) > 0);
         int64_t c0Size = dataType == DataType::DT_INT32 ? ALIGN_SIZE_16 : ALIGN_SIZE_32 / BytesOf(dataType);
-        result = Tensor(dataType, {operand1->shape[0], CeilAlign(operand2->shape[0], c0Size)});
+        result = Tensor(dataType, {operand1.GetShape()[0], CeilAlign(operand2.GetShape()[0], c0Size)});
     }
     AMulBtImpl<isCMatrixNZ>(dataType, {operand1.GetStorage(), operand2.GetStorage()}, result.GetStorage());
     return result;
@@ -673,11 +673,11 @@ template <bool isCMatrixNZ>
 Tensor A_MUL_Bt(
     DataType dataType, const Tensor &operand1, const Tensor &operand2, const Tensor &operand3, const void *lr) {
     DECLARE_TRACERX(lr);
-    Tensor result(dataType, {operand1->shape[0], operand2->shape[0]});
+    Tensor result(dataType, {operand1.GetShape()[0], operand2.GetShape()[0]});
     if constexpr (isCMatrixNZ) {
         ASSERT(BytesOf(dataType) > 0);
         int64_t c0Size = dataType == DataType::DT_INT32 ? ALIGN_SIZE_16 : ALIGN_SIZE_32 / BytesOf(dataType);
-        result = Tensor(dataType, {operand1->shape[0], CeilAlign(operand2->shape[0], c0Size)});
+        result = Tensor(dataType, {operand1.GetShape()[0], CeilAlign(operand2.GetShape()[0], c0Size)});
     }
     AMulBtImpl<isCMatrixNZ>(
         dataType, {operand1.GetStorage(), operand2.GetStorage(), operand3.GetStorage()}, result.GetStorage());
@@ -687,11 +687,11 @@ Tensor A_MUL_Bt(
 template <bool isCMatrixNZ>
 Tensor At_MUL_B(DataType dataType, const Tensor &operand1, const Tensor &operand2, const void *lr) {
     DECLARE_TRACERX(lr);
-    Tensor result(dataType, {operand1->shape[1], operand2->shape[1]});
+    Tensor result(dataType, {operand1.GetShape()[1], operand2.GetShape()[1]});
     if constexpr (isCMatrixNZ) {
         ASSERT(BytesOf(dataType) > 0);
         int64_t c0Size = dataType == DataType::DT_INT32 ? ALIGN_SIZE_16 : ALIGN_SIZE_32 / BytesOf(dataType);
-        result = Tensor(dataType, {operand1->shape[1], CeilAlign(operand2->shape[1], c0Size)});
+        result = Tensor(dataType, {operand1.GetShape()[1], CeilAlign(operand2.GetShape()[1], c0Size)});
     }
     AtMulBImpl<isCMatrixNZ>(dataType, {operand1.GetStorage(), operand2.GetStorage()}, result.GetStorage());
     return result;
@@ -701,11 +701,11 @@ template <bool isCMatrixNZ>
 Tensor At_MUL_B(DataType dataType, const Tensor &operand1, const Tensor &operand2, const Tensor &operand3,
                 const void *lr) {
     DECLARE_TRACERX(lr);
-    Tensor result(dataType, {operand1->shape[1], operand2->shape[1]});
+    Tensor result(dataType, {operand1.GetShape()[1], operand2.GetShape()[1]});
     if constexpr (isCMatrixNZ) {
         ASSERT(BytesOf(dataType) > 0);
         int64_t c0Size = dataType == DataType::DT_INT32 ? ALIGN_SIZE_16 : ALIGN_SIZE_32 / BytesOf(dataType);
-        result = Tensor(dataType, {operand1->shape[1], CeilAlign(operand2->shape[1], c0Size)});
+        result = Tensor(dataType, {operand1.GetShape()[1], CeilAlign(operand2.GetShape()[1], c0Size)});
     }
     AtMulBImpl<isCMatrixNZ>(dataType, {operand1.GetStorage(), operand2.GetStorage(), operand3.GetStorage()},
                             result.GetStorage());
@@ -715,11 +715,11 @@ Tensor At_MUL_B(DataType dataType, const Tensor &operand1, const Tensor &operand
 template <bool isCMatrixNZ>
 Tensor At_MUL_Bt(DataType dataType, const Tensor &operand1, const Tensor &operand2, const void *lr) {
     DECLARE_TRACERX(lr);
-    Tensor result(dataType, {operand1->shape[1], operand2->shape[0]});
+    Tensor result(dataType, {operand1.GetShape()[1], operand2.GetShape()[0]});
     if constexpr (isCMatrixNZ) {
         ASSERT(BytesOf(dataType) > 0);
         int64_t c0Size = dataType == DataType::DT_INT32 ? ALIGN_SIZE_16 : ALIGN_SIZE_32 / BytesOf(dataType);
-        result = Tensor(dataType, {operand1->shape[1], CeilAlign(operand2->shape[0], c0Size)});
+        result = Tensor(dataType, {operand1.GetShape()[1], CeilAlign(operand2.GetShape()[0], c0Size)});
     }
     AtMulBtImpl<isCMatrixNZ>(dataType, {operand1.GetStorage(), operand2.GetStorage()}, result.GetStorage());
     return result;
@@ -729,11 +729,11 @@ template <bool isCMatrixNZ>
 Tensor At_MUL_Bt(DataType dataType, const Tensor &operand1, const Tensor &operand2, const Tensor &operand3,
                  const void *lr) {
     DECLARE_TRACERX(lr);
-    Tensor result(dataType, {operand1->shape[1], operand2->shape[0]});
+    Tensor result(dataType, {operand1.GetShape()[1], operand2.GetShape()[0]});
     if constexpr (isCMatrixNZ) {
         ASSERT(BytesOf(dataType) > 0);
         int64_t c0Size = dataType == DataType::DT_INT32 ? ALIGN_SIZE_16 : ALIGN_SIZE_32 / BytesOf(dataType);
-        result = Tensor(dataType, {operand1->shape[1], CeilAlign(operand2->shape[0], c0Size)});
+        result = Tensor(dataType, {operand1.GetShape()[1], CeilAlign(operand2.GetShape()[0], c0Size)});
     }
     AtMulBtImpl<isCMatrixNZ>(dataType, {operand1.GetStorage(), operand2.GetStorage(), operand3.GetStorage()},
                              result.GetStorage());
@@ -786,15 +786,15 @@ template Tensor Matmul<true, true, true>(DataType, const Tensor &, const Tensor 
 
 template <bool isTransA, bool isTransB, bool isCMatrixNZ>
 Tensor ABatchMulB3D(DataType dataType, const Tensor &operand1, const Tensor &operand2) {
-    ASSERT(operand1->shape.size() == operand2->shape.size() && operand1->shape.size() == SHAPE_DIM3);
-    const int64_t batchSizeA = operand1->shape[0];
-    const int64_t batchSizeB = operand2->shape[0];
+    ASSERT(operand1.GetShape().size() == operand2.GetShape().size() && operand1.GetShape().size() == SHAPE_DIM3);
+    const int64_t batchSizeA = operand1.GetShape()[0];
+    const int64_t batchSizeB = operand2.GetShape()[0];
     ASSERT(batchSizeA == batchSizeB || batchSizeB == 1 || batchSizeA == 1);
 
-    const int64_t orgM = isTransA ? operand1->shape[SHAPE_DIM2] : operand1->shape[1];
-    const int64_t orgKa = isTransA ? operand1->shape[1] : operand1->shape[SHAPE_DIM2];
-    const int64_t orgKb = isTransB ? operand2->shape[2] : operand2->shape[1];
-    const int64_t orgN = isTransB ? operand2->shape[1] :operand2->shape[SHAPE_DIM2];
+    const int64_t orgM = isTransA ? operand1.GetShape()[SHAPE_DIM2] : operand1.GetShape()[1];
+    const int64_t orgKa = isTransA ? operand1.GetShape()[1] : operand1.GetShape()[SHAPE_DIM2];
+    const int64_t orgKb = isTransB ? operand2.GetShape()[2] : operand2.GetShape()[1];
+    const int64_t orgN = isTransB ? operand2.GetShape()[1] :operand2.GetShape()[SHAPE_DIM2];
     ASSERT(orgKa == orgKb);
     int64_t firstDimA = isTransA ? orgKa : orgM;
     int64_t secondDimA = isTransA ? orgM : orgKa;
@@ -813,9 +813,9 @@ Tensor ABatchMulB3D(DataType dataType, const Tensor &operand1, const Tensor &ope
         int64_t offsetA = batchSizeA == 1 ? 0 : i * firstDimA;
         int64_t offsetB = batchSizeB == 1 ? 0 : i * firstDimB;
         int64_t offsetC = i * orgM;
-        auto tensorA = operand2D1->View(curFunc, {firstDimA, secondDimA}, {offsetA, 0});
-        auto tensorB = operand2D2->View(curFunc, {firstDimB, secondDimB}, {offsetB, 0});
-        auto tensorC = result->View(curFunc, {orgM, orgN}, {offsetC, 0});
+        auto tensorA = operand2D1.GetStorage()->View(curFunc, {firstDimA, secondDimA}, {offsetA, 0});
+        auto tensorB = operand2D2.GetStorage()->View(curFunc, {firstDimB, secondDimB}, {offsetB, 0});
+        auto tensorC = result.GetStorage()->View(curFunc, {orgM, orgN}, {offsetC, 0});
         if (!isTransA  && !isTransB) {
             AMulBImpl<isCMatrixNZ>(dataType, {tensorA, tensorB}, tensorC);
         } else if (!isTransA && isTransB) {
@@ -831,19 +831,19 @@ Tensor ABatchMulB3D(DataType dataType, const Tensor &operand1, const Tensor &ope
 
 template <bool isTransA, bool isTransB, bool isCMatrixNZ>
 Tensor ABatchMulB4D(DataType dataType, const Tensor &operand1, const Tensor &operand2) {
-    ASSERT(operand1->shape.size() == SHAPE_DIM4 && operand2->shape.size() == SHAPE_DIM4);
+    ASSERT(operand1.GetShape().size() == SHAPE_DIM4 && operand2.GetShape().size() == SHAPE_DIM4);
 
-    const int64_t batchSizeA1 = operand1->shape[0];
-    const int64_t batchSizeA2 = operand1->shape[1];
-    const int64_t batchSizeB1 = operand2->shape[0];
-    const int64_t batchSizeB2 = operand2->shape[1];
+    const int64_t batchSizeA1 = operand1.GetShape()[0];
+    const int64_t batchSizeA2 = operand1.GetShape()[1];
+    const int64_t batchSizeB1 = operand2.GetShape()[0];
+    const int64_t batchSizeB2 = operand2.GetShape()[1];
     ASSERT(batchSizeA1 == batchSizeB1 || batchSizeB1 == 1 || batchSizeA1 == 1);
     ASSERT(batchSizeA2 == batchSizeB2 || batchSizeB2 == 1 || batchSizeA2 == 1);
 
-    const int64_t orgM = isTransA ? operand1->shape[SHAPE_DIM3] : operand1->shape[SHAPE_DIM2];
-    const int64_t orgKa = isTransA ? operand1->shape[SHAPE_DIM2] : operand1->shape[SHAPE_DIM3];
-    const int64_t orgKb = isTransB ? operand2->shape[SHAPE_DIM3] : operand2->shape[SHAPE_DIM2];
-    const int64_t orgN = isTransB ? operand2->shape[SHAPE_DIM2] : operand2->shape[SHAPE_DIM3];
+    const int64_t orgM = isTransA ? operand1.GetShape()[SHAPE_DIM3] : operand1.GetShape()[SHAPE_DIM2];
+    const int64_t orgKa = isTransA ? operand1.GetShape()[SHAPE_DIM2] : operand1.GetShape()[SHAPE_DIM3];
+    const int64_t orgKb = isTransB ? operand2.GetShape()[SHAPE_DIM3] : operand2.GetShape()[SHAPE_DIM2];
+    const int64_t orgN = isTransB ? operand2.GetShape()[SHAPE_DIM2] : operand2.GetShape()[SHAPE_DIM3];
     ASSERT(orgKa == orgKb);
     int64_t firstDimA = isTransA ? orgKa : orgM;
     int64_t secondDimA = isTransA ? orgM : orgKa;
@@ -867,9 +867,9 @@ Tensor ABatchMulB4D(DataType dataType, const Tensor &operand1, const Tensor &ope
         int64_t offsetA = batchSizeA1 == 1 ? 0 : i * batchSizeA2 * firstDimA;
         int64_t offsetB = batchSizeB1 == 1 ? 0 : i * batchSizeB2 * firstDimB;
         for (int64_t j = 0; j < batchSize2; j++) {
-            auto tensorA = operand2D1->View(curFunc, {firstDimA, secondDimA}, {offsetA, 0});
-            auto tensorB = operand2D2->View(curFunc, {firstDimB, secondDimB}, {offsetB, 0});
-            auto tensorC = result->View(curFunc, {orgM, orgN}, {offsetC, 0});
+            auto tensorA = operand2D1.GetStorage()->View(curFunc, {firstDimA, secondDimA}, {offsetA, 0});
+            auto tensorB = operand2D2.GetStorage()->View(curFunc, {firstDimB, secondDimB}, {offsetB, 0});
+            auto tensorC = result.GetStorage()->View(curFunc, {orgM, orgN}, {offsetC, 0});
             if constexpr (!isTransA && !isTransB) {
                 AMulBImpl<isCMatrixNZ>(dataType, {tensorA, tensorB}, tensorC);
             } else if constexpr (!isTransA && isTransB) {

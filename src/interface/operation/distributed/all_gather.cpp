@@ -164,7 +164,7 @@ void TensorAllGatherTenor(const LogicalTensorPtr &in, const LogicalTensorPtr &ti
     tilingInfo.groupIndex = groupInfo.groupIndex;
     tilingInfo.rowPerRank = in->shape[0];
     tilingInfo.colPerRank = in->shape[1];
-    T tmpOut(out->Datatype(), out->GetShape());
+    T tmpOut(out.GetDataType(), out.GetShape());
     for (int rankIndex = 0; rankIndex < groupInfo.rankSize.value(); rankIndex++) {
         tilingInfo.rankShape = 1;
         tilingInfo.rankOffset = rankIndex;
@@ -186,7 +186,7 @@ void TensorAllGatherTenor(const LogicalTensorPtr &in, const LogicalTensorPtr &ti
     }
     if constexpr (std::is_same_v<T, Tensor>) {
         Operation &op = function.AddOperation(Opcode::OP_ASSEMBLE, {tmpOut.GetStorage()}, {out.GetStorage()});
-        op.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>(out->GetOffset().size())));
+        op.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>(out.GetStorage()->GetOffset().size())));
     }
 }
 
@@ -279,7 +279,7 @@ void AllGatherImpl(const Tensor &in, T &out, const char *group)
     CheckAndGetGroupInfo(groupIndex, tileShape, groupInfo);
 
     TensorTileInfo tileInfo;
-    CheckAndGetTileInfo(in->shape[0], in->shape[1], tileShape, tileInfo);
+    CheckAndGetTileInfo(in.GetShape()[0], in.GetShape()[1], tileShape, tileInfo);
 
     auto &function = *Program::GetInstance().GetCurrentFunction();
     int32_t tilingTensorSize = GetTilingTensorSize(tileInfo, groupInfo);
@@ -306,7 +306,7 @@ inline std::vector<int64_t> GetOutShape(const Tensor &in)
     int32_t rankSize = rankShape[DIST_HEAD_SHAPE] * rankShape[DIST_HEAD_COUNT] + rankShape[DIST_TAIL_SHAPE];
     ASSERT(rankSize > 0);
 
-    return {in->shape[0] * rankSize, in->shape[1]};
+    return {in.GetShape()[0] * rankSize, in.GetShape()[1]};
 }
 
 Tensor AllGather(const Tensor &in, const char *group)

@@ -196,7 +196,7 @@ TEST_F(DynamicBasicTest, TestCheckPointRestore) {
             t0 = VectorDuplicate(Element(DT_FP32, 1.0f), DT_FP32, {s, s});
         }
     }
-    EXPECT_EQ(t0->tensor->GetRefCount(), 1);
+    EXPECT_EQ(t0.GetStorage()->tensor->GetRefCount(), 1);
 }
 
 TEST_F(DynamicBasicTest, TestSlotId) {
@@ -302,7 +302,7 @@ TEST_F(DynamicBasicTest, DynamicRawShapeUnalign) {
     });
 
 #ifdef ENABLE_BUILD_WITH_CANN
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(arg0->GetDataSize()));
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(arg0.GetStorage()->GetDataSize()));
     std::vector<float> golden(s0, 5.0f);
     auto outs = ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));

@@ -33,11 +33,11 @@ namespace npu::tile_fwk {
 void WinAttentionCompute(const Tensor &qNope, Tensor &vNopeCache, const Tensor &qRope, Tensor &kRopeCache, int nQ, int nKv,
     Tensor &blockTable, Tensor &actSeqs, int windowSize, int blockSize, float softmaxScale, Tensor &attentionOut,
     WinAttenTileShapeConfig &tileConfig) {
-    auto dtype = qNope->Datatype();
+    auto dtype = qNope.GetStorage()->Datatype();
 
     // 入参B*S*N合轴
-    int dNopeSize = qNope->shape[1];
-    int dRopeSize = qRope->shape[1];
+    int dNopeSize = qNope.GetShape()[1];
+    int dRopeSize = qRope.GetShape()[1];
     ASSERT(nKv != 0) << "nKv cant't be zero!";
     auto gGroup = nQ / nKv;
     int gTile = tileConfig.gTile; // 128
@@ -50,12 +50,12 @@ void WinAttentionCompute(const Tensor &qNope, Tensor &vNopeCache, const Tensor &
     auto c2Tile = tileConfig.c2TileShape;
     auto v2Tile = tileConfig.v2TileShape;
     // loop config
-    SymbolicScalar bSize = blockTable->shape[0];
+    SymbolicScalar bSize = blockTable.GetShape()[0];
     SymbolicScalar bTile = 1;
     ASSERT(bTile != 0) << "bTile can't be zero!";
     ASSERT(nQ != 0) << "nQ can't be zero!";
     SymbolicScalar bLoop = bSize / bTile;
-    SymbolicScalar s1Size = qNope->shape[0] / bSize / nQ; // [B_s1_N1, D]
+    SymbolicScalar s1Size = qNope.GetShape()[0] / bSize / nQ; // [B_s1_N1, D]
     SymbolicScalar s1Tile = 1;
     ASSERT(s1Tile != 0) << "s1Tile can't be zero!";
     SymbolicScalar s1Loop = s1Size / s1Tile;
@@ -121,7 +121,7 @@ void WinAttentionCompute(const Tensor &qNope, Tensor &vNopeCache, const Tensor &
                         {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, true);
                     auto qKT = Matrix::Matmul<false, true>(DataType::DT_FP32, qPart, kActualPart);
                     TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
-                    auto qKTScale = MulS(qKT, Element(qKT->Datatype(), softmaxScale));
+                    auto qKTScale = MulS(qKT, Element(qKT.GetStorage()->Datatype(), softmaxScale));
 
                     // softmax
                     auto tileMax = RowMaxSingle(qKTScale); // max
@@ -139,7 +139,7 @@ void WinAttentionCompute(const Tensor &qNope, Tensor &vNopeCache, const Tensor &
                     auto out = Div(oiTmp, tileSum);
                     TileShape::Current().SetVecTile(1, 1, v2Tile[0], v2Tile[1]);
                     auto outFinal = AddS(Reshape(out, {bTile, s1Tile, gTile, dNopeSize}),
-                        Element(out->Datatype(), float(0)));
+                        Element(out.GetStorage()->Datatype(), float(0)));
                     Assemble(outFinal, oiOffset, attentionOut);
                 }
             }
@@ -150,11 +150,11 @@ void WinAttentionCompute(const Tensor &qNope, Tensor &vNopeCache, const Tensor &
 void WinAttentionComputeFlash(const Tensor &qNope, Tensor &vNopeCache, const Tensor &qRope, Tensor &kRopeCache, int nQ, int nKv,
     Tensor &blockTable, Tensor &actSeqs, int windowSize, int blockSize, float softmaxScale, Tensor &attentionOut,
     WinAttenTileShapeConfig &tileConfig) {
-    auto dtype = qNope->Datatype();
+    auto dtype = qNope.GetStorage()->Datatype();
 
     // 入参B*S*N合轴
-    int dNopeSize = qNope->shape[1];
-    int dRopeSize = qRope->shape[1];
+    int dNopeSize = qNope.GetShape()[1];
+    int dRopeSize = qRope.GetShape()[1];
     ASSERT(nKv != 0) << "nKv cant't be zero!";
     auto gGroup = nQ / nKv;
     int gTile = tileConfig.gTile; // 128
@@ -168,12 +168,12 @@ void WinAttentionComputeFlash(const Tensor &qNope, Tensor &vNopeCache, const Ten
     auto c2Tile = tileConfig.c2TileShape;
     auto v2Tile = tileConfig.v2TileShape;
     // loop config
-    SymbolicScalar bSize = blockTable->shape[0];
+    SymbolicScalar bSize = blockTable.GetShape()[0];
     SymbolicScalar bTile = 1;
     ASSERT(bTile != 0) << "bTile can't be zero!";
     ASSERT(nQ != 0) << "nQ can't be zero!";
     SymbolicScalar bLoop = bSize / bTile;
-    SymbolicScalar s1Size = qNope->shape[0] / bSize / nQ; // [B_s1_N1, D]
+    SymbolicScalar s1Size = qNope.GetShape()[0] / bSize / nQ; // [B_s1_N1, D]
     SymbolicScalar s1Tile = 1;
     ASSERT(s1Tile != 0) << "s1Tile can't be zero!";
     SymbolicScalar s1Loop = s1Size / s1Tile;
@@ -247,7 +247,7 @@ void WinAttentionComputeFlash(const Tensor &qNope, Tensor &vNopeCache, const Ten
                             {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, true);
                         auto qKT = Matrix::Matmul<false, true>(DataType::DT_FP32, qPart, kActualPart);
                         TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
-                        auto qKTScale = MulS(qKT, Element(qKT->Datatype(), softmaxScale));
+                        auto qKTScale = MulS(qKT, Element(qKT.GetStorage()->Datatype(), softmaxScale));
 
                         // softmax
                         auto tileMax = RowMaxSingle(qKTScale); // max
@@ -267,7 +267,7 @@ void WinAttentionComputeFlash(const Tensor &qNope, Tensor &vNopeCache, const Ten
                                 oiUpdate = Div(oiTmp, tileSum);
                                 TileShape::Current().SetVecTile(1, 1, v2Tile[0], v2Tile[1]);
                                 auto outFinal = AddS(Reshape(oiUpdate, {bTile, s1Tile, gTile, dNopeSize}),
-                                    Element(oiUpdate->Datatype(), float(0)));
+                                    Element(oiUpdate.GetStorage()->Datatype(), float(0)));
                                 Assemble(outFinal, oiOffset, attentionOut);
                             } ELSE {
                                 oiUpdate = oiTmp;
@@ -299,7 +299,7 @@ void WinAttentionComputeFlash(const Tensor &qNope, Tensor &vNopeCache, const Ten
                                 oiUpdate = Div(oiTmp, liNew);
                                 TileShape::Current().SetVecTile(1, 1, v2Tile[0], v2Tile[1]);
                                 auto outFinal = AddS(Reshape(oiUpdate, {bTile, s1Tile, gTile, dNopeSize}),
-                                    Element(oiUpdate->Datatype(), float(0)));
+                                    Element(oiUpdate.GetStorage()->Datatype(), float(0)));
                                 Assemble(outFinal, oiOffset, attentionOut);
                             } ELSE { // PATH0
                                 oiUpdate = oiTmp;
@@ -317,11 +317,11 @@ void WinAttentionComputeFlash(const Tensor &qNope, Tensor &vNopeCache, const Ten
 void WinAttentionDebugCompute(const Tensor &qNope, Tensor &vNopeCache, const Tensor &qRope, Tensor &kRopeCache, int nQ, int nKv,
     Tensor &blockTable, Tensor &actSeqs, int windowSize, int blockSize, float softmaxScale, Tensor &attentionOut,
     WinAttenTileShapeConfig &tileConfig) {
-    auto dtype = qNope->Datatype();
+    auto dtype = qNope.GetStorage()->Datatype();
 
     // 入参B*S*N合轴
-    int dNopeSize = qNope->shape[1];
-    int dRopeSize = qRope->shape[1];
+    int dNopeSize = qNope.GetShape()[1];
+    int dRopeSize = qRope.GetShape()[1];
     ASSERT(nKv != 0) << "nKv cant't be zero!";
     auto gGroup = nQ / nKv;
     int gTile = tileConfig.gTile; // 128
@@ -335,12 +335,12 @@ void WinAttentionDebugCompute(const Tensor &qNope, Tensor &vNopeCache, const Ten
     auto c2Tile = tileConfig.c2TileShape;
     auto v2Tile = tileConfig.v2TileShape;
     // loop config
-    SymbolicScalar bSize = blockTable->shape[0];
+    SymbolicScalar bSize = blockTable.GetShape()[0];
     SymbolicScalar bTile = 1;
     ASSERT(bTile != 0) << "bTile can't be zero!";
     ASSERT(nQ != 0) << "nQ can't be zero!";
     SymbolicScalar bLoop = bSize / bTile;
-    SymbolicScalar s1Size = qNope->shape[0] / bSize / nQ; // [B_s1_N1, D]
+    SymbolicScalar s1Size = qNope.GetShape()[0] / bSize / nQ; // [B_s1_N1, D]
     SymbolicScalar s1Tile = 1;
     ASSERT(s1Tile != 0) << "s1Tile can't be zero!";
     SymbolicScalar s1Loop = s1Size / s1Tile;
@@ -410,7 +410,7 @@ void WinAttentionDebugCompute(const Tensor &qNope, Tensor &vNopeCache, const Ten
                             {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, true);
                         auto qKT = Matrix::Matmul<false, true>(DataType::DT_FP32, qPart, kActualPart);
                         TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
-                        auto qKTScale = MulS(qKT, Element(qKT->Datatype(), softmaxScale));
+                        auto qKTScale = MulS(qKT, Element(qKT.GetStorage()->Datatype(), softmaxScale));
 
                         // softmax
                         auto tileMax = RowMaxSingle(qKTScale); // max
@@ -429,7 +429,7 @@ void WinAttentionDebugCompute(const Tensor &qNope, Tensor &vNopeCache, const Ten
                         TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                         auto outNew = Reshape(out, {bTile, s1Tile, gTile, dNopeSize});
                         TileShape::Current().SetVecTile(1, 1, outTile[0], outTile[1]);
-                        auto outFinal = AddS(outNew, Element(outNew->Datatype(), 0.0));
+                        auto outFinal = AddS(outNew, Element(outNew.GetStorage()->Datatype(), 0.0));
                         Assemble(outFinal, outOffset, attentionOut);
                     }
                 }

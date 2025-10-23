@@ -67,17 +67,17 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
     auto c2Tile = tileConfig.cmpTile.c2Tile;
     auto v2Tile = tileConfig.cmpTile.v2Tile;
 
-    auto qDtype = qNope->Datatype();
-    auto kDtype = cmpKvCache->Datatype();
+    auto qDtype = qNope.GetStorage()->Datatype();
+    auto kDtype = cmpKvCache.GetStorage()->Datatype();
 
-    const int b = cmpBlockTable->shape[SHAPE_DIM0];
+    const int b = cmpBlockTable.GetShape()[SHAPE_DIM0];
     ASSERT(n1 !=0) << "n1 can't be zero!";
-    const int s1 = qNope->shape[SHAPE_DIM0] / b / n1;
+    const int s1 = qNope.GetShape()[SHAPE_DIM0] / b / n1;
 
-    const int dN = qNope->shape[SHAPE_DIM1];
-    const int dR = qRope->shape[SHAPE_DIM1];
+    const int dN = qNope.GetShape()[SHAPE_DIM1];
+    const int dR = qRope.GetShape()[SHAPE_DIM1];
     const int dQK = dN + dR;
-    const int maxCmpBlock = cmpBlockTable->shape[SHAPE_DIM1];
+    const int maxCmpBlock = cmpBlockTable.GetShape()[SHAPE_DIM1];
     ASSERT(cmpStride !=0) << "n1 can't be zero!";
     const int slcSize = slcBlockSize / cmpStride;
     ASSERT(slcSize !=0) << "slcSize can't be zero!";
@@ -144,11 +144,11 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
 
                     // 注意这里需要申请对齐的shape，因为不确定尾块多大
                     auto cmpKvCache2D =
-                        Reshape(cmpKvCache, {cmpKvCache->shape[0] * cmpKvCache->shape[1] * cmpKvCache->shape[2], dN});
+                        Reshape(cmpKvCache, {cmpKvCache.GetShape()[0] * cmpKvCache.GetShape()[1] * cmpKvCache.GetShape()[2], dN});
                     auto curCmpKv =
                         View(cmpKvCache2D, {blockSize, dN}, {curValidSeq, dN}, {curBlockIdx * blockSize, 0});
                     auto cmpKrCache2D =
-                        Reshape(cmpKrCache, {cmpKrCache->shape[0] * cmpKrCache->shape[1] * cmpKrCache->shape[2], dR});
+                        Reshape(cmpKrCache, {cmpKrCache.GetShape()[0] * cmpKrCache.GetShape()[1] * cmpKrCache.GetShape()[2], dR});
                     auto curCmpKr =
                         View(cmpKrCache2D, {blockSize, dR}, {curValidSeq, dR}, {curBlockIdx * blockSize, 0});
                     auto curKAttn = Assemble({
@@ -169,7 +169,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                     TileShape::Current().SetVecTile(vecTile, vecTile);
                     sij = View(sij, {blockSize, n1}, {curValidSeq, n1}, {0, 0});
                     config::SetSemanticLabel("Cmp-Attn-V1");
-                    auto sijScale = MulS(sij, Element(sij->Datatype(), softmaxScale)); // (blockSize, n1)
+                    auto sijScale = MulS(sij, Element(sij.GetStorage()->Datatype(), softmaxScale)); // (blockSize, n1)
                     // reduceMax首轴不支持切分
                     auto tildaMij = RowMaxSingle(sijScale, 0); // (1, n1)
                     auto tsub = Sub(sijScale, tildaMij);       // (blockSize, n1) - (1, n1) -> (blockSize, n1)
@@ -190,7 +190,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                             oiUpdate = Div(oiTmp, Reshape(tildaLij, {n1, 1})); // (n1, dN), (n1, 1) -> (n1, dN)
                             auto oiUpdateReshape = Reshape(oiUpdate, {1, 1, n1, dN});
                             TileShape::Current().SetVecTile(1, 1, v2Tile[0], v2Tile[1]);
-                            auto oiUpdateCast = Assign(Cast(oiUpdateReshape, cmpAttnOut->Datatype()));
+                            auto oiUpdateCast = Assign(Cast(oiUpdateReshape, cmpAttnOut.GetStorage()->Datatype()));
                             Assemble(oiUpdateCast, {bIdx, s1Idx, 0, 0}, cmpAttnOut);
                             TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                         }
@@ -231,7 +231,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                             oiUpdate = Div(oiTmp, Reshape(liNew, {n1, 1})); // (n1, dN), (n1, 1) -> (n1, dN)
                             auto oiUpdateReshape = Reshape(oiUpdate, {1, 1, n1, dN});
                             TileShape::Current().SetVecTile(1, 1, v2Tile[0], v2Tile[1]);
-                            auto oiUpdateCast = Assign(Cast(oiUpdateReshape, cmpAttnOut->Datatype()));
+                            auto oiUpdateCast = Assign(Cast(oiUpdateReshape, cmpAttnOut.GetStorage()->Datatype()));
                             Assemble(oiUpdateCast, {bIdx, s1Idx, 0, 0}, cmpAttnOut);
                             TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                         }
@@ -275,7 +275,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                             View(tildaPijPad, {cmpSize - 1, n1}, {std::min(cmpSize - 1, curValidSeq), n1}, {0, 0});
                         auto lastAuxTensor =
                             View(auxTensor, {cmpSize - 1, n1}, {std::min(cmpSize - 1, curValidSeq), n1},
-                                {auxTensor->shape[0] - std::min(cmpSize - 1, curValidSeq), 0});
+                                {auxTensor.GetShape()[0] - std::min(cmpSize - 1, curValidSeq), 0});
                         modifyTensor = Mul(modifyTensor,
                             lastAuxTensor); // (cmpSize - 1, n1), (cmpSize - 1, n1) -> (cmpSize - 1, n1)
                         auto modifyTensorReduce = RowSumSingle(modifyTensor, 0); // (1, n1)

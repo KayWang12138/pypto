@@ -34,10 +34,10 @@ namespace npu::tile_fwk {
 void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &qRope, Tensor &kRopeCache,
     Tensor &blockTable, Tensor &actSeqs, int blockSize, float softmaxScale, Tensor &attentionOut,
     PaTileShapeConfig &tileConfig, int maxUnrollTimes, bool isNzFormat) {
-    auto dtype = qNope->Datatype();
+    auto dtype = qNope.GetStorage()->Datatype();
     // 入参B*S*N合轴
-    int dN = qNope->shape[1];
-    int dR = qRope->shape[1];
+    int dN = qNope.GetShape()[1];
+    int dR = qRope.GetShape()[1];
 
     int nTile = tileConfig.headNumQTile;
     auto c1Tile = tileConfig.c1TileShape;
@@ -47,8 +47,8 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
 
     FUNCTION("main",
         {qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs}, {attentionOut}) {
-        SymbolicScalar batchSize = blockTable->shape[0];
-        SymbolicScalar nQ = qNope->shape[0] / batchSize;
+        SymbolicScalar batchSize = blockTable.GetShape()[0];
+        SymbolicScalar nQ = qNope.GetShape()[0] / batchSize;
         SymbolicScalar nLoop = nQ / nTile;
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, batchSize, 1)) {
@@ -97,7 +97,7 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
                     TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
 
                     config::SetSemanticLabel("SoftMax");
-                    auto sijScale = MulS(sij, Element(sij->Datatype(), softmaxScale)); // (curNTile, curS2Tile)
+                    auto sijScale = MulS(sij, Element(sij.GetStorage()->Datatype(), softmaxScale)); // (curNTile, curS2Tile)
 
                     config::SetSemanticLabel("SoftMax");
                     auto tildaMij = RowMaxSingle(sijScale); // (curNTile, curS2Tile) -> (curNTile, 1)
@@ -171,10 +171,10 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
 void PageAttentionWithImmScalar(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &qRope, Tensor &kRopeCache,
     std::vector<std::vector<int>>  &blockTable, std::vector<int> &actSeqs, int blockSize, float softmaxScale, Tensor &attentionOut,
     PaTileShapeConfig &tileConfig, int maxUnrollTimes, bool isNzFormat) {
-    auto dtype = qNope->Datatype();
+    auto dtype = qNope.GetStorage()->Datatype();
     // 入参B*S*N合轴
-    int dN = qNope->shape[1];
-    int dR = qRope->shape[1];
+    int dN = qNope.GetShape()[1];
+    int dR = qRope.GetShape()[1];
 
     int nTile = tileConfig.headNumQTile;
     auto c1Tile = tileConfig.c1TileShape;
@@ -185,7 +185,7 @@ void PageAttentionWithImmScalar(Tensor &qNope, Tensor &kNopeCache, Tensor &vNope
     FUNCTION("main",
         {qNope, kNopeCache, vNopeCache, qRope, kRopeCache}, {attentionOut}) {
         int batchSize((int64_t)blockTable.size());
-        SymbolicScalar nQ = qNope->shape[0] / batchSize;
+        SymbolicScalar nQ = qNope.GetShape()[0] / batchSize;
         SymbolicScalar nLoop = nQ / nTile;
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, batchSize, 1)) {
@@ -231,7 +231,7 @@ void PageAttentionWithImmScalar(Tensor &qNope, Tensor &kNopeCache, Tensor &vNope
                     sij.SetName("sij");
                     TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
 
-                    auto sijScale = MulS(sij, Element(sij->Datatype(), softmaxScale)); // (curNTile, curS2Tile)
+                    auto sijScale = MulS(sij, Element(sij.GetStorage()->Datatype(), softmaxScale)); // (curNTile, curS2Tile)
 
                     auto tildaMij = RowMaxSingle(sijScale); // (curNTile, curS2Tile) -> (curNTile, 1)
                     auto tsub =
@@ -297,10 +297,10 @@ void PageAttentionWithImmScalar(Tensor &qNope, Tensor &kNopeCache, Tensor &vNope
 void PageAttentionWithManualUnroll(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &qRope, Tensor &kRopeCache,
     Tensor &blockTable, Tensor &actSeqs, int blockSize, float softmaxScale, Tensor &attentionOut,
     PaTileShapeConfig &tileConfig, int maxUnrollTimes) {
-    auto dtype = qNope->Datatype();
+    auto dtype = qNope.GetStorage()->Datatype();
     // 入参B*S*N合轴
-    int dN = qNope->shape[1];
-    int dR = qRope->shape[1];
+    int dN = qNope.GetShape()[1];
+    int dR = qRope.GetShape()[1];
 
     int nTile = tileConfig.headNumQTile;
     auto v0Tile = tileConfig.v0TileShape;
@@ -313,8 +313,8 @@ void PageAttentionWithManualUnroll(Tensor &qNope, Tensor &kNopeCache, Tensor &vN
 
     FUNCTION("main",
         {qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs}, {attentionOut}) {
-        SymbolicScalar batchSize = blockTable->shape[0];
-        SymbolicScalar nQ = qNope->shape[0] / batchSize;
+        SymbolicScalar batchSize = blockTable.GetShape()[0];
+        SymbolicScalar nQ = qNope.GetShape()[0] / batchSize;
         SymbolicScalar nLoop = nQ / nTile;
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(batchSize)) {
@@ -359,7 +359,7 @@ void PageAttentionWithManualUnroll(Tensor &qNope, Tensor &kNopeCache, Tensor &vN
 
                             auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj);
                             TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
-                            auto sijScale = MulS(sij, Element(sij->Datatype(), softmaxScale)); // (nTileCur, s2TileCur)
+                            auto sijScale = MulS(sij, Element(sij.GetStorage()->Datatype(), softmaxScale)); // (nTileCur, s2TileCur)
 
                             auto tildaMij = RowMaxSingle(sijScale); // (nTileCur, s2TileCur) -> (nTileCur, 1)
                             auto tsub = Sub(sijScale,
@@ -424,10 +424,10 @@ void PageAttentionWithManualUnroll(Tensor &qNope, Tensor &kNopeCache, Tensor &vN
 void PageAttentionHighThroughput(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &qRope, Tensor &kRopeCache,
     Tensor &blockTable, Tensor &actSeqs, int blockSize, float softmaxScale, Tensor &attentionOut,
     PaTileShapeConfig &tileConfig, int maxUnrollTimes) {
-    auto dtype = qNope->Datatype();
+    auto dtype = qNope.GetStorage()->Datatype();
     // 入参B*S*N合轴
-    int dN = qNope->shape[1];
-    int dR = qRope->shape[1];
+    int dN = qNope.GetShape()[1];
+    int dR = qRope.GetShape()[1];
 
     int nTile = tileConfig.headNumQTile;
     auto c1Tile = tileConfig.c1TileShape;
@@ -437,8 +437,8 @@ void PageAttentionHighThroughput(Tensor &qNope, Tensor &kNopeCache, Tensor &vNop
 
     FUNCTION("main",
         {qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs}, {attentionOut}) {
-        SymbolicScalar batchSize = blockTable->shape[0];
-        SymbolicScalar nQ = qNope->shape[0] / batchSize;
+        SymbolicScalar batchSize = blockTable.GetShape()[0];
+        SymbolicScalar nQ = qNope.GetShape()[0] / batchSize;
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, batchSize, 1), PowersOf2(maxUnrollTimes)) {
             SymbolicScalar curSeq = GetTensorData(actSeqs, {bIdx});
@@ -474,7 +474,7 @@ void PageAttentionHighThroughput(Tensor &qNope, Tensor &kNopeCache, Tensor &vNop
             TileShape::Current().SetCubeTile({c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]});
             auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj); // (curNTile, dN+dR), (curS2Tile, dN+dR) -> (curNTile, curS2Tile)
             TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
-            auto sijScale = MulS(sij, Element(sij->Datatype(), softmaxScale)); // (curNTile, curS2Tile)
+            auto sijScale = MulS(sij, Element(sij.GetStorage()->Datatype(), softmaxScale)); // (curNTile, curS2Tile)
 
             auto tildaMij = RowMaxSingle(sijScale); // (curNTile, curS2Tile) -> (curNTile, 1)
             auto tsub =

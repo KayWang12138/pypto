@@ -120,12 +120,12 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_batch4_onlymm5) {
         Tensor res;
         TileShape::Current().SetCubeTile(
             {4, 4}, {std::min(128, N * vHeadDim), std::min(128, N * vHeadDim)}, {std::min(512, H), std::min(512, H)});
-        if (r2Res->shape.size() == 2) {
+        if (r2Res.GetShape().size() == 2) {
             res = npu::tile_fwk::Matrix::Matmul<false, false>(DataType::DT_INT32, quantizedA, wOI);
-        } else if (r2Res->shape.size() == 3) {
+        } else if (r2Res.GetShape().size() == 3) {
             res = npu::tile_fwk::Matrix::BatchMatmul(DataType::DT_INT32, quantizedA, wOI);
         } else {
-            assert(r2Res->shape.size() <= 3);
+            assert(r2Res.GetShape().size() <= 3);
         }
         TileShape::Current().SetVecTile(4, std::min(512, N * vHeadDim));
         res = Cast(res, DataType::DT_FP32);
@@ -260,12 +260,12 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_n128_onlymm5) {
         Tensor res;
         TileShape::Current().SetCubeTile({std::min(32, B * S), std::min(32, B * S)},
             {std::min(128, N * vHeadDim), std::min(128, N * vHeadDim)}, {std::min(512, H), std::min(512, H)});
-        if (r2Res->shape.size() == 2) {
+        if (r2Res.GetShape().size() == 2) {
             res = npu::tile_fwk::Matrix::Matmul<false, false>(DataType::DT_INT32, quantizedA, wOI);
-        } else if (r2Res->shape.size() == 3) {
+        } else if (r2Res.GetShape().size() == 3) {
             res = npu::tile_fwk::Matrix::BatchMatmul(DataType::DT_INT32, quantizedA, wOI);
         } else {
-            assert(r2Res->shape.size() <= 3);
+            assert(r2Res.GetShape().size() <= 3);
         }
         TileShape::Current().SetVecTile(4, std::min(32, N * vHeadDim));
         res = Cast(res, DataType::DT_FP32);
@@ -439,12 +439,12 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_n128_onlymm5He) {
         Tensor res;
         TileShape::Current().SetCubeTile({std::min(32, B * S), std::min(32, B * S)},
             {std::min(128, N * vHeadDim), std::min(128, N * vHeadDim)}, {std::min(512, H), std::min(512, H)});
-        if (r2Res->shape.size() == 2) {
+        if (r2Res.GetShape().size() == 2) {
             res = npu::tile_fwk::Matrix::Matmul(DataType::DT_INT32, quantizedA, wOI); // (32, 16384) @ (16384, 7168)
-        } else if (r2Res->shape.size() == 3) {
+        } else if (r2Res.GetShape().size() == 3) {
             res = npu::tile_fwk::Matrix::BatchMatmul(DataType::DT_INT32, quantizedA, wOI);
         } else {
-            assert(r2Res->shape.size() <= 3);
+            assert(r2Res.GetShape().size() <= 3);
         }
         TileShape::Current().SetVecTile(2, std::min(32, N * vHeadDim));
         res = Cast(res, DataType::DT_FP32); // (32, 7168)

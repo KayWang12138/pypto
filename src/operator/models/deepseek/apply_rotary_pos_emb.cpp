@@ -30,7 +30,7 @@ using namespace npu::tile_fwk;
 
 namespace npu::tile_fwk {
 Tensor RoPEInputCast(const Tensor &input) {
-    auto inputDtype = input->Datatype();
+    auto inputDtype = input.GetStorage()->Datatype();
     if (inputDtype == DataType::DT_FP32) { // fp32，不需要进行cast
         return input;
     }
@@ -40,7 +40,7 @@ Tensor RoPEInputCast(const Tensor &input) {
 }
 
 Tensor RotateHalf(const Tensor &input) {
-    auto shape = input->shape;
+    auto shape = input.GetShape();
     auto shapeSize = shape.size();
     assert(shapeSize >= 1 && "rope rotate_half input dim less than 1");
     assert(shape[shapeSize - 1] % NUM2 == 0 && "rope rotate_half last dim shape is even.");
@@ -57,16 +57,16 @@ Tensor RotateHalf(const Tensor &input) {
 
     // cat((-x2, x1), -1)
     return Concat(
-        {MulS(x2, Element(x2->Datatype(), -1.0)), AddS(x1, Element(x1->Datatype(), 0.0))}, -1); // x1 add 0, 规避pass view+assemble未翻译registor_copy的问题
+        {MulS(x2, Element(x2.GetStorage()->Datatype(), -1.0)), AddS(x1, Element(x1.GetStorage()->Datatype(), 0.0))}, -1); // x1 add 0, 规避pass view+assemble未翻译registor_copy的问题
 }
 
 void ApplyRotaryPosEmbV2(const Tensor &q, const Tensor &k, const Tensor &cos, const Tensor &sin, Tensor &qEmbed,
     Tensor &kEmbed, const int unsqueezeDim, const RoPETileShapeConfigNew &ropeTileShapeConfig) {
-    auto outputDtype = qEmbed->Datatype();
+    auto outputDtype = qEmbed.GetStorage()->Datatype();
 
     // q/k仅支持四维，cos/sin仅支持san维
-    assert(q->shape.size() == SHAPE_DIM4 && k->shape.size() == SHAPE_DIM4 && cos->shape.size() == SHAPE_DIM3 &&
-           sin->shape.size() == SHAPE_DIM3);
+    assert(q.GetShape().size() == SHAPE_DIM4 && k.GetShape().size() == SHAPE_DIM4 && cos.GetShape().size() == SHAPE_DIM3 &&
+           sin.GetShape().size() == SHAPE_DIM3);
 
     assert(!ropeTileShapeConfig.threeDimsTileShape.empty() && "rope ThreeDims Tile need to set!");
     assert(!ropeTileShapeConfig.fourDimsTileShapeQ.empty() && "rope FourDimsQ Tile need to set!");
@@ -87,10 +87,10 @@ void ApplyRotaryPosEmbV2(const Tensor &q, const Tensor &k, const Tensor &cos, co
 
     // q=View(q, b,h,s,d//2,2).transpose(4,3).reshape(b,h,s,d)
     // q/k: [b,s,n,qk_d]
-    int b = castQ->shape[0];
-    int s = castQ->shape[1]; // use h in source code
-    int h = castQ->shape[2];
-    int d = castQ->shape[NUM_VALUE_3];
+    int b = castQ.GetShape()[0];
+    int s = castQ.GetShape()[1]; // use h in source code
+    int h = castQ.GetShape()[2];
+    int d = castQ.GetShape()[NUM_VALUE_3];
 
     auto qView = Reshape(castQ, {b, s, h, d / 2, 2}); // [b,n,s,qk_d//2,2]
     TileShape::Current().SetVecTile(ropeTileShapeConfig.fiveDimsTileShape);
@@ -98,10 +98,10 @@ void ApplyRotaryPosEmbV2(const Tensor &q, const Tensor &k, const Tensor &cos, co
     auto qReshape = Reshape(qTrans, {b, s, h, d});              // [b,n,s,qk_d]
 
     // k=View(k, b,h,s,d//2,2).transpose(4,3).reshape(b,h,s,d)
-    b = castK->shape[0];
-    s = castK->shape[1];
-    h = castK->shape[2];
-    d = castK->shape[3];
+    b = castK.GetShape()[0];
+    s = castK.GetShape()[1];
+    h = castK.GetShape()[2];
+    d = castK.GetShape()[3];
 
     TileShape::Current().SetVecTile(ropeTileShapeConfig.fourDimsTileShapeK);
     auto kView = Reshape(castK, {b, s, h, d / 2, 2});
@@ -116,7 +116,7 @@ void ApplyRotaryPosEmbV2(const Tensor &q, const Tensor &k, const Tensor &cos, co
     TileShape::Current().SetVecTile(ropeTileShapeConfig.fourDimsTileShapeK);
     kEmbed = Add(Mul(kReshape, cosUnsqueeze), Mul(RotateHalf(kReshape), sinUnsqueeze));
 
-    if (outputDtype != qEmbed->Datatype()) {
+    if (outputDtype != qEmbed.GetStorage()->Datatype()) {
         TileShape::Current().SetVecTile(ropeTileShapeConfig.fourDimsTileShapeQ);
         qEmbed = Cast(qEmbed, outputDtype);
         TileShape::Current().SetVecTile(ropeTileShapeConfig.fourDimsTileShapeK);
@@ -127,11 +127,11 @@ void ApplyRotaryPosEmbV2(const Tensor &q, const Tensor &k, const Tensor &cos, co
 void ApplyRotaryPosEmb(const Tensor &q, const Tensor &k, const Tensor &cos, const Tensor &sin,
     const Tensor &positionIds, Tensor &qEmbed, Tensor &kEmbed, const int unsqueezeDim,
     const RoPETileShapeConfig &ropeTileShapeConfig) {
-    auto outputDtype = qEmbed->Datatype();
+    auto outputDtype = qEmbed.GetStorage()->Datatype();
 
     // q/k仅支持四维，cos/sin仅支持两维
-    assert(q->shape.size() == SHAPE_DIM4 && k->shape.size() == SHAPE_DIM4 && cos->shape.size() == SHAPE_DIM2 &&
-           sin->shape.size() == SHAPE_DIM2);
+    assert(q.GetShape().size() == SHAPE_DIM4 && k.GetShape().size() == SHAPE_DIM4 && cos.GetShape().size() == SHAPE_DIM2 &&
+           sin.GetShape().size() == SHAPE_DIM2);
 
     assert(!ropeTileShapeConfig.twoDimsTileShape.empty() && "rope TwoDims Tile need to set!");
     assert(!ropeTileShapeConfig.threeDimsTileShape.empty() && "rope ThreeDims Tile need to set!");
@@ -157,10 +157,10 @@ void ApplyRotaryPosEmb(const Tensor &q, const Tensor &k, const Tensor &cos, cons
 
     // q=View(q, b,h,s,d//2,2).transpose(4,3).reshape(b,h,s,d)
     // q/k: [b,n,s,qk_d]
-    int b = castQ->shape[0];
-    int h = castQ->shape[1]; // use h in source code
-    int s = castQ->shape[2];
-    int d = castQ->shape[NUM_VALUE_3];
+    int b = castQ.GetShape()[0];
+    int h = castQ.GetShape()[1]; // use h in source code
+    int s = castQ.GetShape()[2];
+    int d = castQ.GetShape()[NUM_VALUE_3];
 
     TileShape::Current().SetVecTile(ropeTileShapeConfig.fourDimsTileShape);
     auto qView = Reshape(castQ, {b, h, s, d / 2, 2}); // [b,n,s,qk_d//2,2]
@@ -169,10 +169,10 @@ void ApplyRotaryPosEmb(const Tensor &q, const Tensor &k, const Tensor &cos, cons
     auto qReshape = Reshape(qTrans, {b, h, s, d});              // [b,n,s,qk_d]
 
     // k=View(k, b,h,s,d//2,2).transpose(4,3).reshape(b,h,s,d)
-    b = castK->shape[0];
-    h = castK->shape[1];
-    s = castK->shape[2];
-    d = castK->shape[3];
+    b = castK.GetShape()[0];
+    h = castK.GetShape()[1];
+    s = castK.GetShape()[2];
+    d = castK.GetShape()[3];
 
     TileShape::Current().SetVecTile(ropeTileShapeConfig.fourDimsTileShape);
     auto kView = Reshape(castK, {b, h, s, d / 2, 2});
@@ -186,7 +186,7 @@ void ApplyRotaryPosEmb(const Tensor &q, const Tensor &k, const Tensor &cos, cons
     qEmbed = Add(Mul(qReshape, cosUnsqueeze), Mul(RotateHalf(qReshape), sinUnsqueeze));
     kEmbed = Add(Mul(kReshape, cosUnsqueeze), Mul(RotateHalf(kReshape), sinUnsqueeze));
 
-    if (outputDtype != qEmbed->Datatype()) {
+    if (outputDtype != qEmbed.GetStorage()->Datatype()) {
         qEmbed = Cast(qEmbed, outputDtype);
         kEmbed = Cast(kEmbed, outputDtype);
     }

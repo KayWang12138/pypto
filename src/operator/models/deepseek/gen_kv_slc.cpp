@@ -32,8 +32,8 @@ namespace npu::tile_fwk {
 void KvSlcCompute(Tensor &topK_indcies, Tensor &topK_tensor_shape, Tensor &kvNopeCache, Tensor &kRopeCache, Tensor &kvActSeqs, int front, int near, int topk, int l_prime,
                   int n2, Tensor &blockTable, int blockSize, Tensor &k_slcOut, Tensor &v_slcOut, Tensor &kvSlcActSeqs, KvSlcTileShapeConfig &tileConfig, bool debug) {
     auto v0Tile = tileConfig.v0TileShape;
-    SymbolicScalar b = topK_indcies->shape[0];
-    SymbolicScalar s = topK_indcies->shape[1];
+    SymbolicScalar b = topK_indcies.GetShape()[0];
+    SymbolicScalar s = topK_indcies.GetShape()[1];
     SymbolicScalar kv_lora_rank = kvNopeCache.GetShape(1) / n2;
     SymbolicScalar rope_dim = kRopeCache.GetShape(1) / n2;
     LOOP("LOOP_L0_batchIdx", FunctionType::DYNAMIC_LOOP, batchIdx, LoopRange(0, b, 1), {}, true) {
@@ -75,11 +75,11 @@ void KvSlcCompute(Tensor &topK_indcies, Tensor &topK_tensor_shape, Tensor &kvNop
                     auto kv_slcBlock_fp32 = Cast(kv_slcBlock, DataType::DT_FP32);
                     auto kRope_slcBlock_fp32 = Cast(kRope_slcBlock, DataType::DT_FP32);
                     TileShape::Current().SetVecTile(v0Tile[0], v0Tile[1]);
-                    auto kv_slcBlock_tiled = MulS(kv_slcBlock_fp32, Element(kv_slcBlock_fp32->Datatype(), float(1)));
-                    auto kRope_slcBlock_tiled = MulS(kRope_slcBlock_fp32, Element(kRope_slcBlock_fp32->Datatype(), float(1)));
+                    auto kv_slcBlock_tiled = MulS(kv_slcBlock_fp32, Element(kv_slcBlock_fp32.GetStorage()->Datatype(), float(1)));
+                    auto kRope_slcBlock_tiled = MulS(kRope_slcBlock_fp32, Element(kRope_slcBlock_fp32.GetStorage()->Datatype(), float(1)));
                     TileShape::Current().SetVecTile(v0Tile[0], v0Tile[1]);
-                    auto kv_slcBlock_fp16 = Cast(kv_slcBlock_tiled, k_slcOut->Datatype());
-                    auto kRope_slcBlock_fp16 = Cast(kRope_slcBlock_tiled, v_slcOut->Datatype());
+                    auto kv_slcBlock_fp16 = Cast(kv_slcBlock_tiled, k_slcOut.GetStorage()->Datatype());
+                    auto kRope_slcBlock_fp16 = Cast(kRope_slcBlock_tiled, v_slcOut.GetStorage()->Datatype());
                     TileShape::Current().SetVecTile(v0Tile[0], v0Tile[1]);
                     SymbolicScalar output_axis1_value =
                     batchIdx * s * n2 * topk * l_prime + slcIdx * n2 * topk * l_prime + nkvIdx * topk * l_prime + topKIdx * l_prime;

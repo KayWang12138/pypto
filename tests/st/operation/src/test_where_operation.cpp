@@ -40,8 +40,8 @@ static void WhereOperationExeFuncDoubleCut(
         config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
         FUNCTION("main", {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
-            SymbolicScalar firstDim = max(inputs[0]->shape[0], max(inputs[1]->shape[0], inputs[2]->shape[0]));
-            SymbolicScalar secondDim = max(inputs[0]->shape[1], max(inputs[1]->shape[1], inputs[2]->shape[1]));
+            SymbolicScalar firstDim = max(inputs[0].GetShape()[0], max(inputs[1].GetShape()[0], inputs[2].GetShape()[0]));
+            SymbolicScalar secondDim = max(inputs[0].GetShape()[1], max(inputs[1].GetShape()[1], inputs[2].GetShape()[1]));
             auto args = static_cast<const WhereOpFuncArgs *>(opArgs);
             const int firstViewShape = args->viewShape_[0];
             const int secondViewShape = args->viewShape_[1];
@@ -53,7 +53,7 @@ static void WhereOperationExeFuncDoubleCut(
                     Tensor tileTensor0;
                     Tensor tileTensor1;
                     Tensor tileTensor2;
-                    if(inputs[0]->shape[1] != broadcastFlag && inputs[1]->shape[1] != broadcastFlag && inputs[2]->shape[1] == broadcastFlag) {
+                    if(inputs[0].GetShape()[1] != broadcastFlag && inputs[1].GetShape()[1] != broadcastFlag && inputs[2].GetShape()[1] == broadcastFlag) {
                         tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape},
                             {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                                 std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
@@ -65,7 +65,7 @@ static void WhereOperationExeFuncDoubleCut(
                         tileTensor2 = View(inputs[2], {firstViewShape, 1},
                             {std::min(firstDim - bIdx * firstViewShape, firstViewShape), 1}, {bIdx * firstViewShape, 0});
                     }
-                    else if (inputs[0]->shape[0] != broadcastFlag && inputs[1]->shape[0] != broadcastFlag && inputs[2]->shape[0] == broadcastFlag) {
+                    else if (inputs[0].GetShape()[0] != broadcastFlag && inputs[1].GetShape()[0] != broadcastFlag && inputs[2].GetShape()[0] == broadcastFlag) {
                         tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape},
                             {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                                 std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
@@ -78,7 +78,7 @@ static void WhereOperationExeFuncDoubleCut(
                             {1, std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                             {0, sIdx * secondViewShape});
                     }
-                    else if (inputs[0]->shape[1] != broadcastFlag && inputs[1]->shape[1] == broadcastFlag && inputs[2]->shape[1] != broadcastFlag) {
+                    else if (inputs[0].GetShape()[1] != broadcastFlag && inputs[1].GetShape()[1] == broadcastFlag && inputs[2].GetShape()[1] != broadcastFlag) {
                         tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape},
                             {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                                 std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
@@ -90,7 +90,7 @@ static void WhereOperationExeFuncDoubleCut(
                                 std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                             {bIdx * firstViewShape, sIdx * secondViewShape});
                     }
-                    else if (inputs[0]->shape[0] != broadcastFlag && inputs[1]->shape[0] == broadcastFlag && inputs[2]->shape[0] != broadcastFlag) {
+                    else if (inputs[0].GetShape()[0] != broadcastFlag && inputs[1].GetShape()[0] == broadcastFlag && inputs[2].GetShape()[0] != broadcastFlag) {
                         tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape},
                             {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                                 std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
@@ -103,7 +103,7 @@ static void WhereOperationExeFuncDoubleCut(
                                 std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                             {bIdx * firstViewShape, sIdx * secondViewShape});
                     }
-                    else if (inputs[0]->shape[1] == broadcastFlag && inputs[1]->shape[1] != broadcastFlag && inputs[2]->shape[1] != broadcastFlag) {
+                    else if (inputs[0].GetShape()[1] == broadcastFlag && inputs[1].GetShape()[1] != broadcastFlag && inputs[2].GetShape()[1] != broadcastFlag) {
                         tileTensor0 = View(inputs[0], {firstViewShape, 1},
                             {std::min(firstDim - bIdx * firstViewShape, firstViewShape), 1}, {bIdx * firstViewShape, 0});
                         tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape},
@@ -115,7 +115,7 @@ static void WhereOperationExeFuncDoubleCut(
                                 std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                             {bIdx * firstViewShape, sIdx * secondViewShape});
                     }
-                    else if (inputs[0]->shape[0] == broadcastFlag && inputs[1]->shape[0] != broadcastFlag && inputs[2]->shape[0] != broadcastFlag) {
+                    else if (inputs[0].GetShape()[0] == broadcastFlag && inputs[1].GetShape()[0] != broadcastFlag && inputs[2].GetShape()[0] != broadcastFlag) {
                         tileTensor0 = View(inputs[0], {1, secondViewShape},
                             {1, std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                             {0, sIdx * secondViewShape});
@@ -171,9 +171,9 @@ static void WhereOperationExeFuncTripleCut(
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     FUNCTION("main", {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
-        SymbolicScalar firstDim = inputs[0]->shape[0];
-        SymbolicScalar secondDim = inputs[0]->shape[1];
-        SymbolicScalar thirdDim = inputs[0]->shape[2];
+        SymbolicScalar firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar secondDim = inputs[0].GetShape()[1];
+        SymbolicScalar thirdDim = inputs[0].GetShape()[2];
         auto *args = static_cast<const WhereOpFuncArgs *>(opArgs);
         const int firstViewShape = args->viewShape_[0];
         const int secondViewShape = args->viewShape_[1];
@@ -230,10 +230,10 @@ static void WhereOperationExeFuncQuadrupleCut(
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     FUNCTION("main", {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
-        SymbolicScalar firstDim = inputs[0]->shape[0];
-        SymbolicScalar secondDim = inputs[0]->shape[1];
-        SymbolicScalar thirdDim = inputs[0]->shape[2];
-        SymbolicScalar fourthDim = inputs[0]->shape[3];
+        SymbolicScalar firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar secondDim = inputs[0].GetShape()[1];
+        SymbolicScalar thirdDim = inputs[0].GetShape()[2];
+        SymbolicScalar fourthDim = inputs[0].GetShape()[3];
         auto args = static_cast<const WhereOpFuncArgs *>(opArgs);
         const int firstViewShape = args->viewShape_[0];
         const int secondViewShape = args->viewShape_[1];
@@ -325,10 +325,10 @@ TEST_P(WhereOperationTest, TestWhere) {
     auto args = WhereOpFuncArgs(flag, x_scalar, y_scalar, GetViewShape(test_data), GetTileShape(test_data));
     testCase.args = &args;
     testCase.opFunc = GetParam().opFunc_;
-    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin",
-        GetGoldenDir() + "/" + testCase.inputTensors[1]->Symbol() + ".bin",
-        GetGoldenDir() + "/" + testCase.inputTensors[2]->Symbol() + ".bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin"};
+    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin",
+        GetGoldenDir() + "/" + testCase.inputTensors[1].GetStorage()->Symbol() + ".bin",
+        GetGoldenDir() + "/" + testCase.inputTensors[2].GetStorage()->Symbol() + ".bin"};
+    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
     TestExecutor::runTest(testCase);
 }
 } // namespace

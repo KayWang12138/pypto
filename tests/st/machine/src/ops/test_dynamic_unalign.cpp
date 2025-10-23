@@ -104,7 +104,7 @@ TEST_F(DynamicUnalignTest, test_mm_unalign) {
     Tensor actSeqs{DT_INT32, {b}, "actSeqs"};
     Tensor out(DT_FP32, outShape, "out");
 
-    auto dtype = qNope->Datatype();
+    auto dtype = qNope.GetStorage()->Datatype();
 
     // read data
     std::vector<npu::tile_fwk::bfloat16> qRopeData(b * nq * s1 * dR, 0);

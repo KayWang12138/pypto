@@ -36,7 +36,7 @@ void PaPostDebugCastFirstR1(Tensor &postIn, Tensor &r1Out) {
 
     FUNCTION("main",
         {postIn}, {r1Out}) {
-        SymbolicScalar B = postIn->shape[0] / N; // S=1
+        SymbolicScalar B = postIn.GetShape()[0] / N; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto postInUnit = View(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
@@ -95,7 +95,7 @@ void PaPostDebugCastFirstT1(Tensor &postIn, Tensor &t1Out) {
 
     FUNCTION("main",
         {postIn}, {t1Out}) {
-        SymbolicScalar B = postIn->shape[0] / N; // S=1
+        SymbolicScalar B = postIn.GetShape()[0] / N; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto postInUnit = View(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
@@ -149,15 +149,15 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_t1) {
 
 // ============================Cast+R+T+Bmm4
 void PaPostDebugCastFirstBmm4(Tensor &postIn, Tensor &weightUV, Tensor &bmm4Out) {
-    auto dtype = weightUV->Datatype();  // bf16
-    auto N = weightUV->shape[0];
-    auto kvLoraRank = weightUV->shape[1];
-    auto vHeadDim = weightUV->shape[2];
+    auto dtype = weightUV.GetStorage()->Datatype();  // bf16
+    auto N = weightUV.GetShape()[0];
+    auto kvLoraRank = weightUV.GetShape()[1];
+    auto vHeadDim = weightUV.GetShape()[2];
     int S = 1;
 
     FUNCTION("main",
         {postIn, weightUV}, {bmm4Out}) {
-        SymbolicScalar B = postIn->shape[0] / N; // S=1
+        SymbolicScalar B = postIn.GetShape()[0] / N; // S=1
         const int64_t bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto postInUnit = View(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
@@ -221,15 +221,15 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_bmm4) {
 
 // ============================ Cast+R+T+Bmm4+T3R2
 void PaPostDebugCastFirstCrtb4tr(Tensor &postIn, Tensor &weightUV, Tensor &r2Out) {
-    auto dtype = weightUV->Datatype();  // bf16
-    auto N = weightUV->shape[0];
-    auto kvLoraRank = weightUV->shape[1];
-    auto vHeadDim = weightUV->shape[2];
+    auto dtype = weightUV.GetStorage()->Datatype();  // bf16
+    auto N = weightUV.GetShape()[0];
+    auto kvLoraRank = weightUV.GetShape()[1];
+    auto vHeadDim = weightUV.GetShape()[2];
     int S = 1;
 
     FUNCTION("main",
         {postIn, weightUV}, {r2Out}) {
-        SymbolicScalar B = postIn->shape[0] / N; // S=1
+        SymbolicScalar B = postIn.GetShape()[0] / N; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto postInUnit = View(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
@@ -305,7 +305,7 @@ void PaPostDebugCastFirstOnlyT1(Tensor &r1Res, Tensor &t1Out) {
 
     FUNCTION("main",
         {r1Res}, {t1Out}) {
-        SymbolicScalar B = r1Res->shape[0]; // S=1
+        SymbolicScalar B = r1Res.GetShape()[0]; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto postInUnit = View(r1Res, {bTile * S, N, kvLoraRank}, {bIdx * bTile * S, 0, 0});
@@ -357,15 +357,15 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_onlyt1) {
 
 // ============================= OnlyBmm4
 void PaPostNewOnlyBmm4(Tensor &bmm4In, Tensor &weightUV, Tensor &bmm4Out) {
-    auto dtype = weightUV->Datatype();  // bf16
-    auto N = weightUV->shape[0];
-    auto kvLoraRank = weightUV->shape[1];
-    auto vHeadDim = weightUV->shape[2];
+    auto dtype = weightUV.GetStorage()->Datatype();  // bf16
+    auto N = weightUV.GetShape()[0];
+    auto kvLoraRank = weightUV.GetShape()[1];
+    auto vHeadDim = weightUV.GetShape()[2];
     int S = 1;
 
     FUNCTION("main",
         {bmm4In, weightUV}, {bmm4Out}) {
-        SymbolicScalar B = bmm4In->shape[1] / S; // S=1
+        SymbolicScalar B = bmm4In.GetShape()[1] / S; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto bmm4InUnit = View(bmm4In, {N, bTile * S, kvLoraRank}, {0, bIdx * bTile * S, 0});
@@ -427,15 +427,15 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_onlybmm4) {
 
 // ============================= OnlyBmm4
 void PaPostNewOnlyBmm4Fail(Tensor &bmm4In, Tensor &weightUV, Tensor &bmm4Out) {
-    auto dtype = weightUV->Datatype();  // bf16
-    auto N = weightUV->shape[0];
-    auto kvLoraRank = weightUV->shape[1];
-    auto vHeadDim = weightUV->shape[2];
+    auto dtype = weightUV.GetStorage()->Datatype();  // bf16
+    auto N = weightUV.GetShape()[0];
+    auto kvLoraRank = weightUV.GetShape()[1];
+    auto vHeadDim = weightUV.GetShape()[2];
     int S = 1;
 
     FUNCTION("main",
         {bmm4In, weightUV}, {bmm4Out}) {
-        SymbolicScalar B = bmm4In->shape[1] / S; // S=1
+        SymbolicScalar B = bmm4In.GetShape()[1] / S; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto bmm4InUnit = View(bmm4In, {N, bTile * S, kvLoraRank}, {0, bIdx * bTile * S, 0});
@@ -504,7 +504,7 @@ void PaPostNewOnlyMm5Nd(Tensor &quant0In, Tensor &weightO, Tensor &mm5Out) {
 
     FUNCTION("main",
         {quant0In, weightO}, {mm5Out}) {
-        SymbolicScalar B = quant0In->shape[0] / S; // S=1
+        SymbolicScalar B = quant0In.GetShape()[0] / S; // S=1
         std::cout<<"B: "<<B<<std::endl;
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
@@ -573,7 +573,7 @@ void PaPostNewOnlyMm5NdK(Tensor &quant0In, Tensor &weightO, Tensor &mm5Out) {
 
     FUNCTION("main",
         {quant0In, weightO}, {mm5Out}) {
-        SymbolicScalar B = quant0In->shape[0] / S; // S=1
+        SymbolicScalar B = quant0In.GetShape()[0] / S; // S=1
         std::cout<<"B: "<<B<<std::endl;
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
@@ -656,7 +656,7 @@ void PaPostNewMm5NdkUnquantR3(Tensor &quant0In, Tensor &weightO, Tensor &weightO
 
     FUNCTION("main",
         {quant0In, weightO, weightOScaleW, quantOutFp32}, {postOut}) {
-        SymbolicScalar B = quant0In->shape[0] / S; // S=1
+        SymbolicScalar B = quant0In.GetShape()[0] / S; // S=1
         std::cout<<"B: "<<B<<std::endl;
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
@@ -756,7 +756,7 @@ void PaPostNewOnlyMm5Nz(Tensor &quant0In, Tensor &weightO, Tensor &mm5Out) {
 
     FUNCTION("main",
         {quant0In, weightO}, {mm5Out}) {
-        SymbolicScalar B = quant0In->shape[0] / S; // S=1
+        SymbolicScalar B = quant0In.GetShape()[0] / S; // S=1
         std::cout<<"B: "<<B<<std::endl;
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
@@ -825,7 +825,7 @@ void PaPostNewOnlyMm5NzK(Tensor &quant0In, Tensor &weightO, Tensor &mm5Out) {
 
     FUNCTION("main",
         {quant0In, weightO}, {mm5Out}) {
-        SymbolicScalar B = quant0In->shape[0] / S; // S=1
+        SymbolicScalar B = quant0In.GetShape()[0] / S; // S=1
         std::cout<<"B: "<<B<<std::endl;
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
@@ -906,7 +906,7 @@ void PaPostDebugCastFirst(Tensor &postIn, Tensor &cast1Out) {
 
     FUNCTION("main",
         {postIn}, {cast1Out}) {
-        SymbolicScalar B = postIn->shape[0] / N; // S=1
+        SymbolicScalar B = postIn.GetShape()[0] / N; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto postInUnit = View(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
@@ -959,13 +959,13 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first) {
 // =============================quant
 void PaPostCastFirstQuant(Tensor &postIn, Tensor &r2In, Tensor &weightUV, Tensor &weightO, Tensor &weightOScaleW,
                           Tensor &quantInt8Out, Tensor &quantFp32Out) {
-    auto N = weightUV->shape[0];
-    auto vHeadDim = weightUV->shape[2];
+    auto N = weightUV.GetShape()[0];
+    auto vHeadDim = weightUV.GetShape()[2];
     int S = 1;
 
     FUNCTION("main",
         {postIn,r2In, weightUV, weightO, weightOScaleW}, {quantInt8Out, quantFp32Out}) {
-        SymbolicScalar B = postIn->shape[0] / N; // S=1
+        SymbolicScalar B = postIn.GetShape()[0] / N; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(B / bTile)) {
             auto r2InUnit = View(r2In, {bTile * S, N * vHeadDim}, {bIdx * bTile * S, 0});
@@ -1047,13 +1047,13 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_quant) {
 
 // =============================t3r2
 void PaPostCastFirstT3r2(Tensor &bmm4In, Tensor &weightUV, Tensor &weightO, Tensor &weightOScaleW, Tensor &r2Out) {
-    auto N = weightUV->shape[0];
-    auto vHeadDim = weightUV->shape[2];
+    auto N = weightUV.GetShape()[0];
+    auto vHeadDim = weightUV.GetShape()[2];
     int S = 1;
 
     FUNCTION("main",
         {bmm4In,weightUV, weightO, weightOScaleW}, {r2Out}) {
-        SymbolicScalar B = bmm4In->shape[1] / S; // S=1
+        SymbolicScalar B = bmm4In.GetShape()[1] / S; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(B / bTile)) {
             auto bmm4InUnit = View(bmm4In, {N, bTile * S, vHeadDim}, {0, bIdx * bTile * S, 0});
@@ -1129,7 +1129,7 @@ void PaPostCastFirstT3(Tensor &bmm4In, Tensor &t3Out) {
 
     FUNCTION("main",
         {bmm4In}, {t3Out}) {
-        SymbolicScalar B = bmm4In->shape[1] / S; // S=1
+        SymbolicScalar B = bmm4In.GetShape()[1] / S; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(B / bTile)) {
             auto bmm4InUnit = View(bmm4In, {N, bTile * S, vHeadDim}, {0, bIdx * bTile * S, 0});
@@ -1187,7 +1187,7 @@ void PaPostCastFirstR2(Tensor &t3In, Tensor &r2Out) {
 
     FUNCTION("main",
         {t3In}, {r2Out}) {
-        SymbolicScalar B = t3In->shape[0] / S; // S=1
+        SymbolicScalar B = t3In.GetShape()[0] / S; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(B / bTile)) {
             auto t3InUnit = View(t3In, {bTile * S, N, vHeadDim}, {bIdx * bTile * S, 0, 0});
@@ -1241,12 +1241,12 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_r2) {
 // =============================unQuantR3
 void PaPostCastFirstUnquantR3(Tensor &postIn, Tensor &weightUV, Tensor &weightO, Tensor &weightOScaleW,
                               Tensor &quantOutFp32, Tensor &postOut) {
-    auto H = weightO->shape[1];
+    auto H = weightO.GetShape()[1];
     int S = 1;
 
     FUNCTION("main",
         {postIn,weightUV, weightO, weightOScaleW, quantOutFp32}, {postOut}) {
-        SymbolicScalar B = postIn->shape[0] / S; // S=1
+        SymbolicScalar B = postIn.GetShape()[0] / S; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(B / bTile)) {
             auto postInUnit = View(postIn, {bTile * S, H}, {bIdx * bTile * S, 0});
@@ -1324,15 +1324,15 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_unquant_r3) {
 
 // ============================ Cast+R+T+Bmm4+T3R2+Quant
 void PaPostDebugCastFirstCrtb4trQuant(Tensor &postIn, Tensor &weightUV, Tensor &quantInt8Out, Tensor &quantFp32Out) {
-    auto dtype = weightUV->Datatype();  // bf16
-    auto N = weightUV->shape[0];
-    auto kvLoraRank = weightUV->shape[1];
-    auto vHeadDim = weightUV->shape[2];
+    auto dtype = weightUV.GetStorage()->Datatype();  // bf16
+    auto N = weightUV.GetShape()[0];
+    auto kvLoraRank = weightUV.GetShape()[1];
+    auto vHeadDim = weightUV.GetShape()[2];
     int S = 1;
 
     FUNCTION("main",
         {postIn, weightUV}, {quantInt8Out, quantFp32Out}) {
-        SymbolicScalar B = postIn->shape[0] / N; // S=1
+        SymbolicScalar B = postIn.GetShape()[0] / N; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto postInUnit = View(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
@@ -1417,15 +1417,15 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_crtb4tr_quant) {
 // ============================ Cast+R+T+Bmm4+T3R2+QuantFail
 void PaPostDebugCastFirstCrtb4trQuantFail(Tensor &postIn, Tensor &weightUV, Tensor &quantInt8Out,
                                           Tensor &quantFp32Out) {
-    auto dtype = weightUV->Datatype();  // bf16
-    auto N = weightUV->shape[0];
-    auto kvLoraRank = weightUV->shape[1];
-    auto vHeadDim = weightUV->shape[2];
+    auto dtype = weightUV.GetStorage()->Datatype();  // bf16
+    auto N = weightUV.GetShape()[0];
+    auto kvLoraRank = weightUV.GetShape()[1];
+    auto vHeadDim = weightUV.GetShape()[2];
     int S = 1;
 
     FUNCTION("main",
         {postIn, weightUV}, {quantInt8Out, quantFp32Out}) {
-        SymbolicScalar B = postIn->shape[0] / N; // S=1
+        SymbolicScalar B = postIn.GetShape()[0] / N; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto postInUnit = View(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
@@ -1508,16 +1508,16 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_crtb4tr_quant_fail) 
 
 // ============================ Cast+R+T+Bmm4+T3R2+Quant+mm5ND
 void PaPostDebugCastFirstCrtb4trQMM5ND(Tensor &postIn, Tensor &weightUV, Tensor &weightO, Tensor &mm5Out) {
-    auto dtype = weightUV->Datatype();  // bf16
-    auto N = weightUV->shape[0];
-    auto kvLoraRank = weightUV->shape[1];
-    auto vHeadDim = weightUV->shape[2];
-    auto H = weightO->shape[1];
+    auto dtype = weightUV.GetStorage()->Datatype();  // bf16
+    auto N = weightUV.GetShape()[0];
+    auto kvLoraRank = weightUV.GetShape()[1];
+    auto vHeadDim = weightUV.GetShape()[2];
+    auto H = weightO.GetShape()[1];
     int S = 1;
 
     FUNCTION("main",
         {postIn, weightUV, weightO}, {mm5Out}) {
-        SymbolicScalar B = postIn->shape[0] / N; // S=1
+        SymbolicScalar B = postIn.GetShape()[0] / N; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto postInUnit = View(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
@@ -1603,16 +1603,16 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_crtb4trq_mm5nd) {
 
 // ============================ Cast+R+T+Bmm4+T3R2+Quant+mm5NDk
 void PaPostDebugCastFirstCrtb4trQMM5NDk(Tensor &postIn, Tensor &weightUV, Tensor &weightO, Tensor &mm5Out) {
-    auto dtype = weightUV->Datatype();  // bf16
-    auto N = weightUV->shape[0];
-    auto kvLoraRank = weightUV->shape[1];
-    auto vHeadDim = weightUV->shape[2];
-    auto H = weightO->shape[1];
+    auto dtype = weightUV.GetStorage()->Datatype();  // bf16
+    auto N = weightUV.GetShape()[0];
+    auto kvLoraRank = weightUV.GetShape()[1];
+    auto vHeadDim = weightUV.GetShape()[2];
+    auto H = weightO.GetShape()[1];
     int S = 1;
 
     FUNCTION("main",
         {postIn, weightUV, weightO}, {mm5Out}) {
-        SymbolicScalar B = postIn->shape[0] / N; // S=1
+        SymbolicScalar B = postIn.GetShape()[0] / N; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto postInUnit = View(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
@@ -1711,16 +1711,16 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_crtb4trq_mm5ndk) {
 // ============================ All +mm5+unsplitK+low
 void PaPostDebugCastFirstMm5UnsplitKLow(Tensor &postIn, Tensor &weightUV, Tensor &weightO, Tensor &weightOScaleW,
                                         Tensor &postOut) {
-    auto dtype = weightUV->Datatype();  // bf16
-    auto N = weightUV->shape[0];
-    auto kvLoraRank = weightUV->shape[1];
-    auto vHeadDim = weightUV->shape[2];
-    auto H = weightO->shape[1];
+    auto dtype = weightUV.GetStorage()->Datatype();  // bf16
+    auto N = weightUV.GetShape()[0];
+    auto kvLoraRank = weightUV.GetShape()[1];
+    auto vHeadDim = weightUV.GetShape()[2];
+    auto H = weightO.GetShape()[1];
     int S = 1;
 
     FUNCTION("main",
         {postIn, weightUV, weightO, weightOScaleW}, {postOut}) {
-        SymbolicScalar B = postIn->shape[0] / N; // S=1
+        SymbolicScalar B = postIn.GetShape()[0] / N; // S=1
         const int bTile = 2;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto postInUnit = View(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
@@ -1870,16 +1870,16 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_new_mm5nz_unsplitk_low) {
 // ============================ All +mm5+unsplitK
 void PaPostDebugCastFirstMm5UnsplitK(Tensor &postIn, Tensor &weightUV, Tensor &weightO, Tensor &weightOScaleW,
                                      Tensor &postOut) {
-    auto dtype = weightUV->Datatype();  // bf16
-    auto N = weightUV->shape[0];
-    auto kvLoraRank = weightUV->shape[1];
-    auto vHeadDim = weightUV->shape[2];
-    auto H = weightO->shape[1];
+    auto dtype = weightUV.GetStorage()->Datatype();  // bf16
+    auto N = weightUV.GetShape()[0];
+    auto kvLoraRank = weightUV.GetShape()[1];
+    auto vHeadDim = weightUV.GetShape()[2];
+    auto H = weightO.GetShape()[1];
     int S = 1;
 
     FUNCTION("main",
         {postIn, weightUV, weightO, weightOScaleW}, {postOut}) {
-        SymbolicScalar B = postIn->shape[0] / N; // S=1
+        SymbolicScalar B = postIn.GetShape()[0] / N; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto postInUnit = View(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
@@ -2029,16 +2029,16 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_new_mm5nz_unsplitk) {
 // ============================ All +mm5+splitK
 void PaPostDebugCastFirstMm5SplitK(Tensor &postIn, Tensor &weightUV, Tensor &weightO, Tensor &weightOScaleW,
                                    Tensor &postOut) {
-    auto dtype = weightUV->Datatype();  // bf16
-    auto N = weightUV->shape[0];
-    auto kvLoraRank = weightUV->shape[1];
-    auto vHeadDim = weightUV->shape[2];
-    auto H = weightO->shape[1];
+    auto dtype = weightUV.GetStorage()->Datatype();  // bf16
+    auto N = weightUV.GetShape()[0];
+    auto kvLoraRank = weightUV.GetShape()[1];
+    auto vHeadDim = weightUV.GetShape()[2];
+    auto H = weightO.GetShape()[1];
     int S = 1;
 
     FUNCTION("main",
         {postIn, weightUV, weightO, weightOScaleW}, {postOut}) {
-        SymbolicScalar B = postIn->shape[0] / N; // S=1
+        SymbolicScalar B = postIn.GetShape()[0] / N; // S=1
         const int bTile = 32;
         config::SetPassOption(SG_CYCLE_UPPER_BOUND, 500000);  // 300000(1024/167us)   700000(512/174us)   500000(512/171us)
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
@@ -2105,16 +2105,16 @@ void PaPostDebugCastFirstMm5SplitK(Tensor &postIn, Tensor &weightUV, Tensor &wei
 // mm5 normal unsplitK
 void PaPostDebugCastFirstMm5NormalUnSplitK(Tensor &postIn, Tensor &weightUV, Tensor &weightO, Tensor &weightOScaleW,
                                            Tensor &postOut) {
-    auto dtype = weightUV->Datatype();  // bf16
-    auto N = weightUV->shape[0];
-    auto kvLoraRank = weightUV->shape[1];
-    auto vHeadDim = weightUV->shape[2];
-    auto H = weightO->shape[1];
+    auto dtype = weightUV.GetStorage()->Datatype();  // bf16
+    auto N = weightUV.GetShape()[0];
+    auto kvLoraRank = weightUV.GetShape()[1];
+    auto vHeadDim = weightUV.GetShape()[2];
+    auto H = weightO.GetShape()[1];
     int S = 1;
 
     FUNCTION("main",
         {postIn, weightUV, weightO, weightOScaleW}, {postOut}) {
-        SymbolicScalar B = postIn->shape[0] / N; // S=1
+        SymbolicScalar B = postIn.GetShape()[0] / N; // S=1
         const int bTile = 32;
         config::SetPassOption(SG_CYCLE_UPPER_BOUND, 500000);  // 300000(1024/167us)   700000(512/174us)   500000(512/171us)
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
@@ -2320,16 +2320,16 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_new_mm5nd_splitk) {
 // ============================ All +mm5+splitK+low
 void PaPostDebugCastFirstMm5SplitKLow(Tensor &postIn, Tensor &weightUV, Tensor &weightO, Tensor &weightOScaleW,
                                       Tensor &postOut) {
-    auto dtype = weightUV->Datatype();  // bf16
-    auto N = weightUV->shape[0];
-    auto kvLoraRank = weightUV->shape[1];
-    auto vHeadDim = weightUV->shape[2];
-    auto H = weightO->shape[1];
+    auto dtype = weightUV.GetStorage()->Datatype();  // bf16
+    auto N = weightUV.GetShape()[0];
+    auto kvLoraRank = weightUV.GetShape()[1];
+    auto vHeadDim = weightUV.GetShape()[2];
+    auto H = weightO.GetShape()[1];
     int S = 1;
 
     FUNCTION("main",
         {postIn, weightUV, weightO, weightOScaleW}, {postOut}) {
-        SymbolicScalar B = postIn->shape[0] / N; // S=1
+        SymbolicScalar B = postIn.GetShape()[0] / N; // S=1
         const int bTile = 2;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto postInUnit = View(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
@@ -2495,23 +2495,23 @@ void PageAttentionPostBf16(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache
     Tensor &blockTable, Tensor &actSeqs, int blockSize, float softmaxScale, Tensor &postIn, Tensor &weightUV, Tensor &weightO,
     Tensor &weightOScaleW, Tensor &attentionOut, Tensor &postOut,
     PaTileShapeConfig &tileConfig, int maxUnrollTimes, int bTile) {
-    auto dtype = qNope->Datatype();
+    auto dtype = qNope.GetStorage()->Datatype();
     // 入参B*S*N合轴
-    int dN = qNope->shape[1];
-    int dR = qRope->shape[1];
+    int dN = qNope.GetShape()[1];
+    int dR = qRope.GetShape()[1];
 
     int nTile = tileConfig.headNumQTile;
     auto c1Tile = tileConfig.c1TileShape;
     auto v1Tile = tileConfig.v1TileShape;
     auto c2Tile = tileConfig.c2TileShape;
     auto v2Tile = tileConfig.v2TileShape;
-    int batchSize = blockTable->shape[0];
-    int nQ = qNope->shape[0] / batchSize; // B*1*N
+    int batchSize = blockTable.GetShape()[0];
+    int nQ = qNope.GetShape()[0] / batchSize; // B*1*N
 
-    auto N = weightUV->shape[0];;
-    auto kvLoraRank = weightUV->shape[1];
-    auto vHeadDim = weightUV->shape[2];
-    auto H = weightO->shape[1];
+    auto N = weightUV.GetShape()[0];;
+    auto kvLoraRank = weightUV.GetShape()[1];
+    auto vHeadDim = weightUV.GetShape()[2];
+    auto H = weightO.GetShape()[1];
     int S = 1;
 
     FUNCTION("main",
@@ -2613,7 +2613,7 @@ void PageAttentionPostBf16(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache
             }
         }
 
-        SymbolicScalar B = attentionOut->shape[0] / N; // S=1
+        SymbolicScalar B = attentionOut.GetShape()[0] / N; // S=1
         config::SetPassOption(SG_CYCLE_UPPER_BOUND, NUM_500000);
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / (bTile <= 0 ? 1 : bTile), 1), PowersOf2(maxUnrollTimes), true) {
             auto postInUnit = View(attentionOut, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});

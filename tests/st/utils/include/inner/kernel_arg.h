@@ -52,11 +52,11 @@ public:
             int magic = tensor->tensor->rawmagic;
             if (IsOpArgs(tensor->tensor)) {
                 auto &arg = op_args_[magic];
-                assert(tensor->Symbol() == arg.name);
+                assert(tensor.GetStorage()->Symbol() == arg.name);
                 assert(tensor->offset == arg.offset);
             } else {
-                std::cout << "Add args " << magic << " " << tensor->Symbol() << std::endl;
-                op_args_[magic] = {tensor->Symbol(), tensor->offset, tensor->tensor};
+                std::cout << "Add args " << magic << " " << tensor.GetStorage()->Symbol() << std::endl;
+                op_args_[magic] = {tensor.GetStorage()->Symbol(), tensor->offset, tensor->tensor};
             }
         }
     }

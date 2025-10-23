@@ -34,9 +34,9 @@ void IncreFlashAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, 
     IfaTileShapeConfig &tileConfig) {
     auto batchSize = blockTable.size();
     ASSERT(batchSize == actSeqs.size());
-    int dN = qNope->shape[1];
-    int dR = qRope->shape[1];
-    int nQ = qNope->shape[0] / batchSize;
+    int dN = qNope.GetShape()[1];
+    int dR = qRope.GetShape()[1];
+    int nQ = qNope.GetShape()[0] / batchSize;
     int nTile = tileConfig.headNumQTile;
     int blockSize = tileConfig.blockSize;
     int nLoop = CeilDiv(nQ , nTile);

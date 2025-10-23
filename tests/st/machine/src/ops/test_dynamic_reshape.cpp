@@ -179,7 +179,7 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape) {
     });
 
     // excute
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(q_real->GetDataSize()));
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(q_real.GetStorage()->GetDataSize()));
 
     std::vector<float> golden(b * sq * d, exp(1.0f));
 
@@ -240,7 +240,7 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape2) {
     }
 
     // excute
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(q_real->GetDataSize()));
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(q_real.GetStorage()->GetDataSize()));
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
 }

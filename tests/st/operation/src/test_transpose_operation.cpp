@@ -40,8 +40,8 @@ static void TransposeOperationExeFunc2Dims(
     const int firstViewShape = transposeInfo->viewShape_[0];
     const int secondViewShape = transposeInfo->viewShape_[1];
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
-        SymbolicScalar firstDim = inputs[0]->shape[0];
-        SymbolicScalar secondDim = inputs[0]->shape[1];
+        SymbolicScalar firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar secondDim = inputs[0].GetShape()[1];
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, CeilDiv(firstDim, firstViewShape), 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx,
                 LoopRange(0, CeilDiv(secondDim, secondViewShape), 1)) {
@@ -64,9 +64,9 @@ static void TransposeOperationExeFunc3Dims(
     const int secondViewShape = transposeInfo->viewShape_[1];
     const int thirdViewShape = transposeInfo->viewShape_[2];
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
-        SymbolicScalar firstDim = inputs[0]->shape[0];
-        SymbolicScalar secondDim = inputs[0]->shape[1];
-        SymbolicScalar thirdDim = inputs[0]->shape[2];
+        SymbolicScalar firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar secondDim = inputs[0].GetShape()[1];
+        SymbolicScalar thirdDim = inputs[0].GetShape()[2];
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, CeilDiv(firstDim, firstViewShape), 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx,
                 LoopRange(0, CeilDiv(secondDim, secondViewShape), 1)) {
@@ -97,10 +97,10 @@ static void TransposeOperationExeFunc4Dims(
     const int thirdViewShape = transposeInfo->viewShape_[2];
     const int forthViewShape = transposeInfo->viewShape_[3];
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
-        SymbolicScalar firstDim = inputs[0]->shape[0];
-        SymbolicScalar secondDim = inputs[0]->shape[1];
-        SymbolicScalar thirdDim = inputs[0]->shape[2];
-        SymbolicScalar forthDim = inputs[0]->shape[3];
+        SymbolicScalar firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar secondDim = inputs[0].GetShape()[1];
+        SymbolicScalar thirdDim = inputs[0].GetShape()[2];
+        SymbolicScalar forthDim = inputs[0].GetShape()[3];
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, CeilDiv(firstDim, firstViewShape), 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx,
                 LoopRange(0, CeilDiv(secondDim, secondViewShape), 1)) {
@@ -138,11 +138,11 @@ static void TransposeOperationExeFunc5Dims(
     const int forthViewShape = transposeInfo->viewShape_[3];
     const int fifthViewShape = transposeInfo->viewShape_[4];
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
-        SymbolicScalar firstDim = inputs[0]->shape[0];
-        SymbolicScalar secondDim = inputs[0]->shape[1];
-        SymbolicScalar thirdDim = inputs[0]->shape[2];
-        SymbolicScalar forthDim = inputs[0]->shape[3];
-        SymbolicScalar fifthDim = inputs[0]->shape[4];
+        SymbolicScalar firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar secondDim = inputs[0].GetShape()[1];
+        SymbolicScalar thirdDim = inputs[0].GetShape()[2];
+        SymbolicScalar forthDim = inputs[0].GetShape()[3];
+        SymbolicScalar fifthDim = inputs[0].GetShape()[4];
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, CeilDiv(firstDim, firstViewShape), 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx,
                 LoopRange(0, CeilDiv(secondDim, secondViewShape), 1)) {
@@ -193,8 +193,8 @@ TEST_P(TransposeOperationTest, TestTranspose) {
     auto args = TransposeOpFuncArgs(first_dim, second_dim, GetViewShape(test_data), GetTileShape(test_data));
     testCase.args = &args;
     testCase.opFunc = GetParam().opFunc_;
-    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin"};
+    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin"};
+    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
     TestExecutor::runTest(testCase);
 }
 } // namespace

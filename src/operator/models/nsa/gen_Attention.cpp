@@ -31,9 +31,9 @@ using namespace npu::tile_fwk;
 
 namespace npu::tile_fwk {
 void GenAttentionCompute(Tensor &cmpAtten, Tensor &selAtten, Tensor &winAtten, Tensor &gatingScore, Tensor &attentionOut, GenAttenTileShapeConfig &tileConfig) {
-    int nDimSize = cmpAtten->shape[2];
-    int dDimSize = cmpAtten->shape[3];
-    int dGateDimSize = gatingScore->shape[3];
+    int nDimSize = cmpAtten.GetShape()[2];
+    int dDimSize = cmpAtten.GetShape()[3];
+    int dGateDimSize = gatingScore.GetShape()[3];
     int tileB = tileConfig.tileBSize;
     int tileS = tileConfig.tileS1Size;
     auto v1Tile = tileConfig.vec1TileShape;
@@ -43,7 +43,7 @@ void GenAttentionCompute(Tensor &cmpAtten, Tensor &selAtten, Tensor &winAtten, T
     SymbolicScalar sDimSize = GetInputShape(cmpAtten, 1);
     SymbolicScalar bLoop = bDimSize / tileB;
     SymbolicScalar sLoop = sDimSize / tileS;
-    DataType dType = cmpAtten->Datatype();
+    DataType dType = cmpAtten.GetStorage()->Datatype();
     LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(bLoop)) {
         SymbolicScalar bOffset = bIdx * tileB;
         SymbolicScalar actualBSize = std::min(tileB, (bDimSize - bIdx * tileB));

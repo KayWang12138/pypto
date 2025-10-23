@@ -30,13 +30,13 @@ std::vector<Tensor> QkvPre(const Tensor &tokenX, const Tensor &wDq, const Tensor
     bool isQuant = (dequantScaleWUqQr.GetStorage() != nullptr);
     Tensor smoothScalesCq = quantInputs.smoothScalesCq;
     bool hasSmooth = (smoothScalesCq.GetStorage() != nullptr);
-    int b = tokenX->shape[0];
-    int s = tokenX->shape[1];
-    int h = tokenX->shape[2];
+    int b = tokenX.GetShape()[0];
+    int s = tokenX.GetShape()[1];
+    int h = tokenX.GetShape()[2];
     int bs = b * s;
-    int q_lora_rank = wDq->shape[1];
+    int q_lora_rank = wDq.GetShape()[1];
 
-    DataType dType = tokenX->Datatype();
+    DataType dType = tokenX.GetStorage()->Datatype();
     DataType dTypeQuantOut = isQuant ? DataType::DT_INT32 : dType;
     std::vector<Tensor> qkvPreRes;
 
@@ -99,7 +99,7 @@ std::vector<Tensor> QkvPre(const Tensor &tokenX, const Tensor &wDq, const Tensor
     Tensor compressedKv;
     if (splitK) {
         TileShape::Current().SetVecTile(std::min(NUM_32, bs), NUM_64);
-        int kv_n = wDkvKr->shape[1];
+        int kv_n = wDkvKr.GetShape()[1];
         Tensor tmpC_kv(DT_FP32, {bs, kv_n}, "tmp_kv");
         tmpC_kv = MulS(tmpC_kv, Element(DataType::DT_FP32, F_0));
         std::vector<Tensor> matmulResult_kv;
@@ -117,7 +117,7 @@ std::vector<Tensor> QkvPre(const Tensor &tokenX, const Tensor &wDq, const Tensor
     } else {
         compressedKv = Matrix::Matmul(dType, input, wDkvKr); // bf16
     }
-    Tensor compressedKvRes = Reshape(compressedKv, {b, s, wDkvKr->shape[1]});
+    Tensor compressedKvRes = Reshape(compressedKv, {b, s, wDkvKr.GetShape()[1]});
     qkvPreRes.emplace_back(compressedKvRes);
 
     if (isQuant) {
@@ -133,23 +133,23 @@ void MlaProlog(Tensor tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tens
     Tensor &queryOut, Tensor &queryRopeOut, Tensor &kvCacheOut, Tensor &krCacheOut, float epsilonCq, float epsilonCkv,
     std::string cacheMode, bool splitReduceLastDim, bool splitK) {
     // params check
-    assert(tokenX->shape.size() == SHAPE_DIM3 && wUk->shape.size() == SHAPE_DIM3 && sin->shape.size() == SHAPE_DIM3);
-    assert(kvCache->shape.size() == SHAPE_DIM4 && krCache->shape.size() == SHAPE_DIM4);
+    assert(tokenX.GetShape().size() == SHAPE_DIM3 && wUk.GetShape().size() == SHAPE_DIM3 && sin.GetShape().size() == SHAPE_DIM3);
+    assert(kvCache.GetShape().size() == SHAPE_DIM4 && krCache.GetShape().size() == SHAPE_DIM4);
     assert(cacheMode == "BNSD" || cacheMode == "PA_BSND" || cacheMode == "PA_NZ");
 
     Tensor dequantScaleWUqQr = quantInputs.dequantScaleWUqQr;
     bool isQuant = (dequantScaleWUqQr.GetStorage() != nullptr);
     std::cout << "isQuant +++ " << isQuant << std::endl;
 
-    DataType dType = tokenX->Datatype();
-    int b = tokenX->shape[0];
-    int s = tokenX->shape[1]; // s=1
+    DataType dType = tokenX.GetStorage()->Datatype();
+    int b = tokenX.GetShape()[0];
+    int s = tokenX.GetShape()[1]; // s=1
     int bs = b * s;
     // [n, qkNopeHeadDim, kvLoraRank]
-    int n = wUk->shape[0];
-    int qkNopeHeadDim = wUk->shape[1];
-    int kvLoraRank = wUk->shape[2];
-    int qkRopeHeadDim = sin->shape[2]; // [b,s,qkRopeHeadDim]
+    int n = wUk.GetShape()[0];
+    int qkNopeHeadDim = wUk.GetShape()[1];
+    int kvLoraRank = wUk.GetShape()[2];
+    int qkRopeHeadDim = sin.GetShape()[2]; // [b,s,qkRopeHeadDim]
     int qHeadDim = qkNopeHeadDim + qkRopeHeadDim;
 
     auto qKv = QkvPre(tokenX, wDq, wUqQr, wDkvKr, gammaCq, epsilonCq, quantInputs, splitReduceLastDim, splitK);
@@ -205,14 +205,14 @@ void MlaProlog(Tensor tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tens
     TileShape::Current().SetVecTile(tileShape);
     Tensor kPeRes = Reshape(kPe, {b, s, 1, qkRopeHeadDim}); // [b,s,1,qkRopeHeadDim]
 
-    Tensor kRope(kPeRes->Datatype(), {b, s, 1, qkRopeHeadDim}, "kRope"); // [b,1,s,qkRopeHeadDim]
+    Tensor kRope(kPeRes.GetStorage()->Datatype(), {b, s, 1, qkRopeHeadDim}, "kRope"); // [b,1,s,qkRopeHeadDim]
     // queryRopeOut: [b,s,n,qkRopeHeadDim], output2
     ApplyRotaryPosEmbV2(qPe, kPeRes, cos, sin, queryRopeOut, kRope, 2, ropeConfig);
 
     if (cacheMode == "PA_BSND") {
-        int blockNum = kvCache->shape[0];
-        int blockSize = kvCache->shape[1];
-        int n2 = kvCache->shape[2];
+        int blockNum = kvCache.GetShape()[0];
+        int blockSize = kvCache.GetShape()[1];
+        int n2 = kvCache.GetShape()[2];
         Tensor kvCacheRes = Reshape(kvCache, {blockNum * blockSize * n2, kvLoraRank});
         Tensor krCacheRes = Reshape(krCache, {blockNum * blockSize * n2, qkRopeHeadDim});
         Tensor kNope = Reshape(compressedKvNorm, {b * s, kvLoraRank});       // [b*s,kvLoraRank]

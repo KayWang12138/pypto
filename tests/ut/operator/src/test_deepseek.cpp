@@ -380,7 +380,7 @@ TEST_F(FunctionTest, TestTranspose_BNSD_BSND) {
     FUNCTION("BNSD_BSND") {
         auto res = Transpose(a, {1, 2});
     }
-    a->Dump();
+    a.GetStorage()->Dump();
     ALOG_INFO(Program::GetInstance().Dump());
 }
 
@@ -725,9 +725,9 @@ TEST_F(FunctionTest, TestRoPEDeepseekV3) {
         TileShape::Current().SetVecTile({1, 1, 64, 64});
         auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
-        int b = kPe->shape[0];
-        int s = kPe->shape[1];
-        int d = kPe->shape[2];
+        int b = kPe.GetShape()[0];
+        int s = kPe.GetShape()[1];
+        int d = kPe.GetShape()[2];
         // 以下两步Reshape+Transpose可以优化成1个reshape：auto kPeReshape = Reshape(kPe, {b, 1, s, d}); //
         // [b,s,d]->[b,1,s,d]
         auto kPeReshape = Reshape(kPe, {b, 1, s, d}); // [b,s,d]->[b,1,s,d]
@@ -817,10 +817,10 @@ TEST_F(FunctionTest, TestAttentionPost_cv) {
     Tensor atten_output;
 
     FUNCTION("AttentionPost") {
-        int f_b = attnPostIn->shape[0];
-        int f_n = attnPostIn->shape[1];
-        int f_s = attnPostIn->shape[2];
-        DataType dType = attnPostIn->Datatype();
+        int f_b = attnPostIn.GetShape()[0];
+        int f_n = attnPostIn.GetShape()[1];
+        int f_s = attnPostIn.GetShape()[2];
+        DataType dType = attnPostIn.GetStorage()->Datatype();
         // attnPostIn: [b, n, s, d]=2_32_1_512
         TileShape::Current().SetVecTile({2, 32, 1, 128});
         Tensor atten_res1 = Reshape(Transpose(attnPostIn, {1, 2}), {f_b * f_s, f_n, d});
@@ -887,10 +887,10 @@ TEST_F(FunctionTest, TestAttentionPost) {
     Tensor atten_output;
     ConfigManager::Instance();
     FUNCTION("AttentionPost") {
-        int f_b = attnPostIn->shape[0];
-        int f_n = attnPostIn->shape[1];
-        int f_s = attnPostIn->shape[2];
-        DataType dType = attnPostIn->Datatype();
+        int f_b = attnPostIn.GetShape()[0];
+        int f_n = attnPostIn.GetShape()[1];
+        int f_s = attnPostIn.GetShape()[2];
+        DataType dType = attnPostIn.GetStorage()->Datatype();
         TileShape::Current().SetVecTile({1, 1, 32, d});
         Tensor atten_res1 = Reshape(Transpose(attnPostIn, {1, 2}), {f_b * f_s, f_n, d});
         TileShape::Current().SetVecTile({32, 1, d});

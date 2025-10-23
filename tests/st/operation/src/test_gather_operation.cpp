@@ -41,12 +41,12 @@ static void GatherOperationExeFunc2_1Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
-        SymbolicScalar src_firstDim = inputs[0]->shape[0];
-        SymbolicScalar src_secondDim = inputs[0]->shape[1];
-        SymbolicScalar idx_firstDim = inputs[1]->shape[0];
+        SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
+        SymbolicScalar idx_firstDim = inputs[1].GetShape()[0];
         auto args = static_cast<const GatherOpFuncArgs *>(opArgs);
         int axis = args->axis_;
-        axis = axis < 0 ? axis + inputs[0]->shape.size() : axis;
+        axis = axis < 0 ? axis + inputs[0].GetShape().size() : axis;
         const int firstViewShape = args->viewShape_[0];
         const int secondViewShape = args->viewShape_[1];
         /* gather操作src axis轴不能切分 ，其他轴可正常切分，index和最终输出都可正常切分。切分以index为准
@@ -89,13 +89,13 @@ static void GatherOperationExeFunc2_2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
-        SymbolicScalar src_firstDim = inputs[0]->shape[0];
-        SymbolicScalar src_secondDim = inputs[0]->shape[1];
-        SymbolicScalar idx_firstDim = inputs[1]->shape[0];
-        SymbolicScalar idx_secondDim = inputs[1]->shape[1];
+        SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
+        SymbolicScalar idx_firstDim = inputs[1].GetShape()[0];
+        SymbolicScalar idx_secondDim = inputs[1].GetShape()[1];
         auto args = static_cast<const GatherOpFuncArgs *>(opArgs);
         int axis = args->axis_;
-        axis = axis < 0 ? axis + inputs[0]->shape.size() : axis;
+        axis = axis < 0 ? axis + inputs[0].GetShape().size() : axis;
         const int firstViewShape = args->viewShape_[0];
         const int secondViewShape = args->viewShape_[1];
         const int thirdViewShape = args->viewShape_[2];
@@ -151,13 +151,13 @@ static void GatherOperationExeFunc3_1Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
-        SymbolicScalar src_firstDim = inputs[0]->shape[0];
-        SymbolicScalar src_secondDim = inputs[0]->shape[1];
-        SymbolicScalar src_thirdDim = inputs[0]->shape[2];
-        SymbolicScalar idx_firstDim = inputs[1]->shape[0];
+        SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
+        SymbolicScalar src_thirdDim = inputs[0].GetShape()[2];
+        SymbolicScalar idx_firstDim = inputs[1].GetShape()[0];
         auto args = static_cast<const GatherOpFuncArgs *>(opArgs);
         int axis = args->axis_;
-        axis = axis < 0 ? axis + inputs[0]->shape.size() : axis;
+        axis = axis < 0 ? axis + inputs[0].GetShape().size() : axis;
         const int firstViewShape = args->viewShape_[0];
         const int secondViewShape = args->viewShape_[1];
         const int thirdViewShape = args->viewShape_[2];
@@ -235,14 +235,14 @@ static void GatherOperationExeFunc3_2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
-        SymbolicScalar src_firstDim = inputs[0]->shape[0];
-        SymbolicScalar src_secondDim = inputs[0]->shape[1];
-        SymbolicScalar src_thirdDim = inputs[0]->shape[2];
-        SymbolicScalar idx_firstDim = inputs[1]->shape[0];
-        SymbolicScalar idx_secondDim = inputs[1]->shape[1];
+        SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
+        SymbolicScalar src_thirdDim = inputs[0].GetShape()[2];
+        SymbolicScalar idx_firstDim = inputs[1].GetShape()[0];
+        SymbolicScalar idx_secondDim = inputs[1].GetShape()[1];
         auto args = static_cast<const GatherOpFuncArgs *>(opArgs);
         int axis = args->axis_;
-        axis = axis < 0 ? axis + inputs[0]->shape.size() : axis;
+        axis = axis < 0 ? axis + inputs[0].GetShape().size() : axis;
         const int firstViewShape = args->viewShape_[0];
         const int secondViewShape = args->viewShape_[1];
         const int thirdViewShape = args->viewShape_[2];
@@ -342,14 +342,14 @@ static void GatherOperationExeFunc4_1Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
-        SymbolicScalar src_firstDim = inputs[0]->shape[0];
-        SymbolicScalar src_secondDim = inputs[0]->shape[1];
-        SymbolicScalar src_thirdDim = inputs[0]->shape[2];
-        SymbolicScalar src_fourthDim = inputs[0]->shape[3];
-        SymbolicScalar idx_firstDim = inputs[1]->shape[0];
+        SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
+        SymbolicScalar src_thirdDim = inputs[0].GetShape()[2];
+        SymbolicScalar src_fourthDim = inputs[0].GetShape()[3];
+        SymbolicScalar idx_firstDim = inputs[1].GetShape()[0];
         auto args = static_cast<const GatherOpFuncArgs *>(opArgs);
         int axis = args->axis_;
-        axis = axis < 0 ? axis + inputs[0]->shape.size() : axis;
+        axis = axis < 0 ? axis + inputs[0].GetShape().size() : axis;
         const int firstViewShape = args->viewShape_[0];
         const int secondViewShape = args->viewShape_[1];
         const int thirdViewShape = args->viewShape_[2];
@@ -480,15 +480,15 @@ static void GatherOperationExeFunc4_2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
-        SymbolicScalar src_firstDim = inputs[0]->shape[0];
-        SymbolicScalar src_secondDim = inputs[0]->shape[1];
-        SymbolicScalar src_thirdDim = inputs[0]->shape[2];
-        SymbolicScalar src_fourthDim = inputs[0]->shape[3];
-        SymbolicScalar idx_firstDim = inputs[1]->shape[0];
-        SymbolicScalar idx_secondDim = inputs[1]->shape[1];
+        SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
+        SymbolicScalar src_thirdDim = inputs[0].GetShape()[2];
+        SymbolicScalar src_fourthDim = inputs[0].GetShape()[3];
+        SymbolicScalar idx_firstDim = inputs[1].GetShape()[0];
+        SymbolicScalar idx_secondDim = inputs[1].GetShape()[1];
         auto args = static_cast<const GatherOpFuncArgs *>(opArgs);
         int axis = args->axis_;
-        axis = axis < 0 ? axis + inputs[0]->shape.size() : axis;
+        axis = axis < 0 ? axis + inputs[0].GetShape().size() : axis;
         const int firstViewShape = args->viewShape_[0];
         const int secondViewShape = args->viewShape_[1];
         const int thirdViewShape = args->viewShape_[2];
@@ -661,9 +661,9 @@ TEST_P(GatherOperationTest, TestGather) {
     }
     testCase.opFunc = func[params_rank][indices_rank];
 
-    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin",
-        GetGoldenDir() + "/" + testCase.inputTensors[1]->Symbol() + ".bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin"};
+    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin",
+        GetGoldenDir() + "/" + testCase.inputTensors[1].GetStorage()->Symbol() + ".bin"};
+    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
     TestExecutor::runTest(testCase);
 }
 } // namespace

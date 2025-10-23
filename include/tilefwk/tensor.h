@@ -138,21 +138,6 @@ public:
     Tensor(Tensor &&rhs);
 
     /**
-     * \brief Overload the -> operator to access the members of the LogicalTensor object.
-     *
-     * \return const LogicalTensor* : A pointer to the LogicalTensor object.
-     * \attention : The const keyword indicates that the function does not modify the object.
-     */
-    const LogicalTensor *operator->() const;
-
-    /**
-     * \brief Overload the -> operator to access the members of the LogicalTensor object.
-     *
-     * \return LogicalTensor* : A pointer to the LogicalTensor object.
-     */
-    LogicalTensor *operator->();
-
-    /**
      * \brief Overload the * operator to access the LogicalTensor object.
      *
      * \return const LogicalTensor& : A reference to the LogicalTensor object.

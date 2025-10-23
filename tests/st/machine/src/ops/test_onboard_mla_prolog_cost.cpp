@@ -195,7 +195,7 @@ void TestMlaProlog(std::vector<int> &params, string dataPath, bool isQuant = fal
         uint64_t workspaceSize = 0;
         TileFwkGetWorkspaceSize(handle, &workspaceSize);
         machine::GetRA()->AllocDevAddr(&workspaceAddr, workspaceSize);
-        std::vector<size_t> opSizes = {0, wDq->MemorySize(), wUqQr->MemorySize(), 0, 0, 0, 0};
+        std::vector<size_t> opSizes = {0, wDq.GetStorage()->MemorySize(), wUqQr.GetStorage()->MemorySize(), 0, 0, 0, 0};
         TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(), opArgsRun, opSizes);
         int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
         if (rc < 0) {

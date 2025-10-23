@@ -84,9 +84,9 @@ static void MatmulOperationExeFuncNoSplit(
     auto args = static_cast<const MatmulOpFuncArgs *>(opArgs);
     bool transA = args->param_.transA;
     bool transB = args->param_.transB;
-    SymbolicScalar mDim = transA ? inputs[0]->shape[1] : inputs[0]->shape[0];
-    SymbolicScalar kDim = transA ? inputs[0]->shape[0] : inputs[0]->shape[1];
-    SymbolicScalar nDim = transB ? inputs[1]->shape[0] : inputs[1]->shape[1];
+    SymbolicScalar mDim = transA ? inputs[0].GetShape()[1] : inputs[0].GetShape()[0];
+    SymbolicScalar kDim = transA ? inputs[0].GetShape()[0] : inputs[0].GetShape()[1];
+    SymbolicScalar nDim = transB ? inputs[1].GetShape()[0] : inputs[1].GetShape()[1];
 
     FUNCTION("testNoSplit", {inputs[0], inputs[1]}, {outputs[0]}) {
         LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(1)) {
@@ -112,9 +112,9 @@ static void MatmulOperationExeFuncSplitK(const std::vector<Tensor> &inputs, std:
     auto args = static_cast<const MatmulOpFuncArgs *>(opArgs);
     bool transA = args->param_.transA;
     bool transB = args->param_.transB;
-    SymbolicScalar mDim = transA ? inputs[0]->shape[1] : inputs[0]->shape[0];
-    SymbolicScalar kDim = transA ? inputs[0]->shape[0] : inputs[0]->shape[1];
-    SymbolicScalar nDim = transB ? inputs[1]->shape[0] : inputs[1]->shape[1];
+    SymbolicScalar mDim = transA ? inputs[0].GetShape()[1] : inputs[0].GetShape()[0];
+    SymbolicScalar kDim = transA ? inputs[0].GetShape()[0] : inputs[0].GetShape()[1];
+    SymbolicScalar nDim = transB ? inputs[1].GetShape()[0] : inputs[1].GetShape()[1];
     const int64_t kSplitSize = args->tileShape_[1][1];
     if (kSplitSize == 0) return;
     FUNCTION("testKSplit", {inputs[0], inputs[1]}, {outputs[0]}) {
@@ -158,9 +158,9 @@ static void MatmulOperationExeFuncSplitM(
     const int64_t mView = args->viewShape_[0];
     bool transA = args->param_.transA;
     bool transB = args->param_.transB;
-    SymbolicScalar mDim = transA ? inputs[0]->shape[1] : inputs[0]->shape[0];
-    SymbolicScalar kDim = transA ? inputs[0]->shape[0] : inputs[0]->shape[1];
-    SymbolicScalar nDim = transB ? inputs[1]->shape[0] : inputs[1]->shape[1];
+    SymbolicScalar mDim = transA ? inputs[0].GetShape()[1] : inputs[0].GetShape()[0];
+    SymbolicScalar kDim = transA ? inputs[0].GetShape()[0] : inputs[0].GetShape()[1];
+    SymbolicScalar nDim = transB ? inputs[1].GetShape()[0] : inputs[1].GetShape()[1];
 
     FUNCTION("testMSplit", {inputs[0], inputs[1]}, {outputs[0]}) {
         LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, CeilDivSymbolicScalar(mDim, mView), 1)) {
@@ -189,9 +189,9 @@ static void MatmulOperationExeFuncSplitMK(const std::vector<Tensor> &inputs, std
     auto args = static_cast<const MatmulOpFuncArgs *>(opArgs);
     bool transA = args->param_.transA;
     bool transB = args->param_.transB;
-    SymbolicScalar mDim = transA ? inputs[0]->shape[1] : inputs[0]->shape[0];
-    SymbolicScalar kDim = transA ? inputs[0]->shape[0] : inputs[0]->shape[1];
-    SymbolicScalar nDim = transB ? inputs[1]->shape[0] : inputs[1]->shape[1];
+    SymbolicScalar mDim = transA ? inputs[0].GetShape()[1] : inputs[0].GetShape()[0];
+    SymbolicScalar kDim = transA ? inputs[0].GetShape()[0] : inputs[0].GetShape()[1];
+    SymbolicScalar nDim = transB ? inputs[1].GetShape()[0] : inputs[1].GetShape()[1];
     const int64_t mView = args->viewShape_[0];
     const int64_t kSplitSize = args->tileShape_[1][1];
     if (kSplitSize == 0) return;
@@ -236,9 +236,9 @@ static void MatmulOperationExeFuncSplitN(
     auto args = static_cast<const MatmulOpFuncArgs *>(opArgs);
     bool transA = args->param_.transA;
     bool transB = args->param_.transB;
-    SymbolicScalar mDim = transA ? inputs[0]->shape[1] : inputs[0]->shape[0];
-    SymbolicScalar kDim = transA ? inputs[0]->shape[0] : inputs[0]->shape[1];
-    SymbolicScalar nDim = transB ? inputs[1]->shape[0] : inputs[1]->shape[1];
+    SymbolicScalar mDim = transA ? inputs[0].GetShape()[1] : inputs[0].GetShape()[0];
+    SymbolicScalar kDim = transA ? inputs[0].GetShape()[0] : inputs[0].GetShape()[1];
+    SymbolicScalar nDim = transB ? inputs[1].GetShape()[0] : inputs[1].GetShape()[1];
     const int64_t nView = args->viewShape_[1];
 
     FUNCTION("testNSplit", {inputs[0], inputs[1]}, {outputs[0]}) {
@@ -268,9 +268,9 @@ static void MatmulOperationExeFuncSplitKN(const std::vector<Tensor> &inputs, std
     auto args = static_cast<const MatmulOpFuncArgs *>(opArgs);
     bool transA = args->param_.transA;
     bool transB = args->param_.transB;
-    SymbolicScalar mDim = transA ? inputs[0]->shape[1] : inputs[0]->shape[0];
-    SymbolicScalar kDim = transA ? inputs[0]->shape[0] : inputs[0]->shape[1];
-    SymbolicScalar nDim = transB ? inputs[1]->shape[0] : inputs[1]->shape[1];
+    SymbolicScalar mDim = transA ? inputs[0].GetShape()[1] : inputs[0].GetShape()[0];
+    SymbolicScalar kDim = transA ? inputs[0].GetShape()[0] : inputs[0].GetShape()[1];
+    SymbolicScalar nDim = transB ? inputs[1].GetShape()[0] : inputs[1].GetShape()[1];
     const int64_t nView = args->viewShape_[1];
     const int64_t kSplitSize = args->tileShape_[1][1];
     if (kSplitSize == 0) return;
@@ -315,9 +315,9 @@ static void MatmulOperationExeFuncSplitMN(
     auto args = static_cast<const MatmulOpFuncArgs *>(opArgs);
     bool transA = args->param_.transA;
     bool transB = args->param_.transB;
-    SymbolicScalar mDim = transA ? inputs[0]->shape[1] : inputs[0]->shape[0];
-    SymbolicScalar kDim = transA ? inputs[0]->shape[0] : inputs[0]->shape[1];
-    SymbolicScalar nDim = transB ? inputs[1]->shape[0] : inputs[1]->shape[1];
+    SymbolicScalar mDim = transA ? inputs[0].GetShape()[1] : inputs[0].GetShape()[0];
+    SymbolicScalar kDim = transA ? inputs[0].GetShape()[0] : inputs[0].GetShape()[1];
+    SymbolicScalar nDim = transB ? inputs[1].GetShape()[0] : inputs[1].GetShape()[1];
     const int64_t mView = args->viewShape_[0];
     const int64_t nView = args->viewShape_[1];
 
@@ -352,9 +352,9 @@ static void MatmulOperationExeFuncSplitMKN(const std::vector<Tensor> &inputs, st
     auto args = static_cast<const MatmulOpFuncArgs *>(opArgs);
     bool transA = args->param_.transA;
     bool transB = args->param_.transB;
-    SymbolicScalar mDim = transA ? inputs[0]->shape[1] : inputs[0]->shape[0];
-    SymbolicScalar kDim = transA ? inputs[0]->shape[0] : inputs[0]->shape[1];
-    SymbolicScalar nDim = transB ? inputs[1]->shape[0] : inputs[1]->shape[1];
+    SymbolicScalar mDim = transA ? inputs[0].GetShape()[1] : inputs[0].GetShape()[0];
+    SymbolicScalar kDim = transA ? inputs[0].GetShape()[0] : inputs[0].GetShape()[1];
+    SymbolicScalar nDim = transB ? inputs[1].GetShape()[0] : inputs[1].GetShape()[1];
     const int64_t mView = args->viewShape_[0];
     const int64_t nView = args->viewShape_[1];
     const int64_t kSplitSize = args->tileShape_[1][1];
@@ -445,9 +445,9 @@ TEST_P(MatmulOperationTest, TestMatmul) {
     auto args = MatmulOpFuncArgs(GetViewShape(test_data), GetMatmulTileShape(test_data), GetMatmulParam(test_data));
     testCase.args = &args;
     testCase.opFunc = GetParam().opFunc_;
-    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin",
-        GetGoldenDir() + "/" + testCase.inputTensors[1]->Symbol() + ".bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin"};
+    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin",
+        GetGoldenDir() + "/" + testCase.inputTensors[1].GetStorage()->Symbol() + ".bin"};
+    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
     if (args.param_.enableKSplit) {
         TestExecutor::setGMNotClear();
     }
@@ -467,9 +467,9 @@ TEST_P(MatmulVerifyOperationTest, TestMatmulVerify) {
     auto args = MatmulOpFuncArgs(GetViewShape(test_data), GetMatmulTileShape(test_data), GetMatmulParam(test_data));
     testCase.args = &args;
     testCase.opFunc = GetParam().opFunc_;
-    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin",
-        GetGoldenDir() + "/" + testCase.inputTensors[1]->Symbol() + ".bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin"};
+    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin",
+        GetGoldenDir() + "/" + testCase.inputTensors[1].GetStorage()->Symbol() + ".bin"};
+    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
     TestFlowVerifier::runTest(testCase);
 }
 } // namespace

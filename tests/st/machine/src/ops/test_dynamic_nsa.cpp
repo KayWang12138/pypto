@@ -108,7 +108,7 @@ void TestView() {
     auto outputData = RawTensorData::CreateConstantTensor<float>(output, 0.0);
 
     FUNCTION("main", {input}, {output}) {
-        int b = input->shape[0];
+        int b = input.GetShape()[0];
         int tileB = b;
         SymbolicScalar bLoop = b / tileB;
         LOOP("LOOP_topk3", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, bLoop, 1)) {
@@ -136,7 +136,7 @@ void TestAlignRead(bool isAlign) {
     auto outputData = RawTensorData::CreateConstantTensor<float>(output, 0.0);
 
     FUNCTION("main", {input}, {output}) {
-        int b = input->shape[0];
+        int b = input.GetShape()[0];
         int tileB = b;
         SymbolicScalar bLoop = b / tileB;
         LOOP("LOOP_topk3", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, bLoop, 1)) {
@@ -174,7 +174,7 @@ void TestMultiLoopAlignRead() {
     auto outputData = RawTensorData::CreateConstantTensor<float>(output, 0.0);
 
     FUNCTION("main", {input}, {output}) {
-        int b = input->shape[0];
+        int b = input.GetShape()[0];
         int tileB = b;
         SymbolicScalar bLoop = b / tileB;
         Tensor middle(DT_FP32, middle_shape, "middle");

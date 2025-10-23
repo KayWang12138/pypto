@@ -237,23 +237,23 @@ void PageAttentionPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Te
     Tensor &blockTable, Tensor &actSeqs, int blockSize, float softmaxScale, Tensor &weightUV, Tensor &weightO,
     Tensor &weightOScaleW, Tensor &attentionOut, Tensor &postOut,
     PaTileShapeConfig &tileConfig, int maxUnrollTimes) {
-    auto dtype = qNope->Datatype();
+    auto dtype = qNope.GetStorage()->Datatype();
     // 入参B*S*N合轴
-    int dN = qNope->shape[1];
-    int dR = qRope->shape[1];
+    int dN = qNope.GetShape()[1];
+    int dR = qRope.GetShape()[1];
 
     int nTile = tileConfig.headNumQTile;
     auto c1Tile = tileConfig.c1TileShape;
     auto v1Tile = tileConfig.v1TileShape;
     auto c2Tile = tileConfig.c2TileShape;
     auto v2Tile = tileConfig.v2TileShape;
-    int batchSize = blockTable->shape[0];
-    int nQ = qNope->shape[0] / batchSize; // B*1*N
+    int batchSize = blockTable.GetShape()[0];
+    int nQ = qNope.GetShape()[0] / batchSize; // B*1*N
 
-    auto N = weightUV->shape[0];;
-    auto kvLoraRank = weightUV->shape[1];
-    auto vHeadDim = weightUV->shape[2];
-    auto H = weightO->shape[1];
+    auto N = weightUV.GetShape()[0];;
+    auto kvLoraRank = weightUV.GetShape()[1];
+    auto vHeadDim = weightUV.GetShape()[2];
+    auto H = weightO.GetShape()[1];
     int S = 1;
 
     FUNCTION("main",
@@ -355,7 +355,7 @@ void PageAttentionPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Te
             }
         }
 
-        SymbolicScalar B = attentionOut->shape[0] / N; // S=1
+        SymbolicScalar B = attentionOut.GetShape()[0] / N; // S=1
         const int64_t bTile = 32;
         LOOP("PaPost", FunctionType::DYNAMIC_LOOP, papostiter, LoopRange(B / bTile), {}, true) {
             auto postInUnit = View(attentionOut, {bTile * S * N, kvLoraRank}, {papostiter * bTile * S * N, 0});

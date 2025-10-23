@@ -60,17 +60,17 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
         {kvCache, krCache, cmpKvCache, cmpKrCache, blockTable, cmpCacheIndex, actSeqLen, mlpWk1, mlpWk2, mlpCos,
             mlpSin},
         {cmpKvCacheOut, cmpKrCacheOut, auxTensor}) {
-        auto kDtype = kvCache->Datatype();
+        auto kDtype = kvCache.GetStorage()->Datatype();
 
-        const int b = cmpCacheIndex->shape[NUM_VALUE_0];
-        const int s1 = cmpCacheIndex->shape[SHAPE_DIM1];
-        const int n2 = cmpKvCache->shape[SHAPE_DIM2];
-        const int dN = cmpKvCache->shape[SHAPE_DIM3];
-        const int dR = cmpKrCache->shape[SHAPE_DIM3];
-        const int blockSize = cmpKvCache->shape[SHAPE_DIM1];
-        const int cmpBlockNum = cmpKvCache->shape[NUM_VALUE_0];
-        const int rc = auxTensor->shape[NUM_VALUE_0] - rs;
-        const int auxVecLen = auxTensor->shape[SHAPE_DIM1];
+        const int b = cmpCacheIndex.GetShape()[NUM_VALUE_0];
+        const int s1 = cmpCacheIndex.GetShape()[SHAPE_DIM1];
+        const int n2 = cmpKvCache.GetShape()[SHAPE_DIM2];
+        const int dN = cmpKvCache.GetShape()[SHAPE_DIM3];
+        const int dR = cmpKrCache.GetShape()[SHAPE_DIM3];
+        const int blockSize = cmpKvCache.GetShape()[SHAPE_DIM1];
+        const int cmpBlockNum = cmpKvCache.GetShape()[NUM_VALUE_0];
+        const int rc = auxTensor.GetShape()[NUM_VALUE_0] - rs;
+        const int auxVecLen = auxTensor.GetShape()[SHAPE_DIM1];
 
         ASSERT(n2 == 1);
 

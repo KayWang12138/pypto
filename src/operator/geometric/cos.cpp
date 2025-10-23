@@ -32,7 +32,7 @@ using namespace npu::tile_fwk;
 namespace npu::tile_fwk {
 Tensor Cos(Tensor operand) {
     // An algorithm guarante data precision from -10^10 to 10^10
-    auto dType = operand->Datatype();
+    auto dType = operand.GetStorage()->Datatype();
     if (dType != DataType::DT_FP32) {
         operand = Cast(operand, DataType::DT_FP32);
     }
@@ -179,7 +179,7 @@ Tensor Cos(Tensor operand) {
     cosPoly = Mul(cosPoly, ifcos);
     auto res = Add(temp1, cosPoly);
     res = Mul(res, sign);
-    if (res->Datatype() != dType) {
+    if (res.GetStorage()->Datatype() != dType) {
         res = Cast(res, dType);
     }
 

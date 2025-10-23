@@ -42,7 +42,7 @@ Tensor Softmax(const Tensor &operand) {
 
 Tensor SoftmaxNew(const Tensor &operand) {
     // 获取输入数据类型
-    auto inputDtype = operand->Datatype();
+    auto inputDtype = operand.GetStorage()->Datatype();
     Tensor castOperand = operand;
     // 如果输入数据类型不是FP32，则将其转换为FP32
     if (inputDtype != DataType::DT_FP32) {
@@ -58,7 +58,7 @@ Tensor SoftmaxNew(const Tensor &operand) {
     // softmax(zi)=exp(xi-M)/S
     auto softmax = Div(exp, esum);
     // 如果输出数据类型与输入不同，则进行类型转换
-    if (inputDtype != softmax->Datatype()) {
+    if (inputDtype != softmax.GetStorage()->Datatype()) {
         softmax = Cast(softmax, inputDtype);
     }
     return softmax;
@@ -67,9 +67,9 @@ Tensor SoftmaxNew(const Tensor &operand) {
 void SoftmaxDynamicCompute(Tensor &input, Tensor &output) {
     // 获取输入形状信息[b, n1, n2, dim], batch轴动态
     SymbolicScalar b = GetInputShape(input, 0);
-    int n1 = input->GetShape()[1];
-    int n2 = input->GetShape()[2];
-    int dim = input->GetShape()[3];
+    int n1 = input.GetShape()[1];
+    int n2 = input.GetShape()[2];
+    int dim = input.GetShape()[3];
     //设置Loop处理的batch大小及循环次数
     int tileB = 1;
     SymbolicScalar bLoop = b / tileB;

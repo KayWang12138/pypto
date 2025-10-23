@@ -53,9 +53,9 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
     const Tensor &qNope, const Tensor &qRope, Tensor &attentionOut,
     int nQ, int nKv, float softmaxScale, int front, int near, int topk, int blockSize, int cmpBlockSize, int slcBlockSize,
     SATileShapeConfig saTileConfig, bool debug) {
-    auto dtype = qNope->Datatype();
-    int dN = qNope->shape[1];
-    int dR = qRope->shape[1];
+    auto dtype = qNope.GetStorage()->Datatype();
+    int dN = qNope.GetShape()[1];
+    int dR = qRope.GetShape()[1];
     int group = nQ / nKv;
 
     auto v0Tile = saTileConfig.kvSlcV0TileShape;
@@ -74,8 +74,8 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
     // config::SetPassOption(CUBE_NBUFFER, 2);
     // config::SetOperationConfig("FORCE_COMBINE_AXIS", true);
 
-    SymbolicScalar batchSizeSym = topKIndcies->shape[0]; // b
-    SymbolicScalar s1N2GSym = qNope->shape[0] / batchSizeSym; // s1n2
+    SymbolicScalar batchSizeSym = topKIndcies.GetShape()[0]; // b
+    SymbolicScalar s1N2GSym = qNope.GetShape()[0] / batchSizeSym; // s1n2
     SymbolicScalar s1Sym = s1N2GSym / nQ; // s1
     SymbolicScalar gLoopSym = group / gTile;
     SymbolicScalar n2Sym = nKv;
@@ -135,8 +135,8 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
                             auto krSlcBlock_fp32 = Cast(krSlcBlock, DataType::DT_FP32);
                             config::SetSemanticLabel("kv_slc_cast");
                             TileShape::Current().SetVecTile(v0Tile[0], v0Tile[1]);
-                            auto kvSlcBlock_fp16 = Cast(kvSlcBlock_fp32, kSlc->Datatype());
-                            auto krSlcBlock_fp16 = Cast(krSlcBlock_fp32, kSlc->Datatype());
+                            auto kvSlcBlock_fp16 = Cast(kvSlcBlock_fp32, kSlc.GetStorage()->Datatype());
+                            auto krSlcBlock_fp16 = Cast(krSlcBlock_fp32, kSlc.GetStorage()->Datatype());
                             TileShape::Current().SetVecTile(v0Tile[0], v0Tile[1]);
 
                             SymbolicScalar slcOutSOffset = topKIdx * slcBlockSize;
@@ -171,7 +171,7 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
                         // V1
                         config::SetSemanticLabel("Sa_Qkvec1");
                         TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
-                        auto sijScale = MulS(sij, Element(sij->Datatype(), softmaxScale));
+                        auto sijScale = MulS(sij, Element(sij.GetStorage()->Datatype(), softmaxScale));
                         auto tildaMij = RowMaxSingle(sijScale); // (curGTile, curS2Tile) -> (curGTile, 1)
                         auto tsub = Sub(sijScale, tildaMij); // (curGTile, curS2Tile), (curGTile, 1) -> (curGTile, curS2Tile)
                         auto tildaPij = Exp(tsub);  // (curGTile, curS2Tile) -> (curGTile, curS2Tile)
@@ -190,7 +190,7 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
                         // V2
                         config::SetSemanticLabel("Sa_KvVec2");
                         TileShape::Current().SetVecTile(1, 1, v2Tile[0], v2Tile[1]);
-                        auto oi4Dim = AddS(Reshape(oi, {1, 1, curGTile, dN}), Element(oi->Datatype(), float(0)));
+                        auto oi4Dim = AddS(Reshape(oi, {1, 1, curGTile, dN}), Element(oi.GetStorage()->Datatype(), float(0)));
                         Assemble(oi4Dim, oiOffset, attentionOut);
                     }
                 }

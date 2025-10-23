@@ -60,19 +60,19 @@ static void GetBatchMatmulTileParam(
     auto args = static_cast<const BatchMatmulOpFuncArgs *>(opArgs);
     tileParam.transA = args->param_.transA;
     tileParam.transB = args->param_.transB;
-    size_t inputDim = inputs[0]->shape.size();
+    size_t inputDim = inputs[0].GetShape().size();
     const size_t DIM_OFFSET_2 = 2;
-    tileParam.mDim = tileParam.transA ? inputs[0]->shape[inputDim - 1] : inputs[0]->shape[inputDim - DIM_OFFSET_2];
-    tileParam.kDim = tileParam.transA ? inputs[0]->shape[inputDim - DIM_OFFSET_2] : inputs[0]->shape[inputDim - 1];
-    tileParam.nDim = tileParam.transB ? inputs[1]->shape[inputDim - DIM_OFFSET_2] : inputs[1]->shape[inputDim - 1];
+    tileParam.mDim = tileParam.transA ? inputs[0].GetShape()[inputDim - 1] : inputs[0].GetShape()[inputDim - DIM_OFFSET_2];
+    tileParam.kDim = tileParam.transA ? inputs[0].GetShape()[inputDim - DIM_OFFSET_2] : inputs[0].GetShape()[inputDim - 1];
+    tileParam.nDim = tileParam.transB ? inputs[1].GetShape()[inputDim - DIM_OFFSET_2] : inputs[1].GetShape()[inputDim - 1];
     tileParam.mView = args->viewShape_[inputDim - DIM_OFFSET_2];
     tileParam.nView = args->viewShape_[inputDim - 1UL];
 
-    tileParam.aViewShape = {inputs[0]->shape.begin(), inputs[0]->shape.end() - DIM_OFFSET_2};
-    tileParam.bViewShape = {inputs[1]->shape.begin(), inputs[1]->shape.end() - DIM_OFFSET_2};
+    tileParam.aViewShape = {inputs[0].GetShape().begin(), inputs[0].GetShape().end() - DIM_OFFSET_2};
+    tileParam.bViewShape = {inputs[1].GetShape().begin(), inputs[1].GetShape().end() - DIM_OFFSET_2};
 
-    tileParam.aValidShape = {inputs[0]->shape.begin(), inputs[0]->shape.end() - DIM_OFFSET_2};
-    tileParam.bValidShape = {inputs[1]->shape.begin(), inputs[1]->shape.end() - DIM_OFFSET_2};
+    tileParam.aValidShape = {inputs[0].GetShape().begin(), inputs[0].GetShape().end() - DIM_OFFSET_2};
+    tileParam.bValidShape = {inputs[1].GetShape().begin(), inputs[1].GetShape().end() - DIM_OFFSET_2};
 
     tileParam.aOffset = std::vector<SymbolicScalar>(inputDim - DIM_OFFSET_2, 0);
     tileParam.bOffset = std::vector<SymbolicScalar>(inputDim - DIM_OFFSET_2, 0);
@@ -110,17 +110,17 @@ static void BatchMatmulOperationExeFuncNoSplit(
     auto args = static_cast<const BatchMatmulOpFuncArgs *>(opArgs);
     BatchMatmulTileParam tileParam;
     GetBatchMatmulTileParam(inputs, opArgs, tileParam);
-    size_t inputDim = inputs[0]->shape.size();
+    size_t inputDim = inputs[0].GetShape().size();
     tileParam.aOffset = std::vector<SymbolicScalar>(inputDim, 0);
     tileParam.bOffset = std::vector<SymbolicScalar>(inputDim, 0);
-    tileParam.aValidShape = {inputs[0]->shape.begin(), inputs[0]->shape.end()};
-    tileParam.bValidShape = {inputs[1]->shape.begin(), inputs[1]->shape.end()};
+    tileParam.aValidShape = {inputs[0].GetShape().begin(), inputs[0].GetShape().end()};
+    tileParam.bValidShape = {inputs[1].GetShape().begin(), inputs[1].GetShape().end()};
 
     FUNCTION("testNoSplit", {inputs[0], inputs[1]}, {outputs[0]}) {
         LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(1)) {
             tileParam.aOffset[inputDim - 1] = mIdx;
-            Tensor tensorA = View(inputs[0], inputs[0]->shape, tileParam.aValidShape, tileParam.aOffset);
-            Tensor tensorB = View(inputs[1], inputs[1]->shape, tileParam.bValidShape, tileParam.bOffset);
+            Tensor tensorA = View(inputs[0], inputs[0].GetShape(), tileParam.aValidShape, tileParam.aOffset);
+            Tensor tensorB = View(inputs[1], inputs[1].GetShape(), tileParam.bValidShape, tileParam.bOffset);
             TileShape::Current().SetCubeTile({args->tileShape_[0][0], args->tileShape_[0][1]},
                 {args->tileShape_[1][0], args->tileShape_[1][1]}, {args->tileShape_[2][0], args->tileShape_[2][1]});
             if (args->param_.isAMatrixNz || args->param_.isBMatrixNz || args->param_.isCMatrixNz) {
@@ -139,7 +139,7 @@ static void BatchMatmulOperationExeFuncSplitM(
     auto args = static_cast<const BatchMatmulOpFuncArgs *>(opArgs);
     BatchMatmulTileParam tileParam;
     GetBatchMatmulTileParam(inputs, opArgs, tileParam);
-    tileParam.bValidShape = {inputs[1]->shape.begin(), inputs[1]->shape.end()};
+    tileParam.bValidShape = {inputs[1].GetShape().begin(), inputs[1].GetShape().end()};
 
     FUNCTION("testMSplit", {inputs[0], inputs[1]}, {outputs[0]}) {
         LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx,
@@ -158,7 +158,7 @@ static void BatchMatmulOperationExeFuncSplitM(
             Tensor tensorA = View(inputs[0], tileParam.aViewShape, tileParam.aValidShape, tileParam.aOffset);
 
             tileParam.bOffset.insert(tileParam.bOffset.end(), {0, 0});
-            Tensor tensorB = View(inputs[1], inputs[1]->shape, tileParam.bValidShape, tileParam.bOffset);
+            Tensor tensorB = View(inputs[1], inputs[1].GetShape(), tileParam.bValidShape, tileParam.bOffset);
 
             TileShape::Current().SetVecTile(tileParam.vecTileShape);
             TileShape::Current().SetCubeTile({args->tileShape_[0][0], args->tileShape_[0][1]},
@@ -181,13 +181,13 @@ static void BatchMatmulOperationExeFuncSplitN(
     auto args = static_cast<const BatchMatmulOpFuncArgs *>(opArgs);
     BatchMatmulTileParam tileParam;
     GetBatchMatmulTileParam(inputs, opArgs, tileParam);
-    tileParam.aValidShape = {inputs[0]->shape.begin(), inputs[0]->shape.end()};
+    tileParam.aValidShape = {inputs[0].GetShape().begin(), inputs[0].GetShape().end()};
 
     FUNCTION("testNSplit", {inputs[0], inputs[1]}, {outputs[0]}) {
         LOOP("nLoop", FunctionType::DYNAMIC_LOOP, nIdx,
             LoopRange(0, CeilDivSymbolicScalar(tileParam.nDim, tileParam.nView), 1)) {
             tileParam.aOffset.insert(tileParam.aOffset.end(), {0, 0});
-            Tensor tensorA = View(inputs[0], inputs[0]->shape, tileParam.aValidShape, tileParam.aOffset);
+            Tensor tensorA = View(inputs[0], inputs[0].GetShape(), tileParam.aValidShape, tileParam.aOffset);
             if (tileParam.transB) {
                 tileParam.bOffset.insert(tileParam.bOffset.end(), {nIdx * tileParam.nView, 0});
                 tileParam.bViewShape.insert(tileParam.bViewShape.end(), {tileParam.nView, tileParam.kDim});
@@ -270,9 +270,9 @@ static void BatchMatmulOperationExeFuncSplitMN(
 
 static void BatchMatmulOperationExeFunc(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    ASSERT(inputs[0]->shape.size() == inputs[1]->shape.size());
+    ASSERT(inputs[0].GetShape().size() == inputs[1].GetShape().size());
     auto args = static_cast<const BatchMatmulOpFuncArgs *>(opArgs);
-    size_t inputDim = inputs[0]->shape.size();
+    size_t inputDim = inputs[0].GetShape().size();
     ASSERT(args->viewShape_.size() == inputDim);
     const size_t DIM_OFFSET_2 = 2;
     const int mView = args->viewShape_[inputDim - DIM_OFFSET_2];
@@ -303,9 +303,9 @@ TEST_P(BatchMatmulOperationTest, TestBatchMatmul) {
         BatchMatmulOpFuncArgs(GetViewShape(test_data), GetMatmulTileShape(test_data), GetMatmulParam(test_data));
     testCase.args = &args;
     testCase.opFunc = GetParam().opFunc_;
-    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin",
-        GetGoldenDir() + "/" + testCase.inputTensors[1]->Symbol() + ".bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin"};
+    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin",
+        GetGoldenDir() + "/" + testCase.inputTensors[1].GetStorage()->Symbol() + ".bin"};
+    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
     TestExecutor::runTest(testCase);
 }
 
@@ -323,9 +323,9 @@ TEST_P(BatchMatmulVerifyOperationTest, TestBatchMatmulVerify) {
         BatchMatmulOpFuncArgs(GetViewShape(test_data), GetMatmulTileShape(test_data), GetMatmulParam(test_data));
     testCase.args = &args;
     testCase.opFunc = GetParam().opFunc_;
-    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin",
-        GetGoldenDir() + "/" + testCase.inputTensors[1]->Symbol() + ".bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin"};
+    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin",
+        GetGoldenDir() + "/" + testCase.inputTensors[1].GetStorage()->Symbol() + ".bin"};
+    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
     TestFlowVerifier::runTest(testCase);
 }
 } // namespace

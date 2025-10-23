@@ -91,16 +91,6 @@ void Tensor::SetData(BinDataPtr data) {
     data_ = data;
 }
 
-const LogicalTensor *Tensor::operator->() const {
-    Program::GetInstance().GetTensorSlotManager()->TensorRead(*this);
-    return storage_.get();
-}
-
-LogicalTensor *Tensor::operator->() {
-    Program::GetInstance().GetTensorSlotManager()->TensorRead(*this);
-    return storage_.get();
-}
-
 const LogicalTensor &Tensor::operator*() const {
     Program::GetInstance().GetTensorSlotManager()->TensorRead(*this);
     return *storage_;

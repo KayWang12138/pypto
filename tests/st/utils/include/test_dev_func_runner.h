@@ -340,7 +340,7 @@ private:
                 auto &d = dataList[i];
                 if (d) {
                     EXPECT_EQ(t.GetDataType(), d->GetDataType());
-                    auto rawShape = t->GetRawTensor()->GetDynRawShape();
+                    auto rawShape = t.GetStorage()->GetRawTensor()->GetDynRawShape();
                     auto shape = d->GetShape();
                     for (size_t k = 0; k < rawShape.size(); k++) {
                         if (rawShape[k].IsImmediate()) {

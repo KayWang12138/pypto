@@ -47,8 +47,8 @@ static void CompareOperationExeFunc2Dims(
     const OpFuncArgs *opArgs) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     auto args = static_cast<const CompareOpFuncArgs *>(opArgs);
-    SymbolicScalar firstDim = std::max(inputs[0]->shape[0], inputs[1]->shape[0]);
-    SymbolicScalar secondDim = std::max(inputs[0]->shape[1], inputs[1]->shape[1]);
+    SymbolicScalar firstDim = std::max(inputs[0].GetShape()[0], inputs[1].GetShape()[0]);
+    SymbolicScalar secondDim = std::max(inputs[0].GetShape()[1], inputs[1].GetShape()[1]);
     const int firstViewShape = args->viewShape_[0];
     const int secondViewShape = args->viewShape_[1];
     const int broadcastFlag = 1; 
@@ -58,8 +58,8 @@ static void CompareOperationExeFunc2Dims(
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, 
                  LoopRange(0, CeilDiv(secondDim, secondViewShape), 1)) { 
                 Tensor tileTensor0, tileTensor1;
-                if (inputs[1]->shape[1] == broadcastFlag &&
-                    inputs[0]->shape[1] != broadcastFlag) {
+                if (inputs[1].GetShape()[1] == broadcastFlag &&
+                    inputs[0].GetShape()[1] != broadcastFlag) {
                     tileTensor0 = View(inputs[0], 
                         {firstViewShape, secondViewShape},
                         {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
@@ -70,8 +70,8 @@ static void CompareOperationExeFunc2Dims(
                         {std::min(firstDim - bIdx * firstViewShape, firstViewShape), 1},
                         {bIdx * firstViewShape, 0});
                 }
-                else if (inputs[1]->shape[0] == broadcastFlag &&
-                           inputs[0]->shape[0] != broadcastFlag) {
+                else if (inputs[1].GetShape()[0] == broadcastFlag &&
+                           inputs[0].GetShape()[0] != broadcastFlag) {
                     tileTensor0 = View(inputs[0],
                         {firstViewShape, secondViewShape},
                         {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
@@ -83,8 +83,8 @@ static void CompareOperationExeFunc2Dims(
                         {0, sIdx * secondViewShape});
                 }
                 // 第一个张量在第二维广播
-                else if (inputs[0]->shape[1] == broadcastFlag && 
-                        inputs[1]->shape[1] != broadcastFlag) {
+                else if (inputs[0].GetShape()[1] == broadcastFlag && 
+                        inputs[1].GetShape()[1] != broadcastFlag) {
                     tileTensor0 = View(inputs[0],
                         {firstViewShape, 1},
                         {std::min(firstDim - bIdx * firstViewShape, firstViewShape), 1},
@@ -96,8 +96,8 @@ static void CompareOperationExeFunc2Dims(
                         {bIdx * firstViewShape, sIdx * secondViewShape});
                 }
                 // 第一个张量在第一维广播
-                else if (inputs[0]->shape[0] == broadcastFlag &&
-                        inputs[1]->shape[0] != broadcastFlag) {
+                else if (inputs[0].GetShape()[0] == broadcastFlag &&
+                        inputs[1].GetShape()[0] != broadcastFlag) {
                     tileTensor0 = View(inputs[0],
                         {1, secondViewShape},
                         {1, std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
@@ -137,9 +137,9 @@ static void CompareOperationExeFunc3Dims(
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     // 解析参数
     auto args = static_cast<const CompareOpFuncArgs *>(opArgs);
-    SymbolicScalar firstDim = inputs[0]->shape[0];
-    SymbolicScalar secondDim = inputs[0]->shape[1];
-    SymbolicScalar thirdDim = inputs[0]->shape[2];
+    SymbolicScalar firstDim = inputs[0].GetShape()[0];
+    SymbolicScalar secondDim = inputs[0].GetShape()[1];
+    SymbolicScalar thirdDim = inputs[0].GetShape()[2];
     const int firstViewShape = args->viewShape_[0];
     const int secondViewShape = args->viewShape_[1];
     const int thirdViewShape = args->viewShape_[2];
@@ -179,10 +179,10 @@ static void CompareOperationExeFunc4Dims(
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     // 解析参数
     auto args = static_cast<const CompareOpFuncArgs *>(opArgs);
-    SymbolicScalar firstDim = inputs[0]->shape[0];
-    SymbolicScalar secondDim = inputs[0]->shape[1];
-    SymbolicScalar thirdDim = inputs[0]->shape[2];
-    SymbolicScalar fourthDim = inputs[0]->shape[3];
+    SymbolicScalar firstDim = inputs[0].GetShape()[0];
+    SymbolicScalar secondDim = inputs[0].GetShape()[1];
+    SymbolicScalar thirdDim = inputs[0].GetShape()[2];
+    SymbolicScalar fourthDim = inputs[0].GetShape()[3];
     const int firstViewShape = args->viewShape_[0];
     const int secondViewShape = args->viewShape_[1];
     const int thirdViewShape = args->viewShape_[2];
@@ -198,8 +198,8 @@ static void CompareOperationExeFunc4Dims(
                     LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, 
                          LoopRange(0, CeilDiv(fourthDim, fourthViewShape), 1)) {
                         Tensor tileTensor0, tileTensor1;
-                        if (inputs[1]->shape[2] == broadcastFlag && 
-                            inputs[0]->shape[2] != broadcastFlag) {
+                        if (inputs[1].GetShape()[2] == broadcastFlag && 
+                            inputs[0].GetShape()[2] != broadcastFlag) {
                             tileTensor0 = View(inputs[0], 
                                 {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
                                 {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
@@ -292,11 +292,11 @@ TEST_P(CompareOperationTest, TestCompare) {
     std::vector<std::string> inputPaths;
     for (size_t i = 0; i < testCase.inputTensors.size(); ++i) {
         inputPaths.emplace_back(
-            GetGoldenDir() + "/" + testCase.inputTensors[i]->Symbol() + ".bin"
+            GetGoldenDir() + "/" + testCase.inputTensors[i].GetStorage()->Symbol() + ".bin"
         );
     }
     testCase.inputPaths = inputPaths;
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin"};
+    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
     TestExecutor::runTest(testCase);
 }
 }

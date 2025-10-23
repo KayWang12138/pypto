@@ -43,10 +43,10 @@ static void ScatterOperationExeFunc2Dims(
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
-        SymbolicScalar src_firstDim = inputs[0]->shape[0];
-        SymbolicScalar src_secondDim = inputs[0]->shape[1];
-        SymbolicScalar idx_firstDim = inputs[1]->shape[0];
-        SymbolicScalar idx_secondDim = inputs[1]->shape[1];
+        SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
+        SymbolicScalar idx_firstDim = inputs[1].GetShape()[0];
+        SymbolicScalar idx_secondDim = inputs[1].GetShape()[1];
         auto args = static_cast<const ScatterOpFuncArgs *>(opArgs);
         const int64_t firstViewShape = args->viewShape_[0];
         const int64_t secondViewShape = args->viewShape_[1];
@@ -80,10 +80,10 @@ static void ScatterOperationExeFunc2DimsNoReduceOp(
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
-        SymbolicScalar src_firstDim = inputs[0]->shape[0];
-        SymbolicScalar src_secondDim = inputs[0]->shape[1];
-        SymbolicScalar idx_firstDim = inputs[1]->shape[0];
-        SymbolicScalar idx_secondDim = inputs[1]->shape[1];
+        SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
+        SymbolicScalar idx_firstDim = inputs[1].GetShape()[0];
+        SymbolicScalar idx_secondDim = inputs[1].GetShape()[1];
         auto args = static_cast<const ScatterOpFuncArgs *>(opArgs);
         const int64_t firstViewShape = args->viewShape_[0];
         const int64_t secondViewShape = args->viewShape_[1];
@@ -117,12 +117,12 @@ static void ScatterOperationExeFunc3Dims(
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
-        SymbolicScalar src_firstDim = inputs[0]->shape[0];
-        SymbolicScalar src_secondDim = inputs[0]->shape[1];
-        SymbolicScalar src_thirdDim = inputs[0]->shape[2];
-        SymbolicScalar idx_firstDim = inputs[1]->shape[0];
-        SymbolicScalar idx_secondDim = inputs[1]->shape[1];
-        SymbolicScalar idx_thirdDim = inputs[1]->shape[2];
+        SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
+        SymbolicScalar src_thirdDim = inputs[0].GetShape()[2];
+        SymbolicScalar idx_firstDim = inputs[1].GetShape()[0];
+        SymbolicScalar idx_secondDim = inputs[1].GetShape()[1];
+        SymbolicScalar idx_thirdDim = inputs[1].GetShape()[2];
         auto args = static_cast<const ScatterOpFuncArgs *>(opArgs);
         const int64_t firstViewShape = args->viewShape_[0];
         const int64_t secondViewShape = args->viewShape_[1];
@@ -160,14 +160,14 @@ static void ScatterOperationExeFunc3Dims(
 static void ScatterOperationExeFunc4Dims(const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
-        SymbolicScalar src_firstDim = inputs[0]->shape[0];
-        SymbolicScalar src_secondDim = inputs[0]->shape[1];
-        SymbolicScalar src_thirdDim = inputs[0]->shape[2];
-        SymbolicScalar src_fourthDim = inputs[0]->shape[3];
-        SymbolicScalar idx_firstDim = inputs[1]->shape[0];
-        SymbolicScalar idx_secondDim = inputs[1]->shape[1];
-        SymbolicScalar idx_thirdDim = inputs[1]->shape[2];
-        SymbolicScalar idx_fourthDim = inputs[1]->shape[3];
+        SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
+        SymbolicScalar src_thirdDim = inputs[0].GetShape()[2];
+        SymbolicScalar src_fourthDim = inputs[0].GetShape()[3];
+        SymbolicScalar idx_firstDim = inputs[1].GetShape()[0];
+        SymbolicScalar idx_secondDim = inputs[1].GetShape()[1];
+        SymbolicScalar idx_thirdDim = inputs[1].GetShape()[2];
+        SymbolicScalar idx_fourthDim = inputs[1].GetShape()[3];
         auto args = static_cast<const ScatterOpFuncArgs *>(opArgs);
         const int firstViewShape = args->viewShape_[0];
         const int secondViewShape = args->viewShape_[1];
@@ -237,9 +237,9 @@ TEST_P(ScatterOperationTest, TestScatter) {
     auto args = ScatterOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data), axis, value, reduce);
     testCase.args = &args;
     testCase.opFunc = GetParam().opFunc_;
-    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin",
-        GetGoldenDir() + "/" + testCase.inputTensors[1]->Symbol() + ".bin" };
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin"};
+    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin",
+        GetGoldenDir() + "/" + testCase.inputTensors[1].GetStorage()->Symbol() + ".bin" };
+    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
     TestExecutor::runTest(testCase);
 }
 } // namespace

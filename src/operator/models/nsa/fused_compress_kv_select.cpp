@@ -36,12 +36,12 @@ namespace npu::tile_fwk {
 
 Tensor MlpSingleRope(const Tensor &x, const Tensor &cos, const Tensor &sin, MlpRopeTile &tileConfig) {
     // x: [cmpBlockSize, dR], cos: [1, cmpBlockSize, dR], sin: [1, cmpBlockSize, dR]
-    ASSERT(x->shape.size() == SHAPE_DIM3 && cos->shape.size() == SHAPE_DIM3 && sin->shape.size() == SHAPE_DIM3);
+    ASSERT(x.GetShape().size() == SHAPE_DIM3 && cos.GetShape().size() == SHAPE_DIM3 && sin.GetShape().size() == SHAPE_DIM3);
 
-    auto cmpSize = x->shape[NUM_VALUE_0];
-    auto n2 = x->shape[NUM_VALUE_1];
-    auto dR = x->shape[NUM_VALUE_2];
-    auto xDtype = x->Datatype();
+    auto cmpSize = x.GetShape()[NUM_VALUE_0];
+    auto n2 = x.GetShape()[NUM_VALUE_1];
+    auto dR = x.GetShape()[NUM_VALUE_2];
+    auto xDtype = x.GetStorage()->Datatype();
 
     auto fourDim = tileConfig.fourDim;
     auto fiveDim = tileConfig.fiveDim;
@@ -74,11 +74,11 @@ Tensor MlpSingleRope(const Tensor &x, const Tensor &cos, const Tensor &sin, MlpR
 
 Tensor BatchMlpSingleRope(const Tensor &x, const Tensor &cos, const Tensor &sin, MlpRopeTile &tileConfig) {
     (void)tileConfig;
-    assert(x->shape.size() == SHAPE_DIM2 && cos->shape.size() == SHAPE_DIM3 && sin->shape.size() == SHAPE_DIM3);
+    assert(x.GetShape().size() == SHAPE_DIM2 && cos.GetShape().size() == SHAPE_DIM3 && sin.GetShape().size() == SHAPE_DIM3);
 
-    auto cmpSize = x->shape[NUM_VALUE_0];
-    auto dR = x->shape[NUM_VALUE_1];
-    auto xDtype = x->Datatype();
+    auto cmpSize = x.GetShape()[NUM_VALUE_0];
+    auto dR = x.GetShape()[NUM_VALUE_1];
+    auto xDtype = x.GetStorage()->Datatype();
 
     TileShape::Current().SetVecTile(
         tileConfig.threeDim[NUM_VALUE_0], tileConfig.threeDim[NUM_VALUE_1], tileConfig.threeDim[NUM_VALUE_2]);
@@ -100,7 +100,7 @@ Tensor BatchMlpSingleRope(const Tensor &x, const Tensor &cos, const Tensor &sin,
 }
 
 Tensor BatchMlpCompress(const Tensor &x, const Tensor &w1, const Tensor &w2, MlpCmpTile &tileConfig) {
-    auto xDtype = x->Datatype();
+    auto xDtype = x.GetStorage()->Datatype();
     auto c1Tile = tileConfig.c1TileShape;
     auto c2Tile = tileConfig.c2TileShape;
     auto v1Tile = tileConfig.v1TileShape;
@@ -128,16 +128,16 @@ Tensor BatchMlpCompress(const Tensor &x, const Tensor &w1, const Tensor &w2, Mlp
 
 Tensor MlpCompress(const Tensor &x, const Tensor &w1, const Tensor &w2, MlpCmpTile &tileConfig) {
     // x: (cmpBlockSize, n2, d) , w1: (cmpBlockSize*d, 2*cmpBlockSize*d), w2: (2*cmpBlockSize*d, d)
-    auto xDtype = x->Datatype();
+    auto xDtype = x.GetStorage()->Datatype();
     auto transTile = tileConfig.transTileShape;
     auto c1Tile = tileConfig.c1TileShape;
     auto c2Tile = tileConfig.c2TileShape;
     auto v1Tile = tileConfig.v1TileShape;
     auto v2Tile = tileConfig.v2TileShape;
 
-    const int s = x->shape[NUM_VALUE_0];
-    const int n = x->shape[NUM_VALUE_1];
-    const int d = x->shape[NUM_VALUE_2];
+    const int s = x.GetShape()[NUM_VALUE_0];
+    const int n = x.GetShape()[NUM_VALUE_1];
+    const int d = x.GetShape()[NUM_VALUE_2];
 
     config::SetSemanticLabel("MlpCompress-0");
     TileShape::Current().SetVecTile(transTile[NUM_VALUE_0], transTile[NUM_VALUE_1], transTile[NUM_VALUE_2]);
@@ -158,7 +158,7 @@ Tensor MlpCompress(const Tensor &x, const Tensor &w1, const Tensor &w2, MlpCmpTi
     config::SetSemanticLabel("MlpCompress-3");
     auto sigTensor = Sigmoid(firstMm);
     config::SetSemanticLabel("MlpCompress-4");
-    auto castTensor = Cast(sigTensor, x->Datatype());
+    auto castTensor = Cast(sigTensor, x.GetStorage()->Datatype());
 
     config::SetSemanticLabel("MlpCompress-5");
     TileShape::Current().SetCubeTile({c2Tile[NUM_VALUE_0], c2Tile[NUM_VALUE_1]},
@@ -178,7 +178,7 @@ std::tuple<Tensor, Tensor> CmpAttn(
     auto c1Tile = tileConfig.c1TileShape;
     auto c2Tile = tileConfig.c2TileShape;
     auto v1Tile = tileConfig.v1TileShape;
-    auto qDtype = q->Datatype();
+    auto qDtype = q.GetStorage()->Datatype();
     config::SetSemanticLabel("CmpAttention-MatMul1");
     TileShape::Current().SetCubeTile({c1Tile[NUM_VALUE_0], c1Tile[NUM_VALUE_1]},
         {c1Tile[NUM_VALUE_2], c1Tile[NUM_VALUE_3]}, {c1Tile[NUM_VALUE_4], c1Tile[NUM_VALUE_5]}, true);
@@ -232,21 +232,21 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
     (void)actCmpSeqLen;
     (void)firstRopeInput;
 
-    auto qDtype = qNope->Datatype();
-    auto kDtype = kvCache->Datatype();
+    auto qDtype = qNope.GetStorage()->Datatype();
+    auto kDtype = kvCache.GetStorage()->Datatype();
 
-    const int b = blockTable->shape[NUM_VALUE_0];
-    const int s1 = qNope->shape[NUM_VALUE_0] / b / n1;
+    const int b = blockTable.GetShape()[NUM_VALUE_0];
+    const int s1 = qNope.GetShape()[NUM_VALUE_0] / b / n1;
 
-    const int dN = qNope->shape[SHAPE_DIM1];
-    const int dR = qRope->shape[SHAPE_DIM1];
+    const int dN = qNope.GetShape()[SHAPE_DIM1];
+    const int dR = qRope.GetShape()[SHAPE_DIM1];
     const int dQ = dN + dR;
     const int dK = dQ;
-    const int maxBlockNum = blockTable->shape[SHAPE_DIM1];
-    const int maxCmpBlockNum = cmpBlockTable->shape[SHAPE_DIM1];
+    const int maxBlockNum = blockTable.GetShape()[SHAPE_DIM1];
+    const int maxCmpBlockNum = cmpBlockTable.GetShape()[SHAPE_DIM1];
     int group = n1 / n2;
     int n = NUM_128;                           // NUM_128
-    int s_cmp = cmpSoftmax->shape[SHAPE_DIM1]; // 511
+    int s_cmp = cmpSoftmax.GetShape()[SHAPE_DIM1]; // 511
     int s_slc = (s_cmp + 3) / 4;               // NUM_128
     int loop = s_slc;
     int out_loop = 4;    // 4

@@ -38,9 +38,9 @@ static std::vector<int64_t> GetConcatViewShape(Tensor tensor, const std::vector<
     std::vector<int64_t> resultViewShape = {};
     for (size_t i = 0; i < viewShape.size(); i++) {
         if (static_cast<int>(i) != axis) {
-            resultViewShape.push_back(std::min(viewShape[i], tensor->shape[i]));
+            resultViewShape.push_back(std::min(viewShape[i], tensor.GetShape()[i]));
         } else {
-            resultViewShape.push_back(tensor->shape[i]);
+            resultViewShape.push_back(tensor.GetShape()[i]);
         }
     }
     return resultViewShape;
@@ -50,11 +50,11 @@ static std::vector<int64_t> GetConcatViewShape(Tensor tensor, const std::vector<
 static std::vector<SymbolicScalar> GetNoAxisDims(const std::vector<Tensor> &inputs, int axis) {
     Tensor input0 = inputs[0];
     std::vector<SymbolicScalar> dimensions = {};
-    for (size_t i = 0; i < input0->GetShape().size(); i++) {
+    for (size_t i = 0; i < input0.GetShape().size(); i++) {
         if (static_cast<int>(i) == axis) {
             continue;
         }
-        dimensions.push_back(input0->shape[i]);
+        dimensions.push_back(input0.GetShape()[i]);
     }
     return dimensions;
 }
@@ -86,7 +86,7 @@ static void ConcatOperationExeFuncDoubleCut(
     auto args = static_cast<const ConcatOpFuncArgs *>(opArgs);
     int axis=0;
     if(args->axis_<0){
-        axis=args->axis_+inputs[0]->GetShape().size();
+        axis=args->axis_+inputs[0].GetShape().size();
     }else {
         axis=args->axis_;
     }
@@ -102,8 +102,8 @@ static void ConcatOperationExeFuncDoubleCut(
             for (size_t tensorId = 0; tensorId < inputs.size(); tensorId++) {
                 const std::vector<int64_t> tensorViewShape = GetConcatViewShape(inputs[tensorId], args->viewShape_, axis);
                 // 本质是在找 bIdx 循环的是哪一根轴
-                SymbolicScalar validShape0 = std::min(SymbolicScalar(inputs[tensorId]->shape[0]) - indices[0] * tensorViewShape[0], tensorViewShape[0]);
-                SymbolicScalar validShape1 = std::min(SymbolicScalar(inputs[tensorId]->shape[1]) - indices[1] * tensorViewShape[1], tensorViewShape[1]);
+                SymbolicScalar validShape0 = std::min(SymbolicScalar(inputs[tensorId].GetShape()[0]) - indices[0] * tensorViewShape[0], tensorViewShape[0]);
+                SymbolicScalar validShape1 = std::min(SymbolicScalar(inputs[tensorId].GetShape()[1]) - indices[1] * tensorViewShape[1], tensorViewShape[1]);
                 auto tileTensor = View(inputs[tensorId], tensorViewShape, {validShape0, validShape1},
                     {indices[0] * tensorViewShape[0], indices[1] * tensorViewShape[1]});
                 concatTensors.push_back(tileTensor);
@@ -123,7 +123,7 @@ static void ConcatOperationExeFuncTripleCut(
     auto args = static_cast<const ConcatOpFuncArgs *>(opArgs);
     int axis=0;
     if(args->axis_<0){
-        axis=args->axis_+inputs[0]->GetShape().size();
+        axis=args->axis_+inputs[0].GetShape().size();
     }else {
         axis=args->axis_;
     }
@@ -140,15 +140,15 @@ static void ConcatOperationExeFuncTripleCut(
                 for (size_t tensorId = 0; tensorId < inputs.size(); tensorId++) {
                     const std::vector<int64_t> tensorViewShape = GetConcatViewShape(inputs[tensorId], args->viewShape_, axis);
                     SymbolicScalar validShape0 = std::min(
-                        SymbolicScalar(inputs[tensorId]->shape[0]) - indices[0] * tensorViewShape[0],
+                        SymbolicScalar(inputs[tensorId].GetShape()[0]) - indices[0] * tensorViewShape[0],
                         tensorViewShape[0]
                     );
                     SymbolicScalar validShape1 = std::min(
-                        SymbolicScalar(inputs[tensorId]->shape[1]) - indices[1] * tensorViewShape[1],
+                        SymbolicScalar(inputs[tensorId].GetShape()[1]) - indices[1] * tensorViewShape[1],
                         tensorViewShape[1]
                     );
                     SymbolicScalar validShape2 = std::min(
-                        SymbolicScalar(inputs[tensorId]->shape[2]) - indices[2] * tensorViewShape[2],
+                        SymbolicScalar(inputs[tensorId].GetShape()[2]) - indices[2] * tensorViewShape[2],
                         tensorViewShape[2]
                     );
                     auto tileTensor = View(inputs[tensorId], tensorViewShape, {validShape0, validShape1, validShape2},
@@ -183,7 +183,7 @@ static void ConcatOperationExeFuncQuadraticCut(
     int axis=0;
     auto args = static_cast<const ConcatOpFuncArgs *>(opArgs);
     if(args->axis_<0){
-        axis=args->axis_+inputs[0]->GetShape().size();
+        axis=args->axis_+inputs[0].GetShape().size();
     }else {
         axis=args->axis_;
     }
@@ -202,19 +202,19 @@ static void ConcatOperationExeFuncQuadraticCut(
                     for (size_t tensorId = 0; tensorId < inputs.size(); tensorId++) {
                         const std::vector<int64_t> tensorViewShape = GetConcatViewShape(inputs[tensorId], args->viewShape_, axis);
                         SymbolicScalar validShape0 = std::min(
-                            SymbolicScalar(inputs[tensorId]->shape[0]) - indices[0] * tensorViewShape[0],
+                            SymbolicScalar(inputs[tensorId].GetShape()[0]) - indices[0] * tensorViewShape[0],
                             tensorViewShape[0]
                         );
                         SymbolicScalar validShape1 = std::min(
-                            SymbolicScalar(inputs[tensorId]->shape[1]) - indices[1] * tensorViewShape[1],
+                            SymbolicScalar(inputs[tensorId].GetShape()[1]) - indices[1] * tensorViewShape[1],
                             tensorViewShape[1]
                         );
                         SymbolicScalar validShape2 = std::min(
-                            SymbolicScalar(inputs[tensorId]->shape[2]) - indices[2] * tensorViewShape[2],
+                            SymbolicScalar(inputs[tensorId].GetShape()[2]) - indices[2] * tensorViewShape[2],
                             tensorViewShape[2]
                         );
                         SymbolicScalar validShape3 = std::min(
-                            SymbolicScalar(inputs[tensorId]->shape[3]) - indices[3] * tensorViewShape[3],
+                            SymbolicScalar(inputs[tensorId].GetShape()[3]) - indices[3] * tensorViewShape[3],
                             tensorViewShape[3]
                         );
                         auto tileTensor = View(inputs[tensorId], tensorViewShape, {validShape0, validShape1, validShape2, validShape3},
@@ -261,11 +261,11 @@ TEST_P(ConcatOperationTest, TestConcat) {
     testCase.opFunc = GetParam().opFunc_;
     std::vector<std::string> includePaths = {};
     for (size_t i = 0; i < testCase.inputTensors.size(); i++) {
-        std::string path = GetGoldenDir() + "/" + testCase.inputTensors[i]->Symbol() + ".bin";
+        std::string path = GetGoldenDir() + "/" + testCase.inputTensors[i].GetStorage()->Symbol() + ".bin";
         includePaths.push_back(path);
     }
     testCase.inputPaths = includePaths;
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin"};
+    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
     TestExecutor::runTest(testCase);
 }
 } // namespace

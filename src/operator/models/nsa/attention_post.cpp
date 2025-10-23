@@ -33,13 +33,13 @@ void PostCompute(Tensor &input, PostTensors &postTensors, const PostTileConfig &
     // weightO: [v*kvLoraRank,h], fp16/bf16/int8
     // weightOScale: [1,h], fp32
     // params check
-    assert(input->shape.size() == SHAPE_DIM4 && postTensors.weightUV->shape.size() == SHAPE_DIM3 &&
-            postTensors.weightO->shape.size() == SHAPE_DIM2);
-    auto dtype = input->Datatype();
-    auto n = postTensors.weightUV->shape[0];
-    auto kvLoraRank = postTensors.weightUV->shape[1];
-    auto vHeadDim = postTensors.weightUV->shape[2];
-    auto h = postTensors.weightO->shape[1];
+    assert(input.GetShape().size() == SHAPE_DIM4 && postTensors.weightUV.GetShape().size() == SHAPE_DIM3 &&
+            postTensors.weightO.GetShape().size() == SHAPE_DIM2);
+    auto dtype = input.GetStorage()->Datatype();
+    auto n = postTensors.weightUV.GetShape()[0];
+    auto kvLoraRank = postTensors.weightUV.GetShape()[1];
+    auto vHeadDim = postTensors.weightUV.GetShape()[2];
+    auto h = postTensors.weightO.GetShape()[1];
 
     int tileB = tileConfig.tileB;
     int tileS = tileConfig.tileS;
@@ -50,8 +50,8 @@ void PostCompute(Tensor &input, PostTensors &postTensors, const PostTileConfig &
     bool isQuantWo = postTensors.weightOScale.GetStorage() != nullptr;
     bool isSmoothWo = postTensors.smoothScalesWo.GetStorage() != nullptr;
 
-    int b = input->shape[0];  // SymbolicScalar b = GetInputShapeDim(input, 0);
-    int s = input->shape[1];  // SymbolicScalar s = GetInputShapeDim(input, 1);
+    int b = input.GetShape()[0];  // SymbolicScalar b = GetInputShapeDim(input, 0);
+    int s = input.GetShape()[1];  // SymbolicScalar s = GetInputShapeDim(input, 1);
     SymbolicScalar bLoop = b / tileB;
     SymbolicScalar sLoop = s / tileS;
 

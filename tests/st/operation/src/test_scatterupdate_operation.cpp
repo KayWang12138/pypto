@@ -41,10 +41,10 @@ static void ScatterUpdateOperationExeFunc4Dims(
     std::vector<Tensor> &inputs = const_cast<std::vector<Tensor>&>(input);
     FUNCTION("main", {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
         auto args = static_cast<const ScatterUpdateOpFuncArgs *>(opArgs);
-        const int64_t b = inputs[0]->shape[0];
-        const int64_t s = inputs[0]->shape[1];
-        const int64_t n = inputs[0]->shape[2];
-        const int64_t d = inputs[0]->shape[3];
+        const int64_t b = inputs[0].GetShape()[0];
+        const int64_t s = inputs[0].GetShape()[1];
+        const int64_t n = inputs[0].GetShape()[2];
+        const int64_t d = inputs[0].GetShape()[3];
         const int64_t bViewShape = args->viewShape_[0];
         const int64_t sViewShape = args->viewShape_[1];
 
@@ -72,10 +72,10 @@ static void ScatterUpdateOperationExeFunc2Dims(
     std::vector<Tensor> &inputs = const_cast<std::vector<Tensor>&>(input);
     FUNCTION("main", {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
         auto args = static_cast<const ScatterUpdateOpFuncArgs *>(opArgs);
-        const int64_t b = inputs[1]->shape[0];
-        const int64_t s = inputs[1]->shape[1];
-        const int64_t bs = inputs[0]->shape[0];
-        const int64_t d = inputs[0]->shape[1];
+        const int64_t b = inputs[1].GetShape()[0];
+        const int64_t s = inputs[1].GetShape()[1];
+        const int64_t bs = inputs[0].GetShape()[0];
+        const int64_t d = inputs[0].GetShape()[1];
         const int64_t bViewShape = args->viewShape_[0];
         const int64_t bsViewShape = bViewShape * s;
         const int64_t bloop = CeilDiv(b, bViewShape);
@@ -107,10 +107,10 @@ TEST_P(ScatterUpdateOperationTest, TestScatterUpdate) {
     auto args = ScatterUpdateOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data));
     testCase.args = &args;
     testCase.opFunc = GetParam().opFunc_;
-    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin",
-        GetGoldenDir() + "/" + testCase.inputTensors[1]->Symbol() + ".bin",
-        GetGoldenDir() + "/" + testCase.inputTensors[2]->Symbol() + ".bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin"};
+    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin",
+        GetGoldenDir() + "/" + testCase.inputTensors[1].GetStorage()->Symbol() + ".bin",
+        GetGoldenDir() + "/" + testCase.inputTensors[2].GetStorage()->Symbol() + ".bin"};
+    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
     TestExecutor::runTest(testCase);
 }
 } // namespace

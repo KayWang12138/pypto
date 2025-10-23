@@ -28,8 +28,8 @@ Tensor FlashAttentionNew(
     const Tensor &q, const Tensor &k, const Tensor &v, const Tensor &m, const Tensor &l, const AttentionDims &atDims) {
     (void)m;
     (void)l;
-    int dim0 = q->shape[0];
-    int dim1 = q->shape[1];
+    int dim0 = q.GetShape()[0];
+    int dim1 = q.GetShape()[1];
     int b = atDims.b;
     int n = atDims.n;
     int s = dim0 / b;
@@ -123,8 +123,8 @@ Tensor FlashAttentionNew(
     }
 
     result = Assemble(aggregation);
-    assert(result->shape[0] == b * s);
-    assert(result->shape[1] == n * d);
+    assert(result.GetShape()[0] == b * s);
+    assert(result.GetShape()[1] == n * d);
 
     return result;
 }

@@ -114,9 +114,9 @@ IndexerPrologOutputData PrepareIndexerPrologOutputsData(const IndexerPrologOutpu
 
 template <typename T>
 IndexerPrologOutputGolden<T> PrepareIndexerPrologOutputsGolden(const IndexerPrologOutput &outputs) {
-    auto queryGolden = getGoldenVec<T>(outputs.query->GetShape(), "/query_golden.bin");
-    auto weightGolden = getGoldenVec<T>(outputs.weight->GetShape(), "/weights_golden.bin");
-    auto kCacheOutGolden = getGoldenVec<T>(outputs.kCacheOut->GetShape(), "/idx_k_cache_out_golden.bin");
+    auto queryGolden = getGoldenVec<T>(outputs.query.GetShape(), "/query_golden.bin");
+    auto weightGolden = getGoldenVec<T>(outputs.weight.GetShape(), "/weights_golden.bin");
+    auto kCacheOutGolden = getGoldenVec<T>(outputs.kCacheOut.GetShape(), "/idx_k_cache_out_golden.bin");
     return IndexerPrologOutputGolden<T>{queryGolden, weightGolden, kCacheOutGolden};
 }
 

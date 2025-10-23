@@ -43,8 +43,8 @@ Tensor FlashAttention(const Tensor &q, const Tensor &k, const Tensor &v, const T
     (void)m;
     (void)l;
     // q, k, v, result shape: [b*s, n*d]
-    int dim0 = q->shape[0];
-    int dim1 = q->shape[1];
+    int dim0 = q.GetShape()[0];
+    int dim1 = q.GetShape()[1];
     int b = atDims.b;
     int n = atDims.n;
     int s = dim0 / b;
@@ -147,8 +147,8 @@ Tensor FlashAttention(const Tensor &q, const Tensor &k, const Tensor &v, const T
             aggregation.emplace_back(tensor, offset);
         }
         result = Assemble(aggregation);
-        assert(result->shape[0] == b * s);
-        assert(result->shape[1] == n * d);
+        assert(result.GetShape()[0] == b * s);
+        assert(result.GetShape()[1] == n * d);
     }
     return result;
 }
@@ -160,9 +160,9 @@ Tensor MultiAttention(const Tensor &hiddenStates, const Tensor &weight, const Te
         auto x = Cast(hiddenStates, DataType::DT_FP16);
 
         auto qkv = Matrix::Matmul<false, false>(DataType::DT_FP16, x, weight);
-        auto q = View(qkv, hiddenStates->shape, {0, 0});
-        auto k = View(qkv, hiddenStates->shape, {0, hiddenStates->shape[1]});
-        auto v = View(qkv, hiddenStates->shape, {0, hiddenStates->shape[1] * 2});
+        auto q = View(qkv, hiddenStates.GetShape(), {0, 0});
+        auto k = View(qkv, hiddenStates.GetShape(), {0, hiddenStates.GetShape()[1]});
+        auto v = View(qkv, hiddenStates.GetShape(), {0, hiddenStates.GetShape()[1] * 2});
 
         result = FlashAttention(q, k, v, m, l, atDims, vecCfg, cubeCfg);
     }
@@ -173,7 +173,7 @@ Tensor LlamaLayer(Tensor hiddenStates, const Tensor &attnWight, const Tensor &de
     const AttentionDims &atDims, const AttentionVecTileConfig &vecCfg, const AttentionCubeTileConfig &cubeCfg) {
     TileShape::Current().SetVecTile(vecCfg.defaultVecTileX, vecCfg.defaultVecTileY);
     SetDefaultL0CubeConfig();
-    auto shape = hiddenStates->shape;
+    auto shape = hiddenStates.GetShape();
     auto residual = hiddenStates;
     hiddenStates = RmsNorm(hiddenStates);
 

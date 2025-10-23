@@ -297,7 +297,7 @@ public:
 
     std::tuple<Tensor, Tensor> Forward(const Tensor &hiddenStates) {
         // hiddenStates: [b*s,h]
-        int bs = hiddenStates->shape[0];
+        int bs = hiddenStates.GetShape()[0];
 
         /* compute gating score */
         auto logits = Matrix::Matmul<false, true>(DataType::DT_FP32, hiddenStates, weight); // [b*s,h] @ [nRoutedExperts,h].t -> [b*s,256]
@@ -309,7 +309,7 @@ public:
         // groupScores = (View(scoresForChoice, bsz * seq_len, self.nGroup, -1).topk(2, dim=-1)[0].sum())
         // groupIdx = torch.topk(groupScores, k=self.topkGroup, dim=-1, sorted=False)[1]
         std::vector<int64_t> shape = {
-            scoresForChoice->shape[0] * nGroup, scoresForChoice->shape[1] / nGroup
+            scoresForChoice.GetShape()[0] * nGroup, scoresForChoice.GetShape()[1] / nGroup
         }; // [b*s,256]->[b*s*8,32]
         auto scoresForChoiceNewShape = Reshape(scoresForChoice, shape);
         auto scoresForChoiceIndex = std::get<0>(TopK(scoresForChoiceNewShape, 2, -1));
@@ -319,7 +319,7 @@ public:
         auto groupScores = RowSumSingle(scoresForChoiceIndex, 1); // [b*s*8,2]->[b*s*8]
         // TileShape::Current().SetVecTile(128, 64); // for Assemble
 
-        auto groupScoresReshape = Reshape(groupScores, {groupScores->shape[0] / nGroup, nGroup});
+        auto groupScoresReshape = Reshape(groupScores, {groupScores.GetShape()[0] / nGroup, nGroup});
         // [b*s*8]->[b*s,8]
         auto groupIdx = std::get<1>(TopK(groupScoresReshape, topkGroup, 1)); // [b*s,8]->[b*s,4]
 
@@ -328,7 +328,7 @@ public:
         // groupMask.scatter_(1, groupIdx, 1)
         auto groupMaskScatter = Scatter_(groupMask, groupIdx, Element(DataType::DT_FP32, F_1), 1); // [b*s,8]
         // scoreMask
-        int dim0 = groupMaskScatter->shape[0] * groupMaskScatter->shape[1];
+        int dim0 = groupMaskScatter.GetShape()[0] * groupMaskScatter.GetShape()[1];
 
         auto scoreMask = Expand(Reshape(groupMaskScatter, {dim0, 1}), {dim0, nRoutedExperts / nGroup}); // [b*s*8,1] -> [b*s*8,32]
         scoreMask = Reshape(scoreMask, {bs, nRoutedExperts}); // [b*s*8,32]->[b*s,256]
@@ -387,7 +387,7 @@ public:
         std::vector<int64_t> zerosShape(NUM_2);
         zerosShape[0] = bs;
         zerosShape[1] = nRoutedExperts;
-        Tensor randoms(topkIds->Datatype(), zerosShape);
+        Tensor randoms(topkIds.GetStorage()->Datatype(), zerosShape);
 
         Tensor cnts = MulS(randoms, Element(DataType::DT_FP32, F_0)); // (b*s, nRoutedExperts)
 
@@ -405,7 +405,7 @@ public:
             Element(DataType::DT_FP32, static_cast<double>(expertPerTok))),
             DataType::DT_INT32, CAST_TRUNC));
 
-        auto &sortedTokensShape = sortedTokens->GetShape();
+        auto &sortedTokensShape = sortedTokens.GetShape();
 
         // tokensPerExpertCpu = tokensPerExpert.cpu().numpy(); 手动设置规避动态图
         // 这里构造总大小为b*s*num_experts_per_tok的vector,模拟选择专家，执行256次Mlp计算
@@ -427,7 +427,7 @@ public:
             Tensor tokensForThisExpert = View(sortedTokens,  { numTokens, sortedTokensShape[1] }, { startIdx, 0 }); // 选出[B, H]
             std::cout<<"=numTokens===="<<numTokens<<std::endl;
             for (auto n : tokensForThisExpert.GetShape()){
-                std::cout<<"=tokensForThisExpert->shape"<< n <<std::endl;
+                std::cout<<"=tokensForThisExpert.GetShape()"<< n <<std::endl;
             }
 
             // 这里没有选对应的expert，默认infer模式下所有的expert相同
@@ -441,7 +441,7 @@ public:
         Tensor newX(outs.GetDataType(), outs.GetShape()); // (b*s*num_experts_per_tok, h)
 
         for (auto n: outs.GetShape()){
-            std::cout << "=outs->shape" << n << std::endl;
+            std::cout << "=outs.GetShape()" << n << std::endl;
         }
         TileShape::Current().SetVecTile({NUM_128, NUM_128});
         // newX[idxs] = outs  -->index_put: (b*s*num_experts_per_tok, h)[b*s*num_experts_per_tok] =
@@ -450,7 +450,7 @@ public:
         newX = IndexPut(newX, {newIdxs}, outs);
 
         int newXSize = std::accumulate(
-            newX->shape.begin(), newX->shape.end(), 1, [](const int &a, const int &b) { return a * b; });
+            newX.GetShape().begin(), newX.GetShape().end(), 1, [](const int &a, const int &b) { return a * b; });
         std::cout << "===newXSize" << newXSize << std::endl;
 
         std::vector<int64_t> newShape = {bs, expertPerTok, newXSize / (bs * expertPerTok)};
@@ -458,14 +458,14 @@ public:
         auto newXShape = Reshape(newX, newShape);  // [128,256] -> [16,8,256]
         TileShape::Current().SetVecTile(NUM_16, NUM_128, NUM_128);
 
-        auto wShapes = topkWeight->shape;
+        auto wShapes = topkWeight.GetShape();
         wShapes.emplace_back(1);
         auto newW = Unsqueeze(topkWeight, NUM_2); // (b*s, expertPerTok, 1)
         auto newMul = Mul(newXShape, newW);
         // (b*s, expertPerTok, h) * (b*s, expertPerTok, 1) = (b*s, expertPerTok, h)
         auto reduceRes = RowSumSingle(newMul, 1); // reudce轴1 ->(b*s, 1, h)
-        for (auto n: reduceRes->GetShape()){
-            std::cout << "=reduceRes->shape.shape" << n <<std::endl;
+        for (auto n: reduceRes.GetShape()){
+            std::cout << "=reduceRes.GetShape().shape" << n <<std::endl;
         }
 
         auto fOut = Reshape(reduceRes, {bs, newXSize / (bs * expertPerTok)});
@@ -482,7 +482,7 @@ public:
         std::vector<int64_t> zerosShape(NUM_2);
         zerosShape[0] = bs;
         zerosShape[1] = nRoutedExperts;
-        Tensor randoms(topkIds->Datatype(), zerosShape);
+        Tensor randoms(topkIds.GetStorage()->Datatype(), zerosShape);
 
         Tensor cnts = MulS(randoms, Element(DataType::DT_FP32, F_0)); // (b*s, nRoutedExperts)
 
@@ -502,7 +502,7 @@ public:
             Element(DataType::DT_FP32, static_cast<double>(expertPerTok))),
             DataType::DT_INT32, CAST_TRUNC));
 
-        auto &sortedTokensShape = sortedTokens->GetShape();
+        auto &sortedTokensShape = sortedTokens.GetShape();
 
         // tokensPerExpertCpu = tokensPerExpert.cpu().numpy(); 手动设置规避动态图
         // 这里构造总大小为b*s*num_experts_per_tok的vector,模拟选择专家，执行256次Mlp计算
@@ -524,7 +524,7 @@ public:
             Tensor tokensForThisExpert = View(sortedTokens,  { numTokens, sortedTokensShape[1] }, { startIdx, 0 }); // 选出[B, H]
             std::cout<<"=numTokens===="<<numTokens<<std::endl;
             for (auto n : tokensForThisExpert.GetShape()){
-                std::cout<<"=tokensForThisExpert->shape.shape"<< n <<std::endl;
+                std::cout<<"=tokensForThisExpert.GetShape().shape"<< n <<std::endl;
             }
 
             // 这里没有选对应的expert，默认infer模式下所有的expert相同
@@ -545,7 +545,7 @@ public:
         std::vector<int64_t> zerosShape(NUM_2);
         zerosShape[0] = bs;
         zerosShape[1] = nRoutedExperts;
-        Tensor randoms(topkIds->Datatype(), zerosShape);
+        Tensor randoms(topkIds.GetStorage()->Datatype(), zerosShape);
 
         Tensor cnts = MulS(randoms, Element(DataType::DT_FP32, F_0)); // (b*s, nRoutedExperts)
 
@@ -566,7 +566,7 @@ public:
             DataType::DT_INT32, CAST_TRUNC));
 
         TileShape::Current().SetVecTile({NUM_256, NUM_256});
-        auto &sortedTokensShape = sortedTokens->GetShape();
+        auto &sortedTokensShape = sortedTokens.GetShape();
 
         // tokensPerExpertCpu = tokensPerExpert.cpu().numpy(); 手动设置规避动态图
         // 这里构造总大小为b*s*num_experts_per_tok的vector,模拟选择专家，执行256次Mlp计算
@@ -588,7 +588,7 @@ public:
             Tensor tokensForThisExpert = View(sortedTokens,  { numTokens, sortedTokensShape[1] }, { startIdx, 0 }); // 选出[B, H]
             std::cout<<"=numTokens===="<<numTokens<<std::endl;
             for (auto n : tokensForThisExpert.GetShape()){
-                std::cout<<"=tokensForThisExpert->shape.shape"<< n <<std::endl;
+                std::cout<<"=tokensForThisExpert.GetShape().shape"<< n <<std::endl;
             }
 
             // 这里没有选对应的expert，默认infer模式下所有的expert相同
@@ -610,7 +610,7 @@ public:
         std::vector<int64_t> zerosShape(NUM_2);
         zerosShape[0] = bs;
         zerosShape[1] = nRoutedExperts;
-        Tensor randoms(topkIds->Datatype(), zerosShape);
+        Tensor randoms(topkIds.GetStorage()->Datatype(), zerosShape);
 
         Tensor cnts = MulS(randoms, Element(DataType::DT_FP32, F_0)); // (b*s, nRoutedExperts)
 
@@ -628,7 +628,7 @@ public:
             Element(DataType::DT_FP32, static_cast<double>(expertPerTok))),
             DataType::DT_INT32, CAST_TRUNC));
 
-        auto &sortedTokensShape = sortedTokens->GetShape();
+        auto &sortedTokensShape = sortedTokens.GetShape();
 
         // tokensPerExpertCpu = tokensPerExpert.cpu().numpy(); 手动设置规避动态图
         // 这里构造总大小为b*s*num_experts_per_tok的vector,模拟选择专家，执行256次Mlp计算
@@ -650,7 +650,7 @@ public:
             Tensor tokensForThisExpert = View(sortedTokens,  { numTokens, sortedTokensShape[1] }, { startIdx, 0 }); // 选出[B, H]
             std::cout<<"=numTokens===="<<numTokens<<std::endl;
             for (auto n : tokensForThisExpert.GetShape()) {
-                std::cout<<"=tokensForThisExpert->shape.shape"<< n <<std::endl;
+                std::cout<<"=tokensForThisExpert.GetShape().shape"<< n <<std::endl;
             }
 
             // 这里没有选对应的expert，默认infer模式下所有的expert相同
@@ -664,7 +664,7 @@ public:
         Tensor newX(outs.GetDataType(), outs.GetShape()); // (b*s*numExpertsPerTok, h)
 
         for (auto n : outs.GetShape()){
-            std::cout<<"=outs->shape.shape"<< n <<std::endl;
+            std::cout<<"=outs.GetShape().shape"<< n <<std::endl;
         }
         TileShape::Current().SetVecTile({NUM_128, NUM_128});
         // newX[idxs] = outs  -->index_put: (b*s*numExpertsPerTok, h)[b*s*numExpertsPerTok] =
@@ -673,7 +673,7 @@ public:
         newX = IndexPut(newX, {newIdxs}, outs);
 
         int newXSize = std::accumulate(
-            newX->shape.begin(), newX->shape.end(), 1, [](const int &a, const int &b) { return a * b; });
+            newX.GetShape().begin(), newX.GetShape().end(), 1, [](const int &a, const int &b) { return a * b; });
         std::cout<<"===newXSize"<<newXSize<<std::endl;
 
         std::vector<int64_t> newShape = {bs, expertPerTok, newXSize / (bs * expertPerTok)};
@@ -681,14 +681,14 @@ public:
         auto newXShape = Reshape(newX, newShape);  // [128,256] -> [16,8,256]
         TileShape::Current().SetVecTile(NUM_16, NUM_64, NUM_64);
 
-        auto wShape = topkWeight->shape;
+        auto wShape = topkWeight.GetShape();
         wShape.emplace_back(1);
         auto newW = Unsqueeze(topkWeight, NUM_2); // (b*s, expertPerTok, 1)
         auto newMul = Mul(newXShape, newW);
         // (b*s, expertPerTok, h) * (b*s, expertPerTok, 1) = (b*s, expertPerTok, h)
         auto reduceRes = RowSumSingle(newMul, 1); // reudce轴1 ->(b*s, 1, h)
         for (auto n : reduceRes.GetShape()){
-            std::cout<<"=reduceRes->shape.shape"<< n <<std::endl;
+            std::cout<<"=reduceRes.GetShape().shape"<< n <<std::endl;
         }
 
         auto fOut = Reshape(reduceRes, {bs, newXSize / (bs * expertPerTok)});
@@ -704,7 +704,7 @@ public:
         std::vector<int64_t> zerosShape(twoDim);
         zerosShape[0] = bs;
         zerosShape[1] = nRoutedExperts;
-        Tensor randoms(topkIds->Datatype(), zerosShape);
+        Tensor randoms(topkIds.GetStorage()->Datatype(), zerosShape);
 
         Tensor cnts = MulS(randoms, Element(DataType::DT_FP32, F_0)); // (b*s, nRoutedExperts)
 
@@ -759,13 +759,13 @@ public:
         newX = IndexPut(newX, {idxs}, outs);
 
         int newXSize = std::accumulate(
-            newX->shape.begin(), newX->shape.end(), 1, [](const int &a, const int &b) { return a * b; });
+            newX.GetShape().begin(), newX.GetShape().end(), 1, [](const int &a, const int &b) { return a * b; });
         std::vector<int64_t> newShape = {bs, expertPerTok, newXSize / (bs * expertPerTok)};
         // (b*s, expertPerTok, h)
         auto newXShape = Reshape(newX, newShape);
         TileShape::Current().SetVecTile(NUM_128, NUM_64, NUM_64); // for Assemble
         auto newl = Cast(newXShape, topkWeight.GetDataType());
-        auto wShape = topkWeight->shape;
+        auto wShape = topkWeight.GetShape();
         wShape.emplace_back(1);
         auto newW = Unsqueeze(topkWeight, 2); // (b*s, expertPerTok, 1)
         auto newMul = Mul(newl, newW);

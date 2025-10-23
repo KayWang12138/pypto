@@ -141,10 +141,10 @@ TEST_F(GraphTest, TestAttentionPost) {
     Tensor atten_output;
     ConfigManager::Instance();
     FUNCTION("AttentionPost") {
-        int new_b = attnPostIn->shape[0];
-        int new_n = attnPostIn->shape[1];
-        int new_s = attnPostIn->shape[2];
-        DataType dType = attnPostIn->Datatype();
+        int new_b = attnPostIn.GetShape()[0];
+        int new_n = attnPostIn.GetShape()[1];
+        int new_s = attnPostIn.GetShape()[2];
+        DataType dType = attnPostIn.GetStorage()->Datatype();
         TileShape::Current().SetVecTile({1, 1, 32, d});
         Tensor atten_res1 = Reshape(Transpose(attnPostIn, {1, 2}), {new_b * new_s, new_n, d});
         TileShape::Current().SetVecTile({32, 1, d});
@@ -292,9 +292,9 @@ TEST_F(GraphTest, test_operation_rope_subgraph_deepseekv3_bf16_32batch) {
             TileShape::Current().SetVecTile({1, 1, 32, 64});
             auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
-            int b = kPe->shape[0];
-            int s = kPe->shape[1];
-            int d = kPe->shape[2];
+            int b = kPe.GetShape()[0];
+            int s = kPe.GetShape()[1];
+            int d = kPe.GetShape()[2];
             // 以下两步Reshape+Transpose可以优化成1个reshape：auto kPeReshape = Reshape(kPe, {b, 1, s, d}); //
             // [b,s,d]->[b,1,s,d]
             auto kPeReshape = Reshape(kPe, {b, 1, s, d}); // [b,s,d]->[b,1,s,d]
@@ -338,9 +338,9 @@ TEST_F(GraphTest, test_operation_rope_subgraph_deepseekv3_bf16) {
         TileShape::Current().SetVecTile({1, 1, 64, 64});
         auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
-        int b = kPe->shape[0];
-        int s = kPe->shape[1];
-        int d = kPe->shape[2];
+        int b = kPe.GetShape()[0];
+        int s = kPe.GetShape()[1];
+        int d = kPe.GetShape()[2];
         // 以下两步Reshape+Transpose可以优化成1个reshape：auto kPeReshape = Reshape(kPe, {b, 1, s, d}); //
         // [b,s,d]->[b,1,s,d]
         auto kPeReshape = Reshape(kPe, {b, 1, s, d}); // [b,s,d]->[b,1,s,d]

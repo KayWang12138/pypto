@@ -27,11 +27,11 @@ using namespace npu::tile_fwk;
 namespace npu::tile_fwk {
 
 void GenGatedScoreComputePrefillPlus(const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, Tensor &gatingScore) {
-    DataType dType = x -> Datatype();
-    int b = x->shape[0];
-    int s = x->shape[1];
-    int h = x->shape[2];
-    int n = gateW2 -> shape[1] / 3;
+    DataType dType = x.GetStorage()->Datatype();
+    int b = x.GetShape()[0];
+    int s = x.GetShape()[1];
+    int h = x.GetShape()[2];
+    int n = gateW2.GetShape()[1] / 3;
     int tileB = 1;
     int L = 64;
 
@@ -67,11 +67,11 @@ void GenGatedScoreComputePrefillPlus(const Tensor &x, const Tensor &gateW1, cons
 }
 
 void GenGatedScoreComputePrefill(const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, Tensor &gatingScore) {
-    DataType dType = x -> Datatype();
-    int b = x->shape[0];
-    int s = x->shape[1];
-    int h = x->shape[2];
-    int n = gateW2 -> shape[1] / 3;
+    DataType dType = x.GetStorage()->Datatype();
+    int b = x.GetShape()[0];
+    int s = x.GetShape()[1];
+    int h = x.GetShape()[2];
+    int n = gateW2.GetShape()[1] / 3;
     int tileB = 1;
     int tileS = s;
     SymbolicScalar bLoop = b / tileB;

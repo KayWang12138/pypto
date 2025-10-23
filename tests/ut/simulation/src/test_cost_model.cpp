@@ -132,10 +132,10 @@ void RunAttentionPostCostModel()
     Tensor atten_output;
     ConfigManager::Instance();
     FUNCTION("AttentionPost") {
-        int new_b = attnPostIn->shape[0];
-        int new_n = attnPostIn->shape[1];
-        int new_s = attnPostIn->shape[2];
-        DataType dType = attnPostIn->Datatype();
+        int new_b = attnPostIn.GetShape()[0];
+        int new_n = attnPostIn.GetShape()[1];
+        int new_s = attnPostIn.GetShape()[2];
+        DataType dType = attnPostIn.GetStorage()->Datatype();
         TileShape::Current().SetVecTile({1, 1, 32, d});
         Tensor atten_res1 = Reshape(Transpose(attnPostIn, {1, 2}), {new_b * new_s, new_n, d});
         TileShape::Current().SetVecTile({32, 1, d});
@@ -371,7 +371,7 @@ TEST_F(CostModelTest, TestAttentionPostBf16Real) {
     Tensor atten_output;
     ConfigManager::Instance();
     FUNCTION("AttentionPost") {
-        DataType dType = attnPostIn->Datatype();
+        DataType dType = attnPostIn.GetStorage()->Datatype();
         TileShape::Current().SetVecTile({2, n, 1, d});
         Tensor atten_res0 = Transpose(attnPostIn, {1, 2});
         TileShape::Current().SetVecTile({4, 1, tile16, tile128});

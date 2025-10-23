@@ -75,9 +75,9 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3) {
             TileShape::Current().SetVecTile({1, 1, 32, 64});
             auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
-            int b = kPe->shape[0];
-            int s = kPe->shape[1];
-            int d = kPe->shape[2];
+            int b = kPe.GetShape()[0];
+            int s = kPe.GetShape()[1];
+            int d = kPe.GetShape()[2];
             // 以下两步Reshape+Transpose可以优化成1个reshape：auto kPeReshape = Reshape(kPe, {b, 1, s, d}); //
             // [b,s,d]->[b,1,s,d]
             auto kPeReshape = Reshape(kPe, {b, 1, s, d}); // [b,s,d]->[b,1,s,d]
@@ -176,9 +176,9 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_fp16) {
             TileShape::Current().SetVecTile({1, 1, 32, 64});
             auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
-            int b = kPe->shape[0];
-            int s = kPe->shape[1];
-            int d = kPe->shape[2];
+            int b = kPe.GetShape()[0];
+            int s = kPe.GetShape()[1];
+            int d = kPe.GetShape()[2];
             // 以下两步Reshape+Transpose可以优化成1个reshape：auto kPeReshape = Reshape(kPe, {b, 1, s, d}); //
             // [b,s,d]->[b,1,s,d]
             auto kPeReshape = Reshape(kPe, {b, 1, s, d}); // [b,s,d]->[b,1,s,d]
@@ -260,9 +260,9 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_fp16_2ba
             TileShape::Current().SetVecTile({1, 1, 32, 64});
             auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
-            int b = kPe->shape[0];
-            int s = kPe->shape[1];
-            int d = kPe->shape[2];
+            int b = kPe.GetShape()[0];
+            int s = kPe.GetShape()[1];
+            int d = kPe.GetShape()[2];
             // 以下两步Reshape+Transpose可以优化成1个reshape：auto kPeReshape = Reshape(kPe, {b, 1, s, d}); //
             // [b,s,d]->[b,1,s,d]
             auto kPeReshape = Reshape(kPe, {b, 1, s, d}); // [b,s,d]->[b,1,s,d]
@@ -344,9 +344,9 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_bf16) {
             TileShape::Current().SetVecTile({1, 1, 32, 64});
             auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
-            int b = kPe->shape[0];
-            int s = kPe->shape[1];
-            int d = kPe->shape[2];
+            int b = kPe.GetShape()[0];
+            int s = kPe.GetShape()[1];
+            int d = kPe.GetShape()[2];
             // 以下两步Reshape+Transpose可以优化成1个reshape：auto kPeReshape = Reshape(kPe, {b, 1, s, d}); //
             // [b,s,d]->[b,1,s,d]
             auto kPeReshape = Reshape(kPe, {b, 1, s, d}); // [b,s,d]->[b,1,s,d]
@@ -427,9 +427,9 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_bf16_32b
             TileShape::Current().SetVecTile({1, 1, 32, 64});
             auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
-            int b = kPe->shape[0];
-            int s = kPe->shape[1];
-            int d = kPe->shape[2];
+            int b = kPe.GetShape()[0];
+            int s = kPe.GetShape()[1];
+            int d = kPe.GetShape()[2];
             // 以下两步Reshape+Transpose可以优化成1个reshape：auto kPeReshape = Reshape(kPe, {b, 1, s, d}); //
             // [b,s,d]->[b,1,s,d]
             auto kPeReshape = Reshape(kPe, {b, 1, s, d}); // [b,s,d]->[b,1,s,d]
@@ -511,9 +511,9 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_bf16_2ba
             TileShape::Current().SetVecTile({1, 1, 32, 64});
             auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
-            int b = kPe->shape[0];
-            int s = kPe->shape[1];
-            int d = kPe->shape[2];
+            int b = kPe.GetShape()[0];
+            int s = kPe.GetShape()[1];
+            int d = kPe.GetShape()[2];
             // 以下两步Reshape+Transpose可以优化成1个reshape：auto kPeReshape = Reshape(kPe, {b, 1, s, d}); //
             // [b,s,d]->[b,1,s,d]
             auto kPeReshape = Reshape(kPe, {b, 1, s, d}); // [b,s,d]->[b,1,s,d]
@@ -621,9 +621,9 @@ TEST_F(RoPESubGraphOnBoardTest, test_CD_bf16_32batch) {
             TileShape::Current().SetVecTile({1, 1, 32, 64});
             auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
-            int b = kPe->shape[0];
-            int s = kPe->shape[1];
-            int d = kPe->shape[2];
+            int b = kPe.GetShape()[0];
+            int s = kPe.GetShape()[1];
+            int d = kPe.GetShape()[2];
             // 以下两步Reshape+Transpose可以优化成1个reshape：auto kPeReshape = Reshape(kPe, {b, 1, s, d}); //
             // [b,s,d]->[b,1,s,d]
             auto kPeReshape = Reshape(kPe, {b, 1, s, d}); // [b,s,d]->[b,1,s,d]
@@ -749,9 +749,9 @@ TEST_F(RoPESubGraphOnBoardTest, test_CD_bf16_32batch_4k) {
             TileShape::Current().SetVecTile({1, 1, 32, 64});
             auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
-            int b = kPe->shape[0];
-            int s = kPe->shape[1];
-            int d = kPe->shape[2];
+            int b = kPe.GetShape()[0];
+            int s = kPe.GetShape()[1];
+            int d = kPe.GetShape()[2];
             // 以下两步Reshape+Transpose可以优化成1个reshape：auto kPeReshape = Reshape(kPe, {b, 1, s, d}); //
             // [b,s,d]->[b,1,s,d]
             auto kPeReshape = Reshape(kPe, {b, 1, s, d}); // [b,s,d]->[b,1,s,d]

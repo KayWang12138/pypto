@@ -36,12 +36,12 @@ void GenGatedScore(const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, 
     Tensor &gatingScore, GateMode gateMode) {
     (void)gateSimW1;
     (void)gateMode;
-    DataType dType = x->Datatype();
+    DataType dType = x.GetStorage()->Datatype();
 
-    int b = x->shape[0];
-    int s = x->shape[1];
-    int h = x->shape[2];
-    int n1 = gateW2->shape[1] / 3;
+    int b = x.GetShape()[0];
+    int s = x.GetShape()[1];
+    int h = x.GetShape()[2];
+    int n1 = gateW2.GetShape()[1] / 3;
     int tileB = b;
     int tileS = s;
     int tileBS = tileB * tileS;
@@ -71,7 +71,7 @@ void GenGatedScore(const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, 
             TileShape::Current().SetVecTile({1, tileS, 3, n1});
 
             res = Transpose(res, {2, 3});
-            if (gatingScore->Datatype() != DT_FP32) {
+            if (gatingScore.GetStorage()->Datatype() != DT_FP32) {
                 res = Cast(res, dType);
             }
             Assemble(res, {bOfs, sIdx, 0, 0}, gatingScore);
@@ -80,8 +80,8 @@ void GenGatedScore(const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, 
 }
 
 void GenAttn(Tensor &gatingScore, Tensor &cmpAtten, Tensor &selAtten, Tensor &winAtten, Tensor &attentionOut) {
-    int nDimSize = cmpAtten->shape[2]; // n1
-    int vDimSize = cmpAtten->shape[3]; // v_dim
+    int nDimSize = cmpAtten.GetShape()[2]; // n1
+    int vDimSize = cmpAtten.GetShape()[3]; // v_dim
     int tileB = 8;
     int tileS = 1;
 
@@ -89,7 +89,7 @@ void GenAttn(Tensor &gatingScore, Tensor &cmpAtten, Tensor &selAtten, Tensor &wi
     SymbolicScalar sDimSize = GetInputShape(cmpAtten, 1);
     SymbolicScalar bLoop = bDimSize / tileB;
     SymbolicScalar sLoop = sDimSize / tileS;
-    DataType dType = attentionOut->Datatype();
+    DataType dType = attentionOut.GetStorage()->Datatype();
     LOOP("LOOP_L0_bIdx_gen_attn", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(bLoop), {}, true) {
         SymbolicScalar bOffset = bIdx * tileB;
         SymbolicScalar actualBSize = std::min(tileB, (bDimSize - bIdx * tileB));
@@ -163,13 +163,13 @@ void DynamicNsa(const Tensor &x, const Tensor &wDq, const Tensor &wUqQr, const T
         config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{{NUM_3, NUM_4}});
         config::SetPassOption(COPYIN_THRESHOLD, NUM_2 * NUM_1024 * NUM_1024);
 
-        int b = x->shape[0];
-        int s = x->shape[1]; // s=1
-        int n1 = gateW2->shape[1] / 3;
+        int b = x.GetShape()[0];
+        int s = x.GetShape()[1]; // s=1
+        int n1 = gateW2.GetShape()[1] / 3;
         int n2 = 1;
-        int vDim = wUk->shape[2];    // kvLoraRank
-        int ropeDim = sin->shape[2]; // [b,s,qkRopeHeadDim]
-        auto dtype = x->Datatype();
+        int vDim = wUk.GetShape()[2];    // kvLoraRank
+        int ropeDim = sin.GetShape()[2]; // [b,s,qkRopeHeadDim]
+        auto dtype = x.GetStorage()->Datatype();
 
         /*********************************/
         /*有数据依赖的子图一定要加loop_barrier*/

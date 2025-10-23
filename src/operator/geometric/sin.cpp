@@ -32,7 +32,7 @@ using namespace npu::tile_fwk;
 namespace npu::tile_fwk {
 Tensor Sin(Tensor operand) {
     // An algorithm guarante data precision from -10^10 to 10^10
-    auto dType = operand->Datatype();
+    auto dType = operand.GetStorage()->Datatype();
     if (dType != DataType::DT_FP32) {
         operand = Cast(operand, DataType::DT_FP32);
     }
@@ -179,7 +179,7 @@ Tensor Sin(Tensor operand) {
     cosPoly = Mul(cosPoly, ifcos);
     auto res = Add(temp1, cosPoly);
     res = Mul(res, sign);
-    if (dType != res->Datatype()) {
+    if (dType != res.GetStorage()->Datatype()) {
         res = Cast(res, dType);
     }
     return res;

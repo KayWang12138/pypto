@@ -35,16 +35,16 @@ namespace npu::tile_fwk {
 void PrologPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &qRope, Tensor &kRopeCache,
     Tensor &blockTable, Tensor &actSeqs, Tensor &weightUV, Tensor &weightO, int blockSize, float softmaxScale,
     Tensor &postOut, PaTileShapeConfig &tileConfig) {
-    auto dtype = qNope->Datatype();
+    auto dtype = qNope.GetStorage()->Datatype();
     // 入参B*S*N合轴
     int sQ = 1;
-    int dN = qNope->shape[1];
-    int dR = qRope->shape[1];
+    int dN = qNope.GetShape()[1];
+    int dR = qRope.GetShape()[1];
     int tile4 = 4;
 
     int nTile = tileConfig.headNumQTile;
-    int vHeadDim = weightUV->shape[2];  // (nQ, dN, vHeadDim)
-    int hiddenSize = weightO->shape[1]; // (nQ*VHeadDim, H)
+    int vHeadDim = weightUV.GetShape()[2];  // (nQ, dN, vHeadDim)
+    int hiddenSize = weightO.GetShape()[1]; // (nQ*VHeadDim, H)
 
     auto v0Tile = tileConfig.v0TileShape;
     auto c1Tile = tileConfig.c1TileShape;
@@ -52,11 +52,11 @@ void PrologPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &q
     auto c2Tile = tileConfig.c2TileShape;
     auto v2Tile = tileConfig.v2TileShape;
 
-    int batchSize = blockTable->shape[0];
-    int nQ = qNope->shape[0] / batchSize; // B*1*N
+    int batchSize = blockTable.GetShape()[0];
+    int nQ = qNope.GetShape()[0] / batchSize; // B*1*N
     int nLoop = nQ / nTile;
 
-    Tensor attentionOut(DT_FP32, qNope->shape, "attentionOut");
+    Tensor attentionOut(DT_FP32, qNope.GetShape(), "attentionOut");
 
     FUNCTION("main",
         {qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, weightUV, weightO}, {postOut}) {
@@ -185,10 +185,10 @@ void PrologPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &q
 void PageAttentionAddS(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &qRope, Tensor &kRopeCache,
         Tensor &blockTable, Tensor &actSeqs, int blockSize, float softmaxScale, Tensor &attentionOut, Tensor &postOut,
     PaTileShapeConfig &tileConfig, int maxUnrollTimes) {
-    auto dtype = qNope->Datatype();
+    auto dtype = qNope.GetStorage()->Datatype();
     // 入参B*S*N合轴
-    int dN = qNope->shape[1];
-    int dR = qRope->shape[1];
+    int dN = qNope.GetShape()[1];
+    int dR = qRope.GetShape()[1];
 
     int nTile = tileConfig.headNumQTile;
     auto c1Tile = tileConfig.c1TileShape;
@@ -196,8 +196,8 @@ void PageAttentionAddS(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Te
     auto c2Tile = tileConfig.c2TileShape;
     auto v2Tile = tileConfig.v2TileShape;
 
-    int batchSize = blockTable->shape[0];
-    int nQ = qNope->shape[0] / batchSize; // B*1*N
+    int batchSize = blockTable.GetShape()[0];
+    int nQ = qNope.GetShape()[0] / batchSize; // B*1*N
 
     auto N = 128;
     auto kvLoraRank = 512;
@@ -309,7 +309,7 @@ void PageAttentionAddS(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Te
             }
         }
 
-        SymbolicScalar B = attentionOut->shape[0] / N; // S=1
+        SymbolicScalar B = attentionOut.GetShape()[0] / N; // S=1
         const int bTile = 32;
         LOOP("PaPost", FunctionType::DYNAMIC_LOOP, papostiter, LoopRange(0, B / bTile, 1), {}, true) {
                 auto postInUnit = View(attentionOut, {bTile * S * N, kvLoraRank}, {papostiter * bTile * S * N, 0});
@@ -327,10 +327,10 @@ void PageAttentionAddS(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Te
 void PageAttentionAddSSingleOutput(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &qRope, Tensor &kRopeCache,
         Tensor &blockTable, Tensor &actSeqs, int blockSize, float softmaxScale, Tensor &attentionOut, Tensor &postOut,
     PaTileShapeConfig &tileConfig, int maxUnrollTimes) {
-    auto dtype = qNope->Datatype();
+    auto dtype = qNope.GetStorage()->Datatype();
     // 入参B*S*N合轴
-    int dN = qNope->shape[1];
-    int dR = qRope->shape[1];
+    int dN = qNope.GetShape()[1];
+    int dR = qRope.GetShape()[1];
 
     int nTile = tileConfig.headNumQTile;
     auto c1Tile = tileConfig.c1TileShape;
@@ -338,8 +338,8 @@ void PageAttentionAddSSingleOutput(Tensor &qNope, Tensor &kNopeCache, Tensor &vN
     auto c2Tile = tileConfig.c2TileShape;
     auto v2Tile = tileConfig.v2TileShape;
 
-    int batchSize = blockTable->shape[0];
-    int nQ = qNope->shape[0] / batchSize; // B*1*N
+    int batchSize = blockTable.GetShape()[0];
+    int nQ = qNope.GetShape()[0] / batchSize; // B*1*N
 
     auto N = 128;
     auto kvLoraRank = 512;
@@ -451,7 +451,7 @@ void PageAttentionAddSSingleOutput(Tensor &qNope, Tensor &kNopeCache, Tensor &vN
             }
         }
 
-        SymbolicScalar B = attentionOut->shape[0] / N; // S=1
+        SymbolicScalar B = attentionOut.GetShape()[0] / N; // S=1
         const int bTile = 32;
         LOOP("PaPost", FunctionType::DYNAMIC_LOOP, papostiter, LoopRange(0, B / bTile, 1), {}, true) {
                 auto postInUnit = View(attentionOut, {bTile * S * N, kvLoraRank}, {papostiter * bTile * S * N, 0});

@@ -259,9 +259,9 @@ inline void CheckTensorShape(const LogicalTensorPtr &tensor, const std::string &
 }
 
 void CheckOperandsValid(const Tensor &operand1, const Tensor &operand2) {
-    assert(operand1->shape.size() == operand2->shape.size());
-    assert(operand1->shape.size() == operand1->offset.size());
-    assert(operand2->shape.size() == operand2->offset.size());
+    assert(operand1.GetShape().size() == operand2.GetShape().size());
+    assert(operand1.GetShape().size() == operand1.GetStorage()->offset.size());
+    assert(operand2.GetShape().size() == operand2.GetStorage()->offset.size());
 }
 
 void CheckBinOpOperandsValid(
@@ -287,8 +287,8 @@ template <UnaryOpType T>
 Tensor UnaryOperation(Tensor operand) {
     auto opName = GetUnaryOpName<T>();
     CheckTensorShape(operand.GetStorage(), opName);
-    Tensor result(operand->tensor->datatype, operand->shape);
-    assert(operand->shape.size() == operand->offset.size());
+    Tensor result(operand.GetStorage()->tensor->datatype, operand.GetShape());
+    assert(operand.GetShape().size() == operand.GetStorage()->offset.size());
     Program::GetInstance().AddOperation(GetUnaryOpName<T>(), {operand.GetStorage()}, {result.GetStorage()});
     return result;
 }
@@ -444,14 +444,14 @@ bool IsLastBrc(LogicalTensorPtr operand1, LogicalTensorPtr operand2) {
 template <BinaryOpType T>
 void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t cur, Input &input1,
     Input &input2, const LogicalTensorPtr &result, TileInfo &resultTileInfo, bool withBrc) {
-    if (cur == input1.tensor->shape.size()) {
-        auto inputTile1 = input1.tensor->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
-        auto inputTile2 = input2.tensor->View(function, input2.tileInfo.shape, input2.tileInfo.offset);
+    if (cur == input1.tensor.GetShape().size()) {
+        auto inputTile1 = input1.tensor.GetStorage()->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
+        auto inputTile2 = input2.tensor.GetStorage()->View(function, input2.tileInfo.shape, input2.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
         if(withBrc) {
             std::vector<int64_t> tmpShape(input1.tileInfo.shape);
             tmpShape[input1.tileInfo.shape.size() - 1] = BLOCK_SIZE / BytesOf(input2.tensor.GetDataType());
-            auto tempTensor = std::make_shared<LogicalTensor>(function, input2.tensor->Datatype(), tmpShape);
+            auto tempTensor = std::make_shared<LogicalTensor>(function, input2.tensor.GetStorage()->Datatype(), tmpShape);
             function.AddOperation(GetBinaryOpNameCode<T, false, true>(), {inputTile1, inputTile2}, {resultTile, tempTensor});
         } else {
             function.AddOperation(GetBinaryOpNameCode<T, false, false>(), {inputTile1, inputTile2}, {resultTile});
@@ -462,10 +462,10 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
     for (int i = 0; i < result->shape[cur]; i += vecTile[cur]) {
         resultTileInfo.offset[cur] = i;
         resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
-        input1.tileInfo.offset[cur] = i % input1.tensor->shape[cur];
-        input1.tileInfo.shape[cur] = std::min(input1.tensor->shape[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
-        input2.tileInfo.offset[cur] = i % input2.tensor->shape[cur];
-        input2.tileInfo.shape[cur] = std::min(input2.tensor->shape[cur] - input2.tileInfo.offset[cur], vecTile[cur]);
+        input1.tileInfo.offset[cur] = i % input1.tensor.GetShape()[cur];
+        input1.tileInfo.shape[cur] = std::min(input1.tensor.GetShape()[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
+        input2.tileInfo.offset[cur] = i % input2.tensor.GetShape()[cur];
+        input2.tileInfo.shape[cur] = std::min(input2.tensor.GetShape()[cur] - input2.tileInfo.offset[cur], vecTile[cur]);
         TiledBinaryOperation<T>(function, tileShape, cur + 1, input1, input2, result, resultTileInfo, withBrc);
     }
 }
@@ -513,8 +513,8 @@ void TiledCompareOperationImpl(Function &function, const TileShape &tileShape, s
     const LogicalTensorPtr & result, TileInfo &resultTileInfo, CmpOperationType operation, CmpModeType mode)
 {
     if (cur == result->shape.size()) {
-        auto inputTile1 = input1.tensor->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
-        auto inputTile2 = input2.tensor->View(function, input2.tileInfo.shape, input2.tileInfo.offset);
+        auto inputTile1 = input1.tensor.GetStorage()->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
+        auto inputTile2 = input2.tensor.GetStorage()->View(function, input2.tileInfo.shape, input2.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
 
         const int64_t COUNT_MODE_SIZE = 4096;
@@ -540,10 +540,10 @@ void TiledCompareOperationImpl(Function &function, const TileShape &tileShape, s
     for (int i = 0; i < result->shape[cur]; i += vecTile[cur]) {
         resultTileInfo.offset[cur] = i;
         resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
-        input1.tileInfo.offset[cur] = i % input1.tensor->shape[cur];
-        input1.tileInfo.shape[cur] = std::min(input1.tensor->shape[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
-        input2.tileInfo.offset[cur] = i % input2.tensor->shape[cur];
-        input2.tileInfo.shape[cur] = std::min(input2.tensor->shape[cur] - input2.tileInfo.offset[cur], vecTile[cur]);
+        input1.tileInfo.offset[cur] = i % input1.tensor.GetShape()[cur];
+        input1.tileInfo.shape[cur] = std::min(input1.tensor.GetShape()[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
+        input2.tileInfo.offset[cur] = i % input2.tensor.GetShape()[cur];
+        input2.tileInfo.shape[cur] = std::min(input2.tensor.GetShape()[cur] - input2.tileInfo.offset[cur], vecTile[cur]);
         TiledCompareOperationImpl(function, tileShape, cur + 1, input1, input2, result, resultTileInfo,
             operation, mode);
     }
@@ -581,15 +581,15 @@ void TiledCompareOperation(Function &function, const TileShape &tileShape, Logic
 template <UnaryOpType T>
 void TiledUnaryOperation(Function &function, const TileShape &tileShape, size_t cur, Input &input,
     const LogicalTensorPtr &result) {
-    if (cur == input.tensor->shape.size()) {
-        auto tile = input.tensor->View(function, input.tileInfo.shape, input.tileInfo.offset);
+    if (cur == input.tensor.GetShape().size()) {
+        auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
         function.AddOperation(GetUnaryOpNameCode<T>(), {tile}, {resultTile});
         return;
     }
     auto &vecTile = tileShape.GetVecTile();
-    for (int i = 0; i < input.tensor->shape[cur]; i += vecTile[cur]) {
-        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - i, vecTile[cur]);
+    for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
+        input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
         input.tileInfo.offset[cur] = i;
         TiledUnaryOperation<T>(function, tileShape, cur + 1, input, result);
     }
@@ -607,8 +607,8 @@ void TiledUnaryOperation(Function &function, const TileShape &tileShape,
 
 void TiledAssemble(Function &function, const TileShape &tileShape, size_t cur, Input &input,
     const std::shared_ptr<LogicalTensor> &result, AssembleOpAttribute *attr) {
-    if (cur == input.tensor->shape.size()) {
-        auto tile = input.tensor->View(function, input.tileInfo.shape, input.tileInfo.offset);
+    if (cur == input.tensor.GetShape().size()) {
+        auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto &assemble = function.AddOperation(Opcode::OP_ASSEMBLE, {tile}, {result});
         assemble.SetAttr("NeedCopy", true);
         auto &toDynOffset = attr->GetToDynOffset();
@@ -622,8 +622,8 @@ void TiledAssemble(Function &function, const TileShape &tileShape, size_t cur, I
         return;
     }
     auto &vecTile = tileShape.GetVecTile();
-    for (int i = 0; i < input.tensor->shape[cur]; i += vecTile[cur]) {
-        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - i, vecTile[cur]);
+    for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
+        input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
         input.tileInfo.offset[cur] = i;
         TiledAssemble(function, tileShape, cur + 1, input, result, attr);
     }
@@ -699,9 +699,9 @@ LogicalTensorPtr TensorBinaryOperation(Function &function, const Tensor &operand
         if ((!oprandT1->GetDynValidShape().empty()) && (!oprandT2->GetDynValidShape().empty())) {
             for (size_t i = 0; i < resultShape.size(); ++i) {
                 if (resultShape[i] == oprandT1->shape[i]) {
-                    resultValidShape.push_back(operand1->GetDynValidShape()[i]);
+                    resultValidShape.push_back(operand1.GetStorage()->GetDynValidShape()[i]);
                 } else {
-                    resultValidShape.push_back(operand2->GetDynValidShape()[i]);
+                    resultValidShape.push_back(operand2.GetStorage()->GetDynValidShape()[i]);
                 }
         }
     }
@@ -723,8 +723,8 @@ LogicalTensorPtr TensorBinaryOperationScalar(Function &function, LogicalTensorPt
 template <BinaryOpType T>
 void TiledBinaryOperationScalar(Function &function, const TileShape &tileShape, size_t cur, Input &input1,
     Element &value, const LogicalTensorPtr &result, TileInfo &resultTileInfo, bool reverseOperand) {
-    if (cur == input1.tensor->shape.size()) {
-        auto inputTile1 = input1.tensor->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
+    if (cur == input1.tensor.GetShape().size()) {
+        auto inputTile1 = input1.tensor.GetStorage()->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
         // 确认接口
         auto &op = function.AddOperation(GetBinaryOpNameCode<T, true>(), {inputTile1}, {resultTile});
@@ -736,8 +736,8 @@ void TiledBinaryOperationScalar(Function &function, const TileShape &tileShape, 
     for (int i = 0; i < result->shape[cur]; i += vecTile[cur]) {
         resultTileInfo.offset[cur] = i;
         resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
-        input1.tileInfo.offset[cur] = i % input1.tensor->shape[cur];
-        input1.tileInfo.shape[cur] = std::min(input1.tensor->shape[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
+        input1.tileInfo.offset[cur] = i % input1.tensor.GetShape()[cur];
+        input1.tileInfo.shape[cur] = std::min(input1.tensor.GetShape()[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
 
         TiledBinaryOperationScalar<T>(function, tileShape, cur + 1, input1, value, result, resultTileInfo, reverseOperand);
     }
@@ -755,7 +755,7 @@ void TiledBinaryOperationScalar(Function &function, const TileShape &tileShape,
 template <BinaryOpType T>
 LogicalTensorPtr TensorBinaryOperationAllScalar(Function &function,
     const Tensor &operand1, const Element &value, bool reverseOperand) {
-    auto result = std::make_shared<LogicalTensor>(function, operand1->Datatype(), operand1->shape);
+    auto result = std::make_shared<LogicalTensor>(function, operand1.GetStorage()->Datatype(), operand1.GetShape());
     auto &op = function.AddOperation(GetBinaryOpNameCode<T, true>(), {operand1.GetStorage()}, {result});
     op.SetAttribute(OpAttributeKey::scalar, value);
     op.SetAttribute(OP_ATTR_PREFIX + "reverseOperand", reverseOperand);
@@ -765,8 +765,8 @@ LogicalTensorPtr TensorBinaryOperationAllScalar(Function &function,
 template <BinaryOpType T>
 void TiledBinaryOperationAllScalar(Function &function, const TileShape &tileShape, size_t cur, Input &input1,
     Element &value, const LogicalTensorPtr &result, TileInfo &resultTileInfo, bool reverseOperand) {
-    if (cur == input1.tensor->shape.size()) {
-        auto inputTile1 = input1.tensor->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
+    if (cur == input1.tensor.GetShape().size()) {
+        auto inputTile1 = input1.tensor.GetStorage()->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
         // 确认接口
         auto &op = function.AddOperation(GetBinaryOpNameCode<T, true>(), {inputTile1}, {resultTile});
@@ -778,8 +778,8 @@ void TiledBinaryOperationAllScalar(Function &function, const TileShape &tileShap
     for (int i = 0; i < result->shape[cur]; i += vecTile[cur]) {
         resultTileInfo.offset[cur] = i;
         resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
-        input1.tileInfo.offset[cur] = i % input1.tensor->shape[cur];
-        input1.tileInfo.shape[cur] = std::min(input1.tensor->shape[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
+        input1.tileInfo.offset[cur] = i % input1.tensor.GetShape()[cur];
+        input1.tileInfo.shape[cur] = std::min(input1.tensor.GetShape()[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
 
         TiledBinaryOperationScalar<T>(function, tileShape, cur + 1, input1, value, result, resultTileInfo, reverseOperand);
     }
@@ -799,7 +799,7 @@ LogicalTensorPtr TensorBinaryOperationAllScalar(Function &function,
     const Tensor &operand1, const Tensor &operand2) {
     auto opName = GetBinaryOpName<T>();
     CheckBinaryInputTensors(operand1.GetStorage(), operand2.GetStorage(), opName);
-    auto result = std::make_shared<LogicalTensor>(function, operand1->Datatype(), operand1->shape);
+    auto result = std::make_shared<LogicalTensor>(function, operand1.GetStorage()->Datatype(), operand1.GetShape());
     function.AddOperation(GetBinaryOpNameCode<T, false>(), {operand1.GetStorage(), operand2.GetStorage()}, {result});
     return result;
 }
@@ -807,9 +807,9 @@ LogicalTensorPtr TensorBinaryOperationAllScalar(Function &function,
 template <BinaryOpType T>
 void TiledBinaryOperationAllScalar(Function &function, const TileShape &tileShape, size_t cur, Input &input1,
     Input &input2, const LogicalTensorPtr &result, TileInfo &resultTileInfo) {
-    if (cur == input1.tensor->shape.size()) {
-        auto inputTile1 = input1.tensor->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
-        auto inputTile2 = input2.tensor->View(function, input2.tileInfo.shape, input2.tileInfo.offset);
+    if (cur == input1.tensor.GetShape().size()) {
+        auto inputTile1 = input1.tensor.GetStorage()->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
+        auto inputTile2 = input2.tensor.GetStorage()->View(function, input2.tileInfo.shape, input2.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
         function.AddOperation(GetBinaryOpNameCode<T, false>(), {inputTile1, inputTile2}, {resultTile});
         return;
@@ -818,10 +818,10 @@ void TiledBinaryOperationAllScalar(Function &function, const TileShape &tileShap
     for (int i = 0; i < result->shape[cur]; i += vecTile[cur]) {
         resultTileInfo.offset[cur] = i;
         resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
-        input1.tileInfo.offset[cur] = i % input1.tensor->shape[cur];
-        input1.tileInfo.shape[cur] = std::min(input1.tensor->shape[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
-        input2.tileInfo.offset[cur] = i % input2.tensor->shape[cur];
-        input2.tileInfo.shape[cur] = std::min(input2.tensor->shape[cur] - input2.tileInfo.offset[cur], vecTile[cur]);
+        input1.tileInfo.offset[cur] = i % input1.tensor.GetShape()[cur];
+        input1.tileInfo.shape[cur] = std::min(input1.tensor.GetShape()[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
+        input2.tileInfo.offset[cur] = i % input2.tensor.GetShape()[cur];
+        input2.tileInfo.shape[cur] = std::min(input2.tensor.GetShape()[cur] - input2.tileInfo.offset[cur], vecTile[cur]);
         TiledBinaryOperationAllScalar<T>(function, tileShape, cur + 1, input1, input2, result, resultTileInfo);
     }
 }
@@ -1062,7 +1062,7 @@ void ReduceSingle(size_t cur, const std::string &op, Input &input, const Logical
         std::swap(order[cur], order[cur + 1]);
     }
     if (order[cur] == axis) {
-        auto inputTile = input.tensor->View(function, input.tileInfo.shape, input.tileInfo.offset);
+        auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
         TileReduceNew(function, tileShape, op, npu::tile_fwk::ReduceType::SINGLE, inputTile, resultTile, axis);
         return;
@@ -1072,8 +1072,8 @@ void ReduceSingle(size_t cur, const std::string &op, Input &input, const Logical
         resultTileInfo.offset[order[cur]] = i;
         resultTileInfo.shape[order[cur]] = std::min(result->shape[order[cur]] - resultTileInfo.offset[order[cur]],
             vecTile[order[cur]]);
-        input.tileInfo.offset[order[cur]] = i % input.tensor->shape[order[cur]];
-        input.tileInfo.shape[order[cur]] = std::min(input.tensor->shape[order[cur]] - input.tileInfo.offset[order[cur]],
+        input.tileInfo.offset[order[cur]] = i % input.tensor.GetShape()[order[cur]];
+        input.tileInfo.shape[order[cur]] = std::min(input.tensor.GetShape()[order[cur]] - input.tileInfo.offset[order[cur]],
             vecTile[order[cur]]);
         ReduceSingle(cur + 1, op, input, result, resultTileInfo, axis, function, tileShape, order);
     }
@@ -1102,7 +1102,7 @@ void TiledReduceSingle(Function &function, const TileShape &tileShape, const std
 void TensorReduceExpand(Function &function, const std::string &op,
     const Tensor &operand, const Tensor &result) {
     ASSERT(op == "MAX" || op == "SUM");
-    assert(operand->shape.size() == operand->offset.size());
+    assert(operand.GetShape().size() == operand.GetStorage()->offset.size());
     function.AddOperation(op == "MAX" ? Opcode::OP_ROWEXPMAX : Opcode::OP_ROWEXPSUM, {operand.GetStorage()}, {result.GetStorage()});
     return;
 }
@@ -1119,7 +1119,7 @@ void TiledWhereOperation(Function &function, const TileShape &tileShape, size_t 
             inputDatatype = input.GetDataType();
         }
         unsigned COUNT_MAX_BYTE = 4096;
-        auto conditionTile = condition.tensor->View(function, condition.tileInfo.shape, condition.tileInfo.offset);
+        auto conditionTile = condition.tensor.GetStorage()->View(function, condition.tileInfo.shape, condition.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
         std::vector<int64_t> castConditionShape({static_cast<int64_t>(COUNT_MAX_BYTE / BytesOf(DT_FP32))});
         auto castConditionTensor = std::make_shared<LogicalTensor>(function, DT_FP16, castConditionShape);
@@ -1134,19 +1134,19 @@ void TiledWhereOperation(Function &function, const TileShape &tileShape, size_t 
         std::vector<int64_t> otherTempShape({static_cast<int64_t>(COUNT_MAX_BYTE / BytesOf(DT_FP32))});
         auto otherTempTensor = std::make_shared<LogicalTensor>(function, inputDatatype, otherTempShape);
         if constexpr (std::is_same_v<U, Input> && std::is_same_v<W, Input>) {
-            auto inputTile = input.tensor->View(function, input.tileInfo.shape, input.tileInfo.offset);
-            auto otherTile = other.tensor->View(function, other.tileInfo.shape, other.tileInfo.offset);
+            auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
+            auto otherTile = other.tensor.GetStorage()->View(function, other.tileInfo.shape, other.tileInfo.offset);
             function.AddOperation(Opcode::OP_WHERE_TT, {conditionTile, inputTile, otherTile},
                                 {resultTile, castConditionTensor, compareConditionTensor,
                                 vcmpBitResultTensor, startAddrUBTensor, inputTempTensor, otherTempTensor});
         } else if constexpr (std::is_same_v<U, Input> && std::is_same_v<W, const Element>) {
-            auto inputTile = input.tensor->View(function, input.tileInfo.shape, input.tileInfo.offset);
+            auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
             auto &op = function.AddOperation(Opcode::OP_WHERE_TS, {conditionTile, inputTile},
                                 {resultTile, castConditionTensor, compareConditionTensor,
                                 vcmpBitResultTensor, startAddrUBTensor, inputTempTensor, otherTempTensor});
             op.SetAttribute(OpAttributeKey::scalar, other);
         } else if constexpr (std::is_same_v<U, const Element> && std::is_same_v<W, Input>) {
-            auto otherTile = other.tensor->View(function, other.tileInfo.shape, other.tileInfo.offset);
+            auto otherTile = other.tensor.GetStorage()->View(function, other.tileInfo.shape, other.tileInfo.offset);
             auto &op = function.AddOperation(Opcode::OP_WHERE_ST, {conditionTile, otherTile},
                                 {resultTile, castConditionTensor, compareConditionTensor,
                                 vcmpBitResultTensor, startAddrUBTensor, inputTempTensor, otherTempTensor});
@@ -1164,18 +1164,18 @@ void TiledWhereOperation(Function &function, const TileShape &tileShape, size_t 
     for (int i = 0; i < result->shape[cur]; i += vecTile[cur]) {
         resultTileInfo.offset[cur] = i;
         resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
-        condition.tileInfo.offset[cur] = i % condition.tensor->shape[cur];
+        condition.tileInfo.offset[cur] = i % condition.tensor.GetStorage()->shape[cur];
         condition.tileInfo.shape[cur] =
-            std::min(condition.tensor->shape[cur] - condition.tileInfo.offset[cur], vecTile[cur]);
+            std::min(condition.tensor.GetStorage()->shape[cur] - condition.tileInfo.offset[cur], vecTile[cur]);
         if constexpr (std::is_same_v<U, Input>) {
-            input.tileInfo.offset[cur] = i % input.tensor->shape[cur];
+            input.tileInfo.offset[cur] = i % input.tensor.GetStorage()->shape[cur];
             input.tileInfo.shape[cur] =
-                std::min(input.tensor->shape[cur] - input.tileInfo.offset[cur], vecTile[cur]);
+                std::min(input.tensor.GetStorage()->shape[cur] - input.tileInfo.offset[cur], vecTile[cur]);
         }
         if constexpr (std::is_same_v<W, Input>) {
-            other.tileInfo.offset[cur] = i % other.tensor->shape[cur];
+            other.tileInfo.offset[cur] = i % other.tensor.GetStorage()->shape[cur];
             other.tileInfo.shape[cur] =
-                std::min(other.tensor->shape[cur] - other.tileInfo.offset[cur], vecTile[cur]);
+                std::min(other.tensor.GetStorage()->shape[cur] - other.tileInfo.offset[cur], vecTile[cur]);
         }
         TiledWhereOperation(function, tileShape, cur + 1, condition, input, other, result,
                                     resultTileInfo);
@@ -1273,9 +1273,10 @@ void TiledWhereOperation(Function &function, const TileShape &tileShape, const L
 
 LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &condition,
                         const Tensor &input, const Tensor &other) {
-    ASSERT(condition->shape.size() == condition->offset.size());
-    ASSERT(input->shape.size() == input->offset.size());
-    ASSERT(other->shape.size() == other->offset.size());
+    DECLARE_TRACER();
+    assert(condition.GetShape().size() == condition.GetStorage()->offset.size());
+    assert(input.GetShape().size() == input.GetStorage()->offset.size());
+    assert(other.GetShape().size() == other.GetStorage()->offset.size());
     auto conditionT0 = condition.GetStorage();
     auto inputT1 = input.GetStorage();
     auto otherT2 = other.GetStorage();
@@ -1290,7 +1291,7 @@ LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &conditio
     otherT2 = BinaryOperationBroadCast(otherT2, broadCastShape);
     CheckBinOpOperandsValid(inputT1, otherT2);
     std::vector<int64_t> resultShape = BinaryOperationResultShape(inputT1, otherT2);
-    auto result = std::make_shared<LogicalTensor>(function, input->Datatype(), resultShape);
+    auto result = std::make_shared<LogicalTensor>(function, input.GetStorage()->Datatype(), resultShape);
     GraphUtils::AddDynOperation(function, Opcode::OP_WHERE_TT, {conditionT0, inputT1, otherT2}, {result});
     return result;
 }
@@ -1298,13 +1299,13 @@ LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &conditio
 
 LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &condition,
                         const Tensor &input, const Element &other) {
-    ASSERT(condition->shape.size() == condition->offset.size());
-    ASSERT(input->shape.size() == input->offset.size());
+    ASSERT(condition.GetShape().size() == condition.GetStorage()->offset.size());
+    ASSERT(input.GetShape().size() == input.GetStorage()->offset.size());
     auto conditionT0 = condition.GetStorage();
     auto inputT1 = input.GetStorage();
     std::vector<int> broadCastShape;
 
-    if (condition->Datatype() == DT_BOOL) {
+    if (condition.GetStorage()->Datatype() == DT_BOOL) {
         broadCastShape = GetBroadCastShape(conditionT0, inputT1);
         conditionT0 = BinaryOperationBroadCast(conditionT0, broadCastShape);
     } else {
@@ -1321,13 +1322,13 @@ LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &conditio
 
 LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &condition,
                         const Element &input, const Tensor &other) {
-    ASSERT(condition->shape.size() == condition->offset.size());
-    ASSERT(other->shape.size() == other->offset.size());
+    ASSERT(condition.GetShape().size() == condition.GetStorage()->offset.size());
+    ASSERT(other.GetShape().size() == other.GetStorage()->offset.size());
     auto conditionT0 = condition.GetStorage();
     auto otherT1 = other.GetStorage();
     std::vector<int> broadCastShape;
 
-    if (condition->Datatype() == DT_BOOL) {
+    if (condition.GetStorage()->Datatype() == DT_BOOL) {
         broadCastShape = GetBroadCastShape(conditionT0, otherT1);
         conditionT0 = BinaryOperationBroadCast(conditionT0, broadCastShape);
     } else {
@@ -1343,7 +1344,7 @@ LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &conditio
 
 LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &condition,
                         const Element &input, const Element &other) {
-    ASSERT(condition->shape.size() == condition->offset.size());
+    ASSERT(condition.GetShape().size() == condition.GetStorage()->offset.size());
     auto conditionT0 = condition.GetStorage();
     std::vector<int64_t> resultShape = BinaryOperationResultShape(conditionT0, conditionT0);
     auto result = std::make_shared<LogicalTensor>(function, input.GetDataType(), resultShape);
@@ -1354,8 +1355,8 @@ LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &conditio
 }
 
 [[maybe_unused]] Tensor ReduceExpand(const std::string &op, const Tensor &operand) {
-    Tensor result(operand->tensor->datatype, operand->shape);
-    assert(operand->shape.size() == operand->offset.size());
+    Tensor result(operand.GetStorage()->tensor->datatype, operand.GetShape());
+    assert(operand.GetShape().size() == operand.GetStorage()->offset.size());
     Program::GetInstance().AddOperation("ROW_" + op + "_EXPAND", {operand.GetStorage()}, {result.GetStorage()});
     return result;
 }
@@ -1363,7 +1364,7 @@ LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &conditio
 [[maybe_unused]] void TensorReduceSingle(Function &function, const std::string &op,
     const Tensor &operand, Tensor &result, int axis) {
     ASSERT(op == "MAX" || op == "MIN" || op == "SUM" || op == "MAX_COMBINE_AXIS" || op == "SUM_COMBINE_AXIS");
-    assert(operand->shape.size() == operand->offset.size());
+    assert(operand.GetShape().size() == operand.GetStorage()->offset.size());
     auto opCode = Opcode::OP_ROWMAX_SINGLE;
     if (op == "MAX") {
         opCode = Opcode::OP_ROWMAX_SINGLE;
@@ -1377,13 +1378,13 @@ LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &conditio
         opCode = Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE;
     }
 
-    if (!operand->GetDynValidShape().empty()) {
+    if (!operand.GetStorage()->GetDynValidShape().empty()) {
         std::vector<SymbolicScalar> outValidShape;
-        for (auto shape : operand->GetDynValidShape()) {
+        for (auto shape : operand.GetStorage()->GetDynValidShape()) {
             outValidShape.push_back(shape);
         }
         outValidShape[axis] = SymbolicScalar(1);
-        result->UpdateDynValidShape(outValidShape);
+        result.GetStorage()->UpdateDynValidShape(outValidShape);
     }
 
     auto &newOp = function.AddOperation(opCode, {operand.GetStorage()}, {result.GetStorage()});
@@ -1392,8 +1393,8 @@ LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &conditio
 }
 
 [[maybe_unused]] Tensor ReduceSingle(const std::string &op, const Tensor &operand) {
-    Tensor result(operand->tensor->datatype, {operand->shape[0], 1});
-    assert(operand->shape.size() == operand->offset.size());
+    Tensor result(operand.GetStorage()->tensor->datatype, {operand.GetShape()[0], 1});
+    assert(operand.GetShape().size() == operand.GetStorage()->offset.size());
     Program::GetInstance().AddOperation("REDUCE_" + op + "_SINGLE", {operand.GetStorage()}, {result.GetStorage()});
     return result;
 }
@@ -1417,9 +1418,9 @@ void TiledGatherOperation(Function &function, const TileShape &tileShape, size_t
     Input &indicesInput, int axis, const LogicalTensorPtr &result, TileInfo &resultTileInfo) {
     if (cur == result->shape.size()) {
         // add Operation
-        auto paramsTile = paramsInput.tensor->View(function, paramsInput.tileInfo.shape, paramsInput.tileInfo.offset);
+        auto paramsTile = paramsInput.tensor.GetStorage()->View(function, paramsInput.tileInfo.shape, paramsInput.tileInfo.offset);
         auto indicesTile =
-            indicesInput.tensor->View(function, indicesInput.tileInfo.shape, indicesInput.tileInfo.offset);
+            indicesInput.tensor.GetStorage()->View(function, indicesInput.tileInfo.shape, indicesInput.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
         auto &op = function.AddOperation(Opcode::OP_GATHER, {paramsTile, indicesTile}, {resultTile});
         op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
@@ -1433,25 +1434,25 @@ void TiledGatherOperation(Function &function, const TileShape &tileShape, size_t
     for (int i = 0; i < result->shape[cur]; i += tmpTile) {
         if (cur < static_cast<size_t>(axis)) {
             // 在result中gather轴的外层轴
-            paramsInput.tileInfo.offset[cur] = i % paramsInput.tensor->shape[cur];
+            paramsInput.tileInfo.offset[cur] = i % paramsInput.tensor.GetShape()[cur];
             paramsInput.tileInfo.shape[cur] =
-                std::min(paramsInput.tensor->shape[cur] - paramsInput.tileInfo.offset[cur], tmpTile);
+                std::min(paramsInput.tensor.GetShape()[cur] - paramsInput.tileInfo.offset[cur], tmpTile);
         } else if (cur >= static_cast<size_t>(axis) &&
-                   (cur < static_cast<size_t>(axis) + indicesInput.tensor->shape.size())) {
+                   (cur < static_cast<size_t>(axis) + indicesInput.tensor.GetShape().size())) {
             // 当前属于indices的gather轴
             // params[axis]不切
             paramsInput.tileInfo.offset[axis] = 0;
-            paramsInput.tileInfo.shape[axis] = paramsInput.tensor->shape[axis];
+            paramsInput.tileInfo.shape[axis] = paramsInput.tensor.GetShape()[axis];
             // 处理indices的tileInfo
-            indicesInput.tileInfo.offset[cur - axis] = i % indicesInput.tensor->shape[cur - axis];
+            indicesInput.tileInfo.offset[cur - axis] = i % indicesInput.tensor.GetShape()[cur - axis];
             indicesInput.tileInfo.shape[cur - axis] =
-                std::min(indicesInput.tensor->shape[cur - axis] - indicesInput.tileInfo.offset[cur - axis], tmpTile);
+                std::min(indicesInput.tensor.GetShape()[cur - axis] - indicesInput.tileInfo.offset[cur - axis], tmpTile);
         } else {
             // 在result中gather轴的内层轴
-            int paramHighAxis = cur - indicesInput.tensor->shape.size() + 1;
-            paramsInput.tileInfo.offset[paramHighAxis] = i % paramsInput.tensor->shape[paramHighAxis];
+            int paramHighAxis = cur - indicesInput.tensor.GetShape().size() + 1;
+            paramsInput.tileInfo.offset[paramHighAxis] = i % paramsInput.tensor.GetShape()[paramHighAxis];
             paramsInput.tileInfo.shape[paramHighAxis] = std::min(
-                paramsInput.tensor->shape[paramHighAxis] - paramsInput.tileInfo.offset[paramHighAxis], tmpTile);
+                paramsInput.tensor.GetShape()[paramHighAxis] - paramsInput.tileInfo.offset[paramHighAxis], tmpTile);
         }
 
         resultTileInfo.offset[cur] = i;
@@ -1548,9 +1549,9 @@ void TiledGatherElementOperation(Function &function, const TileShape &tileShape,
     Input &indicesInput, int axis, const LogicalTensorPtr &result, TileInfo &resultTileInfo) {
     if (cur == result->shape.size()) {
         // add Operation
-        auto paramsTile = paramsInput.tensor->View(function, paramsInput.tileInfo.shape, paramsInput.tileInfo.offset);
+        auto paramsTile = paramsInput.tensor.GetStorage()->View(function, paramsInput.tileInfo.shape, paramsInput.tileInfo.offset);
         auto indicesTile =
-            indicesInput.tensor->View(function, indicesInput.tileInfo.shape, indicesInput.tileInfo.offset);
+            indicesInput.tensor.GetStorage()->View(function, indicesInput.tileInfo.shape, indicesInput.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
         auto &op = function.AddOperation(Opcode::OP_GATHER_ELEMENT, {paramsTile, indicesTile}, {resultTile});
         op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
@@ -1564,19 +1565,19 @@ void TiledGatherElementOperation(Function &function, const TileShape &tileShape,
         if (cur == static_cast<size_t>(axis)) {
             // params[axis]不切
             paramsInput.tileInfo.offset[cur] = 0;
-            paramsInput.tileInfo.shape[cur] = paramsInput.tensor->shape[cur];
+            paramsInput.tileInfo.shape[cur] = paramsInput.tensor.GetShape()[cur];
             // 处理indices的tileInfo
-            indicesInput.tileInfo.offset[cur] = i % indicesInput.tensor->shape[cur];
+            indicesInput.tileInfo.offset[cur] = i % indicesInput.tensor.GetShape()[cur];
             indicesInput.tileInfo.shape[cur] =
-                std::min(indicesInput.tensor->shape[cur] - indicesInput.tileInfo.offset[cur], tmpTile);
+                std::min(indicesInput.tensor.GetShape()[cur] - indicesInput.tileInfo.offset[cur], tmpTile);
         } else {
-            paramsInput.tileInfo.offset[cur] = i % paramsInput.tensor->shape[cur];
+            paramsInput.tileInfo.offset[cur] = i % paramsInput.tensor.GetShape()[cur];
             paramsInput.tileInfo.shape[cur] =
-                std::min(paramsInput.tensor->shape[cur] - paramsInput.tileInfo.offset[cur], tmpTile);
+                std::min(paramsInput.tensor.GetShape()[cur] - paramsInput.tileInfo.offset[cur], tmpTile);
             // 处理indices的tileInfo
-            indicesInput.tileInfo.offset[cur] = i % indicesInput.tensor->shape[cur];
+            indicesInput.tileInfo.offset[cur] = i % indicesInput.tensor.GetShape()[cur];
             indicesInput.tileInfo.shape[cur] =
-                std::min(indicesInput.tensor->shape[cur] - indicesInput.tileInfo.offset[cur], tmpTile);
+                std::min(indicesInput.tensor.GetShape()[cur] - indicesInput.tileInfo.offset[cur], tmpTile);
         }
 
         resultTileInfo.offset[cur] = i;
@@ -1717,9 +1718,9 @@ void UnalignPadTmpBufTile(std::vector<int64_t> &shape, int blockElem) {
 template <TransposeOpType T>
 void TiledInnerTranspose(Function &function, const TileShape &tileShape, const int cur, Input &input,
     const LogicalTensorPtr &result, const std::vector<int> &shape) {
-    int shapeSize = input.tensor->shape.size();
+    int shapeSize = input.tensor.GetShape().size();
     if (cur == shapeSize) {
-        auto tile = input.tensor->View(function, input.tileInfo.shape, input.tileInfo.offset);
+        auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         std::vector<int64_t> resultTileShape(input.tileInfo.shape);
         std::swap(resultTileShape[shape[0]], resultTileShape[shape[1]]);
         std::vector<int64_t> resultTileOfs(input.tileInfo.offset);
@@ -1740,8 +1741,8 @@ void TiledInnerTranspose(Function &function, const TileShape &tileShape, const i
         return;
     }
     auto &vecTile = tileShape.GetVecTile();
-    for (int i = 0; i < input.tensor->shape[cur]; i += vecTile[cur]) {
-        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - i, vecTile[cur]);
+    for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
+        input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
         input.tileInfo.offset[cur] = i;
         TiledInnerTranspose<T>(function, tileShape, cur + 1, input, result, shape);
     }
@@ -1825,19 +1826,19 @@ bool MergeTransposeAxis(const Tensor &operand, std::vector<int64_t>& inputShape,
     int afterNum = 0;
     auto oldVecTileShapes = TileShape::Current().GetVecTile();
     auto oldValidShapes = validShape;
-    for (int i = 0; i < (int)operand->shape.size(); i++) {
+    for (int i = 0; i < (int)operand.GetShape().size(); i++) {
         if (i < oldTransposeShape[0]) {
-            pre *= operand->shape[i];
+            pre *= operand.GetShape()[i];
             preTileShape *= oldVecTileShapes[i];
             preValidShape = preValidShape * oldValidShapes[i];
             preNum++;
         } else if (i < oldTransposeShape[1] && i > oldTransposeShape[0]) {
-            mid *= operand->shape[i];
+            mid *= operand.GetShape()[i];
             midTileShape *= oldVecTileShapes[i];
             midValidShape = midValidShape * oldValidShapes[i];
             midNum++;
         } else if (i > oldTransposeShape[1]) {
-            after *= operand->shape[i];
+            after *= operand.GetShape()[i];
             afterTileShape *= oldVecTileShapes[i];
             afterValidShape = afterValidShape * oldValidShapes[i];
             afterNum++;
@@ -1847,8 +1848,8 @@ bool MergeTransposeAxis(const Tensor &operand, std::vector<int64_t>& inputShape,
     if (preNum <= 1 && midNum <= 1 && afterNum <= 1) {
         return false;
     }
-    if (operand->shape.size() <= 5 && oldTransposeShape[0] == (int)operand->shape.size() - 2 &&  // tileop支持5维，最后2维转置
-        oldTransposeShape[1] == (int)operand->shape.size() - 1) {
+    if (operand.GetShape().size() <= 5 && oldTransposeShape[0] == (int)operand.GetShape().size() - 2 &&  // tileop支持5维，最后2维转置
+        oldTransposeShape[1] == (int)operand.GetShape().size() - 1) {
         return false;
     }
 
@@ -1861,7 +1862,7 @@ bool MergeTransposeAxis(const Tensor &operand, std::vector<int64_t>& inputShape,
         transposeShape[0] -= (preNum - 1);
         transposeShape[1] -= (preNum - 1);
     }
-    inputShape.push_back(operand->shape[oldTransposeShape[0]]);
+    inputShape.push_back(operand.GetShape()[oldTransposeShape[0]]);
     vecTileShape.push_back(oldVecTileShapes[oldTransposeShape[0]]);
     validShape.push_back(oldValidShapes[oldTransposeShape[0]]);
     if (midNum > 0) {
@@ -1870,7 +1871,7 @@ bool MergeTransposeAxis(const Tensor &operand, std::vector<int64_t>& inputShape,
         validShape.push_back(midValidShape);
         transposeShape[1] -= (midNum - 1);
     }
-    inputShape.push_back(operand->shape[oldTransposeShape[1]]);
+    inputShape.push_back(operand.GetShape()[oldTransposeShape[1]]);
     vecTileShape.push_back(oldVecTileShapes[oldTransposeShape[1]]);
     validShape.push_back(oldValidShapes[oldTransposeShape[1]]);
     if (afterNum > 0) {
@@ -1884,30 +1885,30 @@ bool MergeTransposeAxis(const Tensor &operand, std::vector<int64_t>& inputShape,
 Tensor Transpose(const Tensor &self, std::vector<int> perm) {
     DECLARE_TRACER();
     ASSERT(perm.size() == 2) << "Transpose dim num should be 2."; // perm should be 2 dims
-    ASSERT(perm[0] < (int)self->shape.size()) << "Transpose dim should less than " << self->shape.size();
-    ASSERT(perm[1] < (int)self->shape.size()) << "Transpose dim should less than " << self->shape.size();
+    ASSERT(perm[0] < (int)self.GetShape().size()) << "Transpose dim should less than " << self.GetShape().size();
+    ASSERT(perm[1] < (int)self.GetShape().size()) << "Transpose dim should less than " << self.GetShape().size();
 
     std::sort(perm.begin(), perm.end());
-    if ((self->shape[perm[0]] == 1 && self->shape[perm[1]] == 1) ||
+    if ((self.GetShape()[perm[0]] == 1 && self.GetShape()[perm[1]] == 1) ||
         perm[0] == perm[1]) {
         return self;
     }
     auto oldVecTileShapes = TileShape::Current().GetVecTile();
-    ASSERT(oldVecTileShapes.size() == self->shape.size()) << "TileShape dim num should same to input.";
+    ASSERT(oldVecTileShapes.size() == self.GetShape().size()) << "TileShape dim num should same to input.";
     auto oldValidShapes = self.GetStorage()->GetDynValidShape();
     if (oldValidShapes.empty()) {
-        oldValidShapes = SymbolicScalar::FromConcrete(self->shape);
+        oldValidShapes = SymbolicScalar::FromConcrete(self.GetShape());
     }
-    ASSERT(oldValidShapes.size() == self->shape.size()) << "ValidShape dim num should same to input.";
+    ASSERT(oldValidShapes.size() == self.GetShape().size()) << "ValidShape dim num should same to input.";
 
     std::vector<int64_t> newInputShape;
     std::vector<int64_t> newVecTileShape;
     std::vector<int> newTransposeShape = perm;
     std::vector<SymbolicScalar> newValidShape = oldValidShapes;
-    std::vector<int64_t> resultShape(self->shape);
+    std::vector<int64_t> resultShape(self.GetShape());
     std::swap(resultShape[perm[0]], resultShape[perm[1]]);
     if (!MergeTransposeAxis(self, newInputShape, newVecTileShape, newValidShape, newTransposeShape)) {
-        Tensor result(self->Datatype(), resultShape);
+        Tensor result(self.GetStorage()->Datatype(), resultShape);
         CALL(InnerTranspose, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), result.GetStorage(),
              perm);
         return result;
@@ -2018,11 +2019,11 @@ Tensor Maxpool(const Tensor &operand, const std::vector<int> &pools, const std::
     const std::vector<int> &paddings) {
     DECLARE_TRACER();
     // 目前只支持5D操作
-    ASSERT((operand->shape.size() == NC1HWC0_DIM_NUM) && pools.size() == NUM_VALUE_2 &&
+    ASSERT((operand.GetShape().size() == NC1HWC0_DIM_NUM) && pools.size() == NUM_VALUE_2 &&
            strides.size() == STRIDE_DIM_NUM && paddings.size() == PADS_DIM_NUM);
 
-    const int inDimH = operand->shape[NUM_VALUE_2];
-    const int inDimW = operand->shape[NUM_VALUE_3];
+    const int inDimH = operand.GetShape()[NUM_VALUE_2];
+    const int inDimW = operand.GetShape()[NUM_VALUE_3];
     const int paddingLeft = paddings[NUM_VALUE_0];
     const int paddingTop = paddings[NUM_VALUE_1];
     const int paddingRight = paddings[NUM_VALUE_2];
@@ -2034,8 +2035,8 @@ Tensor Maxpool(const Tensor &operand, const std::vector<int> &pools, const std::
     const int outHeight = CeilDiv(inDimH + paddingTop + paddingBottom - kh + 1, strideH);
     const int outWidth = CeilDiv(inDimW + paddingLeft + paddingRight - kw + 1, strideW);
     const std::vector<int64_t> outShape = {
-        operand->shape[NUM_VALUE_0], operand->shape[NUM_VALUE_1], outHeight, outWidth, operand->shape[NUM_VALUE_4]};
-    Tensor result(operand->tensor->datatype, outShape);
+        operand.GetShape()[NUM_VALUE_0], operand.GetShape()[NUM_VALUE_1], outHeight, outWidth, operand.GetShape()[NUM_VALUE_4]};
+    Tensor result(operand.GetStorage()->tensor->datatype, outShape);
     CALL(Maxpool, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(), result.GetStorage(), pools, strides, paddings);
 
     return result;
@@ -2044,16 +2045,16 @@ Tensor Maxpool(const Tensor &operand, const std::vector<int> &pools, const std::
 template <CastOpType T>
 void TiledCastOperation(Function &function, const TileShape &tileShape, const int cur, Input &input,
     const LogicalTensorPtr &result, const CastMode &mode) {
-    if (cur == static_cast<int>(input.tensor->shape.size())) {
-        auto tile = input.tensor->View(function, input.tileInfo.shape, input.tileInfo.offset);
+    if (cur == static_cast<int>(input.tensor.GetShape().size())) {
+        auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto &op = function.AddOperation(GetCastOpName<T>(), {tile}, {resultTile});
         op.SetAttribute(OP_ATTR_PREFIX + "mode", mode);
         return;
     }
     auto &vecTile = tileShape.GetVecTile();
-    for (int i = 0; i < input.tensor->shape[cur]; i += vecTile[cur]) {
-        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - i, vecTile[cur]);
+    for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
+        input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
         input.tileInfo.offset[cur] = i;
         TiledCastOperation<T>(function, tileShape, cur + 1, input, result, mode);
     }
@@ -2080,9 +2081,9 @@ LogicalTensorPtr TensorCastOperation(Function &function, LogicalTensorPtr operan
 
 Tensor Cast(const Tensor &operand, DataType newDataType, CastMode mode) {
     DECLARE_TRACER();
-    assert(operand->shape.size() == operand->offset.size());
+    assert(operand.GetShape().size() == operand.GetStorage()->offset.size());
     // Cast to same dType with no mode will do nothing
-    if (operand->tensor->datatype == newDataType && (mode == CAST_NONE || mode == CAST_RINT)) {
+    if (operand.GetStorage()->tensor->datatype == newDataType && (mode == CAST_NONE || mode == CAST_RINT)) {
       return operand;
     }
     RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
@@ -2106,20 +2107,20 @@ Tensor Ln(const Tensor &operand) {
 Tensor Log(const Tensor &self, LogBaseType base) {
     DECLARE_TRACER();
     ASSERT(base == LogBaseType::LOG_E || base == LogBaseType::LOG_2 || base == LogBaseType::LOG_10);
-    ASSERT(self->tensor->datatype == DataType::DT_FP16 || self->tensor->datatype == DataType::DT_FP32);
+    ASSERT(self.GetStorage()->tensor->datatype == DataType::DT_FP16 || self.GetStorage()->tensor->datatype == DataType::DT_FP32);
 
-    auto operandCast = Tensor(DataType::DT_FP32, self->shape);
-    if (self->tensor->datatype == DataType::DT_FP16) {
+    auto operandCast = Tensor(DataType::DT_FP32, self.GetShape());
+    if (self.GetStorage()->tensor->datatype == DataType::DT_FP16) {
         operandCast = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
             self.GetStorage(), DataType::DT_FP32, CastMode::CAST_NONE);
     } else {
         operandCast = self;
     }
 
-    auto resTensor = Tensor(DataType::DT_FP32, self->shape);
+    auto resTensor = Tensor(DataType::DT_FP32, self.GetShape());
     resTensor = CALL(UnaryOperation<UnaryOpType::LN>, *Program::GetInstance().GetCurrentFunction(), operandCast.GetStorage());
 
-    auto resTensorBeforeCast = Tensor(DataType::DT_FP32, self->shape);
+    auto resTensorBeforeCast = Tensor(DataType::DT_FP32, self.GetShape());
     if (base == LogBaseType::LOG_2) {
         resTensorBeforeCast = CALL(BinaryOperationScalar<BinaryOpType::DIV>, *Program::GetInstance().GetCurrentFunction(),
             resTensor.GetStorage(), Element(DataType::DT_FP32, std::log(static_cast<float>(NUM_VALUE_2))));
@@ -2130,7 +2131,7 @@ Tensor Log(const Tensor &self, LogBaseType base) {
         resTensorBeforeCast = resTensor;
     }
 
-    if (self->tensor->datatype == DataType::DT_FP16) {
+    if (self.GetStorage()->tensor->datatype == DataType::DT_FP16) {
         RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
             resTensorBeforeCast.GetStorage(), DataType::DT_FP16, CastMode::CAST_NONE);
     }
@@ -2224,12 +2225,12 @@ Tensor ScalarMax(const Tensor &operand1, const Tensor &operand2) {
 Tensor Neg(const Tensor &operand) {
     DECLARE_TRACER();
 
-    if (IsFloat(operand->Datatype())) {
+    if (IsFloat(operand.GetStorage()->Datatype())) {
         RETURN_CALL(BinaryOperationScalar<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(),
-            operand.GetStorage(), Element(operand->Datatype(), -1.0));
+            operand.GetStorage(), Element(operand.GetStorage()->Datatype(), -1.0));
     } else {
         RETURN_CALL(BinaryOperationScalar<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(),
-            operand.GetStorage(), Element(operand->Datatype(), -1));
+            operand.GetStorage(), Element(operand.GetStorage()->Datatype(), -1));
     }
 }
 
@@ -2358,14 +2359,14 @@ Tensor TensorExpandOperation(Function &function, const LogicalTensorPtr &operand
 Tensor Expand(const Tensor &self, const std::vector<int64_t> &dstShape, std::vector<SymbolicScalar> validShape) {
     DECLARE_TRACER();
 
-    ASSERT(self->shape.size() == dstShape.size());
+    ASSERT(self.GetShape().size() == dstShape.size());
 
     if (validShape.empty()) {
         for (size_t i = 0; i < dstShape.size(); ++i) {
-            if (self->shape[i] != dstShape[i]) {
+            if (self.GetShape()[i] != dstShape[i]) {
                 validShape.emplace_back(dstShape[i]);
             } else {
-                validShape.emplace_back(self->shape[i]);
+                validShape.emplace_back(self.GetShape()[i]);
             }
         }
     }
@@ -2396,33 +2397,33 @@ void TiledReduceExpandNew(Function &function, const TileShape &tileShape, const 
 
 Tensor RowSumExpand(const Tensor &operand) {
     DECLARE_TRACER();
-    Tensor result(operand->tensor->datatype, operand->shape);
+    Tensor result(operand.GetStorage()->tensor->datatype, operand.GetShape());
     CALL(ReduceExpand, *Program::GetInstance().GetCurrentFunction(), "SUM", operand, result);
     return result;
 }
 
 Tensor RowMaxExpand(const Tensor &operand) {
     DECLARE_TRACER();
-    Tensor result(operand->tensor->datatype, operand->shape);
+    Tensor result(operand.GetStorage()->tensor->datatype, operand.GetShape());
     CALL(ReduceExpand, *Program::GetInstance().GetCurrentFunction(), "MAX", operand, result);
     return result;
 }
 
 Tensor RowMaxSingle(const Tensor &operand, int axis) {
     DECLARE_TRACER();
-    auto resultShape = operand->shape;
-    axis = axis < 0 ? operand->shape.size() + axis : axis;
+    auto resultShape = operand.GetShape();
+    axis = axis < 0 ? operand.GetShape().size() + axis : axis;
 
     resultShape[axis] = 1;
 
-    const int lastDim = operand->shape.size() - 1;
-    const int alignNum = BLOCK_SIZE / BytesOf(operand->tensor->datatype);
+    const int lastDim = operand.GetShape().size() - 1;
+    const int alignNum = BLOCK_SIZE / BytesOf(operand.GetStorage()->tensor->datatype);
     auto &vecTile = TileShape::Current().GetVecTile();
     if (axis == lastDim) {
         ASSERT(vecTile[lastDim] % alignNum == 0) << "RowMaxSingle op: the tileShape of last axis need to 32Byte align!";
     }
 
-    Tensor result(operand->tensor->datatype, resultShape);
+    Tensor result(operand.GetStorage()->tensor->datatype, resultShape);
     int shapeSize = static_cast<int>(resultShape.size());
     if (ConfigManager::Instance().GetOperationConfig("FORCE_COMBINE_AXIS", false) && axis == shapeSize - 1 &&
         shapeSize >= NUM2 &&
@@ -2436,19 +2437,19 @@ Tensor RowMaxSingle(const Tensor &operand, int axis) {
 
 Tensor RowMinSingle(const Tensor &operand, int axis) {
     DECLARE_TRACER();
-    auto resultShape = operand->shape;
-    axis = axis < 0 ? operand->shape.size() + axis : axis;
+    auto resultShape = operand.GetShape();
+    axis = axis < 0 ? operand.GetShape().size() + axis : axis;
 
     resultShape[axis] = 1;
 
-    const int lastDim = operand->shape.size() - 1;
-    const int alignNum = BLOCK_SIZE / BytesOf(operand->tensor->datatype);
+    const int lastDim = operand.GetShape().size() - 1;
+    const int alignNum = BLOCK_SIZE / BytesOf(operand.GetStorage()->tensor->datatype);
     auto &vecTile = TileShape::Current().GetVecTile();
     if (axis == lastDim) {
         ASSERT(vecTile[lastDim] % alignNum == 0) << "RowMinSingle op: the tileShape of last axis need to 32Byte align!";
     }
 
-    Tensor result(operand->tensor->datatype, resultShape);
+    Tensor result(operand.GetStorage()->tensor->datatype, resultShape);
     int shapeSize = static_cast<int>(resultShape.size());
     if (ConfigManager::Instance().GetOperationConfig("FORCE_COMBINE_AXIS", false) && axis == shapeSize - 1 &&
         shapeSize >= NUM2 &&
@@ -2462,19 +2463,19 @@ Tensor RowMinSingle(const Tensor &operand, int axis) {
 
 Tensor RowSumSingle(const Tensor &operand, int axis) {
     DECLARE_TRACER();
-    auto resultShape = operand->shape;
-    axis = axis < 0 ? operand->shape.size() + axis : axis;
+    auto resultShape = operand.GetShape();
+    axis = axis < 0 ? operand.GetShape().size() + axis : axis;
 
     resultShape[axis] = 1;
 
-    const int lastDim = operand->shape.size() - 1;
-    const int alignNum = BLOCK_SIZE / BytesOf(operand->tensor->datatype);
+    const int lastDim = operand.GetShape().size() - 1;
+    const int alignNum = BLOCK_SIZE / BytesOf(operand.GetStorage()->tensor->datatype);
     auto &vecTile = TileShape::Current().GetVecTile();
     if (axis == lastDim) {
         ASSERT(vecTile[lastDim] % alignNum == 0) << "RowSumSingle op: the tileShape of last axis need to 32Byte align!";
     }
 
-    Tensor result(operand->tensor->datatype, resultShape);
+    Tensor result(operand.GetStorage()->tensor->datatype, resultShape);
     int shapeSize = static_cast<int>(resultShape.size());
     if (ConfigManager::Instance().GetOperationConfig("FORCE_COMBINE_AXIS", false) && axis == shapeSize - 1 &&
         shapeSize >= NUM2 &&
@@ -2489,9 +2490,9 @@ Tensor RowSumSingle(const Tensor &operand, int axis) {
 Tensor Compact(const Tensor &operand) {
     DECLARE_TRACER();
 
-    assert(operand->shape.size() == operand->offset.size());
-    Tensor result(operand->tensor->datatype, {operand->shape[0], 1});
-    Tensor workspace(operand->tensor->datatype, {operand->shape[0], NUM_VALUE_8});
+    assert(operand.GetShape().size() == operand.GetStorage()->offset.size());
+    Tensor result(operand.GetStorage()->tensor->datatype, {operand.GetShape()[0], 1});
+    Tensor workspace(operand.GetStorage()->tensor->datatype, {operand.GetShape()[0], NUM_VALUE_8});
     Program::GetInstance().AddOperation(Opcode::OP_COMPACT, {operand.GetStorage()}, {result.GetStorage()});
     return result;
 }
@@ -2538,8 +2539,8 @@ void TiledVecDup(Function &function, const TileShape &tileShape, size_t cur, con
 
 void TiledLogicalNotOperation(Function& function, const TileShape& tileShape, size_t cur,
         Input& input, const LogicalTensorPtr& result) {
-    if (cur == input.tensor->shape.size()) {
-        auto tile = input.tensor->View(function, input.tileInfo.shape, input.tileInfo.offset);
+    if (cur == input.tensor.GetShape().size()) {
+        auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
 
         std::vector<int64_t> castConditionShape({2048});
@@ -2564,8 +2565,8 @@ void TiledLogicalNotOperation(Function& function, const TileShape& tileShape, si
     }
 
     auto& vecTile = tileShape.GetVecTile();
-    for (int i = 0; i < input.tensor->shape[cur]; i += vecTile[cur]) {
-        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - i, vecTile[cur]);
+    for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
+        input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
         input.tileInfo.offset[cur] = i;
         TiledLogicalNotOperation(function, tileShape, cur + 1, input, result);
     }
@@ -2658,8 +2659,8 @@ void ToFile(const Tensor &operand, const std::string &fname, const std::vector<S
 
 Tensor GatherElements(const Tensor &params, const Tensor &indices, int axis) {
     DECLARE_TRACER();
-    ASSERT(axis < static_cast<int>(params->shape.size()) && axis >= - static_cast<int>(params->shape.size()));
-    axis = axis < 0 ? params->shape.size() + axis : axis; //支持负轴
+    ASSERT(axis < static_cast<int>(params.GetShape().size()) && axis >= - static_cast<int>(params.GetShape().size()));
+    axis = axis < 0 ? params.GetShape().size() + axis : axis; //支持负轴
     RETURN_CALL(GatherElementOperation, *Program::GetInstance().GetCurrentFunction(), params.GetStorage(),
         indices.GetStorage(), axis);
 }
@@ -2674,14 +2675,14 @@ Tensor TensorIndex(const Tensor &params, const Tensor &indices) {
 Tensor Unsqueeze(const Tensor &old, int unsqueezeDimNum) {
     DECLARE_TRACER();
 
-    ASSERT(unsqueezeDimNum < static_cast<int>(old->shape.size()) + 1 && unsqueezeDimNum >= -static_cast<int>(old->shape.size()) - 1);
+    ASSERT(unsqueezeDimNum < static_cast<int>(old.GetShape().size()) + 1 && unsqueezeDimNum >= -static_cast<int>(old.GetShape().size()) - 1);
     size_t unsqueezeDim = unsqueezeDimNum;
     if (unsqueezeDimNum < 0) {
-        unsqueezeDim = unsqueezeDimNum + old->shape.size() + 1;
+        unsqueezeDim = unsqueezeDimNum + old.GetShape().size() + 1;
     }
     std::vector<int64_t> newShape(old.GetStorage()->shape);
     newShape.insert(newShape.begin() + unsqueezeDim, 1);
-    Tensor result(old->tensor->datatype, newShape);
+    Tensor result(old.GetStorage()->tensor->datatype, newShape);
     result = Reshape(old, newShape);
 
     return result;
@@ -2692,10 +2693,10 @@ void TiledScatterUpdate(size_t cur, Function &function, const TileShape &tileSha
     TileInfo &dstTileInfo, std::string cacheMode, int blockSize) {
     if (cur == dst->shape.size()) {
         // add Operation
-        auto srcTile = srcInput.tensor->View(function, srcInput.tileInfo.shape, srcInput.tileInfo.offset);
-        auto dstTile = dstInput.tensor->View(function, dstTileInfo.shape, dstTileInfo.offset);
+        auto srcTile = srcInput.tensor.GetStorage()->View(function, srcInput.tileInfo.shape, srcInput.tileInfo.offset);
+        auto dstTile = dstInput.tensor.GetStorage()->View(function, dstTileInfo.shape, dstTileInfo.offset);
         auto resultTile = dst->View(function, dstTileInfo.shape, dstTileInfo.offset);
-        auto indexTile = indexInput.tensor->View(function, indexInput.tileInfo.shape, indexInput.tileInfo.offset);
+        auto indexTile = indexInput.tensor.GetStorage()->View(function, indexInput.tileInfo.shape, indexInput.tileInfo.offset);
         auto &op = function.AddOperation("TILE_INDEX_OUTCAST", {srcTile, indexTile, dstTile}, {resultTile});
         op.SetAttribute("axis", axis);
         op.SetAttribute(OpAttributeKey::panzBlockSize, blockSize);
@@ -2712,24 +2713,24 @@ void TiledScatterUpdate(size_t cur, Function &function, const TileShape &tileSha
     for (int i = 0; i < dst->shape[cur]; i += tmpTile) {
         if (static_cast<int>(cur) == axis) {
             srcInput.tileInfo.offset[cur] = 0;
-            srcInput.tileInfo.shape[cur] = srcInput.tensor->shape[cur];
+            srcInput.tileInfo.shape[cur] = srcInput.tensor.GetShape()[cur];
             if (cur <= 1) {
                 indexInput.tileInfo.offset[cur] = 0;
-                indexInput.tileInfo.shape[cur] = indexInput.tensor->shape[cur];
+                indexInput.tileInfo.shape[cur] = indexInput.tensor.GetShape()[cur];
             }
             dstTileInfo.offset[cur] = 0;
             dstTileInfo.shape[cur] = dst->shape[cur];
         } else {
-            srcInput.tileInfo.offset[cur] = i % srcInput.tensor->shape[cur];
+            srcInput.tileInfo.offset[cur] = i % srcInput.tensor.GetShape()[cur];
             srcInput.tileInfo.shape[cur] =
-                std::min(srcInput.tensor->shape[cur] - srcInput.tileInfo.offset[cur], tmpTile);
+                std::min(srcInput.tensor.GetShape()[cur] - srcInput.tileInfo.offset[cur], tmpTile);
             if (cur == 0) { // only cut index first axis
-                indexInput.tileInfo.offset[cur] = i % indexInput.tensor->shape[cur];
+                indexInput.tileInfo.offset[cur] = i % indexInput.tensor.GetShape()[cur];
                 indexInput.tileInfo.shape[cur] =
-                    std::min(indexInput.tensor->shape[cur] - indexInput.tileInfo.offset[cur], tmpTile);
+                    std::min(indexInput.tensor.GetShape()[cur] - indexInput.tileInfo.offset[cur], tmpTile);
             } else {
                 indexInput.tileInfo.offset[1] = 0;
-                indexInput.tileInfo.shape[1] = indexInput.tensor->shape[1];
+                indexInput.tileInfo.shape[1] = indexInput.tensor.GetShape()[1];
             }
             dstTileInfo.offset[cur] = i;
             dstTileInfo.shape[cur] = std::min(dst->shape[cur] - dstTileInfo.offset[cur], tmpTile);
@@ -2743,9 +2744,9 @@ void TiledIndexScatterUpdate(size_t cur, Function &function, const TileShape &ti
     TileInfo &dstTileInfo, std::string cacheMode, int blockSize) {
     if (cur == dst->shape.size()) {
         // add Operation
-        auto srcTile = srcInput.tensor->View(function, srcInput.tileInfo.shape, srcInput.tileInfo.offset);
-        auto dstTile = dstInput.tensor->View(function, dstTileInfo.shape, dstTileInfo.offset);
-        auto indexTile = indexInput.tensor->View(function, indexInput.tileInfo.shape, indexInput.tileInfo.offset);
+        auto srcTile = srcInput.tensor.GetStorage()->View(function, srcInput.tileInfo.shape, srcInput.tileInfo.offset);
+        auto dstTile = dstInput.tensor.GetStorage()->View(function, dstTileInfo.shape, dstTileInfo.offset);
+        auto indexTile = indexInput.tensor.GetStorage()->View(function, indexInput.tileInfo.shape, indexInput.tileInfo.offset);
         auto &op = function.AddOperation("TILE_INDEX_OUTCAST", {srcTile, indexTile, dstTile}, {dst});
         op.SetAttribute("axis", axis);
         op.SetAttribute(OpAttributeKey::panzBlockSize, blockSize);
@@ -2757,18 +2758,18 @@ void TiledIndexScatterUpdate(size_t cur, Function &function, const TileShape &ti
     auto &vecTile = tileShape.GetVecTile();
     int64_t tmpTile = vecTile[cur];
     if (static_cast<int>(cur) == axis) {
-        tmpTile = srcInput.tensor->shape[cur];
+        tmpTile = srcInput.tensor.GetShape()[cur];
     }
 
-    for (int i = 0; i < srcInput.tensor->shape[cur]; i += tmpTile) {
+    for (int i = 0; i < srcInput.tensor.GetShape()[cur]; i += tmpTile) {
         if (static_cast<int>(cur) == axis) { // asis == 1
             srcInput.tileInfo.offset[cur] = 0;
-            srcInput.tileInfo.shape[cur] = srcInput.tensor->shape[cur];
+            srcInput.tileInfo.shape[cur] = srcInput.tensor.GetShape()[cur];
 
             int64_t indexTileLen = vecTile[0];
             indexInput.tileInfo.offset[cur] = 0;
             indexInput.tileInfo.shape[cur] =
-                std::min(indexInput.tensor->shape[cur] - indexInput.tileInfo.offset[0], indexTileLen);
+                std::min(indexInput.tensor.GetShape()[cur] - indexInput.tileInfo.offset[0], indexTileLen);
 
             // indextileinfo need trans : [16,0] -> [0,16]
             indexInput.tileInfo.offset[cur] = indexInput.tileInfo.offset[0];
@@ -2777,12 +2778,12 @@ void TiledIndexScatterUpdate(size_t cur, Function &function, const TileShape &ti
             dstTileInfo.offset[cur] = 0;
             dstTileInfo.shape[cur] = dst->shape[cur];
         } else {
-            srcInput.tileInfo.offset[cur] = i % srcInput.tensor->shape[cur];
+            srcInput.tileInfo.offset[cur] = i % srcInput.tensor.GetShape()[cur];
             srcInput.tileInfo.shape[cur] =
-                std::min(srcInput.tensor->shape[cur] - srcInput.tileInfo.offset[cur], tmpTile);
+                std::min(srcInput.tensor.GetShape()[cur] - srcInput.tileInfo.offset[cur], tmpTile);
 
-            indexInput.tileInfo.offset[0] = i % indexInput.tensor->shape[1];
-            indexInput.tileInfo.shape[0] = indexInput.tensor->shape[0]; // index axis 0
+            indexInput.tileInfo.offset[0] = i % indexInput.tensor.GetShape()[1];
+            indexInput.tileInfo.shape[0] = indexInput.tensor.GetShape()[0]; // index axis 0
 
             dstTileInfo.offset[cur] = i;
             dstTileInfo.shape[cur] = tmpTile;
@@ -2945,11 +2946,11 @@ Tensor ScatterUpdate(const Tensor &dst, const Tensor &index, const Tensor &src, 
     DECLARE_TRACER();
 
     CheckScatterUpdateInvalid(dst, index, src);
-    axis = axis < 0 ? dst->shape.size() + axis : axis;
+    axis = axis < 0 ? dst.GetShape().size() + axis : axis;
 
-    Tensor result(dst->tensor->datatype, dst->GetShape());
-    if (std::find(dst->GetShape().begin(), dst->GetShape().end(), -1) != dst->GetShape().end()) {
-        Tensor resTmp(dst->tensor->datatype, dst->GetDynValidShape());
+    Tensor result(dst.GetStorage()->tensor->datatype, dst.GetStorage()->GetShape());
+    if (std::find(dst.GetStorage()->GetShape().begin(), dst.GetStorage()->GetShape().end(), -1) != dst.GetStorage()->GetShape().end()) {
+        Tensor resTmp(dst.GetStorage()->tensor->datatype, dst.GetStorage()->GetDynValidShape());
         result = resTmp;
     }
 
@@ -2958,9 +2959,9 @@ Tensor ScatterUpdate(const Tensor &dst, const Tensor &index, const Tensor &src, 
 
     if (cacheMode == "PA_NZ") {
         axis = 1;
-        ASSERT(src->shape.size() == NUM_VALUE_2); // only support 2 dim
+        ASSERT(src.GetShape().size() == NUM_VALUE_2); // only support 2 dim
 
-        Tensor newIndex = Reshape(index, {1, index->shape[0] * index->shape[1]});
+        Tensor newIndex = Reshape(index, {1, index.GetShape()[0] * index.GetShape()[1]});
         CALL(ScatterUpdate, *Program::GetInstance().GetCurrentFunction(), result.GetStorage(), dst.GetStorage(),
             newIndex.GetStorage(), src.GetStorage(), axis, cacheMode, chunkSize);
     } else {
@@ -2973,18 +2974,18 @@ Tensor ScatterUpdate(const Tensor &dst, const Tensor &index, const Tensor &src, 
 static void CheckScatterElementSParamsInvalid(const Tensor &self, const Tensor &indices, int axis,
     const ScatterMode reduce)
 {
-    ASSERT(self->shape.size() == indices->shape.size());
-    ASSERT(axis < static_cast<int>(self->shape.size()));
+    ASSERT(self.GetShape().size() == indices.GetShape().size());
+    ASSERT(axis < static_cast<int>(self.GetShape().size()));
     ASSERT(reduce <=  ScatterMode::UNKNOWN);
-    for (size_t i = 0; i < self->shape.size(); i++) {
-        ASSERT(indices->shape[i] <= self->shape[i]);
+    for (size_t i = 0; i < self.GetShape().size(); i++) {
+        ASSERT(indices.GetShape()[i] <= self.GetShape()[i]);
     }
 }
 
 Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, int axis, ScatterMode reduce) {
     DECLARE_TRACER();
 
-    Tensor result(self->tensor->datatype, self->shape);
+    Tensor result(self.GetStorage()->tensor->datatype, self.GetShape());
     GraphUtils::AddDynOperation(*Program::GetInstance().GetCurrentFunction(), Opcode::OP_REGISTER_COPY,
         {self.GetStorage()}, {result.GetStorage()});
 
@@ -2994,9 +2995,9 @@ Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, in
 Tensor Scatter_(const Tensor &self, const Tensor &indices, const Element &src, int axis, ScatterMode reduce) {
     DECLARE_TRACER();
 
-    axis = axis < 0 ? self->shape.size() + axis : axis;
+    axis = axis < 0 ? self.GetShape().size() + axis : axis;
     CheckScatterElementSParamsInvalid(self, indices, axis, reduce);
-    Tensor result(self->tensor->datatype, self->shape);
+    Tensor result(self.GetStorage()->tensor->datatype, self.GetShape());
     result.GetStorage()->tensor->SetTensorInfo(self.GetStorage()->tensor->GetTensorInfo());
     CALL(ScatterElementS, *Program::GetInstance().GetCurrentFunction(), {result.GetStorage(), self.GetStorage(),
          indices.GetStorage(), src, axis, static_cast<int>(reduce)});
@@ -3006,7 +3007,7 @@ Tensor Scatter_(const Tensor &self, const Tensor &indices, const Element &src, i
 Tensor IndexPut(const Tensor &src, std::vector<Tensor> indices, const Tensor &values) {
     DECLARE_TRACER();
 
-    Tensor result(src->tensor->datatype, src->shape);
+    Tensor result(src.GetStorage()->tensor->datatype, src.GetShape());
     result.GetStorage()->tensor->SetTensorInfo(src.GetStorage()->tensor->GetTensorInfo());
     for (auto index : indices) {
         CALL(ScatterUpdate, *Program::GetInstance().GetCurrentFunction(), result.GetStorage(), src.GetStorage(),
@@ -3021,8 +3022,8 @@ void TensorInnerAssign(Function &function, const LogicalTensorPtr &operand, cons
 }
 
 Tensor Assign(const Tensor &operand) {
-    Tensor result(operand->Datatype(), operand->shape);
-    result->UpdateDynValidShape(operand->GetDynValidShape());
+    Tensor result(operand.GetStorage()->Datatype(), operand.GetShape());
+    result.GetStorage()->UpdateDynValidShape(operand.GetStorage()->GetDynValidShape());
     CALL(InnerAssign, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(), result.GetStorage());
     return result;
 }
@@ -3126,14 +3127,14 @@ Tensor Concat(const std::vector<Tensor> &tensorList, int axis) {
         return Concat(back, axis);
     }
 
-    auto shape = tensorList[0]->GetShape();
+    auto shape = tensorList[0].GetShape();
     auto shapeSize = shape.size();
     if (axis < 0) {
         axis = shapeSize + axis;
     }
     ASSERT(static_cast<size_t>(axis) < shapeSize);
     for (auto tensor : tensorList) {
-        ASSERT(tensor->GetShape().size() == shapeSize);
+        ASSERT(tensor.GetShape().size() == shapeSize);
     }
 
     for (auto tensor : tensorList) {
@@ -3141,25 +3142,25 @@ Tensor Concat(const std::vector<Tensor> &tensorList, int axis) {
             if (i == axis) {
                 continue;
             }
-            ASSERT(shape[i] == tensor->GetShape()[i]);
+            ASSERT(shape[i] == tensor.GetShape()[i]);
         }
     }
 
     auto resultShape = shape;
     int axisSize = 0;
     for (auto tensor : tensorList) {
-        axisSize += tensor->GetShape()[axis];
+        axisSize += tensor.GetShape()[axis];
     }
     resultShape[axis] = axisSize;
 
-    Tensor result(tensorList[0]->Datatype(), resultShape);
-    Tensor tmp(tensorList[0]->Datatype(), resultShape);
+    Tensor result(tensorList[0].GetStorage()->Datatype(), resultShape);
+    Tensor tmp(tensorList[0].GetStorage()->Datatype(), resultShape);
     auto &function = *Program::GetInstance().GetCurrentFunction();
     std::vector<int64_t> offset(shapeSize, 0);
     for (auto tensor : tensorList) {
-        auto tmpView = tmp->View(function, tensor->GetShape(), offset);
+        auto tmpView = tmp.GetStorage()->View(function, tensor.GetShape(), offset);
         InnerConcatNew(*Program::GetInstance().GetCurrentFunction(), tensor.GetStorage(), tmpView);
-        offset[axis] += tensor->GetShape()[axis];
+        offset[axis] += tensor.GetShape()[axis];
     }
     auto &op = function.AddOperation(Opcode::OP_ASSEMBLE, {tmp.GetStorage()}, {result.GetStorage()});
     op.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>(shapeSize, 0)));
@@ -3225,7 +3226,7 @@ LogicalTensorPtr TensorPadOperation(Function &function, const TileShape &tileSha
 Tensor Pad(const Tensor &old, const std::vector<int64_t> &newShape)
 {
     DECLARE_TRACER();
-    auto oldShape = old->GetShape();
+    auto oldShape = old.GetShape();
     auto oldShapeSize = oldShape.size();
     assert(oldShapeSize == newShape.size());
     assert(oldShape.size() >= SHAPE_DIM2);
@@ -3274,7 +3275,7 @@ Tensor NewCompact(const Tensor &operand)
 {
     DECLARE_TRACER();
 
-    Tensor result(operand->tensor->datatype, { operand->shape[0], 1 });
+    Tensor result(operand.GetStorage()->tensor->datatype, { operand.GetShape()[0], 1 });
     CALL(InnerCompact, *Program::GetInstance().GetCurrentFunction(), TileShape::Current(), operand.GetStorage(),
         result.GetStorage());
     return result;
@@ -3490,13 +3491,13 @@ void TensorTopK(Function &function, const LogicalTensorPtr &self, LogicalTensorP
 
 std::tuple<Tensor, Tensor> TopK(const Tensor &self, int k, int axis, bool isLargest) {
     DECLARE_TRACER();
-    const auto len = static_cast<int>(self->shape.size());
+    const auto len = static_cast<int>(self.GetShape().size());
     ASSERT(axis == (len - 1) || axis == -1) << "TopK only support last axis";
     axis = axis >= 0 ? axis : (axis + len);
 
-    auto topkOutShape = self->shape;
+    auto topkOutShape = self.GetShape();
     topkOutShape[axis] = k;
-    auto valueResult = Tensor(self->tensor->datatype, topkOutShape);
+    auto valueResult = Tensor(self.GetStorage()->tensor->datatype, topkOutShape);
     auto indexResult = Tensor(DataType::DT_INT32, topkOutShape);
     CALL(TopK, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), valueResult.GetStorage(),
      indexResult.GetStorage(), k, axis, isLargest);
@@ -3505,8 +3506,8 @@ std::tuple<Tensor, Tensor> TopK(const Tensor &self, int k, int axis, bool isLarg
 
 void TiledBitSort(Function &function, const TileShape & tileShape, size_t cur, Input &input,
     const LogicalTensorPtr &result, TileInfo &resultTileInfo, int axis, int isLargest) {
-    if (cur == input.tensor->shape.size()) {
-        auto inputTile = input.tensor->View(function, input.tileInfo.shape, input.tileInfo.offset);
+    if (cur == input.tensor.GetShape().size()) {
+        auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
         auto &op = function.AddOperation(Opcode::OP_BITSORT, {inputTile}, {resultTile});
         op.SetAttribute(TOPK_AXIS, axis);
@@ -3520,10 +3521,10 @@ void TiledBitSort(Function &function, const TileShape & tileShape, size_t cur, I
         return;
     }
     auto &vecTile = tileShape.GetVecTile();
-    for (int i = 0; i < input.tensor->shape[cur]; i += vecTile[cur]) {
+    for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
         // update input && result && resultDices shape and offset info
-        input.tileInfo.offset[cur] = i % input.tensor->shape[cur];
-        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - input.tileInfo.offset[cur], vecTile[cur]);
+        input.tileInfo.offset[cur] = i % input.tensor.GetShape()[cur];
+        input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - input.tileInfo.offset[cur], vecTile[cur]);
 
         resultTileInfo.offset[cur] = i;
         resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
@@ -3544,8 +3545,8 @@ void TiledBitSort(Function &function, const TileShape &tileShape,
 
 void TiledMrgSort(Function &function, const TileShape & tileShape, size_t cur, Input &input,
     const LogicalTensorPtr &result, TileInfo &resultTileInfo, int axis, int k, int isLargest) {
-    if (cur == input.tensor->shape.size()) {
-        auto inputTile = input.tensor->View(function, input.tileInfo.shape, input.tileInfo.offset);
+    if (cur == input.tensor.GetShape().size()) {
+        auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
         auto &op = function.AddOperation(Opcode::OP_MRGSORT, {inputTile}, {resultTile});
         op.SetAttribute(TOPK_AXIS, axis);
@@ -3559,10 +3560,10 @@ void TiledMrgSort(Function &function, const TileShape & tileShape, size_t cur, I
         return;
     }
     auto &vecTile = tileShape.GetVecTile();
-    for (int i = 0; i < input.tensor->shape[cur]; i += vecTile[cur]) {
+    for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
         // update input && result && resultDices shape and offset info
-        input.tileInfo.offset[cur] = i % input.tensor->shape[cur];
-        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - input.tileInfo.offset[cur], vecTile[cur]);
+        input.tileInfo.offset[cur] = i % input.tensor.GetShape()[cur];
+        input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - input.tileInfo.offset[cur], vecTile[cur]);
 
         resultTileInfo.offset[cur] = i;
         resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
@@ -3588,7 +3589,7 @@ void TiledTopK(Function &function, const TileShape & tileShape, size_t cur, Inpu
     auto &vecTile = tileShape.GetVecTile();
     ASSERT(k <= vecTile[axis]);
     if (static_cast<int>(cur) == axis) {
-        auto source = input.tensor->View(function, input.tileInfo.shape, input.tileInfo.offset);
+        auto source = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         constexpr int32_t blockSize = 32;
         constexpr int32_t kFactorSize = 4;
         constexpr int32_t kBlockFpNum = 8;
@@ -3602,7 +3603,7 @@ void TiledTopK(Function &function, const TileShape & tileShape, size_t cur, Inpu
         std::vector<int64_t> tileSourceOffset(tileSourceShape.size(), 0);
         std::vector<LogicalTensorPtr> sortList;
         auto dynValidShape = source->GetDynValidShape();
-        for (int i = 0; i < input.tensor->shape[axis]; i += vecTileAlign[axis]) {
+        for (int i = 0; i < input.tensor.GetShape()[axis]; i += vecTileAlign[axis]) {
             tileSourceShape[axis] = std::min(vecTileAlign[axis], source->shape[axis] - i);
             tileSourceOffset[axis] = i;
             auto inputTile = source->View(function, tileSourceShape, tileSourceOffset);
@@ -3740,10 +3741,10 @@ void TiledTopK(Function &function, const TileShape & tileShape, size_t cur, Inpu
         return;
     }
 
-    for (int i = 0; i < input.tensor->shape[cur]; i += vecTile[cur]) {
+    for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
         // update input && result && resultDices shape and offset info
-        input.tileInfo.offset[cur] = i % input.tensor->shape[cur];
-        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - input.tileInfo.offset[cur], vecTile[cur]);
+        input.tileInfo.offset[cur] = i % input.tensor.GetShape()[cur];
+        input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - input.tileInfo.offset[cur], vecTile[cur]);
 
         resultTileInfo.offset[cur] = i;
         resultTileInfo.shape[cur] = std::min(valueResult->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
@@ -3765,8 +3766,8 @@ void TiledTopK(Function &function, const TileShape &tileShape,
 void TiledExtract(Function &function, const TileShape & tileShape, size_t cur, Input &input,
     const LogicalTensorPtr &result, TileInfo &resultTileInfo, int maskMode, int kValue,
     bool isLargest) {
-    if (cur == input.tensor->shape.size()) {
-        auto inputTile = input.tensor->View(function, input.tileInfo.shape, input.tileInfo.offset);
+    if (cur == input.tensor.GetShape().size()) {
+        auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
         auto &op = function.AddOperation(Opcode::OP_EXTRACT, {inputTile}, {resultTile});
         op.SetAttribute(EXTRACT_MASKMODE, maskMode);
@@ -3776,16 +3777,16 @@ void TiledExtract(Function &function, const TileShape & tileShape, size_t cur, I
     }
 
     // Jump last axis
-    if (cur == input.tensor->shape.size() - 1) {
+    if (cur == input.tensor.GetShape().size() - 1) {
         TiledExtract(function, tileShape, cur + 1, input, result,  resultTileInfo, maskMode, kValue, isLargest);
         return;
     }
 
     auto &vecTile = tileShape.GetVecTile();
-    for (int i = 0; i < input.tensor->shape[cur]; i += vecTile[cur]) {
+    for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
         // update input && result && resultDices shape and offset info
-        input.tileInfo.offset[cur] = i % input.tensor->shape[cur];
-        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - input.tileInfo.offset[cur], vecTile[cur]);
+        input.tileInfo.offset[cur] = i % input.tensor.GetShape()[cur];
+        input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - input.tileInfo.offset[cur], vecTile[cur]);
 
         resultTileInfo.offset[cur] = i;
         resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
@@ -3837,7 +3838,7 @@ void TensorLoad(
 }
 
 Tensor Load(const Tensor &src, const Tensor &offsets) {
-    Tensor result(src.GetDataType(), offsets->GetShape());
+    Tensor result(src.GetDataType(), offsets.GetShape());
     if (!offsets.GetStorage()->GetDynValidShape().empty()) {
         result.GetStorage()->UpdateDynValidShape(offsets.GetStorage()->GetDynValidShape());
     }
@@ -3848,57 +3849,57 @@ Tensor Load(const Tensor &src, const Tensor &offsets) {
 
 Tensor ArgSort(const Tensor &operand, int axis = -1, bool isLargest) {
     DECLARE_TRACER();
-    const auto len = static_cast<int>(operand->shape.size());
+    const auto len = static_cast<int>(operand.GetShape().size());
     assert(axis == 1 || axis == -1);
     axis = axis >= 0 ? axis : (axis + len);
     // 首先进行全排序,全排序的输出是输入shape的2倍,另外需要在输出中增加临时空间,size变为原有的4倍
     // 需要注意,这里由于芯片限制需要对k做32元素对齐
     // [index value 2] + [index_tmp_buffer 1] / [index_value_tmp_buffer 2] * 2 = 4 * origin_size
-    auto bitsortOutShape = operand->shape;
+    auto bitsortOutShape = operand.GetShape();
     bitsortOutShape[axis] = (bitsortOutShape[axis] + NUM_VALUE_31) / NUM_VALUE_32 * NUM_VALUE_32;
     bitsortOutShape[axis] *= NUM_VALUE_4; // size变成原来的4倍
-    auto bitsortResTensor = Tensor(operand->tensor->datatype, bitsortOutShape);
+    auto bitsortResTensor = Tensor(operand.GetStorage()->tensor->datatype, bitsortOutShape);
     CALL(BitsortOperation, *Program::GetInstance().GetCurrentFunction(),
         operand.GetStorage(), bitsortResTensor.GetStorage(), axis, isLargest);
 
-    auto k = operand->shape[axis];
+    auto k = operand.GetShape()[axis];
     // 归并排序,输入为全排序的结果,输出为原始输入shape的2倍
-    auto mrgSortOutShape = operand->shape;
+    auto mrgSortOutShape = operand.GetShape();
     constexpr int32_t MRG_SORT_TIMES_2 = 2;
     mrgSortOutShape[axis] = k * MRG_SORT_TIMES_2;
-    auto mrgsortResultTensor = Tensor(operand->tensor->datatype, mrgSortOutShape);
+    auto mrgsortResultTensor = Tensor(operand.GetStorage()->tensor->datatype, mrgSortOutShape);
     CALL(MrgSortOperation, *Program::GetInstance().GetCurrentFunction(), bitsortResTensor.GetStorage(), mrgsortResultTensor.GetStorage(),
         axis, k, isLargest);
 
     // // index拆分
-    auto topkOutShape = operand->shape;
+    auto topkOutShape = operand.GetShape();
     topkOutShape[axis] = k;
 
     // value 拆分
-    auto resIndicesTensor = Tensor(operand->tensor->datatype, topkOutShape);
+    auto resIndicesTensor = Tensor(operand.GetStorage()->tensor->datatype, topkOutShape);
     CALL(ExtractOperation, *Program::GetInstance().GetCurrentFunction(), mrgsortResultTensor.GetStorage(), resIndicesTensor.GetStorage(), 1, k, isLargest);
     return resIndicesTensor;
 }
 
 void TiledArgSort(Function &function, const TileShape & tileShape, size_t cur, Input &input,
     const LogicalTensorPtr &resultDices, TileInfo &resultDicesTileInfo, int axis, int isLargest) {
-    if (cur == input.tensor->shape.size()) {
-        auto inputTile = input.tensor->View(function, input.tileInfo.shape, input.tileInfo.offset);
+    if (cur == input.tensor.GetShape().size()) {
+        auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto resultDicesTile = resultDices->View(function, resultDicesTileInfo.shape, resultDicesTileInfo.offset);
         function.AddOperation(Opcode::OP_ARGSORT, {inputTile}, {resultDicesTile});
         return;
     }
     if (cur == static_cast<size_t>(axis)) {
         input.tileInfo.offset[cur] = 0;
-        input.tileInfo.shape[cur] = input.tensor->shape[cur];
+        input.tileInfo.shape[cur] = input.tensor.GetShape()[cur];
         TiledArgSort(function, tileShape, cur + 1, input, resultDices, resultDicesTileInfo, axis, isLargest);
         return;
     }
     auto &vecTile = tileShape.GetVecTile();
-    for (int i = 0; i < input.tensor->shape[cur]; i += vecTile[cur]) {
+    for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
         // update input && result && resultDices shape and offset info
-        input.tileInfo.offset[cur] = i % input.tensor->shape[cur];
-        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - input.tileInfo.offset[cur], vecTile[cur]);
+        input.tileInfo.offset[cur] = i % input.tensor.GetShape()[cur];
+        input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - input.tileInfo.offset[cur], vecTile[cur]);
 
         resultDicesTileInfo.offset[cur] = i;
         resultDicesTileInfo.shape[cur] =
@@ -3944,10 +3945,10 @@ Tensor Reduce(const std::vector<Tensor> &aggregation, const ReduceMode reduceMod
 
 void TiledReduceAcc(Function &function, const TileShape &tileShape, size_t cur,
     std::vector<Input> inputVec, const LogicalTensorPtr &result, TileInfo &resultTileInfo) {
-    if (cur == inputVec[0].tensor->shape.size()) {
+    if (cur == inputVec[0].tensor.GetShape().size()) {
         std::vector<LogicalTensorPtr> inputTileVec;
         for (size_t index = 0; index < inputVec.size(); ++index) {
-            auto inputTile = inputVec[index].tensor->View(function, inputVec[index].tileInfo.shape, inputVec[index].tileInfo.offset);
+            auto inputTile = inputVec[index].tensor.GetStorage()->View(function, inputVec[index].tileInfo.shape, inputVec[index].tileInfo.offset);
             inputTileVec.emplace_back(inputTile);
         }
 
@@ -3961,9 +3962,9 @@ void TiledReduceAcc(Function &function, const TileShape &tileShape, size_t cur,
         resultTileInfo.offset[cur] = i;
         resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
         for (size_t index = 0; index < inputVec.size(); ++index) {
-            inputVec[index].tileInfo.offset[cur]  = i % inputVec[index].tensor->shape[cur];
+            inputVec[index].tileInfo.offset[cur]  = i % inputVec[index].tensor.GetShape()[cur];
             inputVec[index].tileInfo.shape[cur] =
-                std::min(inputVec[index].tensor->shape[cur] - inputVec[index].tileInfo.offset[cur], vecTile[cur]);
+                std::min(inputVec[index].tensor.GetShape()[cur] - inputVec[index].tileInfo.offset[cur], vecTile[cur]);
         }
         TiledReduceAcc(function, tileShape, cur + 1, inputVec, result, resultTileInfo);
     }
@@ -3999,11 +4000,11 @@ void TiledSort(Function &function, const LogicalTensorPtr &x, const LogicalTenso
 
 std::tuple<Tensor, Tensor, Tensor> L1Sort(const Tensor &x, int idxStart, bool descending) {
     constexpr int32_t kFactorSize = NUM_VALUE_4;
-    auto tempShape = x->shape;
+    auto tempShape = x.GetShape();
     tempShape[1] *= kFactorSize;
-    auto y = Tensor(x->tensor->datatype, x->shape);
-    auto yIdx = Tensor(DataType::DT_INT32, x->shape);
-    auto temp = Tensor(x->tensor->datatype, tempShape);
+    auto y = Tensor(x.GetStorage()->tensor->datatype, x.GetShape());
+    auto yIdx = Tensor(DataType::DT_INT32, x.GetShape());
+    auto temp = Tensor(x.GetStorage()->tensor->datatype, tempShape);
     TiledSort(*Program::GetInstance().GetCurrentFunction(), x.GetStorage(), y.GetStorage(), yIdx.GetStorage(), temp.GetStorage(), idxStart, descending);
     return std::tie(y, yIdx, temp);
 }
@@ -4017,10 +4018,10 @@ void TiledCompareAndSwap(Function &function, const LogicalTensorPtr &x0, const L
 }
 
 std::tuple<Tensor, Tensor, Tensor, Tensor> L1CompareAndSwap(const Tensor &x0, const Tensor &idx0, const Tensor &x1, const Tensor &idx1, bool descending) {
-    Tensor y0(x0->Datatype(), x0->shape);
-    Tensor yIdx0(idx0->Datatype(), idx0->shape);
-    Tensor y1(x1->Datatype(), x1->shape);
-    Tensor yIdx1(idx1->Datatype(), idx1->shape);
+    Tensor y0(x0.GetStorage()->Datatype(), x0.GetShape());
+    Tensor yIdx0(idx0.GetStorage()->Datatype(), idx0.GetShape());
+    Tensor y1(x1.GetStorage()->Datatype(), x1.GetShape());
+    Tensor yIdx1(idx1.GetStorage()->Datatype(), idx1.GetShape());
     TiledCompareAndSwap(*Program::GetInstance().GetCurrentFunction(), x0.GetStorage(), idx0.GetStorage(), x1.GetStorage(), idx1.GetStorage(),
         y0.GetStorage(), yIdx0.GetStorage(), y1.GetStorage(), yIdx1.GetStorage(), descending);
     return std::tie(y0, yIdx0, y1, yIdx1);
@@ -4036,11 +4037,11 @@ void TiledMerge(Function &function, const LogicalTensorPtr &x, const LogicalTens
 
 std::tuple<Tensor, Tensor, Tensor> L1Merge(const Tensor &x, const Tensor &idx, bool descending, bool fullSort) {
     constexpr int32_t kFactorSize = NUM_VALUE_4;
-    auto tempShape = x->shape;
+    auto tempShape = x.GetShape();
     tempShape[1] *= kFactorSize;
-    auto y = Tensor(x->tensor->datatype, x->shape);
-    auto yIdx = Tensor(idx->tensor->datatype, idx->shape);
-    auto temp = Tensor(x->tensor->datatype, tempShape);
+    auto y = Tensor(x.GetStorage()->tensor->datatype, x.GetShape());
+    auto yIdx = Tensor(idx.GetStorage()->tensor->datatype, idx.GetShape());
+    auto temp = Tensor(x.GetStorage()->tensor->datatype, tempShape);
     TiledMerge(*Program::GetInstance().GetCurrentFunction(), x.GetStorage(), idx.GetStorage(), y.GetStorage(), yIdx.GetStorage(), temp.GetStorage(), fullSort, descending);
     return std::tie(y, yIdx, temp);
 }
@@ -4143,14 +4144,14 @@ int NextPowerofTwo(int n) {
 
 std::tuple<Tensor, Tensor> Sort(const Tensor &x, bool descending) {
     DECLARE_TRACER();
-    ASSERT(x->shape.size() == NUM2);
-    ASSERT(x->shape[0] == 1);
+    ASSERT(x.GetShape().size() == NUM2);
+    ASSERT(x.GetShape()[0] == 1);
     auto &vecTile = TileShape::Current().GetVecTile();
     ASSERT(vecTile.size() == NUM2);
     ASSERT(vecTile[0] == 1);
     auto tileSize = vecTile[1];
     ASSERT(IsPowerOfTwo(tileSize));
-    int length = x->shape[1];
+    int length = x.GetShape()[1];
     int padLength = NextPowerofTwo(length);
 
     int nTile = padLength / tileSize;
@@ -4201,14 +4202,14 @@ std::tuple<Tensor, Tensor> Sort(const Tensor &x, bool descending) {
 
 std::tuple<Tensor, Tensor> SortWithIndex(const Tensor &x, const Tensor &idx, bool descending) {
     DECLARE_TRACER();
-    ASSERT(x->shape.size() == NUM2);
-    ASSERT(x->shape[0] == 1);
+    ASSERT(x.GetShape().size() == NUM2);
+    ASSERT(x.GetShape()[0] == 1);
     auto &vecTile = TileShape::Current().GetVecTile();
     ASSERT(vecTile.size() == NUM2);
     ASSERT(vecTile[0] == 1);
     auto tileSize = vecTile[1];
     ASSERT(IsPowerOfTwo(tileSize));
-    int length = x->shape[1];
+    int length = x.GetShape()[1];
     int padLength = NextPowerofTwo(length);
     int nTile = padLength / tileSize;
     int halfSize = tileSize / NUM2;
@@ -4272,20 +4273,20 @@ void TiledTopKSort(Function &function, const LogicalTensorPtr &x, const LogicalT
 
 std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, int idxStart) {
     constexpr int32_t kFactorSize = NUM_VALUE_2;
-    auto shape = x->shape;
+    auto shape = x.GetShape();
     shape[1] *= kFactorSize;
-    auto y = Tensor(x->tensor->datatype, shape);
-    auto temp = Tensor(x->tensor->datatype, shape);
+    auto y = Tensor(x.GetStorage()->tensor->datatype, shape);
+    auto temp = Tensor(x.GetStorage()->tensor->datatype, shape);
     TiledTopKSort(*Program::GetInstance().GetCurrentFunction(), x.GetStorage(), y.GetStorage(), temp.GetStorage(), SymbolicScalar(), idxStart);
     return std::tie(y, temp);
 }
 
 std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, const SymbolicScalar &idxStart) {
     constexpr int32_t kFactorSize = NUM_VALUE_2;
-    auto shape = x->shape;
+    auto shape = x.GetShape();
     shape[1] *= kFactorSize;
-    auto y = Tensor(x->tensor->datatype, shape);
-    auto temp = Tensor(x->tensor->datatype, shape);
+    auto y = Tensor(x.GetStorage()->tensor->datatype, shape);
+    auto temp = Tensor(x.GetStorage()->tensor->datatype, shape);
     TiledTopKSort(*Program::GetInstance().GetCurrentFunction(), x.GetStorage(), y.GetStorage(), temp.GetStorage(), idxStart, 0);
     return std::tie(y, temp);
 }
@@ -4296,7 +4297,7 @@ void TiledTopKMerge(Function &function, const LogicalTensorPtr &x, const Logical
 }
 
 Tensor TopKMerge(const Tensor &x, int mergeSize) {
-    auto y = Tensor(x->tensor->datatype, x->shape);
+    auto y = Tensor(x.GetStorage()->tensor->datatype, x.GetShape());
     TiledTopKMerge(*Program::GetInstance().GetCurrentFunction(), x.GetStorage(), y.GetStorage(), mergeSize);
     return y;
 }
@@ -4308,7 +4309,7 @@ void TiledTopKExtract(Function &function, const LogicalTensorPtr &x, const Logic
 }
 
 Tensor TopKExtract(const Tensor &x, int k, bool isIndex) {
-    DataType dType = isIndex ? DataType::DT_INT32 : x->tensor->datatype;
+    DataType dType = isIndex ? DataType::DT_INT32 : x.GetStorage()->tensor->datatype;
     auto y = Tensor(dType, {1, k});
     TiledTopKExtract(*Program::GetInstance().GetCurrentFunction(), x.GetStorage(), y.GetStorage(), k, isIndex);
     return y;
@@ -4317,11 +4318,11 @@ Tensor TopKExtract(const Tensor &x, int k, bool isIndex) {
 // view op
 Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<int64_t> &offsets) {
     DECLARE_TRACER();
-    Tensor result(operand->Datatype(), shapes, "View_" + operand->GetRawTensor()->GetSymbol(), operand->tensorfmt);
+    Tensor result(operand.GetStorage()->Datatype(), shapes, "View_" + operand.GetStorage()->GetRawTensor()->GetSymbol(), operand.GetStorage()->tensorfmt);
     auto &op = Program::GetInstance().GetCurrentFunction()->AddOperation(
         Opcode::OP_VIEW, {operand.GetStorage()}, {result.GetStorage()});
-    auto validShape = GetViewValidShape(operand->GetDynValidShape(), offsets, {}, shapes);
-    result->UpdateDynValidShape(validShape);
+    auto validShape = GetViewValidShape(operand.GetStorage()->GetDynValidShape(), offsets, {}, shapes);
+    result.GetStorage()->UpdateDynValidShape(validShape);
     auto newOffsets = SymbolicScalar::FromConcrete(offsets);
     op.SetOpAttribute(std::make_shared<ViewOpAttribute>(offsets, newOffsets, validShape));
     return result;
@@ -4330,12 +4331,12 @@ Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std
 Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<SymbolicScalar> &newOffsets,
     const void *lr) {
     DECLARE_TRACERX(lr);
-    Tensor result(operand->Datatype(), shapes, "View_" + operand->GetRawTensor()->GetSymbol(), operand->tensorfmt);
-    result->UpdateDynValidShape(SymbolicScalar::FromConcrete(shapes));
+    Tensor result(operand.GetStorage()->Datatype(), shapes, "View_" + operand.GetStorage()->GetRawTensor()->GetSymbol(), operand.GetStorage()->tensorfmt);
+    result.GetStorage()->UpdateDynValidShape(SymbolicScalar::FromConcrete(shapes));
     auto function = Program::GetInstance().GetCurrentFunction();
     auto &op = function->AddOperation(Opcode::OP_VIEW, {operand.GetStorage()}, {result.GetStorage()});
-    auto validShape = GetViewValidShape(operand->GetDynValidShape(), {}, newOffsets, shapes);
-    result->UpdateDynValidShape(validShape);
+    auto validShape = GetViewValidShape(operand.GetStorage()->GetDynValidShape(), {}, newOffsets, shapes);
+    result.GetStorage()->UpdateDynValidShape(validShape);
     std::vector<int64_t> newOffsetsConcrete = SymbolicScalar::Concrete(newOffsets, 0);
     op.SetOpAttribute(std::make_shared<ViewOpAttribute>(newOffsetsConcrete, newOffsets, validShape));
     function->UpdateTensorDataUsage(op);
@@ -4354,12 +4355,12 @@ Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std
 Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes,
     const std::vector<SymbolicScalar> &newValidShapes, const std::vector<SymbolicScalar> &newOffsets) {
     DECLARE_TRACER();
-    Tensor result(operand->Datatype(), shapes, "View_" + operand->GetRawTensor()->GetSymbol(), operand->tensorfmt);
+    Tensor result(operand.GetStorage()->Datatype(), shapes, "View_" + operand.GetStorage()->GetRawTensor()->GetSymbol(), operand.GetStorage()->tensorfmt);
     auto function = Program::GetInstance().GetCurrentFunction();
     auto &op = function->AddOperation(Opcode::OP_VIEW, {operand.GetStorage()}, {result.GetStorage()});
     std::vector<int64_t> newOffsetsConcrete = SymbolicScalar::Concrete(newOffsets, 0);
     op.SetOpAttribute(std::make_shared<ViewOpAttribute>(newOffsetsConcrete, newOffsets, newValidShapes));
-    result->UpdateDynValidShape(newValidShapes);
+    result.GetStorage()->UpdateDynValidShape(newValidShapes);
     function->UpdateTensorDataUsage(op);
     return result;
 }
@@ -4379,17 +4380,17 @@ Tensor Assemble(const std::vector<std::pair<Tensor, std::vector<int64_t>>> &tens
     DECLARE_TRACER();
 
     ASSERT(!tensors.empty());
-    std::vector<int64_t> shape = tensors.front().first->shape;
+    std::vector<int64_t> shape = tensors.front().first.GetShape();
     for (const auto &[tensor, offset] : tensors) {
         // 目前只支持2维操作
-        if (tensor->shape.size() != 2) {
+        if (tensor.GetShape().size() != 2) {
             ASSERT(false) << "unsupported dimension";
         }
-        ASSERT(tensor->shape.size() == tensor->offset.size());
-        ASSERT(tensor->shape.size() == offset.size());
+        ASSERT(tensor.GetShape().size() == tensor.GetStorage()->offset.size());
+        ASSERT(tensor.GetShape().size() == offset.size());
     }
 
-    auto shapeSize = tensors[0].first->shape.size(); // 2
+    auto shapeSize = tensors[0].first.GetShape().size(); // 2
 
     std::vector<int64_t> rawShape(shapeSize, 0);
 
@@ -4403,7 +4404,7 @@ Tensor Assemble(const std::vector<std::pair<Tensor, std::vector<int64_t>>> &tens
 
     for (const auto &[tensor, offset] : tensors) {
         for (int j = 0; static_cast<size_t>(j) < shapeSize; j++) {
-            rawShape[j] = std::max(rawShape[j], tensor->shape[j] + offset[j]);
+            rawShape[j] = std::max(rawShape[j], tensor.GetShape()[j] + offset[j]);
             ASSERT(offset[j] % shape[j] == 0);
             if (offset[j] > 0) {
                 auto tmpOffset = offset;
@@ -4417,7 +4418,7 @@ Tensor Assemble(const std::vector<std::pair<Tensor, std::vector<int64_t>>> &tens
         ASSERT(rawShape[i] > 0);
     }
 
-    Tensor result(tensors[0].first->Datatype(), rawShape, "Assemble", tensors[0].first->tensorfmt);
+    Tensor result(tensors[0].first.GetStorage()->Datatype(), rawShape, "Assemble", tensors[0].first.GetStorage()->tensorfmt);
     auto &curFunc = *Program::GetInstance().GetCurrentFunction();
     for (const auto &[tensor, offset] : tensors) {
         InnerAssemble(curFunc, tensor.GetStorage(), result.GetStorage(), offset);
@@ -4483,7 +4484,7 @@ Tensor internal::GatherInL1(const Tensor &src, const Tensor &offsets, int size) 
     ASSERT(size <= src.GetShape()[1]);
     ASSERT(!offsets.GetStorage()->GetDynValidShape().empty());
 
-    Tensor dst(src->Datatype(), {offsets.GetShape()[1], size});
+    Tensor dst(src.GetStorage()->Datatype(), {offsets.GetShape()[1], size});
     if (!offsets.GetStorage()->GetDynValidShape().empty()) {
         dst.GetStorage()->UpdateDynValidShape(
             {offsets.GetStorage()->GetDynValidShape()[1], src.GetStorage()->GetDynValidShape()[1]});
@@ -4551,14 +4552,14 @@ static std::vector<int64_t> CheckAndInferShape(const std::vector<int64_t> &oriSh
 }
 
 static bool ReshapeNeedCopy(const Tensor &operand) {
-    if (operand->shape != operand->tensor->rawshape) {
+    if (operand.GetShape() != operand.GetStorage()->tensor->rawshape) {
         return true;
     }
-    if (operand->GetProducers().empty()) {
+    if (operand.GetStorage()->GetProducers().empty()) {
         return false;
     }
 
-    auto op = *operand->GetProducers().begin();
+    auto op = *operand.GetStorage()->GetProducers().begin();
     while (op->GetOpcode() == Opcode::OP_VIEW) {
         if (op->GetInputOperand(0)->GetShape() != op->GetOutputOperand(0)->GetShape()) {
             return true;
@@ -4573,25 +4574,25 @@ static bool ReshapeNeedCopy(const Tensor &operand) {
 }
 
 Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, const std::vector<SymbolicScalar> &validShape) {
-    if (operand->shape == dstshape) {
+    if (operand.GetShape() == dstshape) {
         return operand;
     }
     std::vector<SymbolicScalar> validShapeDefault = validShape;
     if (validShape.empty()) {
         validShapeDefault = SymbolicScalar::FromConcrete(dstshape);
     }
-    auto newShape = CheckAndInferShape(operand->shape, dstshape);
+    auto newShape = CheckAndInferShape(operand.GetShape(), dstshape);
     if (ReshapeNeedCopy(operand)) {
-        Tensor copyOperand(operand->Datatype(), operand->shape, "", operand->tensorfmt);
-        copyOperand->UpdateDynValidShape(operand.GetStorage()->GetDynValidShape());
+        Tensor copyOperand(operand.GetStorage()->Datatype(), operand.GetShape(), "", operand.GetStorage()->tensorfmt);
+        copyOperand.GetStorage()->UpdateDynValidShape(operand.GetStorage()->GetDynValidShape());
         CALL(InnerAssign, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(),
             copyOperand.GetStorage());
-        Tensor result(copyOperand->Datatype(), newShape, "", operand->tensorfmt);
+        Tensor result(copyOperand.GetStorage()->Datatype(), newShape, "", operand.GetStorage()->tensorfmt);
         CALL(InnerReshape, *Program::GetInstance().GetCurrentFunction(), copyOperand.GetStorage(),
             result.GetStorage(), validShapeDefault);
         return result;
     } else {
-        Tensor result(operand->Datatype(), newShape, "", operand->tensorfmt);
+        Tensor result(operand.GetStorage()->Datatype(), newShape, "", operand.GetStorage()->tensorfmt);
         CALL(InnerReshape, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(), result.GetStorage(), validShapeDefault);
         return result;
     }

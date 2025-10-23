@@ -59,10 +59,10 @@ std::vector<Tensor> singleTopk(const Tensor &tmpOut, int actualValidLen) {
 
 void GenSlc(const Tensor &x, Tensor &trans0res, Tensor &reduce0res, Tensor &trans1res, Tensor &reduce1res,
     Tensor &topkInd, Tensor &topkVal, Tensor &out, int actualLen, int l_prime, int d, int front, int near, int topk) {
-    int n2 = x->shape[0]; // 1
+    int n2 = x.GetShape()[0]; // 1
     assert(n2 == 1);
-    int g = x->shape[1];         // 128
-    int s_cmp = x->shape[2];     // 511
+    int g = x.GetShape()[1];         // 128
+    int s_cmp = x.GetShape()[2];     // 511
     int s_slc = (s_cmp + 3) / 4; // 128
     int loop = s_slc;
     int out_loop = l_prime / d;                      // 4
@@ -123,8 +123,8 @@ void GenSlc(const Tensor &x, Tensor &trans0res, Tensor &reduce0res, Tensor &tran
 }
 
 void GenSlcV2(const Tensor &x, Tensor &out, int validSize, int l_prime, int d, int front, int near, int topk) {
-    int n = x->shape[0];         // 128
-    int s_cmp = x->shape[1];     // 511
+    int n = x.GetShape()[0];         // 128
+    int s_cmp = x.GetShape()[1];     // 511
     int s_slc = (s_cmp + 3) / 4; // 128
     int loop = s_slc;
     int out_loop = l_prime / d;                      // 4
@@ -174,7 +174,7 @@ void GenSlcV2(const Tensor &x, Tensor &out, int validSize, int l_prime, int d, i
 
 void GenTopkIndicesFun(const Tensor &x, Tensor &trans0res, Tensor &reduce0res, Tensor &trans1res, Tensor &reduce1res,
     Tensor &topkInd, Tensor &topkVal, Tensor &out, int actualLen, int front, int near) {
-    int s_slc = x->shape[1];                         // 128
+    int s_slc = x.GetShape()[1];                         // 128
     int actualVaildLen = actualLen - (front + near); // 125
     Tensor tmpOut(DataType::DT_FP32, {1, s_slc}, "tmpout");
     Tensor tmpOut1(DataType::DT_FP32, {1, 16}, "tmpout1");

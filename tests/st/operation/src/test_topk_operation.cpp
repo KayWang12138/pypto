@@ -43,8 +43,8 @@ struct TopKOpMetadata {
 void TopKOpExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
                                 const OpFuncArgs* opArgs) {
     auto args = static_cast<const TopKOpFuncArgs*>(opArgs);
-    SymbolicScalar firstDim = inputs[0]->shape[0];
-    SymbolicScalar secondDim = inputs[0]->shape[1];
+    SymbolicScalar firstDim = inputs[0].GetShape()[0];
+    SymbolicScalar secondDim = inputs[0].GetShape()[1];
     const int firstViewShape = args->viewShape_[0];
     const int secondViewShape = args->viewShape_[1];
     int loop[] = {
@@ -71,9 +71,9 @@ void TopKOpExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outpu
 void TopKOpExeFunc3D(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
                                 const OpFuncArgs* opArgs) {
     auto args = static_cast<const TopKOpFuncArgs*>(opArgs);
-    SymbolicScalar firstDim = inputs[0]->shape[0];
-    SymbolicScalar secondDim = inputs[0]->shape[1];
-    SymbolicScalar thirdDim = inputs[0]->shape[2];
+    SymbolicScalar firstDim = inputs[0].GetShape()[0];
+    SymbolicScalar secondDim = inputs[0].GetShape()[1];
+    SymbolicScalar thirdDim = inputs[0].GetShape()[2];
     const int firstViewShape = args->viewShape_[0];
     const int secondViewShape = args->viewShape_[1];
     const int thirdViewShape = args->viewShape_[2];
@@ -109,10 +109,10 @@ void TopKOpExeFunc3D(const std::vector<Tensor>& inputs, std::vector<Tensor>& out
 void TopKOpExeFunc4D(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
                                 const OpFuncArgs* opArgs) {
     auto args = static_cast<const TopKOpFuncArgs*>(opArgs);
-    SymbolicScalar firstDim = inputs[0]->shape[0];
-    SymbolicScalar secondDim = inputs[0]->shape[1];
-    SymbolicScalar thirdDim = inputs[0]->shape[2];
-    SymbolicScalar forthDim = inputs[0]->shape[3];
+    SymbolicScalar firstDim = inputs[0].GetShape()[0];
+    SymbolicScalar secondDim = inputs[0].GetShape()[1];
+    SymbolicScalar thirdDim = inputs[0].GetShape()[2];
+    SymbolicScalar forthDim = inputs[0].GetShape()[3];
     const int firstViewShape = args->viewShape_[0];
     const int secondViewShape = args->viewShape_[1];
     const int thirdViewShape = args->viewShape_[2];
@@ -167,10 +167,10 @@ TEST_P(TopKOperationTest, TestTopK) {
         GetValueByName<std::vector<bool>>(test_data, "islargest"));
     testCase.args = &args;
     testCase.opFunc = GetParam().opFunc_;
-    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin"};
+    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin"};
     testCase.goldenPaths = {
-        GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin",
-        GetGoldenDir() + "/" + testCase.outputTensors[1]->Symbol() + ".bin"
+        GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin",
+        GetGoldenDir() + "/" + testCase.outputTensors[1].GetStorage()->Symbol() + ".bin"
     };
     TestExecutor::runTest(testCase);
 }

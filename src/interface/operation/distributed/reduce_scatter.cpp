@@ -122,13 +122,13 @@ void DealTileBelongRemote(TileArgs &args)
 
 inline std::vector<int64_t> GetRsOutShape(const Tensor &in, int rankSize)
 {
-    return {in->shape[0] / rankSize, in->shape[1]};
+    return {in.GetShape()[0] / rankSize, in.GetShape()[1]};
 }
 
 inline std::vector<int64_t> GetRsOutShape(const std::vector<Tensor> &in, int rankSize)
 {
     (void)rankSize;
-    return in[0]->GetShape();
+    return in[0].GetShape();
 }
 
 inline Tensor GetInTensorView(const std::vector<Tensor> &in, const std::vector<int64_t>& outShape, int rankIndex)

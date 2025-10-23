@@ -71,12 +71,12 @@ DeepseekAttention::DeepseekAttention(
 Tensor DeepseekAttention::Attention(Tensor q, Tensor kv, Tensor attenMask) {
     // q: [b,numHeads,s, kvLoraRank + qkRopeHeadDim]
     // kv: [b,1,s2, kvLoraRank + qkRopeHeadDim]
-    int b = q->shape[0];
-    int n2 = kv->shape[1]; // 1
-    int s1 = q->shape[2];
-    int s2 = kv->shape[2];
+    int b = q.GetShape()[0];
+    int n2 = kv.GetShape()[1]; // 1
+    int s1 = q.GetShape()[2];
+    int s2 = kv.GetShape()[2];
     int kvLoraRankV = std::get<int>(g_deepseekConfig["kvLoraRank"]);
-    DataType dType = q->Datatype();
+    DataType dType = q.GetStorage()->Datatype();
 
     TileShape::Current().SetCubeTile(
         {std::min(NUM_128, s1), std::min(NUM_128, s1)}, {NUM_64, NUM_64}, {NUM_128, NUM_128});
@@ -101,11 +101,11 @@ Tensor DeepseekAttention::Attention(Tensor q, Tensor kv, Tensor attenMask) {
 
 Tensor DeepseekAttention::AttentionPost(Tensor attenRes) {
     // attenRes: [b,n,s,kvLoraRank]
-    int b = attenRes->shape[0];
-    int n = attenRes->shape[1];
-    int s = attenRes->shape[2];
+    int b = attenRes.GetShape()[0];
+    int n = attenRes.GetShape()[1];
+    int s = attenRes.GetShape()[2];
     int bs = b * s;
-    DataType dType = attenRes->Datatype();
+    DataType dType = attenRes.GetStorage()->Datatype();
 
     TileShape::Current().SetVecTile({1, 1, 1, NUM_512});
     Tensor attenRes0 = Transpose(attenRes, {1, 2});
@@ -138,12 +138,12 @@ Tensor DeepseekAttention::AttentionPost(Tensor attenRes) {
 
 Tensor DeepseekAttention::AttentionPost2(Tensor attenRes) {
     // attenRes: [b,n,s,kvLoraRank]
-    int b = attenRes->shape[0];
-    int n = attenRes->shape[1];
-    int s = attenRes->shape[2];
+    int b = attenRes.GetShape()[0];
+    int n = attenRes.GetShape()[1];
+    int s = attenRes.GetShape()[2];
     int bs = b * s;
-    int h = oProjW->shape[1];
-    DataType dType = attenRes->Datatype();
+    int h = oProjW.GetShape()[1];
+    DataType dType = attenRes.GetStorage()->Datatype();
 
     TileShape::Current().SetVecTile({NUM_16, NUM_16, 1, NUM_128});
     Tensor attenRes0 = Transpose(attenRes, {1, 2});
@@ -172,9 +172,9 @@ Tensor DeepseekAttention::AttentionPost2(Tensor attenRes) {
 }
 
 std::tuple<Tensor, Tensor> DeepseekAttention::QkvPre(Tensor hiddenStates) {
-    int b = hiddenStates->shape[0];
-    int s = hiddenStates->shape[1];
-    DataType dType = hiddenStates->Datatype();
+    int b = hiddenStates.GetShape()[0];
+    int s = hiddenStates.GetShape()[1];
+    DataType dType = hiddenStates.GetStorage()->Datatype();
 
     TileShape::Current().SetVecTile(NUM_128, NUM_64);
     Tensor qAProjW1 = Unsqueeze(qAProjW, 0);
@@ -211,9 +211,9 @@ std::tuple<Tensor, Tensor> DeepseekAttention::QkvPre(Tensor hiddenStates) {
 }
 
 std::tuple<Tensor, Tensor> DeepseekAttention::QkvPreCv(Tensor hiddenStates) {
-    int b = hiddenStates->shape[0];
-    int s = hiddenStates->shape[1];
-    DataType dType = hiddenStates->Datatype();
+    int b = hiddenStates.GetShape()[0];
+    int s = hiddenStates.GetShape()[1];
+    DataType dType = hiddenStates.GetStorage()->Datatype();
 
     TileShape::Current().SetVecTile(NUM_128, NUM_64);
     Tensor qAProjW1 = Unsqueeze(qAProjW, 0); // [NUM_256,NUM_512]
@@ -252,12 +252,12 @@ std::tuple<Tensor, Tensor> DeepseekAttention::QkvPreCv(Tensor hiddenStates) {
 }
 
 std::vector<Tensor> DeepseekAttention::QkvPre2(Tensor hiddenStates, bool isQuant) {
-    int b = hiddenStates->shape[0];
-    int s = hiddenStates->shape[1];
-    int h = hiddenStates->shape[2];
+    int b = hiddenStates.GetShape()[0];
+    int s = hiddenStates.GetShape()[1];
+    int h = hiddenStates.GetShape()[2];
     int bs = b * s;
 
-    DataType dType = hiddenStates->Datatype();
+    DataType dType = hiddenStates.GetStorage()->Datatype();
     DataType dTypeQuantOut = isQuant ? DataType::DT_INT32 : dType;
     std::vector<Tensor> qkvPre2Res;
 
@@ -300,11 +300,11 @@ std::vector<Tensor> DeepseekAttention::QkvPre2(Tensor hiddenStates, bool isQuant
 }
 
 std::tuple<Tensor, Tensor> DeepseekAttention::QkvPreFp32(Tensor hiddenStates) {
-    int b = hiddenStates->shape[0];
-    int s = hiddenStates->shape[1];
-    int h = hiddenStates->shape[2];
+    int b = hiddenStates.GetShape()[0];
+    int s = hiddenStates.GetShape()[1];
+    int h = hiddenStates.GetShape()[2];
     int bs = b * s;
-    DataType dType = hiddenStates->Datatype();
+    DataType dType = hiddenStates.GetStorage()->Datatype();
 
     Tensor input = Reshape(hiddenStates, {bs, h});  // [b,s,h] -> [b*s,h]
 
@@ -343,10 +343,10 @@ std::tuple<Tensor, Tensor> DeepseekAttention::QkvPreFp32(Tensor hiddenStates) {
 Tensor DeepseekAttention::Forward(Tensor hiddenStates, Tensor attenMask, Tensor positionIds, Tensor cos, Tensor sin,
     Tensor kvLen, Tensor pastKeyStates, const RoPETileShapeConfig &ropeTileShapeConfig) {
     // hiddenStates: (b,s,h), attention_mask: (b,1,s,s2), positionIds: (b,s)
-    int b = hiddenStates->shape[0];
-    int s = hiddenStates->shape[1];
+    int b = hiddenStates.GetShape()[0];
+    int s = hiddenStates.GetShape()[1];
     int bs = b * s;
-    DataType dType = hiddenStates->Datatype();
+    DataType dType = hiddenStates.GetStorage()->Datatype();
 
     /*** prepare q k v ***/
     auto qKv = QkvPre(hiddenStates);
@@ -391,9 +391,9 @@ Tensor DeepseekAttention::Forward(Tensor hiddenStates, Tensor attenMask, Tensor 
     TileShape::Current().SetVecTile(1, NUM_128, NUM_64);
     kNope = Reshape(kNope, {b, 1, s, kvLoraRank}); // (b,1,s,kvLoraRank)
 
-    Tensor qPeRope(qPe->Datatype(), {b, numHeads, s, qkRopeHeadDim}, "qPeRope");
+    Tensor qPeRope(qPe.GetStorage()->Datatype(), {b, numHeads, s, qkRopeHeadDim}, "qPeRope");
     // (b,numHeads,s,qkRopeHeadDim)
-    Tensor kPeRope(kPe->Datatype(), {b, 1, s, qkRopeHeadDim}, "kPeRope"); // (b,1,s,qkRopeHeadDim)
+    Tensor kPeRope(kPe.GetStorage()->Datatype(), {b, 1, s, qkRopeHeadDim}, "kPeRope"); // (b,1,s,qkRopeHeadDim)
     ApplyRotaryPosEmb(qPe, kPe, cos, sin, positionIds, qPeRope, kPeRope, 1, ropeTileShapeConfig);
     TileShape::Current().SetVecTile(1, 1, NUM_128, NUM_64);
 
@@ -414,10 +414,10 @@ std::tuple<Tensor, Tensor>  DeepseekAttention::AtentionPreForward(Tensor hiddenS
     const RoPETileShapeConfig &ropeTileShapeConfig) {
     (void)attenMask;
     // hiddenStates: (b,s,h), attention_mask: (b,1,s,s2), positionIds: (b,s)
-    int b = hiddenStates->shape[0];
-    int s = hiddenStates->shape[1];
+    int b = hiddenStates.GetShape()[0];
+    int s = hiddenStates.GetShape()[1];
     int bs = b * s;
-    DataType dType = hiddenStates->Datatype();
+    DataType dType = hiddenStates.GetStorage()->Datatype();
 
     /*** prepare q k v ***/
     auto qKv = QkvPre(hiddenStates);
@@ -462,9 +462,9 @@ std::tuple<Tensor, Tensor>  DeepseekAttention::AtentionPreForward(Tensor hiddenS
     TileShape::Current().SetVecTile(1, NUM_128, NUM_64);
     kNope = Reshape(kNope, {b, 1, s, kvLoraRank}); // (b,1,s,kvLoraRank)
 
-    Tensor qPeRope(qPe->Datatype(), {b, numHeads, s, qkRopeHeadDim}, "qPeRope");
+    Tensor qPeRope(qPe.GetStorage()->Datatype(), {b, numHeads, s, qkRopeHeadDim}, "qPeRope");
     // (b,numHeads,s,qkRopeHeadDim)
-    Tensor kPeRope(kPe->Datatype(), {b, 1, s, qkRopeHeadDim}, "kPeRope"); // (b,1,s,qkRopeHeadDim)
+    Tensor kPeRope(kPe.GetStorage()->Datatype(), {b, 1, s, qkRopeHeadDim}, "kPeRope"); // (b,1,s,qkRopeHeadDim)
     ApplyRotaryPosEmb(qPe, kPe, cos, sin, positionIds, qPeRope, kPeRope, 1, ropeTileShapeConfig);
     TileShape::Current().SetVecTile(1, 1, NUM_128, NUM_64);
 
@@ -483,10 +483,10 @@ std::tuple<Tensor, Tensor>  DeepseekAttention::AtentionPreForwardCv(Tensor hidde
     const RoPETileShapeConfig &ropeTileShapeConfig) {
     (void)attenMask;
     // hiddenStates: (b,s,h), attention_mask: (b,1,s,s2), positionIds: (b,s)
-    int b = hiddenStates->shape[0];
-    int s = hiddenStates->shape[1];
+    int b = hiddenStates.GetShape()[0];
+    int s = hiddenStates.GetShape()[1];
     int bs = b * s;
-    DataType dType = hiddenStates->Datatype();
+    DataType dType = hiddenStates.GetStorage()->Datatype();
 
     /*** prepare q k v ***/
     // 2_1_32_192 2_1_576
@@ -531,9 +531,9 @@ std::tuple<Tensor, Tensor>  DeepseekAttention::AtentionPreForwardCv(Tensor hidde
     TileShape::Current().SetVecTile(NUM_2, 1, NUM_512);
     kNope = Reshape(kNope, {b, 1, s, kvLoraRank}); // (b,1,s,kvLoraRank) 2_1_1_512
 
-    Tensor qPeRope(qPe->Datatype(), {b, numHeads, s, qkRopeHeadDim}, "qPeRope"); // 2_32_1_64
+    Tensor qPeRope(qPe.GetStorage()->Datatype(), {b, numHeads, s, qkRopeHeadDim}, "qPeRope"); // 2_32_1_64
     // (b,numHeads,s,qkRopeHeadDim)
-    Tensor kPeRope(kPe->Datatype(), {b, 1, s, qkRopeHeadDim}, "kPeRope"); // (b,1,s,qkRopeHeadDim) 2_1_1_64
+    Tensor kPeRope(kPe.GetStorage()->Datatype(), {b, 1, s, qkRopeHeadDim}, "kPeRope"); // (b,1,s,qkRopeHeadDim) 2_1_1_64
     // 2_32_1_64  2_1_1_64  1_64  1_64  2_1  2_32_1_64  2_1_1_64
     ApplyRotaryPosEmb(qPe, kPe, cos, sin, positionIds, qPeRope, kPeRope, 1, ropeTileShapeConfig);
     TileShape::Current().SetVecTile(NUM_2, NUM_32, 1, NUM_64);
@@ -551,10 +551,10 @@ std::tuple<Tensor, Tensor>  DeepseekAttention::AtentionPreForwardCv(Tensor hidde
 
 std::tuple<Tensor, Tensor> DeepseekAttention::MlaPrologAbForward(Tensor hiddenStates, Tensor qPeRope, bool isQuant) {
     // hiddenStates: (b,s,h), positionIds: (b,s)
-    int b = hiddenStates->shape[0];
-    int s = hiddenStates->shape[1];
+    int b = hiddenStates.GetShape()[0];
+    int s = hiddenStates.GetShape()[1];
     int bs = b * s;
-    DataType dType = hiddenStates->Datatype();
+    DataType dType = hiddenStates.GetStorage()->Datatype();
 
     auto qKv = QkvPre2(hiddenStates, isQuant);
     Tensor q = qKv[0];     // [b,s,n,qHeadDim]
@@ -607,10 +607,10 @@ std::tuple<Tensor, Tensor> DeepseekAttention::MlaPrologAbForward(Tensor hiddenSt
 std::vector<Tensor> DeepseekAttention::MlaPrologFoward(Tensor hiddenStates, Tensor positionIds, Tensor cos, Tensor sin,
     Tensor kvLen, Tensor pastKeyStates, const RoPETileShapeConfig &ropeTileShapeConfig, bool isQuant) {
     // hiddenStates: (b,s,h), positionIds: (b,s)
-    int b = hiddenStates->shape[0];
-    int s = hiddenStates->shape[1];
+    int b = hiddenStates.GetShape()[0];
+    int s = hiddenStates.GetShape()[1];
     int bs = b * s;
-    DataType dType = hiddenStates->Datatype();
+    DataType dType = hiddenStates.GetStorage()->Datatype();
 
     auto qKv = QkvPre2(hiddenStates, isQuant);
     Tensor q = qKv[0];     // [b,s,n,qHeadDim]
@@ -671,8 +671,8 @@ std::vector<Tensor> DeepseekAttention::MlaPrologFoward(Tensor hiddenStates, Tens
     TileShape::Current().SetVecTile(tileShape);
     Tensor kPeR = Reshape(kPe, {b, 1, s, qkRopeHeadDim}); // [b,1,s,qkRopeHeadDim]
 
-    Tensor qPeRope(qPeT->Datatype(), {b, numHeads, s, qkRopeHeadDim}, "qPeRope"); // [b,n,s,qkRopeHeadDim]
-    Tensor kPeRope(kPeR->Datatype(), {b, 1, s, qkRopeHeadDim}, "kPeRope"); // [b,1,s,qkRopeHeadDim]
+    Tensor qPeRope(qPeT.GetStorage()->Datatype(), {b, numHeads, s, qkRopeHeadDim}, "qPeRope"); // [b,n,s,qkRopeHeadDim]
+    Tensor kPeRope(kPeR.GetStorage()->Datatype(), {b, 1, s, qkRopeHeadDim}, "kPeRope"); // [b,1,s,qkRopeHeadDim]
     ApplyRotaryPosEmb(qPeT, kPeR, cos, sin, positionIds, qPeRope, kPeRope, 1, ropeTileShapeConfig);
 
     /******** output q & kv ********/

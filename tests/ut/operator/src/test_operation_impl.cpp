@@ -44,7 +44,7 @@ TEST_F(OperationImplTest, TestTranspose_BNSD_BSND) {
     FUNCTION("BNSD_BSND") {
         a = Transpose(a, {1, 2});
     }
-    a->Dump();
+    a.GetStorage()->Dump();
     std::cout << Program::GetInstance().Dump() << std::endl;
 }
 
@@ -56,7 +56,7 @@ TEST_F(OperationImplTest, TestTranspose_BNSD2_BNS2D_small) {
     FUNCTION("BNSD2_BNS2D") {
         a = Transpose(a, {3, 4});
     }
-    a->Dump();
+    a.GetStorage()->Dump();
     std::cout << Program::GetInstance().Dump() << std::endl;
 }
 
@@ -68,7 +68,7 @@ TEST_F(OperationImplTest, TestTranspose_BNSD2_BNS2D) {
     FUNCTION("BNSD2_BNS2D") {
         a = Transpose(a, {3, 4});
     }
-    a->Dump();
+    a.GetStorage()->Dump();
     std::cout << Program::GetInstance().Dump() << std::endl;
 }
 
@@ -80,7 +80,7 @@ TEST_F(OperationImplTest, TestTranspose_ABC_BAC) {
     FUNCTION("ABC_BAC") {
         a = Transpose(a, {0, 1});
     }
-    a->Dump();
+    a.GetStorage()->Dump();
     std::cout << Program::GetInstance().Dump() << std::endl;
 }
 
@@ -92,7 +92,7 @@ TEST_F(OperationImplTest, TestTranspose_BNDS_BNSD) {
     FUNCTION("BNDS_BNSD") {
         a = Transpose(a, {3, 2});
     }
-    a->Dump();
+    a.GetStorage()->Dump();
     std::cout << Program::GetInstance().Dump() << std::endl;
 }
 

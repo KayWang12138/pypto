@@ -36,8 +36,8 @@ struct ExpandOpMetaData {
 static void ExpandOperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
-        std::vector<SymbolicScalar> inputsShape = {inputs[0]->shape[0], inputs[0]->shape[1]};
-        std::vector<SymbolicScalar> outputsShape = {outputs[0]->shape[0], outputs[0]->shape[1]};
+        std::vector<SymbolicScalar> inputsShape = {inputs[0].GetShape()[0], inputs[0].GetShape()[1]};
+        std::vector<SymbolicScalar> outputsShape = {outputs[0].GetShape()[0], outputs[0].GetShape()[1]};
         auto args = static_cast<const ExpandOpFuncArgs *>(opArgs);
         std::vector<int64_t> viewShape = {args->viewShape_[0], args->viewShape_[1]};
         std::vector<int64_t> inputViewShape(2, 1);
@@ -90,8 +90,8 @@ static void ExpandOperationExeFunc2Dims(
 static void ExpandOperationExeFunc3Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
-        std::vector<SymbolicScalar> inputsShape = {inputs[0]->shape[0], inputs[0]->shape[1], inputs[0]->shape[2]};
-        std::vector<SymbolicScalar> outputsShape = {outputs[0]->shape[0], outputs[0]->shape[1], outputs[0]->shape[2]};
+        std::vector<SymbolicScalar> inputsShape = {inputs[0].GetShape()[0], inputs[0].GetShape()[1], inputs[0].GetShape()[2]};
+        std::vector<SymbolicScalar> outputsShape = {outputs[0].GetShape()[0], outputs[0].GetShape()[1], outputs[0].GetShape()[2]};
         auto args = static_cast<const ExpandOpFuncArgs *>(opArgs);
         std::vector<int64_t> viewShape = {args->viewShape_[0], args->viewShape_[1], args->viewShape_[2]};
         std::vector<int64_t> inputViewShape(3, 1);
@@ -153,8 +153,8 @@ static void ExpandOperationExeFunc4Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
-        std::vector<SymbolicScalar> inputsShape = {inputs[0]->shape[0], inputs[0]->shape[1], inputs[0]->shape[2], inputs[0]->shape[3]};
-        std::vector<SymbolicScalar> outputsShape = {outputs[0]->shape[0], outputs[0]->shape[1], outputs[0]->shape[2], outputs[0]->shape[3]};
+        std::vector<SymbolicScalar> inputsShape = {inputs[0].GetShape()[0], inputs[0].GetShape()[1], inputs[0].GetShape()[2], inputs[0].GetShape()[3]};
+        std::vector<SymbolicScalar> outputsShape = {outputs[0].GetShape()[0], outputs[0].GetShape()[1], outputs[0].GetShape()[2], outputs[0].GetShape()[3]};
         auto args = static_cast<const ExpandOpFuncArgs *>(opArgs);
         std::vector<int64_t> viewShape = {args->viewShape_[0], args->viewShape_[1], args->viewShape_[2], args->viewShape_[3]};
         std::vector<int64_t> inputViewShape(4, 1);
@@ -234,8 +234,8 @@ TEST_P(ExpandOperationTest, TestExpand) {
     auto args = ExpandOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data));
     testCase.args = &args;
     testCase.opFunc = GetParam().opFunc_;
-    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin"};
+    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin"};
+    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
     TestExecutor::runTest(testCase);
 }
 } // namespace

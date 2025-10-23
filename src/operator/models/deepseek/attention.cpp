@@ -44,16 +44,16 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
     PaTileShapeConfig &paTileConfig, /*---*/
     Tensor &weightUV, Tensor &weightO, Tensor &weightOScaleW, Tensor &postOut, float epsilonCq, float epsilonCkv, std::string cacheMode) {
     TileOpFormat paFormat = cacheMode == "PA_NZ" ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
-    auto dtype = tokenX->Datatype();
-    int b = tokenX->shape[0];
-    int s = tokenX->shape[1]; // s=1
-    int h = tokenX->shape[2];
-    int s2 = kvCache->shape[2];
+    auto dtype = tokenX.GetStorage()->Datatype();
+    int b = tokenX.GetShape()[0];
+    int s = tokenX.GetShape()[1]; // s=1
+    int h = tokenX.GetShape()[2];
+    int s2 = kvCache.GetShape()[2];
     // [n, qkNopeHeadDim, kvLoraRank]
-    int n = wUk->shape[0];
-    int qkNopeHeadDim = wUk->shape[1];
-    int kvLoraRank = wUk->shape[2];
-    int qkRopeHeadDim = sin->shape[2]; // [b,s,qkRopeHeadDim]
+    int n = wUk.GetShape()[0];
+    int qkNopeHeadDim = wUk.GetShape()[1];
+    int kvLoraRank = wUk.GetShape()[2];
+    int qkRopeHeadDim = sin.GetShape()[2]; // [b,s,qkRopeHeadDim]
     int qHeadDim = qkNopeHeadDim + qkRopeHeadDim;
     int tileB = b;
     int tileBS = tileB * s;
@@ -68,7 +68,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
     auto c2Tile = paTileConfig.c2TileShape;
     auto v2Tile = paTileConfig.v2TileShape;
 
-    int vHeadDim = weightUV->shape[2];
+    int vHeadDim = weightUV.GetShape()[2];
 
     std::vector<int> paOutShape = {b * s * n, kvLoraRank};
 
@@ -162,14 +162,14 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
             Tensor qPeView = View(qTmp, {tileB, s, n, qkRopeHeadDim}, {0, 0, 0, qkNopeHeadDim});
             Tensor cosView = View(cos, {tileB, s, qkRopeHeadDim}, {bOffset, 0, 0});
             Tensor sinView = View(sin, {tileB, s, qkRopeHeadDim}, {bOffset, 0, 0});
-            Tensor kRopeView(kPeRes->Datatype(), {tileB, s, 1, qkRopeHeadDim}, "kRopeView"); // [b,1,s,qkRopeHeadDim]
-            Tensor qRopeView(kPeRes->Datatype(), {tileB, s, n, qkRopeHeadDim}, "qRopeView");
+            Tensor kRopeView(kPeRes.GetStorage()->Datatype(), {tileB, s, 1, qkRopeHeadDim}, "kRopeView"); // [b,1,s,qkRopeHeadDim]
+            Tensor qRopeView(kPeRes.GetStorage()->Datatype(), {tileB, s, n, qkRopeHeadDim}, "qRopeView");
             config::SetSemanticLabel("ApplyRotaryPosEmbV2");
             ApplyRotaryPosEmbV2(qPeView, kPeRes, cosView, sinView, qRopeView, kRopeView, NUM_2, ropeConfig);
 
             if (cacheMode != "BNSD") {
-                int blockNum = kvCache->shape[0];
-                int n2 = kvCache->shape[2];
+                int blockNum = kvCache.GetShape()[0];
+                int n2 = kvCache.GetShape()[2];
                 Tensor kvCacheRes = Reshape(kvCache, {blockNum * blockSize * n2, kvLoraRank});
                 Tensor krCacheRes = Reshape(krCache, {blockNum * blockSize * n2, qkRopeHeadDim});
                 auto cacheIndexDview = View(cacheIndex, {tileB, s}, {bOffset, 0});
@@ -223,8 +223,8 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
         }
 
         /******** pa ********/
-        SymbolicScalar batchSizeScalar = blockTable->shape[0];
-        SymbolicScalar nQ = qNopeOut->shape[0] / batchSizeScalar;
+        SymbolicScalar batchSizeScalar = blockTable.GetShape()[0];
+        SymbolicScalar nQ = qNopeOut.GetShape()[0] / batchSizeScalar;
         SymbolicScalar nLoop = nQ / nTile;
 
         config::SetPassOption(CUBE_NBUFFER_MAP,  std::map<int64_t, int64_t>{});

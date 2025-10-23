@@ -183,7 +183,7 @@ void DispatchFFNBatching(std::vector<std::shared_ptr<LogicalTensor>> &iOperands,
 {
     auto &oper = TensorGraphAddOp("FFN_BATCHING", iOperands, oOperands, group);
     int tempSize1 = (AIV_NUM * 32 + 255) / 256 * 256 + 256 + (AIV_NUM * 4 + 31) / 32 * 32;
-    int tempSize2 = tokenTensor->shape[1] * BytesOf(tokenTensor.GetDataType());
+    int tempSize2 = tokenTensor.GetShape()[1] * BytesOf(tokenTensor.GetDataType());
     int tempBufSize = (tempSize1 < tempSize2) ? tempSize2 : tempSize1;
     const std::vector<int64_t> bufferShape{tempBufSize / 8, 8}; // 肯定能除尽
     oper.SetAttr("DISPATCH_FFN_BUFFER_SHAPE", bufferShape);
@@ -438,8 +438,8 @@ Tensor MoeDispatch(const Tensor &tokenTensor, const Tensor &tokenExpertTable, Te
     Tensor recvTokenCntOut(DataType::DT_INT32, {AIV_NUM * AIV_NUM, 128},
         "recvTokenCntOut");
 
-    TileShape::Current().SetDistTile({static_cast<int>(tokenTensor->shape[0]), 1, 0},
-        {static_cast<int>(tokenTensor->shape[1]), 1, 0}, // 不切 x
+    TileShape::Current().SetDistTile({static_cast<int>(tokenTensor.GetShape()[0]), 1, 0},
+        {static_cast<int>(tokenTensor.GetShape()[1]), 1, 0}, // 不切 x
         {TOTAL_EXPERT_NUM / AIV_NUM, AIV_NUM, 0});       // 暂不处理不整除的场景
 
     std::vector<std::shared_ptr<LogicalTensor>> schedInOperands{dummy.GetStorage(), tilingTensor.GetStorage()};

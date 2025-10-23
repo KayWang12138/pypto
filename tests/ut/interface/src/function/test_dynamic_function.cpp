@@ -163,14 +163,14 @@ TEST_F(DynamicFunctionTest, TestDynOffset) {
     FUNCTION("main", {}, {}) {
         Tensor t(DT_FP32, {4, 4}, "t0");
         auto v = View(t, {1, 1}, {b, 2}, {b, 0});
-        v->UpdateOffset(TensorOffset(offset, dynoffset));
+        v.GetStorage()->UpdateOffset(TensorOffset(offset, dynoffset));
     }
 
     auto func = Program::GetInstance().GetFunctionByRawName("TENSOR_main");
     Tensor t(DT_FP32, {4, 4}, "t0");
-    t->UpdateOffset(TensorOffset(offset, dynoffset));
-    auto tt = LogicalTensor::LoadJson(*func, {}, t->DumpJson());
-    EXPECT_EQ(tt->GetShape(), t->GetShape());
+    t.GetStorage()->UpdateOffset(TensorOffset(offset, dynoffset));
+    auto tt = LogicalTensor::LoadJson(*func, {}, t.GetStorage()->DumpJson());
+    EXPECT_EQ(tt->GetShape(), t.GetStorage()->GetShape());
 }
 
 struct MopCall {

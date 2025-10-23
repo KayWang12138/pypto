@@ -42,15 +42,15 @@ void RowSumSingleOperationExeFunc(const std::vector<Tensor>& inputs, std::vector
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     auto args = static_cast<const RowSumSingleOpFuncArgs *>(opArgs);
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
-        SymbolicScalar firstDim = inputs[0]->shape[0];
-        SymbolicScalar secondDim = inputs[0]->shape[1];
+        SymbolicScalar firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar secondDim = inputs[0].GetShape()[1];
         int dim = args->dims_[0];
         if (dim < 0) {
-            dim = static_cast<int>(inputs[0]->shape.size()) + dim;
+            dim = static_cast<int>(inputs[0].GetShape().size()) + dim;
         }
         SymbolicScalar viewShape[] = {args->viewShape_[0], args->viewShape_[1]};
         viewShape[dim] = 0;
-        const int batch = CeilDiv(inputs[0]->shape[1 - dim], viewShape[1 - dim]);
+        const int batch = CeilDiv(inputs[0].GetShape()[1 - dim], viewShape[1 - dim]);
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(batch)) {
             auto viewTensor = View(inputs[0],
                 {
@@ -74,18 +74,18 @@ void RowSumSingle3DOperationExeFunc(const std::vector<Tensor>& inputs, std::vect
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     auto args = static_cast<const RowSumSingleOpFuncArgs *>(opArgs);
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
-        SymbolicScalar firstDim = inputs[0]->shape[0];
-        SymbolicScalar secondDim = inputs[0]->shape[1];
-        SymbolicScalar lastDim = inputs[0]->shape[2];
+        SymbolicScalar firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar secondDim = inputs[0].GetShape()[1];
+        SymbolicScalar lastDim = inputs[0].GetShape()[2];
         int dim = args->dims_[0];
         if (dim < 0) {
-            dim = static_cast<int>(inputs[0]->shape.size()) + dim;
+            dim = static_cast<int>(inputs[0].GetShape().size()) + dim;
         }
         SymbolicScalar viewShape[] = {args->viewShape_[0], args->viewShape_[1], args->viewShape_[2]};
         int loops[] = {
-            CeilDiv(inputs[0]->shape[0], viewShape[0]),
-            CeilDiv(inputs[0]->shape[1], viewShape[1]),
-            CeilDiv(inputs[0]->shape[2], viewShape[2])
+            CeilDiv(inputs[0].GetShape()[0], viewShape[0]),
+            CeilDiv(inputs[0].GetShape()[1], viewShape[1]),
+            CeilDiv(inputs[0].GetShape()[2], viewShape[2])
         };
         viewShape[dim] = 0;
         loops[dim] = 1;
@@ -118,23 +118,23 @@ void RowSumSingle4DOperationExeFunc(const std::vector<Tensor>& inputs, std::vect
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     auto args = static_cast<const RowSumSingleOpFuncArgs *>(opArgs);
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
-        SymbolicScalar firstDim = inputs[0]->shape[0];
-        SymbolicScalar secondDim = inputs[0]->shape[1];
-        SymbolicScalar thirdDim = inputs[0]->shape[2];
-        SymbolicScalar lastDim = inputs[0]->shape[3];
+        SymbolicScalar firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar secondDim = inputs[0].GetShape()[1];
+        SymbolicScalar thirdDim = inputs[0].GetShape()[2];
+        SymbolicScalar lastDim = inputs[0].GetShape()[3];
         int dim = args->dims_[0];
         if (dim < 0) {
-            dim = static_cast<int>(inputs[0]->shape.size()) + dim;
+            dim = static_cast<int>(inputs[0].GetShape().size()) + dim;
         }
         SymbolicScalar viewShape[] = {
             args->viewShape_[0], args->viewShape_[1],
             args->viewShape_[2], args->viewShape_[3]
         };
         int loops[] = {
-            CeilDiv(inputs[0]->shape[0], viewShape[0]),
-            CeilDiv(inputs[0]->shape[1], viewShape[1]),
-            CeilDiv(inputs[0]->shape[2], viewShape[2]),
-            CeilDiv(inputs[0]->shape[3], viewShape[3])
+            CeilDiv(inputs[0].GetShape()[0], viewShape[0]),
+            CeilDiv(inputs[0].GetShape()[1], viewShape[1]),
+            CeilDiv(inputs[0].GetShape()[2], viewShape[2]),
+            CeilDiv(inputs[0].GetShape()[3], viewShape[3])
         };
         viewShape[dim] = 0;
         loops[dim] = 1;
@@ -183,8 +183,8 @@ TEST_P(RowSumSingleOperationTest, TestRowSumSingle) {
         GetValueByName<std::vector<int64_t>>(test_data, "dims"));
     testCase.args = &args;
     testCase.opFunc = GetParam().opFunc_;
-    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin"};
+    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin"};
+    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
     TestExecutor::runTest(testCase);
 }
 

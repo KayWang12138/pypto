@@ -37,10 +37,10 @@ TEST(TestMemoryAttribute, MemorySizeTest) {
         for (auto dt : dtypes) {
             npu::tile_fwk::Tensor A(dt, tshape, "A_" + DataType2String(dt));
             A.GetStorage()->SetMemoryTypeToBe(npu::tile_fwk::MEM_UB);
-            EXPECT_EQ(A->MemorySize(), (tshape[0] * tshape[1] * BytesOf(dt) + 31) / 32 * 32);
+            EXPECT_EQ(A.GetStorage()->MemorySize(), (tshape[0] * tshape[1] * BytesOf(dt) + 31) / 32 * 32);
 
             A.GetStorage()->SetMemoryTypeToBe(npu::tile_fwk::MEM_L2);
-            EXPECT_EQ(A->MemorySize(), tshape[0] * tshape[1] * BytesOf(dt));
+            EXPECT_EQ(A.GetStorage()->MemorySize(), tshape[0] * tshape[1] * BytesOf(dt));
         }
     }
 }

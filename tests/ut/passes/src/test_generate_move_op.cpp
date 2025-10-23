@@ -280,9 +280,9 @@ TEST_F(GenerateMoveOpPassTest, ConvertToCopy) {
             config::SetPassStrategy("GenerateMoveOpPassTestStrategy");
 
             auto tmp_a_0 = View(input_a, shape2, {0,0});
-            tmp_a_0->SetMemoryTypeBoth(MEM_L1, true);
+            tmp_a_0.GetStorage()->SetMemoryTypeBoth(MEM_L1, true);
             auto tmp_b_1 = View(input_b, shape2, {0,0});
-            tmp_b_1->SetMemoryTypeBoth(MEM_L1, true);
+            tmp_b_1.GetStorage()->SetMemoryTypeBoth(MEM_L1, true);
 
             output = Add(tmp_a_0, tmp_b_1);
         }
