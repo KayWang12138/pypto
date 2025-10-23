@@ -46,7 +46,7 @@ def post_compute(
         len(post_tensors.weight_u_v.shape) == SHAPE_DIM3 and
         len(post_tensors.weight_o.shape) == SHAPE_DIM2):
         raise ValueError("Tensor shapes do not match the expected dimensions")
-    dtype = input_tensor.get_dtype()
+    dtype = input_tensor.dtype
     n = post_tensors.weight_u_v.shape[0]
     kv_lora_rank = post_tensors.weight_u_v.shape[1]
     v_head_dim = post_tensors.weight_u_v.shape[2]
@@ -108,11 +108,11 @@ def post_compute(
                             input_trans_quant = quant_res[0]
                             scale_dequant = quant_res[1]
 
-                            mm = pto.batch_matmul(pto.data_type.DT_INT32, input_trans_quant, post_tensors.weight_u_v)
+                            mm = pto.batch_matmul(pto.DT_INT32, input_trans_quant, post_tensors.weight_u_v)
 
                             pto.set_semantic_label("postDequantWUv")
                             pto.set_vec_tile_shapes(*[1, min(16, tile_b_s), min(32, v_head_dim)])
-                            res = pto.cast(mm, pto.data_type.DT_FP32)
+                            res = pto.cast(mm, pto.DT_FP32)
                             res[:] = pto.mul(res, scale_dequant)
                             res[:] = pto.mul(res, post_tensors.weight_uv_scale)
                             bmm[:] = pto.cast(res, dtype, pto.cast_mode.CAST_RINT)
@@ -142,11 +142,11 @@ def post_compute(
                             scale_dequant = quant_res[1]
 
                             pto.set_semantic_label("postMm")
-                            mm = pto.matmul(pto.data_type.DT_INT32, bmm_res_quant, post_tensors.weight_o)
+                            mm = pto.matmul(pto.DT_INT32, bmm_res_quant, post_tensors.weight_o)
 
                             pto.set_semantic_label("postDequantWo")
                             pto.set_vec_tile_shapes(*[min(32, tile_b_s), min(32, h)])
-                            res = pto.cast(mm, pto.data_type.DT_FP32)
+                            res = pto.cast(mm, pto.DT_FP32)
                             res[:] = pto.mul(res, scale_dequant);   # [tileBS, h] * [tileBS, 1] -> [tileBS, h]
                             res[:] = pto.mul(res, post_tensors.weight_o_scale)   # [tileBS, h] * [1, h] -> [tileBS, h]
                             mm_res[:] = pto.cast(res, dtype, pto.cast_mode.CAST_RINT)
@@ -172,7 +172,7 @@ def attention_post_standalone(
                         post_tensors.weight_uv_scale, post_tensors.smooth_scales_w_uv,
                             post_tensors.weight_o_scale, post_tensors.smooth_scales_wo]
     output_tensors = [post_out]
-    with pto.dyn_function("POST_MAIN", input_tensors, output_tensors):
+    with pto.function("POST_MAIN", input_tensors, output_tensors):
         post_compute(input_tensor, post_tensors, tile_config, post_out)
 
 ## UT
@@ -191,11 +191,11 @@ class TestPostParams:
 def test_attention_post_ut(**kwargs):
     params = kwargs.get("params")
     tile_config = kwargs.get("tile_config")
-    d_type = kwargs.get("d_type", pto.data_type.DT_FP16)
+    d_type = kwargs.get("d_type", pto.DT_FP16)
     nz = kwargs.get("nz", True)
-    w_uv_dtype = kwargs.get("w_uv_dtype", pto.data_type.DT_INT8)
+    w_uv_dtype = kwargs.get("w_uv_dtype", pto.DT_INT8)
     is_smooth_wuv = kwargs.get("is_smooth_wuv", False)
-    w_o_dtype = kwargs.get("w_o_dtype", pto.data_type.DT_INT8)
+    w_o_dtype = kwargs.get("w_o_dtype", pto.DT_INT8)
     is_smooth_wo = kwargs.get("is_smooth_wo", False)
 
     b = params.b
@@ -205,9 +205,9 @@ def test_attention_post_ut(**kwargs):
     kv_lora_rank = params.kv_lora_rank
     v_head_dim = params.v_head_dim
 
-    d_type = pto.data_type.DT_FP16 if d_type == pto.data_type.DT_FP16 else pto.data_type.DT_BF16
-    is_quant_w_uv = w_uv_dtype == pto.data_type.DT_INT8
-    is_quant_wo = w_o_dtype == pto.data_type.DT_INT8
+    d_type = pto.DT_FP16 if d_type == pto.DT_FP16 else pto.DT_BF16
+    is_quant_w_uv = w_uv_dtype == pto.DT_INT8
+    is_quant_wo = w_o_dtype == pto.DT_INT8
 
     x_shape = [b, s, n, kv_lora_rank]
     w_uv_shape = [n, kv_lora_rank, v_head_dim]
@@ -218,28 +218,28 @@ def test_attention_post_ut(**kwargs):
     smooth_wo_shape = [1, n * v_head_dim]
     out_shape = [b, s, h]
 
-    weight_format = pto.tile_op_format.TILEOP_NZ if nz else pto.tile_op_format.TILEOP_ND
+    weight_format = pto.TileOpFormat.TILEOP_NZ if nz else pto.TileOpFormat.TILEOP_ND
     x = pto.Tensor(x_shape, d_type, "x")
-    w_uv = pto.Tensor(w_uv_shape, pto.data_type.DT_INT8 if is_quant_w_uv else d_type, "wUv")
+    w_uv = pto.Tensor(w_uv_shape, pto.DT_INT8 if is_quant_w_uv else d_type, "wUv")
     w_uv_scale = pto.Tensor()
     smooth_w_uv = pto.Tensor()
-    wo = pto.Tensor(wo_shape, pto.data_type.DT_INT8 if is_quant_wo else d_type, "wo", weight_format)
+    wo = pto.Tensor(wo_shape, pto.DT_INT8 if is_quant_wo else d_type, "wo", weight_format)
     wo_scale = pto.Tensor()
     smooth_wo = pto.Tensor()
     post_out = pto.Tensor(out_shape, d_type, "postOut")
 
     if is_quant_w_uv:
-        scale = pto.Tensor(w_uv_scale_shape, pto.data_type.DT_FP32, "wUvScale")
+        scale = pto.Tensor(w_uv_scale_shape, pto.DT_FP32, "wUvScale")
         w_uv_scale[:] = scale
         if is_smooth_wuv:
-            smooth = pto.Tensor(smooth_w_uv_shape, pto.data_type.DT_FP32, "smoothWUv")
+            smooth = pto.Tensor(smooth_w_uv_shape, pto.DT_FP32, "smoothWUv")
             smooth_w_uv[:] = smooth
 
     if is_quant_wo:
-        scale = pto.Tensor(wo_scale_shape, pto.data_type.DT_FP32, "woScale")
+        scale = pto.Tensor(wo_scale_shape, pto.DT_FP32, "woScale")
         wo_scale[:] = scale
         if is_smooth_wo:
-            smooth = pto.Tensor(smooth_wo_shape, pto.data_type.DT_FP32, "smoothWo")
+            smooth = pto.Tensor(smooth_wo_shape, pto.DT_FP32, "smoothWo")
             smooth_wo[:] = smooth
 
     post_tensors = PostTensors(w_uv, wo, w_uv_scale, smooth_w_uv, wo_scale, smooth_wo)
@@ -249,11 +249,11 @@ def test_attention_post_ut(**kwargs):
 if __name__ == "__main__":
     params = TestPostParams(32, 128, 2, 7168, 512, 128)
     tile_config = PostTileConfig(16, 1)
-    d_type = pto.data_type.DT_BF16
+    d_type = pto.DT_BF16
     nz = True
-    w_uv_dtype = pto.data_type.DT_FP16
+    w_uv_dtype = pto.DT_FP16
     is_smooth_wuv = False
-    w_o_dtype = pto.data_type.DT_INT8
+    w_o_dtype = pto.DT_INT8
     is_smooth_wo = True
 
     test_attention_post_ut(params=params, tile_config=tile_config, nz=True, d_type=d_type, is_smooth_wuv=is_smooth_wuv,

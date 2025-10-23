@@ -95,13 +95,13 @@ def kv_slc_compute(**kwargs):
                                             k_rope_slc_block_fp32 = pto.cast(k_rope_slc_block, pto.DT_FP32)
                                             pto.set_vec_tile_shapes(v0_tile[0], v0_tile[1])
                                             kv_slc_block_tiled = pto.mul_s(kv_slc_block_fp32,
-                                            pto.element(kv_slc_block_fp32.get_dtype(), float(1)))
+                                            pto.element(kv_slc_block_fp32.dtype, float(1)))
                                             k_rope_slc_block_tiled = pto.mul_s(k_rope_slc_block_fp32,
-                                            pto.element(k_rope_slc_block_fp32.get_dtype(), float(1)))
+                                            pto.element(k_rope_slc_block_fp32.dtype, float(1)))
                                             pto.set_vec_tile_shapes(v0_tile[0], v0_tile[1])
-                                            kv_slc_block_fp16 = pto.cast(kv_slc_block_tiled, k_slc_out.get_dtype())
+                                            kv_slc_block_fp16 = pto.cast(kv_slc_block_tiled, k_slc_out.dtype)
                                             k_rope_slc_block_fp16 = pto.cast(k_rope_slc_block_tiled,
-                                            v_slc_out.get_dtype())
+                                            v_slc_out.dtype)
                                             pto.set_vec_tile_shapes(v0_tile[0], v0_tile[1])
                                             output_axis1_value = batch_idx * s * n2 * topk * l_prime
                                             + slc_idx * n2 * topk * l_prime

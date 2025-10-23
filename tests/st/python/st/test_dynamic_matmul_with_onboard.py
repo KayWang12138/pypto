@@ -101,8 +101,8 @@ def dynamic_matmul_onboard_util(input_config: ShapeConfig):
 
 
 def no_split_m_n(tensor_a, tensor_b, tensor_c, input_config):
-    shape_a = tensor_a.get_shape()
-    shape_b = tensor_b.get_shape()
+    shape_a = tensor_a.shape
+    shape_b = tensor_b.shape
     valid_shape_a = [shape_a[0], shape_a[1]]
     valid_shape_b = [shape_b[0], shape_b[1]]
     dtype = convert_np_dtype_to_pto_dtype(input_config.out_dtype)
@@ -118,7 +118,7 @@ def no_split_m_n(tensor_a, tensor_b, tensor_c, input_config):
 
 
 def split_m_axis(tensor_a, tensor_b, tensor_c, input_config):
-    shape_a = tensor_a.get_shape()
+    shape_a = tensor_a.shape
     view_shape = input_config.view_shape
     a_trans = input_config.a_trans
 
@@ -133,8 +133,8 @@ def split_m_axis(tensor_a, tensor_b, tensor_c, input_config):
 
 
 def matmul_split_m_utils(tensor_a, tensor_b, tensor_c, input_config, m_idx):
-    shape_a = tensor_a.get_shape()
-    shape_b = tensor_b.get_shape()
+    shape_a = tensor_a.shape
+    shape_b = tensor_b.shape
     view_shape = input_config.view_shape
     a_trans = input_config.a_trans
     dtype = convert_np_dtype_to_pto_dtype(input_config.out_dtype)
@@ -158,7 +158,7 @@ def matmul_split_m_utils(tensor_a, tensor_b, tensor_c, input_config, m_idx):
 
 
 def split_n_axis(tensor_a, tensor_b, tensor_c, input_config):
-    shape_b = tensor_b.get_shape()
+    shape_b = tensor_b.shape
     view_shape = input_config.view_shape
     b_trans = input_config.b_trans
 
@@ -174,8 +174,8 @@ def split_n_axis(tensor_a, tensor_b, tensor_c, input_config):
 
 
 def matmul_split_n_utils(tensor_a, tensor_b, tensor_c, input_config, n_idx):
-    shape_a = tensor_a.get_shape()
-    shape_b = tensor_b.get_shape()
+    shape_a = tensor_a.shape
+    shape_b = tensor_b.shape
     view_shape = input_config.view_shape
     b_trans = input_config.b_trans
     dtype = convert_np_dtype_to_pto_dtype(input_config.out_dtype)
@@ -200,7 +200,7 @@ def matmul_split_n_utils(tensor_a, tensor_b, tensor_c, input_config, n_idx):
 
 
 def split_m_n_axis(tensor_a, tensor_b, tensor_c, input_config):
-    shape_a = tensor_a.get_shape()
+    shape_a = tensor_a.shape
     view_shape = input_config.view_shape
     a_trans = input_config.a_trans
 
@@ -214,8 +214,8 @@ def split_m_n_axis(tensor_a, tensor_b, tensor_c, input_config):
 
 
 def matmul_split_m_n_util(tensor_a, tensor_b, tensor_c, input_config, m_idx):
-    shape_a = tensor_a.get_shape()
-    shape_b = tensor_b.get_shape()
+    shape_a = tensor_a.shape
+    shape_b = tensor_b.shape
     view_shape = input_config.view_shape
     b_trans = input_config.b_trans
     a_trans = input_config.a_trans
@@ -278,7 +278,7 @@ def create_tensor(dtype, ori_shape, tensor_name, format_nz, transposed=None):
     else:
         assert False, "tensor name not found in matmul"
     if format_nz:
-        return pto.tensor(shape, convert_np_dtype_to_pto_dtype(dtype), tensor_name, pto.tile_op_format.TILEOP_NZ)
+        return pto.tensor(shape, convert_np_dtype_to_pto_dtype(dtype), tensor_name, pto.TileOpFormat.TILEOP_NZ)
     else:
         return pto.tensor(shape, convert_np_dtype_to_pto_dtype(dtype), tensor_name)
 

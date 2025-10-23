@@ -13,10 +13,10 @@
 import pto
 
 def test_element():
-    a = pto.Element(pto.DT_FP32, 1.0)
+    a = pto.element(pto.DT_FP32, 1.0)
     assert a.dtype == pto.DT_FP32
     assert a.value == 1.0
 
-    b = pto.Element(pto.DT_INT32, 1)
+    b = pto.element(pto.DT_INT32, 1)
     assert b.dtype == pto.DT_INT32
     assert b.value == 1

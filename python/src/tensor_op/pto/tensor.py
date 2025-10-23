@@ -20,9 +20,11 @@ from .symbolic_scalar import SymbolicScalar
 
 class Tensor:
 
-    def __init__(self, shape, dtype: pto.DataType,
+    def __init__(self, shape = None, dtype: Union[pto.DataType, None] = None,
                  name: str = "", format: pto.TileOpFormat = pto.TileOpFormat.TILEOP_ND):
-        if all([isinstance(s, int) for s in shape]):
+        if shape is None or dtype is None:
+            self._base = pto_impl.Tensor()
+        elif all([isinstance(s, int) for s in shape]):
             nshape = cast(List[int], shape)
             self._base = pto_impl.Tensor(dtype, nshape, name, format)
         else:
@@ -91,8 +93,8 @@ class Tensor:
             value (Tensor | Element): value to set.
 
             example:
-            >>> a = pto.tensor((16, 16), pto.DataType.FLOAT32)
-            >>> b = pto.tensor((4, 4), pto.DataType.FLOAT32)
+            >>> a = pto.tensor((16, 16), pto.FLOAT32)
+            >>> b = pto.tensor((4, 4), pto.FLOAT32)
             >>> a[0, 0] = 1.0 # SetTensorData
             >>> a[0, 1:] = 2.0 # Not supported now
             >>> a[1:, 1:] = b # Assemb(b, (1, 1), a)

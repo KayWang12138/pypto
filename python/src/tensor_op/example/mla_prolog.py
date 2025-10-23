@@ -64,7 +64,7 @@ def qkv_pre(**kwargs) -> List[pto.tensor]:
     bs = b * s
     q_lora_rank = w_dq.shape[1]
 
-    d_type = token_x.get_dtype()
+    d_type = token_x.dtype
     d_type_quant_out = pto.DT_INT32 if is_quant else d_type
     qkv_pre_res = []
 
@@ -192,7 +192,7 @@ def mla_prolog(**kwargs):
     is_quant = (dequant_scale_w_uq_qr.has_storage() if dequant_scale_w_uq_qr is not None else False)
     print("is_quant +++ ", is_quant)
 
-    d_type = token_x.get_dtype()
+    d_type = token_x.dtype
     b = token_x.shape[0]
     s = token_x.shape[1]  # s=1
     b_s = b * s
@@ -263,7 +263,7 @@ def mla_prolog(**kwargs):
     pto.set_vec_tile_shapes(*tile_shape)
     k_pe_res = pto.reshape(k_pe, [b, s, 1, qk_rope_head_dim])
 
-    k_rope = pto.tensor([b, s, 1, qk_rope_head_dim], k_pe_res.get_dtype(), "kRope")
+    k_rope = pto.tensor([b, s, 1, qk_rope_head_dim], k_pe_res.dtype, "kRope")
     pto.apply_rotary_pos_emb_v2(q_pe, k_pe_res, cos, sin, query_rope_out, k_rope, 2, rope_config)
 
     if cache_mode == "PA_BSND":

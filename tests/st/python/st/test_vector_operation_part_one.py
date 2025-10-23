@@ -307,7 +307,7 @@ def test_vector_operation_neg():
 
 
 def test_vector_operation_vec_dup():
-    dtype = pto.data_type.DT_FP32
+    dtype = pto.DT_FP32
     tiling = 32
     n, m = tiling * 1, tiling * 1
     view_shape = (16, 16)
@@ -318,7 +318,7 @@ def test_vector_operation_vec_dup():
     a = pto.tensor((n, m), dtype, "VEC_DUP_TENSOR_a")
     b = pto.element(dtype, 2.0)
 
-    with pto.dyn_function("VEC_DUP", [], [a]):
+    with pto.function("VEC_DUP", [], [a]):
         pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
         loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
         loop_range_s = pto.loop_range(int(np.ceil(m / view_shape[1])))
@@ -346,10 +346,10 @@ def test_vector_operation_logical_not():
     pto.device_init()
     pto.set_codegen_config("support_dynamic_unaligned", True)
 
-    a = pto.tensor((n, m), pto.data_type.DT_FP32, "LOGICALNOT_TENSOR_a")
-    b = pto.tensor((n, m), pto.data_type.DT_BOOL, "LOGICALNOT_TENSOR_b")
+    a = pto.tensor((n, m), pto.DT_FP32, "LOGICALNOT_TENSOR_a")
+    b = pto.tensor((n, m), pto.DT_BOOL, "LOGICALNOT_TENSOR_b")
 
-    with pto.dyn_function("LOGICALNOT", [a], [b]):
+    with pto.function("LOGICALNOT", [a], [b]):
         loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
         loop_range_s = pto.loop_range(int(np.ceil(m / view_shape[1])))
         with pto.loop_function("LOOP_LOGICALNOT_L0", "b_idx", loop_range_b) as bloop:
@@ -376,7 +376,7 @@ def test_vector_operation_logical_not():
 
 
 def test_vector_operation_expand():
-    dtype = pto.data_type.DT_FP32
+    dtype = pto.DT_FP32
     tiling = 32
     n, m = tiling * 1, tiling * 1
     view_shape = (16, 16)
@@ -387,7 +387,7 @@ def test_vector_operation_expand():
     a = pto.tensor((n, 1), dtype, "EXPAND_TENSOR_a")
     b = pto.tensor((n, m), dtype, "EXPAND_TENSOR_b")
 
-    with pto.dyn_function("EXPAND", [a], [b]):
+    with pto.function("EXPAND", [a], [b]):
         loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
         loop_range_s = pto.loop_range(int(np.ceil(m / view_shape[1])))
         with pto.loop_function("LOOP_EXPAND_L0", "b_idx", loop_range_b) as bloop:
@@ -415,7 +415,7 @@ def test_vector_operation_expand():
 
 
 def test_vector_operation_concat():
-    dtype = pto.data_type.DT_FP32
+    dtype = pto.DT_FP32
     tiling = 32
     n, m = tiling * 1, tiling * 1
     shape = (n, m)
@@ -428,7 +428,7 @@ def test_vector_operation_concat():
     b = pto.tensor(shape, dtype, "CONCAT_TENSOR_b")
     c = pto.tensor([n, m * 2], dtype, "CONCAT_TENSOR_c")
 
-    with pto.dyn_function("CONCAT", [a, b], [c]):
+    with pto.function("CONCAT", [a, b], [c]):
         loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
         with pto.loop_function("LOOP_CONCAT_L0", "b_idx", loop_range_b) as bloop:
             for b_idx in bloop:
@@ -457,7 +457,7 @@ def test_vector_operation_concat():
 
 
 def test_vector_operation_rowmaxsingle():
-    dtype = pto.data_type.DT_FP32
+    dtype = pto.DT_FP32
     tiling = 32
     n, m = tiling * 1, tiling * 1
     shape = (n, m)
@@ -470,7 +470,7 @@ def test_vector_operation_rowmaxsingle():
     b = pto.tensor(output_shape, dtype, "ROWMAXSINGLE_TENSOR_b")
     dim = 0
 
-    with pto.dyn_function("ROWMAXSINGLE", [a], [b]):
+    with pto.function("ROWMAXSINGLE", [a], [b]):
         loop_range_s = pto.loop_range(int(np.ceil(m / view_shape[1])))
         with pto.loop_function("LOOP_ROWMAXSINGLE_L1", "s_idx", loop_range_s) as sloop:
             for s_idx in sloop:
@@ -494,7 +494,7 @@ def test_vector_operation_rowmaxsingle():
 
 
 def test_vector_operation_rowsumsingle():
-    dtype = pto.data_type.DT_FP32
+    dtype = pto.DT_FP32
     tiling = 32
     n, m = tiling * 1, tiling * 1
     shape = (n, m)
@@ -507,7 +507,7 @@ def test_vector_operation_rowsumsingle():
     b = pto.tensor(output_shape, dtype, "ROWSUMSINGLE_TENSOR_b")
     dim = 0
 
-    with pto.dyn_function("ROWSUMSINGLE", [a], [b]):
+    with pto.function("ROWSUMSINGLE", [a], [b]):
         loop_range_s = pto.loop_range(int(np.ceil(m / view_shape[1])))
         with pto.loop_function("LOOP_ROWSUMSINGLE_L1", "s_idx", loop_range_s) as sloop:
             for s_idx in sloop:
@@ -531,7 +531,7 @@ def test_vector_operation_rowsumsingle():
 
 
 def test_vector_operation_rowminsingle():
-    dtype = pto.data_type.DT_FP32
+    dtype = pto.DT_FP32
     tiling = 32
     n, m = tiling * 1, tiling * 1
     shape = (n, m)
@@ -544,7 +544,7 @@ def test_vector_operation_rowminsingle():
     b = pto.tensor(output_shape, dtype, "ROWMINSINGLE_TENSOR_b")
     dim = 0
 
-    with pto.dyn_function("ROWMINSINGLE", [a], [b]):
+    with pto.function("ROWMINSINGLE", [a], [b]):
         loop_range_s = pto.loop_range(int(np.ceil(m / view_shape[1])))
         with pto.loop_function("LOOP_ROWMINSINGLE_L1", "s_idx", loop_range_s) as sloop:
             for s_idx in sloop:

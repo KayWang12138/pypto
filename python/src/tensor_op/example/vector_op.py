@@ -107,8 +107,8 @@ def vector_cast_exp():
         b = pto.cast(pto.exp(a), pto.DT_FP16, pto.CastMode.CAST_FLOOR)
 
     assert isinstance(b, pto.tensor)
-    print(b.get_shape())
-    print(b.get_dtype())
+    print(b.shape)
+    print(b.dtype)
 
 
 def vector_element():
@@ -146,8 +146,8 @@ def vector_element():
         pto.set_vec_tile_shapes(32, 1, 16, 32)
         e = pto.add_s(d, a)  # add element to tensor
         f = pto.mul_s(d, a)
-    print(e.get_shape(), e.get_dtype())
-    print(f.get_shape(), f.get_dtype())
+    print(e.shape, e.dtype)
+    print(f.shape, f.dtype)
 
 
 def vector_maximum():
@@ -162,8 +162,8 @@ def vector_maximum():
         c = pto.maximum(a, b)
 
     assert isinstance(c, pto.tensor)
-    print(c.get_shape())
-    print(c.get_dtype())
+    print(c.shape)
+    print(c.dtype)
 
 
 def vector_row_sum_single():
@@ -177,8 +177,8 @@ def vector_row_sum_single():
         b = pto.row_sum_single(a)
 
     assert isinstance(b, pto.tensor)
-    print(b.get_shape())
-    print(b.get_dtype())
+    print(b.shape)
+    print(b.dtype)
 
 
 def vector_row_max_single():
@@ -192,8 +192,8 @@ def vector_row_max_single():
         b = pto.row_max_single(a)
 
     assert isinstance(b, pto.tensor)
-    print(b.get_shape())
-    print(b.get_dtype())
+    print(b.shape)
+    print(b.dtype)
 
 
 def vector_rms_norm():
@@ -207,8 +207,8 @@ def vector_rms_norm():
         b = pto.rms_norm(a)
 
     assert isinstance(b, pto.tensor)
-    print(b.get_shape())
-    print(b.get_dtype())
+    print(b.shape)
+    print(b.dtype)
 
 
 def vector_reciprocal():
@@ -222,8 +222,8 @@ def vector_reciprocal():
         b = pto.reciprocal(pto.transpose(a, [2, 3]))
 
     assert isinstance(b, pto.tensor)
-    print(b.get_shape())
-    print(b.get_dtype())
+    print(b.shape)
+    print(b.dtype)
 
 
 def vector_assemble():

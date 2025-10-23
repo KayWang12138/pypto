@@ -103,8 +103,8 @@ def gen_topk_indices(tmp_out: pto.tensor, s_slc: int, actual_topk: int, valid_si
         view0 = pto.view(tmp_out, [1, valid_size], [0, 1])
     pto.set_vec_tile_shapes(1, s_slc)
     topk_idx = pto.topk(view0, NUM_16, -1, True)[1]
-    topk_idx = pto.cast(topk_idx, pto.data_type.DT_FP32)
-    topk_idx = pto.add_s(topk_idx, pto.element(pto.data_type.DT_FP32, 1.0))
+    topk_idx = pto.cast(topk_idx, pto.DT_FP32)
+    topk_idx = pto.add_s(topk_idx, pto.element(pto.DT_FP32, 1.0))
     res.append(topk_idx)
 
     topk_idx_tmp = pto.view(topk_idx, [1, NUM_16], [1, actual_topk], [0, 0])
@@ -121,7 +121,7 @@ def single_topk(tmp_out: pto.tensor, actual_value: int):
     view0 = pto.view(tmp_out, [1, NUM_128], [1, actual_value], [0, 1])
     pto.set_vec_tile_shapes(1, NUM_128)
     topk_idx = pto.topk(view0, NUM_16, -1, True)[1]
-    topk_idx = pto.cast(topk_idx, pto.data_type.DT_FP32)
+    topk_idx = pto.cast(topk_idx, pto.DT_FP32)
     res.append(topk_idx)
     return res
 
@@ -155,22 +155,22 @@ def gen_slc(**kwargs):
 
     tile_s2 = s_cmp
     s_loop = pto.SymbolicScalar(ceil_div(s_cmp, tile_s2))
-    tmp_out = pto.tensor([1, g], pto.data_type.DT_FP32, "tmpout")
-    tmp_out1 = pto.tensor([1, NUM_16], pto.data_type.DT_FP32, "tmpout1")
-    tmp_trans2 = pto.tensor([1, s_cmp, NUM_128], pto.data_type.DT_FP32, "trans1")
+    tmp_out = pto.tensor([1, g], pto.DT_FP32, "tmpout")
+    tmp_out1 = pto.tensor([1, NUM_16], pto.DT_FP32, "tmpout1")
+    tmp_trans2 = pto.tensor([1, s_cmp, NUM_128], pto.DT_FP32, "trans1")
 
-    with pto.dyn_function("main", [x], [trans0_res, reduce0_res, trans1_res, reduce1_res, topk_ind, topk_val, out]):
+    with pto.function("main", [x], [trans0_res, reduce0_res, trans1_res, reduce1_res, topk_ind, topk_val, out]):
         for s_idx in pto.loop(0, s_loop, 1, name="LOOP_L0_sIdx", idx_name="s_idx", submit_before_loop=True):
             def inside_s_idx_loop(s_idx):
                 s_ofs = s_idx * tile_s2
                 pto.set_vec_tile_shapes(1, NUM_4, s_cmp)
                 viewer = pto.view(x, [n2, g, s_cmp], [0, 0, s_ofs])
-                input32 = pto.cast(viewer, pto.data_type.DT_FP32)
+                input32 = pto.cast(viewer, pto.DT_FP32)
                 tmp_trans = pto.transpose(input32, [1, NUM_2])
                 pto.assemble(tmp_trans, [0, 0, 0], tmp_trans2)
                 pto.set_vec_tile_shapes(1, NUM_16, g)
-                trans0_res[:] = pto.cast(tmp_trans2, pto.data_type.DT_FP16)
-                abc = pto.tensor([n2, loop, g], pto.data_type.DT_FP16, "reduce0")
+                trans0_res[:] = pto.cast(tmp_trans2, pto.DT_FP16)
+                abc = pto.tensor([n2, loop, g], pto.DT_FP16, "reduce0")
                 for i in range(loop):
                     max_len0 = min(out_loop, s_cmp - i * out_loop)
                     view0 = pto.view(tmp_trans, [1, max_len0, g], [0, i * out_loop, 0])
@@ -181,18 +181,18 @@ def gen_slc(**kwargs):
                         view1 = pto.view(tmp_trans, [1, max_len1, g], [0, i * out_loop + 1, 0])
                         reduce1 = pto.row_sum_single(view1, 1)
                         reduce_sum = pto.add(reduce0, reduce1)
-                        sum_tmp = pto.cast(reduce_sum, pto.data_type.DT_FP16)
+                        sum_tmp = pto.cast(reduce_sum, pto.DT_FP16)
                         pto.assemble(sum_tmp, [0, i, 0], abc)
                     else:
-                        reduce_tmp = pto.cast(reduce0, pto.data_type.DT_FP16)
+                        reduce_tmp = pto.cast(reduce0, pto.DT_FP16)
                         pto.assemble(reduce_tmp, [0, i, 0], abc)
-                trans1 = pto.transpose(pto.cast(abc, pto.data_type.DT_FP32), [1, 2])
+                trans1 = pto.transpose(pto.cast(abc, pto.DT_FP32), [1, 2])
                 reduce0_res[:] = abc
-                trans1_res[:] = pto.cast(trans1, pto.data_type.DT_FP16)
+                trans1_res[:] = pto.cast(trans1, pto.DT_FP16)
                 pto.set_vec_tile_shapes(1, g, NUM_8)
                 reduce2 = pto.row_sum_single(trans1, 1)
                 tmp_out[:] = pto.reshape(reduce2, [1, NUM_128])
-                reduce1_res[:] = pto.cast(reduce2, pto.data_type.DT_FP16)
+                reduce1_res[:] = pto.cast(reduce2, pto.DT_FP16)
             inside_s_idx_loop(s_idx)
         for _ in pto.loop(0, 1, 1, name="LOOP_topk1", idx_name="s_idx", submit_before_loop=True):
             pto.set_codegen_config(KEY_SUPPORT_DYNAMIC_UNALIGNED, True)
@@ -218,17 +218,17 @@ def gen_slc_v2(**kwargs):
     out_loop = l_prime // d
     actual_topk = topk - (front + near)
     actual_valid_len = valid_size - (front + near)
-    tmp_out = pto.tensor([1, s_slc], pto.data_type.DT_FP32, "tmpout")
+    tmp_out = pto.tensor([1, s_slc], pto.DT_FP32, "tmpout")
 
-    with pto.dyn_function("main", [x], [out]):
+    with pto.function("main", [x], [out]):
         for s_idx in pto.loop(0, 1, 1, name="LOOP_L0_sIdx", idx_name="s_idx", submit_before_loop=True):
             def inside_s_idx_loop(s_idx):
                 pto.set_vec_tile_shapes(NUM_4, s_cmp)
                 viewer = pto.view(x, [n, s_cmp], [0, 0])
-                input32 = pto.cast(viewer, pto.data_type.DT_FP32)
+                input32 = pto.cast(viewer, pto.DT_FP32)
                 tmp_trans = pto.transpose(input32, [0, 1])
                 pto.set_vec_tile_shapes(NUM_16, n)
-                abc = pto.tensor([loop, n], pto.data_type.DT_FP16, "reduce0")
+                abc = pto.tensor([loop, n], pto.DT_FP16, "reduce0")
                 for i in range(loop):
                     max_len0 = min(out_loop, s_cmp - i * out_loop)
                     view0 = pto.view(tmp_trans, [max_len0, n], [i * out_loop, 0])
@@ -239,12 +239,12 @@ def gen_slc_v2(**kwargs):
                         view1 = pto.view(tmp_trans, [max_len1, n], [i * out_loop + 1, 0])
                         reduce1 = pto.row_sum_single(view1, 0)
                         reduce_sum = pto.add(reduce0, reduce1)
-                        sum_tmp = pto.cast(reduce_sum, pto.data_type.DT_FP16)
+                        sum_tmp = pto.cast(reduce_sum, pto.DT_FP16)
                         pto.assemble(sum_tmp, [i, 0], abc)
                     else:
-                        reduce_tmp = pto.cast(reduce0, pto.data_type.DT_FP16)
+                        reduce_tmp = pto.cast(reduce0, pto.DT_FP16)
                         pto.assemble(reduce_tmp, [i, 0], abc)
-                trans1 = pto.transpose(pto.cast(abc, pto.data_type.DT_FP32), [0, 1])
+                trans1 = pto.transpose(pto.cast(abc, pto.DT_FP32), [0, 1])
                 pto.set_vec_tile_shapes(n, NUM_8)
                 reduce2 = pto.row_sum_single(trans1, 0)
                 tmp_out[:] = pto.reshape(reduce2, [1, s_slc])
@@ -270,13 +270,13 @@ def gen_topk_indices_fun(**kwargs):
 
     s_slc = x.shape[1]
     actual_valid_len = actual_len - (front + near)
-    tmp_out = pto.tensor([1, s_slc], pto.data_type.DT_FP32, "tmpout")
-    tmp_out1 = pto.tensor([1, NUM_16], pto.data_type.DT_FP32, "tmpout1")
+    tmp_out = pto.tensor([1, s_slc], pto.DT_FP32, "tmpout")
+    tmp_out1 = pto.tensor([1, NUM_16], pto.DT_FP32, "tmpout1")
 
-    with pto.dyn_function("main", [x], [trans0_res, reduce0_res, trans1_res, reduce1_res, topk_ind, topk_val, out]):
+    with pto.function("main", [x], [trans0_res, reduce0_res, trans1_res, reduce1_res, topk_ind, topk_val, out]):
         for _ in pto.loop(0, 1, 1, name="LOOP_topk0", idx_name="s_idx", submit_before_loop=True):
             pto.set_vec_tile_shapes(1, s_slc)
-            tmp_out[:] = pto.cast(x, pto.data_type.DT_FP32)
+            tmp_out[:] = pto.cast(x, pto.DT_FP32)
         for _ in pto.loop(0, 1, 1, name="LOOP_topk1", idx_name="s_idx", submit_before_loop=True):
             res = single_topk(tmp_out, actual_valid_len)
             topk_ind[:] = res[0]
@@ -287,7 +287,7 @@ def test_gen_slc(d_type, params, topk_actual_len, is_gen_slc):
     params.b = 1
     params.s2 = NUM_4096 * NUM_2
     params.n2 = 1
-    d_type = pto.data_type.DT_FP16
+    d_type = pto.DT_FP16
     topk_actual_len = params.s2
     is_gen_slc = True
     n2 = params.n2
@@ -311,9 +311,9 @@ def test_gen_slc(d_type, params, topk_actual_len, is_gen_slc):
     reduce0 = pto.tensor([n2, s_slc, g], d_type, "reduce0")
     trans1 = pto.tensor([n2, g, s_slc], d_type, "trans1")
     reduce1 = pto.tensor([n2, 1, s_slc], d_type, "reduce1")
-    topk_ind = pto.tensor([1, NUM_16], pto.data_type.DT_FP32, "topkInd")
-    topk_val = pto.tensor([1, NUM_16], pto.data_type.DT_FP32, "topkVal")
-    res = pto.tensor([1, NUM_16], pto.data_type.DT_FP32, "res")
+    topk_ind = pto.tensor([1, NUM_16], pto.DT_FP32, "topkInd")
+    topk_val = pto.tensor([1, NUM_16], pto.DT_FP32, "topkVal")
+    res = pto.tensor([1, NUM_16], pto.DT_FP32, "res")
 
     if is_gen_slc:
         gen_slc(x=x,
@@ -342,7 +342,7 @@ def test_gen_slc_v2():
     params.b = 1
     params.s2 = NUM_8192
     params.n2 = 1
-    d_type = pto.data_type.DT_FP16
+    d_type = pto.DT_FP16
     topk_actual_len = NUM_6144 + 1
     n = params.n
     s2 = params.s2
@@ -353,6 +353,6 @@ def test_gen_slc_v2():
     valid_size = (s_cmp_valid + NUM_3) // 4
 
     x = pto.tensor([n, s_cmp], d_type, "x")
-    res = pto.tensor([1, NUM_13], pto.data_type.DT_FP32, "res")
+    res = pto.tensor([1, NUM_13], pto.DT_FP32, "res")
 
     gen_slc_v2(x=x, out=res, valid_size=valid_size)

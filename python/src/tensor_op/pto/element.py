@@ -35,3 +35,5 @@ class Element:
 
     def base(self):
         return self._base
+
+element = Element

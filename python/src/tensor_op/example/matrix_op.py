@@ -33,9 +33,9 @@ def matrix_matmul():
         d = pto.matmul(dtype, a, b, a_trans=True, b_trans=True)
 
     assert isinstance(c, pto.tensor)
-    print(c.get_shape())
+    print(c.shape)
     assert isinstance(d, pto.tensor)
-    print(d.get_shape())
+    print(d.shape)
 
 
 if __name__ == "__main__":

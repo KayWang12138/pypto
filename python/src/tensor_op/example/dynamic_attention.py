@@ -89,7 +89,7 @@ def mla_pre(**kwargs) -> List[pto.tensor]:
     bs = b * s
     q_lora_rank = w_dq.shape[1]
 
-    d_type = token_x.get_dtype()
+    d_type = token_x.dtype
     d_type_quant_out = pto.DT_INT32 if is_quant else d_type
     qkv_pre_res = []
 
@@ -215,7 +215,7 @@ def attention(**kwargs):
     cache_mode = kwargs.get("cache_mode")
 
     pa_format = pto.TileOpFormat.TILEOP_NZ if cache_mode == "PA_NZ" else pto.TileOpFormat.TILEOP_ND
-    dtype = token_x.get_dtype()
+    dtype = token_x.dtype
     b = token_x.shape[0]
     s = token_x.shape[1]  # s=1
     h = token_x.shape[2]
@@ -356,8 +356,8 @@ def attention(**kwargs):
                     cos_view = pto.view(cos, [tile_b, s, qk_rope_head_dim], [b_offset, 0, 0])
                     sin_view = pto.view(sin, [tile_b, s, qk_rope_head_dim], [b_offset, 0, 0])
                     ## -> [b,1,s,qkRopeHeadDim]
-                    k_rope_view = pto.tensor([tile_b, s, 1, qk_rope_head_dim], k_pe_res.get_dtype(), "kRopeView")
-                    q_rope_view = pto.tensor([tile_b, s, n, qk_rope_head_dim], k_pe_res.get_dtype(), "qRopeView")
+                    k_rope_view = pto.tensor([tile_b, s, 1, qk_rope_head_dim], k_pe_res.dtype, "kRopeView")
+                    q_rope_view = pto.tensor([tile_b, s, n, qk_rope_head_dim], k_pe_res.dtype, "qRopeView")
                     pto.set_semantic_label("ApplyRotaryPosEmbV2")
                     pto.apply_rotary_pos_emb_v2(q_pe_view, k_pe_res, cos_view, sin_view, q_rope_view,
                                                     k_rope_view, NUM_2, rope_config)

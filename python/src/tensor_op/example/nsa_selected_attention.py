@@ -92,7 +92,7 @@ def selected_attention_compute(**kwargs):
     sa_tile_config = kwargs.get("sa_tile_config")
     debug = kwargs.get("debug")
 
-    dtype = q_nope.get_dtype()
+    dtype = q_nope.dtype
     d_n = q_nope.shape[1]
     d_r = q_rope.shape[1]
     group = n_q // n_kv
@@ -187,15 +187,15 @@ def selected_attention_compute(**kwargs):
                                                             pto.set_semantic_label("kv_slc_cast_fp32")
                                                             pto.set_vec_tile_shapes(v0_tile[0], v1_tile[1])
                                                             kv_slc_block_fp32 = pto.cast(kv_slc_block, 
-                                                                                        pto.DataType.DT_FP32)
+                                                                                        pto.DT_FP32)
                                                             kr_slc_block_fp32 = pto.cast(kr_slc_block, 
-                                                                                        pto.DataType.DT_FP32)
+                                                                                        pto.DT_FP32)
                                                             pto.set_semantic_label("kv_slc_cast")
                                                             pto.set_vec_tile_shapes(v0_tile[0], v1_tile[1])
                                                             kv_slc_block_fp16 = pto.cast(kv_slc_block_fp32, 
-                                                                                        k_slc.get_dtype())
+                                                                                        k_slc.dtype
                                                             kr_slc_block_fp16 = pto.cast(kr_slc_block_fp32, 
-                                                                                        k_slc.get_dtype())
+                                                                                        k_slc.dtype)
                                                             pto.set_vec_tile_shapes(v0_tile[0], v1_tile[1])
 
                                                             slc_out_s_offset = (top_k_idx 
@@ -233,12 +233,12 @@ def selected_attention_compute(**kwargs):
                                                             [c1_tile[0], c1_tile[1]], [c1_tile[2], c1_tile[3]], 
                                                             [c1_tile[4], c1_tile[5]], True)
                                                         pto.set_matrix_size([qi.shape[0], 0, kj.shape[0]])
-                                                        sij = pto.matmul(pto.DataType.DT_FP32, qi, kj, False, True)
+                                                        sij = pto.matmul(pto.DT_FP32, qi, kj, False, True)
 
                                                         # V1
                                                         pto.set_semantic_label("Sa_Qkvec1")
                                                         pto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
-                                                        sij_scale = pto.mul_s(sij, pto.element(sij.get_dtype(), 
+                                                        sij_scale = pto.mul_s(sij, pto.element(sij.dtype, 
                                                                             softmax_scale))
                                                         tilda_mij = pto.row_max_single(sij_scale)  
                                                         tsub = pto.sub(sij_scale, tilda_mij)  
@@ -255,7 +255,7 @@ def selected_attention_compute(**kwargs):
                                                         pto.set_matrix_size(
                                                             [tilda_pij_f16.shape[0], tilda_pij_f16.shape[1], 
                                                             vj.shape[1]])
-                                                        oi = pto.matmul(pto.DataType.DT_FP32, 
+                                                        oi = pto.matmul(pto.DT_FP32, 
                                                             tilda_pij_f16, vj, False, False)
 
                                                         # V2
@@ -263,7 +263,7 @@ def selected_attention_compute(**kwargs):
                                                         pto.set_vec_tile_shapes(1, 1, v2_tile[0], v2_tile[1])
                                                         oi_4_dim = pto.add_s(pto.reshape(oi, [1, 1, cur_g_tile, 
                                                             d_n]),
-                                                            pto.element(oi.get_dtype(), float(0)))
+                                                            pto.element(oi.dtype, float(0)))
                                                         pto.assemble(oi_4_dim, oi_offset, attention_out)
                                                     inside_s2_loop_sa(b_idx, s1_idx, n2_idx, s2_idx, topk)
                                         inside_g_loop_sa(b_idx, s1_idx, n2_idx, g_idx)
@@ -290,7 +290,7 @@ def selected_attention(**kwargs):
     slc_block_size = kwargs.get("slc_block_size")
     sa_tile_config = kwargs.get("sa_tile_config")
 
-    with pto.dyn_function("SA_MAIN", 
+    with pto.function("SA_MAIN", 
     [top_k_indices, kv_nope_cache, k_rope_cache, kv_act_seqs, block_table, q_nope, q_rope], [attention_out]):
         def inside_main_function():
             selected_attention_compute(
@@ -341,7 +341,7 @@ def test_kv_slc_attn(params, sa_tile_config):
     max_seq_all_batch = max(kv_cache_act_seq_vec)
     max_block_num_per_batch = ceil_div(max_seq_all_batch, block_size)
 
-    d_type = pto.DataType.DT_FP16
+    d_type = pto.DT_FP16
 
     # 1. 设置shape
     topk_indices_shape = [b, s1, topk - front - near]
@@ -360,18 +360,18 @@ def test_kv_slc_attn(params, sa_tile_config):
     shape_sel_atten = [b, s1, n1, v_dim]
 
     # 2. 构造tensor
-    topk_indices = pto.tensor(topk_indices_shape, pto.DataType.DT_INT32, "topk_tensor")
-    topk_tensor_shape = pto.tensor(topk_tensor_shape_shape, pto.DataType.DT_INT32, "topk_tensor_shape")
+    topk_indices = pto.tensor(topk_indices_shape, pto.DT_INT32, "topk_tensor")
+    topk_tensor_shape = pto.tensor(topk_tensor_shape_shape, pto.DT_INT32, "topk_tensor_shape")
     kv_nope_cache = pto.tensor(kv_nope_cache_shape, d_type, "k_nope_cache")
     k_rope_cache = pto.tensor(k_rope_cache_shape, d_type, "v_nope_cache")
-    kv_cache_act_seq = pto.tensor(kv_cache_act_seq_shape, pto.DataType.DT_INT32, "kv_cache_act_seq")
-    block_table = pto.tensor(block_table_shape, pto.DataType.DT_INT32, "block_table")
-    slc_act_seqs = pto.tensor(slc_act_seqs_shape, pto.DataType.DT_INT32, "slc_act_seqs")
+    kv_cache_act_seq = pto.tensor(kv_cache_act_seq_shape, pto.DT_INT32, "kv_cache_act_seq")
+    block_table = pto.tensor(block_table_shape, pto.DT_INT32, "block_table")
+    slc_act_seqs = pto.tensor(slc_act_seqs_shape, pto.DT_INT32, "slc_act_seqs")
 
     q_nope = pto.tensor(q_nope_shape, d_type, "q_nope")
     q_rope = pto.tensor(q_rope_shape, d_type, "q_rope")
 
-    atten_out = pto.tensor(shape_sel_atten, pto.DataType.DT_FP32, "atten_out")
+    atten_out = pto.tensor(shape_sel_atten, pto.DT_FP32, "atten_out")
 
     selected_attention(
         top_k_indices=topk_indices,

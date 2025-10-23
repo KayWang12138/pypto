@@ -86,8 +86,8 @@ def compress_attention_with_topk(**kwargs):
     c2_tile = tile_config.cmp_tile.c2_tile
     v2_tile = tile_config.cmp_tile.v2_tile
 
-    q_dtype = q_nope.get_dtype()
-    k_dtype = cmp_kv_cache.get_dtype()
+    q_dtype = q_nope.dtype
+    k_dtype = cmp_kv_cache.dtype
 
     b = cmp_block_table.shape[SHAPE_DIM0]
     if n1 == 0:
@@ -195,7 +195,7 @@ def compress_attention_with_topk(**kwargs):
                                     sij[:] = pto.view(sij, [block_size, n1], [cur_valid_seq, n1], [0, 0])
                                     pto.set_semantic_label("Cmp-Attn-V1")
                                     sij_scale = pto.mul_s(
-                                        sij, pto.element(sij.get_dtype(), softmax_scale))
+                                        sij, pto.element(sij.dtype, softmax_scale))
                                     tilda_mij = pto.row_max_single(sij_scale, 0)
                                     tsub = pto.sub(sij_scale, tilda_mij)
                                     tilda_pij = pto.exp(tsub)
@@ -220,7 +220,7 @@ def compress_attention_with_topk(**kwargs):
                                                     oi_update_reshape = pto.reshape(oi_update, [1, 1, n1, d_n])
                                                     pto.set_vec_tile_shapes(1, 1, v2_tile[0], v2_tile[1])
                                                     oi_update_cast = pto.assign(pto.cast(
-                                                        oi_update_reshape, cmp_attn_out.get_dtype()))
+                                                        oi_update_reshape, cmp_attn_out.dtype))
                                                     pto.assemble(oi_update_cast,
                                                         [b_idx, s1_idx, 0, 0], cmp_attn_out)
                                                     pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
@@ -265,7 +265,7 @@ def compress_attention_with_topk(**kwargs):
                                                     oi_update_reshape = pto.reshape(oi_update, [1, 1, n1, d_n])
                                                     pto.set_vec_tile_shapes(1, 1, v2_tile[0], v2_tile[1])
                                                     oi_update_cast = pto.assign(
-                                                        pto.cast(oi_update_reshape, cmp_attn_out.get_dtype()))
+                                                        pto.cast(oi_update_reshape, cmp_attn_out.dtype))
                                                     pto.assemble(oi_update_cast, [b_idx, s1_idx, 0, 0], cmp_attn_out)
                                                     pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                                                 inside_if_is_loop_end()

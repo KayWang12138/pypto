@@ -64,7 +64,7 @@ def test_tensor_add_tensor_element():
 
     with pto.pto_function("ADD", GRAPH_T, FUNC_T, a):
         pto.set_vec_tile_shapes(8, 8)
-        elem = pto.Element(dtype, 3.14)
+        elem = pto.element(dtype, 3.14)
         c = a + elem
 
     assert c.shape == shape
@@ -78,7 +78,7 @@ def test_tensor_add_element_tensor():
 
     with pto.pto_function("ADD", GRAPH_T, FUNC_T, a):
         pto.set_vec_tile_shapes(8, 8)
-        elem = pto.Element(dtype, 3.14)
+        elem = pto.element(dtype, 3.14)
         c = elem + a
 
     assert c.shape == shape
@@ -106,7 +106,7 @@ def test_tensor_subs_tensor_element():
 
     with pto.pto_function("SUBS", GRAPH_T, FUNC_T, a):
         pto.set_vec_tile_shapes(8, 8)
-        elem = pto.Element(dtype, 3.14)
+        elem = pto.element(dtype, 3.14)
         c = a - elem
 
     assert c.shape == shape

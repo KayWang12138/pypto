@@ -50,7 +50,7 @@ def page_attention(**kwargs):
     is_nz_format = kwargs.get("is_nz_format")
     is_nz_format = False
 
-    dtype = q_nope.get_dtype()
+    dtype = q_nope.dtype
     #// 入参B*S*N合轴
     d_n = q_nope.shape[1]
     d_r = q_rope.shape[1]
@@ -137,7 +137,7 @@ def page_attention(**kwargs):
 
                                                 pto.set_semantic_label("SoftMax")
                                                 sij_scale = pto.mul_s(
-                                                    sij, pto.element(sij.get_dtype(), softmax_scale))
+                                                    sij, pto.element(sij.dtype, softmax_scale))
 
                                                 pto.set_semantic_label("SoftMax")
                                                 tilda_mij = pto.row_max_single(sij_scale)
@@ -248,7 +248,7 @@ def page_attention_with_imm_scalar(**kwargs):
     is_nz_format = kwargs.get("is_nz_format")
     is_nz_format = False
 
-    dtype = q_nope.get_dtype()
+    dtype = q_nope.dtype
     #// 入参B*S*N合轴
     d_n = q_nope.shape[1]
     d_r = q_rope.shape[1]
@@ -335,7 +335,7 @@ def page_attention_with_imm_scalar(**kwargs):
                                                 pto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
 
                                                 sij_scale = pto.mul_s(
-                                                    sij, pto.element(sij.get_dtype(), softmax_scale))
+                                                    sij, pto.element(sij.dtype, softmax_scale))
 
                                                 tilda_mij = pto.row_max_single(sij_scale)
                                                 tsub = pto.sub(sij_scale, tilda_mij)
@@ -438,7 +438,7 @@ def page_attention_with_manual_unroll(**kwargs):
     tile_config = kwargs.get("tile_config")
     max_unroll_times = kwargs.get("max_unroll_times")
 
-    dtype = q_nope.get_dtype()
+    dtype = q_nope.dtype
     #// 入参B*S*N合轴
     d_n = q_nope.shape[1]
     d_r = q_rope.shape[1]
@@ -525,7 +525,7 @@ def page_attention_with_manual_unroll(**kwargs):
                                                         sij = pto.matmul(pto.DT_FP32, qi, kj, False, True)
                                                         pto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
                                                         sij_scale = pto.mul_s(
-                                                            sij, pto.element(sij.get_dtype(), softmax_scale))
+                                                            sij, pto.element(sij.dtype, softmax_scale))
 
                                                         tilda_mij = pto.row_max_single(sij_scale)
                                                         tsub = pto.sub(sij_scale, tilda_mij)
@@ -626,7 +626,7 @@ def page_attention_high_throughput(**kwargs):
     max_unroll_times = kwargs.get("max_unroll_times")
     max_unroll_times = 1
 
-    dtype = q_nope.get_dtype()
+    dtype = q_nope.dtype
     #// 入参B*S*N合轴
     d_n = q_nope.shape[1]
     d_r = q_rope.shape[1]
@@ -688,7 +688,7 @@ def page_attention_high_throughput(**kwargs):
                         sij = pto.matmul(pto.DT_FP32, qi, kj, False, True)
                         pto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
                         sij_scale = pto.mul_s(
-                            sij, pto.element(sij.get_dtype(), softmax_scale))
+                            sij, pto.element(sij.dtype, softmax_scale))
 
                         tilda_mij = pto.row_max_single(sij_scale)
                         tsub = pto.sub(sij_scale, tilda_mij)

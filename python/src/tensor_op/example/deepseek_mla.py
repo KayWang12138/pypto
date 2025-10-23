@@ -138,7 +138,7 @@ class DeepSeekAttention:
         s1 = q.shape[2]
         s2 = kv.shape[2]
         kv_lora_rank_v = g_deepseek_config["kvLoraRank"]
-        d_type = q.get_dtype()
+        d_type = q.dtype
         pto.set_cube_tile_shapes([min(NUM_128, s1), min(NUM_128, s1)], [NUM_64, NUM_64], [NUM_128, NUM_128])
 
         qk = pto.batch_matmul(d_type, q, kv, False, True)
@@ -162,7 +162,7 @@ class DeepSeekAttention:
         n = atten_res.shape[1]
         s = atten_res.shape[2]
         bs = b * s
-        d_type = atten_res.get_dtype()
+        d_type = atten_res.dtype
 
         pto.set_vec_tile_shapes(1, 1, 1, NUM_512)
         atten_res0 = pto.transpose(atten_res, [1, 2])
@@ -195,7 +195,7 @@ class DeepSeekAttention:
         s = atten_res.shape[2]
         bs = b * s
         h = self.o_proj_w.shape[1]
-        d_type = atten_res.get_dtype()
+        d_type = atten_res.dtype
 
         pto.set_vec_tile_shapes(NUM_16, NUM_16, 1, NUM_128)
         atten_res0 = pto.transpose(atten_res, [1, 2])
@@ -224,7 +224,7 @@ class DeepSeekAttention:
     def qkv_pre(self, hidden_states: pto.tensor) -> List[pto.tensor]:
         b = hidden_states.shape[0]
         s = hidden_states.shape[1]
-        d_type = hidden_states.get_dtype()
+        d_type = hidden_states.dtype
 
         pto.set_vec_tile_shapes(NUM_128, NUM_64)
         q_a_proj_w1 = pto.unsqueeze(self.q_a_proj_w, 0)
@@ -255,7 +255,7 @@ class DeepSeekAttention:
     def qkv_pre_cv(self, hidden_states: pto.tensor) -> List[pto.tensor]:
         b = hidden_states.shape[0]
         s = hidden_states.shape[1]
-        d_type = hidden_states.get_dtype()
+        d_type = hidden_states.dtype
 
         pto.set_vec_tile_shapes(NUM_128, NUM_64)
         q_a_proj_w1 = pto.unsqueeze(self.q_a_proj_w, 0) # [NUM_256, NUM_512]
@@ -286,7 +286,7 @@ class DeepSeekAttention:
         h = hidden_states.shape[2]
         bs = b * s
 
-        d_type = hidden_states.get_dtype()
+        d_type = hidden_states.dtype
         d_type_quant_out = pto.DT_INT32 if is_quant else d_type
         qkv_pre2_res = []
 
@@ -327,7 +327,7 @@ class DeepSeekAttention:
         s = hidden_states.shape[1]
         h = hidden_states.shape[2]
         bs = b * s
-        d_type = hidden_states.get_dtype()
+        d_type = hidden_states.dtype
 
         input_data = pto.reshape(hidden_states, [bs, h]) # [b, s, h] -> [b * s, h]
 
@@ -363,7 +363,7 @@ class DeepSeekAttention:
         b = hidden_states.shape[0]
         s = hidden_states.shape[1]
         bs = b * s
-        d_type = hidden_states.get_dtype()
+        d_type = hidden_states.dtype
 
         qkv = self.qkv_pre(hidden_states)
         q = qkv[0]
@@ -402,8 +402,8 @@ class DeepSeekAttention:
         pto.set_vec_tile_shapes(1, NUM_128, NUM_64)
         k_nope = pto.reshape(k_nope, [b, 1, s, self.kv_lora_rank]) # (b, 1, s,kvLoraRank)
 
-        q_pe_rope = pto.tensor([b, self.num_heads, s, self.qk_rope_head_dim], k_pe.get_dtype(), "q_pe_rope")
-        k_pe_rope = pto.tensor([b, 1, s, self.qk_rope_head_dim], k_pe.get_dtype(), "k_pe_rope")
+        q_pe_rope = pto.tensor([b, self.num_heads, s, self.qk_rope_head_dim], k_pe.dtype, "q_pe_rope")
+        k_pe_rope = pto.tensor([b, 1, s, self.qk_rope_head_dim], k_pe.dtype, "k_pe_rope")
         pto.apply_rotary_pos_emb(q_pe, k_pe, cos, sin, position_ids, q_pe_rope, k_pe_rope, 1, rope_tile_shape_config)
         pto.set_vec_tile_shapes(1, 1, NUM_128, NUM_64)
 
@@ -430,7 +430,7 @@ class DeepSeekAttention:
         b = hidden_states.shape[0]
         s = hidden_states.shape[1]
         bs = b * s
-        d_type = hidden_states.get_dtype()
+        d_type = hidden_states.dtype
 
         qkv = self.qkv_pre(hidden_states)
         q = qkv[0]
@@ -469,8 +469,8 @@ class DeepSeekAttention:
         pto.set_vec_tile_shapes(1, NUM_128, NUM_64)
         k_nope = pto.reshape(k_nope, [b, 1, s, self.kv_lora_rank]) # (b, 1, s,kvLoraRank)
 
-        q_pe_rope = pto.tensor([b, self.num_heads, s, self.qk_rope_head_dim], k_pe.get_dtype(), "q_pe_rope")
-        k_pe_rope = pto.tensor([b, 1, s, self.qk_rope_head_dim], k_pe.get_dtype(), "k_pe_rope")
+        q_pe_rope = pto.tensor([b, self.num_heads, s, self.qk_rope_head_dim], k_pe.dtype, "q_pe_rope")
+        k_pe_rope = pto.tensor([b, 1, s, self.qk_rope_head_dim], k_pe.dtype, "k_pe_rope")
         pto.apply_rotary_pos_emb(q_pe, k_pe, cos, sin, position_ids, q_pe_rope, k_pe_rope, 1, rope_tile_shape_config)
         pto.set_vec_tile_shapes(1, 1, NUM_128, NUM_64)
 
@@ -494,7 +494,7 @@ class DeepSeekAttention:
         b = hidden_states.shape[0]
         s = hidden_states.shape[1]
         bs = b * s
-        d_type = hidden_states.get_dtype()
+        d_type = hidden_states.dtype
 
         qkv = self.qkv_pre_cv(hidden_states)
         q = qkv[0] # 2_1_32_192
@@ -530,8 +530,8 @@ class DeepSeekAttention:
         pto.set_vec_tile_shapes(NUM_2, 1, NUM_512)
         k_nope = pto.reshape(k_nope, [b, 1, s, self.kv_lora_rank]) # (b, 1, s,kvLoraRank)
 
-        q_pe_rope = pto.tensor([b, self.num_heads, s, self.qk_rope_head_dim], k_pe.get_dtype(), "q_pe_rope")
-        k_pe_rope = pto.tensor([b, 1, s, self.qk_rope_head_dim], k_pe.get_dtype(), "k_pe_rope")
+        q_pe_rope = pto.tensor([b, self.num_heads, s, self.qk_rope_head_dim], k_pe.dtype, "q_pe_rope")
+        k_pe_rope = pto.tensor([b, 1, s, self.qk_rope_head_dim], k_pe.dtype, "k_pe_rope")
         pto.apply_rotary_pos_emb(q_pe, k_pe, cos, sin, position_ids, q_pe_rope, k_pe_rope, 1, rope_tile_shape_config)
         pto.set_vec_tile_shapes(NUM_2, NUM_32, 1, NUM_64)
 
@@ -548,7 +548,7 @@ class DeepSeekAttention:
         b = hidden_states.shape[0]
         s = hidden_states.shape[1]
         bs = b * s
-        d_type = hidden_states.get_dtype()
+        d_type = hidden_states.dtype
 
         qkv = self.qkv_pre2(hidden_states, is_quant)
         q = qkv[0]
@@ -600,7 +600,7 @@ class DeepSeekAttention:
         b = hidden_states.shape[0]
         s = hidden_states.shape[1]
         bs = b * s
-        d_type = hidden_states.get_dtype()
+        d_type = hidden_states.dtype
 
         qkv = self.qkv_pre2(hidden_states, is_quant)
         q = qkv[0]
@@ -646,8 +646,8 @@ class DeepSeekAttention:
         pto.set_vec_tile_shapes(min(NUM_32, bs), 1, NUM_64)
         k_pe_r = pto.reshape(k_pe, [b, 1, s, self.qk_rope_head_dim])
 
-        q_pe_rope = pto.tensor([b, self.num_heads, s, self.qk_rope_head_dim], q_pe_t.get_dtype(), "q_pe_rope")
-        k_pe_rope = pto.tensor([b, 1, s, self.qk_rope_head_dim], k_pe_r.get_dtype(), "k_pe_rope")
+        q_pe_rope = pto.tensor([b, self.num_heads, s, self.qk_rope_head_dim], q_pe_t.dtype, "q_pe_rope")
+        k_pe_rope = pto.tensor([b, 1, s, self.qk_rope_head_dim], k_pe_r.dtype, "k_pe_rope")
         pto.apply_rotary_pos_emb(q_pe_t, k_pe_r, cos, sin, position_ids,
                      q_pe_rope, k_pe_rope, 1, rope_tile_shape_config)
 

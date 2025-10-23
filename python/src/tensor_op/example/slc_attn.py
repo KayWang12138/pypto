@@ -49,7 +49,7 @@ def slc_attn_compute(**kwargs):
     attention_out = kwargs.get("attention_out")
     tile_config = kwargs.get("tile_config")
 
-    dtype = q_nope.get_dtype()
+    dtype = q_nope.dtype
     d_n = q_nope.shape[1]
     d_r = q_rope.shape[1]
     group = n_q // n_kv
@@ -83,9 +83,9 @@ def slc_attn_compute(**kwargs):
                     for g_idx in pto.loop(0, g_loop_sym, 1, name="LOOP_L3_g_SA", idx_name="g_idx"):
                         def inside_g_loop_sa(b_idx, s1_idx, n2_idx, g_idx):
                             cur_g_tile = g_tile
-                            oi_update = pto.tensor([cur_g_tile, d_n], pto.data_type.DT_FP32, "oi_update")
-                            li_update = pto.tensor([cur_g_tile, 1], pto.data_type.DT_FP32, "li_update")  
-                            mi_update = pto.tensor([cur_g_tile, 1], pto.data_type.DT_FP32, "mi_update")
+                            oi_update = pto.tensor([cur_g_tile, d_n], pto.DT_FP32, "oi_update")
+                            li_update = pto.tensor([cur_g_tile, 1], pto.DT_FP32, "li_update")  
+                            mi_update = pto.tensor([cur_g_tile, 1], pto.DT_FP32, "mi_update")
 
                             cur_offset = b_idx * s1_n2_g_sym + s1_idx * n_q + n2_idx * group + g_idx * cur_g_tile
                             oi_offset = [b_idx, s1_idx, n2_idx * group + g_idx * cur_g_tile, 0]
@@ -113,13 +113,13 @@ def slc_attn_compute(**kwargs):
                                     pto.set_cube_tile_shapes([c1_tile[0], c1_tile[1]], 
                                         [c1_tile[2], c1_tile[3]], [c1_tile[4], c1_tile[5]], True)
                                     pto.set_semantic_label("Sa_QkMM")
-                                    pto.set_matrix_size([qi.get_shape()[0], 0, kj.get_shape()[0]])
-                                    sij = pto.matmul(pto.data_type.DT_FP32, qi, kj, False, True)
+                                    pto.set_matrix_size([qi.shape[0], 0, kj.shape[0]])
+                                    sij = pto.matmul(pto.DT_FP32, qi, kj, False, True)
 
                                     # V1
                                     pto.set_semantic_label("Sa_Qkvec1")
                                     pto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
-                                    sij_scale = pto.mul_s(sij, pto.element(sij.get_dtype(), softmax_scale))
+                                    sij_scale = pto.mul_s(sij, pto.element(sij.dtype, softmax_scale))
                                     tilda_mij = pto.row_max_single(sij_scale) 
                                     tsub = pto.sub(sij_scale, tilda_mij) 
                                     tilda_pij = pto.exp(tsub)
@@ -135,7 +135,7 @@ def slc_attn_compute(**kwargs):
                                             pto.set_semantic_label("Sa_KvMm")
                                             pto.set_matrix_size(
                                                 [tilda_pij_f16.shape[0], tilda_pij_f16.shape[1], vj.shape[1]])
-                                            oi_tmp = pto.matmul(pto.DataType.DT_FP32, tilda_pij_f16, vj, False, False)
+                                            oi_tmp = pto.matmul(pto.DT_FP32, tilda_pij_f16, vj, False, False)
                                             pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                                             if pto.cond(pto.is_loop_end(s2_idx, bn_per_batch)):
                                                 def inside_if_loop_end():
@@ -145,7 +145,7 @@ def slc_attn_compute(**kwargs):
                                                     pto.set_vec_tile_shapes(1, 1, v2_tile[0], v2_tile[1])
                                                     oi_update_4_dim = pto.add_s(
                                                         pto.reshape(oi_update, [1, 1, cur_g_tile, d_n]), 
-                                                        pto.element(oi_update.get_dtype(), float(0)))
+                                                        pto.element(oi_update.dtype, float(0)))
                                                     pto.assemble(oi_update_4_dim, oi_offset, attention_out)
                                                 inside_if_loop_end()
                                             else:
@@ -180,7 +180,7 @@ def slc_attn_compute(**kwargs):
                                             pto.set_semantic_label("Sa_UpdateMM2")
                                             pto.set_matrix_size([tilda_pij_f16.shape[0], 
                                                 tilda_pij_f16.shape[1], vj.shape[1]])
-                                            q1 = pto.matmul(pto.DataType.DT_FP32, tilda_pij_f16, vj, False, False)
+                                            q1 = pto.matmul(pto.DT_FP32, tilda_pij_f16, vj, False, False)
                                             pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                                             q2 = pto.mul(q1, t4)
                                             oi_tmp = pto.add(q3, q2)
@@ -191,7 +191,7 @@ def slc_attn_compute(**kwargs):
                                                     pto.set_vec_tile_shapes(1, 1, v2_tile[0], v2_tile[1])
                                                     oi_update_4_dim = pto.add_s(
                                                         pto.reshape(oi_update, [1, 1, cur_g_tile, d_n]), 
-                                                        pto.element(oi_update.get_dtype(), float(0)))
+                                                        pto.element(oi_update.dtype, float(0)))
                                                     pto.assemble(oi_update_4_dim, oi_offset, attention_out)
                                                 inside_if_loop_end()
                                             else:
@@ -219,7 +219,7 @@ def slc_attn(**kwargs):
     attention_out = kwargs.get("attention_out")
     tile_config = kwargs.get("tile_config")
 
-    with pto.dyn_function("SA_MAIN", [q_nope, q_rope, k_slc, v_slc, kv_slc_act_seqs], [attention_out]):
+    with pto.function("SA_MAIN", [q_nope, q_rope, k_slc, v_slc, kv_slc_act_seqs], [attention_out]):
         slc_attn_compute(
             q_nope=q_nope,
             q_rope=q_rope,
@@ -235,7 +235,7 @@ def slc_attn(**kwargs):
 
 
 def test_sa_ut(input_param, tile_config, config):
-    d_type = pto.data_type.DT_FP16
+    d_type = pto.DT_FP16
 
     b = input_param[0]
     sq = input_param[1]
@@ -254,12 +254,12 @@ def test_sa_ut(input_param, tile_config, config):
     v_slc_shape = [b * sq * nkv * smax, dn]
     sa_out_shape = [b, sq, nq, dn]
 
-    act_seqs = pto.tensor([b, sq], pto.data_type.DT_INT32, "act_seqs")
+    act_seqs = pto.tensor([b, sq], pto.DT_INT32, "act_seqs")
     q_nope = pto.tensor(q_nope_shape, d_type, "q_nope")
     q_rope = pto.tensor(q_rope_shape, d_type, "q_rope")
     k_slc = pto.tensor(k_slc_shape, d_type, "k_slc", kv_format)
     v_slc = pto.tensor(v_slc_shape, d_type, "v_slc", kv_format)
-    sa_out = pto.tensor(sa_out_shape, pto.data_type.DT_FP32, "sa_out")
+    sa_out = pto.tensor(sa_out_shape, pto.DT_FP32, "sa_out")
 
     slc_attn(
         q_nope=q_nope,

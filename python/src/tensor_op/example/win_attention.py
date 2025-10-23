@@ -56,7 +56,7 @@ def win_attention_compute(**kwargs):
     attention_out = kwargs.get("attention_out")
     tile_config = kwargs.get("tile_config")
 
-    dtype = q_nope.get_dtype()
+    dtype = q_nope.dtype
 
     d_nope_size = q_nope.shape[1]
     d_rope_size = q_rope.shape[1]
@@ -113,14 +113,14 @@ def win_attention_compute(**kwargs):
                                     pto.set_vec_tile_shapes(nope_tile[0], nope_tile[1])
                                     k_nope = pto.view(v_nope_cache, [block_size, d_nope_size], 
                                                     [cur_block_idx * block_size, n2_idx * d_nope_size])
-                                    tmp_k1 = pto.cast(k_nope, pto.data_type.DT_FP32)
+                                    tmp_k1 = pto.cast(k_nope, pto.DT_FP32)
                                     tmp_k2 = pto.cast(tmp_k1, dtype)
                                     pto.assemble(tmp_k2, [t_idx * block_size, 0], k_part)
 
                                     pto.set_vec_tile_shapes(rope_tile[0], rope_tile[1])
                                     k_rope = pto.view(k_rope_cache, [block_size, d_rope_size], 
                                                     [cur_block_idx * block_size, n2_idx * d_rope_size])
-                                    tmp_kr1 = pto.cast(k_rope, pto.data_type.DT_FP32)
+                                    tmp_kr1 = pto.cast(k_rope, pto.DT_FP32)
                                     tmp_kr2 = pto.cast(tmp_kr1, dtype)
                                     pto.assemble(tmp_kr2, [t_idx * block_size, d_nope_size], k_part)
 
@@ -142,9 +142,9 @@ def win_attention_compute(**kwargs):
                                 # matmul_1
                                 pto.set_cube_tile_shapes(
                                     [c1_tile[0], c1_tile[1]], [c1_tile[2], c1_tile[3]], [c1_tile[4], c1_tile[5]], True)
-                                q_kt = pto.matmul(pto.data_type.DT_FP32, q_part, k_actual_part, False, True)
+                                q_kt = pto.matmul(pto.DT_FP32, q_part, k_actual_part, False, True)
                                 pto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
-                                q_kt_scale = pto.mul_s(q_kt, pto.element(q_kt.get_dtype(), softmax_scale))
+                                q_kt_scale = pto.mul_s(q_kt, pto.element(q_kt.dtype, softmax_scale))
 
                                 # softmax
                                 tile_max = pto.row_max_single(q_kt_scale)
@@ -156,14 +156,14 @@ def win_attention_compute(**kwargs):
                                 # matmul_2
                                 pto.set_cube_tile_shapes(
                                     [c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]], [c2_tile[4], c2_tile[5]], True)
-                                oi_tmp = pto.matmul(pto.data_type.DT_FP32, tile_exp_f16, v_actual_part, False, False)
+                                oi_tmp = pto.matmul(pto.DT_FP32, tile_exp_f16, v_actual_part, False, False)
                                 pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
 
                                 # reshape and copyOut
                                 out = pto.div(oi_tmp, tile_sum)
                                 pto.set_vec_tile_shapes(1, 1, v2_tile[0], v2_tile[1])
                                 out_final = pto.add_s(pto.reshape(out, [b_tile, s1_tile, g_tile, d_nope_size]),
-                                                pto.element(out.get_dtype(), float(0)))
+                                                pto.element(out.dtype, float(0)))
                                 pto.assemble(out_final, oi_offset, attention_out)
                             inside_g_loop(b_idx, s1_idx, n2_idx, g_idx)
                 inside_s1_loop(s1_idx)
@@ -185,7 +185,7 @@ def win_attention_compute_flash(**kwargs):
     attention_out = kwargs.get("attention_out")
     tile_config = kwargs.get("tile_config")
     
-    dtype = q_nope.get_dtype()
+    dtype = q_nope.dtype
 
     d_nope_size = q_nope.shape[1]
     d_rope_size = q_rope.shape[1]
@@ -237,9 +237,9 @@ def win_attention_compute_flash(**kwargs):
                                 cur_offset = b_idx * s1_size * n_q + s1_idx * n_q + n2_idx * g_group + g_idx * g_tile
                                 s2_loop = (win_actual_size + s2_tile - 1) // s2_tile
 
-                                oi_update = pto.tensor([g_tile, d_nope_size], pto.data_type.DT_FP32, "oi_update")
-                                li_update = pto.tensor([g_tile, 1], pto.data_type.DT_FP32, "li_update")
-                                mi_update = pto.tensor([g_tile, 1], pto.data_type.DT_FP32, "mi_update")
+                                oi_update = pto.tensor([g_tile, d_nope_size], pto.DT_FP32, "oi_update")
+                                li_update = pto.tensor([g_tile, 1], pto.DT_FP32, "li_update")
+                                mi_update = pto.tensor([g_tile, 1], pto.DT_FP32, "mi_update")
 
                                 kv_tensor_idx = (b_idx * s1_size + s1_idx) * NUM_9 * block_size
                                 for t_idx in pto.loop(0, table_loop, 1, name="LOOP_L2_tIdx", idx_name="t_idx"):
@@ -250,14 +250,14 @@ def win_attention_compute_flash(**kwargs):
                                         pto.set_vec_tile_shapes(nope_tile[0], nope_tile[1])
                                         k_nope = pto.view(v_nope_cache, [block_size, d_nope_size], 
                                                         [cur_block_idx * block_size, n2_idx * d_nope_size])
-                                        tmp_k1 = pto.cast(k_nope, pto.data_type.DT_FP32)
+                                        tmp_k1 = pto.cast(k_nope, pto.DT_FP32)
                                         tmp_k2 = pto.cast(tmp_k1, dtype)
                                         pto.assemble(tmp_k2, [kv_tensor_idx + t_idx * block_size, 0], k_part)
 
                                         pto.set_vec_tile_shapes(rope_tile[0], rope_tile[1])
                                         k_rope = pto.view(k_rope_cache, [block_size, d_rope_size], 
                                                         [cur_block_idx * block_size, n2_idx * d_rope_size])
-                                        tmp_kr1 = pto.cast(k_rope, pto.data_type.DT_FP32)
+                                        tmp_kr1 = pto.cast(k_rope, pto.DT_FP32)
                                         tmp_kr2 = pto.cast(tmp_kr1, dtype)
                                         pto.assemble(tmp_kr2, [kv_tensor_idx + t_idx * block_size, d_nope_size], k_part)
                                     inside_t_loop(t_idx)
@@ -284,9 +284,9 @@ def win_attention_compute_flash(**kwargs):
                                         # matmul_1
                                         pto.set_cube_tile_shapes([c1_tile[0], c1_tile[1]], 
                                             [c1_tile[2], c1_tile[3]], [c1_tile[4], c1_tile[5]], True)
-                                        q_kt = pto.matmul(pto.data_type.DT_FP32, q_part, k_actual_part, False, True)
+                                        q_kt = pto.matmul(pto.DT_FP32, q_part, k_actual_part, False, True)
                                         pto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
-                                        q_kt_scale = pto.mul_s(q_kt, pto.element(q_kt.get_dtype(), softmax_scale))
+                                        q_kt_scale = pto.mul_s(q_kt, pto.element(q_kt.dtype, softmax_scale))
 
                                         # softmax
                                         tile_max = pto.row_max_single(q_kt_scale)
@@ -301,7 +301,7 @@ def win_attention_compute_flash(**kwargs):
                                                 # matmul_2
                                                 pto.set_cube_tile_shapes([c2_tile[0], c2_tile[1]], 
                                                     [c2_tile[2], c2_tile[3]], [c2_tile[4], c2_tile[5]], True)
-                                                oi_tmp = pto.matmul(pto.data_type.DT_FP32, tile_exp_f16, 
+                                                oi_tmp = pto.matmul(pto.DT_FP32, tile_exp_f16, 
                                                                     v_actual_part, False, False)
                                                 pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                                                 if pto.cond(pto.is_loop_end(s2_idx, s2_loop)):
@@ -312,7 +312,7 @@ def win_attention_compute_flash(**kwargs):
                                                         pto.set_vec_tile_shapes(1, 1, v2_tile[0], v2_tile[1])
                                                         out_final = pto.add_s(pto.reshape(oi_update, 
                                                             [b_tile, s1_tile, g_tile, d_nope_size]),
-                                                            pto.element(oi_update.get_dtype(), float(0)))
+                                                            pto.element(oi_update.dtype, float(0)))
                                                         pto.assemble(out_final, oi_offset, attention_out)
                                                     inside_if_loop_end()
                                                 else:
@@ -342,7 +342,7 @@ def win_attention_compute_flash(**kwargs):
                                                 q3 = pto.mul(oi, t2)
                                                 pto.set_cube_tile_shapes([c2_tile[0], c2_tile[1]], 
                                                     [c2_tile[2], c2_tile[3]], [c2_tile[4], c2_tile[5]], True)
-                                                q1 = pto.matmul(pto.data_type.DT_FP32, 
+                                                q1 = pto.matmul(pto.DT_FP32, 
                                                                 tile_exp_f16, v_actual_part, False, False)
                                                 pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                                                 q2 = pto.mul(q1, t4)
@@ -354,7 +354,7 @@ def win_attention_compute_flash(**kwargs):
                                                         pto.set_vec_tile_shapes(1, 1, v2_tile[0], v2_tile[1])
                                                         out_final = pto.add_s(pto.reshape(oi_update, 
                                                             [b_tile, s1_tile, g_tile, d_nope_size]),
-                                                            pto.element(oi_update.get_dtype(), float(0)))
+                                                            pto.element(oi_update.dtype, float(0)))
                                                         pto.assemble(out_final, oi_offset, attention_out)
                                                     inside_if_loop_end()
                                                 else:
@@ -386,7 +386,7 @@ def win_attention_debug_compute(**kwargs):
     attention_out = kwargs.get("attention_out")
     tile_config = kwargs.get("tile_config")
 
-    dtype = q_nope.get_dtype()
+    dtype = q_nope.dtype
 
     d_nope_size = q_nope.shape[1]
     d_rope_size = q_rope.shape[1]
@@ -445,21 +445,21 @@ def win_attention_debug_compute(**kwargs):
                                         k_nope = pto.view(v_nope_cache, [block_size, d_nope_size], 
                                                         [cur_block_idx * block_size, n2_idx * d_nope_size])
                                         pto.set_vec_tile_shapes(nope_tile[0], nope_tile[1])
-                                        tmp_k1 = pto.cast(k_nope, pto.data_type.DT_FP32)
+                                        tmp_k1 = pto.cast(k_nope, pto.DT_FP32)
                                         tmp_k2 = pto.cast(tmp_k1, dtype)
                                         pto.assemble(tmp_k2, [t_idx * block_size, 0], k_part)
 
                                         k_rope = pto.view(k_rope_cache, [block_size, d_rope_size], 
                                                         [cur_block_idx * block_size, n2_idx * d_rope_size])
                                         pto.set_vec_tile_shapes(rope_tile[0], rope_tile[1])
-                                        tmp_kr1 = pto.cast(k_rope, pto.data_type.DT_FP32)
+                                        tmp_kr1 = pto.cast(k_rope, pto.DT_FP32)
                                         tmp_kr2 = pto.cast(tmp_kr1, dtype)
                                         pto.assemble(tmp_kr2, [t_idx * block_size, d_nope_size], k_part)
 
                                         v_nope = pto.view(v_nope_cache, [block_size, d_nope_size], 
                                                         [cur_block_idx * block_size, n2_idx * d_nope_size])
                                         pto.set_vec_tile_shapes(nope_tile[0], nope_tile[1])
-                                        tmp_v1 = pto.cast(v_nope, pto.data_type.DT_FP32)
+                                        tmp_v1 = pto.cast(v_nope, pto.DT_FP32)
                                         tmp_v2 = pto.cast(tmp_v1, dtype)
                                         pto.assemble(tmp_v2, [t_idx * block_size, 0], v_part)
                                     inside_t_loop(t_idx)
@@ -485,9 +485,9 @@ def win_attention_debug_compute(**kwargs):
                                         # matmul_1
                                         pto.set_cube_tile_shapes([c1_tile[0], c1_tile[1]], 
                                             [c1_tile[2], c1_tile[3]], [c1_tile[4], c1_tile[5]], True)
-                                        q_kt = pto.matmul(pto.data_type.DT_FP32, q_part, k_actual_part, False, True)
+                                        q_kt = pto.matmul(pto.DT_FP32, q_part, k_actual_part, False, True)
                                         pto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
-                                        q_kt_scale = pto.mul_s(q_kt, pto.element(q_kt.get_dtype(), softmax_scale))
+                                        q_kt_scale = pto.mul_s(q_kt, pto.element(q_kt.dtype, softmax_scale))
 
                                         # softmax
                                         tile_max = pto.row_max_single(q_kt_scale)
@@ -500,14 +500,14 @@ def win_attention_debug_compute(**kwargs):
                                         # matmul_2
                                         pto.set_cube_tile_shapes([c2_tile[0], c2_tile[1]], 
                                             [c2_tile[2], c2_tile[3]], [c2_tile[4], c2_tile[5]], True)
-                                        out = pto.matmul(pto.data_type.DT_FP32, 
+                                        out = pto.matmul(pto.DT_FP32, 
                                                         value_type16, v_actual_part, False, False)
 
                                         # reshape and copyOut
                                         pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                                         out_new = pto.reshape(out, [b_tile, s1_tile, g_tile, d_nope_size])
                                         pto.set_vec_tile_shapes(1, 1, out_tile[0], out_tile[1])
-                                        out_final = pto.add_s(out_new, pto.element(out_new.get_dtype(), float(0)))
+                                        out_final = pto.add_s(out_new, pto.element(out_new.dtype, float(0)))
                                         pto.assemble(out_final, out_offset, attention_out)
                                     inside_o_loop(o_idx)
                             inside_g_loop(b_idx, s1_idx, n2_idx, g_idx)
@@ -530,7 +530,7 @@ def win_attention_debug(**kwargs):
     attention_out = kwargs.get("attention_out")
     tile_config = kwargs.get("tile_config")
 
-    with pto.dyn_function("main", [q_nope, v_nope_cache, q_rope, k_rope_cache, block_table, act_seqs], [attention_out]):
+    with pto.function("main", [q_nope, v_nope_cache, q_rope, k_rope_cache, block_table, act_seqs], [attention_out]):
         def inside_main_function():
             win_attention_debug_compute(
                 q_nope=q_nope,
@@ -565,7 +565,7 @@ def win_attention(**kwargs):
     attention_out = kwargs.get("attention_out")
     tile_config = kwargs.get("tile_config")
 
-    with pto.dyn_function("main", [q_nope, v_nope_cache, q_rope, k_rope_cache, block_table, act_seqs], [attention_out]):
+    with pto.function("main", [q_nope, v_nope_cache, q_rope, k_rope_cache, block_table, act_seqs], [attention_out]):
         def inside_main_function():
             win_attention_compute(
                 q_nope=q_nope,
@@ -600,7 +600,7 @@ def win_attention_flash(**kwargs):
     attention_out = kwargs.get("attention_out")
     tile_config = kwargs.get("tile_config")
 
-    with pto.dyn_function("main", [q_nope, v_nope_cache, q_rope, k_rope_cache, block_table, act_seqs], [attention_out]):
+    with pto.function("main", [q_nope, v_nope_cache, q_rope, k_rope_cache, block_table, act_seqs], [attention_out]):
         def inside_main_function():
             win_attention_compute_flash(
                 q_nope=q_nope,
@@ -623,7 +623,7 @@ def win_attention_flash(**kwargs):
 def test_win_atten_ut(tile_config, flash, debug):
     pto.set_host_config("KEY_ONLY_CODEGEN", True)
 
-    d_type = pto.data_type.DT_FP16
+    d_type = pto.DT_FP16
 
     b = 2
     s_q = 1
@@ -644,13 +644,13 @@ def test_win_atten_ut(tile_config, flash, debug):
     attention_out_shape = [b, s_q, n_q, d_n]
     block_table_shape = [b, max_block]
 
-    act_seqs = pto.tensor([b], pto.data_type.DT_INT32, "act_seqs")
+    act_seqs = pto.tensor([b], pto.DT_INT32, "act_seqs")
     q_nope = pto.tensor(q_nope_shape, d_type, "q_nope")
     q_rope = pto.tensor(q_rope_shape, d_type, "q_rope")
     v_nope_cache = pto.tensor(v_nope_cache_shape, d_type, "v_nope_cache")
     k_rope_cache = pto.tensor(k_rope_cache_shape, d_type, "k_rope_cache")
-    block_table = pto.tensor(block_table_shape, pto.data_type.DT_INT32, "block_table")
-    attention_out = pto.tensor(attention_out_shape, pto.data_type.DT_FP32, "attention_out")
+    block_table = pto.tensor(block_table_shape, pto.DT_INT32, "block_table")
+    attention_out = pto.tensor(attention_out_shape, pto.DT_FP32, "attention_out")
 
     if flash:
         win_attention_flash(

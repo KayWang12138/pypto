@@ -26,7 +26,7 @@ def parse_ut_code(func_name: str, args: Sequence[Union[Tensor, CustStruct, Confi
     arg_list = []
     for arg in args:
         if isinstance(arg, Tensor):
-            shape_str = str(arg.get_shape())[1: -1] if arg.get_shape() else ''
+            shape_str = str(arg.shape)[1: -1] if arg.shape else ''
             arg_list.append(f'tsr{arg.idx}')
             helper(f'Tensor tsr{arg.idx}({arg.dtype}, {{{shape_str}}}, "tsr{arg.idx}");')
         elif isinstance(arg, Var):
@@ -61,7 +61,7 @@ def gen_st_suffix_code(helper, args: Sequence[Union[Tensor, CustStruct, ConfigMa
     cpp_dtype_mapper: dict):
     for arg in args:
         if isinstance(arg, Tensor) and arg.is_output:
-            shape_str = str(arg.get_shape())[1:-1] if arg.get_shape() else ''
+            shape_str = str(arg.shape)[1:-1] if arg.shape else ''
             helper(f'std::vector<{cpp_dtype_mapper.get(arg.dtype, "ILLEGAL_TYPE")}> \
 tsr{arg.idx}_golden({shape_str.replace(", ", " * ")});')
             helper(f'std::vector<{cpp_dtype_mapper.get(arg.dtype, "ILLEGAL_TYPE")}> \
@@ -98,7 +98,7 @@ def parse_st_code(func_name: str, args: Sequence[Union[Tensor, CustStruct, Confi
     arg_list = []
     for arg in args:
         if isinstance(arg, Tensor):
-            shape_str = str(arg.get_shape())[1:-1] if arg.get_shape() else ''
+            shape_str = str(arg.shape)[1:-1] if arg.shape else ''
             if arg.is_output:
                 helper(f'uint8_t *tsr{arg.idx}_ptr = allocDevAddr(\
 {shape_str.replace(", ", " * ")} * sizeof({cpp_dtype_mapper.get(arg.dtype, "ILLEGAL_TYPE")}));')
@@ -242,7 +242,7 @@ def run(case_name: str, output: Path) -> bool:
     output_tsr = []
     for idx, arg in enumerate(args):
         if isinstance(arg, Tensor):
-            golden_script_code += f"    tsr{idx} = np.random.uniform(-1, 1, {arg.get_shape()}).astype(\
+            golden_script_code += f"    tsr{idx} = np.random.uniform(-1, 1, {arg.shape}).astype(\
 {numpy_dtype_mapper.get(arg.dtype, 'ILLEGAL_TYPE')})\n"
             if not arg.is_output:
                 golden_script_code += f"    tsr{idx}.tofile(Path(output, 'tsr{idx}.bin'))\n"

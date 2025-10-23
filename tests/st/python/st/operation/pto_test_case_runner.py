@@ -128,53 +128,53 @@ class PTOTestCaseRunner(TestCaseRunner):
         ]
         tab = "    "
         prefix = tab
-        dyn_function = "import pto\n"
-        dyn_function += "\n"
-        dyn_function += f"with pto.function('{self._operation}', input_tensors, output_tensors):\n"
+        function = "import pto\n"
+        function += "\n"
+        function += f"with pto.function('{self._operation}', input_tensors, output_tensors):\n"
         for index in list(range(len(loop_range_tuple))):
-            dyn_function += prefix + (tab * (index + 1))
-            dyn_function += (
+            function += prefix + (tab * (index + 1))
+            function += (
                 f"with pto.loop_function({loop_desc[index][0]}, {loop_desc[index][1]}, "
             )
-            dyn_function += f"pto.loop_range({loop_range_tuple[index]})) as {loop_desc[index][2]}:\n"
+            function += f"pto.loop_range({loop_range_tuple[index]})) as {loop_desc[index][2]}:\n"
         prefix = tab * (len(loop_range_tuple) + 1)
         for index in list(range(len(loop_range_tuple))):
-            dyn_function += prefix + (tab * (index + 1))
-            dyn_function += (
+            function += prefix + (tab * (index + 1))
+            function += (
                 f"for {loop_desc[index][1][1:-1]} in {loop_desc[index][2]}:\n"
             )
         prefix = tab * 2 * (len(loop_range_tuple) + 1)
-        dyn_function += prefix + "input_data = []\n"
+        function += prefix + "input_data = []\n"
         view_offset = [
             f"{loop_desc[index][1][1:-1]} * {self._view_shape[index]}"
             for index in range(len(loop_range_tuple))
         ]
         for index in list(range(len(input_tensors))):
-            dyn_function += prefix
-            dyn_function += f"input_{index} = pto.view(input_tensors[{index}], {self._view_shape}, ["
+            function += prefix
+            function += f"input_{index} = pto.view(input_tensors[{index}], {self._view_shape}, ["
             for idx in list(range(len(loop_range_tuple))):
-                dyn_function += (
+                function += (
                     f"min(pto.symbolic_scalar({input_tensors[index].shape[idx]}) - "
                 )
-                dyn_function += f"{loop_desc[idx][1][1:-1]} * {self._view_shape[idx]}, "
-                dyn_function += (
+                function += f"{loop_desc[idx][1][1:-1]} * {self._view_shape[idx]}, "
+                function += (
                     f"pto.symbolic_scalar({input_tensors[index].shape[idx]})), "
                 )
-            dyn_function += "], ["
+            function += "], ["
             for offset in view_offset:
-                dyn_function += offset + ", "
-            dyn_function += "])\n"
-            dyn_function += prefix + f"input_data.append(input_{index})\n"
-        dyn_function += prefix + f"res = []\n"
-        dyn_function += prefix + f"for _index in range(len(output_tensors)):\n"
-        dyn_function += prefix + f"    res.append(pto.tensor())\n"
-        dyn_function += prefix + f"if len(res) == 1:\n"
-        dyn_function += prefix + f"    res[0].move(op_func(input_data, params))\n"
-        dyn_function += prefix + f"else:\n"
-        dyn_function += (
+                function += offset + ", "
+            function += "])\n"
+            function += prefix + f"input_data.append(input_{index})\n"
+        function += prefix + f"res = []\n"
+        function += prefix + f"for _index in range(len(output_tensors)):\n"
+        function += prefix + f"    res.append(pto.tensor())\n"
+        function += prefix + f"if len(res) == 1:\n"
+        function += prefix + f"    res[0].move(op_func(input_data, params))\n"
+        function += prefix + f"else:\n"
+        function += (
             prefix + f"    for dst_, src_ in zip(res, op_func(input_data, params)):\n"
         )
-        dyn_function += prefix + f"        dst_.move(src_)\n"
+        function += prefix + f"        dst_.move(src_)\n"
         if self._operation == "Transpose":
             (
                 view_offset[self._params["first_dim"]],
@@ -183,22 +183,22 @@ class PTOTestCaseRunner(TestCaseRunner):
                 view_offset[self._params["second_dim"]],
                 view_offset[self._params["first_dim"]],
             )
-        dyn_function += prefix + "for dst_, src_ in zip(output_tensors, res):\n"
-        dyn_function += prefix + f"    pto.assemble(src_, ["
+        function += prefix + "for dst_, src_ in zip(output_tensors, res):\n"
+        function += prefix + f"    pto.assemble(src_, ["
         for offset in view_offset:
-            dyn_function += offset + ", "
-        dyn_function += "], dst_)\n"
+            function += offset + ", "
+        function += "], dst_)\n"
 
-        dyn_function += prefix + "for input in input_data:\n"
-        dyn_function += prefix + "    del input\n"
-        dyn_function += prefix + "for tmp in res:\n"
-        dyn_function += prefix + "    del tmp\n"
-        print(dyn_function)
+        function += prefix + "for input in input_data:\n"
+        function += prefix + "    del input\n"
+        function += prefix + "for tmp in res:\n"
+        function += prefix + "    del tmp\n"
+        print(function)
         pto.set_host_config("ONLY_CODEGEN", True)
         pto.set_codegen_config("SUPPORT_DYNAMIC_UNALIGNED", True)
         pto.set_vec_tile_shapes(*self.tile_shape)
         exec(
-            dyn_function,
+            function,
             {
                 "input_tensors": input_tensors,
                 "output_tensors": output_tensors,

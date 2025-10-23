@@ -19,7 +19,7 @@ from numpy.testing import assert_allclose
 
 
 def test_vector_operation_range():
-    dtype = pto.DataType.DT_FP32
+    dtype = pto.DT_FP32
     size = 32
     view_shape = (16,)
     tile_shape = (8,)
@@ -30,13 +30,13 @@ def test_vector_operation_range():
     pto.DeviceInit()
     pto.set_codegen_config("support_dynamic_unaligned", True)
 
-    a = pto.tensor((1, 1, 1), pto.DataType.DT_FP32, "Range_TENSOR_a")
-    b = pto.tensor((size,), pto.DataType.DT_FP32, "Range_TENSOR_b")
-    start = pto.element(pto.DataType.DT_FP32, start_data)
-    end = pto.element(pto.DataType.DT_FP32, end_data)
-    step = pto.element(pto.DataType.DT_FP32, step_data)
+    a = pto.tensor((1, 1, 1), pto.DT_FP32, "Range_TENSOR_a")
+    b = pto.tensor((size,), pto.DT_FP32, "Range_TENSOR_b")
+    start = pto.element(pto.DT_FP32, start_data)
+    end = pto.element(pto.DT_FP32, end_data)
+    step = pto.element(pto.DT_FP32, step_data)
 
-    with pto.dyn_function("RAGNE", [a], [b]):
+    with pto.function("RAGNE", [a], [b]):
         loop_range_b = pto.loop_range(1)
         with pto.loop_function("LOOP_L0_b_idex", "b_idx", loop_range_b) as bloop:
             for b_idx in bloop:

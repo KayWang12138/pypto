@@ -16,13 +16,13 @@ from numpy.testing import assert_allclose
 
 def test_assemble_basic():
     pto.DeviceInit()
-    dtype = pto.data_type.DT_FP32
+    dtype = pto.DT_FP32
 
     input_shape = [8, 8]
     x = pto.tensor(input_shape, dtype)
     output_shape = [8, 16]
     out = pto.tensor(output_shape, dtype)
-    with pto.dyn_function("main", [x], [out]):
+    with pto.function("main", [x], [out]):
         with pto.loop_function("LOOP_assemble_L0", "a_idx", pto.loop_range(1)) as aloop:
             for _ in aloop:
                 pto.set_vec_tile_shapes(8, 8)
@@ -46,18 +46,18 @@ def test_assemble_basic():
 def test_view_assemble():
     f_1 = 1.0
     pto.DeviceInit()
-    dtype = pto.data_type.DT_FP32
+    dtype = pto.DT_FP32
 
     input_shape = [8, 24]
     x = pto.tensor(input_shape, dtype)
     output_shape = [8, 24]
     out = pto.tensor(output_shape, dtype)
-    with pto.dyn_function("main", [x], [out]):
+    with pto.function("main", [x], [out]):
         pto.set_vec_tile_shapes(8, 8)
         with pto.loop_function("LOOP_assemble_L0", "a_idx", pto.loop_range(2)) as aloop:
             for a_idx in aloop:
                 tmp = pto.view(x, [8, 8], [0, a_idx * 8])
-                add_tensor = pto.add_s(tmp, pto.element(pto.DataType.DT_FP32, f_1))
+                add_tensor = pto.add_s(tmp, pto.element(pto.DT_FP32, f_1))
                 pto.assemble(add_tensor, [0, a_idx * 8], out)
 
     torch_tensor = np.ones((8, 24))

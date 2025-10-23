@@ -50,6 +50,9 @@ def set_semantic_label(label: str):
 def bytes_of(dtype: pto.DataType) -> int:
     return pto_impl.BytesOf(dtype)
 
+def set_host_config(key, val):
+    pto_impl.SetOption(f"host.{key}", val)
+
 
 def set_codegen_config(key, val):
     pto_impl.SetCodeGenOption(key, val)

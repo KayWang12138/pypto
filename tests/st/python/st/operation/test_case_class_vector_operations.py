@@ -163,7 +163,7 @@ class ScalarAddSTestCase(TestCase):
         )
 
     def run_in_dyn_func(self, inputs, params: dict) -> dict:
-        scalar = pto.element(inputs[0].get_dtype(), params.get("scalar"))
+        scalar = pto.element(inputs[0].dtypems.get("scalar"))
         return pto.scalar_adds(*inputs, scalar, params.get("reverse"))
 
     def golden_func(self, inputs, params: dict) -> list:
@@ -207,7 +207,7 @@ class ScalarSubSTestCase(TestCase):
         )
 
     def run_in_dyn_func(self, inputs, params: dict) -> dict:
-        scalar = pto.element(inputs[0].get_dtype(), params.get("scalar"))
+        scalar = pto.element(inputs[0].dtype, params.get("scalar"))
         return pto.scalar_subs(*inputs, scalar, params.get("reverse"))
 
     def golden_func(self, inputs, params: dict) -> list:
@@ -251,7 +251,7 @@ class ScalarMulSTestCase(TestCase):
         )
 
     def run_in_dyn_func(self, inputs, params: dict) -> dict:
-        scalar = pto.element(inputs[0].get_dtype(), params.get("scalar"))
+        scalar = pto.element(inputs[0].dtype, params.get("scalar"))
         return pto.scalar_muls(*inputs, scalar, params.get("reverse"))
 
     def golden_func(self, inputs, params: dict) -> list:
@@ -295,7 +295,7 @@ class ScalarDivSTestCase(TestCase):
         )
 
     def run_in_dyn_func(self, inputs, params: dict) -> dict:
-        scalar = pto.element(inputs[0].get_dtype(), params.get("scalar"))
+        scalar = pto.element(inputs[0].dtype, params.get("scalar"))
         return pto.scalar_divs(*inputs, scalar, params.get("reverse"))
 
     def golden_func(self, inputs, params: dict) -> list:
@@ -339,7 +339,7 @@ class ScalarMaxSTestCase(TestCase):
         )
 
     def run_in_dyn_func(self, inputs, params: dict) -> dict:
-        scalar = pto.element(inputs[0].get_dtype(), params.get("scalar"))
+        scalar = pto.element(inputs[0].dtype, params.get("scalar"))
         return pto.scalar_maxs(*inputs, scalar, params.get("reverse"))
 
     def golden_func(self, inputs, params: dict) -> list:
