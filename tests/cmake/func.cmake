@@ -332,6 +332,8 @@ function(PTO_Fwk_GTest_RunPytest OUT_TARGET)
             PTO_Fwk_AnalysisPython3Environ(pytest_forked_FOUND JUDGE_PYTEST_FORKED_INSTALLED)
             if (NOT "${pytest_forked_FOUND}x" STREQUAL "x")
                 list(APPEND _PytestParamExt --forked)
+            else ()
+                message(FATAL_ERROR "pytest_forked not installed")
             endif ()
             PTO_Fwk_GTest_RunExe_GetPreExecSetup(PyCmdSetup PyEnvLines BashCmdSetup
                     TARGET ${_Target}
