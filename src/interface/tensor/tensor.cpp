@@ -261,6 +261,11 @@ SymbolicScalar npu::tile_fwk::GetInputShape(const Tensor &t, int n) {
     return rawTensor->GetDynRawShape(n);
 }
 
+const std::vector<SymbolicScalar>& npu::tile_fwk::GetInputShape(const Tensor &t) {
+    auto rawTensor = t.GetStorage(false)->GetRawTensor();
+    return rawTensor->GetDynRawShape();
+}
+
 namespace npu::tile_fwk {
 
 static

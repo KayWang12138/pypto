@@ -281,6 +281,8 @@ private:
  */
 SymbolicScalar GetInputShape(const Tensor &t, int n);
 
+const std::vector<SymbolicScalar> &GetInputShape(const Tensor &tensor);
+
 /**
  * @brief Get the Input Data of a  tensor
  *

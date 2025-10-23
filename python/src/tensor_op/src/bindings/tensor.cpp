@@ -139,8 +139,18 @@ void BindTensor(py::module &m) {
         .def("GetName", &Tensor::GetName)
         .def("Dim", &Tensor::Dim, "Get the number of dimensions of the tensor.")
         .def_property_readonly("id", &Tensor::Id, "Get the index of the tensor.");
-    m.def("GetInputShape", &GetInputShape, py::arg("tensor"), py::arg("axis"),
-        "Get the shape of the input at the specified axis.");
+    m.def("GetInputShape",
+        [](const Tensor& t, int axis){
+            return npu::tile_fwk::GetInputShape(t, axis);
+        },
+        "Get the shape of the input at the specified axis.",
+        py::arg("t"), py::arg("axis"));
+    m.def("GetInputShape",
+        [](const Tensor& t){
+            return npu::tile_fwk::GetInputShape(t);
+        },
+        "Get the shape of the input.",
+        py::arg("t"));
     m.def("GetTensorData", &GetTensorData, py::arg("tensor"), py::arg("offset"),
         "Get the tensor data at the specified offsets.");
     m.def("SetTensorData", &SetTensorData, py::arg("value"), py::arg("offset"), py::arg("dst"),
