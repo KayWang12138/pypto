@@ -74,7 +74,7 @@ def end_function(name: str, generate_call: bool = True):
 
 
 class LoopRange:
-    def __init__(self, start, stop=None, step: Union[int, SymbolicScalar]):
+    def __init__(self, start, stop=None, step: Union[int, SymbolicScalar] = 1):
         if stop is None:
             start, stop = 0, start
         self._base = pto_impl.LoopRange(
