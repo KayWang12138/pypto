@@ -141,8 +141,8 @@ def log(a, base) -> Tensor:
 
 
 @op_wrapper
-def cast(a, dtype, mode) -> Tensor:
-    return pto_impl.cast(a, dtype, mode)
+def cast(a, dtype) -> Tensor:
+    return pto_impl.cast(a, dtype)
 
 
 @op_wrapper
