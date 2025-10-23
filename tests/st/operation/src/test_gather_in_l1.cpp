@@ -147,18 +147,18 @@ void BasicGatherTest(int64_t SRC0, int64_t SRC1, int64_t DST0, int64_t DST1) {
 
             if (!isB) {
                 if (!isTrans) {
-                    auto a = GatherInL1<false, false>(dynSrc, dynOffsets, DST1);
+                    auto a = internal::GatherInL1<false, false>(dynSrc, dynOffsets, DST1);
                     dst = Matrix::Matmul(DT_FP16, a, dynUnit);
                 } else {
-                    auto a = GatherInL1<false, true>(dynSrc, dynOffsets, DST1);
+                    auto a = internal::GatherInL1<false, true>(dynSrc, dynOffsets, DST1);
                     dst = Matrix::Matmul<true, false>(DT_FP16, a, dynUnit);
                 }
             } else {
                 if (!isTrans) {
-                    auto b = GatherInL1<true, false>(dynSrc, dynOffsets, DST1);
+                    auto b = internal::GatherInL1<true, false>(dynSrc, dynOffsets, DST1);
                     dst = Matrix::Matmul<false, false>(DT_FP16, dynUnit, b);
                 } else {
-                    auto b = GatherInL1<true, true>(dynSrc, dynOffsets, DST1);
+                    auto b = internal::GatherInL1<true, true>(dynSrc, dynOffsets, DST1);
                     dst = Matrix::Matmul<false, true>(DT_FP16, dynUnit, b);
                 }
             }
@@ -297,7 +297,7 @@ TEST_F(GatherInL1Test, gather_in_a_with_valid_shape) {
             TileShape::Current().SetCubeTile({32, 32}, {64, 64}, {128, 128});
 
             Tensor subOffsets = View(offsets, offsets.GetShape(), {1, len}, {0, start});
-            auto a = GatherInL1<false, false>(src, subOffsets, DST1);
+            auto a = internal::GatherInL1<false, false>(src, subOffsets, DST1);
             dst = Matrix::Matmul<false, false>(DT_FP16, a, unit);
         }
     }
@@ -403,7 +403,7 @@ TEST_F(GatherInL1Test, gather_in_bt_with_valid_shape) {
             TileShape::Current().SetCubeTile({32, 32}, {64, 64}, {128, 128});
 
             Tensor subOffsets = View(offsets, offsets.GetShape(), {1, len}, {0, start});
-            auto b = GatherInL1<true, true>(src, subOffsets, DST1);
+            auto b = internal::GatherInL1<true, true>(src, subOffsets, DST1);
             dst = Matrix::Matmul<false, true>(DT_FP16, unit, b);
         }
     }

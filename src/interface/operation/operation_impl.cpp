@@ -4475,7 +4475,7 @@ void TiledGatherInL1(Function &function, const TileShape &tileShape, const Logic
 }
 
 template <bool isB, bool isTrans>
-Tensor GatherInL1(const Tensor &src, const Tensor &offsets, int size) {
+Tensor internal::GatherInL1(const Tensor &src, const Tensor &offsets, int size) {
     constexpr int32_t NUM_SIZE = 2;
     ASSERT(src.GetShape().size() == NUM_SIZE);
     ASSERT(offsets.GetShape().size() == NUM_SIZE); // offsets必须是两维是因为不支持1维的Tensor
@@ -4495,10 +4495,10 @@ Tensor GatherInL1(const Tensor &src, const Tensor &offsets, int size) {
     return dst;
 }
 
-template Tensor GatherInL1<false, false>(const Tensor &, const Tensor &, int);
-template Tensor GatherInL1<false, true>(const Tensor &, const Tensor &, int);
-template Tensor GatherInL1<true, false>(const Tensor &, const Tensor &, int);
-template Tensor GatherInL1<true, true>(const Tensor &, const Tensor &, int);
+template Tensor internal::GatherInL1<false, false>(const Tensor &, const Tensor &, int);
+template Tensor internal::GatherInL1<false, true>(const Tensor &, const Tensor &, int);
+template Tensor internal::GatherInL1<true, false>(const Tensor &, const Tensor &, int);
+template Tensor internal::GatherInL1<true, true>(const Tensor &, const Tensor &, int);
 
 static int64_t CalculateCapacity(const std::vector<int64_t> &shape) {
     int64_t capacity = 1;

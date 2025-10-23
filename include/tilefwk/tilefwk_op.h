@@ -18,7 +18,6 @@
 #include <array>
 #include <sstream>
 
-#include "tilefwk/symbolic_scalar.h"
 #include "tilefwk/tensor.h"
 #include "tilefwk/element.h"
 
@@ -64,6 +63,9 @@ struct PrintHelper {
 
 void Print(SymbolicScalar cond, const std::string &format, const std::vector<Tensor> &tensors,
     const std::vector<SymbolicScalar> &scalars);
+
+template<bool isB, bool isTrans>
+Tensor GatherInL1(const Tensor &src, const Tensor &offsets, int size);
 } // namespace internal
 
 template <typename... Args>
@@ -98,9 +100,6 @@ Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes,
 
 Tensor Assemble(const std::vector<std::pair<Tensor, std::vector<int64_t>>> &tensors);
 void Assemble(const Tensor &tensor, const std::vector<SymbolicScalar> &dynOffset, Tensor &dest);
-
-template<bool isB, bool isTrans>
-Tensor GatherInL1(const Tensor &src, const Tensor &offsets, int size);
 
 Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, const std::vector<SymbolicScalar> &validShape={});
 void ReshapeInplace(const Tensor &operand, Tensor &dst);
@@ -143,7 +142,7 @@ enum class ScatterMode {
  * \param reduce : scatter reduction mode to be applied. Support NONE, ADD, MULTIPLY. NONE is default.
  * \return Tensor
  */
-Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, int axis, 
+Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, int axis,
     ScatterMode reduce = ScatterMode::NONE);
 /**
  * \brief Write the scalar value of src into self Tensor, with the write position specified by the indices Tensor. It is
@@ -156,7 +155,7 @@ Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, in
  * \param reduce : scatter reduction mode to be applied. Support NONE, ADD, MULTIPLY. NONE is default.
  * \return Tensor
  */
-Tensor Scatter_(const Tensor &self, const Tensor &indices, const Element &src, int axis, 
+Tensor Scatter_(const Tensor &self, const Tensor &indices, const Element &src, int axis,
     ScatterMode reduce = ScatterMode::NONE);
 Tensor IndexPut(const Tensor &src, std::vector<Tensor> indices, const Tensor &values);
 
