@@ -29,6 +29,7 @@ constexpr size_t HIGH_INDEX = 0;
 constexpr size_t LOW_INDEX = 1;
 constexpr uint32_t LEFT_SHIFT32 = 32;
 constexpr int64_t CUBE_PAD_VALUE = 16;
+constexpr int64_t CUBE_PAD_INT8_VALUE = 32;
 const std::vector<bool> AXIS_COMBINED = {true};
 const std::vector<bool> BROADCAST_AXIS_COMBINED = {true, true};
 
@@ -45,14 +46,25 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
     auto highIndex = in->shape.size() - 2; // matmul高轴
     auto lowIndex = in->shape.size() - 1;  // matmul低轴
 
-    in->shape[highIndex] = Pad(in->shape[highIndex], CUBE_PAD_VALUE);
-    in->shape[lowIndex] = Pad(in->shape[lowIndex], CUBE_PAD_VALUE);
+    if (in->tensor->GetDataType()==DataType::DT_INT8||in->tensor->GetDataType()==DataType::DT_INT32) {
+        in->shape[highIndex] = Pad(in->shape[highIndex], CUBE_PAD_INT8_VALUE);
+        in->shape[lowIndex] = Pad(in->shape[lowIndex], CUBE_PAD_INT8_VALUE);
+    } else {
+        in->shape[highIndex] = Pad(in->shape[highIndex], CUBE_PAD_VALUE);
+        in->shape[lowIndex] = Pad(in->shape[lowIndex], CUBE_PAD_VALUE);
+    }
 
     ALOG_DEBUG_F("####### %d original shape is %s\n", in->magic, IntVecToStr(in->oriShape).c_str());
     ALOG_DEBUG_F("####### %d #current shape is %s\n", in->magic, IntVecToStr(in->shape).c_str());
     in->tensor->oriRawshape = in->tensor->rawshape;
-    in->tensor->rawshape[highIndex] = Pad(in->tensor->oriRawshape[highIndex], CUBE_PAD_VALUE);
-    in->tensor->rawshape[lowIndex] = Pad(in->tensor->oriRawshape[lowIndex], CUBE_PAD_VALUE);
+
+    if (in->tensor->GetDataType()==DataType::DT_INT8||in->tensor->GetDataType()==DataType::DT_INT32) {
+        in->tensor->rawshape[highIndex] = Pad(in->tensor->oriRawshape[highIndex], CUBE_PAD_INT8_VALUE);
+        in->tensor->rawshape[lowIndex] = Pad(in->tensor->oriRawshape[lowIndex], CUBE_PAD_INT8_VALUE);
+    } else {
+        in->tensor->rawshape[highIndex] = Pad(in->tensor->oriRawshape[highIndex], CUBE_PAD_VALUE);
+        in->tensor->rawshape[lowIndex] = Pad(in->tensor->oriRawshape[lowIndex], CUBE_PAD_VALUE);
+    }
     ALOG_DEBUG_F("####### %d %d set rawshape as %s\n", in->tensor->rawmagic, in->magic,
         IntVecToStr(in->tensor->rawshape).c_str());
 }

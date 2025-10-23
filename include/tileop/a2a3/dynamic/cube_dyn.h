@@ -211,6 +211,10 @@ TILEOP void DynL1CopyInNZ2NZ(__cbuf__ L1T *dst, __gm__ GMT *src, unsigned TShape
     uint16_t lenBurst = TShape0 * C0 * sizeof(GMT) / 32;
     uint16_t srcStride = (curH - TShape0) * C0 * sizeof(GMT) / 32;
     uint16_t dstStride = 0;
+    if constexpr (std::is_same<GMT, int8_t>::value) {
+        constexpr uint16_t c0Size = BLOCK_ALIGN_BYTE / sizeof(GMT);
+        dstStride = CeilAlign<uint16_t>(TShape0, c0Size) - TShape0;
+    }
     copy_gm_to_cbuf(dst, src + offsetWithNZ, 0 /*sid*/, nBurst, lenBurst, srcStride, dstStride, PAD_NONE);
 }
 
@@ -225,6 +229,11 @@ TILEOP void DynL1CopyIn(__cbuf__ L1T *dst, __gm__ GMT *src, unsigned TShape0, un
     uint16_t dValue = TShape1;
     uint16_t srcDValue = GmShape1;
     uint16_t dstNzC0Stride = CeilAlign<uint16_t>(TShape0, BLOCK_CUBE_M_N);
+
+    if constexpr (std::is_same<GMT, int8_t>::value) {
+        constexpr uint16_t c0Size = BLOCK_ALIGN_BYTE / sizeof(GMT);
+        dstNzC0Stride = CeilAlign<uint16_t>(TShape0, c0Size);
+    }
 
     constexpr uint16_t ndNum = 1;
     constexpr uint16_t srcNdMatrixStride = 0;
@@ -363,19 +372,24 @@ TILEOP void DynL0CCopyOut(__gm__ GMT *dst, __cc__ L0CT *src, unsigned oriTShape0
 // Nz2Zz
 template <typename T, unsigned Offset0, unsigned Offset1>
 TILEOP void DynL1ToL0A(__ca__ T *dst, __cbuf__ T *src, unsigned dstM, unsigned dstK, unsigned srcM, unsigned srcK) {
-    constexpr uint16_t blockCubeK = BLOCK_ALIGN_BYTE / sizeof(T);
+    constexpr uint16_t c0Size = BLOCK_ALIGN_BYTE / sizeof(T);
     dstM = CeilAlign<uint16_t>(dstM, BLOCK_CUBE_M_N);
-    dstK = CeilAlign<uint16_t>(dstK, blockCubeK);
+    dstK = CeilAlign<uint16_t>(dstK, c0Size);
     srcM = CeilAlign<uint16_t>(srcM, BLOCK_CUBE_M_N);
-    srcK = CeilAlign<uint16_t>(srcK, blockCubeK);
+    srcK = CeilAlign<uint16_t>(srcK, c0Size);
 
-    uint8_t repeat = dstK / blockCubeK;
+    if constexpr (std::is_same<T, int8_t>::value) {
+        dstM = CeilAlign<uint16_t>(dstM, c0Size);
+        srcM = CeilAlign<uint16_t>(srcM, c0Size);
+    }
+
+    uint8_t repeat = dstK / c0Size;
     uint16_t srcStride = srcM / BLOCK_CUBE_M_N;
     uint16_t dstStride = 0;
     int32_t dstOffset = 0;
     int32_t dstOffsetStep = BLOCK_CUBE_M_N * dstK;
-    int32_t srcOffset = Offset0 * blockCubeK + Offset1 *srcM;
-    int32_t srcOffsetStep = BLOCK_CUBE_M_N * blockCubeK;
+    int32_t srcOffset = Offset0 * c0Size + Offset1 * srcM;
+    int32_t srcOffsetStep = BLOCK_CUBE_M_N * c0Size;
 
     if constexpr (std::is_same<T, float>::value) {
         uint64_t config = srcM | (1 << 16);
@@ -409,6 +423,8 @@ TILEOP void DynL1ToL0At(__ca__ T *dst, __cbuf__ T *src, unsigned dstM, unsigned 
     }
 
     if constexpr (std::is_same<T, int8_t>::value) {
+        dstK = CeilAlign<uint16_t>(dstK, c0Size);
+        srcK = CeilAlign<uint16_t>(srcK, c0Size);
         uint8_t repeat = dstK / c0Size;
         uint16_t srcStride = 1;
         uint16_t dstStride = 0;
@@ -523,6 +539,11 @@ TILEOP void DynL1ToL0Bt(__cb__ T *dst, __cbuf__ T *src, unsigned dstK, unsigned 
     dstK = CeilAlign<uint16_t>(dstK, c0Size);
     srcN = CeilAlign<uint16_t>(srcN, BLOCK_CUBE_M_N);
     srcK = CeilAlign<uint16_t>(srcK, c0Size);
+
+    if constexpr (std::is_same<T, int8_t>::value) {
+        dstN = CeilAlign<uint16_t>(dstN, c0Size);
+        srcN = CeilAlign<uint16_t>(srcN, c0Size);
+    }
 
     if (dstN == srcN) {
         uint8_t repeat = dstN / BLOCK_CUBE_M_N * dstK / c0Size;
