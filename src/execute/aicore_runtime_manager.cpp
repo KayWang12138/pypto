@@ -179,17 +179,12 @@ int64_t* AicoreRtManager::TileFwkHiddenInput(const std::vector<uint8_t> &op_bin,
 
   int32_t device_id = 0;
   rtGetDevice(&device_id);
-  uint32_t phyDeviceId = 0;
-  if (rtGetDevicePhyIdByIndex(device_id, &phyDeviceId) != RT_ERROR_NONE) {
-    TILE_FWK_LOGE("Trans logicalDevice id: %d to phyDeviceId not success", device_id);
-    return nullptr;
-  }
-  (void)rtGetL2CacheOffset(phyDeviceId, &host_args->l2CacheOffset);
-  TILE_FWK_LOGD("L2 cache offset of device id [%d] is [%lu].", phyDeviceId, host_args->l2CacheOffset);
+  (void)rtGetL2CacheOffset(device_id, &host_args->l2CacheOffset);
+  TILE_FWK_LOGD("L2 cache offset of device id [%d] is [%lu].", device_id, host_args->l2CacheOffset);
 
   std::vector<int64_t> aic;
   std::vector<int64_t> aiv;
-  if (!GetAicoreRegInfo(phyDeviceId, aic, aiv)) {
+  if (!GetAicoreRegInfo(device_id, aic, aiv)) {
     TILE_FWK_LOGE("Failed to get aicore reg info.");
     return nullptr;
   }

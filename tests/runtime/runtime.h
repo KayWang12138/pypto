@@ -194,9 +194,7 @@ public:
         int32_t deviceId = 0;
         uint64_t offset = 0;
         rtGetDevice(&deviceId);
-        uint32_t phyDeviceId = 0;
-        rtGetDevicePhyIdByIndex(deviceId, &phyDeviceId);
-        rtGetL2CacheOffset(phyDeviceId, &offset);
+        rtGetL2CacheOffset(deviceId, &offset);
         ALOG_DEBUG_F("rtGetL2CacheOffset %lu", offset);
         return offset;
     }
