@@ -25,8 +25,12 @@ const uint8_t AICORE_MAP_BUFF_LEN = 2;
 namespace npu::tile_fwk {
 
 static bool GetPgMask(uint64_t &valid, int32_t &deviceId) {
-    rtGetDevice(&deviceId);
-    rtSetDevice(deviceId);
+    int32_t logicalDeviceId = 0;
+    uint32_t phyDeviceId = 0;
+    rtGetDevice(&logicalDeviceId);
+    ASSERT(rtGetDevicePhyIdByIndex(logicalDeviceId, &phyDeviceId) == RT_ERROR_NONE) << "Trans logicalDevice id: " <<
+          logicalDeviceId << "to phyDeviceId not success";
+    deviceId = static_cast<int32_t>(phyDeviceId);
     uint64_t aicore_bitmap[AICORE_MAP_BUFF_LEN] = {0};
     int32_t size_n = static_cast<int32_t>(sizeof(uint64_t)) * AICORE_MAP_BUFF_LEN;
     auto halFuncDevInfo = (int (*)(uint32_t deviceId, int32_t moduleType, int32_t infoType,
@@ -35,7 +39,7 @@ static bool GetPgMask(uint64_t &valid, int32_t &deviceId) {
         ALOG_ERROR("halGetDeviceInfoByBuff function not found\n");
         return false;
     }
-    auto ret = halFuncDevInfo(static_cast<uint32_t>(deviceId), MODULE_TYPE_AI_CORE, INFO_TYPE_OCCUPY,
+    auto ret = halFuncDevInfo(phyDeviceId, MODULE_TYPE_AI_CORE, INFO_TYPE_OCCUPY,
                               reinterpret_cast<void *>(&aicore_bitmap[0]), &size_n);
     if (ret != 0) {
         return false;

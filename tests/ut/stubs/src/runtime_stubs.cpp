@@ -244,6 +244,12 @@ rtError_t rtGetDevice(int32_t *device)
     return RT_ERROR_NONE;
 }
 
+rtError_t rtGetDevicePhyIdByIndex(uint32_t devIndex, uint32_t *phyId) {
+    (void)devIndex;
+    (void)phyId;
+    return RT_ERROR_NONE;
+}
+
 rtError_t rtGetDeviceInfo(uint32_t deviceId, int32_t moduleType, int32_t infoType, int64_t *value)
 {
     (void)deviceId;
