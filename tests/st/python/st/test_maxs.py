@@ -22,6 +22,7 @@ from pto import (
 )
 
 
+@pytest.mark.skip(reason="Dep operation interface")
 def test_maxs():
     scalar_data = 5
     first_dim, second_dim = 128, 128

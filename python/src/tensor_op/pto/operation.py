@@ -176,16 +176,9 @@ def row_sum_single(a, axis=-1) -> Tensor:
 
 
 @op_wrapper
-def matmul(dtype, a, b, **kwargs) -> Tensor:
-    a_trans = kwargs.get("a_trans", False)
-    b_trans = kwargs.get("b_trans", False)
-    c_matrix_nz = kwargs.get("c_matrix_nz", False)
+def matmul(dtype, a, b, a_trans=False, b_trans=False, c_matrix_nz=False) -> Tensor:
     return pto_impl.matmul(dtype, a, b, a_trans, b_trans, c_matrix_nz)
 
-
 @op_wrapper
-def batch_matmul(dtype, a, b, **kwargs) -> Tensor:
-    a_trans = kwargs.get("a_trans", False)
-    b_trans = kwargs.get("b_trans", False)
-    c_matrix_nz = kwargs.get("c_matrix_nz", False)
+def batch_matmul(dtype, a, b, a_trans=False, b_trans=False, c_matrix_nz=False) -> Tensor:
     return pto_impl.batch_matmul(dtype, a, b, a_trans, b_trans, c_matrix_nz)

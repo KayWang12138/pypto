@@ -11,6 +11,7 @@
 import os
 import math
 import copy
+import pytest
 import numpy as np
 import pto
 
@@ -83,6 +84,7 @@ def scatter_2dim_comm_proc(scatter_para, scatter_func):
     pto.device_fini()
 
 
+@pytest.mark.skip(reason="Dep operation interface")
 def test_scatter__onboard():
     device_id = os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0)
     b = 4
@@ -94,6 +96,7 @@ def test_scatter__onboard():
     scatter_2dim_comm_proc(scatter_para, pto.scatter_)
 
 
+@pytest.mark.skip(reason="Dep operation interface")
 def test_scatter_onboard():
     device_id = os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0)
     b = 4

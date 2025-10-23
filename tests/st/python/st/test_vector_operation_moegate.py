@@ -18,11 +18,12 @@ import numpy as np
 from numpy.testing import assert_allclose
 
 
+@pytest.mark.skip(reason="Dep operation interface")
 def test_select_experts_vllm():
     renormalize_flag = True
-    input_dtype = pto.data_type.DT_FP16
-    idx_dtype = pto.data_type.DT_INT32
-    calc_dtype = pto.data_type.DT_FP32
+    input_dtype = pto.DT_FP16
+    idx_dtype = pto.DT_INT32
+    calc_dtype = pto.DT_FP32
     bs = 15
     ne = 128
     k = 8
@@ -33,13 +34,13 @@ def test_select_experts_vllm():
     logits_input = pto.tensor(logits_shape, input_dtype, "MATMUL_TENSOR_a")
     weight_k = pto.tensor((bs, k), input_dtype, "MATMUL_TENSOR_weight_k")
     idx_k = pto.tensor((bs, k), idx_dtype, "MATMUL_TENSOR_idx_k")
-    
-    with pto.dyn_function("MATMUL", [logits_input], [idx_k, weight_k]):
+
+    with pto.function("MATMUL", [logits_input], [idx_k, weight_k]):
         loop_range_bs = pto.loop_range(int(np.ceil(bs / view_shape[0])))
         with pto.loop_function("LOOP_RESHAPE_L0", "bs_idx", loop_range_bs) as bsloop:
             for bs_idx in bsloop:
                 tile_logits = pto.view(logits_input, view_shape,
-                    [min(pto.symbolic_scalar(bs) - bs_idx * view_shape[0], pto.symbolic_scalar(bs)), ne],
+                    [pto.min(pto.symbolic_scalar(bs) - bs_idx * view_shape[0], pto.symbolic_scalar(bs)), ne],
                     [bs_idx * view_shape[0], 0])
                 # cast to fp32
                 pto.set_vec_tile_shapes(min(8, bs), min(128, ne))

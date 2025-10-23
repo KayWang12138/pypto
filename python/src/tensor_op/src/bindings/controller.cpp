@@ -87,6 +87,9 @@ void bind_controller_set_tile(py::module &m) {
     });
     m.def("GetVecTile", []() { return TileShape::Current().GetVecTile(); });
     m.def(
+        "SetMatrixSize", [](const std::vector<int64_t> &size) { TileShape::Current().SetMatrixSize(size); },
+        py::arg("size"));
+    m.def(
         "SetCubeTile",
         [](const std::vector<int64_t> &mvec, const std::vector<int64_t> &kvec, const std::vector<int64_t> &nvec) {
             if (mvec.size() > MAX_M_DIM_SIZE) {
