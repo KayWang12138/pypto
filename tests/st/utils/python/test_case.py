@@ -38,6 +38,34 @@ class TestCase(ABC):
         )
         self._runner = runner
 
+    @classmethod
+    def from_test_case_desc(cls, test_case_desc: TestCaseDesc, runner):
+        return cls(
+            test_case_desc.index,
+            test_case_desc.name,
+            test_case_desc.operation,
+            test_case_desc.input_tensors,
+            test_case_desc.output_tensors,
+            test_case_desc.view_shape,
+            test_case_desc.tile_shape,
+            test_case_desc.params,
+            runner,
+        )
+
+    @classmethod
+    def from_dict(cls, test_case_desc: dict, runner):
+        return cls(
+            test_case_desc.get("case_index"),
+            test_case_desc.get("case_name"),
+            test_case_desc.get("operation"),
+            test_case_desc.get("input_tensors"),
+            test_case_desc.get("output_tensors"),
+            test_case_desc.get("view_shape"),
+            test_case_desc.get("tile_shape"),
+            test_case_desc.get("params"),
+            runner,
+        )
+
     @abstractmethod
     def golden_func(self, inputs, params: dict) -> list:
         return None

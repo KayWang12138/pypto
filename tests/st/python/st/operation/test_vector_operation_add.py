@@ -11,32 +11,27 @@
 """ """
 import pytest
 
-from test_case_class_vector_operations import TopKTestCase
+from test_case_class_vector_operations import AddTestCase
 from test_case_desc import TensorDesc
 
 
 @pytest.mark.skip(reason="There is a probability of failure")
-def test_tensor_topk():
-    original_shape = (64, 64)
-    k = 10
-    axis = 1
-    output_shape = tuple(
-        [k if index == axis else value for index, value in enumerate(original_shape)]
-    )
-    input_tensors = [TensorDesc("A", original_shape, "fp32", [-100, 100])]
-    output_tensors = [
-        TensorDesc("Value", output_shape, "fp32", [-0, 0]),
-        TensorDesc("Index", output_shape, "int32", [0, 0]),
+def test_tensor_add():
+    original_shape = (1, 1, 16, 16)
+    input_tensors = [
+        TensorDesc("A", original_shape, "fp32", [-100, 100]),
+        TensorDesc("C", original_shape, "fp32", [-100, 100]),
     ]
-    view_shape = (32, 64)
-    tile_shape = (32, 64)
-    test_case = TopKTestCase(
+    output_tensors = [TensorDesc("B", original_shape, "fp32", [-100, 100])]
+    view_shape = (1, 1, 16, 16)
+    tile_shape = (1, 1, 16, 16)
+    test_case = AddTestCase(
         0,
-        "TopK_test_0",
+        "Add_test_0",
         input_tensors,
         output_tensors,
         view_shape,
         tile_shape,
-        {"count": k, "dims": "[-1]", "islargest": "[1]"},
+        {},
     )
-    test_case.exec(True)
+    test_case.exec(False)

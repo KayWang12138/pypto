@@ -22,6 +22,41 @@ from test_case import TestCase
 from test_case_tools import get_dtype_by_name, parse_list_str
 
 
+class AddTestCase(TestCase):
+    def __init__(
+        self,
+        case_index: str,
+        case_name: str,
+        input_tensors: list,
+        output_tensors: list,
+        view_shape: tuple,
+        tile_shape: tuple,
+        params: dict,
+    ):
+        super().__init__(
+            case_index,
+            case_name,
+            "Add",
+            input_tensors,
+            output_tensors,
+            view_shape,
+            tile_shape,
+            params,
+            PTOTestCaseRunner(
+                "Add", input_tensors, output_tensors, view_shape, tile_shape, params
+            ),
+        )
+
+    def run_in_dyn_func(self, inputs, _params: dict) -> dict:
+        return pto.add(*inputs)
+
+    def golden_func(self, inputs, _params: dict) -> list:
+        return [torch.add(*inputs)]
+
+    def golden_func_params(self) -> dict:
+        return {}
+
+
 class CastTestCase(TestCase):
     def __init__(
         self,
@@ -71,6 +106,7 @@ class ExpTestCase(TestCase):
         output_tensors: list,
         view_shape: tuple,
         tile_shape: tuple,
+        params: dict,
     ):
         super().__init__(
             case_index,
@@ -80,9 +116,9 @@ class ExpTestCase(TestCase):
             output_tensors,
             view_shape,
             tile_shape,
-            {},
+            params,
             PTOTestCaseRunner(
-                "Exp", input_tensors, output_tensors, view_shape, tile_shape, {}
+                "Exp", input_tensors, output_tensors, view_shape, tile_shape, params
             ),
         )
 
@@ -304,10 +340,13 @@ class ScalarMaxSTestCase(TestCase):
 
     def run_in_dyn_func(self, inputs, params: dict) -> dict:
         scalar = pto.element(inputs[0].get_dtype(), params.get("scalar"))
-        return pto.scalar_divs(*inputs, scalar, params.get("reverse"))
+        return pto.scalar_maxs(*inputs, scalar, params.get("reverse"))
 
     def golden_func(self, inputs, params: dict) -> list:
-        return [torch.max(*inputs, params.get("scalar"))]
+        scalar = torch.full(
+            inputs[0].shape, params.get("scalar"), dtype=inputs[0].dtype
+        )
+        return [torch.max(*inputs, scalar)]
 
     def golden_func_params(self) -> dict:
         return {

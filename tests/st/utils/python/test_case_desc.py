@@ -46,6 +46,23 @@ class TensorDesc:
         self._format = tensor_format
         self._is_trans = is_trans
 
+    @classmethod
+    def from_dict(cls, params: dict):
+        data_range = params.get("data_range", None)
+        data_range = (
+            data_range
+            if not isinstance(data_range, dict)
+            else [data_range.get("min"), data_range.get("max")]
+        )
+        return cls(
+            params.get("name"),
+            params.get("shape"),
+            params.get("dtype"),
+            data_range,
+            params.get("tensor_format", None),
+            params.get("is_trans", None),
+        )
+
     @property
     def name(self) -> str:
         return self._name
@@ -93,6 +110,19 @@ class TestCaseDesc:
         self._view_shape = view_shape
         self._tile_shape = tile_shape
         self._params = params
+
+    @classmethod
+    def from_dict(cls, params: dict):
+        return cls(
+            params.get("case_index"),
+            params.get("case_name"),
+            params.get("operation"),
+            params.get("input_tensors"),
+            params.get("output_tensors"),
+            params.get("view_shape"),
+            params.get("tile_shape"),
+            params.get("params", {}),
+        )
 
     @property
     def index(self) -> str:

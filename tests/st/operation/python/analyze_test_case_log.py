@@ -104,9 +104,9 @@ class TestCaseLogAnalyzer:
         with open(self._log_file, "r", encoding="utf-8") as file:
             for line in file:
                 line = line.strip()
-                if "[  PASSED  ] 1 test" in line:
+                if "[  PASSED  ] 1 test" in line or "1 passed" in line:
                     test_result.is_pass = True
-                elif "[  FAILED  ]" in line:
+                elif "[  FAILED  ]" in line or "1 failed" in line:
                     test_result.is_pass = False
                 elif "ms total" in line:
                     test_result.duration = self.get_duration(line)

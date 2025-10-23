@@ -20,6 +20,12 @@ class TestCaseRunner(ABC):
         self._tile_shape = tile_shape
         self._params = params
 
+    @classmethod
+    def from_dict(cls, params: dict):
+        return cls(
+            params.get("view_shape"), params.get("tile_shape"), params.get("params", {})
+        )
+
     @abstractmethod
     def input_tensors(self) -> list:
         """return the tensors used as the inputs of dynamic function"""

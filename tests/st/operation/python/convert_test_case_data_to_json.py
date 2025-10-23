@@ -16,6 +16,7 @@ from pathlib import Path
 import sys
 from dataclasses import dataclass
 import pandas as pd
+
 tools_path: Path = Path(Path(__file__).parent, "../../utils/python")
 if str(tools_path) not in sys.path:
     sys.path.append(str(tools_path))
@@ -149,7 +150,7 @@ class TestDataReader:
             output_format_list,
             row_data,
             output_dtype[0],
-            is_k_split
+            is_k_split,
         )
         self.extend_matmul_param(matmulparam, params)
 
@@ -279,26 +280,17 @@ def dump_data_frame_to_json(data_frames: list, json_path: str):
     if not os.path.exists(json_path):
         os.makedirs(json_path, exist_ok=True)
     test_cases = []
-    test_case_info_list = []
     for index, row_data in data_frame.iterrows():
         reader = TestDataReader(row_data["case_index"], row_data, json_path)
         case_info = reader.dump_to_json(False)
-        test_case_info_list.append(
-            {
-                "index": index,
-                "case_index": case_info["test_case"]["case_index"],
-                "case_name": case_info["test_case"]["case_name"],
-                "operation": case_info["test_case"]["operation"],
-            }
-        )
+        case_info["test_case"]["index"] = index
         test_cases.append(case_info["test_case"])
     test_cases.sort(key=lambda x: (x["operation"], x["case_index"]))
-    test_case_info_list.sort(key=lambda x: (x["operation"], x["case_index"]))
     json_file = f"{json_path}/{test_cases[0]['operation']}_st_test_cases.json"
     row_data = {"test_cases": test_cases}
     with open(json_file, "w", encoding="utf-8") as outfile:
         json.dump(row_data, outfile, ensure_ascii=False, indent=4)
-    return test_case_info_list
+    return test_cases
 
 
 def convert_data_to_json(
