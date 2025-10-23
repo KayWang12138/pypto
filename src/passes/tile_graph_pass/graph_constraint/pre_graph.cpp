@@ -412,7 +412,7 @@ void PreGraphProcess::ProcessMoveInOperation(Operation &op) const {
 }
 
 void PreGraphProcess::InsertTemporaryCopyIn(Function &function, Operation &op) const {
-    if (!op.HasStaticAttribute(OpAttributeKey::requiresBoundaryCopy)) {
+    if (!OpcodeManager::Inst().HasStaticAttribute(op.GetOpcode(), OpAttributeKey::requiresBoundaryCopy)) {
           return;
     }
     for (auto &input : op.GetIOperands()) {

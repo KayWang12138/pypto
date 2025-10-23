@@ -238,14 +238,6 @@ public:
         return HasAttr(key);
     }
 
-    [[nodiscard]] bool HasStaticAttribute(const std::string &attribute) const {
-        if (attribute.empty()) {
-            return false;
-        }
-        std::vector<std::string> attrs = OpcodeManager::Inst().GetAttrs(opcode_);
-        return std::find(attrs.begin(), attrs.end(), attribute) != attrs.end();
-    }
-
     [[nodiscard]] std::map<std::string, npu::tile_fwk::Any> GetAllAttribute() const;
 
     Json DumpJson(bool dumpTensor = true) const;

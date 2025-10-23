@@ -330,6 +330,14 @@ public:
         return info.attrs;
     }
 
+    bool HasStaticAttribute(Opcode opcode, const std::string &attribute) const {
+        if (attribute.empty()) {
+            return false;
+        }
+        std::vector<std::string> attrs = GetAttrs(opcode);
+        return std::find(attrs.begin(), attrs.end(), attribute) != attrs.end();
+    }
+
     std::string PrintSupportOpcodes() const {
         std::stringstream ss;
         ss << "[";

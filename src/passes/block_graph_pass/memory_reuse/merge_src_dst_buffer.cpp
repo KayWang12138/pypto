@@ -98,7 +98,7 @@ bool SrcDstBufferMergeImpl::CheckIgnoreScene(const Operation *oriOps) {
         return true;
     }
     
-    if (oriOps->HasStaticAttribute(OpAttributeKey::excludeBufferReuse)) {
+    if (OpcodeManager::Inst().HasStaticAttribute(oriOps->GetOpcode(), OpAttributeKey::excludeBufferReuse)) {
         return true;
     }
 
