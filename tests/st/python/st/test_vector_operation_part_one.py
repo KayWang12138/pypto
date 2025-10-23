@@ -19,7 +19,7 @@ from numpy.testing import assert_allclose
 
 
 def test_vector_operation_add():
-    dtype = pto.data_type.DT_FP32
+    dtype = pto.DT_FP32
     tiling = 32
     n, m = tiling * 1, tiling * 1
     shape = (n, m)
@@ -31,7 +31,7 @@ def test_vector_operation_add():
     b = pto.tensor(shape, dtype, "ADD_TENSOR_b")
     c = pto.tensor(shape, dtype, "ADD_TENSOR_c")
 
-    with pto.dyn_function("ADD", [a, b], [c]):
+    with pto.function("ADD", [a, b], [c]):
         loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
         loop_range_s = pto.loop_range(int(np.ceil(m / view_shape[1])))
         with pto.loop_function("LOOP_ADD_L0", "b_idx", loop_range_b) as bloop_add:
@@ -63,7 +63,7 @@ def test_vector_operation_add():
 
 
 def test_vector_operation_div():
-    dtype = pto.data_type.DT_FP32
+    dtype = pto.DT_FP32
     tiling = 32
     n, m = tiling * 1, tiling * 1
     shape = (n, m)
@@ -75,7 +75,7 @@ def test_vector_operation_div():
     b = pto.tensor(shape, dtype, "DIV_TENSOR_b")
     c = pto.tensor(shape, dtype, "DIV_TENSOR_c")
 
-    with pto.dyn_function("DIV", [a, b], [c]):
+    with pto.function("DIV", [a, b], [c]):
         loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
         loop_range_s = pto.loop_range(int(np.ceil(m / view_shape[1])))
         with pto.loop_function("LOOP_DIV_L0", "b_idx", loop_range_b) as bloop_div:
@@ -109,7 +109,7 @@ def test_vector_operation_div():
 
 
 def test_vector_operation_mul():
-    dtype = pto.data_type.DT_FP32
+    dtype = pto.DT_FP32
     tiling = 32
     n, m = tiling * 1, tiling * 1
     shape = (n, m)
@@ -121,7 +121,7 @@ def test_vector_operation_mul():
     b = pto.tensor(shape, dtype, "MUL_TENSOR_b")
     c = pto.tensor(shape, dtype, "MUL_TENSOR_c")
 
-    with pto.dyn_function("MUL", [a, b], [c]):
+    with pto.function("MUL", [a, b], [c]):
         loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
         loop_range_s = pto.loop_range(int(np.ceil(m / view_shape[1])))
         with pto.loop_function("LOOP_MUL_L0", "b_idx", loop_range_b) as bloop_mul:
@@ -153,7 +153,7 @@ def test_vector_operation_mul():
 
 
 def test_vector_operation_sub():
-    dtype = pto.data_type.DT_FP32
+    dtype = pto.DT_FP32
     tiling = 32
     n, m = tiling * 1, tiling * 1
     shape = (n, m)
@@ -165,7 +165,7 @@ def test_vector_operation_sub():
     b = pto.tensor(shape, dtype, "SUB_TENSOR_b")
     c = pto.tensor(shape, dtype, "SUB_TENSOR_c")
 
-    with pto.dyn_function("SUB", [a, b], [c]):
+    with pto.function("SUB", [a, b], [c]):
         loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
         loop_range_s = pto.loop_range(int(np.ceil(m / view_shape[1])))
         with pto.loop_function("LOOP_SUB_L0", "b_idx", loop_range_b) as bloop_sub:
@@ -197,7 +197,7 @@ def test_vector_operation_sub():
 
 
 def test_vector_operation_abs():
-    dtype = pto.data_type.DT_FP32
+    dtype = pto.DT_FP32
     tiling = 32
     n, m = tiling * 1, tiling * 1
     shape = (n, m)
@@ -208,7 +208,7 @@ def test_vector_operation_abs():
     a = pto.tensor(shape, dtype, "ABS_TENSOR_a")
     b = pto.tensor(shape, dtype, "ABS_TENSOR_b")
 
-    with pto.dyn_function("ABS", [a], [b]):
+    with pto.function("ABS", [a], [b]):
         loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
         loop_range_s = pto.loop_range(int(np.ceil(m / view_shape[1])))
         with pto.loop_function("LOOP_ABS_L0", "b_idx", loop_range_b) as bloop:
@@ -234,7 +234,7 @@ def test_vector_operation_abs():
 
 
 def test_vector_operation_sqrt():
-    dtype = pto.data_type.DT_FP32
+    dtype = pto.DT_FP32
     tiling = 32
     n, m = tiling * 1, tiling * 1
     shape = (n, m)
@@ -245,7 +245,7 @@ def test_vector_operation_sqrt():
     a = pto.tensor(shape, dtype, "SQRT_TENSOR_a")
     b = pto.tensor(shape, dtype, "SQRT_TENSOR_b")
 
-    with pto.dyn_function("SQRT", [a], [b]):
+    with pto.function("SQRT", [a], [b]):
         loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
         loop_range_s = pto.loop_range(int(np.ceil(m / view_shape[1])))
         with pto.loop_function("LOOP_SQRT_L0", "b_idx", loop_range_b) as bloop:
@@ -270,7 +270,7 @@ def test_vector_operation_sqrt():
 
 
 def test_vector_operation_neg():
-    dtype = pto.data_type.DT_FP32
+    dtype = pto.DT_FP32
     tiling = 32
     n, m = tiling * 1, tiling * 1
     view_shape = (16, 16)
@@ -281,7 +281,7 @@ def test_vector_operation_neg():
     a = pto.tensor((n, m), dtype, "NEG_TENSOR_a")
     b = pto.tensor((n, m), dtype, "NEG_TENSOR_b")
 
-    with pto.dyn_function("NEG", [a], [b]):
+    with pto.function("NEG", [a], [b]):
         loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
         loop_range_s = pto.loop_range(int(np.ceil(m / view_shape[1])))
         with pto.loop_function("LOOP_NEG_L0", "b_idx", loop_range_b) as bloop:

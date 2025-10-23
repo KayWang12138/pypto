@@ -10,11 +10,11 @@
 # ======================================================================================================================
 """
 """
-from pto import pto_impl
 from typing import List
 
 import numpy as np
 import torch
+from pto import pto_impl
 
 device_init = pto_impl.DeviceInit
 device_fini = pto_impl.DeviceFini

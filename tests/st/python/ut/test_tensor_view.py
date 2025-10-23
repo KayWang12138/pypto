@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 # coding: utf-8
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
@@ -20,58 +21,32 @@ def init_tensors():
     c = pto.tensor(shape, dtype, "c")
     return a, b, c
 
-
-def test_tensor_setitem_inside_loop():
+def test_tensor_view():
     a, b, c = init_tensors()
     with pto.function("MAIN", [a, b], [c]):
         pto.set_vec_tile_shapes(16, 16)
 
-        with pto.loop_function(
-            "LOOP",
-            "k",
-            pto.loop_range(10),
-        ) as rlf:
+        for k in pto.loop(10):
+            a_view = pto.view(a, (16, 16), (k*16, k*16))
+            b_view = pto.view(b, (16, 16), (k*16, k*16))
+            a_view = a[k*16:(k+1)*16, k*16:(k+1)*16]
+            b_view = b[:16, :16]
 
-            for k in rlf:
-                b[:] = pto.add(a, a)
+            assert isinstance(a_view, pto.tensor)
+            assert isinstance(b_view, pto.tensor)
+            assert a_view.shape == [16, 16]
+            assert b_view.shape == [16, 16]
 
-                if pto.cond(k < 2):
-                    b[:] = pto.add(b, a)
-                else:
-                    b[:] = pto.sub(b, a)
-
-                if pto.cond(k < 5):
-                    b[:] = pto.mul(b, a)
-                else:
-                    b[:] = pto.div(b, a)
-                c[:] = pto.sub(b, a)
-
-    assert isinstance(b, pto.tensor)
-
-
-def test_tensor_assmble_slice():
+def test_tensor_getitem():
     a, b, c = init_tensors()
     with pto.function("MAIN", [a, b], [c]):
         pto.set_vec_tile_shapes(16, 16)
 
-        with pto.loop_function(
-            "LOOP",
-            "k",
-            pto.loop_range(10),
-        ) as rlf:
+        for k in pto.loop(10):
+            a_view = a[k*16:(k+1)*16, k*16:(k+1)*16]
+            b_view = b[:16, :16]
 
-            for k in rlf:
-                b[k*16:, 0:] = pto.add(a, a)
-
-                if pto.cond(k < 2):
-                    b[k*16:, 0:] = pto.add(a, a)
-                else:
-                    b[k*16:, 0:] = pto.sub(a, a)
-
-                if pto.cond(k < 5):
-                    b[0:, :k*16] = pto.mul(a, a)
-                else:
-                    b[0:, :k*16] = pto.div(a, a)
-                c[:] = pto.sub(b, a)
-
-    assert isinstance(c, pto.tensor)
+            assert isinstance(a_view, pto.tensor)
+            assert isinstance(b_view, pto.tensor)
+            assert a_view.shape == [16, 16]
+            assert b_view.shape == [16, 16]

@@ -37,33 +37,28 @@ void BindSymbolicScalar(py::module &m) {
     py::implicitly_convertible<int64_t, SymbolicScalar>();
     py::implicitly_convertible<int, SymbolicScalar>();
 
-    _SymbolicScalar
-        .def("IsImmediate", &SymbolicScalar::IsImmediate)
+    _SymbolicScalar.def("IsImmediate", &SymbolicScalar::IsImmediate)
         .def("IsSymbol", &SymbolicScalar::IsSymbol)
         .def("IsExpression", &SymbolicScalar::IsExpression)
         .def("IsValid", &SymbolicScalar::IsValid)
         .def("ConcreteValid", &SymbolicScalar::ConcreteValid)
         .def("Concrete", py::overload_cast<>(&SymbolicScalar::Concrete, py::const_))
-        .def("__eq__", &SymbolicScalar::Eq) // Total ordering / comparisons
-        .def("__ne__", &SymbolicScalar::Ne)
-        .def("__lt__", &SymbolicScalar::Lt)
-        .def("__leq__", &SymbolicScalar::Le)
-        .def("__gt__", &SymbolicScalar::Gt)
-        .def("__ge__", &SymbolicScalar::Ge)
-        .def("__add__", &SymbolicScalar::Add) // Binary operators
-        .def("__sub__", &SymbolicScalar::Sub)
-        .def("__mul__", &SymbolicScalar::Mul)
-        .def("__truediv__", &SymbolicScalar::Div)
-        .def("__mod__", &SymbolicScalar::Mod)
-        .def("__floordiv__", [](const SymbolicScalar& self, const SymbolicScalar& other) {
-            return self.Div(other);
-        })
-        .def("__floordiv__", [](const SymbolicScalar& self, int other) {
-            return self.Div(other);
-        })
-        .def("__rfloordiv__", [](const SymbolicScalar& self, int left_int) {
-            return SymbolicScalar(left_int).Div(self);
-        });
+        .def("Eq", &SymbolicScalar::Eq) // Total ordering / comparisons
+        .def("Ne", &SymbolicScalar::Ne)
+        .def("Lt", &SymbolicScalar::Lt)
+        .def("Le", &SymbolicScalar::Le)
+        .def("Gt", &SymbolicScalar::Gt)
+        .def("Ge", &SymbolicScalar::Ge)   // Total ordering / comparisons
+        .def("Add", &SymbolicScalar::Add) // Binary operators
+        .def("Sub", &SymbolicScalar::Sub)
+        .def("Mul", &SymbolicScalar::Mul)
+        .def("Div", &SymbolicScalar::Div)
+        .def("Mod", &SymbolicScalar::Mod)
+        .def("RAdd", [](const SymbolicScalar &self, int64_t other) { return other + self; })
+        .def("RSub", [](const SymbolicScalar &self, int64_t other) { return other - self; })
+        .def("RMul", [](const SymbolicScalar &self, int64_t other) { return other * self; })
+        .def("RDiv", [](const SymbolicScalar &self, int64_t other) { return other / self; })
+        .def("RMod", [](const SymbolicScalar &self, int64_t other) { return other % self; });
 
     _SymbolicScalar
         .def("AsIntermediateVariable", &SymbolicScalar::AsIntermediateVariable)
@@ -73,42 +68,8 @@ void BindSymbolicScalar(py::module &m) {
         .def("Max", &SymbolicScalar::Max, py::arg("other"));
 
     _SymbolicScalar
-        .def("__int__", [](const SymbolicScalar &self) {
-            if (!self.ConcreteValid()) {
-                throw std::runtime_error("Cannot convert to int: concrete value is not valid!");
-            }
-            return self.operator int();  //&SymbolicScalar::operator int
-        }, "Convert to an integer if concrete value is valid.")
-        .def("__str__", &SymbolicScalar::Dump, "String representation for print().")
-        .def("__repr__", &SymbolicScalar::Dump, "String representation for display.");
-
-    _SymbolicScalar
-        .def("__pos__", &SymbolicScalar::Pos)
-        .def("__neg__", &SymbolicScalar::Neg)
-        .def("__invert__", &SymbolicScalar::Not);
-
-    _SymbolicScalar
-        .def(py::self + int())
-        .def(int() + py::self)
-        .def(py::self - int())
-        .def(int() - py::self)
-        .def(py::self * int())
-        .def(int() * py::self)
-        .def(py::self / int())
-        .def(int() / py::self)
-        .def(py::self % int())
-        .def(int() % py::self)
-        .def(py::self == int())
-        .def(int() == py::self)
-        .def(py::self != int())
-        .def(int() != py::self)
-        .def(py::self < int())
-        .def(int() < py::self)
-        .def(py::self <= int())
-        .def(int() <= py::self)
-        .def(py::self > int())
-        .def(int() > py::self)
-        .def(py::self >= int())
-        .def(int() >= py::self);
+        .def("Pos", &SymbolicScalar::Pos)
+        .def("Neg", &SymbolicScalar::Neg)
+        .def("Not", &SymbolicScalar::Not);
 }
 } // namespace pypto

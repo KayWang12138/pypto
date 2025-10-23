@@ -30,33 +30,33 @@ def dynamic_ffn(**kwargs):
     ffn_weight3 = kwargs.get("ffn_weight3")
     out = kwargs.get("out")
     basic_batch = kwargs.get("basic_batch")
-    
+
     h = hidden_states.shape[1]
 
     input_tensors = [hidden_states, ffn_weight1, ffn_weight2, ffn_weight3]
     output_tensors = [out]
     if basic_batch == 0:
         raise ValueError("basic_batch is zero")
-    with pto.dyn_function("main", input_tensors, output_tensors):
+    with pto.function("main", input_tensors, output_tensors):
         with pto.loop_function("L0", "idx",
                 pto.loop_range(ceil_div(pto.get_input_shape(hidden_states, 0), basic_batch))) as idx_loop:
             for idx in idx_loop:
                 def inside_idx_loop(idx):
                     batch_idx = basic_batch * idx
                     hidden_states_temp = pto.view(hidden_states, [basic_batch, h], [batch_idx, 0])
-                    cast_res = pto.cast(hidden_states_temp, pto.DataType.DT_FP16)
-                    gate = pto.matmul(pto.DataType.DT_FP32, cast_res, ffn_weight1)
-                    swish = pto.mul_s(gate, pto.element(pto.DataType.DT_FP32, F_NEGA_1))
+                    cast_res = pto.cast(hidden_states_temp, pto.DT_FP16)
+                    gate = pto.matmul(pto.DT_FP32, cast_res, ffn_weight1)
+                    swish = pto.mul_s(gate, pto.element(pto.DT_FP32, F_NEGA_1))
                     swish = pto.exp(swish)
-                    swish = pto.add_s(swish, pto.element(pto.DataType.DT_FP32, F_1))
+                    swish = pto.add_s(swish, pto.element(pto.DT_FP32, F_1))
                     swish = pto.div(gate, swish)
 
-                    up = pto.matmul(pto.DataType.DT_FP32, cast_res, ffn_weight2)
+                    up = pto.matmul(pto.DT_FP32, cast_res, ffn_weight2)
                     swish = pto.mul(swish, up)
-                    swish_fp16 = pto.cast(swish, pto.DataType.DT_FP16)
-                    
+                    swish_fp16 = pto.cast(swish, pto.DT_FP16)
+
                     # down_proj
-                    mlp_res = pto.matmul(pto.DataType.DT_FP32, swish_fp16, ffn_weight3, False, True)
+                    mlp_res = pto.matmul(pto.DT_FP32, swish_fp16, ffn_weight3, False, True)
                     pto.assemble(mlp_res, [batch_idx, 0], out)
                 inside_idx_loop(idx)
 
@@ -72,15 +72,15 @@ def dynamic_ffn_quant(**kwargs):
     ffn_scale3 = kwargs.get("ffn_scale3")
     out = kwargs.get("out")
     basic_batch = kwargs.get("basic_batch")
-    
+
     h = hidden_states_quant.shape[1]
-    
+
     input_tensors = [hidden_states_quant, hidden_states_scale, ffn_weight1, ffn_weight2,
                     ffn_weight3, ffn_scale1, ffn_scale2, ffn_scale3]
     output_tensors = [out]
     if basic_batch == 0:
         raise ValueError("basic_batch is zero")
-    with pto.dyn_function("main", input_tensors, output_tensors):
+    with pto.function("main", input_tensors, output_tensors):
         with pto.loop_function("L0", "idx",
                  pto.loop_range(ceil_div(pto.get_input_shape(hidden_states_quant, 0), basic_batch))) as idx_loop:
             for idx in idx_loop:
@@ -89,21 +89,21 @@ def dynamic_ffn_quant(**kwargs):
 
                     cast_res = pto.view(hidden_states_quant, [basic_batch, h], [batch_idx, 0])
                     cast_res_scale = pto.view(hidden_states_scale, [basic_batch, 1], [batch_idx, 0])
-                    gate_int32 = pto.matmul(pto.DataType.DT_INT32, cast_res, ffn_weight1)
+                    gate_int32 = pto.matmul(pto.DT_INT32, cast_res, ffn_weight1)
 
                     # dequant: int32 -> fp32 -> *scale -> fp16/bf16
-                    gate_tmp_fp32 = pto.cast(gate_int32, pto.DataType.DT_FP32)
+                    gate_tmp_fp32 = pto.cast(gate_int32, pto.DT_FP32)
                     gate_tmp_dequant_pertoken = pto.mul(gate_tmp_fp32, cast_res_scale)
                     gate = pto.mul(gate_tmp_dequant_pertoken, ffn_scale1)
 
-                    swish = pto.mul_s(gate, pto.element(pto.DataType.DT_FP32, F_NEGA_1))
+                    swish = pto.mul_s(gate, pto.element(pto.DT_FP32, F_NEGA_1))
                     swish = pto.exp(swish)
-                    swish = pto.add_s(swish, pto.element(pto.DataType.DT_FP32, F_1))
+                    swish = pto.add_s(swish, pto.element(pto.DT_FP32, F_1))
                     swish = pto.div(gate, swish)
 
-                    up_int32 = pto.matmul(pto.DataType.DT_INT32, cast_res, ffn_weight2)
+                    up_int32 = pto.matmul(pto.DT_INT32, cast_res, ffn_weight2)
                     # upProj
-                    up_tmp_fp32 = pto.cast(up_int32, pto.DataType.DT_FP32)
+                    up_tmp_fp32 = pto.cast(up_int32, pto.DT_FP32)
                     up_tmp_dequant_pertoken = pto.mul(up_tmp_fp32, cast_res_scale)
                     up = pto.mul(up_tmp_dequant_pertoken, ffn_scale2)
 
@@ -114,8 +114,8 @@ def dynamic_ffn_quant(**kwargs):
                     swish_res = swish_quant_res[0]
                     swish_scale = swish_quant_res[1]
 
-                    res_int32 = pto.matmul(pto.DataType.DT_INT32, swish_res, ffn_weight3, False, True)
-                    res_tmp_fp32 = pto.cast(res_int32, pto.DataType.DT_FP32)
+                    res_int32 = pto.matmul(pto.DT_INT32, swish_res, ffn_weight3, False, True)
+                    res_tmp_fp32 = pto.cast(res_int32, pto.DT_FP32)
                     res_tmp_dequant_pertoken = pto.mul(res_tmp_fp32, swish_scale)
                     res = pto.mul(res_tmp_dequant_pertoken, ffn_scale3)
                     pto.assemble(res, [batch_idx, 0], out)
@@ -144,7 +144,7 @@ def test_ffn():
     ffn_weight2 = pto.tensor(weight_shape, pto.DT_FP16, "weight_shape2")
     ffn_weight3 = pto.tensor(weight_shape, pto.DT_FP16, "weight_shape3")
     ffn_out = pto.tensor(out_shape, pto.DT_FP32, "ffn_out")
-    
+
     dynamic_ffn(hidden_states=hidden_states,
                 ffn_weight1=ffn_weight1,
                 ffn_weight2=ffn_weight2,

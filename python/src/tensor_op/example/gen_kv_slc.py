@@ -58,7 +58,7 @@ def kv_slc_compute(**kwargs):
                 with pto.loop_function("LOOP_L1_slcIdx", "slc_idx", pto.loop_range(0, s, 1)) as slc_idx_loop:
                     for slc_idx in slc_idx_loop:
                         def inside_slc_idx_loop(slc_idx):
-                            with pto.loop_function("LOOP_L2_kvSlcIdx", "nkv_idx", 
+                            with pto.loop_function("LOOP_L2_kvSlcIdx", "nkv_idx",
                             pto.loop_range(0, n2, 1)) as nkv_idx_loop:
                                 for nkv_idx in nkv_idx_loop:
                                     def inside_nkv_idx_loop(nkv_idx):
@@ -74,7 +74,7 @@ def kv_slc_compute(**kwargs):
                                                 topk_index = None
                                                 if debug:
                                                     pto.set_vec_tile_shapes(1, 1, NUM_16)
-                                                    topk_index = pto.get_tensor_data(top_k_indcies, [batch_idx, slc_idx, 
+                                                    topk_index = pto.get_tensor_data(top_k_indcies, [batch_idx, slc_idx,
                                                     pto.symbolic_scalar(top_k_idx - front)])
                                                 else:
                                                     topk_index = pto.get_tensor_data(top_k_indcies, [batch_idx, slc_idx, 
@@ -86,31 +86,31 @@ def kv_slc_compute(**kwargs):
                                             slc_block_idx = pto.get_tensor_data(block_table, 
                                             [batch_idx, block_idx_in_batch])
                                             pto.set_vec_tile_shapes(v0_tile[0], v0_tile[1])
-                                            kv_slc_block = pto.view(kv_nope_cache, [l_prime, kv_lora_rank], 
+                                            kv_slc_block = pto.view(kv_nope_cache, [l_prime, kv_lora_rank],
                                             [slc_block_idx * block_size + tail, nkv_idx * kv_lora_rank])
-                                            k_rope_slc_block = pto.view(k_rope_cache, [l_prime, rope_dim], 
+                                            k_rope_slc_block = pto.view(k_rope_cache, [l_prime, rope_dim],
                                             [slc_block_idx * block_size + tail, nkv_idx * rope_dim])
                                             pto.set_vec_tile_shapes(v0_tile[0], v0_tile[1])
-                                            kv_slc_block_fp32 = pto.cast(kv_slc_block, pto.DataType.DT_FP32)
-                                            k_rope_slc_block_fp32 = pto.cast(k_rope_slc_block, pto.DataType.DT_FP32)
+                                            kv_slc_block_fp32 = pto.cast(kv_slc_block, pto.DT_FP32)
+                                            k_rope_slc_block_fp32 = pto.cast(k_rope_slc_block, pto.DT_FP32)
                                             pto.set_vec_tile_shapes(v0_tile[0], v0_tile[1])
-                                            kv_slc_block_tiled = pto.mul_s(kv_slc_block_fp32, 
+                                            kv_slc_block_tiled = pto.mul_s(kv_slc_block_fp32,
                                             pto.element(kv_slc_block_fp32.get_dtype(), float(1)))
-                                            k_rope_slc_block_tiled = pto.mul_s(k_rope_slc_block_fp32, 
+                                            k_rope_slc_block_tiled = pto.mul_s(k_rope_slc_block_fp32,
                                             pto.element(k_rope_slc_block_fp32.get_dtype(), float(1)))
                                             pto.set_vec_tile_shapes(v0_tile[0], v0_tile[1])
                                             kv_slc_block_fp16 = pto.cast(kv_slc_block_tiled, k_slc_out.get_dtype())
-                                            k_rope_slc_block_fp16 = pto.cast(k_rope_slc_block_tiled, 
+                                            k_rope_slc_block_fp16 = pto.cast(k_rope_slc_block_tiled,
                                             v_slc_out.get_dtype())
                                             pto.set_vec_tile_shapes(v0_tile[0], v0_tile[1])
-                                            output_axis1_value = batch_idx * s * n2 * topk * l_prime 
-                                            + slc_idx * n2 * topk * l_prime 
+                                            output_axis1_value = batch_idx * s * n2 * topk * l_prime
+                                            + slc_idx * n2 * topk * l_prime
                                             + nkv_idx * topk * l_prime + top_k_idx * l_prime
                                             pto.assemble(kv_slc_block_fp16, [output_axis1_value, 0], k_slc_out)
-                                            pto.assemble(k_rope_slc_block_fp16, 
+                                            pto.assemble(k_rope_slc_block_fp16,
                                             [output_axis1_value, kv_lora_rank], k_slc_out)
                                             pto.assemble(kv_slc_block_fp16, [output_axis1_value, 0], v_slc_out)
-                                        pto.set_tensor_data(pto.symbolic_scalar(slc_seq_len), 
+                                        pto.set_tensor_data(pto.symbolic_scalar(slc_seq_len),
                                         [batch_idx, slc_idx], kv_slc_act_seqs)
                                     inside_nkv_idx_loop(slc_idx)
                         inside_slc_idx_loop(slc_idx)
@@ -141,21 +141,21 @@ if __name__ == '__main__':
     max_seq_all_batch = max(seq)
     max_block_num_per_batch = math.ceil(max_seq_all_batch / block_size)
 
-    top_k_indcies = pto.tensor([b, s, topk - front - near], pto.DataType.DT_INT32, "top_k_indcies")
-    top_k_tensor_shape = pto.tensor([b, s], pto.DataType.DT_INT32, "top_k_tensor_shape")
-    kv_nope_cache = pto.tensor([int(block_num * block_size), n2 * kv_lora_rank], pto.DataType.DT_FP16, "kv_nope_cache")
-    k_rope_cache = pto.tensor([int(block_num * block_size), n2 * rope_dim], pto.DataType.DT_FP16, "k_rope_cache")
-    kv_act_seqs = pto.tensor([b], pto.DataType.DT_INT32, "kv_act_seqs")
-    block_table = pto.tensor([b, max_block_num_per_batch], pto.DataType.DT_INT32, "block_table")
-    k_slc_out = pto.tensor([b * s * n2 * topk * l_prime, rope_dim + kv_lora_rank], pto.DataType.DT_FP16, "k_slc_out")
-    v_slc_out = pto.tensor([b * s * n2 * topk * l_prime, kv_lora_rank], pto.DataType.DT_FP16, "v_slc_out")
-    kv_slc_act_seqs = pto.tensor([b, s], pto.DataType.DT_INT32, "kv_slc_act_seqs")
+    top_k_indcies = pto.tensor([b, s, topk - front - near], pto.DT_INT32, "top_k_indcies")
+    top_k_tensor_shape = pto.tensor([b, s], pto.DT_INT32, "top_k_tensor_shape")
+    kv_nope_cache = pto.tensor([int(block_num * block_size), n2 * kv_lora_rank], pto.DT_FP16, "kv_nope_cache")
+    k_rope_cache = pto.tensor([int(block_num * block_size), n2 * rope_dim], pto.DT_FP16, "k_rope_cache")
+    kv_act_seqs = pto.tensor([b], pto.DT_INT32, "kv_act_seqs")
+    block_table = pto.tensor([b, max_block_num_per_batch], pto.DT_INT32, "block_table")
+    k_slc_out = pto.tensor([b * s * n2 * topk * l_prime, rope_dim + kv_lora_rank], pto.DT_FP16, "k_slc_out")
+    v_slc_out = pto.tensor([b * s * n2 * topk * l_prime, kv_lora_rank], pto.DT_FP16, "v_slc_out")
+    kv_slc_act_seqs = pto.tensor([b, s], pto.DT_INT32, "kv_slc_act_seqs")
     input_tensors = [
-        top_k_indcies, top_k_tensor_shape, kv_nope_cache, 
+        top_k_indcies, top_k_tensor_shape, kv_nope_cache,
         k_rope_cache, kv_act_seqs, block_table
         ]
     output_tensors = [k_slc_out, v_slc_out, kv_slc_act_seqs]
-    with pto.dyn_function("main_slc", input_tensors, output_tensors):
+    with pto.function("main_slc", input_tensors, output_tensors):
         kv_slc_compute(
             top_k_indcies=top_k_indcies,
             top_k_tensor_shape=top_k_tensor_shape,
@@ -174,5 +174,3 @@ if __name__ == '__main__':
             kv_slc_act_seqs=kv_slc_act_seqs,
             tile_config=tile_config
         )
-
-

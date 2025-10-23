@@ -472,7 +472,9 @@ SymbolicScalar SymbolicScalar::operator()(const std::vector<SymbolicScalar> &arg
 
 std::string SymbolicScalar::Dump() const {
     std::string buf;
-    raw_->DumpBuffer(buf);
+    if (raw_) {
+        raw_->DumpBuffer(buf);
+    }
     return buf;
 }
 

@@ -12,9 +12,11 @@
 """
 import pto
 
+def test_element():
+    a = pto.Element(pto.DT_FP32, 1.0)
+    assert a.dtype == pto.DT_FP32
+    assert a.value == 1.0
 
-def test_node_types():
-    # Make sure all node types are defined
-    assert isinstance(pto.NodeType.LOCAL, pto.NodeType)
-    assert isinstance(pto.NodeType.INCAST, pto.NodeType)
-    assert isinstance(pto.NodeType.OUTCAST, pto.NodeType)
+    b = pto.Element(pto.DT_INT32, 1)
+    assert b.dtype == pto.DT_INT32
+    assert b.value == 1

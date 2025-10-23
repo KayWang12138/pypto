@@ -90,7 +90,7 @@ def mla_pre(**kwargs) -> List[pto.tensor]:
     q_lora_rank = w_dq.shape[1]
 
     d_type = token_x.get_dtype()
-    d_type_quant_out = pto.data_type.DT_INT32 if is_quant else d_type
+    d_type_quant_out = pto.DT_INT32 if is_quant else d_type
     qkv_pre_res = []
 
     input_tensor = pto.reshape(token_x, [bs, h])  # [b,s,h] -> [b*s,h]
@@ -105,18 +105,18 @@ def mla_pre(**kwargs) -> List[pto.tensor]:
     if split_k:
         def inside_if_split_k():
             nonlocal q_mm_res
-            tmp_c = pto.tensor(pto.data_type.DT_FP32, [bs, q_lora_rank], "tmp_q")
+            tmp_c = pto.tensor(pto.DT_FP32, [bs, q_lora_rank], "tmp_q")
             pto.set_vec_tile_shapes(min(32, bs), 128)  # 32, 128
-            tmp_c[:] = pto.mul_s(tmp_c, pto.element(pto.data_type.DT_FP32, 0.0))
+            tmp_c[:] = pto.mul_s(tmp_c, pto.element(pto.DT_FP32, 0.0))
             matmul_result = []
             k_split = 7
             k_split_size = h // k_split
             for ki in range(k_split):
                 input_mk = pto.view(input_tensor, [bs, k_split_size], [0, ki * k_split_size])
                 input_kn = pto.view(w_dq, [k_split_size, q_lora_rank], [ki * k_split_size, 0])
-                tmp = pto.matmul(pto.data_type.DT_FP32, input_mk, input_kn)  # [b*s,h/2] * [h/2,q_lora_rank]
+                tmp = pto.matmul(pto.DT_FP32, input_mk, input_kn)  # [b*s,h/2] * [h/2,q_lora_rank]
                 matmul_result.append(tmp)
-            q_mm_res_f32 = pto.reduce(matmul_result, pto.reduce_mode.ATOMIC_ADD)
+            q_mm_res_f32 = pto.reduce(matmul_result, pto.ReduceMode.ATOMIC_ADD)
             pto.set_vec_tile_shapes(min(32, bs), 128)  # 32, 128
             q_mm_res[:] = pto.cast(q_mm_res_f32, d_type)
         inside_if_split_k()
@@ -152,23 +152,23 @@ def mla_pre(**kwargs) -> List[pto.tensor]:
             nonlocal compressed_kv
             pto.set_vec_tile_shapes(min(32, bs), 64)  # 32, 64
             kv_n = w_dkv_kr.shape[1]
-            tmp_c_kv = pto.tensor([bs, kv_n], pto.data_type.DT_FP32, "tmp_kv")
-            tmp_c_kv[:] = (pto.mul_s(tmp_c_kv, pto.element(pto.data_type.DT_FP32, 0.0)))
+            tmp_c_kv = pto.tensor([bs, kv_n], pto.DT_FP32, "tmp_kv")
+            tmp_c_kv[:] = (pto.mul_s(tmp_c_kv, pto.element(pto.DT_FP32, 0.0)))
             matmul_result_kv = []
             k_split_kv = 7
             k_split_size_kv = h // k_split_kv
             for ki in range(k_split_kv):
                 input_mk = pto.view(input_tensor, [bs, k_split_size_kv], [0, ki * k_split_size_kv])
                 input_kn = pto.view(w_dkv_kr, [k_split_size_kv, kv_n], [ki * k_split_size_kv, 0])
-                tmp = pto.matmul(pto.data_type.DT_FP32, input_mk, input_kn)  # [b*s,h/2] * [h/2,kv_n] = [b*s,kv_n]
+                tmp = pto.matmul(pto.DT_FP32, input_mk, input_kn)  # [b*s,h/2] * [h/2,kv_n] = [b*s,kv_n]
                 matmul_result_kv.append(tmp)
-            kv_mm_res_f32 = pto.reduce(matmul_result_kv, pto.reduce_mode.ATOMIC_ADD)
+            kv_mm_res_f32 = pto.reduce(matmul_result_kv, pto.ReduceMode.ATOMIC_ADD)
             pto.set_vec_tile_shapes(min(32, bs), 64)  # 32, 64
             compressed_kv[:] = pto.cast(kv_mm_res_f32, d_type)
         inside_if_split()
     else:
         compressed_kv[:] = pto.matmul(d_type, input_tensor, w_dkv_kr)  # bf16
-    
+
     compressed_kv_res = pto.reshape(compressed_kv, [b, s, w_dkv_kr.shape[1]])
     qkv_pre_res.append(compressed_kv_res)
 
@@ -214,7 +214,7 @@ def attention(**kwargs):
     epsilon_ckv = kwargs.get("epsilon_ckv")
     cache_mode = kwargs.get("cache_mode")
 
-    pa_format = pto.tile_op_format.TILEOP_NZ if cache_mode == "PA_NZ" else pto.tile_op_format.TILEOP_ND
+    pa_format = pto.TileOpFormat.TILEOP_NZ if cache_mode == "PA_NZ" else pto.TileOpFormat.TILEOP_ND
     dtype = token_x.get_dtype()
     b = token_x.shape[0]
     s = token_x.shape[1]  # s=1
@@ -252,7 +252,7 @@ def attention(**kwargs):
     output_tensors = [post_out]
     inplace_tensors = [[kv_cache_out, kv_cache], [kr_cache_out, kr_cache]]
     pto.set_pass_config("PVC2_OOO", "InferMemoryConflict", "DISABLE_PASS", True)
-    with pto.dyn_function("main", input_tensors, output_tensors, inplace_tensors):
+    with pto.function("main", input_tensors, output_tensors, inplace_tensors):
         def inside_main_function():
             nonlocal n_tile, pa_out, kv_cache_out, kr_cache_out
             ########## mla_prolog ##########
@@ -300,7 +300,7 @@ def attention(**kwargs):
                             pto.set_semantic_label("Quant")
                             tile_shape = [min(NUM_32, tile_bs), NUM_64]
                             pto.set_vec_tile_shapes(*tile_shape)
-                            q_tmp_fp32 = pto.cast(q, pto.DataType.DT_FP32)
+                            q_tmp_fp32 = pto.cast(q, pto.DT_FP32)
                             q_tmp_dequant_scale = q_kv[2]
                             q_tmp_dequant_per_token = pto.mul(q_tmp_fp32, q_tmp_dequant_scale)
                             q_tmp_dequant_channel = pto.mul(q_tmp_dequant_per_token, dequant_scale_w_uq_qr)
@@ -459,9 +459,9 @@ def attention(**kwargs):
                                 def inside_n_idx_loop(b_idx, n_idx, bn_per_batch):
                                     nonlocal pa_out, n_tile
                                     cur_n_tile = n_tile
-                                    oi_update = pto.tensor([n_tile, d_n], pto.data_type.DT_FP32, "oiUpdate")
-                                    li_update = pto.tensor([n_tile, 1], pto.data_type.DT_FP32, "liUpdate")
-                                    mi_update = pto.tensor([n_tile, 1], pto.data_type.DT_FP32, "miUpdate")
+                                    oi_update = pto.tensor([n_tile, d_n], pto.DT_FP32, "oiUpdate")
+                                    li_update = pto.tensor([n_tile, 1], pto.DT_FP32, "liUpdate")
+                                    mi_update = pto.tensor([n_tile, 1], pto.DT_FP32, "miUpdate")
                                     # 当前curOffset没放到更内层循环，避免重复bnPerBatch次的DAssemble操作
                                     cur_offset = b_idx * n_q + n_idx * n_tile
                                     oi_offset = [cur_offset, 0]  # (B*N*S, d)
@@ -508,12 +508,12 @@ def attention(**kwargs):
                                                 pto.set_semantic_label("paQkMM")
                                                 pto.set_matrix_size([qi.shape[0], 0, kj.shape[0]])
                                                 # (curNTile, dN+dR), (curS2Tile, dN+dR) -> (curNTile, curS2Tile)
-                                                sij = pto.matmul(pto.data_type.DT_FP32, qi, kj, False, True)
+                                                sij = pto.matmul(pto.DT_FP32, qi, kj, False, True)
                                                 pto.set_semantic_label("paQkvec1")
                                                 pto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
                                                 ## -> (curNTile, curS2Tile)
                                                 sij_scale = pto.mul_s(
-                                                    sij, pto.element(pto.data_type.DT_FP32, float(softmax_scale)))
+                                                    sij, pto.element(pto.DT_FP32, float(softmax_scale)))
                                                 # (curNTile, curS2Tile) -> (curNTile, 1)
                                                 tilda_mij = pto.row_max_single(sij_scale)
                                                 tsub = pto.sub(sij_scale, tilda_mij)
@@ -532,7 +532,7 @@ def attention(**kwargs):
                                                         pto.set_matrix_size(
                                                             [tilda_pij_f16.shape[0], tilda_pij_f16.shape[1],
                                                              vj.shape[1]])
-                                                        oi_tmp = pto.matmul(pto.DataType.DT_FP32, tilda_pij_f16,
+                                                        oi_tmp = pto.matmul(pto.DT_FP32, tilda_pij_f16,
                                                                             vj, False, False)
                                                         pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                                                         if pto.cond(pto.is_loop_end(bn, bn_per_batch)):
@@ -575,7 +575,7 @@ def attention(**kwargs):
                                                         pto.set_matrix_size(
                                                             [tilda_pij_f16.shape[0],
                                                              tilda_pij_f16.shape[1], vj.shape[1]])
-                                                        q1 = pto.matmul(pto.DataType.DT_FP32, tilda_pij_f16, vj,
+                                                        q1 = pto.matmul(pto.DT_FP32, tilda_pij_f16, vj,
                                                                         False, False)
                                                         pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                                                         # (nTileCur, dN), (nTileCur, 1) -> (nTileCur, dN)
@@ -627,7 +627,7 @@ def attention(**kwargs):
 
                         r1_res = pto.reshape(post_in_unit, [tile_b * s, n, kv_lora_rank])  # 128个
                         pto.set_vec_tile_shapes(min(NUM_32, tile_b * s), NUM_2, kv_lora_rank)
-                        cast1 = pto.cast(r1_res, pto.data_type.DT_FP16)
+                        cast1 = pto.cast(r1_res, pto.DT_FP16)
                         t1_res = pto.transpose(cast1, [0, 1])  # (n, tileB * s, kvLoraRank)    # 128个
 
                         pto.set_cube_tile_shapes([min(NUM_32, tile_b * s), min(NUM_32, tile_b * s)],
@@ -650,14 +650,14 @@ def attention(**kwargs):
                             [min(32, tile_b * s), min(32, tile_b * s)],
                             [min(512, n * v_head_dim), min(512, n * v_head_dim)],
                             [min(64, h), min(64, h)], True)  # raw  tileB*1  16k  7168
-                        res = pto.matmul(pto.data_type.DT_INT32, quantized_a, weight_o)
+                        res = pto.matmul(pto.DT_INT32, quantized_a, weight_o)
 
                         pto.set_vec_tile_shapes(min(NUM_32, tile_b * s), min(NUM_32, h))  # raw (tileB*1, 7168)
-                        res[:] = pto.cast(res, pto.data_type.DT_FP32)
+                        res[:] = pto.cast(res, pto.DT_FP32)
                         res[:] = pto.mul(res, dequant_scale_a)   # (B*s, 1)
                         weight_o_scale_w_2dim = pto.reshape(weight_o_scale_w, [1, h])
                         res[:] = pto.mul(res, weight_o_scale_w_2dim)   # (1, h)  # 224个
-                        bmm5_res = pto.cast(res, pto.data_type.DT_FP16, pto.cast_mode.CAST_RINT)
+                        bmm5_res = pto.cast(res, pto.DT_FP16, pto.CastMode.CAST_RINT)
                         post_out_tmp = pto.reshape(bmm5_res, [tile_b, s, h])
 
                         dyn_offset = [b_idx * tile_b, 0, 0]
@@ -702,8 +702,8 @@ def test_dynamic_attention(params, pa_tile_config, is_quant=False, cache_mode="B
     max_seq_all_batch = max(atc_seqs)
     max_block_num_per_batch = ceil_div(max_seq_all_batch, block_size)
 
-    d_type = pto.data_type.DT_FP16
-    d_type_quant_in = pto.data_type.DT_INT8 if is_quant else d_type
+    d_type = pto.DT_FP16
+    d_type_quant_in = pto.DT_INT8 if is_quant else d_type
 
     x_shape = [b, s, h]
     w_qa_shape = [h, q_lora_rank]
@@ -733,15 +733,15 @@ def test_dynamic_attention(params, pa_tile_config, is_quant=False, cache_mode="B
     if is_quant:
         w_qb_scale_shape = [1, n * q_head_dim]
 
-    weight_format = pto.tile_op_format.TILEOP_NZ if False else pto.tile_op_format.TILEOP_ND  # nz = false
-    pa_format = pto.tile_op_format.TILEOP_NZ if cache_mode == "PA_NZ" else pto.tile_op_format.TILEOP_ND
+    weight_format = pto.TileOpFormat.TILEOP_NZ if False else pto.TileOpFormat.TILEOP_ND  # nz = false
+    pa_format = pto.TileOpFormat.TILEOP_NZ if cache_mode == "PA_NZ" else pto.TileOpFormat.TILEOP_ND
     #mla_prolog
     x = pto.tensor(x_shape, d_type, "x")
     w_dq = pto.tensor(w_qa_shape, d_type, "wDq", weight_format)
     w_uq_qr = pto.tensor(w_qb_shape, d_type_quant_in, "wUqQr", weight_format)
     if use_pre_fetch:
-        w_dq.set_cache_policy(pto.cache_policy.PREFETCH, True)
-        w_uq_qr.set_cache_policy(pto.cache_policy.PREFETCH, True)
+        w_dq.set_cache_policy(pto.CachePolicy.PREFETCH, True)
+        w_uq_qr.set_cache_policy(pto.CachePolicy.PREFETCH, True)
 
     w_dkv_kr = pto.tensor(w_kv_a_shape, d_type, "wDkvKr", weight_format)
     w_uk = pto.tensor(w_kv_b_k_shape, d_type, "wUk", weight_format)
@@ -749,7 +749,7 @@ def test_dynamic_attention(params, pa_tile_config, is_quant=False, cache_mode="B
     gamma_ckv = pto.tensor(gamma_ckv_shape, d_type, "gamma_ckv")
     cos = pto.tensor(cos_shape, d_type, "cos")
     sin = pto.tensor(cos_shape, d_type, "sin")
-    kv_len = pto.tensor(kv_len_shape, pto.data_type.DT_INT64, "kv_len")
+    kv_len = pto.tensor(kv_len_shape, pto.DT_INT64, "kv_len")
     kv_cache = pto.tensor(kv_cache_shape, d_type, "kv_cache", pa_format)
     kr_cache = pto.tensor(kr_cache_shape, d_type, "kr_cache", pa_format)
 
@@ -761,14 +761,14 @@ def test_dynamic_attention(params, pa_tile_config, is_quant=False, cache_mode="B
     fake_out = pto.tensor([b * s, n, qk_nope_head_dim], d_type, "fakeOut")
     fake_out1 = pto.tensor([n, b * s, qk_nope_head_dim], d_type, "fakeOut1")
     # pa
-    block_table = pto.tensor([b, max_block_num_per_batch], pto.data_type.DT_INT32, "blockTable")
-    act_seqs = pto.tensor([b], pto.data_type.DT_INT32, "actSeqs")
+    block_table = pto.tensor([b, max_block_num_per_batch], pto.DT_INT32, "blockTable")
+    act_seqs = pto.tensor([b], pto.DT_INT32, "actSeqs")
     #out mla
-    pa_out = pto.tensor([b * n * s, kv_lora_rank], pto.data_type.DT_FP32, "paOut")
+    pa_out = pto.tensor([b * n * s, kv_lora_rank], pto.DT_FP32, "paOut")
     #post
     weight_uv = pto.tensor([n, kv_lora_rank, v_head_dim], d_type, "weightUV")
-    weight_o = pto.tensor([n * v_head_dim, h], pto.data_type.DT_INT8, "weightO")
-    weight_o_scale_w = pto.tensor([1, h], pto.data_type.DT_FP32, "weightOScaleW")
+    weight_o = pto.tensor([n * v_head_dim, h], pto.DT_INT8, "weightO")
+    weight_o_scale_w = pto.tensor([1, h], pto.DT_FP32, "weightOScaleW")
     # output
     post_out = pto.tensor([b, s, h], d_type, "postOut")
 

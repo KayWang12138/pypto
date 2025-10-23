@@ -18,7 +18,7 @@ import pto
     reason="RuntimeError: ASSERTION FAILED: currentFunctionPtr_->IsGraphType(GraphType::BLOCK_GRAPH)"
 )
 def test_pybind_context_manager():
-    dtype = pto.data_type.DT_FP16
+    dtype = pto.DT_FP16
     shape = (8, 8)
     a = pto.tensor(shape, dtype, "tensor_a")
     b = pto.tensor(shape, dtype, "tensor_a")

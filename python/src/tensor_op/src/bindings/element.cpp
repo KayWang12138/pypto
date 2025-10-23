@@ -28,10 +28,10 @@ void BindElement(py::module &m) {
         .def(py::init<DataType, int64_t>(), py::arg("type"), py::arg("sData"))
         .def(py::init<DataType, uint64_t>(), py::arg("type"), py::arg("uData"))
         .def(py::init<DataType, double>(), py::arg("type"), py::arg("fData"))
-        .def("get_data_type", &Element::GetDataType)
-        .def("get_signed_data", &Element::GetSignedData)
-        .def("get_unsigned_data", &Element::GetUnsignedData)
-        .def("get_float_data", &Element::GetFloatData);
+        .def("_get_data_type", &Element::GetDataType)
+        .def("_get_signed_data", &Element::GetSignedData)
+        .def("_get_unsigned_data", &Element::GetUnsignedData)
+        .def("_get_float_data", &Element::GetFloatData);
 }
 
 } // namespace pypto

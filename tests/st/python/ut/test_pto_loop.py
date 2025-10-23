@@ -14,7 +14,7 @@ import pto
 
 
 def init_tensors():
-    dtype = pto.DataType.DT_FP32
+    dtype = pto.DT_FP32
     shape = (128, 128)
     a = pto.tensor(shape, dtype, "a")
     b = pto.tensor(shape, dtype, "b")
@@ -26,7 +26,7 @@ def test_pto_loop_end_only():
     a, b, c = init_tensors()
     pto.reset()
 
-    with pto.dyn_function("MAIN", [a, b], [c]):
+    with pto.function("MAIN", [a, b], [c]):
         pto.set_vec_tile_shapes(16, 16)
 
         for k in pto.loop(10):
@@ -50,7 +50,7 @@ def test_pto_loop_end_only_with_custom_name():
     a, b, c = init_tensors()
     pto.reset()
 
-    with pto.dyn_function("MAIN", [a, b], [c]):
+    with pto.function("MAIN", [a, b], [c]):
         pto.set_vec_tile_shapes(16, 16)
 
         for k in pto.loop(10, name="LOOP"):
@@ -74,7 +74,7 @@ def test_pto_loop_start_end():
     a, b, c = init_tensors()
     pto.reset()
 
-    with pto.dyn_function("MAIN", [a, b], [c]):
+    with pto.function("MAIN", [a, b], [c]):
         pto.set_vec_tile_shapes(16, 16)
 
         for k in pto.loop(1, 10):
@@ -98,7 +98,7 @@ def test_pto_loop_start_end_step():
     a, b, c = init_tensors()
     pto.reset()
 
-    with pto.dyn_function("MAIN", [a, b], [c]):
+    with pto.function("MAIN", [a, b], [c]):
         pto.set_vec_tile_shapes(16, 16)
 
         for k in pto.loop(1, 10, 2):
@@ -122,7 +122,7 @@ def test_pto_loop_start_end_step_and_name():
     a, b, c = init_tensors()
     pto.reset()
 
-    with pto.dyn_function("MAIN", [a, b], [c]):
+    with pto.function("MAIN", [a, b], [c]):
         pto.set_vec_tile_shapes(16, 16)
 
         for k in pto.loop(1, 10, 2, name="LOOP"):
@@ -146,10 +146,10 @@ def test_pto_loop_start_end_step_and_name_unroll():
     a, b, c = init_tensors()
     pto.reset()
 
-    with pto.dyn_function("MAIN", [a, b], [c]):
+    with pto.function("MAIN", [a, b], [c]):
         pto.set_vec_tile_shapes(16, 16)
 
-        for k in pto.loop(1, 10, 2, name="LOOP", unroll_list=pto.powers_of_2(1)):
+        for k in pto.loop(1, 10, 2, name="LOOP", unroll_list={1}):
             b.move(pto.add(a, a))
 
             if pto.cond(k < 5):
@@ -162,7 +162,7 @@ def test_pto_loop_unroll_n_submit_before_loop():
     a, b, c = init_tensors()
     pto.reset()
 
-    with pto.dyn_function("MAIN", [a, b], [c]):
+    with pto.function("MAIN", [a, b], [c]):
         pto.set_vec_tile_shapes(16, 16)
 
         for k in pto.loop(

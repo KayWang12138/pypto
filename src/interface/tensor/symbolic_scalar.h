@@ -309,7 +309,6 @@ public:
             "+",
             "-",
             "!",
-
             "+",
             "-",
             "*",
@@ -495,6 +494,18 @@ private:
                 buffer += ")";
             } else if (opcode_ == SymbolicOpcode::T_BOP_MIN) {
                 buffer += "RUNTIME_Min(";
+                operandList_[0]->DumpBuffer(buffer);
+                buffer += ", ";
+                operandList_[1]->DumpBuffer(buffer);
+                buffer += ")";
+            } else if (opcode_ == SymbolicOpcode::T_BOP_EQ) {
+                buffer += "RUNTIME_Eq(";
+                operandList_[0]->DumpBuffer(buffer);
+                buffer += ", ";
+                operandList_[1]->DumpBuffer(buffer);
+                buffer += ")";
+            } else if (opcode_ == SymbolicOpcode::T_BOP_NE) {
+                buffer += "RUNTIME_Ne(";
                 operandList_[0]->DumpBuffer(buffer);
                 buffer += ", ";
                 operandList_[1]->DumpBuffer(buffer);

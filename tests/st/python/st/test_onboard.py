@@ -24,11 +24,11 @@ def test_device_run_data_from_host_numpy():
 
     pto.device_init()
 
-    a = pto.tensor((n, m, k), pto.data_type.DT_FP32, "PTO_TENSOR_a")
-    b = pto.tensor((n, m, k), pto.data_type.DT_FP32, "PTO_TENSOR_b")
+    a = pto.tensor((n, m, k), pto.DT_FP32, "PTO_TENSOR_a")
+    b = pto.tensor((n, m, k), pto.DT_FP32, "PTO_TENSOR_b")
 
     pto.set_vec_tile_shapes(tiling, tiling, tiling)
-    with pto.dyn_function("MAIN", [a], [b]):
+    with pto.function("MAIN", [a], [b]):
         with pto.loop_function("s0", "idx", pto.loop_range(10)) as rlf:
             for idx in rlf:
                 if pto.cond(idx == 0):
@@ -55,11 +55,11 @@ def test_device_run_data_from_host_torch():
 
     pto.device_init()
 
-    a = pto.tensor((n, m), pto.data_type.DT_FP32, "PTO_TENSOR_a")
-    b = pto.tensor((n, m), pto.data_type.DT_FP32, "PTO_TENSOR_b")
+    a = pto.tensor((n, m), pto.DT_FP32, "PTO_TENSOR_a")
+    b = pto.tensor((n, m), pto.DT_FP32, "PTO_TENSOR_b")
 
     pto.set_vec_tile_shapes(tiling, tiling)
-    with pto.dyn_function("MAIN", [a], [b]):
+    with pto.function("MAIN", [a], [b]):
         with pto.loop_function("s0", "k", pto.loop_range(10)) as rlf:
             for k in rlf:
                 if pto.cond(k == 0):
@@ -86,11 +86,11 @@ def test_device_run_data_from_host():
 
     pto.device_init()
 
-    a = pto.tensor((n, m), pto.data_type.DT_INT32, "PTO_TENSOR_a")
-    b = pto.tensor((n, m), pto.data_type.DT_INT32, "PTO_TENSOR_b")
+    a = pto.tensor((n, m), pto.DT_INT32, "PTO_TENSOR_a")
+    b = pto.tensor((n, m), pto.DT_INT32, "PTO_TENSOR_b")
 
     pto.set_vec_tile_shapes(tiling, tiling)
-    with pto.dyn_function("MAIN", [a], [b]):
+    with pto.function("MAIN", [a], [b]):
         with pto.loop_function("s0", "k", pto.loop_range(10)) as rlf:
             for k in rlf:
                 if pto.cond(k == 0):
@@ -123,10 +123,10 @@ def test_device_run_data_from_device():
     # def dynamic function
     @pto.jit
     def cust_dyn_func():
-        a = pto.tensor((n, m), pto.data_type.DT_INT32, "PTO_TENSOR_a_cust")
-        b = pto.tensor((n, m), pto.data_type.DT_INT32, "PTO_TENSOR_b_cust")
+        a = pto.tensor((n, m), pto.DT_INT32, "PTO_TENSOR_a_cust")
+        b = pto.tensor((n, m), pto.DT_INT32, "PTO_TENSOR_b_cust")
         pto.set_vec_tile_shapes(tiling, tiling)
-        with pto.dyn_function("MAIN", [a], [b]):
+        with pto.function("MAIN", [a], [b]):
             with pto.loop_function("s0", "k", pto.loop_range(10)) as rlf:
                 for k in rlf:
                     if pto.cond(k == 0):
@@ -179,18 +179,18 @@ def test_device_run_data_from_device_mix_nodep():
     # def dynamic function
     @pto.jit
     def matmul_add():
-        a = pto.tensor((n, k), pto.DataType.DT_INT8, 'a')
-        b = pto.tensor((k, m), pto.DataType.DT_INT8, 'b')
-        c = pto.tensor((n, m), pto.DataType.DT_INT32, 'c')
-        d = pto.tensor((n, m), pto.DataType.DT_INT32, 'd')
+        a = pto.tensor((n, k), pto.DT_INT8, 'a')
+        b = pto.tensor((k, m), pto.DT_INT8, 'b')
+        c = pto.tensor((n, m), pto.DT_INT32, 'c')
+        d = pto.tensor((n, m), pto.DT_INT32, 'd')
         pto.set_vec_tile_shapes(tiling, tiling)
         pto.set_cube_tile_shapes([tiling, tiling], [tiling, tiling], [tiling, tiling])
-        with pto.dyn_function("MAIN", [a, b, c], [d]):
+        with pto.function("MAIN", [a, b, c], [d]):
             with pto.loop_function("s0", "i", pto.loop_range(1)) as rlf:
                 for i in rlf:
                     a0 = pto.view(a, [n, k], [0, 0])
                     b0 = pto.view(b, [k, m], [0, 0])
-                    d.move(pto.add(pto.matmul(pto.DataType.DT_INT32, a0, b0), c))
+                    d.move(pto.add(pto.matmul(pto.DT_INT32, a0, b0), c))
                     del a0
                     del b0
 

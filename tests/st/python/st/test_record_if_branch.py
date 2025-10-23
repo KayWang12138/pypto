@@ -15,13 +15,13 @@ import sys
 import os
 
 def test_record_if_branch():
-    dtype = pto.data_type.DT_FP16
+    dtype = pto.DT_FP16
     shape = (32, 32)
     a = pto.tensor(shape, dtype, "tensor_a")
     b = pto.tensor(shape, dtype, "tensor_b")
     c = pto.tensor(shape, dtype, "tensor_c")
 
-    with pto.dyn_function("ADD_IF", [a, b], [c]):
+    with pto.function("ADD_IF", [a, b], [c]):
         pto.set_vec_tile_shapes(8, 8)
         loop_range = pto.loop_range(2)
         with pto.loop_function(

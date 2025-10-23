@@ -28,7 +28,7 @@ void bind_operation(py::module &m) {
     m.def("mul", [](const Tensor &left, const Tensor &right) { return npu::tile_fwk::Mul(left, right); }, "Tensor mul.");
     m.def("div", [](const Tensor &left, const Tensor &right) { return npu::tile_fwk::Div(left, right); }, "Tensor div.");
     m.def(
-        "View",
+        "view",
         [](const Tensor &operand, const std::vector<int64_t> &shapes, const py::sequence &offsets) {
             bool has_symbolic = false;
             for (const auto &item : offsets) {
@@ -56,7 +56,7 @@ void bind_operation(py::module &m) {
         py::arg("operand"), py::arg("shapes"), py::arg("offsets"),
         "Create a view of a tensor. The 'offsets' can contain symbolic scalars." );
     m.def(
-        "View",
+        "view",
         [](const Tensor &operand, const std::vector<int64_t> &shapes,
             const std::vector<SymbolicScalar> &newValidShapes, const std::vector<SymbolicScalar> &newOffsets) {
             return npu::tile_fwk::View(operand, shapes, newValidShapes, newOffsets); },
@@ -143,7 +143,7 @@ void bind_operation(py::module &m) {
         { return npu::tile_fwk::VectorDuplicate(src, dType, dstShape, validShape); },
         py::arg("src"), py::arg("dType"), py::arg("dstShape"), py::arg("validShape") = std::vector<SymbolicScalar>{},
         "Tensor vector duplicate.");
-    m.def("Reshape", [](const Tensor &input, const std::vector<int64_t> &dstShape,
+    m.def("reshape", [](const Tensor &input, const std::vector<int64_t> &dstShape,
         const std::vector<SymbolicScalar> validShape) { return npu::tile_fwk::Reshape(input, dstShape, validShape); },
         py::arg("input"), py::arg("dstShape"), py::arg("validShape") = std::vector<SymbolicScalar>{},
         "Tensor reshape.");
@@ -335,12 +335,6 @@ void bind_operation(py::module &m) {
         [](const Tensor &operand1, const Tensor &operand2) { return npu::tile_fwk::ScalarDiv(operand1, operand2); },
         py::arg("operand1"), py::arg("operand2"), "Tensor scalar div.");
     m.def(
-        "reduce",
-        [](const std::vector<Tensor> &aggregation, const ReduceMode reduce_mode) {
-            return npu::tile_fwk::Reduce(aggregation, reduce_mode);
-        },
-        py::arg("aggregation"), py::arg("reduce_mode"), "Tensor reduce.");
-    m.def(
         "max_pool",
         [](const Tensor &operand, const std::vector<int> &pools, const std::vector<int> &stride,
             const std::vector<int> &paddings) { return npu::tile_fwk::Maxpool(operand, pools, stride, paddings); },
@@ -478,13 +472,13 @@ void bind_operation(py::module &m) {
         py::arg("in"), py::arg("scale"), py::arg("combine_info"), py::arg("group"), "Tensor moe combine.");
 
     m.def(
-        "Assemble",
+        "assemble",
         [](const std::vector<std::pair<Tensor, std::vector<int64_t>>> &tensor_int_pairs) {
             return npu::tile_fwk::Assemble(tensor_int_pairs);
         },
         "Tensor assemble");
     m.def(
-        "Assemble",
+        "assemble",
         [](const Tensor &tensor, const std::vector<SymbolicScalar> &dynOffset, Tensor &dest) {
             npu::tile_fwk::Assemble(tensor, dynOffset, dest);
         },

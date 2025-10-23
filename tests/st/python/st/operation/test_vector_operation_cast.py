@@ -27,6 +27,6 @@ def test_tensor_cast():
         output_tensors,
         view_shape,
         tile_shape,
-        {"mode": pto.cast_mode.CAST_NONE},
+        {"mode": pto.CastMode.CAST_NONE},
     )
     test_case.exec(True)

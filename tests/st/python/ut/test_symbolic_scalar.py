@@ -16,14 +16,14 @@ import pto
 def test_init_symbolic_scalar_no_args():
     scalar = pto.symbolic_scalar()
 
-    assert scalar.concrete_valid() == False
+    assert scalar.is_concrete() == False
 
 
 def test_init_symbolic_scalar_value_arg():
     expected_value = 123
     scalar = pto.symbolic_scalar(expected_value)
 
-    assert scalar.concrete_valid() == True
+    assert scalar.is_concrete() == True
     assert scalar.concrete() == expected_value
 
 
@@ -31,42 +31,14 @@ def test_init_symbolic_scalar_name_value_args():
     expected_value = 123
     scalar = pto.symbolic_scalar("scalar", expected_value)
 
-    assert scalar.concrete_valid() == True
+    assert scalar.is_concrete() == True
     assert scalar.concrete() == expected_value
-
-
-def test_init_symbolic_scalar_not_less_than():
-    lower_bound = 100
-    scalar = pto.symbolic_scalar("scalar", pto.not_less_than(lower_bound))
-
-    assert scalar.concrete_valid() == False
-
-
-def test_init_symbolic_scalar_not_greater_than():
-    upper_bound = 200
-    scalar = pto.symbolic_scalar("scalar", pto.not_greater_than(upper_bound))
-
-    assert scalar.concrete_valid() == False
-
-
-def test_init_symbolic_scalar_not_less_than_not_greater_than():
-    lower_bound = 100
-    upper_bound = 200
-    scalar = pto.symbolic_scalar(
-        "scalar", pto.not_less_than(lower_bound), pto.not_greater_than(upper_bound)
-    )
-
-    assert scalar.concrete_valid() == False
 
 
 def test_symbolic_scalar_dump():
     scalar = pto.symbolic_scalar(10)
-    dump_str = scalar.dump()
-    dump_int = int(scalar)
-    assert isinstance(dump_str, str)
-    assert isinstance(dump_int, int)
-    assert dump_str == "10"
-    assert dump_int == 10
+    assert str(scalar) == "10"
+    assert int(scalar) == 10
 
 
 def test_symbolic_scalar_prop():
@@ -74,24 +46,21 @@ def test_symbolic_scalar_prop():
     assert scalar.is_symbol() == False
     assert scalar.is_expression() == False
     assert scalar.is_immediate() == True
-    assert scalar.is_valid() == True
-    assert scalar.concrete_valid() == True
+    assert scalar.is_concrete() == True
     assert scalar.concrete() == 10
 
     scalar2 = pto.symbolic_scalar("s")
     assert scalar2.is_symbol() == True
     assert scalar2.is_expression() == False
     assert scalar.is_immediate() == True
-    assert scalar.is_valid() == True
-    assert scalar2.concrete_valid() == False
+    assert scalar2.is_concrete() == False
 
     scalar3 = scalar < 2
     assert isinstance(scalar3, pto.symbolic_scalar)
     assert scalar3.is_symbol() == False
     assert scalar3.is_expression() == False
     assert scalar3.is_immediate() == True
-    assert scalar3.is_valid() == True
-    assert scalar3.concrete_valid() == True
+    assert scalar3.is_concrete() == True
     assert scalar3.concrete() == 0
 
     scalar4 = scalar2 < 2
@@ -99,8 +68,7 @@ def test_symbolic_scalar_prop():
     assert scalar4.is_symbol() == False
     assert scalar4.is_expression() == True
     assert scalar4.is_immediate() == False
-    assert scalar4.is_valid() == True
-    assert scalar4.concrete_valid() == False
+    assert scalar4.is_concrete() == False
 
 
 def test_symbolic_scalar_uniop():
@@ -115,3 +83,237 @@ def test_symbolic_scalar_uniop():
     assert pos_s.concrete() == 10
     assert neg_s.concrete() == -10
     assert not_s.concrete() == 0
+
+
+def test_binary_ops():
+
+    c = 10
+    x = pto.symbolic_scalar(10)
+    y = pto.symbolic_scalar('y')
+    z = pto.symbolic_scalar(20)
+
+    tests = [
+        (x + y, c + y, x + z, c + z, 30),
+        (y + x, y + c, z + x, z + c, 30),
+        (y - x, y - c, z - x, z - c, 10),
+        (x - y, c - y, x - z, c - z, -10),
+        (y * x, y * c, z * x, c * z, 200),
+        (x * y, c * y, x * z, z * c, 200),
+        (y / x, y / c, z / x, z / c, 2.0),
+        (x / y, c / y, x / z, c / z, 0),  # always floordiv
+        (y // x, y // c, z // x, z // c, 2.0),
+        (x // y, c // y, x // z, c // z, 0),
+        (y % x, y % c, z % x, z % c, 0),
+        (x % y, c % y, x % z, c % z, 10),
+        (y > x, y > c, z > x, z > c, True),
+        (x > y, c > y, x > z, c > z, False),
+        (y >= x, y >= c, z >= x, z >= c, True),
+        (x >= y, c >= y, x >= z, c >= z, False),
+        (y < x, y < c, z < x, z < c, False),
+        (x < y, c < y, x < z, c < z, True),
+        (y <= x, y <= c, z <= x, z <= c, False),
+        (x <= y, c <= y, x <= z, c <= z, True),
+        (y == x, y == c, z == x, z == c, False),
+        (x == y, c == y, x == z, c == z, False),
+        (x != y, c != y, z != x, z != c, True),
+        (y != x, y != c, x != z, c != z, True),
+    ]
+
+    for (expr, expr1, expr2, expr3, val) in tests:
+        assert isinstance(expr, pto.symbolic_scalar)
+        assert expr.is_symbol() == False
+        assert expr.is_expression() == True
+        assert expr.is_immediate() == False
+        assert expr.is_concrete() == False
+
+        assert isinstance(expr1, pto.symbolic_scalar)
+        assert expr1.is_symbol() == False
+        assert expr1.is_expression() == True
+        assert expr1.is_immediate() == False
+        assert expr1.is_concrete() == False
+
+        assert isinstance(expr2, pto.symbolic_scalar)
+        assert expr2.concrete() == val
+        assert expr2.is_symbol() == False
+        assert expr2.is_expression() == False
+        assert expr2.is_immediate() == True
+        assert expr2.is_concrete() == True
+
+        assert isinstance(expr3, pto.symbolic_scalar)
+        assert expr3.concrete() == val
+        assert expr3.is_symbol() == False
+        assert expr3.is_expression() == False
+        assert expr3.is_immediate() == True
+        assert expr3.is_concrete() == True
+
+
+def test_simplify():
+    t = pto.Tensor([-1, 10], pto.DT_BF16, "t")
+    y = t.shape[0] + 10 - t.shape[0]
+    assert isinstance(y, pto.symbolic_scalar)
+    assert y.concrete() == 10
+
+    a = pto.SymbolicScalar("a")
+    print(a.min(a + 1))
+    print(a.min(a + 1) == a)
+    assert (a.min(a + 1) == a)
+    assert (a.max(a + 1) == a + 1)
+
+
+def test_symbolic_scalar_add():
+    ten = pto.symbolic_scalar("10", 10)
+    twenty = pto.symbolic_scalar("20", 20)
+    thirty = pto.symbolic_scalar("30", 30)
+
+    assert ten + twenty == thirty
+
+
+def test_symbolic_scalar_sub():
+    ten = pto.symbolic_scalar("10", 10)
+    twenty = pto.symbolic_scalar("20", 20)
+    thirty = pto.symbolic_scalar("30", 30)
+
+    assert twenty == thirty - ten
+
+
+def test_symbolic_scalar_mul():
+    ten = pto.symbolic_scalar("10", 10)
+    two = pto.symbolic_scalar("2", 3)
+    assert ten * two == pto.symbolic_scalar("20", 30)
+
+
+def test_symbolic_scalar_div():
+    ten = pto.symbolic_scalar("10", 10)
+    twenty = pto.symbolic_scalar("20", 20)
+    assert (twenty / ten) == pto.symbolic_scalar("2", 2)
+
+
+def test_symbolic_scalar_mod():
+    one = pto.symbolic_scalar("one", 1)
+    scalar = pto.symbolic_scalar("31", 31)
+    two = pto.symbolic_scalar("2", 3)
+    assert scalar % two == one
+
+
+def test_symbolic_scalar_binop():
+    a = pto.symbolic_scalar(6)
+    b = pto.symbolic_scalar(4)
+    c = a + b
+    d = a - b
+    e = a * b
+    f = a / b
+    f_floor = a // b
+    g = a % b
+    h = a.max(b)
+    i = a.min(b)
+
+    for op in [c, d, e, f, f_floor, g, h, i]:
+        assert isinstance(op, pto.symbolic_scalar)
+    assert c.concrete() == 10
+    assert d.concrete() == 2
+    assert e.concrete() == 24
+    assert f.concrete() == 1
+    assert f_floor.concrete() == 1
+    assert g.concrete() == 2
+    assert h.concrete() == 6
+    assert i.concrete() == 4
+
+
+def test_symbolic_scalar_binop_with_int():
+    a = pto.symbolic_scalar(6)
+    b = 4
+    c = a + b
+    d = a - b
+    e = a * b
+    f = a / b
+    f_floor = a // b
+    g = a % b
+
+    h = b + a
+    i = b - a
+    j = b * a
+    k = b / a
+    k_floor = b // a
+    l = b % a
+
+    for op in [c, d, e, f, f_floor, g, h, i, j, k, k_floor, l]:
+        assert isinstance(op, pto.symbolic_scalar)
+    assert c.concrete() == 10
+    assert d.concrete() == 2
+    assert e.concrete() == 24
+    assert f.concrete() == 1
+    assert f_floor.concrete() == 1
+    assert g.concrete() == 2
+    assert h.concrete() == 10
+    assert i.concrete() == -2
+    assert j.concrete() == 24
+    assert k.concrete() == 0
+    assert k_floor.concrete() == 0
+    assert l.concrete() == 4
+
+
+def test_symbolic_scalar_le():
+    ten = pto.symbolic_scalar("scalar", 10)
+    twenty = pto.symbolic_scalar("scalar", 20)
+
+    assert ten <= twenty
+
+
+def test_symbolic_scalar_lt():
+    ten = pto.symbolic_scalar("scalar", 10)
+    twenty = pto.symbolic_scalar("scalar", 20)
+
+    assert ten < twenty
+
+
+def test_symbolic_scalar_gt():
+    ten = pto.symbolic_scalar("scalar", 10)
+    twenty = pto.symbolic_scalar("scalar", 20)
+
+    assert twenty > ten
+
+
+def test_symbolic_scalar_ge():
+    ten = pto.symbolic_scalar("scalar", 10)
+    twenty = pto.symbolic_scalar("scalar", 20)
+
+    assert twenty >= ten
+
+
+def test_symbolic_scalar_ne():
+    ten = pto.symbolic_scalar("scalar", 10)
+    twenty = pto.symbolic_scalar("scalar", 20)
+
+    assert twenty != ten
+
+
+def test_symbolic_scalar_eq():
+    ten = pto.symbolic_scalar("scalar", 10)
+    another_ten = pto.symbolic_scalar("scalar", 10)
+
+    assert ten == another_ten
+
+
+def test_symbolic_scalar_comp_op():
+    a = pto.symbolic_scalar(6)
+    b = pto.symbolic_scalar(4)
+    assert (a == b).concrete() == 0
+    assert (a != b).concrete() == 1
+    assert (a < b).concrete() == 0
+    assert (a <= b).concrete() == 0
+    assert (a > b).concrete() == 1
+    assert (a >= b).concrete() == 1
+
+    assert (a == 6).concrete() == 1
+    assert (a != 6).concrete() == 0
+    assert (a < 6).concrete() == 0
+    assert (a <= 6).concrete() == 1
+    assert (a > 6).concrete() == 0
+    assert (a >= 6).concrete() == 1
+
+    assert (6 == a).concrete() == 1
+    assert (6 != a).concrete() == 0
+    assert (6 < a).concrete() == 0
+    assert (6 <= a).concrete() == 1
+    assert (6 > a).concrete() == 0
+    assert (6 >= a).concrete() == 1

@@ -10,19 +10,22 @@
 # ======================================================================================================================
 """
 """
+from typing import Sequence, Union, List
 
 from pto import pto_impl
 
+from .symbolic_scalar import SymbolicScalar
 
-def convert_to_symbolic(value):
-    if value is None:
-        return value
+
+def to_sym(value) -> pto_impl.SymbolicScalar:
     if isinstance(value, int):
         return pto_impl.SymbolicScalar(value)
-    if isinstance(value, list):
-        return [convert_to_symbolic(v) for v in value]
-    if not isinstance(value, pto_impl.SymbolicScalar):
-        raise TypeError(
-            f"Expected value to be int, list, or SymbolicScalar, but got {type(value)}"
-        )
-    return value
+    if isinstance(value, pto_impl.SymbolicScalar):
+        return value
+    if isinstance(value, SymbolicScalar):
+        return value.base()
+    raise ValueError("Invalid value type")
+
+
+def to_syms(value: Union[Sequence[int], Sequence[SymbolicScalar]]) -> List[pto_impl.SymbolicScalar]:
+    return [to_sym(v) for v in value]

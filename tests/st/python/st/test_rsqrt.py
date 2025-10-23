@@ -19,7 +19,7 @@ from numpy.testing import assert_allclose
 
 
 def test_vector_operation_rsqrt():
-    dtype = pto.DataType.DT_FP32
+    dtype = pto.DT_FP32
     tiling = 32
     n, m = tiling * 1, tiling * 1
     shape = (n, m)
@@ -27,10 +27,10 @@ def test_vector_operation_rsqrt():
     tile_shape = (8, 8)
     pto.DeviceInit()
     pto.set_codegen_config("support_dynamic_unaligned", True)
-    a = pto.tensor(shape, pto.DataType.DT_FP32, "RSQRT_TENSOR_a")
-    b = pto.tensor(shape, pto.DataType.DT_FP32, "RSQRT_TENSOR_b")
+    a = pto.tensor(shape, pto.DT_FP32, "RSQRT_TENSOR_a")
+    b = pto.tensor(shape, pto.DT_FP32, "RSQRT_TENSOR_b")
 
-    with pto.dyn_function("RSQRT", [a], [b]):
+    with pto.function("RSQRT", [a], [b]):
         loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
         loop_range_s = pto.loop_range(int(np.ceil(m / view_shape[1])))
         with pto.loop_function("LOOP_RSQRT_L0", "b_idx", loop_range_b) as bloop:
@@ -51,4 +51,3 @@ def test_vector_operation_rsqrt():
     assert_allclose(np.array(b_data),
                     np.array(torch.rsqrt(torch.tensor(a_tensor)).flatten().tolist()), rtol=3e-3, atol=3e-3)
     pto.DeviceFini()
-

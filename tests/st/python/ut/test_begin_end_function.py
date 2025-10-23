@@ -15,14 +15,14 @@ import pytest
 
 
 def test_begin_add_end_function():
-    dtype = pto.data_type.DT_FP16
+    dtype = pto.DT_FP16
     shape = (8, 8)
     a = pto.tensor(shape, dtype, "tensor_a")
     b = pto.tensor(shape, dtype, "tensor_b")
     c = None
 
-    graph_t = pto.graph_type.TENSOR_GRAPH
-    func_t = pto.function_type.STATIC
+    graph_t = pto.GraphType.TENSOR_GRAPH
+    func_t = pto.FunctionType.STATIC
 
     pto.begin_function("ADD", graph_t, func_t, a, b)
     pto.set_vec_tile_shapes(8, 8)
@@ -35,12 +35,12 @@ def test_begin_add_end_function():
 
 
 def test_empty_begin_end_function():
-    dtype = pto.data_type.DT_FP16
+    dtype = pto.DT_FP16
     a = pto.tensor((8, 8), dtype, "tensor_a")
     fnc_name = "name"
 
-    graph_t = pto.graph_type.TENSOR_GRAPH
-    func_t = pto.function_type.STATIC
+    graph_t = pto.GraphType.TENSOR_GRAPH
+    func_t = pto.FunctionType.STATIC
 
     pto.begin_function("MAIN", graph_t, func_t, a)
     pto.set_vec_tile_shapes(8, 8)

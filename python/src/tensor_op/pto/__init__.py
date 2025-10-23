@@ -12,7 +12,12 @@
 """
 
 import sys
+
 import pkg_resources
+
+from .runtime import (device_fini, device_init,
+                      device_run_once_data_from_device,
+                      device_run_once_data_from_host, device_synchronize, jit)
 
 sys.path.append(str(pkg_resources.resource_filename(__package__, "")))
 
@@ -20,10 +25,18 @@ del pkg_resources
 del sys
 
 from pto.pto_impl import *  # noqa
-from .runtime import device_init, device_fini, device_run_once_data_from_host, device_run_once_data_from_device, jit
-from .runtime import device_synchronize
+
 from .controller import *  # noqa
+from .element import *  # noqa
 from .enum import *  # noqa
 from .operation import *  # noqa
 from .symbolic_scalar import *  # noqa
 from .tensor import *  # noqa
+
+
+def dump() -> str:
+    return pto_impl.Dump()
+
+
+def reset():
+    pto_impl.Reset()

@@ -14,7 +14,7 @@ import pto
 
 
 def init_tensors():
-    dtype = pto.data_type.DT_FP32
+    dtype = pto.DT_FP32
     shape = (128, 128)
     a = pto.tensor(shape, dtype, "a")
     b = pto.tensor(shape, dtype, "b")

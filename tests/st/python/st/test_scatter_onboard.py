@@ -32,20 +32,20 @@ def scatter_2dim_comm_proc(scatter_para, scatter_func):
     view_shape = scatter_para.view_shape
     tile_shape = scatter_para.tile_shape
 
-    self_tensor = pto.tensor(src_shape, pto.DataType.DT_FP32, "PTO_TENSOR_SRC")
-    indices_tensor = pto.tensor(indices_shape, pto.DataType.DT_INT64, "PTO_TENSOR_INDEX")
-    dst_tensor = pto.tensor(src_shape, pto.DataType.DT_FP32, "PTO_TENSOR_DST")
-    src = pto.element(pto.DataType.DT_FP32, scatter_para.sdata)
+    self_tensor = pto.tensor(src_shape, pto.DT_FP32, "PTO_TENSOR_SRC")
+    indices_tensor = pto.tensor(indices_shape, pto.DT_INT64, "PTO_TENSOR_INDEX")
+    dst_tensor = pto.tensor(src_shape, pto.DT_FP32, "PTO_TENSOR_DST")
+    src = pto.element(pto.DT_FP32, scatter_para.sdata)
 
     b_loop_num = math.ceil(indices_shape[0] / view_shape[0])
     s_loop_num = math.ceil(indices_shape[1] / view_shape[1])
     pto.set_codegen_config("support_dynamic_unaligned", True)
-    with pto.dyn_function("MAIN", [self_tensor, indices_tensor], [dst_tensor]):
+    with pto.function("MAIN", [self_tensor, indices_tensor], [dst_tensor]):
         with pto.loop_function("b0", "bidx", pto.loop_range(b_loop_num)) as bloop:
             with pto.loop_function("s0", "sidx", pto.loop_range(s_loop_num)) as sloop:
                 for b_idx in bloop:
                     for s_idx in sloop:
-                        tmp_dst_tensor = pto.tensor(view_shape, pto.DataType.DT_FP32, "PTO_TENSOR_TMP")
+                        tmp_dst_tensor = pto.tensor(view_shape, pto.DT_FP32, "PTO_TENSOR_TMP")
                         view_tensor_src = pto.view(self_tensor, view_shape,
                             [(pto.symbolic_scalar(src_shape[0]) -
                                 b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),

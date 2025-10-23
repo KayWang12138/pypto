@@ -16,7 +16,7 @@ import numpy as np
 import pto
 from pto import (
     tensor, element, view, symbolic_scalar,
-    loop_range, loop_function, dyn_function,
+    loop_range, loop_function, function,
     set_vec_tile_shapes, set_codegen_config,
     DeviceInit, DeviceRunOnceDataFromHost, DeviceFini,
 )
@@ -29,9 +29,9 @@ def test_maxs():
     DeviceInit()
     set_codegen_config("support_dynamic_unaligned", True)
 
-    x = tensor((first_dim, second_dim), pto.DataType.DT_INT32, "Operand1")
-    y = tensor((first_dim, second_dim), pto.DataType.DT_INT32, "Output")
-    scalar = element(pto.DataType.DT_INT32, scalar_data)
+    x = tensor((first_dim, second_dim), pto.DT_INT32, "Operand1")
+    y = tensor((first_dim, second_dim), pto.DT_INT32, "Output")
+    scalar = element(pto.DT_INT32, scalar_data)
 
     bloop_range = math.ceil(first_dim / view_shape[0])
     sloop_range = math.ceil(second_dim / view_shape[1])
@@ -39,7 +39,7 @@ def test_maxs():
 
     bloop = loop_range(bloop_range)
     sloop = loop_range(sloop_range)
-    with dyn_function("MaxS", [x], [y]), \
+    with function("MaxS", [x], [y]), \
             loop_function("LOOP_L0_bIdx", "bIdx", bloop) as bloop_ctx, \
             loop_function("LOOP_L1_sIdx", "sIdx", sloop) as sloop_ctx:
         for b_idx in bloop_ctx:

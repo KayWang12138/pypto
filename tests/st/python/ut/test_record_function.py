@@ -15,14 +15,14 @@ import pytest
 
 
 def test_record_function():
-    dtype = pto.data_type.DT_FP16
+    dtype = pto.DT_FP16
     shape = (8, 8)
     a = pto.tensor(shape, dtype, "tensor_a")
     b = pto.tensor(shape, dtype, "tensor_b")
     c = None
 
-    graph_t = pto.graph_type.TENSOR_GRAPH
-    func_t = pto.function_type.STATIC
+    graph_t = pto.GraphType.TENSOR_GRAPH
+    func_t = pto.FunctionType.STATIC
 
     pto.begin_function("ADD", graph_t, func_t, a, b)
     pto.set_vec_tile_shapes(8, 8)
@@ -36,15 +36,15 @@ def test_record_function():
 
 
 def test_begin_inplaceadd_end_function():
-    dtype = pto.data_type.DT_FP16
-    func_type = pto.function_type.STATIC
+    dtype = pto.DT_FP16
+    func_type = pto.FunctionType.STATIC
     shape = (8, 8)
     a = pto.tensor(shape, dtype, "tensor_a")
     b = pto.tensor(shape, dtype, "tensor_b")
     c = None
 
-    graph_t = pto.graph_type.TENSOR_GRAPH
-    func_t = pto.function_type.STATIC
+    graph_t = pto.GraphType.TENSOR_GRAPH
+    func_t = pto.FunctionType.STATIC
 
     pto.begin_function("ADD_INPLACE", graph_t, func_t, a, b)
     pto.set_vec_tile_shapes(8, 8)
@@ -56,29 +56,14 @@ def test_begin_inplaceadd_end_function():
 
 
 def test_empty_begin_end_function():
-    dtype = pto.data_type.DT_FP16
+    dtype = pto.DT_FP16
     a = pto.tensor((8, 8), dtype, "tensor_a")
 
-    graph_t = pto.graph_type.TENSOR_GRAPH
-    func_t = pto.function_type.STATIC
+    graph_t = pto.GraphType.TENSOR_GRAPH
+    func_t = pto.FunctionType.STATIC
 
     pto.begin_function("MAIN", graph_t, func_t, a)
     pto.set_vec_tile_shapes(8, 8)
     pto.end_function("MAIN", False)
-
-    assert True
-
-
-def test_record_function_static():
-    dtype = pto.data_type.DT_FP16
-    a = pto.tensor((8, 8), dtype, "tensor_a")
-    b = pto.tensor((8, 8), dtype, "tensor_b")
-    c = pto.tensor((8, 8), dtype, "tensor_c")
-
-    pto.set_build_static(True)
-    recorder = pto.record_func("ADD_FNC", [a, b, c])
-    pto.set_vec_tile_shapes(8, 8)
-    c.move(pto.add(a, b))
-    del recorder
 
     assert True

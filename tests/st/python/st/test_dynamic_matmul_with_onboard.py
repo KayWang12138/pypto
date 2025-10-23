@@ -106,7 +106,7 @@ def no_split_m_n(tensor_a, tensor_b, tensor_c, input_config):
     valid_shape_a = [shape_a[0], shape_a[1]]
     valid_shape_b = [shape_b[0], shape_b[1]]
     dtype = convert_np_dtype_to_pto_dtype(input_config.out_dtype)
-    with pto.dyn_function("test_no_split", [tensor_a, tensor_b], [tensor_c]):
+    with pto.function("test_no_split", [tensor_a, tensor_b], [tensor_c]):
         with pto.loop_function("loop", "idx", pto.loop_range(1)) as idx_loop:
             for idx in idx_loop:
                 dyn_a = pto.view(tensor_a, shape_a, valid_shape_a, [idx, 0])
@@ -126,7 +126,7 @@ def split_m_axis(tensor_a, tensor_b, tensor_c, input_config):
     loop_end = ceil_div_util(m_axis, view_shape[0])
 
     dtype = convert_np_dtype_to_pto_dtype(input_config.out_dtype)
-    with pto.dyn_function("test_m_split", [tensor_a, tensor_b], [tensor_c]):
+    with pto.function("test_m_split", [tensor_a, tensor_b], [tensor_c]):
         with pto.loop_function("m_loop", "m_idx", pto.loop_range(0, loop_end, 1)) as m_idx_loop:
             for m_idx in m_idx_loop:
                 matmul_split_m_utils(tensor_a, tensor_b, tensor_c, input_config, m_idx)
@@ -166,7 +166,7 @@ def split_n_axis(tensor_a, tensor_b, tensor_c, input_config):
     loop_end = ceil_div_util(n_axis, view_shape[1])
 
     dtype = convert_np_dtype_to_pto_dtype(input_config.out_dtype)
-    with pto.dyn_function("test_n_split", [tensor_a, tensor_b], [tensor_c]):
+    with pto.function("test_n_split", [tensor_a, tensor_b], [tensor_c]):
         with pto.loop_function("n_loop", "n_idx", pto.loop_range(0, loop_end, 1)) as n_idx_loop:
             for n_idx in n_idx_loop:
                 matmul_split_n_utils(tensor_a, tensor_b, tensor_c, input_config, n_idx)
@@ -207,7 +207,7 @@ def split_m_n_axis(tensor_a, tensor_b, tensor_c, input_config):
     m_axis = shape_a[1] if a_trans else shape_a[0]
     m_loop_end = ceil_div_util(m_axis, view_shape[0])
 
-    with pto.dyn_function("test_m_n_split", [tensor_a, tensor_b], [tensor_c]):
+    with pto.function("test_m_n_split", [tensor_a, tensor_b], [tensor_c]):
         with pto.loop_function("m_loop", "m_idx", pto.loop_range(0, m_loop_end, 1)) as m_idx_loop:
             for m_idx in m_idx_loop:
                 matmul_split_m_n_util(tensor_a, tensor_b, tensor_c, input_config, m_idx)
@@ -254,13 +254,13 @@ def matmul_split_m_n_util(tensor_a, tensor_b, tensor_c, input_config, m_idx):
 
 def convert_np_dtype_to_pto_dtype(dtype):
     if dtype == INT8:
-        return pto.data_type.DT_INT8
+        return pto.DT_INT8
     elif dtype == FP16:
-        return pto.data_type.DT_FP16
+        return pto.DT_FP16
     elif dtype == INT32:
-        return pto.data_type.DT_INT32
+        return pto.DT_INT32
     elif dtype == FP32:
-        return pto.data_type.DT_FP32
+        return pto.DT_FP32
     else:
         assert False, "pto dtype not found in matmul"
 

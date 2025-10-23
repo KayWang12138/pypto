@@ -8,48 +8,183 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
-from typing import Optional
+from typing import Union, List, cast
+
+import pto
 from pto import pto_impl
 
-
-get_input_shape = pto_impl.GetInputShape
-get_tensor_data = pto_impl.GetTensorData
-set_tensor_data = pto_impl.SetTensorData
-
-_original_init = pto_impl.Tensor.__init__
+from .element import Element
+from .pto_utils import to_syms
+from .symbolic_scalar import SymbolicScalar
 
 
-def new_init(self, shape=None, dtype=None, name=None, format=None, data_ptr=None):
-    if shape is None and dtype is None and name is None:
-        _original_init(self)
-    elif shape and dtype:
-        if name is None:
-            name = ""
-        if format is None and data_ptr is None:
-            _original_init(self, dtype, shape, name)
-        elif format is None:
-            _original_init(self, dtype, shape, data_ptr, name)
-        elif data_ptr is None:
-            _original_init(self, dtype, shape, name, format)
-    else:
-        raise RuntimeError(f"Tensor init, input params is invalid")
+class Tensor:
 
-pto_impl.Tensor.__init__ = new_init
-tensor = Tensor = pto_impl.Tensor
+    def __init__(self, shape, dtype: pto.DataType,
+                 name: str = "", format: pto.TileOpFormat = pto.TileOpFormat.TILEOP_ND):
+        if all([isinstance(s, int) for s in shape]):
+            nshape = cast(List[int], shape)
+            self._base = pto_impl.Tensor(dtype, nshape, name, format)
+        else:
+            sym_shape = to_syms(shape)
+            assert isinstance(
+                sym_shape, list), "shape must be a list of int or SymbolicScalar"
+            self._base = pto_impl.Tensor(dtype, sym_shape, name, format)
+
+    @property
+    def dtype(self) -> pto.DataType:
+        return self._base.GetDataType()
+
+    @property
+    def shape(self) -> Union[List[int], List[pto.SymbolicScalar]]:
+        out = []
+        for i, n in enumerate(self._base.GetShape()):
+            if n == -1:
+                out.append(SymbolicScalar.from_base(
+                    pto_impl.GetInputShape(self._base, i)))
+            else:
+                out.append(n)
+        return out
+
+    def dim(self) -> int:
+        return self._base.Dim()
+
+    def set_cache_policy(self, policy: pto.CachePolicy, value: bool) -> None:
+        self._base.SetCachePolicy(policy, value)
+
+    def get_cache_policy(self, policy: pto.CachePolicy) -> bool:
+        return self._base.GetCachePolicy(policy)
+
+    @property
+    def name(self) -> str:
+        return self._base.GetName()
+
+    @name.setter
+    def name(self, value: str) -> None:
+        self._base.SetName(value)
+
+    def move(self, other: 'Tensor') -> None:
+        self._base.Move(other._base)
+
+    def _get_assemble_offset(self, key, shape):
+        offsets = []
+        for axis, k in enumerate(key):
+            if isinstance(k.start, (int, SymbolicScalar)):
+                offsets.append(k.start)
+            elif isinstance(k.stop, (int, SymbolicScalar)):
+                offsets.append(k.stop - shape[axis])
+            else:
+                raise ValueError("Both start and stop are unknown")
+        return offsets
+
+    def _is_empty_slice(self, key):
+        if isinstance(key, slice):
+            return key.start is None and key.stop is None and key.step is None
+        return all([self._is_empty_slice(k) for k in key])
+
+    def __setitem__(self, key, value):
+        """
+        Set tensor data by index or slice.
+
+        Args:
+            key (Union[int, SymbolicScalar, slice]): Index or slice to set.
+            value (Tensor | Element): value to set.
+
+            example:
+            >>> a = pto.tensor((16, 16), pto.DataType.FLOAT32)
+            >>> b = pto.tensor((4, 4), pto.DataType.FLOAT32)
+            >>> a[0, 0] = 1.0 # SetTensorData
+            >>> a[0, 1:] = 2.0 # Not supported now
+            >>> a[1:, 1:] = b # Assemb(b, (1, 1), a)
+            >>> a[:16, :16] = b # Assemb(b, (16 - 4, 16 - 4), a)
+        """
+        if self._is_empty_slice(key):
+            self.move(value)
+        elif isinstance(key, (int, SymbolicScalar, slice)):
+            self.__setitem__((key,), value)
+        elif isinstance(key, tuple):
+            assert self.dim() == len(key), f"rank not match, expect {self.dim()}, but got {len(key)}"
+            if all([isinstance(k, (int, SymbolicScalar)) for k in key]):
+                pto.SetTensorData(value, to_syms(key), self._base)
+            elif all([isinstance(k, slice) for k in key]):
+                offsets = self._get_assemble_offset(key, value.shape)
+                pto.assemble(value, offsets, self)
+            else:
+                raise ValueError("tuple key must be int or SymbolicScalar")
+        else:
+            raise RuntimeError("Invalid key type")
+
+    def _get_view_offset_shape(self, key, shape):
+        offsets = []
+        shapes = []
+        for axis, k in enumerate(key):
+            start, stop, step = k.start, k.stop, k.step
+            if step != 1 and step is not None:
+                raise ValueError("step must be 1 or None")
+            if start is None:
+                start = 0
+            if stop is None:
+                stop = shape[axis]
+            offsets.append(start)
+            shapes.append(int(stop - start)) # shape should be concrete
+        return offsets, shapes
+
+    def __getitem__(self, key):
+        """
+        Get tensor data by index or slice.
+
+        Args:
+            key (Union[int, SymbolicScalar, slice]): Index or slice to get.
+
+        Returns:
+            Tensor | Element: tensor data.
+
+        example:
+        >>> s = pto.tensor((16, 16), pto.DT_FP32)
+        >>> a = s[0, 0] # GetTensorData
+        0.0
+        >>> b = s[:4, :4]
+        """
+        if self._is_empty_slice(key):
+            return self
+        if isinstance(key, (int, SymbolicScalar, slice)):
+            return self.__getitem__((key,))
+        elif isinstance(key, tuple):
+            assert self.dim() == len(key), f"rank not match, expect {self.dim()}, but got {len(key)}"
+            if all([isinstance(k, (int, SymbolicScalar)) for k in key]):
+                return pto.GetTensorData(self._base, to_syms(key))
+            elif all([isinstance(k, slice) for k in key]):
+                offsets, shapes = self._get_view_offset_shape(key, self.shape)
+                print(offsets, shapes)
+                return pto.view(self, shapes, offsets)
+            else:
+                raise ValueError("tuple key must be int or SymbolicScalar")
+        else:
+            raise RuntimeError("Invalid key type")
+
+    def base(self) -> pto_impl.Tensor:
+        return self._base
+
+    @classmethod
+    def from_base(cls, base: pto_impl.Tensor) -> 'Tensor':
+        obj = cls.__new__(cls)
+        obj._base = base
+        return obj
+
+    def __add__(self, other: 'Tensor | Element') -> 'Tensor':
+        if isinstance(other, Element):
+            return pto.add_s(self, other)
+        else:
+            return pto.add(self, other)
+
+    def __radd__(self, other: 'Tensor | Element') -> 'Tensor':
+        return self.__add__(other)
+
+    def __sub__(self, other: 'Tensor | Element') -> 'Tensor':
+        if isinstance(other, Element):
+            return pto.sub_s(self, other)
+        else:
+            return pto.sub(self, other)
 
 
-def _get_shape(self, axis: Optional[int] = None):
-    if axis is not None:
-        return self.GetShapeAt(axis)
-    else:
-        return self.GetShape()
-    
-tensor.get_shape = _get_shape
-tensor.get_dtype = pto_impl.Tensor.GetDataType
-tensor.assign = pto_impl.Tensor.Assign
-tensor.move = pto_impl.Tensor.Move
-tensor.has_storage = pto_impl.Tensor.GetStorage
-tensor.id = pto_impl.Tensor.Id
-tensor.set_cache_policy = pto_impl.Tensor.SetCachePolicy
-tensor.get_cache_policy = pto_impl.Tensor.GetCachePolicy
-tensor.set_name = pto_impl.Tensor.SetName
+tensor = Tensor

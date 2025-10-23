@@ -131,7 +131,7 @@ class DeepSeekAttention:
                 m_scale = value_point_one * m_scale * math.log(factor) + 1.0
             self.softmax_scale = self.softmax_scale * m_scale * m_scale
 
-    
+
     def attention(self, q: pto.tensor, kv: pto.tensor, atten_mask: pto.tensor) -> pto.tensor:
         b = q.shape[0]
         n2 = kv.shape[1]
@@ -143,9 +143,9 @@ class DeepSeekAttention:
 
         qk = pto.batch_matmul(d_type, q, kv, False, True)
         pto.set_vec_tile_shapes(1, 1, NUM_128, NUM_64)
-        qk_fp32 = pto.cast(qk, pto.data_type.DT_FP32)
-        qk_fp32 = pto.mul_s(qk_fp32, pto.element(pto.data_type.DT_FP32, self.softmax_scale))
-        atten_mask_fp32 = pto.cast(atten_mask, pto.data_type.DT_FP32)
+        qk_fp32 = pto.cast(qk, pto.DT_FP32)
+        qk_fp32 = pto.mul_s(qk_fp32, pto.element(pto.DT_FP32, self.softmax_scale))
+        atten_mask_fp32 = pto.cast(atten_mask, pto.DT_FP32)
         qk_fp32 = pto.add(qk_fp32, atten_mask_fp32)
         qk_16 = pto.cast(qk_fp32, d_type)
         softmax = pto.softmax(qk_16) # [b, n, s1, s2]
@@ -185,7 +185,7 @@ class DeepSeekAttention:
         pto.set_cube_tile_shapes([min(NUM_128, s), min(NUM_128, s)], [NUM_128, NUM_128], [NUM_128, NUM_128])
         pto.set_vec_tile_shapes(NUM_128, NUM_64)
         atten_output = pto.batch_matmul(d_type, mm7_res2, atten_out_w)
-        
+
         return atten_output
 
 
@@ -217,10 +217,10 @@ class DeepSeekAttention:
         pto.set_cube_tile_shapes([min(NUM_128, s), min(NUM_128, s)], [NUM_128, NUM_128],
                                 [min(NUM_128, h), min(NUM_128, h)])
         atten_output = pto.batch_matmul(d_type, mm7_res2, atten_out_w)
-        
+
         return atten_output
 
-    
+
     def qkv_pre(self, hidden_states: pto.tensor) -> List[pto.tensor]:
         b = hidden_states.shape[0]
         s = hidden_states.shape[1]
@@ -268,7 +268,7 @@ class DeepSeekAttention:
         pto.set_vec_tile_shapes(NUM_2, 1, NUM_512)
         q_a_layer_norm = pto.rms_norm(q_a_proj)
 
-        pto.set_cube_tile_shapes([min(NUM_128, s), min(NUM_128, s)], [NUM_128, NUM_128], [NUM_64, NUM_64])   
+        pto.set_cube_tile_shapes([min(NUM_128, s), min(NUM_128, s)], [NUM_128, NUM_128], [NUM_64, NUM_64])
         q = pto.batch_matmul(d_type, q_a_layer_norm, q_b_proj_w1)
 
         pto.set_vec_tile_shapes(NUM_2, 1, NUM_384)
@@ -287,7 +287,7 @@ class DeepSeekAttention:
         bs = b * s
 
         d_type = hidden_states.get_dtype()
-        d_type_quant_out = pto.data_type.DT_INT32 if is_quant else d_type
+        d_type_quant_out = pto.DT_INT32 if is_quant else d_type
         qkv_pre2_res = []
 
         input_data = pto.reshape(hidden_states, [bs, h])
@@ -318,10 +318,10 @@ class DeepSeekAttention:
 
         if is_quant:
             qkv_pre2_res.append(q_a_proj_norm_scale_dequant)
-        
+
         return qkv_pre2_res
 
-    
+
     def qkv_pre_fp32(self, hidden_states: pto.tensor) -> List[pto.tensor]:
         b = hidden_states.shape[0]
         s = hidden_states.shape[1]
@@ -332,7 +332,7 @@ class DeepSeekAttention:
         input_data = pto.reshape(hidden_states, [bs, h]) # [b, s, h] -> [b * s, h]
 
         pto.set_cube_tile_shapes([min(NUM_64, bs), min(NUM_64, bs)], [NUM_256, NUM_256], [NUM_128, NUM_128])
-        q_a_proj_fp32 = pto.matmul(pto.data_type.DT_FP32, input_data, self.q_a_proj_w, False, False)
+        q_a_proj_fp32 = pto.matmul(pto.DT_FP32, input_data, self.q_a_proj_w, False, False)
 
         pto.set_vec_tile_shapes(NUM_32, NUM_32)
         q_a_proj_norm_fp32 = pto.rms_norm(q_a_proj_fp32)
@@ -341,11 +341,11 @@ class DeepSeekAttention:
         q_a_proj_norm = pto.cast(q_a_proj_norm_fp32, d_type)
 
         pto.set_cube_tile_shapes([min(NUM_64, bs), min(NUM_64, bs)], [NUM_256, NUM_256], [NUM_64, NUM_64])
-        q_fp32 = pto.matmul(pto.data_type.DT_FP32, q_a_proj_norm, self.q_b_proj_w, False, False)
+        q_fp32 = pto.matmul(pto.DT_FP32, q_a_proj_norm, self.q_b_proj_w, False, False)
         q_res = pto.reshape(q_fp32, [b, s, self.num_heads, self.q_head_dim])
 
         pto.set_cube_tile_shapes([min(NUM_64, bs), min(NUM_64, bs)], [NUM_256, NUM_256], [NUM_64, NUM_64])
-        compressed_kv_fp32 = pto.matmul(pto.data_type.DT_FP32, input_data, self.kv_a_proj_with_mqa_w)
+        compressed_kv_fp32 = pto.matmul(pto.DT_FP32, input_data, self.kv_a_proj_with_mqa_w)
         compressed_kv_res = pto.reshape(compressed_kv_fp32, [b, s, self.kv_lora_rank + self.qk_rope_head_dim])
 
         return [q_res, compressed_kv_res]
@@ -543,7 +543,7 @@ class DeepSeekAttention:
         return [query_states, past_key_states_mew]
 
 
-    def mla_prolog_ab_forward(self, hidden_states: pto.tensor, 
+    def mla_prolog_ab_forward(self, hidden_states: pto.tensor,
                      q_pe_rope: pto.tensor, is_quant: bool = False) -> List[pto.tensor]:
         b = hidden_states.shape[0]
         s = hidden_states.shape[1]
@@ -553,10 +553,10 @@ class DeepSeekAttention:
         qkv = self.qkv_pre2(hidden_states, is_quant)
         q = qkv[0]
         kv_tmp = qkv[1]
-        
+
         if is_quant:
             pto.set_vec_tile_shapes(min(NUM_32, bs), NUM_64)
-            q_tmp_fp32 = pto.cast(q, pto.data_type.DT_FP32)
+            q_tmp_fp32 = pto.cast(q, pto.DT_FP32)
             q_tmp_scale_dequant = qkv[2]
             q_tmp_dequant_per_token = pto.mul(q_tmp_fp32, q_tmp_scale_dequant)
             q_tmp_dequant_channel = pto.mul(q_tmp_dequant_per_token, self.q_b_proj_w_scale)
@@ -583,7 +583,7 @@ class DeepSeekAttention:
 
         pto.set_vec_tile_shapes(NUM_2, NUM_32, 1, NUM_64)
         query_states = pto.concat([q_nope_new_t2, q_pe_rope], -1)
-        
+
         return [query_states, kv_tmp]
 
 
@@ -608,7 +608,7 @@ class DeepSeekAttention:
 
         if is_quant:
             pto.set_vec_tile_shapes(min(NUM_32, bs), NUM_64)
-            q_tmp_fp32 = pto.cast(q, pto.data_type.DT_FP32)
+            q_tmp_fp32 = pto.cast(q, pto.DT_FP32)
             q_tmp_scale_dequant = qkv[2]
             q_tmp_dequant_per_token = pto.mul(q_tmp_fp32, q_tmp_scale_dequant)
             q_tmp_dequant_channel = pto.mul(q_tmp_dequant_per_token, self.q_b_proj_w_scale)
@@ -673,12 +673,12 @@ def test_attention():
     d = NUM_576
     pto.set_platform_config(KEY_ONLY_HOST_COMPILE, True)
 
-    query = pto.tensor([b, n1, s1, d], pto.data_type.DT_BF16)
-    kv = pto.tensor([b, n2, s2, d], pto.data_type.DT_BF16)
-    atten_mask = pto.tensor([b, n2, s1, s2], pto.data_type.DT_BF16)
+    query = pto.tensor([b, n1, s1, d], pto.DT_BF16)
+    kv = pto.tensor([b, n2, s2, d], pto.DT_BF16)
+    atten_mask = pto.tensor([b, n2, s1, s2], pto.DT_BF16)
     aw = AttentionW()
-    graph_type = pto.graph_type.TENSOR_GRAPH
-    func_type = pto.function_type.STATIC
+    graph_type = pto.GraphType.TENSOR_GRAPH
+    func_type = pto.FunctionType.STATIC
     with pto.pto_function("attention", graph_type, func_type):
         atten = DeepSeekAttention(g_deepseek_config, aw, 1)
         res = atten.attention(query, kv, atten_mask)
@@ -693,15 +693,15 @@ def test_attention_post():
     d = NUM_576
     pto.set_platform_config(KEY_ONLY_HOST_COMPILE, True)
 
-    query = pto.tensor([b, n1, s1, d], pto.data_type.DT_BF16)
-    kv = pto.tensor([b, n2, s2, d], pto.data_type.DT_BF16)
-    atten_mask = pto.tensor([b, n2, s1, s2], pto.data_type.DT_BF16)
+    query = pto.tensor([b, n1, s1, d], pto.DT_BF16)
+    kv = pto.tensor([b, n2, s2, d], pto.DT_BF16)
+    atten_mask = pto.tensor([b, n2, s1, s2], pto.DT_BF16)
     aw = AttentionW()
-    aw.kv_b_proj_wv = pto.tensor([n1, NUM_512, NUM_128], pto.data_type.DT_BF16) # [n ,kvLoraRank, vHeadDim]
-    aw.o_proj_w = pto.tensor([b, NUM_256, NUM_256], pto.data_type.DT_BF16) # [n * vHeadDim, h]
+    aw.kv_b_proj_wv = pto.tensor([n1, NUM_512, NUM_128], pto.DT_BF16) # [n ,kvLoraRank, vHeadDim]
+    aw.o_proj_w = pto.tensor([b, NUM_256, NUM_256], pto.DT_BF16) # [n * vHeadDim, h]
 
-    graph_type = pto.graph_type.TENSOR_GRAPH
-    func_type = pto.function_type.STATIC
+    graph_type = pto.GraphType.TENSOR_GRAPH
+    func_type = pto.FunctionType.STATIC
     with pto.pto_function("attention_post", graph_type, func_type):
         atten = DeepSeekAttention(g_deepseek_config, aw, 1)
         atten_res = atten.attention(query, kv, atten_mask)
@@ -716,14 +716,14 @@ def test_attention_post2():
     v_head_dim = NUM_128
     h = NUM_7168
     pto.set_platform_config(KEY_ONLY_HOST_COMPILE, True)
-    atten_post_in = pto.tensor([b, n, s, kv_lora_rank], pto.data_type.DT_BF16, "attnPostIn")
+    atten_post_in = pto.tensor([b, n, s, kv_lora_rank], pto.DT_BF16, "attnPostIn")
     atten_ouput = pto.tensor()
     aw = AttentionW()
-    aw.kv_b_proj_wv = pto.tensor([n, kv_lora_rank, v_head_dim], pto.data_type.DT_BF16, "kvBProjWV")
-    aw.o_proj_w = pto.tensor([n * v_head_dim, h], pto.data_type.DT_BF16, "oProjW")
+    aw.kv_b_proj_wv = pto.tensor([n, kv_lora_rank, v_head_dim], pto.DT_BF16, "kvBProjWV")
+    aw.o_proj_w = pto.tensor([n * v_head_dim, h], pto.DT_BF16, "oProjW")
 
-    graph_type = pto.graph_type.TENSOR_GRAPH
-    func_type = pto.function_type.STATIC
+    graph_type = pto.GraphType.TENSOR_GRAPH
+    func_type = pto.FunctionType.STATIC
     with pto.pto_function("attention_post2", graph_type, func_type):
         atten = DeepSeekAttention(g_deepseek_config, aw, 1)
         atten_output = atten.attention_post2(atten_post_in)
@@ -742,22 +742,22 @@ def test_qkv_pre():
     q_head_dim = qk_nope_head_dim + qk_rope_head_dim
     pto.set_platform_config(KEY_ONLY_HOST_COMPILE, True)
 
-    hidden_states = pto.tensor([b, s, h], pto.data_type.DT_BF16, "hidden_states")
+    hidden_states = pto.tensor([b, s, h], pto.DT_BF16, "hidden_states")
 
     aw = AttentionW()
-    aw.q_a_proj_w = pto.tensor([h, q_lora_rank], pto.data_type.DT_BF16, "qAProjW")
-    aw.q_b_proj_w = pto.tensor([q_lora_rank, num_heads * q_head_dim], pto.data_type.DT_BF16, "qBProjW")
-    aw.kv_a_proj_with_mqa_w = pto.tensor([h, kv_lora_rank + qk_rope_head_dim], pto.data_type.DT_BF16, "kvAProjWithMqaW")
-    aw.kv_b_proj_wk = pto.tensor([num_heads, qk_nope_head_dim, kv_lora_rank], pto.data_type.DT_BF16, "kvBProjWK")
-    aw.o_proj_w = pto.tensor([num_heads * v_head_dim], pto.data_type.DT_BF16, "oProjW")
+    aw.q_a_proj_w = pto.tensor([h, q_lora_rank], pto.DT_BF16, "qAProjW")
+    aw.q_b_proj_w = pto.tensor([q_lora_rank, num_heads * q_head_dim], pto.DT_BF16, "qBProjW")
+    aw.kv_a_proj_with_mqa_w = pto.tensor([h, kv_lora_rank + qk_rope_head_dim], pto.DT_BF16, "kvAProjWithMqaW")
+    aw.kv_b_proj_wk = pto.tensor([num_heads, qk_nope_head_dim, kv_lora_rank], pto.DT_BF16, "kvBProjWK")
+    aw.o_proj_w = pto.tensor([num_heads * v_head_dim], pto.DT_BF16, "oProjW")
 
     res = []
     atten = DeepSeekAttention(g_deepseek_config, aw, 1)
-    graph_type = pto.graph_type.TENSOR_GRAPH
-    func_type = pto.function_type.STATIC
+    graph_type = pto.GraphType.TENSOR_GRAPH
+    func_type = pto.FunctionType.STATIC
     with pto.pto_function("qkvpre", graph_type, func_type):
         res = atten.qkv_pre(hidden_states)
-    
+
 
 def test_qkv_pre_cv():
     b = NUM_2
@@ -772,20 +772,20 @@ def test_qkv_pre_cv():
     qk_nope_head_dim = g_deepseek_config["qkNopeHeadDim"]
     q_head_dim = qk_nope_head_dim + qk_rope_head_dim
 
-    hidden_states = pto.tensor([b, s, h], pto.data_type.DT_BF16, "hidden_states")
+    hidden_states = pto.tensor([b, s, h], pto.DT_BF16, "hidden_states")
 
     aw = AttentionW()
-    aw.q_a_proj_w = pto.tensor([h, q_lora_rank], pto.data_type.DT_BF16, "qAProjW")
-    aw.q_b_proj_w = pto.tensor([q_lora_rank, num_heads * q_head_dim], pto.data_type.DT_BF16, "qBProjW")
-    aw.kv_a_proj_with_mqa_w = pto.tensor([h, kv_lora_rank + qk_rope_head_dim], pto.data_type.DT_BF16, "kvAProjWithMqaW")
-    aw.kv_b_proj_wk = pto.tensor([num_heads, qk_nope_head_dim, kv_lora_rank], pto.data_type.DT_BF16, "kvBProjWK")
-    aw.kv_b_proj_wv = pto.tensor([num_heads, kv_lora_rank, v_head_dim], pto.data_type.DT_BF16, "kvBProjWV")
-    aw.o_proj_w = pto.tensor([num_heads * v_head_dim], pto.data_type.DT_BF16, "oProjW")
+    aw.q_a_proj_w = pto.tensor([h, q_lora_rank], pto.DT_BF16, "qAProjW")
+    aw.q_b_proj_w = pto.tensor([q_lora_rank, num_heads * q_head_dim], pto.DT_BF16, "qBProjW")
+    aw.kv_a_proj_with_mqa_w = pto.tensor([h, kv_lora_rank + qk_rope_head_dim], pto.DT_BF16, "kvAProjWithMqaW")
+    aw.kv_b_proj_wk = pto.tensor([num_heads, qk_nope_head_dim, kv_lora_rank], pto.DT_BF16, "kvBProjWK")
+    aw.kv_b_proj_wv = pto.tensor([num_heads, kv_lora_rank, v_head_dim], pto.DT_BF16, "kvBProjWV")
+    aw.o_proj_w = pto.tensor([num_heads * v_head_dim], pto.DT_BF16, "oProjW")
 
     res = []
     atten = DeepSeekAttention(g_deepseek_config, aw, 1)
-    graph_type = pto.graph_type.TENSOR_GRAPH
-    func_type = pto.function_type.STATIC
+    graph_type = pto.GraphType.TENSOR_GRAPH
+    func_type = pto.FunctionType.STATIC
     with pto.pto_function("qkvpre", graph_type, func_type):
         res = atten.qkv_pre_cv(hidden_states)
 
@@ -805,20 +805,20 @@ def test_qkv_pre2():
     s = 1
     q_head_dim = qk_nope_head_dim + qk_rope_head_dim
     is_quant = False
-    hidden_states = pto.tensor([b, s, h], pto.data_type.DT_BF16, "hidden_states")
+    hidden_states = pto.tensor([b, s, h], pto.DT_BF16, "hidden_states")
 
     aw = AttentionW()
-    aw.q_a_proj_w = pto.tensor([h, q_lora_rank], pto.data_type.DT_BF16, "qAProjW")
-    aw.q_b_proj_w = pto.tensor([q_lora_rank, num_heads * q_head_dim], pto.data_type.DT_BF16, "qBProjW")
-    aw.kv_a_proj_with_mqa_w = pto.tensor([h, kv_lora_rank + qk_rope_head_dim], pto.data_type.DT_BF16, "kvAProjWithMqaW")
-    aw.kv_b_proj_wk = pto.tensor([num_heads, qk_nope_head_dim, kv_lora_rank], pto.data_type.DT_BF16, "kvBProjWK")
-    aw.kv_b_proj_wv = pto.tensor([num_heads, kv_lora_rank, v_head_dim], pto.data_type.DT_BF16, "kvBProjWV")
-    aw.o_proj_w = pto.tensor([num_heads * v_head_dim], pto.data_type.DT_BF16, "oProjW")
+    aw.q_a_proj_w = pto.tensor([h, q_lora_rank], pto.DT_BF16, "qAProjW")
+    aw.q_b_proj_w = pto.tensor([q_lora_rank, num_heads * q_head_dim], pto.DT_BF16, "qBProjW")
+    aw.kv_a_proj_with_mqa_w = pto.tensor([h, kv_lora_rank + qk_rope_head_dim], pto.DT_BF16, "kvAProjWithMqaW")
+    aw.kv_b_proj_wk = pto.tensor([num_heads, qk_nope_head_dim, kv_lora_rank], pto.DT_BF16, "kvBProjWK")
+    aw.kv_b_proj_wv = pto.tensor([num_heads, kv_lora_rank, v_head_dim], pto.DT_BF16, "kvBProjWV")
+    aw.o_proj_w = pto.tensor([num_heads * v_head_dim], pto.DT_BF16, "oProjW")
 
     res = []
     atten = DeepSeekAttention(g_deepseek_config, aw, 1)
-    graph_type = pto.graph_type.TENSOR_GRAPH
-    func_type = pto.function_type.STATIC
+    graph_type = pto.GraphType.TENSOR_GRAPH
+    func_type = pto.FunctionType.STATIC
     with pto.pto_function("qkv_pre2", graph_type, func_type):
         res = atten.qkv_pre2(hidden_states, is_quant)
 
@@ -837,21 +837,21 @@ def test_forward():
     v_head_dim = g_deepseek_config["vHeadDim"]
     qk_nope_head_dim = g_deepseek_config["qkNopeHeadDim"]
     q_head_dim = qk_nope_head_dim + qk_rope_head_dim
-    hidden_states = pto.tensor([b, s, h], pto.data_type.DT_BF16, "hidden_states")
-    atten_mask = pto.tensor([b, 1, s, s2], pto.data_type.DT_FP32, "atten_mask")
-    position_ids = pto.tensor([b, s], pto.data_type.DT_INT32, "position_ids")
-    cos = pto.tensor([s, qk_rope_head_dim], pto.data_type.DT_BF16, "cos")
-    sin = pto.tensor([s, qk_rope_head_dim], pto.data_type.DT_BF16, "sin")
-    kv_len = pto.tensor([1, 1], pto.data_type.DT_INT32, "kv_len")
-    past_key_states = pto.tensor([b, 1, s2, kv_lora_rank + qk_rope_head_dim], pto.data_type.DT_BF16, "past_key_states")
+    hidden_states = pto.tensor([b, s, h], pto.DT_BF16, "hidden_states")
+    atten_mask = pto.tensor([b, 1, s, s2], pto.DT_FP32, "atten_mask")
+    position_ids = pto.tensor([b, s], pto.DT_INT32, "position_ids")
+    cos = pto.tensor([s, qk_rope_head_dim], pto.DT_BF16, "cos")
+    sin = pto.tensor([s, qk_rope_head_dim], pto.DT_BF16, "sin")
+    kv_len = pto.tensor([1, 1], pto.DT_INT32, "kv_len")
+    past_key_states = pto.tensor([b, 1, s2, kv_lora_rank + qk_rope_head_dim], pto.DT_BF16, "past_key_states")
 
     aw = AttentionW()
-    aw.q_a_proj_w = pto.tensor([h, q_lora_rank], pto.data_type.DT_BF16, "qAProjW")
-    aw.q_b_proj_w = pto.tensor([q_lora_rank, num_heads * q_head_dim], pto.data_type.DT_BF16, "qBProjW")
-    aw.kv_a_proj_with_mqa_w = pto.tensor([h, kv_lora_rank + qk_rope_head_dim], pto.data_type.DT_BF16, "kvAProjWithMqaW")
-    aw.kv_b_proj_wk = pto.tensor([num_heads, qk_nope_head_dim, kv_lora_rank], pto.data_type.DT_BF16, "kvBProjWK")
-    aw.kv_b_proj_wv = pto.tensor([num_heads, kv_lora_rank, v_head_dim], pto.data_type.DT_BF16, "kvBProjWV")
-    aw.o_proj_w = pto.tensor([num_heads * v_head_dim, h], pto.data_type.DT_BF16, "oProjW")
+    aw.q_a_proj_w = pto.tensor([h, q_lora_rank], pto.DT_BF16, "qAProjW")
+    aw.q_b_proj_w = pto.tensor([q_lora_rank, num_heads * q_head_dim], pto.DT_BF16, "qBProjW")
+    aw.kv_a_proj_with_mqa_w = pto.tensor([h, kv_lora_rank + qk_rope_head_dim], pto.DT_BF16, "kvAProjWithMqaW")
+    aw.kv_b_proj_wk = pto.tensor([num_heads, qk_nope_head_dim, kv_lora_rank], pto.DT_BF16, "kvBProjWK")
+    aw.kv_b_proj_wv = pto.tensor([num_heads, kv_lora_rank, v_head_dim], pto.DT_BF16, "kvBProjWV")
+    aw.o_proj_w = pto.tensor([num_heads * v_head_dim, h], pto.DT_BF16, "oProjW")
 
     rope_tile_config = pto.rope_tile_shape_config()
     rope_tile_config.two_dims_tile_shape = [32, 32]
@@ -861,8 +861,8 @@ def test_forward():
 
     res = pto.tensor()
     atten = DeepSeekAttention(g_deepseek_config, aw, 1)
-    graph_type = pto.graph_type.TENSOR_GRAPH
-    func_type = pto.function_type.STATIC
+    graph_type = pto.GraphType.TENSOR_GRAPH
+    func_type = pto.FunctionType.STATIC
     with pto.pto_function("forward", graph_type, func_type):
         res = atten.forward(hidden_states=hidden_states,
                             atten_mask=atten_mask,
@@ -886,21 +886,21 @@ def test_attention_pre_forward():
     v_head_dim = g_deepseek_config["vHeadDim"]
     qk_nope_head_dim = g_deepseek_config["qkNopeHeadDim"]
     q_head_dim = qk_nope_head_dim + qk_rope_head_dim
-    hidden_states = pto.tensor([b, s, h], pto.data_type.DT_BF16, "hidden_states")
-    atten_mask = pto.tensor([b, 1, s, s2], pto.data_type.DT_FP32, "atten_mask")
-    position_ids = pto.tensor([b, s], pto.data_type.DT_INT32, "position_ids")
-    cos = pto.tensor([s, qk_rope_head_dim], pto.data_type.DT_BF16, "cos")
-    sin = pto.tensor([s, qk_rope_head_dim], pto.data_type.DT_BF16, "sin")
-    kv_len = pto.tensor([1, 1], pto.data_type.DT_INT32, "kv_len")
-    past_key_states = pto.tensor([b, 1, s2, kv_lora_rank + qk_rope_head_dim], pto.data_type.DT_BF16, "past_key_states")
+    hidden_states = pto.tensor([b, s, h], pto.DT_BF16, "hidden_states")
+    atten_mask = pto.tensor([b, 1, s, s2], pto.DT_FP32, "atten_mask")
+    position_ids = pto.tensor([b, s], pto.DT_INT32, "position_ids")
+    cos = pto.tensor([s, qk_rope_head_dim], pto.DT_BF16, "cos")
+    sin = pto.tensor([s, qk_rope_head_dim], pto.DT_BF16, "sin")
+    kv_len = pto.tensor([1, 1], pto.DT_INT32, "kv_len")
+    past_key_states = pto.tensor([b, 1, s2, kv_lora_rank + qk_rope_head_dim], pto.DT_BF16, "past_key_states")
 
     aw = AttentionW()
-    aw.q_a_proj_w = pto.tensor([h, q_lora_rank], pto.data_type.DT_BF16, "qAProjW")
-    aw.q_b_proj_w = pto.tensor([q_lora_rank, num_heads * q_head_dim], pto.data_type.DT_BF16, "qBProjW")
-    aw.kv_a_proj_with_mqa_w = pto.tensor([h, kv_lora_rank + qk_rope_head_dim], pto.data_type.DT_BF16, "kvAProjWithMqaW")
-    aw.kv_b_proj_wk = pto.tensor([num_heads, qk_nope_head_dim, kv_lora_rank], pto.data_type.DT_BF16, "kvBProjWK")
-    aw.kv_b_proj_wv = pto.tensor([num_heads, kv_lora_rank, v_head_dim], pto.data_type.DT_BF16, "kvBProjWV")
-    aw.o_proj_w = pto.tensor([num_heads * v_head_dim, h], pto.data_type.DT_BF16, "oProjW")
+    aw.q_a_proj_w = pto.tensor([h, q_lora_rank], pto.DT_BF16, "qAProjW")
+    aw.q_b_proj_w = pto.tensor([q_lora_rank, num_heads * q_head_dim], pto.DT_BF16, "qBProjW")
+    aw.kv_a_proj_with_mqa_w = pto.tensor([h, kv_lora_rank + qk_rope_head_dim], pto.DT_BF16, "kvAProjWithMqaW")
+    aw.kv_b_proj_wk = pto.tensor([num_heads, qk_nope_head_dim, kv_lora_rank], pto.DT_BF16, "kvBProjWK")
+    aw.kv_b_proj_wv = pto.tensor([num_heads, kv_lora_rank, v_head_dim], pto.DT_BF16, "kvBProjWV")
+    aw.o_proj_w = pto.tensor([num_heads * v_head_dim, h], pto.DT_BF16, "oProjW")
 
     rope_tile_config = pto.rope_tile_shape_config()
     rope_tile_config.two_dims_tile_shape = [32, 32]
@@ -910,8 +910,8 @@ def test_attention_pre_forward():
 
     res = pto.tensor()
     atten = DeepSeekAttention(g_deepseek_config, aw, 1)
-    graph_type = pto.graph_type.TENSOR_GRAPH
-    func_type = pto.function_type.STATIC
+    graph_type = pto.GraphType.TENSOR_GRAPH
+    func_type = pto.FunctionType.STATIC
     with pto.pto_function("pre_forward", graph_type, func_type):
         res = atten.attention_pre_forward(hidden_states=hidden_states,
                                             atten_mask=atten_mask,
@@ -940,21 +940,21 @@ def test_attention_pre_forward_cv():
     q_lora_rank = 512
     q_head_dim = qk_nope_head_dim + qk_rope_head_dim
 
-    hidden_states = pto.tensor([b, s, h], pto.data_type.DT_BF16, "hidden_states")
-    atten_mask = pto.tensor([b, 1, s, s2], pto.data_type.DT_FP32, "atten_mask")
-    position_ids = pto.tensor([b, s], pto.data_type.DT_INT32, "position_ids")
-    cos = pto.tensor([s, qk_rope_head_dim], pto.data_type.DT_BF16, "cos")
-    sin = pto.tensor([s, qk_rope_head_dim], pto.data_type.DT_BF16, "sin")
-    kv_len = pto.tensor([1, 1], pto.data_type.DT_INT32, "kv_len")
-    past_key_states = pto.tensor([b, 1, s2, kv_lora_rank + qk_rope_head_dim], pto.data_type.DT_BF16, "past_key_states")
+    hidden_states = pto.tensor([b, s, h], pto.DT_BF16, "hidden_states")
+    atten_mask = pto.tensor([b, 1, s, s2], pto.DT_FP32, "atten_mask")
+    position_ids = pto.tensor([b, s], pto.DT_INT32, "position_ids")
+    cos = pto.tensor([s, qk_rope_head_dim], pto.DT_BF16, "cos")
+    sin = pto.tensor([s, qk_rope_head_dim], pto.DT_BF16, "sin")
+    kv_len = pto.tensor([1, 1], pto.DT_INT32, "kv_len")
+    past_key_states = pto.tensor([b, 1, s2, kv_lora_rank + qk_rope_head_dim], pto.DT_BF16, "past_key_states")
 
     aw = AttentionW()
-    aw.q_a_proj_w = pto.tensor([h, q_lora_rank], pto.data_type.DT_BF16, "qAProjW")
-    aw.q_b_proj_w = pto.tensor([q_lora_rank, num_heads * q_head_dim], pto.data_type.DT_BF16, "qBProjW")
-    aw.kv_a_proj_with_mqa_w = pto.tensor([h, kv_lora_rank + qk_rope_head_dim], pto.data_type.DT_BF16, "kvAProjWithMqaW")
-    aw.kv_b_proj_wk = pto.tensor([num_heads, qk_nope_head_dim, kv_lora_rank], pto.data_type.DT_BF16, "kvBProjWK")
-    aw.kv_b_proj_wv = pto.tensor([num_heads, kv_lora_rank, v_head_dim], pto.data_type.DT_BF16, "kvBProjWV")
-    aw.o_proj_w = pto.tensor([num_heads * v_head_dim, h], pto.data_type.DT_BF16, "oProjW")
+    aw.q_a_proj_w = pto.tensor([h, q_lora_rank], pto.DT_BF16, "qAProjW")
+    aw.q_b_proj_w = pto.tensor([q_lora_rank, num_heads * q_head_dim], pto.DT_BF16, "qBProjW")
+    aw.kv_a_proj_with_mqa_w = pto.tensor([h, kv_lora_rank + qk_rope_head_dim], pto.DT_BF16, "kvAProjWithMqaW")
+    aw.kv_b_proj_wk = pto.tensor([num_heads, qk_nope_head_dim, kv_lora_rank], pto.DT_BF16, "kvBProjWK")
+    aw.kv_b_proj_wv = pto.tensor([num_heads, kv_lora_rank, v_head_dim], pto.DT_BF16, "kvBProjWV")
+    aw.o_proj_w = pto.tensor([num_heads * v_head_dim, h], pto.DT_BF16, "oProjW")
 
     rope_tile_config = pto.rope_tile_shape_config()
     rope_tile_config.two_dims_tile_shape = [32, 32]
@@ -964,8 +964,8 @@ def test_attention_pre_forward_cv():
 
     res = pto.tensor()
     atten = DeepSeekAttention(g_deepseek_config, aw, 1)
-    graph_type = pto.graph_type.TENSOR_GRAPH
-    func_type = pto.function_type.STATIC
+    graph_type = pto.GraphType.TENSOR_GRAPH
+    func_type = pto.FunctionType.STATIC
     with pto.pto_function("attention_pre_forward_cv", graph_type, func_type):
         res = atten.attention_pre_forward_cv(hidden_states=hidden_states,
                                             atten_mask=atten_mask,
@@ -990,17 +990,17 @@ def test_mla_prolog_forward():
     v_head_dim = NUM_128
     q_head_dim = qk_nope_head_dim + qk_rope_head_dim
 
-    d_type = pto.data_type.DT_BF16
+    d_type = pto.DT_BF16
     x = pto.tensor([b, s, h], d_type, "x")
     w_qa = pto.tensor([h, q_lora_rank], d_type, "w_qa")
     w_qb = pto.tensor([q_lora_rank, n * q_head_dim], d_type, "w_qb")
     w_kv_a = pto.tensor([h, kv_lora_rank + qk_rope_head_dim], d_type, "w_kv_a")
     w_kv_b_k = pto.tensor([n, qk_nope_head_dim, kv_lora_rank], d_type, "w_kv_b_k")
-    position_ids = pto.tensor([b, s], pto.data_type.DT_INT32, "position_ids")
+    position_ids = pto.tensor([b, s], pto.DT_INT32, "position_ids")
     cos = pto.tensor([s, qk_rope_head_dim], d_type, "cos")
     sin = pto.tensor([s, qk_rope_head_dim], d_type, "sin")
     past_key_states = pto.tensor([b, 1, s2, kv_lora_rank + qk_rope_head_dim], d_type, "past_key_states")
-    kv_len = pto.tensor([1, 1], pto.data_type.DT_INT32, "kv_len")
+    kv_len = pto.tensor([1, 1], pto.DT_INT32, "kv_len")
     output_q = pto.tensor([b, n, s, kv_lora_rank + qk_rope_head_dim], d_type, "output_q")
 
     aw = AttentionW()
@@ -1019,8 +1019,8 @@ def test_mla_prolog_forward():
     atten.num_heads = NUM_32
     atten.q_lora_rank = NUM_1536
     atten.hidden_size = NUM_7168
-    graph_type = pto.graph_type.TENSOR_GRAPH
-    func_type = pto.function_type.STATIC
+    graph_type = pto.GraphType.TENSOR_GRAPH
+    func_type = pto.FunctionType.STATIC
     with pto.pto_function("mla_prolog_forward", graph_type, func_type):
         q_kv = atten.mla_prolog_forward(hidden_states=x,
                                         position_ids=position_ids,

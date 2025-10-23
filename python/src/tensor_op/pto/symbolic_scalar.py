@@ -8,41 +8,192 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
+# pyright: reportIncompatibleMethodOverride=false
+import re
+from typing import Union
+
+import sympy
 from pto import pto_impl
 
+_replacements = {
+    "RUNTIME_Min": "min",
+    "RUNTIME_Max": "max",
+    "RUNTIME_Eq": "Eq",
+    "RUNTIME_Ne": "Ne",
+}
 
-not_less_than = pto_impl.NotLessThan
-not_greater_than = pto_impl.NotGreaterThan
-
-_original_init = pto_impl.SymbolicScalar.__init__
+_REPLACE_PATTERN = re.compile("|".join(_replacements.keys()))
 
 
-def new_init(self, name=None, value=None, value1=None):
-    if name is None and value is None and value1 is None:
-        _original_init(self)
-    elif name is not None and value is None and value1 is None:
-        _original_init(self, name)
-    elif name is None and value is not None and value1 is None:
-        _original_init(self, value)
-    elif name is not None and value is not None and value1 is None:
-        _original_init(self, name, value)
-    elif name is not None and value is None and value1 is not None:
-        _original_init(self, name, value1)
-    elif name is not None and value is not None and value1 is not None:
-        _original_init(self, name, value, value1)
-    else:
-        raise RuntimeError(f"SymbolicScalar init, input params is invalid")
+def _expr_preprocess(s: str) -> str:
+    return _REPLACE_PATTERN.sub(lambda m: _replacements[m.group(0)], s)
 
-pto_impl.SymbolicScalar.__init__ = new_init
-symbolic_scalar = SymbolicScalar = pto_impl.SymbolicScalar
-symbolic_scalar.is_immediate = pto_impl.SymbolicScalar.IsImmediate
-symbolic_scalar.is_symbol = pto_impl.SymbolicScalar.IsSymbol
-symbolic_scalar.is_expression = pto_impl.SymbolicScalar.IsExpression
-symbolic_scalar.is_valid = pto_impl.SymbolicScalar.IsValid
-symbolic_scalar.concrete_valid = pto_impl.SymbolicScalar.ConcreteValid
-symbolic_scalar.concrete = pto_impl.SymbolicScalar.Concrete
-symbolic_scalar.as_intermediate_variable = pto_impl.SymbolicScalar.AsIntermediateVariable
-symbolic_scalar.is_intermediate_variable = pto_impl.SymbolicScalar.IsIntermediateVariable
-symbolic_scalar.dump = pto_impl.SymbolicScalar.Dump
-symbolic_scalar.min = pto_impl.SymbolicScalar.Min
-symbolic_scalar.max = pto_impl.SymbolicScalar.Max
+
+class SymbolicScalar:
+
+    def __init__(self, arg0: Union[int, str, None] = None, arg1: Union[int, None] = None):
+        """
+        Construct a SymbolicScalar.
+
+        Args:
+            arg0 Union[int, str]: The value or name of the symbolic scalar
+            arg1 Union[int, None]: The value of the symbolic scalar. Defaults to None.
+
+        Examples:
+            >>> a = SymbolicScalar()
+            >>> b = SymbolicScalar(10)
+            >>> c = SymbolicScalar("x")
+            >>> d = SymbolicScalar("x", 10)
+        """
+        if isinstance(arg0, int):
+            self._base = pto_impl.SymbolicScalar(arg0)
+        elif isinstance(arg0, str):
+            if isinstance(arg1, int):
+                self._base = pto_impl.SymbolicScalar(arg0, arg1)
+            else:
+                self._base = pto_impl.SymbolicScalar(arg0)
+        else:
+            self._base = pto_impl.SymbolicScalar()
+
+    def is_immediate(self) -> bool:
+        return self._base.IsImmediate()
+
+    def is_symbol(self) -> bool:
+        return self._base.IsSymbol()
+
+    def is_expression(self) -> bool:
+        return self._base.IsExpression()
+
+    def is_concrete(self) -> bool:
+        return self._base.ConcreteValid()
+
+    def concrete(self) -> int:
+        if self.is_concrete():
+            return self._base.Concrete()
+        else:
+            raise ValueError("Not concrete value")
+
+    def as_variable(self) -> None:
+        self._base.AsIntermediateVariable()
+
+    def __str__(self) -> str:
+        return self._base.Dump()
+
+    def base(self) -> pto_impl.SymbolicScalar:
+        return self._base
+
+    def __repr__(self) -> str:
+        return f"SymbolicScalar({self._base.Dump()})"
+
+    @classmethod
+    def from_base(cls, base: pto_impl.SymbolicScalar) -> 'SymbolicScalar':
+        obj = cls.__new__(cls)
+        obj._base = base
+        return obj
+
+    def _binary_ops(self, other, name: str, bop, sym_bop):
+        if isinstance(other, int):
+            if self.is_concrete():
+                out = SymbolicScalar(bop(self.concrete(), other))
+            else:
+                out = self.from_base(sym_bop(self._base, other))
+        else:
+            if self.is_concrete() and other.is_concrete():
+                out = SymbolicScalar(bop(self.concrete(), other.concrete()))
+            else:
+                out = self.from_base(sym_bop(self._base, other._base))
+
+        if not out.is_concrete():
+            expr = _expr_preprocess(str(out))
+            expr = sympy.simplify(expr)
+            if isinstance(expr, sympy.Integer):
+                out = SymbolicScalar(int(expr))
+            elif expr == sympy.true:
+                out = SymbolicScalar(1)
+            elif expr == sympy.false:
+                out = SymbolicScalar(0)
+        return out
+
+    def __eq__(self, other: 'SymbolicScalar | int') -> 'SymbolicScalar':
+        return self._binary_ops(other, '__eq__', lambda a, b: a == b, lambda a, b: a.Eq(b))
+
+    def __ne__(self, other: 'SymbolicScalar | int') -> 'SymbolicScalar':
+        return self._binary_ops(other, '__ne__', lambda a, b: a != b, lambda a, b: a.Ne(b))
+
+    def __lt__(self, other: 'SymbolicScalar | int') -> 'SymbolicScalar':
+        return self._binary_ops(other, '__lt__', lambda a, b: a < b, lambda a, b: a.Lt(b))
+
+    def __le__(self, other: 'SymbolicScalar | int') -> 'SymbolicScalar':
+        return self._binary_ops(other, '__le__', lambda a, b: a <= b, lambda a, b: a.Le(b))
+
+    def __gt__(self, other: 'SymbolicScalar | int') -> 'SymbolicScalar':
+        return self._binary_ops(other, '__gt__', lambda a, b: a > b, lambda a, b: a.Gt(b))
+
+    def __ge__(self, other: 'SymbolicScalar | int') -> 'SymbolicScalar':
+        return self._binary_ops(other, '__ge__', lambda a, b: a >= b, lambda a, b: a.Ge(b))
+
+    def __add__(self, other: 'SymbolicScalar | int') -> 'SymbolicScalar':
+        return self._binary_ops(other, '__add__', lambda a, b: a + b, lambda a, b: a.Add(b))
+
+    def __radd__(self, other: int) -> 'SymbolicScalar':
+        return self._binary_ops(other, '__radd__', lambda a, b: b + a, lambda a, b: a.RAdd(b))
+
+    def __sub__(self, other: 'SymbolicScalar | int') -> 'SymbolicScalar':
+        return self._binary_ops(other, '__sub__', lambda a, b: a - b, lambda a, b: a.Sub(b))
+
+    def __rsub__(self, other: int) -> 'SymbolicScalar':
+        return self._binary_ops(other, '__rsub__', lambda a, b: b - a, lambda a, b: a.RSub(b))
+
+    def __mul__(self, other: 'SymbolicScalar | int') -> 'SymbolicScalar':
+        return self._binary_ops(other, '__mul__', lambda a, b: a * b, lambda a, b: a.Mul(b))
+
+    def __rmul__(self, other: int) -> 'SymbolicScalar':
+        return self._binary_ops(other, '__rmul__', lambda a, b: b * a, lambda a, b: a.RMul(b))
+
+    def __truediv__(self, other: 'SymbolicScalar | int') -> 'SymbolicScalar':
+        return self._binary_ops(other, '__truediv__', lambda a, b: a // b, lambda a, b: a.Div(b))
+
+    def __rtruediv__(self, other: int) -> 'SymbolicScalar':
+        return self._binary_ops(other, '__rtruediv__', lambda a, b: b // a, lambda a, b: a.RDiv(b))
+
+    def __mod__(self, other: 'SymbolicScalar | int') -> 'SymbolicScalar':
+        return self._binary_ops(other, '__mod__', lambda a, b: a % b, lambda a, b: a.Mod(b))
+
+    def __rmod__(self, other: int) -> 'SymbolicScalar':
+        return self._binary_ops(other, '__rmod__', lambda a, b: b % a, lambda a, b: a.RMod(b))
+
+    def __floordiv__(self, other: 'SymbolicScalar | int') -> 'SymbolicScalar':
+        return self._binary_ops(other, '__floordiv__', lambda a, b: a // b, lambda a, b: a.Div(b))
+
+    def __rfloordiv__(self, other: int) -> 'SymbolicScalar':
+        return self._binary_ops(other, '__rfloordiv__', lambda a, b: b // a, lambda a, b: a.RDiv(b))
+
+    def _unary_ops(self, uop, sym_uop):
+        if self.is_concrete():
+            return SymbolicScalar(uop(self.concrete()))
+        else:
+            return self.from_base(sym_uop(self._base))
+
+    def __neg__(self) -> 'SymbolicScalar':
+        return self._unary_ops(lambda a: -a, lambda a: a.Neg())
+
+    def __pos__(self) -> 'SymbolicScalar':
+        return self._unary_ops(lambda a: +a, lambda a: a.Pos())
+
+    def __invert__(self) -> 'SymbolicScalar':
+        return self._unary_ops(lambda a: not a, lambda a: a.Not())
+
+    def __int__(self) -> int:
+        return self.concrete()
+
+    def __bool__(self) -> bool:
+        return bool(self.concrete())
+
+    def min(self, other: 'SymbolicScalar | int') -> 'SymbolicScalar':
+        return self._binary_ops(other, '__min__', lambda a, b: min(a, b), lambda a, b: a.Min(b))
+
+    def max(self, other: 'SymbolicScalar | int') -> 'SymbolicScalar':
+        return self._binary_ops(other, '__max__', lambda a, b: max(a, b), lambda a, b: a.Max(b))
+
+
+symbolic_scalar = SymbolicScalar

@@ -83,6 +83,16 @@ int64_t RuntimeMin(int64_t input1, int64_t input2) {
         return input2;
 }
 
+__always_inline
+int64_t RuntimeEq(int64_t input1, int64_t input2) {
+    return input1 == input2;
+}
+
+__always_inline
+int64_t RuntimeNe(int64_t input1, int64_t input2) {
+    return input1 != input2;
+}
+
 #define RUNTIME_GetInputShapeDimSize(inputIndex) \
     RuntimeGetInputShapeDimSize(&(startArgs)->inputTensorList[(inputIndex)])
 #define RUNTIME_GetInputShapeDim(inputIndex, n) \

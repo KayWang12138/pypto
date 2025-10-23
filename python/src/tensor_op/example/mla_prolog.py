@@ -52,7 +52,7 @@ def qkv_pre(**kwargs) -> List[pto.tensor]:
     quant_inputs = kwargs.get("quant_inputs")
     split_reduce_last_dim = kwargs.get("split_reduce_last_dim")
     split_k = kwargs.get("split_k")
-    
+
     # quant
     dequant_scale_w_uq_qr = quant_inputs.dequant_scale_w_uq_qr
     is_quant = (dequant_scale_w_uq_qr.has_storage() if dequant_scale_w_uq_qr is not None else False)
@@ -65,7 +65,7 @@ def qkv_pre(**kwargs) -> List[pto.tensor]:
     q_lora_rank = w_dq.shape[1]
 
     d_type = token_x.get_dtype()
-    d_type_quant_out = pto.DataType.DT_INT32 if is_quant else d_type
+    d_type_quant_out = pto.DT_INT32 if is_quant else d_type
     qkv_pre_res = []
 
     input_tensor = pto.reshape(token_x, [bs, h])  # [b,s,h] -> [b*s,h]
@@ -77,28 +77,28 @@ def qkv_pre(**kwargs) -> List[pto.tensor]:
 
     q_mm_res = pto.tensor()
     if split_k:
-        tmp_c = pto.tensor([bs, q_lora_rank], pto.DataType.DT_FP32, "tmp_q")
+        tmp_c = pto.tensor([bs, q_lora_rank], pto.DT_FP32, "tmp_q")
         pto.set_vec_tile_shapes(min(NUM_32, bs), NUM_128)  # 32, 128
-        tmp_c[:] = pto.mul_s(tmp_c, pto.element(pto.DataType.DT_FP32, 0.0))
+        tmp_c[:] = pto.mul_s(tmp_c, pto.element(pto.DT_FP32, 0.0))
         matmul_result = []
         k_split = 7
         k_split_size = h // k_split
         for ki in range(k_split):
             input_mk = pto.view(input_tensor, [bs, k_split_size], [0, ki * k_split_size])
             input_kn = pto.view(w_dq, [k_split_size, q_lora_rank], [ki * k_split_size, 0])
-            tmp = pto.matmul(pto.DataType.DT_FP32, input_mk, input_kn, tmp_c)  # [b*s,h/2] * [h/2,q_lora_rank]
+            tmp = pto.matmul(pto.DT_FP32, input_mk, input_kn, tmp_c)  # [b*s,h/2] * [h/2,q_lora_rank]
             matmul_result.append(tmp)
-        q_mm_res_f32 = pto.reduce(matmul_result, pto.reduce_mode.ATOMIC_ADD)
+        q_mm_res_f32 = pto.reduce(matmul_result, pto.ReduceMode.ATOMIC_ADD)
         pto.set_vec_tile_shapes(min(NUM_32, bs), NUM_128)  # 32, 128
         q_mm_res[:] = pto.cast(q_mm_res_f32, d_type)
     else:
         q_mm_res[:] = pto.matmul(d_type, input_tensor, w_dq)  # bf16
-    
+
     if split_reduce_last_dim:
         pto.set_vec_tile_shapes(min(NUM_16, bs), NUM_128)
     else:
         pto.set_vec_tile_shapes(min(NUM_8, bs), q_lora_rank)
-    
+
     norm_res = pto.rms_norm(q_mm_res, gamma_cq, epsilon_cq)
     norm_dequant_scale = pto.tensor()
     norm_quant_res = None
@@ -123,17 +123,17 @@ def qkv_pre(**kwargs) -> List[pto.tensor]:
     if split_k:
         pto.set_vec_tile_shapes(min(NUM_32, bs), NUM_64)  # 32, 64
         kv_n = w_dkv_kr.shape[1]
-        tmp_c_kv = pto.tensor([bs, kv_n], pto.DataType.DT_FP32, "tmp_kv")
-        tmp_c_kv[:] = pto.mul_s(tmp_c_kv, pto.element(pto.DataType.DT_FP32, 0.0))
+        tmp_c_kv = pto.tensor([bs, kv_n], pto.DT_FP32, "tmp_kv")
+        tmp_c_kv[:] = pto.mul_s(tmp_c_kv, pto.element(pto.DT_FP32, 0.0))
         matmul_result_kv = []
         k_split_kv = 7
         k_split_size_kv = h // k_split_kv
         for ki in range(k_split_kv):
             input_mk = pto.view(input_tensor, [bs, k_split_size_kv], [0, ki * k_split_size_kv])
             input_kn = pto.view(w_dkv_kr, [k_split_size_kv, kv_n], [ki * k_split_size_kv, 0])
-            tmp = pto.matmul(pto.DataType.DT_FP32, input_mk, input_kn, tmp_c_kv)  # [b*s,h/2] * [h/2,kv_n] = [b*s,kv_n]
+            tmp = pto.matmul(pto.DT_FP32, input_mk, input_kn, tmp_c_kv)  # [b*s,h/2] * [h/2,kv_n] = [b*s,kv_n]
             matmul_result_kv.append(tmp)
-        kv_mm_res_f32 = pto.reduce(matmul_result_kv, pto.reduce_mode.ATOMIC_ADD)
+        kv_mm_res_f32 = pto.reduce(matmul_result_kv, pto.ReduceMode.ATOMIC_ADD)
         pto.set_vec_tile_shapes(min(NUM_32, bs), NUM_64)  # 32, 64
         compressed_kv[:] = pto.cast(kv_mm_res_f32, d_type)
     else:
@@ -220,12 +220,12 @@ def mla_prolog(**kwargs):
     if is_quant:
         tile_shape = [b_s, NUM_64]
         pto.set_vec_tile_shapes(*tile_shape)
-        q_tmp_fp32 = pto.cast(q, pto.DataType.DT_FP32)
+        q_tmp_fp32 = pto.cast(q, pto.DT_FP32)
         q_tmp_dequant_scale = q_kv[2]
         q_tmp_dequant_per_token = pto.mul(q_tmp_fp32, q_tmp_dequant_scale)
         q_tmp_dequant_channel = pto.mul(q_tmp_dequant_per_token, dequant_scale_w_uq_qr)
         q[:] = pto.cast(q_tmp_dequant_channel, d_type)
-    
+
     q_tmp = pto.reshape(q, [b, s, n, q_head_dim])
     tile_shape = [b, 1, 1, NUM_64]
     pto.set_vec_tile_shapes(*tile_shape)
@@ -318,8 +318,8 @@ def test_mla_prolog_v2(**kwargs):
     kv_lora_rank = params[8]
     q_head_dim = qk_nope_head_dim + qk_rope_head_dim
 
-    d_type = pto.data_type.DT_BF16
-    d_type_quant_in = pto.data_type.DT_INT8 if is_quant else d_type
+    d_type = pto.DT_BF16
+    d_type_quant_in = pto.DT_INT8 if is_quant else d_type
 
     x_shape = [b, s, h]
     w_qa_shape = [h, q_lora_rank]
@@ -340,14 +340,14 @@ def test_mla_prolog_v2(**kwargs):
         kv_cache_shape = [block_num, block_size, 1, kv_lora_rank]
         kr_cache_shape = [block_num, block_size, 1, qk_rope_head_dim]
 
-    
+
     x = pto.tensor(x_shape, d_type, "x")
-    weight_format = pto.tile_op_format.TILEOP_NZ if nz else pto.tile_op_format.TILEOP_ND
+    weight_format = pto.TileOpFormat.TILEOP_NZ if nz else pto.TileOpFormat.TILEOP_ND
     w_dq = pto.tensor(w_qa_shape, d_type, "w_dq", weight_format)
     w_uq_qr = pto.tensor(w_qb_shape, d_type_quant_in, "w_uq_qr", weight_format)
     if use_pre_fetch:
-        w_dq.set_cache_policy(pto.cache_policy.PREFETCH, True)
-        w_uq_qr.set_cache_policy(pto.cache_policy.PREFETCH, True)
+        w_dq.set_cache_policy(pto.CachePolicy.PREFETCH, True)
+        w_uq_qr.set_cache_policy(pto.CachePolicy.PREFETCH, True)
 
 
     w_dkv_kr = pto.tensor(w_kv_a_shape, d_type, "w_dkv_kr", weight_format)
@@ -356,7 +356,7 @@ def test_mla_prolog_v2(**kwargs):
     gamma_ckv = pto.tensor(gamma_ckv_shape, d_type, "gamma_ckv")
     cos = pto.tensor(cos_shape, d_type, "cos")
     sin = pto.tensor(cos_shape, d_type, "sin")
-    kv_len = pto.tensor(kv_len_shape, pto.data_type.DT_INT64, "kv_len")
+    kv_len = pto.tensor(kv_len_shape, pto.DT_INT64, "kv_len")
     kv_cache = pto.tensor(kv_cache_shape, d_type, "kv_cache")
     kr_cache = pto.tensor(kr_cache_shape, d_type, "kr_cache")
 
@@ -374,15 +374,15 @@ def test_mla_prolog_v2(**kwargs):
     if is_quant:
         w_qb_scale_shape = [1, n * q_head_dim]
         smooth_cq_shape = [1, q_lora_rank]
-        w_qb_scale = pto.tensor(w_qb_scale_shape, pto.data_type.DT_FP32, "w_qb_scale")
+        w_qb_scale = pto.tensor(w_qb_scale_shape, pto.DT_FP32, "w_qb_scale")
         quant_inputs.dequant_scale_w_uq_qr = w_qb_scale
-        smooth_cq = pto.tensor(smooth_cq_shape, pto.data_type.DT_FP32, "smooth_cq_shape")
+        smooth_cq = pto.tensor(smooth_cq_shape, pto.DT_FP32, "smooth_cq_shape")
         if has_smooth:
             quant_inputs.smooth_scales_cq = smooth_cq
-            smooth_cq.set_cache_policy(pto.cache_policy.PREFETCH, True)
+            smooth_cq.set_cache_policy(pto.CachePolicy.PREFETCH, True)
 
-        graph_t = pto.graph_type.TENSOR_GRAPH
-        func_t = pto.function_type.STATIC
+        graph_t = pto.GraphType.TENSOR_GRAPH
+        func_t = pto.FunctionType.STATIC
         with pto.pto_function("MlaPrologUt", graph_t, func_t,
                 x, w_dq, w_uq_qr, w_qb_scale, smooth_cq, w_uk, w_dkv_kr, gamma_cq, gamma_ckv, sin, cos,
                  kv_len, kv_cache, kr_cache, output_q, output_q_rope):
@@ -412,8 +412,8 @@ def test_mla_prolog_v2(**kwargs):
                 split_k=split_k
                 )
     else:
-        graph_t = pto.graph_type.TENSOR_GRAPH
-        func_t = pto.function_type.STATIC
+        graph_t = pto.GraphType.TENSOR_GRAPH
+        func_t = pto.FunctionType.STATIC
         with pto.pto_function("MlaPrologUt", graph_t, func_t,
                 x, w_dq, w_uq_qr, w_uk, w_dkv_kr, gamma_cq, gamma_ckv, sin, cos,
                  kv_len, kv_cache, kr_cache, output_q, output_q_rope):

@@ -11,12 +11,12 @@
 
 import pto
 
-GRAPH_T = pto.graph_type.TENSOR_GRAPH
-FUNC_T = pto.function_type.STATIC
+GRAPH_T = pto.GraphType.TENSOR_GRAPH
+FUNC_T = pto.FunctionType.STATIC
 
 
 def test_matrix_matmul():
-    dtype = pto.data_type.DT_FP32
+    dtype = pto.DT_FP32
     a = pto.tensor((32, 64), dtype, "A")
     b = pto.tensor((64, 32), dtype, "B")
     c = None
@@ -27,18 +27,14 @@ def test_matrix_matmul():
         d = pto.matmul(dtype, a, b, a_trans=True, b_trans=True)
 
     assert isinstance(c, pto.tensor)
-    expected_c_shape = [32, 32]
-    actual_c_shape = c.get_shape()
-    assert (expected_c_shape == actual_c_shape)
+    assert c.shape == [32, 32]
 
     assert isinstance(d, pto.tensor)
-    expected_d_shape = [64, 64]
-    actual_d_shape = d.get_shape()
-    assert (actual_d_shape == expected_d_shape)
+    assert d.shape == [64, 64]
 
 
 def test_matrix_batch_matmul():
-    dtype = pto.data_type.DT_FP32
+    dtype = pto.DT_FP32
     a = pto.tensor((2, 64, 32), dtype, "A")
     b = pto.tensor((2, 32, 64), dtype, "B")
     c = None
@@ -49,11 +45,7 @@ def test_matrix_batch_matmul():
         d = pto.batch_matmul(dtype, a, b, a_trans=True, b_trans=True)
 
     assert isinstance(c, pto.tensor)
-    expected_c_shape = [2, 64, 64]
-    actual_c_shape = c.get_shape()
-    assert (expected_c_shape == actual_c_shape)
+    assert c.shape == [2, 64, 64]
 
     assert isinstance(d, pto.tensor)
-    expected_d_shape = [2, 32, 32]
-    actual_d_shape = d.get_shape()
-    assert (actual_d_shape == expected_d_shape)
+    assert d.shape == [2, 32, 32]

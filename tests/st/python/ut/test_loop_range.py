@@ -10,18 +10,25 @@
 # ======================================================================================================================
 """
 """
+import logging
 import pto
-
 
 def test_init_loop_range_end():
     expected_val = 123
+    print("aaa")
     scalar = pto.symbolic_scalar(expected_val)
+    print("bbbb")
     loop = pto.loop_range(scalar)
 
+    print("11111")
     loop_end = loop.end()
+    print("22222")
+    print(type(loop_end.base()))
 
-    assert loop_end.concrete_valid() == True
+    assert loop_end.is_concrete() == True
+    print("2222")
     assert loop_end.concrete() == expected_val
+    print("4444")
 
 
 def test_init_loop_range_begin_end():
@@ -33,10 +40,10 @@ def test_init_loop_range_begin_end():
     loop_begin = loop.begin()
     loop_end = loop.end()
 
-    assert loop_begin.concrete_valid() == True
+    assert loop_begin.is_concrete() == True
     assert loop_begin.concrete() == expected_begin
 
-    assert loop_end.concrete_valid() == True
+    assert loop_end.is_concrete() == True
     assert loop_end.concrete() == expected_end
 
 
@@ -52,13 +59,13 @@ def test_init_loop_range_begin_end_step():
     loop_end = loop.end()
     loop_step = loop.step()
 
-    assert loop_begin.concrete_valid() == True
+    assert loop_begin.is_concrete() == True
     assert loop_begin.concrete() == expected_begin
 
-    assert loop_end.concrete_valid() == True
+    assert loop_end.is_concrete() == True
     assert loop_end.concrete() == expected_end
 
-    assert loop_step.concrete_valid() == True
+    assert loop_step.is_concrete() == True
     assert loop_step.concrete() == expected_step
 
 
@@ -71,7 +78,7 @@ def test_loop_dump():
     loop = pto.loop_range(sym_begin, sym_end, sym_step)
 
     expected = f"LoopRange({expected_begin}, {expected_end}, {expected_step})"
-    actual = loop.dump()
+    actual = str(loop)
 
     assert actual == expected
 
@@ -82,5 +89,5 @@ def test_init_loop_range_end_implicit_conversion_from_int():
 
     loop_end = loop.end()
 
-    assert loop_end.concrete_valid() == True
+    assert loop_end.is_concrete() == True
     assert loop_end.concrete() == expected_val

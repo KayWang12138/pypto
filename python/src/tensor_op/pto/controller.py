@@ -8,149 +8,208 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
+# pyright: reportOptionalMemberAccess=false
 """
 """
 
-from contextlib import contextmanager
-from typing import List, Tuple, Optional, Set
 import inspect
 import logging
+from contextlib import contextmanager
+from typing import List, Optional, Set, Tuple, Union
+
+import pto
 from pto import pto_impl
+
+from .pto_utils import to_sym
+from .symbolic_scalar import SymbolicScalar
+from .tensor import Tensor
 
 logging.basicConfig(level=logging.DEBUG)
 
-set_vec_tile_shapes = pto_impl.SetVecTile
-get_vec_tile_shapes = pto_impl.GetVecTile
-set_cube_tile_shapes = pto_impl.SetCubeTile
-set_config = pto_impl.SetConfig
-set_build_static = pto_impl.SetBuildStatic
-set_matrix_size = pto_impl.SetMatrixSize
-set_semantic_label = pto_impl.SetSemanticLabel
-set_operation_config = pto_impl.SetOperationConfig
-set_pass_config = pto_impl.SetPassConfig
-set_host_config = pto_impl.SetHostConfig
-set_codegen_config = pto_impl.SetCodeGenOption
-set_platform_config = pto_impl.SetPlatformConfig
-bytes_of = pto_impl.BytesOf
-dump = pto_impl.Dump
-powers_of_2 = pto_impl.PowersOf2
-begin_function = pto_impl.BeginFunction
-end_function = pto_impl.EndFunction
 
-record_func = RecordFunc = pto_impl.RecordFunc
-record_loop_func = RecordLoopFunc = pto_impl.RecordLoopFunc
-record_if_branch = RecordIfBranch = pto_impl.RecordIfBranch
-vec_tile = VecTile = pto_impl.VecTile
+def set_vec_tile_shapes(*shapes: int):
+    pto_impl.SetVecTile(*shapes)
 
-TileShape = pto_impl.TileShape
-TileShape.reset = TileShape.Reset
-TileShape.to_string = TileShape.toString
-TileShape.get_vec_tile_shapes = TileShape.GetVecTile
-TileShape.set_vec_tile_shapes = TileShape.SetVecTile
-TileShape.set_dist_rank_id = TileShape.SetDistRankId
-tile_shape = TileShape
 
-LoopRange = pto_impl.LoopRange
-LoopRange.begin = LoopRange.Begin
-LoopRange.end = LoopRange.End
-LoopRange.step = LoopRange.Step
-LoopRange.dump = LoopRange.Dump
+def get_vec_tile_shapes() -> List[int]:
+    return pto_impl.GetVecTile()
+
+
+def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], set_l1_tile: bool = False):
+    pto_impl.SetCubeTile(m, k, n, set_l1_tile)
+
+
+def set_build_static(static: bool):
+    pto_impl.SetBuildStatic(static)
+
+
+def set_semantic_label(label: str):
+    pto_impl.SetSemanticLabel(label)
+
+
+def bytes_of(dtype: pto.DataType) -> int:
+    return pto_impl.BytesOf(dtype)
+
+
+def set_codegen_config(key, val):
+    pto_impl.SetCodeGenOption(key, val)
+
+
+def set_pass_config(key, val):
+    pto_impl.SetOption(f"pass.{key}", val)
+
+
+def begin_function(
+    name: str,
+    graph_type: pto_impl.GraphType,
+    func_type: pto_impl.FunctionType,
+    *args
+) -> pto_impl.RecordFunc:
+    args = [arg.base() for arg in args]
+    return pto_impl.BeginFunction(name, graph_type, func_type, *args)
+
+
+def end_function(name: str, generate_call: bool = True):
+    pto_impl.EndFunction(name, generate_call)
+
+
+class LoopRange:
+    def __init__(self, start, stop=None, step: Union[int, SymbolicScalar]):
+        if stop is None:
+            start, stop = 0, start
+        self._base = pto_impl.LoopRange(
+            to_sym(start), to_sym(stop), to_sym(step))
+
+    def begin(self) -> SymbolicScalar:
+        return SymbolicScalar.from_base(self._base.Begin())
+
+    def end(self) -> SymbolicScalar:
+        return SymbolicScalar.from_base(self._base.End())
+
+    def step(self) -> SymbolicScalar:
+        return SymbolicScalar.from_base(self._base.Step())
+
+    def __str__(self) -> str:
+        return self._base.Dump()
+
+    def __repr__(self) -> str:
+        return f"LoopRange({self._base.Dump()})"
+
+    def base(self) -> pto_impl.LoopRange:
+        return self._base
+
+
 loop_range = LoopRange
 
-is_loop_begin = pto_impl.IsLoopBegin
-is_loop_end = pto_impl.IsLoopEnd
+
+def is_loop_begin(scalar: SymbolicScalar, begin: Union[int, SymbolicScalar]):
+    nbegin = to_sym(begin)
+    return pto_impl.IsLoopBegin(scalar.base(), nbegin)
+
+
+def is_loop_end(scalar: SymbolicScalar, end: Union[int, SymbolicScalar]):
+    nend = to_sym(end)
+    return pto_impl.IsLoopEnd(scalar.base(), nend)
 
 
 @contextmanager
-def dyn_function(
+def function(
     name: str,
-    in_tensors: List[pto_impl.Tensor],
-    out_tensors: List[pto_impl.Tensor],
-    inplace_tensors: List[Tuple[pto_impl.Tensor, pto_impl.Tensor]] = None,
-) -> pto_impl.RecordFunc:
+    in_tensors: List[Tensor],
+    out_tensors: List[Tensor],
+    inplace_tensors: Optional[List[Tuple[Tensor, Tensor]]] = None,
+    **kwargs
+):
     if inplace_tensors is None:
         inplace_tensors = []
-    record_func_ = pto_impl.RecordFunc(
-        name, in_tensors, out_tensors, inplace_tensors
-    )
-    logging.debug("Entering DYNAMIC function: %s", name)
+
+    if "static" in kwargs:
+        set_build_static(kwargs["static"])
+
+    inputs = [t.base() for t in in_tensors]
+    outputs = [t.base() for t in out_tensors]
+    inplaces = [(t1.base(), t2.base()) for t1, t2 in inplace_tensors]
+
+    func = None
     try:
-        yield record_func_
+        func = pto_impl.RecordFunc(name, inputs, outputs, inplaces)
+        yield func
     except Exception as e:
-        logging.debug("Caught exception: %s", e)
+        logging.error("Record function %s failed: %s", name, e)
         raise
     finally:
-        del record_func_
-        logging.debug("Exiting DYNAMIC function: %s", name)
+        del func
 
 
-def cond(scalar: pto_impl.SymbolicScalar):
+def cond(scalar: pto.SymbolicScalar):
     frame = inspect.currentframe().f_back
-    return pto_impl.RecordIfBranch(scalar, frame.f_code.co_filename, frame.f_lineno)
+    return pto_impl.RecordIfBranch(scalar.base(), frame.f_code.co_filename, frame.f_lineno)
+
+
+class _LoopFunction:
+
+    class Iterator:
+        def __init__(self, iter):
+            self.iter = iter
+
+        def __next__(self):
+            return SymbolicScalar.from_base(self.iter.__next__())
+
+    def __init__(self, *args):
+        self._base = pto_impl.RecordLoopFunc(*args)
+
+    def __iter__(self):
+        return self.Iterator(self._base.__iter__())
 
 
 @contextmanager
 def loop_function(
     name: str,
     loop_name: str,
-    loop_range_: pto_impl.LoopRange,
-    unroll_list: Set[int] = None,
+    loop_range_: pto.LoopRange,
+    unroll_list: Set[int] = set(),
     submit_before_loop: bool = False,
-) -> pto_impl.RecordLoopFunc:
+):
     if unroll_list is None:
         unroll_list = set()
+
     rlf = None
-    logging.debug("Entering LOOP function: %s", name)
     try:
-        rlf = pto_impl.RecordLoopFunc(
+        rlf = _LoopFunction(
             name,
             pto_impl.FunctionType.DYNAMIC_LOOP,
             loop_name,
-            loop_range_,
+            loop_range_.base(),
             unroll_list,
             submit_before_loop,
         )
         yield rlf
     except Exception as e:
-        logging.debug("Caught exception: %s", e)
+        logging.error("Record loop function %s failed: %s", name, e)
         raise
     finally:
         del rlf
-        logging.debug("Exiting LOOP function: %s", name)
 
 
 @contextmanager
-def pto_function(
-    name: str, graph_type: pto_impl.GraphType, func_type: pto_impl.FunctionType, *args
-):
-    logging.debug("Entering context: %s", name)
+def pto_function(name: str, graph_type: pto_impl.GraphType, func_type: pto_impl.FunctionType, *args):
     try:
-        yield pto_impl.BeginFunction(name, graph_type, func_type, *args)
+        yield begin_function(name, graph_type, func_type, *args)
     except Exception as e:
-        logging.debug("Caught exception: %s", e)
+        logging.error("Record function %s failed: %s", name, e)
         raise
     finally:
-        # TODO(anastasios): make false input param.
         pto_impl.EndFunction(name, False)
-        logging.debug("Exiting context: %s", name)
 
-def loop(start: int, end: Optional[int] = None, step: Optional[int] = None, **kwargs):
-    "Syntactic sugar for loop function"
-    defaults = {
-        "name": "LOOP",
-        "idx_name": "K",
-        "unroll_list": set(),
-        "submit_before_loop": False,
-    }
-    config = {**defaults, **kwargs}  # kwargs overrides defaults
-    name, idx_name = config["name"], config["idx_name"]
-    unroll_list = config["unroll_list"]
-    submit_before_loop = config["submit_before_loop"]
-    start_s = pto_impl.SymbolicScalar(start) if end is not None else pto_impl.SymbolicScalar(0)
-    end_s = pto_impl.SymbolicScalar(end) if end is not None else pto_impl.SymbolicScalar(start)
-    step_s = pto_impl.SymbolicScalar(step) if step is not None else pto_impl.SymbolicScalar(1)
+
+def loop(start, stop=None, step=1, **kwargs):
+    name = kwargs.get("name", "LOOP")
+    idx_name = kwargs.get("idx_name", "K")
+    unroll_list = kwargs.get("unroll_list", set())
+    submit_before_loop = kwargs.get("submit_before_loop", False)
     with loop_function(
-        name, idx_name, loop_range(start_s, end_s, step_s), unroll_list, submit_before_loop
+        name, idx_name, loop_range(
+            start, stop, step), unroll_list, submit_before_loop
     ) as rlf:
         for k in rlf:
             yield k

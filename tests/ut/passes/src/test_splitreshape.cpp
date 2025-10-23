@@ -693,7 +693,7 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatch) {
     EXPECT_EQ(reshape->dynValidShapes[0].size(), kSizeTwo);
     std::vector<std::string> expectValidShape = {
         "4",
-        "(RUNTIME_GetViewValidShapeDim(a,0,2)*(RUNTIME_GetViewValidShapeDim(a,0,2)!=0))"
+        "(RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))"
     };
     for (size_t i = 0; i < kSizeTwo; ++i) {
         EXPECT_EQ(reshape->dynValidShapes[0][i].Dump(), expectValidShape[i]);
@@ -874,14 +874,14 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForBeCovered) {
     EXPECT_EQ(newReshape->dynValidShapes[0].size(), kSizeTwo);
     EXPECT_EQ(newReshape->dynValidShapes[1].size(), kSizeTwo);
     std::vector<std::string> expectValidShape1 = {
-        "(RUNTIME_GetViewValidShapeDim(a,0,2)*(RUNTIME_GetViewValidShapeDim(a,0,2)!=0))",
+        "(RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))",
         "2"
     };
     for (size_t i = 0; i < kSizeTwo; ++i) {
         EXPECT_EQ(newReshape->dynValidShapes[0][i].Dump(), expectValidShape1[i]);
     }
     std::vector<std::string> expectValidShape2 = {
-        "(RUNTIME_GetViewValidShapeDim(a,0,2)*(RUNTIME_GetViewValidShapeDim(a,0,2)!=0))",
+        "(RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))",
         "4"
     };
     for (size_t i = 0; i < kSizeTwo; ++i) {
@@ -1050,7 +1050,7 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchWithAll) {
     EXPECT_EQ(reshape->dynValidShapes.size(), kNumOne);
     EXPECT_EQ(reshape->dynValidShapes[0].size(), kNumThree);
     std::vector<std::string> expectValidShape = {
-        "(RUNTIME_GetViewValidShapeDim(a,0,2)*(RUNTIME_GetViewValidShapeDim(a,0,2)!=0))",
+        "(RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))",
         "2",
         "2"
     };
@@ -1473,8 +1473,8 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
     std::vector<SymbolicScalar> assembleDynOutput2 = reshapeSource2->GetDynValidShape();
     EXPECT_EQ(assembleDynOutput1.size(), kNumThree);
     std::vector<std::string> expectAssembleDynShape = {
-        "RUNTIME_Max(0, (a0*(a0!=0)))",
-        "RUNTIME_Max(0, (a1*(a1!=0)))",
+        "RUNTIME_Max(0, (a0*RUNTIME_Ne(a0, 0)))",
+        "RUNTIME_Max(0, (a1*RUNTIME_Ne(a1, 0)))",
         "2"
     };
     for (size_t i = 0; i < kNumThree; ++i) {
@@ -1502,8 +1502,8 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
     EXPECT_EQ(reshapeAttrValidShape1.size(), kNumFour);
     EXPECT_EQ(reshapeAttrValidShape2.size(), kNumFour);
     std::vector<std::string> expectReshapeDynShape = {
-        "RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a0,0,2)*(RUNTIME_GetViewValidShapeDim(a0,0,2)!=0))-0))",
-        "RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a1,0,2)*(RUNTIME_GetViewValidShapeDim(a1,0,2)!=0))-0))",
+        "RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a0,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a0,0,2), 0))-0))",
+        "RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a1,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a1,0,2), 0))-0))",
         "1",
         "2"
     };
@@ -1652,7 +1652,7 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
     std::vector<std::string> expectAssembleDynShape = {
         "2",
         "2",
-        "RUNTIME_Max(0, (a*(a!=0)))"
+        "RUNTIME_Max(0, (a*RUNTIME_Ne(a, 0)))"
     };
     for (size_t i = 0; i < kNumThree; ++i) {
         EXPECT_EQ(assembleDynOutput1[i].Dump(), expectAssembleDynShape[i]);
@@ -1681,11 +1681,11 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
     EXPECT_EQ(reshapeAttrValidShape2.size(), kNumTwo);
     std::vector<std::string> expectValidShape1 = {
         "4",
-        "RUNTIME_Max(RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a,0,2)*(RUNTIME_GetViewValidShapeDim(a,0,2)!=0))-0)), ((RUNTIME_GetViewValidShapeDim(a,0,2)*(RUNTIME_GetViewValidShapeDim(a,0,2)!=0))-0))"
+        "RUNTIME_Max(RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))-0)), ((RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))-0))"
     };
     std::vector<std::string> expectValidShape2 = {
         "4",
-        "RUNTIME_Max(RUNTIME_Max(0, (((RUNTIME_GetViewValidShapeDim(a,2,2)+2)*(RUNTIME_GetViewValidShapeDim(a,2,2)!=0))-2)), (((RUNTIME_GetViewValidShapeDim(a,2,2)+2)*(RUNTIME_GetViewValidShapeDim(a,2,2)!=0))-2))"
+        "RUNTIME_Max(RUNTIME_Max(0, (((RUNTIME_GetViewValidShapeDim(a,2,2)+2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,2,2), 0))-2)), (((RUNTIME_GetViewValidShapeDim(a,2,2)+2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,2,2), 0))-2))"
     };
     for (size_t i = 0; i < kNumTwo; ++i) {
         EXPECT_EQ(reshapeDynOutput1[i].Dump(), expectValidShape1[i]);
@@ -1857,7 +1857,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
     std::vector<std::string> expectAssembleDynShape = {
         "2",
         "4",
-        "RUNTIME_Max(RUNTIME_Max(0, (a*(a!=0))), (a*(a!=0)))"
+        "RUNTIME_Max(RUNTIME_Max(0, (a*RUNTIME_Ne(a, 0))), (a*RUNTIME_Ne(a, 0)))"
     };
     for (size_t i = 0; i < kNumThree; ++i) {
         EXPECT_EQ(assembleDynOutput1[i].Dump(), expectAssembleDynShape[i]);
@@ -1883,7 +1883,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
         "2",
         "2",
         "2",
-        "RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a,0,2)*(RUNTIME_GetViewValidShapeDim(a,0,2)!=0))-0))"
+        "RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))-0))"
     };
     for (size_t i = 0; i < kNumFour; ++i) {
         EXPECT_EQ(reshapeDynOutput1[i].Dump(), expectValidShape[i]);

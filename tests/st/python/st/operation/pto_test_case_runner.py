@@ -19,26 +19,26 @@ from test_case_tools import get_dtype_by_name
 
 def get_pto_dtype_by_name(name: str):
     str_to_dtype = {
-        "int4": pto.DataType.DT_INT4,
-        "int8": pto.DataType.DT_INT8,
-        "int16": pto.DataType.DT_INT16,
-        "int32": pto.DataType.DT_INT32,
-        "int64": pto.DataType.DT_INT64,
-        "fp8": pto.DataType.DT_FP8,
-        "fp16": pto.DataType.DT_FP16,
-        "fp32": pto.DataType.DT_FP32,
-        "hf4": pto.DataType.DT_HF4,
-        "hf8": pto.DataType.DT_HF8,
-        "uint8": pto.DataType.DT_UINT8,
-        "uint16": pto.DataType.DT_UINT16,
-        "uint32": pto.DataType.DT_UINT32,
-        "uint64": pto.DataType.DT_UINT64,
-        "bool": pto.DataType.DT_BOOL,
-        "double": pto.DataType.DT_DOUBLE,
-        "bf16": pto.DataType.DT_BF16,
-        "bottom": pto.DataType.DT_BOTTOM,
+        "int4": pto.DT_INT4,
+        "int8": pto.DT_INT8,
+        "int16": pto.DT_INT16,
+        "int32": pto.DT_INT32,
+        "int64": pto.DT_INT64,
+        "fp8": pto.DT_FP8,
+        "fp16": pto.DT_FP16,
+        "fp32": pto.DT_FP32,
+        "hf4": pto.DT_HF4,
+        "hf8": pto.DT_HF8,
+        "uint8": pto.DT_UINT8,
+        "uint16": pto.DT_UINT16,
+        "uint32": pto.DT_UINT32,
+        "uint64": pto.DT_UINT64,
+        "bool": pto.DT_BOOL,
+        "double": pto.DT_DOUBLE,
+        "bf16": pto.DT_BF16,
+        "bottom": pto.DT_BOTTOM,
     }
-    return str_to_dtype.get(name, pto.DataType.DT_FP32)
+    return str_to_dtype.get(name, pto.DT_FP32)
 
 
 class PTOTestCaseRunner(TestCaseRunner):
@@ -130,7 +130,7 @@ class PTOTestCaseRunner(TestCaseRunner):
         prefix = tab
         dyn_function = "import pto\n"
         dyn_function += "\n"
-        dyn_function += f"with pto.dyn_function('{self._operation}', input_tensors, output_tensors):\n"
+        dyn_function += f"with pto.function('{self._operation}', input_tensors, output_tensors):\n"
         for index in list(range(len(loop_range_tuple))):
             dyn_function += prefix + (tab * (index + 1))
             dyn_function += (

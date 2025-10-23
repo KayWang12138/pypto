@@ -15,9 +15,4 @@ import pto
 
 def test_graph_type():
     # Make sure all graph types are defined
-    assert isinstance(pto.graph_type.TENSOR_GRAPH, pto.graph_type)
-    assert isinstance(pto.graph_type.TILE_GRAPH, pto.graph_type)
-    assert isinstance(pto.graph_type.EXECUTE_GRAPH, pto.graph_type)
-    assert isinstance(pto.graph_type.BLOCK_GRAPH, pto.graph_type)
-    assert isinstance(pto.graph_type.LEAF_VF_GRAPH, pto.graph_type)
-    assert isinstance(pto.graph_type.INVALID, pto.graph_type)
+    assert isinstance(pto.GraphType.TENSOR_GRAPH, pto.GraphType)

@@ -300,8 +300,8 @@ if __name__ == "__main__":
     FW = pto.tensor([n * d, n * d * 3], pto.DT_FP16, "FW")
     res = pto.tensor([b * s, n * d], pto.DT_FP32, "Res")
 
-    graph_t = pto.graph_type.TENSOR_GRAPH
-    func_t = pto.function_type.STATIC
+    graph_t = pto.GraphType.TENSOR_GRAPH
+    func_t = pto.FunctionType.STATIC
     with pto.pto_function("LLAMA", graph_t, func_t, H, AW, DW, FW, res):
         res = llama_layer(H, AW, DW, FW, dims_cfg, SMALL_DFS_VEC_CFG, DFS_CUBE_CFG)
 

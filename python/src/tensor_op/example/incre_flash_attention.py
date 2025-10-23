@@ -84,17 +84,17 @@ def incre_flash_attention(**kwargs):
 
                 pto.set_cube_tile_shapes(
                     [c1_tile[0], c1_tile[1]], [c1_tile[2], c1_tile[3]], [c1_tile[4], c1_tile[5]], True)
-                
+
                 # (nTileCur, dN+dR), (s2TileCur, dN+dR) -> (nTileCur, s2TileCur)
                 pto.set_matrix_size([qi.shape[0], 0, kj.shape[0]])
-                sij = pto.matmul(pto.DataType.DT_FP32, qi, kj, False, True)
+                sij = pto.matmul(pto.DT_FP32, qi, kj, False, True)
 
                 pto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
-                sij_scale = pto.mul_s(sij, pto.element(pto.DataType.DT_FP32, softmax_scale)) # (nTileCur, s2TileCur)
+                sij_scale = pto.mul_s(sij, pto.element(pto.DT_FP32, softmax_scale)) # (nTileCur, s2TileCur)
                 tilda_mij = pto.row_max_single(sij_scale);   # (nTileCur, s2TileCur) -> (nTileCur, 1)
                 tsub = pto.sub(sij_scale, tilda_mij); # (nTileCur, s2TileCur) - (nTileCur, 1) -> (nTileCur, s2TileCur)
                 tilda_pij = pto.exp(tsub)
-                tilda_pij_f16 = pto.cast(tilda_pij, pto.DataType.DT_BF16)
+                tilda_pij_f16 = pto.cast(tilda_pij, pto.DT_BF16)
                 tilda_lij = pto.row_sum_single(tilda_pij); # (nTileCur, s2TileCur) -> (nTileCur, 1)
 
                 if bn == 0:
@@ -102,7 +102,7 @@ def incre_flash_attention(**kwargs):
                         [c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]], [c2_tile[4], c2_tile[5]], True)
                     pto.set_matrix_size(
                         [tilda_pij_f16.shape[0], tilda_pij_f16.shape[1], vj.shape[1]])
-                    oi_tmp = pto.matmul(pto.DataType.DT_FP32, tilda_pij_f16, vj, False, False)
+                    oi_tmp = pto.matmul(pto.DT_FP32, tilda_pij_f16, vj, False, False)
 
                     pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                     oi_update = pto.div(oi_tmp, tilda_lij) if bn_per_batch == 1 else oi_tmp
@@ -128,7 +128,7 @@ def incre_flash_attention(**kwargs):
                 # (nTileCur, s2TileCur), (s2TileCur, dN) -> (nTileCur, dN)
                 pto.set_matrix_size(
                     [tilda_pij_f16.shape[0], tilda_pij_f16.shape[1], vj.shape[1]])
-                q1 = pto.matmul(pto.DataType.DT_FP32, tilda_pij_f16, vj, False, False)
+                q1 = pto.matmul(pto.DT_FP32, tilda_pij_f16, vj, False, False)
                 pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                 q2 = pto.mul(q1, t4);    # (nTileCur, dN), (nTileCur, 1) -> (nTileCur, dN)
                 oi_tmp = pto.add(q3, q2); # (nTileCur, dN), (nTileCur, dN) -> (nTileCur, dN)
@@ -161,13 +161,13 @@ if __name__ == "__main__":
     for s in act_seqs:
         block_num += math.ceil(s / block_size)
 
-    q_nope = pto.tensor([b * sq * nq, dn], pto.DataType.DT_BF16, "q_nope")
-    q_rope = pto.tensor([b * sq * nq, dr], pto.DataType.DT_BF16, "q_rope")
-    kv_nope_cache = pto.tensor([block_num * block_size * nkv, dn], pto.DataType.DT_BF16,
-                            "k_nope_cache", pto.tile_op_format.TILEOP_NZ)
-    k_rope_cache = pto.tensor([block_num * block_size * nkv, dr], pto.DataType.DT_BF16,
-                            "k_rope", pto.tile_op_format.TILEOP_NZ)
-    
+    q_nope = pto.tensor([b * sq * nq, dn], pto.DT_BF16, "q_nope")
+    q_rope = pto.tensor([b * sq * nq, dr], pto.DT_BF16, "q_rope")
+    kv_nope_cache = pto.tensor([block_num * block_size * nkv, dn], pto.DT_BF16,
+                            "k_nope_cache", pto.TileOpFormat.TILEOP_NZ)
+    k_rope_cache = pto.tensor([block_num * block_size * nkv, dr], pto.DT_BF16,
+                            "k_rope", pto.TileOpFormat.TILEOP_NZ)
+
     max_seq_all_batch = max(act_seqs)
     max_block_num_per_batch = math.ceil(max_seq_all_batch / block_size)
     block_table = [[0] * max_block_num_per_batch for _ in range(b)]
@@ -177,10 +177,10 @@ if __name__ == "__main__":
             block_table[i][j] = i * max_block_num_per_batch + j
 
     softmax_scale = float(1.0 / math.sqrt(512 + 64))
-    attention_out = pto.tensor([b * sq * nq, dn], pto.DataType.DT_BF16, "attention_out")
-    
-    graph_t = pto.graph_type.TENSOR_GRAPH
-    func_t = pto.function_type.STATIC
+    attention_out = pto.tensor([b * sq * nq, dn], pto.DT_BF16, "attention_out")
+
+    graph_t = pto.GraphType.TENSOR_GRAPH
+    func_t = pto.FunctionType.STATIC
     with pto.pto_function("incre_flash_attention", graph_t, func_t):
         incre_flash_attention(q_nope=q_nope, k_nope_cache=kv_nope_cache, v_nope_cache=kv_nope_cache,
             q_rope=q_rope, k_rope_cache=k_rope_cache, block_table=block_table, act_seqs=act_seqs,

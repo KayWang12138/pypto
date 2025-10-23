@@ -19,7 +19,7 @@ from numpy.testing import assert_allclose
 
 
 def test_vector_operation_log():
-    dtype = pto.DataType.DT_FP32
+    dtype = pto.DT_FP32
     tiling = 32
     n, m = tiling * 1, tiling * 1
     view_shape = (16, 16)
@@ -27,10 +27,10 @@ def test_vector_operation_log():
 
     pto.DeviceInit()
 
-    a = pto.tensor((n, m), pto.DataType.DT_FP32, "LOG_TENSOR_a")
-    b = pto.tensor((n, m), pto.DataType.DT_FP32, "LOG_TENSOR_b")
+    a = pto.tensor((n, m), pto.DT_FP32, "LOG_TENSOR_a")
+    b = pto.tensor((n, m), pto.DT_FP32, "LOG_TENSOR_b")
 
-    with pto.dyn_function("LOG", [a], [b]):
+    with pto.function("LOG", [a], [b]):
         loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
         loop_range_s = pto.loop_range(int(np.ceil(m / view_shape[1])))
         with pto.loop_function("LOOP_LOG_L0", "b_idx", loop_range_b) as bloop:
@@ -56,7 +56,7 @@ def test_vector_operation_log():
 
 
 def test_vector_operation_log2():
-    dtype = pto.DataType.DT_FP32
+    dtype = pto.DT_FP32
     tiling = 32
     n, m = tiling * 1, tiling * 1
     view_shape = (16, 16)
@@ -64,10 +64,10 @@ def test_vector_operation_log2():
 
     pto.DeviceInit()
 
-    a = pto.tensor((n, m), pto.DataType.DT_FP32, "LOG2_TENSOR_a")
-    b = pto.tensor((n, m), pto.DataType.DT_FP32, "LOG2_TENSOR_b")
+    a = pto.tensor((n, m), pto.DT_FP32, "LOG2_TENSOR_a")
+    b = pto.tensor((n, m), pto.DT_FP32, "LOG2_TENSOR_b")
 
-    with pto.dyn_function("LOG2", [a], [b]):
+    with pto.function("LOG2", [a], [b]):
         loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
         loop_range_s = pto.loop_range(int(np.ceil(m / view_shape[1])))
         with pto.loop_function("LOOP_LOG2_L0", "b_idx", loop_range_b) as bloop:
@@ -93,7 +93,7 @@ def test_vector_operation_log2():
 
 
 def test_vector_operation_log10():
-    dtype = pto.DataType.DT_FP32
+    dtype = pto.DT_FP32
     tiling = 32
     n, m = tiling * 1, tiling * 1
     view_shape = (16, 16)
@@ -101,10 +101,10 @@ def test_vector_operation_log10():
 
     pto.DeviceInit()
 
-    a = pto.tensor((n, m), pto.DataType.DT_FP32, "LOG10_TENSOR_a")
-    b = pto.tensor((n, m), pto.DataType.DT_FP32, "LOG10_TENSOR_b")
+    a = pto.tensor((n, m), pto.DT_FP32, "LOG10_TENSOR_a")
+    b = pto.tensor((n, m), pto.DT_FP32, "LOG10_TENSOR_b")
 
-    with pto.dyn_function("LOG10", [a], [b]):
+    with pto.function("LOG10", [a], [b]):
         loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
         loop_range_s = pto.loop_range(int(np.ceil(m / view_shape[1])))
         with pto.loop_function("LOOP_LOG10_L0", "b_idx", loop_range_b) as bloop:

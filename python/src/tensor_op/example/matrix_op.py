@@ -17,12 +17,12 @@ Confirm same output as `vector_add` in `cpp_reference`
 
 import pto
 
-GRAPH_T = pto.graph_type.TENSOR_GRAPH
-FUNC_T = pto.function_type.STATIC
+GRAPH_T = pto.GraphType.TENSOR_GRAPH
+FUNC_T = pto.FunctionType.STATIC
 
 
 def matrix_matmul():
-    dtype = pto.data_type.DT_FP32
+    dtype = pto.DT_FP32
     a = pto.tensor((32, 64), dtype, "A")
     b = pto.tensor((64, 32), dtype, "B")
     c = None

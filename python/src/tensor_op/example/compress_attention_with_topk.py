@@ -40,9 +40,9 @@ NUM_256 = 256
 NUM_512 = 512
 NUM_1024 = 1024
 
-FP32 = pto.data_type.DT_FP32
-BF16 = pto.data_type.DT_BF16
-INT32 = pto.data_type.DT_INT32
+FP32 = pto.DT_FP32
+BF16 = pto.DT_BF16
+INT32 = pto.DT_INT32
 tensor = pto.tensor
 
 
@@ -142,12 +142,12 @@ def compress_attention_with_topk(**kwargs):
                     slc_pre = tensor(dtype=FP32, shape=[block_slc_num, n1], name="slcPre")
                     for block_idx in pto.loop(0, cur_cmp_block, 1, name="CMP_ATTN_LOOP_BLOCK", idx_name="blockIdx"):
                         def inside_block_idx_loop(b_idx, block_idx):
-                            cur_block_idx = pto.convert_to_symbolic(
+                            cur_block_idx = pto.to_syms(
                                 pto.get_tensor_data(cmp_block_table, [b_idx, block_idx]))
                             cur_block_idx.as_intermediate_variable()
 
                             cur_valid_seq = (cas_cmp_seq - block_idx * block_size).min(block_size)
-                            cur_slc_loop = pto.convert_to_symbolic(
+                            cur_slc_loop = pto.to_syms(
                                 (cur_valid_seq + slc_size - 1) // slc_size)
                             cur_slc_loop.as_intermediate_variable()
 
@@ -469,7 +469,7 @@ def test_cmp_attn_topk(data_type, tile_config: CmpAttnTopkTile, input_param: lis
 
     input_tensors = [q_nope, q_rope, cmp_kv_cache, cmp_block_table, act_seq, aux_tensor]
     output_tensors = [cmp_attn, topk_res]
-    with pto.dyn_function("CompressAttentionWithTopk", input_tensors, output_tensors):
+    with pto.function("CompressAttentionWithTopk", input_tensors, output_tensors):
         compress_attention_with_topk(
             q_nope=q_nope,
             q_rope=q_rope,
