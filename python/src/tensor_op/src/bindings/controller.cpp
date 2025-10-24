@@ -21,6 +21,16 @@
 using namespace npu::tile_fwk;
 using ref_tensors = std::vector<std::reference_wrapper<const Tensor>>;
 
+enum class OptionType {
+    String,    // std::string
+    Int,       // int
+    VectorInt, // std::vector<int>
+    MapIntInt  // std::map<int, int>
+};
+
+static std::map<std::string, OptionType> PassKeyTypeMap;
+static std::map<std::string, OptionType> HostKeyTypeMap;
+
 namespace pypto {
 void bind_controller_config(py::module &m) {
     m.def("SetBuildStatic", [](const bool &value) { config::SetBuildStatic(value); }, py::arg("value"));
@@ -41,6 +51,130 @@ void bind_controller_config(py::module &m) {
         "SetCodeGenOption",
         [](const std::string &key, const bool &value) { config::SetCodeGenOption<bool>(key, value); },
         py::arg("key"), py::arg("value"));
+    m.def(
+        "SetPrintOptions",
+        [](int edgeItems, int precision, int threshold, int linewidth) { config::SetPrintOptions(edgeItems, precision, threshold, linewidth); },
+        py::arg("edgeItems"), py::arg("precision"), py::arg("threshold"), py::arg("linewidth"));
+    m.def(
+        "GetPrintOptions", 
+        &config::GetPrintOptions,
+        py::return_value_policy::reference,
+        "Get reference to the global print options configuration"
+    );
+}
+
+void bind_print_options(py::module &m) {
+    py::class_<PrintOptions>(m, "print_options")
+        .def(py::init<>())
+        .def_readwrite("edge_items", &PrintOptions::edgeItems)
+        .def_readwrite("precision", &PrintOptions::precision)
+        .def_readwrite("threshold", &PrintOptions::threshold)
+        .def_readwrite("linewidth", &PrintOptions::linewidth);
+}
+
+void bind_config_host_option(py::module &m){
+        m.def(
+        "SetHostOption",
+        [](const std::string &key, const py::object &value) {
+            if (py::isinstance<py::int_>(value)) {
+                config::SetHostOption(key, value.cast<int64_t>());
+                HostKeyTypeMap[key] = OptionType::Int;
+            } else if (py::isinstance<py::str>(value)) {
+                config::SetHostOption(key, value.cast<std::string>());
+                HostKeyTypeMap[key] = OptionType::String;
+            } else if (py::isinstance<py::list>(value)) {
+                config::SetHostOption(key, value.cast<std::vector<int64_t>>());
+                HostKeyTypeMap[key] = OptionType::VectorInt;
+            } else if (py::isinstance<py::dict>(value)) {
+                config::SetHostOption(key, value.cast<std::map<int64_t, int64_t>>());
+                HostKeyTypeMap[key] = OptionType::MapIntInt;
+            } else {
+                throw std::runtime_error(
+                    "Unsupported value type for SetHostOption. Expected one of: str, int, List[int], Dict[int, int]");
+            }
+        },
+        py::arg("key"), py::arg("value"),
+        "Set a host option (accepts str, int, List[int], or Dict[int, int]).");
+
+    m.def(
+        "GetHostOption",
+        [](const std::string& key) -> py::object {
+            auto type_iter = HostKeyTypeMap.find(key);
+            if (type_iter == HostKeyTypeMap.end()) {
+                throw std::invalid_argument("Key not found: " + key + " (not set via SetHostOption)");
+            }
+            OptionType key_type = type_iter->second;
+            switch (key_type) {
+                case OptionType::String: {
+                    return py::cast(config::GetHostOption<std::string>(key));
+                }
+                case OptionType::Int: {
+                    return py::cast(config::GetHostOption<int64_t>(key));
+                }
+                case OptionType::VectorInt: {
+                    return py::cast(config::GetHostOption<std::vector<int64_t>>(key));
+                }
+                case OptionType::MapIntInt: {
+                    return py::cast(config::GetHostOption<std::map<int64_t, int64_t>>(key));
+                }
+                default:
+                    throw std::runtime_error("Unknown option type");
+            }
+        },
+        py::arg("key"),
+        "Get a host configuration item (returns the same type as set via SetHostOption).");
+}
+
+void bind_config_pass_option(py::module &m){
+    m.def(
+        "SetPassOption",
+        [](const std::string &key, const py::object &value) {
+            if (py::isinstance<py::int_>(value)) {
+                config::SetPassOption(key, value.cast<int64_t>());
+                PassKeyTypeMap[key] = OptionType::Int;
+            }else if (py::isinstance<py::str>(value)) {
+                config::SetPassOption(key, value.cast<std::string>());
+                PassKeyTypeMap[key] = OptionType::String;
+            }else if (py::isinstance<py::list>(value)) {
+                config::SetPassOption(key, value.cast<std::vector<int64_t>>());
+                PassKeyTypeMap[key] = OptionType::VectorInt;
+            } else if (py::isinstance<py::dict>(value)) {
+                config::SetPassOption(key, value.cast<std::map<int64_t, int64_t>>());
+                PassKeyTypeMap[key] = OptionType::MapIntInt;
+            } else {
+                throw std::runtime_error("Unsupported value type for set_pass_option. Expected Union[str, int, List[int], Dict[int, int]]");
+            }
+        },
+        py::arg("key"), py::arg("value"),
+        "Set pass option with key-value pair. Value type: Union[str, int, List[int], Dict[int, int]].");
+
+    m.def(
+        "GetPassOption",
+        [](const std::string& key) -> py::object {
+            auto type_iter = PassKeyTypeMap.find(key);
+            if (type_iter == PassKeyTypeMap.end()) {
+                throw std::invalid_argument("Key not found: " + key + " (not set via SetPassOption)");
+            }
+            OptionType key_type = type_iter->second;
+            switch (key_type) {
+                case OptionType::String: {
+                    return py::cast(config::GetPassOption<std::string>(key));
+                }
+                case OptionType::Int: {
+                    return py::cast(config::GetPassOption<int64_t>(key));
+                }
+                case OptionType::VectorInt: {
+                    return py::cast(config::GetPassOption<std::vector<int64_t>>(key));
+                }
+                case OptionType::MapIntInt: {
+                    return py::cast(config::GetPassOption<std::map<int64_t, int64_t>>(key));
+                }
+                default:
+                    throw std::runtime_error("Unknown option type");
+            }
+        },
+        py::arg("key"),
+        "Get a configuration item (returns the same type as set via SetPassOption).");
 }
 
 void bind_controller_tile_shape(py::module &m) {
@@ -198,6 +332,9 @@ void bind_controller_utils(py::module &m) {
 }
 
 void bind_controller(py::module &m) {
+    bind_print_options(m);  
+    bind_config_pass_option(m);
+    bind_config_host_option(m);
     bind_controller_config(m);
     bind_controller_tile_shape(m);
     bind_controller_set_tile(m);

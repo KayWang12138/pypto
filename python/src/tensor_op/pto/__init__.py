@@ -32,6 +32,7 @@ from .enum import *  # noqa
 from .operation import *  # noqa
 from .symbolic_scalar import *  # noqa
 from .tensor import *  # noqa
+from .config import *  # noqa
 
 
 def dump() -> str:

@@ -194,7 +194,7 @@ class PTOTestCaseRunner(TestCaseRunner):
         function += prefix + "for tmp in res:\n"
         function += prefix + "    del tmp\n"
         print(function)
-        pto.set_host_config("ONLY_CODEGEN", True)
+        pto.set_host_option("ONLY_CODEGEN", True)
         pto.set_codegen_config("SUPPORT_DYNAMIC_UNALIGNED", True)
         pto.set_vec_tile_shapes(*self.tile_shape)
         exec(

@@ -182,16 +182,9 @@ def bytes_of(dtype: pto.DataType) -> int:
     # implementation
     return pto_impl.BytesOf(dtype)
 
-def set_host_config(key, val):
-    pto_impl.SetOption(f"host.{key}", val)
-
 
 def set_codegen_config(key, val):
     pto_impl.SetCodeGenOption(key, val)
-
-
-def set_pass_config(key, val):
-    pto_impl.SetOption(f"pass.{key}", val)
 
 
 def begin_function(
