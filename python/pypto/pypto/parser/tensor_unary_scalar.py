@@ -44,7 +44,7 @@ def adds(h: CodeHelper, inst: Instruction):
     h(f'auto tsr{inst.dst.idx} = AddS(tsr{inst.src[0].idx}, Element({const_str}));')
 
 
-def subs(h: CodeHelper, inst: Instruction):
+def sub(h: CodeHelper, inst: Instruction):
     check_inst_src_type(inst)
 
     if isinstance(inst.src[1], float):
@@ -52,7 +52,7 @@ def subs(h: CodeHelper, inst: Instruction):
     else:
         const_str = get_var_str(inst.src[1])
     const_str = get_scalar_dtype(inst.src[1]) + ', ' + const_str
-    h(f'auto tsr{inst.dst.idx} = SubS(tsr{inst.src[0].idx}, Element({const_str}));')
+    h(f'auto tsr{inst.dst.idx} = Sub(tsr{inst.src[0].idx}, Element({const_str}));')
 
 
 def divs(h: CodeHelper, inst: Instruction):

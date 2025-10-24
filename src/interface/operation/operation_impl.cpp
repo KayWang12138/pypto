@@ -503,7 +503,7 @@ std::vector<int64_t> BinaryOperationResultShape(
 }
 
 void TiledCompareOperationImpl(Function &function, const TileShape &tileShape, size_t cur, Input &input1, Input &input2,
-    const LogicalTensorPtr & result, TileInfo &resultTileInfo, CmpOperationType operation, CmpModeType mode)
+    const LogicalTensorPtr & result, TileInfo &resultTileInfo, OpType operation, OutType mode)
 {
     if (cur == result->shape.size()) {
         auto inputTile1 = input1.tensor.GetStorage()->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
@@ -543,11 +543,11 @@ void TiledCompareOperationImpl(Function &function, const TileShape &tileShape, s
 }
 
 void TiledCompareOperation(Function &function, const TileShape &tileShape, LogicalTensorPtr operand1,
-    LogicalTensorPtr operand2, const LogicalTensorPtr &result, CmpOperationType operation, CmpModeType mode)
+    LogicalTensorPtr operand2, const LogicalTensorPtr &result, OpType operation, OutType mode)
 {
     auto broadcastOperand = [&](LogicalTensorPtr &operand, LogicalTensorPtr &other) {
         auto dstShape = result->shape;
-        if (mode == CmpModeType::BIT) {
+        if (mode == OutType::BIT) {
             dstShape[dstShape.size() - 1] *= 8; // compare output 8 bit to 1 byte
         }
         if (operand->shape == dstShape) {
@@ -632,11 +632,11 @@ void TiledAssemble(Function &function, const TileShape &tileShape,
     TiledAssemble(function, tileShape, 0, input, result, attr);
 }
 
-LogicalTensorPtr TensorCompareOperation(Function& function, const Tensor& operand1, const Tensor& operand2,
-    CmpOperationType operation, CmpModeType mode)
+LogicalTensorPtr TensorCompareOperation(Function& function, const Tensor& self, const Tensor& other,
+    OpType operation, OutType mode)
 {
-    auto operandT1 = operand1.GetStorage();
-    auto operandT2 = operand2.GetStorage();
+    auto operandT1 = self.GetStorage();
+    auto operandT2 = other.GetStorage();
     if (operandT1->shape.size() != operandT2->shape.size()) {
         std::vector<int> broadCastShape = GetBroadCastShape(operandT1, operandT2);
         operandT1 = BinaryOperationBroadCast(operandT1, broadCastShape);
@@ -654,7 +654,7 @@ LogicalTensorPtr TensorCompareOperation(Function& function, const Tensor& operan
         }
     }
     auto resultType = DT_BOOL;
-    if (mode == CmpModeType::BIT) {
+    if (mode == OutType::BIT) {
         resultType = DT_UINT8;
         if (!resultShape.empty() && resultShape.back() % NUM_VALUE_8 != 0) {
             ALOG_ERROR_F("Last dimension must be divisible by 8 in BIT mode");
@@ -2268,10 +2268,10 @@ Tensor AddS(const Tensor &operand1, const Element &operand2) {
         operand1.GetStorage(), operand2);
 }
 
-Tensor SubS(const Tensor &operand1, const Element &operand2) {
+Tensor Sub(const Tensor &self, const Element &other) {
     DECLARE_TRACER();
     RETURN_CALL(BinaryOperationScalar<BinaryOpType::SUB>, *Program::GetInstance().GetCurrentFunction(),
-        operand1.GetStorage(), operand2);
+        self.GetStorage(), other);
 }
 
 Tensor MulS(const Tensor &operand1, const Element &operand2) {
@@ -2298,9 +2298,9 @@ Tensor MinS(const Tensor &operand1, const Element &operand2) {
         operand1.GetStorage(), operand2);
 }
 
-Tensor Compare(const Tensor& operand1, const Tensor& operand2, CmpOperationType operation, CmpModeType mode) {
+Tensor Compare(const Tensor &self, const Tensor &other, OpType op, OutType mode) {
     DECLARE_TRACER();
-    RETURN_CALL(CompareOperation, *Program::GetInstance().GetCurrentFunction(), operand1, operand2, operation, mode);
+    RETURN_CALL(CompareOperation, *Program::GetInstance().GetCurrentFunction(), self, other, op, mode);
 }
 
 Tensor ScalarAddS(const Tensor &operand, const Element &value, bool reverseOperand) {
@@ -4857,8 +4857,8 @@ void npu::tile_fwk::ExpandOperationInto(Function &function, const TileShape &til
         }
         case Opcode::OP_CMP: {
             BinaryOperationOperandCheck(iOperand, oOperand);
-            auto operation = static_cast<CmpOperationType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation"));
-            auto mode = static_cast<CmpModeType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_mode"));
+            auto operation = static_cast<OpType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation"));
+            auto mode = static_cast<OutType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_mode"));
             TiledCompareOperation(function, tileShape, iOperand[0], iOperand[1], oOperand[0], operation, mode);
             break;
         }

@@ -27,7 +27,7 @@ from .var_arithmetic import var_min, var_max, var_add, var_inplace_add, var_sub,
 from .tensor_basic import new_tensor, declare, assign, view, dview, dview_pad, dassemble, reshape, unsqueeze, \
     get_data_type, transpose, expand, concat, less_than_zero_inv, pad
 from .tensor_unary import abs, exp, log, sqrt, reciprocal, round, logical_not, sin, cos, rotate_half
-from .tensor_unary_scalar import muls, adds, subs, divs
+from .tensor_unary_scalar import muls, adds, sub, divs
 from .tensor_inplace import inplace_add, inplace_div, inplace_mul, inplace_sub, inplace_muls, inplace_divs, \
     inplace_subs, inplace_adds
 from .tensor_binary import add, sub, mul, div, maximum
@@ -82,7 +82,7 @@ INST_MAPPING: dict[str, Callable[[CodeHelper, Instruction], None]] = {
     'muls': muls,
     'inplace_muls': inplace_muls,
     'adds': adds,
-    'subs': subs,
+    
     'inplace_adds': inplace_adds,
     'inplace_subs': inplace_subs,
     'divs': divs,

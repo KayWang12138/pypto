@@ -286,7 +286,7 @@ TEST_F(DynamicBasicTest, DynamicRawShapeUnalign) {
         auto loop2 = (GetInputShape(t1, 0) + s - 1) / s;
         LOOP("L1", FunctionType::DYNAMIC_LOOP, idx, LoopRange(loop2), {}, true) {
             Tensor t1s = View(t1, {s, s}, {idx * s, 0});
-            auto t = SubS(t1s, Element(DT_FP32, 1.0));
+            auto t = Sub(t1s, Element(DT_FP32, 1.0));
             Assemble(t, {idx * s, 0}, out);
         }
     }

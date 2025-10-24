@@ -21,15 +21,15 @@ namespace {
 struct CompareOpFuncArgs : public OpFuncArgs {
     CompareOpFuncArgs(const std::vector<int64_t> &viewShape,
                   const std::vector<int64_t> tileShape,
-                  CmpOperationType opType,
-                  CmpModeType modeType)
+                  OpType opType,
+                  OutType modeType)
         : viewShape_(viewShape), tileShape_(tileShape),
           cmpOp_(opType), cmpMode_(modeType) {}
  
     std::vector<int64_t> viewShape_;
     std::vector<int64_t> tileShape_;
-    CmpOperationType cmpOp_;
-    CmpModeType cmpMode_;
+    OpType cmpOp_;
+    OutType cmpMode_;
 };
 
 // 测试元数据结构体
@@ -122,7 +122,7 @@ static void CompareOperationExeFunc2Dims(
                 }
                 TileShape::Current().SetVecTile(args->tileShape_);
                 auto res = Compare(tileTensor0, tileTensor1, args->cmpOp_, args->cmpMode_);
-                auto lastOffset = (args->cmpMode_ == CmpModeType::BIT) ? (sIdx * secondViewShape / 8) :
+                auto lastOffset = (args->cmpMode_ == OutType::BIT) ? (sIdx * secondViewShape / 8) :
                     sIdx * secondViewShape;
                 Assemble(res, {bIdx * firstViewShape, lastOffset}, outputs[0]);
             }
@@ -164,7 +164,7 @@ static void CompareOperationExeFunc3Dims(
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
                     TileShape::Current().SetVecTile(args->tileShape_);
                     auto res = Compare(tileTensor0, tileTensor1, args->cmpOp_, args->cmpMode_);
-                    auto lastOffset = (args->cmpMode_ == CmpModeType::BIT) ? (nIdx * thirdViewShape / 8) :
+                    auto lastOffset = (args->cmpMode_ == OutType::BIT) ? (nIdx * thirdViewShape / 8) :
                         nIdx * thirdViewShape;
                     Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, lastOffset}, outputs[0]);
                 }
@@ -236,7 +236,7 @@ static void CompareOperationExeFunc4Dims(
                         }
                         TileShape::Current().SetVecTile(args->tileShape_);
                         auto res = Compare(tileTensor0, tileTensor1, args->cmpOp_, args->cmpMode_);
-                        auto lastOffset = (args->cmpMode_ == CmpModeType::BIT) ? (nIdx * fourthViewShape / 8) :
+                        auto lastOffset = (args->cmpMode_ == OutType::BIT) ? (nIdx * fourthViewShape / 8) :
                             nIdx * fourthViewShape;
                         Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape,
                              mIdx * thirdViewShape, lastOffset}, outputs[0]);
@@ -260,28 +260,28 @@ TEST_P(CompareOperationTest, TestCompare) {
     testCase.outputTensors = GetOutputTensors(test_data);
     std::string opStr = GetValueByName<std::string>(test_data, "compare_op");
     std::string modeStr = GetValueByName<std::string>(test_data, "mode");
-    static const std::unordered_map<std::string, CmpOperationType> opMap = {
-        {"eq", CmpOperationType::EQ},
-        {"ne", CmpOperationType::NE},
-        {"lt", CmpOperationType::LT},
-        {"le", CmpOperationType::LE},
-        {"gt", CmpOperationType::GT},
-        {"ge", CmpOperationType::GE}
+    static const std::unordered_map<std::string, OpType> opMap = {
+        {"eq", OpType::EQ},
+        {"ne", OpType::NE},
+        {"lt", OpType::LT},
+        {"le", OpType::LE},
+        {"gt", OpType::GT},
+        {"ge", OpType::GE}
     };
     auto opIt = opMap.find(opStr);
     if (opIt == opMap.end()) {
-        throw std::invalid_argument("Unsupported CmpOperationType: " + opStr);
+        throw std::invalid_argument("Unsupported OpType: " + opStr);
     }
-    CmpOperationType cmpOp = opIt->second;
-    static const std::unordered_map<std::string, CmpModeType> modeMap = {
-        {"bool", CmpModeType::BOOL},
-        {"bit", CmpModeType::BIT}
+    OpType cmpOp = opIt->second;
+    static const std::unordered_map<std::string, OutType> modeMap = {
+        {"bool", OutType::BOOL},
+        {"bit", OutType::BIT}
     };
     auto modeIt = modeMap.find(modeStr);
     if (modeIt == modeMap.end()) {
-        throw std::invalid_argument("Unsupported CmpModeType: " + modeStr);
+        throw std::invalid_argument("Unsupported OutType: " + modeStr);
     }
-    CmpModeType cmpMode = modeIt->second;
+    OutType cmpMode = modeIt->second;
     auto args = CompareOpFuncArgs(
         GetViewShape(test_data),
         GetTileShape(test_data),

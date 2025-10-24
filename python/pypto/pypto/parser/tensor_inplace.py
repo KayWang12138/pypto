@@ -76,7 +76,7 @@ def inplace_muls(h: CodeHelper, inst: Instruction):
 def inplace_subs(h: CodeHelper, inst: Instruction):
     const_str = retrieve_const_str(inst)
     const_str = get_scalar_dtype(inst.src[1]) + ', ' + const_str
-    h(f'tsr{inst.dst.idx} = SubS(tsr{inst.src[0].idx}, Element({const_str}));')
+    h(f'tsr{inst.dst.idx} = Sub(tsr{inst.src[0].idx}, Element({const_str}));')
 
 
 def inplace_divs(h: CodeHelper, inst: Instruction):

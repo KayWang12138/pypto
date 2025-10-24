@@ -89,7 +89,7 @@ void bind_operation(py::module &m) {
         "add_s", [](const Tensor &left, const Element &right) { return npu::tile_fwk::AddS(left, right); },
         "Tensor add scalar.");
     m.def(
-        "sub_s", [](const Tensor &left, const Element &right) { return npu::tile_fwk::SubS(left, right); },
+        "sub", [](const Tensor &left, const Element &right) { return npu::tile_fwk::Sub(left, right); },
         "Tensor sub scalar.");
     m.def(
         "mul_s", [](const Tensor &left, const Element &right) { return npu::tile_fwk::MulS(left, right); },
@@ -441,8 +441,8 @@ void bind_operation(py::module &m) {
         py::arg("in"), py::arg("group"), "Tensor all gather.");
     m.def(
         "compare",
-        [](const Tensor &operand1, const Tensor &operand2, CmpOperationType operation, CmpModeType mode) {
-            return npu::tile_fwk::Compare(operand1, operand2, operation, mode);
+        [](const Tensor &self, const Tensor &other, OpType op, OutType mode) {
+            return npu::tile_fwk::Compare(self, other, op, mode);
         },
         py::arg("operand1"), py::arg("operand2"), py::arg("operation"), py::arg("mode"), "Tensor compare.");
     m.def(

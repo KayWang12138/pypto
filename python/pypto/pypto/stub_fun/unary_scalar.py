@@ -31,11 +31,11 @@ def adds(a: Tensor, b: Union[Var, int, float]) -> Tensor:
     return result
 
 
-def subs(a: Tensor, b: Union[Var, int, float]) -> Tensor:
+def sub(a: Tensor, b: Union[Var, int, float]) -> Tensor:
     if context.active_module is None:
         raise Exception()
     result = context.active_module.create_tensor()
-    context.active_module.add_inst(Instruction('subs', [a, b], result))
+    context.active_module.add_inst(Instruction('sub', [a, b], result))
     return result
 
 

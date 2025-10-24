@@ -20,7 +20,7 @@ from .stub_fun import mul, add, sub, div, maximum, sigmoid, cast, rms_norm, matm
     reshape, unsqueeze, transpose, concat, expand, vec_size, vec_emplace_back, \
     update_record_tile_op, set_vec_tile_shapes, set_tile_shape, set_cube_tile_shapes, \
     set_c1_cube_config, set_c2_cube_config, set_matrix_size, exp, sqrt, log, abs, reciprocal, \
-    muls, adds, subs, divs
+    muls, adds, divs
 from .utils import AggregationVec, CodeHelper, ConfigMap, CustStruct, DATATYPE, \
     ReduceMode, CastMode, Instruction, Shape, Tuple, Vector, TensorMap, \
     get_obj_dtype, get_vartype_str, Var 

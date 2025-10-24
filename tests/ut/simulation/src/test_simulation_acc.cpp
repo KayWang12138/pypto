@@ -455,7 +455,7 @@ TEST_F(SimulationAccTest, TestSubScalarFunctionDim2) {
 
     config::SetBuildStatic(true);
     FUNCTION("A") {
-        d = SubS(a, value);
+        d = Sub(a, value);
     }
 
     // Program::GetInstance().GraphCheck();
@@ -476,7 +476,7 @@ TEST_F(SimulationAccTest, TestSubScalarFunctionDim2_1) {
 
     config::SetBuildStatic(true);
     FUNCTION("A") {
-        d = SubS(a, value);
+        d = Sub(a, value);
     }
 
     // Program::GetInstance().GraphCheck();
@@ -497,7 +497,7 @@ TEST_F(SimulationAccTest, TestSubScalarFunctionDim2_2) {
 
     config::SetBuildStatic(true);
     FUNCTION("A") {
-        d = SubS(a, value);
+        d = Sub(a, value);
     }
 
     // Program::GetInstance().GraphCheck();
@@ -518,7 +518,7 @@ TEST_F(SimulationAccTest, TestSubScalarFunctionDim2_3) {
 
     config::SetBuildStatic(true);
     FUNCTION("A") {
-        d = SubS(a, value);
+        d = Sub(a, value);
     }
 
     // Program::GetInstance().GraphCheck();

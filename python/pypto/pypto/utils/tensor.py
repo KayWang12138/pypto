@@ -84,12 +84,12 @@ class Tensor():
             raise TypeError(f'Not supported type for tensor add {type(other)}')
 
     def __sub__(self, other: Union['Tensor', Var, int, float]):
-        from ..stub_fun import sub, subs
+        from ..stub_fun import sub
         if isinstance(other, Tensor):
             res = sub(self, other)
             return res
         elif isinstance(other, (Var, int, float)):
-            res = subs(self, other)
+            res = sub(self, other)
             return res
         else:
             raise TypeError(f'Not supported type for tensor sub {type(other)}')

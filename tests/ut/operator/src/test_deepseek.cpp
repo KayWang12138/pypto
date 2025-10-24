@@ -260,7 +260,7 @@ TEST_F(FunctionTest, TestSubScalarFunctionDim2) {
     TileShape::Current().SetVecTile(32, 32);
 
     FUNCTION("A") {
-        d = SubS(a, value);
+        d = Sub(a, value);
     }
 
     // Program::GetInstance().GraphCheck();

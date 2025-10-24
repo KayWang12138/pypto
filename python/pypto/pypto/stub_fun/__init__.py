@@ -26,4 +26,4 @@ from .std_vec import vec_size, vec_emplace_back
 from .tiling import update_record_tile_op, set_vec_tile_shapes, set_tile_shape, \
     set_cube_tile_shapes, set_c1_cube_config, set_c2_cube_config, set_matrix_size
 from .unary import exp, sqrt, log, abs, reciprocal
-from .unary_scalar import muls, adds, subs, divs
+from .unary_scalar import muls, adds, sub, divs

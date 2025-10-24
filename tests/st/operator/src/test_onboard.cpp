@@ -1995,7 +1995,7 @@ TEST_F(OnBoardTest, test_operation_sub_vs_dim4_unalign) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("SUB_S", {input_a, output}) {
-            output = SubS(input_a, value);
+            output = Sub(input_a, value);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -2082,7 +2082,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_sub) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("SUB_S", {input_a, output}) {
-            output = SubS(input_a, value);
+            output = Sub(input_a, value);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -2252,7 +2252,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim3_sub) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("SUB_S", {input_a, output}) {
-            output = SubS(input_a, value);
+            output = Sub(input_a, value);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -2280,7 +2280,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim4_sub) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("SUB_S", {input_a, output}) {
-            output = SubS(input_a, value);
+            output = Sub(input_a, value);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());

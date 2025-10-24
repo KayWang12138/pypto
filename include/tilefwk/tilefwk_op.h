@@ -27,7 +27,7 @@ class Element;
 constexpr const int TILE_VEC_DIMS = 2;
 constexpr const int TILE_CUBE_DIMS = 6;
 
-enum class CmpOperationType {
+enum class OpType {
     EQ,
     NE,
     LT,
@@ -35,7 +35,7 @@ enum class CmpOperationType {
     GT,
     GE,
 };
-enum class CmpModeType {
+enum class OutType {
     BOOL,
     BIT,
 };
@@ -174,12 +174,12 @@ Tensor Div(const Tensor &operand1, const Tensor &operand2);
 Tensor Mul(const Tensor &operand1, const Tensor &operand2);
 Tensor Maximum(const Tensor &operand1, const Tensor &operand2);
 Tensor AddS(const Tensor &operand1, const Element &operand2);
-Tensor SubS(const Tensor &operand1, const Element &operand2);
+Tensor Sub(const Tensor &operand1, const Element &operand2);
 Tensor DivS(const Tensor &operand1, const Element &operand2);
 Tensor MulS(const Tensor &operand1, const Element &operand2);
 Tensor MinS(const Tensor &operand1, const Element &operand2);
 Tensor MaxS(const Tensor &operand1, const Element &operand2);
-Tensor Compare(const Tensor &operand1, const Tensor &operand2, CmpOperationType operation, CmpModeType mode);
+Tensor Compare(const Tensor &self, const Tensor &other, OpType op, OutType mode);
 
 Tensor Where(const Tensor &condition, const Tensor &input, const Tensor &other);
 Tensor Where(const Tensor &condition, const Tensor &input, const Element &other);

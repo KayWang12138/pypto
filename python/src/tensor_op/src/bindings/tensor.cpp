@@ -107,7 +107,7 @@ void BindTensor(py::module &m) {
             "__sub__", [](const Tensor &self, const Tensor &tensor) { return npu::tile_fwk::Sub(self, tensor); },
             "Tensor subtraction.")
         .def(
-            "__sub__", [](const Tensor &self, const Element &element) { return npu::tile_fwk::SubS(self, element); },
+            "__sub__", [](const Tensor &self, const Element &element) { return npu::tile_fwk::Sub(self, element); },
             "Tensor-element subtraction.")
         .def("GetDataType", &Tensor::GetDataType)
         .def("get_dtype", &Tensor::GetDataType)
