@@ -17,7 +17,7 @@ import pto
 from pto import (
     tensor, element, view, symbolic_scalar,
     loop_range, loop_function, function,
-    set_vec_tile_shapes, set_codegen_config,
+    set_vec_tile_shapes, set_codegen_option,
     DeviceInit, DeviceRunOnceDataFromHost, DeviceFini,
 )
 
@@ -28,7 +28,7 @@ def test_maxs():
     first_dim, second_dim = 128, 128
     view_shape, tile_shape = (64, 64), (32, 32)
     DeviceInit()
-    set_codegen_config("support_dynamic_unaligned", True)
+    set_codegen_option("support_dynamic_unaligned", True)
 
     x = tensor((first_dim, second_dim), pto.DT_INT32, "Operand1")
     y = tensor((first_dim, second_dim), pto.DT_INT32, "Output")

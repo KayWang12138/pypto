@@ -26,7 +26,7 @@ def test_vector_operation_rsqrt():
     view_shape = (16, 16)
     tile_shape = (8, 8)
     pto.DeviceInit()
-    pto.set_codegen_config("support_dynamic_unaligned", True)
+    pto.set_codegen_option("support_dynamic_unaligned", True)
     a = pto.tensor(shape, pto.DT_FP32, "RSQRT_TENSOR_a")
     b = pto.tensor(shape, pto.DT_FP32, "RSQRT_TENSOR_b")
 

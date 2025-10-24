@@ -30,6 +30,8 @@ enum class OptionType {
 
 static std::map<std::string, OptionType> PassKeyTypeMap;
 static std::map<std::string, OptionType> HostKeyTypeMap;
+static std::map<std::string, OptionType> CodeGenKeyTypeMap;
+static std::map<std::string, OptionType> RuntimeTypeMap;
 
 namespace pypto {
 void bind_controller_config(py::module &m) {
@@ -47,10 +49,7 @@ void bind_controller_config(py::module &m) {
         "SetOption",
         [](const std::string &key, const std::map<int64_t, int64_t> &value) { config::SetOption(key, value); },
         py::arg("key"), py::arg("value"));
-    m.def(
-        "SetCodeGenOption",
-        [](const std::string &key, const bool &value) { config::SetCodeGenOption<bool>(key, value); },
-        py::arg("key"), py::arg("value"));
+
     m.def(
         "SetPrintOptions",
         [](int edgeItems, int precision, int threshold, int linewidth) { config::SetPrintOptions(edgeItems, precision, threshold, linewidth); },
@@ -175,6 +174,137 @@ void bind_config_pass_option(py::module &m){
         },
         py::arg("key"),
         "Get a configuration item (returns the same type as set via SetPassOption).");
+
+    m.def(
+        "SetCodeGenOption",        
+        [](const std::string &key, const std::string &value) {
+            config::SetCodeGenOption<std::string>(key, value);
+            CodeGenKeyTypeMap[key] = OptionType::String;
+        },
+        py::arg("key"), py::arg("value")
+    );
+    m.def(
+        "SetCodeGenOption",
+        [](const std::string &key, const int64_t &value) {
+            config::SetCodeGenOption<int64_t>(key, value);
+            CodeGenKeyTypeMap[key] = OptionType::Int;
+        },
+        py::arg("key"), py::arg("value")
+    );
+    m.def(
+        "SetCodeGenOption",
+        [](const std::string& key, const std::vector<int64_t>& value) {
+            config::SetCodeGenOption<std::vector<int64_t>>(key, value);
+            CodeGenKeyTypeMap[key] = OptionType::VectorInt;
+        },
+        py::arg("key"), py::arg("value")
+    );
+    m.def(
+        "SetCodeGenOption",
+        [](const std::string &key, const std::map<int64_t, int64_t> &value) {
+            config::SetCodeGenOption<std::map<int64_t, int64_t>>(key, value);
+            CodeGenKeyTypeMap[key] = OptionType::MapIntInt;
+        },
+        py::arg("key"), py::arg("value")
+    );
+
+    m.def(
+        "GetCodeGenOption",
+        [](const std::string& key) -> py::object {
+            auto type_iter = CodeGenKeyTypeMap.find(key);
+            if (type_iter == CodeGenKeyTypeMap.end()) {
+                throw std::invalid_argument("Key not found: " + key + " (Not set via SetCodeGenOption)");
+            }
+            OptionType key_type = type_iter->second;
+
+            switch (key_type) {
+                case OptionType::String: {
+                    return py::cast(config::GetCodeGenOption<std::string>(key));
+                }
+                case OptionType::Int: {
+                    return py::cast(config::GetCodeGenOption<int64_t>(key));
+                }
+                case OptionType::VectorInt: {
+                    return py::cast(config::GetCodeGenOption<std::vector<int64_t>>(key));
+                }
+                case OptionType::MapIntInt: {
+                    return py::cast(config::GetCodeGenOption<std::map<int64_t, int64_t>>(key));
+                }
+                default:
+                    throw std::invalid_argument("Unknown type，key: " + key);
+            }
+        },
+        py::arg("key"),
+        "Get the configuration item (the return type is consistent with when it was set via SetCodeGenOption)"
+    );
+     
+    m.def(
+        "SetRuntimeOption",
+        [](const std::string &key, const std::string &value) {
+            config::SetRuntimeOption<std::string>(key, value);
+            RuntimeTypeMap[key] = OptionType::String;
+        },
+        py::arg("key"), py::arg("value")
+    );
+    m.def(
+        "SetRuntimeOption",
+        [](const std::string &key, const int64_t &value) {
+            config::SetRuntimeOption<int64_t>(key, value);
+            RuntimeTypeMap[key] = OptionType::Int;
+        },
+        py::arg("key"), py::arg("value")
+    );
+    m.def(
+        "SetRuntimeOption",
+        [](const std::string& key, const std::vector<int64_t>& value) {
+            config::SetRuntimeOption<std::vector<int64_t>>(key, value);
+            RuntimeTypeMap[key] = OptionType::VectorInt;
+        },
+        py::arg("key"), py::arg("value")
+    );
+    m.def(
+        "SetRuntimeOption",
+        [](const std::string &key, const std::map<int64_t, int64_t> &value) {
+            config::SetRuntimeOption<std::map<int64_t, int64_t>>(key, value);
+            RuntimeTypeMap[key] = OptionType::MapIntInt;
+        },
+        py::arg("key"), py::arg("value")
+    );
+
+    m.def(
+        "GetRuntimeOption",
+        [](const std::string& key) -> py::object {
+            auto type_iter = RuntimeTypeMap.find(key);
+            if (type_iter == RuntimeTypeMap.end()) {
+                throw std::invalid_argument("Key not found: " + key + "(Not set via SetCodeGenOption)");
+            }
+            OptionType key_type = type_iter->second;
+
+            switch (key_type) {
+                case OptionType::String: {
+                    return py::cast(config::GetRuntimeOption<std::string>(key));
+                }
+                case OptionType::Int: {
+                    return py::cast(config::GetRuntimeOption<int64_t>(key));
+                }
+                case OptionType::VectorInt: {
+                    return py::cast(config::GetRuntimeOption<std::vector<int64_t>>(key));
+                }
+                case OptionType::MapIntInt: {
+                    return py::cast(config::GetRuntimeOption<std::map<int64_t, int64_t>>(key));
+                }
+                default:
+                    throw std::invalid_argument("Unknown type，key: " + key);
+            }
+        },
+        py::arg("key"),
+        "Get the configuration item (the return type is consistent with when it was set via SetRuntimeOption)"
+    );
+
+    m.def(
+        "SetSemanticLabel",
+        [](const std::string &label) { config::SetSemanticLabel(label); },
+        py::arg("label"));    
 }
 
 void bind_controller_tile_shape(py::module &m) {

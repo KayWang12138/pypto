@@ -66,7 +66,7 @@ def dynamic_matmul_onboard_util(input_config: ShapeConfig):
     # onboard prepare
     device_id = os.environ.get("TILE_FWK_STEST_DEVICE_ID", 0)
     pto.DeviceInit()
-    pto.set_codegen_config("support_dynamic_unaligned", True)
+    pto.set_codegen_option("support_dynamic_unaligned", True)
     pto.set_host_option("only_codegen", True)
     pto.set_cube_tile_shapes(input_config.m_tile_shape, input_config.k_tile_shape, input_config.n_tile_shape)
 

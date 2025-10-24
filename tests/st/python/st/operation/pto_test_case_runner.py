@@ -195,7 +195,7 @@ class PTOTestCaseRunner(TestCaseRunner):
         function += prefix + "    del tmp\n"
         print(function)
         pto.set_host_option("ONLY_CODEGEN", True)
-        pto.set_codegen_config("SUPPORT_DYNAMIC_UNALIGNED", True)
+        pto.set_codegen_option("SUPPORT_DYNAMIC_UNALIGNED", True)
         pto.set_vec_tile_shapes(*self.tile_shape)
         exec(
             function,

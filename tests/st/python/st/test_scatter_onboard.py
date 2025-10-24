@@ -40,7 +40,7 @@ def scatter_2dim_comm_proc(scatter_para, scatter_func):
 
     b_loop_num = math.ceil(indices_shape[0] / view_shape[0])
     s_loop_num = math.ceil(indices_shape[1] / view_shape[1])
-    pto.set_codegen_config("support_dynamic_unaligned", True)
+    pto.set_codegen_option("support_dynamic_unaligned", True)
     with pto.function("MAIN", [self_tensor, indices_tensor], [dst_tensor]):
         with pto.loop_function("b0", "bidx", pto.loop_range(b_loop_num)) as bloop:
             with pto.loop_function("s0", "sidx", pto.loop_range(s_loop_num)) as sloop:

@@ -111,7 +111,7 @@ def selected_attention_compute(**kwargs):
     g_loop_sym = group // g_tile
     n2_sym = n_kv
 
-    pto.set_codegen_config(KEY_SUPPORT_DYNAMIC_UNALIGNED, True)
+    pto.set_codegen_option(KEY_SUPPORT_DYNAMIC_UNALIGNED, True)
 
     with pto.loop_function("LOOP_L0_b_SA", "b_idx", pto.loop_range(0, batch_size_sym, 1), set(), True) as b_idx_loop:
         for b_idx in b_idx_loop:

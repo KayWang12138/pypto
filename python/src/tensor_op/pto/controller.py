@@ -155,11 +155,7 @@ def set_matrix_size(size: List[int]):
 
 def set_build_static(static: bool):
     pto_impl.SetBuildStatic(static)
-
-
-def set_semantic_label(label: str):
-    pto_impl.SetSemanticLabel(label)
-
+    
 
 def bytes_of(dtype: pto.DataType) -> int:
     ''' return the number of bytes of the current datatype
@@ -183,8 +179,8 @@ def bytes_of(dtype: pto.DataType) -> int:
     return pto_impl.BytesOf(dtype)
 
 
-def set_codegen_config(key, val):
-    pto_impl.SetCodeGenOption(key, val)
+def set_pass_config(key, val):
+    pto_impl.SetOption(f"pass.{key}", val)
 
 
 def begin_function(
