@@ -566,6 +566,8 @@ OPERATOR_DISPATCHERS = [
         'DistributedTest.aivWaitFlag_single_test_moe_combine_bfloat16_rank_size_4',
         'DistributedTest.allgather_attn_post_reducescatter_b64_s1_n32_lora256_dim128_h128_rank4_bf16',
         'DistributedTest.shmem_allgather_matmul_reducescatter_int32_128_256_4',
+        'DistributedTest.shmem_reduce_scatter_float16_128_256_4',
+        'DistributedTest.shmem_reduce_scatter_bfloat16_32_32_4'
     ]
 )
 def generate_golden_case(case_name: str, output: pathlib.Path) -> bool:

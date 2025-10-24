@@ -33,6 +33,7 @@ void TestMoeDispatch(OpTestParam &testParam);
 void TestMoeCombine(OpTestParam &testParam);
 void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam);
 void TestDynAllGather(OpTestParam &testParam);
+template<typename T>
 void TestShmemReduceScatter(OpTestParam &testParam);
 void TestDynAllGatherMatmulReducescatter(OpTestParam &testParam);
 } // namespace Distributed

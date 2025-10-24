@@ -107,14 +107,13 @@ void TestReduceScatterEx(OpTestParam &testParam)
     EXPECT_TRUE(CompareWithGolden<uint8_t *>(dType, "/output_rank_", outSize, outPtr, testParam));
 }
 
+template<typename T>
 void TestShmemReduceScatter(OpTestParam &testParam)
 {
     constexpr size_t paramsSize = 3;
     auto [row, col, typeNum] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
     int rowOut = row / testParam.rankSize;
     DataType dType = GetDataTypeNum(typeNum);
-    using T = float;
-
     Tensor in(dType, {row, col}, "in");
     Tensor out(dType, {rowOut, col}, "out");
 
@@ -152,5 +151,8 @@ void TestShmemReduceScatter(OpTestParam &testParam)
     EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", rowOut * col, outPut->GetDevPtr(), testParam));
 }
 
+template void TestShmemReduceScatter<int32_t>(OpTestParam &testParam);
+template void TestShmemReduceScatter<float16>(OpTestParam &testParam);
+template void TestShmemReduceScatter<bfloat16>(OpTestParam &testParam);
 } // namespace Distributed
 } // namespace npu::tile_fwk

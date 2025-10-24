@@ -19,7 +19,8 @@
 namespace npu::tile_fwk::Distributed {
 namespace {
 constexpr uint16_t UB_BUFFER_BYTE_SIZE = 256;
-
+constexpr uint16_t DTYPE_CAST_BYTE_SIZE = 256;
+constexpr uint16_t UB_ALIGIN_SIZE = 32;
 void CreateTileOp(const TileShape& tileShape,
     const std::function<void(int32_t, int32_t, int32_t, int32_t, int32_t)>& callback)
 {
@@ -39,18 +40,45 @@ void CreateTileOp(const TileShape& tileShape,
     }
 }
 
-LogicalTensorPtr CreateAdaptiveUbTensor(Function& function, const Shape& shape, DataType dataType)
+bool shouldConvertDtype(DataType ubType, DataType castType) 
 {
-    uint16_t copyNum = UB_BUFFER_BYTE_SIZE / sizeof(dataType);
-    Shape bufferShape;
-    if (copyNum >= shape[0] * shape[1]) {
-        bufferShape = {shape[0], shape[1]};
-    } else if (copyNum >= shape[1]) {
-        bufferShape = {(copyNum + shape[1] - 1) / shape[1], shape[1]};
+    return ubType != castType;
+}
+
+template <typename T>
+T AlignUpPow2(T value, T alignment) noexcept 
+{
+    ASSERT((alignment & (alignment - 1)) == 0) << "alignment must be power of 2";
+    return (value + alignment - 1) & ~(alignment - 1);
+}
+
+Shape GetCopyBufferShape(DataType dataType, Shape tileShape) 
+{
+    const uint32_t copyNum = UB_BUFFER_BYTE_SIZE / BytesOf(dataType);
+    Shape copyShape;
+    auto tileRowSize = tileShape[0];
+    auto tileColSize = tileShape[1];
+    if (copyNum >= tileRowSize * tileColSize) {
+        copyShape = {tileRowSize, tileColSize};
+    } else if (copyNum >= tileColSize) {
+        copyShape = {(copyNum + tileColSize - 1) / tileColSize, tileColSize};
     } else {
-        bufferShape = {1, copyNum};
+        copyShape = {1, copyNum};
     }
-    return std::make_shared<LogicalTensor>(function, dataType, bufferShape);
+    return copyShape;
+}
+
+LogicalTensorPtr CreateAdaptiveUbTensor(Function &function, const Shape& shape, DataType ubType, DataType castType) 
+{
+    Shape ubShape;
+    int64_t ubLen = AlignUpPow2<int64_t>(shape[0] * shape[1] * BytesOf(ubType), UB_ALIGIN_SIZE) / BytesOf(ubType);
+    if (!shouldConvertDtype(ubType, castType)) {
+        ubShape = {ubLen};
+    } else {
+        uint64_t castSize = AlignUpPow2<uint64_t>(ubLen * BytesOf(castType), DTYPE_CAST_BYTE_SIZE);
+        ubShape = {ubLen + static_cast<int64_t>(castSize / BytesOf(ubType))};
+    }
+    return std::make_shared<LogicalTensor>(function, ubType, ubShape);
 }
 } // namespace
 
@@ -74,11 +102,13 @@ void TiledShmemPut(Function& function, const TileShape& tileShape,
             auto inTile = in->View(function, shape, {rowOffset, colOffset});
             auto shmDataTile = shmData->View(function, {1, 1, rowShape, colShape}, {0, 0, rowOffset, colOffset});
             auto dummyTile = dummy->View(function, {1, 1}, {tileIndex, 0});
-            auto ubTensor = CreateAdaptiveUbTensor(function, shape, in->Datatype());
+            auto copyBufferShape = GetCopyBufferShape(shmDataTile->Datatype(), shape);
+            auto ubTensor = CreateAdaptiveUbTensor(function, copyBufferShape, in->Datatype(), shmDataTile->Datatype());
 
             auto& tileop = function.AddOperation("SHMEM_PUT", {inTile, shmDataTile, barrierDummy},
                 {dummyTile, ubTensor});
             tileop.SetAttr("AtomicType", atomicType);
+            tileop.SetAttr("copyBufferShape", copyBufferShape);
         });
 }
 
@@ -173,10 +203,12 @@ void TiledShmemGet(Function& function, const TileShape& tileShape,
             auto dummyTile = dummy->View(function, {1, 1}, {tileIndex, 0});
             auto shmDataTile = shmData->View(function, {1, 1, rowShape, colShape}, {0, 0, rowOffset, colOffset});
             auto outTile = out->View(function, shape, {rowOffset, colOffset});
-            auto ubTensor = CreateAdaptiveUbTensor(function, shape, out->Datatype());
+            auto copyBufferShape = GetCopyBufferShape(shmDataTile->Datatype(), shape);
+            auto ubTensor = CreateAdaptiveUbTensor(function, copyBufferShape, out->Datatype(), shmDataTile->Datatype());
 
             auto& tileop = function.AddOperation("SHMEM_GET", {dummyTile, shmDataTile}, {outTile, ubTensor});
             tileop.SetAttr("AtomicType", atomicType);
+            tileop.SetAttr("copyBufferShape", copyBufferShape);
         });
 }
 

@@ -53,6 +53,7 @@ std::string CodeGenOpCloudNPU::GetTemplateDType() const
 }
 
 void CodeGenOpCloudNPU::GenExtraTemplateParamsForPutAndGet(std::ostringstream& oss) const {
+    int32_t nonShmemDataIndex = (opCode == Opcode::OP_SHMEM_PUT) ? 2 : 0;
     // 必须从 shmemData 取 shape，不能从 nonShmemData 取
     // 如果从 nonShmemData 取，ShmemGet 会取到 assemble 后的 shape，不符合预期
     int32_t shmemDataIndex = 3;
@@ -60,8 +61,7 @@ void CodeGenOpCloudNPU::GenExtraTemplateParamsForPutAndGet(std::ostringstream& o
     int64_t tileRowShape = tileShape[tileShape.size() - 2];
     int64_t tileColShape = tileShape[tileShape.size() - 1];
 
-    int32_t bufferIndex = 1;
-    const std::vector<int64_t>& bufferShape = originShape[bufferIndex];
+    auto bufferShape = npu::tile_fwk::AnyCast<Shape>(opAttrs.at("copyBufferShape"));
     int64_t bufferRowShape = bufferShape[0];
     int64_t bufferColShape = bufferShape[1];
 
@@ -79,7 +79,9 @@ void CodeGenOpCloudNPU::GenExtraTemplateParamsForPutAndGet(std::ostringstream& o
     CheckInRange(bufferColShape);
     CheckInRange(stride);
 
-    oss << "<" << GetTemplateDType() << ", " << tileRowShape << ", " << tileColShape << ", " << bufferRowShape
+    oss << "<" << DataType2CCEStr(operandDtype[nonShmemDataIndex]) 
+        << ", " << DataType2CCEStr(operandDtype[shmemDataIndex]) 
+        << ", " << tileRowShape << ", " << tileColShape << ", " << bufferRowShape
         << ", " << bufferColShape << ", " << stride << ", " << stride << ", "
         << npu::tile_fwk::Distributed::AtomicTypeToString(atomicType) << ">";
 }
