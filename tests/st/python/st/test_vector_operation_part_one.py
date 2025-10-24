@@ -339,7 +339,6 @@ def test_vector_operation_vec_dup():
     pto.device_fini()
 
 
-@pytest.mark.skip(reason="Dep operation interface")
 def test_vector_operation_logical_not():
     tiling = 32
     n, m = tiling * 1, tiling * 1
@@ -363,7 +362,7 @@ def test_vector_operation_logical_not():
                             (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))],
                             [b_idx * view_shape[0], s_idx * view_shape[1]])
                         pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
-                        tmp_a = pto.tensor()
+                        tmp_a = pto.tensor(view_shape, pto.DT_BOOL)
                         tmp_a.move(pto.logical_not(tile_a))
                         pto.assemble(tmp_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
                         del tile_a, tmp_a
@@ -417,7 +416,6 @@ def test_vector_operation_expand():
     pto.device_fini()
 
 
-@pytest.mark.skip(reason="Dep operation interface")
 def test_vector_operation_concat():
     dtype = pto.DT_FP32
     tiling = 32
@@ -445,7 +443,7 @@ def test_vector_operation_concat():
                     n],
                     [b_idx * view_shape[0], 0])
                 pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
-                tmp_c = pto.tensor()
+                tmp_c = pto.tensor([16, 64], dtype)
                 tmp_c.move(pto.concat([tile_a, tile_b], -1))
                 pto.assemble(tmp_c, [b_idx * view_shape[0], 0], c)
                 del tile_a, tile_b, tmp_c
@@ -483,8 +481,8 @@ def test_vector_operation_rowmaxsingle():
                     (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))],
                     [0, s_idx * view_shape[1]])
                 pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
-                tmp_a = pto.tensor()
-                tmp_a.move(pto.row_max_single(tile_a, dim))
+                tmp_a = pto.tensor([1, view_shape[1]], dtype)
+                tmp_a.move(pto.amax(tile_a, dim))
                 pto.assemble(tmp_a, [0, s_idx * view_shape[1]], b)
                 del tile_a, tmp_a
     a_tensor = np.random.uniform(0, 100, shape).astype(np.float32)
@@ -520,8 +518,8 @@ def test_vector_operation_rowsumsingle():
                     (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))],
                     [0, s_idx * view_shape[1]])
                 pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
-                tmp_a = pto.tensor()
-                tmp_a.move(pto.row_sum_single(tile_a, dim))
+                tmp_a = pto.tensor([1, view_shape[1]], dtype)
+                tmp_a.move(pto.asum(tile_a, dim))
                 pto.assemble(tmp_a, [0, s_idx * view_shape[1]], b)
                 del tile_a, tmp_a
     a_tensor = np.random.uniform(0, 100, shape).astype(np.float32)
@@ -534,7 +532,6 @@ def test_vector_operation_rowsumsingle():
     pto.device_fini()
 
 
-@pytest.mark.skip(reason="Dep operation interface")
 def test_vector_operation_rowminsingle():
     dtype = pto.DT_FP32
     tiling = 32
@@ -558,8 +555,8 @@ def test_vector_operation_rowminsingle():
                     (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))],
                     [0, s_idx * view_shape[1]])
                 pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
-                tmp_a = pto.tensor()
-                tmp_a.move(pto.row_min_single(tile_a, dim))
+                tmp_a = pto.tensor([1, view_shape[1]], dtype)
+                tmp_a.move(pto.amin(tile_a, dim))
                 pto.assemble(tmp_a, [0, s_idx * view_shape[1]], b)
                 del tile_a, tmp_a
     a_tensor = np.random.uniform(0, 100, shape).astype(np.float32)

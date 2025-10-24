@@ -21,3 +21,5 @@ MemoryType = pto_impl.MemoryType
 FunctionType = pto_impl.FunctionType
 GraphType = pto_impl.GraphType
 CastMode = pto_impl.CastMode
+OpType = pto_impl.OpType
+OutType = pto_impl.OutType
