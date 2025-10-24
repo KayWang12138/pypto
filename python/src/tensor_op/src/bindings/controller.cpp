@@ -50,6 +50,8 @@ void bind_controller_tile_shape(py::module &m) {
         .def("toString", &TileShape::toString, py::arg("tile_type") = TileType::MAX)
         .def("GetVecTile", py::overload_cast<>(&TileShape::GetVecTile))
         .def("GetVecTile", py::overload_cast<>(&TileShape::GetVecTile, py::const_))
+        .def("GetCubeTile", py::overload_cast<>(&TileShape::GetCubeTile))
+        .def("GetCubeTile", py::overload_cast<>(&TileShape::GetCubeTile, py::const_))
         .def("SetVecTile",
             [](TileShape &self, py::args args) {
                 std::vector<int64_t> v;
@@ -91,7 +93,8 @@ void bind_controller_set_tile(py::module &m) {
         py::arg("size"));
     m.def(
         "SetCubeTile",
-        [](const std::vector<int64_t> &mvec, const std::vector<int64_t> &kvec, const std::vector<int64_t> &nvec) {
+        [](const std::vector<int64_t> &mvec, const std::vector<int64_t> &kvec, const std::vector<int64_t> &nvec,
+            bool setL1Tile) {
             if (mvec.size() > MAX_M_DIM_SIZE) {
                 throw py::value_error(
                     "Parameter 'm' must have exactly " + std::to_string(MAX_M_DIM_SIZE) + " elements");
@@ -112,11 +115,11 @@ void bind_controller_set_tile(py::module &m) {
             std::copy(mvec.begin(), mvec.end(), marr.begin());
             std::copy(kvec.begin(), kvec.end(), karr.begin());
             std::copy(nvec.begin(), nvec.end(), narr.begin());
-            bool setL1Tile = false;
             TileShape::Current().SetCubeTile(marr, karr, narr, setL1Tile);
         },
-        py::arg("m"), py::arg("k"), py::arg("n"),
+        py::arg("m"), py::arg("k"), py::arg("n"), py::arg("set_l1_tile"),
         "Set cube tile shapes with specified dimensions");
+    m.def("GetCubeTile", []() { return TileShape::Current().GetCubeTile(); });
 }
 
 void bind_controller_function(py::module &m) {
