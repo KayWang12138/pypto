@@ -108,8 +108,8 @@ def batch_matmul_no_split_util(tensor_a, tensor_b, tensor_c, input_config, idx):
         pto.set_matrix_size([input_config.ori_shape[1], input_config.ori_shape[2], input_config.ori_shape[3]])
     dyn_a = pto.view(tensor_a, shape_a, valid_shape_a, [0, idx, 0])
     dyn_b = pto.view(tensor_b, shape_b, valid_shape_b, [0, 0, 0])
-    tensor_c.move(pto.batch_matmul(dtype, dyn_a, dyn_b, input_config.a_trans, input_config.b_trans,
-                                input_config.c_format_nz))
+    tensor_c.move(pto.matmul(dyn_a, dyn_b, dtype, a_trans=input_config.a_trans, b_trans=input_config.b_trans,
+                                c_matrix_nz=input_config.c_format_nz))
     del dyn_a
     del dyn_b
 
@@ -148,8 +148,8 @@ def batch_matmul_split_m_util(tensor_a, tensor_b, tensor_c, input_config, m_idx)
                     [0, 0, m_idx * view_shape[0]])
 
     dyn_b = pto.view(tensor_b, shape_b, [shape_b[0], shape_b[1], shape_b[2]], [0, 0, 0])
-    res = pto.batch_matmul(dtype, dyn_a, dyn_b, input_config.a_trans, input_config.b_trans,
-                                            input_config.c_format_nz)
+    res = pto.matmul(dyn_a, dyn_b, dtype, a_trans=input_config.a_trans, b_trans=input_config.b_trans,
+                                            c_matrix_nz=input_config.c_format_nz)
 
     pto.assemble(res, [0, m_idx * view_shape[1], 0], tensor_c)
     del dyn_a
@@ -192,8 +192,8 @@ def batch_matmul_split_n_utils(tensor_a, tensor_b, tensor_c, input_config, n_idx
             shape_b[2] - n_idx * view_shape[2]).min(pto.symbolic_scalar(view_shape[2]))],
         [0, 0, n_idx * view_shape[1]])
 
-    res = pto.batch_matmul(dtype, dyn_a, dyn_b, input_config.a_trans, input_config.b_trans,
-                                input_config.c_format_nz)
+    res = pto.matmul(dyn_a, dyn_b, dtype, a_trans=input_config.a_trans, b_trans=input_config.b_trans,
+                                c_matrix_nz=input_config.c_format_nz)
 
     pto.assemble(res, [0, 0, n_idx * view_shape[2]], tensor_c)
     del dyn_a
@@ -252,8 +252,8 @@ def batch_matmul_split_m_n_utils(tensor_a, tensor_b, tensor_c, input_config, m_i
                 [shape_b[0], (shape_b[1] - n_idx * view_shape[2]).min(pto.symbolic_scalar(view_shape[2])),
                     shape_b[2]],
                 [0, n_idx * view_shape[1], 0])
-            res = pto.batch_matmul(dtype, dyn_a, dyn_b, input_config.a_trans, input_config.b_trans,
-                                    input_config.c_format_nz)
+            res = pto.matmul(dyn_a, dyn_b, dtype, a_trans=input_config.a_trans, b_trans=input_config.b_trans,
+                                    c_matrix_nz=input_config.c_format_nz)
 
             pto.assemble(res, [0, m_idx * view_shape[1], n_idx * view_shape[2]], tensor_c)
             del dyn_a

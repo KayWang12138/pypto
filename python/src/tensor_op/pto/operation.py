@@ -1077,9 +1077,78 @@ def concat(
 
 
 @op_wrapper
-def matmul(dtype, a, b, a_trans=False, b_trans=False, c_matrix_nz=False) -> Tensor:
-    return pto_impl.matmul(dtype, a, b, a_trans, b_trans, c_matrix_nz)
+def matmul(input, mat2, out_dtype, *, a_trans=False, b_trans=False, c_matrix_nz=False) -> Tensor:
+    """
+    Supports two forms of matrix multiplication compution:
+    (1) Performs a matrix multiplication of the matrices `input` and `mat2`
+    (2) Performs a batch matrix-matrix multiplication of the matrices `input` and `mat2`
 
-@op_wrapper
-def batch_matmul(dtype, a, b, a_trans=False, b_trans=False, c_matrix_nz=False) -> Tensor:
-    return pto_impl.batch_matmul(dtype, a, b, a_trans, b_trans, c_matrix_nz)
+    `input` and `mat2` support 2-D or 3-D or 4-D tensors each containing the same number of matrices.
+    If `input` is a (n x k) tensor, `mat2` is a (k x m) tensor, output will be a (m x n) tensor.
+    If `input` is a (b x n x k) tensor, `mat2` is a (b x k x m) tensor, output will be a (b x m x n) tensor.
+
+    NOTES:
+    If `input` of `mat2` is 3-D or 4-D, this function support broadcast.
+    For example, if `input` is a (1 x n x k)tensor and `mat2` is a (b x k x m) tensor, the batch dimensions are (1)
+    and (b), and the matrix dimensions are (n x k) and (k x m). output will be a (b x m x n) tensor.
+
+    Parameters
+    --------
+    input : Tensor
+        the left matrix to be matrix multiplied.
+    mat2 : Tensor
+        the right matrix to be matrix multiplied.
+    out_dtye : dtype
+        the dtype of the output tensor.
+
+    Keyword Arguments
+    --------
+    a_trans : bool
+        whether to transpose the left matrix. Default is False.
+    b_trans : bool
+        whether to transpose the right matrix. Default is False.
+    c_matrix_nz : bool
+        whether output matrix is in NZ format. Default is False.
+
+    Returns
+    --------
+    Tensor
+        A new Tensor containing the matrix multiplied result.
+
+    Raise
+    --------
+    RuntimeError
+        If the dimensions of matrix `input` and `mat2` are not equal and greater than 4-D or less than 2-D.
+
+    Examples
+    --------
+    >>> # matrix x matrix
+    >>> import pto
+    >>> a = pto.tensor((16, 32), pto.data_type.DT_BF16, "tensor_a")
+    >>> b = pto.tensor((32, 64), pto.data_type.DT_BF16, "tensor_b")
+    >>> pto.matmul(a, b, pto.data_type.DT_BF16)
+    tensors([16, 64])
+
+    >>> # batched matrix x batched matrix
+    >>> import pto
+    >>> a = pto.tensor((2, 16, 32), pto.data_type.DT_FP16, "tensor_a")
+    >>> b = pto.tensor((2, 32, 16), pto.data_type.DT_FP16, "tensor_b")
+    >>> pto.matmul(a, b, pto.data_type.DT_FP16)
+    tensors([2, 16, 16])
+
+    >>> # batched matrix x batched matrix with broadcasted
+    >>> import pto
+    >>> a = pto.tensor((1, 32, 64), pto.data_type.DT_FP32, "tensor_a")
+    >>> b = pto.tensor((3, 64, 16), pto.data_type.DT_FP32, "tensor_b")
+    >>> pto.matmul(a, b, pto.data_type.DT_DT_FP32)
+    tensors([3, 32, 16])
+
+    """
+    input_dim = input.Dim()
+    mat2_dim = mat2.Dim()
+    if input_dim == mat2_dim == 2:
+        return pto_impl.matmul(out_dtype, input, mat2, a_trans, b_trans, c_matrix_nz)
+    elif (input_dim == mat2_dim == 3) or (input_dim == mat2_dim == 4):
+        return pto_impl.batch_matmul(out_dtype, input, mat2, a_trans, b_trans, c_matrix_nz)
+    else:
+        raise RuntimeError("input dim and mat dim must equals, which only support 2-D/3-D/4-D currently")

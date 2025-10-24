@@ -23,8 +23,8 @@ def test_matrix_matmul():
 
     with pto.pto_function("MATMUL", GRAPH_T, FUNC_T, a, b):
         pto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
-        c = pto.matmul(dtype, a, b)
-        d = pto.matmul(dtype, a, b, a_trans=True, b_trans=True)
+        c = pto.matmul(a, b, dtype)
+        d = pto.matmul(a, b, dtype, a_trans=True, b_trans=True)
 
     assert isinstance(c, pto.tensor)
     assert c.shape == [32, 32]
@@ -41,11 +41,42 @@ def test_matrix_batch_matmul():
 
     with pto.pto_function("BATCH_MATMUL", GRAPH_T, FUNC_T, a, b):
         pto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
-        c = pto.batch_matmul(dtype, a, b)
-        d = pto.batch_matmul(dtype, a, b, a_trans=True, b_trans=True)
+        c = pto.matmul(a, b, dtype)
+        d = pto.matmul(a, b, dtype, a_trans=True, b_trans=True)
 
     assert isinstance(c, pto.tensor)
     assert c.shape == [2, 64, 64]
 
     assert isinstance(d, pto.tensor)
     assert d.shape == [2, 32, 32]
+
+
+def test_matrix_matmul_with_syntactic_sugar():
+    dtype = pto.DT_FP16
+    a = pto.tensor((64, 32), dtype, "A")
+    b = pto.tensor((32, 64), dtype, "B")
+    c = None
+
+    with pto.pto_function("MATMUL", GRAPH_T, FUNC_T, a, b):
+        pto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
+        c = a @ b
+
+    assert isinstance(c, pto.tensor)
+    assert c.dtype == pto.DT_FP16
+    assert c.shape == [64, 64]
+
+
+def test_matrix_matmul_with_tensor_interface():
+    input_dtype = pto.DT_INT8
+    out_dtype = pto.DT_INT32
+    a = pto.tensor((3, 64, 32), input_dtype, "A")
+    b = pto.tensor((3, 32, 64), input_dtype, "B")
+    c = None
+
+    with pto.pto_function("BATCH_MATMUL", GRAPH_T, FUNC_T, a, b):
+        pto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
+        c = a.matmul(b, out_dtype, a_trans=True, b_trans=True)
+
+    assert isinstance(c, pto.tensor)
+    assert c.dtype == pto.DT_INT32
+    assert c.shape == [3, 32, 32]

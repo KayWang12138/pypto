@@ -188,5 +188,16 @@ class Tensor:
         else:
             return pto.sub(self, other)
 
+    def __matmul__(self, other: 'Tensor') -> 'Tensor':
+        if other.dtype in {pto.DT_FP16, pto.DT_BF16, pto.DT_FP32}:
+            out_dype = other.dtype
+        elif other.dtype == pto.DT_INT8:
+            out_dype = pto.DT_INT32
+        else:
+            raise RuntimeError("unsupport dtype")
+        return pto.matmul(self, other, out_dype)
+
+    def matmul(self, mat2, out_dtype, *, a_trans=False, b_trans=False, c_matrix_nz=False) -> 'Tensor':
+        return pto.matmul(self, mat2, out_dtype, a_trans=a_trans, b_trans=b_trans, c_matrix_nz=c_matrix_nz)
 
 tensor = Tensor

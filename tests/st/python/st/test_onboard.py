@@ -190,7 +190,7 @@ def test_device_run_data_from_device_mix_nodep():
                 for i in rlf:
                     a0 = pto.view(a, [n, k], [0, 0])
                     b0 = pto.view(b, [k, m], [0, 0])
-                    d.move(pto.add(pto.matmul(pto.DT_INT32, a0, b0), c))
+                    d.move(pto.add(pto.matmul(a0, b0, pto.DT_INT32), c))
                     del a0
                     del b0
 
