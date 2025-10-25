@@ -620,7 +620,7 @@ def win_attention_flash(**kwargs):
 
 
 def test_win_atten_ut(tile_config, flash, debug):
-    pto.set_host_config("KEY_ONLY_CODEGEN", True)
+    pto.set_host_option("KEY_ONLY_CODEGEN", True)
 
     d_type = pto.DT_FP16
 

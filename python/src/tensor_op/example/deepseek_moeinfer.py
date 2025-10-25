@@ -123,7 +123,7 @@ def dynamic_ffn_quant(**kwargs):
 
 
 def test_ffn():
-    pto.set_host_config(KEY_ONLY_CODEGEN, True)
+    pto.set_host_option(KEY_ONLY_CODEGEN, True)
 
     pto.set_vec_tile_shapes(32, 128)
     pto.set_cube_tile_shapes([32, 32], [128, 128], [128, 128])
@@ -154,7 +154,7 @@ def test_ffn():
 
 
 def test_ffn_quant():
-    pto.set_host_config(KEY_ONLY_CODEGEN, True)
+    pto.set_host_option(KEY_ONLY_CODEGEN, True)
 
     pto.set_vec_tile_shapes(32, 128)
     pto.set_cube_tile_shapes([32, 32], [128, 128], [128, 128])

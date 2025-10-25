@@ -72,14 +72,14 @@ def incre_flash_attention(**kwargs):
             pto.set_vec_tile_shapes(v0_tile[0], v0_tile[1])
             qn = pto.view(q_nope, [n_tile_cur, d_n], [int(cur_offset), 0])
             qr = pto.view(q_rope, [n_tile_cur, d_r], [int(cur_offset), 0])
-            qi = pto.assemble([[qn, [0, 0]], [qr, [0, d_n]]])
+            qi = pto.concat([qn, qr], 1)
             for bn in range(bn_per_batch):
                 cur_block_idx = block_table[b_idx][bn]
                 s2_tile_cur = min(block_size, cur_seq - bn * block_size)
                 pto.set_vec_tile_shapes(v0_tile[0], v0_tile[1])
                 kn = pto.view(k_nope_cache, [s2_tile_cur, d_n], [cur_block_idx * block_size, 0])
                 kr = pto.view(k_rope_cache, [s2_tile_cur, d_r], [cur_block_idx * block_size, 0])
-                kj = pto.assemble([[kn, [0, 0]], [kr, [0, d_n]]])
+                kj = pto.concat([kn, kr], 1)
                 vj = pto.view(v_nope_cache, [s2_tile_cur, d_n], [cur_block_idx * block_size, 0])
 
                 pto.set_cube_tile_shapes(

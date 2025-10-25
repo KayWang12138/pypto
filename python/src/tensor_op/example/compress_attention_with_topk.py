@@ -161,7 +161,7 @@ def compress_attention_with_topk(**kwargs):
                                     pto.set_vec_tile_shapes(vec_tile, vec_tile)
                                     cur_qn = pto.view(q_nope, [n1, d_n], [q_offset, 0])
                                     cur_qr = pto.view(q_rope, [n1, d_r], [q_offset, 0])
-                                    cur_q_attn = pto.assemble([[cur_qn, [0, 0]], [cur_qr, [0, d_n]]])
+                                    cur_q_attn = pto.concat([cur_qn, cur_qr], 1)
                                     cur_q_attn.set_name("curQAttn") # ! check func exist
 
                                     cmp_kv_cache_2d = pto.reshape(cmp_kv_cache,
@@ -416,7 +416,7 @@ def compress_attention_with_topk(**kwargs):
 
 
 def test_cmp_attn_topk(data_type, tile_config: CmpAttnTopkTile, input_param: list, act_seq_len: list):
-    pto.set_host_config(KEY_ONLY_CODEGEN, True)
+    pto.set_host_option(KEY_ONLY_CODEGEN, True)
     d_type = data_type
 
     b = input_param[0]

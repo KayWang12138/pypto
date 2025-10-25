@@ -179,10 +179,6 @@ def bytes_of(dtype: pto.DataType) -> int:
     return pto_impl.BytesOf(dtype)
 
 
-def set_pass_config(key, val):
-    pto_impl.SetOption(f"pass.{key}", val)
-
-
 def begin_function(
     name: str,
     graph_type: pto_impl.GraphType,
