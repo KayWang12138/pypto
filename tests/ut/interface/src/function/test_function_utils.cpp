@@ -50,7 +50,7 @@ TEST_F(FunctionUtilsTest, TestCloneOperation) {
     TileShape::Current().SetVecTile(shape);
     config::SetBuildStatic(true);
     FUNCTION("main") {
-        output = AddS(input, Element(DT_FP32, 1.0));
+        output = Add(input, Element(DT_FP32, 1.0));
     }
 
     Function *func = Program::GetInstance().GetFunctionByRawName("TENSOR_main");

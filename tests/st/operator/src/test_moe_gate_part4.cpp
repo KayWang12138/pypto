@@ -49,7 +49,7 @@ TEST_F(MoEPart4OnBoardTest, test_operation_b_2) {
             auto topk_idx = std::get<1>(TopK(inputScores, numExpertsPerTopk, -1)); // [b*s,256]->[b*s,8]
             auto topk_weight = GatherElements(inputTmpScores, topk_idx, 1); // [b*s,8]
             auto topk_weight_sum = RowSumSingle(topk_weight, 1);      // [b*s,8]->[b*s,1]
-            auto denominator = AddS(topk_weight_sum, Element(DataType::DT_FP32, DF_1E_20)); // [b*s,1]
+            auto denominator = Add(topk_weight_sum, Element(DataType::DT_FP32, DF_1E_20)); // [b*s,1]
             outputTensor = Div(topk_weight, denominator); // [b*s,numExpertsPerTok]
         }
     }

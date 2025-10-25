@@ -193,7 +193,7 @@ void TestNZFormatACC(int bs, int m, int k, int n) {
     FUNCTION("Matmul_T", {mat_a, mat_b, mat_c}) {
         TileShape::Current().SetVecTile(64, 64);
         Tensor tmpC(outputType, shape_c, "tmp_c");
-        tmpC = MulS(tmpC, Element(DataType::DT_FP32, 0.0f));
+        tmpC = Mul(tmpC, Element(DataType::DT_FP32, 0.0f));
         std::vector<Tensor> matmulResult;
         for (int ki = 0; ki < kSplit; ki++) {
             auto input_mk = View(mat_a, {m, kSplitSize}, {0, ki * kSplitSize});
@@ -205,7 +205,7 @@ void TestNZFormatACC(int bs, int m, int k, int n) {
         TileShape::Current().SetVecTile(16, 128);
         tmpC = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);
         TileShape::Current().SetVecTile(16, 128);
-        mat_c = AddS(tmpC, Element(DataType::DT_FP32, 0.0));
+        mat_c = Add(tmpC, Element(DataType::DT_FP32, 0.0));
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 

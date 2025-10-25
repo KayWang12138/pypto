@@ -75,9 +75,9 @@ TEST_F(MlpTest, test_16_7168_tileop)
             auto gate = Matrix::Matmul<false, false, true>(DataType::DT_FP32, castRes, ffnweigth1);
 
             // swish: x / (1 + e^(-x))
-            auto swish = MulS(gate, Element(DataType::DT_FP32, F_NEGA_1));
+            auto swish = Mul(gate, Element(DataType::DT_FP32, F_NEGA_1));
             swish = Exp(swish);
-            swish = AddS(swish, Element(DataType::DT_FP32, F_1));
+            swish = Add(swish, Element(DataType::DT_FP32, F_1));
             swish = Div(gate, swish);
 
             // up_proj

@@ -238,7 +238,7 @@ TEST_F(OperationImplTest, Test_MatmulWithSplitK) {
         config::SetBuildStatic(true);
         FUNCTION("Matmul_T", {matA, matB, matC}) {
             Tensor tmpC(DT_FP32, {m, n}, "tmp_c");
-            tmpC = MulS(tmpC, Element(DataType::DT_FP32, 0.0f));
+            tmpC = Mul(tmpC, Element(DataType::DT_FP32, 0.0f));
             std::vector<Tensor> matmulResult;
             auto kSplitSize = k / kSplit;
             for (int ki = 0; ki < kSplit; ki++) {
@@ -248,7 +248,7 @@ TEST_F(OperationImplTest, Test_MatmulWithSplitK) {
                 matmulResult.emplace_back(tmpC1);
             }
             tmpC = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);
-            matC = AddS(tmpC, Element(DataType::DT_FP32, 0.0));
+            matC = Add(tmpC, Element(DataType::DT_FP32, 0.0));
         }
     }
 }
@@ -266,7 +266,7 @@ TEST_F(OperationImplTest, Test_MatmulWithSplitKWithTrans) {
         config::SetBuildStatic(true);
         FUNCTION("Matmul_T", {matA, matB, matC}) {
             Tensor tmpC(DT_FP32, {m, n}, "tmp_c");
-            tmpC = MulS(tmpC, Element(DataType::DT_FP32, 0.0f));
+            tmpC = Mul(tmpC, Element(DataType::DT_FP32, 0.0f));
             std::vector<Tensor> matmulResult;
             auto kSplitSize = k / kSplit;
             for (int ki = 0; ki < kSplit; ki++) {
@@ -276,7 +276,7 @@ TEST_F(OperationImplTest, Test_MatmulWithSplitKWithTrans) {
                 matmulResult.emplace_back(tmpC1);
             }
             tmpC = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);
-            matC = AddS(tmpC, Element(DataType::DT_FP32, 0.0));
+            matC = Add(tmpC, Element(DataType::DT_FP32, 0.0));
         }
     }
 }

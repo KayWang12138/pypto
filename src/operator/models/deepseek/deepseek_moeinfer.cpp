@@ -44,9 +44,9 @@ constexpr float F_NEGA_1 = -1.0;
             auto hiddenStatesTemp = View(hiddenStates, {BASIC_BATCH, H}, {batchIdx, 0});
             auto castRes = Cast(hiddenStatesTemp, DataType::DT_FP16);
             auto gate = Matrix::Matmul(DataType::DT_FP32, castRes, ffnWeight1);
-            auto swish = MulS(gate, Element(DataType::DT_FP32, F_NEGA_1));
+            auto swish = Mul(gate, Element(DataType::DT_FP32, F_NEGA_1));
             swish = Exp(swish);
-            swish = AddS(swish, Element(DataType::DT_FP32, F_1));
+            swish = Add(swish, Element(DataType::DT_FP32, F_1));
             swish = Div(gate, swish);
 
             auto up = Matrix::Matmul(DataType::DT_FP32, castRes, ffnWeight2);
@@ -78,9 +78,9 @@ constexpr float F_NEGA_1 = -1.0;
             auto gate = Mul(gateTmpDequantPerToken, ffnScale1);
 
             // swish: x / (1 + e^(-x))
-            auto swish = MulS(gate, Element(DataType::DT_FP32, F_NEGA_1));
+            auto swish = Mul(gate, Element(DataType::DT_FP32, F_NEGA_1));
             swish = Exp(swish);
-            swish = AddS(swish, Element(DataType::DT_FP32, F_1));
+            swish = Add(swish, Element(DataType::DT_FP32, F_1));
             swish = Div(gate, swish);
 
             auto upInt32 = Matrix::Matmul(DataType::DT_INT32, castRes, ffnWeight2);

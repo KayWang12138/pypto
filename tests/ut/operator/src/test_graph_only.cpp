@@ -652,7 +652,7 @@ TEST_F(GraphTest, TestTranspose_MLA_3D_2_add) {
             TileShape::Current().SetVecTile(NUM_2, NUM_2, NUM_128);
             auto tmp = Transpose(input, {0, 1});
             TileShape::Current().SetVecTile(NUM_8, NUM_8, NUM_128);
-            output = AddS(tmp, Element(DataType::DT_FP32, 0.0));
+            output = Add(tmp, Element(DataType::DT_FP32, 0.0));
         }
     }
 }

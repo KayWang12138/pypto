@@ -34,7 +34,7 @@ std::vector<Tensor> GenTopkIndices(
     TileShape::Current().SetVecTile({1, s_slc});
     auto topk_idx = std::get<1>(TopK(view0, 16, -1, true)); // 13
     topk_idx = Cast(topk_idx, DataType::DT_FP32);
-    topk_idx = AddS(topk_idx, Element(DT_FP32, 1.0f));
+    topk_idx = Add(topk_idx, Element(DT_FP32, 1.0f));
     res.emplace_back(topk_idx);
 
     topk_idx = View(topk_idx, {1, 16}, {1, actualTopk}, {0, 0});

@@ -220,7 +220,7 @@ TEST_F(FunctionTest, TestAddScalarFunctionDim2) {
     TileShape::Current().SetVecTile(32, 32);
 
     FUNCTION("A") {
-        d = AddS(a, value);
+        d = Add(a, value);
     }
 
     // Program::GetInstance().GraphCheck();
@@ -240,7 +240,7 @@ TEST_F(FunctionTest, TestAddScalarFunctionDim3) {
     TileShape::Current().SetVecTile(32, 32, 32);
 
     FUNCTION("A") {
-        d = AddS(a, value);
+        d = Add(a, value);
     }
 
     // Program::GetInstance().GraphCheck();
@@ -280,7 +280,7 @@ TEST_F(FunctionTest, TestMulScalarFunctionDim2) {
     TileShape::Current().SetVecTile(32, 32);
 
     FUNCTION("A") {
-        d = MulS(a, value);
+        d = Mul(a, value);
     }
 
     // Program::GetInstance().GraphCheck();
@@ -300,7 +300,7 @@ TEST_F(FunctionTest, TestDivScalarFunctionDim2) {
     TileShape::Current().SetVecTile(32, 32);
 
     FUNCTION("A") {
-        d = DivS(a, value);
+        d = Div(a, value);
     }
 
     // Program::GetInstance().GraphCheck();

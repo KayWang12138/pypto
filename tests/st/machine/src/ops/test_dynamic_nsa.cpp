@@ -143,7 +143,7 @@ void TestAlignRead(bool isAlign) {
             (void)sIdx;
             TileShape::Current().SetVecTile({1, 128});
             auto view0 = View(input, {1, 128}, {0, 0});
-            auto adds_res = AddS(view0, Element(DT_FP32, 0.0f));
+            auto adds_res = Add(view0, Element(DT_FP32, 0.0f));
             if (isAlign) {
                 auto view1 = View(adds_res, {1, 125}, {0, 0});
                 auto topVal = std::get<0>(TopK(view1, 3, -1, true));
@@ -182,7 +182,7 @@ void TestMultiLoopAlignRead() {
             (void)sIdx;
             TileShape::Current().SetVecTile({1, 16});
             auto view0 = View(input, {1, 128}, {0, 0});
-            auto adds_res = AddS(view0, Element(DT_FP32, 0.0f));
+            auto adds_res = Add(view0, Element(DT_FP32, 0.0f));
             middle = adds_res;
         }
         LOOP("LOOP1", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, bLoop, 1)) {

@@ -97,7 +97,7 @@ void TestAddSBody(std::vector<int64_t> shape, std::vector<int64_t> tile_shape, s
     Element value(DataType::DT_FP32, 1.5);
     config::SetBuildStatic(true);
     FUNCTION(name, {input_a, output}) {
-        output = AddS(input_a, value);
+        output = Add(input_a, value);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
     npu::tile_fwk::CodeGenCtx ctx;

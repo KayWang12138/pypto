@@ -277,7 +277,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                     auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj); // (curNTile, dN+dR), (curS2Tile, dN+dR) -> (curNTile, curS2Tile)
                     config::SetSemanticLabel("paQkvec1");
                     TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
-                    auto sijScale = MulS(sij, Element(DataType::DT_FP32, static_cast<double>(softmaxScale))); // (curNTile, curS2Tile)
+                    auto sijScale = Mul(sij, Element(DataType::DT_FP32, static_cast<double>(softmaxScale))); // (curNTile, curS2Tile)
 
                     auto tildaMij = RowMaxSingle(sijScale); // (curNTile, curS2Tile) -> (curNTile, 1)
                     auto tsub = Sub(sijScale, tildaMij);

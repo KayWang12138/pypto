@@ -2064,23 +2064,23 @@ void TiledCastOperation(Function &function, const TileShape &tileShape,
 }
 
 template <CastOpType T>
-LogicalTensorPtr TensorCastOperation(Function &function, LogicalTensorPtr operand,
-    const DataType &newType, const CastMode &mode) {
-    auto result = std::make_shared<LogicalTensor>(function, newType, operand->shape, operand->dynValidShape_);
-    auto &op = function.AddOperation(GetCastOpName<T>(), {operand}, {result});
+LogicalTensorPtr TensorCastOperation(
+    Function &function, LogicalTensorPtr self, const DataType &dstDataType, const CastMode &mode = CAST_NONE) {
+    auto result = std::make_shared<LogicalTensor>(function, dstDataType, self->shape, self->dynValidShape_);
+    auto &op = function.AddOperation(GetCastOpName<T>(), {self}, {result});
     op.SetAttribute(OP_ATTR_PREFIX + "mode", mode);
     return result;
 }
 
-Tensor Cast(const Tensor &operand, DataType newDataType, CastMode mode) {
+Tensor Cast(const Tensor &self, DataType dstDataType, CastMode mode) {
     DECLARE_TRACER();
-    assert(operand.GetShape().size() == operand.GetStorage()->offset.size());
+    assert(self.GetShape().size() == self.GetStorage()->offset.size());
     // Cast to same dType with no mode will do nothing
-    if (operand.GetStorage()->tensor->datatype == newDataType && (mode == CAST_NONE || mode == CAST_RINT)) {
-      return operand;
+    if (self.GetStorage()->tensor->datatype == dstDataType && (mode == CAST_NONE || mode == CAST_RINT)) {
+        return self;
     }
-    RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
-        operand.GetStorage(), newDataType, mode);
+    RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(),
+        dstDataType, mode);
 }
 
 Tensor Exp(const Tensor &self) {
@@ -2137,6 +2137,7 @@ Tensor Maximum(const Tensor &operand1, const Tensor &operand2) {
     RETURN_CALL(BinaryOperation<BinaryOpType::MAXIMUM>, *Program::GetInstance().GetCurrentFunction(), operand1, operand2);
 }
 
+
 Tensor Where(const Tensor &condition, const Tensor &input, const Tensor &other) {
     DECLARE_TRACER();
     RETURN_CALL(WhereOperation, *Program::GetInstance().GetCurrentFunction(), condition, input, other);
@@ -2157,28 +2158,28 @@ Tensor Where(const Tensor &condition, const Element &inputValue, const Element &
     RETURN_CALL(WhereOperation, *Program::GetInstance().GetCurrentFunction(), condition, inputValue, otherValue);
 }
 
-Tensor Add(const Tensor &operand1, const Tensor &operand2) {
-    DECLARE_TRACER();
 
-    RETURN_CALL(BinaryOperation<BinaryOpType::ADD>, *Program::GetInstance().GetCurrentFunction(), operand1, operand2);
+Tensor Add(const Tensor &self, const Tensor &other) {
+    DECLARE_TRACER();
+    RETURN_CALL(BinaryOperation<BinaryOpType::ADD>, *Program::GetInstance().GetCurrentFunction(), self, other);
 }
 
-Tensor Sub(const Tensor &operand1, const Tensor &operand2) {
+Tensor Sub(const Tensor &self, const Tensor &other) {
     DECLARE_TRACER();
 
-    RETURN_CALL(BinaryOperation<BinaryOpType::SUB>, *Program::GetInstance().GetCurrentFunction(), operand1, operand2);
+    RETURN_CALL(BinaryOperation<BinaryOpType::SUB>, *Program::GetInstance().GetCurrentFunction(), self, other);
 }
 
-Tensor Mul(const Tensor &operand1, const Tensor &operand2) {
+Tensor Mul(const Tensor &self, const Tensor &other) {
     DECLARE_TRACER();
 
-    RETURN_CALL(BinaryOperation<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(), operand1, operand2);
+    RETURN_CALL(BinaryOperation<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(), self, other);
 }
 
-Tensor Div(const Tensor &operand1, const Tensor &operand2) {
+Tensor Div(const Tensor &self, const Tensor &other) {
     DECLARE_TRACER();
 
-    RETURN_CALL(BinaryOperation<BinaryOpType::DIV>, *Program::GetInstance().GetCurrentFunction(), operand1, operand2);
+    RETURN_CALL(BinaryOperation<BinaryOpType::DIV>, *Program::GetInstance().GetCurrentFunction(), self, other);
 }
 
 Tensor ScalarAdd(const Tensor &operand1, const Tensor &operand2) {
@@ -2234,11 +2235,11 @@ Tensor Rsqrt(const Tensor &operand) {
         UnaryOperation<UnaryOpType::RSQRT>, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage());
 }
 
-Tensor Sqrt(const Tensor &operand) {
+Tensor Sqrt(const Tensor &self) {
     DECLARE_TRACER();
 
     RETURN_CALL(
-        UnaryOperation<UnaryOpType::SQRT>, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage());
+        UnaryOperation<UnaryOpType::SQRT>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
 }
 
 Tensor Reciprocal(const Tensor &operand) {
@@ -2262,10 +2263,10 @@ Tensor Duplicate(const Tensor &operand) {
         operand.GetStorage());
 }
 
-Tensor AddS(const Tensor &operand1, const Element &operand2) {
+Tensor Add(const Tensor &self, const Element &other) {
     DECLARE_TRACER();
     RETURN_CALL(BinaryOperationScalar<BinaryOpType::ADD>, *Program::GetInstance().GetCurrentFunction(),
-        operand1.GetStorage(), operand2);
+        self.GetStorage(), other);
 }
 
 Tensor Sub(const Tensor &self, const Element &other) {
@@ -2274,16 +2275,16 @@ Tensor Sub(const Tensor &self, const Element &other) {
         self.GetStorage(), other);
 }
 
-Tensor MulS(const Tensor &operand1, const Element &operand2) {
+Tensor Mul(const Tensor &self, const Element &other) {
     DECLARE_TRACER();
     RETURN_CALL(BinaryOperationScalar<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(),
-        operand1.GetStorage(), operand2);
+        self.GetStorage(), other);
 }
 
-Tensor DivS(const Tensor &operand1, const Element &operand2) {
+Tensor Div(const Tensor &self, const Element &other) {
     DECLARE_TRACER();
     RETURN_CALL(BinaryOperationScalar<BinaryOpType::DIV>, *Program::GetInstance().GetCurrentFunction(),
-        operand1.GetStorage(), operand2);
+        self.GetStorage(), other);
 }
 
 Tensor MaxS(const Tensor &operand1, const Element &operand2) {

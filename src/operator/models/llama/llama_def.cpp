@@ -203,9 +203,9 @@ Tensor LlamaLayer(Tensor hiddenStates, const Tensor &attnWight, const Tensor &de
     auto gate = Matrix::Matmul<false, false>(DataType::DT_FP32, a, ffnWeight); // [b*s, n*d] [n*d, n*d*3] => [b*s, n*d*3]
 
     // swish: x / (1 + e^(-x))
-    auto swish = MulS(gate, Element(DataType::DT_FP32, F_NEGA_1));
+    auto swish = Mul(gate, Element(DataType::DT_FP32, F_NEGA_1));
     swish = Exp(swish);
-    swish = AddS(swish, Element(DataType::DT_FP32, F_1));
+    swish = Add(swish, Element(DataType::DT_FP32, F_1));
     swish = Div(gate, swish);
 
     // up_proj

@@ -371,7 +371,7 @@ TEST_F(SimulationAccTest, TestAddScalarFunctionDim2) {
 
     config::SetBuildStatic(true);
     FUNCTION("A") {
-        d = AddS(a, value);
+        d = Add(a, value);
     }
 
     // Program::GetInstance().GraphCheck();
@@ -392,7 +392,7 @@ TEST_F(SimulationAccTest, TestAddScalarFunctionDim2_1) {
 
     config::SetBuildStatic(true);
     FUNCTION("A") {
-        d = AddS(a, value);
+        d = Add(a, value);
     }
 
     // Program::GetInstance().GraphCheck();
@@ -413,7 +413,7 @@ TEST_F(SimulationAccTest, TestAddScalarFunctionDim2_2) {
 
     config::SetBuildStatic(true);
     FUNCTION("A") {
-        d = AddS(a, value);
+        d = Add(a, value);
     }
 
     // Program::GetInstance().GraphCheck();
@@ -434,7 +434,7 @@ TEST_F(SimulationAccTest, TestAddScalarFunctionDim2_3) {
 
     config::SetBuildStatic(true);
     FUNCTION("A") {
-        d = AddS(a, value);
+        d = Add(a, value);
     }
 
     // Program::GetInstance().GraphCheck();
@@ -539,7 +539,7 @@ TEST_F(SimulationAccTest, TestMulScalarFunctionDim2) {
 
     config::SetBuildStatic(true);
     FUNCTION("A") {
-        d = MulS(a, value);
+        d = Mul(a, value);
     }
 
     // Program::GetInstance().GraphCheck();
@@ -560,7 +560,7 @@ TEST_F(SimulationAccTest, TestMulScalarFunctionDim2_1) {
 
     config::SetBuildStatic(true);
     FUNCTION("A") {
-        d = MulS(a, value);
+        d = Mul(a, value);
     }
 
     // Program::GetInstance().GraphCheck();
@@ -581,7 +581,7 @@ TEST_F(SimulationAccTest, TestMulScalarFunctionDim2_2) {
 
     config::SetBuildStatic(true);
     FUNCTION("A") {
-        d = MulS(a, value);
+        d = Mul(a, value);
     }
 
     // Program::GetInstance().GraphCheck();
@@ -602,7 +602,7 @@ TEST_F(SimulationAccTest, TestMulScalarFunctionDim2_3) {
 
     config::SetBuildStatic(true);
     FUNCTION("A") {
-        d = MulS(a, value);
+        d = Mul(a, value);
     }
 
     // Program::GetInstance().GraphCheck();
@@ -623,7 +623,7 @@ TEST_F(SimulationAccTest, TestDivScalarFunctionDim2) {
 
     config::SetBuildStatic(true);
     FUNCTION("A") {
-        d = DivS(a, value);
+        d = Div(a, value);
     }
 
     // Program::GetInstance().GraphCheck();
@@ -644,7 +644,7 @@ TEST_F(SimulationAccTest, TestDivScalarFunctionDim2_1) {
 
     config::SetBuildStatic(true);
     FUNCTION("A") {
-        d = DivS(a, value);
+        d = Div(a, value);
     }
 
     // Program::GetInstance().GraphCheck();
@@ -665,7 +665,7 @@ TEST_F(SimulationAccTest, TestDivScalarFunctionDim2_2) {
 
     config::SetBuildStatic(true);
     FUNCTION("A") {
-        d = DivS(a, value);
+        d = Div(a, value);
     }
 
     // Program::GetInstance().GraphCheck();
@@ -686,7 +686,7 @@ TEST_F(SimulationAccTest, TestDivScalarFunctionDim2_3) {
 
     config::SetBuildStatic(true);
     FUNCTION("A") {
-        d = DivS(a, value);
+        d = Div(a, value);
     }
 
     // Program::GetInstance().GraphCheck();

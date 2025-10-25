@@ -74,7 +74,7 @@ TEST_F(MoegateOnBoardTest, test_moegate_graph3_case1) {
 
         TileShape::Current().SetVecTile(64, 64);
         auto score1 = Mul(scores_for_choice, score_mask_new);
-        auto score2 = MulS(LogicalNot(score_mask_new), Element(DataType::DT_FP32, -3.4e+38f));
+        auto score2 = Mul(LogicalNot(score_mask_new), Element(DataType::DT_FP32, -3.4e+38f));
         res_scores = Add(score1, score2);
     }
     TileFwkEndFunction();
@@ -158,7 +158,7 @@ TEST_F(MoegateOnBoardTest, test_moegate_graph3_case2_32_1_7168) {
 
         TileShape::Current().SetVecTile(64, 64);
         auto score1 = Mul(scores_for_choice, score_mask_new);
-        auto score2 = MulS(LogicalNot(score_mask_new), Element(DataType::DT_FP32, -3.4e+38f));
+        auto score2 = Mul(LogicalNot(score_mask_new), Element(DataType::DT_FP32, -3.4e+38f));
         res_scores = Add(score1, score2);
     }
     TileFwkEndFunction();
@@ -241,7 +241,7 @@ TEST_F(MoegateOnBoardTest, test_moegate_graph3_case2_8_1_7168) {
         auto score_mask_new = Reshape(score_mask, {B*S, nGroup*nRoutedExperts / nGroup}); // (b*s,-1) [b*s,256]
         TileShape::Current().SetVecTile(64, 64);
         auto score1 = Mul(scores_for_choice, score_mask_new);
-        auto score2 = MulS(LogicalNot(score_mask_new), Element(DataType::DT_FP32, -3.4e+38f));
+        auto score2 = Mul(LogicalNot(score_mask_new), Element(DataType::DT_FP32, -3.4e+38f));
         res_scores = Add(score1, score2);
     }
     TileFwkEndFunction();
@@ -329,13 +329,13 @@ TEST_F(MoegateOnBoardTest, test_moegate_graph3_graph4_case_32_1_7168) {
 
         TileShape::Current().SetVecTile(64, 64);
         auto score1 = Mul(scores_for_choice, score_mask_new);
-        auto score2 = MulS(LogicalNot(score_mask_new), Element(DataType::DT_FP32, -3.4e+38f));
+        auto score2 = Mul(LogicalNot(score_mask_new), Element(DataType::DT_FP32, -3.4e+38f));
         auto tmp_scores = Add(score1, score2);
 
         auto topk_idx = std::get<1>(TopK(tmp_scores, numExpertsPerTopk, -1)); // [b*s,256]->[b*s,8]
         auto topk_weight = GatherElements(scores, topk_idx, 1); // [b*s,8]
         auto topk_weight_sum = RowSumSingle(topk_weight, 1);      // [b*s,8]->[b*s,1]
-        auto denominator = AddS(topk_weight_sum, Element(DataType::DT_FP32, 1e-20f)); // [b*s,1]
+        auto denominator = Add(topk_weight_sum, Element(DataType::DT_FP32, 1e-20f)); // [b*s,1]
         outputTensor = Div(topk_weight, denominator); // [b*s,8]
     }
     TileFwkEndFunction();

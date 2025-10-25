@@ -44,15 +44,15 @@ Tensor LayerNorm(const Tensor &x, const Tensor &weight, const Tensor &bias, cons
     int actualDim = dim < 0 ? dim + x.GetShape().size() : dim;
 
     // do division first to avoid overflow
-    auto xScaled = MulS(x, Element(DataType::DT_FP32, 1.0f / x.GetShape()[actualDim]));
+    auto xScaled = Mul(x, Element(DataType::DT_FP32, 1.0f / x.GetShape()[actualDim]));
     auto mean = RowSumSingle(xScaled, -1);
 
     auto diff = Sub(x, mean);
     auto squaredDiff = Mul(diff, diff);
-    auto squaredDiffScaled = MulS(squaredDiff, Element(DataType::DT_FP32, 1.0f / x.GetShape()[actualDim]));
+    auto squaredDiffScaled = Mul(squaredDiff, Element(DataType::DT_FP32, 1.0f / x.GetShape()[actualDim]));
     auto var = RowSumSingle(squaredDiffScaled, -1);
     // add epsilon to avoid division by zero
-    auto varEps = AddS(var, Element(DT_FP32, epsilon));
+    auto varEps = Add(var, Element(DT_FP32, epsilon));
     auto stdVar = Sqrt(varEps);
     auto res32 = Div(diff, stdVar);
 
@@ -83,7 +83,7 @@ Tensor RotateHalfValidShape(const Tensor &input) {
 
     // cat((-x2, x1), -1)
     return Concat(
-        {MulS(x2, Element(x2.GetStorage()->Datatype(), -1.0)), AddS(x1, Element(x1.GetStorage()->Datatype(), 0.0))}, -1); // x1 add 0, 规避pass view+assemble未翻译registor_copy的问题
+        {Mul(x2, Element(x2.GetStorage()->Datatype(), -1.0)), Add(x1, Element(x1.GetStorage()->Datatype(), 0.0))}, -1); // x1 add 0, 规避pass view+assemble未翻译registor_copy的问题
 }
 
 Tensor Rope3D(const Tensor &x, const Tensor &cos, const Tensor &sin, const RopeTileShapeConfig &tileConfig) {
@@ -93,7 +93,7 @@ Tensor Rope3D(const Tensor &x, const Tensor &cos, const Tensor &sin, const RopeT
     TileShape::Current().SetVecTile(NUM_1, NUM_32, NUM_128);
     auto castX = Cast(x, DT_FP32);
     if (x.GetDataType() == DT_FP32) {
-        castX = AddS(castX, Element(DT_FP32, 0.0f));
+        castX = Add(castX, Element(DT_FP32, 0.0f));
     }
     auto castCos = Cast(cos, DT_FP32);
     auto castSin = Cast(sin, DT_FP32);
@@ -125,7 +125,7 @@ Tensor Rope(const Tensor &x, const Tensor &cos, const Tensor &sin, const RopeTil
         tileConfig.twoDim[NUM_VALUE_0], tileConfig.twoDim[NUM_VALUE_1]);
     auto castX = Cast(x, DT_FP32);
     if (x.GetDataType() == DT_FP32) {
-        castX = AddS(castX, Element(DT_FP32, 0.0f));
+        castX = Add(castX, Element(DT_FP32, 0.0f));
     }
     auto castCos = Cast(cos, DT_FP32);
     auto castSin = Cast(sin, DT_FP32);

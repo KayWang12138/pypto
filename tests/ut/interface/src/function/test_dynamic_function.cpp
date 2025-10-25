@@ -613,7 +613,7 @@ Tensor TestLoopWithRank(const Tensor &t0, Tensor &r0, Tensor &out, int s, int ma
         }
         config::SetBuildStatic(true);
         FUNCTION("S1") {
-            out = AddS(r0, Element(DataType::DT_FP32, 3.0));
+            out = Add(r0, Element(DataType::DT_FP32, 3.0));
         }
     }
     return out;
@@ -626,13 +626,13 @@ Tensor TestLoopIfWithRank(const Tensor &t0, Tensor &r0, Tensor &out, int s, int 
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(len), PowersOf2(maxRank)) {
             IF(IsLoopBegin(i, 0)) {
                 IF(IsLoopEnd(i, len)) {
-                    r0 = AddS(r0, Element(DataType::DT_FP32, 1.0));
+                    r0 = Add(r0, Element(DataType::DT_FP32, 1.0));
                 } ELSE {
-                    r0 = AddS(r0, Element(DataType::DT_FP32, 2.0));
+                    r0 = Add(r0, Element(DataType::DT_FP32, 2.0));
                 }
             } ELSE {
                 IF(IsLoopEnd(i, len)) {
-                    r0 = AddS(r0, Element(DataType::DT_FP32, 0.0));
+                    r0 = Add(r0, Element(DataType::DT_FP32, 0.0));
                 } ELSE {
                     Tensor t0v = View(t0, {s, s}, {s * i, 0});
                     r0 = Add(t0v, r0);
@@ -641,7 +641,7 @@ Tensor TestLoopIfWithRank(const Tensor &t0, Tensor &r0, Tensor &out, int s, int 
         }
         config::SetBuildStatic(true);
         FUNCTION("S1") {
-            out = AddS(r0, Element(DataType::DT_FP32, 3.0));
+            out = Add(r0, Element(DataType::DT_FP32, 3.0));
         }
     }
     return out;
@@ -671,7 +671,7 @@ Tensor TestLoopWithManualRank(const Tensor &t0, Tensor &r0, Tensor &out, int s, 
         }
         config::SetBuildStatic(true);
         FUNCTION("S1") {
-            out = AddS(out, Element(DataType::DT_FP32, 1.0));
+            out = Add(out, Element(DataType::DT_FP32, 1.0));
         }
     }
     return out;
@@ -824,7 +824,7 @@ TEST_F(DynamicFunctionTest, TestInnerLoopOrder) {
             LOOP("Inner", FunctionType::DYNAMIC_LOOP, j, LoopRange(1)) {
                 (void)j;
                 auto tile = View(inputB, {1, vecLen}, {i, 0});
-                tileB = MulS(tile, Element(DataType::DT_FP32, 1.0));
+                tileB = Mul(tile, Element(DataType::DT_FP32, 1.0));
             }
 
             LOOP("Inner2", FunctionType::DYNAMIC_LOOP, k, LoopRange(loopNum)) {
@@ -834,7 +834,7 @@ TEST_F(DynamicFunctionTest, TestInnerLoopOrder) {
 
             LOOP("Inner3", FunctionType::DYNAMIC_LOOP, l, LoopRange(1)) {
                 (void)l;
-                tileB = MulS(tileB, Element(DataType::DT_FP32, 1.0));
+                tileB = Mul(tileB, Element(DataType::DT_FP32, 1.0));
                 Assemble(tileB, {i, 0}, output);
             }
         }
@@ -900,7 +900,7 @@ TEST_F(DynamicFunctionTest, TestGetInputDataInt32Dim3) {
     FUNCTION("main", {t5}, {out}) {
         LOOP("s1", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetTensorData(t5,  {npu::tile_fwk::SymbolicScalar("0"), npu::tile_fwk::SymbolicScalar("1"), npu::tile_fwk::SymbolicScalar("2")}) / s)) {
             loopCount = loopCount + i;
-            out = AddS(t5, Element(DataType::DT_FP32, static_cast<double>(1.0)));
+            out = Add(t5, Element(DataType::DT_FP32, static_cast<double>(1.0)));
         }
     }
 
@@ -931,7 +931,7 @@ TEST_F(DynamicFunctionTest, TestGetInputDataInt32Dim4) {
     FUNCTION("main", {t5}, {out}) {
         LOOP("s1", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetTensorData(t5, {npu::tile_fwk::SymbolicScalar("0"), npu::tile_fwk::SymbolicScalar("1"), npu::tile_fwk::SymbolicScalar("2"), npu::tile_fwk::SymbolicScalar("3")}) / s)) {
             loopCount = loopCount + i;
-            out = AddS(t5, Element(DataType::DT_FP32, static_cast<double>(1.0)));
+            out = Add(t5, Element(DataType::DT_FP32, static_cast<double>(1.0)));
         }
     }
 

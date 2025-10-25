@@ -97,7 +97,7 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
                     TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
 
                     config::SetSemanticLabel("SoftMax");
-                    auto sijScale = MulS(sij, Element(sij.GetStorage()->Datatype(), softmaxScale)); // (curNTile, curS2Tile)
+                    auto sijScale = Mul(sij, Element(sij.GetStorage()->Datatype(), softmaxScale)); // (curNTile, curS2Tile)
 
                     config::SetSemanticLabel("SoftMax");
                     auto tildaMij = RowMaxSingle(sijScale); // (curNTile, curS2Tile) -> (curNTile, 1)
@@ -231,7 +231,7 @@ void PageAttentionWithImmScalar(Tensor &qNope, Tensor &kNopeCache, Tensor &vNope
                     sij.SetName("sij");
                     TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
 
-                    auto sijScale = MulS(sij, Element(sij.GetStorage()->Datatype(), softmaxScale)); // (curNTile, curS2Tile)
+                    auto sijScale = Mul(sij, Element(sij.GetStorage()->Datatype(), softmaxScale)); // (curNTile, curS2Tile)
 
                     auto tildaMij = RowMaxSingle(sijScale); // (curNTile, curS2Tile) -> (curNTile, 1)
                     auto tsub =
@@ -359,7 +359,7 @@ void PageAttentionWithManualUnroll(Tensor &qNope, Tensor &kNopeCache, Tensor &vN
 
                             auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj);
                             TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
-                            auto sijScale = MulS(sij, Element(sij.GetStorage()->Datatype(), softmaxScale)); // (nTileCur, s2TileCur)
+                            auto sijScale = Mul(sij, Element(sij.GetStorage()->Datatype(), softmaxScale)); // (nTileCur, s2TileCur)
 
                             auto tildaMij = RowMaxSingle(sijScale); // (nTileCur, s2TileCur) -> (nTileCur, 1)
                             auto tsub = Sub(sijScale,
@@ -474,7 +474,7 @@ void PageAttentionHighThroughput(Tensor &qNope, Tensor &kNopeCache, Tensor &vNop
             TileShape::Current().SetCubeTile({c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]});
             auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj); // (curNTile, dN+dR), (curS2Tile, dN+dR) -> (curNTile, curS2Tile)
             TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
-            auto sijScale = MulS(sij, Element(sij.GetStorage()->Datatype(), softmaxScale)); // (curNTile, curS2Tile)
+            auto sijScale = Mul(sij, Element(sij.GetStorage()->Datatype(), softmaxScale)); // (curNTile, curS2Tile)
 
             auto tildaMij = RowMaxSingle(sijScale); // (curNTile, curS2Tile) -> (curNTile, 1)
             auto tsub =

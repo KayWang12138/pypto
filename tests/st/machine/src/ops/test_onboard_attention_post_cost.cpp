@@ -576,7 +576,7 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_batch4_onlymm5K) {
         // int8 @ int8 = int32
         Tensor tmpC(DT_INT32, {B*S, H}, "tmp_c"); // (4,7168)
         TileShape::Current().SetVecTile(4, std::min(1024, H)); // 7个
-        tmpC = MulS(tmpC, Element(DataType::DT_FP32, 0.0f));
+        tmpC = Mul(tmpC, Element(DataType::DT_FP32, 0.0f));
         std::vector<Tensor> matmulResult;
         auto kSplit = 2;
         auto kSplitSize = N*vHeadDim / kSplit; // 4096 / 2
@@ -734,7 +734,7 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_n128_onlymm5K) {
         // int8 @ int8 = int32
         Tensor tmpC(DT_INT32, {B*S, H}, "tmp_c");
         TileShape::Current().SetVecTile(32, std::min(1024, H)); // 7个
-        tmpC = MulS(tmpC, Element(DataType::DT_FP32, 0.0f));
+        tmpC = Mul(tmpC, Element(DataType::DT_FP32, 0.0f));
         std::vector<Tensor> matmulResult;
         auto kSplit = 8;
         auto kSplitSize = N*vHeadDim / kSplit;
@@ -911,7 +911,7 @@ TEST_F(OnBoardCostTest, dynamic_pa_post_static_cast_first) {
         // int8 @ int8 = int32
         Tensor tmpC(DT_INT32, {B*S, H}, "tmp_c");
         TileShape::Current().SetVecTile(32, std::min(1024, H)); // 7个
-        tmpC = MulS(tmpC, Element(DataType::DT_FP32, 0.0f));
+        tmpC = Mul(tmpC, Element(DataType::DT_FP32, 0.0f));
         std::vector<Tensor> matmulResult;
         auto kSplit = 8;
         auto kSplitSize = N*vHeadDim / kSplit;

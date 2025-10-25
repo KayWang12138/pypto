@@ -92,7 +92,7 @@ void MoEGateOnBoardFunc(MoEGateParams& opsParams) {
         //Part1
         Tensor input_hidden_state_reshape = Reshape(input_hidden_state, {B*S, H});
         Tensor tmpC(DT_FP32, {B*S, nRoutedExperts}, "tmp_c");
-        tmpC = MulS(tmpC, Element(DataType::DT_FP32, F_0));
+        tmpC = Mul(tmpC, Element(DataType::DT_FP32, F_0));
         std::vector<Tensor> matmulResult;
         auto kSplit = 2;
         auto kSplitSize = H / kSplit;
@@ -120,7 +120,7 @@ void MoEGateOnBoardFunc(MoEGateParams& opsParams) {
         TileShape::Current().SetVecTile({1, 8});
         auto output_topk4 = TopK(group_scores, topkGroup, -1);                                      // [B, 4]
         auto output_group_idx = std::get<1>(output_topk4);                                       // [B, 4]
-        auto output_group_mask = MulS(group_scores, Element(DataType::DT_FP32, F_0));                                 // [B, 8]
+        auto output_group_mask = Mul(group_scores, Element(DataType::DT_FP32, F_0));                                 // [B, 8]
 
         // Part3
         TileShape::Current().SetVecTile({1, nGroup});
@@ -134,7 +134,7 @@ void MoEGateOnBoardFunc(MoEGateParams& opsParams) {
         auto score_mask_new = Reshape(score_mask, {B*S, nGroup*nRoutedExperts / nGroup});
         TileShape::Current().SetVecTile(1, 256);
         auto score1 = Mul(output_scores_for_choice, score_mask_new);
-        auto score2 = MulS(LogicalNot(score_mask_new), Element(DataType::DT_FP32, F_0));
+        auto score2 = Mul(LogicalNot(score_mask_new), Element(DataType::DT_FP32, F_0));
         auto output_tmp_scores = Add(score1, score2);
 
         // Part4
@@ -142,7 +142,7 @@ void MoEGateOnBoardFunc(MoEGateParams& opsParams) {
         output_topk_idx = std::get<1>(TopK(output_tmp_scores, numExpertsPerTopk, -1)); // [b*s,256]->[b*s,8]
         auto topk_weight = GatherElements(output_scores, output_topk_idx, 1); // [b*s,8]
         auto topk_weight_sum = RowSumSingle(topk_weight, 1);      // [b*s,8]->[b*s,1]
-        auto denominator = AddS(topk_weight_sum, Element(DataType::DT_FP32, DF_1E_20)); // [b*s,1]
+        auto denominator = Add(topk_weight_sum, Element(DataType::DT_FP32, DF_1E_20)); // [b*s,1]
         output_topk_weight = Div(topk_weight, denominator); // [b*s,numExpertsPerTopk]
     }
     TileFwkEndFunction();

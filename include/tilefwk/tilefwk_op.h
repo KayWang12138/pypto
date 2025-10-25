@@ -111,12 +111,12 @@ Tensor VectorDuplicate(const Element &src, DataType dtype, const std::vector<int
 Tensor VectorDuplicate(const SymbolicScalar &src, DataType dtype, const std::vector<int64_t> &dstShape,
     std::vector<SymbolicScalar> validShape = {});
 Tensor Transpose(const Tensor &self, std::vector<int> perm);
-Tensor Cast(const Tensor &operand, DataType newDataType, CastMode mode = CAST_NONE);
+Tensor Cast(const Tensor &self, DataType dstDataType, CastMode mode = CAST_NONE);
 
 Tensor Exp(const Tensor &self);
 Tensor Neg(const Tensor &operand);
 Tensor Rsqrt(const Tensor &operand);
-Tensor Sqrt(const Tensor &operand);
+Tensor Sqrt(const Tensor &self);
 Tensor Reciprocal(const Tensor &operand);
 Tensor Abs(const Tensor &operand);
 Tensor Ln(const Tensor &operand);
@@ -168,15 +168,15 @@ Tensor RowMinSingle(const Tensor &operand, int axis = -1);
 
 Tensor Compact(const Tensor &operand);
 
-Tensor Add(const Tensor &operand1, const Tensor &operand2);
-Tensor Sub(const Tensor &operand1, const Tensor &operand2);
-Tensor Div(const Tensor &operand1, const Tensor &operand2);
-Tensor Mul(const Tensor &operand1, const Tensor &operand2);
+Tensor Add(const Tensor &self, const Tensor &other);
+Tensor Sub(const Tensor &self, const Tensor &other);
+Tensor Div(const Tensor &self, const Tensor &other);
+Tensor Mul(const Tensor &self, const Tensor &other);
 Tensor Maximum(const Tensor &operand1, const Tensor &operand2);
-Tensor AddS(const Tensor &operand1, const Element &operand2);
-Tensor Sub(const Tensor &operand1, const Element &operand2);
-Tensor DivS(const Tensor &operand1, const Element &operand2);
-Tensor MulS(const Tensor &operand1, const Element &operand2);
+Tensor Add(const Tensor &self, const Element &other);
+Tensor Sub(const Tensor &self, const Element &other);
+Tensor Div(const Tensor &self, const Element &other);
+Tensor Mul(const Tensor &self, const Element &other);
 Tensor MinS(const Tensor &operand1, const Element &operand2);
 Tensor MaxS(const Tensor &operand1, const Element &operand2);
 Tensor Compare(const Tensor &self, const Tensor &other, OpType op, OutType mode);

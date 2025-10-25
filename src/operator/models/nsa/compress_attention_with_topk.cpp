@@ -169,7 +169,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                     TileShape::Current().SetVecTile(vecTile, vecTile);
                     sij = View(sij, {blockSize, n1}, {curValidSeq, n1}, {0, 0});
                     config::SetSemanticLabel("Cmp-Attn-V1");
-                    auto sijScale = MulS(sij, Element(sij.GetStorage()->Datatype(), softmaxScale)); // (blockSize, n1)
+                    auto sijScale = Mul(sij, Element(sij.GetStorage()->Datatype(), softmaxScale)); // (blockSize, n1)
                     // reduceMax首轴不支持切分
                     auto tildaMij = RowMaxSingle(sijScale, 0); // (1, n1)
                     auto tsub = Sub(sijScale, tildaMij);       // (blockSize, n1) - (1, n1) -> (blockSize, n1)
@@ -309,7 +309,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                         Mul(slcBeforeGReduceBlock, expTmp); // (blockSlcNum, n1), (1, n1) -> (blockSlcNum, n1)
                     slcBeforeGReduceBlock =
                         Div(slcBeforeGReduceBlock, liUpdate); // (blockSlcNum, n1), (1, n1) -> (blockSlcNum, n1)
-                    slcBeforeGReduceBlock = AddS(slcBeforeGReduceBlock, Element(DT_FP32, 0.0f));
+                    slcBeforeGReduceBlock = Add(slcBeforeGReduceBlock, Element(DT_FP32, 0.0f));
                 }
                 Assemble(slcBeforeGReduceBlock, {blockIdx * blockSlcNum, 0}, slcBeforeGReduce2);
             }
@@ -325,7 +325,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                         slcBeforeGReduceActual); // (maxSlcLoop, n1) - > (maxSlcLoop, 1), 有效数据为(slcLoop, 1)
                     TileShape::Current().SetVecTile(tileConfig.topkTile);
                     slcReShape = Reshape(slcReduce, {1, 1, maxCmpBlock * blockSlcNum}, {1, 1, slcLoop});
-                    slcReShape = AddS(slcReShape, Element(DT_FP32, 0.0f));
+                    slcReShape = Add(slcReShape, Element(DT_FP32, 0.0f));
                 }
 
                 LOOP("AVOID_LOOP_6", FunctionType::DYNAMIC_LOOP, ubReshapeIdx, LoopRange(1), {}) {
@@ -343,7 +343,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                             {1, 1, slcLoop - front - near}, {0, 0, front});
                         auto innerTopk =
                             std::get<1>(TopK(slcReView, topk - front - near, -1, true)); // (1, 1, topk-front-near)
-                        innerTopk = AddS(innerTopk, Element(DT_INT32, 1UL));
+                        innerTopk = Add(innerTopk, Element(DT_INT32, 1UL));
                         slcFront = Cast(slcFront, DT_INT32);
                         slcNear = Cast(slcNear, DT_INT32);
                         Assemble(slcFront, {bIdx, s1Idx, 0}, topkRes);

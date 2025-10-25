@@ -278,7 +278,7 @@ TEST_F(DynamicBasicTest, DynamicRawShapeUnalign) {
         auto loop1 = (shape0 + s - 1) / s;
         LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(loop1)) {
             Tensor t0s = View(t0, {s, s}, {idx * s, 0});
-            auto t = AddS(t0s, Element(DT_FP32, 3.0));
+            auto t = Add(t0s, Element(DT_FP32, 3.0));
             Assemble(t, {idx * s, 0}, t1);
         }
 
@@ -453,7 +453,7 @@ TEST_F(DynamicBasicTest, TestInnerLoopOrder) {
             LOOP("Inner", FunctionType::DYNAMIC_LOOP, j, LoopRange(1)) {
                 (void)j;
                 auto tile = View(inputB, {1, vecLen}, {i, 0});
-                tileB = MulS(tile, Element(DataType::DT_FP32, 2.0));
+                tileB = Mul(tile, Element(DataType::DT_FP32, 2.0));
             }
 
             LOOP("Inner2", FunctionType::DYNAMIC_LOOP, k, LoopRange(loopNum)) {
@@ -463,7 +463,7 @@ TEST_F(DynamicBasicTest, TestInnerLoopOrder) {
 
             LOOP("Inner3", FunctionType::DYNAMIC_LOOP, l, LoopRange(1)) {
                 (void)l;
-                tileB = MulS(tileB, Element(DataType::DT_FP32, 3.0));
+                tileB = Mul(tileB, Element(DataType::DT_FP32, 3.0));
                 Assemble(tileB, {i, 0}, output);
             }
         }
@@ -621,24 +621,24 @@ TEST_F(DynamicBasicTest, TestLoopIfWithRank456) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(len)) {
             IF(i==0) {
                 IF(i==len-1) {
-                    r0 = AddS(r0, Element(DataType::DT_FP32, 1.0));
+                    r0 = Add(r0, Element(DataType::DT_FP32, 1.0));
                 } ELSE {
-                    r0 = AddS(r0, Element(DataType::DT_FP32, 2.0));
+                    r0 = Add(r0, Element(DataType::DT_FP32, 2.0));
                 }
             } ELSE {
                 IF(i==len-1) {
-                    r0 = AddS(r0, Element(DataType::DT_FP32, 0.0));
+                    r0 = Add(r0, Element(DataType::DT_FP32, 0.0));
                 } ELSE {
                     Tensor t0v = View(t0, {s, s}, {s * i, 0});
                     r0 = Add(t0v, r0);
                 }
             }
-            out = AddS(r0, Element(DataType::DT_FP32, 0.0));
+            out = Add(r0, Element(DataType::DT_FP32, 0.0));
         }
 
         config::SetBuildStatic(true);
         FUNCTION("S1") {
-            out = AddS(r0, Element(DataType::DT_FP32, 2.0));  //静态function中增加2.0的偏移量
+            out = Add(r0, Element(DataType::DT_FP32, 2.0));  //静态function中增加2.0的偏移量
         }
     }
     #ifdef ENABLE_BUILD_WITH_CANN
@@ -674,7 +674,7 @@ TEST_F(DynamicBasicTest, TestTensorExtract) {
     FUNCTION("main", {inputA}, {output}) {
         LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
-            Tensor t0 = AddS(inputA, Element(DT_INT32, (int64_t)2));
+            Tensor t0 = Add(inputA, Element(DT_INT32, (int64_t)2));
             output = TensorExtract(t0, {row, col});
         }
     }
@@ -722,7 +722,7 @@ TEST_F(DynamicBasicTest, TestGetTensorData) {
     FUNCTION("main", {inputA, inputC}, {output}) {
         LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
-            Tensor t0 = AddS(inputA, Element(DT_INT32, (int64_t)2)); // t0[i, j] -> inputA[i, j] + 2 -> i * n + j + 2
+            Tensor t0 = Add(inputA, Element(DT_INT32, (int64_t)2)); // t0[i, j] -> inputA[i, j] + 2 -> i * n + j + 2
             SymbolicScalar v0 = GetTensorData(t0, {0, 1}); // t0[0, 1] -> 0 * n + 1 + 2 -> 3
             SymbolicScalar v1 = GetTensorData(t0, {0, 2}); // t0[0, 2] -> 0 * n + 2 + 2 -> 4
             auto t2 = View(inputC, {n, n}, {0, v0 * n});
@@ -793,7 +793,7 @@ TEST_F(DynamicBasicTest, TestGetTensorDataCrossFunction) {
         SymbolicScalar v2;
         LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
-            auto t0 = AddS(inputA, Element(DT_INT32, (int64_t)2)); // t0[i, j] -> inputA[i, j] + 2 -> i * n + j + 2
+            auto t0 = Add(inputA, Element(DT_INT32, (int64_t)2)); // t0[i, j] -> inputA[i, j] + 2 -> i * n + j + 2
             v0 = GetTensorData(t0, {0, 1}); // t0[0, 1] -> 0 * n + 1 + 2 -> 3
             v1 = GetTensorData(t0, {0, 2}); // t0[0, 2] -> 0 * n + 2 + 2 -> 4
             v2 = v0 + v1 + GetTensorData(inputA, {0, 1});
@@ -883,7 +883,7 @@ TEST_F(DynamicBasicTest, TestGetTensorDataUnalign) {
         SymbolicScalar v2;
         LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
-            auto t0 = AddS(inputA, Element(DT_INT32, (int64_t)2)); // t0[i, j] -> inputA[i, j] + 2 -> i * n + j + 2
+            auto t0 = Add(inputA, Element(DT_INT32, (int64_t)2)); // t0[i, j] -> inputA[i, j] + 2 -> i * n + j + 2
             v0 = GetTensorData(t0, {0, 1}); // t0[0, 1] -> 0 * n + 1 + 2 -> 3
             v1 = GetTensorData(t0, {0, 2}); // t0[0, 2] -> 0 * n + 2 + 2 -> 4
             v2 = v0 + v1 + GetTensorData(inputA, {0, 1});
@@ -941,7 +941,7 @@ TEST_F(DynamicBasicTest, TestGetTensorDataExpr) {
     FUNCTION("main", {inputA, inputC}, {output}) {
         LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
-            Tensor t0 = AddS(inputA, Element(DT_INT32, (int64_t)2)); // t0[i, j] -> inputA[i, j] + 2 -> i * n + j + 2
+            Tensor t0 = Add(inputA, Element(DT_INT32, (int64_t)2)); // t0[i, j] -> inputA[i, j] + 2 -> i * n + j + 2
             SymbolicScalar v0 = GetTensorData(t0, {0, 1}); // t0[0, 1] + 2 -> 0 * n + 1 + 2 -> 3
             SymbolicScalar v1 = GetTensorData(t0, {0, 2}); // t0[0, 2] + 2 -> 0 * n + 2 + 2 -> 4
             SymbolicScalar v2 = GetTensorData(inputA, {0, 1}); // inputA[0, 1] -> 1
@@ -1262,8 +1262,8 @@ TEST_F(DynamicBasicTest, TestSelectAttention) {
                     auto k0 = View(c0, {n, n}, {0, s * n});
                     auto k1 = View(c1, {n, n}, {0, slcBlockIdx * n});
 
-                    auto k0v = AddS(k0, Element(dtype, (float)0));
-                    auto k1v = AddS(k1, Element(dtype, (float)0));
+                    auto k0v = Add(k0, Element(dtype, (float)0));
+                    auto k1v = Add(k1, Element(dtype, (float)0));
                     Assemble(k0v, {0, s * n}, r0);
                     Assemble(k1v, {0, slcBlockIdx * n}, r1);
                 }
@@ -1272,8 +1272,8 @@ TEST_F(DynamicBasicTest, TestSelectAttention) {
                 LOOP("loop1", FunctionType::DYNAMIC_LOOP, _, LoopRange(1), {}, true) {
                     (void)_;
                     auto matmul = Matrix::Matmul<false, true>(DataType::DT_FP32, r0, r1);
-                    auto d1 = DivS(matmul, Element(dtype, (float)n));
-                    auto d2 = DivS(d1, Element(dtype, (float)n));
+                    auto d1 = Div(matmul, Element(dtype, (float)n));
+                    auto d2 = Div(d1, Element(dtype, (float)n));
                     IF (i == 0) {
                         IF (j == 0) {
                             output = d2;

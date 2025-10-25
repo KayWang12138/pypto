@@ -80,7 +80,7 @@ void IncreFlashAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, 
                 auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj);
 
                 TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
-                auto sijScale = MulS(sij, Element(DataType::DT_FP32, softmaxScale)); // (nTileCur, s2TileCur)
+                auto sijScale = Mul(sij, Element(DataType::DT_FP32, softmaxScale)); // (nTileCur, s2TileCur)
                 auto tildaMij = RowMaxSingle(sijScale);   // (nTileCur, s2TileCur) -> (nTileCur, 1)
                 auto tsub = Sub(sijScale, tildaMij); // (nTileCur, s2TileCur) - (nTileCur, 1) -> (nTileCur, s2TileCur)
                 auto tildaPij = Exp(tsub);

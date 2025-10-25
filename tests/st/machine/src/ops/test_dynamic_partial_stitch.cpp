@@ -83,7 +83,7 @@ TEST_F(DynamicTest, TestPartial) {
         LOOP("SUM", FunctionType::DYNAMIC_LOOP, _, LoopRange(1)) {
             (void)_;
             config::SetSemanticLabel("adds");
-            out = AddS(mid, Element(DT_FP32, 1.0f));
+            out = Add(mid, Element(DT_FP32, 1.0f));
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());

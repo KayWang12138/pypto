@@ -75,7 +75,7 @@ TEST_F(DynamicReshapeTest, test_only_reshape) {
         LOOP("L0_AF", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0)), {}, true) {
             TileShape::Current().SetVecTile(64, 64);
             Tensor q0 = View(qReshape, {sq, d}, {batchId * sq, 0});
-            auto tmp = AddS((q0), Element(DataType::DT_FP32, 1.0f));
+            auto tmp = Add((q0), Element(DataType::DT_FP32, 1.0f));
             Assemble(tmp, {batchId * sq, 0}, out);
         }
     }
@@ -234,7 +234,7 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape2) {
         LOOP("L0_AF", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0)), {}, true) {
             TileShape::Current().SetVecTile(64, 64);
             Tensor q0 = View(qReshape, {sq, d}, {batchId * sq, 0});
-            auto tmp = AddS((q0), Element(DataType::DT_FP32, 1.0f));
+            auto tmp = Add((q0), Element(DataType::DT_FP32, 1.0f));
             Assemble(tmp, {batchId * sq, 0}, out);
         }
     }
@@ -257,14 +257,14 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape1111) {
         LOOP("LOOP_TEST", FunctionType::DYNAMIC_LOOP, loopIdx, LoopRange(0,2,1)) {
             Tensor C(DT_FP32, {128, 64}, "q");
             auto a0 = View(A, {64, 64}, {loopIdx * 64, 0});
-            auto a1 = AddS(a0, Element(DataType::DT_FP32, 1.0f));
+            auto a1 = Add(a0, Element(DataType::DT_FP32, 1.0f));
             Assemble(a1, {0, 0}, C);
 
             auto b0 = View(B, {64, 64}, {loopIdx * 64, 0});
-            auto b1 = AddS(b0, Element(DataType::DT_FP32, 1.0f));
+            auto b1 = Add(b0, Element(DataType::DT_FP32, 1.0f));
             Assemble(b1, {64, 0}, C);
 
-            auto d = AddS(C, Element(DataType::DT_FP32, 1.0f));
+            auto d = Add(C, Element(DataType::DT_FP32, 1.0f));
             Assemble(d, {loopIdx * 128, 0}, D);
         }
     }
@@ -473,7 +473,7 @@ TEST_F(DynamicReshapeTest, test_reshape_dassemble_4_2) {
         LOOP("Add_LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, b, 1), {}, true) {
             auto qNopeL = View(qNope, {64, 64}, {bIdx * s * n1, 0});
             TileShape::Current().SetVecTile(64, 64);
-            auto qResTmp = AddS(qNopeL, Element(DataType::DT_FP32, 1.0));
+            auto qResTmp = Add(qNopeL, Element(DataType::DT_FP32, 1.0));
             Assemble(qResTmp, {bIdx * s * n1, 0}, qRes);
         }
     }
@@ -527,10 +527,10 @@ TEST_F(DynamicReshapeTest, test_reshape_dassemble) {
     FUNCTION("main", {q}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (sq))) {
             Tensor q0 = View(q, {sq, d}, {batchId * sq, 0});
-            // auto tmp0 = MulS(q0, Element(DataType::DT_FP32, 1.0));
+            // auto tmp0 = Mul(q0, Element(DataType::DT_FP32, 1.0));
             auto tmp = Reshape(q0, {1, sq, d});
             TileShape::Current().SetVecTile(1, 64, 64);
-            // auto tmp = MulS(tmp, Element(DataType::DT_FP32, 1.0));
+            // auto tmp = Mul(tmp, Element(DataType::DT_FP32, 1.0));
             Assemble(tmp, {batchId, 0, 0}, out);
         }
     }
@@ -538,7 +538,7 @@ TEST_F(DynamicReshapeTest, test_reshape_dassemble) {
 
     FUNCTION("main", {q}, {out}) {
         Tensor q0 = View(q, {sq, d}, {sq, 0});
-        auto tmp0 = MulS(q0, Element(DataType::DT_FP32, 1.0));
+        auto tmp0 = Mul(q0, Element(DataType::DT_FP32, 1.0));
         auto tmp = Reshape(q0, {1, sq, d});
         TileShape::Current().SetVecTile(1, 64, 64);
         Assemble(tmp, {0, 0, 0}, out);
@@ -587,10 +587,10 @@ TEST_F(DynamicReshapeTest, test_reshape_op_reshape) {
                 Tensor nopeView = View(queryOut, {1, 1, n1, d}, {bOffset, sOffset, 0, 0});
                 TileShape::Current().SetVecTile({1, 1, 64, 64});
                 Tensor tmp0 = Reshape(nopeView, {1 * 1 * n1, d});
-                auto tmp1 = AddS(tmp0, Element(DataType::DT_FP32, 1.0));
+                auto tmp1 = Add(tmp0, Element(DataType::DT_FP32, 1.0));
                 TileShape::Current().SetVecTile({1, 64, 64});
                 auto tmp2 = Reshape(tmp1, {1, n1, d});
-                auto nopeRes = MulS(tmp2, Element(DataType::DT_FP32, 1.0));
+                auto nopeRes = Mul(tmp2, Element(DataType::DT_FP32, 1.0));
                 Assemble(nopeRes, {(bOffset * s + sOffset), 0, 0}, qNope);
             }
         }

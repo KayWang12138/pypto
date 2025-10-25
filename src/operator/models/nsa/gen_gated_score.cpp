@@ -46,7 +46,7 @@ void GenGatedScoreComputePrefillPlus(const Tensor &x, const Tensor &gateW1, cons
 
             TileShape::Current().SetVecTile({tileB, 1, h});
             auto xView = View(x, {tileB, L, h}, {bOfs, blockStart, 0});
-            auto xAdds = AddS(xView, Element(dType, F_0));
+            auto xAdds = Add(xView, Element(dType, F_0));
             auto xReshape = Reshape(xAdds, {tileB * L, h});
 
             TileShape::Current().SetVecTile({1, h});
@@ -60,7 +60,7 @@ void GenGatedScoreComputePrefillPlus(const Tensor &x, const Tensor &gateW1, cons
             auto mm2Reshape = Reshape(mm2Res, {tileB, L, 3, n});
 
             TileShape::Current().SetVecTile({tileB, 1, 3, n});
-            auto res = AddS(mm2Reshape, Element(dType, F_0));
+            auto res = Add(mm2Reshape, Element(dType, F_0));
             Assemble(res, {bOfs, blockStart, 0, 0}, gatingScore);
         }
     }
@@ -83,7 +83,7 @@ void GenGatedScoreComputePrefill(const Tensor &x, const Tensor &gateW1, const Te
 
             TileShape::Current().SetVecTile({tileB, 1, h});
             auto xView = View(x, {tileB, tileS, h}, {bOfs, sOfs, 0});
-            auto xAdds = AddS(xView, Element(dType, F_0));
+            auto xAdds = Add(xView, Element(dType, F_0));
             auto xReshape = Reshape(xAdds, {tileB * tileS, h});
 
             TileShape::Current().SetVecTile({1, h});
@@ -97,7 +97,7 @@ void GenGatedScoreComputePrefill(const Tensor &x, const Tensor &gateW1, const Te
             auto mm2Reshape = Reshape(mm2Res, {tileB, tileS, 3, n});
 
             TileShape::Current().SetVecTile({tileB, 1, 3, n});
-            auto res = AddS(mm2Reshape, Element(dType, F_0));
+            auto res = Add(mm2Reshape, Element(dType, F_0));
             Assemble(res, {bOfs, sIdx, 0, 0}, gatingScore);
         }
     }

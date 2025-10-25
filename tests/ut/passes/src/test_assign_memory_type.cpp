@@ -335,7 +335,7 @@ TEST_F(AssignMemoryTypeTest, TestCubeToCubeV2) {
             TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_64, NUM_64}, {NUM_128, NUM_128});
             Tensor QKT = Matrix::Matmul<false, true>(out.GetDataType(), qUpdate, kUpdate); // (256 * 64) @ (64 * 256) = (256 * 256)
             TileShape::Current().SetVecTile(NUM_64, NUM_64);
-            out = AddS(QKT, Element(DataType::DT_FP32, F_1));
+            out = Add(QKT, Element(DataType::DT_FP32, F_1));
         }
 
         originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_TestCubeToCubeV2"); // Tensor_{Function名字}

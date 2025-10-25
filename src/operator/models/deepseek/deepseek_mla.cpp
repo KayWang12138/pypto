@@ -85,7 +85,7 @@ Tensor DeepseekAttention::Attention(Tensor q, Tensor kv, Tensor attenMask) {
     Tensor qk = Matrix::BatchMatmul<false, true>(dType, q, kv);
     TileShape::Current().SetVecTile({1, 1, NUM_128, NUM_64});
     Tensor qkFp32 = Cast(qk, DataType::DT_FP32);
-    qkFp32 = MulS(qkFp32, Element(DataType::DT_FP32, static_cast<double>(softmaxScale)));
+    qkFp32 = Mul(qkFp32, Element(DataType::DT_FP32, static_cast<double>(softmaxScale)));
     qkFp32 = Add(qkFp32, attenMask);
     Tensor qk16 = Cast(qkFp32, dType);
     Tensor softmax = SoftmaxNew(qk16); // [b,n,s1,s2]

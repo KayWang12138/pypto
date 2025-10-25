@@ -51,129 +51,129 @@ Tensor Cos(Tensor operand) {
     constexpr float F_NEGA_1 = -1.0;
     constexpr float F_NEGA_2 = -2.0;
 
-    auto xScaled = MulS(operand, Element(DataType::DT_FP32, oneOverN));
-    auto xOverpi = MulS(xScaled, Element(DataType::DT_FP32, invHalfPi));
+    auto xScaled = Mul(operand, Element(DataType::DT_FP32, oneOverN));
+    auto xOverpi = Mul(xScaled, Element(DataType::DT_FP32, invHalfPi));
     auto n = Cast(xOverpi, DataType::DT_FP32, CAST_ROUND);
-    auto n0 = MulS(xOverpi, Element(DataType::DT_FP32, oneOverN));
+    auto n0 = Mul(xOverpi, Element(DataType::DT_FP32, oneOverN));
     n0 = Cast(n0, DataType::DT_FP32, CAST_ROUND);
-    n0 = MulS(n0, Element(DataType::DT_FP32, number2048));
+    n0 = Mul(n0, Element(DataType::DT_FP32, number2048));
     auto n1 = Sub(n, n0);
 
-    auto fix = MulS(n0, Element(DataType::DT_FP32, pi0));
+    auto fix = Mul(n0, Element(DataType::DT_FP32, pi0));
     auto xFix = Sub(xScaled, fix);
-    fix = MulS(n1, Element(DataType::DT_FP32, pi0));
+    fix = Mul(n1, Element(DataType::DT_FP32, pi0));
     xFix = Sub(xFix, fix);
-    fix = MulS(n0, Element(DataType::DT_FP32, pi1));
+    fix = Mul(n0, Element(DataType::DT_FP32, pi1));
     xFix = Sub(xFix, fix);
-    fix = MulS(n1, Element(DataType::DT_FP32, pi1));
+    fix = Mul(n1, Element(DataType::DT_FP32, pi1));
     xFix = Sub(xFix, fix);
-    fix = MulS(n0, Element(DataType::DT_FP32, pi2));
+    fix = Mul(n0, Element(DataType::DT_FP32, pi2));
     xFix = Sub(xFix, fix);
 
     constexpr float PI_02 = 1.5703125f;
     constexpr float PI_12 = 0.0004837513f;
 
-    auto remainX = MulS(xFix, Element(DataType::DT_FP32, number2048));
-    auto temp = MulS(remainX, Element(DataType::DT_FP32, invHalfPi));
+    auto remainX = Mul(xFix, Element(DataType::DT_FP32, number2048));
+    auto temp = Mul(remainX, Element(DataType::DT_FP32, invHalfPi));
     auto n2 = Cast(temp, DataType::DT_FP32, CAST_ROUND);
-    n0 = MulS(n0, Element(DataType::DT_FP32, number2048));
-    n1 = MulS(n1, Element(DataType::DT_FP32, number2048));
-    fix = MulS(n0, Element(DataType::DT_FP32, PI_02));
+    n0 = Mul(n0, Element(DataType::DT_FP32, number2048));
+    n1 = Mul(n1, Element(DataType::DT_FP32, number2048));
+    fix = Mul(n0, Element(DataType::DT_FP32, PI_02));
     xFix = Sub(operand, fix);
-    fix = MulS(n1, Element(DataType::DT_FP32, PI_02));
+    fix = Mul(n1, Element(DataType::DT_FP32, PI_02));
     xFix = Sub(xFix, fix);
-    fix = MulS(n0, Element(DataType::DT_FP32, PI_12));
+    fix = Mul(n0, Element(DataType::DT_FP32, PI_12));
     xFix = Sub(xFix, fix);
 
     constexpr float PI_22 = 0.000000075495336f;
-    fix = MulS(n2, Element(DataType::DT_FP32, PI_02));
+    fix = Mul(n2, Element(DataType::DT_FP32, PI_02));
     xFix = Sub(xFix, fix);
-    fix = MulS(n1, Element(DataType::DT_FP32, PI_12));
+    fix = Mul(n1, Element(DataType::DT_FP32, PI_12));
     xFix = Sub(xFix, fix);
-    fix = MulS(n0, Element(DataType::DT_FP32, PI_22));
+    fix = Mul(n0, Element(DataType::DT_FP32, PI_22));
     xFix = Sub(xFix, fix);
 
     constexpr float PI_32 = 2.5579538e-12f;
-    fix = MulS(n2, Element(DataType::DT_FP32, PI_12));
+    fix = Mul(n2, Element(DataType::DT_FP32, PI_12));
     xFix = Sub(xFix, fix);
-    fix = MulS(n1, Element(DataType::DT_FP32, PI_22));
+    fix = Mul(n1, Element(DataType::DT_FP32, PI_22));
     xFix = Sub(xFix, fix);
-    fix = MulS(n0, Element(DataType::DT_FP32, PI_32));
+    fix = Mul(n0, Element(DataType::DT_FP32, PI_32));
     xFix = Sub(xFix, fix);
 
     constexpr float PI_42 = 5.389786e-15f;
-    fix = MulS(n2, Element(DataType::DT_FP32, PI_22));
+    fix = Mul(n2, Element(DataType::DT_FP32, PI_22));
     xFix = Sub(xFix, fix);
-    fix = MulS(n1, Element(DataType::DT_FP32, PI_32));
+    fix = Mul(n1, Element(DataType::DT_FP32, PI_32));
     xFix = Sub(xFix, fix);
-    fix = MulS(n0, Element(DataType::DT_FP32, PI_42));
+    fix = Mul(n0, Element(DataType::DT_FP32, PI_42));
     xFix = Sub(xFix, fix);
 
     constexpr float PI_52 = 5.166901e-19f;
-    fix = MulS(n2, Element(DataType::DT_FP32, PI_32));
+    fix = Mul(n2, Element(DataType::DT_FP32, PI_32));
     xFix = Sub(xFix, fix);
-    fix = MulS(n1, Element(DataType::DT_FP32, PI_42));
+    fix = Mul(n1, Element(DataType::DT_FP32, PI_42));
     xFix = Sub(xFix, fix);
-    fix = MulS(n0, Element(DataType::DT_FP32, PI_52));
+    fix = Mul(n0, Element(DataType::DT_FP32, PI_52));
     xFix = Sub(xFix, fix);
 
     constexpr float PI_62 = 3.281839e-22f;
-    fix = MulS(n2, Element(DataType::DT_FP32, PI_42));
+    fix = Mul(n2, Element(DataType::DT_FP32, PI_42));
     xFix = Sub(xFix, fix);
-    fix = MulS(n1, Element(DataType::DT_FP32, PI_52));
+    fix = Mul(n1, Element(DataType::DT_FP32, PI_52));
     xFix = Sub(xFix, fix);
-    fix = MulS(n0, Element(DataType::DT_FP32, PI_62));
-    xFix = Sub(xFix, fix);
-
-    fix = MulS(n2, Element(DataType::DT_FP32, PI_52));
-    xFix = Sub(xFix, fix);
-    fix = MulS(n1, Element(DataType::DT_FP32, PI_62));
-    xFix = Sub(xFix, fix);
-    fix = MulS(n2, Element(DataType::DT_FP32, PI_62));
+    fix = Mul(n0, Element(DataType::DT_FP32, PI_62));
     xFix = Sub(xFix, fix);
 
-    n2 = AddS(n2, Element(DataType::DT_FP32, F_1));
-    auto halfN2 = MulS(n2, Element(DataType::DT_FP32, F_05));
-    auto half4N2 = MulS(n2, Element(DataType::DT_FP32, F_025));
+    fix = Mul(n2, Element(DataType::DT_FP32, PI_52));
+    xFix = Sub(xFix, fix);
+    fix = Mul(n1, Element(DataType::DT_FP32, PI_62));
+    xFix = Sub(xFix, fix);
+    fix = Mul(n2, Element(DataType::DT_FP32, PI_62));
+    xFix = Sub(xFix, fix);
+
+    n2 = Add(n2, Element(DataType::DT_FP32, F_1));
+    auto halfN2 = Mul(n2, Element(DataType::DT_FP32, F_05));
+    auto half4N2 = Mul(n2, Element(DataType::DT_FP32, F_025));
     auto nHalf2 = Cast(halfN2, DataType::DT_FP32, CAST_FLOOR);
     auto nHalf4 = Cast(half4N2, DataType::DT_FP32, CAST_FLOOR);
 
-    auto k1 = MulS(nHalf2, Element(DataType::DT_FP32, F_NEGA_2));
-    auto k2 = MulS(nHalf4, Element(DataType::DT_FP32, F_4));
+    auto k1 = Mul(nHalf2, Element(DataType::DT_FP32, F_NEGA_2));
+    auto k2 = Mul(nHalf4, Element(DataType::DT_FP32, F_4));
     auto sign = Add(k1, k2);
-    sign = AddS(sign, Element(DataType::DT_FP32, F_1));
+    sign = Add(sign, Element(DataType::DT_FP32, F_1));
 
     auto ifcos = Add(n2, k1);
-    auto ifsin = MulS(ifcos, Element(DataType::DT_FP32, F_NEGA_1));
-    ifsin = AddS(ifsin, Element(DataType::DT_FP32, F_1));
+    auto ifsin = Mul(ifcos, Element(DataType::DT_FP32, F_NEGA_1));
+    ifsin = Add(ifsin, Element(DataType::DT_FP32, F_1));
 
     constexpr float scoef4 = 0.0000027183114939898219064f;
     constexpr float scoef3 = -0.000198393348360966317347f;
     constexpr float scoef2 = 0.0083333293858894631756f;
     constexpr float scoef1 = -0.166666666416265235595f;
     auto xPow = Mul(xFix, xFix);
-    auto sinPoly = MulS(xPow, Element(DataType::DT_FP32, scoef4));
-    sinPoly = AddS(sinPoly, Element(DataType::DT_FP32, scoef3));
+    auto sinPoly = Mul(xPow, Element(DataType::DT_FP32, scoef4));
+    sinPoly = Add(sinPoly, Element(DataType::DT_FP32, scoef3));
     sinPoly = Mul(xPow, sinPoly);
-    sinPoly = AddS(sinPoly, Element(DataType::DT_FP32, scoef2));
+    sinPoly = Add(sinPoly, Element(DataType::DT_FP32, scoef2));
     sinPoly = Mul(xPow, sinPoly);
-    sinPoly = AddS(sinPoly, Element(DataType::DT_FP32, scoef1));
+    sinPoly = Add(sinPoly, Element(DataType::DT_FP32, scoef1));
     sinPoly = Mul(xPow, sinPoly);
-    sinPoly = AddS(sinPoly, Element(DataType::DT_FP32, F_1));
+    sinPoly = Add(sinPoly, Element(DataType::DT_FP32, F_1));
     sinPoly = Mul(xFix, sinPoly);
 
     constexpr float ccoef4 = 0.0000243904487962774090654f;
     constexpr float ccoef3 = -0.00138867637746099294692f;
     constexpr float ccoef2 = 0.0416666233237390631894f;
     constexpr float ccoef1 = -0.499999997251031003120f;
-    auto cosPoly = MulS(xPow, Element(DataType::DT_FP32, ccoef4));
-    cosPoly = AddS(cosPoly, Element(DataType::DT_FP32, ccoef3));
+    auto cosPoly = Mul(xPow, Element(DataType::DT_FP32, ccoef4));
+    cosPoly = Add(cosPoly, Element(DataType::DT_FP32, ccoef3));
     cosPoly = Mul(xPow, cosPoly);
-    cosPoly = AddS(cosPoly, Element(DataType::DT_FP32, ccoef2));
+    cosPoly = Add(cosPoly, Element(DataType::DT_FP32, ccoef2));
     cosPoly = Mul(xPow, cosPoly);
-    cosPoly = AddS(cosPoly, Element(DataType::DT_FP32, ccoef1));
+    cosPoly = Add(cosPoly, Element(DataType::DT_FP32, ccoef1));
     cosPoly = Mul(xPow, cosPoly);
-    cosPoly = AddS(cosPoly, Element(DataType::DT_FP32, F_1));
+    cosPoly = Add(cosPoly, Element(DataType::DT_FP32, F_1));
 
     auto temp1 = Mul(sinPoly, ifsin);
     cosPoly = Mul(cosPoly, ifcos);

@@ -483,7 +483,7 @@ TEST_F(TransposeTest, TestTranspose_MLA_4D_7) {
         config::SetBuildStatic(true);
         FUNCTION("MLA_4D_1", {input, output}) {
             auto tmp = Transpose(input, {0, 1});
-            output = AddS(tmp, Element(DataType::DT_FP32, 0.0));
+            output = Add(tmp, Element(DataType::DT_FP32, 0.0));
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());

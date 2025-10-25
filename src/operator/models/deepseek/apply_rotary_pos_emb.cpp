@@ -57,7 +57,7 @@ Tensor RotateHalf(const Tensor &input) {
 
     // cat((-x2, x1), -1)
     return Concat(
-        {MulS(x2, Element(x2.GetStorage()->Datatype(), -1.0)), AddS(x1, Element(x1.GetStorage()->Datatype(), 0.0))}, -1); // x1 add 0, 规避pass view+assemble未翻译registor_copy的问题
+        {Mul(x2, Element(x2.GetStorage()->Datatype(), -1.0)), Add(x1, Element(x1.GetStorage()->Datatype(), 0.0))}, -1); // x1 add 0, 规避pass view+assemble未翻译registor_copy的问题
 }
 
 void ApplyRotaryPosEmbV2(const Tensor &q, const Tensor &k, const Tensor &cos, const Tensor &sin, Tensor &qEmbed,

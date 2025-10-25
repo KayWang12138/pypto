@@ -79,7 +79,7 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_reshape_transpose_reshape_muls) {
             auto qTrans = Transpose(qView, {3, 4});
             auto qReshape = Reshape(qTrans, {B, N, S, qkRopeHeadDim});    // [b,n,s,qk_d]
             TileShape::Current().SetVecTile(ropeTileConfig.fourDimsTileShape);
-            qEmbed = MulS(qReshape, Element(DataType::DT_FP32, -1.0));
+            qEmbed = Mul(qReshape, Element(DataType::DT_FP32, -1.0));
             // qEmbed = RotateHalf(qReshape); // 待reshape+view+muls精度解决后再验证
         }
     }
@@ -241,7 +241,7 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_reshape_view_muls) {
             auto qReshape = Reshape(qTrans, {B, N, S, qkRopeHeadDim});    // [b,n,s,qk_d]
 
             Tensor x1 = View(qReshape, {B, N, S, qkRopeHeadDim / 2}, {0, 0, 0, 0});
-            qEmbed = MulS(x1, Element(DataType::DT_FP32, -1.0));
+            qEmbed = Mul(x1, Element(DataType::DT_FP32, -1.0));
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());

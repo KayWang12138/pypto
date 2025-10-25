@@ -54,7 +54,7 @@ TEST_F(MoEGatePart2OnBoardTest, test_operation_b_2) {
             sum_result = Reshape(sum_result, {B*S, nGroup});
             auto output_topk4 = TopK(sum_result, 4, -1);
             output_group_idx = std::get<1>(output_topk4);
-            output_group_mask = MulS(std::get<0>(output_topk4), Element(DataType::DT_FP32, 0.0));
+            output_group_mask = Mul(std::get<0>(output_topk4), Element(DataType::DT_FP32, 0.0));
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -120,7 +120,7 @@ TEST_F(MoEGatePart2OnBoardTest, test_operation_b_1024) {
             sum_result = Reshape(sum_result, {B*S, nGroup});
             auto output_topk4 = TopK(sum_result, 4, -1);
             output_group_idx = std::get<1>(output_topk4);
-            output_group_mask = MulS(std::get<0>(output_topk4), Element(DataType::DT_FP32, 0.0));
+            output_group_mask = Mul(std::get<0>(output_topk4), Element(DataType::DT_FP32, 0.0));
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());

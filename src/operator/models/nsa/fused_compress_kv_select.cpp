@@ -186,7 +186,7 @@ std::tuple<Tensor, Tensor> CmpAttn(
     TileShape::Current().SetVecTile(v1Tile[NUM_VALUE_0], v1Tile[NUM_VALUE_1]);
     config::SetSemanticLabel("CmpAttention-Softmax");
     auto softmaxRes = SoftmaxNew(mm1);                         // (g, effSeq)
-    auto scaleRes = MulS(softmaxRes, Element(DT_FP32, scale)); // (g, effSeq)
+    auto scaleRes = Mul(softmaxRes, Element(DT_FP32, scale)); // (g, effSeq)
     auto castScale = Cast(scaleRes, qDtype);
     config::SetSemanticLabel("CmpAttention-MatMul2");
     TileShape::Current().SetCubeTile({c2Tile[NUM_VALUE_0], c2Tile[NUM_VALUE_1]},
@@ -396,7 +396,7 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
                 tmpOut = Reshape(reduce2, {1, s_slc});
 
                 TileShape::Current().SetVecTile({1, 16});
-                auto a = AddS(tmpOut, Element(DT_FP32, 0.0f));
+                auto a = Add(tmpOut, Element(DT_FP32, 0.0f));
                 Assemble(a, {bIdx, 0}, topkInput);
             }
 

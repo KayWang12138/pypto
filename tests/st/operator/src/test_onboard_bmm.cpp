@@ -273,7 +273,7 @@ void TestBatchMatmulA8W8O32ACC(std::vector<int64_t> shape_a_in, std::vector<int6
         FUNCTION("BATCHMATMUL", {matA, matB, matC}) {
             TileShape::Current().SetVecTile(64, 64);
             Tensor tmpc(DT_FP32, shape_c, "tmpC");
-            tmpc = MulS(tmpc, Element(DataType::DT_FP32, 0.0f));
+            tmpc = Mul(tmpc, Element(DataType::DT_FP32, 0.0f));
             Tensor tmpcInt(DT_FP32, shape_c, "tmpC");
             tmpcInt = Cast(tmpc, DataType::DT_INT32);
             std::vector<Tensor> matmulResult;

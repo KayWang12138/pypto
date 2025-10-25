@@ -172,8 +172,8 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
                 kNopeCmp = Cast(kNopeCmp, DT_BF16);
                 kRopeCmp = Cast(kRopeCmp, DT_BF16);
             } else {
-                kNopeCmp = AddS(kNopeCmp, Element(DT_FP32, 0.0f));
-                kRopeCmp = AddS(kRopeCmp, Element(DT_FP32, 0.0f));
+                kNopeCmp = Add(kNopeCmp, Element(DT_FP32, 0.0f));
+                kRopeCmp = Add(kRopeCmp, Element(DT_FP32, 0.0f));
             }
             Assemble(kNopeCmp, {bIdx, 0}, batchNopeResult);
             Assemble(kRopeCmp, {bIdx, 0}, batchRopeResult);

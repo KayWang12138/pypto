@@ -36,11 +36,11 @@ Tensor RmsNorm(const Tensor &operand) {
     auto fp32Operand = Cast(operand, DataType::DT_FP32);
     // y = x^2 / n
     auto y = Mul(fp32Operand, fp32Operand);
-    y = MulS(y, Element(DataType::DT_FP32, 1.0f / operand.GetShape()[operand.GetShape().size() - 1]));
+    y = Mul(y, Element(DataType::DT_FP32, 1.0f / operand.GetShape()[operand.GetShape().size() - 1]));
 
     // ReduceSum(x^2 / n) + Eps
     y = RowSumSingle(y);
-    y = AddS(y, Element(DataType::DT_FP32, epsilon));
+    y = Add(y, Element(DataType::DT_FP32, epsilon));
 
     // sqrt rstd
     y = Sqrt(y);
@@ -59,11 +59,11 @@ Tensor RmsNorm(const Tensor &operand, const Tensor &gamma, float epsilon) {
     auto gammaOperand = Cast(gammaCast, DataType::DT_FP32);
     // y = x^2 / n
     auto y = Mul(fp32Operand, fp32Operand);
-    y = MulS(y, Element(DataType::DT_FP32, 1.0f / operand.GetShape()[operand.GetShape().size() - 1]));
+    y = Mul(y, Element(DataType::DT_FP32, 1.0f / operand.GetShape()[operand.GetShape().size() - 1]));
 
     // ReduceSum(x^2 / n) + Eps
     y = RowSumSingle(y);
-    y = AddS(y, Element(DataType::DT_FP32, epsilon));
+    y = Add(y, Element(DataType::DT_FP32, epsilon));
 
     // sqrt rstd
     y = Sqrt(y);

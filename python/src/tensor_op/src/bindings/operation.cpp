@@ -23,10 +23,10 @@ namespace pypto {
 constexpr const int SCATTER_UPDATE_DIM  = -2;
 void bind_operation(py::module &m) {
     m.def(
-        "add", [](const Tensor &left, const Tensor &right) { return npu::tile_fwk::Add(left, right); }, "Tensor add.");
-    m.def("sub", [](const Tensor &left, const Tensor &right) { return npu::tile_fwk::Sub(left, right); }, "Tensor sub.");
-    m.def("mul", [](const Tensor &left, const Tensor &right) { return npu::tile_fwk::Mul(left, right); }, "Tensor mul.");
-    m.def("div", [](const Tensor &left, const Tensor &right) { return npu::tile_fwk::Div(left, right); }, "Tensor div.");
+        "add", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::Add(self, other); }, "Tensor add.");
+    m.def("sub", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::Sub(self, other); }, "Tensor sub.");
+    m.def("mul", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::Mul(self, other); }, "Tensor mul.");
+    m.def("div", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::Div(self, other); }, "Tensor div.");
     m.def(
         "view",
         [](const Tensor &operand, const std::vector<int64_t> &shapes, const py::sequence &offsets) {
@@ -74,28 +74,28 @@ void bind_operation(py::module &m) {
     m.def("abs", [](const Tensor &operand) { return npu::tile_fwk::Abs(operand); }, "Tensor abs.");
     m.def("reciprocal", [](const Tensor &operand) { return npu::tile_fwk::Reciprocal(operand); }, "Tensor reciprocal.");
     m.def("rsqrt", [](const Tensor &operand) { return npu::tile_fwk::Rsqrt(operand); }, "Tensor rsqrt.");
-    m.def("sqrt", [](const Tensor &operand) { return npu::tile_fwk::Sqrt(operand); }, "Tensor sqrt.");
+    m.def("sqrt", [](const Tensor &self) { return npu::tile_fwk::Sqrt(self); }, "Tensor sqrt.");
     m.def("neg", [](const Tensor &operand) { return npu::tile_fwk::Neg(operand); }, "Tensor neg.");
     m.def("log", [](const Tensor &self, const LogBaseType base) { return npu::tile_fwk::Log(self, base); }, "Tensor log.");
 
     m.def(
         "cast",
-        [](const Tensor &operand, DataType new_data_type, CastMode mode) {
-            return npu::tile_fwk::Cast(operand, new_data_type, mode);
+        [](const Tensor &self, DataType dstDataType, CastMode mode) {
+            return npu::tile_fwk::Cast(self, dstDataType, mode);
         },
         py::arg("operand"), py::arg("new_data_type"), py::arg("mode") = CAST_NONE, "Tensor cast.");
 
     m.def(
-        "add_s", [](const Tensor &left, const Element &right) { return npu::tile_fwk::AddS(left, right); },
+        "add_s", [](const Tensor &self, const Element &other) { return npu::tile_fwk::Add(self, other); },
         "Tensor add scalar.");
     m.def(
         "sub", [](const Tensor &left, const Element &right) { return npu::tile_fwk::Sub(left, right); },
         "Tensor sub scalar.");
     m.def(
-        "mul_s", [](const Tensor &left, const Element &right) { return npu::tile_fwk::MulS(left, right); },
+        "mul_s", [](const Tensor &self, const Element &other) { return npu::tile_fwk::Mul(self, other); },
         "Tensor mul scalar.");
     m.def(
-        "div_s", [](const Tensor &left, const Element &right) { return npu::tile_fwk::DivS(left, right); },
+        "div_s", [](const Tensor &self, const Element &other) { return npu::tile_fwk::Div(self, other); },
         "Tensor div scalar.");
     m.def(
         "range",

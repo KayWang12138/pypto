@@ -91,7 +91,7 @@ TEST_F(TestCodegenGather, TestGatherEle) {
         auto topkIdx = std::get<1>(TopK(inputScores, numExpertsPerTopk, -1));       // [b*s,256]->[b*s,8]
         auto topkWeight = GatherElements(inputTmpScores, topkIdx, 1);                // [b*s,8]
         auto topkWeightSum = RowSumSingle(topkWeight, 1);                           // [b*s,8]->[b*s,1]
-        auto denominator = AddS(topkWeightSum, Element(DataType::DT_FP32, 1e-20f)); // [b*s,1]
+        auto denominator = Add(topkWeightSum, Element(DataType::DT_FP32, 1e-20f)); // [b*s,1]
         outputTensor = Div(topkWeight, denominator);                                // [b*s,numExpertsPerTok]
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);

@@ -202,7 +202,7 @@ TEST_F(DynamicReshapeUnalignTest, test_split_dim) {
             auto tmp0 = Reshape(q0, {1, sq, 5, d/5}, {1, curSeq, 4, curDim/4});
             TileShape::Current().SetVecTile(1, 16, 16, 16);
 
-            auto tmp = MulS(tmp0, Element(tmp0.GetStorage()->Datatype(), 1.0));
+            auto tmp = Mul(tmp0, Element(tmp0.GetStorage()->Datatype(), 1.0));
             Assemble(tmp, {batchId, 0, 0, 0}, out);// 1, sq * d -> b, sq * d
         }
     }

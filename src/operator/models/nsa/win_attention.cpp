@@ -121,7 +121,7 @@ void WinAttentionCompute(const Tensor &qNope, Tensor &vNopeCache, const Tensor &
                         {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, true);
                     auto qKT = Matrix::Matmul<false, true>(DataType::DT_FP32, qPart, kActualPart);
                     TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
-                    auto qKTScale = MulS(qKT, Element(qKT.GetStorage()->Datatype(), softmaxScale));
+                    auto qKTScale = Mul(qKT, Element(qKT.GetStorage()->Datatype(), softmaxScale));
 
                     // softmax
                     auto tileMax = RowMaxSingle(qKTScale); // max
@@ -138,7 +138,7 @@ void WinAttentionCompute(const Tensor &qNope, Tensor &vNopeCache, const Tensor &
                     // reshape and copyOut
                     auto out = Div(oiTmp, tileSum);
                     TileShape::Current().SetVecTile(1, 1, v2Tile[0], v2Tile[1]);
-                    auto outFinal = AddS(Reshape(out, {bTile, s1Tile, gTile, dNopeSize}),
+                    auto outFinal = Add(Reshape(out, {bTile, s1Tile, gTile, dNopeSize}),
                         Element(out.GetStorage()->Datatype(), float(0)));
                     Assemble(outFinal, oiOffset, attentionOut);
                 }
@@ -247,7 +247,7 @@ void WinAttentionComputeFlash(const Tensor &qNope, Tensor &vNopeCache, const Ten
                             {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, true);
                         auto qKT = Matrix::Matmul<false, true>(DataType::DT_FP32, qPart, kActualPart);
                         TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
-                        auto qKTScale = MulS(qKT, Element(qKT.GetStorage()->Datatype(), softmaxScale));
+                        auto qKTScale = Mul(qKT, Element(qKT.GetStorage()->Datatype(), softmaxScale));
 
                         // softmax
                         auto tileMax = RowMaxSingle(qKTScale); // max
@@ -266,7 +266,7 @@ void WinAttentionComputeFlash(const Tensor &qNope, Tensor &vNopeCache, const Ten
                                 // reshape and copyOut
                                 oiUpdate = Div(oiTmp, tileSum);
                                 TileShape::Current().SetVecTile(1, 1, v2Tile[0], v2Tile[1]);
-                                auto outFinal = AddS(Reshape(oiUpdate, {bTile, s1Tile, gTile, dNopeSize}),
+                                auto outFinal = Add(Reshape(oiUpdate, {bTile, s1Tile, gTile, dNopeSize}),
                                     Element(oiUpdate.GetStorage()->Datatype(), float(0)));
                                 Assemble(outFinal, oiOffset, attentionOut);
                             } ELSE {
@@ -298,7 +298,7 @@ void WinAttentionComputeFlash(const Tensor &qNope, Tensor &vNopeCache, const Ten
                             IF (IsLoopEnd(s2Idx, s2Loop)) { // PATH1
                                 oiUpdate = Div(oiTmp, liNew);
                                 TileShape::Current().SetVecTile(1, 1, v2Tile[0], v2Tile[1]);
-                                auto outFinal = AddS(Reshape(oiUpdate, {bTile, s1Tile, gTile, dNopeSize}),
+                                auto outFinal = Add(Reshape(oiUpdate, {bTile, s1Tile, gTile, dNopeSize}),
                                     Element(oiUpdate.GetStorage()->Datatype(), float(0)));
                                 Assemble(outFinal, oiOffset, attentionOut);
                             } ELSE { // PATH0
@@ -410,7 +410,7 @@ void WinAttentionDebugCompute(const Tensor &qNope, Tensor &vNopeCache, const Ten
                             {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, true);
                         auto qKT = Matrix::Matmul<false, true>(DataType::DT_FP32, qPart, kActualPart);
                         TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
-                        auto qKTScale = MulS(qKT, Element(qKT.GetStorage()->Datatype(), softmaxScale));
+                        auto qKTScale = Mul(qKT, Element(qKT.GetStorage()->Datatype(), softmaxScale));
 
                         // softmax
                         auto tileMax = RowMaxSingle(qKTScale); // max
@@ -429,7 +429,7 @@ void WinAttentionDebugCompute(const Tensor &qNope, Tensor &vNopeCache, const Ten
                         TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                         auto outNew = Reshape(out, {bTile, s1Tile, gTile, dNopeSize});
                         TileShape::Current().SetVecTile(1, 1, outTile[0], outTile[1]);
-                        auto outFinal = AddS(outNew, Element(outNew.GetStorage()->Datatype(), 0.0));
+                        auto outFinal = Add(outNew, Element(outNew.GetStorage()->Datatype(), 0.0));
                         Assemble(outFinal, outOffset, attentionOut);
                     }
                 }

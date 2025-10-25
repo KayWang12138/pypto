@@ -66,7 +66,7 @@ TEST_F(LoopUnrollTest, TestInnerLoopOrder) {
             LOOP("Inner", FunctionType::DYNAMIC_LOOP, j, LoopRange(1)) {
                 (void)j;
                 auto tile = View(inputB, {1, vecLen}, {i, 0});
-                tileB = MulS(tile, Element(DataType::DT_FP32, 1.0));
+                tileB = Mul(tile, Element(DataType::DT_FP32, 1.0));
             }
 
             LOOP("Inner2", FunctionType::DYNAMIC_LOOP, k, LoopRange(loopNum)) {
@@ -76,7 +76,7 @@ TEST_F(LoopUnrollTest, TestInnerLoopOrder) {
 
             LOOP("Inner3", FunctionType::DYNAMIC_LOOP, l, LoopRange(1)) {
                 (void)l;
-                tileB = MulS(tileB, Element(DataType::DT_FP32, 1.0));
+                tileB = Mul(tileB, Element(DataType::DT_FP32, 1.0));
                 Assemble(tileB, {i, 0}, output);
             }
         }
@@ -136,13 +136,13 @@ TEST_F(LoopUnrollTest, TestLoopIfWithRank) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(len)) {
             IF(i < three) {
                 IF(IsLoopEnd(i, len)) {
-                    r0 = AddS(r0, Element(DataType::DT_FP32, 1.0));
+                    r0 = Add(r0, Element(DataType::DT_FP32, 1.0));
                 } ELSE {
-                    r0 = AddS(r0, Element(DataType::DT_FP32, 1.0));
+                    r0 = Add(r0, Element(DataType::DT_FP32, 1.0));
                 }
             } ELSE {
                 IF(i < six) {
-                    r0 = AddS(r0, Element(DataType::DT_FP32, 0.0));
+                    r0 = Add(r0, Element(DataType::DT_FP32, 0.0));
                 } ELSE {
                     Tensor t0v = View(t0, {s, s}, {s * i, 0});
                     r0 = Add(t0v, r0);
@@ -151,7 +151,7 @@ TEST_F(LoopUnrollTest, TestLoopIfWithRank) {
         }
         config::SetBuildStatic(true);
         FUNCTION("S1") {
-            out = AddS(r0, Element(DataType::DT_FP32, 1.0));
+            out = Add(r0, Element(DataType::DT_FP32, 1.0));
         }
     }
 }

@@ -105,7 +105,7 @@ TEST_F(TestCodegenDynBinary, TestAddsDynamic) {
     ConfigManager::Instance();
     config::SetBuildStatic(true);
     FUNCTION("ADD_S", {input_a, output}) {
-        output = AddS(input_a, value);
+        output = Add(input_a, value);
     }
 
     auto function = Program::GetInstance().GetFunctionByRawName("TENSOR_ADD_S");

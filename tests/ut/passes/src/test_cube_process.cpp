@@ -619,7 +619,7 @@ TEST_F(SplitKTest, Test_MM_FP16_Atomic_On) {
         FUNCTION("MM_FP16_Atomic_On", {mat_a, mat_b, final_out}) {
             TileShape::Current().SetVecTile(64, 64);
             Tensor tmpC(outputAstDtype, shape_c, "tmp_c");
-            tmpC = MulS(tmpC, Element(DataType::DT_FP32, 0.0f));
+            tmpC = Mul(tmpC, Element(DataType::DT_FP32, 0.0f));
             std::vector<Tensor> matmulResult;
             TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {64, 64});
             for (int ki = 0; ki < kSplit; ki++) {
@@ -631,7 +631,7 @@ TEST_F(SplitKTest, Test_MM_FP16_Atomic_On) {
             TileShape::Current().SetVecTile(32, 256);
             tmpC = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);
             TileShape::Current().SetVecTile(32, 32);
-            final_out = AddS(tmpC, Element(DataType::DT_FP32, 0.0));
+            final_out = Add(tmpC, Element(DataType::DT_FP32, 0.0));
         }
     }
 }

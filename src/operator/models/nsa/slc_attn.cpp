@@ -118,7 +118,7 @@ void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc
                         // V1
                         config::SetSemanticLabel("Sa_Qkvec1");
                         TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
-                        auto sijScale = MulS(sij, Element(sij.GetStorage()->Datatype(), softmaxScale));
+                        auto sijScale = Mul(sij, Element(sij.GetStorage()->Datatype(), softmaxScale));
                         auto tildaMij = RowMaxSingle(sijScale); // (curGTile, curS2Tile) -> (curGTile, 1)
                         auto tsub = Sub(sijScale, tildaMij); // (curGTile, curS2Tile), (curGTile, 1) -> (curGTile, curS2Tile)
                         auto tildaPij = Exp(tsub);  // (curGTile, curS2Tile) -> (curGTile, curS2Tile)
@@ -139,7 +139,7 @@ void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc
                                 config::SetSemanticLabel("Sa_KvVec2");
                                 oiUpdate = Div(oiTmp, tildaLij);
                                 TileShape::Current().SetVecTile(1, 1, v2Tile[0], v2Tile[1]);
-                                auto oiUpdate4Dim = AddS(Reshape(oiUpdate, {1, 1, curGTile, dN}), Element(oiUpdate.GetStorage()->Datatype(), float(0)));
+                                auto oiUpdate4Dim = Add(Reshape(oiUpdate, {1, 1, curGTile, dN}), Element(oiUpdate.GetStorage()->Datatype(), float(0)));
                                 Assemble(oiUpdate4Dim, oiOffset, attentionOut);
                             } ELSE { // PATH2
                                 oiUpdate = oiTmp;
@@ -174,7 +174,7 @@ void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc
                             IF (IsLoopEnd(s2Idx, bnPerBatch)) { // PATH1
                                 oiUpdate = Div(oiTmp, liNew);
                                 TileShape::Current().SetVecTile(1, 1, v2Tile[0], v2Tile[1]);
-                                auto oiUpdate4Dim = AddS(Reshape(oiUpdate, {1, 1, curGTile, dN}), Element(oiUpdate.GetStorage()->Datatype(), float(0)));
+                                auto oiUpdate4Dim = Add(Reshape(oiUpdate, {1, 1, curGTile, dN}), Element(oiUpdate.GetStorage()->Datatype(), float(0)));
                                 Assemble(oiUpdate4Dim, oiOffset, attentionOut);
                             } ELSE { // PATH0
                                 oiUpdate = oiTmp;

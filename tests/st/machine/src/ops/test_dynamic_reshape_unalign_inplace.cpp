@@ -90,7 +90,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, merge_two_dynamic_dim) {
             LOOP("L1", FunctionType::DYNAMIC_LOOP, sqId, LoopRange(GetInputShape(q, 1)), {}, true) {
                 TileShape::Current().SetVecTile(64, 64);
                 Tensor q0 = View(qReshape, {1, d}, {batchId * GetInputShape(q, 1) + sqId, 0});
-                Tensor tmp = AddS(q0, Element(q0.GetStorage()->Datatype(), 0.01));
+                Tensor tmp = Add(q0, Element(q0.GetStorage()->Datatype(), 0.01));
                 Assemble(tmp, {batchId * GetInputShape(q, 1) + sqId, 0}, out);
             }
         }
@@ -131,7 +131,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_exchange_dim) {
         LOOP("L2", FunctionType::DYNAMIC_LOOP, loopIdx, LoopRange(GetInputShape(q_reshape, 0))){
             Tensor tmp0 = View(q_reshape, {1, GetInputShape(q_reshape, 1), m}, {loopIdx, 0, 0});
             TileShape::Current().SetVecTile(16, 16, 16);
-            auto tmp = AddS(tmp0, Element(tmp0.GetStorage()->Datatype(), 0.01));
+            auto tmp = Add(tmp0, Element(tmp0.GetStorage()->Datatype(), 0.01));
             Assemble(tmp, {loopIdx, 0, 0}, out);
         }
     }
@@ -170,7 +170,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_reshape_special) {
         // view + op
         LOOP("L2", FunctionType::DYNAMIC_LOOP, loopIdx, LoopRange(GetInputShape(q_reshape, 0))){
             Tensor tmp0 = View(q_reshape, {1, GetInputShape(q_reshape, 1), m}, {loopIdx, 0, 0});
-            auto tmp = AddS(tmp0, Element(tmp0.GetStorage()->Datatype(), 0.01));
+            auto tmp = Add(tmp0, Element(tmp0.GetStorage()->Datatype(), 0.01));
             Assemble(tmp, {loopIdx, 0, 0}, out);
         }
     }
@@ -205,7 +205,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_op_reshape_op) {
         Tensor addTmp(DT_FP32, {b, GetInputShape(q, 1), d});
         LOOP("L1", FunctionType::DYNAMIC_LOOP, sqIdx, LoopRange(GetInputShape(q, 1))) {
             Tensor viewTmp = View(q, {b, 1, d}, {0, sqIdx, 0});
-            auto res = AddS(viewTmp, Element(viewTmp.GetStorage()->Datatype(), 0.01));
+            auto res = Add(viewTmp, Element(viewTmp.GetStorage()->Datatype(), 0.01));
             Assemble(res, {0, sqIdx, 0}, addTmp);
         }
         Tensor qReshape(DT_FP32, {GetInputShape(addTmp, 0) * GetInputShape(addTmp, 1) , d});
@@ -219,7 +219,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_op_reshape_op) {
         LOOP("L2", FunctionType::DYNAMIC_LOOP, loopIdx, LoopRange((GetInputShape(addTmp, 0) * GetInputShape(addTmp, 1) + offSet - 1)/offSet)){
             TileShape::Current().SetVecTile(4, 32);
             Tensor tmp0 = View(qReshape, {offSet, d}, {min(GetInputShape(addTmp, 0) * GetInputShape(addTmp, 1) - loopIdx * offSet, offSet), d}, {loopIdx * offSet, 0});
-            Tensor tmp = AddS(tmp0, Element(tmp0.GetStorage()->Datatype(), 0.01));
+            Tensor tmp = Add(tmp0, Element(tmp0.GetStorage()->Datatype(), 0.01));
             Assemble(tmp, {loopIdx * offSet, 0}, out);
         }
     }
@@ -290,14 +290,14 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_src_op_dst_op) {
         }
         LOOP("srcOp", FunctionType::DYNAMIC_LOOP, indx, LoopRange(GetInputShape(q, 1))){
             Tensor tmp0 = View(q, {sq, 1, m}, {0, indx, 0});
-            auto tmp1 = AddS(tmp0, Element(tmp0.GetStorage()->Datatype(), 0.02));
+            auto tmp1 = Add(tmp0, Element(tmp0.GetStorage()->Datatype(), 0.02));
             Assemble(tmp1, {0, indx, 0}, outSrc);
         }
         SymbolicScalar offSet = 32;
         LOOP("destOp", FunctionType::DYNAMIC_LOOP, loopIdx, LoopRange((GetInputShape(q, 0) * GetInputShape(q, 1) + offSet - 1)/offSet)){
             Tensor tmp2 = View(q_reshape, {offSet, m}, {min(GetInputShape(q, 0) * GetInputShape(q, 1) - loopIdx * offSet, offSet), m}, {loopIdx * offSet, 0});
             TileShape::Current().SetVecTile(16, 16);
-            auto tmp3 = AddS(tmp2, Element(tmp2.GetStorage()->Datatype(), 0.01));
+            auto tmp3 = Add(tmp2, Element(tmp2.GetStorage()->Datatype(), 0.01));
             Assemble(tmp3, {loopIdx * offSet, 0}, outDst);
         }
     }

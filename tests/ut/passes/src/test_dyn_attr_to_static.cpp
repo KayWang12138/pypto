@@ -100,7 +100,7 @@ TEST_F(DynAttrToStaticTest, TestGetTensorData) {
     FUNCTION("test_coa", {inputA, inputC}, {output}) {
         LOOP("loop", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
-            Tensor t0 = AddS(inputA, Element(DT_INT32, (int64_t)2)); // t0[i, j] -> inputA[i, j] + 2 -> i * n + j + 2
+            Tensor t0 = Add(inputA, Element(DT_INT32, (int64_t)2)); // t0[i, j] -> inputA[i, j] + 2 -> i * n + j + 2
             SymbolicScalar v0 = GetTensorData(t0, {0, 1}); // t0[0, 1] -> 0 * n + 1 + 2 -> 3
             SymbolicScalar v1 = GetTensorData(t0, {0, 2}); // t0[0, 2] -> 0 * n + 2 + 2 -> 4
             auto t2 = View(inputC, {n, n}, {0, v0 * n});

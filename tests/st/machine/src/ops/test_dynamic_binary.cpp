@@ -123,7 +123,7 @@ TEST_F(DynamicBinTest, testDynMulsUnalign) {
             SymbolicScalar curSeq = GetTensorData(actSeqs, {batchId, 0});
             Element value(DataType::DT_FP32, 1.0);
             Tensor q0 = View(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
-            auto tmp = MulS(q0, value);
+            auto tmp = Mul(q0, value);
 
             Assemble(tmp, {batchId * sq, 0}, out);
         }

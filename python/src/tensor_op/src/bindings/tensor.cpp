@@ -98,10 +98,10 @@ void BindTensor(py::module &m) {
             "__add__", [](const Tensor &self, const Tensor &tensor) { return npu::tile_fwk::Add(self, tensor); },
             "Tensor add.")
         .def(
-            "__add__", [](const Tensor &self, const Element &element) { return npu::tile_fwk::AddS(self, element); },
+            "__add__", [](const Tensor &self, const Element &element) { return npu::tile_fwk::Add(self, element); },
             "Tensor-element add.")
         .def(
-            "__radd__", [](const Tensor &self, const Element &element) { return npu::tile_fwk::AddS(self, element); },
+            "__radd__", [](const Tensor &self, const Element &element) { return npu::tile_fwk::Add(self, element); },
             "Tensor-element add.")
         .def(
             "__sub__", [](const Tensor &self, const Tensor &tensor) { return npu::tile_fwk::Sub(self, tensor); },

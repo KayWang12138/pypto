@@ -90,7 +90,7 @@ void PrologPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &q
                     auto sij =
                         Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj); // (nTileCur, dN+dR), (s2TileCur, dN+dR) -> (nTileCur, s2TileCur)
                     TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
-                    auto sijScale = MulS(sij, Element(DataType::DT_FP32, softmaxScale)); // (nTileCur, s2TileCur)
+                    auto sijScale = Mul(sij, Element(DataType::DT_FP32, softmaxScale)); // (nTileCur, s2TileCur)
 
                     auto tildaMij = RowMaxSingle(sijScale); // (nTileCur, s2TileCur) -> (nTileCur, 1)
                     auto tsub =
@@ -248,7 +248,7 @@ void PageAttentionAddS(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Te
                     TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
 
                     config::SetSemanticLabel("SoftMax");
-                    auto sijScale = MulS(sij, Element(DataType::DT_FP32, softmaxScale)); // (curNTile, curS2Tile)
+                    auto sijScale = Mul(sij, Element(DataType::DT_FP32, softmaxScale)); // (curNTile, curS2Tile)
 
                     auto tildaMij = RowMaxSingle(sijScale); // (curNTile, curS2Tile) -> (curNTile, 1)
                     auto tsub =
@@ -316,7 +316,7 @@ void PageAttentionAddS(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Te
                 TileShape::Current().SetVecTile({std::min(64, bTile * S * N), kvLoraRank}); // raw (8*1*128, 512)
 
                 // 使用AddS看能否进行LooP间数据传递
-                auto t1Res = AddS(postInUnit, Element(DataType::DT_FP32, F_0));
+                auto t1Res = Add(postInUnit, Element(DataType::DT_FP32, F_0));
 
                 std::vector<SymbolicScalar> dynOffset = {papostiter * bTile * S * N, 0};
                 Assemble(t1Res, dynOffset, postOut);
@@ -390,7 +390,7 @@ void PageAttentionAddSSingleOutput(Tensor &qNope, Tensor &kNopeCache, Tensor &vN
                     TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
 
                     config::SetSemanticLabel("SoftMax");
-                    auto sijScale = MulS(sij, Element(DataType::DT_FP32, softmaxScale)); // (curNTile, curS2Tile)
+                    auto sijScale = Mul(sij, Element(DataType::DT_FP32, softmaxScale)); // (curNTile, curS2Tile)
 
                     auto tildaMij = RowMaxSingle(sijScale); // (curNTile, curS2Tile) -> (curNTile, 1)
                     auto tsub =
@@ -458,7 +458,7 @@ void PageAttentionAddSSingleOutput(Tensor &qNope, Tensor &kNopeCache, Tensor &vN
                 TileShape::Current().SetVecTile({std::min(64, bTile * S * N), kvLoraRank}); // raw (8*1*128, 512)
 
                 // 使用AddS看能否进行LooP间数据传递
-                auto t1Res = AddS(postInUnit, Element(DataType::DT_FP32, F_0));
+                auto t1Res = Add(postInUnit, Element(DataType::DT_FP32, F_0));
 
                 std::vector<SymbolicScalar> dynOffset = {papostiter * bTile * S * N, 0};
                 Assemble(t1Res, dynOffset, postOut);

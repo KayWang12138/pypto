@@ -171,7 +171,7 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
                         // V1
                         config::SetSemanticLabel("Sa_Qkvec1");
                         TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
-                        auto sijScale = MulS(sij, Element(sij.GetStorage()->Datatype(), softmaxScale));
+                        auto sijScale = Mul(sij, Element(sij.GetStorage()->Datatype(), softmaxScale));
                         auto tildaMij = RowMaxSingle(sijScale); // (curGTile, curS2Tile) -> (curGTile, 1)
                         auto tsub = Sub(sijScale, tildaMij); // (curGTile, curS2Tile), (curGTile, 1) -> (curGTile, curS2Tile)
                         auto tildaPij = Exp(tsub);  // (curGTile, curS2Tile) -> (curGTile, curS2Tile)
@@ -190,7 +190,7 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
                         // V2
                         config::SetSemanticLabel("Sa_KvVec2");
                         TileShape::Current().SetVecTile(1, 1, v2Tile[0], v2Tile[1]);
-                        auto oi4Dim = AddS(Reshape(oi, {1, 1, curGTile, dN}), Element(oi.GetStorage()->Datatype(), float(0)));
+                        auto oi4Dim = Add(Reshape(oi, {1, 1, curGTile, dN}), Element(oi.GetStorage()->Datatype(), float(0)));
                         Assemble(oi4Dim, oiOffset, attentionOut);
                     }
                 }

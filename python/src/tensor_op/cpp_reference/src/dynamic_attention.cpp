@@ -77,7 +77,7 @@ std::vector<Tensor> mlaPre(const Tensor &tokenX, const Tensor &wDq, const Tensor
     if (splitK) {
         Tensor tmpC(DT_FP32, {bs, q_lora_rank}, "tmp_q");
         TileShape::Current().SetVecTile(std::min(32, bs), 128); // 32, 128
-        tmpC = MulS(tmpC, Element(DataType::DT_FP32, 0.0f));
+        tmpC = Mul(tmpC, Element(DataType::DT_FP32, 0.0f));
         std::vector<Tensor> matmulResult;
         auto kSplit = 7;
         auto kSplitSize = h / kSplit;
@@ -124,7 +124,7 @@ std::vector<Tensor> mlaPre(const Tensor &tokenX, const Tensor &wDq, const Tensor
         TileShape::Current().SetVecTile(std::min(32, bs), 64); // 32, 64
         int kv_n = wDkvKr->shape[1];
         Tensor tmpC_kv(DT_FP32, {bs, kv_n}, "tmp_kv");
-        tmpC_kv = MulS(tmpC_kv, Element(DataType::DT_FP32, 0.0f));
+        tmpC_kv = Mul(tmpC_kv, Element(DataType::DT_FP32, 0.0f));
         std::vector<Tensor> matmulResult_kv;
         auto kSplit_kv = 7;
         auto kSplitSize_kv = h / kSplit_kv;
@@ -393,7 +393,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                     auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj); // (curNTile, dN+dR), (curS2Tile, dN+dR) -> (curNTile, curS2Tile)
                     config::SetSemanticLabel("paQkvec1");
                     TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
-                    auto sijScale = MulS(sij, Element(DataType::DT_FP32, static_cast<double>(softmaxScale))); // (curNTile, curS2Tile)
+                    auto sijScale = Mul(sij, Element(DataType::DT_FP32, static_cast<double>(softmaxScale))); // (curNTile, curS2Tile)
 
                     auto tildaMij = RowMaxSingle(sijScale); // (curNTile, curS2Tile) -> (curNTile, 1)
                     auto tsub = Sub(sijScale, tildaMij);

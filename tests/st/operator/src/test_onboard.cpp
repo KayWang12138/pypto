@@ -1908,7 +1908,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_add) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("ADD_S", {input_a, output}) {
-            output = AddS(input_a, value);
+            output = Add(input_a, value);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -1937,7 +1937,7 @@ TEST_F(OnBoardTest, test_operation_add_vs_dim2_unalign) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("ADD_S", {input_a, output}) {
-            output = AddS(input_a, value);
+            output = Add(input_a, value);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -1966,7 +1966,7 @@ TEST_F(OnBoardTest, test_operation_mul_vs_dim3_unalign) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("MUL_S", {input_a, output}) {
-            output = MulS(input_a, value);
+            output = Mul(input_a, value);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -2024,7 +2024,7 @@ TEST_F(OnBoardTest, test_operation_div_vs_dim1_unalign) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("DIV_S", {input_a, output}) {
-            output = DivS(input_a, value);
+            output = Div(input_a, value);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -2051,7 +2051,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_add_FP16) {
         Tensor output(DataType::DT_FP16, shape, out_ptr, "C");
         config::SetBuildStatic(true);
         FUNCTION("ADD_S", {input_a, output}) {
-            output = AddS(input_a, value);
+            output = Add(input_a, value);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -2110,7 +2110,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_mul) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("MUL_S", {input_a, output}) {
-            output = MulS(input_a, value);
+            output = Mul(input_a, value);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -2138,7 +2138,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_div) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("DIV_S", {input_a, output}) {
-            output = DivS(input_a, value);
+            output = Div(input_a, value);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -2167,7 +2167,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim1_div) {
         config::SetBuildStatic(true);
         FUNCTION("DIV_S", {input_a, output}) {
             // auto reshapeInput = Reshape(input_a, {1 * col});
-            output = DivS(input_a, value);
+            output = Div(input_a, value);
             // output = Reshape(reshapeOutput, shape);
         }
     }
@@ -2196,7 +2196,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim3_add) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("ADD_S", {input_a, output}) {
-            output = AddS(input_a, value);
+            output = Add(input_a, value);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -2224,7 +2224,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim4_add) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("ADD_S", {input_a, output}) {
-            output = AddS(input_a, value);
+            output = Add(input_a, value);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -2308,7 +2308,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim3_mul) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("MUL_S", {input_a, output}) {
-            output = MulS(input_a, value);
+            output = Mul(input_a, value);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -2336,7 +2336,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim4_mul) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("MUL_S", {input_a, output}) {
-            output = MulS(input_a, value);
+            output = Mul(input_a, value);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -2365,7 +2365,7 @@ TEST_F(OnBoardTest, test_operation_scalar_32_32_1_256_mul) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("MUL_S", {input_a, output}) {
-            output = MulS(input_a, value);
+            output = Mul(input_a, value);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -2393,7 +2393,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim3_div) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("DIV_S", {input_a, output}) {
-            output = DivS(input_a, value);
+            output = Div(input_a, value);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -2421,7 +2421,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim4_div) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("DIV_S", {input_a, output}) {
-            output = DivS(input_a, value);
+            output = Div(input_a, value);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());

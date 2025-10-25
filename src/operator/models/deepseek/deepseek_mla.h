@@ -193,7 +193,7 @@ public:
         }
         const Tensor &gateProj = Matrix::Matmul<false, false>(DataType::DT_FP32, x, gateProjW);
         // Silu
-        const Tensor &gateSilu = Div(gateProj, AddS(Exp(MulS(gateProj, Element(DataType::DT_FP32, F_NEGA_1))),
+        const Tensor &gateSilu = Div(gateProj, Add(Exp(Mul(gateProj, Element(DataType::DT_FP32, F_NEGA_1))),
             Element(DataType::DT_FP32, F_1)));
         const Tensor &upProj = Matrix::Matmul<false, false>(DataType::DT_FP32, x, upProjW);
         const Tensor &mul = Mul(gateSilu, upProj);
@@ -211,9 +211,9 @@ public:
         auto gate = Matrix::Matmul<false, false>(DataType::DT_FP32, castRes, ffnWeight1);  // [b*s, n*d] [n*d, n*d*3] => [b*s, n*d*3]
 
         // swish: x / (1 + e^(-x))
-        auto swish = MulS(gate, Element(DataType::DT_FP32, F_NEGA_1));
+        auto swish = Mul(gate, Element(DataType::DT_FP32, F_NEGA_1));
         swish = Exp(swish);
-        swish = AddS(swish, Element(DataType::DT_FP32, F_1));
+        swish = Add(swish, Element(DataType::DT_FP32, F_1));
         swish = Div(gate, swish);
 
         // upProj
@@ -245,9 +245,9 @@ public:
         auto gate = Mul(gateTmpDequantPerToken, ffnwight1Scale);
 
         // swish: x / (1 + e^(-x))
-        auto swish = MulS(gate, Element(DataType::DT_FP32, F_NEGA_1));
+        auto swish = Mul(gate, Element(DataType::DT_FP32, F_NEGA_1));
         swish = Exp(swish);
-        swish = AddS(swish, Element(DataType::DT_FP32, F_1));
+        swish = Add(swish, Element(DataType::DT_FP32, F_1));
         swish = Div(gate, swish);
 
         auto upInt32 = Matrix::Matmul<false, false>(DataType::DT_INT32, castRes, ffnWeight2);
@@ -324,7 +324,7 @@ public:
         auto groupIdx = std::get<1>(TopK(groupScoresReshape, topkGroup, 1)); // [b*s,8]->[b*s,4]
 
         // groupMask = torch.zeros_like(groupScores)
-        auto groupMask = MulS(groupScoresReshape, Element(DataType::DT_FP32, F_0)); // [b*s,8]
+        auto groupMask = Mul(groupScoresReshape, Element(DataType::DT_FP32, F_0)); // [b*s,8]
         // groupMask.scatter_(1, groupIdx, 1)
         auto groupMaskScatter = Scatter_(groupMask, groupIdx, Element(DataType::DT_FP32, F_1), 1); // [b*s,8]
         // scoreMask
@@ -332,7 +332,7 @@ public:
 
         auto scoreMask = Expand(Reshape(groupMaskScatter, {dim0, 1}), {dim0, nRoutedExperts / nGroup}); // [b*s*8,1] -> [b*s*8,32]
         scoreMask = Reshape(scoreMask, {bs, nRoutedExperts}); // [b*s*8,32]->[b*s,256]
-        auto scoreMaskNot = MulS(scoreMask, Element(DataType::DT_FP32, F_NEGA_1));
+        auto scoreMaskNot = Mul(scoreMask, Element(DataType::DT_FP32, F_NEGA_1));
 
         // // tmpScores = scoresForChoice.masked_fill(~scoreMask.bool(), 0.0)
         // auto score_mask_bool = LogicalNot(Cast(scoreMask, DT_BOOL));             // [b*s,256]
@@ -346,7 +346,7 @@ public:
         /* norm gate to sum 1 */
         // denominator = topkWeight.sum(dim=-1, keepdim=True) + 1e-20
         auto topkWeightSum = RowSumSingle(topkWeight, 1);      // [b*s,8]->[b*s,1]
-        auto denominator = AddS(topkWeightSum, Element(DataType::DT_FP32, DF_1E_20)); // [b*s,1]
+        auto denominator = Add(topkWeightSum, Element(DataType::DT_FP32, DF_1E_20)); // [b*s,1]
         // topkWeight = topkWeight / denominator
         topkWeight = Div(topkWeight, denominator); // [b*s,numExpertsPerTok]
 
@@ -389,7 +389,7 @@ public:
         zerosShape[1] = nRoutedExperts;
         Tensor randoms(topkIds.GetStorage()->Datatype(), zerosShape);
 
-        Tensor cnts = MulS(randoms, Element(DataType::DT_FP32, F_0)); // (b*s, nRoutedExperts)
+        Tensor cnts = Mul(randoms, Element(DataType::DT_FP32, F_0)); // (b*s, nRoutedExperts)
 
         cnts = Scatter_(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
 
@@ -401,7 +401,7 @@ public:
 
         TileShape::Current().SetVecTile({NUM_128, NUM_128});
 
-        Tensor sortedTokens = TensorIndex(x,  Cast(DivS(Cast(idxs, DataType::DT_FP32),
+        Tensor sortedTokens = TensorIndex(x,  Cast(Div(Cast(idxs, DataType::DT_FP32),
             Element(DataType::DT_FP32, static_cast<double>(expertPerTok))),
             DataType::DT_INT32, CAST_TRUNC));
 
@@ -484,7 +484,7 @@ public:
         zerosShape[1] = nRoutedExperts;
         Tensor randoms(topkIds.GetStorage()->Datatype(), zerosShape);
 
-        Tensor cnts = MulS(randoms, Element(DataType::DT_FP32, F_0)); // (b*s, nRoutedExperts)
+        Tensor cnts = Mul(randoms, Element(DataType::DT_FP32, F_0)); // (b*s, nRoutedExperts)
 
         cnts = Scatter_(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
 
@@ -498,7 +498,7 @@ public:
 
         // Tensor((b*s, h))[Tensor(b*s*num_experts_per_tok)] = (b*s*num_experts_per_tok, h)
         // 没有int类型除法 只能先cast成float做完除法再cast回int
-        Tensor sortedTokens = TensorIndex(x,  Cast(DivS(Cast(idxs, DataType::DT_FP32),
+        Tensor sortedTokens = TensorIndex(x,  Cast(Div(Cast(idxs, DataType::DT_FP32),
             Element(DataType::DT_FP32, static_cast<double>(expertPerTok))),
             DataType::DT_INT32, CAST_TRUNC));
 
@@ -547,7 +547,7 @@ public:
         zerosShape[1] = nRoutedExperts;
         Tensor randoms(topkIds.GetStorage()->Datatype(), zerosShape);
 
-        Tensor cnts = MulS(randoms, Element(DataType::DT_FP32, F_0)); // (b*s, nRoutedExperts)
+        Tensor cnts = Mul(randoms, Element(DataType::DT_FP32, F_0)); // (b*s, nRoutedExperts)
 
         cnts = Scatter_(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
 
@@ -561,7 +561,7 @@ public:
 
         // Tensor((b*s, h))[Tensor(b*s*num_experts_per_tok)] = (b*s*num_experts_per_tok, h)
         // 没有int类型除法 只能先cast成float做完除法再cast回int
-        Tensor sortedTokens = TensorIndex(x,  Cast(DivS(Cast(idxs, DataType::DT_FP32),
+        Tensor sortedTokens = TensorIndex(x,  Cast(Div(Cast(idxs, DataType::DT_FP32),
             Element(DataType::DT_FP32, static_cast<double>(expertPerTok))),
             DataType::DT_INT32, CAST_TRUNC));
 
@@ -612,7 +612,7 @@ public:
         zerosShape[1] = nRoutedExperts;
         Tensor randoms(topkIds.GetStorage()->Datatype(), zerosShape);
 
-        Tensor cnts = MulS(randoms, Element(DataType::DT_FP32, F_0)); // (b*s, nRoutedExperts)
+        Tensor cnts = Mul(randoms, Element(DataType::DT_FP32, F_0)); // (b*s, nRoutedExperts)
 
         cnts = Scatter_(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
 
@@ -624,7 +624,7 @@ public:
 
         TileShape::Current().SetVecTile({NUM_64, NUM_64});
 
-        sortedTokens = TensorIndex(x,  Cast(DivS(Cast(idxs, DataType::DT_FP32),
+        sortedTokens = TensorIndex(x,  Cast(Div(Cast(idxs, DataType::DT_FP32),
             Element(DataType::DT_FP32, static_cast<double>(expertPerTok))),
             DataType::DT_INT32, CAST_TRUNC));
 
@@ -706,7 +706,7 @@ public:
         zerosShape[1] = nRoutedExperts;
         Tensor randoms(topkIds.GetStorage()->Datatype(), zerosShape);
 
-        Tensor cnts = MulS(randoms, Element(DataType::DT_FP32, F_0)); // (b*s, nRoutedExperts)
+        Tensor cnts = Mul(randoms, Element(DataType::DT_FP32, F_0)); // (b*s, nRoutedExperts)
 
         cnts = Scatter_(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
 
@@ -715,7 +715,7 @@ public:
         Tensor idxs = ArgSort(Reshape(topkIds, {bs * expertPerTok}), -1); // (b*s*numExpertsPerTok)
 
         // Tensor((b*s, h))[Tensor(b*s*numExpertsPerTok)] = (b*s*numExpertsPerTok, h)
-        Tensor sortedTokens = TensorIndex(x, DivS(idxs, Element(DataType::DT_FP32,
+        Tensor sortedTokens = TensorIndex(x, Div(idxs, Element(DataType::DT_FP32,
             static_cast<double>(expertPerTok)))); // int64除法
         auto &sortedTokensShape = sortedTokens.GetShape();
 

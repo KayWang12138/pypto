@@ -79,8 +79,8 @@ void KvSlcCompute(Tensor &topK_indcies, Tensor &topK_tensor_shape, Tensor &kvNop
                     auto kv_slcBlock_fp32 = Cast(kv_slcBlock, DataType::DT_FP32);
                     auto kRope_slcBlock_fp32 = Cast(kRope_slcBlock, DataType::DT_FP32);
                     TileShape::Current().SetVecTile(v0Tile[0], v0Tile[1]);
-                    auto kv_slcBlock_tiled = MulS(kv_slcBlock_fp32, Element(kv_slcBlock_fp32->Datatype(), float(1)));
-                    auto kRope_slcBlock_tiled = MulS(kRope_slcBlock_fp32, Element(kRope_slcBlock_fp32->Datatype(), float(1)));
+                    auto kv_slcBlock_tiled = Mul(kv_slcBlock_fp32, Element(kv_slcBlock_fp32->Datatype(), float(1)));
+                    auto kRope_slcBlock_tiled = Mul(kRope_slcBlock_fp32, Element(kRope_slcBlock_fp32->Datatype(), float(1)));
                     TileShape::Current().SetVecTile(v0Tile[0], v0Tile[1]);
                     auto kv_slcBlock_fp16 = Cast(kv_slcBlock_tiled, k_slcOut->Datatype());
                     auto kRope_slcBlock_fp16 = Cast(kRope_slcBlock_tiled, v_slcOut->Datatype());
