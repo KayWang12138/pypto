@@ -99,7 +99,7 @@ void AddShmemReduce(const Tensor &in, const Tensor &shmData, const Tensor &dummy
     auto &op = function.AddOperation("SHMEM_REDUCE", {in.GetStorage(), shmData.GetStorage(), dummy.GetStorage()},
         {out.GetStorage()});
     // fp16 和 bf16 做reduce计算，默认转化为fp32
-    if ((in.GetDataType() == DT_BF16) || (in.GetDataType() == DT_BF16)) {
+    if ((in.GetDataType() == DT_FP16) || (in.GetDataType() == DT_BF16)) {
         op.SetAttr("FP32Mode", true);
     } else {
         op.SetAttr("FP32Mode", false);

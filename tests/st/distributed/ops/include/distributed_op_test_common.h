@@ -123,16 +123,17 @@ public:
     }
 
     template <typename T>
-    std::vector<T> GetWinValue(WinType winType, size_t count = 0UL)
+    std::vector<T> GetWinValue(WinType winType, size_t count = 0UL, size_t offset = 0UL)
     {
         auto [devAddr, winSize] = GetWinAddrAndSize(winType);
-        ASSERT((devAddr != 0) && (devAddr != 0));
+        ASSERT((devAddr != 0) && (winSize != 0));
         auto maxDataCnt = winSize / sizeof(T);
-        if ((count == 0UL) || (count > maxDataCnt)) {
-            count = maxDataCnt;
+        offset = offset % maxDataCnt;
+        if ((count == 0UL) || (count > maxDataCnt - offset)) {
+            count = maxDataCnt - offset;
         }
         std::vector<T> result(count, 0);
-        (void)rtMemcpy(result.data(), count * sizeof(T), (uint8_t *)devAddr, count * sizeof(T), RT_MEMCPY_DEVICE_TO_HOST);
+        (void)rtMemcpy(result.data(), count * sizeof(T), (uint8_t *)devAddr + offset * sizeof(T), count * sizeof(T), RT_MEMCPY_DEVICE_TO_HOST);
         return result;
     }
 private:
