@@ -29,8 +29,8 @@ def matrix_matmul():
 
     with pto.pto_function("MATMUL", GRAPH_T, FUNC_T, a, b):
         pto.set_cube_tile_shapes([16, 16], [16, 16], [16, 16])
-        c = pto.matmul(dtype, a, b)
-        d = pto.matmul(dtype, a, b, a_trans=True, b_trans=True)
+        c = pto.matmul(a, b, dtype)
+        d = pto.matmul(a, b, dtype, a_trans=True, b_trans=True)
 
     assert isinstance(c, pto.tensor)
     print(c.shape)

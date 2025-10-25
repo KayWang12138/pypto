@@ -87,7 +87,7 @@ def incre_flash_attention(**kwargs):
 
                 # (nTileCur, dN+dR), (s2TileCur, dN+dR) -> (nTileCur, s2TileCur)
                 pto.set_matrix_size([qi.shape[0], 0, kj.shape[0]])
-                sij = pto.matmul(pto.DT_FP32, qi, kj, False, True)
+                sij = pto.matmul(qi, kj, pto.DT_FP32, a_trans=False, b_trans=True)
 
                 pto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
                 sij_scale = pto.mul_s(sij, pto.element(pto.DT_FP32, softmax_scale)) # (nTileCur, s2TileCur)
@@ -102,7 +102,7 @@ def incre_flash_attention(**kwargs):
                         [c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]], [c2_tile[4], c2_tile[5]], True)
                     pto.set_matrix_size(
                         [tilda_pij_f16.shape[0], tilda_pij_f16.shape[1], vj.shape[1]])
-                    oi_tmp = pto.matmul(pto.DT_FP32, tilda_pij_f16, vj, False, False)
+                    oi_tmp = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32, a_trans=False, b_trans=False)
 
                     pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                     oi_update = pto.div(oi_tmp, tilda_lij) if bn_per_batch == 1 else oi_tmp
@@ -128,7 +128,7 @@ def incre_flash_attention(**kwargs):
                 # (nTileCur, s2TileCur), (s2TileCur, dN) -> (nTileCur, dN)
                 pto.set_matrix_size(
                     [tilda_pij_f16.shape[0], tilda_pij_f16.shape[1], vj.shape[1]])
-                q1 = pto.matmul(pto.DT_FP32, tilda_pij_f16, vj, False, False)
+                q1 = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32, a_trans=False, b_trans=False)
                 pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                 q2 = pto.mul(q1, t4);    # (nTileCur, dN), (nTileCur, 1) -> (nTileCur, dN)
                 oi_tmp = pto.add(q3, q2); # (nTileCur, dN), (nTileCur, dN) -> (nTileCur, dN)

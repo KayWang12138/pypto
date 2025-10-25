@@ -141,7 +141,7 @@ class DeepSeekAttention:
         d_type = q.dtype
         pto.set_cube_tile_shapes([min(NUM_128, s1), min(NUM_128, s1)], [NUM_64, NUM_64], [NUM_128, NUM_128])
 
-        qk = pto.batch_matmul(d_type, q, kv, False, True)
+        qk = pto.matmul(q, kv, d_type, a_trans=False, b_trans=True)
         pto.set_vec_tile_shapes(1, 1, NUM_128, NUM_64)
         qk_fp32 = pto.cast(qk, pto.DT_FP32)
         qk_fp32 = pto.mul_s(qk_fp32, pto.element(pto.DT_FP32, self.softmax_scale))
@@ -153,7 +153,7 @@ class DeepSeekAttention:
         v = pto.view(kv, [b, n2, s2, kv_lora_rank_v], [0, 0, 0, 0])
         pto.set_cube_tile_shapes([min(NUM_128, s1), min(NUM_128, s1)], [NUM_64, NUM_64], [NUM_128, NUM_128])
 
-        atten_res = pto.batch_matmul(d_type, softmax, v)
+        atten_res = pto.matmul(softmax, v, d_type)
         return atten_res
 
 
@@ -173,7 +173,7 @@ class DeepSeekAttention:
         pto.set_vec_tile_shapes(1, NUM_128, NUM_64)
         pto.set_cube_tile_shapes([min(NUM_128, bs), min(NUM_128, bs)], [NUM_128, NUM_128], [NUM_128, NUM_128])
         pto.set_vec_tile_shapes(NUM_128, NUM_64)
-        mm7_res = pto.batch_matmul(d_type, atten_res2, self.kv_b_proj_wv)
+        mm7_res = pto.matmul(atten_res2, self.kv_b_proj_wv, d_type)
 
         pto.set_vec_tile_shapes(1, 1, NUM_128)
         mm7_res1 = pto.transpose(mm7_res, [0, 1])
@@ -184,7 +184,7 @@ class DeepSeekAttention:
         atten_out_w = pto.unsqueeze(self.o_proj_w, 0)
         pto.set_cube_tile_shapes([min(NUM_128, s), min(NUM_128, s)], [NUM_128, NUM_128], [NUM_128, NUM_128])
         pto.set_vec_tile_shapes(NUM_128, NUM_64)
-        atten_output = pto.batch_matmul(d_type, mm7_res2, atten_out_w)
+        atten_output = pto.matmul(mm7_res2, atten_out_w, d_type)
 
         return atten_output
 
@@ -205,7 +205,7 @@ class DeepSeekAttention:
         atten_res2 = pto.transpose(atten_res1, [0, 1])
         pto.set_cube_tile_shapes([min(NUM_128, bs), min(NUM_128, bs)], [NUM_128, NUM_128],
                                 [min(NUM_128, h), min(NUM_128, h)])
-        mm7_res = pto.batch_matmul(d_type, atten_res2, self.kv_b_proj_wv)
+        mm7_res = pto.matmul(atten_res2, self.kv_b_proj_wv, d_type)
 
         pto.set_vec_tile_shapes(NUM_16, NUM_16, NUM_128)
         mm7_res1 = pto.transpose(mm7_res, [0, 1])
@@ -216,7 +216,7 @@ class DeepSeekAttention:
         atten_out_w = pto.unsqueeze(self.o_proj_w, 0)
         pto.set_cube_tile_shapes([min(NUM_128, s), min(NUM_128, s)], [NUM_128, NUM_128],
                                 [min(NUM_128, h), min(NUM_128, h)])
-        atten_output = pto.batch_matmul(d_type, mm7_res2, atten_out_w)
+        atten_output = pto.matmul(mm7_res2, atten_out_w, d_type)
 
         return atten_output
 
@@ -233,21 +233,21 @@ class DeepSeekAttention:
 
         pto.set_cube_tile_shapes([min(NUM_128, s), min(NUM_128, s)], [NUM_128, NUM_128], [NUM_64, NUM_64])
         pto.set_vec_tile_shapes(NUM_128, NUM_64) # for Assemble
-        q_a_proj = pto.batch_matmul(d_type, hidden_states, q_a_proj_w1) # bf16
+        q_a_proj = pto.matmul(hidden_states, q_a_proj_w1, d_type) # bf16
 
         pto.set_vec_tile_shapes(1, NUM_128, NUM_64)
         q_a_layer_norm = pto.rms_norm(q_a_proj)
 
         pto.set_cube_tile_shapes([min(NUM_128, s), min(NUM_128, s)], [NUM_128, NUM_128], [NUM_64, NUM_64])
         pto.set_vec_tile_shapes(NUM_128, NUM_64) # for Assemble
-        q = pto.batch_matmul(d_type, q_a_layer_norm, q_b_proj_w1)
+        q = pto.matmul(q_b_proj_w1, q_a_layer_norm, d_type)
 
         pto.set_vec_tile_shapes(1, NUM_128, NUM_64)
         q2 = pto.reshape(q, [b, s, self.num_heads, self.q_head_dim])
 
         pto.set_cube_tile_shapes([min(NUM_128, s), min(NUM_128, s)], [NUM_128, NUM_128], [NUM_64, NUM_64])
         pto.set_vec_tile_shapes(NUM_128, NUM_64) # for Assemble
-        compressd_kv = pto.batch_matmul(d_type, hidden_states, kv_a_proj_with_mqa_w1)
+        compressd_kv = pto.matmul(hidden_states, kv_a_proj_with_mqa_w1, d_type)
 
         return [q2, compressd_kv]
 
@@ -263,19 +263,19 @@ class DeepSeekAttention:
         kv_a_proj_with_mqa_w1 = pto.unsqueeze(self.kv_a_proj_with_mqa_w, 0) # [NUM_256, 576]
 
         pto.set_cube_tile_shapes([min(NUM_128, s), min(NUM_128, s)], [NUM_128, NUM_128], [NUM_64, NUM_64])
-        q_a_proj = pto.batch_matmul(d_type, hidden_states, q_a_proj_w1) # bf16 2_1_512
+        q_a_proj = pto.matmul(hidden_states, q_a_proj_w1, d_type) # bf16 2_1_512
 
         pto.set_vec_tile_shapes(NUM_2, 1, NUM_512)
         q_a_layer_norm = pto.rms_norm(q_a_proj)
 
         pto.set_cube_tile_shapes([min(NUM_128, s), min(NUM_128, s)], [NUM_128, NUM_128], [NUM_64, NUM_64])
-        q = pto.batch_matmul(d_type, q_a_layer_norm, q_b_proj_w1)
+        q = pto.matmul(q_a_layer_norm, q_b_proj_w1, d_type)
 
         pto.set_vec_tile_shapes(NUM_2, 1, NUM_384)
         q2 = pto.reshape(q, [b, s, self.num_heads, self.q_head_dim])
 
         pto.set_cube_tile_shapes([min(NUM_128, s), min(NUM_128, s)], [NUM_128, NUM_128], [NUM_64, NUM_64])
-        compressd_kv = pto.batch_matmul(d_type, hidden_states, kv_a_proj_with_mqa_w1) # bf16
+        compressd_kv = pto.matmul(hidden_states, kv_a_proj_with_mqa_w1, d_type) # bf16
 
         return [q2, compressd_kv]
 
@@ -296,7 +296,7 @@ class DeepSeekAttention:
         m = (min(NUM_32, bs) + c0 - 1) // c0 * c0
         tile_m = min(NUM_16, m)
         pto.set_cube_tile_shapes([tile_m, tile_m], [NUM_256, NUM_256], [NUM_128, NUM_128])
-        q_a_proj = pto.matmul(d_type, input_data, self.q_a_proj_w, False, False)
+        q_a_proj = pto.matmul(input_data, self.q_a_proj_w, d_type, a_trans=False, b_trans=False)
 
         pto.set_vec_tile_shapes(min(NUM_16, bs), NUM_128)
         q_a_proj_norm = pto.rms_norm(q_a_proj)
@@ -308,11 +308,11 @@ class DeepSeekAttention:
             pto.set_cube_tile_shapes([tile_m, tile_m], [NUM_256, NUM_256], [NUM_256, NUM_256])
         else:
             pto.set_cube_tile_shapes([m, m], [NUM_256, NUM_256], [NUM_64, NUM_64])
-        q = pto.matmul(d_type_quant_out, q_a_proj_norm, self.q_b_proj_w) # bf16 quant A8W8O32 -> bf16
+        q = pto.matmul(q_a_proj_norm, self.q_b_proj_w, d_type_quant_out) # bf16 quant A8W8O32 -> bf16
         qkv_pre2_res.append(q)
 
         pto.set_cube_tile_shapes([m, m], [NUM_256, NUM_256], [NUM_64, NUM_64])
-        compressd_kv = pto.matmul(d_type, input_data, self.kv_a_proj_with_mqa_w, False, False) # bf16
+        compressd_kv = pto.matmul(input_data, self.kv_a_proj_with_mqa_w, d_type, a_trans=False, b_trans=False) # bf16
         compressed_kv_res = pto.reshape(compressd_kv, [b, s, self.kv_lora_rank + self.qk_rope_head_dim])
         qkv_pre2_res.append(compressed_kv_res)
 
@@ -332,7 +332,7 @@ class DeepSeekAttention:
         input_data = pto.reshape(hidden_states, [bs, h]) # [b, s, h] -> [b * s, h]
 
         pto.set_cube_tile_shapes([min(NUM_64, bs), min(NUM_64, bs)], [NUM_256, NUM_256], [NUM_128, NUM_128])
-        q_a_proj_fp32 = pto.matmul(pto.DT_FP32, input_data, self.q_a_proj_w, False, False)
+        q_a_proj_fp32 = pto.matmul(input_data, self.q_a_proj_w, pto.DT_FP32, a_trans=False, b_trans=False)
 
         pto.set_vec_tile_shapes(NUM_32, NUM_32)
         q_a_proj_norm_fp32 = pto.rms_norm(q_a_proj_fp32)
@@ -341,11 +341,11 @@ class DeepSeekAttention:
         q_a_proj_norm = pto.cast(q_a_proj_norm_fp32, d_type)
 
         pto.set_cube_tile_shapes([min(NUM_64, bs), min(NUM_64, bs)], [NUM_256, NUM_256], [NUM_64, NUM_64])
-        q_fp32 = pto.matmul(pto.DT_FP32, q_a_proj_norm, self.q_b_proj_w, False, False)
+        q_fp32 = pto.matmul(q_a_proj_norm, self.q_b_proj_w, pto.DT_FP32, a_trans=False, b_trans=False)
         q_res = pto.reshape(q_fp32, [b, s, self.num_heads, self.q_head_dim])
 
         pto.set_cube_tile_shapes([min(NUM_64, bs), min(NUM_64, bs)], [NUM_256, NUM_256], [NUM_64, NUM_64])
-        compressed_kv_fp32 = pto.matmul(pto.DT_FP32, input_data, self.kv_a_proj_with_mqa_w)
+        compressed_kv_fp32 = pto.matmul(input_data, self.kv_a_proj_with_mqa_w, pto.DT_FP32)
         compressed_kv_res = pto.reshape(compressed_kv_fp32, [b, s, self.kv_lora_rank + self.qk_rope_head_dim])
 
         return [q_res, compressed_kv_res]
@@ -388,7 +388,7 @@ class DeepSeekAttention:
 
         pto.set_cube_tile_shapes([min(NUM_128, bs), min(NUM_128, bs)], [NUM_128, NUM_128], [NUM_128, NUM_128])
         pto.set_vec_tile_shapes(NUM_128, NUM_64) # for Assemble
-        q_nope_new = pto.batch_matmul(d_type, q_nope2, self.kv_b_proj_wk)
+        q_nope_new = pto.matmul(q_nope2, self.kv_b_proj_wk, d_type)
         pto.set_vec_tile_shapes(1, 1, NUM_512)
         q_nope_new2 = pto.transpose(q_nope_new, [0, 1])
         pto.set_vec_tile_shapes(1, NUM_128, NUM_64)
@@ -455,7 +455,7 @@ class DeepSeekAttention:
 
         pto.set_cube_tile_shapes([min(NUM_128, bs), min(NUM_128, bs)], [NUM_128, NUM_128], [NUM_128, NUM_128])
         pto.set_vec_tile_shapes(NUM_128, NUM_64) # for Assemble
-        q_nope_new = pto.batch_matmul(d_type, q_nope2, self.kv_b_proj_wk)
+        q_nope_new = pto.matmul(q_nope2, self.kv_b_proj_wk, d_type)
         pto.set_vec_tile_shapes(1, 1, NUM_512)
         q_nope_new2 = pto.transpose(q_nope_new, [0, 1])
         pto.set_vec_tile_shapes(1, NUM_128, NUM_64)
@@ -517,7 +517,7 @@ class DeepSeekAttention:
         pto.set_vec_tile_shapes(1, NUM_128, NUM_64)
 
         pto.set_cube_tile_shapes([min(NUM_128, bs), min(NUM_128, bs)], [NUM_128, NUM_128], [NUM_128, NUM_128])
-        q_nope_new = pto.batch_matmul(d_type, q_nope2, self.kv_b_proj_wk)
+        q_nope_new = pto.matmul(q_nope2, self.kv_b_proj_wk, d_type)
         pto.set_vec_tile_shapes(NUM_16, NUM_2, NUM_512)
         q_nope_new2 = pto.transpose(q_nope_new, [0, 1])
         pto.set_vec_tile_shapes(1, NUM_32, NUM_512)
@@ -573,7 +573,7 @@ class DeepSeekAttention:
         c0 = NUM_16
         m = (min(NUM_32, bs) + c0 - 1) // c0 * c0
         pto.set_cube_tile_shapes([m, m], [NUM_128, NUM_128], [NUM_128, NUM_128])
-        q_nope_new = pto.batch_matmul(d_type, q_nope_t, self.kv_b_proj_wk)
+        q_nope_new = pto.matmul(q_nope_t, self.kv_b_proj_wk, d_type)
 
         pto.set_vec_tile_shapes(NUM_16, NUM_2, self.kv_lora_rank)
         q_nope_new_t = pto.transpose(q_nope_new, [0, 1])
@@ -625,7 +625,7 @@ class DeepSeekAttention:
         c0 = NUM_16
         m = (min(NUM_32, bs) + c0 - 1) // c0 * c0
         pto.set_cube_tile_shapes([m, m], [NUM_128, NUM_128], [NUM_128, NUM_128])
-        q_nope_new = pto.batch_matmul(d_type, q_nope_t, self.kv_b_proj_wk)
+        q_nope_new = pto.matmul(q_nope_t, self.kv_b_proj_wk, d_type)
 
         pto.set_vec_tile_shapes(NUM_16, NUM_2, self.kv_lora_rank)
         q_nope_new_t = pto.transpose(q_nope_new, [0, 1])

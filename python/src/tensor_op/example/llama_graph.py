@@ -150,7 +150,7 @@ def flash_attention(
                     li_offset = ((b_idx * n + n_idx) * s + s1_idx * single_m, 0)
                     mi_offset = ((b_idx * n + n_idx) * s + s1_idx * single_m, 0)
                     set_c1_cube_config(cube_cfg)
-                    sij = pto.matmul(pto.DT_FP32, qi, kj, b_trans=True)
+                    sij = pto.matmul(qi, kj, pto.DT_FP32, b_trans=True)
 
                     pto.set_vec_tile_shapes(
                         vec_cfg.softmax_tile_x, vec_cfg.softmax_tile_y
@@ -165,7 +165,7 @@ def flash_attention(
                     set_c2_cube_config(cube_cfg)
 
                     if s2_idx == 0:
-                        oi_tmp = pto.matmul(pto.DT_FP32, tilda_pij_f16, vj)
+                        oi_tmp = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32)
                         if s2_loop == 1:
                             li_expand = pto.reciprocal(tilda_lij)
                             last_oi[oi_offset] = pto.mul(oi_tmp, li_expand)
@@ -192,7 +192,7 @@ def flash_attention(
                     li_new = pto.add(t6, t5)
 
                     q3 = pto.mul(oi, t2)
-                    q1 = pto.matmul(pto.DT_FP32, tilda_pij_f16, vj)
+                    q1 = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32)
                     q2 = pto.mul(q1, t4)
                     oi_tmp = pto.add(q3, q2)
                     if s2_idx == s2_loop - 1:
@@ -221,7 +221,7 @@ def multi_attention(
     cube_cfg: AttentionCubeTileConfig,
 ):
     x = pto.cast(hidden_states, pto.DT_FP16)
-    qkv = pto.matmul(pto.DT_FP16, x, weight)
+    qkv = pto.matmul(x, weight, pto.DT_FP16)
     q = pto.view(qkv, hidden_states.shape, [0, 0])
     k = pto.view(qkv, hidden_states.shape, [0, hidden_states.shape[1]])
     v = pto.view(qkv, hidden_states.shape, [0, hidden_states.shape[1] * 2])
@@ -257,7 +257,7 @@ def llama_layer(
     attention_out_fp16 = pto.cast(attention_out, pto.DT_FP16)
     # Dense
     set_default_l0_cube_config()
-    dense_out = pto.matmul(pto.DT_FP32, attention_out_fp16, dense_weight)
+    dense_out = pto.matmul(attention_out_fp16, dense_weight, pto.DT_FP32)
     pto.set_vec_tile_shapes(vec_cfg.default_vec_tile_x, vec_cfg.default_vec_tile_y)
     hidden_states = pto.add(residual, dense_out)
 
@@ -268,7 +268,7 @@ def llama_layer(
     mlp_res = pto.tensor(shape, pto.DT_FP32, "tmp")
 
     a = pto.cast(hidden_states, pto.DT_FP16)
-    gate = pto.matmul(pto.DT_FP32, a, ffn_weight)
+    gate = pto.matmul(a, ffn_weight, pto.DT_FP32)
 
     # swish: x / (1 + e^(-x))
     swish = pto.mul_s(gate, pto.element(pto.DT_FP32, F_NEGA_1))
@@ -277,12 +277,12 @@ def llama_layer(
     swish = pto.div(gate, swish)
 
     # up_proj
-    up = pto.matmul(pto.DT_FP32, a, ffn_weight)
+    up = pto.matmul(a, ffn_weight, pto.DT_FP32)
     swish = pto.mul(swish, up)
     swish_fp16 = pto.cast(swish, pto.DT_FP16)
 
     # down_proj
-    mlp_res = pto.matmul(pto.DT_FP32, swish_fp16, ffn_weight, b_trans=True)
+    mlp_res = pto.matmul(swish_fp16, ffn_weight, pto.DT_FP32, b_trans=True)
     hidden_states = pto.add(residual, mlp_res)
     return hidden_states
 

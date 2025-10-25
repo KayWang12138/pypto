@@ -131,7 +131,7 @@ def page_attention(**kwargs):
                                                     [c1_tile[0], c1_tile[1]], [c1_tile[2], c1_tile[3]],
                                                     [c1_tile[4], c1_tile[5]])
                                                 pto.set_matrix_size([qi.shape[0], 0, kj.shape[0]])
-                                                sij = pto.matmul(pto.DT_FP32, qi, kj, False, True)
+                                                sij = pto.matmul(qi, kj, pto.DT_FP32, a_trans=False, b_trans=True)
 
                                                 pto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
 
@@ -157,8 +157,7 @@ def page_attention(**kwargs):
                                                         pto.set_matrix_size(
                                                             [tilda_pij_f16.shape[0], tilda_pij_f16.shape[1],
                                                              vj.shape[1]])
-                                                        oi_tmp = pto.matmul(pto.DT_FP32, tilda_pij_f16,
-                                                                            vj, False, False)
+                                                        oi_tmp = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32)
                                                         pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                                                         pto.set_semantic_label("b1-after-matmul2")
                                                         if pto.cond(pto.is_loop_end(bn, bn_per_batch)):
@@ -201,8 +200,7 @@ def page_attention(**kwargs):
                                                         pto.set_matrix_size(
                                                             [tilda_pij_f16.shape[0],
                                                              tilda_pij_f16.shape[1], vj.shape[1]])
-                                                        q1 = pto.matmul(pto.DT_FP32, tilda_pij_f16, vj,
-                                                                        False, False)
+                                                        q1 = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32)
                                                         pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                                                         pto.set_semantic_label("bn-after-matmul2")
                                                         # (nTileCur, dN), (nTileCur, 1) -> (nTileCur, dN)
@@ -330,7 +328,7 @@ def page_attention_with_imm_scalar(**kwargs):
                                                     [c1_tile[0], c1_tile[1]], [c1_tile[2], c1_tile[3]],
                                                     [c1_tile[4], c1_tile[5]])
                                                 pto.set_matrix_size([qi.shape[0], 0, kj.shape[0]])
-                                                sij = pto.matmul(pto.DT_FP32, qi, kj, False, True)
+                                                sij = pto.matmul(qi, kj, pto.DT_FP32, a_trans=False, b_trans=True)
 
                                                 pto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
 
@@ -353,8 +351,7 @@ def page_attention_with_imm_scalar(**kwargs):
                                                         pto.set_matrix_size(
                                                             [tilda_pij_f16.shape[0], tilda_pij_f16.shape[1],
                                                              vj.shape[1]])
-                                                        oi_tmp = pto.matmul(pto.DT_FP32, tilda_pij_f16,
-                                                                            vj, False, False)
+                                                        oi_tmp = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32,)
                                                         pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                                                         if pto.cond(bn == bn_per_batch - 1):
                                                             oi_update[:] = (pto.div(oi_tmp, tilda_lij))
@@ -394,8 +391,7 @@ def page_attention_with_imm_scalar(**kwargs):
                                                         pto.set_matrix_size(
                                                             [tilda_pij_f16.shape[0],
                                                              tilda_pij_f16.shape[1], vj.shape[1]])
-                                                        q1 = pto.matmul(pto.DT_FP32, tilda_pij_f16, vj,
-                                                                        False, False)
+                                                        q1 = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32)
                                                         pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                                                         # (nTileCur, dN), (nTileCur, 1) -> (nTileCur, dN)
                                                         q2 = pto.mul(q1, t4)
@@ -500,7 +496,7 @@ def page_attention_with_manual_unroll(**kwargs):
                                                         sub_krs = []
                                                         sub_vjs = []
                                                         for idx_offset in range(unroll_times):
-                                                            cur_block_idx = pto.get_tensor_data(block_table, 
+                                                            cur_block_idx = pto.get_tensor_data(block_table,
                                                             [b_idx, bn + idx_offset])
                                                             sub_kns.append(
                                                                 pto.view(k_nope_cache, [block_size, d_n],
@@ -522,7 +518,8 @@ def page_attention_with_manual_unroll(**kwargs):
                                                             [c1_tile[0], c1_tile[1]], [c1_tile[2], c1_tile[3]],
                                                             [c1_tile[4], c1_tile[5]])
 
-                                                        sij = pto.matmul(pto.DT_FP32, qi, kj, False, True)
+                                                        sij = pto.matmul(qi, kj, pto.DT_FP32,
+                                                                    a_trans=False, b_trans=True)
                                                         pto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
                                                         sij_scale = pto.mul_s(
                                                             sij, pto.element(sij.dtype, softmax_scale))
@@ -540,8 +537,7 @@ def page_attention_with_manual_unroll(**kwargs):
                                                                 pto.set_cube_tile_shapes(
                                                                     [c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]],
                                                                     [c2_tile[4], c2_tile[5]])
-                                                                oi_tmp = pto.matmul(pto.DT_FP32, tilda_pij_f16,
-                                                                                    vj, False, False)
+                                                                oi_tmp = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32)
                                                                 pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                                                                 if pto.cond(pto.is_loop_end(bn, bn_per_batch)):
                                                                     oi_update[:] = (pto.div(oi_tmp, tilda_lij))
@@ -580,8 +576,8 @@ def page_attention_with_manual_unroll(**kwargs):
                                                                 [c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]],
                                                                 [c2_tile[4], c2_tile[5]])
 
-                                                                q1 = pto.matmul(pto.DT_FP32, tilda_pij_f16, vj,
-                                                                                False, False)
+                                                                q1 = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32,
+                                                                                a_trans=False, b_trans=False)
                                                                 pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                                                                 # (nTileCur, dN), (nTileCur, 1) -> (nTileCur, dN)
                                                                 q2 = pto.mul(q1, t4)
@@ -685,7 +681,7 @@ def page_attention_high_throughput(**kwargs):
                         pto.set_cube_tile_shapes(
                             [c1_tile[0], c1_tile[1]], [c1_tile[2], c1_tile[3]],
                             [c1_tile[4], c1_tile[5]])
-                        sij = pto.matmul(pto.DT_FP32, qi, kj, False, True)
+                        sij = pto.matmul(qi, kj, pto.DT_FP32, a_trans=False, b_trans=True)
                         pto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
                         sij_scale = pto.mul_s(
                             sij, pto.element(sij.dtype, softmax_scale))
@@ -699,8 +695,8 @@ def page_attention_high_throughput(**kwargs):
                         pto.set_cube_tile_shapes(
                             [c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]],
                             [c2_tile[4], c2_tile[5]])
-                        oi_tmp = pto.matmul(pto.DT_FP32, tilda_pij_f16,
-                                            vj, False, False)
+                        oi_tmp = pto.matmul(tilda_pij_f16,
+                                            vj, pto.DT_FP32, a_trans=False, b_trans=False)
                         pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                         oi_update[:] = (pto.div(oi_tmp, tilda_lij))  # (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
                         pto.assemble(oi_update, oi_offset, attention_out)

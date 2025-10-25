@@ -70,7 +70,7 @@ def slc_attn_compute(**kwargs):
     n2_s2_sym = s1_n2_s2_sym // s1_sym
     n2_sym = n_kv
 
-    for b_idx in pto.loop(0, batch_size_sym, 1, name="LOOP_L0_b_SA", idx_name="b_idx", 
+    for b_idx in pto.loop(0, batch_size_sym, 1, name="LOOP_L0_b_SA", idx_name="b_idx",
         unroll_list=set(), submit_before_loop=True):
         for s1_idx in pto.loop(0, s1_sym, 1, name="LOOP_L1_s1_SA", idx_name="s1_idx"):
             def inside_s1_loop_sa(b_idx, s1_idx):
@@ -84,13 +84,13 @@ def slc_attn_compute(**kwargs):
                         def inside_g_loop_sa(b_idx, s1_idx, n2_idx, g_idx):
                             cur_g_tile = g_tile
                             oi_update = pto.tensor([cur_g_tile, d_n], pto.DT_FP32, "oi_update")
-                            li_update = pto.tensor([cur_g_tile, 1], pto.DT_FP32, "li_update")  
+                            li_update = pto.tensor([cur_g_tile, 1], pto.DT_FP32, "li_update")
                             mi_update = pto.tensor([cur_g_tile, 1], pto.DT_FP32, "mi_update")
 
                             cur_offset = b_idx * s1_n2_g_sym + s1_idx * n_q + n2_idx * group + g_idx * cur_g_tile
                             oi_offset = [b_idx, s1_idx, n2_idx * group + g_idx * cur_g_tile, 0]
 
-                            for s2_idx in pto.loop(0, bn_per_batch, 1, name="LOOP_L4_s2_SA", idx_name="s2_idx", 
+                            for s2_idx in pto.loop(0, bn_per_batch, 1, name="LOOP_L4_s2_SA", idx_name="s2_idx",
                                 unroll_list=pto.powers_of_2(1)):
                                 def inside_s2_loop_sa(b_idx, s2_idx):
                                     cur_s2_tile = s2_tile
@@ -103,28 +103,28 @@ def slc_attn_compute(**kwargs):
                                     pto.assemble(qn, [0, 0], qi)
                                     pto.assemble(qr, [0, d_n], qi)
 
-                                    kj = pto.view(k_slc, [cur_s2_tile, d_n + d_r], 
+                                    kj = pto.view(k_slc, [cur_s2_tile, d_n + d_r],
                                         [(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), d_n + d_r],
-                                        [cur_kv_offset, 0]) 
-                                    vj = pto.view(v_slc, [cur_s2_tile, d_n], 
+                                        [cur_kv_offset, 0])
+                                    vj = pto.view(v_slc, [cur_s2_tile, d_n],
                                         [(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), d_n], [cur_kv_offset, 0])
 
                                     # C1
-                                    pto.set_cube_tile_shapes([c1_tile[0], c1_tile[1]], 
+                                    pto.set_cube_tile_shapes([c1_tile[0], c1_tile[1]],
                                         [c1_tile[2], c1_tile[3]], [c1_tile[4], c1_tile[5]], True)
                                     pto.set_semantic_label("Sa_QkMM")
                                     pto.set_matrix_size([qi.shape[0], 0, kj.shape[0]])
-                                    sij = pto.matmul(pto.DT_FP32, qi, kj, False, True)
+                                    sij = pto.matmul(qi, kj, pto.DT_FP32, a_trans=False, b_trans=True)
 
                                     # V1
                                     pto.set_semantic_label("Sa_Qkvec1")
                                     pto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
                                     sij_scale = pto.mul_s(sij, pto.element(sij.dtype, softmax_scale))
-                                    tilda_mij = pto.row_max_single(sij_scale) 
-                                    tsub = pto.sub(sij_scale, tilda_mij) 
+                                    tilda_mij = pto.row_max_single(sij_scale)
+                                    tsub = pto.sub(sij_scale, tilda_mij)
                                     tilda_pij = pto.exp(tsub)
                                     tilda_pij_f16 = pto.cast(tilda_pij, dtype)
-                                    tilda_lij = pto.row_sum_single(tilda_pij) 
+                                    tilda_lij = pto.row_sum_single(tilda_pij)
 
                                     if pto.cond(pto.is_loop_begin(s2_idx, 0)):
                                         def inside_if_loop_begin():
@@ -135,7 +135,7 @@ def slc_attn_compute(**kwargs):
                                             pto.set_semantic_label("Sa_KvMm")
                                             pto.set_matrix_size(
                                                 [tilda_pij_f16.shape[0], tilda_pij_f16.shape[1], vj.shape[1]])
-                                            oi_tmp = pto.matmul(pto.DT_FP32, tilda_pij_f16, vj, False, False)
+                                            oi_tmp = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32)
                                             pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                                             if pto.cond(pto.is_loop_end(s2_idx, bn_per_batch)):
                                                 def inside_if_loop_end():
@@ -144,7 +144,7 @@ def slc_attn_compute(**kwargs):
                                                     oi_update[:] = pto.div(oi_tmp, tilda_lij)
                                                     pto.set_vec_tile_shapes(1, 1, v2_tile[0], v2_tile[1])
                                                     oi_update_4_dim = pto.add_s(
-                                                        pto.reshape(oi_update, [1, 1, cur_g_tile, d_n]), 
+                                                        pto.reshape(oi_update, [1, 1, cur_g_tile, d_n]),
                                                         pto.element(oi_update.dtype, float(0)))
                                                     pto.assemble(oi_update_4_dim, oi_offset, attention_out)
                                                 inside_if_loop_end()
@@ -178,9 +178,9 @@ def slc_attn_compute(**kwargs):
                                                 [c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]],
                                                 [c2_tile[4], c2_tile[5]], True)
                                             pto.set_semantic_label("Sa_UpdateMM2")
-                                            pto.set_matrix_size([tilda_pij_f16.shape[0], 
+                                            pto.set_matrix_size([tilda_pij_f16.shape[0],
                                                 tilda_pij_f16.shape[1], vj.shape[1]])
-                                            q1 = pto.matmul(pto.DT_FP32, tilda_pij_f16, vj, False, False)
+                                            q1 = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32)
                                             pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                                             q2 = pto.mul(q1, t4)
                                             oi_tmp = pto.add(q3, q2)
@@ -190,7 +190,7 @@ def slc_attn_compute(**kwargs):
                                                     oi_update[:] = pto.div(oi_tmp, li_new)
                                                     pto.set_vec_tile_shapes(1, 1, v2_tile[0], v2_tile[1])
                                                     oi_update_4_dim = pto.add_s(
-                                                        pto.reshape(oi_update, [1, 1, cur_g_tile, d_n]), 
+                                                        pto.reshape(oi_update, [1, 1, cur_g_tile, d_n]),
                                                         pto.element(oi_update.dtype, float(0)))
                                                     pto.assemble(oi_update_4_dim, oi_offset, attention_out)
                                                 inside_if_loop_end()

@@ -45,18 +45,18 @@ def dynamic_ffn(**kwargs):
                     batch_idx = basic_batch * idx
                     hidden_states_temp = pto.view(hidden_states, [basic_batch, h], [batch_idx, 0])
                     cast_res = pto.cast(hidden_states_temp, pto.DT_FP16)
-                    gate = pto.matmul(pto.DT_FP32, cast_res, ffn_weight1)
+                    gate = pto.matmul(cast_res, ffn_weight1, pto.DT_FP32)
                     swish = pto.mul_s(gate, pto.element(pto.DT_FP32, F_NEGA_1))
                     swish = pto.exp(swish)
                     swish = pto.add_s(swish, pto.element(pto.DT_FP32, F_1))
                     swish = pto.div(gate, swish)
 
-                    up = pto.matmul(pto.DT_FP32, cast_res, ffn_weight2)
+                    up = pto.matmul(cast_res, ffn_weight2, pto.DT_FP32)
                     swish = pto.mul(swish, up)
                     swish_fp16 = pto.cast(swish, pto.DT_FP16)
 
                     # down_proj
-                    mlp_res = pto.matmul(pto.DT_FP32, swish_fp16, ffn_weight3, False, True)
+                    mlp_res = pto.matmul(swish_fp16, ffn_weight3, pto.DT_FP32, a_trans=False, b_trans=True)
                     pto.assemble(mlp_res, [batch_idx, 0], out)
                 inside_idx_loop(idx)
 
@@ -89,7 +89,7 @@ def dynamic_ffn_quant(**kwargs):
 
                     cast_res = pto.view(hidden_states_quant, [basic_batch, h], [batch_idx, 0])
                     cast_res_scale = pto.view(hidden_states_scale, [basic_batch, 1], [batch_idx, 0])
-                    gate_int32 = pto.matmul(pto.DT_INT32, cast_res, ffn_weight1)
+                    gate_int32 = pto.matmul(cast_res, ffn_weight1, pto.DT_INT32)
 
                     # dequant: int32 -> fp32 -> *scale -> fp16/bf16
                     gate_tmp_fp32 = pto.cast(gate_int32, pto.DT_FP32)
@@ -101,7 +101,7 @@ def dynamic_ffn_quant(**kwargs):
                     swish = pto.add_s(swish, pto.element(pto.DT_FP32, F_1))
                     swish = pto.div(gate, swish)
 
-                    up_int32 = pto.matmul(pto.DT_INT32, cast_res, ffn_weight2)
+                    up_int32 = pto.matmul(cast_res, ffn_weight2, pto.DT_INT32)
                     # upProj
                     up_tmp_fp32 = pto.cast(up_int32, pto.DT_FP32)
                     up_tmp_dequant_pertoken = pto.mul(up_tmp_fp32, cast_res_scale)
@@ -114,7 +114,7 @@ def dynamic_ffn_quant(**kwargs):
                     swish_res = swish_quant_res[0]
                     swish_scale = swish_quant_res[1]
 
-                    res_int32 = pto.matmul(pto.DT_INT32, swish_res, ffn_weight3, False, True)
+                    res_int32 = pto.matmul(swish_res, ffn_weight3, pto.DT_INT32, a_trans=False, b_trans=True)
                     res_tmp_fp32 = pto.cast(res_int32, pto.DT_FP32)
                     res_tmp_dequant_pertoken = pto.mul(res_tmp_fp32, swish_scale)
                     res = pto.mul(res_tmp_dequant_pertoken, ffn_scale3)

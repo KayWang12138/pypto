@@ -188,7 +188,7 @@ def compress_attention_with_topk(**kwargs):
                                         [c1_tile[2], c1_tile[3]],
                                         [c1_tile[4], c1_tile[5]]
                                     )
-                                    sij = pto.matmul(FP32, cur_k_attn, cur_q_attn, False, True)
+                                    sij = pto.matmul(cur_k_attn, cur_q_attn, FP32, a_trans=False, b_trans=True)
                                     sij.set_name("sij")
 
                                     pto.set_vec_tile_shapes(vec_tile, vec_tile)
@@ -210,7 +210,7 @@ def compress_attention_with_topk(**kwargs):
                                                 [c2_tile[4], c2_tile[5]],
                                             )
                                             oi_tmp = pto.matmul(
-                                                FP32, tilda_pij_b16, cur_v_attn, True, False)
+                                                tilda_pij_b16, cur_v_attn, FP32, a_trans=True, b_trans=False)
                                             oi_tmp.set_name("oiTmp")
                                             pto.set_semantic_label("Cmp-Attn-First-Block-V2")
                                             pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
@@ -253,7 +253,7 @@ def compress_attention_with_topk(**kwargs):
                                             )
                                             tilda_pij_b16_t = pto.transpose(tilda_pij_b16, [0, 1])
                                             q1 = pto.matmul(
-                                                FP32, tilda_pij_b16_t, cur_v_attn, False, False)
+                                                tilda_pij_b16_t, cur_v_attn, FP32, a_trans=False, b_trans=False)
                                             q1.set_name("q1")
                                             pto.set_semantic_label("Cmp-Attn-Other-Update-V2")
                                             pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])

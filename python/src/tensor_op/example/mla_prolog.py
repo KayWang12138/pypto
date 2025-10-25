@@ -86,13 +86,13 @@ def qkv_pre(**kwargs) -> List[pto.tensor]:
         for ki in range(k_split):
             input_mk = pto.view(input_tensor, [bs, k_split_size], [0, ki * k_split_size])
             input_kn = pto.view(w_dq, [k_split_size, q_lora_rank], [ki * k_split_size, 0])
-            tmp = pto.matmul(pto.DT_FP32, input_mk, input_kn, tmp_c)  # [b*s,h/2] * [h/2,q_lora_rank]
+            tmp = pto.matmul(input_mk, input_kn, tmp_c, pto.DT_FP32)  # [b*s,h/2] * [h/2,q_lora_rank]
             matmul_result.append(tmp)
         q_mm_res_f32 = pto.reduce(matmul_result, pto.ReduceMode.ATOMIC_ADD)
         pto.set_vec_tile_shapes(min(NUM_32, bs), NUM_128)  # 32, 128
         q_mm_res[:] = pto.cast(q_mm_res_f32, d_type)
     else:
-        q_mm_res[:] = pto.matmul(d_type, input_tensor, w_dq)  # bf16
+        q_mm_res[:] = pto.matmul(input_tensor, w_dq, d_type)  # bf16
 
     if split_reduce_last_dim:
         pto.set_vec_tile_shapes(min(NUM_16, bs), NUM_128)
@@ -114,7 +114,7 @@ def qkv_pre(**kwargs) -> List[pto.tensor]:
     else:
         pto.set_cube_tile_shapes([tie_m, tie_m], [NUM_256, NUM_256], [NUM_64, NUM_64])  # 256, 64
 
-    q = pto.matmul(d_type_quant_out, norm_res, w_uq_qr, False, False)  # bf16  // quant: A8W8O32 -> bf16
+    q = pto.matmul(norm_res, w_uq_qr, d_type_quant_out, a_trans=False, b_trans=False)  # bf16  // quant: A8W8O32 -> bf16
     qkv_pre_res.append(q)
 
     ####### kv ########
@@ -131,13 +131,13 @@ def qkv_pre(**kwargs) -> List[pto.tensor]:
         for ki in range(k_split_kv):
             input_mk = pto.view(input_tensor, [bs, k_split_size_kv], [0, ki * k_split_size_kv])
             input_kn = pto.view(w_dkv_kr, [k_split_size_kv, kv_n], [ki * k_split_size_kv, 0])
-            tmp = pto.matmul(pto.DT_FP32, input_mk, input_kn, tmp_c_kv)  # [b*s,h/2] * [h/2,kv_n] = [b*s,kv_n]
+            tmp = pto.matmul(input_mk, input_kn, tmp_c_kv, pto.DT_FP32)  # [b*s,h/2] * [h/2,kv_n] = [b*s,kv_n]
             matmul_result_kv.append(tmp)
         kv_mm_res_f32 = pto.reduce(matmul_result_kv, pto.ReduceMode.ATOMIC_ADD)
         pto.set_vec_tile_shapes(min(NUM_32, bs), NUM_64)  # 32, 64
         compressed_kv[:] = pto.cast(kv_mm_res_f32, d_type)
     else:
-        compressed_kv[:] = pto.matmul(d_type, input_tensor, w_dkv_kr)  # bf16
+        compressed_kv[:] = pto.matmul(input_tensor, w_dkv_kr, d_type)  # bf16
 
     compressed_kv_res = pto.reshape(compressed_kv, [b, s, w_dkv_kr.shape[1]])
     qkv_pre_res.append(compressed_kv_res)
@@ -243,7 +243,7 @@ def mla_prolog(**kwargs):
     c0 = NUM_16
     m = (b_s + c0 - 1) // c0 * c0
     pto.set_cube_tile_shapes([m, m], [NUM_128, NUM_128], [NUM_128, NUM_128])
-    q_nope_new = pto.batch_matmul(d_type, q_nope_trans, w_uk)
+    q_nope_new = pto.matmul(q_nope_trans, w_uk, d_type)
 
     tile_shape = [1, b_s, kv_lora_rank]  # {NUM_16, NUM_2, kvLoraRank}
     pto.set_vec_tile_shapes(*tile_shape)

@@ -114,14 +114,14 @@ def mla_pre(**kwargs) -> List[pto.tensor]:
             for ki in range(k_split):
                 input_mk = pto.view(input_tensor, [bs, k_split_size], [0, ki * k_split_size])
                 input_kn = pto.view(w_dq, [k_split_size, q_lora_rank], [ki * k_split_size, 0])
-                tmp = pto.matmul(pto.DT_FP32, input_mk, input_kn)  # [b*s,h/2] * [h/2,q_lora_rank]
+                tmp = pto.matmul(input_mk, input_kn, pto.DT_FP32)  # [b*s,h/2] * [h/2,q_lora_rank]
                 matmul_result.append(tmp)
             q_mm_res_f32 = pto.reduce(matmul_result, pto.ReduceMode.ATOMIC_ADD)
             pto.set_vec_tile_shapes(min(32, bs), 128)  # 32, 128
             q_mm_res[:] = pto.cast(q_mm_res_f32, d_type)
         inside_if_split_k()
     else:
-        q_mm_res[:] = pto.matmul(d_type, input_tensor, w_dq)  # bf16
+        q_mm_res[:] = pto.matmul(input_tensor, w_dq, d_type)  # bf16
 
     pto.set_vec_tile_shapes(min(8, bs), q_lora_rank)  # 8
     norm_res = pto.rms_norm(q_mm_res, gamma_cq, epsilon_cq)
@@ -141,7 +141,7 @@ def mla_pre(**kwargs) -> List[pto.tensor]:
         # use tileM will core dump
         pto.set_cube_tile_shapes([tie_m, tie_m], [256, 256], [64, 64])  # 256, 64
 
-    q = pto.matmul(d_type_quant_out, norm_res, w_uq_qr)  # bf16  // quant: A8W8O32 -> bf16
+    q = pto.matmul(norm_res, w_uq_qr, d_type_quant_out)  # bf16  // quant: A8W8O32 -> bf16
     qkv_pre_res.append(q)
 
     ###### kv ########
@@ -160,14 +160,14 @@ def mla_pre(**kwargs) -> List[pto.tensor]:
             for ki in range(k_split_kv):
                 input_mk = pto.view(input_tensor, [bs, k_split_size_kv], [0, ki * k_split_size_kv])
                 input_kn = pto.view(w_dkv_kr, [k_split_size_kv, kv_n], [ki * k_split_size_kv, 0])
-                tmp = pto.matmul(pto.DT_FP32, input_mk, input_kn)  # [b*s,h/2] * [h/2,kv_n] = [b*s,kv_n]
+                tmp = pto.matmul(input_mk, input_kn, pto.DT_FP32)  # [b*s,h/2] * [h/2,kv_n] = [b*s,kv_n]
                 matmul_result_kv.append(tmp)
             kv_mm_res_f32 = pto.reduce(matmul_result_kv, pto.ReduceMode.ATOMIC_ADD)
             pto.set_vec_tile_shapes(min(32, bs), 64)  # 32, 64
             compressed_kv[:] = pto.cast(kv_mm_res_f32, d_type)
         inside_if_split()
     else:
-        compressed_kv[:] = pto.matmul(d_type, input_tensor, w_dkv_kr)  # bf16
+        compressed_kv[:] = pto.matmul(input_tensor, w_dkv_kr, d_type)  # bf16
 
     compressed_kv_res = pto.reshape(compressed_kv, [b, s, w_dkv_kr.shape[1]])
     qkv_pre_res.append(compressed_kv_res)
@@ -328,7 +328,7 @@ def attention(**kwargs):
                     m = (min(NUM_32, tile_bs) + c0 - 1) // c0 * c0
                     pto.set_cube_tile_shapes([m, m], [NUM_256, NUM_256], [NUM_128, NUM_128], True)
                     pto.set_semantic_label("BatchMatmul")
-                    q_nope_new = pto.batch_matmul(dtype, q_nope_trans, w_uk)
+                    q_nope_new = pto.matmul(q_nope_trans, w_uk, dtype)
 
                     tile_shape = [1, min(NUM_32, tile_bs), kv_lora_rank]  # {NUM_16, NUM_2, kvLoraRank}
                     pto.set_vec_tile_shapes(*tile_shape)
@@ -508,7 +508,7 @@ def attention(**kwargs):
                                                 pto.set_semantic_label("paQkMM")
                                                 pto.set_matrix_size([qi.shape[0], 0, kj.shape[0]])
                                                 # (curNTile, dN+dR), (curS2Tile, dN+dR) -> (curNTile, curS2Tile)
-                                                sij = pto.matmul(pto.DT_FP32, qi, kj, False, True)
+                                                sij = pto.matmul(qi, kj, pto.DT_FP32, a_trans=False, b_trans=True)
                                                 pto.set_semantic_label("paQkvec1")
                                                 pto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
                                                 ## -> (curNTile, curS2Tile)
@@ -532,8 +532,8 @@ def attention(**kwargs):
                                                         pto.set_matrix_size(
                                                             [tilda_pij_f16.shape[0], tilda_pij_f16.shape[1],
                                                              vj.shape[1]])
-                                                        oi_tmp = pto.matmul(pto.DT_FP32, tilda_pij_f16,
-                                                                            vj, False, False)
+                                                        oi_tmp = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32,
+                                                                            a_trans=False, b_trans=False)
                                                         pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                                                         if pto.cond(pto.is_loop_end(bn, bn_per_batch)):
                                                             pto.set_semantic_label("paKvVec2")
@@ -575,8 +575,8 @@ def attention(**kwargs):
                                                         pto.set_matrix_size(
                                                             [tilda_pij_f16.shape[0],
                                                              tilda_pij_f16.shape[1], vj.shape[1]])
-                                                        q1 = pto.matmul(pto.DT_FP32, tilda_pij_f16, vj,
-                                                                        False, False)
+                                                        q1 = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32,
+                                                                        a_trans=False, b_trans=False)
                                                         pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                                                         # (nTileCur, dN), (nTileCur, 1) -> (nTileCur, dN)
                                                         q2 = pto.mul(q1, t4)
@@ -634,7 +634,7 @@ def attention(**kwargs):
                             [min(256, kv_lora_rank), min(512, kv_lora_rank)],
                             [v_head_dim, v_head_dim], True)  # raw tileB*1  512   128   # 128/4个
                         # (n, tileB, kvLoraRank) * (n, kvLoraRank, vHeadDim) -> (n, tileB, vHeadDim)
-                        bmm_res = pto.batch_matmul(dtype, t1_res, weight_uv)
+                        bmm_res = pto.matmul(t1_res, weight_uv, dtype)
 
                         pto.set_vec_tile_shapes(NUM_4, min(NUM_32, tile_b * s), v_head_dim)  # raw (128, tileB*1, 128)
                         t3_res = pto.transpose(bmm_res, [0, 1])  # (n, tileB, vHeadDim) -> (tileB, n, vHeadDim) # 128个
@@ -650,7 +650,7 @@ def attention(**kwargs):
                             [min(32, tile_b * s), min(32, tile_b * s)],
                             [min(512, n * v_head_dim), min(512, n * v_head_dim)],
                             [min(64, h), min(64, h)], True)  # raw  tileB*1  16k  7168
-                        res = pto.matmul(pto.DT_INT32, quantized_a, weight_o)
+                        res = pto.matmul(quantized_a, weight_o, pto.DT_INT32)
 
                         pto.set_vec_tile_shapes(min(NUM_32, tile_b * s), min(NUM_32, h))  # raw (tileB*1, 7168)
                         res[:] = pto.cast(res, pto.DT_FP32)

@@ -108,7 +108,7 @@ def post_compute(
                             input_trans_quant = quant_res[0]
                             scale_dequant = quant_res[1]
 
-                            mm = pto.batch_matmul(pto.DT_INT32, input_trans_quant, post_tensors.weight_u_v)
+                            mm = pto.matmul(input_trans_quant, post_tensors.weight_u_v, pto.DT_INT32)
 
                             pto.set_semantic_label("postDequantWUv")
                             pto.set_vec_tile_shapes(*[1, min(16, tile_b_s), min(32, v_head_dim)])
@@ -118,7 +118,7 @@ def post_compute(
                             bmm[:] = pto.cast(res, dtype, pto.cast_mode.CAST_RINT)
                         inside_of_if_is_quant_w_uv()
                     else:
-                        bmm[:] = pto.batch_matmul(dtype, input_trans, post_tensors.weight_u_v)
+                        bmm[:] = pto.matmul(input_trans, post_tensors.weight_u_v, dtype)
 
                     pto.set_semantic_label("postTranspose2")
                     pto.set_vec_tile_shapes(*[4, min(32, tile_b_s), v_head_dim])
@@ -142,7 +142,7 @@ def post_compute(
                             scale_dequant = quant_res[1]
 
                             pto.set_semantic_label("postMm")
-                            mm = pto.matmul(pto.DT_INT32, bmm_res_quant, post_tensors.weight_o)
+                            mm = pto.matmul(bmm_res_quant, post_tensors.weight_o, pto.DT_INT32)
 
                             pto.set_semantic_label("postDequantWo")
                             pto.set_vec_tile_shapes(*[min(32, tile_b_s), min(32, h)])
@@ -152,7 +152,7 @@ def post_compute(
                             mm_res[:] = pto.cast(res, dtype, pto.cast_mode.CAST_RINT)
                         inside_of_if_is_quant_wo()
                     else:
-                        mm_res[:] = pto.matmul(dtype, bmm_res, post_tensors.weight_o)
+                        mm_res[:] = pto.matmul(bmm_res, post_tensors.weight_o, dtype)
                     pto.set_semantic_label("postReshape3")
                     post_out_view = pto.reshape(mm_res, [tile_b, tile_s, h])
                     pto.set_vec_tile_shapes(*[1, 1, h])
@@ -167,7 +167,7 @@ def attention_post_standalone(
         tile_config: PostTileConfig,
         post_out: pto.tensor,
 ):
-    
+
     input_tensors = [input_tensor, post_tensors.weight_u_v, post_tensors.weight_o,
                         post_tensors.weight_uv_scale, post_tensors.smooth_scales_w_uv,
                             post_tensors.weight_o_scale, post_tensors.smooth_scales_wo]
