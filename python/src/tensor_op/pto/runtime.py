@@ -14,6 +14,7 @@ from typing import List
 
 import numpy as np
 import torch
+import pto
 from pto import pto_impl
 
 device_init = pto_impl.DeviceInit
@@ -74,7 +75,7 @@ def _flatten_to_list(data):
         flattened = []
         for item in data:
             if isinstance(item, (list, tuple, np.ndarray, torch.Tensor)):
-                flattened.extend(flatten_to_list(item))
+                flattened.extend(_flatten_to_list(item))
             else:
                 flattened.append(item)
         return flattened
@@ -100,30 +101,85 @@ def device_run_once_data_from_host(input_list: List, output_list: List):
         _fill_data_to_target_inplace(src_data, output)
 
 
-class PythonOperator:
-    def __init__(self, origin_func):
-        handler = pto_impl.OperatorBegin()
-        origin_func()
-        pto_impl.OperatorEnd(handler)
-        self._handler = handler
+def _torch_to_pto_dtype(dtype: torch.dtype) -> pto.DataType:
+    "Converts torch.dtype to pto.DataType"
+    if dtype == torch.float16:
+        return pto.DT_FP16
+    elif dtype == torch.bfloat16:
+        return pto.DT_BF16
+    elif dtype == torch.float32:
+        return pto.DT_FP32
+    elif dtype == torch.float64:
+        return pto.DT_DOUBLE
+    elif dtype == torch.int8:
+        return pto.DT_INT8
+    elif dtype == torch.uint8:
+        return pto.DT_UINT8
+    elif dtype == torch.int16:
+        return pto.DT_INT16
+    elif dtype == torch.int32:
+        return pto.DT_INT32
+    elif dtype == torch.int64:
+        return pto.DT_INT64
+    elif dtype == torch.bool:
+        return pto.DT_BOOL
 
-    def __call__(self, input_list, output_list):
+    raise ValueError(f"Input torch.dtype is not supported. Got {dtype}")
+
+
+def torch_to_pto(t: torch.tensor, name: str) -> pto.Tensor:
+    "Converts a `torch.tensor` to `pto.Tensor`."
+    pto_dtype = _torch_to_pto_dtype(t.dtype)
+    try:
+        import torch_npu
+    except ImportError as e:
+        raise ImportError("pto.torch_to_pto requires torch_npu Python packages.") from e
+    if torch_npu.get_npu_format(t) == 29: # 29: torch_npu.Format.FRACTAL_NZ
+        return pto.Tensor(tuple(t.shape), pto_dtype, f"PTO_TENSOR_{name}", pto.TileOpFormat.TILEOP_NZ)
+    return pto.Tensor(tuple(t.shape), pto_dtype, f"PTO_TENSOR_{name}")
+
+
+class jit:
+    def __init__(self, dyn_func):
+        self.dyn_func = dyn_func
+        self._is_function_compiled: bool = False
+        self._handler = None
+
+    def __call__(self, *args, **kwargs):
+        in_tensors, out_tensors = args[0], args[1]
+        if (len(args) < 2):
+            raise ValueError("pto.jit required at least two input arguments (input_tensors, output_tensors, ...).")
+        
+        for in_tensor in in_tensors:
+            if not in_tensor.is_contiguous():
+                raise RuntimeError("pto.jit requires that all in_tensors must be contiguous.")
+
+        if not self._is_function_compiled:
+            pto_impl.DeviceInit()
+
+            # Convert I/O torch tensors to PTO tensors and run pto.dyn_function
+            in_pto_tensors = [
+                torch_to_pto(t, f"IN_{idx}") for idx, t in enumerate(in_tensors)
+            ]
+            out_pto_tensors = [
+                torch_to_pto(t, f"OUT_{idx}") for idx, t in enumerate(out_tensors)
+            ]
+            handler = pto_impl.OperatorBegin()
+            self.dyn_func(in_pto_tensors, out_pto_tensors, *args[2:], **kwargs)
+            pto_impl.OperatorEnd(handler)
+            self._handler = handler
+            self._is_function_compiled = True
+
         stream = torch.npu.current_stream()
         pto_impl.OperatorDeviceRunOnceDataFromDevice(
             self._handler,
-            [input.data_ptr() for input in input_list],
-            [output.data_ptr() for output in output_list],
+            [in_tensor.data_ptr() for in_tensor in in_tensors],
+            [out_tensor.data_ptr() for out_tensor in out_tensors],
             stream.npu_stream)
 
     @property
     def handler(self):
         return self._handler
-
-
-def jit(origin_func):
-    pto_impl.DeviceInit()
-    op = PythonOperator(origin_func)
-    return op
 
 
 def device_synchronize():
