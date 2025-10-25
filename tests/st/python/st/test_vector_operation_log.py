@@ -18,6 +18,7 @@ import numpy as np
 from numpy.testing import assert_allclose
 
 
+@pytest.mark.skip(reason="Dep operation interface")
 def test_vector_operation_log():
     dtype = pto.DT_FP32
     tiling = 32
@@ -55,6 +56,7 @@ def test_vector_operation_log():
     pto.DeviceFini()
 
 
+@pytest.mark.skip(reason="Dep operation interface")
 def test_vector_operation_log2():
     dtype = pto.DT_FP32
     tiling = 32
@@ -92,6 +94,7 @@ def test_vector_operation_log2():
     pto.DeviceFini()
 
 
+@pytest.mark.skip(reason="Dep operation interface")
 def test_vector_operation_log10():
     dtype = pto.DT_FP32
     tiling = 32

@@ -10,6 +10,7 @@
 # ======================================================================================================================
 
 import pto
+import pytest
 import numpy as np
 from numpy.testing import assert_allclose
 
@@ -43,6 +44,7 @@ def test_assemble_basic():
     pto.DeviceFini()
 
 
+@pytest.mark.skip(reason="Dep operation interface")
 def test_view_assemble():
     f_1 = 1.0
     pto.DeviceInit()
