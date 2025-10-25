@@ -266,9 +266,9 @@ TEST_F(GenerateMoveOpPassTest, ConvertToCopy) {
             {           "ExpandFunction",           "ExpandFunction"},
             {            "DuplicateView",            "DuplicateView"},
             {        "MergeViewAssemble",        "MergeViewAssemble"},
-            {         "AssignMemoryType",         "AssignMemoryType"},
             {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor"},
             {             "SplitReshape",             "SplitReshape"},
+            {         "AssignMemoryType",         "AssignMemoryType"},
             {        "RemoveRedundantOp",        "RemoveRedundantOp"},
             {           "GenerateMoveOp",           "GenerateMoveOp"},
         });
