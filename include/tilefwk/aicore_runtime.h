@@ -276,16 +276,27 @@ INLINE uint64_t GetShmemTensorAddr(CoreFuncParam *ctx, int idx, int groupIndex, 
                                                   GET_PARAM_##name##_BY_IDX(param, n, base, 5, 2), GET_PARAM_##name##_BY_IDX(param, n, base, 5, 3), \
                                                   GET_PARAM_##name##_BY_IDX(param, n, base, 5, 4)
 
-#define GET_PARAM_ATTR_2_STRIDE(name, param, n, base) GET_PARAM_##name##_BY_IDX(param, n, base, 2, 1)
-#define GET_PARAM_ATTR_3_STRIDE(name, param, n, base) GET_PARAM_##name##_BY_IDX(param, n, base, 3, 1), GET_PARAM_##name##_BY_IDX(param, n, base, 3, 2)
-#define GET_PARAM_ATTR_4_STRIDE(name, param, n, base) GET_PARAM_##name##_BY_IDX(param, n, base, 4, 1), GET_PARAM_##name##_BY_IDX(param, n, base, 4, 2),\
-                                                        GET_PARAM_##name##_BY_IDX(param, n, base, 4, 3)
-#define GET_PARAM_ATTR_5_STRIDE(name, param, n, base) GET_PARAM_##name##_BY_IDX(param, n, base, 5, 1), GET_PARAM_##name##_BY_IDX(param, n, base, 5, 2), \
-                                                        GET_PARAM_##name##_BY_IDX(param, n, base, 5, 3), GET_PARAM_##name##_BY_IDX(param, n, base, 5, 4)
+#define GET_PARAM_ATTR_2_STRIDE(name, param, n, base) GET_PARAM_##name##_BY_IDX(param, n, base, 2, 1), 1
+#define GET_PARAM_ATTR_3_STRIDE(name, param, n, base)                                                  \
+    GET_PARAM_##name##_BY_IDX(param, n, base, 3, 1) * GET_PARAM_##name##_BY_IDX(param, n, base, 3, 2), \
+        GET_PARAM_##name##_BY_IDX(param, n, base, 3, 2), 1
+#define GET_PARAM_ATTR_4_STRIDE(name, param, n, base)                                                      \
+    GET_PARAM_##name##_BY_IDX(param, n, base, 4, 1) * GET_PARAM_##name##_BY_IDX(param, n, base, 4, 2) *    \
+        GET_PARAM_##name##_BY_IDX(param, n, base, 4, 3),                                                   \
+        GET_PARAM_##name##_BY_IDX(param, n, base, 4, 2) * GET_PARAM_##name##_BY_IDX(param, n, base, 4, 3), \
+        GET_PARAM_##name##_BY_IDX(param, n, base, 4, 3), 1
+#define GET_PARAM_ATTR_5_STRIDE(name, param, n, base)                                                       \
+    GET_PARAM_##name##_BY_IDX(param, n, base, 5, 1) * GET_PARAM_##name##_BY_IDX(param, n, base, 5, 2) *     \
+        GET_PARAM_##name##_BY_IDX(param, n, base, 5, 3) * GET_PARAM_##name##_BY_IDX(param, n, base, 5, 4),  \
+        GET_PARAM_##name##_BY_IDX(param, n, base, 5, 2) * GET_PARAM_##name##_BY_IDX(param, n, base, 5, 3) * \
+            GET_PARAM_##name##_BY_IDX(param, n, base, 5, 4),                                                \
+        GET_PARAM_##name##_BY_IDX(param, n, base, 5, 3) * GET_PARAM_##name##_BY_IDX(param, n, base, 5, 4),  \
+        GET_PARAM_##name##_BY_IDX(param, n, base, 5, 4), 1
 
 #define GET_PARAM_OFFSET_1(param, n, base) GET_PARAM_ATTR_1(OFFSET, param, n, base)
 #define GET_PARAM_SHAPE_1(param, n, base)  GET_PARAM_ATTR_1(SHAPE, param, n, base)
 #define GET_PARAM_RAWSHAPE_1(param, n, base) GET_PARAM_ATTR_1(RAWSHAPE, param, n, base)
+#define GET_PARAM_STRIDE_1(param, n, base) 1
 
 #define GET_PARAM_OFFSET_2(param, n, base) GET_PARAM_ATTR_2(OFFSET, param, n, base)
 #define GET_PARAM_SHAPE_2(param, n, base)  GET_PARAM_ATTR_2(SHAPE, param, n, base)

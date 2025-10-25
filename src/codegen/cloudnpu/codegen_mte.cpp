@@ -771,7 +771,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUB(PrintMemCopyWithUBParam &param
         });
     }
     if (isSupportLayout) {
-        return PrintMemCopyWithUBTileTensor();
+        return PrintMemCopyWithUBTileTensor(param);
     }
     if (isSupportDynamicUnaligned) {
         return PrintMemCopyWithUBDynamicSupportUnaligned(param);
@@ -924,16 +924,17 @@ std::string CodeGenOpCloudNPU::GenLoadOp() const {
     int ret = -1;
     if (dstRawShapes.size() == SHAPE_DIM2) {
         ret = sprintf_s(buffer, sizeof(buffer),
-            "%s<%s, %s, %lld>((__ubuf__ %s *)%s, (__gm__ %s *)%s, (__ubuf__ %s *)%s, %s, %s);\n",
-            tileOpName.c_str(), dstDtypeStr.c_str(), offsetsDtypeStr.c_str(), dstRawShapes[1], dstDtypeStr.c_str(),
-            dstVar.c_str(), srcDtypeStr.c_str(), srcVar.c_str(), offsetsDtypeStr.c_str(), offsetsVar.c_str(),
-            dstOriShapes[0].Dump().c_str(), dstOriShapes[1].Dump().c_str());
+            "%s<%s, %s, %lld>((__ubuf__ %s *)%s, (__gm__ %s *)%s, (__ubuf__ %s *)%s, %s, %s);\n", tileOpName.c_str(),
+            dstDtypeStr.c_str(), offsetsDtypeStr.c_str(), dstRawShapes[ID1], dstDtypeStr.c_str(), dstVar.c_str(),
+            srcDtypeStr.c_str(), srcVar.c_str(), offsetsDtypeStr.c_str(), offsetsVar.c_str(),
+            dstOriShapes[ID0].Dump().c_str(), dstOriShapes[1].Dump().c_str());
     } else if (dstRawShapes.size() == SHAPE_DIM3) {
         ret = sprintf_s(buffer, sizeof(buffer),
             "%s<%s, %s, %lld, %lld>((__ubuf__ %s *)%s, (__gm__ %s *)%s, (__ubuf__ %s *)%s, %s, %s, %s);\n",
-            tileOpName.c_str(), dstDtypeStr.c_str(), offsetsDtypeStr.c_str(), dstRawShapes[1], dstRawShapes[2],
+            tileOpName.c_str(), dstDtypeStr.c_str(), offsetsDtypeStr.c_str(), dstRawShapes[ID1], dstRawShapes[ID2],
             dstDtypeStr.c_str(), dstVar.c_str(), srcDtypeStr.c_str(), srcVar.c_str(), offsetsDtypeStr.c_str(),
-            offsetsVar.c_str(), dstOriShapes[0].Dump().c_str(), dstOriShapes[1].Dump().c_str(), dstOriShapes[2].Dump().c_str());
+            offsetsVar.c_str(), dstOriShapes[ID0].Dump().c_str(), dstOriShapes[ID1].Dump().c_str(),
+            dstOriShapes[ID2].Dump().c_str());
     } else {
         ASSERT(false) << "unsupport dim " << dstRawShapes.size() << " , only support 2 or 3 now.";
     }
@@ -944,11 +945,30 @@ std::string CodeGenOpCloudNPU::GenLoadOp() const {
     return ostring;
 }
 
-std::string CodeGenOpCloudNPU::PrintMemCopyWithUBTileTensor() const {
+std::string CodeGenOpCloudNPU::PrintMemCopyWithUBTileTensor(const PrintMemCopyWithUBParam &param) const {
+    unsigned gmIdx = param.gmIdx;
+    int dim = static_cast<int>(rawShape[gmIdx].size());
+    std::vector<std::string> gmOffsetExpr;
+    if (offsetGmSymbolic[gmIdx][ID0].IsValid()) {
+        gmOffsetExpr = GenSymbolicArgument(offsetGmSymbolic[gmIdx]);
+    } else {
+        gmOffsetExpr = GenGetParamMacroPacked(gmIdx, dim, PREFIX_STR_OFFSET);
+    }
+
+    // constructor call parameter ((RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 0)),(RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 1)))
+    std::string coordCp = PrintParams({"(", ")"}, gmOffsetExpr, ", ");
+    // e.g. Coord4Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 0)),(RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 1)))
+    std::string coord = "Coord" + std::to_string(dim) + DIM + coordCp;
+
     std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(SISOIdx::DST_IDX)]);
     std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(SISOIdx::SRC_IDX)]);
+
+    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, coord};
+
     std::ostringstream oss;
-    oss << tileOpName << "(" << dstTensor << ", " << srcTensor << ");\n";
+    oss << tileOpName;
+    oss << PrintParams({"(", ")"}, tileOpParamList, ", ");
+    oss << ";\n";
     return oss.str();
 }
 
@@ -1013,9 +1033,10 @@ std::string CodeGenOpCloudNPU::GenGatherInL1() const {
 
     auto ret = sprintf_s(buffer, sizeof(buffer),
         "%s<%s, %s, %lld, %lld, %lld>((__cbuf__ %s *)%s, %s, %s, (__gm__ %s *)%s, %lld, (__gm__ %s *)%s, %s, %s);\n",
-        tileOpName.c_str(), dstDtypeStr.c_str(), offsetsDtypeStr.c_str(), dstRawShapes[ID0], offsetsRawShapes[ID1], srcColumnStartOffset,
-        dstDtypeStr.c_str(), dstVar.c_str(), dstOriShapes[ID0].Dump().c_str(), dstOriShapes[ID1].Dump().c_str(), srcDtypeStr.c_str(), srcVar.c_str(),
-        srcRawShapes[1], offsetsDtypeStr.c_str(), offsetsVar.c_str(), offsetsStartOffsets[ID0].c_str(), offsetsStartOffsets[ID1].c_str());
+        tileOpName.c_str(), dstDtypeStr.c_str(), offsetsDtypeStr.c_str(), dstRawShapes[ID0], offsetsRawShapes[ID1],
+        srcColumnStartOffset, dstDtypeStr.c_str(), dstVar.c_str(), dstOriShapes[ID0].Dump().c_str(),
+        dstOriShapes[ID1].Dump().c_str(), srcDtypeStr.c_str(), srcVar.c_str(), srcRawShapes[1], offsetsDtypeStr.c_str(),
+        offsetsVar.c_str(), offsetsStartOffsets[ID0].c_str(), offsetsStartOffsets[ID1].c_str());
 
     ASSERT(ret >= 0) << "GenGatherInL1 sprintf_s failed ";
     std::cout << buffer << std::endl;

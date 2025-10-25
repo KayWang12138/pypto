@@ -28,14 +28,13 @@
 namespace npu::tile_fwk {
 namespace {
 bool IsCopyOpWithShapeOffsetAttr(Opcode opcode) {
-    bool result = opcode == Opcode::OP_COPY_IN || opcode == Opcode::OP_COPY_OUT ||
-                  opcode == Opcode::OP_TRANSPOSE_MOVEOUT || opcode == Opcode::OP_TRANSPOSE_MOVEIN ||
-                  opcode == Opcode::OP_INDEX_OUTCAST || opcode == Opcode::OP_LOCAL_COPY_OUT ||
-                  opcode == Opcode::OP_REMOTE_REDUCE || opcode == Opcode::OP_REMOTE_GATHER ||
-                  opcode == Opcode::OP_FFN_SCHED || opcode == Opcode::OP_FFN_BATCHING ||
-                  opcode == Opcode::OP_COPY_TO_LOCAL_EXPERT || opcode == Opcode::OP_SHMEM_PUT ||
-                  opcode == Opcode::OP_SHMEM_SIGNAL || opcode == Opcode::OP_SHMEM_GET ||
-                  opcode == Opcode::OP_SHMEM_REDUCE;
+    bool result =
+        opcode == Opcode::OP_COPY_IN || opcode == Opcode::OP_COPY_OUT || opcode == Opcode::OP_TRANSPOSE_MOVEOUT ||
+        opcode == Opcode::OP_TRANSPOSE_MOVEIN || opcode == Opcode::OP_INDEX_OUTCAST ||
+        opcode == Opcode::OP_LOCAL_COPY_OUT || opcode == Opcode::OP_REMOTE_REDUCE ||
+        opcode == Opcode::OP_REMOTE_GATHER || opcode == Opcode::OP_FFN_SCHED || opcode == Opcode::OP_FFN_BATCHING ||
+        opcode == Opcode::OP_COPY_TO_LOCAL_EXPERT || opcode == Opcode::OP_SHMEM_PUT ||
+        opcode == Opcode::OP_SHMEM_SIGNAL || opcode == Opcode::OP_SHMEM_GET || opcode == Opcode::OP_SHMEM_REDUCE;
 
     return result;
 }
@@ -121,13 +120,15 @@ bool CodeGenOp::Init(const npu::tile_fwk::Operation &ops) {
 
     isSupportDynamicUnaligned =
         functionType == FunctionType::DYNAMIC_LOOP_PATH && config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_UNALIGNED);
-    isSupportLayout = ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_SUPPORT_LAYOUT, false);
-
     UpdateTileOpInfo(ops);
     if (tileOpName.empty()) {
         ALOG_ERROR_F("%s: empty tileOpName for ops:\n%s", __FUNCTION__, ops.Dump().c_str());
         return false;
     }
+
+    // opcode would be refreshed by UpdateTileOpInfo
+    isSupportLayout = ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false) &&
+                      SUPPORT_TILETENSOR_OPS.find(opCode) != SUPPORT_TILETENSOR_OPS.end();
 
     opCodeStr = OpcodeManager::Inst().GetOpcodeStr(opCode);
 
@@ -353,7 +354,7 @@ void CodeGenOp::UpdateTileOpInfo(const Operation &ops) {
         return;
     }
 
-    std::string dynPrefix =  "Dyn";
+    std::string dynPrefix = "Dyn";
 
     size_t nameSpaceLen = std::strlen("TileOp::");
     // NEXTNEXT: delete if after all TileOp have adapted dynamic unalinged scene

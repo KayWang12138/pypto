@@ -111,6 +111,7 @@ private:
     void DumpCCE(const std::string &name, const std::string &code) const;
 
     void DoCompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const;
+    std::string BuildCompileOptions(const CompileInfo &compileInfo, const std::string &compileOptions) const;
 
     std::string GenAlloc(SymbolManager &manager, BufferType bufferType, npu::tile_fwk::DataType dataType,
         const npu::tile_fwk::TileRange &range) const;

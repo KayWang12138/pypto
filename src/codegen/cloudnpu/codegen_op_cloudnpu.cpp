@@ -21,12 +21,6 @@
 #include "securec.h"
 
 namespace npu::tile_fwk {
-// NEXTNEXT: delete after tile op register has supported tile tensor
-const std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
-    { Opcode::OP_UB_COPY_IN, "DataCopy"},
-    {Opcode::OP_UB_COPY_OUT, "DataCopy"},
-    {        Opcode::OP_ADD,      "Add"},
-};
 
 void CodeGenOpCloudNPU::AppendLocalBufferVarOffset(const std::vector<std::string *> &vars) const {
     std::map<unsigned, std::string *> varsMap;
@@ -75,7 +69,7 @@ std::string CodeGenOpCloudNPU::GenGmParamVar(unsigned gmParamIdx) const {
     if (isUnderDynamicFunction) {
         std::ostringstream os;
         os << "GET_PARAM_ADDR(" << GM_TENSOR_PARAM_STR << ", " << GmTensorParamIdxInCallFunc << ", "
-            << paramLocation[gmParamIdx] << ")";
+           << paramLocation[gmParamIdx] << ")";
         return os.str();
     }
 
@@ -178,10 +172,26 @@ bool CodeGenOpCloudNPU::CombineAxis(std::vector<std::vector<int64_t> *> &shapes,
     return true;
 }
 
+std::vector<std::string> CodeGenOpCloudNPU::BuildStride(const std::vector<int64_t> &input) {
+    if (input.empty()) {
+        return {};
+    }
+
+    std::vector<std::string> res(input.size(), "1");
+    int64_t base = 1;
+    for (int i = input.size() - 2; i >= 0; --i) {
+        base *= input[i + 1];
+        res[i] = std::to_string(base);
+    }
+
+    return res;
+}
+
 TileTensor CodeGenOpCloudNPU::BuildTileTensor(int paramIdx, const std::string &usingType) {
     TileTensor tileTensor;
     tileTensor.magic = operandWithMagic[paramIdx];
-    tileTensor.dim = dynamicValidShape[paramIdx].size();
+    tileTensor.dim =
+        functionType == FunctionType::STATIC ? originShape[paramIdx].size() : dynamicValidShape[paramIdx].size();
     tileTensor.dtype = operandDtype[paramIdx];
     tileTensor.bufType = operandType[paramIdx];
     if (tileTensor.bufType == OperandType::BUF_DDR) {
@@ -190,24 +200,27 @@ TileTensor CodeGenOpCloudNPU::BuildTileTensor(int paramIdx, const std::string &u
         tileTensor.bufVar = sm->QueryVarNameByTensorMagic(tileTensor.magic);
     }
     tileTensor.usingType = usingType;
-    tileTensor.tensorName =
-        BUFFER_TYPE_TO_PREFIX_LC.at(tileTensor.bufType) + "Tensor_" + std::to_string(tileTensor.magic);
+    tileTensor.tensorName = BUFFER_TYPE_TO_PREFIX_LC.at(tileTensor.bufType) + "Tensor_" +
+                            std::to_string(IdGen<IdType::CG_VAR_NAME>::Inst().NewId());
 
-    if (tileTensor.bufType == OperandType::BUF_DDR) {
-        tileTensor.shape = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_RAW_SHAPE);
-        tileTensor.stride = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_STRIDE);
-    } else {
-        for (const auto &s : dynamicValidShape[paramIdx]) {
-            tileTensor.shape.emplace_back(s.Dump());
+    if (functionType == FunctionType::STATIC) {
+        for (auto s : originShape[paramIdx]) {
+            tileTensor.shape.emplace_back(std::to_string(s));
         }
-        for (int i = 1; i < tileTensor.dim; ++i) {
-            tileTensor.stride.emplace_back(std::to_string(rawShape[paramIdx][i]));
+        tileTensor.stride = BuildStride(rawShape[paramIdx]);
+    } else {
+        if (tileTensor.bufType == OperandType::BUF_DDR) {
+            tileTensor.shape = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_RAW_SHAPE);
+            tileTensor.stride = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_STRIDE);
+        } else {
+            for (const auto &s : dynamicValidShape[paramIdx]) {
+                tileTensor.shape.emplace_back(SymbolicExpressionTable::BuildExpression(s));
+            }
+            tileTensor.stride = BuildStride(rawShape[paramIdx]);
         }
     }
 
-    // default last axis stride is 1, which means data is consecutive in memory
-    tileTensor.stride.emplace_back("1");
-
+    tileTensor.isStatic = functionType == FunctionType::STATIC;
     return tileTensor;
 }
 
@@ -218,12 +231,14 @@ void CodeGenOpCloudNPU::UpdateTileTensorInfo() {
 
     auto iter = SUPPORT_TILETENSOR_OPS.find(opCode);
     if (iter == SUPPORT_TILETENSOR_OPS.end()) {
+        ASSERT(iter != SUPPORT_TILETENSOR_OPS.end()) << "opCode: " << opCodeStr << " not support tile tensor!";
         return;
     }
 
     tileOpName = iter->second;
     for (int i = 0; i < operandCnt; ++i) {
-        TileTensorUsing tileTensorUsing{operandDtype[i], operandType[i], static_cast<int>(rawShape[i].size())};
+        TileTensorUsing tileTensorUsing{operandDtype[i], operandType[i], static_cast<int>(rawShape[i].size()),
+            rawShape[i], functionType == FunctionType::STATIC};
         std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
         TileTensor tileTensor = BuildTileTensor(i, usingType);
         sm->AddTileTensor(tileTensor);

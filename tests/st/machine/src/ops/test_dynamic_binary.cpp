@@ -77,6 +77,7 @@ TEST_F(DynamicBinTest, TestDynamicAddUnalign) {
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
 }
+
 TEST_F(DynamicBinTest, testDynMulsUnalign) {
     SetInterpreterConfig();
     config::SetHostOption(ONLY_CODEGEN, true);

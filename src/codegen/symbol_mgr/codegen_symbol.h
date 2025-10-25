@@ -21,6 +21,7 @@
 #include <string>
 
 #include "interface/utils/log.h"
+#include "interface/utils/id_gen.h"
 #include "tilefwk/error.h"
 #include "interface/utils/common.h"
 #include "interface/tensor/logical_tensor.h"
@@ -28,10 +29,18 @@
 
 namespace npu::tile_fwk {
 const std::string TILE_TENSOR = "TileTensor";
-const std::string LAYOUT_DIM = "LayoutDim";
+const std::string LAYOUT = "Layout";
 const std::string SCOPE_NAMESPACE = "Hardware";
+const std::string DIM = "Dim";
 using BufferType = enum OperandType;
 using AllocKey = std::tuple<BufferType, int64_t /*RangeStart*/, int64_t /*RangeEnd*/>;
+
+inline std::string GetLayoutType(BufferType bufType, int dim, bool isStatic) {
+    std::string prefix = bufType == BUF_DDR ? "Dyn" : isStatic ? "Static" : "Local";
+    std::ostringstream ss;
+    ss << prefix << LAYOUT << dim << DIM;
+    return ss.str();
+}
 
 // e.g.
 // UBTileTensorFP32Dim2 ubTile_0((__ubuf__ float*)UB_S0_E16384, DimLayout2(Shape<int, int>(sym_18_dim_0, sym_18_dim_1),
@@ -46,22 +55,36 @@ struct TileTensor {
     std::string tensorName; // e.g. "ubTile_0"
     std::vector<std::string> shape;
     std::vector<std::string> stride;
+    bool isStatic;
 
-    bool operator==(const TileTensor &other) const { return dim == other.dim && bufVar == other.bufVar; }
+    bool operator==(const TileTensor &other) const {
+        return dim == other.dim && bufVar == other.bufVar && shape == other.shape;
+    }
 
     /*  e.g.
         ((__ubuf__ float*)UB_S0_E16384,
-        DimLayout2(Shape<int, int>(sym_18_dim_0, sym_18_dim_1), Stride<int, int>(64, 1)));
+        Layout2Dim(Shape2Dim<int, int>(sym_18_dim_0, sym_18_dim_1), Stride2Dim<int, int>(64, 1)));
     */
     std::string GenInitParam() const {
         std::ostringstream oss;
         std::vector<std::string> params;
         // (__ubuf__ float*)UB_S0_E16384
         oss << "(" << OPERAND_TYPE_TO_ADDR_TYPE.at(bufType) << " " << DataType2CCEStr(dtype) << "*)" << bufVar;
+        if (isStatic && bufType != BUF_DDR) {
+            return "(" + oss.str() + ")";
+        }
         params.emplace_back(oss.str());
         oss.str("");
-        // DimLayout2(Shape<int, int>(sym_18_dim_0, sym_18_dim_1), Stride<int, int>(64, 1)));
-        oss << LAYOUT_DIM << dim << "(" << GenShapeParam() << ", " << GenStrideParam() << ")";
+        // ddr: e.g. DynLayout2Dim(Shape2Dim<int, int>(sym_18_dim_0, sym_18_dim_1), Stride2Dim<int, int>(64, 1)));
+        // local: e.g. Shape2Dim(sym_18_dim_0, sym_18_dim_1));
+        if (bufType == BUF_DDR) {
+            oss << GetLayoutType(bufType, dim, isStatic);
+        }
+        oss << "(" << GenShapeParam();
+        if (bufType == BUF_DDR) {
+            oss << ", " << GenStrideParam();
+        }
+        oss << ")";
         params.emplace_back(oss.str());
         return PrintParams({"(", ")"}, params, ", ");
     }
@@ -73,11 +96,9 @@ struct TileTensor {
     }
 
 private:
-    std::string GenLayoutParam(const std::string &paramName, const std::vector<std::string>& paramValue) const {
-        std::vector<std::string> templateParam(dim, "int");
+    std::string GenLayoutParam(const std::string &paramName, const std::vector<std::string> &paramValue) const {
         std::ostringstream oss;
-        oss << paramName;
-        oss << PrintParams({"<", ">"}, templateParam, ", ");
+        oss << paramName << dim << DIM;
         oss << PrintParams({"(", ")"}, paramValue, ", ");
         return oss.str();
     }
@@ -90,6 +111,9 @@ struct TileTensorHash {
         std::size_t seed = 0;
         HashCombine(seed, t.dim);
         HashCombine(seed, t.bufVar);
+        for (const auto &s : t.shape) {
+            HashCombine(seed, s);
+        }
         return seed;
     };
 };
@@ -98,23 +122,31 @@ struct TileTensorUsing {
     DataType dtype;
     BufferType bufType;
     int dim;
+    std::vector<int64_t> rawShape;
+    bool isStatic;
 
     bool operator==(const TileTensorUsing &other) const {
-        return dtype == other.dtype && bufType == other.bufType && dim == other.dim;
+        return dtype == other.dtype && bufType == other.bufType && rawShape == other.rawShape;
     }
 
     std::string GenName() const {
         std::ostringstream oss;
-        // e.g. "UBTileTensorFP32Dim2"
-        oss << BUFFER_TYPE_TO_PREFIX.at(bufType) << TILE_TENSOR << BriefDataType2String(dtype) << "Dim" << dim;
+        // e.g. "UBTileTensorFP32Dim2_0"
+        oss << BUFFER_TYPE_TO_PREFIX.at(bufType) << TILE_TENSOR << BriefDataType2String(dtype) << DIM << dim << "_"
+            << IdGen<IdType::CG_USING_NAME>::Inst().NewId();
         return oss.str();
     }
 
-    // e.g. "TileTensor<__ubuf__ float, LayoutDim2, Hardware::UB>"
+    // dynamic shape: e.g. "TileTensor<__ubuf__ float, DynLayout4Dim, Hardware::GM>"
+    // static shape: e.g. "TileTensor<__ubuf__ float, LocalLayout4Dim<16, 16>, Hardware::UB>"
     std::string ToString() const {
         std::ostringstream ss;
-        ss << TILE_TENSOR << "<" << GetAddrTypeByOperandType(bufType) << " " << DataType2CCEStr(dtype) << ", "
-           << LAYOUT_DIM << dim << ", " << SCOPE_NAMESPACE << "::" << BUFFER_TYPE_TO_PREFIX.at(bufType) << ">;\n";
+        ss << TILE_TENSOR << "<" << GetAddrTypeByOperandType(bufType) << " " << DataType2CCEStr(dtype) << ", ";
+        ss << GetLayoutType(bufType, dim, isStatic);
+        if (bufType != BUF_DDR) {
+            ss << PrintParams({"<", ">"}, rawShape, ", ");
+        }
+        ss << ", " << SCOPE_NAMESPACE << "::" << BUFFER_TYPE_TO_PREFIX.at(bufType) << ">;\n";
         return ss.str();
     }
 };
@@ -151,6 +183,7 @@ private:
     std::shared_ptr<LogicalTensor> GetTensorByMagic(int magicNum) const;
     AllocKey CreateAllocKey(const std::shared_ptr<LogicalTensor> &tensor) const;
     AllocKey CreateAllocKey(int tensorMagicNum) const;
+    std::string FindUsingName(const TileTensorUsing &tileTensorUsing) const;
 
     // <AllocKey, buffer variable name>
     std::map<AllocKey, std::string> key2VariableName_;

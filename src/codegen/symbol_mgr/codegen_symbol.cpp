@@ -91,8 +91,21 @@ std::string SymbolManager::QueryVarNameByTensorMagic(int magic) {
     return varName;
 }
 
+std::string SymbolManager::FindUsingName(const TileTensorUsing &tileTensorUsing) const {
+    for (const auto &usingPair : tileTensorUsing_) {
+        if (usingPair.second == tileTensorUsing) {
+            return usingPair.first;
+        }
+    }
+    return "";
+}
+
 std::string SymbolManager::AddTileTensorUsing(const TileTensorUsing &tileTensorUsing) {
-    std::string tensorUsingType = tileTensorUsing.GenName();
+    std::string tensorUsingType = FindUsingName(tileTensorUsing);
+    if (!tensorUsingType.empty()) {
+        return tensorUsingType;
+    }
+    tensorUsingType = tileTensorUsing.GenName();
     tileTensorUsing_.insert({tensorUsingType, tileTensorUsing});
     return tensorUsingType;
 }

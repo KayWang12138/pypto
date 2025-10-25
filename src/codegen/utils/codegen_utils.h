@@ -26,6 +26,8 @@
 #include "interface/operation/opcode.h"
 
 namespace npu::tile_fwk {
+constexpr int COMMENT_PREFIX_LENGTH = 2;
+
 template <typename T>
 inline void FillIntVecWithDummyInHead(std::vector<T> &input, unsigned padNum, T dummy) {
     for (unsigned i = 0; i < padNum; ++i) {
@@ -33,20 +35,37 @@ inline void FillIntVecWithDummyInHead(std::vector<T> &input, unsigned padNum, T 
     }
 }
 
+// only recogonize /* as comment prefix
+inline bool StartWithComment(const std::string &str) {
+    return str.size() >= COMMENT_PREFIX_LENGTH && str[0] == '/' && str[1] == '*';
+}
+template <typename T>
+std::enable_if_t<std::is_arithmetic_v<T>, std::string> ToStringHelper(const T &value) {
+    return std::to_string(value);
+}
+inline std::string ToStringHelper(const std::string &value) {
+    return value;
+}
+
 template <typename T = std::string>
-std::string JoinString(const std::vector<T> &strList, const std::string &conj) {
+std::string JoinString(const std::vector<T> &params, const std::string &sep) {
     std::ostringstream oss;
-    std::string prefix = "/*";
-    for (size_t i = 0; i < strList.size(); i++) {
-        if (i != 0) {
-            if (std::is_same_v<T, std::string> && strList[i - 1].substr(0, prefix.length()) == prefix) {
-                oss << " ";
-            } else {
-                oss << conj;
-            }
+
+    for (size_t i = 0; i < params.size(); ++i) {
+        std::string current = ToStringHelper(params[i]);
+        if (current.empty()) {
+            continue;
         }
-        oss << strList[i];
+        if (i > 0) {
+            bool useEmptySep{false};
+            if constexpr (std::is_same_v<T, std::string>) {
+                useEmptySep = StartWithComment(params[i - 1]);
+            }
+            oss << (useEmptySep ? " " : sep);
+        }
+        oss << current;
     }
+
     return oss.str();
 }
 

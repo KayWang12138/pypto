@@ -177,11 +177,11 @@ TEST_F(TestCodegenDynBinary, TestGatherEle) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenDynBinary, AddUnalignLayout) {
+TEST_F(TestCodegenDynBinary, AddUnalignTileTensor) {
     config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(64, 64);
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_LAYOUT, true);
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     // NEXTNEXT: delete after tileop adapted layout mode
     config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
 
@@ -240,23 +240,23 @@ uint64_t sym_19_dim_0 = (RUNTIME_COA_GET_PARAM_VALID_SHAPE(2, 1, 0)); //GET_PARA
 uint64_t sym_19_dim_1 = (RUNTIME_COA_GET_PARAM_VALID_SHAPE(2, 1, 1)); //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 1);
 uint64_t sym_7_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 2, 19, 2, 0);
 uint64_t sym_7_dim_1 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 2, 19, 2, 1);
-using GMTileTensorFP32Dim2 = TileTensor<__gm__ float, LayoutDim2, Hardware::GM>;
-using UBTileTensorFP32Dim2 = TileTensor<__ubuf__ float, LayoutDim2, Hardware::UB>;
-GMTileTensorFP32Dim2 gmTensor_7((__gm__ float*)GET_PARAM_ADDR(param, 2, 19), LayoutDim2(Shape<int, int>(GET_PARAM_RAWSHAPE_2(param, 2, 19)), Stride<int, int>(GET_PARAM_STRIDE_2(param, 2, 19), 1)));
-GMTileTensorFP32Dim2 gmTensor_3((__gm__ float*)GET_PARAM_ADDR(param, 0, 1), LayoutDim2(Shape<int, int>(GET_PARAM_RAWSHAPE_2(param, 0, 1)), Stride<int, int>(GET_PARAM_STRIDE_2(param, 0, 1), 1)));
-UBTileTensorFP32Dim2 ubTensor_19((__ubuf__ float*)UB_S16384_E32768, LayoutDim2(Shape<int, int>(sym_19_dim_0, sym_19_dim_1), Stride<int, int>(64, 1)));
-GMTileTensorFP32Dim2 gmTensor_5((__gm__ float*)GET_PARAM_ADDR(param, 1, 10), LayoutDim2(Shape<int, int>(GET_PARAM_RAWSHAPE_2(param, 1, 10)), Stride<int, int>(GET_PARAM_STRIDE_2(param, 1, 10), 1)));
-UBTileTensorFP32Dim2 ubTensor_18((__ubuf__ float*)UB_S0_E16384, LayoutDim2(Shape<int, int>(sym_18_dim_0, sym_18_dim_1), Stride<int, int>(64, 1)));
+using GMTileTensorFP32Dim2_1 = TileTensor<__gm__ float, DynLayout2Dim, Hardware::GM>;
+using UBTileTensorFP32Dim2_0 = TileTensor<__ubuf__ float, LocalLayout2Dim<64, 64>, Hardware::UB>;
+GMTileTensorFP32Dim2_1 gmTensor_7((__gm__ float*)GET_PARAM_ADDR(param, 2, 19), DynLayout2Dim(Shape2Dim(GET_PARAM_RAWSHAPE_2(param, 2, 19)), Stride2Dim(GET_PARAM_STRIDE_2(param, 2, 19))));
+GMTileTensorFP32Dim2_1 gmTensor_3((__gm__ float*)GET_PARAM_ADDR(param, 0, 1), DynLayout2Dim(Shape2Dim(GET_PARAM_RAWSHAPE_2(param, 0, 1)), Stride2Dim(GET_PARAM_STRIDE_2(param, 0, 1))));
+UBTileTensorFP32Dim2_0 ubTensor_2((__ubuf__ float*)UB_S16384_E32768, (Shape2Dim(sym_19_dim_0, sym_19_dim_1)));
+GMTileTensorFP32Dim2_1 gmTensor_1((__gm__ float*)GET_PARAM_ADDR(param, 1, 10), DynLayout2Dim(Shape2Dim(GET_PARAM_RAWSHAPE_2(param, 1, 10)), Stride2Dim(GET_PARAM_STRIDE_2(param, 1, 10))));
+UBTileTensorFP32Dim2_0 ubTensor_0((__ubuf__ float*)UB_S0_E16384, (Shape2Dim(sym_18_dim_0, sym_18_dim_1)));
 SUBKERNEL_PHASE1
-DataCopy(ubTensor_18, gmTensor_5);
-DataCopy(ubTensor_19, gmTensor_3);
+TLoad(ubTensor_0, gmTensor_1, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 10, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 10, 1))));
+TLoad(ubTensor_2, gmTensor_3, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 1, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 1, 1))));
 SUBKERNEL_PHASE2
 set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
 wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-Add(ubTensor_18, ubTensor_18, ubTensor_19);
+TAdd(ubTensor_0, ubTensor_0, ubTensor_2);
 set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
 wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-DataCopy(gmTensor_7, ubTensor_18);
+TStore(gmTensor_7, ubTensor_0, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 19, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 19, 1))));
 }
 )!!!";
 

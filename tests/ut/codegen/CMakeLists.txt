@@ -41,6 +41,7 @@ set(_CaseFilterList
         "TestCodegenBinary.TestCodegenAddSDim2"
         "TestCodegenBinary.TestCodegenAddSDim3"
         "TestCodegenBinary.TestCodegenAddSDim4"
+        "TestCodegenBinary.TestCodegenAddMulDim4TileTensor"
         "TestCodegenGather.TestGather"
         "TestCodegenGather.TestGatherEle"
         "TestCodegenReduceScatter.TestReduceScatter"
@@ -90,7 +91,7 @@ set(_CaseFilterList
         # dynamic support unaligned
         "TestCodegenDynIndexOutCast.DynIndexOutUnaligned"
         "TestCodegenDynBinary.TestGatherEle"
-        "TestCodegenDynBinary.AddUnalignLayout"
+        "TestCodegenDynBinary.AddUnalignTileTensor"
         "TestCodegenDynDataMove.TestDatamoveUnalignDim3"
         "TestCodegenDynDataMove.TestDatamoveUnalignDim4"
         "TestCodegenDynVdup.TestDynVdupUnaligned"

@@ -113,7 +113,7 @@ public:
     std::string GenDistOp() const;
     std::string GetTemplateDType() const;
     std::string GenTemplateParams() const;
-    void GenExtraTemplateParamsForPutAndGet(std::ostringstream& oss) const;
+    void GenExtraTemplateParamsForPutAndGet(std::ostringstream &oss) const;
     std::string GenOffsetsAndRawShapes() const;
     std::string GenOffsetsAndRawShapes(int32_t operandIndex, int32_t dim) const;
 
@@ -161,6 +161,7 @@ private:
     bool GetAttr(const std::string &key, T &value) const;
 
     TileTensor BuildTileTensor(int paramIdx, const std::string &usingType);
+    std::vector<std::string> BuildStride(const std::vector<int64_t> &input);
 
     std::vector<int64_t> GetTileShapeForMemTransfer(
         OperandType localType, std::vector<int64_t> gmShape, unsigned localIdx) const;
@@ -274,7 +275,7 @@ private:
     std::string PrintMemCopyWithUBStatic(const PrintMemCopyWithUBParam &param) const;
     std::string PrintMemCopyWithUBDynamic(const PrintMemCopyWithUBParam &param) const;
     std::string PrintMemCopyWithUBDynamicSupportUnaligned(const PrintMemCopyWithUBParam &param) const;
-    std::string PrintMemCopyWithUBTileTensor() const;
+    std::string PrintMemCopyWithUBTileTensor(const PrintMemCopyWithUBParam &param) const;
 
     struct PrintGatherParam {
         const std::string &s0Var;
@@ -488,7 +489,7 @@ private:
         {                       Opcode::OP_ABS,                  [this]() { return GenUnaryOp(); }},
         {                        Opcode::OP_LN,                  [this]() { return GenUnaryOp(); }},
         // logicalnot
-        {           Opcode::OP_LOGICALNOT,                  [this]() { return GenLogicalNotOp(); }},
+        {                Opcode::OP_LOGICALNOT,             [this]() { return GenLogicalNotOp(); }},
 
         // unary with temp buffer
         {                   Opcode::OP_COMPACT,       [this]() { return GenUnaryOpWithTmpBuff(); }},
@@ -502,7 +503,7 @@ private:
         // gather/scatter op
         {                    Opcode::OP_GATHER,                 [this]() { return GenGatherOp(); }},
         {            Opcode::OP_GATHER_ELEMENT,          [this]() { return GenGatherElementOp(); }},
-        {           Opcode::OP_SCATTER_ELEMENT,         [this]() { return GenScatterElementSOp(); }},
+        {           Opcode::OP_SCATTER_ELEMENT,        [this]() { return GenScatterElementSOp(); }},
 
         // transpose with gm
         {         Opcode::OP_TRANSPOSE_MOVEOUT,        [this]() { return GenTransposeDataMove(); }},
@@ -511,10 +512,10 @@ private:
         // vector dup
         {                   Opcode::OP_VEC_DUP,                    [this]() { return GenDupOp(); }},
         // vector where
-        {                    Opcode::OP_WHERE_SS,              [this]() { return GenWhereOp(); }},
-        {                    Opcode::OP_WHERE_TS,              [this]() { return GenWhereOp(); }},
-        {                    Opcode::OP_WHERE_ST,              [this]() { return GenWhereOp(); }},
-        {                    Opcode::OP_WHERE_TT,              [this]() { return GenWhereOp(); }},
+        {                  Opcode::OP_WHERE_SS,                  [this]() { return GenWhereOp(); }},
+        {                  Opcode::OP_WHERE_TS,                  [this]() { return GenWhereOp(); }},
+        {                  Opcode::OP_WHERE_ST,                  [this]() { return GenWhereOp(); }},
+        {                  Opcode::OP_WHERE_TT,                  [this]() { return GenWhereOp(); }},
 
         // index outcast
         {             Opcode::OP_INDEX_OUTCAST,           [this]() { return GenIndexOutCastOp(); }},
@@ -523,16 +524,16 @@ private:
         {                   Opcode::OP_BITSORT,                [this]() { return GenBitSortOp(); }},
         {                   Opcode::OP_MRGSORT,                [this]() { return GenMrgSortOp(); }},
         {                   Opcode::OP_EXTRACT,                [this]() { return GenExtractOp(); }},
-        {                   Opcode::OP_TILEDMRGSORT,      [this]() { return GenTiledMrgSortOp(); }},
+        {              Opcode::OP_TILEDMRGSORT,           [this]() { return GenTiledMrgSortOp(); }},
 
-        {                   Opcode::OP_TOPK_SORT,              [this]() { return GenTopKSortOp(); }},
-        {                   Opcode::OP_TOPK_MERGE,             [this]() { return GenTopKMergeOp(); }},
-        {                   Opcode::OP_TOPK_EXTRACT,           [this]() { return GenTopKExtractOp(); }},
+        {                 Opcode::OP_TOPK_SORT,               [this]() { return GenTopKSortOp(); }},
+        {                Opcode::OP_TOPK_MERGE,              [this]() { return GenTopKMergeOp(); }},
+        {              Opcode::OP_TOPK_EXTRACT,            [this]() { return GenTopKExtractOp(); }},
 
         // parallel sort
-        {                   Opcode::OP_SORT,                   [this]() { return GenSortOp(); }},
-        {                   Opcode::OP_COMPARE_SWAP,              [this]() { return GenCompareAndSwapOp(); }},
-        {                   Opcode::OP_MERGE,                  [this]() { return GenMergeOp(); }},
+        {                      Opcode::OP_SORT,                   [this]() { return GenSortOp(); }},
+        {              Opcode::OP_COMPARE_SWAP,         [this]() { return GenCompareAndSwapOp(); }},
+        {                     Opcode::OP_MERGE,                  [this]() { return GenMergeOp(); }},
 
         // matmul
         {                   Opcode::OP_A_MUL_B,             [this]() { return GenCubeOpMatmul(); }},
@@ -579,8 +580,8 @@ private:
         // for aicpu call
         {            Opcode::OP_AICPU_CALL_AIC,              [this]() { return GenAicpuCallOp(); }},
         {            Opcode::OP_AICPU_CALL_AIV,              [this]() { return GenAicpuCallOp(); }},
-        //cmp op
-        {                  Opcode::OP_CMP,                         [this]() { return GenCmpOp(); }},
+        // cmp op
+        {                       Opcode::OP_CMP,                    [this]() { return GenCmpOp(); }},
     };
 };
 

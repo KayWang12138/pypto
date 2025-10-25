@@ -13,15 +13,18 @@
  * \brief Unit test for codegen.
  */
 
+#include <vector>
+#include <string>
+
 #include <gtest/gtest.h>
+
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
 #include "codegen/codegen.h"
-#include <vector>
-#include <string>
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "test_codegen_utils.h"
 
 namespace npu::tile_fwk {
 
@@ -115,5 +118,58 @@ TEST_F(TestCodegenBinary, TestCodegenAddSDim3) {
 
 TEST_F(TestCodegenBinary, TestCodegenAddSDim4) {
     TestAddSBody({2, 2, 20, 20}, {1, 1, 8, 8}, "ADD_DIM4");
+}
+
+TEST_F(TestCodegenBinary, TestCodegenAddMulDim4TileTensor) {
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    TileShape::Current().SetVecTile(1, 1, 16, 16);
+    std::vector<int64_t> shape = {1, 1, 16, 16};
+    Tensor input_a(DT_FP32, shape, "A");
+    Tensor input_b(DT_FP32, shape, "B");
+    Tensor output(DT_FP32, shape, "OUT");
+
+    config::SetBuildStatic(true);
+    std::string name = "AddMulDim4";
+    FUNCTION(name, {input_a, input_b, output}) {
+        Tensor tmp_c(DT_FP32, shape, "TEMP_C");
+        tmp_c = Add(input_a, input_b);
+        output = Mul(input_a, tmp_c);
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+    std::string res = GetResultFromCpp(*function);
+    std::string expect = R"!!!(#include "TileOpImpl.h"
+
+// funcHash: 16047418710607905819
+
+extern "C" [aicore] void TENSOR_AddMulDim4_2_0_4503599627370496(__gm__ GMTensorInfo* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
+float __ubuf__ *UB_S0_E1024 = (float __ubuf__ *)get_imm(0x0); // size: 0x400
+float __ubuf__ *UB_S1024_E2048 = (float __ubuf__ *)get_imm(0x400); // size: 0x400
+using GMTileTensorFP32Dim4_1 = TileTensor<__gm__ float, DynLayout4Dim, Hardware::GM>;
+using UBTileTensorFP32Dim4_0 = TileTensor<__ubuf__ float, StaticLayout4Dim<1, 1, 16, 16>, Hardware::UB>;
+GMTileTensorFP32Dim4_1 gmTensor_7((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 2)->Addr, DynLayout4Dim(Shape4Dim(1, 1, 16, 16), Stride4Dim(256, 256, 16, 1)));
+GMTileTensorFP32Dim4_1 gmTensor_3((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 0)->Addr, DynLayout4Dim(Shape4Dim(1, 1, 16, 16), Stride4Dim(256, 256, 16, 1)));
+UBTileTensorFP32Dim4_0 ubTensor_2((__ubuf__ float*)UB_S1024_E2048);
+GMTileTensorFP32Dim4_1 gmTensor_1((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 1)->Addr, DynLayout4Dim(Shape4Dim(1, 1, 16, 16), Stride4Dim(256, 256, 16, 1)));
+UBTileTensorFP32Dim4_0 ubTensor_0((__ubuf__ float*)UB_S0_E1024);
+SUBKERNEL_PHASE1
+TLoad(ubTensor_0, gmTensor_1, Coord4Dim(0, 0, 0, 0));
+TLoad(ubTensor_2, gmTensor_3, Coord4Dim(0, 0, 0, 0));
+SUBKERNEL_PHASE2
+set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+TAdd(ubTensor_2, ubTensor_0, ubTensor_2);
+pipe_barrier(PIPE_V);
+TileOp::Tmul_<float, /*OS0*/ 1, 1, 16, 16, /*OS1*/ 1, 1, 16, 16, /*DS*/ 1, 1, 16, 16, /*S0*/ 1, 1, 16, 16, /*S1*/ 1, 1, 16, 16>((__ubuf__ float*)UB_S1024_E2048, (__ubuf__ float*)UB_S0_E1024, (__ubuf__ float*)UB_S1024_E2048);
+set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+TStore(gmTensor_7, ubTensor_2, Coord4Dim(0, 0, 0, 0));
+}
+)!!!";
+    EXPECT_EQ(res, expect);
 }
 } // namespace npu::tile_fwk

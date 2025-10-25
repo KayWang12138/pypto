@@ -482,6 +482,20 @@ std::string CodeGenCloudNPU::GetIncludePathForCompileCCE() const {
     return "";
 }
 
+std::string CodeGenCloudNPU::BuildCompileOptions(
+    const CompileInfo &compileInfo, const std::string &compileOptions) const {
+    const std::string corePredefine = compileInfo.IsCube() ? "-D__AIC__" : "-D__AIV__";
+
+    std::vector<std::string> compileOpts{compileOptions, corePredefine};
+    if (ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false)) {
+        compileOpts.emplace_back("-DSUPPORT_TILE_TENSOR");
+    }
+    // NEXTNEXT: need to adapt different platform for future
+    compileOpts.emplace_back("-D__DAV_V220");
+    std::string allCompileOpts = JoinString(compileOpts, " ");
+    return allCompileOpts;
+}
+
 int CodeGenCloudNPU::CompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const {
     const std::string srcFile = compileInfo.GetCCEAbsPath();
     const std::string objFile = compileInfo.GetBinAbsPath();
@@ -489,20 +503,22 @@ int CodeGenCloudNPU::CompileCCE(const CompileInfo &compileInfo, const std::strin
     std::string coreType = compileInfo.IsCube() ? "dav-c220-cube" : "dav-c220-vec";
     std::string includePath = GetIncludePathForCompileCCE();
     std::string curSoPath = GetCurrentSharedLibPath();
-    const std::string corePredefine = compileInfo.IsCube() ? "-D__AIC__" : "-D__AIV__";
+    std::string allCompileOpts = BuildCompileOptions(compileInfo, compileOptions);
 
     std::ostringstream oss;
-    oss << "ccec " << compileOptions << " -c -O3 -g -x cce -std=c++17 "
+    oss << "ccec " << allCompileOpts << " -c -O3 -g -x cce -std=c++17 "
         << "--cce-aicore-only "
         << "--cce-aicore-arch=" << coreType << " "
-        << corePredefine << " "
         << "-mllvm -cce-aicore-stack-size=0x8000 "
         << "-mllvm -cce-aicore-function-stack-size=0x8000 "
         << "-mllvm -cce-aicore-record-overflow=false "
         << "-mllvm -cce-aicore-addr-transform "
         << "-mllvm -cce-aicore-dcci-insert-for-scalar=false "
-        << "-I" << includePath << "/tileop/a2a3 "
         << "-I" << includePath << "/tilefwk "
+        << "-I" << includePath << "/tileop "
+        << "-I" << includePath << "/tileop/a2a3 "
+        << "-I" << includePath << "/tileop/PTOTileLib/include "
+        << "-I" << includePath << "/tileop/PTOTileLib/include/common "
         << "-I" << includePath << " "
         << "-I" << curSoPath << "/include/tileop/a2a3 "
         << "-I" << curSoPath << "/include/tilefwk "

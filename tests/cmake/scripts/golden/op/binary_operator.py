@@ -61,6 +61,7 @@ else:
         "OnBoardTest.test_operation_tensor_8_8_1_to_8_8_7168_expand_sub",
         "OnBoardTest.test_operation_tensor_dim2_add",
         "OnBoardTest.test_operation_tensor_dim4_add",
+        "OnBoardTest.test_operation_tensor_dim4_add_tile_tensor",
         "OnBoardTest.test_operation_tensor_16_16_64_64_tileop_add",
         "OnBoardTest.test_operation_tensor_16_16_64_64_tileop_sub",
         "OnBoardTest.test_operation_tensor_16_16_64_64_tileop_mul",
