@@ -14,7 +14,7 @@
 """
 """
 import typing
-from typing import Optional, Union, Tuple
+from typing import Optional, Union, Tuple, List
 
 from pto import pto_impl
 
@@ -292,15 +292,34 @@ def view(a, shapes, *args) -> Tensor:
     return Tensor.from_base(out)
 
 
-def assemble(*args) -> Optional[Tensor]:
-    if len(args) == 2:
-        tenors = typing.cast(list[pto_impl.Tensor], _to_base(args[0]))
-        return Tensor.from_base(pto_impl.assemble(tenors, args[1]))
-    elif len(args) == 3:
-        pto_impl.assemble(args[0].base(), to_syms(args[1]), args[2].base())
-        return None
-    else:
-        raise RuntimeError("Invalid arguments")
+def assemble(input: Tensor, offsets: List[Union[int, SymbolicScalar]], out: Tensor) -> None:
+    """
+    Assembles a small Tensor into a larger Tensor based on specified offsets.
+
+    Parameters
+    ---------
+    input: Tensor
+        The small input tensor to be assembled into the larger tensor
+        
+    offsets : List[int] or List[SymbolicScalar]
+        List of offset values indicating where the input tensor should be placed in the output tensor. 
+        It is required that the offsets is smaller than the shape of out.
+        
+    out: Tensor
+        The larger output tensor that will contain the assembled input tensor
+    Examples
+    ---------
+    >>> import pto
+    >>> x = pto.tensor([2, 2], pto.data_type.DT_FP32)  # 2x2 tensor with all 1s
+    >>> out = pto.tensor([4, 4], pto.data_type.DT_FP32)  # 4x4 tensor with all 0s
+    >>> pto.assemble(x, [0, 0], out) 
+    >>> print(out)
+    [[1 1 0 0]
+    [1 1 0 0]
+    [0 0 0 0]
+    [0 0 0 0]]
+    """
+    pto_impl.assemble(input.base(), to_syms(offsets), out.base())
 
 
 def min(a: 'SymbolicScalar | int', b: 'SymbolicScalar | int') -> 'SymbolicScalar':
