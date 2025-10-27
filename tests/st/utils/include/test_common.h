@@ -231,6 +231,53 @@ static bool resultCmpCast(const vector<Ts> &x, const vector<Td> &outDataValExp, 
     return false;
 }
 
+template <typename T>
+static bool resultCmp4TopK(const std::vector<T>& outDataValExp, const T* outDataValAct, size_t selectedCount,
+    float ratio) {
+    size_t data_size = outDataValExp.size();
+    bool precision = false;
+
+    if (data_size != static_cast<size_t>(data_size)) {
+        return false;
+    }
+
+    std::map<size_t, std::pair<std::vector<T>, std::vector<T>>> part_result_dict;
+
+    for (size_t idx = 0; idx < data_size; ++idx) {
+        int32_t expVal = outDataValExp[idx];
+        int32_t actVal = outDataValAct[idx];
+        size_t part_index = static_cast<size_t>(idx / selectedCount);
+
+        if (expVal != actVal) {
+            if (part_result_dict.find(part_index) == part_result_dict.end()) {
+                part_result_dict[part_index] = { {}, {} };
+            }
+            part_result_dict[part_index].first.push_back(expVal);
+            part_result_dict[part_index].second.push_back(actVal);
+        }
+    }
+
+    for (const auto& [idx_index, result_pair]: part_result_dict) {
+        std::vector<T> exp_list = result_pair.first;
+        std::vector<T> act_list = result_pair.second;
+
+        std::sort(exp_list.begin(), exp_list.end());
+        std::sort(act_list.begin(), act_list.end());
+
+        size_t error_count = 0;
+        for (T tok_id: exp_list) {
+            if (std::find(act_list.begin(), act_list.end(), tok_id) == act_list.end()) {
+                error_count++;
+            }
+        }
+        if (error_count <= size_t(selectedCount * ratio)) {
+            precision = true;
+            break;
+        }
+    }
+    return precision;
+}
+
 template <typename T = float>
 static bool resultCmp(const vector<T> &outDataValExp, const T *outDataValAct, float eps, size_t threshold = 0,
     size_t zeroCountThreshold = 1000, bool printAll = false, bool printErr = false, size_t testNum = 0) {

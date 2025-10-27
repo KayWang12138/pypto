@@ -372,6 +372,9 @@ set(_CaseFilterList
         # "LightningIndexerPrologSTest.b35_s1_2_s2_8k"
         # "LightningIndexerPrologSTest.b40_s1_4_s2_8k"
         "LightningIndexerPrologSTest.b4_s1_1_s2_64k"
+
+        # Quantized lightning indexer topk
+        "DynamicIndexerTopk.indexer_topk_quant_4_b_1_s1_64k_s2"
 )
 
 set(_Target ${PTO_Fwk_STestNamePrefix}_operator)

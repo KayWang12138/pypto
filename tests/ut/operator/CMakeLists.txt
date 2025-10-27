@@ -123,6 +123,9 @@ set(_CaseFilterList
 
         # LightningIndexerProlog
         "DynamicLightningIndexerPrologUtest.utest_lightning_indexer_prolog"
+
+        # Quantized lightning indexer topk
+        "TestLightningIndexerTopkQuantUtest.indexer_topk_quant_4_b_1_s1_64k_s2"
 )
 
 set(_Target ${PTO_Fwk_UTestNamePrefix}_operator)
