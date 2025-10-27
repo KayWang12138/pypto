@@ -2353,18 +2353,15 @@ TILEOP void DynBitSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, uns
         // 计算duplicate的mask
         uint64_t mask = ~(((static_cast<uint64_t>(1)) << oriShape1) - 1);
         mask = mask & 0xFFFFFFFF;
-        constexpr uint16_t dstRepeatStride = dstShape1 * sizeof(float) / 32;
-        if constexpr (dstRepeatStride < DUP_REPEAT_STRIDE_MAX) {
+        for (int rowIdx = 0; rowIdx < oriShape0; rowIdx++) {
             set_mask_norm();
             set_vector_mask(0, mask);
-            vector_dup(dst + 3 * srcShape1Align, FLOAT_MIN, oriShape0, 1, 1, dstRepeatStride, (int64_t)0);
-        }
-        pipe_barrier(PIPE_V);
-        for (int rowIdx = 0; rowIdx < oriShape0; rowIdx++) {
+            vector_dup(dst + 3 * srcShape1Align + rowIdx * dstShape1, FLOAT_MIN, 1, 1, 1, 0, (int64_t)0);
+            pipe_barrier(PIPE_V);
             vbitsort((__ubuf__ float *)dst + rowIdx * dstShape1,
                 (__ubuf__ float *)dst + rowIdx * dstShape1 + 3 * srcShape1Align, (__ubuf__ uint32_t *)idx, 1);
+            pipe_barrier(PIPE_V);
         }
-        pipe_barrier(PIPE_V);
         set_vector_mask(-1, -1);
     }
 
