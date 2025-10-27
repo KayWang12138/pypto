@@ -62,7 +62,7 @@ void AlignCopyOutAttr(LogicalTensorPtr &resetDdr, Operation *copyOutOp) {
     if (resetDdr->GetProducers().size() == 1) {
         auto ddrResetCopyOut = *resetDdr->GetProducers().begin();
         if (ddrResetCopyOut->GetOpcode() != Opcode::OP_COPY_OUT) {
-            ALOG_ERROR_F("DDR reset Op requires to be OP_COPY_OUT, but %s[%d].", 
+            APASS_LOG_ERROR_F("PreGraphProcess", "Operation", "DDR reset Op requires to be OP_COPY_OUT, but %s[%d]; Please check the Opcode.", 
                 ddrResetCopyOut->GetOpcodeStr().c_str(), ddrResetCopyOut->GetOpMagic());
             return;
         }
@@ -85,7 +85,7 @@ bool CalculateNewRawShape(const std::vector<int64_t> &oriShape, const std::vecto
             return false;
         }
     }
-    ALOG_DEBUG_F("oriScale is %s.", IntVecToStr(oriScale).c_str());
+    APASS_LOG_DEBUG_F("PreGraphProcess", "Operation", "oriScale is %s.", IntVecToStr(oriScale).c_str());
     size_t newSize = newShape.size();
     newRawShape.resize(newSize);
     std::vector<int64_t> newScale(newSize, 1);
@@ -118,7 +118,7 @@ bool CalculateNewRawShape(const std::vector<int64_t> &oriShape, const std::vecto
         }
     }
 
-    ALOG_DEBUG_F("newScale is %s", IntVecToStr(newScale).c_str());
+    APASS_LOG_DEBUG_F("PreGraphProcess", "Operation", "newScale is %s.", IntVecToStr(newScale).c_str());
     for (size_t j = 0; j < newSize; j++) {
         newRawShape[j] = newShape[j] * newScale[j];
     }
@@ -226,12 +226,12 @@ void PreGraphProcess::HandleForAssembleFromInOut(Function &function, std::unorde
     if (inOrOutTensor == nullptr) {
         return;
     }
-    ALOG_DEBUG_F("find in or out, tensor magic: %d, raw magic: %d", inOrOutTensor->magic, inOrOutTensor->GetRawMagic());
+    APASS_LOG_DEBUG_F(GetName().c_str(), "Tensor", "find in or out, tensor magic: %d, raw magic: %d.", inOrOutTensor->magic, inOrOutTensor->GetRawMagic());
     for (auto &producer : producersBackup) {
         producer->oOperand[0]->tensor = inOrOutTensor->tensor;
         for (auto &cons : producer->oOperand[0]->GetConsumers()) {
             if (cons->GetOpcode() == Opcode::OP_RESHAPE && cons->oOperand[0]->tensor->actualRawmagic != -1) {
-                ALOG_DEBUG_F("consumer[%d] is OP_RESHAPE", cons->GetOpMagic());
+                APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "consumer[%d] is OP_RESHAPE.", cons->GetOpMagic());
                 cons->oOperand[0]->tensor->actualRawmagic = inOrOutTensor->GetRawMagic();
             }
         }
@@ -261,7 +261,7 @@ void PreGraphProcess::HandleForAssembleToOutcast(Function &function, std::unorde
         }
     }
     if (outCastMagic != -1) {
-        ALOG_DEBUG_F("find outCastMagic: %d", outCastMagic);
+        APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "find outCastMagic: %d.", outCastMagic);
         for (auto &producer : producersBackup) {
             producer->oOperand[0]->SetMagic(outCastMagic);
             producer->oOperand[0]->nodetype = NodeType::OUTCAST;
@@ -368,7 +368,7 @@ void PreGraphProcess::DeleteRedundantAssemble(Function &function) const {
 }
 
 void PreGraphProcess::ProcessSpecialMTEOperation(Operation &op) const {
-    ALOG_DEBUG_F("Process Special MTE Operation %d", op.opmagic);
+    APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "Process Special MTE Operation %d.", op.opmagic);
     auto inputTensor = op.iOperand.front();
     auto outputTensor = op.oOperand.front();
     if ((inputTensor == nullptr) || (outputTensor == nullptr)) {
@@ -382,7 +382,7 @@ void PreGraphProcess::ProcessSpecialMTEOperation(Operation &op) const {
 }
 
 void PreGraphProcess::ProcessMoveInOperation(Operation &op) const {
-    ALOG_DEBUG_F("Process MoveIn Operation %d", op.opmagic);
+    APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "Process MoveIn Operation %d.", op.opmagic);
     auto inputTensor = op.iOperand.front();
     if (inputTensor == nullptr) {
         return;
@@ -504,12 +504,12 @@ void PreGraphProcess::ProcessSameInOutOp(Function &function) const {
                 }
                 auto output = op.GetOOperands().front();
                 if (input->shape != output->shape) {
-                    ALOG_INFO_F("Op[%d] input output tensor shape is not equal, cannot reuse buffer.", op.GetOpMagic());
+                    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Op[%d] input output tensor shape is not equal, cannot reuse buffer.", op.GetOpMagic());
                     continue;
                 }
                 if (function.IsFromInCast(input)) {
-                    ALOG_WARN_F(
-                        "PreGraphProcess::ProcessSameInOutOp: OP iOperand tensor[%d] is inCast.", input->GetMagic());
+                    APASS_LOG_WARN_F(
+                        GetName().c_str(), "Tensor", "PreGraphProcess::ProcessSameInOutOp: OP iOperand tensor[%d] is inCast.", input->GetMagic());
                     continue;
                 }
                 input->tensor = output->tensor;
@@ -750,36 +750,36 @@ Status PreGraphProcess::AddL1CopyInAttr(
         L1CopyInOp = *(tensorL0->GetProducers().begin());
     }
     if (L1CopyInOp->GetOpcode() != Opcode::OP_COPY_IN && L1CopyInOp->GetOpcode() != Opcode::OP_GATHER_IN_L1) {
-        ALOG_DEBUG_F("L0 tesnor[%d] has invalid corresponding L1CopyInOp, please check.", input->magic);
+        APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "L0 tesnor[%d] has invalid corresponding L1CopyInOp, please check.", input->magic);
         return FAILED;
     }
     L1CopyInOp->SetAttribute(COPY_IS_NZ, nzValue);
-    ALOG_DEBUG_F("Update %s[%d] attr is_Nz: %d", L1CopyInOp->GetOpcodeStr().c_str(), L1CopyInOp->GetOpMagic(), nzValue);
+    APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "Update %s[%d] attr is_Nz: %d", L1CopyInOp->GetOpcodeStr().c_str(), L1CopyInOp->GetOpMagic(), nzValue);
     if (copyInOp->GetOpcode() == Opcode::OP_L1_TO_L0A) {
         L1CopyInOp->SetAttribute(L1_COPY_IN_OUTER, mValue);
         L1CopyInOp->SetAttribute(L1_COPY_IN_INNER, kValue);
-        ALOG_DEBUG_F("OP_L1_TO_L0A: Outer: %d, Inner: %d", mValue, kValue);
+        APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "OP_L1_TO_L0A: Outer: %d, Inner: %d.", mValue, kValue);
         return SUCCESS;
     }
     if (copyInOp->GetOpcode() == Opcode::OP_L1_TO_L0B) {
         L1CopyInOp->SetAttribute(L1_COPY_IN_OUTER, kValue);
         L1CopyInOp->SetAttribute(L1_COPY_IN_INNER, nValue);
-        ALOG_DEBUG_F("OP_L1_TO_L0B: Outer: %d, Inner: %d", kValue, nValue);
+        APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "OP_L1_TO_L0B: Outer: %d, Inner: %d.", kValue, nValue);
         return SUCCESS;
     }
     if (copyInOp->GetOpcode() == Opcode::OP_L1_TO_L0_AT) {
         L1CopyInOp->SetAttribute(L1_COPY_IN_OUTER, kValue);
         L1CopyInOp->SetAttribute(L1_COPY_IN_INNER, mValue);
-        ALOG_DEBUG_F("OP_L1_TO_L0_AT: Outer: %d, Inner: %d", kValue, mValue);
+        APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "OP_L1_TO_L0_AT: Outer: %d, Inner: %d.", kValue, mValue);
         return SUCCESS;
     }
     if (copyInOp->GetOpcode() == Opcode::OP_L1_TO_L0_BT) {
         L1CopyInOp->SetAttribute(L1_COPY_IN_OUTER, nValue);
         L1CopyInOp->SetAttribute(L1_COPY_IN_INNER, kValue);
-        ALOG_DEBUG_F("OP_L1_TO_L0_BT: Outer: %d, Inner: %d", nValue, kValue);
+        APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "OP_L1_TO_L0_BT: Outer: %d, Inner: %d.", nValue, kValue);
         return SUCCESS;
     }
-    ALOG_DEBUG_F("invalid Cube input %d, produced by %s[%d]", input->GetMagic(), copyInOp->GetOpcodeStr().c_str(),
+    APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "invalid Cube input %d, produced by %s[%d].", input->GetMagic(), copyInOp->GetOpcodeStr().c_str(),
         copyInOp->GetOpMagic());
     return FAILED;
 }
@@ -792,7 +792,7 @@ Status PreGraphProcess::AddL0cCopyOutAttr(const std::shared_ptr<LogicalTensor> o
         childOp->SetAttribute(COPY_IS_NZ, nzValue);
         childOp->SetAttribute(L0C_COPY_OUT_OUTER, mValue);
         childOp->SetAttribute(L0C_COPY_OUT_INNER, nValue);
-        ALOG_DEBUG_F("Update %s[%d] attr is_Nz: %d, curH: %d, curW: %d",
+        APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "Update %s[%d] attr is_Nz: %d, curH: %d, curW: %d.",
             childOp->GetOpcodeStr().c_str(), childOp->GetOpMagic(), nzValue, mValue, nValue);
     }
     return SUCCESS;
@@ -807,26 +807,26 @@ Status PreGraphProcess::UpdateCopyAttr(Operation &op) const {
     int aIsNz = nzAttr % 2;
     int bIsNz = (nzAttr >> 1) % 2;
     int cIsNz = (nzAttr >> 2) % 2;
-    ALOG_DEBUG_F("Retrive %s[%d] attr done, aIsNz: %d, bIsNz: %d, cIsNz: %d, mValue: %d, kValue: %d, nValue: %d",
+    APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "Retrive %s[%d] attr done, aIsNz: %d, bIsNz: %d, cIsNz: %d, mValue: %d, kValue: %d, nValue: %d.",
             op.GetOpcodeStr().c_str(), op.GetOpMagic(), aIsNz, bIsNz, cIsNz, mValue, kValue, nValue);
     for (auto &input : op.GetIOperands()) {
         if (input->GetMemoryTypeOriginal() == MemoryType::MEM_L0A) {
             if (AddL1CopyInAttr(input, aIsNz, mValue, kValue, nValue) != SUCCESS) {
-                ALOG_ERROR_F("Set Attr for matrix A L1_COPY_IN of %s[%d] failed.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Set Attr for matrix A L1_COPY_IN of %s[%d] failed.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
                 return FAILED;
             }
             continue;
         }
         if (input->GetMemoryTypeOriginal() == MemoryType::MEM_L0B) {
             if (AddL1CopyInAttr(input, bIsNz, mValue, kValue, nValue) != SUCCESS) {
-                ALOG_ERROR_F("Set Attr for matrix B L1_COPY_IN of %s[%d] failed.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Set Attr for matrix B L1_COPY_IN of %s[%d] failed.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
                 return FAILED;
             }
         }
     }
     for (auto &output : op.GetOOperands()) {
         if (AddL0cCopyOutAttr(output, cIsNz, mValue, nValue) != SUCCESS) {
-            ALOG_ERROR_F("Set Attr for L0C_COPY_OUT of %s[%d] failed.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Set Attr for L0C_COPY_OUT of %s[%d] failed.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
             return FAILED;
         }
     }
@@ -836,21 +836,21 @@ Status PreGraphProcess::UpdateCopyAttr(Operation &op) const {
 Status PreGraphProcess::CheckValidCube(const Operation &op) {
     /* 校验有且只有一个输出 */
     if (op.GetOOperands().size() != 1) {
-        ALOG_ERROR_F("%s[%d] has output num != 1.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+        APASS_LOG_ERROR_F(GetName().c_str(), "Tensor", "%s[%d] has output num != 1; Please check ooperands.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
         return FAILED;
     }
     /* 校验输出: 1. 非空，2. mem类型为L0C, 3.有消费者 */
     auto outputL0C = op.GetOOperands().front();
     if (outputL0C == nullptr) {
-        ALOG_ERROR_F("%s[%d] output is nullptr.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+        APASS_LOG_ERROR_F(GetName().c_str(), "Tensor", "%s[%d] output is nullptr; Please check outputL0C.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
         return FAILED;
     }
     if (outputL0C->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
-        ALOG_ERROR_F("%s[%d] output is NOT L0C.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+        APASS_LOG_ERROR_F(GetName().c_str(), "Tensor", "%s[%d] output is NOT L0C; Please check outputL0C MemoryType.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
         return FAILED;
     }
     if (outputL0C->GetConsumers().size() < 1) {
-        ALOG_ERROR_F("%s[%d] output has EMPTY consumers.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+        APASS_LOG_ERROR_F(GetName().c_str(), "Tensor", "%s[%d] output has EMPTY consumers; Please check outputL0C consumer size.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
         return FAILED;
     }
     return SUCCESS;
@@ -872,7 +872,7 @@ Status PreGraphProcess::UpdateL0cDtype(Operation &op) {
         }
         return SUCCESS;
     } else {
-        ALOG_ERROR_F("%s[%d] has unsupport input dtypes (L0A: %s, L0B: %s), update L0C dtype Failed.",
+        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "%s[%d] has unsupport input dtypes (L0A: %s, L0B: %s), update L0C dtype Failed.",
             op.GetOpcodeStr().c_str(), op.GetOpMagic(), 
             BriefDataType2String(inputDtypes.first).c_str(),
             BriefDataType2String(inputDtypes.second).c_str());
@@ -889,16 +889,16 @@ std::pair<Operation *, Operation *> PreGraphProcess::GetLastMmCopyOut(Operation 
         chainEndCopyOut = *(outputL0C->GetConsumers().begin());
     }
     if (chainEndCopyOut == nullptr) {
-        ALOG_ERROR_F("%s[%d] has nullptr L0C_Copy_Out.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+        APASS_LOG_ERROR_F(GetName().c_str(), "Tensor", "%s[%d] has nullptr L0C_Copy_Out; Please check chainEndCopyOut.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
         return {nullptr, nullptr};
     }
     if (chainEndCopyOut->GetOOperands().size() != 1) {
-        ALOG_ERROR_F("%s[%d] has more than ONE outputs.", chainEndCopyOut->GetOpcodeStr().c_str(), chainEndCopyOut->GetOpMagic());
+        APASS_LOG_ERROR_F(GetName().c_str(), "Tensor", "%s[%d] has more than ONE outputs.", chainEndCopyOut->GetOpcodeStr().c_str(), chainEndCopyOut->GetOpMagic());
         return {nullptr, nullptr};
     }
     auto finalOutput = chainEndCopyOut->GetOOperands().front();
     if (finalOutput->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
-        ALOG_ERROR_F("%s[%d] has invlid output memType: %s, expect: MEM_DEVICE_DDR.",
+        APASS_LOG_ERROR_F(GetName().c_str(), "Tensor", "%s[%d] has invlid output memType: %s, expect: MEM_DEVICE_DDR.",
             chainEndCopyOut->GetOpcodeStr().c_str(), chainEndCopyOut->GetOpMagic(),
             MemoryTypeToString(finalOutput->GetMemoryTypeOriginal()).c_str());
         return {nullptr, nullptr};
@@ -914,14 +914,14 @@ Status PreGraphProcess::UpdateCubeOp(Function &function) {
             continue;
         }
         if (CheckValidCube(op) != SUCCESS) {
-            ALOG_ERROR_F("%s[%d] is invalid.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "%s[%d] is invalid.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
             return FAILED;
         }
         auto lastMmCopyOut = GetLastMmCopyOut(op);
         auto lastMm = lastMmCopyOut.first;
         auto chainEndCopyOut = lastMmCopyOut.second;
         if (lastMm == nullptr || chainEndCopyOut == nullptr) {
-            ALOG_ERROR_F("Get the last MatMul and L0C_Copy_Out for %s[%d] failed.", 
+            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Get the last MatMul and L0C_Copy_Out for %s[%d] failed.", 
                 op.GetOpcodeStr().c_str(), op.GetOpMagic());
             return FAILED;
         }
@@ -931,7 +931,7 @@ Status PreGraphProcess::UpdateCubeOp(Function &function) {
             }
             // Align copy out GM with the reset GM
             if (function.IsFromInCast(input)) {
-                ALOG_WARN_F("PreGraphProcess::UpdateCubeOp: OP_A_MUL_B iOperand tensor[%d] is incast.", input->GetMagic());
+                APASS_LOG_WARN_F(GetName().c_str(), "Operation", "PreGraphProcess::UpdateCubeOp: OP_A_MUL_B iOperand tensor[%d] is incast.", input->GetMagic());
                 continue;
             }
             auto finalOutput = chainEndCopyOut->GetOOperands().front();
@@ -943,11 +943,11 @@ Status PreGraphProcess::UpdateCubeOp(Function &function) {
             AlignCopyOutAttr(input, chainEndCopyOut);
         }
         if (UpdateL0cDtype(op) != SUCCESS) {
-            ALOG_ERROR_F("Update L0C dtype for %s[%d] failed.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Update L0C dtype for %s[%d] failed.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
             return FAILED;
         }
         if (UpdateCopyAttr(op) != SUCCESS) {
-            ALOG_ERROR_F("Set Attr for %s[%d] failed.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Set Attr for %s[%d] failed.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
             return FAILED;
         }
     }
@@ -955,7 +955,7 @@ Status PreGraphProcess::UpdateCubeOp(Function &function) {
 }
 
 Status PreGraphProcess::RunOnFunction(Function &function) {
-    ALOG_INFO_F("===> start PreGraph");
+    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> start PreGraph.");
     PreColorSort(function);
     auto opList = function.Operations();
     for (auto &op : opList) {
@@ -975,10 +975,10 @@ Status PreGraphProcess::RunOnFunction(Function &function) {
     ProcessSameInOutOp(function);
     DeleteRedundantAssemble(function);
     if (UpdateCubeOp(function) != SUCCESS) {
-        ALOG_ERROR_F("Update Cube attr failed.");
+        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Update Cube attr failed.");
         return FAILED;
     }
-    ALOG_INFO_F("===> End PreGraph");
+    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> End PreGraph.");
     return SUCCESS;
 }
 
