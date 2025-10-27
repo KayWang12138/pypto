@@ -49,7 +49,6 @@ std::shared_ptr<Function> PrepareStrategyAndFunction() {
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("SubgraphDatapathStrategy", {
         {   "IntraSubgraphAdapter",   "IntraSubgraphAdapter"},
-        { "SplitLargeLocalRawTensor", "SplitLargeLocalRawTensor"},
         {         "GenerateMoveOp",         "GenerateMoveOp"},
     });
     auto function = std::make_shared<Function>(Program::GetInstance(),
