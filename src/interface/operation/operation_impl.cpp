@@ -2216,15 +2216,15 @@ Tensor ScalarMax(const Tensor &operand1, const Tensor &operand2) {
         operand1.GetStorage(), operand2.GetStorage());
 }
 
-Tensor Neg(const Tensor &operand) {
+Tensor Neg(const Tensor &self) {
     DECLARE_TRACER();
 
-    if (IsFloat(operand.GetStorage()->Datatype())) {
+    if (IsFloat(self.GetStorage()->Datatype())) {
         RETURN_CALL(BinaryOperationScalar<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(),
-            operand.GetStorage(), Element(operand.GetStorage()->Datatype(), -1.0));
+            self.GetStorage(), Element(self.GetStorage()->Datatype(), -1.0));
     } else {
         RETURN_CALL(BinaryOperationScalar<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(),
-            operand.GetStorage(), Element(operand.GetStorage()->Datatype(), -1));
+            self.GetStorage(), Element(self.GetStorage()->Datatype(), -1));
     }
 }
 
@@ -2249,11 +2249,11 @@ Tensor Reciprocal(const Tensor &operand) {
         operand.GetStorage());
 }
 
-Tensor Abs(const Tensor &operand) {
+Tensor Abs(const Tensor &self) {
     DECLARE_TRACER();
 
     RETURN_CALL(UnaryOperation<UnaryOpType::ABS>, *Program::GetInstance().GetCurrentFunction(),
-        operand.GetStorage());
+        self.GetStorage());
 }
 
 Tensor Duplicate(const Tensor &operand) {

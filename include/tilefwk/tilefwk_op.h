@@ -114,11 +114,11 @@ Tensor Transpose(const Tensor &self, std::vector<int> perm);
 Tensor Cast(const Tensor &self, DataType dstDataType, CastMode mode = CAST_NONE);
 
 Tensor Exp(const Tensor &self);
-Tensor Neg(const Tensor &operand);
+Tensor Neg(const Tensor &self);
 Tensor Rsqrt(const Tensor &operand);
 Tensor Sqrt(const Tensor &self);
 Tensor Reciprocal(const Tensor &operand);
-Tensor Abs(const Tensor &operand);
+Tensor Abs(const Tensor &self);
 Tensor Ln(const Tensor &operand);
 
 Tensor Duplicate(const Tensor &operand);
