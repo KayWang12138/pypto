@@ -38,8 +38,8 @@ def test_select_experts_vllm():
         for bs_idx in pto.loop(pto.ceildiv(bs, view_shape[0])):
             def inner(batch_idx):
                 tile_logits = pto.view(logits_input, view_shape,
-                    [pto.min(pto.symbolic_scalar(bs) - batch_idx * view_shape[0], pto.symbolic_scalar(bs)), ne],
-                    [batch_idx * view_shape[0], 0])
+                    [bs_idx * view_shape[0], 0],
+                    [pto.min(pto.symbolic_scalar(bs) - bs_idx * view_shape[0], pto.symbolic_scalar(bs)), ne])
                 # cast to fp32
                 pto.set_vec_tile_shapes(min(8, bs), min(128, ne))
                 tile_logits_fp32 = pto.cast(tile_logits, calc_dtype)

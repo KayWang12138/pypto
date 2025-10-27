@@ -106,8 +106,8 @@ def batch_matmul_no_split_util(tensor_a, tensor_b, tensor_c, input_config, idx):
     dtype = batch_matmul_convert_dtype(input_config.out_dtype)
     if input_config.a_format_nz or input_config.b_format_nz or input_config.c_format_nz:
         pto.set_matrix_size([input_config.ori_shape[1], input_config.ori_shape[2], input_config.ori_shape[3]])
-    dyn_a = pto.view(tensor_a, shape_a, valid_shape_a, [0, idx, 0])
-    dyn_b = pto.view(tensor_b, shape_b, valid_shape_b, [0, 0, 0])
+    dyn_a = pto.view(tensor_a, shape_a, [0, idx, 0], valid_shape_a)
+    dyn_b = pto.view(tensor_b, shape_b, [0, 0, 0], valid_shape_b)
     tensor_c.move(pto.matmul(dyn_a, dyn_b, dtype, a_trans=input_config.a_trans, b_trans=input_config.b_trans,
                                 c_matrix_nz=input_config.c_format_nz))
     del dyn_a
@@ -138,16 +138,16 @@ def batch_matmul_split_m_util(tensor_a, tensor_b, tensor_c, input_config, m_idx)
     dtype = batch_matmul_convert_dtype(input_config.out_dtype)
     if a_trans:
         dyn_a = pto.view(tensor_a, [shape_a[0], shape_a[1], view_shape[1]],
+                    [0, 0, m_idx * view_shape[0]],
                     [shape_a[0], shape_a[1],
-                        (shape_a[2] - m_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))],
-                    [0, 0, m_idx * view_shape[0]])
+                        (shape_a[2] - m_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
     else:
         dyn_a = pto.view(tensor_a, [shape_a[0], view_shape[1], shape_a[2]],
+                    [0, 0, m_idx * view_shape[0]],
                     [shape_a[0], (shape_a[1] - m_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1])),
-                        shape_a[2]],
-                    [0, 0, m_idx * view_shape[0]])
+                        shape_a[2]])
 
-    dyn_b = pto.view(tensor_b, shape_b, [shape_b[0], shape_b[1], shape_b[2]], [0, 0, 0])
+    dyn_b = pto.view(tensor_b, shape_b, [0, 0, 0], [shape_b[0], shape_b[1], shape_b[2]])
     res = pto.matmul(dyn_a, dyn_b, dtype, a_trans=input_config.a_trans, b_trans=input_config.b_trans,
                                             c_matrix_nz=input_config.c_format_nz)
 
@@ -180,17 +180,17 @@ def batch_matmul_split_n_utils(tensor_a, tensor_b, tensor_c, input_config, n_idx
     dtype = batch_matmul_convert_dtype(input_config.out_dtype)
     if input_config.a_format_nz or input_config.b_format_nz or input_config.c_format_nz:
         pto.set_matrix_size([input_config.ori_shape[1], input_config.ori_shape[2], input_config.ori_shape[3]])
-    dyn_a = pto.view(tensor_a, shape_a, [shape_a[0], shape_a[1], shape_a[2]], [0, 0, 0])
+    dyn_a = pto.view(tensor_a, shape_a, [0, 0, 0], [shape_a[0], shape_a[1], shape_a[2]])
     if b_trans:
         dyn_b = pto.view(tensor_b, [shape_b[0], view_shape[2], shape_b[2]],
+        [0, n_idx * view_shape[1], 0],
         [shape_b[0], (shape_b[1] - n_idx * view_shape[2]).min(pto.symbolic_scalar(view_shape[2])),
-            shape_b[2]],
-        [0, n_idx * view_shape[1], 0])
+            shape_b[2]])
     else:
         dyn_b = pto.view(tensor_b, [shape_b[0], shape_b[1], view_shape[2]],
+        [0, 0, n_idx * view_shape[1]],
         [(shape_b[0], shape_b[1],
-            shape_b[2] - n_idx * view_shape[2]).min(pto.symbolic_scalar(view_shape[2]))],
-        [0, 0, n_idx * view_shape[1]])
+            shape_b[2] - n_idx * view_shape[2]).min(pto.symbolic_scalar(view_shape[2]))])
 
     res = pto.matmul(dyn_a, dyn_b, dtype, a_trans=input_config.a_trans, b_trans=input_config.b_trans,
                                 c_matrix_nz=input_config.c_format_nz)
@@ -234,24 +234,24 @@ def batch_matmul_split_m_n_utils(tensor_a, tensor_b, tensor_c, input_config, m_i
                 pto.set_matrix_size([input_config.ori_shape[1], input_config.ori_shape[2], input_config.ori_shape[3]])
             if not a_trans:
                 dyn_a = pto.view(tensor_a, [shape_a[0], view_shape[1], shape_a[2]],
+                [0, 0, m_idx * view_shape[0]],
                 [shape_a[0], (shape_a[1] - m_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1])),
-                    shape_a[2]],
-                [0, 0, m_idx * view_shape[0]])
+                    shape_a[2]])
             else:
                 dyn_a = pto.view(tensor_a, [shape_a[0], shape_a[1], view_shape[1]],
+                [0, 0, m_idx * view_shape[0]],
                 [shape_a[0], shape_a[1],
-                    (shape_a[2] - m_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))],
-                [0, 0, m_idx * view_shape[0]])
+                    (shape_a[2] - m_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
             if not b_trans:
                 dyn_b = pto.view(tensor_b, [shape_b[0], shape_b[1], view_shape[2]],
+                [0, 0, n_idx * view_shape[1]],
                 [(shape_b[0], shape_b[1],
-                    shape_b[2] - n_idx * view_shape[2]).min(pto.symbolic_scalar(view_shape[2]))],
-                [0, 0, n_idx * view_shape[1]])
+                    shape_b[2] - n_idx * view_shape[2]).min(pto.symbolic_scalar(view_shape[2]))])
             else:
                 dyn_b = pto.view(tensor_b, [shape_b[0], view_shape[2], shape_b[2]],
+                [0, n_idx * view_shape[1], 0],
                 [shape_b[0], (shape_b[1] - n_idx * view_shape[2]).min(pto.symbolic_scalar(view_shape[2])),
-                    shape_b[2]],
-                [0, n_idx * view_shape[1], 0])
+                    shape_b[2]])
             res = pto.matmul(dyn_a, dyn_b, dtype, a_trans=input_config.a_trans, b_trans=input_config.b_trans,
                                     c_matrix_nz=input_config.c_format_nz)
 

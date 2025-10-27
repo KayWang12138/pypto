@@ -37,7 +37,7 @@ def test_vector_operation_range():
     end = pto.element(pto.DT_FP32, end_data)
     step = pto.element(pto.DT_FP32, step_data)
 
-    with pto.function("RAGNE", [a], [b]):
+    with pto.function("RANGE", [a], [b]):
         loop_range_b = pto.loop_range(1)
         with pto.loop_function("LOOP_L0_b_idex", "b_idx", loop_range_b) as bloop:
             for b_idx in bloop:

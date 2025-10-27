@@ -25,7 +25,7 @@ from .controller import *  # noqa
 from .element import Element
 from .enum import *  # noqa
 from .operation import *  # noqa
-from .operator import softmax
+from .operator import cos, sin, sigmoid, softmax
 from .pto_utils import ceildiv
 from .runtime import (device_fini, device_init,
                       device_run_once_data_from_device,

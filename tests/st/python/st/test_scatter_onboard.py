@@ -48,17 +48,17 @@ def scatter_2dim_comm_proc(scatter_para, scatter_func):
                     for s_idx in sloop:
                         tmp_dst_tensor = pto.tensor(view_shape, pto.DT_FP32, "PTO_TENSOR_TMP")
                         view_tensor_src = pto.view(self_tensor, view_shape,
+                            [b_idx * view_shape[0], s_idx * view_shape[1]],
                             [(pto.symbolic_scalar(src_shape[0]) -
                                 b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
                              (pto.symbolic_scalar(src_shape[1]) -
-                                s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))],
-                            [b_idx * view_shape[0], s_idx * view_shape[1]])
+                                s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                         view_tensor_index = pto.view(indices_tensor, view_shape,
+                            [b_idx * view_shape[0], s_idx * view_shape[1]],
                             [(pto.symbolic_scalar(indices_shape[0]) -
                                 b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
                              (pto.symbolic_scalar(indices_shape[1]) -
-                                s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))],
-                            [b_idx * view_shape[0], s_idx * view_shape[1]])
+                                s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                         pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                         tmp_dst_tensor.move(scatter_func(view_tensor_src, view_tensor_index, src, scatter_para.axis))
                         pto.assemble(tmp_dst_tensor, [b_idx * view_shape[0], s_idx * view_shape[1]], dst_tensor)

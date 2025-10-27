@@ -37,9 +37,9 @@ def test_vector_operation_rsqrt():
             with pto.loop_function("LOOP_RSQRT_L1", "s_idx", loop_range_s) as sloop:
                 for b_idx in bloop:
                     for s_idx in sloop:
-                        tile_a = pto.view(a, view_shape, [pto.min(pto.symbolic_scalar(n) - b_idx * view_shape[0],
+                        tile_a = pto.view(a, view_shape, [b_idx * view_shape[0], s_idx * view_shape[1]], [pto.min(pto.symbolic_scalar(n) - b_idx * view_shape[0],
                                           pto.symbolic_scalar(n)), pto.min(pto.symbolic_scalar(m) - b_idx * view_shape[1],
-                                          pto.symbolic_scalar(m))], [b_idx * view_shape[0], s_idx * view_shape[1]])
+                                          pto.symbolic_scalar(m))])
                         pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                         tile_a.move(pto.rsqrt(tile_a))
                         pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)

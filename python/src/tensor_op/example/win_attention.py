@@ -125,18 +125,18 @@ def win_attention_compute(**kwargs):
                                     pto.assemble(tmp_kr2, [t_idx * block_size, d_nope_size], k_part)
 
                                 start_offset = block_start_offset
-                                k_actual_part = pto.view(k_part, [window_size, d_nope_size + d_rope_size],
-                                                    [win_actual_size, d_nope_size + d_rope_size], [start_offset, 0])
-                                v_actual_part = pto.view(k_part, [window_size, d_nope_size],
-                                                    [win_actual_size, d_nope_size], [start_offset, 0])
+                                k_actual_part = pto.view(k_part, [window_size, d_nope_size + d_rope_size], 
+                                                    [start_offset, 0], [win_actual_size, d_nope_size + d_rope_size])
+                                v_actual_part = pto.view(k_part, [window_size, d_nope_size], 
+                                                    [start_offset, 0], [win_actual_size, d_nope_size])
 
                                 # query
                                 q_part = pto.tensor([g_tile, d_nope_size + d_rope_size], dtype, "q_part")
-                                q_nope_l = pto.view(q_nope, [g_tile, d_nope_size],
-                                                    [g_tile, d_nope_size], [cur_offset, 0])
+                                q_nope_l = pto.view(q_nope, [g_tile, d_nope_size], 
+                                                    [cur_offset, 0], [g_tile, d_nope_size])
                                 pto.assemble(q_nope_l, [0, 0], q_part)
-                                q_rope_r = pto.view(q_rope, [g_tile, d_rope_size],
-                                                    [g_tile, d_rope_size], [cur_offset, 0])
+                                q_rope_r = pto.view(q_rope, [g_tile, d_rope_size], 
+                                                    [cur_offset, 0], [g_tile, d_rope_size])
                                 pto.assemble(q_rope_r, [0, d_nope_size], q_part)
 
                                 # matmul_1
@@ -265,20 +265,20 @@ def win_attention_compute_flash(**kwargs):
                                 for s2_idx in pto.loop(0, s2_loop, 1, name="LOOP_L2_s2Idx", idx_name="s2_idx"):
                                     def inside_s2_loop(s2_idx):
                                         start_offset = block_start_offset + s2_idx * s2_tile + kv_tensor_idx
-                                        k_actual_part = pto.view(k_part, [s2_tile, d_nope_size + d_rope_size],
-                                                            [(win_actual_size - s2_idx * s2_tile).min(s2_tile),
-                                                            d_nope_size + d_rope_size], [start_offset, 0])
-                                        v_actual_part = pto.view(k_part, [s2_tile, d_nope_size],
-                                                            [(win_actual_size - s2_idx * s2_tile).min(s2_tile),
-                                                            d_nope_size], [start_offset, 0])
+                                        k_actual_part = pto.view(k_part, [s2_tile, d_nope_size + d_rope_size], 
+                                                            [start_offset, 0], [(win_actual_size - s2_idx * s2_tile).min(s2_tile), 
+                                                            d_nope_size + d_rope_size])
+                                        v_actual_part = pto.view(k_part, [s2_tile, d_nope_size], 
+                                                            [start_offset, 0], [(win_actual_size - s2_idx * s2_tile).min(s2_tile), 
+                                                            d_nope_size])
 
                                         # query
                                         q_part = pto.tensor([g_tile, d_nope_size + d_rope_size], dtype, "q_part")
-                                        q_nope_l = pto.view(q_nope, [g_tile, d_nope_size],
-                                                            [g_tile, d_nope_size], [cur_offset, 0])
+                                        q_nope_l = pto.view(q_nope, [g_tile, d_nope_size], 
+                                                            [cur_offset, 0], [g_tile, d_nope_size])
                                         pto.assemble(q_nope_l, [0, 0], q_part)
-                                        q_rope_r = pto.view(q_rope, [g_tile, d_rope_size],
-                                                            [g_tile, d_rope_size], [cur_offset, 0])
+                                        q_rope_r = pto.view(q_rope, [g_tile, d_rope_size], 
+                                                            [cur_offset, 0], [g_tile, d_rope_size])
                                         pto.assemble(q_rope_r, [0, d_nope_size], q_part)
 
                                         # matmul_1
@@ -468,17 +468,17 @@ def win_attention_debug_compute(**kwargs):
                                     def inside_o_loop(o_idx):
                                         cur_offset = (b_idx * s1_size * n_q + s1_idx * n_q +
                                             n2_idx * g_group + g_idx * g_tile)
-                                        k_actual_part = pto.view(k_part, [window_size, d_nope_size + d_rope_size],
-                                            [win_actual_size, d_nope_size + d_rope_size], [block_start_offset, 0])
-                                        v_actual_part = pto.view(v_part, [window_size, d_nope_size],
-                                            [win_actual_size, d_nope_size], [block_start_offset, 0])
+                                        k_actual_part = pto.view(k_part, [window_size, d_nope_size + d_rope_size], 
+                                            [block_start_offset, 0], [win_actual_size, d_nope_size + d_rope_size])
+                                        v_actual_part = pto.view(v_part, [window_size, d_nope_size], 
+                                            [block_start_offset, 0], [win_actual_size, d_nope_size])
                                         q_part = pto.tensor([g_tile, d_nope_size + d_rope_size], dtype, "q_part")
                                         # query
-                                        q_nope_l = pto.view(q_nope, [g_tile, d_nope_size],
-                                                            [g_tile, d_nope_size], [cur_offset, 0])
+                                        q_nope_l = pto.view(q_nope, [g_tile, d_nope_size], 
+                                                            [cur_offset, 0], [g_tile, d_nope_size])
                                         pto.assemble(q_nope_l, [0, 0], q_part)
-                                        q_rope_r = pto.view(q_rope, [g_tile, d_nope_size],
-                                                            [g_tile, d_rope_size], [cur_offset, 0])
+                                        q_rope_r = pto.view(q_rope, [g_tile, d_nope_size], 
+                                                            [cur_offset, 0], [g_tile, d_rope_size])
                                         pto.assemble(q_rope_r, [0, d_nope_size], q_part)
 
                                         # matmul_1

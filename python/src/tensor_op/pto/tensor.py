@@ -8,7 +8,8 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
-from typing import Union, List, cast
+import typing
+from typing import Union, List
 
 import pto
 from pto import pto_impl
@@ -25,7 +26,7 @@ class Tensor:
         if shape is None or dtype is None:
             self._base = pto_impl.Tensor()
         elif all([isinstance(s, int) for s in shape]):
-            nshape = cast(List[int], shape)
+            nshape = typing.cast(List[int], shape)
             self._base = pto_impl.Tensor(dtype, nshape, name, format)
         else:
             sym_shape = to_syms(shape)
@@ -209,3 +210,27 @@ class Tensor:
         >>> s.assemble(a, [0, 0])
         """
         pto.assemble(input, offsets, self)
+
+    def reshape(self, *shape: List[int]) -> 'Tensor':
+        return pto.reshape(self, *shape)
+    
+    def unsqueeze(self, dim: int) -> 'Tensor':
+        return pto.unsqueeze(self, dim)
+    
+    def view(self, shape: List[int], offsets: List[int]) -> 'Tensor':
+        return pto.view(self, shape, offsets)
+    
+    def sin(self) -> 'Tensor':
+        return pto.sin(self)
+    
+    def cos(self) -> 'Tensor':
+        return pto.cos(self)
+
+    def sigmoid(self) -> 'Tensor':
+        return pto.sigmoid(self)
+    
+    def softmax(self, dim: int) -> 'Tensor':
+        return pto.softmax(self, dim)   
+
+        
+tensor = Tensor

@@ -97,17 +97,17 @@ def slc_attn_compute(**kwargs):
                                     cur_kv_offset = b_idx * s1_n2_s2_sym + s1_idx * n2_s2_sym + s2_idx * cur_s2_tile
 
                                     pto.set_semantic_label("Sa")
-                                    qn = pto.view(q_nope, [cur_g_tile, d_n], [cur_g_tile, d_n], [cur_offset, 0])
-                                    qr = pto.view(q_rope, [cur_g_tile, d_r], [cur_g_tile, d_r], [cur_offset, 0])
+                                    qn = pto.view(q_nope, [cur_g_tile, d_n], [cur_offset, 0], [cur_g_tile, d_n])
+                                    qr = pto.view(q_rope, [cur_g_tile, d_r], [cur_offset, 0], [cur_g_tile, d_r])
                                     qi = pto.tensor([cur_g_tile, d_n + d_r], dtype, "qi")
                                     pto.assemble(qn, [0, 0], qi)
                                     pto.assemble(qr, [0, d_n], qi)
 
-                                    kj = pto.view(k_slc, [cur_s2_tile, d_n + d_r],
-                                        [(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), d_n + d_r],
-                                        [cur_kv_offset, 0])
-                                    vj = pto.view(v_slc, [cur_s2_tile, d_n],
-                                        [(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), d_n], [cur_kv_offset, 0])
+                                    kj = pto.view(k_slc, [cur_s2_tile, d_n + d_r], 
+                                        [cur_kv_offset, 0],
+                                        [(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), d_n + d_r]) 
+                                    vj = pto.view(v_slc, [cur_s2_tile, d_n], 
+                                        [cur_kv_offset, 0], [(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), d_n])
 
                                     # C1
                                     pto.set_cube_tile_shapes([c1_tile[0], c1_tile[1]],

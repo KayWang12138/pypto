@@ -16,6 +16,7 @@
 import typing
 from typing import Optional, Union, Tuple, List
 
+import pto
 from pto import pto_impl
 
 from .element import Element
@@ -86,7 +87,6 @@ def add(
 
     Examples
     --------
-    >>> import pto
     >>> a = pto.tensor([1, 2, 3])
     >>> b = pto.tensor([4, 5, 6])
     >>> pto.add(a, b)
@@ -142,7 +142,6 @@ def sub(
 
     Examples
     --------
-    >>> import pto
     >>> a = pto.tensor([4, 5, 6])
     >>> b = pto.tensor([1, 2, 3])
     >>> pto.sub(a, b)
@@ -196,7 +195,6 @@ def mul(
 
     Examples
     --------
-    >>> import pto
     >>> a = pto.tensor([1, 2, 3])
     >>> b = pto.tensor([4, 5, 6])
     >>> pto.mul(a, b)
@@ -257,7 +255,6 @@ def div(
 
     Examples
     --------
-    >>> import pto
     >>> a = pto.tensor([2, 4, 6])
     >>> b = pto.tensor([2, 2, 2])
     >>> pto.div(a, b)
@@ -278,18 +275,6 @@ def div(
         else:
             assert isinstance(other, (int, float)), "alpha must be a number"
             return pto_impl.div_s(input, pto_impl.Element(input.dtype, other * alpha))
-
-
-def view(a, shapes, *args) -> Tensor:
-    shapes = [int(s) for s in shapes]
-    if len(args) == 1:
-        out = pto_impl.view(a.base(), shapes, to_syms(args[0]))
-    elif len(args) == 2:
-        out = pto_impl.view(a.base(), shapes, to_syms(
-            args[0]), to_syms(args[1]))
-    else:
-        raise RuntimeError("Invalid arguments")
-    return Tensor.from_base(out)
 
 
 def assemble(input: Tensor, offsets: List[Union[int, SymbolicScalar]], out: Tensor) -> None:
@@ -358,7 +343,6 @@ def exp(
 
     Examples
     --------
-    >>> import pto
     >>> a = pto.tensor([0, 1, 2])
     >>> pto.exp(a, b)
     tensor([1.0000, 2.7183, 7.3891])
@@ -438,7 +422,6 @@ def logical_not(
 
     Examples
     --------
-    >>> import pto
     >>> input = pto.tensor([0, 1, 2, 3, 4])
     >>> pto.logical_not(input)
     tensor([True, False, False, False, False, False,])
@@ -475,7 +458,6 @@ def rsqrt(
 
     Examples
     --------
-    >>> import pto
     >>> a = pto.tensor([1, 4, 16])
     >>> pto.rsqrt(a)
     tensor([1, 0.5, 0.25])
@@ -507,7 +489,6 @@ def sqrt(
 
     Examples
     --------
-    >>> import pto
     >>> a = pto.tensor([1, 4, 9])
     >>> pto.sqrt(a)
     tensor([1, 2, 3])
@@ -554,7 +535,6 @@ def topk(
 
     Examples
     --------
-    >>> import pto
     >>> in = pto.tensor([[4, 5, 6],
                           [1, 2, 3]] )
     >>> out = pto.topk(in, 2, -1, True)
@@ -610,7 +590,6 @@ def gather(
 
     Examples
     --------
-    >>> import pto
     >>> a = pto.tensor([[0, 1, 2, 3, 4],
     ...                   [5, 6, 7, 8, 9],
     ...                   [10, 11, 12, 13, 14]])        # shape (3, 5)
@@ -672,7 +651,6 @@ def scatter(
 
     Examples
     --------
-    >>> import pto
     >>> a = pto.tensor([[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0]])
     >>> b = pto.tensor([[1, 2],[4, 5]])
     >>> c = pto.tensor([[1, 2, 3],[4, 5, 6],[7, 8, 9],[10, 11, 12]])
@@ -742,7 +720,6 @@ def where(
 
     Examples
     --------
-    >>> import pto
     >>> cond = pto.tensor([True, False, True, False])
     >>> x = pto.tensor([1, 2, 3, 4])
     >>> y = pto.tensor([10, 20, 30, 40])
@@ -820,7 +797,6 @@ def arange(
 
     Examples
     --------
-    >>> import pto
     >>> pto.arange(1.0, 4.0, 0.5)
     tensor([1.0, 1.5, 2.0, 2.5, 3.0, 3.5])
     >>> pto.arange(1.0, 4.0)
@@ -860,7 +836,6 @@ def log(
 
     Examples
     --------
-    >>> import pto
     >>> a = pto.tensor([1, 2, 3])
     >>> pto.log(a)
     tensor([0.0000, 0.6931, 1.0986])
@@ -928,7 +903,6 @@ def amax(
 
     Examples
     --------
-    >>> import pto
     >>> in = pto.tensor([[4, 5, 6],
                           [1, 2, 3]] )
     >>> pto.amax(in, -1, true)
@@ -964,7 +938,6 @@ def asum(
 
     Examples
     --------
-    >>> import pto
     >>> in = pto.tensor([[4, 5, 6],
                           [1, 2, 3]] )
     >>> pto.asum(in, -1, true)
@@ -1000,7 +973,6 @@ def amin(
 
     Examples
     --------
-    >>> import pto
     >>> in = pto.tensor([[4, 5, 6],
                           [1, 2, 3]] )
     >>> pto.amin(in, -1, true)
@@ -1052,7 +1024,6 @@ def compare(
 
     Examples
     --------
-    >>> import pto
     >>> a = pto.tensor([1, 2, 3])
     >>> b = pto.tensor([2, 2, 2])
 
@@ -1087,7 +1058,6 @@ def concat(
         The concatenated tensor
     Examples
     ---------
-    >>> import pto
     >>> x = pto.tensor([2, 2], pto.data_type.DT_FP32)  # 2x2 tensor with all 1s
     >>> y = pto.tensor([2, 2], pto.data_type.DT_FP32)  # 2x2 tensor with all 0s
     >>> dim = 0
@@ -1148,21 +1118,18 @@ def matmul(input, mat2, out_dtype, *, a_trans=False, b_trans=False, c_matrix_nz=
     Examples
     --------
     >>> # matrix x matrix
-    >>> import pto
     >>> a = pto.tensor((16, 32), pto.data_type.DT_BF16, "tensor_a")
     >>> b = pto.tensor((32, 64), pto.data_type.DT_BF16, "tensor_b")
     >>> pto.matmul(a, b, pto.data_type.DT_BF16)
     tensors([16, 64])
 
     >>> # batched matrix x batched matrix
-    >>> import pto
     >>> a = pto.tensor((2, 16, 32), pto.data_type.DT_FP16, "tensor_a")
     >>> b = pto.tensor((2, 32, 16), pto.data_type.DT_FP16, "tensor_b")
     >>> pto.matmul(a, b, pto.data_type.DT_FP16)
     tensors([2, 16, 16])
 
     >>> # batched matrix x batched matrix with broadcasted
-    >>> import pto
     >>> a = pto.tensor((1, 32, 64), pto.data_type.DT_FP32, "tensor_a")
     >>> b = pto.tensor((3, 64, 16), pto.data_type.DT_FP32, "tensor_b")
     >>> pto.matmul(a, b, pto.data_type.DT_DT_FP32)
@@ -1177,3 +1144,137 @@ def matmul(input, mat2, out_dtype, *, a_trans=False, b_trans=False, c_matrix_nz=
         return pto_impl.batch_matmul(out_dtype, input, mat2, a_trans, b_trans, c_matrix_nz)
     else:
         raise RuntimeError("input dim and mat dim must equals, which only support 2-D/3-D/4-D currently")
+
+
+@op_wrapper
+def reshape(input: Tensor, shape: List[int], valid_shape: Union[List[int], List[SymbolicScalar]] = None) -> Tensor:
+    """
+    Reshape the input Tensor into a new tensor with the specific shape.
+
+    Parameters
+    ---------
+    input: pto.Tensor
+        The input tensor to be reshaped.
+    
+    shape : List[int]
+        The new shape of the tensor. The total number of elements must match the input tensor.
+        
+    valid_shape : List[int], optional
+        An optional parameter specifying the valid shape for partial reshapeing or padding.
+        If provided, it may be used to define the effective part of the new shape.
+
+    Return
+    ------ 
+    pto.Tensor
+        A new tensor with the specific shape.
+
+    Examples
+    ---------
+    >>> x = pto.tensor([2, 2], pto.data_type.DT_FP32)  # 2x2 tensor
+    x = [[1,2], [3,4]]
+    >>> y = pto.reshape(x, [4, 1]) 
+    >>> print(y.shape)
+    [4, 1]
+    >>> print(y)
+    y = [1, 2, 3, 4]
+    """
+    if valid_shape is None:
+        out = pto_impl.reshape(input, shape)
+    else:
+        out = pto_impl.reshape(input, shape, valid_shape)
+    return out
+
+
+@op_wrapper
+def unsqueeze(input: Tensor, dim: int) -> Tensor:
+    """Add a new dimension of size 1 to a tensor at a specified position.
+    
+    This operation increases the tensor's dimensionality while preserving 
+    the total number of elements (since the new dimension has size 1).
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor to which a new dimension will be added.
+        Supported data types are: DT_FP32, DT_FP16, DT_BF16.
+        Empty tensors are not supported, and the shape size must not exceed 2147483647 (i.e., INT32_MAX).
+
+    dim : int 
+        The position(index) where the new dimension is inserted. 
+        It must be within the range of [-input.dim() - 1, input.dim()]
+
+    Returns
+    -------
+    Tensor
+        A new tensor with the same data as the input tensor, but with an additional dimension 
+        of size 1 inserted at the specified dim position.
+
+    Examples
+    --------
+    >>> x = pto.tensor([[1, 2, 3], [4, 5, 6]])
+    >>> pto.unsqueeze(x, 0)
+    tensor([[[1, 2, 3], [4, 5, 6]]])
+
+    """
+    return pto_impl.unsqueeze(input, dim)
+
+
+@op_wrapper
+def view(input: Tensor, shape: List[int], offsets: Union[List[int], List[SymbolicScalar]], 
+         valid_shape: Union[List[int], List[SymbolicScalar]] = None) -> Tensor:
+    """Extract a partial view from the input tensor for subsequent computations.
+       WARNING: view has a very different behavior from torch.view, it is more like slice.
+
+    Parameters
+    ----------
+    input: Tensor
+        The input tensor to extract a partial view.
+        The supported data types are: DT_FP32, DT_FP16, DT_BF16.Empty Tensors are not supported, 
+        and the Shape Size must not exceed 2147483647 (i.e., INT32_MAX).
+    shape: List[int]
+        Get the shape of the view.
+        The Shape Size must not exceed 2147483647 (i.e., INT32_MAX).
+    offsets: List[int]
+        Get the offset of each dimension relative to the input when obtaining the view.
+        It is required that thr offsets are smaller than the shape of the input.
+    valid_shape: List[int] = None
+        Optional parameter to retrieve the effective data size of the schematic block.
+        It is required that thr offsets are smaller than the shape of the input.
+    
+    Returns
+    -------
+    Tensor
+        A partial view from the input tensor with the size of shape.
+
+    Examples
+    --------
+    >>> x = pto.tensor([[1 1 2 2 3 3 4 4],
+                        [1 1 2 2 3 3 4 4],
+                        [1 1 2 2 3 3 4 4],
+                        [1 1 2 2 3 3 4 4]]) 
+    >>> shape = [4, 4]
+    >>> offsets = [0, 4]
+    >>> pto.view(x, shape, offsets)
+    tensor([[3 3 4 4],
+            [3 3 4 4],
+            [3 3 4 4],
+            [3 3 4 4]])
+
+    >>> # add valid_shape
+    >>> x = pto.tensor([[1 1 2 2 3 3 4 4],
+                        [1 1 2 2 3 3 4 4],
+                        [1 1 2 2 5 5 6 6],
+                        [1 1 2 2 5 5 6 6]]) 
+    >>> shape = [4, 4]
+    >>> offsets = [2, 4]
+    >>> valid_shape = [2, 4]
+    >>> pto.view(x, shape, offsets, valid_shape)
+    tensor([[5 5 6 6],
+            [5 5 6 6],
+            [0 0 0 0],
+            [0 0 0 0]])
+    """
+    if valid_shape is None:
+        return pto_impl.view(input, shape, offsets)
+    else:
+        return pto_impl.view(input, shape, valid_shape, offsets)

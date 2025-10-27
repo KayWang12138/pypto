@@ -98,7 +98,7 @@ def ceil_div(a, b):
 def gen_topk_indices(tmp_out: pto.tensor, s_slc: int, actual_topk: int, valid_size: pto.SymbolicScalar, is_dyn: bool):
     res = []
     pto.set_vec_tile_shapes(1, s_slc)
-    view0 = pto.view(tmp_out, [1, 128], [1, valid_size], [0, 1])
+    view0 = pto.view(tmp_out, [1, 128], [0, 1], [1, valid_size])
     if not is_dyn:
         view0 = pto.view(tmp_out, [1, valid_size], [0, 1])
     pto.set_vec_tile_shapes(1, s_slc)
@@ -107,7 +107,7 @@ def gen_topk_indices(tmp_out: pto.tensor, s_slc: int, actual_topk: int, valid_si
     topk_idx = pto.add_s(topk_idx, pto.element(pto.DT_FP32, 1.0))
     res.append(topk_idx)
 
-    topk_idx_tmp = pto.view(topk_idx, [1, NUM_16], [1, actual_topk], [0, 0])
+    topk_idx_tmp = pto.view(topk_idx, [1, NUM_16], [0, 0], [1, actual_topk])
     if not is_dyn:
         topk_idx_tmp = pto.view(topk_idx_tmp, [1, actual_topk], [0, 0])
     out32 = pto.topk(topk_idx_tmp, NUM_16, -1, False)[0]
@@ -118,7 +118,7 @@ def gen_topk_indices(tmp_out: pto.tensor, s_slc: int, actual_topk: int, valid_si
 def single_topk(tmp_out: pto.tensor, actual_value: int):
     res = []
     pto.set_vec_tile_shapes(1, NUM_128)
-    view0 = pto.view(tmp_out, [1, NUM_128], [1, actual_value], [0, 1])
+    view0 = pto.view(tmp_out, [1, NUM_128], [0, 1], [1, actual_value])
     pto.set_vec_tile_shapes(1, NUM_128)
     topk_idx = pto.topk(view0, NUM_16, -1, True)[1]
     topk_idx = pto.cast(topk_idx, pto.DT_FP32)

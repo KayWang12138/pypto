@@ -39,13 +39,13 @@ def test_vector_operation_add():
                 for b_idx in bloop_add:
                     for s_idx in sloop_add:
                         tile_a = pto.view(a, view_shape,
+                            [b_idx * view_shape[0], s_idx * view_shape[1]],
                             [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
-                            (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))],
-                            [b_idx * view_shape[0], s_idx * view_shape[1]])
+                            (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                         tile_b = pto.view(b, view_shape,
+                            [b_idx * view_shape[0], s_idx * view_shape[1]],
                             [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
-                            (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))],
-                            [b_idx * view_shape[0], s_idx * view_shape[1]])
+                            (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                         pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                         tile_a.move(pto.add(tile_a, tile_b))
                         pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], c)
@@ -83,13 +83,13 @@ def test_vector_operation_div():
                 for b_idx in bloop_div:
                     for s_idx in sloop_div:
                         tile_a = pto.view(a, view_shape,
+                            [b_idx * view_shape[0], s_idx * view_shape[1]],
                             [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
-                            (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))],
-                            [b_idx * view_shape[0], s_idx * view_shape[1]])
+                            (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                         tile_b = pto.view(b, view_shape,
+                            [b_idx * view_shape[0], s_idx * view_shape[1]],
                             [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
-                            (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))],
-                            [b_idx * view_shape[0], s_idx * view_shape[1]])
+                            (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                         pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                         tile_a.move(pto.div(tile_a, tile_b))
                         pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], c)
@@ -129,13 +129,13 @@ def test_vector_operation_mul():
                 for b_idx in bloop_mul:
                     for s_idx in sloop_mul:
                         tile_a = pto.view(a, view_shape,
+                            [b_idx * view_shape[0], s_idx * view_shape[1]],
                             [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
-                            (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))],
-                            [b_idx * view_shape[0], s_idx * view_shape[1]])
+                            (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                         tile_b = pto.view(b, view_shape,
+                            [b_idx * view_shape[0], s_idx * view_shape[1]],
                             [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
-                            (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))],
-                            [b_idx * view_shape[0], s_idx * view_shape[1]])
+                            (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                         pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                         tile_a.move(pto.mul(tile_a, tile_b))
                         pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], c)
@@ -173,13 +173,13 @@ def test_vector_operation_sub():
                 for b_idx in bloop_sub:
                     for s_idx in sloop_sub:
                         tile_a = pto.view(a, view_shape,
+                            [b_idx * view_shape[0], s_idx * view_shape[1]],
                             [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
-                            (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))],
-                            [b_idx * view_shape[0], s_idx * view_shape[1]])
+                            (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                         tile_b = pto.view(b, view_shape,
+                            [b_idx * view_shape[0], s_idx * view_shape[1]],
                             [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
-                            (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))],
-                            [b_idx * view_shape[0], s_idx * view_shape[1]])
+                            (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                         pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                         tile_a.move(pto.sub(tile_a, tile_b))
                         pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], c)
@@ -216,9 +216,9 @@ def test_vector_operation_abs():
                 for b_idx in bloop:
                     for s_idx in sloop:
                         tile_a = pto.view(a, view_shape,
+                            [b_idx * view_shape[0], s_idx * view_shape[1]],
                             [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
-                            (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))],
-                            [b_idx * view_shape[0], s_idx * view_shape[1]])
+                            (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                         pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                         tile_a.move(pto.abs(tile_a))
                         pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
@@ -253,9 +253,9 @@ def test_vector_operation_sqrt():
                 for b_idx in bloop:
                     for s_idx in sloop:
                         tile_a = pto.view(a, view_shape,
+                            [b_idx * view_shape[0], s_idx * view_shape[1]],
                             [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
-                            (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))],
-                            [b_idx * view_shape[0], s_idx * view_shape[1]])
+                            (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                         pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                         tile_a.move(pto.sqrt(tile_a))
                         pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
@@ -289,9 +289,9 @@ def test_vector_operation_neg():
                 for b_idx in bloop:
                     for s_idx in sloop:
                         tile_a = pto.view(a, view_shape,
+                            [b_idx * view_shape[0], s_idx * view_shape[1]],
                             [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
-                            (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))],
-                            [b_idx * view_shape[0], s_idx * view_shape[1]])
+                            (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                         pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                         tile_a.move(pto.neg(tile_a))
                         pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
@@ -358,9 +358,9 @@ def test_vector_operation_logical_not():
                 for b_idx in bloop:
                     for s_idx in sloop:
                         tile_a = pto.view(a, view_shape,
+                            [b_idx * view_shape[0], s_idx * view_shape[1]],
                             [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
-                            (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))],
-                            [b_idx * view_shape[0], s_idx * view_shape[1]])
+                            (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                         pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                         tmp_a = pto.tensor(view_shape, pto.DT_BOOL)
                         tmp_a.move(pto.logical_not(tile_a))
@@ -397,9 +397,9 @@ def test_vector_operation_expand():
                 for b_idx in bloop:
                     for s_idx in sloop:
                         tile_a = pto.view(a, [16, 1],
+                            [b_idx * view_shape[0], 0],
                             [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
-                            1],
-                            [b_idx * view_shape[0], 0])
+                            1])
                         pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                         tmp_a = pto.tensor()
                         tmp_a.move(pto.expand(tile_a, view_shape,
@@ -435,13 +435,13 @@ def test_vector_operation_concat():
         with pto.loop_function("LOOP_CONCAT_L0", "b_idx", loop_range_b) as bloop:
             for b_idx in bloop:
                 tile_a = pto.view(a, view_shape,
+                    [b_idx * view_shape[0], 0],
                     [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
-                    n],
-                    [b_idx * view_shape[0], 0])
+                    n])
                 tile_b = pto.view(b, view_shape,
+                    [b_idx * view_shape[0], 0],
                     [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
-                    n],
-                    [b_idx * view_shape[0], 0])
+                    n])
                 pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                 tmp_c = pto.tensor([16, 64], dtype)
                 tmp_c.move(pto.concat([tile_a, tile_b], -1))
@@ -477,9 +477,9 @@ def test_vector_operation_rowmaxsingle():
         with pto.loop_function("LOOP_ROWMAXSINGLE_L1", "s_idx", loop_range_s) as sloop:
             for s_idx in sloop:
                 tile_a = pto.view(a, [32, view_shape[1]],
+                    [0, s_idx * view_shape[1]],
                     [pto.symbolic_scalar(n),
-                    (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))],
-                    [0, s_idx * view_shape[1]])
+                    (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                 pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                 tmp_a = pto.tensor([1, view_shape[1]], dtype)
                 tmp_a.move(pto.amax(tile_a, dim))
@@ -514,9 +514,9 @@ def test_vector_operation_rowsumsingle():
         with pto.loop_function("LOOP_ROWSUMSINGLE_L1", "s_idx", loop_range_s) as sloop:
             for s_idx in sloop:
                 tile_a = pto.view(a, [32, view_shape[1]],
+                    [0, s_idx * view_shape[1]],
                     [pto.symbolic_scalar(n),
-                    (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))],
-                    [0, s_idx * view_shape[1]])
+                    (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                 pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                 tmp_a = pto.tensor([1, view_shape[1]], dtype)
                 tmp_a.move(pto.asum(tile_a, dim))
@@ -551,9 +551,9 @@ def test_vector_operation_rowminsingle():
         with pto.loop_function("LOOP_ROWMINSINGLE_L1", "s_idx", loop_range_s) as sloop:
             for s_idx in sloop:
                 tile_a = pto.view(a, [32, view_shape[1]],
+                    [0, s_idx * view_shape[1]],
                     [pto.symbolic_scalar(n),
-                    (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))],
-                    [0, s_idx * view_shape[1]])
+                    (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                 pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                 tmp_a = pto.tensor([1, view_shape[1]], dtype)
                 tmp_a.move(pto.amin(tile_a, dim))
