@@ -37,7 +37,7 @@ def test_tensor_view():
             assert a_view.shape == [16, 16]
             assert b_view.shape == [16, 16]
 
-def test_tensor_getitem():
+def test_tensor_view():
     a, b, c = init_tensors()
     with pto.function("MAIN", [a, b], [c]):
         pto.set_vec_tile_shapes(16, 16)
@@ -50,3 +50,10 @@ def test_tensor_getitem():
             assert isinstance(b_view, pto.tensor)
             assert a_view.shape == [16, 16]
             assert b_view.shape == [16, 16]
+
+
+def test_tensor_get_tensor_data():
+    a = pto.tensor((128, 128), pto.DT_INT32, "a")
+    with pto.function("MAIN", [a], []):
+        pto.set_vec_tile_shapes(16, 16)
+        t = a[0, 0]

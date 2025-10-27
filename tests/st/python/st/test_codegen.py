@@ -18,8 +18,8 @@ def test_codegen():
     keys = ["support_dynamic_unaligned","support_dynamic_unaligned","support_dynamic_unaligned","support_dynamic_unaligned"]
     pto.set_codegen_option(keys[0], "val1")
     assert pto.get_codegen_option(keys[0]) == "val1"
-    pto.set_codegen_option(keys[1], 123)
-    assert pto.get_codegen_option(keys[1]) == 123
+    pto.set_codegen_option(keys[1], False)
+    assert pto.get_codegen_option(keys[1]) == False
     pto.set_codegen_option(keys[2], [1,2,3])
     assert pto.get_codegen_option(keys[2]) == [1,2,3]
     pto.set_codegen_option(keys[3], {10:23})

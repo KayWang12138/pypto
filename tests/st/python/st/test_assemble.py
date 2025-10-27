@@ -16,7 +16,7 @@ from numpy.testing import assert_allclose
 
 
 def test_assemble_basic():
-    pto.DeviceInit()
+    pto.device_init()
     dtype = pto.DT_FP32
 
     input_shape = [8, 8]
@@ -31,7 +31,7 @@ def test_assemble_basic():
 
     torch_tensor = np.ones((8, 8))
     x_data = torch_tensor.flatten().tolist()
-    
+
     res_data = np.ones((8, 16), dtype=np.float32) * 3
     res_data = res_data.flatten().tolist()
 
@@ -39,15 +39,15 @@ def test_assemble_basic():
     golden_data[:, :8] = 1
     golden_data = golden_data.flatten().tolist()
 
-    pto.DeviceRunOnceDataFromHost([x_data], [res_data])
+    pto.device_run_once_data_from_host([x_data], [res_data])
     assert_allclose(res_data, golden_data, atol=1e-5, verbose=True)
-    pto.DeviceFini()
+    pto.device_fini()
 
 
 @pytest.mark.skip(reason="Dep operation interface")
 def test_view_assemble():
     f_1 = 1.0
-    pto.DeviceInit()
+    pto.device_init()
     dtype = pto.DT_FP32
 
     input_shape = [8, 24]
@@ -64,7 +64,7 @@ def test_view_assemble():
 
     torch_tensor = np.ones((8, 24))
     x_data = torch_tensor.flatten().tolist()
-    
+
     res_data = np.ones((8, 24), dtype=np.float32) * 3
     res_data = res_data.flatten().tolist()
 
@@ -72,7 +72,7 @@ def test_view_assemble():
     golden_data[:, :16] = 2
     golden_data = golden_data.flatten().tolist()
 
-    pto.DeviceRunOnceDataFromHost([x_data], [res_data])
+    pto.device_run_once_data_from_host([x_data], [res_data])
     assert_allclose(res_data, golden_data, atol=1e-5, verbose=True)
-    pto.DeviceFini()
+    pto.device_fini()
 

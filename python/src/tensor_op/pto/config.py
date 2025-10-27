@@ -29,16 +29,6 @@ def set_print_options(edge_items: int, precision: int, threshold: int, linewidth
     pto_impl.SetPrintOptions(edge_items, precision, threshold, linewidth)
 
 
-def get_print_options() -> pto_impl.print_options:
-    """
-    Get current tensor print options.
-
-    Returns:
-        pto_impl.print_options: The current print option settings.
-    """
-    return pto_impl.GetPrintOptions()
-
-
 def set_pass_option(key: str, value: Union[str, int, List[int], dict[int, int]]) -> None:
     """
     Set pass options.
@@ -50,7 +40,7 @@ def set_pass_option(key: str, value: Union[str, int, List[int], dict[int, int]])
             ...
         value (Union[str, int, List[int], dict[int, int]]): The configuration option value.
     """
-    pto_impl.SetPassOption(key, value)
+    pto_impl.SetOption(f"pass.{key}", value)
 
 
 def get_pass_option(key: str) -> Union[str, int, List[int], dict[int, int]]:
@@ -63,7 +53,7 @@ def get_pass_option(key: str) -> Union[str, int, List[int], dict[int, int]]:
     Returns:
         Union[str, int, List[int], dict[int, int]]: The value associated with the key.
     """
-    return pto_impl.GetPassOption(key)
+    return pto_impl.GetOption(f"pass.{key}")
 
 
 def set_host_option(key: str, value: Union[str, int, List[int], dict[int, int]]) -> None:
@@ -74,7 +64,7 @@ def set_host_option(key: str, value: Union[str, int, List[int], dict[int, int]])
         key (str): Host configuration option key.
         value (Union[str, int, List[int], dict[int, int]]): Host configuration option value.
     """
-    pto_impl.SetHostOption(key, value)
+    pto_impl.SetOption(f"host.{key}", value)
 
 
 def get_host_option(key: str) -> Union[str, int, List[int], dict[int, int]]:
@@ -87,7 +77,7 @@ def get_host_option(key: str) -> Union[str, int, List[int], dict[int, int]]:
     Returns:
         Union[str, int, List[int], dict[int, int]]: The value associated with the key.
     """
-    return pto_impl.GetHostOption(key)
+    return pto_impl.GetOption(f"host.{key}")
 
 
 def set_codegen_option(key: str, value: Union[str, int, List[int], Dict[int, int]]) -> None:
@@ -98,12 +88,12 @@ def set_codegen_option(key: str, value: Union[str, int, List[int], Dict[int, int
     ---------
     key: str
         Config option key.
-    
+
     value : Union[str, int, List[int], Dict[int, int]]
         Config option value.
     """
 
-    pto_impl.SetCodeGenOption(key, value)
+    pto_impl.SetOption(f"codegen.{key}", value)
 
 def get_codegen_option(key:str) -> Union[str, int, List[int], Dict[int, int]]:
     """
@@ -113,14 +103,14 @@ def get_codegen_option(key:str) -> Union[str, int, List[int], Dict[int, int]]:
     ---------
     key: str
         Config option key.
-    
+
     Returns
     -------
     Union[str, int, List[int], Dict[int, int]]
         Config option value.
     """
 
-    return pto_impl.GetCodeGenOption(key)
+    return pto_impl.GetOption(f"codegen.{key}")
 
 def set_runtime_option(key:str, value:Union[str, int, List[int], Dict[int, int]]) -> None:
     """
@@ -130,12 +120,12 @@ def set_runtime_option(key:str, value:Union[str, int, List[int], Dict[int, int]]
     ---------
     key: str
         Config option key.
-    
+
     value : Union[str, int, List[int], Dict[int, int]]
         Config option value.
     """
-   
-    pto_impl.SetRuntimeOption(key, value)
+
+    pto_impl.SetOption(f"runtime.{key}", value)
 
 def get_runtime_option(key:str) -> Union[str, int, List[int], Dict[int, int]]:
     """
@@ -145,82 +135,14 @@ def get_runtime_option(key:str) -> Union[str, int, List[int], Dict[int, int]]:
     ---------
     key: str
         Config option key.
-    
+
     Returns
     -------
     Union[str, int, List[int], Dict[int, int]]
         Config option value.
     """
 
-    return pto_impl.GetRuntimeOption(key)
-
-
-def set_codegen_option(key: str, value: Union[str, int, List[int], Dict[int, int]]) -> None:
-    """
-    Set codegen options.
-
-    Parameters
-    ---------
-    key: str
-        Config option key.
-    
-    value : Union[str, int, List[int], Dict[int, int]]
-        Config option value.
-    """
-
-    pto_impl.SetCodeGenOption(key, value)
-
-
-def get_codegen_option(key: str) -> Union[str, int, List[int], Dict[int, int]]:
-    """
-    Get codegen options.
-
-    Parameters
-    ---------
-    key: str
-        Config option key.
-    
-    Returns
-    -------
-    Union[str, int, List[int], Dict[int, int]]
-        Config option value.
-    """
-
-    return pto_impl.GetCodeGenOption(key)
-
-
-def set_runtime_option(key: str, value: Union[str, int, List[int], Dict[int, int]]) -> None:
-    """
-    Set runtime options.
-
-    Parameters
-    ---------
-    key: str
-        Config option key.
-    
-    value : Union[str, int, List[int], Dict[int, int]]
-        Config option value.
-    """
-   
-    pto_impl.SetRuntimeOption(key, value)
-
-
-def get_runtime_option(key: str) -> Union[str, int, List[int], Dict[int, int]]:
-    """
-    Get runtime options.
-
-    Parameters
-    ---------
-    key: str
-        Config option key.
-    
-    Returns
-    -------
-    Union[str, int, List[int], Dict[int, int]]
-        Config option value.
-    """
-
-    return pto_impl.GetRuntimeOption(key)
+    return pto_impl.GetOption(f"runtime.{key}")
 
 
 def set_semantic_label(label: str) -> None:
@@ -232,7 +154,7 @@ def set_semantic_label(label: str) -> None:
     label: str
         Semantic label.
         Note: label will be attached to subsequent operations
-    
+
     """
 
     pto_impl.SetSemanticLabel(label)

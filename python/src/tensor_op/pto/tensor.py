@@ -13,15 +13,15 @@ from typing import Union, List, cast
 import pto
 from pto import pto_impl
 
-from .element import Element
+from .enum import * # noqa
 from .pto_utils import to_syms
 from .symbolic_scalar import SymbolicScalar
 
 
 class Tensor:
 
-    def __init__(self, shape = None, dtype: Union[pto.DataType, None] = None,
-                 name: str = "", format: pto.TileOpFormat = pto.TileOpFormat.TILEOP_ND):
+    def __init__(self, shape=None, dtype: Union[DataType, None] = None,
+                 name: str = "", format: TileOpFormat = TileOpFormat.TILEOP_ND):
         if shape is None or dtype is None:
             self._base = pto_impl.Tensor()
         elif all([isinstance(s, int) for s in shape]):
@@ -34,11 +34,11 @@ class Tensor:
             self._base = pto_impl.Tensor(dtype, sym_shape, name, format)
 
     @property
-    def dtype(self) -> pto.DataType:
+    def dtype(self) -> DataType:
         return self._base.GetDataType()
 
     @property
-    def shape(self) -> Union[List[int], List[pto.SymbolicScalar]]:
+    def shape(self) -> Union[List[int], List[SymbolicScalar]]:
         out = []
         for i, n in enumerate(self._base.GetShape()):
             if n == -1:
@@ -51,10 +51,10 @@ class Tensor:
     def dim(self) -> int:
         return self._base.Dim()
 
-    def set_cache_policy(self, policy: pto.CachePolicy, value: bool) -> None:
+    def set_cache_policy(self, policy: CachePolicy, value: bool) -> None:
         self._base.SetCachePolicy(policy, value)
 
-    def get_cache_policy(self, policy: pto.CachePolicy) -> bool:
+    def get_cache_policy(self, policy: CachePolicy) -> bool:
         return self._base.GetCachePolicy(policy)
 
     @property
@@ -82,6 +82,8 @@ class Tensor:
     def _is_empty_slice(self, key):
         if isinstance(key, slice):
             return key.start is None and key.stop is None and key.step is None
+        elif isinstance(key, (int, SymbolicScalar)):
+            return False
         return all([self._is_empty_slice(k) for k in key])
 
     def __setitem__(self, key, value):
@@ -107,7 +109,7 @@ class Tensor:
         elif isinstance(key, tuple):
             assert self.dim() == len(key), f"rank not match, expect {self.dim()}, but got {len(key)}"
             if all([isinstance(k, (int, SymbolicScalar)) for k in key]):
-                pto.SetTensorData(value, to_syms(key), self._base)
+                pto_impl.SetTensorData(value, to_syms(key), self._base)
             elif all([isinstance(k, slice) for k in key]):
                 offsets = self._get_assemble_offset(key, value.shape)
                 pto.assemble(value, offsets, self)
@@ -154,10 +156,9 @@ class Tensor:
         elif isinstance(key, tuple):
             assert self.dim() == len(key), f"rank not match, expect {self.dim()}, but got {len(key)}"
             if all([isinstance(k, (int, SymbolicScalar)) for k in key]):
-                return pto.GetTensorData(self._base, to_syms(key))
+                return SymbolicScalar.from_base(pto_impl.GetTensorData(self._base, to_syms(key)))
             elif all([isinstance(k, slice) for k in key]):
                 offsets, shapes = self._get_view_offset_shape(key, self.shape)
-                print(offsets, shapes)
                 return pto.view(self, shapes, offsets)
             else:
                 raise ValueError("tuple key must be int or SymbolicScalar")
@@ -173,20 +174,14 @@ class Tensor:
         obj._base = base
         return obj
 
-    def __add__(self, other: 'Tensor | Element') -> 'Tensor':
-        if isinstance(other, Element):
-            return pto.add_s(self, other)
-        else:
-            return pto.add(self, other)
+    def __add__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pto.add(self, other)
 
-    def __radd__(self, other: 'Tensor | Element') -> 'Tensor':
+    def __radd__(self, other: 'Tensor | int | float') -> 'Tensor':
         return self.__add__(other)
 
-    def __sub__(self, other: 'Tensor | Element') -> 'Tensor':
-        if isinstance(other, Element):
-            return pto.sub_s(self, other)
-        else:
-            return pto.sub(self, other)
+    def __sub__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pto.sub(self, other)
 
     def __matmul__(self, other: 'Tensor') -> 'Tensor':
         if other.dtype in {pto.DT_FP16, pto.DT_BF16, pto.DT_FP32}:
@@ -199,5 +194,3 @@ class Tensor:
 
     def matmul(self, mat2, out_dtype, *, a_trans=False, b_trans=False, c_matrix_nz=False) -> 'Tensor':
         return pto.matmul(self, mat2, out_dtype, a_trans=a_trans, b_trans=b_trans, c_matrix_nz=c_matrix_nz)
-
-tensor = Tensor

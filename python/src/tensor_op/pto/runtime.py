@@ -149,7 +149,7 @@ class jit:
         in_tensors, out_tensors = args[0], args[1]
         if (len(args) < 2):
             raise ValueError("pto.jit required at least two input arguments (input_tensors, output_tensors, ...).")
-        
+
         for in_tensor in in_tensors:
             if not in_tensor.is_contiguous():
                 raise RuntimeError("pto.jit requires that all in_tensors must be contiguous.")

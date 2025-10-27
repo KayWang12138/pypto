@@ -9,6 +9,8 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 # pyright: reportReturnType=false
+# pyright: reportArgumentType=false
+# pyright: reportAttributeAccessIssue=false
 """
 """
 import typing
@@ -51,7 +53,7 @@ def add(
     input: Tensor,
     other: Union[Tensor, int, float],
     *,
-    alpha: Optional[Union[int, float]] = 1
+    alpha: Union[int, float] = 1
 ) -> Tensor:
     """Computes the element-wise addition of `input` and `other`.
 
@@ -98,13 +100,13 @@ def add(
         if alpha == 1 or alpha == 1.0:
             return pto_impl.add(input, other)
         else:
-            return pto_impl.add(input, pto_impl.mul_s(other, pto_impl.element(input.dtype, alpha)))
+            return pto_impl.add(input, pto_impl.mul_s(other, pto_impl.Element(input.dtype, alpha)))
     else:
         if alpha == 1 or alpha == 1.0:
-            return pto_impl.add_s(input, pto_impl.element(input.dtype, other))
+            return pto_impl.add_s(input, pto_impl.Element(input.dtype, other))
         else:
-            return pto_impl.add_s(input,
-                pto_impl.element(input.dtype, other) * pto_impl.element(input.dtype, alpha))
+            assert isinstance(other, (int, float)), "alpha must be a number"
+            return pto_impl.add_s(input, pto_impl.Element(input.dtype, other * alpha))
 
 
 @op_wrapper
@@ -112,7 +114,7 @@ def sub(
     input: Tensor,
     other: Union[Tensor, int, float],
     *,
-    alpha: Optional[Union[int, float]] = 1
+    alpha: Union[int, float] = 1
 ) -> Tensor:
     """Computes the element-wise subtraction of `input` and `other`.
 
@@ -154,13 +156,13 @@ def sub(
         if alpha == 1 or alpha == 1.0:
             return pto_impl.sub(input, other)
         else:
-            return pto_impl.sub(input, pto_impl.mul_s(other, pto_impl.element(input.dtype, alpha)))
+            return pto_impl.sub(input, pto_impl.mul_s(other, pto_impl.Element(input.dtype, alpha)))
     else:
         if alpha == 1 or alpha == 1.0:
-            return pto_impl.sub(input, pto_impl.element(input.dtype, other))
+            return pto_impl.sub(input, pto_impl.Element(input.dtype, other))
         else:
-            return pto_impl.sub(input,
-                pto_impl.element(input.dtype, other) * pto_impl.element(input.dtype, alpha))
+            assert isinstance(other, (int, float)), "alpha must be a number"
+            return pto_impl.sub(input, pto_impl.Element(input.dtype, other * alpha))
 
 
 @op_wrapper
@@ -168,7 +170,7 @@ def mul(
     input: Tensor,
     other: Union[Tensor, int, float],
     *,
-    alpha: Optional[Union[int, float]] = 1
+    alpha: Union[int, float] = 1
 ) -> Tensor:
     """Computes the element-wise multiplication of `input` and `other`.
 
@@ -208,13 +210,13 @@ def mul(
         if alpha == 1 or alpha == 1.0:
             return pto_impl.mul(input, other)
         else:
-            return pto_impl.mul(input, pto_impl.mul_s(other, pto_impl.element(input.dtype, alpha)))
+            return pto_impl.mul(input, pto_impl.mul_s(other, pto_impl.Element(input.dtype, alpha)))
     else:
         if alpha == 1 or alpha == 1.0:
-            return pto_impl.mul_s(input, pto_impl.element(input.dtype, other))
+            return pto_impl.mul_s(input, pto_impl.Element(input.dtype, other))
         else:
-            return pto_impl.mul_s(input,
-                pto_impl.element(input.dtype, other) * pto_impl.element(input.dtype, alpha))
+            assert isinstance(other, (int, float)), "alpha must be a number"
+            return pto_impl.mul_s(input, pto_impl.Element(input.dtype, other * alpha))
 
 
 @op_wrapper
@@ -222,7 +224,7 @@ def div(
     input: Tensor,
     other: Union[Tensor, int, float],
     *,
-    alpha: Optional[Union[int, float]] = 1
+    alpha: Union[int, float] = 1
 ) -> Tensor:
     """Computes the element-wise division of `input` and `other`.
 
@@ -269,13 +271,13 @@ def div(
         if alpha == 1 or alpha == 1.0:
             return pto_impl.div(input, other)
         else:
-            return pto_impl.div(input, pto_impl.mul_s(other, pto_impl.element(input.dtype, alpha)))
+            return pto_impl.div(input, pto_impl.mul_s(other, pto_impl.Element(input.dtype, alpha)))
     else:
         if alpha == 1 or alpha == 1.0:
-            return pto_impl.div_s(input, pto_impl.element(input.dtype, other))
+            return pto_impl.div_s(input, pto_impl.Element(input.dtype, other))
         else:
-            return pto_impl.div_s(input,
-                pto_impl.element(input.dtype, other) * pto_impl.element(input.dtype, alpha))
+            assert isinstance(other, (int, float)), "alpha must be a number"
+            return pto_impl.div_s(input, pto_impl.Element(input.dtype, other * alpha))
 
 
 def view(a, shapes, *args) -> Tensor:
@@ -421,7 +423,7 @@ def logical_not(
     >>> input = pto.tensor([0, 1, 2, 3, 4])
     >>> pto.logical_not(input)
     tensor([True, False, False, False, False, False,])
-        
+
     """
     return pto_impl.logical_not(input)
 
@@ -545,7 +547,8 @@ def topk(
             [2, 1]])
     """
 
-    return pto_impl.topk(input, k, (-1 if dim is None else dim), largest)
+    values_base, indices_base = pto_impl.topk(input, k, (-1 if dim is None else dim), largest)
+    return Tensor.from_base(values_base), Tensor.from_base(indices_base)
 
 
 @op_wrapper
@@ -556,28 +559,28 @@ def gather(
 ) -> Tensor:
     """
     Gather elements from `input` along `dim` according to `index`.
-    
+
     This function specified output for a 3-D tensor:
     output[i][j][k] = input[index[i][j][k]][j][k] # if dim == 0
     output[i][j][k] = input[i][index[i][j][k]][k] # if dim == 1
     output[i][j][k] = input[i][j][index[i][j][k]] # if dim == 2
-    
+
     Parameters
     ----------
     input : Tensor
         Source tensor from which to gather values.
     index : Tensor
         Integer tensor containing the subscripts to pick along `dim`. It must have
-        the same numbers of dimensions as `input`. And it is also required that 
+        the same numbers of dimensions as `input`. And it is also required that
         index.shape[d] <= input.shape[d] for all dimensions d != dim.
     dim : int
         Dimension in `input` along which to gather. Negative indexing is supported.
-    
+
     Returns
     -------
     Tensor
         A new tensor, with the same dtype as `input` and the same shape as `index`.
-    
+
     Raises
     ------
     IndexError
@@ -585,14 +588,14 @@ def gather(
         [0, input.shape[dim]-1].
     RuntimeError
         If the broadcast shape of `index` against `input` is incompatible.
-    
+
     Examples
     --------
     >>> import pto
     >>> a = pto.tensor([[0, 1, 2, 3, 4],
     ...                   [5, 6, 7, 8, 9],
     ...                   [10, 11, 12, 13, 14]])        # shape (3, 5)
-    
+
     >>> index = pto.tensor([[0, 1, 2, 0],
     ...                       [1, 2, 0, 1],
     ...                       [2, 2, 1, 0])             # shape (3, 4)
@@ -600,7 +603,7 @@ def gather(
     tensor([[0, 6, 12, 3],
             [5, 11, 2, 8],
             [10, 11, 7, 3]])                    # shape (3, 4)
-    
+
     """
 
     return pto_impl.gather_element(input, index, dim)
@@ -657,18 +660,21 @@ def scatter(
     >>> pto.scatter(a, -2, b, c)
     tensor([[0, 0, 0],[1, 2, 3],[4, 5, 6],[0, 0, 0],[7, 8, 9],[10, 11, 12],[0, 0, 0],[0, 0, 0]])
 
-    >>> a = pto.tensor([[[[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0]]], 
+    >>> a = pto.tensor([[[[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0]]],
         [[[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0]]]])
     >>> b = pto.tensor([[1, 2],[0, 2]])
     >>> c = pto.tensor([[[[1, 2, 3],[4, 5, 6]]],[[[7, 8, 9],[10, 11, 12]]]])
     >>> pto.scatter(a, -2, b, c)
     tensor([[[[0, 0, 0],[1, 2, 3],[4, 5, 6]]],[[[7, 8, 9],[0, 0, 0],[10, 11, 12]]]])
     """
-    dims = len(input.get_shape())
+    dims = len(input.Dim())
     if dims == 4:
         chunk_size = input.get_shape(1)
     elif dims == 2:
         chunk_size = 1
+    else:
+        raise ValueError("dim must be 2 or 4")
+
     return pto_impl.scatter_update(input, index, src, -2, "PA_BSND", chunk_size)
 
 
@@ -683,7 +689,7 @@ def where(
     """
     Return a tensor of elements selected from either `input` or `other`, depending on `condition`.
 
-    This function implements element-wise selection: 
+    This function implements element-wise selection:
     'out[i] = input[i] if condition[i] else other[i]'.
     It supports broadcasting among `condition`, `input`, and `other`.
 
@@ -699,7 +705,7 @@ def where(
     Returns
     -------
     Tensor
-        A tensor with the same shape as the broadcasted `condition`, containing elements 
+        A tensor with the same shape as the broadcasted `condition`, containing elements
         from `input` where `condition` is True, and from `other` otherwise.
         The data type is determined by type promotion rules between `input` and `other`.
 
@@ -739,40 +745,40 @@ def where(
     if isinstance(input, pto_impl.Tensor):
         input_base = input
     elif dtype is None:
-        input_base = pto_impl.element(pto_impl.DataType.DT_FP32, input)
+        input_base = pto_impl.Element(pto_impl.DT_FP32, input)
     else:
-        input_base = pto_impl.element(dtype, input)
+        input_base = pto_impl.Element(dtype, input)
     if isinstance(other, pto_impl.Tensor):
         other_base = other
     elif dtype is None:
-        other_base = pto_impl.element(pto_impl.DataType.DT_FP32, other)
+        other_base = pto_impl.Element(pto_impl.DT_FP32, other)
     else:
-        other_base = pto_impl.element(dtype, other)
+        other_base = pto_impl.Element(dtype, other)
     return pto_impl.where(condition, input_base, other_base)
 
 
-def convert_to_element(value) -> pto_impl.element:
+def convert_to_element(value) -> pto_impl.Element:
     if isinstance(value, (int)):
         if value >= -2**31 and value <= 2**31 - 1:
-            return pto_impl.element(pto_impl.DataType.DT_INT32, value)
+            return pto_impl.Element(pto_impl.DT_INT32, value)
         else:
-            return pto_impl.element(pto_impl.DataType.DT_INT64, value)
+            return pto_impl.Element(pto_impl.DT_INT64, value)
     else:
-        return pto_impl.element(pto_impl.DataType.DT_FP32, value)
+        return pto_impl.Element(pto_impl.DT_FP32, value)
 
 
 @op_wrapper
 def arange(
     start: Optional[Union[int, float]] = 0,
-    end: Union[int, float] = None, 
+    end: Union[int, float] = None,
     step: Optional[Union[int, float]] = 1
 ) -> Tensor:
     """Creates a 1-dimensional tensor containing a sequence of values in the range [start, end) with a given step.
 
     This function generates values from 'start' to 'end' (exclusive) in increments of 'step'.
     If only one argument is provided, it is treated as 'end', and 'start' defaults to 0 (INT32) and 'step'
-    defaults to 1 (INT32).  
-    If two arguments are provided, they are treated as 'start' and 'end', and 'step' defailts to 1 (INT32).  
+    defaults to 1 (INT32).
+    If two arguments are provided, they are treated as 'start' and 'end', and 'step' defailts to 1 (INT32).
 
     Parameters
     ----------
@@ -806,8 +812,8 @@ def arange(
     """
 
     if end is None:
-        return pto_impl.range(pto_impl.element(pto_impl.DataType.DT_INT32, 0), convert_to_element(start),
-                              pto_impl.element(pto_impl.DataType.DT_INT32, 1))
+        return pto_impl.range(pto_impl.Element(pto_impl.DT_INT32, 0), convert_to_element(start),
+                              pto_impl.Element(pto_impl.DT_INT32, 1))
     return pto_impl.range(convert_to_element(start), convert_to_element(end), convert_to_element(step))
 
 
@@ -875,7 +881,7 @@ def cast(
     if dtype == input.dtype:
         return input
     else:
-        return pto_impl.cast(input, dtype)
+        return pto_impl.cast(input, dtype, pto_impl.CastMode.CAST_NONE)
 
 
 @op_wrapper
@@ -898,8 +904,8 @@ def amax(
     -------
     Tensor
         If keepdim is True, the return tensor is of the same size as input except in the dimension dim where it
-        is of size 1. 
-        Otherwise, dim is squeezed, resulting in the return tensor having 1 fewer dimension. 
+        is of size 1.
+        Otherwise, dim is squeezed, resulting in the return tensor having 1 fewer dimension.
 
     Examples
     --------
@@ -934,8 +940,8 @@ def asum(
     -------
     Tensor
         If keepdim is True, the return tensor is of the same size as input except in the dimension dim where it
-        is of size 1. 
-        Otherwise, dim is squeezed, resulting in the return tensor having 1 fewer dimension. 
+        is of size 1.
+        Otherwise, dim is squeezed, resulting in the return tensor having 1 fewer dimension.
 
     Examples
     --------
@@ -970,8 +976,8 @@ def amin(
     -------
     Tensor
         If keepdim is True, the return tensor is of the same size as input except in the dimension dim
-        where it is of size 1. 
-        Otherwise, dim is squeezed, resulting in the return tensor having 1 fewer dimension. 
+        where it is of size 1.
+        Otherwise, dim is squeezed, resulting in the return tensor having 1 fewer dimension.
 
     Examples
     --------
@@ -995,9 +1001,9 @@ def compare(
     mode: OutType
 ) -> Tensor:
     """Performs element-wise comparison between `input` and `other`.
-    
+
     This function supports both BIT-packed and BOOLEAN output modes.
-    
+
     Parameters
     ----------
     input : Tensor
@@ -1008,33 +1014,33 @@ def compare(
         The comparison operator (EQ, NE, LT, LE, GT, GE).
     mode : pto.OutType
         The output mode (BIT or BOOL).
-        
+
     Returns
     -------
     Tensor
         A new tensor containing the comparison results.
         - In BOOL mode: BOOL tensor with same shape as inputs
         - In BIT mode: UINT8 tensor with last dimension reduced to 1/8 (packed bits)
-        
+
     Raises
     ------
     TypeError
         If `other` is not a Tensor or Element.
-        
+
     See Also
     --------
     eq, ne, lt, le, gt, ge : Convenience functions for specific comparisons.
-    
+
     Examples
     --------
     >>> import pto
     >>> a = pto.tensor([1, 2, 3])
     >>> b = pto.tensor([2, 2, 2])
-    
+
     >>> # BOOL mode comparison
     >>> pto.compare(a, b, op=pto.OpType.GT, mode=pto.OutType.BOOL)
     tensor([False, False, True])
-    
+
     >>> # BIT mode comparison (last dimension must be divisible by 8)
     >>> pto.compare(a, b, op=pto.OpType.EQ, mode=pto.OutType.BIT)
     tensor([0b00000100], dtype=uint8)  # Only last element matches
@@ -1054,10 +1060,10 @@ def concat(
     ---------
     tensors: Tensors
         tensor to be spliced.
-        
+
     dim : int
         specified dimensions.
-        
+
     out: Tensor
         The concatenated tensor
     Examples
@@ -1066,7 +1072,7 @@ def concat(
     >>> x = pto.tensor([2, 2], pto.data_type.DT_FP32)  # 2x2 tensor with all 1s
     >>> y = pto.tensor([2, 2], pto.data_type.DT_FP32)  # 2x2 tensor with all 0s
     >>> dim = 0
-    >>> out = pto.Concat({x, y}, dim) 
+    >>> out = pto.Concat({x, y}, dim)
     >>> print(out)
     [[1 1]
     [1 1]

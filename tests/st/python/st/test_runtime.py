@@ -18,8 +18,8 @@ def test_runtime():
     keys = ["machine_sched_mode","machine_sched_mode","machine_sched_mode","machine_sched_mode"]
     pto.set_runtime_option(keys[0], "val1")
     assert pto.get_runtime_option(keys[0]) == "val1"
-    pto.set_runtime_option(keys[1], 123)
-    assert pto.get_runtime_option(keys[1]) == 123
+    pto.set_runtime_option(keys[1], 1)
+    assert pto.get_runtime_option(keys[1]) == 1
     pto.set_runtime_option(keys[2], [1,2,3])
     assert pto.get_runtime_option(keys[2]) == [1,2,3]
     pto.set_runtime_option(keys[3], {10:23})

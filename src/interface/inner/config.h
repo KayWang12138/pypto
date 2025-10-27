@@ -64,6 +64,7 @@ FunctionType GetFunctionType();
 std::string GetSemanticLabel();
 
 namespace internal {
+bool IsType(const std::string &key, const std::type_info &type);
 bool GetOption(const std::string &key, int64_t &value);
 bool GetOption(const std::string &key, std::string &value);
 bool GetOption(const std::string &key, std::vector<int64_t> &value);
@@ -86,6 +87,15 @@ T GetOption(const std::string &key) {
         throw std::runtime_error("config " + key + " not exist");
     }
     return val;
+}
+
+template <typename T>
+bool IsType(const std::string &key) {
+    if constexpr (std::is_integral_v<T>) {
+        return internal::IsType(key, typeid(int64_t));
+    } else {
+        return internal::IsType(key, typeid(T));
+    }
 }
 
 #define DEFINE_CONFIG_GROUP(group, prefix)                   \

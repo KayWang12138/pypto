@@ -54,7 +54,7 @@ def test_batch_matmul_bf16_with_m_split():
 def dynamic_batch_matmul_onboard_util(input_config: BatchMatmulShapeConfig):
     # onboard prepare
     device_id = os.environ.get("TILE_FWK_STEST_DEVICE_ID", 0)
-    pto.DeviceInit()
+    pto.device_init()
     pto.set_host_option("only_codegen", True)
     pto.set_codegen_option("support_dynamic_unaligned", True)
     pto.set_cube_tile_shapes(input_config.m_tile_shape, input_config.k_tile_shape, input_config.n_tile_shape)
@@ -82,13 +82,13 @@ def dynamic_batch_matmul_onboard_util(input_config: BatchMatmulShapeConfig):
     a_data, b_data, c_data, c_device_data = gen_batch_matmul_golden_data(input_config)
 
     # onboard execute
-    pto.DeviceRunOnceDataFromHost([a_data, b_data], [c_device_data])
+    pto.device_run_once_data_from_host([a_data, b_data], [c_device_data])
 
     # compare golden with onboard data
     assert_allclose(c_data, c_device_data, rtol=0.001, atol=0.001)
 
     # onboard finish--clean env
-    pto.DeviceFini()
+    pto.device_fini()
 
 
 def no_split_m_n(tensor_a, tensor_b, tensor_c, input_config):

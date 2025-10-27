@@ -25,7 +25,7 @@ def test_vector_operation_rsqrt():
     shape = (n, m)
     view_shape = (16, 16)
     tile_shape = (8, 8)
-    pto.DeviceInit()
+    pto.device_init()
     pto.set_codegen_option("support_dynamic_unaligned", True)
     a = pto.tensor(shape, pto.DT_FP32, "RSQRT_TENSOR_a")
     b = pto.tensor(shape, pto.DT_FP32, "RSQRT_TENSOR_b")
@@ -47,7 +47,7 @@ def test_vector_operation_rsqrt():
     a_tensor = np.random.uniform(0, 100, [n, m]).astype(np.float32)
     a_data = a_tensor.flatten().tolist()
     b_data = list([0] * n * m)
-    pto.DeviceRunOnceDataFromHost([a_data], [b_data])
+    pto.device_run_once_data_from_host([a_data], [b_data])
     assert_allclose(np.array(b_data),
                     np.array(torch.rsqrt(torch.tensor(a_tensor)).flatten().tolist()), rtol=3e-3, atol=3e-3)
-    pto.DeviceFini()
+    pto.device_fini()

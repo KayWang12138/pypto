@@ -144,6 +144,24 @@ std::string Dump() {
     return oss.str();
 }
 
+bool internal::IsType(const std::string &key, const std::type_info &type) {
+    auto iter = g_config.options.find(StringUtils::ToLower(key));
+    if (iter == g_config.options.end()) {
+        return false;
+    }
+    if (std::holds_alternative<int64_t>(iter->second)) {
+        return type == typeid(int64_t);
+    } else if (std::holds_alternative<std::string>(iter->second)) {
+        return type == typeid(std::string);
+    } else if (std::holds_alternative<std::vector<int64_t>>(iter->second)) {
+        return type == typeid(std::vector<int64_t>);
+    } else if (std::holds_alternative<MapType>(iter->second)) {
+        return type == typeid(MapType);
+    } else {
+        return false;
+    }
+}
+
 #define DEFINE_GET_OPTION(Type)                                       \
     bool internal::GetOption(const std::string &key, Type &value) {   \
         auto iter = g_config.options.find(StringUtils::ToLower(key)); \

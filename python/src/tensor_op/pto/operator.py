@@ -8,13 +8,23 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
-"""
-"""
-import pto
+# pyright: reportReturnType=false
+# pyright: reportArgumentType=false
+from pto import pto_impl
+from .tensor import Tensor
+from .operation import op_wrapper
 
 
-def test_node_types():
-    # Make sure all node types are defined
-    assert isinstance(pto.NodeType.LOCAL, pto.NodeType)
-    assert isinstance(pto.NodeType.INCAST, pto.NodeType)
-    assert isinstance(pto.NodeType.OUTCAST, pto.NodeType)
+@op_wrapper
+def softmax(tensor: Tensor) -> Tensor:
+    """
+    Computes softmax activations along the specified axis.
+
+    Args:
+        tensor (Tensor): The input tensor.
+
+    Returns:
+        Tensor: The output tensor with softmax activations.
+    """
+    return pto_impl.softmax(tensor)
+

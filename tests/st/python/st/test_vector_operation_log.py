@@ -26,7 +26,7 @@ def test_vector_operation_log():
     view_shape = (16, 16)
     tile_shape = (8, 8)
 
-    pto.DeviceInit()
+    pto.device_init()
 
     a = pto.tensor((n, m), pto.DT_FP32, "LOG_TENSOR_a")
     b = pto.tensor((n, m), pto.DT_FP32, "LOG_TENSOR_b")
@@ -49,11 +49,11 @@ def test_vector_operation_log():
     a_data = a_tensor.flatten().tolist()
     b_data = list([0] * n * m)
 
-    pto.DeviceRunOnceDataFromHost([a_data], [b_data])
+    pto.device_run_once_data_from_host([a_data], [b_data])
 
     golden_data = torch.log(torch.tensor(a_tensor)).flatten().tolist()
     assert(np.allclose(b_data, golden_data, rtol=1e-6, atol=1e-7))
-    pto.DeviceFini()
+    pto.device_fini()
 
 
 @pytest.mark.skip(reason="Dep operation interface")
@@ -64,7 +64,7 @@ def test_vector_operation_log2():
     view_shape = (16, 16)
     tile_shape = (8, 8)
 
-    pto.DeviceInit()
+    pto.device_init()
 
     a = pto.tensor((n, m), pto.DT_FP32, "LOG2_TENSOR_a")
     b = pto.tensor((n, m), pto.DT_FP32, "LOG2_TENSOR_b")
@@ -87,11 +87,11 @@ def test_vector_operation_log2():
     a_data = a_tensor.flatten().tolist()
     b_data = list([0] * n * m)
 
-    pto.DeviceRunOnceDataFromHost([a_data], [b_data])
+    pto.device_run_once_data_from_host([a_data], [b_data])
 
     golden_data = torch.log2(torch.tensor(a_tensor)).flatten().tolist()
     assert(np.allclose(b_data, golden_data, rtol=1e-6, atol=1e-7))
-    pto.DeviceFini()
+    pto.device_fini()
 
 
 @pytest.mark.skip(reason="Dep operation interface")
@@ -102,7 +102,7 @@ def test_vector_operation_log10():
     view_shape = (16, 16)
     tile_shape = (8, 8)
 
-    pto.DeviceInit()
+    pto.device_init()
 
     a = pto.tensor((n, m), pto.DT_FP32, "LOG10_TENSOR_a")
     b = pto.tensor((n, m), pto.DT_FP32, "LOG10_TENSOR_b")
@@ -125,8 +125,8 @@ def test_vector_operation_log10():
     a_data = a_tensor.flatten().tolist()
     b_data = list([0] * n * m)
 
-    pto.DeviceRunOnceDataFromHost([a_data], [b_data])
+    pto.device_run_once_data_from_host([a_data], [b_data])
 
     golden_data = torch.log10(torch.tensor(a_tensor)).flatten().tolist()
     assert(np.allclose(b_data, golden_data, rtol=1e-6, atol=1e-7))
-    pto.DeviceFini()
+    pto.device_fini()

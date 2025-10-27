@@ -16,11 +16,6 @@ import pto
 def test_print_options():
     with pto.function("MAIN", [], []):
         pto.set_print_options(1, 2, 3, 4)
-        print_options = pto.get_print_options()
-        assert print_options.edge_items == 1
-        assert print_options.precision == 2
-        assert print_options.threshold == 3
-        assert print_options.linewidth == 4
 
 
 def test_pass_option():

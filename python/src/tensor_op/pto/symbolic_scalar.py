@@ -196,4 +196,4 @@ class SymbolicScalar:
         return self._binary_ops(other, '__max__', lambda a, b: max(a, b), lambda a, b: a.Max(b))
 
 
-symbolic_scalar = SymbolicScalar
+SymInt = Union[int, SymbolicScalar]

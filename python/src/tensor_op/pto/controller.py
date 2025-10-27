@@ -17,11 +17,11 @@ import logging
 from contextlib import contextmanager
 from typing import List, Optional, Set, Tuple, Union
 
-import pto
 from pto import pto_impl
 
+from .enum import * # noqa
 from .pto_utils import to_sym
-from .symbolic_scalar import SymbolicScalar
+from .symbolic_scalar import SymbolicScalar, SymInt
 from .tensor import Tensor
 
 logging.basicConfig(level=logging.DEBUG)
@@ -29,26 +29,26 @@ logging.basicConfig(level=logging.DEBUG)
 
 def set_vec_tile_shapes(*shapes: int):
     """ set the tile shapes in vector computation
-    
+
     This operation sets the value of the tile shapes
     in each dimension in vector computation.
-    
+
     Parameters
     ----------
     shapes: *int
         the values of the tile shape in each dimension
-        
+
     Returns
     -------
     None
-    
+
     Examples
     --------
     >>> import pto
     >>> pto.set_vec_tile_shapes(1, 1, 8, 8)
     >>> print(pto.get_vec_tile_shapes())
     [1, 1, 8, 8]
-    
+
     """
     # implementation
     pto_impl.SetVecTile(*shapes)
@@ -56,26 +56,26 @@ def set_vec_tile_shapes(*shapes: int):
 
 def get_vec_tile_shapes() -> List[int]:
     """ get the tile shapes in vector computation
-    
+
     This operation returns the value of the tile shapes
     in each dimension in vector computation.
-    
+
     Parameters
     ----------
     None
-        
+
     Returns
     -------
     List of integers. The values in the list represent the
     tile shape in each dimension respectively
-    
+
     Examples
     --------
     >>> import pto
     >>> pto.set_vec_tile_shapes([1, 1, 8, 8])
     >>> print(pto.get_vec_tile_shapes())
     [1, 1, 8, 8]
-    
+
     """
     # implementation
     return pto_impl.GetVecTile()
@@ -83,69 +83,69 @@ def get_vec_tile_shapes() -> List[int]:
 
 def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], set_l1_tile: bool = False):
     """ set the tile shapes in cube computation
-    
+
     This operation sets the value of the tile shapes
     in each dimension in cube computation of left and right matrix,
     together with the cache level (L1/L0).
-    
+
     Parameters
     ----------
     m: List[int]
         the value of the tile shape in m dimension.
         The length of the the list must be 2.
-        
+
     k: List[int]
         the value of the tile shape in k dimension
         The length of the the list must be 2.
-        
+
     n: List[int]
         the value of the tile shape in n dimension
         The length of the the list must be 2.
-    
+
     set_l1_tile: bool
-        whether the tile shape is set for L1 or L0. 
+        whether the tile shape is set for L1 or L0.
         default is false (i.e. set for L0)
-        
+
     Returns
     -------
     None
-    
+
     Examples
     --------
     >>> import pto
     >>> pto.set_cube_tile_shapes([16, 16], [256, 512], [128, 128], True)
     >>> print(pto.get_cube_tile_shapes())
     [[16, 16], [256, 512], [128, 128], True]
-    
+
     """
     # implementation
     pto_impl.SetCubeTile(m, k, n, set_l1_tile)
-    
-    
+
+
 def get_cube_tile_shapes() -> List[Union[List, bool]]:
     """ get the tile shapes in cube computation
-    
+
     This operation gets the value of the tile shapes
     in each dimension in cube computation of left and right matrix,
     together with the cache level (L1/L0).
-    
+
     Parameters
     ----------
     None
-        
+
     Returns
     -------
     return List[Union[List, bool]]
-    The list includes the tile shape information of both left and 
+    The list includes the tile shape information of both left and
     right matrix, together with the cache level (L1/L0).
-    
+
     Examples
     --------
     >>> import pto
     >>> pto.set_cube_tile_shapes([16, 16], [256, 512], [128, 128], True)
     >>> print(pto.get_cube_tile_shapes())
     [[16, 16], [256, 512], [128, 128], True]
-    
+
     """
     # implementation
     return pto_impl.GetCubeTile()
@@ -155,20 +155,20 @@ def set_matrix_size(size: List[int]):
 
 def set_build_static(static: bool):
     pto_impl.SetBuildStatic(static)
-    
 
-def bytes_of(dtype: pto.DataType) -> int:
+
+def bytes_of(dtype: DataType) -> int:
     ''' return the number of bytes of the current datatype
-    
+
     Parameters
     ----------
     dtype: pto.DataType
         datatype to be determined the number of bytes
-        
+
     Returns
     -------
     int: the size of bytes the datatype contains
-    
+
     Examples
     --------
     >>> import pto
@@ -224,24 +224,24 @@ loop_range = LoopRange
 
 def is_loop_begin(scalar: SymbolicScalar, begin: Union[int, SymbolicScalar]):
     ''' Determines if the current iteration is the start of loop
-    This function returns a boolean value which specifys whether 
+    This function returns a boolean value which specifys whether
     the current iteration is the beginning of the loop
-    
+
     Parameters
     ----------
     scalar: SymbolicScalar
         current loop index
     begin: Union[int, SymbolicScalar]
         begin loop index
-        
+
     Returns
     -------
     SymbolicScalar : expression to determine if currently at loop start
-    
+
     Examples
     --------
     >>> import pto
-    >>> for s2_idx in pto.loop(0, bn_per_batch, 1, name="LOOP_L4_s2_SA", idx_name="s2_idx", 
+    >>> for s2_idx in pto.loop(0, bn_per_batch, 1, name="LOOP_L4_s2_SA", idx_name="s2_idx",
             unroll_list=pto.powers_of_2(1)):
             if pto.cond(pto.is_loop_begin(s2_idx, 0)):
                 ...
@@ -253,24 +253,24 @@ def is_loop_begin(scalar: SymbolicScalar, begin: Union[int, SymbolicScalar]):
 
 def is_loop_end(scalar: SymbolicScalar, end: Union[int, SymbolicScalar]):
     ''' Determines if the current iteration is the end of loop
-    This function returns a boolean value which specifys whether 
+    This function returns a boolean value which specifys whether
     the current iteration is the end of the loop
-    
+
     Parameters
     ----------
     scalar: SymbolicScalar
         current loop index
     end: Union[int, SymbolicScalar]
         end loop index
-        
+
     Returns
     -------
     SymbolicScalar : expression to determine if currently at loop end
-    
+
     Examples
     --------
     >>> import pto
-    >>> for s2_idx in pto.loop(0, bn_per_batch, 1, name="LOOP_L4_s2_SA", idx_name="s2_idx", 
+    >>> for s2_idx in pto.loop(0, bn_per_batch, 1, name="LOOP_L4_s2_SA", idx_name="s2_idx",
             unroll_list=pto.powers_of_2(1)):
             if pto.cond(pto.is_loop_end(s2_idx, 0)):
                 ...
@@ -288,10 +288,10 @@ def function(
     **kwargs
 ):
     """ defining the function
-    
+
     This API record the function and dataflow user has defined. A computing
     graph will be built based on the recorded function.
-    
+
     Parameters
     ----------
     name: str
@@ -300,13 +300,13 @@ def function(
         The list of input tensors
     out_tensors: List[Tensor]
         The list of output tensors
-        
+
     Returns
     -------
     return the function in pypto framework. Operations will be added
     under this API. It will produce the computing graph of the function
-    in the end. 
-    
+    in the end.
+
     Examples
     --------
     >>> import pto
@@ -315,7 +315,7 @@ def function(
             for _ in pto.loop(0, b_loop, 1, name, = "LOOP_L0_bIdx_mla_prolog",
                 idx_name = "b_idx"):
                 c[:] = a+b
-    
+
     """
     # implementation
     if "static" in kwargs:
@@ -335,19 +335,19 @@ def function(
         del func
 
 
-def cond(scalar: pto.SymbolicScalar):
+def cond(scalar: SymbolicScalar):
     """ set up a conditional computation. Use as a "if" condition in python.
-    
+
     Parameters
     ----------
     scalar: pto.SymbolicScalar
         expression to determine if condition is true or not
-        
+
     Returns
     -------
-    return a generator, which will be used for setting up the 
-    "if" in building computing graph 
-    
+    return a generator, which will be used for setting up the
+    "if" in building computing graph
+
     Examples
     --------
     >>> import pto
@@ -383,7 +383,7 @@ class _LoopFunction:
 def loop_function(
     name: str,
     loop_name: str,
-    loop_range_: pto.LoopRange,
+    loop_range_: LoopRange,
     unroll_list: Set[int] = set(),
     submit_before_loop: bool = False,
 ):
@@ -419,10 +419,10 @@ def pto_function(name: str, graph_type: pto_impl.GraphType, func_type: pto_impl.
         pto_impl.EndFunction(name, False)
 
 
-def loop(start: int, end: Optional[int] = None, step: Optional[int] = None, 
+def loop(start: SymInt, end: Optional[SymInt] = None, step: Optional[SymInt] = None,
          unroll_times: Optional[list[int]] = None, **kwargs):
     """ set up a loop computation. Use as a for loop in python.
-    
+
     Parameters
     ----------
     start: int
@@ -432,13 +432,13 @@ def loop(start: int, end: Optional[int] = None, step: Optional[int] = None,
     step: Optional[int]
         The increment amount of the looping value
     unroll_times: Optional[list[int]]
-        The number of loop layer which is unrolled  
-        
+        The number of loop layer which is unrolled
+
     Returns
     -------
-    return a generator, which will be used for setting up the 
-    for loop in building computing graph 
-    
+    return a generator, which will be used for setting up the
+    for loop in building computing graph
+
     Examples
     --------
     >>> import pto
@@ -447,7 +447,7 @@ def loop(start: int, end: Optional[int] = None, step: Optional[int] = None,
                 b[:] = a + a
             else:
                 b[:] = a + b
-    
+
     """
     # implementation
     step = 1 if step is None else step

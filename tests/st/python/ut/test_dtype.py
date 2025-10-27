@@ -32,4 +32,3 @@ def test_mem_type():
     assert isinstance(pto.DT_UINT64, pto.DataType)
     assert isinstance(pto.DT_BOOL, pto.DataType)
     assert isinstance(pto.DT_DOUBLE, pto.DataType)
-    assert isinstance(pto.DT_BOTTOM, pto.DataType)

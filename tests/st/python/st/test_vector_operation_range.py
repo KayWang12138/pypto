@@ -28,7 +28,7 @@ def test_vector_operation_range():
     end_data = 32.1
     step_data = 1.0
 
-    pto.DeviceInit()
+    pto.device_init()
     pto.set_codegen_option("support_dynamic_unaligned", True)
 
     a = pto.tensor((1, 1, 1), pto.DT_FP32, "Range_TENSOR_a")
@@ -50,8 +50,8 @@ def test_vector_operation_range():
     a_data = a_tensor.flatten().tolist()
     b_data = list([0] * size)
 
-    pto.DeviceRunOnceDataFromHost([a_data], [b_data])
+    pto.device_run_once_data_from_host([a_data], [b_data])
 
     golden_data = np.arange(start_data, end_data, step_data)
     assert(np.allclose(b_data, golden_data, rtol=1e-6, atol=1e-7))
-    pto.DeviceFini()
+    pto.device_fini()

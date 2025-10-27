@@ -18,7 +18,7 @@ from pto import (
     tensor, element, view, symbolic_scalar,
     loop_range, loop_function, function,
     set_vec_tile_shapes, set_codegen_option,
-    DeviceInit, DeviceRunOnceDataFromHost, DeviceFini,
+    device_init, device_run_once_data_from_host, device_fini,
 )
 
 
@@ -27,7 +27,7 @@ def test_maxs():
     scalar_data = 5
     first_dim, second_dim = 128, 128
     view_shape, tile_shape = (64, 64), (32, 32)
-    DeviceInit()
+    device_init()
     set_codegen_option("support_dynamic_unaligned", True)
 
     x = tensor((first_dim, second_dim), pto.DT_INT32, "Operand1")
@@ -73,7 +73,7 @@ def test_maxs():
     ny_data = np.zeros([first_dim, second_dim]).astype(np.int32)
     x_data = nx_data.flatten().tolist()
     y_data = ny_data.flatten().tolist()
-    DeviceRunOnceDataFromHost([x_data], [y_data])
+    device_run_once_data_from_host([x_data], [y_data])
     golden_data = np.maximum(x_data, scalar_data)
     assert(np.allclose(y_data, golden_data, rtol=1e-9, atol=1e-10))
-    DeviceFini()
+    device_fini()

@@ -24,7 +24,7 @@ namespace pypto {
  * @param m Pybind11 module
  */
 void BindElement(py::module &m) {
-    py::class_<Element>(m, "element")
+    py::class_<Element>(m, "Element")
         .def(py::init<DataType, int64_t>(), py::arg("type"), py::arg("sData"))
         .def(py::init<DataType, uint64_t>(), py::arg("type"), py::arg("uData"))
         .def(py::init<DataType, double>(), py::arg("type"), py::arg("fData"))

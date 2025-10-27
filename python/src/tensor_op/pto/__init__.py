@@ -20,17 +20,18 @@ del pkg_resources
 del sys
 
 
-from pto.pto_impl import *  # noqa
+from .config import *  # noqa
 from .controller import *  # noqa
-from .element import *  # noqa
+from .element import Element
 from .enum import *  # noqa
 from .operation import *  # noqa
-from .symbolic_scalar import *  # noqa
-from .tensor import *  # noqa
-from .config import *  # noqa
+from .operator import softmax
+from .pto_utils import ceildiv
 from .runtime import (device_fini, device_init,
                       device_run_once_data_from_device,
                       device_run_once_data_from_host, device_synchronize, jit)
+from .symbolic_scalar import SymbolicScalar
+from .tensor import Tensor
 
 
 def dump() -> str:
@@ -39,3 +40,9 @@ def dump() -> str:
 
 def reset():
     pto_impl.Reset()
+
+
+tensor = Tensor
+element = Element
+symbolic_scalar = SymbolicScalar
+

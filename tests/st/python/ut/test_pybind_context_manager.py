@@ -10,13 +10,9 @@
 # ======================================================================================================================
 """
 """
-import pytest
 import pto
 
 
-@pytest.mark.skip(
-    reason="RuntimeError: ASSERTION FAILED: currentFunctionPtr_->IsGraphType(GraphType::BLOCK_GRAPH)"
-)
 def test_pybind_context_manager():
     dtype = pto.DT_FP16
     shape = (8, 8)
@@ -24,7 +20,7 @@ def test_pybind_context_manager():
     b = pto.tensor(shape, dtype, "tensor_a")
     c = pto.tensor(shape, dtype, "tensor_c")
 
-    with pto.pto_function("fnc_name", a, b):
+    with pto.pto_function("fnc_name", pto.GraphType.TENSOR_GRAPH, pto.FunctionType.STATIC, a, b):
         pto.set_vec_tile_shapes(8, 8)
         c.move(pto.add(a, b))
 

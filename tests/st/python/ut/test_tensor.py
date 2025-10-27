@@ -57,7 +57,6 @@ def test_tensor_add_plus_op():
     assert c.dtype == dtype
 
 
-@pytest.mark.skip(reason="Dep operation interface")
 def test_tensor_add_tensor_element():
     dtype = pto.DT_FP16
     shape = [8, 8]
@@ -65,14 +64,12 @@ def test_tensor_add_tensor_element():
 
     with pto.pto_function("ADD", GRAPH_T, FUNC_T, a):
         pto.set_vec_tile_shapes(8, 8)
-        elem = pto.element(dtype, 3.14)
-        c = a + elem
+        c = a + 3.14
 
     assert c.shape == shape
     assert c.dtype == dtype
 
 
-@pytest.mark.skip(reason="Dep operation interface")
 def test_tensor_add_element_tensor():
     dtype = pto.DT_FP16
     shape = [8, 8]
@@ -80,8 +77,7 @@ def test_tensor_add_element_tensor():
 
     with pto.pto_function("ADD", GRAPH_T, FUNC_T, a):
         pto.set_vec_tile_shapes(8, 8)
-        elem = pto.element(dtype, 3.14)
-        c = elem + a
+        c = 3.14 + a
 
     assert c.shape == shape
     assert c.dtype == dtype
@@ -101,7 +97,6 @@ def test_tensor_sub_op():
     assert c.dtype == dtype
 
 
-@pytest.mark.skip(reason="Dep operation interface")
 def test_tensor_subs_tensor_element():
     dtype = pto.DT_FP16
     shape = [8, 8]
@@ -109,8 +104,7 @@ def test_tensor_subs_tensor_element():
 
     with pto.pto_function("SUBS", GRAPH_T, FUNC_T, a):
         pto.set_vec_tile_shapes(8, 8)
-        elem = pto.element(dtype, 3.14)
-        c = a - elem
+        c = a - 3.14
 
     assert c.shape == shape
     assert c.dtype == dtype

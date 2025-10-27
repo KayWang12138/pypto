@@ -14,7 +14,7 @@ from typing import Sequence, Union, List
 
 from pto import pto_impl
 
-from .symbolic_scalar import SymbolicScalar
+from .symbolic_scalar import SymbolicScalar, SymInt
 
 
 def to_sym(value) -> pto_impl.SymbolicScalar:
@@ -29,3 +29,8 @@ def to_sym(value) -> pto_impl.SymbolicScalar:
 
 def to_syms(value: Union[Sequence[int], Sequence[SymbolicScalar]]) -> List[pto_impl.SymbolicScalar]:
     return [to_sym(v) for v in value]
+
+
+def ceildiv(a: SymInt, b: SymInt) -> SymInt:
+    return (a + b - 1) // b
+
