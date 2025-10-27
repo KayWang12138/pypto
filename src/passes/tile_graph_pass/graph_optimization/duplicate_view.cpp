@@ -17,12 +17,13 @@
 
 #include "interface/function/function.h"
 #include "interface/tensor/logical_tensor.h"
+#include "passes/pass_utils/pass_utils.h"
 
 namespace npu::tile_fwk {
 Status DuplicateView::RunOnFunction(Function &function) {
-    ALOG_INFO_F("===> Start DuplicateViewPass for function [%s].", function.GetRawName().c_str());
+    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> Start DuplicateView for function [%s].", function.GetRawName().c_str());
     if (DuplicateViewPass(function) != SUCCESS) {return FAILED;}
-    ALOG_INFO_F("===> End DuplicateViewPass for function [%s].", function.GetRawName().c_str());
+    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> End DuplicateView for function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }
 
