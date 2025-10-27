@@ -397,6 +397,9 @@ Status SuperNodeGraphBuilder::BuildSuperNodeGraph()
     }
     std::vector<std::pair<int32_t, int32_t>> mergePair;
     for (size_t i = 0; i < opList.size(); i++) {
+        if (L0CCopyL1Combine(operationInfo_, opList, i, mergePair)) {
+            continue;
+        }
         if (L1CopyInCombine(operationInfo_, opList, i, mergePair)) {
             continue;
         }

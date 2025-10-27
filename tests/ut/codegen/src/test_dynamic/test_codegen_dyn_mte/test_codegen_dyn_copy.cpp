@@ -266,4 +266,48 @@ TEST_F(TestCodegenDynCopy, UBCopyIn) {
     EXPECT_EQ(res, expect);
 }
 
+TEST_F(TestCodegenDynCopy, L0CToL1) {
+    std::vector<int64_t> shape = {64, 64};
+    std::vector<int64_t> shape1 = {64, 64};
+    auto shapeImme = OpImmediate::Specified(shape);
+    TileShape::Current().SetVecTile(shape);
+    TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+    Tensor inputA(DT_FP32, shape, "A");
+    Tensor inputB(DT_FP32, shape, "B");
+    Tensor output(DT_FP32, shape, "C");
+
+    std::string funcName = "ADD";
+    config::SetBuildStatic(true);
+    FUNCTION(funcName, {inputA, inputB, output}) {
+        output = Add(inputA, inputB);
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    function->SetUnderDynamicFunction(true);
+    std::vector<SymbolicScalar> dynValidShape = {64, 64};
+    std::vector<SymbolicScalar> dynValidShape1 = {64, 64};
+    auto localTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_L0C, shape1});
+    auto localOutTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_L1, shape});
+    localTensor->UpdateDynValidShape(dynValidShape1);
+    localOutTensor->UpdateDynValidShape(dynValidShape);
+
+    auto &op = function->AddOperation(Opcode::OP_L0C_COPY_L1, {localTensor}, {localOutTensor});
+    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+
+    SymbolManager memAlloc;
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, memAlloc);
+    CodeGenOpCloudNPU cop(memAlloc, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
+    function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
+
+    cop.Init(op);
+    std::string res = cop.GenOpCode();
+    printf("res: %s", res.c_str());
+    std::string expect =
+        R"!!!(TileOp::DynL0CToL1<float, float>((__cbuf__ float*)L1_S0_E0, (__cc__ float*)L0C_S0_E0, 64, 64, 64, 64, 0, 0);
+)!!!";
+    EXPECT_EQ(res, expect);
+}
 } // namespace npu::tile_fwk

@@ -40,6 +40,7 @@ public:
     std::string GenMemL1CopyIn() const;
     std::string GenMemL1CopyOut() const;
     std::string GenMemL0CCopyOut() const;
+    std::string GenMemL0CToL1() const;
 
     std::string GenMemL1ToL0() const;
 
@@ -426,6 +427,7 @@ private:
         // L0C <-> GM
         {              Opcode::OP_L0C_COPY_OUT,            [this]() { return GenMemL0CCopyOut(); }},
 
+        {               Opcode::OP_L0C_COPY_L1,               [this]() { return GenMemL0CToL1(); }},
         // L1 <-> L0
         {                 Opcode::OP_L1_TO_L0A,                [this]() { return GenMemL1ToL0(); }},
         {                 Opcode::OP_L1_TO_L0B,                [this]() { return GenMemL1ToL0(); }},

@@ -290,15 +290,18 @@ TEST_F(AssignMemoryTypeTest, TestVecToCubeV2) {
 }
 
 TEST_F(AssignMemoryTypeTest, TestCubeToCube) {
-    config::SetHostConfig(KEY_STRATEGY, "PVC2_OOO");
+    config::SetHostConfig(KEY_STRATEGY, "AssignMemoryTypeTestStrategy");
     std::vector<int64_t> shape0 = {256, 128};
     std::vector<int64_t> shape1 = {128, 64};
     std::vector<int64_t> shape2 = {256, 256};
     PROGRAM("AssignMemoryTest") {
-        Tensor inputQ(DataType::DT_FP32, shape0, "Q");
-        Tensor inputK(DataType::DT_FP32, shape0, "K");
-        Tensor weight(DataType::DT_FP32, shape1, "weight");
+        Tensor inputQ(DataType::DT_BF16, shape0, "Q");
+        Tensor inputK(DataType::DT_BF16, shape0, "K");
+        Tensor weight(DataType::DT_BF16, shape1, "weight");
         Tensor out(DataType::DT_FP32, shape2, "output");
+        SetHalfwayStrategy();
+        Function* originFunction = nullptr;
+
         config::SetBuildStatic(true);
         FUNCTION("TestCubeToCube", {inputQ, inputK, weight, out}) {
             TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
@@ -310,6 +313,37 @@ TEST_F(AssignMemoryTypeTest, TestCubeToCube) {
             TileShape::Current().SetVecTile(NUM_64, NUM_64);
             out = Sub(QKT, Element(DataType::DT_FP32, F_3));
         }
+
+        originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_TestCubeToCube"); // Tensor_{Function名字}
+        ASSERT_NE(originFunction, nullptr) << "当前函数指针为空";
+        std::vector<int64_t> beforeMagic;
+        for (const auto &op : originFunction->Operations()) {
+            if (op.GetOpcode() == Opcode::OP_CONVERT || op.GetOpcode() == Opcode::OP_VIEW ||
+                op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+                beforeMagic.push_back(op.opmagic);
+            }
+        }
+        // Call the pass
+        AssignMemoryType assignMemoryType;
+        assignMemoryType.PreCheck(*originFunction);
+        assignMemoryType.RunOnFunction(*originFunction);
+        assignMemoryType.PostCheck(*originFunction);
+        // ================== Verify Pass Effect ==================
+        auto opList = originFunction->Operations();
+        int convertNum = 0;
+        for (const auto &op : opList) {
+            if (std::find(beforeMagic.begin(), beforeMagic.end(), op.opmagic) != beforeMagic.end()) {
+                continue;
+            }
+            if (op.GetOpcode() != Opcode::OP_CONVERT) {
+                continue;
+            }
+            std::cout << op.GetOpcodeStr() << " " << op.GetOpMagic() << std::endl;
+            CheckConvertOp(op, true);
+            convertNum++;
+        }
+        constexpr int expextedConvertNum = 4;
+        EXPECT_EQ(convertNum, expextedConvertNum) << "4 operations should be Convert";
     }
 }
 
@@ -367,8 +401,8 @@ TEST_F(AssignMemoryTypeTest, TestCubeToCubeV2) {
             CheckConvertOp(op, true);
             convertNum++;
         }
-        constexpr int expextedConvertNum = 12;
-        EXPECT_EQ(convertNum, expextedConvertNum) << "12 operations should be Convert";
+        constexpr int expextedConvertNum = 8;
+        EXPECT_EQ(convertNum, expextedConvertNum) << "8 operations should be Convert";
     }
 }
 

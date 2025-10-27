@@ -494,7 +494,7 @@ const std::unordered_set<Opcode> FIX_COPY_IN_OPS{Opcode::OP_FIX_COPY_IN, Opcode:
     Opcode::OP_FIX_COPY_IN_ELT_ANTIQ, Opcode::OP_FIX_COPY_IN_MTE2_ANTIQ};
 
 const std::unordered_set<Opcode> CROSS_L1_UB_OPS{
-    Opcode::OP_L1_COPY_UB, Opcode::OP_L0C_COPY_UB, Opcode::OP_UB_COPY_L1, Opcode::OP_UB_COPY_L1_ND};
+    Opcode::OP_L1_COPY_UB, Opcode::OP_L0C_COPY_UB, Opcode::OP_UB_COPY_L1, Opcode::OP_UB_COPY_L1_ND, Opcode::OP_L0C_COPY_L1};
 
     const std::unordered_set<Opcode> LOGICALNOT_OPS{Opcode::OP_LOGICALNOT};
 

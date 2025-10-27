@@ -17,12 +17,28 @@
 #define PASS_GENERATE_MOVE_OP_H_
 
 #include "passes/pass_interface/pass.h"
+#include "interface/operation/opcode.h"
 #include "interface/operation/attribute.h"
 
 namespace npu::tile_fwk {
 /*
     GenerateMoveOp: 将view和sassemble翻译成copyin和copyout,并将连续的copyin和copyout合并为一个，删除冗余copyout
 */
+
+/*
+key：vector of pair,每个pair记录convert op的from和to的内存类型
+value：Opcode类型
+*/
+const std::map<std::pair<MemoryType, MemoryType>,Opcode> platformPathMap = {
+    {{MEM_DEVICE_DDR, MEM_L1},Opcode::OP_COPY_IN},
+    {{MEM_DEVICE_DDR, MEM_UB},Opcode::OP_COPY_IN},
+    {{MEM_L1, MEM_L0A},Opcode::OP_L1_TO_L0A},
+    {{MEM_L1, MEM_L0B},Opcode::OP_L1_TO_L0B},
+    {{MEM_L0C, MEM_DEVICE_DDR},Opcode::OP_COPY_OUT},
+    {{MEM_UB, MEM_DEVICE_DDR},Opcode::OP_COPY_OUT},
+    {{MEM_L0C, MEM_L1},Opcode::OP_L0C_COPY_L1},
+};
+
 class GenerateMoveOp : public Pass {
 public:
     GenerateMoveOp() : Pass("GenerateMoveOp") {}
@@ -31,7 +47,7 @@ private:
     Status PreCheck(Function &function) override;
     Status PostCheck(Function &function) override;
     Status RunOnFunction(Function &function) override;
-    void CreateMoveOp(Function &function) const;
+    Status CreateMoveOp(Function &function) const;
     void MergeMoveOp(Function &function) const;
     void MergeCopyInCopyOut(Function &function, Operation &operation) const;
     void EraseRedundantCopyOut(Function &function) const;
@@ -39,7 +55,7 @@ private:
     void ConvertViewToCopyInWhenInputGm(Operation &op, ViewOpAttribute *viewOpAttribute) const;
     void CreateMoveOpForView(Operation &op) const;
     void CreateMoveOpForAssemble(Operation &op) const;
-    void CreateMoveOpForConvert(Operation &op) const;
+    Status CreateMoveOpForConvert(Operation &op) const;
 };
 }
 #endif // PASS_GENERATE_MOVE_OP_H_

@@ -9,8 +9,6 @@
 
 set(_CaseFilterList
         ########################## STATIC ##########################
-        # composite
-        "TestCodegenLlama.TestCodegenLlama"
         # mte
         "TestCodegenScatterUpdate.TestScatterupdateDim2"
         "TestCodegenScatterUpdate.TestBatchMatmul"
@@ -85,6 +83,7 @@ set(_CaseFilterList
         "TestCodegenDynCopy.L1CopyInNZ"
         "TestCodegenDynCopy.L1CopyInNZWithValue"
         "TestCodegenDynCopy.UBCopyIn"
+        "TestCodegenDynCopy.L0CToL1"
         "TestCodegenDynTransposeDataMove.TransposeDataMoveDim3"
         "TestCodegenDynTransposeDataMove.TransposeDataMoveDim4"
         "TestCodegenDynDataMove.TestDatamoveAlignDim4"

@@ -98,6 +98,7 @@ TILEOP void DynL1CopyInNZ2NZ(__cbuf__ L1T *dst, __gm__ GMT *src, unsigned TShape
     copy_gm_to_cbuf(dst, src + srcOffset, 0, nBurst, lenBurst, srcStride, dstStride, PAD_NONE);
 }
 
+// Nz2Zz
 template <typename T, unsigned Offset0, unsigned Offset1>
 TILEOP void DynL1ToL0A(__ca__ T *dst, __cbuf__ T *src, unsigned dstM, unsigned dstK, unsigned srcM, unsigned srcK) {
     if (dstM == 0 || dstK == 0 || srcM == 0 || srcK == 0) {
@@ -364,6 +365,35 @@ TILEOP void DynL0CCopyOut(__gm__ GMT *dst, __cc__ L0CT *src, unsigned oriTShape0
     if constexpr (isAcc == 1) {
         set_atomic_none();
     }
+}
+
+template <typename L1T, typename L0CT>
+TILEOP void DynL0CToL1(__cbuf__ L1T *dst, __cc__ L0CT *src, unsigned oriTShape0, unsigned oriTShape1,
+    unsigned l1Shape0, unsigned l1Shape1, unsigned l1Offset0, unsigned l1Offset1) {
+    int64_t c0Size = BLOCK_ALIGN_BYTE / sizeof(L1T);
+    uint16_t mSize = oriTShape0;
+    uint16_t nSize = CeilAlign<uint16_t>(oriTShape1, c0Size);
+    uint32_t dstStrideDstD = l1Shape0;
+    uint16_t srcStride = CeilAlign<uint16_t>(oriTShape0, BLOCK_CUBE_M_N);
+
+    uint8_t unitFlagMode = 0;
+    uint64_t quantPre = NoQuant;
+    uint8_t reluPre = 0;
+    if (std::is_same<L0CT, float>::value) {
+        if (std::is_same<L1T, half>::value) {
+            quantPre = QuantMode_t::F322F16;
+        } else if (std::is_same<L1T, bfloat16_t>::value) {
+            quantPre = QuantMode_t::F322BF16;
+        } else {
+            quantPre = QuantMode_t::NoQuant;
+        }
+    }
+
+    bool channelSplit = std::is_same<L1T, float>::value;
+    bool nZ2NDEN = false;
+    int64_t l1Offset = l1Offset1 * l1Shape0 + l1Offset0 * c0Size;
+    copy_matrix_cc_to_cbuf((__cbuf__ L1T *)(dst + l1Offset), (__cc__ L0CT *)src, 0, nSize, mSize, dstStrideDstD,
+        srcStride, unitFlagMode, quantPre, reluPre, channelSplit, nZ2NDEN);
 }
 
 // Internal: Reserved for custom scenarios.

@@ -286,6 +286,41 @@ std::string CodeGenOpCloudNPU::GenIndexOutCastOp() const {
         {s0Var, s1Var, addrExpr, gms, s0os, s0rs, src1OriginShape, s1rs, dataTypeExpr, cacheMode, blockSizeStr});
 }
 
+std::string CodeGenOpCloudNPU::GenMemL0CToL1() const {
+    std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+    std::string srcVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+
+    std::vector dstShape = this->rawShape[ID0];
+    std::vector dstOffset = this->offset[ID0];
+
+    std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID1]);
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+
+    auto dynValidShape = dynamicValidShape[ID1];
+
+    std::ostringstream os;
+    std::vector<std::string> paramList;
+    paramList.emplace_back(dstDtypeStr);
+    paramList.emplace_back(srcDtypeStr);
+    std::string templateParam = JoinString(paramList, ", ");
+    paramList.clear();
+    std::string dst = "(" + GetAddrTypeByOperandType(BUF_L1) + " " + dstDtypeStr + "*)" + dstVar;
+    std::string src = "(" + GetAddrTypeByOperandType(BUF_L0C) + " " + srcDtypeStr + "*)" + srcVar;
+    paramList.insert(paramList.end(), {dst, src});
+    for (auto dynShape : dynValidShape) {
+        paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dynShape));
+    }
+    for (auto tmpShape : dstShape) {
+        paramList.emplace_back(std::to_string(tmpShape));
+    }
+    for (auto tmpOffset : dstOffset) {
+        paramList.emplace_back(std::to_string(tmpOffset));
+    }
+    std::string tileOpCallParam = JoinString(paramList, ", ");
+    os << tileOpName << "<" << templateParam << ">" << "(" << tileOpCallParam << ");\n";
+    return os.str();
+}
+
 std::string CodeGenOpCloudNPU::PrintIndexOutCast(const PrintIndexOutCastParam &param) const {
     if (isSupportDynamicUnaligned) {
         return PrintIndexOutCastDynamicUnaligned(param);

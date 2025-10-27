@@ -369,6 +369,22 @@ void MatmulACCInferFunc(Operation* op,
 REGISTER_INFER_SHAPE_FUNC(OP_A_MULACC_B, Opcode::OP_A_MULACC_B, MatmulACCInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_A_MULACC_BT, Opcode::OP_A_MULACC_BT, MatmulACCInferFunc);
 
+void LoadL0c2L1InferFunc(Operation* op,
+                        std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    std::vector<std::vector<SymbolicScalar>> inputValidShapes;
+    for (auto inputTensor : op->GetIOperands()) {
+        inputValidShapes.push_back(inputTensor->GetDynValidShape());
+    }
+    if (inputValidShapes.empty()) {
+        return;
+    }
+
+    for (auto output : op->GetOOperands()) {
+        outValidShapes.push_back(inputValidShapes[0]);
+    }
+}
+REGISTER_INFER_SHAPE_FUNC(OP_L0C_COPY_L1, Opcode::OP_L0C_COPY_L1, LoadL0c2L1InferFunc);
+
 // MTE infer shape func
 template <bool isTrans = false>
 void LoadL0InferFunc(Operation* op,

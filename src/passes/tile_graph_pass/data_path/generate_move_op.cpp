@@ -26,7 +26,8 @@
 namespace npu::tile_fwk {
 Status GenerateMoveOp::RunOnFunction(Function &function) {
     ASLOGI("===> Start GenerateMoveOp");
-    CreateMoveOp(function);
+    Status status = CreateMoveOp(function);
+    if(status != SUCCESS) {return status;}
     MergeMoveOp(function);
     EraseRedundantCopyOut(function);
     DeadOperationEliminator::EliminateDeadOperation(function);
@@ -105,9 +106,10 @@ void GenerateMoveOp::CreateMoveOpForAssemble(Operation &op) const {
         OpImmediate::Specified(op.iOperand.front()->GetDynValidShape())));
 }
 
-void GenerateMoveOp::CreateMoveOpForConvert(Operation &op) const {
+Status GenerateMoveOp::CreateMoveOpForConvert(Operation &op) const {
     auto convertOpAttribute = dynamic_cast<ConvertOpAttribute *>(op.GetOpAttribute().get());
     auto [from, to] = convertOpAttribute->GetConvertPath();
+    std::pair<MemoryType,MemoryType> convertPathPair = {from,to};
     if (from == MemoryType::MEM_DEVICE_DDR) {
         op.SetOpCode(Opcode::OP_COPY_IN); //将convert根据memorytype转化为copyin和copyout
         std::vector<OpImmediate> newOffset;
@@ -121,7 +123,7 @@ void GenerateMoveOp::CreateMoveOpForConvert(Operation &op) const {
             OpImmediate::Specified(op.iOperand.front()->GetDynValidShape())));
         auto childOp = *op.oOperand.front()->GetConsumers().begin();
         op.UpdateSubgraphID(childOp->GetSubgraphID());
-        return;
+        return SUCCESS;
     }
     if (to == MemoryType::MEM_DEVICE_DDR) {
         op.SetOpCode(Opcode::OP_COPY_OUT);
@@ -135,22 +137,25 @@ void GenerateMoveOp::CreateMoveOpForConvert(Operation &op) const {
             OpImmediate::Specified(op.oOperand.front()->tensor->GetDynRawShape())));
         auto parentOp = *op.iOperand.front()->GetProducers().begin();
         op.UpdateSubgraphID(parentOp->GetSubgraphID());
-        return;
+        return SUCCESS;
     }
-    if ((from == MemoryType::MEM_L1) && (to == MemoryType::MEM_L0A)) {
-        op.SetOpCode(Opcode::OP_L1_TO_L0A);
-        auto childOp = *op.oOperand.front()->GetConsumers().begin();
-        op.UpdateSubgraphID(childOp->GetSubgraphID());
-        return;
+    auto it = platformPathMap.find(convertPathPair);
+    if (it == platformPathMap.end()) {
+        ALOG_ERROR_F("No memory path found from %s to %s for operation %s[%d].",
+            BriefMemoryTypeToString(from).c_str(),
+            BriefMemoryTypeToString(to).c_str(),
+            op.GetOpcodeStr().c_str(),
+            op.GetOpMagic());
+        return FAILED;
     }
-    if ((from == MemoryType::MEM_L1) && (to == MemoryType::MEM_L0B)) {
-        op.SetOpCode(Opcode::OP_L1_TO_L0B);
-        auto childOp = *op.oOperand.front()->GetConsumers().begin();
-        op.UpdateSubgraphID(childOp->GetSubgraphID());
-    }
+    auto opcodeFindByPath = it->second; 
+    op.SetOpCode(opcodeFindByPath);
+    auto childOp = *op.oOperand.front()->GetConsumers().begin();
+    op.UpdateSubgraphID(childOp->GetSubgraphID());
+    return SUCCESS;
 }
 
-void GenerateMoveOp::CreateMoveOp(Function &function) const {
+Status GenerateMoveOp::CreateMoveOp(Function &function) const {
     for (auto &op : function.Operations()) {
         switch (op.GetOpcode()) {
             case Opcode::OP_ASSEMBLE: {
@@ -162,7 +167,8 @@ void GenerateMoveOp::CreateMoveOp(Function &function) const {
                 break;
             }
             case Opcode::OP_CONVERT: {
-                CreateMoveOpForConvert(op);
+                Status createMoveOpForConvert = CreateMoveOpForConvert(op);
+                if(createMoveOpForConvert != SUCCESS) {return createMoveOpForConvert;}
                 break;
             }
             case Opcode::OP_DUPLICATE: {
@@ -179,6 +185,7 @@ void GenerateMoveOp::CreateMoveOp(Function &function) const {
             default: break;
         }
     }
+    return SUCCESS;
 }
 
 void GenerateMoveOp::MergeMoveOp(Function &function) const{

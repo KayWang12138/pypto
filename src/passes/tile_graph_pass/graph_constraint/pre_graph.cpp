@@ -739,6 +739,10 @@ Status PreGraphProcess::AddL1CopyInAttr(
     auto copyInOp = *(input->GetProducers().begin());
     auto tensorL0 = copyInOp->GetIOperands().front();
     auto L1CopyInOp = *(tensorL0->GetProducers().begin());
+    /*L0C copy L1*/
+    if(L1CopyInOp->GetOpcode() == Opcode::OP_L0C_COPY_L1) {
+        return SUCCESS;
+    }
     if (L1CopyInOp->GetOpcode() == Opcode::OP_VIEW || L1CopyInOp->GetOpcode() == Opcode::OP_ASSEMBLE) {
         /*
         1. View 对应大包搬运场景

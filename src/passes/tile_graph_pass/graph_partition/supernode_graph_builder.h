@@ -115,6 +115,27 @@ inline bool SuperNodeGraphBuilder::L1CopyInCombine(const std::shared_ptr<Operati
     return false;
 }
 
+inline bool L0CCopyL1Combine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*> &opList,
+                            int32_t i, std::vector<std::pair<int32_t, int32_t>> &mergePair)
+{
+    if (i < 0 || i > static_cast<int32_t>(opList.size())) {
+        return false;
+    }
+    if (opList[i]->GetIOperands().size() == 1U &&
+        opList[i]->GetIOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L0C &&
+        opList[i]->GetOOperands().size() == 1U &&
+        opList[i]->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
+        for (auto inNode : operationInfo->inGraph_[i]) {
+            mergePair.emplace_back(inNode, i);
+        }
+        for (auto outNode : operationInfo->outGraph_[i]) {
+            mergePair.emplace_back(outNode, i);
+        }
+        return true;
+    }
+    return false;
+}
+
 inline bool SuperNodeGraphBuilder::AssembleCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*> &opList,
                             int32_t i, std::vector<std::pair<int32_t, int32_t>> &mergePair)
 {

@@ -53,7 +53,7 @@ set(_CaseFilterList
         "AssignMemoryTypeTest.AddReshape"
         #"AssignMemoryTypeTest.TestVecToCube"
         "AssignMemoryTypeTest.TestVecToCubeV2"
-        #"AssignMemoryTypeTest.TestCubeToCube"
+        "AssignMemoryTypeTest.TestCubeToCube"
         "AssignMemoryTypeTest.TestCubeToCubeV2"
         "AssignMemoryTypeTest.InValidOpPattern"
         "AssignMemoryTypeTest.ViewReshape"
