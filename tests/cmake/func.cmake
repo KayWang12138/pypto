@@ -297,6 +297,7 @@ function(PTO_Fwk_GTest_RunPytest OUT_TARGET)
                     COMMAND find ./pto/ -name "*.so" -delete
                     COMMAND find ./pto/ -name "*.json" -delete
                     COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/src/interface/configs/tile_fwk_config.json         ./pto/
+                    COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/src/interface/configs/tile_fwk_config_schema.json  ./pto/
                     COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/src/passes/pass_config/tile_fwk_platform_info.json ./pto/
                     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tile_fwk_operator>       ./pto/
                     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tile_fwk_interface>      ./pto/
