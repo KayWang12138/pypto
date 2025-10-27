@@ -14,6 +14,7 @@
  */
 
 #include "merge_src_dst_buffer.h"
+#include "passes/pass_utils/pass_utils.h"
 
 namespace npu::tile_fwk {
 
@@ -44,7 +45,7 @@ void SrcDstBufferMergeImpl::InitTensorMaxSize(const LogicalTensorPtr &output) {
 
 Status SrcDstBufferMergeImpl::CheckOpValid(const Operation *op, int opId) {
     if (op == nullptr) {
-        ALOG_ERROR_F("Op:%d is null", opId);
+        APASS_LOG_ERROR_F("SrcDstBufferMerge", "Operation", "Op:%d is null.", opId);
         return FAILED;
     }
     return SUCCESS;
@@ -54,7 +55,7 @@ void SrcDstBufferMergeImpl::InitOpOutput(const Operation *op) {
     int outId = 0;
     for (auto &output : op->GetOOperands()) {
         if (output == nullptr) {
-            ALOG_DEBUG_F("Op:%s, magic:%d, output:%d is null",
+            APASS_LOG_DEBUG_F("SrcDstBufferMerge", "Tensor", "Op:%s, magic:%d, output:%d is null.",
                 op->GetOpcodeStr().c_str(), op->GetOpMagic(), outId);
             ++outId;
             continue;
@@ -69,18 +70,18 @@ void SrcDstBufferMergeImpl::InitOpOutput(const Operation *op) {
 
 Status SrcDstBufferMergeImpl::Init(const std::vector<Operation *> &opList) {
     if (opList.empty()) {
-        ALOG_ERROR_F("OpList empty");
+        APASS_LOG_ERROR_F("SrcDstBufferMerge", "Operation", "OpList empty.");
         return FAILED;
     }
     if (opList.front() == nullptr) {
-        ALOG_ERROR_F("First op is null");
+        APASS_LOG_ERROR_F("SrcDstBufferMerge", "Operation", "First op is null.");
         return FAILED;
     }
     
     int opId = 0;
     for (auto &op : opList) {
         if (CheckOpValid(op, opId) != SUCCESS) {
-            ALOG_ERROR_F("CheckOpValid failed");
+            APASS_LOG_ERROR_F("SrcDstBufferMerge", "Operation", "CheckOpValid failed.");
             return FAILED;
         }
         InitializeTensorMemorymap(*op);
@@ -118,7 +119,7 @@ std::pair<bool, Status> SrcDstBufferMergeImpl::CheckHasInplaced(const Operation 
     if (oriOps->HasAttr(OpAttributeKey::inplaceInfo)) {
         std::map<int, int> inplaceInfo;
         if (!oriOps->GetAttr(OpAttributeKey::inplaceInfo, inplaceInfo)) {
-            ALOG_ERROR_F("Get inplaceInfo error");
+            APASS_LOG_ERROR_F("SrcDstBufferMerge", "Tensor", "Get inplaceInfo error.");
             return std::make_pair(false, FAILED);
         }
         for (auto &[iIdx, oIdx] : inplaceInfo) {
@@ -146,7 +147,8 @@ bool SrcDstBufferMergeImpl::FindReplaced(const Operation *oriOps, const Operatio
             if (inTensorMagic == outTensorMagic) {
                 continue;
             }
-            ALOG_DEBUG_F("Set out tensor %d reuse src tensor %d", out->GetMagic(), in->GetMagic());
+            APASS_LOG_DEBUG_F("SrcDstBufferMerge", "Tensor", "Set out tensor %d reuse src tensor %d",
+                out->GetMagic(), in->GetMagic());
             out->memoryrange.memId = in->memoryrange.memId;
             if (tensorConsumers_[outTensorMagic].size() > tensorConsumers_[inTensorMagic].size()) {
                 tensorConsumers_[inTensorMagic] = tensorConsumers_[outTensorMagic];
@@ -163,9 +165,10 @@ void SrcDstBufferMergeImpl::NotFindReplacedProcess(const Operation *ops,
     std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors) {
     for (auto &out : ops->GetOOperands()) {
         auto outTensorMagic = out->memoryrange.memId;
-        ALOG_DEBUG_F("Op %d out tensor magic: %d", ops->GetOpMagic(), outTensorMagic);
+        APASS_LOG_DEBUG_F("SrcDstBufferMerge", "Tensor", "Op %d out tensor magic: %d",
+            ops->GetOpMagic(), outTensorMagic);
         if (replacedTensors.find(outTensorMagic) != replacedTensors.end()) {
-            ALOG_DEBUG_F("Find tensor: %d  replaced by tensor: %d", 
+            APASS_LOG_DEBUG_F("SrcDstBufferMerge", "Tensor", "Find tensor: %d replaced by tensor: %d",
                 outTensorMagic, replacedTensors[outTensorMagic]->memoryrange.memId);
             out->memoryrange.memId =
                 replacedTensors[outTensorMagic]->memoryrange.memId;
@@ -175,11 +178,12 @@ void SrcDstBufferMergeImpl::NotFindReplacedProcess(const Operation *ops,
 
 Status SrcDstBufferMergeImpl::Run(Function &func) {
     if (func.rootFunc_ == nullptr) {
-        ALOG_ERROR_F("RootFunc is null");
+        APASS_LOG_ERROR_F("SrcDstBufferMerge", "Tensor", "RootFunc is null.");
         return FAILED;
     }
     for (auto &subProgram : func.rootFunc_->programs_) {
-        ALOG_INFO_F("Merge src dst for program id : [%lu]", subProgram.first);
+        APASS_LOG_INFO_F("SrcDstBufferMerge", "Operation", "Merge src dst for program id : [%lu]",
+            subProgram.first);
         auto opList = subProgram.second->Operations().DuplicatedOpList();
         if (Init(opList) != SUCCESS) {
             return FAILED;
@@ -187,7 +191,8 @@ Status SrcDstBufferMergeImpl::Run(Function &func) {
         auto oriOps(opList);
         std::unordered_map<int, std::shared_ptr<LogicalTensor>> replacedTensors;
         for (size_t i = 0; i < oriOps.size(); i++) {
-            ALOG_DEBUG_F("Try reuse op [%d] input by out tensor", oriOps[i]->GetOpMagic());
+            APASS_LOG_DEBUG_F("SrcDstBufferMerge", "Operation", "Try reuse op [%d] input by out tensor.",
+                oriOps[i]->GetOpMagic());
             if (CheckIgnoreScene(oriOps[i])) {
                 continue;
             }
@@ -214,7 +219,7 @@ bool SrcDstBufferMergeImpl::CheckAssembleReuse(const LogicalTensorPtr &outOperan
         }
         for (auto assembleOutTensor : consumer->GetOOperands()) {
             if (assembleOutTensor->memoryrange.memId == outOperand->memoryrange.memId) {
-                ALOG_DEBUG_F("Assemble cannot be reused.");
+                APASS_LOG_DEBUG_F("SrcDstBufferMerge", "Operation", "Assemble cannot be reused.");
                 return false;
             }
         }
@@ -233,29 +238,30 @@ bool SrcDstBufferMergeImpl::CanSrcDstReuse(const Operation *ops,
         }
     }
     auto outOperand = ops->GetOOperands()[0];
-    ALOG_DEBUG_F("Try reuse src %d dst %d", ioperand->GetMagic(), outOperand->GetMagic());
+    APASS_LOG_DEBUG_F("SrcDstBufferMerge", "Operation", "Try reuse src %d dst %d",
+        ioperand->GetMagic(), outOperand->GetMagic());
     if (outOperand->GetMemoryTypeOriginal() != ioperand->GetMemoryTypeOriginal()) {
-        ALOG_DEBUG_F("Memtype is not same");
+        APASS_LOG_DEBUG_F("SrcDstBufferMerge", "Operation", "Memtype is not same.");
         return false;
     }
     // tile shape 必须一样
     if (tensorMaxSize_[outOperand->memoryrange.memId] !=
         tensorMaxSize_[ioperand->memoryrange.memId]) {
-        ALOG_DEBUG_F("Datasize is not same");
+        APASS_LOG_DEBUG_F("SrcDstBufferMerge", "Operation", "Datasize is not same.");
         return false;
     }
     if (strict && outOperand->Datatype() != ioperand->Datatype()) {
-        ALOG_DEBUG_F("Datatype is not same");
+        APASS_LOG_DEBUG_F("SrcDstBufferMerge", "Operation", "Datatype is not same.");
         return false;
     }
     if (!CheckAssembleReuse(outOperand)) {
-        ALOG_DEBUG_F("Check Assemble op which cannot be reused.");
+        APASS_LOG_DEBUG_F("SrcDstBufferMerge", "Operation", "Check Assemble op which cannot be reused.");
         return false;
     }
     // 确保复用UB buffer后不会被覆写
     auto iter = tensorConsumers_.find(ioperand->memoryrange.memId);
     if (iter != tensorConsumers_.end() && iter->second.size() > 1) {
-        ALOG_DEBUG_F("Has more 1 output");
+        APASS_LOG_DEBUG_F("SrcDstBufferMerge", "Operation", "Has more 1 output.");
         return false;
     }
     return true;
