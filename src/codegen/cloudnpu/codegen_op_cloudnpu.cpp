@@ -197,7 +197,7 @@ TileTensor CodeGenOpCloudNPU::BuildTileTensor(int paramIdx, const std::string &u
     if (tileTensor.bufType == OperandType::BUF_DDR) {
         tileTensor.bufVar = GenGmParamVar(paramIdx);
     } else {
-        tileTensor.bufVar = sm->QueryVarNameByTensorMagic(tileTensor.magic);
+        tileTensor.bufVar = sm->QueryVarNameByTensorMagic(tileTensor.magic, true);
     }
     tileTensor.usingType = usingType;
     tileTensor.tensorName = BUFFER_TYPE_TO_PREFIX_LC.at(tileTensor.bufType) + "Tensor_" +

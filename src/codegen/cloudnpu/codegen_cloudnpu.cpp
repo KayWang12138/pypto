@@ -352,13 +352,17 @@ std::optional<std::string> CodeGenCloudNPU::GenExtraAlloc(
     return GenAlloc(symbolMgr, bufferType, tensor->Datatype(), memRange);
 }
 
-std::string GenAllocVarName(const std::string &prefix, const TileRange &range) {
+// NEXTNEXT: After TileTensor mode is applied to all TileOp, retain just one
+std::pair<std::string, std::string> GenAllocVarName(const std::string &prefix, const TileRange &range) {
     std::ostringstream ss;
     ss << prefix
        // range start/end are always positive
        << "_S" << range.start << "_E" << range.end;
 
-    return ss.str();
+    std::string varName = ss.str();
+    // Normal mode: e.g. UB_S0_E1024
+    // TileTensor mode: e.g. UB_S0_E1024_T
+    return std::make_pair(varName, varName + "_T");
 }
 
 std::string CodeGenCloudNPU::GenAlloc(
@@ -371,11 +375,11 @@ std::string CodeGenCloudNPU::GenAlloc(
 
     const std::string prefix = BUFFER_TYPE_TO_PREFIX.at(bufferType);
     const std::string &addrSpaceQualifier = OPERAND_TYPE_TO_ADDR_TYPE.at(bufferType);
-    std::string allocVarName = GenAllocVarName(prefix, range);
+    auto [allocVarName, allocVarNameTileTensor] = GenAllocVarName(prefix, range);
 
     // must conform to CodeGenOpCloudNPU::createAllocKey
     AllocKey key = AllocKey(bufferType, range.start, range.end);
-    bool reuse = manager.BindAddrWithVariableName(key, allocVarName);
+    bool reuse = manager.BindAddrWithVariableName(key, allocVarName, allocVarNameTileTensor);
     if (reuse) {
         return "";
     }
@@ -389,6 +393,12 @@ std::string CodeGenCloudNPU::GenAlloc(
     oss << dataTypeStr << " " << addrSpaceQualifier << " *" << allocVarName << " = (" << dataTypeStr << " "
         << addrSpaceQualifier << " *)get_imm(0x" << std::hex << static_cast<unsigned>(range.start) << "); // size: 0x"
         << std::hex << static_cast<unsigned>(range.Size()) << "\n";
+
+    if (ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false)) {
+        oss << dataTypeStr << " *" << allocVarNameTileTensor << " = (" << dataTypeStr << " *)get_imm(0x" << std::hex
+            << static_cast<unsigned>(range.start) << "); // size: 0x" << std::hex << static_cast<unsigned>(range.Size())
+            << "\n";
+    }
 
     return oss.str();
 }

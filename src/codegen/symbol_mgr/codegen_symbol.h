@@ -69,7 +69,11 @@ struct TileTensor {
         std::ostringstream oss;
         std::vector<std::string> params;
         // (__ubuf__ float*)UB_S0_E16384
-        oss << "(" << OPERAND_TYPE_TO_ADDR_TYPE.at(bufType) << " " << DataType2CCEStr(dtype) << "*)" << bufVar;
+        oss << "(";
+        if (bufType == BUF_DDR) {
+            oss << OPERAND_TYPE_TO_ADDR_TYPE.at(bufType) << " ";
+        }
+        oss << DataType2CCEStr(dtype) << "*)" << bufVar;
         if (isStatic && bufType != BUF_DDR) {
             return "(" + oss.str() + ")";
         }
@@ -137,11 +141,15 @@ struct TileTensorUsing {
         return oss.str();
     }
 
-    // dynamic shape: e.g. "TileTensor<__ubuf__ float, DynLayout4Dim, Hardware::GM>"
-    // static shape: e.g. "TileTensor<__ubuf__ float, LocalLayout4Dim<16, 16>, Hardware::UB>"
+    // dynamic shape: e.g. "TileTensor<__gm__ float, DynLayout4Dim, Hardware::GM>"
+    // static shape: e.g. "TileTensor<float, LocalLayout4Dim<16, 16>, Hardware::UB>"
     std::string ToString() const {
         std::ostringstream ss;
-        ss << TILE_TENSOR << "<" << GetAddrTypeByOperandType(bufType) << " " << DataType2CCEStr(dtype) << ", ";
+        ss << TILE_TENSOR << "<";
+        if (bufType == BUF_DDR) {
+            ss << GetAddrTypeByOperandType(bufType) << " ";
+        }
+        ss << DataType2CCEStr(dtype) << ", ";
         ss << GetLayoutType(bufType, dim, isStatic);
         if (bufType != BUF_DDR) {
             ss << PrintParams({"<", ">"}, rawShape, ", ");
@@ -159,12 +167,14 @@ public:
     using AllocRecord = std::pair<uint64_t /*AllocaAddr*/, unsigned /*AllocaSize*/>;
 
     virtual std::string QueryVariableName(const AllocKey &key);
-    virtual std::string QueryVarNameByTensorMagic(int magic);
+    std::string QueryVariableNameTileTensor(const AllocKey &key);
+    std::string QueryVarNameByTensorMagic(int magic, bool isTileTensor = false);
     SymbolManager(SymbolManager &other) = delete;
 
     void operator=(const SymbolManager &other) = delete;
 
-    bool BindAddrWithVariableName(const AllocKey &key, const std::string &varName);
+    bool BindAddrWithVariableName(
+        const AllocKey &key, const std::string &varName, const std::string &varNameTileTensor);
 
     void AddToTensorMap(int magicNum, const std::shared_ptr<LogicalTensor> &tensor) {
         tensorMap_.insert({magicNum, tensor});
@@ -187,6 +197,8 @@ private:
 
     // <AllocKey, buffer variable name>
     std::map<AllocKey, std::string> key2VariableName_;
+    //  <AllocKey, buffer variable name of TileTensor mode>
+    std::map<AllocKey, std::string> key2VariableNameTileTensor_;
     //<tensor magic, LogicalTensor>
     std::unordered_map<int, std::shared_ptr<LogicalTensor>> tensorMap_;
     //<TileTensor, tensorName>

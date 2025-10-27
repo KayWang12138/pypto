@@ -43,12 +43,14 @@ AllocKey SymbolManager::CreateAllocKey(int tensorMagicNum) const {
     return CreateAllocKey(tensor);
 }
 
-bool SymbolManager::BindAddrWithVariableName(const AllocKey &key, const std::string &varName) {
+bool SymbolManager::BindAddrWithVariableName(
+    const AllocKey &key, const std::string &varName, const std::string &varNameT) {
     auto iter = key2VariableName_.find(key);
     if (iter != key2VariableName_.end()) {
         return true;
     } else {
         key2VariableName_.insert(std::pair<AllocKey, std::string>(key, varName));
+        key2VariableNameTileTensor_.insert(std::pair<AllocKey, std::string>(key, varNameT));
     }
     return false;
 }
@@ -81,13 +83,27 @@ std::string SymbolManager::QueryVariableName(const AllocKey &key) {
     }
 
     ALOG_ERROR_F("%s: failed to query by identifier: %s", __FUNCTION__, FormatAllocKey(key).c_str());
-    ASSERT(false) << " UNDEFINED_VAR !!! ";
+    ASSERT(false) << "QueryVariableName Failed: UNDEFINED_VAR !!! ";
     return "UNDEFINED_VAR";
 }
 
-std::string SymbolManager::QueryVarNameByTensorMagic(int magic) {
+std::string SymbolManager::QueryVariableNameTileTensor(const AllocKey &key) {
+    ALOG_INFO_F("%s: query varname TileTensor mode by identifier: %s", __FUNCTION__, FormatAllocKey(key).c_str());
+
+    auto iter = key2VariableNameTileTensor_.find(key);
+    if (iter != key2VariableNameTileTensor_.end()) {
+        return iter->second;
+    }
+
+    ALOG_ERROR_F("%s: failed to query by identifier: %s", __FUNCTION__, FormatAllocKey(key).c_str());
+    ASSERT(false) << "QueryVariableNameTileTensor Failed: UNDEFINED_VAR !!! ";
+    return "UNDEFINED_VAR";
+}
+
+// NEXTNEXT: after TileTensor Mode is applied to all tensor, just retain TileTensor Mode
+std::string SymbolManager::QueryVarNameByTensorMagic(int magic, bool isTileTensor) {
     AllocKey key = CreateAllocKey(magic);
-    std::string varName = QueryVariableName(key);
+    std::string varName = isTileTensor ? QueryVariableNameTileTensor(key) : QueryVariableName(key);
     return varName;
 }
 
