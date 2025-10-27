@@ -180,6 +180,7 @@ Tensor Mul(const Tensor &self, const Element &other);
 Tensor MinS(const Tensor &operand1, const Element &operand2);
 Tensor MaxS(const Tensor &operand1, const Element &operand2);
 Tensor Compare(const Tensor &self, const Tensor &other, OpType op, OutType mode);
+Tensor Pow(const Tensor &self, const Element &other);
 
 Tensor Where(const Tensor &condition, const Tensor &input, const Tensor &other);
 Tensor Where(const Tensor &condition, const Tensor &input, const Element &other);

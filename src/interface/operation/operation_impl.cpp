@@ -2627,6 +2627,107 @@ Tensor VectorDuplicate(const SymbolicScalar &dynSrc, DataType dtype, const std::
     RETURN_CALL(VectorDuplicateOperation, *Program::GetInstance().GetCurrentFunction(), Element(dtype, (int64_t)0), dynSrc, dtype, dstShape, validShape);
 }
 
+LogicalTensorPtr GenAllOneTensor(const Shape &shape, std::vector<SymbolicScalar> validShape, const DataType &dataType) {
+    auto result = CALL(VectorDuplicateOperation,
+        *Program::GetInstance().GetCurrentFunction(), Element(DataType::DT_FP32, 1.0), SymbolicScalar(),
+        DataType::DT_FP32, shape, validShape);
+    if (dataType == DataType::DT_FP16) {
+        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+            result.GetStorage(), DataType::DT_FP16, CastMode::CAST_NONE);
+    }
+    return result.GetStorage();
+}
+
+LogicalTensorPtr NormalPow(const Tensor &self, const double &exponent) {
+    // a^b = e^(b * lna)
+    // lna
+    auto lnSelf = CALL(UnaryOperation<UnaryOpType::LN>,
+        *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
+    // b * lna
+    auto expMulLnSelf = CALL(BinaryOperationScalar<BinaryOpType::MUL>,
+        *Program::GetInstance().GetCurrentFunction(), lnSelf, Element(DataType::DT_FP32, exponent));
+    // e ^ (b * lna)
+    RETURN_CALL(UnaryOperation<UnaryOpType::EXP>,
+        *Program::GetInstance().GetCurrentFunction(), expMulLnSelf);
+}
+
+LogicalTensorPtr IntegerPow(const Tensor &self, int32_t intExponent) {
+    // 快速幂
+    auto result = GenAllOneTensor(self.GetShape(), self.GetStorage()->GetDynValidShape(), self.GetDataType());
+    auto current = CALL(BinaryOperation<BinaryOpType::MUL>,
+            *Program::GetInstance().GetCurrentFunction(), self, result);
+
+    while (intExponent != NUM_VALUE_0) {
+        if (intExponent % NUM_VALUE_2 != NUM_VALUE_0) {
+            result = CALL(BinaryOperation<BinaryOpType::MUL>,
+                *Program::GetInstance().GetCurrentFunction(), result, current);
+        }
+        current = CALL(BinaryOperation<BinaryOpType::MUL>,
+            *Program::GetInstance().GetCurrentFunction(), current, current);
+        intExponent /= NUM_VALUE_2;
+    }
+    return result;
+}
+
+LogicalTensorPtr GeneralPow(const Tensor &self, double exponent) {
+    // 如果指数小于0，先计算a^(-b)，最后再取倒数
+    bool expLessThanZero = exponent < NUM_VALUE_0;
+    exponent = std::abs(exponent);
+
+    LogicalTensorPtr result;
+    // 将指数分为整数部分和小数部分
+    int32_t intExponent = static_cast<int32_t>(std::floor(exponent));
+    if (intExponent != NUM_VALUE_0) {
+        result = IntegerPow(self, intExponent);
+        if (exponent - intExponent > NUM_VALUE_EPS) {
+            result = CALL(BinaryOperation<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(),
+                result, NormalPow(self, exponent - intExponent));
+        }
+    } else {
+        result = NormalPow(self, exponent);
+    }
+
+    // 指数小于零，结果取倒数
+    if (expLessThanZero) {
+        auto oneTensor = GenAllOneTensor(self.GetShape(), self.GetStorage()->GetDynValidShape(), self.GetDataType());
+        // 求倒数
+        RETURN_CALL(BinaryOperation<BinaryOpType::DIV>,
+            *Program::GetInstance().GetCurrentFunction(), oneTensor, result);
+    }
+    return result;
+}
+
+Tensor Pow(const Tensor &self, const Element &other) {
+    DECLARE_TRACER();
+
+    double exponent = other.Cast<double>();
+    // 指数为0，输出全1
+    if (std::abs(exponent) < NUM_VALUE_EPS) {
+        return GenAllOneTensor(self.GetShape(), self.GetStorage()->GetDynValidShape(), self.GetDataType());
+    }
+    // 特殊指数
+    if (std::abs(exponent - -NUM_VALUE_0_5) < NUM_VALUE_EPS) {
+        RETURN_CALL(UnaryOperation<UnaryOpType::RSQRT>,
+            *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
+    }
+    if (std::abs(exponent - NUM_VALUE_0_5) < NUM_VALUE_EPS) {
+        RETURN_CALL(UnaryOperation<UnaryOpType::SQRT>,
+            *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
+    }
+    if (std::abs(exponent - NUM_VALUE_2) < NUM_VALUE_EPS) {
+        RETURN_CALL(BinaryOperation<BinaryOpType::MUL>,
+            *Program::GetInstance().GetCurrentFunction(), self, self);
+    }
+    if (std::abs(exponent - NUM_VALUE_3) < NUM_VALUE_EPS) {
+        auto doubleSelf = CALL(BinaryOperation<BinaryOpType::MUL>,
+            *Program::GetInstance().GetCurrentFunction(), self, self);
+        RETURN_CALL(BinaryOperation<BinaryOpType::MUL>,
+            *Program::GetInstance().GetCurrentFunction(), doubleSelf, self);
+    }
+    // 其余情况处理
+    return GeneralPow(self, exponent);
+}
+
 void internal::Print(SymbolicScalar cond, const std::string &format, const std::vector<Tensor> &tensors,
     const std::vector<SymbolicScalar> &scalars){
     auto function = Program::GetInstance().GetCurrentFunction();
