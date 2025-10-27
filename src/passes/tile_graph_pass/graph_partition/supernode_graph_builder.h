@@ -17,6 +17,7 @@
 #define SUPERNODE_GRAPH_BUILDER_H
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
+#include "passes/pass_utils/pass_utils.h"
 
 namespace npu::tile_fwk {
 class OperationGraphInfo {
@@ -106,7 +107,7 @@ inline bool SuperNodeGraphBuilder::L1CopyInCombine(const std::shared_ptr<Operati
         opList[i]->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
         for (auto outNode : operationInfo->outGraph_[i]) {
             mergePair.emplace_back(outNode, i);
-            ALOG_DEBUG_F("Combine %d and %d for L1 CopyIn in building SuperNode.",
+            APASS_LOG_DEBUG_F("GraphPartition", "Operation", "Combine %d and %d for L1 CopyIn in building SuperNode.",
                 opList[i]->GetOpMagic(), opList[outNode]->GetOpMagic());
         }
         return true;
@@ -132,7 +133,7 @@ inline bool SuperNodeGraphBuilder::AssembleCombine(const std::shared_ptr<Operati
         // assmemble和其输入绑定
         if (operationInfo->inGraph_[i].size() > 0) {
             mergePair.emplace_back(i, *(operationInfo->inGraph_[i].begin()));
-            ALOG_DEBUG_F("Combine %d and %d for Assemble in building SuperNode.",
+            APASS_LOG_DEBUG_F("GraphPartition", "Operation", "Combine %d and %d for Assemble in building SuperNode.",
                          opList[i]->GetOpMagic(), opList[*(operationInfo->inGraph_[i].begin())]->GetOpMagic());
         }
         return true;
@@ -151,7 +152,7 @@ inline bool SuperNodeGraphBuilder::CopyOutCombine(const std::shared_ptr<Operatio
     if (OpcodeManager::Inst().GetOpCalcType(opList[i]->GetOpcode()) == OpCalcType::MOVE_OUT || assembleScene) {
         for (auto inNode : operationInfo->inGraph_[i]) {
             mergePair.emplace_back(inNode, i);
-            ALOG_DEBUG_F("Combine %d and %d for CopyOut in building SuperNode.",
+            APASS_LOG_DEBUG_F("GraphPartition", "Operation", "Combine %d and %d for CopyOut in building SuperNode.",
                 opList[operationInfo->magic2Idx_[inNode]]->GetOpMagic(), opList[i]->GetOpMagic());
         }
         return true;
@@ -170,7 +171,7 @@ inline bool SuperNodeGraphBuilder::CopyInCombine(const std::shared_ptr<Operation
          OpcodeManager::Inst().GetOpCalcType(opList[i]->GetOpcode()) == OpCalcType::MOVE_LOCAL) &&
         operationInfo->outGraph_[i].size() > 0) {
         mergePair.emplace_back(i, *(operationInfo->outGraph_[i].begin()));
-        ALOG_DEBUG_F("Combine %d and %d for CopyIn in building SuperNode.",
+        APASS_LOG_DEBUG_F("GraphPartition", "Operation", "Combine %d and %d for CopyIn in building SuperNode.",
                      opList[i]->GetOpMagic(), opList[*(operationInfo->outGraph_[i].begin())]->GetOpMagic());
         return true;
     }
@@ -188,7 +189,7 @@ inline bool SuperNodeGraphBuilder::MulAccCombine(const std::shared_ptr<Operation
         for (auto inOp : operationInfo->inGraph_[i]) {
             if (OpcodeManager::Inst().GetOpCalcType(opList[inOp]->GetOpcode()) == OpCalcType::MATMUL) {
                 mergePair.emplace_back(i, inOp);
-                ALOG_DEBUG_F("Combine %d and %d for MulAcc in building SuperNode.",
+                APASS_LOG_DEBUG_F("GraphPartition", "Operation", "Combine %d and %d for MulAcc in building SuperNode.",
                              opList[i]->GetOpMagic(), opList[inOp]->GetOpMagic());
             }
         }

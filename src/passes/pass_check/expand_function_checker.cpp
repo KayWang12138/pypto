@@ -14,13 +14,14 @@
  */
 
 #include "expand_function_checker.h"
+#include "passes/pass_utils/pass_utils.h"
 
 namespace npu {
 namespace tile_fwk {
 Status ExpandFunctionChecker::DoPreCheck(Function &function) {
-    ALOG_INFO_F("PreCheck for ExpandFunction.");
+    APASS_LOG_INFO_F("ExpandFunctionChecker", "Operation", "PreCheck for ExpandFunction.");
     if (!function.OperationLoopCheck()) {
-        ALOG_ERROR_F("Operation Loop detected before expand function.");
+        APASS_LOG_ERROR_F("ExpandFunctionChecker", "Operation", "Operation Loop detected before expand function; Please validate the operation input specifications.");
         return FAILED;
     }
     std::unordered_set<OpCalcType> calTypes{OpCalcType::ELMWISE, OpCalcType::BROADCAST, OpCalcType::REDUCE,
@@ -30,13 +31,13 @@ Status ExpandFunctionChecker::DoPreCheck(Function &function) {
         if (calTypes.count(opCalType) > 0) {
             for (auto &itensor: op->GetIOperands()) {
                 if (itensor->tensor->datatype == DT_BF16) {
-                    ALOG_ERROR_F("Calculation Op %d has BF16 operand %d.", op->GetOpMagic(), itensor->GetMagic());
+                    APASS_LOG_ERROR_F("ExpandFunctionChecker", "Tensor", "Calculation Op %d has BF16 operand %d.", op->GetOpMagic(), itensor->GetMagic());
                     return FAILED;
                 }
             }
             for (auto &otensor: op->GetOOperands()) {
                 if (otensor->tensor->datatype == DT_BF16) {
-                    ALOG_ERROR_F("Calculation Op %d has BF16 operand %d.", op->GetOpMagic(), otensor->GetMagic());
+                    APASS_LOG_ERROR_F("ExpandFunctionChecker", "Tensor", "Calculation Op %d has BF16 operand %d.", op->GetOpMagic(), otensor->GetMagic());
                     return FAILED;
                 }
             }
@@ -46,13 +47,13 @@ Status ExpandFunctionChecker::DoPreCheck(Function &function) {
 }
 
 Status ExpandFunctionChecker::DoPostCheck(Function &function) {
-    ALOG_INFO_F("PostCheck for ExpandFunction.");
+    APASS_LOG_INFO_F("ExpandFunctionChecker", "Operation", "PostCheck for ExpandFunction.");
     if (function.expandFunctionAccelerate != false) {
-        ALOG_ERROR_F("expandFunctionAccelerate should equal to false after ExpandFunction.");
+        APASS_LOG_ERROR_F("ExpandFunctionChecker", "Operation", "ExpandFunctionAccelerate should equal to false after ExpandFunction process.");
         return FAILED;
     }
     if (!function.OperationLoopCheck()) {
-        ALOG_ERROR_F("Operation Loop detected after expand function.");
+        APASS_LOG_ERROR_F("ExpandFunctionChecker", "Operation", "Operation Loop detected after expand function; Please review the error messages generated during the processing procedure.");
         return FAILED;
     }
     return SUCCESS;
