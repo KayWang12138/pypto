@@ -25,8 +25,7 @@ const uint8_t AICORE_MAP_BUFF_LEN = 2;
 namespace npu::tile_fwk {
 
 static bool GetPgMask(uint64_t &valid, int32_t &deviceId) {
-    rtGetDevice(&deviceId);
-    rtSetDevice(deviceId);
+    deviceId = GetLogDeviceId();
     uint64_t aicore_bitmap[AICORE_MAP_BUFF_LEN] = {0};
     int32_t size_n = static_cast<int32_t>(sizeof(uint64_t)) * AICORE_MAP_BUFF_LEN;
     auto halFuncDevInfo = (int (*)(uint32_t deviceId, int32_t moduleType, int32_t infoType,

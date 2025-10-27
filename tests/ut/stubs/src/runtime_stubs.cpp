@@ -319,4 +319,10 @@ rtError_t rtGetL2CacheOffset(uint32_t deviceId, uint64_t *offset) {
     (void)offset;
     return RT_ERROR_NONE;
 }
+
+rtError_t rtGetLogicDevIdByUserDevId(const int32_t userDevId, int32_t * const logicDevId) {
+    (void)userDevId;
+    (void)logicDevId;
+    return RT_ERROR_NONE;
+}
 }

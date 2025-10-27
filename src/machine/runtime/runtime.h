@@ -51,6 +51,16 @@ inline size_t MemSizeAlign(const size_t bytes, const uint32_t aligns = 512U) {
     return (((bytes + alignSize) - 1U) / alignSize) * alignSize;
 }
 
+inline int32_t GetLogDeviceId() {
+    int32_t userDeviceId = 0;
+    int32_t logicDeviceId = 0;
+    rtGetDevice(&userDeviceId);
+    ASSERT(rtGetLogicDevIdByUserDevId(userDeviceId, &logicDeviceId) == RT_ERROR_NONE) << "Trans usrDeviceId: " <<
+           userDeviceId << " to logDevId not success";
+    ALOG_DEBUG_F("Current userDeviceId is %d, logic Deviceid is %d", userDeviceId, logicDeviceId);
+    return logicDeviceId;
+}
+
 inline constexpr uint32_t ONG_GB_HUGE_PAGE_FLAGS = RT_MEMORY_HBM | RT_MEMORY_POLICY_HUGE1G_PAGE_ONLY;
 inline constexpr size_t ONT_GB_SIZE = 1024 * 1024 * 1024;
 inline constexpr uint32_t TWO_MB_HUGE_PAGE_FLAGS = RT_MEMORY_HBM | RT_MEMORY_POLICY_HUGE_PAGE_FIRST;
@@ -191,10 +201,9 @@ public:
 
 public:
     static uint64_t GetL2Offset () {
-        int32_t deviceId = 0;
         uint64_t offset = 0;
-        rtGetDevice(&deviceId);
-        rtGetL2CacheOffset(deviceId, &offset);
+        int32_t logDeviceId = GetLogDeviceId();
+        rtGetL2CacheOffset(logDeviceId, &offset);
         ALOG_DEBUG_F("rtGetL2CacheOffset %lu", offset);
         return offset;
     }

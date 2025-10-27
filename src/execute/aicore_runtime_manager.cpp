@@ -178,7 +178,12 @@ int64_t* AicoreRtManager::TileFwkHiddenInput(const std::vector<uint8_t> &op_bin,
   host_args->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
 
   int32_t device_id = 0;
-  rtGetDevice(&device_id);
+  int32_t user_device_id = 0;
+  rtGetDevice(&user_device_id);
+  if (rtGetLogicDevIdByUserDevId(user_device_id, &device_id) != RT_ERROR_NONE) {
+    TILE_FWK_LOGE("Failed to trans usrDevId[%d] to logicDevId.", user_device_id);
+    return nullptr;
+  }
   (void)rtGetL2CacheOffset(device_id, &host_args->l2CacheOffset);
   TILE_FWK_LOGD("L2 cache offset of device id [%d] is [%lu].", device_id, host_args->l2CacheOffset);
 
