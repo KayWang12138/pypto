@@ -17,28 +17,28 @@ TEST(TestAicorePrint, simple) {
     logger.Init(data, 4096);
     logger1.Init(data, 4096);
 
-    aicore_printf(logger.context(), "test int %d\n", 1);
-    aicore_printf(logger.context(), "test float %f\n", 1.2);
-    aicore_printf(logger.context(), "test char %c\n", 'a');
-    aicore_printf(logger.context(), "test pointer %p\n", &logger);
-    aicore_printf(logger.context(), "test string %s\n", "hello world");
-    aicore_printf(logger.context(), "test normal\n");
-    aicore_printf(logger.context(), "test normal %%\n");
+    AiCoreLogF(logger.context(), "test int %d\n", 1);
+    AiCoreLogF(logger.context(), "test float %f\n", 1.2);
+    AiCoreLogF(logger.context(), "test char %c\n", 'a');
+    AiCoreLogF(logger.context(), "test pointer %p\n", &logger);
+    AiCoreLogF(logger.context(), "test string %s\n", "hello world");
+    AiCoreLogF(logger.context(), "test normal\n");
+    AiCoreLogF(logger.context(), "test normal %%\n");
 
     char buf[512];
-    while (logger1.read(buf, 512)) {
+    while (logger1.Read(buf, 512)) {
         printf("%s", buf);
     }
 
-    aicore_printf(logger.context(), "test1 int %d\n", 1);
-    aicore_printf(logger.context(), "test1 float %f\n", 1.2);
-    aicore_printf(logger.context(), "test1 char %c\n", 'a');
-    aicore_printf(logger.context(), "test1 pointer %p\n", &logger);
-    aicore_printf(logger.context(), "test1 string %s\n", "hello world");
-    aicore_printf(logger.context(), "test1 normal\n");
-    aicore_printf(logger.context(), "test1 normal %%\n");
+    AiCoreLogF(logger.context(), "test1 int %d\n", 1);
+    AiCoreLogF(logger.context(), "test1 float %f\n", 1.2);
+    AiCoreLogF(logger.context(), "test1 char %c\n", 'a');
+    AiCoreLogF(logger.context(), "test1 pointer %p\n", &logger);
+    AiCoreLogF(logger.context(), "test1 string %s\n", "hello world");
+    AiCoreLogF(logger.context(), "test1 normal\n");
+    AiCoreLogF(logger.context(), "test1 normal %%\n");
 
-    while (logger1.read(buf, 512)) {
+    while (logger1.Read(buf, 512)) {
         printf("%s", buf);
     }
 
@@ -51,28 +51,28 @@ TEST(TestAicorePrint, batch) {
     logger1.Init(data, 16384);
 
     for (int i = 0; i < 100; i++) {
-        aicore_printf(logger.context(), "test int %d\n", i);
-        aicore_printf(logger.context(), "test float %f\n", 1.2);
-        aicore_printf(logger.context(), "test char %c\n", 'a');
-        aicore_printf(logger.context(), "test pointer %p\n", &logger);
-        aicore_printf(logger.context(), "test string %s\n", "hello world");
-        aicore_printf(logger.context(), "test normal\n");
+        AiCoreLogF(logger.context(), "test int %d\n", i);
+        AiCoreLogF(logger.context(), "test float %f\n", 1.2);
+        AiCoreLogF(logger.context(), "test char %c\n", 'a');
+        AiCoreLogF(logger.context(), "test pointer %p\n", &logger);
+        AiCoreLogF(logger.context(), "test string %s\n", "hello world");
+        AiCoreLogF(logger.context(), "test normal\n");
     }
 
     char buf[512];
-    while (logger1.read(buf, 512)) {
+    while (logger1.Read(buf, 512)) {
         printf("%s", buf);
     }
 
-    aicore_printf(logger.context(), "test1 int %d\n", 1);
-    aicore_printf(logger.context(), "test1 float %f\n", 1.2);
-    aicore_printf(logger.context(), "test1 char %c\n", 'a');
-    aicore_printf(logger.context(), "test1 pointer %p\n", &logger);
-    aicore_printf(logger.context(), "test1 string %s\n", "hello world");
-    aicore_printf(logger.context(), "test1 normal\n");
-    aicore_printf(logger.context(), "test1 normal %%\n");
+    AiCoreLogF(logger.context(), "test1 int %d\n", 1);
+    AiCoreLogF(logger.context(), "test1 float %f\n", 1.2);
+    AiCoreLogF(logger.context(), "test1 char %c\n", 'a');
+    AiCoreLogF(logger.context(), "test1 pointer %p\n", &logger);
+    AiCoreLogF(logger.context(), "test1 string %s\n", "hello world");
+    AiCoreLogF(logger.context(), "test1 normal\n");
+    AiCoreLogF(logger.context(), "test1 normal %%\n");
 
-    while (logger1.read(buf, 512)) {
+    while (logger1.Read(buf, 512)) {
         printf("%s", buf);
     }
 }

@@ -28,27 +28,27 @@
 enum NodeTy { END, NORMAL, FLOAT, INT, CHAR, STRING, POINTER };
 
 struct LogContext {
-    void (*print_int)(LogContext *ctx, __gm__ const char **fmt, int64_t val);
-    void (*print_float)(LogContext *ctx, __gm__ const char **fmt, float val);
-    void (*print)(LogContext *ctx, __gm__ const char *fmt);
+    void (*PrintInt)(LogContext *ctx, __gm__ const char **fmt, int64_t val);
+    void (*PrintFloat)(LogContext *ctx, __gm__ const char **fmt, float val);
+    void (*Print)(LogContext *ctx, __gm__ const char *fmt);
 };
 
 template <typename T>
-INLINE void __aicore_print(LogContext *ctx, __gm__ const char **fmt, T val) {
+INLINE void __AiCorePrint(LogContext *ctx, __gm__ const char **fmt, T val) {
     if constexpr (std::is_integral_v<T>) {
-        ctx->print_int(ctx, fmt, static_cast<int64_t>(val));
+        ctx->PrintInt(ctx, fmt, static_cast<int64_t>(val));
     } else if constexpr (std::is_floating_point_v<T>) {
-        ctx->print_float(ctx, fmt, static_cast<float>(val));
+        ctx->PrintFloat(ctx, fmt, static_cast<float>(val));
     } else if constexpr (std::is_pointer_v<T>) {
-        ctx->print_int(ctx, fmt, reinterpret_cast<int64_t>(val));
+        ctx->PrintInt(ctx, fmt, reinterpret_cast<int64_t>(val));
     }
 }
 
 template <typename... Ts>
-INLINE void aicore_printf(LogContext *ctx, __gm__ const char *fmt, Ts... Args) {
+INLINE void AiCoreLogF(LogContext *ctx, __gm__ const char *fmt, Ts... Args) {
     if (ctx && fmt) {
-        (__aicore_print(ctx, &fmt, Args), ...);
-        ctx->print(ctx, fmt);
+        (__AiCorePrint(ctx, &fmt, Args), ...);
+        ctx->Print(ctx, fmt);
     }
 }
 
@@ -58,24 +58,24 @@ struct AicoreLogger {
         int64_t tail_;
     };
 
-    static __aicore__ void __print_int(LogContext *ctx, __gm__ const char **fmt, int64_t val) {
+    static __aicore__ void __PrintInt(LogContext *ctx, __gm__ const char **fmt, int64_t val) {
         auto self = reinterpret_cast<AicoreLogger *>(ctx);
         if (self) {
-            self->print_int(fmt, val);
+            self->PrintInt(fmt, val);
         }
     }
 
-    static __aicore__ void __print_float(LogContext *ctx, __gm__ const char **fmt, float val) {
+    static __aicore__ void __PrintFloat(LogContext *ctx, __gm__ const char **fmt, float val) {
         auto self = reinterpret_cast<AicoreLogger *>(ctx);
         if (self) {
-            self->print_float(fmt, val);
+            self->PrintFloat(fmt, val);
         }
     }
 
-    static __aicore__ void __print(LogContext *ctx, __gm__ const char *fmt) {
+    static __aicore__ void __Print(LogContext *ctx, __gm__ const char *fmt) {
         auto self = reinterpret_cast<AicoreLogger *>(ctx);
         if (self) {
-            self->print(fmt);
+            self->Print(fmt);
         }
     }
 
@@ -85,18 +85,18 @@ struct AicoreLogger {
         head_ = tail_ = 0;
         size_ = n - sizeof(Remote);
         data_ = buf + sizeof(Remote);
-        ctx.print_int = __print_int;
-        ctx.print_float = __print_float;
-        ctx.print = __print;
+        ctx.PrintInt = __PrintInt;
+        ctx.PrintFloat = __PrintFloat;
+        ctx.Print = __Print;
     }
 
     __aicore__ __gm__ uint8_t *GetBuffer()  {
         return data_ - sizeof(Remote);
     }
 
-    __aicore__ void print_int(__gm__ const char **fmt, int64_t val) {
+    __aicore__ void PrintInt(__gm__ const char **fmt, int64_t val) {
         auto curFmt = *fmt;
-        auto idx = parse_next_format(*fmt);
+        auto idx = ParseNextFormat(*fmt);
         if (idx == -1) {
             return;
         }
@@ -106,7 +106,7 @@ struct AicoreLogger {
                 if (tmp == nullptr) {
                     tmp = "<null>";
                 }
-                encode(STRING, (__gm__ const uint8_t *)tmp, length(tmp), *fmt, idx);
+                Encode(STRING, (__gm__ const uint8_t *)tmp, Length(tmp), *fmt, idx);
                 break;
             }
             case 'd':
@@ -115,50 +115,50 @@ struct AicoreLogger {
             case 'X':
             case 'o':
             case 'u': {
-                encode(INT, (uint8_t *)&val, sizeof(val), *fmt, idx);
+                Encode(INT, reinterpret_cast<uint8_t *>(&val), sizeof(val), *fmt, idx);
                 break;
             }
             case 'p': {
-                encode(POINTER, (uint8_t *)&val, sizeof(val), *fmt, idx);
+                Encode(POINTER, reinterpret_cast<uint8_t *>(&val), sizeof(val), *fmt, idx);
                 break;
             }
             case 'c': {
                 char c = static_cast<char>(val);
-                encode(POINTER, (uint8_t *)&c, 1, *fmt, idx);
+                Encode(CHAR, reinterpret_cast<uint8_t *>(&c), 1, *fmt, idx);
                 break;
             }
-            default: encode(NORMAL, (uint8_t *)0, 0, *fmt, idx); break;
+            default: Encode(NORMAL, static_cast<uint8_t *>(nullptr), 0, *fmt, idx); break;
         }
 
         *fmt = *fmt + idx;
     }
 
-    __aicore__ void print_float(__gm__ const char **fmt, float val) {
+    __aicore__ void PrintFloat(__gm__ const char **fmt, float val) {
         auto curFmt = *fmt;
-        auto idx = parse_next_format(*fmt);
+        auto idx = ParseNextFormat(*fmt);
         if (idx == -1) {
             return;
         }
         switch (curFmt[idx++]) {
             case 'u': {
-                encode(FLOAT, (uint8_t *)&val, sizeof(val), *fmt, idx);
+                Encode(FLOAT, reinterpret_cast<uint8_t *>(&val), sizeof(val), *fmt, idx);
                 break;
-                default: encode(NORMAL, (uint8_t *)0, 0, *fmt, idx); break;
+                default: Encode(NORMAL, static_cast<uint8_t *>(nullptr), 0, *fmt, idx); break;
             }
         }
         *fmt = *fmt + idx;
     }
 
-    __aicore__ void print(__gm__ const char *str) {
-        auto n = length(str);
+    __aicore__ void Print(__gm__ const char *str) {
+        auto n = Length(str);
         if (n) {
-            encode(NORMAL, (uint8_t *)0, 0, str, n);
+            Encode(NORMAL, reinterpret_cast<const __gm__ uint8_t *>(str), n, str, n);
         }
-        encode(END);
-        sync();
+        Encode(END);
+        Sync();
     }
 
-    __aicore__ void sync() {
+    __aicore__ void Sync() {
 #ifndef __TILE_FWK_HOST__
         int64_t delta = (int64_t)(&data_[remote_->head_ % size_]) & (CACHE_LINE_SIZE -1);
         int64_t off = remote_->head_ - delta;
@@ -180,7 +180,7 @@ struct AicoreLogger {
 #ifdef __TILE_FWK_HOST__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
-    int read(char *buf, size_t maxSize) {
+    int Read(char *buf, size_t maxSize) {
         size_t size = 0;
         head_ = remote_->head_;
         if (tail_ < remote_->tail_) {
@@ -188,7 +188,7 @@ struct AicoreLogger {
             tail_ = remote_->tail_;
         }
         while (tail_ != head_) {
-            auto type = read<uint8_t>(tail_++);
+            auto type = Read<uint8_t>(tail_++);
             if (type == END) {
                 if (size == 0)
                     continue;
@@ -199,18 +199,18 @@ struct AicoreLogger {
             }
 
             auto valOff = tail_ + sizeof(short);
-            tail_ += read<short>(tail_) + sizeof(short);
+            tail_ += Read<short>(tail_) + sizeof(short);
             auto fmtOff = tail_ + sizeof(short);
-            std::string fmt = readString(fmtOff);
-            tail_ += read<short>(tail_) + sizeof(short);
+            std::string fmt = ReadString(fmtOff);
+            tail_ += Read<short>(tail_) + sizeof(short);
             int n = 0;
             switch (type) {
                 case NORMAL: n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), 0); break;
-                case FLOAT: n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), read<float>(valOff)); break;
-                case INT: n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), read<int64_t>(valOff)); break;
-                case CHAR: n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), read<char>(valOff)); break;
-                case STRING: n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), readString(valOff).c_str()); break;
-                case POINTER: n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), read<int64_t>(valOff)); break;
+                case FLOAT: n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), Read<float>(valOff)); break;
+                case INT: n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), Read<int64_t>(valOff)); break;
+                case CHAR: n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), Read<char>(valOff)); break;
+                case STRING: n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), ReadString(valOff).c_str()); break;
+                case POINTER: n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), Read<int64_t>(valOff)); break;
                 default: if (n) { buf[0] = '?'; n = 1;} break;
             }
             buf += n;
@@ -223,7 +223,7 @@ struct AicoreLogger {
 #endif
 
 private:
-    __aicore__ int64_t parse_next_format(__gm__ const char *fmt) {
+    __aicore__ int64_t ParseNextFormat(__gm__ const char *fmt) {
         int64_t idx = 0;
         while (fmt[idx]) {
             if (fmt[idx] == '%') {
@@ -252,19 +252,19 @@ private:
         }
 
         // width
-        while (isdigit(fmt[idx])) {
+        while (IsDigit(fmt[idx])) {
             idx++;
         }
 
         // precision
         if (fmt[idx] == '.') {
             idx++;
-            while (isdigit(fmt[idx])) {
+            while (IsDigit(fmt[idx])) {
                 idx++;
             }
         }
 
-        // length
+        // Length
         if (fmt[idx] == 'l' || fmt[idx] == 'z' || fmt[idx] == 'h') {
             idx++;
             if (fmt[idx] == 'l')
@@ -275,21 +275,21 @@ private:
     }
 
     template <typename T>
-    INLINE T read(int64_t off) {
+    INLINE T Read(int64_t off) {
         T val;
         char tmp[sizeof(T)];
         for (size_t i = 0; i < sizeof(T); i++) {
             tmp[i] = data_[(off + i) % size_];
         }
-        val = *(T *)(tmp);
+        val = *reinterpret_cast<T *>(tmp);
         return val;
     }
 
 #ifdef __TILE_FWK_HOST__
-    std::string readString(int64_t off) {
+    std::string ReadString(int64_t off) {
         std::stringstream ss;
         while (off < head_) {
-            auto c = read<char>(off++);
+            auto c = Read<char>(off++);
             if (c == '\0') break;
             ss << c;
         }
@@ -297,12 +297,12 @@ private:
     }
 #endif
 
-    __aicore__ void encode(uint8_t val) {
+    __aicore__ void Encode(uint8_t val) {
         if (head_ == tail_ + size_) {
-            while (read<uint8_t>(tail_) != END) {
+            while (Read<uint8_t>(tail_) != END) {
                 tail_++;
-                tail_ += read<short>(tail_) + sizeof(short);
-                tail_ += read<short>(tail_) + sizeof(short);
+                tail_ += Read<short>(tail_) + sizeof(short);
+                tail_ += Read<short>(tail_) + sizeof(short);
             }
             tail_++;
         }
@@ -311,27 +311,27 @@ private:
     }
 
     template<typename T>
-    __aicore__ void encode(NodeTy ty, const T *val, short valLen, __gm__ const char *fmt, int fmtLen) {
-        encode(ty);
+    __aicore__ void Encode(NodeTy ty, const T *val, short valLen, __gm__ const char *fmt, int fmtLen) {
+        Encode(ty);
 
         auto bytes = (uint8_t *)(&valLen);
-        encode(bytes[0]);
-        encode(bytes[1]);
+        Encode(bytes[0]);
+        Encode(bytes[1]);
         for (auto i = 0; i < valLen; i++) {
-            encode(val[i]);
+            Encode(val[i]);
         }
 
         fmtLen += 1; // pad '\0'
         bytes = (uint8_t *)(&fmtLen);
-        encode(bytes[0]);
-        encode(bytes[1]);
+        Encode(bytes[0]);
+        Encode(bytes[1]);
         for (auto i = 0; i < fmtLen - 1; i++) {
-            encode(fmt[i]);
+            Encode(fmt[i]);
         }
-        encode('\0');
+        Encode('\0');
     }
 
-    INLINE size_t length(__gm__ const char *str) {
+    INLINE size_t Length(__gm__ const char *str) {
         size_t n = 0;
         while (*str++) {
             n++;
@@ -339,7 +339,7 @@ private:
         return n;
     }
 
-    INLINE bool isdigit(char c) {
+    INLINE bool IsDigit(char c) {
         return c >= '0' && c <= '9';
     }
 

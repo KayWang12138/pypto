@@ -233,7 +233,7 @@ public:
     void DumpAicoreLog(int coreIdx) {
         const int bufSize = 512;
         char buf[bufSize];
-        while (logger_[coreIdx].read(buf, bufSize)) {
+        while (logger_[coreIdx].Read(buf, bufSize)) {
             DEV_INFO("core-%d %s", coreIdx, buf);
         }
     }
