@@ -197,6 +197,7 @@ struct TensorSlotManager {
     std::vector<std::string> outputNameList;
     std::unordered_map<TensorSlot, TensorSlot> inplaceDict;
     std::unordered_map<std::string, int> nameDict;
+    std::unordered_map<TensorSlot, TensorSlot> reshapeInplaceDict;
 
     std::set<int> partialUpdateSlotIndexSet;
 
@@ -234,6 +235,8 @@ struct TensorSlotManager {
     void Checkpoint();
     void Restore();
 
+    void UpdateReshapeInplaceSlots(IncastOutcastLink& link);
+    void SetSameSlot(const Tensor &operand, const Tensor &dst);
     IncastOutcastLink BuildIncastOutcastLink(const std::string &rawname = "");
 
     std::string Dump() const;

@@ -448,6 +448,35 @@ std::string TensorSlotManager::Dump() const {
     return oss.str();
 }
 
+void TensorSlotManager::UpdateReshapeInplaceSlots(IncastOutcastLink& link) {
+    for (auto &[slotIn, slotOut] : reshapeInplaceDict) {
+        ASSERT(slotIndexDict.find(slotIn) != slotIndexDict.end()) << "slotIn is not in slotIndexDict";
+        ASSERT(slotIndexDict.find(slotOut) != slotIndexDict.end()) << "slotOut is not in slotIndexDict";
+
+        for (auto &iter : link.ioslotDict) {
+            auto &ioslot = iter.second;
+            //update incast for all funcs
+            for (std::vector<int> &slotsIdxIn : ioslot.incastSlot) {
+                for (auto &slotIdxIn : slotsIdxIn) {
+                    if (slotIdxIn == slotIndexDict[slotIn]) {
+                        ALOG_ERROR_F("replace slot %d to %d \n", slotIdxIn, slotIndexDict[slotOut]);
+                        slotIdxIn = slotIndexDict[slotOut];
+                    }
+                }
+            }
+
+            for (std::vector<int> &slotsIdxOut : ioslot.outcastSlot) {
+                for (auto &slotIdxOut : slotsIdxOut) {
+                    if (slotIdxOut == slotIndexDict[slotIn]){
+                        ALOG_ERROR_F("replace slot %d to %d \n", slotIdxOut, slotIndexDict[slotOut]);
+                        slotIdxOut = slotIndexDict[slotOut];
+                    }
+                }
+            }
+        }       
+    }
+}
+
 IncastOutcastLink TensorSlotManager::BuildIncastOutcastLink([[maybe_unused]]const std::string &rawname) {
     IncastOutcastLink link(slotIndexDict.size());
 
@@ -494,7 +523,15 @@ IncastOutcastLink TensorSlotManager::BuildIncastOutcastLink([[maybe_unused]]cons
             }
         }
     }
+    UpdateReshapeInplaceSlots(link);
     return link;
+}
+
+void TensorSlotManager::SetSameSlot(const Tensor &operand, const Tensor &dst) {
+    TensorSlot slotIn = TensorSlot::CreateTensor(operand);
+    TensorSlot slotOut = TensorSlot::CreateTensor(dst);
+    ASSERT(outputSlotDict.count(slotOut) != 0);
+    reshapeInplaceDict[slotIn] = slotOut;
 }
 
 } // namespace npu::tile_fwk

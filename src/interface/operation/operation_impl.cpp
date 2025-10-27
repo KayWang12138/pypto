@@ -4694,10 +4694,15 @@ Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, cons
 }
 
 void ReshapeInplace(const Tensor &operand, Tensor &dst) {
+    auto slotManager = Program::GetInstance().GetTensorSlotManager();
     auto &operation = Program::GetInstance().GetCurrentFunction()->AddOperation(Opcode::OP_RESHAPE, {operand.GetStorage()}, {dst.GetStorage()});
     operation.SetAttribute(OP_ATTR_PREFIX + "isInplace", true);
-    Program::GetInstance().GetTensorSlotManager()->TensorWrite(dst, true);
+    slotManager->TensorWrite(dst, true);
     Program::GetInstance().GetCurrentFunction()->SetSameMemId(operand, dst);
+    if (slotManager->GetOutputIndex(dst) != -1){
+        ALOG_ERROR_F("dst is an output for main function !!!");
+        slotManager->SetSameSlot(operand, dst);
+    }
 }
 
 } // namespace npu::tile_fwk
