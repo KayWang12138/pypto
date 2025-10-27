@@ -59,7 +59,7 @@ __aicore__ inline void TLoad(T dst, U src, C coordinate) {
                 pto::Stride(srcStride0, srcStride1, srcStride2, srcStride3, srcStride4));
             using TileData = pto::Tile<pto::Location::Vec, typename T::Type, tileH, tileW>;
             TileData dstUB;
-            dstUB.assignData((__ubuf__ typename T::Type *)(dst.GetAddr()));
+            pto::TASSIGN(dstUB, (uint64_t)dst.GetAddr());
             pto::TLOAD(dstUB, src0Global);
             return;
         }
@@ -72,14 +72,14 @@ __aicore__ inline void TLoad(T dst, U src, C coordinate) {
                     using ShapeDim5 = pto::Shape<-1, -1, -1, -1, -1>;
                     using StrideDim5 = pto::Stride<-1, -1, -1, -1, -1>;
                     using GlobalData = pto::GlobalTensor<typename U::Type, ShapeDim5, StrideDim5>;
-                    GlobalData src0Global((__gm__ typename U::Type *)(src.GetAddr() + gmOffset 
-                        + index0 * srcStride0 + index1 * srcStride1 + index2 * srcStride2),
+                    GlobalData src0Global((__gm__ typename U::Type *)(src.GetAddr() + gmOffset + index0 * srcStride0 +
+                                                                      index1 * srcStride1 + index2 * srcStride2),
                         pto::Shape(1, 1, 1, dstShape3, dstShape4), pto::Stride(0, 0, 0, srcStride3, srcStride4));
                     using TileDefine =
                         pto::Tile<pto::Location::Vec, typename T::Type, tileH, tileW, pto::BLayout::RowMajor, -1, -1>;
                     TileDefine dstUB(dstShape3, dstShape4);
                     auto ubOffset = index0 * dstStride0 + index1 * dstStride1 + index2 * dstStride2;
-                    dstUB.assignData((__ubuf__ typename T::Type *)(dst.GetAddr() + ubOffset));
+                    pto::TASSIGN(dstUB, (uint64_t)(dst.GetAddr() + ubOffset));
                     pto::TLOAD(dstUB, src0Global);
                 }
             }
@@ -126,7 +126,7 @@ __aicore__ inline void TStore(T dst, U src, C coordinate) {
                 pto::Stride(dstStride0, dstStride1, dstStride2, dstStride3, dstStride4));
             using TileData = pto::Tile<pto::Location::Vec, typename U::Type, tileH, tileW>;
             TileData srcUB;
-            srcUB.assignData((__ubuf__ typename U::Type *)(src.GetAddr()));
+            pto::TASSIGN(srcUB, (uint64_t)src.GetAddr());
             pto::TSTORE(dstGlobal, srcUB);
             return;
         }
@@ -139,14 +139,14 @@ __aicore__ inline void TStore(T dst, U src, C coordinate) {
                     using ShapeDim5 = pto::Shape<-1, -1, -1, -1, -1>;
                     using StrideDim5 = pto::Stride<-1, -1, -1, -1, -1>;
                     using GlobalData = pto::GlobalTensor<typename T::Type, ShapeDim5, StrideDim5>;
-                    GlobalData dstGlobal((__gm__ typename T::Type *)(dst.GetAddr() + gmOffset 
-                        + index0 * dstStride0 + index1 * dstStride1 + index2 * dstStride2),
+                    GlobalData dstGlobal((__gm__ typename T::Type *)(dst.GetAddr() + gmOffset + index0 * dstStride0 +
+                                                                     index1 * dstStride1 + index2 * dstStride2),
                         pto::Shape(1, 1, 1, srcShape3, srcShape4), pto::Stride(0, 0, 0, dstStride3, dstStride4));
                     using TileDefine =
                         pto::Tile<pto::Location::Vec, typename U::Type, tileH, tileW, pto::BLayout::RowMajor, -1, -1>;
                     TileDefine srcUB(srcShape3, srcShape4);
                     auto ubOffset = index0 * srcStride0 + index1 * srcStride1 + index2 * srcStride2;
-                    srcUB.assignData((__ubuf__ typename U::Type *)(src.GetAddr() + ubOffset));
+                    pto::TASSIGN(srcUB, (uint64_t)(src.GetAddr() + ubOffset));
                     pto::TSTORE(dstGlobal, srcUB);
                 }
             }

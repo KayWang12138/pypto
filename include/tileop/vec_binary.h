@@ -39,9 +39,9 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
         using TileDefine =
             pto::Tile<pto::Location::Vec, typename T0::Type, tileH, tileW, pto::BLayout::RowMajor, tileH, tileW>;
         TileDefine dstTile, src0Tile, src1Tile;
-        dstTile.assignData((__ubuf__ typename T0::Type *)dst.GetAddr());
-        src0Tile.assignData((__ubuf__ typename T0::Type *)src0.GetAddr());
-        src1Tile.assignData((__ubuf__ typename T0::Type *)src1.GetAddr());
+        pto::TASSIGN(dstTile, (uint64_t)dst.GetAddr());
+        pto::TASSIGN(src0Tile, (uint64_t)src0.GetAddr());
+        pto::TASSIGN(src1Tile, (uint64_t)src1.GetAddr());
         BinaryComputeImpl<op>(dstTile, src0Tile, src1Tile);
         return;
     }
@@ -64,9 +64,9 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
                     pto::Tile<pto::Location::Vec, typename T0::Type, tileH, tileW, pto::BLayout::RowMajor, -1, -1>;
                 TileDefine dstTile(shape3, shape4), src0Tile(shape3, shape4), src1Tile(shape3, shape4);
                 auto offset = n0Index * stride0 + n1Index * stride1 + n2Index * stride2;
-                dstTile.assignData((__ubuf__ typename T0::Type *)(dst.GetAddr() + offset));
-                src0Tile.assignData((__ubuf__ typename T0::Type *)(src0.GetAddr() + offset));
-                src1Tile.assignData((__ubuf__ typename T0::Type *)(src1.GetAddr() + offset));
+                pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + offset));
+                pto::TASSIGN(src0Tile, (uint64_t)(src0.GetAddr() + offset));
+                pto::TASSIGN(src1Tile, (uint64_t)(src1.GetAddr() + offset));
                 BinaryComputeImpl<op>(dstTile, src0Tile, src1Tile);
             }
         }
