@@ -194,3 +194,18 @@ class Tensor:
 
     def matmul(self, mat2, out_dtype, *, a_trans=False, b_trans=False, c_matrix_nz=False) -> 'Tensor':
         return pto.matmul(self, mat2, out_dtype, a_trans=a_trans, b_trans=b_trans, c_matrix_nz=c_matrix_nz)
+    
+    def assemble(self, input: 'Tensor', offsets: List[Union[int, SymbolicScalar]]) -> None:
+        """
+        Assemble a small Tensor into a larger Tensor based on specified offsets.
+
+        Args:
+            input (Tensor): The small input tensor to be assembled into the larger tensor.
+            offsets (Union[List[int], List[SymbolicScalar]]): Offset for placing the input tensor.
+
+        example:
+        >>> s = pto.tensor((16, 16), pto.DT_FP32)
+        >>> a = pto.tensor((2, 2), pto.DT_FP32)
+        >>> s.assemble(a, [0, 0])
+        """
+        pto.assemble(input, offsets, self)
