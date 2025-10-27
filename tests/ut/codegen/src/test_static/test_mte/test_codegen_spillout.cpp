@@ -25,6 +25,7 @@
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 #include "codegen/cloudnpu/codegen_op_cloudnpu.h"
+#include "test_codegen_utils.h"
 
 namespace npu::tile_fwk {
 
@@ -61,23 +62,15 @@ TEST_F(TestCodegenSpillOut, UBSpillOut) {
     }
 
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+
     std::shared_ptr<RawTensor> ddrRawTensor =
         std::make_shared<RawTensor>(DataType::DT_FP32, shape, "UBSpillOut", SYMBOL_STACK_BASE);
     const std::vector<int64_t> offset = {0, 0};
-
     auto ddrTensor = std::make_shared<LogicalTensor>(*function, ddrRawTensor, offset, shape);
     ddrTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
     ddrTensor->SetMemoryTypeToBe(MemoryType::MEM_DEVICE_DDR);
 
-    auto ubTensor = std::make_shared<LogicalTensor>(*function, DT_FP32, shape);
-    ubTensor->UpdateSubgraphID(0);
-    ubTensor->SetMemoryTypeOriginal(MemoryType::MEM_UB);
-    ubTensor->SetMemoryTypeToBe(MemoryType::MEM_UB);
-    ubTensor->SetMagic(3);
-    ubTensor->SetAttr(OpAttributeKey::needAlloc, true);
-    ubTensor->memoryrange.memId = 0;
-    ubTensor->memoryrange.start = 0;
-    ubTensor->memoryrange.end = 0;
+    auto ubTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
 
     auto &op = function->AddOperation(Opcode::OP_COPY_OUT, {ubTensor}, {ddrTensor});
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_UB, OpImmediate::Specified({0, 0}), shapeImme, shapeImme));
@@ -93,7 +86,68 @@ TEST_F(TestCodegenSpillOut, UBSpillOut) {
     cop.originShape[0] = ToVecInt(shape);
     cop.originShape[1] = ToVecInt(shape);
 
-    cop.GenOpCode();
+    std::string res = cop.GenOpCode();
+    std::string expect =
+        R"!!!(TileOp::UBCopyOut<float, 1, 1, 1, 1, 4096, /*dst stride*/ 1, 1, 1, 4096,/*src stride*/ 1, 1, 1, 4096 >((__gm__ float*)GMStackBase, (__ubuf__ float*)UB_S0_E0);
+)!!!";
+
+    EXPECT_EQ(res, expect);
+}
+
+TEST_F(TestCodegenSpillOut, UBSpillOutTileTensor) {
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    const std::vector<int64_t> shape = {64, 64};
+    auto shapeImme = OpImmediate::Specified(shape);
+    TileShape::Current().SetVecTile(shape);
+
+    Tensor inputA(DT_FP32, shape, "A");
+    Tensor inputB(DT_FP32, shape, "B");
+    Tensor output(DT_FP32, shape, "C");
+
+    std::string funcName = "ADD";
+    config::SetBuildStatic(true);
+    FUNCTION(funcName, {inputA, inputB, output}) {
+        output = Add(inputA, inputB);
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+
+    std::shared_ptr<RawTensor> ddrRawTensor =
+        std::make_shared<RawTensor>(DataType::DT_FP32, shape, "UBSpillOut", SYMBOL_STACK_BASE);
+    const std::vector<int64_t> offset = {0, 0};
+    auto ddrTensor = std::make_shared<LogicalTensor>(*function, ddrRawTensor, offset, shape);
+    ddrTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+    ddrTensor->SetMemoryTypeToBe(MemoryType::MEM_DEVICE_DDR);
+
+    auto ubTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
+
+    auto &op = function->AddOperation(Opcode::OP_COPY_OUT, {ubTensor}, {ddrTensor});
+    op.SetOpAttribute(
+        std::make_shared<CopyOpAttribute>(MEM_UB, OpImmediate::Specified({16, 16}), shapeImme, shapeImme));
+
+    SymbolManager symbolMgr;
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolMgr);
+    CodeGenOpCloudNPU cop(symbolMgr, function->GetFunctionType());
+    function->GetTensorMap().inverseMap_[ubTensor->GetMagic()] = ubTensor;
+
+    cop.Init(op);
+    cop.originShape[0] = ToVecInt(shape);
+    cop.originShape[1] = ToVecInt(shape);
+    cop.UpdateTileTensorInfo();
+
+    std::string res = symbolMgr.GenTileTensorDefList();
+    std::string expect = R"!!!(UBTileTensorFP32Dim2_1 ubTensor_1((float*)UB_S0_E0_T);
+GMTileTensorFP32Dim2_0 gmTensor_0((__gm__ float*)((__gm__ uint8_t*)GMStackBase + 16), DynLayout2Dim(Shape2Dim(64, 64), Stride2Dim(64, 1)));
+)!!!";
+    EXPECT_EQ(res, expect);
+
+    res = cop.GenOpCode();
+    expect = R"!!!(TStore(gmTensor_0, ubTensor_1, Coord2Dim(0, 0));
+)!!!";
+    EXPECT_EQ(res, expect);
 }
 
 TEST_F(TestCodegenSpillOut, L1SpillOut) {

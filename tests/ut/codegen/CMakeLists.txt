@@ -17,6 +17,7 @@ set(_CaseFilterList
         "TestCodegenScatterUpdate.TestScatterUpdate"
         "TestCodegenSpillOut.L1SpillOut"
         "TestCodegenSpillOut.UBSpillOut"
+        "TestCodegenSpillOut.UBSpillOutTileTensor"
         # vector
         "TestCodegenAllGather.TestAllGatherTensorGraph"
         "TestCodegenAllGather.TestAllGatherOutTensorTensorGraph"

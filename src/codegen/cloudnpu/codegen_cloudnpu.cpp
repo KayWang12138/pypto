@@ -506,6 +506,31 @@ std::string CodeGenCloudNPU::BuildCompileOptions(
     return allCompileOpts;
 }
 
+void CodeGenCloudNPU::BuildIncludes(std::ostringstream &oss) const {
+    // used for compiling cce
+    std::string includePath = GetIncludePathForCompileCCE();
+    oss << "-I" << includePath << "/tilefwk "
+        << "-I" << includePath << "/tileop "
+        << "-I" << includePath << "/tileop/a2a3 "
+        << "-I" << includePath << "/tileop/PTOTileLib/include "
+        << "-I" << includePath << "/tileop/PTOTileLib/include/common "
+        << "-I" << includePath << " ";
+
+    // used for building whl package
+    std::string curLibPath = GetCurrentSharedLibPath();
+    oss << "-I" << curLibPath << "/include/tileop/a2a3 "
+        << "-I" << curLibPath << "/include/tilefwk "
+        << "-I" << curLibPath << "/include ";
+}
+
+void CodeGenCloudNPU::BuildLLVMParams(std::ostringstream &oss) const {
+    oss << "-mllvm -cce-aicore-stack-size=0x8000 "
+        << "-mllvm -cce-aicore-function-stack-size=0x8000 "
+        << "-mllvm -cce-aicore-record-overflow=false "
+        << "-mllvm -cce-aicore-addr-transform "
+        << "-mllvm -cce-aicore-dcci-insert-for-scalar=false ";
+}
+
 int CodeGenCloudNPU::CompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const {
     const std::string srcFile = compileInfo.GetCCEAbsPath();
     const std::string objFile = compileInfo.GetBinAbsPath();
@@ -518,22 +543,12 @@ int CodeGenCloudNPU::CompileCCE(const CompileInfo &compileInfo, const std::strin
     std::ostringstream oss;
     oss << "ccec " << allCompileOpts << " -c -O3 -g -x cce -std=c++17 "
         << "--cce-aicore-only "
-        << "--cce-aicore-arch=" << coreType << " "
-        << "-mllvm -cce-aicore-stack-size=0x8000 "
-        << "-mllvm -cce-aicore-function-stack-size=0x8000 "
-        << "-mllvm -cce-aicore-record-overflow=false "
-        << "-mllvm -cce-aicore-addr-transform "
-        << "-mllvm -cce-aicore-dcci-insert-for-scalar=false "
-        << "-I" << includePath << "/tilefwk "
-        << "-I" << includePath << "/tileop "
-        << "-I" << includePath << "/tileop/a2a3 "
-        << "-I" << includePath << "/tileop/PTOTileLib/include "
-        << "-I" << includePath << "/tileop/PTOTileLib/include/common "
-        << "-I" << includePath << " "
-        << "-I" << curSoPath << "/include/tileop/a2a3 "
-        << "-I" << curSoPath << "/include/tilefwk "
-        << "-I" << curSoPath << "/include "
-        << "-o " << objFile << " " << srcFile;
+        << "--cce-aicore-arch=" << coreType << " ";
+
+    BuildIncludes(oss);
+    BuildLLVMParams(oss);
+
+    oss << "-o " << objFile << " " << srcFile;
 
     std::string ccecCmd = oss.str();
 

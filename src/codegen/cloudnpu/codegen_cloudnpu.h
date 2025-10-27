@@ -112,6 +112,8 @@ private:
 
     void DoCompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const;
     std::string BuildCompileOptions(const CompileInfo &compileInfo, const std::string &compileOptions) const;
+    void BuildIncludes(std::ostringstream &oss) const;
+    void BuildLLVMParams(std::ostringstream &oss) const;
 
     std::string GenAlloc(SymbolManager &manager, BufferType bufferType, npu::tile_fwk::DataType dataType,
         const npu::tile_fwk::TileRange &range) const;

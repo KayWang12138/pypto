@@ -949,7 +949,9 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBTileTensor(const PrintMemCopyWi
     unsigned gmIdx = param.gmIdx;
     int dim = static_cast<int>(rawShape[gmIdx].size());
     std::vector<std::string> gmOffsetExpr;
-    if (offsetGmSymbolic[gmIdx][ID0].IsValid()) {
+    if (param.isSpillIntoGM) {
+        gmOffsetExpr = std::vector<std::string>(dim, "0");
+    } else if (offsetGmSymbolic[gmIdx][ID0].IsValid()) {
         gmOffsetExpr = GenSymbolicArgument(offsetGmSymbolic[gmIdx]);
     } else {
         gmOffsetExpr = GenGetParamMacroPacked(gmIdx, dim, PREFIX_STR_OFFSET);

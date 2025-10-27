@@ -187,39 +187,58 @@ std::vector<std::string> CodeGenOpCloudNPU::BuildStride(const std::vector<int64_
     return res;
 }
 
+void CodeGenOpCloudNPU::UpdateTileTensorShapeAndStride(int paramIdx, TileTensor &tileTensor, bool isSpillToGm) {
+    // ---- static ----
+    if (functionType == FunctionType::STATIC) {
+        for (auto s : originShape[paramIdx]) {
+            tileTensor.shape.emplace_back(std::to_string(s));
+        }
+        tileTensor.stride = BuildStride(rawShape[paramIdx]);
+        return;
+    }
+
+    // ---- dynamic ----
+    // gm tensor
+    if (tileTensor.bufType == OperandType::BUF_DDR) {
+        if (isSpillToGm) {
+            for (auto s : dynShapeFromAttr[paramIdx]) {
+                tileTensor.shape.emplace_back(SymbolicExpressionTable::BuildExpression(s.GetSpecifiedValue()));
+            }
+        } else {
+            tileTensor.shape = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_RAW_SHAPE);
+        }
+        tileTensor.stride = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_STRIDE);
+        return;
+    }
+
+    // local tensor
+    for (const auto &s : dynamicValidShape[paramIdx]) {
+        tileTensor.shape.emplace_back(SymbolicExpressionTable::BuildExpression(s));
+    }
+    tileTensor.stride = BuildStride(rawShape[paramIdx]);
+}
+
 TileTensor CodeGenOpCloudNPU::BuildTileTensor(int paramIdx, const std::string &usingType) {
+    bool isSpillToGm = operand[paramIdx] == SYMBOL_STACK_BASE;
+
     TileTensor tileTensor;
     tileTensor.magic = operandWithMagic[paramIdx];
     tileTensor.dim =
         functionType == FunctionType::STATIC ? originShape[paramIdx].size() : dynamicValidShape[paramIdx].size();
     tileTensor.dtype = operandDtype[paramIdx];
     tileTensor.bufType = operandType[paramIdx];
+
     if (tileTensor.bufType == OperandType::BUF_DDR) {
-        tileTensor.bufVar = GenGmParamVar(paramIdx);
+        tileTensor.bufVar = isSpillToGm ? GenGMAddrExprWithOffset(GM_STACK_BASE, paramIdx) : GenGmParamVar(paramIdx);
     } else {
         tileTensor.bufVar = sm->QueryVarNameByTensorMagic(tileTensor.magic, true);
     }
+
     tileTensor.usingType = usingType;
     tileTensor.tensorName = BUFFER_TYPE_TO_PREFIX_LC.at(tileTensor.bufType) + "Tensor_" +
                             std::to_string(IdGen<IdType::CG_VAR_NAME>::Inst().NewId());
 
-    if (functionType == FunctionType::STATIC) {
-        for (auto s : originShape[paramIdx]) {
-            tileTensor.shape.emplace_back(std::to_string(s));
-        }
-        tileTensor.stride = BuildStride(rawShape[paramIdx]);
-    } else {
-        if (tileTensor.bufType == OperandType::BUF_DDR) {
-            tileTensor.shape = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_RAW_SHAPE);
-            tileTensor.stride = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_STRIDE);
-        } else {
-            for (const auto &s : dynamicValidShape[paramIdx]) {
-                tileTensor.shape.emplace_back(SymbolicExpressionTable::BuildExpression(s));
-            }
-            tileTensor.stride = BuildStride(rawShape[paramIdx]);
-        }
-    }
-
+    UpdateTileTensorShapeAndStride(paramIdx, tileTensor, isSpillToGm);
     tileTensor.isStatic = functionType == FunctionType::STATIC;
     return tileTensor;
 }
