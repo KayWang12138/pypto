@@ -15,6 +15,7 @@
 
 #include "passes/block_graph_pass/insert_sync.h"
 #include <thread>
+#include "passes/pass_utils/pass_utils.h"
 
 namespace npu {
 namespace tile_fwk {
@@ -28,7 +29,7 @@ Status RangeSearchTree::ProcessTreeNode(
         }
         currPtr->left = new IntervalTreeNode(interval);
         if (currPtr->left == nullptr) {
-            ALOG_ERROR_F("New created left tree node is nullptr, ProcessTreeNode failed!");
+            APASS_LOG_ERROR_F("InsertSync", "Tensor", "New created left tree node is nullptr, ProcessTreeNode failed.");
             return FAILED;
         }
         return SUCCESS;
@@ -39,7 +40,7 @@ Status RangeSearchTree::ProcessTreeNode(
     }
     currPtr->right = new IntervalTreeNode(interval);
     if (currPtr->right == nullptr) {
-        ALOG_ERROR_F("New created right tree node is nullptr, ProcessTreeNode failed!");
+        APASS_LOG_ERROR_F("InsertSync", "Tensor", "New created right tree node is nullptr, ProcessTreeNode failed.");
         return FAILED;
     }
     return SUCCESS;
@@ -49,14 +50,20 @@ Status RangeSearchTree::InsertInterval(const Interval &interval) {
     std::vector<IntervalTreeNode*> intervalStack;
     if (treeRoot == nullptr) {
         treeRoot = new IntervalTreeNode(interval);
-        if (treeRoot == nullptr) { ALOG_ERROR_F("TreeRoot is nullptr, InsertInterval failed!"); return FAILED; }
+        if (treeRoot == nullptr) { 
+            APASS_LOG_ERROR_F("InsertSync", "Tensor", "TreeRoot is nullptr, InsertInterval failed.");
+            return FAILED;
+        }
         return SUCCESS;
     }
     intervalStack.push_back(treeRoot);
     while (intervalStack.size() > 0) {
         IntervalTreeNode *currPtr = intervalStack.back();
         intervalStack.pop_back();
-        if (ProcessTreeNode(interval, currPtr, intervalStack) != SUCCESS) { ALOG_ERROR_F("InsertInterval failed at function ProcessTreeNode!"); return FAILED; }
+        if (ProcessTreeNode(interval, currPtr, intervalStack) != SUCCESS) { 
+            APASS_LOG_ERROR_F("InsertSync", "Tensor", "InsertInterval failed at function ProcessTreeNode.");
+            return FAILED; 
+        }
         if (currPtr->max < interval.end) {
             currPtr->max = interval.end;
         }
@@ -225,12 +232,18 @@ Status PipeSync::InsertSync(Function &function, std::vector<Operation *> &synced
     std::vector<Operation *> opLogPtr(function.Operations().DuplicatedOpList());
     uint64_t idxInput = 0;
     for (const auto &op : opLogPtr) {
-        ALOG_DEBUG_F("Input operation %d %d: %s", idxInput, op->GetOpMagic(), op->GetOpcodeStr().c_str());
+        APASS_LOG_DEBUG_F("InsertSync", "Operation", "Input operation %d %d: %s.", idxInput, op->GetOpMagic(), op->GetOpcodeStr().c_str());
         idxInput++;
     }
-    if (PipeDispatch(opLogPtr, synced) != SUCCESS) { ALOG_ERROR_F("InsertSync failed at function PipeDispatch!"); return FAILED; }
+    if (PipeDispatch(opLogPtr, synced) != SUCCESS) { 
+        APASS_LOG_ERROR_F("InsertSync", "Operation", "InsertSync failed at function PipeDispatch.");
+        return FAILED; 
+    }
 
-    if (IssueOp(function, opLogPtr, synced) != SUCCESS) { ALOG_ERROR_F("InsertSync failed at function IssueOp!"); return FAILED; }
+    if (IssueOp(function, opLogPtr, synced) != SUCCESS) { 
+        APASS_LOG_ERROR_F("InsertSync", "Operation", "InsertSync failed at function IssueOp.");
+        return FAILED; 
+    }
 
     for (auto &log : synced) {
         if (log.second->GetOpcode() != Opcode::OP_NOP) {
@@ -348,7 +361,7 @@ PipeSync::PipeCoreReal PipeSync::GetPipeFromSeq(PipeSeq seq) {
 
 Status PipeSync::AdjustReshapeCfg(TileOpCfg &opcfg, Operation *opptr) {
     if (opptr->GetIOperands().size() < 1 || opptr->GetOOperands().size() < 1) {
-        ALOG_ERROR_F("%d RESHAPE op operands size is 0, AdjustOpCfg failed!", opptr->GetOpMagic());
+        APASS_LOG_ERROR_F("InsertSync", "Operation", "%d RESHAPE op operands size is 0, AdjustOpCfg failed.", opptr->GetOpMagic());
         return FAILED;
     }
     if (opptr->GetIOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
@@ -361,7 +374,7 @@ Status PipeSync::AdjustReshapeCfg(TileOpCfg &opcfg, Operation *opptr) {
 
 Status PipeSync::AdjustCopyInCfg(TileOpCfg &opcfg, Operation *opptr) {
     if (opptr->GetOpAttribute() == nullptr) {
-        ALOG_ERROR_F("%d COPYIN op attr is nullptr, AdjustOpCfg failed!", opptr->GetOpMagic());
+        APASS_LOG_ERROR_F("InsertSync", "Operation", "%d COPYIN op attr is nullptr, AdjustOpCfg failed.", opptr->GetOpMagic());
         return FAILED;
     }
     std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(opptr->GetOpAttribute());
@@ -371,7 +384,7 @@ Status PipeSync::AdjustCopyInCfg(TileOpCfg &opcfg, Operation *opptr) {
         opcfg.pipeIdEnd_ = PipeType::PIPE_MTE2;
         opcfg.coreType_ = CoreType::AIC;
         return SUCCESS;
-    }
+    } 
     if (dstMemType == MemoryType::MEM_UB) {
         opcfg.pipeIdStart_ = PipeType::PIPE_MTE2;
         opcfg.pipeIdEnd_ = PipeType::PIPE_MTE2;
@@ -382,7 +395,7 @@ Status PipeSync::AdjustCopyInCfg(TileOpCfg &opcfg, Operation *opptr) {
 
 Status PipeSync::AdjustCopyOutCfg(TileOpCfg &opcfg, Operation *opptr) {
     if (opptr->GetOpAttribute() == nullptr) {
-        ALOG_ERROR_F("%d COPYOUT op attr is nullptr, AdjustOpCfg failed!", opptr->GetOpMagic());
+        APASS_LOG_ERROR_F("InsertSync", "Operation", "%d COPYOUT op attr is nullptr, AdjustOpCfg failed.", opptr->GetOpMagic());
         return FAILED;
     }
     std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(opptr->GetOpAttribute());
@@ -410,19 +423,19 @@ Status PipeSync::AdjustCopyOutCfg(TileOpCfg &opcfg, Operation *opptr) {
 Status PipeSync::AdjustOpCfg(TileOpCfg &opcfg, Operation *opptr) {
     if (opptr->GetOpcode() == Opcode::OP_RESHAPE) {
         if (AdjustReshapeCfg(opcfg, opptr) != SUCCESS) {
-            ALOG_ERROR_F("AdjustReshapeCfg failed!");
+            APASS_LOG_ERROR_F("InsertSync", "Operation", "AdjustReshapeCfg failed.");
             return FAILED;
         }
     }
     if (opptr->GetOpcode() == Opcode::OP_COPY_IN) {
         if (AdjustCopyInCfg(opcfg, opptr) != SUCCESS) {
-            ALOG_ERROR_F("AdjustCopyInCfg failed!");
+            APASS_LOG_ERROR_F("InsertSync", "Operation", "AdjustCopyInCfg failed.");
             return FAILED;
         }
     }
     if (opptr->GetOpcode() == Opcode::OP_COPY_OUT) {
         if (AdjustCopyOutCfg(opcfg, opptr) != SUCCESS) {
-            ALOG_ERROR_F("AdjustCopyOutCfg failed!");
+            APASS_LOG_ERROR_F("InsertSync", "Operation", "AdjustCopyOutCfg failed.");
             return FAILED;
         }
     }
@@ -432,10 +445,16 @@ Status PipeSync::AdjustOpCfg(TileOpCfg &opcfg, Operation *opptr) {
 Status PipeSync::PipeDispatch(const std::vector<Operation *> opLogPtr, std::vector<IndexOp> &syncedOpLog) {
     DataDependencySearcher dataDependencySearcher;
     for (size_t i = 0; i < opLogPtr.size(); i++) {
-        if (opLogPtr[i]->GetOpcodeStr().find("ALLOC") != std::string::npos) { ALOG_ERROR_F("%d ALLOC op should not appear in InsertSync, PipeDispatch failed!", opLogPtr[i]->GetOpMagic()); return FAILED; }
+        if (opLogPtr[i]->GetOpcodeStr().find("ALLOC") != std::string::npos) { 
+            APASS_LOG_ERROR_F("InsertSync", "Operation", "%d ALLOC op should not appear in InsertSync, PipeDispatch failed.", opLogPtr[i]->GetOpMagic());
+            return FAILED;
+        }
         maxOpMagic = std::max(maxOpMagic, opLogPtr[i]->GetOpMagic());
         auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[i]->GetOpcode());
-        if (AdjustOpCfg(opcfg, opLogPtr[i]) != SUCCESS) { ALOG_ERROR_F("PipeDispatch failed at function AdjustOpCfg!"); return FAILED; }
+        if (AdjustOpCfg(opcfg, opLogPtr[i]) != SUCCESS) { 
+            APASS_LOG_ERROR_F("InsertSync", "Operation", "PipeDispatch failed at function AdjustOpCfg.");
+            return FAILED; 
+        }
         DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_});
         DepOp &opRef = depOps_.emplace_back(op);
         FindDep(opRef, opLogPtr, i, dataDependencySearcher);
@@ -496,11 +515,17 @@ Status PipeSync::AddOpDep(DepOp &setOp, DepOp &waitOp) {
 
     size_t depWaitIdx = static_cast<size_t>(-1);
     for (auto ele : setOp.setPipe) {
-        if (ele == waitOpIdx) { ALOG_ERROR_F("This dependency should not exist, AddOpDep failed!"); return FAILED; }
+        if (ele == waitOpIdx) { 
+            APASS_LOG_ERROR_F("InsertSync", "Operation", "This dependency should not exist, AddOpDep failed.");
+            return FAILED; 
+        }
         PipeCoreReal elePipeCore(depOps_[ele].selfPipeCore.pipeStart, depOps_[ele].selfPipeCore.core);
         PipeCoreReal waitOpPipeCore(depOps_[waitOpIdx].selfPipeCore.pipeStart, depOps_[waitOpIdx].selfPipeCore.core);
         if (elePipeCore == waitOpPipeCore) {
-            if (ele  <= waitOpIdx) { ALOG_ERROR_F("New waitidx should less than old, AddOpDep failed!"); return FAILED; }
+            if (ele  <= waitOpIdx) { 
+                APASS_LOG_ERROR_F("InsertSync", "Operation", "New waitidx should less than old, AddOpDep failed.");
+                return FAILED; 
+            }
             depWaitIdx = ele;
             break;
         }
@@ -525,7 +550,10 @@ Status PipeSync::AdjustOpDep(DepOp &op, size_t waitOpIdx, IssueQueue &issueQ) {
     auto &nextOpIdx = issueQ.ops[issueQ.currOp + 1];
     auto &nextOp = depOps_[nextOpIdx];
     RemoveOpDep(op, waitOp);
-    if (AddOpDep(nextOp, waitOp) != SUCCESS) { ALOG_ERROR_F("AdjustOpDep failed at function AddOpDep!"); return FAILED; }
+    if (AddOpDep(nextOp, waitOp) != SUCCESS) { 
+        APASS_LOG_ERROR_F("InsertSync", "Operation", "AdjustOpDep failed at function AddOpDep.");
+        return FAILED; 
+    }
     return SUCCESS;
 }
 
@@ -548,7 +576,7 @@ Status PipeSync::HandleEventID(DepOp &op, IssueQueue &issueQ, IssueNum &issuenum
             }
             // eventID deadlock, adjust op dependency to release eventID.
             if (AdjustOpDep(op, ele, issueQ) != SUCCESS) {
-                ALOG_ERROR_F("HandleEventID failed at function AdjustOpDep!");
+                APASS_LOG_ERROR_F("InsertSync", "Operation", "HandleEventID failed at function AdjustOpDep.");
                 return FAILED;
             }
         }
@@ -583,13 +611,13 @@ Status PipeSync::PopFromQueue(IssueQueue &issueQ, std::vector<size_t> &poped, bo
         }
         auto &op = depOps_[issueQ.ops[issueQ.currOp]];
         if (op.issued) {
-            ALOG_ERROR_F("Try to issue a op which is already issued, PopFromQueue failed!");
+            APASS_LOG_ERROR_F("InsertSync", "Operation", "Try to issue a op which is already issued, PopFromQueue failed.");
             return FAILED;
         }
         bool ready = CheckIssuedOp(op);
         bool res = false;
         if (HandleEventID(op, issueQ, issuenum, deadlock, res) != SUCCESS) {
-            ALOG_ERROR_F("PopFromQueue failed at function HandleEventID!");
+            APASS_LOG_ERROR_F("InsertSync", "Operation", "PopFromQueue failed at function HandleEventID.");
             return FAILED;
         }
         if (!ready || !res) {
@@ -641,7 +669,10 @@ Status PipeSync::InjectSync(Function &function, std::vector<Operation *> opLogPt
         PipeCoreReal waitPipeReal(waitPipe.pipeStart, waitPipe.core);
         PipeCoreReal currPipeReal(currPipe.pipeEnd, currPipe.core);
         int eventId{0};
-        if (GetEventId({currPipeReal, waitPipeReal}, eventId) != SUCCESS) { ALOG_ERROR_F("InjectSync failed at function GetEventId!"); return FAILED; }
+        if (GetEventId({currPipeReal, waitPipeReal}, eventId) != SUCCESS) { 
+            APASS_LOG_ERROR_F("InsertSync", "Operation", "InjectSync failed at function GetEventId.");
+            return FAILED; 
+        }
         std::vector<std::shared_ptr<LogicalTensor>> input;
         std::vector<std::shared_ptr<LogicalTensor>> output;
         Operation &syncOp = function.AddRawOperation(npu::tile_fwk::Opcode::OP_SYNC_SRC, {input}, {output});
@@ -679,8 +710,14 @@ Status PipeSync::ProcessDeadLock(uint64_t &eventIdDeadlockEnterTimes, bool &even
     if (eventIdDeadlockEnterTimes > DEADLOCK_TIME_THRESHOLD) {
         eventIdDeadlock = true;
     }
-    if (RelaxFakeDataDep(syncedOpLog) != SUCCESS) { ALOG_ERROR_F("ProcessDeadLock failed at function RelaxFakeDataDep!"); return FAILED; }
-    if (eventIdDeadlockEnterTimes >= EVENTID_DEADLOCK_ENTER_TIME) { ALOG_ERROR_F("Unbreakable deadlock detected, ProcessDeadLock failed!"); return FAILED; }
+    if (RelaxFakeDataDep(syncedOpLog) != SUCCESS) { 
+        APASS_LOG_ERROR_F("InsertSync", "Operation", "ProcessDeadLock failed at function RelaxFakeDataDep.");
+        return FAILED; 
+    }
+    if (eventIdDeadlockEnterTimes >= EVENTID_DEADLOCK_ENTER_TIME) { 
+        APASS_LOG_ERROR_F("InsertSync", "Operation", "Unbreakable deadlock detected, ProcessDeadLock failed.");
+        return FAILED; 
+    }
     return SUCCESS;
 }
 
@@ -688,13 +725,13 @@ Status PipeSync::IssueOpPipeSeq(Function &function, std::vector<Operation *> opL
     for (int i = 0; i < static_cast<int>(PipeSeq::PIPE_END); i++) {
         std::vector<size_t> issuedOps;
         if (PopFromQueue(issueState_[i], issuedOps, eventIdDeadlock) != SUCCESS) {
-            ALOG_ERROR_F("IssueOp failed at function PopFromQueue!");
+            APASS_LOG_ERROR_F("InsertSync", "Operation", "IssueOp failed at function PopFromQueue.");
             return FAILED;
         }
         issued += issuedOps.size();
         for (auto idx : issuedOps) {
             if (InjectSync(function, opLogPtr, idx, syncedOpLog) != SUCCESS) {
-                ALOG_ERROR_F("IssueOp failed at function InjectSync!");
+                APASS_LOG_ERROR_F("InsertSync", "Operation", "IssueOp failed at function InjectSync.");
                 return FAILED;
             }
         }
@@ -708,14 +745,14 @@ Status PipeSync::IssueSyncOp(Function &function, std::vector<Operation *> opLogP
     while (totalIssued < allIssued) {
         size_t issued = 0;
         if (IssueOpPipeSeq(function, opLogPtr, syncedOpLog, eventIdDeadlock, issued) != SUCCESS) {
-            ALOG_ERROR_F("IssueOp failed at function IssueOpPipeSeq!");
+            APASS_LOG_ERROR_F("InsertSync", "Operation", "IssueOp failed at function IssueOpPipeSeq.");
             return FAILED;
         }
         totalIssued += issued;
         // eventIdDeadlockEnterTimes eventIdDeadlock syncedOpLog
         if (issued == 0) {
             if (ProcessDeadLock(eventIdDeadlockEnterTimes, eventIdDeadlock, syncedOpLog) != SUCCESS) {
-                ALOG_ERROR_F("IssueOp failed at function ProcessDeadLock!");
+                APASS_LOG_ERROR_F("InsertSync", "Operation", "IssueOp failed at function ProcessDeadLock.");
                 return FAILED;
             }
             continue;
@@ -731,17 +768,17 @@ Status PipeSync::IssueOp(Function &function, std::vector<Operation *> opLogPtr, 
     size_t allIssued = 0;
     for (int i = 0; i < static_cast<int>(PipeSeq::PIPE_END); i++) {
         allIssued += issueState_[i].ops.size();
-        ALOG_DEBUG_F("Pipe seq %d: %s %s", i, PipeSeqName(static_cast<PipeSeq>(i)).c_str(), issueState_[i].DumpIssueQueue(opLogPtr).c_str());
+        APASS_LOG_DEBUG_F("InsertSync", "Operation", "Pipe seq %d: %s %s", i, PipeSeqName(static_cast<PipeSeq>(i)).c_str(), issueState_[i].DumpIssueQueue(opLogPtr).c_str());
     }
     if (IssueSyncOp(function, opLogPtr, syncedOpLog, totalIssued, allIssued) != SUCCESS) {
-        ALOG_ERROR_F("IssueOp failed with IssueSyncOp!");
+        APASS_LOG_ERROR_F("InsertSync", "Operation", "IssueOp failed with IssueSyncOp.");
         return FAILED;
     }
     if (totalIssued != allIssued) {
-        ALOG_ERROR_F("Issue error, IssueOp failed!");
+        APASS_LOG_ERROR_F("InsertSync", "Operation", "Issue error, IssueOp failed.");
         return FAILED;
     }
-    ALOG_DEBUG_F("ALL op issued: %zu", totalIssued);
+    APASS_LOG_DEBUG_F("InsertSync", "Operation", "ALL op issued: %zu", totalIssued);
     return SUCCESS;
 }
 
@@ -902,13 +939,13 @@ Status PipeSync::SynDependency(int maxOverlapDepIdx, const DataDepInfo &depInfo,
     int eventId2 = depInfo.setOpEventIdList[maxOverlapDepIdx + 1];
     int syncOpIdx1 = depInfo.setOpIdList[maxOverlapDepIdx];
     if (set1 >= set2 || wait1 >= wait2) {
-        ALOG_ERROR_F("Dependency error, RelaxFakeDataDep failed!");
+        APASS_LOG_ERROR_F("InsertSync", "Operation", "Dependency error, RelaxFakeDataDep failed.");
         return FAILED;
     }
     RemoveOpDep(depOps_[set1], depOps_[wait1]);
     RemoveOpDep(depOps_[set2], depOps_[wait2]);
     if (AddOpDep(depOps_[set2], depOps_[wait1]) != SUCCESS) {
-        ALOG_ERROR_F("RelaxFakeDataDep failed at function AddOpDep!");
+        APASS_LOG_ERROR_F("InsertSync", "Operation", "RelaxFakeDataDep failed at function AddOpDep.");
         return FAILED;
     }
     GetFreeEventIdQueue(pipePair).push_back(eventId1);
@@ -941,7 +978,7 @@ Status PipeSync::GetDepInfo(std::vector<IndexOp> &syncedOpLog, const PipePair &p
     std::reverse(depInfo.setOpIdList.begin(), depInfo.setOpIdList.end());
     std::reverse(depInfo.setOpEventIdList.begin(), depInfo.setOpEventIdList.end());
     if (depInfo.opDepList.size() != eventNum || depInfo.setOpIdList.size() != eventNum || depInfo.setOpEventIdList.size() != eventNum) {
-        ALOG_ERROR_F("dep size should be %d, RelaxFakeDataDep failed!", eventNum);
+        APASS_LOG_ERROR_F("InsertSync", "Operation", "dep size should be %d, RelaxFakeDataDep failed.", eventNum);
         return FAILED;
     }
     return SUCCESS;
@@ -956,7 +993,7 @@ Status PipeSync::RelaxFakeDataDep(std::vector<IndexOp> &syncedOpLog) {
         // 找到free id exhausted的pipe pair
         DataDepInfo depInfo;
         if (GetDepInfo(syncedOpLog, pipePair, depInfo) != SUCCESS) {
-            ALOG_ERROR_F("GetDepInfo failed!");
+            APASS_LOG_ERROR_F("InsertSync", "Operation", "GetDepInfo failed.");
             return FAILED;
         }
         // 找到前一个依赖和后一个依赖间重叠最大的地方
@@ -966,7 +1003,7 @@ Status PipeSync::RelaxFakeDataDep(std::vector<IndexOp> &syncedOpLog) {
         }
         // 合并依赖
         if (SynDependency(maxOverlapDepIdx, depInfo, pipePair, syncedOpLog) != SUCCESS) {
-            ALOG_ERROR_F("SynDependency failed!");
+            APASS_LOG_ERROR_F("InsertSync", "Operation", "SynDependency failed.");
             return FAILED;
         }
     }
@@ -1005,7 +1042,10 @@ Status PipeSync::GetEventId(const PipePair &pp, int &eventId) {
     }
 
     auto &eventQ = GetFreeEventIdQueue(pp);
-    if (eventQ.empty()) { ALOG_ERROR_F("Eventid exhausted, GetEventId failed!"); return FAILED; }
+    if (eventQ.empty()) { 
+        APASS_LOG_ERROR_F("InsertSync", "Operation", "Eventid exhausted, GetEventId failed.");
+        return FAILED; 
+    }
 
     eventId = eventQ.front();
     eventQ.pop_front();
@@ -1018,12 +1058,12 @@ bool PipeSync::HasFreeEventId(const PipePair &pp) {
 }
 
 bool PipeSync::BufOverlap(const TileRange &range1, int magic1, const TileRange &range2, int magic2) const {
-    ALOG_DEBUG_F("        Range 1 [%zu ~ %zu], range 2 [%zu ~ %zu].", range1.start, range1.end, range2.start, range2.end);
+    APASS_LOG_DEBUG_F("InsertSync", "Tensor", "Range 1 [%zu ~ %zu], range 2 [%zu ~ %zu].", range1.start, range1.end, range2.start, range2.end);
     if (range1.end > range2.start && range2.end > range1.start) {
-        ALOG_DEBUG_F("        Tensor %d and tensor %d have overlap ", magic1, magic2);
+        APASS_LOG_DEBUG_F("InsertSync", "Tensor", "Tensor %d and tensor %d have overlap.", magic1, magic2);
         return true;
     }
-    ALOG_DEBUG_F("        Tensor %d and tensor %d don't have overlap ", magic1, magic2);
+    APASS_LOG_DEBUG_F("InsertSync", "Tensor", "Tensor %d and tensor %d don't have overlap.", magic1, magic2);
     return false;
 }
 
@@ -1033,8 +1073,8 @@ bool PipeSync::CheckWawDependency(const Operation *opSet, const Operation *opWai
             if (opSet->GetOOperands()[setIdx]->GetMemoryTypeOriginal() == opWait->GetOOperands()[waitIdx]->GetMemoryTypeOriginal() && 
                 BufOverlap(opSet->GetOOperands()[setIdx]->memoryrange, opSet->GetOOperands()[setIdx]->GetMagic(), 
                     opWait->GetOOperands()[waitIdx]->memoryrange, opWait->GetOOperands()[waitIdx]->GetMagic())) {
-                ALOG_DEBUG_F("        %d %zu %s and %d %zu %s has WAW data dependency", opSet->GetOpMagic(), k, opSet->GetOpcodeStr().c_str(),
-                    opWait->GetOpMagic(), idx, opWait->GetOpcodeStr().c_str());
+                APASS_LOG_DEBUG_F("InsertSync", "Operation", "%d %zu %s and %d %zu %s has WAW data dependency", opSet->GetOpMagic(), 
+                    k, opSet->GetOpcodeStr().c_str(), opWait->GetOpMagic(), idx, opWait->GetOpcodeStr().c_str());
                 return true;
             }
         }
@@ -1052,8 +1092,8 @@ bool PipeSync::CheckRawDependency(const Operation *opSet, const Operation *opWai
             auto overlap = BufOverlap(opWait->GetIOperands()[inIdx]->memoryrange, opWait->GetIOperands()[inIdx]->GetMagic(), 
                 opSet->GetOOperands()[outIdx]->memoryrange, opSet->GetOOperands()[outIdx]->GetMagic());
             if (memTypeSame && (overlap || ddrTensorSame)) {
-                ALOG_DEBUG_F("        %d %zu %s and %d %zu %s has RAW data dependency", opSet->GetOpMagic(), k, opSet->GetOpcodeStr().c_str(),
-                       opWait->GetOpMagic(), idx, opWait->GetOpcodeStr().c_str());
+                APASS_LOG_DEBUG_F("InsertSync", "Operation", "%d %zu %s and %d %zu %s has RAW data dependency", opSet->GetOpMagic(), 
+                    k, opSet->GetOpcodeStr().c_str(), opWait->GetOpMagic(), idx, opWait->GetOpcodeStr().c_str());
                 return true;
             }
         }
@@ -1071,8 +1111,8 @@ bool PipeSync::CheckWarDependency(const Operation *opSet, const Operation *opWai
             auto overlap = BufOverlap(opSet->GetIOperands()[inIdx]->memoryrange, opSet->GetIOperands()[inIdx]->GetMagic(), 
                 opWait->GetOOperands()[outIdx]->memoryrange, opWait->GetOOperands()[outIdx]->GetMagic());
             if (memTypeSame && (overlap || ddrTensorSame)) {
-                ALOG_DEBUG_F("        %d %zu %s and %d %zu %s has WAR data dependency", opSet->GetOpMagic(), k, opSet->GetOpcodeStr().c_str(),
-                       opWait->GetOpMagic(), idx, opWait->GetOpcodeStr().c_str());
+                APASS_LOG_DEBUG_F("InsertSync", "Operation", "%d %zu %s and %d %zu %s has WAR data dependency", opSet->GetOpMagic(), 
+                    k, opSet->GetOpcodeStr().c_str(), opWait->GetOpMagic(), idx, opWait->GetOpcodeStr().c_str());
                 return true;
             }
         }
@@ -1169,8 +1209,8 @@ bool PipeSync::IgnorableIntraPipeDep(size_t prev, size_t curr, const std::vector
     // VIEW or ASSEMBLE data dependency can be ignored
     if (opLogPtr[prev]->GetOpcode() == Opcode::OP_VIEW || opLogPtr[curr]->GetOpcode() == Opcode::OP_VIEW ||
         opLogPtr[prev]->GetOpcode() == Opcode::OP_ASSEMBLE || opLogPtr[curr]->GetOpcode() == Opcode::OP_ASSEMBLE) {
-        ALOG_DEBUG_F("        %d %s and %d %s dependency is ignorable because op is VIEW or ASSEMBLE", opLogPtr[prev]->GetOpMagic(), opLogPtr[prev]->GetOpcodeStr().c_str(),
-            opLogPtr[curr]->GetOpMagic(), opLogPtr[curr]->GetOpcodeStr().c_str());
+        APASS_LOG_DEBUG_F("InsertSync", "Operation", "%d %s and %d %s dependency is ignorable because op is VIEW or ASSEMBLE",
+            opLogPtr[prev]->GetOpMagic(), opLogPtr[prev]->GetOpcodeStr().c_str(), opLogPtr[curr]->GetOpMagic(), opLogPtr[curr]->GetOpcodeStr().c_str());
         return true;
     }
     if (!CheckNotIgnorableCase(prev, curr, opLogPtr)) {
@@ -1181,8 +1221,9 @@ bool PipeSync::IgnorableIntraPipeDep(size_t prev, size_t curr, const std::vector
     int repeatsize = std::accumulate(outputShape.begin(), outputShape.end(), 1, std::multiplies<int64_t>()) * BytesOf(dtype) / 256;
     // pipe_barrier can be safely ignored when intrins REPEAT > 24
     if (repeatsize > IGNORABLE_REPEAT_SIZE) {
-        ALOG_DEBUG_F("        %d %s and %d %s dependency is ignorable because pipeBarrier can be safely ignored when intrins REPEAT > 24, now REPEAT is %d",
-            opLogPtr[prev]->GetOpMagic(), opLogPtr[prev]->GetOpcodeStr().c_str(), opLogPtr[curr]->GetOpMagic(), opLogPtr[curr]->GetOpcodeStr().c_str(), repeatsize);
+        APASS_LOG_DEBUG_F("InsertSync", "Operation", "%d %s and %d %s dependency is ignorable because pipeBarrier can"
+            " be safely ignored when intrins REPEAT > 24, now REPEAT is %d", opLogPtr[prev]->GetOpMagic(), opLogPtr[prev]->GetOpcodeStr().c_str(), 
+            opLogPtr[curr]->GetOpMagic(), opLogPtr[curr]->GetOpcodeStr().c_str(), repeatsize);
         return true;
     }
     return false;
@@ -1191,14 +1232,14 @@ bool PipeSync::IgnorableIntraPipeDep(size_t prev, size_t curr, const std::vector
 // find depend op in opLog for 0 to idx
 void PipeSync::FindDep(DepOp &op, const std::vector<Operation *> opLogPtr, size_t idx, DataDependencySearcher& dataDependencySearcher) {
     const auto currOp = opLogPtr[idx];
-    ALOG_DEBUG_F("=== OP: %d %zu %s ===", currOp->GetOpMagic(), idx, currOp->GetOpcodeStr().c_str());
+    APASS_LOG_DEBUG_F("InsertSync", "Operation", "=== OP: %d %zu %s ===", currOp->GetOpMagic(), idx, currOp->GetOpcodeStr().c_str());
     // check dependency from latest op to oldest
     auto dataDependencySet = dataDependencySearcher.Find(currOp);
     for (auto it = dataDependencySet.rbegin(); it != dataDependencySet.rend(); it++) {
         size_t k = *it;
         const Operation *prevAOp = opLogPtr[k];
         DepOp &prevOp = depOps_[k];
-        ALOG_DEBUG_F("    Current process ops: %d %zu %s and %d %zu %s", prevAOp->GetOpMagic(), k, prevAOp->GetOpcodeStr().c_str(),
+        APASS_LOG_DEBUG_F("InsertSync", "Operation", "Current process ops: %d %zu %s and %d %zu %s", prevAOp->GetOpMagic(), k, prevAOp->GetOpcodeStr().c_str(),
             currOp->GetOpMagic(), idx, currOp->GetOpcodeStr().c_str());
 
         if (HasDataDependency(prevAOp, currOp, k, idx)) {
@@ -1311,17 +1352,17 @@ Status PipeSync::ProcessAssemble(std::vector<Operation *> &opLogNew, std::pair<O
 Status PipeSync::ProcessViewAssemble(std::vector<Operation *> &opLogNew, std::pair<Operation *, Operation *> pair) {
     if (pair.first->GetOpcode() == Opcode::OP_VIEW) {
         if (ProcessView(opLogNew, pair) != SUCCESS) {
-            ALOG_ERROR_F("ProcessView failed.");
+            APASS_LOG_ERROR_F("InsertSync", "Operation", "ProcessView failed.");
             return FAILED;
         }
         return SUCCESS;
     }
     if (pair.first->GetOpcode() != Opcode::OP_ASSEMBLE) {
-        ALOG_ERROR_F("ProcessViewAssemble failed, this op should be ASSEMBLE!");
+        APASS_LOG_ERROR_F("InsertSync", "Operation", "ProcessViewAssemble failed, this op should be ASSEMBLE.");
         return FAILED;
     }
     if (ProcessAssemble(opLogNew, pair) != SUCCESS) {
-        ALOG_ERROR_F("ProcessAssemble failed.");
+        APASS_LOG_ERROR_F("InsertSync", "Operation", "ProcessAssemble failed.");
         return FAILED;
     }
     return SUCCESS;
@@ -1341,7 +1382,7 @@ Status PipeSync::ReorderViewAssemble(std::vector<Operation *> &opLog, std::vecto
         }
         for (auto pair : changeMap) {
             if (pair.second == opPtr && (ProcessViewAssemble(opListNew, pair) != SUCCESS)) {
-                ALOG_ERROR_F("ReorderViewAssemble failed at function ProcessViewAssemble!");
+                APASS_LOG_ERROR_F("InsertSync", "Operation", "ReorderViewAssemble failed at function ProcessViewAssemble.");
                 return FAILED;
             }
         }
@@ -1352,14 +1393,14 @@ Status PipeSync::ReorderViewAssemble(std::vector<Operation *> &opLog, std::vecto
 Status PipeSync::ProcessViewOrder(Operation *opPtr, std::vector<Operation *> &opLog, std::unordered_map<Operation *, Operation *> &changeMap) {
     auto consumers = opPtr->ConsumerOps();
     if (consumers.empty()) {
-        ALOG_ERROR_F("%d VIEW op doesn't have consumer, ProcessViewAssembleOrder failed!", opPtr->GetOpMagic());
+        APASS_LOG_ERROR_F("InsertSync", "Operation", "%d VIEW op doesn't have consumer, ProcessViewAssembleOrder failed.", opPtr->GetOpMagic());
         return FAILED;
     }
     auto minIt = opLog.end();
     for (auto &consumer : consumers) {
         auto it = std::find(opLog.begin(), opLog.end(), consumer);
         if (it == opLog.end()) {
-            ALOG_ERROR_F("Consumer of VIEW op: %d %s is not in the subgraph, ProcessViewAssembleOrder failed",
+            APASS_LOG_ERROR_F("InsertSync", "Operation", "Consumer of VIEW op: %d %s is not in the subgraph, ProcessViewAssembleOrder failed", 
                 consumer->GetOpMagic(), consumer->GetOpcodeStr().c_str());
             return FAILED;
         }
@@ -1368,21 +1409,21 @@ Status PipeSync::ProcessViewOrder(Operation *opPtr, std::vector<Operation *> &op
         }
     }
     changeMap[opPtr] = *minIt;
-    ALOG_DEBUG_F("%d VIEW consumer: %d", opPtr->GetOpMagic(), (*minIt)->GetOpMagic());
+    APASS_LOG_DEBUG_F("InsertSync", "Operation", "%d VIEW consumer: %d", opPtr->GetOpMagic(), (*minIt)->GetOpMagic());
     return SUCCESS;
 }
 
 Status PipeSync::ProcessAssembleOrder(Operation *opPtr, std::vector<Operation *> &opLog, std::unordered_map<Operation *, Operation *> &changeMap) {
     auto producers = opPtr->ProducerOps();
     if (producers.empty()) {
-        ALOG_ERROR_F("%d ASSEMBLE op doesn't have producer, ProcessViewAssembleOrder failed!", opPtr->GetOpMagic());
+        APASS_LOG_ERROR_F("InsertSync", "Operation", "%d ASSEMBLE op doesn't have producer, ProcessViewAssembleOrder failed.", opPtr->GetOpMagic());
         return FAILED;
     }
     auto maxIt = opLog.begin();
     for (auto &producer : producers) {
         auto it = std::find(opLog.begin(), opLog.end(), producer);
         if (it == opLog.end()) {
-            ALOG_ERROR_F("Producer of ASSEMBLE op: %d %s is not in the subgraph, ProcessViewAssembleOrder failed",
+            APASS_LOG_ERROR_F("InsertSync", "Operation", "Producer of ASSEMBLE op: %d %s is not in the subgraph, ProcessViewAssembleOrder failed",
                 producer->GetOpMagic(), producer->GetOpcodeStr().c_str());
             return FAILED;
         }
@@ -1391,7 +1432,7 @@ Status PipeSync::ProcessAssembleOrder(Operation *opPtr, std::vector<Operation *>
         }
     }
     changeMap[opPtr] = *maxIt;
-    ALOG_DEBUG_F("%d ASSEMBLE producer: %d", opPtr->GetOpMagic(), (*maxIt)->GetOpMagic());
+    APASS_LOG_DEBUG_F("InsertSync", "Operation", "%d ASSEMBLE producer: %d", opPtr->GetOpMagic(), (*maxIt)->GetOpMagic());
     return SUCCESS;
 }
 
@@ -1400,7 +1441,7 @@ Status PipeSync::ProcessViewAssembleOrder(std::vector<Operation *> &opLog, std::
     for (auto &opPtr : opLog) {
         if (opPtr->GetOpcode() == Opcode::OP_VIEW) {
             if (ProcessViewOrder(opPtr, opLog, changeMap)) {
-                ALOG_ERROR_F("ProcessViewOrder failed!");
+                APASS_LOG_ERROR_F("InsertSync", "Operation", "ProcessViewOrder failed.");
                 return FAILED;
             }
             continue;
@@ -1409,12 +1450,12 @@ Status PipeSync::ProcessViewAssembleOrder(std::vector<Operation *> &opLog, std::
             break;
         }
         if (ProcessAssembleOrder(opPtr, opLog, changeMap)) {
-            ALOG_ERROR_F("ProcessAssembleOrder failed!");
+            APASS_LOG_ERROR_F("InsertSync", "Operation", "ProcessAssembleOrder failed.");
             return FAILED;
         }
     }
     if (ReorderViewAssemble(opLog, opListNew, changeMap) != SUCCESS) {
-        ALOG_ERROR_F("ProcessViewAssembleOrder failed at function ReorderViewAssemble!");
+        APASS_LOG_ERROR_F("InsertSync", "Operation", "ProcessViewAssembleOrder failed at function ReorderViewAssemble.");
         return FAILED;
     }
     return SUCCESS;
@@ -1442,13 +1483,13 @@ Status InsertSync::GenNewOpList(Function *subGraphFunc, std::vector<Operation *>
     std::vector<Operation *> syncedOpLogPtr;
     std::vector<Operation *> operationLogWithSync;
     if (ps.InsertSync(*subGraphFunc, syncedOpLogPtr) != SUCCESS) {
-        ALOG_ERROR_F("InsertSyncMainLoop failed at function InsertSync!");
+        APASS_LOG_ERROR_F("InsertSync", "Operation", "InsertSyncMainLoop failed at function InsertSync.");
         return FAILED;
     }
     ps.PhaseKernelProcess(*subGraphFunc, syncedOpLogPtr, operationLogWithSync);
     subGraphFunc->EraseOperations(true, false);
     if (ps.ProcessViewAssembleOrder(operationLogWithSync, opListNew) != SUCCESS) {
-        ALOG_ERROR_F("InsertSyncMainLoop failed at function ProcessViewAssembleOrder!");
+        APASS_LOG_ERROR_F("InsertSync", "Operation", "InsertSyncMainLoop failed at function ProcessViewAssembleOrder.");
         return FAILED;
     }
     return SUCCESS;
@@ -1461,27 +1502,27 @@ Status InsertSync::InsertSyncMainLoop(Function *subGraphFunc) {
     }
     std::vector<Operation *> opListNew;
     if (GenNewOpList(subGraphFunc, opListNew) != SUCCESS) {
-        ALOG_ERROR_F("GenNewOpList failed.");
+        APASS_LOG_ERROR_F("InsertSync", "Operation", "GenNewOpList failed.");
         return FAILED;
     }
     subGraphFunc->ScheduleBy(opListNew, true);
-    ALOG_DEBUG_F("==========================================================================================");
+    APASS_LOG_DEBUG_F("InsertSync", "Operation", "==========================================================================================");
     for (const auto &op : subGraphFunc->Operations().DuplicatedOpList()) {
         if (op->GetOpcodeStr().find("SYNC_SRC") != std::string::npos || op->GetOpcodeStr().find("SYNC_DST") != std::string::npos
             || op->GetOpcode() == Opcode::OP_BAR_V || op->GetOpcode() == Opcode::OP_BAR_M) {
-            ALOG_DEBUG_F("Output operation %d: %s, setpipe type: %s, setcore type: %s, waitpipe type: %s, waitcore type: %s, eventid: %d",
+            APASS_LOG_DEBUG_F("InsertSync", "Operation", "Output operation %d: %s, setpipe type: %s, setcore type: %s, waitpipe type: %s, waitcore type: %s, eventid: %d",
                 op->GetOpMagic(), op->GetOpcodeStr().c_str(), GetPipeTypeDict().Find(op->syncQueue_.pipeId_).c_str(), GetCoreTypeDict().Find(op->syncQueue_.coreType_).c_str(),
                 GetPipeTypeDict().Find(op->syncQueue_.trigPipeId_).c_str(), GetCoreTypeDict().Find(op->syncQueue_.trigCoreType_).c_str(), op->syncQueue_.eventId_);
             continue;
         }
-        ALOG_DEBUG_F("Output operation %d: %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());
+        APASS_LOG_DEBUG_F("InsertSync", "Operation", "Output operation %d: %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());
     }
     return SUCCESS;
 }
 
 // regist pass
 Status InsertSync::RunOnFunction(Function &function) {
-    ALOG_INFO_F("===============================================================> Start InsertSync.");
+    APASS_LOG_INFO_F("InsertSync", "Operation", "===============================================================> Start InsertSync.");
     const unsigned hardwareConcurrency = config::GetPassGlobalConfig("pass_thread_num", 1);
     uint64_t index = 0;
     std::vector<std::pair<uint64_t, Function*>> subPrograms;
@@ -1503,7 +1544,7 @@ Status InsertSync::RunOnFunction(Function &function) {
         workers.emplace_back([&subPrograms, &nextIdx, leafFuncSize, &index, this, &multiThreadsStatus] {
             for (size_t idx = nextIdx.fetch_add(1, std::memory_order_relaxed); idx < leafFuncSize; idx = nextIdx.fetch_add(1, std::memory_order_relaxed)) {
                 auto program = subPrograms[idx];
-                ALOG_DEBUG_F("====================================Program %d ===========================================", index);
+                APASS_LOG_DEBUG_F("InsertSync", "Operation", "====================================Program %d ===========================================", index);
                 if (InsertSyncMainLoop(program.second) != SUCCESS) {
                     multiThreadsStatus.store(false);
                 }
@@ -1513,10 +1554,10 @@ Status InsertSync::RunOnFunction(Function &function) {
     }
     if (!multiThreadsStatus.load()) {
         if (threadNum == 1) {
-            ALOG_ERROR_F("InsertSync RunOnFunction failed at function InsertSyncMainLoop in Single Thread scenario!");
+            APASS_LOG_ERROR_F("InsertSync", "Operation", "InsertSync RunOnFunction failed at function InsertSyncMainLoop in Single Thread scenario.");
             return FAILED;
         }
-        ALOG_ERROR_F("InsertSync RunOnFunction failed at function InsertSyncMainLoop in Multiple Threads scenario!");
+        APASS_LOG_ERROR_F("InsertSync", "Operation", "InsertSync RunOnFunction failed at function InsertSyncMainLoop in Multiple Threads scenario.");
         return FAILED;
     }
     // Wait for all threads to finish
@@ -1525,7 +1566,7 @@ Status InsertSync::RunOnFunction(Function &function) {
             t.join();
         }
     }
-    ALOG_INFO_F("===============================================================> Finish InsertSync.");
+    APASS_LOG_INFO_F("InsertSync", "Operation", "===============================================================> Finish InsertSync.");
     return SUCCESS;
 }
 } // namespace tile_fwk

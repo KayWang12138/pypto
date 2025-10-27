@@ -22,6 +22,7 @@
 #include "interface/utils/common.h"
 #include "passes/pass_interface/pass.h"
 #include "codegen_preproc.h"
+#include "passes/pass_utils/pass_utils.h"
 
 namespace npu {
 namespace tile_fwk {
@@ -53,7 +54,7 @@ Status CodegenPreproc::SaveGmTensorParamIdxToOp(Function &func) const {
                 gmParamInCallFunc[addrPos].emplace_back(&op);
             }
         }
-        ALOG_INFO_F("%d:%sgmParamInCallFunc size: %zu", __LINE__, __FUNCTION__, gmParamInCallFunc.size());
+        APASS_LOG_INFO_F("CodegenPreproc", "Operation", "%d:%sgmParamInCallFunc size: %zu", __LINE__, __FUNCTION__, gmParamInCallFunc.size());
         int tensorParamIdx{0};
         for (auto param : gmParamInCallFunc) {
             for (auto op : param.second) {
@@ -78,7 +79,7 @@ Status CodegenPreproc::ProcessAxis(Operation &op, std::vector<bool> attr, bool i
         }
     }
     if (attr.size() != operands.size()) {
-        ALOG_ERROR_F("%d %s attr size is not equal to operands size, ProcessAxis failed!", op.GetOpMagic(), op.GetOpcodeStr().c_str());
+        APASS_LOG_ERROR_F("CodegenPreproc", "Operation", "%d %s attr size is not equal to operands size, ProcessAxis failed.", op.GetOpMagic(), op.GetOpcodeStr().c_str());
         return FAILED;
     }
     for (size_t i = 0; i < operands.size(); ++i) {
@@ -99,7 +100,10 @@ Status CodegenPreproc::ForceCombineAxis(Function &func) const {
                 std::vector<bool> attrIn;
                 op.GetAttr(OP_ATTR_PREFIX + "input_combine_axis", attrIn);
                 op.SetAttribute(OpAttributeKey::inputCombineAxisDone, true);
-                if (ProcessAxis(op, attrIn, true) != SUCCESS) { ALOG_ERROR_F("ForceCombineAxis failed at function ProcessAxis(input)!"); return FAILED; }
+                if (ProcessAxis(op, attrIn, true) != SUCCESS) { 
+                    APASS_LOG_ERROR_F("CodegenPreproc", "Operation", "ForceCombineAxis failed at function ProcessAxis(input).");
+                    return FAILED; 
+                }
                 if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
                     op.SetAttribute(OpAttributeKey::outputCombineAxisDone, true);
                     auto output = op.GetOOperands()[0];
@@ -110,7 +114,10 @@ Status CodegenPreproc::ForceCombineAxis(Function &func) const {
                 std::vector<bool> attrOut;
                 op.GetAttr(OP_ATTR_PREFIX + "output_combine_axis", attrOut);
                 op.SetAttribute(OpAttributeKey::outputCombineAxisDone, true);
-                if (ProcessAxis(op, attrOut, false) !=SUCCESS) { ALOG_ERROR_F("ForceCombineAxis failed at function ProcessAxis(out)!"); return FAILED; }
+                if (ProcessAxis(op, attrOut, false) !=SUCCESS) { 
+                    APASS_LOG_ERROR_F("CodegenPreproc", "Operation", "ForceCombineAxis failed at function ProcessAxis(out).");
+                    return FAILED; 
+                }
                 if (op.GetOpcode() == Opcode::OP_COPY_IN) {
                     op.SetAttribute(OpAttributeKey::inputCombineAxisDone, true);
                     auto input = op.GetIOperands()[0];
@@ -123,16 +130,16 @@ Status CodegenPreproc::ForceCombineAxis(Function &func) const {
 }
 
 Status CodegenPreproc::RunOnFunction(Function &function) {
-    ALOG_INFO_F("===============================================================> Start CodegenPreproc.");
+    APASS_LOG_INFO_F("CodegenPreproc", "Operation", "===============================================================> Start CodegenPreproc.");
     if (SaveGmTensorParamIdxToOp(function) != SUCCESS) {
-        ALOG_ERROR_F("CodegenPreproc RunOnFunction failed at function SaveGmTensorParamIdxToOp!");
+        APASS_LOG_ERROR_F("CodegenPreproc", "Operation", "CodegenPreproc RunOnFunction failed at function SaveGmTensorParamIdxToOp.");
         return FAILED;
     }
     if (ForceCombineAxis(function) != SUCCESS) {
-        ALOG_ERROR_F("CodegenPreproc RunOnFunction failed at function ForceCombineAxis!");
+        APASS_LOG_ERROR_F("CodegenPreproc", "Operation", "CodegenPreproc RunOnFunction failed at function ForceCombineAxis.");
         return FAILED;
     }
-    ALOG_INFO_F("===============================================================> Finish CodegenPreproc.");
+    APASS_LOG_INFO_F("CodegenPreproc", "Operation", "===============================================================> Finish CodegenPreproc.");
     return SUCCESS;
 }
 
