@@ -49,8 +49,7 @@ void SplitRawTensor::UpdateConsumerView(
         }
         auto &output = viewOp->oOperand[0];
         if (function.IsFromOutCast(output)) {
-            ALOG_WARN_F(
-                "SplitRawTensor::UpdateConsumerView: OP_VIEW oOperand tensor[%d] is outCast.", output->GetMagic());
+            APASS_LOG_WARN_F("SplitRawTensor", "Tensor", "OP_VIEW oOperand tensor[%d] is outCast; Please check if it is an external output.", output->GetMagic());
             continue;
         }
         auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(viewOp->GetOpAttribute().get());
@@ -63,7 +62,7 @@ void SplitRawTensor::UpdateConsumerView(
                 fromDynOffset = UpdateDynOffset(fromDynOffset, tensorOffset.GetDynOffset());
             }
         }
-        ALOG_DEBUG_F("Update View op needs fromOffset: %d.", viewOp->GetOpMagic());
+        APASS_LOG_DEBUG_F("SplitRawTensor", "Operation", "Update View op needs fromOffset: %d.", viewOp->GetOpMagic());
     }
 }
 
@@ -80,7 +79,7 @@ void SplitRawTensor::UpdateProducerAssemble(
         }
         auto &input = assembleOp->iOperand[0];
         if (function.IsFromInCast(input)) {
-            ALOG_WARN_F("SplitRawTensor::UpdateProducerAssemble: OP_ASSEMBLE iOperand tensor[%d] is inCast.",
+            APASS_LOG_WARN_F("SplitRawTensor", "Operation", "OP_ASSEMBLE iOperand tensor[%d] is inCast; Please check if it is an external input.",
                 input->GetMagic());
             continue;
         }
@@ -94,7 +93,7 @@ void SplitRawTensor::UpdateProducerAssemble(
                 toDynOffset = UpdateDynOffset(toDynOffset, tensorOffset.GetDynOffset());
             }
         }
-        ALOG_DEBUG_F("Update Assemble op needs toOffset: %d.", assembleOp->GetOpMagic());
+        APASS_LOG_DEBUG_F("SplitRawTensor", "Operation", "Update Assemble op needs toOffset: %d.", assembleOp->GetOpMagic());
     }
 }
 
@@ -105,7 +104,7 @@ bool SplitRawTensor::ShouldProcessTensor(Function &function, const LogicalTensor
     }
     // 检查是否为InCast或OutCast
     if (function.IsFromOutCast(singleTensor) || function.IsFromInCast(singleTensor)) {
-        ALOG_WARN_F("SplitRawTensor::ShouldProcessTensor: tensor[%d] is inCast or outCast.", singleTensor->GetMagic());
+        APASS_LOG_WARN_F("SplitRawTensor", "Tensor", "tensor[%d] is inCast or outCast. Please check if it is an external input/output", singleTensor->GetMagic());
         return false;
     }
     return true;
@@ -136,7 +135,7 @@ void SplitRawTensor::SplitRaw(Function &function) const {
             /* 创建新的rawTensor，并将其后接的View以及view的Consumer的rawtensor刷新为新的rawTensor */
             singleLogicalTensor->tensor = std::make_shared<RawTensor>(
                 singleLogicalTensor->tensor->datatype, singleLogicalTensor->GetShape(), singleLogicalTensor->Symbol());
-            ALOG_DEBUG_F("SplitRawTensor::SplitRaw: tensor[%d] updated new raw tensor[%d] with the same raw shape.",
+            APASS_LOG_DEBUG_F("SplitRawTensor", "Operation", "SplitRawTensor::SplitRaw: tensor[%d] updated new raw tensor[%d] with the same raw shape.",
                 singleLogicalTensor->GetMagic(), singleLogicalTensor->GetRawMagic());
             if (singleLogicalTensor->tensor == nullptr) {
                 continue;
@@ -169,9 +168,9 @@ void SplitRawTensor::SplitRaw(Function &function) const {
 }
 
 Status SplitRawTensor::RunOnFunction(Function &function) {
-    ALOG_INFO_F("===> Start SplitRaw.");
+    APASS_LOG_INFO_F("SplitRawTensor", "Operation", "===> Start SplitRaw.");
     SplitRaw(function);
-    ALOG_INFO_F("===> End SplitRaw.");
+    APASS_LOG_INFO_F("SplitRawTensor", "Operation", "===> End SplitRaw.");
     return SUCCESS;
 }
 } // namespace tile_fwk
