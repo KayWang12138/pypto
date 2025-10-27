@@ -28,9 +28,9 @@ public:
 
 private:
     Status RunOnFunction(Function &function) override {
-        ASLOGI("===> Start RemoveAlloc.");
+        APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> Start RemoveAlloc.");
         RemoveAllocCall(function);
-        ASLOGI("===> End RemoveAlloc.");
+        APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> End RemoveAlloc.");
         return SUCCESS;
     }
     void RemoveAllocCall(Function &function) const;

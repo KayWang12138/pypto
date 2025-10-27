@@ -19,6 +19,7 @@
 #include "passes/block_graph_pass/schedule_ooo/buffer_pool.h"
 #include "passes/block_graph_pass/schedule_ooo/scheduler.h"
 #include "passes/statistics/ooo_schedule_statistic.h"
+#include "passes/pass_utils/pass_utils.h"
 
 namespace npu::tile_fwk {
 class OoOSchedule : public Pass {

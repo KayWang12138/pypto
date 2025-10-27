@@ -98,7 +98,7 @@ Status BufferPool::GetSpillGroup(size_t sizeNeedSpill, std::vector<std::vector<i
         }
         size_t j = UpdateIdx(i, sizeNeedSpill, startAddr, allocatedBufs);
         if (i == j) {
-            ALOG_ERROR_F("Incorrect idx for allocatedBufs");
+            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Incorrect idx for allocatedBufs");
             return FAILED;
         }
         std::vector<int> group;
@@ -130,16 +130,19 @@ Status BufferPool::Allocate(LocalBufferPtr tensor) {
             BufferSlice newSlice;
             newSlice.size = tensor->size;
             newSlice.offset = freeSpace.first;
-            if (bufferSlices.find(tensor->id) != bufferSlices.end()) { ALOG_ERROR_F("Tensor[%u] already alloc in bufferSlices", tensor->id); return FAILED; }
+            if (bufferSlices.find(tensor->id) != bufferSlices.end()) { 
+                APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Tensor[%u] already alloc in bufferSlices", tensor->id); 
+                return FAILED;
+            }
             bufferSlices[tensor->id] = newSlice;
             tensor->start = newSlice.offset;
             tensor->end = newSlice.offset + newSlice.size;
-            ALOG_DEBUG_F("    Allocate Tensor[%u], range [%lu, %lu].",
+            APASS_LOG_DEBUG_F("OoOSchedule", "Operation", "    Allocate Tensor[%u], range [%lu, %lu].",
                 tensor->id, newSlice.offset, newSlice.size + newSlice.offset);
             return SUCCESS;
         }
     }
-    ALOG_ERROR_F("Buffer doesnot have enough memory to allocate Tensor[%u]", tensor->id);
+    APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Buffer doesnot have enough memory to allocate Tensor[%u]", tensor->id);
     return FAILED;
 }
 
@@ -167,8 +170,11 @@ bool BufferPool::isAllocate(const uint32_t tensorId) {
 }
  
 Status BufferPool::Free(const uint32_t tensorId) {
-    if (bufferSlices.find(tensorId) == bufferSlices.end()) { ALOG_ERROR_F("Tensor[%d] not in bufferSlices", tensorId); return FAILED; }
-    ALOG_DEBUG_F("    Free tensor[%u], range:[%lu, %lu]", tensorId,
+    if (bufferSlices.find(tensorId) == bufferSlices.end()) { 
+        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Tensor[%d] not in bufferSlices", tensorId); 
+        return FAILED; 
+    }
+    APASS_LOG_DEBUG_F("OoOSchedule", "Operation", "    Free tensor[%u], range:[%lu, %lu]", tensorId,
         bufferSlices[tensorId].offset, bufferSlices[tensorId].size + bufferSlices[tensorId].offset);
     bufferSlices.erase(tensorId);
     return SUCCESS;

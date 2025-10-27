@@ -63,36 +63,36 @@ const char* IssueEntry::GetOpInfo() {
 }
 
 Status OoOScheduler::PrintSpillFailedInfo(IssueEntryPtr allocIssue) {
-    ALOG_ERROR_F("======== OoO Spill failed info ===========");
-    ALOG_ERROR_F("Spill failed memoryType: %s.", 
+    APASS_LOG_ERROR_F("OoOSchedule", "Operation", "======== OoO Spill failed info ===========");
+    APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Spill failed memoryType: %s.", 
         MemoryTypeToString(localBufferMap[allocIssue->reqMemIds[0]]->memType).c_str());
     if (localBufferMap.find(allocIssue->reqMemIds[0]) != localBufferMap.end()) {
-        ALOG_ERROR_F("%s alloc buffer size: %lu.", allocIssue->GetOpInfo(), 
+        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "%s alloc buffer size: %lu.", allocIssue->GetOpInfo(), 
             localBufferMap[allocIssue->reqMemIds[0]]->size);
     }
     auto bufferSlices = bufferManagerMap[localBufferMap[allocIssue->reqMemIds[0]]->memType].GetBufferSlices();
     for (auto memId : bufferSlices) {
         auto occupyIssue = GetBufLastWriteIssue(allocIssue, memId);
         if (occupyIssue == nullptr) {
-            ALOG_ERROR_F("Cannot find spill Tensor[%d] last write time.", memId);
+            APASS_LOG_ERROR_F("OoOSchedule", "Tensor", "Cannot find spill Tensor[%d] last write time.", memId);
             return FAILED;
         }
-        ALOG_ERROR_F("%s, range[%lu, %lu], Tensor[%d] size: %lu", occupyIssue->GetOpInfo(), 
+        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "%s, range[%lu, %lu], Tensor[%d] size: %lu", occupyIssue->GetOpInfo(), 
             localBufferMap[memId]->start, localBufferMap[memId]->end, memId, localBufferMap[memId]->size);
     }
     return SUCCESS;
 }
 
 void OoOScheduler::PrintSpillFailedInfo(IssueEntryPtr allocIssue, MemoryType bufferType) {
-    ALOG_ERROR_F("======== OoO Spill failed info ===========");
-    ALOG_ERROR_F("Spill failed memoryType: %s.", MemoryTypeToString(bufferType).c_str());
+    APASS_LOG_ERROR_F("OoOSchedule", "Operation", "======== OoO Spill failed info ===========");
+    APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Spill failed memoryType: %s.", MemoryTypeToString(bufferType).c_str());
     if (localBufferMap.find(allocIssue->reqMemIds[0]) != localBufferMap.end()) {
-        ALOG_ERROR_F("%s alloc buffer size: %lu.", allocIssue->GetOpInfo(), 
+        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "%s alloc buffer size: %lu.", allocIssue->GetOpInfo(), 
             localBufferMap[allocIssue->reqMemIds[0]]->size);
     }
     if (tensorOccupyMap.find(bufferType) != tensorOccupyMap.end()) {
         for (auto occupyIssue : tensorOccupyMap[bufferType]) {
-            ALOG_ERROR_F("%s, range[%lu, %lu], Tensor[%d] size: %lu", occupyIssue.second->GetOpInfo(),
+            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "%s, range[%lu, %lu], Tensor[%d] size: %lu", occupyIssue.second->GetOpInfo(),
                 localBufferMap[occupyIssue.first]->start, localBufferMap[occupyIssue.first]->end, 
                 occupyIssue.first, localBufferMap[occupyIssue.first]->size);
         }
@@ -101,18 +101,18 @@ void OoOScheduler::PrintSpillFailedInfo(IssueEntryPtr allocIssue, MemoryType buf
 
 void OoOScheduler::PrintDependencies() {
     for (const auto &issue : issueEntries) {
-        ALOG_DEBUG_F("%s, latency: %d.", issue->GetOpInfo(), issue->tileOp.GetLatency());
+        APASS_LOG_DEBUG_F("OoOSchedule", "Operation", "%s, latency: %d.", issue->GetOpInfo(), issue->tileOp.GetLatency());
         for (const auto &preId : issue->predecessors) {
             auto pre = issueEntryMap[preId];
-            ALOG_DEBUG_F("    |--- Predecessors:");
-            ALOG_DEBUG_F("        |--- %s", pre->GetOpInfo());
+            APASS_LOG_DEBUG_F("OoOSchedule", "Operation", "    |--- Predecessors:");
+            APASS_LOG_DEBUG_F("OoOSchedule", "Operation", "        |--- %s", pre->GetOpInfo());
         }
         for (const auto &succId : issue->successors) {
             auto successor = issueEntryMap[succId];
-            ALOG_DEBUG_F("    |--- Successors:");
-            ALOG_DEBUG_F("        |--- %s", successor->GetOpInfo());
+            APASS_LOG_DEBUG_F("OoOSchedule", "Operation", "    |--- Successors:");
+            APASS_LOG_DEBUG_F("OoOSchedule", "Operation", "        |--- %s", successor->GetOpInfo());
         }
-        ALOG_DEBUG_F("\n");
+        APASS_LOG_DEBUG_F("OoOSchedule", "Operation", "\n");
     }
 }
 
@@ -135,28 +135,28 @@ void OoOScheduler::UpdateBufferUsage(MemoryType bufferType, int memId, bool isFr
 
 Status OoOScheduler::DelBufRefCount(const int memId) {
     if (bufRefCount.find(memId) == bufRefCount.end()) {
-        ALOG_ERROR_F("bufRefCount cannot find Tensor[%d].", memId);
+        APASS_LOG_ERROR_F("OoOSchedule", "Tensor", "bufRefCount cannot find Tensor[%d].", memId);
         return FAILED;
     }
     bufRefCount[memId]--;
     if (bufRefCount[memId] < 0) {
-        ALOG_ERROR_F("Tensor[%d] bufRefCount cannot less than 0.", memId);
+        APASS_LOG_ERROR_F("OoOSchedule", "Tensor", "Tensor[%d] bufRefCount cannot less than 0.", memId);
         return FAILED;
     }
     return SUCCESS;
 }
 
 void OoOScheduler::PrintOpList(std::vector<Operation *> operations) {
-    ALOG_DEBUG_F("==================== OP_LIST =====================");
+    APASS_LOG_DEBUG_F("OoOSchedule", "Operation", "==================== OP_LIST =====================");
     for (auto &op : operations) {
         if (!op->oOperand.empty()) {
             bool needAlloc = false;
             op->oOperand[0]->GetAttr(OpAttributeKey::needAlloc, needAlloc);
-            ALOG_DEBUG_F("%s[%d], range[%zu, %zu], needAlloc: %d", op->GetOpcodeStr().c_str(), op->GetOpMagic(),
-                op->oOperand[0]->memoryrange.start,
+            APASS_LOG_DEBUG_F("OoOSchedule", "Operation", "%s[%d], range[%zu, %zu], needAlloc: %d", 
+                op->GetOpcodeStr().c_str(), op->GetOpMagic(), op->oOperand[0]->memoryrange.start,
                 op->oOperand[0]->memoryrange.end, static_cast<int>(needAlloc));
         } else {
-            ALOG_INFO_F("%s[%d]", op->GetOpcodeStr(), op->GetOpMagic()); 
+            APASS_LOG_INFO_F("OoOSchedule", "Operation", "%s[%d]", op->GetOpcodeStr(), op->GetOpMagic()); 
         }
     }
 }
@@ -205,7 +205,7 @@ uint64_t OoOScheduler::ShapeCeilAlign(std::vector<int64_t> shape, DataType dtype
 Status OoOScheduler::CheckAndUpdateLifecycle() {
     for (const auto &issue : issueEntries) {
         if (!issue->isRetired) { 
-            ALOG_ERROR_F("Unexecuted op: %s", issue->GetOpInfo()); 
+            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Unexecuted op: %s", issue->GetOpInfo()); 
             return FAILED; 
         }
         if (issue->isAlloc) {
@@ -231,11 +231,11 @@ Status OoOScheduler::SpillOnBlock() {
             }
             PrintSpillFailedInfo(memType.second.Front(), memType.first);
         }
-        ALOG_ERROR_F("Buffer[L0A/B/C] is Full. Please check tile shape and OOO spill failed info."); 
+        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Buffer[L0A/B/C] is Full. Please check tile shape and OOO spill failed info."); 
         return FAILED; 
     }
     if (GenBufferSpill(allocIssueQueue[spillMemType].Front()) != SUCCESS) {
-        ALOG_ERROR_F("GenBufferSpill failed."); 
+        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "GenBufferSpill failed."); 
         return FAILED; 
     }
     return SUCCESS;
@@ -250,19 +250,19 @@ Status OoOScheduler::AllocTensorMemRange(IssueEntryPtr issue) {
         int memId = outTensor->memoryrange.memId;
         if (tensorOccupyMap.find(memType) != tensorOccupyMap.end()) {
             if (tensorOccupyMap[memType].find(memId) == tensorOccupyMap[memType].end()) {
-                ALOG_ERROR_F("Tensor[%d] cannot find in tensorOccupyMap.", memId);
+                APASS_LOG_ERROR_F("OoOSchedule", "Tensor", "Tensor[%d] cannot find in tensorOccupyMap.", memId);
                 return FAILED;
             }
         } else {
-            ALOG_ERROR_F("%s cannot find in tensorOccupyMap.", MemoryTypeToString(memType).c_str());
+            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "%s cannot find in tensorOccupyMap.", MemoryTypeToString(memType).c_str());
             return FAILED;
         }
         if (localBufferMap.find(memId) == localBufferMap.end()) {
-            ALOG_ERROR_F("Tensor[%d] cannot find in localBufferMap.", memId);
+            APASS_LOG_ERROR_F("OoOSchedule", "Tensor", "Tensor[%d] cannot find in localBufferMap.", memId);
             return FAILED;
         }
-        ALOG_DEBUG_F("REALLOC Tensor[%u] %s --> %s. ", memId, tensorOccupyMap[memType][memId]->GetOpInfo(), 
-            issue->GetOpInfo());
+        APASS_LOG_DEBUG_F("OoOSchedule", "Tensor", "REALLOC Tensor[%u] %s --> %s.", 
+            memId, tensorOccupyMap[memType][memId]->GetOpInfo(), issue->GetOpInfo());
         tensorOccupyMap[memType][memId] = issue;
         outTensor->memoryrange =
             TileRange(localBufferMap[memId]->start, localBufferMap[memId]->end, memId);
@@ -287,10 +287,10 @@ Status OoOScheduler::LaunchIssueStage(int& nextCycle) {
             nextCycle = pipe.curOpRetireCycle;
         }
         if (AllocTensorMemRange(issue) != SUCCESS) {
-            ALOG_ERROR_F("AllocTensorMemRange failed.");
+            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "AllocTensorMemRange failed.");
             return FAILED;
         }
-        ALOG_DEBUG_F("Insert: %s", issue->GetOpInfo());
+        APASS_LOG_DEBUG_F("OoOSchedule", "Operation", "Insert: %s", issue->GetOpInfo());
     }
     return SUCCESS;
 }
@@ -305,9 +305,9 @@ Status OoOScheduler::ExecuteAllocIssue(uint64_t &commitCnt,
         }
         IssueEntryPtr issue = pipe.Front();
         if (!bufferManagerMap[memType].IsFull(localBufferMap[issue->reqMemIds[0]])) {
-            ALOG_DEBUG_F("ALLOCATE: %s", issue->GetOpInfo());
+            APASS_LOG_DEBUG_F("OoOSchedule", "Operation", "ALLOCATE: %s", issue->GetOpInfo());
             if (bufferManagerMap[memType].Allocate(localBufferMap[issue->reqMemIds[0]]) != SUCCESS) { 
-                ALOG_ERROR_F("Allocate Tensor[%d] failed.", issue->reqMemIds[0]); 
+                APASS_LOG_ERROR_F("OoOSchedule", "Tensor", "Allocate Tensor[%d] failed.", issue->reqMemIds[0]); 
                 return FAILED; 
             }
             // Healthcheck record - update buffer usage statistics
@@ -317,15 +317,15 @@ Status OoOScheduler::ExecuteAllocIssue(uint64_t &commitCnt,
             tensorOccupyMap[memType][issue->reqMemIds[0]] = issue;
             localBufferMap[issue->reqMemIds[0]]->startCycle = clock;
             if (issue->tileOp.GetOutputOperand(0) == nullptr) {
-                ALOG_ERROR_F("Alloc[%d] cannot find oOperand[0].", issue->tileOp.GetOpMagic());
+                APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Alloc[%d] cannot find oOperand[0].", issue->tileOp.GetOpMagic());
                 return FAILED;
             }
             issue->tileOp.GetOutputOperand(0)->SetAttr(OpAttributeKey::needAlloc, true);
             newOperations_.push_back(&(issue->tileOp));
-            ALOG_DEBUG_F("Insert: %s", issue->GetOpInfo());
+            APASS_LOG_DEBUG_F("OoOSchedule", "Operation", "Insert: %s", issue->GetOpInfo());
             pipe.PopFront();
             if (RetireOpAndAwakeSucc(issue, commitCnt) != SUCCESS) { 
-                ALOG_ERROR_F("RetireOpAndAwakeSucc failed."); 
+                APASS_LOG_ERROR_F("OoOSchedule", "Operation", "RetireOpAndAwakeSucc failed."); 
                 return FAILED; 
             }
         } else {
@@ -343,7 +343,7 @@ Status OoOScheduler::BufferAllocStage(uint64_t &commitCnt) {
         }
         // 不断按顺序执行alloc指令，直到buffer被占满为止。
         if (ExecuteAllocIssue(commitCnt, memType, pipe) != SUCCESS) {
-            ALOG_ERROR_F("ExecuteAllocIssue failed.");
+            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "ExecuteAllocIssue failed.");
             return FAILED;
         }
     }
@@ -353,12 +353,12 @@ Status OoOScheduler::BufferAllocStage(uint64_t &commitCnt) {
 Status OoOScheduler::FreeBuffer(IssueEntryPtr issue) {
     for (auto memId : issue->reqMemIds) {
         if (DelBufRefCount(memId) != SUCCESS) { 
-            ALOG_ERROR_F("DelBufRefCount tensor[%d] failed", memId); 
+            APASS_LOG_ERROR_F("OoOSchedule", "Tensor", "DelBufRefCount tensor [%d] failed", memId); 
             return FAILED; 
         }
         if (bufRefCount[memId] == 0) {
             if (bufferManagerMap[localBufferMap[memId]->memType].Free(localBufferMap[memId]->id) != SUCCESS) { 
-                ALOG_ERROR_F("Free tensor[%d] failed", memId); 
+                APASS_LOG_ERROR_F("OoOSchedule", "Tensor", "Free tensor [%d] failed", memId); 
                 return FAILED; 
             }
             // Healthcheck record - update buffer usage statistics
@@ -367,7 +367,7 @@ Status OoOScheduler::FreeBuffer(IssueEntryPtr issue) {
             }
             localBufferMap[memId]->retireCycle = clock;
             if (tensorOccupyMap[localBufferMap[memId]->memType].erase(localBufferMap[memId]->id) == 0) {
-                ALOG_ERROR_F("Erase tensor[%d] failed", memId);
+                APASS_LOG_ERROR_F("OoOSchedule", "Tensor", "Erase tensor[%d] failed", memId);
                 return FAILED;
             }
         }
@@ -379,7 +379,7 @@ Status OoOScheduler::RetireOpAndAwakeSucc(IssueEntryPtr issue, uint64_t& commitC
     commitCnt++;
     issue->isRetired = true;
     if (FreeBuffer(issue) != SUCCESS) {
-        ALOG_ERROR_F("FreeBuffer failed.");
+        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "FreeBuffer failed.");
         return FAILED;
     }
 
@@ -397,7 +397,7 @@ Status OoOScheduler::RetireOpAndAwakeSucc(IssueEntryPtr issue, uint64_t& commitC
         }
         if (ready) {
             issueQueues[succ->type].Insert(succ, succ->execOrder);
-            ALOG_DEBUG_F("    Wakeup: %s, execOrder: %d", succ->GetOpInfo(), succ->execOrder);
+            APASS_LOG_DEBUG_F("OoOSchedule", "Operation", "    Wakeup: %s, execOrder: %d", succ->GetOpInfo(), succ->execOrder);
         }
     }
     return SUCCESS;
@@ -413,13 +413,13 @@ Status OoOScheduler::RetireIssueStage(uint64_t& commitCnt, int& nextCycle) {
             IssueEntryPtr issue = pipe.curIssue;
             pipe.busy = false;
             pipe.curIssue = nullptr;
-            ALOG_DEBUG_F("EXECUTE END: %s", issue->GetOpInfo());
+            APASS_LOG_DEBUG_F("OoOSchedule", "Operation", "EXECUTE END: %s", issue->GetOpInfo());
             if (RetireOpAndAwakeSucc(issue, commitCnt) != SUCCESS) { 
-                ALOG_ERROR_F("RetireOpAndAwakeSucc failed!"); 
+                APASS_LOG_ERROR_F("OoOSchedule", "Operation", "RetireOpAndAwakeSucc failed!"); 
                 return FAILED; 
             }
         } else {
-            ALOG_DEBUG_F("EXECUTING[%ld]: %s", pipe.curOpRetireCycle, pipe.curIssue->GetOpInfo());
+            APASS_LOG_DEBUG_F("OoOSchedule", "Operation", "EXECUTING[%ld]: %s", pipe.curOpRetireCycle, pipe.curIssue->GetOpInfo());
             if (nextCycle == -1 || nextCycle > pipe.curOpRetireCycle) {
                 nextCycle = pipe.curOpRetireCycle;
             }
@@ -447,21 +447,21 @@ Status OoOScheduler::ScheduleMainLoop() {
     bool isAllRetired = false;
     while (!isAllRetired) {
         int nextCycle = -1;
-        ALOG_DEBUG_F("\n clock: %d", clock);
+        APASS_LOG_DEBUG_F("OoOSchedule", "Operation", "\n clock: %d", clock);
         // Retire Stage : 检查现有pipe中的op是否执行完。如果op执行完，则将op标记为retired状态，将可以被释放的buffer释放掉，并唤醒后续已经就绪的op。
         // 完毕后更新整个pipe的状态。
         if (RetireIssueStage(commitCnt, nextCycle) != SUCCESS) { 
-            ALOG_ERROR_F("RetireIssueStage failed."); 
+            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "RetireIssueStage failed."); 
             return FAILED;
         }
         // Buffer Allocation Stage : 分配buffer。对于所有类型的buffer，按顺序执行alloc指令，并激活后续已经就绪的op。不断执行alloc直到buffer被占满为止。
         if (BufferAllocStage(commitCnt) != SUCCESS) { 
-            ALOG_ERROR_F("BufferAllocStage failed."); 
+            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "BufferAllocStage failed."); 
             return FAILED;
         }
         // Launch Stage ：检查idle的pipe中是否有已经就绪的指令。如果有，则执行该指令，并更新pipe的状态为busy。
         if (LaunchIssueStage(nextCycle) != SUCCESS) { 
-            ALOG_ERROR_F("LaunchIssueStage failed."); 
+            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "LaunchIssueStage failed."); 
             return FAILED; 
         }
         if (numTotalIssues == commitCnt && nextCycle == -1) { 
@@ -471,7 +471,7 @@ Status OoOScheduler::ScheduleMainLoop() {
         // 如果nextCycle为-1，说明每个pipe都处于idle的状态，判断出现阻塞。需要spill调整内存
         if (nextCycle == -1) {
             if (SpillOnBlock() != SUCCESS) {
-                ALOG_ERROR_F("SpillOnBlock failed.");
+                APASS_LOG_ERROR_F("OoOSchedule", "Operation", "SpillOnBlock failed.");
                 return FAILED;
             }
         } else { 
@@ -485,12 +485,12 @@ Status OoOScheduler::RetireIssue(IssueEntryPtr issue) {
     issue->isRetired = true;
     for (auto memId : issue->reqMemIds) {
         if (DelBufRefCount(memId) != SUCCESS) { 
-            ALOG_ERROR_F("DelBufRefCount tensor[%d] failed", memId); 
+            APASS_LOG_ERROR_F("OoOSchedule", "Tensor", "DelBufRefCount tensor[%d] failed", memId); 
             return FAILED; 
         }
         if (bufRefCount[memId] == 0) {
             if (bufferManagerMap[localBufferMap[memId]->memType].Free(localBufferMap[memId]->id) != SUCCESS) { 
-                ALOG_ERROR_F("Free tensor[%d] failed", memId); 
+                APASS_LOG_ERROR_F("OoOSchedule", "Tensor", "Free tensor[%d] failed", memId); 
                 return FAILED; 
             }
         }
@@ -500,18 +500,18 @@ Status OoOScheduler::RetireIssue(IssueEntryPtr issue) {
 
 Status OoOScheduler::ExecuteAllocIssue(IssueEntryPtr issue, size_t &pcIdx) {
     if (localBufferMap.find(issue->reqMemIds[0]) == localBufferMap.end()) {
-        ALOG_ERROR_F("Tensor[%d] cannot find in localBufferMap!", issue->reqMemIds[0]);
+        APASS_LOG_ERROR_F("OoOSchedule", "Tensor", "Tensor[%d] cannot find in localBufferMap!", issue->reqMemIds[0]);
         return FAILED;
     }
     LocalBufferPtr allocBuffer = localBufferMap[issue->reqMemIds[0]];
     if (bufferManagerMap[allocBuffer->memType].IsFull(allocBuffer)) {
         if (GenSpillOp(allocBuffer, pcIdx) != SUCCESS) { 
-            ALOG_ERROR_F("GenSpillOp failed!"); 
+            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "GenSpillOp failed!"); 
             return FAILED; 
         }
     }
     if (bufferManagerMap[allocBuffer->memType].Allocate(allocBuffer) != SUCCESS) { 
-        ALOG_ERROR_F("Allocate tensor[%u] failed", allocBuffer->id); 
+        APASS_LOG_ERROR_F("OoOSchedule", "Tensor", "Allocate tensor[%u] failed", allocBuffer->id); 
         return FAILED; 
     }
     return SUCCESS;
@@ -520,32 +520,32 @@ Status OoOScheduler::ExecuteAllocIssue(IssueEntryPtr issue, size_t &pcIdx) {
 Status OoOScheduler::GenSpillSchedule() {
     UpdateIssueExecOrder();
     size_t pcIdx = 0;
-    ALOG_DEBUG_F("=========> Begin GenSpillSchedule.");
+    APASS_LOG_DEBUG_F("OoOSchedule", "Operation", "=========> Begin GenSpillSchedule.");
     while (pcIdx < issueEntries.size()) {
         auto issue = issueEntries[pcIdx];
-        ALOG_DEBUG_F("Launch %s", issue->GetOpInfo());
+        APASS_LOG_DEBUG_F("OoOSchedule", "Operation", "Launch %s", issue->GetOpInfo());
         if (issue->isAlloc) {
             if (ExecuteAllocIssue(issue, pcIdx) != SUCCESS) {
-                ALOG_ERROR_F("ExecuteAllocIssue failed!"); 
+                APASS_LOG_ERROR_F("OoOSchedule", "Operation", "ExecuteAllocIssue failed!"); 
                 return FAILED;
             }
         }
         if (RetireIssue(issue) != SUCCESS) {
-            ALOG_ERROR_F("RetireIssue failed!"); 
+            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "RetireIssue failed!"); 
             return FAILED;
         }
         pcIdx += 1;
     }
     for (auto bufRef : bufRefCount) {
         if (bufRef.second != 0) { 
-            ALOG_ERROR_F("Tensor[%d] bufRefCount not equal to 0!", bufRef.first); 
+            APASS_LOG_ERROR_F("OoOSchedule", "Tensor", "Tensor[%d] bufRefCount not equal to 0!", bufRef.first); 
             return FAILED; 
         }
     }
-    ALOG_DEBUG_F("=========> End GenSpillSchedule.");
+    APASS_LOG_DEBUG_F("OoOSchedule", "Operation", "=========> End GenSpillSchedule.");
     // 更新依赖关系
     if (InitDependencies() != SUCCESS) { 
-        ALOG_ERROR_F("InitDependencies failed!"); 
+        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "InitDependencies failed!"); 
         return FAILED; 
     }
     return SUCCESS;
@@ -592,7 +592,7 @@ Status OoOScheduler::CheckAllocIssue() {
     for (const auto &issue : issueEntries) {
         if (issue->isAlloc) {
             if (issue->reqMemIds.size() != 1) {
-                ALOG_ERROR_F("ALLOC[%d] reqMemIds size not equal to 0.", issue->tileOp.GetOpMagic());
+                APASS_LOG_ERROR_F("OoOSchedule", "Operation", "ALLOC[%d] reqMemIds size not equal to 0.", issue->tileOp.GetOpMagic());
                 return FAILED;
             }
         }
@@ -600,7 +600,8 @@ Status OoOScheduler::CheckAllocIssue() {
     }
     for (auto tensorAlloc : tensorAllocMap) {
         if (!tensorAlloc.second->isAlloc) {
-            ALOG_ERROR_F("%s Tensor[%d] is missing Alloc.", tensorAlloc.second->GetOpInfo(), tensorAlloc.first);
+            APASS_LOG_ERROR_F("OoOSchedule", "Tensor", "%s Tensor[%d] is missing Alloc.", 
+                tensorAlloc.second->GetOpInfo(), tensorAlloc.first);
             return FAILED;
         }
     }
@@ -615,7 +616,7 @@ Status OoOScheduler::InitLocalBuffer(LogicalTensorPtr oOperand, int memId) {
         localBufferMap[memId] = std::make_shared<LocalBuffer>(
             memId, ShapeCeilAlign(oOperand->GetShape(), oOperand->Datatype()), oOperand->GetMemoryTypeOriginal());
         if (localBufferMap[memId] == nullptr) {
-            ALOG_ERROR_F("Init tensor[%d] localBuffer failed!", memId);
+            APASS_LOG_ERROR_F("OoOSchedule", "Tensor", "Init tensor[%d] localBuffer failed!", memId);
             return FAILED;
         }
     } else {
@@ -657,7 +658,7 @@ Status OoOScheduler::InitDependencies() {
             maxTensorMagic = std::max(maxTensorMagic, memId);
             lastWriteOpMap[memId] = issue;
             if (InitLocalBuffer(oOperand, memId) != SUCCESS) {
-                ALOG_ERROR_F("InInitLocalBuffer failed.");
+                APASS_LOG_ERROR_F("OoOSchedule", "Operation", "InInitLocalBuffer failed.");
                 return FAILED;
             }
         }
@@ -683,8 +684,8 @@ Status OoOScheduler::CheckOpBufferSize(Operation *op) {
     for (auto &buffer : bufferSize) {
         if (inChipMemorySize.find(buffer.first) != inChipMemorySize.end()) {
             if (buffer.second > inChipMemorySize[buffer.first]) {
-                ALOG_ERROR_F("OP %s[%d] in/output total size[%d] exceeds %s size[%d]!", op->GetOpcodeStr().c_str(),
-                    op->GetOpMagic(), buffer.second, MemoryTypeToString(buffer.first).c_str(),
+                APASS_LOG_ERROR_F("OoOSchedule", "Operation", "OP %s[%d] in/output total size[%d] exceeds %s size[%d]!", 
+                    op->GetOpcodeStr().c_str(), op->GetOpMagic(), buffer.second, MemoryTypeToString(buffer.first).c_str(),
                     inChipMemorySize[buffer.first]);
                 return FAILED;
             }
@@ -724,13 +725,13 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
     for (const auto &op : newOperations) {
         maxOpMagic = std::max(maxOpMagic, op->GetOpMagic());
         if (CheckOpBufferSize(op) != SUCCESS) {
-            ALOG_ERROR_F("%s[%d] CheckOpBufferSize failed!", op->GetOpcodeStr().c_str(), op->GetOpMagic());
+            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "%s[%d] CheckOpBufferSize failed!", op->GetOpcodeStr().c_str(), op->GetOpMagic());
             return FAILED;
         }
         auto issue = std::make_shared<IssueEntry>(*op, issueId);
         issueEntryMap[issueId++] = issue;
         if (issue == nullptr) {
-            ALOG_ERROR_F("IssueEntry %s, %d init failed!", op->GetOpcodeStr().c_str(), op->GetOpMagic());
+            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "IssueEntry %s, %d init failed!", op->GetOpcodeStr().c_str(), op->GetOpMagic());
             return FAILED;
         }
         issueEntries.emplace_back(issue);
@@ -739,12 +740,12 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
 
     // 初始化issueEntry，构建依赖关系
     if (InitDependencies() != SUCCESS) {
-        ALOG_ERROR_F("InitDependencies failed!");
+        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "InitDependencies failed!");
         return FAILED;
     }
 
     if (CheckAllocIssue() != SUCCESS) {
-        ALOG_ERROR_F("CheckAllocIssue failed!");
+        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "CheckAllocIssue failed!");
         return FAILED;
     }
 
@@ -759,26 +760,26 @@ Status OoOScheduler::Schedule(const std::vector<Operation *> &operations) {
     }
     PrintOpList(operations);
     if (Init(operations) != SUCCESS) { 
-        ALOG_ERROR_F("Init failed!"); 
+        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Init failed!"); 
         return FAILED; 
     }
     // op执行排序
     if (SortOps() != SUCCESS) { 
-        ALOG_ERROR_F("SortOps failed!"); 
+        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "SortOps failed!"); 
         return FAILED; 
     }
     // 生成spill指令
     if (GenSpillSchedule() != SUCCESS) { 
-        ALOG_ERROR_F("GenSpillSchedule failed!"); 
+        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "GenSpillSchedule failed!"); 
         return FAILED; 
     }
     // 模拟调度
     if (ScheduleMainLoop() != SUCCESS) {
-        ALOG_ERROR_F("ScheduleMainLoop failed"); 
+        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "ScheduleMainLoop failed"); 
         return FAILED;
     }
     if (CheckAndUpdateLifecycle() != SUCCESS) {
-        ALOG_ERROR_F("CheckAndUpdateLifecycle failed.");
+        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "CheckAndUpdateLifecycle failed.");
         return FAILED;
     }
     PrintOpList(newOperations_);

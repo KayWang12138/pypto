@@ -18,6 +18,7 @@
 
 #include <climits>
 #include "passes/pass_interface/pass.h"
+#include "passes/pass_utils/pass_utils.h"
 #include "passes/pass_utils/reschedule_utils.h"
 #include "passes/pass_check/schedule_ooo_checker.h"
 #include "passes/block_graph_pass/schedule_ooo/buffer_pool.h"

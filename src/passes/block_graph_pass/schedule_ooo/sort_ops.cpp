@@ -312,7 +312,7 @@ Status OoOScheduler::DFSFromOutNode(std::vector<IssueEntryPtr> outNodeQueue,
     if (outNodeQueue.size() != 0) {
        DFSFromSingleNode(outNodeQueue[0], visited, newIssueEntries, preNodePriority);
     } else {
-        ALOG_ERROR_F("Subgraph must have operation with outdegree 0.");
+        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Subgraph must have operation with outdegree 0.");
         return FAILED;
     }
 
@@ -321,7 +321,7 @@ Status OoOScheduler::DFSFromOutNode(std::vector<IssueEntryPtr> outNodeQueue,
             auto curNode = outNodeQueue[i];
             auto node = FindNodeMinNumUnvisitedPreNode(visited, outNodeQueue);
             if (node == nullptr) {
-                ALOG_ERROR_F("FindNodeMinNumUnvisitedPreNode failed.");
+                APASS_LOG_ERROR_F("OoOSchedule", "Operation", "FindNodeMinNumUnvisitedPreNode failed.");
                 return FAILED;
             }
             DFSFromSingleNode(node, visited, newIssueEntries, preNodePriority);
@@ -342,7 +342,7 @@ Status OoOScheduler::PriorDFS(std::unordered_map<Opcode, int> preNodePriority) {
     }
 
     if (DFSFromOutNode(outNodeQueue, preNodePriority, visited) != SUCCESS) {
-        ALOG_ERROR_F("DFSFromOutNode failed.");
+        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "DFSFromOutNode failed.");
         return FAILED;
     }
     return SUCCESS;
@@ -371,17 +371,17 @@ Status OoOScheduler::SortOps() {
             // 最后访问其它计算节点（其它节点默认的优先级为10）。
         };
         if (PriorDFS(preNodePriority) != SUCCESS) {
-            ALOG_ERROR_F("PriorDFS failed.");
+            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "PriorDFS failed.");
             return FAILED;
         }
     } else if (sortMethodStr == "LayerBasedDFS") {
         const int layerDepth = 10;
         if (LayerBasedDFS(layerDepth) != SUCCESS) {
-            ALOG_ERROR_F("LayerBasedDFS failed.");
+            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "LayerBasedDFS failed.");
             return FAILED;
         }
     } else {
-        ALOG_ERROR_F("PreSchedule method not recognized.");
+        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "PreSchedule method not recognized.");
         return FAILED;
     }
     return SUCCESS;

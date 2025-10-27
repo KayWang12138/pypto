@@ -75,13 +75,13 @@ public:
 private:
     Status L1CopyInReuse(Function &func) const;
     Status RunOnFunction(Function &function) override {
-        ASLOGI("===> Start L1CopyInReusePass.");
+        APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> Start L1CopyInReuseMerge.");
         if (L1CopyInReuse(function) == FAILED) {
           return FAILED;
         }
         DeadOperationEliminator eliminator;
         eliminator.EliminateDeadOperationBackward(function);
-        ALOG_INFO_F("===> Finish L1CopyInReuseMerge.");
+        APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> Finish L1CopyInReuseMerge.");
         return SUCCESS;
     }
     void DoHealthCheckAfter(Function &function, const std::string &folderPath) override;

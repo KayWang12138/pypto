@@ -27,7 +27,7 @@ bool OoOSchedule::IsAicpuProgram(std::vector<Operation *> opList) {
 }
 
 Status OoOSchedule::RunOnFunction(Function &function) {
-    ALOG_INFO_F("=============== START OoOSchedule ===============");
+    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "=============== START OoOSchedule ===============");
     int maxWorkeSpaceSize = 0;
     for (auto &program : function.rootFunc_->programs_) {
         auto opList = program.second->Operations().DuplicatedOpList();
@@ -37,12 +37,12 @@ Status OoOSchedule::RunOnFunction(Function &function) {
             continue;
         }
         OoOScheduler oooSchedule(*program.second);
-        ALOG_INFO_F("Subgraph[%d] OOOSchedule start.", program.first);
+        APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Subgraph[%d] OOOSchedule start.", program.first);
         if (oooSchedule.Schedule(opList) != SUCCESS) { 
-            ALOG_ERROR_F("Subgraph[%d] OoO Schedule failed.", program.first); 
+            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Subgraph[%d] OoO Schedule failed.", program.first); 
             return FAILED;
         }
-        ALOG_INFO_F("Subgraph[%d] OOOSchedule end.", program.first);
+        APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Subgraph[%d] OOOSchedule end.", program.first);
         program.second->ScheduleBy(oooSchedule.GetNewOperations());
         program.second->RecordOOOSeq();
         RescheduleUtils::UpdateTensorConsProd(program.second);
@@ -56,7 +56,7 @@ Status OoOSchedule::RunOnFunction(Function &function) {
             schedulerMap.insert({program.first, oooSchedule});
         }
     }
-    ALOG_INFO_F("=============== END OoOSchedule =================");
+    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "=============== END OoOSchedule =================");
     return SUCCESS;
 }
 

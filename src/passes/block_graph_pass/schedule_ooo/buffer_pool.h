@@ -18,6 +18,7 @@
 #include "tilefwk/data_type.h"
 #include "interface/utils/log.h"
 #include "interface/utils/common.h"
+#include "passes/pass_utils/pass_utils.h"
 
 namespace npu::tile_fwk {
 struct LocalBuffer {

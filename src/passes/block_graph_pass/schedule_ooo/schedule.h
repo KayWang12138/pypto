@@ -17,4 +17,5 @@
 #include "passes/block_graph_pass/schedule_ooo/add_alloc.h"
 #include "passes/block_graph_pass/schedule_ooo/remove_alloc.h"
 #include "passes/block_graph_pass/schedule_ooo/schedule_ooo.h"
+#include "passes/pass_utils/pass_utils.h"
 #endif
