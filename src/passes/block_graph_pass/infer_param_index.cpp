@@ -18,6 +18,7 @@
 #include "infer_param_index.h"
 #include "interface/operation/op_infer_shape_impl.h"
 #include "interface/operation/opcode.h"
+#include "passes/pass_utils/pass_utils.h"
 
 namespace npu {
 namespace tile_fwk {
@@ -83,19 +84,19 @@ Status InferParamIndex::ResetAssembleDynValidShape(const Operation &op) {
 Status InferParamIndex::ResetDynValidShape(Function& function) {
     for (auto &op : function.Operations()) {
         if (ResetOutputDynValidShape(op) != SUCCESS) {
-            ALOG_ERROR_F("ResetOutputDynValidShape failed.");
+            APASS_LOG_ERROR_F(GetName().c_str(), "Tensor", "Fail to reset the output operand shape of operation %d in function %s. Please check whether the shape is valid in your input graph", op.GetOpMagic(), function.GetRawName().c_str());
             return FAILED;
         }
         // 清空view和assemble的属性中的dynvalidshape，以便后续重新推导符号化的dynvalidshape
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             if (ResetViewDynValidShape(op) != SUCCESS) {
-                ALOG_ERROR_F("ResetViewDynValidShape failed.");
+                APASS_LOG_ERROR_F(GetName().c_str(), "Tensor", "Fail to reset the output operand shape of VIEW operation %d in function %s.", op.GetOpMagic(), function.GetRawName().c_str());
                 return FAILED;
             }
         }
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
             if (ResetAssembleDynValidShape(op) != SUCCESS) {
-                ALOG_ERROR_F("ResetAssembleDynValidShape failed.");
+                APASS_LOG_ERROR_F(GetName().c_str(), "Tensor", "Fail to reset the output operand shape of ASSEMBLE operation %d in function %s.", op.GetOpMagic(), function.GetRawName().c_str());
                 return FAILED;
             }
         }
@@ -109,7 +110,7 @@ Status InferParamIndex::InferShape(Function &function)
     std::map<int, size_t> opMagic2Idx;
     std::vector<Operation*> opList = function.Operations().DuplicatedOpList();
     if (opList.empty()) {
-        ALOG_ERROR_F("InferShape: opList is Empty.");
+        APASS_LOG_ERROR_F(GetName().c_str(), "Tensor", "There is no operation in function %s. Please check the operation list of the input graph", function.GetRawName().c_str());
         return FAILED;
     }
     for (auto op : opList) {
@@ -185,30 +186,29 @@ Status InferParamIndex::UpdateParamIndex(Function &function) {
         if (InferShape(subFunc) != SUCCESS) {
             return FAILED;
         }
-        ALOG_INFO(subFunc.Dump());
+        APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "Print function before update: %s\n", subFunc.Dump().c_str());
         std::map<int, std::vector<SymbolicScalar>> addr2ValidShape;
         std::map<int, std::vector<SymbolicScalar>> addr2ValidShapeSpecified;
         if (UpdateValidShape(subFunc, addr2ValidShape, addr2ValidShapeSpecified) != SUCCESS) {
-            ALOG_ERROR_F("UpdateValidShape failed.");
+            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Update valid shape for the function %s failed. Please check above for more information.", function.GetRawName().c_str());
             return FAILED;
         }
         if (SetSubValidShape(subFunc, addr2ValidShape, addr2ValidShapeSpecified) != SUCCESS) {
-            ALOG_ERROR_F("SetSubValidShape failed.");
+            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Update valid shape for the function %s failed. Please check above for more information.", function.GetRawName().c_str());
             return FAILED;
         }
-        ALOG_DEBUG(DumpParamIndex(subFunc.GetDynParamTable()));
+        APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "Print function after update: %s\n", DumpParamIndex(subFunc.GetDynParamTable()).c_str());
     }
     return SUCCESS;
 }
 
 Status InferParamIndex::RunOnFunction(Function &function)
 {
-    ALOG_INFO_F("===> Start InferParamIndex.");
+    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> Start InferParamIndex.");
     if (UpdateParamIndex(function) != SUCCESS) {
-        ALOG_ERROR_F("UpdateParamIndex failed.");
         return FAILED;
     }
-    ALOG_INFO_F("===> End InferParamIndex By Sequential Execution.");
+    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> End InferParamIndex By Sequential Execution.");
     return SUCCESS;
 }
 }  // namespace tile_fwk

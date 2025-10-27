@@ -18,6 +18,7 @@
 #include <queue>
 #include <unordered_set>
 #include "interface/utils/log.h"
+#include "passes/pass_utils/pass_utils.h"
 
 using json = nlohmann::json;
 
@@ -121,7 +122,7 @@ uint64_t ExecutionGraphStatistic::AnalyzePeakMemoryUsage(
         auto &op = operations[i];
         auto callAttr = dynamic_cast<CallOpAttribute *>(op.GetOpAttribute().get());
         if (!callAttr || !callAttr->invokeInfo_) {
-            ALOG_WARN_F("Invalid CallOpAttribute at index %zu", i);
+            APASS_LOG_WARN_F("SubgraphToFunction", "Operation", "Invalid CallOpAttribute at index %zu", i);
             continue;
         }
         uint64_t currentOpMemory = CalculateOperationMemory(op);
@@ -217,7 +218,7 @@ json ExecutionGraphStatistic::AnalyzeExecutionGraph(Function & func, const std::
     json report;
     Function *rootFunc = func.GetRootFunction();
     if (!rootFunc) {
-        ALOG_ERROR_F("Root function is null");
+        APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "Root function is null");
         return report;
     }
 

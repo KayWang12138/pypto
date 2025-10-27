@@ -492,9 +492,10 @@ public:
 };
 }
 
-#define APASS_LOG_F(lvl, passName, opName, fmt, args...)                                 \
+#define APASS_LOG_F(lvl, passName, opName, fmt, args...)                        \
     do {                                                                        \
-        ALOG_F(lvl, "[%s][%s][" #lvl "]" fmt, passName,opName, ##args);         \
+        ALOG_F(lvl, \
+        "[%s][%s][" #lvl "]: " fmt, passName,opName, ##args);       \
     } while (false)
 
 

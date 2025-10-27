@@ -14,28 +14,29 @@
  */
 
 #include "passes/pass_check/subgraph_to_function_checker.h"
+#include "passes/pass_utils/pass_utils.h"
 
 namespace npu {
 namespace tile_fwk {
 Status SubGraphToFuncChecker::NOPCheck(const Operation &op) const {
     if (!op.IsNOP()) {
-        ALOG_ERROR_F("op is not an NOP");
+        APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "op is not an NOP");
         return FAILED;
     }
     if (op.GetIOperands().size() > 0) {
-        ALOG_ERROR_F("NOP has IOperands size %zu", op.GetIOperands().size());
+        APASS_LOG_ERROR_F("SubgraphToFunction", "Tensor", "NOP has IOperands size %zu", op.GetIOperands().size());
         return FAILED;
     }
     if (op.GetInCtrlOperations().size() > 0) {
-        ALOG_ERROR_F("NOP has InCtrlOperations size %zu", op.GetInCtrlOperations().size());
+        APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "NOP has InCtrlOperations size %zu", op.GetInCtrlOperations().size());
         return FAILED;
     }
     if (op.GetOOperands().size() > 0) {
-        ALOG_ERROR_F("NOP has OOperands size %zu", op.GetOOperands().size());
+        APASS_LOG_ERROR_F("SubgraphToFunction", "Tensor", "NOP has OOperands size %zu", op.GetOOperands().size());
         return FAILED;
     }
     if (op.GetOutCtrlOperations().size() > 0) {
-        ALOG_ERROR_F("NOP has OutCtrlOperations size %zu", op.GetOutCtrlOperations().size());
+        APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "NOP has OutCtrlOperations size %zu", op.GetOutCtrlOperations().size());
         return FAILED;
     }
     return SUCCESS;
@@ -45,7 +46,7 @@ Status SubGraphToFuncChecker::CheckSubGraphTopo(Function &function) const {
     auto operations = function.Operations();
     int totalSubGraphNum = function.GetTotalSubGraphCount();
     if (operations.size() > 0 && totalSubGraphNum <= 0) {
-        ALOG_ERROR_F("input totalSubGraphNum %d is invalid", totalSubGraphNum);
+        APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "input totalSubGraphNum %d is invalid", totalSubGraphNum);
         return FAILED;
     }
     std::vector<bool> hitSubgraph = std::vector<bool>(totalSubGraphNum, false);
@@ -53,11 +54,11 @@ Status SubGraphToFuncChecker::CheckSubGraphTopo(Function &function) const {
         auto &op = operations[i];
         int subGraphId = op.GetSubgraphID();
         if (subGraphId < 0 && NOPCheck(op) != SUCCESS) {
-            ALOG_ERROR_F("operation %d has negative subGraphID %d and failed NOP check", i, subGraphId);
+            APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "operation %d has negative subGraphID %d and failed NOP check", i, subGraphId);
             return FAILED;
         }
         if (subGraphId >= totalSubGraphNum) {
-            ALOG_ERROR_F("operation %d has subGraphID %d that exceeds totalSubGraphNum %d", i, subGraphId, totalSubGraphNum);
+            APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "operation %d has subGraphID %d that exceeds totalSubGraphNum %d", i, subGraphId, totalSubGraphNum);
             return FAILED;
         }
         hitSubgraph[subGraphId] = true;
@@ -66,7 +67,7 @@ Status SubGraphToFuncChecker::CheckSubGraphTopo(Function &function) const {
             for (auto parentOp : inOperand->GetProducers()) {
                 int parentSubGraphId = parentOp->GetSubgraphID();
                 if (parentSubGraphId > subGraphId) {
-                    ALOG_ERROR_F("operation %d has subGraphId %d and parent subGraphId %d, parent subGraphId should be less than or equal to subGraphId", i, subGraphId, parentSubGraphId);
+                    APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "operation %d has subGraphId %d and parent subGraphId %d, parent subGraphId should be less than or equal to subGraphId", i, subGraphId, parentSubGraphId);
                     return FAILED;
                 }
             }
@@ -75,7 +76,7 @@ Status SubGraphToFuncChecker::CheckSubGraphTopo(Function &function) const {
 
     for (int i = 0; i < totalSubGraphNum; i++) {
         if (hitSubgraph[i] == false) {
-            ALOG_ERROR_F("Subgraph %d is empty", i);
+            APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "Subgraph %d is empty", i);
             return FAILED;
         }
     }
@@ -85,11 +86,11 @@ Status SubGraphToFuncChecker::CheckSubGraphTopo(Function &function) const {
 
 Status SubGraphToFuncChecker::EdgeIndexCheck(const bool found, const int newIndex, const size_t graphSize) const {
     if (!found) {
-        ALOG_ERROR_F("op magic not found");
+        APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "op magic not found");
         return FAILED;
     }
     if (static_cast<size_t>(newIndex) >= graphSize) {
-        ALOG_ERROR_F("parent index %d is larger than operations_ size %zu", newIndex, graphSize);
+        APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "parent index %d is larger than operations_ size %zu", newIndex, graphSize);
         return FAILED;
     }
     return SUCCESS;
@@ -104,7 +105,7 @@ Status SubGraphToFuncChecker::BuildInGraph(Function &function) {
             for (auto &parentOp : inOperand->GetProducers()) {
                 auto [parentSeqNo, found] = operationViewer.FindOpPosition(*parentOp);
                 if (EdgeIndexCheck(found, parentSeqNo, inGraph_.size()) != SUCCESS) {
-                    ALOG_ERROR_F("error inserting op magic %d in function %d %s to inGraph", parentOp->GetOpMagic(), function.GetFuncMagic(),
+                    APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "error inserting op magic %d in function %d %s to inGraph", parentOp->GetOpMagic(), function.GetFuncMagic(),
                         function.GetRawName().c_str());
                     return FAILED;
                 }
@@ -118,7 +119,7 @@ Status SubGraphToFuncChecker::BuildInGraph(Function &function) {
         for (const auto &inControlOp : operationViewer[i].GetInCtrlOperations()) {
             auto [parentSeqNo, found] = operationViewer.FindOpPosition(*inControlOp);
             if (EdgeIndexCheck(found, parentSeqNo, inGraph_.size()) != SUCCESS) {
-                ALOG_ERROR_F("error inserting op magic %d in function %d %s to inGraph", inControlOp->GetOpMagic(), function.GetFuncMagic(),
+                APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "error inserting op magic %d in function %d %s to inGraph", inControlOp->GetOpMagic(), function.GetFuncMagic(),
                     function.GetRawName().c_str());
                 return FAILED;
             }
@@ -139,7 +140,7 @@ Status SubGraphToFuncChecker::BuildOutGraph(Function &function) {
             for (auto &childOp : outOperand->GetConsumers()) {
                 auto [childSeqNo, found] = operationViewer.FindOpPosition(*childOp);
                 if (EdgeIndexCheck(found, childSeqNo, inGraph_.size()) != SUCCESS) {
-                    ALOG_ERROR_F("error inserting op magic %d in function %d %s to outGraph_", childOp->GetOpMagic(), function.GetFuncMagic(),
+                    APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "error inserting op magic %d in function %d %s to outGraph_", childOp->GetOpMagic(), function.GetFuncMagic(),
                         function.GetRawName().c_str());
                     return FAILED;
                 }
@@ -153,7 +154,7 @@ Status SubGraphToFuncChecker::BuildOutGraph(Function &function) {
         for (const auto &outControlOp : operationViewer[i].GetOutCtrlOperations()) {
             auto [childSeqNo, found] = operationViewer.FindOpPosition(*outControlOp);
             if (EdgeIndexCheck(found, childSeqNo, inGraph_.size()) != SUCCESS) {
-                ALOG_ERROR_F("error inserting op magic %d in function %d %s to outGraph_", outControlOp->GetOpMagic(), function.GetFuncMagic(),
+                APASS_LOG_ERROR_F("SubgraphToFunction", "Tensor", "error inserting op magic %d in function %d %s to outGraph_", outControlOp->GetOpMagic(), function.GetFuncMagic(),
                     function.GetRawName().c_str());
                 return FAILED;
             }
@@ -173,7 +174,7 @@ Status SubGraphToFuncChecker::InAndOutGraphConsistencyCheck(
     const std::vector<std::vector<eType>> &outEdgeGraph)
 {
     if (inEdgeGraph.size() != outEdgeGraph.size()) {
-        ALOG_ERROR_F("inEdgeGraph size %zu, outEdgeGraph size %zu", inEdgeGraph.size(), outEdgeGraph.size());
+        APASS_LOG_ERROR_F("SubgraphToFunction", "Tensor", "inEdgeGraph size %zu, outEdgeGraph size %zu", inEdgeGraph.size(), outEdgeGraph.size());
         return FAILED;
     }
 
@@ -182,13 +183,13 @@ Status SubGraphToFuncChecker::InAndOutGraphConsistencyCheck(
         for (size_t j = 0; j < inEdgeGraph[i].size(); j++) {
             size_t parentSeqNo = static_cast<size_t>(inEdgeGraph[i][j]);
             if (nodeColIdx[parentSeqNo] >= outEdgeGraph[parentSeqNo].size()) {
-                ALOG_ERROR_F("node %zu, %zu th parentSeqNo %d exceeds outgraph[%d] size %zu",
+                APASS_LOG_ERROR_F("SubgraphToFunction", "Tensor", "node %zu, %zu th parentSeqNo %d exceeds outgraph[%d] size %zu",
                     i, j, parentSeqNo, parentSeqNo, outEdgeGraph[parentSeqNo].size());
                 return FAILED;
             }
             // inEdgeGraph和outEdgeGraph都是按顺序排列的
             if (static_cast<size_t>(outEdgeGraph[parentSeqNo][nodeColIdx[parentSeqNo]++]) != i) {
-                ALOG_ERROR_F("node %zu, %zu th parentSeqNo %d is not found in outgraph[%d]",
+                APASS_LOG_ERROR_F("SubgraphToFunction", "Tensor", "node %zu, %zu th parentSeqNo %d is not found in outgraph[%d]",
                     i, j, parentSeqNo, parentSeqNo);
                 return FAILED;
             }
@@ -198,7 +199,7 @@ Status SubGraphToFuncChecker::InAndOutGraphConsistencyCheck(
     // check outEdgeGraph has been fully traversed
     for (size_t i = 0; i < outEdgeGraph.size(); i++) {
         if (outEdgeGraph[i].size() != nodeColIdx[i]) {
-            ALOG_ERROR_F("outEdgeGraph[%zu] has size %zu, but only %zu of them have been traversed",
+            APASS_LOG_ERROR_F("SubgraphToFunction", "Tensor", "outEdgeGraph[%zu] has size %zu, but only %zu of them have been traversed",
                 i, outEdgeGraph[i].size(), nodeColIdx[i]);
             return FAILED;
         }
@@ -215,16 +216,16 @@ Status SubGraphToFuncChecker::CheckInAndOutGraphMatch(Function &function) {
         std::sort(inGraph_[i].begin(), inGraph_[i].end());
     }
     if (BuildInGraph(function) != SUCCESS) {
-        ALOG_ERROR_F("Build inGraph failed");
+        APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "Build inGraph failed");
         return FAILED;
     }
     if (BuildOutGraph(function) != SUCCESS) {
-        ALOG_ERROR_F("Build outGraph failed");
+        APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "Build outGraph failed");
         return FAILED;
     }
     // 2. Check inGraph_ and outGraph_
     if (InAndOutGraphConsistencyCheck(inGraph_, outGraph_) != SUCCESS) {
-        ALOG_ERROR_F("Consistency check for input inGraph_ and outGraph_ failed");
+        APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "Consistency check for input inGraph_ and outGraph_ failed");
         return FAILED;
     }
     return SUCCESS;
@@ -254,11 +255,11 @@ Status SubGraphToFuncChecker::CheckSubGraphBoundary(Function &function) {
             bool hasOnlyViewProducers = HasOnlyViewProducers(producers);
             // Rule 1: Operands from DDR memory must be marked as subgraph boundary
             // (这个规则可以在producer都是view操作时跳过)
-            if (iOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && !iOperand->isSubGraphBoundary && !hasOnlyViewProducers) { ALOG_ERROR_F("Input operand %zu of operation %zu (opdump: %s) is from DDR but not marked as subgraph boundary!", k, i, op.Dump().c_str()); return FAILED; }
+            if (iOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && !iOperand->isSubGraphBoundary && !hasOnlyViewProducers) { APASS_LOG_ERROR_F("SubgraphToFunction", "Tensor", "Input operand %zu of operation %zu (opdump: %s) is from DDR but not marked as subgraph boundary!", k, i, op.Dump().c_str()); return FAILED; }
             // Rule 2: Operands with consumer in a different subgraph must be marked as subgraph boundary
-            if (subGraphId != iOperand->subGraphID && !iOperand->isSubGraphBoundary) { ALOG_ERROR_F("Input operand %zu of operation %zu (opdump: %s) has a consumer in a different subgraph but not marked as subgraph boundary!", k, i, op.Dump().c_str()); return FAILED; }
+            if (subGraphId != iOperand->subGraphID && !iOperand->isSubGraphBoundary) { APASS_LOG_ERROR_F("SubgraphToFunction", "Tensor", "Input operand %zu of operation %zu (opdump: %s) has a consumer in a different subgraph but not marked as subgraph boundary!", k, i, op.Dump().c_str()); return FAILED; }
             // Rule 3: Input operands of special ops (e.g., OP_UB_COPY_IN) must be marked as subgraph boundary
-            if (IsCopyIn(op.GetOpcode()) && !iOperand->isSubGraphBoundary) { ALOG_ERROR_F("Input operand %zu of IsCopyIn operation %zu (opdump: %s) is not marked as subgraph boundary!",k, i, op.Dump().c_str()); return FAILED; }
+            if (IsCopyIn(op.GetOpcode()) && !iOperand->isSubGraphBoundary) { APASS_LOG_ERROR_F("SubgraphToFunction", "Tensor", "Input operand %zu of IsCopyIn operation %zu (opdump: %s) is not marked as subgraph boundary!",k, i, op.Dump().c_str()); return FAILED; }
         }
         for (size_t k = 0; k < op.oOperand.size(); k++) {
             auto oOperand = op.GetOutputOperand(k);
@@ -266,11 +267,11 @@ Status SubGraphToFuncChecker::CheckSubGraphBoundary(Function &function) {
             // 特殊情况：如果producer有且只有view操作，在Rule 1中不需要标记为子图边界
             bool hasOnlyViewProducers = HasOnlyViewProducers(producers);
             // Rule 1: Operands from DDR memory must be marked as subgraph boundary
-            if (oOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && !oOperand->isSubGraphBoundary && !hasOnlyViewProducers) { ALOG_ERROR_F("Output operand %zu of operation %zu (opdump: %s) is from DDR but not marked as subgraph boundary!", k, i, op.Dump().c_str()); return FAILED; }
+            if (oOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && !oOperand->isSubGraphBoundary && !hasOnlyViewProducers) { APASS_LOG_ERROR_F("SubgraphToFunction", "Tensor", "Output operand %zu of operation %zu (opdump: %s) is from DDR but not marked as subgraph boundary!", k, i, op.Dump().c_str()); return FAILED; }
             // Rule 2: Operands with producer in a different subgraph must be marked as subgraph boundary
-            if (subGraphId != oOperand->subGraphID && !oOperand->isSubGraphBoundary) { ALOG_ERROR_F("Output operand %zu of operation %zu (opdump: %s) has a producer in a different subgraph but not marked as subgraph boundary!", k, i, op.Dump().c_str()); return FAILED; }
+            if (subGraphId != oOperand->subGraphID && !oOperand->isSubGraphBoundary) { APASS_LOG_ERROR_F("SubgraphToFunction", "Tensor", "Output operand %zu of operation %zu (opdump: %s) has a producer in a different subgraph but not marked as subgraph boundary!", k, i, op.Dump().c_str()); return FAILED; }
             // Rule 3: Output operands of special ops (e.g., OP_UB_COPY_OUT, OP_TRANSPOSE_DATA_MOVE, OP_INDEX_OUTCAST) must be marked as subgraph boundary
-            if (IsCopyOut(op.GetOpcode()) && !oOperand->isSubGraphBoundary) { ALOG_ERROR_F("Output operand %zu of IsCopyOut operation %zu (opdump: %s) is not marked as subgraph boundary!",k, i, op.Dump().c_str()); return FAILED; }
+            if (IsCopyOut(op.GetOpcode()) && !oOperand->isSubGraphBoundary) { APASS_LOG_ERROR_F("SubgraphToFunction", "Tensor", "Output operand %zu of IsCopyOut operation %zu (opdump: %s) is not marked as subgraph boundary!",k, i, op.Dump().c_str()); return FAILED; }
         }
     }
     return SUCCESS;
@@ -278,21 +279,21 @@ Status SubGraphToFuncChecker::CheckSubGraphBoundary(Function &function) {
 
 Status SubGraphToFuncChecker::DoPreCheck(Function &function) {
     // Check subgraph topology
-    ALOG_INFO_F("Start PreCheck for SubgraphToFunction!");
+    APASS_LOG_INFO_F("SubgraphToFunction", "Operation", "Start PreCheck for SubgraphToFunction!");
     if (CheckSubGraphTopo(function) != SUCCESS) {
-        ALOG_ERROR_F("CheckSubGraphTopo failed");
+        APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "CheckSubGraphTopo failed");
         return FAILED;
     }
 
     // Check subgraph boundary
     if (CheckSubGraphBoundary(function) != SUCCESS) {
-        ALOG_ERROR_F("CheckSubGraphBoundary failed");
+        APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "CheckSubGraphBoundary failed");
         return FAILED;
     }
 
     // Check iOperands and oOperands are matched
     if (CheckInAndOutGraphMatch(function) != SUCCESS) {
-        ALOG_ERROR_F("check input ioperands and ooperands relation failed");
+        APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "check input ioperands and ooperands relation failed");
         return FAILED;
     }
     return SUCCESS;
@@ -321,7 +322,7 @@ Status SubGraphToFuncChecker::VerifyRedundantEdge(const int srcNode, const int d
             }
         }
     }
-    ALOG_ERROR_F("source node %d and destination node %d are not related in colorOutGraph_ within three jumps", srcNode, dstNode);
+    APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "source node %d and destination node %d are not related in colorOutGraph_ within three jumps", srcNode, dstNode);
     return FAILED;
 }
 
@@ -350,7 +351,7 @@ Status SubGraphToFuncChecker::ColorOutGraphCheck(Function &function) const {
                 continue;
             }
             if (VerifyRedundantEdge(iSubGraphId, jSubGraphId) != SUCCESS) { // check whether is redundant edge
-                ALOG_ERROR_F("edge between original operator %d with subgraph ID %d and operator %d with subgraph ID %d is missed in colorOutGraph_", i, iSubGraphId, j, jSubGraphId);
+                APASS_LOG_ERROR_F("SubgraphToFunction", "Tensor", "edge between original operator %d with subgraph ID %d and operator %d with subgraph ID %d is missed in colorOutGraph_", i, iSubGraphId, j, jSubGraphId);
                 return FAILED;
             }
         }
@@ -360,7 +361,7 @@ Status SubGraphToFuncChecker::ColorOutGraphCheck(Function &function) const {
     for (size_t i = 0; i < hitEdgeMark.size(); i++) {
         for (size_t j = 0; j < hitEdgeMark[i].size(); j++) {
             if (hitEdgeMark[i][j] == false) {
-                ALOG_ERROR_F("edge between %d and %d on colorOutGraph_ has no correspondent edge in outGraph_", i, colorOutGraph_[i][j]);
+                APASS_LOG_ERROR_F("SubgraphToFunction", "Tensor", "edge between %d and %d on colorOutGraph_ has no correspondent edge in outGraph_", i, colorOutGraph_[i][j]);
                 return FAILED;
             }
         }
@@ -371,32 +372,32 @@ Status SubGraphToFuncChecker::ColorOutGraphCheck(Function &function) const {
 
 Status SubGraphToFuncChecker::DoPostCheck(Function &function) {
     // Check colorInGraph_ and colorOutGraph_ consistency
-    ALOG_INFO_F("Start PostCheck for SubgraphToFunction!");
+    APASS_LOG_INFO_F("SubgraphToFunction", "Operation", "Start PostCheck for SubgraphToFunction!");
     
     // 只在静态流程中检查静态专用的图信息
     if (function.GetFunctionType() == FunctionType::STATIC) {
         if (InAndOutGraphConsistencyCheck(colorInGraph_, colorOutGraph_) != SUCCESS) {
-            ALOG_ERROR_F("Consistency check for input colorInGraph_ and colorOutGraph_ failed");
+            APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "Consistency check for input colorInGraph_ and colorOutGraph_ failed");
             return FAILED;
         }
 
         // Check colorOutGraph_ matches outGraph_
         if (ColorOutGraphCheck(function) != SUCCESS) {
-            ALOG_ERROR_F("Consistency check for colorOutGraph_ and input failed");
+            APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "Consistency check for colorOutGraph_ and input failed");
             return FAILED;
         }
 
         // Verify readyState matches negative predecessor count
         for (size_t i = 0; i < function.rootFunc_->topoInfo_.topology_.size(); i++) {
             if (CheckReadyStateConsistency(function, i) != SUCCESS) {
-                ALOG_ERROR_F("Ready state inconsistency found for topology entry %zu", i);
+                APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "Ready state inconsistency found for topology entry %zu", i);
                 return FAILED;
             }
         }
 
         for (size_t i = 0; i < function.rootFunc_->Operations().size(); ++i) {
             if (VerifySingleOpTopology(function, i) != SUCCESS) {
-                ALOG_ERROR_F("Failed to verify topology for operation %zu", i);
+                APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "Failed to verify topology for operation %zu", i);
                 return FAILED;
             }
         }
@@ -405,36 +406,36 @@ Status SubGraphToFuncChecker::DoPostCheck(Function &function) {
     return SUCCESS;
 }
 
-Status SubGraphToFuncChecker::VerifySingleOpTopology(Function &function, size_t opIndex) {
+Status SubGraphToFuncChecker::VerifySingleOpTopology(Function &function, size_t opIdx) {
     const auto &callOps = function.rootFunc_->Operations();
     // 通过 subgraphId 查找对应的 currentOp
     Operation* currentOp = nullptr;
     for (const auto& op : callOps) {
-        if (static_cast<size_t>(op.GetSubgraphID()) == opIndex) {
+        if (static_cast<size_t>(op.GetSubgraphID()) == opIdx) {
             currentOp = const_cast<Operation*>(&op);
             break;
         }
     }
 
     if (currentOp == nullptr) {
-        ALOG_ERROR_F("Cannot find operation with subgraphId %zu", opIndex);
+        APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "Cannot find operation with subgraphId %zu", opIdx);
         return FAILED;
     }
 
     auto consumers = currentOp->ConsumerOps();
     auto producers = currentOp->ProducerOps();
-    ALOG_DEBUG_F("=================Call ===============%zu", opIndex);
+    APASS_LOG_DEBUG_F("SubgraphToFunction", "Operation", "=================Call ===============%zu", opIdx);
     for (auto &prod : producers) {
-        ALOG_DEBUG_F("Producer %s %d", prod->GetOpcodeStr().c_str(), prod->opmagic);
+        APASS_LOG_DEBUG_F("SubgraphToFunction", "Operation", "Producer %s %d", prod->GetOpcodeStr().c_str(), prod->opmagic);
     }
-    auto &topoInfo = function.rootFunc_->topoInfo_.topology_[opIndex];
+    auto &topoInfo = function.rootFunc_->topoInfo_.topology_[opIdx];
     std::unordered_set<Operation *> consumersNoSelf;
     for (auto *cons : consumers) {
         if (cons->opmagic != currentOp->opmagic) {
             consumersNoSelf.insert(cons);
         }
     }
-    if (consumersNoSelf.size() < topoInfo.outGraph.size()) { ALOG_ERROR_F("Call %zu %d consumers size are %zu and %zu", opIndex, currentOp->opmagic, consumersNoSelf.size(), topoInfo.outGraph.size()); return FAILED; }
+    if (consumersNoSelf.size() < topoInfo.outGraph.size()) { APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "Call %zu %d consumers size are %zu and %zu", opIdx, currentOp->opmagic, consumersNoSelf.size(), topoInfo.outGraph.size()); return FAILED; }
     for (auto succ : topoInfo.outGraph) {
         const int consumerSubgraphId = static_cast<int>(succ);
 
@@ -448,30 +449,30 @@ Status SubGraphToFuncChecker::VerifySingleOpTopology(Function &function, size_t 
         }
 
         if (expectedConsumer == nullptr) {
-            ALOG_ERROR_F("Cannot find expected consumer with subgraphId %d", consumerSubgraphId);
+            APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "Cannot find expected consumer with subgraphId %d", consumerSubgraphId);
             return FAILED;
         }
-        if (consumers.count(expectedConsumer) == 0) { ALOG_ERROR_F("Cannot find consumer %d for call %zu", succ, opIndex); return FAILED; }
+        if (consumers.count(expectedConsumer) == 0) { APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "Cannot find consumer %d for call %zu", succ, opIdx); return FAILED; }
     }
     return SUCCESS;
 }
 
-Status SubGraphToFuncChecker::CheckReadyStateConsistency(Function &function, size_t opIndex) {
+Status SubGraphToFuncChecker::CheckReadyStateConsistency(Function &function, size_t opIdx) {
     auto &topology = function.rootFunc_->topoInfo_.topology_;
     // Calculate actual predecessor count
     int actualPredCount = 0;
 
     for (size_t j = 0; j < topology.size(); j++) {
-        if (opIndex == j) {
+        if (opIdx == j) {
             continue;
         }
         auto &otherEntry = topology[j];
-        if (std::find(otherEntry.outGraph.begin(), otherEntry.outGraph.end(), opIndex) != otherEntry.outGraph.end()) {
+        if (std::find(otherEntry.outGraph.begin(), otherEntry.outGraph.end(), opIdx) != otherEntry.outGraph.end()) {
             actualPredCount++;
         }
     }
     // readyState should equal negative predecessor counts
-    if (topology[opIndex].readyState != -actualPredCount) { ALOG_ERROR_F("Subgraph %zu has inconsistent readyState: actual=%d, expected=%d", opIndex, topology[opIndex].readyState, -actualPredCount); return FAILED; }
+    if (topology[opIdx].readyState != -actualPredCount) { APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "Subgraph %zu has inconsistent readyState: actual=%d, expected=%d", opIdx, topology[opIdx].readyState, -actualPredCount); return FAILED; }
     return SUCCESS;
 }
 
