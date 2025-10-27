@@ -276,9 +276,6 @@ std::string CodeGenOpCloudNPU::PrintTransposeDataMoveDynamic(const PrintTranspos
 std::string CodeGenOpCloudNPU::PrintTransposeDataMoveDynamicUnaligned(const PrintTransposeDataMoveParam &param) const {
     const int gmIdx = param.gmIdx;
     const int localIdx = param.localIdx;
-    const std::string &localVar = param.localVar;
-    const std::string &localDtypeStr = param.localDtypeStr;
-    const std::string &gmDtypeStr = param.gmDtypeStr;
     std::string gmVar = GenGmParamVar(gmIdx);
 
     int dim = static_cast<int>(rawShape[gmIdx].size());
@@ -290,13 +287,12 @@ std::string CodeGenOpCloudNPU::PrintTransposeDataMoveDynamicUnaligned(const Prin
     FillIntVecWithDummyInHead<std::string>(gmOffsetExpr, SHAPE_DIM5 - dim, "0");
     ALOG_INFO_F("dynamic gmOffset param: %s", IntVecToStr(gmOffsetExpr).c_str());
     auto newDynLocalValidShape = dynamicValidShape[localIdx];
-    FillIntVecWithDummyInHead<SymbolicScalar>(
-        newDynLocalValidShape, SHAPE_DIM5 - dynamicValidShape[localIdx].size(), 1);
+    FillIntVecWithDummyInHead<SymbolicScalar>(newDynLocalValidShape, SHAPE_DIM5 - dim, 1);
 
     std::vector<int64_t> localShape = NormalizeShape(rawShape[localIdx], SHAPE_DIM5);
     std::ostringstream oss;
     std::vector<std::string> paramList;
-    paramList.emplace_back(gmDtypeStr);
+    paramList.emplace_back(param.gmDtypeStr);
     for (int i = 1; i < SHAPE_DIM5; i++) {
         paramList.emplace_back(std::to_string(localShape[i]));
     }
@@ -310,8 +306,8 @@ std::string CodeGenOpCloudNPU::PrintTransposeDataMoveDynamicUnaligned(const Prin
     std::string templateParam = JoinString(paramList, ", ");
     paramList.clear();
 
-    std::string gm = "(__gm__ " + gmDtypeStr + "*)" + gmVar;
-    std::string ub = "(__ubuf__ " + localDtypeStr + "*)" + localVar;
+    std::string gm = "(__gm__ " + param.gmDtypeStr + "*)" + gmVar;
+    std::string ub = "(__ubuf__ " + param.localDtypeStr + "*)" + param.localVar;
 
     if (gmIdx == 0) {
         paramList.insert(paramList.end(), {gm, ub});
@@ -329,8 +325,7 @@ std::string CodeGenOpCloudNPU::PrintTransposeDataMoveDynamicUnaligned(const Prin
         paramList.emplace_back(go);
     }
     std::string tiloOpCallParam = JoinString(paramList, ", ");
-    oss << tileOpName << "_<" << templateParam << ">"
-        << "(" << tiloOpCallParam << ");\n";
+    oss << tileOpName << "_<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
     return oss.str();
 }
 
@@ -412,9 +407,6 @@ std::string CodeGenOpCloudNPU::PrintGatherDynamicUnaligned(const PrintGatherPara
     const std::string &dstDtypeStr = param.dstDtypeStr;
     const std::string &src0DtypeStr = param.src0DtypeStr;
     const std::string &src1DtypeStr = param.src1DtypeStr;
-    const std::string &dVar = param.dVar;
-    const std::string &s0Var = param.s0Var;
-    const std::string &s1Var = param.s1Var;
     const int64_t axis = param.axis;
     std::vector dstShape = this->rawShape[ID0];
     std::vector src0Shape = this->rawShape[ID1];
@@ -453,9 +445,9 @@ std::string CodeGenOpCloudNPU::PrintGatherDynamicUnaligned(const PrintGatherPara
     std::string templateParam = JoinString(paramList, ", ");
     paramList.clear();
 
-    std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
-    std::string src0 = "(__ubuf__ " + src0DtypeStr + "*)" + s0Var;
-    std::string src1 = "(__ubuf__ " + src1DtypeStr + "*)" + s1Var;
+    std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + param.dVar;
+    std::string src0 = "(__ubuf__ " + src0DtypeStr + "*)" + param.s0Var;
+    std::string src1 = "(__ubuf__ " + src1DtypeStr + "*)" + param.s1Var;
     paramList.emplace_back(dst);
     paramList.emplace_back(src0);
     paramList.emplace_back(src1);
@@ -464,8 +456,7 @@ std::string CodeGenOpCloudNPU::PrintGatherDynamicUnaligned(const PrintGatherPara
     }
 
     std::string tiloOpCallParam = JoinString(paramList, ", ");
-    os << tileOpName.c_str() << "_<" << templateParam << ">"
-       << "(" << tiloOpCallParam << ");\n";
+    os << tileOpName.c_str() << "_<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
 
     return os.str();
 }
@@ -1028,7 +1019,8 @@ std::string CodeGenOpCloudNPU::GenPoolOp() const {
     return oss.str();
 }
 
-CodeGenOpCloudNPU::WhereParam CodeGenOpCloudNPU::prepareWhereParam() const {
+void CodeGenOpCloudNPU::GetVarAndTypeParam(
+    std::vector<std::string> &varExpr, std::vector<std::string> &dataTypeExpr) const {
     std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::resIdx)]);
     std::string castVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::castIdx)]);
     std::string cmpVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::cmpIdx)]);
@@ -1037,15 +1029,7 @@ CodeGenOpCloudNPU::WhereParam CodeGenOpCloudNPU::prepareWhereParam() const {
     std::string inputVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::inputTempIdx)]);
     std::string outputVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::outputTmpIdx)]);
     std::string condVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::condIdx)]);
-    std::vector<std::string> varExpr = {dstVar, castVar, cmpVar, vcmpVar, startVar, inputVar, outputVar, condVar};
-
-    std::vector dstShape = this->rawShape[ToUnderlying(WhereOpIdx::resIdx)];
-    std::vector ConditionShape = this->rawShape[ToUnderlying(WhereOpIdx::condIdx)];
-    std::vector src0Shape = this->rawShape[ToUnderlying(WhereOpIdx::src0Idx)];
-    std::vector<int64_t> ds = NormalizeShape(dstShape, SHAPE_DIM4);
-    std::vector<int64_t> c0s = NormalizeShape(ConditionShape, SHAPE_DIM4);
-    std::vector<int64_t> s0s = NormalizeShape(src0Shape, SHAPE_DIM4);
-
+    varExpr = {dstVar, castVar, cmpVar, vcmpVar, startVar, inputVar, outputVar, condVar};
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::resIdx)]);
     std::string castDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::castIdx)]);
     std::string cmpDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::cmpIdx)]);
@@ -1054,11 +1038,19 @@ CodeGenOpCloudNPU::WhereParam CodeGenOpCloudNPU::prepareWhereParam() const {
     std::string inputTmpDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::inputTempIdx)]);
     std::string outputTmpDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::outputTmpIdx)]);
     std::string condDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::condIdx)]);
-    std::vector<std::string> dataTypeExpr = {dstDtypeStr, castDtypeStr, cmpDtypeStr, vcmpDtypeStr, startUBDtypeStr,
-        inputTmpDtypeStr, outputTmpDtypeStr, condDtypeStr};
+    dataTypeExpr = {dstDtypeStr, castDtypeStr, cmpDtypeStr, vcmpDtypeStr, startUBDtypeStr, inputTmpDtypeStr,
+        outputTmpDtypeStr, condDtypeStr};
+}
 
+CodeGenOpCloudNPU::WhereParam CodeGenOpCloudNPU::PrepareWhereParam() const {
+    std::vector<std::string> varExpr;
+    std::vector<std::string> dataTypeExpr;
+    GetVarAndTypeParam(varExpr, dataTypeExpr);
+    std::vector<int64_t> ds = NormalizeShape(this->rawShape[ToUnderlying(WhereOpIdx::resIdx)], SHAPE_DIM4);
+    std::vector<int64_t> c0s = NormalizeShape(this->rawShape[ToUnderlying(WhereOpIdx::condIdx)], SHAPE_DIM4);
+    std::vector<int64_t> s0s = NormalizeShape(this->rawShape[ToUnderlying(WhereOpIdx::src0Idx)], SHAPE_DIM4);
     std::vector<std::string> templateList;
-    templateList.emplace_back(dstDtypeStr);
+    templateList.emplace_back(dataTypeExpr[static_cast<int>(WhereOpIdx::resIdx)]);
     templateList.emplace_back("/*DstRawShape*/");
     for (int i = 1; i < SHAPE_DIM4; ++i) {
         templateList.emplace_back(std::to_string(ds[i]));
@@ -1073,15 +1065,22 @@ CodeGenOpCloudNPU::WhereParam CodeGenOpCloudNPU::prepareWhereParam() const {
     }
 
     std::vector<std::string> paramList;
-    paramList.emplace_back("(__ubuf__ " + dstDtypeStr + "*)" + dstVar);
-    paramList.emplace_back("(__ubuf__ " + castDtypeStr + "*)" + castVar);
-    paramList.emplace_back("(__ubuf__ " + cmpDtypeStr + "*)" + cmpVar);
-    paramList.emplace_back("(__ubuf__ " + vcmpDtypeStr + "*)" + vcmpVar);
-    paramList.emplace_back("(__ubuf__ " + startUBDtypeStr + "*)" + startVar);
-    paramList.emplace_back("(__ubuf__ " + inputTmpDtypeStr + "*)" + inputVar);
-    paramList.emplace_back("(__ubuf__ " + outputTmpDtypeStr + "*)" + outputVar);
-    paramList.emplace_back("(__ubuf__ " + condDtypeStr + "*)" + condVar);
-
+    paramList.emplace_back("(__ubuf__ " + dataTypeExpr[static_cast<int>(WhereOpIdx::resIdx)] + "*)" +
+                           varExpr[static_cast<int>(WhereOpIdx::resIdx)]);
+    paramList.emplace_back("(__ubuf__ " + dataTypeExpr[static_cast<int>(WhereOpIdx::castIdx)] + "*)" +
+                           varExpr[static_cast<int>(WhereOpIdx::castIdx)]);
+    paramList.emplace_back("(__ubuf__ " + dataTypeExpr[static_cast<int>(WhereOpIdx::cmpIdx)] + "*)" +
+                           varExpr[static_cast<int>(WhereOpIdx::cmpIdx)]);
+    paramList.emplace_back("(__ubuf__ " + dataTypeExpr[static_cast<int>(WhereOpIdx::vcmpResIdx)] + "*)" +
+                           varExpr[static_cast<int>(WhereOpIdx::vcmpResIdx)]);
+    paramList.emplace_back("(__ubuf__ " + dataTypeExpr[static_cast<int>(WhereOpIdx::startUBIdx)] + "*)" +
+                           varExpr[static_cast<int>(WhereOpIdx::startUBIdx)]);
+    paramList.emplace_back("(__ubuf__ " + dataTypeExpr[static_cast<int>(WhereOpIdx::inputTempIdx)] + "*)" +
+                           varExpr[static_cast<int>(WhereOpIdx::inputTempIdx)]);
+    paramList.emplace_back("(__ubuf__ " + dataTypeExpr[static_cast<int>(WhereOpIdx::outputTmpIdx)] + "*)" +
+                           varExpr[static_cast<int>(WhereOpIdx::outputTmpIdx)]);
+    paramList.emplace_back("(__ubuf__ " + dataTypeExpr[static_cast<int>(WhereOpIdx::condIdx)] + "*)" +
+                           varExpr[static_cast<int>(WhereOpIdx::condIdx)]);
     std::vector<std::string> dynParamList;
     auto dynSrcShape = dynamicValidShape[ToUnderlying(WhereOpIdx::resIdx)];
     FillIntVecWithDummyInHead<SymbolicScalar>(
@@ -1089,7 +1088,6 @@ CodeGenOpCloudNPU::WhereParam CodeGenOpCloudNPU::prepareWhereParam() const {
     for (int i = 0; i < SHAPE_DIM4; i++) {
         dynParamList.emplace_back(dynSrcShape[i].Dump());
     }
-
     CodeGenOpCloudNPU::WhereParam param{templateList, paramList, dynParamList, varExpr, dataTypeExpr};
     return param;
 }
@@ -1173,7 +1171,7 @@ std::string CodeGenOpCloudNPU::printWhereOp(const WhereParam &param) const {
     }
 }
 std::string CodeGenOpCloudNPU::GenWhereOp() const {
-    CodeGenOpCloudNPU::WhereParam param = prepareWhereParam();
+    CodeGenOpCloudNPU::WhereParam param = PrepareWhereParam();
     return printWhereOp(param);
 }
 

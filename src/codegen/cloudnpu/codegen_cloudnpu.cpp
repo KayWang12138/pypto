@@ -124,7 +124,11 @@ std::string CodeGenCloudNPU::GenLimitValue(bool hasNan, bool hasPosInf, bool has
     }
     return define.str();
 }
-
+void UpdateSpecialValue(CodeGenOpCloudNPU &cop, bool &hasNan, bool &hasPosInf, bool &hasNegInf) {
+    hasNan |= cop.hasNan;
+    hasPosInf |= cop.hasPosInf;
+    hasNegInf |= cop.hasNegInf;
+}
 std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) const {
     OperationsViewer operationList = subFunc.Operations(false);
     if (operationList.IsEmpty()) {
@@ -139,9 +143,7 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
     std::string tileOpSourceRegion;
     auto locToOffsetMap = GenRealizeIdMap(subFunc.GetParameter());
 
-    bool hasNan{false};
-    bool hasPosInf{false};
-    bool hasNegInf{false};
+    bool hasNan{false}, hasPosInf{false}, hasNegInf{false};
     for (const auto &op : operationList) {
         ALOG_INFO_F(
             "======================== Op CodeGenNPU Start ========================\nGen OP IS: %s", op.Dump().c_str());
@@ -160,10 +162,7 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
             break;
         }
         // update hasNan, hasPosInf, hasNegInf
-        hasNan |= cop.hasNan;
-        hasPosInf |= cop.hasPosInf;
-        hasNegInf |= cop.hasNegInf;
-
+        UpdateSpecialValue(cop, hasNan, hasPosInf, hasNegInf);
         cop.UpdateTileTensorInfo();
         std::string tileOpSourceCode = cop.GenOpCode();
         ASSERT(tileOpSourceCode.find("CG_ERROR") == tileOpSourceCode.npos) << "gen op invalid" << op.Dump();
@@ -182,12 +181,9 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
         ALOG_INFO_F("------------------------ Op CodeGenNPU Finish -----------------------");
     }
 
-    std::string limitValue = GenLimitValue(hasNan, hasPosInf, hasNegInf);
-    std::string dynParamDef = GenDynParamForExpr(subFunc);
-    std::string usingType = symbolMgr.GenUsingList();
-    std::string tileTensorDef = symbolMgr.GenTileTensorDefList();
     std::ostringstream oss;
-    oss << limitValue << allocSourceRegion << dynParamDef << usingType << tileTensorDef << tileOpSourceRegion;
+    oss << GenLimitValue(hasNan, hasPosInf, hasNegInf) << allocSourceRegion << GenDynParamForExpr(subFunc)
+        << symbolMgr.GenUsingList() << symbolMgr.GenTileTensorDefList() << tileOpSourceRegion;
     std::string programCode = oss.str();
     return programCode;
 }

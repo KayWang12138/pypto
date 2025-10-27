@@ -141,7 +141,8 @@ public:
         std::vector<std::string> varExpr;
         std::vector<std::string> dataTypeExpr;
     };
-    WhereParam prepareWhereParam() const;
+    WhereParam PrepareWhereParam() const;
+    void GetVarAndTypeParam(std::vector<std::string> &varExpr, std::vector<std::string> &dataTypeExpr) const;
     std::string GenWhereOp() const;
     std::string printWhereOp(const WhereParam &param) const;
 

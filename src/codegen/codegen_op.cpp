@@ -111,6 +111,35 @@ void CodeGenOp::UpdateOffsetForOutput(const Operation &oper, const LogicalTensor
     UpdateOffsetValueForGM(attr->GetCopyOutAttr().second, operandIdx);
 }
 
+void CodeGenOp::CheckScaleValue(const npu::tile_fwk::Operation &ops) {
+    auto checkValue = [&](float value) {
+        if (std::isnan(value)) {
+            hasNan = true;
+        }
+        if (std::isinf(value)) {
+            if (value > 0) {
+                hasPosInf = true;
+            } else {
+                hasNegInf = true;
+            }
+        }
+    };
+
+    if (ops.HasAttr(OpAttributeKey::scalar)) {
+        extOperandVal = ops.GetElementAttribute(OpAttributeKey::scalar);
+        float value = extOperandVal.Cast<float>();
+        checkValue(value);
+    }
+    if (opAttrs.count(OpAttributeKey::dynScalar)) {
+        extOperandValSecond = ops.GetElementAttribute(OpAttributeKey::dynScalar);
+        auto scalar = opAttrs.at(OpAttributeKey::dynScalar);
+        if (scalar.Type() == typeid(float)) {
+            float value = extOperandValSecond.Cast<float>();
+            checkValue(value);
+        }
+    }
+}
+
 bool CodeGenOp::Init(const npu::tile_fwk::Operation &ops) {
     ASSERT(ops.iOperand.size() + ops.oOperand.size() <= MAX_OPERANDS)
         << "can not support ops.iOperand.size: " << ops.iOperand.size()
@@ -152,33 +181,7 @@ bool CodeGenOp::Init(const npu::tile_fwk::Operation &ops) {
 
     GetGmParamIdx(ops);
     syncQueue = ops.syncQueue_;
-
-    auto checkValue = [&](float value) {
-        if (std::isnan(value)) {
-            hasNan = true;
-        }
-        if (std::isinf(value)) {
-            if (value > 0) {
-                hasPosInf = true;
-            } else {
-                hasNegInf = true;
-            }
-        }
-    };
-
-    if (ops.HasAttr(OpAttributeKey::scalar)) {
-        extOperandVal = ops.GetElementAttribute(OpAttributeKey::scalar);
-        float value = extOperandVal.Cast<float>();
-        checkValue(value);
-    }
-    if (opAttrs.count(OpAttributeKey::dynScalar)) {
-        extOperandValSecond = ops.GetElementAttribute(OpAttributeKey::dynScalar);
-        auto scalar = opAttrs.at(OpAttributeKey::dynScalar);
-        if (scalar.Type() == typeid(float)) {
-            float value = extOperandValSecond.Cast<float>();
-            checkValue(value);
-        }
-    }
+    CheckScaleValue(ops);
     UpdateOpAttribute(ops);
 
     return true;
@@ -268,7 +271,6 @@ void CodeGenOp::ConvertAttribute(const Operation &operation) {
     ASSERT(operation.iOperand.size() + operation.oOperand.size() <= MAX_OPERANDS)
         << "can not support operation.iOperand.size: " << operation.iOperand.size()
         << ", operation.oOperand.size: " << operation.oOperand.size();
-    // ASSERT(operation.oOperand.size() == 1) << "can not support multi output";
     if (opCode == Opcode::OP_CONV || opCode == Opcode::OP_CONV_ADD) {
         std::vector<std::string> intAttrStrList{
             ConvOpAttributeKey::cin,

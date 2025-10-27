@@ -151,6 +151,7 @@ private:
     void UpdateOffsetForInput(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx);
     void UpdateOffsetForOutput(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx);
     void UpdateOffsetValueForGM(const std::vector<OpImmediate> &offsets, int operandIdx);
+    void CheckScaleValue(const npu::tile_fwk::Operation &ops);
     void UpdateOpAttribute(const npu::tile_fwk::Operation &ops);
 };
 } // namespace npu::tile_fwk
