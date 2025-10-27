@@ -61,14 +61,15 @@ Status ProcessRegCopy(const Operation &op, const Function &function, bool &needT
         auto consumerOps = function.FindConsumers(op);
         /* register copy 一定有后继op*/
         if (consumerOps.empty()) {
-            ALOG_ERROR_F("[RemoveRedundantOp] OP_REG_COPY[%d]'s output must have consumer", op.opmagic);
+            APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", 
+            "OP_REG_COPY[%d]'s output is empty; OP_REG_COPY[%d]'s output must have consumer.", op.opmagic, op.opmagic);
             return FAILED;
         }
         for (auto &consumerOp : consumerOps) {
             consumerOp->ReplaceInput(regCopyIn, regCopyOut);
         }
         needToDelete = true;
-        ALOG_DEBUG_F("[RemoveRedundantOp] Delete Redundant OP_REGISTER_COPY opmagic: %d", op.opmagic);
+        APASS_LOG_DEBUG_F("RemoveRedundantOp", "Operation", "Delete Redundant OP_REGISTER_COPY opmagic: %d.", op.opmagic);
     }
     return SUCCESS;
 }
@@ -88,32 +89,33 @@ Status ProcessAssembleDDR(const Operation &op, const LogicalTensorPtr &assembleI
             consumerOp->ReplaceInput(assembleOut, assembleIn);
         }
         needToDelete = true;
-        ALOG_DEBUG_F("[RemoveRedundantOp] Delete Redundant OP_ASSEMBLE on DDR opmagic: %d", op.opmagic);
+        APASS_LOG_DEBUG_F("RemoveRedundantOp", "Operation", "Delete Redundant OP_ASSEMBLE on DDR opmagic: %d.", op.opmagic);
         return SUCCESS;
     }
     /* DDR --> Assemble --> OUTCAST */
     if (assembleOut->nodetype != NodeType::OUTCAST || !function.IsFromOutCast(assembleOut)) {
-        ALOG_ERROR_F("[RemoveRedundantOp] OP_ASSEMBLE[%d]'s output has no consumer but is not outcast", op.opmagic);
+        APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", 
+        "OP_ASSEMBLE[%d]'s output has no consumer but is not outcast; Please check if the OP_ASSEMBLE[%d]'s output is outcast.", op.opmagic, op.opmagic);
         return FAILED;
     }
-    ALOG_DEBUG_F("[RemoveRedundantOp] OP_ASSEMBLE has no consumers, opmagic: %d", op.opmagic);
+    APASS_LOG_DEBUG_F("RemoveRedundantOp", "Operation", "OP_ASSEMBLE has no consumers, opmagic: %d.", op.opmagic);
     auto childOpsBackup = assembleIn->GetConsumers();
     for (auto &childOp : childOpsBackup) {
         if (childOp->GetOpMagic() == op.GetOpMagic()) {
             continue;
         }
         childOp->ReplaceInput(assembleOut, assembleIn);
-        ALOG_DEBUG_F("Repalce input of %s opmagic: %d, tensor %d --> tensor %d", childOp->GetOpcodeStr().c_str(),
-            childOp->GetOpMagic(), assembleIn->magic, assembleOut->magic);
+        APASS_LOG_DEBUG_F("RemoveRedundantOp", "Tensor", "Repalce input of %s opmagic: %d, tensor %d --> tensor %d.", 
+        childOp->GetOpcodeStr().c_str(), childOp->GetOpMagic(), assembleIn->magic, assembleOut->magic);
     }
     auto producerOps = op.ProducerOps();
     for (auto &producerOp : producerOps) {
         producerOp->ReplaceOutput(assembleOut, assembleIn);
-        ALOG_DEBUG_F("Repalce output of %s opmagic: %d, tensor %d --> tensor %d",
+        APASS_LOG_DEBUG_F("RemoveRedundantOp", "Tensor", "Repalce output of %s opmagic: %d, tensor %d --> tensor %d",
             producerOp->GetOpcodeStr().c_str(), producerOp->GetOpMagic(), assembleIn->magic, assembleOut->magic);
     }
     needToDelete = true;
-    ALOG_DEBUG_F("[RemoveRedundantOp] Delete Redundant OP_ASSEMBLE on DDR opmagic: %d", op.opmagic);
+    APASS_LOG_DEBUG_F("RemoveRedundantOp", "Operation", "Delete Redundant OP_ASSEMBLE on DDR opmagic: %d.", op.opmagic);
     return SUCCESS;
 }
 
@@ -125,14 +127,15 @@ Status ProcessAssembleUB(const Operation &op, const LogicalTensorPtr &ASSEMBLE_i
     auto consumerOps = function.FindConsumers(op);
     /* UB 上的 ASSEMBLE 一定有后继op*/
     if (consumerOps.empty()) {
-        ALOG_ERROR_F("[RemoveRedundantOp] OP_ASSEMBLE[%d]'s output for ub must have consumer", op.opmagic);
+        APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", 
+        "OP_ASSEMBLE[%d]'s output is empty; OP_ASSEMBLE[%d]'s output for ub must have consumer.", op.opmagic, op.opmagic);
         return FAILED;
     }
     for (auto &consumerOp : consumerOps) {
         consumerOp->ReplaceInput(ASSEMBLE_in, ASSEMBLE_out);
     }
     needToDelete = true;
-    ALOG_DEBUG_F("[RemoveRedundantOp] Delete Redundant OP_ASSEMBLE on UB opmagic: %d", op.opmagic);
+    APASS_LOG_DEBUG_F("RemoveRedundantOp", "Operation", "Delete Redundant OP_ASSEMBLE on UB opmagic: %d", op.opmagic);
     return SUCCESS;
 }
 
@@ -147,12 +150,12 @@ Status ProcessAssemble(const Operation &op, Function &function, bool &needToDele
     }
     if (ASSEMBLE_in->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
         ProcessAssembleDDR(op, ASSEMBLE_in, ASSEMBLE_out, function, needToDelete)) {
-        ALOG_ERROR_F("[RemoveRedundantOp] ProcessAssembleDDR failed!");
+        APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", "ProcessAssembleDDR failed.");
         return FAILED;
     }
     if (ASSEMBLE_in->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
         ProcessAssembleUB(op, ASSEMBLE_in, ASSEMBLE_out, function, needToDelete)) {
-        ALOG_ERROR_F("[RemoveRedundantOp] ProcessAssembleUB failed!");
+        APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", "ProcessAssembleUB failed.");
         return FAILED;
     }
     return SUCCESS;
@@ -174,7 +177,7 @@ Status ProcessView(const Operation &op, Function &function, bool &needToDelete) 
             }
         }
         needToDelete = true;
-        ALOG_DEBUG_F("[RemoveRedundantOp] Delete Redundant OP_VIEW opmagic: %d", op.opmagic);
+        APASS_LOG_DEBUG_F("RemoveRedundantOp", "Operation", "Delete Redundant OP_VIEW opmagic: %d", op.opmagic);
     }
     if (out->GetConsumers().size() == 1) {
         auto childOp = *(out->GetConsumers().begin());
@@ -203,7 +206,8 @@ inputTensor    --> child2
 */
 Status ProcessExpand(const Operation &op, bool &needToDelete) {
     if (op.GetIOperands().size() != 1 || op.GetOOperands().size() != 1) {
-        ALOG_ERROR_F("[RemoveRedundantOp] Expand[%d] has incorrect input/output num!", op.opmagic);
+        APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", 
+        "Expand[%d] has incorrect input/output num; Please check the Expand[%d]'s input/output num.", op.opmagic, op.opmagic);
         return FAILED;
     }
     needToDelete = false;
@@ -215,16 +219,16 @@ Status ProcessExpand(const Operation &op, bool &needToDelete) {
 }
 
 Status RemoveRedundantOp::RunOnFunction(Function &function) {
-    ALOG_INFO_F("===> Start RemoveRedundantOp");
+    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> Start RemoveRedundantOp");
     if (DeleteRedundantOps(function) != SUCCESS) {
-        ALOG_ERROR_F("[RemoveRedundantOp] DeleteRedundantOps failed!");
+        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "DeleteRedundantOps failed.");
         return FAILED;
     }
     if (RemoveDummyExpand(function) != SUCCESS) {
-        ALOG_ERROR_F("[RemoveRedundantOp] RemoveDummyExpand failed!");
+        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "RemoveDummyExpand failed.");
         return FAILED;
     }
-    ALOG_INFO_F("===> End RemoveRedundantOp");
+    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> End RemoveRedundantOp");
     return SUCCESS;
 }
 
@@ -244,12 +248,12 @@ Status RemoveRedundantOp::RemoveDummyExpand(Function &function) const {
     for (auto &op: function.Operations()) {
         if (op.GetOpcode() == Opcode::OP_EXPAND) {
             if (ProcessExpand(op, needToDelete) != SUCCESS) {
-                ALOG_ERROR_F("[RemoveRedundantOp] ProcessExpand failed!");
+                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "ProcessExpand failed.");
                 return FAILED;
             }
             if (needToDelete) {
                 dummyOp.push_back(&op);
-                ALOG_INFO_F("Delete OP_EXPAND opmagic: %d.", op.opmagic);
+                APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Delete OP_EXPAND opmagic: %d.", op.opmagic);
             }
         }
     }
@@ -258,7 +262,8 @@ Status RemoveRedundantOp::RemoveDummyExpand(Function &function) const {
     }
     for (auto op : dummyOp) {
         if (op->IsDeleted()) {
-            ALOG_ERROR_F("[RemoveRedundantOp] Found invalid op[%d]!", op->opmagic);
+            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", 
+            "Found invalid op[%d]; Please check the op[%d] is not deleted (RemoveDummyExpand).", op->opmagic, op->opmagic);
             return FAILED;
         }
         op->SetAsDeleted();
@@ -273,21 +278,21 @@ Status RemoveRedundantOp::NeedToDelete(const Operation &op, Function &function, 
     switch (opcode) {
         case Opcode::OP_REGISTER_COPY: {
             if (ProcessRegCopy(op, function, needToDelete)) {
-                ALOG_ERROR_F("[RemoveRedundantOp] ProcessRegCopy failed!");
+                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "ProcessRegCopy failed.");
                 return FAILED;
             }
             break;
         }
         case Opcode::OP_ASSEMBLE: {
             if (ProcessAssemble(op, function, needToDelete)) {
-                ALOG_ERROR_F("[RemoveRedundantOp] ProcessAssemble failed!");
+                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "ProcessAssemble failed.");
                 return FAILED;
             }
             break;
         }
         case Opcode::OP_VIEW: {
             if (ProcessView(op, function, needToDelete)) {
-                ALOG_ERROR_F("[RemoveRedundantOp] ProcessView failed!");
+                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "ProcessView failed.");
                 return FAILED;
             }
             break;
@@ -303,7 +308,7 @@ Status RemoveRedundantOp::DeleteRedundantOps(Function &function) const {
     bool needToDelete;
     for (auto &op : function.Operations()) {
         if (NeedToDelete(op, function, needToDelete) != SUCCESS) {
-            ALOG_ERROR_F("[RemoveRedundantOp] NeedToDelete failed!");
+            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "NeedToDelete failed.");
             return FAILED;
         }
         if (needToDelete) {
@@ -316,7 +321,8 @@ Status RemoveRedundantOp::DeleteRedundantOps(Function &function) const {
     }
     for (auto op : redundantOp) {
         if (op->IsDeleted()) {
-            ALOG_ERROR_F("[RemoveRedundantOp] Found invalid op[%d]!", op->opmagic);
+            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", 
+            "Found invalid op[%d]; Please check the op[%d] is not deleted (DeleteRedundantOps).", op->opmagic, op->opmagic);
             return FAILED;
         }
         op->SetAsDeleted();

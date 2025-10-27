@@ -38,7 +38,8 @@ Status RemoveRedundantOpChecker::PreCheckAssemble(const Operation &op, const Log
         }
     }
     if (assembleRemoveNum > 1 && otherOpNum > 0) {
-        ALOG_ERROR_F("More than one assemble ddr op without consumer!");
+        APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", 
+        "More than one assemble ddr op without consumer; Please check the num of assemble ddr op without consumer.");
         return FAILED;
     }
     return SUCCESS;
@@ -47,11 +48,15 @@ Status RemoveRedundantOpChecker::PreCheckAssemble(const Operation &op, const Log
 Status RemoveRedundantOpChecker::PreCheckView(Function &function, const Operation &op, const LogicalTensorPtr &in) {
     auto out = op.oOperand.front();
     if (in->shape == out->shape && op.ConsumerOps().empty() && in->GetConsumers().size() > 1) {
-        ALOG_ERROR_F("There is another op consumes the input of a view op without consumer!");
+        APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", 
+        "There is another op consumes the input of a view op[%d] without consumer; Please check view op[%d].", 
+        op.GetOpMagic(), op.GetOpMagic());
         return FAILED;
     }
     if (function.IsFromOutCast(out)) {
-        ALOG_ERROR_F("The output of the op is an outCast!");
+        APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", 
+        "The output of the op[%d] is an outCast; Please check the type of output from the op[%d].", 
+        op.GetOpMagic(), op.GetOpMagic());
         return FAILED;
     }
     return SUCCESS;
@@ -61,7 +66,7 @@ Status RemoveRedundantOpChecker::ProcessPreCheck(Function &function, const Opera
     if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
         auto assemble_in = op.iOperand.front();
         if (PreCheckAssemble(op, assemble_in) != SUCCESS) {
-            ALOG_ERROR_F("PreCheck for assemble op[%d] failed!", op.GetOpMagic());
+            APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", "PreCheck for assemble op[%d] failed.", op.GetOpMagic());
             return FAILED;
         }
         return SUCCESS;
@@ -69,7 +74,7 @@ Status RemoveRedundantOpChecker::ProcessPreCheck(Function &function, const Opera
     if (op.GetOpcode() == Opcode::OP_VIEW) {
         auto view_in = op.iOperand.front();
         if (PreCheckView(function, op, view_in) != SUCCESS) {
-            ALOG_ERROR_F("PreCheck for view op[%d] failed!", op.GetOpMagic());
+            APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", "PreCheck for view op[%d] failed.", op.GetOpMagic());
             return FAILED;
         }  
     }
@@ -81,18 +86,24 @@ Status RemoveRedundantOpChecker::PostCheckAssemble(const Operation &op) {
     auto assemble_out = op.oOperand.front();
     auto parentOp = *assemble_in->GetProducers().begin();
     if (parentOp == nullptr) {
-        ALOG_ERROR_F("The input of assemble [%d] has no producer!", op.GetOpMagic());
+        APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", 
+        "The input of assemble [%d] has no producer; Please check the input of assemble [%d] to ensure that it has producers.", 
+        op.GetOpMagic(), op.GetOpMagic());
         return FAILED;
     }
     if (assemble_in->shape == assemble_out->shape) {
         if (assemble_in->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
             assemble_out->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-            ALOG_ERROR_F("PostCheck for assembleDDR (both input and output are memorytype DDR) op[%d] failed. Input and output has the same shape!", op.GetOpMagic());
+            APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", 
+            "PostCheck for assembleDDR (both input and output are memorytype DDR) op[%d] failed and Input and output has the same shape; Please check assembleDDR op[%d].", 
+            op.GetOpMagic(), op.GetOpMagic());
             return FAILED;
         }
         if (assemble_in->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
             assemble_out->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
-            ALOG_ERROR_F("PostCheck for assembleUB (both input and output are memorytype UB) op[%d] failed. Input and output has the same shape!", op.GetOpMagic());
+            APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", 
+            "PostCheck for assembleUB (both input and output are memorytype UB) op[%d] failed. Input and output has the same shape; Please check assembleUB op[%d].", 
+            op.GetOpMagic(), op.GetOpMagic());
             return FAILED;
         }
     }
@@ -105,7 +116,9 @@ Status RemoveRedundantOpChecker::PostCheckView(const Operation &op) {
     auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
     if (viewOpAttribute != nullptr && viewOpAttribute->GetToDynValidShape().empty() &&
         view_in->shape == view_out->shape && view_in->GetMemoryTypeOriginal() == view_out->GetMemoryTypeOriginal()) {
-        ALOG_ERROR_F("PostCheck for view op[%d] failed, DynValidShape is empty with the same shape and memory type!", op.GetOpMagic());
+        APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", 
+        "PostCheck for view op[%d] failed, DynValidShape is empty with the same shape and memory type; Please check view op[%d].", 
+        op.GetOpMagic(), op.GetOpMagic());
         return FAILED;
     }
     if (view_out->GetConsumers().size() != 1) {
@@ -113,11 +126,13 @@ Status RemoveRedundantOpChecker::PostCheckView(const Operation &op) {
     }
     auto childOp = *(view_out->GetConsumers().begin());
     if (childOp == nullptr) {
-        ALOG_ERROR_F("Found null childOp of op[%d]", op.GetOpMagic());
+        APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", 
+        "Found null childOp of op[%d]; Please check if the output consumers of the op[%d] are empty.", op.GetOpMagic(), op.GetOpMagic());
         return FAILED;
     }
     if (childOp->GetOpcode() == Opcode::OP_COMM_WAIT_FLAG) {
-        ALOG_ERROR_F("View op[%d] has only one commit wait child!", op.GetOpMagic());
+        APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", "View op[%d] has only one commit wait child; Please check view op[%d].", 
+        op.GetOpMagic(), op.GetOpMagic());
         return FAILED;
     }
     return SUCCESS;
@@ -127,7 +142,8 @@ Status RemoveRedundantOpChecker::PostCheckRegCopy(const Operation &op) {
     auto regcopy_in = op.iOperand.front();
     auto regcopy_out = op.oOperand.front();
     if (regcopy_in->shape == regcopy_out->shape && regcopy_in->GetMemoryTypeOriginal() == regcopy_out->GetMemoryTypeOriginal()) {
-        ALOG_ERROR_F("PostCheck for regcopy op[%d] failed, the shape of input equals to the output!", op.GetOpMagic());
+        APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", "PostCheck for regcopy op[%d] failed; The shape of input equals to the output.", 
+        op.GetOpMagic());
         return FAILED;
     }
     return SUCCESS;
@@ -140,7 +156,8 @@ Status RemoveRedundantOpChecker::PostCheckCopyIn(const Operation &op) {
         bool isRedundant = true;
         for (auto &producerOp : op.ProducerOps()) {
             if (producerOp == nullptr) {
-                ALOG_ERROR_F("Found null producer of op[%d]", op.GetOpMagic());
+                APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", 
+                "Found null producer of op[%d]; Please check the producers of op[%d].", op.GetOpMagic(), op.GetOpMagic());
                 return FAILED;
             }
             if (producerOp->GetOpcode() != Opcode::OP_VIEW) {
@@ -149,7 +166,9 @@ Status RemoveRedundantOpChecker::PostCheckCopyIn(const Operation &op) {
             }
         }
         if (isRedundant) {
-            ALOG_ERROR_F("PostCheck for copyin op[%d] failed, the producers of the op are view!", op.GetOpMagic());
+            APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", 
+            "PostCheck for copyin op[%d] failed, the producers of the op are view; Please check copyin op[%d].", 
+            op.GetOpMagic(), op.GetOpMagic());
             return FAILED;
         }
     }
@@ -160,7 +179,9 @@ Status RemoveRedundantOpChecker::PostCheckExpand(const Operation &op) {
     auto expand_in = op.iOperand.front();
     auto expand_out = op.oOperand.front();
     if (expand_in->shape == expand_out->shape) {
-        ALOG_ERROR_F("PostCheck for expand op[%d] failed, the shape of input equals to the output!", op.GetOpMagic());
+        APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", 
+        "PostCheck for expand op[%d] failed, the shape of input equals to the output; Please check expand op[%d].", 
+        op.GetOpMagic(), op.GetOpMagic());
         return FAILED;
     }
     return SUCCESS;
@@ -169,35 +190,35 @@ Status RemoveRedundantOpChecker::PostCheckExpand(const Operation &op) {
 Status RemoveRedundantOpChecker::ProcessPostCheck(const Operation &op) {
     if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
         if (PostCheckAssemble(op) != SUCCESS) {
-            ALOG_ERROR_F("PostCheck for Assemble failed!");
+            APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", "PostCheck for Assemble failed.");
             return FAILED;
         }
         return SUCCESS;
     }
     if (op.GetOpcode() == Opcode::OP_VIEW) {
         if (PostCheckView(op) != SUCCESS) {
-            ALOG_ERROR_F("PostCheck for View failed!");
+            APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", "PostCheck for View failed.");
             return FAILED;
         }
         return SUCCESS;
     }
     if (op.GetOpcode() == Opcode::OP_REGISTER_COPY) {
         if (PostCheckRegCopy(op) != SUCCESS) {
-            ALOG_ERROR_F("PostCheck for RegCopy failed!");
+            APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", "PostCheck for RegCopy failed.");
             return FAILED;
         }
         return SUCCESS;
     }
     if (op.GetOpcode() == Opcode::OP_COPY_IN) {
         if (PostCheckCopyIn(op) != SUCCESS) {
-            ALOG_ERROR_F("PostCheck for CopyIn failed!");
+            APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", "PostCheck for CopyIn failed.");
             return FAILED;
         }
         return SUCCESS;
     }
     if (op.GetOpcode() == Opcode::OP_EXPAND) {
         if (PostCheckExpand(op) != SUCCESS) {
-            ALOG_ERROR_F("PostCheck for Expand failed!");
+            APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", "PostCheck for Expand failed.");
             return FAILED;
         }
     }
@@ -205,18 +226,18 @@ Status RemoveRedundantOpChecker::ProcessPostCheck(const Operation &op) {
 }
 
 Status RemoveRedundantOpChecker::DoPreCheck(Function &function) {
-    ALOG_INFO_F("PreCheck for RemoveRedundantOp");
+    APASS_LOG_INFO_F("RemoveRedundantOp", "Operation", "PreCheck for RemoveRedundantOp");
     if (CheckValidOp(function) != SUCCESS) {
-        ALOG_ERROR_F("Found invalid op in the function.");
+        APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", "Found invalid op in the function.");
         return FAILED;
     }
     if (CheckOpIOValid(function) != SUCCESS) {
-        ALOG_ERROR_F("Found invalid input/output from the function.");
+        APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", "Found invalid input/output from the function.");
         return FAILED;
     }
     for (auto &op : function.Operations()) {
         if (ProcessPreCheck(function, op) != SUCCESS) {
-            ALOG_ERROR_F("PreCheck for RemoveRedundantOp failed!");
+            APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", "PreCheck for RemoveRedundantOp failed.");
             return FAILED;
         }
     }
@@ -224,14 +245,14 @@ Status RemoveRedundantOpChecker::DoPreCheck(Function &function) {
 }
 
 Status RemoveRedundantOpChecker::DoPostCheck(Function &function) {
-    ALOG_INFO_F("PostCheck for RemoveRedundantOp");
+    APASS_LOG_INFO_F("RemoveRedundantOp", "Operation", "PostCheck for RemoveRedundantOp");
     if (CheckOpIOValid(function) != SUCCESS) {
-        ALOG_ERROR_F("Found invalid input/output in the function.");
+        APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", "Found invalid input/output in the function.");
         return FAILED;
     }
     for (auto &op : function.Operations()) {
         if (ProcessPostCheck(op) != SUCCESS) {
-            ALOG_ERROR_F("PostCheck for RemoveRedundantOp failed!");
+            APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", "PostCheck for RemoveRedundantOp failed.");
             return FAILED;
         }
     }
