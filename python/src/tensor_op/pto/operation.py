@@ -1278,3 +1278,31 @@ def view(input: Tensor, shape: List[int], offsets: Union[List[int], List[Symboli
         return pto_impl.view(input, shape, offsets)
     else:
         return pto_impl.view(input, shape, valid_shape, offsets)
+
+
+@op_wrapper
+def maximum(input: Tensor, other: Tensor) -> Tensor:
+    """
+    Computes the element-wise maximum of input and other.
+
+    Parameters
+    ----------
+    input : Tensor
+        The first input tensor.
+    other : Tensor 
+        The second input tensor.
+    
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise exponential.
+
+    Examples
+    --------
+    >>> a = pto.tensor([0, 2, 4])
+    >>> a = pto.tensor([3, 1, 3])
+
+    >>> pto.maximum(a, b)
+    tensor([3, 2, 4])
+    """
+    return pto_impl.maximum(input, other)

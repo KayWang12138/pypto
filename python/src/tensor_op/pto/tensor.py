@@ -232,5 +232,8 @@ class Tensor:
     def softmax(self, dim: int) -> 'Tensor':
         return pto.softmax(self, dim)   
 
+    def maximum(self, other: 'Tensor') -> 'Tensor':
+        return pto.maximum(self, other)
+
         
 tensor = Tensor
