@@ -563,7 +563,7 @@ template<typename T>
 struct VdupTrait {
     static constexpr bool isB8 = (std::is_same_v<T, int8_t> || std::is_same_v<T, uint8_t> || std::is_same_v<T, bool>);
 
-    using DupType = std::conditional_t<isB8, int16_t, T>;
+    using DupType = std::conditional_t<isB8, uint16_t, T>;
 
     TILEOP DupType DupValue(T value) {
         if constexpr (isB8) {
@@ -599,10 +599,11 @@ TILEOP void BatchVdup(__ubuf__ T *dst, __ubuf__ T *src, unsigned batchSize, unsi
     using DupType = typename VdupTrait<T>::DupType;
     auto dupDst = (__ubuf__ DupType *)dst;
     dupSize = VdupTrait<T>::DupSize(dupSize);
-    uint64_t shape1Repeat = static_cast<uint64_t>(dupSize * sizeof(T) / REPEAT_BYTE);
+    constexpr unsigned reptEleNum = REPEAT_BYTE / sizeof(DupType);
     constexpr unsigned dupDstStride = VdupTrait<T>::DupDstStride(dstStride);
+    unsigned dupRepeats = dupSize / reptEleNum;
 
-    if (shape1Repeat < 1) {
+    if (dupRepeats < 1) {
         // 16 1 -> 16 16
         SetContinuousMask(dupSize);
         for (int i = 0; i < batchSize; i++) {
@@ -617,10 +618,9 @@ TILEOP void BatchVdup(__ubuf__ T *dst, __ubuf__ T *src, unsigned batchSize, unsi
         set_vector_mask(-1, -1);
     } else {
         // 16 1 -> 16 64
-        constexpr unsigned reptEleNum = REPEAT_BYTE / sizeof(T);
-        uint64_t remainNum = static_cast<uint64_t>(dupSize % reptEleNum);
-        unsigned numLoop = shape1Repeat / REPEAT_MAX;
-        unsigned remainAfterLoop = shape1Repeat % REPEAT_MAX;
+        unsigned remainNum = dupSize % reptEleNum;
+        unsigned numLoop = dupRepeats / REPEAT_MAX;
+        unsigned remainAfterLoop = dupRepeats % REPEAT_MAX;
         for (int i = 0; i < batchSize; i++) {
             set_flag(PIPE_V, PIPE_S, EVENT_ID7);
             wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
@@ -630,17 +630,18 @@ TILEOP void BatchVdup(__ubuf__ T *dst, __ubuf__ T *src, unsigned batchSize, unsi
             wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
             if (numLoop) {
                 for (int j = 0; j < numLoop; j++) {
-                    vector_dup(dupDst + i * dupDstStride + j * reptEleNum * REPEAT_MAX, dupValue, REPEAT_MAX, 1, 1, 8, 0);
+                    vector_dup(dupDst + j * reptEleNum * REPEAT_MAX, dupValue, REPEAT_MAX, 1, 1, 8, 0);
                 }
             }
             if (remainAfterLoop) {
-                vector_dup(dupDst + i * dupDstStride + numLoop * reptEleNum * REPEAT_MAX, dupValue, remainAfterLoop, 1, 1, 8, 0);
+                vector_dup(dupDst + numLoop * reptEleNum * REPEAT_MAX, dupValue, remainAfterLoop, 1, 1, 8, 0);
             }
             if (remainNum) {
                 SetContinuousMask(remainNum);
-                vector_dup(dupDst + i * dupDstStride + shape1Repeat * reptEleNum, dupValue, 1, 1, 1, 8, 0);
+                vector_dup(dupDst + dupRepeats * reptEleNum, dupValue, 1, 1, 1, 8, 0);
                 set_vector_mask(-1, -1);
             }
+            dupDst += dupDstStride;
         }
     }
 }

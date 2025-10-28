@@ -2350,6 +2350,13 @@ Tensor TensorExpandOperation(Function &function, const LogicalTensorPtr &operand
     return result;
 }
 
+Tensor TensorJustNeedCopyOperation(Function &function, const LogicalTensorPtr &operand, const std::vector<int64_t> &dstShape,
+    const std::vector<SymbolicScalar> &validShape) {
+    auto result = std::make_shared<LogicalTensor>(function, operand->Datatype(), dstShape, validShape);
+    function.AddOperation(Opcode::OP_REGISTER_COPY, {operand}, {result});
+    return result;
+}
+
 Tensor Expand(const Tensor &self, const std::vector<int64_t> &dstShape, std::vector<SymbolicScalar> validShape) {
     DECLARE_TRACER();
 
@@ -2364,8 +2371,17 @@ Tensor Expand(const Tensor &self, const std::vector<int64_t> &dstShape, std::vec
             }
         }
     }
-
-    RETURN_CALL(ExpandOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), dstShape, validShape);
+    bool needExpand = false;
+    for (size_t i = 0; i < dstShape.size(); ++i) {
+        if (self.GetShape()[i] != dstShape[i]) {
+            needExpand = true;
+        }
+    }
+    if (needExpand) {
+        RETURN_CALL(ExpandOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), dstShape, validShape);
+    } else {
+        RETURN_CALL(JustNeedCopyOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), dstShape, validShape);
+    }
 }
 
 void TiledReduceExpandNew(Function &function, const TileShape &tileShape, const std::string &op,
