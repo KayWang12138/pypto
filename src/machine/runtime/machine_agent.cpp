@@ -23,7 +23,7 @@
 #include "interface/utils/common.h"
 #include "device_runner.h"
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
 #include "securec.h"
 #include "hccl/hcom.h"
 #include "kernel_tiling/kernel_tiling.h"
@@ -44,7 +44,7 @@ void MachineAgent::DumpData(const std::string &fileName,const char *data, size_t
 
 /* alloc workspace memory and prepare device task */
 void MachineAgent::AgentProc(DeviceAgentTask *task) {
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
 #endif
@@ -106,7 +106,7 @@ int MachineAgent::PrepareWorkSpace(DeviceAgentTask *task) {
     }
 
     uint8_t *workSpaceAddr = nullptr;
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     machine::GetRA()->AllocDevAddr(&workSpaceAddr, workSpaceSize);
     if (workSpaceAddr == nullptr) {
         std::cerr << "[DEVICE AGENT] Error: Failed to allocate workspace memory !" << std::endl;
@@ -120,7 +120,7 @@ int MachineAgent::PrepareWorkSpace(DeviceAgentTask *task) {
 }
 
 void PrepareDistTilingInfo(DeviceAgentTask *task, InvokeParaOffset &elm, std::vector<uint64_t> &invokeOffsetVec) {
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     if (elm.offset != elm.rawTensorOffset) {
         return;
     }
@@ -218,7 +218,7 @@ int MachineAgent::PrepareInvokeEntry(DeviceAgentTask *task) {
     uint8_t *invokeEntyDev = nullptr;
     uint8_t *invokeTensorsInfoDev = nullptr;
     uint8_t *invokeEntyDevOri = nullptr;
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     machine::GetRA()->AllocDevAddr(&invokeEntyDev, invokeOffsetVecSize);
     if (invokeEntyDev == nullptr) {
         std::cerr << "[DEVICE AGENT] Error: Failed to allocate memory for invokeEntyDev!" << std::endl;
@@ -241,7 +241,7 @@ int MachineAgent::PrepareInvokeEntry(DeviceAgentTask *task) {
     ALOG_INFO_F("PrepareInvokeEntry invokeEntyDev: %p, invokeTensorsInfoDev: %p", invokeEntyDev, invokeTensorsInfoDev);
     DumpData("invokeEntyDev.data", reinterpret_cast<const char *>(&invokeEntyDev), sizeof(uint8_t *));
     DumpData("invokeOffsetVec.data", reinterpret_cast<const char *>(invokeOffsetVec.data()), invokeOffsetVecSize);
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     machine::GetRA()->CopyToDev(
         invokeEntyDev, reinterpret_cast<uint8_t *>(invokeOffsetVec.data()), invokeOffsetVecSize);
     machine::GetRA()->CopyToDev(invokeTensorsInfoDev,
@@ -269,7 +269,7 @@ int MachineAgent::PrepareTopo(DeviceAgentTask *task) {
     CoreFunctionTopoCache *cacheTopo = cacheValue.topoCache;
     uint64_t coreFuncNum = cacheValue.header.coreFunctionNum + cacheValue.header.virtualFunctionNum;
     uint8_t *topoGmAddr = nullptr;
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     uint64_t allocSize = cacheTopo->dataSize + sizeof(uint64_t); // datasize字段头也一起加上
     machine::GetRA()->AllocDevAddr(&topoGmAddr, allocSize);
     if (topoGmAddr == nullptr) {
@@ -293,7 +293,7 @@ int MachineAgent::PrepareCoreFunctionBin(DeviceAgentTask *task) {
     CacheValue cacheValue = task->GetFuncCacheValue().value();
     uint64_t coreFuncNum = cacheValue.header.coreFunctionNum;
     uint8_t *binGmAddr = nullptr;
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     CoreFunctionBinCache *cacheBin = cacheValue.binCache;
     uint64_t allocSize = cacheBin->dataSize + sizeof(uint64_t); // datasize字段头也一起加上
     machine::GetRA()->AllocDevAddr(&binGmAddr, allocSize);
@@ -320,7 +320,7 @@ int MachineAgent::PrepareCoreFunctionBin(DeviceAgentTask *task) {
 int MachineAgent::PrepareReadyCoreFunction(DeviceAgentTask *task) {
     CacheValue cacheValue = task->GetFuncCacheValue().value();
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     machine::GetRA()->AllocDevAddr(&task->deviceInfo.readyAicQueElmGmAddr,
         cacheValue.header.coreFunctionNum * sizeof(uint64_t));
     machine::GetRA()->AllocDevAddr(&task->deviceInfo.readyAivQueElmGmAddr,
@@ -370,7 +370,7 @@ int MachineAgent::PrepareReadyCoreFunction(DeviceAgentTask *task) {
     return MACHINE_OK;
 }
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
 struct Mc2CommConfig {
     uint32_t version;
     uint32_t hcommCnt;
@@ -404,7 +404,7 @@ int MakeMc2TilingStruct(struct Mc2CommConfig &commConfig, std::string &groupName
 #endif
 
 int MachineAgent::PrepareHcclContext(DeviceAgentTask *task) {
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     ALOG_INFO_F("Comm groups size:[%zu].", task->compileInfo.commGroups.size());
     for (uint32_t groupIndex = 0; groupIndex < task->compileInfo.commGroups.size(); ++groupIndex) {
         auto groupName = task->compileInfo.commGroups[groupIndex];
@@ -441,7 +441,7 @@ int MachineAgent::PrepareHcclContext(DeviceAgentTask *task) {
 
 int MachineAgent::PrepareReadyState(DeviceAgentTask *task) {
     uint8_t *readyState = nullptr;
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     uint64_t allocSize = task->compileInfo.coreFunctionReadyState.size() * sizeof(CoreFunctionReadyState);
     machine::GetRA()->AllocDevAddr(&readyState, allocSize);
     if (readyState == nullptr) {
@@ -450,7 +450,7 @@ int MachineAgent::PrepareReadyState(DeviceAgentTask *task) {
     }
 #endif
     task->deviceInfo.readyStateGmAddr = readyState;
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     machine::GetRA()->CopyToDev(readyState,
         reinterpret_cast<uint8_t *>(task->compileInfo.coreFunctionReadyState.data()), allocSize);
 #endif
@@ -532,7 +532,7 @@ int MachineAgent::ConstructDeviceTask(DeviceAgentTask *task) {
     FillVirtualFunction(task); // add virtual subgraph
 
     uint8_t *coreFuncWsGmAddr = nullptr;
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     uint64_t allocSize = devInfo.coreFunctionWsAddr.size() * sizeof(CoreFunctionWsAddr);
     machine::GetRA()->AllocDevAddr(&coreFuncWsGmAddr, allocSize);
     if (coreFuncWsGmAddr == nullptr) {
@@ -542,14 +542,14 @@ int MachineAgent::ConstructDeviceTask(DeviceAgentTask *task) {
 #endif
     task->deviceInfo.coreFuncWsAddrGmAddr = coreFuncWsGmAddr;
     devTask.coreFuncData.coreFunctionWsAddr = reinterpret_cast<uint64_t>(coreFuncWsGmAddr);
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DumpData("coreFunctionWsAddr.data", reinterpret_cast<const char *>(devInfo.coreFunctionWsAddr.data()),
         allocSize);
     machine::GetRA()->CopyToDev(
         coreFuncWsGmAddr, reinterpret_cast<uint8_t *>(devInfo.coreFunctionWsAddr.data()), allocSize);
 #endif
     uint8_t *deviceTaskGmAddr = nullptr;
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     machine::GetRA()->AllocDevAddr(&deviceTaskGmAddr, sizeof(DeviceTask));
     if (deviceTaskGmAddr == nullptr) {
         std::cerr << "[DEVICE AGENT] Error: Failed to allocate  devicetask addr memory!" << std::endl;
@@ -557,7 +557,7 @@ int MachineAgent::ConstructDeviceTask(DeviceAgentTask *task) {
     }
 #endif
     task->deviceInfo.deviceTaskGmAddr = deviceTaskGmAddr;
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     machine::GetRA()->CopyToDev(deviceTaskGmAddr, reinterpret_cast<uint8_t *>(&devTask), sizeof(DeviceTask));
 #endif
     DumpDeviceTaskInfo(task, deviceTaskGmAddr, devTask);
@@ -582,7 +582,7 @@ void MachineAgent::Validate(DeviceAgentTask *task) {
 
 void MachinePipe::PipeProc(DeviceAgentTask *task) {
     /* send to device machine */
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     auto &runner = DeviceRunner::Get();
     rtStream_t aicpuStream = task->aicpuStream_ == nullptr ? machine::GetRA()->GetStreamAICPU() : task->aicpuStream_;
     rtStream_t aicoreStream = machine::GetRA()->GetStream();

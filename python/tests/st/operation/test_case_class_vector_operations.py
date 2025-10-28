@@ -14,9 +14,9 @@ import sys
 import pto
 import torch
 
-tools_path: Path = Path(Path(__file__).parent, "../../../utils/python")
-if str(tools_path) not in sys.path:
-    sys.path.append(str(tools_path))
+utils_path: Path = Path(Path(__file__).parent.parent, "utils")
+if str(utils_path) not in sys.path:
+    sys.path.append(str(utils_path))
 from pto_test_case_runner import PTOTestCaseRunner, get_pto_dtype_by_name
 from test_case import TestCase
 from test_case_tools import get_dtype_by_name, parse_list_str

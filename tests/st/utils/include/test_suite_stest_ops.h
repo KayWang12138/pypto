@@ -35,12 +35,12 @@ public:
         // 使能 Aihac 后端
         oriEnableAihacBackend = config::GetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend);
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
-#ifdef ENABLE_TESTS_STEST_BINARY_CACHE
+#ifdef ENABLE_STEST_BINARY_CACHE
         // BinaryCache
         oriEnableBinaryCache = config::GetHostConfig(KEY_ENABLE_BINARY_CACHE, oriEnableBinaryCache);
         config::SetHostConfig(KEY_ENABLE_BINARY_CACHE, true);
 #endif
-#ifdef ENABLE_TESTS_STEST_DUMP_JSsON
+#ifdef ENABLE_STEST_DUMP_JSsON
         oriEnableDumpJson = config::GetPassConfig(KEY_PRINT_FUNCTION, oriEnableDumpJson);
         config::GetPassConfig(KEY_PRINT_FUNCTION, true);
 #endif
@@ -58,20 +58,20 @@ public:
 
     void TearDown() override {
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend);
-#ifdef ENABLE_TESTS_STEST_BINARY_CACHE
+#ifdef ENABLE_STEST_BINARY_CACHE
         config::SetHostConfig(KEY_ENABLE_BINARY_CACHE, oriEnableBinaryCache);
 #endif
-#ifdef ENABLE_TESTS_STEST_DUMO_JSON
+#ifdef ENABLE_STEST_DUMO_JSON
         config::SetHostConfig(KEY_PRINT_FUNCTION, oriEnablePrintJson);
 #endif
     }
 
 protected:
     bool oriEnableAihacBackend = false;
-#ifdef ENABLE_TESTS_STEST_BINARY_CACHE
+#ifdef ENABLE_STEST_BINARY_CACHE
     bool oriEnableBinaryCache = false;
 #endif
-#ifdef ENABLE_TESTS_STEST_DUMO_JSON
+#ifdef ENABLE_STEST_DUMO_JSON
     bool oriEnableDumpJson = false;
 #endif
 };

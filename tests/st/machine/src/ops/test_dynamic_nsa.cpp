@@ -91,7 +91,7 @@ void TestNsa(const SimpleParams &params) {
     });
 
     GenGatedScoreCompute(x, w1, w2, simW1, output, GateMode::standard);
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {xData, w1Data, w2Data, simW1Data}, {outputData});
     std::cout << "======= GateScore ====== " << std::endl;
     EXPECT_TRUE(
@@ -120,7 +120,7 @@ void TestView() {
         }
     }
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {xData}, {outputData});
     std::cout << "trans0 ====== " << std::endl;
     EXPECT_TRUE(resultCmp<float>(outputGolden, (float *)outputData->data(), 0.008f, 0, 1000, false, false, NUM_16));
@@ -158,7 +158,7 @@ void TestAlignRead(bool isAlign) {
         }
     }
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {xData}, {outputData});
     std::cout << "trans0 ====== " << std::endl;
     EXPECT_TRUE(resultCmp<float>(outputGolden, (float *)outputData->data(), 0.008f, 0, 1000, false, false, NUM_16));
@@ -194,7 +194,7 @@ void TestMultiLoopAlignRead() {
         }
     }
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {xData}, {outputData});
     std::cout << "trans0 ====== " << std::endl;
     EXPECT_TRUE(resultCmp<float>(outputGolden, (float *)outputData->data(), 0.008f, 0, 1000, false, false, NUM_16));
@@ -267,7 +267,7 @@ void TestGenslc(const SimpleParams &params, int topk_actual_len = 0, bool isGenS
         GenTopkIndicesFun(x, trans0, reduce0, trans1, reduce1, topkInd, topkVal, res, tmp_s_slc);
     }
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(),
         {xData}, {trans0Data, reduce0Data, trans1Data, reduce1Data, topkIndData, topkValData, resZeroData});
     if (isGenSlc) {

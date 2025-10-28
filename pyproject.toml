@@ -14,3 +14,7 @@ requires-python = ">=3.8"
 
 [tool.scikit-build]
 wheel.packages = ["python/src/tensor_op/pto/"]
+
+[tool.scikit-build.cmake.define]
+ENABLE_FEATURE_PYTHON_FRONT_END = "ON"
+

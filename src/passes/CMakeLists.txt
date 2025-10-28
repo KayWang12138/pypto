@@ -25,7 +25,7 @@ target_link_libraries(tile_fwk_passes
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_passes)
 #PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_passes)
 
-if (BUILD_OPEN_PROJECT AND ENABLE_BUILD_PTO_FWK_PYTHON)
+if (ENABLE_FEATURE_PYTHON_FRONT_END)
         install(TARGETS tile_fwk_passes LIBRARY DESTINATION pto/lib OPTIONAL)
         install(FILES pass_config/tile_fwk_platform_info.json DESTINATION pto/configs)
 else ()

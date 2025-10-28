@@ -501,7 +501,7 @@ inline int calcOffset(std::vector<int> shape, std::vector<int> offset) {
 
 inline void SetInterpreterConfig(){
 // 通过build.py --enable_interpreter_config使能
-#ifdef ENABLE_TESTS_STEST_INTERPRETER_CONFIG
+#ifdef ENABLE_STEST_INTERPRETER_CONFIG
     config::SetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, true);
     config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);
     config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_CHECK_PRECISION, true);

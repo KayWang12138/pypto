@@ -151,13 +151,13 @@ function(PTO_Fwk_UTest_AddExe_RunExe)
 
     set(_PrivateLinkLibraries
             ${PTO_Fwk_UTestNamePrefix}_intf_pub
-            $<$<BOOL:${ENABLE_BUILD_WITH_CANN}>:${PTO_Fwk_UTestNamePrefix}_stubs>
+            $<$<BOOL:${BUILD_WITH_CANN}>:${PTO_Fwk_UTestNamePrefix}_stubs>
     )
 
-    # 支持由 ENABLE_TESTS_UTEST 传入指定的 Filter
+    # 支持由 ENABLE_UTEST 传入指定的 Filter
     set(GTestFilterList ${PTO_Fwk_UTestCaseGTestFilterList})
-    if (NOT "${ENABLE_TESTS_UTEST}" STREQUAL "ON")
-        set(GTestFilterList ${ENABLE_TESTS_UTEST})
+    if (NOT "${ENABLE_UTEST}" STREQUAL "ON")
+        set(GTestFilterList ${ENABLE_UTEST})
         string(REPLACE ":" ";" GTestFilterList "${GTestFilterList}")
     endif ()
 
@@ -189,30 +189,4 @@ function(PTO_Fwk_UTest_AddExe_RunExe)
 
     # 生成覆盖率
     PTO_Fwk_GTest_GenerateCoverage(TARGET ${ARG_TARGET})
-endfunction()
-
-# UTest 以 pytest 方式触发 python 用例执行
-#[[
-Parameters:
-  one_value_keywords:
-      PYTEST_INI                    : [Optional] 指定具体 pytest.ini 文件
-  multi_value_keywords:
-      PYTHON_PATH_EXT               : [Optional] 额外需要配置的 PYTHONPATH
-      PYTHON_PATH_LIBRARIES         : [Optional] 需要配置在 PYTHONPATH 中的二进制
-]]
-function(PTO_Fwk_UTest_RunPytest)
-    cmake_parse_arguments(
-            ARG
-            ""
-            "PYTEST_INI"
-            "PYTHON_PATH_EXT;PYTHON_PATH_LIBRARIES"
-            ""
-            ${ARGN}
-    )
-    # 执行
-    PTO_Fwk_GTest_RunPytest(_PyTestTarget
-            PYTEST_INI              ${ARG_PYTEST_INI}
-            TARGET_NAME_PREFIX      ${PTO_Fwk_UTestNamePrefix}
-    )
-    set(_PyTestTarget)
 endfunction()

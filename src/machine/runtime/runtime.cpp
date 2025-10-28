@@ -13,7 +13,7 @@
  * \brief
  */
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
 
 #include "runtime.h"
 
@@ -126,4 +126,4 @@ void *RuntimeAgentMemory::MapAiCoreReg() {
 
 } // namespace npu::tile_fwk
 
-#endif // ENABLE_BUILD_WITH_CANN
+#endif // BUILD_WITH_CANN

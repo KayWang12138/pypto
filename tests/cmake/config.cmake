@@ -17,10 +17,10 @@ set(PTO_Fwk_UTestNamePrefix tile_fwk_utest)
 set(PTO_Fwk_STestNamePrefix tile_fwk_stest)
 
 set(PTO_Fwk_StestExecuteDeviceIdList)
-if (NOT ENABLE_TESTS_EXECUTE_DEVICE_ID)
+if (NOT ENABLE_STEST_EXECUTE_DEVICE_ID)
     set(PTO_Fwk_StestExecuteDeviceIdList 0)
 else ()
-    string(REPLACE ":" ";" PTO_Fwk_StestExecuteDeviceIdList "${ENABLE_TESTS_EXECUTE_DEVICE_ID}")
+    string(REPLACE ":" ";" PTO_Fwk_StestExecuteDeviceIdList "${ENABLE_STEST_EXECUTE_DEVICE_ID}")
 endif ()
 list(GET PTO_Fwk_StestExecuteDeviceIdList 0 TileFwkStestExecuteDeviceIdPref)
 
@@ -28,10 +28,10 @@ list(GET PTO_Fwk_StestExecuteDeviceIdList 0 TileFwkStestExecuteDeviceIdPref)
 get_filename_component(PTO_Fwk_UTestExePath "${CMAKE_CURRENT_BINARY_DIR}/ut" REALPATH)
 get_filename_component(PTO_Fwk_STestExePath "${CMAKE_CURRENT_BINARY_DIR}/st" REALPATH)
 
-if (ENABLE_TESTS_STEST_GOLDEN_PATH)
-    get_filename_component(ENABLE_TESTS_STEST_GOLDEN_PATH "${ENABLE_TESTS_STEST_GOLDEN_PATH}" REALPATH)
+if (ENABLE_STEST_GOLDEN_PATH)
+    get_filename_component(ENABLE_STEST_GOLDEN_PATH "${ENABLE_STEST_GOLDEN_PATH}" REALPATH)
 else ()
-    get_filename_component(ENABLE_TESTS_STEST_GOLDEN_PATH "${PTO_Fwk_STestExePath}/golden" REALPATH)
+    get_filename_component(ENABLE_STEST_GOLDEN_PATH "${PTO_Fwk_STestExePath}/golden" REALPATH)
 endif ()
 
 
@@ -40,7 +40,7 @@ endif ()
 ########################################################################################################################
 
 # GTest
-if (BUILD_OPEN_PROJECT AND (ENABLE_TESTS_UTEST OR ENABLE_TESTS_STEST OR ENABLE_TESTS_STEST_DISTRIBUTED))
+if (BUILD_OPEN_PROJECT AND (ENABLE_UTEST OR ENABLE_STEST OR ENABLE_STEST_DISTRIBUTED))
     find_package(GTest CONFIG)
     if (NOT ${GTest_FOUND})
         if (DEFINED ENV{ASCEND_3RD_LIB_PATH} AND NOT "${ASCEND_3RD_LIB_PATH}x" STREQUAL "x")

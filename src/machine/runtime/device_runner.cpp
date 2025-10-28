@@ -13,7 +13,7 @@
  * \brief
  */
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
 #include "device_runner.h"
 #include <algorithm>
 #include <cstdint>
@@ -604,4 +604,4 @@ int DeviceRunner::Init(void) {
     return 0;
 }
 } // namespace npu::tile_fwk
-#endif // ENABLE_BUILD_WITH_CANN
+#endif // BUILD_WITH_CANN

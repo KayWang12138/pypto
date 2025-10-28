@@ -98,7 +98,7 @@ TEST_F(DynamicResolveTest, TestResolve) {
 
     EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction()));
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction()));
     auto outputResult = (float *)npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0)->data();
     EXPECT_TRUE(resultCmp(outputGolden, outputResult, 0.001f));

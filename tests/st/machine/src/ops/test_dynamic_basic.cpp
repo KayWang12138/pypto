@@ -136,7 +136,7 @@ TEST_F(DynamicBasicTest, TestDD) {
 
     TestLoopViewAssemble(t0, t1, blockTable, out, s);
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
@@ -169,7 +169,7 @@ TEST_F(DynamicBasicTest, TestTT) {
         }
     }
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> golden(n * s * s, 3.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
@@ -260,7 +260,7 @@ TEST_F(DynamicBasicTest, DynamicRawShape) {
         }
     }
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
@@ -301,7 +301,7 @@ TEST_F(DynamicBasicTest, DynamicRawShapeUnalign) {
         RawTensorData::CreateConstantTensor<float>(out0, 0.0f),
     });
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(arg0.GetStorage()->GetDataSize()));
     std::vector<float> golden(s0, 5.0f);
     auto outs = ProgramData::GetInstance().GetOutputData(0);
@@ -332,7 +332,7 @@ TEST_F(DynamicBasicTest, TestInplace) {
         RawTensorData::CreateConstantTensor<float>(t3, 0.0f),
     });
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> golden(32 * 32, 3.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetInputData(0);
@@ -366,7 +366,7 @@ TEST_F(DynamicBasicTest, TestStaticUnderDynDev) {
         RawTensorData::CreateTensor<float>(out, golden),
     });
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
@@ -408,7 +408,7 @@ TEST_F(DynamicBasicTest, TestStaticLoop) {
         }
     }
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(outGolden, (float *)outs->data(), 0.001f));
@@ -550,7 +550,7 @@ TEST_F(DynamicBasicTest, TestDeviceMachineBlockdimOnBoard) {
 
     TestLoopViewAssemble(t0, t1, blockTable, out, s);
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {true, 15, 4});
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
@@ -582,7 +582,7 @@ TEST_F(DynamicBasicTest, TestDeviceMachineBlockdimOnBoard1) {
         RawTensorData::CreateConstantTensor<float>(out, 0.0f),
     });
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {true, 7, 3});
     auto outs1 = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     std::vector<float> golden(n * s * s, 128.0f);
@@ -641,7 +641,7 @@ TEST_F(DynamicBasicTest, TestLoopIfWithRank456) {
             out = Add(r0, Element(DataType::DT_FP32, 2.0));  //静态function中增加2.0的偏移量
         }
     }
-    #ifdef ENABLE_BUILD_WITH_CANN
+    #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
@@ -679,7 +679,7 @@ TEST_F(DynamicBasicTest, TestTensorExtract) {
         }
     }
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_EQ(row * n + col + 0x2, *(int32_t *)outputResult->data());
@@ -731,7 +731,7 @@ TEST_F(DynamicBasicTest, TestGetTensorData) {
         }
     }
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(outputGolden, (float *)outputResult->data(), 0.001f));
@@ -813,7 +813,7 @@ TEST_F(DynamicBasicTest, TestGetTensorDataCrossFunction) {
         }
     }
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(outputGolden, (float *)outputResult->data(), 0.001f));
@@ -896,7 +896,7 @@ TEST_F(DynamicBasicTest, TestGetTensorDataUnalign) {
         }
     }
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(outputGolden, (float *)outputResult->data(), 0.001f));
@@ -952,7 +952,7 @@ TEST_F(DynamicBasicTest, TestGetTensorDataExpr) {
         }
     }
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(outputGolden, (float *)outputResult->data(), 0.001f));
@@ -987,7 +987,7 @@ TEST_F(DynamicBasicTest, TestVectorDup) {
         }
     }
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
@@ -1020,7 +1020,7 @@ TEST_F(DynamicBasicTest, TestTensorInsert) {
         }
     }
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
@@ -1052,7 +1052,7 @@ TEST_F(DynamicBasicTest, TestSetTensorData) {
         }
     }
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
@@ -1092,7 +1092,7 @@ TEST_F(DynamicBasicTest, TestSetTensorDataExpr) {
         }
     }
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
@@ -1135,7 +1135,7 @@ TEST_F(DynamicBasicTest, TestGetTensorDataAndDup) {
         }
     }
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
@@ -1180,7 +1180,7 @@ TEST_F(DynamicBasicTest, TestGetAndSetTensorDataExpr) {
         }
     }
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
@@ -1288,7 +1288,7 @@ TEST_F(DynamicBasicTest, TestSelectAttention) {
         }
     }
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(outputGolden, (float *)outputResult->data(), 0.001f));

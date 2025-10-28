@@ -13,7 +13,7 @@
  * \brief
  */
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
 #include "device_launcher.h"
 
 #include "machine/host/backend.h"

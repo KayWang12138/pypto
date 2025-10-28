@@ -211,7 +211,7 @@ void TestDynamicMlaProlog(
         kvCache, krCache, quantInputs, tileConfig,
         dynamicOutputQ, dynamicOutputQRope, outputKvCache, outputKrCache, 1e-5f, 1e-5f, cacheMode);
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
     std::cout << "qNope ====== " << std::endl;
     EXPECT_TRUE(resultCmp<T>(golden1, (T *)outputQData->data(), 0.008f));

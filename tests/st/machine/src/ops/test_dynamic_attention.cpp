@@ -26,7 +26,7 @@ template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool sp
 void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileConfig, string dataPath,
         uint64_t timeThreshold, bool isQuant = false, bool isSmooth = false) {
     (void) timeThreshold;
-    
+
     config::SetHostOption(ONLY_CODEGEN, true);
     config::SetRuntimeOption(MACHINE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH));
     config::SetRuntimeOption(FIRST_STITCH_TASK_LOOP_NUM, 128);
@@ -288,7 +288,7 @@ void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileCon
             blockTable, actSeqs, paOut, blockSize, softmaxScale, paTileConfig, /*---*/
             weightUV, weightO, weightOScaleW, postOut, 1e-5f, 1e-5f, cacheMode);
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(),
         {xData, wDqData, wUqQrData, wUkData, wDkvKrData, gammaCqData, gammaCkvData, sinData, cosData, kvLenData,
          kvCacheData, krCacheData, wQbScaleData, smoothCqData,

@@ -1040,7 +1040,7 @@ def compare(
 
 @op_wrapper
 def concat(
-    tensors: list[Tensor],
+    tensors: List[Tensor],
     dim: Optional[int] = 0
 ) -> Tensor:
     """

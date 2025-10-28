@@ -29,7 +29,7 @@ def set_print_options(edge_items: int, precision: int, threshold: int, linewidth
     pto_impl.SetPrintOptions(edge_items, precision, threshold, linewidth)
 
 
-def set_pass_option(key: str, value: Union[str, int, List[int], dict[int, int]]) -> None:
+def set_pass_option(key: str, value: Union[str, int, List[int], Dict[int, int]]) -> None:
     """
     Set pass options.
 
@@ -43,7 +43,7 @@ def set_pass_option(key: str, value: Union[str, int, List[int], dict[int, int]])
     pto_impl.SetOption(f"pass.{key}", value)
 
 
-def get_pass_option(key: str) -> Union[str, int, List[int], dict[int, int]]:
+def get_pass_option(key: str) -> Union[str, int, List[int], Dict[int, int]]:
     """
     Get pass option by key.
 
@@ -56,7 +56,7 @@ def get_pass_option(key: str) -> Union[str, int, List[int], dict[int, int]]:
     return pto_impl.GetOption(f"pass.{key}")
 
 
-def set_host_option(key: str, value: Union[str, int, List[int], dict[int, int]]) -> None:
+def set_host_option(key: str, value: Union[str, int, List[int], Dict[int, int]]) -> None:
     """
     Set host options.
 
@@ -67,7 +67,7 @@ def set_host_option(key: str, value: Union[str, int, List[int], dict[int, int]])
     pto_impl.SetOption(f"host.{key}", value)
 
 
-def get_host_option(key: str) -> Union[str, int, List[int], dict[int, int]]:
+def get_host_option(key: str) -> Union[str, int, List[int], Dict[int, int]]:
     """
     Get host option by key.
 

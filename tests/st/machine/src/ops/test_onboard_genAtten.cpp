@@ -99,7 +99,7 @@ void genAtten(GenAttenTileShapeConfig &tileConfig) {
 
     GenAttention(cmpAtten, selAtten, winAtten, gatingScore, out_npu, tileConfig);
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(out_goldenData, (T *)outs->data(), 0.001f));

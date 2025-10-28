@@ -67,7 +67,7 @@ TEST_F(DynamicUnalignTest, TestTailBlock) {
         RawTensorData::CreateConstantTensor<float>(out, 0.0f),
     });
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> golden(n * s * s, 2.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);

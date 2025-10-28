@@ -43,7 +43,7 @@ static std::vector<T> GetGoldenVec(std::vector<int64_t> shape, std::string fileN
 template<typename T = npu::tile_fwk::float16>
 void GenGatedScoreEntryPrefill(const std::vector<int64_t>& bnsh) {
     config::SetHostOption(ONLY_CODEGEN, true);
-    
+
     int64_t b = bnsh[0];
     int64_t n = bnsh[1];
     int64_t s = bnsh[2];
@@ -52,7 +52,7 @@ void GenGatedScoreEntryPrefill(const std::vector<int64_t>& bnsh) {
     DataType dType = GetAstDtype<T>();
 
     std::vector<int64_t> xShape = {b, s, h};
-    std::vector<int64_t> w1Shape = {h, h * 4}; 
+    std::vector<int64_t> w1Shape = {h, h * 4};
     std::vector<int64_t> w2Shape = {h * 4, n * 3};
     std::vector<int64_t> gatingScoreShape = {b, s, 3, n};
 
@@ -60,7 +60,7 @@ void GenGatedScoreEntryPrefill(const std::vector<int64_t>& bnsh) {
     Tensor w1(dType, w1Shape, "w1");
     Tensor w2(dType, w2Shape, "w2");
     Tensor gatingScore(dType, gatingScoreShape, "gatingScore");
-    
+
     auto goldenData = GetGoldenVec<T>(gatingScoreShape, "/gatingscore.bin");
     auto xData = CreateTensorData<T>(x, "/x.bin");
     auto w1Data = CreateTensorData<T>(w1, "/w1.bin");
@@ -71,7 +71,7 @@ void GenGatedScoreEntryPrefill(const std::vector<int64_t>& bnsh) {
 
     GenGatedScoreFuncPrefill(x, w1, w2, gatingScore);
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
     std::cout << "====== GateScore ======" << std::endl;
     EXPECT_TRUE(resultCmp<T>(goldenData, (T *)gatingScoreData->data(), 0.005f));

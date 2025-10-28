@@ -215,7 +215,7 @@ TEST_F(CostModelDynTest, TestDD) {
     });
 
     auto func = Program::GetInstance().GetLastFunction();
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     CostModelDynFuncRunner::Run(func);
     std::vector<float> golden(n * s * s, 0.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);

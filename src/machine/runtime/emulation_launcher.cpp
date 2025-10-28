@@ -13,7 +13,7 @@
  * \brief
  */
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
 #include "emulation_launcher.h"
 
 #include <thread>

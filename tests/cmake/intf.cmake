@@ -27,11 +27,11 @@ target_compile_options(${_Target}
 )
 target_compile_definitions(${_Target}
         INTERFACE
-            $<$<BOOL:${ENABLE_TESTS_STEST_BINARY_CACHE}>:ENABLE_TESTS_STEST_BINARY_CACHE>
+            $<$<BOOL:${ENABLE_STEST_BINARY_CACHE}>:ENABLE_STEST_BINARY_CACHE>
 )
 target_compile_definitions(${_Target}
         INTERFACE
-            $<$<BOOL:${ENABLE_TESTS_STEST_DUMP_JSON}>:ENABLE_TESTS_STEST_DUMP_JSON>
+            $<$<BOOL:${ENABLE_STEST_DUMP_JSON}>:ENABLE_STEST_DUMP_JSON>
 )
 target_link_libraries(${_Target}
         INTERFACE

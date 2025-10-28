@@ -94,7 +94,7 @@ if (ENABLE_TORCH_VERIFIER)
     )
 endif() ## ENABLE_TORCH_VERIFIER
 
-if (BUILD_OPEN_PROJECT AND ENABLE_BUILD_PTO_FWK_PYTHON)
+if (ENABLE_FEATURE_PYTHON_FRONT_END)
         install(TARGETS tile_fwk_interface LIBRARY DESTINATION pto/lib OPTIONAL)
         install(FILES configs/tile_fwk_config.json DESTINATION pto/configs)
         install(FILES configs/tile_fwk_config_schema.json DESTINATION pto/configs)

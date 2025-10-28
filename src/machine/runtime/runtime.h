@@ -28,7 +28,7 @@
 #include "interface/machine/host/stubs.h"
 #include "tilefwk/data_type.h"
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
 #include "driver/ascend_hal_define.h"
 #include "acl/acl.h"
 #include "runtime/rt.h"
@@ -37,7 +37,7 @@
 
 namespace npu::tile_fwk {
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
 
 struct HugePageDesc {
   uint8_t *baseAddr;

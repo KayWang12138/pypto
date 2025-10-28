@@ -110,7 +110,7 @@ void TestAttentionPost(const TestPostParams &params, const PostTileConfig &tileC
         wUv, wo, wUvQuant.scale.tensor, wUvQuant.smooth.tensor, wOQuant.scale.tensor, wOQuant.smooth.tensor};
     AttentionPostStandalone(x, postTensors, tileConfig, postOut);
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
 
     std::cout << "postOut ====== " << std::endl;

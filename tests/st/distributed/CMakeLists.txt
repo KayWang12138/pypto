@@ -60,7 +60,7 @@ set(_LdLibrariesExt
         ${PTO_Fwk_STestNamePrefix}_distributed_framework
 )
 set(_EnvSetupExt
-        "TILE_FWK_STEST_GOLDEN_PATH=${ENABLE_TESTS_STEST_GOLDEN_PATH}"
+        "TILE_FWK_STEST_GOLDEN_PATH=${ENABLE_STEST_GOLDEN_PATH}"
 )
 PTO_Fwk_STest_Distributed_RunExe(
        TARGET                  ${_Target}

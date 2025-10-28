@@ -420,7 +420,7 @@ def pto_function(name: str, graph_type: pto_impl.GraphType, func_type: pto_impl.
 
 
 def loop(start: SymInt, end: Optional[SymInt] = None, step: Optional[SymInt] = None,
-         unroll_times: Optional[list[int]] = None, **kwargs):
+         unroll_times: Optional[List[int]] = None, **kwargs):
     """ set up a loop computation. Use as a for loop in python.
 
     Parameters

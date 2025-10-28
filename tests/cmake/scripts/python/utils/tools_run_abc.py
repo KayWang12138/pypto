@@ -108,7 +108,6 @@ class ToolsRunAbc(ToolsAbc, ABC):
     def prepare(self) -> bool:
         # Golden 生成
         cases_name_str: str = ":".join([c.name for c in self.case_list])
-        self.cases_golden_output_path.mkdir(parents=True, exist_ok=True)
         golden_ctrl_py: Path = Path(self.source_root, "tests/cmake/scripts/golden_ctrl.py")
         cmd = f"{sys.executable} {golden_ctrl_py} -o={self.cases_golden_output_path} -c={cases_name_str}"
         for imp_d in self.cases_golden_impl_path:

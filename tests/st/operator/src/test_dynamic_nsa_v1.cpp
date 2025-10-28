@@ -443,7 +443,7 @@ void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig,
         actCmpSeqLen_v2, mlpWk1_v2, mlpWk2_v2, mlpCos_v2, mlpSin_v2, cmpAttn, cmpSoftmax, fullK, cmpK, firstRope,
         firstRopeInput, topkRes, topkInput, cmpBlockSize, cmpStride, cmpTileConfig, debug);
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     // 5. 更新输入输出list
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList); // output list
     if constexpr (!ci) {

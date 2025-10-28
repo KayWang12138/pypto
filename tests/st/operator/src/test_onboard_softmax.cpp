@@ -388,7 +388,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_dyn) {
 
     // 调用Softmax动态实现函数
     SoftmaxDynamic(input, output);
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     // 上板执行
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
     // 比对计算结果

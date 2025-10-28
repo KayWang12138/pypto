@@ -23,7 +23,7 @@
 #include <unistd.h>
 #include <sys/file.h>
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
 #include <runtime/rt.h>
 #include "machine/utils/machine_ws_intf.h"
 constexpr int PMU_EVENT_TYPE_MAX = 8;

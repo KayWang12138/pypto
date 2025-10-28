@@ -26,7 +26,7 @@ using namespace npu::tile_fwk::dynamic;
 
 namespace pypto {
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
 
 static RawTensorDataPtr HostCastPythonToNative(const std::shared_ptr<LogicalTensor> &tensor, py::object &pythonData) {
     DataType dataType = tensor->Datatype();

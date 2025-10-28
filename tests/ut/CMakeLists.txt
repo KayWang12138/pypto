@@ -7,7 +7,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
-if (ENABLE_TESTS_UTEST)
+if (ENABLE_UTEST)
     add_subdirectory(stubs)
 
     add_subdirectory(operator)
@@ -15,7 +15,7 @@ if (ENABLE_TESTS_UTEST)
     add_subdirectory(passes)
     add_subdirectory(simulation)
 
-    if (ENABLE_BUILD_WITH_CANN)
+    if (BUILD_WITH_CANN)
         add_subdirectory(machine)
         add_subdirectory(execute)
         add_subdirectory(codegen)
@@ -32,8 +32,4 @@ if (ENABLE_TESTS_UTEST)
 
     # 可执行程序
     PTO_Fwk_UTest_AddExe_RunExe(TARGET ${PTO_Fwk_UTestNamePrefix})
-endif ()
-
-if (ENABLE_TESTS_UTEST_PYTHON AND ENABLE_BUILD_WITH_CANN)
-    PTO_Fwk_UTest_RunPytest()
 endif ()

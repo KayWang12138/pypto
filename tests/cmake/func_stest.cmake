@@ -73,7 +73,7 @@ function(PTO_Fwk_STest_RunExe_ToolsProf)
             ""
             ${ARGN}
     )
-    if (ENABLE_TESTS_STEST_TOOLS_PROF)
+    if (ENABLE_STEST_TOOLS_PROF)
         # 命令行参数处理
         PTO_Fwk_GTest_RunExe_GetPreExecSetup(PyCmdSetup PyEnvLines BashCmdSetup
                 TARGET              ${ARG_TARGET}
@@ -83,10 +83,10 @@ function(PTO_Fwk_STest_RunExe_ToolsProf)
         set(_Args)
         set(_CommentExt)
         # 脚本参数组织(主命令)
-        if (ENABLE_TESTS_STEST_TOOLS_OUTPUT_CLEAN)
+        if (ENABLE_STEST_TOOLS_OUTPUT_CLEAN)
             list(APPEND _Args "--clean")
         endif ()
-        if (ENABLE_TESTS_STEST_TOOLS_INTERCEPT)
+        if (ENABLE_STEST_TOOLS_INTERCEPT)
             list(APPEND _Args "--intercept")
         endif ()
         # 脚本参数组织(子命令 run)
@@ -99,8 +99,8 @@ function(PTO_Fwk_STest_RunExe_ToolsProf)
         foreach (DevId ${PTO_Fwk_StestExecuteDeviceIdList})
             list(APPEND _Args "--device=${DevId}")
         endforeach ()
-        if (ENABLE_TESTS_STEST_TOOLS_CASE_FILE)
-            get_filename_component(_CsvFile "${ENABLE_TESTS_STEST_TOOLS_CASE_FILE}" REALPATH)
+        if (ENABLE_STEST_TOOLS_CASE_FILE)
+            get_filename_component(_CsvFile "${ENABLE_STEST_TOOLS_CASE_FILE}" REALPATH)
             list(APPEND _Args "--cases_csv_file=${_CsvFile}")
             set(_CommentExt "CsvFile(${_CsvFile})")
         elseif (ARG_GTEST_FILTER_LIST)
@@ -115,23 +115,23 @@ function(PTO_Fwk_STest_RunExe_ToolsProf)
         foreach (_Path ${PTO_Fwk_STestCaseGoldenScriptPathList})
             list(APPEND _Args "--golden_impl_path=${_Path}")
         endforeach ()
-        list(APPEND _Args "--golden_output_path=${ENABLE_TESTS_STEST_GOLDEN_PATH}")
-        if (ENABLE_TESTS_STEST_GOLDEN_PATH_CLEAN)
+        list(APPEND _Args "--golden_output_path=${ENABLE_STEST_GOLDEN_PATH}")
+        if (ENABLE_STEST_GOLDEN_PATH_CLEAN)
             list(APPEND _Args "--golden_output_clean")
         endif ()
         # 脚本参数组织(子命令 run.profiling)
         list(APPEND _Args "profiling")
-        if (ENABLE_TESTS_STEST_TOOLS_PROF_LEVEL)
-            list(APPEND _Args "--level=${ENABLE_TESTS_STEST_TOOLS_PROF_LEVEL}")
+        if (ENABLE_STEST_TOOLS_PROF_LEVEL)
+            list(APPEND _Args "--level=${ENABLE_STEST_TOOLS_PROF_LEVEL}")
         endif ()
-        if (NOT "${ENABLE_TESTS_STEST_TOOLS_PROF_WARN_UP_CNT}" STREQUAL "OFF")
-            list(APPEND _Args "--warn_up_cnt=${ENABLE_TESTS_STEST_TOOLS_PROF_WARN_UP_CNT}")
+        if (NOT "${ENABLE_STEST_TOOLS_PROF_WARN_UP_CNT}" STREQUAL "OFF")
+            list(APPEND _Args "--warn_up_cnt=${ENABLE_STEST_TOOLS_PROF_WARN_UP_CNT}")
         endif ()
-        if (NOT "${ENABLE_TESTS_STEST_TOOLS_PROF_TRY_CNT}" STREQUAL "OFF")
-            list(APPEND _Args "--try_cnt=${ENABLE_TESTS_STEST_TOOLS_PROF_TRY_CNT}")
+        if (NOT "${ENABLE_STEST_TOOLS_PROF_TRY_CNT}" STREQUAL "OFF")
+            list(APPEND _Args "--try_cnt=${ENABLE_STEST_TOOLS_PROF_TRY_CNT}")
         endif ()
-        if (NOT "${ENABLE_TESTS_STEST_TOOLS_PROF_MAX_CNT}" STREQUAL "OFF")
-            list(APPEND _Args "--max_cnt=${ENABLE_TESTS_STEST_TOOLS_PROF_MAX_CNT}")
+        if (NOT "${ENABLE_STEST_TOOLS_PROF_MAX_CNT}" STREQUAL "OFF")
+            list(APPEND _Args "--max_cnt=${ENABLE_STEST_TOOLS_PROF_MAX_CNT}")
         endif ()
 
         # 脚本调用
@@ -166,7 +166,7 @@ function(PTO_Fwk_STest_RunExe_GenerateGolden)
     )
     if (ENABLE_TESTS_EXECUTE)
         set(_Args)
-        list(APPEND _Args "-o=${ENABLE_TESTS_STEST_GOLDEN_PATH}")
+        list(APPEND _Args "-o=${ENABLE_STEST_GOLDEN_PATH}")
 
         list(FILTER ARG_GTEST_FILTER_LIST EXCLUDE REGEX "PARALLEL_SEPARATOR")
         string(REPLACE ";" ":" GTestFilterStr "${ARG_GTEST_FILTER_LIST}")
@@ -176,7 +176,7 @@ function(PTO_Fwk_STest_RunExe_GenerateGolden)
             list(APPEND _Args "--path=${_Path}")
         endforeach ()
 
-        if (ENABLE_TESTS_STEST_GOLDEN_PATH_CLEAN)
+        if (ENABLE_STEST_GOLDEN_PATH_CLEAN)
             list(APPEND _Args "--clean")
         endif ()
 
@@ -299,22 +299,16 @@ function(PTO_Fwk_STest_AddExe_RunExe)
     )
     add_dependencies(${ARG_TARGET} tile_fwk_server)
 
-    # PyPTO, 依赖 CI 任务拆分, 先通过依赖确保上板顺序
-    if (TARGET ${ARG_TARGET}_python)
-        message(STATUS "Add Dependencies ${ARG_TARGET} -> ${ARG_TARGET}_python")
-        add_dependencies(${ARG_TARGET} ${ARG_TARGET}_python)
-    endif ()
-
     #
     # 执行
     #
     set(EnvLinesExt
-            "TILE_FWK_STEST_GOLDEN_PATH=${ENABLE_TESTS_STEST_GOLDEN_PATH}"
+            "TILE_FWK_STEST_GOLDEN_PATH=${ENABLE_STEST_GOLDEN_PATH}"
             "TILE_FWK_STEST_DEVICE_ID=${TileFwkStestExecuteDeviceIdPref}"
     )
     set(GTestFilterList ${PTO_Fwk_STestCaseGTestFilterList})
-    if (NOT "${ENABLE_TESTS_STEST}" STREQUAL "ON")
-        set(GTestFilterList ${ENABLE_TESTS_STEST})
+    if (NOT "${ENABLE_STEST}" STREQUAL "ON")
+        set(GTestFilterList ${ENABLE_STEST})
         string(REPLACE ":" ";" GTestFilterList "${GTestFilterList}")
     endif ()
     list(REMOVE_DUPLICATES GTestFilterList)
@@ -368,14 +362,14 @@ function(PTO_Fwk_STest_Distributed_GetGTestFilterList GTEST_FILTER_LIST)
         math(EXPR Idx "${Idx} + 1")
         math(EXPR Remainder "${Idx} % 2")  # 计算索引除以2的余数
         if (Remainder EQUAL 1)
-            # 支持由 ENABLE_TESTS_STEST_DISTRIBUTED 传入指定的 Filter
-            if ("${ENABLE_TESTS_STEST_DISTRIBUTED}" STREQUAL "ON")
+            # 支持由 ENABLE_STEST_DISTRIBUTED 传入指定的 Filter
+            if ("${ENABLE_STEST_DISTRIBUTED}" STREQUAL "ON")
                 list(APPEND FilterList ${CFG})
             else ()
-                string(REPLACE ":" ";" SpecifyGtestFilterList ${ENABLE_TESTS_STEST_DISTRIBUTED})
-                list(FIND SpecifyGtestFilterList ${ENABLE_TESTS_STEST_DISTRIBUTED} _CfgIdx)
+                string(REPLACE ":" ";" SpecifyGtestFilterList ${ENABLE_STEST_DISTRIBUTED})
+                list(FIND SpecifyGtestFilterList ${ENABLE_STEST_DISTRIBUTED} _CfgIdx)
                 if (NOT "${_SepIdx}" STREQUAL "-1")
-                    list(APPEND FilterList ${ENABLE_TESTS_STEST_DISTRIBUTED})
+                    list(APPEND FilterList ${ENABLE_STEST_DISTRIBUTED})
                 endif ()
             endif ()
         endif()
@@ -438,7 +432,7 @@ function(PTO_Fwk_STest_Distributed_RunExe)
     )
     set(PTO_Fwk_STestCaseGoldenScriptPathList ${PTO_Fwk_STestCaseGoldenScriptPathList} ${ARG_GOLDEN_SCRIPT_DIR} CACHE INTERNAL "" FORCE)
     if (ENABLE_TESTS_EXECUTE)
-        # Config 到 List 转换, 并处理由 ENABLE_TESTS_STEST_DISTRIBUTED 传入指定的 Filter 的情况
+        # Config 到 List 转换, 并处理由 ENABLE_STEST_DISTRIBUTED 传入指定的 Filter 的情况
         PTO_Fwk_STest_Distributed_GetGTestFilterList(GTestFilterList
                 GTEST_FILTER_CONFIG ${ARG_GTEST_FILTER_CONFIG}
         )
@@ -488,27 +482,4 @@ function(PTO_Fwk_STest_Distributed_RunExe)
             endforeach ()
         endif ()
     endif ()
-endfunction()
-
-# STest 以 pytest 方式触发 python 用例执行
-#[[
-Parameters:
-  one_value_keywords:
-      PYTEST_INI                    : [Optional] 指定具体 pytest.ini 文件
-]]
-function(PTO_Fwk_STest_RunPytest)
-    cmake_parse_arguments(
-            ARG
-            ""
-            "PYTEST_INI"
-            "PYTHON_PATH_EXT;PYTHON_PATH_LIBRARIES"
-            ""
-            ${ARGN}
-    )
-    # 执行
-    PTO_Fwk_GTest_RunPytest(_PyTestTarget
-            TARGET_NAME_PREFIX      ${PTO_Fwk_STestNamePrefix}
-            PYTEST_INI              ${ARG_PYTEST_INI}
-    )
-    add_dependencies(${_PyTestTarget} tile_fwk_server)
 endfunction()

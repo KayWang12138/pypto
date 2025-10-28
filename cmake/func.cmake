@@ -55,7 +55,7 @@ function(PTO_Fwk_AnalysisTargetSymbols)
             ${ARGN}
     )
     if (BUILD_OPEN_PROJECT
-            AND (ENABLE_TESTS_UTEST OR ENABLE_TESTS_STEST OR ENABLE_TESTS_STEST_DISTRIBUTED)
+            AND (ENABLE_UTEST OR ENABLE_STEST OR ENABLE_STEST_DISTRIBUTED)
             AND (CMAKE_GENERATOR STREQUAL "Unix Makefiles")
             AND (CMAKE_C_COMPILER_ID STREQUAL "GNU"))
         set(_file $<TARGET_FILE:${ARG_TARGET}>)
@@ -94,7 +94,7 @@ function(PTO_Fwk_AnalysisTargetHeaderFiles)
             ${ARGN}
     )
     if (BUILD_OPEN_PROJECT
-            AND (ENABLE_TESTS_UTEST OR ENABLE_TESTS_STEST OR ENABLE_TESTS_STEST_DISTRIBUTED)
+            AND (ENABLE_UTEST OR ENABLE_STEST OR ENABLE_STEST_DISTRIBUTED)
             AND (CMAKE_GENERATOR STREQUAL "Unix Makefiles")
             AND (CMAKE_C_COMPILER_ID STREQUAL "GNU"))
         set(_file $<TARGET_FILE:${ARG_TARGET}>)
@@ -118,7 +118,7 @@ function(PTO_Fwk_AnalysisTargetHeaderFiles)
         list(APPEND _Args "-f=${SYS_ROOT}/usr/include")
         list(APPEND _Args "-f=${SYS_ROOT}/usr/lib")
         # CANN
-        if (ENABLE_BUILD_WITH_CANN)
+        if (BUILD_WITH_CANN)
             list(APPEND _Args "-f=${ASCEND_CANN_PACKAGE_PATH}/include")
         endif ()
         # OpenSource
