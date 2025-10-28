@@ -17,7 +17,7 @@ import sys
 from dataclasses import dataclass
 import pandas as pd
 
-utils_path: Path = Path(Path(__file__).parent.parent.parent.parent.parent, "python\tests\st\utils").resolve()
+utils_path: Path = Path(Path(__file__).parent.parent.parent.parent.parent, "python/tests/st/utils").resolve()
 if str(utils_path) not in sys.path:
     sys.path.append(str(utils_path))
 
