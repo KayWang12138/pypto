@@ -30,6 +30,7 @@
 
 #ifdef SUPPORT_TILE_TENSOR
 #include "utils/layout.h"
+#include "../vec_trans.h"
 #include "../vec_binary.h"
 #include "../dma_copy.h"
 #include "../vec_extract.h"

@@ -95,7 +95,18 @@ std::string CodeGenOpCloudNPU::PrintVnchwconvDynUnaligned(const PrintUnaryTmpBuf
     return os.str();
 }
 
+std::string CodeGenOpCloudNPU::PrintVnchwconvLayout() const {
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::DST_IDX)]);
+    std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC1_IDX)]);
+    std::ostringstream oss;
+    oss << tileOpName << "(" << dstTensor << ", " << srcTensor << ");\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::PrintVnchwconv(const PrintUnaryTmpBuffParam &param) const {
+    if (isSupportLayout) {
+        return PrintVnchwconvLayout();
+    }
     if (isSupportDynamicUnaligned) {
         return PrintVnchwconvDynUnaligned(param);
     }
