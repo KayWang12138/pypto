@@ -32,6 +32,7 @@
 #include "interface/tensor/logical_tensor.h"
 #include "interface/tensor/raw_tensor.h"
 #include "interface/utils/file_utils.h"
+#include "interface/tensor/hypercube_overlap_checker.h"
 
 namespace npu {
 namespace tile_fwk {
@@ -79,7 +80,6 @@ void CalcOperatorInfo(Function &function, json &report) {
     };
 
     report["copyDataCount"] = totalCopySize;
-    report["redundantCopyCount"] = 0;
 }
 
 void CalcTensorInfo(Function &function, json &report) {
@@ -181,6 +181,85 @@ void CalcGraphMetrics(const std::vector<std::vector<int>> &inMap, const std::vec
     report["maxWidth"] = maxLayerWidth;
 }
 
+void CalShapeInt(Operation *copyin, std::vector<OpImmediate> &shape, std::vector<int> &shapeInt, bool &continueFlag) {
+    for (auto s : shape) {
+        SymbolicScalar &value = s.GetSpecifiedValue();
+        if (value.Raw()->Kind() != SymbolicScalarKind::T_SCALAR_SYMBOLIC_IMMEDIATE) {
+            ALOG_WARN_F("%d COPYIN Shape is dynamic, CalShapeInt not support!", copyin->GetOpMagic());
+            continueFlag = true;
+            return;
+        }
+        RawSymbolicImmediate *immediate = dynamic_cast<RawSymbolicImmediate *>(value.Raw().get());
+        shapeInt.emplace_back(static_cast<int>(immediate->Immediate()));
+    }
+}
+
+void CalOffsetInt(Operation *copyin, std::vector<OpImmediate> &offset, std::vector<int> &offsetInt, bool &continueFlag) {
+    for (auto o : offset) {
+        SymbolicScalar &value = o.GetSpecifiedValue();
+        if (value.Raw()->Kind() != SymbolicScalarKind::T_SCALAR_SYMBOLIC_IMMEDIATE) {
+            ALOG_WARN_F("%d COPYIN Offset is dynamic, CalOffsetInt not support!", copyin->GetOpMagic());
+            continueFlag = true;
+            return;
+        }
+        RawSymbolicImmediate *immediate = dynamic_cast<RawSymbolicImmediate *>(value.Raw().get());
+        offsetInt.emplace_back(static_cast<int>(immediate->Immediate()));
+    }
+}
+
+std::unordered_map<std::string, int> redundantCopyMemoryMap = {
+    {"MEM_UB", 0},
+    {"MEM_L1", 0},
+    {"MEM_L0A", 0},
+    {"MEM_L0B", 0},
+    {"MEM_L0C", 0}
+};
+
+Status CalRedundantCopy(Function &function, json &report) {
+    for (auto &[magic, tensor] : function.GetTensorMap().inverseMap_) {
+        (void)magic;
+        auto dataSize = BytesOf(tensor->Datatype());
+        std::unordered_map<MemoryType, HypercubeOverlapChecker<Operation*>> overlapChecker;
+        for (auto &consumer : tensor->GetConsumers()) {
+            if (consumer->GetOpcodeStr().find("COPY_IN") != std::string::npos) {
+                if (consumer->GetOpAttribute() == nullptr) {
+                    ALOG_ERROR_F("%d COPYIN op attr is nullptr, CalRedundantCopy failed!", consumer->GetOpMagic());
+                    return FAILED;
+                }
+                std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(consumer->GetOpAttribute());
+                auto shape = attr->GetShape();
+                auto offset = attr->GetCopyInAttr().first;
+                auto dstMemType = attr->GetCopyInAttr().second;
+                std::vector<int> shapeInt;
+                bool continueFlag = false;
+                CalShapeInt(consumer, shape, shapeInt, continueFlag);
+                if (continueFlag) {
+                    continue;
+                }
+                std::vector<int> offsetInt;
+                CalOffsetInt(consumer, offset, offsetInt, continueFlag);
+                if (continueFlag) {
+                    continue;
+                }
+                std::vector<int> hypercube;
+                for (size_t i = 0; i < shapeInt.size(); i++) {
+                    auto min = offsetInt[i];
+                    auto max = offsetInt[i] + shapeInt[i];
+                    hypercube.emplace_back(min);
+                    hypercube.emplace_back(max);
+                }
+                int64_t *overlapPtr = new int64_t(0);
+                overlapChecker[dstMemType].Find(hypercube, overlapPtr);
+                redundantCopyMemoryMap[MemoryTypeToString(dstMemType)] += *overlapPtr * dataSize;
+                delete overlapPtr;
+                overlapChecker[dstMemType].Insert(hypercube, consumer);
+            }
+        }
+    }
+    report["redundantCopyCount(Bytes)"] = redundantCopyMemoryMap;
+    return SUCCESS;
+}
+
 void WriteHealthReport(const json& report, const std::string &reportPath, const std::string& filename) {
     if (!CreateMultiLevelDir(reportPath)) {
         ALOG_ERROR_F("Failed to create directory for health report");
@@ -192,6 +271,93 @@ void WriteHealthReport(const json& report, const std::string &reportPath, const 
     }
     out << report.dump(DUMP_WIDTH);
     out.close();
+}
+
+Status CheckTileShapeAIV(Operation *op, std::vector<int> &res) {
+    auto tileSize = op->GetTileShape().GetVecTile().tile;
+    for (auto input : op->GetIOperands()) {
+        auto tensorShape = input->GetShape();
+        if (tileSize.size() != tensorShape.size()) {
+            ALOG_ERROR_F("%d Tensorshape size %d is not equal to %d %s tileshape size %d, CheckTileShapeAIV failed!",
+                input->GetMagic(), tensorShape.size(), op->GetOpMagic(), op->GetOpcodeStr().c_str(), tileSize.size());
+            return FAILED;
+        }
+        bool devisible = true;
+        for (size_t i = 0; i < tensorShape.size(); i++) {
+            if (tensorShape[i] % tileSize[i] != 0) {
+                devisible = false;
+                break;
+            }
+        }
+        if (!devisible) {
+            res.emplace_back(op->GetOpMagic());
+        }
+    }
+    return SUCCESS;
+}
+
+Status CheckTileShapeAIC(Operation *op, std::vector<int> &res)  {
+    auto tileSize = op->GetTileShape().GetCubeTile();
+    auto mL1 = tileSize.m[1];
+    auto kL1A = tileSize.k[1];
+    auto kL1B = tileSize.k[2];
+    auto nL1 = tileSize.n[1];
+    auto mL0 = tileSize.m[0];
+    auto kL0 = tileSize.k[0];
+    auto nL0 = tileSize.n[0];
+    if (op->GetIOperands().size() != NUM2) {
+        ALOG_ERROR_F("Cube operation %d %s ioperands size is not 2, CheckTileShapeAIC failed!", op->GetOpMagic(), op->GetOpcodeStr().c_str());
+        return FAILED;
+    }
+    auto TensorA = op->GetIOperands()[0];
+    auto TensorB = op->GetIOperands()[1];
+    if (TensorA->GetShape().size() != NUM2 || TensorB->GetShape().size() != NUM2) {
+        ALOG_ERROR_F("Cube operation %d %s input tensor shape size is not 2, CheckTileShapeAIC failed!", op->GetOpMagic(), op->GetOpcodeStr().c_str());
+        return FAILED;
+    }
+    bool L1A = false;
+    if (TensorA->GetShape()[0] % mL1 == 0 && TensorA->GetShape()[1] % kL1A == 0) {
+        L1A = true;
+    }
+    bool L1B = false;
+    if (TensorB->GetShape()[0] % kL1B == 0 && TensorB->GetShape()[1] % nL1 == 0) {
+        L1B = true;
+    }
+    bool L0A = false;
+    if (L1A && (mL1 % mL0 == 0) && (kL1A % kL0 == 0)) {
+        L0A = true;
+    }
+    bool L0B = false;
+    if (L1B && (kL1B % kL0 == 0) && (nL1 % nL0 == 0)) {
+        L0B = true;
+    }
+    if (L1A && L1B && L0A && L0B) {
+        res.emplace_back(op->GetOpMagic());
+    }
+    return SUCCESS;
+}
+
+Status FindShapeNotdevisibleOp(Function &function, json &report) {
+    std::vector<int> res;
+    for (auto op : function.Operations().DuplicatedOpList()) {
+        if (op->GetOpcode() == Opcode::OP_VIEW || op->GetOpcode() == Opcode::OP_ASSEMBLE || op->GetOpcode() == Opcode::OP_RESHAPE) {
+            continue;
+        }
+        auto opcfg = OpcodeManager::Inst().GetTileOpCfg(op->GetOpcode());
+        if (opcfg.coreType_ == CoreType::AIV) {
+            if (CheckTileShapeAIV(op, res) != SUCCESS) {
+                ALOG_ERROR_F("FindShapeNotdevisibleOp faild at function CheckTileShapeAIV!");
+                return FAILED;
+            }
+        } else if (opcfg.coreType_ == CoreType::AIC) {
+            if (CheckTileShapeAIC(op, res) != SUCCESS) {
+                ALOG_ERROR_F("FindShapeNotdevisibleOp faild at function CheckTileShapeAIC!");
+                return FAILED;
+            }
+        }
+    }
+    report["tileShapeNotDevisibleOp"] = res;
+    return SUCCESS;
 }
 
 void HealthCheckTensorGraph(Function &function, const std::string &reportPath, const std::string &fileName) {
@@ -215,7 +381,12 @@ void HealthCheckTensorGraph(Function &function, const std::string &reportPath, c
     // 4. 计算图信息
     CalcGraphMetrics(inMap, outMap, actualMagic, tensorGraphReport);
 
-    // 5. 写出健康报告
+    // 5. 不整除shape统计
+    if (FindShapeNotdevisibleOp(function, tensorGraphReport) != SUCCESS) {
+        ALOG_ERROR_F("HealthCheckTensorGraph failed at function FindShapeNotdevisibleOp!");
+    }
+
+    // 6. 写出健康报告
     std::string graphName = fileName + "_TensorGraphHealthReport.json";
     WriteHealthReport(tensorGraphReport, reportPath, graphName);
 }
@@ -241,7 +412,12 @@ void HealthCheckTileGraph(Function &function, const std::string &reportPath, con
     // 4. 计算图信息
     CalcGraphMetrics(inMap, outMap, actualMagic, tileGraphReport);
 
-    // 5. 写出健康报告
+    // 5. 冗余搬运统计
+    if (CalRedundantCopy(function, tileGraphReport) != SUCCESS) {
+        ALOG_ERROR_F("HealthCheckTileGraph failed at function CalRedundantCopy!");
+    }
+
+    // 6. 写出健康报告
     std::string graphName = fileName + "_TileGraphHealthReport.json";
     WriteHealthReport(tileGraphReport, reportPath, graphName);
 }
