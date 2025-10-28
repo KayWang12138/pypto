@@ -111,6 +111,7 @@ else ()
 
         add_custom_command(
                 OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config.json
+                COMMAND ${CMAKE_COMMAND} -E remove -f ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config.json
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_LIST_DIR}/configs/tile_fwk_config.json ${CMAKE_CURRENT_BINARY_DIR}
         )
 
@@ -121,6 +122,7 @@ else ()
 
         add_custom_command(
                 OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config_schema.json
+                COMMAND ${CMAKE_COMMAND} -E remove -f ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config_schema.json
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_LIST_DIR}/configs/tile_fwk_config_schema.json ${CMAKE_CURRENT_BINARY_DIR}
         )
 

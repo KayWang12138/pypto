@@ -32,12 +32,6 @@
 #include "interface/configs/config_manager.h"
 #include "interface/utils/op_info_manager.h"
 
-#ifdef SRCPATH
-constexpr const char *SRC_PATH = SRCPATH;
-#else
-constexpr const char *SRC_PATH = ".";
-#endif
-
 extern char _binary_kernel_o_start[];
 extern char _binary_kernel_o_end[];
 
@@ -407,7 +401,11 @@ int DeviceRunner::launchDynamicAiCpu(rtStream_t aicpuStream, AstKernelArgs *kArg
 
 void DeviceRunner::InitAiCpuSoBin() {
     std::vector<char> buffer;
-    std::string fileName = std::string(SRC_PATH) + "/build/src/machine/device/libtilefwk_backend_server.so";
+#ifdef SRCPATH
+    std::string fileName = std::string(SRCPATH) + "/build/src/machine/device/libtilefwk_backend_server.so";
+#else
+    std::string fileName = GetCurrentSharedLibPath() + "/libtilefwk_backend_server.so";
+#endif
     if (!ReadBytesFromFile(fileName, buffer)) {
         ALOG_ERROR_F("Read bin form tilefwk_backend_server.so failed, please check the so[%s]", fileName.c_str());
         return;

@@ -75,6 +75,7 @@ target_link_libraries(tile_fwk_server
 set_target_properties(tile_fwk_server PROPERTIES OUTPUT_NAME tilefwk_backend_server)
 
 if (ENABLE_FEATURE_PYTHON_FRONT_END)
+    install(TARGETS tile_fwk_server LIBRARY DESTINATION pto/lib OPTIONAL)
 else ()
     install(TARGETS tile_fwk_server
             LIBRARY DESTINATION lib OPTIONAL
