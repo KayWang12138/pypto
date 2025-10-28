@@ -294,7 +294,6 @@ def assemble(input: Tensor, offsets: List[Union[int, SymbolicScalar]], out: Tens
         The larger output tensor that will contain the assembled input tensor
     Examples
     ---------
-    >>> import pto
     >>> x = pto.tensor([2, 2], pto.data_type.DT_FP32)  # 2x2 tensor with all 1s
     >>> out = pto.tensor([4, 4], pto.data_type.DT_FP32)  # 4x4 tensor with all 0s
     >>> pto.assemble(x, [0, 0], out) 

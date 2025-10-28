@@ -44,7 +44,6 @@ def set_vec_tile_shapes(*shapes: int):
 
     Examples
     --------
-    >>> import pto
     >>> pto.set_vec_tile_shapes(1, 1, 8, 8)
     >>> print(pto.get_vec_tile_shapes())
     [1, 1, 8, 8]
@@ -71,7 +70,6 @@ def get_vec_tile_shapes() -> List[int]:
 
     Examples
     --------
-    >>> import pto
     >>> pto.set_vec_tile_shapes([1, 1, 8, 8])
     >>> print(pto.get_vec_tile_shapes())
     [1, 1, 8, 8]
@@ -112,7 +110,6 @@ def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], set_l1_tile: 
 
     Examples
     --------
-    >>> import pto
     >>> pto.set_cube_tile_shapes([16, 16], [256, 512], [128, 128], True)
     >>> print(pto.get_cube_tile_shapes())
     [[16, 16], [256, 512], [128, 128], True]
@@ -141,7 +138,6 @@ def get_cube_tile_shapes() -> List[Union[List, bool]]:
 
     Examples
     --------
-    >>> import pto
     >>> pto.set_cube_tile_shapes([16, 16], [256, 512], [128, 128], True)
     >>> print(pto.get_cube_tile_shapes())
     [[16, 16], [256, 512], [128, 128], True]
@@ -171,7 +167,6 @@ def bytes_of(dtype: DataType) -> int:
 
     Examples
     --------
-    >>> import pto
     >>> print(pto.bytes_of(pto.DataType.DT_FP32))
         4
     '''
@@ -240,7 +235,6 @@ def is_loop_begin(scalar: SymbolicScalar, begin: Union[int, SymbolicScalar]):
 
     Examples
     --------
-    >>> import pto
     >>> for s2_idx in pto.loop(0, bn_per_batch, 1, name="LOOP_L4_s2_SA", idx_name="s2_idx",
             unroll_list=pto.powers_of_2(1)):
             if pto.cond(pto.is_loop_begin(s2_idx, 0)):
@@ -248,7 +242,7 @@ def is_loop_begin(scalar: SymbolicScalar, begin: Union[int, SymbolicScalar]):
     '''
     # implementation
     nbegin = to_sym(begin)
-    return pto_impl.IsLoopBegin(scalar.base(), nbegin)
+    return SymbolicScalar.from_base(pto_impl.IsLoopBegin(scalar.base(), nbegin))
 
 
 def is_loop_end(scalar: SymbolicScalar, end: Union[int, SymbolicScalar]):
@@ -269,7 +263,6 @@ def is_loop_end(scalar: SymbolicScalar, end: Union[int, SymbolicScalar]):
 
     Examples
     --------
-    >>> import pto
     >>> for s2_idx in pto.loop(0, bn_per_batch, 1, name="LOOP_L4_s2_SA", idx_name="s2_idx",
             unroll_list=pto.powers_of_2(1)):
             if pto.cond(pto.is_loop_end(s2_idx, 0)):
@@ -277,7 +270,7 @@ def is_loop_end(scalar: SymbolicScalar, end: Union[int, SymbolicScalar]):
     '''
     # implementation
     nend = to_sym(end)
-    return pto_impl.IsLoopEnd(scalar.base(), nend)
+    return SymbolicScalar.from_base(pto_impl.IsLoopEnd(scalar.base(), nend))
 
 
 @contextmanager
@@ -309,7 +302,6 @@ def function(
 
     Examples
     --------
-    >>> import pto
     >>> with pto.function("main", [a, b], c):
             pto.set_vec_tile_shapes(16, 16)
             for _ in pto.loop(0, b_loop, 1, name, = "LOOP_L0_bIdx_mla_prolog",
@@ -350,7 +342,6 @@ def cond(scalar: SymbolicScalar):
 
     Examples
     --------
-    >>> import pto
     >>> if pto.cond(pto.is_loop_begin(bn, 0)):
             pass
         elif pto.cond(pto.is_loop_end(bn, 0)):
@@ -441,7 +432,6 @@ def loop(start: SymInt, end: Optional[SymInt] = None, step: Optional[SymInt] = N
 
     Examples
     --------
-    >>> import pto
     >>> with pto.loop(0, 10, 1, power_of_2(max_unroll_times), loop_name, iter_name):
             if pto.cond(k==0):
                 b[:] = a + a
