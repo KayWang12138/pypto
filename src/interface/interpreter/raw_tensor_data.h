@@ -175,6 +175,26 @@ struct RawTensorData : public std::vector<uint8_t> {
         return tensorData;
     }
 
+    template <typename T>
+    static std::shared_ptr<RawTensorData> CreateConstantTensorData(const Shape &shape, DataType dType, T value) {
+        auto tensorData = std::make_shared<RawTensorData>(dType, shape);
+ 
+        T *data = reinterpret_cast<T *>(tensorData->data());
+        ASSERT(sizeof(T) == tensorData->GetElementSize()) << "ConstantTensor's dtype and value's type don't match!";
+        for (size_t i = 0; i < tensorData->nelem; i++) {
+            data[i] = value;
+        }
+        return tensorData;
+    }
+ 
+    template <typename T>
+    static std::shared_ptr<RawTensorData> CreateTensorData(const Shape &shape, DataType dType, const std::vector<T> &values) {
+        auto tensorData = std::make_shared<RawTensorData>(dType, shape);
+        T *data = reinterpret_cast<T *>(tensorData->data());
+        StringUtils::DataCopy(data, tensorData->GetDataSize(), values.data(), values.size() * sizeof(T));
+        return tensorData;
+    }
+
     static std::shared_ptr<RawTensorData> CreateTensorZero(const Tensor &t) {
         auto tensorData = std::make_shared<RawTensorData>(t.GetDataType(), t.GetShape());
 

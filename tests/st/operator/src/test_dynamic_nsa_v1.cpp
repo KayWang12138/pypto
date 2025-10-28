@@ -41,7 +41,7 @@ static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileN
 
 template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool isSmooth = false, bool nz = false,
     bool ci = false, bool debug = false>
-void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig,
+void TestNsa(const NSAV1SimpleParams &params, const MlaTileConfig &prologConfig,
     WinAttenTileShapeConfig &winAttntileConfig, SATileShapeConfig &saTileConfig,
     PostTileConfig &postConfig, CmpAttnTile &cmpTileConfig, float precision, std::string cacheMode = "PA_BSND") {
     (void)precision;
@@ -485,7 +485,7 @@ void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig,
 }
 
 TEST_F(DynamicNSATest, nsa_b_16_s1_1_s2_8192_h_7168_fp16_quant) {
-    NSASimpleParams params = NSASimpleParams::getDecodeParams();
+    NSAV1SimpleParams params = NSAV1SimpleParams::getDecodeParams();
 
     int paramsSize = 7;
     std::vector<int> inputParams(paramsSize);
@@ -567,7 +567,7 @@ TEST_F(DynamicNSATest, nsa_b_16_s1_1_s2_8192_h_7168_fp16_quant) {
 }
 
 template <bool ci = false, bool debug = false>
-void test_common(NSASimpleParams params) {
+void test_common(NSAV1SimpleParams params) {
     int paramsSize = 7;
     config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, debug);
     config::SetPassConfig("PVC2_OOO", "SplitReshape", "DISABLE_PASS", true);
@@ -649,36 +649,36 @@ void test_common(NSASimpleParams params) {
 }
 
 TEST_F(DynamicNSATest, nsa_b_16_s1_1_s2_8192_h_7168_fp16) {
-    NSASimpleParams params = NSASimpleParams::getDecodeParams();
+    NSAV1SimpleParams params = NSAV1SimpleParams::getDecodeParams();
     test_common(params);
 }
 
 TEST_F(DynamicNSATest, s2_1024) {
-    NSASimpleParams params = NSASimpleParams::getDecodeParams();
+    NSAV1SimpleParams params = NSAV1SimpleParams::getDecodeParams();
     test_common(params);
 }
 
 TEST_F(DynamicNSATest, s2_2048) {
-    NSASimpleParams params = NSASimpleParams::getDecodeParams();
+    NSAV1SimpleParams params = NSAV1SimpleParams::getDecodeParams();
     test_common(params);
 }
 
 TEST_F(DynamicNSATest, s2_8192) {
-    NSASimpleParams params = NSASimpleParams::getDecodeParams();
+    NSAV1SimpleParams params = NSAV1SimpleParams::getDecodeParams();
     test_common(params);
 }
 
 TEST_F(DynamicNSATest, s2_4096) {
-    NSASimpleParams params = NSASimpleParams::getDecodeParams();
+    NSAV1SimpleParams params = NSAV1SimpleParams::getDecodeParams();
     test_common(params);
 }
 
 TEST_F(DynamicNSATest, mini) {
-    NSASimpleParams params = NSASimpleParams::getDecodeParams();
+    NSAV1SimpleParams params = NSAV1SimpleParams::getDecodeParams();
     test_common<true>(params);
 }
 
 TEST_F(DynamicNSATest, mini_debug) {
-    NSASimpleParams params = NSASimpleParams::getDecodeParams();
+    NSAV1SimpleParams params = NSAV1SimpleParams::getDecodeParams();
     test_common<true, true>(params);
 }

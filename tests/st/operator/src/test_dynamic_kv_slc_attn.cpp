@@ -45,7 +45,7 @@ static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::strin
 }
 
 template <typename T = npu::tile_fwk::float16>
-void TestKvSlcAttn(const NSASimpleParams &params, SATileShapeConfig& saTileConfig) {
+void TestKvSlcAttn(const NSAV1SimpleParams &params, SATileShapeConfig& saTileConfig) {
     SetInterpreterConfig();
     SetKvSAPreConfig();
 
@@ -164,7 +164,7 @@ void TestKvSlcAttn(const NSASimpleParams &params, SATileShapeConfig& saTileConfi
 }
 
 TEST_F(DynamicKvSATest, kv_slc_attn_b48_s1_fp16_perf) {
-    NSASimpleParams params = NSASimpleParams::getDecodeParams();
+    NSAV1SimpleParams params = NSAV1SimpleParams::getDecodeParams();
 
     int paramsSize = 7;
     std::vector<int> inputParams(paramsSize);
@@ -190,7 +190,7 @@ TEST_F(DynamicKvSATest, kv_slc_attn_b48_s1_fp16_perf) {
 }
 
 TEST_F(DynamicKvSATest, kv_slc_attn_b32_s2_bf16_perf) {
-    NSASimpleParams params = NSASimpleParams::getDecodeParams();
+    NSAV1SimpleParams params = NSAV1SimpleParams::getDecodeParams();
 
     int paramsSize = 7;
     std::vector<int> inputParams(paramsSize);
@@ -216,7 +216,7 @@ TEST_F(DynamicKvSATest, kv_slc_attn_b32_s2_bf16_perf) {
 }
 
 TEST_F(DynamicKvSATest, kv_slc_attn_b2_s1_fp16) { // 2batch, 128K, 带尾块场景, kvCacheActSeq=[128*1024, 64*1024+35], kvSlcActSeq=[16*64, 15*64+35]
-    NSASimpleParams params = NSASimpleParams::getDecodeParams();
+    NSAV1SimpleParams params = NSAV1SimpleParams::getDecodeParams();
 
     int paramsSize = 7;
     std::vector<int> inputParams(paramsSize);

@@ -47,7 +47,7 @@ public:
 };
 
 template <typename T = npu::tile_fwk::float16>
-void TestKvSlcAttn(const NSASimpleParams &params, SATileShapeConfig& saTileConfig) {
+void TestKvSlcAttn(const NSAV1SimpleParams &params, SATileShapeConfig& saTileConfig) {
     int b = params.b;
     int s1 = params.s1;
     int s2 = params.s2;
@@ -113,7 +113,7 @@ void TestKvSlcAttn(const NSASimpleParams &params, SATileShapeConfig& saTileConfi
 }
 
 TEST_F(KvSlcAttnUtest, kv_slc_attn_ut) {
-    NSASimpleParams params = NSASimpleParams::getDecodeParams();
+    NSAV1SimpleParams params = NSAV1SimpleParams::getDecodeParams();
 
     std::vector<int> inputParams = {16, 1, 8192, 128, 1, 0, 0};
 

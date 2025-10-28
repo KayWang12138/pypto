@@ -126,6 +126,9 @@ set(_CaseFilterList
 
         # Quantized lightning indexer topk
         "TestLightningIndexerTopkQuantUtest.indexer_topk_quant_4_b_1_s1_64k_s2"
+
+        # DecodeIndexerAttention
+        "DecodeIndexerAttentionUtest.utest_decode_indexer_attention"
 )
 
 set(_Target ${PTO_Fwk_UTestNamePrefix}_operator)

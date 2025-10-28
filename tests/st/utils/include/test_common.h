@@ -357,6 +357,11 @@ static bool resultCmp(const vector<T> &outDataValExp, const T *outDataValAct, fl
 }
 
 template <typename T = float>
+static bool resultCmpPrint(const vector<T> &outDataValExp, const T *outDataValAct, float eps, size_t testNum = 0) {
+    return resultCmp(outDataValExp, outDataValAct,eps,8,1000,false,false,testNum);
+}
+
+template <typename T = float>
 static bool resultCmp(const vector<T> &outDataValExp, const vector<T> &outDataValAct, float eps, size_t threshold = 0,
     size_t zeroCountThreshold = 1000, bool printAll = false, bool printErr = false, size_t testNum = 0) {
     if (outDataValExp.size() != outDataValAct.size()) {

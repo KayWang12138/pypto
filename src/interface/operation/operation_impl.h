@@ -141,4 +141,12 @@ void TiledInnerAMulB(Function &function, const TileShape &tileShape, const std::
     const LogicalTensorPtr &result, const std::vector<int64_t> &matmulSize);
 
 } // namespace Matrix
+
+std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, int idxStart);
+
+std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, const SymbolicScalar &idxStart);
+
+Tensor TopKExtract(const Tensor &x, int k, bool isIndex);
+
+Tensor TopKMerge(const Tensor &x, int mergeSize);
 } // namespace npu::tile_fwk

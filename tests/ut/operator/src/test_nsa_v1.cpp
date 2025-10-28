@@ -46,7 +46,7 @@ public:
 };
 
 template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool isSmooth = false, bool nz = false, bool debug = false>
-void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig, WinAttenTileShapeConfig &winAttntileConfig, SATileShapeConfig& saTileConfig,
+void TestNsa(const NSAV1SimpleParams &params, const MlaTileConfig &prologConfig, WinAttenTileShapeConfig &winAttntileConfig, SATileShapeConfig& saTileConfig,
     PostTileConfig& postConfig, CmpAttnTile &cmpTileConfig, std::string cacheMode = "PA_BSND") {
     float eps = params.eps;
     int b = params.b;
@@ -274,7 +274,7 @@ void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig, W
 }
 
 TEST_F(NSAUtest, nsa_b_16_fp16) {
-    NSASimpleParams params = NSASimpleParams::getDecodeParams();
+    NSAV1SimpleParams params = NSAV1SimpleParams::getDecodeParams();
 
     std::vector<int> inputParams = {16, 1, 8192, 128, 1, 0, 0};
 
@@ -346,7 +346,7 @@ TEST_F(NSAUtest, nsa_b_16_fp16) {
 
 
 TEST_F(NSAUtest, nsa_b_16_fp16_debug) {
-    NSASimpleParams params = NSASimpleParams::getDecodeParams();
+    NSAV1SimpleParams params = NSAV1SimpleParams::getDecodeParams();
     config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
     std::vector<int> inputParams = {16, 1, 8192, 128, 1, 0, 0};
 

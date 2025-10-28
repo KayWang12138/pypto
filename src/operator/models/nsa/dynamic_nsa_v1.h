@@ -34,7 +34,7 @@ enum GateMode {
     simple
 };
 
-struct NSASimpleParams {
+struct NSAV1SimpleParams {
     int b;
     int s1;
     int s2;
@@ -58,8 +58,8 @@ struct NSASimpleParams {
     int winSize;
     int vHeadDim;
     float eps;
-    static NSASimpleParams getCommonParams() {
-        NSASimpleParams params;
+    static NSAV1SimpleParams getCommonParams() {
+        NSAV1SimpleParams params;
         params.h = NUM_7168;
         params.q_lora_rank = NUM_1536;
         params.kv_lora_rank = NUM_512;
@@ -81,8 +81,8 @@ struct NSASimpleParams {
         return params;
     }
 
-    static NSASimpleParams getDecodeParams() {
-        NSASimpleParams params = getCommonParams();
+    static NSAV1SimpleParams getDecodeParams() {
+        NSAV1SimpleParams params = getCommonParams();
         params.b = NUM_32;
         params.s1 = NUM_1;
         params.s2 = NUM_65536;
@@ -91,8 +91,8 @@ struct NSASimpleParams {
         return params;
     }
 
-    static NSASimpleParams getMTPParams() {
-        NSASimpleParams params = getCommonParams();
+    static NSAV1SimpleParams getMTPParams() {
+        NSAV1SimpleParams params = getCommonParams();
         params.b = NUM_32;
         params.s1 = NUM_2;
         params.s2 = NUM_65536;

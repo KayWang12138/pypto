@@ -41,6 +41,14 @@ void LightningIndexerTopkQuant(const Tensor &query, const Tensor &key, const Ten
         selectedCount, tileConfig, unrollList);
 }
 
+void LightningIndexerTopk(const Tensor &query, const Tensor &key,
+    const Tensor &weights, const Tensor &actSeqKey, const Tensor &blockTable, Tensor &topkRes,
+    const int selectedCount, IndexerTile tileConfig, const std::set<int> &unrollList) {
+    LightningIndexerTopkImpl(query, key, false, nullptr, nullptr,
+        weights, actSeqKey, blockTable, topkRes,
+        selectedCount, tileConfig, unrollList);
+}
+
 void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQuant, const Tensor *qScale, const Tensor *kScale,
     const Tensor &weights, const Tensor &actSeqKey, const Tensor &blockTable, Tensor &topkRes,
     const int selectedCount, IndexerTile tileConfig, const std::set<int> &unrollList,
