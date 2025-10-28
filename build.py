@@ -80,7 +80,7 @@ class BuildParam(CMakeParam):
     """ 构建相关参数
     """
     targets: Optional[List[str]] = None  # 编译目标
-    job_num: int = min(int(math.ceil(float(multiprocessing.cpu_count()) * 0.8)), 16) # 编译阶段使用核数
+    job_num: int = min(int(math.ceil(float(multiprocessing.cpu_count()) * 0.8)), 48) # 编译阶段使用核数
     clean: bool = False  # 强制清理 Build-Tree 及 Install-Tree 标记
     timeout: Optional[int] = None  # 构建超时时长
     type_: Optional[str] = None  # 构建类型

@@ -115,13 +115,13 @@ else ()
         )
 
         add_custom_target(
-                tile_fwk_config_schema.json ALL
+                tile_fwk_config_schema_json ALL
                 DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config_schema.json
         )
 
         add_custom_command(
-            OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config_schema.json
-            COMMAND cp ${CMAKE_CURRENT_LIST_DIR}/configs/tile_fwk_config_schema.json ${CMAKE_CURRENT_BINARY_DIR}
+                OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config_schema.json
+                COMMAND cp ${CMAKE_CURRENT_LIST_DIR}/configs/tile_fwk_config_schema.json ${CMAKE_CURRENT_BINARY_DIR}
         )
 
         install(FILES
