@@ -615,3 +615,353 @@ TEST_F(DynamicReshapeTest, test_reshape_op_reshape) {
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputDataList();
     EXPECT_TRUE(resultCmp(golden_qNope, (float *)outs[0]->data(), 0.001f)); //right
 }
+
+TEST_F(DynamicReshapeTest, test_merge) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+
+    TileShape::Current().SetVecTile(16, 16);
+
+    int s = 16, d = 32;
+    int actD = -1;
+
+    std::vector<int64_t> inputShape = {s, actD};
+    std::vector<int64_t> outputShape = {actD};
+
+    Tensor q(DT_FP16, inputShape, "q");
+    Tensor out(DT_FP16, {16*GetInputShape(q, 1)}, "out");
+
+    FUNCTION("main", {q}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, l0Idx, LoopRange(0, (GetInputShape(q, 1) + 31)/32, 1)) {
+            auto a = View(q, {s, 32}, {16, GetInputShape(q, 1)}, {0, l0Idx*32});
+            auto a1 = Reshape(a, {s*d}, {16*GetInputShape(q, 1)});
+            TileShape::Current().SetVecTile(16*16);
+            auto a2 = Add(a1, Element(DataType::DT_FP32, 1.0f));
+            Assemble(a2, {l0Idx*32}, out);
+        }
+    }
+    actD = 30;
+    inputShape = {s, actD};
+    outputShape = {s*actD};
+    Tensor q_real(DT_FP16, inputShape, "q");
+    Tensor out_real(DT_FP16, outputShape, "out");
+
+    npu::tile_fwk::float16 initInputValue = 2.0f;
+    npu::tile_fwk::float16 initOutValue = 0.5f;
+
+    std::vector<npu::tile_fwk::float16> inputValueData;
+    for (int i = 0; i < s * actD; i++){
+        inputValueData.push_back(static_cast<npu::tile_fwk::float16>(i));
+    }
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<npu::tile_fwk::float16>(q_real, inputValueData),
+    });
+
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<npu::tile_fwk::float16>(out_real, initOutValue),
+    });
+
+    // excute
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(q_real.GetStorage()->GetDataSize()));
+
+    std::vector<npu::tile_fwk::float16> golden(s*actD, initInputValue);
+    for (int i = 0; i < s * actD; i++){
+        golden[i] = inputValueData[i] + 1.0f;
+    }
+
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::float16 *)outs->data(), 0.001f, 0, 1000, true));
+}
+
+TEST_F(DynamicReshapeTest, test_split) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+
+    int s = 16, d = 32;
+    int actSd = -1;
+    int actD = -1;
+
+    std::vector<int64_t> inputShape = {actSd};
+    std::vector<int64_t> outputShape = {s, actD};
+
+    Tensor q(DT_FP16, inputShape, "q");
+    Tensor out(DT_FP16, {s, GetInputShape(q, 0)/s}, "out");
+
+    FUNCTION("main", {q}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, l0Idx, LoopRange(1)) {
+            (void)l0Idx;
+            TileShape::Current().SetVecTile(16*16);
+            auto a = View(q, {s*d}, {GetInputShape(q, 0)}, {0});
+            auto a1 = Reshape(a, {s, d}, {s, GetInputShape(q, 0)/s});
+            TileShape::Current().SetVecTile(16, 16);
+            auto a2 = Add(a1, Element(a1.GetStorage()->Datatype(), 1.0f));
+            Assemble(a2, {0, 0}, out);
+        }
+    }
+    actD = 30;
+    inputShape = {s*actD};
+    outputShape = {s, actD};
+    Tensor q_real(DT_FP16, inputShape, "q");
+    Tensor out_real(DT_FP16, outputShape, "out");
+
+    npu::tile_fwk::float16 initInputValue = 2.0f;
+    npu::tile_fwk::float16 initOutValue = 0.5f;
+
+    std::vector<npu::tile_fwk::float16> inputValueData;
+    for (int i = 0; i < s * actD; i++){
+        inputValueData.push_back(static_cast<npu::tile_fwk::float16>(i));
+    }
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<npu::tile_fwk::float16>(q_real, inputValueData),
+    });
+
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<npu::tile_fwk::float16>(out_real, initOutValue),
+    });
+
+    // excute
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(q_real.GetStorage()->GetDataSize()));
+
+    std::vector<npu::tile_fwk::float16> golden(s*actD, initInputValue);
+    for (int i = 0; i < s * actD; i++){
+        golden[i] = inputValueData[i] + 1.0f;
+    }
+
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::float16 *)outs->data(), 0.001f, 0, 1000, true));
+}
+
+TEST_F(DynamicReshapeTest, test_merge_and_split) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+
+    TileShape::Current().SetVecTile(16, 16);
+
+    int s = 16, d = 32;
+    int actD = -1;
+
+    std::vector<int64_t> inputShape = {s, actD};
+    std::vector<int64_t> outputShape = {s, actD};
+
+    Tensor q(DT_FP16, inputShape, "q");
+    Tensor out(DT_FP16, outputShape, "out");
+
+    FUNCTION("main", {q}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, l0Idx, LoopRange(0, (GetInputShape(q, 1) + 31)/32, 1)) {
+            TileShape::Current().SetVecTile(16, 16);
+            auto a = View(q, {s, d}, {16, GetInputShape(q, 1)}, {0, l0Idx*32});
+            auto a1 = Reshape(a, {16*32}, {16*GetInputShape(q, 1)});
+            TileShape::Current().SetVecTile(16*16);
+            auto a2 = Add(a1, Element(DataType::DT_FP32, 1.0f));
+            auto a3 = Reshape(a2, {{s, d}}, {s, GetInputShape(q, 1)});
+            TileShape::Current().SetVecTile(16, 16);
+            Assemble(a3, {0, l0Idx*32}, out);
+        }
+    }
+    actD = 30;
+    inputShape = {s, actD};
+    outputShape = {s, actD};
+    Tensor q_real(DT_FP16, inputShape, "q");
+    Tensor out_real(DT_FP16, outputShape, "out");
+
+    npu::tile_fwk::float16 initInputValue = 2.0f;
+    npu::tile_fwk::float16 initOutValue = 0.5f;
+
+    std::vector<npu::tile_fwk::float16> inputValueData;
+    for (int i = 0; i < s * actD; i++){
+        inputValueData.push_back(static_cast<npu::tile_fwk::float16>(i));
+    }
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<npu::tile_fwk::float16>(q_real, inputValueData),
+    });
+
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<npu::tile_fwk::float16>(out_real, initOutValue),
+    });
+
+    // excute
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(q_real.GetStorage()->GetDataSize()));
+
+    std::vector<npu::tile_fwk::float16> golden(s*actD, initInputValue);
+    for (int i = 0; i < s * actD; i++){
+        golden[i] = inputValueData[i] + 1.0f;
+    }
+
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::float16 *)outs->data(), 0.001f, 0, 1000, true));
+}
+
+TEST_F(DynamicReshapeTest, test_split_and_merge) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+
+    TileShape::Current().SetVecTile(16, 16);
+
+    int s = 16, d = 32;
+    int actD = -1;
+
+    std::vector<int64_t> inputShape = {-1};
+    std::vector<int64_t> outputShape = {-1};
+
+    Tensor q(DT_FP16, inputShape, "q");
+    Tensor out(DT_FP16, outputShape, "out");
+
+    FUNCTION("main", {q}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, l0Idx, LoopRange(0, 1, 1)) {
+            TileShape::Current().SetVecTile(16*16);
+            auto a = View(q, {s*d}, {GetInputShape(q, 0)}, {l0Idx*32});
+            auto a1 = Reshape(a, {s, d}, {s, GetInputShape(q, 0)/s});
+            TileShape::Current().SetVecTile(16, 16);
+            auto a3 = Add(a1, Element(DataType::DT_FP32, 1.0f));
+            auto a4 = Reshape(a3, {s*d}, {GetInputShape(q, 0)});
+            TileShape::Current().SetVecTile(16*16);
+            auto a5 = Add(a4, Element(DataType::DT_FP32, 1.0f));
+            Assemble(a5, {0}, out);
+        }
+    }
+    actD = 30;
+    inputShape = {s*actD};
+    outputShape = {s*actD};
+    Tensor q_real(DT_FP16, inputShape, "q");
+    Tensor out_real(DT_FP16, outputShape, "out");
+
+    npu::tile_fwk::float16 initInputValue = 2.0f;
+    npu::tile_fwk::float16 initOutValue = 0.5f;
+
+    std::vector<npu::tile_fwk::float16> inputValueData;
+    for (int i = 0; i < s * actD; i++){
+        inputValueData.push_back(static_cast<npu::tile_fwk::float16>(i));
+    }
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<npu::tile_fwk::float16>(q_real, inputValueData),
+    });
+
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<npu::tile_fwk::float16>(out_real, initOutValue),
+    });
+
+    // excute
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(q_real.GetStorage()->GetDataSize()));
+
+    std::vector<npu::tile_fwk::float16> golden(s*actD, initInputValue);
+    for (int i = 0; i < s * actD; i++){
+        golden[i] = inputValueData[i] + 2.0f;
+    }
+
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::float16 *)outs->data(), 0.001f, 0, 1000, true));
+}
+
+TEST_F(DynamicReshapeTest, test_exchange_dim) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+
+    TileShape::Current().SetVecTile(16, 16);
+
+    int s = 16, d = 32;
+    int actD = -1;
+    std::vector<int64_t> inputShape = {16, -1};
+    std::vector<int64_t> outputShape = {-1, 16};
+
+    Tensor q(DT_FP16, inputShape, "q");
+    Tensor out(DT_FP16, outputShape, "out");
+
+    FUNCTION("main", {q}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, l0Idx, LoopRange(0, 1, 1)) {
+            TileShape::Current().SetVecTile(16, 16);
+            auto a = View(q, {s, d}, {s, GetInputShape(q, 1)}, {0, l0Idx*32});
+            auto a1 = Reshape(a, {d, s}, {GetInputShape(q, 1), s});
+            TileShape::Current().SetVecTile(16, 16);
+            auto a3 = Add(a1, Element(a1.GetStorage()->Datatype(), 1.0f));
+            Assemble(a3, {0, 0}, out);
+        }
+    }
+    actD = 30;
+    inputShape = {s, actD};
+    outputShape = {actD, s};
+    Tensor q_real(DT_FP16, inputShape, "q");
+    Tensor out_real(DT_FP16, outputShape, "out");
+
+    npu::tile_fwk::float16 initInputValue = 2.0f;
+    npu::tile_fwk::float16 initOutValue = 0.5f;
+
+    std::vector<npu::tile_fwk::float16> inputValueData;
+    for (int i = 0; i < s * actD; i++){
+        inputValueData.push_back(static_cast<npu::tile_fwk::float16>(i));
+    }
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<npu::tile_fwk::float16>(q_real, inputValueData),
+    });
+
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<npu::tile_fwk::float16>(out_real, initOutValue),
+    });
+
+    // excute
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(q_real.GetStorage()->GetDataSize()));
+
+    std::vector<npu::tile_fwk::float16> golden(s*actD, initInputValue);
+    for (int i = 0; i < s * actD; i++){
+        golden[i] = inputValueData[i] + 1.0f;
+    }
+
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::float16 *)outs->data(), 0.001f, 0, 1000, true));
+}
+
+TEST_F(DynamicReshapeTest, test_special_reshape) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+
+    TileShape::Current().SetVecTile(16, 16);
+
+    int s = 16, d = 32;
+    int actD = -1;
+    std::vector<int64_t> inputShape = {16, -1};
+    std::vector<int64_t> outputShape = {16*2, -1};
+
+    Tensor q(DT_FP16, inputShape, "q");
+    Tensor out(DT_FP16, {s*2, GetInputShape(q, 1)/2}, "out");
+
+    FUNCTION("main", {q}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, l0Idx, LoopRange(0, 1, 1)) {
+            TileShape::Current().SetVecTile(16, 16);
+            auto a = View(q, {s, d}, {s, GetInputShape(q, 1)}, {0, l0Idx*32});
+            auto a1 = Reshape(a, {s*2, d/2}, {s*2, GetInputShape(q, 1)/2});// (16, 30) --> (32, 15)
+            TileShape::Current().SetVecTile(16, 16);
+            auto a3 = Add(a1, Element(a1.GetStorage()->Datatype(), 1.0f));
+            Assemble(a3, {0, 0}, out);
+        }
+    }
+    actD = 30;
+    inputShape = {s, actD};
+    outputShape = {s*2, actD/2};
+    Tensor q_real(DT_FP16, inputShape, "q");
+    Tensor out_real(DT_FP16, outputShape, "out");
+
+    npu::tile_fwk::float16 initInputValue = 2.0f;
+    npu::tile_fwk::float16 initOutValue = 0.5f;
+
+    std::vector<npu::tile_fwk::float16> inputValueData;
+    for (int i = 0; i < s * actD; i++){
+        inputValueData.push_back(static_cast<npu::tile_fwk::float16>(i));
+    }
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<npu::tile_fwk::float16>(q_real, inputValueData),
+    });
+
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<npu::tile_fwk::float16>(out_real, initOutValue),
+    });
+
+    // excute
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(q_real.GetStorage()->GetDataSize()));
+
+    std::vector<npu::tile_fwk::float16> golden(s*actD, initInputValue);
+    for (int i = 0; i < s * actD; i++){
+        golden[i] = inputValueData[i] + 1.0f;
+    }
+
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::float16 *)outs->data(), 0.001f, 0, 1000, true));
+}

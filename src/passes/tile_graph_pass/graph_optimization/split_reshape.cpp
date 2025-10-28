@@ -938,7 +938,9 @@ Status SplitReshape::CheckValidOp(const CheckParam &para, CheckOutputParam &chec
         APASS_LOG_WARN_F("SplitReshape", "Operation", "Can not construct align for rawshape.");
         return WARNING;
     }
-    Status dynStatus = CheckDynStatus(checkOutputParam.alignedShape, checkOutputParam.reshapeSource->GetRawTensor()->GetRawShape(), input->GetRawTensor()->GetRawShape(), reshapeDynOutput[input->GetRawTensor()->GetRawMagic()]);
+    Status dynStatus = CheckDynStatus(checkOutputParam.alignedShape,
+     checkOutputParam.reshapeSource->GetRawTensor()->GetRawShape(), input->GetRawTensor()->GetRawShape(),
+     reshapeDynOutput[input->GetRawTensor()->GetRawMagic()]);
     if (dynStatus == WARNING) {
         APASS_LOG_WARN_F("SplitReshape", "Operation", "Undetermined variable in the changing axis. input = %s, output = %s, dynOutput = %s", GetStr(checkOutputParam.reshapeSource->GetRawTensor()->GetRawShape()).c_str(), GetStr(input->GetRawTensor()->GetRawShape()).c_str(), GetStr(reshapeDynOutput[input->GetRawTensor()->GetRawMagic()]).c_str());
         return WARNING;

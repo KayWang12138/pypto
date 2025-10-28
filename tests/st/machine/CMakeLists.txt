@@ -176,6 +176,10 @@ set(_CaseFilterList
         "DynamicReshapeTest.test_only_reshape2"
         "DynamicReshapeTest.test_dyn_reshape2"
         "DynamicReshapeTest.test_assemble_diff_tile"
+        "DynamicReshapeTest.test_merge_and_split"
+        "DynamicReshapeTest.test_split_and_merge"
+        "DynamicReshapeTest.test_exchange_dim"
+        "DynamicReshapeTest.test_special_reshape"
         #===========================================================================
         # 非对齐Reshape功能用例
         #===========================================================================

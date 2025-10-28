@@ -472,5 +472,31 @@ TILEOP void DynTIndexoutcast(__gm__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1,
     }
 }
 
+template <typename T, unsigned UBS1, unsigned UBS2, unsigned UBS3, unsigned UBS4     /*dst shape*/>
+TILEOP void DynReshapeCopyIn(__ubuf__ T *dst, __gm__ T *tmp,
+    unsigned T0, unsigned T1, unsigned T2, unsigned T3, unsigned T4,
+    unsigned GMS0, unsigned GMS1, unsigned GMS2, unsigned GMS3, unsigned GMS4,
+    unsigned Offset0, unsigned Offset1, unsigned Offset2, unsigned Offset3, unsigned Offset4) {
+    // DynUBCopyIn
+    TileOp::DynUBCopyIn<T, UBS1, UBS2, UBS3, UBS4>(
+        dst, tmp,
+        T0, T1, T2, T3, T4,
+        T0, T1, T2, T3, T4,
+        0, 0, 0, 0, 0);
+}
+
+template <typename T, unsigned UBS1, unsigned UBS2, unsigned UBS3, unsigned UBS4>    /*src shape*/
+TILEOP void DynReshapeCopyOut(__gm__ T *tmp, __ubuf__ T *src,
+    unsigned T0, unsigned T1, unsigned T2, unsigned T3, unsigned T4,
+    unsigned GMS0, unsigned GMS1, unsigned GMS2, unsigned GMS3, unsigned GMS4,
+    unsigned Offset0, unsigned Offset1, unsigned Offset2, unsigned Offset3, unsigned Offset4) {
+    // DynUBCopyOut
+    TileOp::DynUBCopyOut<T, UBS1, UBS2, UBS3, UBS4>(
+        tmp, src,
+        T0, T1, T2, T3, T4,
+        T0, T1, T2, T3, T4,
+        0, 0, 0, 0, 0);
+}
+
 } // namespace TileOp
 #endif // TILE_FWK_MTE_DYN_H

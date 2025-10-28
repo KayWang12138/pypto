@@ -115,6 +115,8 @@ enum class Opcode {
     OP_DUPLICATE,
     // View
     OP_RESHAPE,
+    OP_RESHAPE_COPY_IN,
+    OP_RESHAPE_COPY_OUT,
     OP_ASSEMBLE,
     OP_VIEW,
     // Move
@@ -365,7 +367,7 @@ public:
 
     inline bool IsCopyIn(Opcode opCode) const {
         return opCode == Opcode::OP_COPY_IN || opCode == Opcode::OP_UB_COPY_IN || opCode == Opcode::OP_L1_COPY_IN ||
-               opCode == Opcode::OP_TRANSPOSE_MOVEIN;
+               opCode == Opcode::OP_TRANSPOSE_MOVEIN || opCode == Opcode::OP_RESHAPE_COPY_IN;
     }
 
     inline bool IsCopyOut(Opcode opCode) const {
@@ -376,7 +378,7 @@ public:
                opCode == Opcode::OP_FFN_SCHED || opCode == Opcode::OP_FFN_BATCHING ||
                opCode == Opcode::OP_COPY_TO_LOCAL_EXPERT ||
                opCode == Opcode::OP_SHMEM_PUT || opCode == Opcode::OP_SHMEM_SIGNAL ||
-               opCode == Opcode::OP_SHMEM_GET || opCode == Opcode::OP_SHMEM_REDUCE;
+               opCode == Opcode::OP_SHMEM_GET || opCode == Opcode::OP_SHMEM_REDUCE || opCode == Opcode::OP_RESHAPE_COPY_OUT;
     }
 
     inline bool IsCopyInOrOut(Opcode opCode) const { return IsCopyIn(opCode) || IsCopyOut(opCode); }
@@ -515,7 +517,7 @@ inline bool IsEmptyOut(const Opcode opCode) {
 
 inline bool IsCopyIn(const Opcode opCode) {
     return opCode == Opcode::OP_COPY_IN || opCode == Opcode::OP_UB_COPY_IN || opCode == Opcode::OP_L1_COPY_IN ||
-           opCode == Opcode::OP_TRANSPOSE_MOVEIN;
+           opCode == Opcode::OP_TRANSPOSE_MOVEIN || opCode == Opcode::OP_RESHAPE_COPY_IN;
 }
 
 inline bool IsCopyOut(const Opcode &op) {
@@ -524,7 +526,7 @@ inline bool IsCopyOut(const Opcode &op) {
             op == Opcode::OP_REMOTE_REDUCE || op == Opcode::OP_FFN_SCHED || op == Opcode::OP_FFN_BATCHING ||
             op == Opcode::OP_COPY_TO_LOCAL_EXPERT ||
             op == Opcode::OP_SHMEM_PUT || op == Opcode::OP_SHMEM_SIGNAL ||
-            op == Opcode::OP_SHMEM_GET || op == Opcode::OP_SHMEM_REDUCE);
+            op == Opcode::OP_SHMEM_GET || op == Opcode::OP_SHMEM_REDUCE || op == Opcode::OP_RESHAPE_COPY_OUT);
 }
 
 inline bool IsOpCodeSupportMultiProducers(Opcode opCode) {

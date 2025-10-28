@@ -26,6 +26,7 @@ after:
 */
 Status RemoveUnalignedReshape::RunOnFunction(Function &function) {
     ALOG_INFO_F("===> start RemoveUnalignedReshape");
+    ReplaceDynUnalignedReshapeOps(function);
     CollectReshapeOps(function);
     for (auto &a : copyOuts) {
         GraphUtils::CopyDynStatus(a.output, a.input);
@@ -75,7 +76,7 @@ bool RemoveUnalignedReshape::CheckUnaligned(Operation &op) {
         if (input != nullptr && input->tensor != nullptr) {
             lastIdx = input->shape.size() - 1;
             if (input->shape.size() == input->tensor->oriRawshape.size() &&
-                input->shape.size() == input->tensor->rawshape.size() && 
+                input->shape.size() == input->tensor->rawshape.size() &&
                 input->tensor->oriRawshape[lastIdx] != input->tensor->rawshape[lastIdx]) {
                 return true;
             }
@@ -85,13 +86,108 @@ bool RemoveUnalignedReshape::CheckUnaligned(Operation &op) {
         if (output != nullptr && output->tensor != nullptr) {
             lastIdx = output->shape.size() - 1;
             if (output->shape.size() == output->tensor->oriRawshape.size() &&
-                output->shape.size() == output->tensor->rawshape.size() && 
+                output->shape.size() == output->tensor->rawshape.size() &&
                 output->tensor->oriRawshape[lastIdx] != output->tensor->rawshape[lastIdx]) {
                 return true;
             }
         }
     }
     return false;
+}
+
+std::vector<int64_t> FindChangedDims(const std::vector<int64_t>& inputShapes, const std::vector<int64_t>& outputShapes) {
+    int inputDimSize = inputShapes.size();
+    int outputDimSize = outputShapes.size();
+
+    int left = -1;
+    int right = -1;
+    std::vector<int64_t> changedInputAxes = {};
+
+    for (int i = 0; i < std::min(inputDimSize, outputDimSize); ++i) {
+        if (inputShapes[i] != outputShapes[i] && left == -1) {
+            left = i;  // left第一次shape不等的位置
+        }
+
+        if (inputShapes[inputDimSize - 1 - i] != outputShapes[outputDimSize - 1 - i] && right == -1) {
+            right = inputDimSize - 1 - i;  // right第一次shape不等的位置
+        }
+    }
+
+    if (left <= right && left != -1 && right != -1) {
+        for (int i = left; i <= right; ++i) {
+            changedInputAxes.push_back(i);
+        }
+    }
+
+    return changedInputAxes;
+}
+
+void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOps(Function &function) {
+    ALOG_INFO_F("===> start ReplaceDynUnalignedReshapeOps");
+    // 寻找到无法处理的reshape op
+    for (auto &op : function.Operations()) {
+        if (op.GetOpcode() != Opcode::OP_RESHAPE) {
+            continue;
+        }
+
+        auto input = op.GetIOperands().front();
+        auto output = op.GetOOperands().front();
+        // only support ub reshape yet
+        if ((input->GetMemoryTypeOriginal() != MemoryType::MEM_UB) || (output->GetMemoryTypeOriginal() != MemoryType::MEM_UB)) {
+            continue;
+        }
+
+        auto inputShapes = input->shape;
+        auto outputShapes = output->shape;
+        auto changedDims = FindChangedDims(outputShapes, inputShapes);
+
+        auto inDynValidShape = input->GetDynValidShape();
+        auto outDynValidShape = output->GetDynValidShape();
+
+        for (auto &dim : changedDims) {
+            if (!outDynValidShape[dim].IsImmediate()) {
+                op.SetAsDeleted();
+                auto tmpWorkSpaceIn = std::make_shared<LogicalTensor>(function, input->Datatype(), input->oriShape);
+                auto tmpWorkSpaceOut = std::make_shared<LogicalTensor>(function, input->Datatype(), output->oriShape);
+
+                tmpWorkSpaceIn->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+                tmpWorkSpaceIn->UpdateDynValidShape(inDynValidShape);
+                tmpWorkSpaceOut->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+                tmpWorkSpaceOut->UpdateDynValidShape(outDynValidShape);
+
+                auto &reshapeCopyOutOp = function.AddOperation(Opcode::OP_RESHAPE_COPY_OUT, {input}, {tmpWorkSpaceIn});
+                auto &reshapeOp = function.AddOperation(Opcode::OP_RESHAPE, {tmpWorkSpaceIn}, {tmpWorkSpaceOut});
+                auto &reshapeCopyInOp = function.AddOperation(Opcode::OP_RESHAPE_COPY_IN, {tmpWorkSpaceOut}, {output});
+
+                reshapeCopyOutOp.UpdateSubgraphID(op.GetSubgraphID());
+                reshapeCopyInOp.UpdateSubgraphID(op.GetSubgraphID());
+                reshapeOp.UpdateSubgraphID(op.GetSubgraphID());
+
+                reshapeCopyOutOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+                    MemoryType::MEM_UB,
+                    OpImmediate::Specified(std::vector<SymbolicScalar>(input->shape.size(), 0)),
+                    OpImmediate::Specified(input->shape),
+                    OpImmediate::Specified(input->tensor->GetDynRawShape()),
+                    OpImmediate::Specified(input->GetDynValidShape())
+                ));
+
+                reshapeCopyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+                    OpImmediate::Specified(std::vector<SymbolicScalar>(output->shape.size(), 0)),
+                    MemoryType::MEM_DEVICE_DDR,
+                    OpImmediate::Specified(output->shape),
+                    OpImmediate::Specified(output->tensor->GetDynRawShape()),
+                    OpImmediate::Specified(output->GetDynValidShape())
+                ));
+
+                ALOG_INFO_F("reshape op %d is replaceed by reshapeCopyOutOp %d and reshapeCopyInOp %d", op.opmagic, reshapeCopyOutOp.opmagic, reshapeCopyInOp.opmagic);
+                break;
+            }
+        }
+    }
+
+    function.EraseOperations(true, false);
+
+    ALOG_INFO_F("===> end ReplaceDynUnalignedReshapeOps");
 }
 
 void RemoveUnalignedReshape::CollectReshapeOps(Function &function) {

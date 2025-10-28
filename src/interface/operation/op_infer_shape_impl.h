@@ -51,11 +51,15 @@ public:
             // 如果op infershape未注册，那么validshape设置成shape
             for (auto output : op->GetOOperands()) {
                 auto immShape = OpImmediate::Specified(output->GetShape());
-                std::vector<SymbolicScalar> validShape;
-                for (auto immDim : immShape) {
-                    validShape.push_back(immDim.GetSpecifiedValue());
+                if (output->GetDynValidShape().empty()) {
+                        std::vector<SymbolicScalar> validShape;
+                    for (auto immDim : immShape) {
+                        validShape.push_back(immDim.GetSpecifiedValue());
+                    }
+                    outValidShapes.push_back(validShape);
+                } else {
+                    outValidShapes.push_back(output->GetDynValidShape());
                 }
-                outValidShapes.push_back(validShape);
             }
         }
         // 设置属性

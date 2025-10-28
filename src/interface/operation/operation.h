@@ -346,6 +346,8 @@ public:
             case Opcode::OP_L1_COPY_OUT:
             case Opcode::OP_COPY_IN:
             case Opcode::OP_COPY_OUT:
+            case Opcode::OP_RESHAPE_COPY_IN:
+            case Opcode::OP_RESHAPE_COPY_OUT:
             case Opcode::OP_INDEX_OUTCAST:
             case Opcode::OP_TRANSPOSE_MOVEIN:
             case Opcode::OP_TRANSPOSE_MOVEOUT:

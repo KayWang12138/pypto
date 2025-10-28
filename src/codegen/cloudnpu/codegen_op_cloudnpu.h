@@ -46,6 +46,8 @@ public:
 
     std::string GenUBCopyIn() const;
     std::string GenUBCopyOut() const;
+    std::string GenReshapeCopyIn() const;
+    std::string GenReshapeCopyOut() const;
 
     std::string GenLoadOp() const;
     std::string GenGatherInL1() const;
@@ -419,6 +421,8 @@ private:
         // UB <-> GM
         {                Opcode::OP_UB_COPY_IN,                 [this]() { return GenUBCopyIn(); }},
         {               Opcode::OP_UB_COPY_OUT,                [this]() { return GenUBCopyOut(); }},
+        {               Opcode::OP_RESHAPE_COPY_IN,                [this]() { return GenReshapeCopyIn(); }},
+        {               Opcode::OP_RESHAPE_COPY_OUT,                [this]() { return GenReshapeCopyOut(); }},
 
         // L1 <-> GM/BT/L1
         {                Opcode::OP_L1_COPY_IN,              [this]() { return GenMemL1CopyIn(); }},

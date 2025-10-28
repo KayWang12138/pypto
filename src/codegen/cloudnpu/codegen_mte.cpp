@@ -241,6 +241,14 @@ std::string CodeGenOpCloudNPU::GenUBCopyOut() const {
     return GenMemUBTransfer(true);
 }
 
+std::string CodeGenOpCloudNPU::GenReshapeCopyIn() const{
+    return GenMemCopyVar(false, OperandType::BUF_UB, 0);
+}
+
+std::string CodeGenOpCloudNPU::GenReshapeCopyOut() const{
+    return GenMemCopyVar(true, OperandType::BUF_UB, 0);
+}
+
 std::string CodeGenOpCloudNPU::GenIndexOutCastOp() const {
     ASSERT(opAttrs.count(OpAttributeKey::cacheMode)) << "cannot get cacheMode attr";
     ASSERT(opAttrs.count(OpAttributeKey::panzBlockSize)) << "cannot get panzBlockSize attr";
