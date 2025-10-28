@@ -130,12 +130,8 @@ include(cmake/intf.cmake)
 # 编译流程
 ########################################################################################################################
 
-if (ENABLE_FEATURE_PYTHON_FRONT_END)
-    add_subdirectory(python/src/tensor_op)
-endif ()
-
 add_subdirectory(src)
-add_subdirectory(python/op_compile)
+add_subdirectory(python)
 
 if (ENABLE_TESTS)
     enable_testing()

@@ -18,13 +18,11 @@ pybind11_add_module(pto_impl
             src/bindings/operation.cpp
             src/bindings/runtime.cpp
 )
-
 target_include_directories(pto_impl
         PRIVATE
             src
             ${PTO_FWK_SRC_ROOT}/tests
 )
-
 target_link_libraries(pto_impl
         PRIVATE
             $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>
@@ -39,7 +37,6 @@ target_link_libraries(pto_impl
             intf_pub_cxx17
             tile_fwk_intf_pub
 )
-
 if (ENABLE_FEATURE_PYTHON_FRONT_END)
     install(TARGETS pto_impl LIBRARY DESTINATION pto OPTIONAL)
 endif ()
