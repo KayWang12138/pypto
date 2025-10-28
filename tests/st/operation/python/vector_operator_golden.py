@@ -25,9 +25,10 @@ from bfloat16 import bfloat16
 import torch
 import copy
 
-tools_path: Path = Path(Path(__file__).parent, "../../utils/python")
-if str(tools_path) not in sys.path:
-    sys.path.append(str(tools_path))
+utils_path: Path = Path(Path(__file__).parent.parent.parent.parent.parent, "python/tests/st/utils").resolve()
+if str(utils_path) not in sys.path:
+    sys.path.append(str(utils_path))
+
 from test_case_tools import get_dtype_by_name
 
 if __name__ == "__main__":
@@ -146,7 +147,7 @@ def gen_op_golden(
                 )
             index += 1
             input_tensors.append(tensor)
-            
+
         res = golden_func(input_tensors, config)
         cube_op_list = ["Matmul", "BatchMatmul", "MatmulVerify", "BatchMatmulVerify"]
         for input_tensor, read_input in zip(input_tensors, config["input_tensors"]):
@@ -823,9 +824,9 @@ class GatherError(Exception):
     ]
 )
 def gen_gather_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
-    
+
     def golden_func(inputs: list, config: dict):
-        
+
         def _normalize_axis(axis, ndim):
             """把 axis 转成 [0, ndim) 区间"""
             if axis < 0:
@@ -833,7 +834,7 @@ def gen_gather_op_golden(case_name: str, output: Path, case_index: int = None) -
             if not (0 <= axis < ndim):
                 raise GatherError(f"axis={axis} 越界，ndim={ndim}")
             return axis
-        
+
         def np_gather(params, indices, axis=0, batch_dims=0, *, validate_indices=True):
             """
             用 NumPy 模拟 TensorFlow 的 tf.gather。
@@ -915,15 +916,15 @@ def gen_gather_op_golden(case_name: str, output: Path, case_index: int = None) -
             if move_to != axis:
                 res = np.moveaxis(res, move_to, axis)
             return res
-            
+
         params = config.get("params")
         axis = params["axis"]
         res = np_gather(inputs[0], inputs[1], axis)
         return [res]
-    
+
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Gather", golden_func, output, case_index)
-    
+
 
 @GoldenRegister.reg_golden_func(
     case_names=[
@@ -1040,7 +1041,7 @@ def gen_concat_op_golden(case_name: str, output: Path, case_index: int = None) -
     ]
 )
 def gen_compare_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
-    
+
     def golden_func(inputs: list, config: dict):
         params = config.get("params", {})
         operation = params["compare_op"]

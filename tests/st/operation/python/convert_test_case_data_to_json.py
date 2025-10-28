@@ -17,9 +17,10 @@ import sys
 from dataclasses import dataclass
 import pandas as pd
 
-tools_path: Path = Path(Path(__file__).parent, "../../utils/python")
-if str(tools_path) not in sys.path:
-    sys.path.append(str(tools_path))
+utils_path: Path = Path(Path(__file__).parent.parent.parent.parent.parent, "python\tests\st\utils").resolve()
+if str(utils_path) not in sys.path:
+    sys.path.append(str(utils_path))
+
 from test_case_desc import TensorDesc, TestCaseDesc
 from test_case_tools import parse_list_str
 
