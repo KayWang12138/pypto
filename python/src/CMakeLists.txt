@@ -9,19 +9,18 @@
 
 pybind11_add_module(pto_impl
         MODULE
-            src/pybind11.cpp
-            src/bindings/enum.cpp
-            src/bindings/element.cpp
-            src/bindings/tensor.cpp
-            src/bindings/symbolic_scalar.cpp
-            src/bindings/controller.cpp
-            src/bindings/operation.cpp
-            src/bindings/runtime.cpp
+            pybind11.cpp
+            bindings/enum.cpp
+            bindings/element.cpp
+            bindings/tensor.cpp
+            bindings/symbolic_scalar.cpp
+            bindings/controller.cpp
+            bindings/operation.cpp
+            bindings/runtime.cpp
 )
 target_include_directories(pto_impl
         PRIVATE
-            src
-            ${PTO_FWK_SRC_ROOT}/tests
+            .
 )
 target_link_libraries(pto_impl
         PRIVATE
@@ -37,6 +36,4 @@ target_link_libraries(pto_impl
             intf_pub_cxx17
             tile_fwk_intf_pub
 )
-if (ENABLE_FEATURE_PYTHON_FRONT_END)
-    install(TARGETS pto_impl LIBRARY DESTINATION pto OPTIONAL)
-endif ()
+install(TARGETS pto_impl LIBRARY DESTINATION pto OPTIONAL)
