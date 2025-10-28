@@ -43,6 +43,7 @@ void TestDecodeIndexerAttentionSTest(NSASimpleParams &params) {
     int n2 = params.n2;
     int h = params.h;
     int dn = params.kv_lora_rank;
+    int dr = params.rope_dim;
     int qLoraRank = params.q_lora_rank;
     int qkNopeHeadDim = params.qk_nope_head_dim;
     int qkRopeHeadDim = params.qk_rope_head_dim;
@@ -208,7 +209,7 @@ void TestDecodeIndexerAttentionSTest(NSASimpleParams &params) {
         rmsResOut.tensor,queryOut.tensor,weightOut.tensor,qNopeOut.tensor,qRopeOut.tensor,
         params);
 
-#ifdef ENABLE_BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     uint64_t queryNopeOutBuffer = b * s1 * n1 * dn * BytesOf(dType);
     uint64_t queryRopeOutBuffer = b * s1 * n1 * dr * BytesOf(dType);
     uint64_t rmsResBuffer = b * s1 * qLoraRank * BytesOf(dType);

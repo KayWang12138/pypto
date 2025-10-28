@@ -40,7 +40,7 @@ else ()
 
         add_custom_command(
                 OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_platform_info.json
-                COMMAND cp ${CMAKE_CURRENT_LIST_DIR}/pass_config/tile_fwk_platform_info.json ${CMAKE_CURRENT_BINARY_DIR}
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_LIST_DIR}/pass_config/tile_fwk_platform_info.json ${CMAKE_CURRENT_BINARY_DIR}
         )
 
         install(FILES
