@@ -57,6 +57,9 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
     auto stride2 = dstLayout.template GetStrideDim<2, expectSize>();
     constexpr auto tileH = Std::tuple_element<shapeSize - 2, typename T0::TileShape>::type::value;
     constexpr auto tileW = Std::tuple_element<shapeSize - 1, typename T0::TileShape>::type::value;
+    constexpr auto dstTypeSize = sizeof(typename T0::Type);
+    constexpr auto src0TypeSize = sizeof(typename T1::Type);
+    constexpr auto src1TypeSize = sizeof(typename T2::Type);
     for (size_t n0Index = 0; n0Index < shape0; ++n0Index) {
         for (size_t n1Index = 0; n1Index < shape1; ++n1Index) {
             for (size_t n2Index = 0; n2Index < shape2; ++n2Index) {
@@ -64,9 +67,9 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
                     pto::Tile<pto::Location::Vec, typename T0::Type, tileH, tileW, pto::BLayout::RowMajor, -1, -1>;
                 TileDefine dstTile(shape3, shape4), src0Tile(shape3, shape4), src1Tile(shape3, shape4);
                 auto offset = n0Index * stride0 + n1Index * stride1 + n2Index * stride2;
-                pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + offset));
-                pto::TASSIGN(src0Tile, (uint64_t)(src0.GetAddr() + offset));
-                pto::TASSIGN(src1Tile, (uint64_t)(src1.GetAddr() + offset));
+                pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + offset * dstTypeSize));
+                pto::TASSIGN(src0Tile, (uint64_t)(src0.GetAddr() + offset * src0TypeSize));
+                pto::TASSIGN(src1Tile, (uint64_t)(src1.GetAddr() + offset * src1TypeSize));
                 BinaryComputeImpl<op>(dstTile, src0Tile, src1Tile);
             }
         }

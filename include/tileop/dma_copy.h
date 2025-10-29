@@ -46,6 +46,7 @@ __aicore__ inline void TLoad(T dst, U src, C coordinate) {
         auto dstStride4 = dstLayout.template GetStrideDim<4, 5>();
 
         auto gmOffset = srcLayout.template GetGmOffset<C, 5>(coordinate);
+        constexpr auto typeSize = sizeof(typename T::Type);
 
         if (TileOp::IsConstContinous<T>() == true) {
             // 对于静态整块场景，将UB合成二维，GM保持五维
@@ -55,9 +56,10 @@ __aicore__ inline void TLoad(T dst, U src, C coordinate) {
             using StrideDim5 = pto::Stride<-1, -1, -1, -1, -1>;
             using GlobalData = pto::GlobalTensor<typename U::Type, ShapeDim5, StrideDim5>;
             GlobalData src0Global((__gm__ typename U::Type *)(src.GetAddr() + gmOffset),
-                pto::Shape(srcShape0, srcShape1, srcShape2, srcShape3, srcShape4),
+                pto::Shape(dstShape0, dstShape1, dstShape2, dstShape3, dstShape3),
                 pto::Stride(srcStride0, srcStride1, srcStride2, srcStride3, srcStride4));
-            using TileData = pto::Tile<pto::Location::Vec, typename T::Type, tileH, tileW>;
+            using TileData =
+                        pto::Tile<pto::Location::Vec, typename T::Type, tileH, tileW, pto::BLayout::RowMajor, dstShape3, dstShape4>;
             TileData dstUB;
             pto::TASSIGN(dstUB, (uint64_t)dst.GetAddr());
             pto::TLOAD(dstUB, src0Global);
@@ -79,7 +81,7 @@ __aicore__ inline void TLoad(T dst, U src, C coordinate) {
                         pto::Tile<pto::Location::Vec, typename T::Type, tileH, tileW, pto::BLayout::RowMajor, -1, -1>;
                     TileDefine dstUB(dstShape3, dstShape4);
                     auto ubOffset = index0 * dstStride0 + index1 * dstStride1 + index2 * dstStride2;
-                    pto::TASSIGN(dstUB, (uint64_t)(dst.GetAddr() + ubOffset));
+                    pto::TASSIGN(dstUB, (uint64_t)(dst.GetAddr() + ubOffset * typeSize));
                     pto::TLOAD(dstUB, src0Global);
                 }
             }
@@ -113,6 +115,7 @@ __aicore__ inline void TStore(T dst, U src, C coordinate) {
         auto dstStride3 = dstLayout.template GetStrideDim<3, 5>();
         auto dstStride4 = dstLayout.template GetStrideDim<4, 5>();
         auto gmOffset = dstLayout.template GetGmOffset<C, 5>(coordinate);
+        constexpr auto typeSize = sizeof(typename U::Type);
 
         if (TileOp::IsConstContinous<U>() == true) {
             // 对于静态整块场景，将UB合成二维，GM保持五维
@@ -122,9 +125,10 @@ __aicore__ inline void TStore(T dst, U src, C coordinate) {
             using StrideDim5 = pto::Stride<-1, -1, -1, -1, -1>;
             using GlobalData = pto::GlobalTensor<typename T::Type, ShapeDim5, StrideDim5>;
             GlobalData dstGlobal((__gm__ typename T::Type *)(dst.GetAddr() + gmOffset),
-                pto::Shape(dstShape0, dstShape1, dstShape2, dstShape3, dstShape4),
+                pto::Shape(srcShape0, srcShape1, srcShape2, srcShape3, srcShape4),
                 pto::Stride(dstStride0, dstStride1, dstStride2, dstStride3, dstStride4));
-            using TileData = pto::Tile<pto::Location::Vec, typename U::Type, tileH, tileW>;
+            using TileData =
+                        pto::Tile<pto::Location::Vec, typename U::Type, tileH, tileW, pto::BLayout::RowMajor, srcShape3, srcShape4>;
             TileData srcUB;
             pto::TASSIGN(srcUB, (uint64_t)src.GetAddr());
             pto::TSTORE(dstGlobal, srcUB);
@@ -146,7 +150,7 @@ __aicore__ inline void TStore(T dst, U src, C coordinate) {
                         pto::Tile<pto::Location::Vec, typename U::Type, tileH, tileW, pto::BLayout::RowMajor, -1, -1>;
                     TileDefine srcUB(srcShape3, srcShape4);
                     auto ubOffset = index0 * srcStride0 + index1 * srcStride1 + index2 * srcStride2;
-                    pto::TASSIGN(srcUB, (uint64_t)(src.GetAddr() + ubOffset));
+                    pto::TASSIGN(srcUB, (uint64_t)(src.GetAddr() + ubOffset * typeSize));
                     pto::TSTORE(dstGlobal, srcUB);
                 }
             }

@@ -24,6 +24,8 @@ TILEOP void TTrans(T0 dst, T1 src) {
     constexpr size_t expectSize = 5;
     const auto dstLayout = dst.GetLayout();
     const auto srcLayout = src.GetLayout();
+    constexpr auto dstTypeSize = sizeof(typename T0::Type);
+    constexpr auto srcTypeSize = sizeof(typename T1::Type);
 
     auto dstShape0 = dstLayout.template GetShapeDim<0, expectSize>();
     auto dstShape1 = dstLayout.template GetShapeDim<1, expectSize>();
@@ -62,8 +64,8 @@ TILEOP void TTrans(T0 dst, T1 src) {
                 SrcTileDefine srcTile(srcShape3, srcShape4);
                 auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
                 auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
-                pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset));
-                pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset));
+                pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize));
+                pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
                 pto::TTRANS(dstTile, srcTile);
             }
         }

@@ -41,6 +41,8 @@ TILEOP void TExtract(T0 dst, T1 src) {
     constexpr auto dstTileW = Std::tuple_element<shapeSize - 1, typename T0::TileShape>::type::value;
     constexpr auto srcTileH = Std::tuple_element<shapeSize - 2, typename T1::TileShape>::type::value;
     constexpr auto srcTileW = Std::tuple_element<shapeSize - 1, typename T1::TileShape>::type::value;
+    constexpr auto dstTypeSize = sizeof(typename T0::Type);
+    constexpr auto srcTypeSize = sizeof(typename T1::Type);
     if (dstShape3 == 0 || dstShape4 == 0) {
         return;
     }
@@ -55,8 +57,8 @@ TILEOP void TExtract(T0 dst, T1 src) {
                 SrcTileDefine srcTile(srcShape3, srcShape4);
                 auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
                 auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
-                pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset));
-                pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset));
+                pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize));
+                pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
                 constexpr auto pattern = (extractMode == 0) ? pto::MaskPattern::P0101 : pto::MaskPattern::P1010;
                 pto::TGATHER<DstTileDefine, SrcTileDefine, pattern>(dstTile, srcTile);
 
@@ -64,8 +66,8 @@ TILEOP void TExtract(T0 dst, T1 src) {
                     pipe_barrier(PIPE_V);
                     set_mask_count();
                     set_vector_mask(0, dstShape3 * dstTileW);
-                    vadds((__ubuf__ int32_t *)((uint64_t)(dst.GetAddr() + dstOffset)),
-                          (__ubuf__ int32_t *)((uint64_t)(dst.GetAddr() + dstOffset)),
+                    vadds((__ubuf__ int32_t *)((uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize)),
+                          (__ubuf__ int32_t *)((uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize)),
                           0x80000000, 1, 1, 1, 8, 8);
                     set_mask_norm();
                     set_vector_mask(-1, -1);
