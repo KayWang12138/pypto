@@ -112,6 +112,8 @@ Status DynAttrToStatic::BuildLeafToCaller(Function *func) {
                 return FAILED;
             }
             if (BuildLeafToCaller(nextFunc) != SUCCESS) {
+                ALOG_ERROR_F("BuildLeafToCaller at %s, nextFunc at %s failed",
+                    func->GetRawName().c_str(), nextFunc->GetRawName().c_str());
                 return FAILED;
             }
         }
@@ -131,7 +133,7 @@ Status DynAttrToStatic::BuildLeafToCaller(Function *func) {
         }
         return SUCCESS;
     }
-    ALOG_INFO_F("BuildLeafToCaller at %s entered unexpected function type %d",
+    ALOG_ERROR_F("BuildLeafToCaller at %s entered unexpected function type %d",
         func->GetRawName().c_str(), static_cast<int>(func->GetFunctionType()));
     return FAILED;
 }
