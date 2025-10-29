@@ -41,6 +41,9 @@ TILEOP void TExtract(T0 dst, T1 src) {
     constexpr auto dstTileW = Std::tuple_element<shapeSize - 1, typename T0::TileShape>::type::value;
     constexpr auto srcTileH = Std::tuple_element<shapeSize - 2, typename T1::TileShape>::type::value;
     constexpr auto srcTileW = Std::tuple_element<shapeSize - 1, typename T1::TileShape>::type::value;
+    if (dstShape3 == 0 || dstShape4 == 0) {
+        return;
+    }
     for (size_t n0Index = 0; n0Index < dstShape0; ++n0Index) {
         for (size_t n1Index = 0; n1Index < dstShape1; ++n1Index) {
             for (size_t n2Index = 0; n2Index < dstShape2; ++n2Index) {
@@ -55,7 +58,7 @@ TILEOP void TExtract(T0 dst, T1 src) {
                 pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset));
                 pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset));
                 constexpr auto pattern = (extractMode == 0) ? pto::MaskPattern::P0101 : pto::MaskPattern::P1010;
-                pto::TGATHER1<DstTileDefine, SrcTileDefine, pattern>(dstTile, srcTile);
+                pto::TGATHER<DstTileDefine, SrcTileDefine, pattern>(dstTile, srcTile);
 
                 if constexpr (extractMode == 0 && isLargest == 0) {
                     pipe_barrier(PIPE_V);
