@@ -241,8 +241,7 @@ def is_loop_begin(scalar: SymbolicScalar, begin: Union[int, SymbolicScalar]):
                 ...
     '''
     # implementation
-    nbegin = to_sym(begin)
-    return SymbolicScalar.from_base(pto_impl.IsLoopBegin(scalar.base(), nbegin))
+    return SymbolicScalar.from_base(pto_impl.IsLoopBegin(to_sym(scalar), to_sym(begin)))
 
 
 def is_loop_end(scalar: SymbolicScalar, end: Union[int, SymbolicScalar]):
@@ -269,8 +268,7 @@ def is_loop_end(scalar: SymbolicScalar, end: Union[int, SymbolicScalar]):
                 ...
     '''
     # implementation
-    nend = to_sym(end)
-    return SymbolicScalar.from_base(pto_impl.IsLoopEnd(scalar.base(), nend))
+    return SymbolicScalar.from_base(pto_impl.IsLoopEnd(to_sym(scalar), to_sym(end)))
 
 
 @contextmanager
@@ -327,7 +325,7 @@ def function(
         del func
 
 
-def cond(scalar: SymbolicScalar):
+def cond(scalar: SymInt):
     """ set up a conditional computation. Use as a "if" condition in python.
 
     Parameters
@@ -351,7 +349,7 @@ def cond(scalar: SymbolicScalar):
     """
     # implementation
     frame = inspect.currentframe().f_back
-    return pto_impl.RecordIfBranch(scalar.base(), frame.f_code.co_filename, frame.f_lineno)
+    return pto_impl.RecordIfBranch(to_sym(scalar), frame.f_code.co_filename, frame.f_lineno)
 
 
 class _LoopFunction:
@@ -410,8 +408,7 @@ def pto_function(name: str, graph_type: pto_impl.GraphType, func_type: pto_impl.
         pto_impl.EndFunction(name, False)
 
 
-def loop(start: SymInt, end: Optional[SymInt] = None, step: Optional[SymInt] = None,
-         unroll_times: Optional[List[int]] = None, **kwargs):
+def loop(start: SymInt, end: Optional[SymInt] = None, step: Optional[SymInt] = None, **kwargs):
     """ set up a loop computation. Use as a for loop in python.
 
     Parameters
@@ -422,8 +419,14 @@ def loop(start: SymInt, end: Optional[SymInt] = None, step: Optional[SymInt] = N
         the ending value for the for loop
     step: Optional[int]
         The increment amount of the looping value
-    unroll_times: Optional[list[int]]
-        The number of loop layer which is unrolled
+
+    kwargs:
+        name: str
+            The name of the loop
+        idx_name: str
+            The name of the loop index
+        unroll_list: Set[int]
+            The number of loop layer which is unrolled
 
     Returns
     -------

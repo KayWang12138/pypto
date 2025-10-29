@@ -171,6 +171,10 @@ def test_pto_loop_unroll_n_submit_before_loop():
 
             if pto.cond(k < 5):
                 b.move(pto.sub(b, a))
+            if pto.cond(1):
+                b.move(pto.add(b, a))
+            if pto.cond(pto.is_loop_end(k, 0)):
+                b.move(pto.add(b, a))
 
             b.move(pto.sub(a, a))
 
