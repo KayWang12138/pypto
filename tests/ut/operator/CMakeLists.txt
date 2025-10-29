@@ -129,6 +129,10 @@ set(_CaseFilterList
 
         # DecodeIndexerAttention
         "DecodeIndexerAttentionUtest.utest_decode_indexer_attention"
+
+        # DSA gatherSlcAttn
+        "DynamicGatherSlcFlashAttnUtest.dsa_gather_slc_attn_bf16_b32_s4"
+        "DynamicGatherSlcFlashAttnUtest.dsa_gather_slc_attn_bf16_b32_s4_int8"
 )
 
 set(_Target ${PTO_Fwk_UTestNamePrefix}_operator)

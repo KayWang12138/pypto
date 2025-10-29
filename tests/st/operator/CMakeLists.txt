@@ -378,6 +378,10 @@ set(_CaseFilterList
 
         # decode sparse attention
         "DecodeIndexerAttentionSTest.mini"
+
+        # dsa gather slc_attn
+        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b32_s1_seq511_int8"
+        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seq128k_int8"
 )
 
 set(_Target ${PTO_Fwk_STestNamePrefix}_operator)
