@@ -56,7 +56,7 @@ __aicore__ inline void TLoad(T dst, U src, C coordinate) {
             using StrideDim5 = pto::Stride<-1, -1, -1, -1, -1>;
             using GlobalData = pto::GlobalTensor<typename U::Type, ShapeDim5, StrideDim5>;
             GlobalData src0Global((__gm__ typename U::Type *)(src.GetAddr() + gmOffset),
-                pto::Shape(dstShape0, dstShape1, dstShape2, dstShape3, dstShape3),
+                pto::Shape(dstShape0, dstShape1, dstShape2, dstShape3, dstShape4),
                 pto::Stride(srcStride0, srcStride1, srcStride2, srcStride3, srcStride4));
             using TileData =
                 pto::Tile<pto::Location::Vec, typename T::Type, tileH, tileW, pto::BLayout::RowMajor, dstShape3, dstShape4>;
