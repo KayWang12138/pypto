@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "interface/function/function.h"
+#include "interface/program/program.h"
 
 namespace npu::tile_fwk::dynamic {
 
@@ -77,10 +78,13 @@ private:
 
 class ExportedOperator : public CachedOperator {
 public:
-    void ResetFunction(Function *func) { func_ = func; }
-    Function *GetFunction() const { return func_; }
+    void ResetFunction(Function *func) {
+        func_ = Program::GetInstance().GetFunctionSharedPtr(func);
+    }
+
+    Function *GetFunction() const { return func_.get(); }
 private:
-    Function *func_;
+    std::shared_ptr<Function> func_;
 };
 
 int ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(

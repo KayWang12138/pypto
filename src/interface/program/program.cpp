@@ -695,6 +695,17 @@ void Program::VerifyExecuteGraph() {
     flowVerifier.VerifyExecuteGraph();
 }
 
+std::shared_ptr<Function> Program::GetFunctionSharedPtr(Function* rawPtr) {
+    for (const auto& pair : functionmap_) {
+        auto sharedPtr = pair.second;
+        if (sharedPtr.get() == rawPtr) {
+            return sharedPtr;
+        }
+    }
+    ALOG_WARN("not find function ptr in function map");
+    return nullptr;
+}
+
 void static MergeAllFuncDupIocast(Function* func) {
     if(func == nullptr) {
         auto rootFunc = Program::GetInstance().GetFunctionByMagicName(PROGRAM_ENTRY_FUNCTION_NAME);

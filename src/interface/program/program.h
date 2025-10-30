@@ -100,6 +100,7 @@ public: // public api for torch
 
     std::optional<CacheValue> TryHitCahce(const FunctionHash &functionHash) { return functionCache_.Get(functionHash); }
     FunctionCache& GetFunctionCache() { return functionCache_; }
+    std::shared_ptr<npu::tile_fwk::Function> GetFunctionSharedPtr(Function* rawPtr);
 
     // 动静归一
     void CreateCallerCalleeLink(Function *caller, Function *callee);
