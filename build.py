@@ -295,13 +295,6 @@ class TestsFilterParam(CMakeParam):
         else:
             self.enable, self.filter_str = True, argv    # 指定 对应参数 且指定内容
 
-    @property
-    def filter_str_pytest(self) -> str:
-        s: str = self.filter_str
-        s = s.replace('::', '#').replace(':', ' ')
-        s = s.replace('#', '::')
-        return s
-
     @staticmethod
     def reg_args(parser, ext: Optional[Any] = None):
         mark: str = str(ext).lower()
@@ -309,7 +302,7 @@ class TestsFilterParam(CMakeParam):
         have_char: bool = len(mark_lst) <= 1
         mark_word: str = mark.replace("_", " ")
         help_str: str = (f"Enable {mark_word} scene, specific {mark_word} filter, "
-                         f"multiple cases are separated by ':'/',' .")
+                         f"multiple cases are separated by ',' .")
         if have_char:
             mark_char: Optional[str] = mark_lst[0][0] if have_char else None
             parser.add_argument(f"-{mark_char}", f"--{mark}", nargs="?", type=str, default="", help=help_str)
@@ -800,7 +793,7 @@ class BuildCtrl:
     def main(cls):
         """ 主处理流程
         """
-        parser = argparse.ArgumentParser(description=f"Tile Framework C++ Build Ctrl.", epilog="Best Regards!")
+        parser = argparse.ArgumentParser(description=f"PyPTO Build Ctrl.", epilog="Best Regards!")
         sub_parser = parser.add_subparsers()  # 子命令
         # 参数注册
         BuildParam.reg_args(parser=parser)
@@ -848,6 +841,13 @@ class BuildCtrl:
             if dist.exists():
                 logging.info("Clean Install-Tree(%s)", dist)
                 shutil.rmtree(dist)
+            if self.install_root.exists():
+                logging.info("Clean Binary Cache Path(%s)", self.install_root)
+                shutil.rmtree(self.install_root)
+            kernel_meta: Path = Path(self.src_root, "kernel_meta")
+            if kernel_meta.exists():
+                logging.info("Clean Binary Cache Path(%s)", kernel_meta)
+                shutil.rmtree(kernel_meta)
 
     def cmake_configure(self):
         """ CMake Configure 阶段流程. """
@@ -938,7 +938,7 @@ class BuildCtrl:
         if tests.filter_str in ["ON"]:
             cmd += f" -c {ini} {ext}"
         else:
-            cmd += f" {tests.filter_str_pytest} --forked"
+            cmd += f" {tests.filter_str.replace(',', ' ')} --forked"
         # cmd 执行
         origin_env = {**os.environ}
         update_env = {}

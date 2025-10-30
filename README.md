@@ -1,10 +1,10 @@
-# PYPTO
+# PyPTO
 
 ## 1. 概述
 
-下文介绍 PyPTO 项目编译、UTest、STest 用例编译执行方法。
+下文介绍 PyPTO 项目编译, UTest, STest 用例编译执行方法。
 
-### 1.1 术语、约束
+### 1.1 术语, 约束
 
 | 缩写    | 全拼                            | 解释                                                                                    |
 |:------|:------------------------------|:--------------------------------------------------------------------------------------|
@@ -13,97 +13,133 @@
 
 ## 2. 路径结构说明
 
+下文对关键路径进行说明.
+
 ```text
 .
-├── build.py                                # 构建、UTest/STest执行、性能/精度工具总入口
-│
+├── build.py                                # 构建, UTest, STest执行 辅助脚本
 ├── cmake                                   # 构建所需的 CMake 公共配置及脚本
 ├── CMakeLists.txt                          # 顶层 CMakeLists.txt, 定义所有对外公开编译开关
+├── pyproject.toml                          # Python 编译工具配置文件
+├── LICENSE
 │
-├── include                                 # 对外头文件
-├── src                                     # 源码
+├── python                                  # Python 源码
+│   ├── pto                                 # Python 包源码根目录
+│   ├── src                                 # pybind11 源码跟目录
+│   └── tests                               # Python 测试用例源码(UTest, STest)
+│       ├── st
+│       └── ut
 │
-└── tests                                   # 测试相关路径
-    ├── cmake                               # 测试所需的 CMake 公共配置及脚本
-    │
+├── include                                 # C++ 对外头文件
+├── src                                     # C++ 源码
+└── tests                                   # C++ 测试用例源码(UTest, STest)
+    ├── cmake
     ├── st
-    │   ├── interface                       # STest用例实现(Interface 模块), 拟开源
-    │   ├── machine                         # STest用例实现(Machine 模块), 闭源
-    │   └── utils                           # STest 场景公共逻辑
-    │
     └── ut
-        ├── codegen                         # UTest 用例实现(CodeGen 模块), 闭源
-        ├── interface                       # UTest 用例实现(Interface 模块), 拟开源
-        ├── machine                         # UTest 用例实现(Machine 模块), 闭源
-        ├── simulation                      # UTest 用例实现(Simulation 模块), 拟开源
-        └── stubs                           # UTest 场景公共桩
 ```
 
 ## 3. 环境准备
 
-PyPTO 支持由源码编译、并在编译后执行 STest/UTest，进行源码编译前，请根据如下步骤完成相关环境准备。
+PyPTO 支持由源码编译 whl 包, 并基于 pytest 对 whl 包含的 python 接口能力进行测试, 支持基于 googletest 对 C++ 侧模块进行测试。
 
-1. **安装依赖**
+上述功能均需进行源码编译, 在进行源码编译前，请根据如下步骤完成环境的基础准备。
 
-   以下所列仅为 PyPTO 源码编译用到的依赖。
-   - python >= 3.7.0
-   - gcc >= 7.3.0
-   - cmake >= 3.16.0
-   - JSON for Modern C++（建议版本 [v3.11.3](https://github.com/nlohmann/json/releases/tag/v3.11.3)）
+### 3.1 安装依赖
 
-     如下以[JSON for Modern C++源码](https://github.com/nlohmann/json/releases/tag/v3.11.3)编译安装为例，安装命令如下：
+以下所列仅为 PyPTO 源码编译用到的依赖。
+- python >= 3.9.5
+- gcc >= 7.3.0
+- cmake >= 3.16.0
+- JSON for Modern C++（建议版本 [v3.11.3](https://github.com/nlohmann/json/releases/tag/v3.11.3)）
+
+  如下以[JSON for Modern C++源码](https://github.com/nlohmann/json/releases/tag/v3.11.3)编译安装为例，安装命令如下：
+
+  ```bash
+  mkdir temp && cd temp                # 在 JSON for Modern C++ 源码根目录下创建临时目录并进入
+  cmake .. -D_GLIBCXX_USE_CXX11_ABI=0 -DJSON_MultipleHeaders=ON -DJSON_BuildTests=OFF
+  make
+  make install                         # root用户安装
+  # sudo make install                  # 非root用户安装
+  ```
+
+  - googletest（可选，仅执行 C++ STest/UTest 时依赖，建议版本 [v1.14.0](https://github.com/google/googletest/releases/tag/v1.14.0)）
+
+    如下以[googletest源码](https://github.com/google/googletest/archive/refs/tags/v1.14.0.tar.gz)编译安装为例，安装命令如下：
 
      ```bash
-     mkdir temp && cd temp                # 在 JSON for Modern C++ 源码根目录下创建临时目录并进入
-     cmake .. -D_GLIBCXX_USE_CXX11_ABI=0 -DJSON_MultipleHeaders=ON -DJSON_BuildTests=OFF
-     make
-     make install                         # root用户安装
-     # sudo make install                  # 非root用户安装
-     ```
+    mkdir temp && cd temp                # 在 googletest 源码根目录下创建临时目录并进入
+    cmake .. -DCMAKE_CXX_FLAGS="-fPIC -D_GLIBCXX_USE_CXX11_ABI=0"
+    make
+    make install                         # root用户安装
+    # sudo make install                  # 非root用户安装
+    ```
 
-   - googletest（可选，仅执行 STest/UTest 时依赖，建议版本 [v1.14.0](https://github.com/google/googletest/releases/tag/v1.14.0)）
+### 3.2 安装 CANN 包
 
-     如下以[googletest源码](https://github.com/google/googletest/archive/refs/tags/v1.14.0.tar.gz)编译安装为例，安装命令如下：
-
-      ```bash
-     mkdir temp && cd temp                # 在 googletest 源码根目录下创建临时目录并进入
-     cmake .. -DCMAKE_CXX_FLAGS="-fPIC -D_GLIBCXX_USE_CXX11_ABI=0"
-     make
-     make install                         # root用户安装
-     # sudo make install                  # 非root用户安装
-     ```
+略
 
 ## 4.编译执行
 
-下文分场景介绍构建(Build)一键式入口脚本 `build.py` 的使用方法，执行 `python3 build.py --help` 即可查看当前构建脚本 `build.py` 所支持的所有参数, 常用参数如下:
+下文分场景介绍构建一键式入口脚本 `build.py` 的常用使用方法，执行 `python3 build.py --help` 即可查看当前构建脚本 `build.py` 所支持的所有参数, 常用参数如下:
 
-| 缩写 | 全写                        | 类型   | 场景          | 说明                                                                  |
-|:---|:--------------------------|:-----|:------------|:--------------------------------------------------------------------|
-| -h | --help                    | -    | 公共          | 查看命令参数帮助信息                                                          |
-| -t | --targets                 | str  | 构建          | 指定构建目标, 若指定多个(`-t=a -t=b`), 则所有目标(`a` `b`)均会被构建. 一般不需指定.            |
-| -j | --job_Num                 | int  | 构建          | 指定构建过程使用的任务数, 一般不需指定.                                               |
-| -c | --clean                   | -    | 公共          | 清理构建中间结果及输出结果, 即 `build` 及 `output` 路径                              |
-| -u | --utest                   | str  | UTest       | 标识 UTest 场景, 支持通过该参数指定具体用例, 用例名间以 `:` 或 `,` 间隔分割                    |
-| -s | --stest                   | str  | STest       | 标识 STest 场景, 支持通过该参数指定具体用例, 用例名间以 `:` 或 `,` 间隔分割                    |
-| -  | --stest_golden_path       | Path | STest       | 指定 STest 场景所使用的 Golden 生成路径, 不指定时使用 `build/golden` 路径               |
-| -  | --stest_golden_path_clean | -    | STest       | 指定 STest 场景 Golden 清理标记                                             |
-| -  | --disable_auto_execute    | -    | UTest/STest | 指定 UTest / STest 场景不自动执行                                            |
-| -  | --gcov                    | -    | UTest       | 使能 GNU Coverage Instrumentation Tool, 用于 UTest 场景分析代码覆盖率情况.         |
+| 缩写 | 全写                     | 类型  | 场景          | 说明                                         |
+|:---|:-----------------------|:----|:------------|:-------------------------------------------|
+| -h | --help                 | -   | 公共          | 查看命令参数帮助信息                                 |
+| -f | --frontend             | str | 公共          | 指定前端类型, 可选 [python3, cpp], 默认值为 cpp        |
+| -c | --clean                | -   | 公共          | 清理构建中间结果及输出结果, 即 `build` 及 `output` 路径     |
+| -u | --utest                | str | UTest       | 标识 UTest 场景, 支持通过该参数指定具体用例, 用例名间以 `,` 间隔分割 |
+| -s | --stest                | str | STest       | 标识 STest 场景, 支持通过该参数指定具体用例, 用例名间以 `,` 间隔分割 |
 
-### 4.1 UTest/STest 的编译执行
+### 4.1 whl 包编译
 
-当前 UTest 及 STest 有两种常用编译、执行方式:
-1. 指定 -u/-s 但不传入任何参数内容(如 `python3 build.py -u`), 此时 UTest/STest 执行默认范围内的用例, 用例范围在各 UTest/STest 模块的的 `CMakeLists.txt` 内指定;
+#### 4.1.1 环境准备
+
+在编译 whl 包时, 需要额外安装一些 pip 包, 对应依赖 `requirements.txt` 内容如下:
+
+```txt
+# 编译 whl 包时所需的 pip 包
+build>=1.2.0
+pybind11>=2.0.1
+scikit_build_core==0.11.6
+```
+
+除上述依赖外, 还需额外安装 `torch_npu` 包, 对应内容参考 [Ascend Extension for PyTorch 安装说明](https://www.hiascend.com/document/detail/zh/Pytorch/710/configandinstg/instg/insg_0001.html).
+
+#### 4.1.2 编译执行
+
+可通过如下命令一键式编译 PyPTO 对应 whl 包, 编译完成后会在源码根目录 `dist` 目录下产生 `pto-*.whl` 包. 而后可以通过 pip 包管理命令进行安装.
+
+```shell
+# source CANN 包环境变量
+source /usr/local/Ascend/ascend-toolkit/latest/bin/setenv.bash
+
+# 执行编译
+python3 build.py --clean --frontend=python3
+```
+
+***注意:*** 安装完成后, 需要获取 `pto-*.whl` 包的安装路径, 并按如下方法修正 `LD_LIBRARY_PATH` 环境变量内容.
+
+```sheel
+# 获取 pto 安装路径
+python3 -m pip show pto | grep Location
+Location: /usr/local/lib/python3.10/dist-packages
+
+# 修正 LD_LIBRARY_PATH 环境变量的值
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib/python3.10/dist-packages/pto/lib
+```
+
+而后即可在脚本中 `import pto` 并使用其功能。
+
+***注意:*** 如果把 `pto-*.whl` 安装在非默认路径, 则需要根据实际安装路径, 结合 pip 包管理机制要求, 额外配置 `PYTHONPATH` 环境变量.
+
+#### 4.1.3 UTest/STest 的编译执行
+
+当前 UTest 及 STest 有两种常用编译, 执行方式:
+1. 指定 -u/-s 但不传入任何参数内容(如 `python3 build.py -u`), 此时 UTest/STest 执行默认范围内的用例;
 2. 指定 -u/-s 并传入参数(如 `python3 build.py -u=FunctionTest.TestAddTensorFunctionDim2`), 此时仅会触发对应参数传入的用例执行;
 
-编译产物:
 
-| 场景    | 二进制                             |
-|:------|:--------------------------------|
-| UTest | `build/tests/ut/tile_fwk_utest` |
-| STest | `build/tests/ut/tile_fwk_stest` |
-
-#### 4.1.1 基本使用场景:
+##### 4.1.4 C++ 场景常见使用方法
 
 ```shell
 # 执行看护范围内 UTest
@@ -115,7 +151,7 @@ python3 build.py -u -c
 
 # 通过参数指定执行 UTest 用例, 用例名称间以 ':' 分割
 python3 build.py -u=FunctionTest.TestAddTensorFunctionDim2
-python3 build.py -u=FunctionTest.TestAddTensorFunctionDim2:FunctionTest.TestAddTensorFunctionDim4
+python3 build.py -u=FunctionTest.TestAddTensorFunctionDim2,FunctionTest.TestAddTensorFunctionDim4
 
 # 执行看护范围内 STest
 python3 build.py --stest                                    # 不指定 --stest_golden_path 时, 会默认使用 build/golden 作为 Golden 目录
@@ -127,27 +163,25 @@ python3 build.py -s -c            # 命令缩写, -c 可选
 
 # 通过参数指定执行 STest 用例, 用例名称间以 ':' 分割
 python3 build.py -s=AscendOnBoardTest.test_operation_tensor_dim2_add
-python3 build.py -s=AscendOnBoardTest.test_operation_tensor_dim2_add:AscendOnBoardTest.test_operation_tensor_dim4_add
+python3 build.py -s=AscendOnBoardTest.test_operation_tensor_dim2_add,AscendOnBoardTest.test_operation_tensor_dim4_add
 ```
 
-#### 4.1.2 扩展使用场景(不自动执行用例)
+##### 4.1.5 Python 场景常见使用方法
 
-默认场景下 UTest 或 STest 在编译后会自动触发执行(在 CMake 中通过 `add_custom_command` 命令方式实现).
-若有用例失败, CMake 会将其视为是一种编译失败, 进而删除 UTest/STest 的二进制产物, 不便于本地 GDB 等调试.
+Python 场景的使用方式与 C++ 场景类似, 一般仅需额外添加 `--frontend=python3` 参数. 并安装一些额外的 pip 包, 对应安装包要求如下:
 
-此时通过在 `build.py` 增加 `--disable_auto_execute` 参数, 即可关闭用例自动执行功能, 进而不触发用例执行, 以便本地调试 UTest/Stest 的可执行二进制.
+```txt
+pytest
+pytest-forked
+pytest-xdist
+```
+
+常见使用方式如下:
 
 ```shell
-# 由于 `--disable_auto_execute` 参数所控制的 CMake 开关不会影响 C/C++ 源码
-# 所以由改变该参数配置(不添加该参数->添加该参数 / 添加该参数 -> 不添加该参数)时需要添加 -c/--clean 以清理编译缓存, 以便该参数配置生效.
-python3 build.py -u --disable_auto_execute -c
-```
+python3 build.py --clean --frontend=python3 --utest                                 # 执行全量 Python UTest 用例
 
-#### 4.1.5 UTest 支持 GCov
+python3 build.py --clean --frontend=python3 --utest=python/tests/ut/test_dtype.py   # 指定内容与 pytest 使用方式一致
 
-GCov 全称 GNU Coverage Instrumentation Tool, 用于在 GNU 编译器场景下代码覆盖率统计. 其使用方法如下:
-
-```text
-python3 build.py --utest --gcov     # 使能 GCov
-# 执行结束后, 会在 build/tests/ut 路径下 生成 cov_result 目录, 传输至本地即可打开 index.html
+python3 build.py --clean --frontend=python3 --stest                                 # 执行全量 Python STest 用例
 ```
