@@ -291,5 +291,172 @@ TEST_F(TestDuplicateViewPass, DuplicateViewSTest1) {
     }
     EXPECT_EQ(view_num, kNumSeven);
 }
+
+TEST_F(TestDuplicateViewPass, TestDupView0) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDupView0", "TestDupView0", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    std::vector<int64_t> shape = {8, 16};
+    auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto outcast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast}, {outcast});
+    auto view_attr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}, 
+                                                       MEM_UNKNOWN, 
+                                                       std::vector<SymbolicScalar>(), 
+                                                       std::vector<SymbolicScalar>());
+    view_op.SetOpAttribute(view_attr);
+    currFunctionPtr->inCasts_.push_back(incast);
+    currFunctionPtr->outCasts_.push_back(outcast);
+    DuplicateView duplicateviewpass;
+    duplicateviewpass.RunOnFunction(*currFunctionPtr);
+    int view_num = 0;
+    auto opList = currFunctionPtr->Operations();
+    for (auto &op : opList) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            view_num++;
+        }
+    }
+    EXPECT_EQ(view_num, 1);
+}
+
+TEST_F(TestDuplicateViewPass, TestDupView1) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDupView1", "TestDupView1", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    std::vector<int64_t> shape = {8, 16};
+    auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto outcast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast}, {tensor1});
+    auto &exp_op = currFunctionPtr->AddOperation(Opcode::OP_EXP, {tensor1}, {outcast});
+    (void) exp_op;
+    auto view_attr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}, 
+                                                       MEM_UNKNOWN, 
+                                                       std::vector<SymbolicScalar>(), 
+                                                       std::vector<SymbolicScalar>());
+    view_op.SetOpAttribute(view_attr);
+    currFunctionPtr->inCasts_.push_back(incast);
+    currFunctionPtr->outCasts_.push_back(outcast);
+    DuplicateView duplicateviewpass;
+    duplicateviewpass.RunOnFunction(*currFunctionPtr);
+    int view_num = 0;
+    auto opList = currFunctionPtr->Operations();
+    for (auto &op : opList) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            view_num++;
+        }
+    }
+    EXPECT_EQ(view_num, 1);
+}
+
+TEST_F(TestDuplicateViewPass, TestDupViewL1) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDupViewL1", "TestDupViewL1", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    std::vector<int64_t> shape = {8, 16};
+    auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto outcast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto outcast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast}, {tensor1});
+    auto &exp_op1 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {tensor1}, {outcast1});
+    auto &exp_op2 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {tensor1}, {outcast2});
+    (void) exp_op1;
+    (void) exp_op2;
+    auto view_attr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}, 
+                                                       MEM_L1, 
+                                                       std::vector<SymbolicScalar>(), 
+                                                       std::vector<SymbolicScalar>());
+    view_op.SetOpAttribute(view_attr);
+    currFunctionPtr->inCasts_.push_back(incast);
+    currFunctionPtr->outCasts_.push_back(outcast1);
+    currFunctionPtr->outCasts_.push_back(outcast2);
+    DuplicateView duplicateviewpass;
+    duplicateviewpass.RunOnFunction(*currFunctionPtr);
+    int view_num = 0;
+    auto opList = currFunctionPtr->Operations();
+    for (auto &op : opList) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            view_num++;
+        }
+    }
+    EXPECT_EQ(view_num, 1);
+}
+
+TEST_F(TestDuplicateViewPass, TestDupViewNormal) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDupViewNormal", "TestDupViewNormal", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    std::vector<int64_t> shape = {8, 16};
+    auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto outcast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto outcast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast}, {tensor1});
+    auto &exp_op1 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {tensor1}, {outcast1});
+    auto &exp_op2 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {tensor1}, {outcast2});
+    (void) exp_op1;
+    (void) exp_op2;
+    auto view_attr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}, 
+                                                       MEM_UNKNOWN, 
+                                                       std::vector<SymbolicScalar>(), 
+                                                       std::vector<SymbolicScalar>());
+    view_op.SetOpAttribute(view_attr);
+    currFunctionPtr->inCasts_.push_back(incast);
+    currFunctionPtr->outCasts_.push_back(outcast1);
+    currFunctionPtr->outCasts_.push_back(outcast2);
+    DuplicateView duplicateviewpass;
+    duplicateviewpass.RunOnFunction(*currFunctionPtr);
+    int view_num = 0;
+    auto opList = currFunctionPtr->Operations();
+    for (auto &op : opList) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            view_num++;
+        }
+    }
+    const int res = 3;
+    EXPECT_EQ(view_num, res);
+}
+
+TEST_F(TestDuplicateViewPass, TestContinuousView) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDupViewNormal", "TestDupViewNormal", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    std::vector<int64_t> shape = {8, 16};
+    auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto outcast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto outcast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto &view_op1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast}, {tensor1});
+    auto &view_op2 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {tensor1}, {outcast1});
+    auto &exp_op = currFunctionPtr->AddOperation(Opcode::OP_EXP, {tensor1}, {outcast2});
+    (void) exp_op;
+
+    auto view_attr1 = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}, 
+                                                        MEM_UNKNOWN, 
+                                                        std::vector<SymbolicScalar>(), 
+                                                        std::vector<SymbolicScalar>());
+    view_op1.SetOpAttribute(view_attr1);
+
+    auto view_attr2 = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}, 
+                                                        MEM_UNKNOWN, 
+                                                        std::vector<SymbolicScalar>(), 
+                                                        std::vector<SymbolicScalar>());
+    view_op2.SetOpAttribute(view_attr2);
+    currFunctionPtr->inCasts_.push_back(incast);
+    currFunctionPtr->outCasts_.push_back(outcast1);
+    currFunctionPtr->outCasts_.push_back(outcast2);
+    DuplicateView duplicateviewpass;
+    duplicateviewpass.RunOnFunction(*currFunctionPtr);
+    int view_num = 0;
+    auto opList = currFunctionPtr->Operations();
+    for (auto &op : opList) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            view_num++;
+        }
+    }
+    const int res = 3;
+    EXPECT_EQ(view_num, res);
+}
 }
 }

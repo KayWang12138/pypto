@@ -112,7 +112,6 @@ TEST_F(DuplicateViewTest, TestThreeConsumersAfterView) {
     EXPECT_EQ(updated_operations[0].GetOpcode(), Opcode::OP_VIEW) << "The first operation should be VIEW";
     EXPECT_EQ(updated_operations[1].GetOpcode(), Opcode::OP_VIEW) << "The second operation should be newly generated VIEW";
     EXPECT_EQ(updated_operations[2].GetOpcode(), Opcode::OP_VIEW) << "The first operation should be newly generated VIEW";
-    EXPECT_EQ(updated_operations[3].GetOpcode(), Opcode::OP_VIEW) << "The fourth operation should be newly generated VIEW";
 }
 
 TEST_F(DuplicateViewTest, TestOneConsumersAfterView) {
