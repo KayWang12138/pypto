@@ -399,7 +399,7 @@ TEST_F(CostModelTest, TestAttentionPostBf16Real) {
     std::cout << Program::GetInstance().Dump() << std::endl;
 }
 
-void RunConcat()
+void RunCat()
 {
     TileShape::Current().SetVecTile(16, 6, 6, 6);
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
@@ -412,7 +412,7 @@ void RunConcat()
     Tensor res;
 
     FUNCTION("A") {
-        res = Concat(std::vector<Tensor>{params1, params2}, axis);
+        res = Cat(std::vector<Tensor>{params1, params2}, axis);
     }
 }
 
@@ -427,7 +427,7 @@ TEST_F(CostModelTest, TestGlobalCalendar)
     arg.emplace_back("Model.calendarFile=" + jsonPath);
     arg.emplace_back("Model.calendarMode=" +  std::to_string(static_cast<int>(calendarMode)));
     config::SetSimConfig("args", arg);
-    RunConcat();
+    RunCat();
 }
 
 TEST_F(CostModelTest, TestReplayDispatch)

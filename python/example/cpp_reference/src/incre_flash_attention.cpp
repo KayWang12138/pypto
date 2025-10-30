@@ -125,7 +125,7 @@ void IncreFlashAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, 
         }
     }
 
-    attentionOut = Concat(tiledOut, 0);
+    attentionOut = Cat(tiledOut, 0);
 }
 
 } // namespace npu::tile_fwk

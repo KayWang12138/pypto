@@ -412,7 +412,7 @@ TEST_F(OnBoardIFATest, test_concat_32_512_32_64) {
 
         config::SetBuildStatic(true);
         FUNCTION("CONCAT_T", {input_a, input_b, output}) {
-            output = Concat(std::vector<Tensor>{input_a, input_b}, -1);
+            output = Cat(std::vector<Tensor>{input_a, input_b}, -1);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -457,7 +457,7 @@ TEST_F(OnBoardIFATest, test_concat_32_tensor) {
 
         config::SetBuildStatic(true);
         FUNCTION("CONCAT_T", iOTensors) {
-            output = Concat(inputTensors, 0);
+            output = Cat(inputTensors, 0);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());

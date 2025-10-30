@@ -109,7 +109,7 @@ static void ConcatOperationExeFuncDoubleCut(
                 concatTensors.push_back(tileTensor);
             }
             TileShape::Current().SetVecTile(args->tileShape_);
-            auto res = Concat(concatTensors, axis);
+            auto res = Cat(concatTensors, axis);
             Assemble(res, {indices[0] * args->viewShape_[0], indices[1] * args->viewShape_[1]}, outputs[0]);
         }
     }
@@ -161,7 +161,7 @@ static void ConcatOperationExeFuncTripleCut(
                     concatTensors.push_back(tileTensor);
                 }
                 TileShape::Current().SetVecTile(args->tileShape_);
-                auto res = Concat(concatTensors, axis);
+                auto res = Cat(concatTensors, axis);
                 Assemble(
                     res, {
                         indices[0] * args->viewShape_[0],
@@ -228,7 +228,7 @@ static void ConcatOperationExeFuncQuadraticCut(
                         concatTensors.push_back(tileTensor);
                     }
                     TileShape::Current().SetVecTile(args->tileShape_);
-                    auto res = Concat(concatTensors, axis);
+                    auto res = Cat(concatTensors, axis);
                     Assemble(
                         res, {
                             indices[0] * args->viewShape_[0],

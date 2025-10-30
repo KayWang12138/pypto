@@ -148,7 +148,7 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
                     auto curW = View(weight2D, {group, 1}, {qOffset, 0}); // (group, 1)
                     auto wB32 = Cast(curW, DT_FP32);                      // (group, 1)
 
-                    auto mmRes = Concat(concatSrcs, -1); // (group, superBlockSize)
+                    auto mmRes = Cat(concatSrcs, -1); // (group, superBlockSize)
 
                     TileShape::Current().SetVecTile(tileConfig.v1Tile);
                     auto reluRes = MaxS(mmRes, Element(DT_FP32, 0.0f));       // (group, superBlockSize)
@@ -195,8 +195,8 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
                     auto wF16 = Cast(curW, DT_FP16);                      // (group, 1)
 
                     TileShape::Current().SetVecTile(tileConfig.v1Tile);
-                    auto curKScale = Concat(kScaleConcatSrcs, 0);
-                    auto mmResI32 = Concat(mmResQuantConcatSrcs, -1); // (group, superBlockSize)
+                    auto curKScale = Cat(kScaleConcatSrcs, 0);
+                    auto mmResI32 = Cat(mmResQuantConcatSrcs, -1); // (group, superBlockSize)
                     auto mmResFP32 = Mul(Cast(mmResI32, DT_FP32), Element(DT_FP32, AVOID_FP32_TO_FP16_OVERFLOW_SCALE));
                     auto mmResFP16 = Cast(mmResFP32, DT_FP16);
                     auto mmResDequant = Mul(Mul(mmResFP16, curQScale), Transpose(curKScale, {0, 1}));

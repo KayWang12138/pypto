@@ -591,10 +591,9 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_2_1_512_576_graphD) {
         Tensor k_nope = RmsNorm(compressed_kv); // (B, S, kvLoraRank)
         Tensor k_nope_new = Reshape(k_nope, {B, 1, S, kvLoraRank}); // (B,1,S,kvLoraRank)
 
-        Tensor key_states = Concat({k_nope_new, k_pe_rope}, -1); // (B,1,S, kvLoraRank + qkRopeHeadDim)
+        Tensor key_states = Cat({k_nope_new, k_pe_rope}, -1); // (B,1,S, kvLoraRank + qkRopeHeadDim)
         TileShape::Current().SetVecTile(1, 1, 512, 64);
         past_key_states = ScatterUpdate(past_key_states, kv_len, key_states, -2);
-
     }
     TileFwkEndFunction();
 
@@ -665,10 +664,9 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_2_1_512_576_graphD_bf16) {
         Tensor k_nope = RmsNorm(compressed_kv); // (B, S, kvLoraRank)
         Tensor k_nope_new = Reshape(k_nope, {B, 1, S, kvLoraRank}); // (B,1,S,kvLoraRank)
 
-        Tensor key_states = Concat({k_nope_new, k_pe_rope}, -1); // (B,1,S, kvLoraRank + qkRopeHeadDim)
+        Tensor key_states = Cat({k_nope_new, k_pe_rope}, -1); // (B,1,S, kvLoraRank + qkRopeHeadDim)
         TileShape::Current().SetVecTile(1, 1, 1, 128);
         past_key_states = ScatterUpdate(past_key_states, kv_len, key_states, -2);
-
     }
     TileFwkEndFunction();
 
@@ -739,10 +737,9 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_32_1_512_576_graphD_bf16) {
         Tensor k_nope = RmsNorm(compressed_kv); // (B, S, kvLoraRank)
         Tensor k_nope_new = Reshape(k_nope, {B, 1, S, kvLoraRank}); // (B,1,S,kvLoraRank)
 
-        Tensor key_states = Concat({k_nope_new, k_pe_rope}, -1); // (B,1,S, kvLoraRank + qkRopeHeadDim)
+        Tensor key_states = Cat({k_nope_new, k_pe_rope}, -1); // (B,1,S, kvLoraRank + qkRopeHeadDim)
         TileShape::Current().SetVecTile(1, 1, 1, 64);
         past_key_states = ScatterUpdate(past_key_states, kv_len, key_states, -2);
-
     }
     TileFwkEndFunction();
 
@@ -812,10 +809,9 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_32_1_512_576_graphD) {
     {
         Tensor k_nope = RmsNorm(compressed_kv); // (B, S, kvLoraRank)
         Tensor k_nope_new = Reshape(k_nope, {B, 1, S, kvLoraRank}); // (B,1,S,kvLoraRank)
-        Tensor key_states = Concat({k_nope_new, k_pe_rope}, -1); // (B,1,S, kvLoraRank + qkRopeHeadDim)
+        Tensor key_states = Cat({k_nope_new, k_pe_rope}, -1); // (B,1,S, kvLoraRank + qkRopeHeadDim)
         TileShape::Current().SetVecTile(1, 1, 512, 64);
         past_key_states = ScatterUpdate(past_key_states, kv_len, key_states, -2);
-
     }
     TileFwkEndFunction();
 

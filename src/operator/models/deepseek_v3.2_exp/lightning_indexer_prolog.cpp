@@ -82,8 +82,8 @@ Tensor RotateHalfValidShape(const Tensor &input) {
     Tensor x2 = View(input, shape, validShape, offset2);
 
     // cat((-x2, x1), -1)
-    return Concat(
-        {Mul(x2, Element(x2.GetStorage()->Datatype(), -1.0)), Add(x1, Element(x1.GetStorage()->Datatype(), 0.0))}, -1); // x1 add 0, 规避pass view+assemble未翻译registor_copy的问题
+    return Cat(
+        {Mul(x2, Element(x2.GetDataType(), -1.0)), Add(x1, Element(x1.GetDataType(), 0.0))}, -1); // x1 add 0, 规避pass view+assemble未翻译registor_copy的问题
 }
 
 Tensor Rope3D(const Tensor &x, const Tensor &cos, const Tensor &sin, const RopeTileShapeConfig &tileConfig) {
@@ -230,7 +230,7 @@ void LightningIndexerPrologCompute(
                 TileShape::Current().SetVecTile(tileBS, NUM_256);
                 auto kType = kNope.GetDataType();
                 kNope = Cast(Cast(kNope, DT_FP32), kType);
-                auto kUpdate = Concat({kRoped, kNope}, -1); // {tileBS, headDim}
+                auto kUpdate = Cat({kRoped, kNope}, -1); // {tileBS, headDim}
                 auto kUpdate4D = Reshape(kUpdate, {tileBS, 1, 1, headDim});
                 auto index = View(inputs.kCacheIndex, {tileBS, 1}, {actBS, 1}, {bsIdx, 0});
 

@@ -200,7 +200,7 @@ def concat(h: CodeHelper, inst: Instruction):
         tensor_str = get_var_str(inst.src[0])
 
     axis_str = get_var_str(inst.src[1])
-    h(f'auto tsr{inst.dst.idx} = Concat({tensor_str}, {axis_str});')
+    h(f'auto tsr{inst.dst.idx} = Cat({tensor_str}, {axis_str});')
 
 
 def less_than_zero_inv(h: CodeHelper, inst: Instruction):

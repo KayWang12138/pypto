@@ -251,7 +251,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                     }
                     Element src(DataType::DT_FP32, 0.0f);
                     auto zeros = VectorDuplicate(src, DT_FP32, {slcWindow - 1, n1});
-                    tildaPijPad = Concat({tildaPij, zeros}, 0);
+                    tildaPijPad = Cat({tildaPij, zeros}, 0);
                 }
 
                 LOOP("CMP_ATTN_P_SLC_FIRST", FunctionType::DYNAMIC_LOOP, slcIdx, LoopRange(curSlcLoop), {}) {

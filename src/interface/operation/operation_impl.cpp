@@ -2228,11 +2228,11 @@ Tensor Neg(const Tensor &self) {
     }
 }
 
-Tensor Rsqrt(const Tensor &operand) {
+Tensor Rsqrt(const Tensor &self) {
     DECLARE_TRACER();
 
     RETURN_CALL(
-        UnaryOperation<UnaryOpType::RSQRT>, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage());
+        UnaryOperation<UnaryOpType::RSQRT>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
 }
 
 Tensor Sqrt(const Tensor &self) {
@@ -3227,28 +3227,28 @@ void InnerConcatNew(Function &function, const LogicalTensorPtr &operand,
 }
 
 
-Tensor Concat(const std::vector<Tensor> &tensorList, int axis) {
+Tensor Cat(const std::vector<Tensor> &tensors, int axis) {
     DECLARE_TRACER();
 
-    if (tensorList.size() > MAX_CAT_NUM_ONCE) {
-        std::vector<Tensor> front(tensorList.begin(), tensorList.begin() + MAX_CAT_NUM_ONCE);
-        std::vector<Tensor> back(tensorList.begin() + MAX_CAT_NUM_ONCE, tensorList.end());
-        Tensor concatFront = Concat(front, axis);
+    if (tensors.size() > MAX_CAT_NUM_ONCE) {
+        std::vector<Tensor> front(tensors.begin(), tensors.begin() + MAX_CAT_NUM_ONCE);
+        std::vector<Tensor> back(tensors.begin() + MAX_CAT_NUM_ONCE, tensors.end());
+        Tensor concatFront = Cat(front, axis);
         back.insert(back.begin(), concatFront);
-        return Concat(back, axis);
+        return Cat(back, axis);
     }
 
-    auto shape = tensorList[0].GetShape();
+    auto shape = tensors[0].GetShape();
     auto shapeSize = shape.size();
     if (axis < 0) {
         axis = shapeSize + axis;
     }
     ASSERT(static_cast<size_t>(axis) < shapeSize);
-    for (auto tensor : tensorList) {
+    for (auto tensor : tensors) {
         ASSERT(tensor.GetShape().size() == shapeSize);
     }
 
-    for (auto tensor : tensorList) {
+    for (auto tensor : tensors) {
         for (int i = 0; static_cast<size_t>(i) < shapeSize; ++i) {
             if (i == axis) {
                 continue;
@@ -3259,16 +3259,16 @@ Tensor Concat(const std::vector<Tensor> &tensorList, int axis) {
 
     auto resultShape = shape;
     int axisSize = 0;
-    for (auto tensor : tensorList) {
+    for (auto tensor : tensors) {
         axisSize += tensor.GetShape()[axis];
     }
     resultShape[axis] = axisSize;
 
-    Tensor result(tensorList[0].GetStorage()->Datatype(), resultShape);
-    Tensor tmp(tensorList[0].GetStorage()->Datatype(), resultShape);
+    Tensor result(tensors[0].GetDataType(), resultShape);
+    Tensor tmp(tensors[0].GetDataType(), resultShape);
     auto &function = *Program::GetInstance().GetCurrentFunction();
     std::vector<int64_t> offset(shapeSize, 0);
-    for (auto tensor : tensorList) {
+    for (auto tensor : tensors) {
         auto tmpView = tmp.GetStorage()->View(function, tensor.GetShape(), offset);
         InnerConcatNew(*Program::GetInstance().GetCurrentFunction(), tensor.GetStorage(), tmpView);
         offset[axis] += tensor.GetShape()[axis];

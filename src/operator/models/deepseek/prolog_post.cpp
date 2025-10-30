@@ -77,12 +77,12 @@ void PrologPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &q
                     TileShape::Current().SetVecTile(v0Tile[0], v0Tile[1]);
                     auto qn = View(qNope, {nTile, dN}, {curOffset, 0});
                     auto qr = View(qRope, {nTile, dR}, {curOffset, 0});
-                    auto qi = Concat({qn, qr}, 1); // (nTileCur, dN+dR)
+                    auto qi = Cat({qn, qr}, 1); // (nTileCur, dN+dR)
                     SymbolicScalar curBlockIdx = GetTensorData(blockTable, {bIdx, bn});
 
                     auto kn = View(kNopeCache, {blockSize, dN}, {curBlockIdx * blockSize, 0});
                     auto kr = View(kRopeCache, {blockSize, dR}, {curBlockIdx * blockSize, 0});
-                    auto kj = Concat({kn, kr}, 1); // (s2TileCur, dN+dR)
+                    auto kj = Cat({kn, kr}, 1); // (s2TileCur, dN+dR)
                     auto vj = View(vNopeCache, {blockSize, dN}, {curBlockIdx * blockSize, 0});
                     TileShape::Current().SetCubeTile(
                         {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]});

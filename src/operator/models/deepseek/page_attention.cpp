@@ -335,7 +335,7 @@ void PageAttentionWithManualUnroll(Tensor &qNope, Tensor &kNopeCache, Tensor &vN
                             TileShape::Current().SetVecTile(v0Tile[0], v0Tile[1]);
                             auto qn = View(qNope, {nTile, dN}, {curOffset, 0});
                             auto qr = View(qRope, {nTile, dR}, {curOffset, 0});
-                            auto qi = Concat({qn, qr}, 1); // (nTileCur, dN+dR)
+                            auto qi = Cat({qn, qr}, 1); // (nTileCur, dN+dR)
                             std::vector<Tensor> subKns;
                             std::vector<Tensor> subKrs;
                             std::vector<Tensor> subVjs;
@@ -349,10 +349,10 @@ void PageAttentionWithManualUnroll(Tensor &qNope, Tensor &kNopeCache, Tensor &vN
                                     View(vNopeCache, {blockSize, dN}, {curBlockIdx * blockSize, 0}));
                             }
 
-                            auto kn = Concat(subKns, 0);
-                            auto kr = Concat(subKrs, 0);
-                            auto kj = Concat({kn, kr}, 1); // (s2TileCur, dN+dR)
-                            auto vj = Concat(subVjs, 0);
+                            auto kn = Cat(subKns, 0);
+                            auto kr = Cat(subKrs, 0);
+                            auto kj = Cat({kn, kr}, 1); // (s2TileCur, dN+dR)
+                            auto vj = Cat(subVjs, 0);
 
                             TileShape::Current().SetCubeTile(
                                 {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]});

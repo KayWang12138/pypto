@@ -91,7 +91,7 @@ TEST_F(DynamicResolveTest, TestResolve) {
                 auto mm = Matrix::Matmul<false, true>(DataType::DT_FP32, inputA, t); // <64 x 128 x FP32>
                 tensorList.emplace_back(mm);
             }
-            auto mmConcat = Concat(tensorList, -1); // <64 x (128 * 64) x FP32>
+            auto mmConcat = Cat(tensorList, -1); // <64 x (128 * 64) x FP32>
             output = Add(inputC, mmConcat);
         }
     }

@@ -635,11 +635,9 @@ TEST_F(RoPESubGraphOnBoardTest, test_CD_bf16_32batch) {
 
             TileShape::Current().SetVecTile(1, 1, 1, 64); // 此处如果不设置tile 会有精度问题 reshape+concat图生成不对
 
-            Tensor key_states = Concat({k_nope_new, kEmbed}, -1); // (B,1,S, kvLoraRank + qkRopeHeadDim)
+            Tensor key_states = Cat({k_nope_new, kEmbed}, -1); // (B,1,S, kvLoraRank + qkRopeHeadDim)
             TileShape::Current().SetVecTile(1, 1, 512, 64);
             past_key_states = ScatterUpdate(past_key_states, kv_len, key_states, -2);
-
-
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -763,10 +761,9 @@ TEST_F(RoPESubGraphOnBoardTest, test_CD_bf16_32batch_4k) {
 
             TileShape::Current().SetVecTile(1, 1, 1, 64); // 此处如果不设置tile 会有精度问题 reshape+concat图生成不对
 
-            Tensor key_states = Concat({k_nope_new, kEmbed}, -1); // (B,1,S, kvLoraRank + qkRopeHeadDim)
+            Tensor key_states = Cat({k_nope_new, kEmbed}, -1); // (B,1,S, kvLoraRank + qkRopeHeadDim)
             TileShape::Current().SetVecTile(1, 1, 512, 64);
             past_key_states = ScatterUpdate(past_key_states, kv_len, key_states, -2);
-
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());

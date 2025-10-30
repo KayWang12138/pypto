@@ -114,9 +114,9 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
                 auto kNopeBlock1 = View(kvCache, {cmpBlockSize / 2, dN}, {blockIdx1 * blockSize, 0});
                 auto kRopeBlock1 = View(krCache, {cmpBlockSize / 2, dR}, {blockIdx1 * blockSize, 0});
                 TileShape::Current().SetVecTile(cmpBlockSize, dN);
-                kNopeBlock = Concat({kNopeBlock0, kNopeBlock1}, 0);
+                kNopeBlock = Cat({kNopeBlock0, kNopeBlock1}, 0);
                 TileShape::Current().SetVecTile(cmpBlockSize, dR);
-                kRopeBlock = Concat({kRopeBlock0, kRopeBlock1}, 0);
+                kRopeBlock = Cat({kRopeBlock0, kRopeBlock1}, 0);
             }
 
             TileShape::Current().SetVecTile(cmpBlockSize, dN);

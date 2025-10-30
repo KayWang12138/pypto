@@ -56,7 +56,7 @@ Tensor RotateHalf(const Tensor &input) {
     Tensor x2 = View(input, shape, offset2);
 
     // cat((-x2, x1), -1)
-    return Concat(
+    return Cat(
         {Mul(x2, Element(x2.GetStorage()->Datatype(), -1.0)), Add(x1, Element(x1.GetStorage()->Datatype(), 0.0))}, -1); // x1 add 0, 规避pass view+assemble未翻译registor_copy的问题
 }
 

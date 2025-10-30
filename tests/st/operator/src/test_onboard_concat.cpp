@@ -40,7 +40,7 @@ TEST_F(ConcatOnBoardTest, test_concat_dim4_float32) {
 
         config::SetBuildStatic(true);
         FUNCTION("CONCAT_T", {input_x, input_y, output}) {
-            output = Concat(std::vector<Tensor>{input_x, input_y}, -1);
+            output = Cat(std::vector<Tensor>{input_x, input_y}, -1);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -75,7 +75,7 @@ TEST_F(ConcatOnBoardTest, test_concat_exp_dim4_float32) {
 
         config::SetBuildStatic(true);
         FUNCTION("CONCAT_T", {input_x, input_y, output2}) {
-            Tensor output1 = Concat(std::vector<Tensor>{input_x, input_y}, -1);
+            Tensor output1 = Cat(std::vector<Tensor>{input_x, input_y}, -1);
             output2 = Exp(output1);
         }
     }
@@ -113,7 +113,7 @@ TEST_F(ConcatOnBoardTest, test_exp_concat_dim4_float32) {
             Tensor input_x_1 = Exp(input_x);
             Tensor input_y_1 = Exp(input_y);
             TileShape::Current().SetVecTile({2, 2, 16, 32});
-            output2 = Concat(std::vector<Tensor>{input_x_1, input_y_1}, -1);
+            output2 = Cat(std::vector<Tensor>{input_x_1, input_y_1}, -1);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -149,7 +149,7 @@ TEST_F(ConcatOnBoardTest, test_concat_sqrt_dim4_float32) {
 
         config::SetBuildStatic(true);
         FUNCTION("CONCAT_T", {input_x, input_y, output2}) {
-            Tensor output1 = Concat(std::vector<Tensor>{input_x, input_y}, 2);
+            Tensor output1 = Cat(std::vector<Tensor>{input_x, input_y}, 2);
             output2 = Sqrt(output1);
         }
     }
@@ -190,7 +190,7 @@ TEST_F(ConcatOnBoardTest, test_concat_100_inputs_float32) {
         paras.emplace_back(output);
         config::SetBuildStatic(true);
         FUNCTION("CONCAT_T", paras) {
-            output = Concat(inputs, -1);
+            output = Cat(inputs, -1);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -228,7 +228,7 @@ TEST_F(ConcatOnBoardTest, test_concat_128_inputs_float32) {
         paras.emplace_back(output);
         config::SetBuildStatic(true);
         FUNCTION("CONCAT_T", paras) {
-            output = Concat(inputs, -2);
+            output = Cat(inputs, -2);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -264,7 +264,7 @@ TEST_F(ConcatOnBoardTest, test_concat_dim2_float32_moe) {
 
         config::SetBuildStatic(true);
         FUNCTION("CONCAT_T", {input_x, input_y, output}) {
-            output = Concat(std::vector<Tensor>{input_x, input_y}, -2);
+            output = Cat(std::vector<Tensor>{input_x, input_y}, -2);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());

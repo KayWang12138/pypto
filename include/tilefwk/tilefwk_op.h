@@ -115,7 +115,7 @@ Tensor Cast(const Tensor &self, DataType dstDataType, CastMode mode = CAST_NONE)
 
 Tensor Exp(const Tensor &self);
 Tensor Neg(const Tensor &self);
-Tensor Rsqrt(const Tensor &operand);
+Tensor Rsqrt(const Tensor &self);
 Tensor Sqrt(const Tensor &self);
 Tensor Reciprocal(const Tensor &operand);
 Tensor Abs(const Tensor &self);
@@ -200,7 +200,7 @@ Tensor Cos(Tensor operand);
 Tensor Softmax(const Tensor &operand);
 Tensor RmsNorm(const Tensor &operand);
 Tensor RmsNorm(const Tensor &operand, const Tensor &gamma, float epsilon = 1e-05f);
-Tensor Concat(const std::vector<Tensor> &tensorList, int axis);
+Tensor Cat(const std::vector<Tensor> &tensors, int axis);
 Tensor NewCompact(const Tensor &operand);
 Tensor Pad(const Tensor &old, const std::vector<int64_t> &newShape);
 Tensor LogicalNot(const Tensor &self);

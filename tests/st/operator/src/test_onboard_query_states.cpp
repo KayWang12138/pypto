@@ -74,7 +74,7 @@ TEST_F(OnBoardTest, test_query_states_fp16_b32_n2) {
             TileShape::Current().SetVecTile(1, 1, 1, 512);
             Tensor q_nope_new4 = Transpose(q_nope_new3, {1, 2}); //(b, num_heads, s, kvLoraRank)
             TileShape::Current().SetVecTile(2, 2, 1, 512);
-            query_states = Concat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
+            query_states = Cat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -141,7 +141,7 @@ TEST_F(OnBoardTest, test_query_states_fp16_b32_n16) {
             TileShape::Current().SetVecTile(2, 1, 1, 512);
             Tensor q_nope_new4 = Transpose(q_nope_new3, {1, 2}); //(b, num_heads, s, kvLoraRank)
             TileShape::Current().SetVecTile(2, 2, 1, 512);
-            query_states = Concat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
+            query_states = Cat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -208,7 +208,7 @@ TEST_F(OnBoardTest, test_query_states_fp16_b32_n32) {
             TileShape::Current().SetVecTile(2, 1, 1, 512);
             Tensor q_nope_new4 = Transpose(q_nope_new3, {1, 2}); //(b, num_heads, s, kvLoraRank)
             TileShape::Current().SetVecTile(2, 2, 1, 512);
-            query_states = Concat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
+            query_states = Cat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -276,7 +276,7 @@ TEST_F(OnBoardTest, test_query_states_bf16_b32_n2) {
             TileShape::Current().SetVecTile(1, 1, 1, 512);
             Tensor q_nope_new4 = Transpose(q_nope_new3, {1, 2}); //(b, num_heads, s, kvLoraRank)
             TileShape::Current().SetVecTile(2, 2, 1, 512);
-            query_states = Concat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
+            query_states = Cat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -328,7 +328,7 @@ TEST_F(OnBoardTest, test_query_states_bf16_b32_n2_concat) {
             TileShape::Current().SetVecTile(1, 1, 1, 512);
             Tensor q_nope_new4 = Transpose(q, {1, 2}); //(b, num_heads, s, kvLoraRank)
             TileShape::Current().SetVecTile(2, 2, 1, 512);
-            query_states = Concat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
+            query_states = Cat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -395,8 +395,6 @@ TEST_F(OnBoardTest, test_query_states_bf16_b32_n2_nocat) {
             Tensor q_nope_new3 = Reshape(q_nope_new2, {b, s, num_heads, kvLoraRank});
             TileShape::Current().SetVecTile(1, 1, 1, 512);
             query_states = Transpose(q_nope_new3, {1, 2}); //(b, num_heads, s, kvLoraRank)
-            // TileShape::Current().SetVecTile(2, 2, 1, 512);
-            // query_states = Concat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -464,7 +462,7 @@ TEST_F(OnBoardTest, test_query_states_bf16_b32_n16) {
             TileShape::Current().SetVecTile(2, 1, 1, 512);
             Tensor q_nope_new4 = Transpose(q_nope_new3, {1, 2}); //(b, num_heads, s, kvLoraRank)
             TileShape::Current().SetVecTile(2, 2, 1, 512);
-            query_states = Concat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
+            query_states = Cat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -532,7 +530,7 @@ TEST_F(OnBoardTest, test_query_states_bf16_b32_n32) {
             TileShape::Current().SetVecTile(2, 1, 1, 512);
             Tensor q_nope_new4 = Transpose(q_nope_new3, {1, 2}); //(b, num_heads, s, kvLoraRank)
             TileShape::Current().SetVecTile(2, 2, 1, 512);
-            query_states = Concat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
+            query_states = Cat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());

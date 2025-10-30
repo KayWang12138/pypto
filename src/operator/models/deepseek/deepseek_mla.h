@@ -437,7 +437,7 @@ public:
             startIdx = endIdx;
         }
 
-        Tensor outs = Concat(outputs, 0); // (all_sum_num_tokens, h) = (b*s*num_experts_per_tok, h)
+        Tensor outs = Cat(outputs, 0); // (all_sum_num_tokens, h) = (b*s*num_experts_per_tok, h)
         Tensor newX(outs.GetDataType(), outs.GetShape()); // (b*s*num_experts_per_tok, h)
 
         for (auto n: outs.GetShape()){
@@ -534,7 +534,7 @@ public:
             startIdx = endIdx;
         }
 
-        Tensor outs = Concat(outputs, 0); // (all_sum_num_tokens, h) = (b*s*num_experts_per_tok, h)
+        Tensor outs = Cat(outputs, 0); // (all_sum_num_tokens, h) = (b*s*num_experts_per_tok, h)
         return outs;
     }
     Tensor MoeInferSingleMlpQuant(Tensor x, Tensor topkIds, Tensor topkWeight, Tensor ffnWeight1, Tensor ffnWeight2,
@@ -598,7 +598,7 @@ public:
             startIdx = endIdx;
         }
 
-        Tensor outs = Concat(outputs, 0); // (all_sum_num_tokens, h) = (b*s*num_experts_per_tok, h)
+        Tensor outs = Cat(outputs, 0); // (all_sum_num_tokens, h) = (b*s*num_experts_per_tok, h)
         return outs;
     }
 
@@ -660,7 +660,7 @@ public:
             startIdx = endIdx;
         }
 
-        outs = Concat(outputs, 0); // (all_sum_num_tokens, h) = (b*s*numExpertsPerTok, h)
+        outs = Cat(outputs, 0); // (all_sum_num_tokens, h) = (b*s*numExpertsPerTok, h)
         Tensor newX(outs.GetDataType(), outs.GetShape()); // (b*s*numExpertsPerTok, h)
 
         for (auto n : outs.GetShape()){
@@ -751,7 +751,7 @@ public:
         }
 
         // newX = torch.empty_like(outs)
-        auto outs = Concat(outputs, 0); // (all_sum_num_tokens, h) = (b*s*numExpertsPerTok, h)
+        auto outs = Cat(outputs, 0); // (all_sum_num_tokens, h) = (b*s*numExpertsPerTok, h)
         Tensor newX(outs.GetDataType(), outs.GetShape()); // (b*s*numExpertsPerTok, h)
 
         // newX[idxs] = outs  -->index_put: (b*s*numExpertsPerTok, h)[b*s*numExpertsPerTok] =

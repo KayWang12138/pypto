@@ -331,7 +331,7 @@ TEST_F(OnBoardTest, test_concat_all2all) {
         Tensor output;
 
         FUNCTION("CONCAT_T") {
-            output = Concat(std::vector<Tensor>{input_a, input_b}, 1);
+            output = Cat(std::vector<Tensor>{input_a, input_b}, 1);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -366,7 +366,7 @@ TEST_F(OnBoardTest, test_concat_4) {
 
         config::SetBuildStatic(true);
         FUNCTION("CONCAT_T") {
-            output = Concat(std::vector<Tensor>{input_a, input_b, input_c}, 0);
+            output = Cat(std::vector<Tensor>{input_a, input_b, input_c}, 0);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());

@@ -537,20 +537,10 @@ TEST_F(FunctionTest, TestScatterUpdate2) {
     Tensor past_key_states_new(DT_FP32, {b,1,s2, kvLoraRank + qkRopeHeadDim}, "past_key_states_new");
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-    // kv_len.GetStorage()->SetItem(1);
     FUNCTION("A") {
-        // TileShape::Current().SetVecTile(1, 256, 128);
-        // Tensor k_nope = RmsNorm(compressed_kv); // (b,s,kvLoraRank)
-        // auto k_nope_new =
-        //     Reshape(k_nope, {b, 1, s, kvLoraRank}); // (b,1,s,kvLoraRank)
         TileShape::Current().SetVecTile(1, 1, 256, 128);
-        // Tensor key_states = Concat({k_nope_new, k_pe_rope}, -1); // (b,1,s, kvLoraRank + qkRopeHeadDim)
-
-        // auto past_key_states_new = ScatterUpdate(past_key_states, kv_len, key_states, -2); // 增量  //  open
         past_key_states_new = ScatterUpdate(past_key_states, kv_len, key_states, -2);
-        // res = Exp(past_key_states_new);
     }
-
 }
 
 TEST_F(FunctionTest, TestScatterUpdate3) {
@@ -765,7 +755,7 @@ TEST_F(FunctionTest, TestConcat) {
     Tensor res;
 
     FUNCTION("A") {
-        res = Concat(std::vector<Tensor>{params1, params2}, axis);
+        res = Cat(std::vector<Tensor>{params1, params2}, axis);
     }
     //Program::GetInstance().GraphCheck();
 

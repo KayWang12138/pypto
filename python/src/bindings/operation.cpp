@@ -73,7 +73,7 @@ void bind_operation(py::module &m) {
         "Tensor transpose.");
     m.def("abs", [](const Tensor &self) { return npu::tile_fwk::Abs(self); }, "Tensor abs.");
     m.def("reciprocal", [](const Tensor &operand) { return npu::tile_fwk::Reciprocal(operand); }, "Tensor reciprocal.");
-    m.def("rsqrt", [](const Tensor &operand) { return npu::tile_fwk::Rsqrt(operand); }, "Tensor rsqrt.");
+    m.def("rsqrt", [](const Tensor &self) { return npu::tile_fwk::Rsqrt(self); }, "Tensor rsqrt.");
     m.def("sqrt", [](const Tensor &self) { return npu::tile_fwk::Sqrt(self); }, "Tensor sqrt.");
     m.def("neg", [](const Tensor &self) { return npu::tile_fwk::Neg(self); }, "Tensor neg.");
     m.def("log", [](const Tensor &self, const LogBaseType base) { return npu::tile_fwk::Log(self, base); }, "Tensor log.");
@@ -212,8 +212,8 @@ void bind_operation(py::module &m) {
         },
         py::arg("operand"), py::arg("gamma"), py::arg("epsilon") = 1e-05f, "Tensor rms norm.");
     m.def(
-        "concat", [](const std::vector<Tensor> &tensorLists, int axis) {
-            return npu::tile_fwk::Concat(tensorLists, axis);
+        "concat", [](const std::vector<Tensor> &tensors, int axis) {
+            return npu::tile_fwk::Cat(tensors, axis);
         }, "Tensor concat.");
     m.def(
         "pad", [](const Tensor &old, const std::vector<int64_t> &newShape) {

@@ -397,8 +397,8 @@ Tensor DeepseekAttention::Forward(Tensor hiddenStates, Tensor attenMask, Tensor 
     ApplyRotaryPosEmb(qPe, kPe, cos, sin, positionIds, qPeRope, kPeRope, 1, ropeTileShapeConfig);
     TileShape::Current().SetVecTile(1, 1, NUM_128, NUM_64);
 
-    Tensor queryStates = Concat({qNopeNew2, qPeRope}, -1); // (b,numHeads,s, kvLoraRank + qkRopeHeadDim)
-    Tensor keyStates = Concat({kNope, kPeRope}, -1);        // (b,1,s, kvLoraRank + qkRopeHeadDim)
+    Tensor queryStates = Cat({qNopeNew2, qPeRope}, -1); // (b,numHeads,s, kvLoraRank + qkRopeHeadDim)
+    Tensor keyStates = Cat({kNope, kPeRope}, -1);        // (b,1,s, kvLoraRank + qkRopeHeadDim)
 
     // pastKeyStates: [b,1,s2, kvLoraRank + qkRopeHeadDim]
     auto pastKeyStatesNew = ScatterUpdate(pastKeyStates, kvLen, keyStates, -2); // 增量
@@ -468,8 +468,8 @@ std::tuple<Tensor, Tensor>  DeepseekAttention::AtentionPreForward(Tensor hiddenS
     ApplyRotaryPosEmb(qPe, kPe, cos, sin, positionIds, qPeRope, kPeRope, 1, ropeTileShapeConfig);
     TileShape::Current().SetVecTile(1, 1, NUM_128, NUM_64);
 
-    Tensor queryStates = Concat({qNopeNew2, qPeRope}, -1); // (b,numHeads,s, kvLoraRank + qkRopeHeadDim)
-    Tensor keyStates = Concat({kNope, kPeRope}, -1);        // (b,1,s, kvLoraRank + qkRopeHeadDim)
+    Tensor queryStates = Cat({qNopeNew2, qPeRope}, -1); // (b,numHeads,s, kvLoraRank + qkRopeHeadDim)
+    Tensor keyStates = Cat({kNope, kPeRope}, -1);        // (b,1,s, kvLoraRank + qkRopeHeadDim)
 
     // pastKeyStates: [b,1,s2, kvLoraRank + qkRopeHeadDim]
     auto pastKeyStatesNew = ScatterUpdate(pastKeyStates, kvLen, keyStates, -2); // 增量
@@ -538,9 +538,9 @@ std::tuple<Tensor, Tensor>  DeepseekAttention::AtentionPreForwardCv(Tensor hidde
     ApplyRotaryPosEmb(qPe, kPe, cos, sin, positionIds, qPeRope, kPeRope, 1, ropeTileShapeConfig);
     TileShape::Current().SetVecTile(NUM_2, NUM_32, 1, NUM_64);
     // 2_32_1_512 + 2_32_1_64 = 2_32_1_576
-    Tensor queryStates = Concat({qNopeNew2, qPeRope}, -1); // (b,numHeads,s, kvLoraRank + qkRopeHeadDim)
+    Tensor queryStates = Cat({qNopeNew2, qPeRope}, -1); // (b,numHeads,s, kvLoraRank + qkRopeHeadDim)
     //2_32_1_512 + 2_32_1_64 = 2_32_1_576
-    Tensor keyStates = Concat({kNope, kPeRope}, -1);        // (b,1,s, kvLoraRank + qkRopeHeadDim)
+    Tensor keyStates = Cat({kNope, kPeRope}, -1);        // (b,1,s, kvLoraRank + qkRopeHeadDim)
 
     // pastKeyStates: [b,1,s2, kvLoraRank + qkRopeHeadDim]
     // 2_1_256_576
@@ -598,7 +598,7 @@ std::tuple<Tensor, Tensor> DeepseekAttention::MlaPrologAbForward(Tensor hiddenSt
 
     tileShape = {NUM_2, NUM_32, 1, NUM_64};
     TileShape::Current().SetVecTile(tileShape);
-    Tensor queryStates = Concat({qNopeNewT2, qPeRope}, -1); // [b,n,s, kvLoraRank + qkRopeHeadDim]
+    Tensor queryStates = Cat({qNopeNewT2, qPeRope}, -1); // [b,n,s, kvLoraRank + qkRopeHeadDim]
 
     return {queryStates, kvTmp};
 }
@@ -678,11 +678,11 @@ std::vector<Tensor> DeepseekAttention::MlaPrologFoward(Tensor hiddenStates, Tens
     /******** output q & kv ********/
     tileShape = {NUM_2, NUM_32, 1, NUM_64};
     TileShape::Current().SetVecTile(tileShape);
-    Tensor queryStates = Concat({qNopeNewT2, qPeRope}, -1); // [b,n,s, kvLoraRank + qkRopeHeadDim]
+    Tensor queryStates = Cat({qNopeNewT2, qPeRope}, -1); // [b,n,s, kvLoraRank + qkRopeHeadDim]
 
     tileShape = {1, 1, 1, NUM_64};
     TileShape::Current().SetVecTile(tileShape);
-    Tensor keyStates = Concat({kNope, kPeRope}, -1); // [b,1,s, kvLoraRank + qkRopeHeadDim]
+    Tensor keyStates = Cat({kNope, kPeRope}, -1); // [b,1,s, kvLoraRank + qkRopeHeadDim]
 
     tileShape = {1, 1, NUM_256, NUM_64};
     TileShape::Current().SetVecTile(tileShape);
