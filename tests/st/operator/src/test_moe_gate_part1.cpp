@@ -27,7 +27,7 @@ TEST_F(MoEGatePart1OnBoardTest, test_moe_gate_part1) {
     constexpr int32_t B = 16;
     constexpr int32_t nRoutedExperts = 256;
 
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
 
     // set input data
     uint64_t input_e_score_bias_size = nRoutedExperts;

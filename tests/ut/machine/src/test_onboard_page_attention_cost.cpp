@@ -37,7 +37,7 @@ public:
 
 TEST_F(OnBoardPaCostTest, test_page_attention_low_latency) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
     config::SetOperationConfig("FORCE_COMBINE_AXIS", true);
     config::SetHostOption(ONLY_CODEGEN, true);
 
@@ -110,7 +110,7 @@ TEST_F(OnBoardPaCostTest, test_page_attention_low_latency) {
 
 TEST_F(OnBoardPaCostTest, test_page_attention_hight_throughput) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
     config::SetOperationConfig("FORCE_COMBINE_AXIS", true);
     config::SetHostOption(ONLY_CODEGEN, true);
     const int cycle_lower_bound = 2048;

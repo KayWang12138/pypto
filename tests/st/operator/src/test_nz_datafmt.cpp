@@ -23,7 +23,7 @@ class OnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 template <DataType inputType, DataType outputType, bool IsANZ = false, bool IsBNZ = false>
 void TestNZFormat(int bs, int m, int k, int n) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
 
     const int capacity_mat_a = bs * m * k;
     const int capacity_mat_b = bs * k * n;
@@ -98,7 +98,7 @@ TEST_F(OnBoardTest, test_BMM_NZ_1_128_128_128_A8W8O32) {
 template <DataType inputType, DataType outputType, bool IsANZ = false, bool IsBNZ = false, bool isTransB = false>
 void TestNZFormatBatch(int bs, int m, int k, int n) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
 
     const int capacity_mat_a = bs * m * k;
     const int capacity_mat_b = bs * k * n;
@@ -166,7 +166,7 @@ TEST_F(OnBoardTest, test_BMMT_NZ_1_128_256_128_Batch) {
 template <DataType inputType, DataType outputType, bool IsANZ = false, bool IsBNZ = false>
 void TestNZFormatACC(int bs, int m, int k, int n) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
 
     const int capacity_mat_a = bs * m * k;
     const int capacity_mat_b = bs * k * n;

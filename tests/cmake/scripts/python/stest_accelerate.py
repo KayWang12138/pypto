@@ -53,7 +53,7 @@ class STestAccelerate(GTestAccelerate):
     @staticmethod
     def set_device_id_envs(p: Any) -> Optional[Dict[str, str]]:
         self: GTestAccelerate.ExecParam = p
-        return {"TILE_FWK_STEST_DEVICE_ID": f"{self.custom}"}
+        return {"TILE_FWK_DEVICE_ID": f"{self.custom}"}
 
 
 if __name__ == "__main__":

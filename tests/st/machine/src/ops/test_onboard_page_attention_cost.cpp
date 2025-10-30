@@ -160,7 +160,7 @@ TEST_F(OnBoardPaCostTest, test_page_attention_low_latency_cost) {
     CacheMode cacheMode = CacheManager::Instance().GetCacheMode();
     CacheManager::Instance().cacheMode_ = CacheMode::Disable;
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
     config::SetOperationConfig("FORCE_COMBINE_AXIS", true);
     config::SetPassOption(L1_REUSE_MAP, std::map<int64_t, int64_t>{{1,4}});
 
@@ -171,7 +171,7 @@ TEST_F(OnBoardPaCostTest, test_page_attention_low_latency_cost) {
 
 TEST_F(OnBoardPaCostTest, test_page_attention_low_latency_cost_precision) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
 
     TileFwkInit("");
     IfaCommonTestInner(lowLatencyParams, lowLatencyTileParams, false);
@@ -179,7 +179,7 @@ TEST_F(OnBoardPaCostTest, test_page_attention_low_latency_cost_precision) {
 
 TEST_F(OnBoardPaCostTest, test_page_attention_hight_throughput_cost) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
     config::SetOperationConfig("FORCE_COMBINE_AXIS", true);
     const int cycle_lower_bound = 2048;
     const int cycle_upper_bound = 20000;
@@ -197,7 +197,7 @@ TEST_F(OnBoardPaCostTest, test_page_attention_hight_throughput_cost) {
 
 TEST_F(OnBoardPaCostTest, test_page_attention_hight_throughput_cost_precision) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
 
     TileFwkInit("");
     IfaCommonTestInner(hightThroughputParams, hightThroughputTileParams, false);

@@ -53,7 +53,7 @@ def test_batch_matmul_bf16_with_m_split():
 
 def dynamic_batch_matmul_onboard_util(input_config: BatchMatmulShapeConfig):
     # onboard prepare
-    device_id = os.environ.get("TILE_FWK_STEST_DEVICE_ID", 0)
+    device_id = os.environ.get("TILE_FWK_DEVICE_ID", 0)
     pto.device_init()
     pto.set_host_option("only_codegen", True)
     pto.set_codegen_option("support_dynamic_unaligned", True)

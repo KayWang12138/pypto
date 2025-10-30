@@ -86,7 +86,7 @@ def scatter_2dim_comm_proc(scatter_para, scatter_func):
 
 @pytest.mark.skip(reason="Dep operation interface")
 def test_scatter__onboard():
-    device_id = os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0)
+    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
     b = 4
     s = 5
     idx0 = 2
@@ -98,7 +98,7 @@ def test_scatter__onboard():
 
 @pytest.mark.skip(reason="Dep operation interface")
 def test_scatter_onboard():
-    device_id = os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0)
+    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
     b = 4
     s = 4
     idx0 = 3

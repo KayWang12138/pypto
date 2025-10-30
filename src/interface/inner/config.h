@@ -63,6 +63,8 @@ FunctionType GetFunctionType();
 
 std::string GetSemanticLabel();
 
+int GetDeviceId();
+
 namespace internal {
 bool IsType(const std::string &key, const std::type_info &type);
 bool GetOption(const std::string &key, int64_t &value);

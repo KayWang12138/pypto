@@ -25,7 +25,7 @@ constexpr float F_127 = 127.0;
 
 void QuantPre(uint8_t **out_ptr, uint64_t *outsize) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
     *outsize = capacity * sizeof(float);
     *out_ptr = allocDevAddr(*outsize);
 }

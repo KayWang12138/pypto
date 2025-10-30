@@ -55,7 +55,7 @@ private:
         std::string coreType = isCube_ ? "aic" : "aiv";
         std::ostringstream ss;
         ss << topFunc.GetMagicName() << "_" << topFunc.GetFunctionHash() << "_" << subProgramId << "_" << coreType
-           << "_rankId_" << npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId();
+           << "_rankId_" << config::GetDeviceId();
         cceFileName_ = ss.str();
         ss.str("");
         ss << userSpecCCEDir_ << "/" << cceFileName_ << GetSuffix();

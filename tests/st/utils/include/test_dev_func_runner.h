@@ -132,7 +132,7 @@ private:
             return;
         }
         MachineAgent::AgentProc(gDeviceAgentTaskPtr.get());
-        rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+        rtSetDevice(config::GetDeviceId());
         MachinePipe::PipeProc(gDeviceAgentTaskPtr.get());
         delete gDeviceAgentTaskPtr->compileTask;
     }
@@ -231,7 +231,7 @@ private:
         std::cout << "!!! Kernel Launch " << "\n";
         int rc = aclInit(nullptr);
         if (rc == 0 || rc == ACL_ERROR_REPEAT_INITIALIZE) {
-            rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+            SetDefaultDevice();
             AstKernelArgs kArgs;
             DeviceInitTilingData(MemoryHelper(false), kArgs, function_, config_, nullptr);
             auto aicpuStream = machine::GetRA()->GetStreamAICPU();

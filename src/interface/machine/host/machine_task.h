@@ -24,7 +24,6 @@
 #include <memory>
 #include <iostream>
 #include "interface/function/function.h"
-#include "interface/machine/host/stubs.h"
 #include "interface/utils/common.h"
 
 namespace npu::tile_fwk {

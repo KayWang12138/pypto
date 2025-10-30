@@ -46,7 +46,7 @@ void MachineAgent::DumpData(const std::string &fileName,const char *data, size_t
 void MachineAgent::AgentProc(DeviceAgentTask *task) {
 #ifdef BUILD_WITH_CANN
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    SetDefaultDevice();
 #endif
     // 使能了dump功能
     if (IsAstDataDumpEnabled()) {

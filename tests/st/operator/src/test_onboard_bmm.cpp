@@ -32,7 +32,7 @@ int64_t GetShapeCapacity(const vector<int64_t>& shape) {
 template<typename InputT, typename OnputT, bool transpose = false>
 void TestBatchMatmul3D(std::vector<int64_t> shape_a, std::vector<int64_t>shape_b ,string dataPath) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
     assert(shape_a.size() == 3 && shape_b.size() == 3);
 
     int bs = std::max(shape_a[0], shape_b[0]);
@@ -70,7 +70,7 @@ void TestBatchMatmul3D(std::vector<int64_t> shape_a, std::vector<int64_t>shape_b
 template<typename InputT, typename OnputT, bool transpose=false>
 void TestBatchMatmul4D(std::vector<int64_t> shape_a, std::vector<int64_t>shape_b ,string dataPath) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
     assert(shape_a.size() == 4 && shape_b.size() == 4);
     int bs1 = std::max(shape_a[0], shape_b[0]);
     int bs2 = std::max(shape_a[1], shape_b[1]);
@@ -199,7 +199,7 @@ TEST_F(OnBoardTest, test_BMM_9_16_7168_2048) {
 template<typename InputT, typename OnputT, bool transpose = false>
 void TestBatchMatmulA8W8O32(std::vector<int64_t> shape_a_in, std::vector<int64_t> shape_b_in) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
     int bs = shape_a_in[0];
     int m = shape_a_in[1];
     int k = shape_a_in[2];
@@ -242,7 +242,7 @@ void TestBatchMatmulA8W8O32(std::vector<int64_t> shape_a_in, std::vector<int64_t
 template<typename InputT, typename OnputT, bool transpose = false>
 void TestBatchMatmulA8W8O32ACC(std::vector<int64_t> shape_a_in, std::vector<int64_t> shape_b_in) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
     int bs = shape_a_in[0];
     int m = shape_a_in[1];
     int k = shape_a_in[2];

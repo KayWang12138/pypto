@@ -215,5 +215,19 @@ std::shared_ptr<ConfigStorage> Duplicate() {
 void Restore(std::shared_ptr<ConfigStorage> config) {
     g_config = *config;
 }
+
+int GetDeviceId() {
+    static int32_t devId = -1;
+    if (devId == -1) {
+        const char *devIdPtr = getenv("TILE_FWK_DEVICE_ID");
+        if (devIdPtr != nullptr) {
+            devId = std::stoi(devIdPtr);
+        } else {
+            devId = 0;
+        }
+    }
+    return devId;
+}
+
 } // namespace config
 } // namespace npu::tile_fwk

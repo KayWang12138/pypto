@@ -144,7 +144,7 @@ class OperationTestCaseRunner:
         os.environ["PLATFORM_CONFIG_PATH"] = (
             f"{pto_install_path}/pto/tile_fwk_platform_info.json"
         )
-        os.environ["TILE_FWK_STEST_DEVICE_ID"] = f"{self.device}"
+        os.environ["TILE_FWK_DEVICE_ID"] = f"{self.device}"
 
         case_name = test_case_info["case_name"]
         logger = Logger(f"{self.log_path}/{case_name}.log")

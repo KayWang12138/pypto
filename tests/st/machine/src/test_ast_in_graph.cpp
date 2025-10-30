@@ -41,7 +41,7 @@ public:
 
 TEST(OnBoardTestAstInGraph, test_fa_all2all_128) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
     TileFwkInit();
     AttentionDims atDims = {1, 1, 128, 128, DFT_SINGLE_M, DFT_SINGLE_N};
     int b = atDims.b;
@@ -118,7 +118,7 @@ TEST(OnBoardTestAstInGraph, test_fa_all2all_128) {
 
 TEST(OnBoardTestAstInGraph, test_add) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
     TileFwkInit();
     int row = 64;
     int col = 64;

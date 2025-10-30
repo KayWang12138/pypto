@@ -138,7 +138,7 @@ TEST_F(DynamicBindingTest, TestDeviceCompute) {
     SetInterpreterConfig();
     auto agent = RuntimeAgent::GetAgent();
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
 
     TileShape::Current().SetVecTile(tiling32, tiling32);
     TileShape::Current().SetCubeTile({tiling32, tiling32}, {tiling32, tiling32}, {tiling32, tiling32});

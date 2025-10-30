@@ -22,7 +22,7 @@ class SigmoidTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 TEST_F(SigmoidTest, test_32_32_tileop_sigmoid) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
 
     int shape0 = 32;
     int shape1 = 32;
@@ -58,7 +58,7 @@ TEST_F(SigmoidTest, test_32_32_tileop_sigmoid) {
 
 TEST_F(SigmoidTest, test_32_256_tileop_sigmoid_realcase) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
 
     int shape0 = 32;
     int shape1 = 256;
@@ -94,7 +94,7 @@ TEST_F(SigmoidTest, test_32_256_tileop_sigmoid_realcase) {
 
 TEST_F(SigmoidTest, test_2_32_32_tileop_sigmoid) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
 
     int shape0 = 2;
     int shape1 = 32;
@@ -131,7 +131,7 @@ TEST_F(SigmoidTest, test_2_32_32_tileop_sigmoid) {
 
 TEST_F(SigmoidTest, test_2_2_32_32_tileop_sigmoid) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
 
     int shape0 = 2;
     int shape1 = 2;

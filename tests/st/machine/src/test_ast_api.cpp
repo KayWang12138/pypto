@@ -42,7 +42,7 @@ public:
 /* test api mode, simu torch scene */
 TEST(OnBoardTestAstApi, test_fa_all2all_ast_api_mode) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
     TileFwkInit();
 
     AttentionDims atDims = {1, 1, 128, 128, DFT_SINGLE_M, DFT_SINGLE_N};
@@ -119,7 +119,7 @@ TEST(OnBoardTestAstApi, test_fa_all2all_ast_api_mode) {
 
 TEST(OnBoardTestAstApi, test_add_sub_all2all_torchapi_multi_function) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
     TileFwkInit();
     int row = 64;
     int col = 64;

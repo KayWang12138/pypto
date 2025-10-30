@@ -25,7 +25,7 @@
 
 #include "interface/utils/log.h"
 #include "interface/utils/common.h"
-#include "interface/machine/host/stubs.h"
+#include "interface/inner/config.h"
 #include "tilefwk/data_type.h"
 
 #ifdef BUILD_WITH_CANN
@@ -39,11 +39,20 @@ namespace npu::tile_fwk {
 
 #ifdef BUILD_WITH_CANN
 
+inline void SetDefaultDevice() {
+    int devId = 0;
+    if (rtGetDevice(&devId) != RT_ERROR_NONE) {
+        rtSetDevice(config::GetDeviceId());
+    } else {
+        rtSetDevice(devId);
+    }
+}
+
 struct HugePageDesc {
-  uint8_t *baseAddr;
-  size_t allSize;
-  size_t current;
-  HugePageDesc(uint8_t *addr, size_t size) : baseAddr(addr), allSize(size), current(0) {}
+    uint8_t *baseAddr;
+    size_t allSize;
+    size_t current;
+    HugePageDesc(uint8_t *addr, size_t size) : baseAddr(addr), allSize(size), current(0) {}
 };
 
 inline size_t MemSizeAlign(const size_t bytes, const uint32_t aligns = 512U) {
@@ -239,13 +248,13 @@ public:
 private:
     void Init() {
         ALOG_INFO_F("RuntimeAgent: Init acl runtime!");
-        rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+        SetDefaultDevice();
         ALOG_DEBUG_F("RuntimeAgent: Create a default stream!");
         CreateStream();
     }
 
 private:
-    bool aclInited {false};
+    bool aclInited{false};
 };
 
 namespace machine {

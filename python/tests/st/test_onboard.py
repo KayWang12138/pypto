@@ -18,7 +18,7 @@ import torch
 
 
 def test_device_run_data_from_host_numpy():
-    device_id = os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0)
+    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
     tiling = 16
     n, m, k = tiling * 1, tiling * 1, tiling * 1
 
@@ -49,7 +49,7 @@ def test_device_run_data_from_host_numpy():
 
 
 def test_device_run_data_from_host_torch():
-    device_id = os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0)
+    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
     tiling = 8
     n, m = tiling * 1, tiling * 1
 
@@ -80,7 +80,7 @@ def test_device_run_data_from_host_torch():
 
 
 def test_device_run_data_from_host():
-    device_id = os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0)
+    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
     tiling = 32
     n, m = tiling * 1, tiling * 1
 
@@ -131,7 +131,7 @@ def test_device_run_data_from_device():
         torch = None
         torch_npu = None
 
-    device_id = os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0)
+    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
     tiling = 32
     n, m = tiling * 1, tiling * 1
 
@@ -188,7 +188,7 @@ def test_device_run_data_from_device_mix_nodep():
         torch = None
         torch_npu = None
 
-    device_id = os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0)
+    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
     torch.npu.set_device(device_id)
 
     tiling = 32

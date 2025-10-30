@@ -54,7 +54,7 @@ def gen_st_prefix_code(helper: CodeHelper, return_type: str, func_name: str, arg
     helper(f'TEST_F({func_name}Test, stest) {{')
     helper.ir()
     helper(f'aclInit(nullptr);')
-    helper(f'rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());\n')
+    helper(f'rtSetDevice(config::GetDeviceId());\n')
 
 
 def gen_st_suffix_code(helper, args: Sequence[Union[Tensor, CustStruct, ConfigMap, Var, Vector]], \

@@ -37,7 +37,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     }
     int rc = aclInit(nullptr);
     if (rc == 0 || rc == ACL_ERROR_REPEAT_INITIALIZE) {
-        rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+        SetDefaultDevice();
         AstKernelArgs kArgs;
         DeviceInitTilingData(DeviceMemoryUtils(), kArgs, function, config, cachedOperator);
         DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList, cachedOperator);

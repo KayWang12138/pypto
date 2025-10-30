@@ -22,10 +22,9 @@ int capacity;
 
 void TransposePre(uint8_t** out_ptr, uint64_t* outsize) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
     *outsize = capacity * sizeof(float);
     *out_ptr = allocDevAddr(*outsize);
-
 }
 
 void TransposePost(uint8_t* outputGmAddr, uint64_t outputSize) {

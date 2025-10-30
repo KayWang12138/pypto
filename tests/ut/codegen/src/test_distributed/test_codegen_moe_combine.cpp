@@ -61,7 +61,7 @@ void TestMoeCombine() {
 
     config::SetBuildStatic(true);
     FUNCTION("ATTNCombine", {in, combineInfo, scale, out}) {
-        TileShape::Current().SetDistRankId(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+        TileShape::Current().SetDistRankId(config::GetDeviceId());
         out = Distributed::MoeCombine(in, scale, combineInfo, group);
     }
 }

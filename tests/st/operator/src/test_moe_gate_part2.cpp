@@ -28,7 +28,7 @@ TEST_F(MoEGatePart2OnBoardTest, test_operation_b_2) {
     constexpr int32_t S = 1;
     constexpr int32_t B = 2;
 
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
     uint64_t inputSize = B * nRoutedExperts * sizeof(float);
     uint64_t outputSize = B * topkGroup * sizeof(float);
     uint8_t* out_group_idx_ptr = allocDevAddr(outputSize);
@@ -94,7 +94,7 @@ TEST_F(MoEGatePart2OnBoardTest, test_operation_b_1024) {
     constexpr int32_t S = 1;
     constexpr int32_t B = 1024;
 
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
     uint64_t inputSize = B * nRoutedExperts * sizeof(float);
     uint64_t outputSize = B * topkGroup * sizeof(float);
     uint8_t* out_group_idx_ptr = allocDevAddr(outputSize);

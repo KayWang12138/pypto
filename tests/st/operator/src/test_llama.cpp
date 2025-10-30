@@ -27,7 +27,7 @@ public:
     void SetUp() override {
         npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac::SetUp();
         aclInit(nullptr);
-        rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+        rtSetDevice(config::GetDeviceId());
         Program::GetInstance().Reset();
         config::Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, false);

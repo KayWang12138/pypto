@@ -94,7 +94,7 @@ int finishPython(PyObject* args){
 
 void TransposePre(uint8_t** out_ptr, uint64_t* outsize) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
     *outsize = capacity * sizeof(float);
     *out_ptr = allocDevAddr(*outsize);
 }

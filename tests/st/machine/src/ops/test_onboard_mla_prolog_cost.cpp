@@ -97,7 +97,7 @@ void TestMlaProlog(std::vector<int> &params, string dataPath, bool isQuant = fal
     }
 
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
     TileFwkInit("");
     uint64_t outputSize0 = capacity_q * sizeof(T);
     uint64_t outputSize1 = capacity_kv * sizeof(T);
@@ -388,9 +388,8 @@ void attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
     uint8_t* k1_ptr = allocDevAddr(k1_size);
     uint8_t* v0_ptr = allocDevAddr(v0_size);
 
-
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
     uint64_t outputSize0 = capacity_q * sizeof(T);
     uint64_t outputSize1 = capacity_kv * sizeof(T);
     uint8_t* q_out_ptr = allocDevAddr(outputSize0);

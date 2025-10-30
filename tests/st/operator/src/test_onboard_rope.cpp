@@ -22,7 +22,7 @@ class RoPEOnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
 
 TEST_F(RoPEOnBoardTest, test_operation_rope_reshape_transpose_reshape_muls) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
 
     int B = 1;
     int N = 128;                // N=128
@@ -105,7 +105,7 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_reshape_transpose_reshape_muls) {
 
 TEST_F(RoPEOnBoardTest, test_operation_rope_tensorIndex_unsqueeze_mul) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
 
     int B = 32;
     int N = 128;                // N=128
@@ -190,7 +190,7 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_tensorIndex_unsqueeze_mul) {
 
 TEST_F(RoPEOnBoardTest, test_operation_rope_reshape_view_muls) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
 
     int B = 1;
     int N = 128;                // N=128
@@ -267,7 +267,7 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_reshape_view_muls) {
 
 TEST_F(RoPEOnBoardTest, test_operation_rope_reshape_view_muls_concat) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
 
     int B = 1;
     int N = 128;                // N=128
@@ -377,7 +377,7 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_reshape_view_muls_concat) {
 
 TEST_F(RoPEOnBoardTest, test_operation_rope_deepseekv3) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
 
     int B = 1;
     int N = 128;                // N=128
@@ -468,7 +468,7 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_deepseekv3) {
 
 TEST_F(RoPEOnBoardTest, test_operation_rope_v2_deepseekv3) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
 
     int B = 1;
     int N = 128;                // N=128
@@ -538,7 +538,7 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_v2_deepseekv3) {
 
 TEST_F(RoPEOnBoardTest, test_operation_rope_v2_deepseekv3_b32) {
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
 
     int B = 32;
     int N = 128;                // N=128

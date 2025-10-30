@@ -29,7 +29,7 @@ TEST_F(MoEPart4OnBoardTest, test_operation_b_2) {
     constexpr int32_t S = 1;
     constexpr int32_t B = 2;
 
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
     uint64_t outputSize = B * S * numExpertsPerTopk * sizeof(float);//B * topk_group_align * sizeof(float) * 100;
     uint64_t inputSize = B * S * nRoutedExperts* sizeof(float);
     uint8_t* out_topk_weight = allocDevAddr(outputSize);

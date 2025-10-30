@@ -304,7 +304,7 @@ function(PTO_Fwk_STest_AddExe_RunExe)
     #
     set(EnvLinesExt
             "TILE_FWK_STEST_GOLDEN_PATH=${ENABLE_STEST_GOLDEN_PATH}"
-            "TILE_FWK_STEST_DEVICE_ID=${TileFwkStestExecuteDeviceIdPref}"
+            "TILE_FWK_DEVICE_ID=${TileFwkStestExecuteDeviceIdPref}"
     )
     set(GTestFilterList ${PTO_Fwk_STestCaseGTestFilterList})
     if (NOT "${ENABLE_STEST}" STREQUAL "ON")

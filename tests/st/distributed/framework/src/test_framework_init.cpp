@@ -105,7 +105,7 @@ void TestFrameworkInit(OpTestParam &testParam, HcomTestParam &hcomTestParam)
     mpiCommSize(MPI_COMM_WORLD, &testParam.rankSize);
     mpiCommRank(MPI_COMM_WORLD, &testParam.rankId);
 
-    setenv("TILE_FWK_STEST_DEVICE_ID", std::to_string(testParam.rankId).c_str(), 1);
+    setenv("TILE_FWK_DEVICE_ID", std::to_string(testParam.rankId).c_str(), 1);
     ALOG_INFO_F("device_%d set stub device id to %s", testParam.rankId, std::to_string(testParam.rankId).c_str());
 
     // 设备资源初始化

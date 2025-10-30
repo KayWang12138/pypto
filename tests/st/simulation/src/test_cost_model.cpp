@@ -79,7 +79,7 @@ void TestMatmulTrans(int m, int k, int n, string dataPath) {
     const int capacity_c = m * n;
 
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
     uint64_t outputSize = capacity_c * sizeof(OnputT);
     uint8_t* c_ptr = allocDevAddr(outputSize);
     auto InputDtype = GetAstDtype<InputT>();

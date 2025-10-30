@@ -76,7 +76,7 @@ void TestMlaPrologAb(std::vector<int> &params, string dataPath, bool isQuant = f
     }
 
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    rtSetDevice(config::GetDeviceId());
     uint64_t outputSize0 = capacity_q * sizeof(T);
     uint64_t outputSize1 = capacity_kv * sizeof(T);
     uint8_t* q_out_ptr = allocDevAddr(outputSize0);

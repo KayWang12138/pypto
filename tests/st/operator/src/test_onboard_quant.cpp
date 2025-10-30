@@ -56,8 +56,7 @@ void TestQuant(std::vector<int64_t>& inputShape) {
     uint64_t scaleSize = capacityScale * sizeof(float);
 
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-
+    rtSetDevice(config::GetDeviceId());
 
     uint8_t* out_ptr = allocDevAddr(outSize);
     uint8_t* scale_ptr = allocDevAddr(scaleSize);
@@ -121,8 +120,7 @@ void TestQuant3D(std::vector<int64_t>& inputShape) {
     uint64_t scaleSize = capacityScale * sizeof(float);
 
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-
+    rtSetDevice(config::GetDeviceId());
 
     uint8_t* out_ptr = allocDevAddr(outSize);
     uint8_t* scale_ptr = allocDevAddr(scaleSize);
@@ -186,8 +184,7 @@ void TestQuantWithSmoothFactor(std::vector<int64_t>& inputShape) {
     uint64_t scaleSize = capacityScale * sizeof(float);
 
     aclInit(nullptr);
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-
+    rtSetDevice(config::GetDeviceId());
 
     uint8_t* out_ptr = allocDevAddr(outSize);
     uint8_t* scale_ptr = allocDevAddr(scaleSize);

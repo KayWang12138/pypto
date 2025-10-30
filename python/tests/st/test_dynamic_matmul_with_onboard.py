@@ -64,7 +64,7 @@ def test_matmul_bf16_nd_with_no_split():
 
 def dynamic_matmul_onboard_util(input_config: ShapeConfig):
     # onboard prepare
-    device_id = os.environ.get("TILE_FWK_STEST_DEVICE_ID", 0)
+    device_id = os.environ.get("TILE_FWK_DEVICE_ID", 0)
     pto.device_init()
     pto.set_codegen_option("support_dynamic_unaligned", True)
     pto.set_host_option("only_codegen", True)

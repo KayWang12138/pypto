@@ -120,7 +120,7 @@ class ToolsRunAbc(ToolsAbc, ABC):
     def run_case(self, cs: CaseAbc, device_id: int,
                  envs: Optional[Dict[str, str]] = None) -> Tuple[subprocess.CompletedProcess, str, timedelta]:
         act_env = envs if envs else {}
-        act_env.update({"TILE_FWK_STEST_DEVICE_ID": f"{device_id}"})
+        act_env.update({"TILE_FWK_DEVICE_ID": f"{device_id}"})
         return self.exe.run(gtest_filter=cs.name, envs=act_env)
 
     @abstractmethod
