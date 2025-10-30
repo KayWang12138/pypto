@@ -566,7 +566,12 @@ void SplitLargeFanoutTensor::EraseRedundantViewOp(Function &function) {
                     return false;
                 }
                 auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(opNext->GetOpAttribute().get());
-                if(isViewToL1 || viewOpAttribute->GetTo() == MemoryType::MEM_L1) {
+                bool isL1MultiLoad = (viewOpAttribute->GetTo() == MemoryType::MEM_L1);
+                // 大包搬运场景下前端插入的view输入和输出shape相同
+                auto inTensor = opNext->GetIOperands().front();
+                auto outTensor = opNext->GetOOperands().front();
+                isL1MultiLoad &= (inTensor->GetShape() == outTensor->GetShape());
+                if(isViewToL1 || isL1MultiLoad) {
                     return false;
                 }
                 return true;

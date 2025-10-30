@@ -86,6 +86,11 @@ void AssignMemoryType::RunOnOperation(Operation &operation) {
         ALOG_DEBUG_F(" @@@@@ %s[%d] input %d mem original %s --> %s.", operation.GetOpcodeStr().c_str(),
             operation.GetOpMagic(), tensor->magic, BriefMemoryTypeToString(tensor->GetMemoryTypeOriginal()).c_str(),
             BriefMemoryTypeToString(inputsMemType[i]).c_str());
+        if(opcode == Opcode::OP_A_MUL_B || opcode == Opcode::OP_A_MULACC_B) {
+            //对A_MUL_B的输入tensor的mem设置做特殊处理
+            ProcessAmulBInput(operation, tensor);
+            continue;
+        }
         tensor->SetMemoryTypeOriginal(inputsMemType[i]); // 如果tensor之前做为oOperand被设置过, 那么这里不生效
         inserter.UpdateTensorTobeMap(*tensor, operation, inputsMemType[i]);
     }
@@ -109,23 +114,65 @@ void AssignMemoryType::RunOnOperation(Operation &operation) {
         }
     }
     if(operation.GetOpcode() == Opcode::OP_VIEW) {
-        ProcessMemL1View(operation);
+        ProcessViewwithSpecificMem(operation);
     }
 }
-void AssignMemoryType::ProcessMemL1View(Operation &operation) {
+void AssignMemoryType::ProcessAmulBInput(Operation &operation, LogicalTensorPtr &tensor) {
+    /*
+    operation: OP_A_MUL_B or OP_A_MULACC_B
+    tensor: an input of OP_A_MUL_B
+    */
+    auto &producerOps = tensor->GetProducers();
+    for(auto &producerOp : producerOps) {
+        auto producerOpcode = producerOp->GetOpcode();
+        if (producerOpcode == Opcode::OP_A_MUL_B || producerOpcode == Opcode::OP_A_MULACC_B) {
+            tensor->SetMemoryTypeOriginal(MemoryType::MEM_L0C, true);
+            inserter.UpdateTensorTobeMap(*tensor, operation, MemoryType::MEM_L0C);
+            continue;
+        } else if (producerOpcode == Opcode::OP_VIEW) {
+            auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(producerOp->GetOpAttribute().get());
+            MemoryType attrToType = viewOpAttribute->GetTo();
+            tensor->SetMemoryTypeOriginal(attrToType, true);
+            inserter.UpdateTensorTobeMap(*tensor,operation, attrToType);
+            continue;
+        }else if (producerOpcode == Opcode::OP_L1_TO_L0A || producerOpcode == Opcode::OP_L1_TO_L0_AT) {
+            tensor->SetMemoryTypeOriginal(MemoryType::MEM_L0A, true);
+            inserter.UpdateTensorTobeMap(*tensor, operation, MemoryType::MEM_L0A);
+            continue;
+        }else if (producerOpcode == Opcode::OP_L1_TO_L0B || producerOpcode == Opcode::OP_L1_TO_L0_BT) {
+            tensor->SetMemoryTypeOriginal(MemoryType::MEM_L0B, true);
+            inserter.UpdateTensorTobeMap(*tensor, operation, MemoryType::MEM_L0B);
+            continue;
+        }else{
+            tensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR,true);
+            inserter.UpdateTensorTobeMap(*tensor,operation, MemoryType::MEM_DEVICE_DDR);
+        }
+    }
+}
+void AssignMemoryType::ProcessViewwithSpecificMem(Operation &operation) {
     auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(operation.GetOpAttribute().get());
     MemoryType attrToType = viewOpAttribute->GetTo();
-    if(attrToType != MemoryType::MEM_UNKNOWN) {
-        /*
-        case1:
+    if(attrToType == MemoryType::MEM_UNKNOWN) {
+        //跳过前端没有指定mem类型的view
+        return;
+    }
+    //将view的输出tensor的memory ori和tobe类型设置为view上指定的mem类型
+    auto out = operation.GetOOperands().front();
+    out->SetMemoryTypeOriginal(attrToType,true); 
+    for (auto &consumerOp : out->GetConsumers()) {
+        inserter.UpdateTensorTobeMap(*out,*consumerOp,attrToType);
+    }
+    if(attrToType == MemoryType::MEM_L1) {
+        /*处理大包搬运场景，推导前端插入的MEM_L1 view和框架插入的view的输入tensor的mem类型
+        case1:前端不存在框架插入的view场景
         op ---> in ---> view(to=L1/UB)
         after
-        op ---> in(tobe=DDR) ---> view(to=L1/UB)
+        op ---> in(tobe=DDR) ---> view(to=L1/UB，后转为copyIn)
 
-        case2:
+        case2:前端存在框架插入的view（unknown）场景
         op ---> in2 ---> view ---> in ---> view(to=L1/UB)
         after
-        op ---> in2(tobe=DDR) ---> view ---> in(ori=L1/UB, to=L1/UB) ---> view(to=L1/UB)
+        op ---> in2(tobe=DDR) ---> view（后续转为copyIn) ---> in(ori=L1/UB, to=L1/UB) ---> view(to=L1/UB)
         */
         auto in =operation.iOperand.front();
         inserter.UpdateTensorTobeMap(*in,operation,MemoryType::MEM_DEVICE_DDR);
@@ -276,12 +323,7 @@ void AssignMemoryType::AssignMoveOp(Operation &operation) {
             MemoryType attrToType = viewOpAttribute->GetTo();
             bool isExplicitMemType = (attrToType != MemoryType::MEM_UNKNOWN);
             if(isExplicitMemType) {
-                operation.oOperand.front()->SetMemoryTypeOriginal(attrToType);
-                for (auto &consumerOp : operation.oOperand.front()->GetConsumers()) {
-                    ALOG_DEBUG_F("Set for View Op's consumer %s[%d].",consumerOp->GetOpcodeStr().c_str(),consumerOp->GetOpMagic());
-                    inserter.UpdateTensorTobeMap(*operation.oOperand.front(),*consumerOp,attrToType);
-                }
-                inserter.UpdateTensorTobeMap(*operation.iOperand.front(),operation,attrToType);
+                //跳过前端指定mem类型的view
                 break;
             }
             for (size_t i = 0; i < operation.iOperand.size(); ++i) {

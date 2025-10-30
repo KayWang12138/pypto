@@ -34,6 +34,9 @@ private:
         std::vector<int64_t> offset;
         std::vector<SymbolicScalar> dynOffset;
         std::vector<SymbolicScalar> dynValidShape;
+        MemoryType toType = MemoryType::MEM_UNKNOWN;
+        bool hasCopyInMode;     // 是否有copy_in_mode属性
+        npu::tile_fwk::Any copyInModeValue;    // copy_in_mode属性值
     };
     struct AssembleOp {
         std::shared_ptr<LogicalTensor> input;
@@ -58,7 +61,7 @@ private:
     Status CalculateMergedOffsets(const std::vector<Operation *> &chain, std::vector<int64_t> &newOffset,
         std::vector<SymbolicScalar> &newDynOffset, std::vector<SymbolicScalar> &newDynValidShape);
 
-    void RecordMergedViewOperation(const std::shared_ptr<LogicalTensor> &startTensor,
+    void RecordMergedViewOperation(Operation* lastViewOp, const std::shared_ptr<LogicalTensor> &startTensor,
         const std::shared_ptr<LogicalTensor> &endTensor, const std::vector<int64_t> &newOffset,
         const std::vector<SymbolicScalar> &newDynOffset, const std::vector<SymbolicScalar> &newDynValidShape);
 

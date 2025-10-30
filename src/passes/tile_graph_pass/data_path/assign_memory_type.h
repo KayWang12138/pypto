@@ -36,7 +36,8 @@ private:
     void AssignMoveOp(Operation &operation);
     void RunOnOperation(Operation &operation);
     void AssignMemUnknown(Function &function);
-    void ProcessMemL1View(Operation &operation);
+    void ProcessAmulBInput(Operation &operation,LogicalTensorPtr &tensor);
+    void ProcessViewwithSpecificMem(Operation &operation);
     void AssignSpecialOpMemtype(Operation &op);
     void AssignMemtypeForSplitReshape(Operation &op, const LogicalTensorPtr &input, const LogicalTensorPtr &output);
     void UpdateOverSizedLocalBuffer(Operation &operation);

@@ -22,6 +22,13 @@ Status AssignMemoryTypeChecker::DoPreCheck(Function &function) {
     auto operations = function.Operations();
     for(auto &operation : operations){
         Operation *op_ptr = &operation;
+        //A_MUL_B操作输入tensor生产者校验
+        if(operation.GetOpcode() == Opcode::OP_A_MUL_B) {
+            Status status = CheckAmulBInputProducers(operation);
+            if(status != SUCCESS) {
+                return status;
+            }
+        }
         //创建队列，包含当前操作和嵌套深度
         std::queue<std::pair<Operation *, int>> opQueue;
         std::unordered_set<Operation *> visited;
@@ -39,6 +46,30 @@ Status AssignMemoryTypeChecker::DoPreCheck(Function &function) {
                 return SUCCESS;
             }
             CheckPattern(currentOp,opQueue,depth,visited);
+        }
+    }
+    return SUCCESS;
+}
+
+Status AssignMemoryTypeChecker::CheckAmulBInputProducers(Operation &operation) {
+    auto inputs = operation.GetIOperands();
+    auto producerOps = operation.ProducerOps();
+    for(auto &producerOp : producerOps) {
+        auto producerOpcode = producerOp->GetOpcode();
+        if(producerOpcode != Opcode::OP_L1_TO_L0A && producerOpcode !=Opcode::OP_L1_TO_L0B && 
+           producerOpcode != Opcode::OP_VIEW && producerOpcode !=Opcode::OP_VEC_DUP) {
+            ALOG_ERROR_F("MEMORY ERROR:%s[%d] has invalid input producer:%s[%d].",
+                operation.GetOpcodeStr().c_str(),operation.GetOpMagic(),producerOp->GetOpcodeStr().c_str(),producerOp->GetOpMagic());
+            return FAILED;
+           }
+        if(producerOpcode == Opcode::OP_VIEW) {
+            auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(producerOp->GetOpAttribute().get());
+            MemoryType attrToType = viewOpAttribute->GetTo();
+            if(attrToType != MemoryType::MEM_BT && attrToType != MemoryType::MEM_FIX_QUANT_PRE) {
+                ALOG_ERROR_F("VIEW Attribute ERROR:%s[%d] has invalid input OP_VIEW:%s[%d].",
+                    operation.GetOpcodeStr().c_str(),operation.GetOpMagic(),producerOp->GetOpcodeStr().c_str(),producerOp->GetOpMagic());
+                return FAILED;
+            }
         }
     }
     return SUCCESS;

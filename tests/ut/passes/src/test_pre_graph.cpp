@@ -26,11 +26,13 @@
 #include "passes/tile_graph_pass/graph_constraint/pre_graph.h"
 #include "ut_json/ut_json_tool.h"
 #include "computational_graph_builder.h"
+#define private public
 
 using namespace npu::tile_fwk;
 
 namespace npu {
 namespace tile_fwk {
+constexpr int NUM10 = 10;
 
 void PrintGraphInfoPreGraph(Function* func, std::set<int>& tensorMagicWithColorSet) {
     std::cout << "func->Operations().size() = "  << func->Operations().size() << std::endl;
@@ -797,5 +799,49 @@ TEST_F(PreGraphTest, PreGraphReShapeOnOcast) {
     EXPECT_EQ(inRawMagicAfter, outRawMagicAfter);
     EXPECT_EQ(outRawMagicBefore, outRawMagicAfter);
 }
+
+TEST_F(PreGraphTest, TestFixPipeReconnectGraph) {
+    Program::GetInstance().Reset();
+    config::Reset();
+    auto funcPtr = std::make_shared<Function>(Program::GetInstance(), "TestFixPipeReconnectGraph", "TestFixPipeReconnectGraph", nullptr);
+
+    // Build graph
+    std::vector<int64_t> shape = {NUM16, NUM16};
+    auto tensor0  = std::make_shared<LogicalTensor>(*funcPtr, DT_FP32, shape);
+    tensor0->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR);
+    auto tensor1 = std::make_shared<LogicalTensor>(*funcPtr, DT_FP32, shape);
+    tensor1->SetMemoryTypeBoth(MemoryType::MEM_L1);
+    auto tensor2 = std::make_shared<LogicalTensor>(*funcPtr, DT_FP32, shape);
+    tensor2->SetMemoryTypeBoth(MemoryType::MEM_FIX_QUANT_PRE);
+    auto tensor3 = std::make_shared<LogicalTensor>(*funcPtr, DT_FP32, shape);
+    tensor3->SetMemoryTypeBoth(MemoryType::MEM_L0C);
+    auto tensor4 = std::make_shared<LogicalTensor>(*funcPtr, DT_FP32, shape);
+    tensor4->SetMemoryTypeBoth(MemoryType::MEM_L0C);
+    auto tensor5 = std::make_shared<LogicalTensor>(*funcPtr, DT_FP32, shape);
+    tensor5->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR);
+    auto &copyin = funcPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor0}, {tensor1});
+    (void)copyin;
+    auto &l1CopyFB = funcPtr->AddRawOperation(Opcode::OP_L1_TO_FB, {tensor1}, {tensor2});
+    (void)l1CopyFB;
+    auto &aMulB = funcPtr->AddRawOperation(Opcode::OP_A_MUL_B, {tensor2}, {tensor3});
+    aMulB.SetAttribute(A_MUL_B_SCALE_ATTR, Element(DataType::DT_UINT64, NUM10));
+    aMulB.SetAttribute(A_MUL_B_RELU_ATTR, 1);
+    auto &aMulAccB = funcPtr->AddRawOperation(Opcode::OP_A_MULACC_B, {tensor3}, {tensor4});
+    (void)aMulAccB;
+    auto &copyout = funcPtr->AddRawOperation(Opcode::OP_COPY_OUT, {tensor4}, {tensor5});
+
+    // Test Reconnect Graph
+    PreGraphProcess preGraphProcess;
+    auto lastCopyOut = preGraphProcess.GetLastMmCopyOut(aMulB).second;
+    EXPECT_EQ(lastCopyOut, &copyout);
+    preGraphProcess.ReconnectGraph(aMulB, &copyout);
+    auto tensor2Consumer = tensor2->GetConsumers().begin();
+    EXPECT_EQ(*tensor2Consumer, &copyout);
+    auto scaleValue = (copyout.HasAttr(A_MUL_B_SCALE_ATTR)) ? copyout.GetElementAttribute(A_MUL_B_SCALE_ATTR) : Element(DataType::DT_UINT64, 0);
+    auto reluType = (copyout.HasAttr(A_MUL_B_RELU_ATTR)) ? copyout.GetIntAttribute(A_MUL_B_RELU_ATTR) : 0;
+    EXPECT_EQ(scaleValue, Element(DataType::DT_UINT64, NUM10));
+    EXPECT_EQ(reluType, 1);
+}
 } // namespace tile_fwk
 } // namespace npu
+#undef private

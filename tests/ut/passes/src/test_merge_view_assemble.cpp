@@ -28,6 +28,8 @@
 
 namespace npu {
 namespace tile_fwk {
+constexpr int NUM5 = 5;
+constexpr int NUM6 = 6;
 
 class MergeViewAssembleTest : public testing::Test {
 public:
@@ -335,6 +337,36 @@ TEST_F(MergeViewAssembleTest, ViewAssembleChainShouldNotMerge) {
     // 获取Function并验证
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
+
+    // 为VIEW设置必要的属性
+    size_t op_index = 0;
+    for (auto& op : function->Operations()) {
+        switch (op_index) {
+            case 0: { // VIEW1
+                auto attr = std::make_shared<ViewOpAttribute>(
+                    std::vector<int64_t>{0, 0},  // offset
+                    MemoryType::MEM_UNKNOWN,        // toType
+                    std::vector<SymbolicScalar>{}, // dynOffset
+                    std::vector<SymbolicScalar>{}  // dynValidShape
+                );
+                op.SetOpAttribute(attr);
+                break;
+            }
+            case 2: { // VIEW2
+                auto attr = std::make_shared<ViewOpAttribute>(
+                    std::vector<int64_t>{0, 0},  // offset
+                    MemoryType::MEM_UNKNOWN,        // toType
+                    std::vector<SymbolicScalar>{}, // dynOffset
+                    std::vector<SymbolicScalar>{}  // dynValidShape
+                );
+                op.SetOpAttribute(attr);
+                break;
+            }
+            default:
+                break;
+        }
+        op_index++;
+    }
 
     // 记录原始op数量
     const size_t originalOpCount = function->Operations().size();
@@ -841,7 +873,78 @@ TEST_F(MergeViewAssembleTest, MergeViewL1DataMove) {
             view_count_after_pass++;
         }
     }
-    EXPECT_EQ(view_count_after_pass,8);
+    EXPECT_EQ(view_count_after_pass, NUM6);
+}
+void MergeViewWithAttr (std::shared_ptr<Function> &currFunctionPtr) {
+    std::shared_ptr<LogicalTensor> view_in = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
+    std::shared_ptr<LogicalTensor> tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
+    std::shared_ptr<LogicalTensor> tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
+    std::shared_ptr<LogicalTensor> tensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
+    std::shared_ptr<LogicalTensor> tensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
+    std::shared_ptr<LogicalTensor> view_out = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
+
+    auto &view_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {view_in}, {tensor1});
+    auto viewAttribute1 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
+    viewAttribute1->SetToType(MemoryType::MEM_UNKNOWN);
+    view_op1.SetOpAttribute(viewAttribute1);
+    auto &view_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {tensor1}, {tensor2});
+    auto viewAttribute2 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
+    viewAttribute2->SetToType(MemoryType::MEM_BT);
+    view_op2.SetOpAttribute(viewAttribute2);
+    auto &view_op3 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {tensor2}, {tensor3});
+    auto viewAttribute3 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
+    viewAttribute3->SetToType(MemoryType::MEM_BT);
+    view_op3.SetOpAttribute(viewAttribute3);
+    auto &view_op4 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {tensor3}, {tensor4});
+    auto viewAttribute4 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
+    viewAttribute4->SetToType(MemoryType::MEM_UB);
+    view_op4.SetOpAttribute(viewAttribute4);
+    auto &view_op5 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {tensor4}, {view_out});
+    auto viewAttribute5 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
+    viewAttribute5->SetToType(MemoryType::MEM_UB);
+    view_op5.SetOpAttribute(viewAttribute5);
+
+    currFunctionPtr->inCasts_.push_back(view_in);
+    currFunctionPtr->outCasts_.push_back(view_out);
+}
+TEST_F(MergeViewAssembleTest, MergeViewWithAttr) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "MergeViewWithAttr", "MergeViewWithAttr", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap("MergeViewWithAttr", currFunctionPtr);
+
+    MergeViewWithAttr(currFunctionPtr);
+
+    //验证构图
+    int view_count = 0;
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            view_count++;
+        }
+    }
+    EXPECT_EQ(view_count, NUM5);
+
+    std::stringstream ssBefore;
+    ssBefore << "Before_MergeViewAssemble";
+
+    // Call the pass
+    MergeViewAssemble mergeViewAssemble;
+    mergeViewAssemble.PreCheck(*currFunctionPtr);
+    currFunctionPtr->DumpJsonFile("./config/pass/json/mergeViewAssemble_L1DataMove_before.json");
+    mergeViewAssemble.RunOnFunction(*currFunctionPtr);
+    currFunctionPtr->DumpJsonFile("./config/pass/json/mergeViewAssemble_L1DataMove_after.json");
+    mergeViewAssemble.PostCheck(*currFunctionPtr);
+
+    std::stringstream ss;
+    ss << "After_MergeViewAssemble";
+
+    // Validate the results
+    int view_count_after_pass = 0;
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            view_count_after_pass++;
+        }
+    }
+    EXPECT_EQ(view_count_after_pass, NUM2);
 }
 } // namespace tile_fwk
 } // namespace npu

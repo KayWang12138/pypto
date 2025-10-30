@@ -30,6 +30,7 @@ public:
     Status DoPreCheck(Function &function) override;
 private:
     void CheckPattern(Operation *operation, std::queue<std::pair<Operation*, int>> &opQueue, int depth, std::unordered_set<Operation*> &visited);
+    Status CheckAmulBInputProducers(Operation &operation);
 };
 } // namespace tile_fwk
 } // namespace npu

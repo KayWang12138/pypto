@@ -111,6 +111,8 @@ enum class Opcode {
     OP_CUBE_CONCAT_C,
     OP_L1_TO_L0A,
     OP_L1_TO_L0B,
+    OP_L1_TO_FB,
+    OP_L1_TO_BT,
     // ANY
     OP_DUPLICATE,
     // View
@@ -367,7 +369,8 @@ public:
 
     inline bool IsCopyIn(Opcode opCode) const {
         return opCode == Opcode::OP_COPY_IN || opCode == Opcode::OP_UB_COPY_IN || opCode == Opcode::OP_L1_COPY_IN ||
-               opCode == Opcode::OP_TRANSPOSE_MOVEIN || opCode == Opcode::OP_RESHAPE_COPY_IN;
+               opCode == Opcode::OP_TRANSPOSE_MOVEIN || opCode == Opcode::OP_RESHAPE_COPY_IN ||
+               opCode == Opcode::OP_L1_TO_FB || opCode == Opcode::OP_L1_TO_BT;
     }
 
     inline bool IsCopyOut(Opcode opCode) const {

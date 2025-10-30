@@ -912,6 +912,27 @@ std::pair<Operation *, Operation *> PreGraphProcess::GetLastMmCopyOut(Operation 
     return {lastMm, chainEndCopyOut};
 }
 
+Status PreGraphProcess::ReconnectGraph(Operation &mulOp, Operation *copyOutOp) {
+    for (auto &input : mulOp.GetIOperands()) {
+        if (input->GetMemoryTypeOriginal() == MemoryType::MEM_FIX_QUANT_PRE) {
+            mulOp.EraseInput(input);
+            copyOutOp->iOperand.emplace_back(input);
+            input->RemoveConsumer(mulOp);
+            input->AddConsumer(copyOutOp);
+        }
+        TransferAttr(mulOp, copyOutOp);
+    }
+    return SUCCESS;
+}
+
+Status PreGraphProcess::TransferAttr(Operation &mulOp, Operation *copyOutOp) {
+    auto scaleValue = (mulOp.HasAttr(A_MUL_B_SCALE_ATTR)) ? mulOp.GetElementAttribute(A_MUL_B_SCALE_ATTR) : Element(DataType::DT_UINT64, 0);
+    auto reluType = (mulOp.HasAttr(A_MUL_B_RELU_ATTR)) ? mulOp.GetIntAttribute(A_MUL_B_RELU_ATTR) : 0;
+    copyOutOp->SetAttribute(A_MUL_B_SCALE_ATTR, scaleValue);
+    copyOutOp->SetAttribute(A_MUL_B_RELU_ATTR, reluType);
+    return SUCCESS;
+}
+
 Status PreGraphProcess::UpdateCubeOp(Function &function) {
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_A_MUL_B && op.GetOpcode() != Opcode::OP_A_MULACC_B) {
@@ -946,6 +967,7 @@ Status PreGraphProcess::UpdateCubeOp(Function &function) {
             */
             AlignCopyOutAttr(input, chainEndCopyOut);
         }
+
         if (UpdateL0cDtype(op) != SUCCESS) {
             APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Update L0C dtype for %s[%d] failed.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
             return FAILED;
@@ -953,6 +975,11 @@ Status PreGraphProcess::UpdateCubeOp(Function &function) {
         if (UpdateCopyAttr(op) != SUCCESS) {
             APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Set Attr for %s[%d] failed.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
             return FAILED;
+        }
+
+        if (op.GetOpcode() == Opcode::OP_A_MUL_B) {
+            // FixPipe支持随路量化图重连 & MUL -> L0C_COPY_OUT属性传递
+            ReconnectGraph(op, chainEndCopyOut);
         }
     }
     return SUCCESS;

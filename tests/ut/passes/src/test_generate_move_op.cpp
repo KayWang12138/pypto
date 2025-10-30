@@ -596,6 +596,120 @@ TEST_F(GenerateMoveOpPassTest, L1TOL0){
     EXPECT_EQ(l1tol0a_num,expectedL1tol0a) << "1 operations shoulde be OP_COPY_IN.";
     EXPECT_EQ(l1tol0B_num,expectedL1tol0b) << "1 operations shoulde be OP_COPY_OUT.";
 }
+void TransViewTensorWithAttr (std::shared_ptr<Function> &currFunctionPtr) {
+    std::shared_ptr<LogicalTensor> view_in1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
+    view_in1 -> SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+    std::shared_ptr<LogicalTensor> tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
+    tensor1 -> SetMemoryTypeOriginal(MemoryType::MEM_L1);
+    std::shared_ptr<LogicalTensor> view_out1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
+    view_out1 -> SetMemoryTypeOriginal(MemoryType::MEM_BT);
+    
+    std::shared_ptr<LogicalTensor> view_in2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
+    view_in2 -> SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+    std::shared_ptr<LogicalTensor> tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
+    tensor2 -> SetMemoryTypeOriginal(MemoryType::MEM_L1);
+    std::shared_ptr<LogicalTensor> view_out2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
+    view_out2 -> SetMemoryTypeOriginal(MemoryType::MEM_FIX_QUANT_PRE);
+   
+    std::shared_ptr<LogicalTensor> view_in3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
+    view_in3 -> SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+    std::shared_ptr<LogicalTensor> tensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
+    tensor3 -> SetMemoryTypeOriginal(MemoryType::MEM_L1);
+    std::shared_ptr<LogicalTensor> view_out3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
+    view_out3 -> SetMemoryTypeOriginal(MemoryType::MEM_L0A);
+    
+    std::shared_ptr<LogicalTensor> view_in4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
+    view_in4 -> SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+    std::shared_ptr<LogicalTensor> tensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});  
+    tensor4 -> SetMemoryTypeOriginal(MemoryType::MEM_L1);
+    std::shared_ptr<LogicalTensor> view_out4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
+    view_out4 -> SetMemoryTypeOriginal(MemoryType::MEM_L0A);
+    
+    std::shared_ptr<LogicalTensor> output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
+    output -> SetMemoryTypeOriginal(MemoryType::MEM_L0C);
 
+    auto &view_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {view_in1}, {tensor1});
+    auto viewAttribute1 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
+    viewAttribute1->SetToType(MemoryType::MEM_L1);
+    view_op1.SetOpAttribute(viewAttribute1);
+    auto &view_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {tensor1}, {view_out1});
+    auto viewAttribute2 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
+    viewAttribute2->SetToType(MemoryType::MEM_BT);
+    view_op2.SetOpAttribute(viewAttribute2);
+    auto &view_op3 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {view_in2}, {tensor2});
+    auto viewAttribute3 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
+    viewAttribute3->SetToType(MemoryType::MEM_L1);
+    view_op3.SetOpAttribute(viewAttribute3);
+    auto &view_op4 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {tensor2}, {view_out2});
+    auto viewAttribute4 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
+    viewAttribute4->SetToType(MemoryType::MEM_FIX_QUANT_PRE);
+    view_op4.SetOpAttribute(viewAttribute4);
+    auto &view_op5 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {view_in3}, {tensor3});
+    auto viewAttribute5 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
+    viewAttribute5->SetToType(MemoryType::MEM_L1);
+    view_op5.SetOpAttribute(viewAttribute5);
+    auto &view_op6 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {tensor3}, {view_out3});
+    auto viewAttribute6 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
+    viewAttribute6->SetToType(MemoryType::MEM_L0A);
+    view_op6.SetOpAttribute(viewAttribute6);
+    auto &view_op7 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {view_in4}, {tensor4});
+    auto viewAttribute7 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
+    viewAttribute7->SetToType(MemoryType::MEM_L1);
+    view_op7.SetOpAttribute(viewAttribute7);
+    auto &view_op8 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {tensor4}, {view_out4});
+    auto viewAttribute8 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
+    viewAttribute8->SetToType(MemoryType::MEM_L0B);
+    view_op8.SetOpAttribute(viewAttribute7);
+
+    currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {view_out3,view_out4,view_out1,view_out2}, {output});
+
+    currFunctionPtr->inCasts_.push_back(view_in1);
+    currFunctionPtr->inCasts_.push_back(view_in2);
+    currFunctionPtr->inCasts_.push_back(view_in3);
+    currFunctionPtr->inCasts_.push_back(view_in4);
+    currFunctionPtr->outCasts_.push_back(output);
+}
+TEST_F(GenerateMoveOpPassTest, TransViewWithAttr) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TransViewWithAttr", "TransViewWithAttr", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap("TransViewWithAttr", currFunctionPtr);
+
+    TransViewTensorWithAttr(currFunctionPtr);
+
+    std::stringstream ssBefore;
+    ssBefore << "Before_GenerateMoveOp";
+
+    // Call the pass
+    GenerateMoveOp generateMoveOp;
+    generateMoveOp.PreCheck(*currFunctionPtr);
+    currFunctionPtr->DumpJsonFile("./config/pass/json/generateMoveOp_TransViewWithAttr_before.json");
+    generateMoveOp.RunOnFunction(*currFunctionPtr);
+    currFunctionPtr->DumpJsonFile("./config/pass/json/generateMoveOp_TransViewWithAttr_after.json");
+
+    std::stringstream ss;
+    ss << "After_GenerateMoveOp";
+
+    // Validate the results
+    int copyIn_count_after_pass = 0;
+    int l12Bt_count_after_pass = 0;
+    int l12Fb_count_after_pass = 0;
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_COPY_IN) {
+           copyIn_count_after_pass++;
+        }
+        if (op.GetOpcode() == Opcode::OP_L1_TO_BT) {
+           l12Bt_count_after_pass++;
+        }
+        if (op.GetOpcode() == Opcode::OP_L1_TO_FB) {
+           l12Fb_count_after_pass++;
+        }
+    }
+    constexpr int expectedCopyIn =4;
+    constexpr int expectedL1toBt =1;
+    constexpr int expectedL1toFb =1;
+    EXPECT_EQ(copyIn_count_after_pass,expectedCopyIn) << "4 operations shoulde be OP_COPY_IN.";
+    EXPECT_EQ(l12Bt_count_after_pass,expectedL1toBt) << "1 operations shoulde be OP_L1_TO_BT.";
+    EXPECT_EQ(l12Fb_count_after_pass,expectedL1toFb) << "1 operations shoulde be OP_L1_TO_FB.";
+}
 }
 } // namespace npu::tile_fwk

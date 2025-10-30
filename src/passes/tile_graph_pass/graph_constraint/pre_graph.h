@@ -35,6 +35,8 @@ const std::string MATMUL_NZ_ATTR = OP_ATTR_PREFIX + "matmul_nz_attr";
 const std::string A_MUL_B_ACT_M = OP_ATTR_PREFIX + "act_m";
 const std::string A_MUL_B_ACT_K = OP_ATTR_PREFIX + "act_k";
 const std::string A_MUL_B_ACT_N = OP_ATTR_PREFIX + "act_n";
+const std::string A_MUL_B_SCALE_ATTR = OP_ATTR_PREFIX + "scale_value";
+const std::string A_MUL_B_RELU_ATTR = OP_ATTR_PREFIX + "relu_type";
 
 /* L1 Copy In 的内外轴大小 */
 const std::string L1_COPY_IN_INNER = OP_ATTR_PREFIX + "inner_value";
@@ -102,6 +104,8 @@ private:
     Status AddL0cCopyOutAttr(const std::shared_ptr<LogicalTensor> output, int nzValue, int mValue, int nValue) const;
     Status UpdateL0cDtype(Operation &op);
     std::pair<Operation *, Operation *> GetLastMmCopyOut(Operation &op);
+    Status ReconnectGraph(Operation &mulOp, Operation *copyOutOp);
+    Status TransferAttr(Operation &mulOp, Operation *copyOutOp);
     bool IsFloat(const std::shared_ptr<LogicalTensor> tensor) const;
     bool IsInt(const std::shared_ptr<LogicalTensor> tensor) const;
 };
