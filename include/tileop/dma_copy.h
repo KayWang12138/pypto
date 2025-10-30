@@ -48,7 +48,7 @@ __aicore__ inline void TLoad(T dst, U src, C coordinate) {
         auto gmOffset = srcLayout.template GetGmOffset<C, 5>(coordinate);
         constexpr auto typeSize = sizeof(typename T::Type);
 
-        if (TileOp::IsConstContinous<T>() == true) {
+        if constexpr (TileOp::IsConstContinous<T>() == true) {
             // 对于静态整块场景，将UB合成二维，GM保持五维
             constexpr auto tileH = TileOp::GetOutterAxisMergeResult<shapeSize, typename T::TileShape>();
             constexpr auto tileW = Std::tuple_element<shapeSize - 1, typename T::TileShape>::type::value;
@@ -59,7 +59,7 @@ __aicore__ inline void TLoad(T dst, U src, C coordinate) {
                 pto::Shape(dstShape0, dstShape1, dstShape2, dstShape3, dstShape3),
                 pto::Stride(srcStride0, srcStride1, srcStride2, srcStride3, srcStride4));
             using TileData =
-                        pto::Tile<pto::Location::Vec, typename T::Type, tileH, tileW, pto::BLayout::RowMajor, dstShape3, dstShape4>;
+                pto::Tile<pto::Location::Vec, typename T::Type, tileH, tileW, pto::BLayout::RowMajor, dstShape3, dstShape4>;
             TileData dstUB;
             pto::TASSIGN(dstUB, (uint64_t)dst.GetAddr());
             pto::TLOAD(dstUB, src0Global);
@@ -117,7 +117,7 @@ __aicore__ inline void TStore(T dst, U src, C coordinate) {
         auto gmOffset = dstLayout.template GetGmOffset<C, 5>(coordinate);
         constexpr auto typeSize = sizeof(typename U::Type);
 
-        if (TileOp::IsConstContinous<U>() == true) {
+        if constexpr (TileOp::IsConstContinous<U>() == true) {
             // 对于静态整块场景，将UB合成二维，GM保持五维
             constexpr auto tileH = TileOp::GetOutterAxisMergeResult<shapeSize, typename U::TileShape>();
             constexpr auto tileW = Std::tuple_element<shapeSize - 1, typename U::TileShape>::type::value;
@@ -128,7 +128,7 @@ __aicore__ inline void TStore(T dst, U src, C coordinate) {
                 pto::Shape(srcShape0, srcShape1, srcShape2, srcShape3, srcShape4),
                 pto::Stride(dstStride0, dstStride1, dstStride2, dstStride3, dstStride4));
             using TileData =
-                        pto::Tile<pto::Location::Vec, typename U::Type, tileH, tileW, pto::BLayout::RowMajor, srcShape3, srcShape4>;
+                pto::Tile<pto::Location::Vec, typename U::Type, tileH, tileW, pto::BLayout::RowMajor, srcShape3, srcShape4>;
             TileData srcUB;
             pto::TASSIGN(srcUB, (uint64_t)src.GetAddr());
             pto::TSTORE(dstGlobal, srcUB);

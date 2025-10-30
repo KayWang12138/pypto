@@ -363,24 +363,24 @@ using LocalLayout5Dim = TileOp::Layout<Shape5Dim,
     TileOp::TileShape<Std::Int<TileS>, Std::Int<TileN>, Std::Int<TileD>, Std::Int<TileH>, Std::Int<TileW>>>;
 
 // common static layouts
-template <int TileH, int TileW>
-using StaticLayout2Dim = TileOp::Layout<TileOp::Shape<Std::Int<TileH>, Std::Int<TileW>>,
+template <int H, int W, int TileH, int TileW>
+using StaticLayout2Dim = TileOp::Layout<TileOp::Shape<Std::Int<H>, Std::Int<W>>,
     TileOp::Stride<Std::Int<TileW>, Std::Int<1>>, TileOp::TileShape<Std::Int<TileH>, Std::Int<TileW>>>;
 
-template <int TileD, int TileH, int TileW>
-using StaticLayout3Dim = TileOp::Layout<TileOp::Shape<Std::Int<TileD>, Std::Int<TileH>, Std::Int<TileW>>,
+template <int D, int H, int W, int TileD, int TileH, int TileW>
+using StaticLayout3Dim = TileOp::Layout<TileOp::Shape<Std::Int<D>, Std::Int<H>, Std::Int<W>>,
     TileOp::Stride<Std::Int<TileH * TileW>, Std::Int<TileW>, Std::Int<1>>,
     TileOp::TileShape<Std::Int<TileD>, Std::Int<TileH>, Std::Int<TileW>>>;
 
-template <int TileN, int TileD, int TileH, int TileW>
+template <int N, int D, int H, int W, int TileN, int TileD, int TileH, int TileW>
 using StaticLayout4Dim =
-    TileOp::Layout<TileOp::Shape<Std::Int<TileN>, Std::Int<TileD>, Std::Int<TileH>, Std::Int<TileW>>,
+    TileOp::Layout<TileOp::Shape<Std::Int<N>, Std::Int<D>, Std::Int<H>, Std::Int<W>>,
         TileOp::Stride<Std::Int<TileD * TileH * TileW>, Std::Int<TileH * TileW>, Std::Int<TileW>, Std::Int<1>>,
         TileOp::TileShape<Std::Int<TileN>, Std::Int<TileD>, Std::Int<TileH>, Std::Int<TileW>>>;
 
-template <int TileS, int TileN, int TileD, int TileH, int TileW>
+template <int S, int N, int D, int H, int W, int TileS, int TileN, int TileD, int TileH, int TileW>
 using StaticLayout5Dim =
-    TileOp::Layout<TileOp::Shape<Std::Int<TileS>, Std::Int<TileN>, Std::Int<TileD>, Std::Int<TileH>, Std::Int<TileW>>,
+    TileOp::Layout<TileOp::Shape<Std::Int<S>, Std::Int<N>, Std::Int<D>, Std::Int<H>, Std::Int<W>>,
         TileOp::Stride<Std::Int<TileN * TileD * TileH * TileW>, Std::Int<TileD * TileH * TileW>,
             Std::Int<TileH * TileW>, Std::Int<TileW>, Std::Int<1>>,
         TileOp::TileShape<Std::Int<TileS>, Std::Int<TileN>, Std::Int<TileD>, Std::Int<TileH>, Std::Int<TileW>>>;
