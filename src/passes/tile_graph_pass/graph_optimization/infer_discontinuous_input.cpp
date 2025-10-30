@@ -22,7 +22,7 @@ namespace tile_fwk {
 Status InferDiscontinuousInput::RunOnFunction(Function &function) {
     ALOG_INFO_F("===> Start InferMemoryConflict for function [%s].", function.GetRawName().c_str());
     Init(function);
-    if (InferFromIncast(function) != SUCCESS) {
+    if (InferFromIncast() != SUCCESS) {
         ALOG_ERROR_F("Infer INCAST and OUTCAST address failed.");
         return FAILED;
     }
@@ -57,48 +57,104 @@ std::vector<std::pair<LogicalTensorPtr, Operation *>> GetInplacedTileTensors(Log
     return inplacedTensor;
 }
 
-std::vector<size_t> GetInputTileConflict(Function &function, const std::vector<LogicalTensorPtr> &inputTensors) {
-    size_t incastIdx = 0;
-    for (; incastIdx < inputTensors.size(); incastIdx++) {
-        if (function.IsFromInCast(inputTensors[incastIdx])) {
-            break;
+inline int64_t ShapeToSize(Shape &shapes) {
+    int64_t sz = 1;
+    for (int dimValue : shapes) {
+        sz *= dimValue;
+    }
+    return sz;
+}
+
+inline bool VecEqual(Offset &vec1, Offset &vec2) {
+    if (vec1.size() != vec2.size()) {
+        return false;
+    }
+    for (size_t i = 0; i < vec1.size(); i++) {
+        if (vec1[i] != vec2[i]) {
+            return false;
         }
     }
-    std::vector<size_t> copyIdx;
-    for (size_t i = incastIdx; i < inputTensors.size(); i++) {
-        if (function.IsFromInCast(inputTensors[i])) {
-            if (inputTensors[incastIdx]->Symbol() != inputTensors[i]->Symbol() &&
-                inputTensors[incastIdx]->GetRawTensor()->memoryId != inputTensors[i]->GetRawTensor()->memoryId) {
-                copyIdx.push_back(i);
+    return true;
+}
+
+inline bool PerfectOffsetOverlap(std::vector<int> &rawTensorIds, std::vector<Shape> &rawShapes, 
+                                 std::vector<Shape> &shapes, std::vector<Offset> &offsets,
+                                 std::vector<Offset> &offsetTos) 
+{
+    std::unordered_map<int, Offset> rawIdToRawOffset;
+    std::unordered_map<int, int64_t> rawEmptySize;
+    std::unordered_map<int, int64_t> rawValueSize;
+    for (int i = 0; i < static_cast<int>(rawTensorIds.size()); i++) {
+        int rawId = rawTensorIds[i];
+        Offset rawOffset(rawShapes[i].size(), 0);
+        for (size_t dim = 0; dim < rawShapes[i].size(); dim++) {
+            rawOffset[dim] = offsetTos[i][dim] - offsets[i][dim];
+        }
+        if (rawIdToRawOffset.count(rawId) == 0) {
+            rawIdToRawOffset[rawId] = rawOffset;
+        } else {
+            if (!VecEqual(rawIdToRawOffset[rawId], rawOffset)) {
+                return false;
             }
         }
+        if (rawEmptySize.count(rawId) == 0) {
+            rawEmptySize[rawId] = ShapeToSize(rawShapes[i]);
+        }
+        rawValueSize[rawId] += ShapeToSize(shapes[i]);
     }
-    if (!copyIdx.empty()) {
-        copyIdx.push_back(incastIdx);
+    for (const auto &rawPr : rawEmptySize) {
+        if (rawPr.second != rawValueSize[rawPr.first]) {
+            return false;
+        }
     }
+    return true;
+}
+
+inline std::vector<size_t> GetInputTileConflict(
+    const std::vector<std::pair<LogicalTensorPtr, Operation*>> &inplaceTensors) {
+    std::vector<int> rawTensorIds;
+    std::vector<Shape> rawShapes;
+    std::vector<Shape> shapes;
+    std::vector<Offset> offsets;
+    std::vector<Offset> offsetTos;
+
+    bool assembleCheck = true;
+    for (auto &pr : inplaceTensors) {
+        if (pr.first->GetMemoryTypeOriginal() != pr.second->GetOOperands()[0]->GetMemoryTypeOriginal()) {
+            assembleCheck = false;
+            break;
+        }
+        rawTensorIds.push_back(pr.first->GetRawMagic());
+        rawShapes.push_back(pr.first->GetRawTensor()->GetRawShape());
+        shapes.push_back(pr.first->GetShape());
+        offsets.push_back(pr.first->GetOffset());
+        std::shared_ptr<AssembleOpAttribute> attr = std::static_pointer_cast<AssembleOpAttribute>(pr.second->GetOpAttribute());
+        if (attr == nullptr) {
+            assembleCheck = false;
+            break;
+        }
+        offsetTos.push_back(attr->GetToOffset());
+    }
+    std::vector<size_t> copyIdx;
+    if (assembleCheck && (!PerfectOffsetOverlap(rawTensorIds, rawShapes, shapes, offsets, offsetTos))) {
+        for (size_t i = 0; i < inplaceTensors.size(); i++) {
+            copyIdx.push_back(i);
+        }
+    }
+
     return copyIdx;
 }
 
-std::vector<std::pair<LogicalTensorPtr, Operation *>> InferDiscontinuousInput::FilterCopyScenes(Function &function,
-    LogicalTensorPtr targetTensor,
+std::vector<std::pair<LogicalTensorPtr, Operation *>> InferDiscontinuousInput::FilterCopyScenes(
     const std::vector<std::pair<LogicalTensorPtr, Operation*>> &inplaceTensors) {
     std::vector<std::pair<LogicalTensorPtr, Operation *>> needInsertCopys;
     if (inplaceTensors.empty()) {
         return needInsertCopys;
     }
-    auto targetParentIter = parentRawTensor_.find(targetTensor);
-    if (targetParentIter == parentRawTensor_.end()) {
-        std::vector<LogicalTensorPtr> inputTensors;
-        for (auto inplaceTensor : inplaceTensors) {
-            inputTensors.push_back(parentRawTensor_[inplaceTensor.first]);
-        }
-        auto copyIdx = GetInputTileConflict(function, inputTensors);
-        for (auto idx : copyIdx) {
-            needInsertCopys.push_back(inplaceTensors[idx]);
-            ALOG_DEBUG_F("[MemConflict] Input tensor [%d] (parent tensor [%d]) conflit.", inplaceTensors[idx].first->GetMagic(),
-                parentRawTensor_[inplaceTensors[idx].first]->GetMagic());
-        }
-        return needInsertCopys;
+    auto copyIdx = GetInputTileConflict(inplaceTensors);
+    for (auto idx : copyIdx) {
+        needInsertCopys.push_back(inplaceTensors[idx]);
+        ALOG_DEBUG_F("[MemConflict] Input tensor [%d] conflit.", inplaceTensors[idx].first->GetMagic());
     }
     return needInsertCopys;
 }
@@ -114,18 +170,12 @@ void InferDiscontinuousInput::Init(Function &function) {
 }
 
 // 从INCAST出发，按DFS做前向推导
-Status InferDiscontinuousInput::InferFromIncast(Function &function) {
+Status InferDiscontinuousInput::InferFromIncast() {
     std::queue<Operation *> procOpQueue;
     for (auto &opInputDegree : opInputDegree_) {
         if (opInputDegree.second == 0) {
             procOpQueue.push(opInputDegree.first);
         }
-    }
-    for (auto &incast : function.GetIncast()) {
-       parentRawTensor_[incast] = incast;
-    }
-    for (auto &outcast : function.GetOutcast()) {
-        parentRawTensor_[outcast] = outcast;
     }
     std::set<Operation *> visitedOps;
     while (!procOpQueue.empty()) {
@@ -145,20 +195,59 @@ Status InferDiscontinuousInput::InferFromIncast(Function &function) {
                 continue;
             }
             auto inplacedTensor = GetInplacedTileTensors(outputTensor);
-            filterdTensor = FilterCopyScenes(function, outputTensor, inplacedTensor);
+            filterdTensor = FilterCopyScenes(inplacedTensor);
             insertCopys_.emplace(outputTensor, filterdTensor);
-            if (!filterdTensor.empty()) {
-                parentRawTensor_[outputTensor] = outputTensor;
-                continue;
-            }
-            if (inplacedTensor.empty()) {
-                parentRawTensor_[outputTensor] = outputTensor;
-            } else {
-                parentRawTensor_[outputTensor] = parentRawTensor_[inplacedTensor[0].first];
-            }
         }
     }
     return SUCCESS;
+}
+void InferDiscontinuousInput::InsertViewOp(Function &function, LogicalTensorPtr iOperand, LogicalTensorPtr oOperand) {
+    auto &insertViewOp = function.AddRawOperation(Opcode::OP_VIEW, {iOperand}, {oOperand});
+    insertViewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(iOperand->GetOffset(),
+        oOperand->GetMemoryTypeOriginal(), iOperand->GetDynOffset(), iOperand->GetDynValidShape()));
+    ALOG_DEBUG_F("[MemConflict] Insert view op [%d].", insertViewOp.GetOpMagic());
+}
+void InferDiscontinuousInput::InsertAssembleOp(
+    Function &function, LogicalTensorPtr iOperand, LogicalTensorPtr oOperand) {
+    auto &insertAssembleOp = function.AddRawOperation(Opcode::OP_ASSEMBLE, {iOperand}, {oOperand});
+    insertAssembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(iOperand->GetMemoryTypeOriginal(),
+        oOperand->GetOffset(), oOperand->GetDynOffset(), oOperand->GetDynValidShape()));
+    ALOG_DEBUG_F("[MemConflict] Insert assemble op [%d].", insertAssembleOp.GetOpMagic());
+}
+
+void InferDiscontinuousInput::InsertCopyOp(Function &function, LogicalTensorPtr iOperand, LogicalTensorPtr oOperand) {
+    if ((iOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) &&
+        (oOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR)) {
+        std::shared_ptr<RawTensor> newRawTensor =
+            std::make_shared<RawTensor>(iOperand->Datatype(), iOperand->GetShape());
+        Offset newOffset(iOperand->GetShape().size(), 0);
+        LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(
+            function, newRawTensor, newOffset, iOperand->GetShape(), iOperand->GetDynValidShape());
+        newTensor->SetMemoryTypeOriginal(MemoryType::MEM_UB, true);
+        newTensor->SetMemoryTypeToBe(MemoryType::MEM_UB);
+        InsertViewOp(function, iOperand, newTensor);
+        InsertAssembleOp(function, newTensor, oOperand);
+        return;
+    }
+    if ((iOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) &&
+        (oOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR)) {
+        InsertViewOp(function, iOperand, oOperand);
+        return;
+    }
+    if ((iOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) &&
+        (oOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR)) {
+        InsertAssembleOp(function, iOperand, oOperand);
+        return;
+    }
+    std::shared_ptr<RawTensor> newRawTensor =
+        std::make_shared<RawTensor>(iOperand->Datatype(), iOperand->GetShape());
+    Offset newOffset(iOperand->GetShape().size(), 0);
+    LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(
+        function, newRawTensor, newOffset, iOperand->GetShape(), iOperand->GetDynValidShape());
+    newTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
+    newTensor->SetMemoryTypeToBe(MemoryType::MEM_DEVICE_DDR);
+    InsertAssembleOp(function, iOperand, newTensor);
+    InsertViewOp(function, newTensor, oOperand);
 }
 
 Status InferDiscontinuousInput::InsertTensorCopy(Function &function) {
@@ -178,8 +267,10 @@ Status InferDiscontinuousInput::InsertTensorCopy(Function &function) {
             Offset newOffset(inputTensor->GetShape().size(), 0);
             LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(function, newRawTensor, newOffset,
                 inputTensor->GetShape(), inputTensor->GetDynValidShape());
-            auto &tensorCopyOp = function.AddRawOperation(Opcode::OP_REGISTER_COPY, {inputTensor}, {newTensor});
-            ALOG_DEBUG_F("[MemConflict] Insert copy op [%d].", tensorCopyOp.GetOpMagic());
+            LogicalTensorPtr customTensor = inplaceNode.second->GetOOperands()[0];
+            newTensor->SetMemoryTypeOriginal(customTensor->GetMemoryTypeOriginal(), true);
+            newTensor->SetMemoryTypeToBe(newTensor->GetMemoryTypeOriginal());
+            InsertCopyOp(function, inputTensor, newTensor);
             inputTensor->RemoveConsumer(inplaceNode.second);
             inplaceNode.second->ReplaceInput(newTensor, inputTensor);
         }

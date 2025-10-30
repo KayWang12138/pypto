@@ -32,12 +32,14 @@ public:
 
 private:
     Status RunOnFunction(Function &function) override;
-    Status InferFromIncast(Function &function);
+    Status InferFromIncast();
+    void InsertViewOp(Function &function, LogicalTensorPtr iOperand, LogicalTensorPtr oOperand);
+    void InsertAssembleOp(Function &function, LogicalTensorPtr iOperand, LogicalTensorPtr oOperand);
+    void InsertCopyOp(Function &function, LogicalTensorPtr iOperand, LogicalTensorPtr oOperand);
     Status InsertTensorCopy(Function &function);
     void Init(Function& function);
-    std::vector<std::pair<LogicalTensorPtr, Operation *>> FilterCopyScenes(Function &function, LogicalTensorPtr targetTensor,
+    std::vector<std::pair<LogicalTensorPtr, Operation *>> FilterCopyScenes(
         const std::vector<std::pair<LogicalTensorPtr, Operation *>> &);
-    std::unordered_map<LogicalTensorPtr, LogicalTensorPtr> parentRawTensor_; // key: 当前tensor的magic，value: parent tensor 的 raw magic
     std::map<LogicalTensorPtr, std::vector<std::pair<LogicalTensorPtr, Operation *>>> insertCopys_;
     std::map<Operation *, size_t> opInputDegree_;
     std::map<LogicalTensorPtr, size_t> tensorProducers_;
