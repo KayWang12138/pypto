@@ -472,7 +472,7 @@ def softmax(input: Tensor, dim: int) -> Tensor:
     rowmax = pto.amax(input, dim)
     sub_res = pto.sub(input, rowmax)
     exp_res = pto.exp(sub_res)
-    esum = pto.asum(exp_res, dim)
+    esum = pto.sum(exp_res, dim)
     output = pto.div(exp_res, esum)
 
     return output

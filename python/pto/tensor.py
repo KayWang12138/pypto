@@ -105,10 +105,15 @@ class Tensor:
         """
         if self._is_empty_slice(key):
             self.move(value)
-        elif isinstance(key, (int, SymbolicScalar, slice)):
+        elif isinstance(key, (int, SymbolicScalar)):
             self.__setitem__((key,), value)
+        elif isinstance(key, slice):
+            if isinstance(key.stop, Tensor):
+                assert isinstance(key.start, int)
+                return pto.scatter(self, key.start, key.stop, value)
         elif isinstance(key, tuple):
-            assert self.dim() == len(key), f"rank not match, expect {self.dim()}, but got {len(key)}"
+            assert self.dim() == len(
+                key), f"rank not match, expect {self.dim()}, but got {len(key)}"
             if all([isinstance(k, (int, SymbolicScalar)) for k in key]):
                 pto_impl.SetTensorData(value, to_syms(key), self._base)
             elif all([isinstance(k, slice) for k in key]):
@@ -152,10 +157,19 @@ class Tensor:
         """
         if self._is_empty_slice(key):
             return self
-        if isinstance(key, (int, SymbolicScalar, slice)):
+        if isinstance(key, (int, SymbolicScalar)):
             return self.__getitem__((key,))
+        elif isinstance(key, slice):
+            # Support for slicing operations and gather_element syntactic sugar
+            if isinstance(key.stop, Tensor):
+                assert isinstance(key.start, int)
+                return pto.gather(self, key.start, key.stop)
+            else:
+                return self.__getitem__((key,))
+
         elif isinstance(key, tuple):
-            assert self.dim() == len(key), f"rank not match, expect {self.dim()}, but got {len(key)}"
+            assert self.dim() == len(
+                key), f"rank not match, expect {self.dim()}, but got {len(key)}"
             if all([isinstance(k, (int, SymbolicScalar)) for k in key]):
                 return SymbolicScalar.from_base(pto_impl.GetTensorData(self._base, to_syms(key)))
             elif all([isinstance(k, slice) for k in key]):
@@ -175,14 +189,55 @@ class Tensor:
         obj._base = base
         return obj
 
-    def __add__(self, other: 'Tensor | int | float') -> 'Tensor':
+    def add(self, other: 'Tensor | Element') -> 'Tensor':
         return pto.add(self, other)
 
-    def __radd__(self, other: 'Tensor | int | float') -> 'Tensor':
-        return self.__add__(other)
+    def __add__(self, other: 'Tensor | Element') -> 'Tensor':
+        return self.add(other)
 
-    def __sub__(self, other: 'Tensor | int | float') -> 'Tensor':
+    def __radd__(self, other: 'Tensor | Element') -> 'Tensor':
+        return self.add(other)
+
+    def __iadd__(self, other: 'Tensor | Element') -> 'Tensor':
+        return self.add(other)
+
+    def sub(self, other: 'Tensor | Element') -> 'Tensor':
         return pto.sub(self, other)
+
+    def __sub__(self, other: 'Tensor | Element') -> 'Tensor':
+        return self.sub(other)
+
+    def __isub__(self, other: 'Tensor | Element') -> 'Tensor':
+        return self.sub(other)
+
+    def mul(self, other: 'Tensor | Element') -> 'Tensor':
+        return pto.mul(self, other)
+
+    def __mul__(self, other: 'Tensor | Element') -> 'Tensor':
+        return self.mul(other)
+
+    def __imul__(self, other: 'Tensor | Element') -> 'Tensor':
+        return self.mul(other)
+
+    def div(self, other: 'Tensor | Element') -> 'Tensor':
+
+        return pto.div(self, other)
+
+    def __truediv__(self, other: 'Tensor | Element') -> 'Tensor':
+        return self.div(other)
+
+    def __itruediv__(self, other: 'Tensor | Element') -> 'Tensor':
+        return self.div(other)
+
+    def greater(self, other: 'Tensor'):
+        if isinstance(other, Tensor):
+            return pto.gather(self, other)
+        else:
+            raise TypeError(
+                f"Expected Tensor, got {type(other).__name__}")
+
+    def __gt__(self, other: 'Tensor', mode) -> 'Tensor':
+        return self.greater(other, mode)
 
     def __matmul__(self, other: 'Tensor') -> 'Tensor':
         if other.dtype in {pto.DT_FP16, pto.DT_BF16, pto.DT_FP32}:

@@ -328,10 +328,12 @@ def test_vector_operation_vec_dup():
                 for b_idx in bloop:
                     for s_idx in sloop:
                         tile_a = pto.tensor()
-                        tile_a.move(pto.vector_duplicate(b, dtype, view_shape,
-                            [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
-                            (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))]))
-                        pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], a)
+                        tile_a.move(pto.full(view_shape, b, dtype,
+                        valid_shape=[
+                        (pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
+                        (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))]))
+                        pto.assemble(
+                            tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], a)
                         del tile_a
     a_data = list([0] * n * m)
     pto.device_run_once_data_from_host([], [a_data])
@@ -519,7 +521,7 @@ def test_vector_operation_rowsumsingle():
                     (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                 pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                 tmp_a = pto.tensor([1, view_shape[1]], dtype)
-                tmp_a.move(pto.asum(tile_a, dim))
+                tmp_a.move(pto.sum(tile_a, dim))
                 pto.assemble(tmp_a, [0, s_idx * view_shape[1]], b)
                 del tile_a, tmp_a
     a_tensor = np.random.uniform(0, 100, shape).astype(np.float32)

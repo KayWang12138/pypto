@@ -52,7 +52,7 @@ def test_select_experts_vllm():
                 if renormalize_flag:
                     # sum
                     pto.set_vec_tile_shapes(min(8, bs), min(8, k))
-                    denominator = pto.asum(topk_weight_tmp)
+                    denominator = pto.sum(topk_weight_tmp)
                     # div
                     pto.set_vec_tile_shapes(min(8, bs), min(1, k))
                     # shape: (b*s, k) (b*s, 1)

@@ -113,8 +113,8 @@ def compress_attention_with_topk(**kwargs):
     for _ in pto.loop(0, 1, 1, name="GEN_TOPK_RANGE", idx_name="ubReshapeIdx"):
         def inside_ub_reshape_idx_loop():
             nonlocal topk_num_idx
-            dump_tensor = pto.vector_duplicate(
-                pto.element(FP32, .0), FP32, [1, 1, max_cmp_block * block_slc_num])
+            dump_tensor = pto.full(
+                [1, 1, max_cmp_block * block_slc_num], pto.element(FP32, .0), FP32)
             first_k_top = pto.topk(dump_tensor, max_cmp_block * block_slc_num, -1, True)[1] # ! tuple visit
             topk_num_idx[:] = pto.topk(
                 pto.cast(first_k_top, FP32), max_cmp_block * block_slc_num, -1, False)[0] # ! tuple visit
@@ -286,7 +286,7 @@ def compress_attention_with_topk(**kwargs):
                                             tilda_pij[:] = pto.mul(tilda_pij, exp_cur)
                                         inside_else_loop_begin(b_idx, s1_idx, block_idx)
                                     src = pto.element(FP32, .0)
-                                    zeros = pto.vector_duplicate(src, FP32, [slc_window - 1, n1])
+                                    zeros = pto.full([slc_window - 1, n1], src, FP32)
                                     tilda_pij_pad[:] = pto.concat([tilda_pij, zeros], 0)
                                 inside_avoid_loop_1_idx_loop(b_idx, s1_idx, block_idx)
                             for slc_idx in pto.loop(0, cur_slc_loop, 1, name="CMP_ATTN_P_SLC_FIRST", idx_name="slcIdx"):

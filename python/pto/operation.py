@@ -31,6 +31,8 @@ def _to_base(arg):
         return arg.base()
     elif isinstance(arg, (list, tuple)):
         return [_to_base(a) for a in arg]
+    elif isinstance(arg, dict):
+        return {k: _to_base(v) for k, v in arg.items()}
     else:
         return arg
 
@@ -378,11 +380,11 @@ def transpose(
 
     Examples
     --------
-    >>> x = torch.randn(2, 3)
+    >>> x = pto.tensor(2, 3)
     >>> x
     tensor([[ 1.0028, -0.9893,  0.5809],
             [-0.1669,  0.7299,  0.4942]])
-    >>> torch.transpose(x, 0, 1)
+    >>> pto.transpose(x, 0, 1)
     tensor([[ 1.0028, -0.1669],
             [-0.9893,  0.7299],
             [ 0.5809,  0.4942]])
@@ -665,7 +667,7 @@ def scatter(
     """
     dims = len(input.Dim())
     if dims == 4:
-        chunk_size = input.get_shape(1)
+        chunk_size = input.GetShapeAt(1)
     elif dims == 2:
         chunk_size = 1
     else:
@@ -764,9 +766,7 @@ def convert_to_element(value) -> pto_impl.Element:
 
 @op_wrapper
 def arange(
-    start: Optional[Union[int, float]] = 0,
-    end: Union[int, float] = None,
-    step: Optional[Union[int, float]] = 1
+    *args: Union[int, float]
 ) -> Tensor:
     """Creates a 1-dimensional tensor containing a sequence of values in the range [start, end) with a given step.
 
@@ -804,12 +804,21 @@ def arange(
     tensor([0, 1, 2, 3])
 
     """
-
-    if end is None:
-        return pto_impl.range(pto_impl.Element(pto_impl.DT_INT32, 0), convert_to_element(start),
-                              pto_impl.Element(pto_impl.DT_INT32, 1))
-    return pto_impl.range(convert_to_element(start), convert_to_element(end), convert_to_element(step))
-
+    if len(args) == 1:
+        end = args[0]
+        return pto_impl.range(pto_impl.Element(pto_impl.DataType.DT_INT32, 0),
+                              convert_to_element(end),
+                              pto_impl.Element(pto_impl.DataType.DT_INT32, 1))
+    elif len(args) == 2:
+        start, end = args
+        return pto_impl.range(convert_to_element(start),
+                              convert_to_element(end),
+                              pto_impl.Element(pto_impl.DataType.DT_INT32, 1))
+    elif len(args) == 3:
+        start, end, step = args
+        return pto_impl.range(convert_to_element(start),
+                              convert_to_element(end),
+                              convert_to_element(step))
 
 @op_wrapper
 def log(
@@ -913,7 +922,7 @@ def amax(
 
 
 @op_wrapper
-def asum(
+def sum(
     input: Tensor,
     dim: Optional[int] = -1
 ) -> Tensor:
@@ -937,14 +946,75 @@ def asum(
 
     Examples
     --------
-    >>> in = pto.tensor([[4, 5, 6],
+    >>> a = pto.tensor([[4, 5, 6],
                           [1, 2, 3]] )
-    >>> pto.asum(in, -1, true)
+    >>> pto.sum(a, -1, true)
     tensor([[15],
             [6]])
 
     """
     return pto_impl.row_sum_single(input, dim)
+
+
+@op_wrapper
+def full(size: List[int],
+         fill_value: Union[int, float, SymbolicScalar, Element],
+         dtype: DataType,
+         *,
+         valid_shape: Optional[Union[List[int], List[SymbolicScalar]]] = None
+         ) -> Tensor:
+    """
+    Creates a tensor of the specified shape whose every entry equals the scalar elem.
+
+    Parameters
+    ----------
+    size : List[int] 
+        target shape; must be non-negative integers
+    fill_value : int | float | SymbolicScalar | pto.element
+        scalar value to replicate
+    dtype : pto.DataType 
+        desired data type; only int/float are supported (DT_FP32, DT_INT32).  
+        If elem is a SymbolicScalar, dtype must be int32.
+    valid_shape : List[int] | List[SymbolicScalar]]
+        runtime actual shape
+
+    Returns
+    -------
+    Tensor of shape shape filled with elem.
+
+    Examples
+    --------
+    >>> # Valid shapes use keyword argument
+    >>> a = 1.0 # must be 1.0; implicit conversion is not support
+    >>> pto.full([2,2], a, pto.data_type.DT_FP32, valid_shape = [pto.symbolic_scalar(2), pto.symbolic_scalar(2)])
+    tensor([[1.0,1.0],
+            [1.0,1.0]])
+
+    >>> b = pto.symbolic_scalar(1)
+    >>> pto.full([2,2], b, pto.data_type.DT_INT32, valid_shape = [pto.symbolic_scalar(2), pto.symbolic_scalar(2)])
+    tensor([[1,1],
+            [1,1]])
+
+    >>> c = pto.element(1)
+    >>> pto.full([2,2], c, pto.data_type.DT_INT32, valid_shape = [pto.symbolic_scalar(2), pto.symbolic_scalar(2)])
+    tensor([[1,1],
+            [1,1]])
+
+    >>> #  In static graphs, validshape can be ignored
+    >>> d = pto.element(1)
+    >>> pto.full([2,2], d, pto.data_type.DT_INT32)
+    tensor([[1,1],
+            [1,1]])
+    """
+
+    if valid_shape is None:
+        valid_shape = []
+    if isinstance(fill_value, pto_impl.SymbolicScalar):
+        return pto_impl.vector_duplicate(fill_value, dtype, size, valid_shape)
+    elif isinstance(fill_value, pto_impl.Element):
+        return pto_impl.vector_duplicate(fill_value, dtype, size, valid_shape)
+    else:
+        return pto_impl.vector_duplicate(pto_impl.Element(dtype, fill_value), dtype, size, valid_shape)
 
 
 @op_wrapper
@@ -983,12 +1053,9 @@ def amin(
 
 
 @op_wrapper
-def compare(
+def greater(
     input: Tensor,
-    other: Union[Tensor, int, float],
-    *,
-    op: OpType,
-    mode: OutType
+    other: Union[Tensor, int, float]
 ) -> Tensor:
     """Performs element-wise comparison between `input` and `other`.
 
@@ -1000,41 +1067,33 @@ def compare(
         The first input tensor.
     other : Tensor or Number
         The second input tensor or scalar for comparison.
-    op : pto.OpType
-        The comparison operator (EQ, NE, LT, LE, GT, GE).
-    mode : pto.OutType
-        The output mode (BIT or BOOL).
 
     Returns
     -------
     Tensor
         A new tensor containing the comparison results.
-        - In BOOL mode: BOOL tensor with same shape as inputs
-        - In BIT mode: UINT8 tensor with last dimension reduced to 1/8 (packed bits)
+        BOOL tensor with same shape as inputs
 
     Raises
     ------
     TypeError
         If `other` is not a Tensor or Element.
 
-    See Also
-    --------
-    eq, ne, lt, le, gt, ge : Convenience functions for specific comparisons.
 
     Examples
     --------
     >>> a = pto.tensor([1, 2, 3])
     >>> b = pto.tensor([2, 2, 2])
-
-    >>> # BOOL mode comparison
-    >>> pto.compare(a, b, op=pto.OpType.GT, mode=pto.OutType.BOOL)
+    
+    >>> pto.greater(a, b)
     tensor([False, False, True])
 
-    >>> # BIT mode comparison (last dimension must be divisible by 8)
-    >>> pto.compare(a, b, op=pto.OpType.EQ, mode=pto.OutType.BIT)
-    tensor([0b00000100], dtype=uint8)  # Only last element matches
     """
-    return pto_impl.compare(input, other, op, mode)
+    if isinstance(other, pto_impl.Tensor):
+        return pto_impl.compare(input, other, pto_impl.OpType.GT, OutType.BOOL)
+    else:
+        return pto_impl.compare(input, pto_impl.Element(input.dtype, other), pto_impl.OpType.GT, OutType.BOOL)
+
 
 
 @op_wrapper
