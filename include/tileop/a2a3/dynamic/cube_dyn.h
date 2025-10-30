@@ -23,6 +23,7 @@
 namespace TileOp {
 constexpr uint16_t BLOCK_CUBE_M_N = 16;
 constexpr uint16_t BLOCK_ALIGN_BYTE = 32;
+constexpr uint16_t MAX_UINT16 = 65535;
 
 template <typename T>
 INLINE T CeilAlign(T num_1, T num_2) {
@@ -95,7 +96,18 @@ TILEOP void DynL1CopyInNZ2NZ(__cbuf__ L1T *dst, __gm__ GMT *src, unsigned TShape
     if constexpr (std::is_same<GMT, int8_t>::value) {
         dstStride = CeilAlign<uint16_t>(TShape0, c0Size) - TShape0;
     }
-    copy_gm_to_cbuf(dst, src + srcOffset, 0, nBurst, lenBurst, srcStride, dstStride, PAD_NONE);
+    if (curH - TShape0 > MAX_UINT16) {
+        nBurst = 1;
+        srcStride = 0;
+        for (int32_t nIdx = 0; nIdx < static_cast<int32_t>(TShape1 / c0Size); ++nIdx) {
+            int64_t dstOffsetStep = nIdx * c0Size * TShape0;
+            int64_t srcOffsetStep = nIdx * c0Size * curH + srcOffset;
+            copy_gm_to_cbuf(dst + dstOffsetStep, src + srcOffsetStep, 0, nBurst, lenBurst, srcStride, dstStride,
+                            PAD_NONE);
+        }
+    } else {
+        copy_gm_to_cbuf(dst, src + srcOffset, 0, nBurst, lenBurst, srcStride, dstStride, PAD_NONE);
+    }
 }
 
 // Nz2Zz
