@@ -32,6 +32,8 @@
 #include "utils/layout.h"
 #include "../vec_trans.h"
 #include "../vec_binary.h"
+#include "../vec_reduce.h"
+#include "../vec_sort.h"
 #include "../dma_copy.h"
 #include "../vec_extract.h"
 #endif
