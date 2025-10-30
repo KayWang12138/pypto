@@ -1,0 +1,115 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file vec_gather.h
+ * \brief
+ */
+#ifndef TILEOP_TILE_OPERATOR_VEC_DYN_H
+#define TILEOP_TILE_OPERATOR_VEC_DYN_H
+
+#include "a2a3/utils/layout.h"
+#include "a2a3/utils/tile_tensor.h"
+
+
+#define CALC_SRC0_INDEX(s0, s1, s2, s3, s4) \
+   ((s0) * n0SrcStride  + (s1) * n1SrcStride + (s2) * n2SrcStride + (s3) * n3SrcStride + (s4))
+
+template <int axis, typename T0, typename T1, typename T2>
+TILEOP void TgatherElement(T0 dst, T1 src0, T2 src1) {
+    constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
+    constexpr size_t expectSize = 5;
+    const auto srcLayout = src0.GetLayout();
+    auto n0SrcStride = srcLayout.template GetStrideDim<0, expectSize>();
+    auto n1SrcStride = srcLayout.template GetStrideDim<1, expectSize>();
+    auto n2SrcStride = srcLayout.template GetStrideDim<2, expectSize>();
+    auto n3SrcStride = srcLayout.template GetStrideDim<3, expectSize>();
+
+    const auto idxLayout = src1.GetLayout();
+    auto n0IdxShape = idxLayout.template GetShapeDim<0, expectSize>();
+    auto n1IdxShape = idxLayout.template GetShapeDim<1, expectSize>();
+    auto n2IdxShape = idxLayout.template GetShapeDim<2, expectSize>();
+    auto n3IdxShape = idxLayout.template GetShapeDim<3, expectSize>();
+    auto n4IdxShape = idxLayout.template GetShapeDim<4, expectSize>();
+    auto n0IdxStride = idxLayout.template GetStrideDim<0, expectSize>();
+    auto n1IdxStride = idxLayout.template GetStrideDim<1, expectSize>();
+    auto n2IdxStride = idxLayout.template GetStrideDim<2, expectSize>();
+    auto n3IdxStride = idxLayout.template GetStrideDim<3, expectSize>();
+    auto n0DstStride = idxLayout.template GetStrideDim<0, expectSize>();
+    auto n1DstStride = idxLayout.template GetStrideDim<1, expectSize>();
+    auto n2DstStride = idxLayout.template GetStrideDim<2, expectSize>();
+    auto n3DstStride = idxLayout.template GetStrideDim<3, expectSize>();
+    constexpr auto srcTileW = Std::tuple_element<shapeSize - 1, typename T1::TileShape>::type::value;
+    constexpr auto idxTileH = Std::tuple_element<shapeSize - 2, typename T2::TileShape>::type::value;
+    constexpr auto idxTileW = Std::tuple_element<shapeSize - 1, typename T2::TileShape>::type::value;
+
+    constexpr bool scalarFlag = (sizeof(typename T2::Type) == 8) ? true : false;
+    set_flag(PIPE_V, PIPE_S, EVENT_ID7);
+    wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
+    auto srcAddr = (__ubuf__ typename T1::Type*)((uint64_t)(src0.GetAddr()));
+    auto idxAddr = (__ubuf__ typename T2::Type*)((uint64_t)(src1.GetAddr()));
+    auto dstAddr = (__ubuf__ typename T0::Type*)((uint64_t)(dst.GetAddr()));
+    for (int i = 0; i < n0IdxShape; ++i) {
+        for (int j = 0; j < n1IdxShape; ++j) {
+            for (int k = 0; k < n2IdxShape; ++k) {
+                for (int l = 0; l < n3IdxShape; ++l) {
+                    for (int m = 0; m < n4IdxShape; ++m) {
+                        auto idxOffset = i * n0IdxStride + j * n1IdxStride + k * n2IdxStride + l * n3IdxStride + m;
+                        auto dstOffset = i * n0DstStride + j * n1DstStride + k * n2DstStride + l * n3DstStride + m;
+                        auto orgIdxValue = *(idxAddr + idxOffset);
+                        auto newIdxValue = 0;
+                        if constexpr (axis == 0) {
+                            newIdxValue = CALC_SRC0_INDEX(orgIdxValue, j, k, l, m);
+                        } else if (axis == 1) {
+                            newIdxValue = CALC_SRC0_INDEX(i, orgIdxValue, k, l, m);
+                        } else if (axis == 2) {
+                            newIdxValue = CALC_SRC0_INDEX(i, j, orgIdxValue, l, m);
+                        } else if (axis == 3) {
+                            newIdxValue = CALC_SRC0_INDEX(i, j, k, orgIdxValue, m);
+                        } else {
+                            newIdxValue = CALC_SRC0_INDEX(i, j, k, l, orgIdxValue);
+                        }
+                        *(idxAddr + idxOffset) = newIdxValue;
+                        if (scalarFlag) {
+                            dstAddr[dstOffset] = srcAddr[newIdxValue];
+                        }
+                    }
+                }
+            }
+        }
+    }
+    set_flag(PIPE_S, PIPE_V, EVENT_ID7);
+    wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
+
+    if constexpr (scalarFlag == false) {
+        constexpr auto dstTypeSize = sizeof(typename T0::Type);
+        constexpr auto idxTypeSize = sizeof(typename T2::Type);
+        constexpr auto srcTileShape1 = TileOp::GetOutterAxisMergeResult<shapeSize, typename T1::TileShape>();
+        using srcTileDefine = pto::Tile<pto::Location::Vec, typename T1::Type, srcTileShape1, srcTileW, pto::BLayout::RowMajor>;
+        using idxTileDefine = pto::Tile<pto::Location::Vec, typename T2::Type, idxTileH, idxTileW, pto::BLayout::RowMajor, -1, -1>;
+        using dstTileDefine = pto::Tile<pto::Location::Vec, typename T0::Type, idxTileH, idxTileW, pto::BLayout::RowMajor, -1, -1>;
+        srcTileDefine srcTile;
+        idxTileDefine idxTile(n3IdxShape, n4IdxShape);
+        dstTileDefine dstTile(n3IdxShape, n4IdxShape);
+        for (int i = 0; i < n0IdxShape; ++i) {
+            for (int j = 0; j < n1IdxShape; ++j) {
+                for (int k = 0; k < n2IdxShape; ++k) {
+                    auto offset = i * n0IdxStride + j * n1IdxStride + k * n2IdxStride;
+                    pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + offset * dstTypeSize));
+                    pto::TASSIGN(srcTile, (uint64_t)(src0.GetAddr()));
+                    pto::TASSIGN(idxTile, (uint64_t)(src1.GetAddr() + offset * idxTypeSize));
+                    pto::TGATHER(dstTile, srcTile, idxTile);
+                }
+            }
+        }
+    }
+}
+
+#endif

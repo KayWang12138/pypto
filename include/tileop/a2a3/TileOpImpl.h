@@ -35,6 +35,7 @@
 #include "../vec_reduce.h"
 #include "../vec_sort.h"
 #include "../dma_copy.h"
+#include "../vec_gather.h"
 #include "../vec_extract.h"
 #endif
 
