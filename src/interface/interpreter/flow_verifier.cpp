@@ -100,7 +100,6 @@ void FlowVerifier::VerifyTensorGraph(Function *entry,
 
         auto input = inputDataViewList[i];
         ASSERT(inputTensor->Datatype() == input->GetDataType());
-        ASSERT(inputTensor->GetShape() == input->GetShape());
         if (tileop == TileOpFormat::TILEOP_NZ) {
             slotTileOpFormatDict[inputSlotList[i]] = TileOpFormat::TILEOP_NZ;
         }

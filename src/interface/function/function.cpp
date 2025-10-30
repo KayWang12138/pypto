@@ -1539,6 +1539,7 @@ void Function::CreateFromIncast(const std::shared_ptr<LogicalTensor> &symbol,
     incastOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(originIncast->GetOffset(),
         originIncast->GetDynOffset(), validShape));
     newIncast->UpdateDynValidShape(validShape);
+    newIncast->GetRawTensor()->UpdateDynRawShape(validShape);
 }
 
 void Function::ReplaceMaybeParams(const std::shared_ptr<LogicalTensor> &newIncast,

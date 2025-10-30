@@ -250,7 +250,9 @@ struct LogicalTensorData {
             validShape_ = shape;
         }
         for (size_t i = 0; i < shape.size(); i++) {
-            validShape_[i] = std::min(shape[i], validShape_[i]);
+            if (shape[i] >= 0) {
+                validShape_[i] = std::min(shape[i], validShape_[i]);
+            }
         }
     }
 

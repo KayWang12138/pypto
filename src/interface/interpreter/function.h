@@ -146,7 +146,7 @@ struct FunctionFrame {
     }
 
     std::shared_ptr<LogicalTensorData> AllocateDataView(const std::shared_ptr<LogicalTensor> &tensor,
-        const std::vector<int64_t> &offset, const std::vector<int64_t> &validShape) {
+        const std::vector<int64_t> &offset, const std::vector<int64_t> &validShape, const std::vector<int64_t> &rawShape) {
         if (tensorDataViewDict.count(tensor)) {
             return tensorDataViewDict[tensor];
         }
@@ -160,7 +160,7 @@ struct FunctionFrame {
             if (spillRawTensorDict.count(tensor)) {
                 raw = spillRawTensorDict[tensor];
             } else {
-                raw = std::make_shared<RawTensor>(raw->GetDataType(), raw->GetRawShape());
+                raw = std::make_shared<RawTensor>(raw->GetDataType(), rawShape);
                 DoAddSpillRawTensor(tensor, raw);
             }
             isSpilled = true;
@@ -169,7 +169,7 @@ struct FunctionFrame {
         if (rawTensorDataDict.count(raw)) {
             rawData = rawTensorDataDict[raw];
         } else {
-            rawData = std::make_shared<RawTensorData>(raw->GetDataType(), raw->GetRawShape());
+            rawData = std::make_shared<RawTensorData>(raw->GetDataType(), rawShape);
             rawData->resize(rawData->GetElementSize() * rawData->GetSize());
             DoAddRawTensorDataView(raw, rawData);
         }
@@ -371,7 +371,8 @@ struct FunctionInterpreter {
         FunctionFrame &frame, const std::shared_ptr<LogicalTensor> &tensor) {
         std::vector<int64_t> offset = EvaluateOffset(tensor->GetOffset(), tensor->GetDynOffset());
         auto validShape = EvaluateValidShape(tensor->GetDynValidShape());
-        auto ret = frame.AllocateDataView(tensor, offset, validShape);
+        auto rawShape = EvaluateValidShape(tensor->GetRawTensor()->GetDynRawShape());
+        auto ret = frame.AllocateDataView(tensor, offset, validShape, rawShape);
         return ret;
     }
 
