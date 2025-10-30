@@ -33,9 +33,9 @@ Status CheckIOOperands(const Operation &op, LogicalTensorPtr &in, LogicalTensorP
 }
 
 Status RemoveRedundantReshape::RunOnFunction(Function &function) {
-    ALOG_INFO_F("===> Start RemoveRedundantShapePass for function [%s].", function.GetRawName().c_str());
+    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Start RemoveRedundantReshape for function [%s].", function.GetRawName().c_str());
     if (RemoveReshape(function) != SUCCESS) {return FAILED;}
-    ALOG_INFO_F("===> End RemoveRedundantShapePass for function [%s].", function.GetRawName().c_str());
+    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "End RemoveRedundantReshape for function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }
 
@@ -47,11 +47,15 @@ Status RemoveRedundantReshape::RemoveReshape(Function &function) const {
         if (op.GetOpcode() != Opcode::OP_RESHAPE) {
             continue;
         }
-        if (CheckIOOperands(op, in, out) != SUCCESS) {return FAILED;}
+        if (CheckIOOperands(op, in, out) != SUCCESS) {
+            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Op [%d] has invalid input or output operands; Check if op has valid input and output.", op.GetOpMagic());
+            return FAILED;}
         auto consumers = out->GetConsumers();
         bool allConsumersIsReshape = true;
         for (auto &consumerOp : consumers) {
-            if (consumerOp == nullptr) {return FAILED;}
+            if (consumerOp == nullptr) {
+                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Consumer of op [%d] is null; Check if consumer is valid.", op.GetOpMagic());
+                return FAILED;}
             if (in->shape != out->shape && consumerOp->GetOpcode() != Opcode::OP_RESHAPE) {
                 allConsumersIsReshape = false;
                 continue;
@@ -59,14 +63,16 @@ Status RemoveRedundantReshape::RemoveReshape(Function &function) const {
             consumerOp->ReplaceInput(in, out);
         }
         if (allConsumersIsReshape == true) {
-            ALOG_DEBUG_F("All consummers of op [%d] are reshape.", op.GetOpMagic());
+            APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "All consummers of op [%d] are reshape.", op.GetOpMagic());
             redundantResapes.insert(&op);
         }
     }
     if (!redundantResapes.empty()) {
         for (auto &ele : redundantResapes) {
-            ALOG_DEBUG_F("Delete OP_RESHAPE, magic %d", ele->GetOpMagic());
-            if (ele->IsDeleted()) {return FAILED;}
+            APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "Delete OP_RESHAPE, magic %d.", ele->GetOpMagic());
+            if (ele->IsDeleted()) {
+                APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "Op [%d] is already marked as deleted.", ele->GetOpMagic());
+                return FAILED;}
             ele->SetAsDeleted();
         }
         function.EraseOperations(false);

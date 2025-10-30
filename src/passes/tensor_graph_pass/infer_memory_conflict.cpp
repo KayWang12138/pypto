@@ -20,17 +20,17 @@
 namespace npu {
 namespace tile_fwk {
 Status InferMemoryConflict::RunOnFunction(Function &function) {
-    ALOG_INFO_F("===> Start InferMemoryConflict for function [%s].", function.GetRawName().c_str());
+    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Start InferMemoryConflict for function [%s].", function.GetRawName().c_str());
     Init(function);
-    if (InferFromIncast(function) != SUCCESS) {
-        ALOG_ERROR_F("Infer INCAST and OUTCAST address failed.");
+    if (InferFromIncast(function) != SUCCESS) { 
+        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Infer INCAST and OUTCAST address failed; Try to roll back changes.");
         return FAILED;
     }
     if (InsertTensorCopy(function) != SUCCESS) {
-        ALOG_ERROR_F("Insert copy op failed.");
+        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Insert copy op failed; Try to roll back changes.");
         return FAILED;
     }
-    ALOG_INFO_F("===> End InferMemoryConflict for function [%s].", function.GetRawName().c_str());
+    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "End InferMemoryConflict for function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }
 
@@ -38,7 +38,7 @@ bool InferMemoryConflict::IsValidTileShape(const Operation &op) const {
     auto input = op.GetIOperands().front();
     VecTile tileSize = op.GetTileShape().GetVecTile();
     if (input->GetShape().size() != tileSize.size()) {
-        ALOG_ERROR_F("%s[%d] has unequal input shape dims size and tile shape dims, input shape: %s, tile size: %s", 
+        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "%s[%d] has unequal input shape dims size and tile shape dims, input shape: %s, tile size: %s; Check the tile shape configuration.",
             op.GetOpcodeStr().c_str(), op.GetOpMagic(),
             input->DumpType().c_str(), op.GetTileShape().toString(TileType::VEC).c_str());
         return false;
@@ -49,7 +49,7 @@ bool InferMemoryConflict::IsValidTileShape(const Operation &op) const {
 std::vector<std::pair<LogicalTensorPtr, Operation *>> GetInplacedTensors(LogicalTensorPtr targetTensor) {
     std::set<Opcode> inplaceNodes{Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_RESHAPE, Opcode::OP_INDEX_OUTCAST};
     std::vector<std::pair<LogicalTensorPtr, Operation *>> inplacedTensor;
-    for (auto &producer : targetTensor->GetProducers()) {
+    for (auto &producer : targetTensor->GetProducers()) {  
         if (inplaceNodes.count(producer->GetOpcode()) == 0) {
             continue;
         }
@@ -95,7 +95,7 @@ std::vector<std::pair<LogicalTensorPtr, Operation *>> InferMemoryConflict::Filte
     }
     for (size_t i = 0; i < inplaceTensors.size(); ++i) {
         if (IsInOutConflict(function, parentRawTensor_[inplaceTensors[i].first], targetParentIter->second)) {
-            ALOG_DEBUG_F("[MemConflict] Input tensor [%d] (parent tensor [%d]) is conflict with outcast [%d].",
+            APASS_LOG_DEBUG_F(GetName().c_str(), "Tensor", "Input tensor [%d] (parent tensor [%d]) is conflict with outcast [%d]; Need to insert a copy operation.",
                 inplaceTensors[i].first->GetMagic(), parentRawTensor_[inplaceTensors[i].first]->GetMagic(), targetParentIter->second->GetMagic());
             needInsertCopys.emplace_back(inplaceTensors[i]);
         }
@@ -177,11 +177,11 @@ Status InferMemoryConflict::InsertTensorCopy(Function &function) {
             LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(function, newRawTensor, newOffset,
                 inputTensor->GetShape(), inputTensor->GetDynValidShape());
             auto &tensorCopyOp = function.AddRawOperation(Opcode::OP_REGISTER_COPY, {inputTensor}, {newTensor});
-            ALOG_DEBUG_F("[MemConflict] Insert copy op [%d].", tensorCopyOp.GetOpMagic());
+            APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "Insert copy op [%d];", tensorCopyOp.GetOpMagic());
             auto producerParentOp = *(inplaceNode.second->ProducerOps().begin());
             auto tileShapeSize = producerParentOp->GetTileShape().GetVecTile().size();
             if (tileShapeSize == 0 || tileShapeSize != inputTensor->GetShape().size()) {
-                ALOG_WARN_F("[MemConflict] Inserted op's producerop [%d] has no tile shape.", producerParentOp->GetOpMagic());
+                APASS_LOG_WARN_F(GetName().c_str(), "Operation", "Inserted op's producerop [%d] has no tile shape.", producerParentOp->GetOpMagic());
                 TileShape tile;
                 std::vector<int64_t> defaultTile(inputTensor->GetShape().size(), 1);
                 const int64_t defaultTileSize = 128;
@@ -195,7 +195,7 @@ Status InferMemoryConflict::InsertTensorCopy(Function &function) {
                 tensorCopyOp.UpdateTileShape(producerParentOp->GetTileShape());
             }
             if (!IsValidTileShape(tensorCopyOp)) {
-                ALOG_ERROR_F("Invalid tile size for %s[%d].", tensorCopyOp.GetOpcodeStr().c_str(), tensorCopyOp.GetOpMagic());
+                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Invalid tile size for [%d]; Check if the previous logs for Tensor shape and Tile Shape setting details.", tensorCopyOp.GetOpMagic());
                 return FAILED;
             }
             inputTensor->RemoveConsumer(inplaceNode.second);
