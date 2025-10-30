@@ -68,12 +68,16 @@ struct TileTensor {
     std::string GenInitParam() const {
         std::ostringstream oss;
         std::vector<std::string> params;
-        // (__ubuf__ float*)UB_S0_E16384
+        // ddr: e.g. (__gm__ float*)GET_PARAM_ADDR(...)
+        // local: e.g. (uint64_t)UB_S0_E16384
         oss << "(";
         if (bufType == BUF_DDR) {
-            oss << OPERAND_TYPE_TO_ADDR_TYPE.at(bufType) << " ";
+            oss << OPERAND_TYPE_TO_ADDR_TYPE.at(bufType) << " " << DataType2CCEStr(dtype) << "*)";
+        } else {
+            // cast local buffer pointer to uint64_t to adapt TileTensor mode
+            oss << "uint64_t)";
         }
-        oss << DataType2CCEStr(dtype) << "*)" << bufVar;
+        oss << bufVar;
         if (isStatic && bufType != BUF_DDR) {
             return "(" + oss.str() + ")";
         }

@@ -139,7 +139,7 @@ TEST_F(TestCodegenSpillOut, UBSpillOutTileTensor) {
     cop.UpdateTileTensorInfo();
 
     std::string res = symbolMgr.GenTileTensorDefList();
-    std::string expect = R"!!!(UBTileTensorFP32Dim2_1 ubTensor_1((float*)UB_S0_E0_T);
+    std::string expect = R"!!!(UBTileTensorFP32Dim2_1 ubTensor_1((uint64_t)UB_S0_E0_T);
 GMTileTensorFP32Dim2_0 gmTensor_0((__gm__ float*)((__gm__ uint8_t*)GMStackBase + 16), DynLayout2Dim(Shape2Dim(64, 64), Stride2Dim(64, 1)));
 )!!!";
     EXPECT_EQ(res, expect);
