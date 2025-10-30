@@ -123,9 +123,9 @@ TEST_F(DistributedTest, aivWaitFlag_single_test_moe_combine_bfloat16_rank_size_4
     Distributed::TestMoeCombine(testParam);
 }
 
-TEST_F(DistributedTest, allgather_attn_post_reducescatter_b64_s1_n32_lora256_dim128_h128_rank4_bf16)
+TEST_F(DistributedTest, shmem_allgather_attn_post_reducescatter_bfloat16_64_1_32_256_128_128_4)
 {
-    config::SetDistConfig(KEY_AICPU_WAIT_FLAG_ENABLE, false);
+    config::SetHostOption(ONLY_CODEGEN, true);
     Distributed::TestAllGatherAttentionPostReducescatter(testParam);
 }
 

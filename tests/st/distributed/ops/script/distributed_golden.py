@@ -518,24 +518,22 @@ def gen_allgather_attnpost_reducescatter_case(case: AllGatherAttnPostReducescatt
         ).to(dtype=dtype)
         reduce_scatter_inputs.append(attention_output)
 
-    reduce_scatter_output = torch.stack(reduce_scatter_inputs, dim=0).to(torch.float32)
-    reduce_scatter_output = torch.sum(reduce_scatter_output, dim=0).to(dtype)
-    batch_per_rank = batch_size * seq_len // rank_size
-    for rank in range(rank_size):
-        rank_reduce_scatter_output = reduce_scatter_output[rank * batch_per_rank: (rank + 1) * batch_per_rank]
-        save_tensor(rank_reduce_scatter_output, save_dir / f'rs_out_rank_{rank}.bin')
+    reduce_scatter_and_save(reduce_scatter_inputs, batch_size * seq_len, rank_size, save_dir, 'rs_out')
 
 
 def generate_allgather_attn_post_reducescatter_golden(case_name: str, save_dir: pathlib.Path) -> None:
+    parts = case_name.split('_')
+    if len(parts) < 8:
+        raise ValueError(f'case_name {case_name} format is error.')
     case = AllGatherAttnPostReducescatterCase(
-        batch_size=64,
-        seq_len=1,
-        num_heads=32,
-        kv_lora_rank=256,
-        value_head_dim=128,
-        output_hidden_size=128,
-        rank_size=4,
-        dtype=torch.bfloat16,
+        dtype=get_dtype(parts[-8]),
+        batch_size=int(parts[-7]),
+        seq_len=int(parts[-6]),
+        num_heads=int(parts[-5]),
+        kv_lora_rank=int(parts[-4]),
+        value_head_dim=int(parts[-3]),
+        output_hidden_size=int(parts[-2]),
+        rank_size=int(parts[-1]),
     )
     gen_allgather_attnpost_reducescatter_case(case, save_dir)
 
@@ -564,7 +562,7 @@ OPERATOR_DISPATCHERS = [
         'DistributedTest.shmem_reduce_scatter_int32_128_256_4',
         'DistributedTest.aivWaitFlag_single_test_moe_dispatch_bfloat16_rank_size_4',
         'DistributedTest.aivWaitFlag_single_test_moe_combine_bfloat16_rank_size_4',
-        'DistributedTest.allgather_attn_post_reducescatter_b64_s1_n32_lora256_dim128_h128_rank4_bf16',
+        'DistributedTest.shmem_allgather_attn_post_reducescatter_bfloat16_64_1_32_256_128_128_4',
         'DistributedTest.shmem_allgather_matmul_reducescatter_int32_128_256_4',
         'DistributedTest.shmem_reduce_scatter_float16_128_256_4',
         'DistributedTest.shmem_reduce_scatter_bfloat16_32_32_4'
