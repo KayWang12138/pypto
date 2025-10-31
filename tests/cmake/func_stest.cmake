@@ -63,6 +63,24 @@ function(PTO_Fwk_STest_AddLib)
     set(PTO_Fwk_STestCaseGoldenScriptPathList ${PTO_Fwk_STestCaseGoldenScriptPathList} ${ARG_GOLDEN_SCRIPT_DIR} CACHE INTERNAL "" FORCE)
 endfunction()
 
+function(PTO_Fwk_STest_GetGTestFilterList GTEST_FILTER_LIST)
+    get_filename_component(_ClsFile "${PTO_FWK_SRC_ROOT}/tests/st/configs/classify_rule.yaml" REALPATH)
+    PTO_Fwk_GTest_GetGTestFilterStr(GTestFilterStr
+            CLASSIFY        ${_ClsFile}
+            TESTS_TYPE      stest
+            TESTS_GROUP     ${ENABLE_STEST_GROUP}
+            CHANGED_FILE    ${ENABLE_TESTS_EXECUTE_CHANGED_FILE}
+    )
+    string(REPLACE ":" ";" GTestFilterList "${GTestFilterStr}")
+    list(LENGTH GTestFilterList YamlGTestFilterListLen)
+    list(APPEND GTestFilterList ${PTO_Fwk_STestCaseGTestFilterList})
+    list(REMOVE_DUPLICATES GTestFilterList)
+    set(${GTEST_FILTER_LIST} ${GTestFilterList} PARENT_SCOPE)
+    list(LENGTH PTO_Fwk_STestCaseGTestFilterList CMakeGTestFilterListLen)
+    list(LENGTH GTestFilterList RstGTestFilterListLen)
+    message(STATUS "GetSTestFilterList: Yaml(${YamlGTestFilterListLen}), CMake(${CMakeGTestFilterListLen}), Total(${RstGTestFilterListLen})")
+endfunction()
+
 # STest 执行可执行程序 (性能工具)
 function(PTO_Fwk_STest_RunExe_ToolsProf)
     cmake_parse_arguments(
@@ -306,7 +324,7 @@ function(PTO_Fwk_STest_AddExe_RunExe)
             "TILE_FWK_STEST_GOLDEN_PATH=${ENABLE_STEST_GOLDEN_PATH}"
             "TILE_FWK_DEVICE_ID=${TileFwkStestExecuteDeviceIdPref}"
     )
-    set(GTestFilterList ${PTO_Fwk_STestCaseGTestFilterList})
+    PTO_Fwk_STest_GetGTestFilterList(GTestFilterList)
     if (NOT "${ENABLE_STEST}" STREQUAL "ON")
         set(GTestFilterList ${ENABLE_STEST})
         string(REPLACE ":" ";" GTestFilterList "${GTestFilterList}")

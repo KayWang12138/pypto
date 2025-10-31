@@ -237,3 +237,38 @@ function(PTO_Fwk_GTest_AddExe)
         COMMENT "Soft link include directory has been created at ${PTO_FWK_BIN_ROOT}/src/include/tile_fwk"
     )
 endfunction()
+
+# 用于获取 GTestFilter(str)
+#[[
+Parameters:
+  one_value_keywords:
+      CLASSIFY                      : [Required] Classify 配置文件
+      TESTS_TYPE                    : [Required] 测试类型, 支持 [utest, stest]
+      TESTS_GROUP                   : [Optional] 测试分组
+      CHANGED_FILE                  : [Optional] 修改文件
+]]
+function(PTO_Fwk_GTest_GetGTestFilterStr GTEST_FILTER_STR)
+    cmake_parse_arguments(
+            ARG
+            ""
+            "CLASSIFY;TESTS_TYPE;TESTS_GROUP;CHANGED_FILE"
+            ""
+            ""
+            ${ARGN}
+    )
+    get_filename_component(_Py "${PTO_FWK_SRC_ROOT}/cmake/scripts/analysis_changed_files.py" REALPATH)
+    set(_Args "-r=${ARG_CLASSIFY}" "-t=${ARG_TESTS_TYPE}")
+    if (ARG_TESTS_GROUP AND NOT "${ARG_TESTS_GROUP}" STREQUAL "ON")
+        string(REPLACE ":" "," TestsGroupStr "${ARG_TESTS_GROUP}")
+        list(APPEND _Args "-g=${TestsGroupStr}")
+    endif ()
+    if (ARG_CHANGED_FILE AND NOT "${ARG_CHANGED_FILE}" STREQUAL "ON")
+        list(APPEND _Args "-c=${ARG_CHANGED_FILE}")
+    endif ()
+    execute_process(
+            COMMAND ${Python3_EXECUTABLE} ${_Py} ${_Args}
+            OUTPUT_VARIABLE OutputVariable
+    )
+    string(REPLACE "," ":" OutputVariable "${OutputVariable}")
+    set(${GTEST_FILTER_STR} ${OutputVariable} PARENT_SCOPE)
+endfunction()

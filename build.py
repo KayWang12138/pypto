@@ -251,6 +251,8 @@ class TestsExecuteParam(CMakeParam):
         cmd: str = ""
         cmd += self._cfg_require(opt="ENABLE_TESTS_EXECUTE", ctr=self.auto_execute)
         cmd += self._cfg_require(opt="ENABLE_TESTS_EXECUTE_PARALLEL", ctr=self.auto_execute_parallel)
+        changed: bool = self.changed_file and self.changed_file.exists() and self.changed_file.suffix.lower() == ".txt"
+        cmd += self._cfg_require(opt="ENABLE_TESTS_EXECUTE_CHANGED_FILE", ctr=changed, tv=str(self.changed_file))
         return cmd
 
 
@@ -436,6 +438,7 @@ class TestsParam(CMakeParam):
         self.stest_exec: STestExecuteParam = STestExecuteParam(args=args, enable_binary_cache=self.exec.ci_model)
         self.stest_tools: STestToolsParam = STestToolsParam()
         self.stest: TestsFilterParam = TestsFilterParam(argv=args.stest, opt="ENABLE_STEST")
+        self.stest_group: TestsFilterParam = TestsFilterParam(argv=args.stest_group, opt="ENABLE_STEST_GROUP")
         self.stest_distributed: TestsFilterParam = TestsFilterParam(argv=args.stest_distributed,
                                                                     opt="ENABLE_STEST_DISTRIBUTED")
 
@@ -464,6 +467,7 @@ class TestsParam(CMakeParam):
                 desc += f"\n    Stest"
                 desc += f"\n                     Enable : {self.stest.enable}"
                 desc += f"\n                     Filter : {self.stest.filter_str}"
+                desc += f"\n                     Group  : {self.stest_group.filter_str}"
                 if self.stest_tools.prof_enable:
                     desc += f"\n        Tools"
                     desc += f"\n              Case Csv File : {self.stest_tools.cases_csv_file}"
@@ -489,6 +493,7 @@ class TestsParam(CMakeParam):
         STestExecuteParam.reg_args(parser=parser)
         STestToolsParam.reg_args(parser=ext)
         TestsFilterParam.reg_args(parser=parser, ext="stest")
+        TestsFilterParam.reg_args(parser=parser, ext="stest_group")
         TestsFilterParam.reg_args(parser=parser, ext="stest_distributed")
 
     def get_cfg_cmd(self) -> str:
@@ -502,6 +507,7 @@ class TestsParam(CMakeParam):
                 cmd += self.golden.get_cfg_cmd()
                 cmd += self.stest_exec.get_cfg_cmd()
             if self.stest.enable:
+                cmd += self.stest_group.get_cfg_cmd()
                 cmd += self.stest_tools.get_cfg_cmd()
         return cmd
 
