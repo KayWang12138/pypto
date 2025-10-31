@@ -33,6 +33,7 @@ constexpr int IS_NUM19 = 19;
 constexpr int IS_NUM20 = 20;
 constexpr int IS_NUM29 = 29;
 constexpr int IS_NUM30 = 30;
+constexpr int IS_NUM32 = 32;
 constexpr int IS_NUM39 = 39;
 constexpr int IS_NUM40 = 40;
 constexpr int IS_NUM49 = 49;
@@ -251,8 +252,8 @@ TEST_F(InsertSyncTest, TestFindDep) {
 
     // test ignorable intra pipe dep
     EXPECT_EQ(ps.IgnorableIntraPipeDep(0, IS_NUM4, opLogPtr), false);
-    tensor2->shape = {IS_NUM16, IS_NUM16, IS_NUM16};
-    EXPECT_EQ(ps.IgnorableIntraPipeDep(0, IS_NUM4, opLogPtr), true);
+    tensor2->shape = {IS_NUM16, IS_NUM32, IS_NUM32};
+    EXPECT_EQ(ps.IgnorableIntraPipeDep(0, IS_NUM4, opLogPtr), false);
 
     // test AdjustOpCfg
     auto opcfg1 = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[1]->GetOpcode());

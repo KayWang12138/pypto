@@ -237,7 +237,6 @@ private:
     bool CheckWarDependency(const Operation *opSet, const Operation *opWait, size_t k, size_t idx) const;
     bool HasDataDependency(const Operation *opSet, const Operation *opWait, size_t k, size_t idx) const;
     void UpdateDep(DepOp &currOp, DepOp &prevOp);
-    bool CheckNotIgnorableCase(size_t prev, size_t curr, const std::vector<Operation *> opLogPtr);
     bool IgnorableIntraPipeDep(size_t prev, size_t curr, const std::vector<Operation *> opLogPtr);
     void FindDep(DepOp &op, const std::vector<Operation *> opLogPtr, size_t idx, DataDependencySearcher& dataDependencySearcher);
     std::deque<int> &GetFreeEventIdQueue(const PipePair &pp);
@@ -262,7 +261,6 @@ private:
     static constexpr int EVENT_NUM = 8;
     static constexpr int CV_EVENT_NUM = 16;
     static constexpr int EVENT_ID7 = 7;
-    static constexpr int IGNORABLE_REPEAT_SIZE = 24;
     int maxOpMagic{0};
     int minimalMergeOverlap{25};
     std::unordered_map<PipePair, std::vector<int>, PipePairHash> doublePipeOp; // pipepair, opmagic

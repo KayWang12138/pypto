@@ -1183,47 +1183,13 @@ void PipeSync::UpdateDep(DepOp &currOp, DepOp &prevOp) {
     }
 }
 
-bool PipeSync::CheckNotIgnorableCase(size_t prev, size_t curr, const std::vector<Operation *> opLogPtr) {
-    auto &prevOp = opLogPtr[prev];
-    auto &depPrevOp = depOps_[prev];
-    auto &depCurrOp = depOps_[curr];
-    // different pipe core type datandependency cannot be ignored
-    if (depPrevOp.selfPipeCore.pipeEnd != depCurrOp.selfPipeCore.pipeStart || depPrevOp.selfPipeCore.core != depCurrOp.selfPipeCore.core) {
-        return false;
-    }
-    // only check pipe_barrier(PIPE_V) and pipe_barrier(PIPE_M)
-    PipeCoreReal prevOpPipeCore(depPrevOp.selfPipeCore.pipeEnd, depPrevOp.selfPipeCore.core);
-    if (prevOpPipeCore != PipeCoreReal{PIPE_V, CoreType::AIV} && prevOpPipeCore != PipeCoreReal{PIPE_M, CoreType::AIC}) {
-        return false;
-    }
-    // only consider single output
-    if (prevOp->GetOOperands().size() != 1) {
-        return false;
-    }
-    return true;
-}
-
 bool PipeSync::IgnorableIntraPipeDep(size_t prev, size_t curr, const std::vector<Operation *> opLogPtr) {
     // true表示依赖关系可忽略，false表示依赖关系不可忽略
-    auto &prevOp = opLogPtr[prev];
     // VIEW or ASSEMBLE data dependency can be ignored
     if (opLogPtr[prev]->GetOpcode() == Opcode::OP_VIEW || opLogPtr[curr]->GetOpcode() == Opcode::OP_VIEW ||
         opLogPtr[prev]->GetOpcode() == Opcode::OP_ASSEMBLE || opLogPtr[curr]->GetOpcode() == Opcode::OP_ASSEMBLE) {
         APASS_LOG_DEBUG_F("InsertSync", "Operation", "%d %s and %d %s dependency is ignorable because op is VIEW or ASSEMBLE",
             opLogPtr[prev]->GetOpMagic(), opLogPtr[prev]->GetOpcodeStr().c_str(), opLogPtr[curr]->GetOpMagic(), opLogPtr[curr]->GetOpcodeStr().c_str());
-        return true;
-    }
-    if (!CheckNotIgnorableCase(prev, curr, opLogPtr)) {
-        return false;
-    }
-    auto outputShape = prevOp->GetOOperands()[0]->shape;
-    auto dtype = prevOp->GetOOperands()[0]->tensor->datatype;
-    int repeatsize = std::accumulate(outputShape.begin(), outputShape.end(), 1, std::multiplies<int64_t>()) * BytesOf(dtype) / 256;
-    // pipe_barrier can be safely ignored when intrins REPEAT > 24
-    if (repeatsize > IGNORABLE_REPEAT_SIZE) {
-        APASS_LOG_DEBUG_F("InsertSync", "Operation", "%d %s and %d %s dependency is ignorable because pipeBarrier can"
-            " be safely ignored when intrins REPEAT > 24, now REPEAT is %d", opLogPtr[prev]->GetOpMagic(), opLogPtr[prev]->GetOpcodeStr().c_str(), 
-            opLogPtr[curr]->GetOpMagic(), opLogPtr[curr]->GetOpcodeStr().c_str(), repeatsize);
         return true;
     }
     return false;
