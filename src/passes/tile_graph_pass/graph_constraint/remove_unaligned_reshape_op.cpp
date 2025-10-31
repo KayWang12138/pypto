@@ -15,6 +15,7 @@
 
 #include "remove_unaligned_reshape_op.h"
 #include "passes/pass_utils/graph_utils.h"
+#include "passes/pass_utils/pass_utils.h"
 
 namespace npu::tile_fwk {
 /*
@@ -25,7 +26,7 @@ after:
     add->copyout->reshape->copyin->mul
 */
 Status RemoveUnalignedReshape::RunOnFunction(Function &function) {
-    ALOG_INFO_F("===> start RemoveUnalignedReshape");
+    APASS_LOG_INFO_F(this->GetName().c_str(), "Operation", "===> start RemoveUnalignedReshape");
     ReplaceDynUnalignedReshapeOps(function);
     CollectReshapeOps(function);
     for (auto &a : copyOuts) {
@@ -36,8 +37,8 @@ Status RemoveUnalignedReshape::RunOnFunction(Function &function) {
             OpImmediate::Specified(newCopyOut.oOperand.front()->tensor->GetDynRawShape())));
         auto producerOp = *(a.input->GetProducers().begin());
         newCopyOut.UpdateSubgraphID(producerOp->GetSubgraphID());
-        ALOG_INFO_F("ADD OP_COPY_OUT, magic %d ,IOperand tensor magic %d OOperand tensor magic %d", newCopyOut.opmagic,
-            a.input->magic, a.output->magic);
+        APASS_LOG_INFO_F(this->GetName().c_str(), "Operation", "ADD OP_COPY_OUT, magic %d ,IOperand tensor magic %d OOperand tensor magic %d",
+            newCopyOut.opmagic, a.input->magic, a.output->magic);
     }
     for (auto &b : copyIns) {
         GraphUtils::CopyDynStatus(b.input, b.output);
@@ -48,10 +49,10 @@ Status RemoveUnalignedReshape::RunOnFunction(Function &function) {
             OpImmediate::Specified(newCopyIn.iOperand.front()->GetDynValidShape())));
         auto consumerOp = *(b.output->GetConsumers().begin());
         newCopyIn.UpdateSubgraphID(consumerOp->GetSubgraphID());
-        ALOG_INFO_F("ADD OP_VIEW, magic %d ,IOperand tensor magic %d OOperand tensor magic %d", newCopyIn.opmagic,
-            b.input->magic, b.output->magic);
+        APASS_LOG_INFO_F(this->GetName().c_str(), "Operation", "ADD OP_VIEW, magic %d ,IOperand tensor magic %d OOperand tensor magic %d",
+            newCopyIn.opmagic, b.input->magic, b.output->magic);
     }
-    ALOG_INFO_F("===> end RemoveUnalignedReshape");
+    APASS_LOG_INFO_F(this->GetName().c_str(), "Operation", "===> end RemoveUnalignedReshape");
     return SUCCESS;
 }
 
@@ -123,19 +124,17 @@ std::vector<int64_t> FindChangedDims(const std::vector<int64_t>& inputShapes, co
 }
 
 void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOps(Function &function) {
-    ALOG_INFO_F("===> start ReplaceDynUnalignedReshapeOps");
+    APASS_LOG_INFO_F(this->GetName().c_str(), "Operation", "===> start ReplaceDynUnalignedReshapeOps");
     // 寻找到无法处理的reshape op
     for (auto &op : function.Operations()) {
-        if (op.GetOpcode() != Opcode::OP_RESHAPE) {
+        if (op.GetOpcode() != Opcode::OP_RESHAPE)
             continue;
-        }
 
         auto input = op.GetIOperands().front();
         auto output = op.GetOOperands().front();
         // only support ub reshape yet
-        if ((input->GetMemoryTypeOriginal() != MemoryType::MEM_UB) || (output->GetMemoryTypeOriginal() != MemoryType::MEM_UB)) {
+        if ((input->GetMemoryTypeOriginal() != MemoryType::MEM_UB) || (output->GetMemoryTypeOriginal() != MemoryType::MEM_UB)) 
             continue;
-        }
 
         auto inputShapes = input->shape;
         auto outputShapes = output->shape;
@@ -179,7 +178,8 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOps(Function &function) {
                     OpImmediate::Specified(output->GetDynValidShape())
                 ));
 
-                ALOG_INFO_F("reshape op %d is replaceed by reshapeCopyOutOp %d and reshapeCopyInOp %d", op.opmagic, reshapeCopyOutOp.opmagic, reshapeCopyInOp.opmagic);
+                APASS_LOG_INFO_F(this->GetName().c_str(), "Operation","reshape op %d is replaceed by reshapeCopyOutOp %d and reshapeCopyInOp %d", 
+                    op.opmagic, reshapeCopyOutOp.opmagic, reshapeCopyInOp.opmagic);
                 break;
             }
         }
@@ -187,7 +187,7 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOps(Function &function) {
 
     function.EraseOperations(true, false);
 
-    ALOG_INFO_F("===> end ReplaceDynUnalignedReshapeOps");
+    APASS_LOG_INFO_F(this->GetName().c_str(), "Operation", "===> end ReplaceDynUnalignedReshapeOps");
 }
 
 void RemoveUnalignedReshape::CollectReshapeOps(Function &function) {

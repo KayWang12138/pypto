@@ -28,9 +28,9 @@ public:
 
 private:
     Status RunOnFunction(Function &function) override {
-        ASLOGI("===> Start CopyOutResolve.");
+        APASS_LOG_INFO_F(this->GetName().c_str(), "Operation", "===> Start CopyOutResolve.");
         CopyOutResolveCall(function);
-        ASLOGI("===> End CopyOutResolve.");
+        APASS_LOG_INFO_F(this->GetName().c_str(), "Operation", "===> End CopyOutResolve.");
         return SUCCESS;
     }
     void CopyOutResolveCall(Function &function) const;
