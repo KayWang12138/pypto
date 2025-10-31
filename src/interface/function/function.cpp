@@ -1937,12 +1937,12 @@ Json Function::DumpJson(bool useTable) {
 
     Json operations = Json::array();
     if (useTable) {
-        for (const auto &op : Operations()) {
-            operations.push_back(op.DumpJson(false));
+        for (const auto &op : operations_) {
+            operations.push_back(op->DumpJson(false));
         }
     } else {
-        for (const auto &op : Operations()) {
-            operations.push_back(op.DumpJson(true));
+        for (const auto &op : operations_) {
+            operations.push_back(op->DumpJson(true));
         }
     }
     funcDump["operations"] = operations;
@@ -2002,12 +2002,12 @@ Json Function::DumpJson(bool useTable) {
             tensorSet.insert(outcast);
             rawTensorSet.insert(outcast->tensor);
         }
-        for (const auto &op : Operations()) {
-            for (auto &i : op.GetIOperands()) {
+        for (const auto &op : operations_) {
+            for (auto &i : op->GetIOperands()) {
                 tensorSet.insert(i);
                 rawTensorSet.insert(i->tensor);
             }
-            for (auto &o : op.GetOOperands()) {
+            for (auto &o : op->GetOOperands()) {
                 tensorSet.insert(o);
                 rawTensorSet.insert(o->tensor);
             }
