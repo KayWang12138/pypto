@@ -27,7 +27,7 @@ class ScatterParamInfo:
 
 
 def scatter_2dim_comm_proc(scatter_para, scatter_func):
-    pto.device_init()
+    pto.runtime._device_init()
     src_shape = scatter_para.src_shape
     indices_shape = scatter_para.indices_shape
     view_shape = scatter_para.view_shape
@@ -49,13 +49,13 @@ def scatter_2dim_comm_proc(scatter_para, scatter_func):
                         tmp_dst_tensor = pto.tensor(view_shape, pto.DT_FP32, "PTO_TENSOR_TMP")
                         view_tensor_src = pto.view(self_tensor, view_shape,
                             [b_idx * view_shape[0], s_idx * view_shape[1]],
-                            [(pto.symbolic_scalar(src_shape[0]) -
+                            valid_shape=[(pto.symbolic_scalar(src_shape[0]) -
                                 b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
                              (pto.symbolic_scalar(src_shape[1]) -
                                 s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                         view_tensor_index = pto.view(indices_tensor, view_shape,
                             [b_idx * view_shape[0], s_idx * view_shape[1]],
-                            [(pto.symbolic_scalar(indices_shape[0]) -
+                            valid_shape=[(pto.symbolic_scalar(indices_shape[0]) -
                                 b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
                              (pto.symbolic_scalar(indices_shape[1]) -
                                 s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
@@ -70,7 +70,7 @@ def scatter_2dim_comm_proc(scatter_para, scatter_func):
     a_data = input0_tensor.reshape(src_shape[0] * src_shape[1]).tolist()
     b_data = input1_tensor.reshape(indices_shape[0] * indices_shape[1]).tolist()
     c_data = list([0] * src_shape[0] * src_shape[1])
-    pto.device_run_once_data_from_host([a_data, b_data], [c_data])
+    pto.runtime._device_run_once_data_from_host([a_data, b_data], [c_data])
 
     result = copy.copy(input0_tensor)
     for i in range(indices_shape[0]):
@@ -81,7 +81,7 @@ def scatter_2dim_comm_proc(scatter_para, scatter_func):
                 result[i][input1_tensor[i][j]] = scatter_para.sdata
 
     assert c_data == result.reshape(src_shape[0] * src_shape[1]).tolist()
-    pto.device_fini()
+    pto.runtime._device_fini()
 
 
 @pytest.mark.skip(reason="Dep operation interface")

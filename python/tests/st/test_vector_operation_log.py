@@ -26,7 +26,7 @@ def test_vector_operation_log():
     view_shape = (16, 16)
     tile_shape = (8, 8)
 
-    pto.device_init()
+    pto.runtime._device_init()
 
     a = pto.tensor((n, m), pto.DT_FP32, "LOG_TENSOR_a")
     b = pto.tensor((n, m), pto.DT_FP32, "LOG_TENSOR_b")
@@ -38,7 +38,7 @@ def test_vector_operation_log():
             with pto.loop_function("LOOP_LOG_L1", "s_idx", loop_range_s) as sloop:
                 for b_idx in bloop:
                     for s_idx in sloop:
-                        tile_a = pto.view(a, view_shape, [b_idx * view_shape[0], s_idx * view_shape[1]], [pto.min(pto.symbolic_scalar(n) - b_idx * view_shape[0],
+                        tile_a = pto.view(a, view_shape, [b_idx * view_shape[0], s_idx * view_shape[1]], valid_shape=[pto.min(pto.symbolic_scalar(n) - b_idx * view_shape[0],
                                           pto.symbolic_scalar(n)), pto.min(pto.symbolic_scalar(m) - b_idx * view_shape[1],
                                           pto.symbolic_scalar(m))])
                         pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
@@ -49,11 +49,11 @@ def test_vector_operation_log():
     a_data = a_tensor.flatten().tolist()
     b_data = list([0] * n * m)
 
-    pto.device_run_once_data_from_host([a_data], [b_data])
+    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
 
     golden_data = torch.log(torch.tensor(a_tensor)).flatten().tolist()
     assert(np.allclose(b_data, golden_data, rtol=1e-6, atol=1e-7))
-    pto.device_fini()
+    pto.runtime._device_fini()
 
 
 @pytest.mark.skip(reason="Dep operation interface")
@@ -64,7 +64,7 @@ def test_vector_operation_log2():
     view_shape = (16, 16)
     tile_shape = (8, 8)
 
-    pto.device_init()
+    pto.runtime._device_init()
 
     a = pto.tensor((n, m), pto.DT_FP32, "LOG2_TENSOR_a")
     b = pto.tensor((n, m), pto.DT_FP32, "LOG2_TENSOR_b")
@@ -76,7 +76,7 @@ def test_vector_operation_log2():
             with pto.loop_function("LOOP_LOG2_L1", "s_idx", loop_range_s) as sloop:
                 for b_idx in bloop:
                     for s_idx in sloop:
-                        tile_a = pto.view(a, view_shape, [b_idx * view_shape[0], s_idx * view_shape[1]], [pto.min(pto.symbolic_scalar(n) - b_idx * view_shape[0],
+                        tile_a = pto.view(a, view_shape, [b_idx * view_shape[0], s_idx * view_shape[1]], valid_shape=[pto.min(pto.symbolic_scalar(n) - b_idx * view_shape[0],
                                           pto.symbolic_scalar(n)), pto.min(pto.symbolic_scalar(m) - b_idx * view_shape[1],
                                           pto.symbolic_scalar(m))])
                         pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
@@ -87,11 +87,11 @@ def test_vector_operation_log2():
     a_data = a_tensor.flatten().tolist()
     b_data = list([0] * n * m)
 
-    pto.device_run_once_data_from_host([a_data], [b_data])
+    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
 
     golden_data = torch.log2(torch.tensor(a_tensor)).flatten().tolist()
     assert(np.allclose(b_data, golden_data, rtol=1e-6, atol=1e-7))
-    pto.device_fini()
+    pto.runtime._device_fini()
 
 
 @pytest.mark.skip(reason="Dep operation interface")
@@ -102,7 +102,7 @@ def test_vector_operation_log10():
     view_shape = (16, 16)
     tile_shape = (8, 8)
 
-    pto.device_init()
+    pto.runtime._device_init()
 
     a = pto.tensor((n, m), pto.DT_FP32, "LOG10_TENSOR_a")
     b = pto.tensor((n, m), pto.DT_FP32, "LOG10_TENSOR_b")
@@ -114,7 +114,7 @@ def test_vector_operation_log10():
             with pto.loop_function("LOOP_LOG10_L1", "s_idx", loop_range_s) as sloop:
                 for b_idx in bloop:
                     for s_idx in sloop:
-                        tile_a = pto.view(a, view_shape, [b_idx * view_shape[0], s_idx * view_shape[1]], [pto.min(pto.symbolic_scalar(n) - b_idx * view_shape[0],
+                        tile_a = pto.view(a, view_shape, [b_idx * view_shape[0], s_idx * view_shape[1]], valid_shape=[pto.min(pto.symbolic_scalar(n) - b_idx * view_shape[0],
                                           pto.symbolic_scalar(n)), pto.min(pto.symbolic_scalar(m) - b_idx * view_shape[1],
                                           pto.symbolic_scalar(m))])
                         pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
@@ -125,8 +125,8 @@ def test_vector_operation_log10():
     a_data = a_tensor.flatten().tolist()
     b_data = list([0] * n * m)
 
-    pto.device_run_once_data_from_host([a_data], [b_data])
+    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
 
     golden_data = torch.log10(torch.tensor(a_tensor)).flatten().tolist()
     assert(np.allclose(b_data, golden_data, rtol=1e-6, atol=1e-7))
-    pto.device_fini()
+    pto.runtime._device_fini()

@@ -49,6 +49,7 @@ class Tensor:
                 out.append(n)
         return out
 
+    @property
     def dim(self) -> int:
         return self._base.Dim()
 
@@ -112,8 +113,8 @@ class Tensor:
                 assert isinstance(key.start, int)
                 return pto.scatter(self, key.start, key.stop, value)
         elif isinstance(key, tuple):
-            assert self.dim() == len(
-                key), f"rank not match, expect {self.dim()}, but got {len(key)}"
+            assert self.dim == len(
+                key), f"rank not match, expect {self.dim}, but got {len(key)}"
             if all([isinstance(k, (int, SymbolicScalar)) for k in key]):
                 pto_impl.SetTensorData(value, to_syms(key), self._base)
             elif all([isinstance(k, slice) for k in key]):
@@ -168,8 +169,8 @@ class Tensor:
                 return self.__getitem__((key,))
 
         elif isinstance(key, tuple):
-            assert self.dim() == len(
-                key), f"rank not match, expect {self.dim()}, but got {len(key)}"
+            assert self.dim == len(
+                key), f"rank not match, expect {self.dim}, but got {len(key)}"
             if all([isinstance(k, (int, SymbolicScalar)) for k in key]):
                 return SymbolicScalar.from_base(pto_impl.GetTensorData(self._base, to_syms(key)))
             elif all([isinstance(k, slice) for k in key]):

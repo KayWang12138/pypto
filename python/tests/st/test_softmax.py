@@ -39,7 +39,7 @@ def test_softmax_FP32():
 
     x_shape = [4, 4]
     dtype = pto.DT_FP32
-    pto.device_init()
+    pto.runtime._device_init()
     x = pto.tensor(x_shape, dtype)
     res = pto.tensor(x_shape, dtype)
     dim = -1
@@ -56,18 +56,18 @@ def test_softmax_FP32():
     res_data = np.random.uniform(-100, 100, [4, 4]).astype(np.float32)
     res_data = res_data.flatten().tolist()
 
-    pto.device_run_once_data_from_host([x_data], [res_data])
+    pto.runtime._device_run_once_data_from_host([x_data], [res_data])
 
     assert_allclose(res_data, torch.softmax(torch.tensor(torch_tensor), dim).flatten().tolist(), atol = 1e-3, verbose = True)
 
-    pto.device_fini()
+    pto.runtime._device_fini()
 
 def test_tensor_softmax_FP32():
     """Test whether the ouput of FP32 is correct"""
 
     x_shape = [4, 4]
     dtype = pto.DT_FP32
-    pto.device_init()
+    pto.runtime._device_init()
     x = pto.tensor(x_shape, dtype)
     res = pto.tensor(x_shape, dtype)
     dim = -1
@@ -84,8 +84,8 @@ def test_tensor_softmax_FP32():
     res_data = np.random.uniform(-100, 100, [4, 4]).astype(np.float32)
     res_data = res_data.flatten().tolist()
 
-    pto.device_run_once_data_from_host([x_data], [res_data])
+    pto.runtime._device_run_once_data_from_host([x_data], [res_data])
 
     assert_allclose(res_data, torch.softmax(torch.tensor(torch_tensor), dim).flatten().tolist(), atol = 1e-3, verbose = True)
 
-    pto.device_fini()
+    pto.runtime._device_fini()

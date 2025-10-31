@@ -209,9 +209,9 @@ def selected_attention_compute(**kwargs):
                                                         pto.set_semantic_label("Sa")
                                                         # View, 临时规避改成 View
                                                         qn = pto.view(q_nope, [cur_g_tile, d_n], [cur_offset, 0], 
-                                                                    [cur_g_tile, d_n])
+                                                                    valid_shape=[cur_g_tile, d_n])
                                                         qr = pto.view(q_rope, [cur_g_tile, d_r], [cur_offset, 0], 
-                                                                    [cur_g_tile, d_r])
+                                                                    valid_shape=[cur_g_tile, d_r])
                                                         qi = pto.tensor([cur_g_tile, d_n + d_r], dtype, "qi")
                                                         pto.assemble(qn, [0, 0], qi)
                                                         pto.assemble(qr, [0, d_n], qi)
@@ -222,10 +222,10 @@ def selected_attention_compute(**kwargs):
                                                         cur_seq.as_intermediate_variable()
                                                         kj = pto.view(k_slc, [cur_s2_tile, d_n + d_r], 
                                                             [s2_idx * cur_s2_tile, 0], 
-                                                            [(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), d_n + d_r])
+                                                            valid_shape=[(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), d_n + d_r])
                                                         vj = pto.view(k_slc, [cur_s2_tile, d_n], 
                                                             [s2_idx * cur_s2_tile, 0],
-                                                            [(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), d_n])
+                                                            valid_shape=[(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), d_n])
 
                                                         # C1
                                                         pto.set_semantic_label("Sa_QkMM")

@@ -986,17 +986,17 @@ def full(size: List[int],
     --------
     >>> # Valid shapes use keyword argument
     >>> a = 1.0 # must be 1.0; implicit conversion is not support
-    >>> pto.full([2,2], a, pto.data_type.DT_FP32, valid_shape = [pto.symbolic_scalar(2), pto.symbolic_scalar(2)])
+    >>> pto.full([2,2], a, pto.data_type.DT_FP32, valid_shape=[pto.symbolic_scalar(2), pto.symbolic_scalar(2)])
     tensor([[1.0,1.0],
             [1.0,1.0]])
 
     >>> b = pto.symbolic_scalar(1)
-    >>> pto.full([2,2], b, pto.data_type.DT_INT32, valid_shape = [pto.symbolic_scalar(2), pto.symbolic_scalar(2)])
+    >>> pto.full([2,2], b, pto.data_type.DT_INT32, valid_shape=[pto.symbolic_scalar(2), pto.symbolic_scalar(2)])
     tensor([[1,1],
             [1,1]])
 
     >>> c = pto.element(1)
-    >>> pto.full([2,2], c, pto.data_type.DT_INT32, valid_shape = [pto.symbolic_scalar(2), pto.symbolic_scalar(2)])
+    >>> pto.full([2,2], c, pto.data_type.DT_INT32, valid_shape=[pto.symbolic_scalar(2), pto.symbolic_scalar(2)])
     tensor([[1,1],
             [1,1]])
 
@@ -1259,7 +1259,7 @@ def unsqueeze(input: Tensor, dim: int) -> Tensor:
 
     dim : int 
         The position(index) where the new dimension is inserted. 
-        It must be within the range of [-input.dim() - 1, input.dim()]
+        It must be within the range of [-input.dim - 1, input.dim]
 
     Returns
     -------
@@ -1269,17 +1269,21 @@ def unsqueeze(input: Tensor, dim: int) -> Tensor:
 
     Examples
     --------
-    >>> x = pto.tensor([[1, 2, 3], [4, 5, 6]])
-    >>> pto.unsqueeze(x, 0)
-    tensor([[[1, 2, 3], [4, 5, 6]]])
+    x = pto.tensor([2, 3], pto.DT_FP32)
+    y = pto.unsqueeze(x, 0)
+
+    Input x:[[1, 2, 3],
+             [4, 5, 6]]
+    Output y:[[[1, 2, 3], 
+               [4, 5, 6]]]
 
     """
     return pto_impl.unsqueeze(input, dim)
 
 
 @op_wrapper
-def view(input: Tensor, shape: List[int], offsets: Union[List[int], List[SymbolicScalar]], 
-         valid_shape: Union[List[int], List[SymbolicScalar]] = None) -> Tensor:
+def view(input: Tensor, shape: List[int], offsets: Union[List[int], List[SymbolicScalar]],
+         *, valid_shape: Union[List[int], List[SymbolicScalar]] = None) -> Tensor:
     """Extract a partial view from the input tensor for subsequent computations.
        WARNING: view has a very different behavior from torch.view, it is more like slice.
 
@@ -1306,36 +1310,40 @@ def view(input: Tensor, shape: List[int], offsets: Union[List[int], List[Symboli
 
     Examples
     --------
-    >>> x = pto.tensor([[1 1 2 2 3 3 4 4],
-                        [1 1 2 2 3 3 4 4],
-                        [1 1 2 2 3 3 4 4],
-                        [1 1 2 2 3 3 4 4]]) 
-    >>> shape = [4, 4]
-    >>> offsets = [0, 4]
-    >>> pto.view(x, shape, offsets)
-    tensor([[3 3 4 4],
-            [3 3 4 4],
-            [3 3 4 4],
-            [3 3 4 4]])
+    x = pto.tensor([4, 8], pto.DT_FP32)
+    shape = [4, 4]
+    offsets = [0, 4]
+    y = pto.view(x, shape, offsets)
 
-    >>> # add valid_shape
-    >>> x = pto.tensor([[1 1 2 2 3 3 4 4],
-                        [1 1 2 2 3 3 4 4],
-                        [1 1 2 2 5 5 6 6],
-                        [1 1 2 2 5 5 6 6]]) 
-    >>> shape = [4, 4]
-    >>> offsets = [2, 4]
-    >>> valid_shape = [2, 4]
-    >>> pto.view(x, shape, offsets, valid_shape)
-    tensor([[5 5 6 6],
-            [5 5 6 6],
-            [0 0 0 0],
-            [0 0 0 0]])
+    Input x:[[1 1 2 2 3 3 4 4],
+             [1 1 2 2 3 3 4 4],
+             [1 1 2 2 3 3 4 4],
+             [1 1 2 2 3 3 4 4]]
+    Output y:[[3 3 4 4],
+              [3 3 4 4],
+              [3 3 4 4],
+              [3 3 4 4]]
+
+    # add valid_shape
+    x = pto.tensor([4, 8], pto.DT_FP32)
+    shape = [4, 4]
+    offsets = [2, 4]
+    valid_shape = [2, 4]   
+    y = pto.view(x, shape, offsets, valid_shape=valid_shape) 
+
+    Input x:[[1 1 2 2 3 3 4 4],
+             [1 1 2 2 3 3 4 4],
+             [1 1 2 2 5 5 6 6],
+             [1 1 2 2 5 5 6 6]]
+    Output y:[[5 5 6 6],
+              [5 5 6 6],
+              [0 0 0 0],
+              [0 0 0 0]]  
     """
     if valid_shape is None:
         return pto_impl.view(input, shape, offsets)
     else:
-        return pto_impl.view(input, shape, valid_shape, offsets)
+        return pto_impl.view(input, shape, to_syms(valid_shape), to_syms(offsets))
 
 
 @op_wrapper

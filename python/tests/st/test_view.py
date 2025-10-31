@@ -37,7 +37,7 @@ def test_view_content_equal():
 
     x_shape = [4, 8]
     dtype = pto.DT_FP32
-    pto.device_init()
+    pto.runtime._device_init()
     x = pto.tensor(x_shape, dtype)
     view_shape = [4, 4]
     offset = [0, 4]
@@ -55,17 +55,17 @@ def test_view_content_equal():
     res_data = np.random.uniform(-100, 100, [4, 4]).astype(np.float32)
     res_data = res_data.flatten().tolist()
 
-    pto.device_run_once_data_from_host([x_data], [res_data])
+    pto.runtime._device_run_once_data_from_host([x_data], [res_data])
 
     assert res_data == torch.tensor(torch_tensor)[0:4, 4:8].flatten().tolist()
 
-    pto.device_fini()
+    pto.runtime._device_fini()
 
 def test_view_content_equal_validshape():
     """Test whether the output content has changed with validshape"""
     x_shape = [4, 4]
     dtype = pto.DT_FP32
-    pto.device_init()
+    pto.runtime._device_init()
     x = pto.tensor(x_shape, dtype)
     view_shape = [4, 4]
     offset = [2, 0]
@@ -76,7 +76,7 @@ def test_view_content_equal_validshape():
         with pto.loop_function("LOOP_L0", "a_idx", pto.loop_range(1)) as aloop:
             for a_idx in aloop:
                 pto.set_vec_tile_shapes(4, 4)
-                res.move(pto.view(x, view_shape, offset, validshape))
+                res.move(pto.view(x, view_shape, offset, valid_shape=validshape))
                 del res
     
     torch_tensor = np.random.uniform(-100, 100, [4, 4]).astype(np.float32)
@@ -84,18 +84,18 @@ def test_view_content_equal_validshape():
     res_data = np.random.uniform(-100, 100, [4, 4]).astype(np.float32)
     res_data = res_data.flatten().tolist()
 
-    pto.device_run_once_data_from_host([x_data], [res_data])
+    pto.runtime._device_run_once_data_from_host([x_data], [res_data])
 
     assert res_data[:2*4] == torch.tensor(torch_tensor)[2:4, 0:4].flatten().tolist()
 
-    pto.device_fini()    
+    pto.runtime._device_fini()    
 
 def test_tensor_view_content_equal():
     """Test whether the output content has changed"""
 
     x_shape = [4, 8]
     dtype = pto.DT_FP32
-    pto.device_init()
+    pto.runtime._device_init()
     x = pto.tensor(x_shape, dtype)
     view_shape = [4, 4]
     offset = [0, 4]
@@ -113,18 +113,18 @@ def test_tensor_view_content_equal():
     res_data = np.random.uniform(-100, 100, [4, 4]).astype(np.float32)
     res_data = res_data.flatten().tolist()
 
-    pto.device_run_once_data_from_host([x_data], [res_data])
+    pto.runtime._device_run_once_data_from_host([x_data], [res_data])
 
     assert res_data == torch.tensor(torch_tensor)[0:4, 4:8].flatten().tolist()
 
-    pto.device_fini()
+    pto.runtime._device_fini()
 
 def test_syntactic_sugar_view_content_equal():
     """Test whether the output content has changed"""
 
     x_shape = [4, 8]
     dtype = pto.DT_FP32
-    pto.device_init()
+    pto.runtime._device_init()
     x = pto.tensor(x_shape, dtype)
     view_shape = [4, 4]
     offset = [0, 4]
@@ -142,8 +142,8 @@ def test_syntactic_sugar_view_content_equal():
     res_data = np.random.uniform(-100, 100, [4, 4]).astype(np.float32)
     res_data = res_data.flatten().tolist()
 
-    pto.device_run_once_data_from_host([x_data], [res_data])
+    pto.runtime._device_run_once_data_from_host([x_data], [res_data])
 
     assert res_data == torch.tensor(torch_tensor)[0:4, 4:8].flatten().tolist()
 
-    pto.device_fini()
+    pto.runtime._device_fini()

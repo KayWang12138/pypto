@@ -169,13 +169,13 @@ def compress_attention_with_topk(**kwargs):
                                         cmp_kv_cache.shape[1] * cmp_kv_cache.shape[2], d_n])
                                     cur_cmp_kv = pto.view(cmp_kv_cache_2d,
                                         [block_size, d_n], [cur_block_idx * block_size, 0],
-                                        [cur_valid_seq, d_n])
+                                        valid_shape=[cur_valid_seq, d_n])
                                     cmp_kr_cache_2d = pto.reshape(cmp_kr_cache,
                                         [cmp_kr_cache.shape[0] * \
                                         cmp_kr_cache.shape[1] * cmp_kr_cache.shape[2], d_r])
                                     cur_cmp_kr = pto.view(
                                         cmp_kr_cache_2d, [block_size, d_r], [cur_block_idx * block_size, 0],
-                                        [cur_valid_seq, d_r])
+                                        valid_shape=[cur_valid_seq, d_r])
                                     cur_k_attn = pto.assemble(
                                         [[cur_cmp_kv, [0, 0]], [cur_cmp_kr, [0, d_n]]])
                                     cur_k_attn.set_name("curKAttn") # ! check func exist
@@ -192,7 +192,7 @@ def compress_attention_with_topk(**kwargs):
                                     sij.set_name("sij")
 
                                     pto.set_vec_tile_shapes(vec_tile, vec_tile)
-                                    sij[:] = pto.view(sij, [block_size, n1], [0, 0], [cur_valid_seq, n1])
+                                    sij[:] = pto.view(sij, [block_size, n1], [0, 0], valid_shape=[cur_valid_seq, n1])
                                     pto.set_semantic_label("Cmp-Attn-V1")
                                     sij_scale = pto.mul_s(
                                         sij, pto.element(sij.dtype, softmax_scale))
@@ -293,9 +293,9 @@ def compress_attention_with_topk(**kwargs):
                                 def inside_slc_idx_loop(slc_idx):
                                     slc_valid = (cur_valid_seq - slc_idx * slc_size).min(slc_window)
                                     last_view = pto.view(tilda_pij_pad, [slc_window, n1],
-                                        [slc_idx * slc_size, 0], [slc_valid, n1])
+                                        [slc_idx * slc_size, 0], valid_shape=[slc_valid, n1])
                                     aux_tmp_tensor = pto.view(
-                                        aux_tensor, [slc_window, n1], [0, 0], [slc_valid, n1])
+                                        aux_tensor, [slc_window, n1], [0, 0], valid_shape=[slc_valid, n1])
                                     slc_last_no_reduce = pto.mul(last_view, aux_tmp_tensor)
                                     slc_last_reduce = pto.row_sum_single(slc_last_no_reduce, 0)
                                     pto.assemble(slc_last_reduce, [slc_idx, 0], slc_cur)
@@ -310,13 +310,13 @@ def compress_attention_with_topk(**kwargs):
                                                 tilda_pij_pad,
                                                 [cmp_size - 1, n1],
                                                 [0, 0],
-                                                [(cmp_size - 1).min(cur_valid_seq), n1])
+                                                valid_shape=[(cmp_size - 1).min(cur_valid_seq), n1])
                                             last_aux_tensor = pto.view(
                                                 aux_tensor,
                                                 [cmp_size - 1, n1],
                                                 [aux_tensor.shape[0] -
                                                     (cmp_size - 1).min(cur_valid_seq), 0],
-                                                [(cmp_size - 1).min(cur_valid_seq), n1])
+                                                valid_shape=[(cmp_size - 1).min(cur_valid_seq), n1])
                                             modify_tensor[:] = pto.mul(modify_tensor, last_aux_tensor)
                                             modify_tensor_reduce = pto.row_sum_single(modify_tensor, 0)
                                             pre_view_tensor = pto.view(
@@ -369,7 +369,7 @@ def compress_attention_with_topk(**kwargs):
                                     slc_before_g_reduce_actual = pto.view(
                                         slc_before_g_reduce_2,
                                         [max_cmp_block * block_slc_num, n1],
-                                        [0, 0], [slc_loop, n1]
+                                        [0, 0], valid_shape=[slc_loop, n1]
                                     )
                                     slc_reduce = pto.row_sum_single(slc_before_g_reduce_actual)
                                     pto.set_vec_tile_shapes(*tile_config.topk_tile)
@@ -385,7 +385,7 @@ def compress_attention_with_topk(**kwargs):
                                                 topk_num_idx,
                                                 [1, 1, max_cmp_block * block_slc_num],
                                                 [0, 0, 0],
-                                                [1, 1, slc_loop])
+                                                valid_shape=[1, 1, slc_loop])
                                             cur_idx[:] = pto.cast(cur_idx, INT32)
                                             pto.assemble(cur_idx, [b_idx, s1_idx, 0], topk_res)
                                         inside_if_slc_loop_lt_topk()
@@ -398,7 +398,7 @@ def compress_attention_with_topk(**kwargs):
                                                 slc_reshape,
                                                 [1, 1, max_cmp_block * block_slc_num - front - near],
                                                 [0, 0, front],
-                                                [1, 1, slc_loop - front - near])
+                                                valid_shape=[1, 1, slc_loop - front - near])
                                             inner_topk = pto.topk(
                                                 slc_re_view, topk - front - near, -1, True)[1]
                                             inner_topk[:] = pto.add_s(inner_topk, pto.element(INT32, 1))

@@ -22,7 +22,7 @@ def test_device_run_data_from_host_numpy():
     tiling = 16
     n, m, k = tiling * 1, tiling * 1, tiling * 1
 
-    pto.device_init()
+    pto.runtime._device_init()
 
     a = pto.tensor((n, m, k), pto.DT_FP32, "PTO_TENSOR_a")
     b = pto.tensor((n, m, k), pto.DT_FP32, "PTO_TENSOR_b")
@@ -40,12 +40,12 @@ def test_device_run_data_from_host_numpy():
     a_data = np.random.uniform(-1, 1, [n, m, k]).astype(np.float32)
     b_data = np.zeros((n, m, k))
 
-    pto.device_run_once_data_from_host([a_data], [b_data])
+    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
 
     golden = 11 * a_data
 
     assert np.allclose(golden, b_data, atol=1e-5)
-    pto.device_fini()
+    pto.runtime._device_fini()
 
 
 def test_device_run_data_from_host_torch():
@@ -53,7 +53,7 @@ def test_device_run_data_from_host_torch():
     tiling = 8
     n, m = tiling * 1, tiling * 1
 
-    pto.device_init()
+    pto.runtime._device_init()
 
     a = pto.tensor((n, m), pto.DT_FP32, "PTO_TENSOR_a")
     b = pto.tensor((n, m), pto.DT_FP32, "PTO_TENSOR_b")
@@ -71,12 +71,12 @@ def test_device_run_data_from_host_torch():
     a_data = torch.rand(n, m)
     b_data = torch.zeros(n, m)
 
-    pto.device_run_once_data_from_host([a_data], [b_data])
+    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
 
     golden = 11 * a_data
 
     assert torch.allclose(golden, b_data, atol=1e-5)
-    pto.device_fini()
+    pto.runtime._device_fini()
 
 
 def test_device_run_data_from_host():
@@ -84,7 +84,7 @@ def test_device_run_data_from_host():
     tiling = 32
     n, m = tiling * 1, tiling * 1
 
-    pto.device_init()
+    pto.runtime._device_init()
 
     a = pto.tensor((n, m), pto.DT_INT32, "PTO_TENSOR_a")
     b = pto.tensor((n, m), pto.DT_INT32, "PTO_TENSOR_b")
@@ -102,10 +102,10 @@ def test_device_run_data_from_host():
     a_data = list(range(n * m))
     b_data = list([0] * n * m)
 
-    pto.device_run_once_data_from_host([a_data], [b_data])
+    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
 
     assert b_data == [v * 11 for v in range(n * m)]
-    pto.device_fini()
+    pto.runtime._device_fini()
 
 
 # def dynamic function
@@ -144,7 +144,7 @@ def test_device_run_data_from_device():
     outputs = [b_data]
     cust_dyn_func(inputs, outputs, tiling)
 
-    pto.device_synchronize()
+    pto.runtime._device_synchronize()
     # get data and compare result
     a_data_cpu = a_data.cpu()
     b_data_cpu = b_data.cpu()
@@ -218,7 +218,7 @@ def test_device_run_data_from_device_mix_nodep():
         outputs = [d_data]
         matmul_add(inputs, outputs, m, k, n, tiling=tiling)
 
-    pto.device_synchronize()
+    pto.runtime._device_synchronize()
 
     for idx in range(count):
         # get data and compare result

@@ -34,7 +34,7 @@ def prepare_test_data(shape):
 
 
 def test_assmble_function_call():
-    pto.device_init()
+    pto.runtime._device_init()
     x = pto.tensor(SHAPE, DTYPE)
     out = pto.tensor(SHAPE, DTYPE)
     with pto.function("main", [x], [out]):
@@ -46,13 +46,13 @@ def test_assmble_function_call():
                 # function call
                 pto.assemble(add_tensor, [0, a_idx * 8], out)
     x_data, res_data, golden_data = prepare_test_data(SHAPE)
-    pto.device_run_once_data_from_host([x_data], [res_data])
+    pto.runtime._device_run_once_data_from_host([x_data], [res_data])
     assert_allclose(res_data, golden_data, atol=1e-5, verbose=True)
-    pto.device_fini()
+    pto.runtime._device_fini()
 
 
 def test_assmble_tensor_call():
-    pto.device_init()
+    pto.runtime._device_init()
     x = pto.tensor(SHAPE, DTYPE)
     out = pto.tensor(SHAPE, DTYPE)
     with pto.function("main", [x], [out]):
@@ -64,13 +64,13 @@ def test_assmble_tensor_call():
                 # tensor call
                 out.assemble(add_tensor, [0, a_idx * 8])
     x_data, res_data, golden_data = prepare_test_data(SHAPE)
-    pto.device_run_once_data_from_host([x_data], [res_data])
+    pto.runtime._device_run_once_data_from_host([x_data], [res_data])
     assert_allclose(res_data, golden_data, atol=1e-5, verbose=True)
-    pto.device_fini()
+    pto.runtime._device_fini()
 
 
 def test_assmble_syntactic_sugar():
-    pto.device_init()
+    pto.runtime._device_init()
     x = pto.tensor(SHAPE, DTYPE)
     out = pto.tensor(SHAPE, DTYPE)
     with pto.function("main", [x], [out]):
@@ -82,6 +82,6 @@ def test_assmble_syntactic_sugar():
                 # syntactic_sugar call
                 out[0:, a_idx * 8:] = add_tensor
     x_data, res_data, golden_data = prepare_test_data(SHAPE)
-    pto.device_run_once_data_from_host([x_data], [res_data])
+    pto.runtime._device_run_once_data_from_host([x_data], [res_data])
     assert_allclose(res_data, golden_data, atol=1e-5, verbose=True)
-    pto.device_fini()
+    pto.runtime._device_fini()

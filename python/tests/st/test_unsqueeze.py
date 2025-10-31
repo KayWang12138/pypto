@@ -40,7 +40,7 @@ def test_unsqueeze_content_equal():
 
     shape = [2, 2]
     dtype = pto.DT_FP32
-    pto.device_init()
+    pto.runtime._device_init()
     x = pto.tensor(shape, dtype)
     res = pto.tensor([1, 2, 2], dtype)
     dim = 0
@@ -56,12 +56,12 @@ def test_unsqueeze_content_equal():
     res_data = np.random.rand(1, 2, 2).astype(np.float32)
     res_data = res_data.flatten().tolist()
 
-    pto.device_run_once_data_from_host([x_data], [res_data])
+    pto.runtime._device_run_once_data_from_host([x_data], [res_data])
 
     torch_case_res = torch.unsqueeze(torch.tensor(torch_case_tensor), dim)
 
     assert res_data == torch_case_res.flatten().tolist()
-    pto.device_fini()
+    pto.runtime._device_fini()
 
 def test_tensor_unsqueeze_shape_dim():
     """Test whether the ouput shape is correct"""

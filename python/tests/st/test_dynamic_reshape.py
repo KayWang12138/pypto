@@ -23,7 +23,7 @@ FUNC_T = pto.FunctionType.STATIC
 
 def test_reshape_shape():
     dtype = pto.DT_FP32
-    pto.device_init()
+    pto.runtime._device_init()
     s = 16
     d = 32
     shape = [s, d]
@@ -35,12 +35,12 @@ def test_reshape_shape():
         res = pto.reshape(q, dst_shape)
     
     assert res.shape == dst_shape 
-    pto.device_fini() 
+    pto.runtime._device_fini() 
 
 
 def test_reshape_equal():
     dtype = pto.DT_FP32
-    pto.device_init()
+    pto.runtime._device_init()
     s = 16
     d = 32
     shape = [s, d]
@@ -61,14 +61,14 @@ def test_reshape_equal():
     q_data = q_tensor.flatten().tolist()
     out_data = list([0] * s * 32)
 
-    pto.device_run_once_data_from_host([q_data], [out_data])
+    pto.runtime._device_run_once_data_from_host([q_data], [out_data])
     assert out_data == torch.tensor(q_tensor).flatten().tolist()
-    pto.device_fini() 
+    pto.runtime._device_fini() 
 
 
 def test_reshape_equal2():
     dtype = pto.DT_FP32
-    pto.device_init()
+    pto.runtime._device_init()
     s = 16
     d = 32
     shape = [s, d]
@@ -94,14 +94,14 @@ def test_reshape_equal2():
     tmp_data = q_tensor.flatten().tolist()
     out_data = list([0] * s * 32)
 
-    pto.device_run_once_data_from_host([q_data, tmp_data], [out_data])
+    pto.runtime._device_run_once_data_from_host([q_data, tmp_data], [out_data])
     assert out_data == torch.add(torch.tensor(q_tensor), torch.tensor(tmp_tensor)).flatten().tolist()
-    pto.device_fini() 
+    pto.runtime._device_fini() 
 
 
 def test_reshape_validshape():
     dtype = pto.DT_FP32
-    pto.device_init()
+    pto.runtime._device_init()
     s = 16
     d = 32
     shape = [s * d]
@@ -123,14 +123,14 @@ def test_reshape_validshape():
     q_data = q_tensor.flatten().tolist()
     out_data = list([0] * s * 32)
 
-    pto.device_run_once_data_from_host([q_data], [out_data])
+    pto.runtime._device_run_once_data_from_host([q_data], [out_data])
     assert out_data[:32] == torch.tensor(q_tensor)[:32].flatten().tolist()
-    pto.device_fini() 
+    pto.runtime._device_fini() 
 
 
 def test_reshape_validshape2():
     dtype = pto.DT_FP32
-    pto.device_init()
+    pto.runtime._device_init()
     s = 16
     d = 32
     shape = [s, d]
@@ -153,6 +153,6 @@ def test_reshape_validshape2():
     scalar_tensor = np.ones(s * 32, dtype=np.float32).reshape(16, 32)
     out_data = list([0] * s * 32)
 
-    pto.device_run_once_data_from_host([q_data], [out_data])
+    pto.runtime._device_run_once_data_from_host([q_data], [out_data])
     assert out_data[:64] == torch.add(torch.tensor(q_tensor), torch.tensor(scalar_tensor))[:2, :].flatten().tolist()
-    pto.device_fini() 
+    pto.runtime._device_fini() 

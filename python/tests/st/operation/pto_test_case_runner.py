@@ -208,14 +208,14 @@ class PTOTestCaseRunner(TestCaseRunner):
         )
 
     def tear_up(self):
-        pto.device_init()
+        pto.runtime._device_init()
 
     def tear_down(self):
-        pto.device_fini()
+        pto.runtime._device_fini()
 
     def run_on_device(self, inputs: list) -> list:
         output = self.output_data()
-        pto.device_run_once_data_from_host(inputs, output)
+        pto.runtime._device_run_once_data_from_host(inputs, output)
         return [
             torch.tensor(
                 output[index],

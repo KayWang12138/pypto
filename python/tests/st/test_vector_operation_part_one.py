@@ -26,7 +26,7 @@ def test_vector_operation_add():
     view_shape = (16, 16)
     tile_shape = (8, 8)
     pto.set_codegen_option("support_dynamic_unaligned", True)
-    pto.device_init()
+    pto.runtime._device_init()
     a = pto.tensor(shape, dtype, "ADD_TENSOR_a")
     b = pto.tensor(shape, dtype, "ADD_TENSOR_b")
     c = pto.tensor(shape, dtype, "ADD_TENSOR_c")
@@ -40,11 +40,13 @@ def test_vector_operation_add():
                     for s_idx in sloop_add:
                         tile_a = pto.view(a, view_shape,
                             [b_idx * view_shape[0], s_idx * view_shape[1]],
-                            [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
+                            valid_shape=[(pto.symbolic_scalar(n) -
+                            b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
                             (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                         tile_b = pto.view(b, view_shape,
                             [b_idx * view_shape[0], s_idx * view_shape[1]],
-                            [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
+                            valid_shape=[(pto.symbolic_scalar(n) -
+                            b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
                             (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                         pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                         tile_a.move(pto.add(tile_a, tile_b))
@@ -56,10 +58,10 @@ def test_vector_operation_add():
     b_data = b_tensor.flatten().tolist()
     c_data = list([0] * n * m)
 
-    pto.device_run_once_data_from_host([a_data, b_data], [c_data])
+    pto.runtime._device_run_once_data_from_host([a_data, b_data], [c_data])
 
     assert c_data == torch.add(torch.tensor(a_tensor), torch.tensor(b_tensor)).flatten().tolist()
-    pto.device_fini()
+    pto.runtime._device_fini()
 
 
 def test_vector_operation_div():
@@ -70,7 +72,7 @@ def test_vector_operation_div():
     view_shape = (16, 16)
     tile_shape = (8, 8)
     pto.set_codegen_option("support_dynamic_unaligned", True)
-    pto.device_init()
+    pto.runtime._device_init()
     a = pto.tensor(shape, dtype, "DIV_TENSOR_a")
     b = pto.tensor(shape, dtype, "DIV_TENSOR_b")
     c = pto.tensor(shape, dtype, "DIV_TENSOR_c")
@@ -84,11 +86,13 @@ def test_vector_operation_div():
                     for s_idx in sloop_div:
                         tile_a = pto.view(a, view_shape,
                             [b_idx * view_shape[0], s_idx * view_shape[1]],
-                            [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
+                            valid_shape=[(pto.symbolic_scalar(n) -
+                            b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
                             (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                         tile_b = pto.view(b, view_shape,
                             [b_idx * view_shape[0], s_idx * view_shape[1]],
-                            [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
+                            valid_shape=[(pto.symbolic_scalar(n) -
+                            b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
                             (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                         pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                         tile_a.move(pto.div(tile_a, tile_b))
@@ -100,12 +104,12 @@ def test_vector_operation_div():
     b_data = b_tensor.flatten().tolist()
     c_data = list([0] * n * m)
 
-    pto.device_run_once_data_from_host([a_data, b_data], [c_data])
+    pto.runtime._device_run_once_data_from_host([a_data, b_data], [c_data])
 
     assert_allclose(np.array(c_data),
                     np.array(torch.div(torch.tensor(a_tensor), torch.tensor(b_tensor)).flatten().tolist()),
                     rtol=1e-3, atol=1e-3)
-    pto.device_fini()
+    pto.runtime._device_fini()
 
 
 def test_vector_operation_mul():
@@ -116,7 +120,7 @@ def test_vector_operation_mul():
     view_shape = (16, 16)
     tile_shape = (8, 8)
     pto.set_codegen_option("support_dynamic_unaligned", True)
-    pto.device_init()
+    pto.runtime._device_init()
     a = pto.tensor(shape, dtype, "MUL_TENSOR_a")
     b = pto.tensor(shape, dtype, "MUL_TENSOR_b")
     c = pto.tensor(shape, dtype, "MUL_TENSOR_c")
@@ -130,11 +134,13 @@ def test_vector_operation_mul():
                     for s_idx in sloop_mul:
                         tile_a = pto.view(a, view_shape,
                             [b_idx * view_shape[0], s_idx * view_shape[1]],
-                            [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
+                            valid_shape=[(pto.symbolic_scalar(n) -
+                            b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
                             (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                         tile_b = pto.view(b, view_shape,
                             [b_idx * view_shape[0], s_idx * view_shape[1]],
-                            [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
+                            valid_shape=[(pto.symbolic_scalar(n) -
+                            b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
                             (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                         pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                         tile_a.move(pto.mul(tile_a, tile_b))
@@ -146,10 +152,10 @@ def test_vector_operation_mul():
     b_data = b_tensor.flatten().tolist()
     c_data = list([0] * n * m)
 
-    pto.device_run_once_data_from_host([a_data, b_data], [c_data])
+    pto.runtime._device_run_once_data_from_host([a_data, b_data], [c_data])
 
     assert c_data == torch.mul(torch.tensor(a_tensor), torch.tensor(b_tensor)).flatten().tolist()
-    pto.device_fini()
+    pto.runtime._device_fini()
 
 
 def test_vector_operation_sub():
@@ -160,7 +166,7 @@ def test_vector_operation_sub():
     view_shape = (16, 16)
     tile_shape = (8, 8)
     pto.set_codegen_option("support_dynamic_unaligned", True)
-    pto.device_init()
+    pto.runtime._device_init()
     a = pto.tensor(shape, dtype, "SUB_TENSOR_a")
     b = pto.tensor(shape, dtype, "SUB_TENSOR_b")
     c = pto.tensor(shape, dtype, "SUB_TENSOR_c")
@@ -174,11 +180,13 @@ def test_vector_operation_sub():
                     for s_idx in sloop_sub:
                         tile_a = pto.view(a, view_shape,
                             [b_idx * view_shape[0], s_idx * view_shape[1]],
-                            [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
+                            valid_shape=[(pto.symbolic_scalar(n) -
+                            b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
                             (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                         tile_b = pto.view(b, view_shape,
                             [b_idx * view_shape[0], s_idx * view_shape[1]],
-                            [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
+                            valid_shape=[(pto.symbolic_scalar(n) -
+                            b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
                             (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                         pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                         tile_a.move(pto.sub(tile_a, tile_b))
@@ -190,10 +198,10 @@ def test_vector_operation_sub():
     b_data = b_tensor.flatten().tolist()
     c_data = list([0] * n * m)
 
-    pto.device_run_once_data_from_host([a_data, b_data], [c_data])
+    pto.runtime._device_run_once_data_from_host([a_data, b_data], [c_data])
 
     assert c_data == torch.sub(torch.tensor(a_tensor), torch.tensor(b_tensor)).flatten().tolist()
-    pto.device_fini()
+    pto.runtime._device_fini()
 
 
 def test_vector_operation_abs():
@@ -204,7 +212,7 @@ def test_vector_operation_abs():
     view_shape = (16, 16)
     tile_shape = (8, 8)
     pto.set_codegen_option("support_dynamic_unaligned", True)
-    pto.device_init()
+    pto.runtime._device_init()
     a = pto.tensor(shape, dtype, "ABS_TENSOR_a")
     b = pto.tensor(shape, dtype, "ABS_TENSOR_b")
 
@@ -217,7 +225,8 @@ def test_vector_operation_abs():
                     for s_idx in sloop:
                         tile_a = pto.view(a, view_shape,
                             [b_idx * view_shape[0], s_idx * view_shape[1]],
-                            [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
+                            valid_shape=[(pto.symbolic_scalar(n) -
+                            b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
                             (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                         pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                         tile_a.move(pto.abs(tile_a))
@@ -227,10 +236,10 @@ def test_vector_operation_abs():
     a_data = a_tensor.flatten().tolist()
     b_data = list([0] * n * m)
 
-    pto.device_run_once_data_from_host([a_data], [b_data])
+    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
 
     assert b_data == torch.abs(torch.tensor(a_tensor)).flatten().tolist()
-    pto.device_fini()
+    pto.runtime._device_fini()
 
 
 def test_vector_operation_sqrt():
@@ -241,7 +250,7 @@ def test_vector_operation_sqrt():
     view_shape = (16, 16)
     tile_shape = (8, 8)
     pto.set_codegen_option("support_dynamic_unaligned", True)
-    pto.device_init()
+    pto.runtime._device_init()
     a = pto.tensor(shape, dtype, "SQRT_TENSOR_a")
     b = pto.tensor(shape, dtype, "SQRT_TENSOR_b")
 
@@ -254,7 +263,8 @@ def test_vector_operation_sqrt():
                     for s_idx in sloop:
                         tile_a = pto.view(a, view_shape,
                             [b_idx * view_shape[0], s_idx * view_shape[1]],
-                            [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
+                            valid_shape=[(pto.symbolic_scalar(n) -
+                            b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
                             (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                         pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                         tile_a.move(pto.sqrt(tile_a))
@@ -263,10 +273,10 @@ def test_vector_operation_sqrt():
     a_tensor = np.random.uniform(0, 100, [n, m]).astype(np.float32)
     a_data = a_tensor.flatten().tolist()
     b_data = list([0] * n * m)
-    pto.device_run_once_data_from_host([a_data], [b_data])
+    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
     assert_allclose(np.array(b_data),
                     np.array(torch.sqrt(torch.tensor(a_tensor)).flatten().tolist()), rtol=1e-3, atol=1e-3)
-    pto.device_fini()
+    pto.runtime._device_fini()
 
 
 def test_vector_operation_neg():
@@ -276,7 +286,7 @@ def test_vector_operation_neg():
     view_shape = (16, 16)
     tile_shape = (8, 8)
     pto.set_codegen_option("support_dynamic_unaligned", True)
-    pto.device_init()
+    pto.runtime._device_init()
 
     a = pto.tensor((n, m), dtype, "NEG_TENSOR_a")
     b = pto.tensor((n, m), dtype, "NEG_TENSOR_b")
@@ -290,7 +300,8 @@ def test_vector_operation_neg():
                     for s_idx in sloop:
                         tile_a = pto.view(a, view_shape,
                             [b_idx * view_shape[0], s_idx * view_shape[1]],
-                            [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
+                            valid_shape=[(pto.symbolic_scalar(n) -
+                            b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
                             (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                         pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                         tile_a.move(pto.neg(tile_a))
@@ -300,10 +311,10 @@ def test_vector_operation_neg():
     a_data = a_tensor.flatten().tolist()
     b_data = list([0] * n * m)
 
-    pto.device_run_once_data_from_host([a_data], [b_data])
+    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
 
     assert b_data == torch.negative(torch.tensor(a_tensor)).flatten().tolist()
-    pto.device_fini()
+    pto.runtime._device_fini()
 
 
 @pytest.mark.skip(reason="Dep operation interface")
@@ -314,7 +325,7 @@ def test_vector_operation_vec_dup():
     view_shape = (16, 16)
     tile_shape = (8, 8)
     pto.set_codegen_option("support_dynamic_unaligned", True)
-    pto.device_init()
+    pto.runtime._device_init()
 
     a = pto.tensor((n, m), dtype, "VEC_DUP_TENSOR_a")
     b = pto.element(dtype, 2.0)
@@ -329,16 +340,17 @@ def test_vector_operation_vec_dup():
                     for s_idx in sloop:
                         tile_a = pto.tensor()
                         tile_a.move(pto.full(view_shape, b, dtype,
-                        valid_shape=[
-                        (pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
-                        (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))]))
+                        valid_shape=[(pto.symbolic_scalar(n) -
+                        b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
+                        (pto.symbolic_scalar(m) -
+                        s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))]))
                         pto.assemble(
                             tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], a)
                         del tile_a
     a_data = list([0] * n * m)
-    pto.device_run_once_data_from_host([], [a_data])
+    pto.runtime._device_run_once_data_from_host([], [a_data])
     assert a_data == list([2] * n * m)
-    pto.device_fini()
+    pto.runtime._device_fini()
 
 
 def test_vector_operation_logical_not():
@@ -346,7 +358,7 @@ def test_vector_operation_logical_not():
     n, m = tiling * 1, tiling * 1
     view_shape = (16, 16)
     tile_shape = (8, 8)
-    pto.device_init()
+    pto.runtime._device_init()
     pto.set_codegen_option("support_dynamic_unaligned", True)
 
     a = pto.tensor((n, m), pto.DT_FP32, "LOGICALNOT_TENSOR_a")
@@ -361,7 +373,8 @@ def test_vector_operation_logical_not():
                     for s_idx in sloop:
                         tile_a = pto.view(a, view_shape,
                             [b_idx * view_shape[0], s_idx * view_shape[1]],
-                            [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
+                            valid_shape=[(pto.symbolic_scalar(n) -
+                            b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
                             (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                         pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                         tmp_a = pto.tensor(view_shape, pto.DT_BOOL)
@@ -372,10 +385,10 @@ def test_vector_operation_logical_not():
     a_data = a_tensor.flatten().tolist()
     b_data = list([True] * n * m)
 
-    pto.device_run_once_data_from_host([a_data], [b_data])
+    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
 
     assert b_data == torch.logical_not(torch.tensor(a_tensor)).flatten().tolist()
-    pto.device_fini()
+    pto.runtime._device_fini()
 
 
 @pytest.mark.skip(reason="Dep operation interface")
@@ -386,7 +399,7 @@ def test_vector_operation_expand():
     view_shape = (16, 16)
     tile_shape = (8, 8)
     pto.set_codegen_option("support_dynamic_unaligned", True)
-    pto.device_init()
+    pto.runtime._device_init()
 
     a = pto.tensor((n, 1), dtype, "EXPAND_TENSOR_a")
     b = pto.tensor((n, m), dtype, "EXPAND_TENSOR_b")
@@ -400,7 +413,8 @@ def test_vector_operation_expand():
                     for s_idx in sloop:
                         tile_a = pto.view(a, [16, 1],
                             [b_idx * view_shape[0], 0],
-                            [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
+                            valid_shape=[(pto.symbolic_scalar(n) -
+                            b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
                             1])
                         pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                         tmp_a = pto.tensor()
@@ -412,10 +426,10 @@ def test_vector_operation_expand():
     a_data = list([-16] * n * 1)
     b_data = list([0] * n * m)
 
-    pto.device_run_once_data_from_host([a_data], [b_data])
+    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
 
     assert b_data == list([-16] * n * m)
-    pto.device_fini()
+    pto.runtime._device_fini()
 
 
 def test_vector_operation_concat():
@@ -426,7 +440,7 @@ def test_vector_operation_concat():
     view_shape = (16, 32)
     tile_shape = (8, 8)
     pto.set_codegen_option("support_dynamic_unaligned", True)
-    pto.device_init()
+    pto.runtime._device_init()
 
     a = pto.tensor(shape, dtype, "CONCAT_TENSOR_a")
     b = pto.tensor(shape, dtype, "CONCAT_TENSOR_b")
@@ -438,11 +452,13 @@ def test_vector_operation_concat():
             for b_idx in bloop:
                 tile_a = pto.view(a, view_shape,
                     [b_idx * view_shape[0], 0],
-                    [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
+                    valid_shape=[(pto.symbolic_scalar(n) -
+                    b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
                     n])
                 tile_b = pto.view(b, view_shape,
                     [b_idx * view_shape[0], 0],
-                    [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
+                    valid_shape=[(pto.symbolic_scalar(n) -
+                    b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
                     n])
                 pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                 tmp_c = pto.tensor([16, 64], dtype)
@@ -455,9 +471,9 @@ def test_vector_operation_concat():
     b_tensor = np.random.uniform(-100, 100, [n, m]).astype(np.float32)
     b_data = b_tensor.flatten().tolist()
     c_data = list([0] * 2 * n * m)
-    pto.device_run_once_data_from_host([a_data, b_data], [c_data])
+    pto.runtime._device_run_once_data_from_host([a_data, b_data], [c_data])
     assert c_data == torch.cat([torch.tensor(a_tensor), torch.tensor(b_tensor)], dim=-1).flatten().tolist()
-    pto.device_fini()
+    pto.runtime._device_fini()
 
 
 def test_vector_operation_rowmaxsingle():
@@ -468,7 +484,7 @@ def test_vector_operation_rowmaxsingle():
     output_shape = (1, m)
     view_shape = (16, 16)
     tile_shape = (8, 8)
-    pto.device_init()
+    pto.runtime._device_init()
     pto.set_codegen_option("support_dynamic_unaligned", True)
     a = pto.tensor(shape, dtype, "ROWMAXSINGLE_TENSOR_a")
     b = pto.tensor(output_shape, dtype, "ROWMAXSINGLE_TENSOR_b")
@@ -480,8 +496,9 @@ def test_vector_operation_rowmaxsingle():
             for s_idx in sloop:
                 tile_a = pto.view(a, [32, view_shape[1]],
                     [0, s_idx * view_shape[1]],
-                    [pto.symbolic_scalar(n),
-                    (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
+                    valid_shape=[pto.symbolic_scalar(n),
+                    (pto.symbolic_scalar(m) -
+                    s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                 pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                 tmp_a = pto.tensor([1, view_shape[1]], dtype)
                 tmp_a.move(pto.amax(tile_a, dim))
@@ -490,11 +507,11 @@ def test_vector_operation_rowmaxsingle():
     a_tensor = np.random.uniform(0, 100, shape).astype(np.float32)
     a_data = a_tensor.flatten().tolist()
     b_data = list([0] * output_shape[0] * output_shape[1])
-    pto.device_run_once_data_from_host([a_data], [b_data])
+    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
     assert_allclose(np.array(b_data),
         np.array(a_tensor.max(axis=dim, keepdims=True).reshape(output_shape[0] * output_shape[1]).tolist()),
         rtol=1e-3, atol=1e-3)
-    pto.device_fini()
+    pto.runtime._device_fini()
 
 
 def test_vector_operation_rowsumsingle():
@@ -505,7 +522,7 @@ def test_vector_operation_rowsumsingle():
     output_shape = (1, m)
     view_shape = (16, 16)
     tile_shape = (8, 8)
-    pto.device_init()
+    pto.runtime._device_init()
     pto.set_codegen_option("support_dynamic_unaligned", True)
     a = pto.tensor(shape, dtype, "ROWSUMSINGLE_TENSOR_a")
     b = pto.tensor(output_shape, dtype, "ROWSUMSINGLE_TENSOR_b")
@@ -517,8 +534,9 @@ def test_vector_operation_rowsumsingle():
             for s_idx in sloop:
                 tile_a = pto.view(a, [32, view_shape[1]],
                     [0, s_idx * view_shape[1]],
-                    [pto.symbolic_scalar(n),
-                    (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
+                    valid_shape=[pto.symbolic_scalar(n),
+                    (pto.symbolic_scalar(m) -
+                    s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                 pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                 tmp_a = pto.tensor([1, view_shape[1]], dtype)
                 tmp_a.move(pto.sum(tile_a, dim))
@@ -527,11 +545,11 @@ def test_vector_operation_rowsumsingle():
     a_tensor = np.random.uniform(0, 100, shape).astype(np.float32)
     a_data = a_tensor.flatten().tolist()
     b_data = list([0] * output_shape[0] * output_shape[1])
-    pto.device_run_once_data_from_host([a_data], [b_data])
+    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
     assert_allclose(np.array(b_data),
         np.array(a_tensor.sum(axis=dim, keepdims=True).reshape(output_shape[0] * output_shape[1]).tolist()),
         rtol=1e-3, atol=1e-3)
-    pto.device_fini()
+    pto.runtime._device_fini()
 
 
 def test_vector_operation_rowminsingle():
@@ -542,7 +560,7 @@ def test_vector_operation_rowminsingle():
     output_shape = (1, m)
     view_shape = (16, 16)
     tile_shape = (8, 8)
-    pto.device_init()
+    pto.runtime._device_init()
     pto.set_codegen_option("support_dynamic_unaligned", True)
     a = pto.tensor(shape, dtype, "ROWMINSINGLE_TENSOR_a")
     b = pto.tensor(output_shape, dtype, "ROWMINSINGLE_TENSOR_b")
@@ -554,8 +572,9 @@ def test_vector_operation_rowminsingle():
             for s_idx in sloop:
                 tile_a = pto.view(a, [32, view_shape[1]],
                     [0, s_idx * view_shape[1]],
-                    [pto.symbolic_scalar(n),
-                    (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
+                    valid_shape=[pto.symbolic_scalar(n),
+                    (pto.symbolic_scalar(m) -
+                    s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                 pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                 tmp_a = pto.tensor([1, view_shape[1]], dtype)
                 tmp_a.move(pto.amin(tile_a, dim))
@@ -564,8 +583,8 @@ def test_vector_operation_rowminsingle():
     a_tensor = np.random.uniform(0, 100, shape).astype(np.float32)
     a_data = a_tensor.flatten().tolist()
     b_data = list([0] * output_shape[0] * output_shape[1])
-    pto.device_run_once_data_from_host([a_data], [b_data])
+    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
     assert_allclose(np.array(b_data),
         np.array(a_tensor.min(axis=dim, keepdims=True).reshape(output_shape[0] * output_shape[1]).tolist()),
         rtol=1e-3, atol=1e-3)
-    pto.device_fini()
+    pto.runtime._device_fini()

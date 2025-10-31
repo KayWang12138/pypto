@@ -110,10 +110,12 @@ def page_attention(**kwargs):
                                                 cur_block_idx.as_intermediate_variable()
                                                 kn = pto.view(k_nope_cache, [cur_s2_tile, d_n],
                                                               [cur_block_idx * block_size, 0],
-                                                              [(cur_seq - bn * block_size).min(block_size), d_n])
+                                                              valid_shape=[(cur_seq - 
+                                                              bn * block_size).min(block_size), d_n])
                                                 kr = pto.view(k_rope_cache, [cur_s2_tile, d_r],
                                                               [cur_block_idx * block_size, 0],
-                                                              [(cur_seq - bn * block_size).min(block_size), d_r])
+                                                              valid_shape=[(cur_seq - 
+                                                              bn * block_size).min(block_size), d_r])
                                                 kj_format = pto.TileOpFormat.TILEOP_NZ if is_nz_format else (
                                                     pto.TileOpFormat.TILEOP_ND
                                                 )
@@ -121,10 +123,12 @@ def page_attention(**kwargs):
                                                 pto.assemble(kn, [0, 0], kj)
                                                 pto.assemble(kr, [0, d_n], kj)
                                                 kj = pto.view(kj, [cur_s2_tile, d_n + d_r],
-                                                [0, 0], [(cur_seq - bn * block_size).min(block_size), d_r + d_n])
+                                                              [0, 0], valid_shape=[(cur_seq - 
+                                                              bn * block_size).min(block_size), d_r + d_n])
                                                 vj = pto.view(v_nope_cache, [cur_s2_tile, d_n],
                                                               [cur_block_idx * block_size, 0],
-                                                              [(cur_seq - bn * block_size).min(block_size), d_n])
+                                                              valid_shape=[(cur_seq - 
+                                                              bn * block_size).min(block_size), d_n])
 
                                                 pto.set_semantic_label("MatMul")
                                                 pto.set_cube_tile_shapes(
@@ -307,10 +311,12 @@ def page_attention_with_imm_scalar(**kwargs):
                                                 cur_block_idx.as_intermediate_variable()
                                                 kn = pto.view(k_nope_cache, [cur_s2_tile, d_n],
                                                               [cur_block_idx * block_size, 0],
-                                                              [(cur_seq - bn * block_size).min(block_size), d_n])
+                                                              valid_shape=[(cur_seq - 
+                                                              bn * block_size).min(block_size), d_n])
                                                 kr = pto.view(k_rope_cache, [cur_s2_tile, d_r],
                                                               [cur_block_idx * block_size, 0],
-                                                              [(cur_seq - bn * block_size).min(block_size), d_r])
+                                                              valid_shape=[(cur_seq - 
+                                                              bn * block_size).min(block_size), d_r])
 
                                                 kj_format = pto.TileOpFormat.TILEOP_NZ if is_nz_format else (
                                                     pto.TileOpFormat.TILEOP_ND
@@ -318,11 +324,13 @@ def page_attention_with_imm_scalar(**kwargs):
                                                 kj = pto.tensor([cur_s2_tile, d_n + d_r], dtype, "kj", kj_format)
                                                 pto.assemble(kn, [0, 0], kj)
                                                 pto.assemble(kr, [0, d_n], kj)
-                                                kj = pto.view(kj, [cur_s2_tile, d_n + d_r],
-                                                [(cur_seq - bn * block_size).min(block_size), d_r + d_n], [0, 0])
+                                                kj = pto.view(kj, [cur_s2_tile, d_n + d_r], [0, 0],
+                                                              valid_shape=[(cur_seq - 
+                                                              bn * block_size).min(block_size), d_r + d_n])
                                                 vj = pto.view(v_nope_cache, [cur_s2_tile, d_n],
                                                               [cur_block_idx * block_size, 0],
-                                                              [(cur_seq - bn * block_size).min(block_size), d_n])
+                                                              valid_shape=[(cur_seq - 
+                                                              bn * block_size).min(block_size), d_n])
 
                                                 pto.set_cube_tile_shapes(
                                                     [c1_tile[0], c1_tile[1]], [c1_tile[2], c1_tile[3]],
@@ -667,16 +675,16 @@ def page_attention_high_throughput(**kwargs):
                         cur_block_idx.as_intermediate_variable()
                         kn = pto.view(k_nope_cache, [cur_s2_tile, d_n],
                                         [cur_block_idx * block_size, 0],
-                                        [min(cur_seq, block_size), d_n])
+                                        valid_shape=[min(cur_seq, block_size), d_n])
                         kr = pto.view(k_rope_cache, [cur_s2_tile, d_r],
                                         [cur_block_idx * block_size, 0],
-                                        [min(cur_seq, block_size), d_r])
+                                        valid_shape=[min(cur_seq, block_size), d_r])
                         kj = pto.tensor([cur_s2_tile, d_n + d_r], dtype, "kj")
                         pto.assemble(kn, [0, 0], kj)
                         pto.assemble(kr, [0, d_n], kj)
                         vj = pto.view(v_nope_cache, [cur_s2_tile, d_n],
                                         [cur_block_idx * block_size, 0],
-                                        [min(cur_seq, block_size), d_n])
+                                        valid_shape=[min(cur_seq, block_size), d_n])
 
                         pto.set_cube_tile_shapes(
                             [c1_tile[0], c1_tile[1]], [c1_tile[2], c1_tile[3]],

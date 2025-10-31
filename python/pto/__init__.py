@@ -27,9 +27,7 @@ from .enum import *  # noqa
 from .operation import *  # noqa
 from .operator import cos, sin, sigmoid, softmax
 from .pto_utils import ceildiv
-from .runtime import (device_fini, device_init,
-                      device_run_once_data_from_device,
-                      device_run_once_data_from_host, device_synchronize, jit)
+from .runtime import jit
 from .symbolic_scalar import SymbolicScalar
 from .tensor import Tensor
 

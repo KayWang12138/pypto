@@ -17,9 +17,9 @@ import torch
 import pto
 from pto import pto_impl
 
-device_init = pto_impl.DeviceInit
-device_fini = pto_impl.DeviceFini
-device_run_once_data_from_device = pto_impl.OperatorDeviceRunOnceDataFromDevice
+_device_init = pto_impl.DeviceInit
+_device_fini = pto_impl.DeviceFini
+_device_run_once_data_from_device = pto_impl.OperatorDeviceRunOnceDataFromDevice
 
 
 def _fill_data_to_target_inplace(output_list, target):
@@ -87,7 +87,7 @@ def _flatten_to_list(data):
         raise TypeError("input must be list/numpy.ndarray/torch.Tensor")
 
 
-def device_run_once_data_from_host(input_list: List, output_list: List):
+def _device_run_once_data_from_host(input_list: List, output_list: List):
     input_list = [_flatten_to_list(item) for item in input_list]
     convert_output_list = [_flatten_to_list(item) for item in output_list]
 
@@ -127,13 +127,13 @@ def _torch_to_pto_dtype(dtype: torch.dtype) -> pto.DataType:
     raise ValueError(f"Input torch.dtype is not supported. Got {dtype}")
 
 
-def torch_to_pto(t: torch.tensor, name: str) -> pto.Tensor:
+def _torch_to_pto(t: torch.tensor, name: str) -> pto.Tensor:
     "Converts a `torch.tensor` to `pto.Tensor`."
     pto_dtype = _torch_to_pto_dtype(t.dtype)
     try:
         import torch_npu
     except ImportError as e:
-        raise ImportError("pto.torch_to_pto requires torch_npu Python packages.") from e
+        raise ImportError("pto.runtime._torch_to_pto requires torch_npu Python packages.") from e
     if torch_npu.get_npu_format(t) == 29: # 29: torch_npu.Format.FRACTAL_NZ
         return pto.Tensor(tuple(t.shape), pto_dtype, f"PTO_TENSOR_{name}", pto.TileOpFormat.TILEOP_NZ)
     return pto.Tensor(tuple(t.shape), pto_dtype, f"PTO_TENSOR_{name}")
@@ -159,10 +159,10 @@ class jit:
 
             # Convert I/O torch tensors to PTO tensors and run pto.dyn_function
             in_pto_tensors = [
-                torch_to_pto(t, f"IN_{idx}") for idx, t in enumerate(in_tensors)
+                _torch_to_pto(t, f"IN_{idx}") for idx, t in enumerate(in_tensors)
             ]
             out_pto_tensors = [
-                torch_to_pto(t, f"OUT_{idx}") for idx, t in enumerate(out_tensors)
+                _torch_to_pto(t, f"OUT_{idx}") for idx, t in enumerate(out_tensors)
             ]
             handler = pto_impl.OperatorBegin()
             self.dyn_func(in_pto_tensors, out_pto_tensors, *args[2:], **kwargs)
@@ -182,6 +182,6 @@ class jit:
         return self._handler
 
 
-def device_synchronize():
+def _device_synchronize():
     stream = torch.npu.current_stream()
     pto_impl.OperatorDeviceSynchronize(stream.npu_stream)

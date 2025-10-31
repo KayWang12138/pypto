@@ -491,16 +491,19 @@ def attention(**kwargs):
                                                 cur_block_idx.as_intermediate_variable()
                                                 kn = pto.view(kv_cache_out, [cur_s2_tile, d_n],
                                                               [cur_block_idx * block_size, 0],
-                                                              [min(cur_seq - bn * block_size, block_size), d_n])
+                                                              valid_shape=[min(cur_seq - 
+                                                              bn * block_size, block_size), d_n])
                                                 kr = pto.view(kr_cache_out, [cur_s2_tile, d_r],
                                                               [cur_block_idx * block_size, 0],
-                                                              [min(cur_seq - bn * block_size, block_size), d_r])
+                                                              valid_shape=[min(cur_seq - 
+                                                              bn * block_size, block_size), d_r])
                                                 kj = pto.tensor([cur_s2_tile, d_n + d_r], dtype, "kj", pa_format)
                                                 pto.assemble(kn, [0, 0], kj)
                                                 pto.assemble(kr, [0, d_n], kj)
                                                 vj = pto.view(kv_cache_out, [cur_s2_tile, d_n],
                                                               [cur_block_idx * block_size, 0],
-                                                              [min(cur_seq - bn * block_size, block_size), d_n])
+                                                              valid_shape=[min(cur_seq - 
+                                                              bn * block_size, block_size), d_n])
 
                                                 pto.set_cube_tile_shapes(
                                                     [c1_tile[0], c1_tile[1]], [c1_tile[2], c1_tile[3]],

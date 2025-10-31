@@ -36,9 +36,11 @@ def sin(input: Tensor) -> Tensor:
 
     Examples
     --------
-    >>> x = pto.tensor([-0.5461,  0.1347, -2.7266, -0.2746]))  
-    >>> pto.sin(x) 
-    tensor([-0.5194,  0.1343, -0.4032, -0.2711])
+    x = pto.tensor([4], pto.DT_FP32)
+    y = pto.sin(x)
+
+    Input x:[-0.5461,  0.1347, -2.7266, -0.2746]
+    Output y:[-0.5194,  0.1343, -0.4032, -0.2711]
     """
     @op_wrapper
     def _cast(_input, _dtype, _cast_mode = pto.CastMode.CAST_NONE):
@@ -216,9 +218,11 @@ def cos(input: Tensor) -> Tensor:
 
     Examples
     --------
-    >>> x = pto.tensor([0.0000, 0.7854, 1.5708, 2.3562]) 
-    >>> pto.cos(x) 
-    tensor([1.0000, 0.7071, 0.0000, -0.7071])
+    x = pto.tensor([4], pto.DT_FP32)
+    y = pto.cos(x)
+
+    Input x:[0.0000, 0.7854, 1.5708, 2.3562]
+    Output y:[1.0000, 0.7071, 0.0000, -0.7071]
     """
     @op_wrapper
     def _cast(_input, _dtype, _cast_mode = pto.CastMode.CAST_NONE):
@@ -397,9 +401,11 @@ def sigmoid(input: Tensor) -> Tensor:
 
     Examples
     --------
-    >>> x = pto.tensor([-3.0, 0.0, 2.0, 5.0]) 
-    >>> y = pto.sigmoid(x) 
-    tensor([0.0474, 0.5000, 0.8808, 0.9933])
+    x = pto.tensor([4], pto.DT_FP32)
+    y = pto.sigmoid(x) 
+
+    Input x:[-3.0, 0.0, 2.0, 5.0]
+    Output y:[0.0474, 0.5000, 0.8808, 0.9933]
     """
     @op_wrapper
     def _cast(_input, _dtype, _cast_mode = pto.CastMode.CAST_NONE):
@@ -447,7 +453,7 @@ def softmax(input: Tensor, dim: int) -> Tensor:
     dim: int
         Specify the dimension for normalization.
         Negative indices are supported (e.g., -1 indicates the last dimension).
-        It must be within the range of [-input.dim(), input.dim() - 1].
+        It must be within the range of [-input.dim, input.dim - 1].
     
     Returns
     -------
@@ -456,10 +462,12 @@ def softmax(input: Tensor, dim: int) -> Tensor:
         specified dimension is 1, and the data type is determined by dtype or the input type.
 
     Examples
-    --------
-    >>> x = pto.tensor([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]) 
-    >>> pto.softmax(x, -1) 
-    tensor([[0.0900, 0.2447, 0.6652], [0.0900, 0.2447, 0.6652]])
+    --------    
+    x = pto.tensor([2, 3], pto.DT_FP32)
+    y = pto.softmax(x, -1)
+
+    Input x:[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
+    Output y:[[0.0900, 0.2447, 0.6652], [0.0900, 0.2447, 0.6652]]
     """    
     @op_wrapper
     def _cast(_input, _dtype, _cast_mode = pto.CastMode.CAST_NONE):

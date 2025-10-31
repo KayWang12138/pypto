@@ -25,7 +25,7 @@ def test_init_tensor():
     assert a.name == "a"
     assert a.dtype == dtype
     assert a.shape == shape
-    assert a.dim() == len(shape)
+    assert a.dim == len(shape)
 
     b = pto.tensor([-1, 2], dtype, "b")
     assert b.dtype == dtype
