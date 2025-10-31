@@ -20,17 +20,17 @@
 namespace npu {
 namespace tile_fwk {
 Status InferDiscontinuousInput::RunOnFunction(Function &function) {
-    ALOG_INFO_F("===> Start InferMemoryConflict for function [%s].", function.GetRawName().c_str());
+    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> Start InferDiscontinuousInput for function [%s].", function.GetRawName().c_str());
     Init(function);
     if (InferFromIncast() != SUCCESS) {
-        ALOG_ERROR_F("Infer INCAST and OUTCAST address failed.");
+        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Infer INCAST and OUTCAST address failed.");
         return FAILED;
     }
     if (InsertTensorCopy(function) != SUCCESS) {
-        ALOG_ERROR_F("Insert copy op failed.");
+        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Insert copy op failed.");
         return FAILED;
     }
-    ALOG_INFO_F("===> End InferMemoryConflict for function [%s].", function.GetRawName().c_str());
+    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> End InferDiscontinuousInput for function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }
 
@@ -154,7 +154,7 @@ std::vector<std::pair<LogicalTensorPtr, Operation *>> InferDiscontinuousInput::F
     auto copyIdx = GetInputTileConflict(inplaceTensors);
     for (auto idx : copyIdx) {
         needInsertCopys.push_back(inplaceTensors[idx]);
-        ALOG_DEBUG_F("[MemConflict] Input tensor [%d] conflit.", inplaceTensors[idx].first->GetMagic());
+        APASS_LOG_DEBUG_F(GetName().c_str(), "Tensor", "Input tensor [%d] conflit.", inplaceTensors[idx].first->GetMagic());
     }
     return needInsertCopys;
 }
@@ -205,14 +205,14 @@ void InferDiscontinuousInput::InsertViewOp(Function &function, LogicalTensorPtr 
     auto &insertViewOp = function.AddRawOperation(Opcode::OP_VIEW, {iOperand}, {oOperand});
     insertViewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(iOperand->GetOffset(),
         oOperand->GetMemoryTypeOriginal(), iOperand->GetDynOffset(), iOperand->GetDynValidShape()));
-    ALOG_DEBUG_F("[MemConflict] Insert view op [%d].", insertViewOp.GetOpMagic());
+    APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "Insert view op [%d].", insertViewOp.GetOpMagic());
 }
 void InferDiscontinuousInput::InsertAssembleOp(
     Function &function, LogicalTensorPtr iOperand, LogicalTensorPtr oOperand) {
     auto &insertAssembleOp = function.AddRawOperation(Opcode::OP_ASSEMBLE, {iOperand}, {oOperand});
     insertAssembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(iOperand->GetMemoryTypeOriginal(),
         oOperand->GetOffset(), oOperand->GetDynOffset(), oOperand->GetDynValidShape()));
-    ALOG_DEBUG_F("[MemConflict] Insert assemble op [%d].", insertAssembleOp.GetOpMagic());
+     APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "Insert assemble op [%d].", insertAssembleOp.GetOpMagic());
 }
 
 void InferDiscontinuousInput::InsertCopyOp(Function &function, LogicalTensorPtr iOperand, LogicalTensorPtr oOperand) {
