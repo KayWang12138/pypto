@@ -167,10 +167,6 @@ static void FindAllExpression(FunctionCache &cache, Linker &linker, Function *fu
         FindAllExpression(cache, linker, root);
     } else if (func->GetGraphType() == GraphType::EXECUTE_GRAPH) {
         ALOG_INFO("Compile root:", func->Dump());
-        for(auto outCast : func->GetOutcast()) {
-            for (auto dynShapeValidShapeI : outCast->tensor->GetDynRawShape())
-                linker.AddPrimaryExpressionForDevRootCoa(func, dynShapeValidShapeI);
-        }
         for (auto &callopAttr : func->GetCallopAttrList()) {
             for (auto &arg : callopAttr->GetLinearArgList()) {
                 linker.AddPrimaryExpressionForDevRootCoa(func, arg);
