@@ -23,7 +23,7 @@ Status SToIWrapper(const std::string str, int& result) {
         result = std::stoi(str);
         return SUCCESS;
     } catch (const std::exception &e) {
-        ALOG_ERROR_F("Failed to convert %s to int, error is %s.", str.c_str(), e.what());
+        APASS_LOG_ERROR_F("DynAttrToStatic", "Operation", "Failed to convert %s to int, error is %s.", str.c_str(), e.what());
     }
     return FAILED;
 }
@@ -94,7 +94,7 @@ Status DynAttrToStatic::GetCallee(const Operation *callop, Function *&callFunc) 
     auto callopAttr = std::static_pointer_cast<CallOpAttribute>(callop->GetOpAttribute());
     callFunc = Program::GetInstance().GetFunctionByMagicName(callopAttr->GetCalleeMagicName());
     if (callFunc == nullptr) {
-        ALOG_ERROR_F("Get callee function %s failed.", callopAttr->GetCalleeMagicName().c_str());
+        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Get callee function %s failed.", callopAttr->GetCalleeMagicName().c_str());
         return FAILED;
     }
     return SUCCESS;
@@ -102,17 +102,16 @@ Status DynAttrToStatic::GetCallee(const Operation *callop, Function *&callFunc) 
 
 Status DynAttrToStatic::BuildLeafToCaller(Function *func) {
     if (func->IsFunctionTypeAndGraphType(
-        {FunctionType::DYNAMIC, FunctionType::DYNAMIC_LOOP, FunctionType::DYNAMIC_LOOP_PATH}, GraphType::TENSOR_GRAPH))
-    {
+        {FunctionType::DYNAMIC, FunctionType::DYNAMIC_LOOP, FunctionType::DYNAMIC_LOOP_PATH}, GraphType::TENSOR_GRAPH)) {
         for (auto callop : func->GetCallopList()) {
             Function *nextFunc = nullptr;
             if (GetCallee(callop, nextFunc) != SUCCESS) {
-                ALOG_ERROR_F("BuildLeafToCaller at %s, %s[%d] GetCallee failed",
+                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "BuildLeafToCaller at %s, %s[%d] GetCallee failed.",
                     func->GetRawName().c_str(), callop->GetOpcodeStr().c_str(), callop->GetOpMagic());
                 return FAILED;
             }
             if (BuildLeafToCaller(nextFunc) != SUCCESS) {
-                ALOG_ERROR_F("BuildLeafToCaller at %s, nextFunc at %s failed",
+                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "BuildLeafToCaller at %s, nextFunc at %s failed",
                     func->GetRawName().c_str(), nextFunc->GetRawName().c_str());
                 return FAILED;
             }
@@ -125,7 +124,7 @@ Status DynAttrToStatic::BuildLeafToCaller(Function *func) {
         for (auto callop : func->GetCallopList()) {
             Function *leafFunc = nullptr;
             if (GetCallee(callop, leafFunc) != SUCCESS) {
-                ALOG_ERROR_F("BuildLeafToCaller at %s, %s[%d] GetCallee failed",
+                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "BuildLeafToCaller at %s, %s[%d] GetCallee failed.",
                     func->GetRawName().c_str(), callop->GetOpcodeStr().c_str(), callop->GetOpMagic());
                 return FAILED;
             }
@@ -133,7 +132,7 @@ Status DynAttrToStatic::BuildLeafToCaller(Function *func) {
         }
         return SUCCESS;
     }
-    ALOG_ERROR_F("BuildLeafToCaller at %s entered unexpected function type %d",
+    APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "BuildLeafToCaller at %s entered unexpected function type %d.",
         func->GetRawName().c_str(), static_cast<int>(func->GetFunctionType()));
     return FAILED;
 }
@@ -145,12 +144,12 @@ Status DynAttrToStatic::BuildNewCoa(
     // 1. 拆解dynScalar到对应的COA表达式
     std::string dynParamExpr = SymbolicExpressionTable::BuildExpression(dynScalar);
     if (dynParamExpr.find(COA_PREFIX) != 1) { // dynParamExpr格式是"(RUNTIME_GET_COA_XXX"
-        ALOG_INFO_F("BuildNewCoa skips non-COA dynamic expression");
+        APASS_LOG_INFO_F(GetName().c_str(), "Operation", "BuildNewCoa skips non-COA dynamic expression.");
         return SUCCESS;
     }
     CoaInfo coaExpr;
     if (coaExpr.ParseCoaString(dynParamExpr) != SUCCESS) {
-        ALOG_ERROR_F("BuildNewCoa found unexpected COA expression at dynParamExpr");
+        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "BuildNewCoa found unexpected COA expression at dynParamExpr.");
         return FAILED;
     }
     int coaIndex = coaExpr.CalculateCoaIndex();
@@ -167,7 +166,7 @@ Status DynAttrToStatic::BuildNewCoa(
     }
 
     // 3. 刷新新的COA宏
-    ALOG_INFO_F("BuildNewCoa update dynScalar with isConst=%d, value=%d", scalarValue.isConst, scalarValue.attrValue);
+    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "BuildNewCoa update dynScalar with isConst=%d, value=%d.", scalarValue.isConst, scalarValue.attrValue);
     dynScalar.get() = coaExpr.BuildMaybeConstCoa(scalarValue.isConst, scalarValue.attrValue);
     return SUCCESS;
 }
@@ -187,7 +186,7 @@ Status DynAttrToStatic::TryRemoveDynAttr(Function* leafFunc, std::vector<Operati
         std::vector<std::reference_wrapper<SymbolicScalar>> dynScalarList = GetOpDynamicAttributeList(op);
         for (auto dynScalar : dynScalarList) {
             if (BuildNewCoa(dynScalar, callopArglistOneDim) != SUCCESS) {
-                ALOG_ERROR_F("TryRemoveDynAttr failed to execute BuildNewCoa for op [%d][%s].",
+                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "TryRemoveDynAttr failed to execute BuildNewCoa for op [%d][%s].",
                     op.GetOpMagic(), op.GetOpcodeStr().c_str());
                 return FAILED;
             }
@@ -203,7 +202,7 @@ Status DynAttrToStatic::TryRemoveDynAttr(Function* leafFunc, std::vector<Operati
         if (dynParam.second.dim.IsValid()) {
             std::reference_wrapper<SymbolicScalar> dynExpr = const_cast<SymbolicScalar&>(dynParam.second.dim);
             if (BuildNewCoa(dynExpr, callopArglistOneDim) != SUCCESS) {
-                ALOG_ERROR_F("TryRemoveDynAttr failed to execute BuildNewCoa for dynExpr %s.",
+                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "TryRemoveDynAttr failed to execute BuildNewCoa for dynExpr %s.",
                     SymbolicExpressionTable::BuildExpression(dynExpr).c_str());
                 return FAILED;
             }
@@ -215,22 +214,22 @@ Status DynAttrToStatic::TryRemoveDynAttr(Function* leafFunc, std::vector<Operati
 
 
 Status DynAttrToStatic::RunOnFunction(Function &function) {
-    ALOG_INFO_F("==============> Start DynAttrToStatic");
+    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "==============> Start DynAttrToStatic.");
     // 1. 遍历所有rootFunc，找到每个leaf的所有caller，生成leaf2Caller map
     if (BuildLeafToCaller(&function) != SUCCESS) {
-        ALOG_ERROR_F("Failed to call BuildLeafToCaller.");
+        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Failed to call BuildLeafToCaller.");
         return FAILED;
     }
 
     // 2. 遍历leaf2Caller，尝试为每个leaf消除动态attributes
     for (const auto& pair : leaf2Caller) {
         if (TryRemoveDynAttr(pair.first, pair.second) != SUCCESS) {
-            ALOG_ERROR_F("Failed to call TryRemoveDynAttr for leafFunc %s.", pair.first->GetRawName().c_str());
+            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Failed to call TryRemoveDynAttr for leafFunc %s.", pair.first->GetRawName().c_str());
             return FAILED;
         }
     }
     
-    ALOG_INFO_F("==============> End DynAttrToStatic");
+    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "==============> End DynAttrToStatic.");
     return SUCCESS;
 }
 } // namespace tile_fwk

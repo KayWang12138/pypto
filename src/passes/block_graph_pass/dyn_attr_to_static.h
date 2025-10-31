@@ -29,6 +29,7 @@
 #include "passes/pass_utils/pass_utils.h"
 #include "interface/tensor/symbolic_scalar.h"
 #include "interface/utils/log.h"
+#include "passes/pass_utils/pass_utils.h"
 
 namespace npu {
 namespace tile_fwk {
@@ -68,15 +69,15 @@ struct CoaInfo {
 
     Status SToIParamShapeAndOffset(const std::smatch &match) {
         if (SToIWrapper(match[INPUT_PARAM_POS_ONE].str(), dim) != SUCCESS) {
-            ALOG_ERROR_F("Failed to convert dim.");
+            APASS_LOG_ERROR_F("DynAttrToStatic", "Operation", "Failed to convert dim.");
             return FAILED;
         }
         if (SToIWrapper(match[INPUT_PARAM_POS_TWO].str(), base) != SUCCESS) {
-            ALOG_ERROR_F("Failed to convert base.");
+            APASS_LOG_ERROR_F("DynAttrToStatic", "Operation", "Failed to convert base.");
             return FAILED;
         }
         if (SToIWrapper(match[INPUT_PARAM_POS_THREE].str(), idx) != SUCCESS) {
-            ALOG_ERROR_F("Failed to convert idx.");
+            APASS_LOG_ERROR_F("DynAttrToStatic", "Operation", "Failed to convert idx.");
             return FAILED;
         }
         return SUCCESS;
@@ -87,26 +88,26 @@ struct CoaInfo {
         if (std::regex_search(coaExpr, match, paramOffsetPattern)) {
             macroType = CoaType::PARAM_OFFSET;
             if (SToIParamShapeAndOffset(match) != SUCCESS) {
-                ALOG_ERROR_F("ParseCoaString failed to convert indices,"
+                APASS_LOG_ERROR_F("DynAttrToStatic", "Operation", "ParseCoaString failed to convert indices,"
                     "CoaType::PARAM_OFFSET, input coaExpr %s.", coaExpr.c_str());
                 return FAILED;
             }
         } else if (std::regex_search(coaExpr, match, paramShapePattern)) {
             macroType = CoaType::PARAM_VALID_SHAPE;
             if (SToIParamShapeAndOffset(match) != SUCCESS) {
-                ALOG_ERROR_F("ParseCoaString failed to convert indices,"
+                APASS_LOG_ERROR_F("DynAttrToStatic", "Operation", "ParseCoaString failed to convert indices,"
                     "CoaType::PARAM_VALID_SHAPE, input coaExpr %s.", coaExpr.c_str());
                 return FAILED;
             }
         } else if (std::regex_search(coaExpr, match, paramPattern)) {
             macroType = CoaType::PARAM;
             if (SToIWrapper(match[INPUT_PARAM_POS_ONE].str(), idx) != SUCCESS) {
-                ALOG_ERROR_F("ParseCoaString failed to convert indices,"
+                APASS_LOG_ERROR_F("DynAttrToStatic", "Operation", "ParseCoaString failed to convert indices,"
                     "CoaType::PARAM, input coaExpr %s.", coaExpr.c_str());
                 return FAILED;
             }
         } else {
-            ALOG_ERROR_F("ParseCoaString input coaExpr %s is not recognized.", coaExpr.c_str());
+            APASS_LOG_ERROR_F("DynAttrToStatic", "Operation", "ParseCoaString input coaExpr %s is not recognized.", coaExpr.c_str());
             return FAILED;
         }
         return SUCCESS;
@@ -120,7 +121,7 @@ struct CoaInfo {
         } else if (macroType == CoaType::PARAM) {
             return idx;
         }
-        ALOG_ERROR_F("GetCoaFinalIdx Coa type is invalid.");
+        APASS_LOG_ERROR_F("DynAttrToStatic", "Operation", "GetCoaFinalIdx Coa type is invalid.");
         return 0;
     }
 
@@ -132,7 +133,7 @@ struct CoaInfo {
         } else if (macroType == CoaType::PARAM) {
             return MAYBE_CONST_COA_GetParam(isConst, attrValue, idx);
         }
-        ALOG_ERROR_F("BuildMaybeConstCoa Coa type is invalid.");
+        APASS_LOG_ERROR_F("DynAttrToStatic", "Operation", "BuildMaybeConstCoa Coa type is invalid.");
         return 0;
     }
 };
