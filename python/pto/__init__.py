@@ -29,7 +29,7 @@ from .operator import cos, sin, sigmoid, softmax
 from .pto_utils import ceildiv
 from .runtime import jit
 from .symbolic_scalar import SymbolicScalar
-from .tensor import Tensor
+from .tensor import Tensor, mark_input_dynamic
 
 
 def dump() -> str:

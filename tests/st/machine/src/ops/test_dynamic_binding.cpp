@@ -194,11 +194,11 @@ TEST_F(DynamicBindingTest, TestDeviceCompute) {
     ExportedOperatorEnd(op);
 
     std::vector<DeviceTensorData> inputList = {
-        DeviceTensorData((uintdevptr_t)inputADevAddr, inputA.GetShape()),
-        DeviceTensorData((uintdevptr_t)inputBDevAddr, inputB.GetShape()),
+        DeviceTensorData(inputA.GetDataType(), (uintdevptr_t)inputADevAddr, inputA.GetShape()),
+        DeviceTensorData(inputB.GetDataType(), (uintdevptr_t)inputBDevAddr, inputB.GetShape()),
     };
     std::vector<DeviceTensorData> outputList = {
-        DeviceTensorData((uintdevptr_t)outputDevAddr, output.GetShape()),
+        DeviceTensorData(output.GetDataType(), (uintdevptr_t)outputDevAddr, output.GetShape()),
     };
 
     auto aicpuStream = reinterpret_cast<DeviceStream>(machine::GetRA()->GetStreamAICPU());

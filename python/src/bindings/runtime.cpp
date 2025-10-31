@@ -184,42 +184,31 @@ std::string DeviceRunOnceDataFromHost(py::list &inputPythonDataList, py::list &o
     return "";
 }
 
-std::string OperatorDeviceRunOnceDataFromDevice(py::int_ pythonOperatorPython, py::list &inputDeviceAddrList, py::list &outputDeviceAddrList, py::int_ incomingStreamPython) {
+std::string OperatorDeviceRunOnceDataFromDevice(py::int_ pythonOperatorPython,
+    const std::vector<DeviceTensorData> &inputs, const std::vector<DeviceTensorData> &outputs,
+    py::int_ incomingStreamPython) {
     auto opAddr = static_cast<uintptr_t>(pythonOperatorPython);
     if (opAddr == 0) {
         return "invalid operator";
     }
-    ExportedOperator *op = reinterpret_cast<ExportedOperator *>(opAddr);
 
-    (void)incomingStreamPython;
+    ExportedOperator *op = reinterpret_cast<ExportedOperator *>(opAddr);
     Function *func = op->GetFunction();
     if (!func->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC, GraphType::TENSOR_GRAPH)) {
         return "Invalid function format";
     }
+
     auto attr = func->GetDyndevAttribute();
     if (attr == nullptr) {
         return "Invalid function format";
     }
-    auto &inputLogicalTensorList = attr->startArgsInputLogicalTensorList;
-    auto &outputLogicalTensorList = attr->startArgsOutputLogicalTensorList;
-    if (inputLogicalTensorList.size() != inputDeviceAddrList.size()) {
-        return "mismatch input";
+
+    auto inputSize = attr->startArgsInputLogicalTensorList.size();
+    auto outputSize = attr->startArgsOutputLogicalTensorList.size();
+    if (inputSize != inputs.size() || outputSize != outputs.size()) {
+        return "mismatch input/output";
     }
-    if (outputLogicalTensorList.size() != outputDeviceAddrList.size()) {
-        return "mismatch output";
-    }
-    std::vector<DeviceTensorData> inputList;
-    std::vector<DeviceTensorData> outputList;
-    for (size_t i = 0; i < inputLogicalTensorList.size(); i++) {
-        std::shared_ptr<LogicalTensor> inputLogicalTensor = inputLogicalTensorList[i];
-        uintptr_t inputDeviceAddr = static_cast<uintptr_t>(py::int_(inputDeviceAddrList[i]));
-        inputList.emplace_back(inputDeviceAddr, inputLogicalTensor->GetShape());
-    }
-    for (size_t i = 0; i < outputLogicalTensorList.size(); i++) {
-        std::shared_ptr<LogicalTensor> outputLogicalTensor = outputLogicalTensorList[i];
-        uintptr_t outputDeviceAddr = static_cast<uintptr_t>(py::int_(outputDeviceAddrList[i]));
-        outputList.emplace_back(outputDeviceAddr, outputLogicalTensor->GetShape());
-    }
+
     auto incomingStream = static_cast<uintptr_t>(incomingStreamPython);
     if (incomingStream == 0) {
         return "invalid incoming stream";
@@ -227,7 +216,8 @@ std::string OperatorDeviceRunOnceDataFromDevice(py::int_ pythonOperatorPython, p
 
     auto aicoreStream = incomingStream;
     auto aicpuStream = DeviceGetAicpuStream();
-    int rc = ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(op, inputList, outputList, aicpuStream, aicoreStream, false);
+    int rc =
+        ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(op, inputs, outputs, aicpuStream, aicoreStream, false);
     if (rc < 0) {
         return "device run failed";
     }
@@ -276,6 +266,13 @@ void BindRuntime(py::module &m) {
     m.def("OperatorDeviceSynchronize", &OperatorDeviceSynchronize);
     m.def("OperatorBegin", OperatorBegin);
     m.def("OperatorEnd", OperatorEnd);
+
+    py::class_<DeviceTensorData>(m, "DeviceTensorData")
+        .def(py::init<DataType, uintptr_t, const std::vector<int64_t> &>(), py::arg("dtype"), py::arg("addr"),
+            py::arg("shape"))
+        .def("GetDevAddr", &DeviceTensorData::GetDevAddr)
+        .def("GetShape", &DeviceTensorData::GetShape)
+        .def("GetDataType", &DeviceTensorData::GetDataType);
 }
 
 #else

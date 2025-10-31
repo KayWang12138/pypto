@@ -197,6 +197,7 @@ def GetTensorData(
 def SetTensorData(value: SymbolicScalar,
                   offset: List[SymbolicScalar], dst: Tensor): ...
 
+def MarkInputDynamic(a: Tensor, axis: int): ...
 
 class RecordIfBranch:
 

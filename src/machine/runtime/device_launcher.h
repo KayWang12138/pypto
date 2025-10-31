@@ -205,9 +205,9 @@ public:
             if (inputData) {
                 inputData->SetDevPtr(nullptr);
                 shape.insert(shape.end(), inputData->GetShape().begin(), inputData->GetShape().end());
-                inputDeviceDataList.emplace_back((uintdevptr_t)devMem.CopyToDev(*inputData), shape);
+                inputDeviceDataList.emplace_back(inputData->GetDataType(), (uintdevptr_t)devMem.CopyToDev(*inputData), shape);
             } else {
-                inputDeviceDataList.emplace_back(0, shape);
+                inputDeviceDataList.emplace_back(DT_UINT8, 0, shape);
             }
         }
         for (size_t k = 0; k < outputDataList.size(); k++) {
@@ -216,9 +216,9 @@ public:
             if (outputData) {
                 outputData->SetDevPtr(nullptr);
                 shape.insert(shape.end(), outputData->GetShape().begin(), outputData->GetShape().end());
-                outputDeviceDataList.emplace_back((uintdevptr_t)devMem.CopyToDev(*outputData), shape);
+                outputDeviceDataList.emplace_back(outputData->GetDataType(), (uintdevptr_t)devMem.CopyToDev(*outputData), shape);
             } else {
-                outputDeviceDataList.emplace_back(0, shape);
+                outputDeviceDataList.emplace_back(DT_UINT8, 0, shape);
             }
         }
         return std::make_pair(inputDeviceDataList, outputDeviceDataList);

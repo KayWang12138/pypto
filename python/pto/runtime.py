@@ -138,6 +138,16 @@ def _torch_to_pto(t: torch.tensor, name: str) -> pto.Tensor:
         return pto.Tensor(tuple(t.shape), pto_dtype, f"PTO_TENSOR_{name}", pto.TileOpFormat.TILEOP_NZ)
     return pto.Tensor(tuple(t.shape), pto_dtype, f"PTO_TENSOR_{name}")
 
+def _to_tensor_data(tensors: List[torch.Tensor]):
+    datas = []
+    for t in tensors:
+        data = pto_impl.DeviceTensorData(
+            _torch_to_pto_dtype(t.dtype),
+            t.data_ptr(),
+            list(t.shape),
+        )
+        datas.append(data)
+    return datas
 
 class jit:
     def __init__(self, dyn_func):
@@ -173,8 +183,8 @@ class jit:
         stream = torch.npu.current_stream()
         pto_impl.OperatorDeviceRunOnceDataFromDevice(
             self._handler,
-            [in_tensor.data_ptr() for in_tensor in in_tensors],
-            [out_tensor.data_ptr() for out_tensor in out_tensors],
+            _to_tensor_data(in_tensors),
+            _to_tensor_data(out_tensors),
             stream.npu_stream)
 
     @property

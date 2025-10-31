@@ -155,5 +155,7 @@ void BindTensor(py::module &m) {
         "Get the tensor data at the specified offsets.");
     m.def("SetTensorData", &SetTensorData, py::arg("value"), py::arg("offset"), py::arg("dst"),
         "Set the tensor data at the destination offset from the source value.");
+    m.def("MarkInputDynamic", &MarkInputDynamic, py::arg("tensor"), py::arg("axis"),
+        "Mark the input tensor as dynamic at the specified axis.");
 }
 } // namespace pypto

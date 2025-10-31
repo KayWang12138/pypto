@@ -291,5 +291,5 @@ class Tensor:
     def maximum(self, other: 'Tensor') -> 'Tensor':
         return pto.maximum(self, other)
 
-        
-tensor = Tensor
+def mark_input_dynamic(tensor: 'Tensor', axis: int):
+    pto_impl.MarkInputDynamic(tensor._base, axis)
