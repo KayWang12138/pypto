@@ -78,7 +78,7 @@ class Tensor:
             elif isinstance(k.stop, (int, SymbolicScalar)):
                 offsets.append(k.stop - shape[axis])
             else:
-                raise ValueError("Both start and stop are unknown")
+                offsets.append(0)
         return offsets
 
     def _is_empty_slice(self, key):

@@ -279,6 +279,7 @@ def div(
             return pto_impl.div_s(input, pto_impl.Element(input.dtype, other * alpha))
 
 
+@op_wrapper
 def assemble(input: Tensor, offsets: List[Union[int, SymbolicScalar]], out: Tensor) -> None:
     """
     Assembles a small Tensor into a larger Tensor based on specified offsets.
@@ -305,7 +306,7 @@ def assemble(input: Tensor, offsets: List[Union[int, SymbolicScalar]], out: Tens
     [0 0 0 0]
     [0 0 0 0]]
     """
-    pto_impl.assemble(input.base(), to_syms(offsets), out.base())
+    pto_impl.assemble(input, to_syms(offsets), out)
 
 
 def min(a: 'SymbolicScalar | int', b: 'SymbolicScalar | int') -> 'SymbolicScalar':
@@ -547,8 +548,7 @@ def topk(
             [2, 1]])
     """
 
-    values_base, indices_base = pto_impl.topk(input, k, (-1 if dim is None else dim), largest)
-    return Tensor.from_base(values_base), Tensor.from_base(indices_base)
+    return pto_impl.topk(input, k, (-1 if dim is None else dim), largest)
 
 
 @op_wrapper

@@ -330,7 +330,7 @@ def cond(scalar: SymInt):
 
     Parameters
     ----------
-    scalar: pto.SymbolicScalar
+    scalar: Union[int, SymbolicScalar]
         expression to determine if condition is true or not
 
     Returns
@@ -343,6 +343,8 @@ def cond(scalar: SymInt):
     >>> if pto.cond(pto.is_loop_begin(bn, 0)):
             pass
         elif pto.cond(pto.is_loop_end(bn, 0)):
+            pass
+        elif pto.cond(1):
             pass
         else:
             pass
@@ -435,7 +437,7 @@ def loop(start: SymInt, end: Optional[SymInt] = None, step: Optional[SymInt] = N
 
     Examples
     --------
-    >>> with pto.loop(0, 10, 1, power_of_2(max_unroll_times), loop_name, iter_name):
+    >>> with pto.loop(0, 10, 1, loop_name, iter_name, power_of_2(max_unroll_times)):
             if pto.cond(k==0):
                 b[:] = a + a
             else:
