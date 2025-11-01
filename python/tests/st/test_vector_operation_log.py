@@ -45,14 +45,11 @@ def test_vector_operation_log():
                         tile_a.move(pto.log(tile_a, pto.LogBaseType.LOG_E))
                         pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
                         del tile_a
-    a_tensor = np.random.uniform(0.001, 100, [n, m]).astype(np.float32)
-    a_data = a_tensor.flatten().tolist()
-    b_data = list([0] * n * m)
-
-    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
-
-    golden_data = torch.log(torch.tensor(a_tensor)).flatten().tolist()
-    assert(np.allclose(b_data, golden_data, rtol=1e-6, atol=1e-7))
+    a_tensor = torch.rand(n, m, dtype=torch.float32) * 99.999 + 0.001
+    b_tensor = torch.zeros(n, m, dtype=torch.float32)
+    pto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+    golden_data = torch.log(a_tensor)
+    assert torch.allclose(b_tensor, golden_data, rtol=1e-6, atol=1e-7)
     pto.runtime._device_fini()
 
 
@@ -83,14 +80,11 @@ def test_vector_operation_log2():
                         tile_a.move(pto.log(tile_a, pto.LogBaseType.LOG_2))
                         pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
                         del tile_a
-    a_tensor = np.random.uniform(0.001, 100, [n, m]).astype(np.float32)
-    a_data = a_tensor.flatten().tolist()
-    b_data = list([0] * n * m)
-
-    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
-
-    golden_data = torch.log2(torch.tensor(a_tensor)).flatten().tolist()
-    assert(np.allclose(b_data, golden_data, rtol=1e-6, atol=1e-7))
+    a_tensor = torch.rand(n, m, dtype=torch.float32) * 99.999 + 0.001
+    b_tensor = torch.zeros(n, m, dtype=torch.float32)
+    pto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+    golden_data = torch.log2(a_tensor)
+    assert torch.allclose(b_tensor, golden_data, rtol=1e-6, atol=1e-7)
     pto.runtime._device_fini()
 
 
@@ -121,12 +115,9 @@ def test_vector_operation_log10():
                         tile_a.move(pto.log(tile_a, pto.LogBaseType.LOG_10))
                         pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
                         del tile_a
-    a_tensor = np.random.uniform(0.001, 100, [n, m]).astype(np.float32)
-    a_data = a_tensor.flatten().tolist()
-    b_data = list([0] * n * m)
-
-    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
-
-    golden_data = torch.log10(torch.tensor(a_tensor)).flatten().tolist()
-    assert(np.allclose(b_data, golden_data, rtol=1e-6, atol=1e-7))
+    a_tensor = torch.rand(n, m, dtype=torch.float32) * 99.999 + 0.001
+    b_tensor = torch.zeros(n, m, dtype=torch.float32)
+    pto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+    golden_data = torch.log10(a_tensor)
+    assert torch.allclose(b_tensor, golden_data, rtol=1e-6, atol=1e-7)
     pto.runtime._device_fini()

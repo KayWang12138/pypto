@@ -149,6 +149,11 @@ def _to_tensor_data(tensors: List[torch.Tensor]):
         datas.append(data)
     return datas
 
+
+def _device_run_once_data_from_host(inputs: List[torch.Tensor], outputs: List[torch.Tensor]):
+    pto_impl.DeviceRunOnceDataFromHost(_to_tensor_data(inputs), _to_tensor_data(outputs))
+
+
 class jit:
     def __init__(self, dyn_func):
         self.dyn_func = dyn_func

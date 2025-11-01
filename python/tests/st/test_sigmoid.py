@@ -49,14 +49,13 @@ def test_sigmoid_FP32():
                 res.move(pto.sigmoid(x))
                 del res
     
-    torch_tensor = np.random.uniform(-100, 100, [4, 4]).astype(np.float32)
-    x_data = torch_tensor.flatten().tolist()
-    res_data = np.random.uniform(-100, 100, [4, 4]).astype(np.float32)
-    res_data = res_data.flatten().tolist()
+    x_tensor = torch.rand(4, 4, dtype=torch.float32) * 200 - 100  
+    res_tensor = torch.zeros(4, 4, dtype=torch.float32)
 
-    pto.runtime._device_run_once_data_from_host([x_data], [res_data])
+    pto.runtime._device_run_once_data_from_host([x_tensor], [res_tensor])
 
-    assert_allclose(res_data, torch.sigmoid(torch.tensor(torch_tensor)).flatten().tolist(), atol = 1e-3, verbose = True)
+    expected = torch.sigmoid(x_tensor)
+    assert_allclose(res_tensor.flatten(), expected.flatten(), atol=1e-3, verbose=True)
 
     pto.runtime._device_fini()
 
@@ -76,14 +75,12 @@ def test_sigmoid_FP16():
                 res.move(pto.sigmoid(x))
                 del res
     
-    torch_tensor = np.random.uniform(-100, 100, [4, 4]).astype(np.float16)
-    x_data = torch_tensor.flatten().tolist()
-    res_data = np.random.uniform(-100, 100, [4, 4]).astype(np.float16)
-    res_data = res_data.flatten().tolist()
+    x_tensor = torch.rand(4, 4, dtype=torch.float16) * 200 - 100  
+    res_tensor = torch.zeros(4, 4, dtype=torch.float16)
+    pto.runtime._device_run_once_data_from_host([x_tensor], [res_tensor])
 
-    pto.runtime._device_run_once_data_from_host([x_data], [res_data])
-
-    assert_allclose(res_data, torch.sigmoid(torch.tensor(torch_tensor)).flatten().tolist(), atol = 1e-3, verbose = True)
+    expected = torch.sigmoid(x_tensor)
+    assert_allclose(res_tensor.flatten(), expected.flatten(), atol=1e-3, verbose=True)
 
     pto.runtime._device_fini()
 
@@ -103,13 +100,12 @@ def test_tensor_sigmoid_FP32():
                 res.move(x.sigmoid())
                 del res
     
-    torch_tensor = np.random.uniform(-100, 100, [4, 4]).astype(np.float32)
-    x_data = torch_tensor.flatten().tolist()
-    res_data = np.random.uniform(-100, 100, [4, 4]).astype(np.float32)
-    res_data = res_data.flatten().tolist()
+    x_tensor = torch.rand(4, 4, dtype=torch.float32) * 200 - 100  
+    res_tensor = torch.zeros(4, 4, dtype=torch.float32)  
 
-    pto.runtime._device_run_once_data_from_host([x_data], [res_data])
+    pto.runtime._device_run_once_data_from_host([x_tensor], [res_tensor])
 
-    assert_allclose(res_data, torch.sigmoid(torch.tensor(torch_tensor)).flatten().tolist(), atol = 1e-3, verbose = True)
+    expected = torch.sigmoid(x_tensor)
 
+    assert_allclose(res_tensor.flatten(), expected.flatten(), atol=1e-3, verbose=True)
     pto.runtime._device_fini()

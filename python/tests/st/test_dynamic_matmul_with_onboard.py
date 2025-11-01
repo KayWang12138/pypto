@@ -13,6 +13,7 @@ import os
 from dataclasses import dataclass
 
 import numpy as np
+import torch
 import pto
 from numpy.testing import assert_allclose
 
@@ -319,7 +320,7 @@ def gen_matmul_golden_data(input_config: ShapeConfig):
         a = np.random.randint(-4, 5, shape_a).astype(INT8)
         b = np.random.randint(-4, 5, shape_b).astype(INT8)
         c = np.matmul(a.astype(INT32), b.astype(INT32)).astype(INT32)
-    elif input_config.in_dtype == FP16 or input_config.in_dtype == FP32:
+    elif input_config.in_dtype in [FP16, FP32]:
         a = np.random.uniform(-1, 1, shape_a).astype(input_config.in_dtype)
         b = np.random.uniform(-1, 1, shape_b).astype(input_config.in_dtype)
         c = np.matmul(a.astype(FP32), b.astype(FP32)).astype(input_config.out_dtype)
@@ -339,9 +340,9 @@ def gen_matmul_golden_data(input_config: ShapeConfig):
     if input_config.c_format_nz:
         c = nd_trans_to_fractal_nz(c)
 
-    a_data = a.flatten().tolist()
-    b_data = b.flatten().tolist()
-    c_data = c.flatten().tolist()
-    c_device_data = [0] * c.size
+    a_tensor = torch.from_numpy(a.copy())
+    b_tensor = torch.from_numpy(b.copy())
+    c_tensor = torch.from_numpy(c.copy())
+    c_device_tensor = torch.zeros_like(c_tensor)
 
-    return a_data, b_data, c_data, c_device_data
+    return a_tensor, b_tensor, c_tensor, c_device_tensor

@@ -57,13 +57,12 @@ def test_reshape_equal():
                 del q0
                 del out
     
-    q_tensor = np.arange(s * 32, dtype=np.float32).reshape(s, 32)
-    q_data = q_tensor.flatten().tolist()
-    out_data = list([0] * s * 32)
+    q_tensor = torch.arange(s * 32, dtype=torch.float32).reshape(s, 32)
+    out_tensor = torch.zeros_like(q_tensor)
 
-    pto.runtime._device_run_once_data_from_host([q_data], [out_data])
-    assert out_data == torch.tensor(q_tensor).flatten().tolist()
-    pto.runtime._device_fini() 
+    pto.runtime._device_run_once_data_from_host([q_tensor], [out_tensor])
+    assert torch.equal(out_tensor.flatten(), q_tensor.flatten())
+    pto.runtime._device_fini()
 
 
 def test_reshape_equal2():
@@ -88,15 +87,13 @@ def test_reshape_equal2():
                 del t0
                 del out
     
-    q_tensor = np.arange(s * 32, dtype=np.float32).reshape(s, 32)
-    q_data = q_tensor.flatten().tolist()
-    tmp_tensor = np.arange(s * 32, dtype=np.float32).reshape(s, 32)
-    tmp_data = q_tensor.flatten().tolist()
-    out_data = list([0] * s * 32)
+    q_tensor = torch.arange(s * 32, dtype=torch.float32).reshape(s, 32)
+    tmp_tensor = torch.arange(s * 32, dtype=torch.float32).reshape(s, 32)
+    out_tensor = torch.zeros_like(q_tensor)
 
-    pto.runtime._device_run_once_data_from_host([q_data, tmp_data], [out_data])
-    assert out_data == torch.add(torch.tensor(q_tensor), torch.tensor(tmp_tensor)).flatten().tolist()
-    pto.runtime._device_fini() 
+    pto.runtime._device_run_once_data_from_host([q_tensor, tmp_tensor], [out_tensor])
+    assert torch.equal(out_tensor.flatten(), torch.add(q_tensor, tmp_tensor).flatten())
+    pto.runtime._device_fini()
 
 
 def test_reshape_validshape():
@@ -119,13 +116,12 @@ def test_reshape_validshape():
                 del q0
                 del out
     
-    q_tensor = np.arange(s * 32, dtype=np.float32)
-    q_data = q_tensor.flatten().tolist()
-    out_data = list([0] * s * 32)
+    q_tensor = torch.arange(s * 32, dtype=torch.float32)
+    out_tensor = torch.zeros_like(q_tensor)
 
-    pto.runtime._device_run_once_data_from_host([q_data], [out_data])
-    assert out_data[:32] == torch.tensor(q_tensor)[:32].flatten().tolist()
-    pto.runtime._device_fini() 
+    pto.runtime._device_run_once_data_from_host([q_tensor], [out_tensor])
+    assert torch.equal(out_tensor[:32], q_tensor[:32])
+    pto.runtime._device_fini()
 
 
 def test_reshape_validshape2():
@@ -148,11 +144,12 @@ def test_reshape_validshape2():
                 del q0
                 del out
     
-    q_tensor = np.arange(s * 32, dtype=np.float32).reshape(16, 32)
-    q_data = q_tensor.flatten().tolist()
-    scalar_tensor = np.ones(s * 32, dtype=np.float32).reshape(16, 32)
-    out_data = list([0] * s * 32)
+    q_tensor = torch.arange(16 * 32, dtype=torch.float32).reshape(16, 32)
+    scalar_tensor = torch.ones(16 * 32, dtype=torch.float32).reshape(16, 32)
+    out_tensor = torch.zeros(16 * 32, dtype=torch.float32)
 
-    pto.runtime._device_run_once_data_from_host([q_data], [out_data])
-    assert out_data[:64] == torch.add(torch.tensor(q_tensor), torch.tensor(scalar_tensor))[:2, :].flatten().tolist()
-    pto.runtime._device_fini() 
+    pto.runtime._device_run_once_data_from_host([q_tensor], [out_tensor])
+
+    expected = (q_tensor + scalar_tensor).flatten()
+    assert torch.equal(out_tensor[:64], expected[:64])
+    pto.runtime._device_fini()

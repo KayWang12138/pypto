@@ -13,6 +13,7 @@ import os
 from dataclasses import dataclass
 
 import numpy as np
+import torch
 import pto
 from numpy.testing import assert_allclose
 
@@ -332,12 +333,12 @@ def gen_batch_matmul_golden_data(input_config: BatchMatmulShapeConfig):
         a_data = np.random.randint(-4, 5, shape_a).astype(INT8)
         b_data = np.random.randint(-4, 5, shape_b).astype(INT8)
         c_data = np.matmul(a_data.astype(INT32), b_data.astype(INT32)).astype(INT32)
-    elif input_config.in_dtype == FP16 or input_config.in_dtype == FP32:
+    elif input_config.in_dtype in [FP16, FP32]:
         a_data = np.random.uniform(-1, 1, shape_a).astype(input_config.in_dtype)
         b_data = np.random.uniform(-1, 1, shape_b).astype(input_config.in_dtype)
         c_data = np.matmul(a_data.astype(FP32), b_data.astype(FP32)).astype(input_config.out_dtype)
     else:
-        assert False, "golden dtype not found"
+        raise ValueError("golden dtype not found")
 
     if input_config.a_trans:
         a_data = a_data.transpose(0, 2, 1)
@@ -352,9 +353,9 @@ def gen_batch_matmul_golden_data(input_config: BatchMatmulShapeConfig):
     if input_config.c_format_nz:
         c_data = nd_to_fractal_nz(c_data)
 
-    a_data_list = a_data.flatten().tolist()
-    b_data_list = b_data.flatten().tolist()
-    c_data_list = c_data.flatten().tolist()
-    c_device_data = [0] * c_data.size
+    a_tensor = torch.from_numpy(a_data.copy())
+    b_tensor = torch.from_numpy(b_data.copy())
+    c_tensor = torch.from_numpy(c_data.copy())
+    c_device_tensor = torch.zeros_like(c_tensor)
 
-    return a_data_list, b_data_list, c_data_list, c_device_data
+    return a_tensor, b_tensor, c_tensor, c_device_tensor

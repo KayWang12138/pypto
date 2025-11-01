@@ -37,14 +37,14 @@ def test_device_run_data_from_host_numpy():
                     b.move(pto.add(a, b))
     assert isinstance(b, pto.tensor)
 
-    a_data = np.random.uniform(-1, 1, [n, m, k]).astype(np.float32)
-    b_data = np.zeros((n, m, k))
+    a_tensor = torch.rand(n, m, k, dtype=torch.float32) * 2 - 1
+    b_tensor = torch.zeros(n, m, k, dtype=torch.float32)
 
-    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
+    pto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
 
-    golden = 11 * a_data
+    golden = 11 * a_tensor
 
-    assert np.allclose(golden, b_data, atol=1e-5)
+    assert torch.allclose(golden, b_tensor, atol=1e-5)
     pto.runtime._device_fini()
 
 
@@ -68,14 +68,14 @@ def test_device_run_data_from_host_torch():
                     b.move(pto.add(a, b))
     assert isinstance(b, pto.tensor)
 
-    a_data = torch.rand(n, m)
-    b_data = torch.zeros(n, m)
+    a_tensor = torch.rand(n, m, dtype=torch.float32)
+    b_tensor = torch.zeros(n, m, dtype=torch.float32)
 
-    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
+    pto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
 
-    golden = 11 * a_data
+    golden = 11 * a_tensor
 
-    assert torch.allclose(golden, b_data, atol=1e-5)
+    assert torch.allclose(golden, b_tensor, atol=1e-5)
     pto.runtime._device_fini()
 
 
@@ -99,12 +99,13 @@ def test_device_run_data_from_host():
                     b.move(pto.add(a, b))
     assert isinstance(b, pto.tensor)
 
-    a_data = list(range(n * m))
-    b_data = list([0] * n * m)
+    a_tensor = torch.arange(n * m, dtype=torch.int32).reshape(n, m)
+    b_tensor = torch.zeros(n, m, dtype=torch.int32)
 
-    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
+    pto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+    golden = 11 * a_tensor
 
-    assert b_data == [v * 11 for v in range(n * m)]
+    assert torch.equal(golden, b_tensor)
     pto.runtime._device_fini()
 
 
@@ -131,7 +132,8 @@ def test_device_run_data_from_device():
         torch = None
         torch_npu = None
 
-    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
+    device_id = int(os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
     tiling = 32
     n, m = tiling * 1, tiling * 1
 
@@ -188,7 +190,7 @@ def test_device_run_data_from_device_mix_nodep():
         torch = None
         torch_npu = None
 
-    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
+    device_id = int(os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
 
     tiling = 32
@@ -224,4 +226,3 @@ def test_device_run_data_from_device_mix_nodep():
         # get data and compare result
         d_data_inlist = [c for r in d_data_list[idx].cpu().tolist() for c in r]
         assert d_data_inlist == [k + idx] * len(d_data_inlist)
-

@@ -68,11 +68,9 @@ def test_maxs():
                 )
                 del tile_tensor_0, res
 
-    nx_data = np.random.uniform(-10, 10, [first_dim, second_dim]).astype(np.int32)
-    ny_data = np.zeros([first_dim, second_dim]).astype(np.int32)
-    x_data = nx_data.flatten().tolist()
-    y_data = ny_data.flatten().tolist()
-    pto.runtime._device_run_once_data_from_host([x_data], [y_data])
-    golden_data = np.maximum(x_data, scalar_data)
-    assert(np.allclose(y_data, golden_data, rtol=1e-9, atol=1e-10))
+    nx_tensor = torch.randint(-10, 10, [first_dim, second_dim], dtype=torch.int32)
+    ny_tensor = torch.zeros([first_dim, second_dim], dtype=torch.int32)
+    pto.runtime._device_run_once_data_from_host([nx_tensor], [ny_tensor])
+    golden_data = torch.maximum(nx_tensor, torch.tensor(scalar_data, dtype=torch.int32))
+    assert torch.allclose(ny_tensor, golden_data, rtol=1e-9, atol=1e-10)
     pto.runtime._device_fini()

@@ -25,160 +25,48 @@ using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 
 namespace pypto {
-
+    
 #ifdef BUILD_WITH_CANN
-
-static RawTensorDataPtr HostCastPythonToNative(const std::shared_ptr<LogicalTensor> &tensor, py::object &pythonData) {
-    DataType dataType = tensor->Datatype();
-    const Shape &shape = tensor->GetShape();
-
-    RawTensorDataPtr nativeData;
-    nativeData = std::make_shared<RawTensorData>(dataType, shape);
-    int64_t size = py::len(pythonData);
-    switch (dataType) {
-    case DataType::DT_INT64: {
-            for (int64_t i = 0; i < size; i++) {
-                nativeData->Get<int64_t>(i) = static_cast<int64_t>(py::int_((pythonData.attr("__getitem__")(i))));
-            }
-        } break;
-    case DataType::DT_INT32: {
-            for (int64_t i = 0; i < size; i++) {
-                nativeData->Get<int32_t>(i) = static_cast<int32_t>(py::int_((pythonData.attr("__getitem__")(i))));
-            }
-        } break;
-    case DataType::DT_INT16: {
-            for (int64_t i = 0; i < size; i++) {
-                nativeData->Get<int16_t>(i) = static_cast<int16_t>(py::int_((pythonData.attr("__getitem__")(i))));
-            }
-        } break;
-    case DataType::DT_INT8: {
-            for (int64_t i = 0; i < size; i++) {
-                nativeData->Get<int8_t>(i) = static_cast<int8_t>(py::int_((pythonData.attr("__getitem__")(i))));
-            }
-        } break;
-    case DataType::DT_FP32: {
-        for (int64_t i = 0; i < size; i++) {
-            nativeData->Get<float>(i) = static_cast<float>(py::float_((pythonData.attr("__getitem__")(i))));
-        }
-    } break;
-    case DataType::DT_FP16: {
-        for (int64_t i = 0; i < size; i++) {
-            nativeData->Get<float16>(i) = static_cast<float>(py::float_((pythonData.attr("__getitem__")(i))));
-        }
-    } break;
-    case DataType::DT_BF16: {
-        for (int64_t i = 0; i < size; i++) {
-            nativeData->Get<bfloat16>(i) = static_cast<float>(py::float_((pythonData.attr("__getitem__")(i))));
-        }
-    } break;
-    case DataType::DT_BOOL: {
-        for (int64_t i = 0; i < size; i++) {
-            nativeData->Get<bool>(i) = static_cast<bool>(py::bool_((pythonData.attr("__getitem__")(i))));
-        }
-    } break;
-    default:
-        ALOG_ERROR_F("HostCastPythonToNative DataType:%d is not supported", static_cast<int>(dataType));
-        break;
-    }
-    return nativeData;
-}
-
-static void HostCastNativeToPython(const std::shared_ptr<LogicalTensor> &tensor, RawTensorDataPtr nativeData, py::object &pythonData) {
-    DataType dataType = tensor->Datatype();
-    int64_t size = nativeData->GetSize();
-    switch (dataType) {
-    case DataType::DT_INT64: {
-            for (int64_t i = 0; i < size; i++) {
-                pythonData.attr("__setitem__")(i, nativeData->Get<int64_t>(i));
-            }
-        } break;
-    case DataType::DT_INT32: {
-            for (int64_t i = 0; i < size; i++) {
-                pythonData.attr("__setitem__")(i, nativeData->Get<int32_t>(i));
-            }
-        } break;
-    case DataType::DT_INT16: {
-            for (int64_t i = 0; i < size; i++) {
-                pythonData.attr("__setitem__")(i, static_cast<int32_t>(nativeData->Get<int16_t>(i)));
-            }
-        } break;
-    case DataType::DT_INT8: {
-            for (int64_t i = 0; i < size; i++) {
-                pythonData.attr("__setitem__")(i, static_cast<int32_t>(nativeData->Get<int8_t>(i)));
-            }
-        } break;
-    case DataType::DT_FP32: {
-            for (int64_t i = 0; i < size; i++) {
-                pythonData.attr("__setitem__")(i, nativeData->Get<float>(i));
-            }
-        } break;
-    case DataType::DT_FP16: {
-            for (int64_t i = 0; i < size; i++) {
-                pythonData.attr("__setitem__")(i, static_cast<float>(nativeData->Get<float16>(i)));
-            }
-        } break;
-    case DataType::DT_BF16: {
-            for (int64_t i = 0; i < size; i++) {
-                pythonData.attr("__setitem__")(i, static_cast<float>(nativeData->Get<bfloat16>(i)));
-            }
-        } break;
-    case DataType::DT_BOOL: {
-            for (int64_t i = 0; i < size; i++) {
-                pythonData.attr("__setitem__")(i, nativeData->Get<bool>(i));
-            }
-        } break;
-    default:
-        ALOG_ERROR_F("HostCastNativeToPython DataType:%d is not supported", static_cast<int>(dataType));
-        break;
-    }
-}
-
-std::string DeviceRunOnceDataFromHost(py::list &inputPythonDataList, py::list &outputPythonDataList) {
+std::string DeviceRunOnceDataFromHost(
+    const std::vector<DeviceTensorData> &inputs, const std::vector<DeviceTensorData> &outputs) {
     Function *func = Program::GetInstance().GetLastFunction();
     if (!func->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC, GraphType::TENSOR_GRAPH)) {
         return "Invalid function format";
     }
+
     auto attr = func->GetDyndevAttribute();
     if (attr == nullptr) {
         return "Invalid function format";
     }
-    auto &inputLogicalTensorList = attr->startArgsInputLogicalTensorList;
-    auto &outputLogicalTensorList = attr->startArgsOutputLogicalTensorList;
-    if (inputLogicalTensorList.size() != inputPythonDataList.size()) {
-        return "mismatch input";
+
+    auto inputSize = attr->startArgsInputLogicalTensorList.size();
+    auto outputSize = attr->startArgsOutputLogicalTensorList.size();
+    if (inputSize != inputs.size() || outputSize != outputs.size()) {
+        return "mismatch input/output";
     }
-    if (outputLogicalTensorList.size() != outputPythonDataList.size()) {
-        return "mismatch output";
+
+    for (size_t i = 0; i < inputs.size(); i++) {
+        auto rawData = RawTensorData::CreateTensor(inputs[i].GetDataType(), inputs[i].GetShape(), (uint8_t *)inputs[i].GetDevAddr());
+        ProgramData::GetInstance().AppendInput(rawData);
     }
-    for (size_t i = 0; i < inputLogicalTensorList.size(); i++) {
-        std::shared_ptr<LogicalTensor> inputLogicalTensor = inputLogicalTensorList[i];
-        py::object inputPythonData = inputPythonDataList[i];
-        RawTensorDataPtr inputNativeData = HostCastPythonToNative(inputLogicalTensor, inputPythonData);
-        ProgramData::GetInstance().AppendInput(inputNativeData);
-    }
-    for (size_t i = 0; i < outputLogicalTensorList.size(); i++) {
-        std::shared_ptr<LogicalTensor> outputLogicalTensor = outputLogicalTensorList[i];
-        RawTensorDataPtr outputNativeData = std::make_shared<RawTensorData>(outputLogicalTensor->Datatype(), outputLogicalTensor->GetShape());
-        ProgramData::GetInstance().AppendOutput(outputNativeData);
+    for (size_t i = 0; i < outputs.size(); i++) {
+        auto rawData = std::make_shared<RawTensorData>(outputs[i].GetDataType(), outputs[i].GetShape());
+        ProgramData::GetInstance().AppendOutput(rawData);
     }
 
     if (DeviceRunOnce(Program::GetInstance().GetLastFunction()) != 0) {
         return "device run failed";
     }
 
-    for (size_t i = 0; i < outputLogicalTensorList.size(); i++) {
-        std::shared_ptr<LogicalTensor> outputLogicalTensor = outputLogicalTensorList[i];
-        py::object outputPythonData = outputPythonDataList[i];
-        RawTensorDataPtr outputNativeData = ProgramData::GetInstance().GetOutputData(i);
-        HostCastNativeToPython(outputLogicalTensor, outputNativeData, outputPythonData);
+    for (size_t i = 0; i < outputs.size(); i++) {
+        auto output = ProgramData::GetInstance().GetOutputData(i);
+        StringUtils::DataCopy((uint8_t *)outputs[i].GetDevAddr(), output->GetDataSize(), output->data(), output->GetDataSize());
     }
 
     if (HasInplaceArgs(Program::GetInstance().GetLastFunction())) {
-        for (size_t i = 0; i < inputLogicalTensorList.size(); i++) {
-            std::shared_ptr<LogicalTensor> inputLogicalTensor = inputLogicalTensorList[i];
-            py::object inputPythonData = inputPythonDataList[i];
-            RawTensorDataPtr inputNativeData = ProgramData::GetInstance().GetInputData(i);
-            HostCastNativeToPython(inputLogicalTensor, inputNativeData, inputPythonData);
+        for (size_t i = 0; i < inputs.size(); i++) {
+            auto input = ProgramData::GetInstance().GetInputData(i);
+            StringUtils::DataCopy((uint8_t *)inputs[i].GetDevAddr(), input->GetDataSize(), input->data(), input->GetDataSize());
         }
     }
     return "";

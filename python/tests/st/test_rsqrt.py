@@ -44,10 +44,12 @@ def test_vector_operation_rsqrt():
                         tile_a.move(pto.rsqrt(tile_a))
                         pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
                         del tile_a
-    a_tensor = np.random.uniform(0, 100, [n, m]).astype(np.float32)
-    a_data = a_tensor.flatten().tolist()
-    b_data = list([0] * n * m)
-    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
-    assert_allclose(np.array(b_data),
-                    np.array(torch.rsqrt(torch.tensor(a_tensor)).flatten().tolist()), rtol=3e-3, atol=3e-3)
+    a_tensor = torch.rand(n, m, dtype=torch.float32) * 100  
+    b_tensor = torch.zeros(n, m, dtype=torch.float32)
+
+    pto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+
+    golden = torch.rsqrt(a_tensor)  
+
+    assert_allclose(b_tensor.flatten(), golden.flatten(), rtol=3e-3, atol=3e-3)
     pto.runtime._device_fini()

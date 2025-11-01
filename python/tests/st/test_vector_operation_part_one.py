@@ -52,16 +52,14 @@ def test_vector_operation_add():
                         tile_a.move(pto.add(tile_a, tile_b))
                         pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], c)
                         del tile_a, tile_b
-    a_tensor = np.random.uniform(-100, 100, [n, m]).astype(np.float32)
-    b_tensor = np.random.uniform(-100, 100, [n, m]).astype(np.float32)
-    a_data = a_tensor.flatten().tolist()
-    b_data = b_tensor.flatten().tolist()
-    c_data = list([0] * n * m)
+    a_tensor = torch.rand(n, m, dtype=torch.float32) * 100
+    b_tensor = torch.rand(n, m, dtype=torch.float32) * 100
+    c_tensor = torch.zeros(n, m, dtype=torch.float32)
 
-    pto.runtime._device_run_once_data_from_host([a_data, b_data], [c_data])
+    pto.runtime._device_run_once_data_from_host([a_tensor, b_tensor], [c_tensor])
 
-    assert c_data == torch.add(torch.tensor(a_tensor), torch.tensor(b_tensor)).flatten().tolist()
-    pto.runtime._device_fini()
+    expected = a_tensor + b_tensor
+    assert_allclose(c_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
 
 
 def test_vector_operation_div():
@@ -98,17 +96,14 @@ def test_vector_operation_div():
                         tile_a.move(pto.div(tile_a, tile_b))
                         pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], c)
                         del tile_a, tile_b
-    a_tensor = np.random.uniform(-100, 100, [n, m]).astype(np.float32)
-    b_tensor = np.random.uniform(1, 100, [n, m]).astype(np.float32)
-    a_data = a_tensor.flatten().tolist()
-    b_data = b_tensor.flatten().tolist()
-    c_data = list([0] * n * m)
+    a_tensor = (torch.rand(n, m, dtype=torch.float32) - 0.5) * 200
+    b_tensor = torch.rand(n, m, dtype=torch.float32) * 99 + 1
+    c_tensor = torch.zeros(n, m, dtype=torch.float32)
 
-    pto.runtime._device_run_once_data_from_host([a_data, b_data], [c_data])
+    pto.runtime._device_run_once_data_from_host([a_tensor, b_tensor], [c_tensor])
 
-    assert_allclose(np.array(c_data),
-                    np.array(torch.div(torch.tensor(a_tensor), torch.tensor(b_tensor)).flatten().tolist()),
-                    rtol=1e-3, atol=1e-3)
+    expected = torch.div(a_tensor, b_tensor)
+    assert_allclose(c_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
     pto.runtime._device_fini()
 
 
@@ -146,15 +141,14 @@ def test_vector_operation_mul():
                         tile_a.move(pto.mul(tile_a, tile_b))
                         pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], c)
                         del tile_a, tile_b
-    a_tensor = np.random.uniform(-100, 100, [n, m]).astype(np.float32)
-    b_tensor = np.random.uniform(-100, 100, [n, m]).astype(np.float32)
-    a_data = a_tensor.flatten().tolist()
-    b_data = b_tensor.flatten().tolist()
-    c_data = list([0] * n * m)
+    a_tensor = (torch.rand(n, m, dtype=torch.float32) - 0.5) * 200
+    b_tensor = (torch.rand(n, m, dtype=torch.float32) - 0.5) * 200
+    c_tensor = torch.zeros(n, m, dtype=torch.float32)
 
-    pto.runtime._device_run_once_data_from_host([a_data, b_data], [c_data])
+    pto.runtime._device_run_once_data_from_host([a_tensor, b_tensor], [c_tensor])
 
-    assert c_data == torch.mul(torch.tensor(a_tensor), torch.tensor(b_tensor)).flatten().tolist()
+    expected = torch.mul(a_tensor, b_tensor)
+    assert_allclose(c_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
     pto.runtime._device_fini()
 
 
@@ -192,15 +186,14 @@ def test_vector_operation_sub():
                         tile_a.move(pto.sub(tile_a, tile_b))
                         pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], c)
                         del tile_a, tile_b
-    a_tensor = np.random.uniform(-100, 100, [n, m]).astype(np.float32)
-    b_tensor = np.random.uniform(-100, 100, [n, m]).astype(np.float32)
-    a_data = a_tensor.flatten().tolist()
-    b_data = b_tensor.flatten().tolist()
-    c_data = list([0] * n * m)
+    a_tensor = (torch.rand(n, m, dtype=torch.float32) - 0.5) * 200
+    b_tensor = (torch.rand(n, m, dtype=torch.float32) - 0.5) * 200
+    c_tensor = torch.zeros(n, m, dtype=torch.float32)
 
-    pto.runtime._device_run_once_data_from_host([a_data, b_data], [c_data])
+    pto.runtime._device_run_once_data_from_host([a_tensor, b_tensor], [c_tensor])
 
-    assert c_data == torch.sub(torch.tensor(a_tensor), torch.tensor(b_tensor)).flatten().tolist()
+    expected = a_tensor - b_tensor
+    assert_allclose(c_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
     pto.runtime._device_fini()
 
 
@@ -232,13 +225,13 @@ def test_vector_operation_abs():
                         tile_a.move(pto.abs(tile_a))
                         pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
                         del tile_a
-    a_tensor = np.random.uniform(-100, 100, [n, m]).astype(np.float32)
-    a_data = a_tensor.flatten().tolist()
-    b_data = list([0] * n * m)
+    a_tensor = (torch.rand(n, m, dtype=torch.float32) - 0.5) * 200
+    b_tensor = torch.zeros(n, m, dtype=torch.float32)
 
-    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
+    pto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
 
-    assert b_data == torch.abs(torch.tensor(a_tensor)).flatten().tolist()
+    expected = torch.abs(a_tensor)
+    assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
     pto.runtime._device_fini()
 
 
@@ -270,12 +263,13 @@ def test_vector_operation_sqrt():
                         tile_a.move(pto.sqrt(tile_a))
                         pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
                         del tile_a
-    a_tensor = np.random.uniform(0, 100, [n, m]).astype(np.float32)
-    a_data = a_tensor.flatten().tolist()
-    b_data = list([0] * n * m)
-    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
-    assert_allclose(np.array(b_data),
-                    np.array(torch.sqrt(torch.tensor(a_tensor)).flatten().tolist()), rtol=1e-3, atol=1e-3)
+    a_tensor = torch.rand(n, m, dtype=torch.float32) * 100
+    b_tensor = torch.zeros(n, m, dtype=torch.float32)
+
+    pto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+
+    expected = torch.sqrt(a_tensor)
+    assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
     pto.runtime._device_fini()
 
 
@@ -307,13 +301,13 @@ def test_vector_operation_neg():
                         tile_a.move(pto.neg(tile_a))
                         pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
                         del tile_a
-    a_tensor = np.random.uniform(-100, 100, [n, m]).astype(np.float32)
-    a_data = a_tensor.flatten().tolist()
-    b_data = list([0] * n * m)
+    a_tensor = (torch.rand(n, m, dtype=torch.float32) - 0.5) * 200
+    b_tensor = torch.zeros(n, m, dtype=torch.float32)
 
-    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
+    pto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
 
-    assert b_data == torch.negative(torch.tensor(a_tensor)).flatten().tolist()
+    expected = -a_tensor
+    assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
     pto.runtime._device_fini()
 
 
@@ -347,9 +341,12 @@ def test_vector_operation_vec_dup():
                         pto.assemble(
                             tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], a)
                         del tile_a
-    a_data = list([0] * n * m)
-    pto.runtime._device_run_once_data_from_host([], [a_data])
-    assert a_data == list([2] * n * m)
+    a_tensor = torch.zeros(n, m, dtype=torch.float32)
+
+    pto.runtime._device_run_once_data_from_host([], [a_tensor])
+
+    expected = torch.full((n, m), 2, dtype=torch.float32)
+    assert_allclose(a_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
     pto.runtime._device_fini()
 
 
@@ -381,13 +378,13 @@ def test_vector_operation_logical_not():
                         tmp_a.move(pto.logical_not(tile_a))
                         pto.assemble(tmp_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
                         del tile_a, tmp_a
-    a_tensor = np.random.uniform(-3, 3, [n, m]).astype(np.float32)
-    a_data = a_tensor.flatten().tolist()
-    b_data = list([True] * n * m)
+    a_tensor = (torch.rand(n, m, dtype=torch.float32) - 0.5) * 6 - 1.5  # 生成 [-3, 3] 范围
+    b_tensor = torch.ones(n, m, dtype=torch.bool)  # 使用 torch.bool 类型
 
-    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
+    pto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
 
-    assert b_data == torch.logical_not(torch.tensor(a_tensor)).flatten().tolist()
+    expected = torch.logical_not(a_tensor)
+    assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
     pto.runtime._device_fini()
 
 
@@ -423,12 +420,13 @@ def test_vector_operation_expand():
                             (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))]))
                         pto.assemble(tmp_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
                         del tmp_a, tile_a
-    a_data = list([-16] * n * 1)
-    b_data = list([0] * n * m)
+    a_tensor = torch.full((n, 1), -16, dtype=torch.float32)
+    b_tensor = torch.zeros(n, m, dtype=torch.float32)
 
-    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
+    pto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
 
-    assert b_data == list([-16] * n * m)
+    expected = torch.full((n, m), -16, dtype=torch.float32)
+    assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
     pto.runtime._device_fini()
 
 
@@ -466,13 +464,14 @@ def test_vector_operation_concat():
                 pto.assemble(tmp_c, [b_idx * view_shape[0], 0], c)
                 del tile_a, tile_b, tmp_c
 
-    a_tensor = np.random.uniform(-100, 100, [n, m]).astype(np.float32)
-    a_data = a_tensor.flatten().tolist()
-    b_tensor = np.random.uniform(-100, 100, [n, m]).astype(np.float32)
-    b_data = b_tensor.flatten().tolist()
-    c_data = list([0] * 2 * n * m)
-    pto.runtime._device_run_once_data_from_host([a_data, b_data], [c_data])
-    assert c_data == torch.cat([torch.tensor(a_tensor), torch.tensor(b_tensor)], dim=-1).flatten().tolist()
+    a_tensor = (torch.rand(n, m, dtype=torch.float32) - 0.5) * 200
+    b_tensor = (torch.rand(n, m, dtype=torch.float32) - 0.5) * 200
+    c_tensor = torch.zeros(n, 2 * m, dtype=torch.float32)
+
+    pto.runtime._device_run_once_data_from_host([a_tensor, b_tensor], [c_tensor])
+
+    expected = torch.cat([a_tensor, b_tensor], dim=-1)
+    assert_allclose(c_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
     pto.runtime._device_fini()
 
 
@@ -504,13 +503,13 @@ def test_vector_operation_rowmaxsingle():
                 tmp_a.move(pto.amax(tile_a, dim))
                 pto.assemble(tmp_a, [0, s_idx * view_shape[1]], b)
                 del tile_a, tmp_a
-    a_tensor = np.random.uniform(0, 100, shape).astype(np.float32)
-    a_data = a_tensor.flatten().tolist()
-    b_data = list([0] * output_shape[0] * output_shape[1])
-    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
-    assert_allclose(np.array(b_data),
-        np.array(a_tensor.max(axis=dim, keepdims=True).reshape(output_shape[0] * output_shape[1]).tolist()),
-        rtol=1e-3, atol=1e-3)
+    a_tensor = torch.rand(shape, dtype=torch.float32) * 100
+    b_tensor = torch.zeros(output_shape, dtype=torch.float32)
+
+    pto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+
+    expected = a_tensor.max(dim=dim, keepdim=True)[0].reshape(output_shape)
+    assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
     pto.runtime._device_fini()
 
 
@@ -542,13 +541,13 @@ def test_vector_operation_rowsumsingle():
                 tmp_a.move(pto.sum(tile_a, dim))
                 pto.assemble(tmp_a, [0, s_idx * view_shape[1]], b)
                 del tile_a, tmp_a
-    a_tensor = np.random.uniform(0, 100, shape).astype(np.float32)
-    a_data = a_tensor.flatten().tolist()
-    b_data = list([0] * output_shape[0] * output_shape[1])
-    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
-    assert_allclose(np.array(b_data),
-        np.array(a_tensor.sum(axis=dim, keepdims=True).reshape(output_shape[0] * output_shape[1]).tolist()),
-        rtol=1e-3, atol=1e-3)
+    a_tensor = torch.rand(shape, dtype=torch.float32) * 100
+    b_tensor = torch.zeros(output_shape, dtype=torch.float32)
+
+    pto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+
+    expected = a_tensor.sum(dim=dim, keepdim=True).reshape(output_shape)
+    assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
     pto.runtime._device_fini()
 
 
@@ -580,11 +579,11 @@ def test_vector_operation_rowminsingle():
                 tmp_a.move(pto.amin(tile_a, dim))
                 pto.assemble(tmp_a, [0, s_idx * view_shape[1]], b)
                 del tile_a, tmp_a
-    a_tensor = np.random.uniform(0, 100, shape).astype(np.float32)
-    a_data = a_tensor.flatten().tolist()
-    b_data = list([0] * output_shape[0] * output_shape[1])
-    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
-    assert_allclose(np.array(b_data),
-        np.array(a_tensor.min(axis=dim, keepdims=True).reshape(output_shape[0] * output_shape[1]).tolist()),
-        rtol=1e-3, atol=1e-3)
+    a_tensor = torch.rand(shape, dtype=torch.float32) * 100
+    b_tensor = torch.zeros(output_shape, dtype=torch.float32)
+
+    pto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+
+    expected = a_tensor.min(dim=dim, keepdim=True)[0].reshape(output_shape)
+    assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
     pto.runtime._device_fini()

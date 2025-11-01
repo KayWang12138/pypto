@@ -194,6 +194,12 @@ struct RawTensorData : public std::vector<uint8_t> {
         StringUtils::DataCopy(data, tensorData->GetDataSize(), values.data(), values.size() * sizeof(T));
         return tensorData;
     }
+    
+    static std::shared_ptr<RawTensorData> CreateTensor(DataType dtype, const std::vector<int64_t> &shape, uint8_t *data) {
+        auto tensorData = std::make_shared<RawTensorData>(dtype, shape);
+        StringUtils::DataCopy(tensorData->data(), tensorData->GetDataSize(), data, tensorData->GetDataSize());
+        return tensorData;
+    }
 
     static std::shared_ptr<RawTensorData> CreateTensorZero(const Tensor &t) {
         auto tensorData = std::make_shared<RawTensorData>(t.GetDataType(), t.GetShape());

@@ -50,15 +50,12 @@ def test_view_content_equal():
                 res.move(pto.view(x, view_shape, offset))
                 del res
     
-    torch_tensor = np.random.uniform(-100, 100, [4, 8]).astype(np.float32)
-    x_data = torch_tensor.flatten().tolist()
-    res_data = np.random.uniform(-100, 100, [4, 4]).astype(np.float32)
-    res_data = res_data.flatten().tolist()
-
-    pto.runtime._device_run_once_data_from_host([x_data], [res_data])
-
-    assert res_data == torch.tensor(torch_tensor)[0:4, 4:8].flatten().tolist()
-
+    torch_tensor = torch.rand(4, 8, dtype=torch.float32) * 200 - 100
+    res_tensor = torch.zeros(4, 4, dtype=torch.float32)
+    pto.runtime._device_run_once_data_from_host([torch_tensor], [res_tensor])
+    
+    expected = torch_tensor[0:4, 4:8]
+    assert torch.equal(res_tensor.flatten(), expected.flatten())
     pto.runtime._device_fini()
 
 def test_view_content_equal_validshape():
@@ -79,16 +76,14 @@ def test_view_content_equal_validshape():
                 res.move(pto.view(x, view_shape, offset, valid_shape=validshape))
                 del res
     
-    torch_tensor = np.random.uniform(-100, 100, [4, 4]).astype(np.float32)
-    x_data = torch_tensor.flatten().tolist()
-    res_data = np.random.uniform(-100, 100, [4, 4]).astype(np.float32)
-    res_data = res_data.flatten().tolist()
-
-    pto.runtime._device_run_once_data_from_host([x_data], [res_data])
-
-    assert res_data[:2*4] == torch.tensor(torch_tensor)[2:4, 0:4].flatten().tolist()
-
-    pto.runtime._device_fini()    
+    torch_tensor = torch.rand(4, 4, dtype=torch.float32) * 200 - 100
+    res_tensor = torch.zeros(4, 4, dtype=torch.float32)
+    pto.runtime._device_run_once_data_from_host([torch_tensor], [res_tensor])
+     
+    expected = torch_tensor[2:4, 0:4]
+    assert torch.equal(res_tensor.flatten()[:2 * 4], expected.flatten())
+     
+    pto.runtime._device_fini()
 
 def test_tensor_view_content_equal():
     """Test whether the output content has changed"""
@@ -108,15 +103,13 @@ def test_tensor_view_content_equal():
                 res.move(x.view(view_shape, offset))
                 del res
     
-    torch_tensor = np.random.uniform(-100, 100, [4, 8]).astype(np.float32)
-    x_data = torch_tensor.flatten().tolist()
-    res_data = np.random.uniform(-100, 100, [4, 4]).astype(np.float32)
-    res_data = res_data.flatten().tolist()
-
-    pto.runtime._device_run_once_data_from_host([x_data], [res_data])
-
-    assert res_data == torch.tensor(torch_tensor)[0:4, 4:8].flatten().tolist()
-
+    torch_tensor = torch.rand(4, 8, dtype=torch.float32) * 200 - 100
+    res_tensor = torch.zeros(4, 4, dtype=torch.float32)
+    pto.runtime._device_run_once_data_from_host([torch_tensor], [res_tensor])
+    
+    expected = torch_tensor[0:4, 4:8]
+    assert torch.equal(res_tensor.flatten(), expected.flatten())
+     
     pto.runtime._device_fini()
 
 def test_syntactic_sugar_view_content_equal():
@@ -137,13 +130,11 @@ def test_syntactic_sugar_view_content_equal():
                 res.move(x[ : offset[0] + view_shape[0], offset[1] : offset[1] + view_shape[1]])
                 del res
     
-    torch_tensor = np.random.uniform(-100, 100, [4, 8]).astype(np.float32)
-    x_data = torch_tensor.flatten().tolist()
-    res_data = np.random.uniform(-100, 100, [4, 4]).astype(np.float32)
-    res_data = res_data.flatten().tolist()
-
-    pto.runtime._device_run_once_data_from_host([x_data], [res_data])
-
-    assert res_data == torch.tensor(torch_tensor)[0:4, 4:8].flatten().tolist()
-
+    torch_tensor = torch.rand(4, 8, dtype=torch.float32) * 200 - 100
+    res_tensor = torch.zeros(4, 4, dtype=torch.float32)
+    pto.runtime._device_run_once_data_from_host([torch_tensor], [res_tensor])
+     
+    expected = torch_tensor[:, 4:8]
+    assert torch.equal(res_tensor.flatten(), expected.flatten())
+     
     pto.runtime._device_fini()

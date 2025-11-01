@@ -46,12 +46,11 @@ def test_vector_operation_range():
                 res.move(pto.range(start, end, step))
                 pto.assemble(res, [b_idx * view_shape[0]], b)
                 del res
-    a_tensor = np.random.uniform(0.001, 100, [1, 1, 1]).astype(np.float32)
-    a_data = a_tensor.flatten().tolist()
-    b_data = list([0] * size)
+    a_tensor = torch.rand([1, 1, 1], dtype=torch.float32) * 99.999 + 0.001
+    res_tensor = torch.zeros(size, dtype=torch.float32)
+    pto.runtime._device_run_once_data_from_host([a_tensor], [res_tensor])
 
-    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
+    expected = torch.arange(start_data, end_data, step_data)
+    assert_allclose(res_tensor.flatten(), expected.flatten(), rtol=1e-6, atol=1e-7)
 
-    golden_data = np.arange(start_data, end_data, step_data)
-    assert(np.allclose(b_data, golden_data, rtol=1e-6, atol=1e-7))
     pto.runtime._device_fini()

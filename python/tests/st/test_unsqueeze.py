@@ -51,16 +51,14 @@ def test_unsqueeze_content_equal():
                 res.move(pto.unsqueeze(x, dim))
                 del res
     
-    torch_case_tensor = np.random.rand(2, 2).astype(np.float32)
-    x_data = torch_case_tensor.flatten().tolist()
-    res_data = np.random.rand(1, 2, 2).astype(np.float32)
-    res_data = res_data.flatten().tolist()
-
-    pto.runtime._device_run_once_data_from_host([x_data], [res_data])
-
-    torch_case_res = torch.unsqueeze(torch.tensor(torch_case_tensor), dim)
-
-    assert res_data == torch_case_res.flatten().tolist()
+    torch_case_tensor = torch.rand(2, 2, dtype=torch.float32)  
+    res_tensor = torch.zeros((1,) + torch_case_tensor.shape, dtype=torch.float32)
+    
+    pto.runtime._device_run_once_data_from_host([torch_case_tensor], [res_tensor])
+    
+    torch_case_res = torch.unsqueeze(torch_case_tensor, dim)
+    
+    assert torch.equal(res_tensor.flatten(), torch_case_res.flatten())
     pto.runtime._device_fini()
 
 def test_tensor_unsqueeze_shape_dim():
@@ -77,5 +75,3 @@ def test_tensor_unsqueeze_shape_dim():
         torch_case_tensor = torch.randn((8, 16, 16), dtype = torch.float32)
         torch_case_res = torch.unsqueeze(torch_case_tensor, dim)
         assert res.shape == list(torch_case_res.shape)
-
-

@@ -12,6 +12,7 @@
 import pto
 import pytest
 import numpy as np
+import torch
 from numpy.testing import assert_allclose
 
 F_1 = 1.0
@@ -20,15 +21,14 @@ DTYPE = pto.DT_FP32
 
 
 def prepare_test_data(shape):
-    torch_tensor = np.ones(shape, dtype=np.float32)
-    x_data = torch_tensor.flatten().tolist()
+    torch_tensor = torch.ones(shape, dtype=torch.float32)
+    x_data = torch_tensor
 
-    res_data = np.ones(shape, dtype=np.float32) * 3
-    res_data = res_data.flatten().tolist()
+    res_data = torch.ones(shape, dtype=torch.float32) * 3
 
-    golden = np.zeros(shape, dtype=np.float32)
+    golden = torch.zeros(shape, dtype=torch.float32)
     golden[:, :16] = 2
-    golden_data = golden.flatten().tolist()
+    golden_data = golden
 
     return x_data, res_data, golden_data
 

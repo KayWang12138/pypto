@@ -52,9 +52,11 @@ struct DeviceLauncherConfig {
     std::vector<uint64_t> hcclContext;
 
     DeviceLauncherConfig() = default;
-    DeviceLauncherConfig(bool onboard, int tblockdim, int taicpunum) : onBoard(onboard), blockdim(tblockdim), aicpuNum(taicpunum) {}
+    DeviceLauncherConfig(bool onboard, int tblockdim, int taicpunum)
+        : onBoard(onboard), blockdim(tblockdim), aicpuNum(taicpunum) {}
     DeviceLauncherConfig(int tdynWorkspaceSize) : dynWorkspaceSize(tdynWorkspaceSize) {}
-    DeviceLauncherConfig(int tdynWorkspaceSize, int64_t trepeatNum) : dynWorkspaceSize(tdynWorkspaceSize), repeatNum(trepeatNum){}
+    DeviceLauncherConfig(int tdynWorkspaceSize, int64_t trepeatNum)
+        : dynWorkspaceSize(tdynWorkspaceSize), repeatNum(trepeatNum) {}
     DeviceLauncherConfig(const std::vector<std::uint64_t> &addrs) : hcclContext(addrs) {}
 };
 

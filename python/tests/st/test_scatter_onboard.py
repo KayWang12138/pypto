@@ -13,6 +13,7 @@ import math
 import copy
 import pytest
 import numpy as np
+import torch
 import pto
 
 
@@ -65,22 +66,21 @@ def scatter_2dim_comm_proc(scatter_para, scatter_func):
                         del view_tensor_src, view_tensor_index, tmp_dst_tensor
     assert isinstance(dst_tensor, pto.tensor)
 
-    input0_tensor = np.random.uniform(-1, 1, src_shape).astype(np.float32)
-    input1_tensor = np.random.uniform(0, src_shape[scatter_para.axis], indices_shape).astype(np.int64)
-    a_data = input0_tensor.reshape(src_shape[0] * src_shape[1]).tolist()
-    b_data = input1_tensor.reshape(indices_shape[0] * indices_shape[1]).tolist()
-    c_data = list([0] * src_shape[0] * src_shape[1])
-    pto.runtime._device_run_once_data_from_host([a_data, b_data], [c_data])
+    input0_tensor = torch.rand(*src_shape, dtype=torch.float32) * 2 - 1  
+    input1_tensor = torch.randint(0, src_shape[scatter_para.axis], indices_shape, dtype=torch.int64)
+    c_tensor = torch.zeros_like(input0_tensor)
 
-    result = copy.copy(input0_tensor)
+    pto.runtime._device_run_once_data_from_host([input0_tensor, input1_tensor], [c_tensor])
+
+    result = input0_tensor.clone()
     for i in range(indices_shape[0]):
         for j in range(indices_shape[1]):
             if scatter_para.axis == 0:
-                result[input1_tensor[i][j]][j] = scatter_para.sdata
+                result[input1_tensor[i, j], j] = scatter_para.sdata
             else:
-                result[i][input1_tensor[i][j]] = scatter_para.sdata
+                result[i, input1_tensor[i, j]] = scatter_para.sdata
 
-    assert c_data == result.reshape(src_shape[0] * src_shape[1]).tolist()
+    assert torch.equal(c_tensor, result)
     pto.runtime._device_fini()
 
 
