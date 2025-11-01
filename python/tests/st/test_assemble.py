@@ -87,7 +87,7 @@ def test_assmble_syntactic_sugar():
 
 
 def test_assmble_syntactic_sugar_slice_empty():
-    pto.device_init()
+    pto.runtime._device_init()
     x = pto.tensor(SHAPE, DTYPE)
     out = pto.tensor(SHAPE, DTYPE)
     with pto.function("main", [x], [out]):
@@ -99,15 +99,13 @@ def test_assmble_syntactic_sugar_slice_empty():
                 # syntactic_sugar call
                 out[0:, :] = add_tensor
 
-    torch_tensor = np.ones(SHAPE, dtype=np.float32)
-    x_data = torch_tensor.flatten().tolist()
+    x_data = torch.ones(SHAPE, dtype=torch.float32)
 
-    res_data = np.ones(SHAPE, dtype=np.float32) * 3
-    res_data = res_data.flatten().tolist()
+    res_data = torch.zeros(SHAPE, dtype=torch.float32)
 
-    golden = np.zeros(SHAPE, dtype=np.float32)
+    golden = torch.zeros(SHAPE, dtype=torch.float32)
     golden[:, :8] = 2
-    golden_data = golden.flatten().tolist()
-    pto.device_run_once_data_from_host([x_data], [res_data])
-    assert_allclose(res_data, golden_data, atol=1e-5, verbose=True)
-    pto.device_fini()
+
+    pto.runtime._device_run_once_data_from_host([x_data], [res_data])
+    assert_allclose(res_data, golden, atol=1e-5, verbose=True)
+    pto.runtime._device_fini()
