@@ -40,6 +40,7 @@ def _to_base(arg):
 def op_wrapper(func):
     def wrapper(*args, **kwargs):
         args = _to_base(args)
+        kwargs = _to_base(kwargs)
         assert isinstance(args, (list, tuple))
         out = func(*args, **kwargs)
         if out is None:
@@ -169,9 +170,7 @@ def sub(
 @op_wrapper
 def mul(
     input: Tensor,
-    other: Union[Tensor, int, float],
-    *,
-    alpha: Union[int, float] = 1
+    other: Union[Tensor, int, float]
 ) -> Tensor:
     """Computes the element-wise multiplication of `input` and `other`.
 
@@ -207,28 +206,19 @@ def mul(
     tensor([5, 10, 15])
     """
     if isinstance(other, pto_impl.Tensor):
-        if alpha == 1 or alpha == 1.0:
-            return pto_impl.mul(input, other)
-        else:
-            return pto_impl.mul(input, pto_impl.mul_s(other, pto_impl.Element(input.dtype, alpha)))
+        return pto_impl.mul(input, other)
     else:
-        if alpha == 1 or alpha == 1.0:
-            return pto_impl.mul_s(input, pto_impl.Element(input.dtype, other))
-        else:
-            assert isinstance(other, (int, float)), "alpha must be a number"
-            return pto_impl.mul_s(input, pto_impl.Element(input.dtype, other * alpha))
+        return pto_impl.mul_s(input, pto_impl.Element(input.dtype, other))
 
 
 @op_wrapper
 def div(
     input: Tensor,
-    other: Union[Tensor, int, float],
-    *,
-    alpha: Union[int, float] = 1
+    other: Union[Tensor, int, float]
 ) -> Tensor:
     """Computes the element-wise division of `input` and `other`.
 
-    This function calculates the formula: `out = input / alpha * other`.
+    This function calculates the formula: `out = input / other`.
     It supports broadcasting between the input tensors.
 
     Parameters
@@ -237,8 +227,6 @@ def div(
         The first input tensor.
     other : Tensor or Number
         The second input tensor or a scalar to divide.
-    alpha : float, optional, keyword-only
-        A scaling factor for the `other` input. Default is 1.0.
 
     Returns
     -------
@@ -262,21 +250,14 @@ def div(
     >>> pto.div(a, b)
     tensor([1, 2, 3])
 
-    >>> # Using a scalar and alpha
-    >>> pto.div(a, 2, alpha=3) # Computes a / 2 * 3
-    tensor([3, 6, 9])
+    >>> # Using a scalar
+    >>> pto.div(a, 2) # Compute a / 2
+    tensor([1, 2, 3])
     """
     if isinstance(other, pto_impl.Tensor):
-        if alpha == 1 or alpha == 1.0:
-            return pto_impl.div(input, other)
-        else:
-            return pto_impl.div(input, pto_impl.mul_s(other, pto_impl.Element(input.dtype, alpha)))
+        return pto_impl.div(input, other)
     else:
-        if alpha == 1 or alpha == 1.0:
-            return pto_impl.div_s(input, pto_impl.Element(input.dtype, other))
-        else:
-            assert isinstance(other, (int, float)), "alpha must be a number"
-            return pto_impl.div_s(input, pto_impl.Element(input.dtype, other * alpha))
+        return pto_impl.div_s(input, pto_impl.Element(input.dtype, other))
 
 
 @op_wrapper
@@ -323,7 +304,7 @@ def max(a: 'SymbolicScalar | int', b: 'SymbolicScalar | int') -> 'SymbolicScalar
 
 @op_wrapper
 def exp(
-    input: Tensor,
+    input: Tensor
 ) -> Tensor:
     """Computes the element-wise exponential of `input`.
 
@@ -405,7 +386,7 @@ def reciprocal(a) -> Tensor:
 
 @op_wrapper
 def logical_not(
-    input: Tensor,
+    input: Tensor
 ) -> Tensor:
     """
     Computes the element-wise logical NOT of 'input'
@@ -434,7 +415,7 @@ def logical_not(
 
 @op_wrapper
 def rsqrt(
-    input: Tensor,
+    input: Tensor
 ) -> Tensor:
     """Computes the element-wise reciprocal of the square-root of `input`
 
@@ -508,7 +489,7 @@ def topk(
     input: Tensor,
     k: int,
     dim: Optional[int] = None,
-    largest: Optional[bool] = True
+    largest: bool = True
 ) -> Tuple[Tensor, Tensor]:
     """Returns the k largest elements of the given input tensor along a given dimension.
 
@@ -520,7 +501,7 @@ def topk(
         The k in "top-k".
     dim : int, optional
         The dimension to sort along, if dim is not given, the last dimension of the input is chosen.
-    largest : bool, optional
+    largest : bool
         Controling whether to return the elements in sorted order, if largest is False then the k smallest
         elements are returned.
 
@@ -680,9 +661,7 @@ def scatter(
 def where(
     condition: Tensor,
     input: Union[Tensor, float],
-    other: Union[Tensor, float],
-    *,
-    dtype: DataType = None
+    other: Union[Tensor, float]
 ) -> Tensor:
     """
     Return a tensor of elements selected from either `input` or `other`, depending on `condition`.
@@ -741,16 +720,13 @@ def where(
     """
     if isinstance(input, pto_impl.Tensor):
         input_base = input
-    elif dtype is None:
-        input_base = pto_impl.Element(pto_impl.DT_FP32, input)
     else:
-        input_base = pto_impl.Element(dtype, input)
+        input_base = pto_impl.Element(pto_impl.DT_FP32, input)
+        
     if isinstance(other, pto_impl.Tensor):
         other_base = other
-    elif dtype is None:
-        other_base = pto_impl.Element(pto_impl.DT_FP32, other)
     else:
-        other_base = pto_impl.Element(dtype, other)
+        other_base = pto_impl.Element(pto_impl.DT_FP32, other)
     return pto_impl.where(condition, input_base, other_base)
 
 
@@ -822,7 +798,7 @@ def arange(
 
 @op_wrapper
 def log(
-    input: Tensor,
+    input: Tensor
 ) -> Tensor:
     """Computes the element-wise log of `input`.
 
@@ -889,7 +865,7 @@ def cast(
 @op_wrapper
 def amax(
     input: Tensor,
-    dim: Optional[int] = -1
+    dim: int = -1
 ) -> Tensor:
     """Returns the maximum value of each slice of the input tensor in the given dimension dim.
 
@@ -899,7 +875,7 @@ def amax(
         The input tensor.
     dim : int
         The dimension to reduce.
-    keepdim : bool, optional
+    keepdim : bool
         whether the output tensor has dim retained or not. Default: False.
 
     Returns
@@ -920,11 +896,10 @@ def amax(
     """
     return pto_impl.row_max_single(input, dim)
 
-
 @op_wrapper
 def sum(
     input: Tensor,
-    dim: Optional[int] = -1
+    dim: int = -1
 ) -> Tensor:
     """Returns the sum value of each slice of the input tensor in the given dimension dim.
 
@@ -1020,7 +995,7 @@ def full(size: List[int],
 @op_wrapper
 def amin(
     input: Tensor,
-    dim: Optional[int] = -1
+    dim: int = -1
 ) -> Tensor:
     """Returns the minimum value of each slice of the input tensor in the given dimension dim.
 
@@ -1055,29 +1030,27 @@ def amin(
 @op_wrapper
 def greater(
     input: Tensor,
-    other: Union[Tensor, int, float]
+    other: Tensor
 ) -> Tensor:
     """Performs element-wise comparison between `input` and `other`.
-
-    This function supports both BIT-packed and BOOLEAN output modes.
 
     Parameters
     ----------
     input : Tensor
         The first input tensor.
-    other : Tensor or Number
-        The second input tensor or scalar for comparison.
+    other : Tensor 
+        The second input tensor for comparison.
 
     Returns
     -------
     Tensor
-        A new tensor containing the comparison results.
+        A boolean tensor that is True where input is greater than other and False elsewhere.
         BOOL tensor with same shape as inputs
 
     Raises
     ------
     TypeError
-        If `other` is not a Tensor or Element.
+        If `other` is not a Tensor.
 
 
     Examples
@@ -1089,17 +1062,13 @@ def greater(
     tensor([False, False, True])
 
     """
-    if isinstance(other, pto_impl.Tensor):
-        return pto_impl.compare(input, other, pto_impl.OpType.GT, OutType.BOOL)
-    else:
-        return pto_impl.compare(input, pto_impl.Element(input.dtype, other), pto_impl.OpType.GT, OutType.BOOL)
-
+    return pto_impl.compare(input, other, pto_impl.OpType.GT, OutType.BOOL)
 
 
 @op_wrapper
 def concat(
     tensors: List[Tensor],
-    dim: Optional[int] = 0
+    dim: int = 0
 ) -> Tensor:
     """
     Concatenate multiple tensors according to the specified dimension.

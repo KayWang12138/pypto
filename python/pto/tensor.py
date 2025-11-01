@@ -9,7 +9,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 import typing
-from typing import Union, List
+from typing import Union, List, Optional
 
 import pto
 from pto import pto_impl
@@ -231,14 +231,10 @@ class Tensor:
         return self.div(other)
 
     def greater(self, other: 'Tensor'):
-        if isinstance(other, Tensor):
-            return pto.gather(self, other)
-        else:
-            raise TypeError(
-                f"Expected Tensor, got {type(other).__name__}")
+        return pto.greater(self, other)
 
-    def __gt__(self, other: 'Tensor', mode) -> 'Tensor':
-        return self.greater(other, mode)
+    def __gt__(self, other: 'Tensor') -> 'Tensor':
+        return self.greater(other)
 
     def __matmul__(self, other: 'Tensor') -> 'Tensor':
         if other.dtype in {pto.DT_FP16, pto.DT_BF16, pto.DT_FP32}:
@@ -291,5 +287,45 @@ class Tensor:
     def maximum(self, other: 'Tensor') -> 'Tensor':
         return pto.maximum(self, other)
 
+    def where(self, condition: 'Tensor', y: Union['Tensor', float]) -> 'Tensor':
+        return pto.where(condition, self, y)
+
+    def topk(self, k: int, dim: Optional[int] = None, largest: bool = True) -> 'Tensor':
+        return pto.topk(self, k, dim, largest)
+
+    def exp(self) -> 'Tensor':
+        return pto.exp(self)
+
+    def log(self) -> 'Tensor':
+        return pto.log(self)
+
+    def logical_not(self) -> 'Tensor':
+        return pto.logical_not(self)
+
+    def amax(self, dim: int = -1) -> 'Tensor':
+        return pto.amax(self, dim)
+
+    def amin(self, dim: int = -1) -> 'Tensor':
+        return pto.amin(self, dim)
+
+    def sum(self, dim: int = -1) -> 'Tensor':
+        return pto.sum(self, dim)
+
+    def rsqrt(self) -> 'Tensor':
+        return pto.rsqrt(self)
+
+    def sqrt(self) -> 'Tensor':
+        return pto.sqrt(self)
+
+    def transpose(self, dim0: int, dim1: int) -> 'Tensor':
+        return pto.transpose(self, dim0, dim1)
+
+    def gather(self, dim: int, index: 'Tensor') -> 'Tensor':
+        return pto.gather(self, dim, index)
+
+    def scatter(self, dim: int, index: 'Tensor', src: 'Tensor') -> 'Tensor':
+        return pto.scatter(self, dim, index, src)
+
 def mark_input_dynamic(tensor: 'Tensor', axis: int):
     pto_impl.MarkInputDynamic(tensor._base, axis)
+
