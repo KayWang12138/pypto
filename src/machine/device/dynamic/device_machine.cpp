@@ -245,7 +245,7 @@ static bool CheckValidArgs(AstKernelArgs *kargs) {
     }
     if (kargs->inputs == nullptr || kargs->outputs == nullptr || kargs->workspace == nullptr
         || kargs->cfgdata == nullptr) {
-        DEV_INFO("Args has null in inputs[%p] outputs[%p] work[%p] or cfg[%p].\n", kargs->inputs,
+        DEV_ERROR("Args has null in inputs[%p] outputs[%p] work[%p] or cfg[%p].\n", kargs->inputs,
                  kargs->outputs, kargs->workspace, kargs->cfgdata);
         return false;
     }
@@ -254,9 +254,12 @@ static bool CheckValidArgs(AstKernelArgs *kargs) {
 
 extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelServerInit(void *targ) {
     PerfBegin(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
+#if DEBUG_PLOG && defined(__DEVICE__)
+    InitLogSwitch();
+#endif
     auto kargs = (AstKernelArgs *)targ;
     if (!CheckValidArgs(kargs)) {
-        DEV_INFO("invalid parameter.");
+        DEV_ERROR("invalid parameter.");
         return -EINVAL;
     }
     auto devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);

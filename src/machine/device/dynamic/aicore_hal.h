@@ -95,7 +95,7 @@ public:
         if constexpr (IsDeviceMode()) {
             *readyRegQueues_[GetPhyIdByBlockId(coreIdx)] = value;
         } else {
-            DEV_INFO("set coreidx %d value %lx.", coreIdx, value);
+            DEV_DETAIL_DEBUG("set coreidx %d value %lx.", coreIdx, value);
             auto taskId = value - 1;
             if (value == 0 || taskId == AICORE_TASK_STOP || taskId == AICORE_FUNC_STOP) return;
             CostModelSendTask(coreIdx, taskId);
@@ -296,7 +296,7 @@ public:
             if (addr == nullptr) {
                 continue;
             }
-            DEV_DEBUG("phy core %u Addr is %p.", idx, addr);
+            DEV_DETAIL_DEBUG("phy core %u Addr is %p.", idx, addr);
             volatile uint64_t *reqQueueReg =
                 reinterpret_cast<volatile uint64_t *>(static_cast<uint8_t *>(addr) + REG_SPR_DATA_MAIN_BASE);
             readyRegQueues_[idx] = reqQueueReg;
@@ -327,12 +327,12 @@ public:
             }
         }; // wait aicore dcci metric data finish
 
-        DEV_INFO("Dump core %d prof data , task cnt %ld, metric:%p.", coreIdx, metric->taskCount, metric);
+        DEV_DETAIL_DEBUG("Dump core %d prof data , task cnt %ld, metric:%p.", coreIdx, metric->taskCount, metric);
         for (int i = 0; i < metric->taskCount; i++) {
             volatile TaskStat *stat = &metric->tasks[i];
             aicoreProf_->ProfGet(coreIdx, stat->subGraphId, stat->taskId,
                           &((Metrics *)(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]))->tasks[i]);
-            DEV_INFO("  Dump prof for task %d, execstart: %ld execend :%ld.",
+            DEV_DETAIL_DEBUG("  Dump prof for task %d, execstart: %ld execend :%ld.",
                      stat->taskId, stat->execStart, stat->execEnd);
         }
         return 0;
@@ -340,13 +340,13 @@ public:
 
     void DumpAicoreStatus(int coreIdx) const {
         volatile KernelArgs *arg = (KernelArgs *)(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
-        DEV_INFO("!!***********************aicore %d last status **************************!!", coreIdx);
-        DEV_INFO("hello status %ld.", arg->shakeBuffer[0]);
-        DEV_INFO("last_taskId %ld task status [%ld, %ld, %ld, %ld].", arg->shakeBuffer[NUM_ONE],
+        DEV_DETAIL_DEBUG("!!***********************aicore %d last status **************************!!", coreIdx);
+        DEV_DETAIL_DEBUG("hello status %ld.", arg->shakeBuffer[0]);
+        DEV_DETAIL_DEBUG("last_taskId %ld task status [%ld, %ld, %ld, %ld].", arg->shakeBuffer[NUM_ONE],
             arg->shakeBuffer[NUM_TWO], arg->shakeBuffer[NUM_THREE], arg->shakeBuffer[NUM_FOUR], arg->shakeBuffer[NUM_FIVE]);
 
         for (size_t i = 0; i < sizeof(arg->taskStat) / sizeof(TaskStat); i++) {
-            DEV_INFO("task rsp index %lu: taskId %d, subGraphID %d execStart %ld execEnd %ld.", i,
+            DEV_DETAIL_DEBUG("task rsp index %lu: taskId %d, subGraphID %d execStart %ld execEnd %ld.", i,
                 arg->taskStat[i].taskId, arg->taskStat[i].subGraphId,
                 arg->taskStat[i].execStart, arg->taskStat[i].execEnd);
         }

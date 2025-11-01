@@ -34,39 +34,48 @@ namespace npu::tile_fwk {
 #define DEV_IF_NONDEVICE                                                        \
     if constexpr (!IsDeviceMode())
 
+#define DEV_IF_DEBUGMODE                                                        \
+    if (IsDebugMode())
+
 #if DEBUG_PLOG && defined(__DEVICE__)
 #define GET_TID() syscall(__NR_gettid)
 const std::string TILE_FWK_DEVICE_MACHINE = "AI_CPU";
 
-bool IsLogDEnable();
-bool IsLogIEnable();
-bool IsLogWEnable();
-bool IsLogEEnable();
+extern bool g_isLogDEnable;
+extern bool g_isLogIEnable;
+extern bool g_isLogWEnable;
+extern bool g_isLogEEnable;
+
+inline bool IsDebugMode() {
+    return g_isLogDEnable;
+}
+
+void InitLogSwitch();
 
 #define D_DEV_LOGD(MODE_NAME, fmt, ...)                                               \
   do {                                                                                \
-      if (IsLogDEnable()) {                                                  \
+      if (g_isLogDEnable) {                                                  \
         dlog_debug(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);  \
       }                                                                               \
   } while (false)
 
 #define D_DEV_LOGI(MODE_NAME, fmt, ...)                                               \
   do {                                                                                \
-      if (IsLogIEnable()) {                                                   \
+      if (g_isLogIEnable) {                                                   \
         dlog_info(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);   \
       }                                                                               \
   } while(false)
 
 #define D_DEV_LOGW(MODE_NAME, fmt, ...)                                               \
   do {                                                                                \
-      if (IsLogWEnable()) {                                                   \
+      if (g_isLogWEnable) {                                                   \
         dlog_warn(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);   \
       }                                                                               \
   } while(false)
 
 #define D_DEV_LOGE(MODE_NAME, fmt, ...)                                               \
   do {                                                                                \
-      if (IsLogEEnable()) {                                                  \
+    if (g_isLogEEnable) {                                                  \
         dlog_error(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);  \
       }                                                                               \
   } while(false)
@@ -75,10 +84,13 @@ bool IsLogEEnable();
 #define DEV_INFO(fmt, args...) D_DEV_LOGI(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
 #define DEV_ERROR(fmt, args...) D_DEV_LOGE(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
 #define DEV_WARN(fmt, args...) D_DEV_LOGW(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
+#define DEV_DETAIL_DEBUG(fmt, args...)                                  \
+  do {                                                                  \
+    if constexpr (PLOG_DETAIL_DEBUG_SWITCH)  {                          \
+        D_DEV_LOGD(TILE_FWK_DEVICE_MACHINE, fmt, ##args);               \
+    }                                                                   \
+  } while(0)
 
-inline int CheckDebug() {
-    return CheckLogLevel(AICPU, DLOG_DEBUG);
-}
 
 #define DEV_ASSERT_MSG(expr, fmt, args...)                                                   \
     do {                                                                                     \
@@ -108,6 +120,10 @@ inline int CheckDebug() {
 #define DEV_MEM_DUMP(fmt, args...)
 
 #else
+
+inline bool IsDebugMode() {
+    return true;
+}
 
 constexpr int LOG_LEVEL_DEBUG = 0;
 constexpr int LOG_LEVEL_INFO = 1;
@@ -202,6 +218,7 @@ inline DeviceLogger &GetLogger(const char *logfile = nullptr, int level = LOG_LE
 #define DEV_INFO(fmt, args...) GetLogger().Log(LOG_LEVEL_INFO, __FILE__, __LINE__, fmt, ##args)
 #define DEV_ERROR(fmt, args...) GetLogger().Log(LOG_LEVEL_ERROR, __FILE__, __LINE__, fmt, ##args)
 #define DEV_WARN(fmt, args...) GetLogger().Log(LOG_LEVEL_WARN, __FILE__, __LINE__, fmt, ##args)
+#define DEV_DETAIL_DEBUG(fmt, args...)  GetLogger().Log(LOG_LEVEL_DEBUG, __FILE__, __LINE__, fmt, ##args)
 
 #else
 
@@ -209,6 +226,7 @@ inline DeviceLogger &GetLogger(const char *logfile = nullptr, int level = LOG_LE
 #define DEV_INFO(fmt, args...)
 #define DEV_ERROR(fmt, args...) GetLogger().Log(LOG_LEVEL_ERROR, __FILE__, __LINE__, fmt, ##args)
 #define DEV_WARN(fmt, args...)
+#define DEV_DETAIL_DEBUG(fmt, args...)
 
 #endif // DEBUG_SWITCH
 

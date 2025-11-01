@@ -31,6 +31,7 @@ namespace npu::tile_fwk {
 
 #if DEBUG_SWITCH == 0
 #define DEBUG_PLOG 1
+constexpr bool PLOG_DETAIL_DEBUG_SWITCH = false;
 #else
 #define DEBUG_PLOG 0
 #endif/*DEBUG_PLOG*/
@@ -106,10 +107,18 @@ constexpr bool SEND_TASK_IMMEDIATELY_SWITCH = true;
 #define CONFIG_COMM_WAIT_FLAG                       1
 
 #define PROF_START(...)
+
+#if PERF_SWITCH
 #define PROF_STAGE_BEGIN(perfkey, ...)              PerfBegin(perfkey)
 #define PROF_STAGE_END(perfkey, ...)                PerfEnd(perfkey)
 #define PROF_STAGE_BEGIN_MTSAFE(perfkey, tid, ...)  PerfMtBegin(perfkey, tid)
 #define PROF_STAGE_END_MTSAFE(perfkey, tid, ...)    PerfMtEnd(perfkey, tid)
+#else
+#define PROF_STAGE_BEGIN(perfkey, ...)
+#define PROF_STAGE_END(perfkey, ...)
+#define PROF_STAGE_BEGIN_MTSAFE(perfkey, tid, ...)
+#define PROF_STAGE_END_MTSAFE(perfkey, tid, ...)
+#endif
 
 #endif
 } // namespace npu::tile_fwk

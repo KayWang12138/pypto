@@ -83,6 +83,7 @@ constexpr uint64_t PROF_DUMP_TIMEOUT_CYCLES = TIMEOUT_CYCLES;
     X(1, INIT)                                  \
     X(2, CONTROL_FLOW_MAPEXE)                   \
     X(3, CONTROL_FLOW_MAPEXE_MEMCPY)            \
+    X(1, CONTROL_FLOW_CALL)                     \
     X(1, CONTROL_FLOW_INIT)                     \
     X(1, CONTROL_FLOW)                          \
     X(2, ROOT_FUNC)                             \
@@ -92,16 +93,19 @@ constexpr uint64_t PROF_DUMP_TIMEOUT_CYCLES = TIMEOUT_CYCLES;
     X(4, FAST_STITCH)                           \
     X(4, UPDATE_SLOT)                           \
     X(3, SUBMIT_AICORE)                         \
+    X(4, DECIDE_SLOT_ADDRESS)                   \
+    X(4, DECIDE_INCAST_ADDRESS)                 \
+    X(4, RELEASE_FINISH_TASK)                   \
+    X(4, DEALLOCATE_TASK)                       \
     X(4, STAGE_BUILD_TASK)                      \
-    X(5, DECIDE_SLOT_ADDRESS)                   \
-    X(5, DECIDE_INCAST_ADDRESS)                 \
-    X(5, RELEASE_FINISH_TASK)                   \
-    X(6, DEALLOCATE_TASK)                       \
-    X(5, DEALLOCATE_WORKSPACE)                  \
     X(5, ALLOCATE_TASK)                         \
-    X(5, READY_QUEUE)                           \
-    X(5, RESOLVE_EARLY)                         \
-    X(5, CORE_FUNCDATA)                         \
+    X(5, BUILD_TASK_DATA)                       \
+    X(6, READY_QUEUE)                           \
+    X(7, READY_QUEUE_IN)                        \
+    X(6, RESOLVE_EARLY)                         \
+    X(6, CORE_FUNCDATA)                         \
+    X(5, SLAB_MEM_SUBMIT)                        \
+    X(4, DEALLOCATE_WORKSPACE)                  \
     X(4, STAGE_PUSH_TASK)                       \
     X(1, STAGE_TASK_SYNC)                       \
     X(2, RELEASE_FINISH_TASK_INSYNC)            \
@@ -452,10 +456,7 @@ private:
 
 inline void PerfBegin(int type) {
 #if PERF_SWITCH
-    if (PerfEvtEnable[type]) {
-        PerfEvtMgr::Instance().PerfBegin(type);
-        PerfettoMgr::Instance().PerfBegin(type, MAX_SCHEDULE_AICPU_NUM);
-    }
+    PerfEvtMgr::Instance().PerfBegin(type);
 #else
     (void)type;
 #endif
@@ -463,10 +464,7 @@ inline void PerfBegin(int type) {
 
 inline void PerfEnd(int type) {
 #if PERF_SWITCH
-    if (PerfEvtEnable[type]) {
-        PerfEvtMgr::Instance().PerfEnd(type);
-        PerfettoMgr::Instance().PerfEnd(type, MAX_SCHEDULE_AICPU_NUM);
-    }
+    PerfEvtMgr::Instance().PerfEnd(type);
 #else
   (void)type;
 #endif
@@ -474,10 +472,7 @@ inline void PerfEnd(int type) {
 
 inline void PerfMtBegin(int type, int tid) {
 #if PERF_SWITCH
-    if (PerfEvtEnable[type]) {
-        PerfEvtMgr::Instance().PerfBegin(type + tid);
-        PerfettoMgr::Instance().PerfBegin(type, tid);
-    }
+    PerfEvtMgr::Instance().PerfBegin(type + tid);
 #else
   (void)type;
   (void)tid;
@@ -486,10 +481,7 @@ inline void PerfMtBegin(int type, int tid) {
 
 inline void PerfMtEnd(int type, int tid) {
 #if PERF_SWITCH
-    if (PerfEvtEnable[type]) {
-        PerfEvtMgr::Instance().PerfEnd(type + tid);
-        PerfettoMgr::Instance().PerfEnd(type, tid);
-    }
+    PerfEvtMgr::Instance().PerfEnd(type + tid);
 #else
   (void)type;
   (void)tid;

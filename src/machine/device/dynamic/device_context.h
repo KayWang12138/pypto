@@ -220,13 +220,13 @@ public:
             if (inSlot != -1) {
                 slotList[outSlot].desc = slotList[inSlot].desc;
                 slotList[outSlot].isOutputSlot = true;
-                DEV_INFO("Param %zu Output Slot %d = inSlot %d.", i, outSlot, inSlot);
+                DEV_DETAIL_DEBUG("Param %zu Output Slot %d = inSlot %d.", i, outSlot, inSlot);
             }
         }
         for (size_t i = 0; i < devProg->assembleSlotIndexList.size(); ++i) {
             int slotIndex = devProg->assembleSlotIndexList[i];
             slotList[slotIndex].isAssembleSlot = true;
-            DEV_INFO("Assemble Slot %d.", slotIndex);
+            DEV_DETAIL_DEBUG("Assemble Slot %d.", slotIndex);
         }
         for (size_t i = 0, ie = devProg->partialUpdateList.size(); i < ie; i++) {
             auto &partialUpdate = devProg->At(devProg->partialUpdateList, i);
@@ -234,7 +234,7 @@ public:
             if (!partialUpdate.Empty()) {
                 slotList[slotIndex].isPartialUpdateStitch = true;
                 slotList[slotIndex].partialUpdate = &partialUpdate;
-                DEV_INFO("Partial Update Slot %d\n", slotIndex);
+                DEV_DETAIL_DEBUG("Partial Update Slot %d\n", slotIndex);
             }
         }
         (void)slotSize;
@@ -242,9 +242,9 @@ public:
 
     static void UpdateSlotsForStitch(int slotIdx, DeviceExecuteSlot &slot, DevAscendFunction *devRootSrc, DevAscendFunctionOutcast &outcast,
                                      uint32_t devTaskId, uint32_t devNextIdx, uint32_t outcastIndex, uint64_t *expressionList) {
-        (void)slotIdx;
         slot.stitchDupIdx = devNextIdx;
         slot.stitchOutcastIdx = outcastIndex;
+        UNUSED(slotIdx);
 
         auto producerList = &devRootSrc->At(outcast.producerList, 0);
         if (slot.isPartialUpdateStitch) {
@@ -261,7 +261,7 @@ public:
                         expressionList, false, cellMatchTableDesc, tableData, devTaskId, devNextIdx);
             }
 
-            DEV_DEBUG("[UpdateSlots]  slot %d CellMatchPartial=%s\n", slotIdx,
+            DEV_DETAIL_DEBUG("[UpdateSlots]  slot %d CellMatchPartial=%s\n", slotIdx,
                 DevAscendFunctionDuppedStitchList::DumpTask<uint64_t>(tableData, slot.partialUpdate->cellMatchRuntimePartialUpdateTable.size()).c_str());
             slot.isPartialUpdateDirty = true;
         } else {
@@ -269,7 +269,7 @@ public:
             auto tableData = &devRootSrc->At(outcast.cellMatchRuntimeFullUpdateTable, 0);
             devRootSrc->CellMatchFillIncastOutcast<false>(
                     producerList, outcast.producerList.size(), expressionList, false, cellMatchTableDesc, tableData);
-            DEV_DEBUG("[UpdateSlots] slot %d  CellMatchFull=%s\n", slotIdx,
+            DEV_DETAIL_DEBUG("[UpdateSlots] slot %d  CellMatchFull=%s\n", slotIdx,
                 DevAscendFunctionDuppedStitchList::DumpTask(tableData, outcast.cellMatchRuntimeFullUpdateTable.size()).c_str());
         }
     }
@@ -301,7 +301,7 @@ public:
                     slot.desc = AddressDescriptor(devNextIdx, i);
                 }
                 slot.refCnt = nullptr;
-                DEV_DEBUG("[UpdateSlots]   Outcast [%3zu] to slot [%3d], address %s.", i, slotIdx, slot.desc.Dump().c_str());
+                DEV_DETAIL_DEBUG("[UpdateSlots]   Outcast [%3zu] to slot [%3d], address %s.", i, slotIdx, slot.desc.Dump().c_str());
             }
         }
     }
@@ -395,8 +395,6 @@ struct DeviceStitchContext {
     }
 
     void RecycleAicoreLocalWorkspace() {
-        AutoScopedPerf asp(PERF_EVT_DEALLOCATE_WORKSPACE);
-
         // recycle submitted tasks' workspace memory
         workspace_->RecycleDevFuncWorkspace();
         workspace_->TriggerDelayedRecycle();
@@ -404,7 +402,7 @@ struct DeviceStitchContext {
 
     void DumpSlotInfo(const char *label, DeviceExecuteSlot *slotList, size_t slotSize) {
 #if DEBUG_SWITCH
-        DEV_DEBUG("[DecideSlotAddress] %s.", label);
+        DEV_DETAIL_DEBUG("[DecideSlotAddress] %s.", label);
         for (size_t slotIdx = 0; slotIdx < slotSize; slotIdx++) {
             auto &desc = slotList[slotIdx].desc;
             const char *extraAttr = "";
@@ -413,7 +411,7 @@ struct DeviceStitchContext {
             } else if (slotList[slotIdx].isAssembleSlot) {
                 extraAttr = " <assemble>";
             }
-            DEV_DEBUG("[DecideSlotAddress]   Slot [%3lu]: addr %s%s.",
+            DEV_DETAIL_DEBUG("[DecideSlotAddress]   Slot [%3lu]: addr %s%s.",
                 slotIdx, desc.Dump().c_str(), extraAttr);
         }
 #else
@@ -602,7 +600,7 @@ public:
         DEV_IF_NONDEVICE {
             DEV_ASSERT(producerOperationIdx < producerDup.GetSource()->GetOperationSize());
             DEV_ASSERT(consumerOperationIdx < consumerDup.GetSource()->GetOperationSize());
-            DEV_DEBUG("[Stitch] slot:%d kind:%s dupIdx:%d funcKey:%d,op:%d -> funcKey:%d,op:%d\n",
+            DEV_DETAIL_DEBUG("[Stitch] slot:%d kind:%s dupIdx:%d funcKey:%d,op:%d -> funcKey:%d,op:%d\n",
                         debugSlotIdx, GetStitchKindName(debugStitchKind).c_str(), (int)consumerIdx,
                         producerDup.GetSource()->GetFuncKey(), (int)producerOperationIdx,
                         consumerDup.GetSource()->GetFuncKey(), (int)consumerOperationIdx);
@@ -660,9 +658,7 @@ public:
                     auto producerOperationIdx = TaskID(static_cast<uint32_t>(id));
                     DevAscendFunctionDupped &prevDup = stitchingList[funcId];
                     (*matchCount)++;
-#if DEBUG_SWITCH
-                    DEV_DEBUG("nextindex %lu stitch depend slot table cell[%d] = taskid(%u ! %u),", devNextIdx, index, funcId, producerOperationIdx);
-#endif
+                    DEV_DETAIL_DEBUG("nextindex %lu stitch depend slot table cell[%d] = taskid(%u ! %u),", devNextIdx, index, funcId, producerOperationIdx);
                     DeviceStitchContext::HandleOneStitch(prevDup, *nextDup, producerOperationIdx, devNextIdx, consumerOperationIdx,
                         workspace, StitchKind::StitchPartial, debugSlotIdx);
                     DeviceStitchContext::CheckStitch(stitchingList, stitchingSize, nextDup);
@@ -677,7 +673,7 @@ public:
                     consumerOffset, consumerShape, expressionList, incast.dim, consumer.operationIdx, consumer.operandIdx, true);
 #if DEBUG_SWITCH
             for (int j = 0; j < cellMatchTableDesc.GetDimensionSize(); j++) {
-                DEV_DEBUG("PartialUpdateStitch cell match, operation[%d] -> dimension[%d] = (offset:%lu ,shape:%lu, cellshape:%d)",
+                DEV_DETAIL_DEBUG("PartialUpdateStitch cell match, operation[%d] -> dimension[%d] = (offset:%lu ,shape:%lu, cellshape:%d)",
                         consumer.operationIdx, j, consumerOffset[j], consumerShape[j], cellMatchTableDesc.cellShape.dim[j]);
             }
 #endif
@@ -743,9 +739,9 @@ public:
         auto *prevSrc = prevDup.GetSource();
         auto &outcast = prevSrc->GetOutcast(slot.stitchOutcastIdx);
         auto *nextSrc = nextDup.GetSource();
-        DEV_DEBUG("outcast %lu is %d, cellMatchStaticOutcastTable is %s\n", (unsigned long)slot.stitchOutcastIdx,
+        DEV_DETAIL_DEBUG("outcast %lu is %d, cellMatchStaticOutcastTable is %s\n", (unsigned long)slot.stitchOutcastIdx,
             outcast.stitchByAllFullMatch, IntVecToStr(prevDup, outcast.cellMatchStaticOutcastTable).c_str());
-        DEV_DEBUG("=================FullCoverUpdateStitch %zu %zu %zu %zu %d %d===========================\n",
+        DEV_DETAIL_DEBUG("=================FullCoverUpdateStitch %zu %zu %zu %zu %d %d===========================\n",
             outcast.producerList.size(), incast.consumerList.size(),
             outcast.cellMatchStaticOutcastTable.size(), incast.cellMatchStaticIncastTable.size(),
             outcast.stitchByAllFullMatch, incast.stitchByAllFullMatch);
@@ -833,10 +829,8 @@ public:
                 }
 
                 auto &slot = slotList[slotIdx];
-#if DEBUG_SWITCH
-                DEV_DEBUG("FastStitch slot %d, incastindex %zu, ispartial %d, stitchDupIdx %u",
+                DEV_DETAIL_DEBUG("FastStitch slot %d, incastindex %zu, ispartial %d, stitchDupIdx %u",
                     slotIdx, incastIdx, slot.isPartialUpdateStitch, slot.stitchDupIdx);
-#endif
                 if (slot.stitchDupIdx == INVALID_STITCH_IDX) {
                     // Slot never output
                     continue;
@@ -850,7 +844,7 @@ public:
                 if (slot.desc.IsNullAddress()) {
                     continue;
                 }
-                DEV_DEBUG("incast %zu is %d, cellMatchStaticIncastTable is %s\n", incastIdx, incast.stitchByAllFullMatch,
+                DEV_DETAIL_DEBUG("incast %zu is %d, cellMatchStaticIncastTable is %s\n", incastIdx, incast.stitchByAllFullMatch,
                     IntVecToStr(nextDup, incast.cellMatchStaticIncastTable).c_str());
                 matchCount = FullCoverUpdateStitch(nextDup, devNextIdx, slot, slotIdx, incast);
             }
@@ -871,7 +865,7 @@ public:
                 }
                 std::stringstream oss;
                 oss << stitch.Dump();
-                DEV_INFO("func %d opIndex %zu stitch list: %s.", funcId, opIndex, oss.str().c_str());
+                DEV_DETAIL_DEBUG("func %d opIndex %zu stitch list: %s.", funcId, opIndex, oss.str().c_str());
             }
             funcId++;
         }
@@ -933,11 +927,17 @@ struct DeviceTaskContext {
         DynDeviceTask *dynTask = workspace_->MakeDynDeviceTask();
         stitchContext.MoveTo(dynTask);
         PerfEnd(PERF_EVT_ALLOCATE_TASK);
+        
+        PerfBegin(PERF_EVT_BUILD_TASK_DATA);
         BuildDeviceTaskData(dynTask, devProg);
-
+        PerfEnd(PERF_EVT_BUILD_TASK_DATA);
+        
+        PerfBegin(PERF_EVT_SLAB_MEM_SUBMIT);
         // cache allocated memory , when task finish will recycle
         dynTask->taskStageAllocMem = workspace_->SlabGetStageAllocMem(withoutTail, WsAicpuSlabMemType::DUPPED_FUNC_DATA);
         workspace_->SlabStageAllocMemSubmmit(&dynTask->taskStageAllocMem);
+        PerfEnd(PERF_EVT_SLAB_MEM_SUBMIT);
+
         return dynTask;
     }
 
@@ -971,6 +971,7 @@ private:
     npu::tile_fwk::DevStartArgsBase *startArgs_{nullptr};
 private:
     void BuildReadyQueue(DynDeviceTask *dyntask) {
+        PerfBegin(PERF_EVT_READY_QUEUE_IN);
         uint32_t size = sizeof(ReadyCoreFunctionQueue) + dyntask->devTask.coreFunctionCnt * sizeof(taskid_t);
         DEV_ASSERT(dyntask->devTask.coreFunctionCnt <= MAX_READY_QUE_ELM_SIZE);
         ReadyCoreFunctionQueue *queue[READY_QUEUE_SIZE];
@@ -1050,6 +1051,7 @@ private:
         dyntask->devTask.readyAicCoreFunctionQue = PtrToValue(aicQueue);
         dyntask->devTask.readyAicpuFunctionQue = PtrToValue(aicpuQueue);
         readyTaskNum += static_cast<uint64_t>(aivQueueTail + aicQueueTail + aicpuQueueTail);
+        PerfEnd(PERF_EVT_READY_QUEUE_IN);
     }
 
     void BuildDynFuncData(DynDeviceTask *dyntask, DevAscendProgram *devProg) {
@@ -1166,7 +1168,7 @@ private:
         dyntask->aicpuLeafBinary = devProg->GetAicpuLeafBinary(0);
         DeviceStitchContext::CheckStitch(dyntask);
 
-        DEV_DEBUG("build ready queue.");
+        DEV_DETAIL_DEBUG("build ready queue.");
         PerfBegin(PERF_EVT_READY_QUEUE);
         BuildReadyQueue(dyntask);
         PerfEnd(PERF_EVT_READY_QUEUE);
@@ -1175,11 +1177,11 @@ private:
         ResolveEarlyDepends(dyntask);
         PerfEnd(PERF_EVT_RESOLVE_EARLY);
 
-        DEV_DEBUG("build func data.");
+        DEV_DETAIL_DEBUG("build func data.");
         PerfBegin(PERF_EVT_CORE_FUNCDATA);
         BuildDynFuncData(dyntask, devProg);
         PerfEnd(PERF_EVT_CORE_FUNCDATA);
-        DEV_INFO("start a new static func.");
+        DEV_INFO("Finish build a new device task.");
 
         DEV_IF_NONDEVICE {
             dyntask->DumpTopo();
@@ -1275,7 +1277,7 @@ struct DeviceExecuteContext {
         this->devProg = startArgs->devProg;
 #if DEBUG_SWITCH
         std::string dump = devProg->Dump(0, true);
-        DEV_INFO("[DEVICE] %s.", dump.c_str());
+        DEV_DETAIL_DEBUG("[DEVICE] %s.", dump.c_str());
 #endif
         PerfBegin(PERF_EVT_CONTROL_FLOW_MAPEXE);
         execProg = DeviceExecuteProgram(devProg, (AOTBinaryControlFlow::controlFlowEntry)startArgs->controlFlowEntry);
@@ -1347,14 +1349,11 @@ struct DeviceExecuteContext {
     }
 
     void SubmitToAicoreAndRecycleMemory(bool withoutTail) {
+        DEV_DETAIL_DEBUG("submit stitch task.");
         DEV_TRACE_DEBUG(DEvent(taskId, DActSubmit(stitchContext.Size())));
         AutoScopedPerf asp(PERF_EVT_SUBMIT_AICORE);
-        PROF_STAGE_BEGIN(PERF_EVT_STAGE_BUILD_TASK, "task.before\n");
-
-        taskContext.ReleaseFinishedTasks(PERF_EVT_RELEASE_FINISH_TASK, PERF_EVT_DEALLOCATE_TASK);
-
         if (stitchContext.Empty()) {
-            PROF_STAGE_END(PERF_EVT_STAGE_BUILD_TASK, "task.after\n");
+            DEV_INFO("stitch context is empty.");
             return;
         }
 
@@ -1378,19 +1377,22 @@ struct DeviceExecuteContext {
         workspace.MarkAsNewStitchWindow();
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
 
-        // Memory recycling
-        stitchContext.RecycleAicoreLocalWorkspace();
-
+        PROF_STAGE_BEGIN(PERF_EVT_STAGE_BUILD_TASK, "BuildDeviceTaskData.before\n");
         DynDeviceTask *dynTask = taskContext.BuildDeviceTaskData(stitchContext, devProg, withoutTail);
-        PROF_STAGE_END(PERF_EVT_STAGE_BUILD_TASK, "task.after\n");
+        PROF_STAGE_END(PERF_EVT_STAGE_BUILD_TASK, "BuildDeviceTaskData.after\n");
 
         PROF_STAGE_BEGIN(PERF_EVT_STAGE_PUSH_TASK, "push.before\n");
         pushTask(taskId++, &dynTask->devTask, this);
         PROF_STAGE_END(PERF_EVT_STAGE_PUSH_TASK, "push.after\n");
 
+        PROF_STAGE_BEGIN(PERF_EVT_DEALLOCATE_WORKSPACE, "RecycleAicoreLocalWorkspace.before\n");
+        // Memory recycling
+        stitchContext.RecycleAicoreLocalWorkspace();
+        
         // Reset stitch context
         stitchContext.Reset();
         slotContext.ClearDirty();
+        PROF_STAGE_END(PERF_EVT_DEALLOCATE_WORKSPACE, "RecycleAicoreLocalWorkspace.after\n");
     }
 
     schema::RUid GetRuid(uint64_t rootKey, bool afterAppend = false) {
@@ -1404,7 +1406,7 @@ struct DeviceExecuteContext {
 
     void *CallRootFunctionAlloc(uint64_t rootKey) {
         DevAscendFunction *devRoot = devProg->GetFunction(rootKey);
-        DEV_INFO("prepare one func %p %s.", devRoot, devRoot->GetRawName());
+        DEV_DEBUG("alloc one func %lu %p %s.", rootKey, devRoot, devRoot->GetRawName());
         if (stitchContext.Size() == stitchTaskLoopNumThreshold ||
             stitchContext.stitchedCallOpSize() + devRoot->GetOperationSize() > MAX_READY_QUE_ELM_SIZE) {
             SubmitToAicoreAndRecycleMemory(false);
@@ -1421,7 +1423,9 @@ struct DeviceExecuteContext {
     }
 
     void *CallRootFunctionStitch(uint64_t rootKey) {
+        DEV_DEBUG("root stitch %lu.", rootKey);
         if (rootKey == RUNTIME_FINISH_FUNCKEY) {
+            DEV_INFO("Finish stitch loop.");
             SubmitToAicoreAndRecycleMemory(false);
             return nullptr;
         }

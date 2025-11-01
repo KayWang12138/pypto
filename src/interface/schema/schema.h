@@ -43,7 +43,7 @@ static inline std::string DumpAttr(const Ty0 &arg0, const Tys&...args) {
 #define DEV_TRACE_DEBUG(arg, args...) \
     do { \
         using namespace npu::tile_fwk::schema; \
-        DEV_DEBUG(DEV_TRACE_PREFIX " %s", DumpAttr(arg, ##args).c_str()); \
+        DEV_DETAIL_DEBUG(DEV_TRACE_PREFIX " %s", DumpAttr(arg, ##args).c_str()); \
     } while(0)
 #define DEV_TRACE_INFO(arg, args...) \
     do { \

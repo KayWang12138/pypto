@@ -1346,10 +1346,8 @@ public:
         struct HandleFill {
             static inline void Process(int index, uint32_t *cellMatchTableData, uint32_t operationIdx) {
                 cellMatchTableData[index] = operationIdx;
-#if DEBUG_SWITCH
-                DEV_DEBUG("cell match fill, operation %u , cellindex[%d] = operationindex(%u)",
+                DEV_DETAIL_DEBUG("cell match fill, operation %u , cellindex[%d] = operationindex(%u)",
                         operationIdx, index, operationIdx);
-#endif
             }
         };
         CellMatchHandle<HandleFill>(offset, shape, cellMatchTableDesc, cellMatchTableData, operationIdx);
@@ -1365,10 +1363,8 @@ public:
         struct HandleFill {
             static inline void Process(int index, uint64_t *cellMatchTableData, uint32_t devTaskId, uint32_t funcIdx, uint32_t operationIdx) {
                 cellMatchTableData[index] = (static_cast<uint64_t>(devTaskId) << TASKID_SHIFT32) | MakeTaskID(funcIdx, operationIdx);
-#if DEBUG_SWITCH
-                DEV_DEBUG("cell match fill, devtaskid:%u funcIdx %u operation %u , cellindex[%d] = taskid(%lx)",
+                DEV_DETAIL_DEBUG("cell match fill, devtaskid:%u funcIdx %u operation %u , cellindex[%d] = taskid(%lx)",
                         devTaskId, funcIdx, operationIdx, index, cellMatchTableData[index]);
-#endif
             }
         };
         CellMatchHandle<HandleFill>(offset, shape, cellMatchTableDesc, cellMatchTableData, devTaskId, funcIdx, operationIdx);
@@ -1393,14 +1389,10 @@ public:
                 cellMatchTableDesc.GetDimensionSize(), operationIndex, operandIndex, isIOperand);
             if (paramConcrete) {
                 for (int j = 0; j < cellMatchTableDesc.GetDimensionSize(); j++) {
-#if DEBUG_SWITCH
-                    DEV_DEBUG("cell match fill, operation[%d] -> dimension[%d] = (offset:%lu ,shape:%lu, rawshape:%lu, cellshape:%d)",
+                    DEV_DETAIL_DEBUG("cell match fill, operation[%d] -> dimension[%d] = (offset:%lu ,shape:%lu, rawshape:%lu, cellshape:%d)",
                             operationIndex, j, offset[j], shape[j], rawShape[j], cellMatchTableDesc.cellShape.dim[j]);
-#endif
                     if (offset[j] >= rawShape[j]) {
-#if DEBUG_SWITCH
-                        DEV_DEBUG("cell match fill failed, exceed invalid cell");
-#endif
+                        DEV_DETAIL_DEBUG("cell match fill failed, exceed invalid cell");
                         return false;
                     } else if (offset[j] + shape[j] > rawShape[j]){
                         shape[j] = rawShape[j] - offset[j];

@@ -61,11 +61,7 @@ public:
 
         if (args->taskType == DEVICE_TASK_TYPE_STATIC) {
             auto devTask = reinterpret_cast<DeviceTask *>(args->taskData);
-#if DEBUG_PLOG && defined(__DEVICE__)
-            if (CheckDebug()) {
-#else
-            if (GetLogger().Level() == LOG_LEVEL_DEBUG) {
-#endif
+            DEV_IF_DEBUGMODE {
                 DumpTask(args->taskId, devTask, false);
             }
             auto idx = AllocNewTaskCtrl();
@@ -99,7 +95,7 @@ public:
         taskCtrl->finishedAivFunctionCnt = 0;
         taskCtrl->finishedAicpuFunctionCnt = 0;
         taskCtrl->finishedFunctionCnt.store(0, std::memory_order_relaxed);
-        taskCtrl->refcnt.store(schAicpuNum_, std::memory_order_relaxed);
+        taskCtrl->finishFlag.store(false, std::memory_order_relaxed);
         taskCtrl->runcnt.store(schAicpuNum_, std::memory_order_relaxed);
         taskCtrl->finish = callback;
         taskCtrl->ctx = ctx;
@@ -221,12 +217,14 @@ public:
         ctx.costModelData = reinterpret_cast<CostModel::ModelData*>(args->costmodeldata);
         ctx.aicoreModel = args->aicoreModel;
         PerfBegin(PERF_EVT_EXEC_DYN);
+        PerfBegin(PERF_EVT_CONTROL_FLOW_CALL);
         ctx.GELaunch(devArgs, [this](uint64_t dynTaskId, DeviceTask *devTask, DeviceExecuteContext *ctx_) {
-#if DEBUG_SWITCH
-            DumpTask(dynTaskId, (DeviceTask *)devTask, true);
-#endif
+            DEV_IF_DEBUGMODE {
+                DumpTask(dynTaskId, (DeviceTask *)devTask, true);
+            }
             PushTask(DEVICE_TASK_TYPE_DYN, dynTaskId, devTask, ctx_, DeviceExecuteContext::TaskFinish);
         });
+        PerfEnd(PERF_EVT_CONTROL_FLOW_CALL);
         DEV_INFO("end control flow.");
         PerfBegin(PERF_EVT_STAGE_STOP_AICORE);
         StopAicoreManager();
