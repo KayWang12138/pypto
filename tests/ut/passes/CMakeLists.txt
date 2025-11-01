@@ -249,6 +249,7 @@ set(_CaseFilterList
         "TestSplitReshapeOpPVC2.Test_Reshape_1to1"
         "TestSplitReshapeOpPVC2.Test_Reshape_1toMulti"
         "TestGlobalMemoryReuse.*"
+        "TestInferDiscontinuousInput.*"
         "InferShapeTest.*"
         "GetParamIdxTest.*"
         "GeneralizetionTest.TestReshape"
