@@ -18,7 +18,7 @@
 namespace npu {
 namespace tile_fwk {
 Status AssignMemoryTypeChecker::DoPreCheck(Function &function) {
-    ALOG_INFO_F("Start Precheck for AssignMemoryType.");
+    APASS_LOG_INFO_F("AssignMemoryType", "Operation", "===> Start Precheck for AssignMemoryType.");
     auto operations = function.Operations();
     for(auto &operation : operations){
         Operation *op_ptr = &operation;
@@ -42,7 +42,8 @@ Status AssignMemoryTypeChecker::DoPreCheck(Function &function) {
 
             //嵌套深度达到3失败
             if(depth > 3){
-                ALOG_WARN_F("MEMORY WARNING:View/Assemble/Reshape depth is over 3. Potential suboptimal allocation!");
+                APASS_LOG_WARN_F("AssignMemoryType", "Operation", "Over three view/assemble/reshape operations in sequence, currently reched %d; "
+                    "Potential suboptimal allocation around operation %d.", depth, currentOp->GetOpMagic());
                 return SUCCESS;
             }
             CheckPattern(currentOp,opQueue,depth,visited);

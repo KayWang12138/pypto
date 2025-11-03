@@ -26,7 +26,7 @@
 namespace npu::tile_fwk {
 
 Status AssignMemoryType::RunOnFunction(Function &function) {
-    ALOG_INFO_F("===> Start AssignMemoryType.");
+    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> Start AssignMemoryType.");
     for (auto &op : function.Operations()) {
         RunOnOperation(op);
     }
@@ -63,7 +63,7 @@ Status AssignMemoryType::RunOnFunction(Function &function) {
     // 插入convert op
     Status insertionStatus = inserter.DoInsertion(function);
     if(insertionStatus != SUCCESS) {return insertionStatus;}
-    ALOG_INFO_F("===> End AssignMemoryType.");
+    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> End AssignMemoryType.");
     return SUCCESS;
 }
 Status AssignMemoryType::PreCheck(Function &function){
@@ -72,18 +72,18 @@ Status AssignMemoryType::PreCheck(Function &function){
 }
 
 void AssignMemoryType::RunOnOperation(Operation &operation) {
-    ALOG_DEBUG_F("===== AssignMemoryType::RunOnOperation %s[%d] =====", operation.GetOpcodeStr().c_str(),
-        operation.GetOpMagic());
+    APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "--- AssignMemoryType::RunOnOperation %s[%d] ---",
+        operation.GetOpcodeStr().c_str(), operation.GetOpMagic());
     auto opcode = operation.GetOpcode();
     const auto &inputsMemType = OpcodeManager::Inst().GetInputsMemType(opcode);
     for (size_t i = 0; i < operation.iOperand.size(); ++i) {
         auto &tensor = operation.iOperand[i];
         if (i >= inputsMemType.size()) {
-            ALOG_DEBUG_F("%s[%d] input %d magic %d mem original is NOT Defined in opcode.cpp.",
+            APASS_LOG_INFO_F(GetName().c_str(), "Operation", "%s[%d] input %d magic %d mem original is NOT Defined in opcode.cpp.",
                 operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), i, tensor->magic);
             continue;
         }
-        ALOG_DEBUG_F(" @@@@@ %s[%d] input %d mem original %s --> %s.", operation.GetOpcodeStr().c_str(),
+        APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "%s[%d] input %d mem original %s --> %s.", operation.GetOpcodeStr().c_str(),
             operation.GetOpMagic(), tensor->magic, BriefMemoryTypeToString(tensor->GetMemoryTypeOriginal()).c_str(),
             BriefMemoryTypeToString(inputsMemType[i]).c_str());
         if(opcode == Opcode::OP_A_MUL_B || opcode == Opcode::OP_A_MULACC_B) {
@@ -98,7 +98,7 @@ void AssignMemoryType::RunOnOperation(Operation &operation) {
     for (size_t i = 0; i < operation.oOperand.size(); ++i) {
         auto &tensor = operation.oOperand[i];
         if (outputsMemType.size() > 0) {
-            ALOG_DEBUG_F(" @@@@@ %s[%d] output %d mem original %s --> %s.", operation.GetOpcodeStr().c_str(),
+            APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "%s[%d] output %d mem original %s --> %s.", operation.GetOpcodeStr().c_str(),
                 operation.GetOpMagic(), tensor->magic, BriefMemoryTypeToString(tensor->GetMemoryTypeOriginal()).c_str(),
                 BriefMemoryTypeToString(outputsMemType[i]).c_str());
             tensor->SetMemoryTypeOriginal(outputsMemType[i]);
@@ -109,7 +109,8 @@ void AssignMemoryType::RunOnOperation(Operation &operation) {
         }
         tensor->SetMemoryTypeOriginal(MemoryType::MEM_UNKNOWN);
         for (auto &consumerOp : tensor->GetConsumers()) {
-            ALOG_DEBUG_F("Set for Unknown Op's consumer %s[%d]", consumerOp->GetOpcodeStr().c_str(), consumerOp->GetOpMagic());
+            APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "Set for Unknown Op's consumer %s[%d].",
+                consumerOp->GetOpcodeStr().c_str(), consumerOp->GetOpMagic());
             inserter.UpdateTensorTobeMap(*tensor, *consumerOp, MemoryType::MEM_UNKNOWN);
         }
     }
@@ -214,8 +215,8 @@ void AssignMemoryType::AssignSpecialOpMemtype(Operation &op) {
         AssignMemtypeForSplitReshape(op, input, output);
         auto inputMemType = inserter.GetMemoryTypeFromTensorTobeMap(*input, op);
         if (inputMemType != output->GetMemoryTypeOriginal()) {
-            ALOG_DEBUG_F("OP_RESHAPE[%d] input: %s, output: %s.", op.opmagic, PrintTensorMem(input).c_str(),
-                PrintTensorMem(output).c_str());
+            APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "OP_RESHAPE[%d] input: %s, output: %s.",
+                op.opmagic, PrintTensorMem(input).c_str(), PrintTensorMem(output).c_str());
             inserter.UpdateTensorTobeMap(*input, op, MemoryType::MEM_DEVICE_DDR);
             output->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
         }
@@ -270,15 +271,16 @@ void AssignMemoryType::UpdateOverSizedLocalBuffer(Operation &operation) {
         static_cast<int>(PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_UB) * 0.5);
     const int L1_SIZE_THRESHOLD =
         static_cast<int>(PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L1) * 0.5);
-    ALOG_INFO_F("UB buffer size threshold %d, L1 buffer size threshold %d", UB_SIZE_THRESHOLD, L1_SIZE_THRESHOLD);
+    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "UB buffer size threshold %d, L1 buffer size threshold %d.",
+        UB_SIZE_THRESHOLD, L1_SIZE_THRESHOLD);
 
     auto assembleOut = operation.GetOOperands().front();
     auto memType = assembleOut->GetMemoryTypeOriginal();
     if (((memType == MemoryType::MEM_UB) && (assembleOut->GetDataSize() > UB_SIZE_THRESHOLD)) ||
         ((memType == MemoryType::MEM_L1) && (assembleOut->GetDataSize() > L1_SIZE_THRESHOLD))) {
         assembleOut->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
-        ALOG_INFO_F("%s[%d] output %d is oversized, set as MEM_DEVICE_DDR", operation.GetOpcodeStr().c_str(),
-            operation.GetOpMagic(), assembleOut->magic);
+        APASS_LOG_INFO_F(GetName().c_str(), "Operation", "%s[%d] output %d is oversized, set as MEM_DEVICE_DDR.",
+            operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), assembleOut->magic);
     }
 }
 
@@ -303,9 +305,8 @@ void AssignMemoryType::AssignMoveOp(Operation &operation) {
                 auto &tensor = operation.oOperand[i];
                 // Only change original type
                 MemoryType fromType = inserter.GetMemoryTypeFromTensorTobeMap(*operation.iOperand.front(), operation);
-                ALOG_DEBUG_F(" @@@@@ %s[%d] output %d mem original %s --> %s.", operation.GetOpcodeStr().c_str(),
-                    operation.GetOpMagic(), tensor->magic,
-                    BriefMemoryTypeToString(tensor->GetMemoryTypeOriginal()).c_str(),
+                APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "%s[%d] output %d mem original %s --> %s.", operation.GetOpcodeStr().c_str(),
+                    operation.GetOpMagic(), tensor->magic, BriefMemoryTypeToString(tensor->GetMemoryTypeOriginal()).c_str(),
                     BriefMemoryTypeToString(fromType).c_str());
                 tensor->SetMemoryTypeOriginal(fromType, true);
                 auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(operation.GetOpAttribute().get());
@@ -335,12 +336,10 @@ void AssignMemoryType::AssignMoveOp(Operation &operation) {
                     viewOpAttribute->SetToType(tensor->GetMemoryTypeOriginal());
                     continue;
                 }
-                ALOG_DEBUG_F(" @@@@@ %s[%d] input %d mem original %s --> %s.", operation.GetOpcodeStr().c_str(),
-                    operation.GetOpMagic(), tensor->magic,
-                    BriefMemoryTypeToString(tensor->GetMemoryTypeOriginal()).c_str(),
+                APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "%s[%d] input %d mem original %s --> %s.", operation.GetOpcodeStr().c_str(),
+                    operation.GetOpMagic(), tensor->magic, BriefMemoryTypeToString(tensor->GetMemoryTypeOriginal()).c_str(),
                     BriefMemoryTypeToString(toType).c_str());
                 inserter.UpdateTensorTobeMap(*tensor, operation, toType);
-
                 viewOpAttribute->SetToType(toType);
             }
             break;
@@ -365,7 +364,7 @@ void AssignMemoryType::AssignMemUnknown(Function &function) {
                 if (localTobeMap.size() == 1 && localTobeMap.begin()->first != MemoryType::MEM_UNKNOWN) {
                     fromType = localTobeMap.begin()->first;
                 }
-                ALOG_DEBUG_F("%s[%d] iOperand %d mem original is UNKNOWN, force setting as %s.",
+                APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "%s[%d] iOperand %d mem original is UNKNOWN, force setting as %s.",
                     op.GetOpcodeStr().c_str(), op.GetOpMagic(), i->magic, BriefMemoryTypeToString(fromType).c_str());
                 i->SetMemoryTypeOriginal(fromType);
                 inserter.UpdateTensorTobeMap(*i, op, fromType);
@@ -387,7 +386,7 @@ void AssignMemoryType::AssignMemUnknown(Function &function) {
                 if (localTobeMap.size() == 1 && localTobeMap.begin()->first != MemoryType::MEM_UNKNOWN) {
                     fromType = localTobeMap.begin()->first;
                 }
-                ALOG_DEBUG_F("%s[%d] oOperand %d mem original is UNKNOWN, force setting as %s.",
+                APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "%s[%d] oOperand %d mem original is UNKNOWN, force setting as %s.",
                     op.GetOpcodeStr().c_str(), op.GetOpMagic(), o->magic, BriefMemoryTypeToString(fromType).c_str());
                 o->SetMemoryTypeOriginal(fromType);
                 for (auto &consumerOp : o->GetConsumers()) {
