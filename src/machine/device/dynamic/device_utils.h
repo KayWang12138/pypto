@@ -253,17 +253,17 @@ inline int CheckTimeOut(const uint64_t &tStart, uint64_t &tCnt, uint64_t &tCur, 
     tCnt++;
     if (tCnt % 50 == 0) { // 50 is loop count to check whether timeout occurs
         tCur = CurrentTime();
-        #if DEBUG_SWITCH
+        DEV_IF_VERBOSE_DEBUG {
             if (tCur - tStart > DFX_TIME_OUT_THRESHOLD) {
                 DEV_ERROR("%s dfx_timeout, aicpu force exit, ttl=%lu.", opString.c_str(), tCnt);
                 return DEVICE_MACHINE_ERROR;
             }
-        #else
+        } else {
             if (tCur - tStart > TIME_OUT_THRESHOLD) {
                 DEV_ERROR("%s timeout, aicpu force exit, ttl=%lu.", opString.c_str(), tCnt);
                 return DEVICE_MACHINE_ERROR;
             }
-        #endif
+        }
     }
     return DEVICE_MACHINE_OK;
 }

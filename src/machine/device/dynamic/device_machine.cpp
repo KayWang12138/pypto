@@ -115,16 +115,11 @@ struct DynMachineManager {
     }
 
     int Run(AstKernelArgs *args) {
-        char logfile[128];
-        (void)logfile;
         int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
         auto devArgs = PtrToPtr<int64_t, DeviceArgs>(args->cfgdata);
         int threadIdx = allocThreadIdx(devArgs->nrAicpu);
-        if ((threadIdx != -1) && threadIdx < schAicpuNum_) {
-#if !DEBUG_PLOG || !defined(__DEVICE__)
-            (void)sprintf_s(logfile, sizeof(logfile), "/tmp/tile_fwk_aicpu_sch%d.txt", threadIdx);
-            GetLogger(logfile);
-#endif
+        if ((threadIdx != -1) && threadIdx < schAicpuNum_) {    
+            CreateLogFile(LOG_TYPE_SCHEDULER, threadIdx);
             DEV_INFO("devArgs->taskType %d.", static_cast<int>(devArgs->taskType));
             DEV_INFO("threadIdx %d aicNum %u aivNum %u aicpuNum %u validAicNum %u.", threadIdx, devArgs->nrAic,
                 devArgs->nrAiv, devArgs->nrAicpu, devArgs->nrValidAic);
@@ -136,17 +131,11 @@ struct DynMachineManager {
             threadIdx = ctrlcpuIdx_.fetch_add(1);
             DEV_INFO("devArgs->taskType %d.",  static_cast<int>(devArgs->taskType));
             if (devArgs->taskType == DEVICE_TASK_TYPE_DYN && threadIdx == MAX_SCHEDULE_AICPU_NUM) {
-#if !DEBUG_PLOG || !defined(__DEVICE__)
-                (void)sprintf_s(logfile, sizeof(logfile), "/tmp/tile_fwk_aicpu_ctrl.txt");
-                GetLogger(logfile);
-#endif
+                CreateLogFile(LOG_TYPE_CONTROLLER, 0);
                 DEV_TRACE_DEBUG(schema::CtrlEvent(threadIdx, schema::ThreadStart()));
                 ret = machine_.ExecDyn(threadIdx, devArgs->taskId, args);
             } else if (threadIdx == MAX_SCHEDULE_AICPU_NUM + 1) {
-#if !DEBUG_PLOG || !defined(__DEVICE__)
-                (void)sprintf_s(logfile, sizeof(logfile), "/tmp/tile_fwk_aicpu_prefetch.txt");
-                GetLogger(logfile);
-#endif
+                CreateLogFile(LOG_TYPE_PREFETCH, 0); 
                 if (devArgs->taskType == DEVICE_TASK_TYPE_DYN) {
                   DevStartArgs *startArgs = (DevStartArgs *)args->workspace;
                   DySdmaPrefetch(startArgs);
@@ -157,9 +146,7 @@ struct DynMachineManager {
             }
         }
         DEV_INFO("ThreadIdx %d finished, ret %d.", threadIdx, ret);
-#if !DEBUG_PLOG || !defined(__DEVICE__)
         GetLogger().Flush();
-#endif
         if (++finished_ == static_cast<std::atomic<int>>(devArgs->nrAicpu)) {
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_FINISHED;
         }

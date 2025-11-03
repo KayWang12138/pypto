@@ -138,14 +138,12 @@ public:
 
     void* Alloc(uint32_t cacheType) {
         if (cacheType >= SLAB_ALLOCATOR_MAX_CACHES) {
-            DEV_DEBUG_ASSERT_MSG(false, "[SlabWsAllocator]cache type invalid %u.\n", cacheType);
             return nullptr;
         }
         
         SlabCache& cache = caches_[cacheType];
         uint32_t objSize = cache.objSize;
         if (objSize == 0) {
-            DEV_DEBUG_ASSERT_MSG(false, "[SlabWsAllocator]cache type not regist %u.\n", cacheType);
             return nullptr;
         }
 
@@ -156,18 +154,18 @@ public:
             if (cache.freeList == nullptr) {
                 cache.freeListTail = nullptr;
             }
-            DEV_DETAIL_DEBUG("[SlabWsAllocator]Alloc from slab free list: objsize = %u.\n", objSize);
+            DEV_VERBOSE_DEBUG("[SlabWsAllocator]Alloc from slab free list: objsize = %u.\n", objSize);
         } else if (cache.activeSlab && cache.activeSlab->allocatedCount < cache.activeSlab->totalCount) {
             SlabHeader* slab = cache.activeSlab;
             obj = static_cast<uint8_t*>(static_cast<void*>(slab)) + 
                    sizeof(SlabHeader) + slab->allocatedCount * (sizeof(void*) + objSize);
             slab->allocatedCount++;
-            DEV_DETAIL_DEBUG("[SlabWsAllocator]Alloc from active slab: slab = %p, objsize = %u, allocCnt=%u.\n",
+            DEV_VERBOSE_DEBUG("[SlabWsAllocator]Alloc from active slab: slab = %p, objsize = %u, allocCnt=%u.\n",
                 slab, objSize, slab->allocatedCount);
         } else {
             void* slabMem = get_free_slab();
             if (!slabMem) {
-                DEV_IF_DEBUGMODE{
+                DEV_IF_DEBUG{
                     DumpMemoryStatusWhenAbnormal("alloc null:");
                 }
 
@@ -187,12 +185,12 @@ public:
             cache.totalObjCount += header->totalCount;
             allocatedSlabCount_++;
             
-            DEV_DETAIL_DEBUG("[SlabWsAllocator]Alloc from new slab: slab = %p, objsize = %u, totalCnt=%u.\n",
+            DEV_VERBOSE_DEBUG("[SlabWsAllocator]Alloc from new slab: slab = %p, objsize = %u, totalCnt=%u.\n",
                 header, objSize, header->totalCount);
         }
 
         AfterAllocSuccess(cache, obj, objSize);
-        DEV_DETAIL_DEBUG("[SlabWsAllocator]Alloc sucess obj = %p cacheType = %u size = %u.\n", obj, cacheType, objSize);
+        DEV_VERBOSE_DEBUG("[SlabWsAllocator]Alloc sucess obj = %p cacheType = %u size = %u.\n", obj, cacheType, objSize);
         return static_cast<uint8_t*>(obj) + sizeof(void*);
     }
 
@@ -223,7 +221,7 @@ public:
                 DEV_ASSERT(temp != nullptr);
                 *static_cast<void**>(temp) = nullptr;
                 info.tails[i] = temp;
-                DEV_DETAIL_DEBUG("keep tail not pop %p \n", caches_[i].stageAllocTail);
+                DEV_VERBOSE_DEBUG("keep tail not pop %p \n", caches_[i].stageAllocTail);
                 caches_[i].stageAllocHead = caches_[i].stageAllocTail;
                 info.objCnt[i] = caches_[i].allocatedObjCount - 1;
                 caches_[i].unPopAllocatedObjCount = 1;
@@ -238,14 +236,15 @@ public:
             SlabCache& cache = caches_[i];
             cache.allocatedObjCount -= info.objCnt[i];
 
-#if DEBUG_SWITCH
-            void* temp = info.heads[i];
-            while (temp) {
-                DEV_DETAIL_DEBUG("[SlabWsAllocator]recycle sucess obj = %p cacheType = %d size = %u.\n",
-                    temp, i, cache.objSize);
-                temp = *static_cast<void**>(temp);
+            DEV_IF_VERBOSE_DEBUG {
+                void* temp = info.heads[i];
+                while (temp) {
+                    DEV_VERBOSE_DEBUG("[SlabWsAllocator]recycle sucess obj = %p cacheType = %d size = %u.\n",
+                        temp, i, cache.objSize);
+                    temp = *static_cast<void**>(temp);
+                }
             }
-#endif
+
             /* The recently released ones are placed at the back
                to ensure that newly allocated addresses are from the historical pool. */
             if (cache.freeListTail) {

@@ -121,10 +121,10 @@ INLINE void HandshakeClient(volatile __gm__ int64_t *shakeBuf) {
 
 
 INLINE void SetStatus(__gm__ KernelArgs *args, int64_t val) {
-#if DEBUG_SWITCH
-    Barrier();
-    args->shakeBuffer[2] = val;
-    dcci(args->shakeBuffer, SINGLE_CACHE_LINE, CACHELINE_OUT);
+#if ENABLE_COMPILE_VERBOSE_LOG
+        Barrier();
+        args->shakeBuffer[2] = val;
+        dcci(args->shakeBuffer, SINGLE_CACHE_LINE, CACHELINE_OUT);
 #endif
 }
 

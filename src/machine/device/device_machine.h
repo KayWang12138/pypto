@@ -47,7 +47,7 @@ public:
 
         if (args->taskType == DEVICE_TASK_TYPE_STATIC) {
             auto devTask = reinterpret_cast<DeviceTask *>(args->taskData);
-            DEV_IF_DEBUGMODE {
+            DEV_IF_DEBUG {
                 dumpTask(args->taskId, devTask);
             }
             auto idx = allocNewTaskCtrl();

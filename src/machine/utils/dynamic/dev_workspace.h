@@ -415,7 +415,7 @@ public:
 
             int slotIndex = devRootSrc->At(devRootSrc->GetIncast(i).fromSlotList, 0);
             devRootDup.GetIncastAddress(i) = slotList[slotIndex].desc;
-            DEV_DETAIL_DEBUG("get incast %zu, from slot %d address %s.", i, slotIndex, devRootDup.GetIncastAddress(i).Dump().c_str());
+            DEV_VERBOSE_DEBUG("get incast %zu, from slot %d address %s.", i, slotIndex, devRootDup.GetIncastAddress(i).Dump().c_str());
         }
 
         // assign outcast address separately first, will be reassigned when corresponding slot was replaced
@@ -460,7 +460,7 @@ public:
             }
 
             devRootDup.GetOutcastAddress(i) = desc;
-            DEV_DETAIL_DEBUG("get outcast %zu slot %d address %s.", i, slotIndex, desc.Dump().c_str());
+            DEV_VERBOSE_DEBUG("get outcast %zu slot %d address %s.", i, slotIndex, desc.Dump().c_str());
         }
 
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
@@ -529,13 +529,6 @@ public:
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
     }
 
-    void LogAicpuAlloc(DevAscendFunctionDupped dup) {
-#if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
-        dup.LogAicpuAlloc(aicpuCoherentAllocator_);
-#endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
-        (void)dup;
-    }
-
     void RewindMemoryDumper() {
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
         wsMemDelayedDumper_.Rewind();
@@ -586,7 +579,7 @@ public:
 
     WsAllocation SlabAlloc(uint32_t objSize, WsAicpuSlabMemType type) {
         void* ptr = nullptr;
-        DEV_DETAIL_DEBUG("SlabAlloc type = %u, size = %u.", ToUnderlying(type), objSize);
+        DEV_VERBOSE_DEBUG("SlabAlloc type = %u, size = %u.", ToUnderlying(type), objSize);
         SlabTryDynAddCache(type, objSize); // ready que need dyn add cache
         do {
             if (type < WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT) {

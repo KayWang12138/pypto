@@ -54,46 +54,23 @@ struct MachineManager {
     }
 
     int Run(DeviceArgs *args) {
-        char logfile[128];
         int ret = DEVICE_MACHINE_OK;
 
         int threadIdx = allocThreadIdx(args->nrAicpu);
         if (threadIdx != -1) {
-#if DEBUG_SWITCH && !DEBUG_PLOG
-            (void)sprintf_s(logfile, sizeof(logfile), "/tmp/aicpu%d.txt", threadIdx);
-            GetLogger(logfile);
-#endif
+            CreateLogFile(LOG_TYPE_SCHEDULER, threadIdx);
             DEV_INFO("ThreadIdx %d aicNum %u aivNum %u aicpuNum %u validAicNum%u \n", threadIdx, args->nrAic,
                 args->nrAiv, args->nrAicpu, args->nrValidAic);
             DEV_INFO("SharedBuffer %lx coreRegAddr %lx corePmuAdr %lx\n",
                 args->sharedBuffer, args->coreRegAddr, args->corePmuAddr);
             ret = machine.Run(threadIdx, args);
             DEV_INFO("threadIdx %d finished, ret %d\n", threadIdx, ret);
-#if !DEBUG_PLOG
             GetLogger().Flush();
-#endif
         } else {
-            int old = 0;
-            if (args->taskType == DEVICE_TASK_TYPE_DYN && ctrlcpu.compare_exchange_weak(old, 1)) {
-                (void)sprintf_s(logfile, sizeof(logfile), "/tmp/aicpu%u.txt", START_AICPU_NUM);
-#if !DEBUG_PLOG
-                GetLogger(logfile);
-#endif
-                ret = machine.ExecDyn(args->taskId, args->taskData);
-#if !DEBUG_PLOG
-                GetLogger().Flush();
-#endif
-            } else {
-#if DEBUG_SWITCH && !DEBUG_PLOG
-              (void)sprintf_s(logfile, sizeof(logfile), "/tmp/aicpu4.txt");
-              GetLogger(logfile);
-#endif
-              auto devTask = reinterpret_cast<DeviceTask *>(args->taskData);
-              SdmaPrefetch(devTask);
-#if DEBUG_SWITCH && !DEBUG_PLOG
-              GetLogger().Flush();
-#endif
-            }
+            CreateLogFile(LOG_TYPE_PREFETCH, 0);
+            auto devTask = reinterpret_cast<DeviceTask *>(args->taskData);
+            SdmaPrefetch(devTask);
+            GetLogger().Flush();
         }
         if (++finished == static_cast<std::atomic<int>>(args->nrAicpu)) {
             return DEVICE_MACHINE_FINISHED;

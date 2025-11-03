@@ -28,7 +28,5 @@ void InitLogSwitch() {
     g_isLogWEnable = CheckLogLevel(AICPU, DLOG_WARN);
     g_isLogEEnable = CheckLogLevel(AICPU, DLOG_ERROR);
 }
-
-
 #endif
 } // namespace npu::tile_fwk

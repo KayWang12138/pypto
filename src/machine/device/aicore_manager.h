@@ -198,17 +198,18 @@ public:
 
         taskCtrl->finishedFunctionCnt.fetch_add(sentAic + sentAiv + reSolveHubCnt_ + sentAicpu,
             std::memory_order_relaxed);
-#if DEBUG_SWITCH
-        __sync_fetch_and_add(&(taskCtrl->finishedAicFunctionCnt), sentAic);
-        __sync_fetch_and_add(&(taskCtrl->finishedAivFunctionCnt), sentAiv);
-        __sync_fetch_and_add(&(taskCtrl->finishedAicpuFunctionCnt), sentAicpu);
-        procAicCoreFunctionCnt_ += sentAic;
-        procAivCoreFunctionCnt_ += sentAiv;
-        procAicpuFunctionCnt_ += sentAicpu;
-        DEV_DEBUG("finish send  aic task cnt: %lu,  aiv task cnt: %lu, hub task cnt:%lu, aicpu task cnt:%lu, target totalcnt: %lu \n",
-            taskCtrl->finishedAicFunctionCnt, taskCtrl->finishedAivFunctionCnt,
-            reSolveHubCnt_, taskCtrl->finishedAicpuFunctionCnt, curDevTask_->coreFunctionCnt);
-#endif
+
+        DEV_IF_VERBOSE_DEBUG {
+            __sync_fetch_and_add(&(taskCtrl->finishedAicFunctionCnt), sentAic);
+            __sync_fetch_and_add(&(taskCtrl->finishedAivFunctionCnt), sentAiv);
+            __sync_fetch_and_add(&(taskCtrl->finishedAicpuFunctionCnt), sentAicpu);
+            procAicCoreFunctionCnt_ += sentAic;
+            procAivCoreFunctionCnt_ += sentAiv;
+            procAicpuFunctionCnt_ += sentAicpu;
+            DEV_VERBOSE_DEBUG("finish send  aic task cnt: %lu,  aiv task cnt: %lu, hub task cnt:%lu, aicpu task cnt:%lu, target totalcnt: %lu \n",
+                taskCtrl->finishedAicFunctionCnt, taskCtrl->finishedAivFunctionCnt,
+                reSolveHubCnt_, taskCtrl->finishedAicpuFunctionCnt, curDevTask_->coreFunctionCnt);
+        }
         reSolveHubCnt_ = 0;
     }
 
@@ -307,45 +308,45 @@ private:
         prof_.ProfStop();
     }
     inline void DumpAiCoreStatus() const {
-#if defined(DEBUG_SWITCH) && DEBUG_SWITCH
-        ForEachManageAicore([this](int coreIdx) {
-            volatile KernelArgs *arg = (KernelArgs *)(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
-            DEV_INFO("\n!!***********************aicore %d last status **************************!!\n", coreIdx);
-            DEV_INFO("hello status %ld\n", arg->shakeBuffer[0]);
-            DEV_INFO("last_taskId %ld task status %ld\n", arg->shakeBuffer[NUM_ONE], arg->shakeBuffer[NUM_TWO]);
-            for (size_t i = 0; i < sizeof(arg->taskEntry) / sizeof(TaskEntry); i++) {
-                DEV_INFO("task req index %lu: taskId %d, subGraphID %d funcAddr %ld\n", i, arg->taskEntry.taskId,
-                    arg->taskEntry.subGraphId, arg->taskEntry.funcAddr);
-            }
+        DEV_IF_VERBOSE_DEBUG {
+            ForEachManageAicore([this](int coreIdx) {
+                volatile KernelArgs *arg = (KernelArgs *)(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
+                DEV_INFO("\n!!***********************aicore %d last status **************************!!\n", coreIdx);
+                DEV_INFO("hello status %ld\n", arg->shakeBuffer[0]);
+                DEV_INFO("last_taskId %ld task status %ld\n", arg->shakeBuffer[NUM_ONE], arg->shakeBuffer[NUM_TWO]);
+                for (size_t i = 0; i < sizeof(arg->taskEntry) / sizeof(TaskEntry); i++) {
+                    DEV_INFO("task req index %lu: taskId %d, subGraphID %d funcAddr %ld\n", i, arg->taskEntry.taskId,
+                        arg->taskEntry.subGraphId, arg->taskEntry.funcAddr);
+                }
 
-            for (size_t i = 0; i < sizeof(arg->taskStat) / sizeof(TaskStat); i++) {
-                DEV_INFO("task rsp index %lu: taskId %d, subGraphID %d execStart %ld execEnd %ld\n", i,
-                    arg->taskStat[i].taskId, arg->taskStat[i].subGraphId, arg->taskStat[i].execStart,
-                    arg->taskStat[i].execEnd);
-            }
+                for (size_t i = 0; i < sizeof(arg->taskStat) / sizeof(TaskStat); i++) {
+                    DEV_INFO("task rsp index %lu: taskId %d, subGraphID %d execStart %ld execEnd %ld\n", i,
+                        arg->taskStat[i].taskId, arg->taskStat[i].subGraphId, arg->taskStat[i].execStart,
+                        arg->taskStat[i].execEnd);
+                }
 
-            DEV_INFO("reg low task: runningid(%lu) pendingid(%lu) dfxpos(%d)\n", runningIds_[coreIdx],
-                pendingIds_[coreIdx], taskDfxStatPos_[coreIdx]);
+                DEV_INFO("reg low task: runningid(%lu) pendingid(%lu) dfxpos(%d)\n", runningIds_[coreIdx],
+                    pendingIds_[coreIdx], taskDfxStatPos_[coreIdx]);
 
-            DEV_INFO("send task info ~~~~~~~~~~~~~~~~~~~~~~~~~~~~count:%lu~~~~~~~~~~~~~~~~~~~~~~~~~~~~ \n",
-                sendTask_[coreIdx].size());
-            for (size_t i = 0; i < sendTask_[coreIdx].size(); i++) {
-                DEV_INFO("send task: seqno %lu, taskId %lx\n", i, sendTask_[coreIdx][i].taskId);
-            }
+                DEV_INFO("send task info ~~~~~~~~~~~~~~~~~~~~~~~~~~~~count:%lu~~~~~~~~~~~~~~~~~~~~~~~~~~~~ \n",
+                    sendTask_[coreIdx].size());
+                for (size_t i = 0; i < sendTask_[coreIdx].size(); i++) {
+                    DEV_INFO("send task: seqno %lu, taskId %lx\n", i, sendTask_[coreIdx][i].taskId);
+                }
 
-            DEV_INFO("recv finish task info ~~~~~~~~~~~~~~~~~~~~~~~~~count:%lu~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ \n",
-                recvFinTask_[coreIdx].size());
-            for (size_t i = 0; i < recvFinTask_[coreIdx].size(); i++) {
-                DEV_INFO("recv task: seqno %lu, taskId %lx\n", i, recvFinTask_[coreIdx][i].taskId);
-            }
+                DEV_INFO("recv finish task info ~~~~~~~~~~~~~~~~~~~~~~~~~count:%lu~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ \n",
+                    recvFinTask_[coreIdx].size());
+                for (size_t i = 0; i < recvFinTask_[coreIdx].size(); i++) {
+                    DEV_INFO("recv task: seqno %lu, taskId %lx\n", i, recvFinTask_[coreIdx][i].taskId);
+                }
 
-            DEV_INFO("recv ack task info ~~~~~~~~~~~~~~~~~~~~~~~~~~~~count:%lu~~~~~~~~~~~~~~~~~~~~~~~~~~~~ \n",
-                recvAckTask_[coreIdx].size());
-            for (size_t i = 0; i < recvAckTask_[coreIdx].size(); i++) {
-                DEV_INFO("recv ack task: seqno %lu, taskId %lx\n", i, recvAckTask_[coreIdx][i].taskId);
-            }
-        });
-#endif
+                DEV_INFO("recv ack task info ~~~~~~~~~~~~~~~~~~~~~~~~~~~~count:%lu~~~~~~~~~~~~~~~~~~~~~~~~~~~~ \n",
+                    recvAckTask_[coreIdx].size());
+                for (size_t i = 0; i < recvAckTask_[coreIdx].size(); i++) {
+                    DEV_INFO("recv ack task: seqno %lu, taskId %lx\n", i, recvAckTask_[coreIdx][i].taskId);
+                }
+            });
+        }
     }
 
     inline void DumpTaskTensor(int &coreIdx, volatile TaskStat *stat) {
@@ -527,13 +528,13 @@ private:
         SetAiCpuStat(coreIdx, taskId);
 #endif
 
-#if defined(DEBUG_SWITCH) && DEBUG_SWITCH
-        DEV_DEBUG("Start to dump input tensor info, num is\n");
-        auto funcInfo = &(reinterpret_cast<CoreFunctionWsAddr *>(curDevTask_->coreFuncData.coreFunctionWsAddr))[taskId];
-        aicoreDump_.DumpInit(funcInfo->psgId, taskId, GetPhyIdByBlockId(coreIdx));
-        aicoreDump_.DoDump(funcInfo->invokeEntryInfo, funcInfo->invokeEntryNum, funcInfo->invokeEntryAddr, "input");
-        sendTask_[coreIdx].push_back(TaskInfo(coreIdx, taskId));
-#endif
+        DEV_IF_VERBOSE_DEBUG {
+            DEV_DEBUG("Start to dump input tensor info, num is\n");
+            auto funcInfo = &(reinterpret_cast<CoreFunctionWsAddr *>(curDevTask_->coreFuncData.coreFunctionWsAddr))[taskId];
+            aicoreDump_.DumpInit(funcInfo->psgId, taskId, GetPhyIdByBlockId(coreIdx));
+            aicoreDump_.DoDump(funcInfo->invokeEntryInfo, funcInfo->invokeEntryNum, funcInfo->invokeEntryAddr, "input");
+            sendTask_[coreIdx].push_back(TaskInfo(coreIdx, taskId));
+        }
     }
 
     inline void PushReadyQue(StaticReadyCoreFunctionQueue *readyQue, void *idList, uint32_t idCnt) const {
@@ -660,9 +661,9 @@ private:
             }
             ResolveDepWithDfx(type, coreIdx, finTaskId);
         } else if (finTaskId == pendingIds_[coreIdx] && finTaskState == TASK_ACK_STATE) {
-#if defined(DEBUG_SWITCH) && DEBUG_SWITCH
-            recvAckTask_[coreIdx].push_back(TaskInfo(coreIdx, finTaskId));
-#endif
+            DEV_IF_VERBOSE_DEBUG {
+                recvAckTask_[coreIdx].push_back(TaskInfo(coreIdx, finTaskId));
+            }
             DEV_DEBUG("PendingTask Acked. Running task finished.runningid: %lx\n", runningIds_[coreIdx]);
             tmpTaskId = runningIds_[coreIdx];
             runningIds_[coreIdx] = finTaskId;
@@ -1125,10 +1126,10 @@ private:
         prof_.ProfGet(coreIdx, stat->subGraphId, stat->taskId, &args_[coreIdx]->taskStat[pos]);
 #endif
 
-#if defined(DEBUG_SWITCH) && DEBUG_SWITCH
-        DumpTaskTensor(coreIdx, stat);
-        recvFinTask_[coreIdx].push_back(TaskInfo(coreIdx, taskId));
-#endif
+        DEV_IF_VERBOSE_DEBUG {
+            DumpTaskTensor(coreIdx, stat);
+            recvFinTask_[coreIdx].push_back(TaskInfo(coreIdx, taskId));
+        }
 
 #if PROF_DFX_HOST_PREPARE_MEMORY_MODE != 1
         SetNextDfxPos(coreIdx); // pingpong 存储
@@ -1199,11 +1200,9 @@ private:
 
     uint32_t sendCnt_[AICORE_TYPE_NUM]{0,0};
 
-#if defined(DEBUG_SWITCH) && DEBUG_SWITCH
     std::vector<TaskInfo> sendTask_[MAX_AICORE_NUM];
     std::vector<TaskInfo> recvFinTask_[MAX_AICORE_NUM];
     std::vector<TaskInfo> recvAckTask_[MAX_AICORE_NUM];
-#endif
 
     friend class AiCoreProf;
 };

@@ -18,23 +18,21 @@
 #define DEVICE_SWITCH_H
 
 namespace npu::tile_fwk {
-#define PERF_PMU_TEST_SWITCH 0 // PMU test switch
-#define PERF_AICPU_TEST_SWITCH 0 //性能AICPU数据测试
 
-// Disable DFX during performance testing, disable logging and partial traceability data collection.
-#define DEBUG_SWITCH 0
+// When enabled, logs will be written to the /tmp directory.
+#define ENABLE_TMP_LOG 0 
+
+// If enabled, performance statistics are recorded in the log.
+#define PERF_SWITCH 0
+
+/* When enabled, verbose log will be compiled.Because verbose logging is so extensive, having it compiled into the code
+   can hurt performance, even when the logging feature is turned off.
+*/
+#define ENABLE_COMPILE_VERBOSE_LOG 0 
+
 #define DEBUG_INFINITE_LIFETIME 0
 
 #define ENABLE_AICORE_PRINT 0
-
-#define PERF_SWITCH 0
-
-#if DEBUG_SWITCH == 0
-#define DEBUG_PLOG 1
-constexpr bool PLOG_DETAIL_DEBUG_SWITCH = false;
-#else
-#define DEBUG_PLOG 0
-#endif/*DEBUG_PLOG*/
 
 // whether to use the pending and running async task mode(set macro 1) or just use running sync mode(set macro 0)
 #define SCHEDULE_USE_PENDING_AND_RUNING_SWITCH 1
@@ -44,6 +42,9 @@ constexpr bool PLOG_DETAIL_DEBUG_SWITCH = false;
    MAX_DFX_TASK_NUM_PER_CORE tasks, with excess tasks being discarded.
 */
 #define PROF_DFX_HOST_PREPARE_MEMORY_MODE 1
+
+#define PERF_PMU_TEST_SWITCH 0 // PMU test switch
+#define PERF_AICPU_TEST_SWITCH 0 //性能AICPU数据测试
 
 // ready quene mode for aicore task : Last-in-first-out(LIFO stack mode) or first-in-first-out(FIFO quene mode)
 constexpr bool READY_QUE_LIFO_SWITCH = true;

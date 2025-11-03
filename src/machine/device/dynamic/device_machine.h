@@ -61,7 +61,7 @@ public:
 
         if (args->taskType == DEVICE_TASK_TYPE_STATIC) {
             auto devTask = reinterpret_cast<DeviceTask *>(args->taskData);
-            DEV_IF_DEBUGMODE {
+            DEV_IF_DEBUG {
                 DumpTask(args->taskId, devTask, false);
             }
             auto idx = AllocNewTaskCtrl();
@@ -219,7 +219,7 @@ public:
         PerfBegin(PERF_EVT_EXEC_DYN);
         PerfBegin(PERF_EVT_CONTROL_FLOW_CALL);
         ctx.GELaunch(devArgs, [this](uint64_t dynTaskId, DeviceTask *devTask, DeviceExecuteContext *ctx_) {
-            DEV_IF_DEBUGMODE {
+            DEV_IF_DEBUG {
                 DumpTask(dynTaskId, (DeviceTask *)devTask, true);
             }
             PushTask(DEVICE_TASK_TYPE_DYN, dynTaskId, devTask, ctx_, DeviceExecuteContext::TaskFinish);
