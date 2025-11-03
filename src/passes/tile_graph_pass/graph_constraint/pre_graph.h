@@ -106,8 +106,6 @@ private:
     std::pair<Operation *, Operation *> GetLastMmCopyOut(Operation &op);
     Status ReconnectGraph(Operation &mulOp, Operation *copyOutOp);
     Status TransferAttr(Operation &mulOp, Operation *copyOutOp);
-    bool IsFloat(const std::shared_ptr<LogicalTensor> tensor) const;
-    bool IsInt(const std::shared_ptr<LogicalTensor> tensor) const;
 };
 } // namespace npu::tile_fwk
 #endif // PRE_GRAPH_PASS_H

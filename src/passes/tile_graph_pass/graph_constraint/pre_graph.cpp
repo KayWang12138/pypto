@@ -718,31 +718,11 @@ Status PreGraphProcess::PreColorSort(Function &function)
     return SUCCESS;
 }
 
-bool PreGraphProcess::IsFloat(const std::shared_ptr<LogicalTensor> tensor) const {
-    auto dataType = tensor->Datatype();
-    if ((dataType == DT_FP16) || (dataType == DT_FP32) || (dataType == DT_BF16)) {
-        return true;
-    }
-    return false;
-}
-
-bool PreGraphProcess::IsInt(const std::shared_ptr<LogicalTensor> tensor) const {
-    auto dataType = tensor->Datatype();
-    if ((dataType == DT_INT8) || (dataType == DT_INT16) || (dataType == DT_INT32)) {
-        return true;
-    }
-    return false;
-}
-
 Status PreGraphProcess::AddL1CopyInAttr(
     const std::shared_ptr<LogicalTensor> input, int nzValue, int mValue, int kValue, int nValue) const {
     auto copyInOp = *(input->GetProducers().begin());
     auto tensorL0 = copyInOp->GetIOperands().front();
     auto L1CopyInOp = *(tensorL0->GetProducers().begin());
-    /*L0C copy L1*/
-    if(L1CopyInOp->GetOpcode() == Opcode::OP_L0C_COPY_L1) {
-        return SUCCESS;
-    }
     if (L1CopyInOp->GetOpcode() == Opcode::OP_VIEW || L1CopyInOp->GetOpcode() == Opcode::OP_ASSEMBLE) {
         /*
         1. View 对应大包搬运场景
@@ -752,6 +732,10 @@ Status PreGraphProcess::AddL1CopyInAttr(
         */
         tensorL0 = L1CopyInOp->GetIOperands().front();
         L1CopyInOp = *(tensorL0->GetProducers().begin());
+    }
+    /*L0C copy L1*/
+    if(L1CopyInOp->GetOpcode() == Opcode::OP_L0C_COPY_L1) {
+        return SUCCESS;
     }
     if (L1CopyInOp->GetOpcode() != Opcode::OP_COPY_IN && L1CopyInOp->GetOpcode() != Opcode::OP_GATHER_IN_L1) {
         APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "L0 tesnor[%d] has invalid corresponding L1CopyInOp, please check.", input->magic);
