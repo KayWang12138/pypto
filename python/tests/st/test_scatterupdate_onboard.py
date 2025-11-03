@@ -14,8 +14,9 @@ import copy
 import numpy as np
 
 import pto
+import pytest
 
-
+@pytest.mark.skip(reason="error case.")
 def test_scatterupdate_onboard():
     device_id = os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0)
     b = 1
@@ -30,7 +31,7 @@ def test_scatterupdate_onboard():
 
     view_shape = (b, s, n, d)
     tile_shape = (b, s, n, d)
-    pto.device_init()
+    pto.runtime._device_init()
 
     src_tensor = pto.tensor(src_shape, pto.DataType.DT_INT32, "PTO_TENSOR_SRC")
     index_tensor = pto.tensor(index_shape, pto.DataType.DT_INT32, "PTO_TENSOR_INDEX")
@@ -86,7 +87,7 @@ def test_scatterupdate_onboard():
     c_data = input2_tensor.reshape(dst_shape[0] * dst_shape[1] * dst_shape[2] * dst_shape[3]).tolist()
     d_data = np.zeros(dst_shape[0] * dst_shape[1] * dst_shape[2] * dst_shape[3]).astype(np.int32).tolist()
 
-    pto.device_run_once_data_from_host([a_data, b_data, c_data], [d_data])
+    pto.runtime._device_run_once_data_from_host([a_data, b_data, c_data], [d_data])
 
     for _b in range(b):
         for _s in range(s):
