@@ -232,6 +232,9 @@ Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
     auto &spillAllocOp = function_.AddRawOperation(allocOp, {}, {localTensor});
     auto &spillCopyInOp = function_.AddRawOperation(Opcode::OP_COPY_IN, {spillOutTensor}, {localTensor});
 
+    if (spillIssue->tileOp.GetOpcode() == Opcode::OP_COPY_IN) {
+        spillCopyInOp.SetIOpAttrOffset(0, spillIssue->tileOp.GetIOpAttrOffset(0));
+    }
     UpdateOpAttr(spillAllocOp, 1, localTensor, {}, spillIssue);
     UpdateOpAttr(spillCopyInOp, DEFAULT_LATENCY, localTensor, spillOutTensor->GetOffset(), spillIssue);
 
@@ -567,24 +570,20 @@ Status OoOScheduler::SelectSpillBuffers(LocalBufferPtr allocBuffer, IssueEntryPt
         return FAILED;
     }
     if (canSpillGroups.empty()) { 
-        APASS_LOG_ERROR_F("OoOSchedule", "Tensor", "Cannot find tensor to spill."); 
+        APASS_LOG_WARN_F("OoOSchedule", "Tensor", "Cannot find tensor to spill."); 
         return FAILED; 
     }
     std::unordered_map<int, size_t> nextUseTimeCache;
     std::vector<int> groupNextUseTime;
     for (auto &group : canSpillGroups) {
         if (GetGroupNextUseOrder(group, allocIssue, groupNextUseTime, nextUseTimeCache, isGenSpill) != SUCCESS) {
-            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "GetGroupNextUseOrder failed.");
+            APASS_LOG_WARN_F("OoOSchedule", "Operation", "GetGroupNextUseOrder failed.");
             return FAILED;
         }
     }
     size_t groupSel = std::max_element(groupNextUseTime.begin(), groupNextUseTime.end()) - groupNextUseTime.begin();
     if (groupNextUseTime[groupSel] == -1) {
-        if (PrintSpillFailedInfo(allocIssue) != SUCCESS) {
-            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "PrintSpillFailedInfo failed.");
-            return FAILED;
-        }
-        APASS_LOG_ERROR_F("OoOSchedule", "Tensor", "Cannot find tensor to spill.");
+        APASS_LOG_WARN_F("OoOSchedule", "Tensor", "Cannot find tensor to spill.");
         return FAILED;
     }
     spillGroup = canSpillGroups[groupSel];
@@ -597,6 +596,7 @@ Status OoOScheduler::GenBufferSpill(IssueEntryPtr allocIssue) {
     if (SelectSpillBuffers(localBufferMap[allocIssue->reqMemIds[0]], allocIssue, spillGroup, false) != SUCCESS) {
         spillFailed = true;
     }
+    size_t temp = 1;
     if (spillFailed) {
         MemoryType memType = localBufferMap[allocIssue->reqMemIds[0]]->memType;
         std::vector<int> memIds = bufferManagerMap[memType].GetAddrSortedBufs();
@@ -615,7 +615,6 @@ Status OoOScheduler::GenBufferSpill(IssueEntryPtr allocIssue) {
                 APASS_LOG_ERROR_F("OoOSchedule", "Operation", "GetSpillInfo failed.");
                 return FAILED;
             }
-            size_t temp = 1;
             if (SpillBuffer(spillInfo, allocIssue, temp, localBufferMap[allocIssue->reqMemIds[0]], false) != SUCCESS) {
                 APASS_LOG_ERROR_F("OoOSchedule", "Operation", "SpillBuffer[%d] failed.", memId);
                 return FAILED;
@@ -628,12 +627,11 @@ Status OoOScheduler::GenBufferSpill(IssueEntryPtr allocIssue) {
             bufferManagerMap[memType].Allocate(localBufferMap[issue.first]);
         }
         if (!HasEnoughBuffer(allocIssue, memType)) {
-            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Rerange buffer failed!");
+            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Spill all buffer failed!");
             PrintSpillFailedInfo(allocIssue, memType);
             return FAILED;
         }
     } else {
-        size_t temp = 1;
         if (SpillMultiBuffer(allocIssue, spillGroup, temp, localBufferMap[allocIssue->reqMemIds[0]], false) != SUCCESS) { 
             APASS_LOG_ERROR_F("OoOSchedule", "Operation", "SpillMultiBuffer failed!");
             return FAILED; 
@@ -677,7 +675,7 @@ Status OoOScheduler::GenSpillOp(LocalBufferPtr allocBuffer, size_t &pcIdx) {
             }
         }
         if (!HasEnoughBuffer(issueEntries[pcIdx], memType)) {
-            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Rerange buffer failed!");
+            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Spill all buffer failed!");
             if (PrintSpillFailedInfo(issueEntries[pcIdx]) != SUCCESS) {
                 return FAILED;
             }
