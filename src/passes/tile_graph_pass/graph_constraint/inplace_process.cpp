@@ -36,7 +36,7 @@ Status InplaceProcess::PreCheck(Function &function) {
             APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "%s[%d] is not partitioned; Please check subGraphIDs.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
             return FAILED;
         }
-        if ((op.GetOpcode() != Opcode::OP_ASSEMBLE) && (op.GetOpcode() != Opcode::OP_VIEW) && 
+        if ((op.GetOpcode() != Opcode::OP_ASSEMBLE) && (op.GetOpcode() != Opcode::OP_VIEW) &&
             (op.GetOpcode() != Opcode::OP_RESHAPE)) {
             continue;
         }
@@ -201,6 +201,19 @@ void InplaceProcess::ReplaceRawTensor(Function &function, std::shared_ptr<Logica
     }
     logicalTensor->tensor = targetTensor->tensor;
     logicalTensor->UpdateOffset(dynamic_cast<AssembleOpAttribute *>(op.GetOpAttribute().get())->GetToOffset());
+    /*
+        需要将所有和logicalTensor共用一个raw 的所有logical tensor 都刷新
+        当前仅往前更新一层
+        inplace op1 --> tensor1 --> inplace op2 --> ... --> inplace opN --> tensorN --> Assemble --> T(可能是OCAST)
+        后续需要进行优化
+     */
+    for (auto &producerOp : logicalTensor->GetProducers()) {
+        if (ProcessInplaceOp(function, *producerOp) != SUCCESS) {
+            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Processing inplace op %s[%d] failed after updating %s[%d].", 
+                producerOp->GetOpcodeStr().c_str(), producerOp->GetOpMagic(),
+                op.GetOpcodeStr().c_str(), op.GetOpMagic());
+        }
+    }
     APASS_LOG_DEBUG_F(GetName().c_str(), "Tensor", "update the offset for Tensor %d.", logicalTensor->magic);
 }
 
@@ -253,9 +266,9 @@ Status InplaceProcess::ProcessInplaceOp(Function &function, Operation &op) const
         auto outputIdx = reusePair.second;
         if (inputIdx >= op.GetIOperands().size() || outputIdx >= op.GetOOperands().size()) {
             APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Invalid inplace op info for %s[%d]. Please check op inputs&outputs, supported inplace info "
-                    "can be found in inplace_process.h."
-                    "\n|----detect input size: %d, recorded inplace input idx: %d."
-                    "\n|----detect output size: %d, recorded inplace output idx: %d.",
+                "can be found in inplace_process.h."
+                "\n|----detect input size: %d, recorded inplace input idx: %d."
+                "\n|----detect output size: %d, recorded inplace output idx: %d.",
                 op.GetOpcodeStr().c_str(), op.GetOpMagic(), op.GetIOperands().size(), inputIdx,
                 op.GetOOperands().size(), outputIdx);
             return FAILED;

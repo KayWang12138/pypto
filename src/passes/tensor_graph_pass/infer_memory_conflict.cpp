@@ -94,6 +94,9 @@ std::vector<std::pair<LogicalTensorPtr, Operation *>> InferMemoryConflict::Filte
         return needInsertCopys;
     }
     for (size_t i = 0; i < inplaceTensors.size(); ++i) {
+        if ((parentRawTensor_[inplaceTensors[i].first] == nullptr) || (targetParentIter->second == nullptr)) {
+            continue;
+        }
         if (IsInOutConflict(function, parentRawTensor_[inplaceTensors[i].first], targetParentIter->second)) {
             APASS_LOG_DEBUG_F(GetName().c_str(), "Tensor", "Input tensor [%d] (parent tensor [%d]) is conflict with outcast [%d]; Need to insert a copy operation.",
                 inplaceTensors[i].first->GetMagic(), parentRawTensor_[inplaceTensors[i].first]->GetMagic(), targetParentIter->second->GetMagic());

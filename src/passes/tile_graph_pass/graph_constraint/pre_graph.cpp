@@ -491,39 +491,6 @@ void PreGraphProcess::ProcessInplaceOp(Function &function) const {
     }
 }
 
-void PreGraphProcess::ProcessSameInOutOp(Function &function) const {
-    for (auto &op : function.Operations()) {
-        Opcode prod;
-        if (!op.GetAttr(OpAttributeKey::sameInOut, prod)) {
-            continue;
-        }
-        for (auto &input : op.GetIOperands()) {
-            for (auto &producer : input->GetProducers()) {
-                if (producer->GetOpcode() != prod) {
-                    continue;
-                }
-                auto output = op.GetOOperands().front();
-                if (input->shape != output->shape) {
-                    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Op[%d] input output tensor shape is not equal, cannot reuse buffer.", op.GetOpMagic());
-                    continue;
-                }
-                if (function.IsFromInCast(input)) {
-                    APASS_LOG_WARN_F(
-                        GetName().c_str(), "Tensor", "PreGraphProcess::ProcessSameInOutOp: OP iOperand tensor[%d] is inCast.", input->GetMagic());
-                    continue;
-                }
-                input->tensor = output->tensor;
-                input->offset = output->offset;
-                if (IsCopyOut(producer->GetOpcode())) {
-                    std::shared_ptr<CopyOpAttribute> attr =
-                        std::static_pointer_cast<CopyOpAttribute>(producer->GetOpAttribute());
-                    attr->SetToOffset(OpImmediate::Specified(output->offset));
-                }
-            }
-        }
-    }
-}
-
 void PreGraphProcess::UpdateCopyOpIsCube(Operation &op) const {
     /*
     后续考虑移到InsertCopyOp
@@ -987,7 +954,6 @@ Status PreGraphProcess::RunOnFunction(Function &function) {
             ProcessMoveInOperation(op);
         }
     }
-    ProcessSameInOutOp(function);
     DeleteRedundantAssemble(function);
     if (UpdateCubeOp(function) != SUCCESS) {
         APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Update Cube attr failed.");

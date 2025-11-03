@@ -89,7 +89,6 @@ private:
     void ProcessInplaceOp(Function &function) const;
     void UpdateCopyOpIsCube(Operation &op) const;
     void InitializeTensorColor(Operation &op) const;
-    void ProcessSameInOutOp(Function &function) const;
     void SetTensorBoundary(Function &function) const;
     void HandleForAssembleToOutcast(Function &function, std::unordered_set<Operation *> &concurrentAssembles,
         std::set<Operation *, LogicalTensor::CompareOp> &producersBackup) const;
