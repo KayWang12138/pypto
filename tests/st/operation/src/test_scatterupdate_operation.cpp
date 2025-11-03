@@ -21,7 +21,7 @@ using namespace tile_fwk::test_operation;
 namespace {
 struct ScatterUpdateOpFuncArgs : public OpFuncArgs {
     ScatterUpdateOpFuncArgs(const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape)
-        : viewShape_(viewShape), tileShape_(tileShape) {}
+        : viewShape_(viewShape), tileShape_(tileShape) { this->inplaceInfo[0] = 2;}
 
     std::vector<int64_t> viewShape_;
     std::vector<int64_t> tileShape_;

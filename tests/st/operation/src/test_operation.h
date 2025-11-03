@@ -29,6 +29,7 @@ namespace tile_fwk {
 namespace test_operation {
 
 struct OpFuncArgs {
+    std::unordered_map<size_t, size_t> inplaceInfo;
 };
 
 inline SymbolicScalar CeilDivSymbolicScalar(SymbolicScalar a, int b) {
@@ -97,20 +98,24 @@ private:
 
         // 设置输出Tensor
         std::vector<RawTensorDataPtr> outputs;
-        for (const auto& tensor : testCase.outputTensors) {
-            if (gmClearFlag) {
-                outputs.push_back(RawTensorData::CreateTensorZero(tensor));
+        for (size_t i = 0; i < testCase.outputTensors.size(); i++) {
+            if (testCase.args->inplaceInfo.find(i) != testCase.args->inplaceInfo.end()) {
+                outputs.push_back(inputs[testCase.args->inplaceInfo.at(i)]);
             } else {
-                switch (tensor.GetDataType()) {
-                    case DataType::DT_FP32:
-                        outputs.push_back(RawTensorData::CreateConstantTensor<float>(tensor, 1.0));
-                        break;
-                    case DataType::DT_INT32:
-                        outputs.push_back(RawTensorData::CreateConstantTensor<int32_t>(tensor, 1));
-                        break;
-                    default:
-                        ASSERT_TRUE(false) << "no support dtype " << tensor.GetDataType();
-                        break;
+                if (gmClearFlag) {
+                    outputs.push_back(RawTensorData::CreateTensorZero(testCase.outputTensors[i]));
+                } else {
+                    switch (testCase.outputTensors[i].GetDataType()) {
+                        case DataType::DT_FP32:
+                            outputs.push_back(RawTensorData::CreateConstantTensor<float>(testCase.outputTensors[i], 1.0));
+                            break;
+                        case DataType::DT_INT32:
+                            outputs.push_back(RawTensorData::CreateConstantTensor<int32_t>(testCase.outputTensors[i], 1));
+                            break;
+                        default:
+                            ASSERT_TRUE(false) << "no support dtype " << testCase.outputTensors[i].GetDataType();
+                            break;
+                    }
                 }
             }
         }
