@@ -40,6 +40,31 @@ stest:
       - DynamicKvSATest.kv_slc_attn_b32_s2_bf16_perf
       - DynamicKvSATest.kv_slc_attn_b2_s1_fp16
 
+  operation_cube:
+    cases:
+      - TestMatmul/MatmulOperationTest.TestMatmul/0
+      - TestMatmul/MatmulOperationTest.TestMatmul/1
+      - TestMatmul/MatmulOperationTest.TestMatmul/2
+      - TestMatmul/MatmulOperationTest.TestMatmul/3
+      - TestMatmul/MatmulOperationTest.TestMatmul/4
+      - TestMatmul/MatmulOperationTest.TestMatmul/5
+      - TestMatmul/MatmulOperationTest.TestMatmul/6
+      - TestMatmul/MatmulOperationTest.TestMatmul/7
+      - TestMatmul/MatmulOperationTest.TestMatmul/8
+      - TestMatmul/MatmulOperationTest.TestMatmul/9
+      - TestMatmul/MatmulOperationTest.TestMatmul/10
+      - TestMatmul/MatmulOperationTest.TestMatmul/11
+      - TestMatmul/MatmulOperationTest.TestMatmul/12
+      - TestMatmul/MatmulOperationTest.TestMatmul/13
+      - TestMatmul/MatmulOperationTest.TestMatmul/14
+      - TestMatmul/MatmulOperationTest.TestMatmul/15
+      - TestBatchMatmul/BatchMatmulOperationTest.TestBatchMatmul/0
+      - TestBatchMatmul/BatchMatmulOperationTest.TestBatchMatmul/1
+      - TestBatchMatmul/BatchMatmulOperationTest.TestBatchMatmul/2
+      - TestBatchMatmul/BatchMatmulOperationTest.TestBatchMatmul/3
+      - GatherInL1Test.gather_in_a_unalign
+      - GatherInL1Test.gather_in_bt_with_valid_shape
+
   operator_nsa_MlaProlog:
     cases:
       # - MlaPrologSTest.b32_s1_pa_nz_bf16_quant
@@ -50,7 +75,7 @@ stest:
     cases:
       # - AttentionPostSTest.b32_s1_nz_bf16_quant
       - AttentionPostSTest.b32_s2_nz_bf16_quant
-  
+
   operator_op_Gather:
     cases:
       - GatherOnBoardTest.test_gather_float_64_256_1_64
@@ -152,7 +177,7 @@ stest:
       - OnBoardIFATest.test_32_1_tileop_exp
       - OnBoardIFATest.test_32_1_reciprocal
       # - OnBoardIFATest.test_page_attention_static_low_latency
-      # 
+      #
       # - OnBoardTest.test_operation_tensor_dim2_add
       # - OnBoardTest.test_operation_scalar_dim2_add_FP16
       # - OnBoardTest.test_operation_tensor_dim4_add
@@ -333,7 +358,7 @@ stest:
       - MoeInferOnbroadTest.test_deepseekMoEInfer_singleout
       - DynamicFFNTest.TestOnbroadDynamicFFN
       # - MoeInferOnbroadTest.test_deepseekMoEInfer_singleout_singlemlp_withquant
-  
+
   operator_Llama_Layer:
     cases:
       # - LLamaLayerTest.llama_1_1_128_128
@@ -401,7 +426,7 @@ stest:
       - VecdupTest.TestVecDup
 
   operator_lightning_indexer_prolog:
-    cases:    
+    cases:
       # - LightningIndexerPrologSTest.bf16_indexer_prolog
       - LightningIndexerPrologSTest.b48_s1_1_s2_8k
       # - LightningIndexerPrologSTest.b2_s1_2_s2_2k
@@ -410,15 +435,15 @@ stest:
       - LightningIndexerPrologSTest.b4_s1_1_s2_64k
 
   operator_Quantized_lightning_indexer_topk:
-    cases:   
+    cases:
       - DynamicIndexerTopk.indexer_topk_quant_4_b_1_s1_64k_s2
 
   operator_decode_sparse_attention:
-    cases:   
+    cases:
       - DecodeIndexerAttentionSTest.mini
 
   operator_dsa_gather_slc_attn:
-    cases:  
+    cases:
       - DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b32_s1_seq511_int8
       - DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seq128k_int8
 
