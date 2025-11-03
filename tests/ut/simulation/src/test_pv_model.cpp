@@ -84,7 +84,7 @@ TEST(PvModelTest, TestDynImpl) {
 TEST(PvModelTest, TestDynCodegen) {
     std::string org = R"!!!(
 #include "TileOpImpl.h"
-[aicore] void TENSOR_PATH0_4_0(CoreFuncParam *param, uint64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo *oriAddrParam) {
+[aicore] void TENSOR_PATH0_4_0(CoreFuncParam *param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo *oriAddrParam) {
 }
 )!!!";
     std::string srcFile("TENSOR_PATH0_4_0.cpp");
@@ -102,7 +102,7 @@ TEST(PvModelTest, TestDynCodegen) {
     file.close();
     std::string expect = R"!!!(#include "TileOpImpl.h"
 
-extern "C" [aicore] void TENSOR_PATH0_4_0(CoreFuncParam* param, uint64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam);
+extern "C" [aicore] void TENSOR_PATH0_4_0(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam);
 
 
 extern "C" __global__ [aicore] void PvModelKernelEntry(__gm__ npu::tile_fwk::DynFuncData *funcData, __gm__ uint64_t *opAttrOffset) {
@@ -111,7 +111,7 @@ extern "C" __global__ [aicore] void PvModelKernelEntry(__gm__ npu::tile_fwk::Dyn
 }
 
 
-[aicore] void TENSOR_PATH0_4_0(CoreFuncParam *param, uint64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo *oriAddrParam) {
+[aicore] void TENSOR_PATH0_4_0(CoreFuncParam *param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo *oriAddrParam) {
 }
 )!!!";
     EXPECT_EQ(expect, content);

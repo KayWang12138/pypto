@@ -195,7 +195,7 @@ public:
         auto name = ExtractFunctionName(content);
 
         std::string decName = R"!!!(
-extern "C" [aicore] void {KernelName}(CoreFuncParam* param, uint64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam);
+extern "C" [aicore] void {KernelName}(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam);
 
 )!!!";
         std::string entry = R"!!!(
