@@ -37,6 +37,7 @@ Status OoOSchedule::RunOnFunction(Function &function) {
             continue;
         }
         OoOScheduler oooSchedule(*program.second);
+        oooSchedule.oooCheck.doHealthCheck = passDfxconfigs_.healthCheck;
         APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Subgraph[%d] OOOSchedule start.", program.first);
         if (oooSchedule.Schedule(opList) != SUCCESS) { 
             APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Subgraph[%d] OoO Schedule failed.", program.first); 
@@ -48,7 +49,6 @@ Status OoOSchedule::RunOnFunction(Function &function) {
         RescheduleUtils::UpdateTensorConsProd(program.second);
         maxWorkeSpaceSize = std::max(maxWorkeSpaceSize, (*program.second).GetStackWorkespaceSize());
         function.SetStackWorkespaceSize(maxWorkeSpaceSize);
-        oooSchedule.oooCheck.doHealthCheck = passDfxconfigs_.healthCheck;
         if (oooSchedule.oooCheck.doHealthCheck) {
             oooSchedule.oooCheck.workspaceOffset = oooSchedule.workspaceOffset;
             oooSchedule.oooCheck.clock = oooSchedule.clock;
