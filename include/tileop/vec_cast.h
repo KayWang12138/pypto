@@ -1,0 +1,62 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file vec_cast.h
+ * \brief
+ */
+
+#ifndef TILEOP_TILE_OPERATOR_VEC_CONVERT__H
+#define TILEOP_TILE_OPERATOR_VEC_CONVERT__H
+#include "a2a3/utils/layout.h"
+#include "a2a3/utils/tile_tensor.h"
+
+template <unsigned Mode, typename T0, typename T1>
+TILEOP void TCast(T0 dst, T1 src) {
+    constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
+    constexpr size_t expectSize = 5;
+    const auto dstLayout = dst.GetLayout();
+    const auto srcLayout = src.GetLayout();
+    auto shape0 = dstLayout.template GetShapeDim<0, expectSize>();
+    auto shape1 = dstLayout.template GetShapeDim<1, expectSize>();
+    auto shape2 = dstLayout.template GetShapeDim<2, expectSize>();
+    auto shape3 = dstLayout.template GetShapeDim<3, expectSize>();
+    auto shape4 = dstLayout.template GetShapeDim<4, expectSize>();
+    auto dstStride0 = dstLayout.template GetStrideDim<0, expectSize>();
+    auto dstStride1 = dstLayout.template GetStrideDim<1, expectSize>();
+    auto dstStride2 = dstLayout.template GetStrideDim<2, expectSize>();
+    auto srcStride0 = srcLayout.template GetStrideDim<0, expectSize>();
+    auto srcStride1 = srcLayout.template GetStrideDim<1, expectSize>();
+    auto srcStride2 = srcLayout.template GetStrideDim<2, expectSize>();
+    constexpr auto dstTileH = Std::tuple_element<shapeSize - 2, typename T0::TileShape>::type::value;
+    constexpr auto dstTileW = Std::tuple_element<shapeSize - 1, typename T0::TileShape>::type::value;
+    constexpr auto srcTileH = Std::tuple_element<shapeSize - 2, typename T1::TileShape>::type::value;
+    constexpr auto srcTileW = Std::tuple_element<shapeSize - 1, typename T1::TileShape>::type::value;
+    constexpr auto dstTypeSize = sizeof(typename T0::Type);
+    constexpr auto srcTypeSize = sizeof(typename T1::Type);
+    for (size_t n0Index = 0; n0Index < shape0; ++n0Index) {
+        for (size_t n1Index = 0; n1Index < shape1; ++n1Index) {
+            for (size_t n2Index = 0; n2Index < shape2; ++n2Index) {
+                using TileDefineDst =
+                    pto::Tile<pto::Location::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
+                using TileDefineSrc =
+                    pto::Tile<pto::Location::Vec, typename T1::Type, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
+                TileDefineDst dstTile(shape3, shape4);
+                TileDefineSrc srcTile(shape3, shape4);
+                auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
+                auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
+                pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize));
+                pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
+                pto::TCVT(dstTile, srcTile, static_cast<pto::RoundMode>(Mode));
+            }
+        }
+    }
+}
+#endif
