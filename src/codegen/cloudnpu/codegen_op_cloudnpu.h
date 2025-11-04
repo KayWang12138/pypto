@@ -572,8 +572,10 @@ private:
         {      Opcode::OP_COPY_TO_LOCAL_EXPERT,                   [this]() { return GenDistOp(); }},
         {        Opcode::OP_SHMEM_CLEAR_SIGNAL,                   [this]() { return GenDistOp(); }},
         {                 Opcode::OP_SHMEM_PUT,                   [this]() { return GenDistOp(); }},
+        {           Opcode::OP_SHMEM_PUT_UB2GM,                   [this]() { return GenDistOp(); }},
         {              Opcode::OP_SHMEM_SIGNAL,                   [this]() { return GenDistOp(); }},
         {                 Opcode::OP_SHMEM_GET,                   [this]() { return GenDistOp(); }},
+        {           Opcode::OP_SHMEM_GET_GM2UB,                   [this]() { return GenDistOp(); }},
         {              Opcode::OP_SHMEM_REDUCE,                   [this]() { return GenDistOp(); }},
 
         // max pool

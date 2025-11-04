@@ -78,7 +78,13 @@ void TiledDispatchFFNBatching(Function &function, const TileShape &tileShape,
 void TiledShmemPut(Function &function, const TileShape &tileShape,
     const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
     const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);
+void TiledShmemPutUB2GM(Function &function, const TileShape &tileShape,
+    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
+    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);
 void TiledShmemGet(Function &function, const TileShape &tileShape,
+    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
+    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);
+void TiledShmemGetGM2UB(Function &function, const TileShape &tileShape,
     const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
     const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);
 void TiledShmemSignal(Function &function, const TileShape &tileShape,

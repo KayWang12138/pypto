@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file test_codegen_allgather.cpp
+ * \file test_shmem_operation_impl.cpp
  * \brief Unit test for codegen.
  */
 
@@ -28,7 +28,7 @@
 
 namespace npu::tile_fwk::Distributed {
 
-class TestDistributedAllGather : public ::testing::Test {
+class TestDistributedShmemImpl : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
 
@@ -45,7 +45,7 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestDistributedAllGather, TestAllGatherDyn)
+TEST_F(TestDistributedShmemImpl, TestShmemAllGather)
 {
     const char *group = "hcom123";
 
@@ -54,10 +54,27 @@ TEST_F(TestDistributedAllGather, TestAllGatherDyn)
     Tensor barrierDummy(DT_INT32, {1, 1}, "barrierDummy");
     FUNCTION("ALLGATHER", {in}, {out}) {
         TileShape::Current().SetDistTile(
-                {16, 1, 0},
-                {32, 1, 0},
-                {1, 4, 0});
+            {16, 1, 0}, {32, 1, 0}, {1, 4, 0});
         ShmemAllGather(in, barrierDummy, group, out);
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "L0" + SUB_FUNC_SUFFIX);
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(TestDistributedShmemImpl, TestShmemAllReduce)
+{
+    const char *group = "hcom123";
+
+    int32_t ranksize = 4;
+    Tensor in(DT_FP16, {64, 256}, "in");
+    Tensor out(DT_FP16, {64, 256}, "out");
+    FUNCTION("ALLREDUCE", {in}, {out}) {
+        TileShape::Current().SetDistTile(
+            {64 / ranksize, 1, 0}, {256, 1, 0}, {1, ranksize, 0});
+        ShmemAddAllReduce(in, group, out);
     }
 
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "L0" + SUB_FUNC_SUFFIX);

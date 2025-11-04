@@ -325,6 +325,11 @@ OpcodeManager::OpcodeManager() {
         {MemoryType::MEM_DEVICE_DDR /* dummy */, MemoryType::MEM_UB /* buffer */},
         {"TileOp::Distributed::ShmemPut", PIPE_S, PIPE_S, CoreType::AIV},
         OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
+    registerInfo(Opcode::OP_SHMEM_PUT_UB2GM, OpCoreType::AIV, "SHMEM_PUT_UB2GM",
+        {MemoryType::MEM_UB /* UBData */, MemoryType::MEM_DEVICE_DDR /* shmemData */, MemoryType::MEM_DEVICE_DDR /* dummpy */},
+        {MemoryType::MEM_DEVICE_DDR /* dummy */},
+        {"TileOp::Distributed::ShmemPutUb2Gm", PIPE_S, PIPE_S, CoreType::AIV},
+        OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
     /*
      * 1. TileOp 的说明：设置 Signal，每个 TileOp 设置一个 Signal
      * 2. 支持的属性：
@@ -365,6 +370,11 @@ OpcodeManager::OpcodeManager() {
         {MemoryType::MEM_DEVICE_DDR /* dummy */, MemoryType::MEM_DEVICE_DDR /* shmemData */},
         {MemoryType::MEM_DEVICE_DDR /* nonShmemData */, MemoryType::MEM_UB /* buffer */},
         {"TileOp::Distributed::ShmemGet", PIPE_S, PIPE_S, CoreType::AIV},
+        OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
+    registerInfo(Opcode::OP_SHMEM_GET_GM2UB, OpCoreType::AIV, "SHMEM_GET_GM2UB",
+        {MemoryType::MEM_DEVICE_DDR /* dummy */, MemoryType::MEM_DEVICE_DDR /* shmemData */},
+        {MemoryType::MEM_UB /* UBData */},
+        {"TileOp::Distributed::ShmemGetGm2Ub", PIPE_S, PIPE_S, CoreType::AIV},
         OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
     registerInfo(Opcode::OP_SHMEM_REDUCE, OpCoreType::AIV, "SHMEM_REDUCE",
         {MemoryType::MEM_DEVICE_DDR /* in */, MemoryType::MEM_DEVICE_DDR /* shmemData */, MemoryType::MEM_DEVICE_DDR /*dummy*/},

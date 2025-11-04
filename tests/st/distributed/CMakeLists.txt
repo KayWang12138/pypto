@@ -54,6 +54,7 @@ set(_DistributedGTestCaseFilterConfig
         "DistributedTest.shmem_allgather_matmul_reducescatter_int32_128_256_4" "4"
         "DistributedTest.shmem_reduce_scatter_float16_128_256_4" "4"
         "DistributedTest.shmem_reduce_scatter_bfloat16_32_32_4" "4"
+        "DistributedTest.shmem_add_all_reduce_int32_64_256_4" "4"
 )
 set(_LdLibrariesExt
         tile_fwk_compiler

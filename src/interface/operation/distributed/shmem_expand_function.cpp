@@ -40,19 +40,19 @@ void CreateTileOp(const TileShape& tileShape,
     }
 }
 
-bool shouldConvertDtype(DataType ubType, DataType castType) 
+bool shouldConvertDtype(DataType ubType, DataType castType)
 {
     return ubType != castType;
 }
 
 template <typename T>
-T AlignUpPow2(T value, T alignment) noexcept 
+T AlignUpPow2(T value, T alignment) noexcept
 {
     ASSERT((alignment & (alignment - 1)) == 0) << "alignment must be power of 2";
     return (value + alignment - 1) & ~(alignment - 1);
 }
 
-Shape GetCopyBufferShape(DataType dataType, Shape tileShape) 
+Shape GetCopyBufferShape(DataType dataType, Shape tileShape)
 {
     const uint32_t copyNum = UB_BUFFER_BYTE_SIZE / BytesOf(dataType);
     Shape copyShape;
@@ -68,7 +68,7 @@ Shape GetCopyBufferShape(DataType dataType, Shape tileShape)
     return copyShape;
 }
 
-LogicalTensorPtr CreateAdaptiveUbTensor(Function &function, const Shape& shape, DataType ubType, DataType castType) 
+LogicalTensorPtr CreateAdaptiveUbTensor(Function &function, const Shape& shape, DataType ubType, DataType castType)
 {
     Shape ubShape;
     int64_t ubLen = AlignUpPow2<int64_t>(shape[0] * shape[1] * BytesOf(ubType), UB_ALIGIN_SIZE) / BytesOf(ubType);
@@ -99,7 +99,12 @@ void TiledShmemPut(Function& function, const TileShape& tileShape,
     CreateTileOp(tileShape,
         [&](int32_t tileIndex, int32_t rowOffset, int32_t colOffset, int32_t rowShape, int32_t colShape) {
             Shape shape = {rowShape, colShape};
-            auto inTile = in->View(function, shape, {rowOffset, colOffset});
+            std::shared_ptr<LogicalTensor> inTile;
+            if (in->shape.size() == 2UL) {
+                inTile = in->View(function, shape, {rowOffset, colOffset});
+            } else {
+                inTile = in->View(function, {1, 1, rowShape, colShape}, {0, 0, rowOffset, colOffset});
+            }
             auto shmDataTile = shmData->View(function, {1, 1, rowShape, colShape}, {0, 0, rowOffset, colOffset});
             auto dummyTile = dummy->View(function, {1, 1}, {tileIndex, 0});
             auto copyBufferShape = GetCopyBufferShape(shmDataTile->Datatype(), shape);
@@ -110,6 +115,26 @@ void TiledShmemPut(Function& function, const TileShape& tileShape,
             tileop.SetAttr("AtomicType", atomicType);
             tileop.SetAttr("copyBufferShape", copyBufferShape);
         });
+}
+
+void TiledShmemPutUB2GM(Function& function, const TileShape& tileShape,
+    const std::vector<std::shared_ptr<LogicalTensor>>& iOperand,
+    const std::vector<std::shared_ptr<LogicalTensor>>& oOperand, const Operation& op)
+{
+    ASSERT(iOperand.size() == 3UL) << "TiledShmemPut iOperand size is not equal to 3";
+    ASSERT(oOperand.size() == 1UL) << "TiledShmemPut oOperand size is not equal to 1";
+    (void)tileShape;
+    auto in = iOperand[0];
+    auto shmData = iOperand[1];
+    auto barrierDummy = iOperand[2]; // operand 2
+    auto dummy = oOperand[0];
+    AtomicType atomicType;
+    op.GetAttr("AtomicType", atomicType);
+    Shape shape = in->shape;
+    auto copyBufferShape = GetCopyBufferShape(shmData->Datatype(), shape);
+    auto& tileop = function.AddOperation("SHMEM_PUT_UB2GM", {in, shmData, barrierDummy}, {dummy});
+    tileop.SetAttr("AtomicType", atomicType);
+    tileop.SetAttr("copyBufferShape", copyBufferShape);
 }
 
 void TiledShmemSignal(Function& function, const TileShape& tileShape,
@@ -210,6 +235,26 @@ void TiledShmemGet(Function& function, const TileShape& tileShape,
             tileop.SetAttr("AtomicType", atomicType);
             tileop.SetAttr("copyBufferShape", copyBufferShape);
         });
+}
+
+void TiledShmemGetGM2UB(Function& function, const TileShape& tileShape,
+    const std::vector<std::shared_ptr<LogicalTensor>>& iOperand,
+    const std::vector<std::shared_ptr<LogicalTensor>>& oOperand, const Operation& op)
+{
+    ASSERT(iOperand.size() == 2UL) << "TiledShmemGet iOperand size is not equal to 2";
+    ASSERT(oOperand.size() == 1UL) << "TiledShmemGet oOperand size is not equal to 1";
+    (void)tileShape;
+    auto dummy = iOperand[0];
+    auto shmData = iOperand[1];
+    auto out = oOperand[0];
+
+    AtomicType atomicType;
+    op.GetAttr("AtomicType", atomicType);
+    Shape shape = out->shape;
+    auto copyBufferShape = GetCopyBufferShape(shmData->Datatype(), shape);
+    auto& tileop = function.AddOperation("SHMEM_GET_GM2UB", {dummy, shmData}, {out});
+    tileop.SetAttr("AtomicType", atomicType);
+    tileop.SetAttr("copyBufferShape", copyBufferShape);
 }
 
 void TiledShmemClearSignal(Function& function, const TileShape& tileShape,

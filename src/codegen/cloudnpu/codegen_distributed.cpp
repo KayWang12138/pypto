@@ -24,6 +24,7 @@
 namespace npu::tile_fwk {
 
 using AtomicType = npu::tile_fwk::Distributed::AtomicType;
+constexpr int32_t GM2UB_SHMEMDATA_INDEX = 2;
 
 void CheckInRange(int64_t value)
 {
@@ -57,7 +58,19 @@ void CodeGenOpCloudNPU::GenExtraTemplateParamsForPutAndGet(std::ostringstream& o
     // 必须从 shmemData 取 shape，不能从 nonShmemData 取
     // 如果从 nonShmemData 取，ShmemGet 会取到 assemble 后的 shape，不符合预期
     int32_t shmemDataIndex = 3;
-    const std::vector<int64_t>& tileShape = originShape[shmemDataIndex]; // originShape 是切块后的 shape
+    int32_t shapeIndex = 3;
+    if (opCode == Opcode::OP_SHMEM_PUT_UB2GM) {
+        nonShmemDataIndex = 1;
+        shmemDataIndex = GM2UB_SHMEMDATA_INDEX;
+        shapeIndex = 1;
+    }
+    if (opCode == Opcode::OP_SHMEM_GET_GM2UB) {
+        nonShmemDataIndex = 0;
+        shmemDataIndex = GM2UB_SHMEMDATA_INDEX;
+        shapeIndex = GM2UB_SHMEMDATA_INDEX;
+    }
+    
+    const std::vector<int64_t>& tileShape = originShape[shapeIndex]; // originShape 是切块后的 shape
     int64_t tileRowShape = tileShape[tileShape.size() - 2];
     int64_t tileColShape = tileShape[tileShape.size() - 1];
 
@@ -65,7 +78,7 @@ void CodeGenOpCloudNPU::GenExtraTemplateParamsForPutAndGet(std::ostringstream& o
     int64_t bufferRowShape = bufferShape[0];
     int64_t bufferColShape = bufferShape[1];
 
-    const std::vector<int64_t>& originTensorShape = rawShape[shmemDataIndex]; // rawShape 是切块前的 shape
+    const std::vector<int64_t>& originTensorShape = rawShape[shapeIndex]; // rawShape 是切块前的 shape
     int64_t stride = originTensorShape[originTensorShape.size() - 1];
 
     AtomicType atomicType = AtomicType::SET;
@@ -91,7 +104,9 @@ std::string CodeGenOpCloudNPU::GenTemplateParams() const
     std::ostringstream oss;
     switch (opCode) {
         case Opcode::OP_SHMEM_PUT:
-        case Opcode::OP_SHMEM_GET: {
+        case Opcode::OP_SHMEM_GET: 
+        case Opcode::OP_SHMEM_PUT_UB2GM:
+        case Opcode::OP_SHMEM_GET_GM2UB:{
             GenExtraTemplateParamsForPutAndGet(oss);
             break;
         }
@@ -141,6 +156,16 @@ std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapes() const
         case Opcode::OP_SHMEM_GET: {
             int32_t nonShmemDataIndex = (opCode == Opcode::OP_SHMEM_PUT) ? 2 : 0;
             int32_t shmemDataIndex = 3;
+            int32_t nonShmemDataDim = originShape[nonShmemDataIndex].size();
+            int32_t shmemDataDim = 4;
+            oss << GenOffsetsAndRawShapes(nonShmemDataIndex, nonShmemDataDim)
+                << GenOffsetsAndRawShapes(shmemDataIndex, shmemDataDim);
+            break;
+        }
+        case Opcode::OP_SHMEM_PUT_UB2GM:
+        case Opcode::OP_SHMEM_GET_GM2UB: {
+            int32_t nonShmemDataIndex = (opCode == Opcode::OP_SHMEM_PUT_UB2GM) ? 1 : 0;
+            int32_t shmemDataIndex = 2;
             int32_t nonShmemDataDim = 2;
             int32_t shmemDataDim = 4;
             oss << GenOffsetsAndRawShapes(nonShmemDataIndex, nonShmemDataDim)

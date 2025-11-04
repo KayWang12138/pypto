@@ -196,13 +196,31 @@ def generate_reduce_scatter_golden(case_name: str, save_dir: pathlib.Path):
             'The first dimension of the input tensor must be an integer multiple of the rank size, '
             f'got row={row}, rank_size={rank_size}'
         )
+    params = (row, col, get_dtype_num(dtype))
+    save_params(params, save_dir)
+    inputs = gen_random_tensor_list((row, col), dtype, rank_size, save_dir, 'input')
+    reduce_scatter_and_save(inputs, row, rank_size, save_dir, 'output')
+
+
+def generate_all_reduce_golden(case_name: str, save_dir: pathlib.Path):
+    dim = 2
+    case = parse_base_case(case_name, dim)
+    row, col = case.shape
+    rank_size, dtype = case.rank_size, case.dtype
+
+    validate_rank_size(rank_size)
+    if row % rank_size != 0:
+        raise ValueError(
+            'The first dimension of the input tensor must be an integer multiple of the rank size, '
+            f'got row={row}, rank_size={rank_size}'
+        )
 
     params = (row, col, get_dtype_num(dtype))
     save_params(params, save_dir)
 
     inputs = gen_random_tensor_list((row, col), dtype, rank_size, save_dir, 'input')
-
-    reduce_scatter_and_save(inputs, row, rank_size, save_dir, 'output')
+    outputs = [sum(inputs) for _ in range(rank_size)]
+    save_tensor_list(outputs, save_dir, 'output')
 
 
 def gen_golden_input_data(case: MoeCase, save_dir: pathlib.Path) -> Tuple[List[torch.Tensor], List[torch.Tensor]]:
@@ -545,6 +563,7 @@ OPERATOR_DISPATCHERS = [
     ('moe_combine', generate_moe_combine_golden),
     ('allgather_matmul_reducescatter', generate_allgather_matmul_reducescatter_golden),
     ('allgather_attn_post_reducescatter', generate_allgather_attn_post_reducescatter_golden),
+    ('all_reduce', generate_all_reduce_golden),
 ]
 
 
@@ -565,7 +584,8 @@ OPERATOR_DISPATCHERS = [
         'DistributedTest.shmem_allgather_attn_post_reducescatter_bfloat16_64_1_32_256_128_128_4',
         'DistributedTest.shmem_allgather_matmul_reducescatter_int32_128_256_4',
         'DistributedTest.shmem_reduce_scatter_float16_128_256_4',
-        'DistributedTest.shmem_reduce_scatter_bfloat16_32_32_4'
+        'DistributedTest.shmem_reduce_scatter_bfloat16_32_32_4',
+        'DistributedTest.shmem_add_all_reduce_int32_64_256_4',
     ]
 )
 def generate_golden_case(case_name: str, output: pathlib.Path) -> bool:

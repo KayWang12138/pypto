@@ -146,7 +146,12 @@ Status NodeGraphInfo::MergeSrcToDstIsland(const std::shared_ptr<OperationGraphIn
                                         operationGraphInfo->opList_[dst]->GetOpcode() == Opcode::OP_VIEW);
     isAICPUandVIEW = isAICPUandVIEW || (operationGraphInfo->opCoreType_[dst] == OpCoreType::AICPU &&
                                         operationGraphInfo->opList_[src]->GetOpcode() == Opcode::OP_VIEW);
-    if (!isAICPUandVIEW && !operationGraphInfo->CoreTypeMergeable(coreTypes)) {
+    bool isAICPUandAssemble = false;
+    isAICPUandAssemble = isAICPUandAssemble || (operationGraphInfo->opCoreType_[src] == OpCoreType::AICPU &&
+                                        operationGraphInfo->opList_[dst]->GetOpcode() == Opcode::OP_ASSEMBLE);
+    isAICPUandAssemble = isAICPUandAssemble || (operationGraphInfo->opCoreType_[dst] == OpCoreType::AICPU &&
+                                        operationGraphInfo->opList_[src]->GetOpcode() == Opcode::OP_ASSEMBLE);
+    if ((!isAICPUandVIEW) && (!isAICPUandAssemble) && (!operationGraphInfo->CoreTypeMergeable(coreTypes))) {
         APASS_LOG_ERROR_F("GraphPartition", "Operation", "Try to merge operations with different OpCoreType in building SuperNode.");
         std::set<int> mergeIdxs{src, srcParent, dst, dstParent};
         for (int mergeIdx : mergeIdxs) {
