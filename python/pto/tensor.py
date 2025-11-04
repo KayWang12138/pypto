@@ -263,9 +263,9 @@ class Tensor:
         """
         pto.assemble(input, offsets, self)
 
-    def reshape(self, *shape: List[int]) -> 'Tensor':
-        return pto.reshape(self, *shape)
-    
+    def reshape(self, shape: List[int], *, valid_shape: List[Union[int, SymbolicScalar]] = None) -> 'Tensor':
+        return pto.reshape(self, shape, valid_shape=valid_shape)
+
     def unsqueeze(self, dim: int) -> 'Tensor':
         return pto.unsqueeze(self, dim)
     

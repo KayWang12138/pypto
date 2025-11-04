@@ -374,7 +374,7 @@ def compress_attention_with_topk(**kwargs):
                                     slc_reduce = pto.row_sum_single(slc_before_g_reduce_actual)
                                     pto.set_vec_tile_shapes(*tile_config.topk_tile)
                                     slc_reshape[:] = pto.reshape(slc_reduce,
-                                        [1, 1, max_cmp_block * block_slc_num], [1, 1, slc_loop])
+                                        [1, 1, max_cmp_block * block_slc_num], valid_shape=[1, 1, slc_loop])
                                     slc_reshape[:] = pto.add_s(slc_reshape, pto.element(FP32, .0))
                                 inside_ub_reshape_idx_loop()
                             for _ in pto.loop(0, 1, 1, name="AVOID_LOOP_6", idx_name="ubReshapeIdx"):

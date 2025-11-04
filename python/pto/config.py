@@ -20,11 +20,19 @@ def set_print_options(edge_items: int, precision: int, threshold: int, linewidth
     """
     Set tensor print options.
 
-    Args:
-        edge_items (int): print max items in tensor head and tail.
-        precision (int): precision print precision.
-        threshold (int): threshold threshold to use.
-        linewidth (int): linewidth max line width.
+    Parameters
+    ----------
+    edge_items : int
+        Print max items in tensor head and tail.
+    
+    precision : int
+        Print precision.
+    
+    threshold : int
+        Threshold to use.
+    
+    linewidth : int
+        Max line width.
     """
     pto_impl.SetPrintOptions(edge_items, precision, threshold, linewidth)
 
@@ -33,12 +41,16 @@ def set_pass_option(key: str, value: Union[str, int, List[int], Dict[int, int]])
     """
     Set pass options.
 
-    Args:
-        key (str): Configuration option key. Supported keys include:
+    Parameters
+    ----------
+    key : str
+        Configuration option key. Supported keys include:
             - "cycle_lower_bound": Lower bound of schedule cycles for each subgraph (default: 512)
             - "cycle_upper_bound": Upper bound of schedule cycles for each subgraph (default: 10000)
             ...
-        value (Union[str, int, List[int], dict[int, int]]): The configuration option value.
+    
+    value : Union[str, int, List[int], Dict[int, int]]
+        Configuration option value.
     """
     pto_impl.SetOption(f"pass.{key}", value)
 
@@ -47,11 +59,15 @@ def get_pass_option(key: str) -> Union[str, int, List[int], Dict[int, int]]:
     """
     Get pass option by key.
 
-    Args:
-        key (str): Configuration option key.
+    Parameters
+    ----------
+    key : str
+        Configuration option key.
 
-    Returns:
-        Union[str, int, List[int], dict[int, int]]: The value associated with the key.
+    Returns
+    -------
+    Union[str, int, List[int], Dict[int, int]]
+        The value associated with the key.
     """
     return pto_impl.GetOption(f"pass.{key}")
 
@@ -60,9 +76,13 @@ def set_host_option(key: str, value: Union[str, int, List[int], Dict[int, int]])
     """
     Set host options.
 
-    Args:
-        key (str): Host configuration option key.
-        value (Union[str, int, List[int], dict[int, int]]): Host configuration option value.
+    Parameters
+    ----------
+    key : str
+        Host configuration option key.
+    
+    value : Union[str, int, List[int], Dict[int, int]]
+        Host configuration option value.
     """
     pto_impl.SetOption(f"host.{key}", value)
 
@@ -71,11 +91,15 @@ def get_host_option(key: str) -> Union[str, int, List[int], Dict[int, int]]:
     """
     Get host option by key.
 
-    Args:
-        key (str): Host configuration option key.
+    Parameters
+    ----------
+    key : str
+        Host configuration option key.
 
-    Returns:
-        Union[str, int, List[int], dict[int, int]]: The value associated with the key.
+    Returns
+    -------
+    Union[str, int, List[int], Dict[int, int]]
+        The value associated with the key.
     """
     return pto_impl.GetOption(f"host.{key}")
 

@@ -78,8 +78,8 @@ def test_reshape_equal2():
     with pto.function("Reshape3", [q, t], [out]):
         for _ in pto.loop(1, name="Reshape3Loop", idx_name="batchId"):
             pto.set_vec_tile_shapes(16, 16)
-            q0 = pto.reshape(q, dst_shape, [16, 16])
-            t0 = pto.reshape(t, dst_shape, [16, 16])
+            q0 = pto.reshape(q, dst_shape, valid_shape=[16, 16])
+            t0 = pto.reshape(t, dst_shape, valid_shape=[16, 16])
             out.move(pto.add(q0, t0))
             del q0
             del t0
@@ -107,7 +107,7 @@ def test_reshape_validshape():
     with pto.function("Reshape4", [q], [out]):
         for _ in pto.loop(1, name="Reshape4Loop", idx_name="batchId"):
             pto.set_vec_tile_shapes(16, 16)
-            q0 = pto.reshape(q, dst_shape, [8, 32])
+            q0 = pto.reshape(q, dst_shape, valid_shape=[8, 32])
             qp = pto.add(q0, 1.0)
             out.move(q0)
             del q0

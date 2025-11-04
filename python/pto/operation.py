@@ -269,23 +269,31 @@ def assemble(input: Tensor, offsets: List[Union[int, SymbolicScalar]], out: Tens
     ---------
     input: Tensor
         The small input tensor to be assembled into the larger tensor
-        
+
     offsets : List[int] or List[SymbolicScalar]
-        List of offset values indicating where the input tensor should be placed in the output tensor. 
+        List of offset values indicating where the input tensor should be placed in the output tensor.
         It is required that the offsets is smaller than the shape of out.
-        
+
     out: Tensor
         The larger output tensor that will contain the assembled input tensor
     Examples
     ---------
-    >>> x = pto.tensor([2, 2], pto.data_type.DT_FP32)  # 2x2 tensor with all 1s
-    >>> out = pto.tensor([4, 4], pto.data_type.DT_FP32)  # 4x4 tensor with all 0s
-    >>> pto.assemble(x, [0, 0], out) 
-    >>> print(out)
-    [[1 1 0 0]
-    [1 1 0 0]
-    [0 0 0 0]
-    [0 0 0 0]]
+    x = pto.tensor([2, 2], pto.data_type.DT_FP32)
+    out = pto.tensor([4, 4], pto.data_type.DT_FP32)
+    offsets = [0, 0]
+    pto.assemble(x, offsets, out)
+
+    Input x:[[1 1],
+            [1,1]]
+          out:[[0 0 0 0],
+               [0 0 0 0],
+               [0 0 0 0],
+               [0 0 0 0]]
+
+    Output out:[[1 1 0 0]
+                [1 1 0 0]
+                [0 0 0 0]
+                [0 0 0 0]]
     """
     pto_impl.assemble(input, to_syms(offsets), out)
 
@@ -947,8 +955,8 @@ def full(size: List[int],
         target shape; must be non-negative integers
     fill_value : int | float | SymbolicScalar | pto.element
         scalar value to replicate
-    dtype : pto.DataType 
-        desired data type; only int/float are supported (DT_FP32, DT_INT32).  
+    dtype : pto.DataType
+        desired data type; only int/float are supported (DT_FP32, DT_INT32).
         If elem is a SymbolicScalar, dtype must be int32.
     valid_shape : List[int] | List[SymbolicScalar]]
         runtime actual shape
@@ -1174,7 +1182,7 @@ def matmul(input, mat2, out_dtype, *, a_trans=False, b_trans=False, c_matrix_nz=
 
 
 @op_wrapper
-def reshape(input: Tensor, shape: List[int], valid_shape: Union[List[int], List[SymbolicScalar]] = None) -> Tensor:
+def reshape(input: Tensor, shape: List[int], *, valid_shape: List[Union[int, SymbolicScalar]] = None) -> Tensor:
     """
     Reshape the input Tensor into a new tensor with the specific shape.
 
@@ -1182,28 +1190,35 @@ def reshape(input: Tensor, shape: List[int], valid_shape: Union[List[int], List[
     ---------
     input: pto.Tensor
         The input tensor to be reshaped.
-    
+
     shape : List[int]
         The new shape of the tensor. The total number of elements must match the input tensor.
-        
+
     valid_shape : List[int], optional
         An optional parameter specifying the valid shape for partial reshapeing or padding.
         If provided, it may be used to define the effective part of the new shape.
 
     Return
-    ------ 
+    ------
     pto.Tensor
         A new tensor with the specific shape.
 
     Examples
     ---------
-    >>> x = pto.tensor([2, 2], pto.data_type.DT_FP32)  # 2x2 tensor
-    x = [[1,2], [3,4]]
-    >>> y = pto.reshape(x, [4, 1]) 
-    >>> print(y.shape)
-    [4, 1]
-    >>> print(y)
-    y = [1, 2, 3, 4]
+    x = pto.tensor([2, 2], pto.DT_FP32)
+    y = pto.reshape(x, [4, 1], [2, 1])
+    z = pto.add(y, 1.0)
+
+    input x: [[1, 2],
+              [3, 4]]
+    output y: [[1],
+               [2],
+               [3],
+               [4]
+           z: [[2],
+               [3],
+               [3],
+               [4]]
     """
     if valid_shape is None:
         out = pto_impl.reshape(input, shape)
