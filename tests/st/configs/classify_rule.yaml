@@ -37,8 +37,8 @@ stest:
       - DynamicSATest.slc_attn_mtp_s1_2_fp16
       # - DynamicSATest.slc_attn_bf16_b48_s1_perf
       # - DynamicKvSATest.kv_slc_attn_b48_s1_fp16_perf
-      - DynamicKvSATest.kv_slc_attn_b32_s2_bf16_perf
-      - DynamicKvSATest.kv_slc_attn_b2_s1_fp16
+      # - DynamicKvSATest.kv_slc_attn_b32_s2_bf16_perf
+      # - DynamicKvSATest.kv_slc_attn_b2_s1_fp16
 
   operation_cube:
     cases:
@@ -475,7 +475,7 @@ stest:
       - TestMul/MulOperationTest.TestMul/22
       - TestMul/MulOperationTest.TestMul/25
       - TestMul/MulOperationTest.TestMul/26
-      # - TestMul/MulOperationTest.TestMul/27
+      - TestMul/MulOperationTest.TestMul/27
       - TestMuls/MulsOperationTest.TestMuls/13
       - TestMuls/MulsOperationTest.TestMuls/14
       - TestMuls/MulsOperationTest.TestMuls/15

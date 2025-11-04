@@ -350,10 +350,9 @@ void ExpandTile(Function &function, const TileShape &tileShape, int dimIdx, cons
 }
 
 void Expand(Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand,
-    const LogicalTensorPtr &result) {
+    const std::vector<LogicalTensorPtr> &other, const LogicalTensorPtr &result) {
     CheckExpandTensorVaild(operand, result);
     ASSERT(function.GetGraphType() == GraphType::TILE_GRAPH);
-
     std::vector<int64_t> offset(result->shape.size(), 0);
     std::vector<int64_t> viewShape(result->shape.size(), 1);
     std::vector<SymbolicScalar> outValidShape;
@@ -361,33 +360,15 @@ void Expand(Function &function, const TileShape &tileShape, const LogicalTensorP
     for (size_t i = 0; i < result->shape.size(); ++i) {
         if (operand->shape[i] != result->shape[i]) {
             expandDim = i;
-            outValidShape.push_back(result->shape[i]);
-        } else {
-            outValidShape.push_back(operand->shape[i]);
-        }
-    }
-
-    result->UpdateDynValidShape(outValidShape);
-    struct ExpandInfo expandInfo(operand, result, viewShape, offset, expandDim);
-    ExpandTile(function, tileShape, 0, expandInfo, outValidShape);
-}
-
-void Expand(Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand,
-    const LogicalTensorPtr &other, const LogicalTensorPtr &result) {
-    CheckExpandTensorVaild(operand, result);
-    ASSERT(function.GetGraphType() == GraphType::TILE_GRAPH);
-
-    std::vector<int64_t> offset(result->shape.size(), 0);
-    std::vector<int64_t> viewShape(result->shape.size(), 1);
-    std::vector<SymbolicScalar> outValidShape;
-    int expandDim = -1;
-    for (size_t i = 0; i < result->shape.size(); ++i) {
-        if (operand->shape[i] != result->shape[i]) {
-            expandDim = i;
-            if (other->GetDynValidShape().empty()) {
-                outValidShape.push_back(other->shape[i]);
-            } else {
-                outValidShape.push_back(other->GetDynValidShape()[i]);
+            for (auto it : other) {
+                if (it != nullptr && it->shape[i] == result->shape[i]) {
+                    if (it->GetDynValidShape().empty()) {
+                        outValidShape.push_back(it->shape[i]);
+                    } else {
+                        outValidShape.push_back(it->GetDynValidShape()[i]);
+                    }
+                    break;
+                }
             }
         } else {
             if (operand->GetDynValidShape().empty()) {
@@ -473,14 +454,14 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, Logica
         if (operand1->shape != result->shape) {
             auto targetShape = result->shape;
             auto tmp = std::make_shared<LogicalTensor>(function, operand1->Datatype(), targetShape);
-            Expand(function, tileShape, operand1, tmp);
+            Expand(function, tileShape, operand1, {operand2}, tmp);
             operand1 = tmp;
         }
 
         if (operand2->shape != result->shape) {
             auto targetShape = result->shape;
             auto tmp = std::make_shared<LogicalTensor>(function, operand2->Datatype(), targetShape);
-            Expand(function, tileShape, operand2, tmp);
+            Expand(function, tileShape, operand2, {operand1}, tmp);
             operand2 = tmp;
         }
     }
@@ -554,7 +535,7 @@ void TiledCompareOperation(Function &function, const TileShape &tileShape, Logic
             return;
         }
         auto expanded = std::make_shared<LogicalTensor>(function, operand->Datatype(), dstShape);
-        Expand(function, tileShape, operand, other, expanded);
+        Expand(function, tileShape, operand, {other}, expanded);
         operand = expanded;
     };
     broadcastOperand(operand1, operand2);
@@ -827,14 +808,14 @@ void TiledBinaryOperationAllScalar(Function &function, const TileShape &tileShap
     if (operand1->shape != result->shape) {
         auto targetShape = result->shape;
         auto tmp = std::make_shared<LogicalTensor>(function, operand1->Datatype(), targetShape);
-        Expand(function, tileShape, operand1, tmp);
+        Expand(function, tileShape, operand1, {operand2}, tmp);
         operand1 = tmp;
     }
 
     if (operand2->shape != result->shape) {
         auto targetShape = result->shape;
         auto tmp = std::make_shared<LogicalTensor>(function, operand2->Datatype(), targetShape);
-        Expand(function, tileShape, operand2, tmp);
+        Expand(function, tileShape, operand2, {operand1}, tmp);
         operand2 = tmp;
     }
 
@@ -1173,33 +1154,6 @@ void TiledWhereOperation(Function &function, const TileShape &tileShape, size_t 
         TiledWhereOperation(function, tileShape, cur + 1, condition, input, other, result,
                                     resultTileInfo);
     }
-}
-
-void Expand(Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand,
-    const std::vector<LogicalTensorPtr> &other, const LogicalTensorPtr &result) {
-    CheckExpandTensorVaild(operand, result);
-    ASSERT(function.GetGraphType() == GraphType::TILE_GRAPH);
-    std::vector<int64_t> offset(result->shape.size(), 0);
-    std::vector<int64_t> viewShape(result->shape.size(), 1);
-    std::vector<SymbolicScalar> outValidShape;
-    int expandDim = -1;
-    for (size_t i = 0; i < result->shape.size(); ++i) {
-        if (operand->shape[i] != result->shape[i]) {
-            expandDim = i;
-            for (auto it : other) {
-                if (it != nullptr && it->shape[i] == result->shape[i]) {
-                    outValidShape.push_back(it->GetDynValidShape()[i]);
-                    break;
-                }
-            }
-        } else {
-            outValidShape.push_back(operand->GetDynValidShape()[i]);
-        }
-    }
-
-    result->UpdateDynValidShape(outValidShape);
-    struct ExpandInfo expandInfo(operand, result, viewShape, offset, expandDim);
-    ExpandTile(function, tileShape, 0, expandInfo, outValidShape);
 }
 
 template <typename U, typename W>
