@@ -146,8 +146,8 @@ private:
 
     void ConvertPoolAttribute(const Operation &operation);
     void ConvertAttribute(const Operation &operation);
-
     void UpdateShape(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx);
+    bool IsUpdateOffsetByAttr(const LogicalTensor &logicalTensor, bool useAttrShapeOffset);
     void UpdateOffsetForInput(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx);
     void UpdateOffsetForOutput(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx);
     void UpdateOffsetValueForGM(const std::vector<OpImmediate> &offsets, int operandIdx);

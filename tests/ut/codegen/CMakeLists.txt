@@ -78,8 +78,10 @@ set(_CaseFilterList
 
         ########################## DYNAMIC ##########################
         # mte
+        "TestCodegenDynCopy.L1ToFB"
         "TestCodegenDynCopy.L0CToOut"
         "TestCodegenDynCopy.L0CToOutUnalign"
+        "TestCodegenDynCopy.L1ToBt"
         "TestCodegenDynCopy.L1CopyIn"
         "TestCodegenDynCopy.L1CopyInNZ"
         "TestCodegenDynCopy.L1CopyInNZWithValue"

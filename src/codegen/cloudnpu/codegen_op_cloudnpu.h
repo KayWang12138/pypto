@@ -37,8 +37,10 @@ public:
         : CodeGenOp(symbolManager, funcType, locToOffset, isUnderDynamicFunc) {};
     ~CodeGenOpCloudNPU() override = default;
 
+    std::string GenMemL1ToBt() const;
     std::string GenMemL1CopyIn() const;
     std::string GenMemL1CopyOut() const;
+    std::string GenMemL1ToFB() const;
     std::string GenMemL0CCopyOut() const;
     std::string GenMemL0CToL1() const;
 
@@ -424,6 +426,7 @@ private:
         {               Opcode::OP_UB_COPY_OUT,                [this]() { return GenUBCopyOut(); }},
         {               Opcode::OP_RESHAPE_COPY_IN,                [this]() { return GenReshapeCopyIn(); }},
         {               Opcode::OP_RESHAPE_COPY_OUT,                [this]() { return GenReshapeCopyOut(); }},
+        {                  Opcode::OP_L1_TO_FB,                [this]() { return GenMemL1ToFB(); }},
 
         // L1 <-> GM/BT/L1
         {                Opcode::OP_L1_COPY_IN,              [this]() { return GenMemL1CopyIn(); }},
@@ -439,6 +442,7 @@ private:
         {                 Opcode::OP_L1_TO_L0B,                [this]() { return GenMemL1ToL0(); }},
         {               Opcode::OP_L1_TO_L0_BT,                [this]() { return GenMemL1ToL0(); }},
         {               Opcode::OP_L1_TO_L0_AT,                [this]() { return GenMemL1ToL0(); }},
+        {                  Opcode::OP_L1_TO_BT,                [this]() { return GenMemL1ToBt(); }},
         // cast op
         {                      Opcode::OP_CAST,                   [this]() { return GenCastOp(); }},
         // load op

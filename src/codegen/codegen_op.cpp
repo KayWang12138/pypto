@@ -83,9 +83,17 @@ void CodeGenOp::UpdateOffsetValueForGM(const std::vector<OpImmediate> &offsets, 
     ALOG_INFO_F("UpdateOffsetValueForGM , offsetGmSymbolic is %s", IntVecToStr(dynOffset).c_str());
 }
 
+bool CodeGenOp::IsUpdateOffsetByAttr(const LogicalTensor &logicalTensor, bool useAttrShapeOffset){
+    if ((!useAttrShapeOffset) || (((opCode != Opcode::OP_L1_TO_BT) && (opCode != Opcode::OP_L1_TO_FB)) &&
+                                     (logicalTensor.GetMemoryTypeOriginal() != MEM_DEVICE_DDR))) {
+        return false;
+    }
+    return true;
+}
+
 void CodeGenOp::UpdateOffsetForInput(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx) {
     bool useAttrShapeOffsetForInputGM = OpcodeManager::Inst().IsCopyIn(opCode);
-    if (!useAttrShapeOffsetForInputGM || logicalTensor.GetMemoryTypeOriginal() != MEM_DEVICE_DDR) {
+    if (!IsUpdateOffsetByAttr(logicalTensor, useAttrShapeOffsetForInputGM)) {
         offset[operandIdx] = ToVecInt(logicalTensor.offset); // Local Tensor offset just use offset from LogicalTensor
         return;
     }

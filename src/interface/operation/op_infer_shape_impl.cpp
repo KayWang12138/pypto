@@ -352,6 +352,17 @@ REGISTER_INFER_SHAPE_FUNC(OP_A_MUL_BT, Opcode::OP_A_MUL_BT, MatmulInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_AT_MUL_B, Opcode::OP_AT_MUL_B, MatmulInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_AT_MUL_BT, Opcode::OP_AT_MUL_BT, MatmulInferFunc);
 
+void LoadBTFBInferFunc(Operation* op,
+                     std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    for (auto output : op->GetOOperands()) {
+        assert(!output->GetDynValidShape().empty());
+        outValidShapes.push_back(output->GetDynValidShape());
+    }
+}
+
+REGISTER_INFER_SHAPE_FUNC(OP_L1_TO_BT, Opcode::OP_L1_TO_BT, LoadBTFBInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_L1_TO_FB, Opcode::OP_L1_TO_FB, LoadBTFBInferFunc);
+
 void MatmulACCInferFunc(Operation* op,
                         std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
     std::vector<SymbolicScalar> outValidShape;

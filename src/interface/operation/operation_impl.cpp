@@ -5053,34 +5053,51 @@ void npu::tile_fwk::ExpandOperationInto(Function &function, const TileShape &til
             break;
         }
         case Opcode::OP_A_MUL_B: {
-            auto mValue = (op.HasAttr(OP_ATTR_PREFIX + "act_m")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_m") : 0;
-            auto kValue = (op.HasAttr(OP_ATTR_PREFIX + "act_k")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_k") : 0;
-            auto nValue = (op.HasAttr(OP_ATTR_PREFIX + "act_n")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_n") : 0;
-            Matrix::TiledInnerAMulB(function, tileShape, iOperand, oOperand[0], {mValue, kValue, nValue});
+            int64_t mValue = (op.HasAttr(OP_ATTR_PREFIX + "act_m")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_m") : 0;
+            int64_t kValue = (op.HasAttr(OP_ATTR_PREFIX + "act_k")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_k") : 0;
+            int64_t nValue = (op.HasAttr(OP_ATTR_PREFIX + "act_n")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_n") : 0;
+            int64_t reluType = (op.HasAttr(OP_ATTR_PREFIX + "relu_type")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "relu_type") : 0;
+            uint64_t scaleValue = (op.HasAttr(OP_ATTR_PREFIX + "scale_value")) ? op.GetElementAttribute(OP_ATTR_PREFIX + "scale_value").GetUnsignedData() : Element(DataType::DT_UINT64, 0).GetUnsignedData();
+            bool hasBias = (op.HasAttr(OP_ATTR_PREFIX + "has_bias")) ? op.GetBoolAttribute(OP_ATTR_PREFIX + "has_bias") : false;
+            bool quantModeFlag = (op.HasAttr(OP_ATTR_PREFIX + "quant_mode_flag")) ? op.GetBoolAttribute(OP_ATTR_PREFIX + "quant_mode_flag") : false;
+            Matrix::MatmulAttrParam attrParam  = {mValue, kValue, nValue, hasBias, quantModeFlag, reluType, scaleValue};
+            Matrix::TiledInnerAMulB<false, false>(function, tileShape, iOperand, oOperand[0], attrParam);
             break;
         }
         case Opcode::OP_A_MUL_BT: {
-            auto mValue = (op.HasAttr(OP_ATTR_PREFIX + "act_m")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_m") : 0;
-            auto kValue = (op.HasAttr(OP_ATTR_PREFIX + "act_k")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_k") : 0;
-            auto nValue = (op.HasAttr(OP_ATTR_PREFIX + "act_n")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_n") : 0;
-            Matrix::TiledInnerAMulB<false, true>(
-                function, tileShape, iOperand, oOperand[0], {mValue, kValue, nValue});
+            int64_t mValue = (op.HasAttr(OP_ATTR_PREFIX + "act_m")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_m") : 0;
+            int64_t kValue = (op.HasAttr(OP_ATTR_PREFIX + "act_k")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_k") : 0;
+            int64_t nValue = (op.HasAttr(OP_ATTR_PREFIX + "act_n")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_n") : 0;
+            int64_t reluType = (op.HasAttr(OP_ATTR_PREFIX + "relu_type")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "relu_type") : 0;
+            uint64_t scaleValue = (op.HasAttr(OP_ATTR_PREFIX + "scale_value")) ? op.GetElementAttribute(OP_ATTR_PREFIX + "scale_value").GetUnsignedData() : Element(DataType::DT_UINT64, 0).GetUnsignedData();
+            bool hasBias = (op.HasAttr(OP_ATTR_PREFIX + "has_bias")) ? op.GetBoolAttribute(OP_ATTR_PREFIX + "has_bias") : false;
+            bool quantModeFlag = (op.HasAttr(OP_ATTR_PREFIX + "quant_mode_flag")) ? op.GetBoolAttribute(OP_ATTR_PREFIX + "quant_mode_flag") : false;
+            Matrix::MatmulAttrParam attrParam  = {mValue, kValue, nValue, hasBias, quantModeFlag, reluType, scaleValue};
+            Matrix::TiledInnerAMulB<false, true>(function, tileShape, iOperand, oOperand[0], attrParam);
             break;
         }
         case Opcode::OP_AT_MUL_B: {
-            auto mValue = (op.HasAttr(OP_ATTR_PREFIX + "act_m")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_m") : 0;
-            auto kValue = (op.HasAttr(OP_ATTR_PREFIX + "act_k")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_k") : 0;
-            auto nValue = (op.HasAttr(OP_ATTR_PREFIX + "act_n")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_n") : 0;
-            Matrix::TiledInnerAMulB<true, false>(
-                function, tileShape, iOperand, oOperand[0], {mValue, kValue, nValue});
+            int64_t mValue = (op.HasAttr(OP_ATTR_PREFIX + "act_m")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_m") : 0;
+            int64_t kValue = (op.HasAttr(OP_ATTR_PREFIX + "act_k")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_k") : 0;
+            int64_t nValue = (op.HasAttr(OP_ATTR_PREFIX + "act_n")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_n") : 0;
+            int64_t reluType = (op.HasAttr(OP_ATTR_PREFIX + "relu_type")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "relu_type") : 0;
+            uint64_t scaleValue = (op.HasAttr(OP_ATTR_PREFIX + "scale_value")) ? op.GetElementAttribute(OP_ATTR_PREFIX + "scale_value").GetUnsignedData() : Element(DataType::DT_UINT64, 0).GetUnsignedData();
+            bool hasBias = (op.HasAttr(OP_ATTR_PREFIX + "has_bias")) ? op.GetBoolAttribute(OP_ATTR_PREFIX + "has_bias") : false;
+            bool quantModeFlag = (op.HasAttr(OP_ATTR_PREFIX + "quant_mode_flag")) ? op.GetBoolAttribute(OP_ATTR_PREFIX + "quant_mode_flag") : false;
+            Matrix::MatmulAttrParam attrParam  = {mValue, kValue, nValue, hasBias, quantModeFlag, reluType, scaleValue};
+            Matrix::TiledInnerAMulB<true, false>(function, tileShape, iOperand, oOperand[0], attrParam);
             break;
         }
         case Opcode::OP_AT_MUL_BT: {
-            auto mValue = (op.HasAttr(OP_ATTR_PREFIX + "act_m")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_m") : 0;
-            auto kValue = (op.HasAttr(OP_ATTR_PREFIX + "act_k")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_k") : 0;
-            auto nValue = (op.HasAttr(OP_ATTR_PREFIX + "act_n")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_n") : 0;
-            Matrix::TiledInnerAMulB<true, true>(
-                function, tileShape, iOperand, oOperand[0], {mValue, kValue, nValue});
+            int64_t mValue = (op.HasAttr(OP_ATTR_PREFIX + "act_m")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_m") : 0;
+            int64_t kValue = (op.HasAttr(OP_ATTR_PREFIX + "act_k")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_k") : 0;
+            int64_t nValue = (op.HasAttr(OP_ATTR_PREFIX + "act_n")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_n") : 0;
+            int64_t reluType = (op.HasAttr(OP_ATTR_PREFIX + "relu_type")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "relu_type") : 0;
+            uint64_t scaleValue = (op.HasAttr(OP_ATTR_PREFIX + "scale_value")) ? op.GetElementAttribute(OP_ATTR_PREFIX + "scale_value").GetUnsignedData() : Element(DataType::DT_UINT64, 0).GetUnsignedData();
+            bool hasBias = (op.HasAttr(OP_ATTR_PREFIX + "has_bias")) ? op.GetBoolAttribute(OP_ATTR_PREFIX + "has_bias") : false;
+            bool quantModeFlag = (op.HasAttr(OP_ATTR_PREFIX + "quant_mode_flag")) ? op.GetBoolAttribute(OP_ATTR_PREFIX + "quant_mode_flag") : false;
+            Matrix::MatmulAttrParam attrParam  = {mValue, kValue, nValue, hasBias, quantModeFlag, reluType, scaleValue};
+            Matrix::TiledInnerAMulB<true, true>(function, tileShape, iOperand, oOperand[0], attrParam);
             break;
         }
         case Opcode::OP_RANGE: {

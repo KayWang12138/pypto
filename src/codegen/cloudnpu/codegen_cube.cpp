@@ -50,9 +50,14 @@ std::string CodeGenOpCloudNPU::GenCubeOp(bool zeroC) const {
         auto mSymbol = l0cShapeDyn[ID0];
         auto kSymbol = l0aShapeDyn[ID1];
         auto nSymbol = l0cShapeDyn[ID1];
+        bool hasBias = 0;
+        if(opAttrs.count(OP_ATTR_PREFIX + "has_bias")){
+            hasBias = npu::tile_fwk::AnyCast<bool>(opAttrs.at(OP_ATTR_PREFIX + "has_bias"));
+        }
+        std::string biasStr = ", " + std::to_string(hasBias);
 
         oss << tileOpName << "<" << cDtypeStr << ", " << aDtypeStr << ", " << bDtypeStr << ", " << offset[ID0][ID0]
-            << ", " << offset[ID0][ID1] << ">"
+            << ", " << offset[ID0][ID1] << biasStr <<">"
             << "((" << GetAddrTypeByOperandType(operandType[ID0]) << " " << cDtypeStr << "*)" << cVar << ", "
             << "(" << GetAddrTypeByOperandType(operandType[ID1]) << " " << aDtypeStr << "*)" << aVar << ", "
             << "(" << GetAddrTypeByOperandType(operandType[ID2]) << " " << bDtypeStr << "*)" << bVar << ", "

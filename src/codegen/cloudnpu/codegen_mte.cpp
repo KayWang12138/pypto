@@ -17,6 +17,7 @@
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/utils/codegen_utils.h"
 #include "securec.h"
+#include <string>
 
 namespace npu::tile_fwk {
 template <typename T>
@@ -197,6 +198,37 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0() const {
     }
 
     return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenMemL1ToBt() const {
+    std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+    std::string srcVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+
+    std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID1]);
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+
+    auto dynValidShape = dynamicValidShape[ID0];
+    auto dynoffset = offsetGmSymbolic[ID1];
+    // only support 2-dim shape
+    ASSERT(dynoffset.size() == SHAPE_DIM2) << "GenMemL1ToBt only support 2-dim!";
+
+    std::ostringstream os;
+    std::vector<std::string> paramList;
+    paramList.emplace_back(srcDtypeStr);
+    paramList.emplace_back(dstDtypeStr);
+    // only need the valid offset of tail axis
+    ASSERT(dynoffset[ID1].IsValid()) << "GenMemL1ToBt offset is invalid";
+    paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dynoffset[ID1]));
+    std::string templateParam = JoinString(paramList, ", ");
+    paramList.clear();
+    std::string dst = "(uint64_t)" + dstVar;
+    std::string src = "(" + GetAddrTypeByOperandType(BUF_L1) + " " + srcDtypeStr + "*)" + srcVar;
+    paramList.insert(paramList.end(), {dst, src});
+    // only need the valid shape of tail axis
+    paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dynValidShape[ID1]));
+    std::string tileOpCallParam = JoinString(paramList, ", ");
+    os << tileOpName << "<" << templateParam << ">" << "(" << tileOpCallParam << ");\n";
+    return os.str();
 }
 
 std::string CodeGenOpCloudNPU::GenMemUBSpillIntoGM(bool isCopyUBToGM) const {
@@ -610,6 +642,9 @@ std::string CodeGenOpCloudNPU::PrintL0CCopyOutDynamicUnalign(const PrintMemCopyW
     } else {
         paramList.emplace_back("true");
     }
+    int64_t reluMode = 0;
+    ret = GetAttr(OP_ATTR_PREFIX + "relu_type", reluMode);
+    paramList.emplace_back(std::to_string(reluMode));
     std::string templateParam = JoinString(paramList, ", ");
 
     paramList.clear();
@@ -622,16 +657,16 @@ std::string CodeGenOpCloudNPU::PrintL0CCopyOutDynamicUnalign(const PrintMemCopyW
     }
     paramList.emplace_back(gmShapeExpr[0]);
     paramList.emplace_back(gmOffsetExpr[0]);
-    int64_t outerValue = 0;
-    int64_t innerValue = 0;
+    int64_t outerValue = 0, innerValue = 0;
     ret = GetAttr("op_attr_curH", outerValue);
     ret = GetAttr("op_attr_curW", innerValue);
     auto gmShapeExprByIndex = GenParamIdxExprByIndex(gmIdx, SHAPE_DIM2, PREFIX_STR_RAW_SHAPE);
     std::string outerValueStr = outerValue == 0 ? gmShapeExprByIndex[0] : std::to_string(outerValue);
     std::string innerValueStr = innerValue == 0 ? gmShapeExprByIndex[1] : std::to_string(innerValue);
-    paramList.emplace_back(outerValueStr);
-    paramList.emplace_back(innerValueStr);
-    paramList.emplace_back(std::to_string(param.uf));
+    paramList.insert(paramList.end(), {outerValueStr, innerValueStr, std::to_string(param.uf)});
+    npu::tile_fwk::Element scaleValue = npu::tile_fwk::Element(DataType::DT_UINT64, 0);
+    ret = GetAttr(OP_ATTR_PREFIX + "scale_value", scaleValue);
+    paramList.emplace_back(std::to_string(scaleValue.GetUnsignedData()));
     std::string tiloOpCallParam = JoinString(paramList, ", ");
     os << tileOpName << "<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
     return os.str();
@@ -784,8 +819,17 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1Dynamic(const PrintMemCopyWithL
         }
     } else {
         if (isSupportDynamicUnaligned) {
+            int64_t copyInMode = 1;
+            std::string cpModeStr = "";
+            const int64_t ND2ND = 0;
+            if(opAttrs.count(OP_ATTR_PREFIX + "copy_in_mode")){
+                copyInMode = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "copy_in_mode"));
+            }
+            if (copyInMode == ND2ND) {
+                cpModeStr = ", CopyInMode::ND2ND";
+            }
             auto dynValidShape = dynamicValidShape[localIdx];
-            oss << opName << "<" << dataTypeExpr[gmIdx] << ", " << dataTypeExpr[localIdx] << ">"
+            oss << opName << "<" << dataTypeExpr[gmIdx] << ", " << dataTypeExpr[localIdx] << cpModeStr << ">"
                 << "((" << addrTypeHead[ID0] << " " << dataTypeExpr[ID0] << "*)" << addrExpr[ID0] << ", "
                 << "(" << addrTypeHead[ID1] << " " << dataTypeExpr[ID1] << "*)" << addrBuffer << ", "
                 << SymbolicExpressionTable::BuildExpression(dynValidShape[ID0]) << ", "
@@ -1015,6 +1059,33 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBTileTensor(const PrintMemCopyWi
     oss << PrintParams({"(", ")"}, tileOpParamList, ", ");
     oss << ";\n";
     return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenMemL1ToFB() const {
+    std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+    std::string srcVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+
+    std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID1]);
+    auto dynValidShape = dynamicValidShape[ID0];
+    auto dynoffset = offsetGmSymbolic[ID1];
+    ASSERT(dynoffset.size() == SHAPE_DIM2) << "GenMemL1ToFB only support 2-dim!";
+
+    std::ostringstream os;
+    std::vector<std::string> paramList;
+    paramList.emplace_back(srcDtypeStr);
+    // only need the valid offset of tail axis
+    ASSERT(dynoffset[ID1].IsValid()) << "GenMemL1TFB offset is invalid";
+    paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dynoffset[ID1]));
+    std::string templateParam = JoinString(paramList, ", ");
+    paramList.clear();
+    std::string dst = "(" + GetAddrTypeByOperandType(BUF_FIX) + " " + srcDtypeStr + "*)" + dstVar;
+    std::string src = "(" + GetAddrTypeByOperandType(BUF_L1) + " " + srcDtypeStr + "*)" + srcVar;
+    paramList.insert(paramList.end(), {dst, src});
+    // only need the valid shape of tail axis
+    paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dynValidShape[ID1]));
+    std::string tileOpCallParam = JoinString(paramList, ", ");
+    os << tileOpName << "<" << templateParam << ">" << "(" << tileOpCallParam << ");\n";
+    return os.str();
 }
 
 std::string CodeGenOpCloudNPU::GenGMAddrExprWithOffset(const std::string &addrExpr, unsigned gmIdx) const {

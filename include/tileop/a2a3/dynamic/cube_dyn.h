@@ -41,10 +41,17 @@ INLINE T CeilDiv(T num_1, T num_2) {
     return (num_1 + num_2 - 1) / num_2;
 }
 
-template <typename GMT, typename L1T>
+template <typename GMT, typename L1T, CopyInMode mode = CopyInMode::ND2NZ>
 TILEOP void DynL1CopyIn(__cbuf__ L1T *dst, __gm__ GMT *src, unsigned TShape0, unsigned TShape1, unsigned GmShape0,
     unsigned GmShape1, unsigned GmOffset0, unsigned GmOffset1, int reserved) {
     if (TShape0 == 0 || TShape1 == 0) {
+        return;
+    }
+
+    if constexpr (mode == CopyInMode::ND2ND){
+        src += GmOffset1;
+        uint16_t lenBurst = CeilDiv<uint16_t>(TShape1 * sizeof(GMT), BLOCK_SIZE);
+        copy_gm_to_cbuf((__cbuf__ L1T *)dst, (__gm__ GMT *)src, 0, 1, lenBurst, 0, 0, PAD_NONE);
         return;
     }
 
@@ -297,27 +304,52 @@ TILEOP void DynL1ToL0Bt(__cb__ T *dst, __cbuf__ T *src, unsigned dstK, unsigned 
     }
 }
 
-template <typename Tc, typename Ta, typename Tb, unsigned Offset0, unsigned Offset1>
+template <typename L1T, typename BTT, unsigned Offset>
+TILEOP void DynL1ToBT(uint64_t dst, __cbuf__ L1T *src, unsigned nSize){
+    constexpr uint16_t nBurst = 1;
+    uint16_t lenBurst = CeilDiv<uint16_t>(nSize * sizeof(L1T), 64); // IN UNIT OF 64B
+    constexpr uint16_t sourceGap = 0;
+    constexpr uint16_t dstGap = 0;
+    constexpr bool convControl = std::is_same<L1T, half>::value;
+    copy_cbuf_to_bt(dst, src + Offset, convControl, nBurst, lenBurst, sourceGap, dstGap);
+}
+
+template <typename T, unsigned L1Offset>
+TILEOP void DynL1ToFB(__fbuf__ T* dst, __cbuf__ T *src, unsigned nSize){
+   // align to 128B
+   uint16_t deqDataSize = CeilDiv<uint16_t>(nSize * sizeof(uint64_t), 128) * 128;
+   // l1->fb
+   uint16_t fbufBurstLen = deqDataSize / 128; // copy from cbuf to fbuf,burst len uint is 128Bytes
+   copy_cbuf_to_fbuf(dst,src + L1Offset, 1, fbufBurstLen, 0, 0);
+   // FPC of fixpipe for quant_pre is FPX[15:8],uint is 128Bytes
+   // 7 means dst to 8 to set fpc
+   uint64_t deqTensorAddr = ((uint64_t)dst >> static_cast<uint64_t>(7)) << 8;
+   set_fpc(deqTensorAddr);
+}
+
+template <typename Tc, typename Ta, typename Tb, unsigned Offset0, unsigned Offset1, bool HasBias = false>
 TILEOP void DynTmad(__cc__ Tc *c, __ca__ Ta *a, __cb__ Tb *b, uint16_t m, uint16_t k, uint16_t n, bool zero_C, int uf,
     unsigned L0CShape0, unsigned L0CShape1) {
     if (m == 0 || k == 0 || n == 0) {
         return;
+    }
+    if constexpr (HasBias) {
+        zero_C = false;
     }
     m = CeilAlign<uint16_t>(m, BLOCK_CUBE_M_N);
     if constexpr (std::is_same<Tb, int8_t>::value) {
         n = CeilAlign<uint16_t>(n, 32); // 32含义：int8场景总是保证L0B中32对齐
     }
     constexpr bool kDirectionAlign = true;
-    constexpr bool cmatrixSource = false;
     mad((__cc__ Tc *)(c + (Offset0 * BLOCK_CUBE_M_N) + Offset1 * L0CShape0), a, b, m, k, n, 0, kDirectionAlign,
-        cmatrixSource, zero_C);
+        HasBias, zero_C);
     pipe_barrier(PIPE_M);
 }
 
-template <typename GMT, typename L0CT, bool enableNZ2ND>
+template <typename GMT, typename L0CT, bool enableNZ2ND, uint8_t reluMode = 0>
 TILEOP void DynL0CCopyOut(__gm__ GMT *dst, __cc__ L0CT *src, unsigned oriTShape0, unsigned oriTShape1,
     unsigned GmShape0, unsigned GmShape1, unsigned GmOffset0, unsigned GmOffset1, unsigned curH, unsigned curW,
-    int uf) {
+    int uf, uint64_t scaleValue = 0) {
     if (oriTShape0 == 0 || oriTShape1 == 0) {
         return;
     }
@@ -351,7 +383,6 @@ TILEOP void DynL0CCopyOut(__gm__ GMT *dst, __cc__ L0CT *src, unsigned oriTShape0
     set_nd_para(ndPara);
 
     uint64_t quantPre = NoQuant;
-    uint8_t reluPre = 0;
     if (std::is_same<L0CT, float>::value) {
         if (std::is_same<GMT, half>::value) {
             quantPre = QuantMode_t::F322F16;
@@ -360,11 +391,18 @@ TILEOP void DynL0CCopyOut(__gm__ GMT *dst, __cc__ L0CT *src, unsigned oriTShape0
         } else {
             quantPre = QuantMode_t::NoQuant;
         }
+    } else if constexpr (std::is_same<L0CT, int32_t>::value && std::is_same<GMT, half>::value){
+       if (scaleValue == 0) {
+           quantPre = QuantMode_t::VDEQF16;
+       }else {
+           set_quant_pre(scaleValue);
+           quantPre = QuantMode_t::DEQF16;
+       }
     }
     uint8_t unitFlagMode = uf;
 
     copy_matrix_cc_to_gm((__gm__ GMT *)(dst + gmOffset), (__cc__ L0CT *)src, 0, nSize, mSize, dstStrideDstD, srcStride,
-        unitFlagMode, quantPre, reluPre, channelSplit, enableNZ2ND);
+        unitFlagMode, quantPre, reluMode, channelSplit, enableNZ2ND);
 }
 
 template <typename GMT, typename L0CT, int isAcc, bool enableNZ2ND>

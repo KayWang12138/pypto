@@ -327,21 +327,40 @@ void PrologPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &q
     Tensor &postOut, PaTileShapeConfig &tileConfig);
 
 namespace Matrix {
+
+enum class CopyInMode : int64_t 
+{
+    ND2ND = 0,
+    ND2NZ = 1
+};
+
+enum class ReLuType : int64_t 
+{
+    NoReLu = 0,
+    ReLu = 1
+};
+
+struct MatmulExtendParam {
+    Tensor biasTensor{Tensor()};  
+    Tensor scaleTensor{Tensor()};  
+    uint64_t scaleValue{0};        
+    ReLuType reluType{ReLuType::NoReLu};  
+    MatmulExtendParam(Tensor bias, Tensor scale, uint64_t scaleVal, ReLuType relu)
+        : biasTensor(std::move(bias)),    
+          scaleTensor(std::move(scale)),  
+          scaleValue(scaleVal),           
+          reluType(relu) {}                    
+    MatmulExtendParam() = default;
+};
+
 template <bool isATrans = false, bool isBTrans = false, bool isCMatrixNZ = false>
 Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix);
 
 template <bool isATrans = false, bool isBTrans = false, bool isCMatrixNZ = false>
 Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const Tensor &cMatrix);
 
-template <typename ScaleT>
-struct MatmulParams {
-    Tensor biasTensor;
-    ScaleT quantScale;
-};
-
-template <typename ScaleT, bool isATrans = false, bool isBTrans = false>
-Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const Tensor &cMatrix,
-    const MatmulParams<ScaleT> &params);
+template <bool isATrans = false, bool isBTrans = false, bool isCMatrixNZ = false>
+Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const MatmulExtendParam &extendParam);
 
 template <bool isATrans = false, bool isBTrans = false, bool isCMatrixNZ = false>
 Tensor BatchMatmul(DataType dataType, const Tensor &aMatrix, const Tensor &bMatrix);

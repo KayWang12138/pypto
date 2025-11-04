@@ -24,7 +24,6 @@
 #include "tilefwk/tile_shape.h"
 
 namespace npu::tile_fwk {
-
 class Function;
 class Operation;
 using LogicalTensorPtr = std::shared_ptr<LogicalTensor>;
@@ -101,6 +100,14 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
 
 
 namespace Matrix {
+
+struct TensorAttributes {
+    int64_t tileSize;
+    int64_t offset;
+    std::string name;
+    MemoryType memType {MemoryType::MEM_UNKNOWN }; 
+};
+
 const size_t M_INDEX = 0;
 const size_t K_INDEX = 1;
 const size_t N_INDEX = 2;
@@ -112,6 +119,17 @@ const std::string MATMUL_NZ_ATTR = OP_ATTR_PREFIX + "matmul_nz_attr";
 const std::string A_MUL_B_ACT_M = OP_ATTR_PREFIX + "act_m";
 const std::string A_MUL_B_ACT_K = OP_ATTR_PREFIX + "act_k";
 const std::string A_MUL_B_ACT_N = OP_ATTR_PREFIX + "act_n";
+
+// has bias
+const std::string A_MUL_B_BIAS_ATTR = OP_ATTR_PREFIX + "has_bias";
+// set copy in mode for gm2l1
+const std::string A_MUL_B_COPY_IN_MODE = OP_ATTR_PREFIX + "copy_in_mode";
+// set scale value for perTensor
+const std::string A_MUL_B_SCALE_ATTR = OP_ATTR_PREFIX + "scale_value";
+// set relu type for fixpipe relu
+const std::string A_MUL_B_RELU_ATTR = OP_ATTR_PREFIX + "relu_type";
+// set quant mode to identify whether perchannel or not
+const std::string A_MUL_B_QUANT_MODE_FLAG = OP_ATTR_PREFIX + "quant_mode_flag";
 
 struct L1DataLoadParam {
     const LogicalTensorPtr &cTilePtr;
@@ -129,6 +147,8 @@ struct CollectSubAMulBPara {
     const LogicalTensorPtr &aTensorPtr;
     const LogicalTensorPtr &bTensorPtr;
     const LogicalTensorPtr &cTensorPtr;
+    const LogicalTensorPtr &biasTensorPtr = nullptr;
+    const LogicalTensorPtr &scaleTensorPtr = nullptr;
 };
 
 struct DoAMulBParam {
@@ -136,9 +156,21 @@ struct DoAMulBParam {
     const LogicalTensorPtr &cTensorPtr;
 };
 
+struct MatmulAttrParam 
+{
+    int64_t mValue;
+    int64_t kValue;
+    int64_t nValue;
+    bool hasBias;
+    bool quantModeFlag;
+    int64_t reluType;
+    uint64_t scaleValue;
+};
+
 template <bool isTransA = false, bool isTransB = false>
 void TiledInnerAMulB(Function &function, const TileShape &tileShape, const std::vector<LogicalTensorPtr> &operandVec,
-    const LogicalTensorPtr &result, const std::vector<int64_t> &matmulSize);
+    const LogicalTensorPtr &result, const MatmulAttrParam &params);
+
 
 } // namespace Matrix
 

@@ -21,6 +21,7 @@ constexpr int64_t MAX_L0A_SIZE = 64 * 1024;
 constexpr int64_t MAX_L0C_SIZE = 128 * 1024;
 constexpr int64_t MAX_BT_SIZE = 1 * 1024;
 constexpr int64_t MAX_FIX_SIZE = 1 * 1024;
+constexpr int64_t MAX_FIX_QUANT_PRE_SIZE = 1 * 2048;
 constexpr int32_t DIM_FIVE = 5;
 constexpr int32_t LAST_TWO_DIM = 2;
 constexpr int32_t UB_BLOCK_SIZE = 32;
@@ -704,6 +705,7 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
         {MemoryType::MEM_L0C, MAX_L0C_SIZE},
         {MemoryType::MEM_BT, MAX_BT_SIZE},
         {MemoryType::MEM_FIX, MAX_FIX_SIZE},
+        {MemoryType::MEM_FIX_QUANT_PRE, MAX_FIX_QUANT_PRE_SIZE},
     };
     inChipMemorySize.insert({MemoryType::MEM_UB, 
         PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_UB)});
@@ -711,7 +713,9 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
         PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L1)});
     inChipMemorySize.insert({MemoryType::MEM_L0B, 
         PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L0B)});
-
+    inChipMemorySize.insert({MemoryType::MEM_FIX_QUANT_PRE, 
+        PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_FIX_QUANT_PRE)});
+    
     std::vector<Operation *> newOperations;
     for (auto& op : operations) {
         if (op->GetOpcodeStr().find("ALLOC") != std::string::npos) {
