@@ -44,11 +44,10 @@ def test_view_content_equal():
     res = pto.tensor(view_shape, dtype)
 
     with pto.function("VIEW_CONTENT", [x], [res]):
-        with pto.loop_function("LOOP_L0", "a_idx", pto.loop_range(1)) as aloop:
-            for a_idx in aloop:
-                pto.set_vec_tile_shapes(4, 4)
-                res.move(pto.view(x, view_shape, offset))
-                del res
+        for _ in pto.loop(1, name="LOOP_L0", idx_name="a_idx"):
+            pto.set_vec_tile_shapes(4, 4)
+            res.move(pto.view(x, view_shape, offset))
+            del res
     
     torch_tensor = torch.rand(4, 8, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)
@@ -70,11 +69,10 @@ def test_view_content_equal_validshape():
     res = pto.tensor(view_shape, dtype)
 
     with pto.function("VIEW_CONTENT_VALIDSHAPE", [x], [res]):
-        with pto.loop_function("LOOP_L0", "a_idx", pto.loop_range(1)) as aloop:
-            for a_idx in aloop:
-                pto.set_vec_tile_shapes(4, 4)
-                res.move(pto.view(x, view_shape, offset, valid_shape=validshape))
-                del res
+        for _ in pto.loop(1, name="LOOP_L0", idx_name="a_idx"):
+            pto.set_vec_tile_shapes(4, 4)
+            res.move(pto.view(x, view_shape, offset, valid_shape=validshape))
+            del res
     
     torch_tensor = torch.rand(4, 4, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)
@@ -97,11 +95,10 @@ def test_tensor_view_content_equal():
     res = pto.tensor(view_shape, dtype)
 
     with pto.function("Tensor_VIEW_CONTENT", [x], [res]):
-        with pto.loop_function("LOOP_L0", "a_idx", pto.loop_range(1)) as aloop:
-            for a_idx in aloop:
-                pto.set_vec_tile_shapes(4, 4)
-                res.move(x.view(view_shape, offset))
-                del res
+        for _ in pto.loop(1, name="LOOP_L0", idx_name="a_idx"):
+            pto.set_vec_tile_shapes(4, 4)
+            res.move(x.view(view_shape, offset))
+            del res
     
     torch_tensor = torch.rand(4, 8, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)
@@ -124,11 +121,10 @@ def test_syntactic_sugar_view_content_equal():
     res = pto.tensor(view_shape, dtype)
 
     with pto.function("SURGER_VIEW_CONTENT", [x], [res]):
-        with pto.loop_function("LOOP_L0", "a_idx", pto.loop_range(1)) as aloop:
-            for a_idx in aloop:
-                pto.set_vec_tile_shapes(4, 4)
-                res.move(x[ : offset[0] + view_shape[0], offset[1] : offset[1] + view_shape[1]])
-                del res
+        for _ in pto.loop(1, name="LOOP_L0", idx_name="a_idx"):
+            pto.set_vec_tile_shapes(4, 4)
+            res.move(x[:offset[0] + view_shape[0], offset[1]:offset[1] + view_shape[1]])
+            del res
     
     torch_tensor = torch.rand(4, 8, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)

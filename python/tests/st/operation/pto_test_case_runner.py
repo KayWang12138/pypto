@@ -134,9 +134,9 @@ class PTOTestCaseRunner(TestCaseRunner):
         for index in list(range(len(loop_range_tuple))):
             function += prefix + (tab * (index + 1))
             function += (
-                f"with pto.loop_function({loop_desc[index][0]}, {loop_desc[index][1]}, "
+                f"with pto.controller._loop_function({loop_desc[index][0]}, {loop_desc[index][1]}, "
             )
-            function += f"pto.loop_range({loop_range_tuple[index]})) as {loop_desc[index][2]}:\n"
+            function += f"pto.controller._loop_range({loop_range_tuple[index]})) as {loop_desc[index][2]}:\n"
         prefix = tab * (len(loop_range_tuple) + 1)
         for index in list(range(len(loop_range_tuple))):
             function += prefix + (tab * (index + 1))

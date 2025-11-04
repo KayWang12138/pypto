@@ -68,169 +68,166 @@ def page_attention(**kwargs):
             batch_size = block_table.shape[0]
             n_q = q_nope.shape[0] // batch_size
             n_loop = n_q // n_tile
-            with pto.loop_function("LOOP_L0_bIdx", "b_idx", pto.loop_range(0, batch_size, 1)) as b_idx_loop:
-                for b_idx in b_idx_loop:
-                    def inside_b_idx_loop(b_idx):
-                        cur_seq = pto.get_tensor_data(act_seqs, [b_idx])
-                        bn_per_batch = (cur_seq + block_size - 1) // block_size
-                        bn_per_batch.as_intermediate_variable()
-                        with pto.loop_function("LOOP_L1_nIdx", "n_idx", pto.loop_range(0, n_loop, 1)) as n_idx_loop:
-                            for n_idx in n_idx_loop:
-                                def inside_n_idx_loop(b_idx, n_idx, bn_per_batch):
-                                    nonlocal n_tile
-                                    cur_n_tile = n_tile
-                                    oi_update = pto.tensor([n_tile, d_n], pto.DT_FP32, "oiUpdate")
-                                    li_update = pto.tensor([n_tile, 1], pto.DT_FP32, "liUpdate")
-                                    mi_update = pto.tensor([n_tile, 1], pto.DT_FP32, "miUpdate")
-                                    # 当前curOffset没放到更内层循环，避免重复bnPerBatch次的DAssemble操作
-                                    cur_offset = b_idx * n_q + n_idx * n_tile
-                                    oi_offset = [cur_offset, 0]  # (B*N*S, d)
+            for b_idx in pto.loop(0, batch_size, 1, name="LOOP_L0_bIdx", idx_name="b_idx"):
+                def inside_b_idx_loop(b_idx):
+                    cur_seq = pto.get_tensor_data(act_seqs, [b_idx])
+                    bn_per_batch = (cur_seq + block_size - 1) // block_size
+                    bn_per_batch.as_intermediate_variable()
+                    for n_idx in pto.loop(0, n_loop, 1, name="LOOP_L1_nIdx", idx_name="n_idx"):
+                        def inside_n_idx_loop(b_idx, n_idx, bn_per_batch):
+                            nonlocal n_tile
+                            cur_n_tile = n_tile
+                            oi_update = pto.tensor([n_tile, d_n], pto.DT_FP32, "oiUpdate")
+                            li_update = pto.tensor([n_tile, 1], pto.DT_FP32, "liUpdate")
+                            mi_update = pto.tensor([n_tile, 1], pto.DT_FP32, "miUpdate")
+                            # 当前curOffset没放到更内层循环，避免重复bnPerBatch次的DAssemble操作
+                            cur_offset = b_idx * n_q + n_idx * n_tile
+                            oi_offset = [cur_offset, 0]  # (B*N*S, d)
 
-                                    # LoopRange(0, bnPerBatch, 1), PowersOf2(1)) {
-                                    with pto.loop_function("LOOP_L2_bn", "bn", pto.loop_range(0, bn_per_batch, 1),
-                                                            pto.powers_of_2(max_unroll_times)) as bn_loop:
-                                        for bn in bn_loop:
-                                            def inside_bn_loop(**kwargs):
-                                                b_idx = kwargs.get("b_idx")
-                                                block_table = kwargs.get("block_table")
-                                                cur_seq = kwargs.get("cur_seq")
-                                                bn = kwargs.get("bn")
-                                                block_size = kwargs.get("block_size")
-                                                bn_per_batch = kwargs.get("bn_per_batch")
-                                                nonlocal oi_update, li_update, mi_update
-                                                # 当前qn，qr和qi放入内层Loop，避免Concat单独切成一个小图
-                                                cur_s2_tile = block_size
-                                                qn = pto.view(q_nope, [cur_n_tile, d_n], [cur_offset, 0])
-                                                qr = pto.view(q_rope, [cur_n_tile, d_r], [cur_offset, 0])
-                                                qi = pto.tensor([cur_n_tile, d_n + d_r], dtype, "qi")
-                                                pto.assemble(qn, [0, 0], qi)
-                                                pto.assemble(qr, [0, d_n], qi)
+                            # LoopRange(0, bnPerBatch, 1), PowersOf2(1)) {
+                            for bn in pto.loop(0, bn_per_batch, 1, name="LOOP_L2_bn", idx_name="bn", 
+                            extra_arg=pto.powers_of_2(max_unroll_times)):
+                                def inside_bn_loop(**kwargs):
+                                    b_idx = kwargs.get("b_idx")
+                                    block_table = kwargs.get("block_table")
+                                    cur_seq = kwargs.get("cur_seq")
+                                    bn = kwargs.get("bn")
+                                    block_size = kwargs.get("block_size")
+                                    bn_per_batch = kwargs.get("bn_per_batch")
+                                    nonlocal oi_update, li_update, mi_update
+                                    # 当前qn，qr和qi放入内层Loop，避免Concat单独切成一个小图
+                                    cur_s2_tile = block_size
+                                    qn = pto.view(q_nope, [cur_n_tile, d_n], [cur_offset, 0])
+                                    qr = pto.view(q_rope, [cur_n_tile, d_r], [cur_offset, 0])
+                                    qi = pto.tensor([cur_n_tile, d_n + d_r], dtype, "qi")
+                                    pto.assemble(qn, [0, 0], qi)
+                                    pto.assemble(qr, [0, d_n], qi)
 
-                                                cur_block_idx = pto.get_tensor_data(block_table, [b_idx, bn])
-                                                cur_block_idx.as_intermediate_variable()
-                                                kn = pto.view(k_nope_cache, [cur_s2_tile, d_n],
-                                                              [cur_block_idx * block_size, 0],
-                                                              valid_shape=[(cur_seq - 
-                                                              bn * block_size).min(block_size), d_n])
-                                                kr = pto.view(k_rope_cache, [cur_s2_tile, d_r],
-                                                              [cur_block_idx * block_size, 0],
-                                                              valid_shape=[(cur_seq - 
-                                                              bn * block_size).min(block_size), d_r])
-                                                kj_format = pto.TileOpFormat.TILEOP_NZ if is_nz_format else (
-                                                    pto.TileOpFormat.TILEOP_ND
-                                                )
-                                                kj = pto.tensor([cur_s2_tile, d_n + d_r], dtype, "kj", kj_format)
-                                                pto.assemble(kn, [0, 0], kj)
-                                                pto.assemble(kr, [0, d_n], kj)
-                                                kj = pto.view(kj, [cur_s2_tile, d_n + d_r],
-                                                              [0, 0], valid_shape=[(cur_seq - 
-                                                              bn * block_size).min(block_size), d_r + d_n])
-                                                vj = pto.view(v_nope_cache, [cur_s2_tile, d_n],
-                                                              [cur_block_idx * block_size, 0],
-                                                              valid_shape=[(cur_seq - 
-                                                              bn * block_size).min(block_size), d_n])
+                                    cur_block_idx = pto.get_tensor_data(block_table, [b_idx, bn])
+                                    cur_block_idx.as_intermediate_variable()
+                                    kn = pto.view(k_nope_cache, [cur_s2_tile, d_n],
+                                                    [cur_block_idx * block_size, 0],
+                                                    valid_shape=[(cur_seq - 
+                                                    bn * block_size).min(block_size), d_n])
+                                    kr = pto.view(k_rope_cache, [cur_s2_tile, d_r],
+                                                    [cur_block_idx * block_size, 0],
+                                                    valid_shape=[(cur_seq - 
+                                                    bn * block_size).min(block_size), d_r])
+                                    kj_format = pto.TileOpFormat.TILEOP_NZ if is_nz_format else (
+                                        pto.TileOpFormat.TILEOP_ND
+                                    )
+                                    kj = pto.tensor([cur_s2_tile, d_n + d_r], dtype, "kj", kj_format)
+                                    pto.assemble(kn, [0, 0], kj)
+                                    pto.assemble(kr, [0, d_n], kj)
+                                    kj = pto.view(kj, [cur_s2_tile, d_n + d_r],
+                                                    [0, 0], valid_shape=[(cur_seq - 
+                                                    bn * block_size).min(block_size), d_r + d_n])
+                                    vj = pto.view(v_nope_cache, [cur_s2_tile, d_n],
+                                                    [cur_block_idx * block_size, 0],
+                                                    valid_shape=[(cur_seq - 
+                                                    bn * block_size).min(block_size), d_n])
 
-                                                pto.set_semantic_label("MatMul")
-                                                pto.set_cube_tile_shapes(
-                                                    [c1_tile[0], c1_tile[1]], [c1_tile[2], c1_tile[3]],
-                                                    [c1_tile[4], c1_tile[5]])
-                                                pto.set_matrix_size([qi.shape[0], 0, kj.shape[0]])
-                                                sij = pto.matmul(qi, kj, pto.DT_FP32, a_trans=False, b_trans=True)
+                                    pto.set_semantic_label("MatMul")
+                                    pto.set_cube_tile_shapes(
+                                        [c1_tile[0], c1_tile[1]], [c1_tile[2], c1_tile[3]],
+                                        [c1_tile[4], c1_tile[5]])
+                                    pto.set_matrix_size([qi.shape[0], 0, kj.shape[0]])
+                                    sij = pto.matmul(qi, kj, pto.DT_FP32, a_trans=False, b_trans=True)
 
-                                                pto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
+                                    pto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
 
-                                                pto.set_semantic_label("SoftMax")
-                                                sij_scale = pto.mul_s(
-                                                    sij, pto.element(sij.dtype, softmax_scale))
+                                    pto.set_semantic_label("SoftMax")
+                                    sij_scale = pto.mul_s(
+                                        sij, pto.element(sij.dtype, softmax_scale))
 
-                                                pto.set_semantic_label("SoftMax")
-                                                tilda_mij = pto.row_max_single(sij_scale)
-                                                tsub = pto.sub(sij_scale, tilda_mij)
-                                                tilda_pij = pto.exp(tsub)
-                                                tilda_pij_f16 = pto.cast(tilda_pij, dtype)
-                                                tilda_lij = pto.row_sum_single(tilda_pij)
-                                                # (nTileCur, s2TileCur) -> (nTileCur, 1)
+                                    pto.set_semantic_label("SoftMax")
+                                    tilda_mij = pto.row_max_single(sij_scale)
+                                    tsub = pto.sub(sij_scale, tilda_mij)
+                                    tilda_pij = pto.exp(tsub)
+                                    tilda_pij_f16 = pto.cast(tilda_pij, dtype)
+                                    tilda_lij = pto.row_sum_single(tilda_pij)
+                                    # (nTileCur, s2TileCur) -> (nTileCur, 1)
 
-                                                if pto.cond(pto.is_loop_begin(bn, 0)):
-                                                    def inside_if_loop_begin():
-                                                        nonlocal oi_update, li_update, mi_update
-                                                        pto.set_cube_tile_shapes(
-                                                            [c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]],
-                                                            [c2_tile[4], c2_tile[5]])
-                                                        pto.set_semantic_label("b1-matmul2")
-                                                        pto.set_matrix_size(
-                                                            [tilda_pij_f16.shape[0], tilda_pij_f16.shape[1],
-                                                             vj.shape[1]])
-                                                        oi_tmp = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32)
-                                                        pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
-                                                        pto.set_semantic_label("b1-after-matmul2")
-                                                        if pto.cond(pto.is_loop_end(bn, bn_per_batch)):
-                                                            pto.set_semantic_label("b1-after-matmul2")
-                                                            oi_update[:] = (pto.div(oi_tmp, tilda_lij))
-                                                            # (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
-                                                            pto.assemble(oi_update, oi_offset, attention_out)
-                                                        else:
-                                                            oi_update[:] = (oi_tmp)
-                                                        li_update[:] = (tilda_lij)
-                                                        mi_update[:] = (tilda_mij)
-                                                    inside_if_loop_begin()
-                                                else:
-                                                    def inside_else_loop_begin():
-                                                        nonlocal oi_update, li_update, mi_update
-                                                        oi = oi_update
-                                                        li = li_update
-                                                        mi = mi_update
-                                                        pto.set_semantic_label("Softmax-acc")
-                                                        # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
-                                                        mi_new = pto.maximum(mi, tilda_mij)
-                                                        # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
-                                                        t1 = pto.sub(mi, mi_new)
-                                                        t2 = pto.exp(t1)
-                                                        # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
-                                                        t3 = pto.sub(tilda_mij, mi_new)
-                                                        t4 = pto.exp(t3)
-                                                        # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
-                                                        t5 = pto.mul(t4, tilda_lij)
-                                                        # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
-                                                        t6 = pto.mul(t2, li)
-                                                        # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
-                                                        li_new = pto.add(t6, t5)
-                                                        # (curNTile, dN), (curNTile, 1) -> (curNTile, dN)
-                                                        q3 = pto.mul(oi, t2)
-                                                        pto.set_semantic_label("bn-matmul2")
-                                                        pto.set_cube_tile_shapes(
-                                                        [c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]], [c2_tile[4],
-                                                        c2_tile[5]])
-                                                        pto.set_matrix_size(
-                                                            [tilda_pij_f16.shape[0],
-                                                             tilda_pij_f16.shape[1], vj.shape[1]])
-                                                        q1 = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32)
-                                                        pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
-                                                        pto.set_semantic_label("bn-after-matmul2")
-                                                        # (nTileCur, dN), (nTileCur, 1) -> (nTileCur, dN)
-                                                        q2 = pto.mul(q1, t4)
-                                                        # (nTileCur, dN), (nTileCur, dN) -> (nTileCur, dN)
-                                                        oi_tmp = pto.add(q3, q2)
-                                                        if pto.cond(pto.is_loop_end(bn, bn_per_batch)):
-                                                            # (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
-                                                            oi_update[:] = (pto.div(oi_tmp, li_new))
-                                                            pto.assemble(oi_update, oi_offset, attention_out)
-                                                        else:
-                                                            oi_update[:] = (oi_tmp)
-                                                        li_update[:] = (li_new)
-                                                        mi_update[:] = (mi_new)
-                                                    inside_else_loop_begin()
-                                            inside_bn_loop(
-                                                b_idx=b_idx,
-                                                block_table=block_table,
-                                                cur_seq=cur_seq,
-                                                bn=bn,
-                                                block_size=block_size,
-                                                bn_per_batch=bn_per_batch)
-                                    # } # LOOP("LOOP_L2_bn") ends
-                                inside_n_idx_loop(b_idx, n_idx, bn_per_batch)
-                        # } # LOOP("LOOP_L1_nIdx") ends
-                    inside_b_idx_loop(b_idx)
+                                    if pto.cond(pto.is_loop_begin(bn, 0)):
+                                        def inside_if_loop_begin():
+                                            nonlocal oi_update, li_update, mi_update
+                                            pto.set_cube_tile_shapes(
+                                                [c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]],
+                                                [c2_tile[4], c2_tile[5]])
+                                            pto.set_semantic_label("b1-matmul2")
+                                            pto.set_matrix_size(
+                                                [tilda_pij_f16.shape[0], tilda_pij_f16.shape[1],
+                                                    vj.shape[1]])
+                                            oi_tmp = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32)
+                                            pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
+                                            pto.set_semantic_label("b1-after-matmul2")
+                                            if pto.cond(pto.is_loop_end(bn, bn_per_batch)):
+                                                pto.set_semantic_label("b1-after-matmul2")
+                                                oi_update[:] = (pto.div(oi_tmp, tilda_lij))
+                                                # (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
+                                                pto.assemble(oi_update, oi_offset, attention_out)
+                                            else:
+                                                oi_update[:] = (oi_tmp)
+                                            li_update[:] = (tilda_lij)
+                                            mi_update[:] = (tilda_mij)
+                                        inside_if_loop_begin()
+                                    else:
+                                        def inside_else_loop_begin():
+                                            nonlocal oi_update, li_update, mi_update
+                                            oi = oi_update
+                                            li = li_update
+                                            mi = mi_update
+                                            pto.set_semantic_label("Softmax-acc")
+                                            # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
+                                            mi_new = pto.maximum(mi, tilda_mij)
+                                            # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
+                                            t1 = pto.sub(mi, mi_new)
+                                            t2 = pto.exp(t1)
+                                            # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
+                                            t3 = pto.sub(tilda_mij, mi_new)
+                                            t4 = pto.exp(t3)
+                                            # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
+                                            t5 = pto.mul(t4, tilda_lij)
+                                            # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
+                                            t6 = pto.mul(t2, li)
+                                            # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
+                                            li_new = pto.add(t6, t5)
+                                            # (curNTile, dN), (curNTile, 1) -> (curNTile, dN)
+                                            q3 = pto.mul(oi, t2)
+                                            pto.set_semantic_label("bn-matmul2")
+                                            pto.set_cube_tile_shapes(
+                                            [c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]], [c2_tile[4],
+                                            c2_tile[5]])
+                                            pto.set_matrix_size(
+                                                [tilda_pij_f16.shape[0],
+                                                    tilda_pij_f16.shape[1], vj.shape[1]])
+                                            q1 = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32)
+                                            pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
+                                            pto.set_semantic_label("bn-after-matmul2")
+                                            # (nTileCur, dN), (nTileCur, 1) -> (nTileCur, dN)
+                                            q2 = pto.mul(q1, t4)
+                                            # (nTileCur, dN), (nTileCur, dN) -> (nTileCur, dN)
+                                            oi_tmp = pto.add(q3, q2)
+                                            if pto.cond(pto.is_loop_end(bn, bn_per_batch)):
+                                                # (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
+                                                oi_update[:] = (pto.div(oi_tmp, li_new))
+                                                pto.assemble(oi_update, oi_offset, attention_out)
+                                            else:
+                                                oi_update[:] = (oi_tmp)
+                                            li_update[:] = (li_new)
+                                            mi_update[:] = (mi_new)
+                                        inside_else_loop_begin()
+                                inside_bn_loop(
+                                    b_idx=b_idx,
+                                    block_table=block_table,
+                                    cur_seq=cur_seq,
+                                    bn=bn,
+                                    block_size=block_size,
+                                    bn_per_batch=bn_per_batch)
+                            # } # LOOP("LOOP_L2_bn") ends
+                        inside_n_idx_loop(b_idx, n_idx, bn_per_batch)
+                    # } # LOOP("LOOP_L1_nIdx") ends
+                inside_b_idx_loop(b_idx)
         inside_main_function()
 
 
@@ -269,162 +266,159 @@ def page_attention_with_imm_scalar(**kwargs):
             n_q = q_nope.shape[0] // pto.symbolic_scalar(batch_size)
             n_loop = n_q // n_tile
 
-            with pto.loop_function("LOOP_L0_bIdx", "b_idx", pto.loop_range(0, batch_size, 1)) as b_idx_loop:
-                for b_idx in b_idx_loop:
-                    def inside_b_idx_loop(b_idx):
-                        cur_seq = pto.symbolic_scalar(int(act_seqs[0]))
-                        bn_per_batch = (cur_seq + block_size - 1) // block_size
-                        bn_per_batch.as_intermediate_variable()
-                        with pto.loop_function("LOOP_L1_nIdx", "n_idx", pto.loop_range(0, n_loop, 1)) as n_idx_loop:
-                            for n_idx in n_idx_loop:
-                                def inside_n_idx_loop(b_idx, n_idx, bn_per_batch):
-                                    nonlocal n_tile
-                                    cur_n_tile = n_tile
-                                    oi_update = pto.tensor([n_tile, d_n], pto.DT_FP32, "oiUpdate")
-                                    li_update = pto.tensor([n_tile, 1], pto.DT_FP32, "liUpdate")
-                                    mi_update = pto.tensor([n_tile, 1], pto.DT_FP32, "miUpdate")
-                                    # 当前curOffset没放到更内层循环，避免重复bnPerBatch次的DAssemble操作
-                                    cur_offset = b_idx * n_q + n_idx * n_tile
-                                    oi_offset = [cur_offset, 0]  # (B*N*S, d)
+            for b_idx in pto.loop(0, batch_size, 1, name="LOOP_L0_bIdx", idx_name="b_idx"):
+                def inside_b_idx_loop(b_idx):
+                    cur_seq = pto.symbolic_scalar(int(act_seqs[0]))
+                    bn_per_batch = (cur_seq + block_size - 1) // block_size
+                    bn_per_batch.as_intermediate_variable()
+                    for n_idx in pto.loop(0, n_loop, 1, name="LOOP_L1_nIdx", idx_name="n_idx"):
+                        def inside_n_idx_loop(b_idx, n_idx, bn_per_batch):
+                            nonlocal n_tile
+                            cur_n_tile = n_tile
+                            oi_update = pto.tensor([n_tile, d_n], pto.DT_FP32, "oiUpdate")
+                            li_update = pto.tensor([n_tile, 1], pto.DT_FP32, "liUpdate")
+                            mi_update = pto.tensor([n_tile, 1], pto.DT_FP32, "miUpdate")
+                            # 当前curOffset没放到更内层循环，避免重复bnPerBatch次的DAssemble操作
+                            cur_offset = b_idx * n_q + n_idx * n_tile
+                            oi_offset = [cur_offset, 0]  # (B*N*S, d)
 
-                                    # LoopRange(0, bnPerBatch, 1), PowersOf2(1)) {
-                                    with pto.loop_function("LOOP_L2_bn", "bn", pto.loop_range(0, bn_per_batch, 1),
-                                                            pto.powers_of_2(max_unroll_times)) as bn_loop:
-                                        for bn in bn_loop:
-                                            def inside_bn_loop(**kwargs):
-                                                b_idx = kwargs.get("b_idx")
-                                                block_table = kwargs.get("block_table")
-                                                cur_seq = kwargs.get("cur_seq")
-                                                bn = kwargs.get("bn")
-                                                block_size = kwargs.get("block_size")
-                                                bn_per_batch = kwargs.get("bn_per_batch")
-                                                nonlocal oi_update, li_update, mi_update
-                                                # 当前qn，qr和qi放入内层Loop，避免Concat单独切成一个小图
-                                                cur_s2_tile = block_size
-                                                qn = pto.view(q_nope, [cur_n_tile, d_n], [cur_offset, 0])
-                                                qr = pto.view(q_rope, [cur_n_tile, d_r], [cur_offset, 0])
-                                                qi = pto.tensor([cur_n_tile, d_n + d_r], dtype, "qi")
-                                                pto.assemble(qn, [0, 0], qi)
-                                                pto.assemble(qr, [0, d_n], qi)
+                            # LoopRange(0, bnPerBatch, 1), PowersOf2(1)) {
+                            for bn in pto.loop(0, bn_per_batch, 1, name="LOOP_L2_bn", idx_name="bn",
+                            extra_arg=pto.powers_of_2(max_unroll_times)):
+                                def inside_bn_loop(**kwargs):
+                                    b_idx = kwargs.get("b_idx")
+                                    block_table = kwargs.get("block_table")
+                                    cur_seq = kwargs.get("cur_seq")
+                                    bn = kwargs.get("bn")
+                                    block_size = kwargs.get("block_size")
+                                    bn_per_batch = kwargs.get("bn_per_batch")
+                                    nonlocal oi_update, li_update, mi_update
+                                    # 当前qn，qr和qi放入内层Loop，避免Concat单独切成一个小图
+                                    cur_s2_tile = block_size
+                                    qn = pto.view(q_nope, [cur_n_tile, d_n], [cur_offset, 0])
+                                    qr = pto.view(q_rope, [cur_n_tile, d_r], [cur_offset, 0])
+                                    qi = pto.tensor([cur_n_tile, d_n + d_r], dtype, "qi")
+                                    pto.assemble(qn, [0, 0], qi)
+                                    pto.assemble(qr, [0, d_n], qi)
 
-                                                cur_block_idx = pto.symbolic_scalar(0)
-                                                cur_block_idx.as_intermediate_variable()
-                                                kn = pto.view(k_nope_cache, [cur_s2_tile, d_n],
-                                                              [cur_block_idx * block_size, 0],
-                                                              valid_shape=[(cur_seq - 
-                                                              bn * block_size).min(block_size), d_n])
-                                                kr = pto.view(k_rope_cache, [cur_s2_tile, d_r],
-                                                              [cur_block_idx * block_size, 0],
-                                                              valid_shape=[(cur_seq - 
-                                                              bn * block_size).min(block_size), d_r])
+                                    cur_block_idx = pto.symbolic_scalar(0)
+                                    cur_block_idx.as_intermediate_variable()
+                                    kn = pto.view(k_nope_cache, [cur_s2_tile, d_n],
+                                                    [cur_block_idx * block_size, 0],
+                                                    valid_shape=[(cur_seq - 
+                                                    bn * block_size).min(block_size), d_n])
+                                    kr = pto.view(k_rope_cache, [cur_s2_tile, d_r],
+                                                    [cur_block_idx * block_size, 0],
+                                                    valid_shape=[(cur_seq - 
+                                                    bn * block_size).min(block_size), d_r])
 
-                                                kj_format = pto.TileOpFormat.TILEOP_NZ if is_nz_format else (
-                                                    pto.TileOpFormat.TILEOP_ND
-                                                )
-                                                kj = pto.tensor([cur_s2_tile, d_n + d_r], dtype, "kj", kj_format)
-                                                pto.assemble(kn, [0, 0], kj)
-                                                pto.assemble(kr, [0, d_n], kj)
-                                                kj = pto.view(kj, [cur_s2_tile, d_n + d_r], [0, 0],
-                                                              valid_shape=[(cur_seq - 
-                                                              bn * block_size).min(block_size), d_r + d_n])
-                                                vj = pto.view(v_nope_cache, [cur_s2_tile, d_n],
-                                                              [cur_block_idx * block_size, 0],
-                                                              valid_shape=[(cur_seq - 
-                                                              bn * block_size).min(block_size), d_n])
+                                    kj_format = pto.TileOpFormat.TILEOP_NZ if is_nz_format else (
+                                        pto.TileOpFormat.TILEOP_ND
+                                    )
+                                    kj = pto.tensor([cur_s2_tile, d_n + d_r], dtype, "kj", kj_format)
+                                    pto.assemble(kn, [0, 0], kj)
+                                    pto.assemble(kr, [0, d_n], kj)
+                                    kj = pto.view(kj, [cur_s2_tile, d_n + d_r], [0, 0],
+                                                    valid_shape=[(cur_seq - 
+                                                    bn * block_size).min(block_size), d_r + d_n])
+                                    vj = pto.view(v_nope_cache, [cur_s2_tile, d_n],
+                                                    [cur_block_idx * block_size, 0],
+                                                    valid_shape=[(cur_seq - 
+                                                    bn * block_size).min(block_size), d_n])
 
-                                                pto.set_cube_tile_shapes(
-                                                    [c1_tile[0], c1_tile[1]], [c1_tile[2], c1_tile[3]],
-                                                    [c1_tile[4], c1_tile[5]])
-                                                pto.set_matrix_size([qi.shape[0], 0, kj.shape[0]])
-                                                sij = pto.matmul(qi, kj, pto.DT_FP32, a_trans=False, b_trans=True)
+                                    pto.set_cube_tile_shapes(
+                                        [c1_tile[0], c1_tile[1]], [c1_tile[2], c1_tile[3]],
+                                        [c1_tile[4], c1_tile[5]])
+                                    pto.set_matrix_size([qi.shape[0], 0, kj.shape[0]])
+                                    sij = pto.matmul(qi, kj, pto.DT_FP32, a_trans=False, b_trans=True)
 
-                                                pto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
+                                    pto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
 
-                                                sij_scale = pto.mul_s(
-                                                    sij, pto.element(sij.dtype, softmax_scale))
+                                    sij_scale = pto.mul_s(
+                                        sij, pto.element(sij.dtype, softmax_scale))
 
-                                                tilda_mij = pto.row_max_single(sij_scale)
-                                                tsub = pto.sub(sij_scale, tilda_mij)
-                                                tilda_pij = pto.exp(tsub)
-                                                tilda_pij_f16 = pto.cast(tilda_pij, dtype)
-                                                tilda_lij = pto.row_sum_single(tilda_pij)
-                                                # (nTileCur, s2TileCur) -> (nTileCur, 1)
+                                    tilda_mij = pto.row_max_single(sij_scale)
+                                    tsub = pto.sub(sij_scale, tilda_mij)
+                                    tilda_pij = pto.exp(tsub)
+                                    tilda_pij_f16 = pto.cast(tilda_pij, dtype)
+                                    tilda_lij = pto.row_sum_single(tilda_pij)
+                                    # (nTileCur, s2TileCur) -> (nTileCur, 1)
 
-                                                if pto.cond(bn == 0):
-                                                    def inside_if_loop_begin():
-                                                        nonlocal oi_update, li_update, mi_update
-                                                        pto.set_cube_tile_shapes(
-                                                            [c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]],
-                                                            [c2_tile[4], c2_tile[5]])
-                                                        pto.set_matrix_size(
-                                                            [tilda_pij_f16.shape[0], tilda_pij_f16.shape[1],
-                                                             vj.shape[1]])
-                                                        oi_tmp = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32,)
-                                                        pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
-                                                        if pto.cond(bn == bn_per_batch - 1):
-                                                            oi_update[:] = (pto.div(oi_tmp, tilda_lij))
-                                                            # (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
-                                                            pto.assemble(oi_update, oi_offset, attention_out)
-                                                        else:
-                                                            oi_update[:] = (oi_tmp)
-                                                        li_update[:] = (tilda_lij)
-                                                        mi_update[:] = (tilda_mij)
-                                                    inside_if_loop_begin()
-                                                else:
-                                                    def inside_else_loop_begin():
-                                                        nonlocal oi_update, li_update, mi_update
-                                                        oi = oi_update
-                                                        li = li_update
-                                                        mi = mi_update
-                                                        # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
-                                                        mi_new = pto.maximum(mi, tilda_mij)
-                                                        # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
-                                                        t1 = pto.sub(mi, mi_new)
-                                                        t2 = pto.exp(t1)
-                                                        # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
-                                                        t3 = pto.sub(tilda_mij, mi_new)
-                                                        t4 = pto.exp(t3)
-                                                        # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
-                                                        t5 = pto.mul(t4, tilda_lij)
-                                                        # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
-                                                        t6 = pto.mul(t2, li)
-                                                        # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
-                                                        li_new = pto.add(t6, t5)
+                                    if pto.cond(bn == 0):
+                                        def inside_if_loop_begin():
+                                            nonlocal oi_update, li_update, mi_update
+                                            pto.set_cube_tile_shapes(
+                                                [c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]],
+                                                [c2_tile[4], c2_tile[5]])
+                                            pto.set_matrix_size(
+                                                [tilda_pij_f16.shape[0], tilda_pij_f16.shape[1],
+                                                    vj.shape[1]])
+                                            oi_tmp = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32,)
+                                            pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
+                                            if pto.cond(bn == bn_per_batch - 1):
+                                                oi_update[:] = (pto.div(oi_tmp, tilda_lij))
+                                                # (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
+                                                pto.assemble(oi_update, oi_offset, attention_out)
+                                            else:
+                                                oi_update[:] = (oi_tmp)
+                                            li_update[:] = (tilda_lij)
+                                            mi_update[:] = (tilda_mij)
+                                        inside_if_loop_begin()
+                                    else:
+                                        def inside_else_loop_begin():
+                                            nonlocal oi_update, li_update, mi_update
+                                            oi = oi_update
+                                            li = li_update
+                                            mi = mi_update
+                                            # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
+                                            mi_new = pto.maximum(mi, tilda_mij)
+                                            # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
+                                            t1 = pto.sub(mi, mi_new)
+                                            t2 = pto.exp(t1)
+                                            # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
+                                            t3 = pto.sub(tilda_mij, mi_new)
+                                            t4 = pto.exp(t3)
+                                            # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
+                                            t5 = pto.mul(t4, tilda_lij)
+                                            # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
+                                            t6 = pto.mul(t2, li)
+                                            # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
+                                            li_new = pto.add(t6, t5)
 
-                                                        # (curNTile, dN), (curNTile, 1) -> (curNTile, dN)
-                                                        q3 = pto.mul(oi, t2)
-                                                        pto.set_cube_tile_shapes(
-                                                            [c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]],
-                                                            [c2_tile[4], c2_tile[5]])
-                                                        pto.set_matrix_size(
-                                                            [tilda_pij_f16.shape[0],
-                                                             tilda_pij_f16.shape[1], vj.shape[1]])
-                                                        q1 = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32)
-                                                        pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
-                                                        # (nTileCur, dN), (nTileCur, 1) -> (nTileCur, dN)
-                                                        q2 = pto.mul(q1, t4)
-                                                        # (nTileCur, dN), (nTileCur, dN) -> (nTileCur, dN)
-                                                        oi_tmp = pto.add(q3, q2)
-                                                        if pto.cond(bn == bn_per_batch - 1):
-                                                            # (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
-                                                            oi_update[:] = (pto.div(oi_tmp, li_new))
-                                                            pto.assemble(oi_update, oi_offset, attention_out)
-                                                        else:
-                                                            oi_update[:] = (oi_tmp)
-                                                        li_update[:] = (li_new)
-                                                        mi_update[:] = (mi_new)
-                                                    inside_else_loop_begin()
-                                            inside_bn_loop(
-                                                b_idx=b_idx,
-                                                block_table=block_table,
-                                                cur_seq=cur_seq,
-                                                bn=bn,
-                                                block_size=block_size,
-                                                bn_per_batch=bn_per_batch)
-                                    # } # LOOP("LOOP_L2_bn") ends
-                                inside_n_idx_loop(b_idx, n_idx, bn_per_batch)
-                        # } # LOOP("LOOP_L1_nIdx") ends
-                    inside_b_idx_loop(b_idx)
+                                            # (curNTile, dN), (curNTile, 1) -> (curNTile, dN)
+                                            q3 = pto.mul(oi, t2)
+                                            pto.set_cube_tile_shapes(
+                                                [c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]],
+                                                [c2_tile[4], c2_tile[5]])
+                                            pto.set_matrix_size(
+                                                [tilda_pij_f16.shape[0],
+                                                    tilda_pij_f16.shape[1], vj.shape[1]])
+                                            q1 = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32)
+                                            pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
+                                            # (nTileCur, dN), (nTileCur, 1) -> (nTileCur, dN)
+                                            q2 = pto.mul(q1, t4)
+                                            # (nTileCur, dN), (nTileCur, dN) -> (nTileCur, dN)
+                                            oi_tmp = pto.add(q3, q2)
+                                            if pto.cond(bn == bn_per_batch - 1):
+                                                # (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
+                                                oi_update[:] = (pto.div(oi_tmp, li_new))
+                                                pto.assemble(oi_update, oi_offset, attention_out)
+                                            else:
+                                                oi_update[:] = (oi_tmp)
+                                            li_update[:] = (li_new)
+                                            mi_update[:] = (mi_new)
+                                        inside_else_loop_begin()
+                                inside_bn_loop(
+                                    b_idx=b_idx,
+                                    block_table=block_table,
+                                    cur_seq=cur_seq,
+                                    bn=bn,
+                                    block_size=block_size,
+                                    bn_per_batch=bn_per_batch)
+                            # } # LOOP("LOOP_L2_bn") ends
+                        inside_n_idx_loop(b_idx, n_idx, bn_per_batch)
+                    # } # LOOP("LOOP_L1_nIdx") ends
+                inside_b_idx_loop(b_idx)
         inside_main_function()
 
 
@@ -462,156 +456,153 @@ def page_attention_with_manual_unroll(**kwargs):
             batch_size = block_table.shape[0]
             n_q = q_nope.shape[0] // batch_size
             n_loop = n_q // n_tile
-            with pto.loop_function("LOOP_L0_bIdx", "b_idx", pto.loop_range(0, batch_size, 1)) as b_idx_loop:
-                for b_idx in b_idx_loop:
-                    def inside_b_idx_loop(b_idx):
-                        cur_seq = pto.get_tensor_data(act_seqs, [b_idx])
-                        bn_per_batch = cur_seq // block_size
-                        bn_per_batch.as_intermediate_variable()
-                        with pto.loop_function("LOOP_L1_nIdx", "n_idx", pto.loop_range(0, n_loop, 1)) as n_idx_loop:
-                            for n_idx in n_idx_loop:
-                                def inside_n_idx_loop(b_idx, n_idx, bn_per_batch):
-                                    nonlocal n_tile
-                                    oi_update = pto.tensor([n_tile, d_n], pto.DT_FP32, "oiUpdate")
-                                    li_update = pto.tensor([n_tile, 1], pto.DT_FP32, "liUpdate")
-                                    mi_update = pto.tensor([n_tile, 1], pto.DT_FP32, "miUpdate")
-                                    # 当前curOffset没放到更内层循环，避免重复bnPerBatch次的DAssemble操作
-                                    cur_offset = b_idx * n_q + n_idx * n_tile
-                                    oi_offset = [cur_offset, 0]  # (B*N*S, d)
+            for b_idx in pto.loop(0, batch_size, 1, name="LOOP_L0_bIdx", idx_name="b_idx"):
+                def inside_b_idx_loop(b_idx):
+                    cur_seq = pto.get_tensor_data(act_seqs, [b_idx])
+                    bn_per_batch = cur_seq // block_size
+                    bn_per_batch.as_intermediate_variable()
+                    for n_idx in pto.loop(0, n_loop, 1, name="LOOP_L1_nIdx", idx_name="n_idx"):
+                        def inside_n_idx_loop(b_idx, n_idx, bn_per_batch):
+                            nonlocal n_tile
+                            oi_update = pto.tensor([n_tile, d_n], pto.DT_FP32, "oiUpdate")
+                            li_update = pto.tensor([n_tile, 1], pto.DT_FP32, "liUpdate")
+                            mi_update = pto.tensor([n_tile, 1], pto.DT_FP32, "miUpdate")
+                            # 当前curOffset没放到更内层循环，避免重复bnPerBatch次的DAssemble操作
+                            cur_offset = b_idx * n_q + n_idx * n_tile
+                            oi_offset = [cur_offset, 0]  # (B*N*S, d)
 
-                                    # LoopRange(0, bnPerBatch, 1), PowersOf2(1)) {
-                                    with pto.loop_function("LOOP_L2_bn", "bn", pto.loop_range(bn_per_batch),
-                                                            pto.powers_of_2(max_unroll_times)) as bn_loop:
-                                        for bn in bn_loop:
-                                            def inside_bn_loop(**kwargs):
-                                                b_idx = kwargs.get("b_idx")
-                                                block_table = kwargs.get("block_table")
-                                                cur_seq = kwargs.get("cur_seq")
-                                                bn = kwargs.get("bn")
-                                                block_size = kwargs.get("block_size")
-                                                bn_per_batch = kwargs.get("bn_per_batch")
-                                                nonlocal oi_update, li_update, mi_update
+                            # LoopRange(0, bnPerBatch, 1), PowersOf2(1)) {
+                            for bn in pto.loop(bn_per_batch, name="LOOP_L2_bn", idx_name="bn",
+                            extra_arg=pto.powers_of_2(max_unroll_times)):
+                                def inside_bn_loop(**kwargs):
+                                    b_idx = kwargs.get("b_idx")
+                                    block_table = kwargs.get("block_table")
+                                    cur_seq = kwargs.get("cur_seq")
+                                    bn = kwargs.get("bn")
+                                    block_size = kwargs.get("block_size")
+                                    bn_per_batch = kwargs.get("bn_per_batch")
+                                    nonlocal oi_update, li_update, mi_update
 
-                                                unroll_times = max_unroll_times
-                                                while unroll_times != 0:
-                                                    if pto.record_loop_func.MatchUnrollTimes(unroll_times):
-                                                        # 当前qn，qr和qi放入内层Loop，避免Concat单独切成一个小图
-                                                        pto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
-                                                        qn = pto.view(q_nope, [n_tile, d_n], [cur_offset, 0])
-                                                        qr = pto.view(q_rope, [n_tile, d_r], [cur_offset, 0])
-                                                        qi = pto.concat([qn, qr], 1)
-                                                        sub_kns = []
-                                                        sub_krs = []
-                                                        sub_vjs = []
-                                                        for idx_offset in range(unroll_times):
-                                                            cur_block_idx = pto.get_tensor_data(block_table,
-                                                            [b_idx, bn + idx_offset])
-                                                            sub_kns.append(
-                                                                pto.view(k_nope_cache, [block_size, d_n],
-                                                                [cur_block_idx * block_size, 0]))
-                                                            sub_krs.append(
-                                                                pto.view(k_rope_cache, [block_size, d_r],
-                                                                [cur_block_idx * block_size, 0]))
-                                                            sub_vjs.append(
-                                                                pto.view(v_nope_cache, [block_size, d_n],
-                                                                [cur_block_idx * block_size, 0]))
+                                    unroll_times = max_unroll_times
+                                    while unroll_times != 0:
+                                        if pto.record_loop_func.MatchUnrollTimes(unroll_times):
+                                            # 当前qn，qr和qi放入内层Loop，避免Concat单独切成一个小图
+                                            pto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
+                                            qn = pto.view(q_nope, [n_tile, d_n], [cur_offset, 0])
+                                            qr = pto.view(q_rope, [n_tile, d_r], [cur_offset, 0])
+                                            qi = pto.concat([qn, qr], 1)
+                                            sub_kns = []
+                                            sub_krs = []
+                                            sub_vjs = []
+                                            for idx_offset in range(unroll_times):
+                                                cur_block_idx = pto.get_tensor_data(block_table,
+                                                [b_idx, bn + idx_offset])
+                                                sub_kns.append(
+                                                    pto.view(k_nope_cache, [block_size, d_n],
+                                                    [cur_block_idx * block_size, 0]))
+                                                sub_krs.append(
+                                                    pto.view(k_rope_cache, [block_size, d_r],
+                                                    [cur_block_idx * block_size, 0]))
+                                                sub_vjs.append(
+                                                    pto.view(v_nope_cache, [block_size, d_n],
+                                                    [cur_block_idx * block_size, 0]))
 
 
-                                                        kn = pto.concat(sub_kns, 0)
-                                                        kr = pto.concat(sub_krs, 0)
-                                                        kj = pto.concat([kn, kr], 1)
-                                                        vj = pto.concat(sub_vjs, 0)
+                                            kn = pto.concat(sub_kns, 0)
+                                            kr = pto.concat(sub_krs, 0)
+                                            kj = pto.concat([kn, kr], 1)
+                                            vj = pto.concat(sub_vjs, 0)
 
-                                                        pto.set_cube_tile_shapes(
-                                                            [c1_tile[0], c1_tile[1]], [c1_tile[2], c1_tile[3]],
-                                                            [c1_tile[4], c1_tile[5]])
+                                            pto.set_cube_tile_shapes(
+                                                [c1_tile[0], c1_tile[1]], [c1_tile[2], c1_tile[3]],
+                                                [c1_tile[4], c1_tile[5]])
 
-                                                        sij = pto.matmul(qi, kj, pto.DT_FP32,
-                                                                    a_trans=False, b_trans=True)
-                                                        pto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
-                                                        sij_scale = pto.mul_s(
-                                                            sij, pto.element(sij.dtype, softmax_scale))
+                                            sij = pto.matmul(qi, kj, pto.DT_FP32,
+                                                        a_trans=False, b_trans=True)
+                                            pto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
+                                            sij_scale = pto.mul_s(
+                                                sij, pto.element(sij.dtype, softmax_scale))
 
-                                                        tilda_mij = pto.row_max_single(sij_scale)
-                                                        tsub = pto.sub(sij_scale, tilda_mij)
-                                                        tilda_pij = pto.exp(tsub)
-                                                        tilda_pij_f16 = pto.cast(tilda_pij, dtype)
-                                                        tilda_lij = pto.row_sum_single(tilda_pij)
-                                                        # (nTileCur, s2TileCur) -> (nTileCur, 1)
+                                            tilda_mij = pto.row_max_single(sij_scale)
+                                            tsub = pto.sub(sij_scale, tilda_mij)
+                                            tilda_pij = pto.exp(tsub)
+                                            tilda_pij_f16 = pto.cast(tilda_pij, dtype)
+                                            tilda_lij = pto.row_sum_single(tilda_pij)
+                                            # (nTileCur, s2TileCur) -> (nTileCur, 1)
 
-                                                        if pto.cond(pto.is_loop_begin(bn, 0)):
-                                                            def inside_if_loop_begin():
-                                                                nonlocal oi_update, li_update, mi_update
-                                                                pto.set_cube_tile_shapes(
-                                                                    [c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]],
-                                                                    [c2_tile[4], c2_tile[5]])
-                                                                oi_tmp = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32)
-                                                                pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
-                                                                if pto.cond(pto.is_loop_end(bn, bn_per_batch)):
-                                                                    oi_update[:] = (pto.div(oi_tmp, tilda_lij))
-                                                                    # (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
-                                                                    pto.assemble(oi_update, oi_offset, attention_out)
-                                                                else:
-                                                                    oi_update[:] = (oi_tmp)
-                                                                li_update[:] = (tilda_lij)
-                                                                mi_update[:] = (tilda_mij)
-                                                            inside_if_loop_begin()
-                                                        else:
-                                                            def inside_else_loop_begin():
-                                                                nonlocal oi_update, li_update, mi_update
-                                                                oi = oi_update
-                                                                li = li_update
-                                                                mi = mi_update
+                                            if pto.cond(pto.is_loop_begin(bn, 0)):
+                                                def inside_if_loop_begin():
+                                                    nonlocal oi_update, li_update, mi_update
+                                                    pto.set_cube_tile_shapes(
+                                                        [c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]],
+                                                        [c2_tile[4], c2_tile[5]])
+                                                    oi_tmp = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32)
+                                                    pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
+                                                    if pto.cond(pto.is_loop_end(bn, bn_per_batch)):
+                                                        oi_update[:] = (pto.div(oi_tmp, tilda_lij))
+                                                        # (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
+                                                        pto.assemble(oi_update, oi_offset, attention_out)
+                                                    else:
+                                                        oi_update[:] = (oi_tmp)
+                                                    li_update[:] = (tilda_lij)
+                                                    mi_update[:] = (tilda_mij)
+                                                inside_if_loop_begin()
+                                            else:
+                                                def inside_else_loop_begin():
+                                                    nonlocal oi_update, li_update, mi_update
+                                                    oi = oi_update
+                                                    li = li_update
+                                                    mi = mi_update
 
-                                                                # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
-                                                                mi_new = pto.maximum(mi, tilda_mij)
-                                                                # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
-                                                                t1 = pto.sub(mi, mi_new)
-                                                                t2 = pto.exp(t1)
-                                                                # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
-                                                                t3 = pto.sub(tilda_mij, mi_new)
-                                                                t4 = pto.exp(t3)
-                                                                # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
-                                                                t5 = pto.mul(t4, tilda_lij)
-                                                                # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
-                                                                t6 = pto.mul(t2, li)
-                                                                # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
-                                                                li_new = pto.add(t6, t5)
+                                                    # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
+                                                    mi_new = pto.maximum(mi, tilda_mij)
+                                                    # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
+                                                    t1 = pto.sub(mi, mi_new)
+                                                    t2 = pto.exp(t1)
+                                                    # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
+                                                    t3 = pto.sub(tilda_mij, mi_new)
+                                                    t4 = pto.exp(t3)
+                                                    # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
+                                                    t5 = pto.mul(t4, tilda_lij)
+                                                    # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
+                                                    t6 = pto.mul(t2, li)
+                                                    # (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
+                                                    li_new = pto.add(t6, t5)
 
-                                                                # (curNTile, dN), (curNTile, 1) -> (curNTile, dN)
-                                                                q3 = pto.mul(oi, t2)
-                                                                pto.set_cube_tile_shapes(
-                                                                [c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]],
-                                                                [c2_tile[4], c2_tile[5]])
+                                                    # (curNTile, dN), (curNTile, 1) -> (curNTile, dN)
+                                                    q3 = pto.mul(oi, t2)
+                                                    pto.set_cube_tile_shapes(
+                                                    [c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]],
+                                                    [c2_tile[4], c2_tile[5]])
 
-                                                                q1 = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32,
-                                                                                a_trans=False, b_trans=False)
-                                                                pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
-                                                                # (nTileCur, dN), (nTileCur, 1) -> (nTileCur, dN)
-                                                                q2 = pto.mul(q1, t4)
-                                                                # (nTileCur, dN), (nTileCur, dN) -> (nTileCur, dN)
-                                                                oi_tmp = pto.add(q3, q2)
-                                                                if pto.cond(pto.is_loop_end(bn, bn_per_batch)):
-                                                                    # (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
-                                                                    oi_update[:] = (pto.div(oi_tmp, li_new))
-                                                                    pto.assemble(oi_update, oi_offset, attention_out)
-                                                                else:
-                                                                    oi_update[:] = (oi_tmp)
-                                                                li_update[:] = (li_new)
-                                                                mi_update[:] = (mi_new)
-                                                            inside_else_loop_begin()
-                                                    unroll_times = unroll_times // div2
-                                            inside_bn_loop(
-                                                b_idx=b_idx,
-                                                block_table=block_table,
-                                                cur_seq=cur_seq,
-                                                bn=bn,
-                                                block_size=block_size,
-                                                bn_per_batch=bn_per_batch)
-                                    # } # LOOP("LOOP_L2_bn") ends
-                                inside_n_idx_loop(b_idx, n_idx, bn_per_batch)
-                        # } # LOOP("LOOP_L1_nIdx") ends
-                    inside_b_idx_loop(b_idx)
+                                                    q1 = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32,
+                                                                    a_trans=False, b_trans=False)
+                                                    pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
+                                                    # (nTileCur, dN), (nTileCur, 1) -> (nTileCur, dN)
+                                                    q2 = pto.mul(q1, t4)
+                                                    # (nTileCur, dN), (nTileCur, dN) -> (nTileCur, dN)
+                                                    oi_tmp = pto.add(q3, q2)
+                                                    if pto.cond(pto.is_loop_end(bn, bn_per_batch)):
+                                                        # (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
+                                                        oi_update[:] = (pto.div(oi_tmp, li_new))
+                                                        pto.assemble(oi_update, oi_offset, attention_out)
+                                                    else:
+                                                        oi_update[:] = (oi_tmp)
+                                                    li_update[:] = (li_new)
+                                                    mi_update[:] = (mi_new)
+                                                inside_else_loop_begin()
+                                        unroll_times = unroll_times // div2
+                                inside_bn_loop(
+                                    b_idx=b_idx,
+                                    block_table=block_table,
+                                    cur_seq=cur_seq,
+                                    bn=bn,
+                                    block_size=block_size,
+                                    bn_per_batch=bn_per_batch)
+                            # } # LOOP("LOOP_L2_bn") ends
+                        inside_n_idx_loop(b_idx, n_idx, bn_per_batch)
+                    # } # LOOP("LOOP_L1_nIdx") ends
+                inside_b_idx_loop(b_idx)
         inside_main_function()
 
 
@@ -648,67 +639,66 @@ def page_attention_high_throughput(**kwargs):
             batch_size = block_table.shape[0]
             n_q = q_nope.shape[0] // batch_size
 
-            with pto.loop_function("LOOP_L0_bIdx", "b_idx", pto.loop_range(0, batch_size, 1),
-            pto.powers_of_2(max_unroll_times)) as b_idx_loop:
-                for b_idx in b_idx_loop:
-                    def inside_b_idx_loop(b_idx):
-                        cur_seq = pto.get_tensor_data(act_seqs, [b_idx])
-                        bn_per_batch = (cur_seq + block_size - 1) // block_size
-                        bn_per_batch.as_intermediate_variable()
+            for b_idx in pto.loop(0, batch_size, 1, name="LOOP_L0_bIdx", idx_name="b_idx",
+            extra_arg=pto.powers_of_2(max_unroll_times)):
+                def inside_b_idx_loop(b_idx):
+                    cur_seq = pto.get_tensor_data(act_seqs, [b_idx])
+                    bn_per_batch = (cur_seq + block_size - 1) // block_size
+                    bn_per_batch.as_intermediate_variable()
 
-                        cur_n_tile = n_tile
-                        oi_update = pto.tensor([n_tile, d_n], pto.DT_FP32, "oiUpdate")
+                    cur_n_tile = n_tile
+                    oi_update = pto.tensor([n_tile, d_n], pto.DT_FP32, "oiUpdate")
 
-                        # 当前curOffset没放到更内层循环，避免重复bnPerBatch次的Assemble操作
-                        cur_offset = b_idx * n_q
-                        oi_offset = [cur_offset, 0]  # (B*N*S, d)
+                    # 当前curOffset没放到更内层循环，避免重复bnPerBatch次的Assemble操作
+                    cur_offset = b_idx * n_q
+                    oi_offset = [cur_offset, 0]  # (B*N*S, d)
 
-                        # 当前qn，qr和qi放入内层Loop，避免Concat单独切成一个小图
-                        cur_s2_tile = block_size
-                        qn = pto.view(q_nope, [cur_n_tile, d_n], [cur_offset, 0])
-                        qr = pto.view(q_rope, [cur_n_tile, d_r], [cur_offset, 0])
-                        qi = pto.tensor([cur_n_tile, d_n + d_r], dtype, "qi")
-                        pto.assemble(qn, [0, 0], qi)
-                        pto.assemble(qr, [0, d_n], qi)
+                    # 当前qn，qr和qi放入内层Loop，避免Concat单独切成一个小图
+                    cur_s2_tile = block_size
+                    qn = pto.view(q_nope, [cur_n_tile, d_n], [cur_offset, 0])
+                    qr = pto.view(q_rope, [cur_n_tile, d_r], [cur_offset, 0])
+                    qi = pto.tensor([cur_n_tile, d_n + d_r], dtype, "qi")
+                    pto.assemble(qn, [0, 0], qi)
+                    pto.assemble(qr, [0, d_n], qi)
 
-                        cur_block_idx = pto.get_tensor_data(block_table, [b_idx, 0])
-                        cur_block_idx.as_intermediate_variable()
-                        kn = pto.view(k_nope_cache, [cur_s2_tile, d_n],
-                                        [cur_block_idx * block_size, 0],
-                                        valid_shape=[min(cur_seq, block_size), d_n])
-                        kr = pto.view(k_rope_cache, [cur_s2_tile, d_r],
-                                        [cur_block_idx * block_size, 0],
-                                        valid_shape=[min(cur_seq, block_size), d_r])
-                        kj = pto.tensor([cur_s2_tile, d_n + d_r], dtype, "kj")
-                        pto.assemble(kn, [0, 0], kj)
-                        pto.assemble(kr, [0, d_n], kj)
-                        vj = pto.view(v_nope_cache, [cur_s2_tile, d_n],
-                                        [cur_block_idx * block_size, 0],
-                                        valid_shape=[min(cur_seq, block_size), d_n])
+                    cur_block_idx = pto.get_tensor_data(block_table, [b_idx, 0])
+                    cur_block_idx.as_intermediate_variable()
+                    kn = pto.view(k_nope_cache, [cur_s2_tile, d_n],
+                                    [cur_block_idx * block_size, 0],
+                                    valid_shape=[min(cur_seq, block_size), d_n])
+                    kr = pto.view(k_rope_cache, [cur_s2_tile, d_r],
+                                    [cur_block_idx * block_size, 0],
+                                    valid_shape=[min(cur_seq, block_size), d_r])
+                    kj = pto.tensor([cur_s2_tile, d_n + d_r], dtype, "kj")
+                    pto.assemble(kn, [0, 0], kj)
+                    pto.assemble(kr, [0, d_n], kj)
+                    vj = pto.view(v_nope_cache, [cur_s2_tile, d_n],
+                                    [cur_block_idx * block_size, 0],
+                                    valid_shape=[min(cur_seq, block_size), d_n])
 
-                        pto.set_cube_tile_shapes(
-                            [c1_tile[0], c1_tile[1]], [c1_tile[2], c1_tile[3]],
-                            [c1_tile[4], c1_tile[5]])
-                        sij = pto.matmul(qi, kj, pto.DT_FP32, a_trans=False, b_trans=True)
-                        pto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
-                        sij_scale = pto.mul_s(
-                            sij, pto.element(sij.dtype, softmax_scale))
+                    pto.set_cube_tile_shapes(
+                        [c1_tile[0], c1_tile[1]], [c1_tile[2], c1_tile[3]],
+                        [c1_tile[4], c1_tile[5]])
+                    sij = pto.matmul(qi, kj, pto.DT_FP32, a_trans=False, b_trans=True)
+                    pto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
+                    sij_scale = pto.mul_s(
+                        sij, pto.element(sij.dtype, softmax_scale))
 
-                        tilda_mij = pto.row_max_single(sij_scale)
-                        tsub = pto.sub(sij_scale, tilda_mij)
-                        tilda_pij = pto.exp(tsub)
-                        tilda_pij_f16 = pto.cast(tilda_pij, dtype)
-                        tilda_lij = pto.row_sum_single(tilda_pij)  # (nTileCur, s2TileCur) -> (nTileCur, 1)
+                    tilda_mij = pto.row_max_single(sij_scale)
+                    tsub = pto.sub(sij_scale, tilda_mij)
+                    tilda_pij = pto.exp(tsub)
+                    tilda_pij_f16 = pto.cast(tilda_pij, dtype)
+                    tilda_lij = pto.row_sum_single(tilda_pij)  # (nTileCur, s2TileCur) -> (nTileCur, 1)
 
-                        pto.set_cube_tile_shapes(
-                            [c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]],
-                            [c2_tile[4], c2_tile[5]])
-                        oi_tmp = pto.matmul(tilda_pij_f16,
-                                            vj, pto.DT_FP32, a_trans=False, b_trans=False)
-                        pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
-                        oi_update[:] = (pto.div(oi_tmp, tilda_lij))  # (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
-                        pto.assemble(oi_update, oi_offset, attention_out)
-                    inside_b_idx_loop(b_idx)
+                    pto.set_cube_tile_shapes(
+                        [c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]],
+                        [c2_tile[4], c2_tile[5]])
+                    oi_tmp = pto.matmul(tilda_pij_f16,
+                                        vj, pto.DT_FP32, a_trans=False, b_trans=False)
+                    pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
+                    oi_update[:] = (pto.div(oi_tmp, tilda_lij))  # (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
+                    pto.assemble(oi_update, oi_offset, attention_out)
+                inside_b_idx_loop(b_idx)
         inside_main_function()
 
 if __name__ == '__main__':

@@ -36,15 +36,14 @@ def test_gather_onboard():
     b_loop_num = math.ceil(index_shape / view_shape[0])
     pto.set_codegen_option("support_dynamic_unaligned", True)
     with pto.function("MAIN", [src_tensor, index_tensor], [dst_tensor]):
-        with pto.loop_function("b0", "bidx", pto.loop_range(b_loop_num)) as bloop:
-            for b_idx in bloop:
-                tmp_dst_tensor = pto.tensor((index_shape, s), pto.DataType.DT_INT32, "PTO_TENSOR_TMP")
-                view_tensor_src = pto.view(src_tensor, src_shape, [0, 0])
-                view_tensor_index = pto.view(index_tensor, [index_shape], [b_idx * view_shape[0]])
-                pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
-                tmp_dst_tensor.move(pto.gather(view_tensor_src, view_tensor_index, axis))
-                pto.assemble(tmp_dst_tensor, [b_idx * view_shape[0], 0], dst_tensor)
-                del view_tensor_src, view_tensor_index, tmp_dst_tensor
+        for b_idx in pto.loop(b_loop_num, name="b0", idx_name="bidx"):
+            tmp_dst_tensor = pto.tensor((index_shape, s), pto.DataType.DT_INT32, "PTO_TENSOR_TMP")
+            view_tensor_src = pto.view(src_tensor, src_shape, [0, 0])
+            view_tensor_index = pto.view(index_tensor, [index_shape], [b_idx * view_shape[0]])
+            pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
+            tmp_dst_tensor.move(pto.gather(view_tensor_src, view_tensor_index, axis))
+            pto.assemble(tmp_dst_tensor, [b_idx * view_shape[0], 0], dst_tensor)
+            del view_tensor_src, view_tensor_index, tmp_dst_tensor
     assert isinstance(dst_tensor, pto.tensor)
 
     input0_tensor = np.random.uniform(1, 100, src_shape).astype(np.int32)

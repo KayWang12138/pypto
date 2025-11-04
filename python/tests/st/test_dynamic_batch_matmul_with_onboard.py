@@ -94,9 +94,8 @@ def dynamic_batch_matmul_onboard_util(input_config: BatchMatmulShapeConfig):
 
 def no_split_m_n(tensor_a, tensor_b, tensor_c, input_config):
     with pto.function("test_no_split", [tensor_a, tensor_b], [tensor_c]):
-        with pto.loop_function("loop", "idx", pto.loop_range(1)) as idx_loop:
-            for idx in idx_loop:
-                batch_matmul_no_split_util(tensor_a, tensor_b, tensor_c, input_config, idx)
+        for idx in pto.loop(1, name="loop", idx_name="idx"):
+            batch_matmul_no_split_util(tensor_a, tensor_b, tensor_c, input_config, idx)
 
 
 def batch_matmul_no_split_util(tensor_a, tensor_b, tensor_c, input_config, idx):
@@ -124,9 +123,8 @@ def split_m_axis(tensor_a, tensor_b, tensor_c, input_config):
     loop_end = ceil_div(m_axis, view_shape[1])
 
     with pto.function("test_m_split", [tensor_a, tensor_b], [tensor_c]):
-        with pto.loop_function("m_loop", "m_idx", pto.loop_range(0, loop_end, 1)) as m_idx_loop:
-            for m_idx in m_idx_loop:
-                batch_matmul_split_m_util(tensor_a, tensor_b, tensor_c, input_config, m_idx)
+        for m_idx in pto.loop(0, loop_end, 1, name="m_loop", idx_name="m_idx"):
+            batch_matmul_split_m_util(tensor_a, tensor_b, tensor_c, input_config, m_idx)
 
 
 def batch_matmul_split_m_util(tensor_a, tensor_b, tensor_c, input_config, m_idx):
@@ -169,9 +167,8 @@ def split_n_axis(tensor_a, tensor_b, tensor_c, input_config):
 
     dtype = batch_matmul_convert_dtype(input_config.out_dtype)
     with pto.function("test_n_split", [tensor_a, tensor_b], [tensor_c]):
-        with pto.loop_function("n_loop", "n_idx", pto.loop_range(0, loop_end, 1)) as n_idx_loop:
-            for n_idx in n_idx_loop:
-                batch_matmul_split_n_utils(tensor_a, tensor_b, tensor_c, input_config, n_idx)
+        for n_idx in pto.loop(0, loop_end, 1, name="n_loop", idx_name="n_idx"):
+            batch_matmul_split_n_utils(tensor_a, tensor_b, tensor_c, input_config, n_idx)
 
 
 def batch_matmul_split_n_utils(tensor_a, tensor_b, tensor_c, input_config, n_idx):
@@ -214,9 +211,8 @@ def split_m_n_axis(tensor_a, tensor_b, tensor_c, input_config):
 
     dtype = batch_matmul_convert_dtype(input_config.out_dtype)
     with pto.function("test_batch_m_n_split", [tensor_a, tensor_b], [tensor_c]):
-        with pto.loop_function("m_loop", "m_idx", pto.loop_range(0, m_loop_end, 1)) as m_idx_loop:
-            for m_idx in m_idx_loop:
-                batch_matmul_split_m_n_utils(tensor_a, tensor_b, tensor_c, input_config, m_idx)
+        for m_idx in pto.loop(0, m_loop_end, 1, name="m_loop", idx_name="m_idx"):
+            batch_matmul_split_m_n_utils(tensor_a, tensor_b, tensor_c, input_config, m_idx)
 
 
 def batch_matmul_split_m_n_utils(tensor_a, tensor_b, tensor_c, input_config, m_idx):
@@ -230,39 +226,37 @@ def batch_matmul_split_m_n_utils(tensor_a, tensor_b, tensor_c, input_config, m_i
     n_loop_end = ceil_div(n_axis, view_shape[2])
 
     dtype = batch_matmul_convert_dtype(input_config.out_dtype)
+    for n_idx in pto.loop(0, n_loop_end, 1, name="n_loop", idx_name="n_idx"):
+        if input_config.a_format_nz or input_config.b_format_nz or input_config.c_format_nz:
+            pto.set_matrix_size([input_config.ori_shape[1], input_config.ori_shape[2], input_config.ori_shape[3]])
+        if not a_trans:
+            dyn_a = pto.view(tensor_a, [shape_a[0], view_shape[1], shape_a[2]],
+            [0, 0, m_idx * view_shape[0]],
+            valid_shape=[shape_a[0], (shape_a[1] -
+            m_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1])), shape_a[2]])
+        else:
+            dyn_a = pto.view(tensor_a, [shape_a[0], shape_a[1], view_shape[1]],
+            [0, 0, m_idx * view_shape[0]],
+            valid_shape=[shape_a[0], shape_a[1], (shape_a[2] -
+            m_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
+        if not b_trans:
+            dyn_b = pto.view(tensor_b, [shape_b[0], shape_b[1], view_shape[2]],
+            [0, 0, n_idx * view_shape[1]],
+            valid_shape=[(shape_b[0], shape_b[1], shape_b[2] -
+            n_idx * view_shape[2]).min(pto.symbolic_scalar(view_shape[2]))])
+        else:
+            dyn_b = pto.view(tensor_b, [shape_b[0], view_shape[2], shape_b[2]],
+            [0, n_idx * view_shape[1], 0],
+            valid_shape=[shape_b[0], (shape_b[1] - 
+            n_idx * view_shape[2]).min(pto.symbolic_scalar(view_shape[2])), shape_b[2]])
 
-    with pto.loop_function("n_loop", "n_idx", pto.loop_range(0, n_loop_end, 1)) as n_idx_loop:
-        for n_idx in n_idx_loop:
-            if input_config.a_format_nz or input_config.b_format_nz or input_config.c_format_nz:
-                pto.set_matrix_size([input_config.ori_shape[1], input_config.ori_shape[2], input_config.ori_shape[3]])
-            if not a_trans:
-                dyn_a = pto.view(tensor_a, [shape_a[0], view_shape[1], shape_a[2]],
-                [0, 0, m_idx * view_shape[0]],
-                valid_shape=[shape_a[0], (shape_a[1] -
-                m_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1])), shape_a[2]])
-            else:
-                dyn_a = pto.view(tensor_a, [shape_a[0], shape_a[1], view_shape[1]],
-                [0, 0, m_idx * view_shape[0]],
-                valid_shape=[shape_a[0], shape_a[1], (shape_a[2] -
-                m_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
-            if not b_trans:
-                dyn_b = pto.view(tensor_b, [shape_b[0], shape_b[1], view_shape[2]],
-                [0, 0, n_idx * view_shape[1]],
-                valid_shape=[(shape_b[0], shape_b[1], shape_b[2] -
-                n_idx * view_shape[2]).min(pto.symbolic_scalar(view_shape[2]))])
-            else:
-                dyn_b = pto.view(tensor_b, [shape_b[0], view_shape[2], shape_b[2]],
-                [0, n_idx * view_shape[1], 0],
-                valid_shape=[shape_b[0], (shape_b[1] - 
-                n_idx * view_shape[2]).min(pto.symbolic_scalar(view_shape[2])), shape_b[2]])
+        res = pto.matmul(dyn_a, dyn_b, dtype, a_trans=input_config.a_trans, b_trans=input_config.b_trans,
+                                c_matrix_nz=input_config.c_format_nz)
 
-            res = pto.matmul(dyn_a, dyn_b, dtype, a_trans=input_config.a_trans, b_trans=input_config.b_trans,
-                                    c_matrix_nz=input_config.c_format_nz)
-
-            pto.assemble(res, [0, m_idx * view_shape[1], n_idx * view_shape[2]], tensor_c)
-            del dyn_a
-            del dyn_b
-            del res
+        pto.assemble(res, [0, m_idx * view_shape[1], n_idx * view_shape[2]], tensor_c)
+        del dyn_a
+        del dyn_b
+        del res
 
 
 def batch_matmul_convert_dtype(dtype):

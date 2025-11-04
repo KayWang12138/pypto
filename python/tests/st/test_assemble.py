@@ -39,12 +39,11 @@ def test_assmble_function_call():
     out = pto.tensor(SHAPE, DTYPE)
     with pto.function("main", [x], [out]):
         pto.set_vec_tile_shapes(8, 8)
-        with pto.loop_function("LOOP_assemble_L0", "a_idx", pto.loop_range(2)) as aloop:
-            for a_idx in aloop:
-                tmp = pto.view(x, [8, 8], [0, a_idx * 8])
-                add_tensor = pto.add(tmp, F_1)
-                # function call
-                pto.assemble(add_tensor, [0, a_idx * 8], out)
+        for a_idx in pto.loop(2, name="LOOP_assemble_L0", idx_name="a_idx"):
+            tmp = pto.view(x, [8, 8], [0, a_idx * 8])
+            add_tensor = pto.add(tmp, F_1)
+            # function call
+            pto.assemble(add_tensor, [0, a_idx * 8], out)
     x_data, res_data, golden_data = prepare_test_data(SHAPE)
     pto.runtime._device_run_once_data_from_host([x_data], [res_data])
     assert_allclose(res_data, golden_data, atol=1e-5, verbose=True)
@@ -57,12 +56,11 @@ def test_assmble_tensor_call():
     out = pto.tensor(SHAPE, DTYPE)
     with pto.function("main", [x], [out]):
         pto.set_vec_tile_shapes(8, 8)
-        with pto.loop_function("LOOP_assemble_L0", "a_idx", pto.loop_range(2)) as aloop:
-            for a_idx in aloop:
-                tmp = pto.view(x, [8, 8], [0, a_idx * 8])
-                add_tensor = pto.add(tmp, F_1)
-                # tensor call
-                out.assemble(add_tensor, [0, a_idx * 8])
+        for a_idx in pto.loop(2, name="LOOP_assemble_L0", idx_name="a_idx"):
+            tmp = pto.view(x, [8, 8], [0, a_idx * 8])
+            add_tensor = pto.add(tmp, F_1)
+            # tensor call
+            out.assemble(add_tensor, [0, a_idx * 8])
     x_data, res_data, golden_data = prepare_test_data(SHAPE)
     pto.runtime._device_run_once_data_from_host([x_data], [res_data])
     assert_allclose(res_data, golden_data, atol=1e-5, verbose=True)
@@ -75,12 +73,11 @@ def test_assmble_syntactic_sugar():
     out = pto.tensor(SHAPE, DTYPE)
     with pto.function("main", [x], [out]):
         pto.set_vec_tile_shapes(8, 8)
-        with pto.loop_function("LOOP_assemble_L0", "a_idx", pto.loop_range(2)) as aloop:
-            for a_idx in aloop:
-                tmp = pto.view(x, [8, 8], [0, a_idx * 8])
-                add_tensor = pto.add(tmp, F_1)
-                # syntactic_sugar call
-                out[0:, a_idx * 8:] = add_tensor
+        for a_idx in pto.loop(2, name="LOOP_assemble_L0", idx_name="a_idx"):
+            tmp = pto.view(x, [8, 8], [0, a_idx * 8])
+            add_tensor = pto.add(tmp, F_1)
+            # syntactic_sugar call
+            out[0:, a_idx * 8:] = add_tensor
     x_data, res_data, golden_data = prepare_test_data(SHAPE)
     pto.runtime._device_run_once_data_from_host([x_data], [res_data])
     pto.runtime._device_fini()
@@ -92,12 +89,11 @@ def test_assmble_syntactic_sugar_slice_empty():
     out = pto.tensor(SHAPE, DTYPE)
     with pto.function("main", [x], [out]):
         pto.set_vec_tile_shapes(8, 8)
-        with pto.loop_function("LOOP_assemble_L0", "a_idx", pto.loop_range(1)) as aloop:
-            for a_idx in aloop:
-                tmp = pto.view(x, [8, 8], [0, a_idx * 8])
-                add_tensor = pto.add(tmp, F_1)
-                # syntactic_sugar call
-                out[0:, :] = add_tensor
+        for a_idx in pto.loop(2, name="LOOP_assemble_L0", idx_name="a_idx"):
+            tmp = pto.view(x, [8, 8], [0, a_idx * 8])
+            add_tensor = pto.add(tmp, F_1)
+            # syntactic_sugar call
+            out[0:, :] = add_tensor
 
     x_data = torch.ones(SHAPE, dtype=torch.float32)
 

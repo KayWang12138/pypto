@@ -43,11 +43,10 @@ def test_sigmoid_FP32():
     res = pto.tensor(x_shape, dtype)
 
     with pto.function("SIGMOID_CONTENT_FP32", [x], [res]):
-        with pto.loop_function("LOOP_L0", "a_idx", pto.loop_range(1)) as aloop:
-            for a_idx in aloop:
-                pto.set_vec_tile_shapes(4, 4)
-                res.move(pto.sigmoid(x))
-                del res
+        for _ in pto.loop(1, name="LOOP_L0", idx_name="a_idx"):
+            pto.set_vec_tile_shapes(4, 4)
+            res.move(pto.sigmoid(x))
+            del res
     
     x_tensor = torch.rand(4, 4, dtype=torch.float32) * 200 - 100  
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)
@@ -69,11 +68,10 @@ def test_sigmoid_FP16():
     res = pto.tensor(x_shape, dtype)
 
     with pto.function("SIGMOID_CONTENT_FP16", [x], [res]):
-        with pto.loop_function("LOOP_L0", "a_idx", pto.loop_range(1)) as aloop:
-            for a_idx in aloop:
-                pto.set_vec_tile_shapes(4, 4)
-                res.move(pto.sigmoid(x))
-                del res
+        for _ in pto.loop(1, name="LOOP_L0", idx_name="a_idx"):
+            pto.set_vec_tile_shapes(4, 4)
+            res.move(pto.sigmoid(x))
+            del res
     
     x_tensor = torch.rand(4, 4, dtype=torch.float16) * 200 - 100  
     res_tensor = torch.zeros(4, 4, dtype=torch.float16)
@@ -94,11 +92,10 @@ def test_tensor_sigmoid_FP32():
     res = pto.tensor(x_shape, dtype)
 
     with pto.function("TENSOR_SIGMOID_CONTENT_FP32", [x], [res]):
-        with pto.loop_function("LOOP_L0", "a_idx", pto.loop_range(1)) as aloop:
-            for a_idx in aloop:
-                pto.set_vec_tile_shapes(4, 4)
-                res.move(x.sigmoid())
-                del res
+        for _ in pto.loop(1, name="LOOP_L0", idx_name="a_idx"):
+            pto.set_vec_tile_shapes(4, 4)
+            res.move(x.sigmoid())
+            del res
     
     x_tensor = torch.rand(4, 4, dtype=torch.float32) * 200 - 100  
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)  

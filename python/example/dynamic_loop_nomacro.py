@@ -21,20 +21,19 @@ def main():
 
     with pto.function("MAIN", [a], [b]):
         pto.set_vec_tile_shapes(64, 64)
-        with pto.loop_function("Dynamic", "k", pto.loop_range(10)) as rlf:
-            for k in rlf:
-                b[:] = pto.add(a, a)
+        for k in pto.loop(10, name="Dynamic", idx_name="k"):
+            b[:] = pto.add(a, a)
 
-                if pto.cond(k < 2):
-                    b[:] = pto.add(b, a)
-                else:
-                    b[:] = pto.sub(b, a)
-
-                if pto.cond(k < 5):
-                    b[:] = pto.mul(b, a)
-                else:
-                    b[:] = pto.div(b, a)
+            if pto.cond(k < 2):
+                b[:] = pto.add(b, a)
+            else:
                 b[:] = pto.sub(b, a)
+
+            if pto.cond(k < 5):
+                b[:] = pto.mul(b, a)
+            else:
+                b[:] = pto.div(b, a)
+            b[:] = pto.sub(b, a)
     print(pto.dump())
     assert isinstance(b, pto.tensor)
 

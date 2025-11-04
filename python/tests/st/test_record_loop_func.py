@@ -27,25 +27,18 @@ def test_dynamic_loop_nomacro():
     a, b, c = init_tensors()
     with pto.function("MAIN", [a, b], [c]):
         pto.set_vec_tile_shapes(16, 16)
+        for k in pto.loop(10, name="LOOP", idx_name="k"):
+            b.move(pto.add(a, a))
 
-        with pto.loop_function(
-            "LOOP",
-            "k",
-            pto.loop_range(10),
-        ) as rlf:
+            if pto.cond(k < 2):
+                b.move(pto.add(b, a))
+            else:
+                b.move(pto.sub(b, a))
 
-            for k in rlf:
-                b.move(pto.add(a, a))
-
-                if pto.cond(k < 2):
-                    b.move(pto.add(b, a))
-                else:
-                    b.move(pto.sub(b, a))
-
-                if pto.cond(k < 5):
-                    b.move(pto.mul(b, a))
-                else:
-                    b.move(pto.div(b, a))
-                c.move(pto.sub(b, a))
+            if pto.cond(k < 5):
+                b.move(pto.mul(b, a))
+            else:
+                b.move(pto.div(b, a))
+            c.move(pto.sub(b, a))
 
     assert isinstance(b, pto.tensor)

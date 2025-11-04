@@ -38,14 +38,12 @@ def test_vector_operation_range():
     step = pto.element(pto.DT_FP32, step_data)
 
     with pto.function("RANGE", [a], [b]):
-        loop_range_b = pto.loop_range(1)
-        with pto.loop_function("LOOP_L0_b_idex", "b_idx", loop_range_b) as bloop:
-            for b_idx in bloop:
-                pto.set_vec_tile_shapes(tile_shape[0])
-                res = pto.tensor()
-                res.move(pto.range(start, end, step))
-                pto.assemble(res, [b_idx * view_shape[0]], b)
-                del res
+        for b_idx in pto.loop(1, name="LOOP_L0_b_idex", idx_name="b_idx"):
+            pto.set_vec_tile_shapes(tile_shape[0])
+            res = pto.tensor()
+            res.move(pto.range(start, end, step))
+            pto.assemble(res, [b_idx * view_shape[0]], b)
+            del res
     a_tensor = torch.rand([1, 1, 1], dtype=torch.float32) * 99.999 + 0.001
     res_tensor = torch.zeros(size, dtype=torch.float32)
     pto.runtime._device_run_once_data_from_host([a_tensor], [res_tensor])

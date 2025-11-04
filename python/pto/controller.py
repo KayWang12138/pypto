@@ -214,7 +214,7 @@ class LoopRange:
         return self._base
 
 
-loop_range = LoopRange
+_loop_range = LoopRange
 
 
 def is_loop_begin(scalar: SymbolicScalar, begin: Union[int, SymbolicScalar]):
@@ -371,11 +371,11 @@ class _LoopFunction:
 
 
 @contextmanager
-def loop_function(
+def _loop_function(
     name: str,
     loop_name: str,
     loop_range_: LoopRange,
-    unroll_list: Set[int] = set(),
+    unroll_list: Set[int] = None,
     submit_before_loop: bool = False,
 ):
     if unroll_list is None:
@@ -450,8 +450,8 @@ def loop(start: SymInt, end: Optional[SymInt] = None, step: Optional[SymInt] = N
     idx_name = kwargs.get("idx_name", "K")
     unroll_list = kwargs.get("unroll_list", set())
     submit_before_loop = kwargs.get("submit_before_loop", False)
-    with loop_function(
-        name, idx_name, loop_range(
+    with _loop_function(
+        name, idx_name, _loop_range(
             start, end, step), unroll_list, submit_before_loop
     ) as rlf:
         for k in rlf:

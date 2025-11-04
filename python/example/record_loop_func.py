@@ -27,15 +27,9 @@ def main():
     with pto.function("main", [a, b], [c], []):
 
         pto.set_vec_tile_shapes(16, 16)
-        loop_range = pto.loop_range(10)
 
-        with pto.loop_function(
-            "Dynamic",
-            "k",
-            loop_range,
-        ) as rlf:
-            for _ in rlf:
-                c[:] = pto.add(a, b)
+        for _ in pto.loop(10, name="Dynamic", idx_name="k"):
+            c[:] = pto.add(a, b)
     print(pto.dump())
 
 if __name__ == "__main__":

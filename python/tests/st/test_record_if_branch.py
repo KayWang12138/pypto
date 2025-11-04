@@ -23,14 +23,8 @@ def test_record_if_branch():
 
     with pto.function("ADD_IF", [a, b], [c]):
         pto.set_vec_tile_shapes(8, 8)
-        loop_range = pto.loop_range(2)
-        with pto.loop_function(
-            "LOOP",
-            "k",
-            loop_range,
-        ) as rlf:
-            for k in rlf:
-                if pto.cond(k < 10):
-                    c = pto.add(a, b)
+        for k in pto.loop(2, name="LOOP", idx_name="k"):
+            if pto.cond(k < 10):
+                c = pto.add(a, b)
 
     assert isinstance(c, pto.tensor)

@@ -31,23 +31,21 @@ def test_adds_onboard():
     s_loop_num = math.ceil(shape[1] / view_shape[1])
     pto.set_codegen_option("support_dynamic_unaligned", True)
     with pto.function("MAIN", [input1], [output]):
-        with pto.loop_function("b0", "bidx", pto.loop_range(b_loop_num)) as bloop:        
-            with pto.loop_function("s0", "sidx", pto.loop_range(s_loop_num)) as sloop:
-                for b_idx in bloop:
-                    for s_idx in sloop:
-                        view_tensor_a = pto.view(input1, view_shape,
-                            [
-                                (pto.symbolic_scalar(shape[0]) -
-                                    b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
-                                (pto.symbolic_scalar(shape[1]) -
-                                    s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1])),
-                            ],
-                            [b_idx * view_shape[0], s_idx * view_shape[1]],
-                        )
-                        pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
-                        view_tensor_a.move(pto.add_s(view_tensor_a, input2))
-                        pto.assemble(view_tensor_a, [b_idx * view_shape[0], s_idx * view_shape[1]], output)
-                        del view_tensor_a
+        for b_idx in pto.loop(b_loop_num, name="b0", idx_name="bidx"):
+            for s_idx in pto.loop(s_loop_num, name="s0", idx_name="sidx"):
+                view_tensor_a = pto.view(input1, view_shape,
+                    [
+                        (pto.symbolic_scalar(shape[0]) -
+                            b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
+                        (pto.symbolic_scalar(shape[1]) -
+                            s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1])),
+                    ],
+                    [b_idx * view_shape[0], s_idx * view_shape[1]],
+                )
+                pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
+                view_tensor_a.move(pto.add_s(view_tensor_a, input2))
+                pto.assemble(view_tensor_a, [b_idx * view_shape[0], s_idx * view_shape[1]], output)
+                del view_tensor_a
     assert isinstance(output, pto.tensor)
 
     a_data = list(range(shape[0] * shape[1]))

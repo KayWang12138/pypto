@@ -112,162 +112,154 @@ def selected_attention_compute(**kwargs):
     n2_sym = n_kv
 
     pto.set_codegen_option(KEY_SUPPORT_DYNAMIC_UNALIGNED, True)
+    for b_idx in pto.loop(0, batch_size_sym, 1, name="LOOP_L0_b_SA", idx_name="b_idx", extra_args=(set(), True)):
+        def inside_b_loop_sa(b_idx):
+            # nonlocal sa_out
+            cur_act_seq = pto.get_tensor_data(kv_act_seqs, [b_idx])
+            cur_act_seq.as_intermediate_variable()
+            for s1_idx in pto.loop(0, s1_sym, 1, name="LOOP_L1_s1_SA", idx_name="s1_idx"):
+                for n2_idx in pto.loop(0, n2_sym, 1, name="LOOP_L2_n2_SA", idx_name="n2_idx"):
+                    for g_idx in pto.loop(0, g_loop_sym, 1, name="LOOP_L3_g_SA", idx_name="g_idx"):
+                        def inside_g_loop_sa(b_idx, s1_idx, n2_idx, g_idx):
+                            # nonlocal sa_out
+                            # nonlocal g_tile
+                            cur_g_tile = g_tile
+                            cur_offset = (b_idx * s1_n2_g_sym + s1_idx * n_q
+                                        + n2_idx * group + g_idx * cur_g_tile)
+                            oi_offset = [b_idx, s1_idx, n2_idx * group + g_idx * cur_g_tile, 0]
 
-    with pto.loop_function("LOOP_L0_b_SA", "b_idx", pto.loop_range(0, batch_size_sym, 1), set(), True) as b_idx_loop:
-        for b_idx in b_idx_loop:
-            def inside_b_loop_sa(b_idx):
-                # nonlocal sa_out
-                cur_act_seq = pto.get_tensor_data(kv_act_seqs, [b_idx])
-                cur_act_seq.as_intermediate_variable()
-                with pto.loop_function("LOOP_L1_s1_SA", "s1_idx", pto.loop_range(0, s1_sym, 1)) as s1_idx_loop:
-                    for s1_idx in s1_idx_loop:
-                        with pto.loop_function("LOOP_L2_n2_SA", "n2_idx",
-                            pto.loop_range(0, n2_sym, 1)) as n2_idx_loop:
-                            for n2_idx in n2_idx_loop:
-                                with pto.loop_function("LOOP_L3_g_SA", "g_idx",
-                                    pto.loop_range(0, g_loop_sym, 1)) as g_idx_loop:
-                                    for g_idx in g_idx_loop:
-                                        def inside_g_loop_sa(b_idx, s1_idx, n2_idx, g_idx):
-                                            # nonlocal sa_out
-                                            # nonlocal g_tile
-                                            cur_g_tile = g_tile
-                                            cur_offset = (b_idx * s1_n2_g_sym + s1_idx * n_q
-                                                        + n2_idx * group + g_idx * cur_g_tile)
-                                            oi_offset = [b_idx, s1_idx, n2_idx * group + g_idx * cur_g_tile, 0]
+                            for s2_idx in pto.loop(0, 1, 1, name="LOOP_L4_s2_SA", idx_name="s2_idx",
+                            extra_arg=pto.powers_of_2(1)):
+                                def inside_s2_loop_sa(b_idx, s1_idx, n2_idx, s2_idx, topk):
+                                    cur_s2_tile = pto.symbolic_scalar(topk * slc_block_size)
+                                    pto.set_semantic_label("kv_slc")
+                                    k_slc = pto.tensor([topk * slc_block_size,
+                                        d_n + d_r], dtype, "k_slc")
+                                    cur_kv_slc_seq = pto.symbolic_scalar(0)
+                                    s_slc = (cur_act_seq - s1_sym + 1 + s1_idx -
+                                        cmp_block_size + slc_block_size) // slc_block_size
+                                    s_slc.as_intermediate_variable()
+                                    positions = pto.symbolic_scalar(0)
+                                    for top_k_idx in range(topk):
+                                        if top_k_idx < front:
+                                            # 获取到topk的position
+                                            # 头部的front个
+                                            positions = top_k_idx * slc_block_size
+                                        elif top_k_idx > (topk - near - front):
+                                            # 尾部的near个
+                                            positions = (s_slc - near + (top_k_idx - (
+                                                topk - front - near)) - 1) * slc_block_size
+                                        else:
+                                            # 中间的topk-front-near个
+                                            top_k_index = None
+                                            if debug:
+                                                pto.set_vec_tile_shapes(1, 1, NUM_16)
+                                                top_k_index = pto.get_tensor_data(top_k_indices,
+                                                    [b_idx, s1_idx, pto.symbolic_scalar(top_k_idx
+                                                                                        - front)])
+                                            else:
+                                                top_k_index = pto.get_tensor_data(top_k_indices,
+                                                    [b_idx, s1_idx, pto.symbolic_scalar(top_k_idx
+                                                                                        - front)])
+                                            positions = top_k_index * slc_block_size
+                                        cur_kv_slc_seq = cur_kv_slc_seq + min(slc_block_size,
+                                            cur_act_seq - positions)
+                                        block_idx_in_batch = positions // pto.symbolic_scalar(
+                                                                                        block_size)
+                                        tail = positions % block_size
+                                        slc_block_idx = pto.get_tensor_data(block_table,
+                                                                    [b_idx, block_idx_in_batch])
+                                        pto.set_vec_tile_shapes(v0_tile[0], v0_tile[1])
+                                        kv_slc_block = pto.view(kv_nope_cache,
+                                                                    [slc_block_size, d_n],
+                                            [slc_block_idx * block_size + tail, n2_idx * d_n])
+                                        kr_slc_block = pto.view(k_rope_cache, [slc_block_size, d_r],
+                                            [slc_block_idx * block_size + tail, n2_idx * d_r])
 
-                                            with pto.loop_function("LOOP_L4_s2_SA", "s2_idx", pto.loop_range(0, 1, 1),
-                                                pto.powers_of_2(1)) as s2_idx_loop:
-                                                for s2_idx in s2_idx_loop:
-                                                    def inside_s2_loop_sa(b_idx, s1_idx, n2_idx, s2_idx, topk):
-                                                        cur_s2_tile = pto.symbolic_scalar(topk * slc_block_size)
-                                                        pto.set_semantic_label("kv_slc")
-                                                        k_slc = pto.tensor([topk * slc_block_size,
-                                                            d_n + d_r], dtype, "k_slc")
-                                                        cur_kv_slc_seq = pto.symbolic_scalar(0)
-                                                        s_slc = (cur_act_seq - s1_sym + 1 + s1_idx -
-                                                            cmp_block_size + slc_block_size) // slc_block_size
-                                                        s_slc.as_intermediate_variable()
-                                                        positions = pto.symbolic_scalar(0)
-                                                        for top_k_idx in range(topk):
-                                                            if top_k_idx < front:
-                                                                # 获取到topk的position
-                                                                # 头部的front个
-                                                                positions = top_k_idx * slc_block_size
-                                                            elif top_k_idx > (topk - near - front):
-                                                                # 尾部的near个
-                                                                positions = (s_slc - near + (top_k_idx - (
-                                                                    topk - front - near)) - 1) * slc_block_size
-                                                            else:
-                                                                # 中间的topk-front-near个
-                                                                top_k_index = None
-                                                                if debug:
-                                                                    pto.set_vec_tile_shapes(1, 1, NUM_16)
-                                                                    top_k_index = pto.get_tensor_data(top_k_indices,
-                                                                        [b_idx, s1_idx, pto.symbolic_scalar(top_k_idx
-                                                                                                            - front)])
-                                                                else:
-                                                                    top_k_index = pto.get_tensor_data(top_k_indices,
-                                                                        [b_idx, s1_idx, pto.symbolic_scalar(top_k_idx
-                                                                                                            - front)])
-                                                                positions = top_k_index * slc_block_size
-                                                            cur_kv_slc_seq = cur_kv_slc_seq + min(slc_block_size,
-                                                                cur_act_seq - positions)
-                                                            block_idx_in_batch = positions // pto.symbolic_scalar(
-                                                                                                            block_size)
-                                                            tail = positions % block_size
-                                                            slc_block_idx = pto.get_tensor_data(block_table,
-                                                                                        [b_idx, block_idx_in_batch])
-                                                            pto.set_vec_tile_shapes(v0_tile[0], v0_tile[1])
-                                                            kv_slc_block = pto.view(kv_nope_cache,
-                                                                                        [slc_block_size, d_n],
-                                                                [slc_block_idx * block_size + tail, n2_idx * d_n])
-                                                            kr_slc_block = pto.view(k_rope_cache, [slc_block_size, d_r],
-                                                                [slc_block_idx * block_size + tail, n2_idx * d_r])
+                                        pto.set_semantic_label("kv_slc_cast_fp32")
+                                        pto.set_vec_tile_shapes(v0_tile[0], v1_tile[1])
+                                        kv_slc_block_fp32 = pto.cast(kv_slc_block,
+                                                                    pto.DT_FP32)
+                                        kr_slc_block_fp32 = pto.cast(kr_slc_block,
+                                                                    pto.DT_FP32)
+                                        pto.set_semantic_label("kv_slc_cast")
+                                        pto.set_vec_tile_shapes(v0_tile[0], v1_tile[1])
+                                        kv_slc_block_fp16 = pto.cast(kv_slc_block_fp32,
+                                                                    k_slc.dtype)
+                                        kr_slc_block_fp16 = pto.cast(kr_slc_block_fp32,
+                                                                    k_slc.dtype)
+                                        pto.set_vec_tile_shapes(v0_tile[0], v1_tile[1])
 
-                                                            pto.set_semantic_label("kv_slc_cast_fp32")
-                                                            pto.set_vec_tile_shapes(v0_tile[0], v1_tile[1])
-                                                            kv_slc_block_fp32 = pto.cast(kv_slc_block,
-                                                                                        pto.DT_FP32)
-                                                            kr_slc_block_fp32 = pto.cast(kr_slc_block,
-                                                                                        pto.DT_FP32)
-                                                            pto.set_semantic_label("kv_slc_cast")
-                                                            pto.set_vec_tile_shapes(v0_tile[0], v1_tile[1])
-                                                            kv_slc_block_fp16 = pto.cast(kv_slc_block_fp32,
-                                                                                        k_slc.dtype
-                                                            kr_slc_block_fp16 = pto.cast(kr_slc_block_fp32,
-                                                                                        k_slc.dtype)
-                                                            pto.set_vec_tile_shapes(v0_tile[0], v1_tile[1])
+                                        slc_out_s_offset = (top_k_idx
+                                            * slc_block_size)
+                                        pto.assemble(kv_slc_block_fp16,
+                                            [slc_out_s_offset, 0], k_slc)
+                                        pto.assemble(kr_slc_block_fp16,
+                                            [slc_out_s_offset, d_n], k_slc)
 
-                                                            slc_out_s_offset = (top_k_idx
-                                                                * slc_block_size)
-                                                            pto.assemble(kv_slc_block_fp16,
-                                                                [slc_out_s_offset, 0], k_slc)
-                                                            pto.assemble(kr_slc_block_fp16,
-                                                                [slc_out_s_offset, d_n], k_slc)
+                                    # qAssemble
+                                    pto.set_semantic_label("Sa")
+                                    # View, 临时规避改成 View
+                                    qn = pto.view(q_nope, [cur_g_tile, d_n], [cur_offset, 0], 
+                                                valid_shape=[cur_g_tile, d_n])
+                                    qr = pto.view(q_rope, [cur_g_tile, d_r], [cur_offset, 0], 
+                                                valid_shape=[cur_g_tile, d_r])
+                                    qi = pto.tensor([cur_g_tile, d_n + d_r], dtype, "qi")
+                                    pto.assemble(qn, [0, 0], qi)
+                                    pto.assemble(qr, [0, d_n], qi)
 
-                                                        # qAssemble
-                                                        pto.set_semantic_label("Sa")
-                                                        # View, 临时规避改成 View
-                                                        qn = pto.view(q_nope, [cur_g_tile, d_n], [cur_offset, 0], 
-                                                                    valid_shape=[cur_g_tile, d_n])
-                                                        qr = pto.view(q_rope, [cur_g_tile, d_r], [cur_offset, 0], 
-                                                                    valid_shape=[cur_g_tile, d_r])
-                                                        qi = pto.tensor([cur_g_tile, d_n + d_r], dtype, "qi")
-                                                        pto.assemble(qn, [0, 0], qi)
-                                                        pto.assemble(qr, [0, d_n], qi)
+                                    # slc_attn
+                                    cur_seq = pto.symbolic_scalar(max(
+                                                    cur_kv_slc_seq - s1_sym + 1 + s1_idx, 0))
+                                    cur_seq.as_intermediate_variable()
+                                    kj = pto.view(k_slc, [cur_s2_tile, d_n + d_r], 
+                                        [s2_idx * cur_s2_tile, 0], 
+                                        valid_shape=[(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), d_n + d_r])
+                                    vj = pto.view(k_slc, [cur_s2_tile, d_n], 
+                                        [s2_idx * cur_s2_tile, 0],
+                                        valid_shape=[(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), d_n])
 
-                                                        # slc_attn
-                                                        cur_seq = pto.symbolic_scalar(max(
-                                                                        cur_kv_slc_seq - s1_sym + 1 + s1_idx, 0))
-                                                        cur_seq.as_intermediate_variable()
-                                                        kj = pto.view(k_slc, [cur_s2_tile, d_n + d_r], 
-                                                            [s2_idx * cur_s2_tile, 0], 
-                                                            valid_shape=[(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), d_n + d_r])
-                                                        vj = pto.view(k_slc, [cur_s2_tile, d_n], 
-                                                            [s2_idx * cur_s2_tile, 0],
-                                                            valid_shape=[(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), d_n])
+                                    # C1
+                                    pto.set_semantic_label("Sa_QkMM")
+                                    pto.set_cube_tile_shapes(
+                                        [c1_tile[0], c1_tile[1]], [c1_tile[2], c1_tile[3]],
+                                        [c1_tile[4], c1_tile[5]], True)
+                                    pto.set_matrix_size([qi.shape[0], 0, kj.shape[0]])
+                                    sij = pto.matmul(qi, kj, pto.DT_FP32,
+                                                    a_trans=False, b_trans=True)
 
-                                                        # C1
-                                                        pto.set_semantic_label("Sa_QkMM")
-                                                        pto.set_cube_tile_shapes(
-                                                            [c1_tile[0], c1_tile[1]], [c1_tile[2], c1_tile[3]],
-                                                            [c1_tile[4], c1_tile[5]], True)
-                                                        pto.set_matrix_size([qi.shape[0], 0, kj.shape[0]])
-                                                        sij = pto.matmul(qi, kj, pto.DT_FP32,
-                                                                        a_trans=False, b_trans=True)
+                                    # V1
+                                    pto.set_semantic_label("Sa_Qkvec1")
+                                    pto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
+                                    sij_scale = pto.mul_s(sij, pto.element(sij.dtype,
+                                                        softmax_scale))
+                                    tilda_mij = pto.row_max_single(sij_scale)
+                                    tsub = pto.sub(sij_scale, tilda_mij)
+                                    tilda_pij = pto.exp(tsub)
+                                    tilda_lij = pto.row_sum_single(tilda_pij)
+                                    t_softmax = pto.div(tilda_pij, tilda_lij)
+                                    tilda_pij_f16 = pto.cast(t_softmax, dtype)
 
-                                                        # V1
-                                                        pto.set_semantic_label("Sa_Qkvec1")
-                                                        pto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
-                                                        sij_scale = pto.mul_s(sij, pto.element(sij.dtype,
-                                                                            softmax_scale))
-                                                        tilda_mij = pto.row_max_single(sij_scale)
-                                                        tsub = pto.sub(sij_scale, tilda_mij)
-                                                        tilda_pij = pto.exp(tsub)
-                                                        tilda_lij = pto.row_sum_single(tilda_pij)
-                                                        t_softmax = pto.div(tilda_pij, tilda_lij)
-                                                        tilda_pij_f16 = pto.cast(t_softmax, dtype)
+                                    # C2
+                                    pto.set_semantic_label("Sa_KvMm")
+                                    pto.set_cube_tile_shapes(
+                                        [c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]],
+                                        [c2_tile[4], c2_tile[5]], True)
+                                    pto.set_matrix_size(
+                                        [tilda_pij_f16.shape[0], tilda_pij_f16.shape[1],
+                                        vj.shape[1]])
+                                    oi = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32)
 
-                                                        # C2
-                                                        pto.set_semantic_label("Sa_KvMm")
-                                                        pto.set_cube_tile_shapes(
-                                                            [c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]],
-                                                            [c2_tile[4], c2_tile[5]], True)
-                                                        pto.set_matrix_size(
-                                                            [tilda_pij_f16.shape[0], tilda_pij_f16.shape[1],
-                                                            vj.shape[1]])
-                                                        oi = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32)
-
-                                                        # V2
-                                                        pto.set_semantic_label("Sa_KvVec2")
-                                                        pto.set_vec_tile_shapes(1, 1, v2_tile[0], v2_tile[1])
-                                                        oi_4_dim = pto.add_s(pto.reshape(oi, [1, 1, cur_g_tile,
-                                                            d_n]),
-                                                            pto.element(oi.dtype, float(0)))
-                                                        pto.assemble(oi_4_dim, oi_offset, attention_out)
-                                                    inside_s2_loop_sa(b_idx, s1_idx, n2_idx, s2_idx, topk)
-                                        inside_g_loop_sa(b_idx, s1_idx, n2_idx, g_idx)
-            inside_b_loop_sa(b_idx)
+                                    # V2
+                                    pto.set_semantic_label("Sa_KvVec2")
+                                    pto.set_vec_tile_shapes(1, 1, v2_tile[0], v2_tile[1])
+                                    oi_4_dim = pto.add_s(pto.reshape(oi, [1, 1, cur_g_tile,
+                                        d_n]),
+                                        pto.element(oi.dtype, float(0)))
+                                    pto.assemble(oi_4_dim, oi_offset, attention_out)
+                                inside_s2_loop_sa(b_idx, s1_idx, n2_idx, s2_idx, topk)
+                        inside_g_loop_sa(b_idx, s1_idx, n2_idx, g_idx)
+        inside_b_loop_sa(b_idx)
 
 
 def selected_attention(**kwargs):

@@ -29,12 +29,11 @@ def test_device_run_data_from_host_numpy():
 
     pto.set_vec_tile_shapes(tiling, tiling, tiling)
     with pto.function("MAIN", [a], [b]):
-        with pto.loop_function("s0", "idx", pto.loop_range(10)) as rlf:
-            for idx in rlf:
-                if pto.cond(idx == 0):
-                    b.move(pto.add(a, a))
-                else:
-                    b.move(pto.add(a, b))
+        for idx in pto.loop(10, name="s0", idx_name="idx"):
+            if pto.cond(idx == 0):
+                b.move(pto.add(a, a))
+            else:
+                b.move(pto.add(a, b))
     assert isinstance(b, pto.tensor)
 
     a_tensor = torch.rand(n, m, k, dtype=torch.float32) * 2 - 1
@@ -60,12 +59,11 @@ def test_device_run_data_from_host_torch():
 
     pto.set_vec_tile_shapes(tiling, tiling)
     with pto.function("MAIN", [a], [b]):
-        with pto.loop_function("s0", "k", pto.loop_range(10)) as rlf:
-            for k in rlf:
-                if pto.cond(k == 0):
-                    b.move(pto.add(a, a))
-                else:
-                    b.move(pto.add(a, b))
+        for k in pto.loop(10, name="s0", idx_name="k"):
+            if pto.cond(k == 0):
+                b.move(pto.add(a, a))
+            else:
+                b.move(pto.add(a, b))
     assert isinstance(b, pto.tensor)
 
     a_tensor = torch.rand(n, m, dtype=torch.float32)
@@ -91,12 +89,11 @@ def test_device_run_data_from_host():
 
     pto.set_vec_tile_shapes(tiling, tiling)
     with pto.function("MAIN", [a], [b]):
-        with pto.loop_function("s0", "k", pto.loop_range(10)) as rlf:
-            for k in rlf:
-                if pto.cond(k == 0):
-                    b.move(pto.add(a, a))
-                else:
-                    b.move(pto.add(a, b))
+        for k in pto.loop(10, name="s0", idx_name="k"):
+            if pto.cond(k == 0):
+                b.move(pto.add(a, a))
+            else:
+                b.move(pto.add(a, b))
     assert isinstance(b, pto.tensor)
 
     a_tensor = torch.arange(n * m, dtype=torch.int32).reshape(n, m)

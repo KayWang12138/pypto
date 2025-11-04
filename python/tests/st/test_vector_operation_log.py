@@ -32,19 +32,15 @@ def test_vector_operation_log():
     b = pto.tensor((n, m), pto.DT_FP32, "LOG_TENSOR_b")
 
     with pto.function("LOG", [a], [b]):
-        loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
-        loop_range_s = pto.loop_range(int(np.ceil(m / view_shape[1])))
-        with pto.loop_function("LOOP_LOG_L0", "b_idx", loop_range_b) as bloop:
-            with pto.loop_function("LOOP_LOG_L1", "s_idx", loop_range_s) as sloop:
-                for b_idx in bloop:
-                    for s_idx in sloop:
-                        tile_a = pto.view(a, view_shape, [b_idx * view_shape[0], s_idx * view_shape[1]], valid_shape=[pto.min(pto.symbolic_scalar(n) - b_idx * view_shape[0],
-                                          pto.symbolic_scalar(n)), pto.min(pto.symbolic_scalar(m) - b_idx * view_shape[1],
-                                          pto.symbolic_scalar(m))])
-                        pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
-                        tile_a.move(pto.log(tile_a, pto.LogBaseType.LOG_E))
-                        pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
-                        del tile_a
+        for b_idx in pto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_LOG_L0", idx_name="b_idx"):
+            for s_idx in pto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_LOG_L1", idx_name="s_idx"):
+                tile_a = pto.view(a, view_shape, [b_idx * view_shape[0], s_idx * view_shape[1]], valid_shape=[pto.min(pto.symbolic_scalar(n) - b_idx * view_shape[0],
+                                    pto.symbolic_scalar(n)), pto.min(pto.symbolic_scalar(m) - b_idx * view_shape[1],
+                                    pto.symbolic_scalar(m))])
+                pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
+                tile_a.move(pto.log(tile_a, pto.LogBaseType.LOG_E))
+                pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
+                del tile_a
     a_tensor = torch.rand(n, m, dtype=torch.float32) * 99.999 + 0.001
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
     pto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
@@ -67,19 +63,15 @@ def test_vector_operation_log2():
     b = pto.tensor((n, m), pto.DT_FP32, "LOG2_TENSOR_b")
 
     with pto.function("LOG2", [a], [b]):
-        loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
-        loop_range_s = pto.loop_range(int(np.ceil(m / view_shape[1])))
-        with pto.loop_function("LOOP_LOG2_L0", "b_idx", loop_range_b) as bloop:
-            with pto.loop_function("LOOP_LOG2_L1", "s_idx", loop_range_s) as sloop:
-                for b_idx in bloop:
-                    for s_idx in sloop:
-                        tile_a = pto.view(a, view_shape, [b_idx * view_shape[0], s_idx * view_shape[1]], valid_shape=[pto.min(pto.symbolic_scalar(n) - b_idx * view_shape[0],
-                                          pto.symbolic_scalar(n)), pto.min(pto.symbolic_scalar(m) - b_idx * view_shape[1],
-                                          pto.symbolic_scalar(m))])
-                        pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
-                        tile_a.move(pto.log(tile_a, pto.LogBaseType.LOG_2))
-                        pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
-                        del tile_a
+        for b_idx in pto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_LOG2_L0", idx_name="b_idx"):
+            for s_idx in pto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_LOG2_L1", idx_name="s_idx"):
+                tile_a = pto.view(a, view_shape, [b_idx * view_shape[0], s_idx * view_shape[1]], valid_shape=[pto.min(pto.symbolic_scalar(n) - b_idx * view_shape[0],
+                                    pto.symbolic_scalar(n)), pto.min(pto.symbolic_scalar(m) - b_idx * view_shape[1],
+                                    pto.symbolic_scalar(m))])
+                pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
+                tile_a.move(pto.log(tile_a, pto.LogBaseType.LOG_2))
+                pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
+                del tile_a
     a_tensor = torch.rand(n, m, dtype=torch.float32) * 99.999 + 0.001
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
     pto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
@@ -102,19 +94,15 @@ def test_vector_operation_log10():
     b = pto.tensor((n, m), pto.DT_FP32, "LOG10_TENSOR_b")
 
     with pto.function("LOG10", [a], [b]):
-        loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
-        loop_range_s = pto.loop_range(int(np.ceil(m / view_shape[1])))
-        with pto.loop_function("LOOP_LOG10_L0", "b_idx", loop_range_b) as bloop:
-            with pto.loop_function("LOOP_LOG10_L1", "s_idx", loop_range_s) as sloop:
-                for b_idx in bloop:
-                    for s_idx in sloop:
-                        tile_a = pto.view(a, view_shape, [b_idx * view_shape[0], s_idx * view_shape[1]], valid_shape=[pto.min(pto.symbolic_scalar(n) - b_idx * view_shape[0],
-                                          pto.symbolic_scalar(n)), pto.min(pto.symbolic_scalar(m) - b_idx * view_shape[1],
-                                          pto.symbolic_scalar(m))])
-                        pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
-                        tile_a.move(pto.log(tile_a, pto.LogBaseType.LOG_10))
-                        pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
-                        del tile_a
+        for b_idx in pto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_LOG2_L0", idx_name="b_idx"):
+            for s_idx in pto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_LOG2_L1", idx_name="s_idx"):
+                tile_a = pto.view(a, view_shape, [b_idx * view_shape[0], s_idx * view_shape[1]], valid_shape=[pto.min(pto.symbolic_scalar(n) - b_idx * view_shape[0],
+                                    pto.symbolic_scalar(n)), pto.min(pto.symbolic_scalar(m) - b_idx * view_shape[1],
+                                    pto.symbolic_scalar(m))])
+                pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
+                tile_a.move(pto.log(tile_a, pto.LogBaseType.LOG_10))
+                pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
+                del tile_a
     a_tensor = torch.rand(n, m, dtype=torch.float32) * 99.999 + 0.001
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
     pto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])

@@ -49,13 +49,12 @@ def test_reshape_equal():
     out = pto.tensor(dst_shape, dtype)
 
     with pto.function("Reshape2", [q], [out]):
-        with pto.loop_function("Reshape2Loop", "batchId", pto.loop_range(1)) as loop:
-            for _ in loop:
-                pto.set_vec_tile_shapes(16, 16)
-                q0 = q.reshape(dst_shape)
-                out.move(q0)
-                del q0
-                del out
+        for _ in pto.loop(1, name="Reshape2Loop", idx_name="batchId"):
+            pto.set_vec_tile_shapes(16, 16)
+            q0 = q.reshape(dst_shape)
+            out.move(q0)
+            del q0
+            del out
     
     q_tensor = torch.arange(s * 32, dtype=torch.float32).reshape(s, 32)
     out_tensor = torch.zeros_like(q_tensor)
@@ -77,15 +76,14 @@ def test_reshape_equal2():
     out = pto.tensor(dst_shape, dtype)
 
     with pto.function("Reshape3", [q, t], [out]):
-        with pto.loop_function("Reshape3Loop", "batchId", pto.loop_range(1)) as loop:
-            for _ in loop:
-                pto.set_vec_tile_shapes(16, 16)
-                q0 = pto.reshape(q, dst_shape, [16, 16])
-                t0 = pto.reshape(t, dst_shape, [16, 16])
-                out.move(pto.add(q0, t0))
-                del q0
-                del t0
-                del out
+        for _ in pto.loop(1, name="Reshape3Loop", idx_name="batchId"):
+            pto.set_vec_tile_shapes(16, 16)
+            q0 = pto.reshape(q, dst_shape, [16, 16])
+            t0 = pto.reshape(t, dst_shape, [16, 16])
+            out.move(pto.add(q0, t0))
+            del q0
+            del t0
+            del out
     
     q_tensor = torch.arange(s * 32, dtype=torch.float32).reshape(s, 32)
     tmp_tensor = torch.arange(s * 32, dtype=torch.float32).reshape(s, 32)
@@ -107,14 +105,13 @@ def test_reshape_validshape():
     out = pto.tensor(dst_shape, dtype)
 
     with pto.function("Reshape4", [q], [out]):
-        with pto.loop_function("Reshape4Loop", "batchId", pto.loop_range(1)) as loop:
-            for _ in loop:
-                pto.set_vec_tile_shapes(16, 16)
-                q0 = pto.reshape(q, dst_shape, [8, 32])
-                qp = pto.add(q0, 1.0)
-                out.move(q0)
-                del q0
-                del out
+        for _ in pto.loop(1, name="Reshape4Loop", idx_name="batchId"):
+            pto.set_vec_tile_shapes(16, 16)
+            q0 = pto.reshape(q, dst_shape, [8, 32])
+            qp = pto.add(q0, 1.0)
+            out.move(q0)
+            del q0
+            del out
     
     q_tensor = torch.arange(s * 32, dtype=torch.float32)
     out_tensor = torch.zeros_like(q_tensor)
@@ -135,14 +132,13 @@ def test_reshape_validshape2():
     out = pto.tensor(dst_shape, dtype)
 
     with pto.function("Reshape5", [q], [out]):
-        with pto.loop_function("Reshape5Loop", "batchId", pto.loop_range(1)) as loop:
-            for _ in loop:
-                pto.set_vec_tile_shapes(16, 16)
-                q0 = pto.reshape(q, dst_shape)
-                q0 = q0 + 1.0
-                out.move(q0)
-                del q0
-                del out
+        for _ in pto.loop(1, name="Reshape5Loop", idx_name="batchId"):
+            pto.set_vec_tile_shapes(16, 16)
+            q0 = pto.reshape(q, dst_shape)
+            q0 = q0 + 1.0
+            out.move(q0)
+            del q0
+            del out
     
     q_tensor = torch.arange(16 * 32, dtype=torch.float32).reshape(16, 32)
     scalar_tensor = torch.ones(16 * 32, dtype=torch.float32).reshape(16, 32)

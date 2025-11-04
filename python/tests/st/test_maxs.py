@@ -15,8 +15,7 @@ import numpy as np
 
 import pto
 from pto import (
-    tensor, element, view, symbolic_scalar,
-    loop_range, loop_function, function,
+    tensor, element, view, symbolic_scalar, function,
     set_vec_tile_shapes, set_codegen_option
 )
 

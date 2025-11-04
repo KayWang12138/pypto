@@ -43,12 +43,11 @@ def test_sin_FP32():
     res = pto.tensor(x_shape, dtype)
 
     with pto.function("SIN_CONTENT_FP32", [x], [res]):
-        with pto.loop_function("LOOP_L0", "a_idx", pto.loop_range(1)) as aloop:
-            for a_idx in aloop:
-                pto.set_vec_tile_shapes(4, 4)
-                res.move(pto.sin(x))
-                del res
-    
+        for _ in pto.loop(1, name="LOOP_L0", idx_name="a_idx"):
+            pto.set_vec_tile_shapes(4, 4)
+            res.move(pto.sin(x))
+            del res
+
     x_tensor = torch.rand(4, 4, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)
     pto.runtime._device_run_once_data_from_host([x_tensor], [res_tensor])
@@ -66,11 +65,10 @@ def test_sin_FP16():
     res = pto.tensor(x_shape, dtype)
 
     with pto.function("SIN_CONTENT_FP16", [x], [res]):
-        with pto.loop_function("LOOP_L0", "a_idx", pto.loop_range(1)) as aloop:
-            for a_idx in aloop:
-                pto.set_vec_tile_shapes(4, 4)
-                res.move(pto.sin(x))
-                del res
+        for _ in pto.loop(1, name="LOOP_L0", idx_name="a_idx"):
+            pto.set_vec_tile_shapes(4, 4)
+            res.move(pto.sin(x))
+            del res
     
     x_tensor = torch.rand(4, 4, dtype=torch.float16) * 200 - 100
     res_tensor = torch.zeros(4, 4, dtype=torch.float16)
@@ -89,11 +87,10 @@ def test_tensor_sin_FP32():
     res = pto.tensor(x_shape, dtype)
 
     with pto.function("TENSOR_SIN_CONTENT_FP32", [x], [res]):
-        with pto.loop_function("LOOP_L0", "a_idx", pto.loop_range(1)) as aloop:
-            for a_idx in aloop:
-                pto.set_vec_tile_shapes(4, 4)
-                res.move(x.sin())
-                del res
+        for _ in pto.loop(1, name="LOOP_L0", idx_name="a_idx"):
+            pto.set_vec_tile_shapes(4, 4)
+            res.move(x.sin())
+            del res
     
     x_tensor = torch.rand(4, 4, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)

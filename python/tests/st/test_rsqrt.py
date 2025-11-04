@@ -31,19 +31,15 @@ def test_vector_operation_rsqrt():
     b = pto.tensor(shape, pto.DT_FP32, "RSQRT_TENSOR_b")
 
     with pto.function("RSQRT", [a], [b]):
-        loop_range_b = pto.loop_range(int(np.ceil(n / view_shape[0])))
-        loop_range_s = pto.loop_range(int(np.ceil(m / view_shape[1])))
-        with pto.loop_function("LOOP_RSQRT_L0", "b_idx", loop_range_b) as bloop:
-            with pto.loop_function("LOOP_RSQRT_L1", "s_idx", loop_range_s) as sloop:
-                for b_idx in bloop:
-                    for s_idx in sloop:
-                        tile_a = pto.view(a, view_shape, [b_idx * view_shape[0], s_idx * view_shape[1]], valid_shape=[pto.min(pto.symbolic_scalar(n) - b_idx * view_shape[0],
-                                          pto.symbolic_scalar(n)), pto.min(pto.symbolic_scalar(m) - b_idx * view_shape[1],
-                                          pto.symbolic_scalar(m))])
-                        pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
-                        tile_a.move(pto.rsqrt(tile_a))
-                        pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
-                        del tile_a
+        for b_idx in pto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_RSQRT_L0", idx_name="b_idx"):
+            for s_idx in pto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_RSQRT_L1", idx_name="s_idx"):
+                tile_a = pto.view(a, view_shape, [b_idx * view_shape[0], s_idx * view_shape[1]], valid_shape=[pto.min(pto.symbolic_scalar(n) - b_idx * view_shape[0],
+                                    pto.symbolic_scalar(n)), pto.min(pto.symbolic_scalar(m) - b_idx * view_shape[1],
+                                    pto.symbolic_scalar(m))])
+                pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
+                tile_a.move(pto.rsqrt(tile_a))
+                pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
+                del tile_a
     a_tensor = torch.rand(n, m, dtype=torch.float32) * 100  
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
 
