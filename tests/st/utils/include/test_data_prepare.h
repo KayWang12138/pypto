@@ -25,7 +25,10 @@ using namespace npu::tile_fwk;
 template <typename T>
 static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::string fileName) {
     auto shape = tensor.GetShape();
-    int capacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+    int64_t capacity = 1;
+    for(size_t i = 0; i < shape.size(); i++){
+        capacity = capacity * shape[i];
+    }
     std::vector<T> values(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, values);
     return RawTensorData::CreateTensor<T>(tensor, values);
@@ -33,7 +36,10 @@ static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::strin
 
 template <typename T>
 static std::shared_ptr<RawTensorData> LoadTensorData(const Shape &shape, DataType dType, std::string fileName) {
-    int capacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+    int64_t capacity = 1;
+    for(size_t i = 0; i < shape.size(); i++){
+        capacity = capacity * shape[i];
+    }
     std::vector<T> values(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, values);
     return RawTensorData::CreateTensorData<T>(shape, dType, values);
@@ -46,7 +52,10 @@ static std::shared_ptr<RawTensorData> LoadTensorData(const Tensor &t, std::strin
 
 template <typename T>
 static std::vector<T> GetGoldenVec(std::vector<int64_t> shape, std::string fileName) {
-    int capacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+    int64_t capacity = 1;
+    for(size_t i = 0; i < shape.size(); i++){
+        capacity = capacity * shape[i];
+    }
     std::vector<T> golden(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, golden);
     return golden;
