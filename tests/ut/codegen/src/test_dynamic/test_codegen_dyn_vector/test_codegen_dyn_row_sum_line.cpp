@@ -58,7 +58,7 @@ TEST_F(TestCodegenDynRowSumLine, TestOperationRowSumLine) {
     std::string funcName = "Reduce3dimMoe";
     config::SetBuildStatic(true);
     FUNCTION(funcName, {input_a, output}) {
-        output = RowSumSingle(input_a, 1);
+        output = Sum(input_a, 1);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);

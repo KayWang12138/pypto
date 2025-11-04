@@ -43,7 +43,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("RowMaxSingle", {input_a, output}) {
-            output = RowMaxSingle(input_a, -1);
+            output = Amax(input_a, -1);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -81,7 +81,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("RowSumSingle", {input_a, output}) {
-            output = RowSumSingle(input_a, -1);
+            output = Sum(input_a, -1);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -120,7 +120,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_3dim) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("RowMaxSingle", {input_a, output}) {
-            output = RowMaxSingle(input_a, -1);
+            output = Amax(input_a, -1);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -160,7 +160,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_mla_rmsNor
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("RowSumSingle", {input_a, output}) {
-            output = RowSumSingle(input_a, -1);
+            output = Sum(input_a, -1);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -201,7 +201,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("RowMaxSingle", {input_a, output}) {
-            output = RowMaxSingle(input_a, -1);
+            output = Amax(input_a, -1);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -242,7 +242,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax_un
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("RowMaxSingle", {input_a, output}) {
-            output = RowMaxSingle(input_a, -1);
+            output = Amax(input_a, -1);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -283,7 +283,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_4dim_softmax) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("RowSumSingle", {input_a, output}) {
-            output = RowSumSingle(input_a, -1);
+            output = Sum(input_a, -1);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -322,7 +322,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_moe) {
 
         config::SetBuildStatic(true);
         FUNCTION("Reduce3dimMoe", {input_a, output}) {
-            output = RowSumSingle(input_a, 1);
+            output = Sum(input_a, 1);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -361,7 +361,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_big_moe) {
 
         config::SetBuildStatic(true);
         FUNCTION("Reduce3dimMoeBig", {input_a, output}) {
-            output = RowSumSingle(input_a, 1);
+            output = Sum(input_a, 1);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -398,7 +398,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_2dim_moe) {
 
         config::SetBuildStatic(true);
         FUNCTION("Reduce2dimMoeBig", {input_a, output}) {
-            output = RowSumSingle(input_a, 0);
+            output = Sum(input_a, 0);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -436,7 +436,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis0_unalign) {
 
         config::SetBuildStatic(true);
         FUNCTION("Reduce4dimMoe", {input_a, output}) {
-            output = RowSumSingle(input_a, 0);
+            output = Sum(input_a, 0);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -474,7 +474,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis1_unalign) {
 
         config::SetBuildStatic(true);
         FUNCTION("Reduce4dimMoe", {input_a, output}) {
-            output = RowSumSingle(input_a, 1);
+            output = Sum(input_a, 1);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -511,7 +511,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis2_unalign) {
 
         config::SetBuildStatic(true);
         FUNCTION("Reduce4dimMoe", {input_a, output}) {
-            output = RowSumSingle(input_a, 2);
+            output = Sum(input_a, 2);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -548,7 +548,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("RowSumSingle", {input_a, output}) {
-            output = RowSumSingle(input_a, -1);
+            output = Sum(input_a);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -586,7 +586,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign_4_93) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("RowSumSingle", {input_a, output}) {
-            output = RowSumSingle(input_a, -1);
+            output = Sum(input_a);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -626,7 +626,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign_4d) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("RowSumSingle", {input_a, output}) {
-            output = RowSumSingle(input_a, -1);
+            output = Sum(input_a);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -664,7 +664,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("RowMaxSingle", {input_a, output}) {
-            output = RowMaxSingle(input_a, -1);
+            output = Amax(input_a);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -702,7 +702,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign_4_93) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("RowMaxSingle", {input_a, output}) {
-            output = RowMaxSingle(input_a, -1);
+            output = Amax(input_a);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -742,7 +742,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign_4d) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("RowMaxSingle", {input_a, output}) {
-            output = RowMaxSingle(input_a, -1);
+            output = Amax(input_a);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());

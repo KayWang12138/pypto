@@ -499,12 +499,12 @@ stest:
       - TestMuls/MulsOperationTest.TestMuls/13
       - TestMuls/MulsOperationTest.TestMuls/14
       - TestMuls/MulsOperationTest.TestMuls/15
-      - TestRowMinSingle/RowMinSingleOperationTest.TestRowMinSingle/0
-      - TestRowMinSingle/RowMinSingleOperationTest.TestRowMinSingle/1
-      - TestRowMaxSingle/RowMaxSingleOperationTest.TestRowMaxSingle/0
-      - TestRowMaxSingle/RowMaxSingleOperationTest.TestRowMaxSingle/1
-      - TestRowSumSingle/RowSumSingleOperationTest.TestRowSumSingle/0
-      - TestRowSumSingle/RowSumSingleOperationTest.TestRowSumSingle/1
+      - TestAmin/AminOperationTest.TestAmin/0
+      - TestAmin/AminOperationTest.TestAmin/1
+      - TestSum/SumOperationTest.TestSum/61
+      - TestSum/SumOperationTest.TestSum/62
+      - TestAmax/AmaxOperationTest.TestAmax/64
+      - TestAmax/AmaxOperationTest.TestAmax/63
       - TestScatter_/Scatter_OperationTest.TestScatter_/0
       - TestScatter_/Scatter_OperationTest.TestScatter_/1
       - TestScatter/ScatterOperationTest.TestScatter/0

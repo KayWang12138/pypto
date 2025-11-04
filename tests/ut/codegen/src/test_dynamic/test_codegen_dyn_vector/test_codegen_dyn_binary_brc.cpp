@@ -57,7 +57,7 @@ TEST_F(TestCodegenDynBinaryBrc, TestMulDynamic) {
     config::SetBuildStatic(true);
     FUNCTION("MUL_T", {input_a, input_b, output}) {
         // add RowSumSingle to test brc case
-        auto input_c = RowSumSingle(input_b);
+        auto input_c = Sum(input_b);
         output = Mul(input_a, input_c);
     }
     auto function = Program::GetInstance().GetFunctionByRawName("TENSOR_MUL_T");

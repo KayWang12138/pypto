@@ -686,7 +686,7 @@ def gen_subs_op_golden(case_name: str, output: Path, case_index: int = None) -> 
 
 @GoldenRegister.reg_golden_func(
     case_names=[
-        "TestRowSumSingle/RowSumSingleOperationTest.TestRowSumSingle",
+        "TestSum/SumOperationTest.TestSum",
     ]
 )
 def gen_reduce_sum_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
@@ -698,12 +698,12 @@ def gen_reduce_sum_op_golden(case_name: str, output: Path, case_index: int = Non
         return [x.sum(axis=dims[0], keepdims=True)]
 
     logging.debug("Case(%s), Golden creating...", case_name)
-    return gen_op_golden("RowSumSingle", golden_func, output, case_index)
+    return gen_op_golden("Sum", golden_func, output, case_index)
 
 
 @GoldenRegister.reg_golden_func(
     case_names=[
-        "TestRowMaxSingle/RowMaxSingleOperationTest.TestRowMaxSingle",
+        "TestAmax/AmaxOperationTest.TestAmax",
     ]
 )
 def gen_reduce_max_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
@@ -715,11 +715,11 @@ def gen_reduce_max_op_golden(case_name: str, output: Path, case_index: int = Non
         return [x.max(axis=dims[0], keepdims=True)]
 
     logging.debug("Case(%s), Golden creating...", case_name)
-    return gen_op_golden("RowMaxSingle", golden_func, output, case_index)
+    return gen_op_golden("Amax", golden_func, output, case_index)
 
 @GoldenRegister.reg_golden_func(
     case_names=[
-        "TestRowMinSingle/RowMinSingleOperationTest.TestRowMinSingle",
+        "TestAmin/AminOperationTest.TestAmin",
     ]
 )
 def gen_reduce_min_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
@@ -727,9 +727,9 @@ def gen_reduce_min_op_golden(case_name: str, output: Path, case_index: int = Non
     def golden_func(inputs: list, config: dict):
         params = config.get("params")
         dims = params["dims"]
-        return [inputs[0].min(axis=dims[0],keepdims=True)]
+        return [inputs[0].min(axis = dims[0], keepdims = True)]
     logging.debug("Case(%s), Golden creating...", case_name)
-    return gen_op_golden("RowMinSingle", golden_func, output, case_index)
+    return gen_op_golden("Amin", golden_func, output, case_index)
 
 
 @GoldenRegister.reg_golden_func(

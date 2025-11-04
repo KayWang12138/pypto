@@ -153,7 +153,7 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
                     TileShape::Current().SetVecTile(tileConfig.v1Tile);
                     auto reluRes = MaxS(mmRes, Element(DT_FP32, 0.0f));       // (group, superBlockSize)
                     auto mulRes = Mul(reluRes, wB32); // (group, superBlockSize) * (group, 1) -> (group, superBlockSize)
-                    auto sumRes = RowSumSingle(mulRes, 0); // (1, superBlockSize)
+                    auto sumRes = Sum(mulRes, 0); // (1, superBlockSize)
                     Assemble(sumRes, {bs1n2Offset, firstBlockIdx * blockSize}, localSum);
                     if (tmpOut != nullptr) {
                         // tmpOut: [B*S1*N2, S2]
@@ -204,7 +204,7 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
                     auto mulRes = Mul(reluRes, wF16); // (group, superBlockSize) * (group, 1) -> (group, superBlockSize)
 
                     // RowSumSingle doesn't support non-4-byte types currently
-                    auto sumRes = RowSumSingle(Cast(mulRes, DT_FP32), 0); // (1, superBlockSize)
+                    auto sumRes = Sum(Cast(mulRes, DT_FP32), 0); // (1, superBlockSize)
                     Assemble(sumRes, {bs1n2Offset, firstBlockIdx * blockSize}, localSum);
                     if (tmpOut != nullptr) {
                         // tmpOut: [B*S1*N2, S2]

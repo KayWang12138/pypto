@@ -986,7 +986,7 @@ TEST_F(SimulationAccTest, TestRowSumSingleTensorFunctionDim2_1) {
 
     config::SetBuildStatic(true);
     FUNCTION("A") {
-        c = RowSumSingle(a, 0);
+        c = Sum(a, 0);
     }
 
     std::cout << Program::GetInstance().Dump() << std::endl;
@@ -1003,7 +1003,7 @@ TEST_F(SimulationAccTest, TestRowSumSingleTensorFunctionDim2_2) {
 
     config::SetBuildStatic(true);
     FUNCTION("A") {
-        c = RowSumSingle(a, 0);
+        c = Sum(a, 0);
     }
 
     std::cout << Program::GetInstance().Dump() << std::endl;
@@ -1020,7 +1020,7 @@ TEST_F(SimulationAccTest, TestRowSumSingleTensorFunctionDim2_3) {
 
     config::SetBuildStatic(true);
     FUNCTION("A") {
-        c = RowSumSingle(a, 0);
+        c = Sum(a, 0);
     }
 
     std::cout << Program::GetInstance().Dump() << std::endl;
@@ -1037,7 +1037,7 @@ TEST_F(SimulationAccTest, TestRowSumSingleTensorFunctionDim2_4) {
 
     config::SetBuildStatic(true);
     FUNCTION("A") {
-        c = RowSumSingle(a, 0);
+        c = Sum(a, 0);
     }
 
     std::cout << Program::GetInstance().Dump() << std::endl;
@@ -1054,7 +1054,7 @@ TEST_F(SimulationAccTest, TestRowMaxSingleTensorFunctionDim2_1) {
 
     config::SetBuildStatic(true);
     FUNCTION("A") {
-        c = RowMaxSingle(a, 0);
+        c = Amax(a, 0);
     }
 
     std::cout << Program::GetInstance().Dump() << std::endl;
@@ -1071,7 +1071,7 @@ TEST_F(SimulationAccTest, TestRowMaxSingleTensorFunctionDim2_2) {
 
     config::SetBuildStatic(true);
     FUNCTION("A") {
-        c = RowMaxSingle(a, 0);
+        c = Amax(a, 0);
     }
 
     std::cout << Program::GetInstance().Dump() << std::endl;
@@ -1088,7 +1088,7 @@ TEST_F(SimulationAccTest, TestRowMaxSingleTensorFunctionDim2_3) {
 
     config::SetBuildStatic(true);
     FUNCTION("A") {
-        c = RowMaxSingle(a, 0);
+        c = Amax(a, 0);
     }
 
     std::cout << Program::GetInstance().Dump() << std::endl;
@@ -1105,7 +1105,7 @@ TEST_F(SimulationAccTest, TestRowMaxSingleTensorFunctionDim2_4) {
 
     config::SetBuildStatic(true);
     FUNCTION("A") {
-        c = RowMaxSingle(a, 0);
+        c = Amax(a, 0);
     }
 
     std::cout << Program::GetInstance().Dump() << std::endl;

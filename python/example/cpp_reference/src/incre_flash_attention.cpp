@@ -75,11 +75,11 @@ void IncreFlashAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, 
 
                 TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
                 auto sijScale = MulS(sij, Element(DataType::DT_FP32, softmaxScale)); // (nTileCur, s2TileCur)
-                auto tildaMij = RowMaxSingle(sijScale);   // (nTileCur, s2TileCur) -> (nTileCur, 1)
+                auto tildaMij = Amax(sijScale);   // (nTileCur, s2TileCur) -> (nTileCur, 1)
                 auto tsub = Sub(sijScale, tildaMij); // (nTileCur, s2TileCur) - (nTileCur, 1) -> (nTileCur, s2TileCur)
                 auto tildaPij = Exp(tsub);
                 auto tildaPijF16 = Cast(tildaPij, DataType::DT_BF16);
-                auto tildaLij = RowSumSingle(tildaPij); // (nTileCur, s2TileCur) -> (nTileCur, 1)
+                auto tildaLij = Sum(tildaPij); // (nTileCur, s2TileCur) -> (nTileCur, 1)
 
                 if (bn == 0) {
                     TileShape::Current().SetCubeTile(

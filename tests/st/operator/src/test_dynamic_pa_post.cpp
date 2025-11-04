@@ -301,12 +301,12 @@ void PageAttentionPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Te
                     TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
                     auto sijScale = Mul(sij, Element(DataType::DT_FP32, softmaxScale)); // (curNTile, curS2Tile)
 
-                    auto tildaMij = RowMaxSingle(sijScale); // (curNTile, curS2Tile) -> (curNTile, 1)
+                    auto tildaMij = Amax(sijScale); // (curNTile, curS2Tile) -> (curNTile, 1)
                     auto tsub =
                         Sub(sijScale, tildaMij); // (curNTile, curS2Tile) - (curNTile, 1) -> (curNTile, curS2Tile)
                     auto tildaPij = Exp(tsub);
                     auto tildaPijF16 = Cast(tildaPij, dtype);
-                    auto tildaLij = RowSumSingle(tildaPij); // (nTileCur, s2TileCur) -> (nTileCur, 1)
+                    auto tildaLij = Sum(tildaPij); // (nTileCur, s2TileCur) -> (nTileCur, 1)
 
                     IF (IsLoopBegin(bn, 0)) {
                         TileShape::Current().SetCubeTile(

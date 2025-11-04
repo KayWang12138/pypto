@@ -92,10 +92,10 @@ void GenSlc(const Tensor &x, Tensor &trans0res, Tensor &reduce0res, Tensor &tran
                 auto view0 = View(tmpTrans, {1, maxLen0, g}, {0, i * out_loop, 0}); // 1,4,128
                 auto maxLen1 = std::min(out_loop, s_cmp - i * out_loop - 1);
                 TileShape::Current().SetVecTile({1, 8, g});
-                auto reduce0 = RowSumSingle(view0, 1); // 1,1,128
+                auto reduce0 = Sum(view0, 1); // 1,1,128
                 if (maxLen1 > 0) {
                     auto view1 = View(tmpTrans, {1, maxLen1, g}, {0, i * out_loop + 1, 0}); // 1,4,128
-                    auto reduce1 = RowSumSingle(view1, 1);                                  // 1,1,128
+                    auto reduce1 = Sum(view1, 1);                                  // 1,1,128
                     auto sum = Add(reduce0, reduce1);                                       // 1,1,128
                     auto sumTmp = Cast(sum, DataType::DT_FP16);
                     Assemble(sumTmp, {0, i, 0}, abc);
@@ -108,7 +108,7 @@ void GenSlc(const Tensor &x, Tensor &trans0res, Tensor &reduce0res, Tensor &tran
             auto trans1 = Transpose(Cast(abc, DataType::DT_FP32), {1, 2}); // 1,128,128
             trans1res = Cast(trans1, DataType::DT_FP16);
             TileShape::Current().SetVecTile({1, g, 8});
-            auto reduce2 = RowSumSingle(trans1, 1); // 1,1,128
+            auto reduce2 = Sum(trans1, 1); // 1,1,128
             tmpOut = Reshape(reduce2, {1, 128});
             reduce1res = Cast(reduce2, DataType::DT_FP16);
         }
@@ -146,10 +146,10 @@ void GenSlcV2(const Tensor &x, Tensor &out, int validSize, int l_prime, int d, i
                 auto view0 = View(tmpTrans, {maxLen0, n}, {i * out_loop, 0}); // 4,128
                 auto maxLen1 = std::min(out_loop, s_cmp - i * out_loop - 1);
                 TileShape::Current().SetVecTile({8, n});
-                auto reduce0 = RowSumSingle(view0, 0); // 1,128
+                auto reduce0 = Sum(view0, 0); // 1,128
                 if (maxLen1 > 0) {
                     auto view1 = View(tmpTrans, {maxLen1, n}, {i * out_loop + 1, 0}); // 4,128
-                    auto reduce1 = RowSumSingle(view1, 0);                            // 1,128
+                    auto reduce1 = Sum(view1, 0);                            // 1,128
                     auto sum = Add(reduce0, reduce1);                                 // 1,128
                     auto sumTmp = Cast(sum, DataType::DT_FP16);
                     Assemble(sumTmp, {i, 0}, abc);
@@ -160,7 +160,7 @@ void GenSlcV2(const Tensor &x, Tensor &out, int validSize, int l_prime, int d, i
             }
             auto trans1 = Transpose(Cast(abc, DataType::DT_FP32), {0, 1}); // 128,128
             TileShape::Current().SetVecTile({n, 8});
-            auto reduce2 = RowSumSingle(trans1, 0); // 1,128
+            auto reduce2 = Sum(trans1, 0); // 1,128
             tmpOut = Reshape(reduce2, {1, s_slc});
         }
         LOOP("LOOP_topk1", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, 1, 1), {}, true) {

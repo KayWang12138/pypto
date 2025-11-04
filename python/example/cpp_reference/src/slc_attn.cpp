@@ -136,11 +136,11 @@ void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc
                         config::SetSemanticLabel("Sa_Qkvec1");
                         TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
                         auto sijScale = MulS(sij, Element(sij->Datatype(), softmaxScale));
-                        auto tildaMij = RowMaxSingle(sijScale); // (curGTile, curS2Tile) -> (curGTile, 1)
+                        auto tildaMij = Amax(sijScale); // (curGTile, curS2Tile) -> (curGTile, 1)
                         auto tsub = Sub(sijScale, tildaMij); // (curGTile, curS2Tile), (curGTile, 1) -> (curGTile, curS2Tile)
                         auto tildaPij = Exp(tsub);  // (curGTile, curS2Tile) -> (curGTile, curS2Tile)
                         auto tildaPijF16 = Cast(tildaPij, dtype);
-                        auto tildaLij = RowSumSingle(tildaPij);
+                        auto tildaLij = Sum(tildaPij);
 
                         IF (IsLoopBegin(s2Idx, 0)) {
                             // C2

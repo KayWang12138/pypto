@@ -22,9 +22,9 @@ const unsigned IDX_DIM1 = 1;
 const unsigned IDX_DIM2 = 2;
 const unsigned IDX_DIM3 = 3;
 
-struct RowMinSingleOpFuncArgs : public OpFuncArgs {
-    RowMinSingleOpFuncArgs(
-        const std::vector<int64_t> dims, const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape)
+struct AminOpFuncArgs : public OpFuncArgs {
+    AminOpFuncArgs(
+        std::vector<int64_t> dims, const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape)
         : dims_(dims), viewShape_(viewShape), tileShape_(tileShape) {}
 
     std::vector<int64_t> dims_;
@@ -32,18 +32,18 @@ struct RowMinSingleOpFuncArgs : public OpFuncArgs {
     std::vector<int64_t> tileShape_;
 };
 
-struct RowMinSingleOperationMetadata {
-    explicit RowMinSingleOperationMetadata(const OpFunc &opFunc, const nlohmann::json &test_data)
+struct AminOperationMetadata {
+    explicit AminOperationMetadata(const OpFunc &opFunc, const nlohmann::json &test_data)
         : opFunc_(opFunc), test_data_(test_data) {}
 
     OpFunc opFunc_;
     nlohmann::json test_data_;
 };
 
-void RowMinSingleOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
+void AminOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
                                 const OpFuncArgs* opArgs) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
-    auto args = static_cast<const RowMinSingleOpFuncArgs *>(opArgs);
+    auto args = static_cast<const AminOpFuncArgs *>(opArgs);
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
@@ -66,16 +66,16 @@ void RowMinSingleOperationExeFunc(const std::vector<Tensor>& inputs, std::vector
                 },
                 {bIdx * viewShape[0], bIdx * viewShape[1]});
             TileShape::Current().SetVecTile(args->tileShape_);
-            auto res = RowMinSingle(viewTensor, args->dims_[0]);
+            auto res = Amin(viewTensor, args->dims_[0]);
             Assemble(res, {bIdx * viewShape[0], bIdx * viewShape[1]}, outputs[0]);
         }
     }
 }
 
-void RowMinSingle3DOperationExeFunc(
+void Amin3DOperationExeFunc(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
-    auto args = static_cast<const RowMinSingleOpFuncArgs *>(opArgs);
+    auto args = static_cast<const AminOpFuncArgs *>(opArgs);
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
@@ -108,7 +108,7 @@ void RowMinSingle3DOperationExeFunc(
                         },
                         {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2]});
                     TileShape::Current().SetVecTile(args->tileShape_);
-                    auto res = RowMinSingle(viewTensor, args->dims_[0]);
+                    auto res = Amin(viewTensor, args->dims_[0]);
                     Assemble(res, {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2]}, outputs[0]);
                 }
             }
@@ -116,10 +116,10 @@ void RowMinSingle3DOperationExeFunc(
     }
 }
 
-void RowMinSingle4DOperationExeFunc(
+void Amin4DOperationExeFunc(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
-    auto args = static_cast<const RowMinSingleOpFuncArgs *>(opArgs);
+    auto args = static_cast<const AminOpFuncArgs *>(opArgs);
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
@@ -163,7 +163,7 @@ void RowMinSingle4DOperationExeFunc(
                             },
                             offset);
                         TileShape::Current().SetVecTile(args->tileShape_);
-                        auto res = RowMinSingle(viewTensor, args->dims_[0]);
+                        auto res = Amin(viewTensor, args->dims_[0]);
                         Assemble(res, offset, outputs[0]);
                     }
                 }
@@ -172,22 +172,22 @@ void RowMinSingle4DOperationExeFunc(
     }
 }
 
-class RowMinSingleOperationTest
-    : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<RowMinSingleOperationMetadata> {};
+class AminOperationTest
+    : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<AminOperationMetadata> {};
 
-INSTANTIATE_TEST_SUITE_P(TestRowMinSingle, RowMinSingleOperationTest,
+INSTANTIATE_TEST_SUITE_P(TestAmin, AminOperationTest,
     ::testing::ValuesIn(
-        GetOpMetaData<RowMinSingleOperationMetadata>(
-            {RowMinSingleOperationExeFunc, RowMinSingle3DOperationExeFunc, RowMinSingle4DOperationExeFunc},
-            "RowMinSingle")));
+        GetOpMetaData<AminOperationMetadata>(
+            {AminOperationExeFunc, Amin3DOperationExeFunc, Amin4DOperationExeFunc},
+            "Amin")));
 
-TEST_P(RowMinSingleOperationTest, TestRowMinSingle) {
+TEST_P(AminOperationTest, TestAmin) {
     TestCaseDesc testCase;
     auto test_data = GetParam().test_data_;
     testCase.inputTensors = GetInputTensors(test_data);
     testCase.outputTensors = GetOutputTensors(test_data);
     auto dims = GetValueByName<std::vector<int64_t>>(test_data, "dims");
-    auto args = RowMinSingleOpFuncArgs(dims, GetViewShape(test_data), GetTileShape(test_data));
+    auto args = AminOpFuncArgs(dims, GetViewShape(test_data), GetTileShape(test_data));
     testCase.args = &args;
     testCase.opFunc = GetParam().opFunc_;
     testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin"};

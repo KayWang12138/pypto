@@ -316,7 +316,7 @@ public:
         // [b*s*8,32]->[b*s*8,2]
 
         // TileShape::Current().SetVecTile(128, 1); // for Assemble
-        auto groupScores = RowSumSingle(scoresForChoiceIndex, 1); // [b*s*8,2]->[b*s*8]
+        auto groupScores = Sum(scoresForChoiceIndex, 1); // [b*s*8,2]->[b*s*8]
         // TileShape::Current().SetVecTile(128, 64); // for Assemble
 
         auto groupScoresReshape = Reshape(groupScores, {groupScores.GetShape()[0] / nGroup, nGroup});
@@ -345,7 +345,7 @@ public:
 
         /* norm gate to sum 1 */
         // denominator = topkWeight.sum(dim=-1, keepdim=True) + 1e-20
-        auto topkWeightSum = RowSumSingle(topkWeight, 1);      // [b*s,8]->[b*s,1]
+        auto topkWeightSum = Sum(topkWeight, 1);      // [b*s,8]->[b*s,1]
         auto denominator = Add(topkWeightSum, Element(DataType::DT_FP32, DF_1E_20)); // [b*s,1]
         // topkWeight = topkWeight / denominator
         topkWeight = Div(topkWeight, denominator); // [b*s,numExpertsPerTok]
@@ -393,7 +393,7 @@ public:
 
         cnts = Scatter_(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
 
-        Tensor tokensPerExpert = RowSumSingle(cnts, 0);
+        Tensor tokensPerExpert = Sum(cnts, 0);
 
         TileShape::Current().SetVecTile(NUM_128);
         // reduce 0维, (b*s, nRoutedExperts)->(nRoutedExperts)
@@ -463,7 +463,7 @@ public:
         auto newW = Unsqueeze(topkWeight, NUM_2); // (b*s, expertPerTok, 1)
         auto newMul = Mul(newXShape, newW);
         // (b*s, expertPerTok, h) * (b*s, expertPerTok, 1) = (b*s, expertPerTok, h)
-        auto reduceRes = RowSumSingle(newMul, 1); // reudce轴1 ->(b*s, 1, h)
+        auto reduceRes = Sum(newMul, 1); // reudce轴1 ->(b*s, 1, h)
         for (auto n: reduceRes.GetShape()){
             std::cout << "=reduceRes.GetShape().shape" << n <<std::endl;
         }
@@ -488,7 +488,7 @@ public:
 
         cnts = Scatter_(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
 
-        Tensor tokensPerExpert = RowSumSingle(cnts, 0);
+        Tensor tokensPerExpert = Sum(cnts, 0);
 
         TileShape::Current().SetVecTile(NUM_128);
         // reduce 0维, (b*s, nRoutedExperts)->(nRoutedExperts)
@@ -551,7 +551,7 @@ public:
 
         cnts = Scatter_(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
 
-        Tensor tokensPerExpert = RowSumSingle(cnts, 0);
+        Tensor tokensPerExpert = Sum(cnts, 0);
 
         TileShape::Current().SetVecTile(NUM_128);
         // reduce 0维, (b*s, nRoutedExperts)->(nRoutedExperts)
@@ -616,7 +616,7 @@ public:
 
         cnts = Scatter_(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
 
-        Tensor tokensPerExpert = RowSumSingle(cnts, 0);
+        Tensor tokensPerExpert = Sum(cnts, 0);
 
         TileShape::Current().SetVecTile(NUM_128);
         // reduce 0维, (b*s, nRoutedExperts)->(nRoutedExperts)
@@ -686,7 +686,7 @@ public:
         auto newW = Unsqueeze(topkWeight, NUM_2); // (b*s, expertPerTok, 1)
         auto newMul = Mul(newXShape, newW);
         // (b*s, expertPerTok, h) * (b*s, expertPerTok, 1) = (b*s, expertPerTok, h)
-        auto reduceRes = RowSumSingle(newMul, 1); // reudce轴1 ->(b*s, 1, h)
+        auto reduceRes = Sum(newMul, 1); // reudce轴1 ->(b*s, 1, h)
         for (auto n : reduceRes.GetShape()){
             std::cout<<"=reduceRes.GetShape().shape"<< n <<std::endl;
         }
@@ -710,7 +710,7 @@ public:
 
         cnts = Scatter_(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
 
-        Tensor tokensPerExpert = RowSumSingle(cnts, 0);
+        Tensor tokensPerExpert = Sum(cnts, 0);
         // reduce 0维, (b*s, nRoutedExperts)->(nRoutedExperts)
         Tensor idxs = ArgSort(Reshape(topkIds, {bs * expertPerTok}), -1); // (b*s*numExpertsPerTok)
 
@@ -770,7 +770,7 @@ public:
         auto newW = Unsqueeze(topkWeight, 2); // (b*s, expertPerTok, 1)
         auto newMul = Mul(newl, newW);
         // (b*s, expertPerTok, h) * (b*s, expertPerTok, 1) = (b*s, expertPerTok, h)
-        auto fOut = Cast(RowSumSingle(newMul, 1), newX.GetDataType()); // reudce轴1 ->(b*s, h)
+        auto fOut = Cast(Sum(newMul, 1), newX.GetDataType()); // reudce轴1 ->(b*s, h)
         TileShape::Current().SetVecTile(NUM_128, NUM_64);              // for Assemble
 
         return fOut;

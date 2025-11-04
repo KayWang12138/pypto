@@ -380,10 +380,10 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
                     auto view0 = View(tmpTrans, {maxLen0, n}, {i * out_loop, 0}); // 4,NUM_128
                     auto maxLen1 = std::min(out_loop, s_cmp - i * out_loop - 1);
                     TileShape::Current().SetVecTile({8, n});
-                    auto reduce0 = RowSumSingle(view0, 0); // 1,NUM_128
+                    auto reduce0 = Sum(view0, 0); // 1,NUM_128
                     if (maxLen1 > 0) {
                         auto view1 = View(tmpTrans, {maxLen1, n}, {i * out_loop + 1, 0}); // 4,NUM_128
-                        auto reduce1 = RowSumSingle(view1, 0);                            // 1,NUM_128
+                        auto reduce1 = Sum(view1, 0);                            // 1,NUM_128
                         auto sum = Add(reduce0, reduce1);                                 // 1,NUM_128
                         Assemble(sum, {i, 0}, abc);
                     } else {
@@ -392,7 +392,7 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
                 }
                 auto trans1 = Transpose(abc, {0, 1}); // NUM_128,NUM_128
                 TileShape::Current().SetVecTile({n, 8});
-                auto reduce2 = RowSumSingle(trans1, 0); // 1,NUM_128
+                auto reduce2 = Sum(trans1, 0); // 1,NUM_128
                 tmpOut = Reshape(reduce2, {1, s_slc});
 
                 TileShape::Current().SetVecTile({1, 16});

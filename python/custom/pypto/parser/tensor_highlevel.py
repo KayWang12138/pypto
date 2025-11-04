@@ -52,12 +52,12 @@ def row_max_single(h: CodeHelper, inst: Instruction):
         raise Exception()
 
     if len(inst.src) == 1:
-        h(f'auto tsr{inst.dst.idx} = RowMaxSingle(tsr{inst.src[0].idx});')
+        h(f'auto tsr{inst.dst.idx} = Amax(tsr{inst.src[0].idx});')
     else:
         if not isinstance(inst.src[1], (int, float, Var)):
             raise Exception()
         axis_str = get_var_str(inst.src[1])
-        h(f'auto tsr{inst.dst.idx} = RowMaxSingle(tsr{inst.src[0].idx}, {axis_str});')
+        h(f'auto tsr{inst.dst.idx} = Amax(tsr{inst.src[0].idx}, {axis_str});')
 
 
 def row_sum_single(h: CodeHelper, inst: Instruction):
@@ -67,12 +67,12 @@ def row_sum_single(h: CodeHelper, inst: Instruction):
         raise Exception()
 
     if len(inst.src) == 1:
-        h(f'auto tsr{inst.dst.idx} = RowSumSingle(tsr{inst.src[0].idx});')
+        h(f'auto tsr{inst.dst.idx} = Sum(tsr{inst.src[0].idx});')
     else:
         if not isinstance(inst.src[1], (int, float, Var)):
             raise Exception()
         axis_str = get_var_str(inst.src[1])
-        h(f'auto tsr{inst.dst.idx} = RowSumSingle(tsr{inst.src[0].idx}, {axis_str});')
+        h(f'auto tsr{inst.dst.idx} = Sum(tsr{inst.src[0].idx}, {axis_str});')
 
 
 def sum(h: CodeHelper, inst: Instruction):

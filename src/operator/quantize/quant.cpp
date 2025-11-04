@@ -44,7 +44,7 @@ std::tuple<Tensor, Tensor> Quant(
     // perToken
     if (isSymmetry) {
         auto absRes = Abs(inputFp32);
-        auto maxValue = RowMaxSingle(absRes);
+        auto maxValue = Amax(absRes);
         auto scaleQuant = ScalarDivS(maxValue, Element(DataType::DT_FP32, F_127), true);
         auto outFp32 = Mul(inputFp32, scaleQuant);
         auto outInt32 = Cast(outFp32, DataType::DT_INT32, CAST_RINT);
@@ -54,8 +54,8 @@ std::tuple<Tensor, Tensor> Quant(
         return std::tie(outInt8, scaleDeQuant);
     } else {
         // 优先级低
-        auto maxValue = RowMaxSingle(inputFp32);
-        auto minValue = RowMinSingle(inputFp32);
+        auto maxValue = Amax(inputFp32);
+        auto minValue = Amin(inputFp32);
         auto scaleDeQuant = ScalarMaxS(ScalarDivS(ScalarSub(maxValue, minValue),
             Element(DataType::DT_FP32, F_255)),
             Element(DataType::DT_FP32, F_1E_12));

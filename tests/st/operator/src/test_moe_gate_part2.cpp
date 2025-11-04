@@ -50,7 +50,7 @@ TEST_F(MoEGatePart2OnBoardTest, test_operation_b_2) {
             Tensor scores_for_choice_reshape;
             scores_for_choice_reshape = Reshape(input_scores_for_choice, input_reshape);
             auto output_topk2 = TopK(scores_for_choice_reshape, 2, -1);
-            auto sum_result = RowSumSingle(std::get<0>(output_topk2));
+            auto sum_result = Sum(std::get<0>(output_topk2));
             sum_result = Reshape(sum_result, {B*S, nGroup});
             auto output_topk4 = TopK(sum_result, 4, -1);
             output_group_idx = std::get<1>(output_topk4);
@@ -116,7 +116,7 @@ TEST_F(MoEGatePart2OnBoardTest, test_operation_b_1024) {
             Tensor scores_for_choice_reshape;
             scores_for_choice_reshape = Reshape(input_scores_for_choice, input_reshape);
             auto output_topk2 = TopK(scores_for_choice_reshape, 2, -1);
-            auto sum_result = RowSumSingle(std::get<0>(output_topk2));
+            auto sum_result = Sum(std::get<0>(output_topk2));
             sum_result = Reshape(sum_result, {B*S, nGroup});
             auto output_topk4 = TopK(sum_result, 4, -1);
             output_group_idx = std::get<1>(output_topk4);

@@ -317,7 +317,7 @@ std::tuple<Tensor, Tensor> QuantTmp(
     // perToken
     if (isSymmetry) {
         auto absRes = Abs(inputFp32); // (32, 16384)
-        auto maxValue = RowMaxSingle(absRes); // (32, 1)
+        auto maxValue = Amax(absRes); // (32, 1)
         auto scaleQuant = ScalarDivS(maxValue, Element(DataType::DT_FP32, 127.0), true);  // (32, 1)
         auto outFp32 = Mul(inputFp32, scaleQuant); // (32, 16384) * (32, 1) = (32, 16384)
         auto outInt32 = Cast(outFp32, DataType::DT_INT32, CAST_RINT); // (32, 16384)
@@ -327,8 +327,8 @@ std::tuple<Tensor, Tensor> QuantTmp(
         return std::tie(outInt8, scaleDeQuant);  // (32, 16384)   (32, 1)
     } else {
         // 优先级低
-        auto maxValue = RowMaxSingle(inputFp32);
-        auto minValue = RowMinSingle(inputFp32);
+        auto maxValue = Amax(inputFp32);
+        auto minValue = Amin(inputFp32);
         auto scaleDeQuant = ScalarMaxS(ScalarDivS(ScalarSub(maxValue, minValue),
             Element(DataType::DT_FP32, 255.0)), Element(DataType::DT_FP32, 1e-12f));
         auto offset = ScalarSubS(ScalarDiv(maxValue, scaleDeQuant), Element(DataType::DT_FP32, 127.0),

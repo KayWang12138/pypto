@@ -150,11 +150,11 @@ Tensor FlashAttention(const Tensor &q, const Tensor &k, const Tensor &v, const T
                     TileShape::Current().SetVecTile(
                         vecCfg.softmaxTileX, vecCfg.softmaxTileY);
 
-                    auto tildaMij = RowMaxSingle(sij);
+                    auto tildaMij = Amax(sij);
                     auto tsub = Sub(sij, tildaMij);
                     auto tildaPij = Exp(tsub);
                     auto tildaPijF16 = Cast(tildaPij, DataType::DT_FP16);
-                    auto tildaLij = RowSumSingle(tildaPij);
+                    auto tildaLij = Sum(tildaPij);
 
                     SetC2CubeConfig(cubeCfg);
 

@@ -22,25 +22,25 @@ const unsigned IDX_DIM1 = 1;
 const unsigned IDX_DIM2 = 2;
 const unsigned IDX_DIM3 = 3;
 
-struct RowSumSingleOpFuncArgs : public OpFuncArgs {
-    RowSumSingleOpFuncArgs(std::vector<int64_t> viewShape, const std::vector<int64_t> tileShape, std::vector<int64_t> dims)
+struct SumOpFuncArgs : public OpFuncArgs {
+    SumOpFuncArgs(std::vector<int64_t> viewShape, const std::vector<int64_t> tileShape, std::vector<int64_t> dims)
         : viewShape_(viewShape), tileShape_(tileShape), dims_(dims) {}
     std::vector<int64_t> viewShape_;
     std::vector<int64_t> tileShape_;
     std::vector<int64_t> dims_;
 };
 
-struct RowSumSingleOpMetadata {
-    explicit RowSumSingleOpMetadata(const OpFunc &opFunc, const nlohmann::json &test_data)
+struct SumOpMetadata {
+    explicit SumOpMetadata(const OpFunc &opFunc, const nlohmann::json &test_data)
         : opFunc_(opFunc), test_data_(test_data) {}
     OpFunc opFunc_;
     nlohmann::json test_data_;
 };
 
-void RowSumSingleOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
+void SumOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
                                 const OpFuncArgs* opArgs) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
-    auto args = static_cast<const RowSumSingleOpFuncArgs *>(opArgs);
+    auto args = static_cast<const SumOpFuncArgs *>(opArgs);
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
@@ -63,16 +63,16 @@ void RowSumSingleOperationExeFunc(const std::vector<Tensor>& inputs, std::vector
                 },
                 {bIdx * viewShape[0], bIdx * viewShape[1]});
             TileShape::Current().SetVecTile(args->tileShape_);
-            auto res = RowSumSingle(viewTensor, args->dims_[0]);
+            auto res = Sum(viewTensor, args->dims_[0]);
             Assemble(res, {bIdx * viewShape[0], bIdx * viewShape[1]}, outputs[0]);
         }
     }
 }
 
-void RowSumSingle3DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
+void Sum3DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
                                  const OpFuncArgs* opArgs) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
-    auto args = static_cast<const RowSumSingleOpFuncArgs *>(opArgs);
+    auto args = static_cast<const SumOpFuncArgs *>(opArgs);
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
@@ -105,18 +105,18 @@ void RowSumSingle3DOperationExeFunc(const std::vector<Tensor>& inputs, std::vect
                         },
                         {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2]});
                     TileShape::Current().SetVecTile(args->tileShape_);
-                    auto res = RowSumSingle(viewTensor, args->dims_[0]);
-                    Assemble(res, {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2]}, outputs[0]);
+                    auto res = Sum(viewTensor, args->dims_[0]);
+                    Assemble(res, {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2]}, outputs[0]);  
                 }
             }
         }
     }
 }
 
-void RowSumSingle4DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
+void Sum4DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
                                  const OpFuncArgs* opArgs) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
-    auto args = static_cast<const RowSumSingleOpFuncArgs *>(opArgs);
+    auto args = static_cast<const SumOpFuncArgs *>(opArgs);
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
@@ -142,7 +142,7 @@ void RowSumSingle4DOperationExeFunc(const std::vector<Tensor>& inputs, std::vect
             LOOP("LOOP_L1_bIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loops[IDX_DIM1])) {
                 LOOP("LOOP_L2_bIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(loops[IDX_DIM2])) {
                     LOOP("LOOP_L3_bIdx", FunctionType::DYNAMIC_LOOP, qIdx, LoopRange(loops[IDX_DIM3])) {
-                        std::vector<SymbolicScalar> offset = {
+                        std::vector<SymbolicScalar> offset = {	
                             bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2], qIdx * viewShape[3]
                         };
                         auto viewTensor = View(inputs[0], 
@@ -160,7 +160,7 @@ void RowSumSingle4DOperationExeFunc(const std::vector<Tensor>& inputs, std::vect
                             },
                             offset);
                         TileShape::Current().SetVecTile(args->tileShape_);
-                        auto res = RowSumSingle(viewTensor, args->dims_[0]);
+                        auto res = Sum(viewTensor, args->dims_[0]);
                         Assemble(res, offset, outputs[0]);
                     }
                 }
@@ -169,17 +169,17 @@ void RowSumSingle4DOperationExeFunc(const std::vector<Tensor>& inputs, std::vect
     }
 }
 
-class RowSumSingleOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<RowSumSingleOpMetadata> {};
+class SumOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<SumOpMetadata> {};
 
-INSTANTIATE_TEST_SUITE_P(TestRowSumSingle, RowSumSingleOperationTest, ::testing::ValuesIn(
-    GetOpMetaData<RowSumSingleOpMetadata>({RowSumSingleOperationExeFunc, RowSumSingle3DOperationExeFunc, RowSumSingle4DOperationExeFunc}, "RowSumSingle")));
+INSTANTIATE_TEST_SUITE_P(TestSum, SumOperationTest, ::testing::ValuesIn(
+    GetOpMetaData<SumOpMetadata>({SumOperationExeFunc, Sum3DOperationExeFunc, Sum4DOperationExeFunc}, "Sum")));
 
-TEST_P(RowSumSingleOperationTest, TestRowSumSingle) {
+TEST_P(SumOperationTest, TestSum) {
     TestCaseDesc testCase;
     auto test_data = GetParam().test_data_;
     testCase.inputTensors = GetInputTensors(test_data);
     testCase.outputTensors = GetOutputTensors(test_data);
-    auto args = RowSumSingleOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data),
+    auto args = SumOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data),
         GetValueByName<std::vector<int64_t>>(test_data, "dims"));
     testCase.args = &args;
     testCase.opFunc = GetParam().opFunc_;

@@ -144,11 +144,11 @@ void WinAttentionCompute(const Tensor &qNope, Tensor &vNopeCache, const Tensor &
                     auto qKTScale = MulS(qKT, Element(qKT->Datatype(), softmaxScale));
 
                     // softmax
-                    auto tileMax = RowMaxSingle(qKTScale); // max
+                    auto tileMax = Amax(qKTScale); // max
                     auto tileSub = Sub(qKTScale, tileMax); // sub max
                     auto tileExp = Exp(tileSub); // exp
                     auto tileExpF16 = Cast(tileExp, dtype);
-                    auto tileSum = RowSumSingle(tileExp);
+                    auto tileSum = Sum(tileExp);
 
                     // matmul_2
                     TileShape::Current().SetCubeTile(
@@ -270,11 +270,11 @@ void WinAttentionComputeFlash(const Tensor &qNope, Tensor &vNopeCache, const Ten
                         auto qKTScale = MulS(qKT, Element(qKT->Datatype(), softmaxScale));
 
                         // softmax
-                        auto tileMax = RowMaxSingle(qKTScale); // max
+                        auto tileMax = Amax(qKTScale); // max
                         auto tileSub = Sub(qKTScale, tileMax); // sub max
                         auto tileExp = Exp(tileSub); // exp
                         auto tileExpF16 = Cast(tileExp, dtype);
-                        auto tileSum = RowSumSingle(tileExp);
+                        auto tileSum = Sum(tileExp);
 
                         IF (IsLoopBegin(s2Idx, 0)) {
                             // matmul_2
@@ -433,10 +433,10 @@ void WinAttentionDebugCompute(const Tensor &qNope, Tensor &vNopeCache, const Ten
                         auto qKTScale = MulS(qKT, Element(qKT->Datatype(), softmaxScale));
 
                         // softmax
-                        auto tileMax = RowMaxSingle(qKTScale); // max
+                        auto tileMax = Amax(qKTScale); // max
                         auto tileSub = Sub(qKTScale, tileMax); // sub max
                         auto tileExp = Exp(tileSub); // exp
-                        auto tilSum = RowSumSingle(tileExp);
+                        auto tilSum = Sum(tileExp);
                         auto tileSoftmx = Div(tileExp, tilSum);
                         auto valueType16 = Cast(tileSoftmx, dtype);
 

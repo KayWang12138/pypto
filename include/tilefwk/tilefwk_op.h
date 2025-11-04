@@ -162,9 +162,9 @@ Tensor IndexPut(const Tensor &src, std::vector<Tensor> indices, const Tensor &va
 Tensor RowSumExpand(const Tensor &operand);
 Tensor RowMaxExpand(const Tensor &operand);
 
-Tensor RowSumSingle(const Tensor &operand, int axis = -1);
-Tensor RowMaxSingle(const Tensor &operand, int axis = -1);
-Tensor RowMinSingle(const Tensor &operand, int axis = -1);
+Tensor Sum(const Tensor &self, int axis = -1);
+Tensor Amax(const Tensor &self, int axis = -1);
+Tensor Amin(const Tensor &self, int axis = -1);
 
 Tensor Compact(const Tensor &operand);
 

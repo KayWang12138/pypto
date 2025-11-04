@@ -22,25 +22,25 @@ const unsigned IDX_DIM1 = 1;
 const unsigned IDX_DIM2 = 2;
 const unsigned IDX_DIM3 = 3;
 
-struct RowMaxSingleOpFuncArgs : public OpFuncArgs {
-    RowMaxSingleOpFuncArgs(std::vector<int64_t> viewShape, const std::vector<int64_t> tileShape, std::vector<int64_t> dims)
+struct AmaxOpFuncArgs : public OpFuncArgs {
+    AmaxOpFuncArgs(std::vector<int64_t> viewShape, const std::vector<int64_t> tileShape, std::vector<int64_t> dims)
         : viewShape_(viewShape), tileShape_(tileShape), dims_(dims) {}
     std::vector<int64_t> viewShape_;
     std::vector<int64_t> tileShape_;
     std::vector<int64_t> dims_;
 };
 
-struct RowMaxSingleOpMetadata {
-    explicit RowMaxSingleOpMetadata(const OpFunc &opFunc, const nlohmann::json &test_data)
+struct AmaxOpMetadata {
+    explicit AmaxOpMetadata(const OpFunc &opFunc, const nlohmann::json &test_data)
         : opFunc_(opFunc), test_data_(test_data) {}
     OpFunc opFunc_;
     nlohmann::json test_data_;
 };
 
-void RowMaxSingleOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
+void AmaxOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
                                 const OpFuncArgs* opArgs) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
-    auto args = static_cast<const RowMaxSingleOpFuncArgs *>(opArgs);
+    auto args = static_cast<const AmaxOpFuncArgs *>(opArgs);
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
@@ -63,16 +63,16 @@ void RowMaxSingleOperationExeFunc(const std::vector<Tensor>& inputs, std::vector
                 },
                 {bIdx * viewShape[0], bIdx * viewShape[1]});
             TileShape::Current().SetVecTile(args->tileShape_);
-            auto res = RowMaxSingle(viewTensor, args->dims_[0]);
+            auto res = Amax(viewTensor, args->dims_[0]);
             Assemble(res, {bIdx * viewShape[0], bIdx * viewShape[1]}, outputs[0]);
         }
     }
 }
 
-void RowMaxSingle3DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
+void Amax3DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
                                  const OpFuncArgs* opArgs) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
-    auto args = static_cast<const RowMaxSingleOpFuncArgs *>(opArgs);
+    auto args = static_cast<const AmaxOpFuncArgs *>(opArgs);
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
@@ -105,7 +105,7 @@ void RowMaxSingle3DOperationExeFunc(const std::vector<Tensor>& inputs, std::vect
                         },
                         {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2]});
                     TileShape::Current().SetVecTile(args->tileShape_);
-                    auto res = RowMaxSingle(viewTensor, args->dims_[0]);
+                    auto res = Amax(viewTensor, args->dims_[0]);
                     Assemble(res, {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2]}, outputs[0]);
                 }
             }
@@ -113,10 +113,10 @@ void RowMaxSingle3DOperationExeFunc(const std::vector<Tensor>& inputs, std::vect
     }
 }
 
-void RowMaxSingle4DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
+void Amax4DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
                                  const OpFuncArgs* opArgs) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
-    auto args = static_cast<const RowMaxSingleOpFuncArgs *>(opArgs);
+    auto args = static_cast<const AmaxOpFuncArgs *>(opArgs);
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
@@ -160,7 +160,7 @@ void RowMaxSingle4DOperationExeFunc(const std::vector<Tensor>& inputs, std::vect
                             },
                             offset);
                         TileShape::Current().SetVecTile(args->tileShape_);
-                        auto res = RowMaxSingle(viewTensor, args->dims_[0]);
+                        auto res = Amax(viewTensor, args->dims_[0]);
                         Assemble(res, offset, outputs[0]);
                     }
                 }
@@ -169,18 +169,18 @@ void RowMaxSingle4DOperationExeFunc(const std::vector<Tensor>& inputs, std::vect
     }
 }
 
-class RowMaxSingleOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<RowMaxSingleOpMetadata> {};
+class AmaxOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<AmaxOpMetadata> {};
 
-INSTANTIATE_TEST_SUITE_P(TestRowMaxSingle, RowMaxSingleOperationTest, ::testing::ValuesIn(
-    GetOpMetaData<RowMaxSingleOpMetadata>({RowMaxSingleOperationExeFunc, RowMaxSingle3DOperationExeFunc,
-        RowMaxSingle4DOperationExeFunc}, "RowMaxSingle")));
+INSTANTIATE_TEST_SUITE_P(TestAmax, AmaxOperationTest, ::testing::ValuesIn(
+    GetOpMetaData<AmaxOpMetadata>({AmaxOperationExeFunc, Amax3DOperationExeFunc,
+        Amax4DOperationExeFunc}, "Amax")));
 
-TEST_P(RowMaxSingleOperationTest, TestRowMaxSingle) {
+TEST_P(AmaxOperationTest, TestAmax) {
     TestCaseDesc testCase;
     auto test_data = GetParam().test_data_;
     testCase.inputTensors = GetInputTensors(test_data);
     testCase.outputTensors = GetOutputTensors(test_data);
-    auto args = RowMaxSingleOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data),
+    auto args = AmaxOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data),
         GetValueByName<std::vector<int64_t>>(test_data, "dims"));
     testCase.args = &args;
     testCase.opFunc = GetParam().opFunc_;

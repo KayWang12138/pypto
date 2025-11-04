@@ -39,7 +39,7 @@ Tensor RmsNorm(const Tensor &operand) {
     y = Mul(y, Element(DataType::DT_FP32, 1.0f / operand.GetShape()[operand.GetShape().size() - 1]));
 
     // ReduceSum(x^2 / n) + Eps
-    y = RowSumSingle(y);
+    y = Sum(y);
     y = Add(y, Element(DataType::DT_FP32, epsilon));
 
     // sqrt rstd
@@ -62,7 +62,7 @@ Tensor RmsNorm(const Tensor &operand, const Tensor &gamma, float epsilon) {
     y = Mul(y, Element(DataType::DT_FP32, 1.0f / operand.GetShape()[operand.GetShape().size() - 1]));
 
     // ReduceSum(x^2 / n) + Eps
-    y = RowSumSingle(y);
+    y = Sum(y);
     y = Add(y, Element(DataType::DT_FP32, epsilon));
 
     // sqrt rstd

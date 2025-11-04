@@ -102,20 +102,20 @@ void bind_operation(py::module &m) {
         [](const Element &start, const Element &end, const Element &step) { return npu::tile_fwk::Range(start, end, step); },
         py::arg("start"), py::arg("end"), py::arg("step"), "Tensor range.");
     m.def(
-        "row_max_single", [](const Tensor &operand, int axis) { return npu::tile_fwk::RowMaxSingle(operand, axis); },
+        "row_max_single", [](const Tensor &operand, int axis) { return npu::tile_fwk::Amax(operand, axis); },
         py::arg("operand"), py::arg("axis") = -1, "Tensor row max single.");
 
     m.def(
-        "row_sum_single", [](const Tensor &operand, int axis) { return npu::tile_fwk::RowSumSingle(operand, axis); },
+        "row_sum_single", [](const Tensor &operand, int axis) { return npu::tile_fwk::Sum(operand, axis); },
         py::arg("operand"), py::arg("axis") = -1, "Tensor row sum single.");
     m.def(
-        "row_min_single", [](const Tensor &operand, int axis) { return npu::tile_fwk::RowMinSingle(operand, axis); },
+        "row_min_single", [](const Tensor &operand, int axis) { return npu::tile_fwk::Amin(operand, axis); },
         py::arg("operand"), py::arg("axis") = -1, "Tensor row min single.");
     m.def(
         "row_sum_expand", [](const Tensor &operand) { return npu::tile_fwk::RowSumExpand(operand); },
         "Tensor row sum expand.");
     m.def(
-        "row_max_expand", [](const Tensor &operand) { return npu::tile_fwk::RowSumSingle(operand); },
+        "row_max_expand", [](const Tensor &operand) { return npu::tile_fwk::RowMaxExpand(operand); },
         "Tensor row sum expand.");
     m.def("compact", [](const Tensor &operand) { return npu::tile_fwk::Compact(operand); }, "Tensor compact.");
     m.def("indexput", [](const Tensor &src, std::vector<Tensor> indices, const Tensor &values)

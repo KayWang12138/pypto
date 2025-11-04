@@ -2419,80 +2419,80 @@ Tensor RowMaxExpand(const Tensor &operand) {
     return result;
 }
 
-Tensor RowMaxSingle(const Tensor &operand, int axis) {
+Tensor Amax(const Tensor &self, int axis) {
     DECLARE_TRACER();
-    auto resultShape = operand.GetShape();
-    axis = axis < 0 ? operand.GetShape().size() + axis : axis;
+    auto resultShape = self.GetShape();
+    axis = axis < 0 ? self.GetShape().size() + axis : axis;
 
     resultShape[axis] = 1;
 
-    const int lastDim = operand.GetShape().size() - 1;
-    const int alignNum = BLOCK_SIZE / BytesOf(operand.GetStorage()->tensor->datatype);
+    const int lastDim = self.GetShape().size() - 1;
+    const int alignNum = BLOCK_SIZE / BytesOf(self.GetStorage()->tensor->datatype);
     auto &vecTile = TileShape::Current().GetVecTile();
     if (axis == lastDim) {
-        ASSERT(vecTile[lastDim] % alignNum == 0) << "RowMaxSingle op: the tileShape of last axis need to 32Byte align!";
+        ASSERT(vecTile[lastDim] % alignNum == 0) << "Amax op: the tileShape of last axis need to 32Byte align!";
     }
 
-    Tensor result(operand.GetStorage()->tensor->datatype, resultShape);
+    Tensor result(self.GetStorage()->tensor->datatype, resultShape);
     int shapeSize = static_cast<int>(resultShape.size());
     if (ConfigManager::Instance().GetOperationConfig("FORCE_COMBINE_AXIS", false) && axis == shapeSize - 1 &&
         shapeSize >= NUM2 &&
         (resultShape[shapeSize - NUM2] % NUM_VALUE_8 == 0 && vecTile[vecTile.size() - NUM2] % NUM_VALUE_8 == 0)) {
-        CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "MAX_COMBINE_AXIS", operand, result, axis);
+        CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "MAX_COMBINE_AXIS", self, result, axis);
     } else {
-        CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "MAX", operand, result, axis);
+        CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "MAX", self, result, axis);
     }
     return result;
 }
 
-Tensor RowMinSingle(const Tensor &operand, int axis) {
+Tensor Amin(const Tensor &self, int axis) {
     DECLARE_TRACER();
-    auto resultShape = operand.GetShape();
-    axis = axis < 0 ? operand.GetShape().size() + axis : axis;
+    auto resultShape = self.GetShape();
+    axis = axis < 0 ? self.GetShape().size() + axis : axis;
 
     resultShape[axis] = 1;
 
-    const int lastDim = operand.GetShape().size() - 1;
-    const int alignNum = BLOCK_SIZE / BytesOf(operand.GetStorage()->tensor->datatype);
+    const int lastDim = self.GetShape().size() - 1;
+    const int alignNum = BLOCK_SIZE / BytesOf(self.GetStorage()->tensor->datatype);
     auto &vecTile = TileShape::Current().GetVecTile();
     if (axis == lastDim) {
-        ASSERT(vecTile[lastDim] % alignNum == 0) << "RowMinSingle op: the tileShape of last axis need to 32Byte align!";
+        ASSERT(vecTile[lastDim] % alignNum == 0) << "Amin op: the tileShape of last axis need to 32Byte align!";
     }
 
-    Tensor result(operand.GetStorage()->tensor->datatype, resultShape);
+    Tensor result(self.GetStorage()->tensor->datatype, resultShape);
     int shapeSize = static_cast<int>(resultShape.size());
     if (ConfigManager::Instance().GetOperationConfig("FORCE_COMBINE_AXIS", false) && axis == shapeSize - 1 &&
         shapeSize >= NUM2 &&
         (resultShape[shapeSize - NUM2] % NUM_VALUE_8 == 0 && vecTile[vecTile.size() - NUM2] % NUM_VALUE_8 == 0)) {
-        CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "MIN_COMBINE_AXIS", operand, result, axis);
+        CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "MIN_COMBINE_AXIS", self, result, axis);
     } else {
-        CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "MIN", operand, result, axis);
+        CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "MIN", self, result, axis);
     }
     return result;
 }
 
-Tensor RowSumSingle(const Tensor &operand, int axis) {
+Tensor Sum(const Tensor &self, int axis) {
     DECLARE_TRACER();
-    auto resultShape = operand.GetShape();
-    axis = axis < 0 ? operand.GetShape().size() + axis : axis;
+    auto resultShape = self.GetShape();
+    axis = axis < 0 ? self.GetShape().size() + axis : axis;
 
     resultShape[axis] = 1;
 
-    const int lastDim = operand.GetShape().size() - 1;
-    const int alignNum = BLOCK_SIZE / BytesOf(operand.GetStorage()->tensor->datatype);
+    const int lastDim = self.GetShape().size() - 1;
+    const int alignNum = BLOCK_SIZE / BytesOf(self.GetStorage()->tensor->datatype);
     auto &vecTile = TileShape::Current().GetVecTile();
     if (axis == lastDim) {
-        ASSERT(vecTile[lastDim] % alignNum == 0) << "RowSumSingle op: the tileShape of last axis need to 32Byte align!";
+        ASSERT(vecTile[lastDim] % alignNum == 0) << "Sum op: the tileShape of last axis need to 32Byte align!";
     }
 
-    Tensor result(operand.GetStorage()->tensor->datatype, resultShape);
+    Tensor result(self.GetStorage()->tensor->datatype, resultShape);
     int shapeSize = static_cast<int>(resultShape.size());
     if (ConfigManager::Instance().GetOperationConfig("FORCE_COMBINE_AXIS", false) && axis == shapeSize - 1 &&
         shapeSize >= NUM2 &&
         (resultShape[shapeSize - NUM2] % NUM_VALUE_8 == 0 && vecTile[vecTile.size() - NUM2] % NUM_VALUE_8 == 0)) {
-        CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "SUM_COMBINE_AXIS", operand, result, axis);
+        CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "SUM_COMBINE_AXIS", self, result, axis);
     } else {
-        CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "SUM", operand, result, axis);
+        CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "SUM", self, result, axis);
     }
     return result;
 }

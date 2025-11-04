@@ -171,11 +171,11 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                     config::SetSemanticLabel("Cmp-Attn-V1");
                     auto sijScale = Mul(sij, Element(sij.GetStorage()->Datatype(), softmaxScale)); // (blockSize, n1)
                     // reduceMax首轴不支持切分
-                    auto tildaMij = RowMaxSingle(sijScale, 0); // (1, n1)
+                    auto tildaMij = Amax(sijScale, 0); // (1, n1)
                     auto tsub = Sub(sijScale, tildaMij);       // (blockSize, n1) - (1, n1) -> (blockSize, n1)
                     auto tildaPij = Exp(tsub);                 // (blockSize, n1)
                     auto tildaPijB16 = Cast(tildaPij, kDtype); // (blockSize, n1)
-                    auto tildaLij = RowSumSingle(tildaPij, 0); // (1, n1)
+                    auto tildaLij = Sum(tildaPij, 0); // (1, n1)
                     IF(IsLoopBegin(blockIdx, 0)) {
                         config::SetSemanticLabel("Cmp-Attn-First-Block-C2");
                         TileShape::Current().SetCubeTile(
@@ -263,7 +263,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                         View(tildaPijPad, {slcWindow, n1}, {slcValid, n1}, {slcIdx * slcSize, 0}); // last window
                     auto auxTmpTensor = View(auxTensor, {slcWindow, n1}, {slcValid, n1}, {0, 0});
                     auto slcLastNoReduce = Mul(lastView, auxTmpTensor); // (slcSize, n1), (slcSize, n1) -> (slcSize, n1)
-                    auto slcLastReduce = RowSumSingle(slcLastNoReduce, 0); // (slcSize, n1) -> (1, n1)
+                    auto slcLastReduce = Sum(slcLastNoReduce, 0); // (slcSize, n1) -> (1, n1)
                     Assemble(slcLastReduce, {slcIdx, 0}, slcCur);
                 }
 
@@ -278,7 +278,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                                 {auxTensor.GetShape()[0] - std::min(cmpSize - 1, curValidSeq), 0});
                         modifyTensor = Mul(modifyTensor,
                             lastAuxTensor); // (cmpSize - 1, n1), (cmpSize - 1, n1) -> (cmpSize - 1, n1)
-                        auto modifyTensorReduce = RowSumSingle(modifyTensor, 0); // (1, n1)
+                        auto modifyTensorReduce = Sum(modifyTensor, 0); // (1, n1)
                         auto preViewTensor = View(slcPre, {1, n1}, {blockSlcNum - 1, 0});
                         preViewTensor = Add(preViewTensor, modifyTensor); // (1, n1)
                         Assemble(Assign(View(slcPre, {blockSlcNum - 1, n1}, {0, 0})),
@@ -321,8 +321,8 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                     (void)ubReshapeIdx;
                     auto slcBeforeGReduceActual =
                         View(slcBeforeGReduce2, {maxCmpBlock * blockSlcNum, n1}, {slcLoop, n1}, {0, 0});
-                    auto slcReduce = RowSumSingle(
-                        slcBeforeGReduceActual); // (maxSlcLoop, n1) - > (maxSlcLoop, 1), 有效数据为(slcLoop, 1)
+                    auto slcReduce = Sum(
+                        slcBeforeGReduceActual, -1); // (maxSlcLoop, n1) - > (maxSlcLoop, 1), 有效数据为(slcLoop, 1)
                     TileShape::Current().SetVecTile(tileConfig.topkTile);
                     slcReShape = Reshape(slcReduce, {1, 1, maxCmpBlock * blockSlcNum}, {1, 1, slcLoop});
                     slcReShape = Add(slcReShape, Element(DT_FP32, 0.0f));

@@ -108,13 +108,13 @@ void SelectedAttentionComputeV2(const Tensor &qNope, const Tensor &qRope, const 
                         TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
                         auto sij = Add(qkn, qkr);
                         auto sijScale = Mul(sij, Element(sij.GetStorage()->Datatype(), softmaxScale));
-                        auto tildaMijReduce = RowMaxSingle(sijScale); // (curGTile, curS2Tile) -> (curGTile, 1)
+                        auto tildaMijReduce = Amax(sijScale); // (curGTile, curS2Tile) -> (curGTile, 1)
                         auto tildaMij = Reshape(tildaMijReduce, {1, curGTile}); // (1, curGTile)
                         tildaMij.SetName("tildaMij");
                         auto tsub = Sub(sijScale, tildaMijReduce); // (curGTile, curS2Tile), (curGTile, 1) -> (curGTile, curS2Tile)
                         auto tildaPij = Exp(tsub);  // (curGTile, curS2Tile) -> (curGTile, curS2Tile)
                         auto tildaPijF16 = Cast(tildaPij, dtype);
-                        auto tildaLijReduce = RowSumSingle(tildaPij); // (curGTile, curS2Tile) -> (curGTile, 1)
+                        auto tildaLijReduce = Sum(tildaPij); // (curGTile, curS2Tile) -> (curGTile, 1)
                         auto tildaLij = Reshape(tildaLijReduce, {1, curGTile}); // (1, curGTile)
                         tildaLij.SetName("tildaLij");
                         config::SetSemanticLabel("Sa_KvMm");
