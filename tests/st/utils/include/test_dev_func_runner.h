@@ -34,6 +34,8 @@ namespace npu::tile_fwk {
 struct MemoryHelper {
     MemoryHelper(bool isTest) : isTest_(isTest) {}
 
+    bool IsDevice() { return !isTest_; }
+
     uint8_t *CopyToDev(uint8_t *data, uint64_t size) {
         uint8_t *devPtr = AllocDev(size, nullptr);
         if (isTest_)
@@ -122,7 +124,21 @@ private:
             return;
         }
         KernelLaunchPrecheck(inputs, outputs);
+        DevAscendProgram *functionDevProg = reinterpret_cast<DevAscendProgram *>(function_->GetDyndevAttribute()->devProgBinary.data());
+        if (config_.controlFlowCache) {
+            functionDevProg->controlFlowCache.isRecording = true;
+        }
         RunModel(inputs, outputs);
+        if (functionDevProg->controlFlowCache.isRecording) {
+            functionDevProg->controlFlowCache.isRecording = false;
+
+            uint64_t workspace = functionDevProg->controlFlowCache.alignedWorkspaceAddr;
+
+            functionDevProg->RelocControlFlowCacheInputOutput(workspace, 0, nullptr);
+            functionDevProg->RelocControlFlowCache(reinterpret_cast<uint64_t>(functionDevProg), 0, workspace, 0);
+            functionDevProg->ResetFromLaunch();
+            functionDevProg->controlFlowCache.isActivated = true;
+        }
         if (config_.onBoard) {
             RunOnBoard(inputs, outputs);
         }
@@ -142,7 +158,7 @@ private:
             return;
         }
         AstKernelArgs kArgs;
-        DeviceInitTilingData(MemoryHelper(true), kArgs, function_, config_, nullptr);
+        DeviceInitTilingData(MemoryHelper(true), kArgs, function_->GetDyndevAttribute()->devProgBinary, config_, nullptr);
         for (int i = 0; i < config_.repeatNum; i++) {
             InitKernelInOuts(kArgs, inputs, outputs, true);
             std::cout << "!!! Run CostModel " << i << "\n";
@@ -233,7 +249,7 @@ private:
         if (rc == 0 || rc == ACL_ERROR_REPEAT_INITIALIZE) {
             SetDefaultDevice();
             AstKernelArgs kArgs;
-            DeviceInitTilingData(MemoryHelper(false), kArgs, function_, config_, nullptr);
+            DeviceInitTilingData(MemoryHelper(false), kArgs, function_->GetDyndevAttribute()->devProgBinary, config_, nullptr);
             auto aicpuStream = machine::GetRA()->GetStreamAICPU();
             auto aicoreStream = machine::GetRA()->GetStream();
             for (int i = 0; i < config_.repeatNum; i++) {

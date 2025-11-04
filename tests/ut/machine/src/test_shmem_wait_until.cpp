@@ -43,22 +43,22 @@ void TestShmemWaitUntil(const uint32_t tileOpCount) {
     int32_t initData[codeSize] = {153, 2, 2, 44, 4, 2, 18, 4, 0, 2, 0, 1};
     std::copy(initData, initData + codeSize, data.get());
     npu::tile_fwk::dynamic::DevRelocVector<int32_t> aicpuCode(codeSize, data.get());
-    
+
     npu::tile_fwk::Distributed::ShmemWaitUntil shmemWaitUntil;
     npu::tile_fwk::dynamic::DeviceWorkspaceAllocator allocator;
     npu::tile_fwk::dynamic::DynDeviceTask task(allocator);
-    
+
     size_t headerSize = sizeof(npu::tile_fwk::DynFuncHeader);
     size_t dataSize = sizeof(npu::tile_fwk::DynFuncData);
     std::unique_ptr<void, decltype(&free)> buffer(malloc(headerSize + dataSize), free);
 
     auto* header = new(buffer.get())npu::tile_fwk::DynFuncHeader();
     auto* funcData = new(header + 1)npu::tile_fwk::DynFuncData();
-    task.dynFuncData = header;
-    task.dynFuncData[0].seqNo = 1;
-    task.dynFuncData[0].funcNum = 1;
-    task.dynFuncData[0].funcSize = 1u;
-    task.dynFuncData[0].cceBinary = nullptr;
+    task.dynFuncDataList = header;
+    task.dynFuncDataList[0].seqNo = 1;
+    task.dynFuncDataList[0].funcNum = 1;
+    task.dynFuncDataList[0].funcSize = 1u;
+    task.dynFuncDataList[0].cceBinary = nullptr;
 
     constexpr size_t exprTblSize = 50;
     auto exprTbl = std::make_unique<uint64_t[]>(exprTblSize);
@@ -85,11 +85,11 @@ void TestShmemWaitUntil(const uint32_t tileOpCount) {
     for (uint32_t taskId = 0; taskId < tileOpCount; ++taskId) {
         auto opAtrrOffsets = std::make_unique<int32_t[]>(taskId + 1);
         opAtrrOffsets[taskId] = 0;
-        
+
         int opAttrsSize = 1 + opAtrrOffsets[taskId] + opAttrsLength;
         auto opAttrsCopy = std::make_unique<uint64_t[]>(opAttrsSize);
         std::copy(opAttrs.get(), opAttrs.get() + opAttrsLength, opAttrsCopy.get() + opAtrrOffsets[taskId]);
-        
+
         funcData->opAtrrOffsets = opAtrrOffsets.get();
         funcData->opAttrs = opAttrsCopy.get();
 

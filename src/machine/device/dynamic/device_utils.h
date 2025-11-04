@@ -52,13 +52,16 @@ inline constexpr bool IsDeviceMode() {
 #endif // __DEVICE__
 }
 
+constexpr int32_t DEVICE_MACHINE_TIMEOUT_AIV = -4;
+constexpr int32_t DEVICE_MACHINE_TIMEOUT_AIC = -3;
+constexpr int32_t DEVICE_MACHINE_TIMEOUT_CORETASK = -2;
 constexpr int32_t DEVICE_MACHINE_ERROR = -1;
 constexpr int32_t DEVICE_MACHINE_OK = 0;
 constexpr int32_t DEVICE_MACHINE_FINISHED = 1;
 constexpr int32_t TIME_OUT_THRESHOLD = 1000000; // 超时阈值 1s
 constexpr int32_t DFX_TIME_OUT_THRESHOLD = 50000000; // 超时阈值 50s
 constexpr uint32_t MAX_SCHEDULE_AICPU_NUM = 3;          // 真正负责调度aicore的aicpu个数
-constexpr int32_t START_AICPU_NUM = 3; 
+constexpr int32_t START_AICPU_NUM = 3;
 constexpr uint64_t NUM_FIFTY = 50;
 constexpr uint64_t US_PER_SEC = 1000000;
 constexpr uint64_t NSEC_PER_USEC = 1000;

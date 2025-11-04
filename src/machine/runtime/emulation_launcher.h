@@ -17,6 +17,7 @@
 #define SRC_MACHINE_EMULATION_LAUNCHER_H
 
 #include <cstdint>
+#include <vector>
 
 #include "device_launcher_binding.h"
 
@@ -36,6 +37,7 @@
 namespace npu::tile_fwk::dynamic {
 
 struct EmulationMemoryUtils {
+    static bool IsDevice() { return false; }
     uint8_t *AllocDev(size_t size, uint8_t **cachedDevAddrHolder) {
         (void)cachedDevAddrHolder;
         uint8_t *devPtr = machine::GetRA()->AllocHostAddr(size);
@@ -78,6 +80,16 @@ public:
             const DeviceLauncherConfig &config = DeviceLauncherConfig());
 
     static int EmulationRunOnce(Function *function, const DeviceLauncherConfig &config = DeviceLauncherConfig());
+
+    static int BuildControlFlowCacheWithEmulationTensorData(
+            std::vector<uint8_t> &devProgData, const std::vector<DeviceTensorData> &inputList,
+            const std::vector<DeviceTensorData> &outputList,
+            CachedOperator *cachedOperator,
+            const DeviceLauncherConfig &config = DeviceLauncherConfig());
+
+    static int BuildControlFlowCache(Function *function, const DeviceLauncherConfig &config = DeviceLauncherConfig());
+    static int BuildControlFlowCache(std::vector<uint8_t> &devProgData,
+                                     const DeviceLauncherConfig &config = DeviceLauncherConfig());
 };
 
 }

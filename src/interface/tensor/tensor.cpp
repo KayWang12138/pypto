@@ -261,17 +261,17 @@ namespace npu::tile_fwk {
 void MarkInputDynamic(Tensor &t, int axis) {
     auto storage = t.GetStorage(false);
     ASSERT(storage != nullptr) << "Invalid input tensor!";
- 
+
     if (axis < 0) {
         axis += t.Dim();
     }
     ASSERT(axis >= 0 && static_cast<uint64_t>(axis) < t.Dim());
- 
+
     auto name = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::GetInputShapeDim);
     auto handler = SymbolicScalar(AddRuntimePrefix(name));
     auto input = SymbolicScalar(AddArgPrefix(t.GetName()));
     auto dynDim = handler(input, axis);
- 
+
     auto rawTensor = storage->GetRawTensor();
     auto dynShape = rawTensor->GetDynRawShape();
     dynShape[axis] = dynDim;
@@ -423,10 +423,11 @@ SymbolicScalar GetTensorData(const Tensor &t, const std::vector<SymbolicScalar> 
     if (funcPtr) {
         auto inputTensorList = funcPtr->GetDyndevAttribute()->startArgsInputTensorList;
         if (FindTensor(t, inputTensorList) != inputTensorList.end()) {
+            funcPtr->GetDyndevAttribute()->getInputDataCount++;
             return GetInputData(t, offset);
         }
     }
-    
+
     ASSERT(offset.size() <= MAX_GET_TENSOR_DATA_DIM);
     SymbolHandlerId handlerId = static_cast<SymbolHandlerId>(static_cast<int>(SymbolHandlerId::GetTensorDataInt32Dim1) + offset.size() - 1) ;
     return DoGetTensorDataInt32(handlerId, t, offset);

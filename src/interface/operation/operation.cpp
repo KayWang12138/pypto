@@ -942,6 +942,15 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
                     dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(value));
                 }
             } break;
+        case Opcode::OP_CALL:
+            {
+                auto callAttr = std::static_pointer_cast<CallOpAttribute>(GetOpAttribute());
+                if (callAttr != nullptr) {
+                    for (auto &arg : callAttr->GetLinearArgList()) {
+                        dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(arg));
+                    }
+                }
+            } break;
         default:
             break;
     }

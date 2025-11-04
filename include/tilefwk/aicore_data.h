@@ -46,6 +46,18 @@ struct DevShape {
         }
         return size;
     }
+
+    bool Equal(const DevShape &s) const {
+        if (dimSize != s.dimSize) {
+            return false;
+        }
+        for (int i = 0; i < dimSize; i++) {
+            if (dim[i] != s.dim[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
 #endif
 };
 

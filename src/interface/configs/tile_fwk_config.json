@@ -72,7 +72,7 @@
         "pass_thread_num": 1,
         "default_pass_configs": {
             "PRINT_FUNCTION": false,
-            "PRINT_PROGRAM": true,
+            "PRINT_PROGRAM": false,
             "DUMP_TENSOR_GRAPH": false,
             "DUMP_TILE_GRAPH": false,
             "DUMP_BLOCK_GRAPH": false,

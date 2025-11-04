@@ -50,6 +50,7 @@ struct DeviceLauncherConfig {
     int64_t repeatNum{1};
     bool runModel{true};
     std::vector<uint64_t> hcclContext;
+    bool controlFlowCache{false};
 
     DeviceLauncherConfig() = default;
     DeviceLauncherConfig(bool onboard, int tblockdim, int taicpunum)

@@ -164,9 +164,16 @@ struct DynFuncHeader {
     uint32_t funcNum;
     uint32_t funcSize;
     __gm__ DynFuncBin *cceBinary;
+
+    inline DynFuncData &At(int index) {
+        return ((DynFuncData *)(this + 1))[index];
+    }
+    inline uint32_t Size() {
+        return funcNum;
+    }
 };
 
-#pragma pack () 
+#pragma pack ()
 
 } // namespace npu::tile_fwk
 

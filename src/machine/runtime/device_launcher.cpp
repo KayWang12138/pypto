@@ -37,9 +37,18 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     }
     int rc = aclInit(nullptr);
     if (rc == 0 || rc == ACL_ERROR_REPEAT_INITIALIZE) {
+        CachedOperator cachedOperatorData;
+        if (cachedOperator == nullptr) {
+            // Not python cached operator mode, consider kernel reuse mode
+            if (DeviceRunCacheKernelEnable(function)) {
+                *CachedOperator::GetCfgDataDevAddrHolder(&cachedOperatorData) = DeviceRunCacheKernelGet(function);
+                cachedOperator = &cachedOperatorData;
+            }
+        }
         SetDefaultDevice();
         AstKernelArgs kArgs;
-        DeviceInitTilingData(DeviceMemoryUtils(), kArgs, function, config, cachedOperator);
+        DeviceInitTilingData(DeviceMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary, config, cachedOperator);
+        DeviceRunCacheKernelSet(function, (uint8_t *)kArgs.cfgdata);
         DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList, cachedOperator);
         rc = DeviceRunner::Get().DynamicLaunch(aicpuStream, aicoreStream, 0, &kArgs, config.blockdim, config.aicpuNum);
         if (rc < 0) {
@@ -71,6 +80,38 @@ int DeviceLauncher::DeviceRunOnce(Function *function, const DeviceLauncherConfig
         CopyFromDev(DeviceMemoryUtils(), inputDataList);
     }
     return rc;
+}
+
+struct DeviceRunCacheInfo {
+    /* By default: devProg cache is enabled */
+    bool devProgEnabled{true};
+    uint8_t *devProgAddr{nullptr};
+};
+static std::unordered_map<Function *, DeviceRunCacheInfo> &DeviceRunCacheInfoDict() {
+    static std::unordered_map<Function *, DeviceRunCacheInfo> cacheInfoDict;
+    return cacheInfoDict;
+}
+void DeviceLauncher::DeviceRunCacheKernelEnable(Function *func, bool enabled) {
+    auto &dict = DeviceRunCacheInfoDict();
+    dict[func].devProgEnabled = enabled;
+}
+bool DeviceLauncher::DeviceRunCacheKernelEnable(Function *func) {
+    auto &dict = DeviceRunCacheInfoDict();
+    return dict[func].devProgEnabled;
+}
+void DeviceLauncher::DeviceRunCacheKernelSet(Function *func, uint8_t *devProg) {
+    if (!DeviceRunCacheKernelEnable(func)) {
+        return;
+    }
+    auto &dict = DeviceRunCacheInfoDict();
+    dict[func].devProgAddr = devProg;
+}
+uint8_t *DeviceLauncher::DeviceRunCacheKernelGet(Function *func) {
+    if (!DeviceRunCacheKernelEnable(func)) {
+        return nullptr;
+    }
+    auto &dict = DeviceRunCacheInfoDict();
+    return dict[func].devProgAddr;
 }
 
 DeviceStream DeviceGetAicpuStream() {

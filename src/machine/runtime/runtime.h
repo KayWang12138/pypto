@@ -105,14 +105,17 @@ public:
         return;
     }
 
+#define DEVICE_ALLOC_ALIGN 512
     uint8_t* AllocHostAddr(uint64_t size) {
         if (size == 0) {
             ALOG_ERROR_F("Malloc size is 0!");
             return nullptr;
         }
-        auto hostPtr = (uint8_t *)malloc(size);
+        // Device allocate always 512 aligned.
+        auto hostPtr = (uint8_t *)malloc(size + DEVICE_ALLOC_ALIGN);
         allocatedHostAddr.emplace_back(hostPtr);
-        return hostPtr;
+        auto resultPtr = (uint8_t *)((((uint64_t)hostPtr) + DEVICE_ALLOC_ALIGN - 1) / DEVICE_ALLOC_ALIGN * DEVICE_ALLOC_ALIGN);
+        return resultPtr;
     }
 
     bool IsHugePageMemory(uint8_t *devAddr) const {

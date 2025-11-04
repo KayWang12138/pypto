@@ -29,15 +29,8 @@
 
 namespace npu::tile_fwk::dynamic {
 
-const size_t MAX_CACHED_FUNC_NUM = 128;
 const size_t MAX_READY_QUE_ELM_SIZE = 20000;
 
-struct DynFuncCacheItem {
-    DevAscendFunction *devFunc;
-    predcount_t *predCount;
-    int *calleList;
-    DevAscendFunctionDupped dup;
-};
 struct WsSlabStageAllocMem {
     std::atomic_bool canFree{false};
     StageAllocInfo aicpuCoherentStageMem;
@@ -61,20 +54,12 @@ struct WsSlabStageAllocMem {
 };
 
 class DeviceWorkspaceAllocator;
-constexpr size_t READY_QUEUE_SIZE = 3UL;
-struct DynDeviceTask {
-    DeviceTask devTask;
-    DynFuncHeader* dynFuncData{nullptr};
-
-    ReadyCoreFunctionQueue *readyQueue[READY_QUEUE_SIZE];
-    DynFuncCacheItem cacheList[MAX_CACHED_FUNC_NUM];
+struct DynDeviceTask : DynDeviceTaskBase {
     Vector<DevAscendFunctionDupped, WsMemCategory::VECTOR_STITCHED_LIST, DeviceWorkspaceAllocator> stitchedList;
-    const DevCceBinary *cceBinary;
-    const DevAicpuLeafBinary *aicpuLeafBinary;
     WsAllocation selfAlloc;
     WsSlabStageAllocMem taskStageAllocMem;
 
-    uint32_t GetReadyQueueIndexByCoreType(CoreType coreType) {
+    static uint32_t GetReadyQueueIndexByCoreType(CoreType coreType) {
         if (coreType == CoreType::AICPU) {
             return static_cast<uint32_t>(READY_QUEUE_SIZE) - 1;
         }
@@ -101,7 +86,7 @@ struct DynDeviceTask {
     }
 
     void DumpTopo() {
-        auto header = dynFuncData;
+        auto header = GetDynFuncDataList();
 #ifdef __DEVICE__
         std::string path = "./output/dyn_topo.txt";
 #else
@@ -119,7 +104,7 @@ struct DynDeviceTask {
 
     void DumpLeafs() {
         for (size_t funcIdx = 0; funcIdx < stitchedList.size(); funcIdx++) {
-            auto lines = stitchedList[funcIdx].DumpLeafs(dynFuncData->seqNo, funcIdx);
+            auto lines = stitchedList[funcIdx].DumpLeafs(GetDynFuncDataList()->seqNo, funcIdx);
             for (auto &&line : lines) {
                 DEV_ERROR("[DumpLeafs] %s", line.c_str());
             }
@@ -133,7 +118,7 @@ struct DynDeviceTask {
         std::stringstream oss;
         std::vector<std::string> infos;
         for (uint32_t funcIdx = 0; funcIdx < stitchedList.size(); funcIdx++) {
-            stitchedList[funcIdx].DumpTensorAddrInfo(infos, dynFuncData->seqNo, funcIdx);
+            stitchedList[funcIdx].DumpTensorAddrInfo(infos, GetDynFuncDataList()->seqNo, funcIdx);
         }
         auto str = std::move(oss).str();
         DEV_ERROR("[DumpTensor] seqNo,taskId,rawMagic,address,dtype,bytesOfDtype,(shapes,)");
@@ -499,7 +484,7 @@ public:
     }
 
     DevAscendFunctionDupped DuplicateRoot(DevAscendFunction *func) {
-        WsAllocation tinyAlloc = SlabAlloc(func->GetDuppedDataAllocSize(), WsAicpuSlabMemType::DUPPED_FUNC_DATA);
+        WsAllocation tinyAlloc = ControlFlowAllocateSlab(devProg_, func->GetDuppedDataAllocSize(), SlabAlloc(func->GetDuppedDataAllocSize(), WsAicpuSlabMemType::DUPPED_FUNC_DATA));
         return DevAscendFunctionDupped::DuplicateRoot(func, tinyAlloc);
     }
 
@@ -508,19 +493,25 @@ public:
     }
 
     DynDeviceTask *MakeDynDeviceTask() {
-        WsAllocation alloc = SlabAlloc(sizeof(DynDeviceTask), WsAicpuSlabMemType::DEV_DYN_TASK);
+        WsAllocation alloc = ControlFlowAllocateSlab(devProg_, sizeof(DynDeviceTask), SlabAlloc(sizeof(DynDeviceTask), WsAicpuSlabMemType::DEV_DYN_TASK));
         DynDeviceTask *dynTask = new((void *)alloc.ptr) DynDeviceTask(*this);
         dynTask->selfAlloc = alloc;
         return dynTask;
     }
 
     DevAscendFunctionDuppedStitch *AllocateStitch() {
-        WsAllocation allocation = SlabAlloc(sizeof(DevAscendFunctionDuppedStitch), WsAicpuSlabMemType::DUPPED_STITCH);
+        WsAllocation allocation = ControlFlowAllocateSlab(devProg_, sizeof(DevAscendFunctionDuppedStitch), SlabAlloc(sizeof(DevAscendFunctionDuppedStitch), WsAicpuSlabMemType::DUPPED_STITCH));
         DevAscendFunctionDuppedStitch *stitch = allocation.As<DevAscendFunctionDuppedStitch>();
         uint64_t *clear = PtrToPtr<DevAscendFunctionDuppedStitch, uint64_t>(stitch);
         clear[0] = 0;
         clear[1] = 0;
         return stitch;
+    }
+
+    DynFuncHeader *AllocateDynFuncData(uint64_t size) {
+        WsAllocation allocation = ControlFlowAllocateSlab(devProg_, size, SlabAlloc(size, WsAicpuSlabMemType::DYN_FUNC_DATA));
+        DynFuncHeader *header = allocation.As<DynFuncHeader>();
+        return header;
     }
 
     void ResetAicpuMemCounter() {

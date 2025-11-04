@@ -333,7 +333,7 @@ std::string CallOpAttribute::DumpAttr(int idx) const {
     return ss.str();
 }
 
-const std::vector<SymbolicScalar> &CallOpAttribute::GetLinearArgList() {
+std::vector<SymbolicScalar> &CallOpAttribute::GetLinearArgList() {
     if (linearArgList_.empty()) {
         // The first attr is callee info.
         linearArgList_.push_back(SymbolicScalar((int64_t)0));

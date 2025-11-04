@@ -177,7 +177,7 @@ public:
         aicoreHal_.SetModel(taskCtrl->devTask->aicoreModel);
         int64_t funcdata;
         auto dyntask = (DynDeviceTask *)curDevTask_;
-        funcdata = static_cast<int64_t>(PtrToValue(dyntask->dynFuncData));
+        funcdata = static_cast<int64_t>(PtrToValue(dyntask->GetDynFuncDataList()));
         ForEachManageAicore([&](int coreIdx) {
             auto logbuf = logger_ ? logger_[coreIdx].GetBuffer() : nullptr;
             aicoreHal_.InitTaskData(coreIdx, funcdata, (uint64_t)logbuf);
@@ -261,17 +261,17 @@ public:
             }
 
             if (GetCycles() - start > TIMEOUT_CYCLES) {
-                ret = DEVICE_MACHINE_ERROR;
+                ret = DEVICE_MACHINE_TIMEOUT_CORETASK;
                 goto FINISH;
             }
             (void)start;
         }
         PerfMtBegin(PERF_EVT_WAIT_AICORE_FINISH, aicpuIdx_);
-        rc = WaitAllAicoreFinish(aicStart_, aicEnd_);
+        rc = WaitAllAicoreFinish(aicStart_, aicEnd_, DEVICE_MACHINE_TIMEOUT_AIC);
         if (rc != DEVICE_MACHINE_OK) {
             ret = rc;
         }
-        rc = WaitAllAicoreFinish(aivStart_, aivEnd_);
+        rc = WaitAllAicoreFinish(aivStart_, aivEnd_, DEVICE_MACHINE_TIMEOUT_AIV);
         if (rc != DEVICE_MACHINE_OK) {
             ret = rc;
         }
@@ -315,7 +315,9 @@ public:
 
     inline int Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *taskCtrl = nullptr) {
         int ret = 0;
+        DEV_DEBUG("schedule run: %p", taskCtrl);
         Init(threadIdx, deviceArgs);
+        DEV_DEBUG("schedule run init succ");
         if constexpr (IsDeviceMode()) {
             ret = HandShake();
             if (ret != DEVICE_MACHINE_OK) {
@@ -328,11 +330,14 @@ public:
             }
             aicoreProf_.ProfStart();
         }
+        DEV_DEBUG("schedule run start succ");
         if (taskCtrl != nullptr) {
             ret = RunTask(taskCtrl);
         } else {
             while (ret == 0) {
+                DEV_DEBUG("schedule task wait");
                 taskCtrl = taskQueue_.Dequeue();
+                DEV_DEBUG("schedule task recv");
                 if (taskCtrl == nullptr)
                     break;
 
@@ -353,7 +358,7 @@ public:
                 PROF_STAGE_END_MTSAFE(PERF_EVT_STAGE_SCHEDULE, threadIdx, "dispatch.after\n");
             }
             if (ret) {
-                DEV_ERROR("task %lu execute errror, skip rest tasks.", taskCtrl->taskId);
+                DEV_ERROR("task %lu execute error %d, skip rest tasks.", taskCtrl->taskId, ret);
                 if (IsDeviceMode()) {
                     ForEachManageAicore([&](int coreIdx) {
                         DumpLastWord(coreIdx);
@@ -449,7 +454,7 @@ private:
         return pendingIds_[coreIdx] == AICORE_TASK_INIT && runningIds_[coreIdx] == AICORE_TASK_INIT;
     }
 
-    inline int WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd) {
+    inline int WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd, int errorCode) {
         int stopSent = 0;
         bool coreStopped[MAX_MANAGER_AIV_NUM] = {false};
         int64_t start_cycles = GetCycles();
@@ -464,7 +469,7 @@ private:
                     coreStopped[i - coreIdxStart] = true;
                 } else if (GetCycles() - start_cycles > TIMEOUT_CYCLES) {
                     DEV_ERROR("wait tail task finish timeout coreindx=%d.", i);
-                    return DEVICE_MACHINE_ERROR;
+                    return errorCode;
                 }
             }
         }
@@ -835,12 +840,12 @@ private:
         auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
         auto costModelData = reinterpret_cast<CostModel::ModelData*>(curDevTask_->costModelData);
         if (costModelData == nullptr) return 0;
-        auto &funcDup = dyntask->stitchedList[funcId];
+        auto source = dyntask->GetDynFuncDataCacheList()[funcId].devFunc;
         auto opIndex = TaskID(taskId);
-        auto leafFunctionIdx = funcDup.GetSource()->GetOperationAttrCalleeIndex(opIndex);
+        auto leafFunctionIdx = source->GetOperationAttrCalleeIndex(opIndex);
         auto timeCost = costModelData->functionTime[leafFunctionIdx];
-        auto header = dyntask->dynFuncData;
-        auto dyndata = reinterpret_cast<DynFuncData *>(header + 1);
+        auto header = dyntask->GetDynFuncDataList();
+        auto dyndata = reinterpret_cast<DynFuncData *>(&header->At(0));
         auto opAttrs = &dyndata->opAttrs[dyndata->opAtrrOffsets[TaskID(taskId)]];
         auto psgId = opAttrs[0];
         // devTaskId - funcId - leaf function Id - psgId
@@ -851,8 +856,8 @@ private:
     }
 
     inline void ResolveDynStitched(DynDeviceTask *dyntask, int origfunc, int origop) {
-        auto &funcDup = dyntask->stitchedList[origfunc];
-        auto &stitchList = funcDup.GetOperationStitch(origop);
+        auto &duppedData = dyntask->GetDynFuncDataCacheList()[origfunc].duppedData;
+        auto &stitchList = duppedData->GetOperationStitch(origop);
         auto cceBinary = dyntask->cceBinary;
 
         for (auto *node = stitchList.Head(); node != nullptr; node = node->Next()) {
@@ -861,10 +866,10 @@ private:
                 uint32_t id = node->At(i);
                 auto funcId = FuncID(id);
                 auto opIndex = TaskID(id);
-                auto predCounts = dyntask->cacheList[funcId].predCount;
+                auto predCounts = dyntask->dynFuncDataCacheList[funcId].predCount;
                 if (predCounts[opIndex] == 1 ||
                     __atomic_sub_fetch(&predCounts[opIndex], 1, __ATOMIC_RELAXED) == 0) {
-                    auto callList = dyntask->cacheList[funcId].calleList;
+                    auto callList = dyntask->dynFuncDataCacheList[funcId].calleeList;
                     auto coreType = cceBinary[callList[opIndex]].coreType;
                     if (unlikely(coreType == static_cast<int>(CoreType::HUB))) {
                         ResolveDepDyn(id);
@@ -882,7 +887,7 @@ private:
     inline int GetRootIndex(uint32_t taskId) const {
         auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
         auto funcId = FuncID(taskId);
-        auto func = dyntask->cacheList[funcId].devFunc;
+        auto func = dyntask->dynFuncDataCacheList[funcId].devFunc;
         return func->GetRootIndex();
     }
 
@@ -890,14 +895,14 @@ private:
         auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
         auto funcId = FuncID(taskId);
         auto opIndex = TaskID(taskId);
-        auto callList = dyntask->cacheList[funcId].calleList;
+        auto callList = dyntask->dynFuncDataCacheList[funcId].calleeList;
         return callList[opIndex];
     }
 
-    inline DevAscendFunctionDupped GetDuppedData(uint32_t taskId) const {
+    inline DevAscendFunctionDuppedData *GetDuppedData(uint32_t taskId) const {
         auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
         auto funcId = FuncID(taskId);
-        return dyntask->cacheList[funcId].dup;
+        return dyntask->dynFuncDataCacheList[funcId].duppedData;
     }
 
     inline void ResolveDepDyn(uint64_t finishId, size_t resolveIndexBase = 0) {
@@ -906,9 +911,9 @@ private:
         auto opIndex = TaskID(finishId);
 
         auto cceBinary = dyntask->cceBinary;
-        auto func = dyntask->cacheList[funcId].devFunc;
-        auto predCounts =  dyntask->cacheList[funcId].predCount;
-        auto callList = dyntask->cacheList[funcId].calleList;
+        auto func = dyntask->dynFuncDataCacheList[funcId].devFunc;
+        auto predCounts =  dyntask->dynFuncDataCacheList[funcId].predCount;
+        auto callList = dyntask->dynFuncDataCacheList[funcId].calleeList;
 
         size_t succIndexSize;
         const int *succIndexList = func->GetOperationDepGraphCopyOutResolveSuccIndexAddr(opIndex, succIndexSize);
@@ -940,9 +945,9 @@ private:
         auto opIndex = TaskID(taskId);
 
         auto cceBinary = dyntask->cceBinary;
-        auto func = dyntask->cacheList[funcId].devFunc;
-        auto predCounts =  dyntask->cacheList[funcId].predCount;
-        auto callList = dyntask->cacheList[funcId].calleList;
+        auto func = dyntask->dynFuncDataCacheList[funcId].devFunc;
+        auto predCounts =  dyntask->dynFuncDataCacheList[funcId].predCount;
+        auto callList = dyntask->dynFuncDataCacheList[funcId].calleeList;
 
         size_t succIndexSize;
         const int *succIndexList = func->GetOperationDepGraphCopyOutResolveSuccIndexAddr(opIndex, succIndexSize);

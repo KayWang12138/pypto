@@ -313,7 +313,7 @@ public:
 
     const std::vector<std::vector<SymbolicScalar>> &GetArgList() const { return argList_; }
     std::vector<std::vector<SymbolicScalar>> &GetArgList() { return argList_; }
-    const std::vector<SymbolicScalar> &GetLinearArgList();
+    std::vector<SymbolicScalar> &GetLinearArgList();
     std::vector<int64_t> GetLinearImmediateArgList(int begin, int end, bool returnEmptyForSymbolic);
     std::optional<SymbolicScalar> GetOutcastSymbolicExpr(int index) const {
         auto it = outIndexToExpr_.find(index);

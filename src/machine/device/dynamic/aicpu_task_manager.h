@@ -69,7 +69,7 @@ public:
     // 仅AICPU_0会调用
     void Init(DynDeviceTask *deviceTask) {
         curDevTask_ = deviceTask;
-        funcDataList_ = reinterpret_cast<DynFuncData*>(deviceTask->dynFuncData + 1);
+        funcDataList_ = reinterpret_cast<DynFuncData*>(&deviceTask->GetDynFuncDataList()->At(0));
         readyQueue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(deviceTask->devTask.readyAicpuFunctionQue);
         for (auto &init : initCallBack_) {
             init(deviceTask);
@@ -119,7 +119,7 @@ private:
     inline TaskType GetTaskType(uint64_t taskId) {
         auto funcId = FuncID(taskId);
         auto opIndex = TaskID(taskId);
-        auto callList = curDevTask_->cacheList[funcId].calleList;
+        auto callList = curDevTask_->dynFuncDataCacheList[funcId].calleeList;
         auto &code = curDevTask_->aicpuLeafBinary[callList[opIndex]].aicpuLeafCode;
         auto taskType = TaskType::TASK_TYPE_NUM;
         switch (code[0]) {
@@ -135,7 +135,7 @@ private:
             auto enqueueOp = enqueueOpCallBack_[static_cast<uint64_t>(taskType)];
             auto funcId = FuncID(taskId);
             auto opIndex = TaskID(taskId);
-            auto callList = curDevTask_->cacheList[funcId].calleList;
+            auto callList = curDevTask_->dynFuncDataCacheList[funcId].calleeList;
             auto &code = curDevTask_->aicpuLeafBinary[callList[opIndex]].aicpuLeafCode;
             enqueueOp(taskId, code);
         }

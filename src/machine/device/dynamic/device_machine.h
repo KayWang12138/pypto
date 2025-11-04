@@ -53,7 +53,7 @@ public:
     }
 
     void init(DeviceArgs *args, uint32_t schNum) {
-        DEV_INFO("device machine init.\n");
+        DEV_INFO("device machine init: %d\n", args->taskType);
         schAicpuNum_ = schNum;
 
         coreNum_ = args->nrAic + args->nrAiv;
@@ -174,10 +174,12 @@ public:
 
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
         PerfBegin(PERF_EVT_INIT);
+        bool firstInit = false;
         if (devProg->controlFlowBinaryAddr == nullptr) {
-          devProg->RelocProgram((uint64_t)devProg, true);
-          auto execProg = DeviceExecuteProgram(devProg, nullptr);
-          devProg->controlFlowBinaryAddr = execProg.GetControlFlowEntry();
+            devProg->RelocProgram((uint64_t)devProg, true);
+            auto execProg = DeviceExecuteProgram(devProg, nullptr);
+            devProg->controlFlowBinaryAddr = execProg.GetControlFlowEntry();
+            firstInit = true;
         }
         devArgs->controlFlowEntry = devProg->controlFlowBinaryAddr;
 
@@ -204,6 +206,21 @@ public:
         devArgs->inputSymbolSize = 0;
         devArgs->hcclContextAddr = (uint64_t*)&devProg->hcclContext[0];
 
+        if (devProg->controlFlowCache.isRecording) {
+            devProg->controlFlowCache.alignedWorkspaceAddr = workspaceAddr;
+        }
+        DEV_INFO("ControlFlowCache: deviceTask:%d firstInit:%d\n", (int)devProg->controlFlowCache.deviceTaskCount, (int)firstInit);
+        if (devProg->controlFlowCache.deviceTaskCount != 0) {
+            // Actual run
+            if (firstInit) {
+                devProg->RelocControlFlowCache(0, reinterpret_cast<uint64_t>(devProg), 0, workspaceAddr);
+            }
+            for (size_t i = 0; i < devProg->controlFlowCache.deviceTaskCount; i++) {
+                DynDeviceTaskBase *dynTaskBase = devProg->controlFlowCache.deviceTaskCacheList[i].dynTaskBase;
+                devProg->controlFlowCache.IncastOutcastRestore(dynTaskBase);
+            }
+            devProg->RelocControlFlowCacheInputOutput(0, workspaceAddr, devArgs);
+        }
         DEV_INFO("AscendCppDyInitTask done.");
         return 0;
     }
@@ -229,6 +246,7 @@ public:
         PerfBegin(PERF_EVT_STAGE_STOP_AICORE);
         StopAicoreManager();
         PerfEnd(PERF_EVT_STAGE_STOP_AICORE);
+        DEV_INFO("aicore manager stopped");
 
         PerfBegin(PERF_EVT_STAGE_TASK_SYNC);
         ret = SyncTask(&ctx.taskContext);

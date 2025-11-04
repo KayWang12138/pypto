@@ -314,6 +314,7 @@ struct DyndevFunctionAttribute {
     std::vector<std::shared_ptr<LogicalTensor>> startArgsInputLogicalTensorList;
     std::vector<std::shared_ptr<LogicalTensor>> startArgsOutputLogicalTensorList;
 
+    int getInputDataCount{0};
     int getTensorDataCount{0};
 
     struct GetTensorDataDesc {

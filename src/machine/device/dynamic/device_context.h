@@ -533,8 +533,10 @@ struct DeviceStitchContext {
         int size = static_cast<int>(dynTask->stitchedList.size());
         for (int i = 0; i < size; ++i) {
             auto &funcDup = dynTask->stitchedList[i];
-            dynTask->cacheList[i] = {funcDup.GetSource(), &funcDup.GetOperationCurrPredCount(0), funcDup.GetSource()->GetCalleeIndexAddr(), funcDup};
+            dynTask->dynFuncDataCacheList[i] = {
+                funcDup.GetSource(), &funcDup.GetOperationCurrPredCount(0), funcDup.GetSource()->GetCalleeIndexAddr(), funcDup.DupDataForDynFuncData()};
         }
+        dynTask->dynFuncDataCacheListSize = size;
     }
 
     void VerifyStitchedListMemory(DevStartArgs &args) const {
@@ -914,7 +916,8 @@ const uint32_t CCE_BINARY_MOD = 8;
 const size_t DUP_PRED_COUNT_LOOP_MAX = 8;
 const size_t DUP_PRED_COUNT_PRE_LOOP_CNT = 4;
 struct DeviceTaskContext {
-    void InitAllocator(DeviceWorkspaceAllocator &workspace, npu::tile_fwk::DevStartArgsBase *startArgs) {
+    void InitAllocator(DevAscendProgram *devProg, DeviceWorkspaceAllocator &workspace, npu::tile_fwk::DevStartArgsBase *startArgs) {
+        devProg_ = devProg;
         workspace_ = &workspace;
         startArgs_ = startArgs;
     }
@@ -924,17 +927,16 @@ struct DeviceTaskContext {
         DynDeviceTask *dynTask = workspace_->MakeDynDeviceTask();
         stitchContext.MoveTo(dynTask);
         PerfEnd(PERF_EVT_ALLOCATE_TASK);
-        
+
         PerfBegin(PERF_EVT_BUILD_TASK_DATA);
-        BuildDeviceTaskData(dynTask, devProg);
+        BuildDeviceTaskDataAndReadyQueue(dynTask, devProg);
         PerfEnd(PERF_EVT_BUILD_TASK_DATA);
-        
+
         PerfBegin(PERF_EVT_SLAB_MEM_SUBMIT);
         // cache allocated memory , when task finish will recycle
         dynTask->taskStageAllocMem = workspace_->SlabGetStageAllocMem(withoutTail, WsAicpuSlabMemType::DUPPED_FUNC_DATA);
         workspace_->SlabStageAllocMemSubmmit(&dynTask->taskStageAllocMem);
         PerfEnd(PERF_EVT_SLAB_MEM_SUBMIT);
-
         return dynTask;
     }
 
@@ -956,6 +958,7 @@ struct DeviceTaskContext {
         DEV_ERROR("   Leaf function data size: %10lu bytes.", leafFuncDataSize);
     }
 
+    void UpdateReadyTaskNum(uint64_t cnt) { readyTaskNum += cnt; }
 private:
     uint64_t stitchedFuncNum{0};
     uint64_t rootFuncNum{0};
@@ -964,6 +967,7 @@ private:
     uint64_t dynFuncDataSize {0};
     uint64_t leafFuncDataSize {0};
 private:
+    DevAscendProgram *devProg_{nullptr};
     DeviceWorkspaceAllocator *workspace_{nullptr};
     npu::tile_fwk::DevStartArgsBase *startArgs_{nullptr};
 private:
@@ -973,7 +977,8 @@ private:
         DEV_ASSERT(dyntask->devTask.coreFunctionCnt <= MAX_READY_QUE_ELM_SIZE);
         ReadyCoreFunctionQueue *queue[READY_QUEUE_SIZE];
         for (size_t index = 0; index < READY_QUEUE_SIZE; ++index) {
-            ReadyCoreFunctionQueue *q = workspace_->SlabAlloc(size, WsAicpuSlabMemType::READY_QUE).As<ReadyCoreFunctionQueue>();
+            WsAllocation qalloc = ControlFlowAllocateSlab(devProg_, size, workspace_->SlabAlloc(size, WsAicpuSlabMemType::READY_QUE));
+            ReadyCoreFunctionQueue *q = qalloc.As<ReadyCoreFunctionQueue>();
             q->head = 0;
             q->tail = 0;
             q->lock = 0;
@@ -983,21 +988,22 @@ private:
             dyntask->readyQueue[index] = q;
         }
 
-        ReadyCoreFunctionQueue *aivQueue = queue[dyntask->GetReadyQueueIndexByCoreType(CoreType::AIV)];
-        ReadyCoreFunctionQueue *aicQueue = queue[dyntask->GetReadyQueueIndexByCoreType(CoreType::AIC)];
-        ReadyCoreFunctionQueue *aicpuQueue = queue[dyntask->GetReadyQueueIndexByCoreType(CoreType::AICPU)];
+        ReadyCoreFunctionQueue *aivQueue = queue[DynDeviceTask::GetReadyQueueIndexByCoreType(CoreType::AIV)];
+        ReadyCoreFunctionQueue *aicQueue = queue[DynDeviceTask::GetReadyQueueIndexByCoreType(CoreType::AIC)];
+        ReadyCoreFunctionQueue *aicpuQueue = queue[DynDeviceTask::GetReadyQueueIndexByCoreType(CoreType::AICPU)];
         int aivQueueTail = 0;
         int aicQueueTail = 0;
         int aicpuQueueTail = 0;
 
+        DynFuncDataCache *dynFuncDataCacheList = dyntask->GetDynFuncDataCacheList();
         uint32v8 one = {1, 1, 1, 1, 1, 1, 1, 1};
         uint32v8 base = {0, 1, 2, 3, 4, 5, 6, 7};
-        size_t funcSize = dyntask->stitchedList.size();
+        size_t funcSize = dyntask->dynFuncDataCacheListSize;
         for (size_t funcIndex = 0; funcIndex < funcSize; ++funcIndex) {
-            auto &dup = dyntask->stitchedList[funcIndex];
-            predcount_t *dupPredCountList = &dup.GetOperationCurrPredCount(0);
+            DevAscendFunctionDuppedData *duppedData = dynFuncDataCacheList->At(funcIndex).duppedData;
+            predcount_t *dupPredCountList = &duppedData->GetOperationCurrPredCount(0);
 
-            auto &predInfo = dup.GetSource()->GetPredInfo();
+            auto &predInfo = duppedData->GetSource()->GetPredInfo();
             size_t totalZeroPredAIVBatchEnd = predInfo.totalZeroPredAIV & ~0x7;
             taskid_t *aivQueueElemList = reinterpret_cast<taskid_t *>(aivQueue->elem);
             for (size_t opIndex = 0; opIndex < totalZeroPredAIVBatchEnd; opIndex += DUP_PRED_COUNT_LOOP_MAX) {
@@ -1051,21 +1057,21 @@ private:
         PerfEnd(PERF_EVT_READY_QUEUE_IN);
     }
 
-    void BuildDynFuncData(DynDeviceTask *dyntask, DevAscendProgram *devProg) {
-        size_t size = sizeof(DynFuncHeader) + dyntask->stitchedList.size() * sizeof(DynFuncData);
-        auto header = workspace_->SlabAlloc(size, WsAicpuSlabMemType::DYN_FUNC_DATA).As<DynFuncHeader>();
-        dyntask->dynFuncData = header;
-        auto dyndata = (DynFuncData *)(header + 1);
+    void BuildDynFuncData(DynDeviceTask *dyntask, DevAscendProgram *devProg, DevAscendFunctionDupped *stitchedList, uint64_t stitchedSize) {
+        size_t headerSize = sizeof(DynFuncHeader) + stitchedSize * sizeof(DynFuncData);
+        auto header = workspace_->AllocateDynFuncData(headerSize);
+        dyntask->dynFuncDataList = header;
+        auto dyndata = &header->At(0);
 
-        header->funcSize = size * sizeof(int64_t);
+        header->funcSize = headerSize;
         header->seqNo = stitchedFuncNum++;
-        header->funcNum = dyntask->stitchedList.size();
+        header->funcNum = stitchedSize;
         header->cceBinary = (DynFuncBin *) const_cast<DevCceBinary *>(dyntask->cceBinary);
         DEV_ASSERT((uint64_t)header->cceBinary % CCE_BINARY_MOD == 0);
 
-        rootFuncNum += dyntask->stitchedList.size();
-        for (size_t funcIndex = 0; funcIndex < dyntask->stitchedList.size(); ++funcIndex) {
-            auto &funcDup = dyntask->stitchedList[funcIndex];
+        rootFuncNum += stitchedSize;
+        for (size_t funcIndex = 0; funcIndex < stitchedSize; ++funcIndex) {
+            auto &funcDup = stitchedList[funcIndex];
             dyndata->opAttrs = (uint64_t *) const_cast<SymInt *>(funcDup.GetSource()->GetSymoffset(0));
             dyndata->opAtrrOffsets = funcDup.GetSource()->GetOpAttrOffsetAddr();
             dyndata->exprNum = funcDup.GetSource()->expressionList.size();
@@ -1096,7 +1102,7 @@ private:
             funcDup.SetFuncData(dyndata);
             dyndata++;
         }
-        dynFuncDataSize += size * sizeof(int64_t);
+        dynFuncDataSize += headerSize * sizeof(int64_t);
     }
 
     inline void doResolve(DynDeviceTask *dyntask, int coreType, size_t funcIdx, size_t succIdx, predcount_t *predList) {
@@ -1119,10 +1125,10 @@ private:
         dyntask->devTask.coreFunctionCnt--;
 
         auto cceBinary = dyntask->cceBinary;
-        auto func = dyntask->cacheList[funcIdx].devFunc;
-        auto predList = dyntask->cacheList[funcIdx].predCount;
+        auto func = dyntask->dynFuncDataCacheList[funcIdx].devFunc;
+        auto predList = dyntask->dynFuncDataCacheList[funcIdx].predCount;
         auto succList = func->GetOperationDepGraphSuccAddr(opIdx, succSize);
-        auto callList = dyntask->cacheList[funcIdx].calleList;
+        auto callList = dyntask->dynFuncDataCacheList[funcIdx].calleeList;
 
         for (size_t i = 0; i < succSize; ++i) {
             auto succIdx = succList[i];
@@ -1137,8 +1143,8 @@ private:
                 uint32_t id = node->At(i);
                 auto succFuncIdx = FuncID(id);
                 auto succIdx = TaskID(id);
-                predList = dyntask->cacheList[succFuncIdx].predCount;
-                callList = dyntask->cacheList[succFuncIdx].calleList;
+                predList = dyntask->dynFuncDataCacheList[succFuncIdx].predCount;
+                callList = dyntask->dynFuncDataCacheList[succFuncIdx].calleeList;
                 doResolve(dyntask, cceBinary[callList[succIdx]].coreType, succFuncIdx, succIdx, predList);
             }
         }
@@ -1147,8 +1153,8 @@ private:
     void ResolveEarlyDepends(DynDeviceTask *dyntask) {
         size_t funcSize = dyntask->stitchedList.size();
         for (size_t funcIdx = 0; funcIdx < funcSize; ++funcIdx) {
-            auto func = dyntask->cacheList[funcIdx].devFunc;
-            auto predList = dyntask->cacheList[funcIdx].predCount;
+            auto func = dyntask->dynFuncDataCacheList[funcIdx].devFunc;
+            auto predList = dyntask->dynFuncDataCacheList[funcIdx].predCount;
             auto &predInfo = func->GetPredInfo();
             auto opIdx = predInfo.totalZeroPredAIC + predInfo.totalZeroPredAIV + predInfo.totalZeroPredAicpu;
             while (opIdx < predInfo.totalZeroPred) {
@@ -1160,7 +1166,143 @@ private:
         }
     }
 
-    void BuildDeviceTaskData(DynDeviceTask *dyntask, DevAscendProgram *devProg) {
+public:
+    static void DumpReadyQueue(DynDeviceTask *dynTask, const char *prefix) {
+        DEV_ERROR("%s: coreFunctionCnt: %d", prefix, (int)dynTask->devTask.coreFunctionCnt);
+        int aivIndex = DynDeviceTask::GetReadyQueueIndexByCoreType(CoreType::AIV);
+        int aicIndex = DynDeviceTask::GetReadyQueueIndexByCoreType(CoreType::AIC);
+        int aicpuIndex = DynDeviceTask::GetReadyQueueIndexByCoreType(CoreType::AICPU);
+
+        DEV_ERROR("%s: ready queue aiv: %d-%d", prefix, (int)dynTask->readyQueue[aivIndex]->head, (int)dynTask->readyQueue[aivIndex]->tail);
+        for (uint32_t i = dynTask->readyQueue[aivIndex]->head; i < dynTask->readyQueue[aivIndex]->tail; i++) {
+            DEV_ERROR("%s: ready queue aiv[%d]: %x", prefix, (int)i, dynTask->readyQueue[aivIndex]->elem[i]);
+        }
+
+        DEV_ERROR("%s: ready queue aic: %d-%d", prefix, (int)dynTask->readyQueue[aicIndex]->head, (int)dynTask->readyQueue[aicIndex]->tail);
+        for (uint32_t i = dynTask->readyQueue[aicIndex]->head; i < dynTask->readyQueue[aicIndex]->tail; i++) {
+            DEV_ERROR("%s: ready queue aic[%d]: %x", prefix, (int)i, dynTask->readyQueue[aicIndex]->elem[i]);
+        }
+
+        DEV_ERROR("%s: ready queue aicpu: %d-%d", prefix, (int)dynTask->readyQueue[aicpuIndex]->head, (int)dynTask->readyQueue[aicpuIndex]->tail);
+        for (uint32_t i = dynTask->readyQueue[aicpuIndex]->head; i < dynTask->readyQueue[aicpuIndex]->tail; i++) {
+            DEV_ERROR("%s: ready queue aicpu[%d]: %x", prefix, (int)i, dynTask->readyQueue[aicpuIndex]->elem[i]);
+        }
+    }
+    static void DumpDepend(DynDeviceTask *dyntask, DevAscendProgram *devProg, DevStartArgs *startArgs, const char *prefix) {
+        (void)devProg;
+        (void)startArgs;
+        int total = 0;
+        for (size_t i = 0; i < READY_QUEUE_SIZE; i++) {
+            ReadyCoreFunctionQueue *q = dyntask->readyQueue[i];
+            total += q->tail - q->head;
+        }
+        DEV_ERROR("%s: ready total:%d", prefix, total);
+        for (size_t i = 0; i < READY_QUEUE_SIZE; i++) {
+            ReadyCoreFunctionQueue *q = dyntask->readyQueue[i];
+            for (uint32_t k = q->head; k < q->tail; k++) {
+                uint32_t taskId = q->elem[k];
+                uint32_t dupIndex = FuncID(taskId);
+                uint32_t opIndex = TaskID(taskId);
+                DEV_ERROR("%s: ready %d-%d:L(%d,%d,%d)\n",
+                    prefix,
+                    (int)i, (int)k,
+                    (int)dyntask->GetDynFuncDataList()->seqNo, (int)dupIndex, (int)opIndex);
+            }
+        }
+        DEV_ERROR("%s: workspace:%llx", prefix, (unsigned long long)startArgs->workspaceAddr);
+        for (size_t i = 0; i < startArgs->inputTensorSize; i++) {
+            DEV_ERROR("%s: input-%d:%llx", prefix, (int)i, (unsigned long long)startArgs->inputTensorList[i].address);
+        }
+        for (size_t i = 0; i < startArgs->outputTensorSize; i++) {
+            DEV_ERROR("%s: output-%d:%llx", prefix, (int)i, (unsigned long long)startArgs->outputTensorList[i].address);
+        }
+        std::unordered_map<uint64_t, AddressDescriptor> cacheInputOutputDict;
+        DevAscendProgram::RelocBuildInputOutputDesc(cacheInputOutputDict, startArgs);
+        RelocRange relocWorkspace(startArgs->workspaceAddr, 0);
+
+        DynFuncHeader *dynFuncDataList = dyntask->GetDynFuncDataList();
+        int deviceIndex = dynFuncDataList->seqNo;
+        DynFuncDataCache *dynFuncDataCacheList = dyntask->GetDynFuncDataCacheList();
+        for (size_t dupIndex = 0; dupIndex < dynFuncDataList->Size(); dupIndex++) {
+            DynFuncData &dynFuncData = dynFuncDataList->At(dupIndex);
+            DynFuncDataCache &dynFuncDataCache = dynFuncDataCacheList->At(dupIndex);
+
+            DevAscendFunctionDuppedData *duppedData = dynFuncDataCache.duppedData;
+
+            predcount_t *pred = &duppedData->GetOperationCurrPredCount(0);
+            for (size_t opIndex = 0; opIndex < duppedData->GetOperationSize(); opIndex++) {
+                DEV_ERROR("%s: L(%d,%d,%d) pred:%d\n",
+                    prefix,
+                    (int)deviceIndex, (int)dupIndex, (int)opIndex,
+                    (int)pred[opIndex]);
+            }
+            for (size_t stitchIndex = 1; stitchIndex < duppedData->GetStitchSize(); stitchIndex++) {
+                DevAscendFunctionDuppedStitchList stitchList = duppedData->GetStitch(stitchIndex);
+                stitchList.ForEach([&](int succTaskId){
+                    uint32_t succDupIndex = FuncID(succTaskId);
+                    uint32_t succOpIndex = TaskID(succTaskId);
+                    DEV_ERROR("%s: R(%d,%d).succ-%d: L(%d,%d,%d)\n",
+                        prefix, (int)deviceIndex, (int)dupIndex, (int)stitchIndex,
+                        (int)deviceIndex, (int)succDupIndex, (int)succOpIndex);
+                });
+            }
+            for (size_t exprIndex = 0; exprIndex < duppedData->GetExpressionSize(); exprIndex++) {
+                DEV_ERROR("%s: R(%d,%d).expr-%d: %lld\n",
+                    prefix, (int)deviceIndex, (int)dupIndex, (int)exprIndex,
+                    (long long)duppedData->GetExpression(exprIndex));
+            }
+            for (size_t incastIndex = 0; incastIndex < duppedData->GetIncastSize(); incastIndex++) {
+                AddressDescriptor addr = duppedData->GetIncastAddress(incastIndex);
+                AddressDescriptor addrDesc = addr;
+                DevAscendProgram::RelocDescToCache(addrDesc, relocWorkspace, cacheInputOutputDict);
+
+                DEV_ERROR("%s: R(%d,%d).incast-%d: 0x%llx - 0x%llx\n",
+                    prefix, (int)deviceIndex, (int)dupIndex, (int)incastIndex,
+                    (unsigned long long)addrDesc.GetAddressValue(),
+                    (unsigned long long)addr.GetAddressValue());
+            }
+            for (size_t outcastIndex = 0; outcastIndex < duppedData->GetOutcastSize(); outcastIndex++) {
+                AddressDescriptor addr = duppedData->GetOutcastAddress(outcastIndex);
+                AddressDescriptor addrDesc = addr;
+                DevAscendProgram::RelocDescToCache(addrDesc, relocWorkspace, cacheInputOutputDict);
+                DEV_ERROR("%s: R(%d,%d).outcast-%d: 0x%llx - 0x%llx\n",
+                    prefix, (int)deviceIndex, (int)dupIndex, (int)outcastIndex,
+                    (unsigned long long)addrDesc.GetAddressValue(),
+                    (unsigned long long)addr.GetAddressValue());
+            }
+            DEV_ERROR("%s: R(%d,%d).workspace: 0x%llx\n",
+                prefix, (int)deviceIndex, (int)dupIndex, (unsigned long long)duppedData->GetRuntimeWorkspace());
+            DEV_ERROR("%s: R(%d,%d).outcastWorkspace: 0x%llx\n",
+                prefix, (int)deviceIndex, (int)dupIndex, (unsigned long long)duppedData->GetRuntimeOutcastWorkspace());
+
+            DEV_ERROR("%s: R(%d,%d).opAttrList: 0x%llx\n",
+                prefix, (int)deviceIndex, (int)dupIndex, (unsigned long long)dynFuncData.opAttrs);
+            DEV_ERROR("%s: R(%d,%d).opAttrList:Dupped: 0x%llx\n",
+                prefix, (int)deviceIndex, (int)dupIndex, (unsigned long long)duppedData->GetSource()->GetSymoffset(0));
+
+            DEV_ERROR("%s: R(%d,%d).opAttrOffsetList: 0x%llx\n",
+                prefix, (int)deviceIndex, (int)dupIndex, (unsigned long long)dynFuncData.opAtrrOffsets);
+            DEV_ERROR("%s: R(%d,%d).opAttrOffsetList:Dupped: 0x%llx\n",
+                prefix, (int)deviceIndex, (int)dupIndex, (unsigned long long)duppedData->GetSource()->GetOpAttrOffsetAddr());
+
+            DEV_ERROR("%s: R(%d,%d).exprTbl: 0x%llx\n",
+                prefix, (int)deviceIndex, (int)dupIndex, (unsigned long long)dynFuncData.exprTbl);
+            DEV_ERROR("%s: R(%d,%d).exprTbl:Dupped: 0x%llx\n",
+                prefix, (int)deviceIndex, (int)dupIndex, (unsigned long long)duppedData->GetExpressionAddr());
+
+            DEV_ERROR("%s: R(%d,%d).rawTensorDesc: 0x%llx\n",
+                prefix, (int)deviceIndex, (int)dupIndex, (unsigned long long)dynFuncData.rawTensorDesc);
+            DEV_ERROR("%s: R(%d,%d).rawTensorDesc:Dupped: 0x%llx\n",
+                prefix, (int)deviceIndex, (int)dupIndex, (unsigned long long)duppedData->GetSource()->GetRawTensorDesc(0));
+
+            DEV_ERROR("%s: R(%d,%d).rawTensorDesc: 0x%llx\n",
+                prefix, (int)deviceIndex, (int)dupIndex, (unsigned long long)dynFuncData.rawTensorAddr);
+            DEV_ERROR("%s: R(%d,%d).rawTensorDesc:Dupped: 0x%llx\n",
+                prefix, (int)deviceIndex, (int)dupIndex, (unsigned long long)&duppedData->GetIncastAddress(0));
+        }
+    }
+
+    void BuildDeviceTaskDataAndReadyQueue(DynDeviceTask *dyntask, DevAscendProgram *devProg) {
         dyntask->cceBinary = devProg->GetCceBinary(0);
         dyntask->aicpuLeafBinary = devProg->GetAicpuLeafBinary(0);
         DeviceStitchContext::CheckStitch(dyntask);
@@ -1176,7 +1318,7 @@ private:
 
         DEV_VERBOSE_DEBUG("build func data.");
         PerfBegin(PERF_EVT_CORE_FUNCDATA);
-        BuildDynFuncData(dyntask, devProg);
+        BuildDynFuncData(dyntask, devProg, &dyntask->stitchedList[0], dyntask->stitchedList.size());
         PerfEnd(PERF_EVT_CORE_FUNCDATA);
         DEV_INFO("Finish build a new device task.");
 
@@ -1192,6 +1334,7 @@ private:
         DEV_IF_VERBOSE_DEBUG {
             dyntask->DumpLeafs();
         }
+        dyntask->stitchedList.clear();
     }
 };
 const uint64_t SLEEP_TIME_US = 10000;
@@ -1290,7 +1433,7 @@ struct DeviceExecuteContext {
         workspace.DumpMemoryUsage("End ExecDyn");
     }
 
-    void GELaunch(DevStartArgs *startArgs, std::function<void(uint64_t, DeviceTask *, DeviceExecuteContext *)> tPushTask) {
+    void GELaunchInit(DevStartArgs *startArgs, std::function<void(uint64_t, DeviceTask *, DeviceExecuteContext *)> tPushTask) {
         PerfBegin(PERF_EVT_CONTROL_FLOW_INIT);
         this->pushTask = tPushTask;
         this->args = startArgs;
@@ -1307,7 +1450,7 @@ struct DeviceExecuteContext {
 
         stitchContext.Init(devProg, workspace);
 
-        taskContext.InitAllocator(workspace, startArgs);
+        taskContext.InitAllocator(devProg, workspace, startArgs);
 
         workspace.SetupVector(symbolTable);
         symbolTable.resize(devProg->symbolTable.size());
@@ -1331,6 +1474,34 @@ struct DeviceExecuteContext {
 
         PerfEnd(PERF_EVT_CONTROL_FLOW_INIT);
         DEV_INFO("Image size = %lu.", devProg->GetSize());
+    }
+
+void GELaunchRunCached(DevStartArgs *startArgs, std::function<void(uint64_t, DeviceTask *, DeviceExecuteContext *)> tPushTask) {
+        PerfBegin(PERF_EVT_CONTROL_FLOW_INIT);
+        this->pushTask = tPushTask;
+        this->args = startArgs;
+        this->devProg = startArgs->devProg;
+        PerfEnd(PERF_EVT_CONTROL_FLOW_INIT);
+
+        PerfBegin(PERF_EVT_CONTROL_FLOW);
+        for (size_t i = 0; i < devProg->controlFlowCache.deviceTaskCount; i++) {
+            DynDeviceTask *dynTask = (DynDeviceTask *)devProg->controlFlowCache.deviceTaskCacheList[i].dynTaskBase;
+            devProg->controlFlowCache.PredCountRestore(dynTask);
+            devProg->controlFlowCache.ReadyQueueRestore(dynTask);
+            taskContext.UpdateReadyTaskNum(dynTask->readyQueueBackup->readyTaskNum);
+
+            PROF_STAGE_BEGIN(PERF_EVT_STAGE_PUSH_TASK, "push.before\n");
+            pushTask(taskId++, &dynTask->devTask, this);
+            PROF_STAGE_END(PERF_EVT_STAGE_PUSH_TASK, "push.after\n");
+        }
+        PerfEnd(PERF_EVT_CONTROL_FLOW);
+    }
+
+    void GELaunchRunControlFlow(DevStartArgs *startArgs, std::function<void(uint64_t, DeviceTask *, DeviceExecuteContext *)> tPushTask) {
+        if (devProg->controlFlowCache.IsRecording()) {
+            devProg->controlFlowCache.InitInputOutput(startArgs);
+        }
+        GELaunchInit(startArgs, tPushTask);
 
         PerfBegin(PERF_EVT_CONTROL_FLOW);
         CallRootEntryType callRootList[static_cast<uint32_t>(CallRootStage::T_CALLROOT_MAX)] = {
@@ -1341,6 +1512,16 @@ struct DeviceExecuteContext {
         };
         execProg.controlFlowBinary.CallControlFlow(this, symbolTable.data(), callRootList, startArgs);
         PerfEnd(PERF_EVT_CONTROL_FLOW);
+    }
+
+    void GELaunch(DevStartArgs *startArgs, std::function<void(uint64_t, DeviceTask *, DeviceExecuteContext *)> tPushTask) {
+        if (devProg->controlFlowCache.IsActivated(startArgs)) {
+            DEV_INFO("run cached");
+            GELaunchRunCached(startArgs, tPushTask);
+        } else {
+            DEV_INFO("run control flow");
+            GELaunchRunControlFlow(startArgs, tPushTask);
+        }
     }
 
     bool AiCoreFree() {
@@ -1380,6 +1561,13 @@ struct DeviceExecuteContext {
         DynDeviceTask *dynTask = taskContext.BuildDeviceTaskData(stitchContext, devProg, withoutTail);
         PROF_STAGE_END(PERF_EVT_STAGE_BUILD_TASK, "BuildDeviceTaskData.after\n");
 
+        if (devProg->controlFlowCache.IsRecording()) {
+            devProg->controlFlowCache.PredCountCheckpoint(dynTask);
+            devProg->controlFlowCache.ReadyQueueCheckpoint(dynTask);
+            devProg->controlFlowCache.IncastOutcastCheckpoint(dynTask);
+            devProg->controlFlowCache.AppendDeviceTask(dynTask);
+        }
+
         PROF_STAGE_BEGIN(PERF_EVT_STAGE_PUSH_TASK, "push.before\n");
         pushTask(taskId++, &dynTask->devTask, this);
         PROF_STAGE_END(PERF_EVT_STAGE_PUSH_TASK, "push.after\n");
@@ -1387,7 +1575,7 @@ struct DeviceExecuteContext {
         PROF_STAGE_BEGIN(PERF_EVT_DEALLOCATE_WORKSPACE, "RecycleAicoreLocalWorkspace.before\n");
         // Memory recycling
         stitchContext.RecycleAicoreLocalWorkspace();
-        
+
         // Reset stitch context
         stitchContext.Reset();
         slotContext.ClearDirty();

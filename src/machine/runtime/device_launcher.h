@@ -79,6 +79,7 @@ protected:
 };
 
 struct DeviceMemoryUtils {
+    static bool IsDevice() { return true; }
     uint8_t *AllocDev(size_t size, uint8_t **cachedDevAddrHolder) {
         uint8_t *devPtr = nullptr;
         if (cachedDevAddrHolder == nullptr) {
@@ -125,7 +126,7 @@ public:
     static constexpr uint32_t kDefaultAicNum = 25;
     static constexpr uint32_t kDefaultAivNum = 50;
 
-    static const std::vector<uint8_t>& GetDevProg(Function *func) {
+    static std::vector<uint8_t>& GetDevProg(Function *func) {
         return func->GetDyndevAttribute()->devProgBinary;
     }
 
@@ -138,10 +139,9 @@ public:
     static void DeviceInitTilingData(
             DeviceMemoryTy devMem,
             AstKernelArgs &kArgs,
-            Function *func,
+            const std::vector<uint8_t> &devProgData,
             const DeviceLauncherConfig &config,
             CachedOperator *cachedOperator) {
-        const std::vector<uint8_t> &devProgData = GetDevProg(func);
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
         devProg->devArgs.nrAic = kDefaultAicNum;
         devProg->devArgs.nrAiv = kDefaultAivNum;
@@ -158,7 +158,14 @@ public:
         }
 
         kArgs.workspace = (int64_t *)devMem.AllocDev(devProg->workspaceSize, CachedOperator::GetWorkspaceDevAddrHolder(cachedOperator));
-        kArgs.cfgdata = (int64_t *)devMem.CopyToDev(GetDevProg(func), CachedOperator::GetCfgDataDevAddrHolder(cachedOperator));
+        if (devProg->controlFlowCache.isRecording && !devMem.IsDevice()) {
+            kArgs.cfgdata = (int64_t *)devProg;
+        } else if (CachedOperator::GetCfgDataDevAddrHolder(cachedOperator) && *CachedOperator::GetCfgDataDevAddrHolder(cachedOperator)) {
+            /* Already copied, do not copy again. */
+            kArgs.cfgdata = (int64_t *)*CachedOperator::GetCfgDataDevAddrHolder(cachedOperator);
+        } else {
+            kArgs.cfgdata = (int64_t *)devMem.CopyToDev(devProgData, CachedOperator::GetCfgDataDevAddrHolder(cachedOperator));
+        }
         kArgs.machineConfig = devProg->devArgs.machineConfig;
         return;
     }
@@ -243,6 +250,11 @@ public:
     static int DeviceSynchronize(rtStream_t aicpuStream, rtStream_t aicoreStream);
 
     static int DeviceRunOnce(Function *function, const DeviceLauncherConfig &config = DeviceLauncherConfig());
+
+    static void DeviceRunCacheKernelEnable(Function *func, bool enabled);
+    static bool DeviceRunCacheKernelEnable(Function *func);
+    static void DeviceRunCacheKernelSet(Function *func, uint8_t *devProg);
+    static uint8_t *DeviceRunCacheKernelGet(Function *func);
 };
 
 }

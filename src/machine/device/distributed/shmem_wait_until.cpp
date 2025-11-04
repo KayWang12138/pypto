@@ -52,10 +52,10 @@ bool SignalTileOp::PollCompleted(std::vector<uint64_t> &completed)
     return false;
 }
 
-void ShmemWaitUntil::Init(npu::tile_fwk::dynamic::DynDeviceTask *dynDeviceTask) 
+void ShmemWaitUntil::Init(npu::tile_fwk::dynamic::DynDeviceTask *dynDeviceTask)
 {
     dynDeviceTask_ = dynDeviceTask;
-    funcDataList_ = reinterpret_cast<DynFuncData*>(dynDeviceTask->dynFuncData + 1);
+    funcDataList_ = reinterpret_cast<DynFuncData*>(&dynDeviceTask->GetDynFuncDataList()->At(0));
     hcclContextAddr_ = funcDataList_->hcclContext;
 }
 
@@ -95,7 +95,7 @@ void ShmemWaitUntil::PollCompleted(std::vector<uint64_t> &completed)
     }
 }
 
-uint64_t ShmemWaitUntil::GetRawAddr(const uint64_t addr, const uint64_t dstRankId) 
+uint64_t ShmemWaitUntil::GetRawAddr(const uint64_t addr, const uint64_t dstRankId)
 {
     uint64_t groupIndex = npu::tile_fwk::Distributed::GetVirtualAddrGroupIndex(addr);
     uint64_t offset = npu::tile_fwk::Distributed::GetVirtualAddrOffset(addr);

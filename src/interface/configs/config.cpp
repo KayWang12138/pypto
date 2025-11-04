@@ -47,6 +47,9 @@ static std::map<std::string, ValueType> g_runtimeConfig = {
     {ESTIMATED_STITCH_TASK_MAX_LOOP_NUM, 50},
     {FIRST_STITCH_TASK_LOOP_NUM, 30},
     {SUBSEQ_STITCH_TASK_INCR_LOOP_NUM, 30}, // Increasing loop number
+    {CFGCACHE_DEVICE_TASK_NUM, 0},
+    {CFGCACHE_ROOT_TASK_NUM, 0},
+    {CFGCACHE_LEAF_TASK_NUM, 0},
 };
 
 static std::map<std::string, ValueType> g_hostConfig = {
