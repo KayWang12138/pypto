@@ -14,7 +14,7 @@
  */
 
 #include "distributed_op_test_common.h"
-#include "hccl/hcom.h"
+#include "hcom.h"
 #include "kernel_tiling/kernel_tiling.h"
 
 extern "C" HcclResult HcclAllocComResourceByTiling(HcclComm comm, void *stream, void *mc2Tiling, void **commContext);

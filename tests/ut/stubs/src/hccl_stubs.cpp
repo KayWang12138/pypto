@@ -14,7 +14,7 @@
  */
 
 #include "hccl/hccl.h"
-#include "hccl/hcom.h"
+#include "hcom.h"
 
 extern "C" {
 HcclResult HcomGetCommHandleByGroup(const char *group, HcclComm *commHandle)
