@@ -338,23 +338,27 @@ function(PTO_Fwk_STest_AddExe_RunExe)
             list(SUBLIST GTestFilterList ${idx} -1 GTestFilterList)
         endif ()
     endif ()
+    
+    if ("${GTestFilterList}x" STREQUAL "x")
+        message(STATUS "No Case to Execute")
+    else ()    
+        # 性能用例
+        PTO_Fwk_STest_RunExe_ToolsProf(
+                TARGET              ${ARG_TARGET}
+                ENV_LINES_EXT       ${EnvLinesExt}
+                LD_LIBRARIES_EXT    ${PTO_Fwk_STestCaseLdLibrariesExt}
+                GTEST_FILTER_LIST   ${GTestFilterList}
+        )
 
-    # 性能用例
-    PTO_Fwk_STest_RunExe_ToolsProf(
-            TARGET              ${ARG_TARGET}
-            ENV_LINES_EXT       ${EnvLinesExt}
-            LD_LIBRARIES_EXT    ${PTO_Fwk_STestCaseLdLibrariesExt}
-            GTEST_FILTER_LIST   ${GTestFilterList}
-    )
-
-    # 精度用例
-    PTO_Fwk_STest_RunExe_GenerateGolden(TARGET ${ARG_TARGET} GTEST_FILTER_LIST ${GTestFilterList})
-    PTO_Fwk_STest_RunExe(
-            TARGET              ${ARG_TARGET}
-            ENV_LINES_EXT       ${EnvLinesExt}
-            LD_LIBRARIES_EXT    ${PTO_Fwk_STestCaseLdLibrariesExt}
-            GTEST_FILTER_LIST   ${GTestFilterList}
-    )
+        # 精度用例
+        PTO_Fwk_STest_RunExe_GenerateGolden(TARGET ${ARG_TARGET} GTEST_FILTER_LIST ${GTestFilterList})
+        PTO_Fwk_STest_RunExe(
+                TARGET              ${ARG_TARGET}
+                ENV_LINES_EXT       ${EnvLinesExt}
+                LD_LIBRARIES_EXT    ${PTO_Fwk_STestCaseLdLibrariesExt}
+                GTEST_FILTER_LIST   ${GTestFilterList}
+        )
+    endif ()
 endfunction()
 
 # Distributed 获取 GTestFilterList
