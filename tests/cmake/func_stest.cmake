@@ -9,7 +9,6 @@
 
 set(PTO_Fwk_STestCaseLibraries             "" CACHE INTERNAL "" FORCE)     # STest 各模块 用例实现二进制
 set(PTO_Fwk_STestCaseLdLibrariesExt        "" CACHE INTERNAL "" FORCE)     # STest 各模块 额外 Load 二进制
-set(PTO_Fwk_STestCaseGTestFilterList       "" CACHE INTERNAL "" FORCE)     # STest 各模块 GTestFilter 配置
 set(PTO_Fwk_STestCaseGoldenScriptPathList  "" CACHE INTERNAL "" FORCE)     # STest 各模块 Golden 脚本路径配置
 
 # 切换完成前, 增加原有目录
@@ -29,19 +28,17 @@ Parameters:
   multi_value_keywords:
       SOURCES               : [Required] 编译源码
       PUBLIC_LINK_LIBRARIES : [Optional] 链接库(PUBLIC)
-      GTEST_FILTER_LIST     : [Optional] GTestFilter 配置, Filter 间以 ';' 分割
       LD_LIBRARIES_EXT      : [Optional] 需要在执行时将所在路径配置到环境变量 LD_LIBRARY_PATH 中的 Libraries
       GOLDEN_SCRIPT_DIR     : [Optional] Golden 脚本所在路径, 便于 Golden 处理公共逻辑查找和载入对应脚本
 Attention:
-    1. 单次调用本函数时, 可以通过在 GTEST_FILTER_LIST 中配置多个过滤条件('gtest_filter') 以实现执行多用例;
-    2. 一般 LD_LIBRARIES_EXT 内配置的二进制, 在正常 source CANN 包环境变量后, LD_LIBRARY_PATH 内也应包含其所在路径;
+    1.  一般 LD_LIBRARIES_EXT 内配置的二进制, 在正常 source CANN 包环境变量后, LD_LIBRARY_PATH 内也应包含其所在路径;
 ]]
 function(PTO_Fwk_STest_AddLib)
     cmake_parse_arguments(
             ARG
             ""
             "TARGET"
-            "SOURCES;PUBLIC_LINK_LIBRARIES;GTEST_FILTER_LIST;LD_LIBRARIES_EXT;GOLDEN_SCRIPT_DIR"
+            "SOURCES;PUBLIC_LINK_LIBRARIES;LD_LIBRARIES_EXT;GOLDEN_SCRIPT_DIR"
             ""
             ${ARGN}
     )
@@ -59,7 +56,6 @@ function(PTO_Fwk_STest_AddLib)
     # STest 暂不支持并行执行
     set(PTO_Fwk_STestCaseLibraries            ${PTO_Fwk_STestCaseLibraries}            ${ARG_TARGET}            CACHE INTERNAL "" FORCE)
     set(PTO_Fwk_STestCaseLdLibrariesExt       ${PTO_Fwk_STestCaseLdLibrariesExt}       ${ARG_LD_LIBRARIES_EXT}  CACHE INTERNAL "" FORCE)
-    set(PTO_Fwk_STestCaseGTestFilterList      ${PTO_Fwk_STestCaseGTestFilterList}      ${ARG_GTEST_FILTER_LIST} CACHE INTERNAL "" FORCE)
     set(PTO_Fwk_STestCaseGoldenScriptPathList ${PTO_Fwk_STestCaseGoldenScriptPathList} ${ARG_GOLDEN_SCRIPT_DIR} CACHE INTERNAL "" FORCE)
 endfunction()
 
@@ -73,12 +69,10 @@ function(PTO_Fwk_STest_GetGTestFilterList GTEST_FILTER_LIST)
     )
     string(REPLACE ":" ";" GTestFilterList "${GTestFilterStr}")
     list(LENGTH GTestFilterList YamlGTestFilterListLen)
-    list(APPEND GTestFilterList ${PTO_Fwk_STestCaseGTestFilterList})
     list(REMOVE_DUPLICATES GTestFilterList)
     set(${GTEST_FILTER_LIST} ${GTestFilterList} PARENT_SCOPE)
-    list(LENGTH PTO_Fwk_STestCaseGTestFilterList CMakeGTestFilterListLen)
     list(LENGTH GTestFilterList RstGTestFilterListLen)
-    message(STATUS "GetSTestFilterList: Yaml(${YamlGTestFilterListLen}), CMake(${CMakeGTestFilterListLen}), Total(${RstGTestFilterListLen})")
+    message(STATUS "GetSTestFilterList: Yaml(${YamlGTestFilterListLen}), Total(${RstGTestFilterListLen})")
 endfunction()
 
 # STest 执行可执行程序 (性能工具)

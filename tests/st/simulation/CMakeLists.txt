@@ -7,10 +7,6 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
-set(_CaseFilterList
-        "CostModelTest.test_mm_float32_64_64_64_bt"
-        "CostModelDynTest.TestDD"
-)
 
 set(_Target ${PTO_Fwk_STestNamePrefix}_simulation)
 
@@ -20,7 +16,6 @@ PTO_Fwk_STest_AddLib(
         TARGET ${_Target}
         SOURCES ${_Sources}
         PUBLIC_LINK_LIBRARIES tile_fwk_interface tile_fwk_simulation tile_fwk_simulation_ca
-        GTEST_FILTER_LIST ${_CaseFilterList}
         LD_LIBRARIES_EXT tile_fwk_compiler tile_fwk_simulation tile_fwk_simulation_ca
 )
 # 可执行程序运行依赖的配置, 脚本配置

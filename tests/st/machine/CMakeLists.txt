@@ -17,7 +17,6 @@ PTO_Fwk_STest_AddLib(
         TARGET ${_Target}
         SOURCES ${_Sources}
         PUBLIC_LINK_LIBRARIES tile_fwk_compiler tile_fwk_runtime tile_fwk_interface
-        GTEST_FILTER_LIST ${_CaseFilterList}
         LD_LIBRARIES_EXT tile_fwk_compiler tile_fwk_runtime
         GOLDEN_SCRIPT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/ops
 )

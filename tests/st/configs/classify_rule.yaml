@@ -674,3 +674,8 @@ stest:
       # NSA native spare attention Interpreter
       #===========================================================================
       - DynamicWinAttenInterpreterTest.test_DynAttn_nas_win_attn_s1_2_actseqlen_1024_mla_fp16_inter
+
+  simulation:
+    cases:
+      - CostModelTest.test_mm_float32_64_64_64_bt
+      - CostModelDynTest.TestDD
