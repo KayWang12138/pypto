@@ -99,7 +99,7 @@ void TestDynamicMlaProlog(
     std::vector<int64_t> kvCacheShape = {blockNum, blockSize, n2, kvLoraRank};
     std::vector<int64_t> krCacheShape = {blockNum, blockSize, n2, qkRopeHeadDim};
     std::vector<int64_t> kvCacheOutShape = {blockNum * blockSize, n2 * kvLoraRank};
-    std::vector<int64_t> krCacheOutShape = {blockNum, blockSize, n2 * qkRopeHeadDim};
+    std::vector<int64_t> krCacheOutShape = {blockNum * blockSize, n2 * qkRopeHeadDim};
     std::vector<int64_t> scaleWDqShape = {1, qLoraRank};
     std::vector<int64_t> scaleWUqQrShape = {1, n * qHeadDim};
     std::vector<int64_t> scaleWDkvKrShape = {1, kvLoraRank + qkRopeHeadDim};
