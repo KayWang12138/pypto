@@ -44,8 +44,10 @@ def select_experts(in_tensors, out_tensors, renormalize_flag):
     ne = logits_input.shape[1]
     idx_k_shape = ids_k.shape
     topk = idx_k_shape[1]
-    view_shape = (1, ne)
+    view_shape = (64, ne)
     bs_loop = (bs + view_shape[0] - 1) // view_shape[0]
+    # 4.2. 按照计算图实现运算逻辑，设置set_vec_tile_shapes时应尽可能用满UB，但不要超过UB的大小。
+    pto.set_vec_tile_shapes(view_shape[0], 128)
 
     # 5. 定义动态函数
     with pto.function("MOEGATE", [logits_input], [ids_k, weight_k]):
@@ -58,8 +60,6 @@ def select_experts(in_tensors, out_tensors, renormalize_flag):
                         [bs_idx * view_shape[0], 0],
                         valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]), ne])
 
-                    # 8. 按照计算图实现运算逻辑，设置set_vec_tile_shapes时应尽可能用满UB，但不要超过UB的大小。
-                    pto.set_vec_tile_shapes(1, 128)
                     # cast to fp32
                     tile_logits_fp32 = pto.cast(tile_logits, pto.DT_FP32)
                     # softmax
@@ -69,17 +69,14 @@ def select_experts(in_tensors, out_tensors, renormalize_flag):
 
                     if pto.cond(pto.symbolic_scalar(renormalize_flag)):
                         # sum
-                        pto.set_vec_tile_shapes(1, 8)
                         denominator = pto.sum(topk_weight_tmp)
                         # div
-                        pto.set_vec_tile_shapes(1, 1)
                         # for shape (b*s, k) (b*s, 1)
                         topk_weight2 = pto.div(topk_weight_tmp, denominator)
                     else:
                         denominator = topk_weight_tmp
                         topk_weight2 = denominator
                     # weight cast
-                    pto.set_vec_tile_shapes(1, 1)
                     topk_weight2_f16 = pto.cast(topk_weight2, weight_k.dtype)
 
                     # 9. 将结果搬运到输出tensor上
@@ -93,7 +90,7 @@ def select_experts(in_tensors, out_tensors, renormalize_flag):
 
 def test_select_experts():
     # 1. 设置参数
-    bs = 32
+    bs = 256
     ne = 128
     top_k = 8
     renormalize = True
@@ -101,9 +98,9 @@ def test_select_experts():
     torch.npu.set_device(device_id)
 
     # 2. 构造多种shape，测试动态case
-    for i in range(0, 4):
-        if (i == 2):
-            bs = 3
+    for i in range(0, 2):
+        if (i == 1):
+            bs = 1
 
         # 3. 准备测试数据
         np.random.seed(0)
