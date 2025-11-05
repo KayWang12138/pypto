@@ -751,7 +751,7 @@ RecordFunc::RecordFunc(const std::string &name,
     Program::GetInstance().BeginFunction(funcName, config::GetFunctionType(), GraphType::TENSOR_GRAPH, explicitOpArgs);
 }
 
-RecordFunc::RecordFunc(const std::string &name, 
+RecordFunc::RecordFunc(const std::string &name,
     const std::vector<std::reference_wrapper<const Tensor>> &startArgsInputTensorList,
     const std::vector<std::reference_wrapper<const Tensor>> &startArgsOutputTensorList,
     const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>> &inplaceArgs)
@@ -773,6 +773,7 @@ RecordFunc::RecordFunc(const std::string &name,
 
     dynFunc_ = Program::GetInstance().GetCurrentFunction();
     dynFunc_->SetUnderDynamicFunction(true);
+    dynFunc_->SetSourceLocation(SourceLocation::GetLocation());
 
     std::shared_ptr<DyndevFunctionAttribute> attr = std::make_shared<DyndevFunctionAttribute>();
     attr->startArgsInputTensorList = startArgsInputTensorList;
@@ -831,6 +832,7 @@ RecordLoopFunc::RecordLoopFunc(const std::string &name, FunctionType funcType, c
     Program::GetInstance().GetLoopStack().emplace_back(*this);
 
     GenDefaultUnrollTimes(unrollList);
+    location_ = SourceLocation::GetLocation();
 }
 
 RecordLoopFunc::~RecordLoopFunc() {
@@ -866,6 +868,7 @@ void RecordLoopFunc::BeginLoopFunction() {
     range->End().AsIntermediateVariable();
     auto attr = std::make_shared<DynloopFunctionAttribute>(iterName_, *range, *loopRange_, submitBeforeLoop_);
     currentLoopFunc_->SetDynloopAttribute(attr);
+    currentLoopFunc_->SetSourceLocation(location_);
 }
 
 void RecordLoopFunc::EndLoopFunction() {
@@ -1000,6 +1003,8 @@ void RecordLoopFunc::IterationBegin() {
     curPathFuncName_ = name_ + "_Unroll" + std::to_string(CurUnrollTimes()) + GetLoopSuffix(endCount_++);
     Program::GetInstance().GetTensorSlotManager()->Checkpoint();
     Program::GetInstance().BeginFunction(curPathFuncName_, FunctionType::DYNAMIC_LOOP_PATH);
+    auto loopPathFunc = Program::GetInstance().GetCurrentFunction();
+    loopPathFunc->SetSourceLocation(location_);
     GetLoopAttr()->IterationBegin();
 }
 

@@ -20,7 +20,7 @@ from typing import List, Optional, Set, Tuple, Union
 from pto import pto_impl
 
 from .enum import * # noqa
-from .pto_utils import to_sym
+from .pto_utils import to_sym, set_source_location, clear_source_location
 from .symbolic_scalar import SymbolicScalar, SymInt
 from .tensor import Tensor
 
@@ -316,7 +316,9 @@ def function(
 
     func = None
     try:
+        set_source_location(level=2)
         func = pto_impl.RecordFunc(name, inputs, outputs, [])
+        clear_source_location()
         yield func
     except Exception as e:
         logging.error("Record function %s failed: %s", name, e)
@@ -350,8 +352,8 @@ def cond(scalar: SymInt):
             pass
     """
     # implementation
-    frame = inspect.currentframe().f_back
-    return pto_impl.RecordIfBranch(to_sym(scalar), frame.f_code.co_filename, frame.f_lineno)
+    stack = inspect.stack()[1]
+    return pto_impl.RecordIfBranch(to_sym(scalar), stack.filename, stack.lineno)
 
 
 class _LoopFunction:
@@ -383,6 +385,7 @@ def _loop_function(
 
     rlf = None
     try:
+        set_source_location(level=3)
         rlf = _LoopFunction(
             name,
             pto_impl.FunctionType.DYNAMIC_LOOP,
@@ -391,6 +394,7 @@ def _loop_function(
             unroll_list,
             submit_before_loop,
         )
+        clear_source_location()
         yield rlf
     except Exception as e:
         logging.error("Record loop function %s failed: %s", name, e)

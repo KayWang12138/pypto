@@ -1211,10 +1211,10 @@ public:
         }
         DEV_ERROR("%s: workspace:%llx", prefix, (unsigned long long)startArgs->workspaceAddr);
         for (size_t i = 0; i < startArgs->inputTensorSize; i++) {
-            DEV_ERROR("%s: input-%d:%llx", prefix, (int)i, (unsigned long long)startArgs->inputTensorList[i].address);
+            DEV_ERROR("%s: input-%d:%llx", prefix, (int)i, (unsigned long long)startArgs->GetInputTensor(i).address);
         }
         for (size_t i = 0; i < startArgs->outputTensorSize; i++) {
-            DEV_ERROR("%s: output-%d:%llx", prefix, (int)i, (unsigned long long)startArgs->outputTensorList[i].address);
+            DEV_ERROR("%s: output-%d:%llx", prefix, (int)i, (unsigned long long)startArgs->GetOutputTensor(i).address);
         }
         std::unordered_map<uint64_t, AddressDescriptor> cacheInputOutputDict;
         DevAscendProgram::RelocBuildInputOutputDesc(cacheInputOutputDict, startArgs);
@@ -1366,28 +1366,28 @@ struct DeviceExecuteContext {
     SPSCQueue<DynDeviceTask *, SUBMMIT_TASK_QUE_SIZE> submmitTaskQueue_;
 
     static uint64_t GetInputShapeDimSize(DeviceExecuteContext *ctx, uint64_t inputIndex) {
-        DevTensorData *input = &ctx->args->inputTensorList[inputIndex];
+        DevTensorData *input = &ctx->args->devTensorList[inputIndex];
         return input->shape.dimSize;
     }
     static uint64_t GetInputShapeDim(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t n) {
-        DevTensorData *input = &ctx->args->inputTensorList[inputIndex];
+        DevTensorData *input = &ctx->args->devTensorList[inputIndex];
         return input->shape.dim[n];
     }
     static int64_t GetInputDataInt32Dim1(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0) {
-        DevTensorData *input = &ctx->args->inputTensorList[inputIndex];
+        DevTensorData *input = &ctx->args->devTensorList[inputIndex];
         return ((int32_t *)input->address)[off0];
     }
     static int64_t GetInputDataInt32Dim2(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1) {
-        DevTensorData *input = &ctx->args->inputTensorList[inputIndex];
+        DevTensorData *input = &ctx->args->devTensorList[inputIndex];
         return ((int32_t *)input->address)[off0 * input->shape.dim[1] + off1];
     }
     static int64_t GetInputDataInt32Dim3(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1, uint64_t off2) {
-        DevTensorData *input = &ctx->args->inputTensorList[inputIndex];
+        DevTensorData *input = &ctx->args->devTensorList[inputIndex];
         return ((int32_t *)input->address)[off0 * input->shape.dim[1] * input->shape.dim[2] + off1 * input->shape.dim[2] + off2]; // 2: dim 2
     }
     static int64_t GetInputDataInt32Dim4(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1,
         uint64_t off2, uint64_t off3) {
-        DevTensorData *input = &ctx->args->inputTensorList[inputIndex];
+        DevTensorData *input = &ctx->args->devTensorList[inputIndex];
         return ((int32_t *)input->address)[((off0 * input->shape.dim[1] + off1) * input->shape.dim[2] + off2) * input->shape.dim[3] + off3]; // 2: dim 2, 3: dim 3
     }
 

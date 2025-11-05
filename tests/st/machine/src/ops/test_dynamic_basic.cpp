@@ -253,7 +253,7 @@ TEST_F(DynamicBasicTest, DynamicRawShape) {
     });
 
     FUNCTION("main", {t0, t1}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(GetInputShape(t0, 0) / s)) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(GetInputShape(out, 0) / s)) {
             Tensor t0s = View(t0, {s, s}, {idx * s, 0});
             Tensor t2 = Matrix::Matmul<false, true>(DataType::DT_FP32, t0s, t1);
             Assemble(t2, {idx * s, 0}, out);

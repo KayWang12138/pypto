@@ -61,16 +61,29 @@ static std::map<std::string, ValueType> g_codegenConfig = {
     {CODEGEN_EXPRESSION_FUSION, false},
 };
 
-struct ConfigStorage {
-    ConfigStorage() { Reset(); }
+static std::map<std::string, ValueType> g_globalConfig = {
+    {PROFILE_ENABLE, false},
+};
 
-    void Reset() {
-        funcType = FunctionType::DYNAMIC;
-        sematicLabel = "";
+struct ConfigStorage {
+    ConfigStorage() { Init(); }
+
+    void Init() {
         printOption.edgeItems = 3; // 3 edge items
         printOption.precision = 4; // 4 float precision
         printOption.threshold = 1000; // 1000 default threshold
         printOption.linewidth = 80; // 80 max line width
+
+        for (auto &[key, val] : g_globalConfig) {
+            options[key] = val;
+        }
+
+        Reset();
+    }
+
+    void Reset() {
+        funcType = FunctionType::DYNAMIC;
+        sematicLabel = "";
         for (auto &[key, val] : g_passConfig) {
             options["pass." + key] = val;
         }

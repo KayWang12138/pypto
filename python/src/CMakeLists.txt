@@ -37,3 +37,8 @@ target_link_libraries(pto_impl
             tile_fwk_intf_pub
 )
 install(TARGETS pto_impl LIBRARY DESTINATION pto OPTIONAL)
+
+target_link_options(pto_impl PRIVATE
+    -Wl,-rpath,$ORIGIN/lib
+    -Wl,--no-as-needed
+)

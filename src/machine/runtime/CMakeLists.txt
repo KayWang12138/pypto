@@ -8,8 +8,9 @@
 # ======================================================================================================================
 
 file(GLOB_RECURSE _Runtime_Srcs *.cpp)
+file(GLOB_RECURSE _Device_Srcs ${PTO_FWK_SRC_ROOT}/src/machine/device/*.cpp)
 add_library(tile_fwk_runtime SHARED)
-target_sources(tile_fwk_runtime PRIVATE ${_Runtime_Srcs})
+target_sources(tile_fwk_runtime PRIVATE ${_Runtime_Srcs} ${_Device_Srcs})
 target_include_directories(tile_fwk_runtime
         PUBLIC
             ${PTO_FWK_SRC_ROOT}/src/machine/runtime

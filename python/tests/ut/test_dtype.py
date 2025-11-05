@@ -15,20 +15,21 @@ import pto
 
 def test_mem_type():
     # Make sure all data types are defined
-    assert isinstance(pto.DT_INT4, pto.DataType)
-    assert isinstance(pto.DT_INT8, pto.DataType)
-    assert isinstance(pto.DT_INT16, pto.DataType)
-    assert isinstance(pto.DT_INT32, pto.DataType)
-    assert isinstance(pto.DT_INT64, pto.DataType)
-    assert isinstance(pto.DT_FP8, pto.DataType)
-    assert isinstance(pto.DT_FP16, pto.DataType)
-    assert isinstance(pto.DT_FP32, pto.DataType)
-    assert isinstance(pto.DT_BF16, pto.DataType)
-    assert isinstance(pto.DT_HF4, pto.DataType)
-    assert isinstance(pto.DT_HF8, pto.DataType)
-    assert isinstance(pto.DT_UINT8, pto.DataType)
-    assert isinstance(pto.DT_UINT16, pto.DataType)
-    assert isinstance(pto.DT_UINT32, pto.DataType)
-    assert isinstance(pto.DT_UINT64, pto.DataType)
-    assert isinstance(pto.DT_BOOL, pto.DataType)
-    assert isinstance(pto.DT_DOUBLE, pto.DataType)
+    assert pto.bytes_of(pto.DT_INT4) == 1
+    assert pto.bytes_of(pto.DT_INT8) == 1
+    assert pto.bytes_of(pto.DT_INT16) == 2
+    assert pto.bytes_of(pto.DT_INT32) == 4
+    assert pto.bytes_of(pto.DT_INT64) == 8
+    assert pto.bytes_of(pto.DT_FP8) == 1
+    assert pto.bytes_of(pto.DT_FP16) == 2
+    assert pto.bytes_of(pto.DT_FP32) == 4
+    assert pto.bytes_of(pto.DT_BF16) == 2
+    assert pto.bytes_of(pto.DT_HF4) == 1
+    assert pto.bytes_of(pto.DT_HF8) == 1
+    assert pto.bytes_of(pto.DT_UINT8) == 1
+    assert pto.bytes_of(pto.DT_UINT16) == 2
+    assert pto.bytes_of(pto.DT_UINT32) == 4
+    assert pto.bytes_of(pto.DT_UINT64) == 8
+    assert pto.bytes_of(pto.DT_BOOL) == 1
+    assert pto.bytes_of(pto.DT_DOUBLE) == 8
+

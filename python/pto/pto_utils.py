@@ -10,6 +10,7 @@
 # ======================================================================================================================
 """
 """
+import inspect
 from typing import Sequence, Union, List
 
 from pto import pto_impl
@@ -34,3 +35,10 @@ def to_syms(value: Union[Sequence[int], Sequence[SymbolicScalar]]) -> List[pto_i
 def ceildiv(a: SymInt, b: SymInt) -> SymInt:
     return (a + b - 1) // b
 
+
+def set_source_location(level: int = 1):
+    pto_impl.SetLocation(inspect.stack()[level + 1].filename, inspect.stack()[level + 1].lineno)
+
+
+def clear_source_location():
+    pto_impl.ClearLocation()

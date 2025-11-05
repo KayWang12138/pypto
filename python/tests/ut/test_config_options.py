@@ -14,24 +14,33 @@ import pto
 
 
 def test_print_options():
-    with pto.function("MAIN", [], []):
-        pto.set_print_options(1, 2, 3, 4)
+    pto.set_print_options(1, 2, 3, 4)
 
 
 def test_pass_option():
-    with pto.function("MAIN", [], []):
-        # int
-        pto.set_pass_option("l1_reuse", 1)
-        pass_option = pto.get_pass_option("l1_reuse")
-        assert pass_option == 1
-        # map
-        pto.set_pass_option("cube_nbuffer_map", {3: 4})
-        pass_option = pto.get_pass_option("cube_nbuffer_map")
-        assert pass_option == {3: 4}
+    # int
+    pto.set_pass_option("l1_reuse", 1)
+    pass_option = pto.get_pass_option("l1_reuse")
+    assert pass_option == 1
+    # map
+    pto.set_pass_option("cube_nbuffer_map", {3: 4})
+    pass_option = pto.get_pass_option("cube_nbuffer_map")
+    assert pass_option == {3: 4}
 
 
 def test_host_option():
-    with pto.function("MAIN", [], []):
-        pto.set_host_option("only_codegen", True)
-        host_option = pto.get_host_option("only_codegen")
-        assert host_option == True
+    pto.set_host_option("only_codegen", True)
+    host_option = pto.get_host_option("only_codegen")
+    assert host_option == True
+
+
+def test_runtime_option():
+    pto.set_runtime_option("first_stitch_task_loop_num", 33)
+    runtime_option = pto.get_runtime_option("first_stitch_task_loop_num")
+    assert runtime_option == 33
+
+
+def test_option():
+    pto.set_option("profile_enable", True)
+    option = pto.get_option("profile_enable")
+    assert option == True

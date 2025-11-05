@@ -37,7 +37,6 @@ void bind_enum(py::module &m){
         .value("DT_UINT64", DataType::DT_UINT64)
         .value("DT_BOOL", DataType::DT_BOOL)
         .value("DT_DOUBLE", DataType::DT_DOUBLE)
-        .value("DT_BOTTOM", DataType::DT_BOTTOM)
         .export_values();
 
     py::enum_<NodeType>(m, "NodeType")

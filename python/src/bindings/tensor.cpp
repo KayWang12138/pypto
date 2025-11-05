@@ -18,42 +18,6 @@
 using namespace npu::tile_fwk;
 
 namespace pypto {
-
-/**
- * @brief Return true if the slice is empty, i.e., b[:]
- *
- * @param slice Python slice
- * @return true If slice does not have any start, stop or step.
- * @return false Otherwise.
- */
-bool IsEmptySlice(const py::slice &slice) {
-    py::object start = slice.attr("start");
-    py::object stop = slice.attr("stop");
-    py::object step = slice.attr("step");
-
-    return start.is_none() and stop.is_none() and step.is_none();
-}
-
-void TensorSetItem(Tensor &self, py::object key, py::object value) {
-    if (!py::isinstance<Tensor>(value)) {
-        throw std::runtime_error("Tensor.__setitem__ value must be a Tensor object.");
-    }
-
-    if (py::isinstance<py::slice>(key)) {
-        py::slice slice = key.cast<py::slice>();
-        if (!IsEmptySlice(slice)) {
-            throw std::runtime_error(
-                "Tensor.__setitem__ supports only [:]. Arbitrary slices are reserved for Tensor.Assemble.'");
-        }
-
-        // Move the input value tensor to self.
-        Tensor &tensor_value = value.cast<Tensor &>();
-        self = std::move(tensor_value);
-    } else {
-        throw std::runtime_error("Tensor.__setitem__ key type must be slice. Use 'tensor[:] = <source tensor>'");
-    }
-}
-
 void BindTensor(py::module &m) {
     py::class_<Tensor>(m, "Tensor")
         .def(py::init<>())
@@ -94,68 +58,126 @@ void BindTensor(py::module &m) {
             py::arg("shape"), py::arg("data_ptr"), py::arg("name"), py::arg("format") = TileOpFormat::TILEOP_ND)
         .def(py::init<DataType, std::vector<SymbolicScalar>, std::string, TileOpFormat>(), py::arg("dtype"),
             py::arg("shape"), py::arg("name") = "", py::arg("format") = TileOpFormat::TILEOP_ND)
-        .def(
-            "__add__", [](const Tensor &self, const Tensor &tensor) { return npu::tile_fwk::Add(self, tensor); },
-            "Tensor add.")
-        .def(
-            "__add__", [](const Tensor &self, const Element &element) { return npu::tile_fwk::Add(self, element); },
-            "Tensor-element add.")
-        .def(
-            "__radd__", [](const Tensor &self, const Element &element) { return npu::tile_fwk::Add(self, element); },
-            "Tensor-element add.")
-        .def(
-            "__sub__", [](const Tensor &self, const Tensor &tensor) { return npu::tile_fwk::Sub(self, tensor); },
-            "Tensor subtraction.")
-        .def(
-            "__sub__", [](const Tensor &self, const Element &element) { return npu::tile_fwk::Sub(self, element); },
-            "Tensor-element subtraction.")
-        .def("GetDataType", &Tensor::GetDataType)
-        .def("get_dtype", &Tensor::GetDataType)
-        .def_property_readonly(
-            "dtype", py::overload_cast<>(&Tensor::GetDataType, py::const_), py::return_value_policy::reference_internal)
-        .def_property_readonly(
-            "shape", py::overload_cast<>(&Tensor::GetShape, py::const_), py::return_value_policy::reference_internal)
-        .def(
-            "GetShape", py::overload_cast<>(&Tensor::GetShape, py::const_), py::return_value_policy::reference_internal)
-        .def("GetShapeAt", py::overload_cast<int>(&Tensor::GetShape, py::const_), py::arg("axis"))
-        .def("Assign", py::overload_cast<const Tensor &>(&Tensor::operator=),
-            "Assigns from another tensor by copying its content.", py::return_value_policy::reference_internal)
-        .def(
-            "Move",
+        .def("GetDataType",
+            [](const Tensor &t) -> DataType {
+                if (t.IsEmpty()) {
+                    throw py::value_error("Empty tensor.");
+                }
+                return t.GetDataType();
+            })
+        .def_property_readonly("dtype",
+            [](const Tensor &t) -> DataType {
+                if (t.IsEmpty()) {
+                    throw py::value_error("Empty tensor.");
+                }
+                return t.GetDataType();
+            })
+        .def_property_readonly("shape",
+            [] (const Tensor &t) -> std::vector<int64_t> {
+                if (t.IsEmpty()) {
+                    throw py::value_error("Empty tensor.");
+                }
+                return t.GetShape();
+            })
+        .def("GetShape",
+            [](const Tensor &t) -> std::vector<int64_t> {
+                if (t.IsEmpty()) {
+                    throw py::value_error("Empty tensor.");
+                }
+                return t.GetShape();
+            },
+            "Get the shape of the tensor.")
+        .def("Move",
             [](Tensor &self, Tensor &other) -> Tensor & {
                 self = std::move(other);
                 return self;
             },
             "Assigns from another tensor by moving its content. The source tensor is left in an empty state.",
             py::arg("other"), py::return_value_policy::reference_internal)
-        .def("__setitem__", &TensorSetItem,
-            "Assigns from another tensor by moving its content. The source tensor is left in an empty state.",
-            py::arg("key"), py::arg("value"))
-        .def("SetCachePolicy", &Tensor::SetCachePolicy, py::arg("policy"), py::arg("value"))
-        .def("GetCachePolicy", &Tensor::GetCachePolicy, py::arg("policy"))
-        .def("GetStorage", [](const Tensor &self) { return self.GetStorage(false) != nullptr; })
-        .def("Id", &Tensor::Id, "Get the index of the tensor.")
-        .def("SetName", &Tensor::SetName, py::arg("name"))
-        .def("GetName", &Tensor::GetName)
-        .def("Dim", &Tensor::Dim, "Get the number of dimensions of the tensor.")
-        .def_property_readonly("id", &Tensor::Id, "Get the index of the tensor.");
+        .def("SetCachePolicy",
+            [](Tensor &t, CachePolicy policy, bool value) {
+                if (t.IsEmpty()) {
+                    throw py::value_error("Empty tensor.");
+                }
+                t.SetCachePolicy(policy, value);
+            },
+            py::arg("policy"), py::arg("value"))
+        .def("GetCachePolicy",
+            [](const Tensor &t, CachePolicy policy) {
+                if (t.IsEmpty()) {
+                    throw py::value_error("Empty tensor.");
+                }
+                return t.GetCachePolicy(policy);
+            },
+            py::arg("policy"))
+        .def("SetName",
+            [](Tensor &t, const std::string &name) {
+                if (t.IsEmpty()) {
+                    throw py::value_error("Empty tensor.");
+                }
+                t.SetName(name);
+            },
+            py::arg("name"))
+        .def("GetName",
+            [](const Tensor &t) {
+                if (t.IsEmpty()) {
+                    throw py::value_error("Empty tensor.");
+                }
+                return t.GetName();
+            },
+            "Get the name of the tensor.")
+        .def("Dim",
+            [](const Tensor &t) {
+                if (t.IsEmpty()) {
+                    throw py::value_error("Empty tensor.");
+                }
+                return t.Dim();
+            },
+            "Get the number of dimensions of the tensor.");
+
     m.def("GetInputShape",
-        [](const Tensor& t, int axis){
+        [](const Tensor &t, int axis) {
+            if (t.IsEmpty()) {
+                throw py::value_error("Empty tensor.");
+            }
             return npu::tile_fwk::GetInputShape(t, axis);
         },
-        "Get the shape of the input at the specified axis.",
-        py::arg("t"), py::arg("axis"));
+        py::arg("t"), py::arg("axis"),
+        "Get the shape of the input at the specified axis.");
     m.def("GetInputShape",
-        [](const Tensor& t){
+        [](const Tensor &t) {
+            if (t.IsEmpty()) {
+                throw py::value_error("Empty tensor.");
+            }
             return npu::tile_fwk::GetInputShape(t);
         },
-        "Get the shape of the input.",
-        py::arg("t"));
-    m.def("GetTensorData", &GetTensorData, py::arg("tensor"), py::arg("offset"),
+        "Get the shape of the input.", py::arg("t"));
+    m.def("GetTensorData",
+        [](const Tensor &t, std::vector<SymbolicScalar> offset) {
+            if (t.IsEmpty()) {
+                throw py::value_error("Empty tensor.");
+            }
+            return npu::tile_fwk::GetTensorData(t, offset);
+        },
+        py::arg("tensor"), py::arg("offset"),
         "Get the tensor data at the specified offsets.");
-    m.def("SetTensorData", &SetTensorData, py::arg("value"), py::arg("offset"), py::arg("dst"),
+    m.def("SetTensorData",
+        [](const SymbolicScalar &value, std::vector<SymbolicScalar> offset, Tensor &dst) {
+            if (dst.IsEmpty()) {
+                throw py::value_error("Empty tensor.");
+            }
+            npu::tile_fwk::SetTensorData(value, offset, dst);
+        },
+        py::arg("value"), py::arg("offset"), py::arg("dst"),
         "Set the tensor data at the destination offset from the source value.");
-    m.def("MarkInputDynamic", &MarkInputDynamic, py::arg("tensor"), py::arg("axis"),
+    m.def("MarkDynamic",
+        [](Tensor &t, int axis) {
+            if (t.IsEmpty()) {
+                throw py::value_error("Empty tensor.");
+            }
+            npu::tile_fwk::MarkDynamic(t, axis);
+        },
+        py::arg("tensor"), py::arg("axis"),
         "Mark the input tensor as dynamic at the specified axis.");
 }
 } // namespace pypto

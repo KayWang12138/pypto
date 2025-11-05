@@ -2352,10 +2352,10 @@ struct DevProgramControlFlowCache {
 
     void InitInputOutput(DevStartArgsBase *startArgs) {
         for (size_t i = 0; i < inputTensorDataList.size(); i++) {
-            inputTensorDataList[i] = startArgs->inputTensorList[i];
+            inputTensorDataList[i] = startArgs->GetInputTensor(i);
         }
         for (size_t i = 0; i < outputTensorDataList.size(); i++) {
-            outputTensorDataList[i] = startArgs->outputTensorList[i];
+            outputTensorDataList[i] = startArgs->GetOutputTensor(i);
         }
     }
 
@@ -2367,12 +2367,12 @@ struct DevProgramControlFlowCache {
             return false;
         }
         for (size_t k = 0; k < inputTensorDataList.size(); k++) {
-            if (!inputTensorDataList[k].shape.Equal(startArgs->inputTensorList[k].shape)) {
+            if (!inputTensorDataList[k].shape.Equal(startArgs->GetInputTensor(k).shape)) {
                 return false;
             }
         }
         for (size_t k = 0; k < outputTensorDataList.size(); k++) {
-            if (!outputTensorDataList[k].shape.Equal(startArgs->outputTensorList[k].shape)) {
+            if (!outputTensorDataList[k].shape.Equal(startArgs->GetOutputTensor(k).shape)) {
                 return false;
             }
         }
@@ -2884,11 +2884,11 @@ struct DevAscendProgram {
             std::unordered_map<uint64_t, AddressDescriptor> &cacheInputOutputDict,
             DevStartArgsBase *devStartArgs) {
         for (uint64_t i = 0; i < devStartArgs->inputTensorSize; i++) {
-            uint64_t addr = devStartArgs->inputTensorList[i].address;
+            uint64_t addr = devStartArgs->GetInputTensor(i).address;
             cacheInputOutputDict[addr] = AddressDescriptor::MakeCache(ADDRESS_CACHE_KIND_INPUT, i);
         }
         for (uint64_t i = 0; i < devStartArgs->outputTensorSize; i++) {
-            uint64_t addr = devStartArgs->outputTensorList[i].address;
+            uint64_t addr = devStartArgs->GetOutputTensor(i).address;
             cacheInputOutputDict[addr] = AddressDescriptor::MakeCache(ADDRESS_CACHE_KIND_OUTPUT, i);
         }
     }
@@ -2933,10 +2933,10 @@ struct DevAscendProgram {
                 relocWorkspace.Reloc(resultAddr);
                 break;
             case ADDRESS_CACHE_KIND_INPUT:
-                resultAddr = devStartArgs->inputTensorList[desc.cacheValue].address;
+                resultAddr = devStartArgs->GetInputTensor(desc.cacheValue).address;
                 break;
             case ADDRESS_CACHE_KIND_OUTPUT:
-                resultAddr = devStartArgs->outputTensorList[desc.cacheValue].address;
+                resultAddr = devStartArgs->GetOutputTensor(desc.cacheValue).address;
                 break;
             default:
                 DEV_ERROR("[RelocDescFromCache] Invalid kind: %lu\n", (unsigned long)desc.cacheKind);
@@ -3245,12 +3245,12 @@ public:
     }
 
     int GetInputTensorSize() const { return inputTensorSize; }
-    const DevTensorData &GetInputTensor(int index) const { return inputTensorList[index]; }
-    DevTensorData &GetInputTensor(int index) { return inputTensorList[index]; }
+    const DevTensorData &GetInputTensor(int index) const { return devTensorList[index]; }
+    DevTensorData &GetInputTensor(int index) { return devTensorList[index]; }
 
     int GetOutputTensorSize() const { return outputTensorSize; }
-    const DevTensorData &GetOutputTensor(int index) const { return outputTensorList[index]; }
-    DevTensorData &GetOutputTensor(int index) { return outputTensorList[index]; }
+    const DevTensorData &GetOutputTensor(int index) const { return devTensorList[index + inputTensorSize]; }
+    DevTensorData &GetOutputTensor(int index) { return devTensorList[index + inputTensorSize]; }
 
     int GetInputSymbolSize() const { return inputSymbolSize; }
     const DevInputSymbol &GetInputSymbol(int index) const { return inputSymbolList[index]; }

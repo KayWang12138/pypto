@@ -159,43 +159,37 @@ TEST_F(DynamicControlFlowCacheTest, CheckShape) {
 
     {
         // check success
-        DevTensorData inputTensorList[] = {
+        DevTensorData devTensorList[] = {
             {0, {2, {n1, n1}}},
             {0, {2, {n1, n1}}},
-        };
-        DevTensorData outputTensorList[] = {
             {0, {2, {n1, n1}}},
         };
-        DevStartArgsBase arg = {inputTensorList, 2, outputTensorList, 1, nullptr};
+        DevStartArgsBase arg = {devTensorList, 2, 1, nullptr};
         EXPECT_TRUE(devProg->controlFlowCache.MatchInputOutput(&arg));
     }
     {
         // check failed for count
-        DevStartArgsBase arg = {nullptr, 0, nullptr, 0, nullptr};
+        DevStartArgsBase arg = {nullptr, 0, 0, nullptr};
         EXPECT_FALSE(devProg->controlFlowCache.MatchInputOutput(&arg));
     }
     {
         // check failed for dimension
-        DevTensorData inputTensorList[] = {
+        DevTensorData devTensorList[] = {
             {0, {2, {n1, n1}}},
             {0, {2, {n1, n1}}},
-        };
-        DevTensorData outputTensorList[] = {
             {0, {3, {n1, n1, n1}}},
         };
-        DevStartArgsBase arg = {inputTensorList, 2, outputTensorList, 1, nullptr};
+        DevStartArgsBase arg = {devTensorList, 2, 1, nullptr};
         EXPECT_FALSE(devProg->controlFlowCache.MatchInputOutput(&arg));
     }
     {
         // check failed for shape
-        DevTensorData inputTensorList[] = {
+        DevTensorData devTensorList[] = {
             {0, {2, {n1, n1}}},
             {0, {2, {n1, n1}}},
-        };
-        DevTensorData outputTensorList[] = {
             {0, {2, {n1, n1 + n1}}},
         };
-        DevStartArgsBase arg = {inputTensorList, 2, outputTensorList, 1, nullptr};
+        DevStartArgsBase arg = {devTensorList, 2, 1, nullptr};
         EXPECT_FALSE(devProg->controlFlowCache.MatchInputOutput(&arg));
     }
 

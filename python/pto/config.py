@@ -24,13 +24,13 @@ def set_print_options(edge_items: int, precision: int, threshold: int, linewidth
     ----------
     edge_items : int
         Print max items in tensor head and tail.
-    
+
     precision : int
         Print precision.
-    
+
     threshold : int
         Threshold to use.
-    
+
     linewidth : int
         Max line width.
     """
@@ -48,7 +48,7 @@ def set_pass_option(key: str, value: Union[str, int, List[int], Dict[int, int]])
             - "cycle_lower_bound": Lower bound of schedule cycles for each subgraph (default: 512)
             - "cycle_upper_bound": Upper bound of schedule cycles for each subgraph (default: 10000)
             ...
-    
+
     value : Union[str, int, List[int], Dict[int, int]]
         Configuration option value.
     """
@@ -80,7 +80,7 @@ def set_host_option(key: str, value: Union[str, int, List[int], Dict[int, int]])
     ----------
     key : str
         Host configuration option key.
-    
+
     value : Union[str, int, List[int], Dict[int, int]]
         Host configuration option value.
     """
@@ -182,3 +182,37 @@ def set_semantic_label(label: str) -> None:
     """
 
     pto_impl.SetSemanticLabel(label)
+
+
+def set_option(key: str, value: Union[str, int, List[int], Dict[int, int]]) -> None:
+    """
+    Set global options.
+
+    Parameters
+    ---------
+    key: str
+        Config option key.
+
+    value : Union[str, int, List[int], Dict[int, int]]
+        Config option value.
+    """
+
+    pto_impl.SetOption(key, value)
+
+
+def get_option(key: str) -> Union[str, int, List[int], Dict[int, int]]:
+    """
+    Get global options.
+
+    Parameters
+    ---------
+    key: str
+        Config option key.
+
+    Returns
+    -------
+    Union[str, int, List[int], Dict[int, int]]
+        Config option value.
+    """
+
+    return pto_impl.GetOption(key)

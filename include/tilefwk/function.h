@@ -26,6 +26,7 @@
 namespace npu::tile_fwk {
 // Forward declaration for types used in this file
 class Function;
+struct SourceLocation;
 }
 
 // Helper macros to count arguments
@@ -218,6 +219,7 @@ private:
     std::set<int, std::greater<>> unrollTimes_;
     std::unordered_set<int> visited_;
     std::unordered_set<int> customUnrollTimes_;
+    std::shared_ptr<SourceLocation> location_;
 
     void GenDefaultUnrollTimes(const std::set<int> &unrollList);
 };

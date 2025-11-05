@@ -13,14 +13,13 @@
 # pyright: reportAttributeAccessIssue=false
 """
 """
-import typing
+import inspect
 from typing import Optional, Union, Tuple, List
 
-import pto
 from pto import pto_impl
 
 from .element import Element
-from .pto_utils import to_syms
+from .pto_utils import * # noqa
 from .symbolic_scalar import SymbolicScalar
 from .tensor import Tensor
 from .enum import DataType, OpType, OutType
@@ -42,7 +41,9 @@ def op_wrapper(func):
         args = _to_base(args)
         kwargs = _to_base(kwargs)
         assert isinstance(args, (list, tuple))
+        set_source_location()
         out = func(*args, **kwargs)
+        clear_source_location()
         if out is None:
             return None
         elif isinstance(out, pto_impl.Tensor):
@@ -730,7 +731,7 @@ def where(
         input_base = input
     else:
         input_base = pto_impl.Element(pto_impl.DT_FP32, input)
-        
+
     if isinstance(other, pto_impl.Tensor):
         other_base = other
     else:
@@ -951,7 +952,7 @@ def full(size: List[int],
 
     Parameters
     ----------
-    size : List[int] 
+    size : List[int]
         target shape; must be non-negative integers
     fill_value : int | float | SymbolicScalar | pto.element
         scalar value to replicate
@@ -1046,7 +1047,7 @@ def greater(
     ----------
     input : Tensor
         The first input tensor.
-    other : Tensor 
+    other : Tensor
         The second input tensor for comparison.
 
     Returns
@@ -1065,12 +1066,12 @@ def greater(
     --------
     >>> a = pto.tensor([1, 2, 3])
     >>> b = pto.tensor([2, 2, 2])
-    
+
     >>> pto.greater(a, b)
     tensor([False, False, True])
 
     """
-    return pto_impl.compare(input, other, pto_impl.OpType.GT, OutType.BOOL)
+    return pto_impl.compare(input, other, OpType.GT, OutType.BOOL)
 
 
 @op_wrapper
@@ -1182,7 +1183,8 @@ def matmul(input, mat2, out_dtype, *, a_trans=False, b_trans=False, c_matrix_nz=
 
 
 @op_wrapper
-def reshape(input: Tensor, shape: List[int], *, valid_shape: List[Union[int, SymbolicScalar]] = None) -> Tensor:
+def reshape(input: Tensor, shape: List[int], *,
+            valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None) -> Tensor:
     """
     Reshape the input Tensor into a new tensor with the specific shape.
 
@@ -1230,8 +1232,8 @@ def reshape(input: Tensor, shape: List[int], *, valid_shape: List[Union[int, Sym
 @op_wrapper
 def unsqueeze(input: Tensor, dim: int) -> Tensor:
     """Add a new dimension of size 1 to a tensor at a specified position.
-    
-    This operation increases the tensor's dimensionality while preserving 
+
+    This operation increases the tensor's dimensionality while preserving
     the total number of elements (since the new dimension has size 1).
 
     Parameters
@@ -1241,14 +1243,14 @@ def unsqueeze(input: Tensor, dim: int) -> Tensor:
         Supported data types are: DT_FP32, DT_FP16, DT_BF16.
         Empty tensors are not supported, and the shape size must not exceed 2147483647 (i.e., INT32_MAX).
 
-    dim : int 
-        The position(index) where the new dimension is inserted. 
+    dim : int
+        The position(index) where the new dimension is inserted.
         It must be within the range of [-input.dim - 1, input.dim]
 
     Returns
     -------
     Tensor
-        A new tensor with the same data as the input tensor, but with an additional dimension 
+        A new tensor with the same data as the input tensor, but with an additional dimension
         of size 1 inserted at the specified dim position.
 
     Examples
@@ -1258,7 +1260,7 @@ def unsqueeze(input: Tensor, dim: int) -> Tensor:
 
     Input x:[[1, 2, 3],
              [4, 5, 6]]
-    Output y:[[[1, 2, 3], 
+    Output y:[[[1, 2, 3],
                [4, 5, 6]]]
 
     """
@@ -1267,7 +1269,7 @@ def unsqueeze(input: Tensor, dim: int) -> Tensor:
 
 @op_wrapper
 def view(input: Tensor, shape: List[int], offsets: Union[List[int], List[SymbolicScalar]],
-         *, valid_shape: Union[List[int], List[SymbolicScalar]] = None) -> Tensor:
+         *, valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None) -> Tensor:
     """Extract a partial view from the input tensor for subsequent computations.
        WARNING: view has a very different behavior from torch.view, it is more like slice.
 
@@ -1275,7 +1277,7 @@ def view(input: Tensor, shape: List[int], offsets: Union[List[int], List[Symboli
     ----------
     input: Tensor
         The input tensor to extract a partial view.
-        The supported data types are: DT_FP32, DT_FP16, DT_BF16.Empty Tensors are not supported, 
+        The supported data types are: DT_FP32, DT_FP16, DT_BF16.Empty Tensors are not supported,
         and the Shape Size must not exceed 2147483647 (i.e., INT32_MAX).
     shape: List[int]
         Get the shape of the view.
@@ -1286,7 +1288,7 @@ def view(input: Tensor, shape: List[int], offsets: Union[List[int], List[Symboli
     valid_shape: List[int] = None
         Optional parameter to retrieve the effective data size of the schematic block.
         It is required that thr offsets are smaller than the shape of the input.
-    
+
     Returns
     -------
     Tensor
@@ -1312,8 +1314,8 @@ def view(input: Tensor, shape: List[int], offsets: Union[List[int], List[Symboli
     x = pto.tensor([4, 8], pto.DT_FP32)
     shape = [4, 4]
     offsets = [2, 4]
-    valid_shape = [2, 4]   
-    y = pto.view(x, shape, offsets, valid_shape=valid_shape) 
+    valid_shape = [2, 4]
+    y = pto.view(x, shape, offsets, valid_shape=valid_shape)
 
     Input x:[[1 1 2 2 3 3 4 4],
              [1 1 2 2 3 3 4 4],
@@ -1322,7 +1324,7 @@ def view(input: Tensor, shape: List[int], offsets: Union[List[int], List[Symboli
     Output y:[[5 5 6 6],
               [5 5 6 6],
               [0 0 0 0],
-              [0 0 0 0]]  
+              [0 0 0 0]]
     """
     if valid_shape is None:
         return pto_impl.view(input, shape, offsets)
@@ -1339,9 +1341,9 @@ def maximum(input: Tensor, other: Tensor) -> Tensor:
     ----------
     input : Tensor
         The first input tensor.
-    other : Tensor 
+    other : Tensor
         The second input tensor.
-    
+
     Returns
     -------
     Tensor

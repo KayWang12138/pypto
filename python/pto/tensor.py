@@ -9,7 +9,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 import typing
-from typing import Union, List, Optional
+from typing import Union, List, Optional, Tuple
 
 import pto
 from pto import pto_impl
@@ -140,7 +140,7 @@ class Tensor:
             shapes.append(int(stop - start)) # shape should be concrete
         return offsets, shapes
 
-    def __getitem__(self, key):
+    def __getitem__(self, key, *, valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None):
         """
         Get tensor data by index or slice.
 
@@ -175,7 +175,7 @@ class Tensor:
                 return SymbolicScalar.from_base(pto_impl.GetTensorData(self._base, to_syms(key)))
             elif all([isinstance(k, slice) for k in key]):
                 offsets, shapes = self._get_view_offset_shape(key, self.shape)
-                return pto.view(self, shapes, offsets)
+                return pto.view(self, shapes, offsets, valid_shape=valid_shape)
             else:
                 raise ValueError("tuple key must be int or SymbolicScalar")
         else:
@@ -190,44 +190,44 @@ class Tensor:
         obj._base = base
         return obj
 
-    def add(self, other: 'Tensor | Element') -> 'Tensor':
+    def add(self, other: 'Tensor | int | float') -> 'Tensor':
         return pto.add(self, other)
 
-    def __add__(self, other: 'Tensor | Element') -> 'Tensor':
+    def __add__(self, other: 'Tensor | int | float') -> 'Tensor':
         return self.add(other)
 
-    def __radd__(self, other: 'Tensor | Element') -> 'Tensor':
+    def __radd__(self, other: 'Tensor | int | float') -> 'Tensor':
         return self.add(other)
 
-    def __iadd__(self, other: 'Tensor | Element') -> 'Tensor':
+    def __iadd__(self, other: 'Tensor | int | float') -> 'Tensor':
         return self.add(other)
 
-    def sub(self, other: 'Tensor | Element') -> 'Tensor':
+    def sub(self, other: 'Tensor | int | float') -> 'Tensor':
         return pto.sub(self, other)
 
-    def __sub__(self, other: 'Tensor | Element') -> 'Tensor':
+    def __sub__(self, other: 'Tensor | int | float') -> 'Tensor':
         return self.sub(other)
 
-    def __isub__(self, other: 'Tensor | Element') -> 'Tensor':
+    def __isub__(self, other: 'Tensor | int | float') -> 'Tensor':
         return self.sub(other)
 
-    def mul(self, other: 'Tensor | Element') -> 'Tensor':
+    def mul(self, other: 'Tensor | int | float') -> 'Tensor':
         return pto.mul(self, other)
 
-    def __mul__(self, other: 'Tensor | Element') -> 'Tensor':
+    def __mul__(self, other: 'Tensor | int | float') -> 'Tensor':
         return self.mul(other)
 
-    def __imul__(self, other: 'Tensor | Element') -> 'Tensor':
+    def __imul__(self, other: 'Tensor | int | float') -> 'Tensor':
         return self.mul(other)
 
-    def div(self, other: 'Tensor | Element') -> 'Tensor':
+    def div(self, other: 'Tensor | int | float') -> 'Tensor':
 
         return pto.div(self, other)
 
-    def __truediv__(self, other: 'Tensor | Element') -> 'Tensor':
+    def __truediv__(self, other: 'Tensor | int | float') -> 'Tensor':
         return self.div(other)
 
-    def __itruediv__(self, other: 'Tensor | Element') -> 'Tensor':
+    def __itruediv__(self, other: 'Tensor | int | float') -> 'Tensor':
         return self.div(other)
 
     def greater(self, other: 'Tensor'):
@@ -247,7 +247,7 @@ class Tensor:
 
     def matmul(self, mat2, out_dtype, *, a_trans=False, b_trans=False, c_matrix_nz=False) -> 'Tensor':
         return pto.matmul(self, mat2, out_dtype, a_trans=a_trans, b_trans=b_trans, c_matrix_nz=c_matrix_nz)
-    
+
     def assemble(self, input: 'Tensor', offsets: List[Union[int, SymbolicScalar]]) -> None:
         """
         Assemble a small Tensor into a larger Tensor based on specified offsets.
@@ -263,26 +263,26 @@ class Tensor:
         """
         pto.assemble(input, offsets, self)
 
-    def reshape(self, shape: List[int], *, valid_shape: List[Union[int, SymbolicScalar]] = None) -> 'Tensor':
+    def reshape(self, shape: List[int], *, valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None) -> 'Tensor':
         return pto.reshape(self, shape, valid_shape=valid_shape)
 
     def unsqueeze(self, dim: int) -> 'Tensor':
         return pto.unsqueeze(self, dim)
-    
+
     def view(self, shape: List[int], offsets: List[int]) -> 'Tensor':
         return pto.view(self, shape, offsets)
-    
+
     def sin(self) -> 'Tensor':
         return pto.sin(self)
-    
+
     def cos(self) -> 'Tensor':
         return pto.cos(self)
 
     def sigmoid(self) -> 'Tensor':
         return pto.sigmoid(self)
-    
+
     def softmax(self, dim: int) -> 'Tensor':
-        return pto.softmax(self, dim)   
+        return pto.softmax(self, dim)
 
     def maximum(self, other: 'Tensor') -> 'Tensor':
         return pto.maximum(self, other)
@@ -290,7 +290,7 @@ class Tensor:
     def where(self, condition: 'Tensor', y: Union['Tensor', float]) -> 'Tensor':
         return pto.where(condition, self, y)
 
-    def topk(self, k: int, dim: Optional[int] = None, largest: bool = True) -> 'Tensor':
+    def topk(self, k: int, dim: Optional[int] = None, largest: bool = True) -> Tuple['Tensor', 'Tensor']:
         return pto.topk(self, k, dim, largest)
 
     def exp(self) -> 'Tensor':
@@ -326,6 +326,17 @@ class Tensor:
     def scatter(self, dim: int, index: 'Tensor', src: 'Tensor') -> 'Tensor':
         return pto.scatter(self, dim, index, src)
 
-def mark_input_dynamic(tensor: 'Tensor', axis: int):
-    pto_impl.MarkInputDynamic(tensor._base, axis)
+def mark_dynamic(tensor: 'Tensor', axis: int):
+    """
+    Mark a tensor axis as dynamic.
+
+    Args:
+        tensor (Tensor): The tensor to be marked as dynamic.
+        axis (int): The axis to be marked as dynamic.
+
+    Notes:
+        The shape acquired before `mark_dynamic` will not be updated. It is
+        recommended to call `mark_dynamic` before the shaped is used.
+    """
+    pto_impl.MarkDynamic(tensor._base, axis)
 

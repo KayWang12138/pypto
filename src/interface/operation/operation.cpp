@@ -501,9 +501,13 @@ std::shared_ptr<Operation> Operation::LoadJson(
 std::string Operation::DumpSSA(const std::string &prefix) const {
     std::ostringstream oss;
 
+    if (location_) {
+        oss << prefix << "/* " << location_->ToString() << " */\n";
+    }
+
     if (GetCommentList().size() != 0) {
         for (auto &c : GetCommentList()) {
-            oss << prefix << "/*" + c + "*/\n";
+            oss << prefix << "/* " + c + " */\n";
         }
     }
 
@@ -532,7 +536,7 @@ std::string Operation::DumpSSA(const std::string &prefix) const {
 }
 
 std::string Operation::Dump() const {
-    return location_ ? location_->ToString() + '\n' + DumpSSA() : DumpSSA();
+    return DumpSSA();
 }
 
 void Operation::ReplaceInputOperand(

@@ -20,12 +20,13 @@
 
 #include "interface/interpreter/raw_tensor_data.h"
 #include "device_launcher_binding.h"
+#include "emulation_launcher.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 
 namespace pypto {
-    
+
 #ifdef BUILD_WITH_CANN
 std::string DeviceRunOnceDataFromHost(
     const std::vector<DeviceTensorData> &inputs, const std::vector<DeviceTensorData> &outputs) {
@@ -54,7 +55,11 @@ std::string DeviceRunOnceDataFromHost(
         ProgramData::GetInstance().AppendOutput(rawData);
     }
 
-    if (DeviceRunOnce(Program::GetInstance().GetLastFunction()) != 0) {
+    if (config::GetOption<bool>(PROFILE_ENABLE) && EmulationLauncher::EmulationRunOnce(func) != 0) {
+        return "emulation run failed";
+    }
+
+    if (DeviceRunOnce(func) != 0) {
         return "device run failed";
     }
 
@@ -95,6 +100,11 @@ std::string OperatorDeviceRunOnceDataFromDevice(py::int_ pythonOperatorPython,
     auto outputSize = attr->startArgsOutputLogicalTensorList.size();
     if (inputSize != inputs.size() || outputSize != outputs.size()) {
         return "mismatch input/output";
+    }
+
+    if (config::GetOption<bool>(PROFILE_ENABLE) &&
+        EmulationLauncher::EmulationLaunchDeviceTensorData(func, inputs, outputs) != 0) {
+        return "emulation run failed";
     }
 
     auto incomingStream = static_cast<uintptr_t>(incomingStreamPython);

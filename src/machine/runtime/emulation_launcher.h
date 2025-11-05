@@ -75,10 +75,10 @@ struct EmulationMemoryUtils {
 
 class EmulationLauncher {
 public:
-    static int EmulationLaunchOnceWithHostTensorData(
-            Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
-            const DeviceLauncherConfig &config = DeviceLauncherConfig());
-
+    static int EmulationLaunchOnceWithHostTensorData(Function *function, const std::vector<DeviceTensorData> &inputList,
+        const std::vector<DeviceTensorData> &outputList, const DeviceLauncherConfig &config = DeviceLauncherConfig());
+    static int EmulationLaunchDeviceTensorData(Function *function, const std::vector<DeviceTensorData> &inputList,
+        const std::vector<DeviceTensorData> &outputList, const DeviceLauncherConfig &config = DeviceLauncherConfig());
     static int EmulationRunOnce(Function *function, const DeviceLauncherConfig &config = DeviceLauncherConfig());
 
     static int BuildControlFlowCacheWithEmulationTensorData(

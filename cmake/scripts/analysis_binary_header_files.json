@@ -121,7 +121,8 @@
       "Area": [
         "src/interface/",
         "src/passes/",
-        "src/machine/"
+        "src/machine/",
+        "src/cost_model/simulation"
       ],
       "Include": [
         "include/"

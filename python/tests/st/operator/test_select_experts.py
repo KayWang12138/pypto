@@ -31,9 +31,9 @@ def select_experts(in_tensors, out_tensors, renormalize_flag):
     weight_k = out_tensors[1]
 
     # 3. 设置axis=0为动态shape
-    pto.mark_input_dynamic(logits_input, 0)
-    pto.mark_input_dynamic(ids_k, 0)
-    pto.mark_input_dynamic(weight_k, 0)
+    pto.mark_dynamic(logits_input, 0)
+    pto.mark_dynamic(ids_k, 0)
+    pto.mark_dynamic(weight_k, 0)
 
     # 4. 得到动态tensor的shape
     bs = logits_input.shape[0]
@@ -126,7 +126,7 @@ def test_select_experts():
         assert_allclose(np.array(topk_ids.cpu().flatten().tolist()),
                     np.array(topk_ids_tensor_list),
                     rtol=5e-3, atol=5e-3)
-        
+
         # weight result
         assert_allclose(np.array(topk_weights.cpu().flatten().tolist()),
                     np.array(topk_weight_2_tensor_list),

@@ -553,7 +553,6 @@ TEST_F(DynamicOpsTest, GetTensorData) {
     config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_CHECK_PRECISION, true);
     config::SetPlatformConfig(KEY_VERIFY_PASS, true);
     config::SetPlatformConfig(KEY_VERIFY_PASS_CHECK_PRECISION, true);
-    config::SetPlatformConfig(KEY_VERIFY_DUMP_PERF_DATA, true);
 
     Tensor t0(DT_FP32, {32, 32}, "t0");
     Tensor out(DT_FP32, {64, 64}, "out");
@@ -574,4 +573,57 @@ TEST_F(DynamicOpsTest, GetTensorData) {
             Assemble(d, {index * i, 32}, out);
         }
     }
+}
+
+static auto Random(DataType t, const std::vector<int64_t> &shape) {
+    auto data = std::make_shared<LogicalTensorData>(std::make_shared<RawTensorData>(t, shape));
+    calc::Random(data);
+    return data;
+}
+
+static void TestMatmul(DataType inType, DataType outType) {
+config::SetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, true);
+    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);
+    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_CHECK_PRECISION, true);
+    config::SetPlatformConfig(KEY_VERIFY_PASS, true);
+    config::SetPlatformConfig(KEY_VERIFY_PASS_CHECK_PRECISION, true);
+
+    Tensor t0(inType, {64, 256}, "t0");
+    Tensor t1(inType, {256, 64}, "t1");
+    Tensor out(outType, {64, 64}, "out");
+
+    auto d0 = Random(inType, t0.GetShape());
+    auto d1 = Random(inType, t1.GetShape());
+    auto out0 = Random(outType, out.GetShape());
+    auto golden = Random(outType, out.GetShape());
+    calc::MatMul(golden, d0, d1);
+
+    ProgramData::GetInstance().PrepareData({d0->GetData(), d1->GetData()}, {out0->GetData()}, {golden->GetData()});
+
+    FUNCTION("main", {t0, t1}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            out = Matrix::Matmul<false, false>(outType, t0, t1);
+        }
+    }
+}
+
+TEST_F(DynamicOpsTest, MatmulFP16FP16) {
+    TestMatmul(DT_FP16, DT_FP16);
+}
+
+TEST_F(DynamicOpsTest, MatmulBF16BF16) {
+    TestMatmul(DT_BF16, DT_BF16);
+}
+
+TEST_F(DynamicOpsTest, MatmulFP16FP32) {
+    TestMatmul(DT_FP16, DT_FP32);
+}
+
+TEST_F(DynamicOpsTest, MatmulBF16FP32) {
+    TestMatmul(DT_BF16, DT_FP32);
+}
+
+TEST_F(DynamicOpsTest, MatmulFP32FP32) {
+    TestMatmul(DT_FP32, DT_FP32);
 }

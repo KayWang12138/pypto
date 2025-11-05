@@ -84,6 +84,7 @@ std::string SourceLocation::GetFileName() const {
     return fname_;
 }
 
+bool SourceLocation::isCppMode_ = true;
 std::mutex SourceLocation::mutex;
 std::stack<std::shared_ptr<SourceLocation>> SourceLocation::callStack;
 std::unordered_set<uint64_t> SourceLocation::pcSet;

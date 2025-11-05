@@ -67,11 +67,20 @@ struct DevTensorData {
 };
 
 struct DevStartArgsBase {
-    __gm__ DevTensorData *inputTensorList;
+    __gm__ DevTensorData *devTensorList;
     uint64_t inputTensorSize;
-    __gm__ DevTensorData *outputTensorList;
     uint64_t outputTensorSize;
     uint64_t *hcclContextAddr;
+
+#ifdef __TILE_FWK_HOST__
+    int GetInputTensorSize() const { return inputTensorSize; }
+    const DevTensorData &GetInputTensor(int index) const { return devTensorList[index]; }
+    DevTensorData &GetInputTensor(int index) { return devTensorList[index]; }
+
+    int GetOutputTensorSize() const { return outputTensorSize; }
+    const DevTensorData &GetOutputTensor(int index) const { return devTensorList[index + inputTensorSize]; }
+    DevTensorData &GetOutputTensor(int index) { return devTensorList[index + inputTensorSize]; }
+#endif
 };
 
 struct DevRawTensorDesc {

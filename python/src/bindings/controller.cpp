@@ -44,6 +44,9 @@ void bind_controller_config(py::module &m) {
         "SetOption", [](const std::string &key, bool value) { config::SetOption(key, value); }, py::arg("key"),
         py::arg("value"));
     m.def(
+        "SetOption", [](const std::string &key, int64_t value) { config::SetOption(key, value); }, py::arg("key"),
+        py::arg("value"));
+    m.def(
         "SetOption", [](const std::string &key, const std::vector<int64_t> &value) { config::SetOption(key, value); },
         py::arg("key"), py::arg("value"));
     m.def(
@@ -229,6 +232,10 @@ void bind_controller_utils(py::module &m) {
     m.def("Dump", []() { return Program::GetInstance().Dump(); });
     m.def("BytesOf", [](DataType t) { return BytesOf(t); });
     m.def("Reset", []() { Program::GetInstance().Reset(); });
+    m.def("SetLocation", [](const std::string &fname, int lineno) {
+        SourceLocation::SetLocation(fname, lineno);
+    }, py::arg("fname"), py::arg("lineno"));
+    m.def("ClearLocation", &SourceLocation::ClearLocation);
 }
 
 void bind_controller(py::module &m) {
@@ -238,5 +245,8 @@ void bind_controller(py::module &m) {
     bind_controller_function(m);
     bind_controller_loop(m);
     bind_controller_utils(m);
+
+    // disable cpp mode
+    SourceLocation::SetCppMode(false);
 }
 } // namespace pypto

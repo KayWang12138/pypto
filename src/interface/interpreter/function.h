@@ -32,8 +32,8 @@ struct FunctionIODataPair {
         std::vector<std::shared_ptr<LogicalTensorData>> outcastDataViewList_)
         : incastDataViewList(incastDataViewList_), outcastDataViewList(outcastDataViewList_) {}
 
-     std::vector<std::shared_ptr<LogicalTensorData>> &GetIncastDataViewList() { return incastDataViewList; }
-     std::vector<std::shared_ptr<LogicalTensorData>> &GetOutcastDataViewList() { return outcastDataViewList; }
+    std::vector<std::shared_ptr<LogicalTensorData>> &GetIncastDataViewList() { return incastDataViewList; }
+    std::vector<std::shared_ptr<LogicalTensorData>> &GetOutcastDataViewList() { return outcastDataViewList; }
 
     // One tensor might occur in both incast and outcast simultaneously for multiple times, so we must copy
     // simultaneously
@@ -146,7 +146,8 @@ struct FunctionFrame {
     }
 
     std::shared_ptr<LogicalTensorData> AllocateDataView(const std::shared_ptr<LogicalTensor> &tensor,
-        const std::vector<int64_t> &offset, const std::vector<int64_t> &validShape, const std::vector<int64_t> &rawShape) {
+        const std::vector<int64_t> &offset, const std::vector<int64_t> &validShape,
+        const std::vector<int64_t> &rawShape, DataType dtype) {
         if (tensorDataViewDict.count(tensor)) {
             return tensorDataViewDict[tensor];
         }
@@ -160,7 +161,7 @@ struct FunctionFrame {
             if (spillRawTensorDict.count(tensor)) {
                 raw = spillRawTensorDict[tensor];
             } else {
-                raw = std::make_shared<RawTensor>(raw->GetDataType(), rawShape);
+                raw = std::make_shared<RawTensor>(dtype, rawShape);
                 DoAddSpillRawTensor(tensor, raw);
             }
             isSpilled = true;
@@ -169,7 +170,7 @@ struct FunctionFrame {
         if (rawTensorDataDict.count(raw)) {
             rawData = rawTensorDataDict[raw];
         } else {
-            rawData = std::make_shared<RawTensorData>(raw->GetDataType(), rawShape);
+            rawData = std::make_shared<RawTensorData>(dtype, rawShape);
             rawData->resize(rawData->GetElementSize() * rawData->GetSize());
             DoAddRawTensorDataView(raw, rawData);
         }
@@ -368,12 +369,17 @@ struct FunctionInterpreter {
     }
 
     std::shared_ptr<LogicalTensorData> AllocateDataView(
-        FunctionFrame &frame, const std::shared_ptr<LogicalTensor> &tensor) {
+        FunctionFrame &frame, const std::shared_ptr<LogicalTensor> &tensor, DataType dtype) {
         std::vector<int64_t> offset = EvaluateOffset(tensor->GetOffset(), tensor->GetDynOffset());
         auto validShape = EvaluateValidShape(tensor->GetDynValidShape());
         auto rawShape = EvaluateValidShape(tensor->GetRawTensor()->GetDynRawShape());
-        auto ret = frame.AllocateDataView(tensor, offset, validShape, rawShape);
+        auto ret = frame.AllocateDataView(tensor, offset, validShape, rawShape, dtype);
         return ret;
+    }
+
+    std::shared_ptr<LogicalTensorData> AllocateDataView(
+        FunctionFrame &frame, const std::shared_ptr<LogicalTensor> &tensor) {
+        return AllocateDataView(frame, tensor, tensor->GetRawTensor()->GetDataType());
     }
 
     void ExecuteOpCallLeaf(ExecuteOperationContext *ctx) {
@@ -415,7 +421,16 @@ struct FunctionInterpreter {
                 oOpDataList.push_back(iOpDataList[index]);
                 frame.AddDataView(oop, oOpDataList.back());
             } else {
-                oOpDataList.push_back(AllocateDataView(frame, oop));
+                if (IsMatmulOpCode(op->GetOpcode())) {
+                    auto dtype = oop->GetRawTensor()->GetDataType();
+                    // mm output dtype promotion
+                    if ((dtype == DataType::DT_FP16 || dtype == DataType::DT_BF16)) {
+                        dtype = DataType::DT_FP32;
+                    }
+                    oOpDataList.push_back(AllocateDataView(frame, oop, dtype));
+                } else {
+                    oOpDataList.push_back(AllocateDataView(frame, oop));
+                }
             }
         }
         ExecuteOperationContext ctx = {&frame, {}, op, &iOpDataList, {}, &oOpDataList};
@@ -624,20 +639,20 @@ struct FunctionInterpreter {
     void DumpOperationTensor(
             Operation *op,
             const std::vector<std::shared_ptr<LogicalTensorData>> *ooperandDataViewList,
-            const std::vector<std::shared_ptr<LogicalTensorData>> *ioperandDataViewList);
+        const std::vector<std::shared_ptr<LogicalTensorData>> *ioperandDataViewList);
     void DumpTensorBinary(
             const std::shared_ptr<LogicalTensor> &tensor,
             const std::shared_ptr<LogicalTensorData> &dataView);
     void DumpTensorList(
             const std::string &name,
             const std::vector<std::shared_ptr<LogicalTensor>> *tensorList,
-            const std::vector<std::shared_ptr<LogicalTensorData>> *dataViewList);
+        const std::vector<std::shared_ptr<LogicalTensorData>> *dataViewList);
     void DumpFunctionHead(Function *func);
     void DumpBegin();
     void DumpEnd();
     void DumpPassTensorDiff(
             const std::shared_ptr<FunctionCaptureExecution> &captureExecution,
-            const std::shared_ptr<FunctionCaptureExecution> &captureGolden);
+        const std::shared_ptr<FunctionCaptureExecution> &captureGolden);
     std::string GetDumpFilePath(const std::string &lv0, const std::string &lv1, const std::string &filename);
 
     std::string GetDumpFrameDirName() const {
@@ -726,11 +741,11 @@ struct FunctionInterpreter {
 
     std::shared_ptr<FunctionControlFlowExecution> RunForControlFlow(
             const std::string &funcKey,
-            std::vector<std::shared_ptr<LogicalTensorData>> goldenDataViewList,
-            const std::unordered_map<int, TileOpFormat> &slotTileOpFormatDict,
-            const std::unordered_map<int, std::shared_ptr<LogicalTensorData>> &slotDataViewDict,
-            const std::unordered_set<int> &outputSlotSet,
-            const std::unordered_map<std::string, ScalarImmediateType> &controlFlowSymbolDict) {
+        std::vector<std::shared_ptr<LogicalTensorData>> goldenDataViewList,
+        const std::unordered_map<int, TileOpFormat> &slotTileOpFormatDict,
+        const std::unordered_map<int, std::shared_ptr<LogicalTensorData>> &slotDataViewDict,
+        const std::unordered_set<int> &outputSlotSet,
+        const std::unordered_map<std::string, ScalarImmediateType> &controlFlowSymbolDict) {
         execDumpFuncKey = funcKey;
         std::shared_ptr<FunctionControlFlowExecution> execution = std::make_shared<FunctionControlFlowExecution>();
 

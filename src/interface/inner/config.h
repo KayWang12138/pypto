@@ -48,6 +48,7 @@ constexpr const char *WORKSPACE_RECYCLE_PERIOD = "workspace_recycle_period";
 constexpr const char *ESTIMATED_STITCH_TASK_MAX_LOOP_NUM = "estimated_stitch_task_max_loop_num";
 constexpr const char *FIRST_STITCH_TASK_LOOP_NUM = "first_stitch_task_loop_num";
 constexpr const char *SUBSEQ_STITCH_TASK_INCR_LOOP_NUM = "subseq_stitch_task_incr_loop_num";
+constexpr const char *PROFILE_ENABLE = "profile_enable";
 
 constexpr const char *CFGCACHE_DEVICE_TASK_NUM = "cfgcache_device_task_num";
 constexpr const char *CFGCACHE_ROOT_TASK_NUM = "cfgcache_root_task_num";

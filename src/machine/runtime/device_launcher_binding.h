@@ -36,6 +36,13 @@ public:
     uintptr_t GetDevAddr() const { return devAddr_; }
     const std::vector<int64_t> &GetShape() const { return shape_; }
     DataType GetDataType() const { return dtype_; }
+    int64_t GetDataSize() const {
+        int64_t size = BytesOf(dtype_);
+        for (auto dim : shape_) {
+            size *= dim;
+        }
+        return size;
+    }
 private:
     DataType dtype_;
     uintptr_t devAddr_;

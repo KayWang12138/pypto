@@ -19,14 +19,8 @@
 #include <thread>
 #include "machine/host/backend.h"
 
-extern "C" int __attribute__((weak)) DynTileFwkBackendKernelServer(void *targ) {
-    (void)targ;
-    return -1;
-};
-extern "C" int __attribute__((weak)) DynTileFwkBackendKernelServerInit(void *targ) {
-    (void)targ;
-    return -1;
-};
+extern "C" int DynTileFwkBackendKernelServer(void *targ);
+extern "C" int DynTileFwkBackendKernelServerInit(void *targ);
 
 namespace npu::tile_fwk::dynamic {
 
@@ -135,6 +129,35 @@ int EmulationLauncher::BuildControlFlowCache(Function *function, const DeviceLau
     return BuildControlFlowCache(devProgData, config);
 }
 
+static std::vector<DeviceTensorData> toHostTensorData(const std::vector<DeviceTensorData> &devDataList, bool isInput) {
+    std::vector<DeviceTensorData> hostDataList;
+    for (auto &devData : devDataList) {
+        auto size = devData.GetDataSize();
+        void *ptr = malloc(size);
+        if (isInput) {
+            rtMemcpy(ptr, size, (void *)devData.GetDevAddr(), size, RT_MEMCPY_DEVICE_TO_HOST);
+        }
+        hostDataList.emplace_back(devData.GetDataType(), (uintptr_t)ptr, devData.GetShape());
+    }
+    return hostDataList;
+}
+
+static void freeHostTensorData(const std::vector<DeviceTensorData> &hostDataList) {
+    for (auto &hostData : hostDataList) {
+        free((void *)hostData.GetDevAddr());
+    }
+}
+
+int EmulationLauncher::EmulationLaunchDeviceTensorData(Function *function,
+    const std::vector<DeviceTensorData> &inDevList, const std::vector<DeviceTensorData> &outDevList,
+    const DeviceLauncherConfig &config) {
+    auto inList = toHostTensorData(inDevList, true);
+    auto outList = toHostTensorData(outDevList, false);
+    int rc = EmulationLaunchOnceWithHostTensorData(function, inList, outList, config);
+    freeHostTensorData(inList);
+    freeHostTensorData(outList);
+    return rc;
+}
 }
 
 #endif

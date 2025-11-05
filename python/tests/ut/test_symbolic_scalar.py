@@ -13,16 +13,14 @@
 import pto
 
 
-def test_init_symbolic_scalar_no_args():
-    scalar = pto.symbolic_scalar()
-
-    assert scalar.is_concrete() == False
-
-
 def test_init_symbolic_scalar_value_arg():
     expected_value = 123
     scalar = pto.symbolic_scalar(expected_value)
 
+    assert scalar.is_concrete() == True
+    assert scalar.concrete() == expected_value
+
+    scalar = pto.symbolic_scalar(scalar)
     assert scalar.is_concrete() == True
     assert scalar.concrete() == expected_value
 
@@ -317,3 +315,9 @@ def test_symbolic_scalar_comp_op():
     assert (6 <= a).concrete() == 1
     assert (6 > a).concrete() == 0
     assert (6 >= a).concrete() == 1
+
+
+def test_symbolic_scalar_issue36():
+    b = pto.symbolic_scalar('b')
+    a = (b >= 2) * (b < 8)
+    assert str(a) == '((b>=2)*(b<8))'

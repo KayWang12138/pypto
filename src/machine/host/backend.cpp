@@ -348,7 +348,7 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
 
         expressionOss << "\n/* Output tensor list */\n";
         for (size_t i = 0; i < outputNameList.size(); i++) {
-            expressionOss << "#define " << AddArgPrefix(outputNameList[i]) << " " << i << "\n";
+            expressionOss << "#define " << AddArgPrefix(outputNameList[i]) << " " << i + inputNameList.size() << "\n";
         }
 
         controlFlowOss << "#define LOOP(idx, b, e, s) for (uint64_t idx = (b), idxEnd = (e), idxStep = (s); idx < idxEnd; idx += idxStep)\n"

@@ -94,17 +94,17 @@ int64_t RuntimeNe(int64_t input1, int64_t input2) {
 }
 
 #define RUNTIME_GetInputShapeDimSize(inputIndex) \
-    RuntimeGetInputShapeDimSize(&(startArgs)->inputTensorList[(inputIndex)])
+    RuntimeGetInputShapeDimSize(&(startArgs)->devTensorList[(inputIndex)])
 #define RUNTIME_GetInputShapeDim(inputIndex, n) \
-    RuntimeGetInputShapeDim(&(startArgs)->inputTensorList[(inputIndex)], (n))
+    RuntimeGetInputShapeDim(&(startArgs)->devTensorList[(inputIndex)], (n))
 #define RUNTIME_GetInputDataInt32Dim1(inputIndex, off0) \
-    RuntimeGetInputDataInt32Dim1(&(startArgs)->inputTensorList[(inputIndex)], (off0))
+    RuntimeGetInputDataInt32Dim1(&(startArgs)->devTensorList[(inputIndex)], (off0))
 #define RUNTIME_GetInputDataInt32Dim2(inputIndex, off0, off1) \
-    RuntimeGetInputDataInt32Dim2(&(startArgs)->inputTensorList[(inputIndex)], (off0), (off1))
+    RuntimeGetInputDataInt32Dim2(&(startArgs)->devTensorList[(inputIndex)], (off0), (off1))
 #define RUNTIME_GetInputDataInt32Dim3(inputIndex, off0, off1, off2) \
-    RuntimeGetInputDataInt32Dim3(&(startArgs)->inputTensorList[(inputIndex)], (off0), (off1), (off2))
+    RuntimeGetInputDataInt32Dim3(&(startArgs)->devTensorList[(inputIndex)], (off0), (off1), (off2))
 #define RUNTIME_GetInputDataInt32Dim4(inputIndex, off0, off1, off2, off3) \
-    RuntimeGetInputDataInt32Dim4(&(startArgs)->inputTensorList[(inputIndex)], (off0), (off1), (off2), (off3))
+    RuntimeGetInputDataInt32Dim4(&(startArgs)->devTensorList[(inputIndex)], (off0), (off1), (off2), (off3))
 #define RUNTIME_IsLoopBegin(idx, begin) RuntimeIsLoopBegin((idx), (begin))
 #define RUNTIME_IsLoopEnd(idx, end) RuntimeIsLoopEnd((idx), (end))
 

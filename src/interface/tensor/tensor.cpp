@@ -212,6 +212,10 @@ uint64_t Tensor::Dim() const {
     }
 }
 
+bool Tensor::IsEmpty() const {
+    return storage_ == nullptr;
+}
+
 int32_t Tensor::GetShape(int axis) const {
     const size_t dimCount = storage_->shape.size();
     ASSERT(dimCount > 0) << "Tensor has no dimensions!";
@@ -258,7 +262,7 @@ const std::vector<SymbolicScalar>& npu::tile_fwk::GetInputShape(const Tensor &t)
 
 namespace npu::tile_fwk {
 
-void MarkInputDynamic(Tensor &t, int axis) {
+void MarkDynamic(Tensor &t, int axis) {
     auto storage = t.GetStorage(false);
     ASSERT(storage != nullptr) << "Invalid input tensor!";
 

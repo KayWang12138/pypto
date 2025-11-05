@@ -48,6 +48,7 @@ extern "C" {
 const char *Model();
 void Dump(std::ostream &os, LogicalTensorDataPtr self);
 
+void Random(LogicalTensorDataPtr out);
 bool AllClose(LogicalTensorDataPtr self, LogicalTensorDataPtr other, double atol = 1e-8, double rtol = 1e-5);
 void Cast(LogicalTensorDataPtr out, LogicalTensorDataPtr self, CastMode mode = CAST_NONE);
 void Exp(LogicalTensorDataPtr out, LogicalTensorDataPtr self);
@@ -62,7 +63,7 @@ void WhereSS(LogicalTensorDataPtr out, LogicalTensorDataPtr condition, const Ele
 void Ln(LogicalTensorDataPtr out, LogicalTensorDataPtr self);
 void LogicalNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self);
 void Range(LogicalTensorDataPtr out, const Element &start, const Element &end, const Element &step);
-void Compare(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, 
+void Compare(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other,
     CmpOperationType operation, CmpModeType mode);
 
 void AddS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false);
@@ -106,7 +107,7 @@ void ReduceAcc(LogicalTensorDataPtr out, const std::vector<LogicalTensorDataPtr>
 void Copy(LogicalTensorDataPtr out, LogicalTensorDataPtr self, bool trans = false);
 void ScatterUpdate(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index, int axis = -2,
     std::string cacheMode = "BSND", int blockSize = 1);
-void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index, const Element &src, 
+void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index, const Element &src,
     int axis, int reduce);
 void BitSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t axis, bool descending);
 void Gather(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices, int64_t axis);

@@ -261,28 +261,24 @@ inline std::string MemoryTypeToString(MemoryType mt) {
 }
 
 inline size_t BytesOf(DataType t) {
-    constexpr size_t HF4_DATA_WIDTH = 1;
-    constexpr size_t HF8_DATA_WIDTH = 1;
-    constexpr size_t BF16_DATA_WIDTH = 2;
-    constexpr size_t FP32_DATA_WIDTH = 4;
-    constexpr size_t INT64_DATA_WIDTH = 8;
     switch (t) {
         case DT_INT4:
-        case DT_HF4: return HF4_DATA_WIDTH; // 4bits still need 1 byte
+        case DT_HF4: return 1; // 4bits still need 1 byte
         case DT_INT8:
         case DT_UINT8:
         case DT_BOOL:
         case DT_FP8:
-        case DT_HF8: return HF8_DATA_WIDTH;
+        case DT_HF8: return 1;
         case DT_INT16:
         case DT_UINT16:
         case DT_FP16:
-        case DT_BF16: return BF16_DATA_WIDTH;
+        case DT_BF16: return 0x2;
         case DT_INT32:
         case DT_UINT32:
-        case DT_FP32: return FP32_DATA_WIDTH;
+        case DT_FP32: return 0x4;
+        case DT_DOUBLE:
         case DT_UINT64:
-        case DT_INT64: return INT64_DATA_WIDTH;
+        case DT_INT64: return 0x8;
         default: throw std::invalid_argument("Unknown DataType");
     }
 }

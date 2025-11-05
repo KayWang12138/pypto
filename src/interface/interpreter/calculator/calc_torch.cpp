@@ -104,6 +104,11 @@ bool AllClose(LogicalTensorDataPtr self, LogicalTensorDataPtr other, double atol
     return From(self).allclose(From(other), atol, rtol);
 }
 
+void Random(LogicalTensorDataPtr out) {
+    auto tout = From(out);
+    torch::rand_out(tout, tout.sizes());
+}
+
 void Exp(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto tout = From(out);
     torch::exp_out(tout, From(self));
@@ -781,7 +786,7 @@ void ScatterUpdate(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalT
 
 static const std::vector<std::string> scatterModeString = {"add", "multiply"};
 
-void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index, const Element &src, 
+void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index, const Element &src,
     int axis, int reduce) {
     auto output = From(out);
     auto inputSelf = From(self);

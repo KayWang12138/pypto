@@ -344,7 +344,7 @@ INLINE uint32_t GetTensorDataInt32(CoreFuncParam *ctx, uint64_t address) {
 #define RUNTIME_GetTensorDataInt32Dim5(index, ioType, ioTypeIndex, address, ...)    GetTensorDataInt32(param, address)
 
 #define RuntimeGetInputShapeDim(input, n) ((input)->shape.dim[(n)])
-#define RUNTIME_GetInputShapeDim(inputIndex, n) RuntimeGetInputShapeDim(&(RuntimeGetStartArgs(param))->inputTensorList[(inputIndex)], (n))
+#define RUNTIME_GetInputShapeDim(inputIndex, n) RuntimeGetInputShapeDim(&(RuntimeGetStartArgs(param))->devTensorList[(inputIndex)], (n))
 
 #define RUNTIME_COA_GET_PARAM_OFFSET(dim, base, idx)                                GET_PARAM_OFFSET_BY_IDX(param, 0, base, dim, idx)
 #define RUNTIME_COA_GET_PARAM_VALID_SHAPE(dim, base, idx)                           GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, base, dim, idx)
@@ -372,13 +372,13 @@ INLINE uint32_t GetTensorDataInt32(CoreFuncParam *ctx, uint64_t address) {
     (((int32_t *)(input)->address)[(((off0) * (input)->shape.dim[1] + (off1)) * (input)->shape.dim[2] + (off2)) * (input)->shape.dim[3] + (off3)])
 
 #define RUNTIME_GetInputDataInt32Dim1(inputIndex, off0) \
-    RuntimeGetInputDataInt32Dim1(&(RuntimeGetStartArgs(param))->inputTensorList[(inputIndex)], (off0))
+    RuntimeGetInputDataInt32Dim1(&(RuntimeGetStartArgs(param))->devTensorList[(inputIndex)], (off0))
 #define RUNTIME_GetInputDataInt32Dim2(inputIndex, off0, off1) \
-    RuntimeGetInputDataInt32Dim2(&(RuntimeGetStartArgs(param))->inputTensorList[(inputIndex)], (off0), (off1))
+    RuntimeGetInputDataInt32Dim2(&(RuntimeGetStartArgs(param))->devTensorList[(inputIndex)], (off0), (off1))
 #define RUNTIME_GetInputDataInt32Dim3(inputIndex, off0, off1, off2) \
-    RuntimeGetInputDataInt32Dim3(&(RuntimeGetStartArgs(param))->inputTensorList[(inputIndex)], (off0), (off1), (off2))
+    RuntimeGetInputDataInt32Dim3(&(RuntimeGetStartArgs(param))->devTensorList[(inputIndex)], (off0), (off1), (off2))
 #define RUNTIME_GetInputDataInt32Dim4(inputIndex, off0, off1, off2, off3) \
-    RuntimeGetInputDataInt32Dim4(&(RuntimeGetStartArgs(param))->inputTensorList[(inputIndex)], (off0), (off1), (off2), (off3))
+    RuntimeGetInputDataInt32Dim4(&(RuntimeGetStartArgs(param))->devTensorList[(inputIndex)], (off0), (off1), (off2), (off3))
 
 #define RUNTIME_TensorExtract(type, mem, dst, src) \
     do { \

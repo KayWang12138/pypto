@@ -766,6 +766,10 @@ public:
     void GetTensorDataRefreshIO(const GetTensorDataIODescDict &descDict);
     void UpdateTensorDataUsage(Operation &op);
 
+    void SetSourceLocation(std::shared_ptr<SourceLocation> sourceLocation) {
+        sourceLocation_ = sourceLocation;
+    }
+
 private:
     int functionMagic_{-1};
     std::string funcMagicName_; // Function name
@@ -825,6 +829,7 @@ private:
     static bool enableMagicLookupRecord_;
     static std::map<std::pair<int, int>, std::set<Operation *, LogicalTensor::CompareOp>> tensorAndSubgraphToProducer_;
     std::shared_ptr<Tensor> getTensorDataOutcast_;
+    std::shared_ptr<SourceLocation> sourceLocation_;
 
 private:
     unsigned long ComputeHashOrderless() const;

@@ -19,6 +19,7 @@ inline const char *Model() {
     return "nop";
 }
 inline void Dump(std::ostream &, LogicalTensorDataPtr) {}
+inline void Random(LogicalTensorDataPtr) {}
 inline bool AllClose(LogicalTensorDataPtr, LogicalTensorDataPtr, double, double) { return true; }
 
 inline void Cast(LogicalTensorDataPtr, LogicalTensorDataPtr, CastMode) {}

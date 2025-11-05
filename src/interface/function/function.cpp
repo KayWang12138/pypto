@@ -1194,8 +1194,8 @@ void Function::EraseOperations(bool eraseRelatedTensor, bool sorted) {
     std::unordered_set<LogicalTensorPtr> inOutCastSet(inCasts_.begin(), inCasts_.end());
     inOutCastSet.insert(outCasts_.begin(), outCasts_.end());
     std::vector<std::shared_ptr<Operation>> operations;
-    std::unordered_set<std::shared_ptr<LogicalTensor>> removeCandidiateTensor; 
-    std::unordered_set<std::shared_ptr<LogicalTensor>> removeProducerTensor; 
+    std::unordered_set<std::shared_ptr<LogicalTensor>> removeCandidiateTensor;
+    std::unordered_set<std::shared_ptr<LogicalTensor>> removeProducerTensor;
     for (auto &op : operations_) {
         if (!op->IsDeleted()) {
             operations.emplace_back(op);
@@ -1222,7 +1222,7 @@ void Function::EraseOperations(bool eraseRelatedTensor, bool sorted) {
             }
             if (tensorPtr->GetProducers().empty() && tensorPtr->GetConsumers().empty()) {
                 GetTensorMap().Erase(tensorPtr);
-            } 
+            }
             else if (removeProducerTensor.count(tensorPtr) > 0 && tensorPtr->GetProducers().empty()) {
                 GetTensorMap().Erase(tensorPtr);
                 for (auto &consumer : tensorPtr->GetConsumers()) {
@@ -1879,6 +1879,10 @@ Json Function::DumpJson(bool useTable) {
     funcDump["_sg_skip_partition"] = paramConfigs_.sgSkipPartition;
     funcDump["_total_subgraph_count"] = totalSubGraphCount_;
     funcDump["_ooo_preschedule_method"] = paramConfigs_.OoOPreScheduleMethod;
+    if (sourceLocation_ != nullptr) {
+        funcDump["file"] = sourceLocation_->GetFileName();
+        funcDump["line"] = sourceLocation_->GetLineno();
+    }
 
     if (useTable) {
         std::vector<std::pair<int, std::vector<int>>> incasts;

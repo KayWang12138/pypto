@@ -38,8 +38,12 @@ public:
 public:
     static void SetLocation(const void *pc) { callStack.push(GetLocation(reinterpret_cast<uint64_t>(pc))); }
     static void SetLocation(std::shared_ptr<SourceLocation> loc) { callStack.push(loc); }
+    static void SetLocation(const std::string &fname, int lineno) { callStack.push(std::make_shared<SourceLocation>(fname, lineno)); }
     static void ClearLocation() { callStack.pop(); }
     static auto GetLocation() { return callStack.size() > 0 ? callStack.top() : nullptr; }
+
+    static void SetCppMode(bool val) { isCppMode_ = val; }
+    static bool IsCppMode() { return isCppMode_; }
 
 private:
     static std::shared_ptr<SourceLocation> GetLocation(uint64_t pc) {
@@ -59,6 +63,7 @@ private:
     mutable std::string fname_;
     mutable int lineno_;
     uint64_t pc_;
+    static bool isCppMode_;
     static std::mutex mutex;
     static std::stack<std::shared_ptr<SourceLocation>> callStack;
     static std::unordered_set<uint64_t> pcSet;
@@ -69,8 +74,16 @@ using SourceLocationPtr = std::shared_ptr<SourceLocation>;
 
 struct SourceLocationHelper {
     // lr is return address, we need find caller address, minus 4 here
-    SourceLocationHelper(const void *lr) { SourceLocation::SetLocation((const uint8_t *)lr - 4); }
-    ~SourceLocationHelper() { SourceLocation::ClearLocation(); }
+    SourceLocationHelper(const void *lr) {
+        if (SourceLocation::IsCppMode()) {
+            SourceLocation::SetLocation((const uint8_t *)lr - 4);
+        }
+    }
+    ~SourceLocationHelper() {
+        if (SourceLocation::IsCppMode()) {
+            SourceLocation::ClearLocation();
+        }
+    }
 };
 
 #define DEFINE_SOURCE_LOCATION() auto __loc = SourceLocationHelper(__builtin_return_address(0))

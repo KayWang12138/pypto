@@ -193,9 +193,8 @@ public:
         auto workspaceAddr = ALIGN_UP((uint64_t)(outputPtr + outputSize), 512);
         auto devArgsSize = workspaceAddr - PtrToValue(kargs->workspace);
 
-        devArgs->inputTensorList = inputPtr;
+        devArgs->devTensorList = inputPtr;
         devArgs->inputTensorSize = static_cast<uint64_t>(inputSize);
-        devArgs->outputTensorList = outputPtr;
         devArgs->outputTensorSize = static_cast<uint64_t>(outputSize);
         devArgs->workspaceAddr = workspaceAddr;
         devArgs->devProg = devProg;

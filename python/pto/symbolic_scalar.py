@@ -31,7 +31,8 @@ def _expr_preprocess(s: str) -> str:
 
 class SymbolicScalar:
 
-    def __init__(self, arg0: Union[int, str, None] = None, arg1: Union[int, None] = None):
+    def __init__(self, arg0: Union[int, str, 'SymbolicScalar'],
+                 arg1: Union[int, None] = None):
         """
         Construct a SymbolicScalar.
 
@@ -40,7 +41,6 @@ class SymbolicScalar:
             arg1 Union[int, None]: The value of the symbolic scalar. Defaults to None.
 
         Examples:
-            >>> a = SymbolicScalar()
             >>> b = SymbolicScalar(10)
             >>> c = SymbolicScalar("x")
             >>> d = SymbolicScalar("x", 10)
@@ -52,8 +52,10 @@ class SymbolicScalar:
                 self._base = pto_impl.SymbolicScalar(arg0, arg1)
             else:
                 self._base = pto_impl.SymbolicScalar(arg0)
+        elif isinstance(arg0, SymbolicScalar):
+            self._base = arg0._base
         else:
-            self._base = pto_impl.SymbolicScalar()
+            raise ValueError(f"Invalid arguments")
 
     def is_immediate(self) -> bool:
         return self._base.IsImmediate()
@@ -105,13 +107,16 @@ class SymbolicScalar:
 
         if not out.is_concrete():
             expr = _expr_preprocess(str(out))
-            expr = sympy.simplify(expr)
-            if isinstance(expr, sympy.Integer):
-                out = SymbolicScalar(int(expr))
-            elif expr == sympy.true:
-                out = SymbolicScalar(1)
-            elif expr == sympy.false:
-                out = SymbolicScalar(0)
+            try:
+                expr = sympy.simplify(expr)
+                if isinstance(expr, sympy.Integer):
+                    out = SymbolicScalar(int(expr))
+                elif expr == sympy.true:
+                    out = SymbolicScalar(1)
+                elif expr == sympy.false:
+                    out = SymbolicScalar(0)
+            except Exception:
+                pass
         return out
 
     def __eq__(self, other: 'SymbolicScalar | int') -> 'SymbolicScalar':

@@ -251,6 +251,14 @@ public:
      */
     uint64_t Dim() const;
 
+     /**
+     * \brief Check if the tensor is empty.
+     *
+     * \return true : If the tensor is empty.
+     * \return false : Otherwise.
+     */
+    bool IsEmpty() const;
+
 private:
     std::shared_ptr<LogicalTensor> storage_;
     int index_{-1};
@@ -283,7 +291,7 @@ SymbolicScalar GetTensorData(const Tensor &t, const std::vector<SymbolicScalar> 
  * \param t input tensor
  * \param axis axis to mark as dynamic
  */
-void MarkInputDynamic(Tensor &t, int axis);
+void MarkDynamic(Tensor &t, int axis);
 
 /**
  * @brief Determines if the current iteration is the start of loop
