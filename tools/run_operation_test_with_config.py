@@ -14,7 +14,7 @@ import sys
 
 
 if __name__ == "__main__":
-    import_path = os.getcwd() + "/tests/st/operation/python/"
+    import_path = os.getcwd() + "/framework/tests/st/operation/python/"
     if import_path not in sys.path:
         sys.path.append(import_path)
     from operation_test_case_runner import parse_args, run_test_case

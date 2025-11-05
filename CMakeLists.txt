@@ -132,25 +132,20 @@ include(cmake/intf.cmake)
 # 编译流程
 ########################################################################################################################
 
-add_subdirectory(src)
+add_subdirectory(framework)
 add_subdirectory(python)
 
-if (ENABLE_TESTS)
-    enable_testing()
-    add_subdirectory(tests)
-endif ()
-
 if (ENABLE_FEATURE_PYTHON_FRONT_END)
-    install(DIRECTORY include/tileop/ DESTINATION pto/lib/include/tileop OPTIONAL)
+    install(DIRECTORY framework/include/tileop/ DESTINATION pto/lib/include/tileop OPTIONAL)
 
-    install(FILES include/tilefwk/aicpu_common.h        DESTINATION pto/lib/include/tilefwk)
-    install(FILES include/tilefwk/aicpu_distributed.h   DESTINATION pto/lib/include/tilefwk)
-    install(FILES include/tilefwk/aicpu_runtime.h       DESTINATION pto/lib/include/tilefwk)
+    install(FILES framework/include/tilefwk/aicpu_common.h        DESTINATION pto/lib/include/tilefwk)
+    install(FILES framework/include/tilefwk/aicpu_distributed.h   DESTINATION pto/lib/include/tilefwk)
+    install(FILES framework/include/tilefwk/aicpu_runtime.h       DESTINATION pto/lib/include/tilefwk)
 
-    install(FILES include/tilefwk/aicore_data.h         DESTINATION pto/lib/include/tilefwk)
-    install(FILES include/tilefwk/aicore_print.h        DESTINATION pto/lib/include/tilefwk)
-    install(FILES include/tilefwk/aicore_runtime.h      DESTINATION pto/lib/include/tilefwk)
-    install(FILES include/tilefwk/core_func_data.h      DESTINATION pto/lib/include/tilefwk)
+    install(FILES framework/include/tilefwk/aicore_data.h         DESTINATION pto/lib/include/tilefwk)
+    install(FILES framework/include/tilefwk/aicore_print.h        DESTINATION pto/lib/include/tilefwk)
+    install(FILES framework/include/tilefwk/aicore_runtime.h      DESTINATION pto/lib/include/tilefwk)
+    install(FILES framework/include/tilefwk/core_func_data.h      DESTINATION pto/lib/include/tilefwk)
 else ()
-    install(DIRECTORY include/                          DESTINATION lib/tilefwk/ OPTIONAL)
+    install(DIRECTORY framework/include/                          DESTINATION lib/tilefwk/ OPTIONAL)
 endif ()

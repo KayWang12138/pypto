@@ -2,70 +2,70 @@
   "libtile_fwk_operator.so": {
     "Source-Header": {
       "Self": [
-        "src/operator/"
+        "framework/src/operator/"
       ],
       "Area": [
-        "src/interface/",
-        "src/passes/"
+        "framework/src/interface/",
+        "framework/src/passes/"
       ],
       "Include": [
-        "include/"
+        "framework/include/"
       ],
       "WhiteList": [
       ],
       "BlackList": [
-        "include/tileop/"
+        "framework/include/tileop/"
       ]
     }
   },
   "libtile_fwk_interface.so": {
     "Source-Header": {
       "Self": [
-        "src/interface/"
+        "framework/src/interface/"
       ],
       "Area": [
-        "src/operator/",
-        "src/passes/"
+        "framework/src/operator/",
+        "framework/src/passes/"
       ],
       "Include": [
-        "include/"
+        "framework/include/"
       ],
       "WhiteList": [
       ],
       "BlackList": [
-        "include/tileop/"
+        "framework/include/tileop/"
       ]
     }
   },
   "libtile_fwk_passes.so": {
     "Source-Header": {
       "Self": [
-        "src/passes/"
+        "framework/src/passes/"
       ],
       "Area": [
-        "src/interface/"
+        "framework/src/interface/"
       ],
       "Include": [
-        "include/"
+        "framework/include/"
       ],
       "WhiteList": [
       ],
       "BlackList": [
-        "include/tileop/"
+        "framework/include/tileop/"
       ]
     }
   },
   "libtile_fwk_codegen.so": {
     "Source-Header": {
       "Self": [
-        "src/codegen/"
+        "framework/src/codegen/"
       ],
       "Area": [
-        "src/interface/",
-        "src/passes/"
+        "framework/src/interface/",
+        "framework/src/passes/"
       ],
       "Include": [
-        "include/"
+        "framework/include/"
       ],
       "WhiteList": [
       ],
@@ -76,18 +76,18 @@
   "libtile_fwk_compiler.so": {
     "Source-Header": {
       "Self": [
-        "src/machine/"
+        "framework/src/machine/"
       ],
       "Area": [
-        "src/interface/",
-        "src/passes/",
-        "src/codegen/"
+        "framework/src/interface/",
+        "framework/src/passes/",
+        "framework/src/codegen/"
       ],
       "Include": [
-        "include/"
+        "framework/include/"
       ],
       "WhiteList": [
-        "src/cost_model/simulation/"
+        "framework/src/cost_model/simulation/"
       ],
       "BlackList": [
       ]
@@ -96,16 +96,16 @@
   "libtile_fwk_executor.so": {
     "Source-Header": {
       "Self": [
-        "src/execute/"
+        "framework/src/execute/"
       ],
       "Area": [
-        "src/interface/",
-        "src/machine/",
-        "src/passes/",
+        "framework/src/interface/",
+        "framework/src/machine/",
+        "framework/src/passes/",
         "third_party/metadef/inc/"
       ],
       "Include": [
-        "include/"
+        "framework/include/"
       ],
       "WhiteList": [
       ],
@@ -116,16 +116,16 @@
   "libtile_fwk_runtime.so": {
     "Source-Header": {
       "Self": [
-        "tests/runtime/"
+        "framework/tests/runtime/"
       ],
       "Area": [
-        "src/interface/",
-        "src/passes/",
-        "src/machine/",
-        "src/cost_model/simulation"
+        "framework/src/interface/",
+        "framework/src/passes/",
+        "framework/src/machine/",
+        "framework/src/cost_model/simulation"
       ],
       "Include": [
-        "include/"
+        "framework/include/"
       ],
       "WhiteList": [
       ],
@@ -136,130 +136,130 @@
   "libtile_fwk_simulation.so": {
     "Source-Header": {
       "Self": [
-        "src/cost_model/simulation/"
+        "framework/src/cost_model/simulation/"
       ],
       "Area": [
-        "src/interface/",
-        "src/passes/"
+        "framework/src/interface/",
+        "framework/src/passes/"
       ],
       "Include": [
-        "include/"
+        "framework/include/"
       ],
       "WhiteList": [
       ],
       "BlackList": [
-        "include/tileop/"
+        "framework/include/tileop/"
       ]
     }
   },
   "libtile_fwk_simulation_pv.so": {
     "Source-Header": {
       "Self": [
-        "src/cost_model/simulation_pv/"
+        "framework/src/cost_model/simulation_pv/"
       ],
       "Area": [
-        "src/interface/",
-        "src/passes/",
-        "src/codegen/",
-        "src/cost_model/simulation/"
+        "framework/src/interface/",
+        "framework/src/passes/",
+        "framework/src/codegen/",
+        "framework/src/cost_model/simulation/"
       ],
       "Include": [
-        "include/"
+        "framework/include/"
       ],
       "WhiteList": [
       ],
       "BlackList": [
-        "include/tileop/"
+        "framework/include/tileop/"
       ]
     }
   },
   "libtile_fwk_simulation_ca.so": {
     "Source-Header": {
       "Self": [
-        "src/cost_model/simulation_ca/"
+        "framework/src/cost_model/simulation_ca/"
       ],
       "Area": [
-        "src/interface/",
-        "src/passes/",
-        "src/codegen/",
-        "src/cost_model/simulation/"
+        "framework/src/interface/",
+        "framework/src/passes/",
+        "framework/src/codegen/",
+        "framework/src/cost_model/simulation/"
       ],
       "Include": [
-        "include/"
+        "framework/include/"
       ],
       "WhiteList": [
       ],
       "BlackList": [
-        "include/tileop/"
+        "framework/include/tileop/"
       ]
     }
   },
   "libtile_fwk_stest_operator.a": {
     "Source-Header": {
       "Self": [
-        "tests/st/operator/"
+        "framework/tests/st/operator/"
       ],
       "Area": [
-        "src/operator/",
-        "src/interface/",
-        "src/passes/",
-        "src/machine/",
-        "tests/runtime/",
-        "tests/st/utils"
+        "framework/src/operator/",
+        "framework/src/interface/",
+        "framework/src/passes/",
+        "framework/src/machine/",
+        "framework/tests/runtime/",
+        "framework/tests/st/utils"
       ],
       "Include": [
-        "include/"
+        "framework/include/"
       ],
       "WhiteList": [
-        "src/cost_model/simulation/"
+        "framework/src/cost_model/simulation/"
       ],
       "BlackList": [
-        "include/tileop/"
+        "framework/include/tileop/"
       ]
     }
   },
   "libtile_fwk_stest_operation.a": {
     "Source-Header": {
       "Self": [
-        "tests/st/operation/"
+        "framework/tests/st/operation/"
       ],
       "Area": [
-        "src/interface/",
-        "src/passes/",
-        "src/codegen/",
-        "src/machine/",
-        "tests/runtime/",
-        "tests/st/utils"
+        "framework/src/interface/",
+        "framework/src/passes/",
+        "framework/src/codegen/",
+        "framework/src/machine/",
+        "framework/tests/runtime/",
+        "framework/tests/st/utils"
       ],
       "Include": [
-        "include/"
+        "framework/include/"
       ],
       "WhiteList": [
-        "src/cost_model/simulation/"
+        "framework/src/cost_model/simulation/"
       ],
       "BlackList": [
-        "include/tileop/"
+        "framework/include/tileop/"
       ]
     }
   },
   "libtile_fwk_stest_machine.a": {
     "Source-Header": {
       "Self": [
-        "tests/st/machine/"
+        "framework/tests/st/machine/"
       ],
       "Area": [
-        "src/operator/",
-        "src/interface/",
-        "src/passes/",
-        "src/machine/",
-        "tests/runtime/",
-        "tests/st/utils"
+        "framework/src/operator/",
+        "framework/src/interface/",
+        "framework/src/passes/",
+        "framework/src/machine/",
+        "framework/tests/runtime/",
+        "framework/tests/st/utils"
       ],
       "Include": [
-        "include/"
+        "framework/include/"
       ],
       "WhiteList": [
-        "src/cost_model/simulation/"
+        "framework/src/cost_model/simulation/"
       ],
       "BlackList": [
       ]
@@ -268,40 +268,40 @@
   "libtile_fwk_stest_simulation.a": {
     "Source-Header": {
       "Self": [
-        "tests/st/simulation/"
+        "framework/tests/st/simulation/"
       ],
       "Area": [
-        "src/operator/",
-        "src/interface/",
-        "src/passes/",
-        "src/machine/",
-        "tests/runtime/",
-        "tests/st/utils"
+        "framework/src/operator/",
+        "framework/src/interface/",
+        "framework/src/passes/",
+        "framework/src/machine/",
+        "framework/tests/runtime/",
+        "framework/tests/st/utils"
       ],
       "Include": [
-        "include/"
+        "framework/include/"
       ],
       "WhiteList": [
-        "src/cost_model/simulation/"
+        "framework/src/cost_model/simulation/"
       ],
       "BlackList": [
-        "include/tileop/"
+        "framework/include/tileop/"
       ]
     }
   },
   "libtile_fwk_utest_codegen.a": {
     "Source-Header": {
       "Self": [
-        "tests/ut/codegen/"
+        "framework/tests/ut/codegen/"
       ],
       "Area": [
-        "src/operator/",
-        "src/interface/",
-        "src/passes/",
-        "src/codegen/"
+        "framework/src/operator/",
+        "framework/src/interface/",
+        "framework/src/passes/",
+        "framework/src/codegen/"
       ],
       "Include": [
-        "include/"
+        "framework/include/"
       ],
       "WhiteList": [
       ],
@@ -312,76 +312,76 @@
   "libtile_fwk_utest_interface.a": {
     "Source-Header": {
       "Self": [
-        "tests/ut/interface/"
+        "framework/tests/ut/interface/"
       ],
       "Area": [
-        "src/interface/",
-        "src/passes/"
+        "framework/src/interface/",
+        "framework/src/passes/"
       ],
       "Include": [
-        "include/"
+        "framework/include/"
       ],
       "WhiteList": [
       ],
       "BlackList": [
-        "include/tileop/"
+        "framework/include/tileop/"
       ]
     }
   },
   "libtile_fwk_utest_operator.a": {
     "Source-Header": {
       "Self": [
-        "tests/ut/operator/"
+        "framework/tests/ut/operator/"
       ],
       "Area": [
-        "src/operator/",
-        "src/interface/",
-        "src/passes/"
+        "framework/src/operator/",
+        "framework/src/interface/",
+        "framework/src/passes/"
       ],
       "Include": [
-        "include/"
+        "framework/include/"
       ],
       "WhiteList": [
       ],
       "BlackList": [
-        "include/tileop/"
+        "framework/include/tileop/"
       ]
     }
   },
   "libtile_fwk_utest_passes.a": {
     "Source-Header": {
       "Self": [
-        "tests/ut/passes/"
+        "framework/tests/ut/passes/"
       ],
       "Area": [
-        "src/operator/",
-        "src/interface/",
-        "src/passes/"
+        "framework/src/operator/",
+        "framework/src/interface/",
+        "framework/src/passes/"
       ],
       "Include": [
-        "include/"
+        "framework/include/"
       ],
       "WhiteList": [
       ],
       "BlackList": [
-        "include/tileop/"
+        "framework/include/tileop/"
       ]
     }
   },
   "libtile_fwk_utest_machine.a": {
     "Source-Header": {
       "Self": [
-        "tests/ut/machine/"
+        "framework/tests/ut/machine/"
       ],
       "Area": [
-        "src/operator/",
-        "src/interface/",
-        "src/passes/",
-        "src/machine/",
-        "tests/runtime/"
+        "framework/src/operator/",
+        "framework/src/interface/",
+        "framework/src/passes/",
+        "framework/src/machine/",
+        "framework/tests/runtime/"
       ],
       "Include": [
-        "include/"
+        "framework/include/"
       ],
       "WhiteList": [
       ],
@@ -392,17 +392,17 @@
   "libtile_fwk_utest_execute.a": {
     "Source-Header": {
       "Self": [
-        "tests/ut/execute/"
+        "framework/tests/ut/execute/"
       ],
       "Area": [
-        "src/execute/",
-        "src/machine/",
-        "src/passes/",
-        "src/interface/",
+        "framework/src/execute/",
+        "framework/src/machine/",
+        "framework/src/passes/",
+        "framework/src/interface/",
         "third_party/metadef/inc/"
       ],
       "Include": [
-        "include/"
+        "framework/include/"
       ],
       "WhiteList": [
       ],
@@ -413,23 +413,23 @@
   "libtile_fwk_utest_simulation.a": {
     "Source-Header": {
       "Self": [
-        "tests/ut/simulation/"
+        "framework/tests/ut/simulation/"
       ],
       "Area": [
-        "src/operator/",
-        "src/interface/",
-        "src/passes/",
-        "src/codegen/",
-        "src/cost_model/simulation/",
-        "src/cost_model/simulation_pv/"
+        "framework/src/operator/",
+        "framework/src/interface/",
+        "framework/src/passes/",
+        "framework/src/codegen/",
+        "framework/src/cost_model/simulation/",
+        "framework/src/cost_model/simulation_pv/"
       ],
       "Include": [
-        "include/"
+        "framework/include/"
       ],
       "WhiteList": [
       ],
       "BlackList": [
-        "include/tileop/"
+        "framework/include/tileop/"
       ]
     }
   }

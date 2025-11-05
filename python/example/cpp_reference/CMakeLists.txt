@@ -56,15 +56,15 @@ set (TILE_FWK_LIBS
 )
 
 set (TILE_FWK_LIB_DIRS
-  ${ASCENDCPP_DIR}/build/src/interface
-  ${ASCENDCPP_DIR}/build/src/operator
-  ${ASCENDCPP_DIR}/build/src/passes
+  ${ASCENDCPP_DIR}/build/framework/src/interface
+  ${ASCENDCPP_DIR}/build/framework/src/operator
+  ${ASCENDCPP_DIR}/build/framework/src/passes
   ${ASCENDCPP_DIR}/build/third_party/libboundscheck-v1.1.16/output/lib
 )
 
 set (TILE_FWK_INC_DIRS
-  ${ASCENDCPP_DIR}/include
-  ${ASCENDCPP_DIR}/src
+  ${ASCENDCPP_DIR}/framework/include
+  ${ASCENDCPP_DIR}/framework/src
   ${ASCENDCPP_DIR}/build/third_party/libboundscheck-v1.1.16/output/include/
 )
 # NOTE: some extra headers are under `src`, not only in `include`

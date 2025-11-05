@@ -558,7 +558,7 @@ class ModelParam(CMakeParam):
 
     @staticmethod
     def _save_simulation_json(simulation_json, src_root: Path):
-        temp_json_path = os.path.join(str(src_root), "src/cost_model/simulation/scripts/tmp_simulation.json")
+        temp_json_path = os.path.join(str(src_root), "framework/src/cost_model/simulation/scripts/tmp_simulation.json")
         os.makedirs(os.path.dirname(temp_json_path), exist_ok=True)
         with open(temp_json_path, 'w') as f:
             json.dump(simulation_json, f, indent=4)

@@ -82,8 +82,8 @@ main() {
     find ${BASEPATH}/../build -name "libtile_fwk_*.so" | xargs -I so_file cp so_file ${BASEPATH}/../output/lib64
     find ${BASEPATH}/../build -name "kernel.o" | xargs -I kl_file cp kl_file ${BASEPATH}/../output/lib64
     mkdir -p ${BASEPATH}/../output/conf
-    ln -sf ${BASEPATH}/../src/interface/configs/tile_fwk_config.json ${BASEPATH}/../output/conf/tile_fwk_config.json
-    ln -sf ${BASEPATH}/../src/passes/pass_config/tile_fwk_platform_info.json ${BASEPATH}/../output/conf/tile_fwk_platform_info.json
+    ln -sf ${BASEPATH}/../framework/src/interface/configs/tile_fwk_config.json ${BASEPATH}/../output/conf/tile_fwk_config.json
+    ln -sf ${BASEPATH}/../framework/src/passes/pass_config/tile_fwk_platform_info.json ${BASEPATH}/../output/conf/tile_fwk_platform_info.json
     export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${BASEPATH}/../output/lib64
     env
 

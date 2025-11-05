@@ -13,7 +13,7 @@ cmake -B build -DCMAKE_CXX_FLAGS="-fPIC -D_GLIBCXX_USE_CXX11_ABI=0"
 cmake --build build -- -j $(nproc)
 
 # Copy config json files into conf/ folder
-cd ${ASCENDCPP_DIR}/build/src/
+cd ${ASCENDCPP_DIR}/build/framework/src/
 mkdir -p conf && cd conf/
 cp ../interface/tile_fwk_config.json .
 cp ../passes/tile_fwk_platform_info.json .
