@@ -7,8 +7,6 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
-add_subdirectory(op_compile)
-
 if (ENABLE_FEATURE_PYTHON_FRONT_END)
     add_subdirectory(src)
 endif ()
