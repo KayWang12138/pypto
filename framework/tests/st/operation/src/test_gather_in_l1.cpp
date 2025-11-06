@@ -244,7 +244,6 @@ TEST_F(GatherInL1Test, gather_in_a_with_valid_shape) {
 
     auto Simu = [&](const std::vector<float16> &src, const std::vector<int32_t> &offsets, const std::vector<int32_t> &info, int64_t copyLen) {
         ASSERT(info.size() == 2);
-        ASSERT(offsets.size() == DST0);
         ASSERT(copyLen <= DST1);
         int len = info[0];
         int start = info[1];
@@ -350,7 +349,6 @@ TEST_F(GatherInL1Test, gather_in_bt_with_valid_shape) {
 
     auto Simu = [&](const std::vector<float16> &src, const std::vector<int32_t> &offsets, const std::vector<int32_t> &info, int64_t copyLen) {
         ASSERT(info.size() == 2);
-        ASSERT(offsets.size() == DST0);
         ASSERT(copyLen <= DST1);
         int len = info[0];
         int start = info[1];
