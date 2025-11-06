@@ -461,7 +461,7 @@ Status LoopUnroll::TraverseCallOp(Function *function) {
                 return FAILED;
             }
             if (TraverseCallOp(childFunction) != SUCCESS) {
-                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Child function[%s] TopFunctionUnroll failed.", childFunction->GetRawName().c_str());
+                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Child function[%s] TraverseCallOp failed.", childFunction->GetRawName().c_str());
                 return FAILED;
             }
             if (IsConvertingToStatic(childFunction)) {
@@ -667,12 +667,12 @@ Status LoopUnroll::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(GetName().c_str(), "Operation", "==============> Start LoopUnroll.");
     staticFuncNames_ = GetConfig<std::vector<std::string>>("CONVERT_TO_STATIC", {});
     if (staticFuncNames_.size() == 0) {
-        APASS_LOG_INFO_F(GetName().c_str(), "Operation", "found no names to convert to static function.");
+        APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Found no names to convert to static function.");
         return SUCCESS;
     }
     evaluateSymbol_ = std::make_shared<EvaluateSymbol>();
     if (TraverseCallOp(&function) != SUCCESS) {
-        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Function[%s] TopFunctionUnroll failed.", function.GetRawName().c_str());
+        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Function[%s] TraverseCallOp failed.", function.GetRawName().c_str());
         return FAILED;
     }
     APASS_LOG_INFO_F(GetName().c_str(), "Operation", "==============> End LoopUnroll.");

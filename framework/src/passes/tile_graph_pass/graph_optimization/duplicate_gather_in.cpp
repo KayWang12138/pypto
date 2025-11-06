@@ -21,13 +21,13 @@
 namespace npu::tile_fwk {
 Status DuplicateGatherIn::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(GetName().c_str(), "Operation", 
-    "===> Start DuplicateGatherIn for function [%s]", function.GetRawName().c_str());
+    "===> Start DuplicateGatherIn for function [%s].", function.GetRawName().c_str());
     if (Process(function) != SUCCESS) {
         APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Process failed.");
         return FAILED;
     }
     APASS_LOG_INFO_F(GetName().c_str(), "Operation", 
-    "===> End DuplicateGatherIn for function [%s]", function.GetRawName().c_str());
+    "===> End DuplicateGatherIn for function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }
 
@@ -52,12 +52,13 @@ Status DuplicateGatherIn::ProcessOp(Function &function, Operation &operation) co
         for (auto &consumer : consumers) {
             if (consumer == nullptr) {
                 APASS_LOG_ERROR_F(GetName().c_str(), "Operation", 
-                "OP_GATHER_IN_L1's consumer cannot be nullptr; Please check if the OP_GATHER_IN_L1's consumer is nullptr.");
+                "OP_GATHER_IN_L1's consumer cannot be nullptr; Please check if the OP_GATHER_IN_L1[%d]'s consumer is nullptr.", oOperand->GetMagic());
                 return FAILED;
             }
             if (consumer->GetOpcode() == Opcode::OP_GATHER_IN_L1) {
                 APASS_LOG_ERROR_F(GetName().c_str(), "Operation", 
-                "OP_GATHER_IN_L1's consumer cannot be OP_GATHER_IN_L1; Please check if the type of OP_GATHER_IN_L1's consumer is OP_GATHER_IN_L1.");
+                "OP_GATHER_IN_L1's consumer cannot be OP_GATHER_IN_L1; Please check if the type of OP_GATHER_IN_L1[%d]'s consumer is OP_GATHER_IN_L1.",
+                oOperand->GetMagic());
                 return FAILED;
             }
             if (isFirst) {
@@ -67,7 +68,7 @@ Status DuplicateGatherIn::ProcessOp(Function &function, Operation &operation) co
             auto dst = oOperand->Clone(function, true);
             if (dst == nullptr) {
                 APASS_LOG_ERROR_F(GetName().c_str(), "Operation", 
-                "[DuplicateGatherIn][Operation][ERROR]: Clone OP_GATHER_IN_L1's oOperand failed; Please check if dst is nullptr.");
+                "Clone OP_GATHER_IN_L1's oOperand[%d] failed; Please check if dst is nullptr.", oOperand->GetMagic());
                 return FAILED;
             }
             consumer->ReplaceInput(dst, oOperand);

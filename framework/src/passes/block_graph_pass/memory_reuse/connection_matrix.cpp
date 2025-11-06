@@ -47,7 +47,7 @@ void ConnectionMatrix::Generate(Function *func) {
 
 uint64_t ConnectionMatrix::GetIndex(const Operation &op) const {
     if (impl_ == nullptr) {
-        ALOG_WARN_F("func ConnectionMatrix::GetIndex impl_ is nullptr.");
+        APASS_LOG_WARN_F("GlobalMemoryReuse", "Function", "Func ConnectionMatrix::GetIndex impl_ is nullptr.");
         return INVALID_INDEX;
     }
     return impl_->GetIndex(op);
@@ -101,7 +101,7 @@ void ConnectionMatrixImpl::SetConnectivity(const std::unordered_set<Operation *>
     for (Operation *producer : producers) {
         if (producer != &op) {
             bitmap.Or(GetBitMap(*producer));
-            ALOG_DEBUG_F("222222SetConnectivity for op %s %d and op %s %d.", producer->GetOpcodeStr().c_str(), producer->opmagic,
+            APASS_LOG_DEBUG_F("GlobalMemoryReuse", "Function", "SetConnectivity for op %s %d and op %s %d.", producer->GetOpcodeStr().c_str(), producer->opmagic,
                 op.GetOpcodeStr().c_str(), op.opmagic);
         }
     }
@@ -117,7 +117,7 @@ bool ConnectionMatrixImpl::IsConnected(const Operation &a, const Operation &b) c
 
 bool ConnectionMatrixImpl::IsConnected(uint64_t indexA, uint64_t indexB) const {
     if (indexA >= size_ || indexB >= size_) {
-        ALOG_WARN_F("Func ConnectionMatrixImpl::IsConnected invalid index: indexA %d, indexB, %d.", indexA, indexB);
+        APASS_LOG_WARN_F("GlobalMemoryReuse", "Function", "Func ConnectionMatrixImpl::IsConnected invalid index: indexA %d, indexB, %d.", indexA, indexB);
         return false;
     }
     return GetBitMap(indexB).GetBit(static_cast<size_t>(indexA));
@@ -133,7 +133,7 @@ LargeBitmap &ConnectionMatrixImpl::GetBitMap(const Operation &op) {
 
 const LargeBitmap &ConnectionMatrixImpl::GetBitMap(uint64_t index) const {
     if (index >= size_) {
-        ALOG_WARN_F("Func ConnectionMatrixImpl::GetBitMap invalid index: index %d.", index);
+        APASS_LOG_WARN_F("GlobalMemoryReuse", "Function", "Func ConnectionMatrixImpl::GetBitMap invalid index: index %d.", index);
         return invalidBitmap_;
     }
     return bitMaps_[index];
@@ -141,7 +141,7 @@ const LargeBitmap &ConnectionMatrixImpl::GetBitMap(uint64_t index) const {
 
 LargeBitmap &ConnectionMatrixImpl::GetBitMap(uint64_t index) {
     if (index >= size_) {
-        ALOG_WARN_F("Func ConnectionMatrixImpl::GetBitMap invalid index: index %d.", index);
+        APASS_LOG_WARN_F("GlobalMemoryReuse", "Function", "Func ConnectionMatrixImpl::GetBitMap invalid index: index %d.", index);
         return invalidBitmap_;
     }
     return bitMaps_[index];

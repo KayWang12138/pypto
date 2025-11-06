@@ -104,7 +104,7 @@ bool SplitRawTensor::ShouldProcessTensor(Function &function, const LogicalTensor
     }
     // 检查是否为InCast或OutCast
     if (function.IsFromOutCast(singleTensor) || function.IsFromInCast(singleTensor)) {
-        APASS_LOG_WARN_F("SplitRawTensor", "Tensor", "tensor[%d] is inCast or outCast. Please check if it is an external input/output", singleTensor->GetMagic());
+        APASS_LOG_WARN_F("SplitRawTensor", "Tensor", "Tensor[%d] is inCast or outCast; Please check if it is an external input/output", singleTensor->GetMagic());
         return false;
     }
     return true;

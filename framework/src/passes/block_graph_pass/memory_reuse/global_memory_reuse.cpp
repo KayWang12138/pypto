@@ -156,7 +156,7 @@ bool Allocator::CheckReuseOp(const std::unordered_set<Operation *> &operations, 
             leafFuncReuseMap[outWspInfo.position] = candidate;
             // 记录复用日志
             APASS_LOG_INFO_F("GlobalMemoryReuse", "Tensor",
-                "$$$$$$$$$$$$ Outcast %d raw %d can reuse incast %d raw %d size [%zu : %zu].",
+                "Outcast %d (rawmagic %d) can reuse incast %d (rawmagic %d) size [%zu : %zu].",
                 out->magic, out->tensor->rawmagic, copyInInput->magic, copyInInput->tensor->rawmagic,
                 candidate.size, outWspInfo.size);
             return false;
@@ -182,8 +182,8 @@ void Allocator::FindReusableInputForOutput(Function *leafFunc, Operation *op, co
         std::unordered_set<Operation*> operations;
         ScanParentOps(leafFunc, parent, visited, operations);
         if (!CheckReuseOp(operations, parents, outWspInfo, inputWorkspaceInfoMap, leafFuncReuseMap)) {
-            APASS_LOG_INFO_F("GlobalMemoryReuse", "Operation", "$$$$$$$$$$$ leaf hash %lu.",
-                             leafFunc->GetFunctionHash().GetHash());
+            APASS_LOG_INFO_F("GlobalMemoryReuse", "Tensor", "CheckReuseOp for leaf function: %s hash %lu.",
+                             leafFunc->GetMagicName().c_str(), leafFunc->GetFunctionHash().GetHash());
             return;
         }
     }
@@ -193,7 +193,8 @@ void Allocator::ProcessOutputForGlobalMemoryReuse(Function *leafFunc, WorkspaceI
     std::unordered_map<LogicalTensorPtr, WorkspaceInfo> &inputWorkspaceInfoMap, std::vector<WorkspaceInfo> &leafFuncReuseMap) {
     auto &out = wspInfo.tensor;
     if (wspInfo.count != 1) {
-        APASS_LOG_DEBUG_F("GlobalMemoryReuse", "Tensor", "magic %d raw %d not 1.", out->magic, out->tensor->rawmagic);
+        APASS_LOG_DEBUG_F("GlobalMemoryReuse", "Tensor", "Tensor magic %d (rawmagic %d) not 1.", out->magic,
+                          out->tensor->rawmagic);
         return;
     }
     auto &producers = out->GetProducers();
@@ -302,7 +303,7 @@ void Allocator::CollectInputTensor(Function *leafFunc, std::unordered_map<Logica
 // 5. 如果outcast的shape不等于rawshape，那么不能复用，这种场景较为复杂，有优化空间
 // 6. 如果outcast在leafFunction中存在后继的reshape，那么不需要复用
 void Allocator::ProcessLeafGlobalMemoryReuse(Function *leafFunc) {
-    APASS_LOG_DEBUG_F("GlobalMemoryReuse", "Operation", "LeafReuse Processing leaf function: %s hash=%lu.",
+    APASS_LOG_DEBUG_F("GlobalMemoryReuse", "Operation", "Start processing the reuse of leaf function: %s (hash %lu).",
                       leafFunc->GetMagicName().c_str(), leafFunc->GetFunctionHash().GetHash());
     std::unordered_map<LogicalTensorPtr, size_t> tensorToInfo;
     std::vector<WorkspaceInfo> outWspInfo;
@@ -314,8 +315,8 @@ void Allocator::ProcessLeafGlobalMemoryReuse(Function *leafFunc) {
     // 处理每个输出tensor的内存复用
     for (auto &wspInfo : outWspInfo) {
         ProcessOutputForGlobalMemoryReuse(leafFunc, wspInfo, inputWorkspaceInfoMap, leafFuncReuseMap);
-        APASS_LOG_DEBUG_F("GlobalMemoryReuse", "Operation",
-                          "LeafReuse Checking output: magic=%d rawmagic=%d size=%lu count=%d.", wspInfo.tensor->magic,
+        APASS_LOG_DEBUG_F("GlobalMemoryReuse", "Tensor",
+                          "End reuse check for output: magic=%d rawmagic=%d size=%lu count=%d.", wspInfo.tensor->magic,
                           wspInfo.tensor->tensor->rawmagic, wspInfo.size, wspInfo.count);
     }
 }
@@ -659,7 +660,7 @@ bool Allocator::TryReuseInputForOutput(
     // 检查输入tensor的消费者访问重叠情况，决定该候选输入tensor的内存是否可以被复用
     if (tensorConsumerNoOverlap_.count(candidateInput->GetMagic()) == 0) {
         if (!CheckAllConsumersConnectedToOp(candidateInput, callOp)) {
-            APASS_LOG_DEBUG_F("GlobalMemoryReuse", "Tensor", "input %d has multiple consumers not linked to %d.",
+            APASS_LOG_DEBUG_F("GlobalMemoryReuse", "Tensor", "Input %d has multiple consumers not linked to op %d.",
                               candidateInput->magic, callOp.opmagic);
             return false;
         }
@@ -671,7 +672,7 @@ bool Allocator::TryReuseInputForOutput(
         APASS_LOG_WARN_F("GlobalMemoryReuse", "Tensor", "Invalid offset for input %d.", candidateInput->magic);
         return false;
     }
-    APASS_LOG_DEBUG_F("GlobalMemoryReuse", "Tensor", "Callop %d leaf %s %lu output %zu reuses input %d.",
+    APASS_LOG_DEBUG_F("GlobalMemoryReuse", "Tensor", "Callop %d leaf function %s (hash %lu) output %zu reuses input %d.",
                       callOp.opmagic, leafProgram->GetMagicName().c_str(), leafProgram->GetFunctionHash().GetHash(),
                       outputIdx, incastIdx);
     return true;
@@ -1050,7 +1051,7 @@ Status GlobalMemoryReuse::RunOnFunction(Function &function) {
     Allocator allocator(function.rootFunc_);
     allocator.Init();
     Status status = allocator.Allocate();
-    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> Completed GlobalMemoryReuse. Status: %d.", status);
+    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> Completed GlobalMemoryReuse, Status: %d.", status);
     return status;
 }
 } // namespace tile_fwk

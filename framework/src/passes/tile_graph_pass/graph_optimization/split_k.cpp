@@ -28,7 +28,7 @@ Status SplitK::PreCheck(Function &function) {
         if (op.GetOpcode() == Opcode::OP_A_MUL_B && op.GetOpcode() == Opcode::OP_A_MULACC_B) {
             // L0C tensor 有且只有一个非空consumer op
             if (op.GetOOperands().size() != 1) {
-                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Invalid op: [%d] has output num not equal to ONE; Please check if the output num is ONE.", op.GetOpMagic());
+                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Invalid op: [%d] has output num not equal to one; Please check if the output num is one.", op.GetOpMagic());
                 return FAILED;
             }
             auto output = op.GetOOperands().front();
@@ -46,7 +46,7 @@ Status SplitK::PreCheck(Function &function) {
             }
             // 输出数量必须等于1
             if (op.GetOOperands().size() != 1) {
-                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Op[%d] has output num != 1; Please check if the output num for is ONE.", op.GetOpMagic());
+                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Op[%d] has output num not equal to one; Please check if the output num for is one.", op.GetOpMagic());
                 return FAILED;
             }
             // Reduce Acc 的输入和输出必须都是DDR类型
@@ -70,7 +70,7 @@ Status SplitK::PreCheck(Function &function) {
 
 // verstion 2.0
 Status SplitK::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> start SplitK");
+    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> Start SplitK.");
     if (EliminateReduceAcc(function) != SUCCESS) {
         APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Eliminate ReduceAcc failed.");
         return FAILED;
@@ -79,7 +79,7 @@ Status SplitK::RunOnFunction(Function &function) {
         APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Eliminate dead operation failed in CommonOperationEliminate.");
         return FAILED;
     }
-    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> End SplitK");
+    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> End SplitK.");
     return SUCCESS;
 }
 

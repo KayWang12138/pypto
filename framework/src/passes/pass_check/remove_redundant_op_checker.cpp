@@ -117,7 +117,7 @@ Status RemoveRedundantOpChecker::PostCheckView(const Operation &op) {
     if (viewOpAttribute != nullptr && viewOpAttribute->GetToDynValidShape().empty() &&
         view_in->shape == view_out->shape && view_in->GetMemoryTypeOriginal() == view_out->GetMemoryTypeOriginal()) {
         APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", 
-        "PostCheck for view op[%d] failed, DynValidShape is empty with the same shape and memory type; Please check view op[%d].", 
+        "PostCheck for view op[%d] failed: DynValidShape empty, same shape and memory type; Please check view op[%d].", 
         op.GetOpMagic(), op.GetOpMagic());
         return FAILED;
     }
@@ -142,8 +142,9 @@ Status RemoveRedundantOpChecker::PostCheckRegCopy(const Operation &op) {
     auto regcopy_in = op.iOperand.front();
     auto regcopy_out = op.oOperand.front();
     if (regcopy_in->shape == regcopy_out->shape && regcopy_in->GetMemoryTypeOriginal() == regcopy_out->GetMemoryTypeOriginal()) {
-        APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", "PostCheck for regcopy op[%d] failed; The shape of input equals to the output.", 
-        op.GetOpMagic());
+        APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", 
+        "PostCheck for regcopy op[%d] failed: the shape of input equals to the output; Please check regcopy op[%d].", 
+        op.GetOpMagic(), op.GetOpMagic());
         return FAILED;
     }
     return SUCCESS;
@@ -167,7 +168,7 @@ Status RemoveRedundantOpChecker::PostCheckCopyIn(const Operation &op) {
         }
         if (isRedundant) {
             APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", 
-            "PostCheck for copyin op[%d] failed, the producers of the op are view; Please check copyin op[%d].", 
+            "PostCheck for copyin op[%d] failed: the producers of the op are view; Please check copyin op[%d].", 
             op.GetOpMagic(), op.GetOpMagic());
             return FAILED;
         }
@@ -180,7 +181,7 @@ Status RemoveRedundantOpChecker::PostCheckExpand(const Operation &op) {
     auto expand_out = op.oOperand.front();
     if (expand_in->shape == expand_out->shape) {
         APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", 
-        "PostCheck for expand op[%d] failed, the shape of input equals to the output; Please check expand op[%d].", 
+        "PostCheck for expand op[%d] failed: the shape of input equals to the output; Please check expand op[%d].", 
         op.GetOpMagic(), op.GetOpMagic());
         return FAILED;
     }

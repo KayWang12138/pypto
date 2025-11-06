@@ -62,7 +62,7 @@ Status ProcessRegCopy(const Operation &op, const Function &function, bool &needT
         /* register copy 一定有后继op*/
         if (consumerOps.empty()) {
             APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", 
-            "OP_REG_COPY[%d]'s output is empty; OP_REG_COPY[%d]'s output must have consumer.", op.opmagic, op.opmagic);
+            "OP_REG_COPY[%d]'s output has no consumer; OP_REG_COPY[%d]'s output must have consumer.", op.opmagic, op.opmagic);
             return FAILED;
         }
         for (auto &consumerOp : consumerOps) {

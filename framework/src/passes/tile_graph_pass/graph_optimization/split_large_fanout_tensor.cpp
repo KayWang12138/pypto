@@ -56,7 +56,7 @@ Status SplitLargeFanoutTensor::LCM(int64_t x, int64_t y, int64_t &lcm) {
 // 求两个shape的最小公倍数shape
 Status SplitLargeFanoutTensor::CalLcmShape(const Shape &toShape, const Shape &fromShape, Shape &lcmShape) {
     if (toShape.size() != fromShape.size()) {
-        APASS_LOG_ERROR_F(GetName().c_str(), "Tensor", "Incorrect shapes dim: toShape dim is %d, fromShape dim is %d; "
+        APASS_LOG_ERROR_F(GetName().c_str(), "Tensor", "Incorrect shapes dim, toShape dim is %d, fromShape dim is %d; "
             "Please make sure they are the same.", toShape.size(), fromShape.size()); 
         return FAILED;
     }
@@ -76,13 +76,13 @@ Status SplitLargeFanoutTensor::CalLcmShape(const Shape &toShape, const Shape &fr
 // 求两个shape的最大公约数shape
 Status SplitLargeFanoutTensor::CalGcdShape(const Shape &toShape, const Shape &fromShape, Shape &lcmShape) {
     if (toShape.size() != fromShape.size()) {
-        APASS_LOG_ERROR_F(GetName().c_str(), "Tensor", "Incorrect shapes dim: toShape dim is %d, fromShape dim is %d.",
+        APASS_LOG_ERROR_F(GetName().c_str(), "Tensor", "Incorrect shapes dim, toShape dim is %d, fromShape dim is %d.",
             toShape.size(), fromShape.size());
         return FAILED;
     }
     for (size_t i = 0; i < toShape.size(); i++) {
         lcmShape[i] = GCD(toShape[i], fromShape[i]);
-        APASS_LOG_INFO_F(GetName().c_str(), "Tensor", "Shape's dim %d, shape: %d and %d, GCD is %d.",
+        APASS_LOG_INFO_F(GetName().c_str(), "Tensor", "Shape's dim is %d, toShape is %d, fromShape is %d, GCD is %d.",
             i, toShape[i], fromShape[i], lcmShape[i]);
     }
     return SUCCESS;
@@ -136,7 +136,7 @@ void SplitLargeFanoutTensor::CreateOpFor1toM(Function &function, LogicalTensorPt
     for (auto &dualOverlap : dualOverlaps) {
         auto viewOp = *dualOverlap->GetProducers().begin();
         if (viewOp->GetIOperands().front()->tensor->rawmagic != largeTensor->tensor->rawmagic) {
-            APASS_LOG_INFO_F(GetName().c_str(), "Tensor", "ViewOp[%d]'s input has been replaced! Don't deal with this ViewOp.",
+            APASS_LOG_INFO_F(GetName().c_str(), "Tensor", "ViewOp[%d]'s input has been replaced, don't deal with this ViewOp.",
                 viewOp->GetOpMagic());
         } else {
             auto newTensor = std::make_shared<LogicalTensor>(function, largeTensor->Datatype(), lcmTileShape);
@@ -186,7 +186,7 @@ void SplitLargeFanoutTensor::CreateOpForMtoM(Function &function, LogicalTensorPt
     for (auto &dualOverlap : dualOverlaps) {
         auto viewOp = *dualOverlap->GetProducers().begin();
         if (viewOp->GetIOperands().front()->tensor->rawmagic != largeTensor->tensor->rawmagic) {
-            APASS_LOG_INFO_F(GetName().c_str(), "Operation", "ViewOp[%d]'s input has been replaced! Don't deal with ViewOp.",
+            APASS_LOG_INFO_F(GetName().c_str(), "Operation", "ViewOp[%d]'s input has been replaced, don't deal with ViewOp.",
                 viewOp->GetOpMagic());
         } else {
             auto viewOpAttr = dynamic_cast<ViewOpAttribute *>(viewOp->GetOpAttribute().get());
@@ -393,16 +393,16 @@ void SplitLargeFanoutTensor::SplitLargeTensor(Function &function) {
             for (auto &fromShape : fromShapes[largeTensor]) {
                 Shape lcmShape(toShape.size(), 0);
                 if(CalLcmShape(toShape, fromShape, lcmShape) != SUCCESS) {
-                    APASS_LOG_INFO_F(GetName().c_str(), "Tensor", "Calculate LCM shape failed, Don't cal LcmShape.");
+                    APASS_LOG_INFO_F(GetName().c_str(), "Tensor", "Calculate LCM shape failed, don't cal LcmShape.");
                     continue;
                 }
                 // 当lcmTile的shape和largeTensor相等时, 仍会聚合到同样大小的Tensor, 因此不做处理
                 if (lcmShape == largeTensor->shape) {
-                    APASS_LOG_INFO_F(GetName().c_str(), "Tensor", "Skip SplitLargeTensor for magic[%d], because Assemble to the largeTensor's shape.", largeTensor->GetMagic());
+                    APASS_LOG_INFO_F(GetName().c_str(), "Tensor", "Skip SplitLargeTensor for magic[%d] since shape to assemble (lcmShape) equals the largeTensor's shape.", largeTensor->GetMagic());
                     continue;
                 }
                 // 当lcmTile的shape小于largeTensor时, 开始尝试拆分
-                APASS_LOG_INFO_F(GetName().c_str(), "Tensor", "Try to split: Large tensor magic is %d.", largeTensor->GetMagic());
+                APASS_LOG_INFO_F(GetName().c_str(), "Tensor", "Try to split, large tensor magic is %d.", largeTensor->GetMagic());
                 TryToSplitLargeTensor(function, lcmShape, largeTensor);
             }
         }
@@ -426,10 +426,10 @@ void SplitLargeFanoutTensor::TryToSplitLargeTensor(Function &function, const Sha
         LogicalTensors dualOverlaps;
         CollectOverlaps(function, largeTensor, lcmTileShape, lcmTileOffset, toInfoMap[largeTensor->tensor->rawmagic], fromInfoMap[largeTensor->tensor->rawmagic], overlaps, dualOverlaps);
         if (overlaps.size() == 0 || dualOverlaps.size() == 0) {
-            APASS_LOG_INFO_F(GetName().c_str(), "Tensor", " Split large tensor miss, this lcmTile does NOT have both overlaps([%d]) "
+            APASS_LOG_INFO_F(GetName().c_str(), "Tensor", "Split large tensor miss, this lcmTile does NOT have both overlaps([%d]) "
                 "and dualOverlaps([%d]) simultaneously.", overlaps.size(), dualOverlaps.size());
         } else {
-            APASS_LOG_INFO_F(GetName().c_str(), "Tensor", " Split large tensor hit, this lcmTile has [%d] overlaps and [%d] dualOverlaps.",
+            APASS_LOG_INFO_F(GetName().c_str(), "Tensor", "Split large tensor hit, this lcmTile has [%d] overlaps and [%d] dualOverlaps.",
                 overlaps.size(), dualOverlaps.size());
             // 对于是否有[多个tensor聚合到一个Tensor]的情况进行不同处理
             if (overlaps.size() == 1) {
