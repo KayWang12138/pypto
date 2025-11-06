@@ -16,92 +16,61 @@ import torch
 from numpy.testing import assert_allclose
 
 F_1 = 1.0
-SHAPE = [8, 24]
+SHAPE = [8, 32]
 DTYPE = pto.DT_FP32
 
 
-def prepare_test_data(shape):
-    torch_tensor = torch.ones(shape, dtype=torch.float32)
-    x_data = torch_tensor
-
-    res_data = torch.ones(shape, dtype=torch.float32) * 3
-
-    golden = torch.zeros(shape, dtype=torch.float32)
-    golden[:, :16] = 2
-    golden_data = golden
-
-    return x_data, res_data, golden_data
-
-
-def test_assmble_function_call():
+def test_assmble_2d():
     pto.runtime._device_init()
     x = pto.tensor(SHAPE, DTYPE)
     out = pto.tensor(SHAPE, DTYPE)
     with pto.function("main", [x], [out]):
         pto.set_vec_tile_shapes(8, 8)
-        for a_idx in pto.loop(2, name="LOOP_assemble_L0", idx_name="a_idx"):
+        for a_idx in pto.loop(4, name="LOOP_assemble_L0", idx_name="a_idx"):
             tmp = pto.view(x, [8, 8], [0, a_idx * 8])
             add_tensor = pto.add(tmp, F_1)
-            # function call
-            pto.assemble(add_tensor, [0, a_idx * 8], out)
-    x_data, res_data, golden_data = prepare_test_data(SHAPE)
-    pto.runtime._device_run_once_data_from_host([x_data], [res_data])
-    assert_allclose(res_data, golden_data, atol=1e-5, verbose=True)
-    pto.runtime._device_fini()
+            offset = a_idx * 8
+            if pto.cond(a_idx == 0):
+                # syntactic_sugar call: out[0:, :]
+                out[0:, :] = add_tensor
+            elif pto.cond(a_idx == 1):
+                # syntactic_sugar call
+                out[0:, offset:] = add_tensor
+            elif pto.cond(a_idx == 2):
+                # tensor call
+                out.assemble(add_tensor, [0, offset])
+            else:
+                # function call
+                pto.assemble(add_tensor, [0, offset], out)
+            del add_tensor
+            del tmp
 
-
-def test_assmble_tensor_call():
-    pto.runtime._device_init()
-    x = pto.tensor(SHAPE, DTYPE)
-    out = pto.tensor(SHAPE, DTYPE)
-    with pto.function("main", [x], [out]):
-        pto.set_vec_tile_shapes(8, 8)
-        for a_idx in pto.loop(2, name="LOOP_assemble_L0", idx_name="a_idx"):
-            tmp = pto.view(x, [8, 8], [0, a_idx * 8])
-            add_tensor = pto.add(tmp, F_1)
-            # tensor call
-            out.assemble(add_tensor, [0, a_idx * 8])
-    x_data, res_data, golden_data = prepare_test_data(SHAPE)
-    pto.runtime._device_run_once_data_from_host([x_data], [res_data])
-    assert_allclose(res_data, golden_data, atol=1e-5, verbose=True)
-    pto.runtime._device_fini()
-
-
-def test_assmble_syntactic_sugar():
-    pto.runtime._device_init()
-    x = pto.tensor(SHAPE, DTYPE)
-    out = pto.tensor(SHAPE, DTYPE)
-    with pto.function("main", [x], [out]):
-        pto.set_vec_tile_shapes(8, 8)
-        for a_idx in pto.loop(2, name="LOOP_assemble_L0", idx_name="a_idx"):
-            tmp = pto.view(x, [8, 8], [0, a_idx * 8])
-            add_tensor = pto.add(tmp, F_1)
-            # syntactic_sugar call
-            out[0:, a_idx * 8:] = add_tensor
-    x_data, res_data, golden_data = prepare_test_data(SHAPE)
-    pto.runtime._device_run_once_data_from_host([x_data], [res_data])
-    pto.runtime._device_fini()
-
-
-def test_assmble_syntactic_sugar_slice_empty():
-    pto.runtime._device_init()
-    x = pto.tensor(SHAPE, DTYPE)
-    out = pto.tensor(SHAPE, DTYPE)
-    with pto.function("main", [x], [out]):
-        pto.set_vec_tile_shapes(8, 8)
-        for a_idx in pto.loop(2, name="LOOP_assemble_L0", idx_name="a_idx"):
-            tmp = pto.view(x, [8, 8], [0, a_idx * 8])
-            add_tensor = pto.add(tmp, F_1)
-            # syntactic_sugar call
-            out[0:, :] = add_tensor
-
-    x_data = torch.ones(SHAPE, dtype=torch.float32)
-
-    res_data = torch.zeros(SHAPE, dtype=torch.float32)
-
+    torch_tensor = torch.ones(SHAPE, dtype=torch.float32)
+    res_data = torch.ones(SHAPE, dtype=torch.float32) * 3
     golden = torch.zeros(SHAPE, dtype=torch.float32)
-    golden[:, :8] = 2
+    golden[:, :32] = 2
+    pto.runtime._device_run_once_data_from_host([torch_tensor], [res_data])
+    assert_allclose(res_data, golden, atol=1e-5, verbose=True)
+    pto.runtime._device_fini()
 
-    pto.runtime._device_run_once_data_from_host([x_data], [res_data])
+
+def test_assmble_1d():
+    pto.runtime._device_init()
+    x = pto.tensor([24], DTYPE)
+    out = pto.tensor([24], DTYPE)
+    with pto.function("main", [x], [out]):
+        pto.set_vec_tile_shapes(8)
+        for a_idx in pto.loop(2, name="LOOP_assemble_L0", idx_name="a_idx"):
+            tmp = pto.view(x, [8], [a_idx * 8])
+            add_tensor = pto.add(tmp, F_1)
+            # syntactic_sugar call
+            out[a_idx * 8:] = add_tensor
+    torch_tensor = torch.ones([24], dtype=torch.float32)
+
+    res_data = torch.ones([24], dtype=torch.float32) * 3
+
+    golden = torch.zeros([24], dtype=torch.float32)
+    golden[:16] = 2
+    pto.runtime._device_run_once_data_from_host([torch_tensor], [res_data])
     assert_allclose(res_data, golden, atol=1e-5, verbose=True)
     pto.runtime._device_fini()

@@ -112,6 +112,8 @@ class Tensor:
             if isinstance(key.stop, Tensor):
                 assert isinstance(key.start, int)
                 return pto.scatter(self, key.start, key.stop, value)
+            else:
+                self.__setitem__((key,), value)
         elif isinstance(key, tuple):
             assert self.dim == len(
                 key), f"rank not match, expect {self.dim}, but got {len(key)}"
