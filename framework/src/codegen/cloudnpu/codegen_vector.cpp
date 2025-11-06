@@ -654,6 +654,146 @@ std::string CodeGenOpCloudNPU::GenGatherElementOp() const {
     return PrintGatherElementStatic({gatherEleAxis, dVar, s0Var, s1Var, dos, ds, s0s, s1s, dataTypeExpr});
 }
 
+std::string CodeGenOpCloudNPU::PrintIndexAddStatic(const PrintIndexAddParam &param) const {
+    //only support dim 2
+    int dstRank = shape[ID0].size();
+    int src0Rank = shape[ID1].size();
+    int src1Rank = shape[ID2].size();
+    int idxRank = shape[ID3].size();
+    ASSERT(src0Rank == RANK2) << "GenIndexAddSOp: self shape rank is not supported!";
+    ASSERT(src1Rank == RANK2) << "GenIndexAddSOp: src shape rank is not supported!";
+    ASSERT(dstRank == RANK2) << "GenIndexAddOp: dst shape rank is not supported!";
+    ASSERT(idxRank == RANK1) << "GenIndexAddOp: indices shape rank is not supported!";
+    const std::string &dstVar = param.dVar;
+    const std::string &src0Var = param.s0Var;
+    const std::string &src1Var = param.s1Var;
+    const std::string &idxVar = param.idxVar;
+    std::vector<int64_t> &dstRawShape = param.dstRawShape;
+    std::vector<int64_t> &src1RawShape = param.src1RawShape;
+    const std::string *dataTypeExpr = param.dataTypeExpr;
+    const Element &alph = extOperandVal;
+
+    // template param
+    std::vector<std::string> paramList;
+    paramList.insert(paramList.end(), {dataTypeExpr[ID1], dataTypeExpr[ID3]});
+    paramList.emplace_back(std::to_string(src1RawShape[ID1]));
+    paramList.emplace_back(std::to_string(dstRawShape[ID1]));
+    auto src1Shape = this->originShape[ID2];
+    paramList.emplace_back(std::to_string(src1Shape[ID0]));
+    paramList.emplace_back(std::to_string(src1Shape[ID1]));
+    paramList.emplace_back(std::to_string(param.axis));
+    std::string templateParam = JoinString(paramList, ", ");
+
+    // function actual params
+    paramList.clear();
+    std::string addrType = GetAddrTypeByOperandType(BUF_UB);
+    std::string dst = "(" + addrType + " " + dataTypeExpr[ID0] + "*)" + dstVar;
+    std::string src0 = "(" + addrType + " " + dataTypeExpr[ID1] + "*)" + src0Var;
+    std::string src1 = "(" + addrType + " " + dataTypeExpr[ID2] + "*)" + src1Var;
+    std::string src2 = "(" + addrType + " " + dataTypeExpr[ID3] + "*)" + idxVar;
+    paramList.insert(paramList.end(), {dst, src0, src1, src2});
+
+    char scalarTmpBuffer[BUFFER_SIZE_512] = "CG_ERROR";
+    int ret =
+        snprintf_s(scalarTmpBuffer, sizeof(scalarTmpBuffer), sizeof(scalarTmpBuffer) - 1, "%.9g", alph.Cast<float>());
+    if (ret < 0) {
+        ALOG_INFO_F("GenIndexAddOp snprintf_s scalarTmpBuffer failed %d", ret);
+    }
+    paramList.emplace_back("(" + dataTypeExpr[ID0] + ")" + scalarTmpBuffer);
+    
+    std::string tiloOpCallParam = JoinString(paramList, ", ");
+    std::ostringstream oss;
+    oss << tileOpName << "<" << templateParam << ">"
+        << "(" << tiloOpCallParam << ");\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintIndexAddDynamicUnaligned(const PrintIndexAddParam &param) const {
+    // support 2-4 dims
+    const std::string &dstVar = param.dVar;
+    const std::string &src0Var = param.s0Var;
+    const std::string &src1Var = param.s1Var;
+    const std::string &idxVar = param.idxVar;
+    std::vector<int64_t> dstRawShape = NormalizeShape(param.dstRawShape, SHAPE_DIM4);
+    std::vector<int64_t> src1RawShape = NormalizeShape(param.src1RawShape, SHAPE_DIM4);
+    const std::string *dataTypeExpr = param.dataTypeExpr;
+    const Element &alph = extOperandVal;
+
+    // template params
+    std::vector<std::string> paramList;
+    paramList.insert(paramList.end(), {dataTypeExpr[ID1], dataTypeExpr[ID3]});
+    for (size_t i = 1; i < src1RawShape.size(); ++i) {
+        paramList.emplace_back(std::to_string(src1RawShape[i]));
+    }
+    for (size_t i = 1; i < dstRawShape.size(); ++i) {
+        paramList.emplace_back(std::to_string(dstRawShape[i]));
+    }
+    int axis = param.axis + SHAPE_DIM4 - param.src1RawShape.size(); // 调用4维tileop需要切换axis
+    paramList.emplace_back(std::to_string(axis));
+    std::string templateParam = JoinString(paramList, ", ");
+
+    // function actual params
+    paramList.clear();
+    std::string addrType = GetAddrTypeByOperandType(BUF_UB);
+    std::string dst = "(" + addrType + " " + dataTypeExpr[ID0] + "*)" + dstVar;
+    std::string src0 = "(" + addrType + " " + dataTypeExpr[ID1] + "*)" + src0Var;
+    std::string src1 = "(" + addrType + " " + dataTypeExpr[ID2] + "*)" + src1Var;
+    std::string src2 = "(" + addrType + " " + dataTypeExpr[ID3] + "*)" + idxVar;
+    paramList.insert(paramList.end(), {dst, src0, src1, src2});
+
+    char scalarTmpBuffer[BUFFER_SIZE_512] = "CG_ERROR";
+    int ret =
+        snprintf_s(scalarTmpBuffer, sizeof(scalarTmpBuffer), sizeof(scalarTmpBuffer) - 1, "%.9g", alph.Cast<float>());
+    if (ret < 0) {
+        ALOG_INFO_F("GenIndexAddOp snprintf_s scalarTmpBuffer failed %d", ret);
+    }
+    paramList.emplace_back("(" + dataTypeExpr[ID0] + ")" + scalarTmpBuffer); //可处理溢出
+    auto validShape = dynamicValidShape[ID2]; // src1validshape
+    FillIntVecWithDummyInHead<SymbolicScalar>(validShape, SHAPE_DIM4 - validShape.size(), 1);
+    for (int i = 0; i < SHAPE_DIM4; i++) {
+        paramList.emplace_back(SymbolicExpressionTable::BuildExpression(validShape[i]));
+    }
+    std::string tiloOpCallParam = JoinString(paramList, ", ");
+    std::ostringstream oss;
+    oss << tileOpName << "<" << templateParam << ">"
+        << "(" << tiloOpCallParam << ");\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenIndexAddOp() const {
+    std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+    std::string src0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+    std::string src1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
+    std::string src2Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID3]);
+
+    ALOG_INFO_F("GenIndexAddOp, dst Shape is %s", IntVecToStr(shape[ID0]).c_str());
+    ALOG_INFO_F("GenIndexAddOp, src0 Shape is %s", IntVecToStr(shape[ID1]).c_str());
+    ALOG_INFO_F("GenIndexAddOp, src1 Shape is %s", IntVecToStr(shape[ID2]).c_str());
+    ALOG_INFO_F("GenIndexAddOp, src2 Shape is %s", IntVecToStr(shape[ID3]).c_str());
+
+    std::vector dstRawShape = this->rawShape[ID0];
+    std::vector src0RawShape = this->rawShape[ID1];
+    std::vector src1RawShape = this->rawShape[ID2];
+
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+    std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID1]);
+    std::string src1DtypeStr = DataType2CCEStr(operandDtype[ID2]);
+    std::string src2DtypeStr = DataType2CCEStr(operandDtype[ID3]);
+    constexpr int NumOperands = 4;
+    std::string dataTypeExpr[NumOperands] = {dstDtypeStr, src0DtypeStr, src1DtypeStr, src2DtypeStr};
+
+    AppendLocalBufferVarOffset(std::vector{&dstVar, &src0Var, &src1Var, &src2Var});
+
+    ASSERT(opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
+    int axis = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "axis"));
+    if (isSupportDynamicUnaligned) {
+        return PrintIndexAddDynamicUnaligned(
+            {axis, dstVar, src0Var, src1Var, src2Var, dstRawShape, src0RawShape, src1RawShape, dataTypeExpr});
+    }
+    return PrintIndexAddStatic(
+        {axis, dstVar, src0Var, src1Var, src2Var, dstRawShape, src0RawShape, src1RawShape, dataTypeExpr});
+}
+
 std::string CodeGenOpCloudNPU::PrintScatterElementSOpStatic(const PrintScatterElemParam &param) const {
     // Static only support 2Dim
     int dstRank = shape[ToUnderlying(DISOIdx::DST_IDX)].size();

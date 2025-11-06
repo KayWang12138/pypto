@@ -67,6 +67,7 @@ inline void RowMaxSingle(LogicalTensorDataPtr, LogicalTensorDataPtr, int) {}
 inline void ExpandS(LogicalTensorDataPtr, const Element &) {}
 inline void Expand(LogicalTensorDataPtr, LogicalTensorDataPtr) {}
 inline void GatherElements(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int) {}
+inline void IndexAdd(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int, const Element &) {}
 
 inline void Reshape(LogicalTensorDataPtr, LogicalTensorDataPtr) {}
 inline void Permute(LogicalTensorDataPtr, LogicalTensorDataPtr, const std::vector<int64_t> &) {}

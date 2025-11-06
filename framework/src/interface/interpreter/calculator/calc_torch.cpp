@@ -485,6 +485,14 @@ void GatherElements(LogicalTensorDataPtr out, LogicalTensorDataPtr params, Logic
     torch::gather_out(ret, src, axis, index);
 }
 
+void IndexAdd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr src, LogicalTensorDataPtr indices, int axis, const Element &alpha) {
+    torch::Tensor output = From(out);
+    torch::Tensor inputSelf = From(self);
+    torch::Tensor inputSrc = From(src);
+    torch::Tensor inputIndices = From(indices);
+    torch::index_add_out(output, inputSelf, axis, inputIndices, inputSrc, From(alpha));
+}
+
 void Copy(LogicalTensorDataPtr out, LogicalTensorDataPtr self, bool trans) {
     if (trans) {
         From(out) = From(self).transpose_(-1, AXIS_TO_LAST);

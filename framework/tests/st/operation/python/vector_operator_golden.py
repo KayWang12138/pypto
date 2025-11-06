@@ -949,6 +949,37 @@ def gen_gatherelement_op_golden(case_name: str, output: Path, case_index: int = 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("GatherElement", golden_func, output, case_index)
 
+def indexadd_golden_func(inputs: list, config: dict):
+    params = config.get("params")
+    axis = params["axis"]
+    self = torch.from_numpy(inputs[0])
+    source = torch.from_numpy(inputs[1])
+    indices = torch.from_numpy(inputs[2])
+    try:
+        alp = float(params["alpha"])
+    except (KeyError, ValueError, TypeError):
+        alp = 1
+    res = self.index_add(axis, indices, source, alpha=alp)
+    
+    return [res.numpy()]
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestIndexAdd/IndexAddOperationTest.TestIndexAdd",
+    ]
+)
+def gen_indexadd_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("IndexAdd", indexadd_golden_func, output, case_index)
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestIndexAdd_/IndexAdd_OperationTest.TestIndexAdd_",
+    ]
+)
+def gen_indexadd__op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("IndexAdd_", indexadd_golden_func, output, case_index)
 
 def scatter_golden_func(inputs, config: dict):
     params = config.get("params")

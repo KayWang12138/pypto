@@ -1917,6 +1917,125 @@ TILEOP void DynTgatherElement(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *sr
     wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
 }
 
+template <typename T, typename T1>
+TILEOP void indexAddPublicTool(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, T alpha, unsigned TShape3,
+    uint64_t dstOffset, uint64_t src1Offset) {
+    uint32_t rptElm = REPEAT_BYTE / sizeof(T);
+    uint32_t repeatTime = TShape3 / rptElm;
+    uint32_t remainElm = TShape3 % rptElm;
+
+    if (repeatTime) {
+        vmuls(src1 + src1Offset, src1 + src1Offset, alpha, repeatTime, 1, 1, 8, 8);
+        pipe_barrier(PIPE_V);
+        vadd(dst + dstOffset, src0 + dstOffset, src1 + src1Offset, repeatTime, 1, 1, 1, 8, 8, 8);
+        pipe_barrier(PIPE_V);
+    }
+    if (remainElm) {
+        SetContinuousMask(remainElm);
+        vmuls(src1 + src1Offset + repeatTime * rptElm, src1 + src1Offset + repeatTime * rptElm, alpha, 1, 1,1, 8, 8);
+        pipe_barrier(PIPE_V);
+        vadd(dst + dstOffset + repeatTime * rptElm, src0 + dstOffset + repeatTime * rptElm,
+            src1 + src1Offset + repeatTime * rptElm, 1, 1, 1, 1, 8, 8, 8);
+        set_vector_mask(-1, -1);
+    }
+}
+
+template <typename T, typename T1>
+TILEOP void indexAddAxis0(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, __ubuf__ T1 *src2, T alpha,
+    unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, uint64_t dstBlock1, uint64_t dstBlock2,
+    uint64_t dstBlock3, uint64_t src1Block1, uint64_t src1Block2, uint64_t src1Block3) {
+    uint64_t dstOffset = 0;
+    uint64_t src1Offset = 0;
+    for (uint32_t idx = 0; idx < TShape0; ++idx) {
+        T1 index = *(src2 + idx);
+        for (uint32_t i = 0; i < TShape1; ++i) {
+            for (uint32_t j = 0; j < TShape2; ++j) {
+                dstOffset = index * dstBlock1 + i * dstBlock2 + j * dstBlock3;
+                src1Offset = idx * dstBlock1 + i * dstBlock2 + j * dstBlock3;
+                indexAddPublicTool<T, T1>(dst, src0, src1, alpha, TShape3, dstOffset, src1Offset);
+            }
+        }
+    }
+}
+
+template <typename T, typename T1>
+TILEOP void indexAddAxis1(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, __ubuf__ T1 *src2, T alpha,
+    unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, uint64_t dstBlock1, uint64_t dstBlock2,
+    uint64_t dstBlock3, uint64_t src1Block1, uint64_t src1Block2, uint64_t src1Block3) {
+    uint64_t dstOffset = 0;
+    uint64_t src1Offset = 0;
+    for (uint32_t i = 0; i < TShape0; ++i) {
+        for (uint32_t idx = 0; idx < TShape1; ++idx) {
+            T1 index = *(src2 + idx);
+            for (uint32_t j = 0; j < TShape2; ++j) {
+                dstOffset = i * dstBlock1 + index * dstBlock2 + j * dstBlock3;
+                src1Offset = i * src1Block1 + idx * src1Block2 + j * src1Block3;
+                indexAddPublicTool<T, T1>(dst, src0, src1, alpha, TShape3, dstOffset, src1Offset);
+            }
+        }
+    }
+}
+
+template <typename T, typename T1>
+TILEOP void indexAddAxis2(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, __ubuf__ T1 *src2, T alpha,
+    unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, uint64_t dstBlock1, uint64_t dstBlock2,
+    uint64_t dstBlock3, uint64_t src1Block1, uint64_t src1Block2, uint64_t src1Block3) {
+    uint64_t dstOffset = 0;
+    uint64_t src1Offset = 0;
+    for (uint32_t i = 0; i < TShape0; ++i) {
+        for (uint32_t j = 0; j < TShape1; ++j) {
+            for (uint32_t idx = 0; idx < TShape2; ++idx) {
+                T1 index = *(src2 + idx);
+                dstOffset = i * dstBlock1 + j * dstBlock2 + index * dstBlock3;
+                src1Offset = i * src1Block1 + j * src1Block2 + idx * src1Block3;
+                indexAddPublicTool<T, T1>(dst, src0, src1, alpha, TShape3, dstOffset, src1Offset);
+            }
+        }
+    }
+}
+
+template <typename T, typename T1, unsigned src1RawShape1, unsigned src1RawShape2, unsigned src1RawShape3,
+    unsigned dstRawShape1, unsigned dstRawShape2, unsigned dstRawShape3, unsigned axis>
+TILEOP void DynTindexAdd(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, __ubuf__ T1 *src2, T alpha,
+    unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3) {
+    set_flag(PIPE_V, PIPE_S, EVENT_ID7);
+    wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
+    uint64_t dstBlock1 = dstRawShape1 * dstRawShape2 * dstRawShape3;
+    uint64_t dstBlock2 = dstRawShape2 * dstRawShape3;
+    uint64_t dstBlock3 = dstRawShape3;
+    uint64_t src1Block1 = src1RawShape1 * src1RawShape2 * src1RawShape3;
+    uint64_t src1Block2 = src1RawShape2 * src1RawShape3;
+    uint64_t src1Block3 = src1RawShape3;
+
+    if constexpr (axis == 0) {
+        indexAddAxis0<T, T1>(dst, src0, src1, src2, alpha, TShape0, TShape1, TShape2, TShape3, dstBlock1, dstBlock2,
+            dstBlock3, src1Block1, src1Block2, src1Block3);
+    } else if constexpr (axis == 1) {
+        indexAddAxis1<T, T1>(dst, src0, src1, src2, alpha, TShape0, TShape1, TShape2, TShape3, dstBlock1, dstBlock2,
+            dstBlock3, src1Block1, src1Block2, src1Block3);
+    } else if constexpr (axis == 2) {
+        indexAddAxis2<T, T1>(dst, src0, src1, src2, alpha, TShape0, TShape1, TShape2, TShape3, dstBlock1, dstBlock2,
+            dstBlock3, src1Block1, src1Block2, src1Block3);
+    } else {
+        uint64_t dstOffset = 0;
+        uint64_t src1Offset = 0;
+        for (uint32_t i = 0; i < TShape0; ++i) {
+            for (uint32_t j = 0; j < TShape1; ++j) {
+                for (uint32_t k = 0; k < TShape2; ++k) {
+                    for (uint32_t idx = 0; idx < TShape3; ++idx) {
+                        T1 index = *(src2 + idx);
+                        dstOffset = i * dstBlock1 + j * dstBlock2 + k * dstBlock3 + index;
+                        src1Offset = i * src1Block1 + j * src1Block2 + k * src1Block3 + idx;
+                        dst[dstOffset] = dst[dstOffset] + src1[src1Offset] * alpha;
+                    }
+                }
+            }
+        }
+    }
+    set_flag(PIPE_S, PIPE_V, EVENT_ID7);
+    wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
+}
+
 template <typename T>
 INLINE void ScatterElementSReduceOp(__ubuf__ T *dst, int dstOffset, float src2, unsigned reduceOp) {
     if (reduceOp == 0) {

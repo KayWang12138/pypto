@@ -1561,6 +1561,91 @@ LogicalTensorPtr TensorGatherElementOperation(Function &function,
     return result;
 }
 
+struct IndexAddTileInfoPara {
+    TileInfo selfTileInfo;
+    TileInfo srcTileInfo;
+    TileInfo idxTileInfo;
+    TileInfo dstTileInfo;
+};
+
+struct IndexAddPara {
+    const LogicalTensorPtr &selfInput;
+    const LogicalTensorPtr &srcInput;
+    const LogicalTensorPtr &idxInput;
+    const LogicalTensorPtr &dstTensor;
+    const int axis;
+    const Element &alpha;
+};
+
+void InnerTiledIndexAdd(size_t cur, Function &function, const TileShape &tileShape, const IndexAddPara indexaddPara,
+    IndexAddTileInfoPara &indexaddTileInfo) {
+    const LogicalTensorPtr &selfInput = indexaddPara.selfInput;
+    const LogicalTensorPtr &srcInput = indexaddPara.srcInput;
+    const LogicalTensorPtr &idxInput = indexaddPara.idxInput;
+    const LogicalTensorPtr &dstTensor = indexaddPara.dstTensor;
+    const int axis = indexaddPara.axis;
+    const Element &alpha = indexaddPara.alpha;
+
+    if (cur == dstTensor->shape.size()) {
+        auto dstTile = dstTensor->View(function, indexaddTileInfo.dstTileInfo.shape, indexaddTileInfo.dstTileInfo.offset);
+        auto selfTile = selfInput->View(function, indexaddTileInfo.selfTileInfo.shape, indexaddTileInfo.selfTileInfo.offset);
+        auto srcTile = srcInput->View(function, indexaddTileInfo.srcTileInfo.shape, indexaddTileInfo.srcTileInfo.offset);
+        indexaddTileInfo.idxTileInfo.offset = {indexaddTileInfo.srcTileInfo.offset[axis]}; //idxShape只需要按照srcShape所在的axis轴切分
+        indexaddTileInfo.idxTileInfo.shape = {indexaddTileInfo.srcTileInfo.shape[axis]};
+        auto idxTile = idxInput->View(function, indexaddTileInfo.idxTileInfo.shape, indexaddTileInfo.idxTileInfo.offset);
+        auto &op = function.AddOperation(Opcode::OP_INDEX_ADD, {selfTile, srcTile, idxTile}, {dstTile});
+        op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
+        op.SetAttribute(OpAttributeKey::scalar, alpha);
+        return;
+    }
+
+    auto &vecTile = tileShape.GetVecTile();
+    int64_t tmpTile = vecTile[cur];
+    // axis所在轴按照dstShape[axis]进行切分
+    if (static_cast<int>(cur) == axis) {
+        tmpTile = dstTensor->GetShape()[cur];
+    }
+    // srcInput在axis的维度=idxInput的维度，且可能比selfInput.shape[axis]大
+    for (int i = 0; i < srcInput->GetShape()[cur]; i += tmpTile) {
+        if (static_cast<int>(cur) == axis) {
+            // self和dst不切
+            indexaddTileInfo.dstTileInfo.offset[cur] = 0;
+            indexaddTileInfo.dstTileInfo.shape[cur] = dstTensor->shape[cur];
+            indexaddTileInfo.selfTileInfo.offset[cur] = 0;
+            indexaddTileInfo.selfTileInfo.shape[cur] = selfInput->shape[cur];
+        } else {
+            indexaddTileInfo.dstTileInfo.offset[cur] = i;
+            indexaddTileInfo.dstTileInfo.shape[cur] = std::min(dstTensor->shape[cur] - i, tmpTile);
+            indexaddTileInfo.selfTileInfo.offset[cur] = i;
+            indexaddTileInfo.selfTileInfo.shape[cur] = std::min(selfInput->shape[cur] - i, tmpTile);
+        }
+        indexaddTileInfo.srcTileInfo.offset[cur] = i;
+        indexaddTileInfo.srcTileInfo.shape[cur] = std::min(srcInput->GetShape()[cur] - i, tmpTile);
+        InnerTiledIndexAdd(cur + 1, function, tileShape, indexaddPara, indexaddTileInfo);
+    }
+}
+
+void TiledIndexAdd(Function &function, const TileShape &tileShape, const IndexAddPara indexaddPara) {
+    // Check Operands Valid
+    assert(indexaddPara.selfInput->GetShape().size() == indexaddPara.selfInput->GetOffset().size());
+    assert(indexaddPara.srcInput->GetShape().size() == indexaddPara.srcInput->GetOffset().size());
+    assert(indexaddPara.idxInput->GetShape().size() == indexaddPara.idxInput->GetOffset().size());
+
+    IndexAddTileInfoPara indexaddTileInfo{
+        TileInfo(indexaddPara.selfInput->GetShape().size(), indexaddPara.selfInput->GetOffset().size()),
+        TileInfo(indexaddPara.srcInput->GetShape().size(), indexaddPara.srcInput->GetOffset().size()),
+        TileInfo(indexaddPara.idxInput->GetShape().size(), indexaddPara.idxInput->GetOffset().size()),
+        TileInfo(indexaddPara.dstTensor->GetShape().size(), indexaddPara.dstTensor->GetOffset().size())};
+    InnerTiledIndexAdd(0, function, tileShape, indexaddPara, indexaddTileInfo);
+}
+
+void TensorIndexAdd(Function &function, const IndexAddPara indexaddPara) {
+    auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_INDEX_ADD,
+        {indexaddPara.selfInput, indexaddPara.srcInput, indexaddPara.idxInput}, {indexaddPara.dstTensor});
+    op.SetAttribute(OP_ATTR_PREFIX + "axis", indexaddPara.axis);
+    op.SetAttribute(OpAttributeKey::scalar, indexaddPara.alpha);
+}
+
 struct ScatterTileInfoPara {
     TileInfo srcTileInfo;
     TileInfo idxTileInfo;
@@ -3079,6 +3164,22 @@ Tensor IndexPut(const Tensor &src, std::vector<Tensor> indices, const Tensor &va
         index.GetStorage(), values.GetStorage(), 0, "PA_PNSD", 1);
     }
 
+    return result;
+}
+
+Tensor IndexAdd(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha) {
+    DECLARE_TRACER();
+    Tensor result = self;
+    return IndexAdd_(result, src, indices, axis, alpha);
+}
+
+Tensor IndexAdd_(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha) {
+    DECLARE_TRACER();
+    axis = axis < 0 ? self.GetStorage()->GetShape().size() + axis : axis;
+    Tensor result(self.GetDataType(), self.GetShape());
+    result.GetStorage()->tensor->SetTensorInfo(self.GetStorage()->tensor->GetTensorInfo());
+    CALL(IndexAdd, *Program::GetInstance().GetCurrentFunction(),
+        {self.GetStorage(), src.GetStorage(), indices.GetStorage(), result.GetStorage(), axis, alpha});
     return result;
 }
 
@@ -4919,6 +5020,12 @@ void npu::tile_fwk::ExpandOperationInto(Function &function, const TileShape &til
             int blockSize = op.GetIntAttribute(OpAttributeKey::panzBlockSize);
             std::string cacheMode = op.GetStringAttribute(OpAttributeKey::cacheMode);
             TiledScatterUpdate(function, tileShape, oOperand[0], iOperand[0], iOperand[1], iOperand[2], axis, cacheMode, blockSize);
+            break;
+        }
+        case Opcode::OP_INDEX_ADD: {
+            int axis = op.GetIntAttribute(OP_ATTR_PREFIX + "axis");
+            Element alpha = op.GetElementAttribute(OpAttributeKey::scalar);
+            TiledIndexAdd(function, tileShape, {iOperand[0], iOperand[1], iOperand[2], oOperand[0], axis, alpha});
             break;
         }
         case Opcode::OP_CONCAT: {

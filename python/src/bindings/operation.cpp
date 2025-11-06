@@ -128,6 +128,20 @@ void bind_operation(py::module &m) {
         { return npu::tile_fwk::Scatter(self, indices, src, axis, reduce); },
         py::arg("self"), py::arg("indices"), py::arg("src"), py::arg("axis"), py::arg("reduce") = ScatterMode::NONE,
         "Tensor scatter element noninplace.");
+    m.def(
+        "index_add_",
+        [](const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha) {
+            return npu::tile_fwk::IndexAdd_(self, src, indices, axis, alpha);
+        },
+        py::arg("self"), py::arg("src"), py::arg("indices"), py::arg("axis"),
+        py::arg("alpha") = npu::tile_fwk::Element(DT_FP32, 1.0), "Tensor index add inplace.");
+    m.def(
+        "index_add",
+        [](const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha) {
+            return npu::tile_fwk::IndexAdd(self, src, indices, axis, alpha);
+        },
+        py::arg("self"), py::arg("src"), py::arg("indices"), py::arg("axis"),
+        py::arg("alpha") = npu::tile_fwk::Element(DT_FP32, 1.0), "Tensor index add noninplace.");
     m.def("gather_element", [](const Tensor &params, const Tensor &indices, int axis)
         { return npu::tile_fwk::GatherElements(params, indices, axis); }, "Tensor gather element.");
     m.def("gather", [](const Tensor &params, const Tensor &indices, int axis)

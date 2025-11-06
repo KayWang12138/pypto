@@ -81,6 +81,7 @@ enum class Opcode {
     OP_GATHER_ELEMENT,
     OP_SCATTER_ELEMENT,
     OP_INDEX_PUT,
+    OP_INDEX_ADD,
     OP_CONCAT,
     OP_SCATTER_UPDATE,
     OP_SCATTER_SCALAR,
@@ -480,9 +481,10 @@ const std::unordered_set<Opcode> WHERE_OPS{
 
 const std::unordered_set<Opcode> GATHER_ELEMENT_OPS{Opcode::OP_GATHER_ELEMENT};
 const std::unordered_set<Opcode> SCATTER_ELEMENT_OPS{Opcode::OP_SCATTER_ELEMENT};
+const std::unordered_set<Opcode> INDEX_ADD_OPS{Opcode::OP_INDEX_ADD};
 
 const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_RANGE, Opcode::OP_TRANSPOSE_VNCHWCONV,
-    Opcode::OP_GATHER_ELEMENT, Opcode::OP_COPY_IN, Opcode::OP_COPY_OUT, Opcode::OP_TRANSPOSE_MOVEOUT,
+    Opcode::OP_GATHER_ELEMENT, Opcode::OP_INDEX_ADD, Opcode::OP_COPY_IN, Opcode::OP_COPY_OUT, Opcode::OP_TRANSPOSE_MOVEOUT,
     Opcode::OP_INDEX_OUTCAST, Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_MUL, Opcode::OP_DIV, Opcode::OP_EXP,
     Opcode::OP_NEG, Opcode::OP_LN, Opcode::OP_ABS, Opcode::OP_RSQRT, Opcode::OP_SQRT, Opcode::OP_RECIPROCAL,
     Opcode::OP_CAST, Opcode::OP_ADDS, Opcode::OP_SUBS, Opcode::OP_MULS, Opcode::OP_DIVS, Opcode::OP_MAXS,

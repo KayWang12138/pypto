@@ -88,6 +88,20 @@ public:
     std::string GenScatterElementSOp() const;
     std::string PrintScatterElementSOpStatic(const PrintScatterElemParam &param) const;
     std::string PrintScatterElementSOpDynamicUnaligned(const PrintScatterElemParam &param) const;
+    struct PrintIndexAddParam {
+        int axis;
+        const std::string &dVar;
+        const std::string &s0Var;
+        const std::string &s1Var;
+        const std::string &idxVar;
+        std::vector<int64_t> &dstRawShape;
+        std::vector<int64_t> &src0RawShape;
+        std::vector<int64_t> &src1RawShape;
+        const std::string *dataTypeExpr;
+    };
+    std::string GenIndexAddOp() const;
+    std::string PrintIndexAddStatic(const PrintIndexAddParam &param) const;
+    std::string PrintIndexAddDynamicUnaligned(const PrintIndexAddParam &param) const;
 
     std::string GenIndexOutCastOp() const;
 
@@ -517,6 +531,9 @@ private:
         {                    Opcode::OP_GATHER,                 [this]() { return GenGatherOp(); }},
         {            Opcode::OP_GATHER_ELEMENT,          [this]() { return GenGatherElementOp(); }},
         {           Opcode::OP_SCATTER_ELEMENT,        [this]() { return GenScatterElementSOp(); }},
+
+        // indexadd
+        {             Opcode::OP_INDEX_ADD,           [this]() { return GenIndexAddOp(); }},
 
         // transpose with gm
         {         Opcode::OP_TRANSPOSE_MOVEOUT,        [this]() { return GenTransposeDataMove(); }},

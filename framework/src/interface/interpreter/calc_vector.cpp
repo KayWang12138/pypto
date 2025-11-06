@@ -319,6 +319,22 @@ void ExecuteOpGather(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_GATHER, Opcode::OP_GATHER, ExecuteOpGather);
 
+void ExecuteOpIndexAdd(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ctx->ioperandDataViewList->size() == SIZE_THREE);
+    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto &self = ctx->ioperandDataViewList->at(0);
+    auto &src = ctx->ioperandDataViewList->at(1);
+    auto &indices = ctx->ioperandDataViewList->at(2);
+    auto alpha = Element(DT_FP32, 1.0);
+    if (ctx->op->HasAttribute(OpAttributeKey::scalar)){
+        alpha = ctx->op->GetElementAttribute(OpAttributeKey::scalar);
+    }
+    int axis = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "axis");
+    calc::IndexAdd(ret, self, src, indices, axis, alpha);
+}
+REGISTER_CALC_OP(OP_INDEX_ADD, Opcode::OP_INDEX_ADD, ExecuteOpIndexAdd);
+
 void ExecuteOpMrgSort(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ioperandDataViewList->size() == 1);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
