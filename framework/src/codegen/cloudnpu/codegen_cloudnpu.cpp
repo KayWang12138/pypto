@@ -515,6 +515,7 @@ void CodeGenCloudNPU::BuildIncludes(std::ostringstream &oss) const {
     // used for building whl package
     std::string curLibPath = GetCurrentSharedLibPath();
     oss << "-I" << curLibPath << "/include/tileop/a2a3 "
+        << "-I" << curLibPath << "/include/tileop "
         << "-I" << curLibPath << "/include/tilefwk "
         << "-I" << curLibPath << "/include ";
 }

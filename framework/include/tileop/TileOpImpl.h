@@ -30,15 +30,15 @@
 
 #ifdef SUPPORT_TILE_TENSOR
 #include "utils/layout.h"
-#include "../vec_trans.h"
-#include "../vec_binary.h"
-#include "../vec_cast.h"
-#include "../vec_reduce.h"
-#include "../vec_sort.h"
-#include "../dma_copy.h"
-#include "../vec_gather.h"
-#include "../vec_expand.h"
-#include "../vec_extract.h"
+#include "vector/trans.h"
+#include "vector/binary.h"
+#include "vector/cast.h"
+#include "vector/reduce.h"
+#include "vector/sort.h"
+#include "vector/mte.h"
+#include "vector/gather.h"
+#include "vector/expand.h"
+#include "vector/extract.h"
 #endif
 
 #endif

@@ -9,14 +9,14 @@
  */
 
 /*!
- * \file vec_binary.h
+ * \file binary.h
  * \brief
  */
 
-#ifndef TILEOP_TILE_OPERATOR_VEC_BINARY__H
-#define TILEOP_TILE_OPERATOR_VEC_BINARY__H
-#include "a2a3/utils/layout.h"
-#include "a2a3/utils/tile_tensor.h"
+#ifndef TILEOP_TILE_OPERATOR_BINARY__H
+#define TILEOP_TILE_OPERATOR_BINARY__H
+#include "utils/layout.h"
+#include "utils/tile_tensor.h"
 
 template <BinaryOp op, typename T0, typename T1, typename T2>
 TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {

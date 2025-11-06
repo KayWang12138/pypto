@@ -9,14 +9,14 @@
  */
 
 /*!
- * \file vec_expand.h
+ * \file expand.h
  * \brief
  */
 
-#ifndef TILEOP_TILE_OPERATOR_VEC_EXPAND__H
-#define TILEOP_TILE_OPERATOR_VEC_EXPAND__H
-#include "a2a3/utils/layout.h"
-#include "a2a3/utils/tile_tensor.h"
+#ifndef TILEOP_TILE_OPERATOR_EXPAND__H
+#define TILEOP_TILE_OPERATOR_EXPAND__H
+#include "utils/layout.h"
+#include "utils/tile_tensor.h"
 
 template <typename T0, typename T1>
 TILEOP void TExpand(T0 dst, T1 src, unsigned axis) {

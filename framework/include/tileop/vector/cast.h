@@ -9,14 +9,14 @@
  */
 
 /*!
- * \file vec_cast.h
+ * \file cast.h
  * \brief
  */
 
-#ifndef TILEOP_TILE_OPERATOR_VEC_CONVERT__H
-#define TILEOP_TILE_OPERATOR_VEC_CONVERT__H
-#include "a2a3/utils/layout.h"
-#include "a2a3/utils/tile_tensor.h"
+#ifndef TILEOP_TILE_OPERATOR_CAST__H
+#define TILEOP_TILE_OPERATOR_CAST__H
+#include "utils/layout.h"
+#include "utils/tile_tensor.h"
 
 template <unsigned Mode, typename T0, typename T1>
 TILEOP void TCast(T0 dst, T1 src) {

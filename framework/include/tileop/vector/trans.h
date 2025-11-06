@@ -9,12 +9,14 @@
  */
 
 /*!
- * \file vec_trans.h
+ * \file trans.h
  * \brief
  */
 
-#include "a2a3/utils/layout.h"
-#include "a2a3/utils/tile_tensor.h"
+#ifndef TILEOP_TILE_OPERATOR_TRANS__H
+#define TILEOP_TILE_OPERATOR_TRANS__H
+#include "utils/layout.h"
+#include "utils/tile_tensor.h"
 
 template <typename T0, typename T1>
 TILEOP void TTrans(T0 dst, T1 src) {
@@ -71,3 +73,4 @@ TILEOP void TTrans(T0 dst, T1 src) {
         }
     }
 }
+#endif

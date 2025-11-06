@@ -9,14 +9,14 @@
  */
 
 /*!
- * \file vec_reduce.h
+ * \file reduce.h
  * \brief
  */
 
-#ifndef TILEOP_TILE_OPERATOR_VEC_REDUCE__H
-#define TILEOP_TILE_OPERATOR_VEC_REDUCE__H
-#include "a2a3/utils/layout.h"
-#include "a2a3/utils/tile_tensor.h"
+#ifndef TILEOP_TILE_OPERATOR_REDUCE__H
+#define TILEOP_TILE_OPERATOR_REDUCE__H
+#include "utils/layout.h"
+#include "utils/tile_tensor.h"
 
 template <typename T0, typename T1, typename T2>
 TILEOP void TRowSumSingle(T0 dst, T1 src, T2 tmp) {

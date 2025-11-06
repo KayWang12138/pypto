@@ -9,14 +9,14 @@
  */
 
 /*!
- * \file vec_binary.h
+ * \file extract.h
  * \brief
  */
 
 #ifndef TILEOP_TILE_OPERATOR_EXTRACT__H
 #define TILEOP_TILE_OPERATOR_EXTRACT__H
-#include "a2a3/utils/layout.h"
-#include "a2a3/utils/tile_tensor.h"
+#include "utils/layout.h"
+#include "utils/tile_tensor.h"
 
 template <int k, int extractMode, int isLargest, typename T0, typename T1>
 TILEOP void TExtract(T0 dst, T1 src) {

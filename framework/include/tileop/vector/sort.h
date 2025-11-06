@@ -9,14 +9,14 @@
  */
 
 /*!
- * \file vec_sort.h
+ * \file sort.h
  * \brief
  */
 
-#ifndef TILEOP_TILE_OPERATOR_VEC_SORT__H
-#define TILEOP_TILE_OPERATOR_VEC_SORT__H
-#include "a2a3/utils/layout.h"
-#include "a2a3/utils/tile_tensor.h"
+#ifndef TILEOP_TILE_OPERATOR_SORT__H
+#define TILEOP_TILE_OPERATOR_SORT__H
+#include "utils/layout.h"
+#include "utils/tile_tensor.h"
 
 template <int axis, int offset, int isLargest, typename T0, typename T1>
 TILEOP void TBitSort(T0 dst, T1 src) {

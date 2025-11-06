@@ -9,15 +9,13 @@
  */
 
 /*!
- * \file vec_gather.h
+ * \file gather.h
  * \brief
  */
-#ifndef TILEOP_TILE_OPERATOR_VEC_DYN_H
-#define TILEOP_TILE_OPERATOR_VEC_DYN_H
-
-#include "a2a3/utils/layout.h"
-#include "a2a3/utils/tile_tensor.h"
-
+#ifndef TILEOP_TILE_OPERATOR_GATHER__H
+#define TILEOP_TILE_OPERATOR_GATHER__H
+#include "utils/layout.h"
+#include "utils/tile_tensor.h"
 
 #define CALC_SRC0_INDEX(s0, s1, s2, s3, s4) \
    ((s0) * n0SrcStride  + (s1) * n1SrcStride + (s2) * n2SrcStride + (s3) * n3SrcStride + (s4))

@@ -9,14 +9,15 @@
  */
 
 /*!
- * \file dma_copy.h
+ * \file mte.h
  * \brief
  */
 
-#ifndef TILEOP_TILE_OPERATOR_DMA_MOVE__H
-#define TILEOP_TILE_OPERATOR_DMA_MOVE__H
-#include "a2a3/utils/layout.h"
-#include "a2a3/utils/tile_tensor.h"
+#ifndef TILEOP_TILE_OPERATOR_MTE__H
+#define TILEOP_TILE_OPERATOR_MTE__H
+#include "utils/layout.h"
+#include "utils/tile_tensor.h"
+
 template <typename T, typename U, typename C>
 __aicore__ inline void TLoad(T dst, U src, C coordinate) {
     constexpr auto shapeSize = Std::tuple_size<typename U::Shape>::value;
