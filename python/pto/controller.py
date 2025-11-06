@@ -15,7 +15,7 @@
 import inspect
 import logging
 from contextlib import contextmanager
-from typing import List, Optional, Set, Tuple, Union
+from typing import List, Optional, Set, Tuple, Union, Iterator, overload
 
 from pto import pto_impl
 
@@ -414,18 +414,73 @@ def pto_function(name: str, graph_type: pto_impl.GraphType, func_type: pto_impl.
         pto_impl.EndFunction(name, False)
 
 
-def loop(start: SymInt, end: Optional[SymInt] = None, step: Optional[SymInt] = None, **kwargs):
+@overload
+def loop(stop: SymInt, /, **kwargs) -> Iterator[SymInt]:
+    """ Create a symbolic loop ranging from 0 to `stop` (exclusive).
+
+    Parameters
+    ----------
+    stop : SymInt
+        The end value (exclusive) of the loop range.
+    kwargs :
+        See base `loop()` documentation for shared keyword arguments.
+
+    Returns
+    -------
+    Iterator[SymInt]
+        A generator over symbolic integers representing each iteration variable.
+
+
+    Examples
+    --------
+    with pto.loop(10, name="LOOP_L0_bIdx", idx_name="bIdx"):
+        if pto.cond(k==0):
+            b[:] = a + a
+        else:
+            b[:] = a + b
+    """
+    ...
+
+
+@overload
+def loop(start: SymInt, stop: SymInt, step: Optional[SymInt] = 1, /, **kwargs) -> Iterator[SymInt]:
+    """ Create a symbolic loop ranging from `start` to `stop` (exclusive), incrementing by `step`.
+
+    Parameters
+    ----------
+    start : SymInt
+        Start value.
+    stop : SymInt
+        End value (exclusive).
+    step : Optional[SymInt], default=1
+        Increment for each iteration.
+    kwargs :
+        See base `loop()` documentation for shared keyword arguments.
+
+    Returns
+    -------
+    Iterator[SymInt]
+        A generator over symbolic integers.
+
+    Examples
+    --------
+    with pto.loop(0, 10, 1, name="LOOP_L0_bIdx", idx_name="bIdx"):
+        if pto.cond(k==0):
+            b[:] = a + a
+        else:
+            b[:] = a + b
+    """
+    ...
+
+
+def loop(
+    *args,
+    **kwargs,
+) -> Iterator[SymInt]:
     """ set up a loop computation. Use as a for loop in python.
 
     Parameters
     ----------
-    start: int
-        the initial value of the variable in a for loop
-    end: Optional[int]
-        the ending value for the for loop
-    step: Optional[int]
-        The increment amount of the looping value
-
     kwargs:
         name: str
             The name of the loop
@@ -435,28 +490,28 @@ def loop(start: SymInt, end: Optional[SymInt] = None, step: Optional[SymInt] = N
             The number of loop layer which is unrolled
 
     Returns
-    -------
+    --------
     return a generator, which will be used for setting up the
     for loop in building computing graph
-
-    Examples
-    --------
-    >>> with pto.loop(0, 10, 1, loop_name, iter_name, power_of_2(max_unroll_times)):
-            if pto.cond(k==0):
-                b[:] = a + a
-            else:
-                b[:] = a + b
-
     """
+    nargs = len(args)
+    if nargs == 1:
+        start, stop, step = 0, args[0], 1
+    elif nargs == 2:
+        start, stop, step = args[0], args[1], 1
+    elif nargs == 3:
+        start, stop, step = args
+    else:
+        raise TypeError(f"loop() takes 1 to 3 positional arguments but {nargs} were given")
+
     # implementation
-    step = 1 if step is None else step
     name = kwargs.get("name", "LOOP")
     idx_name = kwargs.get("idx_name", "K")
     unroll_list = kwargs.get("unroll_list", set())
     submit_before_loop = kwargs.get("submit_before_loop", False)
     with _loop_function(
         name, idx_name, _loop_range(
-            start, end, step), unroll_list, submit_before_loop
+            start, stop, step), unroll_list, submit_before_loop
     ) as rlf:
         for k in rlf:
             yield k
