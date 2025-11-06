@@ -70,9 +70,64 @@ class CMakeParam(abc.ABC):
         cmd: str = (f" -D{opt}=" + v) if ctr else ""
         return cmd
 
+    @classmethod
+    def _cfg_pep517_require(cls, opt: str, ctr: bool = True, tv: str = "ON", fv: str = "OFF") -> str:
+        v: str = tv if ctr else fv
+        return f" --config-setting=\"cmake.define.{opt}={v}\""
+
+    @classmethod
+    def _cfg_pep517_optional(cls, opt: str, ctr: bool, v: str) -> str:
+        return f" --config-setting=\"cmake.define.{opt}={v}\"" if ctr else ""
+
     @abc.abstractmethod
-    def get_cfg_cmd(self):
+    def get_cfg_cmd(self) -> str:
         pass
+
+    def get_pep517_cfg_cmd(self) -> str:
+        return ""
+
+
+@dataclasses.dataclass
+class FeatureParam(CMakeParam):
+    """ 特性控制相关参数
+    """
+    frontend_type: Optional[str] = None # 前端类型, 支持 python3, cpp
+    backend_type: Optional[str] = None # 后端类型, 支持 npu, cost_model
+
+    def __init__(self, args):
+        self.frontend_type = "python3" if args.frontend is None else args.frontend
+        self.backend_type = "npu" if args.backend is None else args.backend
+
+    def __str__(self):
+        desc: str = ""
+        desc += f"\nFeature"
+        desc += f"\n    Frontend                : {self.frontend_type}"
+        desc += f"\n    Backend                 : {self.backend_type}"
+        return desc
+
+    @property
+    def def_build_job_num(self) -> Optional[int]:
+        if self.frontend_type in ["python3"]:
+            return None
+        else:
+            return min(int(math.ceil(float(multiprocessing.cpu_count()) * 0.8)), 48)  # 设置 48 为 CMake 场景最大核数
+
+    @property
+    def def_build_type(self) -> str:
+        return "Release" if self.frontend_type in ["python3"] else "Debug"
+
+    @staticmethod
+    def reg_args(parser, ext: Optional[Any] = None):
+        parser.add_argument("-f", "--frontend", nargs="?", type=str, default="cpp",
+                            choices=["python3", "cpp"],
+                            help="backend, such as npu/cost_model etc.")
+        parser.add_argument("-b", "--backend", nargs="?", type=str, default="npu",
+                            choices=["npu", "cost_model"],
+                            help="backend, such as npu/cost_model etc.")
+
+    def get_cfg_cmd(self) -> str:
+        cmd: str = self._cfg_require(opt="BUILD_WITH_CANN", ctr=self.backend_type in ["npu"])
+        return cmd
 
 
 @dataclasses.dataclass
@@ -80,7 +135,7 @@ class BuildParam(CMakeParam):
     """ 构建相关参数
     """
     targets: Optional[List[str]] = None  # 编译目标
-    job_num: int = min(int(math.ceil(float(multiprocessing.cpu_count()) * 0.8)), 48) # 编译阶段使用核数
+    job_num: Optional[int] = None # 编译阶段使用核数
     clean: bool = False  # 强制清理 Build-Tree 及 Install-Tree 标记
     timeout: Optional[int] = None  # 构建超时时长
     type_: Optional[str] = None  # 构建类型
@@ -89,12 +144,12 @@ class BuildParam(CMakeParam):
     gcov: bool = False  # 使能 GNU Coverage
     clang_install_path: Optional[Path] = None  # Clang 安装位置
 
-    def __init__(self, args):
+    def __init__(self, args, feature: FeatureParam):
         self.targets = args.targets
-        self.job_num = args.job_num if args.job_num > 0 else self.job_num
+        self.job_num = args.job_num if args.job_num > 0 else feature.def_build_job_num
         self.clean = args.clean
         self.timeout = None if args.timeout == 0 else args.timeout
-        self.type_ = args.build_type
+        self.type_ = args.build_type if args.build_type else feature.def_build_type
         self.asan = args.asan
         self.ubsan = args.ubsan
         self.gcov = args.gcov
@@ -157,7 +212,7 @@ class BuildParam(CMakeParam):
 
     def get_cfg_cmd(self) -> str:
         cmd: str = ""
-        cmd += self._cfg_optional(opt="CMAKE_BUILD_TYPE", ctr=bool(self.type_), v=self.type_)
+        cmd += self._cfg_require(opt="CMAKE_BUILD_TYPE", tv=self.type_)
         cmd += self._cfg_require(opt="ENABLE_ASAN", ctr=self.asan)
         cmd += self._cfg_require(opt="ENABLE_UBSAN", ctr=self.ubsan)
         cmd += self._cfg_require(opt="ENABLE_GCOV", ctr=self.gcov)
@@ -189,36 +244,11 @@ class BuildParam(CMakeParam):
             cmd += clang_cmd
         return cmd
 
-
-@dataclasses.dataclass
-class FeatureParam(CMakeParam):
-    """ 特性控制相关参数
-    """
-    frontend_type: Optional[str] = None # 前端类型, 支持 python3, cpp
-    backend_type: Optional[str] = None # 后端类型, 支持 npu, cost_model
-
-    def __init__(self, args):
-        self.frontend_type = "python3" if args.frontend is None else args.frontend
-        self.backend_type = "npu" if args.backend is None else args.backend
-
-    def __str__(self):
-        desc: str = ""
-        desc += f"\nFeature"
-        desc += f"\n    Frontend                : {self.frontend_type}"
-        desc += f"\n    Backend                 : {self.backend_type}"
-        return desc
-
-    @staticmethod
-    def reg_args(parser, ext: Optional[Any] = None):
-        parser.add_argument("-f", "--frontend", nargs="?", type=str, default="cpp",
-                            choices=["python3", "cpp"],
-                            help="backend, such as npu/cost_model etc.")
-        parser.add_argument("-b", "--backend", nargs="?", type=str, default="npu",
-                            choices=["npu", "cost_model"],
-                            help="backend, such as npu/cost_model etc.")
-
-    def get_cfg_cmd(self) -> str:
-        cmd: str = self._cfg_require(opt="BUILD_WITH_CANN", ctr=self.backend_type in ["npu"])
+    def get_pep517_cfg_cmd(self) -> str:
+        cmd: str = self._cfg_pep517_require(opt="CMAKE_BUILD_TYPE", tv=f"{self.type_}")
+        cmd += self._cfg_pep517_require(opt="ENABLE_ASAN", ctr=self.asan)
+        cmd += self._cfg_pep517_require(opt="ENABLE_UBSAN", ctr=self.ubsan)
+        cmd += self._cfg_pep517_require(opt="ENABLE_GCOV", ctr=self.gcov)
         return cmd
 
 
@@ -558,7 +588,7 @@ class ModelParam(CMakeParam):
 
     @staticmethod
     def _save_simulation_json(simulation_json, src_root: Path):
-        temp_json_path = os.path.join(str(src_root), "framework/src/cost_model/simulation/scripts/tmp_simulation.json")
+        temp_json_path = os.path.join(str(src_root), "src/cost_model/simulation/scripts/tmp_simulation.json")
         os.makedirs(os.path.dirname(temp_json_path), exist_ok=True)
         with open(temp_json_path, 'w') as f:
             json.dump(simulation_json, f, indent=4)
@@ -666,14 +696,17 @@ class BuildCtrl:
 
     本类包含由命令行指定或解析出的控制标记/参数, 以控制构建过程执行.
     """
+    _PYTHONPATH: str = "PYTHONPATH"
+    _LD_LIBRARY_PATH: str = "LD_LIBRARY_PATH"
+
 
     def __init__(self, args):
         self.whl_prefix: str = "pto"
         self.src_root: Path = Path(__file__).parent.resolve()
         self.build_root: Path = Path(Path.cwd(), "build")
         self.install_root: Path = Path(self.build_root.parent, "output")
-        self.build: BuildParam = BuildParam(args=args)
         self.feature: FeatureParam = FeatureParam(args=args)
+        self.build: BuildParam = BuildParam(args=args, feature=self.feature)
         self.tests: TestsParam = TestsParam(args=args)
         self.model: ModelParam = ModelParam(args=args)
 
@@ -686,8 +719,8 @@ class BuildCtrl:
         desc += f"\n    Source  Dir             : {self.src_root}"
         desc += f"\n    Build   Dir             : {self.build_root}"
         desc += f"\n    Install Dir             : {self.install_root}"
-        desc += f"{self.build}"
         desc += f"{self.feature}"
+        desc += f"{self.build}"
         desc += f"{self.tests}"
         desc += f"\n"
         return desc
@@ -718,7 +751,7 @@ class BuildCtrl:
 
         stdout: Optional[str] = None
         stderr: Optional[str] = None
-        env = {**os.environ}
+        env = os.environ.copy()
         env.update(update_env if update_env else {})
         with subprocess.Popen(shlex.split(cmd), env=env, text=True, encoding='utf-8',
                               start_new_session=True) as process:
@@ -742,25 +775,6 @@ class BuildCtrl:
         return subprocess.CompletedProcess(process.args, ret_code, stdout, stderr)
 
     @staticmethod
-    def pip_uninstall(name: str, path: Optional[Path] = None):
-        """
-        卸载对应 whl 包
-
-        :param name: 包名
-        :param path: 指定安装路径(可选)
-        """
-        cmd: str = f"{sys.executable} -m pip uninstall -y {name}"
-        act_env = {**os.environ}
-        if path:
-            ori_env_python_path: str = act_env.get("PYTHONPATH", "")
-            act_env_python_path: str = f"{path}:{ori_env_python_path}" if ori_env_python_path else f"{path}"
-            act_env.update({"PYTHONPATH": act_env_python_path})
-        ret = subprocess.run(shlex.split(cmd),
-                            capture_output=False, check=True, text=True, encoding='utf-8', env=act_env)
-        ret.check_returncode()
-        logging.info("Success uninstall %s package%s", name, f" from {path}" if path else "")
-
-    @staticmethod
     def find_match_whl(name: str, path: Path) -> Optional[Path]:
         """
         在指定路径下, 查找对应匹配的 whl 包文件
@@ -780,21 +794,6 @@ class BuildCtrl:
             logging.error("Failed to find match %s whl from %s, pattern=%s", name, path, pattern)
         return whl_file
 
-    @staticmethod
-    def pip_install(whl: Path, path: Optional[Path] = None):
-        """
-        安装指定 whl 包
-
-        :param whl: 包文件
-        :param path: 安装路径(可选), 未指定时会安装在默认路径
-        :return: 安装路径
-        """
-        cmd: str = f"{sys.executable} -m pip install --no-compile {whl}"
-        cmd += f" --target={path}" if path else ""
-        ret = subprocess.run(shlex.split(cmd), capture_output=False, check=True, text=True, encoding='utf-8')
-        ret.check_returncode()
-        logging.info("Success install %s%s", whl, f" to {path}" if path else "")
-
     @classmethod
     def main(cls):
         """ 主处理流程
@@ -802,8 +801,8 @@ class BuildCtrl:
         parser = argparse.ArgumentParser(description=f"PyPTO Build Ctrl.", epilog="Best Regards!")
         sub_parser = parser.add_subparsers()  # 子命令
         # 参数注册
-        BuildParam.reg_args(parser=parser)
         FeatureParam.reg_args(parser=parser)
+        BuildParam.reg_args(parser=parser)
         TestsParam.reg_args(parser=parser, ext=sub_parser)
         ModelParam.reg_args(parser=parser)
         # 参数处理
@@ -825,6 +824,43 @@ class BuildCtrl:
             ctrl.cmake_configure()
             ctrl.model.gen_simulation_json(src_root=ctrl.src_root)
             ctrl.cmake_build()
+
+    @classmethod
+    def pip_uninstall(cls, name: str, path: Optional[Path] = None):
+        """
+        卸载对应 whl 包
+
+        :param name: 包名
+        :param path: 指定安装路径(可选), 如果指定对应路径, 仅会在对应路径尝试卸载
+        """
+        if path:
+            del_lst: List[Path] = [Path(f) for f in path.glob(pattern=f"{name}-*.dist-info")]
+            pkg_dir: Path = Path(path, name)
+            if pkg_dir.exists() and pkg_dir.is_dir():
+                del_lst.append(pkg_dir)
+            for p in del_lst:
+                shutil.rmtree(p)
+        else:
+            cmd: str = f"{sys.executable} -m pip uninstall -v -y {name}"
+            ret = cls.run_build_cmd(cmd=cmd, check=True)
+            ret.check_returncode()
+        logging.info("Success uninstall %s package%s", name, f" from {path}" if path else "")
+
+    @classmethod
+    def pip_install(cls, whl: Path, path: Optional[Path] = None):
+        """
+        安装指定 whl 包
+
+        :param whl: 包文件
+        :param path: 安装路径(可选), 未指定时会安装在默认路径
+        :return: 安装路径
+        """
+        cmd: str = f"{sys.executable} -m pip install --no-compile {whl}"
+        cmd += f" --target={path}" if path else ""
+        logging.info("Begin install %s", whl)
+        ret = cls.run_build_cmd(cmd=cmd, check=True)
+        ret.check_returncode()
+        logging.info("Success install %s%s", whl, f" to {path}" if path else "")
 
     def cmake_clean(self):
         """ 清理中间结果, 清理内容包括构建树, 安装树全部内容. """
@@ -859,8 +895,8 @@ class BuildCtrl:
         """ CMake Configure 阶段流程. """
         # 基本配置, 当前 CMake 中有调用 python3 的情况, 传入 python3 解释器, 保证所使用的 python3 版本一致
         cmd = f"cmake -S {self.src_root} -B {self.build_root} -DPython3_EXECUTABLE={sys.executable}"
-        cmd += self.build.get_cfg_cmd()
         cmd += self.feature.get_cfg_cmd()
+        cmd += self.build.get_cfg_cmd()
         cmd += self.tests.get_cfg_cmd()
         # 执行
         logging.info("CMake Configure, Cmd: %s", cmd)
@@ -904,59 +940,57 @@ class BuildCtrl:
             wf.work_flow_plot(self.build_root, self.model.prof, self.model.pe)
 
     def py_build(self):
+        # 基本配置
         cmd: str = f"{sys.executable} -I -m build --no-isolation -v"
+        cmd += self.build.get_pep517_cfg_cmd()
+        update_env: Dict[str, str] = {}
+        if self.build.job_num:
+            update_env.update({"CMAKE_BUILD_PARALLEL_LEVEL": f"{self.build.job_num}"})
         ts = datetime.now(tz=timezone.utc)
-        logging.info("Python3 Build, Cmd: %s", cmd)
-        ret = self.run_build_cmd(cmd=cmd, check=True, timeout=self.build.timeout)
+        logging.info("Begin Build whl, Cmd: %s", cmd)
+        ret = self.run_build_cmd(cmd=cmd, update_env=update_env, check=True, timeout=self.build.timeout)
         ret.check_returncode()
         duration: int = int((datetime.now(tz=timezone.utc) - ts).seconds)
         duration_str: str = f"{duration}/{self.build.timeout}" if self.build.timeout else f"{duration}"
-        logging.info("Python3 Build, Cmd: %s, Duration %s sec", cmd, duration_str)
+        logging.info("Success Build whl, Cmd: %s, Duration %s sec", cmd, duration_str)
 
     def py_tests(self):
         if not self.tests.utest.enable and not self.tests.stest.enable:
             return
         # 重装 whl
         dist: Path = Path(self.src_root, "dist")
-        self.py_tests_install_whl(dist=dist)
-        # 执行用例, UTest
-        utest_ini: Path = Path(self.src_root, "python/tests/pytest_ut.ini")
-        self.py_tests_run_pytest(dist=dist, tests=self.tests.utest, ini=utest_ini, ext="-n auto")
-        # 执行用例, STest
-        stest_ini: Path = Path(self.src_root, "python/tests/pytest_st.ini")
-        self.py_tests_run_pytest(dist=dist, tests=self.tests.stest, ini=stest_ini, ext="--forked")
-
-    def py_tests_install_whl(self, dist: Path):
-        # 卸载 whl 包
-        self.pip_uninstall(name=self.whl_prefix, path=dist)
-        # 查找 whl 包
-        whl: Optional[Path] = self.find_match_whl(name=self.whl_prefix, path=dist)
+        self.pip_uninstall(name=self.whl_prefix, path=dist)  # 卸载 whl 包
+        whl: Optional[Path] = self.find_match_whl(name=self.whl_prefix, path=dist)  # 查找 whl 包
         if not whl:
             raise RuntimeError(f"Can't find {self.whl_prefix} whl file from {dist}")
-        # 安装 whl 包
-        self.pip_install(whl=whl, path=dist)
+        self.pip_install(whl=whl, path=dist)  # 安装 whl 包
+        # 执行用例, UTest
+        self.py_tests_run_pytest(dist=dist, tests=self.tests.utest,
+                                 def_filter=str(Path(self.src_root, "python/tests/ut")), ext="-n auto")
+        # 执行用例, STest
+        self.py_tests_run_pytest(dist=dist, tests=self.tests.stest,
+                                 def_filter=str(Path(self.src_root, "python/tests/st")), ext="--forked")
 
-    def py_tests_run_pytest(self, dist: Optional[Path], tests: TestsFilterParam, ini: Path, ext: str = ""):
+    def py_tests_run_pytest(self, dist: Optional[Path], tests: TestsFilterParam, def_filter: str, ext: str = ""):
         if not tests.enable:
             return
         # cmd 拼接
         cmd: str = f"{sys.executable} -m pytest -vv -s --rootdir={self.src_root}"
-        if tests.filter_str in ["ON"]:
-            cmd += f" -c {ini} {ext}"
-        else:
-            cmd += f" {tests.filter_str.replace(',', ' ')} --forked"
+        def_filter = def_filter if tests.filter_str in ["ON"] else tests.filter_str
+        def_filter = def_filter.replace(',', ' ')
+        cmd += f" {def_filter} {ext}"
         # cmd 执行
-        origin_env = {**os.environ}
-        update_env = {}
+        origin_env = os.environ.copy()
+        update_env: Dict[str, str] = {}
         if dist:
-            ori_env_python_path: str = origin_env.get("PYTHONPATH", "")
+            ori_env_python_path: str = origin_env.get(self._PYTHONPATH, "")
             act_env_python_path: str = f"{dist}:{ori_env_python_path}" if ori_env_python_path else f"{dist}"
-            update_env.update({"PYTHONPATH": act_env_python_path})
+            update_env.update({self._PYTHONPATH: act_env_python_path})
             #
             add_env_ld: str = str(Path(dist, f"{self.whl_prefix}", "lib"))
-            ori_env_ld: str = origin_env.get("LD_LIBRARY_PATH", "")
-            act_env_ld: str = f"{ori_env_ld}:{add_env_ld}" if ori_env_ld else f"{add_env_ld}"
-            update_env.update({"LD_LIBRARY_PATH": act_env_ld})
+            ori_env_ld: str = origin_env.get(self._LD_LIBRARY_PATH, "")
+            act_env_ld: str = f"{add_env_ld}:{ori_env_ld}" if ori_env_ld else f"{add_env_ld}"
+            update_env.update({self._LD_LIBRARY_PATH: act_env_ld})
         ts = datetime.now(tz=timezone.utc)
         logging.info("pytest run, Cmd: %s", cmd)
         ret = self.run_build_cmd(cmd=cmd, check=True, update_env=update_env)

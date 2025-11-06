@@ -56,6 +56,9 @@ add_custom_command(
         COMMAND ${CMAKE_COMMAND} -E make_directory ${PTO_Fwk_UTestExePath}/config/
         COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/config/* ${PTO_Fwk_UTestExePath}/config/
         COMMENT "Copy ${_Target} dependence config file."
+)
+add_custom_command(
+        TARGET ${_Target} PRE_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory ${PTO_Fwk_UTestExePath}/scripts/
         COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/framework/src/cost_model/simulation/scripts/print_swim_lane.py ${PTO_Fwk_UTestExePath}/scripts/
         COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/framework/src/cost_model/simulation/scripts/draw_comm_swim_lane_png.py ${PTO_Fwk_UTestExePath}/scripts/

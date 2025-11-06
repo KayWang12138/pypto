@@ -28,6 +28,7 @@ if (BUILD_WITH_CANN)
 endif ()
 
 message(STATUS "CMAKE_GENERATOR=${CMAKE_GENERATOR}")
+message(STATUS "CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
 
 ########################################################################################################################
 # 编译流程

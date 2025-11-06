@@ -50,6 +50,7 @@ PyPTO 支持由源码编译 whl 包, 并基于 pytest 对 whl 包含的 python �
 - python >= 3.9.5
 - gcc >= 7.3.0
 - cmake >= 3.16.0
+- ninja（可选, 编译 whl 包时需要）
 - JSON for Modern C++（建议版本 [v3.11.3](https://github.com/nlohmann/json/releases/tag/v3.11.3)）
 
   如下以[JSON for Modern C++源码](https://github.com/nlohmann/json/releases/tag/v3.11.3)编译安装为例，安装命令如下：
@@ -94,17 +95,20 @@ PyPTO 支持由源码编译 whl 包, 并基于 pytest 对 whl 包含的 python �
 
 #### 4.1.1 环境准备
 
-在编译 whl 包时, 需要额外安装一些 pip 包, 对应依赖 `requirements.txt` 内容如下:
+在编译 whl 包时, 需要额外安装 ninja 编译器和 一些 pip 包, 对应 pip 包依赖的 `requirements.txt` 内容如下:
 
 ```txt
 # 编译 whl 包时所需的 pip 包
 build>=1.2.0
 pybind11>=2.0.1
-scikit_build_core==0.11.6
+scikit_build_core>=0.11.6
+torch>=2.1.0
+torch_npu>=2.1.0
+numpy>=1.19.2, <=1.24.4
+sympy
 ```
 
-除上述依赖外, 还需额外安装 `torch_npu` 包, 对应内容参考 [Ascend Extension for PyTorch 安装说明](https://www.hiascend.com/document/detail/zh/Pytorch/710/configandinstg/instg/insg_0001.html).
-
+需要注意 `torch` 及 `torch_npu` 包安装, 对应内容参考 [Ascend Extension for PyTorch 安装说明](https://www.hiascend.com/document/detail/zh/Pytorch/710/configandinstg/instg/insg_0001.html).
 #### 4.1.2 编译执行
 
 可通过如下命令一键式编译 PyPTO 对应 whl 包, 编译完成后会在源码根目录 `dist` 目录下产生 `pto-*.whl` 包. 而后可以通过 pip 包管理命令进行安装.
@@ -131,6 +135,9 @@ export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib/python3.10/dist-package
 而后即可在脚本中 `import pto` 并使用其功能。
 
 ***注意:*** 如果把 `pto-*.whl` 安装在非默认路径, 则需要根据实际安装路径, 结合 pip 包管理机制要求, 额外配置 `PYTHONPATH` 环境变量.
+
+***注意:*** CANN 包安装结束后, 需要按照对应要求安装其运行所依赖的 pip 包, 可参考对应 CANN 版本的 "安装后配置" 章节描述，
+如[CANN 8.2.RC1 版本说明](https://www.hiascend.com/document/detail/zh/canncommercial/82RC1/softwareinst/instg/instg_0094.html?Mode=PmIns&InstallType=local&OS=Debian&Software=cannToolKit)。
 
 #### 4.1.3 UTest/STest 的编译执行
 
@@ -168,12 +175,13 @@ python3 build.py -s=AscendOnBoardTest.test_operation_tensor_dim2_add,AscendOnBoa
 
 ##### 4.1.5 Python 场景常见使用方法
 
-Python 场景的使用方式与 C++ 场景类似, 一般仅需额外添加 `--frontend=python3` 参数. 并安装一些额外的 pip 包, 对应安装包要求如下:
+Python 场景的使用方式与 C++ 场景类似, 一般仅需额外添加 `--frontend=python3` 参数. UTest/STest 场景需要安装一些额外的 pip 包, 对应安装包要求如下:
 
 ```txt
 pytest
 pytest-forked
 pytest-xdist
+bfloat16   # 后续版本中会去除该依赖
 ```
 
 常见使用方式如下:

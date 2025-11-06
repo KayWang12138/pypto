@@ -92,43 +92,32 @@ if (ENABLE_TORCH_VERIFIER)
     install(TARGETS tile_fwk_calculator
             LIBRARY DESTINATION lib OPTIONAL
     )
-endif() ## ENABLE_TORCH_VERIFIER
+endif () ## ENABLE_TORCH_VERIFIER
 
 if (ENABLE_FEATURE_PYTHON_FRONT_END)
         install(TARGETS tile_fwk_interface LIBRARY DESTINATION pto/lib OPTIONAL)
         install(FILES configs/tile_fwk_config.json DESTINATION pto/configs)
         install(FILES configs/tile_fwk_config_schema.json DESTINATION pto/configs)
 else ()
-        install(TARGETS tile_fwk_interface
-                LIBRARY DESTINATION lib OPTIONAL
-        )
+        install(TARGETS tile_fwk_interface LIBRARY DESTINATION lib OPTIONAL)
 
         add_custom_target(
                 tile_fwk_config.json ALL
                 DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config.json
-                DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config_schema.json
         )
-
         add_custom_command(
                 OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config.json
-                COMMAND ${CMAKE_COMMAND} -E remove -f ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config.json
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_LIST_DIR}/configs/tile_fwk_config.json ${CMAKE_CURRENT_BINARY_DIR}
+                COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_LIST_DIR}/configs/tile_fwk_config.json ${CMAKE_CURRENT_BINARY_DIR}
         )
+        install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config.json DESTINATION lib OPTIONAL)
 
         add_custom_target(
                 tile_fwk_config_schema_json ALL
                 DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config_schema.json
         )
-
         add_custom_command(
                 OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config_schema.json
-                COMMAND ${CMAKE_COMMAND} -E remove -f ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config_schema.json
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_LIST_DIR}/configs/tile_fwk_config_schema.json ${CMAKE_CURRENT_BINARY_DIR}
+                COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_LIST_DIR}/configs/tile_fwk_config_schema.json ${CMAKE_CURRENT_BINARY_DIR}
         )
-
-        install(FILES
-                ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config.json
-                ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config_schema.json
-                DESTINATION lib OPTIONAL
-        )
-endif()
+        install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config_schema.json DESTINATION lib OPTIONAL)
+endif ()

@@ -226,15 +226,18 @@ function(PTO_Fwk_GTest_AddExe)
                 -rdynamic
     )
     add_custom_command(
-        TARGET ${ARG_TARGET} POST_BUILD
-        COMMAND mkdir -p "${PTO_FWK_BIN_ROOT}/framework/src/conf"
-        COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/interface/configs/tile_fwk_config.json" "${PTO_FWK_BIN_ROOT}/framework/src/conf/tile_fwk_config.json"
-        COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/passes/pass_config/tile_fwk_platform_info.json" "${PTO_FWK_BIN_ROOT}/framework/src/conf/tile_fwk_platform_info.json"
-        COMMENT "Soft link of tile_fwk_config.json and tile_fwk_platform_info.json has been created at ${PTO_FWK_BIN_ROOT}/framework/src/conf"
-        COMMAND ${CMAKE_COMMAND} -E remove_directory ${PTO_FWK_BIN_ROOT}/framework/src/include
-        COMMAND ${CMAKE_COMMAND} -E make_directory ${PTO_FWK_BIN_ROOT}/framework/src/include
-        COMMAND ln -sf ${PTO_FWK_SRC_ROOT}/framework/include ${PTO_FWK_BIN_ROOT}/framework/src/include/tile_fwk
-        COMMENT "Soft link include directory has been created at ${PTO_FWK_BIN_ROOT}/framework/src/include/tile_fwk"
+            TARGET ${ARG_TARGET} POST_BUILD
+            COMMAND mkdir -p "${PTO_FWK_BIN_ROOT}/framework/src/conf"
+            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/interface/configs/tile_fwk_config.json" "${PTO_FWK_BIN_ROOT}/framework/src/conf/tile_fwk_config.json"
+            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/passes/pass_config/tile_fwk_platform_info.json" "${PTO_FWK_BIN_ROOT}/framework/src/conf/tile_fwk_platform_info.json"
+            COMMENT "Soft link of tile_fwk_config.json and tile_fwk_platform_info.json has been created at ${PTO_FWK_BIN_ROOT}/framework/src/conf"
+    )
+    add_custom_command(
+            TARGET ${ARG_TARGET} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E remove_directory ${PTO_FWK_BIN_ROOT}/framework/src/include
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${PTO_FWK_BIN_ROOT}/framework/src/include
+            COMMAND ln -sf ${PTO_FWK_SRC_ROOT}/framework/include ${PTO_FWK_BIN_ROOT}/framework/src/include/tile_fwk
+            COMMENT "Soft link include directory has been created at ${PTO_FWK_BIN_ROOT}/framework/src/include/tile_fwk"
     )
 endfunction()
 

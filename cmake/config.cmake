@@ -27,19 +27,18 @@ else ()
     find_package(Python3 ${Python3_FIND_VERSION} EXACT COMPONENTS Development)
 endif ()
 
-if (Python3_Development_FOUND)
+if (ENABLE_FEATURE_PYTHON_FRONT_END)
+    if (NOT Python3_Development_FOUND)
+        message(FATAL_ERROR "Can't get python3-dev, Python Frontend can't build.")
+    endif ()
     PTO_Fwk_AnalysisPython3Environ(pybind11_DIR GET_PYBIND11_DIR)
     message(STATUS "pybind11_DIR=${pybind11_DIR}")
     if (NOT "${pybind11_DIR}x" STREQUAL "x")
         find_package(pybind11 CONFIG REQUIRED PATHS ${pybind11_DIR} NO_DEFAULT_PATH)
     endif ()
     if (NOT pybind11_FOUND)
-        set(ENABLE_FEATURE_PYTHON_FRONT_END OFF)
-        message(WARNING "Can't get pybind11, Auto turn off ENABLE_FEATURE_PYTHON_FRONT_END.")
+        message(WARNING "Can't get pybind11, Python Frontend can't build.")
     endif ()
-else ()
-    set(ENABLE_FEATURE_PYTHON_FRONT_END OFF)
-    message(WARNING "Can't get python3-dev, Auto turn off ENABLE_FEATURE_PYTHON_FRONT_END.")
 endif ()
 
 
@@ -76,6 +75,7 @@ message(STATUS "ASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_PACKAGE_PATH}")
 #           1. 单配置生成器(Single-configuration generator)场景下, 如果构建类型(CMAKE_BUILD_TYPE)未指定, 则默认为 Debug ;
 #           2. 多配置生成器(Multi-configuration generator)场景下, 如果构建阶段可选的构建类型(CMAKE_CONFIGURATION_TYPES)未指定,
 #              则默认将其指定为CMake允许的构建类型全集 [Debug;Release;MinSizeRel;RelWithDebInfo]
+message(STATUS "CMAKE_GENERATOR=${CMAKE_GENERATOR}")
 get_property(GENERATOR_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 if (GENERATOR_IS_MULTI_CONFIG)
     if (NOT CMAKE_CONFIGURATION_TYPES)
@@ -85,8 +85,9 @@ else ()
     if (NOT CMAKE_BUILD_TYPE)
         set(CMAKE_BUILD_TYPE          "Debug"                                   CACHE STRING "Build type(default Debug)" FORCE)
     endif ()
+    message(STATUS "CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
 endif ()
-message(STATUS "CMAKE_GENERATOR=${CMAKE_GENERATOR}")
+
 
 # 构建阶段(Build)
 #   可执行文件运行时库文件搜索路径 RPATH

@@ -63,9 +63,6 @@ if (BUILD_WITH_CANN)
                 $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/msprof>
     )
 
-    message(STATUS "=======================BUILD_OPEN_PROJECT=======================${BUILD_OPEN_PROJECT}")
-    message(STATUS "=======================ASCEND_CANN_PACKAGE_PATH=======================${ASCEND_CANN_PACKAGE_PATH}")
-
     # stub hccl
     add_library(hccl SHARED)
     target_sources(hccl

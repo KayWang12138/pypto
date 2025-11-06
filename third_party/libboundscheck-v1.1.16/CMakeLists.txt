@@ -10,6 +10,7 @@ cmake_minimum_required(VERSION 3.14)
 project(Securec)
 
 message(STATUS "CMAKE_GENERATOR=${CMAKE_GENERATOR}")
+message(STATUS "CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
 
 file(GLOB SRC_LIST RELATIVE ${CMAKE_CURRENT_LIST_DIR}
     "src/vsprintf_s.c"

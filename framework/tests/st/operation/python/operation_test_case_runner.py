@@ -67,7 +67,7 @@ class OperationTestCaseRunner:
         print(f"Start exec : {cmd}")
         with subprocess.Popen(
             cmd,
-            env={**os.environ},
+            env=os.environ.copy(),
             text=True,
             encoding="utf-8",
             start_new_session=True,

@@ -51,7 +51,7 @@ class Executable:
         cmd += f"--gtest_filter={gtest_filter}"
         # 环境变量优先级: 函数参数指定 > 类内环境变量(命令行参数指定) > 系统内已有的
         envs = envs if envs is not None else {}
-        act_env = {**os.environ} # 系统环境变量
+        act_env = os.environ.copy() # 系统环境变量
         act_env.update(self.envs) # 额外指定环境变量
         act_env.update(envs) # 函数调用时指定的环境变量
         cwd: str = str(self.file.parent)
