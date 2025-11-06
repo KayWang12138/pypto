@@ -1268,7 +1268,7 @@ def unsqueeze(input: Tensor, dim: int) -> Tensor:
 
 
 @op_wrapper
-def view(input: Tensor, shape: List[int], offsets: Union[List[int], List[SymbolicScalar]],
+def view(input: Tensor, shape: List[int], offsets: List[Union[int, SymbolicScalar]],
          *, valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None) -> Tensor:
     """Extract a partial view from the input tensor for subsequent computations.
        WARNING: view has a very different behavior from torch.view, it is more like slice.

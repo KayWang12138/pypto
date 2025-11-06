@@ -109,6 +109,34 @@ def test_tensor_view_content_equal():
      
     pto.runtime._device_fini()
 
+
+def test_tensor_view_content_validshape_equal():
+    """Test whether the output content has changed"""
+
+    x_shape = [4, 4]
+    dtype = pto.DT_FP32
+    pto.runtime._device_init()
+    x = pto.tensor(x_shape, dtype)
+    view_shape = [4, 4]
+    offset = [2, 0]
+    validshape = [2, 4]
+    res = pto.tensor(view_shape, dtype)
+
+    with pto.function("Tensor_VIEW_CONTENT_VALIDSHAPE", [x], [res]):
+        for _ in pto.loop(1, name="LOOP_L0", idx_name="a_idx"):
+            pto.set_vec_tile_shapes(4, 4)
+            res.move(x.view(view_shape, offset, valid_shape=validshape))
+            del res
+    
+    torch_tensor = torch.rand(4, 4, dtype=torch.float32) * 200 - 100
+    res_tensor = torch.zeros(4, 4, dtype=torch.float32)
+    pto.runtime._device_run_once_data_from_host([torch_tensor], [res_tensor])
+     
+    expected = torch_tensor[2: 4, 0: 4]
+    assert torch.equal(res_tensor.flatten()[: 2 * 4], expected.flatten())
+     
+    pto.runtime._device_fini()
+
 def test_syntactic_sugar_view_content_equal():
     """Test whether the output content has changed"""
 

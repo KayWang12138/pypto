@@ -21,18 +21,6 @@
 using namespace npu::tile_fwk;
 using ref_tensors = std::vector<std::reference_wrapper<const Tensor>>;
 
-enum class OptionType {
-    String,    // std::string
-    Int,       // int
-    VectorInt, // std::vector<int>
-    MapIntInt  // std::map<int, int>
-};
-
-static std::map<std::string, OptionType> PassKeyTypeMap;
-static std::map<std::string, OptionType> HostKeyTypeMap;
-static std::map<std::string, OptionType> CodeGenKeyTypeMap;
-static std::map<std::string, OptionType> RuntimeTypeMap;
-
 namespace pypto {
 void bind_controller_config(py::module &m) {
     m.def("SetBuildStatic", [](const bool &value) { config::SetBuildStatic(value); }, py::arg("value"));
@@ -61,6 +49,8 @@ void bind_controller_config(py::module &m) {
                 return py::cast(config::GetOption<int64_t>(key));
             } else if (config::IsType<std::string>(key)) {
                 return py::cast(config::GetOption<std::string>(key));
+            } else if (config::IsType<bool>(key)) {
+                return py::cast(config::GetOption<bool>(key));
             } else if (config::IsType<std::vector<int64_t>>(key)) {
                 return py::cast(config::GetOption<std::vector<int64_t>>(key));
             } else if (config::IsType<std::map<int64_t, int64_t>>(key)) {

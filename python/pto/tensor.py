@@ -268,10 +268,11 @@ class Tensor:
 
     def unsqueeze(self, dim: int) -> 'Tensor':
         return pto.unsqueeze(self, dim)
-
-    def view(self, shape: List[int], offsets: List[int]) -> 'Tensor':
-        return pto.view(self, shape, offsets)
-
+    
+    def view(self, shape: List[int], offsets: List[Union[int, SymbolicScalar]],
+             *, valid_shape: List[Union[int, SymbolicScalar]] = None) -> 'Tensor':
+        return pto.view(self, shape, offsets, valid_shape=valid_shape)
+    
     def sin(self) -> 'Tensor':
         return pto.sin(self)
 
