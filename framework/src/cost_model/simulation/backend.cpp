@@ -39,7 +39,8 @@ void CostModelAgent::BuildCostModel()
     int cycleThreshold = config::GetSimConfig("EXECUTE_CYCLE_THRESHOLD", -1);
     std::string jsonPath = config::GetSimConfig("JSON_PATH", "");
     agentJsonPath = config::GetSimConfig("AGENT_JSON_PATH", "");
-    auto folder = config::LogTopFolder() + "/" + ("CostModelSimulationOutput");
+    auto folder = config::GetAbsoluteTopFolder() + "/" + ("CostModelSimulationOutput");
+    config::SetRundataOption(KEY_SWIM_GRAPH_PATH, folder);
     std::vector<std::string> configs;
     if (!jsonPath.empty()) {
         configs.push_back("-f");
@@ -248,6 +249,8 @@ extern "C" int32_t ExecuteSimulation(const MachineTask *task, FunctionCache &cac
     if (!config::GetPlatformConfig("ENABLE_COST_MODEL", true)) {
         return 0;
     }
+
+    config::SetRundataOption(KEY_RUNTYPE, "simulation");
 
     CostModelAgent costModelAgent;
 

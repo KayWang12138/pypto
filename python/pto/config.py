@@ -119,7 +119,8 @@ def set_codegen_option(key: str, value: Union[str, int, List[int], Dict[int, int
 
     pto_impl.SetOption(f"codegen.{key}", value)
 
-def get_codegen_option(key:str) -> Union[str, int, List[int], Dict[int, int]]:
+
+def get_codegen_option(key: str) -> Union[str, int, List[int], Dict[int, int]]:
     """
     Get codegen options.
 
@@ -136,7 +137,8 @@ def get_codegen_option(key:str) -> Union[str, int, List[int], Dict[int, int]]:
 
     return pto_impl.GetOption(f"codegen.{key}")
 
-def set_runtime_option(key:str, value:Union[str, int, List[int], Dict[int, int]]) -> None:
+
+def set_runtime_option(key: str, value: Union[str, int, List[int], Dict[int, int]]) -> None:
     """
     Set runtime options.
 
@@ -151,7 +153,23 @@ def set_runtime_option(key:str, value:Union[str, int, List[int], Dict[int, int]]
 
     pto_impl.SetOption(f"runtime.{key}", value)
 
-def get_runtime_option(key:str) -> Union[str, int, List[int], Dict[int, int]]:
+
+def set_rundata_option(key: str, value: Union[str, int, List[int], Dict[int, int]]) -> None:
+    """
+    Set rundata options.
+
+    Parameters
+    ---------
+    key: str
+        Config option key.
+
+    value : Union[str, int, List[int], Dict[int, int]]
+        Config option value.
+    """
+    pto_impl.SetOption(f"rundata.{key}", value)
+
+
+def get_runtime_option(key: str) -> Union[str, int, List[int], Dict[int, int]]:
     """
     Get runtime options.
 

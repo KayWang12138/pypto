@@ -276,6 +276,24 @@ void SaveFile(const std::string &filePath, const std::vector<uint8_t> &data) {
     fclose(file);
 }
 
+void SaveFile(const std::string &filePath, const uint8_t *data, size_t size) {
+    FILE *file = fopen(filePath.c_str(), "wb");
+    fwrite(data, 1, size, file);
+    fclose(file);
+}
+
+void SaveFileSafe(const std::string &filePath, const uint8_t *data, size_t size) {
+    auto tmpfile = filePath + ".tmp";
+    SaveFile(tmpfile, data, size);
+    Rename(tmpfile, filePath);
+}
+
+void Rename(const std::string &oldPath, const std::string &newPath) {
+    if (rename(oldPath.c_str(), newPath.c_str()) != 0) {
+        ALOG_WARN("Rename file %s to %s failed.", oldPath.c_str(), newPath.c_str());
+    }
+}
+
 bool DumpFile(const char *data, const size_t size, const std::string &filePath) {
     // dump bin file
     std::ofstream outFile(filePath, std::ios::binary);

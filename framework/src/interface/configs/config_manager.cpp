@@ -79,6 +79,7 @@ Status ConfigManager::Initialize() {
         }
     }
 
+    config::SetRundataOption(KEY_PTO_CONFIG_FILE, jsonFilePath);
     ASLOGI("Start to parse op_json_file %s", jsonFilePath.c_str());
     if (!ReadJsonFile(jsonFilePath, json_)) {
         ASLOGE("ReadJsonFile failed.");
@@ -163,6 +164,7 @@ const std::string &ConfigManager::LogTensorGraphFolder() {
     if (globalConfigs_.logTensorGraphFolder.empty()) {
         globalConfigs_.logTensorGraphFolder = LogTopFolder() + "/TensorGraph";
         CreateDir(globalConfigs_.logTensorGraphFolder);
+        config::SetRundataOption(KEY_COMPUTE_GRAPH_PATH, config::GetAbsoluteTopFolder() + "/TensorGraph");
     }
     return globalConfigs_.logTensorGraphFolder;
 }

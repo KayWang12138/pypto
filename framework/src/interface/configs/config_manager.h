@@ -18,6 +18,7 @@
 #include <nlohmann/json.hpp>
 #include <sys/file.h>
 #include <string>
+#include <unistd.h>
 #include <type_traits>
 #include <set>
 #include "interface/utils/common.h"
@@ -430,6 +431,14 @@ void SetCodeGenConfig(const std::string &key, const T &value) {
 inline DPlatform GetDevicePlatform() {
     auto platform = ConfigManager::Instance().GetPlatformConfig("DEVICE_PLATFORM", "ASCEND_910B2");
     return StringToDpaltform(platform);
+}
+
+inline const std::string GetAbsoluteTopFolder() {
+    constexpr size_t size = 1024;
+    char cwdBuf[size] = {};
+    std::string cwd = getcwd(cwdBuf, size);
+
+    return cwd + "/" + ConfigManager::Instance().LogTopFolder();
 }
 
 inline const std::string &LogTopFolder() {

@@ -53,6 +53,8 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
         ALOG_INFO("draw graph switch enabled, push finish queue.");
         return 0;
     }
+    config::SetRundataOption(KEY_RUNTYPE, "npu");
+
     auto deviceMachineTask = new MachineTask(task->GetTaskId(), task->GetFunction());
     deviceMachineTask->SetCacheReuseType(task->GetCacheReuseType());
     deviceMachineTask->SetCacheKey(task->GetCacheKey());
@@ -758,8 +760,10 @@ MachineTask *GenCode(
      * the filepath of the object file is updated to the binPath_ member.
      */
     if (config::GetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_BY_JSON, false)) {
-        std::string jsonPath = config::LogTopFolder() + "/program.json";
+        std::string jsonPath = config::GetAbsoluteTopFolder() + "/program.json";
         Program::GetInstance().DumpJsonFile(jsonPath);
+        config::SetRundataOption(KEY_PROGRAM_PATH, jsonPath);
+
         codeGen.GenCode(jsonPath, invokeParaOffset);
         task->SetFunction(Program::GetInstance().GetCurrentFunction());
     } else if (function->GetGraphType() == GraphType::TILE_GRAPH) {

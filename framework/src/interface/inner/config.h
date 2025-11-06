@@ -54,6 +54,14 @@ constexpr const char *CFGCACHE_DEVICE_TASK_NUM = "cfgcache_device_task_num";
 constexpr const char *CFGCACHE_ROOT_TASK_NUM = "cfgcache_root_task_num";
 constexpr const char *CFGCACHE_LEAF_TASK_NUM = "cfgcache_leaf_task_num";
 
+/* Rundata KEYS */
+constexpr const char *KEY_RUNTYPE = "runtype";
+constexpr const char *KEY_PTO_CONFIG_FILE = "pto_config_file";
+constexpr const char *KEY_COMPUTE_GRAPH_PATH = "compute_graph_path";
+constexpr const char *KEY_SWIM_GRAPH_PATH = "swim_graph_path";
+constexpr const char *KEY_FLOW_VERIFY_PATH = "flow_verify_path";
+constexpr const char *KEY_PROGRAM_PATH = "program_file";
+
 struct ConfigStorage;
 
 struct PrintOptions {
@@ -123,5 +131,7 @@ std::shared_ptr<ConfigStorage> Duplicate();
 void Restore(std::shared_ptr<ConfigStorage> config);
 
 PrintOptions &GetPrintOptions();
+
+void CreateRundataDir();
 } // namespace config
 } // namespace npu::tile_fwk

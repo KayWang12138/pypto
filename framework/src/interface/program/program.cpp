@@ -82,7 +82,6 @@ Program &Program::GetInstance() {
 }
 
 void Program::Reset() {
-    config::SetBuildStatic(false);
     name_.clear();
     functionmap_.clear();
     functionMagicNameStack_.clear();
@@ -792,7 +791,17 @@ RecordFunc::RecordFunc(const std::string &name,
     Program::GetInstance().SetCurrentDynamicFunction(dynFunc_);
 }
 
+inline bool IsVerifyEnable() {
+    return config::GetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, false) ||
+        config::GetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, false) ||
+        config::GetPlatformConfig(KEY_VERIFY_PASS, false);
+}
+
 RecordFunc::~RecordFunc() {
+    if (IsVerifyEnable()) {
+        config::SetRundataOption(KEY_FLOW_VERIFY_PATH, config::GetAbsoluteTopFolder() + "/verify");
+    }
+
     (void)Program::GetInstance().EndFunction(funcName);
     if (dynFunc_) {
         Program::GetInstance().SetLastFunction(dynFunc_);

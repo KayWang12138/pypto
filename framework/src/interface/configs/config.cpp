@@ -14,8 +14,16 @@
  */
 #include <variant>
 #include <sstream>
+#include <shared_mutex>
+
+#include <nlohmann/json.hpp>
+
 #include "interface/inner/config.h"
+#include "interface/utils/common.h"
 #include "interface/utils/string_utils.h"
+#include "interface/utils/file_utils.h"
+
+using json = nlohmann::json;
 
 namespace npu::tile_fwk {
 
@@ -93,7 +101,6 @@ struct ConfigStorage {
         for (auto &[key, val] : g_hostConfig) {
             options["host." + key] = val;
         }
-
         for (auto &[key, val] : g_codegenConfig) {
             options["codegen." + key] = val;
         }
@@ -101,6 +108,7 @@ struct ConfigStorage {
 
     FunctionType funcType;
     std::string sematicLabel;
+    std::string rundataDir;
     std::unordered_map<std::string, ValueType> options;
     PrintOptions printOption;
 };
@@ -108,9 +116,14 @@ struct ConfigStorage {
 namespace config {
 
 static ConfigStorage g_config;
+std::shared_mutex g_rwlock;
 
 void SetBuildStatic(bool isStatic) {
     g_config.funcType = isStatic ? FunctionType::STATIC : FunctionType::DYNAMIC;
+}
+
+std::string GetRundataDir() {
+    return g_config.rundataDir;
 }
 
 FunctionType GetFunctionType() {
@@ -133,6 +146,7 @@ std::string Dump() {
     std::ostringstream oss;
     auto &printOption = g_config.printOption;
 
+    std::shared_lock lock(g_rwlock);
     oss << "funcType: " << (g_config.funcType == FunctionType::DYNAMIC ? "dynamic" : "static") << std::endl;
     oss << "sematicLabel: " << g_config.sematicLabel << std::endl;
     oss << "printOption.edgeItems: " << printOption.edgeItems << std::endl;
@@ -161,6 +175,8 @@ std::string Dump() {
 }
 
 bool internal::IsType(const std::string &key, const std::type_info &type) {
+    std::shared_lock lock(g_rwlock);
+
     auto iter = g_config.options.find(StringUtils::ToLower(key));
     if (iter == g_config.options.end()) {
         return false;
@@ -180,6 +196,7 @@ bool internal::IsType(const std::string &key, const std::type_info &type) {
 
 #define DEFINE_GET_OPTION(Type)                                       \
     bool internal::GetOption(const std::string &key, Type &value) {   \
+        std::shared_lock lock(g_rwlock);                              \
         auto iter = g_config.options.find(StringUtils::ToLower(key)); \
         if (iter == g_config.options.end()) {                         \
             return false;                                             \
@@ -193,20 +210,82 @@ DEFINE_GET_OPTION(std::string)
 DEFINE_GET_OPTION(std::vector<int64_t>)
 DEFINE_GET_OPTION(MapType)
 
+static json toJson(const std::string &prefix) {
+    json j;
+    std::shared_lock lock(g_rwlock);
+    for (auto &it : g_config.options) {
+        if (!StringUtils::StartsWith(it.first, prefix)) {
+            continue;
+        }
+        auto key = it.first.substr(prefix.size());
+        if (std::holds_alternative<int64_t>(it.second)) {
+            j[key] = std::get<int64_t>(it.second);
+        } else if (std::holds_alternative<std::string>(it.second)) {
+            j[key] = std::get<std::string>(it.second);
+        } else if (std::holds_alternative<std::vector<int64_t>>(it.second)) {
+            j[key] = std::get<std::vector<int64_t>>(it.second);
+        } else if (std::holds_alternative<MapType>(it.second)) {
+            j[key] = std::get<MapType>(it.second);
+        }
+    }
+    return j;
+}
+
+void CreateRundataDir() {
+    if (!g_config.rundataDir.empty()) {
+        return;
+    }
+    auto time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    std::stringstream timestamp;
+    timestamp << std::put_time(std::localtime(&time), "%Y%m%d%H%M%S");
+
+    std::string envStr = GetEnvVar("PYPTO_HOME");
+    std::string dir = envStr.empty() ? (GetCurrentSharedLibPath() + "/../../.pypto") : envStr;
+ 
+    dir = dir + "/run/rundata_" + timestamp.str();
+    bool res = CreateMultiLevelDir(dir);
+    ASSERT(res) << "Failed to create directory: " << dir;
+
+    g_config.rundataDir = dir;
+}
+
+static void SetOptionPost(const std::string &key) {
+    if (StringUtils::StartsWith(key, "rundata.")) {
+        if (g_config.rundataDir.empty()) {
+            CreateRundataDir();
+        }
+        auto value = toJson("rundata.").dump(2);
+        auto dir = GetRundataDir() + "/rundata.json";
+        SaveFileSafe(dir, reinterpret_cast<uint8_t*>(value.data()), value.size());
+    }
+}
+
 void internal::SetOption(const std::string &key, int64_t value) {
+    g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
+    g_rwlock.unlock();
+    SetOptionPost(key);
 }
 
 void internal::SetOption(const std::string &key, const std::string &value) {
+    g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
+    g_rwlock.unlock();
+    SetOptionPost(key);
 }
 
 void internal::SetOption(const std::string &key, const std::vector<int64_t> &value) {
+    g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
+    g_rwlock.unlock();
+    SetOptionPost(key);
 }
 
 void internal::SetOption(const std::string &key, const std::map<int64_t, int64_t> &value) {
+    g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
+    g_rwlock.unlock();
+    SetOptionPost(key);
 }
 
 void SetPrintOptions(int edgeItems, int precision, int threshold, int linewidth) {
@@ -221,15 +300,20 @@ PrintOptions &GetPrintOptions() {
 }
 
 void Reset() {
+    g_rwlock.lock();
     g_config.Reset();
+    g_rwlock.unlock();
 }
 
 std::shared_ptr<ConfigStorage> Duplicate() {
+    std::shared_lock lock(g_rwlock);
     return std::make_shared<ConfigStorage>(g_config);
 }
 
 void Restore(std::shared_ptr<ConfigStorage> config) {
+    g_rwlock.lock();
     g_config = *config;
+    g_rwlock.unlock();
 }
 
 int GetDeviceId() {
