@@ -34,6 +34,7 @@ enum class Opcode {
     OP_RECIPROCAL,
     OP_CAST,
     OP_EXPAND,
+    OP_ONEHOT,
     OP_COMPACT,
     OP_LOGICALNOT,
     OP_ROWMAX,
@@ -460,7 +461,7 @@ const std::unordered_set<Opcode> BINARY_WITH_BRC_OPS{
 const std::unordered_set<Opcode> UNARY_OPS{Opcode::OP_EXP, Opcode::OP_NEG, Opcode::OP_RSQRT, Opcode::OP_SQRT,
     Opcode::OP_EXPAND, Opcode::OP_RECIPROCAL, Opcode::OP_ROWSUM, Opcode::OP_ROWMAX, Opcode::OP_ROWEXPSUM,
     Opcode::OP_ROWEXPMAX, Opcode::OP_COPY_L1_TO_L1, Opcode::OP_COPY_UB_TO_UB, Opcode::OP_ROWSUMLINE, Opcode::OP_ABS,
-    Opcode::OP_LN};
+    Opcode::OP_LN, Opcode::OP_ONEHOT};
 
 const std::unordered_set<Opcode> UNARY_OPS_WITH_TMP{Opcode::OP_COMPACT, Opcode::OP_ROWSUM_SINGLE,
     Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ROWMIN_SINGLE, Opcode::OP_TRANSPOSE_VNCHWCONV,
@@ -490,6 +491,7 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_RANGE,
     Opcode::OP_CAST, Opcode::OP_ADDS, Opcode::OP_SUBS, Opcode::OP_MULS, Opcode::OP_DIVS, Opcode::OP_MAXS,
     Opcode::OP_MINS, Opcode::OP_PAIRMAX, Opcode::OP_PAIRSUM, Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ROWSUM_SINGLE,
     Opcode::OP_EXPAND, Opcode::OP_VEC_DUP, Opcode::OP_MAXIMUM, Opcode::OP_L1_TO_L0A, Opcode::OP_LOGICALNOT,
+    Opcode::OP_ONEHOT,
     Opcode::OP_L1_TO_L0_BT, Opcode::OP_L1_TO_L0B, Opcode::OP_L1_TO_L0_AT, Opcode::OP_A_MUL_B, Opcode::OP_A_MULACC_B,
     Opcode::OP_A_MUL_BT, Opcode::OP_AT_MUL_B, Opcode::OP_AT_MUL_BT, Opcode::OP_WHERE_TT, Opcode::OP_WHERE_TS,
     Opcode::OP_WHERE_ST, Opcode::OP_WHERE_SS, Opcode::OP_ROWSUMLINE, Opcode::OP_ADD_BRC, Opcode::OP_ADD_BRC,

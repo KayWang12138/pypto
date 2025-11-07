@@ -313,6 +313,47 @@ std::string CodeGenOpCloudNPU::PrintExpand(const std::string &s0Var, const std::
     ASSERT(ret >= 0) << "GenUnaryOp" << OpcodeManager::Inst().GetOpcodeStr(opCode) << " sprintf_s failed " << ret;
     return buffer;
 }
+
+std::string CodeGenOpCloudNPU::PrintOneHot(const PrintUnaryParam &param) const {
+    const std::string &srcDtypeStr = param.srcDtypeStr;
+    const std::string &dVar = param.dVar;
+    const std::string &s0Var = param.s0Var;
+
+    std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
+    std::ostringstream os;
+    std::vector<std::string> paramList;
+    paramList.emplace_back(srcDtypeStr);
+    paramList.emplace_back("/*DS*/");
+    paramList.emplace_back(std::to_string(ds[SHAPE_DIM1]));
+    paramList.emplace_back(std::to_string(ds[SHAPE_DIM2]));
+    int numClasses{-1};
+    auto num = opAttrs.at(OP_ATTR_PREFIX + "numClasses");
+    if (num.HasValue()) {
+        numClasses = AnyCast<int64_t>(num);
+    }
+    constexpr int align = BLOCK_SIZE / sizeof(int64_t);
+    paramList.emplace_back(std::to_string((numClasses + align - 1) / align * align));
+    std::string templateParam = JoinString(paramList, ", ");
+    paramList.clear();
+
+    std::string dst = "(__ubuf__ int64_t*)" + dVar;
+    std::string src0 = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
+    paramList.emplace_back(dst);
+    paramList.emplace_back(src0);
+
+    auto dynSrcShape = dynamicValidShape[1];
+    FillIntVecWithDummyInHead<SymbolicScalar>(dynSrcShape, SHAPE_DIM3 - dynSrcShape.size(), 1);
+    for (auto dynShape : dynSrcShape) {
+        paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dynShape));
+    }
+
+    std::string tiloOpCallParam = JoinString(paramList, ", ");
+    os << tileOpName.c_str() << "_<" << templateParam << ">"
+       << "(" << tiloOpCallParam << ");\n";
+
+    return os.str();
+}
+
 std::string CodeGenOpCloudNPU::PrintUnaryDynamicUnaligned(const PrintUnaryParam &param) const {
     const std::string &dstDtypeStr = param.dstDtypeStr;
     const std::string &srcDtypeStr = param.srcDtypeStr;
@@ -414,6 +455,8 @@ std::string CodeGenOpCloudNPU::GenUnaryOp() const {
 
     if (opCode == Opcode::OP_EXPAND) {
         return PrintExpand(s0Var, dVar, srcDtypeStr, dstDtypeStr);
+    } else if (opCode == Opcode::OP_ONEHOT) {
+        return PrintOneHot({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     } else if (opCode == Opcode::OP_ROWMAX || opCode == Opcode::OP_ROWEXPMAX || opCode == Opcode::OP_ROWEXPSUM) {
         return PrintReduceEx({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     } else if (opCode == Opcode::OP_ROWSUMLINE || opCode == Opcode::OP_ROWMAXLINE || opCode == Opcode::OP_ROWMINLINE) {

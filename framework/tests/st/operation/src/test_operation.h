@@ -155,6 +155,9 @@ private:
                 case DataType::DT_INT32:
                     readGoldenCmp<int32_t>(tensor, testCase.goldenPaths[i], i, 0);
                     break;
+                case DataType::DT_INT64:
+                    readGoldenCmp<int64_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    break;
                 case DataType::DT_UINT8:
                     readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
                     break;
@@ -163,6 +166,9 @@ private:
                     break;
                 case DataType::DT_UINT32:
                     readGoldenCmp<uint32_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    break;
+                case DataType::DT_UINT64:
+                    readGoldenCmp<uint64_t>(tensor, testCase.goldenPaths[i], i, 0);
                     break;
                 default:
                     ASSERT_TRUE(false) << "no support dtype " << tensor.GetDataType();
@@ -265,6 +271,9 @@ private:
                 case DataType::DT_INT32:
                     appendGolden<int32_t>(tensor, testCase.goldenPaths[i]);
                     break;
+                case DataType::DT_INT64:
+                    appendGolden<int64_t>(tensor, testCase.goldenPaths[i]);
+                    break;
                 case DataType::DT_UINT8:
                     appendGolden<uint8_t>(tensor, testCase.goldenPaths[i]);
                     break;
@@ -273,6 +282,9 @@ private:
                     break;
                 case DataType::DT_UINT32:
                     appendGolden<uint32_t>(tensor, testCase.goldenPaths[i]);
+                    break;
+                case DataType::DT_UINT64:
+                    appendGolden<uint64_t>(tensor, testCase.goldenPaths[i]);
                     break;
                 default:
                     ASSERT_TRUE(false) << "no support dtype " << tensor.GetDataType();

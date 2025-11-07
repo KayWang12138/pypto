@@ -310,6 +310,21 @@ def cast_params_func(params: dict):
 
 @GoldenRegister.reg_golden_func(
     case_names=[
+        "TestOneHot/OneHotOperationTest.TestOneHot",
+    ]
+)
+def gen_onehot_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs: list, config: dict):
+        num_classes = config["params"]["num_classes"]
+        return [np.eye(num_classes, dtype=np.int32)[np.array(inputs[0])]]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("OneHot", golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
         "TestCast/CastOperationTest.TestCast",
     ]
 )

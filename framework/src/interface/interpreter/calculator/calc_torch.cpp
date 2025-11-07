@@ -446,6 +446,12 @@ void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDa
     }
 }
 
+void OneHot(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int numClasses) {
+    auto ret = From(out);
+    auto src = From(self);
+    ret.copy_(torch::nn::functional::one_hot(src.to(torch::kInt64), numClasses));
+}
+
 void ExpandS(LogicalTensorDataPtr out, const Element &elem) {
     auto tout = From(out);
     torch::full_out(tout, out->GetShape(), From(elem));

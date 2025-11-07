@@ -177,6 +177,16 @@ REGISTER_CALC_OP(OP_SQRT, Opcode::OP_SQRT, ExecuteOpUnary<Opcode::OP_SQRT>);
 REGISTER_CALC_OP(OP_ABS, Opcode::OP_ABS, ExecuteOpUnary<Opcode::OP_ABS>);
 REGISTER_CALC_OP(OP_LN, Opcode::OP_LN, ExecuteOpUnary<Opcode::OP_LN>);
 
+void ExecuteOpOneHot(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto &iop = ctx->ioperandDataViewList->at(0);
+    int numClasses = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "numClasses");
+    calc::OneHot(ret, iop, numClasses);
+}
+REGISTER_CALC_OP(OP_ONEHOT, Opcode::OP_ONEHOT, ExecuteOpOneHot);
+
 void ExecuteOpExpand(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
     ASSERT(ctx->ioperandDataViewList->size() == 1);
@@ -372,7 +382,7 @@ void ExecuteOpBinaryScalar(ExecuteOperationContext *ctx) {
     auto element = Element(DT_FP32, 0.0f);
     ctx->op->GetAttr(OpAttributeKey::scalar, element);
     bool reverse = ctx->op->GetBoolAttribute(OP_ATTR_PREFIX + "reverseOperand");
-    ASSERT(ret->GetDataType() == DT_FP32 || ret->GetDataType() == DT_INT32);
+    ASSERT(ret->GetDataType() == DT_FP32 || ret->GetDataType() == DT_FP16 || ret->GetDataType() == DT_INT32);
 
     switch (opcode) {
         case Opcode::OP_ADDS: calc::AddS(ret, lhs, element); break;

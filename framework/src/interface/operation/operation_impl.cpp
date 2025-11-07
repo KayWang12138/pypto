@@ -402,6 +402,39 @@ void TiledExpand(Function &function, const TileShape &tileShape, const LogicalTe
     ExpandTile(function, tileShape, 0, expandInfo, validShape);
 }
 
+void TiledOneHot(Function &function, const TileShape &tileShape, size_t cur, Input &input,
+    Input &output, int numClasses) {
+    if (cur == output.tensor.GetShape().size()) {
+        auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
+        auto outputTile = output.tensor.GetStorage()->View(function, output.tileInfo.shape, output.tileInfo.offset);
+        auto &newOp = function.AddOperation(Opcode::OP_ONEHOT, {inputTile}, {outputTile});
+        newOp.SetAttribute(OP_ATTR_PREFIX + "numClasses", numClasses);
+        return;
+    }
+    auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < output.tensor.GetShape()[cur]; i += vecTile[cur]) {
+        if (cur < input.tensor.GetShape().size()) {
+            input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
+            input.tileInfo.offset[cur] = i;
+        }
+        output.tileInfo.shape[cur] = std::min(output.tensor.GetShape()[cur] - i, vecTile[cur]);
+        output.tileInfo.offset[cur] = i;
+        TiledOneHot(function, tileShape, cur + 1, input, output, numClasses);
+    }
+}
+
+void TiledOneHot(Function &function, const TileShape &tileShape,
+    const LogicalTensorPtr &self, const LogicalTensorPtr &result, int numClasses) {
+    ASSERT(self->shape.size() == self->offset.size());
+    ASSERT(numClasses == tileShape.GetVecTile()[result->shape.size() - 1]);
+
+    TileInfo inputTileInfo(self->shape.size(), self->offset.size());
+    TileInfo outputTileInfo(result->shape.size(), result->offset.size());
+    auto input = Input{self, inputTileInfo};
+    auto output = Input{result, outputTileInfo};
+    TiledOneHot(function, tileShape, 0, input, output, numClasses);
+}
+
 // [m,n] + [m, 1]
 bool CallBrcBinOp(LogicalTensorPtr operand1, LogicalTensorPtr operand2) {
     assert(operand1->shape.size() == operand2->shape.size() && "Dims not match");
@@ -2421,6 +2454,24 @@ Tensor Expand(const Tensor &self, const std::vector<int64_t> &dstShape, std::vec
     } else {
         RETURN_CALL(JustNeedCopyOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), dstShape, validShape);
     }
+}
+
+Tensor TensorOneHot(Function &function, const LogicalTensorPtr &self, int numClasses) {
+    Shape shape(self->shape);
+    std::vector<SymbolicScalar> validShape(self->dynValidShape_);
+    shape.push_back(static_cast<int64_t>(numClasses));
+    validShape.push_back(SymbolicScalar(numClasses));
+    auto result = std::make_shared<LogicalTensor>(function, DataType::DT_INT64, shape, validShape);
+    auto &op = function.AddOperation(Opcode::OP_ONEHOT, {self}, {result});
+    op.SetAttribute(OP_ATTR_PREFIX + "numClasses", numClasses);
+    function.UpdateTensorDataUsage(op);
+    return result;
+}
+
+Tensor OneHot(const Tensor &self, int numClasses) {
+    DECLARE_TRACER();
+
+    RETURN_CALL(OneHot, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), numClasses);
 }
 
 void TiledReduceExpandNew(Function &function, const TileShape &tileShape, const std::string &op,
@@ -5051,6 +5102,12 @@ void npu::tile_fwk::ExpandOperationInto(Function &function, const TileShape &til
             std::vector<SymbolicScalar> validShape;
             op.GetAttr(OP_ATTR_PREFIX + "validShape", validShape);
             TiledExpand(function, tileShape, iOperand[0], oOperand[0], validShape);
+            break;
+        }
+        case Opcode::OP_ONEHOT: {
+            UnaryOperationOperandCheck(iOperand, oOperand);
+            int numClasses = op.GetIntAttribute(OP_ATTR_PREFIX + "numClasses");
+            TiledOneHot(function, tileShape, iOperand[0], oOperand[0], numClasses);
             break;
         }
         case Opcode::OP_ROWEXPMAX: {

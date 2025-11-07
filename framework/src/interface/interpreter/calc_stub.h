@@ -64,6 +64,7 @@ inline void RowSumSingle(LogicalTensorDataPtr, LogicalTensorDataPtr, int) {}
 inline void RowMinSingle(LogicalTensorDataPtr, LogicalTensorDataPtr, int) {}
 inline void RowMaxSingle(LogicalTensorDataPtr, LogicalTensorDataPtr, int) {}
 
+inline void OneHot(LogicalTensorDataPtr, LogicalTensorDataPtr, int) {}
 inline void ExpandS(LogicalTensorDataPtr, const Element &) {}
 inline void Expand(LogicalTensorDataPtr, LogicalTensorDataPtr) {}
 inline void GatherElements(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int) {}

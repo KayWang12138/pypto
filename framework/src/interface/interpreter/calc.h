@@ -94,6 +94,7 @@ void RowSumSingle(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim);
 void RowMinSingle(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim);
 void RowMaxSingle(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim);
 
+void OneHot(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int numClasses);
 void ExpandS(LogicalTensorDataPtr out, const Element &scalar);
 void Expand(LogicalTensorDataPtr out, LogicalTensorDataPtr self);
 void GatherElements(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices, int axis);

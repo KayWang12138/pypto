@@ -227,6 +227,15 @@ void BroadcastInferFunc(Operation* op,
 }
 REGISTER_INFER_SHAPE_FUNC(OP_EXPAND, Opcode::OP_EXPAND, BroadcastInferFunc);
 
+// one hot infer shape func
+void OneHotInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    std::vector<SymbolicScalar> outValidShape(op->GetIOperands()[0]->GetDynValidShape());
+    int lastDim = op->GetIntAttribute(OP_ATTR_PREFIX + "numClasses");
+    outValidShape.push_back(SymbolicScalar(lastDim));
+    outValidShapes.push_back(outValidShape);
+}
+REGISTER_INFER_SHAPE_FUNC(OP_ONEHOT, Opcode::OP_ONEHOT, OneHotInferFunc);
+
 // Range infer shape func
 void RangeInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
     std::vector<SymbolicScalar> outValidShape;

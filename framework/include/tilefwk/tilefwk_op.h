@@ -280,6 +280,8 @@ enum class LogBaseType {
 };
 Tensor Log(const Tensor &self, LogBaseType base = LogBaseType::LOG_E);
 
+Tensor OneHot(const Tensor &self, int numClasses);
+
 struct IfaTileShapeConfig {
     int blockSize;
     int headNumQTile;

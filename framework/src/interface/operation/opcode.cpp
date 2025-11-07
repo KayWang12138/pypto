@@ -100,6 +100,8 @@ OpcodeManager::OpcodeManager() {
 
     registerInfo(Opcode::OP_EXPAND, OpCoreType::AIV, "EXPAND", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Texpand", PIPE_V, PIPE_V, CoreType::AIV},
         OpCalcType::ELMWISE, {OP_ATTR_PREFIX + "EXPANDDIM"});
+    registerInfo(Opcode::OP_ONEHOT, OpCoreType::AIV, "ONEHOT", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tonehot", PIPE_V, PIPE_V, CoreType::AIV},
+        OpCalcType::ELMWISE, {OP_ATTR_PREFIX + "numClasses", OpAttributeKey::excludeBufferReuse});
     registerInfo(Opcode::OP_CONCAT, OpCoreType::AIV, "CONCAT", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tconcat", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE, {"concat", OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis});
     registerInfo(Opcode::OP_COMPACT, OpCoreType::AIV, "COMPACT", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tcompact", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER);
     registerInfo(Opcode::OP_ROWMAX, OpCoreType::AIV, "ROWMAX", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Trowmaxexpand", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::REDUCE, {OpAttributeKey::excludeBufferReuse});

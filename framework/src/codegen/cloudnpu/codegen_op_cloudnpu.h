@@ -414,6 +414,7 @@ private:
     std::string PrintExpandDynamicUnaligned(const PrintUnaryParam &param, int expandAxis) const;
     std::string PrintExpand(const std::string &s0Var, const std::string &dVar, const std::string &srcDtypeStr,
         const std::string &dstDtypeStr) const;
+    std::string PrintOneHot(const PrintUnaryParam &param) const;
 
     struct DynamicParamPackMTE {
         std::vector<std::string> gmShapeExpr;
@@ -504,6 +505,7 @@ private:
         {                     Opcode::OP_RSQRT,                  [this]() { return GenUnaryOp(); }},
         {                      Opcode::OP_SQRT,                  [this]() { return GenUnaryOp(); }},
         {                    Opcode::OP_EXPAND,                  [this]() { return GenUnaryOp(); }},
+        {                    Opcode::OP_ONEHOT,                  [this]() { return GenUnaryOp(); }},
         {                Opcode::OP_RECIPROCAL,                  [this]() { return GenUnaryOp(); }},
         {                    Opcode::OP_ROWSUM,                  [this]() { return GenUnaryOp(); }},
         {                    Opcode::OP_ROWMAX,                  [this]() { return GenUnaryOp(); }},

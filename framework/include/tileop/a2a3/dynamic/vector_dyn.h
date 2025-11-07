@@ -3197,6 +3197,64 @@ TILEOP void DynTopKExtract(__ubuf__ U *y, __ubuf__ T *x) {
     TileOp::TopKExtract<U, T, yShape0, yShape1, xShape0, xShape1, isIndex, k>(y, x);
 }
 
+// onehot output dim2
+template <typename T, unsigned NUM>
+TILEOP void DynTonehot_(__ubuf__ int64_t *dst, __ubuf__ T *src, unsigned s0) {
+    constexpr unsigned countPerBlock = BLOCK_SIZE / sizeof(int64_t);
+    unsigned blockCountPerLine = NUM / countPerBlock;
+    unsigned blockCount = blockCountPerLine * s0;
+    constexpr unsigned blockPerRepeat = 8;
+    unsigned repeatCount = blockCount / blockPerRepeat;
+    unsigned lastBlockCount = blockCount % blockPerRepeat;
+    unsigned repeat = repeatCount / REPEAT_MAX;
+    unsigned lastRepeatCount = repeatCount % REPEAT_MAX;
+    // set all 0
+    __ubuf__ int64_t *dst_ = dst;
+    for (int i = 0; i < repeat; i++) {
+        vector_dup((__ubuf__ int32_t *) dst_, 0, REPEAT_MAX, 1, 0, 8, 0);
+        dst_ += REPEAT_MAX * countPerBlock * blockPerRepeat;
+    }
+    vector_dup((__ubuf__ int32_t *) dst_, 0, lastRepeatCount, 1, 0, 8, 0);
+    dst_ += lastRepeatCount * countPerBlock * blockPerRepeat;
+    set_flag(PIPE_V, PIPE_S, EVENT_ID7);
+    wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
+    for (int i = 0; i < lastBlockCount * countPerBlock; i++) {
+        *dst_ = 0;
+        dst_++;
+    }
+    // set 1
+    dst_ = dst;
+    for (int i = 0; i < s0; i++) {
+        T index = *(src + i);
+        *(dst_ + index) = 1ll;
+        dst_ += NUM;
+    }
+    set_flag(PIPE_S, PIPE_V, EVENT_ID7);
+    wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
+}
+
+// onehot output dim3
+template <typename T, unsigned DS1, unsigned NUM>
+TILEOP void DynTonehot_(__ubuf__ int64_t *dst, __ubuf__ T *src, unsigned s0, unsigned s1) {
+    constexpr unsigned align = BLOCK_SIZE / sizeof(T);
+    for (int i = 0; i < s0; i++) {
+        DynTonehot_<T, NUM>(dst, src, s1);
+        dst += DS1 * NUM;
+        src += (DS1 + align - 1) / align * align;
+    }
+}
+
+// onehot output dim4
+template <typename T, unsigned DS1, unsigned DS2, unsigned NUM>
+TILEOP void DynTonehot_(__ubuf__ int64_t *dst, __ubuf__ T *src, unsigned s0, unsigned s1, unsigned s2) {
+    constexpr unsigned align = BLOCK_SIZE / sizeof(T);
+    for (int i = 0; i < s0; i++) {
+        DynTonehot_<T, DS2, NUM>(dst, src, s1, s2);
+        dst += DS1 * DS2 * NUM;
+        src += DS1 * ((DS2 + align - 1) / align * align);
+    }
+}
+
 } // namespace TileOp
 
 #endif // TILE_FWK_VECTOR_DYN_H
