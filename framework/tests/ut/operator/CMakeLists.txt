@@ -133,6 +133,9 @@ set(_CaseFilterList
         # DSA gatherSlcAttn
         "DynamicGatherSlcFlashAttnUtest.dsa_gather_slc_attn_bf16_b32_s4"
         "DynamicGatherSlcFlashAttnUtest.dsa_gather_slc_attn_bf16_b32_s4_int8"
+
+        # QuantLightningIndexerProlog
+        "DynamicQuantLightningIndexerPrologUtest.b4_s1_2_s2_64k"
 )
 
 set(_Target ${PTO_Fwk_UTestNamePrefix}_operator)

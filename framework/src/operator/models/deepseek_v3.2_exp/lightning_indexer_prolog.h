@@ -9,13 +9,13 @@
  */
 
 /*!
- * \file nda_indexer.h
+ * \file lightning_indexer_prolog.h
  * \brief
  */
 
 #pragma once
-#ifndef NDA_INDEXER_H
-#define NDA_INDEXER_H
+#ifndef LIGHTNING_INDEXER_PROLOG_H
+#define LIGHTNING_INDEXER_PROLOG_H
 
 #include "tilefwk/tilefwk_op.h"
 #include "interface/inner/pre_def.h"
@@ -90,13 +90,11 @@ struct IndexerPrologOutputGolden {
     std::vector<T> kCacheOutGolden;
 };
 
-void LightningIndexerPrologCompute(const IndexerPrologInput &inputs, IndexerPrologOutput &outputs,
-    const IndexerShapeParams &params);
+void LightningIndexerPrologCompute(
+    const IndexerPrologInput &inputs, IndexerPrologOutput &outputs, const IndexerShapeParams &params);
 
-void LightningIndexerProlog(const IndexerPrologInput &inputs, IndexerPrologOutput &outputs,
-    const IndexerShapeParams &params);
-
-void LightningIndexerFP8(const Tensor &x, const Tensor &qr, Tensor &qFP8, Tensor &qScale, Tensor &kFP8, Tensor &kScale);
+void LightningIndexerProlog(
+    const IndexerPrologInput &inputs, IndexerPrologOutput &outputs, const IndexerShapeParams &params);
 
 } // namespace npu::tile_fwk
 
