@@ -85,7 +85,8 @@ class TestCaseLogAnalyzer:
         self._log_file = log_file
         self._report_file = report_file
 
-    def get_value_by_pattern(self, pattern, line: str):
+    @staticmethod
+    def get_value_by_pattern(pattern, line: str):
         match = re.search(pattern, line)
         if match:
             return match["value"].strip()
@@ -93,9 +94,10 @@ class TestCaseLogAnalyzer:
             logging.error(f"{pattern} is no match in {line}.")
             return ""
 
-    def get_duration(self, line: str):
+    @staticmethod
+    def get_duration(line: str):
         pattern = rf"\((?P<value>\d+?) ms total\)"
-        return self.get_value_by_pattern(pattern, line)
+        return TestCaseLogAnalyzer.get_value_by_pattern(pattern, line)
 
     def parse_log_file(self):
         test_result = TestCaseResult(self.case_index, self.case_name, self.case_op)
@@ -109,7 +111,7 @@ class TestCaseLogAnalyzer:
                 elif "[  FAILED  ]" in line or "1 failed" in line:
                     test_result.is_pass = False
                 elif "ms total" in line:
-                    test_result.duration = self.get_duration(line)
+                    test_result.duration = TestCaseLogAnalyzer.get_duration(line)
 
         return test_result
 
@@ -137,6 +139,6 @@ class TestCaseLogAnalyzer:
             )
         return result.is_pass
 
-    def analyze(self) -> bool:
+    def run(self) -> bool:
         test_case_result = self.parse_log_file()
         return self.generate_excel_report(test_case_result)

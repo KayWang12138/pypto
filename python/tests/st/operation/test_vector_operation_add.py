@@ -12,17 +12,26 @@
 import pytest
 
 from test_case_class_vector_operations import AddTestCase
-from test_case_desc import TensorDesc
 
 
 @pytest.mark.skip(reason="There is a probability of failure")
 def test_tensor_add():
     original_shape = (1, 1, 16, 16)
     input_tensors = [
-        TensorDesc("A", original_shape, "fp32", [-100, 100]),
-        TensorDesc("C", original_shape, "fp32", [-100, 100]),
+        {
+            "name": "A",
+            "shape": original_shape,
+            "dtype": "fp32",
+            "data_range": [-100, 100],
+        },
+        {
+            "name": "B",
+            "shape": original_shape,
+            "dtype": "fp32",
+            "data_range": [-100, 100],
+        },
     ]
-    output_tensors = [TensorDesc("B", original_shape, "fp32", [-100, 100])]
+    output_tensors = [{"name": "C", "shape": original_shape, "dtype": "fp32"}]
     view_shape = (1, 1, 16, 16)
     tile_shape = (1, 1, 16, 16)
     test_case = AddTestCase(

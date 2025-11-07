@@ -9,9 +9,15 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
+import re
 import numpy as np
 import torch
-from bfloat16 import bfloat16
+
+
+def is_number(input_str: str):
+    return (
+        re.fullmatch("^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$", input_str) is not None
+    )
 
 
 def parse_list_str(input_str: str):
@@ -32,12 +38,20 @@ def parse_list_str(input_str: str):
             ret_list.append(parse_list_str(sub_str))
     else:
         for sub_str in input_str.split(","):
-            is_num = sub_str.isdecimal() or (
-                (sub_str.startswith("-") or sub_str.startswith("+"))
-                and sub_str[1:].isdecimal()
-            )
-            ret_list.append(int(sub_str) if is_num else sub_str)
+            if not is_number(sub_str):
+                ret_list.append(sub_str)
+            elif "." in sub_str or "e" in sub_str or "E" in sub_str:
+                ret_list.append(float(sub_str))
+            else:
+                ret_list.append(int(sub_str))
     return ret_list
+
+
+def str_to_bool(input_str: str):
+    if input_str is None:
+        return False
+    input_str = str(input_str).strip().upper()
+    return input_str in ("TRUE", "1")
 
 
 def get_dtype_by_name(name: str, is_torch: bool = False):
@@ -57,6 +71,6 @@ def get_dtype_by_name(name: str, is_torch: bool = False):
         "double": [np.float64, torch.double],
         "complex64": [np.complex64, torch.complex64],
         "complex128": [np.complex128, torch.complex64],
-        "bf16": [bfloat16, torch.bfloat16],
+        "bf16": [torch.bfloat16, torch.bfloat16],
     }
     return str_to_dtype.get(name, [np.float32, torch.float32])[is_torch]

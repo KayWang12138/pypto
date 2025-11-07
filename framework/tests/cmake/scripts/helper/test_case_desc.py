@@ -34,8 +34,8 @@ class TensorDesc:
         shape: tuple,
         dtype: str,
         data_range: list,
-        tensor_format: str = None,
-        is_trans: bool = None,
+        tensor_format: str,
+        need_trans: bool = False,
     ):
         self._name = name
         self._shape = shape
@@ -43,8 +43,8 @@ class TensorDesc:
         self._data_range = (
             None if data_range is None else DataRange(data_range[0], data_range[1])
         )
-        self._format = tensor_format
-        self._is_trans = is_trans
+        self._tensor_format = tensor_format
+        self._need_trans = need_trans
 
     @classmethod
     def from_dict(cls, params: dict):
@@ -59,8 +59,8 @@ class TensorDesc:
             params.get("shape"),
             params.get("dtype"),
             data_range,
-            params.get("tensor_format", None),
-            params.get("is_trans", None),
+            params.get("tensor_format", "ND"),
+            params.get("need_trans", False),
         )
 
     @property
@@ -76,17 +76,27 @@ class TensorDesc:
         return self._dtype
 
     @property
+    def tensor_format(self) -> str:
+        return self._tensor_format
+
+    @property
     def data_range(self) -> DataRange:
         return self._data_range
 
+    @property
+    def need_trans(self) -> bool:
+        return self._need_trans
+
     def dump_to_json(self) -> dict:
-        json_content = {"name": self._name, "shape": self._shape, "dtype": self._dtype}
+        json_content = {
+            "name": self._name,
+            "shape": self._shape,
+            "dtype": self._dtype,
+            "tensor_format": self._tensor_format,
+            "need_trans": self._need_trans,
+        }
         if self._data_range is not None:
             json_content["data_range"] = self._data_range.dump_to_json()
-        if self._format is not None:
-            json_content["format"] = self._format
-        if self._is_trans is not None:
-            json_content["is_trans"] = self._is_trans
         return json_content
 
 
@@ -105,8 +115,14 @@ class TestCaseDesc:
         self._case_index = case_index
         self._case_name = case_name
         self._operation = operation
-        self._input_tensors = input_tensors
-        self._output_tensors = output_tensors
+        self._input_tensors = [
+            TensorDesc.from_dict(tensor) if isinstance(tensor, dict) else tensor
+            for tensor in input_tensors
+        ]
+        self._output_tensors = [
+            TensorDesc.from_dict(tensor) if isinstance(tensor, dict) else tensor
+            for tensor in output_tensors
+        ]
         self._view_shape = view_shape
         self._tile_shape = tile_shape
         self._params = params

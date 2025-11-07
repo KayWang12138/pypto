@@ -12,14 +12,26 @@
 import pytest
 
 from test_case_class_vector_operations import ScalarSubSTestCase
-from test_case_desc import TensorDesc
 
 
 @pytest.mark.skip(reason="There is a probability of failure")
 def test_tensor_scalar_subs():
     original_shape = (64, 64)
-    input_tensors = [TensorDesc("A", original_shape, "fp32", [-100, 100])]
-    output_tensors = [TensorDesc("B", original_shape, "fp32", [-100, 100])]
+    input_tensors = [
+        {
+            "name": "A",
+            "shape": original_shape,
+            "dtype": "fp32",
+            "data_range": [-100, 100],
+        }
+    ]
+    output_tensors = [
+        {
+            "name": "B",
+            "shape": original_shape,
+            "dtype": "fp32",
+        }
+    ]
     view_shape = (32, 32)
     tile_shape = (32, 32)
     test_case = ScalarSubSTestCase(

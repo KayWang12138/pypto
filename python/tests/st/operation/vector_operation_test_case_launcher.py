@@ -10,7 +10,8 @@
 # ======================================================================================================================
 """ """
 import json
-import os
+import pytest
+
 from test_case_class_vector_operations import (
     AddTestCase,
     CastTestCase,
@@ -23,7 +24,6 @@ from test_case_class_vector_operations import (
     TopKTestCase,
     TransposeTestCase,
 )
-from test_case_desc import TensorDesc
 
 _op_to_cls = {
     "Add": AddTestCase,
@@ -41,8 +41,13 @@ _op_to_cls = {
 need_binary_compare = ("Cast", "ScalarMaxS", "Transpose", "TopK")
 
 
-def test_vec_op_test_case():
-    test_case_info = json.loads(os.getenv("CUR_TEST_CASE_INFO"))
+@pytest.fixture
+def test_case_info(request):
+    return request.config.getoption("--test_case_info")
+
+
+def test_case_launcher(test_case_info):
+    test_case_info = json.loads(test_case_info)
     case_op = test_case_info["operation"]
     cls = _op_to_cls.get(case_op, None)
     if cls is None:
@@ -51,14 +56,8 @@ def test_vec_op_test_case():
     test_case = cls(
         test_case_info.get("case_index"),
         test_case_info.get("case_name"),
-        [
-            TensorDesc.from_dict(tensor)
-            for tensor in test_case_info.get("input_tensors")
-        ],
-        [
-            TensorDesc.from_dict(tensor)
-            for tensor in test_case_info.get("output_tensors")
-        ],
+        test_case_info.get("input_tensors"),
+        test_case_info.get("output_tensors"),
         test_case_info.get("view_shape"),
         test_case_info.get("tile_shape"),
         test_case_info.get("params"),

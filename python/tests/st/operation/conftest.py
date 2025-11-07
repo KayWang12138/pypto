@@ -9,39 +9,10 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 """ """
-import pto
 import pytest
 
-from test_case_class_vector_operations import CastTestCase
 
-
-@pytest.mark.skip(reason="There is a probability of failure")
-def test_tensor_cast():
-    original_shape = (64, 64)
-    input_tensors = [
-        {
-            "name": "A",
-            "shape": original_shape,
-            "dtype": "fp32",
-            "data_range": [-100, 100],
-        }
-    ]
-    output_tensors = [
-        {
-            "name": "B",
-            "shape": original_shape,
-            "dtype": "fp32",
-        }
-    ]
-    view_shape = (32, 32)
-    tile_shape = (32, 32)
-    test_case = CastTestCase(
-        0,
-        "Cast_test_0",
-        input_tensors,
-        output_tensors,
-        view_shape,
-        tile_shape,
-        {"mode": pto.CastMode.CAST_NONE},
+def pytest_addoption(parser):
+    parser.addoption(
+        "--test_case_info", action="store", default="", help="Test case info."
     )
-    test_case.exec(True)

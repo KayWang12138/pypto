@@ -14,10 +14,14 @@ import sys
 import pto
 import torch
 
-utils_path: Path = Path(Path(__file__).parent.parent, "utils")
-if str(utils_path) not in sys.path:
-    sys.path.append(str(utils_path))
 from pto_test_case_runner import PTOTestCaseRunner, get_pto_dtype_by_name
+
+helper_path: Path = Path(
+    Path(__file__).parent.parent.parent.parent.parent,
+    "framework/tests/cmake/scripts/helper",
+).resolve()
+if str(helper_path) not in sys.path:
+    sys.path.append(str(helper_path))
 from test_case import TestCase
 from test_case_tools import get_dtype_by_name, parse_list_str
 

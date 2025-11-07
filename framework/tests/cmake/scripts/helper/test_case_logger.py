@@ -8,21 +8,29 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
-""" """
-import logging
-import os
+
 import sys
 
 
-if __name__ == "__main__":
-    import_path = os.getcwd() + "/framework/tests/cmake/scripts/helper/"
-    if import_path not in sys.path:
-        sys.path.append(import_path)
-    from test_case_args_parser import TestCaseArgsParser
-    from test_case_launcher import TestCaseLauncher
+class TestCaseLogger(object):
+    def __init__(self, log_file):
+        self.terminal = sys.stdout
+        self.logger = open(log_file, "w", encoding="utf-8")
 
-    # 日志级别
-    logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.INFO)
+    def __del__(self):
+        self.terminal = None
+        if self.logger is not None and not self.logger.closed:
+            self.logger.close()
+        self.logger = None
 
-    args = TestCaseArgsParser().run()
-    TestCaseLauncher(args).run()
+    def write(self, msg):
+        self.terminal.write(msg)
+        self.logger.write(msg)
+        self.flush()
+
+    def flush(self):
+        self.terminal.flush()
+        self.logger.flush()
+
+    def isatty(self):
+        return False

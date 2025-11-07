@@ -78,6 +78,9 @@ class TestCaseRunner(ABC):
     def result_golden_compare(
         self, golden, result, is_binary: bool = False
     ) -> NoReturn:
+        if golden is None and result is None:
+            return
+
         assert len(golden) == len(result)
         for g_data, res_data in zip(golden, result):
             if is_binary:
@@ -88,14 +91,14 @@ class TestCaseRunner(ABC):
     def run(self) -> NoReturn:
         self.tear_up()
         input_tensors = self.input_tensors()
-        output_tensors = self.output_tensors()
-        self.exec_dyn_func(input_tensors, output_tensors)
         inputs = self.input_data()
-        outputs = self.run_on_device(inputs)
         inputs = [
             torch.tensor(input).reshape(tensor.shape)
             for input, tensor in zip(inputs, input_tensors)
         ]
         golden = self._golden_func(inputs, self._params)
+        output_tensors = self.output_tensors()
+        self.exec_dyn_func(input_tensors, output_tensors)
+        outputs = self.run_on_device(inputs)
         self.result_golden_compare(golden, outputs, self.binary_compare)
         self.tear_down()

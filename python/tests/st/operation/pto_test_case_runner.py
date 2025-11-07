@@ -9,10 +9,21 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 """ """
+import logging
 from math import ceil, prod
+from pathlib import Path
+import sys
 import numpy as np
 import torch
 import pto
+
+helper_path: Path = Path(
+    Path(__file__).parent.parent.parent.parent.parent,
+    "framework/tests/cmake/scripts/helper",
+).resolve()
+if str(helper_path) not in sys.path:
+    sys.path.append(str(helper_path))
+from test_case_desc import TensorDesc
 from test_case_runner import TestCaseRunner
 from test_case_tools import get_dtype_by_name
 
@@ -36,7 +47,6 @@ def get_pto_dtype_by_name(name: str):
         "bool": pto.DT_BOOL,
         "double": pto.DT_DOUBLE,
         "bf16": pto.DT_BF16,
-        "bottom": pto.DT_BOTTOM,
     }
     return str_to_dtype.get(name, pto.DT_FP32)
 
@@ -53,8 +63,14 @@ class PTOTestCaseRunner(TestCaseRunner):
     ):
         super().__init__(view_shape, tile_shape, params)
         self._operation = operation
-        self._input_tensors = input_tensors
-        self._output_tensors = output_tensors
+        self._input_tensors = [
+            TensorDesc.from_dict(tensor) if isinstance(tensor, dict) else tensor
+            for tensor in input_tensors
+        ]
+        self._output_tensors = [
+            TensorDesc.from_dict(tensor) if isinstance(tensor, dict) else tensor
+            for tensor in output_tensors
+        ]
 
     def gen_loop_range_tuple(self):
         if len(self._input_tensors[0].shape) != len(self._view_shape):
@@ -95,7 +111,7 @@ class PTOTestCaseRunner(TestCaseRunner):
                     dtype=get_dtype_by_name(input_tensor.dtype),
                 )
 
-            input_data.append(data)
+            input_data.append(torch.from_numpy(data))
         return input_data
 
     def output_tensors(self):
@@ -110,10 +126,12 @@ class PTOTestCaseRunner(TestCaseRunner):
 
     def output_data(self):
         return [
-            np.full(
-                prod(output_tensor.shape),
-                0,
-                dtype=get_dtype_by_name(output_tensor.dtype),
+            torch.from_numpy(
+                np.full(
+                    prod(output_tensor.shape),
+                    0,
+                    dtype=get_dtype_by_name(output_tensor.dtype),
+                )
             )
             for output_tensor in self._output_tensors
         ]
@@ -130,19 +148,17 @@ class PTOTestCaseRunner(TestCaseRunner):
         prefix = tab
         function = "import pto\n"
         function += "\n"
-        function += f"with pto.function('{self._operation}', input_tensors, output_tensors):\n"
+        function += (
+            f"with pto.function('{self._operation}', input_tensors, output_tensors):\n"
+        )
         for index in list(range(len(loop_range_tuple))):
             function += prefix + (tab * (index + 1))
-            function += (
-                f"with pto.controller._loop_function({loop_desc[index][0]}, {loop_desc[index][1]}, "
-            )
+            function += f"with pto.controller._loop_function({loop_desc[index][0]}, {loop_desc[index][1]}, "
             function += f"pto.controller._loop_range({loop_range_tuple[index]})) as {loop_desc[index][2]}:\n"
         prefix = tab * (len(loop_range_tuple) + 1)
         for index in list(range(len(loop_range_tuple))):
             function += prefix + (tab * (index + 1))
-            function += (
-                f"for {loop_desc[index][1][1:-1]} in {loop_desc[index][2]}:\n"
-            )
+            function += f"for {loop_desc[index][1][1:-1]} in {loop_desc[index][2]}:\n"
         prefix = tab * 2 * (len(loop_range_tuple) + 1)
         function += prefix + "input_data = []\n"
         view_offset = [
@@ -152,15 +168,6 @@ class PTOTestCaseRunner(TestCaseRunner):
         for index in list(range(len(input_tensors))):
             function += prefix
             function += f"input_{index} = pto.view(input_tensors[{index}], {self._view_shape}, ["
-            for idx in list(range(len(loop_range_tuple))):
-                function += (
-                    f"min(pto.symbolic_scalar({input_tensors[index].shape[idx]}) - "
-                )
-                function += f"{loop_desc[idx][1][1:-1]} * {self._view_shape[idx]}, "
-                function += (
-                    f"pto.symbolic_scalar({input_tensors[index].shape[idx]})), "
-                )
-            function += "], ["
             for offset in view_offset:
                 function += offset + ", "
             function += "])\n"
@@ -193,7 +200,7 @@ class PTOTestCaseRunner(TestCaseRunner):
         function += prefix + "    del input\n"
         function += prefix + "for tmp in res:\n"
         function += prefix + "    del tmp\n"
-        print(function)
+        logging.info(function)
         pto.set_host_option("ONLY_CODEGEN", True)
         pto.set_codegen_option("SUPPORT_DYNAMIC_UNALIGNED", True)
         pto.set_vec_tile_shapes(*self.tile_shape)
