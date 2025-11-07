@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file ws_aicpu_allocator.h
+ * \file ws_metadata_allocator.h
  * \brief
  */
 
@@ -19,6 +19,6 @@
 
 namespace npu::tile_fwk::dynamic {
 
-using WsAicpuCoherentAllocator = SeqWsAllocator;
+using WsMetadataAllocator = SeqWsAllocator;
 
 } // namespace npu::tile_fwk::dynamic

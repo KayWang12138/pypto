@@ -29,12 +29,12 @@ class SeqWsAllocator {
     using uintdevptr_t = uint64_t;
 
 public:
-    void InitAicpuCoherent(uintdevptr_t workspaceAddr, uint64_t workspaceSize) {
-        InternalInit(workspaceAddr, workspaceSize, WsAllocatorProperty::AICPU_COHERENT);
+    void InitMetadataAllocator(uintdevptr_t workspaceAddr, uint64_t workspaceSize) {
+        InternalInit(workspaceAddr, workspaceSize, WsAllocatorProperty::METADATA_MEM);
     }
 
-    void InitAicoreLocal(uintdevptr_t workspaceAddr, uint64_t workspaceSize) {
-        InternalInit(workspaceAddr, workspaceSize, WsAllocatorProperty::AICORE_LOCAL);
+    void InitTensorAllocator(uintdevptr_t workspaceAddr, uint64_t workspaceSize) {
+        InternalInit(workspaceAddr, workspaceSize, WsAllocatorProperty::TENSOR_MEM);
     }
 
     bool CanAllocate(uint64_t memReq) const {
@@ -113,9 +113,6 @@ public:
         (void)title;
         (void)hint;
     }
-
-    bool IsAicoreLocal() const { return property_ == WsAllocatorProperty::AICORE_LOCAL; }
-    bool IsAicpuCoherent() const { return property_ == WsAllocatorProperty::AICPU_COHERENT; }
 
     uintdevptr_t MemBaseAddr() const { return workspaceAddr_; }
     uint64_t AllocatedSize() const { return allocated_; }

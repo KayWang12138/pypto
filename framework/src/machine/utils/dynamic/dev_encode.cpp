@@ -38,8 +38,9 @@ namespace dynamic {
 
 constexpr int32_t CALLOP_ARG_ATTR_BASE_INDEX = 1;
 constexpr int32_t MINI_TILE_LIST_SIZE_THRESHOLD = 16;
-constexpr int32_t MAX_WORKSPACE_MUL_SIZE = 75;
+constexpr int32_t DEFAULT_CORE_NUM = 75;
 constexpr int32_t SLOTS_NEED_ALLOC_SIZE = 2;
+constexpr int64_t TENSOR_ADDR_ALIGNMENT = 512;
 
 struct EncodeRawTensorAttr {
     std::shared_ptr<Storage> storage;
@@ -212,19 +213,20 @@ static void EncodeRawShape(const SymbolicExpressionTable *expressionTable,
     }
     encoded->shape.SetShape(shape);
     encoded->dataType = rawTensor->GetDataType();
-    encoded->memoryRequirement = isDyn ? 0: rawTensor->GetRawDataSize();
+    encoded->memoryRequirement = isDyn ? 0 : AlignUp(rawTensor->GetRawDataSize(), TENSOR_ADDR_ALIGNMENT);
 
     uint64_t maxPossibleNumel = 0;
     if (std::find(rawTensor->oriRawshape.begin(), rawTensor->oriRawshape.end(), -1) == rawTensor->oriRawshape.end()) {
         maxPossibleNumel = std::max(maxPossibleNumel, std::accumulate(rawTensor->oriRawshape.begin(),
-                            rawTensor->oriRawshape.end(), UINT64_C(1), std::multiplies<uint64_t>()));
+            rawTensor->oriRawshape.end(), UINT64_C(1), std::multiplies<uint64_t>()));
     }
     if (std::find(rawTensor->rawshape.begin(), rawTensor->rawshape.end(), -1) == rawTensor->rawshape.end()) {
         maxPossibleNumel = std::max(maxPossibleNumel, std::accumulate(rawTensor->rawshape.begin(),
             rawTensor->rawshape.end(), UINT64_C(1), std::multiplies<uint64_t>()));
     }
-    encoded->maxPossibleMemReq = std::max(maxPossibleNumel *BytesOf(rawTensor->GetDataType()),
-                                 encoded->memoryRequirement);
+    encoded->maxStaticMemReq = std::max(
+        static_cast<uint64_t>(AlignUp(maxPossibleNumel * BytesOf(rawTensor->GetDataType()), TENSOR_ADDR_ALIGNMENT)),
+        encoded->memoryRequirement);
 }
 
 void DevAscendFunction::FillOutputSlotMark(const IncastOutcastLink *inoutLink, std::vector<bool>& isOutputSlotMarks) {
@@ -288,7 +290,7 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                 if (!isOutput) {
                     encoded.addrOffset = outcastWsMemoryRequirement;
                     rawTensor->addrOffset = outcastWsMemoryRequirement;
-                    outcastWsMemoryRequirement += encoded.maxPossibleMemReq;
+                    outcastWsMemoryRequirement += encoded.maxStaticMemReq;
                 }
             } else {
                 // For workspace tensors, the memoryRequirement property is deprecated, please don't use its value
@@ -298,7 +300,7 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                 UNUSED(rawAttrs);
                 encoded.addrOffset = rawTensorWsMemoryRequirement;
                 rawTensor->addrOffset = encoded.addrOffset;
-                rawTensorWsMemoryRequirement += encoded.maxPossibleMemReq;
+                rawTensorWsMemoryRequirement += encoded.maxStaticMemReq;
 #else
                 encoded.addrOffset = rawAttrs[i].storage->start_ + rawAttrs[i].storageOffset;
                 rawTensor->addrOffset = encoded.addrOffset;
@@ -1777,30 +1779,26 @@ struct EncodeDevAscendProgramInfo {
     }
 };
 
-struct LocalWorkspaceResult {
-    uint64_t memReq{0};
-    uint64_t rootFuncStandardMemReq{0};
-    uint64_t slotStandardMemReq{0};
-    uint64_t slotPoolSize{0};
+struct TensorWorkspaceResult {
+    uint64_t rootInnerMem{0};
+    uint64_t devTaskInnerOutcastsMem{0};
+    uint64_t singleSlotMem{0};
+    uint64_t pooledSlotNum{0};
     uint64_t globalTensorMem{0};
-    uint64_t standardStackWorkspacePerCore{0};
+    uint64_t perCoreSpilledMem{0};
 };
 
-int EstimatedStitchingCount() {
+static int EstimatedStitchingCount() {
     int value = config::GetRuntimeOption<int>(ESTIMATED_STITCH_TASK_MAX_LOOP_NUM);
     ASSERT(value > 0);
     return value;
 }
 
-int WorkspaceRecyclePeriod() {
+static int WorkspaceRecyclePeriod() {
     int value = config::GetRuntimeOption<int>(WORKSPACE_RECYCLE_PERIOD);
     ASSERT(value > 0);
     return value;
 }
-
-static constexpr uint64_t KIBI = UINT64_C(1024);
-static constexpr uint64_t MEBI = UINT64_C(1024) * 1024;
-static constexpr uint64_t GIBI = UINT64_C(1024) * 1024 * 1024;
 
 struct SlotInfo {
     bool isOutputSlot{false};
@@ -1846,19 +1844,41 @@ static bool IsAssembleSlot(std::vector<SlotInfo> &slots, DevAscendFunction *func
         for (size_t j = 0; j < toSlotList.size(); j++) {
             int slotIdx = func->At(toSlotList, j);
             slots[slotIdx].maxAssembleDstMemReq = std::max(slots[slotIdx].maxAssembleDstMemReq,
-                func->GetOutcastRawTensor(idx)->maxPossibleMemReq);
+                func->GetOutcastRawTensor(idx)->maxStaticMemReq);
         }
     }
     return isAssemble;
 };
 
-static LocalWorkspaceResult CalcAicoreLocalWorkspace(DevAscendProgram &devProg) {
+static int ParseUnrollTimes(const std::string &rawName) {
+    static const std::string UNROLL_MARK = "_Unroll";
+
+    auto unrollPos = rawName.rfind(UNROLL_MARK);
+    if (unrollPos == std::string::npos) {
+        return 1;
+    }
+    std::string suffix = rawName.substr(unrollPos + UNROLL_MARK.length());
+    if (!std::isdigit(suffix.front())) {
+        return 1;
+    }
+    return std::stoi(suffix);
+}
+
+static uint64_t CalcUnrolledRootBudget(uint64_t budget, int unrollTimes, int configMultiplier) {
+    ASSERT(unrollTimes > 0);
+    if (unrollTimes >= configMultiplier) {
+        return budget;
+    }
+    return AlignUp((budget + unrollTimes - 1) / unrollTimes, TENSOR_ADDR_ALIGNMENT) * configMultiplier;
+}
+
+static TensorWorkspaceResult CalcTensorWorkspace(DevAscendProgram &devProg) {
     std::vector<SlotInfo> slots = MarkOutputAssembleSlots(devProg);
 
     uint64_t maxInnerWorkspace = 0;
     uint64_t maxOutcastWorkspace = 0;
     uint64_t maxSlotMemReq = 0;
-    uint64_t maxStackWorkspace = 0;
+    uint64_t maxPerCoreSpilledMem = 0;
     for (auto &&devEncodeData : devProg.devEncodeList) {
         DevAscendFunction *devFunc = reinterpret_cast<DevAscendFunction *>(devEncodeData.Data());
         for (size_t i = 0; i < devFunc->GetOutcastSize(); i++) {
@@ -1873,12 +1893,16 @@ static LocalWorkspaceResult CalcAicoreLocalWorkspace(DevAscendProgram &devProg) 
                 // No output slot
                 slots[slotIdx].asWriteSlot = true;
             }
-            maxSlotMemReq = std::max(maxSlotMemReq, devFunc->GetOutcastRawTensor(i)->maxPossibleMemReq);
+            maxSlotMemReq = std::max(maxSlotMemReq, devFunc->GetOutcastRawTensor(i)->maxStaticMemReq);
         }
 
-        maxInnerWorkspace = std::max(maxInnerWorkspace, devFunc->rawTensorWsMemoryRequirement);
-        maxOutcastWorkspace = std::max(maxOutcastWorkspace, devFunc->outcastWsMemoryRequirement);
-        maxStackWorkspace = std::max(maxStackWorkspace, static_cast<uint64_t>(devFunc->stackWorkSpaceSize));
+        int unroll = ParseUnrollTimes(devFunc->GetRawName());
+        uint64_t innerWorkspace = CalcUnrolledRootBudget(devFunc->rawTensorWsMemoryRequirement, unroll, WorkspaceRecyclePeriod());
+        uint64_t outcastWorkspace = CalcUnrolledRootBudget(devFunc->outcastWsMemoryRequirement, unroll, EstimatedStitchingCount());
+
+        maxInnerWorkspace = std::max(maxInnerWorkspace, innerWorkspace);
+        maxOutcastWorkspace = std::max(maxOutcastWorkspace, outcastWorkspace);
+        maxPerCoreSpilledMem = std::max(maxPerCoreSpilledMem, static_cast<uint64_t>(devFunc->stackWorkSpaceSize));
     }
 
     uint64_t globalTensorMem = std::accumulate(slots.begin(), slots.end(), UINT64_C(0),
@@ -1886,40 +1910,41 @@ static LocalWorkspaceResult CalcAicoreLocalWorkspace(DevAscendProgram &devProg) 
             return acc + (slot.isAssemble ? slot.maxAssembleDstMemReq : 0);
         });
 
-    LocalWorkspaceResult res;
-    res.slotStandardMemReq = maxSlotMemReq;
+    TensorWorkspaceResult res;
+    res.singleSlotMem = maxSlotMemReq;
     res.globalTensorMem = globalTensorMem;
-    res.rootFuncStandardMemReq = maxInnerWorkspace;
+    res.rootInnerMem = maxInnerWorkspace;
+    res.devTaskInnerOutcastsMem = maxOutcastWorkspace;
 
     size_t slotsNeedAlloc = std::count_if(slots.begin(), slots.end(), [](const SlotInfo &slot) {
         return slot.asWriteSlot;
     });
-    res.slotPoolSize = slotsNeedAlloc * SLOTS_NEED_ALLOC_SIZE;
+    res.pooledSlotNum = slotsNeedAlloc * SLOTS_NEED_ALLOC_SIZE;
 
-    res.standardStackWorkspacePerCore = maxStackWorkspace;
-
-    uint64_t memReq = res.slotStandardMemReq * res.slotPoolSize +
-        maxInnerWorkspace * WorkspaceRecyclePeriod() +
-        maxOutcastWorkspace * EstimatedStitchingCount() +
-        res.standardStackWorkspacePerCore * MAX_WORKSPACE_MUL_SIZE +
-        res.globalTensorMem;
-
-    static constexpr uint64_t MASK_32K = 32 * KIBI - 1;
-    res.memReq = ((memReq + MASK_32K) & ~MASK_32K); // aligned to 32K
+    res.perCoreSpilledMem = maxPerCoreSpilledMem;
 
     return res;
 }
 
-static uint64_t CalcAicpuCoherentWorkspace(DevAscendProgram &devProg) {
+static uint64_t CalcGeneralMetadataWorkspace(DevAscendProgram &devProg) {
     (void)devProg;
-    static constexpr uint64_t AICPU_COHERENT_WS_SIZE = 6 * MEBI;
-    return AICPU_COHERENT_WS_SIZE;
+    static constexpr uint64_t GENERAL_METADATA_SIZE = 4 * MEBI;
+    return GENERAL_METADATA_SIZE;
 }
 
 static uint64_t CalcStitchWorkspace(DevAscendProgram &devProg) {
     (void)devProg;
     static constexpr uint64_t AICPU_STITCH_SIZE = 2 * MEBI;
     return AICPU_STITCH_SIZE;
+}
+
+static uint64_t DumpTensorWorkspace() {
+#if DEBUG_INFINITE_LIFETIME
+    static constexpr uint64_t DUMP_TENSOR_WORKSPACE = 8 * GIBI;
+    return DUMP_TENSOR_WORKSPACE;
+#else
+    return 0;
+#endif
 }
 
 void EncodeDevAscendProgram(Function *func, uint64_t &offset, DevAscendProgram *base) {
@@ -1934,26 +1959,24 @@ void EncodeDevAscendProgram(Function *func, uint64_t &offset, DevAscendProgram *
         offset = base->GetSize();
 
         // Calc workspace size
-        LocalWorkspaceResult aicoreLocalWs = CalcAicoreLocalWorkspace(*base);
-        base->aicoreLocalWorkspaceSize = aicoreLocalWs.memReq;
-        base->rootFuncStandardMemReq = aicoreLocalWs.rootFuncStandardMemReq;
-        base->slotStandardMemReq = aicoreLocalWs.slotStandardMemReq;
-        base->slotPoolSize = aicoreLocalWs.slotPoolSize;
-        base->globalTensorMem = aicoreLocalWs.globalTensorMem;
-        base->standardStackWorkspacePerCore = aicoreLocalWs.standardStackWorkspacePerCore;
+        TensorWorkspaceResult tensorWsRes = CalcTensorWorkspace(*base);
 
-        base->aicpuCoherentWorkspaceSize = CalcAicpuCoherentWorkspace(*base);
-        base->stitchPoolSize = CalcStitchWorkspace(*base);
+        base->memBudget.tensor.rootInner = tensorWsRes.rootInnerMem;
+        base->memBudget.tensor.devTaskInnerOutcasts = tensorWsRes.devTaskInnerOutcastsMem;
+        base->memBudget.tensor.singleSlotMem = tensorWsRes.singleSlotMem;
+        base->memBudget.tensor.pooledSlotNum = tensorWsRes.pooledSlotNum;
+        base->memBudget.tensor.dassembleDests = tensorWsRes.globalTensorMem;
+
+        base->memBudget.aicoreSpilled = tensorWsRes.perCoreSpilledMem * DEFAULT_CORE_NUM;
+
+        base->memBudget.metadata.general = CalcGeneralMetadataWorkspace(*base);
+        base->memBudget.metadata.stitchPool = CalcStitchWorkspace(*base);
+
+        base->memBudget.debug.dumpTensor = DumpTensorWorkspace();
+
         base->devArgs.machineConfig = func->paramConfigs_.machineConfig_;
-        base->workspaceRecyclePeriod = WorkspaceRecyclePeriod();
         base->firstStitchTaskLoopNum = func->paramConfigs_.firstStitchTaskLoopNum_;
         base->stitchTaskIncrLoopNum = func->paramConfigs_.stitchTaskIncrLoopNum_;
-
-#if DEBUG_INFINITE_LIFETIME
-        base->debugDumpTensorMemReq = 8 * GIBI;
-#else
-        base->debugDumpTensorMemReq = 0;
-#endif
     }
 }
 } // namespace dynamic

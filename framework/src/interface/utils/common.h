@@ -80,6 +80,10 @@ constexpr const int SHAPE_INNER_AXIS_MAX_SIZE = 65535;
 constexpr const int SHAPE_BUFFER_MAX_SIZE = 32;
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
+inline constexpr uint64_t KIBI = 1024;
+inline constexpr uint64_t MEBI = UINT64_C(1024) * 1024;
+inline constexpr uint64_t GIBI = UINT64_C(1024) * 1024 * 1024;
+
 inline int64_t AlignUp(int64_t value, int64_t alignment) {
     if (alignment == 0) {
         return value;

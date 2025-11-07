@@ -9,20 +9,20 @@
  */
 
 /*!
- * \file ws_aicore_slot_allocator.h
+ * \file ws_slot_allocator.h
  * \brief
  */
 
 #pragma once
 
 #include "ws_allocator_basics.h"
-#include "ws_aicpu_allocator.h"
+#include "ws_metadata_allocator.h"
 
 #include <cinttypes>
 
 namespace npu::tile_fwk::dynamic {
 
-class WsAicoreLocalSlotAllocator {
+class WsSlotAllocator {
     using uintdevptr_t = uint64_t;
 
     struct BlockHeader {
@@ -33,7 +33,7 @@ class WsAicoreLocalSlotAllocator {
 public:
     // [workspaceAddr, workspaceAddr + workspaceSize)
     // -> [root function internal workspace | slot pool]
-    void InitAicoreLocal(uintdevptr_t workspaceAddr, size_t slotNum, uint64_t slotStandardMemReq, WsAicpuCoherentAllocator &allocator) {
+    void InitTensorAllocator(uintdevptr_t workspaceAddr, size_t slotNum, uint64_t slotStandardMemReq, WsMetadataAllocator &allocator) {
         workspaceAddr_ = workspaceAddr;
         slotNum_ = slotNum;
         slotStandardMemReq_ = slotStandardMemReq;
@@ -41,7 +41,7 @@ public:
         availableSlots_ = slotNum_;
 
         allocator_ = &allocator;
-        allocation_ = allocator_->Allocate<BlockHeader>(slotNum_, WsMemCategory::WS_AICORE_SLOT_ALLOCATOR_MEM_BLOCK);
+        allocation_ = allocator_->Allocate<BlockHeader>(slotNum_, WsMemCategory::WS_SLOT_MEM_BLOCK);
         BlockHeader *arr = allocation_.As<BlockHeader>();
         for (size_t i = 0; i < slotNum_; i++) {
             arr[i].ptr = workspaceAddr_ + i * slotStandardMemReq_;
@@ -115,7 +115,7 @@ private:
     size_t slotNum_{0};
     uint64_t slotStandardMemReq_{0};
 
-    WsAicpuCoherentAllocator *allocator_{nullptr};
+    WsMetadataAllocator *allocator_{nullptr};
     WsAllocation allocation_;
     BlockHeader *freeListHeader_{nullptr};
     BlockHeader *notInUseHeaders_{nullptr};

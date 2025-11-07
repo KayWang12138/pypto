@@ -198,9 +198,7 @@ public:
         devArgs->outputTensorSize = static_cast<uint64_t>(outputSize);
         devArgs->workspaceAddr = workspaceAddr;
         devArgs->devProg = devProg;
-        devArgs->aicpuCoherentWorkspaceSize = devProg->aicpuCoherentWorkspaceSize - devArgsSize;
-        devArgs->aicoreLocalWorkspaceSize = devProg->workspaceSize - devProg->debugDumpTensorMemReq - \
-                devProg->aicpuCoherentWorkspaceSize;
+        devProg->memBudget.metadata.general -= devArgsSize;
         devArgs->inputSymbolList = nullptr;
         devArgs->inputSymbolSize = 0;
         devArgs->hcclContextAddr = (uint64_t*)&devProg->hcclContext[0];

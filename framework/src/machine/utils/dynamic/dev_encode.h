@@ -362,7 +362,7 @@ struct DevAscendRawTensor {
     uint64_t addrOffset{UINT64_MAX};
     uint64_t memoryRequirement; // Only available for incast/outcast
                                 // For workspace tensors, the memoryRequirement property is deprecated
-    uint64_t maxPossibleMemReq;
+    uint64_t maxStaticMemReq; // 0 if cannot find a non-symbolic raw shape
     DataType dataType;
     DevSymShape shape;
     DevIOProperty ioProperty{DevIOProperty::NONE};
@@ -1649,7 +1649,6 @@ private:
 static_assert(sizeof(DevAscendFunctionDuppedStitchList) == sizeof(void *));
 
 struct RuntimeReuseInfo {
-    uint32_t blockIdx;
     uint32_t poolResetTimes;
 };
 
@@ -1784,16 +1783,7 @@ struct DevAscendFunctionDupped {
         return dup;
     }
 
-    void ReleaseDuppedMemory(WsAicpuCoherentAllocator &allocator) {
-        (void)allocator;
-    }
-
-    void LogAicpuAlloc(WsAicpuCoherentAllocator &allocator) {
-#ifdef DEBUG_SWITCH
-        if (allocator.GetCounter()) {
-            allocator.GetCounter()->LogMalloc(dupTiny_);
-        }
-#endif // DEBUG_SWITCH
+    void ReleaseDuppedMemory(WsMetadataAllocator &allocator) {
         (void)allocator;
     }
 
@@ -2253,7 +2243,7 @@ struct ReadyQueueCache {
     uint32_t readyTaskNum;
 };
 
-const size_t MAX_CACHED_FUNC_NUM = 128;
+inline constexpr size_t MAX_CACHED_FUNC_NUM = 128;
 struct DynFuncDataCache {
     DevAscendFunction *devFunc;
     predcount_t *predCount;
@@ -2537,19 +2527,43 @@ struct DevAscendProgram {
     uint64_t configKey;
     uint64_t hashKey;
     uint64_t slotSize;
-    uint64_t aicoreLocalWorkspaceSize;
-    uint64_t rootFuncStandardMemReq;
-    uint64_t aicpuCoherentWorkspaceSize;
-    uint64_t slotStandardMemReq; // max memory requirement of a single slot
-    uint64_t slotPoolSize;
-    uint64_t standardStackWorkspacePerCore;
-    uint64_t stitchPoolSize;
-    uint64_t globalTensorMem;
-    uint64_t debugDumpTensorMemReq;
+    struct {
+        struct {
+            // root func inner tensors
+            uint64_t rootInner;
+            // root func outcasts & dassemble-dst, automatically upgraded to DeviceTask boundary outcasts
+            uint64_t dassembleDests;
+            // root func outcasts & non-dassemble-dst & DeviceTask inner tensors
+            uint64_t devTaskInnerOutcasts;
+            // root func outcasts & non-dassemble-dst & DeviceTask boundary outcasts: singleSlotMem * pooledSlotNum
+            uint64_t singleSlotMem;
+            uint64_t pooledSlotNum;
+
+            uint64_t Total() const {
+                uint64_t total = rootInner +       // root func inner tensors
+                    dassembleDests +               // root func outcasts & dassemble-dst, automatically upgraded to DeviceTask boundary outcasts
+                    devTaskInnerOutcasts +         // root func outcasts & non-dassemble-dst & DeviceTask inner tensors
+                    singleSlotMem * pooledSlotNum; // root func outcasts & non-dassemble-dst & DeviceTask boundary outcasts
+                static constexpr uint64_t ALIGNMENT_32K = 32 * 1024;
+                return AlignUp(total, ALIGNMENT_32K);
+            }
+        } tensor;
+        uint64_t aicoreSpilled;
+        struct {
+            uint64_t general;
+            uint64_t stitchPool;
+
+            uint64_t Total() const {
+                return general + stitchPool;
+            }
+        } metadata;
+        struct {
+            uint64_t dumpTensor;
+        } debug;
+    } memBudget;
     const void *controlFlowBinaryAddr{nullptr};
     uint64_t hcclContext[HCCL_GROUP_NUM];
     uint64_t commGroupNum;
-    uint32_t workspaceRecyclePeriod;
     uint16_t firstStitchTaskLoopNum;
     uint16_t stitchTaskIncrLoopNum;
     DevRelocVector<DevAscendProgramSymbol> symbolTable;
@@ -2629,8 +2643,8 @@ struct DevAscendProgram {
         std::string INDENTINNERINNER(indent + IDENT2_SIZE, ' ');
         std::ostringstream oss;
         oss << "DevProgram {\n";
-        oss << INDENTINNER << "#aicoreLocalWorkspaceSize:" << aicoreLocalWorkspaceSize << "\n";
-        oss << INDENTINNER << "#aicpuCoherentWorkspaceSize:" << aicpuCoherentWorkspaceSize << "\n";
+        oss << INDENTINNER << "#tensorMemBudget:" << memBudget.tensor.Total() << "\n";
+        oss << INDENTINNER << "#metadataMemBudget:" << memBudget.metadata.Total() << "\n";
         oss << INDENTINNER << "#machineSchMode:" << devArgs.machineConfig << "\n";
         oss << INDENTINNER << "#firstStitchTaskLoopNum:" << firstStitchTaskLoopNum << "\n";
         oss << INDENTINNER << "#stitchTaskIncrLoopNum:" << stitchTaskIncrLoopNum << "\n";
@@ -3218,8 +3232,6 @@ struct DevStartArgs : DevStartArgsBase {
     uint64_t workspaceAddr;
     DevAscendProgram *devProg;
 
-    uint64_t aicoreLocalWorkspaceSize;
-    uint64_t aicpuCoherentWorkspaceSize;
     DevInputSymbol *inputSymbolList;
     uint64_t inputSymbolSize;
     const void *controlFlowEntry;
@@ -3228,8 +3240,6 @@ public:
     void InitWorkspace(DevAscendProgram *tDevProg, void *workspace) {
         workspaceAddr = reinterpret_cast<uint64_t>(workspace);
         devProg = tDevProg;
-        aicoreLocalWorkspaceSize = tDevProg->aicoreLocalWorkspaceSize;
-        aicpuCoherentWorkspaceSize = tDevProg->aicpuCoherentWorkspaceSize;
         inputSymbolList = nullptr;
         inputSymbolSize = 0;
     }
@@ -3282,8 +3292,8 @@ public:
             oss << "]\n";
         }
         oss << INDENTINNER << "#workspaceAddr:" << AddressDescriptor::DumpAddress(workspaceAddr) << "\n";
-        oss << INDENTINNER << "#aicoreLocalWorkspaceSize:" << aicoreLocalWorkspaceSize << "\n";
-        oss << INDENTINNER << "#aicpuCoherentWorkspaceSize:" << aicpuCoherentWorkspaceSize << "\n";
+        oss << INDENTINNER << "#tensorMemBudget:" << devProg->memBudget.tensor.Total() << "\n";
+        oss << INDENTINNER << "#metadataMemBudget:" << devProg->memBudget.metadata.Total() << "\n";
         oss << INDENTINNER << "#devProg:" << AddressDescriptor::DumpAddress(reinterpret_cast<uintdevptr_t>(devProg)) << "\n";
         oss << "}";
         return oss.str();

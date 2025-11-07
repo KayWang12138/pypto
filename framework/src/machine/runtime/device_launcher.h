@@ -148,8 +148,15 @@ public:
         devProg->devArgs.nrAicpu = config.aicpuNum;
         devProg->devArgs.nrValidAic = config.blockdim;
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
-        devProg->workspaceSize = devProg->aicoreLocalWorkspaceSize + devProg->aicpuCoherentWorkspaceSize +
-                                 devProg->debugDumpTensorMemReq + config.dynWorkspaceSize;
+
+        static constexpr int64_t TENSOR_ADDR_ALIGNMENT = 512;
+        devProg->memBudget.tensor.dassembleDests =
+            AlignUp(devProg->memBudget.tensor.dassembleDests + config.dynWorkspaceSize, TENSOR_ADDR_ALIGNMENT);
+        devProg->workspaceSize = devProg->memBudget.metadata.Total() +
+                                 devProg->memBudget.tensor.Total() +
+                                 devProg->memBudget.aicoreSpilled +
+                                 devProg->memBudget.debug.dumpTensor;
+
         devProg->l2CacheOffset = machine::GetRA()->GetL2Offset();
         ASSERT((devProg->commGroupNum == config.hcclContext.size()) &&
             (devProg->commGroupNum <= (sizeof(devProg->hcclContext) / sizeof(uint64_t))));

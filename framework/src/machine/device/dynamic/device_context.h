@@ -314,11 +314,9 @@ private:
 
 struct DeviceStitchContext {
     struct StitchReuseContext {
-        // static constant properties
-        uint32_t workspaceRecyclePeriod{0};
-
         // changing with stitching progress
         uint32_t firstDupIdx{0};
+        int32_t lastNonEmptyDupIdx{-1};
     } stitchReuseContext_;
 
     void Init(DevAscendProgram *devProg, DeviceWorkspaceAllocator &workspace) {
@@ -327,13 +325,6 @@ struct DeviceStitchContext {
 
         workspace_->SetupVector(slotInfosInDecidingSlotMem_);
         slotInfosInDecidingSlotMem_.resize(devProg->slotSize); // need pre alloc , left memory for slab allocator
-
-        if (devProg->rootFuncStandardMemReq == 0) {
-            // No memory to reuse
-            stitchReuseContext_.workspaceRecyclePeriod = UINT32_MAX;
-        } else {
-            stitchReuseContext_.workspaceRecyclePeriod = devProg->workspaceRecyclePeriod;
-        }
 
         Reset();
     }
@@ -345,6 +336,7 @@ struct DeviceStitchContext {
     void Reset() {
         stitchedList_.clear();
         stitchReuseContext_.firstDupIdx = 0;
+        stitchReuseContext_.lastNonEmptyDupIdx = -1;
     }
     void Append(DevAscendFunctionDupped &devRootDup) { stitchedList_.push_back(devRootDup); }
 
@@ -394,7 +386,7 @@ struct DeviceStitchContext {
         return count;
     }
 
-    void RecycleAicoreLocalWorkspace() {
+    void RecycleTensorWorkspace() {
         // recycle submitted tasks' workspace memory
         workspace_->RecycleDevFuncWorkspace();
         workspace_->TriggerDelayedRecycle();
@@ -560,9 +552,7 @@ private:
     Vector<SlotAdditionalInfo, WsMemCategory::VECTOR_TEMPORARY> slotInfosInDecidingSlotMem_;
     DeviceWorkspaceAllocator *workspace_{nullptr};
 
-    uint32_t workspaceRecyclePeriod_{0};
 public:
-
     enum class StitchKind {
         StitchDefault,
         StitchPartial,
@@ -776,30 +766,64 @@ public:
     }
 
     void ReuseStitch(DevAscendFunctionDupped &nextDup, size_t devNextIdx) {
+        if (nextDup.GetSource()->rawTensorWsMemoryRequirement == 0) {
+            // 0 length workspace, no dependency in need
+            return;
+        }
+
+        uintdevptr_t nextAddrL = nextDup.RuntimeWorkspace();
+        uintdevptr_t nextAddrR = nextAddrL + nextDup.GetSource()->rawTensorWsMemoryRequirement;
         auto nextReuseInfo = nextDup.GetRuntimeReuseInfo();
-        if (nextDup.GetSource()->rawTensorWsMemoryRequirement != 0) {
-            auto &firstDup = stitchedList_[stitchReuseContext_.firstDupIdx];
-            if (firstDup.GetRuntimeReuseInfo().poolResetTimes >= nextReuseInfo.poolResetTimes) {
-                return;
+        if (auto &firstDup = stitchedList_[stitchReuseContext_.firstDupIdx];
+            firstDup.GetRuntimeReuseInfo().poolResetTimes >= nextReuseInfo.poolResetTimes) {
+            return;
+        }
+
+        enum { SKIP_EMPTY = -2, INVALID_TOO_AHEAD = -1, NO_DEP = 0, NEEDS_DEP = 1 };
+
+        auto needsDependency = [&](uint32_t prevIdx) -> int {
+            if (prevIdx >= devNextIdx) {
+                // invalid idx
+                return INVALID_TOO_AHEAD;
             }
 
-            auto isReusedBlock = [&](uint32_t prevIdx) {
-                if (prevIdx >= devNextIdx) {
-                    return false;
-                }
-                auto prevReuseInfo = stitchedList_[prevIdx].GetRuntimeReuseInfo();
-                return prevReuseInfo.poolResetTimes + 1 == nextReuseInfo.poolResetTimes &&
-                    prevReuseInfo.blockIdx == nextReuseInfo.blockIdx;
-            };
-            if (!isReusedBlock(stitchReuseContext_.firstDupIdx)) {
-                uint32_t nextBlockFirstDupIdx = stitchReuseContext_.firstDupIdx;
-                while (nextBlockFirstDupIdx < devNextIdx && !isReusedBlock(nextBlockFirstDupIdx)) {
-                    nextBlockFirstDupIdx++;
-                }
-                stitchReuseContext_.firstDupIdx = nextBlockFirstDupIdx;
+            auto &prevDup = stitchedList_[prevIdx];
+            if (prevDup.GetSource()->rawTensorWsMemoryRequirement == 0) {
+                // empty workspace
+                return SKIP_EMPTY;
             }
-            for (uint32_t prevIdx = stitchReuseContext_.firstDupIdx; isReusedBlock(prevIdx); prevIdx++) {
-                auto &prevDup = stitchedList_[prevIdx];
+
+            auto prevReuseInfo = prevDup.GetRuntimeReuseInfo();
+            if (prevReuseInfo.poolResetTimes + 1 != nextReuseInfo.poolResetTimes) {
+                return prevReuseInfo.poolResetTimes >= nextReuseInfo.poolResetTimes ? INVALID_TOO_AHEAD : NO_DEP;
+            }
+
+            // proper poolResetTimes
+            stitchReuseContext_.lastNonEmptyDupIdx = prevIdx;
+
+            uintdevptr_t prevAddrL = prevDup.RuntimeWorkspace();
+            uintdevptr_t prevAddrR = prevAddrL + prevDup.GetSource()->rawTensorWsMemoryRequirement;
+            return !(prevAddrR <= nextAddrL || prevAddrL >= nextAddrR) ? NEEDS_DEP : NO_DEP;
+        };
+
+        auto skipBefore = [](int result) { return result == NO_DEP || result == SKIP_EMPTY; };
+        for (; skipBefore(needsDependency(stitchReuseContext_.firstDupIdx)); stitchReuseContext_.firstDupIdx++) {}
+
+        if (needsDependency(stitchReuseContext_.firstDupIdx) == NEEDS_DEP) {
+            for (uint32_t prevIdx = stitchReuseContext_.firstDupIdx; ; prevIdx++) {
+                int res = needsDependency(prevIdx);
+                if (res == NO_DEP || res == INVALID_TOO_AHEAD) {
+                    break;
+                }
+                if (res != SKIP_EMPTY) {
+                    auto &prevDup = stitchedList_[prevIdx];
+                    StitchForWorkspaceReuse(stitchedList_.data(), stitchedList_.size(), prevDup, nextDup, devNextIdx, workspace_);
+                    stitchReuseContext_.firstDupIdx = prevIdx; // Risk on time complexity: Duplicated access to empty-workspace funcs
+                }
+            }
+        } else {
+            if (stitchReuseContext_.lastNonEmptyDupIdx != -1) {
+                auto &prevDup = stitchedList_[stitchReuseContext_.lastNonEmptyDupIdx];
                 StitchForWorkspaceReuse(stitchedList_.data(), stitchedList_.size(), prevDup, nextDup, devNextIdx, workspace_);
             }
         }
@@ -848,7 +872,9 @@ public:
                 matchCount = FullCoverUpdateStitch(nextDup, devNextIdx, slot, slotIdx, incast);
             }
         }
+#if !DEBUG_INFINITE_LIFETIME
         ReuseStitch(nextDup, devNextIdx);
+#endif // !DEBUG_INFINITE_LIFETIME
         return matchCount;
     }
 
@@ -1470,7 +1496,7 @@ struct DeviceExecuteContext {
 
         /* This initialization must only occur after all other AICPU workspace meta memory allocations have completed.
            The remaining portion of AICPU workspace meta memory must support reclamation. */
-        workspace.InitAicpuMetaSlabAllocator();
+        workspace.InitMetadataSlabAllocator();
 
         PerfEnd(PERF_EVT_CONTROL_FLOW_INIT);
         DEV_INFO("Image size = %lu.", devProg->GetSize());
@@ -1572,14 +1598,14 @@ void GELaunchRunCached(DevStartArgs *startArgs, std::function<void(uint64_t, Dev
         pushTask(taskId++, &dynTask->devTask, this);
         PROF_STAGE_END(PERF_EVT_STAGE_PUSH_TASK, "push.after\n");
 
-        PROF_STAGE_BEGIN(PERF_EVT_DEALLOCATE_WORKSPACE, "RecycleAicoreLocalWorkspace.before\n");
+        PROF_STAGE_BEGIN(PERF_EVT_DEALLOCATE_WORKSPACE, "RecycleTensorWorkspace.before\n");
         // Memory recycling
-        stitchContext.RecycleAicoreLocalWorkspace();
+        stitchContext.RecycleTensorWorkspace();
 
         // Reset stitch context
         stitchContext.Reset();
         slotContext.ClearDirty();
-        PROF_STAGE_END(PERF_EVT_DEALLOCATE_WORKSPACE, "RecycleAicoreLocalWorkspace.after\n");
+        PROF_STAGE_END(PERF_EVT_DEALLOCATE_WORKSPACE, "RecycleTensorWorkspace.after\n");
     }
 
     schema::RUid GetRuid(uint64_t rootKey, bool afterAppend = false) {

@@ -20,7 +20,7 @@
             "STRATEGY": "PVC2_OOO",
             "ENABLE_BINARY_CACHE": false,
             "workspace_recycle_period": 10,
-            "estimated_stitching_count": 50,
+            "estimated_stitch_task_max_loop_num": 50,
             "only_codegen":false,
             "DUMP_BIN_AND_JSON": false,
             "DUMP_BIN_AND_JSON_PATH": "",

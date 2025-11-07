@@ -147,7 +147,7 @@ void KernelDumpUtils::DumpJsonFile(const DeviceAgentTask *deviceAgentTask, const
         deviceAgentTask->GetFunction()->GetDyndevAttribute() != nullptr) {
         dynamic::DevAscendProgram *devProg = reinterpret_cast<dynamic::DevAscendProgram *>(deviceAgentTask->GetFunction()->GetDyndevAttribute()->devProgBinary.data());
         if (devProg != nullptr) {
-            workspaceSize = devProg->aicoreLocalWorkspaceSize + devProg->aicpuCoherentWorkspaceSize;
+            workspaceSize = devProg->memBudget.tensor.Total() + devProg->memBudget.metadata.Total();
         }
     }
     ALOG_INFO_F("Work space size is [%lu].", workspaceSize);

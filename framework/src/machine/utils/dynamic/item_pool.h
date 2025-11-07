@@ -20,7 +20,7 @@
 namespace npu::tile_fwk::dynamic {
 
 template <typename T, WsMemCategory category = WsMemCategory::UNCLASSIFIED_ITEMPOOL,
-    typename WsAllocator_T = WsAicpuCoherentAllocator>
+    typename WsAllocator_T = WsMetadataAllocator>
 class ItemPool {
 public:
     struct ItemBlock {

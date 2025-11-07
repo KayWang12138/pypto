@@ -39,7 +39,7 @@ inline constexpr const char *GetCategoryName(WsMemCategory category) {
     return WS_MEM_CATEGORY_NAMELIST[ToUnderlying(category)];
 }
 struct WsAllocation {
-    friend class WsAicoreLocalSlotAllocator;
+    friend class WsSlotAllocator;
     friend class SeqWsAllocator;
     friend class WsAllocatorCounter;
     friend class DelayedDumper;
@@ -75,8 +75,8 @@ struct WsAllocation {
 };
 
 enum class WsAllocatorProperty {
-    AICORE_LOCAL,
-    AICPU_COHERENT,
+    TENSOR_MEM,
+    METADATA_MEM,
 };
 
 enum class WsMemoryState {

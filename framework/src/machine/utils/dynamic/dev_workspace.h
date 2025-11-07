@@ -29,25 +29,26 @@
 
 namespace npu::tile_fwk::dynamic {
 
-const size_t MAX_READY_QUE_ELM_SIZE = 20000;
+inline constexpr size_t MAX_READY_QUE_ELM_SIZE = 20000;
+inline constexpr int64_t TENSOR_ADDR_ALIGNMENT = 512;
 
 struct WsSlabStageAllocMem {
     std::atomic_bool canFree{false};
-    StageAllocInfo aicpuCoherentStageMem;
-    StageAllocInfo aicpuStitchStageMem;
+    StageAllocInfo generalMetadataStageMem;
+    StageAllocInfo stitchStageMem;
 
     WsSlabStageAllocMem() = default;
     WsSlabStageAllocMem(const WsSlabStageAllocMem& other)
         : canFree(other.canFree.load(std::memory_order_relaxed)),
-          aicpuCoherentStageMem(other.aicpuCoherentStageMem),
-          aicpuStitchStageMem(other.aicpuStitchStageMem) {}
+          generalMetadataStageMem(other.generalMetadataStageMem),
+          stitchStageMem(other.stitchStageMem) {}
 
     WsSlabStageAllocMem& operator=(const WsSlabStageAllocMem& other) {
         if (this != &other) {
             canFree.store(other.canFree.load(std::memory_order_relaxed),
                          std::memory_order_relaxed);
-            aicpuCoherentStageMem = other.aicpuCoherentStageMem;
-            aicpuStitchStageMem = other.aicpuStitchStageMem;
+            generalMetadataStageMem = other.generalMetadataStageMem;
+            stitchStageMem = other.stitchStageMem;
         }
         return *this;
     }
@@ -161,7 +162,7 @@ struct DeviceExecuteSlot {
     }
 };
 
-const uint32_t SUBMMIT_TASK_QUE_SIZE = 32;
+constexpr uint32_t SUBMMIT_TASK_QUE_SIZE = 32;
 class DeviceWorkspaceAllocator {
 public:
     DeviceWorkspaceAllocator() = default;
@@ -169,27 +170,32 @@ public:
 
     void Init(DevStartArgs *args) {
         uintdevptr_t baseAddr = args->workspaceAddr;
+        DevAscendProgram *devProg = args->devProg;
 
         // Host coherent allocators MUST be initialized EARLIEST since some other allocators might depend on them
-        InitHostCoherentAllocators(baseAddr, args->aicpuCoherentWorkspaceSize, args->devProg);
-        baseAddr += args->aicpuCoherentWorkspaceSize;
+        InitMetadataAllocators(baseAddr, devProg->memBudget.metadata.Total(), devProg);
+        baseAddr += devProg->memBudget.metadata.Total();
 
-        InitCoreLocalAllocators(baseAddr, args->aicoreLocalWorkspaceSize, args->devProg);
-        baseAddr += args->aicoreLocalWorkspaceSize;
+        InitTensorAllocators(baseAddr, devProg->memBudget.tensor.Total(), devProg);
+        baseAddr += devProg->memBudget.tensor.Total();
+
+        InitAICoreSpilledMemory(baseAddr, devProg);
+        baseAddr += devProg->memBudget.aicoreSpilled;
 
 #if DEBUG_INFINITE_LIFETIME
-        dumpTensorWsAllocator_.InitAicoreLocal(baseAddr, args->devProg->debugDumpTensorMemReq);
+        dumpTensorWsAllocator_.InitTensorAllocator(baseAddr, devProg->memBudget.debug.dumpTensor);
         DEV_DEBUG("[DumpTensor] dumpTensorWsAllocator_: ptr=0x%lx, size=%lu",
-                  baseAddr, args->devProg->debugDumpTensorMemReq);
-        baseAddr += args->devProg->debugDumpTensorMemReq;
-        dumpTensorWsAllocatorCounter_ = dumpTensorWsAllocator_.Allocate<uint64_t>(1).As<uint64_t>();
+                  baseAddr, devProg->memBudget.debug.dumpTensor);
+        baseAddr += devProg->memBudget.debug.dumpTensor;
+
+        // Allocate 512 for address alignment
+        dumpTensorWsAllocatorCounter_ = dumpTensorWsAllocator_.Malloc(TENSOR_ADDR_ALIGNMENT).As<uint64_t>();
         *dumpTensorWsAllocatorCounter_ = dumpTensorWsAllocator_.AllocatedSize();
 #endif
         SetupVector(slotMemToBeFree_);
-        slotMemToBeFree_.reserve(args->devProg->slotPoolSize);
+        slotMemToBeFree_.reserve(devProg->memBudget.tensor.pooledSlotNum);
 
-        standardRootWorkspace_ = args->devProg->rootFuncStandardMemReq;
-        devProg_ = args->devProg;
+        devProg_ = devProg;
     }
 
     uintdevptr_t StackWorkspaceAddr() const { return stackWorkspaceBase_; }
@@ -204,17 +210,17 @@ public:
         if constexpr (std::is_same_v<WsAllocator_T, npu::tile_fwk::dynamic::DeviceWorkspaceAllocator>) {
             vector.InitAllocator((*this));
         } else {
-            vector.InitAllocator(aicpuCoherentAllocator_);
+            vector.InitAllocator(metadataAllocators_.general);
         }
     }
 
     template <typename T, WsMemCategory category>
     void SetupItemPool(ItemPool<T, category> &pool, size_t count) {
-        pool.Init(aicpuCoherentAllocator_, count);
+        pool.Init(metadataAllocators_.general, count);
     }
 
-    WsMemoryState VerifyAicoreLocalMemoryState(uintdevptr_t ptr, size_t size) const {
-        return aicoreLocalWsVerifier_.Verify(ptr, size);
+    WsMemoryState VerifyTensorMemoryState(uintdevptr_t ptr, size_t size) const {
+        return tensorWsVerifier_.Verify(ptr, size);
     }
 
     void VerifyStitchedListMemory(DevStartArgs &args, const DevAscendFunctionDupped *stitchedList, size_t size) {
@@ -258,9 +264,9 @@ public:
 
             auto isValidWsTensor = [&](uintdevptr_t ptr, size_t memSize) {
                 return slotVerifier_.Verify(ptr, memSize) == WsMemoryState::INSIDE ||
-                    globalTensorVerifier_.Verify(ptr, memSize) == WsMemoryState::INSIDE ||
-                    funcWsVerifier_.Verify(ptr, memSize) == WsMemoryState::INSIDE ||
-                    outcastWsVerifier_.Verify(ptr, memSize) == WsMemoryState::INSIDE;
+                    dassembleDestsTensorVerifier_.Verify(ptr, memSize) == WsMemoryState::INSIDE ||
+                    rootInnerWsVerifier_.Verify(ptr, memSize) == WsMemoryState::INSIDE ||
+                    devTaskInnerOutcastsWsVerifier_.Verify(ptr, memSize) == WsMemoryState::INSIDE;
             };
 
             size_t rawTensorCount = dup.GetSource()->GetRawTensorSize();
@@ -275,7 +281,7 @@ public:
                     i,
                     j,
                 };
-                switch (VerifyAicoreLocalMemoryState(memInfo.ptr, memInfo.size)) {
+                switch (VerifyTensorMemoryState(memInfo.ptr, memInfo.size)) {
                     case WsMemoryState::INSIDE:
                         if (!isValidWsTensor(memInfo.ptr, memInfo.size)) {
                             DEV_ERROR("Invalid workspace tensor (not completely inside any workspace segment):");
@@ -303,41 +309,25 @@ public:
     }
 
 private:
-    void ResetFuncWsAllocator() {
-        aicoreLocalFuncWsAllocator_.ResetPool();
-        funcWsAllocationInfo_.ptr = 0;
-        funcWsAllocationInfo_.blockIdx = 0;
-    }
-
     bool TryAllocateFuncWs(DevAscendFunctionDupped dup, uint64_t size, WsAllocatorCounter *dfxCounter = nullptr) {
-        if (funcWsAllocationInfo_.ptr == 0 || funcWsAllocationInfo_.allocated + size > standardRootWorkspace_) {
-            if (!aicoreLocalFuncWsAllocator_.CanAllocate(standardRootWorkspace_)) {
-                ResetFuncWsAllocator();
-                DEV_DEBUG_ASSERT(aicoreLocalFuncWsAllocator_.CanAllocate(standardRootWorkspace_));
-            } else if (funcWsAllocationInfo_.ptr != 0) {
-                funcWsAllocationInfo_.blockIdx++;
-            }
-            WsAllocation allocation = aicoreLocalFuncWsAllocator_.Malloc(
-                standardRootWorkspace_, WsMemCategory::TENSOR_ROOTFUNC_INTERNAL);
-            if (dfxCounter) {
-                dfxCounter->LogMalloc(allocation);
-            }
-            funcWsAllocationInfo_.ptr = allocation.ptr;
-            funcWsAllocationInfo_.allocated = 0;
+        if (!tensorAllocators_.rootInner.CanAllocate(size)) {
+            tensorAllocators_.rootInner.ResetPool();
+            DEV_DEBUG_ASSERT(tensorAllocators_.rootInner.CanAllocate(size));
         }
-        dup.RuntimeWorkspace() = funcWsAllocationInfo_.ptr + funcWsAllocationInfo_.allocated;
+        WsAllocation allocation = tensorAllocators_.rootInner.Malloc(
+            size, WsMemCategory::TENSOR_ROOTFUNC_INTERNAL);
+#if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
+        if (dfxCounter) {
+            dfxCounter->LogMalloc(allocation);
+        }
+#else
+        UNUSED(dfxCounter);
+#endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
+        dup.RuntimeWorkspace() = allocation.ptr;
         auto &reuseInfo = dup.GetRuntimeReuseInfo();
-        reuseInfo.poolResetTimes = aicoreLocalFuncWsAllocator_.ResetTimes();
-        reuseInfo.blockIdx = funcWsAllocationInfo_.blockIdx;
-        funcWsAllocationInfo_.allocated += size;
+        reuseInfo.poolResetTimes = tensorAllocators_.rootInner.ResetTimes();
         return true;
     }
-
-    struct {
-        uintdevptr_t ptr = 0;
-        uint64_t allocated = 0;
-        uint32_t blockIdx = 0;
-    } funcWsAllocationInfo_;
 
 public:
 #if DEBUG_INFINITE_LIFETIME
@@ -349,6 +339,7 @@ public:
         return allocation;
     }
 #endif
+
     bool TryAllocateFunctionMemory(DevAscendFunctionDupped devRootDup, DeviceExecuteSlot *slotList) {
         AutoScopedPerf asp(PERF_EVT_ALLOCATE_WORKSPACE);
 
@@ -363,17 +354,17 @@ public:
         // alloc outcast workspace
         size_t outcastSize = devRootSrc->outcastWsMemoryRequirement;
         if (outcastSize != 0) {
-            if (!aicoreLocalFuncOutcastAllocator_.CanAllocate(outcastSize)) {
+            if (!tensorAllocators_.devTaskInnerOutcasts.CanAllocate(outcastSize)) {
                 return false;
             }
 
-            WsAllocation allocation = aicoreLocalFuncOutcastAllocator_.Malloc(
+            WsAllocation allocation = tensorAllocators_.devTaskInnerOutcasts.Malloc(
                 outcastSize, WsMemCategory::TENSOR_ROOTFUNC_INTERNAL);
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
             funcAllocDfx.LogMalloc(allocation);
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
 #if DEBUG_INFINITE_LIFETIME
-        allocation = DebugDumpTensorAllocate(outcastSize, WsMemCategory::TENSOR_ROOTFUNC_INTERNAL);
+            allocation = DebugDumpTensorAllocate(outcastSize, WsMemCategory::TENSOR_ROOTFUNC_INTERNAL);
 #endif
             devRootDup.RuntimeOutcastBase() = allocation.ptr;
         } else {
@@ -387,8 +378,8 @@ public:
                 return false;
             }
 #if DEBUG_INFINITE_LIFETIME
-        WsAllocation allocation = DebugDumpTensorAllocate(wsSize, WsMemCategory::TENSOR_ROOTFUNC_INTERNAL);
-        devRootDup.RuntimeWorkspace() = allocation.ptr;
+            WsAllocation allocation = DebugDumpTensorAllocate(wsSize, WsMemCategory::TENSOR_ROOTFUNC_INTERNAL);
+            devRootDup.RuntimeWorkspace() = allocation.ptr;
 #endif
         } else {
             devRootDup.RuntimeWorkspace() = 0;
@@ -422,7 +413,7 @@ public:
                     auto rawTensor = devRootSrc->GetOutcastRawTensor(i);
                     if (rawTensor->linkedIncastId == -1) {
                         auto memReq = rawTensor->GetMemoryRequirement(devRootDup.GetExpressionAddr());
-                        auto allocation = aicoreGlobalAllocator_.Allocate<uint8_t>(memReq);
+                        auto allocation = tensorAllocators_.dassembleDests.Allocate<uint8_t>(memReq);
 #if DEBUG_INFINITE_LIFETIME
                         allocation = DebugDumpTensorAllocate(memReq);
 #endif
@@ -455,11 +446,11 @@ public:
     }
 
     bool IsValidSlotMemRequirement(uint64_t memReq) const {
-        return aicoreLocalSlotAllocator_.IsValidSlotMemRequirement(memReq);
+        return tensorAllocators_.slottedOutcasts.IsValidSlotMemRequirement(memReq);
     }
 
     uintdevptr_t AllocateSlot(const char *rootFuncName) {
-        WsAllocation allocation = aicoreLocalSlotAllocator_.Allocate();
+        WsAllocation allocation = tensorAllocators_.slottedOutcasts.Allocate();
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
         wsMemDelayedDumper_.LogTensorMalloc(rootFuncName, allocation);
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
@@ -473,14 +464,14 @@ public:
 
     void TriggerDelayedRecycle() {
         for (uintdevptr_t ptr : slotMemToBeFree_) {
-            aicoreLocalSlotAllocator_.Deallocate(ptr);
+            tensorAllocators_.slottedOutcasts.Deallocate(ptr);
         }
         slotMemToBeFree_.clear();
     }
 
     void RecycleDevFuncWorkspace() {
-        aicoreLocalFuncOutcastAllocator_.ResetPool();
-        ResetFuncWsAllocator();
+        tensorAllocators_.devTaskInnerOutcasts.ResetPool();
+        tensorAllocators_.rootInner.ResetPool();
     }
 
     DevAscendFunctionDupped DuplicateRoot(DevAscendFunction *func) {
@@ -489,7 +480,7 @@ public:
     }
 
     void DestroyDuppedFunc(DevAscendFunctionDupped &dup) {
-        dup.ReleaseDuppedMemory(aicpuCoherentAllocator_);
+        dup.ReleaseDuppedMemory(metadataAllocators_.general);
     }
 
     DynDeviceTask *MakeDynDeviceTask() {
@@ -516,7 +507,7 @@ public:
 
     void ResetAicpuMemCounter() {
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
-        aicpuCoherentAllocator_.ResetCounter();
+        metadataAllocators_.general.ResetCounter();
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
     }
 
@@ -528,7 +519,7 @@ public:
 
     void MarkAsNewStitchWindow() {
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
-        aicpuCoherentAllocator_.DelayedDumpAndResetCounter(wsMemDelayedDumper_);
+        metadataAllocators_.general.DelayedDumpAndResetCounter(wsMemDelayedDumper_);
         aicpuStitchAllocator_.DelayedDumpAndResetCounter(wsMemDelayedDumper_);
         wsMemDelayedDumper_.MarkAsNewStitchWindow();
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
@@ -540,13 +531,13 @@ public:
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
 
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_LIGHT
-        aicpuCoherentAllocator_.DumpMemoryUsage(hint, "Metadata");
-        aicpuMetaSlabAllocator_.DumpMemoryUsage(hint, "Metadata slab allocator");
-        aicpuStitchSlabAllocator_.DumpMemoryUsage(hint, "Metadata Stitch slab allocator");
-        aicoreLocalFuncWsAllocator_.DumpMemoryUsage(hint, "Tensor (inner) workspace");
-        aicoreLocalFuncOutcastAllocator_.DumpMemoryUsage(hint, "Tensor (outcast) workspace");
-        aicoreGlobalAllocator_.DumpMemoryUsage(hint, "Tensor (global) workspace");
-        aicoreLocalSlotAllocator_.DumpMemoryUsage(hint);
+        metadataAllocators_.general.DumpMemoryUsage(hint, "Metadata");
+        metadataAllocators_.generalSlab.DumpMemoryUsage(hint, "Metadata slab allocator");
+        metadataAllocators_.stitchSlab.DumpMemoryUsage(hint, "Metadata Stitch slab allocator");
+        tensorAllocators_.rootInner.DumpMemoryUsage(hint, "Tensor (root inner) workspace");
+        tensorAllocators_.devTaskInnerOutcasts.DumpMemoryUsage(hint, "Tensor (DeviceTask inner outcasts) workspace");
+        tensorAllocators_.dassembleDests.DumpMemoryUsage(hint, "Tensor (dassembleDests) workspace");
+        tensorAllocators_.slottedOutcasts.DumpMemoryUsage(hint);
 
         // Dump stack memory
         DEV_MEM_DUMP("Stack workspace memory usage (%s)\n", hint);
@@ -554,16 +545,16 @@ public:
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_LIGHT
     }
 
-    void InitAicpuMetaSlabAllocator() {
-        DEV_ASSERT(aicpuCoherentAllocator_.FreeMemorySize() > 0);
-        uint64_t memBase = aicpuCoherentAllocator_.MemBaseAddr() + aicpuCoherentAllocator_.AllocatedSize();
+    void InitMetadataSlabAllocator() {
+        DEV_ASSERT(metadataAllocators_.general.FreeMemorySize() > 0);
+        uint64_t memBase = metadataAllocators_.general.MemBaseAddr() + metadataAllocators_.general.AllocatedSize();
         uint64_t realMemBase = AlignUp(memBase, sizeof(uint64_t));
-        uint32_t metaSlabMemSize = aicpuCoherentAllocator_.FreeMemorySize() - (realMemBase - memBase);
+        uint32_t metaSlabMemSize = metadataAllocators_.general.FreeMemorySize() - (realMemBase - memBase);
         uint32_t slabSize = CalcAicpuMetaSlabAlloctorSlabPageSize(metaSlabMemSize);
-        aicpuMetaSlabAllocator_.Init(reinterpret_cast<void*>(realMemBase), metaSlabMemSize, slabSize);
+        metadataAllocators_.generalSlab.Init(reinterpret_cast<void*>(realMemBase), metaSlabMemSize, slabSize);
         for (size_t i = 0; i < ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT); i++) {
             if (slabMemObjSizeFunc[i] != nullptr) {
-                DEV_ASSERT(aicpuMetaSlabAllocator_.RegistCache(i, (this->*slabMemObjSizeFunc[i])()));
+                DEV_ASSERT(metadataAllocators_.generalSlab.RegistCache(i, (this->*slabMemObjSizeFunc[i])()));
             }
         }
     }
@@ -574,9 +565,9 @@ public:
         SlabTryDynAddCache(type, objSize); // ready que need dyn add cache
         do {
             if (type < WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT) {
-                ptr = aicpuMetaSlabAllocator_.Alloc(ToUnderlying(type));
+                ptr = metadataAllocators_.generalSlab.Alloc(ToUnderlying(type));
             } else if (type < WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT) {
-                ptr = aicpuStitchSlabAllocator_.Alloc(ToUnderlying(type));
+                ptr = metadataAllocators_.stitchSlab.Alloc(ToUnderlying(type));
             }
             if (ptr != nullptr) {
                 break;
@@ -584,8 +575,8 @@ public:
 
             if (submmitTaskSlabMemQueue_.IsEmpty()) {
                 // should not happen, first task alloc failed
-                aicpuMetaSlabAllocator_.DumpMemoryStatusWhenAbnormal("SlabAlloc null");
-                aicpuStitchSlabAllocator_.DumpMemoryStatusWhenAbnormal("SlabAlloc null");
+                metadataAllocators_.generalSlab.DumpMemoryStatusWhenAbnormal("SlabAlloc null");
+                metadataAllocators_.stitchSlab.DumpMemoryStatusWhenAbnormal("SlabAlloc null");
                 DEV_ASSERT_MSG(false, "Slab alloc null,type=%u,objsize=%u.", ToUnderlying(type), objSize);
             }
             uint32_t ttl = 0;
@@ -605,8 +596,8 @@ public:
 
     WsSlabStageAllocMem SlabGetStageAllocMem(bool keepTail, WsAicpuSlabMemType keepType) {
         WsSlabStageAllocMem stageMem;
-        stageMem.aicpuCoherentStageMem = aicpuMetaSlabAllocator_.PopStageAllocMem(keepTail, ToUnderlying(keepType));
-        stageMem.aicpuStitchStageMem = aicpuStitchSlabAllocator_.PopStageAllocMem(false, 0); // not support keep alloc memory
+        stageMem.generalMetadataStageMem = metadataAllocators_.generalSlab.PopStageAllocMem(keepTail, ToUnderlying(keepType));
+        stageMem.stitchStageMem = metadataAllocators_.stitchSlab.PopStageAllocMem(false, 0); // not support keep alloc memory
         return stageMem;
     }
 
@@ -626,79 +617,82 @@ public:
     }
 
     void Deallocate(WsAllocation) {} // just for support vector allocator,so need have this fucntion member
-private:
-    void InitHostCoherentAllocators(uintdevptr_t workspaceAddr,
-                                    uint64_t aicpuCoherentWorkspaceSize,
-                                    DevAscendProgram *devProg) {
-        // Stitch pool is part of aicpu coherent workspace and cannot extend the total size
-        DEV_ASSERT(devProg->stitchPoolSize <= aicpuCoherentWorkspaceSize);
 
+private:
+    void InitMetadataAllocators(uintdevptr_t workspaceAddr,
+                                uint64_t metadataWsSize,
+                                DevAscendProgram *devProg) {
         // Initialize aicpu memory
         uint64_t baseAddr = workspaceAddr;
 
-        aicpuCoherentAllocator_.InitAicpuCoherent(baseAddr, aicpuCoherentWorkspaceSize - devProg->stitchPoolSize);
-        baseAddr += aicpuCoherentWorkspaceSize - devProg->stitchPoolSize;
-        InitAicpuStitchSlabAllocator(reinterpret_cast<void*>(baseAddr), devProg->stitchPoolSize);
-        baseAddr += devProg->stitchPoolSize;
+        metadataAllocators_.general.InitMetadataAllocator(baseAddr, devProg->memBudget.metadata.general);
+        baseAddr += devProg->memBudget.metadata.general;
+        InitAicpuStitchSlabAllocator(reinterpret_cast<void*>(baseAddr), devProg->memBudget.metadata.stitchPool);
+        baseAddr += devProg->memBudget.metadata.stitchPool;
 
-        DEV_ASSERT(workspaceAddr <= baseAddr && baseAddr <= workspaceAddr + aicpuCoherentWorkspaceSize);
+        DEV_ASSERT(workspaceAddr <= baseAddr && baseAddr <= workspaceAddr + metadataWsSize);
     }
 
-    void InitCoreLocalAllocators(uintdevptr_t workspaceAddr,
-                                 uint64_t aicoreLocalWorkspaceSize,
-                                 DevAscendProgram *devProg) {
+    void InitTensorAllocators(uintdevptr_t workspaceAddr,
+                              uint64_t tensorWorkspaceSize,
+                              DevAscendProgram *devProg) {
         uint64_t baseAddr = workspaceAddr;
 
-        // Initialize in-core stack memory
-        stackWorkspaceBase_ = baseAddr;
-        standardStackWorkspacePerCore_ = devProg->standardStackWorkspacePerCore;
-        stackWorkspaceSize_ = devProg->standardStackWorkspacePerCore * devProg->devArgs.GetBlockNum();
-        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceSpill(
-            mem(devProg->standardStackWorkspacePerCore), devProg->devArgs.GetBlockNum(),
-            range(stackWorkspaceBase_, stackWorkspaceBase_ + stackWorkspaceSize_))));
-
-        baseAddr += stackWorkspaceSize_;
-
-        // Initialize aicore workspace memory verifier
-        uint64_t aicoreLocalWorkspaceWithoutStack = aicoreLocalWorkspaceSize - stackWorkspaceSize_;
-        aicoreLocalWsVerifier_.Init(
+        // Initialize tensor workspace memory verifier
+        tensorWsVerifier_.Init(
             baseAddr,
-            aicoreLocalWorkspaceWithoutStack);
+            tensorWorkspaceSize);
 
-        // Initialize aicore slot tensor memory
-        auto aicoreLocalSlotAllocatorSize = devProg->slotPoolSize * devProg->slotStandardMemReq;
-        slotVerifier_.Init(baseAddr, aicoreLocalSlotAllocatorSize);
-        aicoreLocalSlotAllocator_.InitAicoreLocal(
+        // Initialize root function slotted outcast tensor memory
+        auto slottedOutcastsBudget = devProg->memBudget.tensor.pooledSlotNum * devProg->memBudget.tensor.singleSlotMem;
+        slotVerifier_.Init(baseAddr, slottedOutcastsBudget);
+        tensorAllocators_.slottedOutcasts.InitTensorAllocator(
             baseAddr,
-            devProg->slotPoolSize,
-            devProg->slotStandardMemReq,
-            aicpuCoherentAllocator_);
-        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceCrossDeviceTaskOutcast(range(baseAddr, baseAddr + aicoreLocalSlotAllocatorSize))));
-        baseAddr += aicoreLocalSlotAllocatorSize;
+            devProg->memBudget.tensor.pooledSlotNum,
+            devProg->memBudget.tensor.singleSlotMem,
+            metadataAllocators_.general);
+        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceCrossDeviceTaskOutcast(range(baseAddr, baseAddr + slottedOutcastsBudget))));
+        baseAddr += slottedOutcastsBudget;
 
-        // Initialize gloabl tensor memory
-        auto dynWsMem = aicoreLocalWorkspaceSize - devProg->aicoreLocalWorkspaceSize;
-        auto globalTensorMem = dynWsMem + devProg->globalTensorMem;
-        globalTensorVerifier_.Init(baseAddr, globalTensorMem);
-        aicoreGlobalAllocator_.InitAicoreLocal(baseAddr, globalTensorMem);
-        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspacePartialOutcast(range(baseAddr, baseAddr + globalTensorMem))));
-        baseAddr += globalTensorMem;
+        // Initialize dassembleDests tensor memory
+        auto dassembleDestsTensorBudget = devProg->memBudget.tensor.dassembleDests;
+        dassembleDestsTensorVerifier_.Init(baseAddr, dassembleDestsTensorBudget);
+        tensorAllocators_.dassembleDests.InitTensorAllocator(baseAddr, dassembleDestsTensorBudget);
+        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspacePartialOutcast(range(baseAddr, baseAddr + dassembleDestsTensorBudget))));
+        baseAddr += dassembleDestsTensorBudget;
 
-        // Initialize aicore function internal workspace tensor memory
-        auto aicoreLocalFuncWsAllocatorSize = devProg->rootFuncStandardMemReq * devProg->workspaceRecyclePeriod;
-        funcWsVerifier_.Init(baseAddr, aicoreLocalFuncWsAllocatorSize);
-        aicoreLocalFuncWsAllocator_.InitAicoreLocal(baseAddr, aicoreLocalFuncWsAllocatorSize);
-        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceInnerTensor(range(baseAddr, baseAddr + aicoreLocalFuncWsAllocatorSize))));
-        baseAddr += aicoreLocalFuncWsAllocatorSize;
+        // Initialize root function non-outcast tensor memory
+        auto rootInnerBudget = devProg->memBudget.tensor.rootInner;
+        rootInnerWsVerifier_.Init(baseAddr, rootInnerBudget);
+        tensorAllocators_.rootInner.InitTensorAllocator(baseAddr, rootInnerBudget);
+        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceInnerTensor(range(baseAddr, baseAddr + rootInnerBudget))));
+        baseAddr += rootInnerBudget;
 
-        // Initialize aicore function internal outcast tensor memory
-        uint64_t remaining = workspaceAddr + aicoreLocalWorkspaceSize - baseAddr;
-        outcastWsVerifier_.Init(baseAddr, remaining);
-        aicoreLocalFuncOutcastAllocator_.InitAicoreLocal(baseAddr, remaining); // Remaining all
+        // Initialize root function sequential outcast tensor memory
+        uint64_t remaining = workspaceAddr + tensorWorkspaceSize - baseAddr;
+        devTaskInnerOutcastsWsVerifier_.Init(baseAddr, remaining);
+        tensorAllocators_.devTaskInnerOutcasts.InitTensorAllocator(baseAddr, remaining); // Remaining all
         DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceInDeviceTaskOutcast(range(baseAddr, baseAddr + remaining))));
         baseAddr += remaining;
 
-        DEV_ASSERT(workspaceAddr <= baseAddr && baseAddr <= workspaceAddr + aicoreLocalWorkspaceSize);
+        DEV_ASSERT(workspaceAddr <= baseAddr && baseAddr <= workspaceAddr + tensorWorkspaceSize);
+    }
+
+    void InitAICoreSpilledMemory(uintdevptr_t workspaceAddr,
+                                 DevAscendProgram *devProg) {
+        uint64_t coreNum = devProg->devArgs.GetBlockNum();
+        if (coreNum == 0) {
+            return;
+        }
+        uint64_t perCoreMem = devProg->memBudget.aicoreSpilled / TENSOR_ADDR_ALIGNMENT / coreNum * TENSOR_ADDR_ALIGNMENT;
+
+        // Initialize in-core stack memory
+        stackWorkspaceBase_ = workspaceAddr;
+        standardStackWorkspacePerCore_ = perCoreMem;
+        stackWorkspaceSize_ = devProg->memBudget.aicoreSpilled;
+        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceSpill(
+            mem(perCoreMem), coreNum,
+            range(stackWorkspaceBase_, stackWorkspaceBase_ + stackWorkspaceSize_))));
     }
 
     uint32_t DevFunctionDuppedSlabMemObjSize() {
@@ -773,25 +767,25 @@ private:
     void InitAicpuStitchSlabAllocator(void* memBase, uint32_t totalSize) {
         DEV_ASSERT(memBase != nullptr && totalSize > 0);
         constexpr uint32_t slabSize = 4 * 1024; // fix size
-        aicpuStitchSlabAllocator_.Init(memBase, totalSize, slabSize);
+        metadataAllocators_.stitchSlab.Init(memBase, totalSize, slabSize);
         for (size_t i = ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT) + 1;
             i < ToUnderlying(WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT); ++i) {
             if (slabMemObjSizeFunc[i] != nullptr) {
                 uint32_t objSize = (this->*slabMemObjSizeFunc[i])();
                 DEV_ASSERT(slabSize > objSize);
-                DEV_ASSERT(aicpuStitchSlabAllocator_.RegistCache(i, (this->*slabMemObjSizeFunc[i])()));
+                DEV_ASSERT(metadataAllocators_.stitchSlab.RegistCache(i, (this->*slabMemObjSizeFunc[i])()));
             }
         }
     }
 
     void SlabTryDynAddCache(WsAicpuSlabMemType type, uint32_t objSize) {
         if (type < WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT) {
-            if (!aicpuMetaSlabAllocator_.ExistCache(ToUnderlying(type), objSize)) {
-                DEV_ASSERT(aicpuMetaSlabAllocator_.RegistCache(ToUnderlying(type), objSize));
+            if (!metadataAllocators_.generalSlab.ExistCache(ToUnderlying(type), objSize)) {
+                DEV_ASSERT(metadataAllocators_.generalSlab.RegistCache(ToUnderlying(type), objSize));
             }
         } else if (type < WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT) {
-            if (!aicpuStitchSlabAllocator_.ExistCache(ToUnderlying(type), objSize)) {
-                DEV_ASSERT(aicpuStitchSlabAllocator_.RegistCache(ToUnderlying(type), objSize));
+            if (!metadataAllocators_.stitchSlab.ExistCache(ToUnderlying(type), objSize)) {
+                DEV_ASSERT(metadataAllocators_.stitchSlab.RegistCache(ToUnderlying(type), objSize));
             }
         } else {
             DEV_ASSERT(false);
@@ -802,8 +796,8 @@ private:
         auto FreeTaskSlabMemfunc = [this] (WsSlabStageAllocMem* slabStageMem) -> bool {
             if (slabStageMem->canFree.load(std::memory_order_relaxed)) {
                 // recycle slab alloc memory
-                aicpuMetaSlabAllocator_.FreeStageAllocMem(slabStageMem->aicpuCoherentStageMem);
-                aicpuStitchSlabAllocator_.FreeStageAllocMem(slabStageMem->aicpuStitchStageMem);
+                metadataAllocators_.generalSlab.FreeStageAllocMem(slabStageMem->generalMetadataStageMem);
+                metadataAllocators_.stitchSlab.FreeStageAllocMem(slabStageMem->stitchStageMem);
                 return true;
             }
             return false;
@@ -818,34 +812,38 @@ private:
     DelayedDumper wsMemDelayedDumper_;
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
 
-    WsAicpuCoherentAllocator aicpuCoherentAllocator_;  // aicpu coherent for small suballocation, not support recycle
-    SlabWsAllocator aicpuMetaSlabAllocator_; // aicpu meta memory, support reclamation
-    SlabWsAllocator aicpuStitchSlabAllocator_; // aicpu stitched data support reclamation
-    SeqWsAllocator aicoreGlobalAllocator_;     // only aicore accesses it
-    SeqWsAllocator aicoreLocalFuncWsAllocator_;     // only aicore accesses it
-    SeqWsAllocator aicoreLocalFuncOutcastAllocator_;
-    WsAicoreLocalSlotAllocator aicoreLocalSlotAllocator_;
+    struct {
+        WsMetadataAllocator general; // aicpu coherent for small suballocation, not support recycle
+        SlabWsAllocator generalSlab;      // aicpu meta memory, support reclamation
+        SlabWsAllocator stitchSlab;       // aicpu stitched data support reclamation
+    } metadataAllocators_;
+
+    struct {
+        SeqWsAllocator dassembleDests;
+        SeqWsAllocator rootInner;
+        SeqWsAllocator devTaskInnerOutcasts;
+        WsSlotAllocator slottedOutcasts;
+    } tensorAllocators_;
 
 #if DEBUG_INFINITE_LIFETIME
     SeqWsAllocator dumpTensorWsAllocator_;
-    uint64_t *dumpTensorWsAllocatorCounter_;
+    uint64_t *dumpTensorWsAllocatorCounter_; // used in host-side when reading back npu memory
 #endif
 
     uintdevptr_t stackWorkspaceBase_{0};
     uint64_t standardStackWorkspacePerCore_{0};
     uint64_t stackWorkspaceSize_{0};
 
-    uint64_t standardRootWorkspace_{0};
     uint32_t maxDevFuncDuppedSize_{0};
     DevAscendProgram *devProg_{nullptr};
 
-    WsMemoryVerifier aicoreLocalWsVerifier_;
+    WsMemoryVerifier tensorWsVerifier_;
     WsMemoryVerifier slotVerifier_;
-    WsMemoryVerifier funcWsVerifier_;
-    WsMemoryVerifier outcastWsVerifier_;
-    WsMemoryVerifier globalTensorVerifier_;
+    WsMemoryVerifier dassembleDestsTensorVerifier_;
+    WsMemoryVerifier rootInnerWsVerifier_;
+    WsMemoryVerifier devTaskInnerOutcastsWsVerifier_;
 
-    Vector<uintdevptr_t, WsMemCategory::VECTOR_AICORE_RECYCLE_LIST> slotMemToBeFree_;
+    Vector<uintdevptr_t, WsMemCategory::VECTOR_SLOT_RECYCLE_LIST> slotMemToBeFree_;
     SPSCQueue<WsSlabStageAllocMem *, SUBMMIT_TASK_QUE_SIZE> submmitTaskSlabMemQueue_;
 };
 } // namespace npu::tile_fwk::dynamic

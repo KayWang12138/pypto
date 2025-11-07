@@ -25,7 +25,7 @@
 namespace npu::tile_fwk::dynamic {
 
 template <typename T, WsMemCategory category = WsMemCategory::UNCLASSIFIED_VECTOR,
-    typename WsAllocator_T = WsAicpuCoherentAllocator>
+    typename WsAllocator_T = WsMetadataAllocator>
 class Vector {
 public:
     using value_type = T;
