@@ -656,7 +656,7 @@ Status OoOScheduler::InitDependencies() {
 
         for (auto &oOperand : issue->tileOp.GetOOperands()) {
             int memId = oOperand->memoryrange.memId;
-            maxTensorMagic = std::max(maxTensorMagic, memId);
+            maxTensorMagic = std::max(maxTensorMagic, std::max(oOperand->GetMagic(), memId));
             lastWriteOpMap[memId] = issue;
             if (InitLocalBuffer(oOperand, memId) != SUCCESS) {
                 APASS_LOG_ERROR_F("OoOSchedule", "Operation", "InInitLocalBuffer failed.");
