@@ -71,12 +71,15 @@ std::vector<std::pair<LogicalTensorPtr, Operation *>> GetInplacedTensors(Logical
 
 inline bool IsInOutConflict(Function &function, LogicalTensorPtr &inTensor, LogicalTensorPtr &outTensor) {
     if (!function.IsFromInCast(inTensor) || !function.IsFromOutCast(outTensor)) {
+        APASS_LOG_ERROR_F("InferMemoryConflict", "Operation", "Input or output tensor is not from INCAST/OUTCAST.");
         return false;
     }
     if (inTensor->Symbol() == outTensor->Symbol()) {
+        APASS_LOG_ERROR_F("InferMemoryConflict", "Operation", "Input or output tensor have the same symbol.");
         return false;
     }
     if (inTensor->GetRawTensor()->memoryId == outTensor->GetRawTensor()->memoryId) {
+        APASS_LOG_ERROR_F("InferMemoryConflict", "Operation", "Input or output tensor have the same memoryID.");
         return false;
     }
     return true;
@@ -94,9 +97,6 @@ std::vector<std::pair<LogicalTensorPtr, Operation *>> InferMemoryConflict::Filte
         return needInsertCopys;
     }
     for (size_t i = 0; i < inplaceTensors.size(); ++i) {
-        if ((parentRawTensor_[inplaceTensors[i].first] == nullptr) || (targetParentIter->second == nullptr)) {
-            continue;
-        }
         if (IsInOutConflict(function, parentRawTensor_[inplaceTensors[i].first], targetParentIter->second)) {
             APASS_LOG_DEBUG_F(GetName().c_str(), "Tensor", "Input tensor [%d] (parent tensor [%d]) is conflict with outcast [%d]; Need to insert a copy operation.",
                 inplaceTensors[i].first->GetMagic(), parentRawTensor_[inplaceTensors[i].first]->GetMagic(), targetParentIter->second->GetMagic());

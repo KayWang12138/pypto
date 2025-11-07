@@ -149,7 +149,7 @@ void OoOScheduler::ReplaceTensorMemId(IssueEntryPtr &issue, int oldMemId, int ne
 
 Status OoOScheduler::UpdateRemainOpBufId(int oldMemId, int newMemId) {
     if (bufRefCount.find(oldMemId) == bufRefCount.end()) {
-        APASS_LOG_ERROR_F("OoOSchedule", "Tensor", "bufRefCount cannot find Tensor[%d]", oldMemId);
+        APASS_LOG_ERROR_F("OoOSchedule", "Tensor", "bufRefCount cannot find Tensor[%d].", oldMemId);
         return FAILED;
     }
     bufRefCount[newMemId] = bufRefCount[oldMemId] + TWO_ISSUE;
@@ -169,12 +169,12 @@ Status OoOScheduler::UpdateReloadIssueDepend(IssueEntryPtr reloadCopyin, IssueEn
         if (!succ->isRetired && (std::count(succ->reqMemIds.begin(), succ->reqMemIds.end(), spillMemId) > 0)) {
             reloadCopyin->successors.insert(succ->id);
             if (succ->predecessors.erase(spillIssue->id) == 0) {
-                APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Erase issueEntry %s failed", spillIssue->GetOpInfo());
+                APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Erase issueEntry %s failed.", spillIssue->GetOpInfo());
                 return FAILED;
             }
             succ->predecessors.insert(reloadCopyin->id);
             if (reloadCopyin->tileOp.GetOutputOperand(0) == nullptr) {
-                APASS_LOG_ERROR_F("OoOSchedule", "Operation", "%s cannot find oOperand[0]", reloadCopyin->GetOpInfo());
+                APASS_LOG_ERROR_F("OoOSchedule", "Operation", "%s cannot find oOperand[0].", reloadCopyin->GetOpInfo());
                 return FAILED;
             }
             succ->UpdateTensorInput(spillIssue, reloadCopyin->tileOp.GetOutputOperand(0));
@@ -354,12 +354,12 @@ Status OoOScheduler::SpillOutBuffer(SpillInfo &spillInfo, IssueEntryPtr issue, s
 Status OoOScheduler::GetSpillTensor(IssueEntryPtr spillIssue, int spillMemId, LogicalTensorPtr &spillTensor) {
     int spillTensorIdx = spillIssue->GetOOperandIdx(spillMemId);
     if (spillTensorIdx == -1) {
-        APASS_LOG_ERROR_F("OoOSchedule", "Tensor", "Tensor[%d] cannot find in op's oOperand", spillMemId);
+        APASS_LOG_ERROR_F("OoOSchedule", "Tensor", "Tensor[%d] cannot find in op's oOperand.", spillMemId);
         return FAILED;
     }
     spillTensor = spillIssue->tileOp.GetOutputOperand(spillTensorIdx);
     if (spillTensor == nullptr) {
-        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Op cannot find oOperand[%d]", spillTensorIdx);
+        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Op cannot find oOperand[%d].", spillTensorIdx);
         return FAILED;
     }
     return SUCCESS;
@@ -388,7 +388,7 @@ Status OoOScheduler::SpillBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue,
         }
         localBufferMap[spillInfo.spillMemId_]->retireCycle = clock;
         if (tensorOccupyMap[allocBuffer->memType].erase(spillInfo.spillMemId_) == 0) {
-            APASS_LOG_ERROR_F("OoOSchedule", "Tensor", "Erase tensor[%d] failed", spillInfo.spillMemId_);
+            APASS_LOG_ERROR_F("OoOSchedule", "Tensor", "Erase tensor[%d] failed.", spillInfo.spillMemId_);
             return FAILED;
         }
     }

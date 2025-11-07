@@ -204,7 +204,7 @@ Status NBufferMerge::Init(Function &func) {
         return SUCCESS;
     }
     if (colorSet.size() != colorMax + 1) {
-        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Colors are not continously numbered from 0; Please check whether the subgraph IDs are correct.");
+        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Colors are not continously numbered from 0, func magic : %d; Please check whether the subgraph IDs are correct.", func.GetFuncMagic());
         return FAILED;
     }
     color_ = colorMax + 1;
@@ -242,7 +242,7 @@ std::map<int, size_t> NBufferMerge::GetIsoColorMergeNum(const OperationsViewer &
         if (hashCoreNum.find(entry.first) == hashCoreNum.end()) {
             hashCoreNum[entry.first] = sgVecParallelNum;
         }
-        APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Subgraph hash: %lu, size %zu, core num: %zu.", 
+        APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "Subgraph hash: %lu, size %zu, core num: %zu.", 
                     entry.first, entry.second.size(), hashCoreNum[entry.first]);
         if (entry.second.size() <= hashCoreNum[entry.first]) {
             hashCoreNum[entry.first] = 1U;
@@ -255,7 +255,7 @@ std::map<int, size_t> NBufferMerge::GetIsoColorMergeNum(const OperationsViewer &
             usedCore = (entry.second.size() + initNum - 1) / initNum;
         }
         hashCoreNum[entry.first] = initNum;
-        APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Subgraph hash: %lu, merge num: %zu.", entry.first, hashCoreNum[entry.first]);
+        APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "Subgraph hash: %lu, merge num: %zu.", entry.first, hashCoreNum[entry.first]);
     }
     return hashCoreNum;
 }
@@ -307,7 +307,7 @@ inline int GetCopyIn(const OperationsViewer &opOriList, std::vector<int> &colorN
             int volume = BytesOf(opOriList[j].GetOOperands()[0]->Datatype());
             std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(opOriList[j].GetOpAttribute());
             if (attr == nullptr) {
-                APASS_LOG_ERROR_F("NBufferMerge", "Operation", "CopyOpAttribute is nullptr; Please check whether the source OpAttribute attribute can be convert to CopyOpAttribute.");
+                APASS_LOG_ERROR_F("NBufferMerge", "Operation", "CopyOpAttribute is nullptr, origin op magic : %d; Please check whether the source OpAttribute attribute can be convert to CopyOpAttribute.", opOriList[j].GetOpMagic());
                 return -1;
             }
             auto shape = attr->GetSpecifiedShape(1);
@@ -447,7 +447,7 @@ Status NBufferMerge::NBufferMergeProcess(Function &func) {
     // 如果子图个数已经少于核数； 后续按照core的类型来判断
     int coreNum = PassConfigManager::Instance().GetPlatformConfig().GetCoreNum(NpuCoreType::AICORE);
     if (color_ <= coreNum) {
-        APASS_LOG_INFO_F(GetName().c_str(), "Operation", "NBufferMerge is skipped. color: %d, aiCoreNum: %d", color_, coreNum);
+        APASS_LOG_INFO_F(GetName().c_str(), "Operation", "NBufferMerge is skipped. color: %d, aiCoreNum: %d.", color_, coreNum);
         return SUCCESS;
     }
     APASS_LOG_INFO_F(GetName().c_str(), "Operation", "User set nbuffer mode: %d", nBufferMergeMode);
@@ -459,17 +459,17 @@ Status NBufferMerge::NBufferMergeProcess(Function &func) {
     std::map<int, size_t> hashMergeNum;
     if (nBufferMergeMode == 1) {
         if (vecNBufferMap.size() != 0) {
-            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "nBufferMergeMode is manually set to 1; Please set vecNBufferMap to empty.");
+            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "NBUFFER_MERGE_MODE is manually set to 1; Please set VEC_NBUFFER_MAP to empty.");
             return FAILED;
         }
-        APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Manually Set nBufferMergeMode 1, Automatically Calculate MergeNum.");
+        APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Manually set NBUFFER_MERGE_MODE to 1, automatically calculate mergeNum.");
         hashMergeNum = GetIsoColorMergeNum(opOriList, hashMap);
     } else {
         if (vecNBufferMap.size() == 0) {
-            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "nBufferMergeMode is manually set to 2; Please set vecNBufferMap to non-empty.");
+            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "NBUFFER_MERGE_MODE is manually set to 2; Please set VEC_NBUFFER_MAP to non-empty.");
             return FAILED;
         }
-        APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Manually Set nBufferMergeMode %d.", nBufferMergeMode);
+        APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Manually set NBUFFER_MERGE_MODE to %d.", nBufferMergeMode);
         hashMergeNum = SetNumDB(hashMap);
     }
     if (MergeProcess(opOriList, hashMap, hashMergeNum, hashColor) == FAILED) {
@@ -488,12 +488,12 @@ Status NBufferMerge::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> Start NBufferMerge.");
     nBufferMergeMode = function.paramConfigs_.nBufferMergeMode;
     if (nBufferMergeMode != noMerge && nBufferMergeMode != autoMerge && nBufferMergeMode != manualMerge) {
-        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "nBufferMergeMode is set to %d; Please set nBufferMergeMode to 0, 1 or 2.", nBufferMergeMode);
+        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "NBUFFER_MERGE_MODE is set to %d; Please set NBUFFER_MERGE_MODE to 0, 1 or 2.", nBufferMergeMode);
         return FAILED;
     }
-    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "nbuffer mode: %d", nBufferMergeMode);
+    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "NBUFFER_MERGE_MODE is set to %d.", nBufferMergeMode);
     if (nBufferMergeMode == noMerge) {
-        APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Manually Set nBufferMergeMode 0, Skip NBufferMerge.");
+        APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Manually set NBUFFER_MERGE_MODE to 0, skip NBufferMerge.");
         return SUCCESS;
     }
     sgCubeParallelNum = function.paramConfigs_.sgCubeParallelNum;

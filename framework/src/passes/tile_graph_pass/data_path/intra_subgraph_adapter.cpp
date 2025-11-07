@@ -76,10 +76,10 @@ Status IntraSubgraphAdapter::RunOnFunction(Function &function) {
             APASS_LOG_DEBUG_F(GetName().c_str(), "Tensor", "Boundary tensor: %s, mainSubgraphID: %d, producerColors: %s, consumerColors: %s",
                 tensor->Dump().c_str(), mainSubgraphID, IntSetToStr(producerColors).c_str(), IntSetToStr(consumerColors).c_str());
             for (auto &producer: tensor->GetProducers()) {
-                APASS_LOG_DEBUG_F(GetName().c_str(), "Tensor", "producer: %s", producer->Dump().c_str());
+                APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "producer: %s", producer->Dump().c_str());
             }
             for (auto &consumer: tensor->GetConsumers()) {
-                APASS_LOG_DEBUG_F(GetName().c_str(), "Tensor", "consumer: %s", consumer->Dump().c_str());
+                APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "consumer: %s", consumer->Dump().c_str());
             }
 
             if (SplitBoundaryTensor(function, tensor, mainSubgraphID, newBoundaryTensors) == FAILED) {
@@ -202,7 +202,7 @@ Status IntraSubgraphAdapter::AdapteTensorProducers(Function &function, LogicalTe
         for (Operation* producer : tensor->GetProducers()) {
             APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "|---- Producer %s[%d].", producer->GetOpcodeStr().c_str(), producer->GetOpMagic());
             if (producer->GetOpcode() == Opcode::OP_ASSEMBLE) {
-                APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "|---- Op Attr: %s.", producer->Dump().c_str());
+                APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "|---- Op Attr: %s", producer->Dump().c_str());
             }
             if (OpcodeManager::Inst().GetOpCalcType(producer->GetOpcode()) != OpCalcType::MOVE_OUT &&
                 OpcodeManager::Inst().GetOpCalcType(producer->GetOpcode()) != OpCalcType::MOVE_LOCAL) {
@@ -216,7 +216,7 @@ Status IntraSubgraphAdapter::AdapteTensorProducers(Function &function, LogicalTe
         Operation* producer = *(tensor->GetProducers().begin());
         APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "|---- Producer %s[%d].", producer->GetOpcodeStr().c_str(), producer->GetOpMagic());
         if (producer->GetOpcode() == Opcode::OP_ASSEMBLE) {
-            APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "|---- Op Attr: %s.", producer->Dump().c_str());
+            APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "|---- Op Attr: %s", producer->Dump().c_str());
         }
         if (crossCoreMoveOps.find(producer->GetOpcode()) != crossCoreMoveOps.end()) {
             producer->SetOpCode(Opcode::OP_COPY_OUT);
@@ -227,7 +227,7 @@ Status IntraSubgraphAdapter::AdapteTensorProducers(Function &function, LogicalTe
         }
         return SUCCESS;
     }
-    APASS_LOG_INFO_F(GetName().c_str(), "Tensor", "Boundary tensor has no producer, tensor magic : %d", tensor->GetMagic());
+    APASS_LOG_INFO_F(GetName().c_str(), "Tensor", "Boundary tensor has no producer, tensor magic : %d.", tensor->GetMagic());
     return SUCCESS;
 }
 
@@ -236,7 +236,7 @@ Status IntraSubgraphAdapter::AdapteTensorConsumers(Function &function, LogicalTe
     for (auto& consumer : tensor->GetConsumers()) {
         APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "|---- Consumer %s[%d].", consumer->GetOpcodeStr().c_str(), consumer->GetOpMagic());
         if (consumer->GetOpcode() == Opcode::OP_VIEW) {
-            APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "|---- Op Attr: %s.", consumer->Dump().c_str());
+            APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "|---- Op Attr: %s", consumer->Dump().c_str());
         }
         if (crossCoreMoveOps.find(consumer->GetOpcode()) != crossCoreMoveOps.end()) {
             consumer->SetOpCode(Opcode::OP_COPY_IN);

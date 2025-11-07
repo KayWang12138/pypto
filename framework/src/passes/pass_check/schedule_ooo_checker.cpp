@@ -28,7 +28,7 @@ namespace tile_fwk {
 bool OoOScheduleChecker::PreCheckTensorInfo(const LogicalTensorPtr tensor) {
     // memorytypeOriginal和Tobe要一致
     if (tensor->GetMemoryTypeOriginal() != tensor->GetMemoryTypeToBe()) {
-        ALOG_ERROR_F("%d Tensor memorytypeOriginal is not equal to memorytypeTobe, OoOSchedule Precheck failed!", tensor->GetMagic());
+        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Tensor[%d] memorytypeOriginal is not equal to memorytypeTobe, OoOSchedule Precheck failed!", tensor->GetMagic());
         return false;
     }
     // 子图边界上的tensor不检查
@@ -37,7 +37,7 @@ bool OoOScheduleChecker::PreCheckTensorInfo(const LogicalTensorPtr tensor) {
     }
     // memoryrange对应的memoryid不为-1
     if (tensor->memoryrange.memId == -1) {
-        ALOG_ERROR_F("%d Tensor memId does not exist, OoOSchedule Precheck failed!", tensor->GetMagic());
+        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Tensor[%d] memId does not exist, OoOSchedule Precheck failed!", tensor->GetMagic());
         return false;
     }
     return true;
@@ -58,7 +58,7 @@ bool OoOScheduleChecker::PreCheckOpInfo(const Operation *op) {
     }
     // 检查op不可以是call op
     if (op->GetOpcode() == Opcode::OP_CALL) {
-        ALOG_ERROR_F("Block graph has call op, OoOSchedule Precheck failed!");
+        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Block graph has call op, OoOSchedule Precheck failed!");
         return false;
     }
     // 开始检查ASSEMBLE/RESHAPE/VIEW op
@@ -68,7 +68,7 @@ bool OoOScheduleChecker::PreCheckOpInfo(const Operation *op) {
     }
     // 检查ASSEMBLE/RESHAPE/VIEW op的latency
     if (op->GetLatency() != 1) {
-        ALOG_WARN_F("%s %d Op latency is not 1, OoOSchedule Precheck warning!", op->GetOpcodeStr().c_str(), op->GetOpMagic());
+        APASS_LOG_WARN_F("OoOSchedule", "Operation", "%s[%d] Op latency is not 1, OoOSchedule Precheck warning!", op->GetOpcodeStr().c_str(), op->GetOpMagic());
     }
     // 检查输出不在DDR上的Op
     if (op->GetOOperands()[0]->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
@@ -77,7 +77,7 @@ bool OoOScheduleChecker::PreCheckOpInfo(const Operation *op) {
         for (auto inTensor : op->GetIOperands()) {
             if (inTensor->memoryrange.memId != memId &&
                 inTensor->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
-                ALOG_ERROR_F("%d %s input output tensors memId does not match, OoOSchedule Precheck failed!", op->GetOpMagic(), op->GetOpcodeStr().c_str());
+                APASS_LOG_ERROR_F("OoOSchedule", "Operation", "%s[%d] input output tensors memId does not match, OoOSchedule Precheck failed!", op->GetOpcodeStr().c_str(), op->GetOpMagic());
                 return false;
             }
         }
@@ -86,28 +86,28 @@ bool OoOScheduleChecker::PreCheckOpInfo(const Operation *op) {
 }
 
 Status OoOScheduleChecker::DoPreCheck(Function &function) {
-    ALOG_INFO_F("Start OoOSchedule Precheck.");
+    APASS_LOG_INFO_F("OoOSchedule", "Operation", "Start OoOSchedule Precheck.");
     int programIdx = 0;
     int programSize = function.rootFunc_->programs_.size();
     tensorListBeforePass_.resize(programSize);
     for (auto &program : function.rootFunc_->programs_) { // 对每个子图分别进行precheck
-        ALOG_INFO_F("Subgraph[%d] OoOSchedule Precheck begin.", program.first);
+        APASS_LOG_INFO_F("OoOSchedule", "Operation", "Subgraph[%d] OoOSchedule Precheck begin.", program.first);
         auto opList = program.second->Operations().DuplicatedOpList();
         if (opList.empty()) {
-            ALOG_INFO_F("Operation List is empty!");
-            ALOG_INFO_F("Subgraph[%d] OoOSchedule Precheck end.", program.first);
+            APASS_LOG_INFO_F("OoOSchedule", "Operation", "Operation List is empty!");
+            APASS_LOG_INFO_F("OoOSchedule", "Operation", "Subgraph[%d] OoOSchedule Precheck end.", program.first);
             continue;
         }
         for (auto &op : opList) {
             if (op == nullptr) {
-                ALOG_ERROR_F("Operation is nullptr, OoOSchedule Precheck failed!");
+                APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Operation is nullptr, OoOSchedule Precheck failed!");
                 return FAILED;
             }
         }
         // 检查单ASSEMBLE/RESHAPE/VIEW op在UB上没有alloc
         if ((opList.size() == 1) && (opList.front()->GetOpcode() == Opcode::OP_ASSEMBLE || opList.front()->GetOpcode() == Opcode::OP_RESHAPE ||
             opList.front()->GetOpcode() == Opcode::OP_VIEW) && opList.front()->GetOOperands()[0]->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
-                ALOG_ERROR_F("Single Op: localBuffer does not have alloc, OoOSchedule Precheck failed!");
+                APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Single Op: localBuffer does not have alloc, OoOSchedule Precheck failed!");
                 return FAILED;
         }
         std::unordered_set<LogicalTensorPtr> tensorList;
@@ -115,7 +115,7 @@ Status OoOScheduleChecker::DoPreCheck(Function &function) {
             if (!PreCheckOpInfo(op)) {
                 return FAILED;
             }
-            ALOG_INFO_F("Before OoOSchedule op: %s, %d.", op->GetOpcodeStr().c_str(), op->GetOpMagic()); // topo order
+            APASS_LOG_INFO_F("OoOSchedule", "Operation", "Before OoOSchedule op: %s, %d.", op->GetOpcodeStr().c_str(), op->GetOpMagic()); // topo order
             // 记录所有op的输入tensor和输出tensor
             auto ioperands = op->GetIOperands();
             auto ooperands = op->GetOOperands();
@@ -124,15 +124,15 @@ Status OoOScheduleChecker::DoPreCheck(Function &function) {
         }
         tensorListBeforePass_[programIdx] = tensorList;
         programIdx++;
-        ALOG_INFO_F("Subgraph[%d] OoOSchedule Precheck end.", program.first);
+        APASS_LOG_INFO_F("OoOSchedule", "Operation", "Subgraph[%d] OoOSchedule Precheck end.", program.first);
     }
-    ALOG_INFO_F("OoOSchedule Precheck completed successfully!");
+    APASS_LOG_INFO_F("OoOSchedule", "Operation", "OoOSchedule Precheck completed successfully!");
     return SUCCESS;
 }
 
 bool OoOScheduleChecker::PostCheckOpMagic(std::set<int> opSet, const Operation *op, const int programIdx) {
     if (!opSet.insert(op->GetOpMagic()).second) {
-        ALOG_ERROR_F("Program %d: %d opmagic is not unique, OoOSchedule Postcheck failed!", programIdx, op->GetOpMagic());
+        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Program %d: %d opmagic is not unique, OoOSchedule Postcheck failed!", programIdx, op->GetOpMagic());
         return false;
     }
     return true;
@@ -162,7 +162,7 @@ bool OoOScheduleChecker::PostCheckNewOpConnection(const std::vector<Operation *>
         std::vector<Operation *> copyins;
         for (auto &opNew : beforeNotAfterHas) {
             if (opNew->GetOpcode() != Opcode::OP_COPY_IN) {
-                ALOG_ERROR_F("Program %d: %d op's successors include unexpected op %s, OoOSchedule Postcheck failed!", programIdx, op->GetOpMagic(), opNew->GetOpcodeStr().c_str());
+                APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Program %d: %d op's successors include unexpected op %s, OoOSchedule Postcheck failed!", programIdx, op->GetOpMagic(), opNew->GetOpcodeStr().c_str());
                 return false; }
             copyins.emplace_back(opNew);
         }
@@ -170,7 +170,7 @@ bool OoOScheduleChecker::PostCheckNewOpConnection(const std::vector<Operation *>
         for (auto &copyin : copyins) {
             auto opPtr = *(copyin->GetIOperands()[0]->GetProducers().begin());
             if (opPtr->GetOpcode() != Opcode::OP_COPY_OUT) {
-                ALOG_ERROR_F("Program %d: %d op's successors include unexpected op %s, OoOSchedule Postcheck failed!", programIdx, copyin->GetOpMagic());
+                APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Program %d: %d op's successors include unexpected op %s, OoOSchedule Postcheck failed!", programIdx, copyin->GetOpMagic());
                 return false; }
         }
         std::set<Operation *, LogicalTensor::CompareOp> mainres;
@@ -181,7 +181,7 @@ bool OoOScheduleChecker::PostCheckNewOpConnection(const std::vector<Operation *>
             std::set<Operation *, LogicalTensor::CompareOp> difference;
             std::set_difference(beforeHasAfterNot.begin(), beforeHasAfterNot.end(), mainres.begin(), mainres.end(), std::inserter(difference, difference.begin()));
             for (auto &dif : difference) {
-                ALOG_ERROR_F("Program %d: %d op is not found after OoOSchedule, OoOSchedule Postcheck failed!", programIdx, dif->GetOpMagic());
+                APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Program %d: %d op is not found after OoOSchedule, OoOSchedule Postcheck failed!", programIdx, dif->GetOpMagic());
                 return false; }
         }
     }
@@ -195,7 +195,7 @@ bool OoOScheduleChecker::PostCheckSpecialOp(const Operation *op) {
         if (op->GetOOperands()[0]->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
             bool needAlloc = false;
             if (op->GetOOperands()[0]->GetAttr(OpAttributeKey::needAlloc, needAlloc) && needAlloc) {
-                ALOG_ERROR_F("ASSEMBLE/RESHAPE/VIEW op output tensor has alloc attribute, OoOSchedule Postcheck failed!");
+                APASS_LOG_ERROR_F("OoOSchedule", "Operation", "ASSEMBLE/RESHAPE/VIEW op output tensor has alloc attribute, OoOSchedule Postcheck failed!");
                 return false;
             }
         }
@@ -205,7 +205,7 @@ bool OoOScheduleChecker::PostCheckSpecialOp(const Operation *op) {
 
 bool OoOScheduleChecker::PostCheckTensorMagic(std::set<int> tensorSet, const LogicalTensorPtr tensor, const int programIdx) {
     if (!tensorSet.insert(tensor->GetMagic()).second) {
-        ALOG_ERROR_F("Program %d: %d tensormagic is not unique, OoOSchedule Postcheck failed!", programIdx, tensor->GetMagic());
+        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Program %d: %d tensormagic is not unique, OoOSchedule Postcheck failed!", programIdx, tensor->GetMagic());
         return false;
     }
     return true;
@@ -216,7 +216,7 @@ bool OoOScheduleChecker::PostCheckLocalTensor(const LogicalTensorPtr tensor, con
     if (memType == MemoryType::MEM_UB || memType == MemoryType::MEM_L1 || memType == MemoryType::MEM_L0A || memType == MemoryType::MEM_L0B || memType == MemoryType::MEM_L0C) {
         int memoryRange = tensor->memoryrange.end - tensor->memoryrange.start;
         if (memoryRange == 0) {
-            ALOG_ERROR_F("Program %d: %d tensor memory range is 0, OoOSchedule Postcheck failed!", programIdx, tensor->GetMagic());
+            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Program %d: %d tensor memory range is 0, OoOSchedule Postcheck failed!", programIdx, tensor->GetMagic());
             return false;
         }
         int tensorshape = 1;
@@ -225,7 +225,7 @@ bool OoOScheduleChecker::PostCheckLocalTensor(const LogicalTensorPtr tensor, con
         }
         int tensorsize = tensorshape * BytesOf(tensor->Datatype());
         if (memoryRange < tensorsize) {
-            ALOG_ERROR_F("Program %d: %d tensor memory range < tensor size, OoOSchedule Postcheck failed!", programIdx, tensor->GetMagic());
+            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Program %d: %d tensor memory range < tensor size, OoOSchedule Postcheck failed!", programIdx, tensor->GetMagic());
             return false;
         }
     }
@@ -236,7 +236,7 @@ bool OoOScheduleChecker::PostCheckGlobalTensor(const LogicalTensorPtr tensor, co
     MemoryType memType = tensor->GetMemoryTypeOriginal();
     if (memType == MemoryType::MEM_DEVICE_DDR && !(tensor->isSubGraphBoundary)) {
         if (tensor->memoryrange.memId == -1) {
-            ALOG_ERROR_F("Program %d: %d global tensor memid is -1, OoOSchedule Postcheck failed!", programIdx, tensor->GetMagic());
+            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Program %d: %d global tensor memid is -1, OoOSchedule Postcheck failed!", programIdx, tensor->GetMagic());
             return false;
         }
     }
@@ -245,7 +245,7 @@ bool OoOScheduleChecker::PostCheckGlobalTensor(const LogicalTensorPtr tensor, co
 
 bool OoOScheduleChecker::PostCheckDynValidShape(const LogicalTensorPtr tensor, const int programIdx) {
     if (tensor->dynValidShape_.empty()) {
-        ALOG_ERROR_F("Program %d: %d Dyn validshape is empty, OoOSchedule Postcheck failed!", programIdx, tensor->GetMagic());
+        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Program %d: %d Dyn validshape is empty, OoOSchedule Postcheck failed!", programIdx, tensor->GetMagic());
         return false;
     }
     return true;
@@ -277,11 +277,11 @@ bool OoOScheduleChecker::PostCheckNewTensor(std::pair<const int, Function*> prog
             }
         }
         if (existFlag == false) {
-            ALOG_ERROR_F("Program %d: %d new tensor does not exist in tensormap, OoOSchedule Postcheck failed!", programIdx, newtensor->GetMagic());
+            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Program %d: %d new tensor does not exist in tensormap, OoOSchedule Postcheck failed!", programIdx, newtensor->GetMagic());
             return false;
         }
         if ((newtensor->oriShape.size() == 0) && (newtensor->isSubGraphBoundary)) {
-            ALOG_ERROR_F("Program %d: %d new tensor orishape is null, OoOSchedule Postcheck failed!", programIdx, newtensor->GetMagic());
+            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Program %d: %d new tensor orishape is null, OoOSchedule Postcheck failed!", programIdx, newtensor->GetMagic());
             return false;
         }
     }
@@ -307,12 +307,12 @@ Status OoOScheduleChecker::PostCheckTensor(const LogicalTensorPtr &tensor, const
 Status OoOScheduleChecker::PostCheckSubGraph(const std::pair<uint64_t, Function*> &program, int programIdx) {
     auto opList = program.second->Operations().DuplicatedOpList();
     if (opList.empty()) {
-        ALOG_INFO_F("Operation List is empty! \nSubgraph[%d] OoOSchedule Precheck end.", program.first);
+        APASS_LOG_INFO_F("OoOSchedule", "Operation", "Operation List is empty! \nSubgraph[%d] OoOSchedule Precheck end.", program.first);
         return SUCCESS;
     }
     for (auto &op : opList) {
         if (op == nullptr) {
-            ALOG_ERROR_F("Operation is nullptr, OoOSchedule Postcheck failed!");
+            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Operation is nullptr, OoOSchedule Postcheck failed!");
             return FAILED;
         }
     }
@@ -354,20 +354,20 @@ Status OoOScheduleChecker::PostCheckSubGraph(const std::pair<uint64_t, Function*
 }
 
 Status OoOScheduleChecker::DoPostCheck(Function &function) {
-    ALOG_INFO_F("Start OoOSchedule Postcheck.");
+    APASS_LOG_INFO_F("OoOSchedule", "Operation", "Start OoOSchedule Postcheck.");
     int programSize = function.rootFunc_->programs_.size();
     tensorListAfterPass_.resize(programSize);
     int programIdx = 0;
     for (auto &program : function.rootFunc_->programs_) { // 对每个子图分别进行postcheck
-        ALOG_INFO_F("Subgraph[%d] OoOSchedule Postcheck begin.", program.first);
+        APASS_LOG_INFO_F("OoOSchedule", "Operation", "Subgraph[%d] OoOSchedule Postcheck begin.", program.first);
         if (PostCheckSubGraph(program, programIdx) != SUCCESS) {
-            ALOG_ERROR_F("Subgraph[%d] OoOSchedule Postcheck failed!", programIdx);
+            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Subgraph[%d] OoOSchedule Postcheck failed!", programIdx);
             return FAILED;
         }
         programIdx++;
-        ALOG_INFO_F("Subgraph[%d] OoOSchedule Postcheck end.", program.first);
+        APASS_LOG_INFO_F("OoOSchedule", "Operation", "Subgraph[%d] OoOSchedule Postcheck end.", program.first);
     }
-    ALOG_INFO_F("OoOSchedule Postcheck completed successfully!");
+    APASS_LOG_INFO_F("OoOSchedule", "Operation", "OoOSchedule Postcheck completed successfully!");
     return SUCCESS;
 }
 

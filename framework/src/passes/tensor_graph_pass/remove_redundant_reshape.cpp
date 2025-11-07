@@ -22,19 +22,29 @@ using namespace npu::tile_fwk;
 namespace npu::tile_fwk {
 namespace {
 Status CheckIOOperands(const Operation &op, LogicalTensorPtr &in, LogicalTensorPtr &out) {
-    if (op.GetIOperands().size() != 1) {return FAILED;}
-    if (op.GetOOperands().size() != 1) {return FAILED;}
+    if (op.GetIOperands().size() != 1) {
+        APASS_LOG_ERROR_F("RemoveRedundantReshape", "Operation", "Op [%d] has invalid input operands.", op.GetOpMagic());
+        return FAILED;}
+    if (op.GetOOperands().size() != 1) {
+        APASS_LOG_ERROR_F("RemoveRedundantReshape", "Operation", "Op [%d] has invalid input operands..", op.GetOpMagic());
+        return FAILED;}
     in = op.GetIOperands().front();
-    if (in == nullptr) {return FAILED;}
+    if (in == nullptr) {
+        APASS_LOG_ERROR_F("RemoveRedundantReshape", "Operation", "Op [%d] has null input tensor.", op.GetOpMagic());
+        return FAILED;}
     out = op.GetOOperands().front();
-    if (out == nullptr) {return FAILED;}
+    if (out == nullptr) {
+        APASS_LOG_ERROR_F("RemoveRedundantReshape", "Operation", "Op [%d] has null output tensor.", op.GetOpMagic());
+        return FAILED;}
     return SUCCESS;
 }
 }
 
 Status RemoveRedundantReshape::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Start RemoveRedundantReshape for function [%s].", function.GetRawName().c_str());
-    if (RemoveReshape(function) != SUCCESS) {return FAILED;}
+    if (RemoveReshape(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Failed to remove redundant reshape in function [%s].", function.GetRawName().c_str());
+        return FAILED;}
     APASS_LOG_INFO_F(GetName().c_str(), "Operation", "End RemoveRedundantReshape for function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }
@@ -69,7 +79,7 @@ Status RemoveRedundantReshape::RemoveReshape(Function &function) const {
     }
     if (!redundantResapes.empty()) {
         for (auto &ele : redundantResapes) {
-            APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "Delete OP_RESHAPE, magic %d.", ele->GetOpMagic());
+            APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "Delete OP_RESHAPE, magic [%d].", ele->GetOpMagic());
             if (ele->IsDeleted()) {
                 APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "Op [%d] is already marked as deleted.", ele->GetOpMagic());
                 return FAILED;}

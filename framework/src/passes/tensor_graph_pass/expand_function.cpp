@@ -56,7 +56,7 @@ bool CheckAssembleNeedCopy(Function &function, const std::shared_ptr<Operation> 
     }
     for (size_t i = 1; i < op->oOperand[0]->shape.size(); i++) {
         if (op->oOperand[0]->shape[i] != op->iOperand[0]->shape[i]) {
-            APASS_LOG_INFO_F("ExpandFunction", "Operation", "Assemble %d need to check expansion.",  op->GetOpMagic());
+            APASS_LOG_INFO_F("ExpandFunction", "Operation", "Assemble [%d] need to check expansion.",  op->GetOpMagic());
             return true;
         }
     }
@@ -67,12 +67,18 @@ Status UpdateIOOperand(const std::vector<OperationPtr> &tensorOperations) {
     for (auto &op : tensorOperations) {
         // clear consumers and producers
         for (auto &iOperand : op->GetIOperands()) {
-            if (iOperand == nullptr) {return FAILED;}
+            if (iOperand == nullptr) {
+                APASS_LOG_ERROR_F("ExpandFunction", "Tensor", "Op:%s[%d] input is null.",  op->GetOpcodeStr().c_str(), op->GetOpMagic());
+                return FAILED;
+            }
             iOperand->GetConsumers().clear();
             iOperand->GetProducers().clear();
         }
         for (auto &oOperand : op->GetOOperands()) {
-            if (oOperand == nullptr) {return FAILED;}
+            if (oOperand == nullptr) {
+                APASS_LOG_ERROR_F("ExpandFunction", "Tensor", "Op:%s[%d] output is null.",  op->GetOpcodeStr().c_str(), op->GetOpMagic());
+                return FAILED;
+            }
             oOperand->GetConsumers().clear();
             oOperand->GetProducers().clear();
         }
@@ -93,7 +99,10 @@ Status ExpandFunction::PostCheck(Function &function) {
 
 Status ExpandFunction::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Start ExpandFunction for function [%s].", function.GetRawName().c_str());
-    if (Expandfunction(function) != SUCCESS) {return FAILED;}
+    if (Expandfunction(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Function[%s] ExpandFunction failed.", function.GetRawName().c_str());
+        return FAILED;
+    }
     APASS_LOG_INFO_F(GetName().c_str(), "Operation", "End ExpandFunction for function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }
@@ -113,10 +122,16 @@ Status ExpandFunction::Expandfunction(Function &function) const {
     }
 
     function.ResetOperations();
-    if (UpdateIOOperand(tensorOperations) != SUCCESS) {return FAILED;}
+    if (UpdateIOOperand(tensorOperations) != SUCCESS) {
+        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "UpdateIOOperand failed.");
+        return FAILED;
+    }
 
     for (auto &op : tensorOperations) {
-        if (op == nullptr) {return FAILED;}
+        if (op == nullptr) {
+            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Encountered null operation in function.");
+            return FAILED;
+        }
         if (op->GetOpcode() == Opcode::OP_NOP || op->GetOpcode() == Opcode::OP_PRINT) {
             continue;
         }

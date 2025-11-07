@@ -31,13 +31,13 @@ Status ExpandFunctionChecker::DoPreCheck(Function &function) {
         if (calTypes.count(opCalType) > 0) {
             for (auto &itensor: op->GetIOperands()) {
                 if (itensor->tensor->datatype == DT_BF16) {
-                    APASS_LOG_ERROR_F("ExpandFunctionChecker", "Tensor", "Calculation Op %d has BF16 operand %d.", op->GetOpMagic(), itensor->GetMagic());
+                    APASS_LOG_ERROR_F("ExpandFunctionChecker", "Tensor", "Calculation Op [%d] has BF16 operand %d.", op->GetOpMagic(), itensor->GetMagic());
                     return FAILED;
                 }
             }
             for (auto &otensor: op->GetOOperands()) {
                 if (otensor->tensor->datatype == DT_BF16) {
-                    APASS_LOG_ERROR_F("ExpandFunctionChecker", "Tensor", "Calculation Op %d has BF16 operand %d.", op->GetOpMagic(), otensor->GetMagic());
+                    APASS_LOG_ERROR_F("ExpandFunctionChecker", "Tensor", "Calculation Op [%d] has BF16 operand %d.", op->GetOpMagic(), otensor->GetMagic());
                     return FAILED;
                 }
             }
