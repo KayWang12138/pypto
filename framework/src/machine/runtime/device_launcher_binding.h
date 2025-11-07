@@ -24,6 +24,7 @@
 
 namespace npu::tile_fwk::dynamic {
 
+using DeviceStream = unsigned long long;
 typedef unsigned long long DeviceStream;
 
 DeviceStream DeviceGetAicpuStream();

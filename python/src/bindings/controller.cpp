@@ -202,17 +202,17 @@ void bind_controller_loop(py::module &m) {
             py::arg("line") = 0)
         .def("__bool__", py::overload_cast<>(&RecordIfBranch::operator bool, py::const_));
     py::class_<LoopRange>(m, "LoopRange")
-        .def(py::init<const SymbolicScalar & /* rangeBegin */, const SymbolicScalar & /* rangeEnd */,
-            const SymbolicScalar & /* rangeStep */>())
-        .def(py::init<const SymbolicScalar & /* rangeBegin */, const SymbolicScalar & /* rangeEnd */>())
-        .def(py::init<const SymbolicScalar & /* rangeEnd */>())
+        .def(py::init<const SymbolicScalar &/* rangeBegin */, const SymbolicScalar &/* rangeEnd */,
+            const SymbolicScalar &/* rangeStep */>())
+        .def(py::init<const SymbolicScalar &/* rangeBegin */, const SymbolicScalar &/* rangeEnd */>())
+        .def(py::init<const SymbolicScalar &/* rangeEnd */>())
         .def(py::init<std::int64_t>()) // C++ Implicit conversion int64_t -> SymbolicScalar
-        .def("Dump", (std::string(LoopRange::*)()) & LoopRange::Dump)
-        .def("Begin", (SymbolicScalar & (LoopRange::*)()) & LoopRange::Begin,
+        .def("Dump", (std::string(LoopRange::*)()) &LoopRange::Dump)
+        .def("Begin", (SymbolicScalar &(LoopRange::*)()) &LoopRange::Begin,
             py::return_value_policy::reference_internal)
-        .def("End", (SymbolicScalar & (LoopRange::*)()) & LoopRange::End, py::return_value_policy::reference_internal)
+        .def("End", (SymbolicScalar &(LoopRange::*)()) &LoopRange::End, py::return_value_policy::reference_internal)
         .def(
-            "Step", (SymbolicScalar & (LoopRange::*)()) & LoopRange::Step, py::return_value_policy::reference_internal);
+            "Step", (SymbolicScalar &(LoopRange::*)()) &LoopRange::Step, py::return_value_policy::reference_internal);
 
     m.def("IsLoopBegin", &IsLoopBegin, py::arg("symbol"), py::arg("begin"));
     m.def("IsLoopEnd", &IsLoopEnd, py::arg("symbol"), py::arg("end"));

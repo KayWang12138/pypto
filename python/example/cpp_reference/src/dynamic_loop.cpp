@@ -27,17 +27,22 @@ int main(){
     std::vector<int64_t> shape = {128, 128};
     Tensor a(DT_FP32, shape, "a");
     Tensor b(DT_FP32, shape, "b");
+
+    constexpr int64_t k_threshold_1 = 2; //k条件1
+    constexpr int64_t k_threshold_2 = 5; //k条件2
+    constexpr int64_t k_loop_count = 10; //循环次数
+
     FUNCTION("main", FunctionType::DYNAMIC, {a}, {b}) {
         TileShape::Current().SetVecTile({64, 64});
-        LOOP("Dynamic", FunctionType::DYNAMIC_LOOP, k, LoopRange(10)) {
+        LOOP("Dynamic", FunctionType::DYNAMIC_LOOP, k, LoopRange(k_loop_count)) {
             b = Add(a, a); // 运算1
-            IF (k < 2) {
+            IF (k < k_threshold_1) {
                 b = Add(b, a); // 运算2
             } ELSE {
                 b = Sub(b, a); // 运算3
             }
 
-            IF (k < 5) {
+            IF (k < k_threshold_2) {
                 b = Mul(b, a); // 运算4
             } ELSE {
                 b = Div(b, a); // 运算5

@@ -19,8 +19,8 @@
 //#ifdef NO_NEON_SUPPORT
 #if  defined(NO_NEON_SUPPORT) || !defined(__aarch64__)
 #include <cstdint>
-typedef int8_t uint8x16_t;
-typedef int64_t uint64x2_t;
+using uint8x16_t = int8_t;
+using uint64x2_t = int64_t;
 
 inline uint8x16_t vld1q_u8(uint8_t const * ptr) {
     (void)ptr;

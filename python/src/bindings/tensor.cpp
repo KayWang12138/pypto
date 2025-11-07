@@ -88,7 +88,7 @@ void BindTensor(py::module &m) {
             },
             "Get the shape of the tensor.")
         .def("Move",
-            [](Tensor &self, Tensor &other) -> Tensor & {
+            [](Tensor &self, Tensor &other) -> Tensor& {
                 self = std::move(other);
                 return self;
             },

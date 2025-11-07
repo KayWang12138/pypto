@@ -209,7 +209,8 @@ void testApplyRotaryPosEmbV2() {
         {32, 1, 1, 32, 2} // (b,s,n,d//2,2)
     };
     FUNCTION("A") {
-        ApplyRotaryPosEmbV2(q, k, cos, sin, qEmbed, kEmbed, 2, ropeTileConfig);
+        constexpr int kUnsqueezeDim = 2;
+        ApplyRotaryPosEmbV2(q, k, cos, sin, qEmbed, kEmbed, kUnsqueezeDim, ropeTileConfig);
     }
 
     ALOG_INFO(Program::GetInstance().Dump());

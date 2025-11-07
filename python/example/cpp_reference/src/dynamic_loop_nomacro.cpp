@@ -28,12 +28,16 @@ int main(){
     Tensor a(DT_FP32, shape, "a");
     Tensor b(DT_FP32, shape, "b");
 
+    constexpr int64_t k_threshold_1 = 2; //k条件1
+    constexpr int64_t k_threshold_2 = 5; //k条件2
+    constexpr int64_t k_loop_count = 10; //循环次数
+
     auto* recordFunc0 = new RecordFunc("main", FunctionType::DYNAMIC, {a}, {b});
     TileShape::Current().SetVecTile({64, 64});
-    auto record_loop = RecordLoopFunc("Dynamic", FunctionType::DYNAMIC_LOOP, "k", LoopRange(10));
+    auto record_loop = RecordLoopFunc("Dynamic", FunctionType::DYNAMIC_LOOP, "k", LoopRange(k_loop_count));
     for (auto &k : record_loop) {
         b = Add(a, a);
-        if (RecordIfBranch(k < 2, __FILE__, __LINE__)) {
+        if (RecordIfBranch(k < k_threshold_1, __FILE__, __LINE__)) {
             std::cout<< "(cond k<2)";
             b = Add(b, a);
         } else {
@@ -41,7 +45,7 @@ int main(){
             b = Sub(b, a);
         }
 
-        if (RecordIfBranch(k < 5, __FILE__, __LINE__)) {
+        if (RecordIfBranch(k < k_threshold_2, __FILE__, __LINE__)) {
             std::cout<< "(cond k<5)";
             b = Mul(b, a);
         } else {

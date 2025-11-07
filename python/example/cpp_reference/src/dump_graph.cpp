@@ -24,10 +24,19 @@ using namespace npu::tile_fwk;
 
 int main() {
     config::Reset();
+    constexpr int64_t Set_Num_Thirtytwo = 32;
+    constexpr int64_t Set_Num_One = 1;
+    constexpr int64_t Set_Num_Two = 2;
 
     std::vector<int64_t> shape{1, 2, 256, 128, 2};
     Tensor a(DT_FP32, shape, "a");
-    TileShape::Current().SetVecTile(1, 1, 32, 32, 2);
+    TileShape::Current().SetVecTile(
+        Set_Num_One,
+        Set_Num_One,
+        Set_Num_Thirtytwo,
+        Set_Num_Thirtytwo,
+        Set_Num_Two
+    );
 
     FUNCTION("BNSD2_BNS2D") {
         a = Transpose(a, {3, 4});
