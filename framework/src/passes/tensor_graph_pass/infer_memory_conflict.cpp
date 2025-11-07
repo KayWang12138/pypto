@@ -127,7 +127,7 @@ Status InferMemoryConflict::InferFromIncast(Function &function) {
     for (auto &outcast : function.GetOutcast()) {
         parentRawTensor_[outcast] = outcast;
     }
-    std::set<Operation *> visitedOps;
+    std::unordered_set<Operation *> visitedOps;
     while (!procOpQueue.empty()) {
         auto currentOp = procOpQueue.front();
         procOpQueue.pop();
@@ -140,7 +140,7 @@ Status InferMemoryConflict::InferFromIncast(Function &function) {
         }
         for (auto &outputTensor : currentOp->GetOOperands()) {
             bool allInputReady = std::all_of(outputTensor->GetProducers().begin(), outputTensor->GetProducers().end(),
-                [visitedOps](Operation *producerOp) { return visitedOps.count(producerOp) > 0U; });
+                [&visitedOps](Operation *producerOp) { return visitedOps.count(producerOp) > 0U; });
             std::vector<std::pair<LogicalTensorPtr, Operation *>> filterdTensor;
             if (!allInputReady) {
                 continue;
