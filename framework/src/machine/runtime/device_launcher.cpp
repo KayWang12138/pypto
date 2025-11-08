@@ -17,7 +17,7 @@
 #include "device_launcher.h"
 
 #include "machine/host/backend.h"
-
+#include "host_prof.h"
 namespace npu::tile_fwk::dynamic {
 
 void (*forceLinkLibraryCompiler)() = &npu::tile_fwk::ForceLinkLibraryCompiler;
@@ -35,6 +35,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     if (function != nullptr && function->GetDyndevAttribute() != nullptr) {
         DeviceRunner::SetBinData(function->GetDyndevAttribute()->kernelBinary);
     }
+    DeviceRunner::Get().GetHostProfInstance().SetProfFunction(function);
     int rc = aclInit(nullptr);
     if (rc == 0 || rc == ACL_ERROR_REPEAT_INITIALIZE) {
         CachedOperator cachedOperatorData;

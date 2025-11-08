@@ -31,6 +31,8 @@
 #include "interface/utils/common.h"
 #include "interface/configs/config_manager.h"
 #include "interface/utils/op_info_manager.h"
+#include "toolchain/prof_api.h"
+#include "toolchain/prof_data_config.h"
 
 extern char _binary_kernel_o_start[];
 extern char _binary_kernel_o_end[];
@@ -48,6 +50,8 @@ constexpr int32_t L2_CACHE = 8;
 constexpr int32_t PATH_LENGTH = 64;
 constexpr uint32_t LOG_BUF_SIZE = 64 * 1024;
 bool g_IsFirstInit = false;
+constexpr uint32_t MIX_BLOCK_DIM = 2;
+constexpr uint32_t HIGHT_BIT = 16;
 
 extern "C" __attribute__((weak)) int AdxDataDumpServerUnInit();
 namespace npu::tile_fwk {
@@ -56,6 +60,22 @@ DeviceRunner &DeviceRunner::Get() {
     static DeviceRunner runner;
     std::call_once(runner.once_, [&]() { runner.Init(); });
     return runner;
+}
+
+HostProf& DeviceRunner::GetHostProfInstance() {
+    return hostProf_;
+}
+
+void DeviceRunner::GetHostProfTypeSwtich() {
+    auto profType = hostProf_.GetProfType();
+    auto profSwitch = hostProf_.GetProfSwitch();
+    if (profType == PROF_COMMANDHANDLE_TYPE_START) {
+        isOpenHostProf_ = true;
+    }
+    if ((profSwitch & PROF_TASK_TIME_L1) != 0) {
+        isHostProfL1_ = true;
+    }
+    ALOG_DEBUG_F("isOpenHostProf %d, l1 = %d", isOpenHostProf_, isHostProfL1_);
 }
 
 void *DeviceRunner::DevAlloc(int size) {
@@ -126,6 +146,7 @@ int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
 
     std::vector<int64_t> aivPmu;
     std::vector<int64_t> aicPmu;
+    hostProf_.RegHostProf();
     // aicore info
     if (machine::GetRA()->GetAicoreRegInfo(aic, aiv, ADDR_MAP_TYPE_REG_AIC_CTRL) != 0) {
         return -1;
@@ -136,6 +157,7 @@ int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
         return -1;
     }
 
+    GetHostProfTypeSwtich();
     blockDim_ = std::count_if(aic.begin(), aic.end(), [](auto &a) { return a != 0UL; });
 
     std::vector<int64_t> regs;
@@ -494,6 +516,35 @@ int DeviceRunner::RunPost(rtStream_t aicpuStream, rtStream_t aicoreStream) {
     return 0;
 }
 
+int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream,
+                                      AstKernelArgs *kernelArgs, int blockdim) {
+    uint64_t startTime = MsprofSysCycleTime();
+    int rc = launchDynamicAiCore(aicoreStream, kernelArgs);
+    if (rc < 0) {
+        ALOG_ERROR_F("launch aicpu failed %d\n", rc);
+        return rc;
+    }
+    ReportHostProfInfo(startTime, blockdim, MSPROF_GE_TASK_TYPE_MIX_AIC, true);
+    startTime = MsprofSysCycleTime();
+    rc = launchDynamicAiCpuInit(aicpuStream, kernelArgs);
+    if (rc < 0) {
+        ALOG_ERROR_F("launch aicpu init failed %d\n", rc);
+        return rc;
+    }
+    ReportHostProfInfo(startTime, 1, MSPROF_GE_TASK_TYPE_AI_CPU);
+
+    startTime = MsprofSysCycleTime();
+    rc = launchDynamicAiCpu(aicpuStream, kernelArgs);
+    if (rc < 0) {
+        ALOG_ERROR_F("launch aicpu failed %d\n", rc);
+        return rc;
+    }
+    ReportHostProfInfo(startTime, aicpuNum_, MSPROF_GE_TASK_TYPE_AI_CPU);
+
+    rc = RunPost(aicpuStream, aicoreStream);
+    return rc;
+}
+
 int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t taskId, AstKernelArgs *kernelArgs, int blockdim, int launchAicpuNum) {
     if (!g_IsFirstInit) {
         InitAiCpuSoBin();
@@ -526,27 +577,23 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream,
         ALOG_ERROR_F("prepare failed %d\n", rc);
         return rc;
     }
+    return DynamicKernelLaunch(aicpuStream, aicoreStream, kernelArgs, blockDim_);
+}
 
-    rc = launchDynamicAiCore(aicoreStream, kernelArgs);
-    if (rc < 0) {
-        ALOG_ERROR_F("launch aicpu failed %d\n", rc);
-        return rc;
+void DeviceRunner::ReportHostProfInfo(uint64_t startTime, uint32_t blockDim, uint16_t taskType, bool isCore) {
+    if (isOpenHostProf_) {  
+        uint64_t endTime = MsprofSysCycleTime();
+        if (isCore) {
+            uint32_t mixBlockDim = MIX_BLOCK_DIM;
+            blockDim = (mixBlockDim << HIGHT_BIT) | blockDim;
+            hostProf_.HostProfReportContextInfo(endTime);
+        }
+        if (isHostProfL1_) {
+            hostProf_.HostProfReportNodeInfo(endTime, blockDim, taskType);
+        }
+        endTime = MsprofSysCycleTime();
+        hostProf_.HostProfReportApi(startTime, endTime);
     }
-
-    rc = launchDynamicAiCpuInit(aicpuStream, kernelArgs);
-    if (rc < 0) {
-        ALOG_ERROR_F("launch aicpu init failed %d\n", rc);
-        return rc;
-    }
-
-    rc = launchDynamicAiCpu(aicpuStream, kernelArgs);
-    if (rc < 0) {
-        ALOG_ERROR_F("launch aicpu failed %d\n", rc);
-        return rc;
-    }
-
-    rc = RunPost(aicpuStream, aicoreStream);
-    return rc;
 }
 
 int DeviceRunner::DynamicRun(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t taskId, AstKernelArgs *kernelArgs, int blockdim, int launchAicpuNum) {

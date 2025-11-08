@@ -17,6 +17,7 @@ target_include_directories(tile_fwk_runtime
         PUBLIC  # 编译 CANN 场景依赖
             $<$<AND:$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>,$<BOOL:${BUILD_WITH_CANN}>>:${TOP_DIR}/inc>
             $<$<AND:$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>,$<BOOL:${BUILD_WITH_CANN}>>:${TOP_DIR}/abl/msprof/inc>
+            $<$<AND:$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>,$<BOOL:${BUILD_WITH_CANN}>>:${TOP_DIR}/abl/slog/inc>
             $<$<AND:$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>,$<BOOL:${BUILD_WITH_CANN}>>:${TOP_DIR}/ace/npuruntime/inc>
             $<$<AND:$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>,$<BOOL:${BUILD_WITH_CANN}>>:${TOP_DIR}/ace/npuruntime/acl/inc/external>
             $<$<AND:$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>,$<BOOL:${BUILD_WITH_CANN}>>:${TOP_DIR}/ace/comop/inc>
@@ -53,6 +54,7 @@ target_link_libraries(tile_fwk_runtime
             $<$<BOOL:${BUILD_WITH_CANN}>:ascendcl>
             $<$<BOOL:${BUILD_WITH_CANN}>:runtime>
             $<$<BOOL:${BUILD_WITH_CANN}>:hccl>
+            $<$<BOOL:${BUILD_WITH_CANN}>:profapi>
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub

@@ -63,6 +63,27 @@ if (BUILD_WITH_CANN)
                 $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/msprof>
     )
 
+    # stub profiling
+    add_library(profapi SHARED src/host_prof_stubs.cpp)
+    target_link_libraries(profapi
+            PRIVATE
+                intf_pub_cxx17
+                tile_fwk_intf_pub
+                $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>
+    )
+    target_include_directories(profapi
+            PUBLIC  # 编译 CANN 场景依赖
+            $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:${TOP_DIR}/inc>
+            $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:${TOP_DIR}/ace/npuruntime/inc>
+            $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:${TOP_DIR}/abl/msprof/inc>
+            $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:${TOP_DIR}/abl/slog/inc>
+        PUBLIC  # 使用 CANN 场景依赖
+            $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/include>
+            $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment>
+            $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/runtime>
+            $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/msprof>
+    )
+
     # stub hccl
     add_library(hccl SHARED)
     target_sources(hccl
@@ -110,6 +131,7 @@ if (BUILD_WITH_CANN)
                 $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:${TOP_DIR}/ace/comop/inc>
                 $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:${TOP_DIR}/ace/comop/inc/external>
                 $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:${TOP_DIR}/ace/comop/hccl/open_source/pkg_inc>
+                $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:${TOP_DIR}/abl/slog/inc>
             PUBLIC  # 使用 CANN 场景依赖
                 $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/include>
                 $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment>

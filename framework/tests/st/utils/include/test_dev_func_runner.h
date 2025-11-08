@@ -26,6 +26,7 @@
 #include "machine_agent.h"
 #include "device_launcher.h"
 #include "cost_model/simulation/backend.h"
+#include "machine/runtime/host_prof.h"
 
 using namespace npu::tile_fwk::dynamic;
 
@@ -100,6 +101,7 @@ public:
     static void Run(Function *function, const std::vector<RawTensorDataPtr> &inputs,
         const std::vector<RawTensorDataPtr> &outputs, const DeviceLauncherConfig &config = DeviceLauncherConfig()) {
         auto runner = DevFuncRunner(function, config);
+        DeviceRunner::Get().GetHostProfInstance().SetProfFunction(function);
         runner.RunDynamic(inputs, outputs);
         RunStatic();
     }
@@ -109,6 +111,7 @@ public:
         auto &inputs = ProgramData::GetInstance().GetInputDataList();
         auto &outputs = ProgramData::GetInstance().GetOutputDataList();
         auto runner = DevFuncRunner(function, config);
+        DeviceRunner::Get().GetHostProfInstance().SetProfFunction(function);
         runner.RunDynamic(inputs, outputs);
         RunStatic();
     }

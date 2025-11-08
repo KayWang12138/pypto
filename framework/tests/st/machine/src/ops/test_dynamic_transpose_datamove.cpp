@@ -18,7 +18,6 @@
 #include "operator/models/deepseek/page_attention.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "runtime.h"
-#include "device_runner.h"
 #include "cost_model/simulation/backend.h"
 #include "test_dev_func_runner.h"
 

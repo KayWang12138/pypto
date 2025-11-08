@@ -22,6 +22,7 @@
 #include <mutex>
 #include <unistd.h>
 #include <sys/file.h>
+#include "host_prof.h"
 
 #ifdef BUILD_WITH_CANN
 #include <runtime/rt.h>
@@ -63,6 +64,7 @@ public:
     void InitDynamicArgs(DeviceArgs &args, int nrCore = CORE_DEFAULT_NUM);
     static int RegiserKernelBin(void **hdl);
     static void SetBinData(const std::vector<uint8_t> &binBuf);
+    HostProf& GetHostProfInstance();
 
 private:
     DeviceRunner() = default;
@@ -83,10 +85,15 @@ private:
     int RunPost(rtStream_t aicpuStream, rtStream_t aicoreStream);
     int launchDynamicAiCpuInit(rtStream_t aicpuStream, AstKernelArgs *kArgs);
     void InitAiCpuSoBin();
+    void GetHostProfTypeSwtich();
+    void ReportHostProfInfo(uint64_t startTime, uint32_t blockDim, uint16_t taskType, bool isCore = false);
+    int DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream, AstKernelArgs *kernelArgs, int blockdim);
 private:
     int devId_;
     int aicpuNum_{5};
     int blockDim_{0};
+    bool isOpenHostProf_{false};
+    bool isHostProfL1_{false};
     std::vector<int64_t> pmuEvtType_;
     DeviceArgs args_;
     DeviceArgs *devArgs_;
@@ -94,6 +101,7 @@ private:
     std::once_flag once_;
     rtBinHandle binHdl_;
     FileLock lock_;
+    HostProf hostProf_;
 };
 
 #else
@@ -116,6 +124,7 @@ public:
         (void)taskData;
         return 0;
     }
+    HostProf &GetHostProfInstance() {};
 };
 #endif
 } // namespace npu::tile_fwk

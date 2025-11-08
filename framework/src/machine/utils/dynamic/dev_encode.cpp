@@ -162,7 +162,7 @@ void HandleActualRaw(const OrderedSet<std::shared_ptr<RawTensor>> &incastRawList
                 encoded.ioIndex = -1;
                 encoded.ioProperty = DevIOProperty::NONE;
             }
-            ALOG_ERROR_F("Tensor %d use tensor %d's addr io index %d", rawTensor->rawmagic, rawTensor->actualRawmagic,
+            ALOG_DEBUG_F("Tensor %d use tensor %d's addr io index %d", rawTensor->rawmagic, rawTensor->actualRawmagic,
                 encoded.ioIndex);
         }
     }
