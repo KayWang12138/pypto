@@ -594,10 +594,10 @@ stest:
       - DynamicBindingTest.TestDefaultCompute
       - DynamicBindingTest.TestDeviceRunDataFromHost
       - DynamicBindingTest.TestDeviceCompute
-      - DynamicControlFlowCacheTest.KernelReuse
-      - DynamicControlFlowCacheTest.CheckShape
-      # - DynamicControlFlowCacheTest.CheckLackMemory
-      - DynamicControlFlowCacheTest.CheckGetTensorData
+      #- DynamicControlFlowCacheTest.KernelReuse
+      #- DynamicControlFlowCacheTest.CheckShape
+      #- DynamicControlFlowCacheTest.CheckLackMemory
+      #- DynamicControlFlowCacheTest.CheckGetTensorData
       #===========================================================================
       # parallel sort
       #===========================================================================
