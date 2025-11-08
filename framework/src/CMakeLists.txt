@@ -9,12 +9,18 @@
 
 find_package(Threads REQUIRED)
 
-add_subdirectory(operator)
+if (NOT ENABLE_FEATURE_PYTHON_FRONT_END)
+    add_subdirectory(operator)
+endif ()
+
 add_subdirectory(interface)
 add_subdirectory(passes)
 add_subdirectory(codegen)
 add_subdirectory(machine)
-add_subdirectory(cost_model)
-if (BUILD_WITH_CANN)
-    add_subdirectory(execute)
-endif()
+
+if (NOT ENABLE_FEATURE_PYTHON_FRONT_END)
+    add_subdirectory(cost_model)
+    if (BUILD_WITH_CANN)
+        add_subdirectory(execute)
+    endif()
+endif ()

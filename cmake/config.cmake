@@ -297,9 +297,6 @@ if (BUILD_OPEN_PROJECT)
                 INTERFACE_LINK_LIBRARIES "boundscheck_shared"
         )
         add_dependencies(boundscheck ExternalProject_BoundsCheck)
-        if (ENABLE_FEATURE_PYTHON_FRONT_END)
-            install(FILES ${BoundsCheck_Install_Dir}/lib/libc_sec.so DESTINATION pto/lib)
-        endif ()
     endif ()
 endif ()
 

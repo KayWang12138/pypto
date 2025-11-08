@@ -16,7 +16,7 @@
 import inspect
 from typing import Optional, Union, Tuple, List, overload
 
-from pto import pto_impl
+from . import pto_impl
 
 from .element import Element
 from .pto_utils import * # noqa

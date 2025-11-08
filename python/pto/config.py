@@ -13,7 +13,7 @@
 from typing import List, Union, Dict
 
 import pto
-from pto import pto_impl
+from . import pto_impl
 
 
 def set_print_options(edge_items: int, precision: int, threshold: int, linewidth: int):

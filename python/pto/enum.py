@@ -11,7 +11,7 @@
 """
 """
 
-from pto import pto_impl
+from . import pto_impl
 
 DataType = pto_impl.DataType
 TileOpFormat = pto_impl.TileOpFormat

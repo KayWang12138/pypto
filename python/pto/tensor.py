@@ -12,7 +12,7 @@ import typing
 from typing import Union, List, Optional, Tuple
 
 import pto
-from pto import pto_impl
+from . import pto_impl
 
 from .enum import * # noqa
 from .pto_utils import to_syms

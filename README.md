@@ -30,12 +30,13 @@
 │       ├── st
 │       └── ut
 │
-├── include                                 # C++ 对外头文件
-├── src                                     # C++ 源码
-└── tests                                   # C++ 测试用例源码(UTest, STest)
-    ├── cmake
-    ├── st
-    └── ut
+└── framework                               # C++ 源码根目录
+    ├── include                             # C++ 对外头文件
+    ├── src                                 # C++ 源码
+    └── tests                               # C++ 测试用例源码(UTest, STest)
+        ├── cmake
+        ├── st
+        └── ut
 ```
 
 ## 3. 环境准备
@@ -120,19 +121,6 @@ source /usr/local/Ascend/ascend-toolkit/latest/bin/setenv.bash
 # 执行编译
 python3 build.py --clean --frontend=python3
 ```
-
-***注意:*** 安装完成后, 需要获取 `pto-*.whl` 包的安装路径, 并按如下方法修正 `LD_LIBRARY_PATH` 环境变量内容.
-
-```sheel
-# 获取 pto 安装路径
-python3 -m pip show pto | grep Location
-Location: /usr/local/lib/python3.10/dist-packages
-
-# 修正 LD_LIBRARY_PATH 环境变量的值
-export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib/python3.10/dist-packages/pto/lib
-```
-
-而后即可在脚本中 `import pto` 并使用其功能。
 
 ***注意:*** 如果把 `pto-*.whl` 安装在非默认路径, 则需要根据实际安装路径, 结合 pip 包管理机制要求, 额外配置 `PYTHONPATH` 环境变量.
 

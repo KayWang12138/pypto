@@ -8,16 +8,35 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
+"""PyPTO
 """
-"""
-import sys
+import ctypes
+import platform
+import logging
+from typing import List
+from pathlib import Path
 
-import pkg_resources
 
-sys.path.append(str(pkg_resources.resource_filename(__package__, "")))
+def load_shared_libs() -> bool:
+    lib_dir: Path = Path(Path(__file__).parent, "lib")
+    lib_suffix: str = "dylib" if platform.system() == 'Darwin' else "so"
+    lib_names: List[str] = ["tile_fwk_interface", "tile_fwk_codegen", "tile_fwk_compiler", "tile_fwk_runtime"]
+    libs: List[Path] = [Path(lib_dir, f"lib{n}.{lib_suffix}").resolve() for n in lib_names]
+    for lib in libs:
+        if not lib.exists():
+            logging.debug("%s not exist, skip pre load shared libraries process.", lib)
+            return False
+    for lib in libs:
+        try:
+            ctypes.CDLL(str(lib), mode=ctypes.RTLD_GLOBAL)
+        except OSError as err:
+            logging.error("Failed to load %s: %s", lib, err)
+            return False
+    logging.debug("Success Load Shared Libs: %s", libs)
+    return True
 
-del pkg_resources
-del sys
+
+load_shared_libs()
 
 
 from .config import *  # noqa
@@ -43,4 +62,3 @@ def reset():
 tensor = Tensor
 element = Element
 symbolic_scalar = SymbolicScalar
-

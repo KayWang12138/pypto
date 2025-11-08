@@ -17,7 +17,7 @@ import logging
 from contextlib import contextmanager
 from typing import List, Optional, Set, Tuple, Union, Iterator, overload
 
-from pto import pto_impl
+from . import pto_impl
 
 from .enum import * # noqa
 from .pto_utils import to_sym, set_source_location, clear_source_location

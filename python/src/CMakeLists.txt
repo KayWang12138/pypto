@@ -26,19 +26,11 @@ target_link_libraries(pto_impl
         PRIVATE
             $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>
             tile_fwk_interface
-            tile_fwk_passes
             tile_fwk_codegen
-            tile_fwk_operator
             tile_fwk_compiler
-            tile_fwk_simulation
             tile_fwk_runtime
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub
 )
 install(TARGETS pto_impl LIBRARY DESTINATION pto OPTIONAL)
-
-target_link_options(pto_impl PRIVATE
-    -Wl,-rpath,$ORIGIN/lib
-    -Wl,--no-as-needed
-)

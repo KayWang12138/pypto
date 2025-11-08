@@ -55,7 +55,7 @@ function(PTO_Fwk_AnalysisTargetSymbols)
             ${ARGN}
     )
     if (BUILD_OPEN_PROJECT
-            AND (ENABLE_UTEST OR ENABLE_STEST OR ENABLE_STEST_DISTRIBUTED)
+            AND (ENABLE_UTEST)
             AND (CMAKE_GENERATOR STREQUAL "Unix Makefiles")
             AND (CMAKE_C_COMPILER_ID STREQUAL "GNU"))
         set(_file $<TARGET_FILE:${ARG_TARGET}>)

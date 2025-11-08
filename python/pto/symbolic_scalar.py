@@ -13,7 +13,7 @@ import re
 from typing import Union
 
 import sympy
-from pto import pto_impl
+from . import pto_impl
 
 _replacements = {
     "RUNTIME_Min": "min",

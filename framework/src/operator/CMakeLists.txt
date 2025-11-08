@@ -20,7 +20,7 @@ target_link_libraries(tile_fwk_operator
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub
-            tile_fwk_interface
+            $<$<BOOL:${ENABLE_UTEST}>:tile_fwk_interface>
 )
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_operator)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_operator)

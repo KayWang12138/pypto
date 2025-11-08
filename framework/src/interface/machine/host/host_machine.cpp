@@ -79,19 +79,25 @@ bool HostMachine::InitPassHandle() {
     if (mPassBackendHandle != nullptr) {
         return true;
     }
+#ifdef ENABLE_FEATURE_PYTHON_FRONT_END
+    mPassBackendHandle = dlopen(nullptr, RTLD_LAZY | RTLD_NOLOAD);
+#else
     std::string passBinPath = "libtile_fwk_passes.so";
-    std::string runPassFuncName = "RunPass";
-    std::string resumePathFuncName = "GetResumePath";
     mPassBackendHandle = dlopen(passBinPath.c_str(), RTLD_NOW | RTLD_GLOBAL);
+#endif
     if (mPassBackendHandle == nullptr) {
         ALOG_ERROR("Fail to load pass handle, ", dlerror());
         return false;
     }
+
+    std::string runPassFuncName = "RunPass";
     mPassRunFunc = (RunPassFuncPtr)dlsym(mPassBackendHandle, runPassFuncName.c_str());
     if (mPassRunFunc == nullptr) {
         ALOG_ERROR("Fail to get RunPass function, ", dlerror());
         return false;
     }
+
+    std::string resumePathFuncName = "GetResumePath";
     mResumePathGetFunc = (ResumePathGetFuncPtr)dlsym(mPassBackendHandle, resumePathFuncName.c_str());
     if (mResumePathGetFunc == nullptr) {
         ALOG_ERROR("Fail to get GetResumePath function, ", dlerror());

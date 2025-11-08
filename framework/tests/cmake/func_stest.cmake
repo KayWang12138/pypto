@@ -27,7 +27,6 @@ Parameters:
       TARGET                : [Required] 具体测试用例二进制库名称
   multi_value_keywords:
       SOURCES               : [Required] 编译源码
-      PUBLIC_LINK_LIBRARIES : [Optional] 链接库(PUBLIC)
       LD_LIBRARIES_EXT      : [Optional] 需要在执行时将所在路径配置到环境变量 LD_LIBRARY_PATH 中的 Libraries
       GOLDEN_SCRIPT_DIR     : [Optional] Golden 脚本所在路径, 便于 Golden 处理公共逻辑查找和载入对应脚本
 Attention:
@@ -38,18 +37,16 @@ function(PTO_Fwk_STest_AddLib)
             ARG
             ""
             "TARGET"
-            "SOURCES;PUBLIC_LINK_LIBRARIES;LD_LIBRARIES_EXT;GOLDEN_SCRIPT_DIR"
+            "SOURCES;LD_LIBRARIES_EXT;GOLDEN_SCRIPT_DIR"
             ""
             ${ARGN}
     )
     add_Library(${ARG_TARGET} STATIC)
     target_sources(${ARG_TARGET} PRIVATE ${ARG_SOURCES})
     target_link_libraries(${ARG_TARGET}
-            PUBLIC
-                ${ARG_PUBLIC_LINK_LIBRARIES}
             PRIVATE
                 ${PTO_Fwk_STestNamePrefix}_utils
-            GTest::gtest
+                GTest::gtest
     )
     # 后检查
     PTO_Fwk_AnalysisTargetHeaderFiles(TARGET ${ARG_TARGET})
@@ -304,10 +301,20 @@ function(PTO_Fwk_STest_AddExe_RunExe)
     set(_Sources ${CMAKE_CURRENT_BINARY_DIR}/${PTO_Fwk_STestNamePrefix}_main_stub.cpp)
     execute_process(COMMAND touch ${_Sources})
     list(REMOVE_DUPLICATES PTO_Fwk_STestCaseLibraries)
+    set(PTO_Fwk_Libraries
+            tile_fwk_passes
+            tile_fwk_interface
+            tile_fwk_codegen
+            tile_fwk_compiler
+            tile_fwk_runtime
+            tile_fwk_simulation
+            tile_fwk_simulation_ca
+            tile_fwk_operator
+    )
     PTO_Fwk_GTest_AddExe(
             TARGET                      ${ARG_TARGET}
             SOURCES                     ${_Sources}
-            PRIVATE_LINK_LIBRARIES      ${PTO_Fwk_STestNamePrefix}_intf_pub tile_fwk_compiler ${PTO_Fwk_STestCaseLibraries}
+            PRIVATE_LINK_LIBRARIES      ${PTO_Fwk_STestNamePrefix}_intf_pub ${PTO_Fwk_Libraries} ${PTO_Fwk_STestCaseLibraries}
     )
     add_dependencies(${ARG_TARGET} tile_fwk_server)
 
@@ -332,10 +339,10 @@ function(PTO_Fwk_STest_AddExe_RunExe)
             list(SUBLIST GTestFilterList ${idx} -1 GTestFilterList)
         endif ()
     endif ()
-    
+
     if ("${GTestFilterList}x" STREQUAL "x")
         message(STATUS "No Case to Execute")
-    else ()    
+    else ()
         # 性能用例
         PTO_Fwk_STest_RunExe_ToolsProf(
                 TARGET              ${ARG_TARGET}

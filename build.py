@@ -110,7 +110,7 @@ class FeatureParam(CMakeParam):
         if self.frontend_type in ["python3"]:
             return None
         else:
-            return min(int(math.ceil(float(multiprocessing.cpu_count()) * 0.8)), 48)  # 设置 48 为 CMake 场景最大核数
+            return min(int(math.ceil(float(multiprocessing.cpu_count()) * 0.9)), 48)  # 设置 48 为 CMake 场景最大核数
 
     @property
     def def_build_type(self) -> str:
@@ -588,7 +588,7 @@ class ModelParam(CMakeParam):
 
     @staticmethod
     def _save_simulation_json(simulation_json, src_root: Path):
-        temp_json_path = os.path.join(str(src_root), "src/cost_model/simulation/scripts/tmp_simulation.json")
+        temp_json_path = os.path.join(str(src_root), "framework/src/cost_model/simulation/scripts/tmp_simulation.json")
         os.makedirs(os.path.dirname(temp_json_path), exist_ok=True)
         with open(temp_json_path, 'w') as f:
             json.dump(simulation_json, f, indent=4)
@@ -697,7 +697,6 @@ class BuildCtrl:
     本类包含由命令行指定或解析出的控制标记/参数, 以控制构建过程执行.
     """
     _PYTHONPATH: str = "PYTHONPATH"
-    _LD_LIBRARY_PATH: str = "LD_LIBRARY_PATH"
 
 
     def __init__(self, args):
@@ -871,11 +870,6 @@ class BuildCtrl:
             if self.install_root.exists():
                 logging.info("Clean Install-Tree(%s)", self.install_root)
                 shutil.rmtree(self.install_root)
-        if self.tests.stest_exec.enable_binary_cache:
-            binary_cache_path = Path(Path.home(), "ast_data")
-            if binary_cache_path.exists():
-                shutil.rmtree(binary_cache_path)
-                logging.info("Clean Binary Cache Path(%s)", binary_cache_path)
 
     def py_clean(self):
         if self.build.clean:
@@ -986,11 +980,6 @@ class BuildCtrl:
             ori_env_python_path: str = origin_env.get(self._PYTHONPATH, "")
             act_env_python_path: str = f"{dist}:{ori_env_python_path}" if ori_env_python_path else f"{dist}"
             update_env.update({self._PYTHONPATH: act_env_python_path})
-            #
-            add_env_ld: str = str(Path(dist, f"{self.whl_prefix}", "lib"))
-            ori_env_ld: str = origin_env.get(self._LD_LIBRARY_PATH, "")
-            act_env_ld: str = f"{add_env_ld}:{ori_env_ld}" if ori_env_ld else f"{add_env_ld}"
-            update_env.update({self._LD_LIBRARY_PATH: act_env_ld})
         ts = datetime.now(tz=timezone.utc)
         logging.info("pytest run, Cmd: %s", cmd)
         ret = self.run_build_cmd(cmd=cmd, check=True, update_env=update_env)

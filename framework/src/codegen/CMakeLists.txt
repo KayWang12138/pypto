@@ -15,7 +15,7 @@ add_library(tile_fwk_codegen SHARED)
 target_sources(tile_fwk_codegen PRIVATE ${_CodeGen_Srcs})
 target_link_libraries(tile_fwk_codegen
         PUBLIC
-            tile_fwk_interface
+            $<$<BOOL:${ENABLE_UTEST}>:tile_fwk_interface>
             $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,nlohmann_json::nlohmann_json,json>
         PRIVATE
             intf_pub_cxx17

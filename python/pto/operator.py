@@ -11,7 +11,7 @@
 # pyright: reportReturnType=false
 # pyright: reportArgumentType=false
 import pto
-from pto import pto_impl
+from . import pto_impl
 from .tensor import Tensor
 from .operation import op_wrapper
 

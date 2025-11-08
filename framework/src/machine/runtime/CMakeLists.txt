@@ -47,8 +47,8 @@ target_link_directories(tile_fwk_runtime
 )
 target_link_libraries(tile_fwk_runtime
         PUBLIC
-            tile_fwk_interface
-            tile_fwk_compiler
+            $<$<BOOL:${ENABLE_UTEST}>:tile_fwk_interface>
+            $<$<BOOL:${ENABLE_UTEST}>:tile_fwk_compiler>
             $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,nlohmann_json::nlohmann_json,json>
             $<$<BOOL:${BUILD_WITH_CANN}>:ascendcl>
             $<$<BOOL:${BUILD_WITH_CANN}>:runtime>

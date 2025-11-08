@@ -12,6 +12,8 @@ add_library(${_Target} INTERFACE)
 target_include_directories(${_Target}
         INTERFACE
             include
+            ${PTO_FWK_SRC_ROOT}/framework/src/machine/runtime
+            ${PTO_FWK_SRC_ROOT}/framework/src/cost_model
         INTERFACE  # 编译 CANN 场景依赖
             $<$<AND:$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>,$<BOOL:${BUILD_WITH_CANN}>>:${TOP_DIR}/inc>
             $<$<AND:$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>,$<BOOL:${BUILD_WITH_CANN}>>:${TOP_DIR}/abl/msprof/inc>
@@ -27,8 +29,6 @@ target_include_directories(${_Target}
             $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/ascend_hal>
             $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/runtime>
             $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/msprof>
-        INTERFACE
-            ${PTO_FWK_SRC_ROOT}/framework/src/cost_model
 )
 target_compile_definitions(${_Target}
         INTERFACE
@@ -43,7 +43,6 @@ target_link_directories(${_Target}
 )
 target_link_libraries(${_Target}
         INTERFACE
-            tile_fwk_runtime
             ${PTO_Fwk_STestNamePrefix}_intf_pub
             $<$<BOOL:${BUILD_WITH_CANN}>:ascendcl>
             $<$<BOOL:${BUILD_WITH_CANN}>:runtime>

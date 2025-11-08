@@ -34,6 +34,11 @@ target_sources(tile_fwk_interface PRIVATE ${_Interface_Srcs})
 target_compile_definitions(tile_fwk_interface
         PRIVATE
             SRCPATH="${PTO_FWK_SRC_ROOT}"
+            $<$<BOOL:${ENABLE_FEATURE_PYTHON_FRONT_END}>:ENABLE_FEATURE_PYTHON_FRONT_END>
+)
+target_include_directories(tile_fwk_interface
+        PUBLIC
+            .
 )
 target_link_libraries(tile_fwk_interface
         PUBLIC
@@ -42,7 +47,7 @@ target_link_libraries(tile_fwk_interface
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub
-            tile_fwk_passes
+            $<$<BOOL:${ENABLE_UTEST}>:tile_fwk_passes>
             dl
             Threads::Threads
 )

@@ -15,8 +15,11 @@ add_subdirectory(framework)
 set(_Target ${PTO_Fwk_STestNamePrefix}_distributed)
 file(GLOB_RECURSE _Sources src/*.cpp)
 set(_PrivateLinkLibraries
-        tile_fwk_compiler
+        tile_fwk_passes
         tile_fwk_interface
+        tile_fwk_codegen
+        tile_fwk_compiler
+        tile_fwk_runtime
         tile_fwk_simulation
         ${PTO_Fwk_STestNamePrefix}_utils
         ${PTO_Fwk_STestNamePrefix}_distributed_ops

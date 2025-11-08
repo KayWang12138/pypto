@@ -13,7 +13,7 @@
 import inspect
 from typing import Sequence, Union, List
 
-from pto import pto_impl
+from . import pto_impl
 
 from .symbolic_scalar import SymbolicScalar, SymInt
 

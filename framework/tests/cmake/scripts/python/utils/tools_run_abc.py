@@ -32,7 +32,7 @@ class ToolsRunAbc(ToolsAbc, ABC):
 
         # 路径管理
         self.timestamp: str = str(datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S"))
-        self.output_root: Path = Path(Path.cwd(), "../../../../output_tools", self.timestamp).resolve()
+        self.output_root: Path = Path(Path.cwd(), "../../../../../output_tools", self.timestamp).resolve()
 
         # 用例执行参数
         self.exe: Executable = Executable(file=Path(args.target[0]).resolve(), envs=args.envs)

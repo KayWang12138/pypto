@@ -13,7 +13,7 @@ requires = [
 "pybind11>=2.0.1",
 "torch>=2.1.0",
 "torch_npu>=2.1.0",
-"numpy>=1.19.2, <=1.24.4",
+"numpy",
 "sympy",
 ]
 build-backend = "scikit_build_core.build"

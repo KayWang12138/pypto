@@ -23,8 +23,8 @@ target_compile_definitions(tile_fwk_simulation_ca
 )
 target_link_libraries(tile_fwk_simulation_ca
         PUBLIC
-            tile_fwk_codegen
-            tile_fwk_simulation
+            $<$<BOOL:${ENABLE_UTEST}>:tile_fwk_codegen>
+            $<$<BOOL:${ENABLE_UTEST}>:tile_fwk_simulation>
             $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,nlohmann_json::nlohmann_json,json>
         PRIVATE
             intf_pub_cxx17
@@ -55,6 +55,10 @@ target_link_libraries(get_cce_simulation
             intf_pub_cxx17
             tile_fwk_intf_pub
             tile_fwk_simulation_ca
+            tile_fwk_interface
+            tile_fwk_passes
+            tile_fwk_codegen
+            tile_fwk_simulation
             dl
             Threads::Threads
 )

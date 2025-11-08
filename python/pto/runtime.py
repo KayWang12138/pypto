@@ -15,7 +15,7 @@ from typing import List
 import numpy as np
 import torch
 import pto
-from pto import pto_impl
+from . import pto_impl
 
 _device_init = pto_impl.DeviceInit
 _device_fini = pto_impl.DeviceFini

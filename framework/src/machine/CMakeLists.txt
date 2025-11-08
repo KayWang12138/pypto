@@ -47,8 +47,8 @@ target_link_directories(tile_fwk_compiler
 )
 target_link_libraries(tile_fwk_compiler
         PUBLIC
-            tile_fwk_interface
-            tile_fwk_codegen
+            $<$<BOOL:${ENABLE_UTEST}>:tile_fwk_interface>
+            $<$<BOOL:${ENABLE_UTEST}>:tile_fwk_codegen>
             $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,nlohmann_json::nlohmann_json,json>
         PRIVATE
             intf_pub_cxx17

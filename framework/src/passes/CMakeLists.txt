@@ -10,25 +10,25 @@
 file(GLOB_RECURSE _Passes_Srcs *.cpp)
 #PTO_Fwk_Debug_Source_List(NAME "_Passes_Srcs" LIST ${_Passes_Srcs} DETAIL OFF)
 
-add_library(tile_fwk_passes SHARED)
-target_sources(tile_fwk_passes PRIVATE ${_Passes_Srcs})
-target_link_libraries(tile_fwk_passes
-        PUBLIC
-            $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,nlohmann_json::nlohmann_json,json>
-            $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>
-        PRIVATE
-            intf_pub_cxx17
-            tile_fwk_intf_pub
-            dl
-            Threads::Threads
-)
-PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_passes)
-#PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_passes)
-
 if (ENABLE_FEATURE_PYTHON_FRONT_END)
-        install(TARGETS tile_fwk_passes LIBRARY DESTINATION pto/lib OPTIONAL)
+        target_sources(tile_fwk_interface PRIVATE ${_Passes_Srcs})
         install(FILES pass_config/tile_fwk_platform_info.json DESTINATION pto/configs)
 else ()
+        add_library(tile_fwk_passes SHARED)
+        target_sources(tile_fwk_passes PRIVATE ${_Passes_Srcs})
+        target_link_libraries(tile_fwk_passes
+                PUBLIC
+                $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,nlohmann_json::nlohmann_json,json>
+                $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>
+                PRIVATE
+                intf_pub_cxx17
+                tile_fwk_intf_pub
+                dl
+                Threads::Threads
+        )
+        PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_passes)
+        #PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_passes)
+
         install(TARGETS tile_fwk_passes
                 LIBRARY DESTINATION lib OPTIONAL
         )
@@ -48,4 +48,4 @@ else ()
                 ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_platform_info.json
                 DESTINATION lib OPTIONAL
         )
-endif()
+endif ()
