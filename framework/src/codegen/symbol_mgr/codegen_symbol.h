@@ -130,11 +130,13 @@ struct TileTensorUsing {
     DataType dtype;
     BufferType bufType;
     int dim;
+    std::vector<int64_t> originShape; // only used for static shape
     std::vector<int64_t> rawShape;
     bool isStatic;
 
     bool operator==(const TileTensorUsing &other) const {
-        return dtype == other.dtype && bufType == other.bufType && rawShape == other.rawShape;
+        return dtype == other.dtype && bufType == other.bufType && originShape == other.originShape &&
+               rawShape == other.rawShape;
     }
 
     std::string GenName() const {
@@ -156,10 +158,22 @@ struct TileTensorUsing {
         ss << DataType2CCEStr(dtype) << ", ";
         ss << GetLayoutType(bufType, dim, isStatic);
         if (bufType != BUF_DDR) {
-            ss << PrintParams({"<", ">"}, rawShape, ", ");
+            ss << GetLayoutParams();
         }
         ss << ", " << SCOPE_NAMESPACE << "::" << BUFFER_TYPE_TO_PREFIX.at(bufType) << ">;\n";
         return ss.str();
+    }
+
+private:
+    constexpr static int SHAPE_KIND = 2; // origin shape; raw shape
+    std::string GetLayoutParams() const {
+        std::vector<int64_t> params;
+        params.reserve(dim * SHAPE_KIND);
+        if (isStatic) {
+            params.insert(params.end(), originShape.begin(), originShape.end());
+        }
+        params.insert(params.end(), rawShape.begin(), rawShape.end());
+        return PrintParams({"<", ">"}, params, ", ");
     }
 };
 

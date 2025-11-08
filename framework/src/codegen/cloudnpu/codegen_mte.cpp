@@ -273,11 +273,11 @@ std::string CodeGenOpCloudNPU::GenUBCopyOut() const {
     return GenMemUBTransfer(true);
 }
 
-std::string CodeGenOpCloudNPU::GenReshapeCopyIn() const{
+std::string CodeGenOpCloudNPU::GenReshapeCopyIn() const {
     return GenMemCopyVar(false, OperandType::BUF_UB, 0);
 }
 
-std::string CodeGenOpCloudNPU::GenReshapeCopyOut() const{
+std::string CodeGenOpCloudNPU::GenReshapeCopyOut() const {
     return GenMemCopyVar(true, OperandType::BUF_UB, 0);
 }
 
@@ -1032,21 +1032,28 @@ std::string CodeGenOpCloudNPU::GenLoadOp() const {
     return ostring;
 }
 
-std::string CodeGenOpCloudNPU::PrintMemCopyWithUBTileTensor(const PrintMemCopyWithUBParam &param) const {
+std::vector<std::string> CodeGenOpCloudNPU::GetGmOffsetForTileTensor(const PrintMemCopyWithUBParam &param) const {
     unsigned gmIdx = param.gmIdx;
     int dim = static_cast<int>(rawShape[gmIdx].size());
     std::vector<std::string> gmOffsetExpr;
-    if (param.isSpillIntoGM) {
-        gmOffsetExpr = std::vector<std::string>(dim, "0");
-    } else if (offsetGmSymbolic[gmIdx][ID0].IsValid()) {
-        gmOffsetExpr = GenSymbolicArgument(offsetGmSymbolic[gmIdx]);
-    } else {
-        gmOffsetExpr = GenGetParamMacroPacked(gmIdx, dim, PREFIX_STR_OFFSET);
+    if (param.isSpillIntoGM || functionType == FunctionType::STATIC) {
+        return std::vector<std::string>(dim, "0");
     }
+
+    if (offsetGmSymbolic[gmIdx][ID0].IsValid()) {
+        return GenSymbolicArgument(offsetGmSymbolic[gmIdx]);
+    }
+
+    return GenGetParamMacroPacked(gmIdx, dim, PREFIX_STR_OFFSET);
+}
+
+std::string CodeGenOpCloudNPU::PrintMemCopyWithUBTileTensor(const PrintMemCopyWithUBParam &param) const {
+    std::vector<std::string> gmOffsetExpr = GetGmOffsetForTileTensor(param);
 
     // constructor call parameter ((RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 0)),(RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 1)))
     std::string coordCp = PrintParams({"(", ")"}, gmOffsetExpr, ", ");
     // e.g. Coord4Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 0)),(RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 1)))
+    int dim = static_cast<int>(rawShape[param.gmIdx].size());
     std::string coord = "Coord" + std::to_string(dim) + DIM + coordCp;
 
     std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(SISOIdx::DST_IDX)]);

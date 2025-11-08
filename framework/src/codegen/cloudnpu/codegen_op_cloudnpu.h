@@ -298,6 +298,7 @@ private:
     std::string PrintMemCopyWithUBDynamic(const PrintMemCopyWithUBParam &param) const;
     std::string PrintMemCopyWithUBDynamicSupportUnaligned(const PrintMemCopyWithUBParam &param) const;
     std::string PrintMemCopyWithUBTileTensor(const PrintMemCopyWithUBParam &param) const;
+    std::vector<std::string> GetGmOffsetForTileTensor(const PrintMemCopyWithUBParam &param) const;
 
     struct PrintGatherParam {
         const std::string &s0Var;

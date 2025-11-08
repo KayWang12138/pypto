@@ -257,7 +257,7 @@ void CodeGenOpCloudNPU::UpdateTileTensorInfo() {
     tileOpName = iter->second;
     for (int i = 0; i < operandCnt; ++i) {
         TileTensorUsing tileTensorUsing{operandDtype[i], operandType[i], static_cast<int>(rawShape[i].size()),
-            rawShape[i], functionType == FunctionType::STATIC};
+            originShape[i], rawShape[i], functionType == FunctionType::STATIC};
         std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
         TileTensor tileTensor = BuildTileTensor(i, usingType);
         sm->AddTileTensor(tileTensor);
