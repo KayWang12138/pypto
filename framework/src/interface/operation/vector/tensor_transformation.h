@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file unary.h
+ * \file tensor_transformation.h
  * \brief
  */
 
@@ -104,12 +104,8 @@ struct ExpandInfo {
         : srcTensor(srcTensor0), result(result0), viewShape(viewShape0), offset(offset0), expandDim(expandDim0) {}
 };
 
-std::vector<int> GetBroadCastShape(LogicalTensorPtr &operand1, LogicalTensorPtr &operand2);
-std::vector<int64_t> BinaryOperationResultShape(LogicalTensorPtr operand1, LogicalTensorPtr operand2);
-LogicalTensorPtr BinaryOperationBroadCast(const LogicalTensorPtr &operand, const std::vector<int> &broadCastShape);
 void Expand(Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand,
     const std::vector<LogicalTensorPtr> &other, const LogicalTensorPtr &result);
-
 Tensor TensorVectorDuplicateOperation(Function &function, const Element &src, const SymbolicScalar &dynValue,
     DataType dtype, const std::vector<int64_t> &dstShape, const std::vector<SymbolicScalar> &validShape);
 

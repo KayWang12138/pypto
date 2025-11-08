@@ -21,7 +21,7 @@
 #include "interface/function/function.h"
 #include "interface/program/program.h"
 #include "interface/configs/config_manager.h"
-#include "interface/operation/vector/tensor_transformation.h"
+#include "tensor_transformation.h"
 
 namespace npu::tile_fwk {
 
@@ -112,6 +112,9 @@ Opcode GetBinaryOpNameCode() {
     }
 #undef CASE
 }
+
+std::vector<int64_t> BinaryOperationResultShape(LogicalTensorPtr operand1, LogicalTensorPtr operand2);
+LogicalTensorPtr BinaryOperationBroadCast(const LogicalTensorPtr &operand, const std::vector<int> &broadCastShape);
 
 inline void CheckOperandsValid(const Tensor &operand1, const Tensor &operand2) {
     ASSERT(operand1.GetShape().size() == operand2.GetShape().size());

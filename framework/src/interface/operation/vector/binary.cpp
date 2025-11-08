@@ -18,6 +18,25 @@
 
 namespace npu::tile_fwk {
 
+std::vector<int64_t> BinaryOperationResultShape(LogicalTensorPtr operand1, LogicalTensorPtr operand2) {
+    std::vector<int64_t> resultShape(operand1->shape.size());
+    for (size_t i = 0; i < resultShape.size(); i++) {
+        resultShape[i] = std::max(operand1->shape[i], operand2->shape[i]);
+    }
+    return resultShape;
+}
+
+LogicalTensorPtr BinaryOperationBroadCast(const LogicalTensorPtr &operand, const std::vector<int> &broadCastShape) {
+    if (operand->shape.size() < broadCastShape.size()) {
+        auto broadCastDims = broadCastShape.size() - operand->shape.size();
+        std::vector<int64_t> unsqueezeShape(operand->shape);
+        unsqueezeShape.insert(unsqueezeShape.begin(), broadCastDims, 1);
+        auto tmpOperand = Reshape(operand, unsqueezeShape).GetStorage();
+        return tmpOperand;
+    }
+    return operand;
+}
+
 Tensor Add(const Tensor &self, const Tensor &other) {
     DECLARE_TRACER();
     RETURN_CALL(BinaryOperation<BinaryOpType::ADD>, *Program::GetInstance().GetCurrentFunction(), self, other);

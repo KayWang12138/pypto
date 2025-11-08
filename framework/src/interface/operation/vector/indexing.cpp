@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file basic.cpp
+ * \file indexing.cpp
  * \brief
  */
 

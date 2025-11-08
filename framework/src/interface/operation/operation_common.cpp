@@ -49,4 +49,21 @@ void CheckTensorShape(const LogicalTensorPtr &tensor, const std::string &op) {
     }
 }
 
+std::vector<int> GetBroadCastShape(LogicalTensorPtr &operand1, LogicalTensorPtr &operand2) {
+    std::vector<int64_t> opShape1(operand1->shape);
+    std::vector<int64_t> opShape2(operand2->shape);
+    auto maxShapeSize = std::max(opShape1.size(), opShape2.size());
+    if (opShape1.size() != maxShapeSize) {
+        opShape1.insert(opShape1.begin(), maxShapeSize - opShape1.size(), 1);
+    }
+    if (opShape2.size() != maxShapeSize) {
+        opShape2.insert(opShape2.begin(), maxShapeSize - opShape2.size(), 1);
+    }
+    std::vector<int> broadCastShape(maxShapeSize, 0);
+    for (size_t i = 0; i < maxShapeSize; i++) {
+        broadCastShape[i] = std::max(opShape1[i], opShape2[i]);
+    }
+    return broadCastShape;
+}
+
 }

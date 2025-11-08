@@ -19,42 +19,6 @@
 
 namespace npu::tile_fwk {
 
-std::vector<int> GetBroadCastShape(LogicalTensorPtr &operand1, LogicalTensorPtr &operand2) {
-    std::vector<int64_t> opShape1(operand1->shape);
-    std::vector<int64_t> opShape2(operand2->shape);
-    auto maxShapeSize = std::max(opShape1.size(), opShape2.size());
-    if (opShape1.size() != maxShapeSize) {
-        opShape1.insert(opShape1.begin(), maxShapeSize - opShape1.size(), 1);
-    }
-    if (opShape2.size() != maxShapeSize) {
-        opShape2.insert(opShape2.begin(), maxShapeSize - opShape2.size(), 1);
-    }
-    std::vector<int> broadCastShape(maxShapeSize, 0);
-    for (size_t i = 0; i < maxShapeSize; i++) {
-        broadCastShape[i] = std::max(opShape1[i], opShape2[i]);
-    }
-    return broadCastShape;
-}
-
-std::vector<int64_t> BinaryOperationResultShape(LogicalTensorPtr operand1, LogicalTensorPtr operand2) {
-    std::vector<int64_t> resultShape(operand1->shape.size());
-    for (size_t i = 0; i < resultShape.size(); i++) {
-        resultShape[i] = std::max(operand1->shape[i], operand2->shape[i]);
-    }
-    return resultShape;
-}
-
-LogicalTensorPtr BinaryOperationBroadCast(const LogicalTensorPtr &operand, const std::vector<int> &broadCastShape) {
-    if (operand->shape.size() < broadCastShape.size()) {
-        auto broadCastDims = broadCastShape.size() - operand->shape.size();
-        std::vector<int64_t> unsqueezeShape(operand->shape);
-        unsqueezeShape.insert(unsqueezeShape.begin(), broadCastDims, 1);
-        auto tmpOperand = Reshape(operand, unsqueezeShape).GetStorage();
-        return tmpOperand;
-    }
-    return operand;
-}
-
 void CheckExpandTensorVaild(const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
     if (operand->shape.size() != result->shape.size()) {
         ASSERT(false && "Dims not match");

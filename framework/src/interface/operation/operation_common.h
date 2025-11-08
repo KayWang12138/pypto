@@ -58,6 +58,7 @@ struct Input {
 };
 
 void CheckTensorShape(const LogicalTensorPtr &tensor, const std::string &op);
+std::vector<int> GetBroadCastShape(LogicalTensorPtr &operand1, LogicalTensorPtr &operand2);
 
 using TiledFuncType = std::function<void(Function &function, const TileShape &tileShape,
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op)>;

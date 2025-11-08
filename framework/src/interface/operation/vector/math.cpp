@@ -13,10 +13,9 @@
  * \brief
  */
 
+#include "unary.h"
+#include "binary.h"
 #include "interface/utils/operator_tracer.h"
-#include "interface/operation/vector/tensor_transformation.h"
-#include "interface/operation/vector/unary.h"
-#include "interface/operation/vector/binary.h"
 #include "passes/pass_utils/graph_utils.h"
 
 namespace npu::tile_fwk {

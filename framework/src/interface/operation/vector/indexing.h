@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file basic.h
+ * \file indexing.h
  * \brief
  */
 
