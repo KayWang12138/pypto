@@ -33,7 +33,10 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override { Program::GetInstance().Reset(); }
+    void SetUp() override {
+        Program::GetInstance().Reset();
+        rtSetDevice(GetDeviceIdByEnvVar());
+    }
 
     void TearDown() override {}
 };
@@ -42,7 +45,7 @@ public:
 /* test api mode, simu torch scene */
 TEST(OnBoardTestAstApi, test_fa_all2all_ast_api_mode) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit();
 
     AttentionDims atDims = {1, 1, 128, 128, DFT_SINGLE_M, DFT_SINGLE_N};
@@ -119,7 +122,7 @@ TEST(OnBoardTestAstApi, test_fa_all2all_ast_api_mode) {
 
 TEST(OnBoardTestAstApi, test_add_sub_all2all_torchapi_multi_function) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit();
     int row = 64;
     int col = 64;

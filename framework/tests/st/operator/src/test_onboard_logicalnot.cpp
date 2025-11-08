@@ -22,7 +22,7 @@ class LogicalNotOnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_A
 
 TEST_F(LogicalNotOnBoardTest, test_logicalnot_16_32_fp32) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     int S0 = 16;
     int S1 = 32;
     int D0 = 16;
@@ -61,7 +61,7 @@ TEST_F(LogicalNotOnBoardTest, test_logicalnot_16_32_fp32) {
 
 TEST_F(LogicalNotOnBoardTest, test_logicalnot_16_32_32_fp16) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     int S0 = 16;
     int S1 = 32;
     int S2 = 32;

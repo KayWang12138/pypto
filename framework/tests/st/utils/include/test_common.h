@@ -504,6 +504,14 @@ inline int calcOffset(std::vector<int> shape, std::vector<int> offset) {
     return res;
 }
 
+inline int GetDeviceIdByEnvVar() {
+    const char *devIdPtr = getenv("TILE_FWK_DEVICE_ID");
+    if (devIdPtr != nullptr) {
+        return std::stoi(devIdPtr);
+    }
+    return 0;
+}
+
 inline void SetInterpreterConfig(){
 // 通过build.py --enable_interpreter_config使能
 #ifdef ENABLE_STEST_INTERPRETER_CONFIG

@@ -27,7 +27,7 @@ public:
     void SetUp() override {
         npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac::SetUp();
         aclInit(nullptr);
-        rtSetDevice(config::GetDeviceId());
+        rtSetDevice(GetDeviceIdByEnvVar());
         Program::GetInstance().Reset();
         config::Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, false);
@@ -35,6 +35,7 @@ public:
         config::SetPassOption(NBUFFER_MERGE_MODE, 1);
         config::SetPassOption(L1_REUSE, LLMA_L1REUSE_THRESHOLD);
         config::SetPassOption(SG_CYCLE_LOWER_BOUND, LLMA_CYCLE_THRESHOLD);
+        rtSetDevice(GetDeviceIdByEnvVar());
     }
 };
 

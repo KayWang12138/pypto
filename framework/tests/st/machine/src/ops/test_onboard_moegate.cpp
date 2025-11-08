@@ -46,7 +46,7 @@ TEST_F(MoegateOnBoardTest, test_moegate_graph3_case1) {
     int capacity3 = shape_score[0] * shape_score[1];
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit("");
 
     TileShape::Current().SetVecTile(16, 16);
@@ -130,7 +130,7 @@ TEST_F(MoegateOnBoardTest, test_moegate_graph3_case2_32_1_7168) {
     int capacity3 = shape_score[0] * shape_score[1];
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit("");
 
     TileShape::Current().SetVecTile(64, 64);
@@ -214,7 +214,7 @@ TEST_F(MoegateOnBoardTest, test_moegate_graph3_case2_8_1_7168) {
     int capacity3 = shape_score[0] * shape_score[1];
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit("");
 
     TileShape::Current().SetVecTile(64, 64);
@@ -300,7 +300,7 @@ TEST_F(MoegateOnBoardTest, test_moegate_graph3_graph4_case_32_1_7168) {
     int capacity4 = shape_topk_weight[0] * shape_topk_weight[1];
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit("");
 
     TileShape::Current().SetVecTile(64, 64);

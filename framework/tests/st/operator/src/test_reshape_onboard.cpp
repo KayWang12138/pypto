@@ -23,7 +23,7 @@ class OnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 TEST_F(OnBoardTest, test_operation_gm_reshape) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     const int capacity_8_8_8 = 8 * 8 * 8;
     uint64_t outputSize = capacity_8_8_8 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
@@ -61,7 +61,7 @@ TEST_F(OnBoardTest, test_operation_ub_reshape) {
     //1 to 1
     aclInit(nullptr);
 
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     const int capacity_8_8_8 = 8 * 8 * 16;
     uint64_t outputSize = capacity_8_8_8 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
@@ -99,7 +99,7 @@ TEST_F(OnBoardTest, test_operation_ub_reshape) {
 TEST_F(OnBoardTest, test_operation_gm_reshape_2dimto3dim) {
     // multi to 1
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     const int capacity = 16 * 8 * 8;
     uint64_t outputSize = capacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
@@ -137,7 +137,7 @@ TEST_F(OnBoardTest, test_operation_gm_reshape_2dimto3dim) {
 TEST_F(OnBoardTest, test_operation_ub_reshape_3dimto2dim) {
     //1 to multi
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     const int capacity = 32 * 8 * 8;
     uint64_t outputSize = capacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
@@ -175,7 +175,7 @@ TEST_F(OnBoardTest, test_operation_ub_reshape_3dimto2dim) {
 
 TEST_F(OnBoardTest, test_operation_ub_withoutreshape_3dimto2dim) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     const int capacity_8_8_8 = 16 * 8 * 8;
     uint64_t outputSize = capacity_8_8_8 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
@@ -213,7 +213,7 @@ TEST_F(OnBoardTest, test_operation_ub_withoutreshape_3dimto2dim) {
 
 TEST_F(OnBoardTest, test_reshape_matmul_mul) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     int m = 64;
     int k = 64;
     int n = 64;

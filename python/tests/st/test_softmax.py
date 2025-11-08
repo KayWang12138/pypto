@@ -10,11 +10,14 @@
 # ======================================================================================================================
 """
 """
+import os
 import pto
 import pytest
 import torch
 import numpy as np
 from numpy.testing import assert_allclose
+import torch_npu
+
 
 GRAPH_T = pto.GraphType.TENSOR_GRAPH
 FUNC_T = pto.FunctionType.STATIC
@@ -36,7 +39,8 @@ def test_softmax_shape_dim():
 
 def test_softmax_FP32():
     """Test whether the ouput of FP32 is correct"""
-
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
     x_shape = [4, 4]
     dtype = pto.DT_FP32
     pto.runtime._device_init()
@@ -59,7 +63,8 @@ def test_softmax_FP32():
 
 def test_tensor_softmax_FP32():
     """Test whether the ouput of FP32 is correct"""
-
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
     x_shape = [4, 4]
     dtype = pto.DT_FP32
     pto.runtime._device_init()

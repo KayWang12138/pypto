@@ -40,13 +40,10 @@ namespace npu::tile_fwk {
 #ifdef BUILD_WITH_CANN
 
 inline void SetDefaultDevice() {
-    int devId = 0;
-    if (rtGetDevice(&devId) != RT_ERROR_NONE) {
-        rtSetDevice(config::GetDeviceId());
-    } else {
-        rtSetDevice(devId);
-    }
-}
+    int32_t devId = 0;
+    ASSERT(rtGetDevice(&devId) == RT_ERROR_NONE) << "fail get device id, check if set device id";
+    rtSetDevice(devId);
+ }
 
 struct HugePageDesc {
     uint8_t *baseAddr;

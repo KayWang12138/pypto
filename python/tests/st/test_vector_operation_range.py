@@ -16,10 +16,13 @@ import pytest
 import torch
 import numpy as np
 from numpy.testing import assert_allclose
+import torch_npu
 
 
 @pytest.mark.skip(reason="Dep operation interface")
 def test_vector_operation_range():
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
     dtype = pto.DT_FP32
     size = 32
     view_shape = (16,)

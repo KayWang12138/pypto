@@ -30,7 +30,7 @@ class OnBoardCostTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
 
 TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_batch4_onlymm5) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit("");
 
     int paramsSize = 7;
@@ -168,7 +168,7 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_batch4_onlymm5) {
 
 TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_n128_onlymm5) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit("");
 
     int paramsSize = 7;
@@ -344,7 +344,7 @@ std::tuple<Tensor, Tensor> QuantTmp(
 
 TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_n128_onlymm5He) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit("");
 
     int paramsSize = 7;
@@ -487,7 +487,7 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_n128_onlymm5He) {
 
 TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_batch4_onlymm5K) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit("");
 
     int paramsSize = 7;
@@ -632,7 +632,7 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_batch4_onlymm5K) {
 
 TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_n128_onlymm5K) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit("");
 
     int paramsSize = 7;
@@ -808,7 +808,7 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_n128_onlymm5K) {
 
 TEST_F(OnBoardCostTest, dynamic_pa_post_static_cast_first) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit("");
 
     int paramsSize = 7;

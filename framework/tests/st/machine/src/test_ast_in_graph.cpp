@@ -34,14 +34,17 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override { Program::GetInstance().Reset(); }
+    void SetUp() override {
+        Program::GetInstance().Reset();
+        rtSetDevice(GetDeviceIdByEnvVar());
+    }
 
     void TearDown() override {}
 };
 
 TEST(OnBoardTestAstInGraph, test_fa_all2all_128) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit();
     AttentionDims atDims = {1, 1, 128, 128, DFT_SINGLE_M, DFT_SINGLE_N};
     int b = atDims.b;
@@ -118,7 +121,7 @@ TEST(OnBoardTestAstInGraph, test_fa_all2all_128) {
 
 TEST(OnBoardTestAstInGraph, test_add) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit();
     int row = 64;
     int col = 64;

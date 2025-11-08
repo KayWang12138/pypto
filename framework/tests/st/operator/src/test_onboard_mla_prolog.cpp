@@ -86,7 +86,7 @@ void TestMlaProlog(std::vector<int> &params, string dataPath, bool isQuant = fal
     }
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize0 = capacity_q * sizeof(T);
     uint64_t outputSize1 = capacity_kv * sizeof(T);
     uint8_t* q_out_ptr = allocDevAddr(outputSize0);
@@ -361,7 +361,7 @@ void Attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
     uint8_t* v0_ptr = allocDevAddr(v0_size);
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize0 = capacity_q * sizeof(T);
     uint64_t outputSize1 = capacity_kv * sizeof(T);
     uint8_t* q_out_ptr = allocDevAddr(outputSize0);
@@ -784,7 +784,7 @@ void attention_high(std::vector<int> &params, string dataPath, bool isQuant = fa
     uint8_t* v0_ptr = allocDevAddr(v0_size);
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize0 = capacity_q * sizeof(T);
     uint64_t outputSize1 = capacity_kv * sizeof(T);
     uint8_t* q_out_ptr = allocDevAddr(outputSize0);

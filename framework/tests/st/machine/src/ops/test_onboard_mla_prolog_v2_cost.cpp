@@ -103,7 +103,7 @@ void TestMlaPrologV2(std::vector<int> &params, string dataPath, uint64_t timeThr
     int capacity_smooth_cq = std::accumulate(smooth_cq_shape.begin(), smooth_cq_shape.end(), 1, std::multiplies<>());
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit("");
 
     uint64_t outputSize0 = capacity_q_out * sizeof(T);

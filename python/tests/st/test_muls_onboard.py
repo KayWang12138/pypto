@@ -14,10 +14,12 @@ import math
 
 import pto
 import pytest
+import torch_npu
 
 @pytest.mark.skip(reason="error case.")
 def test_muls_onboard():
-    device_id = os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0)
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
     shape = (72, 71)
     view_shape = (32, 32)
     tile_shape = (32, 32)

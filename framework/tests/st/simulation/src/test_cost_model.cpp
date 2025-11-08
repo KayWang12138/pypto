@@ -41,6 +41,7 @@ public:
         oriEnableBinaryCache = config::GetPlatformConfig(KEY_ENABLE_BINARY_CACHE, oriEnableBinaryCache);
         config::SetPlatformConfig(KEY_ENABLE_BINARY_CACHE, false);
         Program::GetInstance().Reset();
+        rtSetDevice(GetDeviceIdByEnvVar());
     }
 
     void TearDown() override {
@@ -79,7 +80,7 @@ void TestMatmulTrans(int m, int k, int n, string dataPath) {
     const int capacity_c = m * n;
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_c * sizeof(OnputT);
     uint8_t* c_ptr = allocDevAddr(outputSize);
     auto InputDtype = GetAstDtype<InputT>();
@@ -133,6 +134,7 @@ public:
         Program::GetInstance().Reset();
         constexpr int level = 2;
         EnablePVModel(level);
+        rtSetDevice(GetDeviceIdByEnvVar());
     }
 
     void TearDown() override {

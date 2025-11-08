@@ -16,6 +16,7 @@ import numpy as np
 import torch
 import pto
 from numpy.testing import assert_allclose
+import torch_npu
 
 FP32 = np.float32
 FP16 = np.float16
@@ -65,7 +66,8 @@ def test_matmul_bf16_nd_with_no_split():
 
 def dynamic_matmul_onboard_util(input_config: ShapeConfig):
     # onboard prepare
-    device_id = os.environ.get("TILE_FWK_DEVICE_ID", 0)
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
     pto.runtime._device_init()
     pto.set_codegen_option("support_dynamic_unaligned", True)
     pto.set_host_option("only_codegen", True)

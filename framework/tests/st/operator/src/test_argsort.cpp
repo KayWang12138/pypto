@@ -23,7 +23,7 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_128_32_argsort) {
     aclInit(nullptr);
     constexpr int32_t shape0 = 128;
     constexpr int32_t shape1 = 32;
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = shape0 * shape1 * sizeof(float);
     uint8_t* out_ptr1 = allocDevAddr(outputSize);
     PROGRAM("ARGSORT") {
@@ -51,7 +51,7 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_4_32_argsort) {
     aclInit(nullptr);
     constexpr int32_t shape0 = 4;
     constexpr int32_t shape1 = 32;
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = shape0 * shape1 * sizeof(float);
     uint8_t* out_ptr1 = allocDevAddr(outputSize);
     PROGRAM("ARGSORT") {
@@ -79,7 +79,7 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_2_16_argsort) {
     aclInit(nullptr);
     constexpr int32_t shape0 = 2;
     constexpr int32_t shape1 = 16;
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = shape0 * shape1 * sizeof(float);
     uint8_t* out_ptr1 = allocDevAddr(outputSize);
     PROGRAM("ARGSORT") {
@@ -107,7 +107,7 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_2_16_argsort) {
 TEST_F(ArgsortOnBoardTest, test_operation_tensor_32_argsort) {
     aclInit(nullptr);
     constexpr int32_t shape0 = 32;
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = shape0  * sizeof(float);
     uint8_t* out_ptr1 = allocDevAddr(outputSize);
     PROGRAM("ARGSORT") {
@@ -135,7 +135,7 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_32_argsort) {
 TEST_F(ArgsortOnBoardTest, test_operation_tensor_64_argsort) {
     aclInit(nullptr);
     constexpr int32_t shape0 = 64;
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = shape0  * sizeof(float);
     uint8_t* out_ptr1 = allocDevAddr(outputSize);
     PROGRAM("ARGSORT") {
@@ -164,7 +164,7 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_4_32__argsort) {
     aclInit(nullptr);
     constexpr int32_t shape0 = 4;
     constexpr int32_t shape1 = 32;
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = shape0 * shape1 * sizeof(float);
     uint8_t* out_ptr1 = allocDevAddr(outputSize);
     PROGRAM("ARGSORT") {
@@ -191,7 +191,7 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_4_32__argsort) {
 TEST_F(ArgsortOnBoardTest, test_operation_tensor_64__argsort_moe) {
     aclInit(nullptr);
     constexpr int32_t shape0 = 64;
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = shape0  * sizeof(float);
     uint8_t* out_ptr1 = allocDevAddr(outputSize);
     PROGRAM("ARGSORT") {

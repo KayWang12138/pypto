@@ -45,7 +45,7 @@ int64_t Capacity(std::vector<int64_t> &shape) {
 template <typename T = float, typename idxT = int>
 void SortStaticTest(int tileSize){
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     std::vector<int> params(2);
     readInput<int>(GetGoldenDir() + "/params.bin", params);

@@ -22,7 +22,7 @@ class RmsNormTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 TEST_F(RmsNormTest, test_32_32_tileop_rmsnorm) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 32;
     int shape1 = 32;
@@ -58,7 +58,7 @@ TEST_F(RmsNormTest, test_32_32_tileop_rmsnorm) {
 
 TEST_F(RmsNormTest, test_2_32_32_tileop_rmsnorm) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 2;
     int shape1 = 32;
@@ -95,7 +95,7 @@ TEST_F(RmsNormTest, test_2_32_32_tileop_rmsnorm) {
 
 TEST_F(RmsNormTest, test_2_2_32_32_tileop_rmsnorm) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 2;
     int shape1 = 2;
@@ -133,7 +133,7 @@ TEST_F(RmsNormTest, test_2_2_32_32_tileop_rmsnorm) {
 
 TEST_F(RmsNormTest, test_32_256_tileop_rmsnorm_fp16) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 32;
     int shape1 = 256;
@@ -169,7 +169,7 @@ TEST_F(RmsNormTest, test_32_256_tileop_rmsnorm_fp16) {
 
 TEST_F(RmsNormTest, test_32_1536_tileop_rmsnorm_fp16_realCase) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 32;
     int shape1 = 1536;
@@ -205,7 +205,7 @@ TEST_F(RmsNormTest, test_32_1536_tileop_rmsnorm_fp16_realCase) {
 
 TEST_F(RmsNormTest, test_2_32_256_tileop_rmsnorm_fp16) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 2;
     int shape1 = 32;
@@ -242,7 +242,7 @@ TEST_F(RmsNormTest, test_2_32_256_tileop_rmsnorm_fp16) {
 
 TEST_F(RmsNormTest, test_32_1536_tileop_rmsnorm_gamma_fp16_realCase) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 32;
     int shape1 = 1536;
@@ -282,7 +282,7 @@ TEST_F(RmsNormTest, test_32_1536_tileop_rmsnorm_gamma_fp16_realCase) {
 
 TEST_F(RmsNormTest, test_2_1_512_tileop_rmsnorm_gamma_fp16_realCase) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 32;
     int shape1 = 1;

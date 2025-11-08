@@ -51,7 +51,7 @@ public:
             CostModel::SoftMemory::Instance().Enable();
         }
         // Reset Program
-
+        rtSetDevice(GetDeviceIdByEnvVar());
         Program::GetInstance().Reset();
         ProgramData::GetInstance().Reset();
     }

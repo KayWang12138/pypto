@@ -22,7 +22,7 @@ class OnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 TEST_F(OnBoardTest, test_attention_post_bf16_real_batch4) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     int paramsSize = 7;
     std::vector<int64_t> params(paramsSize);
@@ -119,7 +119,7 @@ TEST_F(OnBoardTest, test_attention_post_bf16_real_batch4) {
 
 TEST_F(OnBoardTest, test_attention_post_bf16_real_n128) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     int paramsSize = 7;
     std::vector<int64_t> params(paramsSize);

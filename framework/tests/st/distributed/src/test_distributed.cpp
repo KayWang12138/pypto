@@ -31,7 +31,8 @@ public:
     static void SetUpTestCase() {}
 
     void SetUp() override
-    {
+    {   
+        rtSetDevice(GetDeviceIdByEnvVar());
         std::string folderPath = "output/output_" + getTimeStamp() + "_" + std::to_string(getpid());
         setenv("TILE_FWK_OUTPUT_DIR", folderPath.c_str(), 0);
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);

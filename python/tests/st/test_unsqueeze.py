@@ -10,10 +10,12 @@
 # ======================================================================================================================
 """
 """
+import os
 import pto
 import pytest
 import torch
 import numpy as np
+import torch_npu
 
 GRAPH_T = pto.GraphType.TENSOR_GRAPH
 FUNC_T = pto.FunctionType.STATIC
@@ -37,7 +39,8 @@ def test_unsqueeze_shape_dim():
 
 def test_unsqueeze_content_equal():
     """Test whether the output content has changed"""
-
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
     shape = [2, 2]
     dtype = pto.DT_FP32
     pto.runtime._device_init()

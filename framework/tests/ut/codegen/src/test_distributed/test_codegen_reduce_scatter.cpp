@@ -64,7 +64,7 @@ void TestReduceScatter() {
     FUNCTION("REDUCESCATTER_F", {in[0], in[1], out}) {
         // 为了适配 kernel 代码，这边切分改成 1，线上代码可以直接运行
         TileShape::Current().SetDistTile({m / 2, 2, 0}, {n, 1, 0}, {2, 1, 0});
-        TileShape::Current().SetDistRankId(config::GetDeviceId());
+        TileShape::Current().SetDistRankId(0);
         out = Distributed::ReduceScatter(in, group, npu::tile_fwk::Distributed::DistReduceType::DIST_REDUCE_ADD);
     }
 }
@@ -91,7 +91,7 @@ void TestReduceScatterOneTensor() {
     FUNCTION("REDUCESCATTER_F", {in, out}) {
         // 为了适配 kernel 代码，这边切分改成 1，线上代码可以直接运行
         TileShape::Current().SetDistTile({m / 2, 2, 0}, {m, 1, 0}, {rankSize, 1, 0});
-        TileShape::Current().SetDistRankId(config::GetDeviceId());
+        TileShape::Current().SetDistRankId(0);
         out = Distributed::ReduceScatter(in, group, npu::tile_fwk::Distributed::DistReduceType::DIST_REDUCE_ADD);
     }
 }

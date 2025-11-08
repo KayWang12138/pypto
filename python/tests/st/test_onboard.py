@@ -15,10 +15,12 @@ import pto
 
 import numpy as np
 import torch
+import torch_npu
 
 
 def test_device_run_data_from_host_numpy():
-    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
     tiling = 16
     n, m, k = tiling * 1, tiling * 1, tiling * 1
 
@@ -48,7 +50,8 @@ def test_device_run_data_from_host_numpy():
 
 
 def test_device_run_data_from_host_torch():
-    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
     tiling = 8
     n, m = tiling * 1, tiling * 1
 
@@ -78,7 +81,8 @@ def test_device_run_data_from_host_torch():
 
 
 def test_device_run_data_from_host():
-    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
     tiling = 32
     n, m = tiling * 1, tiling * 1
 
@@ -122,14 +126,7 @@ def cust_dyn_func(in_tensors, out_tensors, tiling = None):
 
 
 def test_device_run_data_from_device():
-    try:
-        import torch
-        import torch_npu
-    except e as ImportError:
-        torch = None
-        torch_npu = None
-
-    device_id = int(os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0))
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
     tiling = 32
     n, m = tiling * 1, tiling * 1
@@ -180,14 +177,7 @@ def matmul_add(in_tensors, out_tensors, m, k, n, tiling = None):
 
 
 def test_device_run_data_from_device_mix_nodep():
-    try:
-        import torch
-        import torch_npu
-    except ImportError as e:
-        torch = None
-        torch_npu = None
-
-    device_id = int(os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0))
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
 
     tiling = 32

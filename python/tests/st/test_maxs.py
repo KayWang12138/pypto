@@ -12,7 +12,7 @@ import math
 import torch
 import pytest
 import numpy as np
-
+import torch_npu
 import pto
 from pto import (
     tensor, element, view, symbolic_scalar, function,
@@ -22,6 +22,8 @@ from pto import (
 
 @pytest.mark.skip(reason="Dep operation interface")
 def test_maxs():
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
     scalar_data = 5
     first_dim, second_dim = 128, 128
     view_shape, tile_shape = (64, 64), (32, 32)

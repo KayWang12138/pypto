@@ -54,8 +54,7 @@ private:
     void Init(Function &topFunc, uint64_t subProgramId) {
         std::string coreType = isCube_ ? "aic" : "aiv";
         std::ostringstream ss;
-        ss << topFunc.GetMagicName() << "_" << topFunc.GetFunctionHash() << "_" << subProgramId << "_" << coreType
-           << "_rankId_" << config::GetDeviceId();
+        ss << topFunc.GetMagicName() << "_" << topFunc.GetFunctionHash() << "_" << subProgramId << "_" << coreType;
         cceFileName_ = ss.str();
         ss.str("");
         ss << userSpecCCEDir_ << "/" << cceFileName_ << GetSuffix();

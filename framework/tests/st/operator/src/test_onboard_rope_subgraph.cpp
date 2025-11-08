@@ -22,7 +22,7 @@ class RoPESubGraphOnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops
 
 TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     int B = 1;
     int S = 1;                 // IFA S=1 S=1024
@@ -123,7 +123,7 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3) {
 
 TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_fp16) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     int B = 1;
     int S = 1;                 // IFA S=1 S=1024
@@ -207,7 +207,7 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_fp16) {
 
 TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_fp16_2batch) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     int B = 2;
     int S = 1;                 // IFA S=1 S=1024
@@ -291,7 +291,7 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_fp16_2ba
 
 TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_bf16) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     int B = 1;
     int S = 1;                 // IFA S=1 S=1024
@@ -374,7 +374,7 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_bf16) {
 
 TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_bf16_32batch) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     int B = 32;
     int S = 1;                 // IFA S=1 S=1024
@@ -457,7 +457,7 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_bf16_32b
 
 TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_bf16_2batch) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     int B = 2;
     int S = 1;                 // IFA S=1 S=1024
@@ -542,7 +542,7 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_bf16_2ba
 
 TEST_F(RoPESubGraphOnBoardTest, test_CD_bf16_32batch) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     int B = 32;
     int N = 32;
@@ -669,7 +669,7 @@ TEST_F(RoPESubGraphOnBoardTest, test_CD_bf16_32batch) {
 
 TEST_F(RoPESubGraphOnBoardTest, test_CD_bf16_32batch_4k) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     int B = 32;
     int N = 32;

@@ -82,7 +82,7 @@ void CompileTestCCE(const std::string &cceFileName) {
 
 TEST_F(TestTileOpAdd, TestAddDim2) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     rtStream_t stream;
     rtStreamCreate(&stream, 0);

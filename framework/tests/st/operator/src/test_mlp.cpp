@@ -27,7 +27,7 @@ TEST_F(MlpTest, test_16_7168_tileop)
 {
     // 初始化
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     // 创建输入输出shape
     int b = 64;

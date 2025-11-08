@@ -9,11 +9,14 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
+import os
 import pto
 import pytest
 import numpy as np
 import torch
 from numpy.testing import assert_allclose
+import torch_npu
+
 
 F_1 = 1.0
 SHAPE = [8, 32]
@@ -21,6 +24,8 @@ DTYPE = pto.DT_FP32
 
 
 def test_assmble_2d():
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
     pto.runtime._device_init()
     x = pto.tensor(SHAPE, DTYPE)
     out = pto.tensor(SHAPE, DTYPE)
@@ -55,6 +60,8 @@ def test_assmble_2d():
 
 
 def test_assmble_1d():
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
     pto.runtime._device_init()
     x = pto.tensor([24], DTYPE)
     out = pto.tensor([24], DTYPE)

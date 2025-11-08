@@ -15,7 +15,7 @@ import pytest
 import numpy as np
 import torch
 from numpy.testing import assert_allclose
-
+import torch_npu
 
 GRAPG_T = pto.GraphType.TENSOR_GRAPH
 FUNC_T = pto.FunctionType.STATIC
@@ -39,6 +39,8 @@ def test_reshape_shape():
 
 
 def test_reshape_equal():
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
     dtype = pto.DT_FP32
     pto.runtime._device_init()
     s = 16
@@ -65,6 +67,8 @@ def test_reshape_equal():
 
 
 def test_reshape_equal2():
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
     dtype = pto.DT_FP32
     pto.runtime._device_init()
     s = 16
@@ -95,6 +99,8 @@ def test_reshape_equal2():
 
 
 def test_reshape_validshape():
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
     dtype = pto.DT_FP32
     pto.runtime._device_init()
     s = 16
@@ -122,6 +128,8 @@ def test_reshape_validshape():
 
 
 def test_reshape_validshape2():
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
     dtype = pto.DT_FP32
     pto.runtime._device_init()
     s = 16

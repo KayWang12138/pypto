@@ -151,7 +151,7 @@ private:
             return;
         }
         MachineAgent::AgentProc(gDeviceAgentTaskPtr.get());
-        rtSetDevice(config::GetDeviceId());
+        SetDefaultDevice();
         MachinePipe::PipeProc(gDeviceAgentTaskPtr.get());
         delete gDeviceAgentTaskPtr->compileTask;
     }

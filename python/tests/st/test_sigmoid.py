@@ -10,11 +10,14 @@
 # ======================================================================================================================
 """
 """
+import os
 import pto
 import pytest
 import torch
 import numpy as np
 from numpy.testing import assert_allclose
+import torch_npu
+
 
 GRAPH_T = pto.GraphType.TENSOR_GRAPH
 FUNC_T = pto.FunctionType.STATIC
@@ -35,7 +38,8 @@ def test_sigmoid_shape_dim():
 
 def test_sigmoid_FP32():
     """Test whether the ouput of FP32 is correct"""
-
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
     x_shape = [4, 4]
     dtype = pto.DT_FP32
     pto.runtime._device_init()
@@ -60,7 +64,8 @@ def test_sigmoid_FP32():
 
 def test_sigmoid_FP16():
     """Test whether the ouput of FP16 shape is correct"""
-
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
     x_shape = [4, 4]
     dtype = pto.DT_FP16
     pto.runtime._device_init()
@@ -84,7 +89,8 @@ def test_sigmoid_FP16():
 
 def test_tensor_sigmoid_FP32():
     """Test whether the ouput of FP32 is correct"""
-
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
     x_shape = [4, 4]
     dtype = pto.DT_FP32
     pto.runtime._device_init()

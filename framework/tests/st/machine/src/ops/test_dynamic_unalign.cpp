@@ -31,6 +31,7 @@ public:
         config::SetHostOption(ONLY_CODEGEN, true);
         TileShape::Current().SetVecTile(32, 32);
         TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
+        rtSetDevice(GetDeviceIdByEnvVar());
     }
 };
 

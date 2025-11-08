@@ -42,7 +42,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_1_16_16) {
     int capacity2 = shape2[0] * shape2[1];
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit("");
 
     TileShape::Current().SetVecTile(16, 16);
@@ -107,7 +107,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_1_20_20) {
     int capacity2 = shape2[0] * shape2[1];
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit("");
 
     TileShape::Current().SetVecTile(16, 16);
@@ -173,7 +173,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_1_16_16_bf16) {
     int capacity2 = shape2[0] * shape2[1];
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit("");
 
     TileShape::Current().SetVecTile(16, 16);
@@ -236,7 +236,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_16_16_16) {
     int capacity2 = shape2[0] * shape2[1];
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit("");
 
     TileShape::Current().SetVecTile(16, 16);
@@ -302,7 +302,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_48_4096_512) {
     int capacity2 = shape2[0] * shape2[1];
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit("");
 
     TileShape::Current().SetVecTile(16, 512);
@@ -365,7 +365,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_1_16_16_exp) {
     int capacity2 = shape2[0] * shape2[1];
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit("");
 
     TileShape::Current().SetVecTile(16, 16);
@@ -435,7 +435,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_2_1_512_576) {
     int capacity2 = shape2[0] * shape2[1] * shape2[2] * shape2[3];
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit("");
 
     TileShape::Current().SetVecTile(1, 1, 1, 128);
@@ -499,7 +499,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_2_1_512_576_multi_row3) {
     int capacity2 = shape2[0] * shape2[1] * shape2[2] * shape2[3];
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit("");
 
     TileShape::Current().SetVecTile(1, 1, 1, 128);
@@ -567,7 +567,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_2_1_512_576_graphD) {
     int capacity_k_pe_rope = shape_k_pe_rope[0] * shape_k_pe_rope[1] * shape_k_pe_rope[2] * shape_k_pe_rope[3];
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit("");
 
     void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
@@ -643,7 +643,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_2_1_512_576_graphD_bf16) {
     int capacity_k_pe_rope = shape_k_pe_rope[0] * shape_k_pe_rope[1] * shape_k_pe_rope[2] * shape_k_pe_rope[3];
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit("");
 
     void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
@@ -716,7 +716,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_32_1_512_576_graphD_bf16) {
     int capacity_k_pe_rope = shape_k_pe_rope[0] * shape_k_pe_rope[1] * shape_k_pe_rope[2] * shape_k_pe_rope[3];
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit("");
 
     void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
@@ -789,7 +789,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_32_1_512_576_graphD) {
     int capacity_k_pe_rope = shape_k_pe_rope[0] * shape_k_pe_rope[1] * shape_k_pe_rope[2] * shape_k_pe_rope[3];
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit("");
 
     void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
@@ -857,7 +857,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_64_7168_64_moe) {
     int capacity2 = shape2[0] * shape2[1];
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit("");
 
     TileShape::Current().SetVecTile(16, 16);
@@ -923,7 +923,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_48_4096_512_BSNZ) {
     int capacity2 = shape2[0] * shape2[1];
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit("");
 
     TileShape::Current().SetVecTile(16, 512);
@@ -988,7 +988,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_48_4096_512_BSNZ_bf16) {
     int capacity2 = shape2[0] * shape2[1];
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit("");
 
     TileShape::Current().SetVecTile(16, 512);
@@ -1058,7 +1058,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_1_1_64_BSND_4dims) {
     int capacity2 = shape2[0] * shape2[1] * shape2[2] * shape2[3];
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit("");
 
     TileShape::Current().SetVecTile(b, s, n, d);
@@ -1127,7 +1127,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_1_1_64_BSND_2dims) {
     int capacity2 = shape2[0] * shape2[1];
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit("");
     TileShape::Current().SetVecTile(b, d);
 

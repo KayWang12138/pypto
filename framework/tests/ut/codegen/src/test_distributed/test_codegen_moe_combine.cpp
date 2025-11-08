@@ -61,7 +61,7 @@ void TestMoeCombine() {
 
     config::SetBuildStatic(true);
     FUNCTION("ATTNCombine", {in, combineInfo, scale, out}) {
-        TileShape::Current().SetDistRankId(config::GetDeviceId());
+        TileShape::Current().SetDistRankId(0);
         out = Distributed::MoeCombine(in, scale, combineInfo, group);
     }
 }

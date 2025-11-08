@@ -114,7 +114,7 @@ void DeviceAgentTask::SetDumpTensorInfo(const InvokeParaOffset &elm, TensorInfo 
         tensorInfo.hostpid = getpid();
     }
     tensorInfo.subgraphId = task->GetFunction()->Operations()[0].GetSubgraphID();
-    tensorInfo.deviceId = config::GetDeviceId();
+    tensorInfo.deviceId = 0;
     tensorInfo.rawMagic = elm.rawMagic;
     tensorInfo.opMagic = elm.opMagic;
     tensorInfo.dataByte = BytesOf(elm.datatype);

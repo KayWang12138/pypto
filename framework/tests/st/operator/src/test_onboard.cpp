@@ -58,7 +58,7 @@ class OnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 TEST_F(OnBoardTest, test_sin_dim2_float32) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     std::vector<int64_t> shape = {64, 64};
     DataType dtype = DataType::DT_FP32;
     int cap = shape[0] * shape[1];
@@ -89,7 +89,7 @@ TEST_F(OnBoardTest, test_sin_dim2_float32) {
 
 TEST_F(OnBoardTest, test_cos_dim4_float16) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     std::vector<int64_t> shape = {2, 2, 64, 64};
     DataType dtype = DataType::DT_FP16;
     int cap = shape[0] * shape[1] * shape[2] * shape[3];
@@ -137,7 +137,7 @@ TEST_F(OnBoardTest, test_gather_float_case1) {
     std::string inputDir(buffer);
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity2 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("GATHER") {
@@ -186,7 +186,7 @@ TEST_F(OnBoardTest, test_gather_float_case2) {
     std::string inputDir(buffer);
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity2 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("GATHER") {
@@ -235,7 +235,7 @@ TEST_F(OnBoardTest, test_gather_float_case3) {
     std::string inputDir(buffer);
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity2 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("GATHER") {
@@ -286,7 +286,7 @@ TEST_F(OnBoardTest, test_gather_float_case4) {
     std::string inputDir(buffer);
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity2 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("GATHER") {
@@ -318,7 +318,7 @@ TEST_F(OnBoardTest, test_gather_float_case4) {
 
 TEST_F(OnBoardTest, test_concat_all2all) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity * 2 * sizeof(float);
     uint8_t* outputGmAddr = allocDevAddr(outputSize);
     PROGRAM("CONCAT") {
@@ -348,7 +348,7 @@ TEST_F(OnBoardTest, test_concat_all2all) {
 
 TEST_F(OnBoardTest, test_concat_4) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = 13 * 2 * 10 * 10 * sizeof(float);
     uint8_t* outputGmAddr = allocDevAddr(outputSize);
     PROGRAM("CONCAT") {
@@ -383,7 +383,7 @@ TEST_F(OnBoardTest, test_concat_4) {
 
 TEST_F(OnBoardTest, test_operation_tensor_16_16_64_64_tileop_add) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_16_16_64_64 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("ADD") {
@@ -413,7 +413,7 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_64_64_tileop_add) {
 
 TEST_F(OnBoardTest, test_operation_tensor_16_16_64_65_tileop_add_unalign) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     std::vector<int64_t> shape = {16, 16, 64, 65};
     int shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     uint64_t outputSize = shapeSize * sizeof(float);
@@ -446,7 +446,7 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_64_65_tileop_add_unalign) {
 
 TEST_F(OnBoardTest, test_operation_tensor_16_16_39_65_tileop_add_unalign) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     std::vector<int64_t> shape = {16, 16, 39, 65};
     int shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     uint64_t outputSize = shapeSize * sizeof(float);
@@ -479,7 +479,7 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_39_65_tileop_add_unalign) {
 
 TEST_F(OnBoardTest, test_operation_tensor_32_1_tileop_add_unalign) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     std::vector<int64_t> shape = {32, 1};
     int shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     uint64_t outputSize = shapeSize * sizeof(float);
@@ -512,7 +512,7 @@ TEST_F(OnBoardTest, test_operation_tensor_32_1_tileop_add_unalign) {
 
 TEST_F(OnBoardTest, test_operation_tensor_32_1_tileop_sub_unalign) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     std::vector<int64_t> shape = {32, 1};
     int shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     uint64_t outputSize = shapeSize * sizeof(float);
@@ -545,7 +545,7 @@ TEST_F(OnBoardTest, test_operation_tensor_32_1_tileop_sub_unalign) {
 
 TEST_F(OnBoardTest, test_operation_tensor_32_1_tileop_mul_unalign) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     std::vector<int64_t> shape = {32, 1};
     int shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     uint64_t outputSize = shapeSize * sizeof(float);
@@ -578,7 +578,7 @@ TEST_F(OnBoardTest, test_operation_tensor_32_1_tileop_mul_unalign) {
 
 TEST_F(OnBoardTest, test_operation_tensor_16_16_64_64_tileop_sub) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_16_16_64_64 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("SUB") {
@@ -608,7 +608,7 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_64_64_tileop_sub) {
 
 TEST_F(OnBoardTest, test_operation_tensor_16_16_64_64_tileop_mul) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_16_16_64_64 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("MUL") {
@@ -638,7 +638,7 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_64_64_tileop_mul) {
 
 TEST_F(OnBoardTest, test_operation_tensor_16_16_64_64_tileop_div) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_16_16_64_64 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("DIV") {
@@ -668,7 +668,7 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_64_64_tileop_div) {
 
 TEST_F(OnBoardTest, test_operation_tensor_8_80_80_tileop_add) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_8_80_80 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("ADD") {
@@ -698,7 +698,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_80_80_tileop_add) {
 
 TEST_F(OnBoardTest, test_operation_tensor_8_80_80_tileop_sub) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_8_80_80 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("SUB") {
@@ -728,7 +728,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_80_80_tileop_sub) {
 
 TEST_F(OnBoardTest, test_operation_tensor_8_80_80_tileop_mul) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_8_80_80 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("MUL") {
@@ -758,7 +758,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_80_80_tileop_mul) {
 
 TEST_F(OnBoardTest, test_operation_tensor_8_80_80_tileop_div) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_8_80_80 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("DIV") {
@@ -788,7 +788,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_80_80_tileop_div) {
 
 TEST_F(OnBoardTest, test_operation_tensor_64_128_tileop_add) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_64_128 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("ADD") {
@@ -818,7 +818,7 @@ TEST_F(OnBoardTest, test_operation_tensor_64_128_tileop_add) {
 
 TEST_F(OnBoardTest, test_operation_tensor_64_128_tileop_sub) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_64_128 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("SUB") {
@@ -848,7 +848,7 @@ TEST_F(OnBoardTest, test_operation_tensor_64_128_tileop_sub) {
 
 TEST_F(OnBoardTest, test_operation_tensor_64_128_tileop_mul) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_64_128 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("MUL") {
@@ -878,7 +878,7 @@ TEST_F(OnBoardTest, test_operation_tensor_64_128_tileop_mul) {
 
 TEST_F(OnBoardTest, test_operation_tensor_64_128_tileop_div) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_64_128 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("DIV") {
@@ -908,7 +908,7 @@ TEST_F(OnBoardTest, test_operation_tensor_64_128_tileop_div) {
 
 TEST_F(OnBoardTest, test_operation_tensor_dim4_add) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_dim4 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("ADD") {
@@ -938,7 +938,7 @@ TEST_F(OnBoardTest, test_operation_tensor_dim4_add) {
 
 TEST_F(OnBoardTest, test_operation_tensor_dim2_add) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("ADD") {
@@ -969,7 +969,7 @@ TEST_F(OnBoardTest, test_operation_tensor_dim2_add) {
 // ----------------------------------expand
 TEST_F(OnBoardTest, test_operation_tensor_2_2_8_8_expand_add) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_2_2_8_8 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("ADD") {
@@ -1005,7 +1005,7 @@ TEST_F(OnBoardTest, test_operation_tensor_2_2_8_8_expand_add) {
 
 TEST_F(OnBoardTest, test_operation_tensor_1_n_to_m_n_mul) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = 64 * 32 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("MUL") {
@@ -1036,7 +1036,7 @@ TEST_F(OnBoardTest, test_operation_tensor_1_n_to_m_n_mul) {
 
 TEST_F(OnBoardTest, test_operation_tensor_4_4_16_16_expand_add) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_4_4_16_16 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("ADD") {
@@ -1072,7 +1072,7 @@ TEST_F(OnBoardTest, test_operation_tensor_4_4_16_16_expand_add) {
 
 TEST_F(OnBoardTest, test_operation_tensor_1_1_32_to_16_32_32_expand_add) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_16_32_32 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("ADD") {
@@ -1108,7 +1108,7 @@ TEST_F(OnBoardTest, test_operation_tensor_1_1_32_to_16_32_32_expand_add) {
 
 TEST_F(OnBoardTest, test_operation_tensor_8_16_1_to_8_16_16_expand_add) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_8_16_16 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("ADD") {
@@ -1139,7 +1139,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_16_1_to_8_16_16_expand_add) {
 
 TEST_F(OnBoardTest, test_operation_tensor_8_8_1_to_8_8_7168_expand_Mul_moe) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_8_8_7168 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("MUL") {
@@ -1170,7 +1170,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_8_1_to_8_8_7168_expand_Mul_moe) {
 
 TEST_F(OnBoardTest, test_operation_tensor_8_8_1_to_8_8_7168_expand_sub) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_8_8_7168 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("SUB") {
@@ -1201,7 +1201,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_8_1_to_8_8_7168_expand_sub) {
 
 TEST_F(OnBoardTest, test_operation_tensor_8_1_16_to_8_16_16_expand_add) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_8_16_16 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("ADD") {
@@ -1231,7 +1231,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_1_16_to_8_16_16_expand_add) {
 }
 TEST_F(OnBoardTest, test_operation_tensor_1_16_16_to_8_16_16_expand_add) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_8_16_16 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("ADD") {
@@ -1261,7 +1261,7 @@ TEST_F(OnBoardTest, test_operation_tensor_1_16_16_to_8_16_16_expand_add) {
 }
 TEST_F(OnBoardTest, test_operation_tensor_8_1_1_to_8_16_16_expand_add) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_8_16_16 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("ADD") {
@@ -1291,7 +1291,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_1_1_to_8_16_16_expand_add) {
 }
 TEST_F(OnBoardTest, test_operation_tensor_1_1_1_to_8_16_16_expand_add) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_8_16_16 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("ADD") {
@@ -1322,7 +1322,7 @@ TEST_F(OnBoardTest, test_operation_tensor_1_1_1_to_8_16_16_expand_add) {
 
 TEST_F(OnBoardTest, test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_add) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     int size0 = 32*32*256;
     int size1 = 32*32;
     uint64_t outputSize = size0 * sizeof(float);
@@ -1354,7 +1354,7 @@ TEST_F(OnBoardTest, test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_add) {
 }
 TEST_F(OnBoardTest, test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_sub) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     int size0 = 32*32*256;
     int size1 = 32*32;
     uint64_t outputSize = size0 * sizeof(float);
@@ -1386,7 +1386,7 @@ TEST_F(OnBoardTest, test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_sub) {
 }
 TEST_F(OnBoardTest, test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_mul) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     int size0 = 32*32*256;
     int size1 = 32*32;
     uint64_t outputSize = size0 * sizeof(float);
@@ -1418,7 +1418,7 @@ TEST_F(OnBoardTest, test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_mul) {
 }
 TEST_F(OnBoardTest, test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_div) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     int size0 = 32*32*256;
     int size1 = 32*32;
     uint64_t outputSize = size0 * sizeof(float);
@@ -1451,7 +1451,7 @@ TEST_F(OnBoardTest, test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_div) {
 
 TEST_F(OnBoardTest, test_operation_tensor_8_8_1_1_to_8_8_1_256_tileop_sub) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     uint64_t outputSize = capacity_8_8_1_256 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
@@ -1482,7 +1482,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_8_1_1_to_8_8_1_256_tileop_sub) {
 }
 TEST_F(OnBoardTest, test_operation_tensor_1_1_1_64_to_1_128_1_64_tileop_mul01) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     int capShape1 = 64;
     int capShape2 = 128*64;
     uint64_t outputSize = capShape2 * sizeof(float);
@@ -1515,7 +1515,7 @@ TEST_F(OnBoardTest, test_operation_tensor_1_1_1_64_to_1_128_1_64_tileop_mul01) {
 
 TEST_F(OnBoardTest, test_operation_tensor_1_1_1_64_to_1_128_1_64_tileop_mul02) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     int capShape1 = 128*64;
     int capShape2 = 64;
     uint64_t outputSize = capShape2 * sizeof(float);
@@ -1548,7 +1548,7 @@ TEST_F(OnBoardTest, test_operation_tensor_1_1_1_64_to_1_128_1_64_tileop_mul02) {
 // Fail
 TEST_F(OnBoardTest, test_operation_tensor_1_1_64_to_32_1_64_tileop_mul03) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     int capShape1 = 32*64;
     int capShape2 = 64;
     uint64_t outputSize = capShape2 * sizeof(float);
@@ -1582,7 +1582,7 @@ TEST_F(OnBoardTest, test_operation_tensor_1_1_64_to_32_1_64_tileop_mul03) {
 TEST_F(OnBoardTest, test_operation_tensor_8_8_1_to_8_8_7168_expand_mul) {
     aclInit(nullptr);
     int ccc = 7168;
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = 8*8*ccc * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("ADD") {
@@ -1615,7 +1615,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_8_1_to_8_8_7168_expand_mul) {
 
 TEST_F(OnBoardTest, test_unary_operation_32_32_tileop_exp) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_32_32 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("EXP") {
@@ -1642,7 +1642,7 @@ TEST_F(OnBoardTest, test_unary_operation_32_32_tileop_exp) {
 
 TEST_F(OnBoardTest, test_unary_operation_16_32_32_tileop_exp) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_16_32_32 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("EXP") {
@@ -1670,7 +1670,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_32_32_tileop_exp) {
 
 TEST_F(OnBoardTest, test_unary_operation_16_16_64_64_tileop_exp) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_16_16_64_64 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("EXP") {
@@ -1698,7 +1698,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_16_64_64_tileop_exp) {
 
 TEST_F(OnBoardTest, test_unary_operation_32_32_tileop_sqrt) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_32_32 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("SQRT") {
@@ -1726,7 +1726,7 @@ TEST_F(OnBoardTest, test_unary_operation_32_32_tileop_sqrt) {
 
 TEST_F(OnBoardTest, test_unary_operation_16_32_32_tileop_sqrt) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_16_32_32 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("SQRT") {
@@ -1754,7 +1754,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_32_32_tileop_sqrt) {
 
 TEST_F(OnBoardTest, test_unary_operation_16_16_64_64_tileop_sqrt) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_16_16_64_64 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("SQRT") {
@@ -1782,7 +1782,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_16_64_64_tileop_sqrt) {
 
 TEST_F(OnBoardTest, test_unary_operation_16_16_64_70_tileop_sqrt) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     const int capacity_16_16_64_70 = 16 * 16 * 64 * 70;
     uint64_t outputSize = capacity_16_16_64_70 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
@@ -1811,7 +1811,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_16_64_70_tileop_sqrt) {
 
 TEST_F(OnBoardTest, test_unary_operation_32_32_tileop_reciprocal) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_32_32 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("RECIPROCAL") {
@@ -1839,7 +1839,7 @@ TEST_F(OnBoardTest, test_unary_operation_32_32_tileop_reciprocal) {
 
 TEST_F(OnBoardTest, test_unary_operation_16_32_32_tileop_reciprocal) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_16_32_32 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("RECIPROCAL") {
@@ -1867,7 +1867,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_32_32_tileop_reciprocal) {
 
 TEST_F(OnBoardTest, test_unary_operation_16_16_64_64_tileop_reciprocal) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_16_16_64_64 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("RECIPROCAL") {
@@ -1895,7 +1895,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_16_64_64_tileop_reciprocal) {
 
 TEST_F(OnBoardTest, test_operation_scalar_dim2_add) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("ADD") {
@@ -1923,7 +1923,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_add) {
 
 TEST_F(OnBoardTest, test_operation_add_vs_dim2_unalign) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     std::vector<int64_t> shape = {79, 85};
     int shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     uint64_t outputSize = shapeSize * sizeof(float);
@@ -1952,7 +1952,7 @@ TEST_F(OnBoardTest, test_operation_add_vs_dim2_unalign) {
 
 TEST_F(OnBoardTest, test_operation_mul_vs_dim3_unalign) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     std::vector<int64_t> shape = {2, 79, 85};
     int shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     uint64_t outputSize = shapeSize * sizeof(float);
@@ -1981,7 +1981,7 @@ TEST_F(OnBoardTest, test_operation_mul_vs_dim3_unalign) {
 
 TEST_F(OnBoardTest, test_operation_sub_vs_dim4_unalign) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     std::vector<int64_t> shape = {2, 2, 67, 125};
     int shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     uint64_t outputSize = shapeSize * sizeof(float);
@@ -2010,7 +2010,7 @@ TEST_F(OnBoardTest, test_operation_sub_vs_dim4_unalign) {
 
 TEST_F(OnBoardTest, test_operation_div_vs_dim1_unalign) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     std::vector<int64_t> shape = {125};
     int shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     uint64_t outputSize = shapeSize * sizeof(float);
@@ -2039,7 +2039,7 @@ TEST_F(OnBoardTest, test_operation_div_vs_dim1_unalign) {
 
 TEST_F(OnBoardTest, test_operation_scalar_dim2_add_FP16) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity * sizeof(uint16_t);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("ADD") {
@@ -2069,7 +2069,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_add_FP16) {
 
 TEST_F(OnBoardTest, test_operation_scalar_dim2_sub) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("SUB") {
@@ -2097,7 +2097,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_sub) {
 
 TEST_F(OnBoardTest, test_operation_scalar_dim2_mul) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("MUL") {
@@ -2125,7 +2125,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_mul) {
 
 TEST_F(OnBoardTest, test_operation_scalar_dim2_div) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("DIV") {
@@ -2153,7 +2153,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_div) {
 
 TEST_F(OnBoardTest, test_operation_scalar_dim1_div) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = 64 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("DIV") {
@@ -2183,7 +2183,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim1_div) {
 
 TEST_F(OnBoardTest, test_operation_scalar_dim3_add) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_dim3 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("ADD") {
@@ -2211,7 +2211,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim3_add) {
 
 TEST_F(OnBoardTest, test_operation_scalar_dim4_add) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = 2 * 2 * capacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("ADD") {
@@ -2239,7 +2239,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim4_add) {
 
 TEST_F(OnBoardTest, test_operation_scalar_dim3_sub) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_dim3 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("SUB") {
@@ -2267,7 +2267,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim3_sub) {
 
 TEST_F(OnBoardTest, test_operation_scalar_dim4_sub) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = 2 * 2 * capacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("SUB") {
@@ -2295,7 +2295,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim4_sub) {
 
 TEST_F(OnBoardTest, test_operation_scalar_dim3_mul) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_dim3 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("MUL") {
@@ -2323,7 +2323,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim3_mul) {
 
 TEST_F(OnBoardTest, test_operation_scalar_dim4_mul) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = 2 * 2 * capacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("MUL") {
@@ -2351,7 +2351,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim4_mul) {
 
 TEST_F(OnBoardTest, test_operation_scalar_32_32_1_256_mul) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     int cap = 32 * 32 * 256;
     uint64_t outputSize = cap * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
@@ -2380,7 +2380,7 @@ TEST_F(OnBoardTest, test_operation_scalar_32_32_1_256_mul) {
 
 TEST_F(OnBoardTest, test_operation_scalar_dim3_div) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_dim3 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("DIV") {
@@ -2408,7 +2408,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim3_div) {
 
 TEST_F(OnBoardTest, test_operation_scalar_dim4_div) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = 2 * 2 * capacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("DIV") {
@@ -2436,7 +2436,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim4_div) {
 
 TEST_F(OnBoardTest, test_operation_tensor_16_32_32_to_16_32_1_tileop_mul) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     int capShape1 = 16 * 32 * 32;
     int capShape2 = 16 * 32 * 1;
     uint64_t outputSize = capShape1 * sizeof(float);
@@ -2485,7 +2485,7 @@ TEST_F(OnBoardTest, test_scatterupdate_case1) {
     std::string inputDir(buffer);
 
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity0 * sizeof(float);
     uint8_t* outputGmAddr = allocDevAddr(outputSize);
 
@@ -2520,7 +2520,7 @@ TEST_F(OnBoardTest, test_scatterupdate_case1) {
 
 TEST_F(OnBoardTest, test_mul_large_row) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     std::vector<int64_t> shape = {1, 16384};
     int shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     uint64_t outputSize = shapeSize * sizeof(float);

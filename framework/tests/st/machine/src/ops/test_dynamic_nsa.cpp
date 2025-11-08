@@ -28,6 +28,7 @@ class DyNsa : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
         config::SetPassOption(L1_REUSE, NUM_4);
         config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{{NUM_3, NUM_4}});
         config::SetPassOption(COPYIN_THRESHOLD, NUM_2 * NUM_1024 * NUM_1024);
+        rtSetDevice(GetDeviceIdByEnvVar());
     }
 };
 

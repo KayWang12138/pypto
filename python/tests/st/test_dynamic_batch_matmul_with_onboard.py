@@ -16,6 +16,7 @@ import numpy as np
 import torch
 import pto
 from numpy.testing import assert_allclose
+import torch_npu
 
 
 @dataclass
@@ -54,7 +55,8 @@ def test_batch_matmul_bf16_with_m_split():
 
 def dynamic_batch_matmul_onboard_util(input_config: BatchMatmulShapeConfig):
     # onboard prepare
-    device_id = os.environ.get("TILE_FWK_DEVICE_ID", 0)
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
     pto.runtime._device_init()
     pto.set_host_option("only_codegen", True)
     pto.set_codegen_option("support_dynamic_unaligned", True)

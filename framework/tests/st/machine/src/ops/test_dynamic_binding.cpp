@@ -33,6 +33,7 @@ public:
 
     void SetUp() override {
         DeviceLauncherContext::Get().DeviceInit();
+        rtSetDevice(GetDeviceIdByEnvVar());
      }
 
     void TearDown() override {
@@ -138,7 +139,7 @@ TEST_F(DynamicBindingTest, TestDeviceCompute) {
     SetInterpreterConfig();
     auto agent = RuntimeAgent::GetAgent();
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     TileShape::Current().SetVecTile(tiling32, tiling32);
     TileShape::Current().SetCubeTile({tiling32, tiling32}, {tiling32, tiling32}, {tiling32, tiling32});

@@ -46,7 +46,7 @@ struct MoEGateParams {
 
 void MoEGateOnBoardFunc(MoEGateParams& opsParams) {
     aclInit(nullptr);
-    rtSetDevice(config::GetDeviceId());
+    rtSetDevice(GetDeviceIdByEnvVar());
     TileFwkInit("");
 
     int32_t H = opsParams.H;
