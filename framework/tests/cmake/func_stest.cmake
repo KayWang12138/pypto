@@ -271,11 +271,7 @@ function(PTO_Fwk_STest_RunExe)
                 endforeach ()
             endif ()
         else ()
-            add_custom_command(
-                    TARGET ${ARG_TARGET} POST_BUILD
-                    COMMAND ${BashCmdSetup} ./${ARG_TARGET}
-                    COMMENT "${Comment}"
-            )
+            message(STATUS "No cases need to run.")
         endif ()
     endif ()
 endfunction()
