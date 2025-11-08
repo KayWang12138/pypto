@@ -531,6 +531,7 @@ void PreGraphProcess::InitializeTensorColor(Operation &op) const {
     for (auto &output : op.GetOOperands()) {
         TileRange range;
         range.memId = output->tensor->GetRawMagic();
+        output->memoryrange = range;
         output->subGraphID = newColor;
     }
 }

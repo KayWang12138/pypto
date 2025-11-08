@@ -34,6 +34,8 @@ private:
     Status PreCheck(Function &function) override;    
     Status RunOnFunction(Function &function) override;
     void AssignMoveOp(Operation &operation);
+    void AssignMoveOpForAssemble(Operation &operation);
+    void AssignMoveOpForView(Operation &operation);
     void RunOnOperation(Operation &operation);
     void AssignMemUnknown(Function &function);
     void ProcessAmulBInput(Operation &operation,LogicalTensorPtr &tensor);

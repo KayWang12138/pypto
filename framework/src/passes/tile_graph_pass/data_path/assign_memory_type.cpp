@@ -145,7 +145,6 @@ void AssignMemoryType::ProcessAmulBInput(Operation &operation, LogicalTensorPtr 
             inserter.UpdateTensorTobeMap(*tensor, operation, MemoryType::MEM_L0B);
             continue;
         }else{
-            tensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR,true);
             inserter.UpdateTensorTobeMap(*tensor,operation, MemoryType::MEM_DEVICE_DDR);
         }
     }
@@ -296,56 +295,77 @@ void AssignMemoryType::AssignMoveOp(Operation &operation) {
     auto opcode = operation.GetOpcode();
     switch (opcode) {
         case Opcode::OP_ASSEMBLE: {
-            /*
-            op --> tensor1 --> assemble --> tensor2
-            op是常规Op(output mem类型在opcode.cpp中有定义)，tensor1 的 mem original 已经被刷新好
-            将tensor2 的mem origianl 刷新为tensor1 的original
-            */
-            for (size_t i = 0; i < operation.oOperand.size(); ++i) {
-                auto &tensor = operation.oOperand[i];
-                // Only change original type
-                MemoryType fromType = inserter.GetMemoryTypeFromTensorTobeMap(*operation.iOperand.front(), operation);
-                APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "%s[%d] output %d mem original %s --> %s.", operation.GetOpcodeStr().c_str(),
-                    operation.GetOpMagic(), tensor->magic, BriefMemoryTypeToString(tensor->GetMemoryTypeOriginal()).c_str(),
-                    BriefMemoryTypeToString(fromType).c_str());
-                tensor->SetMemoryTypeOriginal(fromType, true);
-                auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(operation.GetOpAttribute().get());
-                assembleOpAttribute->SetFromType(fromType);
-            }
+            AssignMoveOpForAssemble(operation);
             break;
         }
         case Opcode::OP_VIEW: {
-            /*
-            tensor1 --> view --> tensor2 --> op
-            op是常规Op(output mem类型在opcode.cpp中有定义)，tensor2 的 mem original 已经被刷新好
-            将tensor1 的 tobeMap 做更新
-            */
-            auto viewOpAttribute =dynamic_cast<ViewOpAttribute *>(operation.GetOpAttribute().get());
-            MemoryType attrToType = viewOpAttribute->GetTo();
-            bool isExplicitMemType = (attrToType != MemoryType::MEM_UNKNOWN);
-            if(isExplicitMemType) {
-                //跳过前端指定mem类型的view
-                break;
-            }
-            for (size_t i = 0; i < operation.iOperand.size(); ++i) {
-                auto &tensor = operation.iOperand[i];
-                MemoryType toType = operation.oOperand.front()->GetMemoryTypeOriginal();
-                if(toType == MemoryType::MEM_UNKNOWN && tensor->GetMemoryTypeOriginal() != MemoryType::MEM_UNKNOWN) {
-                    //view输出的消费者是assemble或者reshape
-                    operation.oOperand.front()->SetMemoryTypeOriginal(tensor->GetMemoryTypeOriginal());
-                    viewOpAttribute->SetToType(tensor->GetMemoryTypeOriginal());
-                    continue;
-                }
-                APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "%s[%d] input %d mem original %s --> %s.", operation.GetOpcodeStr().c_str(),
-                    operation.GetOpMagic(), tensor->magic, BriefMemoryTypeToString(tensor->GetMemoryTypeOriginal()).c_str(),
-                    BriefMemoryTypeToString(toType).c_str());
-                inserter.UpdateTensorTobeMap(*tensor, operation, toType);
-                viewOpAttribute->SetToType(toType);
-            }
+            AssignMoveOpForView(operation);
             break;
         }
         default: 
             break;
+    }
+}
+void AssignMemoryType::AssignMoveOpForAssemble(Operation &operation) {
+    /*
+    op --> tensor1 --> assemble --> tensor2
+    op是常规Op(output mem类型在opcode.cpp中有定义)，tensor1 的 mem original 已经被刷新好
+    将tensor2 的mem origianl 刷新为tensor1 的original
+    */
+    for (size_t i = 0; i < operation.oOperand.size(); ++i) {
+        auto &tensor = operation.oOperand[i];
+        // Only change original type
+        MemoryType fromType = inserter.GetMemoryTypeFromTensorTobeMap(*operation.iOperand.front(), operation);
+        APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "%s[%d] output %d mem original %s --> %s.", operation.GetOpcodeStr().c_str(),
+            operation.GetOpMagic(), tensor->magic, BriefMemoryTypeToString(tensor->GetMemoryTypeOriginal()).c_str(),
+            BriefMemoryTypeToString(fromType).c_str());
+        tensor->SetMemoryTypeOriginal(fromType, true);
+        auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(operation.GetOpAttribute().get());
+        assembleOpAttribute->SetFromType(fromType);
+    }
+    auto inputTensor = operation.GetIOperands().front();
+    auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(operation.GetOpAttribute().get());
+    auto assembleOffset = assembleOpAttribute->GetToOffset();
+    bool unaligned = ((BytesOf(inputTensor->Datatype()) * assembleOffset.back()) % 32 != 0);
+    if(unaligned) {
+        auto outputTensor = operation.GetOOperands().front();
+        outputTensor -> SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR,true);
+    }
+}
+void AssignMemoryType::AssignMoveOpForView(Operation &operation) {
+    /*
+    tensor1 --> view --> tensor2 --> op
+    op是常规Op(output mem类型在opcode.cpp中有定义)，tensor2 的 mem original 已经被刷新好
+    将tensor1 的 tobeMap 做更新
+    */
+    auto viewOpAttribute =dynamic_cast<ViewOpAttribute *>(operation.GetOpAttribute().get());
+    MemoryType attrToType = viewOpAttribute->GetTo();
+    bool isExplicitMemType = (attrToType != MemoryType::MEM_UNKNOWN);
+    if(isExplicitMemType) {
+        //跳过前端指定mem类型的view
+        return;
+    }
+    for (size_t i = 0; i < operation.iOperand.size(); ++i) {
+        auto &tensor = operation.iOperand[i];
+        MemoryType toType = operation.oOperand.front()->GetMemoryTypeOriginal();
+        if(toType == MemoryType::MEM_UNKNOWN && tensor->GetMemoryTypeOriginal() != MemoryType::MEM_UNKNOWN) {
+            //view输出的消费者是assemble或者reshape
+            operation.oOperand.front()->SetMemoryTypeOriginal(tensor->GetMemoryTypeOriginal());
+            viewOpAttribute->SetToType(tensor->GetMemoryTypeOriginal());
+            continue;
+        }
+        APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "%s[%d] input %d mem original %s --> %s.", operation.GetOpcodeStr().c_str(),
+            operation.GetOpMagic(), tensor->magic, BriefMemoryTypeToString(tensor->GetMemoryTypeOriginal()).c_str(),
+            BriefMemoryTypeToString(toType).c_str());
+        inserter.UpdateTensorTobeMap(*tensor, operation, toType);
+        viewOpAttribute->SetToType(toType);
+    }
+    auto outputTensor = operation.GetOOperands().front();
+    auto viewOffset = viewOpAttribute->GetFromOffset();
+    bool unaligned = ((BytesOf(outputTensor->Datatype()) * viewOffset.back()) % 32 != 0);
+    if(unaligned) {
+        auto inputTensor = operation.GetIOperands().front();
+        inserter.UpdateTensorTobeMap(*inputTensor, operation, MemoryType::MEM_DEVICE_DDR);
     }
 }
 

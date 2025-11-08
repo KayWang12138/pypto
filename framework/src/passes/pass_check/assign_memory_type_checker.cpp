@@ -58,6 +58,7 @@ Status AssignMemoryTypeChecker::CheckAmulBInputProducers(Operation &operation) {
     for(auto &producerOp : producerOps) {
         auto producerOpcode = producerOp->GetOpcode();
         if(producerOpcode != Opcode::OP_L1_TO_L0A && producerOpcode !=Opcode::OP_L1_TO_L0B && 
+           producerOpcode != Opcode::OP_L1_TO_L0_AT && producerOpcode !=Opcode::OP_L1_TO_L0_BT && 
            producerOpcode != Opcode::OP_VIEW && producerOpcode !=Opcode::OP_VEC_DUP) {
             ALOG_ERROR_F("MEMORY ERROR:%s[%d] has invalid input producer:%s[%d].",
                 operation.GetOpcodeStr().c_str(),operation.GetOpMagic(),producerOp->GetOpcodeStr().c_str(),producerOp->GetOpMagic());
