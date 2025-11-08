@@ -48,7 +48,7 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
             SymbolicScalar bnPerBatch;
             if(blockSize != 0) {
                 bnPerBatch = (curSeq + blockSize - 1) / blockSize;
-            }            
+            }
             bnPerBatch.AsIntermediateVariable();
             LOOP("LOOP_L1_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nLoop, 1)) {
                 int curNTile = nTile;
@@ -88,7 +88,7 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
                         {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]});
                     TileShape::Current().SetMatrixSize({qi.GetShape()[0], 0, kj.GetShape()[0]});
                     auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj); // (curNTile, dN+dR), (curS2Tile, dN+dR) -> (curNTile, curS2Tile)
-                    
+
                     TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
 
                     config::SetSemanticLabel("SoftMax");
@@ -102,7 +102,7 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
                     auto tildaPijF16 = Cast(tildaPij, dtype);
                     auto tildaLij = Sum(tildaPij); // (nTileCur, s2TileCur) -> (nTileCur, 1)
 
-                    IF (IsLoopBegin(bn, 0)) {
+                    IF (IsLoopBegin(bn)) {
                         TileShape::Current().SetCubeTile(
                             {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]});
                         config::SetSemanticLabel("b1-matmul2");
@@ -111,7 +111,7 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
                         auto oiTmp = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);; // (curNTile, curS2Tile), (curS2Tile, dN) -> (curNTile, dN)
                         TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                         config::SetSemanticLabel("b1-after-matmul2");
-                        IF (IsLoopEnd(bn, bnPerBatch)) {
+                        IF (IsLoopEnd(bn)) {
                             config::SetSemanticLabel("b1-after-matmul2");
                             oiUpdate = Div(oiTmp, tildaLij); // (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
                             Assemble(oiUpdate, oiOffset, attentionOut);
@@ -147,7 +147,7 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
                         config::SetSemanticLabel("bn-after-matmul2");
                         auto q2 = Mul(q1, t4);    // (nTileCur, dN), (nTileCur, 1) -> (nTileCur, dN)
                         auto oiTmp = Add(q3, q2); // (nTileCur, dN), (nTileCur, dN) -> (nTileCur, dN)
-                        IF (IsLoopEnd(bn, bnPerBatch)) {
+                        IF (IsLoopEnd(bn)) {
                             oiUpdate = Div(oiTmp, liNew); // (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
                             Assemble(oiUpdate, oiOffset, attentionOut);
                         } ELSE {
@@ -188,7 +188,7 @@ void PageAttentionWithImmScalar(Tensor &qNope, Tensor &kNopeCache, Tensor &vNope
             SymbolicScalar bnPerBatch;
             if(blockSize != 0) {
                 bnPerBatch = (curSeq + blockSize - 1) / blockSize;
-            }  
+            }
             bnPerBatch.AsIntermediateVariable();
             LOOP("LOOP_L1_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nLoop, 1)) {
                 int curNTile = nTile;
@@ -226,7 +226,7 @@ void PageAttentionWithImmScalar(Tensor &qNope, Tensor &kNopeCache, Tensor &vNope
                         {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]});
                     TileShape::Current().SetMatrixSize({qi.GetShape()[0], 0, kj.GetShape()[0]});
                     auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj); // (curNTile, dN+dR), (curS2Tile, dN+dR) -> (curNTile, curS2Tile)
-                    
+
                     TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
 
                     auto sijScale = MulS(sij, Element(sij->Datatype(), softmaxScale)); // (curNTile, curS2Tile)
@@ -370,12 +370,12 @@ void PageAttentionWithManualUnroll(Tensor &qNope, Tensor &kNopeCache, Tensor &vN
                             auto tildaPijF16 = Cast(tildaPij, dtype);
                             auto tildaLij = Sum(tildaPij); // (nTileCur, s2TileCur) -> (nTileCur, 1)
 
-                            IF(IsLoopBegin(bn, 0)) {
+                            IF(IsLoopBegin(bn)) {
                                 TileShape::Current().SetCubeTile(
                                     {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]});
                                 auto oiTmp = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
                                 TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
-                                IF(IsLoopEnd(bn, bnPerBatch)) {
+                                IF(IsLoopEnd(bn)) {
                                     oiUpdate =
                                         Div(oiTmp, tildaLij); // (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
                                     Assemble(oiUpdate, oiOffset, attentionOut);
@@ -405,7 +405,7 @@ void PageAttentionWithManualUnroll(Tensor &qNope, Tensor &kNopeCache, Tensor &vN
                                 TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                                 auto q2 = Mul(q1, t4);    // (nTileCur, dN), (nTileCur, 1) -> (nTileCur, dN)
                                 auto oiTmp = Add(q3, q2); // (nTileCur, dN), (nTileCur, dN) -> (nTileCur, dN)
-                                IF(IsLoopEnd(bn, bnPerBatch)) {
+                                IF(IsLoopEnd(bn)) {
                                     oiUpdate =
                                         Div(oiTmp, liNew); // (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
                                     Assemble(oiUpdate, oiOffset, attentionOut);
@@ -447,7 +447,7 @@ void PageAttentionHighThroughput(Tensor &qNope, Tensor &kNopeCache, Tensor &vNop
             SymbolicScalar bnPerBatch;
             if(blockSize != 0) {
                 bnPerBatch = curSeq / blockSize; // 暂时仅考虑curSeq是blockSize对齐
-            } 
+            }
             bnPerBatch.AsIntermediateVariable();
 
             int curNTile = nTile;

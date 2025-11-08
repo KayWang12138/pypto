@@ -401,7 +401,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                     auto tildaPijF16 = Cast(tildaPij, dtype);
                     auto tildaLij = Sum(tildaPij); // (nTileCur, s2TileCur) -> (nTileCur, 1)
 
-                    IF (IsLoopBegin(bn, 0)) {
+                    IF (IsLoopBegin(bn)) {
                         TileShape::Current().SetCubeTile(
                             {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]}, true);
                         config::SetSemanticLabel("paKvMm");
@@ -409,7 +409,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                             {tildaPijF16.GetShape()[0], tildaPijF16.GetShape()[1], vj.GetShape()[1]});
                         auto oiTmp = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
                         TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
-                        IF (IsLoopEnd(bn, bnPerBatch)) {
+                        IF (IsLoopEnd(bn)) {
                             config::SetSemanticLabel("paKvVec2");
                             oiUpdate = Div(oiTmp, tildaLij); // (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
                             Assemble(oiUpdate, oiOffset, paOut);
@@ -443,7 +443,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                         TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                         auto q2 = Mul(q1, t4);    // (nTileCur, dN), (nTileCur, 1) -> (nTileCur, dN)
                         auto oiTmp = Add(q3, q2); // (nTileCur, dN), (nTileCur, dN) -> (nTileCur, dN)
-                        IF (IsLoopEnd(bn, bnPerBatch)) {
+                        IF (IsLoopEnd(bn)) {
                             oiUpdate = Div(oiTmp, liNew); // (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
                             Assemble(oiUpdate, oiOffset, paOut);
                         } ELSE {

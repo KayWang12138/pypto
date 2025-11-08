@@ -217,7 +217,7 @@ class LoopRange:
 _loop_range = LoopRange
 
 
-def is_loop_begin(scalar: SymbolicScalar, begin: Union[int, SymbolicScalar]):
+def is_loop_begin(scalar: SymbolicScalar):
     ''' Determines if the current iteration is the start of loop
     This function returns a boolean value which specifys whether
     the current iteration is the beginning of the loop
@@ -226,8 +226,6 @@ def is_loop_begin(scalar: SymbolicScalar, begin: Union[int, SymbolicScalar]):
     ----------
     scalar: SymbolicScalar
         current loop index
-    begin: Union[int, SymbolicScalar]
-        begin loop index
 
     Returns
     -------
@@ -237,14 +235,14 @@ def is_loop_begin(scalar: SymbolicScalar, begin: Union[int, SymbolicScalar]):
     --------
     >>> for s2_idx in pto.loop(0, bn_per_batch, 1, name="LOOP_L4_s2_SA", idx_name="s2_idx",
             unroll_list=pto.powers_of_2(1)):
-            if pto.cond(pto.is_loop_begin(s2_idx, 0)):
+            if pto.cond(pto.is_loop_begin(s2_idx)):
                 ...
     '''
     # implementation
-    return SymbolicScalar.from_base(pto_impl.IsLoopBegin(to_sym(scalar), to_sym(begin)))
+    return SymbolicScalar.from_base(pto_impl.IsLoopBegin(to_sym(scalar), to_sym(scalar.loop_begin)))
 
 
-def is_loop_end(scalar: SymbolicScalar, end: Union[int, SymbolicScalar]):
+def is_loop_end(scalar: SymbolicScalar):
     ''' Determines if the current iteration is the end of loop
     This function returns a boolean value which specifys whether
     the current iteration is the end of the loop
@@ -253,8 +251,6 @@ def is_loop_end(scalar: SymbolicScalar, end: Union[int, SymbolicScalar]):
     ----------
     scalar: SymbolicScalar
         current loop index
-    end: Union[int, SymbolicScalar]
-        end loop index
 
     Returns
     -------
@@ -264,11 +260,11 @@ def is_loop_end(scalar: SymbolicScalar, end: Union[int, SymbolicScalar]):
     --------
     >>> for s2_idx in pto.loop(0, bn_per_batch, 1, name="LOOP_L4_s2_SA", idx_name="s2_idx",
             unroll_list=pto.powers_of_2(1)):
-            if pto.cond(pto.is_loop_end(s2_idx, 0)):
+            if pto.cond(pto.is_loop_end(s2_idx)):
                 ...
     '''
     # implementation
-    return SymbolicScalar.from_base(pto_impl.IsLoopEnd(to_sym(scalar), to_sym(end)))
+    return SymbolicScalar.from_base(pto_impl.IsLoopEnd(to_sym(scalar), to_sym(scalar.loop_end)))
 
 
 @contextmanager
@@ -342,9 +338,9 @@ def cond(scalar: SymInt):
 
     Examples
     --------
-    >>> if pto.cond(pto.is_loop_begin(bn, 0)):
+    >>> if pto.cond(pto.is_loop_begin(bn)):
             pass
-        elif pto.cond(pto.is_loop_end(bn, 0)):
+        elif pto.cond(pto.is_loop_end(bn)):
             pass
         elif pto.cond(1):
             pass
@@ -514,4 +510,6 @@ def loop(
             start, stop, step), unroll_list, submit_before_loop
     ) as rlf:
         for k in rlf:
+            setattr(k, "loop_begin", start)
+            setattr(k, "loop_end", stop)
             yield k

@@ -201,7 +201,7 @@ def compress_attention_with_topk(**kwargs):
                                     tilda_pij = pto.exp(tsub)
                                     tilda_pij_b16 = pto.cast(tilda_pij, k_dtype)
                                     tilda_lij = pto.row_sum_single(tilda_pij, 0)
-                                    if pto.cond(pto.is_loop_begin(block_idx, 0)):
+                                    if pto.cond(pto.is_loop_begin(block_idx)):
                                         def inside_if_loop_begin(b_idx, s1_idx, block_idx):
                                             pto.set_semantic_label("Cmp-Attn-First-Block-C2")
                                             pto.set_cube_tile_shapes(
@@ -214,7 +214,7 @@ def compress_attention_with_topk(**kwargs):
                                             oi_tmp.set_name("oiTmp")
                                             pto.set_semantic_label("Cmp-Attn-First-Block-V2")
                                             pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
-                                            if pto.cond(pto.is_loop_end(block_idx, cur_cmp_block)):
+                                            if pto.cond(pto.is_loop_end(block_idx)):
                                                 def inside_if_is_loop_end():
                                                     oi_update[:] = pto.div(oi_tmp, pto.reshape(tilda_lij, [n1, 1]))
                                                     oi_update_reshape = pto.reshape(oi_update, [1, 1, n1, d_n])
@@ -259,7 +259,7 @@ def compress_attention_with_topk(**kwargs):
                                             pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                                             q2 = pto.mul(q1, pto.reshape(t4, [n1, 1]))
                                             oi_tmp = pto.add(q3, q2)
-                                            if pto.cond(pto.is_loop_end(block_idx, cur_cmp_block)):
+                                            if pto.cond(pto.is_loop_end(block_idx)):
                                                 def inside_if_is_loop_end():
                                                     oi_update[:] = pto.div(oi_tmp, pto.reshape(li_new, [n1, 1]))
                                                     oi_update_reshape = pto.reshape(oi_update, [1, 1, n1, d_n])
@@ -343,7 +343,7 @@ def compress_attention_with_topk(**kwargs):
                         def inside_block_idx_loop(block_idx):
                             slc_before_g_reduce_block = pto.view(
                                 slc_before_g_reduce, [block_slc_num, n1], [block_idx * block_slc_num, 0])
-                            if pto.cond(pto.is_loop_end(block_idx, cur_cmp_block)):
+                            if pto.cond(pto.is_loop_end(block_idx)):
                                 slc_before_g_reduce_block[:] = pto.div(slc_before_g_reduce_block, li_update)
                             else:
                                 def inside_else_is_loop_end():

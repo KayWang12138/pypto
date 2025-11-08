@@ -142,7 +142,7 @@ void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc
                         auto tildaPijF16 = Cast(tildaPij, dtype);
                         auto tildaLij = Sum(tildaPij);
 
-                        IF (IsLoopBegin(s2Idx, 0)) {
+                        IF (IsLoopBegin(s2Idx)) {
                             // C2
                             TileShape::Current().SetCubeTile(
                                 {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]}, true);
@@ -151,7 +151,7 @@ void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc
                                 {tildaPijF16.GetShape()[0], tildaPijF16.GetShape()[1], vj.GetShape()[1]});
                             auto oiTmp = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
                             TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
-                            IF (IsLoopEnd(s2Idx, bnPerBatch)) { // PATH3
+                            IF (IsLoopEnd(s2Idx)) { // PATH3
                                 // V2
                                 config::SetSemanticLabel("Sa_KvVec2");
                                 oiUpdate = Div(oiTmp, tildaLij);
@@ -188,7 +188,7 @@ void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc
                             TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                             auto q2 = Mul(q1, t4);
                             auto oiTmp = Add(q3, q2);
-                            IF (IsLoopEnd(s2Idx, bnPerBatch)) { // PATH1
+                            IF (IsLoopEnd(s2Idx)) { // PATH1
                                 oiUpdate = Div(oiTmp, liNew);
                                 TileShape::Current().SetVecTile(1, 1, v2Tile[0], v2Tile[1]);
                                 auto oiUpdate4Dim = AddS(Reshape(oiUpdate, {1, 1, curGTile, dN}), Element(oiUpdate->Datatype(), float(0)));

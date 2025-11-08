@@ -97,19 +97,19 @@ def slc_attn_compute(**kwargs):
                                     cur_kv_offset = b_idx * s1_n2_s2_sym + s1_idx * n2_s2_sym + s2_idx * cur_s2_tile
 
                                     pto.set_semantic_label("Sa")
-                                    qn = pto.view(q_nope, [cur_g_tile, d_n], [cur_offset, 0], 
+                                    qn = pto.view(q_nope, [cur_g_tile, d_n], [cur_offset, 0],
                                                   valid_shape=[cur_g_tile, d_n])
-                                    qr = pto.view(q_rope, [cur_g_tile, d_r], [cur_offset, 0], 
+                                    qr = pto.view(q_rope, [cur_g_tile, d_r], [cur_offset, 0],
                                                   valid_shape=[cur_g_tile, d_r])
                                     qi = pto.tensor([cur_g_tile, d_n + d_r], dtype, "qi")
                                     pto.assemble(qn, [0, 0], qi)
                                     pto.assemble(qr, [0, d_n], qi)
 
-                                    kj = pto.view(k_slc, [cur_s2_tile, d_n + d_r], 
+                                    kj = pto.view(k_slc, [cur_s2_tile, d_n + d_r],
                                         [cur_kv_offset, 0],
-                                        valid_shape=[(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), d_n + d_r]) 
-                                    vj = pto.view(v_slc, [cur_s2_tile, d_n], 
-                                        [cur_kv_offset, 0], 
+                                        valid_shape=[(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), d_n + d_r])
+                                    vj = pto.view(v_slc, [cur_s2_tile, d_n],
+                                        [cur_kv_offset, 0],
                                         valid_shape=[(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), d_n])
 
                                     # C1
@@ -129,7 +129,7 @@ def slc_attn_compute(**kwargs):
                                     tilda_pij_f16 = pto.cast(tilda_pij, dtype)
                                     tilda_lij = pto.row_sum_single(tilda_pij)
 
-                                    if pto.cond(pto.is_loop_begin(s2_idx, 0)):
+                                    if pto.cond(pto.is_loop_begin(s2_idx)):
                                         def inside_if_loop_begin():
                                             nonlocal oi_update, li_update, mi_update
                                             pto.set_cube_tile_shapes(
@@ -140,7 +140,7 @@ def slc_attn_compute(**kwargs):
                                                 [tilda_pij_f16.shape[0], tilda_pij_f16.shape[1], vj.shape[1]])
                                             oi_tmp = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32)
                                             pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
-                                            if pto.cond(pto.is_loop_end(s2_idx, bn_per_batch)):
+                                            if pto.cond(pto.is_loop_end(s2_idx)):
                                                 def inside_if_loop_end():
                                                     nonlocal oi_update
                                                     pto.set_semantic_label("Sa_KvVec2")
@@ -187,7 +187,7 @@ def slc_attn_compute(**kwargs):
                                             pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                                             q2 = pto.mul(q1, t4)
                                             oi_tmp = pto.add(q3, q2)
-                                            if pto.cond(pto.is_loop_end(s2_idx, bn_per_batch)):
+                                            if pto.cond(pto.is_loop_end(s2_idx)):
                                                 def inside_if_loop_end():
                                                     nonlocal oi_update
                                                     oi_update[:] = pto.div(oi_tmp, li_new)

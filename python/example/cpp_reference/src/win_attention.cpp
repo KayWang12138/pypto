@@ -276,13 +276,13 @@ void WinAttentionComputeFlash(const Tensor &qNope, Tensor &vNopeCache, const Ten
                         auto tileExpF16 = Cast(tileExp, dtype);
                         auto tileSum = Sum(tileExp);
 
-                        IF (IsLoopBegin(s2Idx, 0)) {
+                        IF (IsLoopBegin(s2Idx)) {
                             // matmul_2
                             TileShape::Current().SetCubeTile(
                                 {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]}, true);
                             auto oiTmp = Matrix::Matmul<false, false>(DataType::DT_FP32, tileExpF16, vActualPart);
                             TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
-                            IF (IsLoopEnd(s2Idx, s2Loop)) {
+                            IF (IsLoopEnd(s2Idx)) {
                                 // reshape and copyOut
                                 oiUpdate = Div(oiTmp, tileSum);
                                 TileShape::Current().SetVecTile(1, 1, v2Tile[0], v2Tile[1]);
@@ -315,7 +315,7 @@ void WinAttentionComputeFlash(const Tensor &qNope, Tensor &vNopeCache, const Ten
                             TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                             auto q2 = Mul(q1, t4);
                             auto oiTmp = Add(q3, q2);
-                            IF (IsLoopEnd(s2Idx, s2Loop)) { // PATH1
+                            IF (IsLoopEnd(s2Idx)) { // PATH1
                                 oiUpdate = Div(oiTmp, liNew);
                                 TileShape::Current().SetVecTile(1, 1, v2Tile[0], v2Tile[1]);
                                 auto outFinal = AddS(Reshape(oiUpdate, {bTile, s1Tile, gTile, dNopeSize}),

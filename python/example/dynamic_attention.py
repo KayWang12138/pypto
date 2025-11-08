@@ -488,18 +488,18 @@ def attention(**kwargs):
                                     cur_block_idx.as_intermediate_variable()
                                     kn = pto.view(kv_cache_out, [cur_s2_tile, d_n],
                                                     [cur_block_idx * block_size, 0],
-                                                    valid_shape=[min(cur_seq - 
+                                                    valid_shape=[min(cur_seq -
                                                     bn * block_size, block_size), d_n])
                                     kr = pto.view(kr_cache_out, [cur_s2_tile, d_r],
                                                     [cur_block_idx * block_size, 0],
-                                                    valid_shape=[min(cur_seq - 
+                                                    valid_shape=[min(cur_seq -
                                                     bn * block_size, block_size), d_r])
                                     kj = pto.tensor([cur_s2_tile, d_n + d_r], dtype, "kj", pa_format)
                                     pto.assemble(kn, [0, 0], kj)
                                     pto.assemble(kr, [0, d_n], kj)
                                     vj = pto.view(kv_cache_out, [cur_s2_tile, d_n],
                                                     [cur_block_idx * block_size, 0],
-                                                    valid_shape=[min(cur_seq - 
+                                                    valid_shape=[min(cur_seq -
                                                     bn * block_size, block_size), d_n])
 
                                     pto.set_cube_tile_shapes(
@@ -522,7 +522,7 @@ def attention(**kwargs):
                                     # (nTileCur, s2TileCur) -> (nTileCur, 1)
                                     tilda_lij = pto.row_sum_single(tilda_pij)
 
-                                    if pto.cond(pto.is_loop_begin(bn, 0)):
+                                    if pto.cond(pto.is_loop_begin(bn)):
                                         def inside_if_loop_begin():
                                             nonlocal oi_update, li_update, mi_update
                                             pto.set_cube_tile_shapes(
@@ -535,7 +535,7 @@ def attention(**kwargs):
                                             oi_tmp = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32,
                                                                 a_trans=False, b_trans=False)
                                             pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
-                                            if pto.cond(pto.is_loop_end(bn, bn_per_batch)):
+                                            if pto.cond(pto.is_loop_end(bn)):
                                                 pto.set_semantic_label("paKvVec2")
                                                 # (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
                                                 oi_update[:] = pto.div(oi_tmp, tilda_lij)
@@ -582,7 +582,7 @@ def attention(**kwargs):
                                             q2 = pto.mul(q1, t4)
                                             # (nTileCur, dN), (nTileCur, dN) -> (nTileCur, dN)
                                             oi_tmp = pto.add(q3, q2)
-                                            if pto.cond(pto.is_loop_end(bn, bn_per_batch)):
+                                            if pto.cond(pto.is_loop_end(bn)):
                                                 # (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
                                                 oi_update[:] = pto.div(oi_tmp, li_new)
                                                 pto.assemble(oi_update, oi_offset, pa_out)

@@ -173,7 +173,7 @@ def test_pto_loop_unroll_n_submit_before_loop():
                 b.move(pto.sub(b, a))
             if pto.cond(1):
                 b.move(pto.add(b, a))
-            if pto.cond(pto.is_loop_end(k, 0)):
+            if pto.cond(pto.is_loop_end(k)):
                 b.move(pto.add(b, a))
 
             b.move(pto.sub(a, a))

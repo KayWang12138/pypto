@@ -175,7 +175,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                     auto tildaPij = Exp(tsub);                 // (blockSize, n1)
                     auto tildaPijB16 = Cast(tildaPij, kDtype); // (blockSize, n1)
                     auto tildaLij = Sum(tildaPij, 0); // (1, n1)
-                    IF(IsLoopBegin(blockIdx, 0)) {
+                    IF(IsLoopBegin(blockIdx)) {
                         config::SetSemanticLabel("Cmp-Attn-First-Block-C2");
                         TileShape::Current().SetCubeTile(
                             {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]});
@@ -184,7 +184,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                         oiTmp.SetName("oiTmp");
                         config::SetSemanticLabel("Cmp-Attn-First-Block-V2");
                         TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
-                        IF(IsLoopEnd(blockIdx, curCmpBlock)) {
+                        IF(IsLoopEnd(blockIdx)) {
                             oiUpdate = Div(oiTmp, Reshape(tildaLij, {n1, 1})); // (n1, dN), (n1, 1) -> (n1, dN)
                             auto oiUpdateReshape = Reshape(oiUpdate, {1, 1, n1, dN});
                             TileShape::Current().SetVecTile(1, 1, v2Tile[0], v2Tile[1]);
@@ -225,7 +225,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                         TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                         auto q2 = Mul(q1, Reshape(t4, {n1, 1})); // (n1, dN), (n1, 1) -> (n1, dN)
                         auto oiTmp = Add(q3, q2);                // (n1, dN), (n1, dN) -> (n1, dN)
-                        IF(IsLoopEnd(blockIdx, curCmpBlock)) {
+                        IF(IsLoopEnd(blockIdx)) {
                             oiUpdate = Div(oiTmp, Reshape(liNew, {n1, 1})); // (n1, dN), (n1, 1) -> (n1, dN)
                             auto oiUpdateReshape = Reshape(oiUpdate, {1, 1, n1, dN});
                             TileShape::Current().SetVecTile(1, 1, v2Tile[0], v2Tile[1]);
@@ -296,7 +296,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
             Tensor slcBeforeGReduce2(DT_FP32, {maxCmpBlock * blockSlcNum, n1}, "slcBeforeGReduce2");
             LOOP("SOFTMAX_BLOCK", FunctionType::DYNAMIC_LOOP, blockIdx, LoopRange(curCmpBlock), {}) {
                 auto slcBeforeGReduceBlock = View(slcBeforeGReduce, {blockSlcNum, n1}, {blockIdx * blockSlcNum, 0});
-                IF(IsLoopEnd(blockIdx, curCmpBlock)) {
+                IF(IsLoopEnd(blockIdx)) {
                     slcBeforeGReduceBlock = Div(slcBeforeGReduceBlock, liUpdate);
                 }
                 ELSE {

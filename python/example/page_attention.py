@@ -85,7 +85,7 @@ def page_attention(**kwargs):
                             oi_offset = [cur_offset, 0]  # (B*N*S, d)
 
                             # LoopRange(0, bnPerBatch, 1), PowersOf2(1)) {
-                            for bn in pto.loop(0, bn_per_batch, 1, name="LOOP_L2_bn", idx_name="bn", 
+                            for bn in pto.loop(0, bn_per_batch, 1, name="LOOP_L2_bn", idx_name="bn",
                             extra_arg=pto.powers_of_2(max_unroll_times)):
                                 def inside_bn_loop(**kwargs):
                                     b_idx = kwargs.get("b_idx")
@@ -107,11 +107,11 @@ def page_attention(**kwargs):
                                     cur_block_idx.as_intermediate_variable()
                                     kn = pto.view(k_nope_cache, [cur_s2_tile, d_n],
                                                     [cur_block_idx * block_size, 0],
-                                                    valid_shape=[(cur_seq - 
+                                                    valid_shape=[(cur_seq -
                                                     bn * block_size).min(block_size), d_n])
                                     kr = pto.view(k_rope_cache, [cur_s2_tile, d_r],
                                                     [cur_block_idx * block_size, 0],
-                                                    valid_shape=[(cur_seq - 
+                                                    valid_shape=[(cur_seq -
                                                     bn * block_size).min(block_size), d_r])
                                     kj_format = pto.TileOpFormat.TILEOP_NZ if is_nz_format else (
                                         pto.TileOpFormat.TILEOP_ND
@@ -120,11 +120,11 @@ def page_attention(**kwargs):
                                     pto.assemble(kn, [0, 0], kj)
                                     pto.assemble(kr, [0, d_n], kj)
                                     kj = pto.view(kj, [cur_s2_tile, d_n + d_r],
-                                                    [0, 0], valid_shape=[(cur_seq - 
+                                                    [0, 0], valid_shape=[(cur_seq -
                                                     bn * block_size).min(block_size), d_r + d_n])
                                     vj = pto.view(v_nope_cache, [cur_s2_tile, d_n],
                                                     [cur_block_idx * block_size, 0],
-                                                    valid_shape=[(cur_seq - 
+                                                    valid_shape=[(cur_seq -
                                                     bn * block_size).min(block_size), d_n])
 
                                     pto.set_semantic_label("MatMul")
@@ -148,7 +148,7 @@ def page_attention(**kwargs):
                                     tilda_lij = pto.row_sum_single(tilda_pij)
                                     # (nTileCur, s2TileCur) -> (nTileCur, 1)
 
-                                    if pto.cond(pto.is_loop_begin(bn, 0)):
+                                    if pto.cond(pto.is_loop_begin(bn)):
                                         def inside_if_loop_begin():
                                             nonlocal oi_update, li_update, mi_update
                                             pto.set_cube_tile_shapes(
@@ -161,7 +161,7 @@ def page_attention(**kwargs):
                                             oi_tmp = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32)
                                             pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                                             pto.set_semantic_label("b1-after-matmul2")
-                                            if pto.cond(pto.is_loop_end(bn, bn_per_batch)):
+                                            if pto.cond(pto.is_loop_end(bn)):
                                                 pto.set_semantic_label("b1-after-matmul2")
                                                 oi_update[:] = (pto.div(oi_tmp, tilda_lij))
                                                 # (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
@@ -208,7 +208,7 @@ def page_attention(**kwargs):
                                             q2 = pto.mul(q1, t4)
                                             # (nTileCur, dN), (nTileCur, dN) -> (nTileCur, dN)
                                             oi_tmp = pto.add(q3, q2)
-                                            if pto.cond(pto.is_loop_end(bn, bn_per_batch)):
+                                            if pto.cond(pto.is_loop_end(bn)):
                                                 # (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
                                                 oi_update[:] = (pto.div(oi_tmp, li_new))
                                                 pto.assemble(oi_update, oi_offset, attention_out)
@@ -305,11 +305,11 @@ def page_attention_with_imm_scalar(**kwargs):
                                     cur_block_idx.as_intermediate_variable()
                                     kn = pto.view(k_nope_cache, [cur_s2_tile, d_n],
                                                     [cur_block_idx * block_size, 0],
-                                                    valid_shape=[(cur_seq - 
+                                                    valid_shape=[(cur_seq -
                                                     bn * block_size).min(block_size), d_n])
                                     kr = pto.view(k_rope_cache, [cur_s2_tile, d_r],
                                                     [cur_block_idx * block_size, 0],
-                                                    valid_shape=[(cur_seq - 
+                                                    valid_shape=[(cur_seq -
                                                     bn * block_size).min(block_size), d_r])
 
                                     kj_format = pto.TileOpFormat.TILEOP_NZ if is_nz_format else (
@@ -319,11 +319,11 @@ def page_attention_with_imm_scalar(**kwargs):
                                     pto.assemble(kn, [0, 0], kj)
                                     pto.assemble(kr, [0, d_n], kj)
                                     kj = pto.view(kj, [cur_s2_tile, d_n + d_r], [0, 0],
-                                                    valid_shape=[(cur_seq - 
+                                                    valid_shape=[(cur_seq -
                                                     bn * block_size).min(block_size), d_r + d_n])
                                     vj = pto.view(v_nope_cache, [cur_s2_tile, d_n],
                                                     [cur_block_idx * block_size, 0],
-                                                    valid_shape=[(cur_seq - 
+                                                    valid_shape=[(cur_seq -
                                                     bn * block_size).min(block_size), d_n])
 
                                     pto.set_cube_tile_shapes(
@@ -530,7 +530,7 @@ def page_attention_with_manual_unroll(**kwargs):
                                             tilda_lij = pto.row_sum_single(tilda_pij)
                                             # (nTileCur, s2TileCur) -> (nTileCur, 1)
 
-                                            if pto.cond(pto.is_loop_begin(bn, 0)):
+                                            if pto.cond(pto.is_loop_begin(bn)):
                                                 def inside_if_loop_begin():
                                                     nonlocal oi_update, li_update, mi_update
                                                     pto.set_cube_tile_shapes(
@@ -538,7 +538,7 @@ def page_attention_with_manual_unroll(**kwargs):
                                                         [c2_tile[4], c2_tile[5]])
                                                     oi_tmp = pto.matmul(tilda_pij_f16, vj, pto.DT_FP32)
                                                     pto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
-                                                    if pto.cond(pto.is_loop_end(bn, bn_per_batch)):
+                                                    if pto.cond(pto.is_loop_end(bn)):
                                                         oi_update[:] = (pto.div(oi_tmp, tilda_lij))
                                                         # (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
                                                         pto.assemble(oi_update, oi_offset, attention_out)
@@ -582,7 +582,7 @@ def page_attention_with_manual_unroll(**kwargs):
                                                     q2 = pto.mul(q1, t4)
                                                     # (nTileCur, dN), (nTileCur, dN) -> (nTileCur, dN)
                                                     oi_tmp = pto.add(q3, q2)
-                                                    if pto.cond(pto.is_loop_end(bn, bn_per_batch)):
+                                                    if pto.cond(pto.is_loop_end(bn)):
                                                         # (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
                                                         oi_update[:] = (pto.div(oi_tmp, li_new))
                                                         pto.assemble(oi_update, oi_offset, attention_out)
