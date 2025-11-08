@@ -14,7 +14,7 @@
 """
 """
 import inspect
-from typing import Optional, Union, Tuple, List
+from typing import Optional, Union, Tuple, List, overload
 
 from pto import pto_impl
 
@@ -91,14 +91,13 @@ def add(
 
     Examples
     --------
-    >>> a = pto.tensor([1, 2, 3])
-    >>> b = pto.tensor([4, 5, 6])
-    >>> pto.add(a, b)
-    tensor([5, 7, 9])
+    a = pto.tensor([1, 3], pto.DT_FP32)
+    b = pto.tensor([1, 3], pto.DT_FP32)
+    out = pto.add(a, b)
 
-    >>> # Using a scalar and alpha
-    >>> pto.add(a, 5, alpha=2) # Computes a + 2 * 5
-    tensor([11, 12, 13])
+    Input a:    [1 2 3]
+    Input b:    [2 3 4]
+    Output out: [3 5 7]
     """
     if isinstance(other, pto_impl.Tensor):
         if alpha == 1 or alpha == 1.0:
@@ -146,14 +145,22 @@ def sub(
 
     Examples
     --------
-    >>> a = pto.tensor([4, 5, 6])
-    >>> b = pto.tensor([1, 2, 3])
-    >>> pto.sub(a, b)
-    tensor([3, 3, 3])
+    x = pto.tensor([2, 3], pto.DT_FP32)
+    y = pto.tensor([2, 3], pto.DT_FP32)
+    out1 = pto.sub(a, b)
+    
+    Input x:      [[9 9 9],
+                   [9 9 9]]
+    Input y:      [[1 2 3],
+                   [1 2 3]]
+    Output out1 : [[8 7 6],
+                   [8 7 6]]
 
-    >>> # Using a scalar and alpha
-    >>> pto.sub(a, 2, alpha=2) # Computes a + 2 * 5
-    tensor([0, 1, 2])
+    # Using a scalar and alpha
+    c = pto.sub(x, 2, alpha=3) # Computes x - 2 * 3
+
+    Output c:[[3 3 3],
+              [3 3 3]]
     """
     if isinstance(other, pto_impl.Tensor):
         if alpha == 1 or alpha == 1.0:
@@ -197,14 +204,16 @@ def mul(
 
     Examples
     --------
-    >>> a = pto.tensor([1, 2, 3])
-    >>> b = pto.tensor([4, 5, 6])
-    >>> pto.mul(a, b)
-    tensor([4, 10, 18])
-
-    >>> # Using a scalar
-    >>> pto.mul(a, 5) # Computes a * 5
-    tensor([5, 10, 15])
+    x = pto.tensor([2, 3], pto.DT_FP32)
+    y = pto.tensor([2, 3], pto.DT_FP32)
+    z = pto.mul(a, b)
+    
+    Input x:[[1 2 3],
+             [1 2 3]]
+    Input y:[[1 2 3],
+             [1 2 3]]
+    Output z:[[1 4 9],
+              [1 4 9]]
     """
     if isinstance(other, pto_impl.Tensor):
         return pto_impl.mul(input, other)
@@ -246,14 +255,13 @@ def div(
 
     Examples
     --------
-    >>> a = pto.tensor([2, 4, 6])
-    >>> b = pto.tensor([2, 2, 2])
-    >>> pto.div(a, b)
-    tensor([1, 2, 3])
+    a = pto.tensor([3], pto.DT_FP32)
+    b = pto.tensor([3], pto.DT_FP32)
+    out = pto.div(a, b)
 
-    >>> # Using a scalar
-    >>> pto.div(a, 2) # Compute a / 2
-    tensor([1, 2, 3])
+    Input a:    [2 4 6]
+    Input b:    [2 2 2]
+    Output out: [1 2 3]
     """
     if isinstance(other, pto_impl.Tensor):
         return pto_impl.div(input, other)
@@ -335,9 +343,11 @@ def exp(
 
     Examples
     --------
-    >>> a = pto.tensor([0, 1, 2])
-    >>> pto.exp(a, b)
-    tensor([1.0000, 2.7183, 7.3891])
+    x = pto.tensor([3], pto.DT_FP32)
+    y = pto.exp(x)
+
+    Input x: [0 1 2]
+    Output y:[1.0000 2.7183 7.3891]
     """
     return pto_impl.exp(input)
 
@@ -371,14 +381,14 @@ def transpose(
 
     Examples
     --------
-    >>> x = pto.tensor(2, 3)
-    >>> x
-    tensor([[ 1.0028, -0.9893,  0.5809],
-            [-0.1669,  0.7299,  0.4942]])
-    >>> pto.transpose(x, 0, 1)
-    tensor([[ 1.0028, -0.1669],
-            [-0.9893,  0.7299],
-            [ 0.5809,  0.4942]])
+    x = pto.tensor([2, 3], pto.DT_FP32)
+    out = pto.transpose(x, 0, 1)
+
+    Input x:    [[ 1.0028 -0.9893 0.5809],
+                 [-0.1669 0.7299 0.4942]])
+    Output out: [[ 1.0028 -0.1669],
+                 [-0.9893 0.7299],
+                 [ 0.5809 0.4942]])
     """
     return pto_impl.transpose(input, {dim0, dim1})
 
@@ -414,9 +424,11 @@ def logical_not(
 
     Examples
     --------
-    >>> input = pto.tensor([0, 1, 2, 3, 4])
-    >>> pto.logical_not(input)
-    tensor([True, False, False, False, False, False,])
+    a = pto.tensor([5], pto.DT_INT32)
+    out = pto.logical_not(a)
+
+    Input a:    [0 1 2 3 4]
+    Output out: [True False False False False False]
 
     """
     return pto_impl.logical_not(input)
@@ -450,9 +462,13 @@ def rsqrt(
 
     Examples
     --------
-    >>> a = pto.tensor([1, 4, 16])
-    >>> pto.rsqrt(a)
-    tensor([1, 0.5, 0.25])
+    x = pto.tensor([2, 2], pto.DT_FP32)
+    y = pto.rsqrt(x)
+    
+    Input x: [[1  4],
+             [16 9]]
+    Output y:[[1  0.5],
+              [0.25 0.33333]]
     """
     return pto_impl.rsqrt(input)
 
@@ -481,9 +497,11 @@ def sqrt(
 
     Examples
     --------
-    >>> a = pto.tensor([1, 4, 9])
-    >>> pto.sqrt(a)
-    tensor([1, 2, 3])
+    x = pto.tensor([5], pto.DT_FP32)
+    y = pto.sqrt(x)
+
+    Input x:  [1.0 4.0 9.0 16.0 25.0]
+    Output y: [1.0 2.0 3.0 4.0 5.0]
     """
     return pto_impl.sqrt(input)
 
@@ -527,15 +545,15 @@ def topk(
 
     Examples
     --------
-    >>> in = pto.tensor([[4, 5, 6],
-                          [1, 2, 3]] )
-    >>> out = pto.topk(in, 2, -1, True)
-    >>> out[0]
-    tensor([[6, 5],
-            [3, 2]])
-    >>> out1
-    tensor([[2, 1],
-            [2, 1]])
+    x = pto.tensor([2, 3], pto.DT_FP32)
+    y = pto.topk(x, 2, -1, True)
+    
+    Input x:     [[1 2 3],
+                  [1 2 3]]
+    Output y[0]: [[3 2],
+                  [3 2]]
+    Output y[1]: [[2 1],
+                  [2 1]] 
     """
 
     return pto_impl.topk(input, k, (-1 if dim is None else dim), largest)
@@ -581,17 +599,22 @@ def gather(
 
     Examples
     --------
-    >>> a = pto.tensor([[0, 1, 2, 3, 4],
-    ...                   [5, 6, 7, 8, 9],
-    ...                   [10, 11, 12, 13, 14]])        # shape (3, 5)
+    x = pto.tensor([3, 5], pto.DT_FP32)        # shape (3, 5)
 
-    >>> index = pto.tensor([[0, 1, 2, 0],
-    ...                       [1, 2, 0, 1],
-    ...                       [2, 2, 1, 0])             # shape (3, 4)
-    >>> pto.gather(a, 0, index)
-    tensor([[0, 6, 12, 3],
-            [5, 11, 2, 8],
-            [10, 11, 7, 3]])                    # shape (3, 4)
+    index = pto.tensor([3, 4], pto.DT_INT32)   # shape (3, 4)
+    dim = 0
+    y = pto.gather(x, dim, index)
+
+    Input x:  [[0 1 2 3 4],
+               [5 6 7 8 9],
+               [10 11 12 13 14]]
+      index:  [[0 1 2 0],
+               [1 2 0 1],
+               [2 2 1 0]]
+    
+    Output y: [[0 6 12 3],
+               [5 11 2 8],
+               [10 11 7 3]]               # shape (3, 4)
 
     """
 
@@ -609,9 +632,9 @@ def scatter(
 
     This function calculates the formula:
     For dim2,
-    input[indexp[i][j]][:] = src[i][:]
+    input[index[i][j]][:] = src[i][:]
     For dim4,
-    input[indexp[i][j]][indexp[i][j]][0][:] = src[i][j][0][:]
+    input[index[i][j]][index[i][j]][0][:] = src[i][j][0][:]
 
     Parameters
     ----------
@@ -642,20 +665,88 @@ def scatter(
 
     Examples
     --------
-    >>> a = pto.tensor([[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0]])
-    >>> b = pto.tensor([[1, 2],[4, 5]])
-    >>> c = pto.tensor([[1, 2, 3],[4, 5, 6],[7, 8, 9],[10, 11, 12]])
-    >>> pto.scatter(a, -2, b, c)
-    tensor([[0, 0, 0],[1, 2, 3],[4, 5, 6],[0, 0, 0],[7, 8, 9],[10, 11, 12],[0, 0, 0],[0, 0, 0]])
+    # dim2
+    x = pto.tensor([8, 3], pto.DT_FP32)
+    y = pto.tensor([2, 2], pto.DT_INT64)
+    z = pto.tensor([4, 3], pto.DT_FP32)
+    o = pto.scatter(x, -2, y, z)
+    
+    Input x:[[0 0 0],
+             [0 0 0],
+             [0 0 0],
+             [0 0 0],
+             [0 0 0],
+             [0 0 0],
+             [0 0 0],
+             [0 0 0]]
+    Input y:[[1 2],
+             [4 5]]
+    Input z:[[1 2 3],
+             [4 5 6],
+             [7 8 9],
+             [10 11 12]]
+    Output o:[[0 0 0],
+              [1 2 3],
+              [4 5 6],
+              [0 0 0],
+              [7 8 9],
+              [10 11 12],
+              [0 0 0],
+              [0 0 0]])
+    
+    #dim4
+    x = pto.tensor([2, 6, 1, 3], pto.DT_FP32)
+    y = pto.tensor([2, 2], pto.DT_INT64)
+    z = pto.tensor([2, 2, 1, 3], pto.DT_FP32)
+    o = pto.scatter(x, -2, y, z)
 
-    >>> a = pto.tensor([[[[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0]]],
-        [[[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0]]]])
-    >>> b = pto.tensor([[1, 2],[0, 2]])
-    >>> c = pto.tensor([[[[1, 2, 3],[4, 5, 6]]],[[[7, 8, 9],[10, 11, 12]]]])
-    >>> pto.scatter(a, -2, b, c)
-    tensor([[[[0, 0, 0],[1, 2, 3],[4, 5, 6]]],[[[7, 8, 9],[0, 0, 0],[10, 11, 12]]]])
+    Input x:[[
+                [[0 0 0]],
+                [[0 0 0]],
+                [[0 0 0]],
+                [[0 0 0]],
+                [[0 0 0]],
+                [[0 0 0]],
+             ],
+             [
+                [[0 0 0]],
+                [[0 0 0]],
+                [[0 0 0]],
+                [[0 0 0]],
+                [[0 0 0]],
+                [[0 0 0]],
+             ]]
+    Input y:[[1 8],
+             [4 10]]
+    Input z:[[
+                [[1 2 3]],
+                [[4 5 6]],
+             ],
+             [
+                [[7 8 9]],
+                [[10 11 12]],
+             ]]
+    Output o:[[
+                [[0 0 0]],
+                [[1 2 3]],
+                [[0 0 0]],
+                [[0 0 0]],
+                [[7 8 9]],
+                [[0 0 0]],
+             ],
+             [
+                [[0 0 0]],
+                [[0 0 0]],
+                [[4 5 6]],
+                [[0 0 0]],
+                [[10 11 12]],
+                [[0 0 0]],
+             ]]
     """
-    dims = len(input.Dim())
+    if dim != -2:
+        raise ValueError(
+            "scatter currection only support the case where dim = -2.")
+    dims = input.Dim()
     if dims == 4:
         chunk_size = input.GetShapeAt(1)
     elif dims == 2:
@@ -709,23 +800,33 @@ def where(
 
     Examples
     --------
-    >>> cond = pto.tensor([True, False, True, False])
-    >>> x = pto.tensor([1, 2, 3, 4])
-    >>> y = pto.tensor([10, 20, 30, 40])
-    >>> pto.where(cond, x, y)
-    tensor([ 1, 20,  3, 40])
+    cond = pto.tensor([4], pto.DT_BOOL)
+    x = pto.tensor([4], pto.DT_FP32)
+    y = pto.tensor([4], pto.DT_FP32)
+    out1 = pto.where(cond, x, y)
 
-    >>> # Using scalar inputs
-    >>> pto.where(cond, 1, 0)
-    tensor([1, 0, 1, 0])
+    Input cond:  [True False True False]
+    Input x:     [1 2 3 4]
+    Input y:     [10 20 30 40]
+    Output out1: [1 20 3 40]
 
-    >>> # Broadcasting example
-    >>> cond = pto.tensor([[True, False], [False, True]])
-    >>> a = pto.tensor([1, 2])  # Will be broadcasted
-    >>> b = 0
-    >>> pto.where(cond, a, b)
-    tensor([[1, 0],
-            [0, 2]])
+    # Using scalar inputs
+    out2 = pto.where(cond, 1, 0)
+
+    Output out2: [1 0 1 0]
+
+    # Broadcasting example
+    cond = pto.tensor([2, 2], pto.DT_BOOL)
+    x = pto.tensor([1, 2], pto.DT_FP32)  # Will be broadcasted
+    y = 0
+    out3 = pto.where(cond, x, y)
+
+    Input cond:  [[True False], [False True]]
+    Input x:     [1 2]
+    Input y:     0
+    
+    Output out3: [[1 0],
+                  [0 2]])
     """
     if isinstance(input, pto_impl.Tensor):
         input_base = input
@@ -747,6 +848,22 @@ def convert_to_element(value) -> pto_impl.Element:
             return pto_impl.Element(pto_impl.DT_INT64, value)
     else:
         return pto_impl.Element(pto_impl.DT_FP32, value)
+
+
+@overload
+def arange(end: Union[int, float]) -> Tensor:
+    ...
+
+
+@overload
+def arange(start: Union[int, float], end: Union[int, float]) -> Tensor:
+    ...
+
+
+@overload
+def arange(start: Union[int, float],
+           end: Union[int, float], step: Union[int, float]) -> Tensor:
+    ...
 
 
 @op_wrapper
@@ -781,13 +898,13 @@ def arange(
 
     Examples
     --------
-    >>> pto.arange(1.0, 4.0, 0.5)
-    tensor([1.0, 1.5, 2.0, 2.5, 3.0, 3.5])
-    >>> pto.arange(1.0, 4.0)
-    tensor([1.0, 2.0, 3.0])
-    >>> pto.arange(4)
-    tensor([0, 1, 2, 3])
+    a = pto.arange(1.0, 4.0, 0.5)
+    b = pto.arange(1.0, 4.0)
+    c = pto.arange(4)
 
+    Output a: [1.0 1.5 2.0 2.5 3.0 3.5]
+    Output b: [1.0 2.0 3.0]
+    Output c: [0 1 2 3]
     """
     if len(args) == 1:
         end = args[0]
@@ -829,12 +946,14 @@ def log(
 
     Examples
     --------
-    >>> a = pto.tensor([1, 2, 3])
-    >>> pto.log(a)
-    tensor([0.0000, 0.6931, 1.0986])
+    x = pto.tensor([3], pto.DT_FP32)
+    y = pto.log(x)
+
+    Input x:[1 2 3]
+    Output y:[0.0000 0.6931 1.0986]
     """
 
-    return pto_impl.log(input, pto_impl.LogBaseType.LOG_e)
+    return pto_impl.log(input, pto_impl.LogBaseType.LOG_E)
 
 
 @op_wrapper
@@ -864,6 +983,11 @@ def cast(
 
     Examples
     --------
+    x = pto.tensor([2], pto.DT_FP32)
+    y = pto.cast(x, pto.DT_FP16)
+    
+    Input  x: [2.0, 3.0] x.dtype: pto.DT_FP32
+    Output y: [2.0, 3.0] y.dtype: pto.DT_FP16
     """
     if dtype == input.dtype:
         return input
@@ -896,11 +1020,13 @@ def amax(
 
     Examples
     --------
-    >>> in = pto.tensor([[4, 5, 6],
-                          [1, 2, 3]] )
-    >>> pto.amax(in, -1, true)
-    tensor([[6],
-            [3]])
+    x = pto.tensor([2, 3], pto.DT_FP32)
+    y = pto.amax(x, -1)
+    
+    Input x:[[1 2 3],
+             [1 2 3]]
+    Output y:[[3],
+              [3]]
 
     """
     return pto_impl.row_max_single(input, dim)
@@ -930,11 +1056,13 @@ def sum(
 
     Examples
     --------
-    >>> a = pto.tensor([[4, 5, 6],
-                          [1, 2, 3]] )
-    >>> pto.sum(a, -1, true)
-    tensor([[15],
-            [6]])
+    x = pto.tensor([2, 3], pto.DT_FP32)
+    y = pto.sum(x, -1)
+    
+    Input x:[[1 2 3],
+             [1 2 3]]
+    Output y:[[6],
+              [6]]
 
     """
     return pto_impl.row_sum_single(input, dim)
@@ -968,27 +1096,20 @@ def full(size: List[int],
 
     Examples
     --------
-    >>> # Valid shapes use keyword argument
-    >>> a = 1.0 # must be 1.0; implicit conversion is not support
-    >>> pto.full([2,2], a, pto.data_type.DT_FP32, valid_shape=[pto.symbolic_scalar(2), pto.symbolic_scalar(2)])
-    tensor([[1.0,1.0],
-            [1.0,1.0]])
+    # Valid shapes use keyword argument
+    x1 = 1.0 
+    y1 = pto.full([2,2], x1, pto.DT_FP32, valid_shape=[2, 2])
 
-    >>> b = pto.symbolic_scalar(1)
-    >>> pto.full([2,2], b, pto.data_type.DT_INT32, valid_shape=[pto.symbolic_scalar(2), pto.symbolic_scalar(2)])
-    tensor([[1,1],
-            [1,1]])
+    x2 = pto.symbolic_scalar(1)
+    y2 = pto.full([2,2], x2, pto.DT_INT32, valid_shape=[2, 2])
 
-    >>> c = pto.element(1)
-    >>> pto.full([2,2], c, pto.data_type.DT_INT32, valid_shape=[pto.symbolic_scalar(2), pto.symbolic_scalar(2)])
-    tensor([[1,1],
-            [1,1]])
-
-    >>> #  In static graphs, validshape can be ignored
-    >>> d = pto.element(1)
-    >>> pto.full([2,2], d, pto.data_type.DT_INT32)
-    tensor([[1,1],
-            [1,1]])
+    #  In static graphs, validshape can be ignored
+    x3 = 1
+    y3 = pto.full([2,2], x3, pto.DT_INT32)
+    
+    Output y1: [[1.0 1.0], [1.0 1.0]]
+    Output y2: [[1 1], [1 1]]
+    Output y3: [[1 1], [1 1]]
     """
 
     if valid_shape is None:
@@ -1026,11 +1147,13 @@ def amin(
 
     Examples
     --------
-    >>> in = pto.tensor([[4, 5, 6],
-                          [1, 2, 3]] )
-    >>> pto.amin(in, -1, true)
-    tensor([[4],
-            [1]])
+    x = pto.tensor([2, 3], pto.DT_FP32)
+    y = pto.amin(x, -1)
+    
+    Input x:[[1 2 3],
+             [1 2 3]]
+    Output y:[[1],
+              [1]]
 
     """
     return pto_impl.row_min_single(input, dim)
@@ -1064,11 +1187,13 @@ def greater(
 
     Examples
     --------
-    >>> a = pto.tensor([1, 2, 3])
-    >>> b = pto.tensor([2, 2, 2])
+    a = pto.tensor([3], pto.DT_FP32)
+    b = pto.tensor([3], pto.DT_FP32)
+    out = pto.greater(a, b)
 
-    >>> pto.greater(a, b)
-    tensor([False, False, True])
+    Input a:    [1 2 3]
+    Input b:    [2 2 2]
+    Output out: [False False True]
 
     """
     return pto_impl.compare(input, other, OpType.GT, OutType.BOOL)
@@ -1094,15 +1219,19 @@ def concat(
         The concatenated tensor
     Examples
     ---------
-    >>> x = pto.tensor([2, 2], pto.data_type.DT_FP32)  # 2x2 tensor with all 1s
-    >>> y = pto.tensor([2, 2], pto.data_type.DT_FP32)  # 2x2 tensor with all 0s
-    >>> dim = 0
-    >>> out = pto.Concat({x, y}, dim)
-    >>> print(out)
-    [[1 1]
-    [1 1]
-    [0 0]
-    [0 0]]
+    x = pto.tensor([2, 2], pto.data_type.DT_FP32)  # 2x2 tensor with all 1s
+    y = pto.tensor([2, 2], pto.data_type.DT_FP32)  # 2x2 tensor with all 0s
+    dim = 0
+    out = pto.concat([x, y], dim) 
+    
+    Input  x : [[1 1],
+                [1 1]]
+           y : [[0 0],
+                [0 0]]
+    Output out:[[1 1],
+                [1 1],
+                [0 0],
+                [0 0]]
     """
     return pto_impl.concat(tensors, dim)
 
@@ -1351,10 +1480,12 @@ def maximum(input: Tensor, other: Tensor) -> Tensor:
 
     Examples
     --------
-    >>> a = pto.tensor([0, 2, 4])
-    >>> a = pto.tensor([3, 1, 3])
+    a = pto.tensor([3], pto.DT_INT32)
+    b = pto.tensor([3], pto.DT_INT32)
+    out = pto.maximum(a, b)
 
-    >>> pto.maximum(a, b)
-    tensor([3, 2, 4])
+    Input a:    [0 2 4]
+    Input b:    [3 1 3]
+    Output out: [3 2 4]
     """
     return pto_impl.maximum(input, other)
