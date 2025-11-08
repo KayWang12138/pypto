@@ -17,8 +17,84 @@
 #define INTERFACE_MAIN_OPERATION_COMMON_H
 
 #include "interface/utils/common.h"
+#include "tilefwk/symbolic_scalar.h"
+#include "tilefwk/tensor.h"
+#include "interface/tensor/logical_tensor.h"
+#include "interface/operation/opcode.h"
 
 namespace npu::tile_fwk {
+#define CALL(n, ...) Tensor##n(__VA_ARGS__)
+#define RETURN_CALL(n, ...) return Tensor##n(__VA_ARGS__)
+
+constexpr int32_t NUM_VALUE_0 = 0;
+constexpr int32_t NUM_VALUE_1 = 1;
+constexpr int32_t NUM_VALUE_2 = 2;
+constexpr int32_t NUM_VALUE_3 = 3;
+constexpr int32_t NUM_VALUE_4 = 4;
+constexpr int32_t NUM_VALUE_5 = 5;
+constexpr int32_t NUM_VALUE_8 = 8;
+constexpr int32_t NUM_VALUE_10 = 10;
+constexpr int32_t NUM_VALUE_16 = 16;
+constexpr int32_t NUM_VALUE_31 = 31;
+constexpr int32_t NUM_VALUE_32 = 32;
+constexpr int32_t NUM_VALUE_64 = 64;
+constexpr double NUM_VALUE_0_5 = 0.5;
+constexpr double NUM_VALUE_EPS = 1e-9;
+
+struct TileInfo {
+    std::vector<int64_t> shape;
+    std::vector<int64_t> offset;
+    std::vector<SymbolicScalar> validShape;
+
+    TileInfo(size_t shapeSize, size_t offsetSize) : shape(shapeSize), offset(offsetSize), validShape(shapeSize) {}
+
+    TileInfo(std::vector<int64_t> aShape, std::vector<int64_t> aOffset, std::vector<SymbolicScalar> aValidShape = {})
+        : shape(std::move(aShape)), offset(std::move(aOffset)), validShape(aValidShape) {}
+};
+
+struct Input {
+    const Tensor tensor;
+    TileInfo tileInfo;
+};
+
+void CheckTensorShape(const LogicalTensorPtr &tensor, const std::string &op);
+
+using TiledFuncType = std::function<void(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op)>;
+class TiledFuncRegistry {
+private:
+    TiledFuncRegistry() = default;
+    ~TiledFuncRegistry() = default;
+
+public:
+    static TiledFuncRegistry &GetInstance() {
+        static TiledFuncRegistry instance;
+        return instance;
+    }
+
+    void RegisterTiledFunc(const Opcode opcode, TiledFuncType func) { tiledFuncs_[opcode] = func; }
+
+    TiledFuncType GetTiledFunc(const Opcode opcode) {
+        auto it = tiledFuncs_.find(opcode);
+        if (it == tiledFuncs_.end()) {
+            return nullptr;
+        }
+        return tiledFuncs_[opcode];
+    }
+
+private:
+    std::unordered_map<Opcode, TiledFuncType> tiledFuncs_;
+};
+
+#define REGISTER_OPERATION_TILED_FUNC(OpCoreStr, OpType, FuncName)                \
+    class OpCoreStr##TiledRegister {                                              \
+    public:                                                                       \
+        OpCoreStr##TiledRegister() {                                              \
+            TiledFuncRegistry::GetInstance().RegisterTiledFunc(OpType, FuncName); \
+        }                                                                         \
+    };                                                                            \
+    static OpCoreStr##TiledRegister OpCoreStr##_tiled_register
+
 class OpSyncQueue {
 public:
     OpSyncQueue() {}
@@ -64,6 +140,6 @@ public:
         return oss.str();
     }
 };
-}
+} // namespace npu::tile_fwk
 
 #endif // INTERFACE_MAIN_OPERATION_COMMON_H

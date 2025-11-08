@@ -19,6 +19,7 @@ file(GLOB _Interface_Srcs
 
         # Operation
         operation/*.cpp
+        operation/vector/*.cpp
         operation/distributed/*.cpp
 
         # Machine

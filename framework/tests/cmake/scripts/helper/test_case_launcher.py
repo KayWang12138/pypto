@@ -85,12 +85,6 @@ class TestCaseLauncher:
         del os.environ["ASCEND_PROCESS_LOG_PATH"]
 
     def compile_if_need(self):
-        stest_exec_file = f"{self.work_path}/build/framework/tests/st/tile_fwk_stest"
-        is_package_ready = self.pto and os.path.exists(self.pto_install_path + "/pto")
-        is_exec_ready = not self.pto and os.path.exists(stest_exec_file)
-        if (self.clean and is_package_ready) or (not self.clean and is_exec_ready):
-            return
-
         clean_str = "-c" if self.clean else ""
         cmd = f"{sys.executable} build.py {clean_str} -s="
         if self.pto:

@@ -737,7 +737,7 @@ def gen_subs_op_golden(case_name: str, output: Path, case_index: int = None) -> 
     return gen_op_golden("Subs", golden_func, output, case_index)
 
 
-@TestCaseLoader.reg_params_handler(ops=["RowSumSingle", "RowMaxSingle", "RowMinSingle"])
+@TestCaseLoader.reg_params_handler(ops=["Sum", "Amax", "Amin"])
 def params_dims_func(params: dict):
     params["dims"] = parse_list_str(params.get("dims"))
     return params

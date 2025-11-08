@@ -27,77 +27,10 @@ namespace npu::tile_fwk {
 class Function;
 class Operation;
 using LogicalTensorPtr = std::shared_ptr<LogicalTensor>;
-enum class CastOpType {
-    CAST,
-    // FLOOR,
-    // ROUND,
-};
-enum class BinaryOpType {
-    ADD,
-    SUB,
-    MUL,
-    DIV,
-    MAX,
-    MIN,
-    ADD_BRC,
-    SUB_BRC,
-    MUL_BRC,
-    DIV_BRC,
-    MAX_BRC,
-    S_ADD,
-    S_SUB,
-    S_MUL,
-    S_DIV,
-    S_MAX,
-    MAXIMUM,
-    CMP,
-};
-enum class UnaryOpType {
-    EXP,
-    NEG,
-    RSQRT,
-    SQRT,
-    RECIPROCAL,
-    DUPLICATE,
-    ABS,
-    LN,
-};
-enum class ReduceType {
-    NORMAL,
-    EXPAND,
-    SINGLE,
-};
-
-constexpr int32_t NUM_VALUE_0 = 0;
-constexpr int32_t NUM_VALUE_1 = 1;
-constexpr int32_t NUM_VALUE_2 = 2;
-constexpr int32_t NUM_VALUE_3 = 3;
-constexpr int32_t NUM_VALUE_4 = 4;
-constexpr int32_t NUM_VALUE_5 = 5;
-constexpr int32_t NUM_VALUE_8 = 8;
-constexpr int32_t NUM_VALUE_10 = 10;
-constexpr int32_t NUM_VALUE_16 = 16;
-constexpr int32_t NUM_VALUE_31 = 31;
-constexpr int32_t NUM_VALUE_32 = 32;
-constexpr int32_t NUM_VALUE_64 = 64;
-constexpr double NUM_VALUE_0_5 = 0.5;
-constexpr double NUM_VALUE_EPS = 1e-9;
-
-struct ExpandInfo {
-    const std::shared_ptr<LogicalTensor> &srcTensor;
-    const std::shared_ptr<LogicalTensor> &result;
-    std::vector<int64_t> &viewShape;
-    std::vector<int64_t> &offset;
-    const int expandDim;
-    ExpandInfo(const std::shared_ptr<LogicalTensor> &srcTensor0, const std::shared_ptr<LogicalTensor> &result0,
-        std::vector<int64_t> &viewShape0, std::vector<int64_t> &offset0, const int expandDim0)
-        : srcTensor(srcTensor0), result(result0), viewShape(viewShape0), offset(offset0), expandDim(expandDim0) {}
-};
 
 void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode opCode,
     const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
     const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);
-
 
 namespace Matrix {
 

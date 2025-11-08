@@ -1,0 +1,52 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file operation_common.cpp
+ * \brief
+ */
+
+#include "operation_common.h"
+
+namespace npu::tile_fwk {
+
+inline const std::vector<size_t> &GetShapeLenLimit(const std::string &op) {
+    // if the limit of op is not [1, 4], should add here
+    static std::unordered_map<std::string, const std::vector<size_t>> op_shape_len_limit = {
+        {    "ADD", {1, 4}},
+        {   "CAST", {1, 4}},
+        {"DEFAULT", {1, 4}}
+    };
+    if (op_shape_len_limit.find(op) == op_shape_len_limit.end()) {
+        return op_shape_len_limit.at("DEFAULT");
+    }
+    return op_shape_len_limit.at(op);
+}
+
+void CheckTensorShape(const LogicalTensorPtr &tensor, const std::string &op) {
+    auto shape = tensor->shape;
+    // valid input dims must in [1, 4]
+    auto shape_len_limit = GetShapeLenLimit(op);
+    if (shape.size() < shape_len_limit[0] || shape.size() > shape_len_limit[1]) {
+        ASSERT(false && "The dims of tensor out of range.");
+    }
+    size_t shapeSize = 1;
+    for (const auto &value : shape) {
+        if (value > INT32_MAX) {
+            ASSERT(false && "The dim value of tensor must less than or equal to INT32_MAX(2,147,483,647)");
+        }
+        shapeSize *= static_cast<size_t>(value);
+        if (shapeSize > INT32_MAX) {
+            ASSERT(false && "The shape size of tensor must less than or equal to INT32_MAX(2,147,483,647)");
+        }
+    }
+}
+
+}
