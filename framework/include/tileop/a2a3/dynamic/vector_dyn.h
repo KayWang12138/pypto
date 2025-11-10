@@ -2586,7 +2586,7 @@ TILEOP void DynBitSort(
 
 template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0, unsigned srcShape1, int axis, int k, int isLargest>
 TILEOP void DynMrgSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, unsigned oriShape1) {
-    constexpr int32_t kAlign = (k + 3) / 4 * 4; // k需要向32Bytes取整,否则最后搬运出问题
+    constexpr int32_t kAlign = (k + 7) / 8 * 8; // k需要向32Bytes取整,否则最后搬运出问题
     int32_t totalNum = oriShape1 / 4;
     for (int rowIdx = 0; rowIdx < oriShape0; rowIdx++) {
         // 每4个合并,计算整块
@@ -2692,8 +2692,8 @@ template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0
 TILEOP void DynTiledMrgSort(
     __ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, __ubuf__ T *src2, __ubuf__ T *src3, __ubuf__ T *tmp, 
     unsigned oriShape0, unsigned oriShape1, unsigned oriShapeLast) {
-    constexpr int32_t kAlign = (k + 3) / 4 * 4;
-    int32_t totalNum = oriShape1 / 4;
+    constexpr int32_t kAlign = (k + 7) / 8 * 8;
+    constexpr int32_t kLast = k * 2 > srcShapeLast ? srcShapeLast / 2 : k;
     for (int rowIdx = 0; rowIdx < oriShape0; rowIdx++) {
         if constexpr (validBit == 4) {
             __ubuf__ float *src0Data = reinterpret_cast<__ubuf__ float *>(src0) + rowIdx * srcShape1;
@@ -2710,7 +2710,7 @@ TILEOP void DynTiledMrgSort(
             count |= (uint64_t(k));
             count |= (uint64_t(k) << 16);
             count |= (uint64_t(k) << 32);
-            count |= (uint64_t(k) << 48);
+            count |= (uint64_t(kLast) << 48);
 
             __ubuf__ float *addr_array[4] = {(__ubuf__ float *)(src0Data),
                 (__ubuf__ float *)(src1Data), (__ubuf__ float *)(src2Data),
@@ -2732,7 +2732,7 @@ TILEOP void DynTiledMrgSort(
             uint64_t count = 0;
             count |= (uint64_t(k));
             count |= (uint64_t(k) << 16);
-            count |= (uint64_t(k) << 32);
+            count |= (uint64_t(kLast) << 32);
 
             __ubuf__ float *addr_array[4] = {(__ubuf__ float *)(src0Data),
                 (__ubuf__ float *)(src1Data), (__ubuf__ float *)(src2Data),
@@ -2753,7 +2753,7 @@ TILEOP void DynTiledMrgSort(
             // 每次计算的数据
             uint64_t count = 0;
             count |= (uint64_t(k));
-            count |= (uint64_t(k) << 16);
+            count |= (uint64_t(kLast) << 16);
 
             __ubuf__ float *addr_array[4] = {(__ubuf__ float *)(src0Data),
                 (__ubuf__ float *)(src1Data), (__ubuf__ float *)0,
@@ -2821,20 +2821,17 @@ TILEOP void DynTiledMrgSort(
 template <typename T, typename U, int k, unsigned dstRawShape1, int extractMode, int isLargest>
 TILEOP void DynExtract(__ubuf__ T *dst, __ubuf__ U *src, unsigned TShape0) {
     uint64_t repeat = static_cast<uint64_t>(TShape0 * dstRawShape1 * 2 * sizeof(T) / REPEAT_BYTE);
-    constexpr uint8_t dstBlockStride = 1;
     constexpr uint8_t srcBlockStride = 1;
-    constexpr uint8_t dstRepeatStride = 8;
     constexpr uint8_t srcRepeatStride = 8;
     // mode trans, extractMode == 0 取偶数位， extractMode == 1 取奇数位
     int patternMode = 1;
     if constexpr (extractMode == 1) {
         patternMode = 2;
     }
-    __ubuf__ U *nullsrc1 = REPEAT_BYTE * sizeof(U) + src;
     uint64_t elems = TShape0 * dstRawShape1;
     set_mask_count();
     set_vector_mask(0, elems * 2);
-    vreducev2((__ubuf__ uint32_t *)dst, (__ubuf__ uint32_t *)src, (__ubuf__ uint32_t *)nullsrc1, 1, srcBlockStride,
+    vreducev2((__ubuf__ uint32_t *)dst, (__ubuf__ uint32_t *)src, (__ubuf__ uint32_t *)src, 1, srcBlockStride,
         patternMode, srcRepeatStride, 0);
     set_mask_norm();
     set_vector_mask(-1, -1);
