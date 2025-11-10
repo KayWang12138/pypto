@@ -32,3 +32,17 @@ def test_tile_shape_set_vec_tiles_shape_4d():
     pto.set_vec_tile_shapes(*expected)
     actual = pto.get_vec_tile_shapes()
     assert tuple(actual) == expected
+
+
+def test_cube_tile_shapes():
+    expected = ([16, 16], [256, 512, 512], [128, 128], True)
+    pto.set_cube_tile_shapes(*expected[:3], expected[3])
+    actual = pto.get_cube_tile_shapes()
+    assert actual == expected
+
+
+def test_cube_tile_shapes_l1():
+    expected = ([16, 16], [256, 512, 512], [128, 128], False)
+    pto.set_cube_tile_shapes(*expected[:3], expected[3])
+    actual = pto.get_cube_tile_shapes()
+    assert actual == expected

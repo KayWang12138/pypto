@@ -71,40 +71,6 @@ void bind_controller_config(py::module &m) {
     m.def("SetSemanticLabel", [](const std::string &label) { config::SetSemanticLabel(label); }, py::arg("label"));
 }
 
-void bind_controller_tile_shape(py::module &m) {
-    py::class_<TileShape>(m, "TileShape")
-        .def(py::init<>())
-        .def("Reset", &TileShape::Reset)
-        .def("toString", &TileShape::toString, py::arg("tile_type") = TileType::MAX)
-        .def("GetVecTile", py::overload_cast<>(&TileShape::GetVecTile))
-        .def("GetVecTile", py::overload_cast<>(&TileShape::GetVecTile, py::const_))
-        .def("GetCubeTile", py::overload_cast<>(&TileShape::GetCubeTile))
-        .def("GetCubeTile", py::overload_cast<>(&TileShape::GetCubeTile, py::const_))
-        .def("SetVecTile",
-            [](TileShape &self, py::args args) {
-                std::vector<int64_t> v;
-                v.reserve(args.size());
-                for (auto &a : args) {
-                    v.push_back(a.cast<int>()); // require ints
-                }
-                self.SetVecTile(v);
-            })
-        .def("SetDistRankId", &TileShape::SetDistRankId);
-    py::class_<VecTile>(m, "VecTile")
-        .def(py::init<>())
-        .def_readwrite("tile", &VecTile::tile)
-        .def("valid", &VecTile::valid, "Check if all elements are positive and non-empty")
-        .def(
-            "__getitem__",
-            [](const VecTile &vt, int index) {
-                if (index < 0 || index >= static_cast<int>(vt.size())) {
-                    throw py::index_error("Index out of range");
-                }
-                return vt[index];
-            },
-            py::arg("index"))
-        .def("__len__", &VecTile::size, "Get the size of the tile");
-}
 
 void bind_controller_set_tile(py::module &m) {
     m.def("SetVecTile", [](py::args args) {
@@ -115,7 +81,7 @@ void bind_controller_set_tile(py::module &m) {
         }
         TileShape::Current().SetVecTile(v);
     });
-    m.def("GetVecTile", []() { return TileShape::Current().GetVecTile(); });
+    m.def("GetVecTile", []() { return TileShape::Current().GetVecTile().tile; });
     m.def(
         "SetMatrixSize", [](const std::vector<int64_t> &size) { TileShape::Current().SetMatrixSize(size); },
         py::arg("size"));
@@ -147,7 +113,10 @@ void bind_controller_set_tile(py::module &m) {
         },
         py::arg("m"), py::arg("k"), py::arg("n"), py::arg("set_l1_tile"),
         "Set cube tile shapes with specified dimensions");
-    m.def("GetCubeTile", []() { return TileShape::Current().GetCubeTile(); });
+    m.def("GetCubeTile", []() {
+        auto cubeTile = TileShape::Current().GetCubeTile();
+        return std::tuple(cubeTile.m, cubeTile.k, cubeTile.n, cubeTile.setL1Tile);
+    });
 }
 
 void bind_controller_function(py::module &m) {
@@ -230,7 +199,6 @@ void bind_controller_utils(py::module &m) {
 
 void bind_controller(py::module &m) {
     bind_controller_config(m);
-    bind_controller_tile_shape(m);
     bind_controller_set_tile(m);
     bind_controller_function(m);
     bind_controller_loop(m);

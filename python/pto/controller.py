@@ -147,7 +147,7 @@ def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], set_l1_tile: 
     pto_impl.SetCubeTile(m, k, n, set_l1_tile)
 
 
-def get_cube_tile_shapes() -> List[Union[List, bool]]:
+def get_cube_tile_shapes() -> Tuple[List[int], List[int], List[int], bool]:
     """ get the tile shapes in cube computation
 
     This operation gets the value of the tile shapes
