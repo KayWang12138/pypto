@@ -183,7 +183,8 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest3) {
     ubTensor2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
     auto ubTensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     ubTensor3->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    auto outCast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape, "outCast1", NodeType::OUTCAST);
+    auto outCast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape,
+        TileOpFormat::TILEOP_ND, "outCast1", NodeType::OUTCAST);
     outCast1->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
     auto outCast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto outCast3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -235,9 +236,11 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest4) {
     auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto ubTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     ubTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    auto outCast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape, "outCast1", NodeType::OUTCAST);
+    auto outCast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape,
+        TileOpFormat::TILEOP_ND, "outCast1", NodeType::OUTCAST);
     outCast1->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    auto outCast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape, "outCast2", NodeType::OUTCAST);
+    auto outCast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape,
+        TileOpFormat::TILEOP_ND, "outCast2", NodeType::OUTCAST);
     outCast2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
     auto outCast3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
 
@@ -632,7 +635,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest13) {
 
     currFunctionPtr->AddOperation(Opcode::OP_EXPAND, {inCast}, {ubTensor});
     currFunctionPtr->AddOperation(Opcode::OP_SQRT, {ubTensor}, {outCast});
-    
+
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
 

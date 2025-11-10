@@ -69,10 +69,10 @@ void SetMatmulAttr(Operation &op) {
 
 void SetMatmulAttr(Operation &op, const std::tuple<LogicalTensorPtr, LogicalTensorPtr, LogicalTensorPtr> &tensorPtrs,
     const std::vector<int64_t> &matrixSize) {
-    int64_t nzAttr = (static_cast<int64_t>(std::get<0>(tensorPtrs)->tensorfmt)) |
-                     (static_cast<int64_t>(std::get<1>(tensorPtrs)->tensorfmt) << 1) |
+    int64_t nzAttr = (static_cast<int64_t>(std::get<0>(tensorPtrs)->Format())) |
+                     (static_cast<int64_t>(std::get<1>(tensorPtrs)->Format()) << 1) |
                      // 2含义：cTensorPtr的索引，同时也是cTensor NZ信息的编码偏移位数
-                     (static_cast<int64_t>(std::get<2>(tensorPtrs)->tensorfmt) << 2);
+                     (static_cast<int64_t>(std::get<2>(tensorPtrs)->Format()) << 2);
     op.SetAttribute(MATMUL_NZ_ATTR, nzAttr);
     if (matrixSize.size() < MATRIX_MAXSIZE) {
         op.SetAttribute(A_MUL_B_ACT_M, 0);
@@ -101,7 +101,7 @@ void AddOpView(
     Function &function, const LogicalTensorPtr &operand, LogicalTensorPtr &viewTensor, const TensorAttributes &attrs) {
     DataType dtype = (attrs.name == "bias_BT" ? DataType::DT_FP32 : operand->Datatype());
     viewTensor = std::make_shared<LogicalTensor>(function, dtype, std::vector<int64_t>{1, attrs.tileSize},
-        SymbolicScalar::FromConcrete({1, attrs.tileSize}), attrs.name, operand->nodetype, operand->tensorfmt);
+        SymbolicScalar::FromConcrete({1, attrs.tileSize}), operand->Format(), attrs.name, operand->nodetype);
     viewTensor->UpdateDynValidShape(
         GetViewValidShape(operand->GetDynValidShape(), {0, attrs.offset}, {}, {1, attrs.tileSize}));
     auto &viewOperand = function.AddOperation(Opcode::OP_VIEW, {operand}, {viewTensor});
@@ -160,12 +160,12 @@ void CollectSubAMulB(Function &function, const CollectSubAMulBPara &args, Aggreg
                                             bTensorPtr->View(function, sizeVecB, {posK[1] + kL0Idx, nL0Idx});
                 auto aL0ValidShape = GetValidShapeFromTranspose<isTransA>(aL0Tensor);
                 auto aL0LogicalTensor = std::make_shared<LogicalTensor>(function, aTensorPtr->Datatype(),
-                    std::vector<int64_t>{mL0size, kL0size}, aL0ValidShape, "a_l0", aTensorPtr->nodetype,
-                    aTensorPtr->tensorfmt);
+                    std::vector<int64_t>{mL0size, kL0size}, aL0ValidShape, aTensorPtr->Format(),
+                    "a_l0", aTensorPtr->nodetype);
                 auto bL0ValidShape = GetValidShapeFromTranspose<isTransB>(bL0Tensor);
                 auto bL0LogicalTensor = std::make_shared<LogicalTensor>(function, bTensorPtr->Datatype(),
-                    std::vector<int64_t>{kL0size, nL0size}, bL0ValidShape, "b_l0", bTensorPtr->nodetype,
-                    bTensorPtr->tensorfmt);
+                    std::vector<int64_t>{kL0size, nL0size}, bL0ValidShape, bTensorPtr->Format(),
+                    "b_l0", bTensorPtr->nodetype);
                 function.AddOperation(opCodeA, {aL0Tensor}, {aL0LogicalTensor});
                 function.AddOperation(opCodeB, {bL0Tensor}, {bL0LogicalTensor});
                 auto l0Offset = l1Offset;
@@ -297,8 +297,8 @@ void L1MultiDataLoadAL1Tiles(Function &function, const std::vector<LogicalTensor
         int64_t kL1PartialSiza = endK - startK;
         auto aL1TileTensor = operand1->View(function, {mL1Size, kL1PartialSiza}, {mL1Idx, startK});
         auto inputATile = std::make_shared<LogicalTensor>(function, operand1->Datatype(),
-            std::vector<int64_t>{mL1Size, kL1PartialSiza}, aL1TileTensor->GetDynValidShape(), "a_l1",
-            aL1TileTensor->nodetype, aL1TileTensor->tensorfmt);
+            std::vector<int64_t>{mL1Size, kL1PartialSiza}, aL1TileTensor->GetDynValidShape(), aL1TileTensor->Format(),
+            "a_l1", aL1TileTensor->nodetype);
         auto &copyInA = function.AddOperation(Opcode::OP_VIEW, {aL1TileTensor}, {inputATile});
         std::vector<int64_t> newoffset{0, 0};
         auto viewAttribute = std::make_shared<ViewOpAttribute>(
@@ -325,10 +325,10 @@ void L1MultiDataLoadBL1Tiles(Function &function, const std::vector<LogicalTensor
         auto inputBTile = isTransB ?
                               std::make_shared<LogicalTensor>(function, operand2->Datatype(),
                                   std::vector<int64_t>{nL1Size, kL1PartialSiza}, bL1TileTensor->GetDynValidShape(),
-                                  "b_l1", bL1TileTensor->nodetype, bL1TileTensor->tensorfmt) :
+                                  bL1TileTensor->Format(), "b_l1", bL1TileTensor->nodetype) :
                               std::make_shared<LogicalTensor>(function, operand2->Datatype(),
                                   std::vector<int64_t>{kL1PartialSiza, nL1Size}, bL1TileTensor->GetDynValidShape(),
-                                  "b_l1", bL1TileTensor->nodetype, bL1TileTensor->tensorfmt);
+                                  bL1TileTensor->Format(), "b_l1", bL1TileTensor->nodetype);
         auto &copyInB = function.AddOperation(Opcode::OP_VIEW, {bL1TileTensor}, {inputBTile});
         std::vector<int64_t> newoffset{0, 0};
         auto viewAttribute = std::make_shared<ViewOpAttribute>(
@@ -576,7 +576,7 @@ void CheckCubeTiling(const Tensor &operand1, const Tensor &operand2) {
     ASSERT(nL0 * BytesOf(operand2.GetDataType()) % ALIGN_SIZE_32 == 0)
         << "Current length of nL0: " << (kL0 * BytesOf(operand1.GetDataType()))
         << " bytes, the length must be aligned to 32 bytes" << std::endl;
-    if (operand1.GetStorage()->GetTileOpFormat() == TileOpFormat::TILEOP_ND) {
+    if (operand1.Format() == TileOpFormat::TILEOP_ND) {
         if constexpr (isTransA) { // For ND A transpose, mL0 must be 32B aligned
             ASSERT(mL0 * BytesOf(operand1.GetDataType()) % ALIGN_SIZE_32 == 0)
                 << "Current length of mL0: " << (mL0 * BytesOf(operand1.GetDataType()))
@@ -586,7 +586,7 @@ void CheckCubeTiling(const Tensor &operand1, const Tensor &operand2) {
 }
 
 void CheckOperandShapeBound(const Tensor &operand) {
-    auto opFormat = operand.GetStorage()->GetTileOpFormat();
+    auto opFormat = operand.Format();
     if (opFormat == TileOpFormat::TILEOP_ND) {
         ASSERT(operand.GetShape().back() <= SHAPE_INNER_AXIS_MAX_SIZE)
             << "Current inner axis: " << operand.GetShape().back()
@@ -611,8 +611,8 @@ void CheckNZFormatAligned(const Tensor &operand1, const Tensor &operand2) {
     const int64_t kL0 = cubeTile.k[0];
     const int64_t mL0 = cubeTile.m[0];
     const int64_t nL0 = cubeTile.n[0];
-    auto opFormatA = operand1.GetStorage()->GetTileOpFormat();
-    auto opFormatB = operand2.GetStorage()->GetTileOpFormat();
+    auto opFormatA = operand1.Format();
+    auto opFormatB = operand2.Format();
     if (opFormatA == TileOpFormat::TILEOP_NZ) {
         if constexpr (isTransA) {
             ASSERT(mL0 * BytesOf(operand1.GetDataType()) % ALIGN_SIZE_32 == 0)
@@ -675,7 +675,7 @@ void CheckBiasOperand(const Tensor &operand, LogicalTensorPtr &result, const Mat
         return;
     }
     ASSERT(operand.GetDataType() == DataType::DT_FP16 || operand.GetDataType() == DataType::DT_FP32);
-    ASSERT(param.biasTensor.GetStorage()->GetTileOpFormat() == TileOpFormat::TILEOP_ND);
+    ASSERT(param.biasTensor.Format() == TileOpFormat::TILEOP_ND);
     if (operand.GetDataType() == DataType::DT_FP32) {
         ASSERT(param.biasTensor.GetDataType() == DataType::DT_FP32);
     } else {
@@ -689,7 +689,7 @@ void CheckBiasOperand(const Tensor &operand, LogicalTensorPtr &result, const Mat
 void CheckQuantOperand(const Tensor &operand, LogicalTensorPtr &result, const MatmulExtendParam &param = {}) {
     const Tensor &oprandResult = result;
     if (param.scaleTensor.GetStorage() != nullptr) {
-        ASSERT(param.scaleTensor.GetStorage()->GetTileOpFormat() == TileOpFormat::TILEOP_ND);
+        ASSERT(param.scaleTensor.Format() == TileOpFormat::TILEOP_ND);
         ASSERT(oprandResult.GetDataType() == DataType::DT_FP16 && operand.GetDataType() == DataType::DT_INT8);
         ASSERT(param.scaleTensor.GetShape()[0] == 1);
         ASSERT(param.scaleTensor.GetShape()[1] == result->GetShape()[1]);
@@ -725,9 +725,7 @@ void MatmulImpl(DataType dataType, std::vector<LogicalTensorPtr> &iOperand, Logi
     const auto operand2 = iOperand[1];
     CheckMatMulOperands<false, false, isCMatrixNZ>(dataType, operand1, operand2, result, param);
     ASSERT(dataType == DT_FP32 || dataType == DT_FP16 || dataType == DT_BF16 || dataType == DT_INT32);
-    if constexpr (isCMatrixNZ) {
-        result->tensorfmt = TileOpFormat::TILEOP_NZ;
-    }
+
     CALL(InnerAMulB, *Program::GetInstance().GetCurrentFunction(), iOperand, result, param);
 }
 
@@ -799,9 +797,7 @@ void AMulBtImpl(DataType dataType, std::vector<LogicalTensorPtr> &iOperand, Logi
     // quant check
     ASSERT(dataType == DataType::DT_FP32 || dataType == DataType::DT_FP16 || dataType == DataType::DT_BF16 ||
            dataType == DataType::DT_INT32);
-    if constexpr (isCMatrixNZ) {
-        result->tensorfmt = TileOpFormat::TILEOP_NZ;
-    }
+
     CALL(InnerAMulBt, *Program::GetInstance().GetCurrentFunction(), iOperand, result, param);
 }
 
@@ -813,9 +809,7 @@ void AtMulBImpl(DataType dataType, std::vector<LogicalTensorPtr> &iOperand, Logi
     CheckMatMulOperands<true, false, isCMatrixNZ>(dataType, operand1, operand2, result, param);
     ASSERT(dataType == DataType::DT_FP32 || dataType == DataType::DT_FP16 || dataType == DataType::DT_BF16 ||
            dataType == DataType::DT_INT32);
-    if constexpr (isCMatrixNZ) {
-        result->tensorfmt = TileOpFormat::TILEOP_NZ;
-    }
+
     CALL(InnerAtMulB, *Program::GetInstance().GetCurrentFunction(), iOperand, result, param);
 }
 
@@ -828,9 +822,7 @@ void AtMulBtImpl(DataType dataType, std::vector<LogicalTensorPtr> &iOperand, Log
     // quant check
     ASSERT(dataType == DataType::DT_FP32 || dataType == DataType::DT_FP16 || dataType == DataType::DT_BF16 ||
            dataType == DataType::DT_INT32);
-    if constexpr (isCMatrixNZ) {
-        result->tensorfmt = TileOpFormat::TILEOP_NZ;
-    }
+
     CALL(InnerAtMulBt, *Program::GetInstance().GetCurrentFunction(), iOperand, result, param);
 }
 
@@ -843,7 +835,8 @@ Tensor A_MUL_Bt(DataType dataType, const Tensor &operand1, const Tensor &operand
     if constexpr (isCMatrixNZ) {
         ASSERT(BytesOf(dataType) > 0);
         int64_t c0Size = dataType == DataType::DT_INT32 ? ALIGN_SIZE_16 : ALIGN_SIZE_32 / BytesOf(dataType);
-        result = Tensor(dataType, {operand1.GetShape()[0], CeilAlign(operand2.GetShape()[0], c0Size)});
+        result = Tensor(dataType, {operand1.GetShape()[0], CeilAlign(operand2.GetShape()[0], c0Size)},
+            "", TileOpFormat::TILEOP_NZ);
     }
     std::vector<LogicalTensorPtr> operandBundles = {operand1.GetStorage(), operand2.GetStorage()};
     AMulBtImpl<isCMatrixNZ>(dataType, operandBundles, result.GetStorage(), param);
@@ -858,7 +851,8 @@ Tensor A_MUL_Bt(
     if constexpr (isCMatrixNZ) {
         ASSERT(BytesOf(dataType) > 0);
         int64_t c0Size = dataType == DataType::DT_INT32 ? ALIGN_SIZE_16 : ALIGN_SIZE_32 / BytesOf(dataType);
-        result = Tensor(dataType, {operand1.GetShape()[0], CeilAlign(operand2.GetShape()[0], c0Size)});
+        result = Tensor(dataType, {operand1.GetShape()[0], CeilAlign(operand2.GetShape()[0], c0Size)},
+            "", TileOpFormat::TILEOP_NZ);
     }
     std::vector<LogicalTensorPtr> operandBundles = {
         operand1.GetStorage(), operand2.GetStorage(), operand3.GetStorage()};
@@ -874,7 +868,8 @@ Tensor A_MUL_B(DataType dataType, const Tensor &operand1, const Tensor &operand2
     if constexpr (isCMatrixNZ) {
         ASSERT(BytesOf(dataType) > 0);
         int64_t c0Size = dataType == DataType::DT_INT32 ? ALIGN_SIZE_16 : ALIGN_SIZE_32 / BytesOf(dataType);
-        result = Tensor(dataType, {operand1.GetShape()[0], CeilAlign(operand2.GetShape()[1], c0Size)});
+        result = Tensor(dataType, {operand1.GetShape()[0], CeilAlign(operand2.GetShape()[1], c0Size)},
+            "", TileOpFormat::TILEOP_NZ);
     }
     std::vector<LogicalTensorPtr> operandBundles = {operand1.GetStorage(), operand2.GetStorage()};
     MatmulImpl<isCMatrixNZ>(dataType, operandBundles, result.GetStorage(), param);
@@ -889,8 +884,9 @@ Tensor A_MUL_B(
     if constexpr (isCMatrixNZ) {
         ASSERT(BytesOf(dataType) > 0);
         int64_t c0Size = dataType == DataType::DT_INT32 ? ALIGN_SIZE_16 : ALIGN_SIZE_32 / BytesOf(dataType);
-        result = Tensor(
-            dataType, {operand3.GetShape()[0], npu::tile_fwk::Matrix::CeilAlign(operand3.GetShape()[1], c0Size)});
+        result = Tensor(dataType,
+            {operand3.GetShape()[0], Matrix::CeilAlign(operand3.GetShape()[1], c0Size)},
+            "", TileOpFormat::TILEOP_NZ);
     }
     std::vector<LogicalTensorPtr> operandBundles = {
         operand1.GetStorage(), operand2.GetStorage(), operand3.GetStorage()};
@@ -906,7 +902,9 @@ Tensor At_MUL_B(DataType dataType, const Tensor &operand1, const Tensor &operand
     if constexpr (isCMatrixNZ) {
         ASSERT(BytesOf(dataType) > 0);
         int64_t c0Size = dataType == DataType::DT_INT32 ? ALIGN_SIZE_16 : ALIGN_SIZE_32 / BytesOf(dataType);
-        result = Tensor(dataType, {operand1.GetShape()[1], CeilAlign(operand2.GetShape()[1], c0Size)});
+        result = Tensor(dataType,
+            {operand1.GetShape()[1], CeilAlign(operand2.GetShape()[1], c0Size)},
+            "", TileOpFormat::TILEOP_NZ);
     }
     std::vector<LogicalTensorPtr> operandBundles = {operand1.GetStorage(), operand2.GetStorage()};
     AtMulBImpl<isCMatrixNZ>(dataType, operandBundles, result.GetStorage(), param);
@@ -921,8 +919,9 @@ Tensor At_MUL_B(
     if constexpr (isCMatrixNZ) {
         ASSERT(BytesOf(dataType) > 0);
         int64_t c0Size = dataType == DataType::DT_INT32 ? ALIGN_SIZE_16 : ALIGN_SIZE_32 / BytesOf(dataType);
-        result = Tensor(
-            dataType, {operand1.GetShape()[1], npu::tile_fwk::Matrix::CeilAlign(operand2.GetShape()[1], c0Size)});
+        result = Tensor(dataType,
+            {operand1.GetShape()[1], npu::tile_fwk::Matrix::CeilAlign(operand2.GetShape()[1], c0Size)}
+            , "", TileOpFormat::TILEOP_NZ);
     }
     std::vector<LogicalTensorPtr> operandBundles = {
         operand1.GetStorage(), operand2.GetStorage(), operand3.GetStorage()};
@@ -938,7 +937,8 @@ Tensor At_MUL_Bt(DataType dataType, const Tensor &operand1, const Tensor &operan
     if constexpr (isCMatrixNZ) {
         ASSERT(BytesOf(dataType) > 0);
         int64_t c0Size = dataType == DataType::DT_INT32 ? ALIGN_SIZE_16 : ALIGN_SIZE_32 / BytesOf(dataType);
-        result = Tensor(dataType, {operand1.GetShape()[1], CeilAlign(operand2.GetShape()[0], c0Size)});
+        result = Tensor(dataType, {operand1.GetShape()[1], CeilAlign(operand2.GetShape()[0], c0Size)},
+            "", TileOpFormat::TILEOP_NZ);
     }
     std::vector<LogicalTensorPtr> operandBundles = {operand1.GetStorage(), operand2.GetStorage()};
     AtMulBtImpl<isCMatrixNZ>(dataType, operandBundles, result.GetStorage(), param);
@@ -953,7 +953,8 @@ Tensor At_MUL_Bt(
     if constexpr (isCMatrixNZ) {
         ASSERT(BytesOf(dataType) > 0);
         int64_t c0Size = dataType == DataType::DT_INT32 ? ALIGN_SIZE_16 : ALIGN_SIZE_32 / BytesOf(dataType);
-        result = Tensor(dataType, {operand1.GetShape()[1], CeilAlign(operand2.GetShape()[0], c0Size)});
+        result = Tensor(dataType, {operand1.GetShape()[1], CeilAlign(operand2.GetShape()[0], c0Size)},
+            "", TileOpFormat::TILEOP_NZ);
     }
     std::vector<LogicalTensorPtr> operandBundles = {
         operand1.GetStorage(), operand2.GetStorage(), operand3.GetStorage()};
@@ -1098,8 +1099,8 @@ Tensor ABatchMulB4D(DataType dataType, const Tensor &operand1, const Tensor &ope
     int64_t batchSize2 = std::max(batchSizeA2, batchSizeB2);
     Tensor result(dataType, {batchSize1 * batchSize2 * orgM, orgN});
     if constexpr (isCMatrixNZ) {
-        result =
-            Tensor(dataType, {batchSize1 * batchSize2 * orgM, orgN}, "BatchMatmulOutputNz", TileOpFormat::TILEOP_NZ);
+        result = Tensor(dataType, {batchSize1 * batchSize2 * orgM, orgN},
+            "BatchMatmulOutputNz", TileOpFormat::TILEOP_NZ);
     }
 
     int64_t strideA = batchSizeA2 == 1 ? 0 : firstDimA;

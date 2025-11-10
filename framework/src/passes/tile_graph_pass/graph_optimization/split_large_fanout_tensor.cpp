@@ -57,7 +57,7 @@ Status SplitLargeFanoutTensor::LCM(int64_t x, int64_t y, int64_t &lcm) {
 Status SplitLargeFanoutTensor::CalLcmShape(const Shape &toShape, const Shape &fromShape, Shape &lcmShape) {
     if (toShape.size() != fromShape.size()) {
         APASS_LOG_ERROR_F(GetName().c_str(), "Tensor", "Incorrect shapes dim, toShape dim is %d, fromShape dim is %d; "
-            "Please make sure they are the same.", toShape.size(), fromShape.size()); 
+            "Please make sure they are the same.", toShape.size(), fromShape.size());
         return FAILED;
     }
     for (size_t i = 0; i < toShape.size(); i++) {
@@ -139,7 +139,8 @@ void SplitLargeFanoutTensor::CreateOpFor1toM(Function &function, LogicalTensorPt
             APASS_LOG_INFO_F(GetName().c_str(), "Tensor", "ViewOp[%d]'s input has been replaced, don't deal with this ViewOp.",
                 viewOp->GetOpMagic());
         } else {
-            auto newTensor = std::make_shared<LogicalTensor>(function, largeTensor->Datatype(), lcmTileShape);
+            auto newTensor = std::make_shared<LogicalTensor>(function, largeTensor->Datatype(),
+                lcmTileShape, largeTensor->Format());
             auto overlap = overlaps[0];
             auto oldAssembleOp = *overlap->GetConsumers().begin();
             auto oldAssembleOpAttr = dynamic_cast<AssembleOpAttribute *>(oldAssembleOp->GetOpAttribute().get());
@@ -169,7 +170,8 @@ void SplitLargeFanoutTensor::CreateOpFor1toM(Function &function, LogicalTensorPt
 // 对于多对一、多对多场景创建新的AssembleOp和Tensor
 void SplitLargeFanoutTensor::CreateOpForMtoM(Function &function, LogicalTensorPtr largeTensor, Shape lcmTileShape, Offset lcmTileOffset,
     LogicalTensors overlaps, LogicalTensors dualOverlaps) {
-    auto newTensor = std::make_shared<LogicalTensor>(function, largeTensor->Datatype(), lcmTileShape);
+    auto newTensor = std::make_shared<LogicalTensor>(function, largeTensor->Datatype(),
+        lcmTileShape, largeTensor->Format());
     for (auto &overlap : overlaps) {
         auto oldAssembleOp = *overlap->GetConsumers().begin();
         auto oldAssembleOpAttr = dynamic_cast<AssembleOpAttribute *>(oldAssembleOp->GetOpAttribute().get());
@@ -245,7 +247,8 @@ void SplitLargeFanoutTensor::MoreSplit(Function &function, LogicalTensorPtr larg
 
 void SplitLargeFanoutTensor::CreateOpForMoreSplit(Function &function, LogicalTensorPtr largeTensor, LogicalTensors overlaps, Shape gcdShape, LogicalTensorPtr dualOverlap, std::vector<Shape> gcdTileOffsets, Offset viewOpOffset) {
     for (auto &gcdTileOffset : gcdTileOffsets) {
-        auto newGcdTensor = std::make_shared<LogicalTensor>(function, largeTensor->Datatype(), gcdShape);
+        auto newGcdTensor = std::make_shared<LogicalTensor>(function, largeTensor->Datatype(),
+            gcdShape, largeTensor->Format());
         auto &newAssembleOp = function.AddOperation(Opcode::OP_ASSEMBLE, {newGcdTensor}, {dualOverlap});
         newAssembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(largeTensor->GetMemoryTypeOriginal(), gcdTileOffset));
         APASS_LOG_INFO_F(GetName().c_str(), "Operation", "For more split situation, create an AssembleOp[%d], input is a newGcdTensor[%d], "

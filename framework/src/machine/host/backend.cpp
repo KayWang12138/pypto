@@ -315,9 +315,15 @@ static void BuildRootFuncKeyDict(DyndevFunctionAttribute *attr) {
         attr->rootFuncKeyDict[devRoot] = funcKey;
     }
 }
-static std::string BuildControlFlowCallee(Function *func) {
+
+static std::string BuildControlFlowCallee(Function *func, int ident) {
     std::ostringstream oss;
-    oss << "#name:" << func->GetRawName() << " #hash:" << func->GetFunctionHash() << " #magic:" << func->GetFuncMagic();
+    auto loc = func->GetSourceLocation();
+    if (loc) {
+        oss << std::string(ident, ' ') << "// " << loc->ToString() << "\n";
+    }
+    oss << std::string(ident, ' ') << "// " << "#name:" << func->GetRawName() << " #hash:" << func->GetFunctionHash()
+        << " #magic:" << func->GetFuncMagic() << "\n";
     return oss.str();
 }
 
@@ -355,7 +361,7 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
 
         controlFlowOss << "#define LOOP(idx, b, e, s) for (uint64_t idx = (b), idxEnd = (e), idxStep = (s); idx < idxEnd; idx += idxStep)\n"
             << "namespace npu::tile_fwk {\n"
-            << "// " << BuildControlFlowCallee(func) << "\n"
+            << BuildControlFlowCallee(func, 0)
             << "__attribute__((section(\"" << sectionName
             << "\")))\n"
             << "uint64_t ControlFlowEntry(void *ctx, uint64_t *symbolTable, CallRootEntryType callRootList[3], DevStartArgsBase *startArgs) {\n";
@@ -421,19 +427,19 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         condBuilder(pathNode, indent + 1);
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "}\n";
     } else if (func->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC_LOOP_PATH, GraphType::TENSOR_GRAPH)) {
-        controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "// " << BuildControlFlowCallee(func) << "\n";
+        controlFlowOss << BuildControlFlowCallee(func, indent * TABSIZE);
         for (auto &callee : GetCalleeList(cache, func)) {
             BuildControlFlow(cache, linker, sectionName, callee, group, rootTileDict, controlFlowOss, expressionOss, indent + 1, expName);
         }
     } else if (func->GetGraphType() == GraphType::TILE_GRAPH) {
-        controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "// " << BuildControlFlowCallee(func) << "\n";
+        controlFlowOss << BuildControlFlowCallee(func, indent * TABSIZE);
         Function *root = func->GetRootFunction();
         rootTileDict[root] = func;
         BuildControlFlow(cache, linker, sectionName, root, group, rootTileDict, controlFlowOss, expressionOss, indent, expName);
     } else if (func->GetGraphType() == GraphType::EXECUTE_GRAPH) {
         ASSERT(group.devRootList.count(func));
         int devRootKey = group.devRootList.GetIndex(func);
-        controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "// " << BuildControlFlowCallee(func) << "\n";
+        controlFlowOss << BuildControlFlowCallee(func, indent * TABSIZE);
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "uint64_t *exprList" << devRootKey << " = (uint64_t *)callRootList[CallRootStage::T_CALLROOT_ALLOC](ctx, " << devRootKey << "ULL);\n";
 
         SymbolicExpressionTable *exprTable = linker.LookupDevRootCoa(func);

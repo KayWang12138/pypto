@@ -77,9 +77,9 @@ inline bool VecEqual(Offset &vec1, Offset &vec2) {
     return true;
 }
 
-inline bool PerfectOffsetOverlap(std::vector<int> &rawTensorIds, std::vector<Shape> &rawShapes, 
+inline bool PerfectOffsetOverlap(std::vector<int> &rawTensorIds, std::vector<Shape> &rawShapes,
                                  std::vector<Shape> &shapes, std::vector<Offset> &offsets,
-                                 std::vector<Offset> &offsetTos) 
+                                 std::vector<Offset> &offsetTos)
 {
     std::unordered_map<int, Offset> rawIdToRawOffset;
     std::unordered_map<int, int64_t> rawEmptySize;
@@ -218,8 +218,8 @@ void InferDiscontinuousInput::InsertAssembleOp(
 void InferDiscontinuousInput::InsertCopyOp(Function &function, LogicalTensorPtr iOperand, LogicalTensorPtr oOperand) {
     if ((iOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) &&
         (oOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR)) {
-        std::shared_ptr<RawTensor> newRawTensor =
-            std::make_shared<RawTensor>(iOperand->Datatype(), iOperand->GetShape());
+        std::shared_ptr<RawTensor> newRawTensor = std::make_shared<RawTensor>(iOperand->Datatype(),
+            iOperand->GetShape(), iOperand->Format());
         Offset newOffset(iOperand->GetShape().size(), 0);
         LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(
             function, newRawTensor, newOffset, iOperand->GetShape(), iOperand->GetDynValidShape());
@@ -239,8 +239,8 @@ void InferDiscontinuousInput::InsertCopyOp(Function &function, LogicalTensorPtr 
         InsertAssembleOp(function, iOperand, oOperand);
         return;
     }
-    std::shared_ptr<RawTensor> newRawTensor =
-        std::make_shared<RawTensor>(iOperand->Datatype(), iOperand->GetShape());
+    std::shared_ptr<RawTensor> newRawTensor = std::make_shared<RawTensor>(iOperand->Datatype(),
+        iOperand->GetShape(), iOperand->Format());
     Offset newOffset(iOperand->GetShape().size(), 0);
     LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(
         function, newRawTensor, newOffset, iOperand->GetShape(), iOperand->GetDynValidShape());
@@ -263,7 +263,7 @@ Status InferDiscontinuousInput::InsertTensorCopy(Function &function) {
             }
             insertedNodes[inputTensor].insert(inplaceNode.second);
             std::shared_ptr<RawTensor> newRawTensor = std::make_shared<RawTensor>(inputTensor->Datatype(),
-                inputTensor->GetShape());
+                inputTensor->GetShape(), inputTensor->Format());
             Offset newOffset(inputTensor->GetShape().size(), 0);
             LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(function, newRawTensor, newOffset,
                 inputTensor->GetShape(), inputTensor->GetDynValidShape());

@@ -23,10 +23,11 @@
 #include <string>
 
 using namespace npu::tile_fwk;
-RawTensor::RawTensor(DataType t, std::vector<int64_t> tshape, std::string tname, int trawmagic)
+RawTensor::RawTensor(DataType t, std::vector<int64_t> tshape, TileOpFormat tformat, std::string tname, int trawmagic)
     : rawmagic((trawmagic == -1) ? IdGen<IdType::RAW_TENSOR>::Inst().NewId() : trawmagic),
       rawshape(std::move(tshape)),
       datatype(t),
+      format(tformat),
       symbol(std::move(tname)) {
     dynRawShape = SymbolicScalar::FromConcrete(rawshape);
     memoryId = rawmagic;
@@ -36,6 +37,7 @@ Json RawTensor::DumpJson() const {
     Json rawTensorDump;
     rawTensorDump[T_FIELD_KIND] = static_cast<int>(Kind::T_KIND_RAW_TENSOR);
     rawTensorDump["datatype"] = datatype;
+    rawTensorDump["format"] = format;
     rawTensorDump["rawshape"] = rawshape;
     rawTensorDump["ori_rawshape"] = oriRawshape;
     rawTensorDump["rawmagic"] = rawmagic;
@@ -58,13 +60,14 @@ Json RawTensor::DumpJson() const {
 std::shared_ptr<RawTensor> RawTensor::LoadJson(const Json &rawTensorDump) {
     ASSERT(rawTensorDump[T_FIELD_KIND].get<int>() == static_cast<int>(Kind::T_KIND_RAW_TENSOR));
     DataType dtype = static_cast<DataType>(rawTensorDump["datatype"].get<int>());
+    TileOpFormat format = static_cast<TileOpFormat>(rawTensorDump["format"].get<int>());
     std::vector<int64_t> rawshapeJson = rawTensorDump["rawshape"].get<std::vector<int64_t>>();
     int dumpRawmagic = rawTensorDump["rawmagic"].get<int>();
     std::string dumpSymbol;
     if (rawTensorDump.contains("symbol")) {
         dumpSymbol = rawTensorDump["symbol"].get<std::string>();
     }
-    auto ret = std::make_shared<RawTensor>(dtype, rawshapeJson, dumpSymbol, dumpRawmagic);
+    auto ret = std::make_shared<RawTensor>(dtype, rawshapeJson, format, dumpSymbol, dumpRawmagic);
     if (rawTensorDump.count("tensorIndex") > 0) {
         ret->tensorInfo_.tensorIndex = rawTensorDump["tensorIndex"].get<int>();
     }
@@ -87,6 +90,9 @@ std::string RawTensor::DumpType() const {
         result += std::to_string((value)) + " x ";
     }
     result += DataType2String(datatype);
+    if (format == TileOpFormat::TILEOP_NZ) {
+        result += "_NZ";
+    }
     result += ">";
     return result;
 }

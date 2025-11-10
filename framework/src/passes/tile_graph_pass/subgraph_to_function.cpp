@@ -105,7 +105,7 @@ void SubgraphToFunction::RecordIncastInfo(Function &function, RecordInfo recordI
     Offset offset = recordInfo.offset;
     Shape shape = recordInfo.shape;
     if (function.IsFromInCast(iOperand) || function.IsFromOutCast(iOperand)) {
-        iter.RecordTensorArg(k, iOperand->GetRawMagic(), offset, shape, iOperand->tensor->rawshape, 
+        iter.RecordTensorArg(k, iOperand->GetRawMagic(), offset, shape, iOperand->tensor->rawshape,
             iOperand->Datatype(), false, iOperand, nLIST[i][j]->opmagic);
         return;
     }
@@ -152,7 +152,7 @@ void SubgraphToFunction::RecordOutcastInfo(Function &function, RecordInfo record
     Offset offset = recordInfo.offset;
     Shape shape = recordInfo.shape;
     if (function.IsFromOutCast(oOperand) || function.IsFromInCast(oOperand)) {
-        iter.RecordTensorArg(k, oOperand->GetRawMagic(), offset, shape, oOperand->tensor->rawshape, 
+        iter.RecordTensorArg(k, oOperand->GetRawMagic(), offset, shape, oOperand->tensor->rawshape,
             oOperand->Datatype(), true, oOperand, nLIST[i][j]->opmagic);
         return;
     }
@@ -432,7 +432,7 @@ Status SubgraphToFunction::ProcessCacheResult(const std::tuple<Function *, Opera
         return SUCCESS;
     }
     // 3.2 not hit subgraph
-    APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", 
+    APASS_LOG_DEBUG_F(GetName().c_str(), "Operation",
         "######## leafFunc %zu Not Hit. hashValue is %lu, ######", i, std::get<0>(result)->ComputeHash().GetHash());
     psgToESgMap.insert({programIdx, i});
     std::get<0>(result)->SetProgramId(programIdx);
@@ -649,7 +649,8 @@ void SubgraphToFunction::GetTensorDataDependencyInsert(Function &function) {
             std::shared_ptr<CopyOpAttribute> copyInAttr;
             if (getTensorDataIOType == GET_TENSOR_DATA_OPERAND_IOTYPE_INCAST) {
                 copyInSourceTensor = function.GetIncast()[getTensorDataIOTypeIndex];
-                copyInTensor = std::make_shared<LogicalTensor>(function, copyInSourceTensor->Datatype(), copyInSourceTensor->GetShape());
+                copyInTensor = std::make_shared<LogicalTensor>(function, copyInSourceTensor->Datatype(),
+                    copyInSourceTensor->GetShape(), copyInSourceTensor->Format());
                 GraphUtils::CopyDynStatus(copyInTensor, copyInSourceTensor);
                 std::vector<OpImmediate> copyInOffset(OpImmediate::Specified(std::vector<int64_t>(copyInTensor->GetShape().size(), 0)));
                 std::vector<OpImmediate> copyInShape(OpImmediate::Specified(copyInTensor->GetShape()));
@@ -660,7 +661,8 @@ void SubgraphToFunction::GetTensorDataDependencyInsert(Function &function) {
                 auto &outcastDesc = getTensorDataOutcastDescDict[index];
                 auto outcastAttr = std::static_pointer_cast<CopyOpAttribute>(outcastDesc.copyout->GetOpAttribute());
                 copyInSourceTensor = outcastDesc.outcast;
-                copyInTensor = std::make_shared<LogicalTensor>(function, outcastDesc.outcast->Datatype(), outcastDesc.outcast->GetShape());
+                copyInTensor = std::make_shared<LogicalTensor>(function, outcastDesc.outcast->Datatype(),
+                    outcastDesc.outcast->GetShape(), outcastDesc.outcast->Format());
                 GraphUtils::CopyDynStatus(copyInTensor, copyInSourceTensor);
                 copyInAttr = std::make_shared<CopyOpAttribute>(outcastAttr->GetToOffset(), MemoryType::MEM_UB, outcastAttr->GetShape(), outcastAttr->GetRawShape());
             } else {

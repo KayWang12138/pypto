@@ -62,7 +62,7 @@ void AlignCopyOutAttr(LogicalTensorPtr &resetDdr, Operation *copyOutOp) {
     if (resetDdr->GetProducers().size() == 1) {
         auto ddrResetCopyOut = *resetDdr->GetProducers().begin();
         if (ddrResetCopyOut->GetOpcode() != Opcode::OP_COPY_OUT) {
-            APASS_LOG_ERROR_F("PreGraphProcess", "Operation", "DDR reset Op requires to be OP_COPY_OUT, but %s[%d]; Please check the Opcode.", 
+            APASS_LOG_ERROR_F("PreGraphProcess", "Operation", "DDR reset Op requires to be OP_COPY_OUT, but %s[%d]; Please check the Opcode.",
                 ddrResetCopyOut->GetOpcodeStr().c_str(), ddrResetCopyOut->GetOpMagic());
             return;
         }
@@ -353,7 +353,7 @@ void PreGraphProcess::DeleteRedundantAssemble(Function &function) const {
                 oriOutputBackUp = producer->oOperand[0]; // producer --> oriOutputBackUp(input) --> op
                 producer->ReplaceOutput(output, oriOutputBackUp);
                 output->isSubGraphBoundary = true;
-                if (!IsCopyOut(producer->GetOpcode())) { 
+                if (!IsCopyOut(producer->GetOpcode())) {
                     continue;
                 }
                 UpdateCopyOutAttr(producer, cons);
@@ -420,7 +420,8 @@ void PreGraphProcess::InsertTemporaryCopyIn(Function &function, Operation &op) c
             // insert Copy_In before the op
             input->isSubGraphBoundary = false;
             LogicalTensors operandGm;
-            LogicalTensorPtr tensorGM = std::make_shared<LogicalTensor>(function, input->Datatype(), input->shape);
+            LogicalTensorPtr tensorGM = std::make_shared<LogicalTensor>(function, input->Datatype(),
+                input->shape, input->Format());
             GraphUtils::CopyDynStatus(tensorGM, input);
             tensorGM->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
             tensorGM->SetMemoryTypeToBe(MemoryType::MEM_DEVICE_DDR);
@@ -829,7 +830,7 @@ Status PreGraphProcess::UpdateL0cDtype(Operation &op) {
         return SUCCESS;
     } else {
         APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "%s[%d] has unsupport input dtypes (L0A: %s, L0B: %s), update L0C dtype Failed.",
-            op.GetOpcodeStr().c_str(), op.GetOpMagic(), 
+            op.GetOpcodeStr().c_str(), op.GetOpMagic(),
             BriefDataType2String(inputDtypes.first).c_str(),
             BriefDataType2String(inputDtypes.second).c_str());
         return FAILED;
@@ -898,7 +899,7 @@ Status PreGraphProcess::UpdateCubeOp(Function &function) {
         auto lastMm = lastMmCopyOut.first;
         auto chainEndCopyOut = lastMmCopyOut.second;
         if (lastMm == nullptr || chainEndCopyOut == nullptr) {
-            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Get the last MatMul and L0C_Copy_Out for %s[%d] failed.", 
+            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Get the last MatMul and L0C_Copy_Out for %s[%d] failed.",
                 op.GetOpcodeStr().c_str(), op.GetOpMagic());
             return FAILED;
         }

@@ -115,7 +115,7 @@ Status RemoveRedundantCast::InsertCast(Function &function) {
                 op->ReplaceInput(newInput, iop);
                 continue;
             }
-            auto newInput = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, iop->shape);
+            auto newInput = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, iop->shape, iop->Format());
             Operation &newCast = function.AddRawOperation(Opcode::OP_CAST, {iop}, {newInput});
             newCast.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
             op->ReplaceInput(newInput, iop);
@@ -132,7 +132,7 @@ Status RemoveRedundantCast::InsertCast(Function &function) {
             }
             visitedOOp.insert(oop->GetMagic());
             if (oop->Datatype() == DataType::DT_BF16) {
-                auto newOutput = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, oop->shape);
+                auto newOutput = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, oop->shape, oop->Format());
                 op->ReplaceOutput(newOutput, oop);
                 Operation &newCast = function.AddRawOperation(Opcode::OP_CAST, {newOutput}, {oop});
                 newCast.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);

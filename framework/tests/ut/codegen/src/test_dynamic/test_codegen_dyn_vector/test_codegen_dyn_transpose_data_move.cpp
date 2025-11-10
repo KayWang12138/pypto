@@ -64,7 +64,7 @@ void TestTransposeDataMoveBody(int dim = 3) {
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     function->SetUnderDynamicFunction(true);
     std::shared_ptr<RawTensor> ddrRawTensor =
-        std::make_shared<RawTensor>(DataType::DT_FP32, shape, "TransposeDataMove", 123);
+        std::make_shared<RawTensor>(DataType::DT_FP32, shape, TileOpFormat::TILEOP_ND, "TransposeDataMove", 123);
     std::vector<int64_t> offset = {0, 0, 0};
     if (dim == SHAPE_DIM4) {
         offset = {0, 0, 0, 0};

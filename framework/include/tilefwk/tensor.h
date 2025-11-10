@@ -212,6 +212,13 @@ public:
     int32_t GetShape(int axis) const;
 
     /**
+     * \brief Get the format of the tensor.
+     *
+     * \return TileOpFormat : The format of the tensor.
+     */
+    TileOpFormat Format() const;
+
+    /**
      * \brief Get the Id information of the Tensor.
      *
      * \return int : The Id information of the Tensor.

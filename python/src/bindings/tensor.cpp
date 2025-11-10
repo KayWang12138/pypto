@@ -133,7 +133,15 @@ void BindTensor(py::module &m) {
                 }
                 return t.Dim();
             },
-            "Get the number of dimensions of the tensor.");
+            "Get the number of dimensions of the tensor.")
+        .def("Format",
+            [](const Tensor &t) {
+                if (t.IsEmpty()) {
+                    throw py::value_error("Empty tensor.");
+                }
+                return t.Format();
+            },
+            "Get the format of the tensor.");
 
     m.def("GetInputShape",
         [](const Tensor &t, int axis) {

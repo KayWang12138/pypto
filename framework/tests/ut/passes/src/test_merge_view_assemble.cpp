@@ -145,7 +145,8 @@ TEST_F(MergeViewAssembleTest, MergeTwoConsecutiveViews) {
     std::string funcRawName = "test_function_raw";
     std::unique_ptr<Function> function = std::make_unique<Function>(program, funcMagicName, funcRawName, nullptr);
     // 创建原始输入tensor
-    auto rawTensor = std::make_shared<RawTensor>(DataType::DT_FP32, std::vector<int64_t>{10, 10}, "input_tensor");
+    auto rawTensor = std::make_shared<RawTensor>(DataType::DT_FP32, std::vector<int64_t>{10, 10},
+        TileOpFormat::TILEOP_ND, "input_tensor");
     std::shared_ptr<LogicalTensor> inputTensor = std::make_shared<LogicalTensor>(*function, rawTensor, std::vector<int64_t>{0, 0}, std::vector<int64_t>{10, 10});
     const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(function->GetIncast()).push_back(inputTensor);
     // 创建第一个VIEW操作，偏移量[1,2]
@@ -232,7 +233,8 @@ TEST_F(MergeViewAssembleTest, MergeThreeConsecutiveAssembles) {
     std::unique_ptr<Function> function = std::make_unique<Function>(program, funcMagicName, funcRawName, nullptr);
 
     // 1.创建原始输入tensor并设置incast
-    auto rawTensor = std::make_shared<RawTensor>(DataType::DT_FP32, std::vector<int64_t>{10, 10}, "input_tensor");
+    auto rawTensor = std::make_shared<RawTensor>(DataType::DT_FP32, std::vector<int64_t>{10, 10},
+        TileOpFormat::TILEOP_ND, "input_tensor");
     std::shared_ptr<LogicalTensor> inputTensor = std::make_shared<LogicalTensor>(*function, rawTensor, std::vector<int64_t>{0, 0}, std::vector<int64_t>{10, 10});
     const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(function->GetIncast()).push_back(inputTensor);
 

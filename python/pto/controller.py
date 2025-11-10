@@ -14,17 +14,45 @@
 
 import inspect
 import logging
+import itertools
 from contextlib import contextmanager
 from typing import List, Optional, Set, Tuple, Union, Iterator, overload
 
 from . import pto_impl
 
-from .enum import * # noqa
+from .enum import *  # noqa
 from .pto_utils import to_sym, set_source_location, clear_source_location
 from .symbolic_scalar import SymbolicScalar, SymInt
 from .tensor import Tensor
 
 logging.basicConfig(level=logging.DEBUG)
+
+
+__all__ = [
+    "set_vec_tile_shapes",
+    "get_vec_tile_shapes",
+    "set_cube_tile_shapes",
+    "get_cube_tile_shapes",
+    "set_matrix_size",
+
+    "function",
+    "loop",
+    "is_loop_begin",
+    "is_loop_end",
+    "cond",
+]
+
+
+class Controller:
+    _loop_idx_generator = itertools.count(0)
+
+    @classmethod
+    def next_loop_idx(cls) -> int:
+        return next(cls._loop_idx_generator)
+
+    @classmethod
+    def reset(cls):
+        cls._loop_idx_generator = itertools.count(0)
 
 
 def set_vec_tile_shapes(*shapes: int):
@@ -146,32 +174,13 @@ def get_cube_tile_shapes() -> List[Union[List, bool]]:
     # implementation
     return pto_impl.GetCubeTile()
 
+
 def set_matrix_size(size: List[int]):
     pto_impl.SetMatrixSize(size)
 
+
 def set_build_static(static: bool):
     pto_impl.SetBuildStatic(static)
-
-
-def bytes_of(dtype: DataType) -> int:
-    ''' return the number of bytes of the current datatype
-
-    Parameters
-    ----------
-    dtype: pto.DataType
-        datatype to be determined the number of bytes
-
-    Returns
-    -------
-    int: the size of bytes the datatype contains
-
-    Examples
-    --------
-    >>> print(pto.bytes_of(pto.DataType.DT_FP32))
-        4
-    '''
-    # implementation
-    return pto_impl.BytesOf(dtype)
 
 
 def begin_function(
@@ -181,6 +190,7 @@ def begin_function(
     *args
 ) -> pto_impl.RecordFunc:
     args = [arg.base() for arg in args]
+    Controller.reset()
     return pto_impl.BeginFunction(name, graph_type, func_type, *args)
 
 
@@ -194,6 +204,8 @@ class LoopRange:
             start, stop = 0, start
         self._base = pto_impl.LoopRange(
             to_sym(start), to_sym(stop), to_sym(step))
+        self._start = self._base.Begin()
+        self._stop = self._base.End()
 
     def begin(self) -> SymbolicScalar:
         return SymbolicScalar.from_base(self._base.Begin())
@@ -238,8 +250,11 @@ def is_loop_begin(scalar: SymbolicScalar):
             if pto.cond(pto.is_loop_begin(s2_idx)):
                 ...
     '''
+    if not hasattr(scalar, "_loop_begin"):
+        raise ValueError("not loop index")
     # implementation
-    return SymbolicScalar.from_base(pto_impl.IsLoopBegin(to_sym(scalar), to_sym(scalar.loop_begin)))
+    return SymbolicScalar.from_base(
+        pto_impl.IsLoopBegin(to_sym(scalar), getattr(scalar, "_loop_begin")))
 
 
 def is_loop_end(scalar: SymbolicScalar):
@@ -263,11 +278,14 @@ def is_loop_end(scalar: SymbolicScalar):
             if pto.cond(pto.is_loop_end(s2_idx)):
                 ...
     '''
+    if not hasattr(scalar, "_loop_end"):
+        raise ValueError("not loop index")
     # implementation
-    return SymbolicScalar.from_base(pto_impl.IsLoopEnd(to_sym(scalar), to_sym(scalar.loop_end)))
+    return SymbolicScalar.from_base(
+        pto_impl.IsLoopEnd(to_sym(scalar), getattr(scalar, "_loop_end")))
 
 
-@contextmanager
+@overload
 def function(
     name: str,
     in_tensors: List[Tensor],
@@ -303,24 +321,69 @@ def function(
                 c[:] = a+b
 
     """
-    # implementation
+    ...
+
+
+@overload
+def function(name: str, *args, **kwargs):
+    """
+    The function with only name and tensors. The function type is static.
+
+    Parameters
+    ----------
+    name: str
+        The name of the function
+    *args: List[Tensor]
+        The list of input and output tensors
+    static: bool, optional
+        Whether the function is static or not. Default is True.
+
+    Returns
+    -------
+    return the function in pypto framework. Operations will be added
+    under this API. It will produce the computing graph of the function
+    in the end.
+
+    Examples
+    --------
+    >>> with pto.function("main", a, b, c, static=True):
+            c[:] = a+b
+
+    """
+    ...
+
+
+@contextmanager
+def function(name: str, *args, **kwargs):
     if "static" in kwargs:
         set_build_static(kwargs["static"])
-
-    inputs = [t.base() for t in in_tensors]
-    outputs = [t.base() for t in out_tensors]
-
-    func = None
-    try:
-        set_source_location(level=2)
-        func = pto_impl.RecordFunc(name, inputs, outputs, [])
-        clear_source_location()
-        yield func
-    except Exception as e:
-        logging.error("Record function %s failed: %s", name, e)
-        raise
-    finally:
-        del func
+        try:
+            Controller.reset()
+            set_source_location(level=2)
+            yield begin_function(name, pto_impl.GraphType.TENSOR_GRAPH,
+                                 pto_impl.FunctionType.STATIC, *args)
+            clear_source_location()
+        except Exception as e:
+            logging.error("Record function %s failed: %s", name, e)
+            raise
+        finally:
+            end_function(name)
+    else:
+        in_tensors, out_tensors = args[0], args[1]
+        inputs = [t.base() for t in in_tensors]
+        outputs = [t.base() for t in out_tensors]
+        func = None
+        try:
+            Controller.reset()
+            set_source_location(level=2)
+            func = pto_impl.RecordFunc(name, inputs, outputs, [])
+            clear_source_location()
+            yield func
+        except Exception as e:
+            logging.error("Record function %s failed: %s", name, e)
+            raise
+        finally:
+            del func
 
 
 def cond(scalar: SymInt):
@@ -355,25 +418,35 @@ def cond(scalar: SymInt):
 class _LoopFunction:
 
     class Iterator:
-        def __init__(self, iter):
-            self.iter = iter
+        def __init__(self, iter, begin, end):
+            self._iter = iter
+            self._begin = begin
+            self._end = end
 
         def __next__(self):
-            return SymbolicScalar.from_base(self.iter.__next__())
+            scalar = SymbolicScalar.from_base(self._iter.__next__())
+            setattr(scalar, "_loop_begin", self._begin)
+            setattr(scalar, "_loop_end", self._end)
+            return scalar
 
-    def __init__(self, *args):
-        self._base = pto_impl.RecordLoopFunc(*args)
+    def __init__(self, name, loop_name, loop_range, unroll_list, submit_before_loop):
+        loop_range = loop_range.base()
+        self._base = pto_impl.RecordLoopFunc(name, pto_impl.FunctionType.DYNAMIC_LOOP,
+                                             loop_name, loop_range,
+                                             unroll_list, submit_before_loop)
+        self._begin = loop_range.Begin()
+        self._end = loop_range.End()
 
     def __iter__(self):
-        return self.Iterator(self._base.__iter__())
+        return self.Iterator(self._base.__iter__(), self._begin, self._end)
 
 
 @contextmanager
 def _loop_function(
     name: str,
     loop_name: str,
-    loop_range_: LoopRange,
-    unroll_list: Set[int] = None,
+    loop_range: LoopRange,
+    unroll_list: Optional[Set[int]] = None,
     submit_before_loop: bool = False,
 ):
     if unroll_list is None:
@@ -382,14 +455,8 @@ def _loop_function(
     rlf = None
     try:
         set_source_location(level=3)
-        rlf = _LoopFunction(
-            name,
-            pto_impl.FunctionType.DYNAMIC_LOOP,
-            loop_name,
-            loop_range_.base(),
-            unroll_list,
-            submit_before_loop,
-        )
+        rlf = _LoopFunction(name, loop_name, loop_range,
+                            unroll_list, submit_before_loop)
         clear_source_location()
         yield rlf
     except Exception as e:
@@ -397,17 +464,6 @@ def _loop_function(
         raise
     finally:
         del rlf
-
-
-@contextmanager
-def pto_function(name: str, graph_type: pto_impl.GraphType, func_type: pto_impl.FunctionType, *args):
-    try:
-        yield begin_function(name, graph_type, func_type, *args)
-    except Exception as e:
-        logging.error("Record function %s failed: %s", name, e)
-        raise
-    finally:
-        pto_impl.EndFunction(name, False)
 
 
 @overload
@@ -498,11 +554,13 @@ def loop(
     elif nargs == 3:
         start, stop, step = args
     else:
-        raise TypeError(f"loop() takes 1 to 3 positional arguments but {nargs} were given")
+        raise TypeError(
+            f"loop() takes 1 to 3 positional arguments but {nargs} were given")
 
     # implementation
-    name = kwargs.get("name", "LOOP")
-    idx_name = kwargs.get("idx_name", "K")
+    loop_idx = Controller.next_loop_idx()
+    name = kwargs.get("name", f"loop_{loop_idx}")
+    idx_name = kwargs.get("idx_name", f"loop_idx_{loop_idx}")
     unroll_list = kwargs.get("unroll_list", set())
     submit_before_loop = kwargs.get("submit_before_loop", False)
     with _loop_function(
@@ -510,6 +568,4 @@ def loop(
             start, stop, step), unroll_list, submit_before_loop
     ) as rlf:
         for k in rlf:
-            setattr(k, "loop_begin", start)
-            setattr(k, "loop_end", stop)
             yield k

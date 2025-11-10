@@ -65,23 +65,20 @@ public:
     uint64_t storageOffset_ = 0;
     int magic;
     NodeType nodetype;
-    TileOpFormat tensorfmt;
 
     std::vector<std::weak_ptr<LogicalTensor>> conflicterTensors;
     std::vector<std::shared_ptr<LogicalTensor>> overlapper;
 
     TileRange memoryrange;
 
-    LogicalTensor(Function &function, DataType t, Shape tshape, std::string tname = "",
-        NodeType tnodetype = NodeType::LOCAL, TileOpFormat ttensorfmt = TileOpFormat::TILEOP_ND);
+    LogicalTensor(Function &function, DataType t, Shape tshape, TileOpFormat tformat = TileOpFormat::TILEOP_ND, std::string tname = "",
+        NodeType tnodetype = NodeType::LOCAL);
     LogicalTensor(Function &function, DataType t, Shape tshape, std::vector<SymbolicScalar> tValidShape,
-        std::string tname = "", NodeType tnodetype = NodeType::LOCAL,
-        TileOpFormat ttensorfmt = TileOpFormat::TILEOP_ND);
+        TileOpFormat tformat = TileOpFormat::TILEOP_ND, std::string tname = "", NodeType tnodetype = NodeType::LOCAL);
     LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawTensor, Offset toffset, Shape tshape,
-        NodeType tnodetype = NodeType::LOCAL, TileOpFormat ttensorfmt = TileOpFormat::TILEOP_ND);
+        NodeType tnodetype = NodeType::LOCAL);
     LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawTensor, Offset toffset, Shape tshape,
-        std::vector<SymbolicScalar> tValidShape, NodeType tnodetype = NodeType::LOCAL,
-        TileOpFormat ttensorfmt = TileOpFormat::TILEOP_ND);
+        std::vector<SymbolicScalar> tValidShape, NodeType tnodetype = NodeType::LOCAL);
     LogicalTensor(LogicalTensor &&) = default;
     LogicalTensor(const LogicalTensor &) = default;
     LogicalTensor &operator=(LogicalTensor &&) = delete;
@@ -106,7 +103,7 @@ public:
 
     DataType Datatype() const;
     std::string Symbol() const;
-    TileOpFormat GetTileOpFormat() const { return tensorfmt; }
+    TileOpFormat Format() const { return tensor->format; }
 
     MemoryType GetMemoryTypeOriginal() const;
     MemoryType GetMemoryTypeToBe() const;

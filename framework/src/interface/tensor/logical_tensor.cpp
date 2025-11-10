@@ -28,23 +28,22 @@
 
 using namespace npu::tile_fwk;
 LogicalTensor::LogicalTensor(
-    Function &function, DataType t, Shape tshape, std::string tname, NodeType tnodetype, TileOpFormat ttensorfmt)
+    Function &function, DataType t, Shape tshape, TileOpFormat format, std::string tname, NodeType tnodetype)
     : isSubGraphBoundary(false),
       subGraphID(NOT_IN_SUBGRAPH),
-      tensor(std::make_shared<RawTensor>(t, tshape, std::move(tname))),
+      tensor(std::make_shared<RawTensor>(t, tshape, format, std::move(tname))),
       offset(Offset(tshape.size(), 0)),
       shape(tshape),
       oriShape(tshape),
       magic(function.magicSeed_++),
       nodetype(tnodetype),
-      tensorfmt(ttensorfmt),
       function_(&function) {}
 
 LogicalTensor::LogicalTensor(Function &function, DataType t, Shape tshape, std::vector<SymbolicScalar> tValidShape,
-    std::string tname, NodeType tnodetype, TileOpFormat ttensorfmt)
+    TileOpFormat format, std::string tname, NodeType tnodetype)
     : isSubGraphBoundary(false),
       subGraphID(NOT_IN_SUBGRAPH),
-      tensor(std::make_shared<RawTensor>(t, tshape, std::move(tname))),
+      tensor(std::make_shared<RawTensor>(t, tshape, format, std::move(tname))),
       offset(Offset(tshape.size(), 0)),
       shape(tshape),
       oriShape(tshape),
@@ -52,7 +51,6 @@ LogicalTensor::LogicalTensor(Function &function, DataType t, Shape tshape, std::
       storageShape(tshape),
       magic(function.magicSeed_++),
       nodetype(tnodetype),
-      tensorfmt(ttensorfmt),
       function_(&function)
 {
     auto getTensorDataDict = GetTensorDataDict(tValidShape);
@@ -62,7 +60,7 @@ LogicalTensor::LogicalTensor(Function &function, DataType t, Shape tshape, std::
 }
 
 LogicalTensor::LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawTensor, Offset toffset, Shape tshape,
-    NodeType tnodetype, TileOpFormat ttensorfmt)
+    NodeType tnodetype)
     : isSubGraphBoundary(false),
       subGraphID(NOT_IN_SUBGRAPH),
       tensor(rawTensor),
@@ -71,7 +69,6 @@ LogicalTensor::LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawT
       oriShape(tshape),
       magic(function.magicSeed_++),
       nodetype(tnodetype),
-      tensorfmt(ttensorfmt),
       function_(&function) {
     // Initialize other members if necessary
     isSubGraphBoundary = false;
@@ -79,7 +76,7 @@ LogicalTensor::LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawT
 }
 
 LogicalTensor::LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawTensor, Offset toffset, Shape tshape,
-    std::vector<SymbolicScalar> tValidShape, NodeType tnodetype, TileOpFormat ttensorfmt)
+    std::vector<SymbolicScalar> tValidShape, NodeType tnodetype)
     : isSubGraphBoundary(false),
       subGraphID(NOT_IN_SUBGRAPH),
       tensor(rawTensor),
@@ -89,7 +86,6 @@ LogicalTensor::LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawT
       dynValidShape_(tValidShape),
       magic(function.magicSeed_++),
       nodetype(tnodetype),
-      tensorfmt(ttensorfmt),
       function_(&function) {
     // Initialize other members if necessary
     isSubGraphBoundary = false;
@@ -109,10 +105,11 @@ std::shared_ptr<LogicalTensor> LogicalTensor::Clone(Function &dstFunc, bool crea
     std::shared_ptr<RawTensor> rawTensor = dstFunc.GetTensorMap().GetRawTensorByRawMagic(tensor->rawmagic);
     if (rawTensor == nullptr || create) {
         if (create) {
-            rawTensor = std::make_shared<RawTensor>(tensor->datatype, tensor->rawshape, tensor->symbol);
+            rawTensor = std::make_shared<RawTensor>(tensor->datatype, tensor->rawshape,
+                tensor->format, tensor->symbol);
         } else {
-            rawTensor =
-                std::make_shared<RawTensor>(tensor->datatype, tensor->rawshape, tensor->symbol, tensor->rawmagic);
+            rawTensor = std::make_shared<RawTensor>(tensor->datatype, tensor->rawshape,
+                tensor->format, tensor->symbol, tensor->rawmagic);
         }
         rawTensor->SetSymbol(tensor->GetSymbol());
         rawTensor->actualRawmagic = tensor->actualRawmagic;
@@ -121,7 +118,7 @@ std::shared_ptr<LogicalTensor> LogicalTensor::Clone(Function &dstFunc, bool crea
     }
 
     std::shared_ptr<LogicalTensor> newTensor = std::make_shared<LogicalTensor>(dstFunc, rawTensor,
-        offset, shape, dynValidShape_, nodetype, tensorfmt);
+        offset, shape, dynValidShape_, nodetype);
     newTensor->subGraphID = subGraphID;
     newTensor->isSubGraphBoundary = isSubGraphBoundary;
     if (!create) {
@@ -132,7 +129,6 @@ std::shared_ptr<LogicalTensor> LogicalTensor::Clone(Function &dstFunc, bool crea
     } else {
         newTensor->magic = dstFunc.magicSeed_++;
     }
-    newTensor->tensorfmt = tensorfmt;
 
     newTensor->memoryrange = memoryrange;
     newTensor->memoryTypeOriginal_ = memoryTypeOriginal_;
@@ -158,7 +154,6 @@ Json LogicalTensor::DumpJson(bool dumpRawTensor) const {
         tensorDump[T_FIELD_RAWTENSOR] = tensor->rawmagic;
     }
     tensorDump["magic"] = magic;
-    tensorDump["format"] = static_cast<int>(tensorfmt);
     if (storage_ != nullptr) {
         tensorDump["storage"] = storage_->DumpJson();
     }
@@ -231,9 +226,8 @@ std::shared_ptr<LogicalTensor> LogicalTensor::LoadJson(Function &function,
     }
     int tensorMagic = tensorDump["magic"].get<int>();
 
-    TileOpFormat ttensorfmt = static_cast<TileOpFormat>(tensorDump["format"].get<int>());
     std::shared_ptr<LogicalTensor> tensorJson = std::make_shared<LogicalTensor>(function, rawTensor,
-        toffset, tshape, tnodetype, ttensorfmt);
+        toffset, tshape, tnodetype);
     tensorJson->magic = tensorMagic;
 
     if (tensorDump.count("need_alloc") != 0) {
@@ -305,6 +299,9 @@ std::string LogicalTensor::DumpType() const {
             result += value.Dump() + " x ";
         }
         result += DataType2String(Datatype());
+        if (tensor->format == TileOpFormat::TILEOP_NZ) {
+            result += "_NZ";
+        }
     }
     result += ">";
     return result;
@@ -357,7 +354,8 @@ std::shared_ptr<LogicalTensor> LogicalTensor::View(
     assert((shape.size() == newShape.size()) && ".view, shape must be the same dimension");
     assert((offset.size() == newOffset.size()) && ".view, offset must be the same dimension");
 
-    auto view = std::make_shared<LogicalTensor>(function, this->tensor, this->offset, this->shape, this->nodetype, this->tensorfmt);
+    auto view = std::make_shared<LogicalTensor>(
+        function, this->tensor, this->offset, this->shape, this->nodetype);
     for (size_t i = 0; i < shape.size(); i++) {
         if (!(shape[i] >= (newShape[i] + newOffset[i]))) {
             assert(shape[i] >= (newShape[i] + newOffset[i]));

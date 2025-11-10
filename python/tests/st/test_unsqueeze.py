@@ -17,17 +17,15 @@ import torch
 import numpy as np
 import torch_npu
 
-GRAPH_T = pto.GraphType.TENSOR_GRAPH
-FUNC_T = pto.FunctionType.STATIC
 
 def test_unsqueeze_shape_dim():
     """Test whether the ouput shape is correct"""
-    
+
     shape = [8, 16, 16]
     dtype = pto.DT_FP32
     x = pto.tensor(shape, dtype)
     dim = 0
-    with pto.pto_function("UNSQUEEZE_SHAPE", GRAPH_T, FUNC_T, x):
+    with pto.function("UNSQUEEZE_SHAPE", x, static=True):
         pto.set_vec_tile_shapes(8, 8, 8, 8)
 
         #Test each valid dim:[-4, -3, -2, -1, 0, 1, 2, 3]
@@ -52,25 +50,25 @@ def test_unsqueeze_content_equal():
             pto.set_vec_tile_shapes(2, 2, 2)
             res.move(pto.unsqueeze(x, dim))
             del res
-    
-    torch_case_tensor = torch.rand(2, 2, dtype=torch.float32)  
+
+    torch_case_tensor = torch.rand(2, 2, dtype=torch.float32)
     res_tensor = torch.zeros((1,) + torch_case_tensor.shape, dtype=torch.float32)
-    
+
     pto.runtime._device_run_once_data_from_host([torch_case_tensor], [res_tensor])
-    
+
     torch_case_res = torch.unsqueeze(torch_case_tensor, dim)
-    
+
     assert torch.equal(res_tensor.flatten(), torch_case_res.flatten())
     pto.runtime._device_fini()
 
 def test_tensor_unsqueeze_shape_dim():
     """Test whether the ouput shape is correct"""
-    
+
     shape = [8, 16, 16]
     dtype = pto.DT_FP32
     x = pto.tensor(shape, dtype)
     dim = 1
-    with pto.pto_function("TENSOR_UNSQUEEZE_SHAPE", GRAPH_T, FUNC_T, x):
+    with pto.function("TENSOR_UNSQUEEZE_SHAPE", x, static=True):
         pto.set_vec_tile_shapes(8, 8, 8, 8)
 
         res = x.unsqueeze(dim)

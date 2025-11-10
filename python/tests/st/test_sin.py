@@ -19,17 +19,15 @@ from numpy.testing import assert_allclose
 import torch_npu
 
 
-GRAPH_T = pto.GraphType.TENSOR_GRAPH
-FUNC_T = pto.FunctionType.STATIC
 
 def test_sin_shape_dim():
     """Test whether the ouput shape is correct"""
-    
+
     x_shape = [4, 4]
     dtype = pto.DT_FP32
     x = pto.tensor(x_shape, dtype)
 
-    with pto.pto_function("SIN_SHAPE", GRAPH_T, FUNC_T, x):
+    with pto.function("SIN_SHAPE", x, static=True):
         pto.set_vec_tile_shapes(4, 4)
         res = pto.sin(x)
         torch_case_tensor = torch.randn((4, 4), dtype = torch.float32)
@@ -74,7 +72,7 @@ def test_sin_FP16():
             pto.set_vec_tile_shapes(4, 4)
             res.move(pto.sin(x))
             del res
-    
+
     x_tensor = torch.rand(4, 4, dtype=torch.float16) * 200 - 100
     res_tensor = torch.zeros(4, 4, dtype=torch.float16)
     pto.runtime._device_run_once_data_from_host([x_tensor], [res_tensor])
@@ -97,7 +95,7 @@ def test_tensor_sin_FP32():
             pto.set_vec_tile_shapes(4, 4)
             res.move(x.sin())
             del res
-    
+
     x_tensor = torch.rand(4, 4, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)
     pto.runtime._device_run_once_data_from_host([x_tensor], [res_tensor])

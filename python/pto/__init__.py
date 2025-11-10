@@ -10,30 +10,21 @@
 # ======================================================================================================================
 """PyPTO
 """
-import ctypes
-import platform
-import logging
-from typing import List
-from pathlib import Path
 
 
-def load_shared_libs() -> bool:
-    lib_dir: Path = Path(Path(__file__).parent, "lib")
-    lib_suffix: str = "dylib" if platform.system() == 'Darwin' else "so"
-    lib_names: List[str] = ["tile_fwk_interface", "tile_fwk_codegen", "tile_fwk_compiler", "tile_fwk_runtime"]
-    libs: List[Path] = [Path(lib_dir, f"lib{n}.{lib_suffix}").resolve() for n in lib_names]
+def load_shared_libs():
+    import os
+    import ctypes
+    import pkg_resources
+
+    dist = pkg_resources.get_distribution("pto")
+    dir = os.path.join(f"{dist.location}", "pto", "lib")
+    libs = ["libtile_fwk_interface.so", "libtile_fwk_codegen.so",
+            "libtile_fwk_compiler.so", "libtile_fwk_runtime.so"]
     for lib in libs:
-        if not lib.exists():
-            logging.debug("%s not exist, skip pre load shared libraries process.", lib)
-            return False
-    for lib in libs:
-        try:
-            ctypes.CDLL(str(lib), mode=ctypes.RTLD_GLOBAL)
-        except OSError as err:
-            logging.error("Failed to load %s: %s", lib, err)
-            return False
-    logging.debug("Success Load Shared Libs: %s", libs)
-    return True
+        print(os.path.join(dir, lib))
+        if os.path.exists(os.path.join(dir, lib)):
+            ctypes.CDLL(os.path.join(dir, lib), mode=ctypes.RTLD_GLOBAL)
 
 
 load_shared_libs()
@@ -45,7 +36,7 @@ from .element import Element
 from .enum import *  # noqa
 from .operation import *  # noqa
 from .operator import cos, sin, sigmoid, softmax
-from .pto_utils import ceildiv
+from .pto_utils import ceildiv, bytes_of
 from .runtime import jit
 from .symbolic_scalar import SymbolicScalar
 from .tensor import Tensor, mark_dynamic

@@ -13,9 +13,6 @@
 import pto
 import pytest
 
-GRAPH_T = pto.GraphType.TENSOR_GRAPH
-FUNC_T = pto.FunctionType.STATIC
-
 
 def test_init_tensor():
     dtype = pto.DT_FP16
@@ -26,13 +23,15 @@ def test_init_tensor():
     assert a.dtype == dtype
     assert a.shape == shape
     assert a.dim == len(shape)
+    assert a.format == pto.TileOpFormat.TILEOP_ND
 
-    b = pto.tensor([-1, 2], dtype, "b")
+    b = pto.tensor([-1, 32], dtype, "b", pto.TileOpFormat.TILEOP_NZ)
     assert b.dtype == dtype
     assert b.name == "b"
+    assert b.format == pto.TileOpFormat.TILEOP_NZ
     with pytest.raises(ValueError):
         # dynamic shape could not be compared
-        assert b.shape == [-1, 2]
+        assert b.shape == [-1, 32]
 
 
 def test_init_tensor_no_name():
@@ -49,7 +48,7 @@ def test_tensor_add_plus_op():
     a = pto.tensor(shape, dtype, "tensor_a")
     b = pto.tensor(shape, dtype, "tensor_b")
 
-    with pto.pto_function("ADD", GRAPH_T, FUNC_T, a, b):
+    with pto.function("ADD", a, b, static=True):
         pto.set_vec_tile_shapes(8, 8)
         c = a + b
 
@@ -62,7 +61,7 @@ def test_tensor_add_tensor_element():
     shape = [8, 8]
     a = pto.tensor(shape, dtype, "tensor_a")
 
-    with pto.pto_function("ADD", GRAPH_T, FUNC_T, a):
+    with pto.function("ADD", a, static=True):
         pto.set_vec_tile_shapes(8, 8)
         c = a + 3.14
 
@@ -75,7 +74,7 @@ def test_tensor_add_element_tensor():
     shape = [8, 8]
     a = pto.tensor(shape, dtype, "tensor_a")
 
-    with pto.pto_function("ADD", GRAPH_T, FUNC_T, a):
+    with pto.function("ADD", a, static=True):
         pto.set_vec_tile_shapes(8, 8)
         c = 3.14 + a
 
@@ -89,7 +88,7 @@ def test_tensor_sub_op():
     a = pto.tensor(shape, dtype, "tensor_a")
     b = pto.tensor(shape, dtype, "tensor_b")
 
-    with pto.pto_function("SUB", GRAPH_T, FUNC_T, a, b):
+    with pto.function("SUB", a, b, static=True):
         pto.set_vec_tile_shapes(8, 8)
         c = a - b
 
@@ -102,7 +101,7 @@ def test_tensor_subs_tensor_element():
     shape = [8, 8]
     a = pto.tensor(shape, dtype, "tensor_a")
 
-    with pto.pto_function("SUBS", GRAPH_T, FUNC_T, a):
+    with pto.function("SUBS", a, static=True):
         pto.set_vec_tile_shapes(8, 8)
         c = a - 3.14
 

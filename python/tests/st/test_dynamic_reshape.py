@@ -17,10 +17,6 @@ import torch
 from numpy.testing import assert_allclose
 import torch_npu
 
-GRAPG_T = pto.GraphType.TENSOR_GRAPH
-FUNC_T = pto.FunctionType.STATIC
-
-
 def test_reshape_shape():
     dtype = pto.DT_FP32
     pto.runtime._device_init()
@@ -30,12 +26,12 @@ def test_reshape_shape():
     dst_shape = [d, s]
     q = pto.tensor(shape, dtype)
 
-    with pto.pto_function("Reshape1", GRAPG_T, FUNC_T, q):
+    with pto.function("Reshape1", q, static=True):
         pto.set_vec_tile_shapes(16, 16)
         res = pto.reshape(q, dst_shape)
-    
-    assert res.shape == dst_shape 
-    pto.runtime._device_fini() 
+
+    assert res.shape == dst_shape
+    pto.runtime._device_fini()
 
 
 def test_reshape_equal():
@@ -57,7 +53,7 @@ def test_reshape_equal():
             out.move(q0)
             del q0
             del out
-    
+
     q_tensor = torch.arange(s * 32, dtype=torch.float32).reshape(s, 32)
     out_tensor = torch.zeros_like(q_tensor)
 
@@ -88,7 +84,7 @@ def test_reshape_equal2():
             del q0
             del t0
             del out
-    
+
     q_tensor = torch.arange(s * 32, dtype=torch.float32).reshape(s, 32)
     tmp_tensor = torch.arange(s * 32, dtype=torch.float32).reshape(s, 32)
     out_tensor = torch.zeros_like(q_tensor)
@@ -118,7 +114,7 @@ def test_reshape_validshape():
             out.move(q0)
             del q0
             del out
-    
+
     q_tensor = torch.arange(s * 32, dtype=torch.float32)
     out_tensor = torch.zeros_like(q_tensor)
 
@@ -147,7 +143,7 @@ def test_reshape_validshape2():
             out.move(q0)
             del q0
             del out
-    
+
     q_tensor = torch.arange(16 * 32, dtype=torch.float32).reshape(16, 32)
     scalar_tensor = torch.ones(16 * 32, dtype=torch.float32).reshape(16, 32)
     out_tensor = torch.zeros(16 * 32, dtype=torch.float32)

@@ -15,6 +15,7 @@ from typing import Sequence, Union, List
 
 from . import pto_impl
 
+from .enum import DataType
 from .symbolic_scalar import SymbolicScalar, SymInt
 
 
@@ -42,3 +43,24 @@ def set_source_location(level: int = 1):
 
 def clear_source_location():
     pto_impl.ClearLocation()
+
+
+def bytes_of(dtype: DataType) -> int:
+    ''' return the number of bytes of the current datatype
+
+    Parameters
+    ----------
+    dtype: pto.DataType
+        datatype to be determined the number of bytes
+
+    Returns
+    -------
+    int: the size of bytes the datatype contains
+
+    Examples
+    --------
+    >>> print(pto.bytes_of(pto.DataType.DT_FP32))
+        4
+    '''
+    # implementation
+    return pto_impl.BytesOf(dtype)

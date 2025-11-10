@@ -246,10 +246,7 @@ Tensor Unsqueeze(const Tensor &old, int unsqueezeDimNum) {
     }
     std::vector<int64_t> newShape(old.GetStorage()->shape);
     newShape.insert(newShape.begin() + unsqueezeDim, 1);
-    Tensor result(old.GetStorage()->tensor->datatype, newShape);
-    result = Reshape(old, newShape);
-
-    return result;
+    return Reshape(old, newShape);
 }
 
 void TensorInnerAssign(Function &function, const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
@@ -257,7 +254,7 @@ void TensorInnerAssign(Function &function, const LogicalTensorPtr &operand, cons
 }
 
 Tensor Assign(const Tensor &operand) {
-    Tensor result(operand.GetStorage()->Datatype(), operand.GetShape());
+    Tensor result(operand.GetStorage()->Datatype(), operand.GetShape(), "", operand.Format());
     result.GetStorage()->UpdateDynValidShape(operand.GetStorage()->GetDynValidShape());
     CALL(InnerAssign, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(), result.GetStorage());
     return result;
@@ -340,7 +337,7 @@ LogicalTensorPtr TensorPadOperation(Function &function, const TileShape &tileSha
     const LogicalTensorPtr operand, const std::vector<int64_t> &newShape)
 {
     auto tmpResult = std::make_shared<LogicalTensor>(function, operand->Datatype(), newShape);
-    auto result = std::make_shared<LogicalTensor>(function, operand->Datatype(), newShape);
+    auto result = std::make_shared<LogicalTensor>(function, operand->Datatype(), newShape, operand->Format());
     TileInnerPad(function, tileShape, operand, tmpResult);
     auto &assembleOp = function.AddOperation(Opcode::OP_ASSEMBLE, {tmpResult}, {result});
     assembleOp.SetAssembleOpAttribute(std::vector<int64_t>(newShape.size(), 0));
@@ -464,7 +461,7 @@ Tensor Reduce(const std::vector<Tensor> &aggregation, const ReduceMode reduceMod
             return elem.GetStorage();
         });
     auto o0 = iOperand[0];
-    Tensor result(o0->Datatype(), o0->shape, "", o0->GetTileOpFormat());
+    Tensor result(o0->Datatype(), o0->shape, "", o0->Format());
     auto& op = Program::GetInstance().AddOperation(Opcode::OP_REDUCE_ACC, iOperand, { result.GetStorage() });
     op.SetAttribute(Matrix::ACC_A_MUL_B, 1);
     return result;
@@ -845,7 +842,9 @@ Tensor TopKExtract(const Tensor &x, int k, bool isIndex) {
 // view op
 Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<int64_t> &offsets) {
     DECLARE_TRACER();
-    Tensor result(operand.GetStorage()->Datatype(), shapes, "View_" + operand.GetStorage()->GetRawTensor()->GetSymbol(), operand.GetStorage()->tensorfmt);
+    Tensor result(operand.GetStorage()->Datatype(), shapes,
+        "View_" + operand.GetStorage()->GetRawTensor()->GetSymbol(),
+        operand.Format());
     auto &op = Program::GetInstance().GetCurrentFunction()->AddOperation(
         Opcode::OP_VIEW, {operand.GetStorage()}, {result.GetStorage()});
     auto validShape = GetViewValidShape(operand.GetStorage()->GetDynValidShape(), offsets, {}, shapes);
@@ -858,7 +857,9 @@ Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std
 Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<SymbolicScalar> &newOffsets,
     const void *lr) {
     DECLARE_TRACERX(lr);
-    Tensor result(operand.GetStorage()->Datatype(), shapes, "View_" + operand.GetStorage()->GetRawTensor()->GetSymbol(), operand.GetStorage()->tensorfmt);
+    Tensor result(operand.GetStorage()->Datatype(), shapes,
+        "View_" + operand.GetStorage()->GetRawTensor()->GetSymbol(),
+        operand.Format());
     result.GetStorage()->UpdateDynValidShape(SymbolicScalar::FromConcrete(shapes));
     auto function = Program::GetInstance().GetCurrentFunction();
     auto &op = function->AddOperation(Opcode::OP_VIEW, {operand.GetStorage()}, {result.GetStorage()});
@@ -882,7 +883,9 @@ Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std
 Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes,
     const std::vector<SymbolicScalar> &newValidShapes, const std::vector<SymbolicScalar> &newOffsets) {
     DECLARE_TRACER();
-    Tensor result(operand.GetStorage()->Datatype(), shapes, "View_" + operand.GetStorage()->GetRawTensor()->GetSymbol(), operand.GetStorage()->tensorfmt);
+    Tensor result(operand.GetStorage()->Datatype(), shapes,
+        "View_" + operand.GetStorage()->GetRawTensor()->GetSymbol(),
+        operand.Format());
     auto function = Program::GetInstance().GetCurrentFunction();
     auto &op = function->AddOperation(Opcode::OP_VIEW, {operand.GetStorage()}, {result.GetStorage()});
     std::vector<int64_t> newOffsetsConcrete = SymbolicScalar::Concrete(newOffsets, 0);
@@ -908,6 +911,7 @@ Tensor Assemble(const std::vector<std::pair<Tensor, std::vector<int64_t>>> &tens
 
     ASSERT(!tensors.empty());
     std::vector<int64_t> shape = tensors.front().first.GetShape();
+    TileOpFormat format = tensors.front().first.Format();
     for (const auto &[tensor, offset] : tensors) {
         // 目前只支持2维操作
         if (tensor.GetShape().size() != 2) {
@@ -915,6 +919,7 @@ Tensor Assemble(const std::vector<std::pair<Tensor, std::vector<int64_t>>> &tens
         }
         ASSERT(tensor.GetShape().size() == tensor.GetStorage()->offset.size());
         ASSERT(tensor.GetShape().size() == offset.size());
+        ASSERT(tensor.Format() == format);
     }
 
     auto shapeSize = tensors[0].first.GetShape().size(); // 2
@@ -945,7 +950,7 @@ Tensor Assemble(const std::vector<std::pair<Tensor, std::vector<int64_t>>> &tens
         ASSERT(rawShape[i] > 0);
     }
 
-    Tensor result(tensors[0].first.GetStorage()->Datatype(), rawShape, "Assemble", tensors[0].first.GetStorage()->tensorfmt);
+    Tensor result(tensors[0].first.GetStorage()->Datatype(), rawShape, "Assemble", tensors[0].first.Format());
     auto &curFunc = *Program::GetInstance().GetCurrentFunction();
     for (const auto &[tensor, offset] : tensors) {
         InnerAssemble(curFunc, tensor.GetStorage(), result.GetStorage(), offset);
@@ -971,7 +976,7 @@ void DInnerAssemble(Function &function, const LogicalTensorPtr &operand,
 void Assemble(const Tensor &tensor, const std::vector<SymbolicScalar> &dynOffset, Tensor &dest) {
     DECLARE_TRACER();
 
-    ASSERT(dest.GetStorage(false)->tensorfmt == tensor.GetStorage(false)->tensorfmt)<<"Assemble: src and dest requires same format";
+    ASSERT(dest.GetStorage(false)->Format() == tensor.GetStorage(false)->Format())<<"Assemble: src and dest requires same format";
     ASSERT(dest.GetShape().size() == tensor.GetShape().size())<<"Assemble: src and dest requires same shape";
     ASSERT(dest.GetShape().size() == dynOffset.size())<<"Assemble: dynOffset and dest requires same shape";
     DInnerAssemble(*Program::GetInstance().GetCurrentFunction(), tensor.GetStorage(), dest.GetStorage(), dynOffset);
@@ -1110,22 +1115,23 @@ Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, cons
     }
     auto newShape = CheckAndInferShape(operand.GetShape(), dstshape);
     if (ReshapeNeedCopy(operand)) {
-        Tensor copyOperand(operand.GetStorage()->Datatype(), operand.GetShape(), "", operand.GetStorage()->tensorfmt);
+        Tensor copyOperand(operand.GetStorage()->Datatype(), operand.GetShape(), "", operand.Format());
         copyOperand.GetStorage()->UpdateDynValidShape(operand.GetStorage()->GetDynValidShape());
         CALL(InnerAssign, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(),
             copyOperand.GetStorage());
-        Tensor result(copyOperand.GetStorage()->Datatype(), newShape, "", operand.GetStorage()->tensorfmt);
+        Tensor result(copyOperand.GetStorage()->Datatype(), newShape, "", operand.Format());
         CALL(InnerReshape, *Program::GetInstance().GetCurrentFunction(), copyOperand.GetStorage(),
             result.GetStorage(), validShapeDefault);
         return result;
     } else {
-        Tensor result(operand.GetStorage()->Datatype(), newShape, "", operand.GetStorage()->tensorfmt);
+        Tensor result(operand.GetStorage()->Datatype(), newShape, "", operand.Format());
         CALL(InnerReshape, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(), result.GetStorage(), validShapeDefault);
         return result;
     }
 }
 
 void ReshapeInplace(const Tensor &operand, Tensor &dst) {
+    ASSERT(operand.Format() == dst.Format()) << "Tensor format not match";
     auto slotManager = Program::GetInstance().GetTensorSlotManager();
     auto &operation = Program::GetInstance().GetCurrentFunction()->AddOperation(Opcode::OP_RESHAPE, {operand.GetStorage()}, {dst.GetStorage()});
     operation.SetAttribute(OP_ATTR_PREFIX + "isInplace", true);

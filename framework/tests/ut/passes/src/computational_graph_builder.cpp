@@ -24,7 +24,7 @@ bool ComputationalGraphBuilder::AddTensor(DataType dataType, const std::vector<i
     if (tensors_.count(name) > 0) {
         return false;
     }
-    auto tensor = std::make_shared<LogicalTensor>(*function, dataType, tileShape, name);
+    auto tensor = std::make_shared<LogicalTensor>(*function, dataType, tileShape, TileOpFormat::TILEOP_ND, name);
     if (tensor == nullptr) {
         return false;
     }

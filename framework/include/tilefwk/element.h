@@ -22,10 +22,11 @@ namespace npu::tile_fwk {
 class Element {
 public:
     Element() : type_(DT_BOTTOM) {}
-    explicit Element(DataType type, int32_t sData) : type_(type) { data_.sData = sData; }
-    explicit Element(DataType type, int64_t sData) : type_(type) { data_.sData = sData; }
-    explicit Element(DataType type, uint64_t uData) : type_(type) { data_.uData = uData; }
-    explicit Element(DataType type, double fData) : type_(type) { data_.fData = fData; }
+
+    explicit Element(DataType type, int32_t sData) { Init(type, sData); }
+    explicit Element(DataType type, int64_t sData) { Init(type, sData); }
+    explicit Element(DataType type, uint64_t uData) { Init(type, uData); }
+    explicit Element(DataType type, double fData) { Init(type, fData); }
 
     DataType GetDataType() const { return type_; }
     int64_t GetSignedData() const { return data_.sData; }
@@ -63,6 +64,17 @@ public:
     double my_abs(double value1, double value2) const;
 
 private:
+    template <typename T>
+    void Init(DataType type, T value) {
+        type_ = type;
+        if (IsSigned()) {
+            data_.sData = static_cast<int64_t>(value);
+        } else if (IsUnsigned()) {
+            data_.uData = static_cast<uint64_t>(value);
+        } else {
+            data_.fData = static_cast<double>(value);
+        }
+    }
     union {
         int64_t sData;
         uint64_t uData;

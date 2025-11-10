@@ -182,7 +182,7 @@ void FunctionInterpreter::DumpTensorList(const std::string &name, const std::vec
     for (size_t k = 0; k < tensorList->size(); k++) {
         textList[k] = std::to_string(static_cast<int>(k));
         if (tensorList->at(k)) {
-            textList[k] += " tileOpFormat:" + std::to_string(tensorList->at(k)->GetTileOpFormat());
+            textList[k] += " tileOpFormat:" + std::to_string(tensorList->at(k)->Format());
         }
     }
     DumpLine(dumpTensorFile, textList, "table_head");

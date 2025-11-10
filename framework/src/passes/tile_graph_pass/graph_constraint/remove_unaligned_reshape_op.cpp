@@ -58,7 +58,8 @@ Status RemoveUnalignedReshape::RunOnFunction(Function &function) {
 
 LogicalTensorPtr RemoveUnalignedReshape::InsertIOTensor(Function &function, Operation &op, std::unordered_map<OverlaprawMagic, std::shared_ptr<RawTensor>> &rawIO, LogicalTensorPtr &ioTensor) {
     if (rawIO.count(ioTensor->tensor->rawmagic) == 0) {
-        auto reshapeRawTensor = std::make_shared<RawTensor>(ioTensor->Datatype(), ioTensor->tensor->oriRawshape);
+        auto reshapeRawTensor = std::make_shared<RawTensor>(ioTensor->Datatype(),
+            ioTensor->tensor->oriRawshape, ioTensor->Format());
         reshapeRawTensor->oriRawshape = reshapeRawTensor->rawshape;
         rawIO.insert({ioTensor->tensor->rawmagic, reshapeRawTensor});
     }
@@ -133,7 +134,7 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOps(Function &function) {
         auto input = op.GetIOperands().front();
         auto output = op.GetOOperands().front();
         // only support ub reshape yet
-        if ((input->GetMemoryTypeOriginal() != MemoryType::MEM_UB) || (output->GetMemoryTypeOriginal() != MemoryType::MEM_UB)) 
+        if ((input->GetMemoryTypeOriginal() != MemoryType::MEM_UB) || (output->GetMemoryTypeOriginal() != MemoryType::MEM_UB))
             continue;
 
         auto inputShapes = input->shape;
@@ -146,8 +147,10 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOps(Function &function) {
         for (auto &dim : changedDims) {
             if (!outDynValidShape[dim].IsImmediate()) {
                 op.SetAsDeleted();
-                auto tmpWorkSpaceIn = std::make_shared<LogicalTensor>(function, input->Datatype(), input->oriShape);
-                auto tmpWorkSpaceOut = std::make_shared<LogicalTensor>(function, input->Datatype(), output->oriShape);
+                auto tmpWorkSpaceIn = std::make_shared<LogicalTensor>(function, input->Datatype(),
+                    input->oriShape, input->Format());
+                auto tmpWorkSpaceOut = std::make_shared<LogicalTensor>(function, input->Datatype(),
+                    output->oriShape, output->Format());
 
                 tmpWorkSpaceIn->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
                 tmpWorkSpaceIn->UpdateDynValidShape(inDynValidShape);
@@ -178,7 +181,7 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOps(Function &function) {
                     OpImmediate::Specified(output->GetDynValidShape())
                 ));
 
-                APASS_LOG_INFO_F(this->GetName().c_str(), "Operation","reshape op %d is replaceed by reshapeCopyOutOp %d and reshapeCopyInOp %d", 
+                APASS_LOG_INFO_F(this->GetName().c_str(), "Operation","reshape op %d is replaceed by reshapeCopyOutOp %d and reshapeCopyInOp %d",
                     op.opmagic, reshapeCopyOutOp.opmagic, reshapeCopyInOp.opmagic);
                 break;
             }

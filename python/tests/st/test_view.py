@@ -18,8 +18,6 @@ import numpy as np
 import torch_npu
 
 
-GRAPH_T = pto.GraphType.TENSOR_GRAPH
-FUNC_T = pto.FunctionType.STATIC
 
 def test_view_basic_shape():
     """Test whether the ouput shape is correct"""
@@ -29,7 +27,7 @@ def test_view_basic_shape():
     x = pto.tensor(x_shape, dtype)
     view_shape = [32, 32]
     offset = [0, 32]
-    with pto.pto_function("VIEW_SHAPE", GRAPH_T, FUNC_T, x):
+    with pto.function("VIEW_SHAPE", x, static=True):
         pto.set_vec_tile_shapes(32, 32)
         res = pto.view(x, view_shape, offset)
 
@@ -52,11 +50,11 @@ def test_view_content_equal():
             pto.set_vec_tile_shapes(4, 4)
             res.move(pto.view(x, view_shape, offset))
             del res
-    
+
     torch_tensor = torch.rand(4, 8, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)
     pto.runtime._device_run_once_data_from_host([torch_tensor], [res_tensor])
-    
+
     expected = torch_tensor[0:4, 4:8]
     assert torch.equal(res_tensor.flatten(), expected.flatten())
     pto.runtime._device_fini()
@@ -79,14 +77,14 @@ def test_view_content_equal_validshape():
             pto.set_vec_tile_shapes(4, 4)
             res.move(pto.view(x, view_shape, offset, valid_shape=validshape))
             del res
-    
+
     torch_tensor = torch.rand(4, 4, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)
     pto.runtime._device_run_once_data_from_host([torch_tensor], [res_tensor])
-     
+
     expected = torch_tensor[2:4, 0:4]
     assert torch.equal(res_tensor.flatten()[:2 * 4], expected.flatten())
-     
+
     pto.runtime._device_fini()
 
 def test_tensor_view_content_equal():
@@ -106,14 +104,14 @@ def test_tensor_view_content_equal():
             pto.set_vec_tile_shapes(4, 4)
             res.move(x.view(view_shape, offset))
             del res
-    
+
     torch_tensor = torch.rand(4, 8, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)
     pto.runtime._device_run_once_data_from_host([torch_tensor], [res_tensor])
-    
+
     expected = torch_tensor[0:4, 4:8]
     assert torch.equal(res_tensor.flatten(), expected.flatten())
-     
+
     pto.runtime._device_fini()
 
 
@@ -135,14 +133,14 @@ def test_tensor_view_content_validshape_equal():
             pto.set_vec_tile_shapes(4, 4)
             res.move(x.view(view_shape, offset, valid_shape=validshape))
             del res
-    
+
     torch_tensor = torch.rand(4, 4, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)
     pto.runtime._device_run_once_data_from_host([torch_tensor], [res_tensor])
-     
+
     expected = torch_tensor[2: 4, 0: 4]
     assert torch.equal(res_tensor.flatten()[: 2 * 4], expected.flatten())
-     
+
     pto.runtime._device_fini()
 
 def test_syntactic_sugar_view_content_equal():
@@ -162,12 +160,12 @@ def test_syntactic_sugar_view_content_equal():
             pto.set_vec_tile_shapes(4, 4)
             res.move(x[:offset[0] + view_shape[0], offset[1]:offset[1] + view_shape[1]])
             del res
-    
+
     torch_tensor = torch.rand(4, 8, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)
     pto.runtime._device_run_once_data_from_host([torch_tensor], [res_tensor])
-     
+
     expected = torch_tensor[:, 4:8]
     assert torch.equal(res_tensor.flatten(), expected.flatten())
-     
+
     pto.runtime._device_fini()

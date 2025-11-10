@@ -11,9 +11,6 @@
 
 import pto
 
-GRAPH_T = pto.GraphType.TENSOR_GRAPH
-FUNC_T = pto.FunctionType.STATIC
-
 
 def test_matrix_matmul():
     dtype = pto.DT_FP32
@@ -21,7 +18,7 @@ def test_matrix_matmul():
     b = pto.tensor((64, 32), dtype, "B")
     c = None
 
-    with pto.pto_function("MATMUL", GRAPH_T, FUNC_T, a, b):
+    with pto.function("MATMUL", a, b, static=True):
         pto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
         c = pto.matmul(a, b, dtype)
         d = pto.matmul(a, b, dtype, a_trans=True, b_trans=True)
@@ -39,7 +36,7 @@ def test_matrix_batch_matmul():
     b = pto.tensor((2, 32, 64), dtype, "B")
     c = None
 
-    with pto.pto_function("BATCH_MATMUL", GRAPH_T, FUNC_T, a, b):
+    with pto.function("BATCH_MATMUL", a, b, static=True):
         pto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
         c = pto.matmul(a, b, dtype)
         d = pto.matmul(a, b, dtype, a_trans=True, b_trans=True)
@@ -57,7 +54,7 @@ def test_matrix_matmul_with_syntactic_sugar():
     b = pto.tensor((32, 64), dtype, "B")
     c = None
 
-    with pto.pto_function("MATMUL", GRAPH_T, FUNC_T, a, b):
+    with pto.function("MATMUL", a, b, static=True):
         pto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
         c = a @ b
 
@@ -73,7 +70,7 @@ def test_matrix_matmul_with_tensor_interface():
     b = pto.tensor((3, 32, 64), input_dtype, "B")
     c = None
 
-    with pto.pto_function("BATCH_MATMUL", GRAPH_T, FUNC_T, a, b):
+    with pto.function("BATCH_MATMUL", a, b, static=True):
         pto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
         c = a.matmul(b, out_dtype, a_trans=True, b_trans=True)
 

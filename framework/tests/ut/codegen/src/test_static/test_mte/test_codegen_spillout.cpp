@@ -64,7 +64,7 @@ TEST_F(TestCodegenSpillOut, UBSpillOut) {
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
 
     std::shared_ptr<RawTensor> ddrRawTensor =
-        std::make_shared<RawTensor>(DataType::DT_FP32, shape, "UBSpillOut", SYMBOL_STACK_BASE);
+        std::make_shared<RawTensor>(DataType::DT_FP32, shape, TileOpFormat::TILEOP_ND, "UBSpillOut", SYMBOL_STACK_BASE);
     const std::vector<int64_t> offset = {0, 0};
     auto ddrTensor = std::make_shared<LogicalTensor>(*function, ddrRawTensor, offset, shape);
     ddrTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
@@ -114,7 +114,7 @@ TEST_F(TestCodegenSpillOut, UBSpillOutTileTensor) {
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
 
     std::shared_ptr<RawTensor> ddrRawTensor =
-        std::make_shared<RawTensor>(DataType::DT_FP32, shape, "UBSpillOut", SYMBOL_STACK_BASE);
+        std::make_shared<RawTensor>(DataType::DT_FP32, shape, TileOpFormat::TILEOP_ND, "UBSpillOut", SYMBOL_STACK_BASE);
     const std::vector<int64_t> offset = {0, 0};
     auto ddrTensor = std::make_shared<LogicalTensor>(*function, ddrRawTensor, offset, shape);
     ddrTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
@@ -167,7 +167,7 @@ TEST_F(TestCodegenSpillOut, L1SpillOut) {
 
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     std::shared_ptr<RawTensor> ddrRawTensor =
-        std::make_shared<RawTensor>(DataType::DT_FP32, shape, "L1SpillOut", SYMBOL_STACK_BASE);
+        std::make_shared<RawTensor>(DataType::DT_FP32, shape, TileOpFormat::TILEOP_ND, "L1SpillOut", SYMBOL_STACK_BASE);
     const std::vector<int64_t> offset = {0, 0};
 
     auto ddrTensor = std::make_shared<LogicalTensor>(*function, ddrRawTensor, offset, shape);

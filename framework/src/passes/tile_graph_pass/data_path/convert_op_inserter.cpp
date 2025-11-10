@@ -225,7 +225,7 @@ Status ConvertInserter::RecordConflict(Function &function) {
                 //step3：决定目标memorytype
                 APASS_LOG_DEBUG_F("AssignMemoryType", "Operation", "Operation %s[%d] has output %d ori and tobe conflict.",
                     op.GetOpcodeStr().c_str(), op.GetOpMagic(), oOperand->magic);
-                bool crossCore = CrossCore(oOperand->GetMemoryTypeOriginal(), requiredMemoryType);    
+                bool crossCore = CrossCore(oOperand->GetMemoryTypeOriginal(), requiredMemoryType);
                 bool producedByAssemble = isAllProducerAssemble(oOperand);
                 if (producedByAssemble && crossCore) {
                     oOperand->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
@@ -242,18 +242,18 @@ Status ConvertInserter::RecordConflict(Function &function) {
                 //step4:构造转换路径
                 std::vector<MemoryType> paths;
                 Status status = ConstructPath(oOperand->GetMemoryTypeOriginal(),requiredMemoryType,paths,oOperand,op);
-                if (status != SUCCESS) {return status;}                
+                if (status != SUCCESS) {return status;}
                 //step5：记录需要插入的Convert Op
                 auto output = RecordInsertConvertOp(oOperand,paths,function,op);
 
                 //step6：更新消费者连接
                 GraphReconnect(oOperand, output, consumers,function);
-                
+
                 //step7：标记已处理
                 visitedTensor.push_back(oOperand->magic);
             }
         }
-    } 
+    }
     return SUCCESS;
 }
 //检查from和to之间是否不存在数据通路
@@ -270,12 +270,12 @@ Status ConvertInserter::ConstructPath(MemoryType from, MemoryType to, std::vecto
             op.GetOpMagic());
         return FAILED;
     }
-    return SUCCESS;   
+    return SUCCESS;
 }
 
 //检查tensor是否需要跳过
 bool ConvertInserter::SkipOperand(const std::shared_ptr<LogicalTensor> &oOperand, const std::vector<int> visitedTensor) const{
-    return ((conflictMap.find(oOperand->magic) == conflictMap.end()) || 
+    return ((conflictMap.find(oOperand->magic) == conflictMap.end()) ||
             (std::find(visitedTensor.begin(), visitedTensor.end(), oOperand->magic) != visitedTensor.end()));
 }
 
@@ -301,11 +301,12 @@ bool ConvertInserter::isAllConsumersValid(const std::set<Operation *> &consumers
 }
 
 //记录需要插入的convert op
-std::shared_ptr<LogicalTensor> ConvertInserter::RecordInsertConvertOp(const std::shared_ptr<LogicalTensor> &oOperand, 
+std::shared_ptr<LogicalTensor> ConvertInserter::RecordInsertConvertOp(const std::shared_ptr<LogicalTensor> &oOperand,
     const std::vector<MemoryType> &paths,Function &function,const Operation &op){
     std::shared_ptr<LogicalTensor> input = oOperand;
     for (size_t i = 0; i < paths.size() - 1; ++i) {
-        std::shared_ptr<RawTensor> newRawTensor = std::make_shared<RawTensor>(input->Datatype(), input->GetShape());;
+        std::shared_ptr<RawTensor> newRawTensor = std::make_shared<RawTensor>(
+            input->Datatype(), input->GetShape(), input->Format());;
         input->SetMemoryTypeToBe(paths[i]); // 后续删除
         std::vector<int64_t> newoffset(input->offset.size(), 0);
         std::shared_ptr<LogicalTensor> output = std::make_shared<LogicalTensor>(function, newRawTensor, newoffset, input->shape);
@@ -324,7 +325,7 @@ std::shared_ptr<LogicalTensor> ConvertInserter::RecordInsertConvertOp(const std:
 }
 
 //graph重连
-void ConvertInserter::GraphReconnect(const std::shared_ptr<LogicalTensor> &oOperand, std::shared_ptr<LogicalTensor> output, 
+void ConvertInserter::GraphReconnect(const std::shared_ptr<LogicalTensor> &oOperand, std::shared_ptr<LogicalTensor> output,
         const std::set<Operation *> &consumers,Function &function) const {
     for (auto &consumer : consumers) {
         if (consumer->BelongTo() == &function) {

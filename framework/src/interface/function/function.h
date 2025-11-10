@@ -770,6 +770,8 @@ public:
         sourceLocation_ = sourceLocation;
     }
 
+    std::shared_ptr<SourceLocation> GetSourceLocation() const { return sourceLocation_; }
+
 private:
     int functionMagic_{-1};
     std::string funcMagicName_; // Function name

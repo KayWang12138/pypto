@@ -22,7 +22,7 @@ namespace tile_fwk {
 Status InferMemoryConflict::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Start InferMemoryConflict for function [%s].", function.GetRawName().c_str());
     Init(function);
-    if (InferFromIncast(function) != SUCCESS) { 
+    if (InferFromIncast(function) != SUCCESS) {
         APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Infer INCAST and OUTCAST address failed; Try to roll back changes.");
         return FAILED;
     }
@@ -49,7 +49,7 @@ bool InferMemoryConflict::IsValidTileShape(const Operation &op) const {
 std::vector<std::pair<LogicalTensorPtr, Operation *>> GetInplacedTensors(LogicalTensorPtr targetTensor) {
     std::set<Opcode> inplaceNodes{Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_RESHAPE, Opcode::OP_INDEX_OUTCAST};
     std::vector<std::pair<LogicalTensorPtr, Operation *>> inplacedTensor;
-    for (auto &producer : targetTensor->GetProducers()) {  
+    for (auto &producer : targetTensor->GetProducers()) {
         if (inplaceNodes.count(producer->GetOpcode()) == 0) {
             continue;
         }
@@ -175,7 +175,7 @@ Status InferMemoryConflict::InsertTensorCopy(Function &function) {
             }
             insertedNodes[inputTensor].insert(inplaceNode.second);
             std::shared_ptr<RawTensor> newRawTensor = std::make_shared<RawTensor>(inputTensor->Datatype(),
-                inputTensor->GetShape());
+                inputTensor->GetShape(), inputTensor->Format());
             Offset newOffset(inputTensor->GetShape().size(), 0);
             LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(function, newRawTensor, newOffset,
                 inputTensor->GetShape(), inputTensor->GetDynValidShape());

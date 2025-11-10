@@ -138,6 +138,9 @@ inline void CheckBinaryInputTensors(const LogicalTensorPtr &tensor1, const Logic
     if (tensor1->Datatype() != tensor2->Datatype()) {
         ASSERT(false && "The dtype of input tensors are not same.");
     }
+    if (tensor1->Format() != tensor2->Format()) {
+        ASSERT(false && "The format of input tensors are not same.");
+    }
 }
 
 inline void BinaryOperationOperandCheck(
@@ -258,7 +261,8 @@ LogicalTensorPtr TensorBinaryOperation(Function &function, const Tensor &operand
             }
         }
     }
-    auto result = std::make_shared<LogicalTensor>(function, oprandT1->Datatype(), resultShape, resultValidShape);
+    auto result = std::make_shared<LogicalTensor>(
+        function, oprandT1->Datatype(), resultShape, resultValidShape, oprandT1->Format());
     function.AddOperation(GetBinaryOpNameCode<T>(), {oprandT1, oprandT2}, {result});
     return result;
 }

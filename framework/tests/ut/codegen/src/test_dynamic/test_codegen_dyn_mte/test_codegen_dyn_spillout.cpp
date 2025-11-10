@@ -63,7 +63,7 @@ TEST_F(TestCodegenDynSpillOut, UBSpillOut) {
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     function->SetUnderDynamicFunction(true);
     std::shared_ptr<RawTensor> ddrRawTensor =
-        std::make_shared<RawTensor>(DataType::DT_FP32, shape, "UBSpillOut", SYMBOL_STACK_BASE);
+        std::make_shared<RawTensor>(DataType::DT_FP32, shape, TileOpFormat::TILEOP_ND, "UBSpillOut", SYMBOL_STACK_BASE);
     const std::vector<int64_t> offset = {0, 0};
 
     auto ddrTensor = std::make_shared<LogicalTensor>(*function, ddrRawTensor, offset, shape);
@@ -115,7 +115,7 @@ TEST_F(TestCodegenDynSpillOut, L1SpillOut) {
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     function->SetUnderDynamicFunction(true);
     std::shared_ptr<RawTensor> ddrRawTensor =
-        std::make_shared<RawTensor>(DataType::DT_FP32, shape, "L1SpillOut", SYMBOL_STACK_BASE);
+        std::make_shared<RawTensor>(DataType::DT_FP32, shape, TileOpFormat::TILEOP_ND, "L1SpillOut", SYMBOL_STACK_BASE);
     const std::vector<int64_t> offset = {0, 0};
 
     auto ddrTensor = std::make_shared<LogicalTensor>(*function, ddrRawTensor, offset, shape);

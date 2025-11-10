@@ -211,7 +211,7 @@ Status IntraSubgraphAdapter::AdapteTensorProducers(Function &function, LogicalTe
             }
         }
         return SUCCESS;
-    } 
+    }
     if (tensor->GetProducers().size() == 1) {
         Operation* producer = *(tensor->GetProducers().begin());
         APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "|---- Producer %s[%d].", producer->GetOpcodeStr().c_str(), producer->GetOpMagic());
@@ -260,7 +260,8 @@ LogicalTensorPtr IntraSubgraphAdapter::InsertOpBetween(Function &function, Opcod
         Operation *op, LogicalTensorPtr tensor) {
     APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "intraSubgraphAdapter::InsertOpBetween %s 1.", OpcodeManager::Inst().GetOpcodeStr(opcode).c_str());
     ASSERT(opcode == Opcode::OP_ASSEMBLE);
-    auto newRawTensor = std::make_shared<RawTensor>(tensor->Datatype(), tensor->GetRawTensor()->rawshape);
+    auto newRawTensor = std::make_shared<RawTensor>(tensor->Datatype(),
+        tensor->GetRawTensor()->rawshape, tensor->Format());
     LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(function, newRawTensor,
         tensor->GetOffset(), tensor->GetShape());
     GraphUtils::CopyDynStatus(newTensor, tensor);
@@ -300,7 +301,8 @@ LogicalTensorPtr IntraSubgraphAdapter::InsertOpBetween(Function &function, Opcod
         return nullptr;
     }
     ASSERT(opcode == Opcode::OP_VIEW || opcode == Opcode::OP_ASSEMBLE);
-    auto newRawTensor = std::make_shared<RawTensor>(tensor->Datatype(), tensor->GetRawTensor()->rawshape);
+    auto newRawTensor = std::make_shared<RawTensor>(tensor->Datatype(),
+        tensor->GetRawTensor()->rawshape, tensor->Format());
     LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(function, newRawTensor,
         tensor->GetOffset(), tensor->GetShape(), tensor->GetDynValidShape());
     newTensor->UpdateOffset(tensor->GetTensorOffset());

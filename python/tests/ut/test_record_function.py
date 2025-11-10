@@ -21,14 +21,9 @@ def test_record_function():
     b = pto.tensor(shape, dtype, "tensor_b")
     c = None
 
-    graph_t = pto.GraphType.TENSOR_GRAPH
-    func_t = pto.FunctionType.STATIC
-
-    pto.begin_function("ADD", graph_t, func_t, a, b)
-    pto.set_vec_tile_shapes(8, 8)
-    c = pto.add(a, b)
-    pto.end_function("ADD", False)
-    # del recorder
+    with pto.function("ADD", a, b, static=True):
+        pto.set_vec_tile_shapes(8, 8)
+        c = pto.add(a, b)
 
     print(pto.dump())
     # Replace True with False to see graph
@@ -37,19 +32,14 @@ def test_record_function():
 
 def test_begin_inplaceadd_end_function():
     dtype = pto.DT_FP16
-    func_type = pto.FunctionType.STATIC
     shape = (8, 8)
     a = pto.tensor(shape, dtype, "tensor_a")
     b = pto.tensor(shape, dtype, "tensor_b")
     c = None
 
-    graph_t = pto.GraphType.TENSOR_GRAPH
-    func_t = pto.FunctionType.STATIC
-
-    pto.begin_function("ADD_INPLACE", graph_t, func_t, a, b)
-    pto.set_vec_tile_shapes(8, 8)
-    c = a + b
-    pto.end_function("ADD_INPLACE", False)
+    with pto.function("ADD_INPLACE", a, b, static=True):
+        pto.set_vec_tile_shapes(8, 8)
+        c = a + b
 
     print(pto.dump())
     assert isinstance(c, pto.tensor)
@@ -59,11 +49,7 @@ def test_empty_begin_end_function():
     dtype = pto.DT_FP16
     a = pto.tensor((8, 8), dtype, "tensor_a")
 
-    graph_t = pto.GraphType.TENSOR_GRAPH
-    func_t = pto.FunctionType.STATIC
-
-    pto.begin_function("MAIN", graph_t, func_t, a)
-    pto.set_vec_tile_shapes(8, 8)
-    pto.end_function("MAIN", False)
+    with pto.function("MAIN", a, static=True):
+        pto.set_vec_tile_shapes(8, 8)
 
     assert True

@@ -438,6 +438,7 @@ Tensor Cat(const std::vector<Tensor> &tensors, int axis) {
     }
 
     auto shape = tensors[0].GetShape();
+    auto format = tensors[0].Format();
     auto shapeSize = shape.size();
     if (axis < 0) {
         axis = shapeSize + axis;
@@ -445,6 +446,7 @@ Tensor Cat(const std::vector<Tensor> &tensors, int axis) {
     ASSERT(static_cast<size_t>(axis) < shapeSize);
     for (auto tensor : tensors) {
         ASSERT(tensor.GetShape().size() == shapeSize);
+        ASSERT(tensor.Format() == format);
     }
 
     for (auto tensor : tensors) {
@@ -463,8 +465,8 @@ Tensor Cat(const std::vector<Tensor> &tensors, int axis) {
     }
     resultShape[axis] = axisSize;
 
-    Tensor result(tensors[0].GetDataType(), resultShape);
-    Tensor tmp(tensors[0].GetDataType(), resultShape);
+    Tensor result(tensors[0].GetDataType(), resultShape, "", format);
+    Tensor tmp(tensors[0].GetDataType(), resultShape, "", format);
     auto &function = *Program::GetInstance().GetCurrentFunction();
     std::vector<int64_t> offset(shapeSize, 0);
     for (auto tensor : tensors) {

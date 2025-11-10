@@ -96,7 +96,7 @@ void FlowVerifier::VerifyTensorGraph(Function *entry,
         if (inputTensor == nullptr) {
             continue;
         }
-        auto tileop = inputTensor->GetTileOpFormat();
+        auto tileop = inputTensor->Format();
 
         auto input = inputDataViewList[i];
         ASSERT(inputTensor->Datatype() == input->GetDataType());
@@ -109,7 +109,7 @@ void FlowVerifier::VerifyTensorGraph(Function *entry,
     for (size_t i = 0; i < outputDataViewList.size(); i++) {
         slotDataViewDict[outputSlotList[i]] = outputDataViewList[i];
         auto outputTensor = attr->startArgsOutputTensorList[i].get().GetStorage();
-        auto tileop = outputTensor->GetTileOpFormat();
+        auto tileop = outputTensor->Format();
         if (tileop == TileOpFormat::TILEOP_NZ) {
             slotTileOpFormatDict[outputSlotList[i]] = TileOpFormat::TILEOP_NZ;
         }

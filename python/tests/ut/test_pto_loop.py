@@ -179,3 +179,24 @@ def test_pto_loop_unroll_n_submit_before_loop():
             b.move(pto.sub(a, a))
 
     assert isinstance(b, pto.tensor)
+
+
+def test_loop_issue52():
+    pto.runtime._device_init()
+
+    a = pto.tensor((128, 128), pto.DT_FP32, "a")
+    b = pto.tensor((128, 128), pto.DT_FP32, "b")
+    c = pto.tensor((128, 128), pto.DT_FP32, "c")
+
+    with pto.function("MAIN", [a, b], [c]):
+        pto.set_vec_tile_shapes(16, 16)
+
+        for i in pto.loop(a.shape[0] // 16):
+            for j in pto.loop(a.shape[1] // 16):
+                view_a = a[i * 16:(i + 1) * 16, j * 16:(j + 1) * 16]
+                view_b = b[i * 16:(i + 1) * 16, j * 16:(j + 1) * 16]
+                assert isinstance(view_a, pto.tensor)
+                assert isinstance(view_b, pto.tensor)
+                c[i * 16:, j * 16:] = view_b + view_a
+
+    pto.runtime._device_fini()

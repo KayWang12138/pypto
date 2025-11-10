@@ -61,7 +61,7 @@ void HostProf::RegHostProf() {
   MsprofRegisterCallback(CCECPU, HostProfInit);
 }
 
-bool HostProf::HostProfReportApi(const uint64_t &startTime, const uint64_t &endTime) const {  
+bool HostProf::HostProfReportApi(const uint64_t &startTime, const uint64_t &endTime) const {
   struct MsprofApi apiInfo;
   apiInfo.level = MSPROF_REPORT_NODE_LEVEL;
   apiInfo.type = MSPROF_REPORT_NODE_LAUNCH_TYPE;
@@ -161,14 +161,14 @@ void HostProf::PackTensorInfo(MsprofTensorInfo *profTensorData, const uint32_t g
   std::stringstream iOtensorInfo;
   if (inputsSize_ > iOIdx) {
     profTensorData->tensorData[modId].tensorType = MSPROF_GE_TENSOR_TYPE_INPUT;
-    profTensorData->tensorData[modId].format = static_cast<uint32_t>(profFunction_->inCasts_[iOIdx]->tensorfmt);
+    profTensorData->tensorData[modId].format = static_cast<uint32_t>(profFunction_->inCasts_[iOIdx]->Format());
     profTensorData->tensorData[modId].dataType = static_cast<uint32_t>(profFunction_->inCasts_[iOIdx]->nodetype);
     iOTensor = profFunction_->inCasts_[iOIdx];
     iOtensorInfo << "Input " << iOIdx << " shape: ";
   } else {
     auto outputIdx = iOIdx - inputsSize_;
     profTensorData->tensorData[modId].tensorType = MSPROF_GE_TENSOR_TYPE_OUTPUT;
-    profTensorData->tensorData[modId].format = static_cast<uint32_t>(profFunction_->outCasts_[outputIdx]->tensorfmt);
+    profTensorData->tensorData[modId].format = static_cast<uint32_t>(profFunction_->outCasts_[outputIdx]->Format());
     profTensorData->tensorData[modId].dataType = static_cast<uint32_t>(profFunction_->outCasts_[outputIdx]->nodetype);
     iOTensor = profFunction_->outCasts_[outputIdx];
     iOtensorInfo << "output " << outputIdx << " shape: ";

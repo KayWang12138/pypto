@@ -77,7 +77,7 @@ Tensor::Tensor(DataType dataType, const Shape &shape, std::string name, TileOpFo
     CheckShapeValid(dataType, shape, format);
     auto dynShape = ToDynShape(name, shape);
     storage_ = std::make_shared<LogicalTensor>(
-        *Program::GetInstance().GetCurrentFunction(), dataType, shape, dynShape, name, NodeType::LOCAL, format);
+        *Program::GetInstance().GetCurrentFunction(), dataType, shape, dynShape, format, name, NodeType::LOCAL);
     storage_->tensor->AddRefCount(1);
 
     Program::GetInstance().InsertAliveTensor(this);
@@ -236,6 +236,10 @@ int32_t Tensor::GetShape(int axis) const {
     ASSERT(axis >= 0 && static_cast<size_t>(axis) < dimCount)
         << "Axis index " << axis << " is out of range [0, " << (dimCount - 1) << "].";
     return storage_->shape[axis];
+}
+
+TileOpFormat Tensor::Format() const {
+    return storage_->Format();
 }
 
 void Tensor::SetCachePolicy(CachePolicy policy, bool value) {

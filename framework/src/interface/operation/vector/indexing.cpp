@@ -638,15 +638,14 @@ Tensor ScatterUpdate(
     CheckScatterUpdateInvalid(dst, index, src);
     axis = axis < 0 ? dst.GetShape().size() + axis : axis;
 
-    Tensor result(dst.GetStorage()->tensor->datatype, dst.GetStorage()->GetShape());
+    Tensor result(dst.GetStorage()->tensor->datatype, dst.GetStorage()->GetShape(), "", dst.Format());
     if (std::find(dst.GetStorage()->GetShape().begin(), dst.GetStorage()->GetShape().end(), -1) !=
         dst.GetStorage()->GetShape().end()) {
-        Tensor resTmp(dst.GetStorage()->tensor->datatype, dst.GetStorage()->GetDynValidShape());
+        Tensor resTmp(dst.GetStorage()->tensor->datatype, dst.GetStorage()->GetDynValidShape(), "", dst.Format());
         result = resTmp;
     }
 
     result.GetStorage()->tensor->SetTensorInfo(dst.GetStorage()->tensor->GetTensorInfo());
-    result.GetStorage()->tensorfmt = dst.GetStorage()->tensorfmt;
 
     if (cacheMode == "PA_NZ") {
         axis = 1;

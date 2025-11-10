@@ -53,6 +53,10 @@ class Tensor:
     def dim(self) -> int:
         return self._base.Dim()
 
+    @property
+    def format(self) -> TileOpFormat:
+        return self._base.Format()
+
     def set_cache_policy(self, policy: CachePolicy, value: bool) -> None:
         self._base.SetCachePolicy(policy, value)
 

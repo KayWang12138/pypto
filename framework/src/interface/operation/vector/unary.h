@@ -102,7 +102,7 @@ LogicalTensorPtr TensorUnaryOperation(Function &function, LogicalTensorPtr opera
     auto opName = GetUnaryOpName<T>();
     CheckTensorShape(operand, opName);
     auto result = std::make_shared<LogicalTensor>(
-        function, operand->tensor->datatype, operand->shape, operand->GetDynValidShape());
+        function, operand->tensor->datatype, operand->shape, operand->GetDynValidShape(), operand->Format());
     function.AddOperation(GetUnaryOpNameCode<T>(), {operand}, {result});
     return result;
 }
