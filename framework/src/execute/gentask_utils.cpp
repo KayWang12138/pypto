@@ -17,6 +17,7 @@
 #include "graph/ge_error_codes.h"
 #include "graph/debug/ge_attr_define.h"
 #include "graph/arg_desc_info.h"
+#include "tile_fwk_log.h"
 #include "nlohmann/json.hpp"
 
 using namespace ge;
@@ -67,23 +68,23 @@ ge::graphStatus GentaskUtils::InsertHiddenInput(const gert::ExeResGenerationCont
                                                 ge::KernelLaunchInfo &aicore_task) {
   auto ori_args_format = aicore_task.GetArgsFormat();
   if (ori_args_format == nullptr) {
-    printf("Node[%s, %s]: failed to get args format from aicore task.\n",
-           context->GetNodeName(), context->GetNodeType());
+    TILE_FWK_LOGE("Node[%s, %s]: failed to get args format from aicore task.\n",
+                  context->GetNodeName(), context->GetNodeType());
     return ge::GRAPH_FAILED;
   }
   std::vector<ge::ArgDescInfo> arg_desc_info = ge::ArgsFormatSerializer::Deserialize(ori_args_format);
   if (arg_desc_info.empty()) {
-    printf("Node[%s, %s]: failed to parse args format.\n", context->GetNodeName(), context->GetNodeType());
+    TILE_FWK_LOGE("Node[%s, %s]: failed to parse args format.\n", context->GetNodeName(), context->GetNodeType());
     return GRAPH_FAILED;
   }
   arg_desc_info.emplace_back(ge::ArgDescInfo::CreateHiddenInput(ge::HiddenInputSubType::kHcom));
   auto new_args_format = ge::ArgsFormatSerializer::Serialize(arg_desc_info).GetString();
   if (aicore_task.SetArgsFormat(new_args_format) != ge::GRAPH_SUCCESS) {
-    printf("Node[%s, %s]: failed to set args format for aicore task.\n",
-           context->GetNodeName(), context->GetNodeType());
+    TILE_FWK_LOGE("Node[%s, %s]: failed to set args format for aicore task.\n",
+                  context->GetNodeName(), context->GetNodeType());
     return GRAPH_FAILED;
   }
-  printf("Node[%s, %s]: args format is %s.\n", context->GetNodeName(), context->GetNodeType(), new_args_format);
+  TILE_FWK_LOGD("Node[%s, %s]: args format is %s.\n", context->GetNodeName(), context->GetNodeType(), new_args_format);
   return ge::GRAPH_SUCCESS;
 }
 
@@ -93,14 +94,17 @@ ge::graphStatus GentaskUtils::GenerateAicpuTask(const gert::ExeResGenerationCont
   // tasks vector only have one task, which is aicore task
   ge::KernelLaunchInfo aicore_task = ge::KernelLaunchInfo::LoadFromData(context, tasks.back());
   if (InsertHiddenInput(context, aicore_task) != ge::GRAPH_SUCCESS) {
-    printf("Node[%s, %s]: failed to insert hidden input args format.\n",
-           context->GetNodeName(), context->GetNodeType());
+    TILE_FWK_LOGE("Node[%s, %s]: failed to insert hidden input args format.\n",
+                  context->GetNodeName(), context->GetNodeType());
     return GRAPH_FAILED;
   }
+  tasks.back() = aicore_task.Serialize();
   ge::KernelLaunchInfo aicpu_init_task =
       ge::KernelLaunchInfo::CreateAicpuKfcTask(context, kAicpuSoName.c_str(), kAicpuInitTaskKernelName.c_str());
   aicpu_init_task.SetStreamId(sub_stream_id);
   aicpu_init_task.SetBlockDim(kAicpuInitTaskNum);
+  TILE_FWK_LOGD("Node[%s, %s]: aicore args format is %s.\n", context->GetNodeName(), context->GetNodeType(),
+                aicore_task.GetArgsFormat());
   aicpu_init_task.SetArgsFormat(aicore_task.GetArgsFormat());
   tasks.emplace_back(aicpu_init_task.Serialize());
 
@@ -115,10 +119,10 @@ ge::graphStatus GentaskUtils::GenerateAicpuTask(const gert::ExeResGenerationCont
 
 ge::graphStatus GentaskUtils::CommonGenerateTask(const gert::ExeResGenerationContext *context,
                                                  std::vector<std::vector<uint8_t>> &tasks) {
-  printf("Node[%s, %s]: origin tasks size %zu.\n", context->GetNodeName(), context->GetNodeType(), tasks.size());
+  TILE_FWK_LOGD("Node[%s, %s]: origin tasks size %zu.\n", context->GetNodeName(), context->GetNodeType(), tasks.size());
   std::vector<gert::StreamInfo> stream_v = context->GetAttachedStreamInfos();
   if (stream_v.empty()) {
-    printf("Node[%s, %s]: failed to get stream info.\n", context->GetNodeName(), context->GetNodeType());
+    TILE_FWK_LOGE("Node[%s, %s]: failed to get stream info.\n", context->GetNodeName(), context->GetNodeType());
     return ge::GRAPH_FAILED;
   }
   int64_t sub_stream_id = stream_v[0].stream_id;
@@ -126,7 +130,8 @@ ge::graphStatus GentaskUtils::CommonGenerateTask(const gert::ExeResGenerationCon
   if (ret != ge::GRAPH_SUCCESS) {
     return ret;
   }
-  printf("Node[%s, %s]: current tasks size %zu.\n", context->GetNodeName(), context->GetNodeType(), tasks.size());
+  TILE_FWK_LOGD("Node[%s, %s]: current tasks size %zu.\n", context->GetNodeName(), context->GetNodeType(),
+                tasks.size());
   return ge::GRAPH_SUCCESS;
 }
 } // namespace ops
