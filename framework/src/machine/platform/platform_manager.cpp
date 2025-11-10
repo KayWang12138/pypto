@@ -34,6 +34,7 @@ const std::map<PlatformManager::PmIntItem,
       std::tuple<std::string, std::string, PlatformManager::PmItemParseFunc>> PlatformManager::kPmIntItemParseFuncMap {
     {PlatformManager::PmIntItem::AICORE_CNT, {"SoCInfo", "ai_core_cnt", &PlatformManager::ParseIntValue}},
     {PlatformManager::PmIntItem::VECCORE_CNT, {"SoCInfo", "vector_core_cnt", &PlatformManager::ParseIntValue}},
+    {PlatformManager::PmIntItem::AICPU_CNT, {"SoCInfo", "ai_cpu_cnt", &PlatformManager::ParseIntValue}},
     {PlatformManager::PmIntItem::MEMORY_SIZE, {"SoCInfo", "memory_size", &PlatformManager::ParseIntValue}},
     {PlatformManager::PmIntItem::L2_TYPE, {"SoCInfo", "l2_type", &PlatformManager::ParseIntValue}},
     {PlatformManager::PmIntItem::L2_SIZE, {"SoCInfo", "l2_size", &PlatformManager::ParseIntValue}},

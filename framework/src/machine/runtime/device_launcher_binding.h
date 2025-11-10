@@ -52,7 +52,7 @@ private:
 
 struct DeviceLauncherConfig {
     bool onBoard{true};
-    int blockdim{25};
+    int blockdim{0};
     int aicpuNum{5};
     int64_t dynWorkspaceSize{0};
     int64_t repeatNum{1};

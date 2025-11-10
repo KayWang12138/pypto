@@ -1054,15 +1054,27 @@ private:
     }
 
     inline uint32_t ReadReg32(int coreIdx, int offset) {
-        return *(reinterpret_cast<volatile uint32_t *>(regAddrs_[GetPhyIdByBlockId(coreIdx)] + offset));
+        auto idx = GetPhyIdByBlockId(coreIdx);
+        if (idx != -1) {
+          return *(reinterpret_cast<volatile uint32_t*>(regAddrs_[idx] + offset));
+        }
+        return 0;
     }
 
     inline void WriteReg32(int coreIdx, int offset, uint32_t val) {
-        *(reinterpret_cast<volatile uint32_t *>(regAddrs_[GetPhyIdByBlockId(coreIdx)] + offset)) = val;
+        auto idx = GetPhyIdByBlockId(coreIdx);
+        if (idx != -1) {
+          *(reinterpret_cast<volatile uint32_t*>(regAddrs_[idx] + offset)) = val;
+        }
+        return;
     }
 
     inline void SetReadyQueue(int coreIdx, uint64_t value) {
-        volatile uint64_t *readyQ = readyRegQueues_[GetPhyIdByBlockId(coreIdx)];
+        auto idx = GetPhyIdByBlockId(coreIdx);
+        if (idx == -1) {
+            return;
+        }
+        volatile uint64_t *readyQ = readyRegQueues_[idx];
         if (readyQ != nullptr) {
             *readyQ = value;
         }

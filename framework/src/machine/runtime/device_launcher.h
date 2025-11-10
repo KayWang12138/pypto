@@ -24,8 +24,9 @@
 #include "interface/function/function.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "runtime.h"
+#include "runtime/dev.h"
 #include "device_runner.h"
-
+#include "machine/platform/platform_manager.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "tilefwk/data_type.h"
@@ -125,7 +126,7 @@ class DeviceLauncher {
 public:
     static constexpr uint32_t kDefaultAicNum = 25;
     static constexpr uint32_t kDefaultAivNum = 50;
-
+    static constexpr uint32_t kMaxVersionLengh = 50;
     static std::vector<uint8_t>& GetDevProg(Function *func) {
         return func->GetDyndevAttribute()->devProgBinary;
     }
@@ -136,12 +137,25 @@ public:
     }
 
     template<typename DeviceMemoryTy>
-    static void DeviceInitTilingData(
-            DeviceMemoryTy devMem,
-            AstKernelArgs &kArgs,
-            const std::vector<uint8_t> &devProgData,
-            const DeviceLauncherConfig &config,
-            CachedOperator *cachedOperator) {
+    static void DeviceInitTilingData(DeviceMemoryTy devMem, AstKernelArgs &kArgs, const std::vector<uint8_t> &devProgData,
+        const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
+        char version[kMaxVersionLengh] = {0};
+        auto ret = rtGetSocVersion(version, kMaxVersionLengh);
+        std::string socVersion("Ascend910B1");
+        if (!config.runModel) {
+            if (ret == 0) {
+                socVersion = std::string(version);
+            } else {
+                ASSERT(false)  << "Get soc version failed!";
+            }          
+        }
+        (void)PlatformManager::Instance().Initialize(socVersion);
+        DeviceLauncherConfig &launchConfig = const_cast<DeviceLauncherConfig &>(config);
+        int maxBlockDim = PlatformManager::Instance().GetAiCoreCnt();
+        if (config.blockdim == 0 || config.blockdim > maxBlockDim) {
+            launchConfig.blockdim = maxBlockDim;
+        }
+        ALOG_DEBUG_F("Set aicore blockdim:%d by soc:%s.", config.blockdim, socVersion.c_str());
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
         devProg->devArgs.nrAic = kDefaultAicNum;
         devProg->devArgs.nrAiv = kDefaultAivNum;

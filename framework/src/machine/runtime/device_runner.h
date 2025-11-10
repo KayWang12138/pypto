@@ -91,7 +91,7 @@ private:
 private:
     int devId_;
     int aicpuNum_{5};
-    int blockDim_{0};
+    int blockDim_{24};
     bool isOpenHostProf_{false};
     bool isHostProfL1_{false};
     std::vector<int64_t> pmuEvtType_;

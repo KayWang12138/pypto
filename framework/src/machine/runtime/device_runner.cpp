@@ -158,7 +158,6 @@ int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
     }
 
     GetHostProfTypeSwtich();
-    blockDim_ = std::count_if(aic.begin(), aic.end(), [](auto &a) { return a != 0UL; });
 
     std::vector<int64_t> regs;
     regs.insert(regs.end(), aic.begin(), aic.end());
@@ -552,7 +551,6 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream,
     g_IsFirstInit = true;
     auto localArgs = args_;
     auto size = sizeof(localArgs);
-    int maxAicoreNum = 25;
 
     localArgs.taskId = taskId;
     localArgs.taskType = DEVICE_TASK_TYPE_DYN;
@@ -560,12 +558,10 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream,
         return -1;
     }
     localArgs.machineConfig = kernelArgs->machineConfig;
-    if (blockdim != maxAicoreNum) {
-        localArgs.nrValidAic = blockdim;
-        localArgs.nrAicpu = launchAicpuNum;
-        blockDim_ = blockdim;
-        aicpuNum_ = launchAicpuNum;
-    }
+    localArgs.nrValidAic = blockdim;
+    localArgs.nrAicpu = launchAicpuNum;
+    blockDim_ = blockdim;
+    aicpuNum_ = launchAicpuNum;
     int rc = rtMemcpy(kernelArgs->cfgdata, size, &localArgs, size, RT_MEMCPY_HOST_TO_DEVICE);
     if (rc != 0) {
         ALOG_ERROR_F("rtmemcpy failed %p rc %d\n", kernelArgs->cfgdata, rc);

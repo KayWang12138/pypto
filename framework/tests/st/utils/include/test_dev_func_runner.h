@@ -170,6 +170,7 @@ private:
             RunTestMode(&kArgs);
         }
         RunDynCostModel();
+        config_.runModel = false;
     }
 
     bool IsDumpTensorEnable() const {
