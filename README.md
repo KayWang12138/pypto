@@ -64,17 +64,17 @@ PyPTO 支持由源码编译 whl 包, 并基于 pytest 对 whl 包含的 python �
   # sudo make install                  # 非root用户安装
   ```
 
-  - googletest（可选，仅执行 C++ STest/UTest 时依赖，建议版本 [v1.14.0](https://github.com/google/googletest/releases/tag/v1.14.0)）
+- googletest（可选，仅执行 C++ STest/UTest 时依赖，建议版本 [v1.14.0](https://github.com/google/googletest/releases/tag/v1.14.0)）
 
-    如下以[googletest源码](https://github.com/google/googletest/archive/refs/tags/v1.14.0.tar.gz)编译安装为例，安装命令如下：
+  如下以[googletest源码](https://github.com/google/googletest/archive/refs/tags/v1.14.0.tar.gz)编译安装为例，安装命令如下：
 
-     ```bash
-    mkdir temp && cd temp                # 在 googletest 源码根目录下创建临时目录并进入
-    cmake .. -DCMAKE_CXX_FLAGS="-fPIC -D_GLIBCXX_USE_CXX11_ABI=0"
-    make
-    make install                         # root用户安装
-    # sudo make install                  # 非root用户安装
-    ```
+  ```bash
+  mkdir temp && cd temp                # 在 googletest 源码根目录下创建临时目录并进入
+  cmake .. -DCMAKE_CXX_FLAGS="-fPIC -D_GLIBCXX_USE_CXX11_ABI=0"
+  make
+  make install                         # root用户安装
+  # sudo make install                  # 非root用户安装
+  ```
 
 ### 3.2 安装 CANN 包
 
