@@ -96,7 +96,7 @@ TILEOP void TBitSort(T0 dst, T1 src) {
 }
 
 template <int axis, int k, int isLargest, typename T0, typename T1>
-TILEOP void MrgSort(T0 dst, T1 src) {
+TILEOP void TMrgSort(T0 dst, T1 src) {
     constexpr auto srcShapeSize = Std::tuple_size<typename T1::Shape>::value;
     constexpr auto dstShapeSize = Std::tuple_size<typename T0::Shape>::value;
     constexpr size_t expectSize = 5;
@@ -202,7 +202,7 @@ TILEOP void MrgSort(T0 dst, T1 src) {
 }
 
 template <int k, int validBit, typename T0, typename T1, typename T2, typename T3, typename T4, typename T5>
-TILEOP void TiledMrgSort(T0 dst, T1 src1, T2 src2, T3 src3, T4 src4, T5 tmp) {
+TILEOP void TTiledMrgSort(T0 dst, T1 src1, T2 src2, T3 src3, T4 src4, T5 tmp) {
     constexpr auto tmpShapeSize = Std::tuple_size<typename T5::Shape>::value;
     constexpr auto dstShapeSize = Std::tuple_size<typename T0::Shape>::value;
     constexpr auto src1ShapeSize = Std::tuple_size<typename T1::Shape>::value;
