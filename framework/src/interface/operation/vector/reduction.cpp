@@ -207,7 +207,13 @@ void ReduceSingle(size_t cur, const std::string &op, Input &input, const Logical
         TileReduceNew(function, tileShape, op, npu::tile_fwk::ReduceType::SINGLE, inputTile, resultTile, axis);
         return;
     }
-    auto &vecTile = tileShape.GetVecTile();
+    auto vecTile = tileShape.GetVecTile();
+    int64_t blockNum = BLOCK_SIZE / BytesOf(result->Datatype());
+    int lastDim = order.size() - 1;
+    if (axis < lastDim && vecTile[axis] < blockNum) {
+        vecTile[lastDim] = std::max(blockNum, vecTile[lastDim] / (blockNum / vecTile[axis]) / blockNum * blockNum);
+        vecTile[axis] = blockNum;
+    }
     for (int i = 0; i < result->shape[order[cur]]; i += vecTile[order[cur]]) {
         resultTileInfo.offset[order[cur]] = i;
         resultTileInfo.shape[order[cur]] =
