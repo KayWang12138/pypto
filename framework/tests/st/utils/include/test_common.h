@@ -235,7 +235,7 @@ template <typename T>
 static bool resultCmp4TopK(const std::vector<T>& outDataValExp, const T* outDataValAct, size_t selectedCount,
     float ratio) {
     size_t data_size = outDataValExp.size();
-    bool precision = false;
+    bool precision = true;
 
     if (data_size != static_cast<size_t>(data_size)) {
         return false;
@@ -270,8 +270,8 @@ static bool resultCmp4TopK(const std::vector<T>& outDataValExp, const T* outData
                 error_count++;
             }
         }
-        if (error_count <= size_t(selectedCount * ratio)) {
-            precision = true;
+        if (error_count > size_t(selectedCount * ratio)) {
+            precision = false;
             break;
         }
     }
