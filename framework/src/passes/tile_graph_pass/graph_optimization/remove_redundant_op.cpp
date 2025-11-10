@@ -166,12 +166,7 @@ Status ProcessView(const Operation &op, Function &function, bool &needToDelete) 
     auto out = op.oOperand.front();
     if (EqualShapeInOut(op) && in->GetMemoryTypeOriginal() == out->GetMemoryTypeOriginal()) {
         auto consumerOps = function.FindConsumers(op);
-        if (consumerOps.empty()) {
-            auto producerOps = op.ProducerOps();
-            for (auto &producerOp : producerOps) {
-                producerOp->ReplaceOutput(out, in);
-            }
-        } else {
+        if (!consumerOps.empty()) {
             for (auto &consumerOp : consumerOps) {
                 consumerOp->ReplaceInput(in, out);
             }

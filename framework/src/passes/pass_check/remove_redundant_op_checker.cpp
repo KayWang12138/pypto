@@ -47,9 +47,9 @@ Status RemoveRedundantOpChecker::PreCheckAssemble(const Operation &op, const Log
 
 Status RemoveRedundantOpChecker::PreCheckView(Function &function, const Operation &op, const LogicalTensorPtr &in) {
     auto out = op.oOperand.front();
-    if (in->shape == out->shape && op.ConsumerOps().empty() && in->GetConsumers().size() > 1) {
+    if (in->shape == out->shape && op.ConsumerOps().empty() && in->GetConsumers().size() > 1 && function.IsFromOutCast(out)) {
         APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", 
-        "There is another op consumes the input of a view op[%d] without consumer; Please check view op[%d].", 
+        "There is another op consumes the input of a view op[%d] (the output is an outcast) without consumer; Please check view op[%d].", 
         op.GetOpMagic(), op.GetOpMagic());
         return FAILED;
     }

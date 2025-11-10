@@ -323,11 +323,6 @@ TESTRemoveDummyView(WARNING CASE)
 inCast{8,16}->exp->ddrTensor1{8,16}->exp->ubTensor2{8,16}->view->ubTensor3{8,16}->exp->outCast2{8,16}
                                   ->view->outCast1{8,16}                       ->reciprocal->outCast3{8,16}
                                                                                ->sqrt->outCast4{8,16}
-
-inCast{8,16}->exp->outCast1{8,16}
-ddrTensor1{8,16} ->exp->ddrTensor2{8,16}->exp->outCast2{8,16}
-                ->reciprocal->outCast3{8,16}
-                ->sqrt->outCast4{8,16}
 */
 TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest6) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestRemoveRedundantOp", "TestRemoveRedundantOp", nullptr);
@@ -342,39 +337,20 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest6) {
     auto outCast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     auto outCast3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     auto outCast4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
-    auto &exp1 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {inCast}, {ubTensor1});
+    currFunctionPtr->AddOperation(Opcode::OP_EXP, {inCast}, {ubTensor1});
     currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor1}, {outCast1});
-    auto &exp2 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor1}, {ubTensor2});
+    currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor1}, {ubTensor2});
     currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {ubTensor3});
-    auto &exp3 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor3}, {outCast2});
-    auto &reci = currFunctionPtr->AddOperation(Opcode::OP_RECIPROCAL, {ubTensor3}, {outCast3});
-    auto &sqrt = currFunctionPtr->AddOperation(Opcode::OP_SQRT, {ubTensor3}, {outCast4});
+    currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor3}, {outCast2});
+    currFunctionPtr->AddOperation(Opcode::OP_RECIPROCAL, {ubTensor3}, {outCast3});
+    currFunctionPtr->AddOperation(Opcode::OP_SQRT, {ubTensor3}, {outCast4});
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast1);
     currFunctionPtr->outCasts_.push_back(outCast2);
     currFunctionPtr->outCasts_.push_back(outCast3);
     currFunctionPtr->outCasts_.push_back(outCast4);
     RemoveRedundantOp removeredundantpass;
-    EXPECT_EQ(removeredundantpass.RunOnFunction(*currFunctionPtr), SUCCESS);
-    EXPECT_EQ(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
-
-    uint32_t view_num = kNumZero;
-    uint32_t output_ubTensor1 = kNumZero;
-    for (auto &op : currFunctionPtr->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_VIEW) {
-            ++view_num;
-        }
-        if (op.GetOutputOperandSize() == 1 && op.GetOutputOperand(0) == ubTensor1) {
-            ++output_ubTensor1;
-        }
-    }
-    EXPECT_EQ(view_num, kNumZero);
-    EXPECT_EQ(output_ubTensor1, kNumZero);
-    EXPECT_EQ(exp1.GetOutputOperand(kSizeZero), outCast1);
-    EXPECT_EQ(exp2.GetInputOperand(kSizeZero), ubTensor1);
-    EXPECT_EQ(exp3.GetInputOperand(kSizeZero), ubTensor2);
-    EXPECT_EQ(reci.GetInputOperand(kSizeZero), ubTensor2);
-    EXPECT_EQ(sqrt.GetInputOperand(kSizeZero), ubTensor2);
+    EXPECT_NE(removeredundantpass.PreCheck(*currFunctionPtr), SUCCESS);
 }
 
 /*
