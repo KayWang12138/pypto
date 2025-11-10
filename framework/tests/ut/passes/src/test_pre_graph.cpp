@@ -23,7 +23,7 @@
 #include "interface/inner/tilefwk.h"
 #include "passes/pass_mgr/pass_manager.h"
 #include "interface/configs/config_manager.h"
-#include "passes/tile_graph_pass/graph_constraint/pre_graph.h"
+#include "passes/tile_graph_pass/graph_constraint/pre_graph/pre_graph.h"
 #include "ut_json/ut_json_tool.h"
 #include "computational_graph_builder.h"
 #define private public
@@ -831,10 +831,10 @@ TEST_F(PreGraphTest, TestFixPipeReconnectGraph) {
     auto &copyout = funcPtr->AddRawOperation(Opcode::OP_COPY_OUT, {tensor4}, {tensor5});
 
     // Test Reconnect Graph
-    PreGraphProcess preGraphProcess;
-    auto lastCopyOut = preGraphProcess.GetLastMmCopyOut(aMulB).second;
+    CubeProcess cubeProcess;
+    auto lastCopyOut = cubeProcess.GetLastMmCopyOut(aMulB).second;
     EXPECT_EQ(lastCopyOut, &copyout);
-    preGraphProcess.ReconnectGraph(aMulB, &copyout);
+    cubeProcess.ReconnectGraph(aMulB, &copyout);
     auto tensor2Consumer = tensor2->GetConsumers().begin();
     EXPECT_EQ(*tensor2Consumer, &copyout);
     auto scaleValue = (copyout.HasAttr(A_MUL_B_SCALE_ATTR)) ? copyout.GetElementAttribute(A_MUL_B_SCALE_ATTR) : Element(DataType::DT_UINT64, 0);

@@ -1,0 +1,36 @@
+/**
+ * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file remove_redundant_assemble.h
+ * \brief
+ */
+
+#ifndef PASS_REMOVE_REDUNDANT_ASSEMBLE_H
+#define PASS_REMOVE_REDUNDANT_ASSEMBLE_H
+#include "pre_graph_common.h"
+
+namespace npu::tile_fwk {
+class RemoveRedundantAssemble {
+public:
+    RemoveRedundantAssemble() {}
+    ~RemoveRedundantAssemble() = default;
+
+    bool IsCandidateAssembleOp(Function &function, Operation &op) const;
+    void DeleteRedundantAssemble(Function &function) const;
+    void HandleForAssembleToOutcast(Function &function, std::unordered_set<Operation *> &concurrentAssembles,
+        std::set<Operation *, LogicalTensor::CompareOp> &producersBackup) const;
+    void HandleForAssembleFromInOut(Function &function, std::unordered_set<Operation *> &concurrentAssembles,
+        std::set<Operation *, LogicalTensor::CompareOp> &producersBackup) const;
+    void HandleForReshapeToOutcast(Function &function) const;
+};
+} // namespace npu::tile_fwk
+#endif // PASS_REMOVE_REDUNDANT_ASSEMBLE_H
+    

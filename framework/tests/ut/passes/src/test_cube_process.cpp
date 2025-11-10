@@ -25,7 +25,7 @@
 #include "passes/pass_mgr/pass_manager.h"
 #include "interface/configs/config_manager.h"
 #include "passes/tile_graph_pass/graph_optimization/split_k.h"
-#include "passes/tile_graph_pass/graph_constraint/pre_graph.h"
+#include "passes/tile_graph_pass/graph_constraint/pre_graph/pre_graph.h"
 #include "computational_graph_builder.h"
 #include "ut_json/ut_json_tool.h"
 
@@ -117,8 +117,8 @@ public:
         EXPECT_NE(function, nullptr);
         SplitK passLocal;
         passLocal.Run(*function, "", "", 0);
-        PreGraphProcess preGraphPass;
-        preGraphPass.UpdateCubeOp(*function);
+        CubeProcess cubeProcess;
+        cubeProcess.UpdateCubeOp(*function);
         // check after pass
         auto l0cAfter = G.GetTensor("l0_c");
         EXPECT_EQ(l0cAfter->Datatype(), l0cDtype);
@@ -681,8 +681,8 @@ TEST_F(SplitKTest, TestAnzBnd) {
     EXPECT_NE(function, nullptr);
     SplitK passLocal;
     passLocal.Run(*function, "", "", 0);
-    PreGraphProcess preGraphPass;
-    preGraphPass.UpdateCubeOp(*function);
+    CubeProcess cubeProcess;
+    cubeProcess.UpdateCubeOp(*function);
     // check after pass
     auto opL1CopyInA = G.GetOp("L1_Copy_In_A");
     EXPECT_NE(opL1CopyInA, nullptr);
@@ -768,8 +768,8 @@ TEST_F(SplitKTest, TestAnzBndL1) {
     EXPECT_NE(function, nullptr);
     SplitK passLocal;
     passLocal.Run(*function, "", "", 0);
-    PreGraphProcess preGraphPass;
-    preGraphPass.UpdateCubeOp(*function);
+    CubeProcess cubeProcess;
+    cubeProcess.UpdateCubeOp(*function);
     // check after pass
     auto opL1CopyInA = G.GetOp("L1_Copy_In_A");
     EXPECT_NE(opL1CopyInA, nullptr);
@@ -857,8 +857,8 @@ TEST_F(SplitKTest, TestAndBndCnz) {
     EXPECT_NE(function, nullptr);
     SplitK passLocal;
     passLocal.Run(*function, "", "", 0);
-    PreGraphProcess preGraphPass;
-    preGraphPass.UpdateCubeOp(*function);
+    CubeProcess cubeProcess;
+    cubeProcess.UpdateCubeOp(*function);
     // check after pass
     auto opL1CopyInA = G.GetOp("L1_Copy_In_A");
     EXPECT_NE(opL1CopyInA, nullptr);
@@ -996,8 +996,8 @@ TEST_F(SplitKTest, TestGatherOnL1) {
     // run pass
     SplitK passLocal;
     Status res = passLocal.Run(*function, "", "", 0);
-    PreGraphProcess preGraphPass;
-    preGraphPass.UpdateCubeOp(*function);
+    CubeProcess cubeProcess;
+    cubeProcess.UpdateCubeOp(*function);
     // check after pass
     EXPECT_EQ(res, SUCCESS);
     EXPECT_EQ(mat_c->Datatype(), outputAstDtype);

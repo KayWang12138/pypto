@@ -17,7 +17,7 @@
 #define GRAPH_CONSTRAINT_H
 #include "passes/tile_graph_pass/graph_constraint/pad_local_buffer.h"
 #include "passes/tile_graph_pass/graph_constraint/inplace_process.h"
-#include "passes/tile_graph_pass/graph_constraint/pre_graph.h"
+#include "passes/tile_graph_pass/graph_constraint/pre_graph/pre_graph.h"
 #include "passes/tile_graph_pass/graph_constraint/remove_unaligned_reshape_op.h"
 #include "passes/tile_graph_pass/graph_constraint/infer_dyn_shape.h"
 
