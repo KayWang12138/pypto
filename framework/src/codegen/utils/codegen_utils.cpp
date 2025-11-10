@@ -33,8 +33,7 @@ std::vector<int64_t> NormalizeShape(const std::vector<int64_t> &shapeVec, unsign
     return normalizedVec;
 }
 
-std::string formatFloatAsG9(float f) {
-    constexpr int PRECISION = 9;
+std::string FormatFloat(float f, int precision) {
     std::ostringstream oss;
     if (std::isinf(f)) {
         if (f > 0) {
@@ -43,7 +42,7 @@ std::string formatFloatAsG9(float f) {
             oss << "neg_inf";
         }
     } else {
-        oss << std::setprecision(PRECISION) << f;
+        oss << std::setprecision(precision) << f;
     }
     return oss.str();
 }

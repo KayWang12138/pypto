@@ -234,8 +234,6 @@ std::string CodeGenOpCloudNPU::GenMemL1ToBt() const {
 std::string CodeGenOpCloudNPU::GenMemUBSpillIntoGM(bool isCopyUBToGM) const {
     unsigned gmIdx = isCopyUBToGM ? 0 : 1;
     unsigned ubIdx = isCopyUBToGM ? 1 : 0;
-    std::vector<int64_t> gmShape = this->rawShape[gmIdx];
-    std::vector<int64_t> gmOffset = this->offset[gmIdx];
 
     std::string addrTypeHead[ID2];
     addrTypeHead[gmIdx] = GetAddrTypeByOperandType(BUF_DDR);

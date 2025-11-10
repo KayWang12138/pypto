@@ -90,14 +90,14 @@ public:
     void GenCode(Function &topFunc, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) override;
     void GenCode(
         const std::string &jsonPath, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) override;
-    int CompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const;
+    std::pair<int, std::string> CompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const;
     std::optional<std::string> GenExtraAlloc(
-            SymbolManager &memAlloc, const std::shared_ptr<LogicalTensor> &tensor) const;
+        SymbolManager &memAlloc, const std::shared_ptr<LogicalTensor> &tensor) const;
     std::string GenAllocForLocalBuffer(const Operation &op, SymbolManager &memAlloc) const;
 
 private:
     std::string GenFuncBodyBefore(const std::pair<uint64_t, Function *> &subFuncPair, Function &topFunc,
-                                  const VFCodeGen &vfCg, CompileInfo &compileInfo) const;
+        const VFCodeGen &vfCg, CompileInfo &compileInfo) const;
     std::string GenInclude(const VFCodeGen &vfCg) const;
     static std::string GenCommentBeforeFuncHeader(Function &subFunc);
     std::string GenFuncHeader(uint64_t programId, Function &topFunc, CompileInfo &compileInfo) const;

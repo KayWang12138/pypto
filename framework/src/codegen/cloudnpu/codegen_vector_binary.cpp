@@ -335,10 +335,7 @@ std::string CodeGenOpCloudNPU::PrintBinaryScalarStatic(const PrintBinaryScalarPa
     binScalParmList.clear();
     std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
     std::string src0 = "(__ubuf__ " + src0DtypeStr + "*)" + s0Var;
-    char scalarTmpBuffer[BUFFER_SIZE_256] = "CG_ERROR";
-    int ret = sprintf_s(scalarTmpBuffer, sizeof(scalarTmpBuffer), "%.9g", extOperandVal.Cast<float>());
-    ASSERT(ret >= 0) << "GenVectorScalarOp sprintf_s failed ";
-    std::string tmpBuffer = "(__ubuf__ " + dstDtypeStr + "*)" + scalarTmpBuffer;
+    std::string scalarTmpBuffer = FormatFloat(extOperandVal.Cast<float>());
     binScalParmList.emplace_back(dst);
     binScalParmList.emplace_back(src0);
     binScalParmList.emplace_back(scalarTmpBuffer);
@@ -380,10 +377,7 @@ std::string CodeGenOpCloudNPU::PrintBinaryScalarDynamicUnaligned(const PrintBina
     paramList.clear();
     std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
     std::string src0 = "(__ubuf__ " + src0DtypeStr + "*)" + s0Var;
-    char scalarTmpBuffer[BUFFER_SIZE_256] = "CG_ERROR";
-    int ret = sprintf_s(scalarTmpBuffer, sizeof(scalarTmpBuffer), "%.9g", extOperandVal.Cast<float>());
-    ASSERT(ret >= 0) << "GenVectorScalarOp sprintf_s failed ";
-    std::string tmpBuffer = "(__ubuf__ " + dstDtypeStr + "*)" + scalarTmpBuffer;
+    std::string scalarTmpBuffer = FormatFloat(extOperandVal.Cast<float>());
     paramList.emplace_back(dst);
     paramList.emplace_back(src0);
     paramList.emplace_back(scalarTmpBuffer);
@@ -452,9 +446,6 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(VecScalMode mode) const {
                                  << IntVecToStr(shape[ID1]) << " is different";
 
     char buffer[BUFFER_SIZE_512] = "CG_ERROR";
-    char scalarTmpBuffer[BUFFER_SIZE_256] = "CG_ERROR";
-    int ret = sprintf_s(scalarTmpBuffer, sizeof(scalarTmpBuffer), "%.9g", extOperandVal.Cast<float>());
-    ASSERT(ret >= 0) << "GenVectorScalarOpByMode sprintf_s failed ";
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
 
     AppendLocalBufferVarOffset(std::vector{&dVar, &s0Var});
@@ -474,7 +465,7 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(VecScalMode mode) const {
         // Hack: should be optimized to memory copy in pass
         int emuopc = AnyCast<int64_t>(opAttrs.find(npu::tile_fwk::OP_EMUOP_PREFIX + "opc")->second);
         if (emuopc == npu::tile_fwk::EMUOP_TENSOR_EXTRACT) {
-            ret = sprintf_s(buffer, sizeof(buffer),
+            int ret = sprintf_s(buffer, sizeof(buffer),
                 "RUNTIME_TensorExtract(/*type=*/%s, /*mem=*/__ubuf__, /*dst*/%s, /*src*/%s);\n", dstDtypeStr.c_str(),
                 dVar.c_str(), s0Var.c_str());
             ASSERT(ret >= 0) << "GenVectorScalarOpByMode " << OpcodeManager::Inst().GetOpcodeStr(opCode) << " failed "
@@ -487,12 +478,13 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(VecScalMode mode) const {
         return PrintVectorScalarOpDynamicUnalign({s0Var, dVar, dstDtypeStr, dstDtypeStr});
     }
 
-    ret = sprintf_s(buffer, sizeof(buffer),
+    std::string scalarTmpBuffer = FormatFloat(extOperandVal.Cast<float>());
+    int ret = sprintf_s(buffer, sizeof(buffer),
         "%s_<%s, %d, %d, %d, %d, /*DS*/ %d, %d, %d, /*S0S*/ %d, %d, %d>"
         "((__ubuf__ %s*)%s, (__ubuf__ %s*)%s, (%s)%s);\n",
         tileOpName.c_str(), dstDtypeStr.c_str(), os0[ID0], os0[ID1], os0[ID2], os0[ID3], ds[ID1], ds[ID2], ds[ID3],
         s0[ID1], s0[ID2], s0[ID3], dstDtypeStr.c_str(), dVar.c_str(), dstDtypeStr.c_str(), s0Var.c_str(),
-        dstDtypeStr.c_str(), scalarTmpBuffer);
+        dstDtypeStr.c_str(), scalarTmpBuffer.c_str());
     ASSERT(ret >= 0) << "GenVectorScalarOpByMode" << OpcodeManager::Inst().GetOpcodeStr(opCode) << " sprintf_s failed "
                      << ret;
     return buffer;

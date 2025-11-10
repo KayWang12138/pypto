@@ -15,6 +15,7 @@
 
 #include "codegen_symbol.h"
 #include "codegen/codegen_common.h"
+#include "interface/configs/config_manager.h"
 
 namespace npu::tile_fwk {
 AllocKey SymbolManager::CreateAllocKey(const std::shared_ptr<LogicalTensor> &tensor) const {
@@ -76,15 +77,10 @@ std::string SymbolManager::FormatAllocKey(const AllocKey &key) {
 
 std::string SymbolManager::QueryVariableName(const AllocKey &key) {
     ALOG_INFO_F("%s: query varname by identifier: %s", __FUNCTION__, FormatAllocKey(key).c_str());
-
     auto iter = key2VariableName_.find(key);
-    if (iter != key2VariableName_.end()) {
-        return iter->second;
-    }
-
-    ALOG_ERROR_F("%s: failed to query by identifier: %s", __FUNCTION__, FormatAllocKey(key).c_str());
-    ASSERT(false) << "QueryVariableName Failed: UNDEFINED_VAR !!! ";
-    return "UNDEFINED_VAR";
+    ASSERT(iter != key2VariableName_.end())
+        << "QueryVariableName Failed: UNDEFINED_VAR !!! AllocKey: " << FormatAllocKey(key);
+    return iter->second;
 }
 
 std::string SymbolManager::QueryVariableNameTileTensor(const AllocKey &key) {
@@ -102,6 +98,7 @@ std::string SymbolManager::QueryVariableNameTileTensor(const AllocKey &key) {
 
 // NEXTNEXT: after TileTensor Mode is applied to all tensor, just retain TileTensor Mode
 std::string SymbolManager::QueryVarNameByTensorMagic(int magic, bool isTileTensor) {
+    ALOG_INFO_F("QueryVarNameByTensorMagic: magic is %d", magic);
     AllocKey key = CreateAllocKey(magic);
     std::string varName = isTileTensor ? QueryVariableNameTileTensor(key) : QueryVariableName(key);
     return varName;

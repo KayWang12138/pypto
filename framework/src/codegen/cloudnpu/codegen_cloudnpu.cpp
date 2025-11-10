@@ -418,8 +418,10 @@ void CodeGenCloudNPU::DoCompileCCE(const CompileInfo &compileInfo, const std::st
     if (!compileInfo.IsNeedCompileCCE()) {
         return;
     }
-    int errCode = CompileCCE(compileInfo, compileOptions);
-    ASSERT(errCode == 0) << "CompileCCE failed. errCode = " << errCode << ", cce file: " << compileInfo.GetCCEAbsPath();
+    auto [ret, ccecCmd] = CompileCCE(compileInfo, compileOptions);
+    ASSERT(ret == 0) << "CompileCCE failed. errCode = " << ret << ", cce file: " << compileInfo.GetCCEAbsPath()
+                     << "\n******** bisheng compiling cmd start ********\n"
+                     << ccecCmd << "\n******** bisheng compiling cmd end ********\n";
 }
 
 std::string GetIncludePathByRelative() {
@@ -528,7 +530,8 @@ void CodeGenCloudNPU::BuildLLVMParams(std::ostringstream &oss) const {
         << "-mllvm -cce-aicore-dcci-insert-for-scalar=false ";
 }
 
-int CodeGenCloudNPU::CompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const {
+std::pair<int, std::string> CodeGenCloudNPU::CompileCCE(
+    const CompileInfo &compileInfo, const std::string &compileOptions) const {
     const std::string srcFile = compileInfo.GetCCEAbsPath();
     const std::string objFile = compileInfo.GetBinAbsPath();
 
@@ -538,7 +541,7 @@ int CodeGenCloudNPU::CompileCCE(const CompileInfo &compileInfo, const std::strin
     std::string allCompileOpts = BuildCompileOptions(compileInfo, compileOptions);
 
     std::ostringstream oss;
-    oss << "ccec " << allCompileOpts << " -c -O3 -g -x cce -std=c++17 "
+    oss << "bisheng " << allCompileOpts << " -c -O3 -g -x cce -std=c++17 "
         << "--cce-aicore-only "
         << "--cce-aicore-arch=" << coreType << " ";
 
@@ -558,7 +561,8 @@ int CodeGenCloudNPU::CompileCCE(const CompileInfo &compileInfo, const std::strin
     if (ret != 0) {
         ALOG_ERROR_F("CompileCce ccec failed %d: %s", ret, ccecCmd.c_str());
     }
-    return ret;
+
+    return {ret, ccecCmd};
 }
 
 bool CodeGenCloudNPU::HandleForAICpuSubFunc(Function &subFunc) {
