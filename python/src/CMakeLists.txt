@@ -33,4 +33,3 @@ target_link_libraries(pto_impl
             intf_pub_cxx17
             tile_fwk_intf_pub
 )
-install(TARGETS pto_impl LIBRARY DESTINATION pto OPTIONAL)

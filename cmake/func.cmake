@@ -177,3 +177,136 @@ function(PTO_Fwk_AnalysisPython3Environ OUT_VALUE)
     )
     set(${OUT_VALUE} ${OutVariable} PARENT_SCOPE)
 endfunction()
+
+function(PTO_Fwk_InstallBinaries)
+    cmake_parse_arguments(
+            ARG
+            ""
+            "EXPORT"
+            "TARGETS"
+            ""
+            ${ARGN}
+    )
+    # 设置 二进制文件 导出属性
+    foreach (Target ${ARG_TARGETS})
+        set_target_properties(${Target}
+                PROPERTIES
+                    IMPORTED_LOCATION   "$<TARGET_FILE:${Target}>"
+                    OUTPUT_NAME         "${Target}"
+        )
+    endforeach ()
+    # 安装 二进制文件
+    set(_InstallBinDir ${CMAKE_INSTALL_BINDIR})
+    set(_InstallLibDir ${CMAKE_INSTALL_LIBDIR})
+    if (ENABLE_FEATURE_PYTHON_FRONT_END)
+        set(_InstallBinDir "${ENABLE_FEATURE_PYTHON_FRONT_END}/${_InstallBinDir}")
+        set(_InstallLibDir "${ENABLE_FEATURE_PYTHON_FRONT_END}/${_InstallLibDir}")
+    endif ()
+    install(TARGETS ${ARG_TARGETS}
+            EXPORT ${ARG_EXPORT}
+            RUNTIME DESTINATION ${_InstallBinDir}
+            LIBRARY DESTINATION ${_InstallLibDir}
+            ARCHIVE DESTINATION ${_InstallLibDir}
+    )
+endfunction()
+
+function(PTO_Fwk_InstallBinaries)
+    cmake_parse_arguments(
+            ARG
+            ""
+            "EXPORT;INSTALL_BINDIR;INSTALL_LIBDIR"
+            "TARGETS"
+            ""
+            ${ARGN}
+    )
+    # 设置 二进制文件 导出属性
+    foreach (Target ${ARG_TARGETS})
+        set_target_properties(${Target}
+                PROPERTIES
+                    IMPORTED_LOCATION   "$<TARGET_FILE:${Target}>"
+                    OUTPUT_NAME         "${Target}"
+        )
+    endforeach ()
+    # 安装路径设置
+    if (ARG_INSTALL_BINDIR)
+        set(_InstallBinDir ${ARG_INSTALL_BINDIR})
+    elseif (ENABLE_FEATURE_PYTHON_FRONT_END)
+        set(_InstallBinDir "${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_BINDIR}")
+    else ()
+        set(_InstallBinDir ${CMAKE_INSTALL_BINDIR})
+    endif ()
+    if (ARG_INSTALL_LIBDIR)
+        set(_InstallLibDir ${ARG_INSTALL_LIBDIR})
+    elseif (ENABLE_FEATURE_PYTHON_FRONT_END)
+        set(_InstallLibDir "${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}")
+    else ()
+        set(_InstallLibDir ${CMAKE_INSTALL_LIBDIR})
+    endif ()
+    # 安装 二进制文件
+    install(TARGETS ${ARG_TARGETS}
+            EXPORT ${ARG_EXPORT}
+            RUNTIME DESTINATION ${_InstallBinDir}
+            LIBRARY DESTINATION ${_InstallLibDir}
+            ARCHIVE DESTINATION ${_InstallLibDir}
+    )
+endfunction()
+
+function(PTO_Fwk_InstallCMakeConfig)
+    cmake_parse_arguments(
+            ARG
+            ""
+            "EXPORT;CMAKE_PARENT_DIR"
+            "TARGETS"
+            ""
+            ${ARGN}
+    )
+
+    # 安装导出目标
+    install(EXPORT ${ARG_EXPORT}
+            FILE ${ARG_EXPORT}.cmake
+            NAMESPACE ${PROJECT_NAME}::
+            DESTINATION ${ARG_CMAKE_PARENT_DIR}/cmake/${PROJECT_NAME}
+    )
+
+    # 创建别名目标, 并创建聚合目标
+    add_library(${PROJECT_NAME} INTERFACE)
+    foreach (Target ${ARG_TARGETS})
+        add_library(${PROJECT_NAME}::${Target} ALIAS ${Target})
+        target_link_libraries(${PROJECT_NAME} INTERFACE ${PROJECT_NAME}::${Target})
+    endforeach ()
+
+    # 安装聚合目标
+    install(TARGETS ${PROJECT_NAME} EXPORT ${ARG_EXPORT})
+
+    # 生成 ConfigVersion 配置文件
+    write_basic_package_version_file(
+            ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+            VERSION ${PROJECT_VERSION}
+            COMPATIBILITY SameMajorVersion
+    )
+
+    # 配置 Config 配置文件
+    set(WHL_NAME    ${ENABLE_FEATURE_PYTHON_FRONT_END})
+    set(TARGETS     ${ARG_TARGETS})
+    configure_package_config_file(
+            ${CMAKE_CURRENT_SOURCE_DIR}/cmake/config.cmake.in
+            ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
+            INSTALL_DESTINATION ${ARG_CMAKE_PARENT_DIR}/cmake/${PROJECT_NAME}
+            PATH_VARS
+                PROJECT_NAME
+                PROJECT_VERSION
+                PROJECT_VERSION_MAJOR
+                PROJECT_VERSION_MINOR
+                PROJECT_VERSION_PATCH
+                WHL_NAME
+                TARGETS
+            NO_CHECK_REQUIRED_COMPONENTS_MACRO
+    )
+
+    # 安装配置文件
+    install(FILES
+            ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
+            ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+            DESTINATION ${ARG_CMAKE_PARENT_DIR}/cmake/${PROJECT_NAME}
+    )
+endfunction()

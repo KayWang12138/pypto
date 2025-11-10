@@ -15,8 +15,8 @@ add_library(tile_fwk_codegen SHARED)
 target_sources(tile_fwk_codegen PRIVATE ${_CodeGen_Srcs})
 target_link_libraries(tile_fwk_codegen
         PUBLIC
-            $<$<BOOL:${ENABLE_UTEST}>:tile_fwk_interface>
-            $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,nlohmann_json::nlohmann_json,json>
+            $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_UTEST}>:tile_fwk_interface>>
+            $<BUILD_INTERFACE:$<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,nlohmann_json::nlohmann_json,json>>
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub
@@ -26,7 +26,6 @@ PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_codegen)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_codegen)
 
 if (ENABLE_FEATURE_PYTHON_FRONT_END)
-        install(TARGETS tile_fwk_codegen LIBRARY DESTINATION pto/lib OPTIONAL)
 else ()
         install(TARGETS tile_fwk_codegen
                 LIBRARY DESTINATION lib OPTIONAL

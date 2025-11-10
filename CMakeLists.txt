@@ -10,8 +10,9 @@ cmake_minimum_required(VERSION 3.16)
 
 project(PTO_Framework
         LANGUAGES C CXX
-        VERSION 2.0
+        VERSION 1.0.0
 )
+
 
 ########################################################################################################################
 # 基础配置
@@ -32,7 +33,7 @@ option(ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
 option(ENABLE_GCOV "Enable GNU Coverage Instrumentation Tool" OFF)
 
 # 公开编译开关(Feature 特性级开关)
-option(ENABLE_FEATURE_PYTHON_FRONT_END "Enable Python Front-end" OFF)
+option(ENABLE_FEATURE_PYTHON_FRONT_END "Enable Python Front-end, Specify whl name" OFF)
 option(ENABLE_TORCH_VERIFIER "Flow verify with libtorch" OFF)
 
 # 公开编译开关(tests)
@@ -66,6 +67,7 @@ include(ExternalProject)
 include(cmake/func.cmake)
 include(cmake/config.cmake)
 include(cmake/intf.cmake)
+include(CMakePackageConfigHelpers)
 
 
 ########################################################################################################################
@@ -75,17 +77,84 @@ include(cmake/intf.cmake)
 add_subdirectory(framework)
 add_subdirectory(python)
 
+
+########################################################################################################################
+# 安装流程
+########################################################################################################################
+
 if (ENABLE_FEATURE_PYTHON_FRONT_END)
-    install(DIRECTORY framework/include/tileop/ DESTINATION pto/lib/include/tileop OPTIONAL)
+    # 安装 二进制文件
+    set(InstallExport ${PROJECT_NAME}Targets)
+    set(InstallTargets tile_fwk_interface tile_fwk_codegen tile_fwk_compiler tile_fwk_runtime)
+    PTO_Fwk_InstallBinaries(
+            EXPORT  ${InstallExport}
+            TARGETS ${InstallTargets}
+    )
+    PTO_Fwk_InstallBinaries(
+            TARGETS tile_fwk_server
+    )
+    PTO_Fwk_InstallBinaries(
+            TARGETS         pto_impl
+            INSTALL_LIBDIR  ${CMAKE_INSTALL_PREFIX}/${ENABLE_FEATURE_PYTHON_FRONT_END}
+    )
 
-    install(FILES framework/include/tilefwk/aicpu_common.h        DESTINATION pto/lib/include/tilefwk)
-    install(FILES framework/include/tilefwk/aicpu_distributed.h   DESTINATION pto/lib/include/tilefwk)
-    install(FILES framework/include/tilefwk/aicpu_runtime.h       DESTINATION pto/lib/include/tilefwk)
+    # 安装 配置文件
+    install(FILES
+                framework/src/interface/configs/tile_fwk_config.json
+                framework/src/interface/configs/tile_fwk_config_schema.json
+                framework/src/passes/pass_config/tile_fwk_platform_info.json
+            DESTINATION ${CMAKE_INSTALL_PREFIX}/${ENABLE_FEATURE_PYTHON_FRONT_END}/configs
+    )
 
-    install(FILES framework/include/tilefwk/aicore_data.h         DESTINATION pto/lib/include/tilefwk)
-    install(FILES framework/include/tilefwk/aicore_print.h        DESTINATION pto/lib/include/tilefwk)
-    install(FILES framework/include/tilefwk/aicore_runtime.h      DESTINATION pto/lib/include/tilefwk)
-    install(FILES framework/include/tilefwk/core_func_data.h      DESTINATION pto/lib/include/tilefwk)
+    # 安装 头文件
+    install(FILES
+                framework/include/tilefwk/comm_group_recorder.h
+                framework/include/tilefwk/config.h
+                framework/include/tilefwk/data_type.h
+                framework/include/tilefwk/element.h
+                framework/include/tilefwk/error.h
+                framework/include/tilefwk/function.h
+                framework/include/tilefwk/gentask_utils.h
+                framework/include/tilefwk/lazy.h
+                framework/include/tilefwk/op_registry.h
+                framework/include/tilefwk/symbolic_distributed.h
+                framework/include/tilefwk/symbolic_scalar.h
+                framework/include/tilefwk/tensor.h
+                framework/include/tilefwk/tile_shape.h
+                framework/include/tilefwk/tilefwk.h
+                framework/include/tilefwk/tilefwk_op.h
+            DESTINATION ${CMAKE_INSTALL_PREFIX}/${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_INCLUDEDIR}/tilefwk
+    )
+    install(DIRECTORY framework/include/tileop/
+            DESTINATION ${CMAKE_INSTALL_PREFIX}/${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}/include/tileop
+            PATTERN "*.h"
+            PATTERN "*.hpp"
+            PATTERN ".svn" EXCLUDE
+            PATTERN ".git" EXCLUDE
+    )
+    install(FILES
+                framework/include/tilefwk/aicore_data.h
+                framework/include/tilefwk/aicore_print.h
+                framework/include/tilefwk/aicore_runtime.h
+                framework/include/tilefwk/aicpu_common.h
+                framework/include/tilefwk/aicpu_distributed.h
+                framework/include/tilefwk/aicpu_runtime.h
+                framework/include/tilefwk/core_func_data.h
+            DESTINATION ${CMAKE_INSTALL_PREFIX}/${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}/include/tilefwk
+    )
+
+    # 生成和安装配置文件
+    PTO_Fwk_InstallCMakeConfig(
+            EXPORT              ${InstallExport}
+            CMAKE_PARENT_DIR    ${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}
+            TARGETS             ${InstallTargets}
+    )
+
+    # 设置包信息
+    set(CPACK_PACKAGE_NAME ${PROJECT_NAME})
+    set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+    set(CPACK_PACKAGE_DESCRIPTION ${PROJECT_NAME})
+    include(CPack)
 else ()
     install(DIRECTORY framework/include/                          DESTINATION lib/tilefwk/ OPTIONAL)
 endif ()

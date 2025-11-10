@@ -35,7 +35,6 @@ PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_simulation_ca)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_simulation_ca)
 
 if (ENABLE_FEATURE_PYTHON_FRONT_END)
-    install(TARGETS tile_fwk_simulation_ca LIBRARY DESTINATION pto/lib OPTIONAL)
 else ()
     install(TARGETS tile_fwk_simulation_ca
             LIBRARY DESTINATION lib OPTIONAL

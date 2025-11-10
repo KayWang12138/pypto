@@ -873,6 +873,10 @@ class BuildCtrl:
 
     def py_clean(self):
         if self.build.clean:
+            build: Path = Path(self.src_root, "build_whl")
+            if build.exists():
+                logging.info("Clean Build-Tree(%s)", build)
+                shutil.rmtree(build)
             dist: Path = Path(self.src_root, "dist")
             if dist.exists():
                 logging.info("Clean Install-Tree(%s)", dist)
@@ -935,7 +939,7 @@ class BuildCtrl:
 
     def py_build(self):
         # 基本配置
-        cmd: str = f"{sys.executable} -I -m build --no-isolation -v"
+        cmd: str = f"{sys.executable} -I -m build --no-isolation -v --wheel"
         cmd += self.build.get_pep517_cfg_cmd()
         update_env: Dict[str, str] = {}
         if self.build.job_num:
@@ -966,7 +970,7 @@ class BuildCtrl:
                                  def_filter=str(Path(self.src_root, "python/tests/st")), ext="--forked")
 
     def py_tests_run_pytest(self, dist: Optional[Path], tests: TestsFilterParam, def_filter: str, ext: str = ""):
-        if not tests.enable:
+        if not tests.enable or not self.tests.exec.auto_execute:
             return
         # cmd 拼接
         cmd: str = f"{sys.executable} -m pytest -vv -s --rootdir={self.src_root}"

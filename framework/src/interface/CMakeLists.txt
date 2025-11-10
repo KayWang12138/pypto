@@ -39,12 +39,12 @@ target_compile_definitions(tile_fwk_interface
 )
 target_include_directories(tile_fwk_interface
         PUBLIC
-            .
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
 target_link_libraries(tile_fwk_interface
         PUBLIC
-            $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,nlohmann_json::nlohmann_json,json>
-            $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>
+            $<BUILD_INTERFACE:$<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,nlohmann_json::nlohmann_json,json>>
+            $<BUILD_INTERFACE:$<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>>
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub
@@ -101,9 +101,6 @@ if (ENABLE_TORCH_VERIFIER)
 endif () ## ENABLE_TORCH_VERIFIER
 
 if (ENABLE_FEATURE_PYTHON_FRONT_END)
-        install(TARGETS tile_fwk_interface LIBRARY DESTINATION pto/lib OPTIONAL)
-        install(FILES configs/tile_fwk_config.json DESTINATION pto/configs)
-        install(FILES configs/tile_fwk_config_schema.json DESTINATION pto/configs)
 else ()
         install(TARGETS tile_fwk_interface LIBRARY DESTINATION lib OPTIONAL)
 

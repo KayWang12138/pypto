@@ -131,12 +131,13 @@ endif()
 
 # 安装阶段(Install)
 #   安装路径
-#       未显示设置 CMAKE_INSTALL_PREFIX (即 CMAKE_INSTALL_PREFIX 取缺省值)时,
-#       修正其取值与构建树根目录 CMAKE_CURRENT_BINARY_DIR 平级
+#       未显示设置 CMAKE_INSTALL_PREFIX (即 CMAKE_INSTALL_PREFIX 取缺省值)时, 设置与构建树根目录 CMAKE_CURRENT_BINARY_DIR 平级
+include(GNUInstallDirs)
 if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
     get_filename_component(_Install_Path_Prefix "${CMAKE_CURRENT_BINARY_DIR}/../output" REALPATH)
     set(CMAKE_INSTALL_PREFIX    "${_Install_Path_Prefix}"  CACHE STRING "Install path" FORCE)
 endif ()
+message(STATUS "CMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}")
 
 
 ########################################################################################################################

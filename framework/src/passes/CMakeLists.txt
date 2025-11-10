@@ -12,7 +12,6 @@ file(GLOB_RECURSE _Passes_Srcs *.cpp)
 
 if (ENABLE_FEATURE_PYTHON_FRONT_END)
         target_sources(tile_fwk_interface PRIVATE ${_Passes_Srcs})
-        install(FILES pass_config/tile_fwk_platform_info.json DESTINATION pto/configs)
 else ()
         add_library(tile_fwk_passes SHARED)
         target_sources(tile_fwk_passes PRIVATE ${_Passes_Srcs})

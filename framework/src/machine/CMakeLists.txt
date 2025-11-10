@@ -27,26 +27,26 @@ add_library(tile_fwk_compiler SHARED)
 target_sources(tile_fwk_compiler PRIVATE ${_Compiler_Srcs})
 target_include_directories(tile_fwk_compiler
         PUBLIC  # 编译 CANN 场景依赖
-            $<$<AND:$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>,$<BOOL:${BUILD_WITH_CANN}>>:${TOP_DIR}/inc>
-            $<$<AND:$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>,$<BOOL:${BUILD_WITH_CANN}>>:${TOP_DIR}/abl/msprof/inc>
+            $<BUILD_INTERFACE:$<$<AND:$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>,$<BOOL:${BUILD_WITH_CANN}>>:${TOP_DIR}/inc>>
+            $<BUILD_INTERFACE:$<$<AND:$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>,$<BOOL:${BUILD_WITH_CANN}>>:${TOP_DIR}/abl/msprof/inc>>
         PUBLIC  # 使用 CANN 场景依赖
-            $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include>
-            $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment>
-            $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/msprof>
+            $<BUILD_INTERFACE:$<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include>>
+            $<BUILD_INTERFACE:$<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment>>
+            $<BUILD_INTERFACE:$<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/msprof>>
         PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}
 )
 target_compile_definitions(tile_fwk_compiler
         PUBLIC
-            $<$<BOOL:${BUILD_WITH_CANN}>:BUILD_WITH_CANN>
-            $<$<BOOL:${ENABLE_STEST_INTERPRETER_CONFIG}>:ENABLE_STEST_INTERPRETER_CONFIG>
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:BUILD_WITH_CANN>>
+            $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_STEST_INTERPRETER_CONFIG}>:ENABLE_STEST_INTERPRETER_CONFIG>>
 )
 target_link_directories(tile_fwk_compiler
         PUBLIC
-            $<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/lib64>
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/lib64>>
 )
 target_link_libraries(tile_fwk_compiler
-        PUBLIC
+        PRIVATE
             $<$<BOOL:${ENABLE_UTEST}>:tile_fwk_interface>
             $<$<BOOL:${ENABLE_UTEST}>:tile_fwk_codegen>
             $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,nlohmann_json::nlohmann_json,json>
@@ -61,7 +61,6 @@ PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_compiler)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_compiler)
 
 if (ENABLE_FEATURE_PYTHON_FRONT_END)
-    install(TARGETS tile_fwk_compiler LIBRARY DESTINATION pto/lib OPTIONAL)
 else ()
     install(TARGETS tile_fwk_compiler
             LIBRARY DESTINATION lib OPTIONAL

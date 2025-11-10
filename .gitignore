@@ -26,4 +26,5 @@ tmp
 
 cmake-build-debug
 dist
+build_whl
 kernel_meta
