@@ -19,6 +19,7 @@
 #include "passes/pass_utils/parallel_tool.h"
 #include "passes/pass_config/pass_config_manager.h"
 #include "passes/pass_utils/pass_utils.h"
+#include <climits>
 
 namespace npu::tile_fwk {
 
@@ -416,7 +417,7 @@ Status NBufferMerge::MergeProcess(const OperationsViewer &opOriList,
 
 std::map<int, size_t> NBufferMerge::SetNumDB(std::map<uint64_t, std::vector<int>> &hashMap) {
     std::map<int, size_t> numDBList;
-    auto it = vecNBufferMap.find(-1);
+    auto it = vecNBufferMap.find(VEC_NBuffer_MAP_DEFAULT_MERGE_NUM_KEY);
     if (it != vecNBufferMap.end()) {
         int defaultVal = it->second;
         for (int i = 0; i < static_cast<int>(hashMap.size()); i++) {
@@ -465,8 +466,8 @@ Status NBufferMerge::NBufferMergeProcess(Function &func) {
         APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Manually set NBUFFER_MERGE_MODE to 1, automatically calculate mergeNum.");
         hashMergeNum = GetIsoColorMergeNum(opOriList, hashMap);
     } else {
-        if (vecNBufferMap.size() == 0) {
-            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "NBUFFER_MERGE_MODE is manually set to 2; Please set VEC_NBUFFER_MAP to non-empty.");
+        if (CheckVecNBufferMapForManualMerge() == FAILED) {
+            APASS_LOG_ERROR_F(GetName().c_str(), "Config", "Check VEC_NBUFFER_MAP for manualMerge failed; Please check the VEC_NBUFFER_MAP config.");
             return FAILED;
         }
         APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Manually set NBUFFER_MERGE_MODE to %d.", nBufferMergeMode);
@@ -481,6 +482,24 @@ Status NBufferMerge::NBufferMergeProcess(Function &func) {
     func.SetTotalSubGraphCount(color_);
     APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "After Nbuffer merge.");
     RescheduleUtils::PrintColorNode(func);
+    return SUCCESS;
+}
+
+Status NBufferMerge::CheckVecNBufferMapForManualMerge() {
+    if (vecNBufferMap.size() == 0) {
+        APASS_LOG_ERROR_F(GetName().c_str(), "Config", "NBUFFER_MERGE_MODE is manually set to 2; Please set vecNBufferMap to non-empty.");
+        return FAILED;
+    }
+    for (const auto& pair : vecNBufferMap) {
+        if (pair.first < VEC_NBuffer_MAP_DEFAULT_MERGE_NUM_KEY || pair.first > static_cast<int64_t>(hashOrder.size()) - 1) {
+            APASS_LOG_ERROR_F(GetName().c_str(), "Config", "The VEC_NBUFFER_MAP key %ld is incorrect; Please set keys of VEC_NBUFFER_MAP between -1 and max hashOrder %ld.", pair.first, static_cast<int64_t>(hashOrder.size()) - 1);
+            return FAILED;
+        }
+        if (pair.second <= 0 || pair.second > static_cast<int64_t>(INT_MAX)) {
+            APASS_LOG_ERROR_F(GetName().c_str(), "Config", "The value %ld of the key %ld in VEC_NBUFFER_MAP is incorrect; Please set values of VEC_NBUFFER_MAP more than 0 and not exceeding the INT_MAX.", pair.second, pair.first);
+            return FAILED;
+        }
+    }
     return SUCCESS;
 }
 

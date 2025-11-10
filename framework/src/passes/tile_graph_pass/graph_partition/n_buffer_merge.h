@@ -23,6 +23,9 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 namespace npu::tile_fwk {
+
+constexpr int64_t VEC_NBuffer_MAP_DEFAULT_MERGE_NUM_KEY = -1; // manualMerge模式配置默认合并粒度的key值，n个子图合并为一个
+
 class NBufferMerge : public Pass {
 public:
     NBufferMerge() : Pass("NBufferMerge") {}
@@ -56,6 +59,7 @@ private:
                        std::vector<uint64_t> &hashColor,
                        int &numDBmerge);
     std::map<int, size_t> SetNumDB(std::map<uint64_t, std::vector<int>> &hashMap);
+    Status CheckVecNBufferMapForManualMerge();
 private:
     int color_{0};
     std::vector<std::vector<int>> inGraph_;
