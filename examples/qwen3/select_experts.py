@@ -44,21 +44,22 @@ def select_experts(in_tensors, out_tensors, renormalize_flag):
     ne = logits_input.shape[1]
     idx_k_shape = ids_k.shape
     topk = idx_k_shape[1]
-    view_shape = (64, ne)
+    view_shape = (1024, ne)
     bs_loop = (bs + view_shape[0] - 1) // view_shape[0]
-    # 4.2. 按照计算图实现运算逻辑，设置set_vec_tile_shapes时应尽可能用满UB，但不要超过UB的大小。
-    pto.set_vec_tile_shapes(view_shape[0], 128)
 
     # 5. 定义动态函数
     with pto.function("MOEGATE", [logits_input], [ids_k, weight_k]):
         def inside_select_experts():
             # 6. 实现kernel逻辑，循环展开BS动态轴
-            for bs_idx in pto.loop(bs_loop, name="LOOP_MOEGATE_L0", idx_name="bs_idx"):
+            for bs_idx in pto.loop(bs_loop, name="LOOP_MOEGATE_L0", idx_name="bs_idx", unroll_List={1}):
                 def bs_loop_func(bs_idx):
                     # 7. 通过view得到tile_logits
                     tile_logits = pto.view(logits_input, view_shape,
                         [bs_idx * view_shape[0], 0],
                         valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]), ne])
+
+                    # 8. 按照计算图实现运算逻辑，设置set_vec_tile_shapes时应尽可能用满UB，但不要超过UB的大小。
+                    pto.set_vec_tile_shapes(64, 128)
 
                     # cast to fp32
                     tile_logits_fp32 = pto.cast(tile_logits, pto.DT_FP32)
@@ -67,6 +68,7 @@ def select_experts(in_tensors, out_tensors, renormalize_flag):
                     # topK
                     topk_weight_tmp, topk_ids_tmp = pto.topk(softmax_out, topk, -1, True)
 
+                    pto.set_vec_tile_shapes(128, 8)
                     if pto.cond(pto.symbolic_scalar(renormalize_flag)):
                         # sum
                         denominator = pto.sum(topk_weight_tmp)
@@ -84,13 +86,11 @@ def select_experts(in_tensors, out_tensors, renormalize_flag):
                     ids_k[bs_idx * pto.symbolic_scalar(view_shape[0]):, pto.symbolic_scalar(0):] = topk_ids_tmp
                 bs_loop_func(bs_idx)
         inside_select_experts()
-    assert isinstance(ids_k, pto.tensor)
-    assert isinstance(weight_k, pto.tensor)
 
 
 def test_select_experts():
     # 1. 设置参数
-    bs = 256
+    bs = 4959
     ne = 128
     top_k = 8
     renormalize = True
