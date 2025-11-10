@@ -473,7 +473,7 @@ def gen_prolog_input_data(params, dtypes, epsilon, output_dir: Path, is_quant=(F
 
     w_uk = np.random.uniform(-0.1, 0.1, w_kv_b_k_shape).astype(w_dtype)
     if is_nz:
-        w_uk.reshape(n * qk_nope_head_dim, kv_lora_rank // 16, 16).transpose(1, 0, 2).tofile(w_uk_path)
+        w_uk.reshape(n, qk_nope_head_dim, kv_lora_rank // 16, 16).transpose(0, 2, 1, 3).tofile(w_uk_path)
     else:
         w_uk.tofile(w_uk_path)
     res[6] = w_uk

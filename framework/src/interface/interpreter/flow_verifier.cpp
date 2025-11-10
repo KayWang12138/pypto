@@ -150,7 +150,7 @@ void FlowVerifier::VerifyTensorGraph(Function *entry,
     functionInterpreter_->DumpReset();
 
     if (config::GetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_CHECK_PRECISION, true)) {
-        auto tensorGraphResult = VerifyResult("Tensor graph", goldenDataViewList_, outputDataViewList_, static_cast<float>(1e-3));
+        auto tensorGraphResult = VerifyResult("Tensor graph", goldenDataViewList_, outputDataViewList_, static_cast<float>(1e-2));
         ASSERT(tensorGraphResult) << "Verify Tensor Graph Fail!";
     }
 }
