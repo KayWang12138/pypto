@@ -22,4 +22,5 @@ enum class UnaryOp : uint8_t { ABS = 0, EXP, NEG, REC, RSQRT, SQRT };
 
 enum class BinaryOp : uint8_t { ADD = 0, SUB, MUL, DIV, AND, OR, MAX, MIN };
 
+enum class PairBinaryOp : uint8_t { ADD = 0, MAX, MIN };
 #endif // TILEOP_UTILS_COMMON_TYPE_H
