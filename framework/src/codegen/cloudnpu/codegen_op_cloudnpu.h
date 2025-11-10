@@ -473,6 +473,7 @@ private:
         {                       Opcode::OP_MUL,                 [this]() { return GenBinaryOp(); }},
         {                       Opcode::OP_DIV,                 [this]() { return GenBinaryOp(); }},
         {                   Opcode::OP_MAXIMUM,                 [this]() { return GenBinaryOp(); }},
+        {                   Opcode::OP_MINIMUM,                 [this]() { return GenBinaryOp(); }},
         {                   Opcode::OP_PAIRSUM,                 [this]() { return GenBinaryOp(); }},
         {                   Opcode::OP_PAIRMAX,                 [this]() { return GenBinaryOp(); }},
         {                   Opcode::OP_PAIRMIN,                 [this]() { return GenBinaryOp(); }},
@@ -483,6 +484,7 @@ private:
         {                   Opcode::OP_MUL_BRC,            [this]() { return GenBinaryWithBrc(); }},
         {                   Opcode::OP_DIV_BRC,            [this]() { return GenBinaryWithBrc(); }},
         {                   Opcode::OP_MAX_BRC,            [this]() { return GenBinaryWithBrc(); }},
+        {                   Opcode::OP_MIN_BRC,            [this]() { return GenBinaryWithBrc(); }},
 
         // binary op: vector scalar
         {                      Opcode::OP_ADDS,           [this]() { return GenVectorScalarOp(); }},

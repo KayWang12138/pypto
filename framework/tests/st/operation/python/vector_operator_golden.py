@@ -635,6 +635,31 @@ def gen_mul_op_golden(case_name: str, output: Path, case_index: int = None) -> b
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Mul", golden_func, output, case_index)
 
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestMaximum/MaximumOperationTest.TestMaximum",
+    ]
+)
+def gen_maximum_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs: list, _config: dict):
+        return [np.maximum(inputs[0], inputs[1])]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Maximum", golden_func, output, case_index)
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestMinimum/MinimumOperationTest.TestMinimum",
+    ]
+)
+def gen_minimum_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs: list, _config: dict):
+        return [np.minimum(inputs[0], inputs[1])]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Minimum", golden_func, output, case_index)
 
 @GoldenRegister.reg_golden_func(
     case_names=[
@@ -1143,6 +1168,24 @@ def gen_maxs_op_golden(case_name: str, output: Path, case_index: int = None) -> 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("MaxS", golden_func, output, case_index)
 
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestMinS/MinSOperationTest.TestMinS",
+    ]
+)
+def gen_mins_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    def golden_func(inputs, config: dict):
+        params = config["params"]
+        x = inputs[0]
+        scalar_type = params.get("scalar_type")
+        if scalar_type is None:
+            raise ValueError("Pleast give the `scalar_type` field in your csv/xlsx file !")
+        scalar = get_dtype_by_name(scalar_type)(params["scalar"])
+        y = np.where(x > scalar, scalar, x)
+        return [y]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("MinS", golden_func, output, case_index)
 
 @GoldenRegister.reg_golden_func(
     case_names=[
@@ -1219,6 +1262,96 @@ def gen_compare_op_golden(case_name: str, output: Path, case_index: int = None) 
 
     logging.debug("Case(%s),  Compare Golden creating...", case_name)
     return gen_op_golden("Compare", golden_func, output, case_index)
+
+
+def as_float(value):
+    """将数字、inf、nan、-inf 等字符串转换为浮点数"""
+    if isinstance(value, str):
+        value = value.lower()
+        if not value:
+            return None
+    value = float(value)
+    return value
+
+
+def element_mode(inputs, params, is_bfloat16):
+    test_type = int(params["test_type"])
+    min_dtype_str, max_dtype_str = params.get("min_dtype", ''), params.get("max_dtype", '')
+    if min_dtype_str and test_type in [-1, 0, 1, 2, 7]:
+        min_dtype = get_dtype_by_name(min_dtype_str, is_torch=True)
+        min_value = as_float(params.get("min_value"))
+        if min_value is not None:
+            min_ = torch.tensor(min_value, dtype=min_dtype)
+        else:
+            min_ = None
+    else:
+        min_ = None
+    if max_dtype_str and test_type in [-1, 0, 1, 2, 8]:
+        max_dtype = get_dtype_by_name(max_dtype_str, is_torch=True)
+        max_value = as_float(params.get("max_value"))
+        if max_value is not None:
+            max_ = torch.tensor(max_value, dtype=max_dtype)
+        else:
+            max_ = None
+    else:
+        max_ = None
+    return min_, max_
+
+
+def tensor_mode(inputs, params, is_bfloat16):
+    test_type = int(params["test_type"])
+
+    if test_type in [-1, 0, 1, 2, 5]:
+        min_ = torch.tensor(inputs[1].astype(np.float32), dtype=torch.bfloat16) \
+            if is_bfloat16 else torch.tensor(inputs[1])
+    else:
+        min_ = None
+    if test_type in [-1, 0, 1, 2, 4]:
+        max_ = torch.tensor(inputs[2].astype(np.float32), dtype=torch.bfloat16) \
+            if is_bfloat16 else torch.tensor(inputs[2])
+    else:
+        max_ = None
+    return min_, max_
+
+
+@TestCaseLoader.reg_params_handler(ops=["Clip"])
+def clip_parameter(params: dict):
+    params["max_value"] = "" if not params.get("max_value") else params["max_value"]
+    params["min_value"] = "" if not params.get("min_value") else params["min_value"]
+    params["max_dtype"] = "" if not params.get("min_dtype") else params["min_dtype"]
+    params["min_dtype"] = "" if not params.get("min_dtype") else params["min_dtype"]
+    return params
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestClip/ClipOperationTest.TestClip",
+    ]
+)
+def gen_clip_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    
+    def golden_func(inputs: list, config: dict):
+        params = config.get("params", {})
+        is_bfloat16 = inputs[0].dtype == bfloat16
+        x = torch.tensor(inputs[0].astype(np.float32), dtype=torch.bfloat16) \
+            if is_bfloat16 else torch.tensor(inputs[0])
+        min_dtype_str, max_dtype_str = params.get("min_dtype", ''), params.get("max_dtype", '')
+        is_element = min_dtype_str or max_dtype_str
+        if is_element:
+            min_, max_ = element_mode(inputs, params, is_bfloat16)
+        else:
+            min_, max_ = tensor_mode(inputs, params, is_bfloat16)
+        # Torch 不支持两者均为 None
+        if min_ is None and max_ is None:
+            min_ = float("-inf")
+        result = torch.clip(x, min_, max_)
+        return [
+            result.to(torch.float32).numpy().astype(bfloat16)
+            if is_bfloat16 else result.numpy()
+        ]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Clip", golden_func, output, case_index)
 
 
 def main() -> bool:

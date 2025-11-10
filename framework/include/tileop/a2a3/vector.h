@@ -68,10 +68,23 @@ constexpr const uint64_t BLOCK_MAX_PER_REPEAT = 8;
 #define T_BIN Tmax_
 #define T_BIN_PAIR Tmaxpair_
 #define V_BIN_FUNC vmax
+#define T_BIN_VS Tmaxs_
 #include "vector_bin.h"
 #undef T_BIN
 #undef T_BIN_PAIR
 #undef V_BIN_FUNC
+#undef T_BIN_VS
+
+// MIN
+#define T_BIN Tmin_
+#define T_BIN_PAIR Tminpair_
+#define V_BIN_FUNC vmin
+#define T_BIN_VS Tmins_
+#include "vector_bin.h"
+#undef T_BIN
+#undef T_BIN_PAIR
+#undef V_BIN_FUNC
+#undef T_BIN_VS
 
 // DIV
 #define T_BIN Tdiv_
@@ -112,6 +125,13 @@ constexpr const uint64_t BLOCK_MAX_PER_REPEAT = 8;
 // MAXWITHBRC
 #define T_BIN_BRC Tmaxbrc_
 #define V_BIN_BRC_FUNC vmax
+#include "vector_bin_brc.h"
+#undef T_BIN_BRC
+#undef V_BIN_BRC_FUNC
+
+// MINWITHBRC
+#define T_BIN_BRC Tminbrc_
+#define V_BIN_BRC_FUNC vmin
 #include "vector_bin_brc.h"
 #undef T_BIN_BRC
 #undef V_BIN_BRC_FUNC

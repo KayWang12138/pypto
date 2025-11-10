@@ -66,4 +66,21 @@ std::vector<int> GetBroadCastShape(LogicalTensorPtr &operand1, LogicalTensorPtr 
     return broadCastShape;
 }
 
+std::vector<int> GetBroadcastAxes(const Shape &shape1, const Shape &shape2) {
+    Shape shape1_(shape1), shape2_(shape2);
+    std::vector<int> result = {};
+    auto maxShapeSize = std::max(shape1_.size(), shape2_.size());
+    if (shape1_.size() != maxShapeSize) {
+        shape1_.insert(shape1_.begin(), maxShapeSize - shape1_.size(), 1);
+    }
+    if (shape2_.size() != maxShapeSize) {
+        shape2_.insert(shape2_.begin(), maxShapeSize - shape2_.size(), 1);
+    }
+    for (size_t i = 0; i < shape1_.size(); i++) {
+        if (shape1_[i] != shape2_[i] && (shape1_[i] == 1 || shape2_[i] == 1)) {
+            result.push_back(i);
+        }
+    }
+    return result;
+}
 }

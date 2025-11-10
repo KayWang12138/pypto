@@ -37,12 +37,15 @@ enum class BinaryOpType {
     MUL_BRC,
     DIV_BRC,
     MAX_BRC,
+    MIN_BRC,
     S_ADD,
     S_SUB,
     S_MUL,
     S_DIV,
     S_MAX,
+    S_MIN,
     MAXIMUM,
+    MINIMUM,
     CMP,
 };
 
@@ -56,6 +59,7 @@ std::string GetBinaryOpName() {
         case BinaryOpType::MAX: return "MAX";
         case BinaryOpType::MIN: return "MIN";
         case BinaryOpType::MAXIMUM: return "MAXIMUM";
+        case BinaryOpType::MINIMUM: return "MINIMUM";
         default: ASSERT(false && "unknown binary op type"); return "";
     }
 }
@@ -77,6 +81,7 @@ Opcode GetBinaryOpNameCode() {
             CASE(S_MUL);
             CASE(S_DIV);
             CASE(S_MAX);
+            CASE(S_MIN);
             default: ASSERT(false && "unknown binary op type");
         }
 #undef CASE
@@ -90,6 +95,8 @@ Opcode GetBinaryOpNameCode() {
             CASE(SUB);
             CASE(MUL);
             CASE(DIV);
+            CASE(MAX);
+            CASE(MIN);
             default: ASSERT(false && "unknown binary op type");
         }
 #undef CASE
@@ -107,7 +114,9 @@ Opcode GetBinaryOpNameCode() {
         CASE(S_MUL);
         CASE(S_DIV);
         CASE(S_MAX);
+        CASE(S_MIN);
         CASE(MAXIMUM);
+        CASE(MINIMUM);
         default: ASSERT(false && "unknown binary op type");
     }
 #undef CASE

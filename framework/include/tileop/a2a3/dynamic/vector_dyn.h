@@ -127,6 +127,13 @@ namespace TileOp {
 #undef T_BIN_BRC
 #undef V_BIN_BRC_FUNC
 
+// MINWITHBRC
+#define T_BIN_BRC DynTminbrc_
+#define V_BIN_BRC_FUNC vmin
+#include "vector_bin_brc_dyn.h"
+#undef T_BIN_BRC
+#undef V_BIN_BRC_FUNC
+
 // DIVWITHBRC
 #define T_BIN_BRC DynTdivbrc_
 #define V_BIN_BRC_FUNC vdiv

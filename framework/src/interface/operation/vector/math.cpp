@@ -400,6 +400,50 @@ void OneHotOperationTileFunc(Function &function, const TileShape &tileShape,
     TiledOneHot(function, tileShape, iOperand[0], oOperand[0], numClasses);
 }
 
+// beginregin: Clip
+
+Tensor Clip(const Tensor &self, const Element &min, const Element &max) {
+    ASSERT(self.GetShape().size() >= SHAPE_DIM2 && self.GetShape().size() <= SHAPE_DIM4);
+    std::vector<DataType> CLIP_SUPPORT_DATATYPES = {
+        DataType::DT_FP32, DataType::DT_FP16, DataType::DT_INT32, DataType::DT_INT16};
+    ASSERT(std::find(CLIP_SUPPORT_DATATYPES.begin(), CLIP_SUPPORT_DATATYPES.end(), self.GetDataType()) != 
+        CLIP_SUPPORT_DATATYPES.end());
+
+    Element min_ = min, max_ = max;
+
+    Tensor result = self;
+    ASSERT(min_.GetDataType() == self.GetDataType());
+    result = MaxS(result, min_);
+    ASSERT(max_.GetDataType() == self.GetDataType());
+    result = MinS(result, max_);
+    result.GetStorage()->UpdateDynValidShape(self.GetStorage()->GetDynValidShape());
+    return result;
+}
+
+Tensor Clip(const Tensor &self, const Tensor &min, const Tensor &max) {
+    ASSERT(self.GetShape().size() >= SHAPE_DIM2 && self.GetShape().size() <= SHAPE_DIM4);
+    std::vector<DataType> CLIP_SUPPORT_DATATYPES = {
+        DataType::DT_FP32, DataType::DT_FP16, DataType::DT_INT32, DataType::DT_INT16};
+    ASSERT(std::find(CLIP_SUPPORT_DATATYPES.begin(), CLIP_SUPPORT_DATATYPES.end(), self.GetDataType()) != 
+        CLIP_SUPPORT_DATATYPES.end());
+    
+    Tensor result = self;
+    if (min.GetStorage() != nullptr) {
+        ASSERT(min.GetDataType() == self.GetDataType());
+        std::vector minBroadcastAxes = GetBroadcastAxes(min.GetShape(), self.GetShape());
+        ASSERT(minBroadcastAxes.size() <= 1);
+        result = Maximum(result, min);
+    }
+    if (max.GetStorage() != nullptr) {
+        std::vector maxBroadcastAxes = GetBroadcastAxes(max.GetShape(), self.GetShape());
+        ASSERT(maxBroadcastAxes.size() <= 1);
+        result = Minimum(result, max);
+    }
+    result.GetStorage()->UpdateDynValidShape(self.GetStorage()->GetDynValidShape());
+    return result;
+}
+// endregion: Clip
+
 REGISTER_OPERATION_TILED_FUNC(OP_INDEX_ADD, Opcode::OP_INDEX_ADD, IndexAddOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_LOGICALNOT, Opcode::OP_LOGICALNOT, LogicNotOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_ONEHOT, Opcode::OP_ONEHOT, OneHotOperationTileFunc);

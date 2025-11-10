@@ -347,5 +347,17 @@ void bind_operation(py::module &m) {
             return npu::tile_fwk::MaxS(operand1, operand2);
         }
     );
+    m.def(
+        "clip",
+        [](const Tensor &self, const Tensor &min, const Tensor &max) {
+            return npu::tile_fwk::Clip(self, min, max);
+        }
+    );
+    m.def(
+        "clip",
+        [](const Tensor &self, const Element &min, const Element &max) {
+            return npu::tile_fwk::Clip(self, min, max);
+        }
+    );
 }
 } // namespace pypto

@@ -174,6 +174,7 @@ Tensor Sub(const Tensor &self, const Tensor &other);
 Tensor Div(const Tensor &self, const Tensor &other);
 Tensor Mul(const Tensor &self, const Tensor &other);
 Tensor Maximum(const Tensor &operand1, const Tensor &operand2);
+Tensor Minimum(const Tensor &operand1, const Tensor &operand2);
 Tensor Add(const Tensor &self, const Element &other);
 Tensor Sub(const Tensor &self, const Element &other);
 Tensor Div(const Tensor &self, const Element &other);
@@ -208,6 +209,10 @@ Tensor LogicalNot(const Tensor &self);
 Tensor Range(const Element &start, const Element &end, const Element &step);
 
 Tensor Assign(const Tensor &operand);
+
+// Implementation of `Tensor` type should be placed at first, so that it can be routed when only single input.
+Tensor Clip(const Tensor &self, const Tensor &min = {}, const Tensor &max = {});
+Tensor Clip(const Tensor &self, const Element &min = {}, const Element &max = {});
 
 std::tuple<Tensor, Tensor> TopK(const Tensor &self, int k, int axis = -1, bool isLargest = true);
 Tensor ArgSort(const Tensor &operand, int axis, bool isLargest = true);
