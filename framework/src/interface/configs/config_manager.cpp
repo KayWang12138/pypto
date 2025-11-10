@@ -23,12 +23,6 @@
 #include "interface/utils/log.h"
 #include "interface/utils/file_utils.h"
 
-#ifdef SRCPATH
-constexpr const char *SRC_PATH = SRCPATH;
-#else
-constexpr const char *SRC_PATH = ".";
-#endif
-
 namespace npu::tile_fwk {
 
 const std::string tilefwkConfigEnvName = "TILEFWK_CONFIG_PATH";
@@ -86,6 +80,8 @@ Status ConfigManager::Initialize() {
         return FAILED;
     }
 
+#ifdef SRCPATH
+    constexpr const char *SRC_PATH = SRCPATH;
     // update Json_ through genJson
     std::string genJsonPath = std::string(SRC_PATH) + "/framework/src/cost_model/simulation/scripts/";
     if (IsPathExist(genJsonPath)) {
@@ -108,6 +104,7 @@ Status ConfigManager::Initialize() {
             }
         }
     }
+#endif
 
     originJson_ = json_;
 
