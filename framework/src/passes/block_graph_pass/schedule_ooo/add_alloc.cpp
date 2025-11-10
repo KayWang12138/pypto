@@ -19,7 +19,7 @@
 namespace npu::tile_fwk {
 Status AddAlloc::GenTensorAllocMsgMap(Function &function, 
     std::unordered_map<int, TensorAllocMsg> &tensorAllocMsgMap) const {
-    for (auto& op : function.Operations().DuplicatedOpList()) {
+    for (auto& op : function.Operations(false).DuplicatedOpList()) {
         if (FindTensorAllocMsg(op, tensorAllocMsgMap) != SUCCESS) {
             APASS_LOG_ERROR_F("AddAlloc", "Operation", "FindTensorAllocMsg failed.");
             return FAILED;
@@ -50,7 +50,7 @@ Status AddAlloc::AddAndCheckAlloc(Function &function) {
         return FAILED;
     }
     std::vector<Operation *> newOperations;
-    for (auto& op : function.Operations().DuplicatedOpList()) {
+    for (auto& op : function.Operations(false).DuplicatedOpList()) {
         if (op->GetOpcodeStr().find("ALLOC") != std::string::npos) {
             newOperations.insert(newOperations.begin(), op);
             continue;
@@ -124,7 +124,7 @@ Status AddAlloc::FindTensorAllocMsg(Operation *op,
 
 Status AddAlloc::GenAllocOpcode(const Opcode &allocOpcode, const TensorAllocMsg& tensorAllocMsg, Function& function) {
     int maxOpMagic = -1;
-    for (auto &op : function.Operations()) {
+    for (auto &op : function.Operations(false)) {
         maxOpMagic = std::max(maxOpMagic, op.GetOpMagic());
     }
     for (auto &oOperand : tensorAllocMsg.producer[0]->GetOOperands()) {

@@ -184,7 +184,7 @@ Status SrcDstBufferMergeImpl::Run(Function &func) {
     for (auto &subProgram : func.rootFunc_->programs_) {
         APASS_LOG_INFO_F("SrcDstBufferMerge", "Operation", "Merge src dst for program id : [%lu]",
             subProgram.first);
-        auto opList = subProgram.second->Operations().DuplicatedOpList();
+        auto opList = subProgram.second->Operations(false).DuplicatedOpList();
         if (Init(opList) != SUCCESS) {
             return FAILED;
         }

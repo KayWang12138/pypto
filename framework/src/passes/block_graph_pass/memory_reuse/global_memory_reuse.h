@@ -38,7 +38,7 @@ struct TensorsDesc {
     std::set<LogicalTensorPtr> tensors;
     std::unordered_set<uint64_t> consumerOpIdxs; // 放入bucket后，作为内存桶是否可以再次复用，需要判断的consumerOp集合
     TensorsDesc(): connectionOpsBitmap(0) {}
-    TensorsDesc(Function *func): connectionOpsBitmap(func->Operations().size()) {}
+    TensorsDesc(Function *func): connectionOpsBitmap(func->Operations(false).size()) {}
 };
 
 class TensorBucket {

@@ -428,7 +428,7 @@ void RecordAllConsumerShapeAndOffset(LogicalTensorPtr &out, std::vector<std::vec
 }
 
 void Allocator::MarkNonOverlappingConsumerTensors() {
-    for (Operation& operation : function_->Operations()) {
+    for (Operation& operation : function_->Operations(false)) {
         for (LogicalTensorPtr outputTensor : operation.GetOOperands()) {
             // 跳过根输出tensor
             if (rootOutCasts_.count(outputTensor->GetRawMagic()) != 0) {
@@ -819,7 +819,7 @@ void Allocator::HandleNewTensor(Operation& callOp, size_t outputIdx, LogicalTens
 
 void Allocator::ProcessOperations() {
     APASS_LOG_DEBUG_F("GlobalMemoryReuse", "Operation", "=== START ProcessOperations ===");
-    auto allOperations = function_->Operations();
+    auto allOperations = function_->Operations(false);
     for (size_t opIndex = 0; opIndex < allOperations.size(); ++opIndex) {
         Operation &currentOp = allOperations[opIndex];
         for (size_t outputIdx = 0; outputIdx < currentOp.GetOOperands().size(); ++outputIdx) {
@@ -963,7 +963,7 @@ Status Allocator::UpdateStorageId(TensorsDesc &tensorsDesc, std::unordered_map<i
 }
 
 Status Allocator::UpdateIncastOutCast() {
-    auto callOps = function_->Operations();
+    auto callOps = function_->Operations(false);
     for (auto &callOp : callOps) {
         if (callOp.GetOpcode() != Opcode::OP_CALL) {
             continue;

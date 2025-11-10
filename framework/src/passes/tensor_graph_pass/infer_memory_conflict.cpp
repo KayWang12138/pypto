@@ -71,15 +71,15 @@ std::vector<std::pair<LogicalTensorPtr, Operation *>> GetInplacedTensors(Logical
 
 inline bool IsInOutConflict(Function &function, LogicalTensorPtr &inTensor, LogicalTensorPtr &outTensor) {
     if (!function.IsFromInCast(inTensor) || !function.IsFromOutCast(outTensor)) {
-        APASS_LOG_ERROR_F("InferMemoryConflict", "Operation", "Input or output tensor is not from INCAST/OUTCAST.");
+        APASS_LOG_DEBUG_F("InferMemoryConflict", "Operation", "Input or output tensor is not from INCAST/OUTCAST.");
         return false;
     }
     if (inTensor->Symbol() == outTensor->Symbol()) {
-        APASS_LOG_ERROR_F("InferMemoryConflict", "Operation", "Input or output tensor have the same symbol.");
+        APASS_LOG_DEBUG_F("InferMemoryConflict", "Operation", "Input or output tensor have the same symbol.");
         return false;
     }
     if (inTensor->GetRawTensor()->memoryId == outTensor->GetRawTensor()->memoryId) {
-        APASS_LOG_ERROR_F("InferMemoryConflict", "Operation", "Input or output tensor have the same memoryID.");
+        APASS_LOG_DEBUG_F("InferMemoryConflict", "Operation", "Input or output tensor have the same memoryID.");
         return false;
     }
     return true;

@@ -82,7 +82,7 @@ Status InferParamIndex::ResetAssembleDynValidShape(const Operation &op) {
 }
 
 Status InferParamIndex::ResetDynValidShape(Function& function) {
-    for (auto &op : function.Operations()) {
+    for (auto &op : function.Operations(false)) {
         if (ResetOutputDynValidShape(op) != SUCCESS) {
             APASS_LOG_ERROR_F(GetName().c_str(), "Tensor", "Fail to reset the output operand shape of operation %d in function %s. Please check whether the shape is valid in your input graph", op.GetOpMagic(), function.GetRawName().c_str());
             return FAILED;
@@ -108,7 +108,7 @@ Status InferParamIndex::InferShape(Function &function)
 {
     size_t i = 0U;
     std::map<int, size_t> opMagic2Idx;
-    std::vector<Operation*> opList = function.Operations().DuplicatedOpList();
+    std::vector<Operation*> opList = function.Operations(false).DuplicatedOpList();
     if (opList.empty()) {
         APASS_LOG_ERROR_F(GetName().c_str(), "Tensor", "There is no operation in function %s. Please check the operation list of the input graph", function.GetRawName().c_str());
         return FAILED;
@@ -131,7 +131,7 @@ Status InferParamIndex::InferShape(Function &function)
 }
 
 Status InferParamIndex::UpdateValidShape(Function &subFunc, std::map<int, std::vector<SymbolicScalar>> &addr2ValidShape, std::map<int, std::vector<SymbolicScalar>> &addr2ValidShapeSpecified) {
-    for (auto &op : subFunc.Operations()) {
+    for (auto &op : subFunc.Operations(false)) {
         int tensorBaseAddrCoaIndex = IsCopyIn(op.GetOpcode()) ? op.GetIOpAttrOffset(0) : op.GetOOpAttrOffset(0);
         if (tensorBaseAddrCoaIndex == -1) {
             continue;

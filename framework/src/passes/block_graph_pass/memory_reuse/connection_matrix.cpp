@@ -64,7 +64,7 @@ const LargeBitmap& ConnectionMatrix::GetBitMap(uint64_t index) const {
 }
 
 ConnectionMatrixImpl::ConnectionMatrixImpl(Function *func) : func_(func) {
-    auto operations = func->Operations();
+    auto operations = func->Operations(false);
     size_ = operations.size();
     invalidBitmap_.ResizeBits(size_);
     bitMaps_.reserve(size_);
@@ -83,7 +83,7 @@ void ConnectionMatrixImpl::Generate(Function *func) {
     }
     func_ = func;
 
-    for (auto &op : func->Operations()) {
+    for (auto &op : func->Operations(false)) {
         std::unordered_set<Operation *> producers = op.ProducerOps();
         SetConnectivity(producers, op);
     }
@@ -108,7 +108,7 @@ void ConnectionMatrixImpl::SetConnectivity(const std::unordered_set<Operation *>
 }
 
 uint64_t ConnectionMatrixImpl::GetIndex(const Operation &op) const {
-    return static_cast<uint64_t>(func_->Operations().GetOpPosition(op));
+    return static_cast<uint64_t>(func_->Operations(false).GetOpPosition(op));
 }
 
 bool ConnectionMatrixImpl::IsConnected(const Operation &a, const Operation &b) const {

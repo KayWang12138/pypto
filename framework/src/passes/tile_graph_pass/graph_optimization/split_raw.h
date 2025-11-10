@@ -34,9 +34,9 @@ class SplitRawTensor : public Pass {
 public:
     SplitRawTensor() : Pass("SplitRawTensor") {}
     ~SplitRawTensor() override = default;
+    Status RunOnFunction(Function &function) override;
 
 private:
-    Status RunOnFunction(Function &function) override;
     void UpdateConsumerView(Function &function, const LogicalTensorPtr &logicalTensor) const;
     void UpdateProducerAssemble(Function &function, const LogicalTensorPtr &logicalTensor) const;
     void SplitRaw(Function &function) const;

@@ -229,7 +229,7 @@ void DataDependencySearcher::Insert(const Operation *opSet, int idx) {
 
 Status PipeSync::InsertSync(Function &function, std::vector<Operation *> &syncedOpLog) {
     std::vector<IndexOp> synced;
-    std::vector<Operation *> opLogPtr(function.Operations().DuplicatedOpList());
+    std::vector<Operation *> opLogPtr(function.Operations(false).DuplicatedOpList());
     uint64_t idxInput = 0;
     for (const auto &op : opLogPtr) {
         APASS_LOG_DEBUG_F("InsertSync", "Operation", "Input operation %d %d: %s.", idxInput, op->GetOpMagic(), op->GetOpcodeStr().c_str());
@@ -1428,7 +1428,7 @@ Status PipeSync::ProcessViewAssembleOrder(std::vector<Operation *> &opLog, std::
 }
 
 void InsertSync::InsertPipeAll(Function *subGraphFunc) {
-    std::vector<Operation*> oriOpList(subGraphFunc->Operations().DuplicatedOpList());
+    std::vector<Operation*> oriOpList(subGraphFunc->Operations(false).DuplicatedOpList());
     std::vector<Operation*> newOpList;
     for (auto op : oriOpList) {
         newOpList.push_back(op);
@@ -1473,7 +1473,7 @@ Status InsertSync::InsertSyncMainLoop(Function *subGraphFunc) {
     }
     subGraphFunc->ScheduleBy(opListNew, true);
     APASS_LOG_DEBUG_F("InsertSync", "Operation", "==========================================================================================");
-    for (const auto &op : subGraphFunc->Operations().DuplicatedOpList()) {
+    for (const auto &op : subGraphFunc->Operations(false).DuplicatedOpList()) {
         if (op->GetOpcodeStr().find("SYNC_SRC") != std::string::npos || op->GetOpcodeStr().find("SYNC_DST") != std::string::npos
             || op->GetOpcode() == Opcode::OP_BAR_V || op->GetOpcode() == Opcode::OP_BAR_M) {
             APASS_LOG_DEBUG_F("InsertSync", "Operation", "Output operation %d: %s, setpipe type: %s, setcore type: %s, waitpipe type: %s, waitcore type: %s, eventid: %d",

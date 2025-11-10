@@ -30,7 +30,7 @@ Status OoOSchedule::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(GetName().c_str(), "Operation", "=============== START OoOSchedule ===============");
     int maxWorkeSpaceSize = 0;
     for (auto &program : function.rootFunc_->programs_) {
-        auto opList = program.second->Operations().DuplicatedOpList();
+        auto opList = program.second->Operations(false).DuplicatedOpList();
         oriFunctions.emplace_back(program.second);
         // ooo不处理aicpu子图
         if (IsAicpuProgram(opList)) {
