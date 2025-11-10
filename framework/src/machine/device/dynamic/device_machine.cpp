@@ -29,7 +29,7 @@ using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 
 namespace {
-constexpr uint64_t CPUS_PER_CLUSTER = 4;
+constexpr int CPUS_PER_CLUSTER = 4;
 constexpr uint64_t SIGNAL_DELAY_SECONDS = 2;
 
 extern void SigAct(int signum, siginfo_t* info, void* act);
@@ -72,7 +72,6 @@ void DySdmaPrefetch(DevStartArgs *devArgs) {
 
 struct DynMachineManager {
     int allocThreadIdx(int nrAicpu) {
-        int threadIdx = -1;
         if (schAicpuNum_ == 1) {
             return threadIdx_++;
         }
@@ -84,18 +83,22 @@ struct DynMachineManager {
 
         auto maskval = cpumask_.load(std::memory_order_relaxed);
         int cpuoff = 0;
+        int clus_id = -1;
         for (int i = 0; i < static_cast<int>(sizeof(uint64_t)); ++i) {
             int mask = (maskval >> cpuoff) & 0xF;
             if (__builtin_popcount(static_cast<uint32_t>(mask)) >= schAicpuNum_) {
-                threadIdx = threadIdx_++;
+                clus_id = i;
                 break;
             }
             cpuoff += CPUS_PER_CLUSTER;
-            if (cpu < cpuoff) {
-                break;
-            }
         }
-        return threadIdx;
+        if (clus_id == -1) {
+            return threadIdx_++;
+        }
+        if (cpu < cpuoff || cpu >= (cpuoff + CPUS_PER_CLUSTER)) {
+            return -1;
+        }
+        return threadIdx_++;
     }
 
     void SignalReg() {
@@ -117,6 +120,10 @@ struct DynMachineManager {
     int Run(AstKernelArgs *args) {
         int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
         auto devArgs = PtrToPtr<int64_t, DeviceArgs>(args->cfgdata);
+        if ((uint32_t)schAicpuNum_ > devArgs->nrAicpu - 1) {
+            DEV_ERROR("Aicpu num[%u] less than sche num[%d].", devArgs->nrAicpu, schAicpuNum_);
+            return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
+        }
         int threadIdx = allocThreadIdx(devArgs->nrAicpu);
         if ((threadIdx != -1) && threadIdx < schAicpuNum_) {    
             CreateLogFile(LOG_TYPE_SCHEDULER, threadIdx);
