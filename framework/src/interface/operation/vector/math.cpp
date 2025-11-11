@@ -15,6 +15,7 @@
 
 #include "unary.h"
 #include "binary.h"
+#include "tensor_transformation.h"
 #include "interface/utils/operator_tracer.h"
 #include "passes/pass_utils/graph_utils.h"
 

@@ -64,38 +64,8 @@ Opcode GetUnaryOpNameCode() {
 #undef CASE
 }
 
-inline void UnaryOperationOperandCheck(const std::vector<LogicalTensorPtr> &iOperand,
-    const std::vector<LogicalTensorPtr> &oOperand) {
-    ASSERT(iOperand.size() == 1);
-    ASSERT(oOperand.size() == 1);
-}
-
-template <UnaryOpType T>
-void TiledUnaryOperation(
-    Function &function, const TileShape &tileShape, size_t cur, Input &input, const LogicalTensorPtr &result) {
-    if (cur == input.tensor.GetShape().size()) {
-        auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
-        auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
-        function.AddOperation(GetUnaryOpNameCode<T>(), {tile}, {resultTile});
-        return;
-    }
-    auto &vecTile = tileShape.GetVecTile();
-    for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
-        input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
-        input.tileInfo.offset[cur] = i;
-        TiledUnaryOperation<T>(function, tileShape, cur + 1, input, result);
-    }
-}
-
-template <UnaryOpType T>
-void TiledUnaryOperation(
-    Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
-    ASSERT(operand->shape.size() == operand->offset.size());
-
-    TileInfo tileInfo(result->shape.size(), result->offset.size());
-    auto input = Input{operand, tileInfo};
-    TiledUnaryOperation<T>(function, tileShape, 0, input, result);
-}
+void UnaryOperationOperandCheck(
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand);
 
 template <UnaryOpType T>
 LogicalTensorPtr TensorUnaryOperation(Function &function, LogicalTensorPtr operand) {

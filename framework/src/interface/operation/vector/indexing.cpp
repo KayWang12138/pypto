@@ -13,10 +13,11 @@
  * \brief
  */
 
-#include "indexing.h"
 #include <climits>
 #include "interface/utils/operator_tracer.h"
 #include "passes/pass_utils/graph_utils.h"
+#include "interface/function/function.h"
+#include "interface/program/program.h"
 
 namespace npu::tile_fwk {
 
@@ -672,6 +673,47 @@ Tensor IndexPut(const Tensor &src, std::vector<Tensor> indices, const Tensor &va
     }
 
     return result;
+}
+
+template <typename T, DataType dataType>
+Element GetCurStartElement(Element start, Element step, int id) {
+    T startValue;
+    T stepValue;
+    if (dataType == DT_INT32 || dataType == DT_INT64) {
+        startValue = start.GetSignedData();
+        stepValue = step.GetSignedData();
+    } else if (dataType == DT_FP32) {
+        startValue = (float)start.GetFloatData();
+        stepValue = (float)step.GetFloatData();
+    }
+    T curStartValue = startValue + id * stepValue;
+    Element curStart(dataType, curStartValue);
+    return curStart;
+}
+
+const float EPSILON = (float)1e-8;
+template <typename T, DataType dataType>
+int64_t GetRangeResSize(Element &start, Element &end, Element &step) {
+    int64_t resultSize;
+    if (dataType == DT_INT32 || dataType == DT_INT64) {
+        int64_t startValue = start.GetSignedData();
+        int64_t endValue = end.GetSignedData();
+        int64_t stepValue = step.GetSignedData();
+        if (abs(stepValue) <= 0) {
+            ASSERT(false && "stepValue must not be 0");
+        }
+        resultSize = (endValue - startValue) % stepValue ? (endValue - startValue) / stepValue + 1 :
+                                                           (endValue - startValue) / stepValue;
+    } else if (dataType == DT_FP32) {
+        T startValue = (float)start.GetFloatData();
+        T endValue = (float)end.GetFloatData();
+        T stepValue = (float)step.GetFloatData();
+        if (abs(stepValue) <= EPSILON) {
+            ASSERT(false && "stepValue must not be 0");
+        }
+        resultSize = static_cast<int64_t>(std::ceil((endValue - startValue) / stepValue));
+    }
+    return resultSize;
 }
 
 void TiledRange(Function &function, const TileShape &tileShape, const Element start, const Element step,
