@@ -17,6 +17,7 @@
 #define PASS_INFER_MEMORY_CONFLICT_H_
 
 #include <vector>
+#include <queue>
 #include <unordered_map>
 
 #include "passes/pass_interface/pass.h"
@@ -32,15 +33,25 @@ public:
 
 private:
     Status RunOnFunction(Function &function) override;
-    Status InferFromIncast(Function &function);
-    Status InsertTensorCopy(Function &function);
-    void Init(Function& function);
+    Status Init(Function& function);
+    Status ForwardPropagation(Function &function);
+    Status UpdateForwardTensor(Function &function, const LogicalTensorPtr &curTensor, Operation* consumer, std::queue<LogicalTensorPtr> &curTensors);
+    Status BackwardPropagation(Function &function);
+    Status UpdateBackwardTensor(const LogicalTensorPtr &curTensor, Operation* producer, std::queue<LogicalTensorPtr> &curTensors);
+    Status InsertPrecededCopys(Function &function);
+    Status InsertPostCopys(Function &function);
+    Status InsertCopys(Function& function);
+    Status InferTileShape(Operation &op, Operation *parentOp, const LogicalTensorPtr &tensor);
+    Status SetDefaultShape(const LogicalTensorPtr &tensor, std::vector<int64_t> &defaultTile);
+
+    bool CheckTransmit(Operation* curOp);
+    bool CheckConflict(const LogicalTensorPtr &inTensor, const LogicalTensorPtr &outTensor);
+    bool CheckRawShapeConflict(const LogicalTensorPtr &inTensor, const LogicalTensorPtr &outTensor);
     bool IsValidTileShape(const Operation &op) const;
-    std::vector<std::pair<LogicalTensorPtr, Operation *>> FilterCopyScenes(Function &function, LogicalTensorPtr targetTensor,
-        const std::vector<std::pair<LogicalTensorPtr, Operation *>> &);
-    std::unordered_map<LogicalTensorPtr, LogicalTensorPtr> parentRawTensor_; // key: 当前tensor的magic，value: parent tensor 的 raw magic
-    std::map<LogicalTensorPtr, std::vector<std::pair<LogicalTensorPtr, Operation *>>> insertCopys_;
-    std::map<Operation *, size_t> opInputDegree_;
+
+    std::set<Operation*> preregcopys;
+    std::set<Operation*> postregcopys;
+    std::unordered_map<LogicalTensorPtr, LogicalTensorPtr> memoryInfo;
 };
 } // namespace tile_fwk
 } // namespace npu
