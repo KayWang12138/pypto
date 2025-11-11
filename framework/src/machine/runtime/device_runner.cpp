@@ -545,6 +545,10 @@ int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreS
 }
 
 int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t taskId, AstKernelArgs *kernelArgs, int blockdim, int launchAicpuNum) {
+    if (RegiserKernelBin(&binHdl_) != 0) {
+        ALOG_ERROR("RegiserKernelBin failed\n");
+        return -1;
+    }
     if (!g_IsFirstInit) {
         InitAiCpuSoBin();
     }
