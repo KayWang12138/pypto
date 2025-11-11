@@ -411,7 +411,7 @@ Tensor Transpose(const Tensor &self, std::vector<int> perm) {
     return Reshape(tmpOutputTensor, resultShape, oldValidShapes);
 }
 
-void TiledVecDup(Function &function, const TileShape &tileShape, size_t cur, const Element &value,
+void TiledFull(Function &function, const TileShape &tileShape, size_t cur, const Element &value,
     const SymbolicScalar &dynValue, std::vector<int64_t> &shape, const std::vector<SymbolicScalar> &validShape,
     const LogicalTensorPtr &results, TileInfo &resultTileInfo) {
     if (cur == results->shape.size()) {
@@ -441,17 +441,17 @@ void TiledVecDup(Function &function, const TileShape &tileShape, size_t cur, con
     for (int i = 0; i < results->shape[cur]; i += vecTile[cur]) {
         resultTileInfo.offset[cur] = i;
         resultTileInfo.shape[cur] = std::min(results->shape[cur] - i, vecTile[cur]);
-        TiledVecDup(function, tileShape, cur + 1, value, dynValue, shape, validShape, results, resultTileInfo);
+        TiledFull(function, tileShape, cur + 1, value, dynValue, shape, validShape, results, resultTileInfo);
     }
 }
 
-void TiledVecDup(Function &function, const TileShape &tileShape, const Element &value, const SymbolicScalar &dynValue,
+void TiledFull(Function &function, const TileShape &tileShape, const Element &value, const SymbolicScalar &dynValue,
     std::vector<int64_t> &shape, const std::vector<SymbolicScalar> &validShape, const LogicalTensorPtr &results) {
     TileInfo resultTileInfo(results->shape.size(), results->offset.size());
-    TiledVecDup(function, tileShape, 0, value, dynValue, shape, validShape, results, resultTileInfo);
+    TiledFull(function, tileShape, 0, value, dynValue, shape, validShape, results, resultTileInfo);
 }
 
-Tensor TensorVectorDuplicateOperation(Function &function, const Element &src, const SymbolicScalar &dynValue,
+Tensor TensorFullOperation(Function &function, const Element &src, const SymbolicScalar &dynValue,
     DataType dtype, const std::vector<int64_t> &dstShape, const std::vector<SymbolicScalar> &validShape) {
     auto result = std::make_shared<LogicalTensor>(function, dtype, dstShape, validShape);
     auto &op = function.AddOperation(Opcode::OP_VEC_DUP, {}, {result}); // 输入没有tensor
@@ -465,25 +465,25 @@ Tensor TensorVectorDuplicateOperation(Function &function, const Element &src, co
     return result;
 }
 
-Tensor VectorDuplicate(
+Tensor Full(
     const Element &src, DataType dtype, const std::vector<int64_t> &dstShape, std::vector<SymbolicScalar> validShape) {
     DECLARE_TRACER();
     if (validShape.empty()) {
         for (auto x : dstShape)
             validShape.emplace_back(x);
     }
-    RETURN_CALL(VectorDuplicateOperation, *Program::GetInstance().GetCurrentFunction(), src, SymbolicScalar(), dtype,
+    RETURN_CALL(FullOperation, *Program::GetInstance().GetCurrentFunction(), src, SymbolicScalar(), dtype,
         dstShape, validShape);
 }
 
-Tensor VectorDuplicate(const SymbolicScalar &dynSrc, DataType dtype, const std::vector<int64_t> &dstShape,
+Tensor Full(const SymbolicScalar &dynSrc, DataType dtype, const std::vector<int64_t> &dstShape,
     std::vector<SymbolicScalar> validShape) {
     DECLARE_TRACER();
     if (validShape.empty()) {
         for (auto x : dstShape)
             validShape.emplace_back(x);
     }
-    RETURN_CALL(VectorDuplicateOperation, *Program::GetInstance().GetCurrentFunction(), Element(dtype, (int64_t)0),
+    RETURN_CALL(FullOperation, *Program::GetInstance().GetCurrentFunction(), Element(dtype, (int64_t)0),
         dynSrc, dtype, dstShape, validShape);
 }
 
@@ -627,7 +627,7 @@ void CastOperationTileFunc(Function &function, const TileShape &tileShape,
     TiledCastOperation<CastOpType::CAST>(function, tileShape, iOperand[0], oOperand[0], mode);
 }
 
-void VecDupOperationTileFunc(Function &function, const TileShape &tileShape,
+void FullOperationTileFunc(Function &function, const TileShape &tileShape,
     [[maybe_unused]] const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
     const Operation &op) {
     Element scalar = op.GetElementAttribute(OpAttributeKey::scalar);
@@ -638,7 +638,7 @@ void VecDupOperationTileFunc(Function &function, const TileShape &tileShape,
     std::vector<int64_t> shape = op.GetVectorIntAttribute(OP_ATTR_PREFIX + "shape");
     std::vector<SymbolicScalar> validShape;
     op.GetAttr(OP_ATTR_PREFIX + "validShape", validShape);
-    TiledVecDup(function, tileShape, scalar, dynScalar, shape, validShape, oOperand[0]);
+    TiledFull(function, tileShape, scalar, dynScalar, shape, validShape, oOperand[0]);
 }
 
 REGISTER_OPERATION_TILED_FUNC(OP_TRANSPOSE_MOVEOUT, Opcode::OP_TRANSPOSE_MOVEOUT, MoveOutOperationTileFunc);
@@ -646,6 +646,6 @@ REGISTER_OPERATION_TILED_FUNC(OP_TRANSPOSE_MOVEIN, Opcode::OP_TRANSPOSE_MOVEIN, 
 REGISTER_OPERATION_TILED_FUNC(OP_TRANSPOSE_VNCHWCONV, Opcode::OP_TRANSPOSE_VNCHWCONV, VnchwconvOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_EXPAND, Opcode::OP_EXPAND, ExpandOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_CAST, Opcode::OP_CAST, CastOperationTileFunc);
-REGISTER_OPERATION_TILED_FUNC(OP_VEC_DUP, Opcode::OP_VEC_DUP, VecDupOperationTileFunc);
+REGISTER_OPERATION_TILED_FUNC(OP_VEC_DUP, Opcode::OP_VEC_DUP, FullOperationTileFunc);
 
 } // namespace npu::tile_fwk

@@ -261,7 +261,7 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
                 TileShape::Current().SetVecTile({1, length2K});
                 auto effSumRes = View(localSum, {1, length2K}, {1, effSeq}, {bs1n2Offset, 0});
                 auto ax = View(effSumRes, {1, length2K}, {1, effSeq}, {0, 0});
-                auto bx = VectorDuplicate(Element(xdtype, padValue), xdtype, {1, length2K}, {1, length2K - effSeq});
+                auto bx = Full(Element(xdtype, padValue), xdtype, {1, length2K}, {1, length2K - effSeq});
                 Assemble(Assign(ax), {bs1n2Offset, 0}, padX2K);
                 Assemble(bx, {bs1n2Offset, effSeq}, padX2K);
             }
@@ -273,7 +273,7 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
                 auto topk4D = Reshape(
                     View(resIdx, {1, selectedCount}, {1, effSeq}, {0, 0}), {1, 1, 1, selectedCount}, {1, 1, 1, effSeq});
                 Assemble(Assign(topk4D), {bIdx, s1Idx, n2Idx, 0}, topkRes);
-                auto topkIndicesPad = VectorDuplicate(Element(idxdtype, padIdxValue), idxdtype,
+                auto topkIndicesPad = Full(Element(idxdtype, padIdxValue), idxdtype,
                     {1, 1, 1, selectedCount}, {1, 1, 1, selectedCount - effSeq});
                 Assemble(topkIndicesPad, {bIdx, s1Idx, n2Idx, effSeq}, topkRes);
 
@@ -281,7 +281,7 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
                     auto topk4DValue = Reshape(View(resValue, {1, selectedCount}, {1, effSeq}, {0, 0}),
                         {1, 1, 1, selectedCount}, {1, 1, 1, effSeq});
                     Assemble(Assign(topk4DValue), {bIdx, s1Idx, n2Idx, 0}, *topkValue);
-                    auto topkValuePad = VectorDuplicate(Element(DT_FP32, padValue), DT_FP32, {1, 1, 1, selectedCount},
+                    auto topkValuePad = Full(Element(DT_FP32, padValue), DT_FP32, {1, 1, 1, selectedCount},
                         {1, 1, 1, selectedCount - effSeq});
                     Assemble(topkValuePad, {bIdx, s1Idx, n2Idx, effSeq}, *topkValue);
                 }
@@ -298,7 +298,7 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
                 UNUSED(unused0);
                 TileShape::Current().SetVecTile({1, tileSize});
                 auto ax = View(localSum, {1, length8K}, {1, effSeq}, {bs1n2Offset, 0});
-                auto bx = VectorDuplicate(Element(xdtype, padValue), xdtype, {1, length8K}, {1, length8K - effSeq});
+                auto bx = Full(Element(xdtype, padValue), xdtype, {1, length8K}, {1, length8K - effSeq});
                 Assemble(Assign(ax), {bs1n2Offset, 0}, padX8K);
                 Assemble(bx, {bs1n2Offset, effSeq}, padX8K);
             }
@@ -328,7 +328,7 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
                 UNUSED(unused0);
                 TileShape::Current().SetVecTile({1, tileSize});
                 auto ax = View(localSum, {1, length64K}, {1, effSeq}, {bs1n2Offset, 0});
-                auto bx = VectorDuplicate(Element(xdtype, padValue), xdtype, {1, length64K}, {1, length64K - effSeq});
+                auto bx = Full(Element(xdtype, padValue), xdtype, {1, length64K}, {1, length64K - effSeq});
                 Assemble(Assign(ax), {bs1n2Offset, 0}, padX64K);
                 Assemble(bx, {bs1n2Offset, effSeq}, padX64K);
             }
@@ -356,7 +356,7 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
                 UNUSED(unused0);
                 TileShape::Current().SetVecTile({1, tileSize});
                 auto ax = View(localSum, {1, length128K}, {1, effSeq}, {bs1n2Offset, 0});
-                auto bx = VectorDuplicate(Element(xdtype, padValue), xdtype, {1, length128K}, {1, length128K - effSeq});
+                auto bx = Full(Element(xdtype, padValue), xdtype, {1, length128K}, {1, length128K - effSeq});
                 Assemble(Assign(ax), {bs1n2Offset, 0}, padX128K);
                 Assemble(bx, {bs1n2Offset, effSeq}, padX128K);
             }

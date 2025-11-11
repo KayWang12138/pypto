@@ -307,7 +307,7 @@ TEST_F(TestCodegenUnary, TestVecDup) {
     Tensor output(DataType::DT_INT32, shape, "C");
     config::SetBuildStatic(true);
     FUNCTION(funcName, {output}) {
-        output = npu::tile_fwk::VectorDuplicate(src, DT_INT32, shape);
+        output = npu::tile_fwk::Full(src, DT_INT32, shape);
     }
 
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
@@ -326,7 +326,7 @@ TEST_F(TestCodegenUnary, TestVecDupUnaligned) {
     std::string funcName = "VECDUP_T";
     config::SetBuildStatic(true);
     FUNCTION(funcName, {output}) {
-        output = npu::tile_fwk::VectorDuplicate(src, DT_FP32, shape);
+        output = npu::tile_fwk::Full(src, DT_FP32, shape);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     npu::tile_fwk::CodeGenCtx ctx;

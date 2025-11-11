@@ -728,7 +728,7 @@ def gen_divs_op_golden(case_name: str, output: Path, case_index: int = None) -> 
 
 @GoldenRegister.reg_golden_func(
     case_names=[
-        "TestVectorDuplicate/VectorDuplicateOperationTest.TestVectorDuplicate",
+        "TestFull/FullOperationTest.TestFull",
     ]
 )
 def gen_vector_dup_op_golden(
@@ -742,7 +742,7 @@ def gen_vector_dup_op_golden(
         return [np.full(inputs[0].shape, params["scalar"], inputs[0].dtype)]
 
     logging.debug("Case(%s), Golden creating...", case_name)
-    return gen_op_golden("VectorDuplicate", golden_func, output, case_index)
+    return gen_op_golden("Full", golden_func, output, case_index)
 
 
 @GoldenRegister.reg_golden_func(

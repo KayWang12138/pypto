@@ -277,15 +277,15 @@ TEST_F(DynamicBasicTest, TestCheckPointRestore) {
     FUNCTION("main", {t}, {t0}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(1)) {
             IF(idx == 0) {
-                t0 = VectorDuplicate(Element(DT_FP32, 1.0f), DT_FP32, {s, s});
+                t0 = Full(Element(DT_FP32, 1.0f), DT_FP32, {s, s});
             }
             ELSE {
-                t0 = VectorDuplicate(Element(DT_FP32, 2.0f), DT_FP32, {s, s});
+                t0 = Full(Element(DT_FP32, 2.0f), DT_FP32, {s, s});
             }
         }
         LOOP("L1", FunctionType::DYNAMIC_LOOP, idx, LoopRange(1)) {
             (void)idx;
-            t0 = VectorDuplicate(Element(DT_FP32, 1.0f), DT_FP32, {s, s});
+            t0 = Full(Element(DT_FP32, 1.0f), DT_FP32, {s, s});
         }
     }
     EXPECT_EQ(t0.GetStorage()->tensor->GetRefCount(), 1);
@@ -1075,7 +1075,7 @@ TEST_F(DynamicBasicTest, TestVectorDup) {
         LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
             SymbolicScalar v = 20;
-            output = VectorDuplicate(v + 30, DT_INT32, {n, n});
+            output = Full(v + 30, DT_INT32, {n, n});
         }
     }
 
@@ -1107,7 +1107,7 @@ TEST_F(DynamicBasicTest, TestTensorInsert) {
 
     FUNCTION("main", {}, {output}) {
         LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n)) {
-            auto tmp = VectorDuplicate(20, DT_INT32, {1});
+            auto tmp = Full(20, DT_INT32, {1});
             TensorInsert(tmp, {i}, output);
         }
     }
@@ -1223,7 +1223,7 @@ TEST_F(DynamicBasicTest, TestGetTensorDataAndDup) {
             (void)i;
             auto add = Add(input, input);
             auto s = GetTensorData(add, {row, col});
-            output = VectorDuplicate(s + 1, DT_INT32, {n, n});
+            output = Full(s + 1, DT_INT32, {n, n});
         }
     }
 

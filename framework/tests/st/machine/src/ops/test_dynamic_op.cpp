@@ -25,7 +25,7 @@ using namespace npu::tile_fwk::dynamic;
 
 class DynamicOpTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
-TEST_F(DynamicOpTest, VectorDuplicateUnalign) {
+TEST_F(DynamicOpTest, FullUnalign) {
     config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(16, 128);
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
@@ -42,7 +42,7 @@ TEST_F(DynamicOpTest, VectorDuplicateUnalign) {
         SymbolicScalar curSeq = GetTensorData(actSeqs, {0});
 
         LOOP("L0", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange((curSeq + sTile - 1) / sTile)) {
-            Tensor tmp = VectorDuplicate(Element(DataType::DT_FP32, 2.0f), DT_FP32, {sTile, h},
+            Tensor tmp = Full(Element(DataType::DT_FP32, 2.0f), DT_FP32, {sTile, h},
                 {std::min(curSeq - sIdx * sTile, sTile), h});
             Assemble(tmp, {sIdx * sTile, 0}, output);
         }

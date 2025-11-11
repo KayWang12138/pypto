@@ -26,7 +26,7 @@ namespace npu::tile_fwk {
 
 void Expand(Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand,
     const std::vector<LogicalTensorPtr> &other, const LogicalTensorPtr &result);
-Tensor TensorVectorDuplicateOperation(Function &function, const Element &src, const SymbolicScalar &dynValue,
+Tensor TensorFullOperation(Function &function, const Element &src, const SymbolicScalar &dynValue,
     DataType dtype, const std::vector<int64_t> &dstShape, const std::vector<SymbolicScalar> &validShape);
 
 enum class CastOpType {

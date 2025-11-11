@@ -147,14 +147,14 @@ void bind_operation(py::module &m) {
     m.def("gather", [](const Tensor &params, const Tensor &indices, int axis)
         { return npu::tile_fwk::Gather(params, indices, axis); }, "Tensor gather.");
     m.def("duplicate", [](const Tensor &operand) { return npu::tile_fwk::Duplicate(operand); }, "Tensor duplicate.");
-    m.def("vector_duplicate", [](const Element &src, DataType dType, std::vector<int64_t> dstShape,
+    m.def("full", [](const Element &src, DataType dType, std::vector<int64_t> dstShape,
         std::vector<SymbolicScalar> validShape)
-        { return npu::tile_fwk::VectorDuplicate(src, dType, dstShape, validShape); },
+        { return npu::tile_fwk::Full(src, dType, dstShape, validShape); },
         py::arg("src"), py::arg("dType"), py::arg("dstShape"), py::arg("validShape") = std::vector<SymbolicScalar>{},
         "Tensor vector duplicate.");
-    m.def("vector_duplicate", [](const SymbolicScalar &src, DataType dType, std::vector<int64_t> dstShape,
+    m.def("full", [](const SymbolicScalar &src, DataType dType, std::vector<int64_t> dstShape,
         std::vector<SymbolicScalar> validShape)
-        { return npu::tile_fwk::VectorDuplicate(src, dType, dstShape, validShape); },
+        { return npu::tile_fwk::Full(src, dType, dstShape, validShape); },
         py::arg("src"), py::arg("dType"), py::arg("dstShape"), py::arg("validShape") = std::vector<SymbolicScalar>{},
         "Tensor vector duplicate.");
     m.def("reshape", [](const Tensor &input, const std::vector<int64_t> &dstShape,

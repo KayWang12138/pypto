@@ -45,7 +45,7 @@ Tensor RmsNorm(const Tensor &operand) {
     // sqrt rstd
     y = Sqrt(y);
     Element src(DataType::DT_FP32, 1.0f);
-    auto ones = VectorDuplicate(src, DT_FP32, y.GetShape());
+    auto ones = Full(src, DT_FP32, y.GetShape());
     y = Div(ones, y);
     return Cast(Mul(fp32Operand, y), operand.GetStorage()->Datatype());
 }
@@ -68,7 +68,7 @@ Tensor RmsNorm(const Tensor &operand, const Tensor &gamma, float epsilon) {
     // sqrt rstd
     y = Sqrt(y);
     Element src(DataType::DT_FP32, 1.0f);
-    auto ones = VectorDuplicate(src, DT_FP32, y.GetShape());
+    auto ones = Full(src, DT_FP32, y.GetShape());
     y = Div(ones, y);
     y = Mul(fp32Operand, y);
     y = Mul(gammaOperand, y);

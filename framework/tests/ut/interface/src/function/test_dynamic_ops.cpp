@@ -565,7 +565,7 @@ TEST_F(DynamicOpsTest, GetTensorData) {
 
     FUNCTION("main", {t0}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(2)) {
-            auto v = VectorDuplicate(Element(DT_INT32, 32), DT_INT32, {16, 16});
+            auto v = Full(Element(DT_INT32, 32), DT_INT32, {16, 16});
             auto index = GetTensorData(v, {0, 0});
             Print("i=", i, " index=", index, " v=", v);
             auto d = Add(t0, t0);
@@ -690,7 +690,7 @@ TEST_F(DynamicOpsTest, GetTensorDataRedundantUpdate) {
     FUNCTION("main", {t0}, {out}) {
         Tensor d;
         LOOP("Loop1", FunctionType::DYNAMIC_LOOP, i, LoopRange(NUM2)) {
-            auto v = VectorDuplicate(Element(DT_INT32, 32), DT_INT32, {16, 16});
+            auto v = Full(Element(DT_INT32, 32), DT_INT32, {16, 16});
             auto index = GetTensorData(v, {0, 0});
             Print("i=", i, " index=", index, " v=", v);
             d = Add(t0, t0);

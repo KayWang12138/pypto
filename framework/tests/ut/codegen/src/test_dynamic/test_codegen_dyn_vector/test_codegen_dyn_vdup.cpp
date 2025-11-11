@@ -53,7 +53,7 @@ TEST_F(TestCodegenDynVdup, TestDynVdupUnaligned) {
     std::string funcName = "VECDUP_T";
     config::SetBuildStatic(true);
     FUNCTION(funcName, {output}) {
-        output = npu::tile_fwk::VectorDuplicate(src, DataType::DT_FP32, shape);
+        output = npu::tile_fwk::Full(src, DataType::DT_FP32, shape);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);

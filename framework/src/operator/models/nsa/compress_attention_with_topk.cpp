@@ -93,7 +93,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
     TileShape::Current().SetVecTile(tileConfig.topkTile);
     LOOP("GEN_TOPK_RANGE", FunctionType::DYNAMIC_LOOP, ubReshapeIdx, LoopRange(1), {}) {
         (void)ubReshapeIdx;
-        auto dumpTensor = VectorDuplicate(Element(DataType::DT_FP32, 0.0f), DT_FP32, {1, 1, maxCmpBlock * blockSlcNum});
+        auto dumpTensor = Full(Element(DataType::DT_FP32, 0.0f), DT_FP32, {1, 1, maxCmpBlock * blockSlcNum});
         auto firstKTop = std::get<1>(TopK(dumpTensor, maxCmpBlock * blockSlcNum, -1, true));
         topkNumIdx = std::get<0>(TopK(Cast(firstKTop, DT_FP32), maxCmpBlock * blockSlcNum, -1, false));
     }
@@ -252,7 +252,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                         tildaPij = Mul(tildaPij, expCur);      // (blockSize, n1), (1, n1) -> (blockSize, n1)
                     }
                     Element src(DataType::DT_FP32, 0.0f);
-                    auto zeros = VectorDuplicate(src, DT_FP32, {slcWindow - 1, n1});
+                    auto zeros = Full(src, DT_FP32, {slcWindow - 1, n1});
                     tildaPijPad = Cat({tildaPij, zeros}, 0);
                 }
 

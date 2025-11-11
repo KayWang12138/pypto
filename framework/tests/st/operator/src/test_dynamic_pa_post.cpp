@@ -382,7 +382,7 @@ void PageAttentionPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Te
             // (bTile*S, N*vHeadDim) @ (N*vHeadDim, H) = (bTile*S, H)
             // int8 @ int8 = int32
             TileShape::Current().SetVecTile({std::min(32L, bTile * S), std::min(1024L, H)}); // raw (bTile*1, 7168)
-            Tensor tmpC = VectorDuplicate(Element(DataType::DT_FP32, 0.0), DT_FP32, {bTile*S, H});
+            Tensor tmpC = Full(Element(DataType::DT_FP32, 0.0), DT_FP32, {bTile*S, H});
             std::vector<Tensor> matmulResult;
             auto kSplit = 8;
             auto kSplitSize = N*vHeadDim / kSplit; // 16K / 8 = 2k

@@ -122,7 +122,7 @@ static void MatmulOperationExeFuncSplitK(const std::vector<Tensor> &inputs, std:
             (void)mIdx;
             const int64_t kSplit = (kDim + kSplitSize - 1) / kSplitSize;
             TileShape::Current().SetVecTile({args->tileShape_[0][0], args->tileShape_[2][0]});
-            Tensor tmpC = VectorDuplicate(Element(args->param_.outDtype, static_cast<int64_t>(0)),
+            Tensor tmpC = Full(Element(args->param_.outDtype, static_cast<int64_t>(0)),
                                           args->param_.outDtype, {mDim, nDim});
             std::vector<Tensor> matmulResult;
             int64_t kL1Size = std::min(kDim, kSplitSize);
@@ -199,7 +199,7 @@ static void MatmulOperationExeFuncSplitMK(const std::vector<Tensor> &inputs, std
         LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, CeilDivSymbolicScalar(mDim, mView), 1)) {
             const int64_t kSplit = (kDim + kSplitSize - 1) / kSplitSize;
             TileShape::Current().SetVecTile({args->tileShape_[0][0], args->tileShape_[2][0]});
-            Tensor tmpC = VectorDuplicate(Element(args->param_.outDtype, static_cast<int64_t>(0)),
+            Tensor tmpC = Full(Element(args->param_.outDtype, static_cast<int64_t>(0)),
                                           args->param_.outDtype, {std::min(mView, mDim), nDim});
             std::vector<Tensor> matmulResult;
             int64_t kL1Size = std::min(kDim, kSplitSize);
@@ -278,7 +278,7 @@ static void MatmulOperationExeFuncSplitKN(const std::vector<Tensor> &inputs, std
         LOOP("nLoop", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, CeilDivSymbolicScalar(nDim, nView), 1)) {
             const int64_t kSplit = (kDim + kSplitSize - 1) / kSplitSize;
             TileShape::Current().SetVecTile({args->tileShape_[0][0], args->tileShape_[2][0]});
-            Tensor tmpC = VectorDuplicate(Element(args->param_.outDtype, static_cast<int64_t>(0)),
+            Tensor tmpC = Full(Element(args->param_.outDtype, static_cast<int64_t>(0)),
                                           args->param_.outDtype, {mDim, std::min(nView, nDim)});
             std::vector<Tensor> matmulResult;
             int64_t kL1Size = std::min(kDim, kSplitSize);
@@ -364,7 +364,7 @@ static void MatmulOperationExeFuncSplitMKN(const std::vector<Tensor> &inputs, st
             LOOP("nLoop", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, CeilDivSymbolicScalar(nDim, nView), 1)) {
                 const int64_t kSplit = (kDim + kSplitSize - 1) / kSplitSize;
                 TileShape::Current().SetVecTile({args->tileShape_[0][0], args->tileShape_[2][0]});
-                Tensor tmpC = VectorDuplicate(Element(args->param_.outDtype, static_cast<int64_t>(0)),
+                Tensor tmpC = Full(Element(args->param_.outDtype, static_cast<int64_t>(0)),
                                               args->param_.outDtype, {std::min(mView, mDim), std::min(nView, nDim)});
                 std::vector<Tensor> matmulResult;
                 int64_t kL1Size = std::min(kDim, kSplitSize);

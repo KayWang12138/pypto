@@ -582,7 +582,7 @@ void PaPostNewOnlyMm5NdK(Tensor &quant0In, Tensor &weightO, Tensor &mm5Out) {
             // (bTile*S, N*vHeadDim) @ (N*vHeadDim, H) = (bTile*S, H)
             // int8 @ int8 = int32
             TileShape::Current().SetVecTile({std::min(4, bTile * S), std::min(7168, H)});
-            Tensor tmpC = VectorDuplicate(Element(DataType::DT_INT32, static_cast<int64_t>(0)), DT_INT32, {bTile*S, H});
+            Tensor tmpC = Full(Element(DataType::DT_INT32, static_cast<int64_t>(0)), DT_INT32, {bTile*S, H});
             std::vector<Tensor> matmulResult;
             auto kSplit = 8;
             auto kSplitSize = N*vHeadDim / kSplit; // 16K / 8 = 2k
@@ -666,7 +666,7 @@ void PaPostNewMm5NdkUnquantR3(Tensor &quant0In, Tensor &weightO, Tensor &weightO
             // (bTile*S, N*vHeadDim) @ (N*vHeadDim, H) = (bTile*S, H)
             // int8 @ int8 = int32
             TileShape::Current().SetVecTile({std::min(4, bTile * S), std::min(7168, H)});
-            Tensor tmpC = VectorDuplicate(Element(DataType::DT_INT32, static_cast<int64_t>(0)), DT_INT32, {bTile*S, H});
+            Tensor tmpC = Full(Element(DataType::DT_INT32, static_cast<int64_t>(0)), DT_INT32, {bTile*S, H});
             std::vector<Tensor> matmulResult;
             auto kSplit = 8;
             auto kSplitSize = N*vHeadDim / kSplit; // 16K / 8 = 2k
@@ -834,7 +834,7 @@ void PaPostNewOnlyMm5NzK(Tensor &quant0In, Tensor &weightO, Tensor &mm5Out) {
             // (bTile*S, N*vHeadDim) @ (N*vHeadDim, H) = (bTile*S, H)
             // int8 @ int8 = int32
             TileShape::Current().SetVecTile({std::min(4, bTile * S), std::min(7168, H)});
-            Tensor tmpC = VectorDuplicate(Element(DataType::DT_INT32, static_cast<int64_t>(0)), DT_INT32, {bTile*S, H});
+            Tensor tmpC = Full(Element(DataType::DT_INT32, static_cast<int64_t>(0)), DT_INT32, {bTile*S, H});
             std::vector<Tensor> matmulResult;
             auto kSplit = 8;
             auto kSplitSize = N*vHeadDim / kSplit; // 16K / 8 = 2k
@@ -1640,7 +1640,7 @@ void PaPostDebugCastFirstCrtb4trQMM5NDk(Tensor &postIn, Tensor &weightUV, Tensor
             // (bTile*S, N*vHeadDim) @ (N*vHeadDim, H) = (bTile*S, H)
             // int8 @ int8 = int32
             TileShape::Current().SetVecTile({std::min(4, bTile * S), std::min(7168L, H)});
-            Tensor tmpC = VectorDuplicate(Element(DataType::DT_INT32, static_cast<int64_t>(0)), DT_INT32, {bTile*S, H});
+            Tensor tmpC = Full(Element(DataType::DT_INT32, static_cast<int64_t>(0)), DT_INT32, {bTile*S, H});
             std::vector<Tensor> matmulResult;
             auto kSplit = 8;
             auto kSplitSize = N*vHeadDim / kSplit; // 16K / 8 = 2k
@@ -2071,7 +2071,7 @@ void PaPostDebugCastFirstMm5SplitK(Tensor &postIn, Tensor &weightUV, Tensor &wei
             // // (bTile*S, N*vHeadDim) @ (N*vHeadDim, H) = (bTile*S, H)
             // // int8 @ int8 = int32
             TileShape::Current().SetVecTile({std::min(32, bTile * S), std::min(1024L, H)}); // raw (bTile*1, 7168)
-            Tensor tmpC = VectorDuplicate(Element(DataType::DT_INT32, static_cast<int64_t>(0)), DT_INT32, {bTile*S, H});
+            Tensor tmpC = Full(Element(DataType::DT_INT32, static_cast<int64_t>(0)), DT_INT32, {bTile*S, H});
             std::vector<Tensor> matmulResult;
             auto kSplit = 8;
             auto kSplitSize = N*vHeadDim / kSplit;
@@ -2358,7 +2358,7 @@ void PaPostDebugCastFirstMm5SplitKLow(Tensor &postIn, Tensor &weightUV, Tensor &
             // (bTile*S, N*vHeadDim) @ (N*vHeadDim, H) = (bTile*S, H)
             // int8 @ int8 = int32
             TileShape::Current().SetVecTile({std::min(4, bTile * S), std::min(7168L, H)});
-            Tensor tmpC = VectorDuplicate(Element(DataType::DT_INT32, static_cast<int64_t>(0)), DT_INT32, {bTile*S, H});
+            Tensor tmpC = Full(Element(DataType::DT_INT32, static_cast<int64_t>(0)), DT_INT32, {bTile*S, H});
             std::vector<Tensor> matmulResult;
             auto kSplit = 2;
             auto kSplitSize = N*vHeadDim / kSplit; // 16K / 8 = 2k

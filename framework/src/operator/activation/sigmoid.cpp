@@ -43,7 +43,7 @@ Tensor Sigmoid(Tensor &input) {
     auto expRes = Exp(Mul(input, Element(DataType::DT_FP32, F_NEGA_1)));
     auto res = Add(expRes, Element(DataType::DT_FP32, F_1));
     Element src(DataType::DT_FP32, 1.0f);
-    auto ones = VectorDuplicate(src, DataType::DT_FP32, res.GetShape());
+    auto ones = Full(src, DataType::DT_FP32, res.GetShape());
     res = Div(ones, res);
     if (dtype != DT_FP32) {
         res = Cast(res, dtype);

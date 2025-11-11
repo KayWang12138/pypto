@@ -461,7 +461,7 @@ void DoSetTensorDataInt32(const SymbolicScalar &v, const std::vector<SymbolicSca
     ASSERT(currDynFunc != nullptr) << "Not under dynamic function!\n";
 
     Shape vShape = Shape(t.GetShape().size(), 1);
-    auto tmp = VectorDuplicate(v, t.GetDataType(), vShape);
+    auto tmp = Full(v, t.GetDataType(), vShape);
     TensorInsert(tmp, off, t);
 }
 

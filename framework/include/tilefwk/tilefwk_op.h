@@ -107,9 +107,9 @@ Tensor Reshape(const Tensor &operand, const std::vector<SymbolicScalar> &dstShap
 
 Tensor Load(const Tensor &src, const Tensor &offsets);
 
-Tensor VectorDuplicate(const Element &src, DataType dtype, const std::vector<int64_t> &dstShape,
+Tensor Full(const Element &src, DataType dtype, const std::vector<int64_t> &dstShape,
     std::vector<SymbolicScalar> validShape = {});
-Tensor VectorDuplicate(const SymbolicScalar &src, DataType dtype, const std::vector<int64_t> &dstShape,
+Tensor Full(const SymbolicScalar &src, DataType dtype, const std::vector<int64_t> &dstShape,
     std::vector<SymbolicScalar> validShape = {});
 Tensor Transpose(const Tensor &self, std::vector<int> perm);
 Tensor Cast(const Tensor &self, DataType dstDataType, CastMode mode = CAST_NONE);

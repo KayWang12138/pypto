@@ -190,7 +190,7 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
             cmpKrCacheOut =
                 Reshape(ScatterUpdate(cmpKrCacheDim2, index, batchRopeResult, 0), {cmpBlockNum, blockSize, 1, dR});
             for (int i = 0; i < rs + rc - 1; i++) {
-                auto auxVector = npu::tile_fwk::VectorDuplicate(
+                auto auxVector = npu::tile_fwk::Full(
                     Element(DT_FP32, float(std::min(i + 1, rc) - std::max(i - rs, 0))), DT_FP32, {1, auxVecLen});
                 Assemble(auxVector, {i, 0}, auxTensor);
             }

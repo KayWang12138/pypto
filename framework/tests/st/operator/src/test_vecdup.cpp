@@ -36,7 +36,7 @@ TEST_F(VecdupTest, TestVecDup) {
 
         config::SetBuildStatic(true);
         FUNCTION("VECDUP_T", {output}) {
-                output = npu::tile_fwk::VectorDuplicate(src, DT_FP32, shape);
+                output = npu::tile_fwk::Full(src, DT_FP32, shape);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -67,7 +67,7 @@ TEST_F(VecdupTest, TestVecDupUnaligned) {
 
         config::SetBuildStatic(true);
         FUNCTION("VECDUP_T", {output}) {
-                output = npu::tile_fwk::VectorDuplicate(src, DT_FP32, shape);
+                output = npu::tile_fwk::Full(src, DT_FP32, shape);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());

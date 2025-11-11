@@ -1117,11 +1117,11 @@ def full(size: List[int],
     if valid_shape is None:
         valid_shape = []
     if isinstance(fill_value, pto_impl.SymbolicScalar):
-        return pto_impl.vector_duplicate(fill_value, dtype, size, to_syms(valid_shape))
+        return pto_impl.full(fill_value, dtype, size, to_syms(valid_shape))
     elif isinstance(fill_value, pto_impl.Element):
-        return pto_impl.vector_duplicate(fill_value, dtype, size, to_syms(valid_shape))
+        return pto_impl.full(fill_value, dtype, size, to_syms(valid_shape))
     else:
-        return pto_impl.vector_duplicate(pto_impl.Element(dtype, fill_value), dtype,
+        return pto_impl.full(pto_impl.Element(dtype, fill_value), dtype,
                                          size, to_syms(valid_shape))
 
 

@@ -27,14 +27,14 @@ std::tuple<Tensor, Tensor> PrologQuant(const Tensor &input) {
 
     auto absRes = Abs(inputFp32);
     auto maxValue = Amax(absRes);
-    auto temp127 = VectorDuplicate(Element(DT_FP32, s8_max_value), DT_FP32, maxValue.GetShape());
+    auto temp127 = Full(Element(DT_FP32, s8_max_value), DT_FP32, maxValue.GetShape());
 
     auto scaleQuant = Div(temp127, maxValue);
     auto outFp32 = Mul(inputFp32, scaleQuant);
     auto outInt32 = Cast(outFp32, DataType::DT_INT32, CAST_RINT);
     auto outHalf = Cast(outInt32, DataType::DT_FP16, CAST_ROUND);
     auto outInt8 = Cast(outHalf, DataType::DT_INT8, CAST_TRUNC);
-    auto temp1 = VectorDuplicate(Element(DT_FP32, s8_one_value), DT_FP32, scaleQuant.GetShape());
+    auto temp1 = Full(Element(DT_FP32, s8_one_value), DT_FP32, scaleQuant.GetShape());
     auto scaleDeQuant = Div(temp1, scaleQuant);
     return std::tie(outInt8, scaleDeQuant);
 } // namespace npu::tile_fwk

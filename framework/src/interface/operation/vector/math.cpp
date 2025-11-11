@@ -241,7 +241,7 @@ Tensor Log(const Tensor &self, LogBaseType base) {
 }
 
 LogicalTensorPtr GenAllOneTensor(const Shape &shape, std::vector<SymbolicScalar> validShape, const DataType &dataType) {
-    auto result = CALL(VectorDuplicateOperation, *Program::GetInstance().GetCurrentFunction(),
+    auto result = CALL(FullOperation, *Program::GetInstance().GetCurrentFunction(),
         Element(DataType::DT_FP32, 1.0), SymbolicScalar(), DataType::DT_FP32, shape, validShape);
     if (dataType == DataType::DT_FP16) {
         RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(), result.GetStorage(),

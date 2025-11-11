@@ -233,7 +233,7 @@ void TestAuxTensor() {
             (void)bIdx;
             TileShape::Current().SetVecTile(1, auxVecLen);
             for (int i = 0; i < rs + rc - 1; i++) {
-                auto auxVector = npu::tile_fwk::VectorDuplicate(
+                auto auxVector = npu::tile_fwk::Full(
                     Element(dType, float(min(i + 1, rc) - max(i - rs, 0))), dType, {1, auxVecLen});
                 Assemble(auxVector, {i, 0}, auxTensor);
             }
