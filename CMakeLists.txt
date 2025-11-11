@@ -90,9 +90,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
             EXPORT  ${InstallExport}
             TARGETS ${InstallTargets}
     )
-    PTO_Fwk_InstallBinaries(
-            TARGETS tile_fwk_server
-    )
+    install(TARGETS tile_fwk_server LIBRARY DESTINATION "${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}")
     PTO_Fwk_InstallBinaries(
             TARGETS         pto_impl
             INSTALL_LIBDIR  ${CMAKE_INSTALL_PREFIX}/${ENABLE_FEATURE_PYTHON_FRONT_END}
