@@ -189,4 +189,102 @@ bool BufferPool::IsFull(const LocalBufferPtr tensor) {
     }
     return true;
 }
+
+bool BufferPool::IsFullWithoutRearrange(const size_t size) {
+    auto freeSize = GetMemSize() - GetAllocatedSize();
+    if (freeSize >= size) {
+        return false;
+    }
+    return true;
+}
+
+uint64_t BufferPool::GetAllocatedSize() {
+    uint64_t allocatedSize = 0;
+    for (auto &slice : bufferSlices) {
+        allocatedSize += slice.second.size;
+    }
+    return allocatedSize;
+}
+
+uint64_t BufferPool::GetBufferOffset(int memId) {
+    return bufferSlices.at(memId).offset;
+}
+
+uint64_t BufferPool::GetBufferSize(int memId) {
+    return bufferSlices.at(memId).size;
+}
+
+bool BufferPool::CheckBufferSlicesOverlap() {
+    if (bufferSlices.size() <= 1) {
+        return false;
+    }
+    std::vector<BufferSlice> items;
+    items.reserve(bufferSlices.size());
+    for (const auto& kv : bufferSlices) {
+        items.push_back(kv.second);
+    }
+    std::sort(items.begin(), items.end(), [](BufferSlice &a, BufferSlice &b) {
+        if (a.offset != b.offset) {
+            return a.offset < b.offset;
+        }
+        return a.offset + a.size < b.offset + b.size;
+    });
+    auto prevEnd = items[0].offset + items[0].size;
+    for (size_t i = 1; i < items.size(); ++i) {
+        if (items[i].offset < prevEnd) {
+            return true;
+        }
+        prevEnd = items[i].offset + items[i].size;
+    }
+    return false;
+}
+
+Status BufferPool::ModifyBufferRange(LocalBufferPtr localBuffer, size_t offset) {
+    // 调整localbuffer range
+    localBuffer->start = offset;
+    localBuffer->end = offset + localBuffer->size;
+    // 调整bufferslice range
+    auto it = bufferSlices.find(localBuffer->id);
+    if (it != bufferSlices.end()) {
+        it->second.offset = offset;
+    } else {
+        BufferSlice newSlice;
+        newSlice.size = localBuffer->size;
+        newSlice.offset = offset;
+        bufferSlices[localBuffer->id] = newSlice;
+    }
+    if (CheckBufferSlicesOverlap()) {
+        APASS_LOG_ERROR_F("OoOSchedule", "Tensor", "BufferSlices have overlap, ModifyBufferRange failed.");
+        return FAILED;
+    }
+    return SUCCESS;
+}
+
+void BufferPool::PrintStatus() {
+    ALOG_DEBUG_F("Buffer Status : ");
+    std::vector<int> memIdList;
+    for (auto &[memId, slice] : bufferSlices) {
+        (void)slice;
+        memIdList.push_back(memId);
+    }
+    std::sort(memIdList.begin(), memIdList.end(), [&](int a, int b) {
+        return bufferSlices[a].offset < bufferSlices[b].offset;
+    });
+
+    uint64_t lastEnd = 0;
+    for (auto memId : memIdList) {
+        auto &slice = bufferSlices[memId];
+        if (slice.offset != lastEnd) {
+            ALOG_ERROR_F("      |--- Space : [%llu, %llu], Size : %llu",
+                lastEnd, slice.offset, slice.offset - lastEnd);
+        }
+        ALOG_DEBUG_F("  |--- MemId : %d, Span : [%llu, %llu], Size : %llu", memId,
+            slice.offset, slice.offset + slice.size, slice.size);
+        lastEnd = slice.offset + slice.size;
+    }
+    if (lastEnd != memSize_) {
+        ALOG_DEBUG_F("      |--- Space : [%llu, %llu], Size : %llu",
+            lastEnd, memSize_, memSize_ - lastEnd);
+    }
+}
 }  // namespace npu::tile_fwk

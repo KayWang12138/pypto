@@ -65,6 +65,7 @@ class BufferPool {
     std::map<uint64_t, uint64_t> GenFreeIntervals(const std::map<uint64_t, uint64_t> &occupiedSpace);
     std::map<uint64_t, std::map<uint64_t, uint64_t>> FindFreeIntervals();
     bool IsFull(const LocalBufferPtr tensor);
+    bool IsFullWithoutRearrange(const size_t size);
     Status Free(const uint32_t tensorId);
     uint64_t GetMemSize();
 
@@ -74,6 +75,13 @@ class BufferPool {
     std::vector<uint32_t> GetBufferSlices();
     std::vector<int> GetAddrSortedBufs();
     bool isAllocate(const uint32_t tensorId);
+    uint64_t GetAllocatedSize();
+    uint64_t GetBufferOffset(int memId);
+    uint64_t GetBufferSize(int memId);
+    Status ModifyBufferRange(LocalBufferPtr localBuffer, size_t offset);
+    bool CheckBufferSlicesOverlap();
+    void PrintStatus();
+
   private:
     MemoryType memType_{MemoryType::MEM_UNKNOWN};
     uint64_t memSize_{0};

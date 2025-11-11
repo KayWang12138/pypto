@@ -235,6 +235,13 @@ private:
     bool CanAllocateAll(std::vector<LocalBufferPtr> tensors, MemoryType memType);
     int GetMemidAllocPriority(int memId);
 
+    // buffer rearrange
+    Status RearrangeBuffers(IssueEntryPtr issue, bool isGenSpillStage);
+    Status GenRearrangeCopyOp(MemoryType memType, int memId, int &newMemId);
+    Status UpdateMemId(int oldMemId, int newMemId);
+    void UpdateMoveOpAttr(Operation &moveOp, Operation &occupyOp);
+    IssueEntryPtr ProcessMoveOp(Operation &moveOp,  Operation &occupyOp, int oldMemId, int newMemId);
+
 public:
     Status Schedule(const std::vector<Operation *> &operations);
     OoOScheduler(Function &function) : function_(function) {}
