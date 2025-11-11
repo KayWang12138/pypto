@@ -57,7 +57,7 @@ Status CubeProcess::AddL1CopyInAttr(
         return SUCCESS;
     }
     if (L1CopyInOp->GetOpcode() != Opcode::OP_COPY_IN && L1CopyInOp->GetOpcode() != Opcode::OP_GATHER_IN_L1) {
-        APASS_LOG_DEBUG_F("PreGraphProcess:CubeProcess", "Operation", "L0 tesnor[%d] has invalid corresponding L1CopyInOp, please check.", input->magic);
+        APASS_LOG_ERROR_F("PreGraphProcess:CubeProcess", "Operation", "L0 tesnor[%d] has invalid corresponding L1CopyInOp, please check.", input->magic);
         return FAILED;
     }
     L1CopyInOp->SetAttribute(COPY_IS_NZ, nzValue);
@@ -86,7 +86,7 @@ Status CubeProcess::AddL1CopyInAttr(
         APASS_LOG_DEBUG_F("PreGraphProcess:CubeProcess", "Operation", "OP_L1_TO_L0_BT: Outer: %d, Inner: %d.", nValue, kValue);
         return SUCCESS;
     }
-    APASS_LOG_DEBUG_F("PreGraphProcess:CubeProcess", "Operation", "invalid Cube input %d, produced by %s[%d].", input->GetMagic(), copyInOp->GetOpcodeStr().c_str(),
+    APASS_LOG_ERROR_F("PreGraphProcess:CubeProcess", "Operation", "Invalid Cube input %d, produced by %s[%d].", input->GetMagic(), copyInOp->GetOpcodeStr().c_str(),
         copyInOp->GetOpMagic());
     return FAILED;
 }

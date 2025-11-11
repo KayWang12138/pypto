@@ -64,6 +64,7 @@ Status InplaceProcess::RunOnFunction(Function &function) {
     for (auto &op : opList) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             if (ValidMeaninglessOp(op) != SUCCESS) {
+                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Invalid view operation; Please check operands size and memory type.");
                 return FAILED;
             }
             ProcessView(function, op);
@@ -71,6 +72,7 @@ Status InplaceProcess::RunOnFunction(Function &function) {
         }
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
             if (ValidMeaninglessOp(op) != SUCCESS) {
+                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Invalid assemble operation; Please check operands size and memory type.");
                 return FAILED;
             }
             auto assembleOut = op.GetOOperands().front();
@@ -86,6 +88,7 @@ Status InplaceProcess::RunOnFunction(Function &function) {
         }
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
             if (ValidMeaninglessOp(op) != SUCCESS) {
+                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Invalid reshape operation; Please check operands size and memory type.");
                 return FAILED;
             }
             ProcessReshape(function, op);

@@ -79,7 +79,7 @@ Status CodegenPreproc::ProcessAxis(Operation &op, std::vector<bool> attr, bool i
         }
     }
     if (attr.size() != operands.size()) {
-        APASS_LOG_ERROR_F("CodegenPreproc", "Operation", "%d %s attr size is not equal to operands size, ProcessAxis failed.", op.GetOpMagic(), op.GetOpcodeStr().c_str());
+        APASS_LOG_ERROR_F("CodegenPreproc", "Operation", "%d %s attr size(%zu) is not equal to operands size(%zu), ProcessAxis failed.", op.GetOpMagic(), op.GetOpcodeStr().c_str(), attr.size(), operands.size());
         return FAILED;
     }
     for (size_t i = 0; i < operands.size(); ++i) {
@@ -101,7 +101,7 @@ Status CodegenPreproc::ForceCombineAxis(Function &func) const {
                 op.GetAttr(OP_ATTR_PREFIX + "input_combine_axis", attrIn);
                 op.SetAttribute(OpAttributeKey::inputCombineAxisDone, true);
                 if (ProcessAxis(op, attrIn, true) != SUCCESS) { 
-                    APASS_LOG_ERROR_F("CodegenPreproc", "Operation", "ForceCombineAxis failed at function ProcessAxis(input).");
+                    APASS_LOG_ERROR_F("CodegenPreproc", "Operation", "ForceCombineAxis failed at function ProcessAxis(input) for subProgram(%lu).", subProgram.first);
                     return FAILED; 
                 }
                 if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
@@ -115,7 +115,7 @@ Status CodegenPreproc::ForceCombineAxis(Function &func) const {
                 op.GetAttr(OP_ATTR_PREFIX + "output_combine_axis", attrOut);
                 op.SetAttribute(OpAttributeKey::outputCombineAxisDone, true);
                 if (ProcessAxis(op, attrOut, false) !=SUCCESS) { 
-                    APASS_LOG_ERROR_F("CodegenPreproc", "Operation", "ForceCombineAxis failed at function ProcessAxis(out).");
+                    APASS_LOG_ERROR_F("CodegenPreproc", "Operation", "ForceCombineAxis failed at function ProcessAxis(out) for subProgram(%lu).", subProgram.first);
                     return FAILED; 
                 }
                 if (op.GetOpcode() == Opcode::OP_COPY_IN) {

@@ -40,7 +40,8 @@ Status Pass::CreateLogFolder(const std::string &topFolder, size_t i) const {
     passFolder_ = passFolder_ + "/Pass_" + ss.str() + "_" + name_;
     bool res = CreateDir(passFolder_);
     if (res == false) {
-        ALOG_WARN_F("Failed to create directory: [%s].", passFolder_.c_str());
+        ALOG_ERROR_F("Failed to create directory: [%s].",
+        passFolder_.c_str());
         return FAILED;
     }
     return SUCCESS;

@@ -69,12 +69,15 @@ Status PreGraphProcessChecker::DoPostCheck(Function &function) {
     std::unordered_set<std::shared_ptr<LogicalTensor>> checkedTensors;
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE && PostCheckAssemble(function, op) != SUCCESS) {
+            ALOG_ERROR_F("PostCheckAssemble failed.");
             return FAILED;
         }
         if (op.GetOpcode() == Opcode::OP_VIEW && PostCheckView(function, op) != SUCCESS) {
+            ALOG_ERROR_F("PostCheckView failed.");
             return FAILED;
         }
         if (op.GetOpcode() == Opcode::OP_RESHAPE && PostCheckReshape(function, op) != SUCCESS) {
+            ALOG_ERROR_F("PostCheckReshape failed.");
             return FAILED;
         }
         for (const std::shared_ptr<LogicalTensor> &inputTensor : op.GetIOperands()) {
@@ -83,6 +86,7 @@ Status PreGraphProcessChecker::DoPostCheck(Function &function) {
             }
             checkedTensors.insert(inputTensor);
             if (PostCheckHelpFunc(*inputTensor) != SUCCESS) {
+                ALOG_ERROR_F("PostCheckHelpFunc inputTensor failed.");
                 return FAILED;
             }
         }
@@ -92,6 +96,7 @@ Status PreGraphProcessChecker::DoPostCheck(Function &function) {
             }
             checkedTensors.insert(outputTensor);
             if (PostCheckHelpFunc(*outputTensor) != SUCCESS) {
+                ALOG_ERROR_F("PostCheckHelpFunc outputTensor failed.");
                 return FAILED;
             }
         }

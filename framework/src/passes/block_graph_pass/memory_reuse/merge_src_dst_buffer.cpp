@@ -119,7 +119,7 @@ std::pair<bool, Status> SrcDstBufferMergeImpl::CheckHasInplaced(const Operation 
     if (oriOps->HasAttr(OpAttributeKey::inplaceInfo)) {
         std::map<int, int> inplaceInfo;
         if (!oriOps->GetAttr(OpAttributeKey::inplaceInfo, inplaceInfo)) {
-            APASS_LOG_ERROR_F("SrcDstBufferMerge", "Tensor", "Get inplaceInfo error.");
+            APASS_LOG_ERROR_F("SrcDstBufferMerge", "Tensor", "OriOps:%s[%d] get inplaceInfo error.", oriOps->GetOpcodeStr().c_str(), oriOps->GetOpMagic());
             return std::make_pair(false, FAILED);
         }
         for (auto &[iIdx, oIdx] : inplaceInfo) {
@@ -261,7 +261,7 @@ bool SrcDstBufferMergeImpl::CanSrcDstReuse(const Operation *ops,
     // 确保复用UB buffer后不会被覆写
     auto iter = tensorConsumers_.find(ioperand->memoryrange.memId);
     if (iter != tensorConsumers_.end() && iter->second.size() > 1) {
-        APASS_LOG_DEBUG_F("SrcDstBufferMerge", "Operation", "Has more 1 output.");
+        APASS_LOG_DEBUG_F("SrcDstBufferMerge", "Operation", "Op:%s[%d] has more than 1 output.", ops->GetOpcodeStr().c_str(), ops->GetOpMagic());
         return false;
     }
     return true;

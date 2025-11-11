@@ -24,7 +24,7 @@ Status StaticSubgraphProcessor::BuildGraph(Function &function) {
     inGraph.resize(operationViewer.size());
     outGraph.resize(operationViewer.size());
     if (BuildInGraph(function) != SUCCESS) {
-        APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "Build failed, Please check above for detailed inforamtion.");
+        APASS_LOG_ERROR_F("StaticSubgraphProcessor", "Operation", "Build failed, Please check above for detailed inforamtion.");
         return FAILED;
     }
     for (size_t i = 0; i < operationViewer.size(); i++) {
@@ -45,7 +45,7 @@ Status StaticSubgraphProcessor::BuildInGraph(Function &function) {
             for (auto &parentOp : inOperand->GetProducers()) {
                 auto [parentSeqNo, found] = operationViewer.FindOpPosition(*parentOp);
                 if (EdgeIndexCheck(found, parentSeqNo, inGraph.size()) != SUCCESS) {
-                    APASS_LOG_ERROR_F("SubgraphToFunction", "Tensor", "error inserting op magic %d in function %d %s to inGraph", parentOp->GetOpMagic(), function.GetFuncMagic(),
+                    APASS_LOG_ERROR_F("StaticSubgraphProcessor", "Tensor", "Error inserting op magic %d in function %d %s to inGraph.", parentOp->GetOpMagic(), function.GetFuncMagic(),
                         function.GetRawName().c_str());
                     return FAILED;
                 }
@@ -56,7 +56,7 @@ Status StaticSubgraphProcessor::BuildInGraph(Function &function) {
         for (const auto &inControlOp : operationViewer[i].GetInCtrlOperations()) {
             auto [parentSeqNo, found] = operationViewer.FindOpPosition(*inControlOp);
             if (EdgeIndexCheck(found, parentSeqNo, inGraph.size()) != SUCCESS) {
-                APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "Error inserting op magic %d in function %d %s to inGraph", inControlOp->GetOpMagic(), function.GetFuncMagic(),
+                APASS_LOG_ERROR_F("StaticSubgraphProcessor", "Operation", "Error inserting op magic %d in function %d %s to inGraph.", inControlOp->GetOpMagic(), function.GetFuncMagic(),
                     function.GetRawName().c_str());
                 return FAILED;
             }
@@ -68,11 +68,11 @@ Status StaticSubgraphProcessor::BuildInGraph(Function &function) {
 
 Status StaticSubgraphProcessor::EdgeIndexCheck(const bool found, const int newIndex, const size_t graphSize) const {
     if (!found) {
-        APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "Op magic not found; please check if the input is correct.");
+        APASS_LOG_ERROR_F("StaticSubgraphProcessor", "Operation", "Op magic not found; please check if the input is correct.");
         return FAILED;
     }
     if (static_cast<size_t>(newIndex) >= graphSize) {
-        APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "Parent index %d is larger than operations_ size %zu", newIndex, graphSize);
+        APASS_LOG_ERROR_F("StaticSubgraphProcessor", "Operation", "Parent index %d is larger than operations_ size %zu.", newIndex, graphSize);
         return FAILED;
     }
     return SUCCESS;
@@ -88,7 +88,7 @@ SubfuncTopologyInfoTy StaticSubgraphProcessor::ConstructSubgraphTopologyInfo(
     PrintColorGraph(function);
     EraseRedundantColorEdges(function);
     PrintColorGraph(function);
-    APASS_LOG_INFO_F("SubgraphToFunction", "Operation", "colorOutGraph size %zu", colorOutGraph.size());
+    APASS_LOG_INFO_F("StaticSubgraphProcessor", "Operation", "ColorOutGraph size %zu.", colorOutGraph.size());
     for (size_t i = 0; i < colorOutGraph.size(); i++) {
         setType succESgs;
         int eSgId = i;
@@ -133,18 +133,18 @@ void StaticSubgraphProcessor::BuildColorGraph(Function &function) {
 }
 
 void StaticSubgraphProcessor::PrintColorGraph(const Function &function) {
-    APASS_LOG_INFO_F("SubgraphToFunction", "Operation", "********** Color Graph **********\n");
+    APASS_LOG_DEBUG_F("StaticSubgraphProcessor", "Operation", "Color Graph: ");
     for (size_t i = 0; i < function.GetTotalSubGraphCount(); i++) {
-        ALOG_INFO_F("%zu: %zu, %zu", i, colorInGraph[i].size(), colorOutGraph[i].size());
-        ALOG_INFO_F("%s", IntVecToStr(colorInGraph[i]).c_str());
-        ALOG_INFO_F("%s", IntVecToStr(colorOutGraph[i]).c_str());
+        APASS_LOG_DEBUG_F("StaticSubgraphProcessor", "Graph", "%zu: %zu, %zu.", i, colorInGraph[i].size(), colorOutGraph[i].size());
+        APASS_LOG_DEBUG_F("StaticSubgraphProcessor", "Graph", "ColorInGraph: %s.", IntVecToStr(colorInGraph[i]).c_str());
+        APASS_LOG_DEBUG_F("StaticSubgraphProcessor", "Graph", "ColorOutGraph: %s.", IntVecToStr(colorOutGraph[i]).c_str());
     }
     int inCount = 0, outCount = 0;
     for (size_t i = 0; i < function.GetTotalSubGraphCount(); i++) {
         inCount += colorInGraph[i].size();
         outCount += colorOutGraph[i].size();
     }
-   APASS_LOG_INFO_F("SubgraphToFunction", "Operation", "total in: %d, total out: %d\n", inCount, outCount);
+    APASS_LOG_DEBUG_F("StaticSubgraphProcessor", "Operation", "Total in: %d, total out: %d.", inCount, outCount);
 }
 
 inline void findAllReachableNodes(int start_node, std::vector<std::vector<int>>& outGraph,
@@ -196,7 +196,7 @@ void StaticSubgraphProcessor::EraseRedundantColorEdges(const Function &function)
     // Erase redundant edges
     for (size_t i = 0; i < colorNum; i++) {
         std::sort(redundantColorOutGraph[i].begin(), redundantColorOutGraph[i].end());
-        APASS_LOG_INFO_F("SubgraphToFunction", "Operation", "Redundant outgraph of %d is %s", i, IntVecToStr(redundantColorOutGraph[i]).c_str());
+        APASS_LOG_INFO_F("StaticSubgraphProcessor", "Operation", "Redundant outgraph of %d is %s.", i, IntVecToStr(redundantColorOutGraph[i]).c_str());
         std::vector<int> newGraph;
         // update color_in_graph
         size_t j = 0U;
@@ -261,7 +261,7 @@ void StaticSubgraphProcessor::ProcessColorGraph(Function &function) {
 Status StaticSubgraphProcessor::SetReadySubGraphType(Function* rootFunc, size_t i, const CoreType &esgGraphType) {
     // Verify topology index is valid
     if (i >= rootFunc->topoInfo_.topology_.size()) {
-        APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "Topology index %zu out of bounds (total topology entries: %zu)", i, rootFunc->topoInfo_.topology_.size());
+        APASS_LOG_ERROR_F("StaticSubgraphProcessor", "Operation", "Topology index %zu out of bounds (total topology entries: %zu).", i, rootFunc->topoInfo_.topology_.size());
         return FAILED;
     }
     if (rootFunc->topoInfo_.topology_[i].readyState != 0) {
@@ -269,21 +269,21 @@ Status StaticSubgraphProcessor::SetReadySubGraphType(Function* rootFunc, size_t 
     }
     if (esgGraphType == CoreType::AIC) {
         rootFunc->EmplaceReadySubGraphIds(CoreType::AIC, i);
-        APASS_LOG_DEBUG_F("SubgraphToFunction", "Operation", "!!!!!Esg %zu is ready aic sub graph.", i);
+        APASS_LOG_DEBUG_F("StaticSubgraphProcessor", "Operation", "Esg %zu is ready aic sub graph.", i);
         return SUCCESS;
     }
     if (esgGraphType == CoreType::AIV) {
         rootFunc->EmplaceReadySubGraphIds(CoreType::AIV, i);
-        APASS_LOG_DEBUG_F("SubgraphToFunction", "Operation", "!!!!!Esg %zu is ready aiv sub graph.", i);
+        APASS_LOG_DEBUG_F("StaticSubgraphProcessor", "Operation", "Esg %zu is ready aiv sub graph.", i);
         return SUCCESS;
     }
     if (esgGraphType == CoreType::AICPU) {
         rootFunc->EmplaceReadySubGraphIds(CoreType::AICPU, i);
-        APASS_LOG_DEBUG_F("SubgraphToFunction", "Operation", "!!!!!Esg %zu is ready aicpu sub graph.", i);
+        APASS_LOG_DEBUG_F("StaticSubgraphProcessor", "Operation", "Esg %zu is ready aicpu sub graph.", i);
         return SUCCESS;
     }
     if (esgGraphType == CoreType::MIX) {
-        APASS_LOG_DEBUG_F("SubgraphToFunction", "Operation", "!!!!!Esg %zu is ready mix sub graph.", i);
+        APASS_LOG_DEBUG_F("StaticSubgraphProcessor", "Operation", "Esg %zu is ready mix sub graph.", i);
     }
     return SUCCESS;
 }
@@ -298,10 +298,10 @@ void StaticSubgraphProcessor::UpdateTopoEntry(size_t i, int eSgId, int realOutDe
         if (op->HasAttr(extParamKey)) {
             std::vector<int64_t> extParams = op->GetVectorIntAttribute(extParamKey);
             topo.UpdateEntry(static_cast<uint32_t>(op->GetOpcode()), extParams.size(), extParams);
-            APASS_LOG_DEBUG_F("SubgraphToFunction", "Operation", "######## UpdateEntry size=%lu ######", extParams.size());
+            APASS_LOG_DEBUG_F("StaticSubgraphProcessor", "Operation", "UpdateEntry size=%lu.", extParams.size());
         }
     }
-    APASS_LOG_DEBUG_F("SubgraphToFunction", "Operation", "######## AddEntry ESgId %d ReadyOrNot %d %zu %d ######", eSgId, readyOrNot, topo.readyIds_.size(),
+    APASS_LOG_DEBUG_F("StaticSubgraphProcessor", "Operation", "AddEntry ESgId %d ReadyOrNot %d %zu %d.", eSgId, readyOrNot, topo.readyIds_.size(),
         topo.readyIds_[0]);
 }
 
@@ -323,7 +323,7 @@ Status StaticSubgraphProcessor::SetESGGraphType(int32_t cubeOpCnt, int32_t vecOp
     }
     esgGraphType = CoreType::MIX;
     if (IsCVSeparatePlatform() == true) {
-        APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "Get CoreType::MIX in C-V separate platform");
+        APASS_LOG_ERROR_F("StaticSubgraphProcessor", "Operation", "Get CoreType::MIX in C-V separate platform.");
         return FAILED;
     }
     return SUCCESS;
@@ -334,11 +334,11 @@ Status StaticSubgraphProcessor::DetermineGraphType(size_t i, CoreType &esgGraphT
     int32_t vecOpCnt = 0;
     int32_t aicpuOpCnt = 0;
     if (CalOpCnt(i, cubeOpCnt, vecOpCnt, aicpuOpCnt) != SUCCESS) {
-        APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "CalOpCnt failed.");
+        APASS_LOG_ERROR_F("StaticSubgraphProcessor", "Operation", "CalOpCnt failed.");
         return FAILED;
     }
     if (SetESGGraphType(cubeOpCnt, vecOpCnt, aicpuOpCnt, esgGraphType) != SUCCESS) {
-        APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "SetESGGraphType failed.");
+        APASS_LOG_ERROR_F("StaticSubgraphProcessor", "Operation", "SetESGGraphType failed.");
         return FAILED;
     }
     if(GetNList()[i].size() == 1 && GetNList()[i][0]->GetOpcode() == Opcode::OP_RESHAPE && colorInGraph[i].size() != 0){
@@ -350,13 +350,13 @@ Status StaticSubgraphProcessor::DetermineGraphType(size_t i, CoreType &esgGraphT
 Status StaticSubgraphProcessor::SetCallAttrGraphType(Function* rootFunc, size_t i, const CoreType &esgGraphType) {
     // Get the operation and verify it exists
     if (i >= rootFunc->Operations().size()) {
-        APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "Operation index %zu out of bounds (total operations: %zu)", i, rootFunc->Operations().size());
+        APASS_LOG_ERROR_F("StaticSubgraphProcessor", "Operation", "Operation index %zu out of bounds (total operations: %zu).", i, rootFunc->Operations().size());
         return FAILED;
     }
     auto& op = rootFunc->Operations()[i];
     auto callAttr = dynamic_cast<CallOpAttribute *>(op.GetOpAttribute().get());
     if (callAttr == nullptr) {
-        APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "Failed to get CallOpAttribute for operation %zu (opcode: %s)", i, op.GetOpcodeStr().c_str());
+        APASS_LOG_ERROR_F("StaticSubgraphProcessor", "Operation", "Failed to get CallOpAttribute for operation %zu (opcode: %s).", i, op.GetOpcodeStr().c_str());
         return FAILED;
     }
     callAttr->invokeInfo_->SetGraphType(esgGraphType);
@@ -398,22 +398,22 @@ Status StaticSubgraphProcessor::CalOpCnt(size_t i, int32_t &cubeOpCnt, int32_t &
 
 Status StaticSubgraphProcessor::HandleReadyStates(Function* rootFunc) {
     if (rootFunc == nullptr) {
-        APASS_LOG_ERROR_F("SubgraphToFunction", "Tensor", "Root function is nullptr");
+        APASS_LOG_ERROR_F("StaticSubgraphProcessor", "Tensor", "Root function is nullptr.");
         return FAILED;
     }
     auto& nList = GetNList();
     for (size_t i = 0; i < nList.size(); i++) {
         CoreType esgGraphType = CoreType::AIV;
         if (DetermineGraphType(i, esgGraphType) != SUCCESS) {
-            APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "DetermineGraphType failed");
+            APASS_LOG_ERROR_F("StaticSubgraphProcessor", "Operation", "DetermineGraphType failed.");
             return FAILED;
         }
         if (SetCallAttrGraphType(rootFunc, i, esgGraphType) != SUCCESS) {
-            APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "SetCallAttrGraphType failed");
+            APASS_LOG_ERROR_F("StaticSubgraphProcessor", "Operation", "SetCallAttrGraphType failed.");
             return FAILED;
         }
         if (SetReadySubGraphType(rootFunc, i, esgGraphType) != SUCCESS) {
-            APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "SetReadySubGraphType failed");
+            APASS_LOG_ERROR_F("StaticSubgraphProcessor", "Operation", "SetReadySubGraphType failed.");
             return FAILED;
         }
     }
