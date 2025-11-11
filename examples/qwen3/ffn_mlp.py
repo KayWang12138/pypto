@@ -21,13 +21,17 @@ def main():
     test_qwen3_ffn()
 
 
-def ffn_golden_torch(expand_x, expert_tokens, weight_gate_upper, weight_down_proj):
-    bs = expand_x.shape[0] // expert_tokens.shape[0]
+def ffn_golden_torch(topk, expand_x, expert_tokens, weight_gate_upper, weight_down_proj):
+    bs = expand_x.shape[0] // topk
     h = expand_x.shape[1]
     d = weight_down_proj.shape[2]
     # 使用 torch.zeros_like 创建相同形状和类型的张量
     out = torch.zeros_like(expand_x)
 
+    print("bs: ", bs)
+    print("h: ", h)
+    print("d: ", d)
+    print("expert_tokens: ", expert_tokens)
     start_idx = 0  # 初始化起始索引
     for i in range(expert_tokens.shape[0]):
         token_count = expert_tokens[i].item()
@@ -87,15 +91,6 @@ def gen_input(b, s, topk, per_expert_num, hidden_size, intermediate_size, dtypes
     return expand_x_tensor, expert_tokens_tesnor, token_acc_table_tensor, weight_gate_upper_tensor, weight_down_proj_tensor, out_tensor
 
 
-def gen_expert_weight_by_idx(expert_num, hidden_size, intermediate_size):
-    w13 = np.zeros((expert_num, hidden_size, intermediate_size * 2))
-    w2 = np.zeros((expert_num, hidden_size, intermediate_size))
-    for i in range(expert_num):
-        w13[i] = np.ones((1, hidden_size, intermediate_size * 2)) * (i + 1) / 10
-        w2[i] = np.ones((1, hidden_size, intermediate_size)) * (i + 1) / 10
-    return w13.astype(np.float32), w2.astype(np.float32)
-
-
 def expert_infer_base(**kwargs):
     # 入参信息获取
     exp_idx = kwargs.get("exp_idx")
@@ -111,35 +106,32 @@ def expert_infer_base(**kwargs):
     ffn_out = kwargs.get("ffn_out")
 
     hidden_size = expand_x.shape[1]
-    intermediate_size = weight_down_proj.shape[2]
+    intermediate_size = weight_down_proj.shape[1]
     x_Dtype = expand_x.dtype
 
     # 计算对应激活专家的偏移地址
     pto.set_vec_tile_shapes(32)
     # 获取该激活专家的当前loop参与计算的token
-    token_num = expert_tokens[exp_idx, ]
+    token_num = expert_tokens[exp_idx,]
     # 获取该激活专家的当前loop参与计算的token的偏移地址
     expand_x_offset_start = token_acc_table[exp_idx, ]
     expand_x_offset = [expand_x_offset_start + token_loop_idx * loop_base, 0]
     # 获取该激活专家权重的偏移地址
-    weight_13_offset = [exp_idx, 0, 0]
-    weight_2_offset = [exp_idx, 0, 0]
+    weight_13_offset = [exp_idx * (intermediate_size * 2), 0]
+    weight_2_offset = [exp_idx * hidden_size, 0]
     # 获取当前专家的实际token数
     cur_valid_size = (token_num - token_loop_idx * loop_base).min(loop_base)
     pto.set_vec_tile_shapes(vec_tile_shape[0], vec_tile_shape[1])
     x = pto.view(expand_x, [loop_base, hidden_size], expand_x_offset, valid_shape=[cur_valid_size, hidden_size])
-
     # 获取当前专家的weght_13[up_weight + gate_weight]
-    pto.set_vec_tile_shapes(1, vec_tile_shape[0], vec_tile_shape[1])
-    ffn_weight = pto.view(weight_gate_upper, [1, intermediate_size * 2, hidden_size], weight_13_offset)
-    ffn_weight_2d = pto.reshape(ffn_weight, [intermediate_size * 2, hidden_size])
+    ffn_weight_2d = pto.view(weight_gate_upper, [intermediate_size * 2, hidden_size], weight_13_offset)
 
     # # 获取当前专家的weght_2[down_weight]
-    down_proj = pto.view(weight_down_proj, [1, hidden_size, intermediate_size], weight_2_offset)
-    down_proj_2d = pto.reshape(down_proj, [hidden_size, intermediate_size])
+    down_proj_2d = pto.view(weight_down_proj, [hidden_size, intermediate_size], weight_2_offset)
 
     # up_proj的matmul计算
     pto.set_cube_tile_shapes([cube_tile_shape[0], cube_tile_shape[0]], [cube_tile_shape[1], cube_tile_shape[1]], [cube_tile_shape[2], cube_tile_shape[2]])
+    pto.set_matrix_size({loop_base, ffn_weight_2d.shape[1], ffn_weight_2d.shape[0]})
     gate = pto.matmul(x, ffn_weight_2d, pto.DT_FP32, b_trans=True)
 
     pto.set_vec_tile_shapes(vec_tile_shape[0], vec_tile_shape[1])
@@ -153,12 +145,12 @@ def expert_infer_base(**kwargs):
     swiglu_out = pto.div(gate_left, swiglu_c)
 
     # SwiGlu计算结果与gate_right相乘
-    pto.set_vec_tile_shapes(vec_tile_shape[0], vec_tile_shape[1])
     swiglu = pto.mul(swiglu_out, gate_right)
 
     # down_proj的matmul计算
-    pto.set_cube_tile_shapes([cube_tile_shape[0], cube_tile_shape[0]], [cube_tile_shape[1], cube_tile_shape[1]], [cube_tile_shape[2], cube_tile_shape[2]])
     swish_fp16 = pto.cast(swiglu, x_Dtype)
+    pto.set_cube_tile_shapes([cube_tile_shape[0], cube_tile_shape[0]], [cube_tile_shape[1], cube_tile_shape[1]], [cube_tile_shape[2], cube_tile_shape[2]])
+    pto.set_matrix_size({loop_base, down_proj_2d.shape[1], down_proj_2d.shape[0]})
     out = pto.matmul(swish_fp16, down_proj_2d, x_Dtype, b_trans=True)
     pto.assemble(out, expand_x_offset, ffn_out)
 
@@ -182,11 +174,21 @@ def moe_main(inputs, outputs):
     weight_gate_upper = inputs[3]
     weight_down_proj = inputs[4]
     ffn_out = outputs[0]
+    weight_dtype = weight_down_proj.dtype
 
     with pto.function("FFN", [expand_x, expert_tokens, token_acc_table, weight_gate_upper, weight_down_proj], [ffn_out]):
         def inside_main_function():
             # 获取当前device上专家总数
             expert_num = expert_tokens.shape[0]
+            w1_2d_shape = (weight_gate_upper.shape[0] * weight_gate_upper.shape[1], weight_gate_upper.shape[2])
+            w2_2d_shape = (weight_down_proj.shape[0] * weight_down_proj.shape[1], weight_down_proj.shape[2])
+            w1_2d = pto.tensor(w1_2d_shape, weight_dtype, "w1_2d", format=pto.TileOpFormat.TILEOP_NZ)
+            w2_2d = pto.tensor(w2_2d_shape, weight_dtype, "w2_2d", format=pto.TileOpFormat.TILEOP_NZ)
+            for _ in pto.loop(0, 1, 1, name="LOOP_RESHAPE", idx_name="reshape_inplace_1"):
+                def loop_one():
+                    pto.reshape_inplace(weight_gate_upper, w1_2d)
+                    pto.reshape_inplace(weight_down_proj, w2_2d)
+                loop_one()
             for exp_idx in pto.loop(0, expert_num, 1, name="LOOP_FFN_L0", idx_name="exp_idx"):
                 def loop_expert(exp_idx):
                     # 获取激活专家的token数
@@ -202,8 +204,8 @@ def moe_main(inputs, outputs):
                                 expand_x=expand_x,
                                 expert_tokens=expert_tokens,
                                 token_acc_table=token_acc_table,
-                                weight_gate_upper=weight_gate_upper,
-                                weight_down_proj=weight_down_proj,
+                                weight_gate_upper=w1_2d,
+                                weight_down_proj=w2_2d,
                                 ffn_out=ffn_out,
                                 vec_tile_shape=vec_tile_shape,
                                 cube_tile_shape=cube_tile_shape,
@@ -216,11 +218,11 @@ def moe_main(inputs, outputs):
 def test_qwen3_ffn():
     dtype = torch.bfloat16
     # parameter config
-    b = 1
+    b = 2
     s = 1
     intermediate_size = 768
     hidden_size = 2048
-    per_expert_num = 8
+    per_expert_num = 16
     topk = 8
     device_id = int(os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
@@ -233,9 +235,8 @@ def test_qwen3_ffn():
     pto.runtime._device_synchronize()
 
     # golden
-    golden = ffn_golden_torch(inputs_list[0], inputs_list[1], inputs_list[3], inputs_list[4])
+    golden = ffn_golden_torch(topk, inputs_list[0], inputs_list[1], inputs_list[3], inputs_list[4])
     assert_allclose(np.array(inputs_list[5].cpu().flatten().tolist()), np.array(golden.cpu().flatten().tolist()), rtol=0.005, atol=0.005)
-
 
 if __name__ == "__main__":
     main()
