@@ -101,8 +101,9 @@ Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes,
 Tensor Assemble(const std::vector<std::pair<Tensor, std::vector<int64_t>>> &tensors);
 void Assemble(const Tensor &tensor, const std::vector<SymbolicScalar> &dynOffset, Tensor &dest);
 
-Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, const std::vector<SymbolicScalar> &validShape={});
-void ReshapeInplace(const Tensor &operand, Tensor &dst);
+Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, const std::vector<SymbolicScalar> &validShape={}, const bool inplace=false);
+Tensor Reshape(const Tensor &operand, const std::initializer_list<int64_t> &dstshape, const std::initializer_list<SymbolicScalar> &validShape={}, const bool inplace=false);
+Tensor Reshape(const Tensor &operand, const std::vector<SymbolicScalar> &dstShape, const bool inplace);
 
 Tensor Load(const Tensor &src, const Tensor &offsets);
 

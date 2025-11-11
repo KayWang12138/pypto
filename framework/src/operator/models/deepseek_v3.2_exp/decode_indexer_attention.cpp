@@ -89,8 +89,8 @@ void DecodeIndexerAttention(const Tensor &x, const Tensor &wDq, const Tensor &wU
  
         LOOP("LOOP_RESHAPE_IN12", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(1)) {
             (void) batchId;
-            ReshapeInplace(kvCacheOut, kNope2D);
-            ReshapeInplace(krCacheOut, kRope2D);
+            kNope2D = Reshape(kvCacheOut, {GetInputShape(kvCache, 0) * blockSize * n2, dn}, true);
+            kRope2D = Reshape(krCacheOut, {GetInputShape(krCache, 0) * blockSize * n2, dr}, true);
         }
  
         Tensor queryOut(dType, {b * s1, params.idx_n_heads, params.idx_head_dim}, "qOut");
@@ -106,8 +106,8 @@ void DecodeIndexerAttention(const Tensor &x, const Tensor &wDq, const Tensor &wU
         Tensor weightOut4D(dType, {b, s1, params.idx_n_heads}, "weightOut4D");
         LOOP("Indexer_prolog_reshape_3D_2_4D", FunctionType::DYNAMIC_LOOP, unUsedIdx, LoopRange(1)) {
             (void)unUsedIdx;
-            ReshapeInplace(queryOut, queryOut4D);
-            ReshapeInplace(weightOut, weightOut4D);
+            queryOut4D = Reshape(queryOut, {b, s1, params.idx_n_heads, params.idx_head_dim}, true);
+            weightOut4D = Reshape(weightOut, {b, s1, params.idx_n_heads}, true);
         } // 后续需要优化掉
  
         config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
@@ -126,8 +126,8 @@ void DecodeIndexerAttention(const Tensor &x, const Tensor &wDq, const Tensor &wU
         Tensor qRope(dType, {b * s1 * n1, dr}, "qRope");
         LOOP("LOOP_RESHAPE_SEL_ATTN", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(1)) {
             (void) batchId;
-            ReshapeInplace(queryNopeOut, qNope);
-            ReshapeInplace(queryRopeOut, qRope);
+            qNope = Reshape(queryNopeOut, {b * s1 * n1, dn}, true);
+            qRope = Reshape(queryRopeOut, {b * s1 * n1, dr}, true);
         }
  
         SparseFlashAttentionCompute(qNope, qRope, gatherResTmp, gatherResTmp, actSeqs, n1, n2, softmaxScale, params.topk,

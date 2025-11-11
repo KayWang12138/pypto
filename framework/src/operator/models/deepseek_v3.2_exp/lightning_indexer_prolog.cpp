@@ -161,13 +161,13 @@ void LightningIndexerPrologCompute(
     Tensor lnBias2D(inputs.lnBias.GetStorage()->Datatype(), {1, inputs.lnBias.GetShape()[0]});
 
     LOOP("LOOP_RESHAPE_IN", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(1)) {
-        (void)batchId;
-        ReshapeInplace(inputs.x, x2D);
-        ReshapeInplace(inputs.qr, qr2D);
-        ReshapeInplace(inputs.cos, cos2D);
-        ReshapeInplace(inputs.sin, sin2D);
-        ReshapeInplace(inputs.lnW, lnW2D);
-        ReshapeInplace(inputs.lnBias, lnBias2D);
+        (void) batchId;
+        x2D = Reshape(inputs.x, {b * seq, dim}, true);
+        qr2D = Reshape(inputs.qr, {b * seq, qLoraRank}, true);
+        cos2D = Reshape(inputs.cos, {b * seq, ropeHeadDim}, true);
+        sin2D = Reshape(inputs.sin, {b * seq, ropeHeadDim}, true);
+        lnW2D = Reshape(inputs.lnW, {1, inputs.lnW.GetShape()[0]}, true);
+        lnBias2D = Reshape(inputs.lnBias, {1, inputs.lnBias.GetShape()[0]}, true);
     }
 
     std::set<int> unrollList = {1, 2, 4, 8, 16, 32};
@@ -211,16 +211,18 @@ void LightningIndexerPrologCompute(
                 Tensor kNope =
                     View(k, {tileBS, headDim - ropeHeadDim}, {actBS, headDim - ropeHeadDim}, {0, ropeHeadDim});
 
-                TileShape::Current().SetVecTile(v1Tile[NUM_VALUE_0], v1Tile[NUM_VALUE_1], v1Tile[NUM_VALUE_2]);
-                cos2D = View(cos2D, {tileBS, ropeHeadDim}, {actBS, ropeHeadDim}, {bsIdx, 0});
-                sin2D = View(sin2D, {tileBS, ropeHeadDim}, {actBS, ropeHeadDim}, {bsIdx, 0});
+                TileShape::Current().SetVecTile(
+                    v1Tile[NUM_VALUE_0], v1Tile[NUM_VALUE_1], v1Tile[NUM_VALUE_2]);
+                auto cos2DView = View(cos2D, {tileBS, ropeHeadDim}, {actBS, ropeHeadDim}, {bsIdx, 0});
+                auto sin2DView = View(sin2D, {tileBS, ropeHeadDim}, {actBS, ropeHeadDim}, {bsIdx, 0});
+
                 config::SetSemanticLabel("QRope");
                 // qRope{tileBS * headNum, ropeHeadDim}  cos{tileBS, ropeHeadDim}   sin{tileBS, ropeHeadDim}
                 config::SetSemanticLabel("KRope");
-                auto qRoped = Rope3D(qRope, cos2D, sin2D, params.ropeTileConfigs); // {tileBS, headNum, ropeHeadDim}
+                auto qRoped = Rope3D(qRope, cos2DView, sin2DView, params.ropeTileConfigs); // {tileBS, headNum, ropeHeadDim}
                 TileShape::Current().SetVecTile(v1Tile[NUM_VALUE_0], v1Tile[NUM_VALUE_1]);
                 // kRope{tileBS, ropeHeadDim}  cos{tileBS, ropeHeadDim}   sin{tileBS, ropeHeadDim}
-                auto kRoped = Rope(kRope, cos2D, sin2D, params.ropeTileConfigs); // {tileBS, ropeHeadDim}
+                auto kRoped = Rope(kRope, cos2DView, sin2DView, params.ropeTileConfigs); // {tileBS, ropeHeadDim}
 
                 config::SetSemanticLabel("KAssemble");
                 TileShape::Current().SetVecTile(tileBS, NUM_128, NUM_128, NUM_128);

@@ -100,7 +100,7 @@ TEST_F(LoopUnrollTest, test_only_reshape2) {
         Tensor qReshape(DT_FP32, {bSq, d}, "qReshape");
         LOOP("LOOP_RESHAPE", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(0,1,1), {}, true) {
             (void) batchId;
-            ReshapeInplace(q, qReshape);
+            qReshape = Reshape(q, {bSq, d}, true);
         }
 
         LOOP("L0_AF", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0)), {}, true) {

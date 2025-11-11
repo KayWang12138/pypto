@@ -269,8 +269,12 @@ class Tensor:
         """
         pto.assemble(input, offsets, self)
 
-    def reshape(self, shape: List[int], *, valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None) -> 'Tensor':
-        return pto.reshape(self, shape, valid_shape=valid_shape)
+    def reshape(self, shape: List[int], *, valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None,
+                inplace: bool = False) -> 'Tensor':
+        if inplace:
+            return pto.reshape(self, shape, inplace=inplace)
+        else:
+            return pto.reshape(self, shape, valid_shape=valid_shape, inplace=inplace)
 
     def unsqueeze(self, dim: int) -> 'Tensor':
         return pto.unsqueeze(self, dim)

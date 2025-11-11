@@ -177,14 +177,14 @@ void QuantLightningIndexerPrologCompute(const QuantIndexerPrologInput &inputs, Q
     Tensor wProj(inputs.wProj.GetDataType(), {h, headNum}, "wProj", TileOpFormat::TILEOP_NZ);
     LOOP("LOOP_RESHAPE", FunctionType::DYNAMIC_LOOP, tIdx, LoopRange(1)) {
         (void)tIdx;
-        ReshapeInplace(inputs.kCacheIndex, kCacheIndex);
-        ReshapeInplace(inputs.wQbScale, wQbScale);
-        ReshapeInplace(inputs.lnGammaK, gamma2D);
-        ReshapeInplace(inputs.lnBetaK, beta2D);
+        kCacheIndex = Reshape(inputs.kCacheIndex, {t, 1}, true);
+        wQbScale = Reshape(inputs.wQbScale, {1, headNum * headDim}, true);
+        gamma2D = Reshape(inputs.lnGammaK, {1, inputs.lnGammaK.GetShape()[0]}, true);
+        beta2D = Reshape(inputs.lnBetaK, {1, inputs.lnBetaK.GetShape()[0]}, true);
         // NZ Reshape
-        ReshapeInplace(inputs.wQb, wQb);
-        ReshapeInplace(inputs.wk, wk);
-        ReshapeInplace(inputs.wProj, wProj);
+        wQb = Reshape(inputs.wQb, {qLoraRank, headNum * headDim}, true);
+        wk = Reshape(inputs.wk, {h, headDim}, true);
+        wProj = Reshape(inputs.wProj, {h, headNum}, true);
     }
 
     auto unrollList = configs.unrollList;

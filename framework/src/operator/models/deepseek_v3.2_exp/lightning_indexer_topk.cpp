@@ -102,12 +102,12 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
 
     LOOP("INPUT_4D_2_2D", FunctionType::DYNAMIC_LOOP, unUsedIdx, LoopRange(1)) {
         (void)unUsedIdx;
-        ReshapeInplace(query, query2D);
-        ReshapeInplace(key, key2D);
-        ReshapeInplace(weights, weight2D);
+        query2D = Reshape(query, {b * s1 * indexN1, indexD}, true);
+        key2D = Reshape(key, {blockNum * blockSize, n2 * indexD}, true);
+        weight2D = Reshape(weights, {b * s1 * indexN1, 1}, true);
         if (isQuant) {
-            ReshapeInplace(*qScale, qScale2D);
-            ReshapeInplace(*kScale, kScale2D);
+            qScale2D = Reshape(*qScale, {b * s1 * indexN1, 1}, true);
+            kScale2D = Reshape(*kScale, {blockNum * blockSize, n2}, true);
         }
     }
 

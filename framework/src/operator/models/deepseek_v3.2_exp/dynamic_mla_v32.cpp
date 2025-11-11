@@ -247,18 +247,18 @@ void MlaPrologComputeV32(const Tensor &tokenX, const Tensor &wDq, const Tensor &
  
     LOOP("LOOP_MLA_RESHAPE", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(1)) {
         (void) batchId;
-        ReshapeInplace(tokenX, x2D);
-        ReshapeInplace(cos, cos2D);
-        ReshapeInplace(sin, sin2D);
-        ReshapeInplace(cacheIndex, kCacheIndex2D);
+        x2D = Reshape(tokenX, {b * s, h}, true);
+        cos2D = Reshape(cos, {b * s, qkRopeHeadDim}, true);
+        sin2D = Reshape(sin, {b * s, qkRopeHeadDim}, true);
+        kCacheIndex2D = Reshape(cacheIndex, {b * s, 1}, true);
     }
  
     Tensor kvCacheRes(kvCache.GetDataType(), {blockNum * blockSize * n2, kvLoraRank}, "kvCacheRes");
     Tensor krCacheRes(krCache.GetDataType(), {blockNum * blockSize * n2, qkRopeHeadDim}, "krCacheRes");
     LOOP("MLA_RESHAPE", FunctionType::DYNAMIC_LOOP, unUsedIdx, LoopRange(1)) {
         (void)unUsedIdx;
-        ReshapeInplace(kvCache, kvCacheRes);
-        ReshapeInplace(krCache, krCacheRes);
+        kvCacheRes = Reshape(kvCache, {blockNum * blockSize * n2, kvLoraRank}, true);
+        krCacheRes = Reshape(krCache, {blockNum * blockSize * n2, qkRopeHeadDim}, true);
     }
     
     LOOP("MLA_BS_Loop", FunctionType::DYNAMIC_LOOP, bsIdx, LoopRange(0, bsLoop, 1)) {
@@ -296,9 +296,9 @@ void MlaPrologComputeV32(const Tensor &tokenX, const Tensor &wDq, const Tensor &
         Assemble(qNopeNewTrans, outputOffset, queryOut);   // output1
  
         Tensor qPeView = View(qTmp, {tileBS, n, qkRopeHeadDim}, {0, 0, qkNopeHeadDim});
-        cos2D = View(cos2D, {tileBS, qkRopeHeadDim}, {bsOffset, 0});
-        sin2D = View(sin2D, {tileBS, qkRopeHeadDim}, {bsOffset, 0});
-        auto qRopeView = Rope3DV2(qPeView, cos2D, sin2D, ropeCfg);
+        auto cos2DView = View(cos2D, {tileBS, qkRopeHeadDim}, {bsOffset, 0}); 
+        auto sin2DView = View(sin2D, {tileBS, qkRopeHeadDim}, {bsOffset, 0});
+        auto qRopeView = Rope3DV2(qPeView, cos2DView, sin2DView, ropeCfg);
         config::SetSemanticLabel("Assemble_qRope");
         TileShape::Current().SetVecTile({1, 32, 64});  // 32, 64
         Assemble(qRopeView, outputOffset, queryRopeOut);  // output2
@@ -307,7 +307,7 @@ void MlaPrologComputeV32(const Tensor &tokenX, const Tensor &wDq, const Tensor &
         TileShape::Current().SetVecTile({2,512});
         config::SetSemanticLabel("RotaryPosEmb");
         Tensor kPeView = View(kvTmp, {tileBS, qkRopeHeadDim}, {0, kvLoraRank}); // [b*s,qkRopeHeadDim]
-        auto kRopeView = RopeV2(kPeView, cos2D, sin2D, ropeCfg); 
+        auto kRopeView = RopeV2(kPeView, cos2DView, sin2DView, ropeCfg); 
  
         Tensor kRopeRes = Reshape(kRopeView, {tileBS ,1, 1, qkRopeHeadDim});
                     /******** krCache ********/

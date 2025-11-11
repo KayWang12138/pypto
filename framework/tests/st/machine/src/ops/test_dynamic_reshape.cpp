@@ -70,7 +70,7 @@ TEST_F(DynamicReshapeTest, test_only_reshape) {
         Tensor qReshape(DT_FP32, {bSq, d}, "qReshape");
         LOOP("LOOP_RESHAPE", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(0,1,1), {}, true) {
             (void) batchId;
-            ReshapeInplace(bfRes, qReshape);
+            qReshape = Reshape(bfRes, {bSq, d}, true);
         }
 
         LOOP("L0_AF", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0)), {}, true) {
@@ -156,7 +156,7 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape) {
         Tensor qReshape(DT_FP32, {GetInputShape(q, 0) * GetInputShape(q, 1), d}, "qReshape");
         LOOP("LOOP_RESHAPE", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(0,1,1), {}, true) {
             (void) batchId;
-            ReshapeInplace(q, qReshape);
+            qReshape = Reshape(q, {GetInputShape(q, 0) * GetInputShape(q, 1), d}, true);
         }
 
         LOOP("L0_AF", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0)), {}, true) {
@@ -229,7 +229,7 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape2) {
         Tensor qReshape(DT_FP32, {GetInputShape(q, 0) * GetInputShape(q, 1), d}, "qReshape");
         LOOP("LOOP_RESHAPE", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(0,1,1), {}, true) {
             (void) batchId;
-            ReshapeInplace(bfRes, qReshape);
+            qReshape = Reshape(bfRes, {GetInputShape(q, 0) * GetInputShape(q, 1), d}, true);
         }
 
         LOOP("L0_AF", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0)), {}, true) {

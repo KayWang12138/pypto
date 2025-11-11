@@ -158,9 +158,15 @@ void bind_operation(py::module &m) {
         py::arg("src"), py::arg("dType"), py::arg("dstShape"), py::arg("validShape") = std::vector<SymbolicScalar>{},
         "Tensor vector duplicate.");
     m.def("reshape", [](const Tensor &input, const std::vector<int64_t> &dstShape,
-        const std::vector<SymbolicScalar> validShape) { return npu::tile_fwk::Reshape(input, dstShape, validShape); },
+        const std::vector<SymbolicScalar> validShape, const bool inplace) 
+        { return npu::tile_fwk::Reshape(input, dstShape, validShape, inplace); },
         py::arg("input"), py::arg("dstShape"), py::arg("validShape") = std::vector<SymbolicScalar>{},
+        py::arg("inplace") = false,
         "Tensor reshape.");
+    m.def("reshape", [](const Tensor &input, const std::vector<SymbolicScalar> &dstShape,
+        const bool inplace) { return npu::tile_fwk::Reshape(input, dstShape, inplace); },
+        py::arg("input"), py::arg("dstShape"), py::arg("inplace"),
+        "Tensor reshapeInplace.");
     m.def(
         "reduce",
         [](const std::vector<Tensor> &aggregation, const ReduceMode &reduceMode) {

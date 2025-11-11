@@ -1105,7 +1105,9 @@ static bool ReshapeNeedCopy(const Tensor &operand) {
     return false;
 }
 
-Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, const std::vector<SymbolicScalar> &validShape) {
+Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, const std::vector<SymbolicScalar> &validShape, const bool inplace, const void *lr) {
+    DECLARE_TRACERX(lr);
+    ASSERT(!inplace) << "The 'inplace' parameter muster be false !!!";
     if (operand.GetShape() == dstshape) {
         return operand;
     }
@@ -1130,8 +1132,17 @@ Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, cons
     }
 }
 
-void ReshapeInplace(const Tensor &operand, Tensor &dst) {
-    ASSERT(operand.Format() == dst.Format()) << "Tensor format not match";
+Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, const std::vector<SymbolicScalar> &validShape, const bool inplace) {
+    return Reshape(operand, dstshape, validShape, inplace, __builtin_return_address(0));
+}
+
+Tensor Reshape(const Tensor &operand, const std::initializer_list<int64_t> &dstshape, const std::initializer_list<SymbolicScalar> &validShape, const bool inplace) {
+    return Reshape(operand, std::vector<int64_t>(dstshape), std::vector<SymbolicScalar>(validShape), inplace, __builtin_return_address(0));
+}
+
+Tensor Reshape( const Tensor &operand, const std::vector<SymbolicScalar> &dstShape, const bool inplace) {
+    ASSERT(inplace) << "The 'inplace' parameter muster be true !!!";
+    Tensor dst(operand.GetStorage()->Datatype(), dstShape, "", operand.Format());
     auto slotManager = Program::GetInstance().GetTensorSlotManager();
     auto &operation = Program::GetInstance().GetCurrentFunction()->AddOperation(Opcode::OP_RESHAPE, {operand.GetStorage()}, {dst.GetStorage()});
     operation.SetAttribute(OP_ATTR_PREFIX + "isInplace", true);
@@ -1141,6 +1152,7 @@ void ReshapeInplace(const Tensor &operand, Tensor &dst) {
         ALOG_ERROR_F("dst is an output for main function !!!");
         slotManager->SetSameSlot(operand, dst);
     }
+    return dst;
 }
 
 void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode opCode,

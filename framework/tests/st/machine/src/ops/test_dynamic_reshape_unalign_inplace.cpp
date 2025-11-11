@@ -85,7 +85,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, merge_two_dynamic_dim) {
         Tensor qReshape(DT_FP32, {GetInputShape(q, 0) * GetInputShape(q, 1), d}, "qReshape");
         LOOP("LOOP_RESHAPE", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(0,1,1), {}, true) {
             (void) batchId;
-            ReshapeInplace(q, qReshape);
+            qReshape = Reshape(q, {GetInputShape(q, 0) * GetInputShape(q, 1), d}, true);
         }
         LOOP("L0_AF", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0)), {}, true) {
             LOOP("L1", FunctionType::DYNAMIC_LOOP, sqId, LoopRange(GetInputShape(q, 1)), {}, true) {
@@ -126,7 +126,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_exchange_dim) {
         // reshape
         LOOP("L1", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)){
             (void)index;
-            ReshapeInplace(q, q_reshape);
+            q_reshape = Reshape(q, {GetInputShape(q, 1), GetInputShape(q, 0), m}, true);
         }
         // view + op
         LOOP("L2", FunctionType::DYNAMIC_LOOP, loopIdx, LoopRange(GetInputShape(q_reshape, 0))){
@@ -166,7 +166,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_reshape_special) {
         // reshape
         LOOP("L1", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)){
             (void)index;
-            ReshapeInplace(q, q_reshape);
+            q_reshape = Reshape(q, {GetInputShape(q, 0) * GetInputShape(q, 1) / 4, 4, m}, true);
         }
         // view + op
         LOOP("L2", FunctionType::DYNAMIC_LOOP, loopIdx, LoopRange(GetInputShape(q_reshape, 0))){
@@ -213,7 +213,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_op_reshape_op) {
         // reshape
         LOOP("ReshapeInplace", FunctionType::DYNAMIC_LOOP, idx, LoopRange(1)){
             (void)idx;
-            ReshapeInplace(addTmp, qReshape);
+            qReshape = Reshape(addTmp, {GetInputShape(addTmp, 0) * GetInputShape(addTmp, 1) , d}, true);
         }
         // view + op
         int offSet = 32;
@@ -287,7 +287,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_src_op_dst_op) {
         Tensor q_reshape(DT_FP32, {GetInputShape(q, 0) * GetInputShape(q, 1), m});
         LOOP("reshapeInplace", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)){
             (void)index;
-            ReshapeInplace(q, q_reshape);
+            q_reshape = Reshape(q, {GetInputShape(q, 0) * GetInputShape(q, 1), m}, true);
         }
         LOOP("srcOp", FunctionType::DYNAMIC_LOOP, indx, LoopRange(GetInputShape(q, 1))){
             Tensor tmp0 = View(q, {sq, 1, m}, {0, indx, 0});

@@ -1313,7 +1313,7 @@ def matmul(input, mat2, out_dtype, *, a_trans=False, b_trans=False, c_matrix_nz=
 
 @op_wrapper
 def reshape(input: Tensor, shape: List[int], *,
-            valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None) -> Tensor:
+            valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None, inplace: bool = False) -> Tensor:
     """
     Reshape the input Tensor into a new tensor with the specific shape.
 
@@ -1328,6 +1328,11 @@ def reshape(input: Tensor, shape: List[int], *,
     valid_shape : List[int], optional
         An optional parameter specifying the valid shape for partial reshapeing or padding.
         If provided, it may be used to define the effective part of the new shape.
+    
+    inplace : bool, optional
+        An optional parameter determines memory sharing behavior between input and out tensors.
+        If True, performs the reshape operation in-place, sharing the same storage with the input tensor.
+        If False, creates a new tensor with the reshaped shape. 
 
     Return
     ------
@@ -1350,11 +1355,22 @@ def reshape(input: Tensor, shape: List[int], *,
                [3],
                [3],
                [4]]
+    
+    # inplace
+    x = pto.tensor([2, 2], pto.DT_FP32)
+    y = pto.reshape(x, [1, 4], inplace=True)
+
+    input x: [[1, 2],
+              [3, 4]]
+    output y: [1, 2, 3, 4]
     """
-    if valid_shape is None:
-        out = pto_impl.reshape(input, shape)
+    if inplace:
+        out = pto_impl.reshape(input, to_syms(shape), inplace)
     else:
-        out = pto_impl.reshape(input, shape, valid_shape)
+        if valid_shape is None:
+            out = pto_impl.reshape(input, shape)
+        else:
+            out = pto_impl.reshape(input, shape, valid_shape)
     return out
 
 
