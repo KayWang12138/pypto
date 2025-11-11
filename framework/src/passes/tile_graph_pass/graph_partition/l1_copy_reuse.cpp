@@ -251,15 +251,28 @@ inline void HashUpdate(std::unordered_map<uint64_t, std::vector<int>> &hashMap,
     }
 }
 
-std::vector<int> L1CopyInReuseRunner::SetNumLR() {
-    std::vector<int> numLRList(hashMap.size(), numLR);
+Status L1CopyInReuseRunner::SetNumLR(std::vector<int> &numLRList) {
+    numLRList.assign(hashMap.size(), numLR);
     for (auto &entry : numLRMap) {
         int i = entry.first;
-        if ( i >= 0 && i < static_cast<int>(hashMap.size())) {
-            numLRList[i] = entry.second;
+        if (i >= 0 && i < static_cast<int>(hashMap.size())) {
+            for (auto& [hashcolor, order] : hashOrder) {
+                if (order != i) continue;
+                auto itHashMap = hashMap.find(hashcolor);
+                if (itHashMap == hashMap.end()) {
+                    APASS_LOG_ERROR_F("L1CopyInReuseMerge", "Operation", "entry %d not fount in hashMap.", hashcolor);
+                    return FAILED;
+                }
+                if (entry.second < 0) {
+                    APASS_LOG_ERROR_F("L1CopyInReuseMerge", "Operation", "Invalid merge count for "
+                                        "Subgraph hash %d: merge count=%d, please check.", hashcolor, entry.second);
+                    return FAILED;
+                }
+                numLRList[i] = entry.second;
+            }
         }
     }
-    return numLRList;
+    return SUCCESS;
 }
 
 Status L1CopyInReuseRunner::L1MergeProcess(OperationsViewer &opOriList, std::vector<std::vector<int>> &colorNode,
@@ -305,7 +318,12 @@ Status L1CopyInReuseRunner::Phase1(Function &func, int color, std::vector<std::v
     // 针对matmul的L1 copy reuse进行子图合并
     auto opOriList = func.Operations();
     std::map<std::vector<uint64_t>, int> l1InputList;
-    std::vector<int> numLRList = SetNumLR();  //L1Reuse参数设置
+    std::vector<int> numLRList;
+    //L1Reuse参数设置
+    if (SetNumLR(numLRList) == FAILED) {
+        APASS_LOG_ERROR_F("L1CopyInReuseMerge", "Operation", "Invalid configuration: %s.", "l1ReuseMap");
+        return FAILED;
+    } 
     std::vector<int> mergedNum(color, 1);
     for (int i = 0; i < color; i++) {
         int tmpColor = -1;
@@ -343,15 +361,28 @@ Status L1CopyInReuseRunner::Phase1(Function &func, int color, std::vector<std::v
     return SUCCESS;
 }
 
-std::vector<int> L1CopyInReuseRunner::SetNumDB() {
-    std::vector<int> numDBList(hashMap.size(), numDB_);
+Status L1CopyInReuseRunner::SetNumDB(std::vector<int> &hashMergeNum) {
+    hashMergeNum.assign(hashMap.size(), numDB_);
     for (auto &entry : numDBMap) {
         int i = entry.first;
-        if ( i >= 0 && i < static_cast<int>(hashMap.size())) {
-            numDBList[i] = entry.second;
+        if (i >= 0 && i < static_cast<int>(hashMap.size())) {
+            for (auto& [hashcolor, order] : hashOrder) {
+                if (order != i) continue;
+                auto itHashMap = hashMap.find(hashcolor);
+                if (itHashMap == hashMap.end()) {
+                    APASS_LOG_ERROR_F("L1CopyInReuseMerge", "Operation", "entry %d not fount in hashMap.", hashcolor);
+                    return FAILED;
+                }
+                if (entry.second < 1) {
+                    APASS_LOG_ERROR_F("L1CopyInReuseMerge", "Operation", "Invalid merge count for "
+                                        "Subgraph hash %d: merge count=%d, please check.", hashcolor, entry.second);
+                    return FAILED;
+                }
+                hashMergeNum[i] = entry.second;
+            }
         }
     }
-    return numDBList;
+    return SUCCESS;
 }
 
 inline std::vector<int> AdjustNumDBCore(int color, int numDB) {
@@ -406,7 +437,12 @@ Status L1CopyInReuseRunner::Run(Function &func, int color, std::vector<std::vect
         }
         HashUpdate(hashMap, hashOrder, color, hashColor);
     }
-    std::vector<int> hashMergeNum = SetNumDB();  //NBuffer参数设置
+    std::vector<int> hashMergeNum;  
+    //NBuffer参数设置
+    if (SetNumDB(hashMergeNum) == FAILED) {
+        APASS_LOG_ERROR_F("L1CopyInReuseMerge", "Operation", "Invalid configuration: %s.", "cubeNBufferMap");
+        return FAILED;
+    } 
     CubeMergeProcess(colorNode, opOriList, hashMergeNum, colorCopyIn);
     if (MergeDupL1CopyIn(func, colorNode, color) == FAILED) {
         APASS_LOG_ERROR_F("L1CopyInReuseMerge", "Operation", "Run: MergeDupL1CopyIn failed.");
@@ -449,16 +485,7 @@ void L1CopyInReuseRunner::RemoveUselessViews(Function &func) const {
     }
 }
 
-Status L1CopyInReuseMerge::L1CopyInReuse(Function &func) const {
-    auto numLR = func.paramConfigs_.l1ReuseNum;
-    auto numLRMap = func.paramConfigs_.l1ReuseMap;
-    auto numDB = func.paramConfigs_.cubeNBufferNum;
-    auto numDBMap = func.paramConfigs_.cubeNBufferMap;
-    APASS_LOG_INFO_F("L1CopyInReuseMerge", "Operation", "L1 Reuse Setting: %d.", numLR);
-    if (numLR == 0 && numDB == 1 && numLRMap.size() == 0 && numDBMap.size() == 0) {
-        APASS_LOG_INFO_F("L1CopyInReuseMerge", "Operation", "Init Param default.");
-        return SUCCESS;
-    }
+Status L1CopyInReuseMerge::InitColorNode(Function &func, std::vector<std::vector<int>> &colorNode) const {
     int colorMax{0};
     std::set<int> colorSet;
     auto opOriList = func.Operations();
@@ -479,7 +506,7 @@ Status L1CopyInReuseMerge::L1CopyInReuse(Function &func) const {
         }
     }
     int color = colorMax + 1;
-    std::vector<std::vector<int>> colorNode(color);
+    colorNode.resize(color);
     for (size_t i = 0; i < opOriList.size(); i++) {
         if (opOriList[i].IsNOP()) {
             continue;
@@ -487,6 +514,30 @@ Status L1CopyInReuseMerge::L1CopyInReuse(Function &func) const {
         auto opColor = opOriList[i].GetSubgraphID();
         colorNode[opColor].push_back(i);
     }
+    return SUCCESS;
+}
+
+Status L1CopyInReuseMerge::L1CopyInReuse(Function &func) const {
+    auto numLR = func.paramConfigs_.l1ReuseNum;
+    auto numLRMap = func.paramConfigs_.l1ReuseMap;
+    auto numDB = func.paramConfigs_.cubeNBufferNum;
+    auto numDBMap = func.paramConfigs_.cubeNBufferMap;
+    APASS_LOG_INFO_F("L1CopyInReuseMerge", "Operation", "L1 Reuse Setting: %d", numLR);
+    if (numLR < 0 || numDB < 1) {
+        APASS_LOG_ERROR_F("L1CopyInReuseMerge", "Operation", 
+                            "Invalid parameters: l1ReuseNum must be >= 0, cubeNBufferNum must be >= 1. "
+                            "(got l1ReuseNum=%d, cubeNBufferNum=%d)", numLR, numDB);
+        return FAILED;
+    }
+    if (numLR == 0 && numDB == 1 && numLRMap.size() == 0 && numDBMap.size() == 0) {
+        APASS_LOG_INFO_F("L1CopyInReuseMerge", "Operation", "Init Param default.");
+        return SUCCESS;
+    }
+    std::vector<std::vector<int>> colorNode;
+    if(InitColorNode(func, colorNode) == FAILED) {
+        return FAILED;
+    }
+
     std::vector<Operation *> opList;
     for (auto &op : func.Operations()) {
         opList.emplace_back(&op);
@@ -494,7 +545,7 @@ Status L1CopyInReuseMerge::L1CopyInReuse(Function &func) const {
     auto inOutGraph = RescheduleUtils::GetInOutGraphs(opList, func.GetFuncMagic());
     auto &inGraph = inOutGraph[0];
     L1CopyInReuseRunner runner(inGraph);
-    if (runner.Run(func, color, colorNode) == FAILED) {
+    if (runner.Run(func, colorNode.size(), colorNode) == FAILED) {
         APASS_LOG_ERROR_F("L1CopyInReuseMerge", "Operation", "L1CopyInReuse: Run failed.");
         return FAILED;
     }

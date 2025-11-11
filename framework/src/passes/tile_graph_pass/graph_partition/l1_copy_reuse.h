@@ -53,8 +53,8 @@ class L1CopyInReuseRunner {
                           std::vector<int> &mergedNum, int &i);
     void CubeMergeProcess(std::vector<std::vector<int>> &colorNode, OperationsViewer &opOriList,
                           std::vector<int> &hashMergeNum, std::vector<int> &colorCopyIn);
-    std::vector<int> SetNumLR();
-    std::vector<int> SetNumDB();
+    Status SetNumLR(std::vector<int> &numLRList);
+    Status SetNumDB(std::vector<int> &numDBList);
     const std::vector<std::vector<int>> &inGraph;
     std::unordered_map<int, int> replacedCopyMap_;
     std::unordered_map<int, int> tensormagic2Op_;
@@ -73,6 +73,7 @@ public:
     ~L1CopyInReuseMerge() override = default;
 
 private:
+    Status InitColorNode(Function &func, std::vector<std::vector<int>> &colorNode) const;
     Status L1CopyInReuse(Function &func) const;
     Status RunOnFunction(Function &function) override {
         APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> Start L1CopyInReuseMerge.");
