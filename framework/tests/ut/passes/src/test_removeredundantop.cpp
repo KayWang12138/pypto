@@ -200,7 +200,6 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest3) {
     currFunctionPtr->outCasts_.push_back(outCast2);
 
     RemoveRedundantOp removeredundantpass;
-    EXPECT_NE(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(removeredundantpass.RunOnFunction(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
 
@@ -255,7 +254,6 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest4) {
     currFunctionPtr->outCasts_.push_back(outCast3);
 
     RemoveRedundantOp removeredundantpass;
-    EXPECT_NE(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
     EXPECT_NE(removeredundantpass.PreCheck(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(removeredundantpass.RunOnFunction(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
@@ -630,6 +628,102 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest13) {
         }
     }
     EXPECT_EQ(expand_num, kNumZero);
+}
+
+/*
+TESTRemoveAssembleDDR2
+inCast{8,16}->view->ubTensor1{8,16}->assemble->outCast1{8,16}
+all delete
+*/
+TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest14) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestRemoveRedundantOp", "TestRemoveRedundantOp", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    // Prepare the graph
+    std::vector<int64_t> shape = {kNumEight, kNumExpFour};
+    auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    inCast->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
+    auto ubTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ubTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "outCast", NodeType::OUTCAST);
+    outCast->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
+    
+    currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor});
+    currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {ubTensor}, {outCast});
+    
+    currFunctionPtr->inCasts_.push_back(inCast);
+    currFunctionPtr->outCasts_.push_back(outCast);
+
+    RemoveRedundantOp removeredundantpass;
+    EXPECT_EQ(removeredundantpass.PreCheck(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundantpass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
+
+    uint32_t assemble_num = kNumZero;
+    uint32_t view_num = kNumZero;
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            ++assemble_num;
+        }
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            ++view_num;
+        }
+    }
+    EXPECT_EQ(assemble_num, kNumZero);
+    EXPECT_EQ(view_num, kNumZero);
+}
+
+/*
+TESTRemoveAssembleDDR3
+inCast1{8,16}->view->ubTensor1{16,16}->assemble->outCast1{16,16}
+inCast2{8,16}->view->
+all delete
+*/
+TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest15) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestRemoveRedundantOp", "TestRemoveRedundantOp", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    // Prepare the graph
+    std::vector<int64_t> shape1 = {kNumEight, kNumExpFour};
+    std::vector<int64_t> shape2 = {kNumExpFour, kNumExpFour};
+    std::vector<int64_t> offset1 = {kNumZero, kNumZero};
+    std::vector<int64_t> offset2 = {kNumEight, kNumZero};
+    auto inCast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    inCast1->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
+    auto inCast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    inCast2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
+    auto ubTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    ubTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2, TileOpFormat::TILEOP_ND, "outCast", NodeType::OUTCAST);
+    outCast->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
+    
+    auto &view1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast1}, {ubTensor});
+    view1.SetOpAttribute(std::make_shared<ViewOpAttribute>(offset1));
+    auto &view2 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast2}, {ubTensor});
+    view2.SetOpAttribute(std::make_shared<ViewOpAttribute>(offset2));
+    currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {ubTensor}, {outCast});
+    
+    currFunctionPtr->inCasts_.push_back(inCast1);
+    currFunctionPtr->inCasts_.push_back(inCast2);
+    currFunctionPtr->outCasts_.push_back(outCast);
+
+    RemoveRedundantOp removeredundantpass;
+    EXPECT_EQ(removeredundantpass.PreCheck(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundantpass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
+
+    uint32_t assemble_num = kNumZero;
+    uint32_t view_num = kNumZero;
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            ++assemble_num;
+        }
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            ++view_num;
+        }
+    }
+    EXPECT_EQ(assemble_num, kNumOne);
+    EXPECT_EQ(view_num, kNumTwo);
 }
 
 /*

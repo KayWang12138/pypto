@@ -92,13 +92,6 @@ Status RemoveRedundantOpChecker::PostCheckAssemble(const Operation &op) {
         return FAILED;
     }
     if (assemble_in->shape == assemble_out->shape) {
-        if (assemble_in->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
-            assemble_out->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-            APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", 
-            "PostCheck for assembleDDR (both input and output are memorytype DDR) op[%d] failed and Input and output has the same shape; Please check assembleDDR op[%d].", 
-            op.GetOpMagic(), op.GetOpMagic());
-            return FAILED;
-        }
         if (assemble_in->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
             assemble_out->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
             APASS_LOG_ERROR_F("RemoveRedundantOp", "Operation", 

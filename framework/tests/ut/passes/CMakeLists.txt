@@ -132,6 +132,8 @@ set(_CaseFilterList
         "TestRemoveRedundantOpPass.RemoveRedundantOpUTest7"
         "TestRemoveRedundantOpPass.RemoveRedundantOpUTest10"
         "TestRemoveRedundantOpPass.RemoveRedundantOpUTest11"
+        "TestRemoveRedundantOpPass.RemoveRedundantOpUTest14"
+        "TestRemoveRedundantOpPass.RemoveRedundantOpUTest15"
         "TestRemoveRedundantOpPass.RemoveRedundantOpSTest1"
         "TestRemoveRedundantOpPass.RemoveRedundantOpSTest2"
         "TestRemoveRedundantOpPass.RemoveRedundantOpSTest3"

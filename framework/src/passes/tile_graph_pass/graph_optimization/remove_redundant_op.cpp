@@ -49,6 +49,27 @@ bool EqualShapeInOut(const Operation &op) {
     return (equalShape && equalDynValidShape);
 }
 
+bool AllValidProdView(const Operation &op, const Function &function) {
+    bool allProdView = true;
+    for (auto &prod : function.FindProducers(op)) {
+        if (prod->GetOpcode() != Opcode::OP_VIEW) {
+            allProdView = false;
+        }
+    }
+    if (allProdView) {
+        allProdView = false;
+        for (auto &prod : function.FindProducers(op)) {
+            auto in = prod->iOperand.front();
+            auto out = prod->oOperand.front();
+            // 只要存在无法被删除的就表明allprodview为true(标记为无法删除)
+            if (!EqualShapeInOut(*prod) || in->GetMemoryTypeOriginal() != out->GetMemoryTypeOriginal()) {
+                allProdView = true;
+            }
+        }
+    }
+    return allProdView;
+}
+
 Status ProcessRegCopy(const Operation &op, const Function &function, bool &needToDelete) {
     auto regCopyIn = op.iOperand.front();
     auto regCopyOut= op.oOperand.front();
@@ -76,13 +97,9 @@ Status ProcessRegCopy(const Operation &op, const Function &function, bool &needT
 
 Status ProcessAssembleDDR(const Operation &op, const LogicalTensorPtr &assembleIn, const LogicalTensorPtr &assembleOut,
     Function &function, bool &needToDelete) {
-    bool allProdView{true};
-    for (auto &prod : function.FindProducers(op)) {
-        if (prod->GetOpcode() != Opcode::OP_VIEW) {
-            allProdView = false;
-        }
+    if (AllValidProdView(op, function)) {
+        return SUCCESS;
     }
-    if (allProdView) { return SUCCESS; }
     auto consumerOps = function.FindConsumers(op);
     if (!consumerOps.empty()) {
         for (auto &consumerOp : consumerOps) {
