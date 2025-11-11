@@ -18,6 +18,8 @@ import torch
 import numpy as np
 import torch
 from bfloat16 import bfloat16
+sys.path.append(str(Path(__file__).parents[4].joinpath("helper")))
+from config_gen import TestBase
 
 torch.manual_seed(0)
 
@@ -35,126 +37,88 @@ if __name__ == "__main__":
     from golden_register import GoldenRegister
 else:
     from golden_register import GoldenRegister
+    
 
-fp32 = np.float32
+class GenAttentionTest(TestBase):
+    def __init__(self):
+        super().__init__()
+        self.name = "GenAttentionTest"
 
+    def define_parameters(self, param_set: tuple):
+        self.setup_parameters(
+            b = int,
+            s1 = int,
+            n = int,
+            d = int,
+            dtype = torch.dtype
+        )
+        return self.load_parameters(param_set)
 
-def gen_gen_atten_golden_data(params, dtype, output_dir: Path):
-    if 'bfloat16' in str(dtype):
-        new_dtype = torch.bfloat16
-    elif 'float16' in str(dtype):
-        new_dtype = torch.float16
-    elif 'float32' in str(dtype):
-        new_dtype = torch.float32
-    else:
-        raise ValueError(f"Unsupposed dtype: {dtype}. Supported dtypes are bloat16, float16 and float32")
+    def define_input_tensors(self):
+        cmp_atten = torch.rand([self.b, self.s1, self.n, self.d], dtype=self.dtype).uniform_(-1, 1)
+        sel_atten = torch.rand([self.b, self.s1, self.n, self.d], dtype=self.dtype).uniform_(-1, 1)
+        win_atten = torch.rand([self.b, self.s1, self.n, self.d], dtype=self.dtype).uniform_(-1, 1)
+        gating_score = torch.rand([self.b, self.s1, self.n, 3], dtype=self.dtype).uniform_(-1, 1)
 
-    b = params.get("b")
-    n = params.get("n")
-    s1 = params.get("s1")
-    d = params.get("d")
+        self.setup_input_tensors(locals())
+        return cmp_atten, sel_atten, win_atten, gating_score
 
-    cmp_atten_shape = [b, s1, n, d]
-    sel_atten_shape = [b, s1, n, d]
-    win_atten_shape = [b, s1, n, d]
-    gating_score_shape = [b, s1, n, 3]
+    def core(self, cmp_atten, sel_atten, win_atten, gating_score):
+        cmp_atten_fp32 = cmp_atten.to(torch.float32)
+        sel_atten_fp32 = sel_atten.to(torch.float32)
+        win_atten_fp32 = win_atten.to(torch.float32)
+        gating_score_fp32 = gating_score.to(torch.float32)
+        w_cmp, w_slc, w_win = torch.chunk(gating_score_fp32, 3, dim=-1)
+        attention_out_fp32 = (w_cmp * cmp_atten_fp32 + w_slc * sel_atten_fp32 + w_win * win_atten_fp32)
+        attention_out = attention_out_fp32.to(self.dtype)
 
-    input_param_path = Path(output_dir, 'input_param.bin')
-    cmp_atten_path = Path(output_dir, 'cmp_atten.bin')
-    sel_atten_path = Path(output_dir, 'sel_atten.bin')
-    win_atten_path = Path(output_dir, 'win_atten.bin')
-    gating_score_path = Path(output_dir, 'gating_score.bin')
-    # output
-    attention_out_path = Path(output_dir, 'attention_out.bin')
-
-    # input_params
-    input_param = [b, s1, n, d]
-    input_param_array = np.array(input_param, dtype=np.int32)
-    input_param_array.tofile(input_param_path)
-
-    # gen input
-    cmp_atten = torch.rand(cmp_atten_shape, dtype=new_dtype).uniform_(-1, 1)
-    cmp_atten.to(torch.float32).numpy().astype(dtype).tofile(cmp_atten_path)
-    sel_atten = torch.rand(sel_atten_shape, dtype=new_dtype).uniform_(-1, 1)
-    sel_atten.to(torch.float32).numpy().astype(dtype).tofile(sel_atten_path)
-    win_atten = torch.rand(win_atten_shape, dtype=new_dtype).uniform_(-1, 1)
-    win_atten.to(torch.float32).numpy().astype(dtype).tofile(win_atten_path)
-    gating_score = torch.rand(gating_score_shape, dtype=new_dtype).uniform_(-1, 1)
-    gating_score.to(torch.float32).numpy().astype(dtype).tofile(gating_score_path)
-
-    cmp_atten_fp32 = cmp_atten.to(torch.float32)
-    sel_atten_fp32 = sel_atten.to(torch.float32)
-    win_atten_fp32 = win_atten.to(torch.float32)
-    gating_score_fp32 = gating_score.to(torch.float32)
-    w_cmp, w_slc, w_win = torch.chunk(gating_score_fp32, 3, dim=-1)
-    attention_out_fp32 = (w_cmp * cmp_atten_fp32 + w_slc * sel_atten_fp32 + w_win * win_atten_fp32)
-    attention_out = attention_out_fp32.to(torch.float32).numpy().astype(dtype)
-    attention_out.tofile(attention_out_path)
-
-
-def gen_gen_atten_test_s1(dtypes, output_dir: Path):
-    params = {
-        "b": 16,
-        "s1": 1,
-        "n": 128,
-        "d": 512,
-    }
-    gen_gen_atten_golden_data(params, dtypes, output_dir)
-
-
-def gen_gen_atten_test_s2(dtypes, output_dir: Path):
-    params = {
-        "b": 16,
-        "s1": 2,
-        "n": 128,
-        "d": 512,
-    }
-    gen_gen_atten_golden_data(params, dtypes, output_dir)
+        self.setup_output({'attention_out': attention_out})
 
 
 @GoldenRegister.reg_golden_func(
     case_names=[
         # MLA_prolog v2
-        "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_1_FP16",
-        "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_1_FP32",
-        "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_1_BF16",
-        "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_2_FP16",
-        "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_2_FP32",
-        "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_2_BF16",
+        "TestGenAtten.TestDynamicGenAtten_B_16_S1_1_FP16",
+        "TestGenAtten.TestDynamicGenAtten_B_16_S1_1_FP32",
+        "TestGenAtten.TestDynamicGenAtten_B_16_S1_1_BF16",
+        "TestGenAtten.TestDynamicGenAtten_B_16_S1_2_FP16",
+        "TestGenAtten.TestDynamicGenAtten_B_16_S1_2_FP32",
+        "TestGenAtten.TestDynamicGenAtten_B_16_S1_2_BF16",
     ]
 )
-
 def gen_gen_atten_data(case_name: str, output: Path) -> bool:
-    if case_name == "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_1_FP16":
-        gen_gen_atten_test_s1(np.float16, output)
-    elif case_name == "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_1_FP32":
-        gen_gen_atten_test_s1(np.float32, output)
-    elif case_name == "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_1_BF16":
-        gen_gen_atten_test_s1(bfloat16, output)
-    elif case_name == "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_2_FP16":
-        gen_gen_atten_test_s2(np.float16, output)
-    elif case_name == "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_2_FP32":
-        gen_gen_atten_test_s2(np.float32, output)
-    elif case_name == "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_2_BF16":
-        gen_gen_atten_test_s2(bfloat16, output)
-    else:
-        logging.error("Can't get func to gen golden, Case(%s)", case_name)
-        return False
-    return True
+    cases = {
+        "TestGenAtten.TestDynamicGenAtten_B_16_S1_1_FP16": (16, 1, 128, 512, torch.float16),
+        "TestGenAtten.TestDynamicGenAtten_B_16_S1_1_FP32": (16, 1, 128, 512, torch.float32),
+        "TestGenAtten.TestDynamicGenAtten_B_16_S1_1_BF16": (16, 1, 128, 512, torch.bfloat16),
+        "TestGenAtten.TestDynamicGenAtten_B_16_S1_2_FP16": (16, 2, 128, 512, torch.float16),
+        "TestGenAtten.TestDynamicGenAtten_B_16_S1_2_FP32": (16, 2, 128, 512, torch.float32),
+        "TestGenAtten.TestDynamicGenAtten_B_16_S1_2_BF16": (16, 2, 128, 512, torch.bfloat16),
+    }
+
+    test = GenAttentionTest()
+    if case_name in cases:
+        test.name = case_name
+        test.run(cases.get(case_name), output.parent)
+        return True
+    
+    logging.error("Can't get func to gen golden, Case(%s)", case_name)
+    return False
 
 
 def main() -> bool:
     # 用例名称
     case_name_list: List[str] = [
-        "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_1_FP16",
-        "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_1_FP32",
-        "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_1_BF16",
-        "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_2_FP16",
-        "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_2_FP32",
-        "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_2_BF16",
+        "TestGenAtten.TestDynamicGenAtten_B_16_S1_1_FP16",
+        "TestGenAtten.TestDynamicGenAtten_B_16_S1_1_FP32",
+        "TestGenAtten.TestDynamicGenAtten_B_16_S1_1_BF16",
+        "TestGenAtten.TestDynamicGenAtten_B_16_S1_2_FP16",
+        "TestGenAtten.TestDynamicGenAtten_B_16_S1_2_FP32",
+        "TestGenAtten.TestDynamicGenAtten_B_16_S1_2_BF16",
     ]
     # 函数调用
     ret: bool = True
+    g_src_root = Path(__file__).parents[7]
     for cs in case_name_list:
         output: Path = Path(g_src_root, "build/framework/tests/st/golden", cs).resolve()
         output.mkdir(parents=True, exist_ok=True)

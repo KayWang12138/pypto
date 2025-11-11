@@ -10,45 +10,32 @@
 # ======================================================================================================================
 """
 """
+import sys
 import os
-import pto
-import pytest
+from pathlib import Path
 import torch
-import numpy as np
-from numpy.testing import assert_allclose
-import torch_npu
+from op_rsqrt import op_rsqrt, op_rsqrt_golden
+sys.path.append(str(Path(os.path.abspath(__file__)).parents[3].joinpath("framework/tests/cmake/scripts/helper")))
+from pypto_test import TestBuilder
 
 
-def test_vector_operation_rsqrt():
-    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
-    torch.npu.set_device(device_id)
-    dtype = pto.DT_FP32
-    tiling = 32
-    n, m = tiling * 1, tiling * 1
-    shape = (n, m)
-    view_shape = (16, 16)
-    tile_shape = (8, 8)
-    pto.runtime._device_init()
-    pto.set_codegen_option("support_dynamic_unaligned", True)
-    a = pto.tensor(shape, pto.DT_FP32, "RSQRT_TENSOR_a")
-    b = pto.tensor(shape, pto.DT_FP32, "RSQRT_TENSOR_b")
+class RsqrtTest(TestBuilder):
+    def __init__(self, params: tuple, kernel, kernel_golden, tiling: int):
+        super().__init__(params, kernel, kernel_golden, tiling)
+        
+    def get_input_from_param(self):
+        n, m = self.tiling * 1, self.tiling * 1
+        a_tensor = torch.rand(n, m, dtype=torch.float32) * 100
+        self.setup_inputs(a_tensor)
+        self.set_tol(rtol=3e-3, atol=3e-3)
+        return (a_tensor, )
 
-    with pto.function("RSQRT", [a], [b]):
-        for b_idx in pto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_RSQRT_L0", idx_name="b_idx"):
-            for s_idx in pto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_RSQRT_L1", idx_name="s_idx"):
-                tile_a = pto.view(a, view_shape, [b_idx * view_shape[0], s_idx * view_shape[1]], valid_shape=[pto.min(pto.symbolic_scalar(n) - b_idx * view_shape[0],
-                                    pto.symbolic_scalar(n)), pto.min(pto.symbolic_scalar(m) - b_idx * view_shape[1],
-                                    pto.symbolic_scalar(m))])
-                pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
-                tile_a.move(pto.rsqrt(tile_a))
-                pto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
-                del tile_a
-    a_tensor = torch.rand(n, m, dtype=torch.float32) * 100  
-    b_tensor = torch.zeros(n, m, dtype=torch.float32)
 
-    pto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+def test():
+    st = RsqrtTest(((16, 16), (8, 8)), op_rsqrt, op_rsqrt_golden, tiling=32)
+    st()
 
-    golden = torch.rsqrt(a_tensor)  
 
-    assert_allclose(b_tensor.flatten(), golden.flatten(), rtol=3e-3, atol=3e-3)
-    pto.runtime._device_fini()
+if __name__ == "__main__":
+    st = RsqrtTest(((16, 16), (8, 8)), op_rsqrt, op_rsqrt_golden, tiling=32)
+    st()

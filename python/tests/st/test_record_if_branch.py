@@ -10,21 +10,33 @@
 # ======================================================================================================================
 """
 """
-import pto
 import sys
 import os
+from pathlib import Path
+import numpy as np
+from op_record_if_branch import op_record_if_branch, golden_if_branch
+sys.path.append(str(Path(os.path.abspath(__file__)).parents[3].joinpath("framework/tests/cmake/scripts/helper")))
+from pypto_test import TestBuilder
 
-def test_record_if_branch():
-    dtype = pto.DT_FP16
-    shape = (32, 32)
-    a = pto.tensor(shape, dtype, "tensor_a")
-    b = pto.tensor(shape, dtype, "tensor_b")
-    c = pto.tensor(shape, dtype, "tensor_c")
 
-    with pto.function("ADD_IF", [a, b], [c]):
-        pto.set_vec_tile_shapes(8, 8)
-        for k in pto.loop(2, name="LOOP", idx_name="k"):
-            if pto.cond(k < 10):
-                c = pto.add(a, b)
+class AddIfTest(TestBuilder):
+    def __init__(self, params: tuple, kernel, kernel_golden, tiling: int):
+        super().__init__(params, kernel, kernel_golden, tiling)
+        
+    def get_input_from_param(self):
+        shape = self.params[0]
+        n, m = shape
+        a_tensor = np.random.uniform(0, 100, [n, m]).astype(np.float32)
+        b_tensor = np.random.uniform(0, 100, [n, m]).astype(np.float32)
+        self.setup_inputs(a_tensor, b_tensor)
+        return (a_tensor, b_tensor)
 
-    assert isinstance(c, pto.tensor)
+
+def test():
+    st = AddIfTest(((32, 32), (8, 8)), op_record_if_branch, golden_if_branch, tiling=32)
+    st(False)
+
+
+if __name__ == "__main__":
+    st = AddIfTest(((32, 32), (8, 8)), op_record_if_branch, golden_if_branch, tiling=32)
+    st(False)
