@@ -164,7 +164,7 @@ class TestCaseLauncher:
             index = test_case_info["index"]
             case_op = test_case_info["operation"]
             test_case = f"Test{case_op}/{case_op}OperationTest.Test{case_op}/{index}"
-            golden_path = f"{self.work_path}/build/tests/st/golden/{test_case}"
+            golden_path = f"{self.work_path}/build/framework/tests/st/golden/{test_case}"
             if os.path.exists(golden_path + "/golden_desc.json"):
                 os.remove(golden_path + "/golden_desc.json")
             if not self.save_data:
