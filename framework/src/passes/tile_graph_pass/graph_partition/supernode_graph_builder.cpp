@@ -393,6 +393,137 @@ Status SuperNodeGraphBuilder::BuildOpGraph(const std::vector<Operation*> &opList
     return SUCCESS;
 }
 
+inline bool SuperNodeGraphBuilder::L1CopyInCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*> &opList,
+                            int32_t i, std::vector<std::pair<int32_t, int32_t>> &mergePair)
+{
+    if (i < 0 || i > static_cast<int32_t>(opList.size())) {
+        return false;
+    }
+    if (opList[i]->GetOOperands().size() > 0 &&
+        opList[i]->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
+        for (auto outNode : operationInfo->outGraph_[i]) {
+            mergePair.emplace_back(outNode, i);
+            APASS_LOG_DEBUG_F("GraphPartition", "Operation", "Combine %d and %d for L1 CopyIn in building SuperNode.",
+                opList[i]->GetOpMagic(), opList[outNode]->GetOpMagic());
+        }
+        return true;
+    }
+    return false;
+}
+
+inline bool SuperNodeGraphBuilder::ConvertCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*> &opList,
+                            int32_t i, std::vector<std::pair<int32_t, int32_t>> &mergePair)
+{
+    if (i < 0 || i > static_cast<int32_t>(opList.size())) {
+        return false;
+    }
+    if (opList[i]->GetOpcode() == Opcode::OP_CONVERT) {
+        for (auto inNode : operationInfo->inGraph_[i]) {
+            mergePair.emplace_back(inNode, i);
+        }
+        for (auto outNode : operationInfo->outGraph_[i]) {
+            mergePair.emplace_back(outNode, i);
+        }
+        return true;
+    }
+    return false;
+}
+
+inline bool SuperNodeGraphBuilder::AssembleCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*> &opList,
+                            int32_t i, std::vector<std::pair<int32_t, int32_t>> &mergePair)
+{
+    if (i < 0 || i > static_cast<int32_t>(opList.size())) {
+        return false;
+    }
+    // assemble 特殊处理, assemble到local tensor，需要将这些assemble统一island
+    if (opList[i]->GetOpcode() == Opcode::OP_ASSEMBLE) {
+        if (opList[i]->GetOOperands().size() == 0) {
+            return false;
+        }
+        if (AssembleToCopyoutScene(opList[i])) {
+            // 在GenerateMoveOp中需要转换为CopyOut的Assemble, 参考CopyOutCombine处理
+            return CopyOutCombine(operationInfo, opList, i, mergePair, true);
+        }
+        // assmemble和其输入绑定
+        if (operationInfo->inGraph_[i].size() > 0) {
+            mergePair.emplace_back(i, *(operationInfo->inGraph_[i].begin()));
+            APASS_LOG_DEBUG_F("GraphPartition", "Operation", "Combine %d and %d for Assemble in building SuperNode.",
+                         opList[i]->GetOpMagic(), opList[*(operationInfo->inGraph_[i].begin())]->GetOpMagic());
+        }
+        return true;
+    }
+    return false;
+}
+
+inline bool SuperNodeGraphBuilder::CopyOutCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*> &opList,
+                            int32_t i, std::vector<std::pair<int32_t, int32_t>> &mergePair, bool assembleScene)
+{
+    if (i < 0 || i > static_cast<int32_t>(opList.size())) {
+        return false;
+    }
+    std::vector<int32_t> candidateOpMagic;
+    // 所有的copyout操作与其输入绑定
+    if (OpcodeManager::Inst().GetOpCalcType(opList[i]->GetOpcode()) == OpCalcType::MOVE_OUT || assembleScene) {
+        for (auto inNode : operationInfo->inGraph_[i]) {
+            mergePair.emplace_back(inNode, i);
+            APASS_LOG_DEBUG_F("GraphPartition", "Operation", "Combine %d and %d for CopyOut in building SuperNode.",
+                opList[operationInfo->magic2Idx_[inNode]]->GetOpMagic(), opList[i]->GetOpMagic());
+        }
+        return true;
+    }
+    return false;
+}
+
+inline bool SuperNodeGraphBuilder::CopyInCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*> &opList,
+                          int32_t i, std::vector<std::pair<int32_t, int32_t>> &mergePair)
+{
+    if (i < 0 || i > static_cast<int32_t>(opList.size())) {
+        return false;
+    }
+    // 所有的copyin操作与其输出绑定
+    if ((OpcodeManager::Inst().GetOpCalcType(opList[i]->GetOpcode()) == OpCalcType::MOVE_IN ||
+         OpcodeManager::Inst().GetOpCalcType(opList[i]->GetOpcode()) == OpCalcType::MOVE_LOCAL) &&
+        operationInfo->outGraph_[i].size() > 0) {
+        mergePair.emplace_back(i, *(operationInfo->outGraph_[i].begin()));
+        APASS_LOG_DEBUG_F("GraphPartition", "Operation", "Combine %d and %d for CopyIn in building SuperNode.",
+                     opList[i]->GetOpMagic(), opList[*(operationInfo->outGraph_[i].begin())]->GetOpMagic());
+        return true;
+    }
+    return false;
+}
+
+inline bool SuperNodeGraphBuilder::MulAccCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*> &opList,
+                          int32_t i, std::vector<std::pair<int32_t, int32_t>> &mergePair)
+{
+    if (i < 0 || i > static_cast<int32_t>(opList.size())) {
+        return false;
+    }
+    // MulAcc需要与其输入mul绑定
+    if (OpcodeManager::Inst().GetOpCalcType(opList[i]->GetOpcode()) == OpCalcType::MATMUL) {
+        for (auto inOp : operationInfo->inGraph_[i]) {
+            if (OpcodeManager::Inst().GetOpCalcType(opList[inOp]->GetOpcode()) == OpCalcType::MATMUL) {
+                mergePair.emplace_back(i, inOp);
+                APASS_LOG_DEBUG_F("GraphPartition", "Operation", "Combine %d and %d for MulAcc in building SuperNode.",
+                             opList[i]->GetOpMagic(), opList[inOp]->GetOpMagic());
+            }
+        }
+        return true;
+    }
+    return false;
+}
+
+inline bool SuperNodeGraphBuilder::AssembleToCopyoutScene(Operation *op)
+{
+    auto ASSEMBLE_in = op->iOperand.front();
+    auto parentOp = *ASSEMBLE_in->GetProducers().begin();
+    if (op->iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR ||
+        op->oOperand.front()->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR ||
+        parentOp->GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT || parentOp->GetOpcode() == Opcode::OP_INDEX_OUTCAST) {
+        return false;
+    }
+    return true;
+}
+
 Status SuperNodeGraphBuilder::BuildSuperNodeGraph()
 {
     std::vector<Operation*> &opList = operationInfo_->opList_;
@@ -402,7 +533,7 @@ Status SuperNodeGraphBuilder::BuildSuperNodeGraph()
     }
     std::vector<std::pair<int32_t, int32_t>> mergePair;
     for (size_t i = 0; i < opList.size(); i++) {
-        if (L0CCopyL1Combine(operationInfo_, opList, i, mergePair)) {
+        if (ConvertCombine(operationInfo_, opList, i, mergePair)) {
             continue;
         }
         if (L1CopyInCombine(operationInfo_, opList, i, mergePair)) {
