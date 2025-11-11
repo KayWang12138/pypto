@@ -101,6 +101,7 @@ enum class Opcode {
     OP_WHERE_TS,
     OP_WHERE_ST,
     OP_WHERE_SS,
+    OP_LOGICALAND,
     // Cube
     OP_A_MUL_B,
     OP_A_MULACC_B,
@@ -504,7 +505,7 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_RANGE,
     Opcode::OP_MRGSORT, Opcode::OP_CMP, Opcode::OP_EXTRACT, Opcode::OP_TILEDMRGSORT, Opcode::OP_ROWMAXLINE,
     Opcode::OP_PAIRMIN,  Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWMINLINE, Opcode::OP_TOPK_SORT, Opcode::OP_TOPK_MERGE,
     Opcode::OP_TOPK_EXTRACT, Opcode::OP_SCATTER_ELEMENT, Opcode::OP_TRANSPOSE_MOVEIN, Opcode::OP_SORT,
-    Opcode::OP_COMPARE_SWAP, Opcode::OP_MERGE, Opcode::OP_L0C_COPY_L1};
+    Opcode::OP_COMPARE_SWAP, Opcode::OP_MERGE, Opcode::OP_L0C_COPY_L1, Opcode::OP_LOGICALAND};
 
 const std::unordered_set<Opcode> FIX_COPY_IN_OPS{Opcode::OP_FIX_COPY_IN, Opcode::OP_FIX_COPY_IN_QUANT_PRE,
     Opcode::OP_FIX_COPY_IN_RELU_PRE, Opcode::OP_FIX_COPY_IN_RELU_POST, Opcode::OP_FIX_COPY_IN_QUANT_POST,
@@ -514,6 +515,8 @@ const std::unordered_set<Opcode> CROSS_L1_UB_OPS{Opcode::OP_L1_COPY_UB, Opcode::
     Opcode::OP_UB_COPY_L1_ND, Opcode::OP_L0C_COPY_L1};
 
 const std::unordered_set<Opcode> LOGICALNOT_OPS{Opcode::OP_LOGICALNOT};
+
+const std::unordered_set<Opcode> LOGICALAND_OPS{Opcode::OP_LOGICALAND};
 
 const std::unordered_set<Opcode> DISTRIBUTED_OPS{Opcode::OP_REMOTE_GATHER, Opcode::OP_LOCAL_COPY_OUT,
     Opcode::OP_WRITE_REMOTE, Opcode::OP_REMOTE_REDUCE, Opcode::OP_MOE_FFN_TO_ATTN, Opcode::OP_MOE_ATTN_COMBINE,

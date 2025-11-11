@@ -58,6 +58,7 @@ public:
     std::string GenUnaryOpWithTmpBuff() const;
 
     std::string GenLogicalNotOp() const;
+    std::string GenLogicalAndOp() const;
 
     std::string GenBinaryOp() const;
     std::string GenVectorScalarOp() const;
@@ -529,7 +530,8 @@ private:
         {                        Opcode::OP_LN,                  [this]() { return GenUnaryOp(); }},
         // logicalnot
         {                Opcode::OP_LOGICALNOT,             [this]() { return GenLogicalNotOp(); }},
-
+        // logicaland 
+        {                Opcode::OP_LOGICALAND,             [this]() { return GenLogicalAndOp(); }},
         // unary with temp buffer
         {                   Opcode::OP_COMPACT,       [this]() { return GenUnaryOpWithTmpBuff(); }},
         {             Opcode::OP_ROWSUM_SINGLE,       [this]() { return GenUnaryOpWithTmpBuff(); }},

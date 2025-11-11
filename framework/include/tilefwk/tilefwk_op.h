@@ -208,6 +208,7 @@ Tensor NewCompact(const Tensor &operand);
 Tensor Pad(const Tensor &old, const std::vector<int64_t> &newShape);
 Tensor LogicalNot(const Tensor &self);
 Tensor Range(const Element &start, const Element &end, const Element &step);
+Tensor LogicalAnd(const Tensor &self, const Tensor &other);
 
 Tensor Assign(const Tensor &operand);
 

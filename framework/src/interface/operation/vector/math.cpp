@@ -386,6 +386,97 @@ Tensor OneHot(const Tensor &self, int numClasses) {
     RETURN_CALL(OneHot, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), numClasses);
 }
 
+void TiledLogicalAndOperation(Function& function, const TileShape& tileShape, size_t cur,
+        Input& input0, Input& input1, const LogicalTensorPtr& result, TileInfo &resultTileInfo) {
+    if (cur == input0.tensor.GetShape().size()) {
+        auto tile0 = input0.tensor.GetStorage()->View(function, input0.tileInfo.shape, input0.tileInfo.offset);
+        auto tile1 = input1.tensor.GetStorage()->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
+        auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
+
+        std::vector<int64_t> castConditionShape({64});
+        auto castConditionTensor0 = std::make_shared<LogicalTensor>(function, DT_FP32, castConditionShape);
+        auto castConditionTensor1 = std::make_shared<LogicalTensor>(function, DT_FP32, castConditionShape);
+        auto tempConditionTensor = std::make_shared<LogicalTensor>(function, DT_FP16, castConditionShape);
+        auto oneConditionTensor = std::make_shared<LogicalTensor>(function, DT_FP32, castConditionShape);
+        auto zeroConditionTensor = std::make_shared<LogicalTensor>(function, DT_FP32, castConditionShape);
+
+        std::vector<int64_t> vcmpBitResultShape({64 / 8});
+        auto vcmpBitResultTensor = std::make_shared<LogicalTensor>(function, DT_UINT8, vcmpBitResultShape);
+        std::vector<int64_t> startAddrUBShape({1});
+        auto startAddrUBTensor = std::make_shared<LogicalTensor>(function, DT_UINT64, startAddrUBShape);
+
+        function.AddOperation(Opcode::OP_LOGICALAND, {tile0, tile1}, 
+                            {resultTile, castConditionTensor0, castConditionTensor1, tempConditionTensor, 
+                            oneConditionTensor, zeroConditionTensor, vcmpBitResultTensor, startAddrUBTensor});    
+        return;
+    }
+
+    auto& vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < result->shape[cur]; i += vecTile[cur]) {
+        resultTileInfo.offset[cur] = i;
+        input0.tileInfo.offset[cur] = i % input0.tensor.GetShape()[cur];
+        input1.tileInfo.offset[cur] = i % input1.tensor.GetShape()[cur];
+        resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
+        input0.tileInfo.shape[cur] = std::min(input0.tensor.GetShape()[cur] - input0.tileInfo.offset[cur], vecTile[cur]);
+        input1.tileInfo.shape[cur] = std::min(input1.tensor.GetShape()[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
+        TiledLogicalAndOperation(function, tileShape, cur + 1, input0, input1, result, resultTileInfo);
+    }
+}
+
+void BroadcastOperand(LogicalTensorPtr &operand, LogicalTensorPtr &other, LogicalTensorPtr result,
+                                      Function& function, const TileShape& tileShape) {
+    auto dstShape = result->shape;
+    if (operand->shape == dstShape) {
+        return;
+    }
+    auto expanded = std::make_shared<LogicalTensor>(function, operand->Datatype(), dstShape);
+    Expand(function, tileShape, operand, {other}, expanded);
+    operand = expanded;
+}
+
+void TiledLogicalAndOperation(Function& function, const TileShape& tileShape, LogicalTensorPtr operand0, LogicalTensorPtr operand1, const LogicalTensorPtr& result) {
+    BroadcastOperand(operand0, operand1, result, function, tileShape);
+    BroadcastOperand(operand1, operand0, result, function, tileShape);
+
+    TileInfo tileInfo0(result->shape.size(), result->offset.size());
+    TileInfo tileInfo1(result->shape.size(), result->offset.size());
+    TileInfo resultTileInfo(result->shape.size(), result->offset.size());
+    auto input0 = Input{operand0, tileInfo0};
+    auto input1 = Input{operand1, tileInfo1};
+    TiledLogicalAndOperation(function, tileShape, 0, input0, input1, result, resultTileInfo);
+}
+
+LogicalTensorPtr TensorLogicalAndOperation(Function& function, const Tensor& self, const Tensor& other) {
+    auto operandT0 = self.GetStorage();
+    auto operandT1 = other.GetStorage();
+    if (operandT0->shape.size() != operandT1->shape.size()) {
+        std::vector<int> broadCastShape = GetBroadCastShape(operandT0, operandT1);
+        operandT0 = BinaryOperationBroadCast(operandT0, broadCastShape);
+        operandT1 = BinaryOperationBroadCast(operandT1, broadCastShape);
+    }
+
+    std::vector<SymbolicScalar> resultValidShape;
+    std::vector<int64_t> resultShape = BinaryOperationResultShape(operandT0, operandT1);
+    if ((!operandT0->GetDynValidShape().empty()) && (!operandT1->GetDynValidShape().empty())) {
+        for (size_t i = 0; i < resultShape.size(); ++i) {
+            if (resultShape[i] == operandT0->shape[i]) {
+                resultValidShape.push_back(operandT0->GetDynValidShape()[i]);
+            } else {
+                resultValidShape.push_back(operandT1->GetDynValidShape()[i]);
+            }
+        }
+    }
+
+    auto result = std::make_shared<LogicalTensor>(function, DT_BOOL, resultShape, resultValidShape);
+    function.AddOperation(Opcode::OP_LOGICALAND, {operandT0, operandT1}, {result});
+    return result;
+}
+
+Tensor LogicalAnd(const Tensor &self, const Tensor &other) {
+    DECLARE_TRACER();
+    RETURN_CALL(LogicalAndOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), other.GetStorage());
+}
+
 void IndexAddOperationTileFunc(Function &function, const TileShape &tileShape,
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
     int axis = op.GetIntAttribute(OP_ATTR_PREFIX + "axis");
@@ -451,8 +542,14 @@ Tensor Clip(const Tensor &self, const Tensor &min, const Tensor &max) {
 }
 // endregion: Clip
 
+void LogicAndOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
+    [[maybe_unused]] const Operation &op) {
+    TiledLogicalAndOperation(function, tileShape, iOperand[0], iOperand[1], oOperand[0]);
+}
+
 REGISTER_OPERATION_TILED_FUNC(OP_INDEX_ADD, Opcode::OP_INDEX_ADD, IndexAddOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_LOGICALNOT, Opcode::OP_LOGICALNOT, LogicNotOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_ONEHOT, Opcode::OP_ONEHOT, OneHotOperationTileFunc);
-
+REGISTER_OPERATION_TILED_FUNC(OP_LOGICALAND, Opcode::OP_LOGICALAND, LogicAndOperationTileFunc);
 } // namespace npu::tile_fwk

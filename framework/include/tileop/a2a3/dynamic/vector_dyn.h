@@ -1867,6 +1867,194 @@ TILEOP void DynTlogicalNot(__ubuf__ bool *dst, __ubuf__ T *src, __ubuf__ half *c
         src += SS0 * SS1 * SS2;
     }
 }
+template <typename T_0, typename T_1>
+TILEOP void Conv2Float(__ubuf__ bool *dst, __ubuf__ T_0 *src0, __ubuf__ T_1 *src1, __ubuf__ float *castCondition0, __ubuf__ float *castCondition1, __ubuf__ half *tmpCondition,
+                __ubuf__ float *oneCondition, __ubuf__ float *zeroCondition, __ubuf__ uint8_t *vcmpBitResult, __ubuf__ uint64_t *startAddrUB, uint64_t CountNum) {
+    set_vector_mask((uint64_t)-1, (uint64_t)-1);
+    set_mask_count();
+    pipe_barrier(PIPE_V);
+
+    set_vector_mask(0x0, (uint64_t)CountNum);
+    //src0 src1转化为float类型
+    if constexpr (std::is_same<T_0, bool>::value || std::is_same<T_0, uint8_t>::value) {
+        vconv_u82f16(tmpCondition, (__ubuf__ uint8_t *)src0,
+                     1, 1, 1, 8, 4);
+        pipe_barrier(PIPE_V);
+        vconv_f162f32(castCondition0, tmpCondition,
+                     1, 1, 1, 8, 4);
+    } else if constexpr (std::is_same<T_0, int8_t>::value) {
+        vconv_s82f16(tmpCondition, (__ubuf__ int8_t *)src0,
+                     1, 1, 1, 8, 4);
+        pipe_barrier(PIPE_V);
+        vconv_f162f32(castCondition0, tmpCondition,
+                     1, 1, 1, 8, 4);
+    } else if constexpr (std::is_same<T_0, half>::value) {
+        vconv_f162f32(castCondition0, (__ubuf__ half *)src0,
+                     1, 1, 1, 8, 4);
+    }
+    pipe_barrier(PIPE_V);
+    if constexpr (std::is_same<T_1, bool>::value || std::is_same<T_1, uint8_t>::value) {
+        vconv_u82f16(tmpCondition, (__ubuf__ uint8_t *)src1,
+                     1, 1, 1, 8, 4);
+        pipe_barrier(PIPE_V);
+        vconv_f162f32(castCondition1, tmpCondition,
+                     1, 1, 1, 8, 4);
+    } else if constexpr (std::is_same<T_1, int8_t>::value) {
+        vconv_s82f16(tmpCondition, (__ubuf__ int8_t *)src1,
+                     1, 1, 1, 8, 4);
+        pipe_barrier(PIPE_V);
+        vconv_f162f32(castCondition1, tmpCondition,
+                     1, 1, 1, 8, 4);
+    } else if constexpr (std::is_same<T_1, half>::value) {
+        vconv_f162f32(castCondition1, (__ubuf__ half *)src1,
+                     1, 1, 1, 8, 4);
+    }
+    pipe_barrier(PIPE_V);
+}
+
+template <typename T_0, typename T_1>
+TILEOP void ProcessLogicalAnd(__ubuf__ bool *dst, __ubuf__ T_0 *src0, __ubuf__ T_1 *src1, __ubuf__ float *castCondition0, __ubuf__ float *castCondition1, __ubuf__ half *tmpCondition,
+                __ubuf__ float *oneCondition, __ubuf__ float *zeroCondition, __ubuf__ uint8_t *vcmpBitResult, __ubuf__ uint64_t *startAddrUB, uint64_t CountNum) {
+    uint64_t startREG[1] = {0};
+    set_vector_mask((uint64_t)-1, (uint64_t)-1);
+    set_mask_count();
+    pipe_barrier(PIPE_V);
+
+    set_vector_mask(0x0, (uint64_t)CountNum);
+    //对castcondition0, castcondition1作取绝对值操作，并取其最小值存到castCondition0
+    int64_t repeatTime = CountNum * 4 / (32 * 8);
+    vector_dup((__ubuf__ float *)zeroCondition, (float)0, 1, 1, 1, 0, 0);
+    vector_dup((__ubuf__ float *)oneCondition, (float)1, 1, 1, 1, 0, 0);
+    pipe_barrier(PIPE_V);
+    if constexpr (std::is_same<T_0, float>::value) {
+        vcmpv_eq((__ubuf__ uint8_t *)vcmpBitResult, (__ubuf__ float *)src0, (__ubuf__ float *)zeroCondition,
+                (int64_t)1, (uint8_t)1, 1, (uint8_t)1, (uint8_t)1, (int64_t)8, (int64_t)0);
+    } else {
+        vcmpv_eq((__ubuf__ uint8_t *)vcmpBitResult, (__ubuf__ float *)castCondition0, (__ubuf__ float *)zeroCondition,
+                (int64_t)1, (uint8_t)1, 1, (uint8_t)1, (uint8_t)1, (int64_t)8, (int64_t)0);
+    }
+    set_flag(PIPE_V, PIPE_S, EVENT_ID0);
+    wait_flag(PIPE_V, PIPE_S, EVENT_ID0);
+
+    startREG[0] = (uint64_t) ((int8_t* ) (((uint64_t)((__ubuf__ int8_t *)vcmpBitResult))));
+    *(__ubuf__ uint64_t * )((__ubuf__ uint64_t *)startAddrUB) = startREG[0];
+
+    set_flag(PIPE_S, PIPE_V, EVENT_ID0);
+    wait_flag(PIPE_S, PIPE_V, EVENT_ID0);
+    
+    set_cmpmask(((__ubuf__ uint64_t *)startAddrUB));
+    pipe_barrier(PIPE_V);
+
+    set_mask_count();
+    set_vector_mask(0x0, (uint64_t)CountNum);
+
+    vsel(castCondition0, zeroCondition, oneCondition, (uint64_t)571780540465409ULL);
+    pipe_barrier(PIPE_V);
+    if constexpr (std::is_same<T_1, float>::value) {
+        vcmpv_eq((__ubuf__ uint8_t *)vcmpBitResult, (__ubuf__ float *)src1, (__ubuf__ float *)zeroCondition,
+                (int64_t)1, (uint8_t)1, 1, (uint8_t)1, (uint8_t)1, (int64_t)8, (int64_t)0);
+    } else {
+        vcmpv_eq((__ubuf__ uint8_t *)vcmpBitResult, (__ubuf__ float *)castCondition1, (__ubuf__ float *)zeroCondition,
+                (int64_t)1, (uint8_t)1, 1, (uint8_t)1, (uint8_t)1, (int64_t)8, (int64_t)0);
+    }
+    set_flag(PIPE_V, PIPE_S, EVENT_ID0);
+    wait_flag(PIPE_V, PIPE_S, EVENT_ID0);
+
+    startREG[0] = (uint64_t) ((int8_t* ) (((uint64_t)((__ubuf__ int8_t *)vcmpBitResult))));
+    *(__ubuf__ uint64_t * )((__ubuf__ uint64_t *)startAddrUB) = startREG[0];
+
+    set_flag(PIPE_S, PIPE_V, EVENT_ID0);
+    wait_flag(PIPE_S, PIPE_V, EVENT_ID0);
+    
+    set_cmpmask(((__ubuf__ uint64_t *)startAddrUB));
+    pipe_barrier(PIPE_V);
+
+    set_mask_count();
+    set_vector_mask(0x0, (uint64_t)CountNum);
+
+    vsel(castCondition1, zeroCondition, oneCondition, (uint64_t)571780540465409ULL);
+    pipe_barrier(PIPE_V);
+    vmin((__ubuf__ float *)castCondition0, (__ubuf__ float *)castCondition0, (__ubuf__ float *)castCondition1, (uint8_t)(repeatTime), (uint8_t)1, (uint8_t)1, (uint8_t)1, (uint8_t)8, (uint8_t)8, (uint8_t)8);
+    pipe_barrier(PIPE_V);
+
+    vconv_f322f16(tmpCondition, castCondition0,
+                1, 1, 1, 4, 8);
+    pipe_barrier(PIPE_V);
+    vconv_f162s8((__ubuf__ int8_t *)dst, tmpCondition,
+                1, 1, 1, 4, 8);
+    pipe_barrier(PIPE_V);
+}
+
+// dim2 & dim1 (T0 = 1 for dim1)
+template <typename T_0, typename T_1, unsigned DS, unsigned SS0, unsigned SS1>
+TILEOP void DynTlogicalAnd(__ubuf__ bool *dst, __ubuf__ T_0 *src0, __ubuf__ T_1 *src1, __ubuf__ float *castCondition0, __ubuf__ float *castCondition1, __ubuf__ half *tmpCondition,
+                __ubuf__ float *oneCondition, __ubuf__ float *zeroCondition, __ubuf__ uint8_t *vcmpBitResult, __ubuf__ uint64_t *startAddrUB, 
+                    unsigned T0, unsigned T1) {
+    constexpr uint64_t COUNT_MAX = 64;
+
+    unsigned numLoop = T1 / COUNT_MAX;
+    unsigned remainAfterLoop = T1 % COUNT_MAX;
+    for (int i = 0; i < T0; i++) {
+        for (int j = 0; j < numLoop; j++) {
+            Conv2Float<T_0, T_1>(dst + i * DS + j * COUNT_MAX,
+                            src0 + i * SS0 + j * COUNT_MAX, src1 + i * SS1 + j * COUNT_MAX,
+                            castCondition0, castCondition1, tmpCondition, oneCondition, zeroCondition, (__ubuf__ uint8_t *)vcmpBitResult,(__ubuf__ uint64_t *)startAddrUB, COUNT_MAX);
+            ProcessLogicalAnd<T_0, T_1>(dst + i * DS + j * COUNT_MAX,
+                            src0 + i * SS0 + j * COUNT_MAX, src1 + i * SS1 + j * COUNT_MAX,
+                            castCondition0, castCondition1, tmpCondition, oneCondition, zeroCondition, (__ubuf__ uint8_t *)vcmpBitResult,(__ubuf__ uint64_t *)startAddrUB, COUNT_MAX);
+        }
+        if (remainAfterLoop > 0) {
+            Conv2Float<T_0, T_1>(dst + i * DS + numLoop * COUNT_MAX,
+                            src0 + i * SS0 + numLoop * COUNT_MAX, src1 + i * SS1 + numLoop * COUNT_MAX,
+                            castCondition0, castCondition1, tmpCondition, oneCondition, zeroCondition, (__ubuf__ uint8_t *)vcmpBitResult,(__ubuf__ uint64_t *)startAddrUB, remainAfterLoop);
+            ProcessLogicalAnd<T_0, T_1>(dst + i * DS + numLoop * COUNT_MAX,
+                            src0 + i * SS0 + numLoop * COUNT_MAX, src1 + i * SS1 + numLoop * COUNT_MAX,
+                            castCondition0, castCondition1, tmpCondition, oneCondition, zeroCondition, (__ubuf__ uint8_t *)vcmpBitResult,(__ubuf__ uint64_t *)startAddrUB, remainAfterLoop);
+        }
+    }
+    set_mask_norm();
+    set_vector_mask(-1, -1);
+}
+
+// dim3
+template <typename T_0, typename T_1, unsigned DS0, unsigned DS1, unsigned SS00, unsigned SS01, unsigned SS10, unsigned SS11>
+TILEOP void DynTlogicalAnd(__ubuf__ bool *dst, __ubuf__ T_0 *src0, __ubuf__ T_1 *src1, __ubuf__ float *castCondition0, __ubuf__ float *castCondition1, __ubuf__ half *tmpCondition,
+                __ubuf__ float *oneCondition, __ubuf__ float *zeroCondition, __ubuf__ uint8_t *vcmpBitResult, __ubuf__ uint64_t *startAddrUB, 
+                    unsigned T0, unsigned T1, unsigned T2) {
+    static_assert((DS1 * sizeof(bool)) % BLOCK_SIZE == 0);
+    static_assert((SS01 * sizeof(T_0)) % BLOCK_SIZE == 0);
+    static_assert((SS11 * sizeof(T_1)) % BLOCK_SIZE == 0);
+    for (int i = 0; i < T0; i++) {
+        DynTlogicalAnd<T_0, T_1, DS1, SS01, SS11>(dst, src0, src1, castCondition0, castCondition1, tmpCondition, oneCondition, zeroCondition, vcmpBitResult, startAddrUB, T1, T2);
+        dst += DS0 * DS1;
+        src0 += SS00 * SS01;
+        src1 += SS10 * SS11;
+    }
+}
+
+// dim4
+template <typename T_0, typename T_1, unsigned DS0, unsigned DS1, unsigned DS2, unsigned SS00, unsigned SS01, unsigned SS02, unsigned SS10, unsigned SS11, unsigned SS12>
+TILEOP void DynTlogicalAnd(__ubuf__ bool *dst, __ubuf__ T_0 *src0, __ubuf__ T_1 *src1, __ubuf__ float *castCondition0, __ubuf__ float *castCondition1, __ubuf__ half *tmpCondition,
+                __ubuf__ float *oneCondition, __ubuf__ float *zeroCondition, __ubuf__ uint8_t *vcmpBitResult, __ubuf__ uint64_t *startAddrUB, 
+                    unsigned T0, unsigned T1, unsigned T2, unsigned T3) {
+    static_assert((DS2 * sizeof(bool)) % BLOCK_SIZE == 0);
+    static_assert((SS02 * sizeof(T_0)) % BLOCK_SIZE == 0);
+    static_assert((SS12 * sizeof(T_1)) % BLOCK_SIZE == 0);
+    for (int i = 0; i < T0; i++) {
+        __ubuf__ bool *dst_ = dst;
+        __ubuf__ T_0 *src0_ = src0;
+        __ubuf__ T_1 *src1_ = src1;
+        for (int j = 0; j < T1; j++) {
+            DynTlogicalAnd<T_0, T_1, DS2, SS02, SS12>(dst_, src0_, src1_, castCondition0, castCondition1, tmpCondition, oneCondition, zeroCondition, vcmpBitResult, startAddrUB, T2, T3);
+            dst_ += DS1 * DS2;
+            src0_ += SS01 * SS02;
+            src1_ += SS11 * SS12;
+        }
+        dst += DS0 * DS1 * DS2;
+        src0 += SS00 * SS01 * SS02;
+        src1 += SS10 * SS11 * SS12;
+    }
+}
 
 template <typename T, unsigned dstRawShape1, unsigned dstRawShape2, unsigned dstRawShape3, unsigned dstRawShape4,
     unsigned axis0, unsigned axis1>

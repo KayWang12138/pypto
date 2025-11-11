@@ -233,6 +233,15 @@ void ExecuteOpLogicalNot(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_LOGICALNOT, Opcode::OP_LOGICALNOT, ExecuteOpLogicalNot);
 
+void ExecuteOpLogicalAnd(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ioperandDataViewList->size() == SIZE_TWO);
+    auto ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto lhs = ctx->ioperandDataViewList->at(0);
+    auto rhs = ctx->ioperandDataViewList->at(1);
+    calc::LogicalAnd(ret, lhs, rhs);
+}
+REGISTER_CALC_OP(OP_LOGICALAND, Opcode::OP_LOGICALAND, ExecuteOpLogicalAnd);
+
 void ExecuteOpIndexOutcast(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ioperandDataViewList->size() == SIZE_THREE);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);

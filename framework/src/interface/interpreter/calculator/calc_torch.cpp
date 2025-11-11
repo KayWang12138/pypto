@@ -134,6 +134,11 @@ void LogicalNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     torch::logical_not_out(tout, From(self));
 }
 
+void LogicalAnd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tout = From(out);
+    torch::logical_and_out(tout, From(self), From(other));
+}
+
 void Abs(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto tout = From(out);
     torch::abs_out(tout, From(self));

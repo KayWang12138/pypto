@@ -607,6 +607,23 @@ def gen_logical_not_op_golden(
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("LogicalNot", golden_func, output, case_index)
 
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestLogicalAnd/LogicalAndOperationTest.TestLogicalAnd",
+    ]
+)
+def gen_logical_and_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs: list, _config: dict):
+        x0 = torch.tensor(inputs[0])
+        x1 = torch.tensor(inputs[1])
+        y = torch.logical_and(x0, x1)
+        return [y.numpy()]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("LogicalAnd", golden_func, output, case_index)
+
+
 
 @GoldenRegister.reg_golden_func(
     case_names=[

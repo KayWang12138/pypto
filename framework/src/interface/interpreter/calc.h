@@ -65,6 +65,7 @@ void LogicalNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self);
 void Range(LogicalTensorDataPtr out, const Element &start, const Element &end, const Element &step);
 void Compare(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other,
     CmpOperationType operation, CmpModeType mode);
+void LogicalAnd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other);
 
 void AddS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false);
 void SubS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false);
