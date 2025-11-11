@@ -485,6 +485,19 @@ bool LogicalTensor::CompareOp::operator()(const Operation *a, const Operation *b
     return opmagicA < opmagicB;
 }
 
+bool LogicalTensor::IsGetTensorDataOutcast() {
+    for (auto &prod : GetProducers()) {
+        if (prod->GetOpcode() == Opcode::OP_ASSEMBLE) {
+            for (auto &prodProd : prod->iOperand[0]->GetProducers()) {
+                if (CheckEmuOpcode(prodProd, EMUOP_TENSOR_EXTRACT)) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
 SymbolicScalar npu::tile_fwk::GetViewValidShapeDim(
     const SymbolicScalar &validShapeDim,
     const SymbolicScalar &viewOffsetDim,
@@ -740,6 +753,37 @@ std::set<std::pair<int, int>> GetTensorDataUsage(const std::vector<std::referenc
         }
     }
     return usage;
+}
+
+SymbolicScalar UpdateGetTensorDataIOIndex(size_t currOutcastIdx, size_t newOutcastIdx, const SymbolicScalar &scalar) {
+    ASSERT(currOutcastIdx != newOutcastIdx) << 
+        "UpdateGetTensorDataIOIndex currOutcastIdx == currOutcastIdx, should not be updated";
+    RawSymbolicScalarPtr curr = scalar.Raw();
+    // when updating multilple outcastIdx, should ensure the currOutcastIdx of multiple calls is in ascending order
+    bool filledFound = true;
+    while (filledFound) {
+        filledFound = false;
+        for (auto [index, callList] : GetTensorDataDict(curr)) {
+            (void)index;
+            for (auto &call : callList) {
+                std::vector<RawSymbolicScalarPtr> operandList = call->GetExpressionOperandList();
+                auto currIOType = operandList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE];
+                auto currIOTypeIndex = operandList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE_INDEX];
+                ASSERT(currIOType->IsImmediate());
+                ASSERT(currIOTypeIndex->IsImmediate());
+                if (currIOType->GetImmediateValue() != GET_TENSOR_DATA_OPERAND_IOTYPE_OUTCAST) continue;
+                size_t outcastIndex = currIOTypeIndex->GetImmediateValue();
+                if (outcastIndex == newOutcastIdx|| outcastIndex != currOutcastIdx) continue;
+                filledFound = true;
+                operandList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE_INDEX] = std::make_shared<RawSymbolicImmediate>(newOutcastIdx);
+                auto ptrNext = std::make_shared<RawSymbolicExpression>(call->GetExpressionOpcode(), operandList);
+                auto currNext = ReplaceExpression(curr, call, ptrNext);
+                curr = currNext;
+                break;
+            }
+        }
+    }
+    return SymbolicScalar(curr);
 }
 
 SymbolicScalar GetTensorDataFillIO(const GetTensorDataIODescDict &iodescDict, const SymbolicScalar &dimOffset) {

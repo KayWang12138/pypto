@@ -178,6 +178,97 @@ TEST_F(DynamicBasicTest, TestTT) {
 #endif
 }
 
+TEST_F(DynamicBasicTest, TestLocalTensor) {
+    int s = 64;
+    int n = 8;
+    Tensor t0(DT_FP32, {n * s, s}, "t0");  // [64 * 8, 64]
+    Tensor t1(DT_FP32, {n * s, s}, "t1");  // [64 * 8, 64]
+    Tensor out(DT_FP32, {n * s, s}, "out");
+
+    std::vector<std::string> funcName = {"TENSOR_main"};
+    config::SetPassConfig("FunctionUnroll", "LoopUnroll", "CONVERT_TO_STATIC", funcName);
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(t0, 1.0),
+        RawTensorData::CreateConstantTensor<float>(t1, 2.0),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, 0.0f),
+    });
+
+    Tensor t0s;
+    FUNCTION("main", {t0, t1}, {out}) {
+        LOOP("loopOut", FunctionType::DYNAMIC_LOOP, loopOut, LoopRange(1)) {
+            Tensor o;
+            LOOP("loopMiddle", FunctionType::DYNAMIC_LOOP, loopMiddle, LoopRange(1)) {
+                (void)loopOut;
+                (void)loopMiddle;
+                LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(n)) {
+                    t0s = View(t0, {s, s}, {idx * s, 0});
+                    Tensor t1s = View(t1, {s, s}, {idx * s, 0});
+                    o = Add(t0s, t1s);
+                    Assemble(o, {idx * s, 0}, out);
+                }
+            }
+        }
+    }
+
+#ifdef ENABLE_BUILD_WITH_CANN
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
+    std::vector<float> golden(n * s * s, 3.0f);
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+#endif
+}
+
+TEST_F(DynamicBasicTest, TestLocalTempTensor) {
+    int s = 64;
+    int n = 8;
+    Tensor t0(DT_FP32, {n * s, s}, "t0");  // [64 * 8, 64]
+    Tensor t1(DT_FP32, {n * s, s}, "t1");  // [64 * 8, 64]
+    Tensor out(DT_FP32, {n * s, s}, "out");
+
+    std::vector<std::string> funcName = {"TENSOR_main"};
+    config::SetPassConfig("FunctionUnroll", "LoopUnroll", "CONVERT_TO_STATIC", funcName);
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(t0, 1.0),
+        RawTensorData::CreateConstantTensor<float>(t1, 2.0),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, 0.0f),
+    });
+
+    Tensor t0s;
+    FUNCTION("main", {t0, t1}, {out}) {
+        LOOP("loopOut", FunctionType::DYNAMIC_LOOP, loopOut, LoopRange(1)) {
+            LOOP("loopMiddle", FunctionType::DYNAMIC_LOOP, loopMiddle, LoopRange(1)) {
+                (void)loopOut;
+                (void)loopMiddle;
+                LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(n)) {
+                    Tensor o(DT_FP32, {s, s}, "tempO");  // temp tensor
+                    LOOP("LoopLeaf1", FunctionType::DYNAMIC_LOOP, leaf1, LoopRange(1)) {
+                        (void)leaf1;
+                        t0s = View(t0, {s, s}, {idx * s, 0});
+                        Tensor t1s = View(t1, {s, s}, {idx * s, 0});
+                        o = Add(t0s, t1s);
+                    }
+                    LOOP("LoopLeaf2", FunctionType::DYNAMIC_LOOP, leaf2, LoopRange(1)) {
+                        (void)leaf2;
+                        o = Add(o, Element(DT_FP32, 0.0f));
+                        Assemble(o, {idx * s, 0}, out);
+                    }
+                }
+            }
+        }
+    }
+
+#ifdef ENABLE_BUILD_WITH_CANN
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
+    std::vector<float> golden(n * s * s, 3.0f);
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+#endif
+}
+
 TEST_F(DynamicBasicTest, TestCheckPointRestore) {
     int s = 16;
     Tensor t;

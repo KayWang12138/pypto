@@ -627,3 +627,75 @@ TEST_F(DynamicOpsTest, MatmulBF16FP32) {
 TEST_F(DynamicOpsTest, MatmulFP32FP32) {
     TestMatmul(DT_FP32, DT_FP32);
 }
+
+TEST_F(DynamicOpsTest, TestLocalTempTensor) {
+    int s = 64;
+    int n = 8;
+    Tensor t0(DT_FP32, {n * s, s}, "t0");  // [64 * 8, 64]
+    Tensor t1(DT_FP32, {n * s, s}, "t1");  // [64 * 8, 64]
+    Tensor out(DT_FP32, {n * s, s}, "out");
+
+    std::vector<std::string> funcName = {"TENSOR_main"};
+    config::SetPassConfig("FunctionUnroll", "LoopUnroll", "CONVERT_TO_STATIC", funcName);
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(t0, 1.0),
+        RawTensorData::CreateConstantTensor<float>(t1, 2.0),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, 0.0f),
+    });
+
+    Tensor t0s;
+    FUNCTION("main", {t0, t1}, {out}) {
+        LOOP("loopOut", FunctionType::DYNAMIC_LOOP, loopOut, LoopRange(1)) {
+            LOOP("loopMiddle", FunctionType::DYNAMIC_LOOP, loopMiddle, LoopRange(1)) {
+                (void)loopOut;
+                (void)loopMiddle;
+                LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(n)) {
+                    Tensor o(DT_FP32, {s, s}, "tempO");  // temp tensor
+                    LOOP("LoopLeaf1", FunctionType::DYNAMIC_LOOP, leaf1, LoopRange(1)) {
+                        (void)leaf1;
+                        t0s = View(t0, {s, s}, {idx * s, 0});
+                        Tensor t1s = View(t1, {s, s}, {idx * s, 0});
+                        o = Add(t0s, t1s);
+                    }
+                    LOOP("LoopLeaf2", FunctionType::DYNAMIC_LOOP, leaf2, LoopRange(1)) {
+                        (void)leaf2;
+                        o = Add(o, Element(DT_FP32, 0.0f));
+                        Assemble(o, {idx * s, 0}, out);
+                    }
+                }
+            }
+        }
+    }
+}
+
+TEST_F(DynamicOpsTest, GetTensorDataRedundantUpdate) {
+    config::SetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, true);
+    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);
+    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_CHECK_PRECISION, true);
+    config::SetPlatformConfig(KEY_VERIFY_PASS, true);
+    config::SetPlatformConfig(KEY_VERIFY_PASS_CHECK_PRECISION, true);
+    config::SetPlatformConfig(KEY_VERIFY_DUMP_PERF_DATA, true);
+
+    Tensor t0(DT_FP32, {32, 32}, "t0");
+    Tensor out(DT_FP32, {64, 64}, "out");
+
+    auto t0Data = RawTensorData::CreateConstantTensor<float>(t0, 1.0f);
+    auto outData = RawTensorData::CreateConstantTensor<float>(out, 0.0f);
+    auto golden = RawTensorData::CreateConstantTensor<float>(out, 2.0f);
+
+    ProgramData::GetInstance().PrepareData({t0Data}, {outData}, {golden});
+
+    FUNCTION("main", {t0}, {out}) {
+        Tensor d;
+        LOOP("Loop1", FunctionType::DYNAMIC_LOOP, i, LoopRange(NUM2)) {
+            auto v = VectorDuplicate(Element(DT_INT32, 32), DT_INT32, {16, 16});
+            auto index = GetTensorData(v, {0, 0});
+            Print("i=", i, " index=", index, " v=", v);
+            d = Add(t0, t0);
+            Assemble(d, {index * i, 0}, out);
+            Assemble(d, {index * i, 32}, out);
+        }
+    }
+}

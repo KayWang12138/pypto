@@ -239,6 +239,8 @@ struct TensorSlotManager {
     void SetSameSlot(const Tensor &operand, const Tensor &dst);
     IncastOutcastLink BuildIncastOutcastLink(const std::string &rawname = "");
 
+    static bool HasSameSlot(const std::vector<int> &slots1, const std::vector<int> &slots2);
+
     std::string Dump() const;
 private:
     void LogOperation(const TensorSlot &slot, const std::string &op);

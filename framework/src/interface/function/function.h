@@ -703,6 +703,13 @@ public:
         outcastPosition.emplace_back(opmagic, k);
         outCasts_.emplace_back(tensor);
     }
+    
+    void RemoveOutcast(int idx) {
+        outcastPosition.erase(outcastPosition.begin() + idx);
+        outCasts_.erase(outCasts_.begin() + idx);
+        auto &outcastSlot = slotScope_->ioslot.outcastSlot;
+        outcastSlot.erase(outcastSlot.begin() + idx);
+    }
 
     const SubfuncParam &GetParameter() const { return parameter_; }
     SubfuncParam &GetParameter() { return parameter_; }
@@ -771,6 +778,7 @@ public:
     }
 
     std::shared_ptr<SourceLocation> GetSourceLocation() const { return sourceLocation_; }
+    void CleanRedundantOutCast();
 
 private:
     int functionMagic_{-1};
@@ -872,5 +880,8 @@ private:
     TensorGraphInfo GetGraphInfo();
     void ClearUselessLink(TensorGraphInfo &graphInfo);
     void LinkIoWithCallOp(std::vector<LogicalTensors> &callopInCasts, std::vector<LogicalTensors> &callopOutCasts);
+    void CheckAndUpdateGetTensorData(size_t currOutcastIdx, size_t newOutcastIdx);
+    void CleanRedundantOutcast(std::map<Function *, std::set<size_t>> &removeRecord,
+        std::map<Function *, std::set<size_t>> &getTensorDataRecord);
 };
 } // namespace npu::tile_fwk

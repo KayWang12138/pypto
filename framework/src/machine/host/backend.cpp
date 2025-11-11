@@ -437,7 +437,9 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         rootTileDict[root] = func;
         BuildControlFlow(cache, linker, sectionName, root, group, rootTileDict, controlFlowOss, expressionOss, indent, expName);
     } else if (func->GetGraphType() == GraphType::EXECUTE_GRAPH) {
-        ASSERT(group.devRootList.count(func));
+        if (group.devRootList.count(func) <= 0) {
+            return;
+        }
         int devRootKey = group.devRootList.GetIndex(func);
         controlFlowOss << BuildControlFlowCallee(func, indent * TABSIZE);
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "uint64_t *exprList" << devRootKey << " = (uint64_t *)callRootList[CallRootStage::T_CALLROOT_ALLOC](ctx, " << devRootKey << "ULL);\n";

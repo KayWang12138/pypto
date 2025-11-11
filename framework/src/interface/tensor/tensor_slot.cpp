@@ -534,4 +534,14 @@ void TensorSlotManager::SetSameSlot(const Tensor &operand, const Tensor &dst) {
     reshapeInplaceDict[slotIn] = slotOut;
 }
 
+bool TensorSlotManager::HasSameSlot(const std::vector<int> &slots1, const std::vector<int> &slots2) {
+    std::unordered_set<int> slotSet(slots2.begin(), slots2.end());
+    for (int slot1 : slots1) {
+        if (slotSet.count(slot1)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 } // namespace npu::tile_fwk

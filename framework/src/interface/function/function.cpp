@@ -447,6 +447,135 @@ void Function::BeginFunction(const std::vector<std::reference_wrapper<Tensor>> &
     }
 }
 
+bool HasCalleeConsumer(Function &func, Function &calleeFunc, size_t outcastIdx) {
+    auto outcast = calleeFunc.GetOutcast()[outcastIdx];
+    auto outcastSlots = calleeFunc.GetOutCastSlot(outcast);
+    for (auto otherCallee : func.GetCalleeFunctionList()) {
+        ASSERT(otherCallee != nullptr) << func.GetRawName() << " has nullptr callee";
+        if (otherCallee == &calleeFunc) {
+            continue;
+        }
+        for (auto &incast : otherCallee->GetIncast()) {
+            auto incastSlots = otherCallee->GetInCastSlot(incast);
+            if (TensorSlotManager::HasSameSlot(incastSlots, outcastSlots)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+void CalleeSlotNoConsumer(Function &calleeFunc, Function &func, const std::map<size_t, size_t> &outcasts,
+    std::map<size_t, size_t> &outcastIdx2parent) {
+    for (size_t calleeOutcastIdx = 0; calleeOutcastIdx < calleeFunc.GetOutcast().size(); calleeOutcastIdx++) {
+        auto caleeOutcast = calleeFunc.GetOutcast()[calleeOutcastIdx];
+        auto incastSlots = calleeFunc.GetOutCastSlot(caleeOutcast);
+        for (const auto &[outcastIdx, val] : outcasts) {
+            (void)val;
+            auto outcast = func.GetOutcast()[outcastIdx];
+            auto outcastSlots = func.GetOutCastSlot(outcast);
+            if (TensorSlotManager::HasSameSlot(incastSlots, outcastSlots) &&
+                !HasCalleeConsumer(func, calleeFunc, calleeOutcastIdx)) {
+                outcastIdx2parent[calleeOutcastIdx] = outcastIdx;
+                break;
+            }
+        }
+    }
+}
+
+void Function::CheckAndUpdateGetTensorData(size_t currOutcastIdx, size_t newOutcastIdx) {
+    for (auto &op : Operations(false)) {
+        if (!op.IsCall()) {
+            for (auto &attr : op.GetDynamicAttributeList()) {
+                attr.get() = UpdateGetTensorDataIOIndex(currOutcastIdx, newOutcastIdx, attr.get());
+            }
+        }
+    }
+}
+
+void Function::CleanRedundantOutcast(
+    std::map<Function *, std::set<size_t>> &removeRecord, std::map<Function *, std::set<size_t>> &getTensorDataRecord) {
+    for (auto &[func, removeList] : removeRecord) {
+        for (auto it = removeList.rbegin(); it != removeList.rend(); ++it) {
+            auto outCastIdx = *it;
+            func->RemoveOutcast(outCastIdx);
+        }
+        if (getTensorDataRecord.count(func) <= 0) {
+            continue;
+        }
+        auto &tensorDataList = getTensorDataRecord[func];
+        for (auto currOutcastIdx : tensorDataList) {
+            auto it = std::lower_bound(removeList.begin(), removeList.end(), currOutcastIdx);
+            size_t newOutcastIdx = currOutcastIdx - std::distance(removeList.begin(), it);
+            if (currOutcastIdx != newOutcastIdx)
+                func->CheckAndUpdateGetTensorData(currOutcastIdx, newOutcastIdx);
+        }
+    }
+}
+
+void RedundantOutCastCheck(std::map<Function *, std::set<size_t>> &removeRecord,
+    std::map<Function *, std::set<size_t>> &getTensorDataRecord, Function *func, std::map<size_t, size_t> &outcasts) {
+    for (auto calleeFunc : func->GetCalleeFunctionList()) {
+        ASSERT(calleeFunc != nullptr) << func->GetRawName() << " has nullptr calleeFunc";
+        std::map<size_t, size_t> outcastIdx2parent; // key: callee outcastIdx, value: caller outcastIdx
+        CalleeSlotNoConsumer(*calleeFunc, *func, outcasts, outcastIdx2parent);
+        if (!outcastIdx2parent.empty()) {
+            RedundantOutCastCheck(removeRecord, getTensorDataRecord, calleeFunc, outcastIdx2parent);
+        }
+        auto &calleeOutCasts = calleeFunc->GetOutcast();
+        for (auto &[outCastIdx, val] : outcastIdx2parent) {
+            (void)val;
+            ASSERT(calleeOutCasts[outCastIdx].get() != nullptr);
+            if (calleeOutCasts[outCastIdx]->IsGetTensorDataOutcast()) {
+                getTensorDataRecord[calleeFunc].insert(outCastIdx);
+                ASSERT(outcastIdx2parent.count(outCastIdx) > 0);
+                getTensorDataRecord[func].insert(outcastIdx2parent[outCastIdx]);
+            } else if (getTensorDataRecord[calleeFunc].count(outCastIdx) > 0) {
+                ASSERT(outcastIdx2parent.count(outCastIdx) > 0);
+                getTensorDataRecord[func].insert(outcastIdx2parent[outCastIdx]);
+            } else {
+                removeRecord[calleeFunc].insert(outCastIdx);
+            }
+        }
+    }
+}
+
+void Function::CleanRedundantOutCast() {
+    auto slotMngr = Program::GetInstance().GetTensorSlotManager();
+    std::vector<int> outputSlots;
+    for (const auto &slot : slotMngr->outputSlotList) {
+        outputSlots.push_back(slotMngr->slotIndexDict[slot]);
+    }
+    std::map<Function *, std::set<size_t>> removeRecord;
+    std::map<Function *, std::set<size_t>> getTensorDataRecord;
+    auto calleeLists = GetCalleeFunctionList();
+    for (auto calleeFunc : calleeLists) {
+        ASSERT(calleeFunc != nullptr) << "PROGRAM_ENTRY_FUNCTION_NAME has nullptr calleeFunc";
+        auto &calleeOutCasts = calleeFunc->GetOutcast();
+        std::map<size_t, size_t> outputMap;
+        for (size_t outCastIdx = 0; outCastIdx < calleeOutCasts.size(); outCastIdx++) {
+            auto outcastSlots = calleeFunc->GetOutCastSlot(calleeOutCasts[outCastIdx]);
+            if ((!TensorSlotManager::HasSameSlot(outputSlots, outcastSlots)) &&
+                !HasCalleeConsumer(*this, *calleeFunc, outCastIdx)) {
+                outputMap[outCastIdx] = 0;
+            }
+        }
+        if (!outputMap.empty()) {
+            RedundantOutCastCheck(removeRecord, getTensorDataRecord, calleeFunc, outputMap);
+        }
+        for (auto &[outCastIdx, val] : outputMap) {
+            (void)val;
+            if (getTensorDataRecord[calleeFunc].count(outCastIdx) > 0) {
+                ASSERT(outputMap.count(outCastIdx) > 0);
+                getTensorDataRecord[this].insert(outputMap[outCastIdx]);
+            } else {
+                removeRecord[calleeFunc].insert(outCastIdx);
+            }
+        }
+    }
+    CleanRedundantOutcast(removeRecord, getTensorDataRecord);
+}
+
 FunctionCallArgs Function::EndFunction(const std::shared_ptr<TensorSlotScope> &scope) {
     // Deduce Incast and Outcast here, need by TENSOR_GRAPH & STATIC_TILE_GRAPH
     if (IsGraphType(GraphType::TENSOR_GRAPH) || IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
