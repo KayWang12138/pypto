@@ -38,7 +38,7 @@ IndexerShapeParams GetindexParamsFromDSASimpleParams(const NSASimpleParams &para
     indexParams.s2 = params.s2;
     indexParams.indexerTileConfigs = params.indexerTileConfigs;
     indexParams.ropeTileConfigs = params.ropeTileConfigs;
-    indexParams.tileBS = 16;
+    indexParams.tileBS = NUM_16;
     return indexParams;
 }
  

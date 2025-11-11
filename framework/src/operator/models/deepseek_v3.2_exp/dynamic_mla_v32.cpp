@@ -69,7 +69,7 @@ Tensor Rope3DV2(const Tensor &x, const Tensor &cos, const Tensor &sin, const Rop
     (void)tileConfig;
     ASSERT(x.GetShape().size() == SHAPE_DIM3 && cos.GetShape().size() == SHAPE_DIM2 && sin.GetShape().size() == SHAPE_DIM2);
  
-    TileShape::Current().SetVecTile(1, 32, 128);
+    TileShape::Current().SetVecTile(NUM_1, NUM_32, NUM_128);
     auto castX = Cast(x, DT_FP32);
     if (x.GetDataType() == DT_FP32) {
         castX = Add(castX, Element(DT_FP32, 0.0f));
@@ -81,10 +81,10 @@ Tensor Rope3DV2(const Tensor &x, const Tensor &cos, const Tensor &sin, const Rop
     castSin = Reshape(castSin, {x.GetShape()[NUM_VALUE_0], 1, x.GetShape()[NUM_VALUE_2]});
  
     auto xView = Reshape(castX, {x.GetShape()[NUM_VALUE_0], x.GetShape()[NUM_VALUE_1], x.GetShape()[NUM_VALUE_2] / NUM_VALUE_2, NUM_VALUE_2});
-    TileShape::Current().SetVecTile(1, 32, 128, 128);
+    TileShape::Current().SetVecTile(NUM_1, NUM_32, NUM_128, NUM_128);
     auto xTrans = Transpose(xView, {NUM_VALUE_2, NUM_VALUE_3});
     auto xReSecond = Reshape(xTrans, x.GetShape());
-    TileShape::Current().SetVecTile(1, 32, 128, 128);
+    TileShape::Current().SetVecTile(NUM_1, NUM_32, NUM_128, NUM_128);
     auto xEmbed = Add(Mul(xReSecond, castCos), Mul(RotateHalf(xReSecond), castSin));
     auto res = Cast(xEmbed, x.GetDataType());
     return res;
@@ -317,7 +317,7 @@ void MlaPrologComputeV32(const Tensor &tokenX, const Tensor &wDq, const Tensor &
  
         auto index = View(kCacheIndex2D, {tileBS, 1}, {bsOffset, 0});
         // krCache: [blockNum * blockSize * n2, qkRopeHeadDim], output4
-        TileShape::Current().SetVecTile(4, 128, 128, 128);
+        TileShape::Current().SetVecTile(NUM_4, NUM_128, NUM_128, NUM_128);
         krCacheOut = ScatterUpdate(krCache, index, kRopeRes, -2, cacheMode, blockSize); // -2
 
         Tensor compressedKv = View(kvTmp, {tileBS, kvLoraRank}, {0, 0}); // [b*s,kvLoraRank]
@@ -329,7 +329,7 @@ void MlaPrologComputeV32(const Tensor &tokenX, const Tensor &wDq, const Tensor &
 
         /******** kvCache ********/
         config::SetSemanticLabel("ScatterUpdate_kvCache");
-        TileShape::Current().SetVecTile(4, 128, 128, 512);
+        TileShape::Current().SetVecTile(NUM_4, NUM_128, NUM_128, NUM_512);
         // kvCache: [blockNum * blockSize * n2, kvLoraRank], output3
         kvCacheOut = ScatterUpdate(kvCache, index, kNope, -2, cacheMode, blockSize); // -2
 

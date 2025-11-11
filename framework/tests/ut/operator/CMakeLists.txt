@@ -84,6 +84,11 @@ set(_CaseFilterList
         "FunctionTest.TestBMMtest2"
         "FunctionTest.Test_deepseekMoEGate"
         "FunctionTest.Test_deepseekMoEInfer"
+        "FunctionTest.Test_deepseekMoEInfer_singleout"
+        "FunctionTest.test_deepseekMoEInfer_singleout_2"
+        "FunctionTest.test_deepseekMoEInfer_singleout_singlemlp"
+        "FunctionTest.test_deepseekMoEInfer_singleout_singlemlp_withquant"
+
         "FunctionTest.Test_quant"
         "FunctionTest.Test_ScalarOp"
         "FunctionTest.TestPad"

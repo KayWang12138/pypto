@@ -1285,6 +1285,147 @@ TEST_F(FunctionTest, Test_deepseekMoEInfer) {
     ALOG_INFO(Program::GetInstance().Dump());
 }
 
+TEST_F(FunctionTest, Test_deepseekMoEInfer_singleout) {
+    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+
+    int32_t nRoutedExperts = 256;
+    int b = 4;   // 32
+    int s = 1; // 1, optimize set_tile
+    int h = 256;
+    int numExpertsPerTok = std::get<int>(deepseekConfig1["numExpertsPerTok"]); // 8
+
+    DeepseekV2MoE deepseekMoEInfer(deepseekConfig1);
+
+    std::vector<int64_t> hiddenStatesShape = { b* s, h };
+    std::vector<int64_t> topKShape = { b* s, numExpertsPerTok };
+
+    Tensor ffnWeight1(DT_FP16, {h, h * 3}, "ffnWeight1");
+    Tensor ffnWeight2(DT_FP16, {h, h * 3}, "ffnWeight2");
+    Tensor ffnWeight3(DT_FP16, {h, h * 3}, "ffnWeight3");
+
+    Tensor finalout(DT_FP32, { b*s, h }, "finalout");
+
+    TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64});
+    TileShape::Current().SetVecTile(64, nRoutedExperts); // for Assemble
+
+    Tensor hiddenStates = Tensor(DT_FP32, hiddenStatesShape, "hiddenStates");
+    Tensor topkIdx = Tensor(DT_INT32, topKShape, "topkIdx");
+    Tensor topkWeight = Tensor(DT_FP32, topKShape, "topkWeight");
+
+    FUNCTION("MOE_INFER_F") {
+            finalout = deepseekMoEInfer.MoeInfer(hiddenStates, topkIdx, topkWeight, ffnWeight1, ffnWeight2, ffnWeight3, nRoutedExperts);
+    }
+}
+
+TEST_F(FunctionTest, test_deepseekMoEInfer_singleout_2) {
+    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+
+    int32_t nRoutedExperts = 256;
+    int b = 4; // 32
+    int s = 1;  // 1, optimize set_tile
+    int h = std::get<int>(deepseekConfig1["hiddenSize"]);
+    int numExpertsPerTok = std::get<int>(deepseekConfig1["numExpertsPerTok"]); // 8
+
+    DeepseekV2MoE deepseekMoEInfer(deepseekConfig1);
+
+    std::vector<int64_t> hiddenStatesShape = {b * s, h};
+    std::vector<int64_t> topKShape = {b * s, numExpertsPerTok};
+    std::vector<int64_t> resShape = {b * s, numExpertsPerTok};
+
+    Tensor ffnWeight1(DataType::DT_FP16, {h, h * 3}, "ffnWeight1");
+    Tensor ffnWeight2(DataType::DT_FP16, {h, h * 3}, "ffnWeight2");
+    Tensor ffnWeight3(DataType::DT_FP16, {h, h * 3}, "ffnWeight3");
+
+    Tensor outs(DataType::DT_FP32, {b * s * numExpertsPerTok, h}, "outs");
+    Tensor sortedTokens(DataType::DT_FP32, {b * s * numExpertsPerTok, h}, "sortedTokens");
+    Tensor idxs(DataType::DT_INT32, {b * s * numExpertsPerTok}, "idxs");
+
+    Tensor finalout(DataType::DT_FP32, { b*s, h }, "finalout");
+
+    TileShape::Current().SetCubeTile({std::min(128, b * s), std::min(128, b * s)}, {64, 64}, {64, 64});
+    TileShape::Current().SetVecTile(64, nRoutedExperts); // for Assemble
+
+    Tensor hiddenStates = Tensor(DataType::DT_FP32, hiddenStatesShape, "hiddenStates");
+    Tensor topkIdx = Tensor(DataType::DT_INT32, topKShape, "topkIdx");
+    Tensor topkWeight = Tensor(DataType::DT_FP32, topKShape, "topkWeight");
+
+    FUNCTION("MOE_INFER_F") {
+        finalout = deepseekMoEInfer.MoeInfer(hiddenStates, topkIdx, topkWeight, ffnWeight1, ffnWeight2,
+            ffnWeight3, idxs, sortedTokens, outs, nRoutedExperts);
+    }
+}
+
+TEST_F(FunctionTest, test_deepseekMoEInfer_singleout_singlemlp) {
+    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+
+    int32_t nRoutedExperts = 256;
+    int b = 4;
+    int s = 1;
+    int h = std::get<int>(deepseekConfig1["hiddenSize"]);
+    int weightN = 2048;
+    int numExpertsPerTok = std::get<int>(deepseekConfig1["numExpertsPerTok"]); // 8
+
+    DeepseekV2MoE deepseekMoEInfer(deepseekConfig1);
+
+    std::vector<int64_t> hiddenStatesShape = { b* s, h };
+    std::vector<int64_t> topKShape = { b* s, numExpertsPerTok };
+    std::vector<int64_t> resShape = { b* s, numExpertsPerTok };
+
+    Tensor ffnWeight1(DT_FP16, {h, weightN}, "ffnWeight1");
+    Tensor ffnWeight2(DT_FP16, {h, weightN}, "ffnWeight2");
+    Tensor ffnWeight3(DT_FP16, {h, weightN},"ffnWeight3");
+
+    Tensor finalout(DT_FP32, { b*s, h }, "finalout");
+
+    TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64});
+    TileShape::Current().SetVecTile(64, nRoutedExperts); // for Assemble
+
+    Tensor hiddenStates = Tensor(DT_FP32, hiddenStatesShape, "hiddenStates");
+    Tensor topkIdx = Tensor(DT_INT32, topKShape, "topkIdx");
+    Tensor topkWeight = Tensor(DT_FP32, topKShape, "topkWeight");
+
+    FUNCTION("MOE_INFER_F") {
+            finalout = deepseekMoEInfer.MoeInferSingleMlp(hiddenStates, topkIdx, topkWeight, ffnWeight1, ffnWeight2, ffnWeight3, nRoutedExperts);
+    }
+}
+
+TEST_F(FunctionTest, test_deepseekMoEInfer_singleout_singlemlp_withquant) {
+    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+
+    int32_t nRoutedExperts = 256;
+    int b = 4;
+    int s = 1;
+    int h = std::get<int>(deepseekConfig1["hiddenSize"]);
+    int weightN = 2048;
+    int numExpertsPerTok = std::get<int>(deepseekConfig1["numExpertsPerTok"]); // 8
+
+    DeepseekV2MoE deepseekMoEInfer(deepseekConfig1);
+
+    std::vector<int64_t> hiddenStatesShape = { b* s, h };
+    std::vector<int64_t> topKShape = { b* s, numExpertsPerTok };
+    std::vector<int64_t> resShape = { b* s, numExpertsPerTok };
+
+    Tensor ffnWeight1(DT_INT8, {h, weightN}, "ffnWeight1", TileOpFormat::TILEOP_NZ);
+    Tensor ffnWeight2(DT_INT8, {h, weightN}, "ffnWeight2", TileOpFormat::TILEOP_NZ);
+    Tensor ffnWeight3(DT_INT8, {h, weightN}, "ffnWeight3", TileOpFormat::TILEOP_NZ);
+    Tensor ffnwight1Scale(DT_FP32, {1, weightN}, "ffnwight1Scale");
+    Tensor ffnwight2Scale(DT_FP32, {1, weightN}, "ffnwight2Scale");
+    Tensor ffnwight3Scale(DT_FP32, {h, 1}, "ffnwight3Scale");
+
+    Tensor finalout(DT_FP32, { b*s, h }, "finalout");
+
+    TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64});
+    TileShape::Current().SetVecTile(64, nRoutedExperts); // for Assemble
+
+    Tensor hiddenStates = Tensor(DT_FP32, hiddenStatesShape, "hiddenStates");
+    Tensor topkIdx = Tensor(DT_INT32, topKShape, "topkIdx");
+    Tensor topkWeight = Tensor(DT_FP32, topKShape, "topkWeight");
+
+    FUNCTION("MOE_INFER_F") {
+            finalout = deepseekMoEInfer.MoeInferSingleMlpQuant(hiddenStates, topkIdx, topkWeight, ffnWeight1, ffnWeight2, ffnWeight3,  ffnwight1Scale, ffnwight2Scale, ffnwight3Scale, nRoutedExperts);
+    }
+}
+
 TEST_F(FunctionTest, Test_deepseekMoE) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 

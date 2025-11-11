@@ -180,7 +180,6 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                         config::SetSemanticLabel("Cmp-Attn-First-Block-C2");
                         TileShape::Current().SetCubeTile(
                             {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]});
-                        // auto tildaPijB16T = Transpose(tildaPijB16, {0, 1}); // (blockSize, n1) -> (n1, blockSize)
                         auto oiTmp = Matrix::Matmul<true, false>(DataType::DT_FP32, tildaPijB16,
                             curVAttn); // (n1, blockSize), (blockSize, dN) -> (n1, dN)
                         oiTmp.SetName("oiTmp");
