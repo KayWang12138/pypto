@@ -1729,9 +1729,8 @@ TILEOP void DynTtransposeMoveIn4dim_(__ubuf__ T *dst, __gm__ T *src, unsigned TS
 
 template <typename T, typename U>
 TILEOP void ProcessLogicalNot(__ubuf__ bool *dst, __ubuf__ T *src, __ubuf__ half *castCondition,
-                __ubuf__ int8_t *vcmpBitResult, __ubuf__ U *compareCondition,
-                __ubuf__ U *oneCondition, __ubuf__ uint64_t * startAddrUB, uint64_t CountNum) {
-    uint64_t startREG[1] = {0};
+                __ubuf__ int8_t *vcmpBitResult, __ubuf__ U *compareCondition,__ubuf__ U *oneCondition,
+                __ubuf__ uint64_t * startAddrUB, uint64_t CountNum, int64_t repeatNum) {
     set_vector_mask((uint64_t)-1, (uint64_t)-1);
     set_mask_count();
     pipe_barrier(PIPE_V);
@@ -1746,42 +1745,43 @@ TILEOP void ProcessLogicalNot(__ubuf__ bool *dst, __ubuf__ T *src, __ubuf__ half
     }
 
     pipe_barrier(PIPE_V);
-    if (std::is_same<T, float>::value) {
-        vector_dup((__ubuf__ float *)compareCondition, (float)0.000000e+00f, 1, 1, 1, 0, 0);
-        vector_dup((__ubuf__ float *)oneCondition, (float)1.000000e+00f, 1, 1, 1, 0, 0);
+    if constexpr (std::is_same<T, float>::value) {
+        vector_dup((__ubuf__ float *)compareCondition, (float)0.000000e+00f, 1, 1, 1, 8, 0);
+        vector_dup((__ubuf__ float *)oneCondition, (float)1.000000e+00f, 1, 1, 1, 8, 0);
     } else {
-        vector_dup((__ubuf__ half *)compareCondition, (half)0.000000e+00f, 1, 1, 1, 0, 0);
-        vector_dup((__ubuf__ half *)oneCondition, (half)1.000000e+00f, 1, 1, 1, 0, 0);
+        vector_dup((__ubuf__ half *)compareCondition, (half)0.000000e+00f, 1, 1, 1, 8, 0);
+        vector_dup((__ubuf__ half *)oneCondition, (half)1.000000e+00f, 1, 1, 1, 8, 0);
     }
     
+    set_mask_norm();
     pipe_barrier(PIPE_V);
     
     if constexpr (std::is_same<T, half>::value || std::is_same<T, float>::value) {
         vcmpv_eq((__ubuf__ uint8_t *)vcmpBitResult,
                 (__ubuf__ T *)src, (__ubuf__ U *)compareCondition,
-                (int64_t)1, (uint8_t)1ULL, 1, (uint8_t)1ULL, (uint8_t)1ULL, (int64_t)8, (int64_t)0);
+                (int64_t)repeatNum, (uint8_t)1ULL, 1, (uint8_t)1ULL, (uint8_t)1ULL, (int64_t)8, (int64_t)8);
+
     } else if (std::is_same<T, bool>::value || std::is_same<T, uint8_t>::value || 
                 std::is_same<T, int8_t>::value) {
         vcmpv_eq((__ubuf__ uint8_t *)vcmpBitResult,
                 (__ubuf__ half *)castCondition, (__ubuf__ half *)compareCondition,
-                (int64_t)1, (uint8_t)1ULL, 1, (uint8_t)1ULL, (uint8_t)1ULL, (int64_t)8, (int64_t)0);
-    } 
+                (int64_t)repeatNum, (uint8_t)1ULL, 1, (uint8_t)1ULL, (uint8_t)1ULL, (int64_t)8, (int64_t)8);
+    }
 
+    set_mask_count();
     set_flag(PIPE_V, PIPE_S, EVENT_ID0);
     wait_flag(PIPE_V, PIPE_S, EVENT_ID0);
 
+    uint64_t startREG[1] = {0};
     startREG[0] = (uint64_t) ((int8_t* ) (((uint64_t)((__ubuf__ int8_t *)vcmpBitResult))));
-
     *(__ubuf__ uint64_t * )((__ubuf__ uint64_t *)startAddrUB) = startREG[0];
 
     set_flag(PIPE_S, PIPE_V, EVENT_ID0);
     wait_flag(PIPE_S, PIPE_V, EVENT_ID0);
     
+    set_vector_mask(0x0, (uint64_t)CountNum);
     set_cmpmask(((__ubuf__ uint64_t *)startAddrUB));
     pipe_barrier(PIPE_V);
-
-    set_mask_count();
-    set_vector_mask(0x0, (uint64_t)CountNum);
 
     if (std::is_same<T, float>::value) {
         vsel(compareCondition, oneCondition, compareCondition, (uint64_t)571780540465409ULL);
@@ -1806,23 +1806,26 @@ TILEOP void DynTlogicalNot(__ubuf__ bool *dst, __ubuf__ T *src,__ubuf__ half *ca
                     __ubuf__ uint64_t * startAddrUB, __ubuf__ U *oneCondition,
                     unsigned T0, unsigned T1) {
     constexpr uint64_t COUNT_MAX = 2048;
+    constexpr int64_t TYPE_REPEAT = 256 / sizeof(U);
+    constexpr int64_t REPEATNUM = COUNT_MAX / TYPE_REPEAT;
 
     unsigned numLoop = T1 / COUNT_MAX;
     unsigned remainAfterLoop = T1 % COUNT_MAX;
+    int64_t repeatNumRemain = (remainAfterLoop + TYPE_REPEAT - 1) / TYPE_REPEAT;
     for (int i = 0; i < T0; i++) {
         for (int j = 0; j < numLoop; j++) {
             ProcessLogicalNot<T, U>(dst + i * DS + j * COUNT_MAX,
                             src + i * SS + j * COUNT_MAX,
                             castCondition, (__ubuf__ int8_t *)vcmpBitResult, compareCondition,
                             oneCondition, (__ubuf__ uint64_t *)startAddrUB,
-                            COUNT_MAX);
+                            COUNT_MAX, REPEATNUM);
         }
         if (remainAfterLoop > 0) {
             ProcessLogicalNot<T, U>(dst + i * DS + numLoop * COUNT_MAX,
                             src + i * SS + numLoop * COUNT_MAX,
                             castCondition, (__ubuf__ int8_t *)vcmpBitResult, compareCondition,
                             oneCondition, (__ubuf__ uint64_t *)startAddrUB,
-                            remainAfterLoop);
+                            remainAfterLoop, repeatNumRemain);
         }
     }
     set_mask_norm();

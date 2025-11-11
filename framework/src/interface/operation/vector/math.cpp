@@ -180,7 +180,13 @@ LogicalTensorPtr TensorLogicalNotOperation(Function &function, LogicalTensorPtr 
 
 Tensor LogicalNot(const Tensor &self) {
     DECLARE_TRACER();
-
+    bool dtypeIsValid = self.GetDataType() == DT_FP32 || self.GetDataType() == DT_FP16 ||
+                        self.GetDataType() == DT_UINT8 || self.GetDataType() == DT_INT8 ||
+                        self.GetDataType() == DT_BOOL;
+    if (!dtypeIsValid) {
+        std::string errorMessage = "Unsurpported Dtype " + DataType2String(self.GetDataType());
+        ASSERT(false) << errorMessage;
+    }
     RETURN_CALL(LogicalNotOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
 }
 
