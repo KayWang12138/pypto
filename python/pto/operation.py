@@ -13,16 +13,16 @@
 # pyright: reportAttributeAccessIssue=false
 """
 """
-import inspect
+import functools
 from typing import Optional, Union, Tuple, List, overload
 
 from . import pto_impl
 
 from .element import Element
-from .pto_utils import * # noqa
+from .pto_utils import *  # noqa
 from .symbolic_scalar import SymbolicScalar
 from .tensor import Tensor
-from .enum import DataType, OpType, OutType
+from .enum import * # noqa
 
 
 def _to_base(arg):
@@ -37,6 +37,7 @@ def _to_base(arg):
 
 
 def op_wrapper(func):
+    @functools.wraps(func)
     def wrapper(*args, **kwargs):
         args = _to_base(args)
         kwargs = _to_base(kwargs)
@@ -148,7 +149,7 @@ def sub(
     x = pto.tensor([2, 3], pto.DT_FP32)
     y = pto.tensor([2, 3], pto.DT_FP32)
     out1 = pto.sub(a, b)
-    
+
     Input x:      [[9 9 9],
                    [9 9 9]]
     Input y:      [[1 2 3],
@@ -207,7 +208,7 @@ def mul(
     x = pto.tensor([2, 3], pto.DT_FP32)
     y = pto.tensor([2, 3], pto.DT_FP32)
     z = pto.mul(a, b)
-    
+
     Input x:[[1 2 3],
              [1 2 3]]
     Input y:[[1 2 3],
@@ -464,7 +465,7 @@ def rsqrt(
     --------
     x = pto.tensor([2, 2], pto.DT_FP32)
     y = pto.rsqrt(x)
-    
+
     Input x: [[1  4],
              [16 9]]
     Output y:[[1  0.5],
@@ -547,13 +548,13 @@ def topk(
     --------
     x = pto.tensor([2, 3], pto.DT_FP32)
     y = pto.topk(x, 2, -1, True)
-    
+
     Input x:     [[1 2 3],
                   [1 2 3]]
     Output y[0]: [[3 2],
                   [3 2]]
     Output y[1]: [[2 1],
-                  [2 1]] 
+                  [2 1]]
     """
 
     return pto_impl.topk(input, k, (-1 if dim is None else dim), largest)
@@ -611,7 +612,7 @@ def gather(
       index:  [[0 1 2 0],
                [1 2 0 1],
                [2 2 1 0]]
-    
+
     Output y: [[0 6 12 3],
                [5 11 2 8],
                [10 11 7 3]]               # shape (3, 4)
@@ -670,7 +671,7 @@ def scatter(
     y = pto.tensor([2, 2], pto.DT_INT64)
     z = pto.tensor([4, 3], pto.DT_FP32)
     o = pto.scatter(x, -2, y, z)
-    
+
     Input x:[[0 0 0],
              [0 0 0],
              [0 0 0],
@@ -693,7 +694,7 @@ def scatter(
               [10 11 12],
               [0 0 0],
               [0 0 0]])
-    
+
     #dim4
     x = pto.tensor([2, 6, 1, 3], pto.DT_FP32)
     y = pto.tensor([2, 2], pto.DT_INT64)
@@ -824,7 +825,7 @@ def where(
     Input cond:  [[True False], [False True]]
     Input x:     [1 2]
     Input y:     0
-    
+
     Output out3: [[1 0],
                   [0 2]])
     """
@@ -867,9 +868,7 @@ def arange(start: Union[int, float],
 
 
 @op_wrapper
-def arange(
-    *args: Union[int, float]
-) -> Tensor:
+def arange(*args: Union[int, float]) -> Tensor:
     """Creates a 1-dimensional tensor containing a sequence of values in the range [start, end) with a given step.
 
     This function generates values from 'start' to 'end' (exclusive) in increments of 'step'.
@@ -922,6 +921,7 @@ def arange(
                               convert_to_element(end),
                               convert_to_element(step))
 
+
 @op_wrapper
 def log(
     input: Tensor
@@ -959,7 +959,8 @@ def log(
 @op_wrapper
 def cast(
     input: Tensor,
-    dtype: DataType
+    dtype: DataType,
+    mode: CastMode = CastMode.CAST_NONE
 ) -> Tensor:
     """Casting the operand to the specified type.
 
@@ -985,14 +986,14 @@ def cast(
     --------
     x = pto.tensor([2], pto.DT_FP32)
     y = pto.cast(x, pto.DT_FP16)
-    
+
     Input  x: [2.0, 3.0] x.dtype: pto.DT_FP32
     Output y: [2.0, 3.0] y.dtype: pto.DT_FP16
     """
-    if dtype == input.dtype:
+    if dtype == input.dtype and mode == CastMode.CAST_NONE:
         return input
     else:
-        return pto_impl.cast(input, dtype, pto_impl.CastMode.CAST_NONE)
+        return pto_impl.cast(input, dtype, mode)
 
 
 @op_wrapper
@@ -1022,7 +1023,7 @@ def amax(
     --------
     x = pto.tensor([2, 3], pto.DT_FP32)
     y = pto.amax(x, -1)
-    
+
     Input x:[[1 2 3],
              [1 2 3]]
     Output y:[[3],
@@ -1030,6 +1031,7 @@ def amax(
 
     """
     return pto_impl.row_max_single(input, dim)
+
 
 @op_wrapper
 def sum(
@@ -1058,7 +1060,7 @@ def sum(
     --------
     x = pto.tensor([2, 3], pto.DT_FP32)
     y = pto.sum(x, -1)
-    
+
     Input x:[[1 2 3],
              [1 2 3]]
     Output y:[[6],
@@ -1073,7 +1075,7 @@ def full(size: List[int],
          fill_value: Union[int, float, SymbolicScalar, Element],
          dtype: DataType,
          *,
-         valid_shape: Optional[Union[List[int], List[SymbolicScalar]]] = None
+         valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None
          ) -> Tensor:
     """
     Creates a tensor of the specified shape whose every entry equals the scalar elem.
@@ -1097,7 +1099,7 @@ def full(size: List[int],
     Examples
     --------
     # Valid shapes use keyword argument
-    x1 = 1.0 
+    x1 = 1.0
     y1 = pto.full([2,2], x1, pto.DT_FP32, valid_shape=[2, 2])
 
     x2 = pto.symbolic_scalar(1)
@@ -1106,7 +1108,7 @@ def full(size: List[int],
     #  In static graphs, validshape can be ignored
     x3 = 1
     y3 = pto.full([2,2], x3, pto.DT_INT32)
-    
+
     Output y1: [[1.0 1.0], [1.0 1.0]]
     Output y2: [[1 1], [1 1]]
     Output y3: [[1 1], [1 1]]
@@ -1115,11 +1117,12 @@ def full(size: List[int],
     if valid_shape is None:
         valid_shape = []
     if isinstance(fill_value, pto_impl.SymbolicScalar):
-        return pto_impl.vector_duplicate(fill_value, dtype, size, valid_shape)
+        return pto_impl.vector_duplicate(fill_value, dtype, size, to_syms(valid_shape))
     elif isinstance(fill_value, pto_impl.Element):
-        return pto_impl.vector_duplicate(fill_value, dtype, size, valid_shape)
+        return pto_impl.vector_duplicate(fill_value, dtype, size, to_syms(valid_shape))
     else:
-        return pto_impl.vector_duplicate(pto_impl.Element(dtype, fill_value), dtype, size, valid_shape)
+        return pto_impl.vector_duplicate(pto_impl.Element(dtype, fill_value), dtype,
+                                         size, to_syms(valid_shape))
 
 
 @op_wrapper
@@ -1149,7 +1152,7 @@ def amin(
     --------
     x = pto.tensor([2, 3], pto.DT_FP32)
     y = pto.amin(x, -1)
-    
+
     Input x:[[1 2 3],
              [1 2 3]]
     Output y:[[1],
@@ -1222,8 +1225,8 @@ def concat(
     x = pto.tensor([2, 2], pto.data_type.DT_FP32)  # 2x2 tensor with all 1s
     y = pto.tensor([2, 2], pto.data_type.DT_FP32)  # 2x2 tensor with all 0s
     dim = 0
-    out = pto.concat([x, y], dim) 
-    
+    out = pto.concat([x, y], dim)
+
     Input  x : [[1 1],
                 [1 1]]
            y : [[0 0],
@@ -1308,7 +1311,8 @@ def matmul(input, mat2, out_dtype, *, a_trans=False, b_trans=False, c_matrix_nz=
     elif (input_dim == mat2_dim == 3) or (input_dim == mat2_dim == 4):
         return pto_impl.batch_matmul(out_dtype, input, mat2, a_trans, b_trans, c_matrix_nz)
     else:
-        raise RuntimeError("input dim and mat dim must equals, which only support 2-D/3-D/4-D currently")
+        raise RuntimeError(
+            "input dim and mat dim must equals, which only support 2-D/3-D/4-D currently")
 
 
 @op_wrapper

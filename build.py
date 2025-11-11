@@ -964,7 +964,7 @@ class BuildCtrl:
         self.pip_install(whl=whl, path=dist)  # 安装 whl 包
         # 执行用例, UTest
         self.py_tests_run_pytest(dist=dist, tests=self.tests.utest,
-                                 def_filter=str(Path(self.src_root, "python/tests/ut")), ext="-n auto")
+                                 def_filter=str(Path(self.src_root, "python/tests/ut")), ext="-n auto --forked")
         # 执行用例, STest
         self.py_tests_run_pytest(dist=dist, tests=self.tests.stest,
                                  def_filter=str(Path(self.src_root, "python/tests/st")), ext="--forked")

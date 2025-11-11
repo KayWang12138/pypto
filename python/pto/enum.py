@@ -13,14 +13,28 @@
 
 from . import pto_impl
 
+
+def _enum_repr(self):
+    return f"{self.__class__.__name__}.{self.name}" # remove pto_impl. prefix
+
+
 DataType = pto_impl.DataType
 TileOpFormat = pto_impl.TileOpFormat
 CachePolicy = pto_impl.CachePolicy
 ReduceMode = pto_impl.ReduceMode
-MemoryType = pto_impl.MemoryType
 CastMode = pto_impl.CastMode
 OpType = pto_impl.OpType
 OutType = pto_impl.OutType
+
+
+DataType.__repr__ = _enum_repr
+TileOpFormat.__repr__ = _enum_repr
+CachePolicy.__repr__ = _enum_repr
+ReduceMode.__repr__ = _enum_repr
+CastMode.__repr__ = _enum_repr
+OpType.__repr__ = _enum_repr
+OutType.__repr__ = _enum_repr
+
 
 DT_INT4 = pto_impl.DataType.DT_INT4
 DT_INT8 = pto_impl.DataType.DT_INT8
@@ -39,10 +53,3 @@ DT_UINT32 = pto_impl.DataType.DT_UINT32
 DT_UINT64 = pto_impl.DataType.DT_UINT64
 DT_BOOL = pto_impl.DataType.DT_BOOL
 DT_DOUBLE = pto_impl.DataType.DT_DOUBLE
-
-
-def data_type_repr(self):
-    return f"DataType.{self.name}"
-
-
-DataType.__repr__ = data_type_repr

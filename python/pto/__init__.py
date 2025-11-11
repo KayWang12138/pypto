@@ -18,13 +18,12 @@ def load_shared_libs():
     import pkg_resources
 
     dist = pkg_resources.get_distribution("pto")
-    dir = os.path.join(f"{dist.location}", "pto", "lib")
+    lib_dir = os.path.join(f"{dist.location}", "pto", "lib")
     libs = ["libtile_fwk_interface.so", "libtile_fwk_codegen.so",
             "libtile_fwk_compiler.so", "libtile_fwk_runtime.so"]
     for lib in libs:
-        print(os.path.join(dir, lib))
-        if os.path.exists(os.path.join(dir, lib)):
-            ctypes.CDLL(os.path.join(dir, lib), mode=ctypes.RTLD_GLOBAL)
+        if os.path.exists(os.path.join(lib_dir, lib)):
+            ctypes.CDLL(os.path.join(lib_dir, lib), mode=ctypes.RTLD_GLOBAL)
 
 
 load_shared_libs()
@@ -35,19 +34,11 @@ from .controller import *  # noqa
 from .element import Element
 from .enum import *  # noqa
 from .operation import *  # noqa
-from .operator import cos, sin, sigmoid, softmax
-from .pto_utils import ceildiv, bytes_of
+from .operator import *  # noqa
+from .pto_utils import ceil, bytes_of
 from .runtime import jit
 from .symbolic_scalar import SymbolicScalar
 from .tensor import Tensor, mark_dynamic
-
-
-def dump() -> str:
-    return pto_impl.Dump()
-
-
-def reset():
-    pto_impl.Reset()
 
 
 tensor = Tensor

@@ -47,16 +47,16 @@ def _torch_to_pto_dtype(dtype: torch.dtype) -> pto.DataType:
     raise ValueError(f"Input torch.dtype is not supported. Got {dtype}")
 
 
-def _torch_to_pto(t: torch.tensor, name: str) -> pto.Tensor:
+def _torch_to_pto(t: torch.Tensor, name: str) -> pto.Tensor:
     "Converts a `torch.tensor` to `pto.Tensor`."
-    pto_dtype = _torch_to_pto_dtype(t.dtype)
-    try:
+    dtype = _torch_to_pto_dtype(t.dtype)
+    format = pto.TileOpFormat.TILEOP_ND
+    if t.device.type == "npu":
         import torch_npu
-    except ImportError as e:
-        raise ImportError("pto.runtime._torch_to_pto requires torch_npu Python packages.") from e
-    if torch_npu.get_npu_format(t) == 29: # 29: torch_npu.Format.FRACTAL_NZ
-        return pto.Tensor(tuple(t.shape), pto_dtype, f"PTO_TENSOR_{name}", pto.TileOpFormat.TILEOP_NZ)
-    return pto.Tensor(tuple(t.shape), pto_dtype, f"PTO_TENSOR_{name}")
+        if torch_npu.get_npu_format(t) == 29:
+            format = pto.TileOpFormat.TILEOP_NZ
+    return pto.Tensor(tuple(t.shape), dtype, f"PTO_TENSOR_{name}", format)
+
 
 def _to_tensor_data(tensors: List[torch.Tensor]):
     datas = []
@@ -106,6 +106,7 @@ class jit:
             self._is_function_compiled = True
 
         stream = torch.npu.current_stream()
+        assert self._handler is not None
         pto_impl.OperatorDeviceRunOnceDataFromDevice(
             self._handler,
             _to_tensor_data(in_tensors),

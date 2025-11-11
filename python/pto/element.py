@@ -15,23 +15,27 @@ class Element:
     def __init__(self, dtype, data):
         if isinstance(data, int):
             self._base = pto_impl.Element(dtype, data)
-            self._is_int = True
         elif isinstance(data, float):
             self._base = pto_impl.Element(dtype, data)
-            self._is_int = False
         else:
             raise ValueError(f"Invalid data type {type(data)} for Element")
 
     @property
     def dtype(self):
+        """
+        Returns the data type of the element.
+        """
         return self._base._get_data_type()
 
     @property
     def value(self):
-        if self._is_int:
-            return self._base._get_signed_data()
-        else:
+        """
+        Returns the value of the element.
+        """
+        if self._base._is_float():
             return self._base._get_float_data()
+        else:
+            return self._base._get_signed_data()
 
     def base(self):
         return self._base

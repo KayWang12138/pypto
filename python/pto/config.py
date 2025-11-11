@@ -12,7 +12,6 @@
 """
 from typing import List, Union, Dict
 
-import pto
 from . import pto_impl
 
 

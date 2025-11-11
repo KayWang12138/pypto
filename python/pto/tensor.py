@@ -278,11 +278,11 @@ class Tensor:
 
     def unsqueeze(self, dim: int) -> 'Tensor':
         return pto.unsqueeze(self, dim)
-    
+
     def view(self, shape: List[int], offsets: List[Union[int, SymbolicScalar]],
-             *, valid_shape: List[Union[int, SymbolicScalar]] = None) -> 'Tensor':
+             *, valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None) -> 'Tensor':
         return pto.view(self, shape, offsets, valid_shape=valid_shape)
-    
+
     def sin(self) -> 'Tensor':
         return pto.sin(self)
 
@@ -336,6 +336,7 @@ class Tensor:
 
     def scatter(self, dim: int, index: 'Tensor', src: 'Tensor') -> 'Tensor':
         return pto.scatter(self, dim, index, src)
+
 
 def mark_dynamic(tensor: 'Tensor', axis: int):
     """

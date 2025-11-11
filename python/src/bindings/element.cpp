@@ -31,6 +31,7 @@ void BindElement(py::module &m) {
         .def("_get_data_type", &Element::GetDataType)
         .def("_get_signed_data", &Element::GetSignedData)
         .def("_get_unsigned_data", &Element::GetUnsignedData)
+        .def("_is_float", &Element::IsFloat)
         .def("_get_float_data", &Element::GetFloatData);
 }
 

@@ -33,7 +33,7 @@ def to_syms(value: Union[Sequence[int], Sequence[SymbolicScalar]]) -> List[pto_i
     return [to_sym(v) for v in value]
 
 
-def ceildiv(a: SymInt, b: SymInt) -> SymInt:
+def ceil(a: SymInt, b: SymInt) -> SymInt:
     return (a + b - 1) // b
 
 

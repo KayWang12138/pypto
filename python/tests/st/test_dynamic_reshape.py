@@ -17,6 +17,7 @@ import torch
 from numpy.testing import assert_allclose
 import torch_npu
 
+
 def test_reshape_shape():
     dtype = pto.DT_FP32
     pto.runtime._device_init()

@@ -200,3 +200,16 @@ def test_loop_issue52():
                 c[i * 16:, j * 16:] = view_b + view_a
 
     pto.runtime._device_fini()
+
+
+def test_if_true():
+    A = pto.tensor((64, 64), pto.DT_FP32, "A")
+    B = pto.tensor((64, 64), pto.DT_FP32, "B")
+
+    with pto.function("MAIN", [A], [A]):
+        for _ in pto.loop(1):
+            pto.set_vec_tile_shapes(16, 16)
+            if pto.cond(True):
+                B[:] = A + 2
+            else:
+                B[:] = A - 2

@@ -40,6 +40,9 @@ __all__ = [
     "is_loop_begin",
     "is_loop_end",
     "cond",
+
+    "dump",
+    "reset"
 ]
 
 
@@ -229,7 +232,7 @@ class LoopRange:
 _loop_range = LoopRange
 
 
-def is_loop_begin(scalar: SymbolicScalar):
+def is_loop_begin(scalar: SymInt):
     ''' Determines if the current iteration is the start of loop
     This function returns a boolean value which specifys whether
     the current iteration is the beginning of the loop
@@ -257,7 +260,7 @@ def is_loop_begin(scalar: SymbolicScalar):
         pto_impl.IsLoopBegin(to_sym(scalar), getattr(scalar, "_loop_begin")))
 
 
-def is_loop_end(scalar: SymbolicScalar):
+def is_loop_end(scalar: SymInt):
     ''' Determines if the current iteration is the end of loop
     This function returns a boolean value which specifys whether
     the current iteration is the end of the loop
@@ -569,3 +572,20 @@ def loop(
     ) as rlf:
         for k in rlf:
             yield k
+
+
+def dump() -> str:
+    """ Dump the current program.
+
+    Returns
+    -------
+    str
+        The dumped program.
+    """
+    return pto_impl.Dump()
+
+
+def reset():
+    """ Reset the current program.
+    """
+    pto_impl.Reset()
