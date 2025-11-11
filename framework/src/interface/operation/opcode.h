@@ -557,10 +557,18 @@ inline bool IsOpCodeSupportMultiProducers(Opcode opCode) {
 
 // NEXTNEXT: delete after tile op register has supported tile tensor
 const std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
-    {         Opcode::OP_UB_COPY_IN,  "TLoad"},
-    {        Opcode::OP_UB_COPY_OUT, "TStore"},
-    {Opcode::OP_TRANSPOSE_VNCHWCONV, "TTrans"},
-    {                Opcode::OP_ADD,   "TAdd"},
-    {                Opcode::OP_SUB,   "TSub"},
+    {         Opcode::OP_UB_COPY_IN,          "TLoad"},
+    {        Opcode::OP_UB_COPY_OUT,         "TStore"},
+    {Opcode::OP_TRANSPOSE_VNCHWCONV,         "TTrans"},
+    {                Opcode::OP_ADD,           "TAdd"},
+    {                Opcode::OP_SUB,           "TSub"},
+    {     Opcode::OP_GATHER_ELEMENT, "TgatherElement"},
+    {             Opcode::OP_EXPAND,        "TExpand"},
+    {            Opcode::OP_BITSORT,       "TBitSort"},
+    {            Opcode::OP_MRGSORT,       "TMrgSort"},
+    {       Opcode::OP_TILEDMRGSORT,  "TTiledMrgSort"},
+    {            Opcode::OP_EXTRACT,       "TExtract"},
+    {               Opcode::OP_CAST,          "TCast"},
+    {      Opcode::OP_ROWSUM_SINGLE,  "TRowSumSingle"},
 };
 } // namespace npu::tile_fwk

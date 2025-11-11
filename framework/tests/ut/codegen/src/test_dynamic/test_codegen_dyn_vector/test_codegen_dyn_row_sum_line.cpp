@@ -20,10 +20,13 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
 #include "interface/operation/operation.h"
+#include "interface/interpreter/raw_tensor_data.h"
+#include "interface/function/function.h"
 #include "tilefwk/data_type.h"
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "test_codegen_utils.h"
 
 namespace npu::tile_fwk {
 
@@ -84,4 +87,38 @@ TEST_F(TestCodegenDynRowSumLine, TestOperationRowSumLine) {
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
+
+TEST_F(TestCodegenDynRowSumLine, TestOperationRowSumSingleTileTensor) {
+    config::SetHostOption(ONLY_CODEGEN, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+
+    int shape0 = 257;
+    int shape1 = 128;
+    std::vector<int64_t> shape = {shape0, shape1};
+    std::vector<int64_t> outshape = {shape0, 1};
+
+    TileShape::Current().SetVecTile({128, 64});
+
+    Tensor input_a(DataType::DT_FP32, shape, "A");
+    Tensor output(DataType::DT_FP32, outshape, "C");
+    config::SetBuildStatic(true);
+    FUNCTION("RowSumSingle", {input_a, output}) {
+        output = Sum(input_a, -1);
+    }
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(input_a, 1.0),
+    });
+
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(output, 0.001f),
+    });
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RowSumSingle");
+
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
 } // namespace npu::tile_fwk

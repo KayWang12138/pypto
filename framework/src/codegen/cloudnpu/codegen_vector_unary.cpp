@@ -53,6 +53,19 @@ std::string CodeGenOpCloudNPU::PrintCastDynamicUnaligned(const PrintUnaryParam &
     oss << tileOpName << "_<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
     return oss.str();
 }
+std::string CodeGenOpCloudNPU::PrintCastLayout() const {
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::DST_IDX)]);
+    std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC0_IDX)]);
+    auto mode = opAttrs.at(OP_ATTR_PREFIX + "mode");
+    int64_t modeEnum;
+    if (mode.HasValue()) {
+        modeEnum = npu::tile_fwk::AnyCast<int64_t>(mode);
+    }
+    std::ostringstream oss;
+    oss << tileOpName << "<" << modeEnum << ">"
+        << "(" << dstTensor << ", " << srcTensor << ");\n";
+    return oss.str();
+}
 
 std::string CodeGenOpCloudNPU::PrintRowSumlineStatic(const PrintUnaryParam &param) const {
     int reduceAxis{-1};
@@ -283,6 +296,14 @@ std::string CodeGenOpCloudNPU::PrintExpandDynamicUnaligned(const PrintUnaryParam
     return os.str();
 }
 
+std::string CodeGenOpCloudNPU::PrintExpandLayout(int expandAxis) const {
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::DST_IDX)]);
+    std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC0_IDX)]);
+    std::ostringstream oss;
+    oss << tileOpName << "(" << dstTensor << ", " << srcTensor << ", " << expandAxis << ");\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::PrintExpand(const std::string &s0Var, const std::string &dVar,
     const std::string &srcDtypeStr, const std::string &dstDtypeStr) const {
     char buffer[256] = "CG_ERROR";
@@ -300,6 +321,9 @@ std::string CodeGenOpCloudNPU::PrintExpand(const std::string &s0Var, const std::
     // modify expandAxis for SHAPE_DIM4
     expandAxis += SHAPE_DIM4 - shape[1].size();
 
+    if(isSupportLayout){
+        return PrintExpandLayout(expandAxis);
+    }
     if (isSupportDynamicUnaligned) {
         return PrintExpandDynamicUnaligned({s0Var, dVar, srcDtypeStr, dstDtypeStr}, expandAxis);
     }

@@ -176,6 +176,87 @@ TEST_F(TestCodegenDynBinary, TestGatherEle) {
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
+TEST_F(TestCodegenDynBinary, TestGatherEleTileTensor) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE,false);
+
+    constexpr const int32_t nRoutedExperts = 256;
+    constexpr const int32_t numExpertsPerTopk = 8;
+    constexpr const int32_t S = 1;
+    constexpr const int32_t B = 2;
+
+    std::vector<int64_t> inputShape = {B * S, nRoutedExperts};
+    std::vector<int64_t> outputShape = {B * S, numExpertsPerTopk};
+    TileShape::Current().SetVecTile({16, 32});
+    Tensor inputScores(DT_FP32, outputShape, "input_scores");
+    Tensor inputTmpScores(DT_FP32, inputShape, "input_tmp_scores");
+    Tensor outputTensor(DT_FP32, outputShape, "output_tensor");
+
+    std::string funcName = "GATHER_ELEMET_T";
+    config::SetBuildStatic(true);
+    FUNCTION(funcName, {inputScores, inputTmpScores, outputTensor}) {
+        outputTensor = GatherElements(inputTmpScores, inputScores, 1); // [b*s,8]
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
+    function->SetUnderDynamicFunction(true);
+    for (auto &subFunc : function->rootFunc_->programs_) {
+        for (auto &op : subFunc.second->Operations()) {
+            if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) || OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
+                if (IsCopyIn(op.GetOpcode()))
+                    op.SetIOpAttrOffset(0, 0);
+                else
+                    op.SetOOpAttrOffset(0, 0);
+                op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+            }
+        }
+    }
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+
+    std::string res = GetResultFromCpp(*function);
+    std::string expect = R"!!!(#include "TileOpImpl.h"
+
+// funcHash: 16633218618031552756
+
+extern "C" [aicore] void TENSOR_GATHER_ELEMET_T_1_0_4503599627370496(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
+float __ubuf__ *UB_S0_E2048 = (float __ubuf__ *)get_imm(0x0); // size: 0x800
+float *UB_S0_E2048_T = (float *)get_imm(0x0); // size: 0x800
+float __ubuf__ *UB_S2048_E2112 = (float __ubuf__ *)get_imm(0x800); // size: 0x40
+float *UB_S2048_E2112_T = (float *)get_imm(0x800); // size: 0x40
+float __ubuf__ *UB_S2112_E2176 = (float __ubuf__ *)get_imm(0x840); // size: 0x40
+float *UB_S2112_E2176_T = (float *)get_imm(0x840); // size: 0x40
+uint64_t sym_2_dim_0 = 2; //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 0);
+uint64_t sym_2_dim_1 = 8; //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 1);
+uint64_t sym_4_dim_0 = 2; //GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 0);
+uint64_t sym_4_dim_1 = 256; //GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 1);
+uint64_t sym_5_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 2, 19, 2, 0);
+uint64_t sym_5_dim_1 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 2, 19, 2, 1);
+using GMTileTensorFP32Dim2_3 = TileTensor<__gm__ float, DynLayout2Dim, Hardware::GM>;
+using UBTileTensorFP32Dim2_2 = TileTensor<float, LocalLayout2Dim<2, 8>, Hardware::UB>;
+using GMTileTensorFP32Dim2_1 = TileTensor<__gm__ float, DynLayout2Dim, Hardware::GM>;
+using UBTileTensorFP32Dim2_0 = TileTensor<float, LocalLayout2Dim<2, 256>, Hardware::UB>;
+UBTileTensorFP32Dim2_2 ubTensor_4((uint64_t)UB_S2112_E2176_T, (Shape2Dim(sym_2_dim_0, sym_2_dim_1)));
+UBTileTensorFP32Dim2_2 ubTensor_2((uint64_t)UB_S2048_E2112_T, (Shape2Dim(sym_2_dim_0, sym_2_dim_1)));
+GMTileTensorFP32Dim2_1 gmTensor_1((__gm__ float*)GET_PARAM_ADDR(param, 0, 0), DynLayout2Dim(Shape2Dim(GET_PARAM_RAWSHAPE_2(param, 0, 0)), Stride2Dim(GET_PARAM_STRIDE_2(param, 0, 0))));
+UBTileTensorFP32Dim2_0 ubTensor_0((uint64_t)UB_S0_E2048_T, (Shape2Dim(sym_4_dim_0, sym_4_dim_1)));
+SUBKERNEL_PHASE1
+TLoad(ubTensor_0, gmTensor_1, Coord2Dim(0, 0));
+TLoad(ubTensor_2, gmTensor_1, Coord2Dim(0, 0));
+SUBKERNEL_PHASE2
+set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+TgatherElement<4>(ubTensor_4, ubTensor_0, ubTensor_2);
+set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+TStore(gmTensor_1, ubTensor_4, Coord2Dim(0, 0));
+}
+)!!!";
+
+    EXPECT_EQ(res, expect);
+}
 
 TEST_F(TestCodegenDynBinary, AddUnalignTileTensor) {
     config::SetHostOption(ONLY_CODEGEN, true);

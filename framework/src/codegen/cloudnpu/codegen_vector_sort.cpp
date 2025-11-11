@@ -149,8 +149,19 @@ std::string CodeGenOpCloudNPU::PrintBitSortStatic(const SortParam &param) const 
     return PrintSortStatic(param);
 }
 
+std::string CodeGenOpCloudNPU::PrintSortLayout() const {
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::DST_IDX)]);
+    std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC0_IDX)]);
+    std::ostringstream oss;
+    oss << tileOpName << "<" << GenOpAttr(false) << ">" << "(" << dstTensor << ", " << srcTensor << ");\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::GenBitSortOp() const {
     SortParam sortParm = PrepareSortParam();
+    if (isSupportLayout) {
+        return PrintSortLayout();
+    }
     if (isSupportDynamicUnaligned) {
         return PrintBitSortDynamicUnaligned(sortParm);
     }
@@ -194,6 +205,9 @@ SortParam CodeGenOpCloudNPU::PrepareSortParam() const {
 
 std::string CodeGenOpCloudNPU::GenMrgSortOp() const {
     SortParam sortParm = PrepareSortParam();
+    if (isSupportLayout) {
+        return PrintSortLayout();
+    }
     if (isSupportDynamicUnaligned) {
         return PrintMrgSortDynamicUnaligned(sortParm);
     }
@@ -229,8 +243,25 @@ TiledSortParam CodeGenOpCloudNPU::PrepareTiledSortParam() const {
     };
 }
 
+std::string CodeGenOpCloudNPU::PrintTileSortLayout() const {
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ID0]);
+    std::string tmpTensor = sm->QueryTileTensorByMagic(operandWithMagic[ID1]);
+    std::string src1Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ID2]);
+    std::string src2Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ID3]);
+    std::string src3Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ID4]);
+    std::string src4Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ID5]);
+    std::ostringstream oss;
+    oss << tileOpName << "<" << GenOpAttr(false) << ">"
+        << "(" << dstTensor << ", " << src1Tensor << ", " << src2Tensor << ", " << src3Tensor << ", " << src4Tensor
+        << ", " << tmpTensor << ");\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::GenTiledMrgSortOp() const {
     TiledSortParam tiledSortParm = PrepareTiledSortParam();
+    if (isSupportLayout) {
+        return PrintTileSortLayout();
+    }
     return PrintTiledMrgSortDynamicUnaligned(tiledSortParm);
 }
 

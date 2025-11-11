@@ -330,10 +330,12 @@ private:
 
     SortParam PrepareSortParam() const;
     TiledSortParam PrepareTiledSortParam() const;
+    std::string PrintTileSortLayout() const;
     std::string PrintTiledSortDynamicUnaligned(const TiledSortParam &param) const;
     std::string PrintTiledMrgSortDynamicUnaligned(const TiledSortParam &param) const;
     std::string PrintSortDynamicUnaligned(const SortParam &param) const;
     std::string PrintSortStatic(const SortParam &param) const;
+    std::string PrintSortLayout() const;
     std::string PrintBitSortDynamicUnaligned(const SortParam &param) const;
     std::string PrintBitSortStatic(const SortParam &param) const;
     std::string PrintMrgSortDynamicUnaligned(const SortParam &param) const;
@@ -393,6 +395,7 @@ private:
     };
     std::string PrintGatherElementDynamicUnaligned(const PrintGatherEleParam &param) const;
     std::string PrintGatherElementStatic(const PrintGatherEleParam &param) const;
+    std::string PrintGatherElementTileTensor(const PrintGatherEleParam &param) const;
 
     struct PrintIndexOutCastParam {
         const std::string &s0Var;
@@ -413,6 +416,7 @@ private:
     std::string PrintIndexOutCastDynamicUnaligned(const PrintIndexOutCastParam &param) const;
 
     std::string PrintExpandDynamicUnaligned(const PrintUnaryParam &param, int expandAxis) const;
+    std::string PrintExpandLayout(int expandAxis) const;
     std::string PrintExpand(const std::string &s0Var, const std::string &dVar, const std::string &srcDtypeStr,
         const std::string &dstDtypeStr) const;
     std::string PrintOneHot(const PrintUnaryParam &param) const;
@@ -428,11 +432,14 @@ private:
 
     std::string PrintReduceLastAxis(const PrintUnaryTmpBuffParam &param) const;
     std::string PrintReduceLastAxisDynamicUnalign(const PrintUnaryTmpBuffParam &param) const;
+    std::string PrintReduceLastAxisLayout() const;
 
     std::string PrintExtractStatic() const;
     std::string PrintExtractDynamicUnaligned() const;
+    std::string PrintExtractLayout() const;
 
     std::string PrintCastDynamicUnaligned(const PrintUnaryParam &param) const;
+    std::string PrintCastLayout() const;
     std::string PrintReduceCombine(const PrintUnaryTmpBuffParam &param) const;
     std::string PrintVectorScalarOpDynamicUnalign(const PrintUnaryParam &param) const;
 

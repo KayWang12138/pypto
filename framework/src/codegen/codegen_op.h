@@ -85,7 +85,7 @@ public:
     bool hasNegInf{false};
 
 protected:
-    std::string GenOpAttr() const;
+    std::string GenOpAttr(bool hasExistingParam = true) const;
 
     // NEXTNEXT: list of all primitives:
     // [ NOP, UB_ALLOC, L1_ALLOC, L0A_ALLOC, L0B_ALLOC, L0C_ALLOC,

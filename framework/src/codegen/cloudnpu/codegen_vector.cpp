@@ -41,6 +41,9 @@ std::string CodeGenOpCloudNPU::GenCastOp() const {
 
     char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
     int ret = 0;
+    if (isSupportLayout){
+        return PrintCastLayout();
+    }
     if (isSupportDynamicUnaligned) {
         return PrintCastDynamicUnaligned({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     }
@@ -566,6 +569,53 @@ std::string CodeGenOpCloudNPU::PrintGatherElementDynamicUnaligned(const PrintGat
     return oss.str();
 }
 
+std::string CodeGenOpCloudNPU::PrintGatherElementTileTensor(const PrintGatherEleParam &param) const {
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::DST_IDX)]);
+    std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC0_IDX)]);
+    std::string src1Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC1_IDX)]);
+    std::vector<std::string> paramList;
+    int axis = param.axis + SHAPE_DIM5 - param.src1RawShape.size();
+    paramList.emplace_back(std::to_string(axis));
+    std::string templateParam = JoinString(paramList, ", ");
+    std::ostringstream oss;
+    oss << tileOpName << "<" << templateParam << ">"
+        << "(" << dstTensor << ", " << src0Tensor << ", " << src1Tensor << ");\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenGatherElementOp() const {
+    std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC0_IDX)]);
+    std::string s1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC1_IDX)]);
+    std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(DISOIdx::DST_IDX)]);
+
+    std::vector dstShape = this->rawShape[ToUnderlying(DISOIdx::DST_IDX)];
+    std::vector src0Shape = this->rawShape[ToUnderlying(DISOIdx::SRC0_IDX)];
+    std::vector src1Shape = this->rawShape[ToUnderlying(DISOIdx::SRC1_IDX)];
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(DISOIdx::DST_IDX)]);
+    std::string src0DtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(DISOIdx::SRC0_IDX)]);
+    std::string src1DtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(DISOIdx::SRC1_IDX)]);
+    AppendLocalBufferVarOffset(std::vector{&dVar, &s0Var, &s1Var});
+
+    // [case1] src0: [S2,D], src1: [B,S], axis: 0, dst: [B,S]
+    std::vector<int64_t> dos = originShape[ID0];
+    std::vector<int64_t> s0s = src0Shape;
+    std::vector<int64_t> s1s = src1Shape;
+    std::vector<int64_t> ds = dstShape;
+    std::string dataTypeExpr[3] = {dstDtypeStr, src0DtypeStr, src1DtypeStr};
+    int gatherEleAxis{-1};
+    auto axis = opAttrs.at(OP_ATTR_PREFIX + "axis");
+    if (axis.HasValue()) {
+        gatherEleAxis = npu::tile_fwk::AnyCast<int64_t>(axis);
+    }
+    if (isSupportLayout) {
+        return PrintGatherElementTileTensor({gatherEleAxis, dVar, s0Var, s1Var, dos, ds, s0s, s1s, dataTypeExpr});
+    }
+    if (isSupportDynamicUnaligned) {
+        return PrintGatherElementDynamicUnaligned({gatherEleAxis, dVar, s0Var, s1Var, dos, ds, s0s, s1s, dataTypeExpr});
+    }
+    return PrintGatherElementStatic({gatherEleAxis, dVar, s0Var, s1Var, dos, ds, s0s, s1s, dataTypeExpr});
+}
+
 std::string CodeGenOpCloudNPU::GenRangeOp() const {
     // only support 1 dim
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
@@ -614,45 +664,6 @@ std::string CodeGenOpCloudNPU::GenRangeOp() const {
     std::string tiloOpCallParam = JoinString(paramList, ", ");
     oss << tileOpName << "<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
     return oss.str();
-}
-
-std::string CodeGenOpCloudNPU::GenGatherElementOp() const {
-    std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC0_IDX)]);
-    std::string s1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC1_IDX)]);
-    std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(DISOIdx::DST_IDX)]);
-
-    // shape: dst, src0, src1
-    int dstRank = shape[ToUnderlying(DISOIdx::DST_IDX)].size();
-    int src0Rank = shape[ToUnderlying(DISOIdx::SRC0_IDX)].size();
-    int src1Rank = shape[ToUnderlying(DISOIdx::SRC1_IDX)].size();
-
-    ASSERT(src0Rank <= RANK4) << "GenGatherElementOp: src0 shape rank is not supported!";
-    ASSERT(src1Rank <= RANK4) << "GenGatherElementOp: src1 shape rank is not supported!";
-    ASSERT(dstRank <= RANK4) << "GenGatherElementOp: dst shape rank is not supported!";
-
-    std::vector dstShape = this->rawShape[ToUnderlying(DISOIdx::DST_IDX)];
-    std::vector src0Shape = this->rawShape[ToUnderlying(DISOIdx::SRC0_IDX)];
-    std::vector src1Shape = this->rawShape[ToUnderlying(DISOIdx::SRC1_IDX)];
-    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(DISOIdx::DST_IDX)]);
-    std::string src0DtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(DISOIdx::SRC0_IDX)]);
-    std::string src1DtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(DISOIdx::SRC1_IDX)]);
-    AppendLocalBufferVarOffset(std::vector{&dVar, &s0Var, &s1Var});
-
-    // [case1] src0: [S2,D], src1: [B,S], axis: 0, dst: [B,S]
-    std::vector<int64_t> dos = originShape[ID0];
-    std::vector<int64_t> s0s = src0Shape;
-    std::vector<int64_t> s1s = src1Shape;
-    std::vector<int64_t> ds = dstShape;
-    std::string dataTypeExpr[3] = {dstDtypeStr, src0DtypeStr, src1DtypeStr};
-    int gatherEleAxis{-1};
-    auto axis = opAttrs.at(OP_ATTR_PREFIX + "axis");
-    if (axis.HasValue()) {
-        gatherEleAxis = npu::tile_fwk::AnyCast<int64_t>(axis);
-    }
-    if (isSupportDynamicUnaligned) {
-        return PrintGatherElementDynamicUnaligned({gatherEleAxis, dVar, s0Var, s1Var, dos, ds, s0s, s1s, dataTypeExpr});
-    }
-    return PrintGatherElementStatic({gatherEleAxis, dVar, s0Var, s1Var, dos, ds, s0s, s1s, dataTypeExpr});
 }
 
 std::string CodeGenOpCloudNPU::PrintIndexAddStatic(const PrintIndexAddParam &param) const {
@@ -998,7 +1009,20 @@ std::string CodeGenOpCloudNPU::PrintExtractDynamicUnaligned() const {
     return oss.str();
 }
 
+std::string CodeGenOpCloudNPU::PrintExtractLayout() const {
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::DST_IDX)]);
+    std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC0_IDX)]);
+
+    std::ostringstream oss;
+    oss << tileOpName << "<" << GenOpAttr(false) << ">"
+        << "(" << dstTensor << ", " << src0Tensor << ");\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::GenExtractOp() const {
+    if (isSupportLayout) {
+        return PrintExtractLayout();
+    }
     if (isSupportDynamicUnaligned) {
         return PrintExtractDynamicUnaligned();
     }

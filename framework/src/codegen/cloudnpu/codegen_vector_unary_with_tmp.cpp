@@ -132,6 +132,10 @@ std::string CodeGenOpCloudNPU::PrintReduceLastAxis(const PrintUnaryTmpBuffParam 
     ALOG_INFO_F("rawShape[2] is %s", IntVecToStr(rawShape[ID2]).c_str());
     ASSERT(dstOriginShape[ID3] == 1) << "Dst last axis length must be 1";
 
+    if (isSupportLayout) {
+        return PrintReduceLastAxisLayout();
+    }
+    
     if (isSupportDynamicUnaligned) {
         return PrintReduceLastAxisDynamicUnalign({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
     }
@@ -146,6 +150,14 @@ std::string CodeGenOpCloudNPU::PrintReduceLastAxis(const PrintUnaryTmpBuffParam 
     ASSERT(ret >= 0) << "PrintReduceLastAxis" << OpcodeManager::Inst().GetOpcodeStr(opCode) << " sprintf_s failed "
                      << ret;
     return buffer;
+}
+std::string CodeGenOpCloudNPU::PrintReduceLastAxisLayout() const {
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::DST_IDX)]);
+    std::string tmpTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC0_IDX)]);
+    std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC1_IDX)]);
+    std::ostringstream oss;
+    oss << tileOpName << "(" << dstTensor << ", " << src0Tensor << ", " << tmpTensor << ");\n";
+    return oss.str();
 }
 
 std::string CodeGenOpCloudNPU::PrintReduceLastAxisDynamicUnalign(const PrintUnaryTmpBuffParam &param) const {

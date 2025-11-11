@@ -223,37 +223,34 @@ void CodeGenOp::UpdateOpAttribute(const npu::tile_fwk::Operation &ops) {
     ConvertAttribute(ops);
 }
 
-std::string CodeGenOp::GenOpAttr() const {
+std::string CodeGenOp::GenOpAttr(bool hasExistingParam) const {
     if (opAttrs.empty()) {
         return {};
     }
 
-    std::string attrStr;
-    for (auto kv : opAttrs) {
+    std::vector<std::string> attrList;
+    for (const auto& kv : opAttrs) {
         if (kv.first.substr(0, OP_ATTR_PREFIX.size()) != OP_ATTR_PREFIX) {
             continue;
         }
         if (kv.second.Type() == typeid(int64_t)) {
-            int value = npu::tile_fwk::AnyCast<int64_t>(kv.second);
-            attrStr += ", " + std::to_string(value);
-        }
-        if (kv.second.Type() == typeid(bool)) {
-            bool value = npu::tile_fwk::AnyCast<bool>(kv.second);
-            attrStr += ", " + std::to_string(value);
-        }
-        if (kv.second.Type() == typeid(std::vector<int64_t>)) {
-            auto value = npu::tile_fwk::AnyCast<std::vector<int64_t>>(kv.second);
-            for (auto v : value) {
-                attrStr += ", " + std::to_string(v);
+            attrList.push_back(std::to_string(npu::tile_fwk::AnyCast<int64_t>(kv.second)));
+        } else if (kv.second.Type() == typeid(bool)) {
+            attrList.push_back(std::to_string(npu::tile_fwk::AnyCast<bool>(kv.second)));
+        } else if (kv.second.Type() == typeid(std::vector<int64_t>)) {
+            auto vec = npu::tile_fwk::AnyCast<std::vector<int64_t>>(kv.second);
+            for (auto v : vec) {
+                attrList.push_back(std::to_string(v));
             }
         }
     }
 
-    if (attrStr.empty()) {
+    if (attrList.empty()) {
         return {};
     }
 
-    return attrStr;
+    std::string joined = JoinString(attrList, ", ");
+    return hasExistingParam ? ", " + joined : joined;
 }
 
 void CodeGenOp::ConvertPoolAttribute(const Operation &operation) {
