@@ -50,6 +50,17 @@ void Clear(size_t shapeSize, std::vector<int64_t> &vec) {
         vec.emplace_back(0);
     }
 }
+
+bool CheckProducerCopyOut(const LogicalTensorPtr &input) {
+    bool producerCopyOut = false;
+    for (const auto &producer : input->GetProducers()) {
+        if (OpcodeManager::Inst().IsCopyOut(producer->GetOpcode())) {
+            producerCopyOut = true;
+            break;
+        }
+    }
+    return producerCopyOut;
+}
 }
 
 Status SplitReshape::RunOnFunction(Function &function) {
@@ -320,6 +331,9 @@ Status SplitReshape::CollectCopyOut(Function &function) {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE) { // output应该是reshape的input
             auto input = op.GetIOperands().front();
             auto output = op.GetOOperands().front();
+            if (CheckProducerCopyOut(input)) {
+                continue;
+            }
             if (input == nullptr || output == nullptr || input->GetRawTensor() == nullptr || output->GetRawTensor() == nullptr) {
                 APASS_LOG_ERROR_F("SplitReshape", "Operation", "Invalid assemble op [%d], at least one of input, output, raw tensor of input, raw tensor of input is nullptr; Please check the input and output of op.", op.opmagic);
                 return FAILED;

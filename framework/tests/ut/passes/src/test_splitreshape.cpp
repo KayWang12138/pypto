@@ -86,13 +86,16 @@ TEST_F(TestSplitReshapePass, TestCollectCopyOut) {
     std::vector<int64_t> shape = {kNumTwo, kNumOne, kNumEight};
     std::vector<int64_t> offset1 = {kNumZero, kNumZero, kNumZero};
     std::vector<int64_t> offset2 = {kNumOne, kNumZero, kNumZero};
+    std::vector<int64_t> offset3 = {kNumTwo, kNumZero, kNumZero};
     std::vector<int64_t> shape1 = {kNumOne, kNumOne, kNumEight};
-    std::vector<int64_t> shape2 = {kNumTwo, kNumOne, kNumEight};
-    std::vector<int64_t> shape3 = {kNumTwo, kNumEight};
+    std::vector<int64_t> shape2 = {kNumThree, kNumOne, kNumEight};
+    std::vector<int64_t> shape3 = {kNumThree, kNumEight};
 
     std::shared_ptr<RawTensor> ddrRawTensor = std::make_shared<RawTensor>(DT_FP32, shape);
     auto input1 = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor, offset1, shape1);
     auto input2 = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor, offset2, shape1);
+    auto input3 = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor, offset3, shape1);
+    auto copyTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     auto ubTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
 
@@ -103,6 +106,12 @@ TEST_F(TestSplitReshapePass, TestCollectCopyOut) {
     auto &assemble_op2 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input2}, {ubTensor});
     auto assemble_Attr2 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2);
     assemble_op2.SetOpAttribute(assemble_Attr2);
+
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {input3}, {copyTensor});
+    
+    auto &assemble_op3 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {copyTensor}, {ubTensor});
+    auto assemble_Attr3 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset3);
+    assemble_op3.SetOpAttribute(assemble_Attr3);
 
     std::vector<SymbolicScalar> validShape = {SymbolicScalar("a"), kNumEight};
     auto &reshape_op = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor}, {output});
@@ -132,6 +141,7 @@ TEST_F(TestSplitReshapePass, TestCollectCopyOut) {
     EXPECT_EQ(iter3->second.count(input2), kNumOne);
 
     EXPECT_EQ(pass.mapOffset.size(), kSizeTwo);
+    EXPECT_EQ(pass.mapOffset.count(copyTensor->magic), kNumZero);
     EXPECT_EQ(pass.mapOffset.count(input1->magic), kNumOne);
     EXPECT_EQ(pass.mapOffset[input1->magic].count(ubTensor->magic), kNumOne);
     EXPECT_EQ(pass.mapOffset[input1->magic][ubTensor->magic], offset1);
