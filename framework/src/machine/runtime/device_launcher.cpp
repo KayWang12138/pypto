@@ -19,6 +19,26 @@
 #include "machine/host/backend.h"
 #include "host_prof.h"
 namespace npu::tile_fwk::dynamic {
+namespace {
+    constexpr uint32_t kMinDefaultDim = 20;
+}
+int GetCfgBlockdim(bool onBoard) {
+    static constexpr uint32_t kMaxVersionLengh = 50;
+    char version[kMaxVersionLengh] = {0};
+    auto ret = rtGetSocVersion(version, kMaxVersionLengh);
+    std::string socVersion("Ascend910B1");
+    if (ret == 0) {
+        socVersion = std::string(version);
+    } else if (onBoard) {
+        ASSERT(false)  << "Get soc version failed!";
+    } else {
+        return kMinDefaultDim;
+    }
+    ASSERT(PlatformManager::Instance().Initialize(socVersion));
+    auto blk = PlatformManager::Instance().GetAiCoreCnt();
+    ALOG_DEBUG_F("Get blockdim[%d] by soc:%s.", blk, socVersion.c_str());
+    return blk;
+}
 
 void (*forceLinkLibraryCompiler)() = &npu::tile_fwk::ForceLinkLibraryCompiler;
 

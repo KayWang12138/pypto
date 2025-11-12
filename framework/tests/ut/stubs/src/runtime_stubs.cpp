@@ -14,6 +14,7 @@
  */
 
 #include <securec.h>
+#include <string>
 #include <runtime/rt.h>
 #include <runtime/base.h>
 #define EVENT_LENTH 10
@@ -147,7 +148,7 @@ rtError_t rtGetSocVersion(char* version, const uint32_t maxlen)
 {
     (void)version;
     (void)maxlen;
-    return RT_ERROR_NONE;
+    return 1;
 }
 
 rtError_t rtMemcpy(void *dst, uint64_t destMax, const void *src, uint64_t count, rtMemcpyKind_t kind)

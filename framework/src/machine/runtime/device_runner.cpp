@@ -22,6 +22,7 @@
 #include <limits.h>
 #include "securec.h"
 #include "runtime.h"
+#include "device_launcher.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/kernel/aicore.h"
 #include "interface/utils/log.h"
@@ -170,6 +171,7 @@ int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
     memset_s(&args, sizeof(args), 0, sizeof(args));
     args.nrAic = aic.size();
     args.nrAiv = aiv.size();
+    blockDim_ = dynamic::GetCfgBlockdim(false);
     args.nrValidAic = blockDim_;
     args.nrAicpu = aicpuNum_;
     int nrCore = regs.size();
