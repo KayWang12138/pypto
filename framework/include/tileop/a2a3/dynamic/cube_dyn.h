@@ -346,7 +346,7 @@ TILEOP void DynTmad(__cc__ Tc *c, __ca__ Ta *a, __cb__ Tb *b, uint16_t m, uint16
     pipe_barrier(PIPE_M);
 }
 
-template <typename GMT, typename L0CT, bool enableNZ2ND, uint8_t reluMode = 0>
+template <typename GMT, typename L0CT, bool enableNZ2ND, uint8_t reluMode>
 TILEOP void DynL0CCopyOut(__gm__ GMT *dst, __cc__ L0CT *src, unsigned oriTShape0, unsigned oriTShape1,
     unsigned GmShape0, unsigned GmShape1, unsigned GmOffset0, unsigned GmOffset1, unsigned curH, unsigned curW,
     int uf, uint64_t scaleValue = 0) {
@@ -405,12 +405,13 @@ TILEOP void DynL0CCopyOut(__gm__ GMT *dst, __cc__ L0CT *src, unsigned oriTShape0
         unitFlagMode, quantPre, reluMode, channelSplit, enableNZ2ND);
 }
 
-template <typename GMT, typename L0CT, int isAcc, bool enableNZ2ND>
+template <typename GMT, typename L0CT, int isAcc, bool enableNZ2ND, uint8_t reluMode>
 TILEOP void DynL0CCopyOut(__gm__ GMT *dst, __cc__ L0CT *src, unsigned oriTShape0, unsigned oriTShape1,
     unsigned GmShape0, unsigned GmShape1, unsigned GmOffset0, unsigned GmOffset1, unsigned curH, unsigned curW,
     int uf) {
+    static_assert(reluMode == 0, "Relu operation is not supported in GM accumulate mode");
     SetAtomicAdd<GMT>();
-    DynL0CCopyOut<GMT, L0CT, enableNZ2ND>(
+    DynL0CCopyOut<GMT, L0CT, enableNZ2ND, 0>(
         dst, src, oriTShape0, oriTShape1, GmShape0, GmShape1, GmOffset0, GmOffset1, curH, curW, uf);
     if constexpr (isAcc == 1) {
         set_atomic_none();

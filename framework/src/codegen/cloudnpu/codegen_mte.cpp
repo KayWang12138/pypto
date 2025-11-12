@@ -664,7 +664,9 @@ std::string CodeGenOpCloudNPU::PrintL0CCopyOutDynamicUnalign(const PrintMemCopyW
     paramList.insert(paramList.end(), {outerValueStr, innerValueStr, std::to_string(param.uf)});
     npu::tile_fwk::Element scaleValue = npu::tile_fwk::Element(DataType::DT_UINT64, 0);
     ret = GetAttr(OP_ATTR_PREFIX + "scale_value", scaleValue);
-    paramList.emplace_back(std::to_string(scaleValue.GetUnsignedData()));
+    if (!isAcc) {
+        paramList.emplace_back(std::to_string(scaleValue.GetUnsignedData()));
+    }
     std::string tiloOpCallParam = JoinString(paramList, ", ");
     os << tileOpName << "<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
     return os.str();
