@@ -242,30 +242,6 @@ TILEOP void DynTrowsumsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp,
         return;
     }
 
-    // NEXTNEXT: delete when new tileOp which force to combine axis is complete
-    if (OS1 == SS) {
-        if (OS0 % 8 == 0 && SS == 1024 && OS0 * 16 <= REPEAT_MAX) {
-            vcgadd(tmp, src, OS0 * 16, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,1024] -> [m,128]
-            pipe_barrier(PIPE_V);
-            vadd(tmp, tmp + 64, tmp, OS0, 1, 1, 1, 16, 16, 16); // [m,128] -> [m,64]
-            pipe_barrier(PIPE_V);
-            vcgadd(tmp, tmp, OS0, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)16ULL); // [m,64] -> [m,8]
-            pipe_barrier(PIPE_V);
-            vcgadd(dst, tmp, OS0 / 8, (uint16_t)DS, (uint16_t)1ULL, (uint16_t)8ULL); // [m,8] -> [m,1]
-            pipe_barrier(PIPE_V);
-            return;
-
-        } else if (OS0 % 8 == 0 && SS == 512 && OS0 * 8 <= REPEAT_MAX) {
-            vcgadd(tmp, src, OS0 * 8, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,512] -> [m,64]
-            pipe_barrier(PIPE_V);
-            vcgadd(tmp, tmp, OS0, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,64] -> [m,8]
-            pipe_barrier(PIPE_V);
-            vcgadd(dst, tmp, OS0 / 8, (uint16_t)DS, (uint16_t)1ULL, (uint16_t)8ULL); // [m,8] -> [m,1]
-            pipe_barrier(PIPE_V);
-            return;
-        }
-    }
-
     constexpr uint16_t tmpRepeatStride = TBS * sizeof(T) / BLOCK_SIZE;
     if constexpr (tmpRepeatStride < BLOCK_MAX_PER_REPEAT) {
         // work around for ccec compiling check; If delete will cause compiling error for "copy_ubuf_to_ubuf" after
@@ -360,29 +336,6 @@ TILEOP void DynTrowmaxsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp,
         return;
     }
 
-    // NEXTNEXT: delete when new tileOp which force to combine axis is complete
-    if (OS1 == SS) {
-        if (OS0 % 8 == 0 && SS == 1024 && OS0 * 16 <= REPEAT_MAX) {
-            vcgmax(tmp, src, OS0 * 16, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,1024] -> [m,128]
-            pipe_barrier(PIPE_V);
-            vmax(tmp, tmp + 64, tmp, OS0, 1, 1, 1, 16, 16, 16); // [m,128] -> [m,64]
-            pipe_barrier(PIPE_V);
-            vcgmax(tmp, tmp, OS0, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)16ULL); // [m,64] -> [m,8]
-            pipe_barrier(PIPE_V);
-            vcgmax(dst, tmp, OS0 / 8, (uint16_t)DS, (uint16_t)1ULL, (uint16_t)8ULL); // [m,8] -> [m,1]
-            pipe_barrier(PIPE_V);
-            return;
-
-        } else if (OS0 % 8 == 0 && SS == 512 && OS0 * 8 <= REPEAT_MAX) {
-            vcgmax(tmp, src, OS0 * 8, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,512] -> [m,64]
-            pipe_barrier(PIPE_V);
-            vcgmax(tmp, tmp, OS0, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,64] -> [m,8]
-            pipe_barrier(PIPE_V);
-            vcgmax(dst, tmp, OS0 / 8, (uint16_t)DS, (uint16_t)1ULL, (uint16_t)8ULL); // [m,8] -> [m,1]
-            pipe_barrier(PIPE_V);
-            return;
-        }
-    }
     constexpr uint16_t tmpRepeatStride = TBS * sizeof(T) / BLOCK_SIZE;
     if (srcRepeatStride >= BLOCK_MAX_PER_REPEAT && srcRepeatPerRow == 1 && remain > 0) {
         copy_ubuf_to_ubuf(tmp, src, 0, OS0, BLOCK_MAX_PER_REPEAT, srcRepeatStride - BLOCK_MAX_PER_REPEAT,
@@ -465,29 +418,6 @@ TILEOP void DynTrowminsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp,
         return;
     }
 
-    // NEXTNEXT: delete when new tileOp which force to combine axis is complete
-    if (OS1 == SS) {
-        if (OS0 % 8 == 0 && SS == 1024 && OS0 * 16 <= REPEAT_MAX) {
-            vcgmin(tmp, src, OS0 * 16, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,1024] -> [m,128]
-            pipe_barrier(PIPE_V);
-            vmin(tmp, tmp + 64, tmp, OS0, 1, 1, 1, 16, 16, 16); // [m,128] -> [m,64]
-            pipe_barrier(PIPE_V);
-            vcgmin(tmp, tmp, OS0, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)16ULL); // [m,64] -> [m,8]
-            pipe_barrier(PIPE_V);
-            vcgmax(dst, tmp, OS0 / 8, (uint16_t)DS, (uint16_t)1ULL, (uint16_t)8ULL); // [m,8] -> [m,1]
-            pipe_barrier(PIPE_V);
-            return;
-
-        } else if (OS0 % 8 == 0 && SS == 512 && OS0 * 8 <= REPEAT_MAX) {
-            vcgmin(tmp, src, OS0 * 8, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,512] -> [m,64]
-            pipe_barrier(PIPE_V);
-            vcgmin(tmp, tmp, OS0, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,64] -> [m,8]
-            pipe_barrier(PIPE_V);
-            vcgmin(dst, tmp, OS0 / 8, (uint16_t)DS, (uint16_t)1ULL, (uint16_t)8ULL); // [m,8] -> [m,1]
-            pipe_barrier(PIPE_V);
-            return;
-        }
-    }
     constexpr uint16_t tmpRepeatStride = TBS * sizeof(T) / BLOCK_SIZE;
     if (srcRepeatStride >= BLOCK_MAX_PER_REPEAT && srcRepeatPerRow == 1 && remain > 0) {
         copy_ubuf_to_ubuf(tmp, src, 0, OS0, BLOCK_MAX_PER_REPEAT, srcRepeatStride - BLOCK_MAX_PER_REPEAT,
