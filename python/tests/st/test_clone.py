@@ -1,0 +1,71 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# ======================================================================================================================
+
+import os
+import pto
+
+import torch
+import torch_npu
+import numpy as np
+from numpy.testing import assert_allclose
+
+b = 3
+s = 4
+n1 = 64
+d = 64
+
+
+@pto.jit
+def kernel_func(in_tensors, out_tensors):
+    in_tensor = in_tensors[0]
+    out_tensor = out_tensors[0]
+    pto.set_vec_tile_shapes(1, 1, 64, 64)
+    pto.set_codegen_option("support_dynamic_unaligned", True)
+    pto.set_host_option("only_codegen", True)
+
+    with pto.function("MAIN", [in_tensor], [out_tensor]):
+        for b_idx in pto.loop(b, name="b_loop", idx_name="b_idx"):
+            for s_idx in pto.loop(s, name="s_loop", idx_name="s_idx"):
+                a0 = pto.view(in_tensor, [1, 1, n1, d], [b_idx, s_idx, 0, 0])
+                a1 = pto.add(a0, 1.0)
+                a2 = pto.reshape(a1, [1, 1, n1*d])
+                a3 = pto.clone(a2)
+                pto.assemble(a3, [b_idx, s_idx, 0], out_tensor)
+                del a0
+                del a1
+                del a2
+                del a3
+
+
+def test_clone():
+    device_id = os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0)
+    torch.npu.set_device(int(device_id))
+    torch.manual_seed(42)
+
+    # prepare data
+    input_cpu = torch.rand((b, s, n1, d), dtype=torch.float32)
+    output_cpu = torch.ones((b, s, n1*d), dtype=torch.float32)
+    # def inputs and outputs
+    input_npu = input_cpu.to(device=f'npu:{device_id}')
+    output_npu = output_cpu.to(device=f'npu:{device_id}')
+
+    # compute on npu
+    kernel_func([input_npu], [output_npu])
+    pto.runtime._device_synchronize()
+
+    output_cpu = output_npu.cpu()
+
+    ## golden
+    output_golde = input_cpu.reshape((b, s, n1*d)) + 1
+
+    assert_allclose(np.array(output_cpu),
+                    np.array(output_golde),
+                    rtol=1e-3, atol=1e-3)

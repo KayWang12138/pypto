@@ -1341,11 +1341,11 @@ def reshape(input: Tensor, shape: List[int], *,
     valid_shape : List[int], optional
         An optional parameter specifying the valid shape for partial reshapeing or padding.
         If provided, it may be used to define the effective part of the new shape.
-    
+
     inplace : bool, optional
         An optional parameter determines memory sharing behavior between input and out tensors.
         If True, performs the reshape operation in-place, sharing the same storage with the input tensor.
-        If False, creates a new tensor with the reshaped shape. 
+        If False, creates a new tensor with the reshaped shape.
 
     Return
     ------
@@ -1368,7 +1368,7 @@ def reshape(input: Tensor, shape: List[int], *,
                [3],
                [3],
                [4]]
-    
+
     # inplace
     x = pto.tensor([2, 2], pto.DT_FP32)
     y = pto.reshape(x, [1, 4], inplace=True)
@@ -1386,6 +1386,33 @@ def reshape(input: Tensor, shape: List[int], *,
             out = pto_impl.reshape(input, shape, valid_shape)
     return out
 
+
+@op_wrapper
+def clone(input: Tensor) -> Tensor:
+    """
+    Clone the input Tensor into a new tensor with the same shape.
+
+    Parameters
+    ---------
+    input: pto.Tensor
+        The input tensor to be cloned.
+
+    Return
+    ------
+    pto.Tensor
+        A new tensor with the same shape.
+
+    Examples
+    ---------
+    x = pto.tensor([2, 2], pto.DT_FP32)
+    y = pto.clone(y)
+
+    input x: [[1, 2],
+              [3, 4]]
+    output y: [[1, 2],
+              [3, 4]]
+    """
+    return pto_impl.clone(input)
 
 @op_wrapper
 def unsqueeze(input: Tensor, dim: int) -> Tensor:
