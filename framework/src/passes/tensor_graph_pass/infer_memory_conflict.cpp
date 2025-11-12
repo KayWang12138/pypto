@@ -18,6 +18,16 @@
 
 namespace npu {
 namespace tile_fwk {
+namespace {
+uint32_t GetPowerOfTwo(uint32_t cur) {
+    uint32_t ret = 1;
+    while (ret < cur) {
+        ret <<= 1;
+    }
+    return ret;
+}
+}
+
 Status InferMemoryConflict::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Start InferMemoryConflict for function [%s].", function.GetRawName().c_str());
     if (Init(function) != SUCCESS) {
@@ -189,52 +199,35 @@ Status InferMemoryConflict::BackwardPropagation(Function &function) {
 }
 
 Status InferMemoryConflict::SetDefaultShape(const LogicalTensorPtr &tensor, std::vector<int64_t> &defaultTile) {
-    const int64_t defaultTileSize = 1024;
+    int64_t maximalTileSize = 16384;
+    int64_t alignTailSize = 32;
     Shape shape = tensor->GetShape();
     size_t shapeDim = shape.size();
-    auto bytes = BytesOf(tensor->Datatype());
-    auto paddingIter = BLOCK_PADDING_DIM.find(bytes);
-    if (paddingIter == BLOCK_PADDING_DIM.end()) {
-        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Unknown datatype.");
-        return FAILED;
-    }
-    int64_t shapeSize = 1;
-    int64_t paddingDim = paddingIter->second;
+    int64_t curTile;
     defaultTile.clear();
-    for (const auto &dim : shape) {
-        shapeSize *= dim;
+    for (size_t i = 0; i < shape.size(); ++i) {
         defaultTile.emplace_back(1);
     }
-    shapeSize = shapeSize < defaultTileSize ? shapeSize : defaultTileSize;
-    defaultTile[shapeDim - 1] = (shape[shapeDim - 1] + paddingDim - 1) / paddingDim * paddingDim;
-    defaultTile[shapeDim - 1] = defaultTile[shapeDim - 1] == 0 ? 1 : defaultTile[shapeDim - 1];
-    shapeSize /= defaultTile[shapeDim - 1];
+    curTile = shape[shapeDim - 1] < alignTailSize ? alignTailSize : GetPowerOfTwo(shape[shapeDim - 1]);
+    defaultTile[shapeDim - 1] = maximalTileSize < curTile ? maximalTileSize : curTile;
     for (int i = shapeDim - 2; i >= 0; --i) {
-        defaultTile[i] = shapeSize < shape[i] ? shapeSize : shape[i];
+        maximalTileSize /= defaultTile[i + 1];
+        curTile = GetPowerOfTwo(shape[i]);
+        defaultTile[i] = maximalTileSize < curTile ? maximalTileSize : curTile;
         defaultTile[i] = defaultTile[i] == 0 ? 1 : defaultTile[i];
-        shapeSize /= defaultTile[i];
     }
     return SUCCESS;
 }
 
-/*先准备一个老版本*/
 Status InferMemoryConflict::InferTileShape(Operation &op, Operation *parentOp, const LogicalTensorPtr &tensor) {
     auto tileShapeSize = parentOp->GetTileShape().GetVecTile().size();
     if (tileShapeSize == 0 || tileShapeSize != tensor->GetShape().size()) {
         APASS_LOG_WARN_F(GetName().c_str(), "Operation", "Inserted op's producer/consumer op [%d] has no tile shape.", parentOp->GetOpMagic());
         TileShape tile;
-        /*
         std::vector<int64_t> defaultTile;
         if (SetDefaultShape(tensor, defaultTile) != SUCCESS) {
             APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "SetDefaultShape failed.");
             return FAILED;
-        }
-        */
-        std::vector<int64_t> defaultTile(tensor->GetShape().size(), 1);
-        const int64_t defaultTileSize = 128;
-        const size_t defaultShapeLen = 2;
-        for (size_t i = 0; tensor->GetShape().size() >= (i + 1) && i < defaultShapeLen; ++i) {
-            defaultTile[tensor->GetShape().size() - i - 1] = defaultTileSize;
         }
         tile.SetVecTile(defaultTile);
         op.UpdateTileShape(tile);

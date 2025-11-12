@@ -317,7 +317,6 @@ set(_CaseFilterList
         "InferMemoryConflictTest.TestBothPropagation1"
         "InferMemoryConflictTest.TestBothPropagation2"
         "InferMemoryConflictTest.TestInsertCopys"
-        #"InferMemoryConflictTest.TestSetDefaultShape"
         "InferMemoryConflictTest.STest1"
         "InferMemoryConflictTest.STest2"
         "InferMemoryConflictTest.STest3"
