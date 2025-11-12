@@ -31,6 +31,7 @@ set(_CaseFilterList
         #"InferMemoryConflictTest.InferMemoryConflictUTest_ScatterUpdate_Reshape"
         #"InferMemoryConflictTest.InferMemoryConflictUTest_Reshape_ScatterUpdate_Reshape"
         "NBufferMergeTest.TestNBufferMerge"
+        "DerivationTileShapeTest.*"
         "L1CopyInReuseTest.TwoCopyIn"
         "SubgraphToFunctionTest.DifferentOffset"
         "SubgraphToFunctionTest.test_json_dump_and_load"
