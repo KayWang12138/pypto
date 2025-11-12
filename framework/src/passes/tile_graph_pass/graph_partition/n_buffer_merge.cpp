@@ -272,20 +272,28 @@ void NBufferMerge::GetColorHash(const OperationsViewer &opOriList,
     uint64_t p = 23;
     const uint64_t mod = UINT64_MAX;
     std::set<int32_t> mulaccGraph;
+    std::unordered_map<int, int> reshapeCount;
+    std::unordered_map<int, int> subgraphOpCount;
     for (size_t i = 0; i < opOriList.size(); i++) {
-        if (opOriList[i].GetSubgraphID() < 0) {
+        int subGraphID = opOriList[i].GetSubgraphID();
+        if (subGraphID < 0) {
             continue;
         }
         // 单独的reshape不用合并
+        subgraphOpCount[subGraphID]++;
         if (opOriList[i].GetOpcode() == Opcode::OP_RESHAPE) {
-            hashColor[opOriList[i].GetSubgraphID()] = 0;
-            continue;
+            reshapeCount[subGraphID]++;
         }
         if (OpcodeManager::Inst().GetCoreType(opOriList[i].GetOpcode()) == OpCoreType::AIC) {
-            mulaccGraph.insert(opOriList[i].GetSubgraphID());
+            mulaccGraph.insert(subGraphID);
             continue;
         }
-        hashColor[opOriList[i].GetSubgraphID()] = (hashColor[opOriList[i].GetSubgraphID()] * p + (hashTileOp[i] ^ a)) % mod;
+        hashColor[subGraphID] = (hashColor[subGraphID] * p + (hashTileOp[i] ^ a)) % mod;
+    }
+    for (auto &[id, count] : reshapeCount) {
+        if (count == subgraphOpCount[id]) {
+            hashColor[id] = 0;
+        }
     }
     for (auto subgraphId : mulaccGraph) {
         hashColor[subgraphId] = 0;
