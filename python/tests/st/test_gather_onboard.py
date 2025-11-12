@@ -12,53 +12,80 @@ import os
 import math
 import copy
 import numpy as np
-
+import torch
 import pto
 import pytest
 import torch_npu
 
-@pytest.mark.skip(reason="error case.")
+
 def test_gather_onboard():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-    b = 4
-    s = 4
+    b = 23
+    s = 29
     axis = 0
-    index_shape = 2
+    idx0 = 4
+    idx1 = 4
     src_shape = (b, s)
-    view_shape = (index_shape, s)
-    tile_shape = (index_shape, s)
+    index_shape = (idx0, idx1)
+    view_shape = (b, 4)
+    tile_shape = (b, 4)
 
     pto.runtime._device_init()
 
     src_tensor = pto.tensor(src_shape, pto.DataType.DT_INT32, "PTO_TENSOR_SRC")
-    index_tensor = pto.tensor([index_shape], pto.DataType.DT_INT32, "PTO_TENSOR_INDEX")
-    dst_tensor = pto.tensor((index_shape, s), pto.DataType.DT_INT32, "PTO_TENSOR_DST")
+    index_tensor = pto.tensor(
+        index_shape, pto.DataType.DT_INT32, "PTO_TENSOR_INDEX")
+    dst_tensor = pto.tensor(
+        index_shape, pto.DataType.DT_INT32, "PTO_TENSOR_DST")
 
-    b_loop_num = math.ceil(index_shape / view_shape[0])
+    b_loop_num = math.ceil(index_shape[0] / view_shape[0])
+    s_loop_num = math.ceil(index_shape[1] / view_shape[1])
     pto.set_codegen_option("support_dynamic_unaligned", True)
-    with pto.function("MAIN", [src_tensor, index_tensor], [dst_tensor]):
-        for b_idx in pto.loop(b_loop_num, name="b0", idx_name="bidx"):
-            tmp_dst_tensor = pto.tensor((index_shape, s), pto.DataType.DT_INT32, "PTO_TENSOR_TMP")
-            view_tensor_src = pto.view(src_tensor, src_shape, [0, 0])
-            view_tensor_index = pto.view(index_tensor, [index_shape], [b_idx * view_shape[0]])
-            pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
-            tmp_dst_tensor.move(pto.gather(view_tensor_src, view_tensor_index, axis))
-            pto.assemble(tmp_dst_tensor, [b_idx * view_shape[0], 0], dst_tensor)
-            del view_tensor_src, view_tensor_index, tmp_dst_tensor
+    with pto.function("GATHER", [src_tensor, index_tensor], [dst_tensor]):
+        for b_idx in pto.loop(b_loop_num, name="LOOP_DIV_L0", idx_name="b_idx"):
+            for s_idx in pto.loop(s_loop_num, name="LOOP_SIV_L0", idx_name="s_idx"):
+                pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
+
+                view_tensor_src = pto.view(src_tensor, view_shape,
+                                           [b_idx * view_shape[0],
+                                            s_idx * view_shape[1]],
+                                           valid_shape=[
+                                               pto.min(pto.symbolic_scalar(src_shape[0]) - b_idx * view_shape[0],
+                                                       pto.symbolic_scalar(view_shape[0])),
+                                               pto.min(pto.symbolic_scalar(src_shape[1]) - s_idx * view_shape[1],
+                                                       pto.symbolic_scalar(view_shape[1]))]
+                                           )
+                view_tensor_index = pto.view(index_tensor, view_shape,
+                                             [b_idx * view_shape[0],
+                                              s_idx * view_shape[1]],
+                                             valid_shape=[
+                                                 pto.min(pto.symbolic_scalar(src_shape[0]) - b_idx * view_shape[0],
+                                                         pto.symbolic_scalar(view_shape[0])),
+
+                                                 pto.min(pto.symbolic_scalar(src_shape[1]) - s_idx * view_shape[1],
+                                                         pto.symbolic_scalar(view_shape[1]))]
+                                             )
+                tmp_dst_tensor = pto.tensor()
+                tmp_dst_tensor.move(pto.gather(
+                    view_tensor_src, axis, view_tensor_index))
+                pto.assemble(tmp_dst_tensor, [
+                             b_idx * view_shape[0], 0], dst_tensor)
+                del view_tensor_src, view_tensor_index, tmp_dst_tensor
     assert isinstance(dst_tensor, pto.tensor)
 
-    input0_tensor = np.random.uniform(1, 100, src_shape).astype(np.int32)
-    input1_tensor = np.random.uniform(0, b, index_shape).astype(np.int32)
+    input0_tensor = torch.randint(1, 100, src_shape, dtype=torch.int32)
+    input1_tensor = torch.randint(
+        0, src_shape[axis], index_shape, dtype=torch.int32)
+    result_tensor = torch.zeros(index_shape, dtype=torch.int32)
 
-    a_data = input0_tensor.reshape(src_shape[0] * src_shape[1]).tolist()
-    b_data = input1_tensor.tolist()
-    c_data = list([0] * index_shape * s)
-    pto.runtime._device_run_once_data_from_host([a_data, b_data], [c_data])
+    pto.runtime._device_run_once_data_from_host(
+        [input0_tensor, input1_tensor], [result_tensor])
 
-    result = np.random.uniform(0, 0, (index_shape, s)).astype(np.int32)
-    for i in range(index_shape):
-        result[i] = input0_tensor[input1_tensor[i]]
+    result = torch.zeros(index_shape, dtype=torch.int32)
+    for i in range(index_shape[0]):
+        for j in range(index_shape[1]):
+            result[i][j] = input0_tensor[input1_tensor[i][j]][j]
 
-    assert c_data == result.reshape(index_shape * s).tolist()
-    pto.device_fini()
+    assert torch.equal(result_tensor, result)
+    pto.runtime._device_fini

@@ -88,7 +88,7 @@ class CastTestCase(TestCase):
 
     def run_in_dyn_func(self, inputs, params: dict) -> dict:
         return pto.cast(
-            *inputs, get_pto_dtype_by_name(params["dst_dtype"]), params["mode"]
+            *inputs, get_pto_dtype_by_name(params["dst_dtype"])
         )
 
     def golden_func(self, inputs, params: dict) -> list:
@@ -167,8 +167,8 @@ class ScalarAddSTestCase(TestCase):
         )
 
     def run_in_dyn_func(self, inputs, params: dict) -> dict:
-        scalar = pto.element(inputs[0].dtypems.get("scalar"))
-        return pto.scalar_adds(*inputs, scalar, params.get("reverse"))
+        scalar = inputs[0]
+        return pto.add(*inputs, params.get("scalar"))
 
     def golden_func(self, inputs, params: dict) -> list:
         return [torch.add(*inputs, params.get("scalar"))]
@@ -211,8 +211,7 @@ class ScalarSubSTestCase(TestCase):
         )
 
     def run_in_dyn_func(self, inputs, params: dict) -> dict:
-        scalar = pto.element(inputs[0].dtype, params.get("scalar"))
-        return pto.scalar_subs(*inputs, scalar, params.get("reverse"))
+        return pto.sub(*inputs, params.get("scalar"))
 
     def golden_func(self, inputs, params: dict) -> list:
         return [torch.sub(*inputs, params.get("scalar"))]
@@ -255,8 +254,7 @@ class ScalarMulSTestCase(TestCase):
         )
 
     def run_in_dyn_func(self, inputs, params: dict) -> dict:
-        scalar = pto.element(inputs[0].dtype, params.get("scalar"))
-        return pto.scalar_muls(*inputs, scalar, params.get("reverse"))
+        return pto.mul(*inputs, params.get("scalar"))
 
     def golden_func(self, inputs, params: dict) -> list:
         return [torch.mul(*inputs, params.get("scalar"))]
@@ -299,8 +297,8 @@ class ScalarDivSTestCase(TestCase):
         )
 
     def run_in_dyn_func(self, inputs, params: dict) -> dict:
-        scalar = pto.element(inputs[0].dtype, params.get("scalar"))
-        return pto.scalar_divs(*inputs, scalar, params.get("reverse"))
+
+        return pto.div(*inputs, params.get("scalar"))
 
     def golden_func(self, inputs, params: dict) -> list:
         return [torch.div(*inputs, params.get("scalar"))]
@@ -390,11 +388,12 @@ class TransposeTestCase(TestCase):
         )
 
     def run_in_dyn_func(self, inputs, params: dict) -> dict:
-        return pto.transpose(*inputs, params.get("dims"))
+        return pto.transpose(*inputs, params.get("first_dim"), params.get("second_dim"))
 
     def golden_func(self, inputs, params: dict) -> list:
         return [
-            torch.transpose(*inputs, params.get("first_dim"), params.get("second_dim"))
+            torch.transpose(*inputs, params.get("first_dim"),
+                            params.get("second_dim"))
         ]
 
     def golden_func_params(self) -> dict:
@@ -431,10 +430,10 @@ class TopKTestCase(TestCase):
         )
 
     def run_in_dyn_func(self, inputs, params: dict) -> dict:
-        return pto.topk(*inputs, params.get("count"), params.get("dims"))
+        return pto.topk(*inputs, params.get("count"), params.get("dims"), params.get("islargest"))
 
     def golden_func(self, inputs, params: dict) -> list:
-        return torch.topk(*inputs, params.get("count"))
+        return torch.topk(*inputs, params.get("count"), params.get("dims"), params.get("islargest"))
 
     def golden_func_params(self) -> dict:
         return {

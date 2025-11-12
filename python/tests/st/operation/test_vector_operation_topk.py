@@ -14,7 +14,6 @@ import pytest
 from test_case_class_vector_operations import TopKTestCase
 
 
-@pytest.mark.skip(reason="There is a probability of failure")
 def test_tensor_topk():
     original_shape = (64, 64)
     k = 10

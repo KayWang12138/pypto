@@ -32,7 +32,6 @@ def test_vector_operation_greater():
     a = pto.tensor(shape, dtype, "Greater_TENSOR_a")
     b = pto.tensor(shape, dtype, "Greater_TENSOR_b")
     c = pto.tensor(shape, pto.DT_BOOL, "Greater_TENSOR_c")
-
     with pto.function("Greater", [a, b], [c]):
         pto.set_codegen_option("support_dynamic_unaligned", True)
 
@@ -41,10 +40,11 @@ def test_vector_operation_greater():
                 tile_a = pto.view(a, view_shape,
                                   [b_idx * view_shape[0],
                                       s_idx * view_shape[1]],
-                                  valid_shape=[(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(
-                                      pto.symbolic_scalar(view_shape[0])),
-                                      (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(
-                                      pto.symbolic_scalar(view_shape[1]))])
+                                  valid_shape=[
+                                      pto.min(pto.symbolic_scalar(n) - b_idx * view_shape[0],
+                                              pto.symbolic_scalar(view_shape[0])),
+                                      pto.min(pto.symbolic_scalar(m) - s_idx * view_shape[1],
+                                              pto.symbolic_scalar(view_shape[1]))])
                 tile_b = pto.view(b, view_shape,
                                   [b_idx * view_shape[0],
                                       s_idx * view_shape[1]],

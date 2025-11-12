@@ -298,8 +298,7 @@ def test_vector_operation_neg():
     pto.runtime._device_fini()
 
 
-@pytest.mark.skip(reason="Dep operation interface")
-def test_vector_operation_vec_dup():
+def test_vector_operation_full():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
     dtype = pto.DT_FP32

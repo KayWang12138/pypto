@@ -8,10 +8,10 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
-import math
+import os
+import numpy as np
 import torch
 import pytest
-import numpy as np
 import torch_npu
 import pto
 from pto import (
@@ -20,58 +20,74 @@ from pto import (
 )
 
 
-@pytest.mark.skip(reason="Dep operation interface")
-def test_maxs():
+def test_maximum():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
     scalar_data = 5
-    first_dim, second_dim = 128, 128
+    first_dim, second_dim = 90, 90
     view_shape, tile_shape = (64, 64), (32, 32)
     pto.runtime._device_init()
     set_codegen_option("support_dynamic_unaligned", True)
-
     x = tensor((first_dim, second_dim), pto.DT_INT32, "Operand1")
-    y = tensor((first_dim, second_dim), pto.DT_INT32, "Output")
+    y = tensor((first_dim, second_dim), pto.DT_INT32, "Operand2")
+    out = tensor((first_dim, second_dim), pto.DT_INT32, "Operand2")
     scalar = pto.element(pto.DT_INT32, scalar_data)
 
-    bloop_range = math.ceil(first_dim / view_shape[0])
-    sloop_range = math.ceil(second_dim / view_shape[1])
     first_view_shape, second_view_shape = view_shape
 
-    bloop = loop_range(bloop_range)
-    sloop = loop_range(sloop_range)
-    with function("MaxS", [x], [y]), \
-            loop_function("LOOP_L0_bIdx", "bIdx", bloop) as bloop_ctx, \
-            loop_function("LOOP_L1_sIdx", "sIdx", sloop) as sloop_ctx:
-        for b_idx in bloop_ctx:
-            for s_idx in sloop_ctx:
+    with function("Maximum", [x, y], [out]):
+
+        for b_idx in pto.loop(int(np.ceil(first_dim / view_shape[0])), name="LOOP_ADD_L0", idx_name="b_idx"):
+            for s_idx in pto.loop(int(np.ceil(second_dim / view_shape[1])), name="LOOP_ADD_L1", idx_name="s_idx"):
                 tile_tensor_0 = view(
                     x, view_shape,
                     [b_idx * first_view_shape, s_idx * second_view_shape],
                     valid_shape=[
                         pto.min(
-                            symbolic_scalar(first_dim) - b_idx * first_view_shape,
+                            symbolic_scalar(first_dim) -
+                            b_idx * first_view_shape,
                             symbolic_scalar(first_view_shape)
                         ),
                         pto.min(
-                            symbolic_scalar(second_dim) - s_idx * second_view_shape,
+                            symbolic_scalar(second_dim) -
+                            s_idx * second_view_shape,
+                            symbolic_scalar(second_view_shape)
+                        ),
+                    ],
+                )
+                tile_tensor_1 = view(
+                    y, view_shape,
+                    [b_idx * first_view_shape, s_idx * second_view_shape],
+                    valid_shape=[
+                        pto.min(
+                            symbolic_scalar(first_dim) -
+                            b_idx * first_view_shape,
+                            symbolic_scalar(first_view_shape)
+                        ),
+                        pto.min(
+                            symbolic_scalar(second_dim) -
+                            s_idx * second_view_shape,
                             symbolic_scalar(second_view_shape)
                         ),
                     ],
                 )
                 set_vec_tile_shapes(*tile_shape)
                 res = tensor()
-                res.move(pto.maximum(tile_tensor_0, scalar))
+                res.move(pto.maximum(tile_tensor_0, tile_tensor_1))
                 pto.assemble(
                     res,
                     [b_idx * first_view_shape, s_idx * second_view_shape],
-                    y,
+                    out,
                 )
                 del tile_tensor_0, res
 
-    nx_tensor = torch.randint(-10, 10, [first_dim, second_dim], dtype=torch.int32)
-    ny_tensor = torch.zeros([first_dim, second_dim], dtype=torch.int32)
-    pto.runtime._device_run_once_data_from_host([nx_tensor], [ny_tensor])
-    golden_data = torch.maximum(nx_tensor, torch.tensor(scalar_data, dtype=torch.int32))
-    assert torch.allclose(ny_tensor, golden_data, rtol=1e-9, atol=1e-10)
+    nx_tensor = torch.randint(-100, 100,
+                              [first_dim, second_dim], dtype=torch.int32)
+    ny_tensor = torch.randint(-100, 100,
+                              [first_dim, second_dim], dtype=torch.int32)
+    nout_tensor = torch.zeros([first_dim, second_dim], dtype=torch.int32)
+    pto.runtime._device_run_once_data_from_host(
+        [nx_tensor, ny_tensor], [nout_tensor])
+    golden_data = torch.maximum(nx_tensor, ny_tensor)
+    assert torch.allclose(nout_tensor, golden_data, rtol=1e-9, atol=1e-10)
     pto.runtime._device_fini()

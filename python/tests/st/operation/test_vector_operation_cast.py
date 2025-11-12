@@ -15,7 +15,6 @@ import pytest
 from test_case_class_vector_operations import CastTestCase
 
 
-@pytest.mark.skip(reason="There is a probability of failure")
 def test_tensor_cast():
     original_shape = (64, 64)
     input_tensors = [

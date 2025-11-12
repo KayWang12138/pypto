@@ -13,20 +13,21 @@ import os
 import math
 import pto
 import pytest
+from numpy.testing import assert_allclose
+import torch
 import torch_npu
 
-@pytest.mark.skip(reason="error case.")
+
 def test_adds_onboard():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
     shape = (72, 71)
     view_shape = (32, 32)
     tile_shape = (32, 32)
-    sdata = 1
     pto.runtime._device_init()
 
     input1 = pto.tensor(shape, pto.DataType.DT_INT32, "PTO_TENSOR_input1")
-    input2 = pto.element(pto.DataType.DT_INT32, sdata)
+    input2 = 1
     output = pto.tensor(shape, pto.DataType.DT_INT32, "PTO_TENSOR_output")
 
     b_loop_num = math.ceil(shape[0] / view_shape[0])
@@ -36,24 +37,28 @@ def test_adds_onboard():
         for b_idx in pto.loop(b_loop_num, name="b0", idx_name="bidx"):
             for s_idx in pto.loop(s_loop_num, name="s0", idx_name="sidx"):
                 view_tensor_a = pto.view(input1, view_shape,
-                    [
-                        (pto.symbolic_scalar(shape[0]) -
-                            b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
-                        (pto.symbolic_scalar(shape[1]) -
-                            s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1])),
-                    ],
-                    [b_idx * view_shape[0], s_idx * view_shape[1]],
-                )
+                                         [b_idx * view_shape[0],
+                                             s_idx * view_shape[1]],
+                                         valid_shape=[
+                                             pto.min(pto.symbolic_scalar(shape[0]) - b_idx * view_shape[0],
+                                                     pto.symbolic_scalar(view_shape[0])),
+                                             pto.min(pto.symbolic_scalar(shape[1]) - s_idx * view_shape[1],
+                                                     pto.symbolic_scalar(view_shape[1])),
+                                         ],
+                                         )
                 pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
-                view_tensor_a.move(pto.add_s(view_tensor_a, input2))
-                pto.assemble(view_tensor_a, [b_idx * view_shape[0], s_idx * view_shape[1]], output)
+                view_tensor_a.move(pto.add(view_tensor_a, input2))
+                pto.assemble(view_tensor_a, [
+                             b_idx * view_shape[0], s_idx * view_shape[1]], output)
                 del view_tensor_a
     assert isinstance(output, pto.tensor)
 
-    a_data = list(range(shape[0] * shape[1]))
-    b_data = list([0] * shape[0] * shape[1])
+    a_tensor = torch.randint(
+        low=-100, high=100, size=[shape[0], shape[1]], dtype=torch.int32)
+    b_tensor = torch.zeros(shape[0], shape[1], dtype=torch.int32)
 
-    pto.runtime._device_run_once_data_from_host([a_data], [b_data])
+    pto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
 
-    assert b_data == [v + sdata for v in a_data]
-    pto.device_fini()
+    golden = torch.add(a_tensor, input2)
+    assert_allclose(b_tensor.flatten(), golden.flatten(), rtol=3e-3, atol=3e-3)
+    pto.runtime._device_fini()

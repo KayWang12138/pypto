@@ -36,6 +36,17 @@ def _to_base(arg):
         return arg
 
 
+def _from_base(out):
+    if isinstance(out, pto_impl.Tensor):
+        return Tensor.from_base(out)
+    elif isinstance(out, (list, tuple)):
+        return [_from_base(a) for a in out]
+    elif isinstance(out, dict):
+        return {k: _from_base(v) for k, v in out.items()}
+    else:
+        return out
+
+
 def op_wrapper(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
@@ -47,10 +58,8 @@ def op_wrapper(func):
         clear_source_location()
         if out is None:
             return None
-        elif isinstance(out, pto_impl.Tensor):
-            return Tensor.from_base(out)
         else:
-            return out
+            return _from_base(out)
     return wrapper
 
 
@@ -749,7 +758,7 @@ def scatter(
             "scatter currection only support the case where dim = -2.")
     dims = input.Dim()
     if dims == 4:
-        chunk_size = input.GetShapeAt(1)
+        chunk_size = input.GetShape()[1]
     elif dims == 2:
         chunk_size = 1
     else:

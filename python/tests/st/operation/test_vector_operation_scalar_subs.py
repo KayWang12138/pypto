@@ -14,7 +14,6 @@ import pytest
 from test_case_class_vector_operations import ScalarSubSTestCase
 
 
-@pytest.mark.skip(reason="There is a probability of failure")
 def test_tensor_scalar_subs():
     original_shape = (64, 64)
     input_tensors = [

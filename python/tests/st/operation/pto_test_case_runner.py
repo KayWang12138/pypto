@@ -147,6 +147,12 @@ class PTOTestCaseRunner(TestCaseRunner):
         tab = "    "
         prefix = tab
         function = "import pto\n"
+        function += """import os\n"""
+        function += """import torch\n"""
+        function += """import torch_npu\n"""
+        function += "\n"
+        function += """device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))\n"""
+        function += """torch.npu.set_device(device_id)\n"""
         function += "\n"
         function += (
             f"with pto.function('{self._operation}', input_tensors, output_tensors):\n"

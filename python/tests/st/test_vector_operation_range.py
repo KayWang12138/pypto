@@ -19,7 +19,6 @@ from numpy.testing import assert_allclose
 import torch_npu
 
 
-@pytest.mark.skip(reason="Dep operation interface")
 def test_vector_operation_range():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
@@ -36,15 +35,15 @@ def test_vector_operation_range():
 
     a = pto.tensor((1, 1, 1), pto.DT_FP32, "Range_TENSOR_a")
     b = pto.tensor((size,), pto.DT_FP32, "Range_TENSOR_b")
-    start = pto.element(pto.DT_FP32, start_data)
-    end = pto.element(pto.DT_FP32, end_data)
-    step = pto.element(pto.DT_FP32, step_data)
+    start = 1.0
+    end = 32.1
+    step = 1.0
 
     with pto.function("RANGE", [a], [b]):
         for b_idx in pto.loop(1, name="LOOP_L0_b_idex", idx_name="b_idx"):
             pto.set_vec_tile_shapes(tile_shape[0])
             res = pto.tensor()
-            res.move(pto.range(start, end, step))
+            res.move(pto.arange(start, end, step))
             pto.assemble(res, [b_idx * view_shape[0]], b)
             del res
     a_tensor = torch.rand([1, 1, 1], dtype=torch.float32) * 99.999 + 0.001
