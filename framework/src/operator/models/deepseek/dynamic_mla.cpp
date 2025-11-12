@@ -327,8 +327,8 @@ std::vector<Tensor> PreCompute(const Tensor &tokenX, const Tensor &wDq, const Te
 
     // [b*s,qLoraRank] @ [qLoraRank, n*qHeadDim] = [b*s, n*qHeadDim]
     Tensor qBProj;
+    Tensor normQuant, normQuantScale;
     if (isQuantB) {
-        Tensor normQuant, normQuantScale;
         TileShape::Current().SetVecTile(mv, q_lora_rank);
         TileShape::Current().SetCubeTile({m, m}, {256, 256}, {256, 256});
         config::SetSemanticLabel("Quant_qMmRes");
@@ -348,6 +348,7 @@ std::vector<Tensor> PreCompute(const Tensor &tokenX, const Tensor &wDq, const Te
         TileShape::Current().SetCubeTile({m, m}, {256, 256}, {64, 64});
         config::SetSemanticLabel("Matmul_qb");
         qBProj = Matrix::Matmul(dType, normRes, wUqQr);
+        normQuant= normRes;
     }
     qkvPreRes.emplace_back(qBProj);
 
@@ -368,6 +369,10 @@ std::vector<Tensor> PreCompute(const Tensor &tokenX, const Tensor &wDq, const Te
         compressedKv = Matrix::Matmul(dType, input, wDkvKr);
     }
     qkvPreRes.emplace_back(compressedKv);
+    qkvPreRes.emplace_back(normQuant);
+    if (isQuantB) {
+        qkvPreRes.emplace_back(normQuantScale);
+    }
 
     return qkvPreRes;
 }

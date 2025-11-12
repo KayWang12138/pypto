@@ -64,6 +64,7 @@ enum GateMode {
 struct MlaTileConfig {
     int tileB = 8; // tileB is 8
     int tileS = 1;
+    int tileBS = 8;
 };
 
 struct SaTileShapeConfig {

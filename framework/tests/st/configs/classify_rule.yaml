@@ -91,6 +91,10 @@ stest:
       # - MlaPrologSTest.b32_s2_pa_nz_bf16_quant
       - MlaPrologSTest.b32_s2_pa_nd_fp16_quant
 
+  #operator_MlaPrologQuant:
+  #  cases:
+  #    - MlaPrologQuantV32STest.b8_s64k2_pa_nd_fp16_quantB
+
   operator_nsa_AttentionPost:
     cases:
       # - AttentionPostSTest.b32_s1_nz_bf16_quant

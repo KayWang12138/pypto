@@ -439,6 +439,82 @@ static bool resultCmpPrint(const vector<T> &outDataValExp, const T *outDataValAc
 }
 
 template <typename T = float>
+static bool resultCmpAbsDelta(const vector<T> &outDataValExp, const T *outDataValAct, float absDelta, size_t threshold = 0,
+    size_t zeroCountThreshold = 1000, bool printAll = false, bool printErr = false, size_t testNum = 0) {
+
+    float maxDiff = 0;
+    float maxDiffRatio = 0;
+    size_t zeroCount = 0;
+    size_t errCount = 0;
+
+    bool rst = true;
+    size_t eSize = outDataValExp.size();
+    for (size_t eIdx = 0; eIdx < eSize; eIdx++) {
+        auto expVal = static_cast<float>(outDataValExp[eIdx]);
+        auto actVal = static_cast<float>(outDataValAct[eIdx]);
+        auto diff = std::abs(expVal - actVal);
+        auto relRatio = std::abs(diff / expVal);
+        maxDiff = std::max(diff, maxDiff);
+        maxDiffRatio = std::max(relRatio, maxDiffRatio);
+        zeroCount += std::abs(actVal - 0.0f) <= 1e-6 and std::abs(expVal - 0.0f) > 1e-6 ? 1 : 0;
+        testNum = testNum - (testNum > 0 ? 1 : 0);
+
+        auto eErr = ((diff > absDelta) || (zeroCount > zeroCountThreshold));
+        errCount += eErr ? 1 : 0;
+
+        if (std::isnan(expVal) || std::isnan(actVal)) {
+            std::cout << "idx: " << eIdx << ", exp->" << expVal << ", act->" << actVal << std::endl;
+        }
+
+        if ((printAll) || (eErr && printErr) || (testNum > 0)) {
+            std::cout << "abs diff threshold: " << absDelta << ", idx: " << eIdx << ", exp->" << expVal << ", act->" << actVal
+                      << ", diff->" << diff << ", diff ratio->" << relRatio << ", zero count->" << zeroCount
+                      << ", zero threshold->" << zeroCountThreshold << std::endl;
+        }
+        rst = !((errCount > threshold || zeroCount > zeroCountThreshold));
+    }
+
+    float errCountRatio = static_cast<float>(errCount) / static_cast<float>(eSize);
+    float zeroCountRatio = static_cast<float>(zeroCount) / static_cast<float>(eSize);
+    std::cout << "max diff: " << maxDiff << ", max diff ratio: " << maxDiffRatio << ", err count: " << errCount
+              << ", err threshold: " << threshold << ", err count ratio: " << errCountRatio
+              << ", act zero count: " << zeroCount << ", act zero threshold: " << zeroCountThreshold
+              << ", act zero ratio: " << zeroCountRatio << std::endl;
+    if (rst || printAll || printErr) {
+        return rst;
+    }
+
+    errCount = 0;
+    zeroCount = 0;
+    for (size_t eIdx = 0; eIdx < eSize; eIdx++) {
+        auto expVal = static_cast<float>(outDataValExp[eIdx]);
+        auto actVal = static_cast<float>(outDataValAct[eIdx]);
+
+        auto diff = std::abs(expVal - actVal);
+        auto relRatio = std::abs(diff / expVal);
+        zeroCount += std::abs(actVal - 0.0f) <= 1e-6 and std::abs(expVal - 0.0f) > 1e-6 ? 1 : 0;
+
+        auto eErr = ((diff > absDelta) || (zeroCount > zeroCountThreshold));
+        errCount += eErr ? 1 : 0;
+
+        if (std::isnan(expVal) || std::isnan(actVal)) {
+            std::cout << "idx: " << eIdx << ", exp->" << expVal << ", act->" << actVal << std::endl;
+        }
+
+        if (eErr) {
+            std::cout << "abs diff threshold: " << absDelta << ", idx: " << eIdx << ", exp->" << expVal << ", act->" << actVal
+                      << ", diff->" << diff << ", diff ratio->" << relRatio << ", zero count->" << zeroCount
+                      << ", zero threshold->" << zeroCountThreshold << std::endl;
+        }
+        rst = !((errCount > threshold || zeroCount > zeroCountThreshold));
+        if (!rst) {
+            break;
+        }
+    }
+    return false;
+}
+
+template <typename T = float>
 static bool resultCmp(const vector<T> &outDataValExp, const vector<T> &outDataValAct, float eps, size_t threshold = 0,
     size_t zeroCountThreshold = 1000, bool printAll = false, bool printErr = false, size_t testNum = 0) {
     if (outDataValExp.size() != outDataValAct.size()) {

@@ -88,7 +88,12 @@ struct SimpleParams {
         return params;
     }
 };
- 
+
+std::vector<Tensor> PreCompute2D(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tensor &wDkvKr,
+    const Tensor &gammaCq, float epsilonCq, const MlaQuantInputs &quantInputs);
+Tensor RopeV2(const Tensor &x, const Tensor &cos, const Tensor &sin, const RopeTileShapeConfig &tileConfig);
+Tensor Rope3DV2(const Tensor &x, const Tensor &cos, const Tensor &sin, const RopeTileShapeConfig &tileConfig);
+
 void MlaPrologComputeV32(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tensor &wUk,
     const Tensor &wDkvKr, const Tensor &gammaCq, const Tensor &gammaCkv, const Tensor &sin, const Tensor &cos,
     const Tensor &cacheIndex, Tensor &kvCache, Tensor &krCache, const MlaQuantInputs &quantInputs,
