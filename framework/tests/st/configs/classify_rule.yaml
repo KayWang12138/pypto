@@ -346,6 +346,12 @@ stest:
       - TestFull/FullOperationTest.TestFull/9
       - TestLogicalNot/LogicalNotOperationTest.TestLogicalNot/1
       - TestLogicalNot/LogicalNotOperationTest.TestLogicalNot/4
+      - TestExpand/ExpandOperationTest.TestExpand/4
+      - TestExpand/ExpandOperationTest.TestExpand/20
+      - TestMaxS/MaxSOperationTest.TestMaxS/3
+      - TestIndexAdd/IndexAddOperationTest.TestIndexAdd/1
+      - TestIndexAdd/IndexAddOperationTest.TestIndexAdd/7
+      - TestLogicalAnd/LogicalAndOperationTest.TestLogicalAnd/0
       - GatherInL1Test.gather_in_a_unalign
       - GatherInL1Test.gather_in_bt_with_valid_shape
       - GatherOnBoardTest.test_gather_float_64_256_1_64
