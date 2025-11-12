@@ -15,5 +15,6 @@ target_include_directories(tile_fwk_impl PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${TILE_FWK_OPS_ROOT_PATH}/../framework/include
     ${TILE_FWK_OPS_ROOT_PATH}/../framework/src
+    ${TILE_FWK_OPS_ROOT_PATH}/../framework/src/interface
     ${TILE_FWK_OPS_ROOT_PATH}/../framework/src/include
 )

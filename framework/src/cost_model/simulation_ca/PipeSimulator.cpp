@@ -117,7 +117,7 @@ namespace CostModel
 
         std::string executable = source.substr(0, source.size() - 4);
         std::string cmd = config.cPlusPlus + " -w -std=c++17 " + source + " -o " + executable + " -I " + projSrcPath +
-                          "/framework/include/tileop/a2a3 -I " + projSrcPath +
+                          "/framework/src/interface/tileop/a2a3 -I " + projSrcPath +
                           "/framework/src/cost_model/simulation_ca/mock"; //  + ">/dev/null 2>&1"
         int result = std::system(cmd.c_str());
         if (result != 0) {

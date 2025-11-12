@@ -21,6 +21,7 @@ set(AI_CORE_FLAGS
     -D__TILINGKEY__=0   \
     -D__OPTYPE__=tilefwk   \
     -I${PTO_FWK_SRC_ROOT}/framework/src \
+    -I${PTO_FWK_SRC_ROOT}/framework/src/interface \
     -I${PTO_FWK_SRC_ROOT}/framework/include"
 )
 

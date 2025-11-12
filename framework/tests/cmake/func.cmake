@@ -235,9 +235,11 @@ function(PTO_Fwk_GTest_AddExe)
     add_custom_command(
             TARGET ${ARG_TARGET} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E remove_directory ${PTO_FWK_BIN_ROOT}/framework/src/include
-            COMMAND ${CMAKE_COMMAND} -E make_directory ${PTO_FWK_BIN_ROOT}/framework/src/include
-            COMMAND ln -sf ${PTO_FWK_SRC_ROOT}/framework/include ${PTO_FWK_BIN_ROOT}/framework/src/include/tile_fwk
-            COMMENT "Soft link include directory has been created at ${PTO_FWK_BIN_ROOT}/framework/src/include/tile_fwk"
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${PTO_FWK_BIN_ROOT}/framework/src/include/tile_fwk
+            COMMAND ln -sf ${PTO_FWK_SRC_ROOT}/framework/include/tilefwk ${PTO_FWK_BIN_ROOT}/framework/src/include/tile_fwk/tilefwk
+            COMMENT "Soft link include directory has been created at ${PTO_FWK_BIN_ROOT}/framework/src/include/tile_fwk/tilefwk"
+            COMMAND ln -sf ${PTO_FWK_SRC_ROOT}/framework/src/interface/tileop ${PTO_FWK_BIN_ROOT}/framework/src/include/tile_fwk/tileop
+            COMMENT "Soft link include directory has been created at ${PTO_FWK_BIN_ROOT}/framework/src/include/tile_fwk/tileop"
     )
 endfunction()
 

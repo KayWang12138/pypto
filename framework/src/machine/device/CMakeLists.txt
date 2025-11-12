@@ -55,6 +55,7 @@ target_compile_options(tile_fwk_server
 target_include_directories(tile_fwk_server
         PRIVATE
             ${PTO_FWK_SRC_ROOT}/src
+            ${PTO_FWK_SRC_ROOT}/src/interface
             ${PTO_FWK_SRC_ROOT}/src/include
             ${PTO_FWK_SRC_ROOT}/include
             ${PTO_FWK_SRC_ROOT}/src/cost_model

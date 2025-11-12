@@ -78,6 +78,7 @@ if (ENABLE_TORCH_VERIFIER)
                 ${TORCH_ROOT_PATH}/include/torch/csrc/api/include
                 ${PTO_FWK_SRC_ROOT}/framework/include
                 ${PTO_FWK_SRC_ROOT}/framework/src/
+                ${PTO_FWK_SRC_ROOT}/framework/src/interface
     )
     target_link_directories(tile_fwk_calculator
             PUBLIC

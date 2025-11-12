@@ -123,7 +123,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
                 framework/include/tilefwk/tilefwk_op.h
             DESTINATION ${CMAKE_INSTALL_PREFIX}/${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_INCLUDEDIR}/tilefwk
     )
-    install(DIRECTORY framework/include/tileop/
+    install(DIRECTORY framework/src/interface/tileop/
             DESTINATION ${CMAKE_INSTALL_PREFIX}/${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}/include/tileop
             PATTERN "*.h"
             PATTERN "*.hpp"

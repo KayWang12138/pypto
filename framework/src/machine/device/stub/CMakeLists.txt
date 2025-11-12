@@ -35,6 +35,7 @@ target_compile_options(slog_stub
 target_include_directories(slog_stub
         PRIVATE
             ${PTO_FWK_SRC_ROOT}/framework/src
+            ${PTO_FWK_SRC_ROOT}/framework/src/interface
             ${PTO_FWK_SRC_ROOT}/framework/src/include
             ${PTO_FWK_SRC_ROOT}/framework/include
             ${PTO_FWK_SRC_ROOT}/framework/src/cost_model

@@ -12,6 +12,7 @@ target_include_directories(tile_fwk_intf_pub
         INTERFACE   # 源码依赖
             ${PTO_FWK_SRC_ROOT}/framework/include
             ${PTO_FWK_SRC_ROOT}/framework/src
+            ${PTO_FWK_SRC_ROOT}/framework/src/interface
 )
 target_compile_options(tile_fwk_intf_pub
         INTERFACE
