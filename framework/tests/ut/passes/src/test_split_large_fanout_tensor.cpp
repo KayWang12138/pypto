@@ -99,7 +99,8 @@ public:
             }
         }
     }
-    void BuildGraphForMToM(ComputationalGraphBuilder &G) {
+    // multiConsumer means a tensor before the large tensor has more than one assemble op
+    void BuildGraphForMToM(ComputationalGraphBuilder &G, bool multiConsumer = false) {
         int NUM_64 = 64;
         int NUM_128 = 128;
         int NUM_192 = 192;
@@ -166,6 +167,17 @@ public:
         std::vector<int64_t> offsetD = {NUM_192, 0};
         auto attrD = std::make_shared<ViewOpAttribute>(offsetD, MemoryType::MEM_DEVICE_DDR);
         View_D->SetOpAttribute(attrD);
+
+        if (multiConsumer) {
+            G.AddTensor(DataType::DT_FP32, tiledShape4, "out3");
+            auto out3 = G.GetTensor("out3");
+            out3->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+            G.AddOp(Opcode::OP_VIEW, {"tiledC"}, {"out3"}, "View_C1");
+            auto View_C1 =  G.GetOp("View_C1");
+            std::vector<int64_t> offsetC1 = {0, 0};
+            auto attrC1 = std::make_shared<ViewOpAttribute>(offsetC1, MemoryType::MEM_DEVICE_DDR);
+            View_C1->SetOpAttribute(attrC1);
+        }
 
         // [64, 256][64, 64]
         // [64, 256][64, 64]  Assemble --> [128, 320]
@@ -253,7 +265,11 @@ public:
         assemble2->SetOpAttribute(attrAssemble2);
 
         G.SetInCast({"a", "c"});
-        G.SetOutCast({"out1", "out2"});
+        if (multiConsumer){
+            G.SetOutCast({"out1", "out2", "out3"});
+        } else {
+            G.SetOutCast({"out1", "out2"});
+        }
     }
 };
 
@@ -582,6 +598,26 @@ TEST_F(SplitLargeFanoutTensorTest, MtoMtoMoreSplit) {
     EXPECT_EQ(function->Operations().size(), opNumAfter) << opNumAfter << " operations after pass";
     EXPECT_EQ(viewNumCount, viewNumAfter) << viewNumAfter << " OP_VIEW after pass";
     EXPECT_EQ(assembleNumCount, assembleNumAfter) << assembleNumAfter << " OP_ASSEMBLE after pass";
+}
+
+TEST_F(SplitLargeFanoutTensorTest, MtoMGetCorrectAssemble) {
+    ComputationalGraphBuilder G;
+    BuildGraphForMToM(G, true);
+    Function *function = G.GetFunction();
+
+    std::cout << "Build Graph Done." << std::endl;
+    /*
+    dump graph before Pass
+    function->DumpJsonFile(jsonFilePath);
+    */
+    // 单独执行pass
+    npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
+    splitLargeFanoutTensor.enableMoreSplit = true;
+    splitLargeFanoutTensor.PreCheck(*function);
+    splitLargeFanoutTensor.RunOnFunction(*function);
+    splitLargeFanoutTensor.PostCheck(*function);
+    std::cout << "Run Pass Done." << std::endl;
+    // 不发生core dump即为获取assemble正常
 }
 
 TEST_F(SplitLargeFanoutTensorTest, Unmatched) {
