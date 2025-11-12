@@ -19,10 +19,13 @@ def load_shared_libs():
 
     dist = pkg_resources.get_distribution("pto")
     lib_dir = os.path.join(f"{dist.location}", "pto", "lib")
+    lib_dir64 = os.path.join(f"{dist.location}", "pto", "lib64")
     libs = ["libtile_fwk_interface.so", "libtile_fwk_codegen.so",
             "libtile_fwk_compiler.so", "libtile_fwk_runtime.so"]
     for lib in libs:
-        if os.path.exists(os.path.join(lib_dir, lib)):
+        if os.path.exists(os.path.join(lib_dir64, lib)):
+            ctypes.CDLL(os.path.join(lib_dir64, lib), mode=ctypes.RTLD_GLOBAL)
+        elif os.path.exists(os.path.join(lib_dir, lib)):
             ctypes.CDLL(os.path.join(lib_dir, lib), mode=ctypes.RTLD_GLOBAL)
 
 

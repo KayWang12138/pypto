@@ -15,7 +15,7 @@ import pto
 from . import pto_impl
 
 from .enum import * # noqa
-from .pto_utils import to_syms
+from .pto_utils import to_syms, to_sym
 from .symbolic_scalar import SymbolicScalar
 
 
@@ -122,7 +122,7 @@ class Tensor:
             assert self.dim == len(
                 key), f"rank not match, expect {self.dim}, but got {len(key)}"
             if all([isinstance(k, (int, SymbolicScalar)) for k in key]):
-                pto_impl.SetTensorData(value, to_syms(key), self._base)
+                pto_impl.SetTensorData(to_sym(value), to_syms(key), self._base)
             elif all([isinstance(k, slice) for k in key]):
                 offsets = self._get_assemble_offset(key, value.shape)
                 pto.assemble(value, offsets, self)

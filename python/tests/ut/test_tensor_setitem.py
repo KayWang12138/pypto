@@ -62,3 +62,17 @@ def test_tensor_assmble_slice():
             c[:] = pto.sub(b, a)
 
     assert isinstance(c, pto.tensor)
+
+
+def test_set_tensor_data():
+    a = pto.tensor([32, 32], pto.DT_INT32, "a")
+    b = pto.tensor([32, 32], pto.DT_INT32, "b")
+    c = pto.tensor([32, 32], pto.DT_INT32, "c")
+    with pto.function("MAIN", [a, b], [c]):
+        pto.set_vec_tile_shapes(16, 16)
+        sym_a = a[0, 0]
+        sym_b = b[0, 0]
+        assert isinstance(sym_a, pto.SymbolicScalar)
+        assert isinstance(sym_b, pto.SymbolicScalar)
+        c[0, 0] = sym_a + sym_b
+        c[1, 1] = 1
