@@ -48,9 +48,6 @@ private:
     Status PostCheck(Function &function) override;
     Status RunOnFunction(Function &function) override;
     Status CreateMoveOp(Function &function) const;
-    void MergeMoveOp(Function &function) const;
-    void MergeCopyInCopyOut(Function &function, Operation &operation) const;
-    void EraseRedundantCopyOut(Function &function) const;
     bool HasSpecificConsumer(const Operation &op) const;
     void ConvertViewToCopyInWhenInputGm(Operation &op, ViewOpAttribute *viewOpAttribute) const;
     void CreateMoveOpForView(Operation &op) const;

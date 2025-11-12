@@ -141,7 +141,6 @@ set(_CaseFilterList
         "TestRemoveRedundantOpPass.RemoveRedundantOpL1DataMove"
         "RemoveRedundantOpTest.TestIntermediateOutcast"
         "RemoveRedundantOpTest.TestInternalAssembleView"
-        "GenerateMoveOpPassTest.MergeCopyInCopyOut"
         "GenerateMoveOpPassTest.AssembleViewToCopy"
         "GenerateMoveOpPassTest.ConvertToCopy"
         "GenerateMoveOpPassTest.Transpose"

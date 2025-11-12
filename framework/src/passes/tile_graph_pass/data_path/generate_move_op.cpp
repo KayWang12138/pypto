@@ -28,10 +28,6 @@ Status GenerateMoveOp::RunOnFunction(Function &function) {
     ASLOGI("===> Start GenerateMoveOp");
     Status status = CreateMoveOp(function);
     if(status != SUCCESS) {return status;}
-    MergeMoveOp(function);
-    EraseRedundantCopyOut(function);
-    DeadOperationEliminator::EliminateDeadOperation(function);
-
     ASLOGI("===> End GenerateMoveOp");
     return SUCCESS;
 }
@@ -208,66 +204,5 @@ Status GenerateMoveOp::CreateMoveOp(Function &function) const {
         }
     }
     return SUCCESS;
-}
-
-void GenerateMoveOp::MergeMoveOp(Function &function) const{
-    for (auto &op : function.Operations()) {
-        switch (op.GetOpcode()) {
-            case Opcode::OP_COPY_IN: {
-                MergeCopyInCopyOut(function, op);
-                break;
-            }
-            default:
-                break;
-        }
-    }
-}
-
-// copyin直接连接copyout的场景，如果copyout的输入和输出的大小相同 则将copyout节点删除
-void GenerateMoveOp::MergeCopyInCopyOut(Function &function, Operation &operation) const {
-    auto consumers = function.FindConsumers(operation);
-    for (auto &op : consumers) {
-        if (op->GetOpcode() == Opcode::OP_COPY_OUT) {
-            auto &startTensor = operation.iOperand.front();
-            auto &endTensor = op->oOperand.front();
-            if (startTensor->shape == endTensor->shape && startTensor->offset == endTensor->offset) {
-                // Skip the CopyOut of OCAST
-                if (endTensor->GetConsumers().size() == 0) {
-                    continue;
-                }
-                for (auto &consumer : endTensor->GetConsumers()) {
-                    consumer->iOperand = {startTensor};
-                    startTensor->AddConsumer(consumer);
-                }
-                endTensor->GetConsumers().clear();
-                op->oOperand.clear();
-                function.GetTensorMap().Erase(endTensor);
-            }
-        }
-    }
-}
-
-// 将输入tensor的producers为空的copyout节点删除
-void GenerateMoveOp::EraseRedundantCopyOut(Function &function) const {
-    std::vector<Operation *> redundantCopyOuts;
-    for (auto &op : function.Operations()) {
-        if (op.GetOpcode() !=  Opcode::OP_COPY_OUT) {
-            continue;
-        }
-
-        if (op.iOperand.front()->GetProducers().empty()) {
-            redundantCopyOuts.push_back(&op);
-        }
-    }
-    for (const auto &op : redundantCopyOuts) {
-        function.HandleControlOps(*op, redundantCopyOuts);
-        function.UpdateOperandBeforeRemoveOp(*op, false);
-    }
-
-    for (auto op : redundantCopyOuts) {
-        ASSERT(!op->IsDeleted());
-        op->SetAsDeleted();
-    }
-    function.EraseOperations(false);
 }
 } // namespace npu::tile_fwk
