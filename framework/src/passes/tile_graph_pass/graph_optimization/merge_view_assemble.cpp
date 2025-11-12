@@ -89,10 +89,10 @@ Status MergeViewAssemble::AppendMergedViewOperations(Function &function) {
         mergedViewOp.SetOpAttribute(attr);
         // 继承op_attr_copy_in_mode属性
         if (viewOp.hasCopyInMode) {
-            mergedViewOp.SetAttr("op_attr_copy_in_mode", viewOp.copyInModeValue); 
-            APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Inherited op_attr_copy_in_mode attribute for merged view operation.");
-        }   
-        viewOp.output->UpdateDynValidShape(viewOp.dynValidShape);    
+            mergedViewOp.SetAttr("op_attr_copy_in_mode", viewOp.copyInModeValue);
+            ALOG_INFO_F("Inherited op_attr_copy_in_mode attribute for merged view operation");
+        }
+        viewOp.output->UpdateDynValidShape(viewOp.dynValidShape);
     }
     APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Appended %zu merged view operations.", viewOpToAppend_.size());
     return SUCCESS;
@@ -127,7 +127,7 @@ Status MergeViewAssemble::MergeViewChain(
     APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Processing View operation %d, memory_to: %d, chain size: %zu.",
                 operation.GetOpMagic(),
                 viewOpAttribute ? static_cast<int>(viewOpAttribute->GetTo()) : -1,
-                chain.size());    
+                chain.size());
     // 1. 初始化操作链
     InitOperationChain(operation, chain);
 
@@ -174,7 +174,7 @@ Status MergeViewAssemble::ProcessConsumerChain(
             if (currentMemType == MemoryType::MEM_UNKNOWN) {
                 // unknown memType 可以向它之后的view合并
                 canMerge = true;
-                APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Current memType is UNKNOWN, can merge with the next view (memType: %d).", 
+                ALOG_INFO_F("Current memType is UNKNOWN, can merge with the next view (memType: %d)",
                            static_cast<int>(memory_to));
             } else if (currentMemType == memory_to) {
                 // 相同memType的view可以合并
@@ -182,9 +182,9 @@ Status MergeViewAssemble::ProcessConsumerChain(
                 APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Same memType (%d), can merge view operations.", static_cast<int>(currentMemType));
             } else {
                 // 不相同memType的不能合并
-                APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Cannot merge view operations with different memory types: current=%d, next=%d.", 
+                ALOG_INFO_F("Cannot merge view operations with different memory types: current=%d, next=%d",
                            static_cast<int>(currentMemType), static_cast<int>(memory_to));
-            }            
+            }
             if (canMerge) {
                 chainEnd = false;
                 Status status = MergeViewChain(function, *op, chain);
@@ -220,7 +220,7 @@ Status MergeViewAssemble::ProcessChainEnd(
     // 清理链尾
     chain.back()->oOperand.clear();
     function.GetTensorMap().Erase(endTensor);
-    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Successfully processed view chain ending with opmagic: %d, chain size: %zu.", 
+    ALOG_INFO_F("Successfully processed view chain ending with opmagic: %d, chain size: %zu",
                 chain.back()->GetOpMagic(), chain.size());
     return SUCCESS;
 }
@@ -261,7 +261,7 @@ void MergeViewAssemble::RecordMergedViewOperation(Operation* lastViewOp, const s
     // 获取最后一个VIEW的属性
     auto* lastViewAttr = dynamic_cast<ViewOpAttribute*>(lastViewOp->GetOpAttribute().get());
     if (!lastViewAttr) {
-        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Failed to get last ViewOpAttribute for opmagic: %d.", 
+        ALOG_ERROR_F("Failed to get last ViewOpAttribute for opmagic: %d",
                     lastViewOp->GetOpMagic());
         return;
     }
@@ -270,9 +270,9 @@ void MergeViewAssemble::RecordMergedViewOperation(Operation* lastViewOp, const s
     bool hasCopyInMode = lastViewOp->GetAttr<int64_t>("op_attr_copy_in_mode", copyInModeValue);
     // 清理消费者关系
     endTensor->GetProducers().clear();
-    // 记录合并op 
+    // 记录合并op
     viewOpToAppend_.emplace_back(ViewOp{startTensor, endTensor, newOffset, newDynOffset, newDynValidShape, lastViewAttr->GetTo(), hasCopyInMode, std::move(copyInModeValue)});
-    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Recorded merged view operation from opmagic: %d, hasCopyInMode: %d.", 
+    ALOG_INFO_F("Recorded merged view operation from opmagic: %d, hasCopyInMode: %d",
                 lastViewOp->GetOpMagic(), hasCopyInMode);
 }
 
@@ -315,7 +315,7 @@ Status MergeViewAssemble::ProcessAssembleConsumers(
         if (!op) { APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Null consumer operation found."); return FAILED; }
         if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
             Status status = MergeAssembleChain(function, *op, chain);
-            if (status != SUCCESS) { 
+            if (status != SUCCESS) {
                 APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Run MergeAssembleChain failed for operation %d.", op->opmagic);
                 return status;
             }

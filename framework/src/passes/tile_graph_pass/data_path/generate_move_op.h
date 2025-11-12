@@ -36,7 +36,7 @@ const std::map<std::pair<MemoryType, MemoryType>,Opcode> platformPathMap = {
     {{MEM_L1, MEM_L0B},Opcode::OP_L1_TO_L0B},
     {{MEM_L0C, MEM_DEVICE_DDR},Opcode::OP_COPY_OUT},
     {{MEM_UB, MEM_DEVICE_DDR},Opcode::OP_COPY_OUT},
-    {{MEM_L0C, MEM_L1},Opcode::OP_L0C_COPY_L1},
+    {{MEM_L0C, MEM_L1},Opcode::OP_L0C_TO_L1},
 };
 
 class GenerateMoveOp : public Pass {

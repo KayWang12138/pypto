@@ -26,7 +26,7 @@ void AlignCopyOutAttr(LogicalTensorPtr &resetDdr, Operation *copyOutOp) {
     if (resetDdr->GetProducers().size() == 1) {
         auto ddrResetCopyOut = *resetDdr->GetProducers().begin();
         if (ddrResetCopyOut->GetOpcode() != Opcode::OP_COPY_OUT) {
-            APASS_LOG_ERROR_F("PreGraphProcess:CubeProcess", "Operation", "DDR reset Op requires to be OP_COPY_OUT, but %s[%d]; Please check the Opcode.", 
+            APASS_LOG_ERROR_F("PreGraphProcess:CubeProcess", "Operation", "DDR reset Op requires to be OP_COPY_OUT, but %s[%d]; Please check the Opcode.",
                 ddrResetCopyOut->GetOpcodeStr().c_str(), ddrResetCopyOut->GetOpMagic());
             return;
         }
@@ -53,7 +53,7 @@ Status CubeProcess::AddL1CopyInAttr(
         L1CopyInOp = *(tensorL0->GetProducers().begin());
     }
     /*L0C copy L1*/
-    if(L1CopyInOp->GetOpcode() == Opcode::OP_L0C_COPY_L1) {
+    if (L1CopyInOp->GetOpcode() == Opcode::OP_L0C_TO_L1) {
         return SUCCESS;
     }
     if (L1CopyInOp->GetOpcode() != Opcode::OP_COPY_IN && L1CopyInOp->GetOpcode() != Opcode::OP_GATHER_IN_L1) {
@@ -180,7 +180,7 @@ Status CubeProcess::UpdateL0cDtype(Operation &op) {
         return SUCCESS;
     } else {
         APASS_LOG_ERROR_F("PreGraphProcess:CubeProcess", "Operation", "%s[%d] has unsupport input dtypes (L0A: %s, L0B: %s), update L0C dtype Failed.",
-            op.GetOpcodeStr().c_str(), op.GetOpMagic(), 
+            op.GetOpcodeStr().c_str(), op.GetOpMagic(),
             BriefDataType2String(inputDtypes.first).c_str(),
             BriefDataType2String(inputDtypes.second).c_str());
         return FAILED;
@@ -249,7 +249,7 @@ Status CubeProcess::UpdateCubeOp(Function &function) {
         auto lastMm = lastMmCopyOut.first;
         auto chainEndCopyOut = lastMmCopyOut.second;
         if (lastMm == nullptr || chainEndCopyOut == nullptr) {
-            APASS_LOG_ERROR_F("PreGraphProcess:CubeProcess", "Operation", "Get the last MatMul and L0C_Copy_Out for %s[%d] failed.", 
+            APASS_LOG_ERROR_F("PreGraphProcess:CubeProcess", "Operation", "Get the last MatMul and L0C_Copy_Out for %s[%d] failed.",
                 op.GetOpcodeStr().c_str(), op.GetOpMagic());
             return FAILED;
         }

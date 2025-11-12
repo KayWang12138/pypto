@@ -346,7 +346,7 @@ public:
             case Opcode::OP_L1_COPY_OUT:
             case Opcode::OP_COPY_IN:
             case Opcode::OP_L1_TO_BT:
-            case Opcode::OP_L1_TO_FB:
+            case Opcode::OP_L1_TO_FIX_QUANT_PRE:
             case Opcode::OP_COPY_OUT:
             case Opcode::OP_RESHAPE_COPY_IN:
             case Opcode::OP_RESHAPE_COPY_OUT:

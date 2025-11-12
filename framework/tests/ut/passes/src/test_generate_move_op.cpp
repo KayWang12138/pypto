@@ -603,28 +603,28 @@ void TransViewTensorWithAttr (std::shared_ptr<Function> &currFunctionPtr) {
     tensor1 -> SetMemoryTypeOriginal(MemoryType::MEM_L1);
     std::shared_ptr<LogicalTensor> view_out1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
     view_out1 -> SetMemoryTypeOriginal(MemoryType::MEM_BT);
-    
+
     std::shared_ptr<LogicalTensor> view_in2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
     view_in2 -> SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
     std::shared_ptr<LogicalTensor> tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
     tensor2 -> SetMemoryTypeOriginal(MemoryType::MEM_L1);
     std::shared_ptr<LogicalTensor> view_out2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
     view_out2 -> SetMemoryTypeOriginal(MemoryType::MEM_FIX_QUANT_PRE);
-   
+
     std::shared_ptr<LogicalTensor> view_in3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
     view_in3 -> SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
     std::shared_ptr<LogicalTensor> tensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
     tensor3 -> SetMemoryTypeOriginal(MemoryType::MEM_L1);
     std::shared_ptr<LogicalTensor> view_out3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
     view_out3 -> SetMemoryTypeOriginal(MemoryType::MEM_L0A);
-    
+
     std::shared_ptr<LogicalTensor> view_in4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
     view_in4 -> SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
-    std::shared_ptr<LogicalTensor> tensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});  
+    std::shared_ptr<LogicalTensor> tensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
     tensor4 -> SetMemoryTypeOriginal(MemoryType::MEM_L1);
     std::shared_ptr<LogicalTensor> view_out4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
     view_out4 -> SetMemoryTypeOriginal(MemoryType::MEM_L0A);
-    
+
     std::shared_ptr<LogicalTensor> output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
     output -> SetMemoryTypeOriginal(MemoryType::MEM_L0C);
 
@@ -700,7 +700,7 @@ TEST_F(GenerateMoveOpPassTest, TransViewWithAttr) {
         if (op.GetOpcode() == Opcode::OP_L1_TO_BT) {
            l12Bt_count_after_pass++;
         }
-        if (op.GetOpcode() == Opcode::OP_L1_TO_FB) {
+        if (op.GetOpcode() == Opcode::OP_L1_TO_FIX_QUANT_PRE) {
            l12Fb_count_after_pass++;
         }
     }
@@ -709,7 +709,7 @@ TEST_F(GenerateMoveOpPassTest, TransViewWithAttr) {
     constexpr int expectedL1toFb =1;
     EXPECT_EQ(copyIn_count_after_pass,expectedCopyIn) << "4 operations shoulde be OP_COPY_IN.";
     EXPECT_EQ(l12Bt_count_after_pass,expectedL1toBt) << "1 operations shoulde be OP_L1_TO_BT.";
-    EXPECT_EQ(l12Fb_count_after_pass,expectedL1toFb) << "1 operations shoulde be OP_L1_TO_FB.";
+    EXPECT_EQ(l12Fb_count_after_pass,expectedL1toFb) << "1 operations shoulde be OP_L1_TO_FIX_QUANT_PRE.";
 }
 }
 } // namespace npu::tile_fwk

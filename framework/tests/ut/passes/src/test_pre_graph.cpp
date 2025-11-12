@@ -821,7 +821,7 @@ TEST_F(PreGraphTest, TestFixPipeReconnectGraph) {
     tensor5->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR);
     auto &copyin = funcPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor0}, {tensor1});
     (void)copyin;
-    auto &l1CopyFB = funcPtr->AddRawOperation(Opcode::OP_L1_TO_FB, {tensor1}, {tensor2});
+    auto &l1CopyFB = funcPtr->AddRawOperation(Opcode::OP_L1_TO_FIX_QUANT_PRE, {tensor1}, {tensor2});
     (void)l1CopyFB;
     auto &aMulB = funcPtr->AddRawOperation(Opcode::OP_A_MUL_B, {tensor2}, {tensor3});
     aMulB.SetAttribute(A_MUL_B_SCALE_ATTR, Element(DataType::DT_UINT64, NUM10));

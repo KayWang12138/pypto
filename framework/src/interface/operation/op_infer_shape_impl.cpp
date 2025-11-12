@@ -387,7 +387,7 @@ void LoadBTFBInferFunc(Operation* op,
 }
 
 REGISTER_INFER_SHAPE_FUNC(OP_L1_TO_BT, Opcode::OP_L1_TO_BT, LoadBTFBInferFunc);
-REGISTER_INFER_SHAPE_FUNC(OP_L1_TO_FB, Opcode::OP_L1_TO_FB, LoadBTFBInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_L1_TO_FIX_QUANT_PRE, Opcode::OP_L1_TO_FIX_QUANT_PRE, LoadBTFBInferFunc);
 
 void MatmulACCInferFunc(Operation* op,
                         std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
@@ -420,7 +420,7 @@ void LoadL0c2L1InferFunc(Operation* op,
         outValidShapes.push_back(inputValidShapes[0]);
     }
 }
-REGISTER_INFER_SHAPE_FUNC(OP_L0C_COPY_L1, Opcode::OP_L0C_COPY_L1, LoadL0c2L1InferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_L0C_TO_L1, Opcode::OP_L0C_TO_L1, LoadL0c2L1InferFunc);
 
 // MTE infer shape func
 template <bool isTrans = false>

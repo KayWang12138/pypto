@@ -450,7 +450,7 @@ private:
         {               Opcode::OP_UB_COPY_OUT,                [this]() { return GenUBCopyOut(); }},
         {               Opcode::OP_RESHAPE_COPY_IN,                [this]() { return GenReshapeCopyIn(); }},
         {               Opcode::OP_RESHAPE_COPY_OUT,                [this]() { return GenReshapeCopyOut(); }},
-        {                  Opcode::OP_L1_TO_FB,                [this]() { return GenMemL1ToFB(); }},
+        {                  Opcode::OP_L1_TO_FIX_QUANT_PRE,                [this]() { return GenMemL1ToFB(); }},
 
         // L1 <-> GM/BT/L1
         {                Opcode::OP_L1_COPY_IN,              [this]() { return GenMemL1CopyIn(); }},
@@ -460,7 +460,7 @@ private:
         // L0C <-> GM
         {              Opcode::OP_L0C_COPY_OUT,            [this]() { return GenMemL0CCopyOut(); }},
 
-        {               Opcode::OP_L0C_COPY_L1,               [this]() { return GenMemL0CToL1(); }},
+        {               Opcode::OP_L0C_TO_L1,               [this]() { return GenMemL0CToL1(); }},
         // L1 <-> L0
         {                 Opcode::OP_L1_TO_L0A,                [this]() { return GenMemL1ToL0(); }},
         {                 Opcode::OP_L1_TO_L0B,                [this]() { return GenMemL1ToL0(); }},

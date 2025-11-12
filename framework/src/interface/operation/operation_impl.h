@@ -38,7 +38,7 @@ struct TensorAttributes {
     int64_t tileSize;
     int64_t offset;
     std::string name;
-    MemoryType memType {MemoryType::MEM_UNKNOWN }; 
+    MemoryType memType {MemoryType::MEM_UNKNOWN };
 };
 
 const size_t M_INDEX = 0;
@@ -63,6 +63,8 @@ const std::string A_MUL_B_SCALE_ATTR = OP_ATTR_PREFIX + "scale_value";
 const std::string A_MUL_B_RELU_ATTR = OP_ATTR_PREFIX + "relu_type";
 // set quant mode to identify whether perchannel or not
 const std::string A_MUL_B_QUANT_MODE_FLAG = OP_ATTR_PREFIX + "quant_mode_flag";
+//
+const std::string FIX_BUFFER_ADDR_SPACE = "FIX_BUFFER_ADDR_SPACE";
 
 struct L1DataLoadParam {
     const LogicalTensorPtr &cTilePtr;
@@ -89,7 +91,7 @@ struct DoAMulBParam {
     const LogicalTensorPtr &cTensorPtr;
 };
 
-struct MatmulAttrParam 
+struct MatmulAttrParam
 {
     int64_t mValue;
     int64_t kValue;

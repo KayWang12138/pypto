@@ -116,7 +116,6 @@ enum class Opcode {
     OP_CUBE_CONCAT_C,
     OP_L1_TO_L0A,
     OP_L1_TO_L0B,
-    OP_L1_TO_FB,
     OP_L1_TO_BT,
     // ANY
     OP_DUPLICATE,
@@ -155,7 +154,7 @@ enum class Opcode {
     OP_L0C_ALLOC,
     OP_FIX_ALLOC,
     OP_BT_ALLOC,
-    OP_BT_COPY_IN,
+
     // MTE
     OP_L1_COPY_IN,
     OP_L1_COPY_IN_FRACTAL_Z,
@@ -168,20 +167,20 @@ enum class Opcode {
     OP_L0C_COPY_OUT,
     OP_L1_TO_L0_AT,
     OP_L1_TO_L0_BT,
-    OP_FIX_COPY_IN,
-    OP_FIX_COPY_IN_QUANT_PRE,
-    OP_FIX_COPY_IN_RELU_PRE,
-    OP_FIX_COPY_IN_RELU_POST,
-    OP_FIX_COPY_IN_QUANT_POST,
-    OP_FIX_COPY_IN_ELT_ANTIQ,
-    OP_FIX_COPY_IN_MTE2_ANTIQ,
+    OP_L1_TO_FIX,
+    OP_L1_TO_FIX_QUANT_PRE,
+    OP_L1_TO_FIX_RELU_PRE,
+    OP_L1_TO_FIX_RELU_POST,
+    OP_L1_TO_FIX_QUANT_POST,
+    OP_L1_TO_FIX_ELT_ANTIQ,
+    OP_L1_TO_FIX_MTE2_ANTIQ,
     OP_L1_COPY_UB,
     OP_L0C_COPY_UB,
     OP_UB_COPY_L1,
     OP_UB_COPY_L1_ND,
-    OP_COPY_L1_TO_L1,
+    OP_L1_TO_L1,
     OP_COPY_UB_TO_UB,
-    OP_L0C_COPY_L1,
+    OP_L0C_TO_L1,
 
     // Scala
     OP_SYNC_SRC,
@@ -377,7 +376,7 @@ public:
     inline bool IsCopyIn(Opcode opCode) const {
         return opCode == Opcode::OP_COPY_IN || opCode == Opcode::OP_UB_COPY_IN || opCode == Opcode::OP_L1_COPY_IN ||
                opCode == Opcode::OP_TRANSPOSE_MOVEIN || opCode == Opcode::OP_RESHAPE_COPY_IN ||
-               opCode == Opcode::OP_L1_TO_FB || opCode == Opcode::OP_L1_TO_BT;
+               opCode == Opcode::OP_L1_TO_FIX_QUANT_PRE || opCode == Opcode::OP_L1_TO_BT;
     }
 
     inline bool IsCopyOut(Opcode opCode) const {
@@ -465,8 +464,8 @@ const std::unordered_set<Opcode> BINARY_WITH_BRC_OPS{
 
 const std::unordered_set<Opcode> UNARY_OPS{Opcode::OP_EXP, Opcode::OP_NEG, Opcode::OP_RSQRT, Opcode::OP_SQRT,
     Opcode::OP_EXPAND, Opcode::OP_RECIPROCAL, Opcode::OP_ROWSUM, Opcode::OP_ROWMAX, Opcode::OP_ROWEXPSUM,
-    Opcode::OP_ROWEXPMAX, Opcode::OP_COPY_L1_TO_L1, Opcode::OP_COPY_UB_TO_UB, Opcode::OP_ROWSUMLINE, Opcode::OP_ABS,
-    Opcode::OP_LN, Opcode::OP_ONEHOT};
+    Opcode::OP_ROWEXPMAX, Opcode::OP_L1_TO_L1, Opcode::OP_COPY_UB_TO_UB, Opcode::OP_ROWSUMLINE, Opcode::OP_ABS,
+    Opcode::OP_LN};
 
 const std::unordered_set<Opcode> UNARY_OPS_WITH_TMP{Opcode::OP_COMPACT, Opcode::OP_ROWSUM_SINGLE,
     Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ROWMIN_SINGLE, Opcode::OP_TRANSPOSE_VNCHWCONV,
@@ -505,14 +504,14 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_RANGE,
     Opcode::OP_MRGSORT, Opcode::OP_CMP, Opcode::OP_EXTRACT, Opcode::OP_TILEDMRGSORT, Opcode::OP_ROWMAXLINE,
     Opcode::OP_PAIRMIN,  Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWMINLINE, Opcode::OP_TOPK_SORT, Opcode::OP_TOPK_MERGE,
     Opcode::OP_TOPK_EXTRACT, Opcode::OP_SCATTER_ELEMENT, Opcode::OP_TRANSPOSE_MOVEIN, Opcode::OP_SORT,
-    Opcode::OP_COMPARE_SWAP, Opcode::OP_MERGE, Opcode::OP_L0C_COPY_L1, Opcode::OP_LOGICALAND};
+    Opcode::OP_COMPARE_SWAP, Opcode::OP_MERGE, Opcode::OP_L0C_TO_L1};
 
-const std::unordered_set<Opcode> FIX_COPY_IN_OPS{Opcode::OP_FIX_COPY_IN, Opcode::OP_FIX_COPY_IN_QUANT_PRE,
-    Opcode::OP_FIX_COPY_IN_RELU_PRE, Opcode::OP_FIX_COPY_IN_RELU_POST, Opcode::OP_FIX_COPY_IN_QUANT_POST,
-    Opcode::OP_FIX_COPY_IN_ELT_ANTIQ, Opcode::OP_FIX_COPY_IN_MTE2_ANTIQ};
+const std::unordered_set<Opcode> FIX_COPY_IN_OPS{Opcode::OP_L1_TO_FIX, Opcode::OP_L1_TO_FIX_QUANT_PRE,
+    Opcode::OP_L1_TO_FIX_RELU_PRE, Opcode::OP_L1_TO_FIX_RELU_POST, Opcode::OP_L1_TO_FIX_QUANT_POST,
+    Opcode::OP_L1_TO_FIX_ELT_ANTIQ, Opcode::OP_L1_TO_FIX_MTE2_ANTIQ};
 
 const std::unordered_set<Opcode> CROSS_L1_UB_OPS{Opcode::OP_L1_COPY_UB, Opcode::OP_L0C_COPY_UB, Opcode::OP_UB_COPY_L1,
-    Opcode::OP_UB_COPY_L1_ND, Opcode::OP_L0C_COPY_L1};
+    Opcode::OP_UB_COPY_L1_ND, Opcode::OP_L0C_TO_L1};
 
 const std::unordered_set<Opcode> LOGICALNOT_OPS{Opcode::OP_LOGICALNOT};
 

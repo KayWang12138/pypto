@@ -83,8 +83,8 @@ void CodeGenOp::UpdateOffsetValueForGM(const std::vector<OpImmediate> &offsets, 
     ALOG_INFO_F("UpdateOffsetValueForGM , offsetGmSymbolic is %s", IntVecToStr(dynOffset).c_str());
 }
 
-bool CodeGenOp::IsUpdateOffsetByAttr(const LogicalTensor &logicalTensor, bool useAttrShapeOffset) {
-    if ((!useAttrShapeOffset) || (((opCode != Opcode::OP_L1_TO_BT) && (opCode != Opcode::OP_L1_TO_FB)) &&
+bool CodeGenOp::IsUpdateOffsetByAttr(const LogicalTensor &logicalTensor, bool useAttrShapeOffset){
+    if ((!useAttrShapeOffset) || (((opCode != Opcode::OP_L1_TO_BT) && (opCode != Opcode::OP_L1_TO_FIX_QUANT_PRE)) &&
                                      (logicalTensor.GetMemoryTypeOriginal() != MEM_DEVICE_DDR))) {
         return false;
     }
@@ -322,10 +322,10 @@ void CodeGenOp::ConvertAttribute(const Operation &operation) {
         convParams.push_back(operation.GetIntAttribute(ConvOpAttributeKey::fmapC0));
     }
 
-    if (opCode == Opcode::OP_FIX_COPY_IN || opCode == Opcode::OP_FIX_COPY_IN_QUANT_PRE ||
-        opCode == Opcode::OP_FIX_COPY_IN_RELU_PRE || opCode == Opcode::OP_FIX_COPY_IN_RELU_POST ||
-        opCode == Opcode::OP_FIX_COPY_IN_QUANT_POST || opCode == Opcode::OP_FIX_COPY_IN_ELT_ANTIQ ||
-        opCode == Opcode::OP_FIX_COPY_IN_MTE2_ANTIQ) {
+    if (opCode == Opcode::OP_L1_TO_FIX ||
+        opCode == Opcode::OP_L1_TO_FIX_RELU_PRE || opCode == Opcode::OP_L1_TO_FIX_RELU_POST ||
+        opCode == Opcode::OP_L1_TO_FIX_QUANT_POST || opCode == Opcode::OP_L1_TO_FIX_ELT_ANTIQ ||
+        opCode == Opcode::OP_L1_TO_FIX_MTE2_ANTIQ) {
         convParams.push_back(operation.GetIntAttribute(FixpOpAttributeKey::fbAddrSpace));
     }
 

@@ -30,7 +30,7 @@ namespace npu::tile_fwk {
 
 constexpr const int dummyRawMagic = 123;
 
-class TestCodegenDynCopy : public ::testing::Test {
+    class TestCodegenDynCopy : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
 
@@ -152,7 +152,7 @@ TEST_F(TestCodegenDynCopy, L1ToFB) {
     std::vector<SymbolicScalar> dynoffset = {0, 0};
     localInTensor->UpdateOffset(TensorOffset(offset, dynoffset));
 
-    auto &op = function->AddOperation(Opcode::OP_L1_TO_FB, {localInTensor}, {localOutTensor});
+    auto &op = function->AddOperation(Opcode::OP_L1_TO_FIX_QUANT_PRE, {localInTensor}, {localOutTensor});
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_FIX, shapeImme, shapeImme));
     op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
 
@@ -387,7 +387,7 @@ TEST_F(TestCodegenDynCopy, L0CToL1) {
     localTensor->UpdateDynValidShape(dynValidShape1);
     localOutTensor->UpdateDynValidShape(dynValidShape);
 
-    auto &op = function->AddOperation(Opcode::OP_L0C_COPY_L1, {localTensor}, {localOutTensor});
+    auto &op = function->AddOperation(Opcode::OP_L0C_TO_L1, {localTensor}, {localOutTensor});
     op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
 
     SymbolManager memAlloc;

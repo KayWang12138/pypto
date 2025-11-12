@@ -45,9 +45,9 @@ Status GenerateMoveOp::PostCheck(Function &function) {
 bool GenerateMoveOp::HasSpecificConsumer(const Operation &op) const {
     auto viewResult = op.GetOOperands()[0];
     auto consumersCopy = viewResult->GetConsumers();
-    
+
     for (auto childOp : consumersCopy) {
-        if (childOp->GetOpcode() == Opcode::OP_INDEX_OUTCAST || 
+        if (childOp->GetOpcode() == Opcode::OP_INDEX_OUTCAST ||
             childOp->GetOpcode() == Opcode::OP_RESHAPE) {
             return true;
         }
@@ -80,10 +80,10 @@ void GenerateMoveOp::CreateMoveOpForView(Operation &op) const {
             return;
         }
     }else if(op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_FIX_QUANT_PRE) {
-        op.SetOpCode(Opcode::OP_L1_TO_FB); // 将view转化为L1_TO_FB
+        op.SetOpCode(Opcode::OP_L1_TO_FIX_QUANT_PRE); // 将view转化为L1_TO_FB
         auto copyAttr = std::make_shared<CopyOpAttribute>(
             OpImmediate::Specified(viewOpAttribute->GetFromTensorOffset()),
-            viewOpAttribute->GetTo(), 
+            viewOpAttribute->GetTo(),
             OpImmediate::Specified(op.oOperand.front()->shape),
             OpImmediate::Specified(op.iOperand.front()->tensor->GetDynRawShape()),
             OpImmediate::Specified(viewOpAttribute->GetToDynValidShape())
@@ -94,7 +94,7 @@ void GenerateMoveOp::CreateMoveOpForView(Operation &op) const {
         op.SetOpCode(Opcode::OP_L1_TO_BT); // 将view转化为L1_TO_BT
         auto copyAttr = std::make_shared<CopyOpAttribute>(
             OpImmediate::Specified(viewOpAttribute->GetFromTensorOffset()),
-            viewOpAttribute->GetTo(), 
+            viewOpAttribute->GetTo(),
             OpImmediate::Specified(op.oOperand.front()->shape),
             OpImmediate::Specified(op.iOperand.front()->tensor->GetDynRawShape()),
             OpImmediate::Specified(viewOpAttribute->GetToDynValidShape())
@@ -166,7 +166,7 @@ Status GenerateMoveOp::CreateMoveOpForConvert(Operation &op) const {
             op.GetOpMagic());
         return FAILED;
     }
-    auto opcodeFindByPath = it->second; 
+    auto opcodeFindByPath = it->second;
     op.SetOpCode(opcodeFindByPath);
     auto childOp = *op.oOperand.front()->GetConsumers().begin();
     op.UpdateSubgraphID(childOp->GetSubgraphID());

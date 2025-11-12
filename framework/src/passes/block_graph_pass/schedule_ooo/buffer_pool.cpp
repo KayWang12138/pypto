@@ -130,8 +130,8 @@ Status BufferPool::Allocate(LocalBufferPtr tensor) {
             BufferSlice newSlice;
             newSlice.size = tensor->size;
             newSlice.offset = freeSpace.first;
-            if (bufferSlices.find(tensor->id) != bufferSlices.end()) { 
-                APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Tensor[%u] already alloc in bufferSlices", tensor->id); 
+            if (bufferSlices.find(tensor->id) != bufferSlices.end()) {
+                APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Tensor[%u] already alloc in bufferSlices", tensor->id);
                 return FAILED;
             }
             bufferSlices[tensor->id] = newSlice;
@@ -168,11 +168,11 @@ bool BufferPool::isAllocate(const uint32_t tensorId) {
     }
     return true;
 }
- 
+
 Status BufferPool::Free(const uint32_t tensorId) {
-    if (bufferSlices.find(tensorId) == bufferSlices.end()) { 
-        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Tensor[%d] not in bufferSlices", tensorId); 
-        return FAILED; 
+    if (bufferSlices.find(tensorId) == bufferSlices.end()) {
+        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Tensor[%d] not in bufferSlices", tensorId);
+        return FAILED;
     }
     APASS_LOG_DEBUG_F("OoOSchedule", "Operation", "    Free tensor[%u], range:[%lu, %lu]", tensorId,
         bufferSlices[tensorId].offset, bufferSlices[tensorId].size + bufferSlices[tensorId].offset);
@@ -181,6 +181,11 @@ Status BufferPool::Free(const uint32_t tensorId) {
 }
 
 bool BufferPool::IsFull(const LocalBufferPtr tensor) {
+    if (tensor->memType == MemoryType::MEM_BT) {
+        if (bufferSlices.size() >= 1) {
+            return true;
+        }
+    }
     auto freeSpace = FindFreeIntervals();
     for (auto inter : freeSpace) {
         if (inter.first >= tensor->size) {
