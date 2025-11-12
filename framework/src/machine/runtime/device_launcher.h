@@ -142,12 +142,10 @@ public:
         char version[kMaxVersionLengh] = {0};
         auto ret = rtGetSocVersion(version, kMaxVersionLengh);
         std::string socVersion("Ascend910B1");
-        if (!config.runModel) {
-            if (ret == 0) {
-                socVersion = std::string(version);
-            } else {
-                ASSERT(false)  << "Get soc version failed!";
-            }          
+        if (ret == 0) {
+            socVersion = std::string(version);
+        } else if (config.onBoard) {
+            ASSERT(false)  << "Get soc version failed!";
         }
         (void)PlatformManager::Instance().Initialize(socVersion);
         DeviceLauncherConfig &launchConfig = const_cast<DeviceLauncherConfig &>(config);
