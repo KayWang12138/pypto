@@ -1076,7 +1076,7 @@ static std::vector<int64_t> CheckAndInferShape(const std::vector<int64_t> &oriSh
     }
 
     if (negIdx != -1) {
-        newShape[negIdx] = capacity;
+        newShape[negIdx] = -capacity;
         capacity = 1;
     }
     ASSERT(capacity == 1) << "Shape size not match";

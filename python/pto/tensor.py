@@ -90,6 +90,8 @@ class Tensor:
             return key.start is None and key.stop is None and key.step is None
         elif isinstance(key, (int, SymbolicScalar)):
             return False
+        elif key is Ellipsis:
+            return False
         return all([self._is_empty_slice(k) for k in key])
 
     def __setitem__(self, key, value):
@@ -140,27 +142,48 @@ class Tensor:
                 raise ValueError("step must be 1 or None")
             if start is None:
                 start = 0
+            elif isinstance(start, int) and start < 0:
+                start = shape[axis] + start
             if stop is None:
                 stop = shape[axis]
+            elif isinstance(stop, int) and stop <= 0:
+                stop = shape[axis] + stop
             offsets.append(start)
             shapes.append(int(stop - start)) # shape should be concrete
         return offsets, shapes
 
     def __getitem__(self, key, *, valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None):
         """
-        Get tensor data by index or slice.
+        Get tensor data by index, supporting integer indices, slices, ellipsis,
+        and their combinations to retrieve sub-tensors.
 
         Args:
-            key (Union[int, SymbolicScalar, slice]): Index or slice to get.
+            key (Union[int, SymbolicScalar, slice, ellipsis]): Index or slice to get.
 
         Returns:
             Tensor | Element: tensor data.
 
         example:
-        >>> s = pto.tensor((16, 16), pto.DT_FP32)
-        >>> a = s[0, 0] # GetTensorData
-        0.0
-        >>> b = s[:4, :4]
+        s = pto.tensor([4, 4], pto.DT_FP32)
+        a = s[0, 0] # GetTensorData
+        b = s[:2, :2] # All slice
+        c = s[1, 1:3] # Index and slice
+        d = s[-1, -3:-1] # Negative index
+        e = s[..., 1:3] # Ellipsis index
+
+        Input s:[[1, 2, 3, 4],
+                 [5, 6, 7, 8],
+                 [9, 10, 11, 12],
+                 [13, 14, 15, 16]]
+        Output a:1
+               b:[[1, 2],
+                  [5, 6]]
+               c:[6, 7]
+               d:[14, 15]
+               e:[[2, 3],
+                  [6, 7],
+                  [10, 11],
+                  [14, 15]]
         """
         if self._is_empty_slice(key):
             return self
@@ -173,19 +196,52 @@ class Tensor:
                 return pto.gather(self, key.start, key.stop)
             else:
                 return self.__getitem__((key,))
+        elif key is Ellipsis:
+            return self
 
         elif isinstance(key, tuple):
-            assert self.dim == len(
+            assert self.dim >= len(
                 key), f"rank not match, expect {self.dim}, but got {len(key)}"
             if all([isinstance(k, (int, SymbolicScalar)) for k in key]):
                 return SymbolicScalar.from_base(pto_impl.GetTensorData(self._base, to_syms(key)))
             elif all([isinstance(k, slice) for k in key]):
                 offsets, shapes = self._get_view_offset_shape(key, self.shape)
                 return pto.view(self, shapes, offsets, valid_shape=valid_shape)
+            elif all(isinstance(k, (slice, int, SymbolicScalar)) for k in key):
+                new_key, bool_shape = self._get_slice_index(key)
+                offsets, shapes = self._get_view_offset_shape(tuple(new_key), self.shape)
+                res = pto.view(self, shapes, offsets, valid_shape=valid_shape)
+                res_shape = [res.shape[d] for d in range(res.dim) if bool_shape[d]]
+                return pto.reshape(res, res_shape)
+            elif any(k is Ellipsis for k in key):
+                ellipsis_count = sum(k is Ellipsis for k in key)
+                if ellipsis_count > 1:
+                    raise ValueError("Only one ... is supported")
+                ellipsis_pos = next(i for i, k in enumerate(key) if k is Ellipsis)
+                other_len = len(key) - 1
+                colon_count = self.dim - other_len
+                if colon_count < 0:
+                    raise IndexError(f"Too many indices for tensor with dimension {self.dim}")
+                colons = (slice(None),) * colon_count
+                return self.__getitem__(key[:ellipsis_pos] + colons + key[ellipsis_pos + 1:])
+                        
             else:
                 raise ValueError("tuple key must be int or SymbolicScalar")
         else:
             raise RuntimeError("Invalid key type")
+
+    @staticmethod
+    def _get_slice_index(key):
+        new_key = []
+        bool_shape = []
+        for axis, k in enumerate(key):
+            if isinstance(k, (int, SymbolicScalar)):
+                new_key.append(slice(int(k), int(k) + 1))
+                bool_shape.append(False)
+            else:
+                new_key.append(key[axis])
+                bool_shape.append(True)
+        return new_key, bool_shape
 
     def base(self) -> pto_impl.Tensor:
         return self._base
@@ -351,4 +407,3 @@ def mark_dynamic(tensor: 'Tensor', axis: int):
         recommended to call `mark_dynamic` before the shaped is used.
     """
     pto_impl.MarkDynamic(tensor._base, axis)
-
