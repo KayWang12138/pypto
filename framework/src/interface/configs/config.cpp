@@ -58,6 +58,7 @@ static std::map<std::string, ValueType> g_runtimeConfig = {
     {CFGCACHE_DEVICE_TASK_NUM, 0},
     {CFGCACHE_ROOT_TASK_NUM, 0},
     {CFGCACHE_LEAF_TASK_NUM, 0},
+    {SINGLE_LOOP_CALLOP_MAX_NUM, 20000},
 };
 
 static std::map<std::string, ValueType> g_hostConfig = {

@@ -39,6 +39,7 @@ void ForceLinkLibraryCompiler() {}
 
 static constexpr size_t TABSIZE = 2;
 constexpr int ALIGN_SIZE_8 = 8;
+constexpr uint32_t LOOP_CALLOP_SET_MAX_NUM = 65535;
 extern "C" int32_t Initialize() {
     CacheManager::Instance().Initialize();
     return 0;
@@ -604,7 +605,15 @@ bool IsNeedDumpAicpuKernel(const std::string &inputFile) {
     }
     return true;
 }
-
+static void OverCallOpMaxNum(Function *devRoot, DevAscendFunction *funcBin){
+    uint32_t CallOpSize = funcBin->GetOperationSize();
+    uint32_t CallOpmaxSize = config::GetRuntimeOption<uint32_t>(SINGLE_LOOP_CALLOP_MAX_NUM);
+    auto funcMagicName = devRoot->GetRawName() + "_" + std::to_string(devRoot->GetFuncMagic());
+    ALOG_ERROR_F("the loop function operation: %s size is %u hitting the maxinum single-loop-operation limit:%u.\n",
+    funcMagicName, CallOpSize, CallOpmaxSize);
+    ASSERT(CallOpSize <= CallOpmaxSize)<<" loopFunction: "<< funcMagicName <<" CallOpSize: "<<CallOpSize
+    <<" CallOpmaxSize: "<<CallOpmaxSize;
+}
 static void CompileDyndevFunction(Function *function, FunctionCache &cache, const std::string &ccePath,
                                   std::string &kernelPath) {
     if (config::GetCodeGenOption<bool>(CODEGEN_EXPRESSION_FUSION)) {
@@ -743,6 +752,12 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, cons
         funcBin->stackWorkSpaceSize = devTile->GetStackWorkespaceSize();
         EncodeDevAscendFunction(function, encodeDevAscendFunctionParam, size, funcBin);
         funcBin->Reloc(-reinterpret_cast<int64_t>(funcBin), true);
+        uint32_t CallOpmaxSize = config::GetRuntimeOption<uint32_t>(SINGLE_LOOP_CALLOP_MAX_NUM);
+        ASSERT(CallOpmaxSize <= LOOP_CALLOP_SET_MAX_NUM)<<" CallOpmaxSize set: "<< CallOpmaxSize
+        <<"exceeds the maximum allowed value of 65535.";
+        if (funcBin->GetOperationSize() > CallOpmaxSize) {
+            OverCallOpMaxNum(devRoot,funcBin);
+        }
     }
 
     for (size_t index = 0; index < attr->symbolTable.GetSymbolTable().size(); index++) {

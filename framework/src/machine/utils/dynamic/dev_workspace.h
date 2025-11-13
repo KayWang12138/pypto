@@ -28,10 +28,7 @@
 #endif
 
 namespace npu::tile_fwk::dynamic {
-
-inline constexpr size_t MAX_READY_QUE_ELM_SIZE = 20000;
 inline constexpr int64_t TENSOR_ADDR_ALIGNMENT = 512;
-
 struct WsSlabStageAllocMem {
     std::atomic_bool canFree{false};
     StageAllocInfo generalMetadataStageMem;
@@ -727,7 +724,7 @@ private:
     }
 
     uint32_t ReadyQueSlabMemObjSize() {
-        return sizeof(ReadyCoreFunctionQueue) + MAX_READY_QUE_ELM_SIZE * sizeof(uint32_t);
+        return sizeof(ReadyCoreFunctionQueue) + devProg_-> singleLoopCallopMaxNum * sizeof(uint32_t);
     }
 
     uint32_t (DeviceWorkspaceAllocator::*slabMemObjSizeFunc[ToUnderlying(WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT)])() = {

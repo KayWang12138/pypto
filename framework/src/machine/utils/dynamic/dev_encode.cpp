@@ -1977,6 +1977,7 @@ void EncodeDevAscendProgram(Function *func, uint64_t &offset, DevAscendProgram *
         base->devArgs.machineConfig = func->paramConfigs_.machineConfig_;
         base->firstStitchTaskLoopNum = func->paramConfigs_.firstStitchTaskLoopNum_;
         base->stitchTaskIncrLoopNum = func->paramConfigs_.stitchTaskIncrLoopNum_;
+        base->singleLoopCallopMaxNum = config::GetRuntimeOption<uint32_t>(SINGLE_LOOP_CALLOP_MAX_NUM);
     }
 }
 } // namespace dynamic

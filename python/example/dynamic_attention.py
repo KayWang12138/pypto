@@ -36,6 +36,7 @@ WORKSPACE_RECYCLE_PERIOD = "workspace_recycle_period"
 ESTIMATED_STITCH_TASK_MAX_LOOP_NUM = "estimated_stitch_task_max_loop_num"
 FIRST_STITCH_TASK_LOOP_NUM = "first_stitch_task_loop_num"
 SUBSEQ_STITCH_TASK_INCR_LOOP_NUM = "subseq_stitch_task_incr_loop_num"
+SINGLE_LOOP_CALLOP_MAX_NUM = "single_loop_callop_max_num"
 KEY_ONLY_CODEGEN = "only_codegen"
 
 SCATTER_UPDATE_DIM = -2

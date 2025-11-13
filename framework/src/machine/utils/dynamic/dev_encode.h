@@ -2566,6 +2566,7 @@ struct DevAscendProgram {
     uint64_t commGroupNum;
     uint16_t firstStitchTaskLoopNum;
     uint16_t stitchTaskIncrLoopNum;
+    uint32_t singleLoopCallopMaxNum;
     DevRelocVector<DevAscendProgramSymbol> symbolTable;
     DevRelocVector<char> symbolTableNameList;
     uint64_t expressionTableSize;
@@ -2648,6 +2649,7 @@ struct DevAscendProgram {
         oss << INDENTINNER << "#machineSchMode:" << devArgs.machineConfig << "\n";
         oss << INDENTINNER << "#firstStitchTaskLoopNum:" << firstStitchTaskLoopNum << "\n";
         oss << INDENTINNER << "#stitchTaskIncrLoopNum:" << stitchTaskIncrLoopNum << "\n";
+        oss << INDENTINNER << "singleLoopCallopMaxNum" << singleLoopCallopMaxNum << "\n";
         oss << INDENTINNER << "#slot:" << slotSize << "\n";
         oss << INDENTINNER << "#symbolCount:" << symbolTable.size() << "\n";
         for (size_t i = 0; i < symbolTable.size(); i++) {
