@@ -34,13 +34,18 @@ class TestCodegenDynRowSumLine : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
 
-    static void TearDownTestCase() {}
+    static void TearDownTestCase() {
+        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
+    }
 
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
+        IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
+        IdGen<IdType::CG_VAR_NAME>::Inst().SetId(DummyFuncMagic);
     }
 
     void TearDown() override {}
@@ -88,6 +93,89 @@ TEST_F(TestCodegenDynRowSumLine, TestOperationRowSumLine) {
     codeGen.GenCode(*function, {});
 }
 
+TEST_F(TestCodegenDynRowSumLine, TestOperationRowSumLineTileTensor) {
+    config::SetHostOption(ONLY_CODEGEN, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    int shape0 = 6;
+    int shape1 = 1;
+    int shape2 = 8;
+    int shape3 = 1024;
+    std::vector<int64_t> shape = {shape0 * shape1, shape2, shape3};
+    std::vector<int64_t> outshape = {shape0 * shape1, 1, shape3};
+    TileShape::Current().SetVecTile({2, 8, 512});
+
+    Tensor input_a(DataType::DT_FP32, shape, "A");
+    Tensor output(DataType::DT_FP32, outshape, "C");
+
+    std::string funcName = "Reduce3dimMoe_TILERENSOR";
+    config::SetBuildStatic(true);
+    FUNCTION(funcName, {input_a, output}) {
+        output = Sum(input_a, 1);
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    function->SetUnderDynamicFunction(true);
+    for (auto &subFunc : function->rootFunc_->programs_) {
+        for (auto &op : subFunc.second->Operations()) {
+            if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) || OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
+                if (IsCopyIn(op.GetOpcode()))
+                    op.SetIOpAttrOffset(0, 0);
+                else
+                    op.SetOOpAttrOffset(0, 0);
+                op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+            }
+        }
+        DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar()};
+        subFunc.second->InsertDynParam("sym_23_dim_0", fakeParam);
+        subFunc.second->InsertDynParam("sym_23_dim_1", fakeParam);
+        subFunc.second->InsertDynParam("sym_23_dim_2", fakeParam);
+    }
+
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+    std::string res = GetResultFromCpp(*function);
+    std::string expect = R"!!!(#include "TileOpImpl.h"
+
+// funcHash: 793307710754848680
+
+extern "C" [aicore] void TENSOR_Reduce3dimMoe_TILERENSOR_2_0_4503599627370496(__gm__ GMTensorInfo* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
+float __ubuf__ *UB_S0_E32768 = (float __ubuf__ *)get_imm(0x0); // size: 0x8000
+float *UB_S0_E32768_T = (float *)get_imm(0x0); // size: 0x8000
+float __ubuf__ *UB_S32768_E36864 = (float __ubuf__ *)get_imm(0x8000); // size: 0x1000
+float *UB_S32768_E36864_T = (float *)get_imm(0x8000); // size: 0x1000
+uint64_t sym_23_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 0, 3, 0);
+uint64_t sym_23_dim_1 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 0, 3, 0);
+uint64_t sym_23_dim_2 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 0, 3, 0);
+uint64_t sym_3_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 14, 3, 0);
+uint64_t sym_3_dim_1 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 14, 3, 1);
+uint64_t sym_3_dim_2 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 14, 3, 2);
+uint64_t sym_41_dim_0 = 2; //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 3, 0);
+uint64_t sym_41_dim_1 = 8; //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 3, 1);
+uint64_t sym_41_dim_2 = 512; //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 3, 2);
+using GMTileTensorFP32Dim3_4 = TileTensor<__gm__ float, DynLayout3Dim, Hardware::GM>;
+using UBTileTensorFP32Dim3_3 = TileTensor<float, StaticLayout3Dim<2, 1, 512, 2, 1, 512>, Hardware::UB>;
+using GMTileTensorFP32Dim3_2 = TileTensor<__gm__ float, DynLayout3Dim, Hardware::GM>;
+using UBTileTensorFP32Dim3_1 = TileTensor<float, StaticLayout3Dim<2, 8, 512, 2, 8, 512>, Hardware::UB>;
+GMTileTensorFP32Dim3_4 gmTensor_5((__gm__ float*)GET_PARAM_ADDR(param, 0, 0), DynLayout3Dim(Shape3Dim(6, 1, 1024), Stride3Dim(1024, 1024, 1)));
+UBTileTensorFP32Dim3_3 ubTensor_3((uint64_t)UB_S32768_E36864_T);
+GMTileTensorFP32Dim3_2 gmTensor_2((__gm__ float*)GET_PARAM_ADDR(param, 0, 0), DynLayout3Dim(Shape3Dim(6, 8, 1024), Stride3Dim(8192, 1024, 1)));
+UBTileTensorFP32Dim3_1 ubTensor_1((uint64_t)UB_S0_E32768_T);
+SUBKERNEL_PHASE1
+TLoad(ubTensor_1, gmTensor_2, Coord3Dim(0, 0, 0));
+set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+SUBKERNEL_PHASE2
+TRowSumLine<3>(ubTensor_3, ubTensor_1);
+set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+TStore(gmTensor_5, ubTensor_3, Coord3Dim(0, 0, 0));
+}
+)!!!";
+    EXPECT_EQ(res, expect);
+}
+
 TEST_F(TestCodegenDynRowSumLine, TestOperationRowSumSingleTileTensor) {
     config::SetHostOption(ONLY_CODEGEN, true);
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
@@ -104,7 +192,7 @@ TEST_F(TestCodegenDynRowSumLine, TestOperationRowSumSingleTileTensor) {
     Tensor input_a(DataType::DT_FP32, shape, "A");
     Tensor output(DataType::DT_FP32, outshape, "C");
     config::SetBuildStatic(true);
-    FUNCTION("RowSumSingle", {input_a, output}) {
+    FUNCTION("RowSumSingle_TILETENSOR", {input_a, output}) {
         output = Sum(input_a, -1);
     }
     ProgramData::GetInstance().AppendInputs({
@@ -114,7 +202,7 @@ TEST_F(TestCodegenDynRowSumLine, TestOperationRowSumSingleTileTensor) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(output, 0.001f),
     });
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RowSumSingle");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RowSumSingle_TILETENSOR");
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);

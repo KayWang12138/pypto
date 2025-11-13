@@ -34,14 +34,19 @@ class TestCodegenDynBinary : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
 
-    static void TearDownTestCase() {}
+    static void TearDownTestCase() {
+        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
+    }
 
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
         IdGen<IdType::FUNCTION>::Inst().SetId(DummyFuncMagic);
+        IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
+        IdGen<IdType::CG_VAR_NAME>::Inst().SetId(DummyFuncMagic);
     }
 
     void TearDown() override {}
@@ -193,7 +198,7 @@ TEST_F(TestCodegenDynBinary, TestGatherEleTileTensor) {
     Tensor inputTmpScores(DT_FP32, inputShape, "input_tmp_scores");
     Tensor outputTensor(DT_FP32, outputShape, "output_tensor");
 
-    std::string funcName = "GATHER_ELEMET_T";
+    std::string funcName = "GATHER_ELEMET_TILETENSOR";
     config::SetBuildStatic(true);
     FUNCTION(funcName, {inputScores, inputTmpScores, outputTensor}) {
         outputTensor = GatherElements(inputTmpScores, inputScores, 1); // [b*s,8]
@@ -221,7 +226,7 @@ TEST_F(TestCodegenDynBinary, TestGatherEleTileTensor) {
 
 // funcHash: 16633218618031552756
 
-extern "C" [aicore] void TENSOR_GATHER_ELEMET_T_1_0_4503599627370496(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
+extern "C" [aicore] void TENSOR_GATHER_ELEMET_TILETENSOR_1_0_4503599627370496(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
 float __ubuf__ *UB_S0_E2048 = (float __ubuf__ *)get_imm(0x0); // size: 0x800
 float *UB_S0_E2048_T = (float *)get_imm(0x0); // size: 0x800
 float __ubuf__ *UB_S2048_E2112 = (float __ubuf__ *)get_imm(0x800); // size: 0x40
@@ -234,24 +239,24 @@ uint64_t sym_4_dim_0 = 2; //GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 0);
 uint64_t sym_4_dim_1 = 256; //GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 1);
 uint64_t sym_5_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 2, 19, 2, 0);
 uint64_t sym_5_dim_1 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 2, 19, 2, 1);
-using GMTileTensorFP32Dim2_3 = TileTensor<__gm__ float, DynLayout2Dim, Hardware::GM>;
-using UBTileTensorFP32Dim2_2 = TileTensor<float, LocalLayout2Dim<2, 8>, Hardware::UB>;
-using GMTileTensorFP32Dim2_1 = TileTensor<__gm__ float, DynLayout2Dim, Hardware::GM>;
-using UBTileTensorFP32Dim2_0 = TileTensor<float, LocalLayout2Dim<2, 256>, Hardware::UB>;
-UBTileTensorFP32Dim2_2 ubTensor_4((uint64_t)UB_S2112_E2176_T, (Shape2Dim(sym_2_dim_0, sym_2_dim_1)));
-UBTileTensorFP32Dim2_2 ubTensor_2((uint64_t)UB_S2048_E2112_T, (Shape2Dim(sym_2_dim_0, sym_2_dim_1)));
-GMTileTensorFP32Dim2_1 gmTensor_1((__gm__ float*)GET_PARAM_ADDR(param, 0, 0), DynLayout2Dim(Shape2Dim(GET_PARAM_RAWSHAPE_2(param, 0, 0)), Stride2Dim(GET_PARAM_STRIDE_2(param, 0, 0))));
-UBTileTensorFP32Dim2_0 ubTensor_0((uint64_t)UB_S0_E2048_T, (Shape2Dim(sym_4_dim_0, sym_4_dim_1)));
+using GMTileTensorFP32Dim2_4 = TileTensor<__gm__ float, DynLayout2Dim, Hardware::GM>;
+using UBTileTensorFP32Dim2_3 = TileTensor<float, LocalLayout2Dim<2, 8>, Hardware::UB>;
+using GMTileTensorFP32Dim2_2 = TileTensor<__gm__ float, DynLayout2Dim, Hardware::GM>;
+using UBTileTensorFP32Dim2_1 = TileTensor<float, LocalLayout2Dim<2, 256>, Hardware::UB>;
+UBTileTensorFP32Dim2_3 ubTensor_5((uint64_t)UB_S2112_E2176_T, (Shape2Dim(sym_2_dim_0, sym_2_dim_1)));
+UBTileTensorFP32Dim2_3 ubTensor_3((uint64_t)UB_S2048_E2112_T, (Shape2Dim(sym_2_dim_0, sym_2_dim_1)));
+GMTileTensorFP32Dim2_2 gmTensor_2((__gm__ float*)GET_PARAM_ADDR(param, 0, 0), DynLayout2Dim(Shape2Dim(GET_PARAM_RAWSHAPE_2(param, 0, 0)), Stride2Dim(GET_PARAM_STRIDE_2(param, 0, 0))));
+UBTileTensorFP32Dim2_1 ubTensor_1((uint64_t)UB_S0_E2048_T, (Shape2Dim(sym_4_dim_0, sym_4_dim_1)));
 SUBKERNEL_PHASE1
-TLoad(ubTensor_0, gmTensor_1, Coord2Dim(0, 0));
-TLoad(ubTensor_2, gmTensor_1, Coord2Dim(0, 0));
+TLoad(ubTensor_1, gmTensor_2, Coord2Dim(0, 0));
+TLoad(ubTensor_3, gmTensor_2, Coord2Dim(0, 0));
 SUBKERNEL_PHASE2
 set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
 wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-TgatherElement<4>(ubTensor_4, ubTensor_0, ubTensor_2);
+TgatherElement<4>(ubTensor_5, ubTensor_1, ubTensor_3);
 set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
 wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-TStore(gmTensor_1, ubTensor_4, Coord2Dim(0, 0));
+TStore(gmTensor_2, ubTensor_5, Coord2Dim(0, 0));
 }
 )!!!";
 
@@ -277,7 +282,7 @@ TEST_F(TestCodegenDynBinary, AddUnalignTileTensor) {
     Tensor curSeq(DT_INT32, {b, 1}, "curSeq");
     Tensor out(DT_FP32, outShape, "out");
 
-    std::string loopName = "L0";
+    std::string loopName = "L0_TILETENSOR";
 
     FUNCTION("main", {input1, input2, curSeq}, {out}) {
         LOOP(loopName, FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
@@ -312,7 +317,7 @@ TEST_F(TestCodegenDynBinary, AddUnalignTileTensor) {
 
 // funcHash: 13526864639772037405
 
-extern "C" [aicore] void TENSOR_L0_Unroll1_PATH0_3_0_4503599627370496(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
+extern "C" [aicore] void TENSOR_L0_TILETENSOR_Unroll1_PATH0_3_0_4503599627370496(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
 float __ubuf__ *UB_S0_E16384 = (float __ubuf__ *)get_imm(0x0); // size: 0x4000
 float *UB_S0_E16384_T = (float *)get_imm(0x0); // size: 0x4000
 float __ubuf__ *UB_S16384_E32768 = (float __ubuf__ *)get_imm(0x4000); // size: 0x4000
@@ -323,23 +328,23 @@ uint64_t sym_19_dim_0 = (RUNTIME_COA_GET_PARAM_VALID_SHAPE(2, 1, 0)); //GET_PARA
 uint64_t sym_19_dim_1 = (RUNTIME_COA_GET_PARAM_VALID_SHAPE(2, 1, 1)); //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 1);
 uint64_t sym_7_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 2, 19, 2, 0);
 uint64_t sym_7_dim_1 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 2, 19, 2, 1);
-using GMTileTensorFP32Dim2_1 = TileTensor<__gm__ float, DynLayout2Dim, Hardware::GM>;
-using UBTileTensorFP32Dim2_0 = TileTensor<float, LocalLayout2Dim<64, 64>, Hardware::UB>;
-GMTileTensorFP32Dim2_1 gmTensor_7((__gm__ float*)GET_PARAM_ADDR(param, 2, 19), DynLayout2Dim(Shape2Dim(GET_PARAM_RAWSHAPE_2(param, 2, 19)), Stride2Dim(GET_PARAM_STRIDE_2(param, 2, 19))));
-GMTileTensorFP32Dim2_1 gmTensor_3((__gm__ float*)GET_PARAM_ADDR(param, 0, 1), DynLayout2Dim(Shape2Dim(GET_PARAM_RAWSHAPE_2(param, 0, 1)), Stride2Dim(GET_PARAM_STRIDE_2(param, 0, 1))));
-UBTileTensorFP32Dim2_0 ubTensor_2((uint64_t)UB_S16384_E32768_T, (Shape2Dim(sym_19_dim_0, sym_19_dim_1)));
-GMTileTensorFP32Dim2_1 gmTensor_1((__gm__ float*)GET_PARAM_ADDR(param, 1, 10), DynLayout2Dim(Shape2Dim(GET_PARAM_RAWSHAPE_2(param, 1, 10)), Stride2Dim(GET_PARAM_STRIDE_2(param, 1, 10))));
-UBTileTensorFP32Dim2_0 ubTensor_0((uint64_t)UB_S0_E16384_T, (Shape2Dim(sym_18_dim_0, sym_18_dim_1)));
+using GMTileTensorFP32Dim2_2 = TileTensor<__gm__ float, DynLayout2Dim, Hardware::GM>;
+using UBTileTensorFP32Dim2_1 = TileTensor<float, LocalLayout2Dim<64, 64>, Hardware::UB>;
+GMTileTensorFP32Dim2_2 gmTensor_8((__gm__ float*)GET_PARAM_ADDR(param, 2, 19), DynLayout2Dim(Shape2Dim(GET_PARAM_RAWSHAPE_2(param, 2, 19)), Stride2Dim(GET_PARAM_STRIDE_2(param, 2, 19))));
+GMTileTensorFP32Dim2_2 gmTensor_4((__gm__ float*)GET_PARAM_ADDR(param, 0, 1), DynLayout2Dim(Shape2Dim(GET_PARAM_RAWSHAPE_2(param, 0, 1)), Stride2Dim(GET_PARAM_STRIDE_2(param, 0, 1))));
+UBTileTensorFP32Dim2_1 ubTensor_3((uint64_t)UB_S16384_E32768_T, (Shape2Dim(sym_19_dim_0, sym_19_dim_1)));
+GMTileTensorFP32Dim2_2 gmTensor_2((__gm__ float*)GET_PARAM_ADDR(param, 1, 10), DynLayout2Dim(Shape2Dim(GET_PARAM_RAWSHAPE_2(param, 1, 10)), Stride2Dim(GET_PARAM_STRIDE_2(param, 1, 10))));
+UBTileTensorFP32Dim2_1 ubTensor_1((uint64_t)UB_S0_E16384_T, (Shape2Dim(sym_18_dim_0, sym_18_dim_1)));
 SUBKERNEL_PHASE1
-TLoad(ubTensor_0, gmTensor_1, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 10, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 10, 1))));
-TLoad(ubTensor_2, gmTensor_3, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 1, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 1, 1))));
+TLoad(ubTensor_1, gmTensor_2, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 10, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 10, 1))));
+TLoad(ubTensor_3, gmTensor_4, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 1, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 1, 1))));
 SUBKERNEL_PHASE2
 set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
 wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-TAdd(ubTensor_0, ubTensor_0, ubTensor_2);
+TAdd(ubTensor_1, ubTensor_1, ubTensor_3);
 set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
 wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-TStore(gmTensor_7, ubTensor_0, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 19, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 19, 1))));
+TStore(gmTensor_8, ubTensor_1, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 19, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 19, 1))));
 }
 )!!!";
 

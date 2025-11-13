@@ -32,13 +32,18 @@ class TestCodegenBinary : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
 
-    static void TearDownTestCase() {}
+    static void TearDownTestCase() {
+        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
+    }
 
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
+        IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
+        IdGen<IdType::CG_VAR_NAME>::Inst().SetId(DummyFuncMagic);
     }
 
     void TearDown() override {}
@@ -130,7 +135,7 @@ TEST_F(TestCodegenBinary, TestCodegenAddMulDim4TileTensor) {
     Tensor output(DT_FP32, shape, "OUT");
 
     config::SetBuildStatic(true);
-    std::string name = "AddMulDim4";
+    std::string name = "AddMulDim4_TILETENSOR";
     FUNCTION(name, {input_a, input_b, output}) {
         Tensor tmp_c(DT_FP32, shape, "TEMP_C");
         tmp_c = Add(input_a, input_b);
@@ -146,30 +151,30 @@ TEST_F(TestCodegenBinary, TestCodegenAddMulDim4TileTensor) {
 
 // funcHash: 16047418710607905819
 
-extern "C" [aicore] void TENSOR_AddMulDim4_2_0_4503599627370496(__gm__ GMTensorInfo* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
+extern "C" [aicore] void TENSOR_AddMulDim4_TILETENSOR_2_0_4503599627370496(__gm__ GMTensorInfo* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
 float __ubuf__ *UB_S0_E1024 = (float __ubuf__ *)get_imm(0x0); // size: 0x400
 float *UB_S0_E1024_T = (float *)get_imm(0x0); // size: 0x400
 float __ubuf__ *UB_S1024_E2048 = (float __ubuf__ *)get_imm(0x400); // size: 0x400
 float *UB_S1024_E2048_T = (float *)get_imm(0x400); // size: 0x400
-using GMTileTensorFP32Dim4_1 = TileTensor<__gm__ float, DynLayout4Dim, Hardware::GM>;
-using UBTileTensorFP32Dim4_0 = TileTensor<float, StaticLayout4Dim<1, 1, 16, 16, 1, 1, 16, 16>, Hardware::UB>;
-GMTileTensorFP32Dim4_1 gmTensor_7((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 2)->Addr, DynLayout4Dim(Shape4Dim(1, 1, 16, 16), Stride4Dim(256, 256, 16, 1)));
-GMTileTensorFP32Dim4_1 gmTensor_3((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 0)->Addr, DynLayout4Dim(Shape4Dim(1, 1, 16, 16), Stride4Dim(256, 256, 16, 1)));
-UBTileTensorFP32Dim4_0 ubTensor_2((uint64_t)UB_S1024_E2048_T);
-GMTileTensorFP32Dim4_1 gmTensor_1((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 1)->Addr, DynLayout4Dim(Shape4Dim(1, 1, 16, 16), Stride4Dim(256, 256, 16, 1)));
-UBTileTensorFP32Dim4_0 ubTensor_0((uint64_t)UB_S0_E1024_T);
+using GMTileTensorFP32Dim4_2 = TileTensor<__gm__ float, DynLayout4Dim, Hardware::GM>;
+using UBTileTensorFP32Dim4_1 = TileTensor<float, StaticLayout4Dim<1, 1, 16, 16, 1, 1, 16, 16>, Hardware::UB>;
+GMTileTensorFP32Dim4_2 gmTensor_11((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 2)->Addr, DynLayout4Dim(Shape4Dim(1, 1, 16, 16), Stride4Dim(256, 256, 16, 1)));
+GMTileTensorFP32Dim4_2 gmTensor_4((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 0)->Addr, DynLayout4Dim(Shape4Dim(1, 1, 16, 16), Stride4Dim(256, 256, 16, 1)));
+UBTileTensorFP32Dim4_1 ubTensor_3((uint64_t)UB_S1024_E2048_T);
+GMTileTensorFP32Dim4_2 gmTensor_2((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 1)->Addr, DynLayout4Dim(Shape4Dim(1, 1, 16, 16), Stride4Dim(256, 256, 16, 1)));
+UBTileTensorFP32Dim4_1 ubTensor_1((uint64_t)UB_S0_E1024_T);
 SUBKERNEL_PHASE1
-TLoad(ubTensor_0, gmTensor_1, Coord4Dim(0, 0, 0, 0));
-TLoad(ubTensor_2, gmTensor_3, Coord4Dim(0, 0, 0, 0));
+TLoad(ubTensor_1, gmTensor_2, Coord4Dim(0, 0, 0, 0));
+TLoad(ubTensor_3, gmTensor_4, Coord4Dim(0, 0, 0, 0));
 SUBKERNEL_PHASE2
 set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
 wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-TAdd(ubTensor_2, ubTensor_0, ubTensor_2);
+TAdd(ubTensor_3, ubTensor_1, ubTensor_3);
 pipe_barrier(PIPE_V);
-TileOp::Tmul_<float, /*OS0*/ 1, 1, 16, 16, /*OS1*/ 1, 1, 16, 16, /*DS*/ 1, 1, 16, 16, /*S0*/ 1, 1, 16, 16, /*S1*/ 1, 1, 16, 16>((__ubuf__ float*)UB_S1024_E2048, (__ubuf__ float*)UB_S0_E1024, (__ubuf__ float*)UB_S1024_E2048);
+TMul(ubTensor_3, ubTensor_1, ubTensor_3);
 set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
 wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-TStore(gmTensor_7, ubTensor_2, Coord4Dim(0, 0, 0, 0));
+TStore(gmTensor_11, ubTensor_3, Coord4Dim(0, 0, 0, 0));
 }
 )!!!";
     EXPECT_EQ(res, expect);

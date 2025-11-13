@@ -37,13 +37,18 @@ class TestCodegenDynSort : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
 
-    static void TearDownTestCase() {}
+    static void TearDownTestCase() {
+        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
+    }
 
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
+        IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
+        IdGen<IdType::CG_VAR_NAME>::Inst().SetId(DummyFuncMagic);
     }
 
     void TearDown() override {}
@@ -168,11 +173,11 @@ void TopKOnBoardFunc(TopKParams& params){
     auto output = std::make_tuple(Tensor(DataType::DT_FP32, output_shape, "npu_val"),
                                     Tensor(DataType::DT_FP32, output_shape, "resDics"));
     config::SetBuildStatic(true);
-    FUNCTION("TOPK_T", {input_a, std::get<0>(output), std::get<1>(output)}) {
+    FUNCTION("TOPK_T_TILETENSOR", {input_a, std::get<0>(output), std::get<1>(output)}) {
         output = TopK(input_a, k, -1, isLargest);
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "TOPK_T");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "TOPK_T_TILETENSOR");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
@@ -182,7 +187,7 @@ void TopKOnBoardFunc(TopKParams& params){
 
 // funcHash: 17439136257815218973
 
-extern "C" [aicore] void TENSOR_TOPK_T_2_0_4503599627370496(__gm__ GMTensorInfo* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
+extern "C" [aicore] void TENSOR_TOPK_T_TILETENSOR_2_0_4503599627370496(__gm__ GMTensorInfo* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
 float __ubuf__ *UB_S0_E16384 = (float __ubuf__ *)get_imm(0x0); // size: 0x4000
 float *UB_S0_E16384_T = (float *)get_imm(0x0); // size: 0x4000
 float __ubuf__ *UB_S16384_E81920 = (float __ubuf__ *)get_imm(0x4000); // size: 0x10000
@@ -199,37 +204,37 @@ uint64_t sym_4_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 2, 19, 2, 0);
 uint64_t sym_4_dim_1 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 2, 19, 2, 1);
 uint64_t sym_7_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 0);
 uint64_t sym_7_dim_1 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 1);
-using UBTileTensorINT32Dim2_4 = TileTensor<int32_t, StaticLayout2Dim<128, 32, 128, 32>, Hardware::UB>;
-using UBTileTensorFP32Dim2_3 = TileTensor<float, StaticLayout2Dim<128, 64, 128, 64>, Hardware::UB>;
-using UBTileTensorFP32Dim2_2 = TileTensor<float, StaticLayout2Dim<128, 128, 128, 128>, Hardware::UB>;
-using GMTileTensorFP32Dim2_1 = TileTensor<__gm__ float, DynLayout2Dim, Hardware::GM>;
-using GMTileTensorINT32Dim2_5 = TileTensor<__gm__ int32_t, DynLayout2Dim, Hardware::GM>;
-using UBTileTensorFP32Dim2_0 = TileTensor<float, StaticLayout2Dim<128, 32, 128, 32>, Hardware::UB>;
-GMTileTensorINT32Dim2_5 gmTensor_12((__gm__ int32_t*)((__gm__ GMTensorInfo*)(param) + 1)->Addr, DynLayout2Dim(Shape2Dim(128, 32), Stride2Dim(32, 1)));
-GMTileTensorFP32Dim2_1 gmTensor_10((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 2)->Addr, DynLayout2Dim(Shape2Dim(128, 32), Stride2Dim(32, 1)));
-UBTileTensorINT32Dim2_4 ubTensor_8((uint64_t)UB_S131072_E147456_T);
-UBTileTensorFP32Dim2_0 ubTensor_6((uint64_t)UB_S114688_E131072_T);
-UBTileTensorFP32Dim2_2 ubTensor_2((uint64_t)UB_S16384_E81920_T);
-GMTileTensorFP32Dim2_1 gmTensor_1((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 0)->Addr, DynLayout2Dim(Shape2Dim(128, 32), Stride2Dim(32, 1)));
-UBTileTensorFP32Dim2_3 ubTensor_4((uint64_t)UB_S81920_E114688_T);
-UBTileTensorFP32Dim2_0 ubTensor_0((uint64_t)UB_S0_E16384_T);
+using UBTileTensorINT32Dim2_5 = TileTensor<int32_t, StaticLayout2Dim<128, 32, 128, 32>, Hardware::UB>;
+using GMTileTensorINT32Dim2_6 = TileTensor<__gm__ int32_t, DynLayout2Dim, Hardware::GM>;
+using UBTileTensorFP32Dim2_3 = TileTensor<float, StaticLayout2Dim<128, 128, 128, 128>, Hardware::UB>;
+using UBTileTensorFP32Dim2_4 = TileTensor<float, StaticLayout2Dim<128, 64, 128, 64>, Hardware::UB>;
+using GMTileTensorFP32Dim2_2 = TileTensor<__gm__ float, DynLayout2Dim, Hardware::GM>;
+using UBTileTensorFP32Dim2_1 = TileTensor<float, StaticLayout2Dim<128, 32, 128, 32>, Hardware::UB>;
+GMTileTensorINT32Dim2_6 gmTensor_13((__gm__ int32_t*)((__gm__ GMTensorInfo*)(param) + 1)->Addr, DynLayout2Dim(Shape2Dim(128, 32), Stride2Dim(32, 1)));
+GMTileTensorFP32Dim2_2 gmTensor_11((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 2)->Addr, DynLayout2Dim(Shape2Dim(128, 32), Stride2Dim(32, 1)));
+UBTileTensorINT32Dim2_5 ubTensor_9((uint64_t)UB_S131072_E147456_T);
+UBTileTensorFP32Dim2_1 ubTensor_7((uint64_t)UB_S114688_E131072_T);
+UBTileTensorFP32Dim2_3 ubTensor_3((uint64_t)UB_S16384_E81920_T);
+GMTileTensorFP32Dim2_2 gmTensor_2((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 0)->Addr, DynLayout2Dim(Shape2Dim(128, 32), Stride2Dim(32, 1)));
+UBTileTensorFP32Dim2_4 ubTensor_5((uint64_t)UB_S81920_E114688_T);
+UBTileTensorFP32Dim2_1 ubTensor_1((uint64_t)UB_S0_E16384_T);
 SUBKERNEL_PHASE1
-TLoad(ubTensor_0, gmTensor_1, Coord2Dim(0, 0));
+TLoad(ubTensor_1, gmTensor_2, Coord2Dim(0, 0));
 set_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
 wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
-TBitSort<1, 0, 1>(ubTensor_2, ubTensor_0);
+TBitSort<1, 0, 1>(ubTensor_3, ubTensor_1);
 pipe_barrier(PIPE_V);
 SUBKERNEL_PHASE2
-TMrgSort<1, 32, 1>(ubTensor_4, ubTensor_2);
+TMrgSort<1, 32, 1>(ubTensor_5, ubTensor_3);
 pipe_barrier(PIPE_V);
-TExtract<32, 0, 1>(ubTensor_6, ubTensor_4);
+TExtract<32, 0, 1>(ubTensor_7, ubTensor_5);
 set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-TExtract<32, 1, 1>(ubTensor_8, ubTensor_4);
+TExtract<32, 1, 1>(ubTensor_9, ubTensor_5);
 set_flag(PIPE_V, PIPE_MTE3, EVENT_ID1);
 wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-TStore(gmTensor_10, ubTensor_6, Coord2Dim(0, 0));
+TStore(gmTensor_11, ubTensor_7, Coord2Dim(0, 0));
 wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID1);
-TStore(gmTensor_12, ubTensor_8, Coord2Dim(0, 0));
+TStore(gmTensor_13, ubTensor_9, Coord2Dim(0, 0));
 }
 )!!!";
 

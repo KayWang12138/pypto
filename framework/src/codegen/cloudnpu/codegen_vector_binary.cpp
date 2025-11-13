@@ -391,6 +391,20 @@ std::string CodeGenOpCloudNPU::PrintBinaryScalarDynamicUnaligned(const PrintBina
     return os.str();
 }
 
+std::string CodeGenOpCloudNPU::PrintVectorScalarTileTensor(const PrintUnaryParam &param) const {
+    const std::string &dstDtypeStr = param.dstDtypeStr;
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(SISOIdx::DST_IDX)]);
+    std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(SISOIdx::SRC_IDX)]);
+    std::string scalarTmpBuffer = FormatFloat(extOperandVal.Cast<float>());
+
+    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor};
+
+    std::ostringstream oss;
+    oss << tileOpName << "<" << dstDtypeStr << ">"
+        << "(" << dstTensor << ", " << srcTensor << ", " << scalarTmpBuffer << ");\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::PrintBinaryScalar(const PrintBinaryScalarParam &param) const {
     if (isSupportDynamicUnaligned) {
         return PrintBinaryScalarDynamicUnaligned(param);
@@ -472,6 +486,10 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(VecScalMode mode) const {
                              << ret;
             return buffer;
         }
+    }
+        
+    if (isSupportLayout){
+        return PrintVectorScalarTileTensor({s0Var, dVar, dstDtypeStr, dstDtypeStr});
     }
 
     if (isSupportDynamicUnaligned) {

@@ -164,6 +164,7 @@ public:
     void GetVarAndTypeParam(std::vector<std::string> &varExpr, std::vector<std::string> &dataTypeExpr) const;
     std::string GenWhereOp() const;
     std::string printWhereOp(const WhereParam &param) const;
+    std::string printWhereOpTileTensor() const;  
 
     std::string GenOpCode() const override {
         auto iter = opsGenMap_.find(opCode);
@@ -228,6 +229,7 @@ private:
         const std::string &dstDtypeStr;
     };
     std::string PrintRowSumline(const PrintUnaryParam &param) const;
+    std::string PrintRowSumlineLayout() const;
     std::string PrintRowSumlineDynamicUnaligned(const PrintUnaryParam &param) const;
     std::string PrintRowSumlineStatic(const PrintUnaryParam &param) const;
 
@@ -326,6 +328,7 @@ private:
     std::string PrintBinaryScalarStatic(const PrintBinaryScalarParam &param) const;
 
     std::string PrintUnary(const PrintUnaryParam &param) const;
+    std::string PrintUnaryTileTensor() const;
     std::string PrintUnaryDynamicUnaligned(const PrintUnaryParam &param) const;
     std::string PrintUnaryStatic(const PrintUnaryParam &param) const;
 
@@ -442,6 +445,7 @@ private:
     std::string PrintCastDynamicUnaligned(const PrintUnaryParam &param) const;
     std::string PrintCastLayout() const;
     std::string PrintReduceCombine(const PrintUnaryTmpBuffParam &param) const;
+    std::string PrintVectorScalarTileTensor(const PrintUnaryParam &param) const;
     std::string PrintVectorScalarOpDynamicUnalign(const PrintUnaryParam &param) const;
 
     const std::unordered_map<Opcode, std::function<std::string()>> opsGenMap_ = {

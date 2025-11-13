@@ -564,6 +564,8 @@ const std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {Opcode::OP_TRANSPOSE_VNCHWCONV,         "TTrans"},
     {                Opcode::OP_ADD,           "TAdd"},
     {                Opcode::OP_SUB,           "TSub"},
+    {                Opcode::OP_DIV,           "TDiv"},
+    {                Opcode::OP_MUL,           "TMul"},
     {     Opcode::OP_GATHER_ELEMENT, "TgatherElement"},
     {             Opcode::OP_EXPAND,        "TExpand"},
     {            Opcode::OP_BITSORT,       "TBitSort"},
@@ -572,5 +574,14 @@ const std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {            Opcode::OP_EXTRACT,       "TExtract"},
     {               Opcode::OP_CAST,          "TCast"},
     {      Opcode::OP_ROWSUM_SINGLE,  "TRowSumSingle"},
+    {         Opcode::OP_ROWSUMLINE,    "TRowSumLine"},
+    {           Opcode::OP_WHERE_TT,           "TSel"},
+    {               Opcode::OP_ADDS,          "TAddS"},
+    {               Opcode::OP_SUBS,          "TSubS"},
+    {               Opcode::OP_MULS,          "TMulS"},
+    {               Opcode::OP_DIVS,          "TDivS"},
+    {              Opcode::OP_RSQRT,         "TRsqrt"},
+    {                Opcode::OP_EXP,           "TExp"},
+    {            Opcode::OP_MAXIMUM,           "TMax"},
 };
 } // namespace npu::tile_fwk

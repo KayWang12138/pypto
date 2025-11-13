@@ -156,7 +156,26 @@ std::string CodeGenOpCloudNPU::PrintRowSumlineDynamicUnaligned(const PrintUnaryP
     return os.str();
 }
 
+std::string CodeGenOpCloudNPU::PrintRowSumlineLayout() const {
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::DST_IDX)]);
+    std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC0_IDX)]);
+    int reduceAxis{-1};
+    auto axis = opAttrs.at(OP_ATTR_PREFIX + "AXIS");
+    if (axis.HasValue()) {
+        reduceAxis = npu::tile_fwk::AnyCast<int64_t>(axis);
+    }
+    ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(shape[1].size()) - 1)))) << "unsupported reduce axis";
+    reduceAxis += SHAPE_DIM5 - rawShape[0].size();
+    std::ostringstream oss;
+    oss << tileOpName << "<" << reduceAxis << ">"
+        << "(" << dstTensor << ", " << src0Tensor << ");\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::PrintRowSumline(const PrintUnaryParam &param) const {
+    if (isSupportLayout) {
+        return PrintRowSumlineLayout();
+    }
     if (isSupportDynamicUnaligned) {
         return PrintRowSumlineDynamicUnaligned(param);
     }
@@ -457,7 +476,19 @@ std::string CodeGenOpCloudNPU::PrintUnaryStatic(const PrintUnaryParam &param) co
     return os.str();
 }
 
+std::string CodeGenOpCloudNPU::PrintUnaryTileTensor() const {
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(SISOIdx::DST_IDX)]);
+    std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(SISOIdx::SRC_IDX)]);
+    
+    std::ostringstream oss;
+    oss << tileOpName << "(" << dstTensor << ", " << srcTensor << ");\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::PrintUnary(const PrintUnaryParam &param) const {
+    if (isSupportLayout) {
+        return PrintUnaryTileTensor();
+}
     if (isSupportDynamicUnaligned) {
         return PrintUnaryDynamicUnaligned(param);
     }

@@ -1325,8 +1325,23 @@ std::string CodeGenOpCloudNPU::printWhereOp(const WhereParam &param) const {
         return os.str();
     }
 }
+
+std::string CodeGenOpCloudNPU::printWhereOpTileTensor() const {
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ID0]);
+    std::string maskTensor = sm->QueryTileTensorByMagic(operandWithMagic[ID1]);
+    std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ID2]);
+    std::string src1Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ID3]);
+
+    std::ostringstream oss;
+    oss << tileOpName << "(" << dstTensor << ", " << maskTensor << ", " << src0Tensor << ", " << src1Tensor << ");\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::GenWhereOp() const {
     CodeGenOpCloudNPU::WhereParam param = PrepareWhereParam();
+    if (isSupportLayout) {
+        return printWhereOpTileTensor();
+    }
     return printWhereOp(param);
 }
 
