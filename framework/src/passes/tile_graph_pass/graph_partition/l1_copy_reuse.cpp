@@ -48,8 +48,9 @@ Status L1CopyInReuseRunner::GetDuplicateOps(std::vector<Operation *> &opOriList,
     replacedCopyMap_.clear();
     tensormagic2Op_.clear();
     for (auto i : opIdx) {
-        if (opOriList[i]->GetOpcode() != Opcode::OP_COPY_IN || 
-            opOriList[i]->GetOOperands()[0]->GetMemoryTypeOriginal() != MEM_L1) {
+        if ((opOriList[i]->GetIOperands().size() != 0 && 
+            opOriList[i]->GetIOperands()[0]->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) || 
+            opOriList[i]->GetOOperands()[0]->GetMemoryTypeOriginal() != MemoryType::MEM_L1) {
             continue;
         }
         auto outputMagic = opOriList[i]->GetOOperands()[0]->GetRawTensor()->GetRawMagic();
@@ -72,7 +73,7 @@ Status L1CopyInReuseRunner::GetDuplicateOps(std::vector<Operation *> &opOriList,
 void L1CopyInReuseRunner::TackleOp(int i, Operation *op, 
                                    std::vector<std::vector<int>> &replacedInputs, 
                                    std::vector<std::vector<int>> &replacedOutputs) {
-    if (op->GetOpcode() == Opcode::OP_COPY_IN && 
+    if (op->GetIOperands().size() != 0 && op->GetIOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && 
         op->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
         auto allocedL1BufId = op->GetOOperands()[0]->GetRawTensor()->GetRawMagic();
         if (tensormagic2Op_.find(allocedL1BufId) != tensormagic2Op_.end()) {
@@ -158,7 +159,8 @@ inline std::vector<int> GetCopyIn(const OperationsViewer &opOriList,
     std::vector<int> colorCopyIn(color, 0);
     for (int i = 0; i < color; i++) {
         for (int j : colorNode[i]) {
-            if (opOriList[j].GetOpcode() == Opcode::OP_COPY_IN && 
+            if (opOriList[j].GetIOperands().size() != 0 && 
+                opOriList[j].GetIOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && 
                 opOriList[j].GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
                 int volume = BytesOf(opOriList[j].GetOOperands()[0]->Datatype());
                 std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(opOriList[j].GetOpAttribute());
@@ -200,7 +202,7 @@ void L1CopyInReuseRunner::GetColorHash(const OperationsViewer &opOriList, std::v
         if (opOriList[i].GetSubgraphID() < 0) {
             continue;
         }
-        if (opOriList[i].GetOpcode() == Opcode::OP_COPY_IN && 
+        if (opOriList[i].GetIOperands().size() != 0 && opOriList[i].GetIOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && 
             opOriList[i].GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
             mulaccGraph.insert(opOriList[i].GetSubgraphID());
         }
@@ -280,7 +282,8 @@ Status L1CopyInReuseRunner::L1MergeProcess(OperationsViewer &opOriList, std::vec
                                            std::map<std::vector<uint64_t>, int> &l1InputList, int &tmpColor,
                                            std::vector<int> &mergedNum, int &i) {
     for (auto opIdx : colorNode[i]) {
-        if (opOriList[opIdx].GetOpcode() != Opcode::OP_COPY_IN || 
+        if ((opOriList[opIdx].GetIOperands().size() != 0 && 
+            opOriList[opIdx].GetIOperands()[0]->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) || 
             opOriList[opIdx].GetOOperands()[0]->GetMemoryTypeOriginal() != MemoryType::MEM_L1) {
             continue;
         }
@@ -331,7 +334,8 @@ Status L1CopyInReuseRunner::Phase1(Function &func, int color, std::vector<std::v
         size_t j = 0;
         while (colorCopyIn[i] <= copyInThreshold && j < colorNode[i].size()) {
             auto opIdx = colorNode[i][j];
-            if (opOriList[opIdx].GetOpcode() != Opcode::OP_COPY_IN || 
+            if ((opOriList[opIdx].GetIOperands().size() != 0 && 
+                opOriList[opIdx].GetIOperands()[0]->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) || 
                 opOriList[opIdx].GetOOperands()[0]->GetMemoryTypeOriginal() != MemoryType::MEM_L1) {
                 j++;
                 continue;
@@ -492,7 +496,8 @@ Status L1CopyInReuseMerge::InitColorNode(Function &func, std::vector<std::vector
     std::set<int> colorSet;
     auto opOriList = func.Operations();
     for (size_t i = 0; i < opOriList.size(); i++) {
-        if (opOriList[i].GetOpcode() == Opcode::OP_COPY_IN && 
+        if (opOriList[i].GetIOperands().size() != 0 && 
+            opOriList[i].GetIOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && 
             opOriList[i].GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
             auto feature = GetGMInputFeature(opOriList[i]);
             if (feature.size() == 0) {

@@ -107,6 +107,7 @@ void InitGraphBuilder(ComputationalGraphBuilder &G, std::vector<int64_t> tileSha
     EXPECT_EQ(G.AddOps({Opcode::OP_COPY_IN}, {{"incast0"}}, {{"incast1"}}, {"copy_in"}, true), true);
     G.GetOp("copy_in")->UpdateSubgraphID(0);
     G.GetTensor("incast1")->tensor->rawmagic = 1;
+    G.GetTensor("incast1")->SetMemoryTypeOriginal(MEM_DEVICE_DDR);
     for (int i = 1; i < subGraphNum; i++) {
         std::string strID = std::to_string(i);
         EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"tensor" + strID}), true);
@@ -273,6 +274,54 @@ TEST_F(L1CopyInReuseTest, TestInvalidL1Map) {
     EXPECT_EQ(LCRM.RunOnFunction(*function), SUCCESS);
     function->paramConfigs_.l1ReuseMap = {{0, -3}};
     EXPECT_EQ(LCRM.RunOnFunction(*function), FAILED);
+}
+
+TEST_F(L1CopyInReuseTest, TestGeneralizationL1CopyIn) {
+    ComputationalGraphBuilder G;
+    std::vector<int64_t> tileShape{16, 16};
+    auto shapeImme = OpImmediate::Specified(tileShape);
+    const int cube_nbuffer_num = 4;
+    const int l1_reuse_num = 2;
+    const int sg_cube_parallel_num = 4;
+    const int result = 5;
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"incast0", "incast1", "outcast0", "outcast1"}), true);
+    EXPECT_EQ(G.AddOps({Opcode::OP_COPY_IN}, {{"incast0"}}, {{"incast1"}}, {"copy_in"}, true), true);
+    G.GetOp("copy_in")->UpdateSubgraphID(0);
+    const int subGraphNum = 20;
+    G.GetTensor("incast1")->tensor->rawmagic = 1;
+    G.GetTensor("incast1")->SetMemoryTypeOriginal(MEM_DEVICE_DDR);
+    for (int i = 1; i < subGraphNum; i++) {
+        std::string strID = std::to_string(i);
+        EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"tensor" + strID}), true);
+        std::vector<Opcode> opLists{Opcode::OP_L1_COPY_IN, Opcode::OP_MUL};
+        std::vector<std::vector<std::string>> iOperands{{"incast1"}, {"tensor" + strID}};
+        std::vector<std::vector<std::string>> oOperands{{"tensor" + strID}, {"outcast0", "outcast1"}};
+        std::vector<std::string> opNames{"COPY_IN_" + strID, "MUL_" + strID};
+        EXPECT_EQ(G.AddOps(opLists, iOperands, oOperands, opNames, true), true);
+        G.GetOp("COPY_IN_" + strID)->UpdateSubgraphID(i);
+        G.GetOp("MUL_" + strID)->UpdateSubgraphID(i);
+        G.GetOp("COPY_IN_" + strID)->SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}),
+                                                        MEM_L1, shapeImme, shapeImme, std::vector<OpImmediate>()));
+        G.GetTensor("tensor" + strID)->SetMemoryTypeOriginal(MEM_L1);
+    }
+
+    EXPECT_EQ(G.SetInCast({"incast0"}), true);
+    EXPECT_EQ(G.SetOutCast({"outcast0", "outcast1"}), true);
+    Function *function = G.GetFunction();
+    function->paramConfigs_.cubeNBufferNum = cube_nbuffer_num;
+    function->paramConfigs_.cubeNBufferMap = {{1, 2}};
+    function->paramConfigs_.l1ReuseNum = l1_reuse_num;
+    function->paramConfigs_.l1ReuseMap = {{1, 2}};
+    function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;
+    function->SetTotalSubGraphCount(subGraphNum);
+    PassManager &passManager = PassManager::Instance();
+    passManager.RegisterStrategy("myStrategy", {
+        {"L1CopyInReuseMerge", "L1CopyInReuseMerge"},
+    });
+    auto ret = passManager.RunPass(Program::GetInstance(), *function, "myStrategy");
+    // L1CopyInReuseMerge LCRM;
+    EXPECT_EQ(ret, SUCCESS);
+    EXPECT_EQ(function->GetTotalSubGraphCount(), result);
 }
 }
 }
