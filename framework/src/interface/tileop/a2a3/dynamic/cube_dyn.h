@@ -456,43 +456,37 @@ TILEOP void GatherInL1(__cbuf__ T *dst, int64_t dstOriginShape0, int64_t dstOrig
     uint16_t nBurst = dstOriginShape1 / c0Size;
     uint16_t dstStride = CeilAlign<uint16_t>(dstOriginShape0, BLOCK_CUBE_M_N) - 1;
     int64_t offsetsStartOffset = offsetsRowStartOffset * offsetRawShape1 + offsetsColumnStartOffset;
-
     pipe_barrier(PIPE_ALL);
     if (dstOriginShape1 % c0Size > 0) {
-        constexpr uint16_t nValue = 1;
         uint16_t dValue = dstOriginShape1;
         uint16_t srcDValue = srcRawShape1;
-
-        constexpr uint16_t ndNum = 1;
-        constexpr uint16_t srcNdMatrixStride = 0;
-        constexpr uint16_t dstNzNStride = 1;
-        constexpr uint16_t dstNzMatrixStride = 1;
         uint16_t dstNzC0Stride = CeilAlign<uint16_t>(dstOriginShape0, BLOCK_CUBE_M_N);
-
         if constexpr (std::is_same<T, int8_t>::value) {
+            dstNzC0Stride = CeilAlign<uint16_t>(dstOriginShape0, c0Size); // int8场景需要按32元素个数对齐
             for (int64_t i = 0; i < dstOriginShape0; i++) {
                 copy_gm_to_cbuf_multi_nd2nz_b8((__cbuf__ T *)dst + i * c0Size,
-                    (__gm__ T *)src + offsets[i + offsetsStartOffset] * srcRawShape1 + srcColumnStartOffset, 0, ndNum,
-                    nValue, dValue, srcNdMatrixStride, srcDValue, dstNzC0Stride, dstNzNStride, dstNzMatrixStride);
+                    (__gm__ T *)src + offsets[i + offsetsStartOffset] * srcRawShape1 + srcColumnStartOffset, 0, 1,
+                    1, dValue, 0, srcDValue, dstNzC0Stride, 1, 1);
             }
         }
-
         if constexpr (std::is_same<T, half>::value || std::is_same<T, bfloat16_t>::value) {
             for (int64_t i = 0; i < dstOriginShape0; i++) {
                 copy_gm_to_cbuf_multi_nd2nz_b16((__cbuf__ T *)dst + i * c0Size,
-                    (__gm__ T *)src + offsets[i + offsetsStartOffset] * srcRawShape1 + srcColumnStartOffset, 0, ndNum,
-                    nValue, dValue, srcNdMatrixStride, srcDValue, dstNzC0Stride, dstNzNStride, dstNzMatrixStride);
+                    (__gm__ T *)src + offsets[i + offsetsStartOffset] * srcRawShape1 + srcColumnStartOffset, 0, 1,
+                    1, dValue, 0, srcDValue, dstNzC0Stride, 1, 1);
             }
         }
-
         if constexpr (std::is_same<T, float>::value) {
             for (int64_t i = 0; i < dstOriginShape0; i++) {
                 copy_gm_to_cbuf_multi_nd2nz_b32s((__cbuf__ T *)dst + i * c0Size,
-                    (__gm__ T *)src + offsets[i + offsetsStartOffset] * srcRawShape1 + srcColumnStartOffset, 0, ndNum,
-                    nValue, dValue, srcNdMatrixStride, srcDValue, dstNzC0Stride, dstNzNStride, dstNzMatrixStride);
+                    (__gm__ T *)src + offsets[i + offsetsStartOffset] * srcRawShape1 + srcColumnStartOffset, 0, 1,
+                    1, dValue, 0, srcDValue, dstNzC0Stride, 1, 1);
             }
         }
     } else {
+        if constexpr (std::is_same<T, int8_t>::value) {
+            dstStride = CeilAlign<uint16_t>(dstOriginShape0, c0Size) - 1;
+        }
         for (int64_t i = 0; i < dstOriginShape0; i++) {
             copy_gm_to_cbuf(dst + i * c0Size,
                 src + offsets[i + offsetsStartOffset] * srcRawShape1 + srcColumnStartOffset, 0, nBurst, 1, 0,
