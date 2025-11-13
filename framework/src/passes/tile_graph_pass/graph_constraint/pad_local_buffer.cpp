@@ -14,6 +14,9 @@
  */
 
 #include "pad_local_buffer.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "PadLocalBuffer"
 
 namespace npu::tile_fwk {
 constexpr size_t MATMUL_MIN_SHAPE_SIZE = 2;
@@ -39,7 +42,7 @@ int64_t Pad(int64_t dim, int64_t padValue) {
 
 void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
     if (in->shape.size() < MATMUL_MIN_SHAPE_SIZE) {
-        APASS_LOG_ERROR_F(GetName().c_str(), "Tensor", "Matmul Op %d %s input %d shape size is less than 2; Please check the input size.", op.opmagic, op.GetOpcodeStr().c_str(), in->magic);
+        APASS_LOG_ERROR_F(Elements::Tensor, "Matmul Op %d %s input %d shape size is less than 2; Please check the input size.", op.opmagic, op.GetOpcodeStr().c_str(), in->magic);
         return;
     }
 
@@ -54,8 +57,8 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
         in->shape[lowIndex] = Pad(in->shape[lowIndex], CUBE_PAD_VALUE);
     }
 
-    APASS_LOG_DEBUG_F(GetName().c_str(), "Tensor", "####### %d original shape is %s\n", in->magic, IntVecToStr(in->oriShape).c_str());
-    APASS_LOG_DEBUG_F(GetName().c_str(), "Tensor", "####### %d #current shape is %s\n", in->magic, IntVecToStr(in->shape).c_str());
+    APASS_LOG_DEBUG_F(Elements::Tensor, "####### %d original shape is %s\n", in->magic, IntVecToStr(in->oriShape).c_str());
+    APASS_LOG_DEBUG_F(Elements::Tensor, "####### %d #current shape is %s\n", in->magic, IntVecToStr(in->shape).c_str());
     in->tensor->oriRawshape = in->tensor->rawshape;
 
     if (in->tensor->GetDataType()==DataType::DT_INT8||in->tensor->GetDataType()==DataType::DT_INT32) {
@@ -65,7 +68,7 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
         in->tensor->rawshape[highIndex] = Pad(in->tensor->oriRawshape[highIndex], CUBE_PAD_VALUE);
         in->tensor->rawshape[lowIndex] = Pad(in->tensor->oriRawshape[lowIndex], CUBE_PAD_VALUE);
     }
-    APASS_LOG_DEBUG_F(GetName().c_str(), "Tensor", "####### %d %d set rawshape as %s\n", in->tensor->rawmagic, in->magic,
+    APASS_LOG_DEBUG_F(Elements::Tensor, "####### %d %d set rawshape as %s\n", in->tensor->rawmagic, in->magic,
         IntVecToStr(in->tensor->rawshape).c_str());
 }
 
@@ -84,7 +87,7 @@ size_t PadLocalBuffer::GetPaddingValue(LogicalTensorPtr &in) {
 void PadLocalBuffer::PadVector(Operation &op, LogicalTensorPtr &in, std::unordered_set<std::shared_ptr<RawTensor>> &visitedRaw,
     bool noPadding) {
     if (in->shape.empty()) {
-        APASS_LOG_ERROR_F(GetName().c_str(), "Tensor", "Vector Op %d %s input %d shape size is less than 2; Please check the input size.", op.opmagic, op.GetOpcodeStr().c_str(), in->magic);
+        APASS_LOG_ERROR_F(Elements::Tensor, "Vector Op %d %s input %d shape size is less than 2; Please check the input size.", op.opmagic, op.GetOpcodeStr().c_str(), in->magic);
         return;
     }
     OpCalcType calcType = OpcodeManager::Inst().GetOpCalcType(op.GetOpcode());
@@ -92,7 +95,7 @@ void PadLocalBuffer::PadVector(Operation &op, LogicalTensorPtr &in, std::unorder
         in->oriShape = in->shape;
         in->tensor->UpdateRawShape(in->shape);
         in->tensor->oriRawshape = in->tensor->rawshape;
-        APASS_LOG_DEBUG_F(GetName().c_str(), "Tensor", "Vector Op %d %s input %d, not handle unalign.", op.opmagic, op.GetOpcodeStr().c_str(), in->magic);
+        APASS_LOG_DEBUG_F(Elements::Tensor, "Vector Op %d %s input %d, not handle unalign.", op.opmagic, op.GetOpcodeStr().c_str(), in->magic);
         return;
     }
     size_t paddingValue = GetPaddingValue(in);
@@ -105,7 +108,7 @@ void PadLocalBuffer::PadVector(Operation &op, LogicalTensorPtr &in, std::unorder
     int64_t shapeAfterPad = Pad(lastDim, paddingValue);
     in->shape[lastIdx] = shapeAfterPad;
     if (in->shape[lastIdx] != in->oriShape[lastIdx]) {
-        APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "op %d %s input has been changed\n", op.opmagic, op.GetOpcodeStr().c_str());
+        APASS_LOG_DEBUG_F(Elements::Operation, "op %d %s input has been changed\n", op.opmagic, op.GetOpcodeStr().c_str());
     }
 
     if (visitedRaw.count(in->tensor) == 0) {
@@ -135,7 +138,7 @@ void PadLocalBuffer::TraverseCopyInConsumers(Function &function, Operation *cons
         }
     }
     if (allBrodOrElem) {
-        APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "op %d %s consumers are all broadcast or elmwise op, output's last dim should not be padded.", consumer->opmagic, consumer->GetOpcodeStr().c_str());
+        APASS_LOG_DEBUG_F(Elements::Operation, "op %d %s consumers are all broadcast or elmwise op, output's last dim should not be padded.", consumer->opmagic, consumer->GetOpcodeStr().c_str());
         consumer->SetAttr(OpAttributeKey::outputCombineAxis, AXIS_COMBINED);
         TraverseAndSetAttr(consumer->GetOOperands()[0], function, visitedTensors);
     }
@@ -150,14 +153,14 @@ void PadLocalBuffer::TraverseBroadcast(Function &function, Operation *consumer, 
         }
     }
     if (broadcastInputCombined.empty()) {
-        APASS_LOG_ERROR_F(GetName().c_str(), "Tensor", "cannot find tensor %d in input of op %d %s; Please check the input tensor.", output->magic, consumer->opmagic,
+        APASS_LOG_ERROR_F(Elements::Tensor, "cannot find tensor %d in input of op %d %s; Please check the input tensor.", output->magic, consumer->opmagic,
             consumer->GetOpcodeStr().c_str());
         return;
     }
-    APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "op %d %s input's last dim should not be padded.", consumer->opmagic, consumer->GetOpcodeStr().c_str());
+    APASS_LOG_DEBUG_F(Elements::Operation, "op %d %s input's last dim should not be padded.", consumer->opmagic, consumer->GetOpcodeStr().c_str());
     consumer->SetAttr(OpAttributeKey::inputCombineAxis, std::move(broadcastInputCombined));
     if (broadcastInputCombined == BROADCAST_AXIS_COMBINED) {
-        APASS_LOG_DEBUG_F(GetName().c_str(), "Tensor", "op %d %s output's last dim should not be padded.", consumer->opmagic, consumer->GetOpcodeStr().c_str());
+        APASS_LOG_DEBUG_F(Elements::Tensor, "op %d %s output's last dim should not be padded.", consumer->opmagic, consumer->GetOpcodeStr().c_str());
         consumer->SetAttr(OpAttributeKey::outputCombineAxis, AXIS_COMBINED);
         TraverseAndSetAttr(consumer->GetOOperands()[0], function, visitedTensors);
     }
@@ -173,19 +176,19 @@ void PadLocalBuffer::TraverseAndSetAttr(LogicalTensorPtr &output, Function &func
         auto opcode = consumer->GetOpcode();
         // expandop为不padding的终止节点
         if ((opcode == Opcode::OP_EXPAND) && IsExpandLastDim(*consumer)) {
-            APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "expand op %d %s input's last dim should not be padded.", consumer->opmagic, consumer->GetOpcodeStr().c_str());
+            APASS_LOG_DEBUG_F(Elements::Operation, "expand op %d %s input's last dim should not be padded.", consumer->opmagic, consumer->GetOpcodeStr().c_str());
             consumer->SetAttr(OpAttributeKey::inputCombineAxis, AXIS_COMBINED);
             continue;
         }
         if ((consCalcType == OpCalcType::ELMWISE) || (opcode == Opcode::OP_ASSEMBLE)) {
-            APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "op %d %s is elmwise or assemble op, input's and output's last dim should not be padded.", consumer->opmagic, consumer->GetOpcodeStr().c_str());
+            APASS_LOG_DEBUG_F(Elements::Operation, "op %d %s is elmwise or assemble op, input's and output's last dim should not be padded.", consumer->opmagic, consumer->GetOpcodeStr().c_str());
             consumer->SetAttr(OpAttributeKey::inputCombineAxis, AXIS_COMBINED);
             consumer->SetAttr(OpAttributeKey::outputCombineAxis, AXIS_COMBINED);
             TraverseAndSetAttr(consumer->GetOOperands()[0], function, visitedTensors);
             continue;
         }
         if (opcode == Opcode::OP_COPY_OUT) {
-            APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "op %d %s is copy out, input's last dim should not be padded.", consumer->opmagic, consumer->GetOpcodeStr().c_str());
+            APASS_LOG_DEBUG_F(Elements::Operation, "op %d %s is copy out, input's last dim should not be padded.", consumer->opmagic, consumer->GetOpcodeStr().c_str());
             consumer->SetAttr(OpAttributeKey::inputCombineAxis, AXIS_COMBINED);
             TraverseAndSetAttr(consumer->GetOOperands()[0], function, visitedTensors);
             continue;
@@ -202,7 +205,7 @@ void PadLocalBuffer::TraverseAndSetAttr(LogicalTensorPtr &output, Function &func
         if (consCalcType ==
                     OpCalcType::MOVE_OUT) {
             // 剩下来的move out，直接中断，仅在输入的地方支持尾轴非对齐
-            APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "op %d %s is move out, input's last dim should not be padded.", consumer->opmagic, consumer->GetOpcodeStr().c_str());
+            APASS_LOG_DEBUG_F(Elements::Operation, "op %d %s is move out, input's last dim should not be padded.", consumer->opmagic, consumer->GetOpcodeStr().c_str());
             consumer->SetAttr(OpAttributeKey::inputCombineAxis, AXIS_COMBINED);
         }
     }
@@ -214,7 +217,7 @@ bool PadLocalBuffer::IsReduceLastDim(const Operation &op) {
         (op.GetOpcode() == Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE)) {
         int axis = op.GetIntAttribute(OP_ATTR_PREFIX + "AXIS");
         if (axis == static_cast<int>(op.GetOOperands()[0]->shape.size() - 1)) {
-            APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "op %d %s is reduce last dim\n", op.opmagic, op.GetOpcodeStr().c_str());
+            APASS_LOG_DEBUG_F(Elements::Operation, "op %d %s is reduce last dim\n", op.opmagic, op.GetOpcodeStr().c_str());
             return true;
         }
     }
@@ -247,7 +250,7 @@ void PadLocalBuffer::ProcessReduce(Function &function, Operation &op) {
         if (paddingDim > 0 && op.oOperand[0]->shape[op.GetOOperands()[0]->shape.size() - AXIS_COMBINE_MIN_SHAPE_SIZE] % paddingDim != 0) {
             return;
         }
-        APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "op %d %s is reduce, next to last dim is aligned\n", op.opmagic, op.GetOpcodeStr().c_str());
+        APASS_LOG_DEBUG_F(Elements::Operation, "op %d %s is reduce, next to last dim is aligned\n", op.opmagic, op.GetOpcodeStr().c_str());
         std::vector<bool> reduceAxesCombined(op.GetOOperands().size(), false);
         reduceAxesCombined[0] = true;
         op.SetAttr(OpAttributeKey::outputCombineAxis, reduceAxesCombined);
@@ -328,21 +331,21 @@ Status PadLocalBuffer::ProcessTranspose(Function &function) {
         }
         auto transposeAxis = op.GetVectorIntAttribute<int>(OP_ATTR_PREFIX + "shape");
         if (transposeAxis.size() != TRANSPOSE_MIN_SHAPE_SIZE) {
-            APASS_LOG_DEBUG_F(GetName().c_str(), "Tensor", "transpose op %d %s's shape size %d is not two, skip.", op.opmagic, op.GetOpcodeStr().c_str(), transposeAxis.size());
+            APASS_LOG_DEBUG_F(Elements::Tensor, "transpose op %d %s's shape size %d is not two, skip.", op.opmagic, op.GetOpcodeStr().c_str(), transposeAxis.size());
             continue;
         }
         if (op.iOperand.size() <= 0 || op.oOperand.size() <= 0) {
-            APASS_LOG_ERROR_F(GetName().c_str(), "Tensor", "transpose op %d %s's input or output is empty.", op.opmagic, op.GetOpcodeStr().c_str());
+            APASS_LOG_ERROR_F(Elements::Tensor, "transpose op %d %s's input or output is empty.", op.opmagic, op.GetOpcodeStr().c_str());
             return FAILED;
         }
         auto &inTensor = op.iOperand[0];
         auto &outTensor = op.oOperand[0];
         if (transposeAxis[0] == transposeAxis[1]) {
-            APASS_LOG_ERROR_F(GetName().c_str(), "Tensor", "transpose op has the same transpose dims, not supported");
+            APASS_LOG_ERROR_F(Elements::Tensor, "transpose op has the same transpose dims, not supported");
             return FAILED;
         }
         if ((transposeAxis[0] != static_cast<int32_t>(inTensor->shape.size() - 1)) && (transposeAxis[1] != static_cast<int32_t>(inTensor->shape.size() - 1))) {
-            APASS_LOG_DEBUG_F(GetName().c_str(), "Tensor", "transpose op %d %s's transpose axis %d %d, not last dim transpose, skip.", op.opmagic, op.GetOpcodeStr().c_str(), transposeAxis[0], transposeAxis[1]);
+            APASS_LOG_DEBUG_F(Elements::Tensor, "transpose op %d %s's transpose axis %d %d, not last dim transpose, skip.", op.opmagic, op.GetOpcodeStr().c_str(), transposeAxis[0], transposeAxis[1]);
             continue;
         }
         int32_t nonLastDimIdx = -1;
@@ -355,7 +358,7 @@ Status PadLocalBuffer::ProcessTranspose(Function &function) {
         auto &inLastDim = inTensor->shape[lastDimIdx];
         auto &outFirstDim = outTensor->shape[nonLastDimIdx];
         if (inLastDim != outFirstDim) {
-            APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "tune transpose output dim %d to %d.", inLastDim, outFirstDim);
+            APASS_LOG_DEBUG_F(Elements::Operation, "tune transpose output dim %d to %d.", inLastDim, outFirstDim);
             outTensor->shape[nonLastDimIdx] = inLastDim;
             outTensor->tensor->rawshape[nonLastDimIdx] = inLastDim;
         }
@@ -375,7 +378,7 @@ Status PadLocalBuffer::RunOnFunction(Function &function) {
             auto bytes = BytesOf(op.iOperand[0]->Datatype());
             auto paddingIter = BLOCK_PADDING_DIM.find(bytes);
             if (paddingIter == BLOCK_PADDING_DIM.end()) {
-                APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "broadcast op %d %s's datatype is not supported.", op.opmagic, op.GetOpcodeStr().c_str());
+                APASS_LOG_DEBUG_F(Elements::Operation, "broadcast op %d %s's datatype is not supported.", op.opmagic, op.GetOpcodeStr().c_str());
                 continue;
             }
             ProcessBroadcast(op, paddingIter->second);
@@ -384,7 +387,7 @@ Status PadLocalBuffer::RunOnFunction(Function &function) {
     DoPadding(function);
     if (processTranspose_) {
         if (ProcessTranspose(function) != SUCCESS) {
-            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "ProcessTranspose failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "ProcessTranspose failed.");
             return FAILED;
         }
     }

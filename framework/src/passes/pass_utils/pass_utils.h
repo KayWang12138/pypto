@@ -17,7 +17,6 @@
 
 #include "interface/operation/operation.h"
 #include "interface/tensor/logical_tensor.h"
-#include "interface/utils/log.h"
 
 namespace npu::tile_fwk {
 #define PRIOR_SCHEDULING // comment it to disable PriorScheduling pass
@@ -491,16 +490,3 @@ public:
     std::vector<int> readyIds_;
 };
 }
-
-#define APASS_LOG_F(lvl, passName, opName, fmt, args...)                        \
-    do {                                                                        \
-        ALOG_F(lvl, \
-        "[%s][%s][" #lvl "]: " fmt, passName,opName, ##args);       \
-    } while (false)
-
-
-#define APASS_LOG_DEBUG_F(passName, opName, fmt, args...)   APASS_LOG_F(DEBUG, passName, opName, fmt, ##args)
-#define APASS_LOG_INFO_F(passName, opName, fmt, args...)    APASS_LOG_F(INFO, passName, opName, fmt, ##args)
-#define APASS_LOG_WARN_F(passName, opName, fmt, args...)    APASS_LOG_F(WARN, passName, opName, fmt, ##args)
-#define APASS_LOG_ERROR_F(passName, opName, fmt, args...)   APASS_LOG_F(ERROR, passName, opName, fmt, ##args)
-#define APASS_LOG_EVENT_F(passName, opName, fmt, args...)   APASS_LOG_F(EVENT, passName, opName, fmt, ##args)

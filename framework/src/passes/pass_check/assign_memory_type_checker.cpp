@@ -14,11 +14,14 @@
  */
 
 #include "assign_memory_type_checker.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "AssignMemoryType"
 
 namespace npu {
 namespace tile_fwk {
 Status AssignMemoryTypeChecker::DoPreCheck(Function &function) {
-    APASS_LOG_INFO_F("AssignMemoryType", "Operation", "===> Start Precheck for AssignMemoryType.");
+    APASS_LOG_INFO_F(Elements::Operation, "===> Start Precheck for AssignMemoryType.");
     auto operations = function.Operations();
     for(auto &operation : operations){
         Operation *op_ptr = &operation;
@@ -42,7 +45,7 @@ Status AssignMemoryTypeChecker::DoPreCheck(Function &function) {
 
             //嵌套深度达到3失败
             if(depth > 3){
-                APASS_LOG_WARN_F("AssignMemoryType", "Operation", "Over three view/assemble/reshape operations in sequence, currently reched %d; "
+                APASS_LOG_WARN_F(Elements::Operation, "Over three view/assemble/reshape operations in sequence, currently reched %d; "
                     "Potential suboptimal allocation around operation %d.", depth, currentOp->GetOpMagic());
                 return SUCCESS;
             }

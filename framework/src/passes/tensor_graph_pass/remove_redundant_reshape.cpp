@@ -16,6 +16,9 @@
 #include "remove_redundant_reshape.h"
 #include "interface/tensor/logical_tensor.h"
 #include "passes/pass_check/remove_redundant_reshape_checker.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "RemoveRedundantReshape"
 
 using namespace npu::tile_fwk;
 
@@ -23,29 +26,29 @@ namespace npu::tile_fwk {
 namespace {
 Status CheckIOOperands(const Operation &op, LogicalTensorPtr &in, LogicalTensorPtr &out) {
     if (op.GetIOperands().size() != 1) {
-        APASS_LOG_ERROR_F("RemoveRedundantReshape", "Operation", "Op [%d] has invalid input operands.", op.GetOpMagic());
+        APASS_LOG_ERROR_F(Elements::Operation, "Op [%d] has invalid input operands.", op.GetOpMagic());
         return FAILED;}
     if (op.GetOOperands().size() != 1) {
-        APASS_LOG_ERROR_F("RemoveRedundantReshape", "Operation", "Op [%d] has invalid input operands..", op.GetOpMagic());
+        APASS_LOG_ERROR_F(Elements::Operation, "Op [%d] has invalid input operands..", op.GetOpMagic());
         return FAILED;}
     in = op.GetIOperands().front();
     if (in == nullptr) {
-        APASS_LOG_ERROR_F("RemoveRedundantReshape", "Operation", "Op [%d] has null input tensor.", op.GetOpMagic());
+        APASS_LOG_ERROR_F(Elements::Operation, "Op [%d] has null input tensor.", op.GetOpMagic());
         return FAILED;}
     out = op.GetOOperands().front();
     if (out == nullptr) {
-        APASS_LOG_ERROR_F("RemoveRedundantReshape", "Operation", "Op [%d] has null output tensor.", op.GetOpMagic());
+        APASS_LOG_ERROR_F(Elements::Operation, "Op [%d] has null output tensor.", op.GetOpMagic());
         return FAILED;}
     return SUCCESS;
 }
 }
 
 Status RemoveRedundantReshape::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Start RemoveRedundantReshape for function [%s].", function.GetRawName().c_str());
+    APASS_LOG_INFO_F(Elements::Operation, "Start RemoveRedundantReshape for function [%s].", function.GetRawName().c_str());
     if (RemoveReshape(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Failed to remove redundant reshape in function [%s].", function.GetRawName().c_str());
+        APASS_LOG_ERROR_F(Elements::Operation, "Failed to remove redundant reshape in function [%s].", function.GetRawName().c_str());
         return FAILED;}
-    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "End RemoveRedundantReshape for function [%s].", function.GetRawName().c_str());
+    APASS_LOG_INFO_F(Elements::Operation, "End RemoveRedundantReshape for function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }
 
@@ -58,13 +61,13 @@ Status RemoveRedundantReshape::RemoveReshape(Function &function) const {
             continue;
         }
         if (CheckIOOperands(op, in, out) != SUCCESS) {
-            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Op [%d] has invalid input or output operands; Check if op has valid input and output.", op.GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "Op [%d] has invalid input or output operands; Check if op has valid input and output.", op.GetOpMagic());
             return FAILED;}
         auto consumers = out->GetConsumers();
         bool allConsumersIsReshape = true;
         for (auto &consumerOp : consumers) {
             if (consumerOp == nullptr) {
-                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Consumer of op [%d] is null; Check if consumer is valid.", op.GetOpMagic());
+                APASS_LOG_ERROR_F(Elements::Operation, "Consumer of op [%d] is null; Check if consumer is valid.", op.GetOpMagic());
                 return FAILED;}
             if (in->shape != out->shape && consumerOp->GetOpcode() != Opcode::OP_RESHAPE) {
                 allConsumersIsReshape = false;
@@ -73,15 +76,15 @@ Status RemoveRedundantReshape::RemoveReshape(Function &function) const {
             consumerOp->ReplaceInput(in, out);
         }
         if (allConsumersIsReshape == true) {
-            APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "All consummers of op [%d] are reshape.", op.GetOpMagic());
+            APASS_LOG_DEBUG_F(Elements::Operation, "All consummers of op [%d] are reshape.", op.GetOpMagic());
             redundantResapes.insert(&op);
         }
     }
     if (!redundantResapes.empty()) {
         for (auto &ele : redundantResapes) {
-            APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "Delete OP_RESHAPE, magic [%d].", ele->GetOpMagic());
+            APASS_LOG_DEBUG_F(Elements::Operation, "Delete OP_RESHAPE, magic [%d].", ele->GetOpMagic());
             if (ele->IsDeleted()) {
-                APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "Op [%d] is already marked as deleted.", ele->GetOpMagic());
+                APASS_LOG_ERROR_F(Elements::Operation, "Op [%d] is already marked as deleted.", ele->GetOpMagic());
                 return FAILED;}
             ele->SetAsDeleted();
         }

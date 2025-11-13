@@ -17,16 +17,18 @@
 
 #include "interface/function/function.h"
 #include "interface/tensor/logical_tensor.h"
-#include "passes/pass_utils/pass_utils.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "DuplicateView"
 
 namespace npu::tile_fwk {
 Status DuplicateView::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> Start DuplicateView for function [%s].", function.GetRawName().c_str());
+    APASS_LOG_INFO_F(Elements::Operation, "===> Start DuplicateView for function [%s].", function.GetRawName().c_str());
     if (DuplicateViewPass(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Run DuplicateView for function [%s] failed.", function.GetRawName().c_str());
+        APASS_LOG_ERROR_F(Elements::Operation, "Run DuplicateView for function [%s] failed.", function.GetRawName().c_str());
         return FAILED;
     }
-    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> End DuplicateView for function [%s].", function.GetRawName().c_str());
+    APASS_LOG_INFO_F(Elements::Operation, "===> End DuplicateView for function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }
 
@@ -34,7 +36,7 @@ Status DuplicateView::ViewWithoutL1(Function &function, Operation &operation) co
     auto iOperand = operation.iOperand[0];
     for (auto &oOperand : operation.oOperand) {
         if (oOperand == nullptr) {
-            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Null output operand detected while iterating over the output operands of the operation [%d].", operation.opmagic); 
+            APASS_LOG_ERROR_F(Elements::Operation, "Null output operand detected while iterating over the output operands of the operation [%d].", operation.opmagic); 
             return FAILED;
         }
         if (oOperand->GetConsumers().size() == 1) {
@@ -43,7 +45,7 @@ Status DuplicateView::ViewWithoutL1(Function &function, Operation &operation) co
         auto consumers = oOperand->GetConsumers();
         for (auto &consumer : consumers) {
             if (consumer == nullptr) {
-                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Null consumer detected while iterating over the consumers of the output operand [%d].", oOperand->magic);
+                APASS_LOG_ERROR_F(Elements::Operation, "Null consumer detected while iterating over the consumers of the output operand [%d].", oOperand->magic);
                 return FAILED;
             }
             if (consumer->GetOpcode() == Opcode::OP_VIEW) {
@@ -51,7 +53,7 @@ Status DuplicateView::ViewWithoutL1(Function &function, Operation &operation) co
             }
             auto dst = oOperand->Clone(function, true);
             if (dst == nullptr) {
-                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Clone failed for output operand [%d].", oOperand->magic);
+                APASS_LOG_ERROR_F(Elements::Operation, "Clone failed for output operand [%d].", oOperand->magic);
                 return FAILED;
             }
             consumer->ReplaceInput(dst, oOperand);
@@ -83,7 +85,7 @@ Status DuplicateView::RunOnOperation(Function &function, Operation &operation) c
 Status DuplicateView::DuplicateViewPass(Function &function) const {
     for (auto &op : function.Operations()) {
         if (RunOnOperation(function, op) != SUCCESS) {
-            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "RunOperation failed for operation [%d].", op.opmagic);
+            APASS_LOG_ERROR_F(Elements::Operation, "RunOperation failed for operation [%d].", op.opmagic);
             return FAILED;
         }
     }

@@ -18,7 +18,9 @@
 #include "infer_param_index.h"
 #include "interface/operation/op_infer_shape_impl.h"
 #include "interface/operation/opcode.h"
-#include "passes/pass_utils/pass_utils.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "InferParamIndex"
 
 namespace npu {
 namespace tile_fwk {
@@ -84,19 +86,19 @@ Status InferParamIndex::ResetAssembleDynValidShape(const Operation &op) {
 Status InferParamIndex::ResetDynValidShape(Function& function) {
     for (auto &op : function.Operations(false)) {
         if (ResetOutputDynValidShape(op) != SUCCESS) {
-            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Fail to reset the output operand shape of operation %d in function %s. Please check whether the shape is valid in your input graph.", op.GetOpMagic(), function.GetRawName().c_str());
+            APASS_LOG_ERROR_F(Elements::Operation, "Fail to reset the output operand shape of operation %d in function %s. Please check whether the shape is valid in your input graph.", op.GetOpMagic(), function.GetRawName().c_str());
             return FAILED;
         }
         // 清空view和assemble的属性中的dynvalidshape，以便后续重新推导符号化的dynvalidshape
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             if (ResetViewDynValidShape(op) != SUCCESS) {
-                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Fail to reset the output operand shape of VIEW operation %d in function %s.", op.GetOpMagic(), function.GetRawName().c_str());
+                APASS_LOG_ERROR_F(Elements::Operation, "Fail to reset the output operand shape of VIEW operation %d in function %s.", op.GetOpMagic(), function.GetRawName().c_str());
                 return FAILED;
             }
         }
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
             if (ResetAssembleDynValidShape(op) != SUCCESS) {
-                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Fail to reset the output operand shape of ASSEMBLE operation %d in function %s.", op.GetOpMagic(), function.GetRawName().c_str());
+                APASS_LOG_ERROR_F(Elements::Operation, "Fail to reset the output operand shape of ASSEMBLE operation %d in function %s.", op.GetOpMagic(), function.GetRawName().c_str());
                 return FAILED;
             }
         }
@@ -110,7 +112,7 @@ Status InferParamIndex::InferShape(Function &function)
     std::map<int, size_t> opMagic2Idx;
     std::vector<Operation*> opList = function.Operations(false).DuplicatedOpList();
     if (opList.empty()) {
-        APASS_LOG_ERROR_F(GetName().c_str(), "Tensor", "There is no operation in function %s. Please check the operation list of the input graph", function.GetRawName().c_str());
+        APASS_LOG_ERROR_F(Elements::Tensor, "There is no operation in function %s. Please check the operation list of the input graph", function.GetRawName().c_str());
         return FAILED;
     }
     for (auto op : opList) {
@@ -181,34 +183,37 @@ Status InferParamIndex::UpdateParamIndex(Function &function) {
     for (auto &subProgram : function.rootFunc_->programs_) {
         auto &subFunc = *subProgram.second;
         if (ResetDynValidShape(subFunc) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Function, "ResetDynValidShape failed; Please check the ResetDynValidShape method.");
             return FAILED;
         }
         if (InferShape(subFunc) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Function, "InferShape failed; Please check the InferShape method.");
             return FAILED;
         }
-        APASS_LOG_DEBUG_F(GetName().c_str(), "Function", "Print function before update: %s\n", subFunc.Dump().c_str());
+        APASS_LOG_DEBUG_F(Elements::Function, "Print function before update: %s\n", subFunc.Dump().c_str());
         std::map<int, std::vector<SymbolicScalar>> addr2ValidShape;
         std::map<int, std::vector<SymbolicScalar>> addr2ValidShapeSpecified;
         if (UpdateValidShape(subFunc, addr2ValidShape, addr2ValidShapeSpecified) != SUCCESS) {
-            APASS_LOG_ERROR_F(GetName().c_str(), "Function", "Update valid shape for the function %s failed. Please check above for more information.", function.GetRawName().c_str());
+            APASS_LOG_ERROR_F(Elements::Function, "Update valid shape for the function %s failed. Please check above for more information.", function.GetRawName().c_str());
             return FAILED;
         }
         if (SetSubValidShape(subFunc, addr2ValidShape, addr2ValidShapeSpecified) != SUCCESS) {
-            APASS_LOG_ERROR_F(GetName().c_str(), "Function", "Update valid shape for the function %s failed. Please check above for more information.", function.GetRawName().c_str());
+            APASS_LOG_ERROR_F(Elements::Function, "Update valid shape for the function %s failed. Please check above for more information.", function.GetRawName().c_str());
             return FAILED;
         }
-        APASS_LOG_DEBUG_F(GetName().c_str(), "Function", "Print function after update: %s\n", DumpParamIndex(subFunc.GetDynParamTable()).c_str());
+        APASS_LOG_DEBUG_F(Elements::Function, "Print function after update: %s\n", DumpParamIndex(subFunc.GetDynParamTable()).c_str());
     }
     return SUCCESS;
 }
 
 Status InferParamIndex::RunOnFunction(Function &function)
 {
-    APASS_LOG_INFO_F(GetName().c_str(), "Function", "===> Start InferParamIndex.");
+    APASS_LOG_INFO_F(Elements::Function, "===> Start InferParamIndex.");
     if (UpdateParamIndex(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "UpdateParamIndex failed; Please check the UpdateParamIndex method.");
         return FAILED;
     }
-    APASS_LOG_INFO_F(GetName().c_str(), "Function", "===> End InferParamIndex By Sequential Execution.");
+    APASS_LOG_INFO_F(Elements::Function, "===> End InferParamIndex By Sequential Execution.");
     return SUCCESS;
 }
 }  // namespace tile_fwk

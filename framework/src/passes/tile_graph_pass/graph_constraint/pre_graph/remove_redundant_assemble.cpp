@@ -14,6 +14,9 @@
  */
 
 #include "remove_redundant_assemble.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "PreGraphProcess"
 
 namespace npu::tile_fwk {
 std::vector<OpImmediate> SumOffset(const std::vector<OpImmediate> offset1, const std::vector<OpImmediate> offset2) {
@@ -50,7 +53,7 @@ bool CalculateNewRawShape(const std::vector<int64_t> &oriShape, const std::vecto
             return false;
         }
     }
-    APASS_LOG_DEBUG_F("PreGraphProcess:RemoveRedundantAssemble", "Operation", "oriScale is %s.", IntVecToStr(oriScale).c_str());
+    APASS_LOG_DEBUG_F(Elements::Operation, "oriScale is %s.", IntVecToStr(oriScale).c_str());
     size_t newSize = newShape.size();
     newRawShape.resize(newSize);
     std::vector<int64_t> newScale(newSize, 1);
@@ -83,7 +86,7 @@ bool CalculateNewRawShape(const std::vector<int64_t> &oriShape, const std::vecto
         }
     }
 
-    APASS_LOG_DEBUG_F("PreGraphProcess:RemoveRedundantAssemble", "Operation", "newScale is %s.", IntVecToStr(newScale).c_str());
+    APASS_LOG_DEBUG_F(Elements::Operation, "newScale is %s.", IntVecToStr(newScale).c_str());
     for (size_t j = 0; j < newSize; j++) {
         newRawShape[j] = newShape[j] * newScale[j];
     }
@@ -102,12 +105,12 @@ void RemoveRedundantAssemble::HandleForAssembleFromInOut(Function &function, std
     if (inOrOutTensor == nullptr) {
         return;
     }
-    APASS_LOG_DEBUG_F("PreGraphProcess:RemoveRedundantAssemble", "Tensor", "find in or out, tensor magic: %d, raw magic: %d.", inOrOutTensor->magic, inOrOutTensor->GetRawMagic());
+    APASS_LOG_DEBUG_F(Elements::Tensor, "find in or out, tensor magic: %d, raw magic: %d.", inOrOutTensor->magic, inOrOutTensor->GetRawMagic());
     for (auto &producer : producersBackup) {
         producer->oOperand[0]->tensor = inOrOutTensor->tensor;
         for (auto &cons : producer->oOperand[0]->GetConsumers()) {
             if (cons->GetOpcode() == Opcode::OP_RESHAPE && cons->oOperand[0]->tensor->actualRawmagic != -1) {
-                APASS_LOG_DEBUG_F("PreGraphProcess:RemoveRedundantAssemble", "Operation", "consumer[%d] is OP_RESHAPE.", cons->GetOpMagic());
+                APASS_LOG_DEBUG_F(Elements::Operation, "consumer[%d] is OP_RESHAPE.", cons->GetOpMagic());
                 cons->oOperand[0]->tensor->actualRawmagic = inOrOutTensor->GetRawMagic();
             }
         }
@@ -270,7 +273,7 @@ void RemoveRedundantAssemble::HandleForAssembleToOutcast(Function &function, std
         }
     }
     if (outCastMagic != -1) {
-        APASS_LOG_DEBUG_F("PreGraphProcess:RemoveRedundantAssemble", "Operation", "find outCastMagic: %d.", outCastMagic);
+        APASS_LOG_DEBUG_F(Elements::Operation, "find outCastMagic: %d.", outCastMagic);
         for (auto &producer : producersBackup) {
             producer->oOperand[0]->SetMagic(outCastMagic);
             producer->oOperand[0]->nodetype = NodeType::OUTCAST;

@@ -17,7 +17,9 @@
 #include "interface/function/function.h"
 #include "infer_dyn_shape.h"
 #include "passes/pass_check/infer_dyn_shape_checker.h"
-#include "passes/pass_utils/pass_utils.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "InferDynShape"
 
 namespace npu {
 namespace tile_fwk {
@@ -54,12 +56,13 @@ Status InferDynShape::RunOnFunction(Function &function)
 {
     // 遍历每一个op，调用对应的infershape函数
     // 遍历顺序，按照入度解依赖
-    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> Start InferDynShape.");
+    APASS_LOG_INFO_F(Elements::Operation, "===> Start InferDynShape.");
     if (InferShape(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "InferShape failed; Please check the InferShape method.");
         return FAILED;
     }
-    APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "Dump: %s", function.Dump().c_str());
-    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> End InferDynShape.");
+    APASS_LOG_DEBUG_F(Elements::Operation, "Dump: %s", function.Dump().c_str());
+    APASS_LOG_INFO_F(Elements::Operation, "===> End InferDynShape.");
     return SUCCESS;
 }
 } 

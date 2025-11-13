@@ -14,7 +14,9 @@
  */
 
 #include "infer_dyn_shape_checker.h"
-#include "passes/pass_utils/pass_utils.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "InferDynShape"
 
 namespace npu {
 namespace tile_fwk {
@@ -23,19 +25,19 @@ Status InferDynShapeChecker::DoPostCheck(Function &function) {
         if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode())) {
             const std::shared_ptr<OpAttribute> &attr = op.GetOpAttribute();
             if (attr == nullptr) {
-                APASS_LOG_ERROR_F("InferDynShape", "Operation", "Copy In attr is null.");
+                APASS_LOG_ERROR_F(Elements::Operation, "Copy In attr is null.");
                 return FAILED;
             }
             std::shared_ptr<CopyOpAttribute> copyAttr = std::static_pointer_cast<CopyOpAttribute>(attr);
             if (copyAttr->GetToDynValidShape().empty()) {
-                APASS_LOG_ERROR_F("InferDynShape", "Operation", "Op %s[%d] has no dyn to shape attr.",
+                APASS_LOG_ERROR_F(Elements::Operation, "Op %s[%d] has no dyn to shape attr.",
                     op.GetOpcodeStr().c_str(), op.GetOpMagic());
                 return FAILED;
             }
         }
         for (auto opOut : op.GetOOperands()) {
             if (opOut->GetDynValidShape().empty()) {
-                APASS_LOG_ERROR_F("InferDynShape", "Tensor", "Op %s[%d] output [%d] has no dynamic valid shape.",
+                APASS_LOG_ERROR_F(Elements::Tensor, "Op %s[%d] output [%d] has no dynamic valid shape.",
                     op.GetOpcodeStr().c_str(), op.GetOpMagic(), opOut->GetMagic());
                 return FAILED;
             }

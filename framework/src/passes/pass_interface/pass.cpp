@@ -175,7 +175,7 @@ Status Pass::CreateGraphFolder(Function &function) {
         graphFolder_ = config::LogTopFolder() + '/' + function.GetMagicName();
         bool res = CreateDir(graphFolder_);
         if (res == false) {
-            ALOG_WARN_F("Failed to create directory: [%s].", graphFolder_.c_str());
+            ALOG_ERROR_F("Failed to create directory: [%s].", graphFolder_.c_str());
             return FAILED;
         }
     }

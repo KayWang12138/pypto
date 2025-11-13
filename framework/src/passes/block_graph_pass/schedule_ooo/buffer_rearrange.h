@@ -20,9 +20,15 @@
 #include <unordered_map>
 #include "interface/operation/operation.h"
 #include "passes/block_graph_pass/schedule_ooo/buffer_pool.h"
-
+#include "passes/pass_log/pass_log.h"
 #include <iostream>
 using namespace std;
+
+#ifdef MODULE_NAME
+#undef MODULE_NAME
+#endif
+
+#define MODULE_NAME "OoOSchedule"
 
 namespace npu {
 namespace tile_fwk {
@@ -38,15 +44,15 @@ struct RearrangeScheme {
     std::vector<std::pair<int, size_t>> orderedMoveTo;
 
     void PrintScheme() {
-        APASS_LOG_DEBUG_F("OoOSchedule", "Tensor", "Memory Rearange Scheme,  Span : [%lu, %lu], Cost : %lu", 
+        APASS_LOG_DEBUG_F(Elements::Tensor, "Memory Rearange Scheme,  Span : [%lu, %lu], Cost : %lu", 
             start, end, cost);
         for (auto memId : memIds) {
             if (moveFrom[memId] != moveTo[memId]) {
-                APASS_LOG_DEBUG_F("OoOSchedule", "Tensor", "    |--- MemId : %d, Ori Span : [%lu, %lu], Size : %lu, Move From %lu to %lu",
+                APASS_LOG_DEBUG_F(Elements::Tensor, "    |--- MemId : %d, Ori Span : [%lu, %lu], Size : %lu, Move From %lu to %lu",
                     memId, moveFrom[memId], moveFrom[memId] + memSizeMap[memId], memSizeMap[memId],
                     moveFrom[memId], moveTo[memId]);
             } else {
-                APASS_LOG_DEBUG_F("OoOSchedule", "Tensor", "    |--- MemId : %d, Ori Span : [%lu, %lu], Size : %lu",
+                APASS_LOG_DEBUG_F(Elements::Tensor, "    |--- MemId : %d, Ori Span : [%lu, %lu], Size : %lu",
                     memId, moveFrom[memId], moveFrom[memId] + memSizeMap[memId], memSizeMap[memId]);
             }
         }

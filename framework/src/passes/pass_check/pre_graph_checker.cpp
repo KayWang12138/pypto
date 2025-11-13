@@ -14,6 +14,9 @@
  */
 
 #include "pre_graph_checker.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "PreGraphProcess"
 
 namespace npu {
 namespace tile_fwk {
@@ -335,6 +338,7 @@ Status PreGraphProcessChecker::PostCheckReshape(Function &function, const Operat
     auto reshapeIn = op.GetIOperands().front();
     auto reshapeOut = op.GetOOperands().front();
     if (VerifyReshapeResult(function, op, reshapeIn, reshapeOut) == FAILED) {
+        APASS_LOG_ERROR_F(Elements::Operation, "VerifyReshapeResult failed; Please check the VerifyReshapeResult method.");
         return FAILED;
     }
 

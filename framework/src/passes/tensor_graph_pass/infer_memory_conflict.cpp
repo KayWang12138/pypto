@@ -14,7 +14,9 @@
  */
 
 #include "infer_memory_conflict.h"
-#include "passes/pass_utils/graph_utils.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "InferMemoryConflict"
 
 namespace npu {
 namespace tile_fwk {
@@ -29,24 +31,24 @@ uint32_t GetPowerOfTwo(uint32_t cur) {
 }
 
 Status InferMemoryConflict::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Start InferMemoryConflict for function [%s].", function.GetRawName().c_str());
+    APASS_LOG_INFO_F(Elements::Operation, "Start InferMemoryConflict for function [%s].", function.GetRawName().c_str());
     if (Init(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Init failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Init failed.");
         return FAILED;
     }
     if (ForwardPropagation(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "ForwardPropagation failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "ForwardPropagation failed.");
         return FAILED;
     }
     if (BackwardPropagation(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "BackwardPropagation failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "BackwardPropagation failed.");
         return FAILED;
     }
     if (InsertCopys(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "InsertCopys failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "InsertCopys failed.");
         return FAILED;
     }
-    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "End InferMemoryConflict for function [%s].", function.GetRawName().c_str());
+    APASS_LOG_INFO_F(Elements::Operation, "End InferMemoryConflict for function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }
 
@@ -72,7 +74,7 @@ bool InferMemoryConflict::CheckRawShapeConflict(const LogicalTensorPtr &inTensor
         outRawSize *= outShape[i];
     }
     if (inRawSize > 0 && outRawSize > 0 && inRawSize != outRawSize) {
-        APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "The raw size of input is %d, the raw size of output is %d", inRawSize, outRawSize);
+        APASS_LOG_DEBUG_F(Elements::Operation, "The raw size of input is %d, the raw size of output is %d", inRawSize, outRawSize);
         return true;
     }
     return false;
@@ -97,12 +99,12 @@ bool InferMemoryConflict::IsValidTileShape(const Operation &op) const {
     auto input = op.GetIOperands().front();
     VecTile tileSize = op.GetTileShape().GetVecTile();
     if (input->GetShape().size() != tileSize.size()) {
-        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "%s[%d] has unequal input shape dims size and tile shape dims, input shape: %s, tile size: %s", 
+        APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has unequal input shape dims size and tile shape dims, input shape: %s, tile size: %s", 
                             op.GetOpcodeStr().c_str(), op.GetOpMagic(),
                             input->DumpType().c_str(), op.GetTileShape().toString(TileType::VEC).c_str());
         return false;
     }
-    APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "The size info of %s[%d]: input shape: %s, tile size: %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(),
+    APASS_LOG_DEBUG_F(Elements::Operation, "The size info of %s[%d]: input shape: %s, tile size: %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(),
             input->DumpType().c_str(), op.GetTileShape().toString(TileType::VEC).c_str());
     return true;
 }
@@ -169,7 +171,7 @@ Status InferMemoryConflict::ForwardPropagation(Function &function) {
                 continue;
             }
             if (UpdateForwardTensor(function, curTensor, consumer, curTensors) != SUCCESS) {
-                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "UpdateForwardTensor failed.");
+                APASS_LOG_ERROR_F(Elements::Operation, "UpdateForwardTensor failed.");
                 return FAILED;
             }
         }
@@ -190,7 +192,7 @@ Status InferMemoryConflict::BackwardPropagation(Function &function) {
                 continue;
             }
             if (UpdateBackwardTensor(curTensor, producer, curTensors) != SUCCESS) {
-                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "UpdateBackwardTensor failed.");
+                APASS_LOG_ERROR_F(Elements::Operation, "UpdateBackwardTensor failed.");
                 return FAILED;
             }
         }
@@ -222,11 +224,11 @@ Status InferMemoryConflict::SetDefaultShape(const LogicalTensorPtr &tensor, std:
 Status InferMemoryConflict::InferTileShape(Operation &op, Operation *parentOp, const LogicalTensorPtr &tensor) {
     auto tileShapeSize = parentOp->GetTileShape().GetVecTile().size();
     if (tileShapeSize == 0 || tileShapeSize != tensor->GetShape().size()) {
-        APASS_LOG_WARN_F(GetName().c_str(), "Operation", "Inserted op's producer/consumer op [%d] has no tile shape.", parentOp->GetOpMagic());
+        APASS_LOG_WARN_F(Elements::Operation, "Inserted op's producer/consumer op [%d] has no tile shape.", parentOp->GetOpMagic());
         TileShape tile;
         std::vector<int64_t> defaultTile;
         if (SetDefaultShape(tensor, defaultTile) != SUCCESS) {
-            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "SetDefaultShape failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "SetDefaultShape failed.");
             return FAILED;
         }
         tile.SetVecTile(defaultTile);
@@ -235,7 +237,7 @@ Status InferMemoryConflict::InferTileShape(Operation &op, Operation *parentOp, c
         op.UpdateTileShape(parentOp->GetTileShape());
     }
     if (!IsValidTileShape(op)) {
-        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Invalid tile size for %s[%d].", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+        APASS_LOG_ERROR_F(Elements::Operation, "Invalid tile size for %s[%d].", op.GetOpcodeStr().c_str(), op.GetOpMagic());
         return FAILED;
     }
     return SUCCESS;
@@ -248,9 +250,9 @@ Status InferMemoryConflict::InsertPrecededCopys(Function &function) {
         Offset newOffset(inputTensor->GetShape().size(), 0);
         LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(function, newRawTensor, newOffset, inputTensor->GetShape(), inputTensor->GetDynValidShape());
         auto &copyOp = function.AddRawOperation(Opcode::OP_REGISTER_COPY, {inputTensor}, {newTensor});
-        APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "Insert copy op [%d].", copyOp.GetOpMagic());
+        APASS_LOG_DEBUG_F(Elements::Operation, "Insert copy op [%d].", copyOp.GetOpMagic());
         if (InferTileShape(copyOp, *(copyOp.ProducerOps().begin()), inputTensor) != SUCCESS) {
-            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "InferTileShape failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "InferTileShape failed.");
             return FAILED;
         }
         inputTensor->RemoveConsumer(op);
@@ -266,9 +268,9 @@ Status InferMemoryConflict::InsertPostCopys(Function &function) {
         Offset newOffset(outputTensor->GetShape().size(), 0);
         LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(function, newRawTensor, newOffset, outputTensor->GetShape(), outputTensor->GetDynValidShape());
         auto &copyOp = function.AddRawOperation(Opcode::OP_REGISTER_COPY, {newTensor}, {outputTensor});
-        APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "Insert copy op [%d].", copyOp.GetOpMagic());
+        APASS_LOG_DEBUG_F(Elements::Operation, "Insert copy op [%d].", copyOp.GetOpMagic());
         if (InferTileShape(copyOp, *(copyOp.ConsumerOps().begin()), outputTensor) != SUCCESS) {
-            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "InferTileShape failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "InferTileShape failed.");
             return FAILED;
         }
         outputTensor->RemoveConsumer(op);
@@ -279,11 +281,11 @@ Status InferMemoryConflict::InsertPostCopys(Function &function) {
 
 Status InferMemoryConflict::InsertCopys(Function &function) {
     if (InsertPrecededCopys(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "InsertPrecededCopys failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "InsertPrecededCopys failed.");
         return FAILED;
     }
     if (InsertPostCopys(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "InsertPostCopys failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "InsertPostCopys failed.");
         return FAILED;
     }
     return SUCCESS;

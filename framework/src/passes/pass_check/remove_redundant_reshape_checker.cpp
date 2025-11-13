@@ -14,22 +14,25 @@
  */
 
 #include "remove_redundant_reshape_checker.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "RemoveRedundantReshape"
 
 namespace npu {
 namespace tile_fwk {
 Status RemoveRedundantReshapeChecker::DoPreCheck(Function &function) {
-    APASS_LOG_INFO_F("RemoveRedundantReshapeChecker", "Operation", "PreCheck for RemoveRedundantShape.");
+    APASS_LOG_INFO_F(Elements::Operation, "PreCheck for RemoveRedundantShape.");
     if (CheckValidOp(function) != SUCCESS) {
-        APASS_LOG_ERROR_F("RemoveRedundantReshapeChecker", "Operation", "Found invalid op from the function [%s].", function.GetRawName().c_str());
+        APASS_LOG_ERROR_F(Elements::Operation, "Found invalid op from the function [%s].", function.GetRawName().c_str());
         return FAILED;
     }
     if (CheckOpIOValid(function) != SUCCESS) {
-        APASS_LOG_ERROR_F("RemoveRedundantReshapeChecker", "Operation", "Found invalid input/output in the function [%s].", function.GetRawName().c_str());
+        APASS_LOG_ERROR_F(Elements::Operation, "Found invalid input/output in the function [%s].", function.GetRawName().c_str());
         return FAILED;
     }
     for (const auto &op : function.Operations().DuplicatedOpList()) {
         if (ProcessPreCheck(op)) {
-            APASS_LOG_ERROR_F("RemoveRedundantReshapeChecker", "Operation", "Precheck RemoveRedundantShape failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "Precheck RemoveRedundantShape failed.");
             return FAILED;
         }
     }
@@ -39,7 +42,7 @@ Status RemoveRedundantReshapeChecker::ProcessPreCheck(const Operation *op) {
     if (op->GetOpcode() == Opcode::OP_RESHAPE) {
         auto in = op->iOperand.front();
         if (PreCheckReshape(in) != SUCCESS) {
-            APASS_LOG_ERROR_F("RemoveRedundantReshapeChecker", "Operation", "Precheck of reshape op[%d] failed.", op->GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "Precheck of reshape op[%d] failed.", op->GetOpMagic());
             return FAILED;
         }
     }
@@ -52,7 +55,7 @@ Status RemoveRedundantReshapeChecker::PreCheckReshape(const LogicalTensorPtr &in
     for (auto &childOp : in->GetConsumers()) {
         if (childOp->GetOpcode() == Opcode::OP_RESHAPE) {
             if (childOp->ConsumerOps().empty()) {
-                APASS_LOG_ERROR_F("RemoveRedundantReshapeChecker", "Operation", "At least one reshape op without consumer.");
+                APASS_LOG_ERROR_F(Elements::Operation, "At least one reshape op without consumer.");
                 return FAILED;
             }
         }

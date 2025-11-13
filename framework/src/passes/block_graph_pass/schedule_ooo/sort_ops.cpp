@@ -14,6 +14,9 @@
  */
 
 #include "scheduler.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "OoOSchedule"
 
 namespace npu::tile_fwk {
 
@@ -312,7 +315,7 @@ Status OoOScheduler::DFSFromOutNode(std::vector<IssueEntryPtr> outNodeQueue,
     if (outNodeQueue.size() != 0) {
        DFSFromSingleNode(outNodeQueue[0], visited, newIssueEntries, preNodePriority);
     } else {
-        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Subgraph must have operation with outdegree 0.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Subgraph must have operation with outdegree 0.");
         return FAILED;
     }
 
@@ -321,7 +324,7 @@ Status OoOScheduler::DFSFromOutNode(std::vector<IssueEntryPtr> outNodeQueue,
             auto curNode = outNodeQueue[i];
             auto node = FindNodeMinNumUnvisitedPreNode(visited, outNodeQueue);
             if (node == nullptr) {
-                APASS_LOG_ERROR_F("OoOSchedule", "Operation", "FindNodeMinNumUnvisitedPreNode failed.");
+                APASS_LOG_ERROR_F(Elements::Operation, "FindNodeMinNumUnvisitedPreNode failed.");
                 return FAILED;
             }
             DFSFromSingleNode(node, visited, newIssueEntries, preNodePriority);
@@ -342,7 +345,7 @@ Status OoOScheduler::PriorDFS(std::unordered_map<Opcode, int> preNodePriority) {
     }
 
     if (DFSFromOutNode(outNodeQueue, preNodePriority, visited) != SUCCESS) {
-        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "DFSFromOutNode failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "DFSFromOutNode failed.");
         return FAILED;
     }
     return SUCCESS;
@@ -371,17 +374,17 @@ Status OoOScheduler::SortOps() {
             // 最后访问其它计算节点（其它节点默认的优先级为10）。
         };
         if (PriorDFS(preNodePriority) != SUCCESS) {
-            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "PriorDFS failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "PriorDFS failed.");
             return FAILED;
         }
     } else if (sortMethodStr == "LayerBasedDFS") {
         const int layerDepth = 10;
         if (LayerBasedDFS(layerDepth) != SUCCESS) {
-            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "LayerBasedDFS failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "LayerBasedDFS failed.");
             return FAILED;
         }
     } else {
-        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "PreSchedule method not recognized.");
+        APASS_LOG_ERROR_F(Elements::Operation, "PreSchedule method not recognized.");
         return FAILED;
     }
     return SUCCESS;

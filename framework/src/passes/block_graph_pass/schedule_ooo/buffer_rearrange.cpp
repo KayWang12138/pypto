@@ -169,8 +169,8 @@ void GroupBubbles(std::vector<std::pair<size_t, size_t>> &bubbleGroups, size_t s
             start += 1;
         }
         if (start + 1 >= end) {    // 至少要选中两个气泡作为一组
-            APASS_LOG_ERROR_F("OoOSchedule", "Tensor", "Rerange buffer unexpected result: only choose one bubble for rearange");
-            APASS_LOG_ERROR_F("OoOSchedule", "Tensor", "sizeNeeded : %d", sizeNeeded);
+            APASS_LOG_ERROR_F(Elements::Tensor, "Rerange buffer unexpected result: only choose one bubble for rearange");
+            APASS_LOG_ERROR_F(Elements::Tensor, "sizeNeeded : %d", sizeNeeded);
             failed = true;
             break;
         }
@@ -212,14 +212,14 @@ RearrangeScheme MoveScheme(BufferPool &bufferManager, const std::vector<std::pai
 
         RearrangeScheme newScheme = TryMoveBackToFront(baseScheme, sizeNeeded);
         if (bestScheme.cost == INT_MAX || newScheme.cost < bestScheme.cost) {
-            APASS_LOG_DEBUG_F("OoOSchedule", "Tensor", "Found better scheme by TryMoveBackToFront.");
+            APASS_LOG_DEBUG_F(Elements::Tensor, "Found better scheme by TryMoveBackToFront.");
             bestScheme = newScheme;
             newScheme.PrintScheme();
         }
 
         newScheme = TryMoveFrontToBack(baseScheme, sizeNeeded);
         if (bestScheme.cost == INT_MAX || newScheme.cost < bestScheme.cost) {
-            APASS_LOG_DEBUG_F("OoOSchedule", "Tensor", "Found better scheme by TryMoveFrontToBack.");
+            APASS_LOG_DEBUG_F(Elements::Tensor, "Found better scheme by TryMoveFrontToBack.");
             bestScheme = newScheme;
             newScheme.PrintScheme();
         }

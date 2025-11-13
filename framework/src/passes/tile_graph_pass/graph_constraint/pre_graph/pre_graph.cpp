@@ -15,6 +15,9 @@
 
 #include "pre_graph.h"
 #include "passes/pass_check/pre_graph_checker.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "PreGraphProcess"
 
 namespace npu::tile_fwk {
 void PreGraphProcess::UpdateCopyOpIsCube(Operation &op) const {
@@ -48,7 +51,7 @@ void PreGraphProcess::UpdateCopyOpIsCube(Operation &op) const {
 }
 
 Status PreGraphProcess::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> start PreGraph.");
+    APASS_LOG_INFO_F(Elements::Operation, "===> start PreGraph.");
     ColorGraph colorGraph;
     colorGraph.PreColorSort(function);
     auto opList = function.Operations();
@@ -72,10 +75,10 @@ Status PreGraphProcess::RunOnFunction(Function &function) {
     removeRedundantAssemble.DeleteRedundantAssemble(function);
     CubeProcess cubeProcess;
     if (cubeProcess.UpdateCubeOp(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Update Cube attr failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Update Cube attr failed.");
         return FAILED;
     }
-    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> End PreGraph.");
+    APASS_LOG_INFO_F(Elements::Operation, "===> End PreGraph.");
     return SUCCESS;
 }
 

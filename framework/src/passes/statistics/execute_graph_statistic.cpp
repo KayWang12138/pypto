@@ -18,7 +18,9 @@
 #include <queue>
 #include <unordered_set>
 #include "interface/utils/log.h"
-#include "passes/pass_utils/pass_utils.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "SubgraphToFunction"
 
 using json = nlohmann::json;
 
@@ -122,7 +124,7 @@ uint64_t ExecutionGraphStatistic::AnalyzePeakMemoryUsage(
         auto &op = operations[i];
         auto callAttr = dynamic_cast<CallOpAttribute *>(op.GetOpAttribute().get());
         if (!callAttr || !callAttr->invokeInfo_) {
-            APASS_LOG_WARN_F("SubgraphToFunction", "Operation", "Invalid CallOpAttribute at index %zu", i);
+            APASS_LOG_WARN_F(Elements::Operation, "Invalid CallOpAttribute at index %zu", i);
             continue;
         }
         uint64_t currentOpMemory = CalculateOperationMemory(op);
@@ -218,7 +220,7 @@ json ExecutionGraphStatistic::AnalyzeExecutionGraph(Function & func, const std::
     json report;
     Function *rootFunc = func.GetRootFunction();
     if (!rootFunc) {
-        APASS_LOG_ERROR_F("SubgraphToFunction", "Operation", "Root function is null");
+        APASS_LOG_ERROR_F(Elements::Operation, "Root function is null");
         return report;
     }
 

@@ -18,30 +18,32 @@
 #include <deque>
 #include <algorithm>
 #include "interface/function/function.h"
-#include "interface/utils/log.h"
 #include "interface/tensor/logical_tensor.h"
 #include "passes/pass_utils/parallel_tool.h"
 #include "passes/pass_check/iso_partitioner_checker.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "GraphPartition"
 
 namespace npu::tile_fwk {
 
 Status GraphPartition::RunOnFunction(Function &function)
 {
-    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> Start GraphPartition.");
+    APASS_LOG_INFO_F(Elements::Operation, "===> Start GraphPartition.");
     IsoPartitioner partitioner;
     if (partitioner.SetParameter(function.paramConfigs_.sgCycleUpperBound,
                                  function.paramConfigs_.sgParallelNum,
                                  function.paramConfigs_.sgCycleLowerBound,
                                  true,
                                  function.paramConfigs_.sgSkipPartition) != SUCCESS) {
-        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Set parameters of GraphPartition failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Set parameters of GraphPartition failed.");
         return FAILED;
     }
     if (partitioner.PartitionGraph(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "GraphPartition failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "GraphPartition failed.");
         return FAILED;
     }
-    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> End GraphPartition.");
+    APASS_LOG_INFO_F(Elements::Operation, "===> End GraphPartition.");
     return SUCCESS;
 }
 
@@ -64,39 +66,39 @@ Status IsoPartitioner::PartitionGraph(Function &function)
             op.UpdateSubgraphID(0);
         }
         function.SetTotalSubGraphCount(1);
-        APASS_LOG_INFO_F("GraphPartition", "Operation", "Graph Partition is skipped.");
+        APASS_LOG_INFO_F(Elements::Operation, "Graph Partition is skipped.");
         return SUCCESS;
     }
     if (cycleUB_ == -1 || parallelNum_ == -1 || cycleLB_ == -1) {
-        APASS_LOG_ERROR_F("GraphPartition", "Operation", "Partition parameters not initialized.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Partition parameters not initialized.");
         return FAILED;
     }
     if (BuildOpGraph(function.Operations().DuplicatedOpList()) != SUCCESS) {
-        APASS_LOG_ERROR_F("GraphPartition", "Operation", "Partition the computational graph failed in building operation graph.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Partition the computational graph failed in building operation graph.");
         return FAILED;
     }
     if (BuildSuperNodeGraph() != SUCCESS) {
-        APASS_LOG_ERROR_F("GraphPartition", "Operation", "Partition the computational graph failed in building SuperNode graph.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Partition the computational graph failed in building SuperNode graph.");
         return FAILED;
     }
     if (BuildHashValues() != SUCCESS) {
-        APASS_LOG_ERROR_F("GraphPartition", "Operation", "Partition the computational graph failed in building SuperNode hash values.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Partition the computational graph failed in building SuperNode hash values.");
         return FAILED;
     }
     if (BuildIsomorphismGroups() != SUCCESS) {
-        APASS_LOG_ERROR_F("GraphPartition", "Operation", "Partition the computational graph failed in partitioning the graph.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Partition the computational graph failed in partitioning the graph.");
         return FAILED;
     }
     if (IsomorphismGroupMergeProcess(true) != SUCCESS) {
-        APASS_LOG_ERROR_F("GraphPartition", "Operation", "Partition the computational graph failed in merging non-isomorphism groups.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Partition the computational graph failed in merging non-isomorphism groups.");
         return FAILED;
     }
     if (IsomorphismGroupMergeProcess(false) != SUCCESS) {
-        APASS_LOG_ERROR_F("GraphPartition", "Operation", "Partition the computational graph failed in merging isomorphism groups.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Partition the computational graph failed in merging isomorphism groups.");
         return FAILED;
     }
     if (UpdatePartitionResult(function) != SUCCESS) {
-        APASS_LOG_ERROR_F("GraphPartition", "Operation", "Partition the computational graph failed in updating the Function.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Partition the computational graph failed in updating the Function.");
         return FAILED;
     }
     return SUCCESS;
@@ -131,18 +133,18 @@ Status IsoPartitioner::BuildIsomorphismGroups()
         }
         std::shared_ptr<IsomorphismGraphGroup> currentGraphGroup = std::make_shared<IsomorphismGraphGroup>();
         if (currentGraphGroup == nullptr) {
-            APASS_LOG_ERROR_F("GraphPartition", "Operation", "Create current IsomorphismGraphGroup failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "Create current IsomorphismGraphGroup failed.");
             return FAILED;
         }
         if (currentGraphGroup->BuildGraphGroup(operationInfo_, superNodeInfo_, expandCandidate, currentNodeSet,
                                                idxInLinkNum, zeroInQueue) != SUCCESS) {
-            APASS_LOG_ERROR_F("GraphPartition", "Operation", "Build initial IsomorphismGraphGroup failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "Build initial IsomorphismGraphGroup failed.");
             return FAILED;
         }
         if (currentGraphGroup->GetMergeable()) {
             if (currentGraphGroup->ExpandIsoGraphs(currentNodeSet, idxInLinkNum,
                                                    zeroInQueue, cycleUB_) != SUCCESS) {
-                APASS_LOG_ERROR_F("GraphPartition", "Operation", "Expand the isomorphism group failed.");
+                APASS_LOG_ERROR_F(Elements::Operation, "Expand the isomorphism group failed.");
                 return FAILED;
             }
         }
@@ -164,12 +166,12 @@ Status IsomorphismGraphGroup::BuildGraphGroup(std::shared_ptr<OperationGraphInfo
     currentNodeSet.insert(expandCandidate.begin(), expandCandidate.end());
     for (int32_t nodeIdx : expandCandidate) {
         if (InLinkCountDelete(nodeIdx, idxInLinkNum, zeroInQueue) != SUCCESS) {
-            APASS_LOG_ERROR_F("GraphPartition", "Operation", "In-link count delete failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "In-link count delete failed.");
             return FAILED;
         }
         std::shared_ptr<SubGraph> sgPtr = std::make_shared<SubGraph>(operationInfo, superNodeInfo);
         if (sgPtr == nullptr) {
-            APASS_LOG_ERROR_F("GraphPartition", "Operation", "Create SubGraph failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "Create SubGraph failed.");
             return FAILED;
         }
         sgPtr->AddNode(nodeIdx);
@@ -184,7 +186,7 @@ Status IsomorphismGraphGroup::InLinkCountDelete(int32_t nodeIdx, std::vector<int
 {
     for (int32_t consumer : superNodeInfo_->nodeOutGraph_[nodeIdx]) {
         if (consumer < 0 || consumer >= static_cast<int32_t>(idxInLinkNum.size())) {
-            APASS_LOG_ERROR_F("GraphPartition", "Operation", "Consumer index illegal in InLinkCountDelete.");
+            APASS_LOG_ERROR_F(Elements::Operation, "Consumer index illegal in InLinkCountDelete.");
             return FAILED;
         }
         idxInLinkNum[consumer] -= 1;
@@ -192,7 +194,7 @@ Status IsomorphismGraphGroup::InLinkCountDelete(int32_t nodeIdx, std::vector<int
             zeroInQueue.push_back(consumer);
         }
         if (idxInLinkNum[consumer] < 0) {
-            APASS_LOG_ERROR_F("GraphPartition", "Operation", "Negative in-link count in InLinkCountDelete.");
+            APASS_LOG_ERROR_F(Elements::Operation, "Negative in-link count in InLinkCountDelete.");
             return FAILED;
         }
     }
@@ -250,7 +252,7 @@ Status IsomorphismGraphGroup::ExpandIsoGraphs(std::unordered_set<int32_t> &curre
             currentNodeSet.insert(expandCandidate[i]);
             subVisitedNodeSet_.insert(expandCandidate[i]);
             if (InLinkCountDelete(expandCandidate[i], idxInLinkNum, zeroInQueue) != SUCCESS) {
-                APASS_LOG_ERROR_F("GraphPartition", "Operation", "In-link count delete failed.");
+                APASS_LOG_ERROR_F(Elements::Operation, "In-link count delete failed.");
                 return FAILED;
             }
         }
@@ -387,7 +389,7 @@ Status IsoPartitioner::IsomorphismGroupMergePrepare(std::vector<std::pair<int32_
         for (size_t j = 0; j < isoSubGroups_[i]->Size(); j++) {
             for (int32_t nodeIdx : isoSubGroups_[i]->GetSubGraph(j)->GetNodeList()) {
                 if (nodeIdx < 0 || nodeIdx >= static_cast<int32_t>(superNodeInfo_->nodeInGraph_.size())) {
-                    APASS_LOG_ERROR_F("GraphPartition", "Operation", "NodeIdx illegal in IsomorphismGroupMergePrepare.");
+                    APASS_LOG_ERROR_F(Elements::Operation, "NodeIdx illegal in IsomorphismGroupMergePrepare.");
                     return FAILED;
                 }
                 isoSubIdxs[nodeIdx] = std::pair<int32_t, int32_t>{i, j};
@@ -400,7 +402,7 @@ Status IsoPartitioner::IsomorphismGroupMergePrepare(std::vector<std::pair<int32_
             isoSubGroups_[i]->GetSubGraph(j)->mergeHistoryIsoSub_.insert(std::pair<int32_t, int32_t>{i, j});
             for (int32_t nodeIdx : isoSubGroups_[i]->GetSubGraph(j)->inNodes_) {
                 if (nodeIdx < 0 || nodeIdx >= static_cast<int32_t>(superNodeInfo_->nodeInGraph_.size())) {
-                    APASS_LOG_ERROR_F("GraphPartition", "Operation", "NodeIdx illegal in IsomorphismGroupMergePrepare.");
+                    APASS_LOG_ERROR_F(Elements::Operation, "NodeIdx illegal in IsomorphismGroupMergePrepare.");
                     return FAILED;
                 }
                 if (isoSubIdxs[nodeIdx].first != static_cast<int32_t>(i)) {
@@ -409,7 +411,7 @@ Status IsoPartitioner::IsomorphismGroupMergePrepare(std::vector<std::pair<int32_
             }
             for (int32_t nodeIdx : isoSubGroups_[i]->GetSubGraph(j)->outNodes_) {
                 if (nodeIdx < 0 || nodeIdx >= static_cast<int32_t>(superNodeInfo_->nodeInGraph_.size())) {
-                    APASS_LOG_ERROR_F("GraphPartition", "Operation", "NodeIdx illegal in IsomorphismGroupMergePrepare.");
+                    APASS_LOG_ERROR_F(Elements::Operation, "NodeIdx illegal in IsomorphismGroupMergePrepare.");
                     return FAILED;
                 }
                 if (isoSubIdxs[nodeIdx].first != static_cast<int32_t>(i)) {
@@ -495,7 +497,7 @@ bool IsoPartitioner::SuitableForMergeCheck(int32_t currColor, int32_t mergeColor
     bool cycleMergable = latencyMerged <= cycleUB_;
     if (nonIsoGraphsMerge) {
         bool shouldMerge = coreTypeMergable && cycleMergable;
-        APASS_LOG_DEBUG_F("GraphPartition", "Operation", "Try merge current group: %d [%s]\n\t with: %d [%s], is suitable for merge: %d.",
+        APASS_LOG_DEBUG_F(Elements::Operation, "Try merge current group: %d [%s]\n\t with: %d [%s], is suitable for merge: %d.",
                      currColor, isoSubGroups_[currColor]->GetSubGraph(0)->DumpStr().c_str(),
                      mergeColor, isoSubGroups_[mergeColor]->GetSubGraph(0)->DumpStr().c_str(), shouldMerge);
         return shouldMerge;
@@ -506,7 +508,7 @@ bool IsoPartitioner::SuitableForMergeCheck(int32_t currColor, int32_t mergeColor
                          (std::min(isoSubGroups_[currColor]->GetLatency(), isoSubGroups_[mergeColor]->GetLatency()) <=
                           cycleLB_);
     isSuitableForMerge = coreTypeMergable && isSuitableForMerge && cycleMergable;
-    APASS_LOG_DEBUG_F("GraphPartition", "Operation", "Try merge current group: %d [%s]\n\t with: %d [%s], is suitable for merge: %d.",
+    APASS_LOG_DEBUG_F(Elements::Operation, "Try merge current group: %d [%s]\n\t with: %d [%s], is suitable for merge: %d.",
                  currColor, isoSubGroups_[currColor]->GetSubGraph(0)->DumpStr().c_str(),
                  mergeColor, isoSubGroups_[mergeColor]->GetSubGraph(0)->DumpStr().c_str(), coreTypeMergable);
     return isSuitableForMerge;
@@ -520,7 +522,7 @@ Status IsoPartitioner::IsomorphismGroupMergeStep(bool nonIsoGraphsMerge)
     std::vector<std::vector<int32_t>> isoNodeList;
     std::vector<int32_t> isoIdx2color;
     if (IsomorphismGroupMergePrepare(isoSubIdxs, isoInGraph, isoOutGraph, isoNodeList, isoIdx2color) != SUCCESS) {
-        APASS_LOG_ERROR_F("GraphPartition", "Operation", "IsomorphismGroupMergePrepare failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "IsomorphismGroupMergePrepare failed.");
         return FAILED;
     }
     size_t currColor = 0;
@@ -531,7 +533,7 @@ Status IsoPartitioner::IsomorphismGroupMergeStep(bool nonIsoGraphsMerge)
         for (int32_t mergeColor : mergeColors) {
             if (SuitableForMergeCheck(currColor, mergeColor, nonIsoGraphsMerge) &&
                 IsomorphismGraphGroup::IsoGraphMerge(isoSubGroups_[currColor], isoSubGroups_[mergeColor], isoSubIdxs)) {
-                APASS_LOG_DEBUG_F("GraphPartition", "Operation", "Merge current group %d with %d succeed.", currColor, mergeColor);
+                APASS_LOG_DEBUG_F(Elements::Operation, "Merge current group %d with %d succeed.", currColor, mergeColor);
                 for (int32_t mergeNodeIdx : isoNodeList[mergeColor]) {
                     isoIdx2color[mergeNodeIdx] = currColor;
                 }
@@ -553,7 +555,7 @@ Status IsoPartitioner::IsomorphismGroupMergeProcess(bool nonIsoGraphsMerge)
 {
     for (int32_t loopCount = 0; loopCount < tryMergeLoopNum_; loopCount++) {
         if (IsomorphismGroupMergeStep(nonIsoGraphsMerge) != SUCCESS) {
-            APASS_LOG_ERROR_F("GraphPartition", "Operation", "IsomorphismGroupMergeStep failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "IsomorphismGroupMergeStep failed.");
             return FAILED;
         }
         size_t originalColor = isoSubGroups_.size();
@@ -704,15 +706,15 @@ Status IsoPartitioner::SetParameter(int32_t cycleUpperBound, int32_t parallelNum
         return SUCCESS;
     }
     if (cycleUpperBound < 0) {
-        APASS_LOG_ERROR_F("GraphPartition", "Operation", "Illegal cycleUpperBound: %d; Parameter cycleUpperBound must be non-negative.", cycleUpperBound);
+        APASS_LOG_ERROR_F(Elements::Operation, "Illegal cycleUpperBound: %d; Parameter cycleUpperBound must be non-negative.", cycleUpperBound);
         return FAILED;
     }
     if (parallelNum < 0) {
-        APASS_LOG_ERROR_F("GraphPartition", "Operation", "Illegal parallelNum: %d; Parameter parallelNum must be non-negative.", parallelNum);
+        APASS_LOG_ERROR_F(Elements::Operation, "Illegal parallelNum: %d; Parameter parallelNum must be non-negative.", parallelNum);
         return FAILED;
     }
     if (cycleLowerBound < 0) {
-        APASS_LOG_ERROR_F("GraphPartition", "Operation", "Illegal cycleLowerBound: %d; Parameter cycleLowerBound must be non-negative.", cycleLowerBound);
+        APASS_LOG_ERROR_F(Elements::Operation, "Illegal cycleLowerBound: %d; Parameter cycleLowerBound must be non-negative.", cycleLowerBound);
         return FAILED;
     }
     cycleUB_ = cycleUpperBound;

@@ -14,6 +14,9 @@
  */
 
 #include "schedule_ooo.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "OoOSchedule"
 
 namespace npu::tile_fwk {
 
@@ -27,7 +30,7 @@ bool OoOSchedule::IsAicpuProgram(std::vector<Operation *> opList) {
 }
 
 Status OoOSchedule::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "=============== START OoOSchedule ===============");
+    APASS_LOG_INFO_F(Elements::Operation, "=============== START OoOSchedule ===============");
     int maxWorkeSpaceSize = 0;
     for (auto &program : function.rootFunc_->programs_) {
         auto opList = program.second->Operations(false).DuplicatedOpList();
@@ -38,12 +41,12 @@ Status OoOSchedule::RunOnFunction(Function &function) {
         }
         OoOScheduler oooSchedule(*program.second);
         oooSchedule.oooCheck.doHealthCheck = passDfxconfigs_.healthCheck;
-        APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Subgraph[%d] OOOSchedule start.", program.first);
+        APASS_LOG_INFO_F(Elements::Operation, "Subgraph[%d] OOOSchedule start.", program.first);
         if (oooSchedule.Schedule(opList) != SUCCESS) { 
-            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Subgraph[%d] OoO Schedule failed.", program.first); 
+            APASS_LOG_ERROR_F(Elements::Operation, "Subgraph[%d] OoO Schedule failed.", program.first); 
             return FAILED;
         }
-        APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Subgraph[%d] OOOSchedule end.", program.first);
+        APASS_LOG_INFO_F(Elements::Operation, "Subgraph[%d] OOOSchedule end.", program.first);
         program.second->ScheduleBy(oooSchedule.GetNewOperations());
         program.second->RecordOOOSeq();
         RescheduleUtils::UpdateTensorConsProd(program.second);
@@ -56,7 +59,7 @@ Status OoOSchedule::RunOnFunction(Function &function) {
             schedulerMap.insert({program.first, oooSchedule});
         }
     }
-    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "=============== END OoOSchedule =================");
+    APASS_LOG_INFO_F(Elements::Operation, "=============== END OoOSchedule =================");
     return SUCCESS;
 }
 

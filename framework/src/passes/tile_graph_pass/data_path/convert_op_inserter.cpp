@@ -16,6 +16,9 @@
 #include "interface/tensor/logical_tensor.h"
 #include "passes/pass_config/pass_config_manager.h"
 #include "passes/pass_utils/graph_utils.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "AssignMemoryType"
 
 namespace npu{
 namespace tile_fwk {
@@ -24,7 +27,7 @@ namespace tile_fwk {
 void ConvertInserter::UpdateTensorTobeMap(LogicalTensor &tensor, Operation &operation, MemoryType t) {
     // 传入op必须为tensor的consumer
     if(!tensor.HasConsumer(operation)){
-        APASS_LOG_ERROR_F("AssignMemoryType", "Tensor", "Operation %d is not a consumer of tensor %d; "
+        APASS_LOG_ERROR_F(Elements::Tensor, "Operation %d is not a consumer of tensor %d; "
             "Please make sure the operation is relative to the tensor to be mapped.",
             operation.GetOpMagic(), tensor.GetMagic());
         return;
@@ -39,7 +42,7 @@ void ConvertInserter::UpdateTensorTobeMap(LogicalTensor &tensor, Operation &oper
     if (tensorTobeMap[&tensor].count(&operation) == 0) {
         // 已存在，且首次设置该consumer的tobe mem
         tensorTobeMap[&tensor].emplace(&operation, t);
-        APASS_LOG_DEBUG_F("AssignMemoryType", "Tensor", "First Set magic: %d, new: %s.",
+        APASS_LOG_DEBUG_F(Elements::Tensor, "First Set magic: %d, new: %s.",
             tensor.magic, BriefMemoryTypeToString(t).c_str());
         return;
     }
@@ -50,7 +53,7 @@ void ConvertInserter::UpdateTensorTobeMap(LogicalTensor &tensor, Operation &oper
     if (tensorTobeMap[&tensor][&operation] == t) {
         return;
     }
-    APASS_LOG_DEBUG_F("AssignMemoryType", "Tensor", "Update magic: %d, old: %s, new: %s.",
+    APASS_LOG_DEBUG_F(Elements::Tensor, "Update magic: %d, old: %s, new: %s.",
         tensor.magic, BriefMemoryTypeToString(tensorTobeMap[&tensor][&operation]).c_str(),
         BriefMemoryTypeToString(t).c_str());
     tensorTobeMap[&tensor][&operation] = t;
@@ -59,7 +62,7 @@ void ConvertInserter::UpdateTensorTobeMap(LogicalTensor &tensor, Operation &oper
 // 将指定tensor的tobe map中的unknown项更新为指定的mem类型
 void ConvertInserter::UpdateTensorTobeMapUnknown(LogicalTensor &tensor, MemoryType t) {
     if (tensorTobeMap.count(&tensor) == 0) {
-        APASS_LOG_INFO_F("AssignMemoryType", "Tensor", "Tensor %d has not been inserted yet; "
+        APASS_LOG_INFO_F(Elements::Tensor, "Tensor %d has not been inserted yet; "
             "Please make sure tensor in the tobe map.", tensor.magic);
         return;
     }
@@ -76,15 +79,15 @@ void ConvertInserter::UpdateTensorTobeMapUnknown(LogicalTensor &tensor, MemoryTy
 
 // 打印指定tensor的tobe map
 void ConvertInserter::PrintTensorTobeMap(LogicalTensor &tensor) const {
-    APASS_LOG_INFO_F("AssignMemoryType", "Tensor", "PrintTensorTobeMap tensor %d.", tensor.magic);
+    APASS_LOG_INFO_F(Elements::Tensor, "PrintTensorTobeMap tensor %d.", tensor.magic);
     if (tensorTobeMap.count(&tensor) == 0) {
-        APASS_LOG_INFO_F("AssignMemoryType", "Tensor", "Tensor %d has not been inserted yet; "
+        APASS_LOG_INFO_F(Elements::Tensor, "Tensor %d has not been inserted yet; "
             "Please make sure tensor in the tobe map.", tensor.magic);
         return;
     }
-    APASS_LOG_INFO_F("AssignMemoryType", "Tensor", "Size: %d.", tensorTobeMap.at(&tensor).size());
+    APASS_LOG_INFO_F(Elements::Tensor, "Size: %d.", tensorTobeMap.at(&tensor).size());
     for (auto &item : tensorTobeMap.at(&tensor)) {
-        APASS_LOG_INFO_F("AssignMemoryType", "Tensor", "\t|--- TensorTobeMap: %s --> %s[%d].", BriefMemoryTypeToString(item.second).c_str(),
+        APASS_LOG_INFO_F(Elements::Tensor, "\t|--- TensorTobeMap: %s --> %s[%d].", BriefMemoryTypeToString(item.second).c_str(),
             item.first->GetOpcodeStr().c_str(), item.first->GetOpMagic());
     }
 }
@@ -92,7 +95,7 @@ void ConvertInserter::PrintTensorTobeMap(LogicalTensor &tensor) const {
 // 提取指定tensor的tobe map，默认格式，key为consumer op，val为对应的mem类型
 std::map<Operation *, MemoryType> ConvertInserter::GetTobeDefault(LogicalTensor &tensor) const {
     if (tensorTobeMap.count(&tensor) == 0) {
-        APASS_LOG_INFO_F("AssignMemoryType", "Tensor", "Tensor %d has not been inserted yet; "
+        APASS_LOG_INFO_F(Elements::Tensor, "Tensor %d has not been inserted yet; "
             "Please make sure tensor in the tobe map.", tensor.magic);
         return {};
     }
@@ -102,7 +105,7 @@ std::map<Operation *, MemoryType> ConvertInserter::GetTobeDefault(LogicalTensor 
 // 提取指定tensor的tobe map，新格式，key为Mem类型，val为需要改mem类型的op指针set
 std::map<MemoryType, std::set<Operation *>> ConvertInserter::GetRequiredTobe(LogicalTensor &tensor) const {
     if (tensorTobeMap.count(&tensor) == 0) {
-        APASS_LOG_INFO_F("AssignMemoryType", "Tensor", "Tensor %d has not been inserted yet; "
+        APASS_LOG_INFO_F(Elements::Tensor, "Tensor %d has not been inserted yet; "
             "Please make sure tensor in the tobe map.", tensor.magic);
         return {};
     }
@@ -116,7 +119,7 @@ std::map<MemoryType, std::set<Operation *>> ConvertInserter::GetRequiredTobe(Log
 // 提取指定tensor的指定consumer op所需的mem类型
 MemoryType ConvertInserter::GetMemoryTypeFromTensorTobeMap(LogicalTensor &tensor, Operation &operation) const {
     if (tensorTobeMap.count(&tensor) == 0) {
-        APASS_LOG_INFO_F("AssignMemoryType", "Tensor", "Tensor %d has not been inserted yet; "
+        APASS_LOG_INFO_F(Elements::Tensor, "Tensor %d has not been inserted yet; "
             "Please make sure tensor in the tobe map.", tensor.magic);
         return MemoryType::MEM_UNKNOWN;
     }
@@ -146,7 +149,7 @@ void ConvertInserter::FilterConflictTensor() {
         }
         conflictMap[tensorLocal->magic] = tobeMap;
     }
-    APASS_LOG_INFO_F("AssignMemoryType", "Tensor", "--- ConflictMap size: %d ---", conflictMap.size());
+    APASS_LOG_INFO_F(Elements::Tensor, "--- ConflictMap size: %d ---", conflictMap.size());
 }
 
 // 将 tensor tobe map初始化当前tensor的memory type original
@@ -223,7 +226,7 @@ Status ConvertInserter::RecordConflict(Function &function) {
                 }
                 std::set<Operation *> consumers = item.second;
                 //step3：决定目标memorytype
-                APASS_LOG_DEBUG_F("AssignMemoryType", "Operation", "Operation %s[%d] has output %d ori and tobe conflict.",
+                APASS_LOG_DEBUG_F(Elements::Operation, "Operation %s[%d] has output %d ori and tobe conflict.",
                     op.GetOpcodeStr().c_str(), op.GetOpMagic(), oOperand->magic);
                 bool crossCore = CrossCore(oOperand->GetMemoryTypeOriginal(), requiredMemoryType);
                 bool producedByAssemble = isAllProducerAssemble(oOperand);
@@ -262,7 +265,7 @@ Status ConvertInserter::ConstructPath(MemoryType from, MemoryType to, std::vecto
     PassConfigManager::Instance().GetPlatformConfig().FindNearestPath(from,to,paths);
     if (paths.empty()) {
         //path为空的两种场景:1、from和to内存类型一致；2、from和to不一致，且未找到数据通路。这里处理场景2，报错退出
-        APASS_LOG_ERROR_F("AssignMemoryType", "Operation", "No memory path found from %s to %s for tensor %d in operation %s[%d].",
+        APASS_LOG_ERROR_F(Elements::Operation, "No memory path found from %s to %s for tensor %d in operation %s[%d].",
             BriefMemoryTypeToString(from).c_str(),
             BriefMemoryTypeToString(to).c_str(),
             oOperand->magic,
@@ -312,11 +315,11 @@ std::shared_ptr<LogicalTensor> ConvertInserter::RecordInsertConvertOp(const std:
         std::shared_ptr<LogicalTensor> output = std::make_shared<LogicalTensor>(function, newRawTensor, newoffset, input->shape);
         output->SetMemoryTypeBoth(paths[i + 1]); // 后续只用设置original
         converts.emplace_back(ConvertOpInfo{paths[i], paths[i + 1], input, output});
-        APASS_LOG_DEBUG_F("AssignMemoryType", "Tensor", "%s[%d] --> tensor[%d](%s) --> Convert --> %s.", op.GetOpcodeStr().c_str(),
+        APASS_LOG_DEBUG_F(Elements::Tensor, "%s[%d] --> tensor[%d](%s) --> Convert --> %s.", op.GetOpcodeStr().c_str(),
             op.GetOpMagic(), input->magic,
             BriefMemoryTypeToString(input->GetMemoryTypeOriginal()).c_str(),
             BriefMemoryTypeToString(output->GetMemoryTypeOriginal()).c_str());
-        APASS_LOG_DEBUG_F("AssignMemoryType", "Tensor", "--- %s --> %s ---",
+        APASS_LOG_DEBUG_F(Elements::Tensor, "--- %s --> %s ---",
             BriefMemoryTypeToString(paths[i]).c_str(),
             BriefMemoryTypeToString(paths[i + 1]).c_str());
         input = output;
@@ -357,17 +360,17 @@ void ConvertInserter::CheckUnknown(Function &function) const {
             }
             for (auto &i : op.GetIOperands()) {
                 if(supportedMemType.count(i->GetMemoryTypeToBe()) == 0){
-                    APASS_LOG_DEBUG_F("AssignMemoryType", "Operation", "Op %s[%d] input[%d] has unsupported mem type %s.",
+                    APASS_LOG_DEBUG_F(Elements::Operation, "Op %s[%d] input[%d] has unsupported mem type %s.",
                         op.GetOpcodeStr().c_str(), op.GetOpMagic(), i->magic, MemoryTypeToString(i->GetMemoryTypeToBe()).c_str());
                 }
             }
             for (auto &o : op.GetOOperands()) {
                 if(supportedMemType.count(o->GetMemoryTypeToBe()) == 0){
-                    APASS_LOG_DEBUG_F("AssignMemoryType", "Operation", "Op %s[%d] output[%d] has unsupported mem type %s.",
+                    APASS_LOG_DEBUG_F(Elements::Operation, "Op %s[%d] output[%d] has unsupported mem type %s.",
                         op.GetOpcodeStr().c_str(), op.GetOpMagic(), o->magic,MemoryTypeToString(o->GetMemoryTypeToBe()).c_str());
                 }
                 if(o->GetMemoryTypeOriginal() != o->GetMemoryTypeToBe()){
-                    APASS_LOG_DEBUG_F("AssignMemoryType", "Operation", "Op %s[%d] output[%d] has two mem type %s and %s.",
+                    APASS_LOG_DEBUG_F(Elements::Operation, "Op %s[%d] output[%d] has two mem type %s and %s.",
                         op.GetOpcodeStr().c_str(), op.GetOpMagic(), o->magic,MemoryTypeToString(o->GetMemoryTypeToBe()).c_str(),
                         MemoryTypeToString(o->GetMemoryTypeToBe()).c_str());
                 }
@@ -402,7 +405,7 @@ void ConvertInserter::CreateMoveOpForConvert(Operation &op) {
 
 // 根据已记录的converts插入OP_CONVERT
 void ConvertInserter::InsertConvertOps(Function &function) {
-    APASS_LOG_INFO_F("AssignMemoryType", "Operation", "--- Need to insert %d convert operations ---", converts.size());
+    APASS_LOG_INFO_F(Elements::Operation, "--- Need to insert %d convert operations ---", converts.size());
     for (auto &c : converts) {
         GraphUtils::CopyDynStatus(c.output, c.input);
         auto &convertOp = function.AddRawOperation(Opcode::OP_CONVERT, {c.input}, {c.output});
@@ -418,7 +421,7 @@ Status ConvertInserter::DoInsertion(Function &function) {
     if(status != SUCCESS) { return status; }
     InsertConvertOps(function);
     CheckUnknown(function);
-    APASS_LOG_INFO_F("AssignMemoryType", "Operation", "After Insert Convert, total op Num: %d.",
+    APASS_LOG_INFO_F(Elements::Operation, "After Insert Convert, total op Num: %d.",
         function.Operations().size());
     return SUCCESS;
 }

@@ -14,10 +14,13 @@
  */
 
 #include "set_copy_attr.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "PreGraphProcess"
 
 namespace npu::tile_fwk {
 void SetCopyAttr::ProcessSpecialMTEOperation(Operation &op) const {
-    APASS_LOG_DEBUG_F("PreGraphProcess:SetCopyAttr", "Operation", "Process Special MTE Operation %d.", op.opmagic);
+    APASS_LOG_DEBUG_F(Elements::Operation, "Process Special MTE Operation %d.", op.opmagic);
     auto inputTensor = op.iOperand.front();
     auto outputTensor = op.oOperand.front();
     if ((inputTensor == nullptr) || (outputTensor == nullptr)) {
@@ -31,7 +34,7 @@ void SetCopyAttr::ProcessSpecialMTEOperation(Operation &op) const {
 }
 
 void SetCopyAttr::ProcessMoveInOperation(Operation &op) const {
-    APASS_LOG_DEBUG_F("PreGraphProcess:SetCopyAttr", "Operation", "Process MoveIn Operation %d.", op.opmagic);
+    APASS_LOG_DEBUG_F(Elements::Operation, "Process MoveIn Operation %d.", op.opmagic);
     auto inputTensor = op.iOperand.front();
     if (inputTensor == nullptr) {
         return;

@@ -18,7 +18,13 @@
 #include "interface/function/function.h"
 #include "interface/tensor/logical_tensor.h"
 #include "passes/pass_interface/pass.h"
-#include "passes/pass_utils/pass_utils.h"
+#include "passes/pass_log/pass_log.h"
+
+#ifdef MODULE_NAME
+#undef MODULE_NAME
+#endif
+
+#define MODULE_NAME "RemoveAlloc"
 
 namespace npu::tile_fwk {
 class RemoveAlloc : public Pass {
@@ -28,9 +34,9 @@ public:
 
 private:
     Status RunOnFunction(Function &function) override {
-        APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> Start RemoveAlloc.");
+        APASS_LOG_INFO_F(Elements::Operation, "===> Start RemoveAlloc.");
         RemoveAllocCall(function);
-        APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> End RemoveAlloc.");
+        APASS_LOG_INFO_F(Elements::Operation, "===> End RemoveAlloc.");
         return SUCCESS;
     }
     void RemoveAllocCall(Function &function) const;

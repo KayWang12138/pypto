@@ -14,6 +14,9 @@
  */
 
 #include "passes/block_graph_pass/schedule_ooo/buffer_pool.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "OoOSchedule"
 
 namespace npu::tile_fwk {
 constexpr size_t START_ADDR_IDX = 2;
@@ -98,7 +101,7 @@ Status BufferPool::GetSpillGroup(size_t sizeNeedSpill, std::vector<std::vector<i
         }
         size_t j = UpdateIdx(i, sizeNeedSpill, startAddr, allocatedBufs);
         if (i == j) {
-            APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Incorrect idx for allocatedBufs");
+            APASS_LOG_ERROR_F(Elements::Operation, "Incorrect idx for allocatedBufs");
             return FAILED;
         }
         std::vector<int> group;
@@ -130,19 +133,19 @@ Status BufferPool::Allocate(LocalBufferPtr tensor) {
             BufferSlice newSlice;
             newSlice.size = tensor->size;
             newSlice.offset = freeSpace.first;
-            if (bufferSlices.find(tensor->id) != bufferSlices.end()) {
-                APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Tensor[%u] already alloc in bufferSlices", tensor->id);
+            if (bufferSlices.find(tensor->id) != bufferSlices.end()) { 
+                APASS_LOG_ERROR_F(Elements::Operation, "Tensor[%u] already alloc in bufferSlices", tensor->id); 
                 return FAILED;
             }
             bufferSlices[tensor->id] = newSlice;
             tensor->start = newSlice.offset;
             tensor->end = newSlice.offset + newSlice.size;
-            APASS_LOG_DEBUG_F("OoOSchedule", "Operation", "    Allocate Tensor[%u], range [%lu, %lu].",
+            APASS_LOG_DEBUG_F(Elements::Operation, "    Allocate Tensor[%u], range [%lu, %lu].",
                 tensor->id, newSlice.offset, newSlice.size + newSlice.offset);
             return SUCCESS;
         }
     }
-    APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Buffer doesnot have enough memory to allocate Tensor[%u]", tensor->id);
+    APASS_LOG_ERROR_F(Elements::Operation, "Buffer doesnot have enough memory to allocate Tensor[%u]", tensor->id);
     return FAILED;
 }
 
@@ -170,11 +173,11 @@ bool BufferPool::isAllocate(const uint32_t tensorId) {
 }
 
 Status BufferPool::Free(const uint32_t tensorId) {
-    if (bufferSlices.find(tensorId) == bufferSlices.end()) {
-        APASS_LOG_ERROR_F("OoOSchedule", "Operation", "Tensor[%d] not in bufferSlices", tensorId);
-        return FAILED;
+    if (bufferSlices.find(tensorId) == bufferSlices.end()) { 
+        APASS_LOG_ERROR_F(Elements::Operation, "Tensor[%d] not in bufferSlices", tensorId); 
+        return FAILED; 
     }
-    APASS_LOG_DEBUG_F("OoOSchedule", "Operation", "    Free tensor[%u], range:[%lu, %lu]", tensorId,
+    APASS_LOG_DEBUG_F(Elements::Operation, "    Free tensor[%u], range:[%lu, %lu]", tensorId,
         bufferSlices[tensorId].offset, bufferSlices[tensorId].size + bufferSlices[tensorId].offset);
     bufferSlices.erase(tensorId);
     return SUCCESS;
@@ -259,7 +262,7 @@ Status BufferPool::ModifyBufferRange(LocalBufferPtr localBuffer, size_t offset) 
         bufferSlices[localBuffer->id] = newSlice;
     }
     if (CheckBufferSlicesOverlap()) {
-        APASS_LOG_ERROR_F("OoOSchedule", "Tensor", "BufferSlices have overlap, ModifyBufferRange failed.");
+        APASS_LOG_ERROR_F(Elements::Tensor, "BufferSlices have overlap, ModifyBufferRange failed.");
         return FAILED;
     }
     return SUCCESS;

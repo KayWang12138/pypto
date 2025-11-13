@@ -14,7 +14,9 @@
  */
 
 #include "merge_src_dst_buffer.h"
-#include "passes/pass_utils/pass_utils.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "SrcDstBufferMerge"
 
 namespace npu::tile_fwk {
 
@@ -45,7 +47,7 @@ void SrcDstBufferMergeImpl::InitTensorMaxSize(const LogicalTensorPtr &output) {
 
 Status SrcDstBufferMergeImpl::CheckOpValid(const Operation *op, int opId) {
     if (op == nullptr) {
-        APASS_LOG_ERROR_F("SrcDstBufferMerge", "Operation", "Op:%d is null.", opId);
+        APASS_LOG_ERROR_F(Elements::Operation, "Op:%d is null.", opId);
         return FAILED;
     }
     return SUCCESS;
@@ -55,7 +57,7 @@ void SrcDstBufferMergeImpl::InitOpOutput(const Operation *op) {
     int outId = 0;
     for (auto &output : op->GetOOperands()) {
         if (output == nullptr) {
-            APASS_LOG_DEBUG_F("SrcDstBufferMerge", "Tensor", "Op:%s, magic:%d, output:%d is null.",
+            APASS_LOG_DEBUG_F(Elements::Tensor, "Op:%s, magic:%d, output:%d is null.",
                 op->GetOpcodeStr().c_str(), op->GetOpMagic(), outId);
             ++outId;
             continue;
@@ -70,18 +72,18 @@ void SrcDstBufferMergeImpl::InitOpOutput(const Operation *op) {
 
 Status SrcDstBufferMergeImpl::Init(const std::vector<Operation *> &opList) {
     if (opList.empty()) {
-        APASS_LOG_ERROR_F("SrcDstBufferMerge", "Operation", "OpList empty.");
+        APASS_LOG_ERROR_F(Elements::Operation, "OpList empty.");
         return FAILED;
     }
     if (opList.front() == nullptr) {
-        APASS_LOG_ERROR_F("SrcDstBufferMerge", "Operation", "First op is null.");
+        APASS_LOG_ERROR_F(Elements::Operation, "First op is null.");
         return FAILED;
     }
     
     int opId = 0;
     for (auto &op : opList) {
         if (CheckOpValid(op, opId) != SUCCESS) {
-            APASS_LOG_ERROR_F("SrcDstBufferMerge", "Operation", "CheckOpValid failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "CheckOpValid failed.");
             return FAILED;
         }
         InitializeTensorMemorymap(*op);
@@ -119,7 +121,7 @@ std::pair<bool, Status> SrcDstBufferMergeImpl::CheckHasInplaced(const Operation 
     if (oriOps->HasAttr(OpAttributeKey::inplaceInfo)) {
         std::map<int, int> inplaceInfo;
         if (!oriOps->GetAttr(OpAttributeKey::inplaceInfo, inplaceInfo)) {
-            APASS_LOG_ERROR_F("SrcDstBufferMerge", "Tensor", "OriOps:%s[%d] get inplaceInfo error.", oriOps->GetOpcodeStr().c_str(), oriOps->GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Tensor, "OriOps:%s[%d] get inplaceInfo error.", oriOps->GetOpcodeStr().c_str(), oriOps->GetOpMagic());
             return std::make_pair(false, FAILED);
         }
         for (auto &[iIdx, oIdx] : inplaceInfo) {
@@ -147,7 +149,7 @@ bool SrcDstBufferMergeImpl::FindReplaced(const Operation *oriOps, const Operatio
             if (inTensorMagic == outTensorMagic) {
                 continue;
             }
-            APASS_LOG_DEBUG_F("SrcDstBufferMerge", "Tensor", "Set out tensor %d reuse src tensor %d",
+            APASS_LOG_DEBUG_F(Elements::Tensor, "Set out tensor %d reuse src tensor %d",
                 out->GetMagic(), in->GetMagic());
             out->memoryrange.memId = in->memoryrange.memId;
             if (tensorConsumers_[outTensorMagic].size() > tensorConsumers_[inTensorMagic].size()) {
@@ -165,10 +167,10 @@ void SrcDstBufferMergeImpl::NotFindReplacedProcess(const Operation *ops,
     std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors) {
     for (auto &out : ops->GetOOperands()) {
         auto outTensorMagic = out->memoryrange.memId;
-        APASS_LOG_DEBUG_F("SrcDstBufferMerge", "Tensor", "Op %d out tensor magic: %d",
+        APASS_LOG_DEBUG_F(Elements::Tensor, "Op %d out tensor magic: %d",
             ops->GetOpMagic(), outTensorMagic);
         if (replacedTensors.find(outTensorMagic) != replacedTensors.end()) {
-            APASS_LOG_DEBUG_F("SrcDstBufferMerge", "Tensor", "Find tensor: %d replaced by tensor: %d",
+            APASS_LOG_DEBUG_F(Elements::Tensor, "Find tensor: %d replaced by tensor: %d",
                 outTensorMagic, replacedTensors[outTensorMagic]->memoryrange.memId);
             out->memoryrange.memId =
                 replacedTensors[outTensorMagic]->memoryrange.memId;
@@ -178,26 +180,28 @@ void SrcDstBufferMergeImpl::NotFindReplacedProcess(const Operation *ops,
 
 Status SrcDstBufferMergeImpl::Run(Function &func) {
     if (func.rootFunc_ == nullptr) {
-        APASS_LOG_ERROR_F("SrcDstBufferMerge", "Tensor", "RootFunc is null.");
+        APASS_LOG_ERROR_F(Elements::Tensor, "RootFunc is null.");
         return FAILED;
     }
     for (auto &subProgram : func.rootFunc_->programs_) {
-        APASS_LOG_INFO_F("SrcDstBufferMerge", "Operation", "Merge src dst for program id : [%lu]",
+        APASS_LOG_INFO_F(Elements::Operation, "Merge src dst for program id : [%lu]",
             subProgram.first);
         auto opList = subProgram.second->Operations(false).DuplicatedOpList();
         if (Init(opList) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Init failed; Please check the Init method.");
             return FAILED;
         }
         auto oriOps(opList);
         std::unordered_map<int, std::shared_ptr<LogicalTensor>> replacedTensors;
         for (size_t i = 0; i < oriOps.size(); i++) {
-            APASS_LOG_DEBUG_F("SrcDstBufferMerge", "Operation", "Try reuse op [%d] input by out tensor.",
+            APASS_LOG_DEBUG_F(Elements::Operation, "Try reuse op [%d] input by out tensor.",
                 oriOps[i]->GetOpMagic());
             if (CheckIgnoreScene(oriOps[i])) {
                 continue;
             }
             auto hasInplaced = CheckHasInplaced(oriOps[i], opList[i], replacedTensors);
             if (hasInplaced.second == FAILED) {
+                APASS_LOG_ERROR_F(Elements::Operation, "CheckHasInplaced failed; Please check the CheckHasInplaced method.");
                 return FAILED;
             }
             if (hasInplaced.first) {
@@ -219,7 +223,7 @@ bool SrcDstBufferMergeImpl::CheckAssembleReuse(const LogicalTensorPtr &outOperan
         }
         for (auto assembleOutTensor : consumer->GetOOperands()) {
             if (assembleOutTensor->memoryrange.memId == outOperand->memoryrange.memId) {
-                APASS_LOG_DEBUG_F("SrcDstBufferMerge", "Operation", "Assemble cannot be reused.");
+                APASS_LOG_DEBUG_F(Elements::Operation, "Assemble cannot be reused.");
                 return false;
             }
         }
@@ -238,30 +242,30 @@ bool SrcDstBufferMergeImpl::CanSrcDstReuse(const Operation *ops,
         }
     }
     auto outOperand = ops->GetOOperands()[0];
-    APASS_LOG_DEBUG_F("SrcDstBufferMerge", "Operation", "Try reuse src %d dst %d",
+    APASS_LOG_DEBUG_F(Elements::Operation, "Try reuse src %d dst %d",
         ioperand->GetMagic(), outOperand->GetMagic());
     if (outOperand->GetMemoryTypeOriginal() != ioperand->GetMemoryTypeOriginal()) {
-        APASS_LOG_DEBUG_F("SrcDstBufferMerge", "Operation", "Memtype is not same.");
+        APASS_LOG_DEBUG_F(Elements::Operation, "Memtype is not same.");
         return false;
     }
     // tile shape 必须一样
     if (tensorMaxSize_[outOperand->memoryrange.memId] !=
         tensorMaxSize_[ioperand->memoryrange.memId]) {
-        APASS_LOG_DEBUG_F("SrcDstBufferMerge", "Operation", "Datasize is not same.");
+        APASS_LOG_DEBUG_F(Elements::Operation, "Datasize is not same.");
         return false;
     }
     if (strict && outOperand->Datatype() != ioperand->Datatype()) {
-        APASS_LOG_DEBUG_F("SrcDstBufferMerge", "Operation", "Datatype is not same.");
+        APASS_LOG_DEBUG_F(Elements::Operation, "Datatype is not same.");
         return false;
     }
     if (!CheckAssembleReuse(outOperand)) {
-        APASS_LOG_DEBUG_F("SrcDstBufferMerge", "Operation", "Check Assemble op which cannot be reused.");
+        APASS_LOG_DEBUG_F(Elements::Operation, "Check Assemble op which cannot be reused.");
         return false;
     }
     // 确保复用UB buffer后不会被覆写
     auto iter = tensorConsumers_.find(ioperand->memoryrange.memId);
     if (iter != tensorConsumers_.end() && iter->second.size() > 1) {
-        APASS_LOG_DEBUG_F("SrcDstBufferMerge", "Operation", "Op:%s[%d] has more than 1 output.", ops->GetOpcodeStr().c_str(), ops->GetOpMagic());
+        APASS_LOG_DEBUG_F(Elements::Operation, "Op:%s[%d] has more than 1 output.", ops->GetOpcodeStr().c_str(), ops->GetOpMagic());
         return false;
     }
     return true;

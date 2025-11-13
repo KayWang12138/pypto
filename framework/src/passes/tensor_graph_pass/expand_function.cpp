@@ -27,7 +27,9 @@
 #include "passes/tensor_graph_pass/expand_function.h"
 #include "passes/pass_check/expand_function_checker.h"
 #include "passes/statistics/tensor_and_tile_graph_statistic.h"
-#include "passes/pass_utils/pass_utils.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "ExpandFunction"
 
 using namespace npu::tile_fwk;
 
@@ -56,7 +58,7 @@ bool CheckAssembleNeedCopy(Function &function, const std::shared_ptr<Operation> 
     }
     for (size_t i = 1; i < op->oOperand[0]->shape.size(); i++) {
         if (op->oOperand[0]->shape[i] != op->iOperand[0]->shape[i]) {
-            APASS_LOG_INFO_F("ExpandFunction", "Operation", "Assemble [%d] need to check expansion.",  op->GetOpMagic());
+            APASS_LOG_INFO_F(Elements::Operation, "Assemble [%d] need to check expansion.",  op->GetOpMagic());
             return true;
         }
     }
@@ -68,7 +70,7 @@ Status UpdateIOOperand(const std::vector<OperationPtr> &tensorOperations) {
         // clear consumers and producers
         for (auto &iOperand : op->GetIOperands()) {
             if (iOperand == nullptr) {
-                APASS_LOG_ERROR_F("ExpandFunction", "Tensor", "Op:%s[%d] input is null.",  op->GetOpcodeStr().c_str(), op->GetOpMagic());
+                APASS_LOG_ERROR_F(Elements::Tensor, "Op:%s[%d] input is null.",  op->GetOpcodeStr().c_str(), op->GetOpMagic());
                 return FAILED;
             }
             iOperand->GetConsumers().clear();
@@ -76,7 +78,7 @@ Status UpdateIOOperand(const std::vector<OperationPtr> &tensorOperations) {
         }
         for (auto &oOperand : op->GetOOperands()) {
             if (oOperand == nullptr) {
-                APASS_LOG_ERROR_F("ExpandFunction", "Tensor", "Op:%s[%d] output is null.",  op->GetOpcodeStr().c_str(), op->GetOpMagic());
+                APASS_LOG_ERROR_F(Elements::Tensor, "Op:%s[%d] output is null.",  op->GetOpcodeStr().c_str(), op->GetOpMagic());
                 return FAILED;
             }
             oOperand->GetConsumers().clear();
@@ -98,18 +100,18 @@ Status ExpandFunction::PostCheck(Function &function) {
 }
 
 Status ExpandFunction::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Start ExpandFunction for function [%s].", function.GetRawName().c_str());
+    APASS_LOG_INFO_F(Elements::Operation, "Start ExpandFunction for function [%s].", function.GetRawName().c_str());
     if (Expandfunction(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Function[%s] ExpandFunction failed.", function.GetRawName().c_str());
+        APASS_LOG_ERROR_F(Elements::Operation, "Function[%s] ExpandFunction failed.", function.GetRawName().c_str());
         return FAILED;
     }
-    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "End ExpandFunction for function [%s].", function.GetRawName().c_str());
+    APASS_LOG_INFO_F(Elements::Operation, "End ExpandFunction for function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }
 
 Status ExpandFunction::Expandfunction(Function &function) const {
     if (!function.IsGraphType(GraphType::TENSOR_GRAPH)) {
-        APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Function %s is not static tensor graph, skip expanding.", function.GetRawName().c_str());
+        APASS_LOG_INFO_F(Elements::Operation, "Function %s is not static tensor graph, skip expanding.", function.GetRawName().c_str());
         return SUCCESS;
     }
     function.expandFunctionAccelerate = true;
@@ -123,13 +125,13 @@ Status ExpandFunction::Expandfunction(Function &function) const {
 
     function.ResetOperations();
     if (UpdateIOOperand(tensorOperations) != SUCCESS) {
-        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "UpdateIOOperand failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "UpdateIOOperand failed.");
         return FAILED;
     }
 
     for (auto &op : tensorOperations) {
         if (op == nullptr) {
-            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Encountered null operation in function.");
+            APASS_LOG_ERROR_F(Elements::Operation, "Encountered null operation in function.");
             return FAILED;
         }
         if (op->GetOpcode() == Opcode::OP_NOP || op->GetOpcode() == Opcode::OP_PRINT) {
@@ -137,7 +139,7 @@ Status ExpandFunction::Expandfunction(Function &function) const {
         }
         SourceLocation::SetLocation(op->GetLocation());
         bool needCopy = CheckAssembleNeedCopy(function, op);
-        APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "Op %s[%d] needCopy: %d", op->GetOpcodeStr().c_str(), op->GetOpMagic(), needCopy);
+        APASS_LOG_DEBUG_F(Elements::Operation, "Op %s[%d] needCopy: %d", op->GetOpcodeStr().c_str(), op->GetOpMagic(), needCopy);
         if (op->GetOpcode() == Opcode::OP_VIEW || (op->GetOpcode() == Opcode::OP_ASSEMBLE && !needCopy) || op->GetOpcode() == Opcode::OP_PAD) {
             auto &newOp = function.AddOperation(op->GetOpcode(), op->GetIOperands(), op->GetOOperands());
             newOp.SetOpAttribute(op->GetOpAttribute());
@@ -161,9 +163,9 @@ Status ExpandFunction::Expandfunction(Function &function) const {
 }
 
 void ExpandFunction::DoHealthCheckBefore(Function &function, const std::string &folderPath) {
-    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Before ExpandFunction, Health Report: TensorGraph START");
+    APASS_LOG_INFO_F(Elements::Operation, "Before ExpandFunction, Health Report: TensorGraph START");
     std::string fileName = GetDumpFilePrefix(function, true);
     HealthCheckTensorGraph(function, folderPath, fileName);
-    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Before ExpandFunction, Health Report: TensorGraph END");
+    APASS_LOG_INFO_F(Elements::Operation, "Before ExpandFunction, Health Report: TensorGraph END");
 }
 } // namespace npu::tile_fwk

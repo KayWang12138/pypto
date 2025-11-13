@@ -15,8 +15,9 @@
 
 #include "large_bm.h"
 #include "interface/utils/log.h"
-#include "passes/pass_utils/pass_utils.h"
+#include "passes/pass_log/pass_log.h"
 
+#define MODULE_NAME "GlobalMemoryReuse"
 
 namespace npu::tile_fwk {
 constexpr size_t BITS_EACH_VALUE = 64UL;
@@ -52,7 +53,7 @@ void LargeBitmap::ResizeBits(const size_t newSize) {
 // Shifting right by 6 bits is equivalent to dividing by 64
 void LargeBitmap::ClearBit(const size_t bitIdx) {
     if (bitIdx >= size_) {
-        APASS_LOG_WARN_F("GlobalMemoryReuse", "Function", "Func LargeBitmap::ClearBit bitIdx %zu is not valid, total size is %zu.", bitIdx, size_);
+        APASS_LOG_WARN_F(Elements::Function, "Func LargeBitmap::ClearBit bitIdx %zu is not valid, total size is %zu.", bitIdx, size_);
         return;
     }
     bits_[bitIdx >> RIGHT_SHIFT_SIZE] &= ~(1UL << (bitIdx % BITS_EACH_VALUE));
@@ -75,7 +76,7 @@ void LargeBitmap::SetValues(const uint64_t &value) {
 
 void LargeBitmap::SetBit(const size_t &index) {
     if (index >= size_) {
-        APASS_LOG_WARN_F("GlobalMemoryReuse", "Function", "Index %zu is not valid, total size is %zu.", index, size_);
+        APASS_LOG_WARN_F(Elements::Function, "Index %zu is not valid, total size is %zu.", index, size_);
         return;
     }
     bits_[index / BITS_EACH_VALUE] |= 1UL << (index % BITS_EACH_VALUE);
@@ -83,7 +84,7 @@ void LargeBitmap::SetBit(const size_t &index) {
 
 bool LargeBitmap::GetBit(const size_t &index) const {
     if (index >= size_) {
-        APASS_LOG_WARN_F("GlobalMemoryReuse", "Function", "Index %zu is not valid, total size is %zu.", index, size_);
+        APASS_LOG_WARN_F(Elements::Function, "Index %zu is not valid, total size is %zu.", index, size_);
         return false;
     }
     return static_cast<bool>(bits_[index / BITS_EACH_VALUE] & (1UL << (index % BITS_EACH_VALUE)));

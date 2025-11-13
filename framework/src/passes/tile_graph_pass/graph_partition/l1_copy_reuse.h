@@ -21,12 +21,18 @@
 #include "passes/pass_utils/reschedule_utils.h"
 #include "passes/pass_utils/dead_operation_eliminate.h"
 #include "passes/pass_interface/pass.h"
-#include "passes/pass_utils/pass_utils.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/utils/log.h"
 #include "passes/statistics/tensor_and_tile_graph_statistic.h"
+#include "passes/pass_log/pass_log.h"
+
+#ifdef MODULE_NAME
+#undef MODULE_NAME
+#endif
+
+#define MODULE_NAME "L1CopyInReuseMerge"
 
 namespace npu::tile_fwk {
 class L1CopyInReuseRunner {
@@ -76,13 +82,13 @@ private:
     Status InitColorNode(Function &func, std::vector<std::vector<int>> &colorNode) const;
     Status L1CopyInReuse(Function &func) const;
     Status RunOnFunction(Function &function) override {
-        APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> Start L1CopyInReuseMerge.");
+        APASS_LOG_INFO_F(Elements::Operation, "===> Start L1CopyInReuseMerge.");
         if (L1CopyInReuse(function) == FAILED) {
           return FAILED;
         }
         DeadOperationEliminator eliminator;
         eliminator.EliminateDeadOperationBackward(function);
-        APASS_LOG_INFO_F(GetName().c_str(), "Operation", "===> Finish L1CopyInReuseMerge.");
+        APASS_LOG_INFO_F(Elements::Operation, "===> Finish L1CopyInReuseMerge.");
         return SUCCESS;
     }
     void DoHealthCheckAfter(Function &function, const std::string &folderPath) override;

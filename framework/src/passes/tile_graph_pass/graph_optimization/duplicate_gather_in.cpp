@@ -17,16 +17,19 @@
 
 #include "interface/function/function.h"
 #include "interface/tensor/logical_tensor.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "DuplicateGatherIn"
 
 namespace npu::tile_fwk {
 Status DuplicateGatherIn::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(GetName().c_str(), "Operation", 
+    APASS_LOG_INFO_F(Elements::Operation, 
     "===> Start DuplicateGatherIn for function [%s].", function.GetRawName().c_str());
     if (Process(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Process failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Process failed.");
         return FAILED;
     }
-    APASS_LOG_INFO_F(GetName().c_str(), "Operation", 
+    APASS_LOG_INFO_F(Elements::Operation, 
     "===> End DuplicateGatherIn for function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }
@@ -39,7 +42,7 @@ Status DuplicateGatherIn::ProcessOp(Function &function, Operation &operation) co
     for (auto &oOperand : operation.GetOOperands()) {
         std::unordered_set<const Operation *> newViewOps;
         if (oOperand == nullptr) {
-            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", 
+            APASS_LOG_ERROR_F(Elements::Operation, 
             "OP_GATHER_IN_L1's oOperand cannot be nullptr; Please check if the oOperand of %s[%d] is nullptr.", 
             operation.GetOpcodeStr().c_str(), operation.GetOpMagic());
             return FAILED;
@@ -51,12 +54,12 @@ Status DuplicateGatherIn::ProcessOp(Function &function, Operation &operation) co
         auto consumers = oOperand->GetConsumers(); // copy consumers to avoid erase while iteration
         for (auto &consumer : consumers) {
             if (consumer == nullptr) {
-                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", 
+                APASS_LOG_ERROR_F(Elements::Operation, 
                 "OP_GATHER_IN_L1's consumer cannot be nullptr; Please check if the OP_GATHER_IN_L1[%d]'s consumer is nullptr.", oOperand->GetMagic());
                 return FAILED;
             }
             if (consumer->GetOpcode() == Opcode::OP_GATHER_IN_L1) {
-                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", 
+                APASS_LOG_ERROR_F(Elements::Operation, 
                 "OP_GATHER_IN_L1's consumer cannot be OP_GATHER_IN_L1; Please check if the type of OP_GATHER_IN_L1[%d]'s consumer is OP_GATHER_IN_L1.",
                 oOperand->GetMagic());
                 return FAILED;
@@ -67,7 +70,7 @@ Status DuplicateGatherIn::ProcessOp(Function &function, Operation &operation) co
             }
             auto dst = oOperand->Clone(function, true);
             if (dst == nullptr) {
-                APASS_LOG_ERROR_F(GetName().c_str(), "Operation", 
+                APASS_LOG_ERROR_F(Elements::Operation, 
                 "Clone OP_GATHER_IN_L1's oOperand[%d] failed; Please check if dst is nullptr.", oOperand->GetMagic());
                 return FAILED;
             }
@@ -82,7 +85,7 @@ Status DuplicateGatherIn::ProcessOp(Function &function, Operation &operation) co
 Status DuplicateGatherIn::Process(Function &function) const {
     for (auto &op : function.Operations()) {
         if (ProcessOp(function, op) != SUCCESS) {
-            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "ProcessOp failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "ProcessOp failed.");
             return FAILED;
         }
     }

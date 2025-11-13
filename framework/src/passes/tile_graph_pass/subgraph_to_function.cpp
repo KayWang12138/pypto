@@ -16,14 +16,15 @@
 #include "passes/tile_graph_pass/subgraph_to_function.h"
 #include "interface/function/function.h"
 #include "interface/tensor/logical_tensor.h"
-#include "passes/pass_utils/pass_utils.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "passes/pass_utils/parallel_tool.h"
 #include "passes/pass_check/subgraph_to_function_checker.h"
 #include "passes/pass_utils/graph_utils.h"
-#include "passes/pass_utils/pass_utils.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "SubgraphToFunction"
 
 namespace npu::tile_fwk {
 
@@ -37,7 +38,7 @@ Status SubgraphToFunction::RunOnFunction(Function &function) {
     if (function.GetFunctionType() == FunctionType::STATIC) {
         // 1. Construct in-graph & out-graph
         if (staticProcessor_.BuildGraph(function) != SUCCESS) {
-            APASS_LOG_ERROR_F(GetName().c_str(), "Function", "Failed to build graph from input function.");
+            APASS_LOG_ERROR_F(Elements::Function, "Failed to build graph from input function.");
             return FAILED;
         }
         // reconnect in-graph and out-graph by Incast and Outcast
@@ -308,13 +309,13 @@ void SubgraphToFunction::ProcessCopyInOperand(
     Operation &tileOp, std::vector<int64_t> &offset, std::vector<int64_t> &shape) const {
     std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(tileOp.GetOpAttribute());
     if (!attr) {
-        APASS_LOG_WARN_F(GetName().c_str(), "Operation", "Invalid attribute for copyin operation %d. Please check the input graph if the attribute of the operation is missing.", tileOp.GetOpMagic());
+        APASS_LOG_WARN_F(Elements::Operation, "Invalid attribute for copyin operation %d. Please check the input graph if the attribute of the operation is missing.", tileOp.GetOpMagic());
         return;
     }
     std::vector<OpImmediate> opImmList = attr->GetCopyInAttr().first;
     shape = attr->GetSpecifiedShape(kShapePlaceholderForParameterized);
     if (!opImmList.empty() && opImmList[0].IsParameter()) {
-        APASS_LOG_DEBUG_F(GetName().c_str(), "Tensor", "CopyinOperand: First operand is paramter, skip offset processiong.");
+        APASS_LOG_DEBUG_F(Elements::Tensor, "CopyinOperand: First operand is paramter, skip offset processiong.");
         return;
     }
     offset.clear();
@@ -327,13 +328,13 @@ void SubgraphToFunction::ProcessCopyOutOperand(
     Operation &tileOp, std::vector<int64_t> &offset, std::vector<int64_t> &shape) const {
     std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(tileOp.GetOpAttribute());
     if (!attr) {
-        APASS_LOG_DEBUG_F(GetName().c_str(), "Tensor", "CopyOutOperand: Invalid op attribute for op %d.", tileOp.GetOpMagic());
+        APASS_LOG_DEBUG_F(Elements::Tensor, "CopyOutOperand: Invalid op attribute for op %d.", tileOp.GetOpMagic());
         return;
     }
     std::vector<OpImmediate> opImmList = attr->GetCopyOutAttr().second;
     shape = attr->GetSpecifiedShape(kShapePlaceholderForParameterized);
     if (!opImmList.empty() && opImmList[0].IsParameter()) {
-        APASS_LOG_DEBUG_F(GetName().c_str(), "Tensor", "CopyOutOperand: First operand is paramter, skip offset processiong.");
+        APASS_LOG_DEBUG_F(Elements::Tensor, "CopyOutOperand: First operand is paramter, skip offset processiong.");
         return;
     }
     offset.clear();
@@ -389,7 +390,7 @@ Status SubgraphToFunction::ProcessSubgraph(
     Function &function, size_t i, size_t &programIdx, std::vector<Function *> &outputFuncList) {
     auto subgraph = nLIST[i];
     auto leafName = function.GetRawName() + "_leaf" + std::to_string(i);
-    APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "Add leafFunction %s.", leafName.c_str());
+    APASS_LOG_DEBUG_F(Elements::Operation, "Add leafFunction %s.", leafName.c_str());
 
     Program::GetInstance().BeginFunction(leafName, FunctionType::STATIC, GraphType::BLOCK_GRAPH);
     auto leafFunc = Program::GetInstance().GetCurrentFunction();
@@ -401,7 +402,7 @@ Status SubgraphToFunction::ProcessSubgraph(
     auto result = Program::GetInstance().EndFunction(leafName);
     auto callOp = std::get<1>(result);
     if (callOp == nullptr) {
-        APASS_LOG_ERROR_F(GetName().c_str(), "Opertaion", "leafname %s, program returned nullptr.");
+        APASS_LOG_ERROR_F(Elements::Operation, "leafname %s, program returned nullptr.");
         return FAILED;
     }
     callOp->UpdateSubgraphID(i);
@@ -417,14 +418,14 @@ Status SubgraphToFunction::ProcessCacheResult(const std::tuple<Function *, Opera
     const int getValue = 2;
     // 3.1 Hit subgraph
     if (std::get<getValue>(result)) {
-        APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "LeafFunc %zu Hit Current hashValue is %lu.", i,
+        APASS_LOG_DEBUG_F(Elements::Operation, "LeafFunc %zu Hit Current hashValue is %lu.", i,
             std::get<0>(result)->ComputeHash().GetHash());
         psgToESgMap.insert({std::get<0>(result)->GetProgramId(), i});
         auto callAttr = dynamic_cast<CallOpAttribute *>(callOp->GetOpAttribute().get());
-        if (callAttr == nullptr) { APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Failed to get CallOpAttribute for operation %zu.", i); return FAILED; }
+        if (callAttr == nullptr) { APASS_LOG_ERROR_F(Elements::Operation, "Failed to get CallOpAttribute for operation %zu.", i); return FAILED; }
         auto cacheValue = Program::GetInstance().TryHitCahce(callAttr->GetCalleeHash());
         if (!cacheValue) {
-            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Cache miss for callee hash %lu.", callAttr->GetCalleeHash().GetHash());
+            APASS_LOG_ERROR_F(Elements::Operation, "Cache miss for callee hash %lu.", callAttr->GetCalleeHash().GetHash());
             return FAILED;
         }
         callAttr->SetCalleeMagicName(cacheValue->cacheFunction->GetMagicName());
@@ -432,12 +433,12 @@ Status SubgraphToFunction::ProcessCacheResult(const std::tuple<Function *, Opera
         return SUCCESS;
     }
     // 3.2 not hit subgraph
-    APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", 
+    APASS_LOG_DEBUG_F(Elements::Operation, 
         "LeafFunc %zu Not Hit. hashValue is %lu.", i, std::get<0>(result)->ComputeHash().GetHash());
     psgToESgMap.insert({programIdx, i});
     std::get<0>(result)->SetProgramId(programIdx);
     auto callAttr = dynamic_cast<CallOpAttribute *>(callOp->GetOpAttribute().get());
-    if (callAttr == nullptr) { APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Failed to get CallOpAttribute for operation %zu.", i); return FAILED; }
+    if (callAttr == nullptr) { APASS_LOG_ERROR_F(Elements::Operation, "Failed to get CallOpAttribute for operation %zu.", i); return FAILED; }
     callAttr->invokeInfo_->UpdateProgramSubgraphId(programIdx);
     programIdx++;
     outputFuncList.push_back(std::get<0>(result));
@@ -480,20 +481,20 @@ Status SubgraphToFunction::IslandToFunction(Function &function) {
     auto rootName = Function::CreateRootRawName(function.GetRawName());
     Program::GetInstance().BeginFunction(rootName, function.GetFunctionType(), GraphType::EXECUTE_GRAPH);
     auto rootFunc = Program::GetInstance().GetCurrentFunction();
-    if (rootFunc == nullptr) { APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Failed to create root function."); return FAILED; }
+    if (rootFunc == nullptr) { APASS_LOG_ERROR_F(Elements::Operation, "Failed to create root function."); return FAILED; }
     InitializeRootFunction(function, rootFunc);
 
     // 2. Call HashInterface to compute hash value to determine isomorphism of each subgraph.
     size_t programIdx = 0;
     for (size_t i = 0; i < nLIST.size(); i++) {
         Status status = ProcessSubgraph(function, i, programIdx, mergedFuncList);
-        if (status != SUCCESS) { APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Failed to process subgraph %zu.", i); return status; }
+        if (status != SUCCESS) { APASS_LOG_ERROR_F(Elements::Operation, "Failed to process subgraph %zu.", i); return status; }
     }
 
     // 3. Finalize root function
     auto rootEndResult = Program::GetInstance().EndFunction(rootName, false);
     auto resultFunc = std::get<0>(rootEndResult);
-    if (resultFunc != rootFunc) { APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Root function mismatch after finalization."); return FAILED; }
+    if (resultFunc != rootFunc) { APASS_LOG_ERROR_F(Elements::Operation, "Root function mismatch after finalization."); return FAILED; }
     if (function.GetFunctionType() == FunctionType::STATIC) {
         rootFunc->topoInfo_ = function.topoInfo_;
     }
@@ -503,7 +504,7 @@ Status SubgraphToFunction::IslandToFunction(Function &function) {
     if (function.GetFunctionType() == FunctionType::STATIC) {
         Status readyStateStatus = staticProcessor_.HandleReadyStates(rootFunc);
         if (readyStateStatus != SUCCESS) {
-            APASS_LOG_ERROR_F(GetName().c_str(), "Operation", "Failed to handle ready states.");
+            APASS_LOG_ERROR_F(Elements::Operation, "Failed to handle ready states.");
             return readyStateStatus;
         }
     }
@@ -511,7 +512,7 @@ Status SubgraphToFunction::IslandToFunction(Function &function) {
     SymbolizeFunction(rootFunc, mergedFuncList);
 
     auto graphNum = nLIST.size();
-    APASS_LOG_INFO_F(GetName().c_str(), "Operation", "Compressed Graph %zu, total_Graph %zu.", programIdx, graphNum);
+    APASS_LOG_INFO_F(Elements::Operation, "Compressed Graph %zu, total_Graph %zu.", programIdx, graphNum);
     return SUCCESS;
 }
 
@@ -541,7 +542,7 @@ void SubgraphToFunction::InitializeRootFunction(Function& function, Function* ro
             }
         }
     }
-    APASS_LOG_DEBUG_F(GetName().c_str(), "Operation", "Root function tensor map size is %zu %zu.",
+    APASS_LOG_DEBUG_F(Elements::Operation, "Root function tensor map size is %zu %zu.",
         rootFunc->GetTensorMap().inverseMap_.size(), rootFunc->GetTensorMap().tensorMap_.size());
 }
 
