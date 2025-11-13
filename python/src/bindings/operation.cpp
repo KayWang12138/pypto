@@ -205,6 +205,9 @@ void bind_operation(py::module &m) {
         "logical_not", [](const Tensor &self) { return npu::tile_fwk::LogicalNot(self); },
         "Tensor logical not.");
     m.def(
+        "logical_and", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::LogicalAnd(self, other); },
+        "Tensor logical and.");
+    m.def(
         "where", [](const Tensor &a, const Tensor &b, const Tensor &c) { return npu::tile_fwk::Where(a, b, c); },
         "Tensor where.");
     m.def(

@@ -1545,3 +1545,46 @@ def maximum(input: Tensor, other: Tensor) -> Tensor:
     Output out: [3 2 4]
     """
     return pto_impl.maximum(input, other)
+
+
+@op_wrapper
+def logical_and(
+    input: Tensor,
+    other: Tensor
+) -> Tensor:
+    """Computes the element-wise logical AND of `input` and `other`.
+
+    This function calculates the formula: `out = input && other`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The first input tensor.
+    other : Tensor
+        The second input tensor. Should be broadcastable to the shape of `input`.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise logical AND operation results.
+
+    Examples
+    --------
+    x = pto.tensor([True, False], pto.DT_BOOL)
+    y = pto.tensor([True, True], pto.DT_BOOL)
+    z = pto.logical_and(x, y)
+
+    Input x: [True, False]
+    Input y: [True, True] 
+    Output z: [True, False]
+
+    # 支持广播
+    x = pto.tensor([[True, False], [False, True]], pto.DT_BOOL)
+    y = pto.tensor([True, False], pto.DT_BOOL)
+    z = pto.logical_and(x, y)
+
+    Input x: [[True, False], [False, True]]
+    Input y: [True, False]
+    Output z: [[True, False], [False, False]]
+    """
+    return pto_impl.logical_and(input, other)

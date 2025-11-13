@@ -443,3 +443,44 @@ class TopKTestCase(TestCase):
                 parse_list_str(self._case_desc.params.get("islargest"))[0]
             ),
         }
+
+
+
+class LogicalAndTestCase(TestCase):
+    def __init__(
+        self,
+        case_index: str,
+        case_name: str,
+        input_tensors: list,
+        output_tensors: list,
+        view_shape: tuple,
+        tile_shape: tuple,
+        params: dict,
+    ):
+        super().__init__(
+            case_index,
+            case_name,
+            "LogicalAnd",
+            input_tensors,
+            output_tensors,
+            view_shape,
+            tile_shape,
+            params,
+            PTOTestCaseRunner(
+                "LogicalAnd",
+                input_tensors,
+                output_tensors,
+                view_shape,
+                tile_shape,
+                params,
+            ),
+        )
+
+    def run_in_dyn_func(self, inputs, _params: dict) -> dict:
+        return pto.logical_and(*inputs)
+
+    def golden_func(self, inputs, _params: dict) -> list:
+        return [torch.logical_and(*inputs)]
+
+    def golden_func_params(self) -> dict:
+        return {}
