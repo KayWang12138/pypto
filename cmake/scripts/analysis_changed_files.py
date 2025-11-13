@@ -115,30 +115,42 @@ class Analysis:
         cases_str: str = ",".join(cases) if cases else ""
         return cases_str
 
-    def _init_get_models(self) -> Dict[str, Module]:
+    def _get_write_list(self, _desc: Dict[str, Any]) -> List[Path]:
+        _lst: List[str] = _desc.get(self._KEY_WRITE_LIST, [])
+        _lst = _lst if _lst else []
+        _rst: List[Path] = [Path(_rel) for _rel in _lst]
+        _desc.pop(self._KEY_WRITE_LIST, None)
+        return _rst
 
-        def _get_write_list(_desc: Dict[str, Any]) -> List[Path]:
-            _lst: List[str] = _desc.get(self._KEY_WRITE_LIST, [])
-            _lst = _lst if _lst else []
-            _rst: List[Path] = [Path(_rel) for _rel in _lst]
-            _desc.pop(self._KEY_WRITE_LIST, None)
-            return _rst
-
+    def _init_get_models_from_file(self, file: Path, write_list: List[Path] = None) -> Dict[str, Module]:
         modules: Dict[str, Module] = {}
-        with open(self.rule, 'r', encoding='utf-8') as f:
+        with open(file, 'r', encoding='utf-8') as f:
             rule_dict: Optional[Dict[str, Any]] = yaml.safe_load(f)
         rule_dict = rule_dict.get(self.type, {})
         # 处理 type 下白名单
-        type_write_list: List[Path] = _get_write_list(_desc=rule_dict)
+        type_write_list: List[Path] = self._get_write_list(_desc=rule_dict)
+        type_write_list = write_list if write_list else type_write_list
         # 循环处理 module
         for name, desc in rule_dict.items():
             # 处理 module 下白名单
-            write_list: List[Path] = _get_write_list(_desc=desc)
+            write_list: List[Path] = self._get_write_list(_desc=desc)
             write_list.extend(type_write_list)
             # 获取 module 下用例列表
             cases_list: List[str] = desc.get(self._KEY_CASES, [])
             mod = Module(name=name, cases=cases_list, write=write_list)
             modules[name] = mod
+        return modules
+
+    def _init_get_models(self) -> Dict[str, Module]:
+        yaml_lst = self.rule.glob(pattern=f"classify_rule_*.yaml")
+        modules: Dict[str, Module] = {}
+        rule_file = self.rule.joinpath(f"classify_rule_{self.type}.yaml")
+        with open(rule_file, 'r', encoding='utf-8') as f:
+            rule_dict: Optional[Dict[str, Any]] = yaml.safe_load(f)
+        write_list = self._get_write_list(_desc=rule_dict.get(self.type, {}))
+        for file in yaml_lst:
+            file_module: Dict[str, Module] = self._init_get_models_from_file(file=file, write_list=write_list)
+            modules.update(file_module)
         return modules
 
     def _init_get_changed(self) -> List[Path]:

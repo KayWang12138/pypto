@@ -57,7 +57,7 @@ function(PTO_Fwk_STest_AddLib)
 endfunction()
 
 function(PTO_Fwk_STest_GetGTestFilterList GTEST_FILTER_LIST)
-    get_filename_component(_ClsFile "${PTO_FWK_SRC_ROOT}/framework/tests/st/configs/classify_rule.yaml" REALPATH)
+    get_filename_component(_ClsFile "${PTO_FWK_SRC_ROOT}/framework/tests/st/configs" REALPATH)
     PTO_Fwk_GTest_GetGTestFilterStr(GTestFilterStr
             CLASSIFY        ${_ClsFile}
             TESTS_TYPE      stest
