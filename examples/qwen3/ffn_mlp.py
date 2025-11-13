@@ -182,13 +182,9 @@ def moe_main(inputs, outputs):
             expert_num = expert_tokens.shape[0]
             w1_2d_shape = (weight_gate_upper.shape[0] * weight_gate_upper.shape[1], weight_gate_upper.shape[2])
             w2_2d_shape = (weight_down_proj.shape[0] * weight_down_proj.shape[1], weight_down_proj.shape[2])
-            w1_2d = pto.tensor(w1_2d_shape, weight_dtype, "w1_2d", format=pto.TileOpFormat.TILEOP_NZ)
-            w2_2d = pto.tensor(w2_2d_shape, weight_dtype, "w2_2d", format=pto.TileOpFormat.TILEOP_NZ)
             for _ in pto.loop(0, 1, 1, name="LOOP_RESHAPE", idx_name="reshape_inplace_1"):
-                def loop_one():
-                    pto.reshape_inplace(weight_gate_upper, w1_2d)
-                    pto.reshape_inplace(weight_down_proj, w2_2d)
-                loop_one()
+                w1_2d = pto.reshape(weight_gate_upper, w1_2d_shape, inplace=True)
+                w2_2d = pto.reshape(weight_down_proj, w2_2d_shape, inplace=True)
             for exp_idx in pto.loop(0, expert_num, 1, name="LOOP_FFN_L0", idx_name="exp_idx"):
                 def loop_expert(exp_idx):
                     # 获取激活专家的token数
