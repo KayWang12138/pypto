@@ -44,14 +44,14 @@ std::string CodeGenOpCloudNPU::PrintVnchwconvStatic(const PrintUnaryTmpBuffParam
     for (int i = 1; i < SHAPE_DIM5; ++i) {
         paramList.emplace_back(std::to_string(s0[i]));
     }
-    std::string templateParam = JoinString(paramList, ", ");
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
     paramList.clear();
     // func actual param
     std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
     std::string src = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
     std::string tmp = "(__ubuf__ " + tmpDtypeStr + "*)" + tmpVar;
     paramList.insert(paramList.end(), {dst, src, tmp});
-    std::string tiloOpCallParam = JoinString(paramList, ", ");
+    std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
     os << tileOpName.c_str() << "_<" << templateParam << ">"
        << "(" << tiloOpCallParam << ");\n";
     return os.str();
@@ -78,7 +78,7 @@ std::string CodeGenOpCloudNPU::PrintVnchwconvDynUnaligned(const PrintUnaryTmpBuf
     for (int i = 1; i < SHAPE_DIM5; ++i) {
         paramList.emplace_back(std::to_string(s0[i]));
     }
-    std::string templateParam = JoinString(paramList, ", ");
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
     paramList.clear();
 
     std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
@@ -89,7 +89,7 @@ std::string CodeGenOpCloudNPU::PrintVnchwconvDynUnaligned(const PrintUnaryTmpBuf
         paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dynShape));
     }
 
-    std::string tiloOpCallParam = JoinString(paramList, ", ");
+    std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
     os << tileOpName.c_str() << "_<" << templateParam << ">"
        << "(" << tiloOpCallParam << ");\n";
     return os.str();
@@ -186,7 +186,7 @@ std::string CodeGenOpCloudNPU::PrintReduceLastAxisDynamicUnalign(const PrintUnar
     // tmp only need the last axis shape
     paramList.emplace_back(std::to_string(tmpRawShape[ID3]));
 
-    std::string templateParam = JoinString(paramList, ", ");
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
     paramList.clear();
 
     std::string dstName = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
@@ -197,7 +197,7 @@ std::string CodeGenOpCloudNPU::PrintReduceLastAxisDynamicUnalign(const PrintUnar
         paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dynShape));
     }
 
-    std::string tiloOpCallParam = JoinString(paramList, ", ");
+    std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
     oss << tileOpName << "_<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
     return oss.str();
 }
@@ -262,7 +262,7 @@ std::string CodeGenOpCloudNPU::PrintCompactStatic(const PrintUnaryTmpBuffParam &
     for (int i = 0; i < SHAPE_DIM4; ++i) {
         paramList.emplace_back(std::to_string(srcRawShape[i]));
     }
-    std::string templateParam = JoinString(paramList, ", ");
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
     paramList.clear();
 
     std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
@@ -270,7 +270,7 @@ std::string CodeGenOpCloudNPU::PrintCompactStatic(const PrintUnaryTmpBuffParam &
     std::string tmp = "(__ubuf__ " + tmpDtypeStr + "*)" + tmpVar;
     paramList.insert(paramList.end(), {dst, src, tmp});
 
-    std::string tiloOpCallParam = JoinString(paramList, ", ");
+    std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
     oss << tileOpName.c_str() << "<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
     return oss.str();
 }

@@ -35,6 +35,10 @@ const std::string GM_PARAM_TYPE_FOR_STATIC = "__gm__ GMTensorInfo";
 const std::string GM_PARAM_TYPE_FOR_DYN = "CoreFuncParam";
 const std::string GM_STACK_BASE = "GMStackBase";
 
+const std::pair<std::string, std::string> DELIMITER_PARENTHESES("(", ")");
+const std::pair<std::string, std::string> DELIMITER_ANGLE_BRACKETS("<", ">");
+const std::string CONN_COMMA = ", ";
+
 constexpr const int K_BYTES_OF16_BIT = 2;
 constexpr const int K_BYTES_OF32_BIT = 4;
 
@@ -94,10 +98,10 @@ const std::map<OperandType, std::string> BUFFER_TYPE_TO_PREFIX = {
     {OperandType::BUF_L0C,  "L0C"},
     {OperandType::BUF_FIX, "FBUF"},
     { OperandType::BUF_BT,   "BT"},
-    {OperandType::BUF_DDR,  "GM"},
+    {OperandType::BUF_DDR,   "GM"},
 };
 
-//lowercase version
+// lowercase version
 const std::map<OperandType, std::string> BUFFER_TYPE_TO_PREFIX_LC = {
     { OperandType::BUF_UB,   "ub"},
     { OperandType::BUF_L1,   "l1"},
@@ -106,20 +110,16 @@ const std::map<OperandType, std::string> BUFFER_TYPE_TO_PREFIX_LC = {
     {OperandType::BUF_L0C,  "l0c"},
     {OperandType::BUF_FIX, "fbuf"},
     { OperandType::BUF_BT,   "bt"},
-    {OperandType::BUF_DDR,  "gm"},
+    {OperandType::BUF_DDR,   "gm"},
 };
 
-enum class VecScalMode {
-    VEC_MODE,
-    SCALAR_MODE
-};
+enum class VecScalMode { VEC_MODE, SCALAR_MODE };
 
 struct CodeGenCtx {
     std::string includePath = "";
     std::string cceDir = "";
     CodeGenCtx() = default;
-    CodeGenCtx(std::string inPath, std::string cmpPath)
-        : includePath(std::move(inPath)), cceDir(std::move(cmpPath)) {}
+    CodeGenCtx(std::string inPath, std::string cmpPath) : includePath(std::move(inPath)), cceDir(std::move(cmpPath)) {}
     bool IsCCEPathEmpty() const { return cceDir.empty(); }
     bool IsIncludePathEmpty() const { return includePath.empty(); }
 };

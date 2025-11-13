@@ -215,6 +215,13 @@ std::string CodeGenCloudNPU::GenAllocForLocalBuffer(const Operation &op, SymbolM
     return allocSourceCode;
 }
 
+std::string BuildDynParamInfo(const DynParamInfo &info) {
+    std::vector<std::string> params{"param", std::to_string(info.tensorIndex),
+        std::to_string(info.tensorBaseAddrCoaIndex), std::to_string(info.dimSize), std::to_string(info.dimIndex)};
+    auto res = WrapParamByParentheses(params);
+    return res;
+}
+
 // GET_PARAM_OFFSET_BY_IDX(param, n, base, dim, idx)
 // GET_PARAM_VALID_SHAPE_BY_IDX(param, n, base, dim, idx)
 std::string CodeGenCloudNPU::GenDynParamForExpr(const Function &func) const {
@@ -234,9 +241,8 @@ std::string CodeGenCloudNPU::GenDynParamForExpr(const Function &func) const {
         } else if (info.type == DynParamInfoType::OFFSET) {
             dynParamExpr += GET_PARAM_OFFSET_BY_IDX;
         }
-        dynParamExpr += "(param, " + std::to_string(info.tensorIndex) + ", " +
-                        std::to_string(info.tensorBaseAddrCoaIndex) + ", " + std::to_string(info.dimSize) + ", " +
-                        std::to_string(info.dimIndex) + ");\n";
+        std::string params = BuildDynParamInfo(info);
+        dynParamExpr.append(params).append(";\n");
         dynParamList += dynParamExpr;
     }
     return dynParamList;
@@ -536,8 +542,6 @@ std::pair<int, std::string> CodeGenCloudNPU::CompileCCE(
     const std::string objFile = compileInfo.GetBinAbsPath();
 
     std::string coreType = compileInfo.IsCube() ? "dav-c220-cube" : "dav-c220-vec";
-    std::string includePath = GetIncludePathForCompileCCE();
-    std::string curSoPath = GetCurrentSharedLibPath();
     std::string allCompileOpts = BuildCompileOptions(compileInfo, compileOptions);
 
     std::ostringstream oss;

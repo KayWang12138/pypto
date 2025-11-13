@@ -77,6 +77,16 @@ std::string PrintParams(
     return oss.str();
 }
 
+template <typename T = std::string>
+std::string WrapParamByParentheses(const std::vector<T> &params) {
+    return PrintParams(DELIMITER_PARENTHESES, params, CONN_COMMA);
+}
+
+template <typename T = std::string>
+std::string WrapParamByAngleBrackets(const std::vector<T> &params) {
+    return PrintParams(DELIMITER_ANGLE_BRACKETS, params, CONN_COMMA);
+}
+
 std::vector<int64_t> NormalizeShape(const std::vector<int64_t> &shapeVec, unsigned dim);
 std::string FormatFloat(float f, int precision = 9);
 

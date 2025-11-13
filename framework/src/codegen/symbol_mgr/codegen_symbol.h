@@ -94,7 +94,7 @@ struct TileTensor {
         }
         oss << ")";
         params.emplace_back(oss.str());
-        return PrintParams({"(", ")"}, params, ", ");
+        return WrapParamByParentheses(params);
     }
 
     std::string ToString() const {
@@ -107,7 +107,7 @@ private:
     std::string GenLayoutParam(const std::string &paramName, const std::vector<std::string> &paramValue) const {
         std::ostringstream oss;
         oss << paramName << dim << DIM;
-        oss << PrintParams({"(", ")"}, paramValue, ", ");
+        oss << WrapParamByParentheses(paramValue);
         return oss.str();
     }
     std::string GenShapeParam() const { return GenLayoutParam("Shape", shape); }
@@ -173,7 +173,7 @@ private:
             params.insert(params.end(), originShape.begin(), originShape.end());
         }
         params.insert(params.end(), rawShape.begin(), rawShape.end());
-        return PrintParams({"<", ">"}, params, ", ");
+        return WrapParamByAngleBrackets(params);
     }
 };
 

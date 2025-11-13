@@ -41,7 +41,7 @@ std::string CodeGenOpCloudNPU::PrintSortDynamicUnaligned(const SortParam &param)
         paramList.emplace_back(std::to_string(src0Shape[i]));
     }
 
-    std::string templateParam = JoinString(paramList, ", ");
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
     templateParam += GenOpAttr();
     paramList.clear();
     std::string dstParam = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
@@ -50,7 +50,7 @@ std::string CodeGenOpCloudNPU::PrintSortDynamicUnaligned(const SortParam &param)
     for (int i = 0; i < SHAPE_DIM4; ++i) {
         paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dynSrcShape[i]));
     }
-    std::string tileCallParam = JoinString(paramList, ", ");
+    std::string tileCallParam = JoinString(paramList, CONN_COMMA);
 
     std::ostringstream oss;
     oss << tileOpName << "<" << templateParam << ">" << "(" << tileCallParam << ");\n";
@@ -82,13 +82,13 @@ std::string CodeGenOpCloudNPU::PrintSortStatic(const SortParam &param) const {
     paramList.insert(paramList.end(), {std::to_string(src0Shape[2]), std::to_string(src0Shape[3])});
     paramList.insert(paramList.end(), {std::to_string(orisrcShape0), std::to_string(orisrcShape1)});
 
-    std::string templateParam = JoinString(paramList, ", ");
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
     templateParam += GenOpAttr();
     paramList.clear();
     std::string dstParam = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
     std::string srcParam = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
     paramList.insert(paramList.end(), {dstParam, srcParam});
-    std::string tileCallParam = JoinString(paramList, ", ");
+    std::string tileCallParam = JoinString(paramList, CONN_COMMA);
     std::ostringstream oss;
     oss << tileOpName << "<" << templateParam << ">" << "(" << tileCallParam << ");\n";
     return oss.str();
@@ -120,7 +120,7 @@ std::string CodeGenOpCloudNPU::PrintTiledSortDynamicUnaligned(const TiledSortPar
         paramList.emplace_back(std::to_string(srcShape[i]));
     }
 
-    std::string templateParam = JoinString(paramList, ", ");
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
     templateParam += GenOpAttr();
     paramList.clear();
     std::string dstParam = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
@@ -134,7 +134,7 @@ std::string CodeGenOpCloudNPU::PrintTiledSortDynamicUnaligned(const TiledSortPar
         paramList.emplace_back(dynSrc0Shape[i].Dump());
     }
     paramList.emplace_back(dynSrc3Shape[ID3].Dump());
-    std::string tileCallParam = JoinString(paramList, ", ");
+    std::string tileCallParam = JoinString(paramList, CONN_COMMA);
 
     std::ostringstream oss;
     oss << tileOpName << "<" << templateParam << ">" << "(" << tileCallParam << ");\n";
@@ -285,7 +285,7 @@ std::string CodeGenOpCloudNPU::GenSortOp() const {
     paramList.emplace_back(std::to_string(xShape[1]));
     paramList.emplace_back(std::to_string(idxShape[0]));
     paramList.emplace_back(std::to_string(idxShape[1]));
-    std::string templateParam = JoinString(paramList, ", ");
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
     templateParam += GenOpAttr();
 
     paramList.clear();
@@ -294,7 +294,7 @@ std::string CodeGenOpCloudNPU::GenSortOp() const {
     std::string tmp = "(" + GetAddrTypeByOperandType(operandType[ID2]) + " " + xDtypeStr + "*)" + tmpVar;
     std::string x = "(" + GetAddrTypeByOperandType(operandType[ID3]) + " " + xDtypeStr + "*)" + xVar;
     paramList.insert(paramList.end(), {y, yIdx, tmp, x});
-    std::string tileOpParam = JoinString(paramList, ", ");
+    std::string tileOpParam = JoinString(paramList, CONN_COMMA);
 
     std::ostringstream os;
     os << tileOpName.c_str() << "<" << templateParam << ">" << "(" << tileOpParam << ");\n";
@@ -322,7 +322,7 @@ std::string CodeGenOpCloudNPU::GenMergeOp() const {
     paramList.emplace_back(std::to_string(xShape[1]));
     paramList.emplace_back(std::to_string(idxShape[0]));
     paramList.emplace_back(std::to_string(idxShape[1]));
-    std::string templateParam = JoinString(paramList, ", ");
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
     templateParam += GenOpAttr();
 
     paramList.clear();
@@ -332,7 +332,7 @@ std::string CodeGenOpCloudNPU::GenMergeOp() const {
     std::string x = "(" + GetAddrTypeByOperandType(operandType[ID3]) + " " + xDtypeStr + "*)" + xVar;
     std::string idx = "(" + GetAddrTypeByOperandType(operandType[ID4]) + " " + idxDtypeStr + "*)" + idxVar;
     paramList.insert(paramList.end(), {y, yIdx, tmp, x, idx});
-    std::string tileOpParam = JoinString(paramList, ", ");
+    std::string tileOpParam = JoinString(paramList, CONN_COMMA);
 
     std::ostringstream os;
     os << tileOpName.c_str() << "<" << templateParam << ">" << "(" << tileOpParam << ");\n";
@@ -363,7 +363,7 @@ std::string CodeGenOpCloudNPU::GenCompareAndSwapOp() const {
     paramList.emplace_back(std::to_string(xShape[1]));
     paramList.emplace_back(std::to_string(idxShape[0]));
     paramList.emplace_back(std::to_string(idxShape[1]));
-    std::string templateParam = JoinString(paramList, ", ");
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
     templateParam += GenOpAttr();
 
     paramList.clear();
@@ -376,7 +376,7 @@ std::string CodeGenOpCloudNPU::GenCompareAndSwapOp() const {
     std::string x1 = "(" + GetAddrTypeByOperandType(operandType[ID6]) + " " + xDtypeStr + "*)" + x1Var;
     std::string idx1 = "(" + GetAddrTypeByOperandType(operandType[ID7]) + " " + idxDtypeStr + "*)" + idx1Var;
     paramList.insert(paramList.end(), {y0, yIdx0, y1, yIdx1, x0, idx0, x1, idx1});
-    std::string tileOpParam = JoinString(paramList, ", ");
+    std::string tileOpParam = JoinString(paramList, CONN_COMMA);
 
     std::ostringstream os;
     os << tileOpName.c_str() << "<" << templateParam << ">" << "(" << tileOpParam << ");\n";

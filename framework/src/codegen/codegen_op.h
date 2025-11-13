@@ -50,15 +50,6 @@ const std::unordered_set<Opcode> SKIP_OPCODE = {
 const int MAX_OPERANDS = 11;
 const int NULL_OPERAND = 0;
 
-struct OpInfo {
-    std::string op;
-    std::vector<int> operands;       // d, s0, s1
-    std::vector<DataType> dataTypes; // dstDType, src0DType, src1DType
-    int bufferId{0};
-    OpInfo(std::string opArg, const std::vector<int> &operandsArg, const std::vector<DataType> &dataTypesArg)
-        : op(std::move(opArg)), operands(operandsArg), dataTypes(dataTypesArg) {}
-};
-
 class CodeGenOp {
 public:
     explicit CodeGenOp(SymbolManager &symbolManager, FunctionType funcType, const std::map<int, int> &locToOffset = {},

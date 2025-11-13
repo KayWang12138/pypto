@@ -110,9 +110,8 @@ public:
 
     std::string GenGatherOp() const;
 
-    std::string GenMemCopyCube(
-        const struct OpInfo &opInfo, bool isCopyL0CToGM, bool isCopyL1ToGM, unsigned uf = 0) const;
-    std::string GenMemL1SpillIntoGM(const OpInfo &opInfo, bool isCopyL0CToGM, bool isCopyL1ToGM, unsigned uf) const;
+    std::string GenMemCopyCube(bool isLocalToGM, unsigned uf = 0) const;
+    std::string GenMemL1SpillIntoGM(bool isLocalToGM, unsigned uf) const;
 
     std::string GenBinaryWithBrc() const;
 
@@ -188,7 +187,7 @@ private:
 
     std::vector<int64_t> GetTileShapeForMemTransfer(
         OperandType localType, std::vector<int64_t> gmShape, unsigned localIdx) const;
-    std::string GenMemCopyVar(bool isCopyLocalToGM, OperandType localType, unsigned uf = 0) const;
+    std::string GenMemCopyVar(bool isCopyLocalToGM, unsigned uf = 0) const;
 
     std::string GenGMAddrExprWithOffset(const std::string &addrExpr, unsigned gmIdx) const;
     std::string GenAddrExpr(const std::string &addrExpr, unsigned offsetParam) const;
@@ -452,9 +451,9 @@ private:
         // UB <-> GM
         {                Opcode::OP_UB_COPY_IN,                 [this]() { return GenUBCopyIn(); }},
         {               Opcode::OP_UB_COPY_OUT,                [this]() { return GenUBCopyOut(); }},
-        {               Opcode::OP_RESHAPE_COPY_IN,                [this]() { return GenReshapeCopyIn(); }},
-        {               Opcode::OP_RESHAPE_COPY_OUT,                [this]() { return GenReshapeCopyOut(); }},
-        {                  Opcode::OP_L1_TO_FIX_QUANT_PRE,                [this]() { return GenMemL1ToFB(); }},
+        {           Opcode::OP_RESHAPE_COPY_IN,            [this]() { return GenReshapeCopyIn(); }},
+        {          Opcode::OP_RESHAPE_COPY_OUT,           [this]() { return GenReshapeCopyOut(); }},
+        {       Opcode::OP_L1_TO_FIX_QUANT_PRE,                [this]() { return GenMemL1ToFB(); }},
 
         // L1 <-> GM/BT/L1
         {                Opcode::OP_L1_COPY_IN,              [this]() { return GenMemL1CopyIn(); }},
@@ -464,7 +463,7 @@ private:
         // L0C <-> GM
         {              Opcode::OP_L0C_COPY_OUT,            [this]() { return GenMemL0CCopyOut(); }},
 
-        {               Opcode::OP_L0C_TO_L1,               [this]() { return GenMemL0CToL1(); }},
+        {                 Opcode::OP_L0C_TO_L1,               [this]() { return GenMemL0CToL1(); }},
         // L1 <-> L0
         {                 Opcode::OP_L1_TO_L0A,                [this]() { return GenMemL1ToL0(); }},
         {                 Opcode::OP_L1_TO_L0B,                [this]() { return GenMemL1ToL0(); }},
@@ -534,7 +533,7 @@ private:
         {                        Opcode::OP_LN,                  [this]() { return GenUnaryOp(); }},
         // logicalnot
         {                Opcode::OP_LOGICALNOT,             [this]() { return GenLogicalNotOp(); }},
-        // logicaland 
+        // logicaland
         {                Opcode::OP_LOGICALAND,             [this]() { return GenLogicalAndOp(); }},
         // unary with temp buffer
         {                   Opcode::OP_COMPACT,       [this]() { return GenUnaryOpWithTmpBuff(); }},
@@ -551,7 +550,7 @@ private:
         {           Opcode::OP_SCATTER_ELEMENT,        [this]() { return GenScatterElementSOp(); }},
 
         // indexadd
-        {             Opcode::OP_INDEX_ADD,           [this]() { return GenIndexAddOp(); }},
+        {                 Opcode::OP_INDEX_ADD,               [this]() { return GenIndexAddOp(); }},
 
         // transpose with gm
         {         Opcode::OP_TRANSPOSE_MOVEOUT,        [this]() { return GenTransposeDataMove(); }},

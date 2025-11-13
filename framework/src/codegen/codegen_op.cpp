@@ -249,8 +249,8 @@ std::string CodeGenOp::GenOpAttr(bool hasExistingParam) const {
         return {};
     }
 
-    std::string joined = JoinString(attrList, ", ");
-    return hasExistingParam ? ", " + joined : joined;
+    std::string joined = JoinString(attrList, CONN_COMMA);
+    return hasExistingParam ? CONN_COMMA + joined : joined;
 }
 
 void CodeGenOp::ConvertPoolAttribute(const Operation &operation) {
