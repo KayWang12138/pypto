@@ -446,8 +446,11 @@ std::vector<T> GetOpMetaData(const std::vector<OpFunc> &opFuncs, const std::stri
         }
         auto func_id = GetFuncId(test_case);
         if (func_id < 0 || static_cast<size_t>(func_id) >= opFuncs.size()) {
-            // cut function start from 2 dim
-            func_id = GetViewShape(test_case).size() - 2;
+            if (GetViewShape(test_case).size() < 2) { // cut function start from 2 dim
+                func_id = 0;
+            } else {
+                func_id = GetViewShape(test_case).size() - 2;
+            }
         }
         test_case_list.push_back(T(opFuncs[func_id], test_case));
     }

@@ -375,20 +375,27 @@ bool MergeTransposeAxis(const Tensor &operand, std::vector<int64_t> &inputShape,
 Tensor Transpose(const Tensor &self, std::vector<int> perm) {
     DECLARE_TRACER();
     ASSERT(perm.size() == 2) << "Transpose dim num should be 2."; // perm should be 2 dims
-    ASSERT(perm[0] < (int)self.GetShape().size()) << "Transpose dim should less than " << self.GetShape().size();
-    ASSERT(perm[1] < (int)self.GetShape().size()) << "Transpose dim should less than " << self.GetShape().size();
+    int shapeSize = self.GetShape().size();
+    if (perm[0] < 0) {
+        perm[0] += shapeSize;
+    }
+    if (perm[1] < 0) {
+        perm[1] += shapeSize;
+    }
+    ASSERT(perm[0] < shapeSize && perm[0] >= 0) << "Transpose dim 0 is invalid.";
+    ASSERT(perm[1] < shapeSize && perm[1] >= 0) << "Transpose dim 1 is invalid.";
 
     std::sort(perm.begin(), perm.end());
     if ((self.GetShape()[perm[0]] == 1 && self.GetShape()[perm[1]] == 1) || perm[0] == perm[1]) {
         return self;
     }
     auto oldVecTileShapes = TileShape::Current().GetVecTile();
-    ASSERT(oldVecTileShapes.size() == self.GetShape().size()) << "TileShape dim num should same to input.";
+    ASSERT((int)oldVecTileShapes.size() == shapeSize) << "TileShape dim num should same to input.";
     auto oldValidShapes = self.GetStorage()->GetDynValidShape();
     if (oldValidShapes.empty()) {
         oldValidShapes = SymbolicScalar::FromConcrete(self.GetShape());
     }
-    ASSERT(oldValidShapes.size() == self.GetShape().size()) << "ValidShape dim num should same to input.";
+    ASSERT((int)oldValidShapes.size() == shapeSize) << "ValidShape dim num should same to input.";
 
     std::vector<int64_t> newInputShape;
     std::vector<int64_t> newVecTileShape;

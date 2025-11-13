@@ -63,6 +63,10 @@ static void TransposeOperationExeFunc3Dims(
     const int firstViewShape = transposeInfo->viewShape_[0];
     const int secondViewShape = transposeInfo->viewShape_[1];
     const int thirdViewShape = transposeInfo->viewShape_[2];
+    int first_dim = transposeInfo->first_dim_ < 0 ? transposeInfo->first_dim_ + transposeInfo->viewShape_.size() :
+                                                    transposeInfo->first_dim_;
+    int second_dim = transposeInfo->second_dim_ < 0 ? transposeInfo->second_dim_ + transposeInfo->viewShape_.size() :
+                                                    transposeInfo->second_dim_;
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
@@ -81,7 +85,7 @@ static void TransposeOperationExeFunc3Dims(
                     auto res = Transpose(tileTensor0, {transposeInfo->first_dim_, transposeInfo->second_dim_});
                     std::vector<SymbolicScalar> viewOffset = {
                         bIdx * firstViewShape, sIdx * secondViewShape, tIdx * thirdViewShape};
-                    std::swap(viewOffset[transposeInfo->first_dim_], viewOffset[transposeInfo->second_dim_]);
+                    std::swap(viewOffset[first_dim], viewOffset[second_dim]);
                     Assemble(res, viewOffset, outputs[0]);
                 }
             }
@@ -96,6 +100,10 @@ static void TransposeOperationExeFunc4Dims(
     const int secondViewShape = transposeInfo->viewShape_[1];
     const int thirdViewShape = transposeInfo->viewShape_[2];
     const int forthViewShape = transposeInfo->viewShape_[3];
+    int first_dim = transposeInfo->first_dim_ < 0 ? transposeInfo->first_dim_ + transposeInfo->viewShape_.size() :
+                                                    transposeInfo->first_dim_;
+    int second_dim = transposeInfo->second_dim_ < 0 ? transposeInfo->second_dim_ + transposeInfo->viewShape_.size() :
+                                                    transposeInfo->second_dim_;
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
@@ -120,7 +128,7 @@ static void TransposeOperationExeFunc4Dims(
                         auto res = Transpose(tileTensor0, {transposeInfo->first_dim_, transposeInfo->second_dim_});
                         std::vector<SymbolicScalar> viewOffset = {bIdx * firstViewShape, sIdx * secondViewShape,
                             tIdx * thirdViewShape, pIdx * forthViewShape};
-                        std::swap(viewOffset[transposeInfo->first_dim_], viewOffset[transposeInfo->second_dim_]);
+                        std::swap(viewOffset[first_dim], viewOffset[second_dim]);
                         Assemble(res, viewOffset, outputs[0]);
                     }
                 }
@@ -137,6 +145,10 @@ static void TransposeOperationExeFunc5Dims(
     const int thirdViewShape = transposeInfo->viewShape_[2];
     const int forthViewShape = transposeInfo->viewShape_[3];
     const int fifthViewShape = transposeInfo->viewShape_[4];
+    int first_dim = transposeInfo->first_dim_ < 0 ? transposeInfo->first_dim_ + transposeInfo->viewShape_.size() :
+                                                    transposeInfo->first_dim_;
+    int second_dim = transposeInfo->second_dim_ < 0 ? transposeInfo->second_dim_ + transposeInfo->viewShape_.size() :
+                                                    transposeInfo->second_dim_;
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
@@ -165,7 +177,7 @@ static void TransposeOperationExeFunc5Dims(
                             auto res = Transpose(tileTensor0, {transposeInfo->first_dim_, transposeInfo->second_dim_});
                             std::vector<SymbolicScalar> viewOffset = {bIdx * firstViewShape, sIdx * secondViewShape,
                                 tIdx * thirdViewShape, pIdx * forthViewShape, qIdx * fifthViewShape};
-                            std::swap(viewOffset[transposeInfo->first_dim_], viewOffset[transposeInfo->second_dim_]);
+                            std::swap(viewOffset[first_dim], viewOffset[second_dim]);
                             Assemble(res, viewOffset, outputs[0]);
                         }
                     }

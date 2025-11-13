@@ -298,7 +298,8 @@ public:
             dynamicShape[axis] = -1;
         }
         Tensor dynamicT(tensor.GetDataType(), dynamicShape, tensor.GetName(), tensor.GetStorage()->Format());
-        auto [it, _] = this->inputTensors.insert_or_assign(name, dynamicT);
+        auto [it, is_inserted] = this->inputTensors.insert_or_assign(name, dynamicT);
+        ASSERT(is_inserted);
         this->inputTensorList[this->inputNameToIdx.at(name)] = std::cref(it->second);
 
         return it->second;
@@ -308,7 +309,8 @@ public:
         auto &tensor = this->outputTensors.at(name);
         ASSERT(tensor.GetShape().size() == dynShape.size());
         Tensor dynamicT(tensor.GetDataType(), dynShape, tensor.GetName(), tensor.GetStorage()->Format());
-        auto [it, _] =  this->outputTensors.insert_or_assign(name, dynamicT);
+        auto [it, is_inserted] =  this->outputTensors.insert_or_assign(name, dynamicT);
+        ASSERT(is_inserted);
         this->outputTensorList[this->outputNameToIdx.at(name)] = std::cref(it->second);
 
         return it->second;
@@ -378,7 +380,8 @@ private:
 
             auto [tensor, dataPtr] = CreateTensor(tensorName, dtypeStr, shape, binFile, opFormat);
 
-            auto [it, _] = inputTensors.emplace(tensorName, tensor);
+            auto [it, is_inserted] = inputTensors.emplace(tensorName, tensor);
+            ASSERT(is_inserted);
             inputTensorList.push_back(std::cref(it->second));
             this->inputDataList.push_back(dataPtr);
             this->inputNameToIdx.emplace(tensorName, index++);
@@ -394,10 +397,12 @@ private:
             binFile = GetFullPath(binFile);
 
             auto [tensor, dataPtr] = CreateTensor(name, dtype, shape, binFile);
+            (void)tensor;
             this->goldens.emplace(name, dataPtr);
 
-            auto [output, outputData] =  CreateTensor(name, dtype, shape, std::string());
-            auto [it, _] = this->outputTensors.emplace(name, output);
+            auto [output, outputData] = CreateTensor(name, dtype, shape, std::string());
+            auto [it, is_inserted] = this->outputTensors.emplace(name, output);
+            ASSERT(is_inserted);
             this->outputTensorList.push_back(std::cref(it->second));
             this->outputDataList.push_back(outputData);
             this->outputNameToIdx.emplace(name, index++);

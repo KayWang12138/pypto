@@ -258,6 +258,7 @@ static bool resultCmp4TopK(const std::vector<T>& outDataValExp, const T* outData
     }
 
     for (const auto& [idx_index, result_pair]: part_result_dict) {
+        (void)idx_index;
         std::vector<T> exp_list = result_pair.first;
         std::vector<T> act_list = result_pair.second;
 
