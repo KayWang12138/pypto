@@ -543,6 +543,8 @@ def loop(
             The name of the loop index
         unroll_list: Set[int]
             The number of loop layer which is unrolled
+        submit_before_loop: bool
+            Whether to submit calculations before the loop
 
     Returns
     --------
