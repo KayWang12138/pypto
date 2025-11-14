@@ -167,9 +167,9 @@ def gen_op_golden(
     # 2.涉及test_configs数据结构变更，generate_golden_files的接口形式和调用传参可能需联动修改
     if case_index is None:
         for index, test_config in enumerate(test_configs):
-            output_path = Path(output_path, str(index))
-            output_path.mkdir(parents=True, exist_ok=True)
-            generate_golden_files(golden_func, output_path, test_config)
+            output_path1 = Path(output_path, str(index))
+            output_path1.mkdir(parents=True, exist_ok=True)
+            generate_golden_files(golden_func, output_path1, test_config)
     else:
         generate_golden_files(golden_func, output_path, test_configs[case_index])
     return True

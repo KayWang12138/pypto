@@ -197,7 +197,7 @@ class GoldenCtrl:
         return ret
 
     def _prepare_output(self, case: str, reg_info: GoldenRegInfo) -> Tuple[Path, bool]:
-        case_output: Path = Path(self.output, case)
+        case_output: Path = Path(self.output, case.replace("*", ""))
         # 获取原始控制信息(Version, TimeStamp)
         ori_ver: int = 0
         ori_time: float = time.time()
