@@ -323,12 +323,7 @@ size_t Function::GetParamIndex(const RawTensor& rawTensor) {
 }
 
 bool Function::HasCallOperation() {
-    for (const auto &op : Operations()) {
-        if (op.GetOpcode() == Opcode::OP_CALL) {
-            return true;
-        }
-    }
-    return false;
+    return hasCallOp_;
 }
 
 void Function::CreateLeafInAndOutCast(const LogicalTensorPtr &inOrOut, LogicalTensors &inOrOutList) const {
@@ -1016,6 +1011,9 @@ std::unordered_set<int> Function::LoopCheck() {
 }
 
 void Function::SortOperations() {
+    if (hasCallOp_ && this->functionType_ == FunctionType::DYNAMIC) {
+        return;
+    }
     std::unordered_map<const Operation *, int> opToIndex;
     std::unordered_map<const Operation *, std::set<std::pair<int, int>>> usageDict;
 
@@ -1456,6 +1454,9 @@ const Opcode opCode, const LogicalTensors &iOperands, const LogicalTensors &oOpe
     auto &op =
         operations_.emplace_back(std::make_shared<Operation>(*this, opCode, iOperands, oOperands, updateTensorMap));
     opPosition_.emplace(op.get(), operations_.size() - 1);
+    if (operations_.back()->GetOpcode() == Opcode::OP_CALL) {
+        hasCallOp_ = true;
+    }
     return *operations_.back();
 }
 

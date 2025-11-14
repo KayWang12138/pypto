@@ -785,6 +785,7 @@ private:
     std::string funcMagicName_; // Function name
     std::string funcRawName_;   // raw name
     bool sorted_{false};
+    bool hasCallOp_{false};
     size_t totalAicSubGraphCount_ = 0;
     size_t totalAivSubGraphCount_ = 0;
     size_t totalSubGraphCount_ = 0;
