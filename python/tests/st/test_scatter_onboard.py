@@ -28,7 +28,7 @@ class ScatterParamInfo:
         self.axis = axis
 
 
-def scatter_2dim_comm_proc(scatter_para, scatter_func):
+def scatter_2dim_proc(scatter_para, is_inplace):
     pto.runtime._device_init()
     src_shape = scatter_para.src_shape
     indices_shape = scatter_para.indices_shape
@@ -38,7 +38,7 @@ def scatter_2dim_comm_proc(scatter_para, scatter_func):
     self_tensor = pto.tensor(src_shape, pto.DT_FP32, "PTO_TENSOR_SRC")
     indices_tensor = pto.tensor(indices_shape, pto.DT_INT64, "PTO_TENSOR_INDEX")
     dst_tensor = pto.tensor(src_shape, pto.DT_FP32, "PTO_TENSOR_DST")
-    src = pto.element(pto.DT_FP32, scatter_para.sdata)
+    src = scatter_para.sdata
 
     b_loop_num = math.ceil(indices_shape[0] / view_shape[0])
     s_loop_num = math.ceil(indices_shape[1] / view_shape[1])
@@ -60,7 +60,10 @@ def scatter_2dim_comm_proc(scatter_para, scatter_func):
                         (pto.symbolic_scalar(indices_shape[1]) -
                         s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
                 pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
-                tmp_dst_tensor.move(scatter_func(view_tensor_src, view_tensor_index, src, scatter_para.axis))
+                if is_inplace == True:
+                    tmp_dst_tensor.move(pto.scatter_(view_tensor_src, scatter_para.axis, view_tensor_index, src))
+                else:
+                    tmp_dst_tensor.move(pto.scatter(view_tensor_src, scatter_para.axis, view_tensor_index, src))
                 pto.assemble(tmp_dst_tensor, [b_idx * view_shape[0], s_idx * view_shape[1]], dst_tensor)
                 del view_tensor_src, view_tensor_index, tmp_dst_tensor
     assert isinstance(dst_tensor, pto.tensor)
@@ -83,7 +86,6 @@ def scatter_2dim_comm_proc(scatter_para, scatter_func):
     pto.runtime._device_fini()
 
 
-@pytest.mark.skip(reason="Dep operation interface")
 def test_scatter__onboard():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
@@ -93,10 +95,9 @@ def test_scatter__onboard():
     idx1 = 5
     scatter_para = ScatterParamInfo(2.0, 0, b, s, idx0, idx1)
 
-    scatter_2dim_comm_proc(scatter_para, pto.scatter_)
+    scatter_2dim_proc(scatter_para, True)
 
 
-@pytest.mark.skip(reason="Dep operation interface")
 def test_scatter_onboard():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
@@ -104,6 +105,6 @@ def test_scatter_onboard():
     s = 4
     idx0 = 3
     idx1 = 4
-    scatter_para = ScatterParamInfo(2.0, 0, b, s, idx0, idx1)
+    scatter_para = ScatterParamInfo(2.0, 1, b, s, idx0, idx1)
 
-    scatter_2dim_comm_proc(scatter_para, pto.scatter)
+    scatter_2dim_proc(scatter_para, False)

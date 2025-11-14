@@ -396,7 +396,13 @@ class Tensor:
             valid_shape = []
         return pto.expand_clone(self, shape, valid_shape=valid_shape)
 
-    def scatter(self, dim: int, index: 'Tensor', src: 'Tensor') -> 'Tensor':
+    def scatter_update(self, dim: int, index: 'Tensor', src: 'Tensor') -> 'Tensor':
+        return pto.scatter_update(self, dim, index, src)
+
+    def scatter_(self, dim: int, index: 'Tensor', src: float) -> 'Tensor':
+        return pto.scatter_(self, dim, index, src)
+
+    def scatter(self, dim: int, index: 'Tensor', src: float) -> 'Tensor':
         return pto.scatter(self, dim, index, src)
 
 

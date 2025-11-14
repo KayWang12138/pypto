@@ -78,7 +78,7 @@ def test_scatterupdate_onboard():
                     update_tensor, dst_shape, [0, 0, 0, 0])
                 pto.set_vec_tile_shapes(
                     tile_shape[0], tile_shape[1], tile_shape[2], tile_shape[3])
-                tmp_dst_tensor.move(pto.scatter(
+                tmp_dst_tensor.move(pto.scatter_update(
                     view_tensor_dst, -2, view_tensor_index, view_tensor_src))
                 pto.set_vec_tile_shapes(1, 64, n, d)
                 pto.assemble(tmp_dst_tensor, [0, 0, 0, 0], dst_tensor)
