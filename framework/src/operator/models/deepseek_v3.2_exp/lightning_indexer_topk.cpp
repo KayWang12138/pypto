@@ -151,7 +151,7 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
                     auto mmRes = Cat(concatSrcs, -1); // (group, superBlockSize)
 
                     TileShape::Current().SetVecTile(tileConfig.v1Tile);
-                    auto reluRes = MaxS(mmRes, Element(DT_FP32, 0.0f));       // (group, superBlockSize)
+                    auto reluRes = Maximum(mmRes, Element(DT_FP32, 0.0f));       // (group, superBlockSize)
                     auto mulRes = Mul(reluRes, wB32); // (group, superBlockSize) * (group, 1) -> (group, superBlockSize)
                     auto sumRes = Sum(mulRes, 0); // (1, superBlockSize)
                     Assemble(sumRes, {bs1n2Offset, firstBlockIdx * blockSize}, localSum);
@@ -200,7 +200,7 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
                     auto mmResFP32 = Mul(Cast(mmResI32, DT_FP32), Element(DT_FP32, AVOID_FP32_TO_FP16_OVERFLOW_SCALE));
                     auto mmResFP16 = Cast(mmResFP32, DT_FP16);
                     auto mmResDequant = Mul(Mul(mmResFP16, curQScale), Transpose(curKScale, {0, 1}));
-                    auto reluRes = MaxS(mmResDequant, Element(DT_FP16, 0.0f)); // (group, superBlockSize)
+                    auto reluRes = Maximum(mmResDequant, Element(DT_FP16, 0.0f)); // (group, superBlockSize)
                     auto mulRes = Mul(reluRes, wF16); // (group, superBlockSize) * (group, 1) -> (group, superBlockSize)
 
                     // RowSumSingle doesn't support non-4-byte types currently

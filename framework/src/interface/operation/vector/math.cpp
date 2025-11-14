@@ -511,9 +511,9 @@ Tensor Clip(const Tensor &self, const Element &min, const Element &max) {
 
     Tensor result = self;
     ASSERT(min_.GetDataType() == self.GetDataType());
-    result = MaxS(result, min_);
+    result = Maximum(result, min_);
     ASSERT(max_.GetDataType() == self.GetDataType());
-    result = MinS(result, max_);
+    result = Minimum(result, max_);
     result.GetStorage()->UpdateDynValidShape(self.GetStorage()->GetDynValidShape());
     return result;
 }

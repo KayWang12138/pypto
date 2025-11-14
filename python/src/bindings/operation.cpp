@@ -182,6 +182,9 @@ void bind_operation(py::module &m) {
         "maximum", [](const Tensor &left, const Tensor &right) { return npu::tile_fwk::Maximum(left, right); },
         py::arg("left"), py::arg("right"), "Tensor maximum.");
     m.def(
+        "minimum", [](const Tensor &left, const Tensor &right) { return npu::tile_fwk::Minimum(left, right); },
+        py::arg("left"), py::arg("right"), "Tensor minimum.");
+    m.def(
         "unsqueeze", [](const Tensor &old, int unsqueezeDimNum) { return npu::tile_fwk::Unsqueeze(old, unsqueezeDimNum); },
         "Tensor unsqueeze.");
     m.def(
@@ -355,9 +358,15 @@ void bind_operation(py::module &m) {
         },
         "Tensor dassemble");
     m.def(
-        "maxs",
+        "maximum",
         [](const Tensor &operand1, const Element &operand2) {
-            return npu::tile_fwk::MaxS(operand1, operand2);
+            return npu::tile_fwk::Maximum(operand1, operand2);
+        }
+    );
+    m.def(
+        "minimum",
+        [](const Tensor &operand1, const Element &operand2) {
+            return npu::tile_fwk::Minimum(operand1, operand2);
         }
     );
     m.def(

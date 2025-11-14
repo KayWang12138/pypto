@@ -527,10 +527,10 @@
                 16
             ],
             "params": {
-                "min_value": null,
-                "min_dtype": null,
-                "max_value": null,
-                "max_dtype": null,
+                "min_value": "",
+                "min_dtype": "",
+                "max_value": "",
+                "max_dtype": "",
                 "test_type": -1,
                 "func_id": -1
             },
@@ -661,10 +661,10 @@
                 16
             ],
             "params": {
-                "min_value": null,
-                "min_dtype": null,
-                "max_value": null,
-                "max_dtype": null,
+                "min_value": "",
+                "min_dtype": "",
+                "max_value": "",
+                "max_dtype": "",
                 "test_type": -1,
                 "func_id": -1
             },
@@ -745,10 +745,10 @@
                 16
             ],
             "params": {
-                "min_value": null,
-                "min_dtype": null,
-                "max_value": null,
-                "max_dtype": null,
+                "min_value": "",
+                "min_dtype": "",
+                "max_value": "",
+                "max_dtype": "",
                 "test_type": -1,
                 "func_id": -1
             },
@@ -829,10 +829,10 @@
                 16
             ],
             "params": {
-                "min_value": null,
-                "min_dtype": null,
-                "max_value": null,
-                "max_dtype": null,
+                "min_value": "",
+                "min_dtype": "",
+                "max_value": "",
+                "max_dtype": "",
                 "test_type": -1,
                 "func_id": -1
             },
@@ -1661,10 +1661,10 @@
                 16
             ],
             "params": {
-                "min_value": null,
-                "min_dtype": null,
-                "max_value": null,
-                "max_dtype": null,
+                "min_value": "",
+                "min_dtype": "",
+                "max_value": "",
+                "max_dtype": "",
                 "test_type": -1,
                 "func_id": -1
             },
@@ -1745,10 +1745,10 @@
                 16
             ],
             "params": {
-                "min_value": null,
-                "min_dtype": null,
-                "max_value": null,
-                "max_dtype": null,
+                "min_value": "",
+                "min_dtype": "",
+                "max_value": "",
+                "max_dtype": "",
                 "test_type": 3,
                 "func_id": -1
             },
@@ -1829,10 +1829,10 @@
                 16
             ],
             "params": {
-                "min_value": null,
-                "min_dtype": null,
-                "max_value": null,
-                "max_dtype": null,
+                "min_value": "",
+                "min_dtype": "",
+                "max_value": "",
+                "max_dtype": "",
                 "test_type": 4,
                 "func_id": -1
             },
@@ -1913,10 +1913,10 @@
                 16
             ],
             "params": {
-                "min_value": null,
-                "min_dtype": null,
-                "max_value": null,
-                "max_dtype": null,
+                "min_value": "",
+                "min_dtype": "",
+                "max_value": "",
+                "max_dtype": "",
                 "test_type": 5,
                 "func_id": -1
             },

@@ -182,8 +182,8 @@ Tensor Add(const Tensor &self, const Element &other);
 Tensor Sub(const Tensor &self, const Element &other);
 Tensor Div(const Tensor &self, const Element &other);
 Tensor Mul(const Tensor &self, const Element &other);
-Tensor MinS(const Tensor &operand1, const Element &operand2);
-Tensor MaxS(const Tensor &operand1, const Element &operand2);
+Tensor Minimum(const Tensor &operand1, const Element &operand2);
+Tensor Maximum(const Tensor &operand1, const Element &operand2);
 Tensor Compare(const Tensor &self, const Tensor &other, OpType op, OutType mode);
 Tensor Pow(const Tensor &self, const Element &other);
 

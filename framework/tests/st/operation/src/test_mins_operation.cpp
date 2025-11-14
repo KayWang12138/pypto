@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file test_add_operation.cpp
+ * \file test_mins_operation.cpp
  * \brief
  */
 
@@ -53,7 +53,7 @@ static void MinSOperationExeFuncDoubleCut(
                         std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                     {bIdx * firstViewShape, sIdx * secondViewShape});
                 TileShape::Current().SetVecTile(args->tileShape_);
-                auto res = MinS(tileTensor0, args->value_);
+                auto res = Minimum(tileTensor0, args->value_);
                 Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
             }
         }
@@ -84,7 +84,7 @@ static void MinSOperationExeFuncTripleCut(
                             std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
                     TileShape::Current().SetVecTile(args->tileShape_);
-                    auto res = MinS(tileTensor0, args->value_);
+                    auto res = Minimum(tileTensor0, args->value_);
                     Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                 }
             }
@@ -123,7 +123,7 @@ static void MinSOperationExeFuncQuadrupleCut(
                                 {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
                                     qIdx * fourthViewShape});
                         TileShape::Current().SetVecTile(args->tileShape_);
-                        auto res = MinS(tileTensor0, args->value_);
+                        auto res = Minimum(tileTensor0, args->value_);
                         Assemble(res,
                             {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
                                 qIdx * fourthViewShape},

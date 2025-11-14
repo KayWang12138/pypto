@@ -154,7 +154,11 @@ stest:
       - TestLogicalNot/LogicalNotOperationTest.TestLogicalNot/4
       - TestExpand/ExpandOperationTest.TestExpand/4
       - TestExpand/ExpandOperationTest.TestExpand/20
-      - TestMaxS/MaxSOperationTest.TestMaxS/3
+      - TestMaxS/MaxSOperationTest.TestMaxS/28
+      - TestMinS/MinSOperationTest.TestMinS/28
+      - TestMinimum/MinimumOperationTest.TestMinimum/12
+      - TestMaximum/MaximumOperationTest.TestMaximum/12
+      - TestClip/ClipOperationTest.TestClip/29
       - TestIndexAdd/IndexAddOperationTest.TestIndexAdd/1
       - TestIndexAdd/IndexAddOperationTest.TestIndexAdd/7
       - TestLogicalAnd/LogicalAndOperationTest.TestLogicalAnd/0

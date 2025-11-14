@@ -246,14 +246,24 @@ Tensor Div(const Tensor &self, const Element &other) {
         self.GetStorage(), other);
 }
 
-Tensor MaxS(const Tensor &operand1, const Element &operand2) {
+Tensor Maximum(const Tensor &operand1, const Element &operand2) {
     DECLARE_TRACER();
+    ASSERT(operand1.GetDataType() == operand2.GetDataType());
+    std::vector<DataType> MAXS_SUPPORT_DATATYPES = {
+        DataType::DT_FP32, DataType::DT_FP16, DataType::DT_INT32, DataType::DT_INT16};
+    ASSERT(std::find(MAXS_SUPPORT_DATATYPES.begin(), MAXS_SUPPORT_DATATYPES.end(), operand1.GetDataType())
+        != MAXS_SUPPORT_DATATYPES.end());
     RETURN_CALL(BinaryOperationScalar<BinaryOpType::MAX>, *Program::GetInstance().GetCurrentFunction(),
         operand1.GetStorage(), operand2);
 }
 
-Tensor MinS(const Tensor &operand1, const Element &operand2) {
+Tensor Minimum(const Tensor &operand1, const Element &operand2) {
     DECLARE_TRACER();
+    ASSERT(operand1.GetDataType() == operand2.GetDataType());
+    std::vector<DataType> MINS_SUPPORT_DATATYPES = {
+        DataType::DT_FP32, DataType::DT_FP16, DataType::DT_INT32, DataType::DT_INT16};
+    ASSERT(std::find(MINS_SUPPORT_DATATYPES.begin(), MINS_SUPPORT_DATATYPES.end(), operand1.GetDataType())
+        != MINS_SUPPORT_DATATYPES.end());
     RETURN_CALL(BinaryOperationScalar<BinaryOpType::MIN>, *Program::GetInstance().GetCurrentFunction(),
         operand1.GetStorage(), operand2);
 }

@@ -1628,7 +1628,7 @@ def view(input: Tensor, shape: List[int], offsets: List[Union[int, SymbolicScala
 
 
 @op_wrapper
-def maximum(input: Tensor, other: Tensor) -> Tensor:
+def maximum(input: Union[Tensor, Element, int, float], other: Union[Tensor, Element, int, float]) -> Tensor:
     """
     Computes the element-wise maximum of input and other.
 
@@ -1636,13 +1636,13 @@ def maximum(input: Tensor, other: Tensor) -> Tensor:
     ----------
     input : Tensor
         The first input tensor.
-    other : Tensor
+    other : Tensor or Element
         The second input tensor.
 
     Returns
     -------
     Tensor
-        A new tensor containing the element-wise exponential.
+        A new tensor containing the element-wise maximum.
 
     Examples
     --------
@@ -1654,7 +1654,51 @@ def maximum(input: Tensor, other: Tensor) -> Tensor:
     Input b:    [3 1 3]
     Output out: [3 2 4]
     """
+    if not isinstance(input, pto_impl.Tensor) and not isinstance(other, pto_impl.Tensor):
+        raise TypeError("one of `input` and `other` should be `Tensor`")
+
+    if not isinstance(input, pto_impl.Tensor) and isinstance(other, pto_impl.Tensor):
+        input, other = other, input
+    if isinstance(other, (int, float)):
+        other = pto_impl.Element(input.dtype, other)
     return pto_impl.maximum(input, other)
+
+
+@op_wrapper
+def minimum(input: Union[Tensor, Element, int, float], other: Union[Tensor, Element, int, float]) -> Tensor:
+    """
+    Computes the element-wise minimum of input and other.
+
+    Parameters
+    ----------
+    input : Tensor
+        The first input tensor.
+    other : Tensor or Element
+        The second input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise minimum.
+
+    Examples
+    --------
+    a = pto.tensor([3], pto.DT_INT32)
+    b = pto.tensor([3], pto.DT_INT32)
+    out = pto.minimum(a, b)
+
+    Input a:    [0 2 4]
+    Input b:    [3 1 3]
+    Output out: [0 1 3]
+    """
+    if not isinstance(input, pto_impl.Tensor) and not isinstance(other, pto_impl.Tensor):
+        raise TypeError("one of `input` and `other` should be `Tensor`")
+
+    if not isinstance(input, pto_impl.Tensor) and isinstance(other, pto_impl.Tensor):
+        input, other = other, input
+    if isinstance(other, (int, float)):
+        other = pto_impl.Element(input.dtype, other)
+    return pto_impl.minimum(input, other)
 
 
 @op_wrapper
