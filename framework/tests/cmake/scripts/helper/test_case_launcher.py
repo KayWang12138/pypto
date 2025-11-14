@@ -50,8 +50,6 @@ class TestCaseLauncher:
         if os.path.exists(self.report_file):
             os.remove(self.report_file)
 
-        self.compile_if_need()
-
         os.environ["TILE_FWK_DEVICE_ID"] = f"{self.device}"
         os.environ["ASCEND_PROCESS_LOG_PATH"] = self.plog_cache_path
 
@@ -144,6 +142,7 @@ class TestCaseLauncher:
         sys.stderr = stderr
 
     def run(self):
+        self.tear_up()
         json_path = f"{self.work_path}/framework/tests/st/operation/test_case/"
         test_case_info_list = TestCaseLoader(
             self.input_file, self.op, self.index, json_path
@@ -151,7 +150,7 @@ class TestCaseLauncher:
         if self.json_only:
             return
 
-        self.tear_up()
+        self.compile_if_need()
         is_package_ready = self.pto and os.path.exists(self.pto_install_path + "/pto")
         stest_exec_file = f"{self.work_path}/build/framework/tests/st/tile_fwk_stest"
         is_exec_ready = not self.pto and os.path.exists(stest_exec_file)
