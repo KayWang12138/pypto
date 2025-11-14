@@ -186,7 +186,7 @@ public:
       }
       return false;
     }
-    
+
     bool IsGetTensorDataOutcast();
 
 private:
@@ -196,7 +196,6 @@ private:
     int remainingTime_{INVALID_TIME};
     Function *function_;
 
-    std::unordered_set<std::string> semanticLabels_;
     std::set<Operation *, CompareOp> producers_;
     std::set<Operation *, CompareOp> consumers_;
 };

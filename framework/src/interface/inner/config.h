@@ -71,10 +71,22 @@ struct PrintOptions {
     int linewidth;
 };
 
+struct SemanticLabel {
+    std::string label;
+    std::string filename;
+    int lineno;
+
+    SemanticLabel(const std::string &tlabel, const char *tfilename, int tlineno)
+        : label(tlabel), filename(tfilename), lineno(tlineno) {}
+    SemanticLabel(const std::string &tlabel, const std::string &tfilename, int tlineno)
+        : label(tlabel), filename(tfilename), lineno(tlineno) {}
+};
+
 namespace config {
 FunctionType GetFunctionType();
 
-std::string GetSemanticLabel();
+std::shared_ptr<SemanticLabel> GetSemanticLabel();
+void SetSemanticLabel(std::shared_ptr<SemanticLabel> label);
 
 namespace internal {
 bool IsType(const std::string &key, const std::type_info &type);

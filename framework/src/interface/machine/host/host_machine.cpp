@@ -22,6 +22,74 @@
 #include "interface/function/function.h"
 #include "interface/program/program.h"
 
+extern "C" {
+using RunPassFunc = int (*)(npu::tile_fwk::Program &, npu::tile_fwk::Function &, const std::string &);
+using GetResumePathFunc = std::string (*)(const std::string &);
+using ExecuteFunc = int (*)(npu::tile_fwk::MachineTask *, npu::tile_fwk::FunctionCache &);
+using MatchCacheFunc = bool (*)(const std::string &);
+using InitFunc = int (*)();
+
+struct Backend {
+    RunPassFunc runPass;
+    GetResumePathFunc getResumePath;
+    ExecuteFunc execute;
+    ExecuteFunc simuExecute;
+    MatchCacheFunc matchCache;
+
+    static Backend &GetBackend() {
+        static Backend backend;
+        return backend;
+    }
+
+    ~Backend() {
+        if (passHandle != nullptr) {
+            dlclose(passHandle);
+        }
+        if (compilerHandle != nullptr) {
+            dlclose(compilerHandle);
+        }
+        if (simuHandle != nullptr) {
+            dlclose(simuHandle);
+        }
+    }
+
+private:
+    Backend() {
+        progHandle = dlopen(nullptr, RTLD_LAZY | RTLD_NOLOAD);
+        passHandle = dlopen("libtile_fwk_passes.so", RTLD_LAZY | RTLD_NOLOAD);
+        compilerHandle = dlopen("libtile_fwk_compiler.so", RTLD_LAZY | RTLD_NOLOAD);
+        simuHandle = dlopen("libtile_fwk_simulator.so", RTLD_LAZY | RTLD_NOLOAD);
+
+        runPass = (RunPassFunc)GetSymbol(passHandle, "RunPass");
+        getResumePath = (GetResumePathFunc)GetSymbol(passHandle, "GetResumePath");
+        execute = (ExecuteFunc)GetSymbol(compilerHandle, "Execute");
+        matchCache = (MatchCacheFunc)GetSymbol(compilerHandle, "MatchCache");
+        simuExecute = (ExecuteFunc)GetSymbol(simuHandle, "ExecuteSimulation");
+
+        auto initFunc = (InitFunc)GetSymbol(compilerHandle, "Init");
+        if (initFunc) {
+            initFunc();
+        }
+    }
+
+    void *GetSymbol(void *handle, const char *sym) {
+        void *ptr = nullptr;
+        if (handle != nullptr) {
+            ptr = dlsym(handle, sym);
+        }
+        if (ptr == nullptr) {
+            ptr = dlsym(progHandle, sym);
+        }
+        return ptr;
+    }
+
+    void *progHandle;
+    void *passHandle;
+    void *compilerHandle;
+    void *simuHandle;
+};
+}
+
 namespace npu::tile_fwk {
 namespace {
 enum class StashType {
@@ -52,126 +120,17 @@ bool HostMachine::Init(const HostMachineMode mode) {
         InitThread();
     }
 
-    if (!InitBackend()) {
-        return false;
-    }
-
     initialized_.store(true);
     return true;
 }
 
 void HostMachine::Destroy() {
-    this->DestroyBackend();
-
     if (mode_ == HostMachineMode::SERVER) {
         WaitTaskFinish();
         DestroyThread();
     }
 
     ALOG_DEBUG("HostMachine is destroying...");
-}
-
-bool HostMachine::ForceEnableBackend() {
-    return InitBackend(true);
-}
-
-bool HostMachine::InitPassHandle() {
-    if (mPassBackendHandle != nullptr) {
-        return true;
-    }
-#ifdef ENABLE_FEATURE_PYTHON_FRONT_END
-    mPassBackendHandle = dlopen(nullptr, RTLD_LAZY | RTLD_NOLOAD);
-#else
-    std::string passBinPath = "libtile_fwk_passes.so";
-    mPassBackendHandle = dlopen(passBinPath.c_str(), RTLD_NOW | RTLD_GLOBAL);
-#endif
-    if (mPassBackendHandle == nullptr) {
-        ALOG_ERROR("Fail to load pass handle, ", dlerror());
-        return false;
-    }
-
-    std::string runPassFuncName = "RunPass";
-    mPassRunFunc = (RunPassFuncPtr)dlsym(mPassBackendHandle, runPassFuncName.c_str());
-    if (mPassRunFunc == nullptr) {
-        ALOG_ERROR("Fail to get RunPass function, ", dlerror());
-        return false;
-    }
-
-    std::string resumePathFuncName = "GetResumePath";
-    mResumePathGetFunc = (ResumePathGetFuncPtr)dlsym(mPassBackendHandle, resumePathFuncName.c_str());
-    if (mResumePathGetFunc == nullptr) {
-        ALOG_ERROR("Fail to get GetResumePath function, ", dlerror());
-        return false;
-    }
-    ALOG_INFO("Init pass handle success.");
-    return true;
-}
-
-bool HostMachine::InitBackend(const bool forceEnableBackend) {
-    if (!InitPassHandle()) {
-        return false;
-    }
-    if (config::GetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true) || forceEnableBackend) {
-        if (mNpuBackendHandle != nullptr) {
-            return true;
-        }
-        std::string binPath = "libtile_fwk_compiler.so";
-        std::string funcName = "Execute";
-        mNpuBackendHandle = dlopen(binPath.c_str(), RTLD_NOW | RTLD_GLOBAL);
-        if (mNpuBackendHandle == nullptr) {
-            ALOG_ERROR("AIHAC Backend enable, can't get backend binary, ", dlerror());
-            return false;
-        }
-        mNpuExecuteFunc = (ExecuteFuncPtr)dlsym(mNpuBackendHandle, funcName.c_str());
-        if (mNpuExecuteFunc == nullptr) {
-            ALOG_ERROR("AIHAC Backend enable, can't get backend Execute function, ", dlerror());
-            return false;
-        }
-        mNpuMatchCacheFunc = (MatchCacheFuncPtr)dlsym(mNpuBackendHandle, "MatchCache");
-        if (mNpuMatchCacheFunc == nullptr) {
-            ALOG_ERROR("AIHAC Backend enable, can't get backend MatchCache function, ", dlerror());
-            return false;
-        }
-        mNpuInitFunc = (InitFuncPtr)dlsym(mNpuBackendHandle, "Initialize");
-        if (mNpuInitFunc == nullptr) {
-            ALOG_ERROR("AIHAC Backend enable, can't get backend Initialize function, ", dlerror());
-            return false;
-        }
-        mNpuInitFunc();
-        ALOG_INFO("Init AIHAC Backend success.");
-    } else {
-        ALOG_INFO("Disable AIHAC Backend.");
-    }
-    if (config::GetPlatformConfig(KEY_ENABLE_COST_MODEL, true)) {
-        std::string binPath = "libtile_fwk_simulation.so";
-        std::string funcName = "ExecuteSimulation";
-        mSimulationBackendHandle = dlopen(binPath.c_str(), RTLD_NOW | RTLD_GLOBAL);
-        if (mSimulationBackendHandle == nullptr) {
-            ALOG_ERROR("Simulation Backend enable, can't get backend binary, ", dlerror());
-            return false;
-        }
-        mSimulationExecuteFunc = (ExecuteFuncPtr)dlsym(mSimulationBackendHandle, funcName.c_str());
-        if (mSimulationExecuteFunc == nullptr) {
-            ALOG_ERROR("Simulation Backend enable, can't get backend function, ", dlerror());
-            return false;
-        }
-        ALOG_INFO("Init Simulation Backend success.");
-    } else {
-        ALOG_INFO("Disable Simulation Backend.");
-    }
-    return true;
-}
-
-void HostMachine::DestroyBackend() {
-    if (mPassBackendHandle != nullptr) {
-        (void)dlclose(mPassBackendHandle);
-    }
-    if (mSimulationBackendHandle != nullptr) {
-        (void)dlclose(mSimulationBackendHandle);
-    }
-    if (mNpuBackendHandle != nullptr) {
-        (void)dlclose(mNpuBackendHandle);
-    }
 }
 
 void HostMachine::InitThread() {
@@ -185,7 +144,7 @@ void HostMachine::InitThread() {
 }
 
 void HostMachine::DestroyThread() {
-    auto notifyThread = [this](std::mutex &mutex, std::condition_variable &cv) {
+    auto notifyThread = [](std::mutex &mutex, std::condition_variable &cv) {
         std::unique_lock<std::mutex> lock(mutex);
         cv.notify_all();
     };
@@ -209,11 +168,12 @@ void HostMachine::DestroyThread() {
 }
 
 void HostMachine::CompileFunction(Function* func) const {
-    if (!func->HasCallOperation() && this->mPassRunFunc != nullptr) {
-        ASSERT(this->mPassRunFunc(Program::GetInstance(), *func, config::GetPassStrategy())) << "Run pass failed.";
+    auto &backend = Backend::GetBackend();
+    if (!func->HasCallOperation() && backend.runPass) {
+        ALOG_INFO("RunPass function %s", func->GetMagicName());
+        ASSERT(backend.runPass(Program::GetInstance(), *func, config::GetPassStrategy())) << "Run pass failed.";
     }
-
-    if (func->IsFunctionType(FunctionType::DYNAMIC) || func->IsFunctionTypeAndGraphType({FunctionType::STATIC}, {GraphType::TILE_GRAPH})) {
+    if (func->IsFunctionType(FunctionType::DYNAMIC) || func->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
         auto path = config::GetAbsoluteTopFolder() + "/program.json";
         Program::GetInstance().DumpJsonFile(path);
         config::SetRundataOption(KEY_PROGRAM_PATH, path);
@@ -295,8 +255,9 @@ MachineTask *HostMachine::Compile(MachineTask *task) const {
         compileTask = curTask;
     }
     std::string jsonPath;
-    if (this->mResumePathGetFunc != nullptr) {
-        jsonPath = this->mResumePathGetFunc(config::GetPassStrategy());
+    auto &backend = Backend::GetBackend();
+    if (backend.getResumePath) {
+        jsonPath = backend.getResumePath(config::GetPassStrategy());
     }
     bool existResumeFile = !jsonPath.empty() && (access(jsonPath.c_str(), F_OK) == 0);
     if (existResumeFile) {
@@ -316,7 +277,7 @@ MachineTask *HostMachine::Compile(MachineTask *task) const {
     } else {
         auto function = compileTask->GetFunction();
         compileTask->SetCacheKey(GetCacheKeyFromFunction(function));
-        if (mNpuMatchCacheFunc != nullptr && mNpuMatchCacheFunc(compileTask->GetCacheKey())) {
+        if (backend.matchCache && backend.matchCache(compileTask->GetCacheKey())) {
             compileTask->SetCacheReuseType(CacheReuseType::Bin);
         } else {
             CompileFunction(function);
@@ -355,18 +316,23 @@ void HostMachine::AgentThreadFunc() {
     while (!stopFlag_.load()) {
         std::unique_ptr<MachineTask> task;
         std::unique_lock<std::mutex> lock(agentQueueMutex_);
+
         agentQueueCv_.wait(lock, [this] { return !agentQueue_.Empty() || stopFlag_.load(); });
         if (stopFlag_.load()) {
             break;
         }
         task = agentQueue_.Pop();
         lock.unlock();
+
         auto &cache = Program::GetInstance().GetFunctionCache();
-        if (this->mSimulationExecuteFunc != nullptr) {
-            this->mSimulationExecuteFunc(task.get(), cache);
+        auto &backend = Backend::GetBackend();
+        if (backend.simuExecute && config::GetPlatformConfig(KEY_ENABLE_COST_MODEL, true)) {
+            ALOG_INFO("Simulate function %s", task->GetFunction()->GetMagicName());
+            backend.simuExecute(task.get(), cache);
         }
-        if (this->mNpuExecuteFunc != nullptr) {
-            this->mNpuExecuteFunc(task.get(), cache);
+        if (backend.execute && config::GetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true)) {
+            ALOG_INFO("Compile function %s", task->GetFunction()->GetMagicName());
+            backend.execute(task.get(), cache);
         }
         PushFinishQueue(std::move(task));
     }

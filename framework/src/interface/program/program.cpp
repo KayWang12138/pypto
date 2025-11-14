@@ -270,6 +270,7 @@ std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string 
     }
     currentFunctionPtr_->SetUnderDynamicFunction(Program::GetInstance().GetCurrentDynamicFunction() != nullptr);
     if (currentFunctionPtr_->IsStatic() && funcName != currentFunctionPtr_->GetRawName()) {
+        ALOG_ERROR("Function name not match current: ", currentFunctionPtr_->GetRawName(), " != ", funcName);
         return std::make_tuple(nullptr, nullptr, false);
     }
     Operation *callop = FinishCurrentFunction(scope, generateCall);

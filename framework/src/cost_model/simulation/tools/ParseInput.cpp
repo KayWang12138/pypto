@@ -363,7 +363,7 @@ void ParseInput::BuildFunction(std::shared_ptr<CostModel::SimSys> sim, npu::tile
         tileOp->opcode = op.GetOpcodeStr();
         tileOp->magic = op.GetOpMagic();
         tileOp->subgraphId = op.GetSubgraphID();
-        tileOp->semanticLabel = op.GetSemanticLabel();
+        tileOp->semanticLabel = op.GetSemanticLabelStr();
         tileOp->bufType = OperandType::BUF_UB;
         if (tileOp->IsCall()) {
             hasCall = true;

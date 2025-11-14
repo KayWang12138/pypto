@@ -2083,10 +2083,6 @@ Json Function::DumpJson(bool useTable) {
     funcDump["operations"] = operations;
     funcDump["hash"] = functionHash_.Data();
 
-    std::vector<std::string> resultSemanticLabels(semanticLabels_.begin(), semanticLabels_.end());
-    std::sort(resultSemanticLabels.begin(), resultSemanticLabels.end());
-    funcDump["semantic_label"] = resultSemanticLabels;
-
     if (leafFuncAttr_ != nullptr && leafFuncAttr_->coreType != CoreType::INVALID) {
         funcDump["leaf_func_attr"]["coretype"] = leafFuncAttr_->coreType;
     }
@@ -2367,9 +2363,6 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
 
     func->ComputeHashOrderless();
     func->functionHash_ = std::stoull(funcDump["hash"].get<std::string>());
-
-    std::vector<std::string> semanticLabelData = funcDump["semantic_label"].get<std::vector<std::string>>();
-    func->semanticLabels_.insert(semanticLabelData.begin(), semanticLabelData.end());
 
     if (func->GetGraphType() == GraphType::BLOCK_GRAPH && func->GetLeafFuncAttribute() == nullptr) {
         std::shared_ptr<LeafFuncAttribute> attr = std::make_shared<LeafFuncAttribute>();
@@ -2726,7 +2719,7 @@ void Function::DumpTopoFile(const std::string &fileName) const
             continue;
         }
         sJson["funcName"] = calleeMagicNameList_[id];
-        sJson["semanticLabel"] = operations_[topo.esgId]->GetSemanticLabel();
+        sJson["semanticLabel"] = operations_[topo.esgId]->GetSemanticLabelStr();
         totalTopoJson.push_back(sJson);
     }
     std::ofstream ofs(fileName);

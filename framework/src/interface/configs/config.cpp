@@ -92,7 +92,7 @@ struct ConfigStorage {
 
     void Reset() {
         funcType = FunctionType::DYNAMIC;
-        sematicLabel = "";
+        semanticLabel = nullptr;
         for (auto &[key, val] : g_passConfig) {
             options["pass." + key] = val;
         }
@@ -108,7 +108,7 @@ struct ConfigStorage {
     }
 
     FunctionType funcType;
-    std::string sematicLabel;
+    std::shared_ptr<SemanticLabel> semanticLabel;
     std::string rundataDir;
     std::unordered_map<std::string, ValueType> options;
     PrintOptions printOption;
@@ -131,12 +131,16 @@ FunctionType GetFunctionType() {
     return g_config.funcType;
 }
 
-void SetSemanticLabel(const std::string &label) {
-    g_config.sematicLabel = label;
+void SetSemanticLabel(const std::string &label, const char *filename , int lineno) {
+    g_config.semanticLabel = std::make_shared<SemanticLabel>(label, filename, lineno);
 }
 
-std::string GetSemanticLabel() {
-    return g_config.sematicLabel;
+void SetSemanticLabel(std::shared_ptr<SemanticLabel> label) {
+    g_config.semanticLabel = label;
+}
+
+std::shared_ptr<SemanticLabel> GetSemanticLabel() {
+    return g_config.semanticLabel;
 }
 
 bool HasOption(const std::string &key) {
@@ -149,7 +153,7 @@ std::string Dump() {
 
     std::shared_lock lock(g_rwlock);
     oss << "funcType: " << (g_config.funcType == FunctionType::DYNAMIC ? "dynamic" : "static") << std::endl;
-    oss << "sematicLabel: " << g_config.sematicLabel << std::endl;
+    oss << "sematicLabel: " << g_config.semanticLabel->label << std::endl;
     oss << "printOption.edgeItems: " << printOption.edgeItems << std::endl;
     oss << "printOption.precision: " << printOption.precision << std::endl;
     oss << "printOption.threshold: " << printOption.threshold << std::endl;
@@ -242,7 +246,7 @@ void CreateRundataDir() {
 
     std::string envStr = GetEnvVar("PYPTO_HOME");
     std::string dir = envStr.empty() ? (GetEnvVar("HOME") + "/.pypto") : envStr;
- 
+
     dir = dir + "/run/rundata_" + timestamp.str();
     bool res = CreateMultiLevelDir(dir);
     ASSERT(res) << "Failed to create directory: " << dir;

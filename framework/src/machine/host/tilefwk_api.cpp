@@ -184,11 +184,8 @@ extern "C" bool TileFwkCompileFatbin(const char *opType, const char *socVersion,
  */
 bool TileOpCompile(const std::string &opType, const uint64_t configKey, const std::string &kernelName,
     const std::string &dumpPath) {
-    if (!HostMachine::GetInstance().ForceEnableBackend()) {
-        ALOG_WARN("Fail to init host machine backend.");
-        return false;
-    }
     config::Reset();
+    config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
     config::SetHostConfig(KEY_DUMP_BIN_AND_JSON, true);
     config::SetHostConfig(KEY_DUMP_BIN_AND_JSON_PATH, dumpPath);
     config::SetHostConfig(KEY_DUMP_KERNEL_NAME, kernelName);

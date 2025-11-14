@@ -415,8 +415,12 @@ public:
     auto GroupID() const { return groupID_; }
     void SetGroupID(size_t groupID) const { groupID_ = groupID; }
 
-    void SetSemanticLabel(const std::string &label) { semanticLabel_ = label; }
-    const std::string &GetSemanticLabel() const { return semanticLabel_; }
+    void SetSemanticLabel(std::shared_ptr<SemanticLabel> label) { semanticLabel_ = label; }
+    const std::string &GetSemanticLabelStr() const {
+        static std::string empty = "";
+        return semanticLabel_ ? semanticLabel_->label : empty;
+    }
+    std::shared_ptr<SemanticLabel> GetSemanticLabel() const { return semanticLabel_; }
 
     void SetAsDeleted() { isDeleted_ = true; }
     void SetAsNotDeleted() { isDeleted_ = false; }
@@ -480,7 +484,7 @@ private:
     bool isDeleted_{false};
 
     SourceLocationPtr location_ {nullptr};
-    std::string semanticLabel_;
+    std::shared_ptr<SemanticLabel> semanticLabel_;
     Function *function_;
 
     std::vector<std::string> commentList_;

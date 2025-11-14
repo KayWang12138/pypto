@@ -142,14 +142,14 @@ def test_pto_loop_start_end_step_and_name():
     assert isinstance(b, pto.tensor)
 
 
-def test_pto_loop_start_end_step_and_name_unroll():
+def test_pto_loop_start_end_step_and_name():
     a, b, c = init_tensors()
     pto.reset()
 
     with pto.function("MAIN", [a, b], [c]):
         pto.set_vec_tile_shapes(16, 16)
 
-        for k in pto.loop(1, 10, 2, name="LOOP", unroll_list={1}):
+        for k in pto.loop(1, 10, 2, name="LOOP"):
             b.move(pto.add(a, a))
 
             if pto.cond(k < 5):
@@ -166,7 +166,7 @@ def test_pto_loop_unroll_n_submit_before_loop():
         pto.set_vec_tile_shapes(16, 16)
 
         for k in pto.loop(
-            1, 10, 2, name="LOOP", unroll_list=set(), submit_before_loop=True
+            1, 10, 2, name="LOOP", submit_before_loop=True
         ):
 
             if pto.cond(k < 5):
@@ -206,6 +206,7 @@ def test_if_true():
     A = pto.tensor((64, 64), pto.DT_FP32, "A")
     B = pto.tensor((64, 64), pto.DT_FP32, "B")
 
+    pto.set_semantic_label("IF_TRUE")
     with pto.function("MAIN", [A], [A]):
         for _ in pto.loop(1):
             pto.set_vec_tile_shapes(16, 16)
@@ -213,3 +214,38 @@ def test_if_true():
                 B[:] = A + 2
             else:
                 B[:] = A - 2
+
+
+def test_loop_manual_unroll():
+    pto.runtime._device_init()
+    A = pto.tensor((-1, 64), pto.DT_FP32, "A")
+    B = pto.tensor((-1, 64), pto.DT_FP32, "B")
+
+    with pto.function("MAIN", [A], [B]):
+        pto.set_vec_tile_shapes(64, 64)
+        for b, k in pto.loop_unroll(A.shape[0] // 64, unroll_list=[1, 2, 4]):
+            def inner(nb, nk):
+                tile_a = A[nb * 64:(nb + nk) * 64, :]
+                tile_a = tile_a + 2
+                B[nb * 64:, :] = tile_a
+            inner(b, k)
+
+    pto.runtime._device_fini()
+
+
+def test_loop_manual_unroll_const():
+    A = pto.tensor((64, 64), pto.DT_FP32, "A")
+    B = pto.tensor((64, 64), pto.DT_FP32, "B")
+
+    k_list = []
+    pto.runtime._device_init()
+    with pto.function("MAIN", [A], [B]):
+        pto.set_vec_tile_shapes(64, 64)
+        for _, k in pto.loop_unroll(1, 8, unroll_list=[1, 2, 4]):
+            k_list.append(k)
+
+            def inner():
+                B[:] = A + 1
+            inner()
+    assert k_list == [4, 2, 1]
+    pto.runtime._device_fini()

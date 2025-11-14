@@ -433,7 +433,7 @@ Status SubgraphToFunction::ProcessCacheResult(const std::tuple<Function *, Opera
         return SUCCESS;
     }
     // 3.2 not hit subgraph
-    APASS_LOG_DEBUG_F(Elements::Operation, 
+    APASS_LOG_DEBUG_F(Elements::Operation,
         "LeafFunc %zu Not Hit. hashValue is %lu.", i, std::get<0>(result)->ComputeHash().GetHash());
     psgToESgMap.insert({programIdx, i});
     std::get<0>(result)->SetProgramId(programIdx);
@@ -447,33 +447,31 @@ Status SubgraphToFunction::ProcessCacheResult(const std::tuple<Function *, Opera
 }
 
 void SubgraphToFunction::SetSemanticLabel(const std::vector<std::shared_ptr<Operation>>& subgraph, Operation* callOp) {
-    std::string tag;
+    std::shared_ptr<SemanticLabel> label;
     if (GetConfig("USE_MAX_FREQ_LABEL", false)) {
-        std::unordered_map<std::string, int> frequencyMap;
-        // Count the occurrences of each string
+        std::unordered_map<std::string, int> freqMap;
+        std::unordered_map<std::string, std::shared_ptr<SemanticLabel>> labelMap;
         for (const auto& op : subgraph) {
-            auto str = op->GetSemanticLabel();
+            auto str = op->GetSemanticLabelStr();
             if (str.empty()) {
                 continue;
             }
-            frequencyMap[str]++;
+            freqMap[str]++;
+            labelMap[str] = op->GetSemanticLabel();
         }
-        // Find the string with the maximum occurrence
-        std::string maxOccurrenceString;
         int maxCount = 0;
-        for (const auto& pair : frequencyMap) {
+        for (auto &pair : freqMap) {
             if (pair.second > maxCount) {
                 maxCount = pair.second;
-                maxOccurrenceString = pair.first;
+                label = labelMap[pair.first];
             }
         }
-        tag = maxOccurrenceString;
     } else {
         if (subgraph.size() > 0) {
-            tag = subgraph[0]->GetSemanticLabel();
+            label = subgraph[0]->GetSemanticLabel();
         }
     }
-    callOp->SetSemanticLabel(tag);
+    callOp->SetSemanticLabel(label);
 }
 
 Status SubgraphToFunction::IslandToFunction(Function &function) {

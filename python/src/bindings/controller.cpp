@@ -68,7 +68,10 @@ void bind_controller_config(py::module &m) {
         },
         py::arg("edgeItems"), py::arg("precision"), py::arg("threshold"), py::arg("linewidth"));
 
-    m.def("SetSemanticLabel", [](const std::string &label) { config::SetSemanticLabel(label); }, py::arg("label"));
+    m.def("SetSemanticLabel",
+        [](const std::string &label, const std::string &filename, int lineno) {
+            config::SetSemanticLabel(label, filename.c_str(), lineno);
+        }, py::arg("label"), py::arg("filename"), py::arg("lineno"));
 }
 
 

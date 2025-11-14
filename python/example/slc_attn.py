@@ -71,7 +71,7 @@ def slc_attn_compute(**kwargs):
     n2_sym = n_kv
 
     for b_idx in pto.loop(0, batch_size_sym, 1, name="LOOP_L0_b_SA", idx_name="b_idx",
-        unroll_list=set(), submit_before_loop=True):
+        submit_before_loop=True):
         for s1_idx in pto.loop(0, s1_sym, 1, name="LOOP_L1_s1_SA", idx_name="s1_idx"):
             def inside_s1_loop_sa(b_idx, s1_idx):
                 cur_kv_slc_seq = pto.get_input_data(kv_slc_act_seqs, [b_idx, s1_idx])
@@ -90,8 +90,7 @@ def slc_attn_compute(**kwargs):
                             cur_offset = b_idx * s1_n2_g_sym + s1_idx * n_q + n2_idx * group + g_idx * cur_g_tile
                             oi_offset = [b_idx, s1_idx, n2_idx * group + g_idx * cur_g_tile, 0]
 
-                            for s2_idx in pto.loop(0, bn_per_batch, 1, name="LOOP_L4_s2_SA", idx_name="s2_idx",
-                                unroll_list=pto.powers_of_2(1)):
+                            for s2_idx in pto.loop(0, bn_per_batch, 1, name="LOOP_L4_s2_SA", idx_name="s2_idx"):
                                 def inside_s2_loop_sa(b_idx, s2_idx):
                                     cur_s2_tile = s2_tile
                                     cur_kv_offset = b_idx * s1_n2_s2_sym + s1_idx * n2_s2_sym + s2_idx * cur_s2_tile

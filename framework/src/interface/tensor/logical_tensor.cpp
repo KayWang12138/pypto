@@ -135,7 +135,6 @@ std::shared_ptr<LogicalTensor> LogicalTensor::Clone(Function &dstFunc, bool crea
     newTensor->memoryTypeToBe_ = memoryTypeToBe_;
     newTensor->readyTime_ = readyTime_;
     newTensor->remainingTime_ = remainingTime_;
-    newTensor->semanticLabels_ = semanticLabels_;
     newTensor->dynOffset_ = dynOffset_;
     dstFunc.GetTensorMap().Insert(newTensor, false);
     return newTensor;
@@ -162,9 +161,6 @@ Json LogicalTensor::DumpJson(bool dumpRawTensor) const {
         GetAttr(OpAttributeKey::needAlloc, allocValue);
         tensorDump["need_alloc"] = allocValue;
     }
-    std::vector<std::string> resultSemanticLabels(semanticLabels_.begin(), semanticLabels_.end());
-    std::sort(resultSemanticLabels.begin(), resultSemanticLabels.end());
-    tensorDump["semantic_label"] = resultSemanticLabels;
     tensorDump["subgraph_boundary"] = isSubGraphBoundary;
 
     if (subGraphID != NOT_IN_SUBGRAPH) {
@@ -234,9 +230,6 @@ std::shared_ptr<LogicalTensor> LogicalTensor::LoadJson(Function &function,
         bool needAlloc = tensorDump["need_alloc"].get<bool>();
         tensorJson->SetAttr(OpAttributeKey::needAlloc, needAlloc);
     }
-
-    std::vector<std::string> semanticLabelData = tensorDump["semantic_label"].get<std::vector<std::string>>();
-    tensorJson->semanticLabels_.insert(semanticLabelData.begin(), semanticLabelData.end());
 
     if (tensorDump.count("subgraphid")) {
         tensorJson->subGraphID = tensorDump["subgraphid"].get<int>();
@@ -756,7 +749,7 @@ std::set<std::pair<int, int>> GetTensorDataUsage(const std::vector<std::referenc
 }
 
 SymbolicScalar UpdateGetTensorDataIOIndex(size_t currOutcastIdx, size_t newOutcastIdx, const SymbolicScalar &scalar) {
-    ASSERT(currOutcastIdx != newOutcastIdx) << 
+    ASSERT(currOutcastIdx != newOutcastIdx) <<
         "UpdateGetTensorDataIOIndex currOutcastIdx == currOutcastIdx, should not be updated";
     RawSymbolicScalarPtr curr = scalar.Raw();
     // when updating multilple outcastIdx, should ensure the currOutcastIdx of multiple calls is in ascending order

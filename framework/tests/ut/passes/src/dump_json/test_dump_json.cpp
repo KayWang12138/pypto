@@ -48,6 +48,7 @@ protected:
         std::vector<int64_t> shape = {8, 16};
         Tensor input(DT_FP32, shape, "input");
         Tensor output(DT_FP32, shape, "output");
+        config::SetSemanticLabel("AddFunction");
         FUNCTION("AddFunction") {
             output = Add(input, input);
         }
@@ -116,10 +117,6 @@ TEST_F(JsonOutputValidationTest, VerifyFunctionStructure) {
 
         // Check hash
         EXPECT_TRUE(func.contains("hash")) << "Function missing hash field";
-
-        // Check semantic labels
-        EXPECT_TRUE(func.contains("semantic_label")) << "Function missing semantic_label field";
-        EXPECT_TRUE(func["semantic_label"].is_array()) << "Semantic labels should be an array";
     }
 }
 
@@ -140,10 +137,6 @@ TEST_F(JsonOutputValidationTest, VerifyTensorStructure) {
                 EXPECT_TRUE(tensor.contains("nodetype")) << "Tensor missing nodetype field";
                 EXPECT_TRUE(tensor.contains(T_FIELD_RAWTENSOR)) << "Tensor missing rawtensor reference field";
                 EXPECT_TRUE(tensor.contains("magic")) << "Tensor missing magic field";
-
-                // Check semantic labels
-                EXPECT_TRUE(tensor.contains("semantic_label")) << "Tensor missing semantic_label field";
-                EXPECT_TRUE(tensor["semantic_label"].is_array()) << "Semantic labels should be an array";
             }
         }
 
@@ -187,7 +180,7 @@ TEST_F(JsonOutputValidationTest, VerifyOperationStructure) {
 
             // Check semantic labels
             EXPECT_TRUE(op.contains("semantic_label")) << "Operation missing semantic_label field";
-            EXPECT_TRUE(op["semantic_label"].is_array()) << "Semantic labels should be an array";
+            EXPECT_TRUE(op["semantic_label"].is_object()) << "Semantic labels should be an array";
 
             EXPECT_TRUE(op.contains("subgraphid")) << "Operation missing subgraphid field";
 

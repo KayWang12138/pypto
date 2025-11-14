@@ -553,7 +553,7 @@ public:
         const std::map<int, SymbolicScalar> &outIndexToExpr);
 
     bool IsEager() const { return functionType_ == FunctionType::EAGER; }
-    bool IsStatic() const { return !IsEager() && !IsFunctionType(FunctionType::DYNAMIC); }
+    bool IsStatic() const { return functionType_ == FunctionType::STATIC; }
     bool IsExplicit() const { return isExplicit_; }
     const std::string &GetMagicName() const { return funcMagicName_; }
     const std::string &GetRawName() const { return funcRawName_; }
@@ -703,7 +703,7 @@ public:
         outcastPosition.emplace_back(opmagic, k);
         outCasts_.emplace_back(tensor);
     }
-    
+
     void RemoveOutcast(int idx) {
         outcastPosition.erase(outcastPosition.begin() + idx);
         outCasts_.erase(outCasts_.begin() + idx);
@@ -825,7 +825,6 @@ private:
     FunctionType functionType_{FunctionType::INVALID};
     GraphType graphType_{GraphType::INVALID};
     bool isExplicit_{false};
-    std::set<std::string> semanticLabels_;
 
     std::map<std::string, DynParamInfo> dynParamTable_;
 

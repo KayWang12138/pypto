@@ -140,7 +140,8 @@ void SetPrintOptions(int edgeItems, int precision, int threshold, int linewidth)
  * \param label semantic label
  * \note label will be attached to subsequent operations
  */
-void SetSemanticLabel(const std::string &label);
+void SetSemanticLabel(const std::string &label, const char *filename = __builtin_FILE(),
+                      int lineno = __builtin_LINE());
 
 /**
  * \brief Set the Build static function or not

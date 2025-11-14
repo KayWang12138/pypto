@@ -36,14 +36,6 @@ namespace npu::tile_fwk {
 #define MACHINE_ASSERT(exp)
 #endif
 
-extern "C" {
-typedef int (*InitFuncPtr)();
-typedef int (*ExecuteFuncPtr)(MachineTask*, FunctionCache&);
-typedef bool (*MatchCacheFuncPtr)(const std::string&);
-typedef bool (*RunPassFuncPtr)(Program&, Function&, const std::string&);
-typedef std::string (*ResumePathGetFuncPtr)(const std::string&);
-}
-
 enum class HostMachineMode {
     SERVER = 0,  // server扩展模式，host machine内部完成端到端调度上板执行，submit task & compile & run 不对外暴露
     API = 1, // api 模式，当前torch对接使用此模式，对外暴露submit task  & compile & run api供外部调用
@@ -97,7 +89,6 @@ public:
     void StashTask(Function* function);
     void SubAllStashedTask();
 
-    bool ForceEnableBackend();
     void ClearStashFuncQueue();
 
 public: // api mode
@@ -142,21 +133,6 @@ private:
     SafeQueue<std::unique_ptr<MachineTask>> finishQueue_; // device machine 处理结束任务
     SafeQueue<std::tuple<Function *, std::shared_ptr<ConfigStorage>, InternalGlobalConfig,
                          nlohmann::json>> stashedFuncQueue_; // stash func
-
-    /* 后端管理 */
-    void* mPassBackendHandle = nullptr;
-    void* mNpuBackendHandle = nullptr;
-    void* mSimulationBackendHandle = nullptr;
-    RunPassFuncPtr mPassRunFunc = nullptr;
-    ResumePathGetFuncPtr mResumePathGetFunc = nullptr;
-    InitFuncPtr mNpuInitFunc = nullptr;
-    MatchCacheFuncPtr mNpuMatchCacheFunc = nullptr;
-    ExecuteFuncPtr mNpuExecuteFunc = nullptr;
-    ExecuteFuncPtr mSimulationExecuteFunc = nullptr;
-
-    bool InitBackend(const bool forceEnableBackend = false);
-    bool InitPassHandle();
-    void DestroyBackend();
 };
 
 } // namespace npu::tile_fwk

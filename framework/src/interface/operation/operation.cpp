@@ -339,7 +339,13 @@ Json Operation::DumpJson(bool dumpTensor) const {
     }
 
     opDump["opmagic"] = GetOpMagic();
-    opDump["semantic_label"] = {semanticLabel_};
+    if (semanticLabel_) {
+        Json jlabel;
+        jlabel["label"] = semanticLabel_->label;
+        jlabel["filename"] = semanticLabel_->filename;
+        jlabel["lineno"] = semanticLabel_->lineno;
+        opDump["semantic_label"] = jlabel;
+    }
     if (location_ && config::GetPlatformConfig(KEY_DUMP_SOURCE_LOCATION, 0)) {
         opDump["file"] = location_->GetFileName();
         opDump["line"] = location_->GetLineno();
@@ -430,7 +436,11 @@ std::shared_ptr<Operation> Operation::LoadJson(
     int opMagic = opDump["opmagic"].get<int>();
     std::shared_ptr<Operation> op = std::make_shared<Operation>(cur, opcode, ioperands, ooperands, true, opMagic);
 
-    op->semanticLabel_ = opDump["semantic_label"].get<std::vector<std::string>>()[0];
+    if (opDump.count("semantic_label") ) {
+        auto jlabel = opDump["semantic_label"];
+        op->semanticLabel_ = std::make_shared<SemanticLabel>(
+            jlabel["label"].get<std::string>(), jlabel["filename"].get<std::string>(), jlabel["lineno"].get<int>());
+    }
 
     if (opDump.count("file")) {
         op->location_ = std::make_shared<SourceLocation>(opDump["file"].get<std::string>(), opDump["line"].get<int>());

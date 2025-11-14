@@ -87,7 +87,7 @@ def win_attention_compute(**kwargs):
     table_loop = 0
 
     for b_idx in pto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="b_idx",
-        unroll_list=set(), submit_before_loop=True):
+        submit_before_loop=True):
         def inside_b_loop(b_idx):
             cur_actual_seq_size = pto.get_input_data(act_seqs, [b_idx])
             for s1_idx in pto.loop(0, s1_loop, 1, name="LOOP_L1_s1Idx", idx_name="s1_idx"):
@@ -219,7 +219,7 @@ def win_attention_compute_flash(**kwargs):
     table_loop = 0
 
     for b_idx in pto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="b_idx",
-        unroll_list=set(), submit_before_loop=True):
+        submit_before_loop=True):
         def inside_b_loop(b_idx):
             cur_actual_seq_size = pto.get_input_data(act_seqs, [b_idx])
             k_part = pto.tensor([b_size * s1_size * NUM_9 * block_size, (d_nope_size + d_rope_size)], dtype, "k_part")
@@ -419,7 +419,7 @@ def win_attention_debug_compute(**kwargs):
     table_loop = 0
 
     for b_idx in pto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="b_idx",
-        unroll_list=set(), submit_before_loop=True):
+        submit_before_loop=True):
         def inside_b_loop(b_idx):
             cur_actual_seq_size = pto.get_input_data(act_seqs, [b_idx])
             for s1_idx in pto.loop(0, s1_loop, 1, name="LOOP_L1_s1Idx", idx_name="s1_idx"):
@@ -438,7 +438,7 @@ def win_attention_debug_compute(**kwargs):
                                 k_part = pto.tensor([NUM_5 * block_size, (d_nope_size + d_rope_size)], dtype, "k_part")
                                 v_part = pto.tensor([NUM_5 * block_size, d_nope_size], dtype, "v_part")
                                 for t_idx in pto.loop(0, table_loop, 1, name="LOOP_L2_tIdx", idx_name="t_idx",
-                                    unroll_list=set(), submit_before_loop=True):
+                                    submit_before_loop=True):
                                     def inside_t_loop(t_idx):
                                         cur_idx = block_start_index + t_idx
                                         cur_block_idx = pto.get_input_data(block_table, [b_idx, cur_idx])
@@ -466,7 +466,7 @@ def win_attention_debug_compute(**kwargs):
                                     inside_t_loop(t_idx)
 
                                 for o_idx in pto.loop(0, 1, 1, name="LOOP_L2_Idx", idx_name="o_idx",
-                                    unroll_list=set(), submit_before_loop=True):
+                                    submit_before_loop=True):
                                     def inside_o_loop(o_idx):
                                         cur_offset = (b_idx * s1_size * n_q + s1_idx * n_q +
                                             n2_idx * g_group + g_idx * g_tile)

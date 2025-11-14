@@ -37,6 +37,7 @@ __all__ = [
 
     "function",
     "loop",
+    "loop_unroll",
     "is_loop_begin",
     "is_loop_end",
     "cond",
@@ -248,8 +249,7 @@ def is_loop_begin(scalar: SymInt):
 
     Examples
     --------
-    >>> for s2_idx in pto.loop(0, bn_per_batch, 1, name="LOOP_L4_s2_SA", idx_name="s2_idx",
-            unroll_list=pto.powers_of_2(1)):
+    >>> for s2_idx in pto.loop(bn_per_batch):
             if pto.cond(pto.is_loop_begin(s2_idx)):
                 ...
     '''
@@ -277,7 +277,6 @@ def is_loop_end(scalar: SymInt):
     Examples
     --------
     >>> for s2_idx in pto.loop(0, bn_per_batch, 1, name="LOOP_L4_s2_SA", idx_name="s2_idx",
-            unroll_list=pto.powers_of_2(1)):
             if pto.cond(pto.is_loop_end(s2_idx)):
                 ...
     '''
@@ -432,11 +431,11 @@ class _LoopFunction:
             setattr(scalar, "_loop_end", self._end)
             return scalar
 
-    def __init__(self, name, loop_name, loop_range, unroll_list, submit_before_loop):
+    def __init__(self, name, loop_name, loop_range, submit_before_loop):
         loop_range = loop_range.base()
         self._base = pto_impl.RecordLoopFunc(name, pto_impl.FunctionType.DYNAMIC_LOOP,
                                              loop_name, loop_range,
-                                             unroll_list, submit_before_loop)
+                                             set(), submit_before_loop)
         self._begin = loop_range.Begin()
         self._end = loop_range.End()
 
@@ -449,17 +448,13 @@ def _loop_function(
     name: str,
     loop_name: str,
     loop_range: LoopRange,
-    unroll_list: Optional[Set[int]] = None,
     submit_before_loop: bool = False,
 ):
-    if unroll_list is None:
-        unroll_list = set()
-
     rlf = None
     try:
         set_source_location(level=3)
         rlf = _LoopFunction(name, loop_name, loop_range,
-                            unroll_list, submit_before_loop)
+                            submit_before_loop)
         clear_source_location()
         yield rlf
     except Exception as e:
@@ -528,6 +523,20 @@ def loop(start: SymInt, stop: SymInt, step: Optional[SymInt] = 1, /, **kwargs) -
     ...
 
 
+def _get_loop_range(*args):
+    nargs = len(args)
+    if nargs == 1:
+        start, stop, step = 0, args[0], 1
+    elif nargs == 2:
+        start, stop, step = args[0], args[1], 1
+    elif nargs == 3:
+        start, stop, step = args
+    else:
+        raise TypeError(
+            f"loop() takes 1 to 3 positional arguments but {nargs} were given")
+    return start, stop, step
+
+
 def loop(
     *args,
     **kwargs,
@@ -541,39 +550,67 @@ def loop(
             The name of the loop
         idx_name: str
             The name of the loop index
-        unroll_list: Set[int]
-            The number of loop layer which is unrolled
         submit_before_loop: bool
-            Whether to submit calculations before the loop
+            Add a barrier before the loop
 
     Returns
     --------
     return a generator, which will be used for setting up the
     for loop in building computing graph
     """
-    nargs = len(args)
-    if nargs == 1:
-        start, stop, step = 0, args[0], 1
-    elif nargs == 2:
-        start, stop, step = args[0], args[1], 1
-    elif nargs == 3:
-        start, stop, step = args
-    else:
-        raise TypeError(
-            f"loop() takes 1 to 3 positional arguments but {nargs} were given")
-
+    start, stop, step = _get_loop_range(*args)
     # implementation
     loop_idx = Controller.next_loop_idx()
     name = kwargs.get("name", f"loop_{loop_idx}")
     idx_name = kwargs.get("idx_name", f"loop_idx_{loop_idx}")
-    unroll_list = kwargs.get("unroll_list", set())
     submit_before_loop = kwargs.get("submit_before_loop", False)
     with _loop_function(
         name, idx_name, _loop_range(
-            start, stop, step), unroll_list, submit_before_loop
+            start, stop, step), submit_before_loop
     ) as rlf:
         for k in rlf:
             yield k
+
+
+def loop_unroll(*args, **kwargs):
+    """
+    Almost the same as `loop()`, but with an additional `unroll_list` parameter.
+
+    Parameters
+    ----------
+    args:
+        start: SymInt
+            Start value.
+        stop: SymInt
+            End value (exclusive).
+        step: Optional[SymInt], default=1
+            Increment for each iteration.
+    kwargs:
+        name: str
+            The name of the loop
+        idx_name: str
+            The name of the loop index
+        unroll_list: List[int], default=[1]
+            The unroll factors to be used.
+        submit_before_loop: bool, default=False
+            Whether to submit the loop before the loop body.
+
+    Returns
+    --------
+    return an iterator and unroll factor.
+    """
+    start, stop, step = _get_loop_range(*args)
+
+    unroll_list = kwargs.get("unroll_list", [1])
+    unroll_list = sorted(set(unroll_list), reverse=True)
+    if 1 not in unroll_list:
+        unroll_list.append(1)
+
+    for p in unroll_list:
+        nstep = step * p
+        for idx in loop(start, stop, nstep, **kwargs):
+            yield (idx, p)
+        start = start + (stop - start) // (nstep) * nstep
 
 
 def dump() -> str:

@@ -10,6 +10,7 @@
 # ======================================================================================================================
 """
 """
+import inspect
 from typing import List, Union, Dict
 
 from . import pto_impl
@@ -197,8 +198,7 @@ def set_semantic_label(label: str) -> None:
         Note: label will be attached to subsequent operations
 
     """
-
-    pto_impl.SetSemanticLabel(label)
+    pto_impl.SetSemanticLabel(label, inspect.stack()[1].filename, inspect.stack()[1].lineno)
 
 
 def set_option(key: str, value: Union[str, int, List[int], Dict[int, int]]) -> None:
