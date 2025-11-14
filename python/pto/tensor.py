@@ -390,6 +390,12 @@ class Tensor:
     def gather(self, dim: int, index: 'Tensor') -> 'Tensor':
         return pto.gather(self, dim, index)
 
+    def expand_clone(self, shape: List[int], *,
+                     valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None) -> 'Tensor':
+        if valid_shape is None:
+            valid_shape = []
+        return pto.expand_clone(self, shape, valid_shape=valid_shape)
+
     def scatter(self, dim: int, index: 'Tensor', src: 'Tensor') -> 'Tensor':
         return pto.scatter(self, dim, index, src)
 

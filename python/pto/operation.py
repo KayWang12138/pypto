@@ -1548,6 +1548,14 @@ def maximum(input: Tensor, other: Tensor) -> Tensor:
 
 
 @op_wrapper
+def expand_clone(input: Tensor, shape: List[int], *,
+           valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None) -> Tensor:
+    if valid_shape is None:
+        valid_shape = []
+    return pto_impl.expand(input, shape, valid_shape)
+
+
+@op_wrapper
 def logical_and(
     input: Tensor,
     other: Tensor

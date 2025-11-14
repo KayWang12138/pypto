@@ -370,7 +370,6 @@ def test_vector_operation_logical_not():
     pto.runtime._device_fini()
 
 
-@pytest.mark.skip(reason="Dep operation interface")
 def test_vector_operation_expand():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
@@ -389,16 +388,20 @@ def test_vector_operation_expand():
         for b_idx in pto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_EXPAND_L0", idx_name="b_idx"):
             for s_idx in pto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_EXPAND_L1", idx_name="s_idx"):
                 tile_a = pto.view(a, [16, 1],
-                    [b_idx * view_shape[0], 0],
-                    valid_shape=[(pto.symbolic_scalar(n) -
-                    b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
-                    1])
+                                  [b_idx * view_shape[0], 0],
+                                  valid_shape=[(pto.symbolic_scalar(n) -
+                                                b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
+                                               1])
                 pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                 tmp_a = pto.tensor()
-                tmp_a.move(pto.expand(tile_a, view_shape,
-                    [(pto.symbolic_scalar(n) - b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
-                    (pto.symbolic_scalar(m) - s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))]))
-                pto.assemble(tmp_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
+                tmp_a.move(pto.expand_clone(tile_a, view_shape,
+                                            valid_shape=[(pto.symbolic_scalar(n) - b_idx * view_shape[0]).
+                                                         min(pto.symbolic_scalar(
+                                                             view_shape[0])),
+                                                         (pto.symbolic_scalar(m) - s_idx * view_shape[1]).
+                                                         min(pto.symbolic_scalar(view_shape[1]))]))
+                pto.assemble(
+                    tmp_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
                 del tmp_a, tile_a
     a_tensor = torch.full((n, 1), -16, dtype=torch.float32)
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
@@ -406,7 +409,8 @@ def test_vector_operation_expand():
     pto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
 
     expected = torch.full((n, m), -16, dtype=torch.float32)
-    assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
+    assert_allclose(b_tensor.flatten(), expected.flatten(),
+                    rtol=1e-3, atol=1e-3)
     pto.runtime._device_fini()
 
 
@@ -566,4 +570,48 @@ def test_vector_operation_rowminsingle():
 
     expected = a_tensor.min(dim=dim, keepdim=True)[0].reshape(output_shape)
     assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
+    pto.runtime._device_fini()
+
+
+def test_tensor_operation_expand():
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
+    dtype = pto.DT_FP32
+    tiling = 32
+    n, m = tiling * 1, tiling * 1
+    view_shape = (16, 16)
+    tile_shape = (8, 8)
+    pto.set_codegen_option("support_dynamic_unaligned", True)
+    pto.runtime._device_init()
+
+    a = pto.tensor((n, 1), dtype, "EXPAND_TENSOR_a")
+    b = pto.tensor((n, m), dtype, "EXPAND_TENSOR_b")
+
+    with pto.function("EXPAND", [a], [b]):
+        for b_idx in pto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_EXPAND_L0", idx_name="b_idx"):
+            for s_idx in pto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_EXPAND_L1", idx_name="s_idx"):
+                tile_a = pto.view(a, [16, 1],
+                                  [b_idx * view_shape[0], 0],
+                                  valid_shape=[(pto.symbolic_scalar(n) -
+                                                b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
+                                               1])
+                pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
+                tmp_a = pto.tensor()
+                tmp_a.move(tile_a.expand_clone(view_shape,
+                                               valid_shape=[(pto.symbolic_scalar(n) - b_idx * view_shape[0]).
+                                                            min(pto.symbolic_scalar(
+                                                                view_shape[0])),
+                                                            (pto.symbolic_scalar(m) - s_idx * view_shape[1]).
+                                                            min(pto.symbolic_scalar(view_shape[1]))]))
+                pto.assemble(
+                    tmp_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
+                del tmp_a, tile_a
+    a_tensor = torch.full((n, 1), -16, dtype=torch.float32)
+    b_tensor = torch.zeros(n, m, dtype=torch.float32)
+
+    pto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+
+    expected = torch.full((n, m), -16, dtype=torch.float32)
+    assert_allclose(b_tensor.flatten(), expected.flatten(),
+                    rtol=1e-3, atol=1e-3)
     pto.runtime._device_fini()
