@@ -9,7 +9,9 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
+import pkgutil
 import re
+
 import numpy as np
 import torch
 
@@ -54,7 +56,15 @@ def str_to_bool(input_str: str):
     return input_str in ("TRUE", "1")
 
 
-def get_dtype_by_name(name: str, is_torch: bool = False):
+def get_dtype_by_name(name: str, is_torch: bool = False, check: bool = True):
+    if pkgutil.find_loader("bfloat16"):
+        import bfloat16
+    else:
+        bfloat16 = None
+
+    if check and name == "bf16" and bfloat16 is None:
+        raise TypeError("No module named 'bfloat16'.")
+
     str_to_dtype = {
         "int8": [np.int8, torch.int8],
         "int16": [np.int16, torch.int16],
@@ -71,6 +81,6 @@ def get_dtype_by_name(name: str, is_torch: bool = False):
         "double": [np.float64, torch.double],
         "complex64": [np.complex64, torch.complex64],
         "complex128": [np.complex128, torch.complex64],
-        "bf16": [torch.bfloat16, torch.bfloat16],
+        "bf16": [bfloat16, torch.bfloat16],
     }
     return str_to_dtype.get(name, [np.float32, torch.float32])[is_torch]

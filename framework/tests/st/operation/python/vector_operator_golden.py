@@ -20,7 +20,6 @@ from pathlib import Path
 from typing import List
 
 import numpy as np
-from bfloat16 import bfloat16
 import torch
 import copy
 
@@ -35,6 +34,8 @@ if str(import_path) not in sys.path:
     sys.path.append(str(import_path))
 from test_case_loader import TestCaseLoader
 from test_case_tools import parse_list_str, get_dtype_by_name
+
+bfloat16 = get_dtype_by_name("bf16", False, False)
 
 
 def trans_nd_to_fractal_nz(data: np.ndarray, keep_m_dim=False):
@@ -652,6 +653,7 @@ def gen_mul_op_golden(case_name: str, output: Path, case_index: int = None) -> b
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Mul", golden_func, output, case_index)
 
+
 @GoldenRegister.reg_golden_func(
     case_names=[
         "TestMaximum/MaximumOperationTest.TestMaximum",
@@ -665,6 +667,7 @@ def gen_maximum_op_golden(case_name: str, output: Path, case_index: int = None) 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Maximum", golden_func, output, case_index)
 
+
 @GoldenRegister.reg_golden_func(
     case_names=[
         "TestMinimum/MinimumOperationTest.TestMinimum",
@@ -677,6 +680,7 @@ def gen_minimum_op_golden(case_name: str, output: Path, case_index: int = None) 
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Minimum", golden_func, output, case_index)
+
 
 @GoldenRegister.reg_golden_func(
     case_names=[
@@ -1087,6 +1091,7 @@ def gen_gatherelement_op_golden(
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("GatherElement", golden_func, output, case_index)
 
+
 def indexadd_golden_func(inputs: list, config: dict):
     params = config.get("params")
     axis = params["axis"]
@@ -1098,26 +1103,33 @@ def indexadd_golden_func(inputs: list, config: dict):
     except (KeyError, ValueError, TypeError):
         alp = 1
     res = self.index_add(axis, indices, source, alpha=alp)
-    
+
     return [res.numpy()]
+
 
 @GoldenRegister.reg_golden_func(
     case_names=[
         "TestIndexAdd/IndexAddOperationTest.TestIndexAdd",
     ]
 )
-def gen_indexadd_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+def gen_indexadd_op_golden(
+    case_name: str, output: Path, case_index: int = None
+) -> bool:
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("IndexAdd", indexadd_golden_func, output, case_index)
+
 
 @GoldenRegister.reg_golden_func(
     case_names=[
         "TestIndexAdd_/IndexAdd_OperationTest.TestIndexAdd_",
     ]
 )
-def gen_indexadd__op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+def gen_indexadd__op_golden(
+    case_name: str, output: Path, case_index: int = None
+) -> bool:
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("IndexAdd_", indexadd_golden_func, output, case_index)
+
 
 def scatter_golden_func(inputs, config: dict):
     params = config.get("params")
@@ -1185,6 +1197,7 @@ def gen_maxs_op_golden(case_name: str, output: Path, case_index: int = None) -> 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("MaxS", golden_func, output, case_index)
 
+
 @GoldenRegister.reg_golden_func(
     case_names=[
         "TestMinS/MinSOperationTest.TestMinS",
@@ -1196,13 +1209,16 @@ def gen_mins_op_golden(case_name: str, output: Path, case_index: int = None) -> 
         x = inputs[0]
         scalar_type = params.get("scalar_type")
         if scalar_type is None:
-            raise ValueError("Pleast give the `scalar_type` field in your csv/xlsx file !")
+            raise ValueError(
+                "Pleast give the `scalar_type` field in your csv/xlsx file !"
+            )
         scalar = get_dtype_by_name(scalar_type)(params["scalar"])
         y = np.where(x > scalar, scalar, x)
         return [y]
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("MinS", golden_func, output, case_index)
+
 
 @GoldenRegister.reg_golden_func(
     case_names=[
@@ -1293,7 +1309,9 @@ def as_float(value):
 
 def element_mode(inputs, params, is_bfloat16):
     test_type = int(params["test_type"])
-    min_dtype_str, max_dtype_str = params.get("min_dtype", ''), params.get("max_dtype", '')
+    min_dtype_str, max_dtype_str = params.get("min_dtype", ""), params.get(
+        "max_dtype", ""
+    )
     if min_dtype_str and test_type in [-1, 0, 1, 2, 7]:
         min_dtype = get_dtype_by_name(min_dtype_str, is_torch=True)
         min_value = as_float(params.get("min_value"))
@@ -1319,13 +1337,19 @@ def tensor_mode(inputs, params, is_bfloat16):
     test_type = int(params["test_type"])
 
     if test_type in [-1, 0, 1, 2, 5]:
-        min_ = torch.tensor(inputs[1].astype(np.float32), dtype=torch.bfloat16) \
-            if is_bfloat16 else torch.tensor(inputs[1])
+        min_ = (
+            torch.tensor(inputs[1].astype(np.float32), dtype=torch.bfloat16)
+            if is_bfloat16
+            else torch.tensor(inputs[1])
+        )
     else:
         min_ = None
     if test_type in [-1, 0, 1, 2, 4]:
-        max_ = torch.tensor(inputs[2].astype(np.float32), dtype=torch.bfloat16) \
-            if is_bfloat16 else torch.tensor(inputs[2])
+        max_ = (
+            torch.tensor(inputs[2].astype(np.float32), dtype=torch.bfloat16)
+            if is_bfloat16
+            else torch.tensor(inputs[2])
+        )
     else:
         max_ = None
     return min_, max_
@@ -1346,13 +1370,18 @@ def clip_parameter(params: dict):
     ]
 )
 def gen_clip_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
-    
+
     def golden_func(inputs: list, config: dict):
         params = config.get("params", {})
         is_bfloat16 = inputs[0].dtype == bfloat16
-        x = torch.tensor(inputs[0].astype(np.float32), dtype=torch.bfloat16) \
-            if is_bfloat16 else torch.tensor(inputs[0])
-        min_dtype_str, max_dtype_str = params.get("min_dtype", ''), params.get("max_dtype", '')
+        x = (
+            torch.tensor(inputs[0].astype(np.float32), dtype=torch.bfloat16)
+            if is_bfloat16
+            else torch.tensor(inputs[0])
+        )
+        min_dtype_str, max_dtype_str = params.get("min_dtype", ""), params.get(
+            "max_dtype", ""
+        )
         is_element = min_dtype_str or max_dtype_str
         if is_element:
             min_, max_ = element_mode(inputs, params, is_bfloat16)
@@ -1363,8 +1392,11 @@ def gen_clip_op_golden(case_name: str, output: Path, case_index: int = None) -> 
             min_ = float("-inf")
         result = torch.clip(x, min_, max_)
         return [
-            result.to(torch.float32).numpy().astype(bfloat16)
-            if is_bfloat16 else result.numpy()
+            (
+                result.to(torch.float32).numpy().astype(bfloat16)
+                if is_bfloat16
+                else result.numpy()
+            )
         ]
 
     logging.debug("Case(%s), Golden creating...", case_name)

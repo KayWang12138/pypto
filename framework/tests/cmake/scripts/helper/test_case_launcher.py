@@ -50,6 +50,8 @@ class TestCaseLauncher:
         if os.path.exists(self.report_file):
             os.remove(self.report_file)
 
+        self.compile_if_need()
+
         os.environ["TILE_FWK_DEVICE_ID"] = f"{self.device}"
         os.environ["ASCEND_PROCESS_LOG_PATH"] = self.plog_cache_path
 
@@ -142,8 +144,6 @@ class TestCaseLauncher:
         sys.stderr = stderr
 
     def run(self):
-        self.tear_up()
-        self.compile_if_need()
         json_path = f"{self.work_path}/framework/tests/st/operation/test_case/"
         test_case_info_list = TestCaseLoader(
             self.input_file, self.op, self.index, json_path
@@ -151,6 +151,14 @@ class TestCaseLauncher:
         if self.json_only:
             return
 
+        self.tear_up()
+        is_package_ready = self.pto and os.path.exists(self.pto_install_path + "/pto")
+        stest_exec_file = f"{self.work_path}/build/framework/tests/st/tile_fwk_stest"
+        is_exec_ready = not self.pto and os.path.exists(stest_exec_file)
+        if not is_package_ready and not is_exec_ready:
+            raise ValueError(
+                "Runtime time is not ready, Not found pto package or tile_fwk_stest."
+            )
         for test_case_info in test_case_info_list:
             # run test
             (
@@ -164,7 +172,9 @@ class TestCaseLauncher:
             index = test_case_info["index"]
             case_op = test_case_info["operation"]
             test_case = f"Test{case_op}/{case_op}OperationTest.Test{case_op}/{index}"
-            golden_path = f"{self.work_path}/build/framework/tests/st/golden/{test_case}"
+            golden_path = (
+                f"{self.work_path}/build/framework/tests/st/golden/{test_case}"
+            )
             if os.path.exists(golden_path + "/golden_desc.json"):
                 os.remove(golden_path + "/golden_desc.json")
             if not self.save_data:

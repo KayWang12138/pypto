@@ -13,12 +13,15 @@ import logging
 import os
 import signal
 import subprocess
+from typing import Optional
 
 
 class TestCaseShellActuator:
     @classmethod
     def run(cls, cmd):
         logging.info(f"Start exec : {cmd}")
+        stdout: Optional[str] = None
+        stderr: Optional[str] = None
         with subprocess.Popen(
             cmd,
             env={**os.environ},
