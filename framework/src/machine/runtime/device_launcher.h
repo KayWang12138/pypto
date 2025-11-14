@@ -186,8 +186,7 @@ public:
             DeviceMemoryTy devMem,
             AstKernelArgs &kArgs,
             const std::vector<DeviceTensorData> &inputList,
-            const std::vector<DeviceTensorData> &outputList,
-            CachedOperator *cachedOperator) {
+            const std::vector<DeviceTensorData> &outputList) {
         auto buildInouts = [&](const std::vector<DeviceTensorData> &tensorDataList) {
             std::vector<DevTensorData> geTensors;
             for (size_t k = 0; k < tensorDataList.size(); k++) {
@@ -203,8 +202,8 @@ public:
         };
         std::vector<int64_t> encodedInputList = buildInouts(inputList);
         std::vector<int64_t> encodedOutputList = buildInouts(outputList);
-        kArgs.inputs = devMem.CopyToDev(encodedInputList, CachedOperator::GetInputListDevAddrHolder(cachedOperator));
-        kArgs.outputs = devMem.CopyToDev(encodedOutputList, CachedOperator::GetOutputListDevAddrHolder(cachedOperator));
+        kArgs.inputs = devMem.CopyToDev(encodedInputList, nullptr);
+        kArgs.outputs = devMem.CopyToDev(encodedOutputList, nullptr);
         ALOG_INFO_F("Inputs %p outputs %p workspace %p cfgdata %p", kArgs.inputs, kArgs.outputs, kArgs.workspace,
             kArgs.cfgdata);
         return;

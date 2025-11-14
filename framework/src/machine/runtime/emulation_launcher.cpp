@@ -71,7 +71,7 @@ int EmulationLauncher::EmulationLaunchOnceWithHostTensorData(
     AstKernelArgs kArgs;
     DeviceLauncher::DeviceInitTilingData(EmulationMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary,
                                          config, nullptr);
-    DeviceLauncher::DeviceInitKernelInOuts(EmulationMemoryUtils(), kArgs, inputList, outputList, nullptr);
+    DeviceLauncher::DeviceInitKernelInOuts(EmulationMemoryUtils(), kArgs, inputList, outputList);
     int rc = EmulationLaunchOnce(kArgs);
     return rc;
 }
@@ -101,7 +101,7 @@ int EmulationLauncher::BuildControlFlowCacheWithEmulationTensorData(
     }
     AstKernelArgs kArgs;
     DeviceLauncher::DeviceInitTilingData(EmulationMemoryUtils(), kArgs, devProgData, config, nullptr);
-    DeviceLauncher::DeviceInitKernelInOuts(EmulationMemoryUtils(), kArgs, inputList, outputList, nullptr);
+    DeviceLauncher::DeviceInitKernelInOuts(EmulationMemoryUtils(), kArgs, inputList, outputList);
     int rc = EmulationLaunchOnce(kArgs);
     if (config.controlFlowCache) {
         devProg->controlFlowCache.isRecording = false;

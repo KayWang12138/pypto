@@ -70,7 +70,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         AstKernelArgs kArgs;
         DeviceInitTilingData(DeviceMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary, config, cachedOperator);
         DeviceRunCacheKernelSet(function, (uint8_t *)kArgs.cfgdata);
-        DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList, cachedOperator);
+        DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList);
         rc = DeviceRunner::Get().DynamicLaunch(aicpuStream, aicoreStream, 0, &kArgs, config.blockdim, config.aicpuNum);
         if (rc < 0) {
             return rc;

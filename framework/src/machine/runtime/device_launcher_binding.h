@@ -71,12 +71,6 @@ struct DeviceLauncherConfig {
 
 class CachedOperator {
 public:
-    static uint8_t **GetInputListDevAddrHolder(CachedOperator *cachedOperator) {
-        return cachedOperator == nullptr ? nullptr : &cachedOperator->inputListDevAddr_;
-    }
-    static uint8_t **GetOutputListDevAddrHolder(CachedOperator *cachedOperator) {
-        return cachedOperator == nullptr ? nullptr : &cachedOperator->outputListDevAddr_;
-    }
     static uint8_t **GetWorkspaceDevAddrHolder(CachedOperator *cachedOperator) {
         return cachedOperator == nullptr ? nullptr : &cachedOperator->workspaceDevAddr_;
     }
@@ -84,8 +78,6 @@ public:
         return cachedOperator == nullptr ? nullptr : &cachedOperator->cfgDataDevAddr_;
     }
 private:
-    uint8_t *inputListDevAddr_{nullptr};
-    uint8_t *outputListDevAddr_{nullptr};
     uint8_t *workspaceDevAddr_{nullptr};
     uint8_t *cfgDataDevAddr_{nullptr};
 };

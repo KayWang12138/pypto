@@ -387,7 +387,7 @@ int DeviceRunner::DynamicLaunchSynchronize(rtStream_t aicpuStream, rtStream_t ai
         AdxDataDumpServerUnInit();
     }
     if (rcAicore != 0 || rcAicpu != 0) {
-        ALOG_ERROR_F("sync stream failed aicpu:%d aicore:%d", rcAicpu, rcAicore);
+        ALOG_WARN_F("sync stream failed aicpu:%d aicore:%d", rcAicpu, rcAicore);
     }
     return rcAicore + rcAicpu;
 }
