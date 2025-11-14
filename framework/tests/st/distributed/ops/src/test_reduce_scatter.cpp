@@ -120,13 +120,14 @@ void TestShmemReduceScatter(OpTestParam &testParam)
     std::vector<T> inData = ReadToVector<T>(
         GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
 
-    int32_t tileNum = 2;
+    int32_t tileNum1 = 2;
+    int32_t tileNum2 = 2;
     FUNCTION("ShmemReduceScatter", {in}, {out}) {
         LOOP("LOOP", FunctionType::DYNAMIC_LOOP, idx, LoopRange(1)) {
             (void)idx;
             TileShape::Current().SetDistTile(
-                {rowOut / tileNum, tileNum, rowOut % tileNum}, 
-                {col / tileNum, tileNum, col % tileNum}, 
+                {rowOut / tileNum1, tileNum1, rowOut % tileNum1}, 
+                {col / tileNum2, tileNum2, col % tileNum2}, 
                 {1, testParam.rankSize, 0});
             Distributed::ShmemReduceScatter(in, testParam.group,
                 npu::tile_fwk::Distributed::DistReduceType::DIST_REDUCE_ADD, out);
@@ -152,6 +153,7 @@ void TestShmemReduceScatter(OpTestParam &testParam)
 }
 
 template void TestShmemReduceScatter<int32_t>(OpTestParam &testParam);
+template void TestShmemReduceScatter<float>(OpTestParam &testParam);
 template void TestShmemReduceScatter<float16>(OpTestParam &testParam);
 template void TestShmemReduceScatter<bfloat16>(OpTestParam &testParam);
 } // namespace Distributed

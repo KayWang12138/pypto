@@ -121,11 +121,10 @@ bool CommWaitFlag::Prepare(uint32_t groupIndex)
     if (inited_[groupIndex]) {
         return true;
     }
-
-    struct TileOp::HcclCombinOpParam *hcclOpParam = (struct TileOp::HcclCombinOpParam *)hcclContextAddr_[groupIndex];
+    TileOp::HcclCombinOpParam *hcclOpParam = reinterpret_cast<TileOp::HcclCombinOpParam *>(hcclContextAddr_[groupIndex]);
     uint32_t rankId = hcclOpParam->rankId;
     uint32_t rankSize = hcclOpParam->rankNum;
-    uint8_t *winFlag = (uint8_t *)hcclOpParam->windowsExp[rankId];
+    uint8_t *winFlag = reinterpret_cast<uint8_t *>(hcclOpParam->windowsExp[rankId]);
     if ((rankSize <= 1) || (rankSize > TileOp::AICPU_MAX_RANK_NUM) || (rankId >= rankSize)) {
         DEV_ERROR("CommWaitFlag Prepare failed: groupIndex=%u, rankSize=%u, rankId=%u\n", groupIndex, rankSize, rankId);
         return false;

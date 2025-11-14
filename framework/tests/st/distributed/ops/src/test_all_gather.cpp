@@ -102,6 +102,7 @@ void TestAllGatherEx(OpTestParam &testParam)
         testParam));
 }
 
+template<typename T>
 void TestDynAllGather(OpTestParam &testParam)
 {
     constexpr size_t paramsSize = 3;
@@ -119,11 +120,12 @@ void TestDynAllGather(OpTestParam &testParam)
 
     std::vector<int32_t> inPtr = ReadToVector<int32_t>(GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", shape);
 
-    int32_t tileNum = 8;
+    int32_t tileNum1 = 8;
+    int32_t tileNum2 = 8;
     FUNCTION("ALLGATHER", {in, barrierDummy}, {out}) {
         TileShape::Current().SetDistTile(
-            {M / tileNum, tileNum, M % tileNum},
-            {N / tileNum, tileNum, N % tileNum},
+            {M / tileNum1, tileNum1, M % tileNum1},
+            {N / tileNum2, tileNum2, N % tileNum2},
             {1, testParam.rankSize, 0});
         ShmemAllGather(in, barrierDummy, testParam.group, out);
     }
@@ -146,6 +148,10 @@ void TestDynAllGather(OpTestParam &testParam)
     auto outPut = ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", outSize, outPut->GetDevPtr(), testParam));
 }
+template void TestDynAllGather<int32_t>(OpTestParam &testParam);
+template void TestDynAllGather<float>(OpTestParam &testParam);
+template void TestDynAllGather<float16>(OpTestParam &testParam);
+template void TestDynAllGather<bfloat16>(OpTestParam &testParam);
 
 } // namespace Distributed
 } // namespace npu::tile_fwk

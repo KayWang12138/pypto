@@ -30,11 +30,11 @@
 #include "neon_stub.h"
 
 namespace npu::tile_fwk::Distributed {
-void SignalTileOp::Init(uint64_t taskId, int32_t* addr, uint32_t count, uint32_t stride, int32_t expectedSum)
+void SignalTileOp::Init(uint64_t taskId, int32_t* addr, uint32_t endOffset, uint32_t stride, int32_t expectedSum)
 {
     taskId_ = taskId;
     addr_ = addr;
-    endOffset_ = count * stride;
+    endOffset_ = endOffset * stride;
     stride_ = stride;
     expectedSum_ = expectedSum;
 }
@@ -99,7 +99,7 @@ uint64_t ShmemWaitUntil::GetRawAddr(const uint64_t addr, const uint64_t dstRankI
 {
     uint64_t groupIndex = npu::tile_fwk::Distributed::GetVirtualAddrGroupIndex(addr);
     uint64_t offset = npu::tile_fwk::Distributed::GetVirtualAddrOffset(addr);
-    auto hcclOpParam = (struct TileOp::HcclCombinOpParam*)hcclContextAddr_[groupIndex];
+    auto hcclOpParam = reinterpret_cast<TileOp::HcclCombinOpParam*>(hcclContextAddr_[groupIndex]);
     return hcclOpParam->windowsIn[dstRankId] + offset;
 }
 

@@ -25,6 +25,7 @@
 namespace npu::tile_fwk {
 namespace Distributed {
 
+template<typename T>
 void TestShmemAddAndAllReduce(OpTestParam &testParam)
 {
     constexpr size_t paramsSize = 3;
@@ -37,20 +38,21 @@ void TestShmemAddAndAllReduce(OpTestParam &testParam)
     Tensor in(dType, shape, "in");
     Tensor out(dType, shape, "out");
 
-    std::vector<int32_t> ipPtr = ReadToVector<int32_t>(
+    std::vector<T> ipPtr = ReadToVector<T>(
         GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
 
     ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<int32_t>(in, ipPtr),
+        RawTensorData::CreateTensor<T>(in, ipPtr),
     });
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateTensorZero(out),
     });
-    int32_t tileNum = 4;
+    int32_t tileNum1 = 4;
+    int32_t tileNum2 = 4;
     FUNCTION("ADD and ALLREDUCE", {in}, {out}) {
         TileShape::Current().SetDistTile(
-            {row / tileNum / testParam.rankSize, tileNum, (row / tileNum) % tileNum},
-            {col / tileNum, tileNum, col % tileNum},
+            {row / tileNum1 / testParam.rankSize, tileNum1, (row / tileNum1) % tileNum1},
+            {col / tileNum2, tileNum2, col % tileNum2},
             {1, testParam.rankSize, 0});
         ShmemAddAllReduce(in, testParam.group, out);
     }
@@ -64,6 +66,10 @@ void TestShmemAddAndAllReduce(OpTestParam &testParam)
     auto output = ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", outSize, output->GetDevPtr(), testParam));
 }
+template void TestShmemAddAndAllReduce<int32_t>(OpTestParam &testParam);
+template void TestShmemAddAndAllReduce<float>(OpTestParam &testParam);
+template void TestShmemAddAndAllReduce<float16>(OpTestParam &testParam);
+template void TestShmemAddAndAllReduce<bfloat16>(OpTestParam &testParam);
 
 } // namespace Distributed
 } // namespace npu::tile_fwk

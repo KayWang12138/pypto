@@ -36,6 +36,7 @@ std::pair<int, int> GetRankSizeAndTileCount()
 
     auto tileRow = tileShape.GetDistTileRow();
     auto tileCol = tileShape.GetDistTileCol();
+    ASSERT(tileRow[0] > 0 && tileCol[0] > 0) << "Invalid Tiling rules";
     int rowCount = tileRow[1] + (tileRow[2] != 0 ? 1 : 0);
     int colCount = tileCol[1] + (tileCol[2] != 0 ? 1 : 0);
     int tileCount = rowCount * colCount;
@@ -194,9 +195,10 @@ Tensor Barrier(const Tensor &in, const char *group)
 void ShmemAllGather(const Tensor &in, const Tensor &barrierDummy, const char *group, Tensor &out)
 {
     int hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
-    auto [rankSize, tileCount] = GetRankSizeAndTileCount();
     int row = in.GetShape(0);
     int col = in.GetShape(1);
+    ASSERT(row > 0 && col > 0) << "Invalid shape: row and col must be > 0, but got row=" << row << ", col=" << col;
+    auto [rankSize, tileCount] = GetRankSizeAndTileCount();
 
     Shape shmDataShape = {row, col};
     Shape shmSignalShape = {tileCount, 8};
@@ -232,9 +234,10 @@ void ShmemReduceScatter(Tensor &in, const char* group, DistReduceType reduceType
 {
     (void)reduceType;
     int hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
-    auto [rankSize, tileCount] = GetRankSizeAndTileCount();
     int row = in.GetShape(0);
     int col = in.GetShape(1);
+    ASSERT(row > 0 && col > 0) << "Invalid shape: row and col must be > 0, but got row=" << row << ", col=" << col;
+    auto [rankSize, tileCount] = GetRankSizeAndTileCount();
     ASSERT((row % rankSize) == 0);
     const int rowOut = row / rankSize;
 
@@ -275,9 +278,10 @@ void ShmemReduceScatter(Tensor &in, const char* group, DistReduceType reduceType
 void ShmemAddAllReduce(Tensor &in, const char* group, Tensor &out)
 {
     int32_t hcclGroupIndex = static_cast<int32_t>(CommGroupRecorder::GetInstance().Input(std::string(group)));
-    auto [rankSize, tileCount] = GetRankSizeAndTileCount();
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
+    ASSERT(row > 0 && col > 0) << "Invalid shape: row and col must be > 0, but got row=" << row << ", col=" << col;
+    auto [rankSize, tileCount] = GetRankSizeAndTileCount();
     ASSERT((row % rankSize) == 0);
     const int32_t rowPerRank = row / rankSize;
     SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
