@@ -77,7 +77,9 @@ void bind_operation(py::module &m) {
     m.def("sqrt", [](const Tensor &self) { return npu::tile_fwk::Sqrt(self); }, "Tensor sqrt.");
     m.def("neg", [](const Tensor &self) { return npu::tile_fwk::Neg(self); }, "Tensor neg.");
     m.def("log", [](const Tensor &self, const LogBaseType base) { return npu::tile_fwk::Log(self, base); }, "Tensor log.");
-
+    m.def(
+        "pow", [](const Tensor &self, const Element &other) { return npu::tile_fwk::Pow(self, other); },
+        "Tensor pow.");
     m.def(
         "cast",
         [](const Tensor &self, DataType dstDataType, CastMode mode) {

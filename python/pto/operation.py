@@ -280,6 +280,42 @@ def div(
 
 
 @op_wrapper
+def pow(
+    input: Tensor,
+    other: Union[int, float]
+) -> Tensor:
+    """Computes the element-wise power of `input` raised to `other`.
+
+    This function calculates the formula: `out = input ** other`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The base input tensor.
+    other : Number
+        The exponent to which each element in `input` will be raised.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise power operation results.
+
+    Examples
+    --------
+    x = pto.tensor([2, 2], pto.DT_FP32)
+    a = 2
+    y = pto.pow(x, a)
+
+    Input x:[[1 2],
+             [3 4]]
+    Output y:[[1  4],
+              [9 16]]
+    """
+    assert isinstance(other, (int, float)), "other must be a number"
+    return pto_impl.pow(input, pto_impl.Element(input.dtype, other))
+
+
+@op_wrapper
 def assemble(input: Tensor, offsets: List[Union[int, SymbolicScalar]], out: Tensor) -> None:
     """
     Assembles a small Tensor into a larger Tensor based on specified offsets.

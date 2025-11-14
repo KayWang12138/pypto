@@ -310,6 +310,48 @@ class ScalarDivSTestCase(TestCase):
         }
 
 
+class PowsTestCase(TestCase):
+    def __init__(
+        self,
+        case_index: str,
+        case_name: str,
+        input_tensors: list,
+        output_tensors: list,
+        view_shape: tuple,
+        tile_shape: tuple,
+        params: dict,
+    ):
+        super().__init__(
+            case_index,
+            case_name,
+            "Pows",
+            input_tensors,
+            output_tensors,
+            view_shape,
+            tile_shape,
+            params,
+            PTOTestCaseRunner(
+                "Pows",
+                input_tensors,
+                output_tensors,
+                view_shape,
+                tile_shape,
+                params,
+            ),
+        )
+
+    def run_in_dyn_func(self, inputs, params: dict) -> dict:
+        return pto.pow(*inputs, params.get("scalar"))
+
+    def golden_func(self, inputs, params: dict) -> list:
+        return [torch.pow(*inputs, params.get("scalar"))]
+
+    def golden_func_params(self) -> dict:
+        return {
+            "scalar": float(self._case_desc.params.get("scalar")),
+        }
+
+
 class ScalarMaxSTestCase(TestCase):
     def __init__(
         self,
