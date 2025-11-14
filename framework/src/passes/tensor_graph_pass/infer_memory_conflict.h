@@ -21,6 +21,7 @@
 #include <unordered_map>
 
 #include "passes/pass_interface/pass.h"
+#include "passes/tensor_graph_pass/derivation_tile_shape.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/tensor/logical_tensor.h"
 
@@ -41,8 +42,11 @@ private:
     Status InsertPrecededCopys(Function &function);
     Status InsertPostCopys(Function &function);
     Status InsertCopys(Function& function);
-    Status InferTileShape(Operation &op, Operation *parentOp, const LogicalTensorPtr &tensor);
+    Status ObtainReshapeTile(Operation *op, Shape &inTileShape, Shape &outTileShape);
+    Status InferTileShape(Operation &op, const LogicalTensorPtr &tensor, TileShape parentTile, Shape &reshapeTile);
     Status SetDefaultShape(const LogicalTensorPtr &tensor, std::vector<int64_t> &defaultTile);
+
+    TileShape ObtainTileShape(const std::unordered_set<Operation *> &origOp);
 
     bool CheckTransmit(Operation* curOp);
     bool CheckConflict(const LogicalTensorPtr &inTensor, const LogicalTensorPtr &outTensor);

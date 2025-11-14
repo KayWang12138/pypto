@@ -723,8 +723,8 @@ TEST_F(InferMemoryConflictTest, TestInsertCopys) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
-    std::vector<int64_t> shape1 = {NUM_2, NUM_2};
-    std::vector<int64_t> shape2 = {NUM_ONE, NUM_2, NUM_2};
+    std::vector<int64_t> shape1 = {NUM_2, NUM_32};
+    std::vector<int64_t> shape2 = {NUM_ONE, NUM_2, NUM_32};
     std::vector<int64_t> offset1 = {NUM_ZERO, NUM_ZERO};
     std::vector<int64_t> offset2 = {NUM_ZERO, NUM_ZERO, NUM_ZERO};
 

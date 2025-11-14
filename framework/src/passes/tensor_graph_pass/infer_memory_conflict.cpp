@@ -221,24 +221,64 @@ Status InferMemoryConflict::SetDefaultShape(const LogicalTensorPtr &tensor, std:
     return SUCCESS;
 }
 
-Status InferMemoryConflict::InferTileShape(Operation &op, Operation *parentOp, const LogicalTensorPtr &tensor) {
-    auto tileShapeSize = parentOp->GetTileShape().GetVecTile().size();
-    if (tileShapeSize == 0 || tileShapeSize != tensor->GetShape().size()) {
-        APASS_LOG_WARN_F(Elements::Operation, "Inserted op's producer/consumer op [%d] has no tile shape.", parentOp->GetOpMagic());
+TileShape InferMemoryConflict::ObtainTileShape(const std::unordered_set<Operation *> &origOps) {
+    TileShape tile;
+    if (origOps.empty()) {
+        return tile;
+    }
+    TileShape base = (*origOps.begin())->GetTileShape();
+    if (origOps.size() == 1) {
+        return base;
+    }
+    for (const auto &origOp : origOps) {
+        if (origOp->GetTileShape().GetVecTile().tile == base.GetVecTile().tile) {
+            return tile;
+        }
+    }
+    return base;
+}
+
+Status InferMemoryConflict::InferTileShape(Operation &op, const LogicalTensorPtr &tensor, TileShape parentTile, Shape &reshapeTile) {
+    auto tileShapeSize = parentTile.GetVecTile().size();
+    auto tensorSize = tensor->GetShape().size();
+    if (tileShapeSize == 0 || tileShapeSize != tensorSize) {
+        APASS_LOG_WARN_F(Elements::Operation, "Inserted op[%d]'s producer/consumer op has no tile shape.", op.GetOpMagic());
         TileShape tile;
-        std::vector<int64_t> defaultTile;
-        if (SetDefaultShape(tensor, defaultTile) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "SetDefaultShape failed.");
-            return FAILED;
+        Shape defaultTile;
+        if (!reshapeTile.empty() && reshapeTile.size() == tensorSize) {
+            APASS_LOG_DEBUG_F(Elements::Operation, "Derivate reshape tile shape.");
+            defaultTile = reshapeTile;
+        } else {
+            if (SetDefaultShape(tensor, defaultTile) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation, "SetDefaultShape failed.");
+                return FAILED;
+            }
         }
         tile.SetVecTile(defaultTile);
         op.UpdateTileShape(tile);
     } else {
-        op.UpdateTileShape(parentOp->GetTileShape());
+        op.UpdateTileShape(parentTile);
     }
     if (!IsValidTileShape(op)) {
         APASS_LOG_ERROR_F(Elements::Operation, "Invalid tile size for %s[%d].", op.GetOpcodeStr().c_str(), op.GetOpMagic());
         return FAILED;
+    }
+    return SUCCESS;
+}
+
+Status InferMemoryConflict::ObtainReshapeTile(Operation *op, Shape &inTileShape, Shape &outTileShape) {
+    if (op->GetOpcode() == Opcode::OP_RESHAPE) {
+        //同时为空，证明对端不存在可用的tileshape
+        if (inTileShape.empty() && outTileShape.empty()) {
+            return SUCCESS;
+        }
+        Shape inShape = op->GetIOperands().front()->shape;
+        Shape outShape = op->GetOOperands().front()->shape;
+        DerivationTileShape derivationTileShapePass;
+        if (derivationTileShapePass.DerivationReshapeTileShape(op, inShape, outShape, inTileShape, outTileShape) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "DerivationReshapeTileShape failed.");
+            return FAILED;
+        }
     }
     return SUCCESS;
 }
@@ -251,7 +291,12 @@ Status InferMemoryConflict::InsertPrecededCopys(Function &function) {
         LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(function, newRawTensor, newOffset, inputTensor->GetShape(), inputTensor->GetDynValidShape());
         auto &copyOp = function.AddRawOperation(Opcode::OP_REGISTER_COPY, {inputTensor}, {newTensor});
         APASS_LOG_DEBUG_F(Elements::Operation, "Insert copy op [%d].", copyOp.GetOpMagic());
-        if (InferTileShape(copyOp, *(copyOp.ProducerOps().begin()), inputTensor) != SUCCESS) {
+        Shape reshapeTile;
+        if (ObtainReshapeTile(op, reshapeTile, ObtainTileShape(op->ConsumerOps()).GetVecTile().tile) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "ObtainReshapeTile failed.");
+            return FAILED;
+        }
+        if (InferTileShape(copyOp, inputTensor, ObtainTileShape(copyOp.ProducerOps()), reshapeTile) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "InferTileShape failed.");
             return FAILED;
         }
@@ -269,7 +314,12 @@ Status InferMemoryConflict::InsertPostCopys(Function &function) {
         LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(function, newRawTensor, newOffset, outputTensor->GetShape(), outputTensor->GetDynValidShape());
         auto &copyOp = function.AddRawOperation(Opcode::OP_REGISTER_COPY, {newTensor}, {outputTensor});
         APASS_LOG_DEBUG_F(Elements::Operation, "Insert copy op [%d].", copyOp.GetOpMagic());
-        if (InferTileShape(copyOp, *(copyOp.ConsumerOps().begin()), outputTensor) != SUCCESS) {
+        Shape reshapeTile;
+        if (ObtainReshapeTile(op, ObtainTileShape(op->ProducerOps()).GetVecTile().tile, reshapeTile) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "ObtainReshapeTile failed.");
+            return FAILED;
+        }
+        if (InferTileShape(copyOp, outputTensor, ObtainTileShape(copyOp.ConsumerOps()), reshapeTile) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "InferTileShape failed.");
             return FAILED;
         }
