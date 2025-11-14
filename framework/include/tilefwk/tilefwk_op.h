@@ -105,6 +105,8 @@ Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, cons
 Tensor Reshape(const Tensor &operand, const std::initializer_list<int64_t> &dstshape, const std::initializer_list<SymbolicScalar> &validShape={}, const bool inplace=false);
 Tensor Reshape(const Tensor &operand, const std::vector<SymbolicScalar> &dstShape, const bool inplace);
 
+void Reshape(const Tensor &operand, Tensor &dst);
+
 Tensor Load(const Tensor &src, const Tensor &offsets);
 
 Tensor Full(const Element &src, DataType dtype, const std::vector<int64_t> &dstShape,

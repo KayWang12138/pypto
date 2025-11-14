@@ -1155,6 +1155,19 @@ Tensor Reshape( const Tensor &operand, const std::vector<SymbolicScalar> &dstSha
     return dst;
 }
 
+void Reshape(const Tensor &operand, Tensor &dst) {
+    ASSERT(operand.Format() == dst.Format()) << "Tensor format not match";
+    auto slotManager = Program::GetInstance().GetTensorSlotManager();
+    auto &operation = Program::GetInstance().GetCurrentFunction()->AddOperation(Opcode::OP_RESHAPE, {operand.GetStorage()}, {dst.GetStorage()});
+    operation.SetAttribute(OP_ATTR_PREFIX + "isInplace", true);
+    slotManager->TensorWrite(dst, true);
+    Program::GetInstance().GetCurrentFunction()->SetSameMemId(operand, dst);
+    if (slotManager->GetOutputIndex(dst) != -1){
+        ALOG_ERROR_F("dst is an output for main function !!!");
+        slotManager->SetSameSlot(operand, dst);
+    }
+}
+
 void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode opCode,
     const std::vector<LogicalTensorPtr> &iOperand,
     const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {

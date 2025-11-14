@@ -207,9 +207,9 @@ void MlaPrologQuantV32Compute(const Tensor &tokenX, const Tensor &wDq, const Ten
 
         LOOP("MLA_CACHE_RESHAPE_2D_4D", FunctionType::DYNAMIC_LOOP, unused, LoopRange(0, 1, 1)) {
             (void)unused;
-            krCacheOut = Reshape(krCacheOut2D, {blockNum, blockSize, n2, qkRopeHeadDim}, true);
-            kvCacheOut = Reshape(kvCacheOut2D, {blockNum, blockSize, n2, kvLoraRank}, true);
-            kScaleCacheOut = Reshape(kScaleCacheOut2D, {blockNum, blockSize, n2, 4}, true);
+            Reshape(krCacheOut2D, krCacheOut);
+            Reshape(kvCacheOut2D, kvCacheOut);
+            Reshape(kScaleCacheOut2D, kScaleCacheOut);
         }
     }
 }
