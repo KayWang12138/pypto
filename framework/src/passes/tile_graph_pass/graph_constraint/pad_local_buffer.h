@@ -54,6 +54,7 @@ private:
     bool IsVector(const LogicalTensorPtr &tensor);
     void DoPadding(Function &function);
     Status ProcessTranspose(Function &function);
+    bool IsInputInt8(const Operation &op, const LogicalTensorPtr &in) const;
     bool processTranspose_;
     std::unordered_map<int64_t, int64_t> broadcastLastAxis_;
 };

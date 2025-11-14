@@ -58,7 +58,7 @@ def str_to_bool(input_str: str):
 
 def get_dtype_by_name(name: str, is_torch: bool = False, check: bool = True):
     if pkgutil.find_loader("bfloat16"):
-        import bfloat16
+        from bfloat16 import bfloat16
     else:
         bfloat16 = None
 
@@ -84,3 +84,24 @@ def get_dtype_by_name(name: str, is_torch: bool = False, check: bool = True):
         "bf16": [bfloat16, torch.bfloat16],
     }
     return str_to_dtype.get(name, [np.float32, torch.float32])[is_torch]
+
+
+def parse_dict_str(input_str: str):
+    if input_str is None:
+        raise ValueError("Can't convert None to list.")
+    input_str = input_str.replace(" ", "")
+    if input_str.startswith("{") and input_str.endswith("}"):
+        input_str = input_str[1:-1]
+
+    key_values = input_str.split(',')
+    res = {}
+    value_index = 0
+    while value_index < len(key_values):
+        if ':' in key_values[value_index]:
+            key, value = key_values[value_index].split(':')
+            while value_index + 1 < len(key_values) and ':' not in key_values[value_index + 1]:
+                value += ',' + key_values[value_index + 1]
+                value_index += 1
+            res[key] = value
+        value_index += 1
+    return res

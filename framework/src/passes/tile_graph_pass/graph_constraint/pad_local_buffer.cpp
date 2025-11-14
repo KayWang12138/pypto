@@ -40,6 +40,41 @@ int64_t Pad(int64_t dim, int64_t padValue) {
     return (dim + padValue - 1) / padValue * padValue;
 }
 
+bool PadLocalBuffer::IsInputInt8(const Operation &op, const LogicalTensorPtr &in) const {
+    std::vector<Opcode> cubeOps = {Opcode::OP_A_MUL_B, Opcode::OP_AT_MUL_B, Opcode::OP_A_MUL_BT, Opcode::OP_AT_MUL_BT, Opcode::OP_A_MULACC_B};
+
+    if (in == nullptr || in->tensor == nullptr) {
+        return false;
+    }
+
+    APASS_LOG_DEBUG_F(Elements::Tensor, "Tensor", "Matmul Op %d is %s\n", op.opmagic, op.GetOpcodeStr().c_str());
+    APASS_LOG_DEBUG_F(Elements::Tensor, "Tensor", "####### %d data type is %s\n", in->magic, DataType2VectorRegStr(in->tensor->GetDataType()).c_str());
+
+    bool matmulOp = std::find(cubeOps.begin(), cubeOps.end(), op.GetOpcode()) != cubeOps.end();
+    bool opsInputInt8 = false;
+    if (op.GetIOperands().size() > 0 && op.GetIOperands()[0] != nullptr && op.GetIOperands()[0]->tensor != nullptr) {
+        opsInputInt8 = op.GetIOperands()[0]->tensor->GetDataType() == DataType::DT_INT8;
+    }
+    
+    if (in->tensor->GetDataType() == DataType::DT_INT8 ||
+        (matmulOp && opsInputInt8)) {
+        // 检查op的输入数据类型是不是int8类型或者in的数据类型是否为int8
+        // 包括matmul系列和GM->L1->L0系列
+        return true;
+    }
+
+    if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
+        Operation *inProducerPtr = *in->GetProducers().begin();
+        if (inProducerPtr != nullptr && inProducerPtr->GetIOperands().size() != 0 &&
+            inProducerPtr->GetIOperands()[0] != nullptr && inProducerPtr->GetIOperands()[0]->tensor != nullptr) {
+            // 检查in的前置op节点的输入是否为int8。
+            // iOperands (dtype:int8) --> A_MULACC_B --> in (dtype:fp16/int32), iOperands (dtype:fp16/int32) --> COPY_OUT
+            return inProducerPtr->GetIOperands()[0]->tensor->GetDataType() == DataType::DT_INT8;
+        }
+    }
+    return false;
+}
+
 void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
     if (in->shape.size() < MATMUL_MIN_SHAPE_SIZE) {
         APASS_LOG_ERROR_F(Elements::Tensor, "Matmul Op %d %s input %d shape size is less than 2; Please check the input size.", op.opmagic, op.GetOpcodeStr().c_str(), in->magic);
@@ -49,7 +84,7 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
     auto highIndex = in->shape.size() - 2; // matmul高轴
     auto lowIndex = in->shape.size() - 1;  // matmul低轴
 
-    if (in->tensor->GetDataType()==DataType::DT_INT8||in->tensor->GetDataType()==DataType::DT_INT32) {
+    if (IsInputInt8(op, in)) {
         in->shape[highIndex] = Pad(in->shape[highIndex], CUBE_PAD_INT8_VALUE);
         in->shape[lowIndex] = Pad(in->shape[lowIndex], CUBE_PAD_INT8_VALUE);
     } else {
@@ -61,7 +96,7 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
     APASS_LOG_DEBUG_F(Elements::Tensor, "####### %d #current shape is %s\n", in->magic, IntVecToStr(in->shape).c_str());
     in->tensor->oriRawshape = in->tensor->rawshape;
 
-    if (in->tensor->GetDataType()==DataType::DT_INT8||in->tensor->GetDataType()==DataType::DT_INT32) {
+    if (IsInputInt8(op, in)) {
         in->tensor->rawshape[highIndex] = Pad(in->tensor->oriRawshape[highIndex], CUBE_PAD_INT8_VALUE);
         in->tensor->rawshape[lowIndex] = Pad(in->tensor->oriRawshape[lowIndex], CUBE_PAD_INT8_VALUE);
     } else {

@@ -19,7 +19,7 @@
                         "max": 3
                     },
                     "format": "NZ",
-                    "is_trans": true
+                    "need_trans": true
                 },
                 {
                     "name": "input1",
@@ -35,7 +35,7 @@
                         "max": 3
                     },
                     "format": "NZ",
-                    "is_trans": false
+                    "need_trans": false
                 }
             ],
             "output_tensors": [
@@ -103,7 +103,7 @@
                         "max": 3
                     },
                     "format": "NZ",
-                    "is_trans": true
+                    "need_trans": true
                 },
                 {
                     "name": "input1",
@@ -119,7 +119,7 @@
                         "max": 3
                     },
                     "format": "ND",
-                    "is_trans": false
+                    "need_trans": false
                 }
             ],
             "output_tensors": [
@@ -186,7 +186,7 @@
                         "max": 3
                     },
                     "format": "ND",
-                    "is_trans": false
+                    "need_trans": false
                 },
                 {
                     "name": "input1",
@@ -201,7 +201,7 @@
                         "max": 3
                     },
                     "format": "NZ",
-                    "is_trans": true
+                    "need_trans": true
                 }
             ],
             "output_tensors": [
@@ -266,7 +266,7 @@
                         "max": 3
                     },
                     "format": "ND",
-                    "is_trans": false
+                    "need_trans": false
                 },
                 {
                     "name": "input1",
@@ -281,7 +281,7 @@
                         "max": 3
                     },
                     "format": "NZ",
-                    "is_trans": true
+                    "need_trans": true
                 }
             ],
             "output_tensors": [

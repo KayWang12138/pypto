@@ -59,7 +59,7 @@ class TensorDesc:
             params.get("shape"),
             params.get("dtype"),
             data_range,
-            params.get("tensor_format", "ND"),
+            params.get("format", "ND"),
             params.get("need_trans", False),
         )
 
@@ -92,7 +92,7 @@ class TensorDesc:
             "name": self._name,
             "shape": self._shape,
             "dtype": self._dtype,
-            "tensor_format": self._tensor_format,
+            "format": self._tensor_format,
             "need_trans": self._need_trans,
         }
         if self._data_range is not None:

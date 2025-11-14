@@ -27,6 +27,7 @@
 
 namespace tile_fwk {
 namespace test_operation {
+constexpr int perchannel = 2;
 
 struct OpFuncArgs {
     std::unordered_map<size_t, size_t> inplaceInfo;
@@ -62,6 +63,10 @@ struct MatmulTestCaseParam {
     bool isCMatrixNz = false;
     DataType outDtype = DT_FP32;
     bool enableKSplit = false;
+    float scaleValue = 0.0f;
+    int reluTypeInt = 0;
+    bool hasScale = false;
+    bool hasBias = false;
 };
 
 class TestExecutor {
@@ -86,6 +91,10 @@ private:
         std::vector<RawTensorDataPtr> inputs;
         ASSERT_EQ(testCase.inputTensors.size(), testCase.inputPaths.size());
         for (size_t i = 0; i < testCase.inputTensors.size(); ++i) {
+            if (testCase.inputTensors[i].GetStorage() == nullptr) {
+                inputs.push_back(nullptr);
+                continue;
+            }
             size_t elementCount = 1;
             for (int dim : testCase.inputTensors[i].GetShape()) {
                 elementCount *= dim;
@@ -232,6 +241,10 @@ private:
         ASSERT_EQ(testCase.inputTensors.size(), testCase.inputPaths.size());
         std::vector<RawTensorDataPtr> inputs;
         for (size_t i = 0; i < testCase.inputTensors.size(); ++i) {
+            if (testCase.inputTensors[i].GetStorage() == nullptr) {
+                inputs.push_back(nullptr);
+                continue;
+            }
             size_t elementCount = 1;
             for (int dim : testCase.inputTensors[i].GetShape()) {
                 elementCount *= dim;
@@ -370,6 +383,25 @@ static std::vector<Tensor> GetTensors(const nlohmann::json &json_data, bool is_i
     return tensors;
 }
 
+[[maybe_unused]] static Tensor GetParamTensor(const nlohmann::json &json_data, const std::string key) {
+    std::cout << "Create Param Tensors For " << json_data << std::endl;
+    if (json_data.at("params").find(key) == json_data.at("params").end()) {
+        return Tensor();
+    }
+    const auto &tensor_config = json_data.at("params").at(key);
+    auto format = tensor_config.at("format").get<std::string>();
+    auto name = tensor_config.at("name").get<std::string>();
+    auto dtype = GetDataType(tensor_config.at("dtype").get<std::string>());
+    auto shape = tensor_config.at("shape").get<std::vector<int64_t>>();
+    if (format == "NZ") {
+        std::cout << "Create NZ Tensors" << std::endl;
+        return Tensor(dtype, shape, name, TileOpFormat::TILEOP_NZ);
+    } else {
+        std::cout << "Create ND Tensors" << std::endl;
+        return Tensor(dtype, shape, name);
+    }
+}
+
 [[maybe_unused]] static std::vector<Tensor> GetOutputTensors(const nlohmann::json &json_data) {
     return GetTensors(json_data, false);
 }
@@ -420,13 +452,29 @@ T2 GetMapValByName(const std::map<T1, T2> &map_data, const T1 &name) {
 
 [[maybe_unused]] static MatmulTestCaseParam GetMatmulParam(const nlohmann::json &json_data) {
     MatmulTestCaseParam param;
-    param.transA = GetValueByName<bool>(json_data, "transA");
-    param.transB = GetValueByName<bool>(json_data, "transB");
-    param.isAMatrixNz = GetValueByName<bool>(json_data, "isAMatrixNz");
-    param.isBMatrixNz = GetValueByName<bool>(json_data, "isBMatrixNz");
-    param.isCMatrixNz = GetValueByName<bool>(json_data, "isCMatrixNz");
-    param.outDtype = GetDataType(GetValueByName<std::string>(json_data, "outDtype"));
-    param.enableKSplit = GetValueByName<bool>(json_data, "enableKSplit");
+    param.transA = json_data.at("input_tensors")[0].at("need_trans");
+    param.transB = json_data.at("input_tensors")[1].at("need_trans");
+    param.isAMatrixNz = json_data.at("input_tensors")[0].at("format") == "NZ";
+    param.isBMatrixNz = json_data.at("input_tensors")[1].at("format") == "NZ";
+    param.isCMatrixNz = json_data.at("output_tensors")[0].at("format") == "NZ";
+    param.outDtype = GetDataType(json_data.at("output_tensors")[0].at("dtype"));
+    if (json_data.find("enableKSplit") != json_data.end()) {
+        param.enableKSplit = GetValueByName<bool>(json_data, "enableKSplit");
+    }
+    if (json_data.at("params").find("relu_type") != json_data.at("params").end()) {
+        param.reluTypeInt = GetValueByName<int>(json_data, "relu_type");
+    }
+    if (json_data.at("params").find("scale_value") != json_data.at("params").end()) {
+        param.scaleValue = GetValueByName<float>(json_data, "scale_value");
+    }
+    if (json_data.at("params").find("quant_type") != json_data.at("params").end() &&
+        GetValueByName<int>(json_data, "quant_type") == perchannel) {
+        param.hasScale = true;
+    }
+    if (json_data.at("params").find("bias_info") != json_data.at("params").end() &&
+        GetValueByName<std::string>(json_data, "bias_info") != "") {
+        param.hasBias = true;
+    }
     return param;
 }
 

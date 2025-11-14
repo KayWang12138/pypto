@@ -21,6 +21,7 @@ from typing import List
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 import copy
 
 g_src_root: Path = Path(Path(__file__).parent, "../../../../").resolve()
@@ -33,7 +34,8 @@ import_path: Path = Path(g_ctrl_path, "helper").resolve()
 if str(import_path) not in sys.path:
     sys.path.append(str(import_path))
 from test_case_loader import TestCaseLoader
-from test_case_tools import parse_list_str, get_dtype_by_name
+from test_case_desc import TensorDesc
+from test_case_tools import parse_list_str, get_dtype_by_name, parse_dict_str
 
 bfloat16 = get_dtype_by_name("bf16", False, False)
 
@@ -103,6 +105,9 @@ def gen_op_golden(
     op: str, golden_func, output_path: Path, case_index: int = None
 ) -> bool:
     def generate_golden_files(golden_func, output_path: Path, config: dict) -> bool:
+        if config['operation'] in ["Matmul", "BatchMatmul", "MatmulVerify", "BatchMatmulVerify"]:
+            return generate_matmul_golden_files(golden_func, output_path, config)
+
         input_tensors = []
         spec_value_map = {
             "nan": np.nan,
@@ -172,6 +177,84 @@ def gen_op_golden(
             generate_golden_files(golden_func, output_path1, test_config)
     else:
         generate_golden_files(golden_func, output_path, test_configs[case_index])
+    return True
+
+
+def generate_matmul_params_files(input_tensors: list, output_path: Path, config: dict):
+    params = config.get("params")
+    if params.get("scale_tensors"):
+        scale_tensor = params["scale_tensors"]
+        scale_min = scale_tensor["data_range"]["min"]
+        scale_max = scale_tensor["data_range"]["max"]
+        if scale_min != scale_max:
+            tensor = np.random.uniform(scale_min, scale_max, scale_tensor["shape"]).astype(
+                np.float32)
+        else:
+            tensor = np.full(
+                scale_tensor["shape"],
+                scale_max,
+                dtype=np.float32,
+            )
+        tensor_data = tensor.view(np.uint32)
+        mask = 0xFFFFE000
+        tensor_data = tensor_data & mask
+        fp32_modified = tensor_data.view(np.float32)
+        tensor_data.astype(np.uint64).tofile(Path(output_path, params["scale_tensors"]["name"] + ".bin"))
+        input_tensors.append(fp32_modified)
+
+    if params.get("bias_tensors"):
+        bias_tensor = params["bias_tensors"]
+        bias_min = bias_tensor["data_range"]["min"]
+        bias_max = bias_tensor["data_range"]["max"]
+        tensor_type = get_dtype_by_name(bias_tensor["dtype"])
+        if bias_tensor["dtype"] == "bf16":
+            tensor_type = bfloat16
+        tensor = np.random.uniform(bias_min, bias_max, bias_tensor["shape"]).astype(
+            tensor_type
+        )
+        tensor.tofile(Path(output_path, params["bias_tensors"]["name"] + ".bin"))
+        input_tensors.append(tensor)
+
+
+def generate_matmul_golden_files(golden_func, output_path: Path, config: dict):
+    spec_value_map = {
+        "-inf": -np.inf,
+        "inf": np.inf,
+        "nan": np.nan,
+        "min": np.finfo(np.float32).min,
+        "max": np.finfo(np.float32).max,
+    }
+    cube_op_list = ["Matmul", "BatchMatmul", "MatmulVerify", "BatchMatmulVerify"]
+    index = 0
+    input_tensors = []
+    for input_tensor in config["input_tensors"]:
+        input_min = input_tensor["data_range"]["min"]
+        input_max = input_tensor["data_range"]["max"]
+        assert not isinstance(input_min, str) and not isinstance(
+            input_min, str
+        ), "Data range must be number when the min and max are not same."
+        tensor_type = get_dtype_by_name(input_tensor["dtype"])
+        if input_tensor["dtype"] == "bf16":
+            tensor_type = bfloat16
+        tensor = np.random.uniform(input_min, input_max, input_tensor["shape"]).astype(
+            tensor_type
+        )
+        index += 1
+        input_tensors.append(tensor)
+    generate_matmul_params_files(input_tensors, output_path, config)
+    res = golden_func(input_tensors, config)
+    for idx in range(len(config["output_tensors"])):
+        tensor_type = get_dtype_by_name(config["output_tensors"][idx]["dtype"])
+        if config["output_tensors"][idx]["dtype"] == "bf16":
+            tensor_type = bfloat16
+        res[idx].astype(tensor_type).tofile(
+            Path(output_path, config["output_tensors"][idx]["name"] + ".bin")
+        )
+    
+    for input_tensor, read_input in zip(input_tensors, config["input_tensors"]):
+        if config.get("operation") in cube_op_list and read_input.get("format") == "NZ":
+            input_tensor = trans_nd_to_fractal_nz(input_tensor)
+        input_tensor.tofile(Path(output_path, read_input["name"] + ".bin"))
     return True
 
 
@@ -303,6 +386,67 @@ def gen_topk_op_golden(case_name: str, output: Path, case_index: int = None) -> 
     return True
 
 
+@TestCaseLoader.reg_params_handler(ops=["Matmul", "BatchMatmul", "MatmulVerify", "BatchMatmulVerify"])
+def matmul_params_func(params: dict):
+    bias_params_func(params)
+    fixpipe_params_func(params)    
+    return params
+
+
+def fixpipe_params_func(params: dict):
+    scale_shape = [1, 1]
+    scale_range = [1, 1]
+    scale_dtype = "uint64"
+    fixpipe_param = params.get("fixpipe_info", "")
+    if fixpipe_param is None:
+        params["fixpipe_info"] = ""
+    if fixpipe_param != "" and fixpipe_param is not None:
+        fixpipe_info = parse_dict_str(fixpipe_param)
+        if "scale_value" in fixpipe_info:
+            params["scale_value"] = float(fixpipe_info["scale_value"])
+        if "relu_type" in fixpipe_info:
+            params["relu_type"] = int(fixpipe_info["relu_type"])
+        if "scale_tensor_range" in fixpipe_info and fixpipe_info["scale_tensor_range"] != "":
+            scale_range = parse_list_str(fixpipe_info["scale_tensor_range"])
+        if "quant_type" in fixpipe_info:
+            params["quant_type"] = int(fixpipe_info["quant_type"])
+        if "scale_shape" in fixpipe_info:
+            scale_shape_info = parse_list_str(fixpipe_info["scale_shape"])
+            if scale_shape_info[0] == 0 or len(scale_shape_info) < 2:
+                scale_range = [1, 1]
+            else:
+                scale_shape = scale_shape_info
+    # scale_tensor
+    scale_tensor = TensorDesc("scale_tensor", scale_shape, scale_dtype, scale_range,
+                                tensor_format="ND", need_trans=False)
+    params["scale_tensors"] = scale_tensor.dump_to_json()
+
+
+def bias_params_func(params: dict):
+    bias_shape = [1, 1]
+    bias_range = [0, 0]
+    bias_dtype = "fp16"
+    bias_param = params.get("bias_info", "")
+    if bias_param is None:
+        params["bias_info"] = ""
+    if bias_param != "" and bias_param is not None:
+        bias_info = parse_dict_str(bias_param)
+        if "bias_range" in bias_info:
+            bias_range = parse_list_str(bias_info["bias_range"])
+        if "bias_dtype" in bias_info:
+            bias_dtype = bias_info["bias_dtype"]
+        if "bias_shape" in bias_info:
+            bias_shape_info = parse_list_str(bias_info["bias_shape"])
+            if bias_shape_info[0] == 0 or len(bias_shape_info) < 2:
+                bias_range = [0, 0]
+            else:
+                bias_shape = bias_shape_info
+    # bias_tensor
+    bias_tensor = TensorDesc("bias_tensor", bias_shape, bias_dtype, bias_range,
+                                tensor_format="ND", need_trans=False)
+    params["bias_tensors"] = bias_tensor.dump_to_json()
+
+
 @TestCaseLoader.reg_params_handler(ops=["Cast"])
 def cast_params_func(params: dict):
     params["mode"] = int(params.get("mode", "0"))
@@ -368,24 +512,32 @@ def matmul_golden_func(inputs: list, config: dict):
     )
     assert params.get("outDtype") in ("fp32", "fp16", "bf16", "int32")
     if params.get("outDtype") in ("fp32", "fp16", "bf16"):
-        tensor_c = (
-            torch.matmul(
-                torch.from_numpy(tensor_a.astype(np.float32)).to(torch.float32),
-                torch.from_numpy(tensor_b.astype(np.float32)).to(torch.float32),
-            )
-            .to(torch.float32)
-            .numpy()
-        )
+        tensor_c = torch.matmul(
+            torch.from_numpy(tensor_a.astype(np.float32)).to(torch.float32),
+            torch.from_numpy(tensor_b.astype(np.float32)).to(torch.float32)
+        ).to(torch.float32)
+        if params.get("bias_info") is not None and params.get("bias_info") != "":
+            tensor_c = tensor_c + torch.from_numpy(inputs[3].astype(np.float32)).to(torch.float32)
     else:
-        tensor_c = (
-            torch.matmul(
-                torch.from_numpy(tensor_a.astype(np.int32)).to(torch.int32),
-                torch.from_numpy(tensor_b.astype(np.int32)).to(torch.int32),
-            )
-            .to(torch.int32)
-            .numpy()
-        )
-    tensor_c = tensor_c.astype(get_dtype_by_name(params.get("outDtype")))
+        tensor_c = torch.matmul(
+            torch.from_numpy(tensor_a.astype(np.int32)).to(torch.int32),
+            torch.from_numpy(tensor_b.astype(np.int32)).to(torch.int32)
+        ).to(torch.int32)
+        if params.get("bias_info") is not None and params.get("bias_info") != "":
+            tensor_c = tensor_c + torch.from_numpy(inputs[3].astype(np.int32)).to(torch.int32)
+
+    if params.get("relu_type") == 1:
+        tensor_c = F.relu(tensor_c)
+    if params.get("scale_value"):
+        tensor_c = tensor_c * params.get("scale_value")
+    if params.get("quant_type") is not None and params.get("quant_type") == 2:
+        # quant type中no quant为0, pertensor为1, perchannel为2.
+        tensor_c = tensor_c * inputs[2]
+    tensor_c = tensor_c.numpy()
+    tensor_type = get_dtype_by_name(params.get("outDtype"))
+    if params.get("outDtype") == "bf16":
+        tensor_type = bfloat16
+    tensor_c = tensor_c.astype(tensor_type)
 
     if params.get("isCMatrixNz"):
         tensor_c = trans_nd_to_fractal_nz(tensor_c, True)
