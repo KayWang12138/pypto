@@ -119,6 +119,28 @@ TEST_F(DerivationTileShapeTest, DerivationSplitAndMergeSuccess) {
     BuildShapeAndCheckSucc(G.GetFunction(), inShape, outShape, inTileShape, resultTileShape);
 }
 
+TEST_F(DerivationTileShapeTest, DerivationSplitAndMergeInputShape1Success) {
+    ComputationalGraphBuilder G;
+    BuildGraphAndCheck(G);
+
+    Shape inShape = {30, 6, 1, 1};
+    Shape outShape = {2, 45, 2};
+    std::vector<int64_t> inTileShape = {5, 6, 1, 1};
+    std::vector<int64_t> resultTileShape = {1, 15, 2};
+    BuildShapeAndCheckSucc(G.GetFunction(), inShape, outShape, inTileShape, resultTileShape);
+}
+
+TEST_F(DerivationTileShapeTest, DerivationSplitAndMergeOutputShape1Success) {
+    ComputationalGraphBuilder G;
+    BuildGraphAndCheck(G);
+
+    Shape inShape = {30, 6};
+    Shape outShape = {2, 45, 2, 1, 1};
+    std::vector<int64_t> inTileShape = {5, 6};
+    std::vector<int64_t> resultTileShape = {1, 15, 2, 1, 1};
+    BuildShapeAndCheckSucc(G.GetFunction(), inShape, outShape, inTileShape, resultTileShape);
+}
+
 TEST_F(DerivationTileShapeTest, DerivationLargeSizeSuccess) {
     ComputationalGraphBuilder G;
     BuildGraphAndCheck(G);
@@ -146,9 +168,102 @@ TEST_F(DerivationTileShapeTest, DerivationAlignTileFail) {
 
     Shape inShape = {30, 6};
     Shape outShape = {2, 45, 2};
+    std::vector<int64_t> inTileShape = {4, 2};
+    BuildShapeAndCheckFail(G.GetFunction(), inShape, outShape, inTileShape);
+}
+
+TEST_F(DerivationTileShapeTest, DerivationOutTileFail) {
+    ComputationalGraphBuilder G;
+    BuildGraphAndCheck(G);
+
+    Shape inShape = {30, 6};
+    Shape outShape = {2, 45, 2};
     std::vector<int64_t> inTileShape = {5, 2};
     BuildShapeAndCheckFail(G.GetFunction(), inShape, outShape, inTileShape);
 }
 
+TEST_F(DerivationTileShapeTest, DerivationAlignShapeInputProductFailed) {
+    ComputationalGraphBuilder G;
+    BuildGraphAndCheck(G);
+
+    Shape inShape = {4, 3};
+    Shape outShape = {2, 3, 2};
+    std::vector<int64_t> inTileShape = {2, 1};
+    BuildShapeAndCheckFail(G.GetFunction(), inShape, outShape, inTileShape);
+}
+
+TEST_F(DerivationTileShapeTest, DerivationAlignShapeOutputProductFailed) {
+    ComputationalGraphBuilder G;
+    BuildGraphAndCheck(G);
+
+    Shape inShape = {2, 3, 2};
+    Shape outShape = {4, 3};
+    std::vector<int64_t> inTileShape = {2, 1, 1};
+    BuildShapeAndCheckFail(G.GetFunction(), inShape, outShape, inTileShape);
+}
+
+TEST_F(DerivationTileShapeTest, DerivationAlignShapeZeroFailed) {
+    ComputationalGraphBuilder G;
+    BuildGraphAndCheck(G);
+
+    Shape inShape = {2, 3, 2};
+    Shape outShape = {4, 3};
+    std::vector<int64_t> inTileShape = {2, 0, 1};
+    BuildShapeAndCheckFail(G.GetFunction(), inShape, outShape, inTileShape);
+}
+
+TEST_F(DerivationTileShapeTest, DerivationBiggerTileSuccess) {
+    ComputationalGraphBuilder G;
+    BuildGraphAndCheck(G);
+
+    Shape inShape = {2, 2};
+    Shape outShape = {1, 2, 2};
+    std::vector<int64_t> inTileShape = {2, 32};
+    std::vector<int64_t> resultTileShape = {1, 2, 32};
+    BuildShapeAndCheckSucc(G.GetFunction(), inShape, outShape, inTileShape, resultTileShape);
+}
+
+TEST_F(DerivationTileShapeTest, DerivationSplitBiggerTileSuccess) {
+    ComputationalGraphBuilder G;
+    BuildGraphAndCheck(G);
+
+    Shape inShape = {2, 4};
+    Shape outShape = {1, 2, 2, 2};
+    std::vector<int64_t> inTileShape = {2, 32};
+    std::vector<int64_t> resultTileShape = {1, 2, 2, 16};
+    BuildShapeAndCheckSucc(G.GetFunction(), inShape, outShape, inTileShape, resultTileShape);
+}
+
+TEST_F(DerivationTileShapeTest, DerivationMergeBiggerTileSuccess) {
+    ComputationalGraphBuilder G;
+    BuildGraphAndCheck(G);
+
+    Shape inShape = {2, 2, 2};
+    Shape outShape = {2, 4};
+    std::vector<int64_t> inTileShape = {2, 2, 32};
+    std::vector<int64_t> resultTileShape = {2, 64};
+    BuildShapeAndCheckSucc(G.GetFunction(), inShape, outShape, inTileShape, resultTileShape);
+}
+
+TEST_F(DerivationTileShapeTest, DerivationSplitAndMergeBiggerTileSuccess) {
+    ComputationalGraphBuilder G;
+    BuildGraphAndCheck(G);
+
+    Shape inShape = {30, 6};
+    Shape outShape = {2, 45, 2};
+    std::vector<int64_t> inTileShape = {5, 36};
+    std::vector<int64_t> resultTileShape = {1, 15, 12};
+    BuildShapeAndCheckSucc(G.GetFunction(), inShape, outShape, inTileShape, resultTileShape);
+}
+
+TEST_F(DerivationTileShapeTest, DerivationMergeBiggerTileFail) {
+    ComputationalGraphBuilder G;
+    BuildGraphAndCheck(G);
+
+    Shape inShape = {2, 4};
+    Shape outShape = {1, 2, 2, 2};
+    std::vector<int64_t> inTileShape = {2, 33};
+    BuildShapeAndCheckFail(G.GetFunction(), inShape, outShape, inTileShape);
+}
 } // namespace tile_fwk
 } // namespace npu
