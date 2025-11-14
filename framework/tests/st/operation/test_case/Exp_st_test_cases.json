@@ -225,7 +225,7 @@
                         3072,
                         384
                     ],
-                    "dtype": "fp16",
+                    "dtype": "fp32",
                     "data_range": {
                         "min": 0,
                         "max": 1
