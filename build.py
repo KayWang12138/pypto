@@ -28,7 +28,6 @@ import dataclasses
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List, Dict, Tuple, Any
-from setup import MetaHelper
 
 if str(Path(Path(__file__).parent, "tools")) not in sys.path:
     sys.path.append(str(Path(Path(__file__).parent, "tools")))
@@ -133,7 +132,7 @@ class FeatureParam(CMakeParam):
     def get_cfg_cmd(self) -> str:
         cmd: str = ""
         cmd += self._cfg_require(opt="ENABLE_FEATURE_PYTHON_FRONT_END", ctr=self.frontend_type_python3,
-                                 tv=MetaHelper.name())
+                                 tv="pto")
         cmd += self._cfg_require(opt="BUILD_WITH_CANN", ctr=self.backend_type in ["npu"])
         return cmd
 
@@ -712,7 +711,7 @@ class BuildCtrl:
 
 
     def __init__(self, args):
-        self.whl_prefix: str = MetaHelper.name()
+        self.whl_prefix: str = "pto"
         self.src_root: Path = Path(__file__).parent.resolve()
         self.build_root: Path = Path(Path.cwd(), "build")
         self.install_root: Path = Path(self.build_root.parent, "output")
@@ -812,7 +811,6 @@ class BuildCtrl:
     def main(cls):
         """ 主处理流程
         """
-        MetaHelper.init()
         parser = argparse.ArgumentParser(description=f"PyPTO Build Ctrl.", epilog="Best Regards!")
         sub_parser = parser.add_subparsers()  # 子命令
         # 参数注册
