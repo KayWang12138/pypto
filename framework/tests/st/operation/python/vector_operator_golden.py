@@ -1063,6 +1063,7 @@ def gen_gather_op_golden(case_name: str, output: Path, case_index: int = None) -
 @TestCaseLoader.reg_params_handler(ops=["GatherElement", "Scatter", "Concat", "Gather"])
 def params_axis_func(params: dict):
     params["axis"] = int(params.get("axis"))
+    params["reduce"] = "" if params["reduce"] is None else params["reduce"]
     return params
 
 

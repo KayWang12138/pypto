@@ -878,12 +878,11 @@ std::string CodeGenOpCloudNPU::PrintScatterElementSOpDynamicUnaligned(const Prin
     std::string templateParamStr = JoinString(templateParams, ", ");
 
     std::vector<std::string> callParams;
-    const std::string src2_dtypestr = "float";
     callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(DISOIdx::DST_IDX)] + "*)" + dstVar);
     callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(DISOIdx::SRC0_IDX)] + "*)" + src0Var);
     callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(DISOIdx::SRC1_IDX)] + "*)" + src1Var);
     std::string scalarTmpBuffer = FormatFloat(scala.Cast<float>());
-    callParams.emplace_back("(" + src2_dtypestr + ")" + scalarTmpBuffer);
+    callParams.emplace_back("(" + dataTypeExpr[ToUnderlying(DISOIdx::DST_IDX)] + ")" + scalarTmpBuffer);
     for (size_t i = 0; i < SHAPE_DIM4; ++i) {
         callParams.emplace_back(SymbolicExpressionTable::BuildExpression(dynSrc1Shape[i]));
     }
