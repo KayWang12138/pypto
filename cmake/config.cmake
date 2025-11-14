@@ -137,6 +137,9 @@ if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
     get_filename_component(_Install_Path_Prefix "${CMAKE_CURRENT_BINARY_DIR}/../output" REALPATH)
     set(CMAKE_INSTALL_PREFIX    "${_Install_Path_Prefix}"  CACHE STRING "Install path" FORCE)
 endif ()
+if (ENABLE_FEATURE_PYTHON_FRONT_END)
+    set(CMAKE_INSTALL_LIBDIR lib)  # 与 whl 包内二进制查找路径兼容
+endif ()
 message(STATUS "CMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}")
 
 

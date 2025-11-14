@@ -28,6 +28,7 @@ import dataclasses
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List, Dict, Tuple, Any
+from setup import MetaHelper
 
 if str(Path(Path(__file__).parent, "tools")) not in sys.path:
     sys.path.append(str(Path(Path(__file__).parent, "tools")))
@@ -106,15 +107,19 @@ class FeatureParam(CMakeParam):
         return desc
 
     @property
+    def frontend_type_python3(self) -> bool:
+        return self.frontend_type in ["python", "python3"]
+
+    @property
     def def_build_job_num(self) -> Optional[int]:
-        if self.frontend_type in ["python3"]:
+        if self.frontend_type_python3:
             return None
         else:
             return min(int(math.ceil(float(multiprocessing.cpu_count()) * 0.9)), 48)  # 设置 48 为 CMake 场景最大核数
 
     @property
     def def_build_type(self) -> str:
-        return "Release" if self.frontend_type in ["python3"] else "Debug"
+        return "Release" if self.frontend_type_python3 else "Debug"
 
     @staticmethod
     def reg_args(parser, ext: Optional[Any] = None):
@@ -126,7 +131,10 @@ class FeatureParam(CMakeParam):
                             help="backend, such as npu/cost_model etc.")
 
     def get_cfg_cmd(self) -> str:
-        cmd: str = self._cfg_require(opt="BUILD_WITH_CANN", ctr=self.backend_type in ["npu"])
+        cmd: str = ""
+        cmd += self._cfg_require(opt="ENABLE_FEATURE_PYTHON_FRONT_END", ctr=self.frontend_type_python3,
+                                 tv=MetaHelper.name())
+        cmd += self._cfg_require(opt="BUILD_WITH_CANN", ctr=self.backend_type in ["npu"])
         return cmd
 
 
@@ -168,6 +176,10 @@ class BuildParam(CMakeParam):
         desc += f"\n    GCov                    : {self.gcov}"
         desc += f"\n    ClangInstallPath        : {self.clang_install_path}"
         return desc
+
+    @property
+    def install_strip(self) -> bool:
+        return self.type_ in ["Debug"]
 
     @staticmethod
     def reg_args(parser, ext: Optional[Any] = None):
@@ -700,7 +712,7 @@ class BuildCtrl:
 
 
     def __init__(self, args):
-        self.whl_prefix: str = "pto"
+        self.whl_prefix: str = MetaHelper.name()
         self.src_root: Path = Path(__file__).parent.resolve()
         self.build_root: Path = Path(Path.cwd(), "build")
         self.install_root: Path = Path(self.build_root.parent, "output")
@@ -708,6 +720,9 @@ class BuildCtrl:
         self.build: BuildParam = BuildParam(args=args, feature=self.feature)
         self.tests: TestsParam = TestsParam(args=args)
         self.model: ModelParam = ModelParam(args=args)
+        if self.feature.frontend_type_python3:
+            self.build_root: Path = Path(Path.cwd(), "build_whl")
+            self.install_root: Path = Path(self.build_root.parent, "dist")
 
     def __str__(self):
         ver = sys.version_info
@@ -797,6 +812,7 @@ class BuildCtrl:
     def main(cls):
         """ 主处理流程
         """
+        MetaHelper.init()
         parser = argparse.ArgumentParser(description=f"PyPTO Build Ctrl.", epilog="Best Regards!")
         sub_parser = parser.add_subparsers()  # 子命令
         # 参数注册
@@ -810,7 +826,7 @@ class BuildCtrl:
         # 流程处理
         # 区分 python3 前端和 cpp 前端
         logging.info("%s", ctrl)
-        if ctrl.feature.frontend_type in ["python", "python3"]:
+        if ctrl.feature.frontend_type_python3:
             logging.info("Front-end(python3), start process with scikit-build-core.")
             ctrl.py_clean()
             ctrl.py_build()
@@ -846,17 +862,18 @@ class BuildCtrl:
         logging.info("Success uninstall %s package%s", name, f" from {path}" if path else "")
 
     @classmethod
-    def pip_install(cls, whl: Path, path: Optional[Path] = None):
+    def pip_install(cls, whl: Path, path: Optional[Path] = None, opt: str = ""):
         """
         安装指定 whl 包
 
         :param whl: 包文件
         :param path: 安装路径(可选), 未指定时会安装在默认路径
+        :param opt: 额外安装参数
         :return: 安装路径
         """
-        cmd: str = f"{sys.executable} -m pip install --no-compile {whl}"
+        cmd: str = f"{sys.executable} -m pip install {opt} {whl}"
         cmd += f" --target={path}" if path else ""
-        logging.info("Begin install %s", whl)
+        logging.info("Begin install %s, cmd: %s", whl, cmd)
         ret = cls.run_build_cmd(cmd=cmd, check=True)
         ret.check_returncode()
         logging.info("Success install %s%s", whl, f" to {path}" if path else "")
@@ -872,19 +889,13 @@ class BuildCtrl:
                 shutil.rmtree(self.install_root)
 
     def py_clean(self):
+        self.cmake_clean()
         if self.build.clean:
-            build: Path = Path(self.src_root, "build_whl")
-            if build.exists():
-                logging.info("Clean Build-Tree(%s)", build)
-                shutil.rmtree(build)
-            dist: Path = Path(self.src_root, "dist")
-            if dist.exists():
-                logging.info("Clean Install-Tree(%s)", dist)
-                shutil.rmtree(dist)
-            if self.install_root.exists():
-                logging.info("Clean Binary Cache Path(%s)", self.install_root)
-                shutil.rmtree(self.install_root)
-            kernel_meta: Path = Path(self.src_root, "kernel_meta")
+            output: Path = Path(Path.cwd(), "output")
+            if output.exists():
+                logging.info("Clean Binary Cache Path(%s)", output)
+                shutil.rmtree(output)
+            kernel_meta: Path = Path(Path.cwd(), "kernel_meta")
             if kernel_meta.exists():
                 logging.info("Clean Binary Cache Path(%s)", kernel_meta)
                 shutil.rmtree(kernel_meta)
@@ -939,14 +950,18 @@ class BuildCtrl:
 
     def py_build(self):
         # 基本配置
-        cmd: str = f"{sys.executable} -I -m build --no-isolation -v --wheel"
-        cmd += self.build.get_pep517_cfg_cmd()
-        update_env: Dict[str, str] = {}
-        if self.build.job_num:
-            update_env.update({"CMAKE_BUILD_PARALLEL_LEVEL": f"{self.build.job_num}"})
+        build_whl = self.build_root.name
+        cmake_args = f"{self.build.get_cfg_cmd()} {self.feature.get_cfg_cmd()}"
+        cmd: str = f"{sys.executable} setup.py bdist_wheel"
+        cmd += f" --cmake-args='{cmake_args}'" if cmake_args else ""
+        cmd += f" --clean-first" if self.build.clean else ""
+        cmd += f" --disable-install-strip" if self.build.install_strip else ""
+        cmd += f" build --build-base={build_whl}"
+        cmd += f" --parallel={self.build.job_num}" if self.build.job_num else ""
+        cmd += f" egg_info --egg-base={build_whl}"
         ts = datetime.now(tz=timezone.utc)
         logging.info("Begin Build whl, Cmd: %s", cmd)
-        ret = self.run_build_cmd(cmd=cmd, update_env=update_env, check=True, timeout=self.build.timeout)
+        ret = self.run_build_cmd(cmd=cmd, check=True, timeout=self.build.timeout)
         ret.check_returncode()
         duration: int = int((datetime.now(tz=timezone.utc) - ts).seconds)
         duration_str: str = f"{duration}/{self.build.timeout}" if self.build.timeout else f"{duration}"
@@ -956,12 +971,12 @@ class BuildCtrl:
         if not self.tests.utest.enable and not self.tests.stest.enable:
             return
         # 重装 whl
-        dist: Path = Path(self.src_root, "dist")
+        dist: Path = self.install_root
         self.pip_uninstall(name=self.whl_prefix, path=dist)  # 卸载 whl 包
         whl: Optional[Path] = self.find_match_whl(name=self.whl_prefix, path=dist)  # 查找 whl 包
         if not whl:
             raise RuntimeError(f"Can't find {self.whl_prefix} whl file from {dist}")
-        self.pip_install(whl=whl, path=dist)  # 安装 whl 包
+        self.pip_install(whl=whl, path=dist, opt="--no-compile --no-deps")  # 安装 whl 包
         # 执行用例, UTest
         self.py_tests_run_pytest(dist=dist, tests=self.tests.utest,
                                  def_filter=str(Path(self.src_root, "python/tests/ut")), ext="-n auto --forked")

@@ -8,15 +8,7 @@
 # ======================================================================================================================
 
 [build-system]
-requires = [
-    "scikit-build-core>=0.11.6",
-    "pybind11>=2.0.1",
-    "torch>=2.1.0",
-    "torch_npu>=2.1.0",
-    "numpy",
-    "sympy",
-]
-build-backend = "scikit_build_core.build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "pto"
@@ -25,10 +17,7 @@ description = "PTO"
 readme = "README.md"
 requires-python = ">=3.8"
 license = { file = "LICENSE" }
-
-[tool.scikit-build]
-wheel.packages = ["python/pto/"]
-build-dir = "build_whl"
-
-[tool.scikit-build.cmake.define]
-ENABLE_FEATURE_PYTHON_FRONT_END = "pto"
+dependencies = [
+    "torch>=2.1.0",
+    "torch_npu>=2.1.0",
+]

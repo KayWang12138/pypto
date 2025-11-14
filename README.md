@@ -100,16 +100,14 @@ PyPTO 支持由源码编译 whl 包, 并基于 pytest 对 whl 包含的 python �
 
 ```txt
 # 编译 whl 包时所需的 pip 包
-build>=1.2.0
+setuptools
+wheel
 pybind11>=2.0.1
-scikit_build_core>=0.11.6
-torch>=2.1.0
-torch_npu>=2.1.0
-numpy>=1.19.2, <=1.24.4
-sympy
+tomli
 ```
 
 需要注意 `torch` 及 `torch_npu` 包安装, 对应内容参考 [Ascend Extension for PyTorch 安装说明](https://www.hiascend.com/document/detail/zh/Pytorch/710/configandinstg/instg/insg_0001.html).
+
 #### 4.1.2 编译执行
 
 可通过如下命令一键式编译 PyPTO 对应 whl 包, 编译完成后会在源码根目录 `dist` 目录下产生 `pto-*.whl` 包. 而后可以通过 pip 包管理命令进行安装.
