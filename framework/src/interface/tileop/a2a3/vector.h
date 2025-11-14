@@ -1989,7 +1989,7 @@ template <typename T, unsigned OS0, unsigned OS1, unsigned DS, unsigned SS, unsi
 TILEOP void Trowsumsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
     static_assert(OS0 <= REPEAT_MAX);
     constexpr uint64_t srcRepeatPerRow = static_cast<uint64_t>(OS1 * sizeof(T) / REPEAT_BYTE);
-    constexpr uint8_t srcRepeatStride = SS * sizeof(T) / BLOCK_SIZE;
+    constexpr uint16_t srcRepeatStride = SS * sizeof(T) / BLOCK_SIZE;
     constexpr unsigned nElemPerRepeat = REPEAT_BYTE / sizeof(T);
     constexpr unsigned remain = OS1 % nElemPerRepeat;
     if constexpr (srcRepeatPerRow == 1 && remain == 0) {
@@ -2183,7 +2183,7 @@ template <typename T, unsigned OS0, unsigned OS1, unsigned DS, unsigned SS, unsi
 TILEOP void Trowmaxsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
     static_assert(OS0 <= REPEAT_MAX);
     constexpr uint64_t srcRepeatPerRow = static_cast<uint64_t>(OS1 * sizeof(T) / REPEAT_BYTE);
-    constexpr unsigned srcRepeatStride = SS * sizeof(T) / BLOCK_SIZE;
+    constexpr uint16_t srcRepeatStride = SS * sizeof(T) / BLOCK_SIZE;
     constexpr unsigned nElemPerRepeat = REPEAT_BYTE / sizeof(T);
     constexpr unsigned remain = OS1 % nElemPerRepeat;
     if constexpr (srcRepeatPerRow == 1 && OS0 <= REPEAT_MAX && remain == 0) {

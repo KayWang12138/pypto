@@ -104,6 +104,7 @@ stest:
       - TestAmin/AminOperationTest.TestAmin/1
       - TestSum/SumOperationTest.TestSum/61
       - TestSum/SumOperationTest.TestSum/62
+      - TestAmax/AmaxOperationTest.TestAmax/65
       - TestAmax/AmaxOperationTest.TestAmax/64
       - TestAmax/AmaxOperationTest.TestAmax/63
       - TestScatter_/Scatter_OperationTest.TestScatter_/0

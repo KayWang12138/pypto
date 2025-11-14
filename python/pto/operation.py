@@ -1075,7 +1075,7 @@ def amax(
               [3]]
 
     """
-    return pto_impl.row_max_single(input, dim)
+    return pto_impl.amax(input, dim)
 
 
 @op_wrapper
@@ -1112,7 +1112,7 @@ def sum(
               [6]]
 
     """
-    return pto_impl.row_sum_single(input, dim)
+    return pto_impl.sum(input, dim)
 
 
 @op_wrapper
@@ -1204,7 +1204,7 @@ def amin(
               [1]]
 
     """
-    return pto_impl.row_min_single(input, dim)
+    return pto_impl.amin(input, dim)
 
 
 @op_wrapper

@@ -227,7 +227,7 @@ template <typename T, unsigned DS, unsigned SS, unsigned TBS>
 TILEOP void DynTrowsumsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp, unsigned OS0, unsigned OS1) {
     //    OS0 <= REPEAT_MAX
     uint64_t srcRepeatPerRow = static_cast<uint64_t>(OS1 * sizeof(T) / REPEAT_BYTE);
-    uint8_t srcRepeatStride = SS * sizeof(T) / BLOCK_SIZE;
+    uint16_t srcRepeatStride = SS * sizeof(T) / BLOCK_SIZE;
     constexpr unsigned nElemPerRepeat = REPEAT_BYTE / sizeof(T);
     unsigned remain = OS1 % nElemPerRepeat;
     if (srcRepeatPerRow == 1 && remain == 0) {
@@ -321,7 +321,7 @@ template <typename T, unsigned DS, unsigned SS, unsigned TBS>
 TILEOP void DynTrowmaxsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp, unsigned OS0, unsigned OS1) {
     //    OS0 <= REPEAT_MAX
     uint64_t srcRepeatPerRow = static_cast<uint64_t>(OS1 * sizeof(T) / REPEAT_BYTE);
-    constexpr unsigned srcRepeatStride = SS * sizeof(T) / BLOCK_SIZE;
+    constexpr uint16_t srcRepeatStride = SS * sizeof(T) / BLOCK_SIZE;
     constexpr unsigned nElemPerRepeat = REPEAT_BYTE / sizeof(T);
     unsigned remain = OS1 % nElemPerRepeat;
     if (srcRepeatPerRow == 1 && OS0 <= REPEAT_MAX && remain == 0) {
@@ -403,7 +403,7 @@ template <typename T, unsigned DS, unsigned SS, unsigned TBS>
 TILEOP void DynTrowminsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp, unsigned OS0, unsigned OS1) {
     //    OS0 <= REPEAT_MAX
     uint64_t srcRepeatPerRow = static_cast<uint64_t>(OS1 * sizeof(T) / REPEAT_BYTE);
-    constexpr unsigned srcRepeatStride = SS * sizeof(T) / BLOCK_SIZE;
+    constexpr uint16_t srcRepeatStride = SS * sizeof(T) / BLOCK_SIZE;
     constexpr unsigned nElemPerRepeat = REPEAT_BYTE / sizeof(T);
     unsigned remain = OS1 % nElemPerRepeat;
     if (srcRepeatPerRow == 1 && OS0 <= REPEAT_MAX && remain == 0) {
