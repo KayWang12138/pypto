@@ -31,6 +31,10 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
     if constexpr (op == BinaryOp::MAX) {
         pto::TMAX(dst, src0, src1);
     }
+
+    if constexpr (op == BinaryOp::MIN) {
+        pto::TMIN(dst, src0, src1);
+    }
 }
 
 template <BinaryOp op, typename T0, typename T1, typename T2>
@@ -93,5 +97,10 @@ TILEOP void TSub(T0 dst, T1 src0, T2 src1) {
 template <typename T0, typename T1, typename T2>
 TILEOP void TMax(T0 dst, T1 src0, T2 src1) {
     BinaryCompute<BinaryOp::MAX>(dst, src0, src1);
+}
+
+template <typename T0, typename T1, typename T2>
+TILEOP void TMin(T0 dst, T1 src0, T2 src1) {
+    BinaryCompute<BinaryOp::MIN>(dst, src0, src1);
 }
 #endif
