@@ -413,8 +413,8 @@ def build_swim_info(swim_data, topo_data, label_type: int = 0):
             entry.root_index = topo_task.get("rootIndex", -1)
             entry.root_hash = topo_task.get("rootHash", -1)
             entry.opmagic = topo_task.get("opMagic", -1)
-            origin_task_id = topo_task.get("oriTaskId", 0)
-            origin_seq_no = topo_task.get("oriSeqNo", 0)
+            entry.origin_task_id = topo_task.get("oriTaskId", 0)
+            entry.origin_seq_no = topo_task.get("oriSeqNo", 0)
 
             # should assert entry.psg_id_in_dyn == topo_task.get('leafIndex', -1) after dyn-static same code
             if label_type == 1:
@@ -575,6 +575,8 @@ def process_ooo_mem_usage(outjson):
         time_events[i] = dict()
 
     for _, task in total_tasks.items():
+        if 'max_range' not in task.tensors_life_range:
+            continue
         if task.tensors_life_range['max_range'] == 0:
             continue
         time_unit = (task.exec_end - task.exec_start) / task.tensors_life_range['max_range']
