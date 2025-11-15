@@ -39,6 +39,7 @@
 #include "vector/gather.h"
 #include "vector/expand.h"
 #include "vector/extract.h"
+#include "vector/pair_binary.h"
 #endif
 
 #endif

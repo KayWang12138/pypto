@@ -1,5 +1,5 @@
 /**                                                                                                          \
- * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved                                                          \
+ * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved \
  * This file is a part of the CANN Open Software.                                                            \
  * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").                          \
  * Please refer to the License for details. You may not use this file except in compliance with the License. \
@@ -15,8 +15,8 @@
 #ifndef TILEOP_TILE_OPERATOR_PAIR_BINARY_H
 #define TILEOP_TILE_OPERATOR_PAIR_BINARY_H
 
-#include "a2a3/utils/layout.h"
-#include "a2a3/utils/tile_tensor.h"
+#include "utils/layout.h"
+#include "utils/tile_tensor.h"
 
 template <typename T0, typename T1, size_t index = 0, size_t shapeSize = 0>
 TILEOP int GetReduceAxisIndex(T0 src0, T1 src1) {
