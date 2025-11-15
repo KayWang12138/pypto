@@ -77,9 +77,13 @@ public:
     static uint8_t **GetCfgDataDevAddrHolder(CachedOperator *cachedOperator) {
         return cachedOperator == nullptr ? nullptr : &cachedOperator->cfgDataDevAddr_;
     }
+    static uint8_t **GetMetaDataDevAddrHolder(CachedOperator *cachedOperator) {
+        return cachedOperator == nullptr ? nullptr : &cachedOperator->metaDataDevAddr_;
+    }
 private:
     uint8_t *workspaceDevAddr_{nullptr};
     uint8_t *cfgDataDevAddr_{nullptr};
+    uint8_t *metaDataDevAddr_{nullptr};
 };
 
 class ExportedOperator : public CachedOperator {

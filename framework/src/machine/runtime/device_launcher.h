@@ -167,7 +167,7 @@ public:
         for (size_t i = 0; i < devProg->commGroupNum; i++) {
             devProg->hcclContext[i] = config.hcclContext[i];
         }
-
+        devProg->devArgs.startArgsAddr = (uint64_t)devMem.AllocDev(DEV_ARGS_SIZE, CachedOperator::GetMetaDataDevAddrHolder(cachedOperator));
         kArgs.workspace = (int64_t *)devMem.AllocDev(devProg->workspaceSize, CachedOperator::GetWorkspaceDevAddrHolder(cachedOperator));
         if (devProg->controlFlowCache.isRecording && !devMem.IsDevice()) {
             kArgs.cfgdata = (int64_t *)devProg;

@@ -144,7 +144,7 @@ struct DynMachineManager {
             } else if (threadIdx == MAX_SCHEDULE_AICPU_NUM + 1) {
                 CreateLogFile(LOG_TYPE_PREFETCH, 0); 
                 if (devArgs->taskType == DEVICE_TASK_TYPE_DYN) {
-                  DevStartArgs *startArgs = (DevStartArgs *)args->workspace;
+                  auto startArgs = (DevStartArgs *)devArgs->startArgsAddr;
                   DySdmaPrefetch(startArgs);
                 } else {
                   auto devTask = reinterpret_cast<DeviceTask *>(devArgs->taskData);

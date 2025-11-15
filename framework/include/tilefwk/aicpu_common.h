@@ -55,12 +55,14 @@ constexpr const int DEV_SHAPE_DIM_NUM_5 = 5;
 #define DEVICE_TASK_TYPE_DYN     1
 #define DEVICE_TASK_TYPE_INVALID 0xf
 
+const uint64_t DEV_ARGS_SIZE = 4096;
+
 struct DeviceArgs {
     uint32_t nrAic{0};
     uint32_t nrAiv{0};
     uint32_t nrAicpu{0};
     uint32_t nrValidAic{0};
-    uint64_t opaque{0};          // store device global data, must be init with zero
+    uint64_t opaque{0};       // store device global data, must be init with zero
     uint64_t devQueueAddr;    // pcie/XLink mem, used between host and device, `DEVICE_QUEUE_SIZE`
     uint64_t sharedBuffer;    // SHARED_BUFFER_SIZE per core, aics first
     uint64_t coreRegAddr;     // core reg addr, uint64_t per core, aic first
@@ -74,7 +76,7 @@ struct DeviceArgs {
     uint64_t taskWastTime{0};
     uint64_t aicpuSoBin{0};    // server so Bin
     uint64_t aicpuSoLen{0};    // server so len
-
+    uint64_t startArgsAddr{0}; // DevStartArgs addr
     uint64_t GetBlockNum() { return nrValidAic * (nrAiv / nrAic + 1); }
 };
 #endif

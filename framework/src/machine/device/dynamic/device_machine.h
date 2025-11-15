@@ -168,11 +168,10 @@ public:
 
     static int InitDyn(AstKernelArgs *args) {
         auto kargs = (AstKernelArgs *) args;
-
         DEV_INFO("AscendCppDyInitTask begin");
-        DevStartArgs *devArgs = PtrToPtr<int64_t, DevStartArgs>(kargs->workspace);
-
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
+        auto devArgs = reinterpret_cast<DevStartArgs *>(devProg->devArgs.startArgsAddr);
+
         PerfBegin(PERF_EVT_INIT);
         bool firstInit = false;
         if (devProg->controlFlowBinaryAddr == nullptr) {
@@ -190,33 +189,29 @@ public:
 
         auto outputPtr = inputPtr + inputSize;
         auto outputSize = DevAscendTensorDataCreator::Decode(kargs->outputs, devProg, inputSize, outputPtr);
-        auto workspaceAddr = ALIGN_UP((uint64_t)(outputPtr + outputSize), 512);
-        auto devArgsSize = workspaceAddr - PtrToValue(kargs->workspace);
-
         devArgs->devTensorList = inputPtr;
         devArgs->inputTensorSize = static_cast<uint64_t>(inputSize);
         devArgs->outputTensorSize = static_cast<uint64_t>(outputSize);
-        devArgs->workspaceAddr = workspaceAddr;
+        devArgs->workspaceAddr = PtrToValue(kargs->workspace);;
         devArgs->devProg = devProg;
-        devProg->memBudget.metadata.general -= devArgsSize;
         devArgs->inputSymbolList = nullptr;
         devArgs->inputSymbolSize = 0;
         devArgs->hcclContextAddr = (uint64_t*)&devProg->hcclContext[0];
 
         if (devProg->controlFlowCache.isRecording) {
-            devProg->controlFlowCache.alignedWorkspaceAddr = workspaceAddr;
+            devProg->controlFlowCache.alignedWorkspaceAddr = devArgs->workspaceAddr;
         }
         DEV_INFO("ControlFlowCache: deviceTask:%d firstInit:%d\n", (int)devProg->controlFlowCache.deviceTaskCount, (int)firstInit);
         if (devProg->controlFlowCache.deviceTaskCount != 0) {
             // Actual run
             if (firstInit) {
-                devProg->RelocControlFlowCache(0, reinterpret_cast<uint64_t>(devProg), 0, workspaceAddr);
+                devProg->RelocControlFlowCache(0, reinterpret_cast<uint64_t>(devProg), 0, devArgs->workspaceAddr);
             }
             for (size_t i = 0; i < devProg->controlFlowCache.deviceTaskCount; i++) {
                 DynDeviceTaskBase *dynTaskBase = devProg->controlFlowCache.deviceTaskCacheList[i].dynTaskBase;
                 devProg->controlFlowCache.IncastOutcastRestore(dynTaskBase);
             }
-            devProg->RelocControlFlowCacheInputOutput(0, workspaceAddr, devArgs);
+            devProg->RelocControlFlowCacheInputOutput(0, devArgs->workspaceAddr, devArgs);
         }
         DEV_INFO("AscendCppDyInitTask done.");
         return 0;
@@ -225,14 +220,14 @@ public:
     int ExecDyn(int threadIdx, uint64_t taskId, npu::tile_fwk::AstKernelArgs *args) {
         int ret = 0;
         DEV_INFO("start control flow.");
-        auto devArgs = PtrToPtr<int64_t, DevStartArgs>(args->workspace);
-
-        DeviceExecuteContext ctx(devArgs);
+        auto devProg = PtrToPtr<int64_t, DevAscendProgram>(args->cfgdata);
+        auto devStartArgs = (DevStartArgs *)devProg->devArgs.startArgsAddr;
+        DeviceExecuteContext ctx(devStartArgs);
         ctx.costModelData = reinterpret_cast<CostModel::ModelData*>(args->costmodeldata);
         ctx.aicoreModel = args->aicoreModel;
         PerfBegin(PERF_EVT_EXEC_DYN);
         PerfBegin(PERF_EVT_CONTROL_FLOW_CALL);
-        ctx.GELaunch(devArgs, [this](uint64_t dynTaskId, DeviceTask *devTask, DeviceExecuteContext *ctx_) {
+        ctx.GELaunch(devStartArgs, [this](uint64_t dynTaskId, DeviceTask *devTask, DeviceExecuteContext *ctx_) {
             DEV_IF_DEBUG {
                 DumpTask(dynTaskId, (DeviceTask *)devTask, true);
             }

@@ -156,7 +156,7 @@ private:
         devProg->devArgs.nrAicpu = 6;
         devProg->devArgs.nrValidAic = 24;
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
-
+        devProg->devArgs.startArgsAddr = (uint64_t)pv_->AllocWorkspaceDev(DEV_ARGS_SIZE);
         for (auto &input: inputs) {
             if (input)
                 input->SetDevPtr(nullptr);

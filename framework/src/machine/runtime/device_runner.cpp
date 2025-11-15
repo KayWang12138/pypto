@@ -180,6 +180,7 @@ int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
     args.corePmuRegAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * sizeof(uint64_t)));
     args.corePmuAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * PMU_BUFFER_SIZE));
     args.taskWastTime = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(DevAlloc(sizeof(uint64_t))));
+    args.startArgsAddr = reinterpret_cast<uint64_t>(DevAlloc(DEV_ARGS_SIZE));
     pmuEvtType_.resize(PMU_EVENT_TYPE_MAX, 0x0);
     args.pmuEventAddr = reinterpret_cast<uint64_t>(DevAlloc(pmuEvtType_.size() * sizeof(int64_t)));
 

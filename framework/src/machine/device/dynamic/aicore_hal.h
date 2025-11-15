@@ -370,7 +370,6 @@ public:
     }
 
     int HandShake(int coreIdx, int64_t dotStatus) {
-        int ret = DEVICE_MACHINE_OK;
         auto args =
             reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
         args->taskEntry.reserved[0] = static_cast<uint32_t>(dotStatus);
@@ -384,7 +383,7 @@ public:
         }
         args_[coreIdx] = args;
         GetPhyIdByBlockId(coreIdx) = (*shakeBuffer >> NUM_THIRTY_TWO) & AICORE_COREID_MASK;
-        return ret;
+        return DEVICE_MACHINE_OK;
     }
 
     void ResetShakeBuf(int coreIdx) {
