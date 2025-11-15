@@ -185,7 +185,8 @@ void ConfigManager::PassConfigsDebugInfo(
     const std::string &strategy, const std::vector<std::string> &identifiers) const {
     auto *node = GetJsonNode(json_, {"strategies", strategy});
     if (!node) {
-        ALOG_INFO("[ConfigManager] Missing strategy <", strategy, "> configs, use default configs.");
+        ALOG_INFO("[ConfigManager] Missing custom pass strategy <", strategy, "> configs, use default configs. ",
+                    "You may add your own custom strategy configs in 'tile_fwk_config.json'.");
         return;
     }
 
@@ -194,14 +195,14 @@ void ConfigManager::PassConfigsDebugInfo(
         maxLength = std::max(maxLength, identifier.size());
     }
 
-    ALOG_INFO("[ConfigManager] Strategy <", strategy, ">");
+    ALOG_INFO("[ConfigManager] Strategy <", strategy, "> is found. Custom pass strategy will be used.");
     for (auto &&identifier : identifiers) {
         std::string spaces(maxLength - identifier.size(), ' ');
         if (node->find(identifier) != node->end()) {
-            ALOG_INFO("[ConfigManager]     Pass instance ", spaces, "<", identifier, "> configs loaded.");
+            ALOG_INFO("[ConfigManager] Pass instance ", spaces, "<", identifier, "> configs loaded.");
         } else {
-            ALOG_INFO("[ConfigManager]     Pass instance ", spaces, "<", identifier,
-                "> configs missing, use default configs.");
+            ALOG_INFO("[ConfigManager] Pass instance ", spaces, "<", identifier, "> configs for pass strategy <",
+            strategy, "> is missing, use default configs. You may add your own custom strategy configs in 'tile_fwk_config.json'.");
         }
     }
 }
