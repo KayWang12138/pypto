@@ -7,13 +7,6 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
-## find slog
-if (BUILD_OPEN_PROJECT)
-    list(APPEND CMAKE_PREFIX_PATH ${ASCEND_CANN_PACKAGE_PATH})
-    list(APPEND CMAKE_MODULE_PATH ${PTO_FWK_SRC_ROOT}/cmake/modules)
-    find_package(slog MODULE REQUIRED)
-endif()
-
 file(GLOB_RECURSE _Executor_Srcs *.cpp)
 add_library(tile_fwk_executor SHARED)
 target_sources(tile_fwk_executor PRIVATE ${_Executor_Srcs})
@@ -35,6 +28,11 @@ target_include_directories(tile_fwk_executor
         PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}
 )
+target_compile_definitions(tile_fwk_executor
+        PRIVATE
+            $<$<BOOL:${BUILD_OPEN_PROJECT}>:LOG_CPP>
+            $<$<BOOL:${BUILD_OPEN_PROJECT}>:PROCESS_LOG>
+)
 target_link_directories(tile_fwk_executor
         PUBLIC
             $<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/lib64>
@@ -49,7 +47,8 @@ target_link_libraries(tile_fwk_executor
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub
-            slog
+            $<$<BOOL:${BUILD_OPEN_PROJECT}>:ascendalog>
+            $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:slog>
 )
 
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_executor)
