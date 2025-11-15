@@ -66,6 +66,7 @@ void Print(SymbolicScalar cond, const std::string &format, const std::vector<Ten
 
 template<bool isB, bool isTrans>
 Tensor GatherInL1(const Tensor &src, const Tensor &offsets, int size);
+Tensor GatherInUB(const Tensor &params, const Tensor &indices, int axis);
 } // namespace internal
 
 template <typename... Args>

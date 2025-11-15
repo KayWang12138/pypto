@@ -263,6 +263,7 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_COPY_IN, OpCoreType::ANY, "COPY_IN", {}, {}, {}, OpCalcType::MOVE_IN, {OpAttributeKey::outputCombineAxis, OpAttributeKey::excludeBufferReuse});
     registerInfo(Opcode::OP_COPY_OUT, OpCoreType::ANY, "COPY_OUT", {}, {}, {}, OpCalcType::MOVE_OUT, {OP_ATTR_PREFIX + "atomic_add", OpAttributeKey::inputCombineAxis, OpAttributeKey::excludeBufferReuse});
     registerInfo(Opcode::OP_GATHER_IN_L1, OpCoreType::ANY, "GATHER_IN_L1", {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR}, {MemoryType::MEM_L1}, {"TileOp::GatherInL1", PIPE_MTE2, PIPE_MTE2, CoreType::AIC}, OpCalcType::OTHER, {OpAttributeKey::startOffset});
+    registerInfo(Opcode::OP_GATHER_IN_UB, OpCoreType::ANY, "GATHER_IN_UB", {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR}, {MemoryType::MEM_UB}, {"TileOp::GatherInUB", PIPE_MTE2, PIPE_MTE2, CoreType::AIV}, OpCalcType::OTHER);
     registerInfo(Opcode::OP_LOAD, OpCoreType::AIV, "LOAD", {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Load", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::OTHER);
     // Special
     registerInfo(Opcode::OP_CALL, OpCoreType::ANY, "CALL", {}, {}, {}, OpCalcType::SYS);

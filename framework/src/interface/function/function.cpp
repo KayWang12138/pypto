@@ -2623,6 +2623,7 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(
             op->GetOpcode() == Opcode::OP_RESHAPE ||
             op->GetOpcode() == Opcode::OP_EXPAND ||
             op->GetOpcode() == Opcode::OP_LOAD ||
+            op->GetOpcode() == Opcode::OP_GATHER_IN_UB||
             op->GetOpcode() == Opcode::OP_GATHER_IN_L1
             || op->GetOpcode() == Opcode::OP_L1_TO_BT || op->GetOpcode() == Opcode::OP_L1_TO_FIX_QUANT_PRE) {
             extraOutcasts.emplace_back(op.get(), 0);

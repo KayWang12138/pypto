@@ -53,6 +53,7 @@ public:
 
     std::string GenLoadOp() const;
     std::string GenGatherInL1() const;
+    std::string GenGatherInUB() const;
 
     std::string GenUnaryOp() const;
     std::string GenUnaryOpWithTmpBuff() const;
@@ -454,6 +455,7 @@ private:
         {           Opcode::OP_RESHAPE_COPY_IN,            [this]() { return GenReshapeCopyIn(); }},
         {          Opcode::OP_RESHAPE_COPY_OUT,           [this]() { return GenReshapeCopyOut(); }},
         {       Opcode::OP_L1_TO_FIX_QUANT_PRE,                [this]() { return GenMemL1ToFB(); }},
+        {              Opcode::OP_GATHER_IN_UB,               [this]() { return GenGatherInUB(); }},
 
         // L1 <-> GM/BT/L1
         {                Opcode::OP_L1_COPY_IN,              [this]() { return GenMemL1CopyIn(); }},

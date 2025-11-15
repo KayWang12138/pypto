@@ -1155,4 +1155,65 @@ std::string CodeGenOpCloudNPU::GenGatherInL1() const {
     std::string ostring(buffer);
     return ostring;
 }
+
+std::string CodeGenOpCloudNPU::GenGatherInUB() const {
+    std::vector dstShape = this->rawShape[0];
+    std::vector src0Shape = this->rawShape[1];
+
+    std::string resultDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+    std::string paramDtypeStr = DataType2CCEStr(operandDtype[ID1]);
+    std::string indicesDtypeStr = DataType2CCEStr(operandDtype[ID2]);
+    ASSERT(resultDtypeStr == paramDtypeStr);
+
+    auto outputRawShapes = rawShape[ID0];
+    auto paramRawShapes = rawShape[ID1];
+    auto indicesRawShapes = rawShape[ID2];
+    auto outputValidShapes = dynamicValidShape[ID0];
+    auto paramValidShapes = dynamicValidShape[ID1];
+    auto indicesValidShapes = dynamicValidShape[ID2];
+
+    std::ostringstream os;
+    std::vector<std::string> paramList;
+    paramList.emplace_back(paramDtypeStr);
+    paramList.emplace_back(indicesDtypeStr);
+    paramList.emplace_back(std::to_string(outputRawShapes[0]));
+    paramList.emplace_back(std::to_string(outputRawShapes[1]));
+    std::string templateParam = JoinString(paramList, ", ");
+    paramList.clear();
+
+    std::string paramVar = GenGmParamVar(0);
+    std::string indicesVar = GenGmParamVar(1);
+    std::string outputVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+    std::string outputParamStr = "(__ubuf__ " + resultDtypeStr + "*)" + outputVar;
+    std::string paramParamStr = "(__gm__ " + paramDtypeStr + "*)" + paramVar;
+    std::string indicesParamStr = "(__gm__ " + indicesDtypeStr + "*)" + indicesVar;
+    paramList.emplace_back(outputParamStr);
+    paramList.emplace_back(paramParamStr);
+    paramList.emplace_back(indicesParamStr);
+    paramList.emplace_back("1");
+    paramList.emplace_back(SymbolicExpressionTable::BuildExpression(outputValidShapes[1]));
+
+    auto paramGMStride = GenParamIdxExprByIndex(0, 2, PREFIX_STR_RAW_SHAPE);
+    auto paramStartOffsets = GenParamIdxExprByIndex(0, 2, PREFIX_STR_OFFSET);
+    paramList.emplace_back(paramGMStride[0]);
+    paramList.emplace_back(paramGMStride[1]);
+    paramList.emplace_back(paramStartOffsets[0]);
+    paramList.emplace_back(paramStartOffsets[1]);
+    
+    paramList.emplace_back("1");
+    paramList.emplace_back(SymbolicExpressionTable::BuildExpression(outputValidShapes[0]));
+    auto indicesGMStride = GenParamIdxExprByIndex(1, 2, PREFIX_STR_RAW_SHAPE);
+    auto indicesStartOffsets = GenParamIdxExprByIndex(1, 2, PREFIX_STR_OFFSET);
+    paramList.emplace_back(indicesGMStride[0]);
+    paramList.emplace_back(indicesGMStride[1]);
+    paramList.emplace_back(indicesStartOffsets[0]);
+    paramList.emplace_back(indicesStartOffsets[1]);
+    
+    std::string tiloOpCallParam = JoinString(paramList, ", ");
+    paramList.clear();
+    os << tileOpName.c_str() << "<" << templateParam << ">"
+       << "(" << tiloOpCallParam << ");\n";
+
+    return os.str();
+}
 } // namespace npu::tile_fwk

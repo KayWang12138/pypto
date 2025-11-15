@@ -364,6 +364,7 @@ public:
             case Opcode::OP_SHMEM_GET:
             case Opcode::OP_SHMEM_GET_GM2UB:
             case Opcode::OP_SHMEM_REDUCE:
+            case Opcode::OP_GATHER_IN_UB:
             case Opcode::OP_COPY_TO_LOCAL_EXPERT: {
                 ASSERT(dynamic_cast<CopyOpAttribute *>(opAttribute_.get()) != nullptr);
                 break;

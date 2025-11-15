@@ -355,6 +355,25 @@ void InferFuncGatherInL1(Operation *op, std::vector<std::vector<SymbolicScalar>>
     }
 }
 REGISTER_INFER_SHAPE_FUNC(OP_GATHER_IN_L1, Opcode::OP_GATHER_IN_L1, InferFuncGatherInL1);
+/**
+ * 定制，
+ * parma [a,b]
+ * indices [1,c]
+ * axis=-2
+ * result [c,b]
+ */
+void InferFuncGatherInUB(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
+    auto iOperands = op->GetIOperands();
+    assert(iOperands.size() == NUM2);
+    auto srcValidShape = iOperands[0]->GetDynValidShape();
+    auto indicesValidShape = iOperands[1]->GetDynValidShape();
+    ASSERT(op->GetOOperands().size() == 1);
+    for (auto output : op->GetOOperands()) {
+        outValidShapes.push_back(
+            {indicesValidShape[1], srcValidShape[1]});
+    }
+}
+REGISTER_INFER_SHAPE_FUNC(OP_GATHER_IN_UB, Opcode::OP_GATHER_IN_UB, InferFuncGatherInUB);
 
 // matmul infer shape func
 void MatmulInferFunc(Operation* op,

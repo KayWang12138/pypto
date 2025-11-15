@@ -3379,6 +3379,56 @@ TILEOP void DynTonehot_(__ubuf__ int64_t *dst, __ubuf__ T *src, unsigned s0, uns
         src += DS1 * ((DS2 + align - 1) / align * align);
     }
 }
+/**
+ * 定制版本，只支持 ds v3.2，使用之前请仔细确认
+ * param 2维
+ * indices 2维
+ * axis -2
+ * result 2维 {和标准实现不同}
+ * [a,b] [1,c] -2  [c,b] 
+ *
+ * 模板参数
+ * T input 参数类型
+ * T2 indices 参数类型
+ * UBOutputS*  output在ub上的步长
+ *
+ * 运行时参数
+ * dst result，ub上
+ * param 输入，在gm上
+ * indices 输入索引，在gm上
+ * GMParamShape* ,param validshape，用于指导拷贝长度
+ * GMParamStride*,param 的步长，用于计算偏移
+ * GMParamOffset*,param 的偏移，用于确定分块
+ * GMIndicesShape* ,indices 的 validshape ，用于指导循环，
+ * GMIndicesStride* ,步长，用于计算偏移
+ */
+template <typename T, typename T2,  unsigned UBOutputS1, unsigned UBOutputS2>
+TILEOP void GatherInUB(__ubuf__ T *dst, __gm__ T *param, __gm__ T2 *indices, unsigned GMParamShape0,
+    unsigned GMParamShape1, unsigned GMParamStride0, unsigned GMParamStride1, unsigned GMParamOffset0,
+    unsigned GMParamOffset1, unsigned GMIndicesShape0, unsigned GMIndicesShape1, unsigned GMIndicesStride0,
+    unsigned GMIndicesStride1, unsigned GMIndicesOffset0, unsigned GMIndicesOffset1) {
+    // 循环indices，标量流水拿出来索引
+    param += GMParamOffset0 * GMParamStride1 + GMParamOffset1;
+    indices += GMIndicesOffset0 * GMIndicesStride1 + GMIndicesOffset1;
+    for (int i = 0; i < GMIndicesShape0; ++i) {
+        __gm__ T2 *indices0 = indices;
+        __gm__ T *param0 = param;
+        __ubuf__ T *dst0 = dst;
+        for (int j = 0; j < GMIndicesShape1; ++j) {
+            // 标量流水，拿出来的索引
+            set_flag(PIPE_V, PIPE_S, EVENT_ID7);
+            wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
+            T2 index = indices0[j];
+            set_flag(PIPE_S, PIPE_V, EVENT_ID7);
+            wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
+            param0 = param + index * GMParamStride1;
+            UBCopyInBase<T, UBOutputS2>(dst0, param0, 1, GMParamShape1, GMParamStride1);
+            dst0 += UBOutputS2;
+        }
+        indices += GMIndicesStride1; // indices下一行
+        dst += UBOutputS1 * UBOutputS2;
+    }
+}
 
 } // namespace TileOp
 

@@ -1155,6 +1155,47 @@ Tensor Reshape( const Tensor &operand, const std::vector<SymbolicScalar> &dstSha
     return dst;
 }
 
+void TiledGatherInUB(Function &function, const TileShape &tileShape, const LogicalTensorPtr &param,
+    const LogicalTensorPtr &indices, const LogicalTensorPtr &result) {
+    const auto &vecTile = tileShape.GetVecTile();
+    const int64_t firstDimTileShape = vecTile[0];
+    const int64_t secondDimTileShape = vecTile[1];
+    for (int64_t i = 0; i < result->GetShape()[0]; i += firstDimTileShape) {
+        auto shape0 = std::min(result->GetShape()[0] - i, firstDimTileShape);
+        for (int64_t j = 0; j < result->GetShape()[1]; j += secondDimTileShape) {
+            auto shape1 = std::min(result->GetShape()[1] - j, secondDimTileShape);
+            auto paramTile = param->View(function, {param->GetShape()[0], shape1}, {0, j});
+            auto indicesTile = indices->View(function, {1, shape0}, {0, i});
+            auto resultTile = result->View(function, { shape0, shape1}, { i, j});
+            auto &op = function.AddOperation(Opcode::OP_GATHER_IN_UB, {paramTile, indicesTile}, {resultTile});
+            (void)op;
+        }
+    }
+}
+
+/**
+ * 定制版本，暂不拓展性，支撑ds v3.2
+ * 支撑功能
+ * param [a,b]
+ * indices [1,c]
+ * axis = -2
+ * result [c,b]
+ */
+Tensor internal::GatherInUB(const Tensor &param, const Tensor &indices, int axis) {
+    (void)axis;
+    Tensor result{
+        param.GetStorage()->Datatype(), {indices.GetShape()[1], param.GetShape()[1]}
+    };
+    if (!indices.GetStorage()->GetDynValidShape().empty()) {
+        result.GetStorage()->UpdateDynValidShape({
+            indices.GetStorage()->GetDynValidShape()[1], param.GetStorage()->GetDynValidShape()[1]});
+    }
+    auto &op = Program::GetInstance().GetCurrentFunction()->AddOperation(
+        Opcode::OP_GATHER_IN_UB, {param.GetStorage(), indices.GetStorage()}, {result.GetStorage()});
+    (void)op;
+    return result;
+}
+
 void Reshape(const Tensor &operand, Tensor &dst) {
     ASSERT(operand.Format() == dst.Format()) << "Tensor format not match";
     auto slotManager = Program::GetInstance().GetTensorSlotManager();
@@ -1193,6 +1234,10 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
                 }
             }
 
+            break;
+        }
+        case Opcode::OP_GATHER_IN_UB: {
+            TiledGatherInUB(function, tileShape, iOperand[0], iOperand[1], oOperand[0]);
             break;
         }
         case Opcode::OP_LOAD: {
