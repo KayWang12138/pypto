@@ -54,6 +54,12 @@ else()
 endif ()
 message(STATUS "ASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_PACKAGE_PATH}")
 
+if (BUILD_OPEN_PROJECT AND EXISTS "${ASCEND_CANN_PACKAGE_PATH}" AND EXISTS "${ASCEND_CANN_PACKAGE_PATH}/hcomm")
+    set(BUILD_WITH_CANN_SUB ON)
+endif ()
+message(STATUS "BUILD_WITH_CANN_SUB=${BUILD_WITH_CANN_SUB}")
+
+
 ########################################################################################################################
 # CMake 选项, 缺省参数设置
 #   按 CMake 构建过程对 CMake 选项, CMake 缺省参数进行配置

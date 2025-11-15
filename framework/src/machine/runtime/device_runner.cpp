@@ -33,7 +33,7 @@
 #include "interface/configs/config_manager.h"
 #include "interface/utils/op_info_manager.h"
 #include "toolchain/prof_api.h"
-#include "toolchain/prof_data_config.h"
+#include "prof_common.h"
 
 extern char _binary_kernel_o_start[];
 extern char _binary_kernel_o_end[];
@@ -73,7 +73,7 @@ void DeviceRunner::GetHostProfTypeSwtich() {
     if (profType == PROF_COMMANDHANDLE_TYPE_START) {
         isOpenHostProf_ = true;
     }
-    if ((profSwitch & PROF_TASK_TIME_L1) != 0) {
+    if ((profSwitch & PROF_TASK_TIME_L1_MASK) != 0) {
         isHostProfL1_ = true;
     }
     ALOG_DEBUG_F("isOpenHostProf %d, l1 = %d", isOpenHostProf_, isHostProfL1_);
@@ -583,7 +583,7 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream,
 }
 
 void DeviceRunner::ReportHostProfInfo(uint64_t startTime, uint32_t blockDim, uint16_t taskType, bool isCore) {
-    if (isOpenHostProf_) {  
+    if (isOpenHostProf_) {
         uint64_t endTime = MsprofSysCycleTime();
         if (isCore) {
             uint32_t mixBlockDim = MIX_BLOCK_DIM;

@@ -25,10 +25,12 @@
 
 #ifdef BUILD_WITH_CANN
 #include "securec.h"
+#ifndef BUILD_WITH_CANN_SUB
 #include "hcom.h"
 #include "kernel_tiling/kernel_tiling.h"
 
 extern "C" HcclResult HcclAllocComResourceByTiling(HcclComm comm, void *stream, void *mc2Tiling, void **commContext);
+#endif
 #endif
 extern "C" __attribute__((weak)) int AdxDataDumpServerInit();
 
@@ -371,6 +373,7 @@ int MachineAgent::PrepareReadyCoreFunction(DeviceAgentTask *task) {
 }
 
 #ifdef BUILD_WITH_CANN
+#ifndef BUILD_WITH_CANN_SUB
 struct Mc2CommConfig {
     uint32_t version;
     uint32_t hcommCnt;
@@ -402,9 +405,11 @@ int MakeMc2TilingStruct(struct Mc2CommConfig &commConfig, std::string &groupName
     return 0;
 }
 #endif
+#endif
 
 int MachineAgent::PrepareHcclContext(DeviceAgentTask *task) {
 #ifdef BUILD_WITH_CANN
+#ifndef BUILD_WITH_CANN_SUB
     ALOG_INFO_F("Comm groups size:[%zu].", task->compileInfo.commGroups.size());
     for (uint32_t groupIndex = 0; groupIndex < task->compileInfo.commGroups.size(); ++groupIndex) {
         auto groupName = task->compileInfo.commGroups[groupIndex];
@@ -435,6 +440,7 @@ int MachineAgent::PrepareHcclContext(DeviceAgentTask *task) {
     task->deviceInfo.devceTask.coreFuncData.commGroupNum = task->compileInfo.commGroups.size();
 #else
     (void)task;
+#endif
 #endif
     return MACHINE_OK;
 }

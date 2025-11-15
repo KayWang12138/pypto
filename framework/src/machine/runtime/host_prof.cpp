@@ -18,8 +18,8 @@
 #ifdef BUILD_WITH_CANN
 #include "runtime/base.h"
 #include "toolchain/prof_api.h"
-#include "toolchain/log_types.h"
-#include "toolchain/prof_common.h"
+#include "log_types.h"
+#include "prof_common.h"
 
 
 namespace npu::tile_fwk {
