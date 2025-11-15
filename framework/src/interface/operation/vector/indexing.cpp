@@ -691,7 +691,7 @@ Element GetCurStartElement(Element start, Element step, int id) {
     return curStart;
 }
 
-const float EPSILON = (float)1e-8;
+const double EPSILON = (double)1e-12;
 template <typename T, DataType dataType>
 int64_t GetRangeResSize(Element &start, Element &end, Element &step) {
     int64_t resultSize;
@@ -705,9 +705,9 @@ int64_t GetRangeResSize(Element &start, Element &end, Element &step) {
         resultSize = (endValue - startValue) % stepValue ? (endValue - startValue) / stepValue + 1 :
                                                            (endValue - startValue) / stepValue;
     } else if (dataType == DT_FP32) {
-        T startValue = (float)start.GetFloatData();
-        T endValue = (float)end.GetFloatData();
-        T stepValue = (float)step.GetFloatData();
+        double startValue = start.GetFloatData();
+        double endValue = end.GetFloatData();
+        double stepValue = step.GetFloatData();
         if (abs(stepValue) <= EPSILON) {
             ASSERT(false && "stepValue must not be 0");
         }
@@ -768,7 +768,7 @@ Tensor RealRange(Element &start, Element &end, Element &step) {
         std::string errorMessage = "Unsupported DataType " + DataType2String(start.GetDataType());
         throw std::invalid_argument(errorMessage.c_str());
     }
-    if (resultSize < 0) {
+    if (resultSize <= 0) {
         ASSERT(false && "The positivity or negativity of the step must be aligned with the end-start");
     }
     resTensorShape.push_back(resultSize);
