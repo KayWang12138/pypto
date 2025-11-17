@@ -199,11 +199,73 @@ static void DivOperationExeFunc4Dims(
     }
 }
 
+static void DivOperationExeFunc5Dims(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
+        SymbolicScalar firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar secondDim = inputs[0].GetShape()[1];
+        SymbolicScalar thirdDim = inputs[0].GetShape()[2];
+        SymbolicScalar fourthDim = inputs[0].GetShape()[3];
+        SymbolicScalar fifthDim = inputs[0].GetShape()[4];
+        auto args = static_cast<const DivOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
+        const int thirdViewShape = args->viewShape_[2];
+        const int fourthViewShape = args->viewShape_[3];
+        const int fifthViewShape = args->viewShape_[5];
+
+        const int bloop = CeilDiv(firstDim, firstViewShape);
+        const int sloop = CeilDiv(secondDim, secondViewShape);
+        const int mloop = CeilDiv(thirdDim, thirdViewShape);
+        const int nloop = CeilDiv(fourthDim, fourthViewShape);
+        const int qloop = CeilDiv(fifthDim, fifthViewShape);
+
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
+                LOOP("LOOP_L2_mIdx", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mloop, 1)) {
+                    LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
+                        LOOP("LOOP_L4_nIdx", FunctionType::DYNAMIC_LOOP, qIdx, LoopRange(0, qloop, 1)) {
+                            auto tileTensor0 =
+                                View(inputs[0], 
+                                    {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape, fifthViewShape},
+                                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                        std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                        std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
+                                        std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape),
+                                        std::min(fifthDim - qIdx * fifthViewShape, fifthViewShape)},
+                                    {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
+                                        nIdx * fourthViewShape, qIdx * fifthViewShape});
+                            auto tileTensor1 =
+                                View(inputs[1], 
+                                    {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape, fifthViewShape},
+                                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                        std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                        std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
+                                        std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape),
+                                        std::min(fifthDim - qIdx * fifthViewShape, fifthViewShape)},
+                                    {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
+                                        nIdx * fourthViewShape, qIdx * fifthViewShape});
+                            TileShape::Current().SetVecTile(args->tileShape_);
+                            auto res = Div(tileTensor0, tileTensor1);
+                            Assemble(res,
+                                {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
+                                    nIdx * fourthViewShape, qIdx * fifthViewShape},
+                                outputs[0]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 class DivOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<DivOpMetaData> {};
 
 INSTANTIATE_TEST_SUITE_P(TestDiv, DivOperationTest,
     ::testing::ValuesIn(GetOpMetaData<DivOpMetaData>(
-        {DivOperationExeFunc2Dims, DivOperationExeFunc3Dims, DivOperationExeFunc4Dims}, "Div")));
+        {DivOperationExeFunc2Dims, DivOperationExeFunc3Dims, DivOperationExeFunc4Dims, DivOperationExeFunc5Dims},
+        "Div")));
 
 TEST_P(DivOperationTest, TestDiv) {
     TestCaseDesc testCase;

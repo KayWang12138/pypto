@@ -28,6 +28,14 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
         pto::TSUB(dst, src0, src1);
     }
 
+    if constexpr (op == BinaryOp::MUL) {
+        pto::TMUL(dst, src0, src1);
+    }
+
+    if constexpr (op == BinaryOp::DIV) {
+        pto::TDIV(dst, src0, src1);
+    }
+
     if constexpr (op == BinaryOp::MAX) {
         pto::TMAX(dst, src0, src1);
     }
@@ -92,6 +100,15 @@ TILEOP void TAdd(T0 dst, T1 src0, T2 src1) {
 template <typename T0, typename T1, typename T2>
 TILEOP void TSub(T0 dst, T1 src0, T2 src1) {
     BinaryCompute<BinaryOp::SUB>(dst, src0, src1);
+}
+
+TILEOP void TMul(T0 dst, T1 src0, T2 src1) {
+    BinaryCompute<BinaryOp::MUL>(dst, src0, src1);
+}
+
+template <typename T0, typename T1, typename T2>
+TILEOP void TDiv(T0 dst, T1 src0, T2 src1) {
+    BinaryCompute<BinaryOp::DIV>(dst, src0, src1);
 }
 
 template <typename T0, typename T1, typename T2>

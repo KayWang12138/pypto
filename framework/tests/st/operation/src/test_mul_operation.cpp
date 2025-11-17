@@ -37,8 +37,8 @@ static void MulOperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
-        SymbolicScalar firstDim = inputs[0].GetShape()[0];
-        SymbolicScalar secondDim = inputs[0].GetShape()[1];
+        SymbolicScalar firstDim = std::max(inputs[0].GetShape()[0], inputs[1].GetShape()[0]);
+        SymbolicScalar secondDim = std::max(inputs[0].GetShape()[1], inputs[1].GetShape()[1]);
         auto args = static_cast<const MulOpFuncArgs *>(opArgs);
         const int firstViewShape = args->viewShape_[0];
         const int secondViewShape = args->viewShape_[1];
@@ -89,9 +89,9 @@ static void MulOperationExeFunc3Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
-        SymbolicScalar firstDim = inputs[0].GetShape()[0];
-        SymbolicScalar secondDim = inputs[0].GetShape()[1];
-        SymbolicScalar thirdDim = inputs[0].GetShape()[2];
+        SymbolicScalar firstDim = std::max(inputs[0].GetShape()[0], inputs[1].GetShape()[0]);
+        SymbolicScalar secondDim = std::max(inputs[0].GetShape()[1], inputs[1].GetShape()[1]);
+        SymbolicScalar thirdDim = std::max(inputs[0].GetShape()[2], inputs[1].GetShape()[2]);
         auto args = static_cast<const MulOpFuncArgs *>(opArgs);
         const int firstViewShape = args->viewShape_[0];
         const int secondViewShape = args->viewShape_[1];
@@ -100,20 +100,36 @@ static void MulOperationExeFunc3Dims(
         const int bloop = CeilDiv(firstDim, firstViewShape);
         const int sloop = CeilDiv(secondDim, secondViewShape);
         const int nloop = CeilDiv(thirdDim, thirdViewShape);
-
+        const int broadcastFlag = 1;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
                 LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
-                    auto tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
-                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                            std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                            std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
-                        {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
-                    auto tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape, thirdViewShape},
-                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                            std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                            std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
-                        {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
+                    Tensor tileTensor0;
+                    Tensor tileTensor1;
+                    /* input0 dim2 shape为1的广播场景 [m,n,1] [m,n,o] */
+                    IF(inputs[0].GetShape()[2] == broadcastFlag && inputs[1].GetShape()[2] != broadcastFlag) {
+                        tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape, 1},
+                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                std::min(secondDim - sIdx * secondViewShape, secondViewShape), 1},
+                            {bIdx * firstViewShape, sIdx * secondViewShape, 0});
+                        tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape, thirdViewShape},
+                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
+                            {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
+                    }
+                    ELSE {
+                        tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
+                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
+                            {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
+                        tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape, thirdViewShape},
+                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
+                            {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
+                    }
                     TileShape::Current().SetVecTile(args->tileShape_);
                     auto res = Mul(tileTensor0, tileTensor1);
                     Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
@@ -244,11 +260,73 @@ static void MulOperationExeFunc4Dims(
     }
 }
 
+static void MulOperationExeFunc5Dims(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
+        SymbolicScalar firstDim = std::max(inputs[0].GetShape()[0], inputs[1].GetShape()[0]);
+        SymbolicScalar secondDim = std::max(inputs[0].GetShape()[1], inputs[1].GetShape()[1]);
+        SymbolicScalar thirdDim = std::max(inputs[0].GetShape()[2], inputs[1].GetShape()[2]);
+        SymbolicScalar fourthDim = std::max(inputs[0].GetShape()[3], inputs[1].GetShape()[3]);
+        SymbolicScalar fifthDim = std::max(inputs[0].GetShape()[4], inputs[1].GetShape()[4]);
+        auto args = static_cast<const MulOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
+        const int thirdViewShape = args->viewShape_[2];
+        const int fourthViewShape = args->viewShape_[3];
+        const int fifthViewShape = args->viewShape_[4];
+
+        const int bloop = CeilDiv(firstDim, firstViewShape);
+        const int sloop = CeilDiv(secondDim, secondViewShape);
+        const int mloop = CeilDiv(thirdDim, thirdViewShape);
+        const int nloop = CeilDiv(fourthDim, fourthViewShape);
+        const int qloop = CeilDiv(fifthDim, fifthViewShape);
+
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
+                LOOP("LOOP_L2_mIdx", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mloop, 1)) {
+                    LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
+                        LOOP("LOOP_L4_nIdx", FunctionType::DYNAMIC_LOOP, qIdx, LoopRange(0, qloop, 1)) {
+                            auto tileTensor0 =
+                                View(inputs[0], 
+                                    {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape, fifthViewShape},
+                                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                        std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                        std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
+                                        std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape),
+                                        std::min(fifthDim - qIdx * fifthViewShape, fifthViewShape)},
+                                    {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
+                                        nIdx * fourthViewShape, qIdx * fifthViewShape});
+                            auto tileTensor1 =
+                                View(inputs[1], 
+                                    {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape, fifthViewShape},
+                                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                        std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                        std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
+                                        std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape),
+                                        std::min(fifthDim - qIdx * fifthViewShape, fifthViewShape)},
+                                    {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
+                                        nIdx * fourthViewShape, qIdx * fifthViewShape});
+                            TileShape::Current().SetVecTile(args->tileShape_);
+                            auto res = Mul(tileTensor0, tileTensor1);
+                            Assemble(res,
+                                {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
+                                    nIdx * fourthViewShape, qIdx * fifthViewShape},
+                                outputs[0]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 class MulOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<MulOpMetaData> {};
 
 INSTANTIATE_TEST_SUITE_P(TestMul, MulOperationTest,
     ::testing::ValuesIn(GetOpMetaData<MulOpMetaData>(
-        {MulOperationExeFunc2Dims, MulOperationExeFunc3Dims, MulOperationExeFunc4Dims}, "Mul")));
+        {MulOperationExeFunc2Dims, MulOperationExeFunc3Dims, MulOperationExeFunc4Dims, MulOperationExeFunc5Dims},
+        "Mul")));
 
 TEST_P(MulOperationTest, TestMul) {
     TestCaseDesc testCase;
