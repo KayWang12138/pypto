@@ -1238,4 +1238,48 @@ TEST_F(ScheduleOoOTest, TestScheduleMainLoopRearrangeL1) {
     EXPECT_EQ(moveOp1->GetOpAttribute(), attr);
 }
 
+TEST_F(ScheduleOoOTest, TestScheduleGenSpillInfiniteLoop) {
+    ComputationalGraphBuilder subGraph;
+    std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7"};
+    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB,
+        MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB};
+    std::vector<Opcode> opCodes{Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC,
+        Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_SUB, Opcode::OP_ADD, Opcode::OP_ADD};
+    std::vector<std::vector<std::string>> ioperands{{}, {}, {}, {}, {}, {"t1"}, {"t2"}, {"t3"},{"t4", "t5"}, {"t3", "t6"}};
+    std::vector<std::vector<std::string>> ooperands{{"t3"}, {"t4"}, {"t5"}, {"t6"}, {"t7"}, {"t3"}, {"t4"}, {"t5"}, {"t6"}, {"t7"}};
+    std::vector<std::string> opNames{"Alloc1", "Alloc2", "Alloc3", "Alloc4", "Alloc5", "Copyin1", "Copyin2", "Sub1", "Add1", "Add2"};
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP16, {128, 128}, tensorMemTypes, tensorNames, 0), true);
+    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    Function *function = subGraph.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    EXPECT_NE(subGraph.GetTensor("t3"), nullptr);
+    std::shared_ptr<LogicalTensor> tensor = subGraph.GetTensor("t3");
+    tensor->shape = {80,128};
+
+    EXPECT_NE(subGraph.GetTensor("t4"), nullptr);
+    std::shared_ptr<LogicalTensor> tensor1 = subGraph.GetTensor("t4");
+    tensor1->shape = {176,256};
+    
+    EXPECT_NE(subGraph.GetTensor("t5"), nullptr);
+    std::shared_ptr<LogicalTensor> tensor2 = subGraph.GetTensor("t5");
+    tensor2->shape = {176,256};
+
+    EXPECT_NE(subGraph.GetTensor("t6"), nullptr);
+    std::shared_ptr<LogicalTensor> tensor3 = subGraph.GetTensor("t6");
+    tensor3->shape = {64, 128};
+
+    EXPECT_NE(subGraph.GetTensor("t7"), nullptr);
+    std::shared_ptr<LogicalTensor> tensor4 = subGraph.GetTensor("t7");
+    tensor4->shape = {16, 16};
+
+    OoOScheduler ooOScheduler(*function);
+    Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
+    EXPECT_EQ(res, SUCCESS);
+    res = ooOScheduler.SortOps();
+    EXPECT_EQ(res, SUCCESS);
+    res = ooOScheduler.GenSpillSchedule();
+    EXPECT_EQ(res, SUCCESS);
+}
+
 } // namespace npu::tile_fwk

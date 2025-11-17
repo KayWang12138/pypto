@@ -437,9 +437,20 @@ Status OoOScheduler::SpillMultiBuffer(IssueEntryPtr allocIssue, std::vector<int>
 }
 
 void OoOScheduler::FindFilterLtags(IssueEntryPtr allocIssue, std::set<IssueEntryPtr> &filterLtags) {
-    for (auto &dstIssueId : allocIssue->successors) {
-        auto dstIssue = issueEntryMap[dstIssueId];
-        for (auto &inIssueId : dstIssue->predecessors) {
+    auto dstIssueList = allocIssue->successors;
+    auto dstIssue = issueEntryMap[*dstIssueList.begin()];
+    if(dstIssue->tileOp.GetOpcode() == Opcode::OP_COPY_IN){
+        for (auto &dstIssueId : dstIssue->successors) {
+            auto dstIssue_level0 = issueEntryMap[dstIssueId];
+            for (auto &inIssueId : dstIssue_level0->predecessors) {
+                auto inIssue = issueEntryMap[inIssueId];
+                filterLtags.insert(inIssue);
+            }
+        }
+    }
+    for (auto &dstIssueId : dstIssueList) {
+        auto dstIssue_level1 = issueEntryMap[dstIssueId];
+        for (auto &inIssueId : dstIssue_level1->predecessors) {
             auto inIssue = issueEntryMap[inIssueId];
             filterLtags.insert(inIssue);
         }
