@@ -90,6 +90,14 @@ TILEOP void PairBinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
         pto::TPARTADD(dst, src0, src1);
         return;
     }
+    if constexpr (op == PairBinaryOp::MAX) {
+        pto::TPARTMAX(dst, src0, src1);
+        return;
+    }
+    if constexpr (op == PairBinaryOp::MIN) {
+        pto::TPARTMIN(dst, src0, src1);
+        return;
+    }
 }
 
 template <PairBinaryOp op, int reduceAxisIndex, typename T0, typename T1, typename T2>
@@ -199,6 +207,16 @@ TILEOP void PairBinaryCompute(T0 dst, T1 src0, T2 src1) {
 template <typename T0, typename T1, typename T2>
 TILEOP void TPairSum(T0 dst, T1 src0, T2 src1) {
     PairBinaryCompute<PairBinaryOp::ADD>(dst, src0, src1);
+}
+
+template <typename T0, typename T1, typename T2>
+TILEOP void TPairMax(T0 dst, T1 src0, T2 src1) {
+    PairBinaryCompute<PairBinaryOp::MAX>(dst, src0, src1);
+}
+
+template <typename T0, typename T1, typename T2>
+TILEOP void TPairMin(T0 dst, T1 src0, T2 src1) {
+    PairBinaryCompute<PairBinaryOp::MIN>(dst, src0, src1);
 }
 
 #endif
