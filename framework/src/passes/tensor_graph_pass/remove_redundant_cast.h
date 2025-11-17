@@ -34,10 +34,11 @@ public:
     Status RemoveRedundantCastChain(Function &function);
     Status PreCheck(Function &function) override;
     Status PostCheck(Function &function) override;
-
+    void InsertCastOp(Function &function, LogicalTensorPtr src, LogicalTensorPtr tgt, const TileShape &tileShape);
     Status GetInOutConnectedTensor(Function &function);
     std::unordered_set<int> inCastConnectedTensors_;
     std::unordered_set<int> outCastConnectedTensors_;
+    std::unordered_set<Operation *> addedCast_;
 };
 }
 }

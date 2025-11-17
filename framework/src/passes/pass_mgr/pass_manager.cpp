@@ -95,6 +95,7 @@ void PassManager::RegDefaultStrategy() {
     RegisterStrategy(
         "PVC2_OOO", {
             {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
+            {      "RemoveRedundantCast",      "RemoveRedundantCast"},
             {      "InferMemoryConflict",      "InferMemoryConflict"},
             {           "ExpandFunction",           "ExpandFunction"},
             {            "DuplicateView",            "DuplicateView"},

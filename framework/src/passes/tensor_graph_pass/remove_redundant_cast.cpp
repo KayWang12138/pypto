@@ -77,22 +77,23 @@ Status RemoveRedundantCast::RunOnFunction(Function &function) {
         ALOG_ERROR_F("Failed to remove redundant CAST.");
         return FAILED;
     }
-    if (DeadOperationEliminator::EliminateDeadOperation(function) != SUCCESS) {
-        ALOG_ERROR_F("Eliminate dead operation failed in RemoveRedundantCast.");
-        return FAILED;
-    }
     ALOG_INFO_F("===> End RemoveRedundantCast for function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }
 
 bool RemoveRedundantCast::SupportBF16(Operation *op) {
-    std::unordered_set<OpCalcType> calTypes{OpCalcType::ELMWISE, OpCalcType::BROADCAST, OpCalcType::REDUCE,
-                                            OpCalcType::CONV};
-    OpCalcType opCalType = OpcodeManager::Inst().GetOpCalcType(op->GetOpcode());
-    if (calTypes.count(opCalType) > 0) {
+    if (UNSUPPORT_BF16_OPS.count(op->GetOpcode()) > 0) {
         return false;
     }
     return true;
+}
+
+void RemoveRedundantCast::InsertCastOp(Function &function, LogicalTensorPtr src, LogicalTensorPtr tgt, 
+                                       const TileShape &tileShape) {
+    Operation &newCast = function.AddRawOperation(Opcode::OP_CAST, {src}, {tgt});
+    newCast.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
+    newCast.UpdateTileShape(tileShape);
+    addedCast_.insert(&newCast);
 }
 
 Status RemoveRedundantCast::InsertCast(Function &function) {
@@ -116,8 +117,7 @@ Status RemoveRedundantCast::InsertCast(Function &function) {
                 continue;
             }
             auto newInput = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, iop->shape, iop->Format());
-            Operation &newCast = function.AddRawOperation(Opcode::OP_CAST, {iop}, {newInput});
-            newCast.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
+            InsertCastOp(function, iop, newInput, op->GetTileShape());
             op->ReplaceInput(newInput, iop);
             oldMagic2Input[iop->GetMagic()] = newInput;
             if (inCastConnectedTensors_.count(iop->GetMagic()) > 0) {
@@ -134,8 +134,7 @@ Status RemoveRedundantCast::InsertCast(Function &function) {
             if (oop->Datatype() == DataType::DT_BF16) {
                 auto newOutput = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, oop->shape, oop->Format());
                 op->ReplaceOutput(newOutput, oop);
-                Operation &newCast = function.AddRawOperation(Opcode::OP_CAST, {newOutput}, {oop});
-                newCast.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
+                InsertCastOp(function, newOutput, oop, op->GetTileShape());
                 oldMagic2Input[oop->GetMagic()] = newOutput;
                 if (outCastConnectedTensors_.count(oop->GetMagic()) > 0) {
                     outCastConnectedTensors_.insert(newOutput->GetMagic());
@@ -177,7 +176,8 @@ std::vector<Operation *> RemoveRedundantCast::GetCastChain(Operation *tailOp)
     Operation *currOp = tailOp;
     while (!isFront) {
         if (currOp->ProducerOps().size() != 1 ||
-            (*currOp->ProducerOps().begin())->GetOpcode() != Opcode::OP_CAST) {
+            (*currOp->ProducerOps().begin())->GetOpcode() != Opcode::OP_CAST ||
+            addedCast_.count(*currOp->ProducerOps().begin()) == 0) {
             isFront = true;
             tailToHeadChain.push_back(currOp);
             break;
@@ -226,8 +226,8 @@ Status RemoveRedundantCast::ShortenChain(Function &function, const std::vector<O
         }
         if (i != 0 && IsLegalCast(srcType, tgtType)) {
             tgtTensor->RemoveProducer(tailOp);
-            Operation &newCast = function.AddRawOperation(Opcode::OP_CAST, {srcTensor}, {tgtTensor});
-            newCast.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
+            auto origTileShape = (*srcTensor->GetConsumers().begin()) -> GetTileShape();
+            InsertCastOp(function, srcTensor, tgtTensor, origTileShape);
             break;
         }
     }
@@ -238,7 +238,7 @@ Status RemoveRedundantCast::RemoveRedundantCastChain(Function &function) {
     std::vector<Operation *> opList = function.Operations().DuplicatedOpList();
     for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
         Operation *op = opList[opIdx];
-        if (op->GetOpcode() != Opcode::OP_CAST) {
+        if (op->GetOpcode() != Opcode::OP_CAST || addedCast_.count(op) == 0) {
             continue;
         }
         bool allCast = true;
