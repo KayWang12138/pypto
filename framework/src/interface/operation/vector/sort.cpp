@@ -129,7 +129,8 @@ void TiledTopK(Function &function, const TileShape &tileShape, size_t cur, Input
             if (sourceShapeSize < maxNumValue) {
                 vecTileAlign[axis] = source->shape[axis];
             } else if (tileShapeSize < maxNumValue) {
-                vecTileAlign[axis] = maxNumValue / (sourceShapeSize / source->shape[axis]) / blockSize * blockSize;
+                vecTileAlign[axis] = std::max((int64_t)blockSize, 
+                    maxNumValue / (sourceShapeSize / source->shape[axis]) / blockSize * blockSize);
             }
         }
         vecTileAlign[axis] = (vecTileAlign[axis] + blockSize - 1) / blockSize * blockSize;
