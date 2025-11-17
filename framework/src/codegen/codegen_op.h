@@ -97,7 +97,6 @@ protected:
     std::vector<int64_t> offset[MAX_OPERANDS] = {};
     std::vector<int64_t> shape[MAX_OPERANDS] = {};
     std::vector<int64_t> rawShape[MAX_OPERANDS] = {};
-    std::vector<OpImmediate> dynShapeFromAttr[MAX_OPERANDS] = {}; // used for gm spilling scene
     // need adapt unaligned scene
     // Used for unaligned scene. In AST 1.0 it was padded in LogicalTensor constructor
     std::vector<int64_t> originShape[MAX_OPERANDS] = {};

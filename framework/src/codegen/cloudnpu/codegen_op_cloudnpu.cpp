@@ -233,13 +233,14 @@ void CodeGenOpCloudNPU::UpdateTileTensorShapeAndStride(int paramIdx, TileTensor 
     // gm tensor
     if (tileTensor.bufType == OperandType::BUF_DDR) {
         if (isSpillToGm) {
-            for (auto s : dynShapeFromAttr[paramIdx]) {
-                tileTensor.shape.emplace_back(SymbolicExpressionTable::BuildExpression(s.GetSpecifiedValue()));
+            for (auto s : shape[paramIdx]) {
+                tileTensor.shape.emplace_back(std::to_string(s));
             }
+            tileTensor.stride = BuildStride(shape[paramIdx]);
         } else {
             tileTensor.shape = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_RAW_SHAPE);
+            tileTensor.stride = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_STRIDE);
         }
-        tileTensor.stride = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_STRIDE);
         return;
     }
 

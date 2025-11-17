@@ -40,8 +40,8 @@ CodeGenOpCloudNPU::DynamicParamPackMTE CodeGenOpCloudNPU::PrepareDynamicShapeInf
     CodeGenOpCloudNPU::DynamicParamPackMTE pack;
     int dim = static_cast<int>(rawShape[dynShapeIdx].size());
     if (isGmSpill) {
-        for (auto s : dynShapeFromAttr[dynShapeIdx]) {
-            pack.gmShapeExpr.emplace_back(SymbolicExpressionTable::BuildExpression(s.GetSpecifiedValue()));
+        for (auto s : shape[dynShapeIdx]) {
+            pack.gmShapeExpr.emplace_back(std::to_string(s));
         }
     } else {
         pack.gmShapeExpr = GenGetParamMacroPacked(dynShapeIdx, dim, PREFIX_STR_RAW_SHAPE);

@@ -90,13 +90,6 @@ std::string WrapParamByAngleBrackets(const std::vector<T> &params) {
 std::vector<int64_t> NormalizeShape(const std::vector<int64_t> &shapeVec, unsigned dim);
 std::string FormatFloat(float f, int precision = 9);
 
-inline std::vector<int64_t> ToVecInt(const std::vector<int64_t> &shapeVec) {
-    std::vector<int64_t> vec;
-    for (auto &i : shapeVec) {
-        vec.push_back(static_cast<int64_t>(i));
-    }
-    return vec;
-}
 std::string GetTypeForB16B32(const DataType &dtype);
 
 inline std::string GetPipeId(PipeType queue) {

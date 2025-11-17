@@ -90,8 +90,8 @@ TEST_F(TestCodegenDynSpillOut, UBSpillOut) {
     function->GetTensorMap().inverseMap_[ubTensor->GetMagic()] = ubTensor;
 
     cop.Init(op);
-    cop.originShape[0] = ToVecInt(shape);
-    cop.originShape[1] = ToVecInt(shape);
+    cop.originShape[0] = shape;
+    cop.originShape[1] = shape;
 
     cop.GenOpCode();
 }
@@ -142,8 +142,8 @@ TEST_F(TestCodegenDynSpillOut, L1SpillOut) {
     function->GetTensorMap().inverseMap_[l1Tensor->GetMagic()] = l1Tensor;
 
     cop.Init(op);
-    cop.originShape[0] = ToVecInt(shape);
-    cop.originShape[1] = ToVecInt(shape);
+    cop.originShape[0] = shape;
+    cop.originShape[1] = shape;
 
     cop.GenOpCode();
 }

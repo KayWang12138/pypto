@@ -41,11 +41,11 @@ bool IsCopyOpWithShapeOffsetAttr(Opcode opcode) {
 } // namespace
 
 void CodeGenOp::UpdateShape(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx) {
-    rawShape[operandIdx] = ToVecInt(logicalTensor.tensor->rawshape);
+    rawShape[operandIdx] = logicalTensor.tensor->rawshape;
     ALOG_INFO_F("op code %s, operandIdx: %d, raw shape is %s", oper.GetOpcodeStr().c_str(), operandIdx,
         IntVecToStr(logicalTensor.tensor->rawshape).c_str());
     // need adapt unaligned scene after
-    originShape[operandIdx] = ToVecInt(logicalTensor.oriShape);
+    originShape[operandIdx] = logicalTensor.oriShape;
     if (isSupportDynamicUnaligned) {
         dynamicValidShape[operandIdx] = logicalTensor.GetDynValidShape();
     }
@@ -56,7 +56,7 @@ void CodeGenOp::UpdateShape(const Operation &oper, const LogicalTensor &logicalT
     bool useAttrForGM = IsCopyOpWithShapeOffsetAttr(opcode);
     // Local Tensor shape just use shape from LogicalTensor
     if (!useAttrForGM || logicalTensor.GetMemoryTypeOriginal() != MEM_DEVICE_DDR) {
-        shape[operandIdx] = ToVecInt(logicalTensor.shape);
+        shape[operandIdx] = logicalTensor.shape;
         if (isSupportDynamicUnaligned) { // NEXTNEXT: stack gm should also has dynShape_ later
             ASSERT(!logicalTensor.GetDynValidShape().empty())
                 << "LogicalTensor::dynShape_ can not empty in Dynamic Unaligned Scene";
@@ -66,8 +66,7 @@ void CodeGenOp::UpdateShape(const Operation &oper, const LogicalTensor &logicalT
 
     std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(oper.GetOpAttribute());
     ASSERT(attr != nullptr) << ": missing OpAttr in copy op: \n" << oper.Dump();
-    shape[operandIdx] = ToVecInt(attr->GetSpecifiedShape(1));
-    dynShapeFromAttr[operandIdx] = attr->GetShape(); // used for spilling GM scene
+    shape[operandIdx] = attr->GetSpecifiedShape(1);  // used for spilling GM scene
     ALOG_INFO_F("attrShape(from op CopyOpAttribute) = %s", IntVecToStr(shape[operandIdx]).c_str());
 }
 
@@ -83,7 +82,7 @@ void CodeGenOp::UpdateOffsetValueForGM(const std::vector<OpImmediate> &offsets, 
     ALOG_INFO_F("UpdateOffsetValueForGM , offsetGmSymbolic is %s", IntVecToStr(dynOffset).c_str());
 }
 
-bool CodeGenOp::IsUpdateOffsetByAttr(const LogicalTensor &logicalTensor, bool useAttrShapeOffset){
+bool CodeGenOp::IsUpdateOffsetByAttr(const LogicalTensor &logicalTensor, bool useAttrShapeOffset) {
     if ((!useAttrShapeOffset) || (((opCode != Opcode::OP_L1_TO_BT) && (opCode != Opcode::OP_L1_TO_FIX_QUANT_PRE)) &&
                                      (logicalTensor.GetMemoryTypeOriginal() != MEM_DEVICE_DDR))) {
         return false;
@@ -94,7 +93,7 @@ bool CodeGenOp::IsUpdateOffsetByAttr(const LogicalTensor &logicalTensor, bool us
 void CodeGenOp::UpdateOffsetForInput(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx) {
     bool useAttrShapeOffsetForInputGM = OpcodeManager::Inst().IsCopyIn(opCode);
     if (!IsUpdateOffsetByAttr(logicalTensor, useAttrShapeOffsetForInputGM)) {
-        offset[operandIdx] = ToVecInt(logicalTensor.offset); // Local Tensor offset just use offset from LogicalTensor
+        offset[operandIdx] = logicalTensor.offset; // Local Tensor offset just use offset from LogicalTensor
         ALOG_INFO_F("UpdateOffsetForInput offset is %s", IntVecToStr(offset[operandIdx]).c_str());
         return;
     }
@@ -109,7 +108,7 @@ void CodeGenOp::UpdateOffsetForInput(const Operation &oper, const LogicalTensor 
 void CodeGenOp::UpdateOffsetForOutput(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx) {
     bool useAttrShapeOffsetForOutputGM = OpcodeManager::Inst().IsCopyOut(opCode);
     if (!useAttrShapeOffsetForOutputGM || logicalTensor.GetMemoryTypeOriginal() != MEM_DEVICE_DDR) {
-        offset[operandIdx] = ToVecInt(logicalTensor.offset); // Local Tensor offset just use offset from LogicalTensor
+        offset[operandIdx] = logicalTensor.offset; // Local Tensor offset just use offset from LogicalTensor
         ALOG_INFO_F("UpdateOffsetForOutput offset is %s", IntVecToStr(offset[operandIdx]).c_str());
         return;
     }
@@ -229,7 +228,7 @@ std::string CodeGenOp::GenOpAttr(bool hasExistingParam) const {
     }
 
     std::vector<std::string> attrList;
-    for (const auto& kv : opAttrs) {
+    for (const auto &kv : opAttrs) {
         if (kv.first.substr(0, OP_ATTR_PREFIX.size()) != OP_ATTR_PREFIX) {
             continue;
         }
@@ -322,10 +321,9 @@ void CodeGenOp::ConvertAttribute(const Operation &operation) {
         convParams.push_back(operation.GetIntAttribute(ConvOpAttributeKey::fmapC0));
     }
 
-    if (opCode == Opcode::OP_L1_TO_FIX ||
-        opCode == Opcode::OP_L1_TO_FIX_RELU_PRE || opCode == Opcode::OP_L1_TO_FIX_RELU_POST ||
-        opCode == Opcode::OP_L1_TO_FIX_QUANT_POST || opCode == Opcode::OP_L1_TO_FIX_ELT_ANTIQ ||
-        opCode == Opcode::OP_L1_TO_FIX_MTE2_ANTIQ) {
+    if (opCode == Opcode::OP_L1_TO_FIX || opCode == Opcode::OP_L1_TO_FIX_RELU_PRE ||
+        opCode == Opcode::OP_L1_TO_FIX_RELU_POST || opCode == Opcode::OP_L1_TO_FIX_QUANT_POST ||
+        opCode == Opcode::OP_L1_TO_FIX_ELT_ANTIQ || opCode == Opcode::OP_L1_TO_FIX_MTE2_ANTIQ) {
         convParams.push_back(operation.GetIntAttribute(FixpOpAttributeKey::fbAddrSpace));
     }
 

@@ -33,9 +33,7 @@ class TestCodegenSpillOut : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
 
-    static void TearDownTestCase() {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-    }
+    static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false); }
 
     void SetUp() override {
         Program::GetInstance().Reset();
@@ -88,8 +86,8 @@ TEST_F(TestCodegenSpillOut, UBSpillOut) {
     function->GetTensorMap().inverseMap_[ubTensor->GetMagic()] = ubTensor;
 
     cop.Init(op);
-    cop.originShape[0] = ToVecInt(shape);
-    cop.originShape[1] = ToVecInt(shape);
+    cop.originShape[0] = shape;
+    cop.originShape[1] = shape;
 
     std::string res = cop.GenOpCode();
     std::string expect =
@@ -139,8 +137,8 @@ TEST_F(TestCodegenSpillOut, UBSpillOutTileTensor) {
     function->GetTensorMap().inverseMap_[ubTensor->GetMagic()] = ubTensor;
 
     cop.Init(op);
-    cop.originShape[0] = ToVecInt(shape);
-    cop.originShape[1] = ToVecInt(shape);
+    cop.originShape[0] = shape;
+    cop.originShape[1] = shape;
     cop.UpdateTileTensorInfo();
 
     std::string res = symbolMgr.GenTileTensorDefList();
@@ -200,8 +198,8 @@ TEST_F(TestCodegenSpillOut, L1SpillOut) {
     function->GetTensorMap().inverseMap_[l1Tensor->GetMagic()] = l1Tensor;
 
     cop.Init(op);
-    cop.originShape[0] = ToVecInt(shape);
-    cop.originShape[1] = ToVecInt(shape);
+    cop.originShape[0] = shape;
+    cop.originShape[1] = shape;
 
     cop.GenOpCode();
 }

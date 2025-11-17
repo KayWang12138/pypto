@@ -30,7 +30,7 @@ namespace npu::tile_fwk {
 
 constexpr const int dummyRawMagic = 123;
 
-    class TestCodegenDynCopy : public ::testing::Test {
+class TestCodegenDynCopy : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
 
@@ -82,7 +82,7 @@ std::string TestL0COutBody(bool isDynamicUnalign) {
     localTensor->memoryrange.memId = 0;
     localTensor->memoryrange.start = 0;
     localTensor->memoryrange.end = 0;
-    if(isDynamicUnalign){
+    if (isDynamicUnalign) {
         std::vector<SymbolicScalar> dynValidShape = {64, 64};
         localTensor->UpdateDynValidShape(dynValidShape);
         ddrTensor->UpdateDynValidShape(dynValidShape);
@@ -92,7 +92,7 @@ std::string TestL0COutBody(bool isDynamicUnalign) {
     auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
     op.SetOOpAttrOffset(0, 0);
     op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
-    if(isDynamicUnalign){
+    if (isDynamicUnalign) {
         op.SetAttribute("op_attr_is_nz", 1);
     }
 
@@ -104,8 +104,8 @@ std::string TestL0COutBody(bool isDynamicUnalign) {
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
 
     cop.Init(op);
-    cop.originShape[0] = ToVecInt(shape);
-    cop.originShape[1] = ToVecInt(shape);
+    cop.originShape[0] = shape;
+    cop.originShape[1] = shape;
     return cop.GenOpCode();
 }
 
@@ -119,7 +119,8 @@ TEST_F(TestCodegenDynCopy, L0CToOut) {
 
 TEST_F(TestCodegenDynCopy, L0CToOutUnalign) {
     std::string res = TestL0COutBody(true);
-    std::string expect = R"!!!(TileOp::DynL0CCopyOut<float, float, false, 0>((__gm__ float*)GET_PARAM_ADDR(param, 0, 0), (__cc__ float*)L0C_S0_E0, 64, 64, GET_PARAM_RAWSHAPE_2(param, 0, 0), GET_PARAM_OFFSET_2(param, 0, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, 0, 2, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, 0, 2, 1), 0, 0);
+    std::string expect =
+        R"!!!(TileOp::DynL0CCopyOut<float, float, false, 0>((__gm__ float*)GET_PARAM_ADDR(param, 0, 0), (__cc__ float*)L0C_S0_E0, 64, 64, GET_PARAM_RAWSHAPE_2(param, 0, 0), GET_PARAM_OFFSET_2(param, 0, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, 0, 2, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, 0, 2, 1), 0, 0);
 )!!!";
     EXPECT_EQ(res, expect);
 }
@@ -226,8 +227,8 @@ std::string TestL1CopyInBody(bool isNz = false, int outerValueForNz = 0, int inn
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
 
     cop.Init(op);
-    cop.originShape[0] = ToVecInt(shape);
-    cop.originShape[1] = ToVecInt(shape);
+    cop.originShape[0] = shape;
+    cop.originShape[1] = shape;
 
     return cop.GenOpCode();
 }
@@ -352,8 +353,8 @@ TEST_F(TestCodegenDynCopy, UBCopyIn) {
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
 
     cop.Init(op);
-    cop.originShape[0] = ToVecInt(shape);
-    cop.originShape[1] = ToVecInt(shape);
+    cop.originShape[0] = shape;
+    cop.originShape[1] = shape;
 
     std::string res = cop.GenOpCode();
     std::string expect =
