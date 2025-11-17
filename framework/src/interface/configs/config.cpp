@@ -123,7 +123,7 @@ void SetBuildStatic(bool isStatic) {
     g_config.funcType = isStatic ? FunctionType::STATIC : FunctionType::DYNAMIC;
 }
 
-std::string GetRundataDir() {
+std::string GetRunDataDir() {
     return g_config.rundataDir;
 }
 
@@ -214,6 +214,7 @@ DEFINE_GET_OPTION(int64_t)
 DEFINE_GET_OPTION(std::string)
 DEFINE_GET_OPTION(std::vector<int64_t>)
 DEFINE_GET_OPTION(MapType)
+#undef DEFINE_GET_OPTION
 
 static json toJson(const std::string &prefix) {
     json j;
@@ -236,7 +237,9 @@ static json toJson(const std::string &prefix) {
     return j;
 }
 
-void CreateRundataDir() {
+constexpr const char *ENV_VAR_PYPTO_HOME = "PYPTO_HOME";
+constexpr const char *ENV_VAR_HOME = "HOME";
+void CreateRunDataDir() {
     if (!g_config.rundataDir.empty()) {
         return;
     }
@@ -244,8 +247,8 @@ void CreateRundataDir() {
     std::stringstream timestamp;
     timestamp << std::put_time(std::localtime(&time), "%Y%m%d%H%M%S");
 
-    std::string envStr = GetEnvVar("PYPTO_HOME");
-    std::string dir = envStr.empty() ? (GetEnvVar("HOME") + "/.pypto") : envStr;
+    std::string envStr = GetEnvVar(ENV_VAR_PYPTO_HOME);
+    std::string dir = envStr.empty() ? (GetEnvVar(ENV_VAR_HOME) + "/.pypto") : envStr;
 
     dir = dir + "/run/rundata_" + timestamp.str();
     bool res = CreateMultiLevelDir(dir);
@@ -257,10 +260,10 @@ void CreateRundataDir() {
 static void SetOptionPost(const std::string &key) {
     if (StringUtils::StartsWith(key, "rundata.")) {
         if (g_config.rundataDir.empty()) {
-            CreateRundataDir();
+            CreateRunDataDir();
         }
         auto value = toJson("rundata.").dump(2);
-        auto dir = GetRundataDir() + "/rundata.json";
+        auto dir = GetRunDataDir() + "/rundata.json";
         SaveFileSafe(dir, reinterpret_cast<uint8_t*>(value.data()), value.size());
     }
 }

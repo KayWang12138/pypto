@@ -114,17 +114,6 @@ void SetHostOption(const std::string &key, const T &value) {
 }
 
 /**
- * \brief Set rundata options
- *
- * \param key config option key
- * \param value config option value
- */
-template <typename T>
-void SetRundataOption(const std::string &key, const T &value) {
-    internal::SetOption("rundata." + key, value);
-}
-
-/**
  * \brief Set tensor print options
  *
  * \param edgeItems print max items in tensor head and tail

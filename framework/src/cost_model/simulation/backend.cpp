@@ -40,7 +40,7 @@ void CostModelAgent::BuildCostModel()
     std::string jsonPath = config::GetSimConfig("JSON_PATH", "");
     agentJsonPath = config::GetSimConfig("AGENT_JSON_PATH", "");
     auto folder = config::GetAbsoluteTopFolder() + "/" + ("CostModelSimulationOutput");
-    config::SetRundataOption(KEY_SWIM_GRAPH_PATH, folder);
+    config::SetRunDataOption(KEY_SWIM_GRAPH_PATH, folder);
     std::vector<std::string> configs;
     if (!jsonPath.empty()) {
         configs.push_back("-f");
@@ -250,7 +250,7 @@ extern "C" int32_t ExecuteSimulation(const MachineTask *task, FunctionCache &cac
         return 0;
     }
 
-    config::SetRundataOption(KEY_RUNTYPE, "simulation");
+    config::SetRunDataOption(KEY_RUNTYPE, "simulation");
 
     CostModelAgent costModelAgent;
 

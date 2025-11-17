@@ -154,21 +154,6 @@ def set_runtime_option(key: str, value: Union[str, int, List[int], Dict[int, int
     pto_impl.SetOption(f"runtime.{key}", value)
 
 
-def set_rundata_option(key: str, value: Union[str, int, List[int], Dict[int, int]]) -> None:
-    """
-    Set rundata options.
-
-    Parameters
-    ---------
-    key: str
-        Config option key.
-
-    value : Union[str, int, List[int], Dict[int, int]]
-        Config option value.
-    """
-    pto_impl.SetOption(f"rundata.{key}", value)
-
-
 def get_runtime_option(key: str) -> Union[str, int, List[int], Dict[int, int]]:
     """
     Get runtime options.

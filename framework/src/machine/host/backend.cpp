@@ -54,7 +54,7 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
         ALOG_INFO("draw graph switch enabled, push finish queue.");
         return 0;
     }
-    config::SetRundataOption(KEY_RUNTYPE, "npu");
+    config::SetRunDataOption(KEY_RUNTYPE, "npu");
 
     auto deviceMachineTask = new MachineTask(task->GetTaskId(), task->GetFunction());
     deviceMachineTask->SetCacheReuseType(task->GetCacheReuseType());
@@ -785,7 +785,7 @@ MachineTask *GenCode(
     if (config::GetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_BY_JSON, false)) {
         std::string jsonPath = config::GetAbsoluteTopFolder() + "/program.json";
         Program::GetInstance().DumpJsonFile(jsonPath);
-        config::SetRundataOption(KEY_PROGRAM_PATH, jsonPath);
+        config::SetRunDataOption(KEY_PROGRAM_PATH, jsonPath);
 
         codeGen.GenCode(jsonPath, invokeParaOffset);
         task->SetFunction(Program::GetInstance().GetCurrentFunction());

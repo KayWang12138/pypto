@@ -176,7 +176,7 @@ void HostMachine::CompileFunction(Function* func) const {
     if (func->IsFunctionType(FunctionType::DYNAMIC) || func->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
         auto path = config::GetAbsoluteTopFolder() + "/program.json";
         Program::GetInstance().DumpJsonFile(path);
-        config::SetRundataOption(KEY_PROGRAM_PATH, path);
+        config::SetRunDataOption(KEY_PROGRAM_PATH, path);
     }
     if (func->rootFunc_ != nullptr) {
         func->rootFunc_->DumpTopoFile(config::LogTopFolder() + "/topo.json");

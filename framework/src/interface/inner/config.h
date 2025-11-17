@@ -142,6 +142,10 @@ void Restore(std::shared_ptr<ConfigStorage> config);
 
 PrintOptions &GetPrintOptions();
 
-void CreateRundataDir();
+template <typename T>
+void SetRunDataOption(const std::string &key, const T &value) {
+    internal::SetOption("rundata." + key, value);
+}
+void CreateRunDataDir();
 } // namespace config
 } // namespace npu::tile_fwk

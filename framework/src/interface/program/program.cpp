@@ -803,7 +803,7 @@ inline bool IsVerifyEnable() {
 
 RecordFunc::~RecordFunc() {
     if (IsVerifyEnable()) {
-        config::SetRundataOption(KEY_FLOW_VERIFY_PATH, config::GetAbsoluteTopFolder() + "/verify");
+        config::SetRunDataOption(KEY_FLOW_VERIFY_PATH, config::GetAbsoluteTopFolder() + "/verify");
     }
 
     (void)Program::GetInstance().EndFunction(funcName);
