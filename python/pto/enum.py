@@ -53,3 +53,4 @@ DT_UINT32 = pto_impl.DataType.DT_UINT32
 DT_UINT64 = pto_impl.DataType.DT_UINT64
 DT_BOOL = pto_impl.DataType.DT_BOOL
 DT_DOUBLE = pto_impl.DataType.DT_DOUBLE
+DT_BOTTOM = pto_impl.DataType.DT_BOTTOM

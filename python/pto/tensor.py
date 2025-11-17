@@ -16,7 +16,7 @@ from . import pto_impl
 
 from .enum import * # noqa
 from .pto_utils import to_syms, to_sym
-from .symbolic_scalar import SymbolicScalar
+from .symbolic_scalar import SymbolicScalar, SymInt
 
 
 class Tensor:
@@ -39,7 +39,7 @@ class Tensor:
         return self._base.GetDataType()
 
     @property
-    def shape(self) -> Union[List[int], List[SymbolicScalar]]:
+    def shape(self) -> List[SymInt]:
         out = []
         for i, n in enumerate(self._base.GetShape()):
             if n == -1:

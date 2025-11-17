@@ -1750,3 +1750,165 @@ def logical_and(
     Output z: [[True, False], [False, False]]
     """
     return pto_impl.logical_and(input, other)
+
+
+@op_wrapper
+def minimum(input: Union[Tensor, Element, int, float], other: Union[Tensor, Element, int, float]) -> Tensor:
+    """
+    Computes the element-wise minimum of input and other.
+
+    Parameters
+    ----------
+    input : Tensor
+        The first input tensor.
+    other : Tensor or Element
+        The second input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise minimum.
+
+    Examples
+    --------
+    a = pto.tensor([3], pto.DT_INT32)
+    b = pto.tensor([3], pto.DT_INT32)
+    out = pto.minimum(a, b)
+
+    Input a:    [0 2 4]
+    Input b:    [3 1 3]
+    Output out: [0 1 3]
+    """
+    if not isinstance(input, pto_impl.Tensor) and not isinstance(other, pto_impl.Tensor):
+        raise TypeError("one of `input` and `other` should be `Tensor`")
+
+    if not isinstance(input, pto_impl.Tensor) and isinstance(other, pto_impl.Tensor):
+        input, other = other, input
+    if isinstance(other, (int, float)):
+        other = pto_impl.Element(input.dtype, other)
+    return pto_impl.minimum(input, other)
+
+
+@op_wrapper
+def expand_clone(input: Tensor, shape: List[int], *,
+           valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None) -> Tensor:
+    if valid_shape is None:
+        valid_shape = []
+    return pto_impl.expand(input, shape, valid_shape)
+
+
+@op_wrapper
+def logical_and(
+    input: Tensor,
+    other: Tensor
+) -> Tensor:
+    """Computes the element-wise logical AND of `input` and `other`.
+
+    This function calculates the formula: `out = input && other`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The first input tensor.
+    other : Tensor
+        The second input tensor. Should be broadcastable to the shape of `input`.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise logical AND operation results.
+
+    Examples
+    --------
+    x = pto.tensor([True, False], pto.DT_BOOL)
+    y = pto.tensor([True, True], pto.DT_BOOL)
+    z = pto.logical_and(x, y)
+
+    Input x: [True, False]
+    Input y: [True, True] 
+    Output z: [True, False]
+
+    # 支持广播
+    x = pto.tensor([[True, False], [False, True]], pto.DT_BOOL)
+    y = pto.tensor([True, False], pto.DT_BOOL)
+    z = pto.logical_and(x, y)
+
+    Input x: [[True, False], [False, True]]
+    Input y: [True, False]
+    Output z: [[True, False], [False, False]]
+    """
+    return pto_impl.logical_and(input, other)
+
+
+@op_wrapper
+def minimum(input: Tensor, other: Union[Tensor, Element]) -> Tensor:
+    """
+    Computes the element-wise minimum of input and other.
+
+    Parameters
+    ----------
+    input : Tensor
+        The first input tensor.
+    other : Tensor or Element
+        The second input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise minimum.
+
+    Examples
+    --------
+    a = pto.tensor([3], pto.DT_INT32)
+    b = pto.tensor([3], pto.DT_INT32)
+    out = pto.minimum(a, b)
+
+    Input a:    [0 2 4]
+    Input b:    [3 1 3]
+    Output out: [0 1 3]
+    """
+    return pto_impl.minimum(input, other)
+
+
+@op_wrapper
+def clip(
+    input: Tensor,
+    min_: Optional[Union[Tensor, Element, float, int]] = None,
+    max_: Optional[Union[Tensor, Element, float, int]] = None,
+):
+    """
+    Make the values in `input` greater than `min_` and less than `max_`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The first input tensor.
+    min_ : Tensor or Element
+        The minimum value.
+    max_: Tensor or Element
+        The maximum value
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise minimum.
+
+    Examples
+    --------
+    a = pto.tensor([3], pto.DT_INT32)
+    b = pto.tensor([3], pto.DT_INT32)
+    out = pto.minimum(a, b)
+
+    Input a:    [0 2 4]
+    Input b:    [3 1 3]
+    Output out: [0 1 3]
+    """
+    if min_ is None and max_ is None:
+        return input
+
+    element_types = (pto_impl.Element, int, float)
+    is_element_mode = isinstance(min_, element_types) or isinstance(max_, element_types)
+    default = pto_impl.Tensor() if not is_element_mode else pto_impl.Element(pto_impl.DataType.DT_BOTTOM, 0)
+    min_ = min_ or default
+    max_ = max_ or default
+    return pto_impl.clip(input, min_, max_)
