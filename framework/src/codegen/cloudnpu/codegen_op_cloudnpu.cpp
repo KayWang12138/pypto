@@ -21,6 +21,38 @@
 #include "securec.h"
 
 namespace npu::tile_fwk {
+void CodeGenOpCloudNPU::InitOpsGenMap() {
+    InitScalaOpsMap();
+    InitMTEOpsMap();
+    InitVecOpsMap();
+    InitCubeOpsMap();
+    InitDistOpsMap();
+}
+
+void CodeGenOpCloudNPU::InitScalaOpsMap() {
+    opsGenMap_.insert(syncOps_.cbegin(), syncOps_.cend());
+}
+
+void CodeGenOpCloudNPU::InitMTEOpsMap() {
+    opsGenMap_.insert(mteFixPipeOps_.cbegin(), mteFixPipeOps_.cend());
+}
+
+void CodeGenOpCloudNPU::InitVecOpsMap() {
+    opsGenMap_.insert(unaryOps_.cbegin(), unaryOps_.cend());
+    opsGenMap_.insert(binaryOps_.cbegin(), binaryOps_.cend());
+    opsGenMap_.insert(compositeOps_.cbegin(), compositeOps_.cend());
+    opsGenMap_.insert(sortOps_.cbegin(), sortOps_.cend());
+    opsGenMap_.insert(gatherScatterOps_.cbegin(), gatherScatterOps_.cend());
+    opsGenMap_.insert(normalVecOps_.cbegin(), normalVecOps_.cend());
+}
+
+void CodeGenOpCloudNPU::InitCubeOpsMap() {
+    opsGenMap_.insert(cubeOps_.cbegin(), cubeOps_.cend());
+}
+
+void CodeGenOpCloudNPU::InitDistOpsMap() {
+    opsGenMap_.insert(distributeOps_.cbegin(), distributeOps_.cend());
+}
 
 void CodeGenOpCloudNPU::AppendLocalBufferVarOffset(const std::vector<std::string *> &vars) const {
     std::map<unsigned, std::string *> varsMap;

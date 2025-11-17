@@ -425,8 +425,6 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCastDynamic(const PrintIndexOutCastP
     int cacheModeFlag = GetCacheModeFlag(param.cacheMode);
 
     auto paramPack = PrepareDynamicShapeInfoForMTE(ID0);
-    std::vector<std::string> gmShapeExpr = paramPack.gmOffsetExpr;
-    std::vector<std::string> gmOffsetExpr = paramPack.gmOffsetExpr;
 
     std::ostringstream os;
     std::vector<std::string> paramList;
@@ -470,8 +468,6 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCastDynamicUnaligned(const PrintInde
     int cacheModeFlag = GetCacheModeFlag(param.cacheMode);
 
     auto paramPack = PrepareDynamicShapeInfoForMTE(ID0);
-    std::vector<std::string> gmShapeExpr = paramPack.gmOffsetExpr;
-    std::vector<std::string> gmOffsetExpr = paramPack.gmOffsetExpr;
 
     auto src0ValidShape = dynamicValidShape[ID1];
     FillIntVecWithDummyInHead<SymbolicScalar>(src0ValidShape, SHAPE_DIM4 - dynamicValidShape[ID1].size(), 1);
