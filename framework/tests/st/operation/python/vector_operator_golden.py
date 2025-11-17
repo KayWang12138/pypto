@@ -1228,10 +1228,9 @@ def gen_gather_op_golden(case_name: str, output: Path, case_index: int = None) -
     return gen_op_golden("Gather", golden_func, output, case_index)
 
 
-@TestCaseLoader.reg_params_handler(ops=["GatherElement", "Scatter", "Concat", "Gather"])
+@TestCaseLoader.reg_params_handler(ops=["GatherElement", "Concat", "Gather"])
 def params_axis_func(params: dict):
     params["axis"] = int(params.get("axis"))
-    params["reduce"] = "" if params["reduce"] is None else params["reduce"]
     return params
 
 
@@ -1299,6 +1298,12 @@ def gen_indexadd__op_golden(
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("IndexAdd_", indexadd_golden_func, output, case_index)
 
+
+@TestCaseLoader.reg_params_handler(ops=["Scatter", "Scatter_"])
+def params_axis_reduce_func(params: dict):
+    params["axis"] = int(params.get("axis"))
+    params["reduce"] = "" if params["reduce"] is None else params["reduce"]
+    return params
 
 def scatter_golden_func(inputs, config: dict):
     params = config.get("params")
