@@ -64,6 +64,7 @@ template <typename T = npu::tile_fwk::float16,  typename wDtype = int8_t, bool i
 void TestMlaPrologQuantV32(
     const TestShapeParams &params, const MlaTileConfig &tileConfig, std::string layoutKey = "PA_NZ") {
     config::SetHostOption(ONLY_CODEGEN, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = params.b;
     int s = params.s;
@@ -96,7 +97,7 @@ void TestMlaPrologQuantV32(
     std::vector<int64_t> rmsnormGammaCqShape = {qLoraRank};
     std::vector<int64_t> rmsnormGammaCkvShape = {kvLoraRank};
     std::vector<int64_t> cacheIndexShape = {b, s};
-    int blockNum = b * (s2 / blockSize);
+    int blockNum = b * ((s2 + blockSize - 1) / blockSize);
     std::vector<int64_t> kvCacheShape = {blockNum, blockSize, n2, kvLoraRank};
     std::vector<int64_t> krCacheShape = {blockNum, blockSize, n2, qkRopeHeadDim};
     std::vector<int64_t> kScaleCacheShape = {blockNum, blockSize, n2, 4};
@@ -342,6 +343,17 @@ TEST_F(MlaPrologQuantV32STest, b32_s64k4_pa_nd_fp16_quantB) {
 }
 
 // allquant test
+TEST_F(MlaPrologQuantV32STest, b32_s1k4_pa_nd_fp16_quantB) {
+    // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
+    TestShapeParams params = {32, 4, 1 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
+    std::string layoutKey = "PA_BSND";
+    MlaTileConfig tileConfig;
+    tileConfig.tileBS = 16;
+
+    PerformanceConfig();
+    TestMlaPrologQuantV32<npu::tile_fwk::float16, int8_t, false, true, false>(params, tileConfig, layoutKey);
+}
+
 TEST_F(MlaPrologQuantV32STest, b32_s4k4_pa_nd_fp16_quantB) {
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 4, 4 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
@@ -379,6 +391,17 @@ TEST_F(MlaPrologQuantV32STest, b32_s128k4_pa_nd_fp16_quantB) {
 TEST_F(MlaPrologQuantV32STest, b1_s11_pa_nd_fp16_quantB) {
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {1, 1, 1, 128, 7168, 1536, 128, 64, 512, 128};
+    std::string layoutKey = "PA_BSND";
+    MlaTileConfig tileConfig;
+    tileConfig.tileBS = 1;
+
+    PerformanceConfig();
+    TestMlaPrologQuantV32<npu::tile_fwk::float16, int8_t, false, true, false>(params, tileConfig, layoutKey);
+}
+
+TEST_F(MlaPrologQuantV32STest, b1_s129_1_pa_nd_fp16_quantB) {
+    // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
+    TestShapeParams params = {1, 1, 129, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 1;
@@ -489,6 +512,17 @@ TEST_F(MlaPrologQuantV32STest, b32_s64k4_pa_nd_bf16_quantB) {
 }
 
 // allquant test
+TEST_F(MlaPrologQuantV32STest, b32_s1k4_pa_nd_bf16_quantB) {
+    // b, s1, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
+    TestShapeParams params = {32, 4, 1 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
+    std::string layoutKey = "PA_BSND";
+    MlaTileConfig tileConfig;
+    tileConfig.tileBS = 16;
+
+    PerformanceConfig();
+    TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
+}
+
 TEST_F(MlaPrologQuantV32STest, b32_s4k4_pa_nd_bf16_quantB) {
     // b, s1, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 4, 4 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
@@ -529,6 +563,41 @@ TEST_F(MlaPrologQuantV32STest, b1_s11_pa_nd_bf16_quantB) {
     std::string layoutKey = "PA_BSND";
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 1;
+
+    PerformanceConfig();
+    TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
+}
+
+TEST_F(MlaPrologQuantV32STest, b1_s129_1_pa_nd_bf16_quantB) {
+    // b, s1, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
+    TestShapeParams params = {1, 1, 129, 128, 7168, 1536, 128, 64, 512, 128};
+    std::string layoutKey = "PA_BSND";
+    MlaTileConfig tileConfig;
+    tileConfig.tileBS = 1;
+
+    PerformanceConfig();
+    TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
+}
+
+// unaligned shape
+TEST_F(MlaPrologQuantV32STest, b104_s8k1_pa_nd_bf16_quantB) {
+    // b, s1, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
+    TestShapeParams params = {104, 1, 8 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
+    std::string layoutKey = "PA_BSND";
+    MlaTileConfig tileConfig;
+    tileConfig.tileBS = 13;
+
+    PerformanceConfig();
+    TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
+}
+
+// special case from test
+TEST_F(MlaPrologQuantV32STest, b32_s127104_3_pa_nd_bf16_quantB) {
+    // b, s1, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
+    TestShapeParams params = {32, 3, 127104, 128, 7168, 1536, 128, 64, 512, 128};
+    std::string layoutKey = "PA_BSND";
+    MlaTileConfig tileConfig;
+    tileConfig.tileBS = 4;
 
     PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);

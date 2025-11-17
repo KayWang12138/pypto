@@ -88,13 +88,13 @@ void MlaPrologQuantV32Compute(const Tensor &tokenX, const Tensor &wDq, const Ten
     MlaQuantInputs quantInputs ;
     LOOP("MLA_IN_RESHAPE_LOOP", FunctionType::DYNAMIC_LOOP, unused, LoopRange(1)) {
         (void) unused;
-        tokenX2D = Reshape(tokenX, {b * s, h}, true);
-        ropeCos2D = Reshape(ropeCos, {b * s, qkRopeHeadDim}, true);
-        ropeSin2D = Reshape(ropeSin, {b * s, qkRopeHeadDim}, true);
-        kCacheIndex2D= Reshape(cacheIndex, {b * s, 1},true);
+        Reshape(tokenX,tokenX2D);
+        Reshape(ropeCos, ropeCos2D);
+        Reshape(ropeSin, ropeSin2D);
+        Reshape(cacheIndex, kCacheIndex2D);
         if (dequantScaleWUqQr.GetStorage() != nullptr) {
             Tensor dequantScaleWUqQrReshape(dequantScaleWUqQr.GetDataType(), {1, n1 * qHeadDim});
-            dequantScaleWUqQrReshape = Reshape(dequantScaleWUqQr, {1, n1 * qHeadDim}, true);
+            Reshape(dequantScaleWUqQr, dequantScaleWUqQrReshape);
             quantInputs.dequantScaleWUqQr = dequantScaleWUqQrReshape;
         }
     }
@@ -182,9 +182,9 @@ void MlaPrologQuantV32Compute(const Tensor &tokenX, const Tensor &wDq, const Ten
         Tensor kScaleCache2D(kScaleCache.GetDataType(), {blockNum * blockSize * n2, 4}); // 4
         LOOP("MLA_CACHE_RESHAPE_4D_2D", FunctionType::DYNAMIC_LOOP, unused, LoopRange(0, 1, 1)) {
             (void)unused;
-            krCache2D = Reshape(krCache, {blockNum * blockSize * n2, qkRopeHeadDim}, true);
-            kvCache2D = Reshape(kvCache, {blockNum * blockSize * n2, kvLoraRank}, true);
-            kScaleCache2D = Reshape(kScaleCache, {blockNum * blockSize * n2, 4}, true);
+            Reshape(krCache, krCache2D);
+            Reshape(kvCache, kvCache2D);
+            Reshape(kScaleCache, kScaleCache2D);
         }
 
         Tensor krCacheOut2D, kvCacheOut2D, kScaleCacheOut2D;
