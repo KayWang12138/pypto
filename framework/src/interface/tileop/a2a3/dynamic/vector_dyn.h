@@ -1391,30 +1391,30 @@ TILEOP void DynTrowminline_(
 template <typename T, int64_t cmpOp, int64_t mode>
 TILEOP void ProcessCompare(__ubuf__ uint8_t* dst, __ubuf__ T* src0, __ubuf__ T* src1,
                            __ubuf__ uint8_t* vcmpBitResult, __ubuf__ T *zeroCondition, __ubuf__ T *oneCondition,
-                           __ubuf__ T *vselResult, __ubuf__ uint64_t *startAddrUB, uint64_t countNum) {
+                           __ubuf__ T *vselResult, __ubuf__ uint64_t *startAddrUB, uint64_t countNum, uint64_t repeatNum) {
     set_vector_mask(0x0, (uint64_t)countNum);
-    auto dst0 = mode == 0 ? vcmpBitResult :dst;
+    auto dst0 = mode == 0 ? vcmpBitResult : dst;
     switch (cmpOp) {
         case 0:  // eq
-            vcmpv_eq(dst0, src0, src1, 1, 1ULL, 1, 1ULL, 1ULL, 8, 0);
+            vcmpv_eq(dst0, src0, src1, repeatNum, 1, 1, 1, 1, 8, 8);
             break;
         case 1:  // ne
-            vcmpv_ne(dst0, src0, src1, 1, 1ULL, 1, 1ULL, 1ULL, 8, 0);
+            vcmpv_ne(dst0, src0, src1, repeatNum, 1, 1, 1, 1, 8, 8);
             break;
         case 2:  // lt
-            vcmpv_lt(dst0, src0, src1, 1, 1ULL, 1, 1ULL, 1ULL, 8, 0);
+            vcmpv_lt(dst0, src0, src1, repeatNum, 1, 1, 1, 1, 8, 8);
             break;
         case 3:  // le
-            vcmpv_le(dst0, src0, src1, 1, 1ULL, 1, 1ULL, 1ULL, 8, 0);
+            vcmpv_le(dst0, src0, src1, repeatNum, 1, 1, 1, 1, 8, 8);
             break;
         case 4:  // gt
-            vcmpv_gt(dst0, src0, src1, 1, 1ULL, 1, 1ULL, 1ULL, 8, 0);
+            vcmpv_gt(dst0, src0, src1, repeatNum, 1, 1, 1, 1, 8, 8);
             break;
         case 5:  // ge
-            vcmpv_ge(dst0, src0, src1, 1, 1ULL, 1, 1ULL, 1ULL, 8, 0);
+            vcmpv_ge(dst0, src0, src1, repeatNum, 1, 1, 1, 1, 8, 8);
             break;
     }
-    if (mode == 1) {
+    if constexpr (mode == 1) {
         return;
     }
     set_flag(PIPE_V, PIPE_S, EVENT_ID0);
@@ -1425,17 +1425,17 @@ TILEOP void ProcessCompare(__ubuf__ uint8_t* dst, __ubuf__ T* src0, __ubuf__ T* 
     set_flag(PIPE_S, PIPE_V, EVENT_ID0);
     wait_flag(PIPE_S, PIPE_V, EVENT_ID0);
     set_cmpmask(((__ubuf__ uint64_t *)startAddrUB));
-    vector_dup((__ubuf__ T *)zeroCondition, (T)0.000000e+00f, 1, 1, 1, 0, 0);
-    vector_dup((__ubuf__ T *)oneCondition, (T)1.000000e+00f, 1, 1, 1, 0, 0);
+    vector_dup((__ubuf__ T *)zeroCondition, (T)0.000000e+00f, 1, 1, 1, 8, 0);
+    vector_dup((__ubuf__ T *)oneCondition, (T)1.000000e+00f, 1, 1, 1, 8, 0);
     pipe_barrier(PIPE_V);
     vsel(vselResult, oneCondition, zeroCondition, (uint64_t)571780540399617ULL);
     pipe_barrier(PIPE_V);
     if constexpr (sizeof(T) == 2) {
-        vconv_f162u8(dst, vselResult, 1, 1, 1, 8, 4);
+        vconv_f162u8(dst, vselResult, 1, 1, 1, 4, 8);
     } else if constexpr (sizeof(T) == 4) {
-        vconv_f322f16((__ubuf__ half *)vselResult, vselResult, 1, 1, 1, 8, 4);
+        vconv_f322f16((__ubuf__ half *)vselResult, vselResult, 1, 1, 1, 4, 8);
         pipe_barrier(PIPE_V);
-        vconv_f162u8(dst, (__ubuf__ half *)vselResult, 1, 1, 1, 8, 4);
+        vconv_f162u8(dst, (__ubuf__ half *)vselResult, 1, 1, 1, 4, 8);
     }
 }
 
@@ -1444,18 +1444,22 @@ TILEOP void DynCompare(__ubuf__ uint8_t* dst, __ubuf__ T* src0, __ubuf__ T* src1
                        __ubuf__ uint8_t* vcmpBitResult, __ubuf__ T *zeroCondition, __ubuf__ T *oneCondition,
                        __ubuf__ T *vselResult, __ubuf__ uint64_t *startAddrUB) {
     constexpr uint64_t COUNT_MAX = 4096 / sizeof(T);
-    unsigned numLoop = T0/ COUNT_MAX;
+    unsigned numLoop = T0 / COUNT_MAX;
     unsigned remainAfterLoop = T0 % COUNT_MAX;
+    uint64_t repeatNum = (COUNT_MAX * sizeof(T) + 255) / 256;
+    constexpr int64_t TYPE_REPEAT = 256 / sizeof(T);
+    int64_t repeatNumRemain = (remainAfterLoop + TYPE_REPEAT - 1) / TYPE_REPEAT;
+
     set_mask_count();
     for (int j = 0; j < numLoop; j++) {
         ProcessCompare<T, cmpOp, mode>(dst + j * COUNT_MAX, src0 + j * COUNT_MAX, src1 + j * COUNT_MAX, 
                                        vcmpBitResult, zeroCondition, oneCondition, 
-                                       vselResult, startAddrUB, COUNT_MAX);
+                                       vselResult, startAddrUB, COUNT_MAX, repeatNum);
     }
     if (remainAfterLoop > 0) {
         ProcessCompare<T, cmpOp, mode>(dst + numLoop * COUNT_MAX, src0 + numLoop * COUNT_MAX, src1 + numLoop * COUNT_MAX, 
                                        vcmpBitResult, zeroCondition, oneCondition, 
-                                       vselResult, startAddrUB, remainAfterLoop);
+                                       vselResult, startAddrUB, remainAfterLoop, repeatNumRemain);
     }
     set_mask_norm();
     set_vector_mask(-1, -1);
