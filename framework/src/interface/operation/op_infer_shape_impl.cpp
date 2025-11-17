@@ -77,6 +77,11 @@ void ElewiseInferFunc(Operation* op,
         inputValidShape[inputValidShape.size() - 1] = inputValidShape[inputValidShape.size() - 1] / 8; // 8 bit to 1 byte
     }
 
+    int64_t whereBitMode = 0;
+    if (op->GetAttr(OP_ATTR_PREFIX + "whereBitMode", whereBitMode) && whereBitMode == 1) {
+        inputValidShape[inputValidShape.size() - 1] = inputValidShape[inputValidShape.size() - 1] * 8;
+    }
+
     for (auto output : op->GetOOperands()) {
         outValidShapes.push_back(inputValidShape);
     }
@@ -299,7 +304,7 @@ REGISTER_INFER_SHAPE_FUNC(OP_ROWSUM_SINGLE, Opcode::OP_ROWSUM_SINGLE, ReduceInfe
 REGISTER_INFER_SHAPE_FUNC(OP_ROWMAX_COMBINE_AXIS_SINGLE, Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, ReduceInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_ROWSUM_COMBINE_AXIS_SINGLE, Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, ReduceInferFunc);
 
-void WhereNotInferFunc(Operation* op,
+void WhereInferFunc(Operation* op,
                         std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
     ElewiseInferFunc(op, outValidShapes);
     outValidShapes.erase(outValidShapes.begin() + 1, outValidShapes.end());
@@ -311,10 +316,10 @@ void WhereNotInferFunc(Operation* op,
     outValidShapes.push_back({COUNT_SIZE});
     outValidShapes.push_back({COUNT_SIZE});
 }
-REGISTER_INFER_SHAPE_FUNC(OP_WHERE_TT, Opcode::OP_WHERE_TT, WhereNotInferFunc);
-REGISTER_INFER_SHAPE_FUNC(OP_WHERE_TS, Opcode::OP_WHERE_TS, WhereNotInferFunc);
-REGISTER_INFER_SHAPE_FUNC(OP_WHERE_ST, Opcode::OP_WHERE_ST, WhereNotInferFunc);
-REGISTER_INFER_SHAPE_FUNC(OP_WHERE_SS, Opcode::OP_WHERE_SS, WhereNotInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_WHERE_TT, Opcode::OP_WHERE_TT, WhereInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_WHERE_TS, Opcode::OP_WHERE_TS, WhereInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_WHERE_ST, Opcode::OP_WHERE_ST, WhereInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_WHERE_SS, Opcode::OP_WHERE_SS, WhereInferFunc);
 
 // Gather infer shape func
 void InferFunc4Gather(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {

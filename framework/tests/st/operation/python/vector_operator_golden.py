@@ -1030,13 +1030,29 @@ def gen_transpose_op_golden(
 def gen_where_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
     def golden_func(inputs: list, config: dict):
-        condition = torch.from_numpy(inputs[0])
+        condition_np = inputs[0]
         x = torch.from_numpy(inputs[1])
         y = torch.from_numpy(inputs[2])
         params = config.get("params")
         flag = params["flag"]
         x_scalar = params["x_scalar"]
         y_scalar = params["y_scalar"]
+
+        def castCondition(cond: np.ndarray) -> torch.Tensor:
+            if cond.dtype == np.bool_:
+                return torch.from_numpy(cond).bool()
+            elif cond.dtype == np.uint8:
+                orig_shape = cond.shape
+                N = int(np.prod(orig_shape[:-1]))
+                D = orig_shape[-1]
+                reshaped = cond.reshape(N, D)
+                bits = ((reshaped[:, :, None] >> np.arange(8)) & 1).astype(bool)
+                expanded = bits.reshape(N, D * 8)
+                new_shape = list(orig_shape[:-1]) + [D * 8]
+                return torch.from_numpy(expanded.reshape(new_shape)).bool()
+            else:
+                raise TypeError(f"Unsupported condition dtype: {cond.dtype}")
+        condition = castCondition(condition_np)
         if flag == 0:
             res = torch.where(condition, x, y)
         elif flag == 1:

@@ -112,6 +112,23 @@ void Expand(Function &function, const TileShape &tileShape, const LogicalTensorP
     ExpandTile(function, tileShape, 0, expandInfo, outValidShape);
 }
 
+void ExpandWithResultValidShape(Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand,
+    const LogicalTensorPtr &result, const std::vector<SymbolicScalar> resultValidShape) {
+    CheckExpandTensorVaild(operand, result);
+    ASSERT(function.GetGraphType() == GraphType::TILE_GRAPH);
+    std::vector<int64_t> offset(result->shape.size(), 0);
+    std::vector<int64_t> viewShape(result->shape.size(), 1);
+    int expandDim = -1;
+    for (size_t i = 0; i < result->shape.size(); ++i) {
+        if (operand->shape[i] != result->shape[i]) {
+            expandDim = i;
+        }
+    }
+    result->UpdateDynValidShape(resultValidShape);
+    struct ExpandInfo expandInfo(operand, result, viewShape, offset, expandDim);
+    ExpandTile(function, tileShape, 0, expandInfo, resultValidShape);
+}
+
 void TiledExpand(Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand,
     const LogicalTensorPtr &result, const std::vector<SymbolicScalar> &validShape) {
     CheckExpandTensorVaild(operand, result);

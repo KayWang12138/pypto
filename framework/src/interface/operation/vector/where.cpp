@@ -13,89 +13,387 @@
  * \brief
  */
 
-#include "where.h"
 #include "binary.h"
 #include "interface/utils/operator_tracer.h"
 #include "passes/pass_utils/graph_utils.h"
+#include "tensor_transformation.h"
 
 namespace npu::tile_fwk {
 
-LogicalTensorPtr TensorWhereOperation(
-    Function &function, const Tensor &condition, const Tensor &input, const Tensor &other) {
-    DECLARE_TRACER();
+template <typename U, typename W>
+void TiledWhereOperation(Function &function, const TileShape &tileShape, size_t cur, Input &condition,
+                        U &input, W &other, const LogicalTensorPtr &result, TileInfo &resultTileInfo) {
+    if (cur == result->shape.size()) {
+        auto inputDatatype = DT_FP32;
+        if constexpr (std::is_same_v<U, Input>) {
+            inputDatatype = input.tensor.GetDataType();
+        } else if constexpr (std::is_same_v<U, const Element>) {
+            inputDatatype = input.GetDataType();
+        }
+        unsigned COUNT_MAX_BYTE = 4096;
+        auto conditionTile = condition.tensor.GetStorage()->View(function, condition.tileInfo.shape, condition.tileInfo.offset);
+        auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
+        std::vector<int64_t> castConditionShape({static_cast<int64_t>(COUNT_MAX_BYTE / BytesOf(DT_FP32))});
+        auto castConditionTensor = std::make_shared<LogicalTensor>(function, DT_FP16, castConditionShape);
+        std::vector<int64_t> compareConditionShape({static_cast<int64_t>(COUNT_MAX_BYTE / BytesOf(DT_FP32))});
+        auto compareConditionTensor = std::make_shared<LogicalTensor>(function, DT_FP16, compareConditionShape);
+        std::vector<int64_t> vcmpBitResultShape({static_cast<int64_t>(COUNT_MAX_BYTE / BytesOf(DT_FP32) / 8)});
+        auto vcmpBitResultTensor = std::make_shared<LogicalTensor>(function, DT_INT8, vcmpBitResultShape);
+        std::vector<int64_t> startAddrUBShape({1});
+        auto startAddrUBTensor = std::make_shared<LogicalTensor>(function, DT_UINT64, startAddrUBShape);
+        std::vector<int64_t> inputTempShape({static_cast<int64_t>(COUNT_MAX_BYTE / BytesOf(DT_FP32))});
+        auto inputTempTensor = std::make_shared<LogicalTensor>(function, inputDatatype, inputTempShape);
+        std::vector<int64_t> otherTempShape({static_cast<int64_t>(COUNT_MAX_BYTE / BytesOf(DT_FP32))});
+        auto otherTempTensor = std::make_shared<LogicalTensor>(function, inputDatatype, otherTempShape);
+        int64_t whereBitMode = 0;
+        if (condition.tensor.GetDataType() == DT_UINT8) {
+            whereBitMode = 1;
+        }
+        if constexpr (std::is_same_v<U, Input> && std::is_same_v<W, Input>) {
+            auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
+            auto otherTile = other.tensor.GetStorage()->View(function, other.tileInfo.shape, other.tileInfo.offset);
+            auto &op = function.AddOperation(Opcode::OP_WHERE_TT, {conditionTile, inputTile, otherTile},
+                                {resultTile, castConditionTensor, compareConditionTensor,
+                                vcmpBitResultTensor, startAddrUBTensor, inputTempTensor, otherTempTensor});
+            op.SetAttribute(OP_ATTR_PREFIX + "whereBitMode", static_cast<int64_t>(whereBitMode));
+        } else if constexpr (std::is_same_v<U, Input> && std::is_same_v<W, const Element>) {
+            auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
+            auto &op = function.AddOperation(Opcode::OP_WHERE_TS, {conditionTile, inputTile},
+                                {resultTile, castConditionTensor, compareConditionTensor,
+                                vcmpBitResultTensor, startAddrUBTensor, inputTempTensor, otherTempTensor});
+            op.SetAttribute(OpAttributeKey::scalar, other);
+            op.SetAttribute(OP_ATTR_PREFIX + "whereBitMode", static_cast<int64_t>(whereBitMode));
+        } else if constexpr (std::is_same_v<U, const Element> && std::is_same_v<W, Input>) {
+            auto otherTile = other.tensor.GetStorage()->View(function, other.tileInfo.shape, other.tileInfo.offset);
+            auto &op = function.AddOperation(Opcode::OP_WHERE_ST, {conditionTile, otherTile},
+                                {resultTile, castConditionTensor, compareConditionTensor,
+                                vcmpBitResultTensor, startAddrUBTensor, inputTempTensor, otherTempTensor});
+            op.SetAttribute(OpAttributeKey::scalar, input);
+            op.SetAttribute(OP_ATTR_PREFIX + "whereBitMode", static_cast<int64_t>(whereBitMode));
+        } else if constexpr (std::is_same_v<U, const Element> && std::is_same_v<W, const Element>) {
+            auto &op = function.AddOperation(Opcode::OP_WHERE_SS, {conditionTile},
+                                {resultTile, castConditionTensor, compareConditionTensor,
+                                vcmpBitResultTensor, startAddrUBTensor, inputTempTensor, otherTempTensor});
+            op.SetAttribute(OpAttributeKey::scalar, input);
+            op.SetAttribute(OpAttributeKey::dynScalar, other);
+            op.SetAttribute(OP_ATTR_PREFIX + "whereBitMode", static_cast<int64_t>(whereBitMode));
+        }
+        return;
+    }
+    auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < result->shape[cur]; i += vecTile[cur]) {
+        resultTileInfo.offset[cur] = i;
+        resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
+        // bit模式下condition的尾轴偏移和切割应该都除以8
+        // cur == result->shape.size() - 1  特殊处理
+        auto conditionDatatype = condition.tensor.GetDataType();
+        if (cur == (result->shape.size() - 1) && conditionDatatype == DT_UINT8) {
+            condition.tileInfo.offset[cur] = (i / NUM_VALUE_8) % condition.tensor.GetStorage()->shape[cur];
+            condition.tileInfo.shape[cur] =
+                std::min(condition.tensor.GetStorage()->shape[cur] - condition.tileInfo.offset[cur], vecTile[cur] / NUM_VALUE_8);
+        } else {
+            condition.tileInfo.offset[cur] = i % condition.tensor.GetStorage()->shape[cur];
+            condition.tileInfo.shape[cur] =
+                std::min(condition.tensor.GetStorage()->shape[cur] - condition.tileInfo.offset[cur], vecTile[cur]);
+        }
+        if constexpr (std::is_same_v<U, Input>) {
+            input.tileInfo.offset[cur] = i % input.tensor.GetStorage()->shape[cur];
+            input.tileInfo.shape[cur] =
+                std::min(input.tensor.GetStorage()->shape[cur] - input.tileInfo.offset[cur], vecTile[cur]);
+        }
+        if constexpr (std::is_same_v<W, Input>) {
+            other.tileInfo.offset[cur] = i % other.tensor.GetStorage()->shape[cur];
+            other.tileInfo.shape[cur] =
+                std::min(other.tensor.GetStorage()->shape[cur] - other.tileInfo.offset[cur], vecTile[cur]);
+        }
+        TiledWhereOperation(function, tileShape, cur + 1, condition, input, other, result,
+                                    resultTileInfo);
+    }
+}
+
+void ExpandTensorLastDimension(const LogicalTensorPtr &TensorPtr) {
+    std::vector<int64_t> inputShape(TensorPtr->shape);
+    int lastDim = inputShape.back();
+    int expandLastDim = lastDim * 8;
+    TensorPtr->shape.back() = expandLastDim;
+}
+
+void ShrinkTensorLastDimension(const LogicalTensorPtr &TensorPtr) {
+    std::vector<int64_t> inputShape(TensorPtr->shape);
+    int lastDim = inputShape.back();
+    int shrinkLastDim = std::max(lastDim / 8, NUM_VALUE_1);
+    TensorPtr->shape.back() = shrinkLastDim;
+}
+
+template <typename U, typename W>
+void TiledWhereOperation(Function &function, const TileShape &tileShape, const LogicalTensorPtr &condition,
+                        const U &input, const W &other, const LogicalTensorPtr &result) {
+    LogicalTensorPtr conditionPtr = condition;
+    LogicalTensorPtr inputPtr = nullptr;
+    LogicalTensorPtr otherPtr = nullptr;
+    if constexpr (std::is_same_v<U, LogicalTensorPtr>) {
+        inputPtr = input;
+    }
+    if constexpr (std::is_same_v<W, LogicalTensorPtr>) {
+        otherPtr = other;
+    }
+    std::vector<SymbolicScalar> resultValidShape = result->GetDynValidShape();
+    std::vector<SymbolicScalar> conditionValidShape = result->GetDynValidShape();
+    std::vector<int64_t> conditionExpandShape(result->shape);
+    if (condition->Datatype() == DT_UINT8) {
+        ASSERT(tileShape.GetVecTile().tile.back() % 8 == 0);
+        conditionValidShape.back() = conditionValidShape.back() / NUM_VALUE_8;
+        conditionExpandShape.back() = conditionExpandShape.back() / NUM_VALUE_8;
+    }
+    if (condition->shape != conditionExpandShape) {
+        auto tmp = std::make_shared<LogicalTensor>(function, condition->Datatype(), conditionExpandShape);
+        ExpandWithResultValidShape(function, tileShape, condition, tmp, conditionValidShape);
+        conditionPtr = tmp;
+    }
+    if constexpr (std::is_same_v<U, LogicalTensorPtr>) {
+        if (input->shape != result->shape) {
+            auto targetShape = result->shape;
+            auto tmp = std::make_shared<LogicalTensor>(function, input->Datatype(), targetShape);
+            ExpandWithResultValidShape(function, tileShape, inputPtr, tmp, resultValidShape);
+            inputPtr = tmp;
+        }
+    }
+    if constexpr (std::is_same_v<W, LogicalTensorPtr>) {
+        if (other->shape != result->shape) {
+            auto targetShape = result->shape;
+            auto tmp = std::make_shared<LogicalTensor>(function, other->Datatype(), targetShape);
+            ExpandWithResultValidShape(function, tileShape, otherPtr, tmp, resultValidShape);
+            otherPtr = tmp;
+        }
+    }
+
+    TileInfo tileInfoCondition(result->shape.size(), result->offset.size());
+    auto inputCondition = Input{conditionPtr, tileInfoCondition};
+    TileInfo resultTileInfo(result->shape.size(), result->offset.size());
+    if constexpr (std::is_same_v<U, LogicalTensorPtr> && std::is_same_v<W, LogicalTensorPtr>) {
+        TileInfo tileInfoInput(result->shape.size(), result->offset.size());
+        TileInfo tileInfoOther(result->shape.size(), result->offset.size());
+        auto inputInput = Input{inputPtr, tileInfoInput};
+        auto inputOther = Input{otherPtr, tileInfoOther};
+        TiledWhereOperation(function, tileShape, 0, inputCondition, inputInput, inputOther,
+                                    result, resultTileInfo);
+    } else if constexpr (std::is_same_v<U, LogicalTensorPtr> && std::is_same_v<W, Element>) {
+        TileInfo tileInfoInput(result->shape.size(), result->offset.size());
+        auto inputInput = Input{inputPtr, tileInfoInput};
+        TiledWhereOperation(function, tileShape, 0, inputCondition, inputInput, other,
+                                    result, resultTileInfo);
+    } else if constexpr (std::is_same_v<U, Element> && std::is_same_v<W, LogicalTensorPtr>) {
+        TileInfo tileInfoOther(result->shape.size(), result->offset.size());
+        auto inputOther = Input{otherPtr, tileInfoOther};
+        TiledWhereOperation(function, tileShape, 0, inputCondition, input, inputOther,
+                                    result, resultTileInfo);
+    } else if constexpr (std::is_same_v<U, Element> && std::is_same_v<W, Element>) {
+        TiledWhereOperation(function, tileShape, 0, inputCondition, input, other,
+                                    result, resultTileInfo);
+    }
+}
+
+template <typename U, typename W>
+std::vector<SymbolicScalar> GetResultValidShape(const LogicalTensorPtr &condition, const U &input, const W &other,
+                                                std::vector<int64_t> resultShape) {
+    std::vector<SymbolicScalar> resultValidShape;
+    for (size_t i = 0; i < resultShape.size(); ++i) {
+        if (!condition->GetDynValidShape().empty() && resultShape[i] == condition->shape[i]) {
+            resultValidShape.push_back(condition->GetDynValidShape()[i]);
+            continue;
+        }
+        if constexpr (std::is_same_v<U, LogicalTensorPtr>) {
+            if (!input->GetDynValidShape().empty() && resultShape[i] == input->shape[i]) {
+                resultValidShape.push_back(input->GetDynValidShape()[i]);
+                continue;
+            }
+        }
+        if constexpr (std::is_same_v<W, LogicalTensorPtr>) {
+            if (!other->GetDynValidShape().empty() && resultShape[i] == other->shape[i]) {
+                resultValidShape.push_back(other->GetDynValidShape()[i]);
+                continue;
+            }
+        }
+    }
+    if (condition->Datatype() == DT_UINT8 && resultValidShape.size() == (resultShape.size() - 1)) {
+        SymbolicScalar temp = condition->GetDynValidShape().back() * NUM_VALUE_8;
+        resultValidShape.push_back(temp);
+    }
+    return resultValidShape;
+}
+
+std::vector<int64_t> GetBroadCastShapeReturnInt64_t(LogicalTensorPtr &operand1, LogicalTensorPtr &operand2) {
+    std::vector<int64_t> opShape1(operand1->shape);
+    std::vector<int64_t> opShape2(operand2->shape);
+    auto maxShapeSize = std::max(opShape1.size(), opShape2.size());
+    if (opShape1.size() != maxShapeSize) {
+        opShape1.insert(opShape1.begin(), maxShapeSize - opShape1.size(), 1);
+    }
+    if (opShape2.size() != maxShapeSize) {
+        opShape2.insert(opShape2.begin(), maxShapeSize - opShape2.size(), 1);
+    }
+    std::vector<int64_t> broadCastShape(maxShapeSize, 0);
+    for (size_t i = 0; i < maxShapeSize; i++) {
+        broadCastShape[i] = std::max(opShape1[i], opShape2[i]);
+    }
+    return broadCastShape;
+}
+
+
+std::vector<int64_t> GetBroadCastShape(LogicalTensorPtr &operand1, LogicalTensorPtr &operand2, LogicalTensorPtr &operand3) {
+    std::vector<int64_t> opShape1(operand1->shape);
+    std::vector<int64_t> opShape2(operand2->shape);
+    std::vector<int64_t> opShape3(operand3->shape);
+    auto maxShapeSize = std::max(opShape1.size(), opShape2.size());
+    maxShapeSize = std::max(maxShapeSize, opShape3.size());
+    if (opShape1.size() != maxShapeSize) {
+        opShape1.insert(opShape1.begin(), maxShapeSize - opShape1.size(), 1);
+    }
+    if (opShape2.size() != maxShapeSize) {
+        opShape2.insert(opShape2.begin(), maxShapeSize - opShape2.size(), 1);
+    }
+    if (opShape3.size() != maxShapeSize) {
+        opShape3.insert(opShape3.begin(), maxShapeSize - opShape3.size(), 1);
+    }
+    std::vector<int64_t> broadCastShape(maxShapeSize, 0);
+    for (size_t i = 0; i < maxShapeSize; i++) {
+        int64_t currentMax = std::max(opShape1[i], opShape2[i]);
+        currentMax = std::max(currentMax, opShape3[i]);
+        broadCastShape[i] = currentMax;
+    }
+    return broadCastShape;
+}
+
+LogicalTensorPtr BinaryOperationUnsqueeze(const LogicalTensorPtr &operand, const std::vector<int64_t> &broadCastShape) {
+    if (operand->shape.size() < broadCastShape.size()) {
+        auto broadCastDims = broadCastShape.size() - operand->shape.size();
+        std::vector<int64_t> unsqueezeShape(operand->shape);
+        unsqueezeShape.insert(unsqueezeShape.begin(), broadCastDims, 1);
+        auto tmpOperand = Reshape(operand, unsqueezeShape).GetStorage();
+        return tmpOperand;
+    }
+    return operand;
+}
+
+LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &condition,
+                        const Tensor &input, const Tensor &other) {
     ASSERT(condition.GetShape().size() == condition.GetStorage()->offset.size());
     ASSERT(input.GetShape().size() == input.GetStorage()->offset.size());
     ASSERT(other.GetShape().size() == other.GetStorage()->offset.size());
+    if (condition.GetStorage()->Datatype() == DT_UINT8) {
+        ASSERT(input.GetStorage()->shape.back() % 8 == 0 || input.GetStorage()->shape.back() == 1);
+        ASSERT(other.GetStorage()->shape.back() % 8 == 0 || other.GetStorage()->shape.back() == 1);
+    }
     auto conditionT0 = condition.GetStorage();
     auto inputT1 = input.GetStorage();
     auto otherT2 = other.GetStorage();
-    std::vector<int> broadCastShape;
-    if (inputT1->shape.size() != otherT2->shape.size()) {
-        broadCastShape = GetBroadCastShape(inputT1, otherT2);
-        inputT1 = BinaryOperationBroadCast(inputT1, broadCastShape);
+
+    std::vector<int64_t> resultShape;
+    if (condition.GetStorage()->Datatype() == DT_BOOL) {
+        resultShape = GetBroadCastShape(conditionT0, inputT1, otherT2);
+        conditionT0 = BinaryOperationUnsqueeze(conditionT0, resultShape);
+    } else if (condition.GetStorage()->Datatype() == DT_UINT8) {
+        ExpandTensorLastDimension(conditionT0);
+        resultShape = GetBroadCastShape(conditionT0, inputT1, otherT2);
+        conditionT0 = BinaryOperationUnsqueeze(conditionT0, resultShape);
+        ShrinkTensorLastDimension(conditionT0);
+    } else {
+        ALOG_ERROR_F("condition Datatype must be uint8 or bool.");
     }
-    broadCastShape = GetBroadCastShape(conditionT0, inputT1);
-    conditionT0 = BinaryOperationBroadCast(conditionT0, broadCastShape);
-    inputT1 = BinaryOperationBroadCast(inputT1, broadCastShape);
-    otherT2 = BinaryOperationBroadCast(otherT2, broadCastShape);
-    CheckBinOpOperandsValid(inputT1, otherT2);
-    std::vector<int64_t> resultShape = BinaryOperationResultShape(inputT1, otherT2);
-    auto result = std::make_shared<LogicalTensor>(function, input.GetStorage()->Datatype(), resultShape);
-    GraphUtils::AddDynOperation(function, Opcode::OP_WHERE_TT, {conditionT0, inputT1, otherT2}, {result});
+
+    inputT1 = BinaryOperationUnsqueeze(inputT1, resultShape);
+    otherT2 = BinaryOperationUnsqueeze(otherT2, resultShape);
+    std::vector<SymbolicScalar> resultValidShape = GetResultValidShape(conditionT0, inputT1, otherT2, resultShape);
+    auto result = std::make_shared<LogicalTensor>(function, input.GetStorage()->Datatype(), resultShape, resultValidShape);
+    GraphUtils::AddDynOperation(function, Opcode::OP_WHERE_TT, {conditionT0, inputT1, otherT2}, {result}, {resultValidShape});
     return result;
 }
 
-LogicalTensorPtr TensorWhereOperation(
-    Function &function, const Tensor &condition, const Tensor &input, const Element &other) {
+LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &condition,
+                        const Tensor &input, const Element &other) {
     ASSERT(condition.GetShape().size() == condition.GetStorage()->offset.size());
     ASSERT(input.GetShape().size() == input.GetStorage()->offset.size());
+    if (condition.GetStorage()->Datatype() == DT_UINT8) {
+        ASSERT(input.GetStorage()->shape.back() % 8 == 0 || input.GetStorage()->shape.back() == 1);
+    }
     auto conditionT0 = condition.GetStorage();
     auto inputT1 = input.GetStorage();
-    std::vector<int> broadCastShape;
 
+    std::vector<int64_t> resultShape;
     if (condition.GetStorage()->Datatype() == DT_BOOL) {
-        broadCastShape = GetBroadCastShape(conditionT0, inputT1);
-        conditionT0 = BinaryOperationBroadCast(conditionT0, broadCastShape);
+        resultShape = GetBroadCastShapeReturnInt64_t(conditionT0, inputT1);
+        conditionT0 = BinaryOperationUnsqueeze(conditionT0, resultShape);
+    } else if (condition.GetStorage()->Datatype() == DT_UINT8) {
+        ExpandTensorLastDimension(conditionT0);
+        resultShape = GetBroadCastShapeReturnInt64_t(conditionT0, inputT1);
+        conditionT0 = BinaryOperationUnsqueeze(conditionT0, resultShape);
+        ShrinkTensorLastDimension(conditionT0);
     } else {
-        ALOG_ERROR_F("condition Datatype must be bool.");
+        ALOG_ERROR_F("condition Datatype must be uint8 or bool.");
     }
-    inputT1 = BinaryOperationBroadCast(inputT1, broadCastShape);
-    std::vector<int64_t> resultShape = BinaryOperationResultShape(inputT1, inputT1);
-    auto result = std::make_shared<LogicalTensor>(function, inputT1->Datatype(), resultShape);
-    auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_WHERE_TS, {conditionT0, inputT1}, {result});
+    inputT1 = BinaryOperationUnsqueeze(inputT1, resultShape);
+    std::vector<SymbolicScalar> resultValidShape = GetResultValidShape(conditionT0, inputT1, other, resultShape);
+    auto result = std::make_shared<LogicalTensor>(function, inputT1->Datatype(), resultShape, resultValidShape);
+    auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_WHERE_TS, {conditionT0, inputT1}, {result}, {resultValidShape});
     op.SetAttribute(OpAttributeKey::scalar, other);
     return result;
 }
 
-LogicalTensorPtr TensorWhereOperation(
-    Function &function, const Tensor &condition, const Element &input, const Tensor &other) {
+LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &condition,
+                        const Element &input, const Tensor &other) {
     ASSERT(condition.GetShape().size() == condition.GetStorage()->offset.size());
     ASSERT(other.GetShape().size() == other.GetStorage()->offset.size());
+    if (condition.GetStorage()->Datatype() == DT_UINT8) {
+        ASSERT(other.GetStorage()->shape.back() % 8 == 0 || other.GetStorage()->shape.back() == 1);
+    }
     auto conditionT0 = condition.GetStorage();
     auto otherT1 = other.GetStorage();
-    std::vector<int> broadCastShape;
+    std::vector<int64_t> resultShape;
 
     if (condition.GetStorage()->Datatype() == DT_BOOL) {
-        broadCastShape = GetBroadCastShape(conditionT0, otherT1);
-        conditionT0 = BinaryOperationBroadCast(conditionT0, broadCastShape);
+        resultShape = GetBroadCastShapeReturnInt64_t(conditionT0, otherT1);
+        conditionT0 = BinaryOperationUnsqueeze(conditionT0, resultShape);
+    } else if (condition.GetStorage()->Datatype() == DT_UINT8) {
+        ExpandTensorLastDimension(conditionT0);
+        resultShape = GetBroadCastShapeReturnInt64_t(conditionT0, otherT1);
+        conditionT0 = BinaryOperationUnsqueeze(conditionT0, resultShape);
+        ShrinkTensorLastDimension(conditionT0);
     } else {
-        ALOG_ERROR_F("condition Datatype must be bool.");
+        ALOG_ERROR_F("condition Datatype must be uint8 or bool.");
     }
-    otherT1 = BinaryOperationBroadCast(otherT1, broadCastShape);
-    std::vector<int64_t> resultShape = BinaryOperationResultShape(otherT1, otherT1);
-    auto result = std::make_shared<LogicalTensor>(function, otherT1->Datatype(), resultShape);
-    auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_WHERE_ST, {conditionT0, otherT1}, {result});
+    otherT1 = BinaryOperationUnsqueeze(otherT1, resultShape);
+    std::vector<SymbolicScalar> resultValidShape= GetResultValidShape(conditionT0, input, otherT1, resultShape);
+    
+    auto result = std::make_shared<LogicalTensor>(function, otherT1->Datatype(), resultShape, resultValidShape);
+    auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_WHERE_ST, {conditionT0, otherT1}, {result}, {resultValidShape});
     op.SetAttribute(OpAttributeKey::scalar, input);
     return result;
 }
 
-LogicalTensorPtr TensorWhereOperation(
-    Function &function, const Tensor &condition, const Element &input, const Element &other) {
+LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &condition,
+                        const Element &input, const Element &other) {
     ASSERT(condition.GetShape().size() == condition.GetStorage()->offset.size());
     auto conditionT0 = condition.GetStorage();
-    std::vector<int64_t> resultShape = BinaryOperationResultShape(conditionT0, conditionT0);
-    auto result = std::make_shared<LogicalTensor>(function, input.GetDataType(), resultShape);
-    auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_WHERE_SS, {conditionT0}, {result});
+    std::vector<int64_t> resultShape = {};
+
+    if (condition.GetStorage()->Datatype() == DT_BOOL) {
+        resultShape = GetBroadCastShapeReturnInt64_t(conditionT0, conditionT0);
+    } else if (condition.GetStorage()->Datatype() == DT_UINT8) {
+        ExpandTensorLastDimension(conditionT0);
+        resultShape = GetBroadCastShapeReturnInt64_t(conditionT0, conditionT0);
+        ShrinkTensorLastDimension(conditionT0);
+    } else {
+        ALOG_ERROR_F("condition Datatype must be uint8 or bool.");
+    }
+    std::vector<SymbolicScalar> resultValidShape = conditionT0->GetDynValidShape();
+    if (conditionT0->Datatype() == DT_UINT8) {
+        if (!resultValidShape.empty()) {
+            SymbolicScalar temp = conditionT0->GetDynValidShape().back();
+            resultValidShape.back() = temp * NUM_VALUE_8;
+        }
+    }
+    auto result = std::make_shared<LogicalTensor>(function, input.GetDataType(), resultShape, resultValidShape);
+    auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_WHERE_SS, {conditionT0}, {result}, {resultValidShape});
     op.SetAttribute(OpAttributeKey::scalar, input);
     op.SetAttribute(OpAttributeKey::dynScalar, other);
     return result;

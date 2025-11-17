@@ -1205,6 +1205,7 @@ CodeGenOpCloudNPU::WhereParam CodeGenOpCloudNPU::PrepareWhereParam() const {
     std::vector<int64_t> s0s = NormalizeShape(this->rawShape[ToUnderlying(WhereOpIdx::src0Idx)], SHAPE_DIM4);
     std::vector<std::string> templateList;
     templateList.emplace_back(dataTypeExpr[static_cast<int>(WhereOpIdx::resIdx)]);
+    templateList.emplace_back(dataTypeExpr[static_cast<int>(WhereOpIdx::condIdx)]);
     templateList.emplace_back("/*DstRawShape*/");
     for (int i = 1; i < SHAPE_DIM4; ++i) {
         templateList.emplace_back(std::to_string(ds[i]));
