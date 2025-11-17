@@ -26,6 +26,7 @@
 #include "passes/pass_config/pass_config_manager.h"
 
 namespace npu::tile_fwk {
+constexpr int OOO_NUM209 = 209;
 class ScheduleOoOTest : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
@@ -510,7 +511,7 @@ TEST_F(ScheduleOoOTest, TestSpillAssemble) {
     EXPECT_EQ(res, FAILED);
 }
 
-TEST_F(ScheduleOoOTest, TestSpillFragFailed) {
+TEST_F(ScheduleOoOTest, TestGenSpillRearrange) {
     ComputationalGraphBuilder subGraph;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6"};
     std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB,
@@ -1119,14 +1120,14 @@ TEST_F(ScheduleOoOTest, TestCheckAllocIssue) {
 
 TEST_F(ScheduleOoOTest, TestBufferUsage) {
     ComputationalGraphBuilder subGraph;
-    std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9"};
+    std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6"};
     std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB,
-        MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB};
-    std::vector<Opcode> opCodes{Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC,
-        Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_ADD, Opcode::OP_ADD, Opcode::OP_ADD, Opcode::OP_ADD, Opcode::OP_COPY_OUT};
-    std::vector<std::vector<std::string>> ioperands{{}, {}, {}, {}, {}, {}, {"t1"}, {"t2"}, {"t3", "t4"}, {"t3", "t4"}, {"t4", "t6"}, {"t5", "t8"}, {"t9"}};
-    std::vector<std::vector<std::string>> ooperands{{"t3"}, {"t4"}, {"t5"}, {"t6"}, {"t8"}, {"t9"}, {"t3"}, {"t4"}, {"t5"}, {"t6"}, {"t8"}, {"t9"}, {"t7"}};
-    std::vector<std::string> opNames{"Alloc1", "Alloc2", "Alloc3", "Alloc4", "Alloc5", "Alloc6", "Copyin1", "Copyin2", "Add1", "Add2", "Add3", "Add4", "Copyout1"};
+        MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB};
+    std::vector<Opcode> opCodes{Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_COPY_IN,
+        Opcode::OP_COPY_IN, Opcode::OP_ADD};
+    std::vector<std::vector<std::string>> ioperands{{}, {}, {}, {}, {"t1"}, {"t2"}, {"t4", "t5"}};
+    std::vector<std::vector<std::string>> ooperands{{"t3"}, {"t4"}, {"t5"}, {"t6"}, {"t3", "t4"}, {"t5"}, {"t6"}};
+    std::vector<std::string> opNames{"Alloc1", "Alloc2", "Alloc3", "Alloc4", "Copyin1", "Copyin2", "Add1"};
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {128, 128}, tensorMemTypes, tensorNames, 0), true);
     EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     Function *function = subGraph.GetFunction();
@@ -1156,6 +1157,85 @@ TEST_F(ScheduleOoOTest, TestBufferUsage) {
     };
     EXPECT_NE(ooOScheduler.oooCheck.bufferTotalUsage, invalidBufferTotalUsage);
     EXPECT_NE(ooOScheduler.oooCheck.bufferMaxUsage, invalidBufferMaxUsage);
+}
+
+TEST_F(ScheduleOoOTest, TestScheduleMainLoopRearrangeUB) {
+    ComputationalGraphBuilder subGraph;
+    std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6"};
+    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB,
+        MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB};
+    std::vector<Opcode> opCodes{Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_COPY_IN,
+        Opcode::OP_COPY_IN, Opcode::OP_ADD};
+    std::vector<std::vector<std::string>> ioperands{{}, {}, {}, {}, {"t1"}, {"t2"}, {"t4", "t5"}};
+    std::vector<std::vector<std::string>> ooperands{{"t3"}, {"t4"}, {"t5"}, {"t6"}, {"t3", "t4"}, {"t5"}, {"t6"}};
+    std::vector<std::string> opNames{"Alloc1", "Alloc2", "Alloc3", "Alloc4", "Copyin1", "Copyin2", "Add1"};
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {128, 128}, tensorMemTypes, tensorNames, 0), true);
+    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    Function *function = subGraph.GetFunction();
+
+    EXPECT_NE(function, nullptr);
+
+    EXPECT_NE(subGraph.GetTensor("t3"), nullptr);
+    std::shared_ptr<LogicalTensor> tensor = subGraph.GetTensor("t3");
+    tensor->shape = {32, 32};
+
+    OoOScheduler ooOScheduler(*function);
+    Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
+    EXPECT_EQ(res, SUCCESS);
+    res = ooOScheduler.SortOps();
+    EXPECT_EQ(res, SUCCESS);
+    std::swap(ooOScheduler.issueEntries[0], ooOScheduler.issueEntries[1]);
+    res = ooOScheduler.ScheduleMainLoop();
+    EXPECT_EQ(res, SUCCESS);
+
+    std::shared_ptr<LogicalTensor> tensor4 = subGraph.GetTensor("t4");
+    auto moveOp = *tensor4->GetConsumers().begin();
+    auto scalarValue = (moveOp->HasAttr(OpAttributeKey::scalar)) ? moveOp->GetElementAttribute(OpAttributeKey::scalar) : Element(DataType::DT_UINT64, 1);
+    EXPECT_EQ(scalarValue, Element(DataType::DT_UINT64, 0));
+}
+
+TEST_F(ScheduleOoOTest, TestScheduleMainLoopRearrangeL1) {
+    ComputationalGraphBuilder subGraph;
+    std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6"};
+    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1,
+        MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1};
+    std::vector<Opcode> opCodes{Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_COPY_IN,
+        Opcode::OP_COPY_IN, Opcode::OP_ADD};
+    std::vector<std::vector<std::string>> ioperands{{}, {}, {}, {}, {"t1"}, {"t2"}, {"t4", "t5"}};
+    std::vector<std::vector<std::string>> ooperands{{"t3"}, {"t4"}, {"t5"}, {"t6"}, {"t3", "t4"}, {"t5"}, {"t6"}};
+    std::vector<std::string> opNames{"Alloc1", "Alloc2", "Alloc3", "Alloc4", "Copyin1", "Copyin2", "Add1"};
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {OOO_NUM209, OOO_NUM209}, tensorMemTypes, tensorNames, 0), true);
+    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    Function *function = subGraph.GetFunction();
+
+    EXPECT_NE(function, nullptr);
+
+    EXPECT_NE(subGraph.GetTensor("t3"), nullptr);
+    std::shared_ptr<LogicalTensor> tensor = subGraph.GetTensor("t3");
+    tensor->shape = {32, 32};
+
+    Operation *copyin = subGraph.GetOp("Copyin1");
+    OpImmediate immediate0(OpImmediate::OpImmediateKind::T_SCALAR_SPECIFIED, 0);
+    OpImmediate immediate1(OpImmediate::OpImmediateKind::T_SCALAR_SPECIFIED, 1);
+    std::vector<OpImmediate> fromOffset = {immediate0, immediate1};
+    std::vector<OpImmediate> shape = {immediate1, immediate1};
+    std::vector<OpImmediate> rawShape = {immediate1, immediate1};
+    CopyOpAttribute copyinAttr(fromOffset, MemoryType::MEM_L1, shape, rawShape);
+    std::shared_ptr<CopyOpAttribute> attr = std::make_shared<CopyOpAttribute>(copyinAttr);
+    copyin->SetOpAttribute(attr);
+
+    OoOScheduler ooOScheduler(*function);
+    Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
+    EXPECT_EQ(res, SUCCESS);
+    res = ooOScheduler.SortOps();
+    EXPECT_EQ(res, SUCCESS);
+    std::swap(ooOScheduler.issueEntries[0], ooOScheduler.issueEntries[1]);
+    res = ooOScheduler.ScheduleMainLoop();
+    EXPECT_EQ(res, SUCCESS);
+
+    std::shared_ptr<LogicalTensor> tensor4 = subGraph.GetTensor("t4");
+    auto moveOp1 = *tensor4->GetConsumers().begin();
+    EXPECT_EQ(moveOp1->GetOpAttribute(), attr);
 }
 
 } // namespace npu::tile_fwk

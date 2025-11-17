@@ -658,40 +658,11 @@ Status OoOScheduler::GenSpillOp(LocalBufferPtr allocBuffer, size_t &pcIdx) {
     std::vector<int> spillGroup;
     SelectSpillBuffers(allocBuffer, issueEntries[pcIdx], spillGroup, true);
     if (spillGroup.empty()) {
-        MemoryType memType = allocBuffer->memType;
-        std::vector<int> memIds = bufferManagerMap[memType].GetAddrSortedBufs();
-        for (auto memId : memIds) {
-            auto spillIssue = GetBufLastWriteIssue(issueEntries[pcIdx], memId);
-            if (spillIssue->tileOp.GetOpcode() == Opcode::OP_VIEW || spillIssue->tileOp.GetOpcode() == Opcode::OP_ASSEMBLE) {
-                continue;
-            }
-            if (spillIssue->tileOp.GetOpcodeStr().find("ALLOC") != std::string::npos) {
-                bufferManagerMap[memType].Free(memId);
-                continue;
-            }
-            SpillInfo spillInfo;
-            if (GetSpillInfo(issueEntries[pcIdx], memId, true, spillInfo) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "GetSpillInfo failed; Please check the GetSpillInfo method.");
-                return FAILED;
-            }
-            if (SpillBuffer(spillInfo, issueEntries[pcIdx], pcIdx, allocBuffer, true) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "SpillBuffer[%d] failed.", memId);
-                return FAILED;
-            }
-        }
-        if (!HasEnoughBuffer(issueEntries[pcIdx], memType)) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Spill all buffer failed!");
-            if (PrintSpillFailedInfo(issueEntries[pcIdx]) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "PrintSpillFailedInfo failed; Please check the PrintSpillFailedInfo method.");
-                return FAILED;
-            }
-            return FAILED;
-        }
-    } else {
-        if (SpillMultiBuffer(issueEntries[pcIdx], spillGroup, pcIdx, allocBuffer, true) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "SpillMultiBuffer failed!");
-            return FAILED;
-        }
+        return FAILED;
+    }
+    if (SpillMultiBuffer(issueEntries[pcIdx], spillGroup, pcIdx, allocBuffer, true) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "SpillMultiBuffer failed!");
+        return FAILED;
     }
     APASS_LOG_DEBUG_F(Elements::Operation, "---> END: SPILL tensor.");
     return SUCCESS;
