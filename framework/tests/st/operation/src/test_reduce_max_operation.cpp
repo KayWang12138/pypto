@@ -23,11 +23,13 @@ const unsigned IDX_DIM2 = 2;
 const unsigned IDX_DIM3 = 3;
 
 struct AmaxOpFuncArgs : public OpFuncArgs {
-    AmaxOpFuncArgs(std::vector<int64_t> viewShape, const std::vector<int64_t> tileShape, std::vector<int64_t> dims)
-        : viewShape_(viewShape), tileShape_(tileShape), dims_(dims) {}
+    AmaxOpFuncArgs(
+        std::vector<int64_t> viewShape, const std::vector<int64_t> tileShape, std::vector<int64_t> dims, const bool keepDim)
+        : viewShape_(viewShape), tileShape_(tileShape), dims_(dims), keepDim_(keepDim) {}
     std::vector<int64_t> viewShape_;
     std::vector<int64_t> tileShape_;
     std::vector<int64_t> dims_;
+    bool keepDim_;
 };
 
 struct AmaxOpMetadata {
@@ -45,6 +47,7 @@ void AmaxOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
         int dim = args->dims_[0];
+        bool keepDim = args->keepDim_;
         if (dim < 0) {
             dim = static_cast<int>(inputs[0].GetShape().size()) + dim;
         }
@@ -63,8 +66,12 @@ void AmaxOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>
                 },
                 {bIdx * viewShape[0], bIdx * viewShape[1]});
             TileShape::Current().SetVecTile(args->tileShape_);
-            auto res = Amax(viewTensor, args->dims_[0]);
-            Assemble(res, {bIdx * viewShape[0], bIdx * viewShape[1]}, outputs[0]);
+            std::vector<SymbolicScalar> offset = {bIdx * viewShape[0], bIdx * viewShape[1]};
+            if (!keepDim){
+                offset.erase(offset.begin() + dim);
+            }
+            auto res = Amax(viewTensor, args->dims_[0], keepDim);
+            Assemble(res, offset, outputs[0]);
         }
     }
 }
@@ -78,6 +85,7 @@ void Amax3DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tenso
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
         SymbolicScalar lastDim = inputs[0].GetShape()[2];
         int dim = args->dims_[0];
+        bool keepDim = args->keepDim_;
         if (dim < 0) {
             dim = static_cast<int>(inputs[0].GetShape().size()) + dim;
         }
@@ -113,8 +121,12 @@ void Amax3DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tenso
                         },
                         {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2]});
                     TileShape::Current().SetVecTile(args->tileShape_);
-                    auto res = Amax(viewTensor, args->dims_[0]);
-                    Assemble(res, {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2]}, outputs[0]);
+                    std::vector<SymbolicScalar> offset = {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2]};
+                    if (!keepDim){
+                        offset.erase(offset.begin() + dim);
+                    }
+                    auto res = Amax(viewTensor, args->dims_[0], keepDim);
+                    Assemble(res, offset, outputs[0]);
                 }
             }
         }
@@ -131,6 +143,7 @@ void Amax4DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tenso
         SymbolicScalar thirdDim = inputs[0].GetShape()[2];
         SymbolicScalar lastDim = inputs[0].GetShape()[3];
         int dim = args->dims_[0];
+        bool keepDim = args->keepDim_;
         if (dim < 0) {
             dim = static_cast<int>(inputs[0].GetShape().size()) + dim;
         }
@@ -168,7 +181,10 @@ void Amax4DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tenso
                             },
                             offset);
                         TileShape::Current().SetVecTile(args->tileShape_);
-                        auto res = Amax(viewTensor, args->dims_[0]);
+                        if (!keepDim){
+                            offset.erase(offset.begin() + dim);
+                        }
+                        auto res = Amax(viewTensor, args->dims_[0], keepDim);
                         Assemble(res, offset, outputs[0]);
                     }
                 }
@@ -189,7 +205,8 @@ TEST_P(AmaxOperationTest, TestAmax) {
     testCase.inputTensors = GetInputTensors(test_data);
     testCase.outputTensors = GetOutputTensors(test_data);
     auto args = AmaxOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data),
-        GetValueByName<std::vector<int64_t>>(test_data, "dims"));
+        GetValueByName<std::vector<int64_t>>(test_data, "dims"),
+        GetValueByName<bool>(test_data, "keepDim"));
     testCase.args = &args;
     testCase.opFunc = GetParam().opFunc_;
     testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin"};

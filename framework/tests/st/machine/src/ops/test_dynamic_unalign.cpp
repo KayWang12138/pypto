@@ -282,7 +282,7 @@ TEST_F(DynamicUnalignTest, test_rowmaxsingle_unalign) {
             SymbolicScalar curSeq = GetTensorData(actSeqs, {batchId, 0});
 
             Tensor q0 = View(q, {nTile, blockSize}, {nTile, curSeq}, {batchId * nTile, 0});
-            auto tmp = Amax(q0);
+            auto tmp = Amax(q0, -1, true);
             Assemble(tmp, {batchId * nTile, 0}, out);
         }
     }
@@ -335,7 +335,7 @@ TEST_F(DynamicUnalignTest, test_rowsumsingle_unalign) {
             SymbolicScalar curSeq = GetTensorData(actSeqs, {batchId, 0});
 
             Tensor q0 = View(q, {nTile, blockSize}, {nTile, curSeq}, {batchId * nTile, 0});
-            auto tmp = Sum(q0, -1);
+            auto tmp = Sum(q0, -1, true);
             Assemble(tmp, {batchId * nTile, 0}, out);
         }
     }

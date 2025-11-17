@@ -1118,7 +1118,8 @@ def cast(
 @op_wrapper
 def amax(
     input: Tensor,
-    dim: int = -1
+    dim: int = -1,
+    keepdim: bool = False
 ) -> Tensor:
     """Returns the maximum value of each slice of the input tensor in the given dimension dim.
 
@@ -1141,7 +1142,7 @@ def amax(
     Examples
     --------
     x = pto.tensor([2, 3], pto.DT_FP32)
-    y = pto.amax(x, -1)
+    y = pto.amax(x, -1, True)
 
     Input x:[[1 2 3],
              [1 2 3]]
@@ -1149,13 +1150,14 @@ def amax(
               [3]]
 
     """
-    return pto_impl.amax(input, dim)
+    return pto_impl.amax(input, dim, keepdim)
 
 
 @op_wrapper
 def sum(
     input: Tensor,
-    dim: int = -1
+    dim: int = -1,
+    keepdim: bool = False
 ) -> Tensor:
     """Returns the sum value of each slice of the input tensor in the given dimension dim.
 
@@ -1178,7 +1180,7 @@ def sum(
     Examples
     --------
     x = pto.tensor([2, 3], pto.DT_FP32)
-    y = pto.sum(x, -1)
+    y = pto.sum(x, -1, True)
 
     Input x:[[1 2 3],
              [1 2 3]]
@@ -1186,7 +1188,7 @@ def sum(
               [6]]
 
     """
-    return pto_impl.sum(input, dim)
+    return pto_impl.sum(input, dim, keepdim)
 
 
 @op_wrapper
@@ -1247,7 +1249,8 @@ def full(size: List[int],
 @op_wrapper
 def amin(
     input: Tensor,
-    dim: int = -1
+    dim: int = -1,
+    keepdim: bool = False
 ) -> Tensor:
     """Returns the minimum value of each slice of the input tensor in the given dimension dim.
 
@@ -1270,7 +1273,7 @@ def amin(
     Examples
     --------
     x = pto.tensor([2, 3], pto.DT_FP32)
-    y = pto.amin(x, -1)
+    y = pto.amin(x, -1, True)
 
     Input x:[[1 2 3],
              [1 2 3]]
@@ -1278,7 +1281,7 @@ def amin(
               [1]]
 
     """
-    return pto_impl.amin(input, dim)
+    return pto_impl.amin(input, dim, keepdim)
 
 
 @op_wrapper

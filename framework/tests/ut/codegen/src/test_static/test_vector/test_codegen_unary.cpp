@@ -54,7 +54,7 @@ void TestRowMaxSingleBody(
     Tensor output(DT_FP32, outShape, "C");
     config::SetBuildStatic(true);
     FUNCTION(name, {input_a, output}) {
-        output = Amax(input_a, -1);
+        output = Amax(input_a, -1, true);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
     npu::tile_fwk::CodeGenCtx ctx;
@@ -81,7 +81,7 @@ void TestRowSumSingleBody(
     Tensor output(DT_FP32, outShape, "C");
     config::SetBuildStatic(true);
     FUNCTION(name, {input_a, output}) {
-        output = Sum(input_a, -1);
+        output = Sum(input_a, -1, true);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
     npu::tile_fwk::CodeGenCtx ctx;
@@ -283,7 +283,7 @@ void TestRowSumBody(
 
     config::SetBuildStatic(true);
     FUNCTION(name, {input_a, output}) {
-        output = Sum(input_a, axis);
+        output = Sum(input_a, axis, true);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
     npu::tile_fwk::CodeGenCtx ctx;

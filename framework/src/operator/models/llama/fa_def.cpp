@@ -66,11 +66,11 @@ Tensor FlashAttentionNew(
                     // [128, 128], [128, 1024] => [128, 1024]
                     auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj);
 
-                    auto tildaMij = Amax(sij);
+                    auto tildaMij = Amax(sij, -1, true);
                     auto tsub = Sub(sij, tildaMij);
                     auto tildaPij = Exp(tsub);
                     auto tildaPijF16 = Cast(tildaPij, DataType::DT_FP16);
-                    auto tildaLij = Sum(tildaPij);
+                    auto tildaLij = Sum(tildaPij, -1, true);
 
                     if (!s2Idx) {
                         auto oiTmp = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);

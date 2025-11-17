@@ -28,7 +28,7 @@ static std::tuple<Tensor, Tensor> kNopeQuant(const Tensor &input) {
 
     auto inputFp32 = Cast(input, DataType::DT_FP32, CAST_NONE);
     auto absRes = Abs(inputFp32);
-    auto maxValue = Amax(absRes);
+    auto maxValue = Amax(absRes, -1, true);
 
     auto scaleQuant = Div(Full(Element(DT_FP32, F_127), DT_FP32, maxValue.GetShape()), maxValue);
     auto outFp32 = Mul(inputFp32, scaleQuant);

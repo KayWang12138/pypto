@@ -240,13 +240,13 @@ def selected_attention_compute(args: SAInputs):
                                                     sij_scale = (
                                                         sij * params.softmax_scale
                                                     )
-                                                    tilda_mij = pto.amax(sij_scale)
+                                                    tilda_mij = pto.amax(sij_scale, -1, True)
                                                     tsub = sij_scale - tilda_mij
                                                     tilda_pij = pto.exp(tsub)
                                                     tilda_pij_f16 = pto.cast(
                                                         tilda_pij, dtype
                                                     )
-                                                    tilda_lij = pto.sum(tilda_pij)
+                                                    tilda_lij = pto.sum(tilda_pij, -1, True)
                                                     if pto.cond(
                                                         pto.is_loop_begin(s2_idx)
                                                     ):

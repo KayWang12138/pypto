@@ -119,7 +119,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_sum_single) {
 
         config::SetBuildStatic(true);
         FUNCTION("SOFTMAX_SUM_T", {i_x, o_x}) {
-            o_x = Sum(i_x);
+            o_x = Sum(i_x, -1, true);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -151,7 +151,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_max_single) {
 
         config::SetBuildStatic(true);
         FUNCTION("SOFTMAX_MAX_T", {i_x, o_x}) {
-            o_x = Amax(i_x);
+            o_x = Amax(i_x, -1, true);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());

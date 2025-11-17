@@ -100,12 +100,12 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
                     auto sijScale = Mul(sij, Element(sij.GetStorage()->Datatype(), softmaxScale)); // (curNTile, curS2Tile)
 
                     config::SetSemanticLabel("SoftMax");
-                    auto tildaMij = Amax(sijScale); // (curNTile, curS2Tile) -> (curNTile, 1)
+                    auto tildaMij = Amax(sijScale, -1, true); // (curNTile, curS2Tile) -> (curNTile, 1)
                     auto tsub =
                         Sub(sijScale, tildaMij); // (curNTile, curS2Tile) - (curNTile, 1) -> (curNTile, curS2Tile)
                     auto tildaPij = Exp(tsub);
                     auto tildaPijF16 = Cast(tildaPij, dtype);
-                    auto tildaLij = Sum(tildaPij); // (nTileCur, s2TileCur) -> (nTileCur, 1)
+                    auto tildaLij = Sum(tildaPij, -1, true); // (nTileCur, s2TileCur) -> (nTileCur, 1)
 
                     IF (IsLoopBegin(bn, 0)) {
                         TileShape::Current().SetCubeTile(
@@ -233,12 +233,12 @@ void PageAttentionWithImmScalar(Tensor &qNope, Tensor &kNopeCache, Tensor &vNope
 
                     auto sijScale = Mul(sij, Element(sij.GetStorage()->Datatype(), softmaxScale)); // (curNTile, curS2Tile)
 
-                    auto tildaMij = Amax(sijScale); // (curNTile, curS2Tile) -> (curNTile, 1)
+                    auto tildaMij = Amax(sijScale, -1, true); // (curNTile, curS2Tile) -> (curNTile, 1)
                     auto tsub =
                         Sub(sijScale, tildaMij); // (curNTile, curS2Tile) - (curNTile, 1) -> (curNTile, curS2Tile)
                     auto tildaPij = Exp(tsub);
                     auto tildaPijF16 = Cast(tildaPij, dtype);
-                    auto tildaLij = Sum(tildaPij); // (nTileCur, s2TileCur) -> (nTileCur, 1)
+                    auto tildaLij = Sum(tildaPij, -1, true); // (nTileCur, s2TileCur) -> (nTileCur, 1)
 
                     IF (bn == 0) {
                         TileShape::Current().SetCubeTile(
@@ -361,12 +361,12 @@ void PageAttentionWithManualUnroll(Tensor &qNope, Tensor &kNopeCache, Tensor &vN
                             TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
                             auto sijScale = Mul(sij, Element(sij.GetStorage()->Datatype(), softmaxScale)); // (nTileCur, s2TileCur)
 
-                            auto tildaMij = Amax(sijScale); // (nTileCur, s2TileCur) -> (nTileCur, 1)
+                            auto tildaMij = Amax(sijScale, -1, true); // (nTileCur, s2TileCur) -> (nTileCur, 1)
                             auto tsub = Sub(sijScale,
                                 tildaMij); // (nTileCur, s2TileCur) - (nTileCur, 1) -> (nTileCur, s2TileCur)
                             auto tildaPij = Exp(tsub);
                             auto tildaPijF16 = Cast(tildaPij, dtype);
-                            auto tildaLij = Sum(tildaPij); // (nTileCur, s2TileCur) -> (nTileCur, 1)
+                            auto tildaLij = Sum(tildaPij, -1, true); // (nTileCur, s2TileCur) -> (nTileCur, 1)
 
                             IF(IsLoopBegin(bn, 0)) {
                                 TileShape::Current().SetCubeTile(
@@ -476,12 +476,12 @@ void PageAttentionHighThroughput(Tensor &qNope, Tensor &kNopeCache, Tensor &vNop
             TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
             auto sijScale = Mul(sij, Element(sij.GetStorage()->Datatype(), softmaxScale)); // (curNTile, curS2Tile)
 
-            auto tildaMij = Amax(sijScale); // (curNTile, curS2Tile) -> (curNTile, 1)
+            auto tildaMij = Amax(sijScale, -1, true); // (curNTile, curS2Tile) -> (curNTile, 1)
             auto tsub =
                 Sub(sijScale, tildaMij); // (curNTile, curS2Tile) - (curNTile, 1) -> (curNTile, curS2Tile)
             auto tildaPij = Exp(tsub);
             auto tildaPijF16 = Cast(tildaPij, dtype);
-            auto tildaLij = Sum(tildaPij); // (nTileCur, s2TileCur) -> (nTileCur, 1)
+            auto tildaLij = Sum(tildaPij, -1, true); // (nTileCur, s2TileCur) -> (nTileCur, 1)
 
             TileShape::Current().SetCubeTile({c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]});
             auto oiTmp = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);; // (curNTile, curS2Tile), (curS2Tile, dN) -> (curNTile, dN)

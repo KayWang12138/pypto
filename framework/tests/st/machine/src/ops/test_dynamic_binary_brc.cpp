@@ -67,7 +67,7 @@ TEST_F(DynamicBrcTest, TestDynamicMulBrcUnalign) {
             auto seq = GetTensorData(curSeq, {batchId, 0});
             Tensor input_a0 = View(input_a, {sq, d}, {seq, d}, {batchId * sq, 0});
             Tensor input_b0 = View(input_b, {sq, 8}, {seq, 8}, {batchId * sq, 0});
-            auto input_c = Sum(input_b0);
+            auto input_c = Sum(input_b0, -1, true);
             auto tmp = Mul(input_a0, input_c);
             Assemble(tmp, {batchId * sq, 0}, out);
         }

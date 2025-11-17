@@ -695,7 +695,7 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, Tens
 
     cnts = Scatter_(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
 
-    Tensor tokensPerExpert = Sum(cnts, 0);
+    Tensor tokensPerExpert = Sum(cnts, 0, true);
 
     TileShape::Current().SetVecTile(NUM_128);
     // reduce 0维, (b*s, nRoutedExperts)->(nRoutedExperts)
@@ -765,7 +765,7 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, Tens
     auto newW = Unsqueeze(topkWeight, NUM_2); // (b*s, expertPerTok, 1)
     auto newMul = Mul(newXShape, newW);
     // (b*s, expertPerTok, h) * (b*s, expertPerTok, 1) = (b*s, expertPerTok, h)
-    auto reduceRes = Sum(newMul, 1); // reudce轴1 ->(b*s, 1, h)
+    auto reduceRes = Sum(newMul, 1, true); // reudce轴1 ->(b*s, 1, h)
     for (auto n: reduceRes.GetShape()){
         std::cout << "=reduceRes.GetShape().shape" << n <<std::endl;
     }
@@ -790,7 +790,7 @@ Tensor DeepseekV2MoE::MoeInferSingleMlp(Tensor x, Tensor topkIds, Tensor topkWei
 
     cnts = Scatter_(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
 
-    Tensor tokensPerExpert = Sum(cnts, 0);
+    Tensor tokensPerExpert = Sum(cnts, 0, true);
 
     TileShape::Current().SetVecTile(NUM_128);
     // reduce 0维, (b*s, nRoutedExperts)->(nRoutedExperts)
@@ -854,7 +854,7 @@ Tensor DeepseekV2MoE::MoeInferSingleMlpQuant(Tensor x, Tensor topkIds, Tensor to
 
     cnts = Scatter_(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
 
-    Tensor tokensPerExpert = Sum(cnts, 0);
+    Tensor tokensPerExpert = Sum(cnts, 0, true);
 
     TileShape::Current().SetVecTile(NUM_128);
     // reduce 0维, (b*s, nRoutedExperts)->(nRoutedExperts)
@@ -919,7 +919,7 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, Tens
 
     cnts = Scatter_(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
 
-    Tensor tokensPerExpert = Sum(cnts, 0);
+    Tensor tokensPerExpert = Sum(cnts, 0, true);
 
     TileShape::Current().SetVecTile(NUM_128);
     // reduce 0维, (b*s, nRoutedExperts)->(nRoutedExperts)
@@ -989,7 +989,7 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, Tens
     auto newW = Unsqueeze(topkWeight, NUM_2); // (b*s, expertPerTok, 1)
     auto newMul = Mul(newXShape, newW);
     // (b*s, expertPerTok, h) * (b*s, expertPerTok, 1) = (b*s, expertPerTok, h)
-    auto reduceRes = Sum(newMul, 1); // reudce轴1 ->(b*s, 1, h)
+    auto reduceRes = Sum(newMul, 1, true); // reudce轴1 ->(b*s, 1, h)
     for (auto n : reduceRes.GetShape()){
         std::cout<<"=reduceRes.GetShape().shape"<< n <<std::endl;
     }
@@ -1013,7 +1013,7 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, int 
 
     cnts = Scatter_(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
 
-    Tensor tokensPerExpert = Sum(cnts, 0);
+    Tensor tokensPerExpert = Sum(cnts, 0, true);
     // reduce 0维, (b*s, nRoutedExperts)->(nRoutedExperts)
     Tensor idxs = ArgSort(Reshape(topkIds, {bs * expertPerTok}), -1); // (b*s*numExpertsPerTok)
 
@@ -1073,7 +1073,7 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, int 
     auto newW = Unsqueeze(topkWeight, 2); // (b*s, expertPerTok, 1)
     auto newMul = Mul(newl, newW);
     // (b*s, expertPerTok, h) * (b*s, expertPerTok, 1) = (b*s, expertPerTok, h)
-    auto fOut = Cast(Sum(newMul, 1), newX.GetDataType()); // reudce轴1 ->(b*s, h)
+    auto fOut = Cast(Sum(newMul, 1, true), newX.GetDataType()); // reudce轴1 ->(b*s, h)
     TileShape::Current().SetVecTile(NUM_128, NUM_64);              // for Assemble
 
     return fOut;
@@ -1115,7 +1115,7 @@ std::tuple<Tensor, Tensor> MoEGate::Forward(const Tensor &hiddenStates) {
     auto scoresForChoiceIndex = std::get<0>(TopK(scoresForChoiceNewShape, 2, -1));
     // [b*s*8,32]->[b*s*8,2]
 
-    auto groupScores = Sum(scoresForChoiceIndex, 1); // [b*s*8,2]->[b*s*8]
+    auto groupScores = Sum(scoresForChoiceIndex, 1, true); // [b*s*8,2]->[b*s*8]
 
     auto groupScoresReshape = Reshape(groupScores, {groupScores.GetShape()[0] / nGroup, nGroup});
     // [b*s*8]->[b*s,8]
@@ -1142,7 +1142,7 @@ std::tuple<Tensor, Tensor> MoEGate::Forward(const Tensor &hiddenStates) {
 
     /* norm gate to sum 1 */
     // denominator = topkWeight.sum(dim=-1, keepdim=True) + 1e-20
-    auto topkWeightSum = Sum(topkWeight, 1);      // [b*s,8]->[b*s,1]
+    auto topkWeightSum = Sum(topkWeight, 1, true);      // [b*s,8]->[b*s,1]
     auto denominator = Add(topkWeightSum, Element(DataType::DT_FP32, DF_1E_20)); // [b*s,1]
     // topkWeight = topkWeight / denominator
     topkWeight = Div(topkWeight, denominator); // [b*s,numExpertsPerTok]

@@ -24,18 +24,17 @@ const unsigned IDX_DIM3 = 3;
 
 struct AminOpFuncArgs : public OpFuncArgs {
     AminOpFuncArgs(
-        std::vector<int64_t> dims, const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape)
-        : dims_(dims), viewShape_(viewShape), tileShape_(tileShape) {}
-
-    std::vector<int64_t> dims_;
+        const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape, std::vector<int64_t> dims, const bool keepDim)
+        : viewShape_(viewShape), tileShape_(tileShape), dims_(dims), keepDim_(keepDim) {}
     std::vector<int64_t> viewShape_;
     std::vector<int64_t> tileShape_;
+    std::vector<int64_t> dims_;
+    bool keepDim_;
 };
 
 struct AminOperationMetadata {
     explicit AminOperationMetadata(const OpFunc &opFunc, const nlohmann::json &test_data)
         : opFunc_(opFunc), test_data_(test_data) {}
-
     OpFunc opFunc_;
     nlohmann::json test_data_;
 };
@@ -48,6 +47,7 @@ void AminOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
         int dim = args->dims_[0];
+        bool keepDim = args->keepDim_;
         if (dim < 0) {
             dim = static_cast<int>(inputs[0].GetShape().size()) + dim;
         }
@@ -66,8 +66,12 @@ void AminOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>
                 },
                 {bIdx * viewShape[0], bIdx * viewShape[1]});
             TileShape::Current().SetVecTile(args->tileShape_);
-            auto res = Amin(viewTensor, args->dims_[0]);
-            Assemble(res, {bIdx * viewShape[0], bIdx * viewShape[1]}, outputs[0]);
+            std::vector<SymbolicScalar> offset = {bIdx * viewShape[0], bIdx * viewShape[1]};
+            if (!keepDim){
+                offset.erase(offset.begin() + dim);
+            }
+            auto res = Amin(viewTensor, args->dims_[0], keepDim);
+            Assemble(res, offset, outputs[0]);
         }
     }
 }
@@ -81,6 +85,7 @@ void Amin3DOperationExeFunc(
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
         SymbolicScalar lastDim = inputs[0].GetShape()[2];
         int dim = args->dims_[0];
+        bool keepDim = args->keepDim_;
         if (dim < 0) {
             dim = static_cast<int>(inputs[0].GetShape().size()) + dim;
         }
@@ -116,8 +121,12 @@ void Amin3DOperationExeFunc(
                         },
                         {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2]});
                     TileShape::Current().SetVecTile(args->tileShape_);
-                    auto res = Amin(viewTensor, args->dims_[0]);
-                    Assemble(res, {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2]}, outputs[0]);
+                    std::vector<SymbolicScalar> offset = {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2]};
+                    if (!keepDim){
+                        offset.erase(offset.begin() + dim);
+                    }
+                    auto res = Amin(viewTensor, args->dims_[0], keepDim);
+                    Assemble(res, offset, outputs[0]);
                 }
             }
         }
@@ -134,6 +143,7 @@ void Amin4DOperationExeFunc(
         SymbolicScalar thirdDim = inputs[0].GetShape()[2];
         SymbolicScalar lastDim = inputs[0].GetShape()[3];
         int dim = args->dims_[0];
+        bool keepDim = args->keepDim_;
         if (dim < 0) {
             dim = static_cast<int>(inputs[0].GetShape().size()) + dim;
         }
@@ -171,7 +181,10 @@ void Amin4DOperationExeFunc(
                             },
                             offset);
                         TileShape::Current().SetVecTile(args->tileShape_);
-                        auto res = Amin(viewTensor, args->dims_[0]);
+                        if (!keepDim){
+                            offset.erase(offset.begin() + dim);
+                        }
+                        auto res = Amin(viewTensor, args->dims_[0], keepDim);
                         Assemble(res, offset, outputs[0]);
                     }
                 }
@@ -195,7 +208,9 @@ TEST_P(AminOperationTest, TestAmin) {
     testCase.inputTensors = GetInputTensors(test_data);
     testCase.outputTensors = GetOutputTensors(test_data);
     auto dims = GetValueByName<std::vector<int64_t>>(test_data, "dims");
-    auto args = AminOpFuncArgs(dims, GetViewShape(test_data), GetTileShape(test_data));
+    auto args = AminOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data),
+        GetValueByName<std::vector<int64_t>>(test_data, "dims"),
+        GetValueByName<bool>(test_data, "keepDim"));
     testCase.args = &args;
     testCase.opFunc = GetParam().opFunc_;
     testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin"};

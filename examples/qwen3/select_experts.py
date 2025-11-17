@@ -71,7 +71,7 @@ def select_experts(in_tensors, out_tensors, renormalize_flag):
                     pto.set_vec_tile_shapes(128, 8)
                     if pto.cond(pto.symbolic_scalar(renormalize_flag)):
                         # sum
-                        denominator = pto.sum(topk_weight_tmp)
+                        denominator = pto.sum(topk_weight_tmp, -1, True)
                         # div
                         # for shape (b*s, k) (b*s, 1)
                         topk_weight2 = pto.div(topk_weight_tmp, denominator)

@@ -377,14 +377,14 @@ class Tensor:
     def logical_not(self) -> 'Tensor':
         return pto.logical_not(self)
 
-    def amax(self, dim: int = -1) -> 'Tensor':
-        return pto.amax(self, dim)
+    def amax(self, dim: int = -1, keepdim: bool = False) -> 'Tensor':
+        return pto.amax(self, dim, keepdim)
 
-    def amin(self, dim: int = -1) -> 'Tensor':
-        return pto.amin(self, dim)
+    def amin(self, dim: int = -1, keepdim: bool = False) -> 'Tensor':
+        return pto.amin(self, dim, keepdim)
 
-    def sum(self, dim: int = -1) -> 'Tensor':
-        return pto.sum(self, dim)
+    def sum(self, dim: int = -1, keepdim: bool = False) -> 'Tensor':
+        return pto.sum(self, dim, keepdim)
 
     def rsqrt(self) -> 'Tensor':
         return pto.rsqrt(self)

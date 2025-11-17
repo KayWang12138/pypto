@@ -49,7 +49,7 @@ def get_table_main(inputs, outputs):
                     view_shape = [pto.min(exp_idx, expert_num),]
                     tmp_view = pto.view(expert_tokens, [16,], [0,], valid_shape=view_shape)
                     tmp_cast = pto.cast(tmp_view, pto.DT_FP32)
-                    tmp_acc = pto.sum(tmp_cast)
+                    tmp_acc = pto.sum(tmp_cast, -1, True)
                     tmp_int = pto.cast(tmp_acc, pto.DT_INT32)
                     pto.assemble(tmp_int, [(exp_idx),], expert_offset)
                 loop_for_offset(exp_idx)

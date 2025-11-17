@@ -45,12 +45,12 @@ Tensor LayerNorm(const Tensor &x, const Tensor &weight, const Tensor &bias, cons
 
     // do division first to avoid overflow
     auto xScaled = Mul(x, Element(DataType::DT_FP32, 1.0f / x.GetShape()[actualDim]));
-    auto mean = Sum(xScaled, -1);
+    auto mean = Sum(xScaled, -1, true);
 
     auto diff = Sub(x, mean);
     auto squaredDiff = Mul(diff, diff);
     auto squaredDiffScaled = Mul(squaredDiff, Element(DataType::DT_FP32, 1.0f / x.GetShape()[actualDim]));
-    auto var = Sum(squaredDiffScaled, -1);
+    auto var = Sum(squaredDiffScaled, -1, true);
     // add epsilon to avoid division by zero
     auto varEps = Add(var, Element(DT_FP32, epsilon));
     auto stdVar = Sqrt(varEps);

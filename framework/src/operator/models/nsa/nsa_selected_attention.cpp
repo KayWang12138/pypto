@@ -172,10 +172,10 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
                         config::SetSemanticLabel("Sa_Qkvec1");
                         TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
                         auto sijScale = Mul(sij, Element(sij.GetStorage()->Datatype(), softmaxScale));
-                        auto tildaMij = Amax(sijScale); // (curGTile, curS2Tile) -> (curGTile, 1)
+                        auto tildaMij = Amax(sijScale, -1, true); // (curGTile, curS2Tile) -> (curGTile, 1)
                         auto tsub = Sub(sijScale, tildaMij); // (curGTile, curS2Tile), (curGTile, 1) -> (curGTile, curS2Tile)
                         auto tildaPij = Exp(tsub);  // (curGTile, curS2Tile) -> (curGTile, curS2Tile)
-                        auto tildaLij = Sum(tildaPij);
+                        auto tildaLij = Sum(tildaPij, -1, true);
                         auto tSoftmax = Div(tildaPij, tildaLij);
                         auto tildaPijF16 = Cast(tSoftmax, dtype);
 

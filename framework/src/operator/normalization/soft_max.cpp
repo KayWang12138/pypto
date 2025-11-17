@@ -50,11 +50,11 @@ Tensor SoftmaxNew(const Tensor &operand) {
     }
     // 描述计算逻辑
     // M=rowMax(xi)
-    auto rowmax = Amax(castOperand);
+    auto rowmax = Amax(castOperand, -1, true);
     // S=rowSum(exp(xi-M))
     auto sub = Sub(castOperand, rowmax);
     auto exp = Exp(sub);
-    auto esum = Sum(exp);
+    auto esum = Sum(exp, -1, true);
     // softmax(zi)=exp(xi-M)/S
     auto softmax = Div(exp, esum);
     // 如果输出数据类型与输入不同，则进行类型转换

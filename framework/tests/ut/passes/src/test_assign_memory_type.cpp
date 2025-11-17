@@ -223,7 +223,7 @@ TEST_F(AssignMemoryTypeTest, TestVecToCube) {
             TileShape::Current().SetCubeTile({NUM_32, NUM_32}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
             Tensor mmRes = Matrix::Matmul(out.GetDataType(), addRes, weight); // (256 * 128) @ (128 * 64) = (256 * 64)
             TileShape::Current().SetVecTile(NUM_128, NUM_128);
-            Tensor sumRes = Sum(addRes, 1);
+            Tensor sumRes = Sum(addRes, 1, true);
             TileShape::Current().SetVecTile(NUM_64, NUM_64);
             out = Add(mmRes, sumRes);
         }
@@ -251,7 +251,7 @@ TEST_F(AssignMemoryTypeTest, TestVecToCubeV2) {
             TileShape::Current().SetCubeTile({NUM_32, NUM_32}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
             Tensor mmRes = Matrix::Matmul(out.GetDataType(), addRes, weight); // (256 * 128) @ (128 * 64) = (256 * 64)
             TileShape::Current().SetVecTile(NUM_128, NUM_128);
-            Tensor sumRes = Sum(addRes, 1);
+            Tensor sumRes = Sum(addRes, 1, true);
             TileShape::Current().SetVecTile(NUM_64, NUM_64);
             out = Add(mmRes, sumRes);
         }

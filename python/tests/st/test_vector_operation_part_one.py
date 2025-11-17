@@ -520,7 +520,7 @@ def test_vector_operation_rowmaxsingle():
                 s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
             pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
             tmp_a = pto.tensor([1, view_shape[1]], dtype)
-            tmp_a.move(pto.amax(tile_a, dim))
+            tmp_a.move(pto.amax(tile_a, dim, True))
             pto.assemble(tmp_a, [0, s_idx * view_shape[1]], b)
             del tile_a, tmp_a
     a_tensor = torch.rand(shape, dtype=torch.float32) * 100
@@ -558,7 +558,7 @@ def test_vector_operation_rowsumsingle():
                 s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
             pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
             tmp_a = pto.tensor([1, view_shape[1]], dtype)
-            tmp_a.move(pto.sum(tile_a, dim))
+            tmp_a.move(pto.sum(tile_a, dim, True))
             pto.assemble(tmp_a, [0, s_idx * view_shape[1]], b)
             del tile_a, tmp_a
     a_tensor = torch.rand(shape, dtype=torch.float32) * 100
@@ -596,7 +596,7 @@ def test_vector_operation_rowminsingle():
                 s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
             pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
             tmp_a = pto.tensor([1, view_shape[1]], dtype)
-            tmp_a.move(pto.amin(tile_a, dim))
+            tmp_a.move(pto.amin(tile_a, dim, True))
             pto.assemble(tmp_a, [0, s_idx * view_shape[1]], b)
             del tile_a, tmp_a
     a_tensor = torch.rand(shape, dtype=torch.float32) * 100

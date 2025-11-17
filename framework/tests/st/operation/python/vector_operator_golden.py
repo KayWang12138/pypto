@@ -938,6 +938,8 @@ def gen_subs_op_golden(case_name: str, output: Path, case_index: int = None) -> 
 @TestCaseLoader.reg_params_handler(ops=["Sum", "Amax", "Amin"])
 def params_dims_func(params: dict):
     params["dims"] = parse_list_str(params.get("dims"))
+    params["keepDim"] = params.get("keepDim", True)
+    assert isinstance(params["keepDim"], bool), "keepDim must be bool"
     return params
 
 
@@ -954,7 +956,8 @@ def gen_reduce_sum_op_golden(
         params = config.get("params")
         x = inputs[0]
         dims = params["dims"]
-        return [x.sum(axis=dims[0], keepdims=True)]
+        keepdim = params.get("keepDim", True)
+        return [x.sum(axis=dims[0], keepdims=keepdim)]
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Sum", golden_func, output, case_index)
@@ -973,7 +976,8 @@ def gen_reduce_max_op_golden(
         params = config.get("params")
         x = inputs[0]
         dims = params["dims"]
-        return [x.max(axis=dims[0], keepdims=True)]
+        keepdim = params.get("keepDim", True)
+        return [x.max(axis=dims[0], keepdims=keepdim)]
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Amax", golden_func, output, case_index)
@@ -991,7 +995,8 @@ def gen_reduce_min_op_golden(
     def golden_func(inputs: list, config: dict):
         params = config.get("params")
         dims = params["dims"]
-        return [inputs[0].min(axis=dims[0], keepdims=True)]
+        keepdim = params.get("keepDim", True)
+        return [inputs[0].min(axis=dims[0], keepdims=keepdim)]
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Amin", golden_func, output, case_index)

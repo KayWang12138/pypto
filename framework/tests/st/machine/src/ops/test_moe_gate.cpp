@@ -115,7 +115,7 @@ void MoEGateOnBoardFunc(MoEGateParams& opsParams) {
         scores_for_choice_reshape = Reshape(output_scores_for_choice, {B * nGroup, 32});   // [B*8, 32]
         TileShape::Current().SetVecTile({8, 32});
         auto output_topk2 = TopK(scores_for_choice_reshape, 2, -1);                         // [B*8, 2]
-        auto group_scores = Sum(std::get<0>(output_topk2));                        // [B*8, 1]
+        auto group_scores = Sum(std::get<0>(output_topk2), -1, true);                        // [B*8, 1]
         group_scores = Reshape(group_scores, {B*S, nGroup});                               // [B, 8]
         TileShape::Current().SetVecTile({1, 8});
         auto output_topk4 = TopK(group_scores, topkGroup, -1);                                      // [B, 4]
@@ -141,7 +141,7 @@ void MoEGateOnBoardFunc(MoEGateParams& opsParams) {
         TileShape::Current().SetVecTile({1, 256});
         output_topk_idx = std::get<1>(TopK(output_tmp_scores, numExpertsPerTopk, -1)); // [b*s,256]->[b*s,8]
         auto topk_weight = GatherElements(output_scores, output_topk_idx, 1); // [b*s,8]
-        auto topk_weight_sum = Sum(topk_weight, 1);      // [b*s,8]->[b*s,1]
+        auto topk_weight_sum = Sum(topk_weight, 1, true);      // [b*s,8]->[b*s,1]
         auto denominator = Add(topk_weight_sum, Element(DataType::DT_FP32, DF_1E_20)); // [b*s,1]
         output_topk_weight = Div(topk_weight, denominator); // [b*s,numExpertsPerTopk]
     }

@@ -175,7 +175,7 @@ TEST_F(OnBoardIFATest, test_32_512_mul_32_1) {
         config::SetBuildStatic(true);
         FUNCTION("MUL_T", {input_a, input_b, output}) {
             // add RowSumSingle to test brc case
-            auto input_c = Sum(input_b);
+            auto input_c = Sum(input_b, -1, true);
             output = Mul(input_a, input_c);
         }
     }
@@ -336,7 +336,7 @@ TEST_F(OnBoardIFATest, test_operation_32_128_row_max_single) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("RowMaxSingle", {input_a, output}) {
-            output = Amax(input_a, -1);
+            output = Amax(input_a, -1, true);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -373,7 +373,7 @@ TEST_F(OnBoardIFATest, test_operation_32_128_row_sum_single) {
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("RowSumSingle", {input_a, output}) {
-            output = Sum(input_a, -1);
+            output = Sum(input_a, -1, true);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());

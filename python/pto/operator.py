@@ -445,10 +445,10 @@ def softmax(input: Tensor, dim: int) -> Tensor:
     dtype = input.dtype
     input = pto.cast(input, pto.DT_FP32)
 
-    rowmax = pto.amax(input, dim)
+    rowmax = pto.amax(input, dim, True)
     sub_res = pto.sub(input, rowmax)
     exp_res = pto.exp(sub_res)
-    esum = pto.sum(exp_res, dim)
+    esum = pto.sum(exp_res, dim, True)
     output = pto.div(exp_res, esum)
 
     if dtype != pto.DT_FP32:

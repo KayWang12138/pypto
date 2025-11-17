@@ -332,8 +332,8 @@ TEST_F(FunctionTest, TestReduce) {
     Tensor b, c;
     FUNCTION("Reduce") {
         Tensor a(DT_FP32, shape, "a");
-        b = Sum(a);
-        c = Amax(a);
+        b = Sum(a, -1, true);
+        c = Amax(a, -1, true);
     }
     ALOG_INFO(Program::GetInstance().Dump());
 }
@@ -587,8 +587,8 @@ TEST_F(FunctionTest, testRowSumSingle) {
     Tensor c, d;
 
     FUNCTION("A") {
-        d = npu::tile_fwk::Sum(T);
-        c = npu::tile_fwk::Sum(T, -2);
+        d = npu::tile_fwk::Sum(T, -1, true);
+        c = npu::tile_fwk::Sum(T, -2, true);
     }
     // Program::GetInstance().GraphCheck();
 

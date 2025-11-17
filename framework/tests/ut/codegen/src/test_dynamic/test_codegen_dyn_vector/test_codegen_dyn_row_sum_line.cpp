@@ -66,7 +66,7 @@ TEST_F(TestCodegenDynRowSumLine, TestOperationRowSumLine) {
     std::string funcName = "Reduce3dimMoe";
     config::SetBuildStatic(true);
     FUNCTION(funcName, {input_a, output}) {
-        output = Sum(input_a, 1);
+        output = Sum(input_a, 1, true);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
@@ -112,7 +112,7 @@ TEST_F(TestCodegenDynRowSumLine, TestOperationRowSumLineTileTensor) {
     std::string funcName = "Reduce3dimMoe_TILERENSOR";
     config::SetBuildStatic(true);
     FUNCTION(funcName, {input_a, output}) {
-        output = Sum(input_a, 1);
+        output = Sum(input_a, 1, true);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     function->SetUnderDynamicFunction(true);
@@ -193,7 +193,7 @@ TEST_F(TestCodegenDynRowSumLine, TestOperationRowSumSingleTileTensor) {
     Tensor output(DataType::DT_FP32, outshape, "C");
     config::SetBuildStatic(true);
     FUNCTION("RowSumSingle_TILETENSOR", {input_a, output}) {
-        output = Sum(input_a, -1);
+        output = Sum(input_a, -1, true);
     }
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateConstantTensor<float>(input_a, 1.0),

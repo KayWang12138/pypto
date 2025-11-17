@@ -167,9 +167,9 @@ Tensor IndexAdd_(const Tensor &self, const Tensor &src, const Tensor &indices, i
 Tensor RowSumExpand(const Tensor &operand);
 Tensor RowMaxExpand(const Tensor &operand);
 
-Tensor Sum(const Tensor &self, int axis = -1);
-Tensor Amax(const Tensor &self, int axis = -1);
-Tensor Amin(const Tensor &self, int axis = -1);
+Tensor Sum(const Tensor &self, int axis = -1, bool keepDim=false);
+Tensor Amax(const Tensor &self, int axis = -1, bool keepDim=false);
+Tensor Amin(const Tensor &self, int axis = -1, bool keepDim=false);
 
 Tensor Compact(const Tensor &operand);
 

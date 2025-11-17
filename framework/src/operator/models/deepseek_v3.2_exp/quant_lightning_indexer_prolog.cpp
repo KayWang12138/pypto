@@ -26,7 +26,7 @@ std::tuple<Tensor, Tensor> PrologQuant(const Tensor &input) {
     auto inputFp32 = Cast(input, DataType::DT_FP32, CAST_NONE);
 
     auto absRes = Abs(inputFp32);
-    auto maxValue = Amax(absRes);
+    auto maxValue = Amax(absRes, -1, true);
     auto temp127 = Full(Element(DT_FP32, s8_max_value), DT_FP32, maxValue.GetShape());
 
     auto scaleQuant = Div(temp127, maxValue);
@@ -49,12 +49,12 @@ Tensor QuantLayerNorm(const Tensor &x, const Tensor &gamma, const Tensor &beta, 
     auto xFp32 = Cast(x, DT_FP32);
     // do division first to avoid overflow
     auto xScaled = Mul(xFp32, Element(DataType::DT_FP32, 1.0f / x.GetShape()[actualDim]));
-    auto mean = Sum(xScaled, actualDim);
+    auto mean = Sum(xScaled, actualDim, true);
 
     auto diff = Sub(xFp32, mean);
     auto squaredDiff = Mul(diff, diff);
     auto squaredDiffScaled = Mul(squaredDiff, Element(DataType::DT_FP32, 1.0f / x.GetShape()[actualDim]));
-    auto var = Sum(squaredDiffScaled, actualDim);
+    auto var = Sum(squaredDiffScaled, actualDim, true);
     // add epsilon to avoid division by zero
     auto varEps = Add(var, Element(DT_FP32, epsilon));
     auto stdVar = Sqrt(varEps);
