@@ -306,6 +306,14 @@ class Tensor:
         else:
             raise RuntimeError("unsupport dtype")
         return pto.matmul(self, other, out_dype)
+    
+    @property
+    def dynamic_valid_shape(self) -> Union[List[int], List[SymbolicScalar]]:
+        out = []
+        for _, n in enumerate(self._base.GetDynValShape()):
+            out.append(SymbolicScalar.from_base(n))
+
+        return out
 
     def matmul(self, mat2, out_dtype, *, a_trans=False, b_trans=False, c_matrix_nz=False) -> 'Tensor':
         return pto.matmul(self, mat2, out_dtype, a_trans=a_trans, b_trans=b_trans, c_matrix_nz=c_matrix_nz)
