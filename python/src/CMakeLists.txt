@@ -17,6 +17,7 @@ pybind11_add_module(pto_impl
             bindings/controller.cpp
             bindings/operation.cpp
             bindings/runtime.cpp
+            bindings/pass_config.cpp
 )
 target_include_directories(pto_impl
         PRIVATE

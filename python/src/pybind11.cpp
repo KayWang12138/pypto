@@ -28,5 +28,6 @@ PYBIND11_MODULE(pto_impl, m) {
     bind_controller(m);
     bind_operation(m);
     BindRuntime(m);
+    bind_pass(m);
 };
 } // namespace pypto

@@ -38,6 +38,7 @@ from .element import Element
 from .enum import *  # noqa
 from .operation import *  # noqa
 from .operator import *  # noqa
+from .pass_config import * # noqa
 from .pto_utils import ceil, bytes_of
 from .runtime import jit
 from .symbolic_scalar import SymbolicScalar
