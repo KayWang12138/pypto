@@ -14,7 +14,7 @@
  */
 
 #ifdef __DEVICE__
-#include "toolchain/slog.h"
+#include "dlog_pub.h"
 
 #include <stdarg.h>
 #include <stdio.h>

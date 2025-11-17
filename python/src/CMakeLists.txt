@@ -25,7 +25,7 @@ target_include_directories(pto_impl
 )
 target_link_libraries(pto_impl
         PRIVATE
-            $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>
+            c_sec
             tile_fwk_interface
             tile_fwk_codegen
             tile_fwk_compiler

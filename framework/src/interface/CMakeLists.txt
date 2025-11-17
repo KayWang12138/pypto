@@ -44,7 +44,7 @@ target_include_directories(tile_fwk_interface
 target_link_libraries(tile_fwk_interface
         PUBLIC
             $<BUILD_INTERFACE:$<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,nlohmann_json::nlohmann_json,json>>
-            $<BUILD_INTERFACE:$<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>>
+            c_sec
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub
@@ -79,16 +79,18 @@ if (ENABLE_TORCH_VERIFIER)
                 ${PTO_FWK_SRC_ROOT}/framework/include
                 ${PTO_FWK_SRC_ROOT}/framework/src/
                 ${PTO_FWK_SRC_ROOT}/framework/src/interface
+                $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/include>
     )
     target_link_directories(tile_fwk_calculator
             PUBLIC
                 ${TORCH_ROOT_PATH}/lib
                 ${TORCH_ROOT_PATH}/../torch.libs
+                $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/lib64>
     )
     target_link_libraries(tile_fwk_calculator
             PRIVATE
                 $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,nlohmann_json::nlohmann_json,json>
-                $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>
+                c_sec
                 torch
     )
     target_link_options(tile_fwk_calculator

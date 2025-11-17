@@ -25,7 +25,7 @@ target_link_libraries(tile_fwk_simulation_pv
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub
-            $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>
+            c_sec
 )
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_simulation_pv)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_simulation_pv)

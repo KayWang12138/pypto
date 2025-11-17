@@ -16,7 +16,7 @@ target_sources(tile_fwk_operator PRIVATE ${_Operator_Srcs})
 target_link_libraries(tile_fwk_operator
         PUBLIC
             $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,nlohmann_json::nlohmann_json,json>
-            $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>
+            c_sec
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub

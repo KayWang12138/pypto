@@ -43,7 +43,7 @@ if (BUILD_WITH_CANN)
             PRIVATE
                 intf_pub_cxx17
                 tile_fwk_intf_pub
-                $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>
+                c_sec
     )
     target_include_directories(runtime
             PRIVATE  # 编译 CANN 场景依赖
@@ -69,7 +69,7 @@ if (BUILD_WITH_CANN)
             PRIVATE
                 intf_pub_cxx17
                 tile_fwk_intf_pub
-                $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>
+                c_sec
     )
     target_include_directories(profapi
             PUBLIC  # 编译 CANN 场景依赖
@@ -94,7 +94,7 @@ if (BUILD_WITH_CANN)
             PRIVATE
                 intf_pub_cxx17
                 tile_fwk_intf_pub
-                $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>
+                c_sec
     )
     target_include_directories(hccl
             PRIVATE  # 编译 CANN 场景依赖
@@ -142,6 +142,6 @@ if (BUILD_WITH_CANN)
     )
     target_link_libraries(${_Target}
             PUBLIC
-                $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>
+                c_sec
     )
 endif()

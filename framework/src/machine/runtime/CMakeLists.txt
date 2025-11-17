@@ -69,7 +69,7 @@ target_link_libraries(tile_fwk_runtime
             tile_fwk_intf_pub
             $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:kernel_tiling_headers>
             dl
-            $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>
+            c_sec
 )
 if ((BUILD_WITH_CANN) AND (NOT PRODUCT_SIDE STREQUAL "device"))
     add_dependencies(tile_fwk_runtime tile_fwk_core)

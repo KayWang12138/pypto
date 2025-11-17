@@ -14,6 +14,7 @@ target_include_directories(tile_fwk_intf_pub
             ${PTO_FWK_SRC_ROOT}/framework/src
             ${PTO_FWK_SRC_ROOT}/framework/src/interface
             ${PTO_FWK_SRC_ROOT}/framework/src/interface/machine/device
+            $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/include>
 )
 target_compile_options(tile_fwk_intf_pub
         INTERFACE
@@ -93,6 +94,10 @@ target_compile_options(tile_fwk_intf_pub
             -Werror
             # 依赖分析选项
             $<$<CXX_COMPILER_ID:GNU>:$<$<OR:$<BOOL:${ENABLE_UTEST}>,$<BOOL:${ENABLE_STEST}>,$<BOOL:${ENABLE_STEST_DISTRIBUTED}>>:-MMD>>
+)
+target_link_directories(tile_fwk_intf_pub
+        INTERFACE
+            $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/lib64>
 )
 target_link_options(tile_fwk_intf_pub
         INTERFACE

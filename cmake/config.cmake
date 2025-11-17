@@ -52,9 +52,12 @@ elseif (DEFINED ENV{ASCEND_OPP_PATH})
 else()
     set(ASCEND_CANN_PACKAGE_PATH  "/usr/local/Ascend/latest")
 endif ()
+if (BUILD_OPEN_PROJECT AND NOT EXISTS "${ASCEND_CANN_PACKAGE_PATH}")
+    message(FATAL_ERROR "ASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_PACKAGE_PATH} not exist")
+endif ()
 message(STATUS "ASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_PACKAGE_PATH}")
 
-if (BUILD_OPEN_PROJECT AND EXISTS "${ASCEND_CANN_PACKAGE_PATH}" AND EXISTS "${ASCEND_CANN_PACKAGE_PATH}/hcomm")
+if (EXISTS "${ASCEND_CANN_PACKAGE_PATH}/hcomm" OR EXISTS "${ASCEND_CANN_PACKAGE_PATH}/ge-executor")
     set(BUILD_WITH_CANN_SUB ON)
 endif ()
 message(STATUS "BUILD_WITH_CANN_SUB=${BUILD_WITH_CANN_SUB}")
@@ -272,49 +275,6 @@ if (BUILD_OPEN_PROJECT)
         message(FATAL_ERROR "No nlohmann_json::nlohmann_json found, please refer to the ReadMe of this project for installation instructions.")
     endif ()
     message(STATUS "Use nlohmann_json::nlohmann_json from ${nlohmann_json_DIR}")
-endif ()
-
-# SecureC
-if (BUILD_OPEN_PROJECT)
-    set(BoundsCheck_DirName "libboundscheck-v1.1.16")
-    get_filename_component(BoundsCheck_Dir "${PTO_FWK_SRC_ROOT}/third_party/${BoundsCheck_DirName}" REALPATH)
-    if (NOT (EXISTS "${BoundsCheck_Dir}" AND EXISTS "${BoundsCheck_Dir}/CMakeLists.txt"))
-        message(WARNING "Can't get BoundsCheck/HwSecureC Source, Please make sure BoundsCheck has been installed.")
-    else ()
-        message(STATUS "Use BoundsCheck/HwSecureC from ${BoundsCheck_Dir}")
-
-        get_filename_component(BoundsCheck_Prefix_Dir "${CMAKE_CURRENT_BINARY_DIR}/third_party/${BoundsCheck_DirName}" REALPATH)
-        get_filename_component(BoundsCheck_Source_Dir "${BoundsCheck_Dir}" REALPATH)
-        get_filename_component(BoundsCheck_Install_Dir "${BoundsCheck_Prefix_Dir}/output" REALPATH)
-        ExternalProject_Add(ExternalProject_BoundsCheck
-                PREFIX ${BoundsCheck_Prefix_Dir}
-                SOURCE_DIR ${BoundsCheck_Source_Dir}
-                INSTALL_DIR ${BoundsCheck_Install_Dir}
-                CONFIGURE_COMMAND ${CMAKE_COMMAND}
-                    -G ${CMAKE_GENERATOR}
-                    -S <SOURCE_DIR>
-                    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-                    -DCMAKE_C_COMPILER_LAUNCHER=${CMAKE_C_COMPILER_LAUNCHER}
-                    -DCMAKE_CXX_COMPILER_LAUNCHER=${CMAKE_CXX_COMPILER_LAUNCHER}
-                    -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
-                BUILD_ALWAYS FALSE
-                EXCLUDE_FROM_ALL TRUE
-                BUILD_BYPRODUCTS
-                    ${BoundsCheck_Install_Dir}/include
-                    ${BoundsCheck_Install_Dir}/lib/libc_sec.so
-        )
-
-        add_library(boundscheck_shared SHARED IMPORTED)
-        set_target_properties(boundscheck_shared PROPERTIES
-                IMPORTED_LOCATION ${BoundsCheck_Install_Dir}/lib/libc_sec.so
-        )
-        add_library(boundscheck INTERFACE)
-        set_target_properties(boundscheck PROPERTIES
-                INTERFACE_INCLUDE_DIRECTORIES "${BoundsCheck_Install_Dir}/include"
-                INTERFACE_LINK_LIBRARIES "boundscheck_shared"
-        )
-        add_dependencies(boundscheck ExternalProject_BoundsCheck)
-    endif ()
 endif ()
 
 # torch optional

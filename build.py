@@ -13,6 +13,7 @@
 import abc
 import os
 import sys
+import platform
 import argparse
 import logging
 import multiprocessing
@@ -36,6 +37,17 @@ import work_flow as wf
 class CMakeParam(abc.ABC):
     """需要向 CMake 传入 Option 的参数
     """
+
+    @staticmethod
+    def get_system_processor() -> str:
+        machine = platform.machine().lower()
+        arch_map = {  # 直接映射常见架构
+            "x86_64": "x86_64",
+            "amd64": "x86_64",
+            "aarch64": "aarch64",
+            "arm64": "aarch64",
+        }
+        return arch_map.get(machine, machine)
 
     @staticmethod
     @abc.abstractmethod
@@ -89,15 +101,21 @@ class FeatureParam(CMakeParam):
     """
     frontend_type: Optional[str] = None # 前端类型, 支持 python3, cpp
     backend_type: Optional[str] = None # 后端类型, 支持 npu, cost_model
+    whl_plat_name: Optional[str] = None # python3 whl 包 plat-name
 
     def __init__(self, args):
         self.frontend_type = "python3" if args.frontend is None else args.frontend
         self.backend_type = "npu" if args.backend is None else args.backend
+        self.whl_plat_name = f"{args.plat_name}_{CMakeParam.get_system_processor()}" if args.plat_name else ""
 
     def __str__(self):
+        plat_name: str = ""
+        if self.whl_plat_name and self.frontend_type_python3:
+            plat_name = f"\n    PlatName                : {self.whl_plat_name}"
         desc: str = ""
         desc += f"\nFeature"
         desc += f"\n    Frontend                : {self.frontend_type}"
+        desc += plat_name
         desc += f"\n    Backend                 : {self.backend_type}"
         return desc
 
@@ -120,7 +138,10 @@ class FeatureParam(CMakeParam):
     def reg_args(parser, ext: Optional[Any] = None):
         parser.add_argument("-f", "--frontend", nargs="?", type=str, default="cpp",
                             choices=["python3", "cpp"],
-                            help="backend, such as npu/cost_model etc.")
+                            help="frontend, such as python3/cpp etc.")
+        parser.add_argument("--plat_name", nargs="?", type=str, default="",
+                            choices=["manylinux2014", "manylinux_2_24", "manylinux_2_28"],
+                            help="whl plat_name, such as manylinux2014/manylinux_2_24/manylinux_2_28 etc.")
         parser.add_argument("-b", "--backend", nargs="?", type=str, default="npu",
                             choices=["npu", "cost_model"],
                             help="backend, such as npu/cost_model etc.")
@@ -960,6 +981,7 @@ class BuildCtrl:
         build_whl = self.build_root.name
         cmake_args = f"{self.build.get_cfg_cmd()} {self.feature.get_cfg_cmd()}"
         cmd: str = f"{sys.executable} setup.py bdist_wheel"
+        cmd += f" --plat-name={self.feature.whl_plat_name}" if self.feature.whl_plat_name else ""
         cmd += f" --cmake-args='{cmake_args}'" if cmake_args else ""
         cmd += f" --clean-first" if self.build.clean else ""
         cmd += f" --disable-install-strip" if self.build.install_strip else ""
