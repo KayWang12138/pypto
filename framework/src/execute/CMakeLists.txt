@@ -11,27 +11,29 @@ file(GLOB_RECURSE _Executor_Srcs *.cpp)
 add_library(tile_fwk_executor SHARED)
 target_sources(tile_fwk_executor PRIVATE ${_Executor_Srcs})
 target_include_directories(tile_fwk_executor
-        PUBLIC  # yellow zone
+        PUBLIC  # 编译 CANN 场景依赖
             $<$<AND:$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>,$<BOOL:${BUILD_WITH_CANN}>>:${TOP_DIR}/inc>
             $<$<AND:$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>,$<BOOL:${BUILD_WITH_CANN}>>:${TOP_DIR}/abl/msprof/inc>
             $<$<AND:$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>,$<BOOL:${BUILD_WITH_CANN}>>:${TOP_DIR}/ace/npuruntime/inc>
             $<$<AND:$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>,$<BOOL:${BUILD_WITH_CANN}>>:${TOP_DIR}/metadef/inc>
             $<$<AND:$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>,$<BOOL:${BUILD_WITH_CANN}>>:${TOP_DIR}/metadef/inc/external>
-        PUBLIC  # blue zone
+        PUBLIC  # 使用 CANN 场景依赖
             $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include>
+        PUBLIC  # 使用 CANN 整包
+            $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/toolchain>
             $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment>
             $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/msprof>
             $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/runtime>
             $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/ascend_hal>
             $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${PTO_FWK_SRC_ROOT}/third_party/metadef/inc>
             $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${PTO_FWK_SRC_ROOT}/third_party/metadef/inc/external>
+        PUBLIC  # 使用 CANN 分包
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc>>
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/base>>
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/runtime>>
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/profiling>>
         PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}
-)
-target_compile_definitions(tile_fwk_executor
-        PRIVATE
-            $<$<BOOL:${BUILD_OPEN_PROJECT}>:LOG_CPP>
-            $<$<BOOL:${BUILD_OPEN_PROJECT}>:PROCESS_LOG>
 )
 target_link_directories(tile_fwk_executor
         PUBLIC
@@ -47,8 +49,7 @@ target_link_libraries(tile_fwk_executor
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub
-            $<$<BOOL:${BUILD_OPEN_PROJECT}>:ascendalog>
-            $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:slog>
+            unified_dlog
 )
 
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_executor)

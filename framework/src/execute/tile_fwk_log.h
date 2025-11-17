@@ -14,7 +14,7 @@
 #include <securec.h>
 #include <cstdint>
 #include <string>
-#include "toolchain/slog.h"
+#include "dlog_pub.h"
 
 const std::string TILE_FWK_MODULE_NAME = "TILEFWK";
 

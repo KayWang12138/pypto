@@ -28,7 +28,7 @@
 #include "securec.h"
 #include "machine/utils/device_switch.h"
 #ifdef __DEVICE__
-#include "toolchain/slog.h"
+#include "dlog_pub.h"
 #endif
 namespace npu::tile_fwk {
 
@@ -134,7 +134,7 @@ inline DeviceLogger &GetLogger(const char *logfile = nullptr, int level = LOG_LE
 
 typedef enum {
     LOG_TYPE_SCHEDULER,    // 调度器日志
-    LOG_TYPE_CONTROLLER,   // 控制器日志  
+    LOG_TYPE_CONTROLLER,   // 控制器日志
     LOG_TYPE_PREFETCH      // 预取日志
 } LogType;
 
@@ -238,7 +238,7 @@ void InitLogSwitch();
             assert(0);                                                         \
         }                                                                      \
     } while (0)
-    
+
 #define DEV_DEBUG_ASSERT_MSG(expr, fmt, args...) DEV_ASSERT_MSG(expr, fmt, ##args)
 
 #define DEV_MEM_DUMP(fmt, args...)
