@@ -152,7 +152,7 @@ class TestCaseLauncher:
 
         self.compile_if_need()
         is_package_ready = self.pto and os.path.exists(self.pto_install_path + "/pto")
-        stest_exec_file = f"{self.work_path}/build/framework/tests/st/tile_fwk_stest"
+        stest_exec_file = f"{self.work_path}/build/output/bin/tile_fwk_stest"
         is_exec_ready = not self.pto and os.path.exists(stest_exec_file)
         if not is_package_ready and not is_exec_ready:
             raise ValueError(
@@ -172,7 +172,7 @@ class TestCaseLauncher:
             case_op = test_case_info["operation"]
             test_case = f"Test{case_op}/{case_op}OperationTest.Test{case_op}/{index}"
             golden_path = (
-                f"{self.work_path}/build/framework/tests/st/golden/{test_case}"
+                f"{self.work_path}/build/output/bin/golden/{test_case}"
             )
             if os.path.exists(golden_path + "/golden_desc.json"):
                 os.remove(golden_path + "/golden_desc.json")

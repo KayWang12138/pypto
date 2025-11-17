@@ -1,0 +1,27 @@
+/**
+ * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file aicpu_distributed.h
+ * \brief
+ */
+
+#pragma once
+#include "aicpu_runtime.h"
+#include "tileop/hccl_context.h"
+
+#define RUNTIME_GetHcclRankId(groupIndex) \
+     ((TileOp::HcclCombinOpParam *)(startArgs->hcclContextAddr[groupIndex]))->rankId
+
+#define RUNTIME_BindTensor(groupIndex, memType, size) \
+    [&](void *ctx, uint64_t tgroupIndex, uint64_t tmemType, uint64_t tsize) -> uint64_t { \
+        uint64_t param[] = {tgroupIndex, tmemType, tsize}; \
+        return (uint64_t)callRootList[CallRootStage::T_CALLROOT_SHMEM_ALLOC](ctx, (uint64_t)(&param)); \
+    }(ctx, groupIndex, memType, size)

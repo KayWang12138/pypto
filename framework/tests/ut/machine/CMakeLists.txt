@@ -74,8 +74,8 @@ target_compile_definitions(${_Target}
 # 可执行程序运行依赖的配置, 脚本配置
 add_custom_command(
         TARGET ${_Target} PRE_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory ${PTO_Fwk_UTestExePath}/stubs/compiler/data/platform_config/
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/stubs/compiler/data/platform_config/
         COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/stubs/compiler/data/platform_config/Ascend910B1.ini
-                                         ${PTO_Fwk_UTestExePath}/stubs/compiler/data/platform_config/
-        COMMENT "Copy ${_Target} dependence config file."
+        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/stubs/compiler/data/platform_config/
+        COMMENT "Copy ${_Target} dependence config file to ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/stubs/compiler/data/platform_config/"
 )

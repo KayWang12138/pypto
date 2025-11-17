@@ -113,6 +113,7 @@ function(PTO_Fwk_UTest_RunExe)
                             TARGET ${ARG_TARGET} POST_BUILD
                             COMMAND ${BashCmdSetup} ./${ARG_TARGET} ARGS '--gtest_filter=${Filter}'
                             COMMENT "${Comment} [${GtestFilterListIdx}/${GtestFilterListLen}] With --gtest_filter=${Filter}"
+                            WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
                     )
                     math(EXPR GtestFilterListIdx "${GtestFilterListIdx} + 1")
                 endforeach ()
@@ -122,6 +123,7 @@ function(PTO_Fwk_UTest_RunExe)
                     TARGET ${ARG_TARGET} POST_BUILD
                     COMMAND ${BashCmdSetup} ./${ARG_TARGET}
                     COMMENT "${Comment}"
+                    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
             )
         endif ()
     endif ()

@@ -8,8 +8,7 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
-"""
-生成覆盖率
+"""生成覆盖率
 """
 import argparse
 import dataclasses
@@ -101,8 +100,7 @@ class GenCoverage:
 
     @classmethod
     def _gen_cov(cls, param: Param):
-        """
-        使用 lcov 生成覆盖率
+        """使用 lcov 生成覆盖率
         """
         # 生成覆盖率
         cmd = f"lcov -c -d {param.data_dir} -o {param.info_file}"

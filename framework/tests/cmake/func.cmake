@@ -225,21 +225,34 @@ function(PTO_Fwk_GTest_AddExe)
                 -Wl,--no-whole-archive
                 -rdynamic
     )
+    # 模拟配置文件 Install 流程, 为便于调试, 使用创建软连接方式模拟安装
+    get_filename_component(InstallConfigsDir "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/configs" REALPATH)
     add_custom_command(
-            TARGET ${ARG_TARGET} POST_BUILD
-            COMMAND mkdir -p "${PTO_FWK_BIN_ROOT}/framework/src/conf"
-            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/interface/configs/tile_fwk_config.json" "${PTO_FWK_BIN_ROOT}/framework/src/conf/tile_fwk_config.json"
-            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/passes/pass_config/tile_fwk_platform_info.json" "${PTO_FWK_BIN_ROOT}/framework/src/conf/tile_fwk_platform_info.json"
-            COMMENT "Soft link of tile_fwk_config.json and tile_fwk_platform_info.json has been created at ${PTO_FWK_BIN_ROOT}/framework/src/conf"
+            TARGET ${ARG_TARGET} PRE_BUILD
+            COMMAND ${CMAKE_COMMAND} -E remove_directory ${InstallConfigsDir}
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${InstallConfigsDir}
+            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/interface/configs/tile_fwk_config.json"           "${InstallConfigsDir}/tile_fwk_config.json"
+            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/interface/configs/tile_fwk_config_schema.json"    "${InstallConfigsDir}/tile_fwk_config_schema.json"
+            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/passes/pass_config/tile_fwk_platform_info.json"   "${InstallConfigsDir}/tile_fwk_platform_info.json"
+            COMMENT "Soft link of configs(*.json) has been created at ${InstallConfigsDir}"
     )
+    # 模拟头文件 Install 流程, 为便于调试, 使用创建软连接方式模拟安装
+    get_filename_component(InstallIncludeDir "${PTO_FWK_BIN_OUTPUT_ROOT}/include" REALPATH)
     add_custom_command(
-            TARGET ${ARG_TARGET} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E remove_directory ${PTO_FWK_BIN_ROOT}/framework/src/include
-            COMMAND ${CMAKE_COMMAND} -E make_directory ${PTO_FWK_BIN_ROOT}/framework/src/include/tile_fwk
-            COMMAND ln -sf ${PTO_FWK_SRC_ROOT}/framework/include/tilefwk ${PTO_FWK_BIN_ROOT}/framework/src/include/tile_fwk/tilefwk
-            COMMENT "Soft link include directory has been created at ${PTO_FWK_BIN_ROOT}/framework/src/include/tile_fwk/tilefwk"
-            COMMAND ln -sf ${PTO_FWK_SRC_ROOT}/framework/src/interface/tileop ${PTO_FWK_BIN_ROOT}/framework/src/include/tile_fwk/tileop
-            COMMENT "Soft link include directory has been created at ${PTO_FWK_BIN_ROOT}/framework/src/include/tile_fwk/tileop"
+            TARGET ${ARG_TARGET} PRE_BUILD
+            COMMAND ${CMAKE_COMMAND} -E remove_directory ${InstallIncludeDir}/
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${InstallIncludeDir}/
+            COMMAND ln -sf ${PTO_FWK_SRC_ROOT}/framework/include/tilefwk ${InstallIncludeDir}
+            COMMENT "Soft link of include directory has been created at ${InstallIncludeDir}"
+    )
+    get_filename_component(InstallLibIncludeDir "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/include" REALPATH)
+    add_custom_command(
+            TARGET ${ARG_TARGET} PRE_BUILD
+            COMMAND ${CMAKE_COMMAND} -E remove_directory ${InstallLibIncludeDir}/
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${InstallLibIncludeDir}/
+            COMMAND ln -sf ${PTO_FWK_SRC_ROOT}/framework/src/interface/tileop ${InstallLibIncludeDir}
+            COMMAND ln -sf ${PTO_FWK_SRC_ROOT}/framework/src/interface/machine/device/tilefwk ${InstallLibIncludeDir}
+            COMMENT "Soft link of library include directory has been created at ${InstallLibIncludeDir}"
     )
 endfunction()
 

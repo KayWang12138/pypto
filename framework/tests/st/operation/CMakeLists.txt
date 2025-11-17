@@ -19,6 +19,6 @@ PTO_Fwk_STest_AddLib(
 )
 add_custom_command(
         TARGET ${_Target} PRE_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory ${PTO_Fwk_STestExePath}/scripts/
-        COMMENT "Copy ${_Target} dependence scripts file."
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/scripts/
+        COMMENT "Copy ${_Target} dependence scripts file to ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/scripts/"
 )

@@ -37,7 +37,7 @@ def run_command_and_get_output(command):
 
 def execute():
     # 要执行的目标指令
-    target_command = "build/framework/tests/ut/tile_fwk_utest --gtest_filter=CostModelTest.TestAttentionPostFunctional"
+    target_command = "build/output/bin/tile_fwk_utest --gtest_filter=CostModelTest.TestAttentionPostFunctional"
 
     # 执行并获取结果
     execution_result = run_command_and_get_output(target_command)

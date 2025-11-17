@@ -295,8 +295,9 @@ class GTestAccelerate(ABC):
         """注册命令行参数
 
         注意事项:
-        1. 本函数应与 get_container_manager 函数协同使用;
-        2. 本函数注册了 'gtest_filter' 字段, 但 get_container_manager 内不会解析处理, 该字段应由使用者解析处理;
+            1. 本函数应与 get_container_manager 函数协同使用;
+            2. 本函数注册了 'gtest_filter' 字段, 但 get_container_manager 内不会解析处理, 该字段应由使用者解析处理;
+
         :param parser: ArgumentParser 外部创建
         """
         # 执行所需参数
@@ -440,8 +441,6 @@ class GTestAccelerate(ABC):
 
     def _stop_move_process_grp(self):
         """停止 Move 进程组
-
-        :return:
         """
         desc_list = self._get_move_process_grp_desc_list()
         for _, src_queue, _ in desc_list:
@@ -535,8 +534,9 @@ class GTestAccelerate(ABC):
     def _cntr(self, cntr_id: int, exec_param, delay: int):
         """Container 进程
 
-        1. Container 进程执行时, 不会产生 Exception, 用例执行异常信息会上报至异常信息队列;
-        2. Container 进程在任务队列为空, 或异常终止事件被设置时退出;
+        说明:
+            1. Container 进程执行时, 不会产生 Exception, 用例执行异常信息会上报至异常信息队列;
+            2. Container 进程在任务队列为空, 或异常终止事件被设置时退出;
 
         :param cntr_id: ContainerId
         :param exec_param: ContainerParam

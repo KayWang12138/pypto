@@ -19,11 +19,11 @@ PTO_Fwk_STest_AddLib(
 )
 add_custom_command(
         TARGET ${_Target} PRE_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory ${PTO_Fwk_STestExePath}/scripts/
-        COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/framework/src/cost_model/simulation/scripts/print_swim_lane.py ${PTO_Fwk_STestExePath}/scripts/
-        COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/framework/src/cost_model/simulation/scripts/draw_comm_swim_lane_png.py ${PTO_Fwk_STestExePath}/scripts/
-        COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/framework/src/cost_model/simulation/scripts/draw_pipe_swim_lane.py ${PTO_Fwk_STestExePath}/scripts/
-        COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/tools/draw_swim_lane.py ${PTO_Fwk_STestExePath}/scripts/
-        COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/tools/function_json_convert.py ${PTO_Fwk_STestExePath}/scripts/
-        COMMENT "Copy ${_Target} dependence scripts file."
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/scripts/
+        COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/framework/src/cost_model/simulation/scripts/print_swim_lane.py         ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/scripts/
+        COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/framework/src/cost_model/simulation/scripts/draw_comm_swim_lane_png.py ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/scripts/
+        COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/framework/src/cost_model/simulation/scripts/draw_pipe_swim_lane.py     ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/scripts/
+        COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/tools/draw_swim_lane.py                                                ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/scripts/
+        COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/tools/function_json_convert.py                                         ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/scripts/
+        COMMENT "Soft link of ${_Target} dependence scripts file has been created at ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/scripts"
 )

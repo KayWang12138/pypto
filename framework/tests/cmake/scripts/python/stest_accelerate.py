@@ -18,9 +18,9 @@ from accelerate.gtest_accelerate import GTestAccelerate
 
 
 class STestAccelerate(GTestAccelerate):
-    """UTest 执行加速
+    """STest 执行加速
 
-    通过多进程并行执行, 以提升 UTest 执行效率.
+    通过多进程并行执行, 以提升 STest 执行效率.
     """
 
     @property
@@ -32,7 +32,7 @@ class STestAccelerate(GTestAccelerate):
         """主处理流程
         """
         # 参数注册
-        parser = argparse.ArgumentParser(description=f"UTest Execute Accelerate", epilog="Best Regards!")
+        parser = argparse.ArgumentParser(description=f"STest Execute Accelerate", epilog="Best Regards!")
         STestAccelerate.reg_args(parser=parser)
         parser.add_argument("-d", "--device", nargs="?", type=int, action="append",
                             help="Specific parallel accelerate device, "

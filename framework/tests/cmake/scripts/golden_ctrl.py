@@ -33,7 +33,8 @@ from python.utils.table import Table
 
 
 class GoldenCtrl:
-    """ STest Golden 生成逻辑控制. """
+    """STest Golden 生成逻辑控制.
+    """
 
     def __init__(self, args):
         self.sys_paths: List[Path] = []
@@ -76,7 +77,8 @@ class GoldenCtrl:
 
     @staticmethod
     def main() -> bool:
-        """ 主处理流程 """
+        """主处理流程
+        """
         parser = argparse.ArgumentParser(description=f"STest Golden Ctrl", epilog="Best Regards!")
         parser.add_argument("-c", "--cases", type=str, default="", required=True,
                             help="STest Cases, multiple test cases are separated by ':'")
@@ -100,15 +102,13 @@ class GoldenCtrl:
         return ret
 
     def prepare(self) -> bool:
-        """
-        执行 Golden 生成任务前准备
+        """执行 Golden 生成任务前准备
         """
         ret: bool = self.prepare_module()
         return ret
 
     def prepare_module(self) -> bool:
-        """
-        执行 Golden 生成任务前准备
+        """执行 Golden 生成任务前准备
 
         将需 import module 在主进程完成 import, 子进程继承 import 关系
         """
@@ -131,8 +131,7 @@ class GoldenCtrl:
         return True
 
     def process(self) -> bool:
-        """
-        执行 Golden 生成任务, 生成 Cases 所需 Golden
+        """执行 Golden 生成任务, 生成 Cases 所需 Golden
         """
         # 输出路径处理
         if self.clean and self.output.exists():

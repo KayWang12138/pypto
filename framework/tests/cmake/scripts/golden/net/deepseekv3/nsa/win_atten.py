@@ -84,7 +84,7 @@ def win_attn_calc(input_params_win_attn, actual_seq_list, q_bsnd, k_bsnd, v_bsnd
     for b_index in range(b):
         for s1_index in range(s_q):
             for n_kv_index in range(n_kv):
-               
+
                 act_seq = actual_seq_list[b_index]
 
                 q_tensor_cur = q_bsnd[b_index:(b_index + 1), s1_index:(s1_index + 1), :, :].reshape(n_q, d_q)
@@ -341,7 +341,7 @@ def main() -> bool:
     # 函数调用
     ret: bool = True
     for cs in case_name_list:
-        output: Path = Path(g_src_root, "build/framework/tests/st/golden", cs).resolve()
+        output: Path = Path(g_src_root, "build/output/bin/golden", cs).resolve()
         output.mkdir(parents=True, exist_ok=True)
         ret = win_attn_func(case_name=cs, output=output)
     return ret

@@ -8,9 +8,7 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
-""" 构建总入口.
-
-构建总入口.
+"""构建总入口.
 """
 import abc
 import os
@@ -36,7 +34,7 @@ import work_flow as wf
 
 
 class CMakeParam(abc.ABC):
-    """ 需要向 CMake 传入 Option 的参数
+    """需要向 CMake 传入 Option 的参数
     """
 
     @staticmethod
@@ -46,8 +44,7 @@ class CMakeParam(abc.ABC):
 
     @classmethod
     def _cfg_require(cls, opt: str, ctr: bool = True, tv: str = "ON", fv: str = "OFF") -> str:
-        """
-        获取 CMake Config 阶段的必选 Option 配置
+        """获取 CMake Config 阶段的必选 Option 配置
 
         :param opt: CMake 选项, 会最终体现到 CMake -D传入的参数中
         :param ctr: 控制变量
@@ -60,8 +57,7 @@ class CMakeParam(abc.ABC):
 
     @classmethod
     def _cfg_optional(cls, opt: str, ctr: bool, v: str):
-        """
-        获取 CMake Config 阶段的可选 Option 配置
+        """获取 CMake Config 阶段的可选 Option 配置
 
         :param opt: CMake 选项, 会最终体现到 CMake -D传入的参数中
         :param ctr: 控制变量
@@ -89,7 +85,7 @@ class CMakeParam(abc.ABC):
 
 @dataclasses.dataclass
 class FeatureParam(CMakeParam):
-    """ 特性控制相关参数
+    """特性控制相关参数
     """
     frontend_type: Optional[str] = None # 前端类型, 支持 python3, cpp
     backend_type: Optional[str] = None # 后端类型, 支持 npu, cost_model
@@ -139,7 +135,7 @@ class FeatureParam(CMakeParam):
 
 @dataclasses.dataclass
 class BuildParam(CMakeParam):
-    """ 构建相关参数
+    """构建相关参数
     """
     targets: Optional[List[str]] = None  # 编译目标
     job_num: Optional[int] = None # 编译阶段使用核数
@@ -265,7 +261,7 @@ class BuildParam(CMakeParam):
 
 @dataclasses.dataclass
 class TestsExecuteParam(CMakeParam):
-    """ Tests 执行相关参数
+    """Tests 执行相关参数
     """
     changed_file: Optional[Path] = None  # 修改文件路径
     auto_execute: bool = False  # 用例自动执行
@@ -329,7 +325,7 @@ class TestsFilterParam(CMakeParam):
     enable: bool = False
     filter_str: Optional[str] = None
 
-    def __init__(self, argv: Optional[str], opt: str):
+    def __init__(self, argv: Optional[str], opt: str = ""):
         self.cmake_option = opt
         if argv is None:
             self.enable, self.filter_str = True, "ON"      # 指定 对应参数, 但未指定内容
@@ -345,7 +341,7 @@ class TestsFilterParam(CMakeParam):
         have_char: bool = len(mark_lst) <= 1
         mark_word: str = mark.replace("_", " ")
         help_str: str = (f"Enable {mark_word} scene, specific {mark_word} filter, "
-                         f"multiple cases are separated by ',' .")
+                         f"multiple cases are separated by ','")
         if have_char:
             mark_char: Optional[str] = mark_lst[0][0] if have_char else None
             parser.add_argument(f"-{mark_char}", f"--{mark}", nargs="?", type=str, default="", help=help_str)
@@ -353,7 +349,9 @@ class TestsFilterParam(CMakeParam):
             parser.add_argument(f"--{mark}", nargs="?", type=str, default="", help=help_str)
 
     def get_cfg_cmd(self) -> str:
-        cmd: str = self._cfg_require(opt=f"{self.cmake_option}", ctr=self.enable, tv=f"{self.filter_str}")
+        cmd: str = ""
+        if self.cmake_option:
+            cmd += self._cfg_require(opt=f"{self.cmake_option}", ctr=self.enable, tv=f"{self.filter_str}")
         return cmd
 
 
@@ -482,10 +480,11 @@ class TestsParam(CMakeParam):
         self.stest_group: TestsFilterParam = TestsFilterParam(argv=args.stest_group, opt="ENABLE_STEST_GROUP")
         self.stest_distributed: TestsFilterParam = TestsFilterParam(argv=args.stest_distributed,
                                                                     opt="ENABLE_STEST_DISTRIBUTED")
+        self.example: TestsFilterParam = TestsFilterParam(argv=args.example)
 
     def __str__(self):
         desc: str = ""
-        if self.utest.enable or self.stest.enable or self.stest_distributed.enable:
+        if self.enable:
             desc += f"\nTests"
             desc += f"\n    Execute"
             desc += f"\n               Changed File : {self.exec.changed_file}"
@@ -524,7 +523,15 @@ class TestsParam(CMakeParam):
                 desc += f"\n    Stest Distributed"
                 desc += f"\n                     Enable : {self.stest_distributed.enable}"
                 desc += f"\n                     Filter : {self.stest_distributed.filter_str}"
+            if self.example.enable:
+                desc += f"\n    Example"
+                desc += f"\n                     Enable : {self.example.enable}"
+                desc += f"\n                     Filter : {self.example.filter_str}"
         return desc
+
+    @property
+    def enable(self) -> bool:
+        return self.utest.enable or self.stest.enable or self.stest_distributed.enable or self.example.enable
 
     @staticmethod
     def reg_args(parser, ext: Optional[Any] = None):
@@ -536,13 +543,15 @@ class TestsParam(CMakeParam):
         TestsFilterParam.reg_args(parser=parser, ext="stest")
         TestsFilterParam.reg_args(parser=parser, ext="stest_group")
         TestsFilterParam.reg_args(parser=parser, ext="stest_distributed")
+        TestsFilterParam.reg_args(parser=parser, ext="example")
 
     def get_cfg_cmd(self) -> str:
         cmd: str = ""
         cmd += self.utest.get_cfg_cmd()
         cmd += self.stest.get_cfg_cmd()
         cmd += self.stest_distributed.get_cfg_cmd()
-        if self.utest.enable or self.stest.enable or self.stest_distributed.enable:
+        cmd += self.example.get_cfg_cmd()
+        if self.enable:
             cmd += self.exec.get_cfg_cmd()
             if self.stest.enable or self.stest_distributed.enable:
                 cmd += self.golden.get_cfg_cmd()
@@ -703,7 +712,7 @@ class ModelParam(CMakeParam):
 
 
 class BuildCtrl:
-    """ 构建过程控制.
+    """构建过程控制.
 
     本类包含由命令行指定或解析出的控制标记/参数, 以控制构建过程执行.
     """
@@ -744,10 +753,10 @@ class BuildCtrl:
         """执行具体 build 命令行
 
         因以下原因, 设置本函数, 而非调用原生 subprocess.run
-        1. 支持多 target 构建, 各 target 构建时长共享公共 timeout 配置;
-        2. UTest/STest 并行执行场景下, 执行时进程调用关系为:
-               build.py(主进程) -> 进程1(CMake) -> 进程2(CMake Generator, make/ninja) -> 进程3(Python)-> 进程4(executable)
-           此时若 进程1 超时, 需要触发其子/孙进程感知, 进而结束
+            1. 支持多 target 构建, 各 target 构建时长共享公共 timeout 配置;
+            2. UTest/STest 并行执行场景下, 执行时进程调用关系为:
+                   build.py(主进程) -> 进程1(CMake) -> 进程2(CMake Generator, make/ninja) -> 进程3(Python)-> 进程4(exe)
+               此时若 进程1 超时, 需要触发其子/孙进程感知, 进而结束
 
         :param cmd: Build 命令行
         :param update_env: 环境变量(额外更新内容)
@@ -789,8 +798,7 @@ class BuildCtrl:
 
     @staticmethod
     def find_match_whl(name: str, path: Path) -> Optional[Path]:
-        """
-        在指定路径下, 查找对应匹配的 whl 包文件
+        """在指定路径下, 查找对应匹配的 whl 包文件
 
         :param name: 包名
         :param path: 指定路径
@@ -809,7 +817,7 @@ class BuildCtrl:
 
     @classmethod
     def main(cls):
-        """ 主处理流程
+        """主处理流程
         """
         parser = argparse.ArgumentParser(description=f"PyPTO Build Ctrl.", epilog="Best Regards!")
         sub_parser = parser.add_subparsers()  # 子命令
@@ -840,8 +848,7 @@ class BuildCtrl:
 
     @classmethod
     def pip_uninstall(cls, name: str, path: Optional[Path] = None):
-        """
-        卸载对应 whl 包
+        """卸载对应 whl 包
 
         :param name: 包名
         :param path: 指定安装路径(可选), 如果指定对应路径, 仅会在对应路径尝试卸载
@@ -861,8 +868,7 @@ class BuildCtrl:
 
     @classmethod
     def pip_install(cls, whl: Path, path: Optional[Path] = None, opt: str = ""):
-        """
-        安装指定 whl 包
+        """安装指定 whl 包
 
         :param whl: 包文件
         :param path: 安装路径(可选), 未指定时会安装在默认路径
@@ -877,7 +883,8 @@ class BuildCtrl:
         logging.info("Success install %s%s", whl, f" to {path}" if path else "")
 
     def cmake_clean(self):
-        """ 清理中间结果, 清理内容包括构建树, 安装树全部内容. """
+        """清理中间结果, 清理内容包括构建树, 安装树全部内容.
+        """
         if self.build.clean:
             if self.build_root.exists():
                 logging.info("Clean Build-Tree(%s)", self.build_root)
@@ -899,7 +906,8 @@ class BuildCtrl:
                 shutil.rmtree(kernel_meta)
 
     def cmake_configure(self):
-        """ CMake Configure 阶段流程. """
+        """CMake Configure 阶段流程.
+        """
         # 基本配置, 当前 CMake 中有调用 python3 的情况, 传入 python3 解释器, 保证所使用的 python3 版本一致
         cmd = f"cmake -S {self.src_root} -B {self.build_root} -DPython3_EXECUTABLE={sys.executable}"
         cmd += self.feature.get_cfg_cmd()
@@ -911,7 +919,8 @@ class BuildCtrl:
         ret.check_returncode()
 
     def cmake_build(self):
-        """ CMake Build 阶段流程. """
+        """CMake Build 阶段流程.
+        """
         # prof使能初始化
         update_env = {}
         if self.model.prof == 1 or self.model.prof == 2:
@@ -956,7 +965,6 @@ class BuildCtrl:
         cmd += f" --disable-install-strip" if self.build.install_strip else ""
         cmd += f" build --build-base={build_whl}"
         cmd += f" --parallel={self.build.job_num}" if self.build.job_num else ""
-        cmd += f" egg_info --egg-base={build_whl}"
         ts = datetime.now(tz=timezone.utc)
         logging.info("Begin Build whl, Cmd: %s", cmd)
         ret = self.run_build_cmd(cmd=cmd, check=True, timeout=self.build.timeout)
@@ -981,6 +989,9 @@ class BuildCtrl:
         # 执行用例, STest
         self.py_tests_run_pytest(dist=dist, tests=self.tests.stest,
                                  def_filter=str(Path(self.src_root, "python/tests/st")), ext="--forked")
+        # 执行用例, Example
+        self.py_tests_run_pytest(dist=dist, tests=self.tests.example,
+                                 def_filter=str(Path(self.src_root, "examples")), ext="--forked")
 
     def py_tests_run_pytest(self, dist: Optional[Path], tests: TestsFilterParam, def_filter: str, ext: str = ""):
         if not tests.enable or not self.tests.exec.auto_execute:

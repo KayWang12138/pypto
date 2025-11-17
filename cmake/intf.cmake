@@ -13,6 +13,7 @@ target_include_directories(tile_fwk_intf_pub
             ${PTO_FWK_SRC_ROOT}/framework/include
             ${PTO_FWK_SRC_ROOT}/framework/src
             ${PTO_FWK_SRC_ROOT}/framework/src/interface
+            ${PTO_FWK_SRC_ROOT}/framework/src/interface/machine/device
 )
 target_compile_options(tile_fwk_intf_pub
         INTERFACE

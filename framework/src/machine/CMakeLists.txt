@@ -59,10 +59,3 @@ target_link_libraries(tile_fwk_compiler
 
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_compiler)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_compiler)
-
-if (ENABLE_FEATURE_PYTHON_FRONT_END)
-else ()
-    install(TARGETS tile_fwk_compiler
-            LIBRARY DESTINATION lib OPTIONAL
-    )
-endif ()

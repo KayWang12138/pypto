@@ -47,7 +47,6 @@ target_compile_definitions(tile_fwk_runtime
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:BUILD_WITH_CANN>>
             $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_STEST_INTERPRETER_CONFIG}>:ENABLE_STEST_INTERPRETER_CONFIG>>
         PRIVATE
-            $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_TESTS}>:SRCPATH="${PTO_FWK_SRC_ROOT}">>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:BUILD_WITH_CANN_SUB>>
 )
 target_link_directories(tile_fwk_runtime
@@ -76,15 +75,8 @@ if ((BUILD_WITH_CANN) AND (NOT PRODUCT_SIDE STREQUAL "device"))
     add_dependencies(tile_fwk_runtime tile_fwk_core)
     target_link_libraries(tile_fwk_runtime
             PRIVATE
-                ${PROJECT_BINARY_DIR}/framework/src/machine/kernel/kernel_host.o
+                ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}/kernel/kernel_host.o
     )
 endif ()
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_runtime)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_runtime)
-
-if (ENABLE_FEATURE_PYTHON_FRONT_END)
-else ()
-    install(TARGETS tile_fwk_runtime
-            LIBRARY DESTINATION lib OPTIONAL
-    )
-endif ()

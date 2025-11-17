@@ -262,7 +262,7 @@ def mla_prolog_golden(params, is_nz, dtype, output_dir):
     q_bsnd = np.concatenate([q_out, q_rope_out], axis=-1)  # [b, s, n1, kv_lora_rank + rope_dim]
     concat_parms = [b, s, n2, kv_lora_rank, rope_dim, block_size]
     k_cache_bsnd, v_cache_bsnd = \
-        kv_cache_concat_bsnd(concat_parms, kr_cache_out, kv_cache_out, 
+        kv_cache_concat_bsnd(concat_parms, kr_cache_out, kv_cache_out,
                             block_table, block_num, kv_cache_actual_seq, dtype)
 
     return x, q_a_rms_norm, cos, sin, kv_len, block_table, q_bsnd, k_cache_bsnd, v_cache_bsnd
@@ -615,7 +615,7 @@ def main() -> bool:
     # 函数调用
     ret: bool = True
     for cs in case_name_list:
-        output_dir: Path = Path(g_src_root, "build/framework/tests/st/golden", cs).resolve()
+        output_dir: Path = Path(g_src_root, "build/output/bin/golden", cs).resolve()
         output_dir.mkdir(parents=True, exist_ok=True)
         ret = gen_deepseek_dsa_func(case_name=cs, output=output_dir)
     return ret

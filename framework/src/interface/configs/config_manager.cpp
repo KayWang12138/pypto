@@ -67,10 +67,7 @@ Status ConfigManager::Initialize() {
     /* 环境变量优先生效 */
     std::string jsonFilePath = GetEnvVar(tilefwkConfigEnvName);
     if (jsonFilePath.empty()) {
-        jsonFilePath = RealPath(GetCurrentSharedLibPath() + "/../configs/tile_fwk_config.json");
-        if (!FileExist(jsonFilePath)) {
-            jsonFilePath = RealPath(GetCurrentSharedLibPath() + "/../conf/tile_fwk_config.json");
-        }
+        jsonFilePath = RealPath(GetCurrentSharedLibPath() + "/configs/tile_fwk_config.json");
     }
 
     config::SetRundataOption(KEY_PTO_CONFIG_FILE, jsonFilePath);

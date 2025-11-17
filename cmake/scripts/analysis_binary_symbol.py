@@ -8,9 +8,7 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
-""" 构建产物二进制符号分析.
-
-构建产物二进制符号分析.
+"""构建产物二进制符号分析.
 """
 import argparse
 import logging
@@ -125,7 +123,7 @@ class Analysis:
 
     @staticmethod
     def main():
-        """ 主处理流程 """
+        """主处理流程 """
         # 参数注册
         parser = argparse.ArgumentParser(description=f"Symbol Analysis.", epilog="Best Regards!")
         parser.add_argument("-f", "--file", nargs=1, type=str, required=True,

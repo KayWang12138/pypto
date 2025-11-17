@@ -17,34 +17,14 @@ else ()
         target_sources(tile_fwk_passes PRIVATE ${_Passes_Srcs})
         target_link_libraries(tile_fwk_passes
                 PUBLIC
-                $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,nlohmann_json::nlohmann_json,json>
-                $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>
+                    $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,nlohmann_json::nlohmann_json,json>
+                    $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>
                 PRIVATE
-                intf_pub_cxx17
-                tile_fwk_intf_pub
-                dl
-                Threads::Threads
+                    intf_pub_cxx17
+                    tile_fwk_intf_pub
+                    dl
+                    Threads::Threads
         )
         PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_passes)
         #PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_passes)
-
-        install(TARGETS tile_fwk_passes
-                LIBRARY DESTINATION lib OPTIONAL
-        )
-
-        add_custom_target(
-                tile_fwk_platform_info.json ALL
-                DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_platform_info.json
-        )
-
-        add_custom_command(
-                OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_platform_info.json
-                COMMAND ${CMAKE_COMMAND} -E remove -f ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_platform_info.json
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_LIST_DIR}/pass_config/tile_fwk_platform_info.json ${CMAKE_CURRENT_BINARY_DIR}
-        )
-
-        install(FILES
-                ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_platform_info.json
-                DESTINATION lib OPTIONAL
-        )
 endif ()

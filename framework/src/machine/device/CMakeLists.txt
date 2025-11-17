@@ -16,12 +16,12 @@ project(tile_fwk_server LANGUAGES C CXX)
 ########################################################################################################################
 if(BUILD_OPEN_PROJECT)
     add_subdirectory(stub)
+else ()
+    set(CMAKE_SKIP_RPATH TRUE)
+    get_filename_component(PTO_FWK_SRC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../" ABSOLUTE)
 endif()
 
-get_filename_component(PTO_FWK_SRC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../.." ABSOLUTE)
-
 # 缺省编译配置, 编译函数
-set(CMAKE_SKIP_RPATH TRUE)
 if (BUILD_WITH_CANN)
     set(CMAKE_C_COMPILER "${ASCEND_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc/bin/aarch64-target-linux-gnu-gcc")
     set(CMAKE_CXX_COMPILER "${ASCEND_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc/bin/aarch64-target-linux-gnu-g++")
@@ -55,11 +55,12 @@ target_compile_options(tile_fwk_server
 )
 target_include_directories(tile_fwk_server
         PRIVATE
-            ${PTO_FWK_SRC_ROOT}/src
-            ${PTO_FWK_SRC_ROOT}/src/interface
-            ${PTO_FWK_SRC_ROOT}/src/include
-            ${PTO_FWK_SRC_ROOT}/include
-            ${PTO_FWK_SRC_ROOT}/src/cost_model
+            ${PTO_FWK_SRC_ROOT}/framework/include
+            ${PTO_FWK_SRC_ROOT}/framework/src
+            ${PTO_FWK_SRC_ROOT}/framework/src/include
+            ${PTO_FWK_SRC_ROOT}/framework/src/interface
+            ${PTO_FWK_SRC_ROOT}/framework/src/interface/machine/device
+            ${PTO_FWK_SRC_ROOT}/framework/src/cost_model
             $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/include>
 )
 target_link_directories(tile_fwk_server
@@ -77,9 +78,6 @@ target_link_libraries(tile_fwk_server
 )
 set_target_properties(tile_fwk_server PROPERTIES OUTPUT_NAME tilefwk_backend_server)
 
-if (ENABLE_FEATURE_PYTHON_FRONT_END)
-else ()
-    install(TARGETS tile_fwk_server
-            LIBRARY DESTINATION lib OPTIONAL
-    )
+if (NOT ENABLE_FEATURE_PYTHON_FRONT_END)
+    install(TARGETS tile_fwk_server LIBRARY DESTINATION lib OPTIONAL)
 endif ()

@@ -425,11 +425,7 @@ int DeviceRunner::launchDynamicAiCpu(rtStream_t aicpuStream, AstKernelArgs *kArg
 
 void DeviceRunner::InitAiCpuSoBin() {
     std::vector<char> buffer;
-#ifdef SRCPATH
-    std::string fileName = std::string(SRCPATH) + "/build/framework/src/machine/device/libtilefwk_backend_server.so";
-#else
     std::string fileName = GetCurrentSharedLibPath() + "/libtilefwk_backend_server.so";
-#endif
     if (!ReadBytesFromFile(fileName, buffer)) {
         ALOG_ERROR_F("Read bin form tilefwk_backend_server.so failed, please check the so[%s]", fileName.c_str());
         return;

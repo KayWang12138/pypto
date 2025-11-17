@@ -8,9 +8,7 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
-""" 构建产物二进制头文件分析.
-
-构建产物二进制头文件分析.
+"""构建产物二进制头文件分析.
 """
 import argparse
 import json
@@ -28,6 +26,7 @@ class Analysis:
         self.binary: Path = Path(args.binary[0])
         self.target_file: Path = Path(args.target[0])
         self.target_name: str = self.target_file.name
+        self.target_binary_dir: Path = Path(args.target_binary_dir[0])
         self.target_objects: List[Path] = [Path(p) for p in str(args.objects[0]).split(';')]
         self.target_include_filters: List[Path] = [] if args.filters is None else [i for r in args.filters for i in r]
         self.target_include_blacks: List[Path] = []
@@ -38,6 +37,15 @@ class Analysis:
         self.target_include_blacks = list(set(self.target_include_blacks))
         self.target_include_blacks.sort()
         self.target_include_illegal: Dict[Path, List[Path]] = {}
+
+    def __str__(self) -> str:
+        desc: str = ""
+        desc += f"\nBinaryHeaderAnalysis:"
+        desc += f"\n    Source          : {self.source}"
+        desc += f"\n    Binary          : {self.binary}"
+        desc += f"\n    Target          : {self.target_file}"
+        desc += f"\n    TargetBinaryDir : {self.target_binary_dir}"
+        return desc
 
     def update_by_json(self, f: Path):
         with open(str(f), 'r', encoding='utf-8') as fh:
@@ -91,7 +99,7 @@ class Analysis:
                     cur_line_str = cur_line_str.strip()
                     cur_path = Path(cur_line_str)
                     if not cur_path.is_absolute():
-                        cur_path = Path(self.target_file.parent, cur_path).resolve(strict=False)
+                        cur_path = Path(self.target_binary_dir, cur_path).resolve(strict=False)
                     h_lst.append(cur_path)
         h_lst = h_lst[1:]   # 去除 cpp.o 描述
         h_lst.sort()
@@ -135,7 +143,8 @@ class Analysis:
 
     @staticmethod
     def main() -> bool:
-        """ 主处理流程 """
+        """主处理流程
+        """
         # 参数注册
         parser = argparse.ArgumentParser(description=f"Header-File Analysis.", epilog="Best Regards!")
         parser.add_argument("-s", "--source", nargs=1, type=Path, required=True,
@@ -144,6 +153,8 @@ class Analysis:
                             help="Specific binary root path.")
         parser.add_argument("-t", "--target", nargs=1, type=str, required=True,
                             help="Specific target binary file path.")
+        parser.add_argument("--target_binary_dir", nargs=1, type=str, required=True,
+                            help="Specific target binary dir.")
         parser.add_argument("-o", "--objects", nargs=1, type=str, required=True,
                             help="Specific target binary objects.")
         parser.add_argument("-j", "--json", nargs=1, type=Path, required=False,

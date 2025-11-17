@@ -37,7 +37,7 @@ if __name__ == "__main__":
     from golden_register import GoldenRegister
 else:
     from golden_register import GoldenRegister
-    
+
 
 class GenAttentionTest(TestBase):
     def __init__(self):
@@ -101,7 +101,7 @@ def gen_gen_atten_data(case_name: str, output: Path) -> bool:
         test.name = case_name
         test.run(cases.get(case_name), output.parent)
         return True
-    
+
     logging.error("Can't get func to gen golden, Case(%s)", case_name)
     return False
 
@@ -120,7 +120,7 @@ def main() -> bool:
     ret: bool = True
     g_src_root = Path(__file__).parents[7]
     for cs in case_name_list:
-        output: Path = Path(g_src_root, "build/framework/tests/st/golden", cs).resolve()
+        output: Path = Path(g_src_root, "build/output/bin/golden", cs).resolve()
         output.mkdir(parents=True, exist_ok=True)
         ret = gen_gen_atten_data(case_name=cs, output=output)
     return ret

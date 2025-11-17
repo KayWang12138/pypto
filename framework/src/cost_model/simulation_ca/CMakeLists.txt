@@ -34,13 +34,6 @@ target_link_libraries(tile_fwk_simulation_ca
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_simulation_ca)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_simulation_ca)
 
-if (ENABLE_FEATURE_PYTHON_FRONT_END)
-else ()
-    install(TARGETS tile_fwk_simulation_ca
-            LIBRARY DESTINATION lib OPTIONAL
-    )
-endif ()
-
 
 # 新增CCE前仿二进制
 add_executable(get_cce_simulation)

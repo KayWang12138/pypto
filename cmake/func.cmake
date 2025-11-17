@@ -97,15 +97,18 @@ function(PTO_Fwk_AnalysisTargetHeaderFiles)
             AND (ENABLE_UTEST OR ENABLE_STEST OR ENABLE_STEST_DISTRIBUTED)
             AND (CMAKE_GENERATOR STREQUAL "Unix Makefiles")
             AND (CMAKE_C_COMPILER_ID STREQUAL "GNU"))
-        set(_file $<TARGET_FILE:${ARG_TARGET}>)
-        set(_objects $<TARGET_OBJECTS:${ARG_TARGET}>)
+        set(_TargetFile $<TARGET_FILE:${ARG_TARGET}>)
+        get_target_property(_TargetBinaryDir ${ARG_TARGET} BINARY_DIR)
+        get_filename_component(_TargetBinaryDir "${_TargetBinaryDir}" REALPATH)
+        set(_TargetObjects $<TARGET_OBJECTS:${ARG_TARGET}>)
         get_filename_component(_PyScript "${PTO_FWK_SRC_ROOT}/cmake/scripts/analysis_binary_header_files.py" REALPATH)
         get_filename_component(_JsonCfg "${PTO_FWK_SRC_ROOT}/cmake/scripts/analysis_binary_header_files.json" REALPATH)
         set(_Args
                 "-s=${PTO_FWK_SRC_ROOT}"
                 "-b=${PTO_FWK_BIN_ROOT}"
-                "-t=${_file}"
-                "-o='${_objects}'"
+                "-t=${_TargetFile}"
+                "--target_binary_dir=${_TargetBinaryDir}"
+                "-o='${_TargetObjects}'"
                 "-j=${_JsonCfg}"
         )
         # 获取 gcc 默认头文件搜索路径

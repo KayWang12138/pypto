@@ -8,9 +8,7 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
-""" 使用 setuptools 及 CMake 集成配置.
-
-使用 setuptools 及 CMake 集成配置.
+"""使用 setuptools 及 CMake 集成配置.
 """
 import argparse
 import logging
@@ -42,7 +40,8 @@ class MetaHelper:
 
     @classmethod
     def get_metadata(cls, k: str, t: str = "project", d: Optional[str] = "") -> Any:
-        """ 从 pyproject.toml 读取项目元数据 """
+        """从 pyproject.toml 读取项目元数据
+        """
         return cls._CONFIG.get(t, {}).get(k, d)
 
     @classmethod
@@ -133,13 +132,13 @@ class CMakeUserOption:
 
 
 class CMakeBuild(build_ext, CMakeUserOption):
-    """ 自定义构建命令，调用 CMake 构建系统
+    """自定义构建命令，调用 CMake 构建系统
     """
     user_options = build_ext.user_options + CMakeUserOption.USER_OPTION
 
     @staticmethod
     def _has_ninja():
-        """ 检查 Ninja 是否可用
+        """检查 Ninja 是否可用
         """
         try:
             subprocess.check_output(['ninja', '--version'], stderr=subprocess.DEVNULL)
@@ -148,7 +147,8 @@ class CMakeBuild(build_ext, CMakeUserOption):
             return False
 
     def initialize_options(self):
-        """ 通过控制命令行选项初始化顺序, 实现实际命令行选项优先生效. """
+        """通过控制命令行选项初始化顺序, 实现实际命令行选项优先生效.
+        """
         super().initialize_options()
         # 从环境变量中解析并初始化
         self.initialize_options_default()
@@ -160,7 +160,7 @@ class CMakeBuild(build_ext, CMakeUserOption):
         self.finalize_options_normal()
 
     def run(self):
-        """ 执行构建流程
+        """执行构建流程
         """
         logging.info("%s", self)
         # 准备构建目录, 使用扩展名创建唯一的构建目录
@@ -197,7 +197,8 @@ class CustomBdistWheel(bdist_wheel, CMakeUserOption):
     user_options = bdist_wheel.user_options + CMakeUserOption.USER_OPTION
 
     def initialize_options(self):
-        """ 通过控制命令行选项初始化顺序, 实现实际命令行选项优先生效. """
+        """通过控制命令行选项初始化顺序, 实现实际命令行选项优先生效.
+        """
         super().initialize_options()
         self.initialize_options_default()
 
@@ -223,15 +224,13 @@ class CustomBdistWheel(bdist_wheel, CMakeUserOption):
 
 
 class SetupCtrl:
-    """ SetupTools 流程控制
+    """SetupTools 流程控制
     """
 
     @classmethod
     def main(cls):
-        """ 主处理流程
+        """主处理流程
         """
-        MetaHelper.init()
-
         # Setuptools 配置
         setup(
             # 基本元数据
@@ -265,4 +264,5 @@ class SetupCtrl:
 
 if __name__ == "__main__":
     logging.basicConfig(format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s', level=logging.INFO)
+    MetaHelper.init()
     SetupCtrl.main()

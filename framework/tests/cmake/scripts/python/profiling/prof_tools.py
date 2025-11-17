@@ -9,8 +9,6 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 """ 性能分析工具.
-
-性能分析工具.
 """
 import logging
 import math
@@ -169,8 +167,7 @@ class ProfTools(ToolsRunAbcSp):
         return True
 
     def process_case_process_post(self, prof_dir: ProfDir) -> bool:
-        """
-        性能采集成功后处理
+        """性能采集成功后处理
 
         :param prof_dir: 当前 ProfDir
         """
@@ -199,8 +196,7 @@ class ProfTools(ToolsRunAbcSp):
         return True
 
     def case_post_rebuild(self, cs: ProfCase, device_id: int):
-        """
-        对采集结果进行重建
+        """对采集结果进行重建
         """
         rest_sub_dirs = [d for d in self.case_prof_ori_dir_root.glob(pattern="PROF_*") if d.is_dir()]
         for sub_dir in rest_sub_dirs:
@@ -210,8 +206,7 @@ class ProfTools(ToolsRunAbcSp):
             self.case_prof_dirs.update({prof_dir.timestamp: prof_dir})
 
     def case_post_parse(self, cs: ProfCase) -> ProfDir:
-        """
-        对采集结果进行解析, 并做初步结果筛选
+        """对采集结果进行解析, 并做初步结果筛选
         """
         # 遍历当前 Case 所采集的各个 ProfDir, 产生 Cycle
         cycle_lst: List[int] = []
@@ -234,8 +229,7 @@ class ProfTools(ToolsRunAbcSp):
         return rest_prof_dir
 
     def case_post_statistic(self, cs: ProfCase, rest_prof_dir: ProfDir):
-        """
-        对解析结果做统计, 统计结果反标 ProfDir
+        """对解析结果做统计, 统计结果反标 ProfDir
         """
         cs.update(k=ProfCase.FieldType.TimeStamp.value, v=rest_prof_dir.timestamp)
         cs.update(k=ProfCase.FieldType.Cycle.value, v=rest_prof_dir.result_case.cycle)

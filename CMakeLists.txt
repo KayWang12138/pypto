@@ -19,8 +19,9 @@ project(PTO_Framework
 ########################################################################################################################
 
 # 路径配置
-get_filename_component(PTO_FWK_SRC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}" REALPATH)
-get_filename_component(PTO_FWK_BIN_ROOT "${CMAKE_CURRENT_BINARY_DIR}" REALPATH)
+get_filename_component(PTO_FWK_SRC_ROOT         "${CMAKE_CURRENT_SOURCE_DIR}"   REALPATH)
+get_filename_component(PTO_FWK_BIN_ROOT         "${CMAKE_CURRENT_BINARY_DIR}"   REALPATH)
+get_filename_component(PTO_FWK_BIN_OUTPUT_ROOT  "${PTO_FWK_BIN_ROOT}/output"    REALPATH)  # 二进制 BUILD 阶段输出路径
 
 message(STATUS "PTO_FWK_SRC_ROOT=${PTO_FWK_SRC_ROOT}")
 message(STATUS "PTO_FWK_BIN_ROOT=${PTO_FWK_BIN_ROOT}")
@@ -102,27 +103,17 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
                 framework/src/interface/configs/tile_fwk_config.json
                 framework/src/interface/configs/tile_fwk_config_schema.json
                 framework/src/passes/pass_config/tile_fwk_platform_info.json
-            DESTINATION ${CMAKE_INSTALL_PREFIX}/${ENABLE_FEATURE_PYTHON_FRONT_END}/configs
+            DESTINATION ${CMAKE_INSTALL_PREFIX}/${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}/configs
     )
 
     # 安装 头文件
-    install(FILES
-                framework/include/tilefwk/comm_group_recorder.h
-                framework/include/tilefwk/config.h
-                framework/include/tilefwk/data_type.h
-                framework/include/tilefwk/element.h
-                framework/include/tilefwk/error.h
-                framework/include/tilefwk/function.h
-                framework/include/tilefwk/gentask_utils.h
-                framework/include/tilefwk/lazy.h
-                framework/include/tilefwk/op_registry.h
-                framework/include/tilefwk/symbolic_distributed.h
-                framework/include/tilefwk/symbolic_scalar.h
-                framework/include/tilefwk/tensor.h
-                framework/include/tilefwk/tile_shape.h
-                framework/include/tilefwk/tilefwk.h
-                framework/include/tilefwk/tilefwk_op.h
-            DESTINATION ${CMAKE_INSTALL_PREFIX}/${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_INCLUDEDIR}/tilefwk
+    install(DIRECTORY framework/include/
+            DESTINATION ${CMAKE_INSTALL_PREFIX}/${ENABLE_FEATURE_PYTHON_FRONT_END}/include
+            PATTERN "*.h"
+            PATTERN "*.hpp"
+            PATTERN ".svn" EXCLUDE
+            PATTERN ".git" EXCLUDE
+            PATTERN "gentask_utils.h" EXCLUDE
     )
     install(DIRECTORY framework/src/interface/tileop/
             DESTINATION ${CMAKE_INSTALL_PREFIX}/${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}/include/tileop
@@ -131,15 +122,12 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
             PATTERN ".svn" EXCLUDE
             PATTERN ".git" EXCLUDE
     )
-    install(FILES
-                framework/include/tilefwk/aicore_data.h
-                framework/include/tilefwk/aicore_print.h
-                framework/include/tilefwk/aicore_runtime.h
-                framework/include/tilefwk/aicpu_common.h
-                framework/include/tilefwk/aicpu_distributed.h
-                framework/include/tilefwk/aicpu_runtime.h
-                framework/include/tilefwk/core_func_data.h
+    install(DIRECTORY framework/src/interface/machine/device/tilefwk/
             DESTINATION ${CMAKE_INSTALL_PREFIX}/${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}/include/tilefwk
+            PATTERN "*.h"
+            PATTERN "*.hpp"
+            PATTERN ".svn" EXCLUDE
+            PATTERN ".git" EXCLUDE
     )
 
     # 生成和安装配置文件
@@ -155,5 +143,48 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
     set(CPACK_PACKAGE_DESCRIPTION ${PROJECT_NAME})
     include(CPack)
 else ()
-    install(DIRECTORY framework/include/                          DESTINATION lib/tilefwk/ OPTIONAL)
+    # 安装 二进制文件
+    install(TARGETS tile_fwk_interface      LIBRARY DESTINATION lib OPTIONAL)
+    if (ENABLE_TORCH_VERIFIER)
+        install(TARGETS tile_fwk_calculator LIBRARY DESTINATION lib OPTIONAL)
+    endif ()
+    install(TARGETS tile_fwk_passes         LIBRARY DESTINATION lib OPTIONAL)
+    install(TARGETS tile_fwk_codegen        LIBRARY DESTINATION lib OPTIONAL)
+    install(TARGETS tile_fwk_compiler       LIBRARY DESTINATION lib OPTIONAL)
+    if (BUILD_WITH_CANN)
+        install(TARGETS tile_fwk_runtime    LIBRARY DESTINATION lib OPTIONAL)
+        install(TARGETS tile_fwk_executor   LIBRARY DESTINATION lib OPTIONAL)
+    endif ()
+    install(TARGETS tile_fwk_simulation     LIBRARY DESTINATION lib OPTIONAL)
+    install(TARGETS tile_fwk_simulation_ca  LIBRARY DESTINATION lib OPTIONAL)
+    install(TARGETS tile_fwk_simulation_pv  LIBRARY DESTINATION lib OPTIONAL)
+    install(TARGETS tile_fwk_operator       LIBRARY DESTINATION lib OPTIONAL)
+
+    # 安装 配置文件
+    add_custom_command(
+            OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config.json
+            COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_LIST_DIR}/framework/src/interface/configs/tile_fwk_config.json
+                                             ${CMAKE_CURRENT_BINARY_DIR}
+    )
+    add_custom_command(
+            OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config_schema.json
+            COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_LIST_DIR}/framework/src/interface/configs/tile_fwk_config_schema.json
+                                             ${CMAKE_CURRENT_BINARY_DIR}
+    )
+    add_custom_command(
+            OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_platform_info.json
+            COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_LIST_DIR}/framework/src/passes/pass_config/tile_fwk_platform_info.json
+                                             ${CMAKE_CURRENT_BINARY_DIR}
+    )
+    add_custom_target(tile_fwk_config.json        ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config.json)
+    add_custom_target(tile_fwk_config_schema_json ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config_schema.json)
+    add_custom_target(tile_fwk_platform_info.json ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_platform_info.json)
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config.json          DESTINATION lib OPTIONAL)
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config_schema.json   DESTINATION lib OPTIONAL)
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_platform_info.json   DESTINATION lib OPTIONAL)
+
+    # 安装头文件
+    install(DIRECTORY framework/include/tilefwk/                        DESTINATION lib/tilefwk/    OPTIONAL)
+    install(DIRECTORY framework/src/interface/tileop/                   DESTINATION lib/tileop/     OPTIONAL)
+    install(DIRECTORY framework/src/interface/machine/device/tilefwk/   DESTINATION lib/tilefwk/    OPTIONAL)
 endif ()

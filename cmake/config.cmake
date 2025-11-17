@@ -135,6 +135,13 @@ if (BUILD_OPEN_PROJECT)
     endif ()
 endif()
 
+# 构建阶段(Build)
+#   输出路径
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PTO_FWK_BIN_OUTPUT_ROOT}/bin)     # 设置可执行文件输出目录
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PTO_FWK_BIN_OUTPUT_ROOT}/lib)     # 设置动态库输出目录
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PTO_FWK_BIN_OUTPUT_ROOT}/lib)     # 设置静态库输出目录
+
+
 # 安装阶段(Install)
 #   安装路径
 #       未显示设置 CMAKE_INSTALL_PREFIX (即 CMAKE_INSTALL_PREFIX 取缺省值)时, 设置与构建树根目录 CMAKE_CURRENT_BINARY_DIR 平级

@@ -9,8 +9,6 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 """ 性能分析工具, PROF结果目录.
-
-性能分析工具, PROF结果目录.
 """
 import copy
 import csv
@@ -25,8 +23,7 @@ from profiling.prof_case import ProfCase
 
 
 class ProfDir:
-    """
-    Profiling 结果目录
+    """Profiling 结果目录
     """
 
     def __init__(self, src_root: Path, path: Path, prof_case: ProfCase, device_id: int = 0, level: str = "l1"):

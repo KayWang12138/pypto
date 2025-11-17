@@ -25,13 +25,10 @@ endif ()
 list(GET PTO_Fwk_StestExecuteDeviceIdList 0 TileFwkStestExecuteDeviceIdPref)
 
 # 预定义路径
-get_filename_component(PTO_Fwk_UTestExePath "${CMAKE_CURRENT_BINARY_DIR}/ut" REALPATH)
-get_filename_component(PTO_Fwk_STestExePath "${CMAKE_CURRENT_BINARY_DIR}/st" REALPATH)
-
 if (ENABLE_STEST_GOLDEN_PATH)
     get_filename_component(ENABLE_STEST_GOLDEN_PATH "${ENABLE_STEST_GOLDEN_PATH}" REALPATH)
 else ()
-    get_filename_component(ENABLE_STEST_GOLDEN_PATH "${PTO_Fwk_STestExePath}/golden" REALPATH)
+    get_filename_component(ENABLE_STEST_GOLDEN_PATH "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/golden" REALPATH)
 endif ()
 
 

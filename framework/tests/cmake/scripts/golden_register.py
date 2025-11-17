@@ -67,6 +67,7 @@ class GoldenRegister:
         """根据名称获取回调函数
 
         支持以下用例名传入
+
         1. TEST/TEST_F 场景下:
             TestSuiteName.TestCaseName
         2. TEST_P 场景下:
@@ -77,6 +78,7 @@ class GoldenRegister:
             TestInstanceName/TestSuiteName.TestCaseName/{int}
 
         对应注册用例名支持以下场景
+
         1. TEST/TEST_F 场景下:
             TestSuiteName.TestCaseName
         2. TEST_P 场景下:

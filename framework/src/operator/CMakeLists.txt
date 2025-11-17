@@ -24,10 +24,3 @@ target_link_libraries(tile_fwk_operator
 )
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_operator)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_operator)
-
-if (ENABLE_FEATURE_PYTHON_FRONT_END)
-else ()
-    install(TARGETS tile_fwk_operator
-            LIBRARY DESTINATION lib OPTIONAL
-    )
-endif ()

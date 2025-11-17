@@ -8,9 +8,7 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
-""" 工具总入口.
-
-工具总入口.
+"""工具总入口.
 """
 import argparse
 import logging
@@ -75,7 +73,8 @@ class ToolsCtrl:
 
     @classmethod
     def main(cls):
-        """ 主处理流程 """
+        """主处理流程
+        """
         parser = argparse.ArgumentParser(description=f"Tile Framework Tools Ctrl.", epilog="Best Regards!")
 
         # 主命令参数注册

@@ -480,7 +480,7 @@ T2 GetMapValByName(const std::map<T1, T2> &map_data, const T1 &name) {
 
 template <typename T>
 std::vector<T> GetOpMetaData(const std::vector<OpFunc> &opFuncs, const std::string &op) {
-    auto case_file = "../../../../framework/tests/st/operation/test_case/" + op + "_st_test_cases.json";
+    auto case_file = "../../../framework/tests/st/operation/test_case/" + op + "_st_test_cases.json";
     std::ifstream json_file(case_file);
     if (!json_file.is_open()) {
         ALOG_INFO << "Not find any input data for " << case_file << ".";

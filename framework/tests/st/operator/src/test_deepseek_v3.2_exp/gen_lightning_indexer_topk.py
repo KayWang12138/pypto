@@ -349,7 +349,7 @@ def main() -> bool:
         "DynamicIndexerTopk.indexer_topk_quant_4_b_1_s1_64k_s2",
     ]
     for cs in quant_case_name_list:
-        output = Path(g_src_root, "build/framework/tests/st/golden", cs).resolve()
+        output = Path(g_src_root, "build/output/bin/golden", cs).resolve()
         output.mkdir(parents=True, exist_ok=True)
         ret &= indexer_topk_quant(case_name=cs, output=output)
 

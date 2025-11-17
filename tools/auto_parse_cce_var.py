@@ -28,7 +28,7 @@ def int_list(input_list, base=10):
 
 
 def extract_func(func_str_list, raw_tensor_addrs):
-    func_hash_tuple_list = [] 
+    func_hash_tuple_list = []
     for idx in range(0, len(func_str_list), 2):
         func_hash = func_str_list[idx].split("#funcHash:")[1].split(' #')[0].strip()
         if int(func_hash) == 0:
@@ -179,7 +179,7 @@ if __name__ == "__main__":
     """
     脚本说明:
     脚本用于将动态cce中表征validShape的变量, 根据aicpu3日志中的funcData进行真实值计算。
-    使用方法:python3 tools/auto_parse_cce_var.py -f ./aicpu3.txt -k ./build/framework/tests/st/kernel_meta/
+    使用方法:python3 tools/auto_parse_cce_var.py -f ./aicpu3.txt -k ./build/output/bin/kernel_meta/
 
     输入:
     aicpu3.txt-----funcData代表了运行时的真实参数

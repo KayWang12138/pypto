@@ -8,10 +8,11 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
-""" 用例基类定义.
+"""用例基类定义.
 
-1. 承载参数, 结果等数据存储, 数据统计, 数据落盘相关功能;
-2. 承载用例执行功能;
+范围如下:
+    1. 承载参数, 结果等数据存储, 数据统计, 数据落盘相关功能;
+    2. 承载用例执行功能;
 """
 import csv
 from enum import Enum, unique
@@ -35,8 +36,7 @@ class CaseAbc(ABC):
 
     @property
     def brief(self) -> Tuple[List[Any], List[Any]]:
-        """
-        获取缩略描述信息, 主要用于打屏输出
+        """获取缩略描述信息, 主要用于打屏输出
         """
         heads = [CaseAbc.FieldType.Network.value, CaseAbc.FieldType.Name.value, "Result"]
         datas = [self.network, self.name, self._get_field_rst(self.result)]
@@ -44,8 +44,7 @@ class CaseAbc(ABC):
 
     @property
     def detail(self) -> Tuple[List[Any], List[Any]]:
-        """
-        获取详细描述信息, 主要用于落盘输出
+        """获取详细描述信息, 主要用于落盘输出
         """
         heads = [CaseAbc.FieldType.Network.value, CaseAbc.FieldType.Name.value, CaseAbc.FieldType.Enable.value,
                  "Result"]
@@ -71,8 +70,7 @@ class CaseAbc(ABC):
     @property
     @abstractmethod
     def result(self) -> bool:
-        """
-        子类必须实现该属性, 用于获取执行结果
+        """子类必须实现该属性, 用于获取执行结果
         """
         pass
 

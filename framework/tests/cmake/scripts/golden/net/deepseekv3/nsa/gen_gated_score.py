@@ -84,7 +84,7 @@ def gated_score_mlp_standard_prefill_plus(x, w1, w2):
             block_start = block_idx * l
             block_end = min((block_idx + 1) * l, valid_q_len)
             act_block_size = block_end - block_start
-             
+
             x_valid = x[b_idx, block_start: block_end, :]
             x_reshape = torch.reshape(x_valid, [act_block_size, h])
             mm1 = torch.matmul(x_reshape, w1)
@@ -145,7 +145,7 @@ def main() -> bool:
     # 函数调用
     ret: bool = True
     for cs in case_name_list:
-        output_dir: Path = Path(g_src_root, "build/framework/tests/st/golden", cs).resolve()
+        output_dir: Path = Path(g_src_root, "build/output/bin/golden", cs).resolve()
         output_dir.mkdir(parents=True, exist_ok=True)
         ret = gen_gated_score_func(case_name=cs, output=output_dir)
     return ret

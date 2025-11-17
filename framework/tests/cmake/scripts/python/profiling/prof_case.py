@@ -8,9 +8,7 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
-""" 性能分析工具.
-
-性能分析工具.
+"""性能分析工具.
 """
 from enum import Enum, unique
 from typing import List, Optional, Dict, Any, Tuple
@@ -19,8 +17,7 @@ from utils.case_abc import CaseAbc
 
 
 class ProfCase(CaseAbc):
-    """
-    Profiling 用例, 仅承载数据存储, 统计, 落盘相关功能.
+    """Profiling 用例, 仅承载数据存储, 统计, 落盘相关功能.
     """
 
     @unique
@@ -61,8 +58,7 @@ class ProfCase(CaseAbc):
 
     @property
     def brief(self) -> Tuple[List[Any], List[Any]]:
-        """
-        获取缩略描述信息, 主要用于打屏输出
+        """获取缩略描述信息, 主要用于打屏输出
         """
         heads, datas = super().brief
         heads_ext = ["CtrlCnt(W/T/M)", ProfCase.FieldType.TimeStamp.value,
@@ -76,8 +72,7 @@ class ProfCase(CaseAbc):
 
     @property
     def detail(self) -> Tuple[List[Any], List[Any]]:
-        """
-        获取详细描述信息, 主要用于落盘输出
+        """获取详细描述信息, 主要用于落盘输出
         """
         heads, datas = super().detail
         heads_ext = [

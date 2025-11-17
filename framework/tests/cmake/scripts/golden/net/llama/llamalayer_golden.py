@@ -211,7 +211,7 @@ def main() -> bool:
     # 函数调用
     ret: bool = True
     for cs in case_name_list:
-        output: Path = Path(g_src_root, "build/framework/tests/st/golden", cs).resolve()
+        output: Path = Path(g_src_root, "build/output/bin/golden", cs).resolve()
         output.mkdir(parents=True, exist_ok=True)
         ret = gen_llama_layer_golden(case_name=cs, output=output)
     return ret

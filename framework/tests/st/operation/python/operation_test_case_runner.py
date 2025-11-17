@@ -67,9 +67,9 @@ class OperationTestCaseRunner(TestCaseRunner):
 
     def tear_up(self) -> NoReturn:
         os.environ["TILE_FWK_STEST_GOLDEN_PATH"] = (
-            f"{str(self._root_path)}/build/framework/tests/st/golden"
+            f"{str(self._root_path)}/build/output/bin/golden"
         )
-        os.chdir(f"{str(self._root_path)}/build/framework/tests/st")
+        os.chdir(f"{str(self._root_path)}/build/output/bin")
 
     def tear_down(self) -> NoReturn:
         os.chdir(f"{str(self._root_path)}")

@@ -137,10 +137,7 @@ Status PlatformConfig::InitPlatformConfig(DPlatform platformId) {
     /* 环境变量优先生效 */
     std::string jsonFilePath = GetEnvVar(platformConfigEnvName);
     if (jsonFilePath.empty()) {
-        jsonFilePath = RealPath(GetCurrentSharedLibPath() + "/../configs/tile_fwk_platform_info.json");
-        if (!FileExist(jsonFilePath)) {
-            jsonFilePath = RealPath(GetCurrentSharedLibPath() + "/../conf/tile_fwk_platform_info.json");
-        }
+        jsonFilePath = RealPath(GetCurrentSharedLibPath() + "/configs/tile_fwk_platform_info.json");
     }
     JsonNodeParser jsonParser;
     if (jsonFilePath.size() > 0 && jsonParser.Initialize(jsonFilePath) != SUCCESS) {

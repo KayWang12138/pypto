@@ -128,7 +128,7 @@ def compute_attention(input_data, params):
                 kv_seq_len = actual_seq[i]
             # s_q!=1 MTP场景下的casual计算
             seq_len = min(max(kv_seq_len - s_q + 1 + j, 0), topk)
-            
+
             # 当前批次的gather，获取对应的slc_kn
             offset = offsets[i * s_q + j, :]
             for idx in range(seq_len):
@@ -136,7 +136,7 @@ def compute_attention(input_data, params):
                 slc_kn[idx, :] = kn[slc_idx, :]
                 slc_kr[idx, :] = kr[slc_idx, :]
                 slc_kn_scales[idx, :] = kn_scales[slc_idx, :]
-            
+
             # 获取当前批次和s_q的q [n_q, d_q]
             q_bs = q[i, j]
             # 获取当前批次的[seq_len, d_k/d_v]
@@ -152,7 +152,7 @@ def compute_attention(input_data, params):
             kr_tmp = slc_kr[:seq_len, :]
             k_bs = torch.concat([kn_tmp, kr_tmp], dim=-1)
             v_bs = kn_tmp
-            
+
             # MM1: 矩阵乘法
             qk_bmm_res = torch.matmul(q_bs.float(), k_bs.transpose(1, 0).float())
             qk_ele_res = qk_bmm_res * scalar
@@ -209,7 +209,7 @@ def gen_dsa_gather_sa_entry(dtype, bn1n2s1, is_kn_quant, actual_seq, output):
 
     q_bsnd = gen_uniform_data(shape_q, -1, 1, dtype)
     kn_bsnd_tmp = gen_uniform_data(shape_kn, -1, 1, dtype)
-    
+
     kn_scales = kn_bsnd_tmp.reshape(b, s_max, 4, 128).to(torch.float32).abs().amax(dim=-1, keepdim=True).clamp(min=1e-8) / 127.0
     if is_kn_quant == 1:
         kn_quant = kn_bsnd_tmp.reshape(b, s_max, 4, 128) / kn_scales
@@ -388,7 +388,7 @@ def main() -> bool:
     # 函数调用
     ret: bool = True
     for cs in case_name_list:
-        output: Path = Path(g_src_root, "build/framework/tests/st/golden", cs).resolve()
+        output: Path = Path(g_src_root, "build/output/bin/golden", cs).resolve()
         output.mkdir(parents=True, exist_ok=True)
         ret = dsa_sa_func(case_name=cs, output=output)
     return ret

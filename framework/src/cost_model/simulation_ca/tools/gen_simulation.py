@@ -245,7 +245,7 @@ def main():
 
             input_content = stdout.strip()
             # 启动 .exe 程序，并将标准输入、标准输出和标准错误输出重定向
-            simulation_exe = project_dir + "/build/framework/src/get_cce_simulation"
+            simulation_exe = project_dir + "/build/output/bin/get_cce_simulation"
             process = subprocess.Popen(simulation_exe,
                                        stdin=subprocess.PIPE,
                                        stdout=subprocess.PIPE,
