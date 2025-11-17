@@ -42,6 +42,20 @@ stest:
       - TestMatmul/MatmulOperationTest.TestMatmul/21
       - TestMatmul/MatmulOperationTest.TestMatmul/22
       - TestMatmul/MatmulOperationTest.TestMatmul/23
+      - TestMatmul/MatmulOperationTest.TestMatmul/24
+      - TestMatmul/MatmulOperationTest.TestMatmul/25
+      - TestMatmul/MatmulOperationTest.TestMatmul/26
+      - TestMatmul/MatmulOperationTest.TestMatmul/27
+      - TestMatmul/MatmulOperationTest.TestMatmul/28
+      - TestMatmul/MatmulOperationTest.TestMatmul/29
+      - TestMatmul/MatmulOperationTest.TestMatmul/30
+      - TestMatmul/MatmulOperationTest.TestMatmul/31
+      - TestMatmul/MatmulOperationTest.TestMatmul/32
+      - TestMatmul/MatmulOperationTest.TestMatmul/33
+      - TestMatmul/MatmulOperationTest.TestMatmul/34
+      - TestMatmul/MatmulOperationTest.TestMatmul/35
+      - TestMatmul/MatmulOperationTest.TestMatmul/36
+      - TestMatmul/MatmulOperationTest.TestMatmul/37
       - TestBatchMatmul/BatchMatmulOperationTest.TestBatchMatmul/0
       - TestBatchMatmul/BatchMatmulOperationTest.TestBatchMatmul/1
       - TestBatchMatmul/BatchMatmulOperationTest.TestBatchMatmul/2
