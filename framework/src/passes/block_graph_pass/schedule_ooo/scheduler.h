@@ -75,16 +75,15 @@ struct IssueQueue {
     bool busy{false};
     IssueEntryPtr curIssue = nullptr;
     int curOpRetireCycle{-1};
-    std::vector<std::pair<IssueEntryPtr, int>> queue;
+    std::vector<IssueEntryPtr> queue;
 
     IssueQueue() {}
     ~IssueQueue() {}
 
-    void Insert(IssueEntryPtr op, int priority) {
-        // priority越小，表示优先级越高。
-        queue.push_back(std::make_pair(op, priority));
+    void Insert(IssueEntryPtr op) {
+        queue.push_back(op);
         std::push_heap(queue.begin(), queue.end(),
-            [](std::pair<IssueEntryPtr, int> &a, std::pair<IssueEntryPtr, int> &b) { return a.second > b.second; });
+            [](IssueEntryPtr &a, IssueEntryPtr &b) { return a->execOrder > b->execOrder; });
     }
 
     bool Empty() {
@@ -92,16 +91,14 @@ struct IssueQueue {
     }
 
     IssueEntryPtr Front() {
-        return queue[0].first;
+        return queue[0];
     }
 
     IssueEntryPtr PopFront() {
-        std::pop_heap(queue.begin(), queue.end(), [](std::pair<IssueEntryPtr, int>& a,
-        std::pair<IssueEntryPtr, int>& b){
-            return a.second > b.second;
+        std::pop_heap(queue.begin(), queue.end(), [](IssueEntryPtr& a, IssueEntryPtr& b){
+            return a->execOrder > b->execOrder;
         });
-
-        IssueEntryPtr op = queue.back().first;
+        IssueEntryPtr op = queue.back();
         queue.pop_back();
         return op;
     }

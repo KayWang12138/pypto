@@ -270,7 +270,9 @@ Status L1CopyInReuseRunner::SetNumLR(std::vector<int> &numLRList) {
                 }
                 numLRList[i] = entry.second;
             }
+            continue;
         }
+        APASS_LOG_WARN_F(Elements::Operation, "Invalid subgraph ID: %d in l1ReuseMap, ignored.", i);
     }
     return SUCCESS;
 }
@@ -381,7 +383,9 @@ Status L1CopyInReuseRunner::SetNumDB(std::vector<int> &hashMergeNum) {
                 }
                 hashMergeNum[i] = entry.second;
             }
+            continue;
         }
+        APASS_LOG_WARN_F(Elements::Operation, "Invalid subgraph ID: %d in cubeNBufferMap, ignored.", i);
     }
     return SUCCESS;
 }

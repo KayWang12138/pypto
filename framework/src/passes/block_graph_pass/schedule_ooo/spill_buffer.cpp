@@ -275,7 +275,7 @@ Status OoOScheduler::SpillInBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssu
         return FAILED;
     }
     if (!isGenSpill) {
-        allocIssueQueue[bufferType].Insert(reloadAlloc, reloadAlloc->execOrder);
+        allocIssueQueue[bufferType].Insert(reloadAlloc);
     }
     if (bufferManagerMap[bufferType].Free(spillInfo.spillMemId_) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Tensor, "Free spill tensor[%d] failed!", spillInfo.spillMemId_);

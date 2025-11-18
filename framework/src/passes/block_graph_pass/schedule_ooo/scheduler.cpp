@@ -401,7 +401,7 @@ Status OoOScheduler::RetireOpAndAwakeSucc(IssueEntryPtr issue, uint64_t& commitC
             }
         }
         if (ready) {
-            issueQueues[succ->type].Insert(succ, succ->execOrder);
+            issueQueues[succ->type].Insert(succ);
             APASS_LOG_DEBUG_F(Elements::Operation, "    Wakeup: %s, execOrder: %d", succ->GetOpInfo(), succ->execOrder);
         }
     }
@@ -437,10 +437,10 @@ void OoOScheduler::LaunchReadyIssue() {
     for (size_t i = 0; i < issueEntries.size(); i++) {
         if (USE_LESS_OPS.find(issueEntries[i]->tileOp.GetOpcode()) != USE_LESS_OPS.end() &&
             issueEntries[i]->predecessors.empty()) {
-            issueQueues[issueEntries[i]->type].Insert(issueEntries[i], i);
+            issueQueues[issueEntries[i]->type].Insert(issueEntries[i]);
         }
         if (issueEntries[i]->isAlloc) {
-            allocIssueQueue[localBufferMap[issueEntries[i]->reqMemIds[0]]->memType].Insert(issueEntries[i], i);
+            allocIssueQueue[localBufferMap[issueEntries[i]->reqMemIds[0]]->memType].Insert(issueEntries[i]);
         }
     }
 }
@@ -650,6 +650,10 @@ void OoOScheduler::AddDependencies(
             issue->reqMemIds.push_back(memId);
         }
         if (lastWriteOpMap.find(memId) != lastWriteOpMap.end()) {
+            // 解除DDR地址依赖
+            if (lastWriteOpMap[memId]->tileOp.GetOpcode() == Opcode::OP_COPY_OUT && issue->tileOp.GetOpcode() == Opcode::OP_COPY_OUT) {
+                continue;
+            }
             issue->predecessors.insert(lastWriteOpMap[memId]->id);
             lastWriteOpMap[memId]->successors.insert(issue->id);
         }
