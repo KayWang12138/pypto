@@ -25,7 +25,6 @@ NUM_128 = 128
 NUM_256 = 256
 NUM_512 = 512
 NUM_1024 = 1024
-KEY_ONLY_CODEGEN = "ONLY_CODEGEN"
 
 
 @dataclass
@@ -624,7 +623,7 @@ def win_attention_flash(**kwargs):
 
 
 def test_win_atten_ut(tile_config, flash, debug):
-    pto.set_host_option("KEY_ONLY_CODEGEN", True)
+    pto.set_host_options(only_codegen=True)
 
     d_type = pto.DT_FP16
 

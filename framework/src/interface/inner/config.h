@@ -15,6 +15,7 @@
 
 #pragma once
 #include <iostream>
+#include <variant>
 #include "tilefwk/tilefwk.h"
 
 namespace npu::tile_fwk {
@@ -147,5 +148,7 @@ void SetRunDataOption(const std::string &key, const T &value) {
     internal::SetOption("rundata." + key, value);
 }
 void CreateRunDataDir();
+
+std::unordered_map<std::string, std::variant<int64_t, std::string, std::vector<int64_t>, std::map<int64_t, int64_t>>> GetOptions();
 } // namespace config
 } // namespace npu::tile_fwk

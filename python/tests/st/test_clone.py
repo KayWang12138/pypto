@@ -23,13 +23,14 @@ n1 = 64
 d = 64
 
 
-@pto.jit
+@pto.jit(
+    host_options={"only_codegen": True},
+    codegen_options={"support_dynamic_unaligned": True}
+)
 def kernel_func(in_tensors, out_tensors):
     in_tensor = in_tensors[0]
     out_tensor = out_tensors[0]
     pto.set_vec_tile_shapes(1, 1, 64, 64)
-    pto.set_codegen_option("support_dynamic_unaligned", True)
-    pto.set_host_option("only_codegen", True)
 
     with pto.function("MAIN", [in_tensor], [out_tensor]):
         for b_idx in pto.loop(b, name="b_loop", idx_name="b_idx"):

@@ -11,6 +11,7 @@
 """
 """
 
+from enum import Enum
 from . import pto_impl
 
 

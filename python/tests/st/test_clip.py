@@ -192,7 +192,7 @@ def run_clip(inputs: List[torch.Tensor], outputs: List[torch.Tensor], args: Clip
     device_id = int(os.environ.get("TILE_FWK_DEVICE_ID", 0))
     torch.npu.set_device(device_id)
     pto.runtime._device_init()
-    pto.set_codegen_option("support_dynamic_unaligned", True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
     input_tensors = [tensor(x.shape, TORCH_TO_PTO_TYPES[x.dtype]) for x in inputs]
     output_tensors = [tensor(x.shape, TORCH_TO_PTO_TYPES[x.dtype]) for x in outputs]
     build_clip_2d(input_tensors, output_tensors, args.view_shape, args.tile_shape, args)

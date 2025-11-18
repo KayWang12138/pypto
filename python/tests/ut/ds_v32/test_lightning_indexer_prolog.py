@@ -25,12 +25,6 @@ NUM_1536 = 1536
 NUM_2048 = 2048
 NUM_7168 = 7168
 
-KEY_SUPPORT_DYNAMIC_UNALIGNED = "SUPPORT_DYNAMIC_UNALIGNED"
-KEY_NBUFFER_MERGE_MODE = "NBUFFER_MERGE_MODE"
-KEY_L1_REUSE = "L1_REUSE"
-KEY_CUBE_NBUFFER_MAP = "CUBE_NBUFFER_MAP"
-KEY_COPYIN_THRESHOLD = "COPYIN_THRESHOLD"
-
 
 @dataclass
 class LightningIndexerPrologTileConfig:
@@ -527,11 +521,11 @@ def lightning_indexer_prolog_inner(args: LightningIndexerPrologArgs):
 
 
 def setup_lightning_indexer_prolog_config():
-    pto.set_codegen_option(KEY_SUPPORT_DYNAMIC_UNALIGNED, True)
-    pto.set_pass_option(KEY_NBUFFER_MERGE_MODE, NUM_1)
-    pto.set_pass_option(KEY_L1_REUSE, NUM_4)
-    pto.set_pass_option(KEY_CUBE_NBUFFER_MAP, {NUM_3: NUM_4})
-    pto.set_pass_option(KEY_COPYIN_THRESHOLD, NUM_2 * NUM_1024 * NUM_1024)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
+    pto.set_pass_options(nbuffer_merge_mode=NUM_1,
+                         l1_reuse=NUM_4,
+                         cube_nbuffer_map={NUM_3: NUM_4},
+                         copyin_threshold=NUM_2 * NUM_1024 * NUM_1024)
 
 
 def build_lightning_indexer_prolog_args(

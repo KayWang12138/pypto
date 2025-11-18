@@ -35,7 +35,7 @@ def test_vector_operation_where():
     out = pto.tensor(shape, dtype, "WHERE_TENSOR_out")
 
     with pto.function("WHERE", [condition, input_base, other_base], [out]):
-        pto.set_codegen_option("support_dynamic_unaligned", True)
+        pto.set_codegen_options(support_dynamic_unaligned=True)
         for b_idx in pto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_ADD_L0", idx_name="b_idx"):
             for s_idx in pto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_ADD_L1", idx_name="s_idx"):
                 tile_cond = pto.view(condition, view_shape,

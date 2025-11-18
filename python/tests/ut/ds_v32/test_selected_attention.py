@@ -4,16 +4,14 @@ import logging
 import pytest
 import pto
 
-KEY_ONLY_CODEGEN = "ONLY_CODEGEN"
-KEY_SUPPORT_DYNAMIC_UNALIGNED = "SUPPORT_DYNAMIC_UNALIGNED"
 
 SHAPE_DIM_0 = 0
 SHAPE_DIM_1 = 1
 
 
 def set_config():
-    pto.set_host_option(KEY_ONLY_CODEGEN, True)
-    pto.set_codegen_option(KEY_SUPPORT_DYNAMIC_UNALIGNED, True)
+    pto.set_host_options(only_codegen=True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
 
 
 @dataclass

@@ -33,7 +33,7 @@ def test_muls_onboard():
 
     b_loop_num = math.ceil(shape[0] / view_shape[0])
     s_loop_num = math.ceil(shape[1] / view_shape[1])
-    pto.set_codegen_option("support_dynamic_unaligned", True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
     with pto.function("MAIN", [input1], [output]):
         for b_idx in pto.loop(b_loop_num, name="b0", idx_name="bidx"):
             for s_idx in pto.loop(s_loop_num, name="s0", idx_name="sidx"):

@@ -28,7 +28,7 @@ def test_vector_operation_add():
     shape = (n, m)
     view_shape = (16, 16)
     tile_shape = (8, 8)
-    pto.set_codegen_option("support_dynamic_unaligned", True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
     pto.runtime._device_init()
     a = pto.tensor(shape, dtype, "ADD_TENSOR_a")
     b = pto.tensor(shape, dtype, "ADD_TENSOR_b")
@@ -70,7 +70,7 @@ def test_vector_operation_div():
     shape = (n, m)
     view_shape = (16, 16)
     tile_shape = (8, 8)
-    pto.set_codegen_option("support_dynamic_unaligned", True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
     pto.runtime._device_init()
     a = pto.tensor(shape, dtype, "DIV_TENSOR_a")
     b = pto.tensor(shape, dtype, "DIV_TENSOR_b")
@@ -113,7 +113,7 @@ def test_vector_operation_mul():
     shape = (n, m)
     view_shape = (16, 16)
     tile_shape = (8, 8)
-    pto.set_codegen_option("support_dynamic_unaligned", True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
     pto.runtime._device_init()
     a = pto.tensor(shape, dtype, "MUL_TENSOR_a")
     b = pto.tensor(shape, dtype, "MUL_TENSOR_b")
@@ -156,7 +156,7 @@ def test_vector_operation_sub():
     shape = (n, m)
     view_shape = (16, 16)
     tile_shape = (8, 8)
-    pto.set_codegen_option("support_dynamic_unaligned", True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
     pto.runtime._device_init()
     a = pto.tensor(shape, dtype, "SUB_TENSOR_a")
     b = pto.tensor(shape, dtype, "SUB_TENSOR_b")
@@ -199,7 +199,7 @@ def test_vector_operation_abs():
     shape = (n, m)
     view_shape = (16, 16)
     tile_shape = (8, 8)
-    pto.set_codegen_option("support_dynamic_unaligned", True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
     pto.runtime._device_init()
     a = pto.tensor(shape, dtype, "ABS_TENSOR_a")
     b = pto.tensor(shape, dtype, "ABS_TENSOR_b")
@@ -235,7 +235,7 @@ def test_vector_operation_sqrt():
     shape = (n, m)
     view_shape = (16, 16)
     tile_shape = (8, 8)
-    pto.set_codegen_option("support_dynamic_unaligned", True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
     pto.runtime._device_init()
     a = pto.tensor(shape, dtype, "SQRT_TENSOR_a")
     b = pto.tensor(shape, dtype, "SQRT_TENSOR_b")
@@ -271,7 +271,7 @@ def test_vector_operation_exp():
     shape = (n, m)
     view_shape = (16, 16)
     tile_shape = (8, 8)
-    pto.set_codegen_option("support_dynamic_unaligned", True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
     pto.runtime._device_init()
     a = pto.tensor(shape, dtype, "SQRT_TENSOR_a")
     b = pto.tensor(shape, dtype, "SQRT_TENSOR_b")
@@ -306,7 +306,7 @@ def test_vector_operation_neg():
     n, m = tiling * 1, tiling * 1
     view_shape = (16, 16)
     tile_shape = (8, 8)
-    pto.set_codegen_option("support_dynamic_unaligned", True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
     pto.runtime._device_init()
 
     a = pto.tensor((n, m), dtype, "NEG_TENSOR_a")
@@ -342,7 +342,7 @@ def test_vector_operation_full():
     n, m = tiling * 1, tiling * 1
     view_shape = (16, 16)
     tile_shape = (8, 8)
-    pto.set_codegen_option("support_dynamic_unaligned", True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
     pto.runtime._device_init()
 
     a = pto.tensor((n, m), dtype, "VEC_DUP_TENSOR_a")
@@ -378,7 +378,7 @@ def test_vector_operation_logical_not():
     view_shape = (16, 16)
     tile_shape = (8, 8)
     pto.runtime._device_init()
-    pto.set_codegen_option("support_dynamic_unaligned", True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
 
     a = pto.tensor((n, m), pto.DT_FP32, "LOGICALNOT_TENSOR_a")
     b = pto.tensor((n, m), pto.DT_BOOL, "LOGICALNOT_TENSOR_b")
@@ -414,7 +414,7 @@ def test_vector_operation_expand():
     n, m = tiling * 1, tiling * 1
     view_shape = (16, 16)
     tile_shape = (8, 8)
-    pto.set_codegen_option("support_dynamic_unaligned", True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
     pto.runtime._device_init()
 
     a = pto.tensor((n, 1), dtype, "EXPAND_TENSOR_a")
@@ -459,7 +459,7 @@ def test_vector_operation_concat():
     shape = (n, m)
     view_shape = (16, 32)
     tile_shape = (8, 8)
-    pto.set_codegen_option("support_dynamic_unaligned", True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
     pto.runtime._device_init()
 
     a = pto.tensor(shape, dtype, "CONCAT_TENSOR_a")
@@ -506,7 +506,7 @@ def test_vector_operation_rowmaxsingle():
     view_shape = (16, 16)
     tile_shape = (8, 8)
     pto.runtime._device_init()
-    pto.set_codegen_option("support_dynamic_unaligned", True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
     a = pto.tensor(shape, dtype, "ROWMAXSINGLE_TENSOR_a")
     b = pto.tensor(output_shape, dtype, "ROWMAXSINGLE_TENSOR_b")
     dim = 0
@@ -544,7 +544,7 @@ def test_vector_operation_rowsumsingle():
     view_shape = (16, 16)
     tile_shape = (8, 8)
     pto.runtime._device_init()
-    pto.set_codegen_option("support_dynamic_unaligned", True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
     a = pto.tensor(shape, dtype, "ROWSUMSINGLE_TENSOR_a")
     b = pto.tensor(output_shape, dtype, "ROWSUMSINGLE_TENSOR_b")
     dim = 0
@@ -582,7 +582,7 @@ def test_vector_operation_rowminsingle():
     view_shape = (16, 16)
     tile_shape = (8, 8)
     pto.runtime._device_init()
-    pto.set_codegen_option("support_dynamic_unaligned", True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
     a = pto.tensor(shape, dtype, "ROWMINSINGLE_TENSOR_a")
     b = pto.tensor(output_shape, dtype, "ROWMINSINGLE_TENSOR_b")
     dim = 0
@@ -617,7 +617,7 @@ def test_tensor_operation_expand():
     n, m = tiling * 1, tiling * 1
     view_shape = (16, 16)
     tile_shape = (8, 8)
-    pto.set_codegen_option("support_dynamic_unaligned", True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
     pto.runtime._device_init()
 
     a = pto.tensor((n, 1), dtype, "EXPAND_TENSOR_a")

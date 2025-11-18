@@ -111,7 +111,7 @@ def selected_attention_compute(**kwargs):
     g_loop_sym = group // g_tile
     n2_sym = n_kv
 
-    pto.set_codegen_option(KEY_SUPPORT_DYNAMIC_UNALIGNED, True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
     for b_idx in pto.loop(0, batch_size_sym, 1, name="LOOP_L0_b_SA", idx_name="b_idx", extra_args=(set(), True)):
         def inside_b_loop_sa(b_idx):
             # nonlocal sa_out

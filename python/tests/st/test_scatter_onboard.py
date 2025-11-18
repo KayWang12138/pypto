@@ -42,7 +42,7 @@ def scatter_2dim_proc(scatter_para, is_inplace):
 
     b_loop_num = math.ceil(indices_shape[0] / view_shape[0])
     s_loop_num = math.ceil(indices_shape[1] / view_shape[1])
-    pto.set_codegen_option("support_dynamic_unaligned", True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
     with pto.function("MAIN", [self_tensor, indices_tensor], [dst_tensor]):
         for b_idx in pto.loop(b_loop_num, name="b0", idx_name="bidx"):
             for s_idx in pto.loop(s_loop_num, name="s0", idx_name="sidx"):

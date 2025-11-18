@@ -41,7 +41,7 @@ def test_gather_onboard():
 
     b_loop_num = math.ceil(index_shape[0] / view_shape[0])
     s_loop_num = math.ceil(index_shape[1] / view_shape[1])
-    pto.set_codegen_option("support_dynamic_unaligned", True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
     with pto.function("GATHER", [src_tensor, index_tensor], [dst_tensor]):
         for b_idx in pto.loop(b_loop_num, name="LOOP_DIV_L0", idx_name="b_idx"):
             for s_idx in pto.loop(s_loop_num, name="LOOP_SIV_L0", idx_name="s_idx"):

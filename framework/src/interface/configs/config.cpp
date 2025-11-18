@@ -313,6 +313,10 @@ void Reset() {
     g_rwlock.unlock();
 }
 
+std::unordered_map<std::string, ValueType> GetOptions(){
+    return g_config.options;
+}
+
 std::shared_ptr<ConfigStorage> Duplicate() {
     std::shared_lock lock(g_rwlock);
     return std::make_shared<ConfigStorage>(g_config);

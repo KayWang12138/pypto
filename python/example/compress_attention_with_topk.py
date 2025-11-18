@@ -416,7 +416,7 @@ def compress_attention_with_topk(**kwargs):
 
 
 def test_cmp_attn_topk(data_type, tile_config: CmpAttnTopkTile, input_param: list, act_seq_len: list):
-    pto.set_host_option(KEY_ONLY_CODEGEN, True)
+    pto.set_host_options(only_codegen=True)
     d_type = data_type
 
     b = input_param[0]

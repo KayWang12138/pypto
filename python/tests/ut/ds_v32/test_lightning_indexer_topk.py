@@ -29,20 +29,6 @@ NUM_4096 = 4096
 NUM_8192 = 8192
 AVOID_FP32_TO_FP16_OVERFLOW_SCALE = 1.0 / 2048.0
 
-KEY_SUPPORT_DYNAMIC_UNALIGNED = "support_dynamic_unaligned"
-KEY_COPYIN_THRESHOLD = "copyin_threshold"
-KEY_SG_CYCLE_LOWER_BOUND = "cycle_lower_bound"
-KEY_SG_CYCLE_UPPER_BOUND = "cycle_upper_bound"
-KEY_L1_REUSE = "l1_reuse"
-KEY_SG_PARALLEL_NUM = "parallel_threshold"
-KEY_NBUFFER_MERGE_MODE = "nbuffer_merge_mode"
-KEY_VEC_NBUFFER_MAP = "vec_nbuffer_map"
-KEY_CODEGEN_EXPRESSION_FUSION = "codegen_expression_fusion"
-
-KEY_MACHINE_SCHED_MODE = "machine_sched_mode"
-KEY_WORKSPACE_RECYCLE_PERIOD = "workspace_recycle_period"
-KEY_ESTIMATED_STITCH_TASK_MAX_LOOP_NUM = "estimated_stitch_task_max_loop_num"
-
 
 @dataclass
 class LightningIndexerTileConfig:
@@ -432,7 +418,7 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
             ):
 
                 def _inside_2k(unused):
-                    pto.set_pass_option("SG_SKIP_PARTITION", True)
+                    pto.set_pass_options(sg_skip_partition=True)
 
                     for unused1 in pto.loop(0, 1, 1, name="2K_PAD", idx_name="unused1"):
 
@@ -474,7 +460,7 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
 
                         _inside_2k_pad(unused1)
 
-                    pto.set_pass_option("SG_SKIP_PARTITION", False)
+                    pto.set_pass_options(sg_skip_partition=False)
 
                     for unused2 in pto.loop(
                         0, 1, 1, name="2K_TOPK", idx_name="unused2"
@@ -884,20 +870,19 @@ class LightningIndexerBuildConfig:
 
 
 def setup_lightning_indexer_topk_config():
-    pto.set_codegen_option(KEY_SUPPORT_DYNAMIC_UNALIGNED, True)
-    pto.set_codegen_option(KEY_CODEGEN_EXPRESSION_FUSION, True)
+    pto.set_codegen_options(support_dynamic_unaligned=True,
+                            codegen_expression_fusion=True)
 
-    pto.set_pass_option(KEY_COPYIN_THRESHOLD, NUM_100 * NUM_1024 * NUM_1024)
-    pto.set_pass_option(KEY_SG_CYCLE_LOWER_BOUND, NUM_1024)
-    pto.set_pass_option(KEY_SG_CYCLE_UPPER_BOUND, NUM_1024 * NUM_1024)
-    pto.set_pass_option(KEY_L1_REUSE, NUM_32)
-    pto.set_pass_option(KEY_SG_PARALLEL_NUM, NUM_2)
-    pto.set_pass_option(KEY_NBUFFER_MERGE_MODE, NUM_2)
-    pto.set_pass_option(KEY_VEC_NBUFFER_MAP, {NUM_NEG1: NUM_16})
-
-    pto.set_runtime_option(KEY_MACHINE_SCHED_MODE, NUM_3)
-    pto.set_runtime_option(KEY_WORKSPACE_RECYCLE_PERIOD, NUM_128)
-    pto.set_runtime_option(KEY_ESTIMATED_STITCH_TASK_MAX_LOOP_NUM, NUM_128)
+    pto.set_pass_options(copyin_threshold=NUM_100 * NUM_1024 * NUM_1024,
+                         cycle_lower_bound=NUM_1024,
+                         cycle_upper_bound=NUM_1024 * NUM_1024,
+                         l1_reuse=NUM_32,
+                         sg_skip_partition=NUM_2,
+                         nbuffer_merge_mode=NUM_2,
+                         vec_nbuffer_map={NUM_NEG1: NUM_16})
+    pto.set_runtime_options(machine_sched_mode=NUM_3,
+                            workspace_recycle_period=NUM_128,
+                            estimated_stitch_task_max_loop_num=NUM_128)
 
 
 def build_lightning_indexer_topk_args(

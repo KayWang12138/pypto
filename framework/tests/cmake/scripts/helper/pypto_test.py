@@ -102,7 +102,7 @@ class TestBuilder(abc.ABC):
     def run(self, on_board: bool = True):
         if on_board:
             pto.runtime._device_init()
-            pto.set_codegen_option("support_dynamic_unaligned", True)
+            pto.set_codegen_options(support_dynamic_unaligned=True)
         self.inputs = self.get_input_from_param()
         self.golden_output = self.torch_convert(self.kernel_golden(*self.inputs))
         self.init_output(self.golden_output)

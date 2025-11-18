@@ -278,7 +278,7 @@ def test_sa_ut(input_param, tile_config, config):
 
 
 def main():
-    pto.set_codegen_option(KEY_SUPPORT_DYNAMIC_UNALIGNED, True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
 
     tile_config = SaTileShapeConfig(
         g_tile=128,

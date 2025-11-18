@@ -69,8 +69,8 @@ def dynamic_matmul_onboard_util(input_config: ShapeConfig):
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
     pto.runtime._device_init()
-    pto.set_codegen_option("support_dynamic_unaligned", True)
-    pto.set_host_option("only_codegen", True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
+    pto.set_host_options(only_codegen=True)
     pto.set_cube_tile_shapes(input_config.m_tile_shape, input_config.k_tile_shape, input_config.n_tile_shape)
 
     tensor_a = create_tensor(input_config.in_dtype, input_config.ori_shape, "tensor_a", input_config.a_format_nz,

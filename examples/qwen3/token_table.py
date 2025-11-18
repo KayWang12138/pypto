@@ -23,10 +23,11 @@ def main():
     test_expert_offset_table()
 
 
-@pto.jit
+@pto.jit(
+    host_options={"only_codegen": True},
+    codegen_options={"support_dynamic_unaligned": True}
+)
 def get_table_main(inputs, outputs):
-    pto.set_host_option("only_codegen", True)
-    pto.set_codegen_option("support_dynamic_unaligned", True)
     expert_tokens = inputs[0]
     expert_offset = outputs[0]
 

@@ -207,8 +207,8 @@ class PTOTestCaseRunner(TestCaseRunner):
         function += prefix + "for tmp in res:\n"
         function += prefix + "    del tmp\n"
         logging.info(function)
-        pto.set_host_option("ONLY_CODEGEN", True)
-        pto.set_codegen_option("SUPPORT_DYNAMIC_UNALIGNED", True)
+        pto.set_host_options(only_codegen=True)
+        pto.set_codegen_options(support_dynamic_unaligned=True)
         pto.set_vec_tile_shapes(*self.tile_shape)
         exec(
             function,

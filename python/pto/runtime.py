@@ -10,7 +10,7 @@
 # ======================================================================================================================
 """
 """
-from typing import List
+from typing import List, overload
 
 import torch
 import pto
@@ -74,11 +74,16 @@ def _device_run_once_data_from_host(inputs: List[torch.Tensor], outputs: List[to
     pto_impl.DeviceRunOnceDataFromHost(_to_tensor_data(inputs), _to_tensor_data(outputs))
 
 
-class jit:
-    def __init__(self, dyn_func):
+class JIT:
+    def __init__(self, dyn_func, codegen_options=None,
+                 host_options=None, pass_options=None, runtime_options=None):
         self.dyn_func = dyn_func
         self._is_function_compiled: bool = False
         self._handler = None
+        self.codegen_options = codegen_options
+        self.host_options = host_options
+        self.pass_options = pass_options
+        self.runtime_options = runtime_options
 
     def __call__(self, *args, **kwargs):
         in_tensors, out_tensors = args[0], args[1]
@@ -91,7 +96,7 @@ class jit:
 
         if not self._is_function_compiled:
             pto_impl.DeviceInit()
-
+            self._set_config_option()
             # Convert I/O torch tensors to PTO tensors and run pto.dyn_function
             in_pto_tensors = [
                 _torch_to_pto(t, f"IN_{idx}") for idx, t in enumerate(in_tensors)
@@ -116,6 +121,56 @@ class jit:
     @property
     def handler(self):
         return self._handler
+
+    def _set_config_option(self):
+        # 添加支持动态的config
+        if isinstance(self.codegen_options, dict):
+            pto.set_codegen_options(** self.codegen_options)
+
+        if isinstance(self.host_options, dict):
+            pto.set_host_options(** self.host_options)
+
+        if isinstance(self.pass_options, dict):
+            pto.set_pass_options(** self.pass_options)
+
+        if isinstance(self.runtime_options, dict):
+            pto.set_runtime_options(** self.runtime_options)
+
+
+@overload 
+def jit(dyn_func=None):
+    ...
+
+
+@overload 
+def jit(
+        *, 
+        codegen_options=None,
+        host_options=None,
+        pass_options=None,
+        runtime_options=None
+        ):
+    ...
+
+
+def jit(dyn_func=None,
+        *, 
+        codegen_options=None,
+        host_options=None,
+        pass_options=None,
+        runtime_options=None):
+
+    def decorator(func):
+        return JIT(func,
+                   codegen_options=codegen_options,
+                   host_options=host_options,
+                   pass_options=pass_options,
+                   runtime_options=runtime_options)
+
+    if dyn_func is not None:
+        return JIT(dyn_func)
+    else:
+        return decorator
 
 
 def _device_synchronize():

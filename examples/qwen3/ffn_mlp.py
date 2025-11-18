@@ -161,10 +161,11 @@ cube_tile_shape = (64, 128, 128)
 loop_base = 16
 
 
-@pto.jit
+@pto.jit(
+    host_options={"only_codegen": True},
+    codegen_options={"support_dynamic_unaligned": True}
+)
 def moe_main(inputs, outputs):
-    pto.set_host_option("only_codegen", True)
-    pto.set_codegen_option("support_dynamic_unaligned", True)
 
     pto.mark_dynamic(inputs[0], 0)
 

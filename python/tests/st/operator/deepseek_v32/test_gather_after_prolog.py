@@ -17,8 +17,6 @@ import pytest
 
 import pto
 
-KEY_SUPPORT_DYNAMIC_ALIGNED = "SUPPORT_DYNAMIC_UNALIGNED"
-
 
 def gather_after_prolog_graph(
     topk_indices: pto.Tensor,
@@ -150,7 +148,7 @@ def generate_golden(
 def gather_after_prolog_compute(block_size, b, s1, n2, topk, dn, dr, seq_lens):
     device_id = int(os.environ.get("TILE_FWK_STEST_DEVICE_ID", 0))
     torch.npu.set_device(device_id)
-    pto.set_codegen_option(KEY_SUPPORT_DYNAMIC_ALIGNED, True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
 
     @pto.jit
     def gather_fwd(in_tensors, out_tensors):

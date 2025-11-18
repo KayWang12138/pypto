@@ -61,6 +61,10 @@ void bind_controller_config(py::module &m) {
         },
         py::arg("key"), "get config option");
 
+    m.def("Reset",[]() { config::Reset(); });
+
+    m.def("GetOptions",[]() -> py::object { return py::cast(config::GetOptions()); });
+
     m.def(
         "SetPrintOptions",
         [](int edgeItems, int precision, int threshold, int linewidth) {

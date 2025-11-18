@@ -258,14 +258,14 @@ def attention(**kwargs):
             nonlocal n_tile, pa_out, kv_cache_out, kr_cache_out
             ########## mla_prolog ##########
             b_loop = b // tile_b
-            pto.set_pass_option(NBUFFER_MERGE_MODE, 1)
-            pto.set_pass_option(L1_REUSE, NUM_4)  # L1reuse合并的左矩阵或者右矩阵数量
+            pto.set_pass_options(nbuffer_merge_mode=1)
+            pto.set_pass_options(l1_reuse=NUM_4)  # L1reuse合并的左矩阵或者右矩阵数量
             # 从NUM_3个mm开始设置CubeNBuffer数量为NUM_4；CubeNBuffer：设置同构的mm计算合并入一个图
-            pto.set_pass_option(CUBE_NBUFFER_MAP, {NUM_3: NUM_4})
-            pto.set_pass_option(COPYIN_THRESHOLD, NUM_2 * NUM_1024 * NUM_1024)   # CubeNBuffer、L1reuse合并时copyin的cycle上限
-            pto.set_pass_option(SG_CYCLE_UPPER_BOUND, NUM_100000)    # 设置切图与合图后子图的Latency的上限
+            pto.set_pass_options(cube_nbuffer_map={NUM_3: NUM_4})
+            pto.set_pass_options(copyin_threshold=NUM_2 * NUM_1024 * NUM_1024)   # CubeNBuffer、L1reuse合并时copyin的cycle上限
+            pto.set_pass_options(cycle_upper_bound=NUM_100000)    # 设置切图与合图后子图的Latency的上限
             # 设置子图合并的并行度下限（子图数量大于等于parallelThreshold才可合并）
-            pto.set_pass_option(SG_PARALLEL_NUM, NUM_2)
+            pto.set_pass_options(SG_PARALLEL_NUM, NUM_2)
             # LOOP("LOOP_L0_bIdx_mla_prolog", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bLoop, 1)) {
             for b_idx in pto.loop(0, b_loop, 1, name="LOOP_L0_bIdx_mla_prolog", idx_name="b_idx"):
                 def inside_b_idx_loop_prolog(b_idx):
@@ -675,7 +675,7 @@ def attention(**kwargs):
 
 def test_dynamic_attention(params, pa_tile_config, is_quant=False, cache_mode="BNSD", use_pre_fetch=False):
     # b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim
-    pto.set_host_option(KEY_ONLY_CODEGEN, True)
+    pto.set_host_options(only_codegen=True)
 
     b = params[0]
     s = params[1]

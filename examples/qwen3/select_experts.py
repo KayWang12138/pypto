@@ -23,12 +23,12 @@ def main():
     test_select_experts()
 
 
-@pto.jit
+# 1. 添加支持动态的config
+@pto.jit(
+    host_options={"only_codegen": True},
+    codegen_options={"support_dynamic_unaligned": True}
+)
 def select_experts(in_tensors, out_tensors, renormalize_flag):
-    # 1. 添加支持动态的config
-    pto.set_codegen_option("support_dynamic_unaligned", True)
-    pto.set_host_option("only_codegen", True)
-
     # 2. 从入参拿到输入和输出tensor
     logits_input = in_tensors[0]
     ids_k = out_tensors[0]

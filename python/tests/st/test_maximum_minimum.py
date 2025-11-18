@@ -49,7 +49,7 @@ def test_with_tensor_scalar_minimum(
     tile_shape = tile_shape or ([8] * len(shape))
 
     pto.runtime._device_init()
-    pto.set_codegen_option("support_dynamic_unaligned", True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
 
     x = pto.tensor(shape, data_type)
     y = pto.tensor(shape, data_type)
@@ -110,7 +110,7 @@ def test_with_tensor_scalar_maximum(
     tile_shape = tile_shape or ([8] * len(shape))
 
     pto.runtime._device_init()
-    pto.set_codegen_option("support_dynamic_unaligned", True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
 
     x = pto.tensor(shape, data_type)
     y = pto.tensor(shape, data_type)
@@ -170,7 +170,7 @@ def test_with_tensor_tensor_minimum(
     tile_shape = tile_shape or ([8] * len(shape))
 
     pto.runtime._device_init()
-    pto.set_codegen_option("support_dynamic_unaligned", True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
 
     x = pto.tensor(shape, data_type)
     y = pto.tensor(shape, data_type)
@@ -244,7 +244,7 @@ def test_with_tensor_tensor_maximum(
     tile_shape = tile_shape or ([8] * len(shape))
 
     pto.runtime._device_init()
-    pto.set_codegen_option("support_dynamic_unaligned", True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
 
     x = pto.tensor(shape, data_type)
     y = pto.tensor(shape, data_type)

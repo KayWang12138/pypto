@@ -195,7 +195,7 @@ def gen_slc(**kwargs):
                 reduce1_res[:] = pto.cast(reduce2, pto.DT_FP16)
             inside_s_idx_loop(s_idx)
         for _ in pto.loop(0, 1, 1, name="LOOP_topk1", idx_name="s_idx", submit_before_loop=True):
-            pto.set_codegen_option(KEY_SUPPORT_DYNAMIC_UNALIGNED, True)
+            pto.set_codegen_options(support_dynamic_unaligned=True)
             res = gen_topk_indices(tmp_out, s_slc, actual_topk, actual_valid_len, True)
             out[:] = res[1]
             topk_ind[:] = res[0]
@@ -250,7 +250,7 @@ def gen_slc_v2(**kwargs):
                 tmp_out[:] = pto.reshape(reduce2, [1, s_slc])
             inside_s_idx_loop(s_idx)
         for _ in pto.loop(0, 1, 1, name="LOOP_topk1", idx_name="s_idx", submit_before_loop=True):
-            pto.set_codegen_option(KEY_SUPPORT_DYNAMIC_UNALIGNED, True)
+            pto.set_codegen_options(support_dynamic_unaligned=True)
             res = gen_topk_indices(tmp_out, s_slc, actual_topk, actual_valid_len, True)
             out[:] = res[1]
 
