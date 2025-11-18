@@ -687,7 +687,7 @@ void CheckBiasOperand(const Tensor &operand, LogicalTensorPtr &result, const Mat
     ASSERT(param.biasTensor.GetShape()[1] == result->GetShape()[1]);
 }
 
-void CheckQuantOperand(const Tensor &operand, LogicalTensorPtr &result, const MatmulExtendParam &param = {}) {
+void CheckQuantOperand(DataType outType, const Tensor &operand, LogicalTensorPtr &result, const MatmulExtendParam &param = {}) {
     const Tensor &oprandResult = result;
     if (param.scaleTensor.GetStorage() != nullptr) {
         ASSERT(param.scaleTensor.Format() == TileOpFormat::TILEOP_ND);
@@ -697,6 +697,9 @@ void CheckQuantOperand(const Tensor &operand, LogicalTensorPtr &result, const Ma
     }
     if (param.scaleValue != 0) {
         ASSERT(oprandResult.GetDataType() == DataType::DT_FP16 && operand.GetDataType() == DataType::DT_INT8);
+    }
+    if (operand.GetDataType() == DataType::DT_INT8 && outType == DataType::DT_FP16) {
+        ASSERT(param.scaleValue != 0 || param.scaleTensor.GetStorage() != nullptr);
     }
 }
 
@@ -716,7 +719,7 @@ void CheckMatMulOperands(DataType outType, const Tensor &operand1, const Tensor 
     CheckCMatrixNZFormatAligned<isTransB, isCMatrixNZ>(outType, operand2);
     // bias and scale valid check
     CheckBiasOperand(operand1, result, param);
-    CheckQuantOperand(operand1, result, param);
+    CheckQuantOperand(outType, operand1, result, param);
 }
 
 template <bool isCMatrixNZ>
