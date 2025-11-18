@@ -38,7 +38,6 @@ target_include_directories(tile_fwk_runtime
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/base>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/runtime>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/profiling>>
-            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hccl>>
         PRIVATE
             ${PTO_FWK_SRC_ROOT}/framework/src/cost_model
 )
@@ -62,7 +61,7 @@ target_link_libraries(tile_fwk_runtime
             $<BUILD_INTERFACE:$<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,nlohmann_json::nlohmann_json,json>>
             $<BUILD_INTERFACE:ascendcl>
             $<BUILD_INTERFACE:runtime>
-            $<BUILD_INTERFACE:hccl>
+            $<BUILD_INTERFACE:$<$<NOT:$<BOOL:${BUILD_WITH_CANN_SUB}>>:hccl>>
             $<BUILD_INTERFACE:profapi>
         PRIVATE
             intf_pub_cxx17
