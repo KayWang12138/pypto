@@ -381,5 +381,11 @@ void bind_operation(py::module &m) {
             return npu::tile_fwk::Clip(self, min, max);
         }
     );
+    m.def(
+        "one_hot",
+        [](const Tensor &self, int numClasses) {
+            return npu::tile_fwk::OneHot(self, numClasses);
+        },
+        "Tensor one hot.");
 }
 } // namespace pypto

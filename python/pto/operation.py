@@ -1844,6 +1844,48 @@ def logical_and(
 
 
 @op_wrapper
+def one_hot(input: Tensor, num_classes: int) -> Tensor:
+    """
+    Converts a tensor of indices to one-hot encoded tensor.
+
+    Parameters
+    ----------
+    input : Tensor
+        LongTensor containing class indices of any shape (*)
+    num_classes : int
+        Total number of classes.
+
+    Returns
+    -------
+    Tensor
+        One-hot encoded tensor(LongTensor) of shape (*, num_classes) where:
+        - 1 is placed at the index specified by input value
+        - 0 is placed everywhere else
+
+    Examples
+    --------
+    a = pto.tensor([3], pto.DT_INT32)
+    out = pto.one_hot(a, 1)
+
+    Input a:    [0 2 4]
+    Input num_classes:  5
+    Output out: [[1, 0, 0, 0, 0],
+                 [0, 0, 1, 0, 0],
+                 [0, 0, 0, 0, 1]]
+
+    """
+    if not isinstance(input, pto_impl.Tensor):
+        raise TypeError("input must be a `Tensor`")
+    if not isinstance(num_classes, int):
+        raise TypeError("num_classes must be an `int`")
+    if num_classes == -1:
+        raise RuntimeError("num_classes must be specified")
+    if num_classes <= 0:
+        raise RuntimeError("num_classes must be a positive integer")
+    return pto_impl.one_hot(input, num_classes)
+
+
+@op_wrapper
 def minimum(input: Tensor, other: Union[Tensor, Element]) -> Tensor:
     """
     Computes the element-wise minimum of input and other.
