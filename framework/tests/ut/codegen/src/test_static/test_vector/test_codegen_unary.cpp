@@ -212,6 +212,9 @@ Function& TestExpandBody(std::vector<int64_t> shape, std::vector<int64_t> outSha
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
         config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
     }
+    else {
+        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
+    }
     TileShape::Current().SetVecTile(tileShape);
     Tensor input_a(DT_FP32, shape, "A");
     Tensor output(DT_FP32, outShape, "C");
@@ -252,7 +255,7 @@ TLoad(ubTensor_1, gmTensor_2, Coord2Dim(0, 0));
 set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
 wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
 SUBKERNEL_PHASE2
-TExpand(ubTensor_3, ubTensor_1, 2);
+TExpand<2>(ubTensor_3, ubTensor_1);
 set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
 wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
 TStore(gmTensor_5, ubTensor_3, Coord2Dim(0, 0));

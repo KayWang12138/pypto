@@ -12,15 +12,15 @@
  * \file test_codegen_gather.cpp
  * \brief Unit test for codegen.
  */
-
+#include <vector>
+#include <string>
+using std::string;
 #include <gtest/gtest.h>
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
 #include "codegen/codegen.h"
-#include <vector>
-#include <string>
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 #include "test_codegen_utils.h"
 
@@ -78,10 +78,12 @@ TEST_F(TestCodegenGather, TestGather) {
     codeGen.GenCode(*function, {});
 }
 
-Function& testGatherEle(bool isSupportTileTensor){
+Function &testGatherEle(bool isSupportTileTensor, string funcName) {
     if (isSupportTileTensor) {
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
         config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    } else {
+        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
     }
     constexpr const int32_t nRoutedExperts = 32;
     constexpr const int32_t numExpertsPerTopk = 8;
@@ -95,7 +97,6 @@ Function& testGatherEle(bool isSupportTileTensor){
     Tensor inputTmpScores(DT_FP32, inputShape, "input_tmp_scores");
     Tensor outputTensor(DT_FP32, outputShape, "output_tensor");
 
-    std::string funcName = "GATHER_ELEMET_TILETENSOR";
     config::SetBuildStatic(true);
     FUNCTION(funcName, {inputScores, inputTmpScores, outputTensor}) {
         auto topkIdx = std::get<1>(TopK(inputScores, numExpertsPerTopk, -1));       // [b*s,256]->[b*s,8]
@@ -111,11 +112,11 @@ Function& testGatherEle(bool isSupportTileTensor){
     return *function;
 }
 TEST_F(TestCodegenGather, TestGatherEle) {
-    testGatherEle(false);
+    testGatherEle(false, "GATHER_ELEMET_T");
 }
 
 TEST_F(TestCodegenGather, TestGatherEleTileTensor) {
-    Function& func = testGatherEle(true);
+    Function &func = testGatherEle(true, "GATHER_ELEMET_TILETENSOR");
     std::string res = GetResultFromCpp(func);
     std::string expect = R"!!!(#include "TileOpImpl.h"
 
@@ -179,7 +180,7 @@ TRowSumSingle(ubTensor_14, ubTensor_11, ubTensor_15);
 pipe_barrier(PIPE_V);
 TAddS<float>(ubTensor_14, ubTensor_14, 9.99999968e-21);
 pipe_barrier(PIPE_V);
-TExpand(ubTensor_19, ubTensor_14, 3);
+TExpand<3>(ubTensor_19, ubTensor_14);
 pipe_barrier(PIPE_V);
 TDiv(ubTensor_19, ubTensor_11, ubTensor_19);
 set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);

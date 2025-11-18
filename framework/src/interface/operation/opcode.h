@@ -596,5 +596,9 @@ const std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {              Opcode::OP_RSQRT,         "TRsqrt"},
     {                Opcode::OP_EXP,           "TExp"},
     {            Opcode::OP_MAXIMUM,           "TMax"},
+    {            Opcode::OP_MINIMUM,           "TMin"},
+    {            Opcode::OP_PAIRSUM,           "TPairSum"},
+    {            Opcode::OP_PAIRMAX,           "TPairMax"},
+    {            Opcode::OP_PAIRMIN,           "TPairMin"},
 };
 } // namespace npu::tile_fwk

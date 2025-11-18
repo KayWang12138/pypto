@@ -319,7 +319,8 @@ std::string CodeGenOpCloudNPU::PrintExpandLayout(int expandAxis) const {
     std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::DST_IDX)]);
     std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC0_IDX)]);
     std::ostringstream oss;
-    oss << tileOpName << "(" << dstTensor << ", " << srcTensor << ", " << expandAxis << ");\n";
+    oss << tileOpName << "<" << expandAxis << ">"
+        << "(" << dstTensor << ", " << srcTensor << ");\n";
     return oss.str();
 }
 
