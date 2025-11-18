@@ -102,6 +102,7 @@ TILEOP void TSub(T0 dst, T1 src0, T2 src1) {
     BinaryCompute<BinaryOp::SUB>(dst, src0, src1);
 }
 
+template <typename T0, typename T1, typename T2>
 TILEOP void TMul(T0 dst, T1 src0, T2 src1) {
     BinaryCompute<BinaryOp::MUL>(dst, src0, src1);
 }
