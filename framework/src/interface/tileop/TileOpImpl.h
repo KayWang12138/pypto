@@ -30,6 +30,7 @@
 
 #ifdef SUPPORT_TILE_TENSOR
 #include "utils/layout.h"
+#include "vector/unary.h"
 #include "vector/trans.h"
 #include "vector/binary.h"
 #include "vector/cast.h"
