@@ -18,8 +18,19 @@
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
 
-template <typename T0, typename T1, typename T2>
-TILEOP void TRowSumSingle(T0 dst, T1 src, T2 tmp) {
+template <BinaryOp op, typename T0, typename T1, typename T2>
+TILEOP void ReduceComputeImpl(T0 dst, T1 src, T2 tmp) {
+    if constexpr (op == BinaryOp::SUM) {
+        pto::TROWSUM(dst, src, tmp);
+        return;
+    }
+    if constexpr (op == BinaryOp::AMAX) {
+        pto::TROWMAX(dst, src, tmp);
+    }
+}
+
+template <BinaryOp op, typename T0, typename T1, typename T2>
+TILEOP void ReduceCompute(T0 dst, T1 src, T2 tmp) {
     using ShapeValueType = typename Std::tuple_element<0, typename T1::Shape>::type;
     constexpr auto srcShapeSize = Std::tuple_size<typename T1::Shape>::value;
     constexpr auto dstShapeSize = Std::tuple_size<typename T0::Shape>::value;
@@ -43,7 +54,7 @@ TILEOP void TRowSumSingle(T0 dst, T1 src, T2 tmp) {
         pto::TASSIGN(dstTile, (uint64_t)dst.GetAddr());
         pto::TASSIGN(srcTile, (uint64_t)src.GetAddr());
         pto::TASSIGN(tmpTile, (uint64_t)tmp.GetAddr());
-        pto::TROWSUM(dstTile, srcTile, tmpTile);
+        ReduceComputeImpl<op>(dstTile, srcTile, tmpTile);
         return;
     }
     constexpr size_t expectSize = 5;
@@ -82,9 +93,22 @@ TILEOP void TRowSumSingle(T0 dst, T1 src, T2 tmp) {
                 pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * srcTypeSize));
                 pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
                 pto::TASSIGN(tmpTile, (uint64_t)(tmp.GetAddr()));
-                pto::TROWSUM(dstTile, srcTile, tmpTile);
+                if (srcShape3 == 0 || srcShape4 == 0){
+                    return;
+                }
+                ReduceComputeImpl<op>(dstTile, srcTile, tmpTile);
             }
         }
     }
+}
+
+template <typename T0, typename T1, typename T2>
+TILEOP void TRowSumSingle(T0 dst, T1 src, T2 tmp) {
+    ReduceCompute<BinaryOp::SUM>(dst, src, tmp);
+}
+
+template <typename T0, typename T1, typename T2>
+TILEOP void TRowMaxSingle(T0 dst, T1 src, T2 tmp) {
+    ReduceCompute<BinaryOp::AMAX>(dst, src, tmp);
 }
 #endif

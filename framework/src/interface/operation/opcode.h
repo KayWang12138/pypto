@@ -587,6 +587,7 @@ const std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {            Opcode::OP_EXTRACT,       "TExtract"},
     {               Opcode::OP_CAST,          "TCast"},
     {      Opcode::OP_ROWSUM_SINGLE,  "TRowSumSingle"},
+    {      Opcode::OP_ROWMAX_SINGLE,  "TRowMaxSingle"},
     {         Opcode::OP_ROWSUMLINE,    "TRowSumLine"},
     {           Opcode::OP_WHERE_TT,           "TSel"},
     {               Opcode::OP_ADDS,          "TAddS"},
