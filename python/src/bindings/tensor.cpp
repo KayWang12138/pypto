@@ -87,15 +87,6 @@ void BindTensor(py::module &m) {
                 return t.GetShape();
             },
             "Get the shape of the tensor.")
-        .def("GetDynValShape",
-                [](const Tensor& t) -> std::vector<SymbolicScalar> {
-                    if (t.IsEmpty()) {
-                        throw py::value_error("Empty tensor.");
-                    }
-                    const auto& sp = t.GetStorage();
-                    if (!sp) throw py::value_error("Tensor has no storage");
-                    return sp->GetDynValidShape(); 
-                })
         .def("Move",
             [](Tensor &self, Tensor &other) -> Tensor& {
                 self = std::move(other);

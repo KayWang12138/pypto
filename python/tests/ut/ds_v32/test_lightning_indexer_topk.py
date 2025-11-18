@@ -1,3 +1,15 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# ======================================================================================================================
+"""
+"""
 import sys
 from dataclasses import dataclass, field
 from typing import List, Set, Optional
@@ -315,6 +327,7 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
                                 sum_res = pto.sum(
                                     pto.cast(mul_res, pto.DataType.DT_FP32),
                                     0,
+                                    True
                                 )
 
                                 pto.assemble(
@@ -1036,7 +1049,6 @@ def build_lightning_indexer_topk_args(
     return args, meta
 
 
-@pytest.mark.skip(reason="There is a probability of failure")
 def test_lightning_indexer_topk():
     logging.basicConfig(level=logging.INFO)
     setup_lightning_indexer_topk_config()

@@ -1,3 +1,15 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# ======================================================================================================================
+"""
+"""
 from dataclasses import dataclass, field
 from typing import List, Set
 import logging
@@ -124,11 +136,11 @@ def layer_norm(
     eps = 1e-6
     actual_dim = dim + len(x.shape) if dim < 0 else dim
     x_scaled = x / (x.shape[actual_dim])
-    mean = pto.sum(x_scaled, -1)
+    mean = pto.sum(x_scaled, -1, True)
     diff = x - mean
     squared_diff = diff * diff
     square_diff_scaled = squared_diff / (x.shape[actual_dim])
-    var = pto.sum(square_diff_scaled, -1)
+    var = pto.sum(square_diff_scaled, -1, True)
     std_var = pto.sqrt(var + eps)
     res32 = diff / std_var
     weight32 = pto.cast(weight, pto.DataType.DT_FP32)
@@ -159,7 +171,7 @@ def rotate_half_valid_shape(input_tensor: pto.Tensor) -> pto.Tensor:
     offset1 = [0] * shape_size
     offset2 = [0] * shape_size
     offset2[shape_size - 1] = shape[shape_size - 1]
-    valid_shape = input_tensor.dynamic_valid_shape
+    valid_shape = input_tensor.shape
     valid_shape[shape_size - 1] //= NUM_2
     x1 = pto.view(input_tensor, shape, offset1, valid_shape=valid_shape)
     x2 = pto.view(input_tensor, shape, offset2, valid_shape=valid_shape)
@@ -185,7 +197,7 @@ def rope_3d(
     cast_sin = pto.cast(sin, pto.DataType.DT_FP32)
     cast_cos[:] = pto.reshape(cast_cos, [x.shape[NUM_0], 1, x.shape[NUM_2]])
     cast_sin[:] = pto.reshape(cast_sin, [x.shape[NUM_0], 1, x.shape[NUM_2]])
-    x_valid_shape = x.dynamic_valid_shape
+    x_valid_shape = x.shape
     x_view = pto.reshape(
         cast_x,
         [x.shape[NUM_0], x.shape[NUM_1], x.shape[NUM_2] // NUM_2, NUM_2],
@@ -715,7 +727,6 @@ def build_lightning_indexer_prolog_args(
     return args, meta
 
 
-@pytest.mark.skip(reason="There is a probability of failure")
 def test_lightning_indexer_prolog():
     logging.basicConfig(level=logging.INFO)
     setup_lightning_indexer_prolog_config()
