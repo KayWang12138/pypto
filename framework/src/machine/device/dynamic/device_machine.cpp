@@ -24,6 +24,7 @@
 #include "machine/device/dynamic/device_utils.h"
 #include "machine/kernel/aicore.h"
 #include "machine/utils/device_log.h"
+#include "device_utils.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -125,7 +126,8 @@ struct DynMachineManager {
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
         }
         int threadIdx = allocThreadIdx(devArgs->nrAicpu);
-        if ((threadIdx != -1) && threadIdx < schAicpuNum_) {    
+        uint64_t allocThreadCycle = GetCycles();
+        if ((threadIdx != -1) && threadIdx < schAicpuNum_) {
             CreateLogFile(LOG_TYPE_SCHEDULER, threadIdx);
             DEV_INFO("devArgs->taskType %d.", static_cast<int>(devArgs->taskType));
             DEV_INFO("threadIdx %d aicNum %u aivNum %u aicpuNum %u validAicNum %u.", threadIdx, devArgs->nrAic,
@@ -137,7 +139,7 @@ struct DynMachineManager {
         } else {
             threadIdx = ctrlcpuIdx_.fetch_add(1);
             DEV_INFO("devArgs->taskType %d.",  static_cast<int>(devArgs->taskType));
-            if (devArgs->taskType == DEVICE_TASK_TYPE_DYN && threadIdx == MAX_SCHEDULE_AICPU_NUM) {
+            if (devArgs->taskType == DEVICE_TASK_TYPE_DYN && threadIdx == CTRL_CPU_THREAD_IDX) {
                 CreateLogFile(LOG_TYPE_CONTROLLER, 0);
                 DEV_TRACE_DEBUG(schema::CtrlEvent(threadIdx, schema::ThreadStart()));
                 ret = machine_.ExecDyn(threadIdx, devArgs->taskId, args);
@@ -152,9 +154,13 @@ struct DynMachineManager {
                 }
             }
         }
+        PerfMtTrace(PERF_TRACE_BEGIN, threadIdx, args->taskWastTime);
+        PerfMtTrace(PERF_TRACE_ALLOC_THREAD_ID, threadIdx, allocThreadCycle);
         DEV_INFO("ThreadIdx %d finished, ret %d.", threadIdx, ret);
         GetLogger().Flush();
+        PerfMtTrace(PERF_TRACE_EXIT, threadIdx);
         if (++finished_ == static_cast<std::atomic<int>>(devArgs->nrAicpu)) {
+            LastFinishThreadIdx_ = threadIdx;
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_FINISHED;
         }
         return ret;
@@ -184,6 +190,7 @@ struct DynMachineManager {
       SignalReset();
     }
 
+    int LastFinishThreadIdx_{0};
     std::atomic<int> threadIdx_{0};
     std::atomic<int> finished_{0};
     std::atomic<uint64_t> cpumask_{0};
@@ -228,6 +235,15 @@ static int RunDynamic(AstKernelArgs *kargs) {
     if (rc == npu::tile_fwk::dynamic::DEVICE_MACHINE_FINISHED) {
         DEV_INFO("All schedule exited, destroy the machine.\n");
         g_machine_mgr.DeInit();
+#if ENABLE_PERF_TRACE
+        DEV_ERROR("Begin dump machine perf trace:");
+        PerfMtTrace(PERF_TRACE_EXIT, g_machine_mgr.LastFinishThreadIdx_);
+        PerfEvtMgr::Instance().DumpPerfTrace("/tmp/tile_fwk_aicpu_perftrace.json");
+        DEV_IF_DEVICE {
+            g_machine_mgr.machine_.DumpAicorePerfTrace("tmp/tile_fwk_aicore_perftrace.json");
+        }
+        DEV_ERROR("Finish dump machine perf trace.");
+#endif
         return DEVICE_MACHINE_OK;
     }
     return rc;
@@ -265,5 +281,6 @@ extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelSer
 
 extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelServer(void *targ) {
     auto kargs = (AstKernelArgs *)targ;
+    kargs->taskWastTime = GetCycles();
     return RunDynamic(kargs);
 }

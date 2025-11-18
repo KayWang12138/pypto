@@ -170,6 +170,7 @@ public:
     }
 
     inline void InitTaskData(DeviceTaskCtrl *taskCtrl) {
+        isFirstTaskSend_ = true;
         curTaskCtrl_ = taskCtrl;
         curDevTask_ = taskCtrl->devTask;
         curTaskType_ = taskCtrl->taskType;
@@ -317,9 +318,11 @@ public:
         int ret = 0;
         DEV_DEBUG("schedule run: %p", taskCtrl);
         Init(threadIdx, deviceArgs);
+        PerfMtTrace(PERF_TRACE_INIT, threadIdx);
         DEV_DEBUG("schedule run init succ");
         if constexpr (IsDeviceMode()) {
             ret = HandShake();
+            PerfMtTrace(PERF_TRACE_CORE_HAND_SHAKE, threadIdx);
             if (ret != DEVICE_MACHINE_OK) {
                 DEV_ERROR("hand shake timeout.");
                 AbnormalStop();
@@ -334,17 +337,21 @@ public:
         if (taskCtrl != nullptr) {
             ret = RunTask(taskCtrl);
         } else {
+            uint64_t lastDevTaskFinCycle = 0;
             while (ret == 0) {
                 DEV_DEBUG("schedule task wait");
                 taskCtrl = taskQueue_.Dequeue();
                 DEV_DEBUG("schedule task recv");
-                if (taskCtrl == nullptr)
+                if (taskCtrl == nullptr) {
+                    PerfMtTrace(PERF_TRACE_WAIT_ALL_DEV_TASK_FINISH, aicpuIdx_, lastDevTaskFinCycle);
                     break;
-
+                }
+                PerfMtTrace(PERF_TRACE_DEV_TASK_RCV, aicpuIdx_);
                 PROF_STAGE_BEGIN_MTSAFE(PERF_EVT_STAGE_SCHEDULE, threadIdx, "dispatch.before\n");
-
                 PerfMtBegin(PERF_EVT_RUN_TASK, threadIdx);
                 ret = RunTask(taskCtrl);
+                lastDevTaskFinCycle = GetCycles();
+                PerfMtTrace(PERF_TRACE_DEV_TASK_SCHED_EXEC, aicpuIdx_, lastDevTaskFinCycle);
                 PerfMtEnd(PERF_EVT_RUN_TASK, threadIdx);
                 DEV_DEBUG("run task finish taskid=%d ret %d.", curTaskId_, ret);
                 if (ret != 0)
@@ -352,9 +359,11 @@ public:
 
                 PerfMtBegin(PERF_EVT_SYNC_AICORE, threadIdx);
                 SyncAiCore(taskCtrl->taskId);
+                PerfMtTrace(PERF_TRACE_DEV_TASK_SYNC_CORE_STOP, aicpuIdx_);
                 PerfMtEnd(PERF_EVT_SYNC_AICORE, threadIdx);
                 DEV_DEBUG("sync finish.");
                 taskCtrl->PutTask(ret);
+                PerfMtTrace(PERF_TRACE_DEV_TASK_RSP, threadIdx);
                 PROF_STAGE_END_MTSAFE(PERF_EVT_STAGE_SCHEDULE, threadIdx, "dispatch.after\n");
             }
             if (ret) {
@@ -372,6 +381,7 @@ public:
 
         if constexpr (IsDeviceMode()) {
             NormalStop();
+            PerfMtTrace(PERF_TRACE_WAIT_CORE_EXIT, aicpuIdx_);
             ProfStop();
         }
         DEV_INFO("Aicpu %d stop ret = %d, proc aic task cnt: %lu,  aiv task cnt: %lu.",
@@ -383,6 +393,24 @@ public:
     }
 
     void PushTask(DeviceTaskCtrl *taskCtrl) { taskQueue_.Enqueue(taskCtrl); }
+
+    inline void DumpAicorePerfTrace(std::ostringstream& oss) {
+        (void)oss;
+#if ENABLE_PERF_TRACE
+        for (int i = aicStart_; i < aicEnd_; ++i) {
+            int ret = aicoreHal_.DumpAicorePerfTrace(aicpuIdx_, i, CoreType::AIC, oss);
+            if (ret == DEVICE_MACHINE_OK) {
+                oss << ",";
+            }
+        }
+        for (int i = aivStart_; i < aivEnd_; ++i) {
+            int ret = aicoreHal_.DumpAicorePerfTrace(aicpuIdx_, i, CoreType::AIV, oss);
+            if (ret == DEVICE_MACHINE_OK) {
+                oss << ((i == aivEnd_ - 1) ? "" : ",");
+            }
+        }
+#endif
+    }
 private:
     inline void DumpTaskProf() {
         ForEachManageAicoreWithRet([this] (int coreIdx) -> int { return aicoreHal_.DumpTaskProf(coreIdx);});
@@ -590,6 +618,11 @@ private:
         pendingIds_[coreIdx] = newTask;
         pendingResolveIndexList_[coreIdx] = 0;
         sendCnt_[static_cast<int>(type)]++;
+
+        if (isFirstTaskSend_) {
+            PerfMtTrace(PERF_TRACE_DEV_TASK_SEND_FIRST_CALLOP_TASK, aicpuIdx_);
+            isFirstTaskSend_ = false;
+        }
 
         DEV_IF_VERBOSE_DEBUG {
             sendTask_[coreIdx].push_back(TaskInfo(coreIdx, newTask));

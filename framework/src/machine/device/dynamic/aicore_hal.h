@@ -310,32 +310,77 @@ public:
         return blockIdToPhyCoreId_[coreIdx];
     }
 
-    int DumpTaskProf(int coreIdx) {
+    Metrics* GetMetrics(int coreIdx) {
         volatile KernelArgs *arg = (KernelArgs *)(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
         volatile Metrics*  metric = (Metrics *)(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
         DEV_INFO("aicore %d host alloc metric memory :%p.", coreIdx, metric);
         if (metric == nullptr) {
-            DEV_INFO("aicore %d Null metric.", coreIdx);
-           return 0;
+            DEV_ERROR("aicore %d Null metric.", coreIdx);
+           return nullptr;
         }
 
         uint64_t cycles_start = GetCycles();
         while (metric->isMetricStop != 1) {
             if (GetCycles() - cycles_start > PROF_DUMP_TIMEOUT_CYCLES) {
                 DEV_ERROR("wait metrics done timeout !!!.");
-                return DEVICE_MACHINE_ERROR;
+                return nullptr;
             }
         }; // wait aicore dcci metric data finish
+
+        return (Metrics *)(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+    }
+
+    int DumpTaskProf(int coreIdx) {
+        Metrics* metric =  GetMetrics(coreIdx);
+        if (metric == nullptr) {
+            return DEVICE_MACHINE_ERROR;
+        }
 
         DEV_VERBOSE_DEBUG("Dump core %d prof data , task cnt %ld, metric:%p.", coreIdx, metric->taskCount, metric);
         for (int i = 0; i < metric->taskCount; i++) {
             volatile TaskStat *stat = &metric->tasks[i];
-            aicoreProf_->ProfGet(coreIdx, stat->subGraphId, stat->taskId,
-                          &((Metrics *)(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]))->tasks[i]);
+            aicoreProf_->ProfGet(coreIdx, stat->subGraphId, stat->taskId, &(metric)->tasks[i]);
             DEV_VERBOSE_DEBUG("  Dump prof for task %d, execstart: %ld execend :%ld.",
                      stat->taskId, stat->execStart, stat->execEnd);
         }
         return 0;
+    }
+
+    int DumpAicorePerfTrace(int aicpuIdx, int coreIdx, CoreType coretype, std::ostringstream& oss) {
+        (void)coreIdx;
+        (void)coretype;
+        (void)oss;
+        (void)aicpuIdx;
+#if ENABLE_PERF_TRACE
+        Metrics* metric =  GetMetrics(coreIdx);
+        if (metric == nullptr) {
+            return DEVICE_MACHINE_ERROR;
+        }
+
+        oss << "{\"blockIdx\":" << coreIdx << ",\"coreType\":\"SCHED" << aicpuIdx << "-"
+            << (coretype == CoreType::AIC ? "AIC" : "AIV") << "\",\"freq\":50,\"tasks\":[";
+
+        uint64_t curCycle = 0;
+        for (uint32_t type = 0; type < PERF_TRACE_CORE_MAX; type++) {
+            for (uint32_t cnt = 0; cnt < metric->perfTraceCnt[type]; cnt++) {
+                curCycle = metric->perfTrace[type][cnt];
+                if (curCycle == 0) {
+                    break;
+                }
+
+                oss << "{\"name\":\"" << AicorePerfTraceName[type];
+                if (metric->perfTraceDevTaskId[type][cnt] != INVALID_DEV_TASK_ID) {
+                    oss << "(" << metric->perfTraceDevTaskId[type][cnt] << ")";
+                }
+    
+                oss << "\",\"end\":" << curCycle << "}"
+                    << (type == PERF_TRACE_CORE_MAX - 1 ? "" : ",");
+            }
+        }
+        oss << "]}";
+        memset_s(metric, sizeof(metric), 0, sizeof(metric));
+#endif
+        return DEVICE_MACHINE_OK;
     }
 
     void DumpAicoreStatus(int coreIdx) const {

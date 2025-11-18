@@ -1368,6 +1368,7 @@ struct DeviceExecuteContext {
     std::function<void(uint64_t, DeviceTask *, DeviceExecuteContext *)> pushTask;
     DevStartArgs *args{nullptr};
     uint64_t taskId{0};
+    bool isFirstTaskSend{true};
 
     DevAscendProgram *devProg{nullptr};
     DeviceExecuteProgram execProg;
@@ -1508,7 +1509,7 @@ void GELaunchRunCached(DevStartArgs *startArgs, std::function<void(uint64_t, Dev
         this->args = startArgs;
         this->devProg = startArgs->devProg;
         PerfEnd(PERF_EVT_CONTROL_FLOW_INIT);
-
+        PerfMtTrace(PERF_TRACE_INIT, CTRL_CPU_THREAD_IDX);
         PerfBegin(PERF_EVT_CONTROL_FLOW);
         for (size_t i = 0; i < devProg->controlFlowCache.deviceTaskCount; i++) {
             DynDeviceTask *dynTask = (DynDeviceTask *)devProg->controlFlowCache.deviceTaskCacheList[i].dynTaskBase;
@@ -1518,6 +1519,7 @@ void GELaunchRunCached(DevStartArgs *startArgs, std::function<void(uint64_t, Dev
 
             PROF_STAGE_BEGIN(PERF_EVT_STAGE_PUSH_TASK, "push.before\n");
             pushTask(taskId++, &dynTask->devTask, this);
+            PerfMtTrace(PERF_TRACE_DEV_TASK_BUILD, CTRL_CPU_THREAD_IDX);
             PROF_STAGE_END(PERF_EVT_STAGE_PUSH_TASK, "push.after\n");
         }
         PerfEnd(PERF_EVT_CONTROL_FLOW);
@@ -1528,6 +1530,7 @@ void GELaunchRunCached(DevStartArgs *startArgs, std::function<void(uint64_t, Dev
             devProg->controlFlowCache.InitInputOutput(startArgs);
         }
         GELaunchInit(startArgs, tPushTask);
+        PerfMtTrace(PERF_TRACE_INIT, CTRL_CPU_THREAD_IDX);
 
         PerfBegin(PERF_EVT_CONTROL_FLOW);
         CallRootEntryType callRootList[static_cast<uint32_t>(CallRootStage::T_CALLROOT_MAX)] = {
@@ -1597,7 +1600,7 @@ void GELaunchRunCached(DevStartArgs *startArgs, std::function<void(uint64_t, Dev
         PROF_STAGE_BEGIN(PERF_EVT_STAGE_PUSH_TASK, "push.before\n");
         pushTask(taskId++, &dynTask->devTask, this);
         PROF_STAGE_END(PERF_EVT_STAGE_PUSH_TASK, "push.after\n");
-
+        PerfMtTrace(PERF_TRACE_DEV_TASK_BUILD, CTRL_CPU_THREAD_IDX);
         PROF_STAGE_BEGIN(PERF_EVT_DEALLOCATE_WORKSPACE, "RecycleTensorWorkspace.before\n");
         // Memory recycling
         stitchContext.RecycleTensorWorkspace();

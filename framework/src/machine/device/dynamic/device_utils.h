@@ -23,6 +23,7 @@
 #include <vector>
 #include <mutex>
 #include <fstream>
+#include <ostream>
 #include "securec.h"
 #include "machine/utils/device_log.h"
 
@@ -61,6 +62,8 @@ constexpr int32_t DEVICE_MACHINE_FINISHED = 1;
 constexpr int32_t TIME_OUT_THRESHOLD = 1000000; // 超时阈值 1s
 constexpr int32_t DFX_TIME_OUT_THRESHOLD = 50000000; // 超时阈值 50s
 constexpr uint32_t MAX_SCHEDULE_AICPU_NUM = 3;          // 真正负责调度aicore的aicpu个数
+constexpr uint32_t MAX_USED_AICPU_NUM = MAX_SCHEDULE_AICPU_NUM + 2;
+constexpr uint32_t CTRL_CPU_THREAD_IDX = MAX_SCHEDULE_AICPU_NUM;
 constexpr int32_t START_AICPU_NUM = 3;
 constexpr uint64_t NUM_FIFTY = 50;
 constexpr uint64_t US_PER_SEC = 1000000;
@@ -181,6 +184,52 @@ inline bool PerfEvtEnable[] = {
 #undef X_L2
 #undef X
 };
+
+
+#define PERF_TRACES                             \
+    X(BEGIN)                                    \
+    X(ALLOC_THREAD_ID)                          \
+    X(INIT)                                     \
+    X(CORE_HAND_SHAKE)                          \
+    XDEVTASK(DEV_TASK_BUILD)                    \
+    XDEVTASK(DEV_TASK_RCV)                      \
+    XDEVTASK(DEV_TASK_SEND_FIRST_CALLOP_TASK)   \
+    XDEVTASK(DEV_TASK_SCHED_EXEC)               \
+    XDEVTASK(DEV_TASK_SYNC_CORE_STOP)           \
+    XDEVTASK(DEV_TASK_RSP)                      \
+    X(WAIT_ALL_DEV_TASK_FINISH)                 \
+    X(WAIT_CORE_EXIT)                           \
+    X(EXIT)                                     \
+    X(MAX)                                      \
+
+
+inline bool PerfTraceIsDevTask[] = {
+#define X(trace)  0,
+#define XDEVTASK(trace) 1,
+    PERF_TRACES
+#undef XDEVTASK
+#undef X
+};
+
+enum PerfTraceType {
+#define X(trace) PERF_TRACE_##trace,
+#define XDEVTASK(trace) PERF_TRACE_##trace,
+    PERF_TRACES
+#undef XDEVTASK
+#undef X
+};
+
+inline const char *PerfTraceName[] = {
+#define X(trace) #trace,
+#define XDEVTASK(trace) #trace,
+    PERF_TRACES
+#undef XDEVTASK
+#undef X
+};
+
+#define DEVTASK_PERF_ARRY_INDEX(type) (type - PERF_TRACE_DEV_TASK_BUILD)
+inline constexpr uint32_t DEVTASK_PERF_TYPE_NUM (PERF_TRACE_DEV_TASK_RSP - PERF_TRACE_DEV_TASK_BUILD + 1);
+inline constexpr uint32_t PERF_TRACE_COUNT_DEVTASK_MAX_NUM = 20;
 
 // common of ptr
 template<typename TI, typename TO>
@@ -450,15 +499,106 @@ struct PerfEvtMgr {
         RepeatPuts('=', SHEET_WIDTH);
     }
 
+    void PerfTrace(uint32_t type, uint32_t tid, uint64_t cycle) {
+        if (tid >= MAX_USED_AICPU_NUM) {
+            return;
+        }
+        if (PerfTraceIsDevTask[type] && DEVTASK_PERF_ARRY_INDEX(type) < DEVTASK_PERF_TYPE_NUM) {
+            auto &cnt = perfTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)];
+            if (cnt < PERF_TRACE_COUNT_DEVTASK_MAX_NUM) {
+                perfTraceDevTask[tid][DEVTASK_PERF_ARRY_INDEX(type)][cnt++] =
+                    cycle == 0 ? static_cast<uint64_t>(GetCycles()) : cycle;
+            }
+            return;
+        }
+        perfTrace[tid][type] = cycle == 0 ? static_cast<uint64_t>(GetCycles()) : cycle;
+    }
+
+    void DumpPerfTrace(std::string file = "") {
+        (void)file;
+#if ENABLE_PERF_TRACE
+        auto devTaskPerfFormatFunc = [this](std::ostringstream &oss, uint32_t tid, uint32_t type) -> void {
+            for (uint32_t i = 0; i < perfTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)]; i++) {
+                if (type == PERF_TRACE_DEV_TASK_SEND_FIRST_CALLOP_TASK) {
+                    oss << "{\"name\":\"" << PerfTraceName[type] << "\",";
+                } else {
+                    oss << "{\"name\":\"" << PerfTraceName[type] << "(" << i << ")\",";
+                }
+                oss << "\"end\":" << perfTraceDevTask[tid][DEVTASK_PERF_ARRY_INDEX(type)][i] << "},";
+            }
+        };
+
+        std::ostringstream oss;
+        uint64_t freq = GetFreq() / (NSEC_PER_SEC / NSEC_PER_USEC);
+        for (uint32_t tid = 0 ; tid < MAX_USED_AICPU_NUM; tid++) {
+            std::string coreType = "\"AICPU\"";
+            if (tid < MAX_SCHEDULE_AICPU_NUM) {
+                coreType = "\"AICPU-SCHED\"";
+            } else if (tid == CTRL_CPU_THREAD_IDX) {
+                coreType = "\"AICPU-CTRL\"";
+            }
+            oss << "{\"blockIdx\":" << tid << ",\"coreType\":" << coreType << ",\"freq\":"<< freq <<",\"tasks\":[";
+            for (uint32_t type = 0; type < PERF_TRACE_MAX; type++) {
+                if (PerfTraceIsDevTask[type]) {
+                    devTaskPerfFormatFunc(oss, tid, type);
+                    continue;
+                }
+                if (perfTrace[tid][type] == 0) {
+                    continue;
+                }
+                oss << "{\"name\":\"" << PerfTraceName[type] << "\",\"end\":" << perfTrace[tid][type]
+                    << "}" << (type == PERF_TRACE_MAX - 1 ? "" : ",");
+            }
+            oss << "]}" << (tid == MAX_USED_AICPU_NUM - 1 ? "" : ",");
+        }
+
+        const std::string& str = oss.str();
+        uint32_t totalLength = str.length();
+        uint32_t startPos = 0;
+        uint32_t batchSize = 600;
+        while (startPos < totalLength) {
+            uint32_t endPos = std::min(startPos + batchSize, totalLength);
+            std::string batch = str.substr(startPos, endPos - startPos);
+            DEV_ERROR("tile_fwk aicpu prof:%s", batch.c_str());
+            startPos = endPos;
+        }
+
+        if (file != "") {
+            std::ofstream os(file);
+            os << "[";
+            os << oss.str();
+            os << "]";
+        }
+        ResetPerfTrace();
+#endif
+        return;
+    }
+
 private:
-    PerfEvtMgr() { memset_s(counters, sizeof(counters), 0, sizeof(counters)); };
+    PerfEvtMgr() {
+#if ENABLE_PERF_EVT
+        memset_s(counters, sizeof(counters), 0, sizeof(counters));
+#endif
+#if ENABLE_PERF_TRACE
+        ResetPerfTrace();
+#endif
+    };
+
+    void ResetPerfTrace() {
+        memset_s(perfTrace, sizeof(perfTrace), 0, sizeof(perfTrace));
+        memset_s(perfTraceDevTask, sizeof(perfTraceDevTask), 0, sizeof(perfTraceDevTask));
+        memset_s(perfTraceDevTaskCnt, sizeof(perfTraceDevTaskCnt), 0, sizeof(perfTraceDevTaskCnt));
+    }
 
 private:
     Counter counters[PERF_EVT_MAX];
+    uint64_t perfTrace[MAX_USED_AICPU_NUM][PERF_TRACE_MAX];
+    uint64_t perfTraceDevTask[MAX_USED_AICPU_NUM][DEVTASK_PERF_TYPE_NUM][PERF_TRACE_COUNT_DEVTASK_MAX_NUM];
+    uint8_t perfTraceDevTaskCnt[MAX_USED_AICPU_NUM][DEVTASK_PERF_TYPE_NUM];
 };
 
 inline void PerfBegin(int type) {
-#if PERF_SWITCH
+#if ENABLE_PERF_EVT
     PerfEvtMgr::Instance().PerfBegin(type);
 #else
     (void)type;
@@ -466,7 +606,7 @@ inline void PerfBegin(int type) {
 }
 
 inline void PerfEnd(int type) {
-#if PERF_SWITCH
+#if ENABLE_PERF_EVT
     PerfEvtMgr::Instance().PerfEnd(type);
 #else
   (void)type;
@@ -474,7 +614,7 @@ inline void PerfEnd(int type) {
 }
 
 inline void PerfMtBegin(int type, int tid) {
-#if PERF_SWITCH
+#if ENABLE_PERF_EVT
     PerfEvtMgr::Instance().PerfBegin(type + tid);
 #else
   (void)type;
@@ -483,7 +623,7 @@ inline void PerfMtBegin(int type, int tid) {
 }
 
 inline void PerfMtEnd(int type, int tid) {
-#if PERF_SWITCH
+#if ENABLE_PERF_EVT
     PerfEvtMgr::Instance().PerfEnd(type + tid);
 #else
   (void)type;
@@ -495,6 +635,15 @@ inline void PerfMtEvent(int type, int tid, uint64_t start, uint64_t end, std::st
     if (PerfEvtEnable[type]) {
         PerfettoMgr::Instance().PerfEvent(type, tid, start, end, name);
     }
+}
+
+inline void PerfMtTrace(uint32_t type, uint32_t tid, uint64_t cycle = 0) {
+    (void)type;
+    (void)tid;
+    (void)cycle;
+#if ENABLE_PERF_TRACE
+    PerfEvtMgr::Instance().PerfTrace(type, tid, cycle);
+#endif
 }
 
 struct AutoScopedPerf {

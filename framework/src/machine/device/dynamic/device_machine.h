@@ -242,9 +242,10 @@ public:
 
         PerfBegin(PERF_EVT_STAGE_TASK_SYNC);
         ret = SyncTask(&ctx.taskContext);
+        PerfMtTrace(PERF_TRACE_WAIT_ALL_DEV_TASK_FINISH, CTRL_CPU_THREAD_IDX);
         PerfEnd(PERF_EVT_STAGE_TASK_SYNC);
         PerfEnd(PERF_EVT_EXEC_DYN);
-#if PERF_SWITCH
+#if ENABLE_PERF_EVT
         ctx.ShowStats();
         PerfEvtMgr::Instance().Dump();
         PerfettoMgr::Instance().Dump("/tmp/perfetto.txt");
@@ -262,6 +263,35 @@ public:
       }
       sleep(1);
       DEV_ERROR("Exception reset reg finish.");
+    }
+
+    inline void DumpAicorePerfTrace(std::string file = "") {
+        (void)file;
+#if ENABLE_PERF_TRACE
+        std::ostringstream oss;
+        for (uint32_t i = 0; i < schAicpuNum_; ++i) {
+            aicoreManager_[i]->DumpAicorePerfTrace(oss);
+            oss << (i == schAicpuNum_ - 1 ? "" : ",");
+        }
+
+        const std::string& str = oss.str();
+        uint32_t totalLength = str.length();
+        uint32_t startPos = 0;
+        uint32_t batchSize = 600;
+        while (startPos < totalLength) {
+            uint32_t endPos = std::min(startPos + batchSize, totalLength);
+            std::string batch = str.substr(startPos, endPos - startPos);
+            DEV_ERROR("tile_fwk aicore prof:%s", batch.c_str());
+            startPos = endPos;
+        }
+
+        if (file != "") {
+            std::ofstream os(file);
+            os << "[";
+            os << oss.str();
+            os << "]";
+        }
+#endif
     }
 private:
     static void DumpTask(int64_t taskId, DeviceTask *devTask, bool isDyn) {

@@ -22,8 +22,11 @@ namespace npu::tile_fwk {
 // When enabled, logs will be written to the /tmp directory.
 #define ENABLE_TMP_LOG 0 
 
-// If enabled, performance statistics are recorded in the log.
-#define PERF_SWITCH 0
+// If enabled, performance evt statistics are recorded in the log.
+#define ENABLE_PERF_EVT 0
+
+// If enabled, performance trace statistics are recorded in the log.
+#define ENABLE_PERF_TRACE 0
 
 /* When enabled, verbose log will be compiled.Because verbose logging is so extensive, having it compiled into the code
    can hurt performance, even when the logging feature is turned off.
@@ -109,7 +112,7 @@ constexpr bool SEND_TASK_IMMEDIATELY_SWITCH = true;
 
 #define PROF_START(...)
 
-#if PERF_SWITCH
+#if ENABLE_PERF_EVT
 #define PROF_STAGE_BEGIN(perfkey, ...)              PerfBegin(perfkey)
 #define PROF_STAGE_END(perfkey, ...)                PerfEnd(perfkey)
 #define PROF_STAGE_BEGIN_MTSAFE(perfkey, tid, ...)  PerfMtBegin(perfkey, tid)

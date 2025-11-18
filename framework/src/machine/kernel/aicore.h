@@ -43,16 +43,39 @@ struct TaskStat {
     int64_t waitStart; // 2.0 dfx 当前未使用
 };
 
+constexpr uint32_t PERF_TRACE_INST_MAX_NUM_EVERY_TYPE = 10;
+constexpr uint32_t INVALID_DEV_TASK_ID = 0xFFFFFFFF;
+enum AicorePerfTrace {
+    PERF_TRACE_CORE_BEGIN = 0,
+    PERF_TRACE_CORE_INIT,
+    PERF_TRACE_CORE_DEV_TASK_RCV_MODEL,
+    PERF_TRACE_CORE_DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK,
+    PERF_TRACE_CORE_DEV_TASK_CALLOP_TASK_EXEC,
+    PERF_TRACE_CORE_DEV_TASK_WAIT_SYNC_STOP_NOTIFY,
+    PERF_TRACE_CORE_WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH,
+    PERF_TRACE_CORE_WAIT_EXIT_NOTIFY,
+    PERF_TRACE_CORE_MAX
+};
+
 struct Metrics {
-  int64_t handShakeStart;
-  int64_t handShakeEnd;
-  int64_t kernelRunStart;
-  int64_t kernelRunEnd;
-  int64_t blockIdx;
+  bool    taskPerfEnable;
+  int64_t perfTrace[PERF_TRACE_CORE_MAX][PERF_TRACE_INST_MAX_NUM_EVERY_TYPE];
+  uint32_t perfTraceDevTaskId[PERF_TRACE_CORE_MAX][PERF_TRACE_INST_MAX_NUM_EVERY_TYPE];
+  uint32_t perfTraceCnt[PERF_TRACE_CORE_MAX];
   int64_t taskCount;
   int64_t isMetricStop;
-  int64_t reserver[1];
   TaskStat tasks[];
+};
+
+inline const char *AicorePerfTraceName[] = {
+    "BEGIN",
+    "INIT",
+    "DEV_TASK_RCV_MODEL",
+    "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK",
+    "DEV_TASK_ALL_CALLOP_TASK_EXEC",
+    "DEV_TASK_WAIT_SYNC_STOP_NOTIFY",
+    "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+    "WAIT_EXIT_NOTIFY"
 };
 
 struct TaskEntry {

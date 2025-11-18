@@ -51,15 +51,27 @@ struct TaskStat {
     int64_t waitStart; // 2.0 dfx 当前未使用
 };
 
+constexpr uint32_t PERF_TRACE_INST_MAX_NUM_EVERY_TYPE = 10;
+constexpr uint32_t INVALID_DEV_TASK_ID = 0xFFFFFFFF;
+enum AicorePerfTrace {
+    PERF_TRACE_CORE_BEGIN = 0,
+    PERF_TRACE_CORE_INIT,
+    PERF_TRACE_CORE_DEV_TASK_RCV_MODEL,
+    PERF_TRACE_CORE_DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK,
+    PERF_TRACE_CORE_DEV_TASK_CALLOP_TASK_EXEC,
+    PERF_TRACE_CORE_DEV_TASK_WAIT_SYNC_STOP_NOTIFY,
+    PERF_TRACE_CORE_WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH,
+    PERF_TRACE_CORE_WAIT_EXIT_NOTIFY,
+    PERF_TRACE_CORE_MAX
+};
+
 struct Metrics {
-  int64_t handShakeStart;
-  int64_t handShakeEnd;
-  int64_t kernelRunStart;
-  int64_t kernelRunEnd;
-  int64_t blockIdx;
+  bool    taskPerfEnable;
+  int64_t perfTrace[PERF_TRACE_CORE_MAX][PERF_TRACE_INST_MAX_NUM_EVERY_TYPE];
+  uint32_t perfTraceDevTaskId[PERF_TRACE_CORE_MAX][PERF_TRACE_INST_MAX_NUM_EVERY_TYPE];
+  uint32_t perfTraceCnt[PERF_TRACE_CORE_MAX];
   int64_t taskCount;
   int64_t isMetricStop;
-  int64_t reserver[1];
   TaskStat tasks[];
 };
 
@@ -86,10 +98,13 @@ static_assert(sizeof(KernelArgs) < SHARED_BUFFER_SIZE);
 
 // device switch head file begin
 namespace npu::tile_fwk {
+#define PERF_PMU_TEST_SWITCH 0
 
 #define DEBUG_SWITCH 0
 
 #define ENABLE_AICORE_PRINT 0
+
+#define ENABLE_AICORE_PERF_TRACE  0
 
 /* The DFX swimlane performance statistics use host pre-allocated memory mode, which avoids data collection during
    AICPU scheduling to minimize scheduling interference. However, each AICore only supports tracking up to
@@ -116,8 +131,6 @@ using npu::tile_fwk::DynFuncBin;
 using npu::tile_fwk::DevRawTensorDesc;
 using npu::tile_fwk::CoreFunctionData;
 
-constexpr uint32_t STATUS_TASKID_SHIFT = 32;
-
 #if defined(__MIX__) && defined(__AIV__)
 #define blockIdx __v_blockIdx
 #define GmWorkspace __v_GmWorkspace
@@ -141,13 +154,14 @@ struct ExecuteContext {
     __gm__ KernelArgs *args;
     uint32_t seqNo;
     __gm__ DynFuncData *funcDataList;
-    __gm__ CoreFunctionData *staticFuncData;
+    uint64_t lastTaskFinishCycle{0};
 #if ENABLE_AICORE_PRINT
     AicoreLogger logger;
 #endif
 };
 
-typedef void (*StaticKernelFunc)(__gm__ int64_t *param, int64_t gmStackAddr, __gm__ int64_t *hcclContext, __gm__ int64_t *oriAddr);
+typedef void (*StaticKernelFunc)(__gm__ int64_t *param, int64_t gmStackAddr,
+    __gm__ int64_t *hcclContext, __gm__ int64_t *oriAddr);
 
 INLINE uint32_t GetNextTask(uint32_t lastTaskIdx) {
     uint32_t nextLowIdx;
@@ -216,6 +230,17 @@ INLINE void SendRegAck(uint32_t taskIdx) {
     set_cond(taskIdx);
 }
 
+INLINE void PerfTraceRecord(uint32_t devTaskId, __gm__ Metrics* metric, AicorePerfTrace type, uint64_t cycle = 0) {
+#if ENABLE_AICORE_PERF_TRACE
+    uint32_t cnt = metric->perfTraceCnt[type];
+    if (cnt < PERF_TRACE_INST_MAX_NUM_EVERY_TYPE) {
+        metric->perfTrace[type][cnt] = cycle == 0 ? get_sys_cnt() : cycle;
+        metric->perfTraceDevTaskId[type][cnt] = devTaskId;
+        metric->perfTraceCnt[type]++;
+    }
+#endif
+}
+
 INLINE void SetTaskStatistic(__gm__ KernelArgs *args, int32_t& dfxPose,
                              int32_t taskId, int32_t subGraphId, int64_t tStart, uint16_t seqNo = 0)
 {
@@ -228,15 +253,16 @@ INLINE void SetTaskStatistic(__gm__ KernelArgs *args, int32_t& dfxPose,
     dcci(stat, SINGLE_CACHE_LINE, CACHELINE_OUT);
 }
 
-INLINE void AddMetricStatistic(__gm__ KernelArgs *args, uint32_t seqNo, uint32_t taskId, int32_t subGraphId, int64_t t1) {
+INLINE void AddMetricStatistic(ExecuteContext *ctx, uint32_t seqNo, uint32_t taskId, int32_t subGraphId, int64_t t1) {
 #if PROF_DFX_HOST_PREPARE_MEMORY_MODE
-    auto m = (__gm__ Metrics*)(args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+    auto m = (__gm__ Metrics*)(ctx->args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
     if (m && m->taskCount < MAX_DFX_TASK_NUM_PER_CORE) {
         m->tasks[m->taskCount].subGraphId = subGraphId;
         m->tasks[m->taskCount].seqNo = seqNo;
         m->tasks[m->taskCount].taskId = taskId;
         m->tasks[m->taskCount].execStart = t1;
-        m->tasks[m->taskCount].execEnd = get_sys_cnt();
+        ctx->lastTaskFinishCycle = get_sys_cnt();
+        m->tasks[m->taskCount].execEnd = ctx->lastTaskFinishCycle;
         m->taskCount++;
     }
 #endif
@@ -247,11 +273,32 @@ INLINE void FlushMetricStatistic(__gm__ volatile KernelArgs* args) {
     if (m == nullptr) {
         return;
     }
+
     for (uint32_t i = 0; i < m->taskCount; i++) {
         dcci(&m->tasks[i], SINGLE_CACHE_LINE, CACHELINE_OUT);
     }
+
     m->isMetricStop = 1;
+    PerfTraceRecord(INVALID_DEV_TASK_ID, (__gm__ Metrics*)m, PERF_TRACE_CORE_WAIT_EXIT_NOTIFY);
     dcci(m, SINGLE_CACHE_LINE, CACHELINE_OUT);
+    dcci((__gm__ void *)0, ENTIRE_DATA_CACHE, CACHELINE_OUT);
+}
+
+INLINE void DfxProcWhenCoreExit(ExecuteContext *ctx, __gm__ KernelArgs *args, __gm__ Metrics* metric) {
+    if (ctx->lastTaskFinishCycle > 0) {
+        PerfTraceRecord(INVALID_DEV_TASK_ID, metric,
+            PERF_TRACE_CORE_WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH, ctx->lastTaskFinishCycle);
+    }
+    FlushMetricStatistic(args);
+    SetStatus(args, STAGE_GET_COREFUNC_DATA_STOP);
+}
+
+INLINE void DfxProcWhenDevTaskStop(ExecuteContext *ctx, __gm__ KernelArgs *args, __gm__ Metrics* metric) {
+    PerfTraceRecord(ctx->seqNo, metric, PERF_TRACE_CORE_DEV_TASK_WAIT_SYNC_STOP_NOTIFY);
+    if (ctx->lastTaskFinishCycle > 0) {
+        PerfTraceRecord(ctx->seqNo, metric, PERF_TRACE_CORE_DEV_TASK_CALLOP_TASK_EXEC, ctx->lastTaskFinishCycle);
+    }
+    SetStatus(args, STAGE_GET_NEXT_TASK_STOP);
 }
 
 INLINE uint64_t getCoreFuncionData(__gm__ KernelArgs *args, int64_t lastFunc) {
@@ -302,38 +349,10 @@ INLINE void PmuTestEnd(__gm__ KernelArgs *args) {
 
 #define FuncNum(id)      TaskID(id)
 
-INLINE void ExecStaticCoreFunctionKernel(ExecuteContext *ctx, uint32_t taskId) {
-#if PROF_DFX_HOST_PREPARE_MEMORY_MODE != 1
-    static int32_t taskDfxPos = REG_LOW_TASK_PING;
-#endif
-    __gm__ CoreFunctionData* coreFuncData = ctx->staticFuncData;
-    uint64_t t1 = get_sys_cnt();
-    SetStatus(ctx->args,  ((uint64_t)taskId << STATUS_TASKID_SHIFT) | STAGE_PRE_EXEC_COREFUNC_KERNEL);
-    __gm__ npu::tile_fwk::CoreFunctionWsAddr* functionInfo =
-            &((__gm__ npu::tile_fwk::CoreFunctionWsAddr*)coreFuncData->coreFunctionWsAddr)[taskId];
-    StaticKernelFunc kernel = (StaticKernelFunc)functionInfo->functionBinAddr;
-    kernel((__gm__ int64_t *)functionInfo->invokeEntryAddr,
-           coreFuncData->stackWorkSpaceAddr + blockIdx * coreFuncData->stackWorkSpaceSize,
-           (__gm__ int64_t *)coreFuncData->hcclContextAddr,
-           (__gm__ int64_t *)functionInfo->invokeEntryOriAddr);
-
-    SetStatus(ctx->args, STAGE_FINISH_EXEC_COREFUNC_KERNEL);
-    PipeSync();
-    SetStatus(ctx->args, STAGE_FINISH_PIPE_SYNC);
-
-#if PROF_DFX_HOST_PREPARE_MEMORY_MODE != 1
-    SetTaskStatistic(ctx->args, taskDfxPos, taskId, (int32_t)functionInfo->psgId, t1);
-#endif
-
-    AddMetricStatistic(ctx->args, 0, taskId, (int32_t)functionInfo->psgId, t1);
-}
-
 #ifdef __HAS_SUB_FUNC__
 INLINE void ExecDynCoreFunctionKernel(ExecuteContext *ctx, uint32_t taskId) {
     uint64_t t1 = get_sys_cnt();
-
-    SetStatus(ctx->args, ((uint64_t)taskId << STATUS_TASKID_SHIFT) | STAGE_PRE_EXEC_COREFUNC_KERNEL); // high 32 bits used for taskId
-
+    SetStatus(ctx->args, ((uint64_t)taskId << 32) | STAGE_PRE_EXEC_COREFUNC_KERNEL); // high 32 bits used for taskId
     auto funcData = &ctx->funcDataList[FuncID(taskId)];
     auto opAttrs = &funcData->opAttrs[funcData->opAtrrOffsets[TaskID(taskId)]];
 #if ENABLE_AICORE_PRINT
@@ -346,7 +365,7 @@ INLINE void ExecDynCoreFunctionKernel(ExecuteContext *ctx, uint32_t taskId) {
     SetStatus(ctx->args, STAGE_FINISH_EXEC_COREFUNC_KERNEL);
     PipeSync();
     SetStatus(ctx->args, STAGE_FINISH_PIPE_SYNC);
-    AddMetricStatistic(ctx->args, ctx->seqNo, taskId, opAttrs[0], t1);
+    AddMetricStatistic(ctx, ctx->seqNo, taskId, opAttrs[0], t1);
 #if PROF_DFX_HOST_PREPARE_MEMORY_MODE != 1
     static int32_t taskDfxPos = REG_LOW_TASK_PING;
     SetTaskStatistic(ctx->args, taskDfxPos, taskId, opAttrs[0], t1, ctx->seqNo);
@@ -354,32 +373,27 @@ INLINE void ExecDynCoreFunctionKernel(ExecuteContext *ctx, uint32_t taskId) {
 }
 #endif
 
-INLINE void InitCtx(ExecuteContext *ctx, uint64_t coreFuncData, bool isDyn) {
-    if (isDyn) {
-        __gm__ DynFuncHeader *header = (__gm__ DynFuncHeader *)coreFuncData;
-        ctx->seqNo = header->seqNo;
-        ctx->funcDataList = (__gm__ npu::tile_fwk::DynFuncData *)(header + 1);
+INLINE void InitCtx(ExecuteContext *ctx, __gm__ Metrics* metric, uint64_t coreFuncData) {
+    __gm__ DynFuncHeader *header = (__gm__ DynFuncHeader *)coreFuncData;
+    ctx->seqNo = header->seqNo;
+    PerfTraceRecord(ctx->seqNo, metric, PERF_TRACE_CORE_DEV_TASK_RCV_MODEL);
+    ctx->funcDataList = (__gm__ npu::tile_fwk::DynFuncData *)(header + 1);
+    ctx->lastTaskFinishCycle = 0;
 #if ENABLE_AICORE_PRINT
-        auto buffer = reinterpret_cast<__gm__ uint8_t *>(ctx->args->shakeBuffer[SHAK_BUF_PRINT_BUFFER_INDEX]);
-        if (ctx->logger.GetBuffer() != buffer) {
-            ctx->logger.Init(buffer, PRINT_BUFFER_SIZE);
-        }
-#endif
-        dcci((__gm__ void *)0, ENTIRE_DATA_CACHE, CACHELINE_OUT);
-        return;
+    auto buffer = reinterpret_cast<__gm__ uint8_t *>(ctx->args->shakeBuffer[SHAK_BUF_PRINT_BUFFER_INDEX]);
+    if (ctx->logger.GetBuffer() != buffer) {
+        ctx->logger.Init(buffer, PRINT_BUFFER_SIZE);
     }
-
-    ctx->staticFuncData = (__gm__ npu::tile_fwk::CoreFunctionData*)coreFuncData;
+#endif
+    dcci((__gm__ void *)0, ENTIRE_DATA_CACHE, CACHELINE_OUT);
+    return;
 }
 
-INLINE void ExecCoreFunctionKernel(ExecuteContext *ctx, uint32_t curTaskIdx, bool isDyn) {
+INLINE void ExecCoreFunctionKernel(ExecuteContext *ctx, uint32_t curTaskIdx) {
 #ifdef __HAS_SUB_FUNC__
-    if (isDyn) {
-        ExecDynCoreFunctionKernel(ctx, curTaskIdx);
-        return;
-    }
+    ExecDynCoreFunctionKernel(ctx, curTaskIdx);
+    return;
 #endif
-    ExecStaticCoreFunctionKernel(ctx, curTaskIdx);
 }
 
 extern "C" __global__ __aicore__ void KERNEL_ENTRY(__OPTYPE__, __TILINGKEY__)(int64_t ffts_addr, int64_t inputs,
@@ -391,8 +405,9 @@ extern "C" __global__ __aicore__ void KERNEL_ENTRY(__OPTYPE__, __TILINGKEY__)(in
 #endif
     auto devArgs = (DeviceArgs*)cfgdata;
     __gm__ KernelArgs *args = (__gm__ KernelArgs *)(devArgs->sharedBuffer + blockIdx * SHARED_BUFFER_SIZE);
-    bool isDyn = devArgs->taskType == DEVICE_TASK_TYPE_DYN ? true : false;
-
+    __gm__ Metrics* metric = (__gm__ Metrics*)(args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+    PerfTraceRecord(INVALID_DEV_TASK_ID, metric, PERF_TRACE_CORE_BEGIN);
+    bool isFirstTask = true;
     SetStatus(args, STAGE_HANDSHAKE_START);
     HandshakeClient(args->shakeBuffer);
     SetStatus(args, STAGE_HANDSHAKE_END);
@@ -404,6 +419,7 @@ extern "C" __global__ __aicore__ void KERNEL_ENTRY(__OPTYPE__, __TILINGKEY__)(in
     //get core task data
     uint64_t t0 = get_sys_cnt();
     uint64_t loop_count = 0;
+    PerfTraceRecord(INVALID_DEV_TASK_ID, metric, PERF_TRACE_CORE_INIT);
     while (true) {
         ++loop_count;
         if ((loop_count % 1000 == 0) && (get_sys_cnt() - t0 > 3000000000)) {
@@ -412,13 +428,13 @@ extern "C" __global__ __aicore__ void KERNEL_ENTRY(__OPTYPE__, __TILINGKEY__)(in
         lastTaskIdx = AICORE_TASK_INIT;
         coreFuncData = getCoreFuncionData(args, coreFuncData);
         if (coreFuncData == 0) {
-            FlushMetricStatistic(args);
-            SetStatus(args, STAGE_GET_COREFUNC_DATA_STOP);
+            DfxProcWhenCoreExit(&ctx, args, metric);
             return; // no data exit
         }
-        InitCtx(&ctx, coreFuncData, isDyn);
+        InitCtx(&ctx, metric, coreFuncData);
         uint64_t t1 = get_sys_cnt();
         uint64_t inner_loop_count = 0;
+        isFirstTask = true;
         while (true) {
             ++inner_loop_count;
             if ((inner_loop_count % 1000 == 0) && (get_sys_cnt() - t1 > 3000000000)) {
@@ -426,19 +442,19 @@ extern "C" __global__ __aicore__ void KERNEL_ENTRY(__OPTYPE__, __TILINGKEY__)(in
             }
             curTaskIdx = GetNextTask(lastTaskIdx);
             if (curTaskIdx == AICORE_TASK_STOP || curTaskIdx == AICORE_FUNC_STOP) {
-                SetStatus(args, STAGE_GET_NEXT_TASK_STOP);
-                if (isDyn) {
-                    SendRegDevTaskStop(ctx.seqNo);
-                    break;
-                } else {
-                    FlushMetricStatistic(args);
-                    return;
-                }
+                DfxProcWhenDevTaskStop(&ctx, args, metric);
+                SendRegDevTaskStop(ctx.seqNo);
+                break;
+            }
+
+            if (isFirstTask) {
+                PerfTraceRecord(ctx.seqNo, metric, PERF_TRACE_CORE_DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK);
+                isFirstTask = false;
             }
 
             SendRegAck(curTaskIdx);
             PmuTestBegin(args);
-            ExecCoreFunctionKernel(&ctx, curTaskIdx, isDyn);
+            ExecCoreFunctionKernel(&ctx, curTaskIdx);
             PmuTestEnd(args);
             SendRegFinsh(curTaskIdx);
             lastTaskIdx = curTaskIdx;
