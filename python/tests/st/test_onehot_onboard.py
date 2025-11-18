@@ -174,7 +174,7 @@ def pto_one_hot(src_tensor: torch.Tensor,
     assert len(dst_shape) <= 4, "Currently only support rank <= 4"
     loop_names, loop_idx_names = generate_names(["b", "s", "n", "d"], len(dst_shape))
 
-    pto.set_codegen_option("support_dynamic_unaligned", True)
+    pto.set_codegen_options(support_dynamic_unaligned=True)
     with pto.function("MAIN", [src_pto_tensor], [dst_pto_tensor]):
         for dst_coord in pto_nested_loop(dst_partitioner.grid_dims(), loop_names, loop_idx_names):
             src_coord = dst_coord[:-1]
