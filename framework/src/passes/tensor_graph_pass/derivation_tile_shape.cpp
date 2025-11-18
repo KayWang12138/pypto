@@ -93,7 +93,7 @@ static int64_t DotProduct(const std::vector<int64_t> &subIndex, const std::vecto
 
 static bool CanNotAlignShape(const std::vector<int64_t> &inShape, const std::vector<int64_t> &outShape, int64_t inSize, int64_t outSize) {
     if ((inSize == 0) || (outSize == 0)) {
-        APASS_LOG_ERROR_F(Elements::Operation,
+        APASS_LOG_WARN_F(Elements::Operation,
             "InSize or outSize is 0, cannot calculate the align of the input%s and the output%s",
             GetStr(inShape).c_str(), GetStr(outShape).c_str());
         return true;
@@ -101,7 +101,7 @@ static bool CanNotAlignShape(const std::vector<int64_t> &inShape, const std::vec
     /* 两个size不能互相整除，无法推导aligned shape */
     auto ret = (inSize % outSize != 0) && (outSize % inSize != 0);
     if (ret) {
-        APASS_LOG_ERROR_F(Elements::Operation,
+        APASS_LOG_WARN_F(Elements::Operation,
             "Non-segmentable axis, cannot calculate the align of the input%s and the output%s",
             GetStr(inShape).c_str(), GetStr(outShape).c_str());
     }
@@ -259,7 +259,7 @@ static Status DerivationAlignShape(const std::vector<int64_t> &inShape, const st
     return SUCCESS;
 }
 
-bool CheckMemoryCondition(const std::vector<size_t> &indexes, std::vector<ShapeStatus> &shapeStatus) {
+static bool CheckMemoryCondition(const std::vector<size_t> &indexes, std::vector<ShapeStatus> &shapeStatus) {
     /* 涉及拆轴的tile size需要满足从低维度开始展开 */
     for (size_t i = 0; i < indexes.size() - 1; i++) {
         auto cur = indexes[i];
@@ -284,7 +284,7 @@ static Status HandleSplitLargeTileShape(std::vector<ShapeStatus> &inStatus, std:
         }
         if (i == (alignedIndexes.end() - 1)) {
             if (tempShape < alignedShape) {
-                APASS_LOG_ERROR_F(Elements::Operation,
+                APASS_LOG_WARN_F(Elements::Operation,
                     "Split last large tile shape fail, Tensor Shape:%s, TileShape:%s, AlignedShape:%s",
                     GetShapeStr(inStatus).c_str(), GetTileStr(inStatus).c_str(), GetShapeStr(alignedStatus).c_str());
                 return FAILED;
@@ -292,7 +292,7 @@ static Status HandleSplitLargeTileShape(std::vector<ShapeStatus> &inStatus, std:
             alignStatus.tileSize = tempShape;
         } else {
             if (tempShape % alignedShape != 0) {
-                APASS_LOG_ERROR_F(Elements::Operation,
+                APASS_LOG_WARN_F(Elements::Operation,
                     "Split large tile shape fail, Tensor Shape:%s, TileShape:%s, AlignedShape:%s",
                     GetShapeStr(inStatus).c_str(), GetTileStr(inStatus).c_str(), GetShapeStr(alignedStatus).c_str());
                 return FAILED;
@@ -304,37 +304,25 @@ static Status HandleSplitLargeTileShape(std::vector<ShapeStatus> &inStatus, std:
     return SUCCESS;
 }
 
-static Status HandleSplitTileShape(std::vector<ShapeStatus> &inStatus, std::vector<size_t> alignedIndexes, 
+static Status HandleSplitTileShape(std::vector<size_t> alignedIndexes,
     int64_t &tileShape, std::vector<ShapeStatus> &alignedStatus) {
     for (auto i = alignedIndexes.rbegin(); i != alignedIndexes.rend(); ++i) {
         auto &alignStatus = alignedStatus[*i];
         int64_t alignedShape = alignStatus.size;
-        if (tileShape == 1) {
-            alignStatus.tileSize = 1;
-            continue;
-        }
-        if (tileShape % alignedShape != 0 && alignedShape % tileShape != 0) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "Non-compliance: Tensor Shape:%s, TileShape:%s, AlignedShape:%s",
-                GetShapeStr(inStatus).c_str(), GetTileStr(inStatus).c_str(), GetShapeStr(alignedStatus).c_str());
-            return FAILED;
-        }
-        if (tileShape % alignedShape == 0) {
+        if (tileShape > alignedShape) {
             alignStatus.tileSize = alignedShape;
-            tileShape = tileShape / (alignStatus.tileSize);
-            continue;
-        } else if (alignedShape % tileShape == 0) {
+            tileShape = tileShape / alignedShape;
+        } else {
             alignStatus.tileSize = tileShape;
             tileShape = 1;
-            continue;
         }
-        alignStatus.tileSize = 1;
     }
     return SUCCESS;
 }
 
 static Status DerivationAlignShapeTile(std::vector<ShapeStatus> &inStatus, std::vector<ShapeStatus> &alignedStatus) {
     if (inStatus.size() == 0 || alignedStatus.size() == 0) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "The shape status is empty.");
+        APASS_LOG_WARN_F(Elements::Tensor, "The shape status is empty.");
         return FAILED;
     }
 
@@ -350,12 +338,7 @@ static Status DerivationAlignShapeTile(std::vector<ShapeStatus> &inStatus, std::
         }
         /* shapeStatus.axisType只可能为keep或者split */
         if (shapeStatus.axisType != AXIS_SPLIT) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "The axisType property of inStatus is invalid.");
-            return FAILED;
-        }
-        if ((shapeStatus.size % tileShape != 0) && (shapeStatus.size > tileShape)) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "Tensor Shape:%s is not divisible by the tile shape:%s",
-                GetShapeStr(inStatus).c_str(), GetTileStr(inStatus).c_str());
+            APASS_LOG_WARN_F(Elements::Tensor, "The axisType property of inStatus is invalid.");
             return FAILED;
         }
 
@@ -364,12 +347,12 @@ static Status DerivationAlignShapeTile(std::vector<ShapeStatus> &inStatus, std::
             if (HandleSplitLargeTileShape(inStatus, alignedIndexes, tileShape, alignedStatus) != SUCCESS) {
                 return FAILED;
             }
-        } else if (HandleSplitTileShape(inStatus, alignedIndexes, tileShape, alignedStatus) != SUCCESS) {
+        } else if (HandleSplitTileShape(alignedIndexes, tileShape, alignedStatus) != SUCCESS) {
             return FAILED;
         }
 
         if (!CheckMemoryCondition(alignedIndexes, alignedStatus)) {
-            APASS_LOG_ERROR_F(Elements::Tensor,
+            APASS_LOG_WARN_F(Elements::Tensor,
                 "The memory Layout can not be mapped: Tensor Shape:%s, TileShape:%s, AlignedShape:%s, Align TileShape:%s",
                 GetShapeStr(inStatus).c_str(), GetTileStr(inStatus).c_str(), GetShapeStr(alignedStatus).c_str(), 
                 GetTileStr(alignedStatus).c_str());
@@ -385,7 +368,7 @@ static Status DerivationOutShapeTileWithAlign(std::vector<ShapeStatus> &alignedS
         auto o = alignStatus.transformAxisIndex[0];
         /* alignStatus.axisType只可能为keep或者merge */
         if (alignStatus.axisType != AXIS_KEEP && alignStatus.axisType != AXIS_MERGE) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "The axisType property of alignedStatus is invalid.");
+            APASS_LOG_WARN_F(Elements::Tensor, "The axisType property of alignedStatus is invalid.");
             return FAILED;
         }
         tileShape[o] = tileShape[o] * alignStatus.tileSize;
@@ -407,7 +390,7 @@ static Status DerivationOutShapeTileWithAlign(std::vector<ShapeStatus> &alignedS
             indexes.push_back(i);
         } else {
             if (!CheckMemoryCondition(indexes, alignedStatus)) {
-                APASS_LOG_ERROR_F(Elements::Tensor,
+                APASS_LOG_WARN_F(Elements::Tensor,
                     "The memory Layout can not be mapped: AlignedShape%s, OutputShape%s, alignTileShape%s, tileShape%s",
                     GetShapeStr(alignedStatus).c_str(), GetStr(outShape).c_str(), GetTileStr(alignedStatus).c_str(),
                     GetStr(tileShape).c_str());
@@ -419,7 +402,7 @@ static Status DerivationOutShapeTileWithAlign(std::vector<ShapeStatus> &alignedS
 
         if (indexes.size() > 1) {
             if (!CheckMemoryCondition(indexes, alignedStatus)) {
-                APASS_LOG_ERROR_F(Elements::Tensor,
+                APASS_LOG_WARN_F(Elements::Tensor,
                     "The memory Layout can not be mapped: AlignedShape%s, OutputShape%s, alignTileShape%s, tileShape%s",
                     GetShapeStr(alignedStatus).c_str(), GetStr(outShape).c_str(), GetTileStr(alignedStatus).c_str(),
                     GetStr(tileShape).c_str());
@@ -430,7 +413,7 @@ static Status DerivationOutShapeTileWithAlign(std::vector<ShapeStatus> &alignedS
     return SUCCESS;
 }
 
-void TiledReshape(const int dimIdx, const std::vector<int64_t> &inShape, const std::vector<int64_t> &tileShape,
+static void TiledReshape(const int dimIdx, const std::vector<int64_t> &inShape, const std::vector<int64_t> &tileShape,
     std::vector<int64_t> actTileShape, std::vector<int64_t> actOffset, int64_t &tileCnt,
     std::vector<std::vector<int64_t>> &allActTileShape, std::vector<std::vector<int64_t>> &allActOffset)
 {
@@ -450,7 +433,7 @@ void TiledReshape(const int dimIdx, const std::vector<int64_t> &inShape, const s
     }
 }
 
-int64_t TiledReshape(const std::vector<int64_t> &inShape, const std::vector<int64_t> &tileShape,
+static int64_t TiledReshape(const std::vector<int64_t> &inShape, const std::vector<int64_t> &tileShape,
     std::vector<std::vector<int64_t>> &allActTileShape, std::vector<std::vector<int64_t>> &allActOffset)
 {
     std::vector<int64_t> actOffset(inShape.size(), 0);
@@ -587,7 +570,7 @@ Status DerivationTileShape::DerivationReshapeTileShape(Operation *op, const Shap
         return FAILED;
     }
     if (!ValidShape(inShape) || !ValidShape(outShape) || !ValidShape(inTileShape)) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Op: %d has invalid shape, inShape%s, outShape%s, inTile%s",
+        APASS_LOG_WARN_F(Elements::Operation, "Op: %d has invalid shape, inShape%s, outShape%s, inTile%s",
             op->GetOpMagic(), GetStr(inShape).c_str(), GetStr(outShape).c_str(), GetStr(inTileShape).c_str());
         return FAILED;
     }
@@ -605,7 +588,7 @@ Status DerivationTileShape::DerivationReshapeTileShape(Operation *op, const Shap
     std::vector<ShapeStatus> alignedStatus; // 记录alignend shape和output shape之间关系
     /* 推导align shape和对应切轴和合轴操作 */
     if (DerivationAlignShape(inShape, outShape, inStatus, alignedShape, alignedStatus) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Op: %d derivation alignedShape failed, inShape%s, outShape%s, inTile%s",
+        APASS_LOG_WARN_F(Elements::Operation, "Op: %d derivation alignedShape failed, inShape%s, outShape%s, inTile%s",
             op->GetOpMagic(), GetStr(inShape).c_str(), GetStr(outShape).c_str(), GetStr(inTileShape).c_str());
         return FAILED;
     }
@@ -613,7 +596,7 @@ Status DerivationTileShape::DerivationReshapeTileShape(Operation *op, const Shap
     /* 推导align shape对应的tile shape */
     InitShapeStatusStride(alignedShape, alignedStatus);
     if (DerivationAlignShapeTile(inStatus, alignedStatus) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Op: %d derivation aligned tileshape failed, inShape%s, outShape%s, inTile%s",
+        APASS_LOG_WARN_F(Elements::Operation, "Op: %d derivation aligned tileshape failed, inShape%s, outShape%s, inTile%s",
             op->GetOpMagic(), GetStr(inShape).c_str(), GetStr(outShape).c_str(), GetStr(inTileShape).c_str());
         return FAILED;
     }
@@ -621,19 +604,19 @@ Status DerivationTileShape::DerivationReshapeTileShape(Operation *op, const Shap
     /* 推导输出Tensor的tile shape */
     std::vector<int64_t> newTileShape(outShape.size(), 1);
     if (DerivationOutShapeTileWithAlign(alignedStatus, outShape, newTileShape) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation,
+        APASS_LOG_WARN_F(Elements::Operation,
             "Op: %d derivation out tileshape with align failed, inShape%s, outShape%s, inTile%s, alignedShape%s",
             op->GetOpMagic(), GetStr(inShape).c_str(), GetStr(outShape).c_str(), GetStr(inTileShape).c_str(),
             GetStr(alignedShape).c_str());
         return FAILED;
     }
-    APASS_LOG_EVENT_F(Elements::Operation, "Op: %d, inShape%s, alignShape%s, outShape%s, inTile%s, alignTile%s, outTile%s",
+    APASS_LOG_INFO_F(Elements::Operation, "Op: %d, inShape%s, alignShape%s, outShape%s, inTile%s, alignTile%s, outTile%s",
         op->GetOpMagic(), GetStr(inShape).c_str(), GetStr(alignedShape).c_str(), GetStr(outShape).c_str(),
         GetTileStr(inStatus).c_str(), GetTileStr(alignedStatus).c_str(), GetStr(newTileShape).c_str());
 
     /* 检查输入输出切分tile shape */
     if (CheckTileShape(inShape, outShape, inTileShape, newTileShape) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation,
+        APASS_LOG_WARN_F(Elements::Operation,
             "Op: %d check tileshape failed, inShape%s, alignShape%s, outShape%s, inTile%s, alignTile%s, outTile%s",
             op->GetOpMagic(), GetStr(inShape).c_str(), GetStr(alignedShape).c_str(), GetStr(outShape).c_str(),
             GetTileStr(inStatus).c_str(), GetTileStr(alignedStatus).c_str(), GetStr(newTileShape).c_str());

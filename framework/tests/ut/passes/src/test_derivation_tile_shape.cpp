@@ -265,5 +265,27 @@ TEST_F(DerivationTileShapeTest, DerivationMergeBiggerTileFail) {
     std::vector<int64_t> inTileShape = {2, 33};
     BuildShapeAndCheckFail(G.GetFunction(), inShape, outShape, inTileShape);
 }
+
+TEST_F(DerivationTileShapeTest, DerivationNonComplianceTileFail) {
+    ComputationalGraphBuilder G;
+    BuildGraphAndCheck(G);
+
+    Shape inShape = {2, 27};
+    Shape outShape = {2, 3, 3, 3};
+    std::vector<int64_t> inTileShape = {2, 6};
+    BuildShapeAndCheckFail(G.GetFunction(), inShape, outShape, inTileShape);
+}
+
+TEST_F(DerivationTileShapeTest, DerivationNonComplianceTileSuccess) {
+    ComputationalGraphBuilder G;
+    BuildGraphAndCheck(G);
+
+    Shape inShape = {2, 27};
+    Shape outShape = {2, 3, 3, 3};
+    std::vector<int64_t> inTileShape = {2, 18};
+    std::vector<int64_t> resultTileShape = {2, 2, 3, 3};
+    BuildShapeAndCheckSucc(G.GetFunction(), inShape, outShape, inTileShape, resultTileShape);
+}
+
 } // namespace tile_fwk
 } // namespace npu
