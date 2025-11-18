@@ -53,12 +53,13 @@ void TestSaUT(const std::vector<int64_t> &input_param, SaTileShapeConfig& tileCo
     int b = input_param[0];
     int sq = input_param[1];
     int nq = input_param[2];
-    int nKv = input_param[3];
+    int nkv = input_param[3];
     int dn = input_param[4];
     int dr = input_param[5];
-    int smax = input_param[6];
-    int topk = input_param[7];
-    int is_kn_quant = input_param[8];
+    int blockNum = input_param[6];
+    int blockSize = input_param[7];
+    int topk = input_param[8];
+    int is_kn_quant = input_param[9];
     int nQ = nq;
     DataType dType = DT_BF16;
     DataType knDType = DT_BF16;
@@ -67,12 +68,10 @@ void TestSaUT(const std::vector<int64_t> &input_param, SaTileShapeConfig& tileCo
     float softmaxScale = static_cast<float>(1.0 / sqrtf((dn + dr)));
     std::vector<int64_t> qNopeShape = {b * sq * nq, dn};
     std::vector<int64_t> qRopeShape = {b * sq * nq, dr};
-    std::vector<int64_t> knShape = {b * nKv * smax, dn};
-    std::vector<int64_t> krShape = {b * nKv * smax, dr};
-    std::vector<int64_t> auxTensorShape1 = {512, 512};
-    std::vector<int64_t> auxTensorShape2 = {4, 4};
-    std::vector<int64_t> knScalesShape = {b * nKv * smax, 4};
-    std::vector<int64_t> offsetsShape = {b * sq, nKv * topk};
+    std::vector<int64_t> knShape = {blockNum * blockSize, dn};
+    std::vector<int64_t> krShape = {blockNum * blockSize, dr};
+    std::vector<int64_t> knScalesShape = {blockNum * blockSize, 4};
+    std::vector<int64_t> offsetsShape = {b * sq, nkv * topk};
     std::vector<int64_t> actSeqsShape = {b};
     std::vector<int64_t> saOutShape = {b, sq, nq, dn};
 
@@ -80,17 +79,15 @@ void TestSaUT(const std::vector<int64_t> &input_param, SaTileShapeConfig& tileCo
     Tensor qRope(dType, qRopeShape, "qRope");
     Tensor kNope2D(knDType, knShape, "kNope2D");
     Tensor kRope2D(dType, krShape, "kRope2D");
-    Tensor knAuxTensor(DT_INT8, auxTensorShape1, "knAuxTensor");
-    Tensor scaleAuxTensor(DT_FP32, auxTensorShape2, "scaleAuxTensor");
     Tensor kNopeScales(DT_FP32, knScalesShape, "kNopeScales");
     Tensor offsets(DT_INT32, offsetsShape, "offsets");
     Tensor kvSlcActSeqs(DT_INT32, actSeqsShape, "kvSlcActSeqs");
     
     Tensor attentionOut(dType, saOutShape, "attentionOut");
 
-    FUNCTION("R2_SA_MAIN_V2", {qNope, qRope, kNope2D, kRope2D, knAuxTensor, scaleAuxTensor, kNopeScales, offsets, kvSlcActSeqs}, {attentionOut}) {
-        SelectedAttentionComputeV2(qNope, qRope, kNope2D, kRope2D, knAuxTensor, scaleAuxTensor, 
-                                    kNopeScales, offsets, kvSlcActSeqs, nQ, nKv, softmaxScale, topk, attentionOut, tileConfig);
+    FUNCTION("R2_SA_MAIN_V2", {qNope, qRope, kNope2D, kRope2D, kNopeScales, offsets, kvSlcActSeqs}, {attentionOut}) {
+        SelectedAttentionComputeV2(qNope, qRope, kNope2D, kRope2D, kNopeScales, 
+                    offsets, kvSlcActSeqs, nQ, nkv, softmaxScale, topk, attentionOut, tileConfig);
     }
 }
 

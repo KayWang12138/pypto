@@ -88,12 +88,13 @@ def gen_uniform_data(data_shape, min_value, max_value, dtype):
         return torch.randint(low=min_value, high=max_value, size=data_shape, dtype=dtype)
 
 
-def softmax(x):
+def softmax(x, input_dtype):
     """PyTorch实现的softmax函数"""
     x = x.float()
     x_max = torch.max(x, dim=-1, keepdim=True).values
     x_sub = x - x_max
     y = torch.exp(x_sub)
+    y = y.to(input_dtype)
     x_sum = torch.sum(y, dim=-1, keepdim=True)
     ans = y
     return ans, x_sum, x_max
@@ -105,67 +106,109 @@ def compute_attention(input_data, params):
     使用PyTorch实现
     """
     q, kn, kr, kn_scales, offsets, actual_seq = input_data
-    # 提取维度信息
-    b, s_q, n_q, d_q = q.shape
-    _, kv_lora_rank = kn.shape
-    _, qk_rope_dim = kr.shape
-    d_k = kv_lora_rank + qk_rope_dim
     scalar, topk, d_v, is_kn_quant = params
-    atten_out_shape = [b, s_q, n_q, d_v]
+    # 提取维度信息
+    b, s1, n1, dq = q.shape
+    _, dk = kn.shape
+    _, dv = kr.shape
+
+    s2_tile = 2048
+
+    atten_out_shape = [b, s1, n1, d_v]
+    input_dtype = q.dtype
+    kn_dtype = kn.dtype
+
     # 初始化输出张量
-    attention_output = torch.zeros(atten_out_shape, dtype=torch.float32)
-    slc_kn = torch.zeros([topk, kv_lora_rank], dtype=torch.float32)
-    slc_kr = torch.zeros([topk, qk_rope_dim], dtype=torch.float32)
-    slc_kn_scales = torch.zeros([topk, 4], dtype=torch.float32)
-    # 遍历每个批次
-    for i in range(b):
-        # 遍历每个s_q
-        for j in range(s_q):
-            # 获取当前批次的实际序列长度
-            if isinstance(actual_seq, torch.Tensor):
-                kv_seq_len = actual_seq[i].item()
-            else:
-                kv_seq_len = actual_seq[i]
-            # s_q!=1 MTP场景下的casual计算
-            seq_len = min(max(kv_seq_len - s_q + 1 + j, 0), topk)
+    attention_output = torch.zeros(atten_out_shape, dtype=input_dtype)
+    tmp_out = torch.zeros([b, s1, n1], dtype=input_dtype)
 
-            # 当前批次的gather，获取对应的slc_kn
-            offset = offsets[i * s_q + j, :]
-            for idx in range(seq_len):
-                slc_idx = offset[idx]
-                slc_kn[idx, :] = kn[slc_idx, :]
-                slc_kr[idx, :] = kr[slc_idx, :]
-                slc_kn_scales[idx, :] = kn_scales[slc_idx, :]
+    for b_idx in range(b):
+        cur_k_seq = actual_seq[b_idx]
+        for s1_idx in range(s1):
+            cur_seq = min(max(cur_k_seq - s1 + 1 + s1_idx, 0), topk)
+            bn_per_batch = math.ceil(cur_seq / s2_tile)
 
-            # 获取当前批次和s_q的q [n_q, d_q]
-            q_bs = q[i, j]
-            # 获取当前批次的[seq_len, d_k/d_v]
-            if is_kn_quant:
-                kn_bs = slc_kn[:seq_len, :]
-                kn_scales_tmp = slc_kn_scales[:seq_len, :]
-                kn_bs = kn_bs.reshape(-1, 128).to(torch.float)
-                kn_scales_tmp = kn_scales_tmp.reshape(-1, 1)
-                kn_tmp = kn_bs * kn_scales_tmp
-                kn_tmp = kn_tmp.reshape(-1, 512).to(torch.bfloat16)
-            else:
-                kn_tmp = slc_kn[:seq_len, :]
-            kr_tmp = slc_kr[:seq_len, :]
-            k_bs = torch.concat([kn_tmp, kr_tmp], dim=-1)
-            v_bs = kn_tmp
+            qi = q[b_idx, s1_idx, :, :] # (n1, dk)
 
-            # MM1: 矩阵乘法
-            qk_bmm_res = torch.matmul(q_bs.float(), k_bs.transpose(1, 0).float())
-            qk_ele_res = qk_bmm_res * scalar
-            # Softmax计算
-            softmax_res, softmax_sum, softmax_max = softmax(qk_ele_res)
-            # MM2: 矩阵乘法
-            bmm2_res = torch.matmul(softmax_res / softmax_sum, v_bs.float())
-            # 存储结果
-            attention_output[i, j] = bmm2_res
-    return attention_output
+            for s2_idx in range(bn_per_batch):
+                s2_tile_cur = min(s2_tile, cur_seq - s2_idx * s2_tile)
+                s2_start = s2_tile * s2_idx
+                s2_end = s2_start + s2_tile_cur
+                offset = offsets[b_idx * s1 + s1_idx, s2_start:s2_end]
+                slc_kn = torch.zeros([s2_tile_cur, dk], dtype=kn_dtype)
+                slc_kr = torch.zeros([s2_tile_cur, dv], dtype=input_dtype)
+                slc_kn_scales = torch.zeros([s2_tile_cur, 4], dtype=torch.float32)
+                for idx in range(s2_tile_cur):
+                    s2_idx_tmp = s2_start + idx
+                    slc_idx = offset[s2_idx_tmp]
+                    slc_kn[s2_idx_tmp, :] = kn[slc_idx, :]
+                    slc_kr[s2_idx_tmp, :] = kr[slc_idx, :]
+                    slc_kn_scales[s2_idx_tmp, :] = kn_scales[slc_idx, :]
+                
+                qn_tmp = qi[..., :dk]
+                qr_tmp = qi[..., dk:]
+                if is_kn_quant:
+                    kn_bs = slc_kn.reshape(-1, 128).to(torch.float)
+                    kn_scales_tmp = slc_kn_scales.reshape(-1, 1)
+                    kn_tmp = kn_bs * kn_scales_tmp
+                    kn_tmp = kn_tmp.reshape(-1, 512).to(input_dtype)
+                else:
+                    kn_tmp = slc_kn
+                kr_tmp = slc_kr
+                vj = kn_tmp
+
+                # C1
+                qkn_bmm = torch.matmul(qn_tmp, kn_tmp.transpose(1, 0)).to(torch.float)
+                qkr_bmm = torch.matmul(qr_tmp, kr_tmp.transpose(1, 0)).to(torch.float)
+                sij = qkn_bmm + qkr_bmm
+                sij_scale = sij * scalar # (n1, s2_tile)
+                tilda_mij = sij_scale.amax(dim=-1, keepdims=True) # (n1, 1)
+                t_sub = sij_scale - tilda_mij # (n1, s2_tile)
+                tilda_pij = torch.exp(t_sub) # (n1, s2_tile)
+                tilda_pij_f16 = tilda_pij.to(input_dtype)
+                q1 = torch.matmul(tilda_pij_f16, vj)
+                tilda_lij = tilda_pij.sum(dim=-1, keepdims=True) # (n1, 1)
+
+                if s2_idx == 0:
+                    oi_tmp = q1
+                    if bn_per_batch == 1:
+                        oi_update = oi_tmp / tilda_lij
+                    else:
+                        oi_update = oi_tmp
+                    li_update = tilda_lij
+                    mi_update = tilda_mij
+                    tmp_out[b_idx, s1_idx, :] = tilda_lij.reshape(n1)
+                    continue
+
+                oi = oi_update
+                li = li_update
+                mi = mi_update
+
+                mi_new = torch.maximum(mi, tilda_mij)
+                t1 = mi - mi_new
+                t2 = torch.exp(t1)
+                t3 = tilda_mij - mi_new
+                t4 = torch.exp(t3)
+                t5 = t4 * tilda_lij
+                t6 = t2 * li
+                li_new = t6 + t5
+                q3 = oi * t2
+                q2 = q1 * t4
+                oi_tmp = q3 + q2
+                if s2_idx == bn_per_batch - 1:
+                    oi_update = oi_tmp / li_new
+                else:
+                    oi_update = oi_tmp
+                li_update = li_new
+                mi_update = mi_new
+
+            attention_output[b_idx, s1_idx, :, :] = oi_update
+
+    return attention_output, tmp_out
 
 
 def gen_dsa_gather_sa_entry(dtype, bn1n2s1, is_kn_quant, actual_seq, output):
+    block_size = 128
     torch.manual_seed(42)
     b, n_q, n_kv, s_q = bn1n2s1  # 48, 128, 1, 1
     kv_lora_rank = 512
@@ -188,47 +231,50 @@ def gen_dsa_gather_sa_entry(dtype, bn1n2s1, is_kn_quant, actual_seq, output):
             raise RuntimeError("unsupported actual_seq list length")
     else:
         raise RuntimeError("unsupported actual_seq data type")
-    s_max = ((max(actual_seq) + 128 - 1) // 128) * 128  # 默认block size = 128, 向上取整
-    s_max = max(s_max, topk)
     # 1. 定义shape
     shape_q = [b, s_q, n_q, d_q]
-    shape_kn = [b, s_max, kv_lora_rank]
-    shape_kr = [b, s_max, qk_rope_dim]
-    atten_out_shape = [b, s_q, n_q, d_v]
+
+    block_num_per_batch = []
+    block_num_min = 0
+    block_num = 0
+    for actual_seq_tmp in actual_seq:
+        block_num_per_batch.append(math.ceil(actual_seq_tmp / block_size))
+        block_num_min += math.ceil(actual_seq_tmp / block_size)
+    block_num = block_num_min
+
+    shape_kn = [block_num, block_size, kv_lora_rank]
+    shape_kr = [block_num, block_size, qk_rope_dim]
 
     slc_actual_seq = []
     for i in range(b):
         slc_actual_seq.append(min(actual_seq[i], topk))
     offsets = torch.zeros(b, s_q, topk).to(torch.int32)
     for b_i in range(b):
-        all_nums = torch.arange(0, b * s_max, dtype=torch.int32)  # [blk_num, blk_size, ...]
         for s_q_i in range(s_q):
-            perm = torch.randperm(b * s_max)
-            offsets[b_i, s_q_i, :slc_actual_seq[b_i]] = all_nums[perm[:slc_actual_seq[b_i]]]
+            perm = torch.randperm(block_num * block_size)
+            offsets[b_i, s_q_i, :slc_actual_seq[b_i]] = perm[:slc_actual_seq[b_i]]
     offsets = offsets.reshape(b * s_q, n_kv * topk)
 
     q_bsnd = gen_uniform_data(shape_q, -1, 1, dtype)
     kn_bsnd_tmp = gen_uniform_data(shape_kn, -1, 1, dtype)
-
-    kn_scales = kn_bsnd_tmp.reshape(b, s_max, 4, 128).to(torch.float32).abs().amax(dim=-1, keepdim=True).clamp(min=1e-8) / 127.0
+    
+    kn_bsnd_reshape = kn_bsnd_tmp.reshape(block_num * block_size, 4, 128).to(torch.float32)
+    kn_scales = kn_bsnd_reshape.abs().amax(dim=-1, keepdim=True).clamp(min=1e-8) / 127.0
     if is_kn_quant == 1:
-        kn_quant = kn_bsnd_tmp.reshape(b, s_max, 4, 128) / kn_scales
+        kn_quant = kn_bsnd_tmp.reshape(block_num * block_size, 4, 128) / kn_scales
         kn = torch.round(kn_quant).clamp(-128, 127).to(torch.int8)
-        kn_bsnd = (kn.to(torch.float32) * kn_scales).to(dtype)
-        kn_bsnd = kn_bsnd.reshape(b, s_max, 4 * 128)
     else:
-        kn_bsnd = kn_bsnd_tmp
         kn = kn_bsnd_tmp
     kr = gen_uniform_data(shape_kr, -1, 1, dtype)
     # 2D
-    kn = kn.reshape(b * s_max * n_kv, kv_lora_rank)
-    kn_scales = kn_scales.reshape(b * s_max * n_kv, 4)
-    kr = kr.reshape(b * s_max * n_kv, qk_rope_dim)
+    kn = kn.reshape(block_num * block_size, kv_lora_rank)
+    kn_scales = kn_scales.reshape(block_num * block_size, 4)
+    kr = kr.reshape(block_num * block_size, qk_rope_dim)
 
     # 3. 计算attention
     params = [scalar, topk, kv_lora_rank, is_kn_quant]
     input_data = [q_bsnd, kn, kr, kn_scales, offsets, actual_seq]
-    atten_out = compute_attention(input_data, params)
+    atten_out, tmp_out = compute_attention(input_data, params)
 
     # 4.dump 数据
     # data split to [nope + rope]
@@ -237,7 +283,7 @@ def gen_dsa_gather_sa_entry(dtype, bn1n2s1, is_kn_quant, actual_seq, output):
     q_nope = q_nope.reshape(b * s_q * n_q, kv_lora_rank)
     q_rope = q_rope.reshape(b * s_q * n_q, qk_rope_dim)
     # input params
-    input_params = [b, s_q, n_q, n_kv, kv_lora_rank, qk_rope_dim, s_max, topk, is_kn_quant]
+    input_params = [b, s_q, n_q, n_kv, kv_lora_rank, qk_rope_dim, block_num, block_size, topk, is_kn_quant]
     kn_aux_tensor = torch.eye(512, dtype=torch.float32).to(torch.int8)
     scale_aux_tensor = torch.eye(4, dtype=torch.float32)
     q_nope_path = Path(output, 'q_nope.bin')
@@ -268,6 +314,7 @@ def gen_dsa_gather_sa_entry(dtype, bn1n2s1, is_kn_quant, actual_seq, output):
 
 @GoldenRegister.reg_golden_func(
     case_names=[
+        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s2_seqTest1_int8",
         "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b32_s1_seq511",
         "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b32_s1_seq511_int8",
         "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s1_seq2049",
@@ -289,7 +336,12 @@ def gen_dsa_gather_sa_entry(dtype, bn1n2s1, is_kn_quant, actual_seq, output):
     timeout=0
 )
 def dsa_sa_func(case_name: str, output: Path) -> bool:
-    if case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b32_s1_seq511":
+    if case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s2_seqTest1_int8":
+        bn1n2s1 = (4, 128, 1, 2)
+        is_kn_quant = 1
+        actual_seq = [666, 532, 768, 900]
+        gen_dsa_gather_sa_entry(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq, output)
+    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b32_s1_seq511":
         # bn1n2s1数据: b, n_q, n_kv, s_q; n_kv=1
         bn1n2s1 = (32, 128, 1, 1)
         # 0为kn非量化情况，1为kn量化情况
@@ -383,7 +435,7 @@ def main() -> bool:
     """
     # 用例名称
     case_name_list: List[str] = [
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b32_s2",
+        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s2_seqTest1_int8",
     ]
     # 函数调用
     ret: bool = True
