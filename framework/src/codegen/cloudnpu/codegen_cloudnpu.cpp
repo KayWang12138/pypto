@@ -430,37 +430,15 @@ void CodeGenCloudNPU::DoCompileCCE(const CompileInfo &compileInfo, const std::st
                      << ccecCmd << "\n******** bisheng compiling cmd end ********\n";
 }
 
-std::string GetIncludePathByRelative() {
-    std::string curExePath = GetCurRunningPath();
-    ALOG_INFO_F("curExePath is %s", curExePath.c_str());
-    std::string includePath = curExePath + "/../../../../framework/include";
-    ALOG_INFO_F("includePath relative is %s", includePath.c_str());
-    return includePath;
-}
-
 std::string GetIncludePathByLib() {
     std::string libPath = GetCurrentSharedLibPath();
     if (libPath.empty()) {
         return "";
     }
 
-    std::string includePath = libPath + "/../include/tile_fwk";
+    std::string includePath = libPath + "/include";
     ALOG_INFO_F("includePath by lib is %s", includePath.c_str());
 
-    if (IsPathExist(includePath)) {
-        return includePath;
-    }
-
-    return "";
-}
-
-std::string GetIncludePathByEnv() {
-    const char *homePath = std::getenv(ENV_ASCEND_HOME_PATH.c_str());
-    if (homePath == nullptr) {
-        return "";
-    }
-
-    std::string includePath = std::string(homePath) + "/framework/include/tile_fwk/";
     if (IsPathExist(includePath)) {
         return includePath;
     }
@@ -478,18 +456,6 @@ std::string CodeGenCloudNPU::GetIncludePathForCompileCCE() const {
     ALOG_INFO_F("includePathByLib is %s", includePathByLib.c_str());
     if (!includePathByLib.empty()) {
         return includePathByLib;
-    }
-
-    std::string includePathByEnv = GetIncludePathByEnv();
-    ALOG_INFO_F("includePathByEnv is %s", includePathByEnv.c_str());
-    if (!includePathByEnv.empty()) {
-        return includePathByEnv;
-    }
-
-    std::string includePathByRel = GetIncludePathByRelative();
-    ALOG_INFO_F("includePathByRel is %s", includePathByRel.c_str());
-    if (!includePathByRel.empty()) {
-        return includePathByRel;
     }
 
     ASSERT(false) << "include path for compiling cce is unavailable";
@@ -519,13 +485,6 @@ void CodeGenCloudNPU::BuildIncludes(std::ostringstream &oss) const {
         << "-I" << includePath << "/tileop/PTOTileLib/include "
         << "-I" << includePath << "/tileop/PTOTileLib/include/common "
         << "-I" << includePath << " ";
-
-    // used for building whl package
-    std::string curLibPath = GetCurrentSharedLibPath();
-    oss << "-I" << curLibPath << "/include/tileop/a2a3 "
-        << "-I" << curLibPath << "/include/tileop "
-        << "-I" << curLibPath << "/include/tilefwk "
-        << "-I" << curLibPath << "/include ";
 }
 
 void CodeGenCloudNPU::BuildLLVMParams(std::ostringstream &oss) const {
