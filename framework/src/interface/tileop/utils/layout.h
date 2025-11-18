@@ -233,8 +233,8 @@ __aicore__ inline constexpr auto GetOuterStride() {
     return Std::tuple_element<0, StrideType>::type::value;
 }
 
-template <int shapeSize, typename Shape>
-__aicore__ inline constexpr int GetNonFirstAxisMergeResult() {
+template <size_t shapeSize, typename Shape>
+__aicore__ inline constexpr size_t GetNonFirstAxisMergeResult() {
     if constexpr (shapeSize == 5) {
         constexpr auto n1 = Std::tuple_element<DIM_2ND, Shape>::type::value;
         constexpr auto n2 = Std::tuple_element<DIM_3RD, Shape>::type::value;
@@ -256,8 +256,8 @@ __aicore__ inline constexpr int GetNonFirstAxisMergeResult() {
     return 1;
 }
 
-template <int shapeSize, typename Shape>
-__aicore__ inline constexpr int GetOutterAxisMergeResult() {
+template <size_t shapeSize, typename Shape>
+__aicore__ inline constexpr size_t GetOutterAxisMergeResult() {
     if constexpr (shapeSize == 5) {
         constexpr auto n0 = Std::tuple_element<DIM_1ST, Shape>::type::value;
         constexpr auto n1 = Std::tuple_element<DIM_2ND, Shape>::type::value;
@@ -315,73 +315,72 @@ __aicore__ constexpr bool IsConstContinous() {
 } // namespace TileOp
 
 // common shape
-using Shape1Dim = TileOp::Shape<int>;
-using Shape2Dim = TileOp::Shape<int, int>;
-using Shape3Dim = TileOp::Shape<int, int, int>;
-using Shape4Dim = TileOp::Shape<int, int, int, int>;
-using Shape5Dim = TileOp::Shape<int, int, int, int, int>;
+using Shape1Dim = TileOp::Shape<size_t>;
+using Shape2Dim = TileOp::Shape<size_t, size_t>;
+using Shape3Dim = TileOp::Shape<size_t, size_t, size_t>;
+using Shape4Dim = TileOp::Shape<size_t, size_t, size_t, size_t>;
+using Shape5Dim = TileOp::Shape<size_t, size_t, size_t, size_t, size_t>;
 
 // common stride
-using Stride1Dim = TileOp::Stride<int>;
-using Stride2Dim = TileOp::Stride<int, int>;
-using Stride3Dim = TileOp::Stride<int, int, int>;
-using Stride4Dim = TileOp::Stride<int, int, int, int>;
-using Stride5Dim = TileOp::Stride<int, int, int, int, int>;
+using Stride1Dim = TileOp::Stride<size_t>;
+using Stride2Dim = TileOp::Stride<size_t, size_t>;
+using Stride3Dim = TileOp::Stride<size_t, size_t, size_t>;
+using Stride4Dim = TileOp::Stride<size_t, size_t, size_t, size_t>;
+using Stride5Dim = TileOp::Stride<size_t, size_t, size_t, size_t, size_t>;
 
 // common coord
-using Coord1Dim = TileOp::Coord<int>;
-using Coord2Dim = TileOp::Coord<int, int>;
-using Coord3Dim = TileOp::Coord<int, int, int>;
-using Coord4Dim = TileOp::Coord<int, int, int, int>;
-using Coord5Dim = TileOp::Coord<int, int, int, int, int>;
+using Coord1Dim = TileOp::Coord<size_t>;
+using Coord2Dim = TileOp::Coord<size_t, size_t>;
+using Coord3Dim = TileOp::Coord<size_t, size_t, size_t>;
+using Coord4Dim = TileOp::Coord<size_t, size_t, size_t, size_t>;
+using Coord5Dim = TileOp::Coord<size_t, size_t, size_t, size_t, size_t>;
 
 // common dynamic layouts
-using DynLayout1Dim = TileOp::Layout<Shape1Dim, Stride1Dim, TileOp::TileShape<int>>;
-using DynLayout2Dim = TileOp::Layout<Shape2Dim, Stride2Dim, TileOp::TileShape<int, int>>;
-using DynLayout3Dim = TileOp::Layout<Shape3Dim, Stride3Dim, TileOp::TileShape<int, int, int>>;
-using DynLayout4Dim = TileOp::Layout<Shape4Dim, Stride4Dim, TileOp::TileShape<int, int, int, int>>;
-using DynLayout5Dim = TileOp::Layout<Shape5Dim, Stride5Dim, TileOp::TileShape<int, int, int, int, int>>;
+using DynLayout1Dim = TileOp::Layout<Shape1Dim, Stride1Dim, TileOp::TileShape<size_t>>;
+using DynLayout2Dim = TileOp::Layout<Shape2Dim, Stride2Dim, TileOp::TileShape<size_t, size_t>>;
+using DynLayout3Dim = TileOp::Layout<Shape3Dim, Stride3Dim, TileOp::TileShape<size_t, size_t, size_t>>;
+using DynLayout4Dim = TileOp::Layout<Shape4Dim, Stride4Dim, TileOp::TileShape<size_t, size_t, size_t, size_t>>;
+using DynLayout5Dim = TileOp::Layout<Shape5Dim, Stride5Dim, TileOp::TileShape<size_t, size_t, size_t, size_t, size_t>>;
 
 // common Local layouts
-template <int TileH, int TileW>
+template <size_t TileH, size_t TileW>
 using LocalLayout2Dim = TileOp::Layout<Shape2Dim, TileOp::Stride<Std::Int<TileW>, Std::Int<1>>,
     TileOp::TileShape<Std::Int<TileH>, Std::Int<TileW>>>;
 
-template <int TileD, int TileH, int TileW>
+template <size_t TileD, size_t TileH, size_t TileW>
 using LocalLayout3Dim = TileOp::Layout<Shape3Dim, TileOp::Stride<Std::Int<TileH * TileW>, Std::Int<TileW>, Std::Int<1>>,
     TileOp::TileShape<Std::Int<TileD>, Std::Int<TileH>, Std::Int<TileW>>>;
 
-template <int TileN, int TileD, int TileH, int TileW>
+template <size_t TileN, size_t TileD, size_t TileH, size_t TileW>
 using LocalLayout4Dim = TileOp::Layout<Shape4Dim,
     TileOp::Stride<Std::Int<TileD * TileH * TileW>, Std::Int<TileH * TileW>, Std::Int<TileW>, Std::Int<1>>,
     TileOp::TileShape<Std::Int<TileN>, Std::Int<TileD>, Std::Int<TileH>, Std::Int<TileW>>>;
 
-template <int TileS, int TileN, int TileD, int TileH, int TileW>
+template <size_t TileS, size_t TileN, size_t TileD, size_t TileH, size_t TileW>
 using LocalLayout5Dim = TileOp::Layout<Shape5Dim,
     TileOp::Stride<Std::Int<TileN * TileD * TileH * TileW>, Std::Int<TileD * TileH * TileW>, Std::Int<TileH * TileW>,
         Std::Int<TileW>, Std::Int<1>>,
     TileOp::TileShape<Std::Int<TileS>, Std::Int<TileN>, Std::Int<TileD>, Std::Int<TileH>, Std::Int<TileW>>>;
 
 // common static layouts
-template <int H, int W, int TileH, int TileW>
+template <size_t H, size_t W, size_t TileH, size_t TileW>
 using StaticLayout2Dim = TileOp::Layout<TileOp::Shape<Std::Int<H>, Std::Int<W>>,
     TileOp::Stride<Std::Int<TileW>, Std::Int<1>>, TileOp::TileShape<Std::Int<TileH>, Std::Int<TileW>>>;
 
-template <int D, int H, int W, int TileD, int TileH, int TileW>
+template <size_t D, size_t H, size_t W, size_t TileD, size_t TileH, size_t TileW>
 using StaticLayout3Dim = TileOp::Layout<TileOp::Shape<Std::Int<D>, Std::Int<H>, Std::Int<W>>,
     TileOp::Stride<Std::Int<TileH * TileW>, Std::Int<TileW>, Std::Int<1>>,
     TileOp::TileShape<Std::Int<TileD>, Std::Int<TileH>, Std::Int<TileW>>>;
 
-template <int N, int D, int H, int W, int TileN, int TileD, int TileH, int TileW>
-using StaticLayout4Dim =
-    TileOp::Layout<TileOp::Shape<Std::Int<N>, Std::Int<D>, Std::Int<H>, Std::Int<W>>,
-        TileOp::Stride<Std::Int<TileD * TileH * TileW>, Std::Int<TileH * TileW>, Std::Int<TileW>, Std::Int<1>>,
-        TileOp::TileShape<Std::Int<TileN>, Std::Int<TileD>, Std::Int<TileH>, Std::Int<TileW>>>;
+template <size_t N, size_t D, size_t H, size_t W, size_t TileN, size_t TileD, size_t TileH, size_t TileW>
+using StaticLayout4Dim = TileOp::Layout<TileOp::Shape<Std::Int<N>, Std::Int<D>, Std::Int<H>, Std::Int<W>>,
+    TileOp::Stride<Std::Int<TileD * TileH * TileW>, Std::Int<TileH * TileW>, Std::Int<TileW>, Std::Int<1>>,
+    TileOp::TileShape<Std::Int<TileN>, Std::Int<TileD>, Std::Int<TileH>, Std::Int<TileW>>>;
 
-template <int S, int N, int D, int H, int W, int TileS, int TileN, int TileD, int TileH, int TileW>
-using StaticLayout5Dim =
-    TileOp::Layout<TileOp::Shape<Std::Int<S>, Std::Int<N>, Std::Int<D>, Std::Int<H>, Std::Int<W>>,
-        TileOp::Stride<Std::Int<TileN * TileD * TileH * TileW>, Std::Int<TileD * TileH * TileW>,
-            Std::Int<TileH * TileW>, Std::Int<TileW>, Std::Int<1>>,
-        TileOp::TileShape<Std::Int<TileS>, Std::Int<TileN>, Std::Int<TileD>, Std::Int<TileH>, Std::Int<TileW>>>;
+template <size_t S, size_t N, size_t D, size_t H, size_t W, size_t TileS, size_t TileN, size_t TileD, size_t TileH,
+    size_t TileW>
+using StaticLayout5Dim = TileOp::Layout<TileOp::Shape<Std::Int<S>, Std::Int<N>, Std::Int<D>, Std::Int<H>, Std::Int<W>>,
+    TileOp::Stride<Std::Int<TileN * TileD * TileH * TileW>, Std::Int<TileD * TileH * TileW>, Std::Int<TileH * TileW>,
+        Std::Int<TileW>, Std::Int<1>>,
+    TileOp::TileShape<Std::Int<TileS>, Std::Int<TileN>, Std::Int<TileD>, Std::Int<TileH>, Std::Int<TileW>>>;
 #endif // TILEOP_UTILS_LAYOUT_H
