@@ -187,7 +187,7 @@ void SplitLargeFanoutTensor::CreateOpForMtoM(Function &function, LogicalTensorPt
             }
         }
         if (oldAssembleOp == nullptr) {
-            APASS_LOG_INFO_F(Elements::Operation, "No valid assemble op found between tensor[%d] and tensor[%d], skip.",
+            APASS_LOG_DEBUG_F(Elements::Operation, "No valid assemble op found between tensor[%d] and tensor[%d], skip.",
                 overlap->GetMagic(), largeTensor->GetMagic());
             continue;
         }

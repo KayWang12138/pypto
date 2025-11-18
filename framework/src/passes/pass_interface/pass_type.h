@@ -15,7 +15,9 @@
 
 #ifndef PASSES_PASS_TYPE_H_
 #define PASSES_PASS_TYPE_H_
+#pragma once
 #include <cstdint>
+#include "tilefwk/error.h"
 namespace npu::tile_fwk {
 enum class PassType : int32_t {
     TYPE_INVALID = -1,
@@ -24,5 +26,88 @@ enum class PassType : int32_t {
     TYPE_BLOCK_GRAPH = 2,
     TYPE_BOTTOM
 };
+
+enum class PassName {
+    LOOP_UNROLL,
+    REMOVE_REDUNDANT_RESHAPE,
+    INFER_MEMORY_CONFLICT,
+    EXPAND_FUNCTION,
+    DUPLICATE_VIEW,
+    MERGE_VIEW_ASSEMBLE,
+    SPLIT_RESHAPE,
+    SPLIT_RAW_TENSOR,
+    SPLIT_LARGE_FANOUT_TENSOR,
+    DUPLICATE_GATHER_IN,
+    ASSIGN_MEMORY_TYPE,
+    INFER_DISCONTINUOUS_INPUT,
+    REMOVE_REDUNDANT_OP,
+    SPLIT_K,
+    GRAPH_PARTITION,
+    N_BUFFER_MERGE,
+    INTRA_SUBGRAPH_ADAPTER,
+    GENERATE_MOVE_OP,
+    COMMON_OPERATION_ELIMINATE,
+    L1_COPY_IN_REUSE_MERGE,
+    PAD_LOCAL_BUFFER,
+    REMOVE_UNALIGNED_RESHAPE,
+    INPLACE_PROCESS,
+    PRE_GRAPH_PROCESS,
+    INFER_DYN_SHAPE,
+    SUBGRAPH_TO_FUNCTION,
+    INFER_PARAM_INDEX,
+    SRC_DST_BUFFER_MERGE,
+    ADD_ALLOC,
+    OOO_SCHEDULE,
+    GLOBAL_MEMORY_REUSE,
+    REMOVE_ALLOC,
+    COPY_OUT_RESOLVE,
+    INSERT_SYNC,
+    CODEGEN_PREPROC,
+    DYN_ATTR_TO_STATIC
+};
+
+inline constexpr const char *PassNameStr(PassName name){
+    switch (name) {
+        case PassName::LOOP_UNROLL: return "LoopUnroll";
+        case PassName::REMOVE_REDUNDANT_RESHAPE: return "RemoveRedundantReshape";
+        case PassName::INFER_MEMORY_CONFLICT: return "InferMemoryConflict";
+        case PassName::EXPAND_FUNCTION: return "ExpandFunction";
+        case PassName::DUPLICATE_VIEW: return "DuplicateView";
+        case PassName::MERGE_VIEW_ASSEMBLE: return "MergeViewAssemble";
+        case PassName::SPLIT_RESHAPE: return "SplitReshape";
+        case PassName::SPLIT_RAW_TENSOR: return "SplitRawTensor";
+        case PassName::SPLIT_LARGE_FANOUT_TENSOR: return "SplitLargeFanoutTensor";
+        case PassName::DUPLICATE_GATHER_IN: return "DuplicateGatherIn";
+        case PassName::ASSIGN_MEMORY_TYPE: return "AssignMemoryType";
+        case PassName::INFER_DISCONTINUOUS_INPUT: return "InferDiscontinuousInput";
+        case PassName::REMOVE_REDUNDANT_OP: return "RemoveRedundantOp";
+        case PassName::SPLIT_K: return "SplitK";
+        case PassName::GRAPH_PARTITION: return "GraphPartition";
+        case PassName::N_BUFFER_MERGE: return "NBufferMerge";
+        case PassName::INTRA_SUBGRAPH_ADAPTER: return "IntraSubgraphAdapter";
+        case PassName::GENERATE_MOVE_OP: return "GenerateMoveOp";
+        case PassName::COMMON_OPERATION_ELIMINATE: return "CommonOperationEliminate";
+        case PassName::L1_COPY_IN_REUSE_MERGE: return "L1CopyInReuseMerge";
+        case PassName::PAD_LOCAL_BUFFER: return "PadLocalBuffer";
+        case PassName::REMOVE_UNALIGNED_RESHAPE: return "RemoveUnalignedReshape";
+        case PassName::INPLACE_PROCESS: return "InplaceProcess";
+        case PassName::PRE_GRAPH_PROCESS: return "PreGraphProcess";
+        case PassName::INFER_DYN_SHAPE: return "InferDynShape";
+        case PassName::SUBGRAPH_TO_FUNCTION: return "SubgraphToFunction";
+        case PassName::INFER_PARAM_INDEX: return "InferParamIndex";
+        case PassName::SRC_DST_BUFFER_MERGE: return "SrcDstBufferMerge";
+        case PassName::ADD_ALLOC: return "AddAlloc";
+        case PassName::OOO_SCHEDULE: return "OoOSchedule";
+        case PassName::GLOBAL_MEMORY_REUSE: return "GlobalMemoryReuse";
+        case PassName::REMOVE_ALLOC: return "RemoveAlloc";
+        case PassName::COPY_OUT_RESOLVE: return "CopyOutResolve";
+        case PassName::INSERT_SYNC: return "InsertSync";
+        case PassName::CODEGEN_PREPROC: return "CodegenPreproc";
+        case PassName::DYN_ATTR_TO_STATIC: return "DynAttrToStatic";
+        default: 
+            ASSERT(false) << "PassName not defined.";
+            return "NotDefined";
+    }
+}
 }
 #endif  // PASSES_PASS_TYPE_H_

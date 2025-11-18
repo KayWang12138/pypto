@@ -489,4 +489,9 @@ public:
     std::vector<Entry> topology_;
     std::vector<int> readyIds_;
 };
+
+class CommonUtils {
+public:
+    static std::string VecToStr(const std::vector<std::string> &vec);
+};
 }

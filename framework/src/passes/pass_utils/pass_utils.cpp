@@ -861,4 +861,12 @@ void SubfuncTopologyInfoTy::LoadJson(const Json &topoJson)
         UpdateEntry(ele["ext_type"], ele["ext_param_num"], ele["ext_params"].get<std::vector<int64_t>>());
     }
 }
+
+std::string CommonUtils::VecToStr(const std::vector<std::string> &vec){
+    std::string ret;
+    for (const auto &val : vec) {
+        ret += ", " + val;
+    }
+    return "{" + ret.substr(2) + "}"; // 2是多余的逗号和空格的长度
+}
 } // namespace npu::tile_fwk

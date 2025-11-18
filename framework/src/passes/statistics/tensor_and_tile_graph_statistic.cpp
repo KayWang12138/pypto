@@ -305,8 +305,8 @@ Status CheckTileShapeAIC(Operation *op, std::vector<int> &res)  {
     auto mL0 = tileSize.m[0];
     auto kL0 = tileSize.k[0];
     auto nL0 = tileSize.n[0];
-    if (op->GetIOperands().size() != NUM2) {
-        ALOG_ERROR_F("Cube operation %d %s ioperands size is not 2, CheckTileShapeAIC failed!", op->GetOpMagic(), op->GetOpcodeStr().c_str());
+    if (op->GetIOperands().size() != CUDE_IOPERAND_NUM2 && op->GetIOperands().size() != CUDE_IOPERAND_NUM3) {
+        ALOG_ERROR_F("Cube operation %d %s ioperands size is %d, should be 2 or 3, CheckTileShapeAIC failed!", op->GetOpMagic(), op->GetOpcodeStr().c_str(), op->GetIOperands().size());
         return FAILED;
     }
     auto TensorA = op->GetIOperands()[0];

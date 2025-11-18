@@ -979,7 +979,7 @@ Status SplitReshape::CheckValidOp(const CheckParam &para, CheckOutputParam &chec
     ReshapeTilePara reshapeInfo = {inputView->GetRawTensor()->GetRawShape(), checkOutputParam.alignedShape, inputView->offset, inputView->shape};
     Status alignRet = RawToAlign(reshapeInfo, checkOutputParam.newInputViewTileOffset, checkOutputParam.newInputViewTileShape);
     if (alignRet == WARNING) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Cannot process the cond, reshapeInfo is %s.", GetStr(reshapeInfo).c_str());
+        APASS_LOG_WARN_F(Elements::Operation, "Cannot process the cond, reshapeInfo is %s.", GetStr(reshapeInfo).c_str());
         return WARNING;
     }
     if (alignRet == FAILED) {

@@ -23,6 +23,8 @@
 
 namespace npu {
 namespace tile_fwk {
+constexpr int CUDE_IOPERAND_NUM2 = 2;
+constexpr int CUDE_IOPERAND_NUM3 = 3;
 constexpr int DUMP_WIDTH = 4;
 struct MetricData {
     uint64_t maxSize = 0;
