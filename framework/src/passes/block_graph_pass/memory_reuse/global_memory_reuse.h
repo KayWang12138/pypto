@@ -99,6 +99,7 @@ private:
     bool GetStorageOffsetByCall(Operation &callOp, size_t inputIdx, uint64_t &storageOffset) const;
     void UpdateStorageForActualRaw(LogicalTensorPtr &input) const;
     TensorBucket &GetBestFitBucket(const TensorsDesc &tensorsDesc);
+    TensorBucket &HandleNewBuckets(const TensorsDesc &tensorsDesc, int64_t rawDataSize, int magic);
     void UpdateTensorMagicToBucketIdx(const std::set<LogicalTensorPtr> &tensors, int bucketIdx);
     void ScanParentOps(Function *leafFunc, const Operation *parent, std::unordered_set<LogicalTensorPtr> &visited,
         std::unordered_set<Operation *> &operations);
@@ -134,6 +135,9 @@ private:
 
     std::unordered_map<int, int> tensorMagicToBucketIdx_;
     std::unordered_map<int, int64_t> bucketsIdxToSize_;
+
+    // true：跳过内存复用判断，即不复用内存; false：正常进行内存复用判断
+    bool skipReuseJudgment_{false};
 };
 
 class GlobalMemoryReuse : public Pass {

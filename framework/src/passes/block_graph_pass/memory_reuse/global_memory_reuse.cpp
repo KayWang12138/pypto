@@ -467,6 +467,10 @@ void Allocator::InitializeLeafGlobalMemoryReuse() {
     if (function_->GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH) {
         return;
     }
+    if (skipReuseJudgment_) {
+        APASS_LOG_EVENT_F(Elements::Tensor, "Skip reuse judgment");
+        return;
+    }
     for (auto& program : function_->programs_) {
         Function* leafProgram = program.second;
         ProcessLeafGlobalMemoryReuse(leafProgram);
@@ -495,6 +499,14 @@ void Allocator::UpdateTensorMagicToBucketIdx(const std::set<LogicalTensorPtr> &t
     }
 }
 
+TensorBucket &Allocator::HandleNewBuckets(const TensorsDesc &tensorsDesc, int64_t rawDataSize, int magic) {
+    buckets_.emplace_back();
+    UpdateTensorMagicToBucketIdx(tensorsDesc.tensors, buckets_.size() - 1);
+    bucketsIdxToSize_[buckets_.size() - 1] = rawDataSize;
+    APASS_LOG_DEBUG_F(Elements::Tensor, "Creating new bucket %d for tensor magic=%d.", buckets_.size(), magic);
+    return buckets_.back();
+}
+
 TensorBucket &Allocator::GetBestFitBucket(const TensorsDesc &tensorsDesc) {
     if (tensorsDesc.isDummy) {
         return dummyPackets_;
@@ -504,6 +516,9 @@ TensorBucket &Allocator::GetBestFitBucket(const TensorsDesc &tensorsDesc) {
     int64_t rawDataSizeKey = rawDataSize / MEM_PROPORTION_COEFF;
     APASS_LOG_DEBUG_F(Elements::Tensor, "Searching bucket for tensor: magic=%d rawmagic=%d size=%ld.",
                       first->magic, first->tensor->rawmagic, rawDataSize);
+    if (skipReuseJudgment_) {
+        return HandleNewBuckets(tensorsDesc, rawDataSize, first->magic);
+    }
 
     std::deque<LogicalTensorPtr> predecessorTensors(tensorsDesc.tensors.begin(), tensorsDesc.tensors.end());
     std::unordered_set<int> visitedTensor;
@@ -539,12 +554,7 @@ TensorBucket &Allocator::GetBestFitBucket(const TensorsDesc &tensorsDesc) {
         }
     }
 
-    buckets_.emplace_back();
-    UpdateTensorMagicToBucketIdx(tensorsDesc.tensors, buckets_.size() - 1);
-    bucketsIdxToSize_[buckets_.size() - 1] = rawDataSize;
-    APASS_LOG_DEBUG_F(Elements::Tensor, "Creating new bucket %d for tensor magic=%d.", buckets_.size(),
-                      first->magic);
-    return buckets_.back();
+    return HandleNewBuckets(tensorsDesc, rawDataSize, first->magic);
 }
 
 bool Allocator::CalOffsetRawShape(size_t dimCount, const std::vector<SymbolicScalar> &argList,
