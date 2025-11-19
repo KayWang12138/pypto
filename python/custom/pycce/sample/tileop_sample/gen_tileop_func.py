@@ -1,6 +1,19 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# This program is free software, you can redistribute it and/or modify it.
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+# BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# ======================================================================================================================
+"""
+"""
 import sys
-from typing import Union 
-from pycce.stub_functions import * 
+from typing import Union
+from pycce.stub_functions import *
 from pycce.utils.custom_op_generator import  generate_custom_op, CoreOpcodeInfo
 from pycce.utils.custom_op_info import CoreType, CalcType, \
     CorePipeType, TileOpCfg, OpCoreType, MemoryType
@@ -22,19 +35,19 @@ def simple_tiling(M: Var):
 def cust_matmul(M: Var, N: Var, K: Var, x: GMTensor, y: GMTensor, z: GMTensor):
     M1, M2 = simple_tiling(M)
 
-    # double buffers 
+    # double buffers
     l1a = DBuff(DT.half, BASEM*BASEK, Position.L1)
     l1b = DBuff(DT.half, BASEN*BASEK, Position.L1)
     l0a = DBuff(DT.half, BASEN*BASEK, Position.L0A)
     l0b = DBuff(DT.half, BASEN*BASEK, Position.L0B)
     l0c = DBuff(DT.float, BASEM*BASEN, Position.L0C)
 
-    # ping-pong counter 
+    # ping-pong counter
     l1cnt = Var(0)
     l0cnt = Var(0)
     outcnt = Var(0)
 
-    # main computation loop 
+    # main computation loop
     for m in Range(M1, M2, BASEM):
         for n in Range(0, N, BASEN):
             with auto_sync():
@@ -45,21 +58,21 @@ def cust_matmul(M: Var, N: Var, K: Var, x: GMTensor, y: GMTensor, z: GMTensor):
                     # mte1
                     l1_to_l0_nz2zz(l0a[l0cnt], l1a[l1cnt], BASEM, BASEK, BASEM, BASEK)
                     l1_to_l0(l0b[l0cnt], l1b[l1cnt], BASEN, BASEK)
-                    l1cnt += 1 
+                    l1cnt += 1
                     # matmul
                     mad(l0c[outcnt], l0a[l0cnt], l0b[l0cnt], BASEM, BASEK, BASEN, k==0)
-                    l0cnt += 1 
+                    l0cnt += 1
                 l0c_to_gm_nz2nd(z[m,n], l0c[outcnt], BASEM, BASEN, N, BASEM)
-                outcnt += 1 
+                outcnt += 1
             cube_ready()
 
 
 @vec_func()
 def cust_vec(M: Var, N: Var, z: GMTensor):
-    # simple tiling 
+    # simple tiling
     M1, M2 = simple_tiling(M)
 
-    # declare double buffers 
+    # declare double buffers
     xbuf = DBuff(DT.half, BASEM*BASEN)
     outbuf = DBuff(DT.half, BASEM*BASEN)
 
@@ -67,7 +80,7 @@ def cust_vec(M: Var, N: Var, z: GMTensor):
     cnt = Var(0)
 
     rep = BASEM*BASEN//128
-    # main computation loop 
+    # main computation loop
     for m in Range(M1, M2, BASEM):
         for n in Range(0, N, BASEN):
             wait_cube()
@@ -94,7 +107,7 @@ def cust_kernel(M: Var, N: Var, K: Var, x: GMTensor, y: GMTensor, z: GMTensor):
     cust_vec(M, N, z)
 
 
-### Normal op project 
+### Normal op project
 # if __name__=='__main__':
 #     M = Var('M', DT.int, value=10240)
 #     N = Var('N', DT.int, value=512)
@@ -111,7 +124,7 @@ def cust_kernel(M: Var, N: Var, K: Var, x: GMTensor, y: GMTensor, z: GMTensor):
 #     kernel.gen_golden('golden.py')
 #     kernel.gen_checker('check.py')
 
-### tileop module 
+### tileop module
 
 @tileop_func()
 def custom_add(outbuf: Tensor, abuf: Tensor, bbuf: Tensor, shape: Var):
@@ -126,7 +139,7 @@ if __name__=='__main__':
     shape = Var("shape", DT.uint64, length)
 
     # cust_tileop = sigmoid_tileop(x, out, shape1, 1)
-    
+
     # cust_tileop.gen_code('abc.cpp')
     cust_add = custom_add(out, a, b, shape)
     opcode = 0

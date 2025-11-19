@@ -1,15 +1,28 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# This program is free software, you can redistribute it and/or modify it.
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+# BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# ======================================================================================================================
+"""
+"""
 from ..utils import Var, DT, DATATYPE
-from typing import Union 
-import math 
+from typing import Union
+import math
 from .. import context
 
 
 def ComputeOffset(idx: list[Union[Var, int]], shape: list[Union[Var, int]]) -> Var:
     assert len(idx)==len(shape)
-    offset = None 
+    offset = None
     strides = []
     for i in range(1, len(shape)):
-        tmp = None 
+        tmp = None
         for j in range(i, len(shape)):
             if tmp is None:
                 tmp = shape[j]
@@ -20,23 +33,23 @@ def ComputeOffset(idx: list[Union[Var, int]], shape: list[Union[Var, int]]) -> V
 
     for i,s in zip(idx, strides):
         if isinstance(i, int) and i==0:
-            continue 
+            continue
         if offset is None:
-            offset = i*s 
+            offset = i*s
         else:
-            offset = offset + i*s 
+            offset = offset + i*s
 
-    assert offset is not None 
-    return offset 
+    assert offset is not None
+    return offset
 
-# some functions 
+# some functions
 def Max(a: Union[int, float, Var], b: Union[int, float, Var]):
     if isinstance(a, Var) and isinstance(b, Var):
         assert a.dtype==b.dtype, 'Data type must be the same'
     if isinstance(a, Var):
         dtype = a.dtype
     elif isinstance(b, Var):
-        dtype = b.dtype 
+        dtype = b.dtype
     else:
         dtype = DT.int
     new_const = Var('tmp_max', dtype, auto_declare=False)
@@ -49,7 +62,7 @@ def Min(a: Union[int, float, Var], b: Union[int, float, Var]):
     if isinstance(a, Var):
         dtype = a.dtype
     elif isinstance(b, Var):
-        dtype = b.dtype 
+        dtype = b.dtype
     else:
         dtype = DT.int
     new_const = Var('tmp_max', dtype, auto_declare=False)
@@ -77,7 +90,7 @@ def Align16(a: Union[Var, int]):
     if isinstance(a, Var) and a.value is not None:
         aval = a.value
     else:
-        aval = a 
+        aval = a
     if aval is not None:
         new_const.value = (aval + 15) // 16 * 16  # type: ignore
     return new_const
@@ -91,7 +104,7 @@ def Align32(a: Union[Var, int]):
     if isinstance(a, Var) and a.value is not None:
         aval = a.value
     else:
-        aval = a 
+        aval = a
     if aval is not None:
         new_const.value = (aval + 31) // 32 * 32  # type: ignore
     return new_const
@@ -105,7 +118,7 @@ def Align64(a: Union[Var, int]):
     if isinstance(a, Var) and a.value is not None:
         aval = a.value
     else:
-        aval = a 
+        aval = a
     if aval is not None:
         new_const.value = (aval + 63) // 64 * 64  # type: ignore
     return new_const
@@ -119,7 +132,7 @@ def Align128(a: Union[Var, int]):
     if isinstance(a, Var) and a.value is not None:
         aval = a.value
     else:
-        aval = a 
+        aval = a
     if aval is not None:
         new_const.value = (aval + 127) // 128 * 128  # type: ignore
     return new_const
@@ -133,7 +146,7 @@ def Align256(a: Union[Var, int]):
     if isinstance(a, Var) and a.value is not None:
         aval = a.value
     else:
-        aval = a 
+        aval = a
     if aval is not None:
         new_const.value = (aval + 255) // 256 * 256  # type: ignore
     return new_const
@@ -146,11 +159,11 @@ def CeilDiv(a: Union[Var, int], b: Union[Var, int]):
     new_const = Var('ceildiv_tmp', DATATYPE.int, auto_declare=False)
     new_const.varstr = f'CeilDiv({str(a)},{str(b)})'
     aval = None
-    bval = None 
+    bval = None
     if isinstance(a, Var) and a.value is not None:
         aval = a.value
     else:
-        aval = a 
+        aval = a
     if isinstance(b, Var) and b.value is not None:
         bval = b.value
     else:

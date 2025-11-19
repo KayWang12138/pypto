@@ -1,3 +1,16 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# This program is free software, you can redistribute it and/or modify it.
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+# BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# ======================================================================================================================
+"""
+"""
 from ...utils import Tensor, Var, Instruction, Position, RoundModeInst
 from ... import context
 from typing import Union
@@ -7,12 +20,12 @@ def cast(dst: Tensor, src: Tensor, \
          repeat: Union[int, Var], dst_blk_stride: Union[int, Var], src_blk_stride: Union[int, Var], \
          dst_rep_stride: Union[int, Var], src_rep_stride: Union[int, Var], round_mode: RoundModeInst):
     g_vec = context.active_vec
-    assert g_vec is not None 
+    assert g_vec is not None
     assert isinstance(dst, Tensor)
     assert isinstance(src, Tensor)
     assert src.pos==Position.UB, 'src must be Tensor on UB'
     assert dst.pos==Position.UB, 'dst must be Tensor on UB'
-    
+
     g_vec.append(Instruction('CAST', dst=dst, src=src, mode=round_mode, \
                              repeat=repeat, dst_blk_stride=dst_blk_stride, src_blk_stride=src_blk_stride, \
                              dst_rep_stride=dst_rep_stride, src_rep_stride=src_rep_stride))

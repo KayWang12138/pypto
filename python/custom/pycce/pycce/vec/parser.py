@@ -1,3 +1,16 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# This program is free software, you can redistribute it and/or modify it.
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+# BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# ======================================================================================================================
+"""
+"""
 from ..utils import CodeHelper, Var, Instruction, Tensor
 from collections.abc import Callable
 
@@ -28,7 +41,7 @@ def set_val(i: Instruction, h: CodeHelper):
 def reinterpret(i: Instruction, h: CodeHelper):
     h(f'Tensor<{i.dst.dtype}, {i.dst.pos.cce_pos()}> {i.dst} = (Tensor<{i.dst.dtype}, {i.dst.pos.cce_pos()}>){i.src};')
 
-# flow control 
+# flow control
 def start_loop(i: Instruction, h: CodeHelper):
     h(f'for (int {i.name}={i.start}; {i.name}<{i.end}; {i.name}+={i.step}){{')
     h.ir()
@@ -53,7 +66,7 @@ def end_if(i: Instruction, h: CodeHelper):
     h.il()
     h('}')
 
-# event 
+# event
 def event_set(i: Instruction, h: CodeHelper):
     h(f'{i.name}.set();')
 
@@ -79,19 +92,19 @@ def allvec_ready(i: Instruction, h: CodeHelper):
 def allvec_wait(i: Instruction, h: CodeHelper):
     h(f'ALLVEC_WAIT({i.flag}, PIPE_{i.pipe});')
 
-# mte2 
+# mte2
 def gm_to_ub(i: Instruction, h: CodeHelper):
     h(f'copy_gm_to_ubuf({i.dst}.vptr(), {i.src}.vptr(), 0, {i.n_burst}, {i.burst_len}, {i.src_stride}, {i.dst_stride});')
 
-# V 
+# V
 def ub_to_ub(i: Instruction, h: CodeHelper):
-    h(f'copy_ubuf_to_ubuf({i.dst}.vptr(), {i.src}.vptr(), 0, {i.n_burst}, {i.burst_len}, {i.src_stride}, {i.dst_stride});') 
+    h(f'copy_ubuf_to_ubuf({i.dst}.vptr(), {i.src}.vptr(), 0, {i.n_burst}, {i.burst_len}, {i.src_stride}, {i.dst_stride});')
 
 # mte3
 def ub_to_gm(i: Instruction, h: CodeHelper):
     h(f'copy_ubuf_to_gm({i.dst}.vptr(), {i.src}.vptr(), 0, {i.n_burst}, {i.burst_len}, {i.src_stride}, {i.dst_stride});')
 
-# vector masks 
+# vector masks
 def set_mask(i: Instruction, h: CodeHelper):
     h(f'set_vector_mask({i.high}, {i.low});')
 
@@ -99,8 +112,8 @@ def reset_mask(i: Instruction, h: CodeHelper):
     h('set_vector_mask(-1, -1);')
 
 
-## 910B computations 
-# unary 
+## 910B computations
+# unary
 def exp(i: Instruction, h: CodeHelper):
     h(f'vexp({i.dst}.ptr(), {i.src}.ptr(), {i.repeat}, {i.dst_blk_stride}, {i.src_blk_stride}, {i.dst_rep_stride}, {i.src_rep_stride});')
 
@@ -122,7 +135,7 @@ def rsqrt(i: Instruction, h: CodeHelper):
 def relu(i: Instruction, h: CodeHelper):
     h(f'vrelu({i.dst}.ptr(), {i.src}.ptr(), {i.repeat}, {i.dst_blk_stride}, {i.src_blk_stride}, {i.dst_rep_stride}, {i.src_rep_stride});')
 
-# binary 
+# binary
 def add(i: Instruction, h: CodeHelper):
     h(f'vadd({i.dst}.ptr(), {i.src1}.ptr(), {i.src2}.ptr(), {i.repeat}, {i.dst_blk_stride}, {i.src1_blk_stride}, {i.src2_blk_stride}, {i.dst_rep_stride}, {i.src1_rep_stride}, {i.src2_rep_stride});')
 
@@ -160,11 +173,11 @@ def lrelu(i: Instruction, h: CodeHelper):
 def axpy(i: Instruction, h: CodeHelper):
     h(f'vaxpy({i.dst}.ptr(), {i.src}.ptr(), ({i.dst.dtype}){i.val}, {i.repeat}, {i.dst_blk_stride}, {i.src_blk_stride}, {i.dst_rep_stride}, {i.src_rep_stride});')
 
-# cast 
+# cast
 def cast(i: Instruction, h: CodeHelper):
     h(f'vconv_{i.src.dtype.abbr}2{i.dst.dtype.abbr}{i.mode.postfix}({i.dst}.ptr(), {i.src}.ptr(), {i.repeat}, {i.dst_blk_stride}, {i.src_blk_stride}, {i.dst_rep_stride}, {i.src_rep_stride});')
 
-# group functions 
+# group functions
 def vcadd(i: Instruction, h: CodeHelper):
     h(f'vcadd({i.dst}.ptr(), {i.src}.ptr(), {i.repeat}, {i.dst_rep_stride}, {i.src_blk_stride}, {i.src_rep_stride});')
 
@@ -186,7 +199,7 @@ def vcmin(i: Instruction, h: CodeHelper):
 def vcgmin(i: Instruction, h: CodeHelper):
     h(f'vcgmin({i.dst}.ptr(), {i.src}.ptr(), {i.repeat}, {i.dst_rep_stride}, {i.src_blk_stride}, {i.src_rep_stride});')
 
-# dup brcb 
+# dup brcb
 def dup(i: Instruction, h: CodeHelper):
     h(f'vector_dup({i.dst}.ptr(), ({i.dst.dtype}){i.src}, {i.repeat}, {i.dst_blk_stride}, {i.dst_blk_stride}, {i.dst_rep_stride}, {i.dst_rep_stride});')
 
@@ -210,7 +223,7 @@ INST_MAPPING: dict[str, Callable[[Instruction, 'CodeHelper'], None]] = {
     'STARTELIF'             : start_elif,
     'STARTELSE'             : start_else,
     'ENDIF'                 : end_if,
-    # events 
+    # events
     'EVENTSET'              : event_set,
     'EVENTWAIT'             : event_wait,
     'EVENTSETALL'           : event_setall,
@@ -226,11 +239,11 @@ INST_MAPPING: dict[str, Callable[[Instruction, 'CodeHelper'], None]] = {
     'UB2UB'                 : ub_to_ub,
     # mte3
     'UB2GM'                 : ub_to_gm,
-    # # 910B - Vector computations 
-    # vector masks 
+    # # 910B - Vector computations
+    # vector masks
     'SETMASK'               : set_mask,
     'RESETMASK'             : reset_mask,
-    # unary 
+    # unary
     'EXP'                   : exp,
     'LN'                    : ln,
     'ABS'                   : abs,
@@ -238,7 +251,7 @@ INST_MAPPING: dict[str, Callable[[Instruction, 'CodeHelper'], None]] = {
     'SQRT'                  : sqrt,
     'RSQRT'                 : rsqrt,
     'RELU'                  : relu,
-    # binary 
+    # binary
     'ADD'                   : add,
     'SUB'                   : sub,
     'MUL'                   : mul,
@@ -252,7 +265,7 @@ INST_MAPPING: dict[str, Callable[[Instruction, 'CodeHelper'], None]] = {
     'MINS'                  : vmins,
     'LRELU'                 : lrelu,
     'AXPY'                  : axpy,
-    # cast 
+    # cast
     'CAST'                  : cast,
     # group
     'VCADD'                 : vcadd,
@@ -262,7 +275,7 @@ INST_MAPPING: dict[str, Callable[[Instruction, 'CodeHelper'], None]] = {
     'VCGMAX'                : vcgmax,
     'VCMIN'                 : vcmin,
     'VCGMIN'                : vcgmin,
-    # dup brcb 
+    # dup brcb
     'DUP'                   : dup,
     'BRCB'                  : brcb,
 }

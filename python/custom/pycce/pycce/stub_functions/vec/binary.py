@@ -1,3 +1,16 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# This program is free software, you can redistribute it and/or modify it.
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+# BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# ======================================================================================================================
+"""
+"""
 from ...utils import Tensor, Var, Instruction, Position, DT
 from ... import context
 from typing import Union
@@ -7,7 +20,7 @@ def add(dst: Tensor, src1: Tensor, src2: Tensor, \
         repeat: Union[int, Var], dst_blk_stride: Union[int, Var], src1_blk_stride: Union[int, Var], src2_blk_stride: Union[int, Var], \
         dst_rep_stride: Union[int, Var], src1_rep_stride: Union[int, Var], src2_rep_stride: Union[int, Var]):
     g_vec = context.active_vec
-    assert g_vec is not None 
+    assert g_vec is not None
     assert isinstance(dst, Tensor)
     assert isinstance(src1, Tensor)
     assert isinstance(src2, Tensor)
@@ -28,7 +41,7 @@ def sub(dst: Tensor, src1: Tensor, src2: Tensor, \
         repeat: Union[int, Var], dst_blk_stride: Union[int, Var], src1_blk_stride: Union[int, Var], src2_blk_stride: Union[int, Var], \
         dst_rep_stride: Union[int, Var], src1_rep_stride: Union[int, Var], src2_rep_stride: Union[int, Var]):
     g_vec = context.active_vec
-    assert g_vec is not None 
+    assert g_vec is not None
     assert isinstance(dst, Tensor)
     assert isinstance(src1, Tensor)
     assert isinstance(src2, Tensor)
@@ -49,7 +62,7 @@ def mul(dst: Tensor, src1: Tensor, src2: Tensor, \
         repeat: Union[int, Var], dst_blk_stride: Union[int, Var], src1_blk_stride: Union[int, Var], src2_blk_stride: Union[int, Var], \
         dst_rep_stride: Union[int, Var], src1_rep_stride: Union[int, Var], src2_rep_stride: Union[int, Var]):
     g_vec = context.active_vec
-    assert g_vec is not None 
+    assert g_vec is not None
     assert isinstance(dst, Tensor)
     assert isinstance(src1, Tensor)
     assert isinstance(src2, Tensor)
@@ -70,7 +83,7 @@ def div(dst: Tensor, src1: Tensor, src2: Tensor, \
         repeat: Union[int, Var], dst_blk_stride: Union[int, Var], src1_blk_stride: Union[int, Var], src2_blk_stride: Union[int, Var], \
         dst_rep_stride: Union[int, Var], src1_rep_stride: Union[int, Var], src2_rep_stride: Union[int, Var]):
     g_vec = context.active_vec
-    assert g_vec is not None 
+    assert g_vec is not None
     assert isinstance(dst, Tensor)
     assert isinstance(src1, Tensor)
     assert isinstance(src2, Tensor)
@@ -91,7 +104,7 @@ def vmax(dst: Tensor, src1: Tensor, src2: Tensor, \
          repeat: Union[int, Var], dst_blk_stride: Union[int, Var], src1_blk_stride: Union[int, Var], src2_blk_stride: Union[int, Var], \
          dst_rep_stride: Union[int, Var], src1_rep_stride: Union[int, Var], src2_rep_stride: Union[int, Var]):
     g_vec = context.active_vec
-    assert g_vec is not None 
+    assert g_vec is not None
     assert isinstance(dst, Tensor)
     assert isinstance(src1, Tensor)
     assert isinstance(src2, Tensor)
@@ -112,7 +125,7 @@ def vmin(dst: Tensor, src1: Tensor, src2: Tensor, \
          repeat: Union[int, Var], dst_blk_stride: Union[int, Var], src1_blk_stride: Union[int, Var], src2_blk_stride: Union[int, Var], \
          dst_rep_stride: Union[int, Var], src1_rep_stride: Union[int, Var], src2_rep_stride: Union[int, Var]):
     g_vec = context.active_vec
-    assert g_vec is not None 
+    assert g_vec is not None
     assert isinstance(dst, Tensor)
     assert isinstance(src1, Tensor)
     assert isinstance(src2, Tensor)
@@ -133,7 +146,7 @@ def vand(dst: Tensor, src1: Tensor, src2: Tensor, \
          repeat: Union[int, Var], dst_blk_stride: Union[int, Var], src1_blk_stride: Union[int, Var], src2_blk_stride: Union[int, Var], \
          dst_rep_stride: Union[int, Var], src1_rep_stride: Union[int, Var], src2_rep_stride: Union[int, Var]):
     g_vec = context.active_vec
-    assert g_vec is not None 
+    assert g_vec is not None
     assert isinstance(dst, Tensor)
     assert isinstance(src1, Tensor)
     assert isinstance(src2, Tensor)
@@ -154,7 +167,7 @@ def vor(dst: Tensor, src1: Tensor, src2: Tensor, \
         repeat: Union[int, Var], dst_blk_stride: Union[int, Var], src1_blk_stride: Union[int, Var], src2_blk_stride: Union[int, Var], \
         dst_rep_stride: Union[int, Var], src1_rep_stride: Union[int, Var], src2_rep_stride: Union[int, Var]):
     g_vec = context.active_vec
-    assert g_vec is not None 
+    assert g_vec is not None
     assert isinstance(dst, Tensor)
     assert isinstance(src1, Tensor)
     assert isinstance(src2, Tensor)

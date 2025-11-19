@@ -1,13 +1,26 @@
-import os 
+#!/usr/bin/env python3
+# coding: utf-8
+# This program is free software, you can redistribute it and/or modify it.
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+# BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# ======================================================================================================================
+"""
+"""
+import os
 from typing import Any, Union, Literal, Sequence
 from .parser import parse_all
 from ..utils import Var, GMTensor, Instruction, CodeHelper, DTYPE, DT, sizeof
 from . import cmake_template, datautil_template, tensorutils_template, testmacros_template, workspace_template
-from ..vec.module import VecModule 
+from ..vec.module import VecModule
 from ..cube.module import CubeModule
 from .. import context
 
-# rich imports 
+# rich imports
 from rich.text import Text
 from rich.style import Style
 from rich.console import Console
@@ -28,7 +41,7 @@ class KernelBase:
     _modules: dict[Union[CubeModule, VecModule], str]
 
     def __init__(self, *args: Var):
-        # some class variables 
+        # some class variables
         self._curr_phase = 'init'
         self._init_inst_list = []
         self._compute_inst_list = []
@@ -45,15 +58,15 @@ class KernelBase:
             self._input_vars.append(a)
         context.active_kernel = self
         self.initialize(*args)
-        context.active_kernel = None 
-    
+        context.active_kernel = None
+
     def initialize(self, *args: Var):
         ...
 
     def __setattr__(self, name: str, value: Any) -> None:
         if name.startswith('_'):
             super().__setattr__(name, value)
-            return 
+            return
         assert self._curr_phase=='init', 'Can only assign class variables in initialize'
         if isinstance(value, (CubeModule, VecModule)):
             clsname = value.__class__.__name__
@@ -63,9 +76,9 @@ class KernelBase:
                 self._used_classnames[clsname] += 1
                 clsname += str(self._used_classnames[clsname])
             value._name = clsname
-            self._modules[value] = name 
+            self._modules[value] = name
         elif isinstance(value, GMTensor):
-            value.name = name 
+            value.name = name
             self._workspace_list.append(value)
         elif isinstance(value, Var):
             new_var = value.copy()
@@ -79,24 +92,24 @@ class KernelBase:
     def split_workspace(self, dtype: DTYPE, shape: Sequence[Union[int, Var]]):
         assert self._curr_phase=='init', 'Can only split workspace in initialize'
         return GMTensor('', dtype, shape)
-    
+
     def get_total_workspace_size(self):
-        res = None 
+        res = None
         for i in self._workspace_list:
-            assert i.length is not None 
+            assert i.length is not None
             if res is None:
                 res = i.length * sizeof(i.dtype)
             else:
                 res = res + i.length * sizeof(i.dtype)
         if res is None:
             res = 0
-        return res 
+        return res
 
     def __call__(self, *args: GMTensor):
         for a in args:
             assert isinstance(a, GMTensor), 'Forward inputs must be GMTensors'
         self.inner_forward(*args)
-    
+
     def inner_forward(self, *args: Union[GMTensor, Var]):
         for a in args:
             if isinstance(a, GMTensor):
@@ -105,7 +118,7 @@ class KernelBase:
         context.active_kernel = self
         if hasattr(self, 'forward'):
             self.forward(*args)  # type: ignore
-        context.active_kernel = None 
+        context.active_kernel = None
         self._curr_phase = 'finished'
 
 
@@ -116,7 +129,7 @@ class KernelBase:
             self._compute_inst_list.append(inst)
         else:
             raise Exception(f'Can only call in initialize or forward. Not {self._curr_phase}')
-        
+
     def run_module(self, mod: Union[CubeModule, VecModule]):
         if mod not in self._modules:
             self._modules[mod] = mod._name
@@ -133,7 +146,7 @@ class KernelBase:
         for i in self._input_vars:
             args.append(f'{i.dtype} {i.name}')
         return ', '.join(args)
-    
+
     def get_all_args_notype(self):
         args: list[str] = []
         for i in self._input_tensors:
@@ -143,7 +156,7 @@ class KernelBase:
         for i in self._input_vars:
             args.append(f'{i.name}')
         return ', '.join(args)
-    
+
     def gen_tiling(self, mode: Literal['cube', 'vec']):
         assert mode in ['cube', 'vec']
         for m in self._modules:
@@ -175,10 +188,10 @@ class KernelBase:
 
     def gen_members(self, mode: Literal['cube', 'vec']):
         assert mode in ['cube', 'vec']
-        # var list 
+        # var list
         for v in self._var_list:
             self._h(f'{v.dtype} {v.name};')
-        # modules and shapes 
+        # modules and shapes
         for m in self._modules:
             if mode=='cube' and isinstance(m, CubeModule):
                 self._h(f'{m._name} {self._modules[m]};')
@@ -278,7 +291,7 @@ class KernelBase:
             fout = open(target_file, 'w')
             fout.write(str(h))
             fout.close()
-        
+
     def gen_checker(self, target_file: str):
         type_mapping = {
             'half'      : 'np.float16',
@@ -360,13 +373,13 @@ class KernelBase:
             fout.close()
 
     def gen_code(self, target_file: str, kernel_name: str):
-        # generate project template files 
+        # generate project template files
         os.makedirs('./codebase', exist_ok=True)
         os.makedirs('./.vscode', exist_ok=True)
         # if not os.path.exists('./codebase/tensorutils.h'):
         if True:
             with open('./codebase/tensorutils.h', 'w') as fout:
-                fout.write(tensorutils_template.TENSORUTILS_TEMPLATE) 
+                fout.write(tensorutils_template.TENSORUTILS_TEMPLATE)
             with open('./codebase/data_utils.h', 'w') as fout:
                 fout.write(datautil_template.DATAUTIL_TEMPLATE)
             with open('./codebase/testmacros.h', 'w') as fout:
@@ -403,22 +416,22 @@ class KernelBase:
             with open('./.vscode/settings.json', 'w') as fout:
                 fout.write(workspace_template.VSCODE_SETTINGS_TEMPLATE)
 
-        # make some padding 
+        # make some padding
         print()
-        # generate all .h sub-kernels 
+        # generate all .h sub-kernels
         for mod in self._modules:
             mod.gen_code(f'codebase/{mod._name}.h')
-        # generate kernels 
+        # generate kernels
         h = self._h
-        # header 
-        # # generate kernels 
-        # header 
+        # header
+        # # generate kernels
+        # header
         h('#include "tensorutils.h"')
         for m in self._modules:
             h(f'#include "{m._name}.h"')
         h()
         h()
-        # cube 
+        # cube
         h('class CubeHandler{')
         h('public:')
         h.ir()
@@ -456,7 +469,7 @@ class KernelBase:
         h()
         h()
 
-        # vec 
+        # vec
         h('class VecHandler{')
         h('public:')
         h.ir()
@@ -515,7 +528,7 @@ class KernelBase:
         h.il()
         h('}')
 
-        # make some padding 
+        # make some padding
         print()
 
         fout = open(os.path.join('./codebase', target_file), 'w')
@@ -577,8 +590,8 @@ class KernelBase:
         h()
         h('// Write Tensors')
         h('SYNC_STREAM();')
-        
-        has_output = False 
+
+        has_output = False
         for i in self._input_tensors:
             if i.is_output:
                 h(f'WRITE_VARIABLE({i.name});')
@@ -589,7 +602,7 @@ class KernelBase:
             h('WRITE_VARIABLE(workspace);')
         h()
         h('// End')
-        
+
         h('END_ACL();')
         h()
         h('return 0;')

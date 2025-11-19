@@ -1,14 +1,27 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# This program is free software, you can redistribute it and/or modify it.
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+# BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# ======================================================================================================================
+"""
+"""
 from .utils import Var, Instruction, DATATYPE
-from typing import Union 
-from . import context 
+from typing import Union
+from . import context
 
 
 class Range():
     def __init__(self, start: Union[int, 'Var'], end: Union[int, 'Var'], step: Union[int, 'Var']=1):
         self.start = start
-        self.end = end 
-        self.step = step 
-        self._cnt = 0 
+        self.end = end
+        self.step = step
+        self._cnt = 0
 
     def __iter__(self):
         return self
@@ -24,11 +37,11 @@ class Range():
             else:
                 raise Exception('Loop must be called in VecModule or CubeModule')
             raise StopIteration()
-        
-        self._cnt += 1 
+
+        self._cnt += 1
         g_vec = context.active_vec
         g_cube = context.active_cube
-        
+
         if g_cube is not None:
             name = f'_loop_var_%d'%g_cube.fetch_tmp_idx()
             g_cube.append(Instruction('STARTLOOP', name=name, start=self.start, end=self.end, step=self.step))
@@ -41,20 +54,20 @@ class Range():
             return loop_const
         else:
             raise Exception('Loop must be called in VecModule or CubeModule')
-        
+
 
 class Loop():
     def __init__(self, name: str, start: Union[int, 'Var'], end: Union[int, 'Var'], step: Union[int, 'Var']=1) -> None:
-        self.name = name 
+        self.name = name
         self.start = start
-        self.end = end 
-        self.step = step 
-    
+        self.end = end
+        self.step = step
+
     def __enter__(self):
         g_vec = context.active_vec
         g_cube = context.active_cube
         g_kernel = context.active_kernel
-        
+
         if g_cube is not None:
             g_cube.append(Instruction('STARTLOOP', name=self.name, start=self.start, end=self.end, step=self.step))
             loop_const = Var(self.name, DATATYPE.int, auto_declare=False)
@@ -86,15 +99,15 @@ class Loop():
             return True
         elif g_kernel is not None:
             g_kernel.append(Instruction('ENDLOOP'))
-            return True 
+            return True
         else:
             raise Exception('Loop must be called in VecModule or CubeModule')
 
 
 class If():
     def __init__(self, cond: Union[int, 'Var']) -> None:
-        self.cond = cond 
-    
+        self.cond = cond
+
     def __enter__(self):
         g_vec = context.active_vec
         g_cube = context.active_cube
@@ -123,15 +136,15 @@ class If():
             return True
         elif g_kernel is not None:
             g_kernel.append(Instruction('ENDIF'))
-            return True 
+            return True
         else:
             raise Exception('If must be called in VecModule or CubeModule')
 
 
 class Elif():
     def __init__(self, cond: Union[int, 'Var']) -> None:
-        self.cond = cond 
-    
+        self.cond = cond
+
     def __enter__(self):
         g_vec = context.active_vec
         g_cube = context.active_cube

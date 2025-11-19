@@ -1,3 +1,16 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# This program is free software, you can redistribute it and/or modify it.
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+# BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# ======================================================================================================================
+"""
+"""
 from collections import defaultdict
 from typing import Any, Union, TypeVar
 from types import FunctionType
@@ -7,7 +20,7 @@ from .. import autosync
 from . import parser
 
 # from rich.style import Style
-# from rich.text import Text 
+# from rich.text import Text
 # from rich.console import Console
 # from functools import partial
 # print = partial(Console(width=150).print, justify='center')
@@ -21,7 +34,7 @@ class TileOpModule():
     _input_tensors: list[Tensor]
     _inst_list: list[Instruction]
     _name: str
-    _tmp_idx: int 
+    _tmp_idx: int
     _registered: bool
     _curr_phase: str
 
@@ -46,26 +59,26 @@ class TileOpModule():
             self.forward(*args)  # type: ignore
 
         if not self._registered and context.active_vec==self:
-            context.active_vec = None 
-            self._registered = True 
-    
+            context.active_vec = None
+            self._registered = True
+
     def fetch_tmp_idx(self):
         res = self._tmp_idx
-        self._tmp_idx += 1 
-        return res 
+        self._tmp_idx += 1
+        return res
 
     def get_name(self):
         return self._name
 
     def set_name(self, name: str):
-        self._name = name 
+        self._name = name
 
     def add_buffer(self, *args):
         raise TypeError('Cannot add any buffers inside tileop function')
 
     def get_input_tensors(self):
         return self._input_tensors
-    
+
     def register_args(self, *args: Union[Var, int, float, Tensor]):
         for a in args:
             if isinstance(a, Tensor):
@@ -79,12 +92,12 @@ class TileOpModule():
 
     def append(self, inst: Instruction):
         self._inst_list.append(inst)
-        
-    # codegen related 
+
+    # codegen related
     def gen_code(self, filename: str):
         print()
         h = CodeHelper()
-        # generate template args 
+        # generate template args
         tmplt_args = []
         for i in range(len(self._input_tensors)):
             tmplt_args.append('typename T%d'%i)
@@ -93,7 +106,7 @@ class TileOpModule():
         tmplt_args_str = f'template <{", ".join(tmplt_args)}>'
         h(tmplt_args_str)
 
-        # generate input args 
+        # generate input args
         input_args = []
         for i,t in enumerate(self._input_tensors):
             input_args.append(f'__ubuf__ T{i} *{t.name}')

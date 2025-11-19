@@ -1,3 +1,16 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# This program is free software, you can redistribute it and/or modify it.
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+# BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# ======================================================================================================================
+"""
+"""
 from dataclasses import dataclass, asdict, is_dataclass
 from enum import Enum
 import logging
@@ -98,7 +111,7 @@ def generate_ascpp_interface(tileop: TileOpModule, opCodeInfo: CoreOpcodeInfo):
     h(f"return TensorBinaryOperation(*Program::GetInstance().GetCurrentFunction(), {', '.join(input_tensors)});")
     h.il()
     h("}\n")
-    
+
     h(f"class {op_name}Register {{")
     h("public:")
     h.ir()
@@ -107,7 +120,7 @@ def generate_ascpp_interface(tileop: TileOpModule, opCodeInfo: CoreOpcodeInfo):
     h(f"InferShapeRegistry::GetInstance().RegisterInferShapeFunc(\
 static_cast<Opcode>(static_cast<int32_t>(Opcode::BUILT_IN_END) + \
 {1 + opCodeInfo.opcode}), ElewiseInferFunc);")
-    
+
     h.il()
     h("}")
     h.il()
@@ -195,7 +208,7 @@ def generate_custom_op(tileop: TileOpModule, opCodeInfo: CoreOpcodeInfo):
 
     # registration
     udpate_custom_op_json(tileop, opCodeInfo)
-    
 
 
-    
+
+

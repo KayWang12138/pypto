@@ -1,6 +1,19 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# This program is free software, you can redistribute it and/or modify it.
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+# BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# ======================================================================================================================
+"""
+"""
 import sys
 sys.dont_write_bytecode = True
-from pycce.stub_functions import * 
+from pycce.stub_functions import *
 
 
 BASEM = 128
@@ -9,9 +22,9 @@ BASEK = 128
 
 class CustCube(CubeModule):
     def initialize(self, M, N, K):
-        self.M = M 
-        self.N = N 
-        self.K = K 
+        self.M = M
+        self.N = N
+        self.K = K
         self.M_PERCORE = CeilDiv(CeilDiv(self.M, BASEM), GetCubeNum()) * BASEM
         self.M1 = self.M_PERCORE * GetCubeIdx()
         self.M2 = Min(self.M1 + self.M_PERCORE, self.M)
@@ -40,18 +53,18 @@ class CustCube(CubeModule):
             # mte1
             l1_to_l0_nz2zz(self.l0a[l0cnt], self.l1a[l1cnt], BASEM, BASEK, BASEM, BASEK)
             l1_to_l0(self.l0b[l0cnt], self.l1b[l1cnt], BASEN, BASEK)
-            l1cnt += 1 
+            l1cnt += 1
             # matmul
             mad(self.l0c[outcnt], self.l0a[l0cnt], self.l0b[l0cnt], BASEM, BASEK, BASEN, k==0)
-            l0cnt += 1 
+            l0cnt += 1
         l0c_to_gm_nz2nd(z[m,n], self.l0c[outcnt], BASEM, BASEN, self.N, BASEM)
-        outcnt += 1 
+        outcnt += 1
 
 
 class CustVec(VecModule):
     def initialize(self, M, N):
-        self.M = M 
-        self.N = N 
+        self.M = M
+        self.N = N
         self.M_PERCORE = CeilDiv(CeilDiv(self.M, BASEM), GetCubeNum()) * BASEM
         self.M1 = self.M_PERCORE * GetCubeIdx()
         self.M2 = Min(self.M1 + self.M_PERCORE, self.M)
@@ -65,14 +78,14 @@ class CustVec(VecModule):
             with Loop('n', 0, self.N, BASEN) as n:
                 wait_cube()
                 self.process_base_block(z, m, n, cnt)
-    
+
     @auto_sync()
     def process_base_block(self, z, m, n, cnt):
         # copy in
         gm_to_ub(self.xbuf[cnt], z[m,n], BASEM, BASEN//16, (self.N-BASEN)//16, 0)
-        # compute 
+        # compute
         muls(self.outbuf[cnt], self.xbuf[cnt], 2.0, BASEM*BASEN//128, 1, 1, 8, 8)
-        # copy out 
+        # copy out
         ub_to_gm(z[m,n], self.outbuf[cnt], BASEM, BASEN//16, 0, (self.N-BASEN)//16)
 
 
@@ -80,7 +93,7 @@ class CustKernel(KernelBase):
     def initialize(self, M, N, K):
         self.cube0 = CustCube(M, N, K)
         self.vec0 = CustVec(M, N)
-    
+
     def forward(self, x, y, z):
         self.cube0(x, y, z)
         self.vec0(z)

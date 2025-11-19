@@ -1,3 +1,16 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# This program is free software, you can redistribute it and/or modify it.
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+# BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# ======================================================================================================================
+"""
+"""
 from collections import defaultdict
 from typing import Any, Union, TypeVar
 from types import FunctionType
@@ -7,7 +20,7 @@ from .. import autosync
 from . import parser
 
 from rich.style import Style
-from rich.text import Text 
+from rich.text import Text
 from rich.console import Console
 from functools import partial
 print = partial(Console(width=150).print, justify='center')
@@ -25,7 +38,7 @@ class VecModule():
     _buffer_list: list[Union[Tensor, DBuff]]
     _event_list: list[Union[SEvent, DEvent]]
     _name: str
-    _tmp_idx: int 
+    _tmp_idx: int
     _var_mapping: dict[Var, Var]
     _flag_id_dict: dict[tuple[PipeInst, PipeInst], int]
 
@@ -41,11 +54,11 @@ class VecModule():
         self._tmp_idx = 0
         self._var_mapping = {}
         self._flag_id_dict = defaultdict(int)
-        
+
         for a in args:
             assert isinstance(a, Var), 'All input args should be Var'
             self._input_vars.append(a)
-        
+
         context.active_vec = self
         self.in_empty = DEvent(PIPE.V, PIPE.MTE2)
         self.in_ready = DEvent(PIPE.MTE2, PIPE.V)
@@ -53,17 +66,17 @@ class VecModule():
         self.out_ready = DEvent(PIPE.V, PIPE.MTE3)
         if hasattr(self, 'initialize'):
             self.initialize(*args)  # type: ignore
-        context.active_vec = None 
+        context.active_vec = None
 
-    @property 
+    @property
     def var_mapping(self):
         return self._var_mapping
-    
+
     def fetch_tmp_idx(self):
         res = self._tmp_idx
-        self._tmp_idx += 1 
-        return res 
-    
+        self._tmp_idx += 1
+        return res
+
     def assign_vars_funcmode(self, *vs: Var):
         for value in vs:
             new_var = value.copy()
@@ -75,7 +88,7 @@ class VecModule():
     def __setattr__(self, name: str, value: Any) -> None:
         if name.startswith('_'):
             super().__setattr__(name, value)
-            return 
+            return
         assert self._curr_phase=='init', 'Can only assign class variables in initialize'
         if isinstance(value, float):
             new_var = Var(f'shape.{name}', DT.float, value)
@@ -91,7 +104,7 @@ class VecModule():
             self.append(Instruction('ASSIGNVAR', v=new_var, src=value))
         elif isinstance(value, (Tensor, DBuff)):
             new_var = value
-            new_var.name = name 
+            new_var.name = name
             if new_var.pos is None:
                 new_var.pos = Position.UB
             self._buffer_list.append(new_var)
@@ -101,29 +114,29 @@ class VecModule():
             new_var.set_module(self)
             self._event_list.append(new_var)
         elif isinstance(value, FunctionType):
-            new_var = value 
+            new_var = value
         else:
             raise TypeError(f'Not supported type {type(value)}')
         super().__setattr__(name, new_var)
 
     def add_buffer(self, buf: Union[Tensor, DBuff]):
         buf.name = '_local_buffer_%d'%self._tmp_idx
-        self._tmp_idx += 1 
+        self._tmp_idx += 1
         self._buffer_list.append(buf)
 
     def set_name(self, name: str):
-        self._name = name 
+        self._name = name
 
     def __call__(self, *args: GMTensor):
         for a in args:
             assert isinstance(a, GMTensor), 'Forward inputs must be GMTensors'
         self.inner_forward(*args)
-    
+
     def inner_forward(self, *args: Union[Var, GMTensor]):
         for a in args:
             if isinstance(a, GMTensor):
                 self._input_tensors.append(a)
-        assert context.active_kernel is not None 
+        assert context.active_kernel is not None
         context.active_kernel.run_module(self)
         self._curr_phase = 'computing'
 
@@ -134,7 +147,7 @@ class VecModule():
             self.forward(*args)  # type: ignore
         self.in_empty.release()
         self.out_empty.release()
-        context.active_vec = None 
+        context.active_vec = None
         self._curr_phase = 'finished'
         self._compute_inst_list = autosync.parse_autosync(self._compute_inst_list, 'vec')
 
@@ -145,12 +158,12 @@ class VecModule():
             self._compute_inst_list.append(inst)
         else:
             raise Exception(f'Can only call in initialize or forward. Not {self._curr_phase}')
-        
+
     def create_l1(self, t: type[BUFFER_T], dtype: DTYPE, length: Union[int, Var]) -> BUFFER_T:
         new_obj = t(dtype, length)
         new_obj.pos = Position.L1
         return new_obj
-    
+
     def wait_in_ready(self):
         self.in_ready.wait()
 
@@ -165,7 +178,7 @@ class VecModule():
 
     def wait_out_ready(self):
         self.out_ready.wait()
-    
+
     def set_out_ready(self):
         self.out_ready.set()
 
@@ -176,9 +189,9 @@ class VecModule():
         self.out_empty.set()
 
 
-    # codegen related 
+    # codegen related
     def gen_header(self, h: CodeHelper):
-        # some includes and defines 
+        # some includes and defines
         h('#pragma once')
         h('#include "tensorutils.h"')
         h()
@@ -190,9 +203,9 @@ class VecModule():
         var_list = []
         for i in self._init_inst_list:
             if i._inst=='ASSIGNVAR':
-                v: Var = i.v 
+                v: Var = i.v
                 if v.name in var_list:
-                    continue 
+                    continue
                 if 'shape.' in v.name:
                     var_list.append(v.name)
                     h(f'{v.dtype} {v.name.replace("shape.", "")};')
@@ -233,7 +246,7 @@ class VecModule():
                     h(f'{i.name} = DBuff<{i.dtype}, PUB>(0, {i.length}, offset);')
                 else:
                     h(f'{i.name} = Tensor<{i.dtype}, PUB>(0, {i.length}, offset);')
-        
+
         h('// L1 Buffers')
         h('offset = 0;')
         for i in self._buffer_list:
@@ -242,7 +255,7 @@ class VecModule():
                     h(f'{i.name} = DBuff<{i.dtype}, PL1>(0, {i.length}, offset);')
                 else:
                     h(f'{i.name} = Tensor<{i.dtype}, PL1>(0, {i.length}, offset);')
-        
+
         h.il()
         h('}')
         h()
@@ -254,7 +267,7 @@ class VecModule():
         h.il()
         h('}')
         h()
-    
+
     def gen_members(self, h: CodeHelper, name: str):
         h(f'{name}ShapeInfo shape;')
         h('// Global Tensors')
@@ -291,7 +304,7 @@ class VecModule():
         for i in self._buffer_list:
             multiplier = 1
             if isinstance(i, DBuff):
-                multiplier = 2 
+                multiplier = 2
             if i.pos==pos:
                 if isinstance(i.length, Var):
                     if i.length.value is None:
@@ -319,12 +332,12 @@ class VecModule():
         Console(width=150).rule(outstr)
         if self._curr_phase!='finished':
             print(Text('Warning', style='yellow').append(Text(': [', style='white')).append(Text(f'{self._name}', style='red')).append(Text('] is not forwarded. Skip generation.', style='white')))
-            return 
-        
+            return
+
         h = CodeHelper()
         self.gen_header(h)
         self.gen_tiling(h)
-        
+
         h(f'class {self._name}{{')
         h('public:')
         h.ir()

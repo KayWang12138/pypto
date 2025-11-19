@@ -1,12 +1,25 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# This program is free software, you can redistribute it and/or modify it.
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+# BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# ======================================================================================================================
+"""
+"""
 from .utils import Instruction, PIPE, PipeInst
 from typing import Literal
-from . import context 
+from . import context
 
 
 class auto_sync():
     def __init__(self) -> None:
         ...
-    
+
     def __enter__(self):
         g_vec = context.active_vec
         g_cube = context.active_cube
@@ -33,7 +46,7 @@ class auto_sync():
             return True
         else:
             raise Exception('Autosync must be called in VecModule or CubeModule ')
-        
+
     def __call__(self, fn):
         def wrapped_nograd_fn(*args):
             with auto_sync():
@@ -52,13 +65,13 @@ def parse_autosync(inst_list: list[Instruction], mode: Literal['cube', 'vec']):
             target_list = tmp_list
         elif i._inst=='ENDAUTOSYNC':
             res = parse_inner(tmp_list, mode)
-            parsed_list += res 
+            parsed_list += res
             tmp_list = []
             target_list = parsed_list
         else:
             target_list.append(i)
     return parsed_list
-        
+
 
 PIPE_MAPPING = {
     # mte2
@@ -72,14 +85,14 @@ PIPE_MAPPING = {
     'UB2L1'                 : PIPE.MTE3,
     'UB2L1_NZ'              : PIPE.MTE3,
     'UB2L1_ND2NZ'           : PIPE.MTE3,
-    # sort 
+    # sort
     'SORT32'                : PIPE.V,
     'MERGESORT4'            : PIPE.V,
-    # # 910B - Vector computations 
-    # vector masks 
+    # # 910B - Vector computations
+    # vector masks
     'SETMASK'               : PIPE.V,
     'RESETMASK'             : PIPE.V,
-    # unary 
+    # unary
     'EXP'                   : PIPE.V,
     'LN'                    : PIPE.V,
     'ABS'                   : PIPE.V,
@@ -89,7 +102,7 @@ PIPE_MAPPING = {
     'VNOT'                  : PIPE.V,
     'RELU'                  : PIPE.V,
     'NOT'                   : PIPE.V,
-    # binary 
+    # binary
     'ADD'                   : PIPE.V,
     'SUB'                   : PIPE.V,
     'MUL'                   : PIPE.V,
@@ -105,13 +118,13 @@ PIPE_MAPPING = {
     'MINS'                  : PIPE.V,
     'LRELU'                 : PIPE.V,
     'AXPY'                  : PIPE.V,
-    # compare 
+    # compare
     'COMPARE'               : PIPE.V,
     'COMPARES'              : PIPE.V,
     'COMPARETOREG'          : PIPE.V,
     'SETCMPMASK'            : PIPE.V,
     'SELECT'                : PIPE.V,
-    # cast 
+    # cast
     'CAST'                  : PIPE.V,
     # group
     'VCADD'                 : PIPE.V,
@@ -121,13 +134,13 @@ PIPE_MAPPING = {
     'VCGMAX'                : PIPE.V,
     'VCMIN'                 : PIPE.V,
     'VCGMIN'                : PIPE.V,
-    # dup brcb 
+    # dup brcb
     'DUP'                   : PIPE.V,
     'BRCB'                  : PIPE.V,
-    # gather scatter 
+    # gather scatter
     'GATHER'                : PIPE.V,
     'SCATTER'               : PIPE.V,
-    # call micro 
+    # call micro
     'CALLMICRO'             : PIPE.V,
 }
 
@@ -142,7 +155,7 @@ def check_pipe(i: Instruction):
         return PIPE.MTE1
     if 'MAD' in i._inst:
         return PIPE.M
-    return None 
+    return None
 
 
 def parse_inner(inst_list: list[Instruction], mode: Literal['cube', 'vec']):
@@ -155,8 +168,8 @@ class InstNode():
     def __init__(self, inst_list: list[Instruction], mode: Literal['cube', 'vec'], is_root: bool=False):
         if len(inst_list)==0:
             self.parsed = []
-            self.head = None 
-            return 
+            self.head = None
+            return
         self.check_validity(inst_list, mode)
         if mode=='vec':
             inst_list = self.insert_barv(inst_list)
@@ -176,9 +189,9 @@ class InstNode():
                 if nest_depth==0:
                     target = self.tmp
                 target.append(i)
-                nest_depth += 1 
+                nest_depth += 1
             elif i._inst in ['ENDLOOP', 'ENDIF']:
-                nest_depth -= 1 
+                nest_depth -= 1
                 if nest_depth==0:
                     target = self.parsed
                     new_node = InstNode(self.tmp, mode)
@@ -188,11 +201,11 @@ class InstNode():
                     target.append(i)
             else:
                 target.append(i)
-        
+
         for i in self.parsed:
             self.used_pipes = self.used_pipes.union(pipe(i))
 
-        # insert events 
+        # insert events
         if mode=='cube':
             self.process_l1()
             self.process_l0()
@@ -206,13 +219,13 @@ class InstNode():
             if mode=='vec':
                 for p in [PIPE.MTE3, PIPE.V, PIPE.MTE2]:
                     if p in pipe(i):
-                        return p 
+                        return p
             if mode=='cube':
                 for p in [PIPE.FIX, PIPE.M, PIPE.MTE1, PIPE.MTE2]:
                     if p in pipe(i):
-                        return p 
+                        return p
             raise Exception()
-        
+
         def is_successor(i: Instruction, prev: PipeInst):
             succ_dict = {
                 PIPE.MTE2: [PIPE.V, PIPE.MTE1],
@@ -222,16 +235,16 @@ class InstNode():
             }
             for p in pipe(i):
                 if prev not in succ_dict:
-                    continue 
+                    continue
                 if p in succ_dict[prev]:
-                    return True 
-            return False 
+                    return True
+            return False
 
-        curr_pipe = None 
-        must_change = False 
+        curr_pipe = None
+        must_change = False
         for i in inst_list:
             if len(pipe(i))==1 and None in pipe(i):
-                continue 
+                continue
             if curr_pipe is not None:
                 if must_change:
                     if not is_successor(i, curr_pipe):
@@ -245,9 +258,9 @@ class InstNode():
                                 raise Exception('Same pipe must be in the same loop scope')
             curr_pipe = prioritize(i)
             if len(pipe(i))>1:
-                must_change = True 
+                must_change = True
             else:
-                must_change = False 
+                must_change = False
 
     def insert_barv(self, inst_list: list[Instruction]):
         res = []
@@ -255,28 +268,28 @@ class InstNode():
             res.append(i)
             if len(pipe(i))==1 and PIPE.V in pipe(i):
                 res.append(Instruction('BAR', pipe=PIPE.V))
-        return res 
+        return res
 
     def process_l1(self):
-        need_to_insert = True 
+        need_to_insert = True
         if not (PIPE.MTE2 in self.used_pipes and PIPE.MTE1 in self.used_pipes):
             need_to_insert = False
         for i in self.parsed:
             p = pipe(i)
             if PIPE.MTE2 in p and PIPE.MTE1 in p:
                 need_to_insert = False
-            
+
         if need_to_insert:
             for idx in range(len(self.parsed)):
                 p = pipe(self.parsed[idx])
                 if PIPE.MTE2 in p:
-                    break 
+                    break
             self.parsed.insert(idx, Instruction('EVENTWAIT', name='l1_empty'))
 
             for idx in range(len(self.parsed)):
                 p = pipe(self.parsed[idx])
                 if PIPE.MTE1 in p:
-                    break 
+                    break
             self.parsed.insert(idx, Instruction('EVENTWAIT', name='l1_ready'))
             self.parsed.insert(idx, Instruction('EVENTSET', name='l1_ready'))
 
@@ -285,32 +298,32 @@ class InstNode():
                 p = pipe(self.parsed[idx])
                 if PIPE.M in p:
                     has_next = True
-                    break 
+                    break
             if has_next:
                 self.parsed.insert(idx, Instruction('EVENTSET', name='l1_empty'))
             else:
                 self.parsed.append(Instruction('EVENTSET', name='l1_empty'))
 
     def process_l0(self):
-        need_to_insert = True 
+        need_to_insert = True
         if not (PIPE.M in self.used_pipes and PIPE.MTE1 in self.used_pipes):
             need_to_insert = False
         for i in self.parsed:
             p = pipe(i)
             if PIPE.M in p and PIPE.MTE1 in p:
                 need_to_insert = False
-            
+
         if need_to_insert:
             for idx in range(len(self.parsed)):
                 p = pipe(self.parsed[idx])
                 if PIPE.MTE1 in p:
-                    break 
+                    break
             self.parsed.insert(idx, Instruction('EVENTWAIT', name='l0_empty'))
 
             for idx in range(len(self.parsed)):
                 p = pipe(self.parsed[idx])
                 if PIPE.M in p:
-                    break 
+                    break
             self.parsed.insert(idx, Instruction('EVENTWAIT', name='l0_ready'))
             self.parsed.insert(idx, Instruction('EVENTSET', name='l0_ready'))
 
@@ -318,59 +331,59 @@ class InstNode():
             for idx in range(len(self.parsed)):
                 p = pipe(self.parsed[idx])
                 if PIPE.FIX in p:
-                    has_next = True 
-                    break 
+                    has_next = True
+                    break
             if has_next:
                 self.parsed.insert(idx, Instruction('EVENTSET', name='l0_empty'))
             else:
                 self.parsed.append(Instruction('EVENTSET', name='l0_empty'))
-    
+
     def process_out(self):
-        # try l1 pair 
-        need_to_insert = True 
+        # try l1 pair
+        need_to_insert = True
         if not (PIPE.M in self.used_pipes and PIPE.FIX in self.used_pipes):
             need_to_insert = False
         for i in self.parsed:
             p = pipe(i)
             if PIPE.M in p and PIPE.FIX in p:
                 need_to_insert = False
-            
+
         if need_to_insert:
             for idx in range(len(self.parsed)):
                 p = pipe(self.parsed[idx])
                 if PIPE.M in p:
-                    break 
+                    break
             self.parsed.insert(idx, Instruction('EVENTWAIT', name='out_empty'))
 
             for idx in range(len(self.parsed)):
                 p = pipe(self.parsed[idx])
                 if PIPE.FIX in p:
-                    break 
+                    break
             self.parsed.insert(idx, Instruction('EVENTWAIT', name='out_ready'))
             self.parsed.insert(idx, Instruction('EVENTSET', name='out_ready'))
             self.parsed.append(Instruction('EVENTSET', name='out_empty'))
 
     def process_vecin(self):
-        # try l1 pair 
-        need_to_insert = True 
+        # try l1 pair
+        need_to_insert = True
         if not (PIPE.V in self.used_pipes and PIPE.MTE2 in self.used_pipes):
             need_to_insert = False
         for i in self.parsed:
             p = pipe(i)
             if PIPE.V in p and PIPE.MTE2 in p:
                 need_to_insert = False
-            
+
         if need_to_insert:
             for idx in range(len(self.parsed)):
                 p = pipe(self.parsed[idx])
                 if PIPE.MTE2 in p:
-                    break 
+                    break
             self.parsed.insert(idx, Instruction('EVENTWAIT', name='in_empty'))
 
             for idx in range(len(self.parsed)):
                 p = pipe(self.parsed[idx])
                 if PIPE.V in p:
-                    break 
+                    break
             self.parsed.insert(idx, Instruction('EVENTWAIT', name='in_ready'))
             self.parsed.insert(idx, Instruction('EVENTSET', name='in_ready'))
 
@@ -378,34 +391,34 @@ class InstNode():
             for idx in range(len(self.parsed)):
                 p = pipe(self.parsed[idx])
                 if PIPE.MTE3 in p:
-                    has_next = True 
-                    break 
+                    has_next = True
+                    break
             if has_next:
                 self.parsed.insert(idx, Instruction('EVENTSET', name='in_empty'))
             else:
                 self.parsed.append(Instruction('EVENTSET', name='in_empty'))
 
     def process_vecout(self):
-        # try l1 pair 
-        need_to_insert = True 
+        # try l1 pair
+        need_to_insert = True
         if not (PIPE.V in self.used_pipes and PIPE.MTE3 in self.used_pipes):
             need_to_insert = False
         for i in self.parsed:
             p = pipe(i)
             if PIPE.V in p and PIPE.MTE3 in p:
                 need_to_insert = False
-            
+
         if need_to_insert:
             for idx in range(len(self.parsed)):
                 p = pipe(self.parsed[idx])
                 if PIPE.V in p:
-                    break 
+                    break
             self.parsed.insert(idx, Instruction('EVENTWAIT', name='out_empty'))
 
             for idx in range(len(self.parsed)):
                 p = pipe(self.parsed[idx])
                 if PIPE.MTE3 in p:
-                    break 
+                    break
             self.parsed.insert(idx, Instruction('EVENTWAIT', name='out_ready'))
             self.parsed.insert(idx, Instruction('EVENTSET', name='out_ready'))
             self.parsed.append(Instruction('EVENTSET', name='out_empty'))
@@ -426,14 +439,14 @@ class InstNode():
                 res.append(Instruction('ENDLOOP'))
             else:
                 res.append(Instruction('ENDIF'))
-        return res 
+        return res
 
 
 def pipe(i):
     if isinstance(i, Instruction):
         res = set()
         res.add(check_pipe(i))
-        return res 
+        return res
     elif isinstance(i, InstNode):
         return i.used_pipes
     else:

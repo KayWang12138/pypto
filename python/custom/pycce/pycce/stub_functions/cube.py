@@ -1,3 +1,16 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# This program is free software, you can redistribute it and/or modify it.
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+# BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# ======================================================================================================================
+"""
+"""
 from ..utils import Tensor, GMTensor, Var, Instruction, Position
 from .. import context
 from typing import Union, Optional
@@ -11,7 +24,7 @@ def gm_to_l1_nd2nz(dst: Tensor, src: GMTensor, m: Union[int, Var], n: Union[int 
     assert dst.pos==Position.L1, f'Tensor position must be on L1. Got {dst.pos}'
 
     if M is None:
-        M = m 
+        M = m
 
     g_cube.append(Instruction('L1ND2NZ', dst=dst, src=src, m=m, n=n, N=N, M=M))
 
@@ -81,7 +94,7 @@ def l0c_to_gm_nz2nd(dst: GMTensor, src: Tensor, m: Union[int, Var], n: Union[int
     g_cube.append(Instruction('L0C2GM_NZ2ND', dst=dst, src=src, m=m, n=n, N_dst=N_dst, m_src=m_src))
 
 
-# mad 
+# mad
 def mad(dst: Tensor, srca: Tensor, srcb: Tensor, m: Union[int, Var], k: Union[int, Var], n: Union[int, Var], init_val: Union[bool, Var], uflag: Union[int, Var]=0):
     g_cube = context.active_cube
     assert g_cube is not None, 'You must call mad within cube forward function'

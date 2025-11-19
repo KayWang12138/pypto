@@ -1,6 +1,19 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# This program is free software, you can redistribute it and/or modify it.
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+# BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# ======================================================================================================================
+"""
+"""
 import sys
 sys.dont_write_bytecode = True
-from pycce.stub_functions import * 
+from pycce.stub_functions import *
 
 
 BASEM = 128
@@ -9,9 +22,9 @@ BASEK = 128
 
 class CustCube(CubeModule):
     def initialize(self, M, N, K):
-        self.M = M 
-        self.N = N 
-        self.K = K 
+        self.M = M
+        self.N = N
+        self.K = K
         self.M_PERCORE = CeilDiv(CeilDiv(self.M, BASEM), GetCubeNum()) * BASEM
         self.M1 = self.M_PERCORE * GetCubeIdx()
         self.M2 = Min(self.M1 + self.M_PERCORE, self.M)
@@ -39,18 +52,18 @@ class CustCube(CubeModule):
             # mte1
             l1_to_l0_nz2zz(self.l0a[l0cnt], self.l1a[l1cnt], BASEM, BASEK, BASEM, BASEK)
             l1_to_l0(self.l0b[l0cnt], self.l1b[l1cnt], BASEN, BASEK)
-            l1cnt += 1 
+            l1cnt += 1
             # matmul
             mad(self.l0c[outcnt], self.l0a[l0cnt], self.l0b[l0cnt], BASEM, BASEK, BASEN, k==0)
-            l0cnt += 1 
+            l0cnt += 1
         l0c_to_gm_nz2nd(z[m,n], self.l0c[outcnt], BASEM, BASEN, self.N, BASEM)
-        outcnt += 1 
+        outcnt += 1
 
 
 class CustKernel(KernelBase):
     def initialize(self, M, N, K):
         self.cube0 = CustCube(M, N, K)
-    
+
     def forward(self, x, y, z):
         self.cube0(x, y, z)
 

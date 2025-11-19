@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 # coding: utf-8
+# This program is free software, you can redistribute it and/or modify it.
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This file is a part of the CANN Open Software.
-# Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+# Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
-# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
-# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+# BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
-
+"""
+"""
 from pypto.module import AscppModule
 from pypto.utils import CustStruct, TensorMap, Tensor, Var
 from pypto.utils import DATATYPE as DT
@@ -53,7 +55,7 @@ class ModelWeights(CustStruct):
     attn_weight: Tensor
     dense_weight: Tensor
     ffn_weight: Tensor
-    
+
     def __init__(self, hidden_states: Tensor, attn_weight: Tensor, dense_weight: Tensor, ffn_weight: Tensor):
         self.hidden_states = hidden_states
         self.attn_weight = attn_weight
@@ -86,10 +88,10 @@ class FlashAttention(AscppModule):
         self.last_mi = TensorMap()
         self.last_li = TensorMap()
         self.result = Tensor(force_declare=True)
-        
+
         self.single_m = 0
         self.single_n = 0
-    
+
     def forward_s2loop_pre(self, vec_cfg: AttentionVecTileConfig, cube_cfg: AttentionCubeTileConfig):
         set_c1_cube_config(cube_cfg)
         sij = self.qi @ self.kj.t()
@@ -105,7 +107,7 @@ class FlashAttention(AscppModule):
         self.tilda_lij = tilda_pij.row_sum_single()
 
         set_c2_cube_config(cube_cfg)
-        
+
     def forward_s2loop_post(self):
         oi = self.last_oi.retrieve(self.oi_offset)
         li = self.last_li.retrieve(self.li_offset)
@@ -124,7 +126,7 @@ class FlashAttention(AscppModule):
         q1 = self.tilda_pij_fp16 @ self.vj
         q2 = q1 * t4
         self.oi_tmp = q3 + q2
-        
+
     def s1_inner_loop(self, b_idx: int, n_idx: int, s2_idx: int, attn_dims: AttentionDims, model_active: ModelActive):
         _qshape = model_active.q.shape
         dim0 = _qshape[0]
@@ -135,7 +137,7 @@ class FlashAttention(AscppModule):
         d = dim1 // n
         s1_loop = s // attn_dims.single_m
         s2_loop = s // attn_dims.single_n
-        
+
         self.kj = model_active.k.view([attn_dims.single_n, d], [b_idx * s + s2_idx * attn_dims.single_n, n_idx * d])
         self.vj = model_active.v.view([attn_dims.single_n, d], [b_idx * s + s2_idx * attn_dims.single_n, n_idx * d])
         with Loop(0, s1_loop) as s1_idx:
@@ -163,7 +165,7 @@ class FlashAttention(AscppModule):
                 self.last_oi.set(self.oi_offset, self.oi_tmp)
             self.last_li.set(self.li_offset, self.li_new)
             self.last_mi.set(self.mi_offset, self.mi_new)
-        
+
     def forward(self, model_active: ModelActive = None, attn_dims: AttentionDims = None,
                 vec_cfg: AttentionVecTileConfig = None, cube_cfg: AttentionCubeTileConfig = None):
         _qshape = model_active.q.shape
@@ -271,7 +273,7 @@ class LlamaLayer(AscppModule):
 
         set_tile_shape(0, vec_cfg.castTileX)
         set_tile_shape(1, vec_cfg.castTileY)
-        
+
         attention_out = self.attn(model_weights, model_active, attn_dims, vec_cfg, cube_cfg)
         self.attn.gen_code("./generatedcpp/multiattention_generated.cpp")
 

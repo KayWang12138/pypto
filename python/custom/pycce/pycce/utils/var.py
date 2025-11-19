@@ -1,7 +1,20 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# This program is free software, you can redistribute it and/or modify it.
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+# BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# ======================================================================================================================
+"""
+"""
 from typing import Union, Optional, TYPE_CHECKING
 from .instruction import Instruction
 from .datatype import DTYPE
-from .datatype import DATATYPE as DT 
+from .datatype import DATATYPE as DT
 from .. import context
 
 if TYPE_CHECKING:
@@ -13,8 +26,8 @@ if TYPE_CHECKING:
 
 class Var():
     _module: Optional[Union['CubeModule', 'VecModule', 'KernelBase']]
-    name: str 
-    dtype: DTYPE 
+    name: str
+    dtype: DTYPE
     varstr: str
     value: Optional[Union[int, float]]
 
@@ -26,13 +39,13 @@ class Var():
                 raise Exception('Must specify datatype')
             self.name = name_or_value
             self.varstr = name_or_value
-            self.dtype = dtype 
+            self.dtype = dtype
             self.value = value
         else:
             if active_mod is None:
                 raise Exception('Must be in cube or vector function')
             self.name = '_local_var_%d'%active_mod._tmp_idx
-            active_mod._tmp_idx += 1 
+            active_mod._tmp_idx += 1
             self.varstr = self.name
             if isinstance(name_or_value, Var):
                 self.dtype = name_or_value.dtype
@@ -46,7 +59,7 @@ class Var():
             else:
                 raise TypeError(f'Got not supported type {type(name_or_value)}')
 
-        self._module = None 
+        self._module = None
         if active_mod is not None and active_mod._curr_phase=='computing':
             self._module = active_mod
             if auto_declare:
@@ -54,7 +67,7 @@ class Var():
                     active_mod.append(Instruction('CREATEVAR', v=self, value=value))
                 else:
                     active_mod.append(Instruction('CREATEVAR', v=self, value=name_or_value))
-    
+
     def __hash__(self) -> int:
         return hash(self.name+self.varstr)
 
@@ -67,7 +80,7 @@ class Var():
 
     def assign_module(self, m: Union['CubeModule', 'VecModule', 'KernelBase']):
         self._module = m
-    
+
     def inc(self):
         self.eq(self+1)
         return self
@@ -78,18 +91,18 @@ class Var():
 
     def __iadd__(self, other: Union[int, float, 'Var']):
         self.eq(self + other)
-        return self 
-    
+        return self
+
     def __isub__(self, other: Union[int, float, 'Var']):
         self.eq(self - other)
-        return self 
-    
+        return self
+
     def __imul__(self, other: Union[int, float, 'Var']):
         self.eq(self * other)
-        return self 
+        return self
 
     def eq(self, expr: Union[int, float, 'Var']):
-        assert self._module is not None 
+        assert self._module is not None
         if self.dtype in [DT.half, DT.float]:
             expr2 = Var('', self.dtype)
             expr2.varstr = f'(({self.dtype}){str(expr)})'
@@ -103,7 +116,7 @@ class Var():
         assert isinstance(v, (Tensor, GMTensor)), 'Can only get value from Tensor or GMTensor'
         if isinstance(v, Tensor):
             assert v.pos==Position.UB, 'Tensor must be on UB'
-        
+
         active_mod = context.active_cube or context.active_vec
         assert active_mod is not None, 'GetValue must be in either CubeModule forward or VecModule forward'
         active_mod.append(Instruction('GETVAL', dst=self, src=v))
@@ -119,7 +132,7 @@ class Var():
 
     def __str__(self) -> str:
         return self.varstr
-    
+
     def __repr__(self) -> str:
         return f'[Var] name={self.name} dtype={self.dtype} varstr={self.varstr} value={self.value}'
 
@@ -180,7 +193,7 @@ class Var():
             else:
                 raise Exception(f'Var computation only supports [Var, float, int], but got {type(other)}')
         return new_const
-    
+
     def __sub__(self, other: Union['Var', int, float]):
         new_const = Var('tmp_const', self.dtype, auto_declare=False)
         new_const.varstr = '(' + self.varstr + ' - ' + str(other) + ')'
@@ -200,13 +213,13 @@ class Var():
         if self.value is not None:
             if isinstance(other, Var):
                 if other.value is not None:
-                    new_const.value = other.value - self.value 
+                    new_const.value = other.value - self.value
             elif isinstance(other, (float, int)):
                 new_const.value = other - self.value
             else:
                 raise Exception(f'Var computation only supports [Var, float, int], but got {type(other)}')
         return new_const
-    
+
     def __truediv__(self, other: Union['Var', int, float]):
         new_const = Var('tmp_const', DT.float, auto_declare=False)
         new_const.varstr = '((float)' + self.varstr + ' / ' + '(float)' + str(other) + ')'
@@ -226,7 +239,7 @@ class Var():
         if self.value is not None:
             if isinstance(other, Var):
                 if other.value is not None:
-                    new_const.value = other.value / self.value 
+                    new_const.value = other.value / self.value
             elif isinstance(other, (float, int)):
                 new_const.value = other / self.value
             else:
@@ -252,13 +265,13 @@ class Var():
         if self.value is not None:
             if isinstance(other, Var):
                 if other.value is not None:
-                    new_const.value = other.value // self.value 
+                    new_const.value = other.value // self.value
             elif isinstance(other, (float, int)):
                 new_const.value = other // self.value
             else:
                 raise Exception(f'Var computation only supports [Var, float, int], but got {type(other)}')
         return new_const
-    
+
     def __mod__(self, other: Union['Var', int, float]):
         new_const = Var('tmp_const', self.dtype, auto_declare=False)
         new_const.varstr = '(' + self.varstr + ' % ' + str(other) + ')'
@@ -278,52 +291,52 @@ class Var():
         if self.value is not None:
             if isinstance(other, Var):
                 if other.value is not None:
-                    new_const.value = other.value % self.value 
+                    new_const.value = other.value % self.value
             elif isinstance(other, (float, int)):
                 new_const.value = other % self.value
             else:
                 raise Exception(f'Var computation only supports [Var, float, int], but got {type(other)}')
         return new_const
-    
+
     def __eq__(self, other: Union['Var', int, float]):
         new_const = Var('tmp_const', self.dtype, auto_declare=False)
         new_const.varstr = '(' + self.varstr + ' == ' + str(other) + ')'
         return new_const
-    
+
     def __lt__(self, other: Union['Var', int, float]):
         new_const = Var('tmp_const', self.dtype, auto_declare=False)
         new_const.varstr = '(' + self.varstr + ' < ' + str(other) + ')'
         return new_const
-    
+
     def __gt__(self, other: Union['Var', int, float]):
         new_const = Var('tmp_const', self.dtype, auto_declare=False)
         new_const.varstr = '(' + self.varstr + ' > ' + str(other) + ')'
         return new_const
-    
+
     def __le__(self, other: Union['Var', int, float]):
         new_const = Var('tmp_const', self.dtype, auto_declare=False)
         new_const.varstr = '(' + self.varstr + ' <= ' + str(other) + ')'
         return new_const
-    
+
     def __ge__(self, other: Union['Var', int, float]):
         new_const = Var('tmp_const', self.dtype, auto_declare=False)
         new_const.varstr = '(' + self.varstr + ' >= ' + str(other) + ')'
         return new_const
-    
+
     def __ne__(self, other: Union['Var', int, float]):
         new_const = Var('tmp_const', self.dtype, auto_declare=False)
         new_const.varstr = '(' + self.varstr + ' != ' + str(other) + ')'
         return new_const
-    
+
     def __and__(self, other: 'Var'):
         new_const = Var('tmp_const', self.dtype, auto_declare=False)
         new_const.varstr = '(' + self.varstr + ' && ' + str(other) + ')'
         return new_const
-    
+
     def __or__(self, other: 'Var'):
         new_const = Var('tmp_const', self.dtype, auto_declare=False)
         new_const.varstr = '(' + self.varstr + ' || ' + str(other) + ')'
         return new_const
-    
+
     def __bool__(self):
         return True

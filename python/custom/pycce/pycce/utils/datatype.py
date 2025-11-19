@@ -1,3 +1,16 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# This program is free software, you can redistribute it and/or modify it.
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+# BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# ======================================================================================================================
+"""
+"""
 OPDEF_TENSOR_DT_MAPPING: dict[str, str] = {
     'half'        : 'ge::DT_FLOAT16',
     'float'       : 'ge::DT_FLOAT',
@@ -40,7 +53,7 @@ ABBR_MAPPING: dict[str, str] = {
     'float'      : 'f32',
     'half'       : 'f16',
     'bfloat16_t' : 'bf16',
-    'int64_t'    : 's64', 
+    'int64_t'    : 's64',
     'int32_t'    : 's32',
     'int16_t'    : 's16',
     'int8_t'     : 's8',
@@ -52,20 +65,20 @@ ABBR_MAPPING: dict[str, str] = {
 
 class DTYPE:
     def __init__(self, ctype: str):
-        self.ctype = ctype 
+        self.ctype = ctype
 
     def __eq__(self, other: 'DTYPE'):
         if self.ctype==other.ctype:
-            return True 
+            return True
         return False
-    
+
     def __str__(self):
         return self.ctype
 
     @property
     def opdef_attr(self):
         return OPDEF_ATTR_DT_MAPPING[self.ctype]
-    
+
     @property
     def opdef_tsr(self):
         return OPDEF_TENSOR_DT_MAPPING[self.ctype]

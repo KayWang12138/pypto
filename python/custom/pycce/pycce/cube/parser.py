@@ -1,3 +1,16 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# This program is free software, you can redistribute it and/or modify it.
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+# BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# ======================================================================================================================
+"""
+"""
 from ..utils import CodeHelper, Var, Instruction
 from collections.abc import Callable
 
@@ -24,7 +37,7 @@ def get_val(i: Instruction, h: CodeHelper):
 def reinterpret(i: Instruction, h: CodeHelper):
     h(f'LocalTensor<{i.dst.dtype}> {i.dst} = {i.src}.ReinterpretCast<{i.dst.dtype}>();')
 
-# flow control 
+# flow control
 def start_loop(i: Instruction, h: CodeHelper):
     h(f'for (int {i.name}={i.start}; {i.name}<{i.end}; {i.name}+={i.step}){{')
     h.ir()
@@ -49,7 +62,7 @@ def end_if(i: Instruction, h: CodeHelper):
     h.il()
     h('}')
 
-# event 
+# event
 def event_set(i: Instruction, h: CodeHelper):
     h(f'{i.name}.set();')
 
@@ -81,11 +94,11 @@ def l0_nz2nn(i: Instruction, h: CodeHelper):
 def load_l0(i: Instruction, h: CodeHelper):
     h(f'LOADL0({i.dst}, {i.src}, {i.m}, {i.n});')
 
-# mad 
+# mad
 def mad(i: Instruction, h: CodeHelper):
     h(f'MMAD({i.dst}, {i.srca}, {i.srcb}, {i.m}, {i.k}, {i.n}, {i.init}, 0);')
 
-# fix 
+# fix
 def l0c_to_ub_nz2nd(i: Instruction, h: CodeHelper):
     subid = 0 if not i.subid else i.subid
     h(f'L0C2UB_NZ2ND({i.dst}, {i.src}, {i.m}, {i.n}, {i.N_dst}, {i.m_src}, {i.dualmode}, {subid});')
@@ -122,12 +135,12 @@ INST_MAPPING: dict[str, Callable[[Instruction, 'CodeHelper'], None]] = {
     'STARTELIF'           : start_elif,
     'STARTELSE'           : start_else,
     'ENDIF'               : end_if,
-    # events 
+    # events
     'EVENTSET'            : event_set,
     'EVENTWAIT'           : event_wait,
     'EVENTSETALL'         : event_setall,
     'EVENTRELEASE'        : event_release,
-    # mte2 
+    # mte2
     'L1ND2NZ'             : gm_to_l1_nd2nz,
     # mte1
     'L0NZ2NZ'             : l0_nz2nz,
@@ -138,7 +151,7 @@ INST_MAPPING: dict[str, Callable[[Instruction, 'CodeHelper'], None]] = {
     # fix
     'L0C2GM_NZ2ND'        : l0c_to_gm_nz2nd,
     'L0C2UB_NZ2ND'        : l0c_to_ub_nz2nd,
-    # mad 
+    # mad
     'MAD'                 : mad,
     # cross-core
     'CUBEREADY'           : cube_ready,
