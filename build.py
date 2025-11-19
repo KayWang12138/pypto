@@ -198,7 +198,7 @@ class BuildParam(CMakeParam):
         return desc
 
     @property
-    def install_strip(self) -> bool:
+    def disable_install_strip(self) -> bool:
         return self.type_ in ["Debug"]
 
     @property
@@ -1003,12 +1003,13 @@ class BuildCtrl:
         cmd += f" --plat-name={self.feature.whl_plat_name}" if self.feature.whl_plat_name else ""
         cmd += f" --cmake-args='{cmake_args}'" if cmake_args else ""
         cmd += f" --clean-first" if self.build.clean else ""
-        cmd += f" --disable-install-strip" if self.build.install_strip else ""
+        cmd += f" --disable-install-strip" if self.build.disable_install_strip else ""
         cmd += f" build --build-base={build_whl}"
         cmd += f" --parallel={self.build.job_num}" if self.build.job_num else ""
+        update_env: Dict[str, str] = self.build.get_cfg_update_env()
         ts = datetime.now(tz=timezone.utc)
         logging.info("Begin Build whl, Cmd: %s", cmd)
-        ret = self.run_build_cmd(cmd=cmd, check=True, timeout=self.build.timeout)
+        ret = self.run_build_cmd(cmd=cmd, update_env=update_env, check=True, timeout=self.build.timeout)
         ret.check_returncode()
         duration: int = int((datetime.now(tz=timezone.utc) - ts).seconds)
         duration_str: str = f"{duration}/{self.build.timeout}" if self.build.timeout else f"{duration}"
