@@ -12,6 +12,7 @@
 """
 """
 import inspect
+import struct
 from typing import Sequence, Union, List
 
 from . import pto_impl
@@ -44,6 +45,23 @@ def set_source_location(level: int = 1):
 
 def clear_source_location():
     pto_impl.ClearLocation()
+
+
+def convert_matmul_extend_params(extend_params) -> dict:
+    extend_params.setdefault('bias_tensor', pto_impl.Tensor())
+    extend_params.setdefault('scale_tensor', pto_impl.Tensor())
+    extend_params.setdefault('relu_type', pto_impl.ReLuType.NoReLu)
+    # scale: float trans to uint64
+    if 'scale' not in extend_params:
+        extend_params['scale'] = 0
+    else:
+        scale_value = extend_params['scale']
+        if not isinstance(scale_value, float):
+            raise RuntimeError("scale must float type")
+        pakced_float: bytes = struct.pack('f', scale_value)
+        scale_trans_val: int = struct.unpack('<I', pakced_float)[0]
+        extend_params['scale'] = scale_trans_val
+    return extend_params
 
 
 def bytes_of(dtype: DataType) -> int:

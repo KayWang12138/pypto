@@ -308,8 +308,9 @@ class Tensor:
             raise RuntimeError("unsupport dtype")
         return pto.matmul(self, other, out_dype)
 
-    def matmul(self, mat2, out_dtype, *, a_trans=False, b_trans=False, c_matrix_nz=False) -> 'Tensor':
-        return pto.matmul(self, mat2, out_dtype, a_trans=a_trans, b_trans=b_trans, c_matrix_nz=c_matrix_nz)
+    def matmul(self, mat2, out_dtype, *, a_trans=False, b_trans=False, c_matrix_nz=False, extend_params={}) -> 'Tensor':
+        return pto.matmul(self, mat2, out_dtype, a_trans=a_trans, b_trans=b_trans,
+                c_matrix_nz=c_matrix_nz, extend_params=extend_params)
 
     def assemble(self, input: 'Tensor', offsets: List[Union[int, SymbolicScalar]]) -> None:
         """

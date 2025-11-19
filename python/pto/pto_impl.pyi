@@ -102,6 +102,10 @@ class OutType(enum.Enum):
     BIT = ...
 
 
+class ReLuType(enum.Enum):
+    NoReLu = ...
+    ReLu = ...
+
 class Element:
 
     def __init__(self, dtype: DataType, data: Union[int, float]): ...
@@ -417,9 +421,22 @@ def pad(a: Tensor, new_shape: Union[List[int], List[SymbolicScalar]]) -> Tensor:
 def topk(a: Tensor, k: int, axis: int = -1,
          islargest: bool = True) -> Tensor: ...
 
+class MatmulExtendParam:
+    @overload
+    def __init__(self): ...
 
+    @overload
+    def __init__(self, bias_tensor: Tensor, scale_tensor: Tensor,
+                 scale: int = 0, relu_type: ReLuType = ReLuType.NoReLu): ...
+
+@overload
 def matmul(dtype: DataType, a: Tensor, b: Tensor, a_trans: bool = False,
            b_trans: bool = False, c_matrix_nz: bool = False) -> Tensor: ...
+
+@overload
+def matmul(dtype: DataType, a: Tensor, b: Tensor, a_trans: bool = False,
+           b_trans: bool = False, c_matrix_nz: bool = False, extend_params: MatmulExtendParam = None) -> Tensor: ...
+
 def batch_matmul(dtype: DataType, a: Tensor, b: Tensor, a_trans: bool = False,
                  b_trans: bool = False, c_matrix_nz: bool = False) -> Tensor: ...
 

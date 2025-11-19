@@ -27,6 +27,7 @@ ReduceMode = pto_impl.ReduceMode
 CastMode = pto_impl.CastMode
 OpType = pto_impl.OpType
 OutType = pto_impl.OutType
+ReLuType = pto_impl.ReLuType
 
 
 DataType.__repr__ = _enum_repr

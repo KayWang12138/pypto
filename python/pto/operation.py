@@ -1363,9 +1363,9 @@ def concat(
 
 
 @op_wrapper
-def matmul(input, mat2, out_dtype, *, a_trans=False, b_trans=False, c_matrix_nz=False) -> Tensor:
+def matmul(input, mat2, out_dtype, *, a_trans=False, b_trans=False, c_matrix_nz=False, extend_params={}) -> Tensor:
     """
-    Supports two forms of matrix multiplication compution:
+    Supports two forms of matrix multiplication computation:
     (1) Performs a matrix multiplication of the matrices `input` and `mat2`
     (2) Performs a batch matrix-matrix multiplication of the matrices `input` and `mat2`
 
@@ -1395,6 +1395,12 @@ def matmul(input, mat2, out_dtype, *, a_trans=False, b_trans=False, c_matrix_nz=
         whether to transpose the right matrix. Default is False.
     c_matrix_nz : bool
         whether output matrix is in NZ format. Default is False.
+    extend_params: dict
+        the extend features of matrix multiplication computation:
+        (1) bias: adds a learnable bias to the output.
+        keyword arguments: 'bias_tensor': Tensor
+        (2) Dequantization: C = DEQF16(ReLu(A @ B))
+        keyword arguments: 'scale_tensor': Tensor, 'scale': float, 'relu_type': ReLuType
 
     Returns
     --------
@@ -1408,29 +1414,43 @@ def matmul(input, mat2, out_dtype, *, a_trans=False, b_trans=False, c_matrix_nz=
 
     Examples
     --------
-    >>> # matrix x matrix
-    >>> a = pto.tensor((16, 32), pto.data_type.DT_BF16, "tensor_a")
-    >>> b = pto.tensor((32, 64), pto.data_type.DT_BF16, "tensor_b")
-    >>> pto.matmul(a, b, pto.data_type.DT_BF16)
-    tensors([16, 64])
+    # matrix x matrix
+    a = pto.tensor((16, 32), pto.DT_BF16, "tensor_a")
+    b = pto.tensor((32, 64), pto.DT_BF16, "tensor_b")
+    pto.matmul(a, b, pto.DT_BF16)
 
-    >>> # batched matrix x batched matrix
-    >>> a = pto.tensor((2, 16, 32), pto.data_type.DT_FP16, "tensor_a")
-    >>> b = pto.tensor((2, 32, 16), pto.data_type.DT_FP16, "tensor_b")
-    >>> pto.matmul(a, b, pto.data_type.DT_FP16)
-    tensors([2, 16, 16])
+    # batched matrix multiplication
+    a = pto.tensor((2, 16, 32), pto.DT_FP16, "tensor_a")
+    b = pto.tensor((2, 32, 16), pto.DT_FP16, "tensor_b")
+    pto.matmul(a, b, pto.DT_FP16)
 
-    >>> # batched matrix x batched matrix with broadcasted
-    >>> a = pto.tensor((1, 32, 64), pto.data_type.DT_FP32, "tensor_a")
-    >>> b = pto.tensor((3, 64, 16), pto.data_type.DT_FP32, "tensor_b")
-    >>> pto.matmul(a, b, pto.data_type.DT_DT_FP32)
-    tensors([3, 32, 16])
+    # batched matrix multiplication with broadcast
+    a = pto.tensor((1, 32, 64), pto.DT_FP32, "tensor_a")
+    b = pto.tensor((3, 64, 16), pto.DT_FP32, "tensor_b")
+    pto.matmul(a, b, pto.DT_DT_FP32)
+
+    # matrix multiplication with bias
+    a = pto.tensor((16, 32), ptoDT_FP16, "tensor_a")
+    b = pto.tensor((32, 64), pto.DT_FP16, "tensor_b")
+    bias = pto.tensor((1, 64), pto.DT_FP16, "tensor_bias")
+    extend_params = {'bias_tensor': bias}
+    pto.matmul(a, b, pto.DT_BF16, a_trans=False, b_trans=False, c_matrix_nz=False, extend_params=extend_params)
+
+    # matrix multiplication with dequantization
+    a = pto.tensor((16, 32), pto.DT_INT8, "tensor_a")
+    b = pto.tensor((32, 64), pto.DT_INT8, "tensor_b")
+    extend_params = {'scale': 0.2}
+    pto.matmul(a, b, pto.DT_BF16, a_trans=False, b_trans=False, c_matrix_nz=False, extend_params=extend_params)
 
     """
     input_dim = input.Dim()
     mat2_dim = mat2.Dim()
     if input_dim == mat2_dim == 2:
-        return pto_impl.matmul(out_dtype, input, mat2, a_trans, b_trans, c_matrix_nz)
+        if (extend_params is None) or (not extend_params):
+            return pto_impl.matmul(out_dtype, input, mat2, a_trans, b_trans, c_matrix_nz)
+        else:
+            extend_params = pto_impl.MatmulExtendParam(**convert_matmul_extend_params(extend_params))
+            return pto_impl.matmul(out_dtype, input, mat2, a_trans, b_trans, c_matrix_nz, extend_params)
     elif (input_dim == mat2_dim == 3) or (input_dim == mat2_dim == 4):
         return pto_impl.batch_matmul(out_dtype, input, mat2, a_trans, b_trans, c_matrix_nz)
     else:

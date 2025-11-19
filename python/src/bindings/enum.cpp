@@ -134,6 +134,11 @@ void bind_enum(py::module &m){
         .value("BIT", OutType::BIT)
         .export_values();
 
+    py::enum_<Matrix::ReLuType>(m, "ReLuType")
+        .value("NoReLu", Matrix::ReLuType::NoReLu)
+        .value("ReLu", Matrix::ReLuType::ReLu)
+        .export_values();
+
     py::enum_<LogBaseType>(m, "LogBaseType")
         .value("LOG_E", LogBaseType::LOG_E)
         .value("LOG_2", LogBaseType::LOG_2)

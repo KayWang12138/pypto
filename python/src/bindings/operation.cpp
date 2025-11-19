@@ -266,6 +266,38 @@ void bind_operation(py::module &m) {
         },
         py::arg("out_type"), py::arg("tensor_a"), py::arg("tensor_b"), py::arg("a_trans") = false,
         py::arg("b_trans") = false, py::arg("c_matrix_nz") = false, "Matrix multiply.");
+
+    py::class_<Matrix::MatmulExtendParam>(m, "MatmulExtendParam")
+        .def(py::init<>())
+        .def(py::init<Tensor, Tensor, uint64_t, Matrix::ReLuType>(), py::arg("bias_tensor"), py::arg("scale_tensor"),
+            py::arg("scale"), py::arg("relu_type"), "Matrix extend params.");
+
+    m.def(
+        "matmul",
+        [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_b,
+            bool a_trans, bool b_trans, bool c_matrix_nz, const Matrix::MatmulExtendParam &extendParam) {
+            if (!a_trans && !b_trans && !c_matrix_nz) {
+                return Matrix::Matmul<false, false, false>(out_type, tensor_a, tensor_b, extendParam);
+            } else if (!a_trans && !b_trans && c_matrix_nz) {
+                return Matrix::Matmul<false, false, true>(out_type, tensor_a, tensor_b, extendParam);
+            } else if (!a_trans && b_trans && !c_matrix_nz) {
+                return Matrix::Matmul<false, true, false>(out_type, tensor_a, tensor_b, extendParam);
+            } else if (!a_trans && b_trans && c_matrix_nz) {
+                return Matrix::Matmul<false, true, true>(out_type, tensor_a, tensor_b, extendParam);
+            } else if (a_trans && !b_trans && !c_matrix_nz) {
+                return Matrix::Matmul<true, false, false>(out_type, tensor_a, tensor_b, extendParam);
+            } else if (a_trans && !b_trans && c_matrix_nz) {
+                return Matrix::Matmul<true, false, true>(out_type, tensor_a, tensor_b, extendParam);
+            } else if (a_trans && b_trans && !c_matrix_nz) {
+                return Matrix::Matmul<true, true, false>(out_type, tensor_a, tensor_b, extendParam);
+            } else {
+                return Matrix::Matmul<true, true, true>(out_type, tensor_a, tensor_b, extendParam);
+            }
+        },
+        py::arg("out_type"), py::arg("tensor_a"), py::arg("tensor_b"), py::arg("a_trans") = false,
+        py::arg("b_trans") = false, py::arg("c_matrix_nz") = false,
+        py::arg("extend_params"), "Matrix multiply with extend param.");
+
     m.def(
         "batch_matmul",
         [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_b, bool a_trans, bool b_trans,
