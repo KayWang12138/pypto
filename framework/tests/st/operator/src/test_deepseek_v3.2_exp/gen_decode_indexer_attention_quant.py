@@ -460,6 +460,7 @@ def deepseek_indexer_attention_entry( bs1s2h, actual_seq, output_dir: Path):
         "idx_head_dim": idx_head_dim,
         "is_quant": is_quant,
     }
+    print("cur actual seq: ", actual_seq)
     gen_deepseek_indexer_attention_golden(params, actual_seq, output_dir)
 
     # 将变化的参数保存到文件中，供测试用例直接读取
@@ -470,7 +471,6 @@ def deepseek_indexer_attention_entry( bs1s2h, actual_seq, output_dir: Path):
 
 @GoldenRegister.reg_golden_func(
     case_names=[
-        "DeepSeekIndexerAttentionQuantSTest.mini",
         "DeepSeekIndexerAttentionQuantSTest.4B_mtp",
         "DeepSeekIndexerAttentionQuantSTest.4B_mtp_perf",
         "DeepSeekIndexerAttentionQuantSTest.32B"
@@ -485,17 +485,13 @@ def gen_deepseek_indexer_attention_func(case_name: str, output: Path) -> bool:
     if complete:
         logging.info("Case(%s), Golden data exits. cache catch", case_name)
     else:
-        if case_name == "DeepSeekIndexerAttentionQuantSTest.mini":
-            b, s1, s2 = 4, 2, 128 * 1024
-            kv_act_seq = [4097] * b
-            deepseek_indexer_attention_entry((b, s1, s2, 7168), kv_act_seq, output)
-        elif case_name == "DeepSeekIndexerAttentionQuantSTest.4B_mtp":
+        if case_name == "DeepSeekIndexerAttentionQuantSTest.4B_mtp":
             b, s1, s2 = 4, 2, 128 * 1024
             kv_act_seq = [768, 4097, 8192, 131071]
             deepseek_indexer_attention_entry((b, s1, s2, 7168), kv_act_seq, output)
         elif case_name == "DeepSeekIndexerAttentionQuantSTest.4B_mtp_perf":
             b, s1, s2 = 4, 2, 128 * 1024
-            kv_act_seq = [65536] * b
+            kv_act_seq = [65536, 65537, 65538, 65539]
             deepseek_indexer_attention_entry((b, s1, s2, 7168), kv_act_seq, output)
         elif case_name == "DeepSeekIndexerAttentionQuantSTest.32B":
             b, s1, s2 = 32, 1, 128 * 1024
@@ -513,12 +509,12 @@ def main() -> bool:
     """
     # 用例名称
     case_name_list: List[str] = [
-        "DeepSeekIndexerAttentionQuantSTest.mini",
+        "DeepSeekIndexerAttentionQuantSTest.4B_mtp_perf",
     ]
     # 函数调用
     ret: bool = True
     for cs in case_name_list:
-        output_dir: Path = Path(g_src_root, "../../build/tests/st/golden", cs).resolve()
+        output_dir: Path = Path(g_src_root, "../../build/output/bin/golden", cs).resolve()
         output_dir.mkdir(parents=True, exist_ok=True)
         print(output_dir)
         ret = gen_deepseek_indexer_attention_func(case_name=cs, output=output_dir)

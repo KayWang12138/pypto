@@ -137,6 +137,7 @@ set(_CaseFilterList
 
         # DecodeIndexerAttention
         "DecodeIndexerAttentionUtest.utest_decode_indexer_attention"
+        "DeepSeekIndexerAttentionQuantUTest.4B_mtp_ut"
 
         # DSA gatherSlcAttn
         "DynamicGatherSlcFlashAttnUtest.dsa_gather_slc_attn_bf16_b32_s4"

@@ -19,7 +19,8 @@
 
 #include "tilefwk/tilefwk_op.h"
 #include "tilefwk/tilefwk.h"
-#include "operator/models/nsa/dynamic_nsa_common.h"
+
+#include "dsia_common.h"
 
 namespace npu::tile_fwk {
 
@@ -32,7 +33,7 @@ void LightningIndexerTopkQuant(const Tensor &query, const Tensor &key, const Ten
     const Tensor &weights, const Tensor &actSeqKey, const Tensor &blockTable, Tensor &topkRes,
     const int selectedCount, IndexerTile tileConfig, const std::set<int> &unrollList = {64, 32, 16, 8, 4, 1});
 
-void LightningIndexerTopk(const Tensor &query, const Tensor &key, const Tensor &qScale, const Tensor &kScale,
+void LightningIndexerTopk(const Tensor &query, const Tensor &key,
     const Tensor &weights, const Tensor &actSeqKey, const Tensor &blockTable, Tensor &topkRes,
     const int selectedCount, IndexerTile tileConfig, const std::set<int> &unrollList = {64, 32, 16, 8, 4, 1});
 } // namespace npu::tile_fwk

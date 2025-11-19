@@ -24,7 +24,7 @@
 #include "interface/configs/config_manager.h"
 #include "interface/tensor/float.h"
 #include "operator/models/deepseek_v3.2_exp/lightning_indexer_prolog.h"
-#include "operator/models/nsa/dynamic_nsa_common.h"
+#include "operator/models/deepseek_v3.2_exp/dsia_common.h"
 
 using namespace npu::tile_fwk;
 

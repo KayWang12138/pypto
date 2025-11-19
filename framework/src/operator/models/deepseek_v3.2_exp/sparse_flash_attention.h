@@ -20,7 +20,7 @@
 #include "tilefwk/tilefwk_op.h"
 #include "interface/inner/pre_def.h"
 #include "tilefwk/tilefwk.h"
-#include "operator/models/nsa/dynamic_nsa_common.h"
+#include "dsia_common.h"
  
 namespace npu::tile_fwk {
  

@@ -195,6 +195,7 @@ stest:
   operator_decode_sparse_attention:
     cases:
       - DecodeIndexerAttentionSTest.mini
+      - DeepSeekIndexerAttentionQuantSTest.4B_mtp_perf
 
   operator_dsa_gather_slc_attn:
     cases:

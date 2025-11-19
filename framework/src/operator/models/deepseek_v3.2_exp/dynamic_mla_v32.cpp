@@ -14,13 +14,6 @@
  */
  
 #include "dynamic_mla_v32.h"
-#include "interface/configs/config_manager.h"
-#include "interface/operation/operation.h"
-#include "interface/function/function.h"
-#include "tilefwk/tensor.h"
-#include "interface/tensor/logical_tensor.h"
-#include "interface/utils/common.h"
-#include "interface/operation/operation_impl.h"
  
 namespace npu::tile_fwk {
  
@@ -35,12 +28,12 @@ Tensor RopeV2(const Tensor &x, const Tensor &cos, const Tensor &sin, const RopeT
     (void)tileConfig;
     ASSERT(x.GetShape().size() == SHAPE_DIM2 && cos.GetShape().size() == SHAPE_DIM2 && sin.GetShape().size() == SHAPE_DIM2);
  
-    auto seqSize = x.GetShape()[NUM_VALUE_0];
-    auto dR = x.GetShape()[NUM_VALUE_1];
+    auto seqSize = x.GetShape()[NUM_0];
+    auto dR = x.GetShape()[NUM_1];
     auto xDtype = x.GetDataType();
  
     TileShape::Current().SetVecTile(
-        tileConfig.twoDim[NUM_VALUE_0], tileConfig.twoDim[NUM_VALUE_1]);
+        tileConfig.twoDim[NUM_0], tileConfig.twoDim[NUM_1]);
     auto castX = Cast(x, DT_FP32);
     if (x.GetDataType() == DT_FP32) {
         castX = Add(castX, Element(DT_FP32, 0.0f));
@@ -48,14 +41,14 @@ Tensor RopeV2(const Tensor &x, const Tensor &cos, const Tensor &sin, const RopeT
     auto castCos = Cast(cos, DT_FP32);
     auto castSin = Cast(sin, DT_FP32);
  
-    auto xView = Reshape(castX, {1, seqSize, dR / NUM_VALUE_2, NUM_VALUE_2});
-    TileShape::Current().SetVecTile(tileConfig.fourDim[NUM_VALUE_0],
-        tileConfig.fourDim[NUM_VALUE_1], tileConfig.fourDim[NUM_VALUE_2], tileConfig.fourDim[NUM_VALUE_3]);
-    auto xTrans = Transpose(xView, {NUM_VALUE_2, NUM_VALUE_3});
+    auto xView = Reshape(castX, {1, seqSize, dR / NUM_2, NUM_2});
+    TileShape::Current().SetVecTile(tileConfig.fourDim[NUM_0],
+        tileConfig.fourDim[NUM_1], tileConfig.fourDim[NUM_2], tileConfig.fourDim[NUM_3]);
+    auto xTrans = Transpose(xView, {NUM_2, NUM_3});
     auto xReSecond = Reshape(xTrans, {seqSize, dR});
  
     TileShape::Current().SetVecTile(
-        tileConfig.twoDim[NUM_VALUE_0], tileConfig.twoDim[NUM_VALUE_1]);
+        tileConfig.twoDim[NUM_0], tileConfig.twoDim[NUM_1]);
     if (!(x.GetShape()[0] == cos.GetShape()[0] && x.GetShape()[1] == cos.GetShape()[1])) {
         castCos = Expand(castCos, x.GetShape());
         castSin = Expand(castSin, x.GetShape());
@@ -77,12 +70,12 @@ Tensor Rope3DV2(const Tensor &x, const Tensor &cos, const Tensor &sin, const Rop
     auto castCos = Cast(cos, DT_FP32);
     auto castSin = Cast(sin, DT_FP32);
  
-    castCos = Reshape(castCos, {x.GetShape()[NUM_VALUE_0], 1, x.GetShape()[NUM_VALUE_2]});
-    castSin = Reshape(castSin, {x.GetShape()[NUM_VALUE_0], 1, x.GetShape()[NUM_VALUE_2]});
+    castCos = Reshape(castCos, {x.GetShape()[NUM_0], 1, x.GetShape()[NUM_2]});
+    castSin = Reshape(castSin, {x.GetShape()[NUM_0], 1, x.GetShape()[NUM_2]});
  
-    auto xView = Reshape(castX, {x.GetShape()[NUM_VALUE_0], x.GetShape()[NUM_VALUE_1], x.GetShape()[NUM_VALUE_2] / NUM_VALUE_2, NUM_VALUE_2});
+    auto xView = Reshape(castX, {x.GetShape()[NUM_0], x.GetShape()[NUM_1], x.GetShape()[NUM_2] / NUM_2, NUM_2});
     TileShape::Current().SetVecTile(NUM_1, NUM_32, NUM_128, NUM_128);
-    auto xTrans = Transpose(xView, {NUM_VALUE_2, NUM_VALUE_3});
+    auto xTrans = Transpose(xView, {NUM_2, NUM_3});
     auto xReSecond = Reshape(xTrans, x.GetShape());
     TileShape::Current().SetVecTile(NUM_1, NUM_32, NUM_128, NUM_128);
     auto xEmbed = Add(Mul(xReSecond, castCos), Mul(RotateHalf(xReSecond), castSin));
@@ -195,7 +188,7 @@ std::vector<Tensor> PreCompute2D(const Tensor &tokenX, const Tensor &wDq, const 
     return qkvPreRes;
 }
  
-// NSA MlaProlog, b and s is dynamic, support:
+// MlaProlog, b and s is dynamic, support:
 // b: 16, 32, 64, 24, 48, 96
 // s: 1, 2
 void MlaPrologComputeV32(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tensor &wUk,

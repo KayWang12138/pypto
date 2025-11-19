@@ -20,7 +20,7 @@
 #include "test_data_prepare.h"
 #include "test_suite_stest_ops.h"
 #include "operator/models/deepseek_v3.2_exp/decode_indexer_attention.h"
-#include "operator/models/nsa/dynamic_nsa_common.h"
+#include "operator/models/deepseek_v3.2_exp/dsia_common.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/symbolic_scalar.h"
 #include "tilefwk/tensor.h"
@@ -34,7 +34,7 @@ void SetPreConfig() {
 }
 
 template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool isSmooth = false, bool nz = false>
-void TestDecodeIndexerAttentionSTest(NSASimpleParams &params) {
+void TestDecodeIndexerAttentionSTest(DSIASimpleParams &params) {
     SetPreConfig();
 
     int b = params.b;
@@ -187,7 +187,7 @@ void TestDecodeIndexerAttentionSTest(NSASimpleParams &params) {
         kW.dataPtr, projW.dataPtr, lnW.dataPtr, lnBias.dataPtr, indexKCache.dataPtr};
     MlaQuantInputs quantInputs;
 
-#if DEBUG_DUMP_TMP_IN_OUT == 1
+#if DSIA_DEBUG == 1
     // tmp out
     outputDataList.emplace_back(rmsResOut.dataPtr);
     outputDataList.emplace_back(queryOut.dataPtr);
@@ -201,7 +201,7 @@ void TestDecodeIndexerAttentionSTest(NSASimpleParams &params) {
     outputDataList.emplace_back(dynamicGatherRes.dataPtr);
     // tmp in
     inputDataList.emplace_back(dynamicTmpTopkInput.dataPtr);
-#endif // DEBUG_DUMP_TMP_IN_OUT
+#endif // DSIA_DEBUG
 
     DecodeIndexerAttention(dynamicX.tensor, wDq.tensor, wUqQr.tensor, wUk.tensor, wDkvKr.tensor, gammaCq.tensor, gammaCkv.tensor, dynamicSin.tensor, dynamicCos.tensor, dynamicCacheIndex.tensor, kvCache.tensor, krCache.tensor, quantInputs,
         dynamicBlockTable.tensor, dynamicActSeqs.tensor, qW.tensor, kW.tensor, projW.tensor, lnW.tensor, lnBias.tensor, indexKCache.tensor, dynamicSaOut.tensor,
@@ -226,7 +226,7 @@ void TestDecodeIndexerAttentionSTest(NSASimpleParams &params) {
     std::cout << "kCacheOut ======" << std::endl;
     EXPECT_TRUE(resultCmp<T>(kCacheOutGolden, (T *)indexKCache.dataPtr->data(), 0.003f, 0, 1000, false, true, 0));
 
-#if DEBUG_DUMP_TMP_IN_OUT == 1
+#if DSIA_DEBUG == 1
     std::cout << "tmpRowSumOut result ====== " << std::endl;
     EXPECT_TRUE(resultCmp(tmpRowSumOutGolden, (float *)dynamicTmpRowSumOut.dataPtr->data(), 0.01f, 0, 1000, false));
     std::cout << "indexerTopkRes result ====== " << std::endl;
@@ -244,7 +244,7 @@ void TestDecodeIndexerAttentionSTest(NSASimpleParams &params) {
 }
 
 template <typename T = npu::tile_fwk::float16>
-void test_common(NSASimpleParams params) {
+void test_common(DSIASimpleParams params) {
     int paramsSize = 7;
     ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::CODEGEN_EXPRESSION_FUSION, true);
     std::vector<int> inputParams(paramsSize);
@@ -313,22 +313,22 @@ void test_common(NSASimpleParams params) {
 }
 
 TEST_F(DecodeIndexerAttentionSTest, mini) {
-    NSASimpleParams params = NSASimpleParams::getDecodeParams();
+    DSIASimpleParams params = DSIASimpleParams::getDecodeParams();
     test_common<npu::tile_fwk::bfloat16>(params);
 }
 
 TEST_F(DecodeIndexerAttentionSTest, 32B) {
-    NSASimpleParams params = NSASimpleParams::getDecodeParams();
+    DSIASimpleParams params = DSIASimpleParams::getDecodeParams();
     test_common<npu::tile_fwk::bfloat16>(params);
 }
 
 TEST_F(DecodeIndexerAttentionSTest, 24B) {
-    NSASimpleParams params = NSASimpleParams::getDecodeParams();
+    DSIASimpleParams params = DSIASimpleParams::getDecodeParams();
     test_common<npu::tile_fwk::bfloat16>(params);
 }
 
 TEST_F(DecodeIndexerAttentionSTest, 48B) {
-    NSASimpleParams params = NSASimpleParams::getDecodeParams();
+    DSIASimpleParams params = DSIASimpleParams::getDecodeParams();
     test_common<npu::tile_fwk::bfloat16>(params);
 }
 } // namespace

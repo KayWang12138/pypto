@@ -14,21 +14,23 @@
 */
  
 #pragma once
-#include "tilefwk/symbolic_scalar.h"
-#ifndef GATHER_AFTER_PROLOG
-#define GATHER_AFTER_PROLOG
+#ifndef GATHER_AFTER_PROLOG_H
+#define GATHER_AFTER_PROLOG_H
  
+#include "tilefwk/symbolic_scalar.h"
 #include "tilefwk/tilefwk_op.h"
 #include "interface/inner/pre_def.h"
 #include "tilefwk/tilefwk.h"
-#include "operator/models/nsa/dynamic_nsa_common.h"
+#include "dsia_common.h"
  
  
 namespace npu::tile_fwk {
- 
+Tensor CalcOffsetsForGather(const Tensor &topKIndcies, const Tensor &blockTable, const Tensor &actSeqs,
+   const DSIASimpleParams &params, SymbolicScalar b, SymbolicScalar s1);
+
 void GatherAfterPrologCompute(Tensor &topKIndcies, Tensor &kNopeCache, Tensor &kRopeCache, Tensor &blockTable, Tensor &actSeqs,
-   Tensor &gatherRes, const NSASimpleParams &params, SymbolicScalar b, SymbolicScalar s1);
+   Tensor &gatherRes, const DSIASimpleParams &params, SymbolicScalar b, SymbolicScalar s1);
  
 } // namespace npu::tile_fwk
  
-#endif // GATHER_AFTER_PROLOG
+#endif // GATHER_AFTER_PROLOG_H

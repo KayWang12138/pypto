@@ -243,6 +243,7 @@ static bool resultCmp4TopK(const std::vector<T>& outDataValExp, const T* outData
     }
 
     std::map<size_t, std::pair<std::vector<T>, std::vector<T>>> part_result_dict;
+    std::map<size_t, std::pair<std::vector<T>, std::vector<T>>> all_result_dict;
 
     for (size_t idx = 0; idx < data_size; ++idx) {
         int32_t expVal = outDataValExp[idx];
@@ -256,6 +257,12 @@ static bool resultCmp4TopK(const std::vector<T>& outDataValExp, const T* outData
             part_result_dict[part_index].first.push_back(expVal);
             part_result_dict[part_index].second.push_back(actVal);
         }
+
+        if (idx % selectedCount == 0) {
+            all_result_dict[part_index] = { {}, {} };
+        }
+        all_result_dict[part_index].first.push_back(expVal);
+        all_result_dict[part_index].second.push_back(actVal);
     }
 
     for (const auto& [idx_index, result_pair]: part_result_dict) {
@@ -267,16 +274,31 @@ static bool resultCmp4TopK(const std::vector<T>& outDataValExp, const T* outData
         std::sort(act_list.begin(), act_list.end());
 
         size_t error_count = 0;
+        std::vector<T> error_list;
         for (T tok_id: exp_list) {
             if (std::find(act_list.begin(), act_list.end(), tok_id) == act_list.end()) {
                 error_count++;
+                error_list.push_back(tok_id);
             }
         }
         if (error_count > size_t(selectedCount * ratio)) {
             precision = false;
-            break;
+
+            std::cout << "current group idx: " << idx_index << " failed, error info: " << std::endl;
+            for (auto expValue : error_list) {
+                std::vector<T> exp_list_ori = all_result_dict[idx_index].first;
+                std::vector<T> act_list_ori = all_result_dict[idx_index].second;
+                auto pos_idx = -1;
+                auto it = std::find(exp_list_ori.begin(), exp_list_ori.end(), expValue);
+                if (it != exp_list_ori.end()) {
+                    pos_idx = std::distance(exp_list_ori.begin(), it);
+                }
+                std::cout << "err idx: " << pos_idx << ", exp->" << expValue << ", act->" << act_list_ori[pos_idx] << std::endl;
+            }
+            // break;
         }
     }
+    std::cout << "result is " << (precision ? "\033[32m""PASS""\033[0m" : "\033[31m""FAILED""\033[0m") << std::endl;
     return precision;
 }
 

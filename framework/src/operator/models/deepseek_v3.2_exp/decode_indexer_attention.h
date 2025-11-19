@@ -9,13 +9,13 @@
  */
  
 /*!
- * \file DYNAMIC_NSA_V2.h
+ * \file decode_indexer_attention.h
  * \brief
  */
  
 #pragma once
-#ifndef DYNAMIC_NSA_V2
-#define DYNAMIC_NSA_V2
+#ifndef DECODE_INDEXER_ATTENTION
+#define DECODE_INDEXER_ATTENTION
  
 #include "interface/inner/pre_def.h"
 #include "tilefwk/tilefwk.h"
@@ -23,7 +23,7 @@
 #include "dynamic_mla_v32.h"
 #include "gather_after_prolog.h"
 #include "sparse_flash_attention.h"
-#include "operator/models/nsa/dynamic_nsa_common.h"
+#include "dsia_common.h"
 #include "lightning_indexer_topk.h"
 #include "lightning_indexer_prolog.h"
  
@@ -34,8 +34,8 @@ void DecodeIndexerAttention(const Tensor &tokenX, const Tensor &wDq, const Tenso
     const Tensor &qW, const Tensor &kW, const Tensor &projW, const Tensor &lnW, const Tensor &lnBias,
     const Tensor &indexKCache, Tensor &attentionOut,
     Tensor &gatherResTmp, Tensor &tmpTopkInput, Tensor &tmpIndexerTopkRes, Tensor &tmpRowSumOut,  Tensor &rmsResOut,
-    Tensor &queryOut,Tensor &weightsOut, Tensor &qNopeOut,Tensor &qRopeOut,const NSASimpleParams &params);
+    Tensor &queryOut,Tensor &weightsOut, Tensor &qNopeOut,Tensor &qRopeOut, const DSIASimpleParams &params);
  
 } // namespace npu::tile_fwk
  
-#endif // DYNAMIC_NSA_V2
+#endif // DECODE_INDEXER_ATTENTION

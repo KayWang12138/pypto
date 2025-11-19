@@ -24,7 +24,7 @@
 #include "interface/configs/config_manager.h"
 #include "interface/tensor/float.h"
 #include "operator/models/deepseek_v3.2_exp/decode_indexer_attention.h"
-#include "operator/models/nsa/dynamic_nsa_common.h"
+#include "operator/models/deepseek_v3.2_exp/dsia_common.h"
 
 
 using namespace npu::tile_fwk;
@@ -76,7 +76,7 @@ Tensor CreateDynamicTensor(DataType dType, const std::vector<int64_t> &shape, st
 }
 
 template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool isSmooth = false, bool nz = false>
-void TestDecodeIndexerAttentionSTest(NSASimpleParams &params) {
+void TestDecodeIndexerAttentionSTest(DSIASimpleParams &params) {
     SetPreConfig();
  
     int b = params.b;
@@ -198,7 +198,7 @@ TEST_F(DecodeIndexerAttentionUtest, utest_decode_indexer_attention) {
     int paramsSize = 7;
     ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::CODEGEN_EXPRESSION_FUSION, true);
     std::vector<int> inputParams(paramsSize);
-    auto params = NSASimpleParams::getDecodeParams();
+    auto params = DSIASimpleParams::getDecodeParams();
     params.b = NUM_1;
     params.s2 = NUM_1024;
     params.topk = NUM_2048;

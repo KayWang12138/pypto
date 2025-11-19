@@ -9,18 +9,19 @@
  */
  
 /*!
- * \file dynamic_mla.h
+ * \file dynamic_mla_v32.h
  * \brief
  */
  
 #pragma once
-#ifndef MLA_DYNAMIC
-#define MLA_DYNAMIC
+#ifndef MLA_DYNAMIC_V32_H
+#define MLA_DYNAMIC_V32_H
  
 #include "interface/inner/pre_def.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "operator/models/nsa/dynamic_nsa_common.h"
+
+#include "dsia_common.h"
  
 namespace npu::tile_fwk {
  
@@ -108,4 +109,4 @@ void MlaPrologV32(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, 
  
 } // namespace npu::tile_fwk
  
-#endif // MLA_DYNAMIC
+#endif // MLA_DYNAMIC_V32_H

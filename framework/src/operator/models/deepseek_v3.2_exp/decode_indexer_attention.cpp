@@ -19,11 +19,11 @@
 #include "interface/tensor/logical_tensor.h"
 #include "interface/utils/common.h"
 #include "interface/configs/config_manager.h"
-#include "operator/models/nsa/dynamic_nsa_common.h"
+#include "dsia_common.h"
  
 namespace npu::tile_fwk {
  
-IndexerShapeParams GetindexParamsFromDSASimpleParams(const NSASimpleParams &params) {
+IndexerShapeParams GetindexParamsFromDSASimpleParams(const DSIASimpleParams &params) {
     IndexerShapeParams indexParams;
     indexParams.b = params.b;
     indexParams.seq = params.s1;
@@ -48,7 +48,7 @@ void DecodeIndexerAttention(const Tensor &x, const Tensor &wDq, const Tensor &wU
     const Tensor &qW, const Tensor &kW, const Tensor &projW, const Tensor &lnW, const Tensor &lnBias,
     const Tensor &indexKCache, Tensor &attentionOut, 
     Tensor &gatherResTmp, Tensor &topkInputTmp, Tensor &indexerTopkResTmp, Tensor &rowSumOutTmp, Tensor &rmsResOutTmp,
-    Tensor &queryOutTmp,Tensor &weightOutTmp, Tensor &qNopeOutTmp,Tensor &qRopeOutTmp,const NSASimpleParams &params) {
+    Tensor &queryOutTmp,Tensor &weightOutTmp, Tensor &qNopeOutTmp,Tensor &qRopeOutTmp,const DSIASimpleParams &params) {
     auto dType = x.GetDataType();
     int blockSize = params.blockSize;
     int n1 = params.n1;
@@ -66,12 +66,12 @@ void DecodeIndexerAttention(const Tensor &x, const Tensor &wDq, const Tensor &wU
         {
             x, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, cacheIndex, kvCache, krCache, blockTable, actSeqs,
             qW, kW, projW, lnW, lnBias, indexKCache,
-#if DEBUG_DUMP_TMP_IN_OUT == 1
+#if DSIA_DEBUG == 1
             topkInputTmp
 #endif
         },
         {attentionOut,
-#if DEBUG_DUMP_TMP_IN_OUT == 1
+#if DSIA_DEBUG == 1
             rmsResOutTmp, queryOutTmp, weightOutTmp, qNopeOutTmp, qRopeOutTmp,
                 rowSumOutTmp, indexerTopkResTmp, gatherResTmp
 #endif
@@ -114,7 +114,7 @@ void DecodeIndexerAttention(const Tensor &x, const Tensor &wDq, const Tensor &wU
         config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
  
         std::set<int> indexerUnrollList = {64, 32, 16, 8, 4, 1};
-#if DEBUG_DUMP_TMP_IN_OUT == 1
+#if DSIA_DEBUG == 1
         LightningIndexerTopkImpl(queryOut4D, indexKCacheOut, false, nullptr, nullptr, weightOut4D, actSeqs, blockTable, indexerTopkResTmp, params.topk, params.indexTileCfg, indexerUnrollList, &rowSumOutTmp);
         GatherAfterPrologCompute(topkInputTmp, kNope2D, kRope2D, blockTable, actSeqs, gatherResTmp, params, b, s1);
 #else
