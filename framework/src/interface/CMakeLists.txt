@@ -43,7 +43,7 @@ target_include_directories(tile_fwk_interface
 )
 target_link_libraries(tile_fwk_interface
         PUBLIC
-            $<BUILD_INTERFACE:$<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,nlohmann_json::nlohmann_json,json>>
+            $<BUILD_INTERFACE:json>
             c_sec
         PRIVATE
             intf_pub_cxx17
@@ -89,7 +89,7 @@ if (ENABLE_TORCH_VERIFIER)
     )
     target_link_libraries(tile_fwk_calculator
             PRIVATE
-                $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,nlohmann_json::nlohmann_json,json>
+                json
                 c_sec
                 torch
     )

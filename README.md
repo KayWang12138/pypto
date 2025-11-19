@@ -103,7 +103,7 @@ PyPTO 支持由源码编译 whl 包, 并基于 pytest 对 whl 包含的 python �
 setuptools
 wheel
 pybind11>=2.0.1
-tomli
+tomli>=2.0.0 ; python_version >= "3.0" and python_version < "3.11"
 ```
 
 需要注意 `torch` 及 `torch_npu` 包安装, 对应内容参考 [Ascend Extension for PyTorch 安装说明](https://www.hiascend.com/document/detail/zh/Pytorch/710/configandinstg/instg/insg_0001.html).

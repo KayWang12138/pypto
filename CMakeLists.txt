@@ -65,7 +65,7 @@ option(ENABLE_STEST_TOOLS_PROF_TRY_CNT "Specify STest Tools Profiling Try cnt" O
 option(ENABLE_STEST_TOOLS_PROF_MAX_CNT "Specify STest Tools Profiling Max cnt" OFF)
 
 # 缺省编译配置, 编译函数
-include(ExternalProject)
+include(cmake/third_party/nlohmann_json.cmake)
 include(cmake/func.cmake)
 include(cmake/config.cmake)
 include(cmake/intf.cmake)

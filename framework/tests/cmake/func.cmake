@@ -46,11 +46,7 @@ function(PTO_Fwk_GTest_GenerateCoverage)
 
         get_target_property(GTest_GTest_Inc     GTest::gtest           INTERFACE_INCLUDE_DIRECTORIES)
         get_target_property(GTest_GTestMain_Inc GTest::gtest_main      INTERFACE_INCLUDE_DIRECTORIES)
-        if (BUILD_OPEN_PROJECT)
-            get_target_property(Json_Inc nlohmann_json::nlohmann_json INTERFACE_INCLUDE_DIRECTORIES)
-        else ()
-            get_target_property(Json_Inc json                         INTERFACE_INCLUDE_DIRECTORIES)
-        endif ()
+        get_target_property(Json_Inc            json                   INTERFACE_INCLUDE_DIRECTORIES)
         set(Filter_Dirs
                 ${PTO_FWK_SRC_ROOT}/framework/tests
                 ${PTO_FWK_SRC_ROOT}/third_party

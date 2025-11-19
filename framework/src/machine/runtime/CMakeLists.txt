@@ -58,7 +58,7 @@ target_link_libraries(tile_fwk_runtime
         PUBLIC
             $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_UTEST}>:tile_fwk_interface>>
             $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_UTEST}>:tile_fwk_compiler>>
-            $<BUILD_INTERFACE:$<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,nlohmann_json::nlohmann_json,json>>
+            $<BUILD_INTERFACE:json>
             $<BUILD_INTERFACE:ascendcl>
             $<BUILD_INTERFACE:runtime>
             $<BUILD_INTERFACE:$<$<NOT:$<BOOL:${BUILD_WITH_CANN_SUB}>>:hccl>>

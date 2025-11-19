@@ -15,7 +15,7 @@ add_library(tile_fwk_operator SHARED)
 target_sources(tile_fwk_operator PRIVATE ${_Operator_Srcs})
 target_link_libraries(tile_fwk_operator
         PUBLIC
-            $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,nlohmann_json::nlohmann_json,json>
+            json
             c_sec
         PRIVATE
             intf_pub_cxx17

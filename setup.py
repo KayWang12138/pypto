@@ -17,7 +17,6 @@ import shlex
 import sys
 import subprocess
 import shutil
-import tomli
 
 from typing import Optional, Any, List
 from pathlib import Path
@@ -35,8 +34,13 @@ class MetaHelper:
     def init(cls):
         cls._SRC_ROOT = Path(__file__).parent.resolve()
         toml: Path = Path(cls._SRC_ROOT, "pyproject.toml")
+        ver = sys.version_info
+        if ver >= (3, 11):
+            import tomllib
+        else:
+            import tomli as tomllib
         with open(toml, 'rb') as fh:
-            cls._CONFIG = tomli.load(fh)
+            cls._CONFIG = tomllib.load(fh)
 
     @classmethod
     def get_metadata(cls, k: str, t: str = "project", d: Optional[str] = "") -> Any:
@@ -91,7 +95,10 @@ class CMakeUserOption:
         self.initialize_options_default()
 
     def __str__(self):
+        ver = sys.version_info
         desc: str = ""
+        desc += f"\nEnviron"
+        desc += f"\n    Python3                 : {sys.executable} ({ver.major}.{ver.minor}.{ver.micro})"
         desc += f"\n{self.__class__.__name__}"
         desc += f"\n    clean-first           : {self.clean_first}"
         desc += f"\n    cmake-args            : {self.cmake_args}"

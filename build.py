@@ -27,6 +27,7 @@ import dataclasses
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List, Dict, Tuple, Any
+from setup import MetaHelper
 
 if str(Path(Path(__file__).parent, "tools")) not in sys.path:
     sys.path.append(str(Path(Path(__file__).parent, "tools")))
@@ -149,7 +150,7 @@ class FeatureParam(CMakeParam):
     def get_cfg_cmd(self) -> str:
         cmd: str = ""
         cmd += self._cfg_require(opt="ENABLE_FEATURE_PYTHON_FRONT_END", ctr=self.frontend_type_python3,
-                                 tv="pto")
+                                 tv=MetaHelper.name())
         cmd += self._cfg_require(opt="BUILD_WITH_CANN", ctr=self.backend_type in ["npu"])
         return cmd
 
@@ -167,6 +168,7 @@ class BuildParam(CMakeParam):
     ubsan: bool = False  # 使能 UndefinedBehaviorSanitizer
     gcov: bool = False  # 使能 GNU Coverage
     clang_install_path: Optional[Path] = None  # Clang 安装位置
+    open_source_path: Optional[Path] = None # 存储其他开源软件的路径
 
     def __init__(self, args, feature: FeatureParam):
         self.targets = args.targets
@@ -178,6 +180,7 @@ class BuildParam(CMakeParam):
         self.ubsan = args.ubsan
         self.gcov = args.gcov
         self.clang_install_path = self._get_clang_install_path(opt=args.clang)
+        self.open_source_path = args.cann_3rd_lib_path if args.cann_3rd_lib_path else None
 
     def __str__(self):
         desc: str = ""
@@ -191,11 +194,18 @@ class BuildParam(CMakeParam):
         desc += f"\n    UbSan                   : {self.ubsan}"
         desc += f"\n    GCov                    : {self.gcov}"
         desc += f"\n    ClangInstallPath        : {self.clang_install_path}"
+        desc += f"\n    CANN 3rd Lib Path       : {self.open_source_path}"
         return desc
 
     @property
     def install_strip(self) -> bool:
         return self.type_ in ["Debug"]
+
+    @property
+    def cann_3rd_lib_path(self) -> Optional[Path]:
+        p: Optional[Path] = Path(self.open_source_path) if self.open_source_path else None
+        p = p if p and p.exists() else None
+        return p
 
     @staticmethod
     def reg_args(parser, ext: Optional[Any] = None):
@@ -219,6 +229,8 @@ class BuildParam(CMakeParam):
                             help="Enable GNU Coverage Instrumentation Tool.")
         parser.add_argument("--clang", nargs="?", type=str, default="",
                             help="Specify clang install path, such as /usr/bin/clang")
+        parser.add_argument("--cann_3rd_lib_path", nargs="?", type=str, default="",
+                            help="Specify CANN 3rd Libraries Path")
 
     @staticmethod
     def _get_clang_install_path(opt: Optional[str]) -> Optional[Path]:
@@ -278,6 +290,12 @@ class BuildParam(CMakeParam):
         cmd += self._cfg_pep517_require(opt="ENABLE_UBSAN", ctr=self.ubsan)
         cmd += self._cfg_pep517_require(opt="ENABLE_GCOV", ctr=self.gcov)
         return cmd
+
+    def get_cfg_update_env(self) -> Dict[str, str]:
+        env: Dict[str, str] = {}
+        if self.cann_3rd_lib_path:
+            env.update({"CANN_3RD_LIB_PATH": self.cann_3rd_lib_path})
+        return env
 
 
 @dataclasses.dataclass
@@ -741,7 +759,7 @@ class BuildCtrl:
 
 
     def __init__(self, args):
-        self.whl_prefix: str = "pto"
+        self.whl_prefix: str = MetaHelper.name()
         self.src_root: Path = Path(__file__).parent.resolve()
         self.build_root: Path = Path(Path.cwd(), "build")
         self.install_root: Path = Path(self.build_root.parent, "output")
@@ -935,8 +953,9 @@ class BuildCtrl:
         cmd += self.build.get_cfg_cmd()
         cmd += self.tests.get_cfg_cmd()
         # 执行
+        update_env: Dict[str, str] = self.build.get_cfg_update_env()
         logging.info("CMake Configure, Cmd: %s", cmd)
-        ret = subprocess.run(shlex.split(cmd), capture_output=False, check=True, text=True, encoding='utf-8')
+        ret = self.run_build_cmd(cmd=cmd, update_env=update_env, check=True)
         ret.check_returncode()
 
     def cmake_build(self):
@@ -1047,4 +1066,5 @@ class SubCommandMgr:
 
 if __name__ == "__main__":
     logging.basicConfig(format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s', level=logging.INFO)
+    MetaHelper.init()
     BuildCtrl.main()

@@ -20,7 +20,7 @@ target_include_directories(tile_fwk_simulation
 target_link_libraries(tile_fwk_simulation
         PUBLIC
             dl
-            $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,nlohmann_json::nlohmann_json,json>
+            json
             $<$<BOOL:${ENABLE_UTEST}>:tile_fwk_interface>
             $<$<BOOL:${ENABLE_UTEST}>:tile_fwk_passes>
         PRIVATE

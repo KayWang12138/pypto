@@ -256,27 +256,6 @@ endif ()
 # 三方库
 ########################################################################################################################
 
-# nlohmann_json::nlohmann_json
-if (BUILD_OPEN_PROJECT)
-    find_package(nlohmann_json CONFIG)
-    if (NOT ${nlohmann_json_FOUND})
-        if (DEFINED ENV{ASCEND_3RD_LIB_PATH} AND NOT "$ENV{ASCEND_3RD_LIB_PATH}x" STREQUAL "x")
-            get_filename_component(ASCEND_3RD_LIB_PATH "$ENV{ASCEND_3RD_LIB_PATH}" REALPATH)
-            if (EXISTS "${ASCEND_3RD_LIB_PATH}/cmake/modules")
-                list(APPEND CMAKE_MODULE_PATH ${ASCEND_3RD_LIB_PATH}/cmake/modules)
-            endif ()
-            if (EXISTS "${ASCEND_3RD_LIB_PATH}/json/share/cmake/nlohmann_json")
-                list(APPEND CMAKE_PREFIX_PATH ${ASCEND_3RD_LIB_PATH}/json/share/cmake/nlohmann_json)
-            endif ()
-        endif ()
-        find_package(nlohmann_json CONFIG)
-    endif ()
-    if (NOT ${nlohmann_json_FOUND})
-        message(FATAL_ERROR "No nlohmann_json::nlohmann_json found, please refer to the ReadMe of this project for installation instructions.")
-    endif ()
-    message(STATUS "Use nlohmann_json::nlohmann_json from ${nlohmann_json_DIR}")
-endif ()
-
 # torch optional
 if (ENABLE_TESTS)
     PTO_Fwk_AnalysisPython3Environ(torch_Version GET_TORCH_VERSION)
