@@ -1,10 +1,11 @@
 /**
+ * This program is free software, you can redistribute it and/or modify it.
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+ * BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
@@ -52,10 +53,10 @@ void PrintTableRow(int index, const Tensor &tensor) {
     std::string shapeStr = ShapeToString(tensor.GetShape());
     std::string typeStr = DataType2String(tensor.GetDataType());
     std::string formatStr = tensor.GetStorage()->Format() == TileOpFormat::TILEOP_ND ? "TILEOP_ND" : "TILEOP_NZ";
-    ALOG_INFO << "| " << std::setw(COLUMN_WIDTH / 2) << std::left << index 
-              << " | " << std::setw(COLUMN_WIDTH) << std::left << name 
-              << " | " << std::setw(COLUMN_WIDTH) << std::left << shapeStr 
-              << " | " << std::setw(COLUMN_WIDTH / 2) << std::left << typeStr 
+    ALOG_INFO << "| " << std::setw(COLUMN_WIDTH / 2) << std::left << index
+              << " | " << std::setw(COLUMN_WIDTH) << std::left << name
+              << " | " << std::setw(COLUMN_WIDTH) << std::left << shapeStr
+              << " | " << std::setw(COLUMN_WIDTH / 2) << std::left << typeStr
               << " | " << std::setw(COLUMN_WIDTH / 2) << std::left << formatStr << " |";
 }
 
@@ -261,11 +262,11 @@ public:
     }
 
     // 创建 Tensor 函数
-    static std::pair<Tensor, RawTensorDataPtr> CreateTensor(const std::string& name, const std::string& dtype, const Shape& shape, 
+    static std::pair<Tensor, RawTensorDataPtr> CreateTensor(const std::string& name, const std::string& dtype, const Shape& shape,
         const std::string& fileName, const TileOpFormat format = TileOpFormat::TILEOP_ND) {
         Tensor t(CostModel::ToDataType(const_cast<string&>(dtype)), shape, name, format);
         auto dataPtr = CreateHelper(dtype, t, fileName);
-        return std::make_pair(t, dataPtr);  
+        return std::make_pair(t, dataPtr);
     }
 
     static RawTensorDataPtr CreateHelper(const std::string& dtype, const Tensor& tensor, const std::string& fileName) {
