@@ -67,6 +67,11 @@ struct MatmulTestCaseParam {
     int reluTypeInt = 0;
     bool hasScale = false;
     bool hasBias = false;
+    bool l0c2l1IsTrans = false;
+    bool l0c2l1AsLeftMatrix = false;
+    bool l0c2l1IsNz = false;
+    bool l0c2l1TmpIsTrans = false;
+    bool enable_l0c2l1 = false;
 };
 
 class TestExecutor {
@@ -416,6 +421,16 @@ T GetValueByName(const nlohmann::json &json_data, const std::string &name) {
     return data.at(name).get<T>();
 }
 
+template <typename T>
+T GetValueByNameWithKey(const nlohmann::json &json_data, const std::string &name, const std::string &key) {
+    nlohmann::json data = json_data;
+    if (json_data.find(name) == json_data.end()) {
+        data = json_data.at("params").at(key);
+    }
+    ASSERT(data.find(name) != data.end()) << "failed to load " << name << " in " << json_data << "!";
+    return data.at(name).get<T>();
+}
+
 template <typename T1, typename T2>
 T2 GetMapValByName(const std::map<T1, T2> &map_data, const T1 &name) {
     auto it = map_data.find(name);
@@ -475,6 +490,18 @@ T2 GetMapValByName(const std::map<T1, T2> &map_data, const T1 &name) {
         GetValueByName<std::string>(json_data, "bias_info") != "") {
         param.hasBias = true;
     }
+    if (json_data.at("params").find("l0c2l1_params") != json_data.at("params").end()) {
+        if (json_data.at("params").at("l0c2l1_params").find("is_l0c2l1_trans") !=
+                json_data.at("params").at("l0c2l1_params").end()) {
+            param.l0c2l1IsTrans = GetValueByNameWithKey<bool>(json_data, "is_l0c2l1_trans", "l0c2l1_params");
+            param.enable_l0c2l1 =true;
+        }
+        if (json_data.at("params").at("l0c2l1_params").find("is_as_left_matrix") !=
+                json_data.at("params").at("l0c2l1_params").end()) {
+            param.l0c2l1AsLeftMatrix = GetValueByNameWithKey<bool>(json_data, "is_as_left_matrix", "l0c2l1_params");
+        }
+    }
+
     return param;
 }
 

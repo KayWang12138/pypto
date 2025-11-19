@@ -1,4 +1,4 @@
-enable,case_name,input_shape,input_dtype,input_format,input_trans,input_datarange,output_shape,output_dtype,output_format,view_shape,tile_shape,bias_info,fixpipe_info
+enable,case_name,input_shape,input_dtype,input_format,input_trans,input_datarange,output_shape,output_dtype,output_format,view_shape,tile_shape,bias_info,fixpipe_info,l0c2l1_info
 1,Matmul_M_255_K_513_N_511_transA_N_transB_N_formatA_ND_formatB_ND_dtypeA_fp16_dtypeB_fp16_formatC_ND_dtypeC_fp16,"[255, 513],[513, 511]","fp16, fp16","ND, ND","FALSE,FALSE","[-3, 3],[-3, 3]","[255, 511]",fp16,ND,"[-1, -1]","[64, 64],[256, 512],[32, 32]",
 1,Matmul_M_224_K_80_N_160_transA_T_transB_T_formatA_NZ_formatB_NZ_dtypeA_fp16_dtypeB_fp16_formatC_NZ_dtypeC_fp16,"[80, 224],[160, 80]","fp16, fp16","NZ, NZ","TRUE,TRUE","[-3, 3],[-3, 3]","[224, 160]",fp16,NZ,"[160, 192]","[128, 128],[128, 128],[128, 256]",
 1,Matmul_M_272_K_304_N_336_transA_T_transB_N_formatA_NZ_formatB_ND_dtypeA_fp16_dtypeB_fp16_formatC_NZ_dtypeC_fp16,"[304, 272],[304, 336]","fp16, fp16","NZ, ND","TRUE,FALSE","[-3, 3],[-3, 3]","[272, 336]",fp16,NZ,"[-1, 256]","[128, 256],[64, 256],[64, 256]",
@@ -68,3 +68,4 @@ enable,case_name,input_shape,input_dtype,input_format,input_trans,input_datarang
 1,Matmul_SplitK_Case3_fp32,"[254, 256],[256, 256]","fp32, fp32","ND, NZ","FALSE, TRUE","[-3, 3],[-3, 3]","[254, 256]",fp32,ND,"[122, 160]","[256, 256],[64, 64],[128, 128]",TRUE,
 1,Matmul_SplitK_Case4_int32,"[336, 608],[336, 640]","int8, int8","NZ, ND","TRUE, FALSE","[-3, 3],[-3, 3]","[608, 640]",int32,NZ,"[-1, 240]","[128, 128],[256, 256],[128, 128]",TRUE,
 1,Matmul_SplitK_Case5_int32,"[528, 448],[432, 448]","int8, int8","ND, NZ","FALSE, TRUE","[-3, 3],[-3, 3]","[528, 432]",int32,ND,"[227, -1]","[64, 128],[128, 128],[128, 128]",TRUE,
+1,Matmul_M_130_K_258_N_514_transA_F_transB_T_formatA_ND_formatB_ND_dtypeA_fp16_dtypeB_fp16_formatC_ND_dtypeC_fp16_l0c2l1,"[130, 258],[514, 258]","fp16, fp16","ND,ND","FALSE,TRUE","[-3, 3],[-3, 3]","[96, 514]",fp16,ND,"[-1, -1]","[128, 128],[128, 128],[128, 128]",,,"{input_shape:[130,96], input_dtype:fp16, input_format:ND, input_range:[-1, 1], is_trans:TRUE, is_as_left_matrix:TRUE}",

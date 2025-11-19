@@ -35,7 +35,7 @@ if str(import_path) not in sys.path:
     sys.path.append(str(import_path))
 from test_case_loader import TestCaseLoader
 from test_case_desc import TensorDesc
-from test_case_tools import parse_list_str, get_dtype_by_name, parse_dict_str
+from test_case_tools import parse_list_str, get_dtype_by_name, parse_dict_str, str_to_bool
 
 bfloat16 = get_dtype_by_name("bf16", False, False)
 
@@ -241,7 +241,9 @@ def generate_matmul_golden_files(golden_func, output_path: Path, config: dict):
         )
         index += 1
         input_tensors.append(tensor)
+
     generate_matmul_params_files(input_tensors, output_path, config)
+
     res = golden_func(input_tensors, config)
     for idx in range(len(config["output_tensors"])):
         tensor_type = get_dtype_by_name(config["output_tensors"][idx]["dtype"])
@@ -255,6 +257,13 @@ def generate_matmul_golden_files(golden_func, output_path: Path, config: dict):
         if config.get("operation") in cube_op_list and read_input.get("format") == "NZ":
             input_tensor = trans_nd_to_fractal_nz(input_tensor)
         input_tensor.tofile(Path(output_path, read_input["name"] + ".bin"))
+
+    params = config.get("params")
+    l0c2l1_tensor = params.get("l0c2l1_tensor")
+    if l0c2l1_tensor:
+        # 2：l0c2l1场景res = [tensor_out, tensor_l0c2l1_data]
+        assert len(res) == 2
+        res[1].tofile(Path(output_path, l0c2l1_tensor["name"] + ".bin"))
     return True
 
 
@@ -390,6 +399,7 @@ def gen_topk_op_golden(case_name: str, output: Path, case_index: int = None) -> 
 def matmul_params_func(params: dict):
     bias_params_func(params)
     fixpipe_params_func(params)
+    l0c2l1_params_func(params)
     return params
 
 
@@ -447,6 +457,23 @@ def bias_params_func(params: dict):
     params["bias_tensors"] = bias_tensor.dump_to_json()
 
 
+def l0c2l1_params_func(params: dict):
+    l0c2l1_info_params = params.get("l0c2l1_info", None)
+    if l0c2l1_info_params is None:
+        return
+    l0c2l1_info = parse_dict_str(l0c2l1_info_params)
+    required_keys = {"input_shape", "input_dtype", "input_format", "is_trans", "is_as_left_matrix"}
+    if not required_keys.issubset(l0c2l1_info):
+        raise ValueError("l0c2l1_info params is invalid, please check!")
+    l0c2l1_is_as_left_matrix = str_to_bool(l0c2l1_info["is_as_left_matrix"])
+    l0c2l1_is_trans = str_to_bool(l0c2l1_info.get("is_trans", False))
+    l0c2l1_range = l0c2l1_info.get("input_range", [-1, 1])
+    l0c2l1_tensor = TensorDesc("l0c2l1_tensor", parse_list_str(l0c2l1_info["input_shape"]), l0c2l1_info["input_dtype"],
+                l0c2l1_range, l0c2l1_info["input_format"], need_trans=l0c2l1_is_trans)
+    params["l0c2l1_tensor"] = l0c2l1_tensor.dump_to_json()
+    params["l0c2l1_params"] = {"is_as_left_matrix": l0c2l1_is_as_left_matrix, "is_l0c2l1_trans": l0c2l1_is_trans}
+
+
 @TestCaseLoader.reg_params_handler(ops=["Cast"])
 def cast_params_func(params: dict):
     params["mode"] = int(params.get("mode", "0"))
@@ -498,8 +525,64 @@ def gen_cast_op_golden(case_name: str, output: Path, case_index: int = None) -> 
     return gen_op_golden("Cast", golden_func, output, case_index)
 
 
+def l0c2l_golden_generate(inputs: list, config: dict):
+    params = config.get("params")
+    l0c2l1_tensor = params["l0c2l1_tensor"]
+    l0c2l1_min = l0c2l1_tensor["data_range"]["min"]
+    l0c2l1_max = l0c2l1_tensor["data_range"]["max"]
+    if min != max:
+        tensor_l0c2l1 = np.random.uniform(l0c2l1_min, l0c2l1_max, l0c2l1_tensor["shape"]).astype(
+            get_dtype_by_name(l0c2l1_tensor["dtype"])
+        )
+    else:
+        tensor_l0c2l1 = np.full(
+            l0c2l1_tensor["shape"],
+            max,
+            dtype=get_dtype_by_name(l0c2l1_tensor["dtype"]),
+        )
+    tensor_l0c2l1_data = tensor_l0c2l1
+    tensor_a = (
+        inputs[0]
+        if not params["transA"]
+        else np.swapaxes(inputs[0], inputs[0].ndim - 2, inputs[0].ndim - 1)
+    )
+    tensor_b = (
+        inputs[1]
+        if not params["transB"]
+        else np.swapaxes(inputs[1], inputs[1].ndim - 2, inputs[1].ndim - 1)
+    )
+    tensor_l0c2l1 = tensor_l0c2l1 if not l0c2l1_tensor["need_trans"] else \
+        np.swapaxes(tensor_l0c2l1, tensor_l0c2l1.ndim - 2, tensor_l0c2l1.ndim - 1)
+
+    tensor_tmp = torch.matmul(
+            torch.from_numpy(tensor_a.astype(np.float32)).to(torch.float32),
+            torch.from_numpy(tensor_b.astype(np.float32)).to(torch.float32)
+        ).to(torch.float32).numpy().astype(get_dtype_by_name(l0c2l1_tensor["dtype"]))
+    l0c2l1_is_left_matrix = str_to_bool(params["l0c2l1_params"]["is_as_left_matrix"])
+    if l0c2l1_is_left_matrix:
+        tensor_out = torch.matmul(
+            torch.from_numpy(tensor_l0c2l1.astype(np.float32)).to(torch.float32),
+            torch.from_numpy(tensor_tmp.astype(np.float32)).to(torch.float32)
+        ).to(torch.float32).numpy().astype(get_dtype_by_name(params["outDtype"]))
+    else:
+        tensor_out = torch.matmul(
+            torch.from_numpy(tensor_tmp.astype(np.float32)).to(torch.float32),
+            torch.from_numpy(tensor_l0c2l1.astype(np.float32)).to(torch.float32)
+        ).to(torch.float32).numpy().astype(get_dtype_by_name(params["outDtype"]))
+
+    if l0c2l1_tensor["format"] == "NZ":
+        tensor_l0c2l1_data = trans_nd_to_fractal_nz(tensor_l0c2l1_data)
+
+    if params.get("isCMatrixNz"):
+        tensor_out = trans_nd_to_fractal_nz(tensor_out, True)
+
+    return [tensor_out, tensor_l0c2l1_data]
+
+
 def matmul_golden_func(inputs: list, config: dict):
     params = config.get("params")
+    if params.get("l0c2l1_tensor"):
+        return l0c2l_golden_generate(inputs, config)
     tensor_a = (
         inputs[0]
         if not params.get("transA")
