@@ -9,19 +9,19 @@
  */
 
 /*!
- * \file remove_redundant_cast.cpp
+ * \file auto_cast.cpp
  * \brief
  */
 
-#include "remove_redundant_cast.h"
+#include "auto_cast.h"
 #include "interface/tensor/logical_tensor.h"
-#include "passes/pass_check/remove_redundant_cast_checker.h"
+#include "passes/pass_check/auto_cast_checker.h"
 #include "passes/pass_utils/dead_operation_eliminate.h"
 
 namespace npu {
 namespace tile_fwk {
 
-Status RemoveRedundantCast::GetInOutConnectedTensor(Function &function) {
+Status AutoCast::GetInOutConnectedTensor(Function &function) {
     inCastConnectedTensors_.clear();
     outCastConnectedTensors_.clear();
 
@@ -63,8 +63,8 @@ Status RemoveRedundantCast::GetInOutConnectedTensor(Function &function) {
     return SUCCESS;
 }
 
-Status RemoveRedundantCast::RunOnFunction(Function &function) {
-    ALOG_INFO_F("===> Start RemoveRedundantCast for function [%s].", function.GetRawName().c_str());
+Status AutoCast::RunOnFunction(Function &function) {
+    ALOG_INFO_F("===> Start AutoCast for function [%s].", function.GetRawName().c_str());
     if (GetInOutConnectedTensor(function) != SUCCESS) {
         ALOG_ERROR_F("Failed to get InOutCast-connected tensor.");
         return FAILED;
@@ -77,18 +77,18 @@ Status RemoveRedundantCast::RunOnFunction(Function &function) {
         ALOG_ERROR_F("Failed to remove redundant CAST.");
         return FAILED;
     }
-    ALOG_INFO_F("===> End RemoveRedundantCast for function [%s].", function.GetRawName().c_str());
+    ALOG_INFO_F("===> End AutoCast for function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }
 
-bool RemoveRedundantCast::SupportBF16(Operation *op) {
+bool AutoCast::SupportBF16(Operation *op) {
     if (UNSUPPORT_BF16_OPS.count(op->GetOpcode()) > 0) {
         return false;
     }
     return true;
 }
 
-void RemoveRedundantCast::InsertCastOp(Function &function, LogicalTensorPtr src, LogicalTensorPtr tgt, 
+void AutoCast::InsertCastOp(Function &function, LogicalTensorPtr src, LogicalTensorPtr tgt, 
                                        const TileShape &tileShape) {
     Operation &newCast = function.AddRawOperation(Opcode::OP_CAST, {src}, {tgt});
     newCast.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
@@ -96,7 +96,7 @@ void RemoveRedundantCast::InsertCastOp(Function &function, LogicalTensorPtr src,
     addedCast_.insert(&newCast);
 }
 
-Status RemoveRedundantCast::InsertCast(Function &function) {
+Status AutoCast::InsertCast(Function &function) {
     std::vector<Operation *> opList = function.Operations().DuplicatedOpList();
     std::unordered_map<int, std::shared_ptr<LogicalTensor>> oldMagic2Input;
     for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
@@ -145,7 +145,7 @@ Status RemoveRedundantCast::InsertCast(Function &function) {
     return SUCCESS;
 }
 
-bool RemoveRedundantCast::IsLegalCast(DataType ds, DataType dt) {
+bool AutoCast::IsLegalCast(DataType ds, DataType dt) {
     const std::set<std::pair<DataType, DataType>> legalCastPair {
         {DataType::DT_FP32, DataType::DT_FP16},
         {DataType::DT_FP16, DataType::DT_FP32},
@@ -169,7 +169,7 @@ bool RemoveRedundantCast::IsLegalCast(DataType ds, DataType dt) {
     return false;
 }
 
-std::vector<Operation *> RemoveRedundantCast::GetCastChain(Operation *tailOp)
+std::vector<Operation *> AutoCast::GetCastChain(Operation *tailOp)
 {
     std::vector<Operation *> tailToHeadChain;
     bool isFront = false;
@@ -188,7 +188,7 @@ std::vector<Operation *> RemoveRedundantCast::GetCastChain(Operation *tailOp)
     return tailToHeadChain;
 }
 
-Status RemoveRedundantCast::ShortenChain(Function &function, const std::vector<Operation *> &castChain, Operation *tailOp)
+Status AutoCast::ShortenChain(Function &function, const std::vector<Operation *> &castChain, Operation *tailOp)
 {
     std::shared_ptr<LogicalTensor> tgtTensor = *(tailOp->GetOOperands().begin());
     DataType tgtType = tgtTensor->Datatype();
@@ -234,7 +234,7 @@ Status RemoveRedundantCast::ShortenChain(Function &function, const std::vector<O
     return SUCCESS;
 }
 
-Status RemoveRedundantCast::RemoveRedundantCastChain(Function &function) {
+Status AutoCast::RemoveRedundantCastChain(Function &function) {
     std::vector<Operation *> opList = function.Operations().DuplicatedOpList();
     for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
         Operation *op = opList[opIdx];
@@ -257,13 +257,13 @@ Status RemoveRedundantCast::RemoveRedundantCastChain(Function &function) {
     return SUCCESS;
 }
 
-Status RemoveRedundantCast::PreCheck(Function &function) {
-    RemoveRedundantCastChecker checker;
+Status AutoCast::PreCheck(Function &function) {
+    AutoCastChecker checker;
     return checker.DoPreCheck(function);
 }
 
-Status RemoveRedundantCast::PostCheck(Function &function) {
-    RemoveRedundantCastChecker checker;
+Status AutoCast::PostCheck(Function &function) {
+    AutoCastChecker checker;
     return checker.DoPostCheck(function);
 }
 } // namespace tile_fwk

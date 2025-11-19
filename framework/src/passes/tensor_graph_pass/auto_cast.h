@@ -9,22 +9,22 @@
  */
 
 /*!
- * \file remove_redundant_cast.h
+ * \file auto_cast.h
  * \brief
  */
 
-#ifndef PASS_REMOVE_REDUNDANT_CAST_H_
-#define PASS_REMOVE_REDUNDANT_CAST_H_
+#ifndef PASS_AUTO_CAST_H_
+#define PASS_AUTO_CAST_H_
 
 #include "passes/pass_interface/pass.h"
 #include "interface/function/function.h"
 
 namespace npu {
 namespace tile_fwk {
-class RemoveRedundantCast : public Pass {
+class AutoCast : public Pass {
 public:
-    RemoveRedundantCast() : Pass("RemoveRedundantCast") {}
-    ~RemoveRedundantCast() override = default;
+    AutoCast() : Pass("AutoCast") {}
+    ~AutoCast() override = default;
     Status RunOnFunction(Function &function) override;
     bool SupportBF16(Operation *op);
     Status InsertCast(Function &function);
@@ -42,4 +42,4 @@ public:
 };
 }
 }
-#endif // PASS_REMOVE_REDUNDANT_CAST_H_
+#endif // PASS_AUTO_CAST_H_

@@ -9,12 +9,12 @@
  */
 
 /*!
- * \file remove_redundant_cast_checker.h
+ * \file auto_cast_checker.h
  * \brief
  */
 
-#ifndef REMOVE_REDUNDANT_CAST_CHECKER_H
-#define REMOVE_REDUNDANT_CAST_CHECKER_H
+#ifndef AUTO_CAST_CHECKER_H
+#define AUTO_CAST_CHECKER_H
 
 #include "checker.h"
 #include "interface/operation/opcode.h"
@@ -24,7 +24,7 @@
 
 namespace npu {
 namespace tile_fwk {
-class RemoveRedundantCastChecker : Checker {
+class AutoCastChecker : Checker {
 public:
     Status DoPreCheck(Function &function) override;
     Status DoPostCheck(Function &function) override;
@@ -35,4 +35,4 @@ private:
 };
 } // namespace tile_fwk
 } // namespace npu
-#endif  // REMOVE_REDUNDANT_CAST_CHECKER_H
+#endif  // AUTO_CAST_CHECKER_H

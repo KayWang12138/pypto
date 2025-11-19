@@ -9,16 +9,16 @@
  */
 
 /*!
- * \file remove_redundant_cast_checker.cpp
+ * \file auto_cast_checker.cpp
  * \brief
  */
 
-#include "remove_redundant_cast_checker.h"
+#include "auto_cast_checker.h"
 
 namespace npu {
 namespace tile_fwk {
-Status RemoveRedundantCastChecker::DoPreCheck(Function &function) {
-    ALOG_INFO_F("PreCheck for RemoveRedundantCast");
+Status AutoCastChecker::DoPreCheck(Function &function) {
+    ALOG_INFO_F("PreCheck for AutoCast");
     std::vector<Operation *> opList = function.Operations().DuplicatedOpList();
     for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
         Operation *op = opList[opIdx];
@@ -39,8 +39,8 @@ Status RemoveRedundantCastChecker::DoPreCheck(Function &function) {
     return SUCCESS;
 }
 
-Status RemoveRedundantCastChecker::DoPostCheck(Function &function) {
-    ALOG_INFO_F("PostCheck for RemoveRedundantCast");
+Status AutoCastChecker::DoPostCheck(Function &function) {
+    ALOG_INFO_F("PostCheck for AutoCast");
     std::vector<Operation *> opList = function.Operations().DuplicatedOpList();
     for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
         Operation *op = opList[opIdx];
@@ -67,11 +67,8 @@ Status RemoveRedundantCastChecker::DoPostCheck(Function &function) {
     return SUCCESS;
 }
 
-bool RemoveRedundantCastChecker::SupportBF16(Operation *op) {
-    std::unordered_set<OpCalcType> calTypes{OpCalcType::ELMWISE, OpCalcType::BROADCAST, OpCalcType::REDUCE,
-                                            OpCalcType::CONV};
-    OpCalcType opCalType = OpcodeManager::Inst().GetOpCalcType(op->GetOpcode());
-    if (calTypes.count(opCalType) > 0) {
+bool AutoCastChecker::SupportBF16(Operation *op) {
+    if (UNSUPPORT_BF16_OPS.count(op->GetOpcode()) > 0) {
         return false;
     }
     return true;

@@ -9,8 +9,8 @@
  */
 
 /*!
- * \file test_remove_redundant_cast.cpp
- * \brief Unit test for Remove Redundant Cast.
+ * \file test_auto_cast.cpp
+ * \brief Unit test for Auto Cast.
  */
 
 #include <fstream>
@@ -23,12 +23,12 @@
 #include "passes/pass_mgr/pass_manager.h"
 #include "interface/configs/config_manager.h"
 #include "computational_graph_builder.h"
-#include "passes/tensor_graph_pass/remove_redundant_cast.h"
+#include "passes/tensor_graph_pass/auto_cast.h"
 
 namespace npu {
 namespace tile_fwk {
 
-class RemoveRedundantCastTest : public testing::Test {
+class AutoCastTest : public testing::Test {
 public:
     static void SetUpTestCase() {}
 
@@ -42,7 +42,7 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(RemoveRedundantCastTest, AddBF16) {
+TEST_F(AutoCastTest, AddBF16) {
     ComputationalGraphBuilder G;
     EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {16, 16}, "t1"), true);
     EXPECT_EQ(G.AddTensor(DataType::DT_BF16, {16, 16}, "t2"), true);
@@ -56,13 +56,13 @@ TEST_F(RemoveRedundantCastTest, AddBF16) {
     EXPECT_EQ(G.SetOutCast({"t3"}), true);
     Function *function = G.GetFunction();
     EXPECT_EQ(function->Operations().size(), 1);
-    RemoveRedundantCast RRC;
-    RRC.RunOnFunction(*function);
+    AutoCast autoCast;
+    autoCast.RunOnFunction(*function);
     const int opNum3 = 3;
     EXPECT_EQ(function->Operations().size(), opNum3);
 }
 
-TEST_F(RemoveRedundantCastTest, AddCascadeBF16) {
+TEST_F(AutoCastTest, AddCascadeBF16) {
     ComputationalGraphBuilder G;
     EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {16, 16}, "t1"), true);
     EXPECT_EQ(G.AddTensor(DataType::DT_BF16, {16, 16}, "t2"), true);
@@ -78,8 +78,8 @@ TEST_F(RemoveRedundantCastTest, AddCascadeBF16) {
     Function *function = G.GetFunction();
     const int opNum2 = 2;
     EXPECT_EQ(function->Operations().size(), opNum2);
-    RemoveRedundantCast RRC;
-    RRC.RunOnFunction(*function);
+    AutoCast autoCast;
+    autoCast.RunOnFunction(*function);
     const int opNum5 = 5;
     EXPECT_EQ(function->Operations().size(), opNum5);
 }

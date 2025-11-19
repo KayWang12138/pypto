@@ -26,7 +26,7 @@
 #include "pass_dependency.h"
 // tensor graph pass
 #include "passes/tensor_graph_pass/remove_redundant_reshape.h"
-#include "passes/tensor_graph_pass/remove_redundant_cast.h"
+#include "passes/tensor_graph_pass/auto_cast.h"
 #include "passes/tensor_graph_pass/infer_memory_conflict.h"
 #include "passes/tensor_graph_pass/expand_function.h"
 #include "passes/tensor_graph_pass/loop_unroll.h"
@@ -65,7 +65,7 @@ void RegPass() {
     REG_PASS(DuplicateView);
     REG_PASS(DuplicateGatherIn);
     REG_PASS(RemoveRedundantReshape);
-    REG_PASS(RemoveRedundantCast);
+    REG_PASS(AutoCast);
     REG_PASS(InferMemoryConflict);
     REG_PASS(NBufferMerge);
     REG_PASS(L1CopyInReuseMerge);
@@ -96,7 +96,7 @@ void PassManager::RegDefaultStrategy() {
     RegisterStrategy(
         "PVC2_OOO", {
             {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
-            {      "RemoveRedundantCast",      "RemoveRedundantCast"},
+            {                 "AutoCast",                 "AutoCast"},
             {      "InferMemoryConflict",      "InferMemoryConflict"},
             {           "ExpandFunction",           "ExpandFunction"},
             {            "DuplicateView",            "DuplicateView"},
