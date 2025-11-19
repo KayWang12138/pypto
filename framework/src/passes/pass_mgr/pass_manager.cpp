@@ -62,8 +62,6 @@ void RegPass() {
     REG_PASS(CommonOperationEliminate);
     REG_PASS(GenerateMoveOp);
     REG_PASS(AssignMemoryType);
-    REG_PASS(DuplicateView);
-    REG_PASS(DuplicateGatherIn);
     REG_PASS(RemoveRedundantReshape);
     REG_PASS(AutoCast);
     REG_PASS(InferMemoryConflict);
@@ -90,6 +88,9 @@ void RegPass() {
     REG_PASS(LoopUnroll);
     REG_PASS(DynAttrToStatic);
     REG_PASS(InferDiscontinuousInput);
+    REG_PASS(DuplicateGatherIn);
+    REG_PASS(DuplicateView);
+    REG_PASS(DuplicateOp);
 }
 
 void PassManager::RegDefaultStrategy() {
@@ -99,13 +100,12 @@ void PassManager::RegDefaultStrategy() {
             {                 "AutoCast",                 "AutoCast"},
             {      "InferMemoryConflict",      "InferMemoryConflict"},
             {           "ExpandFunction",           "ExpandFunction"},
-            {            "DuplicateView",            "DuplicateView"},
+            {             "DuplicateOp1",              "DuplicateOp"},
             {        "MergeViewAssemble",        "MergeViewAssemble"},
             {             "SplitReshape",             "SplitReshape"},
             {           "SplitRawTensor",           "SplitRawTensor"},
             {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor"},
-            {        "DuplicateGatherIn",        "DuplicateGatherIn"},
-            {           "DuplicateView2",            "DuplicateView"},
+            {             "DuplicateOp2",              "DuplicateOp"},
             {         "AssignMemoryType",         "AssignMemoryType"},
             {  "InferDiscontinuousInput",  "InferDiscontinuousInput"},
             {        "RemoveRedundantOp",        "RemoveRedundantOp"},
