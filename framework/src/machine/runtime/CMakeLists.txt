@@ -12,8 +12,6 @@ file(GLOB_RECURSE _Device_Srcs ${PTO_FWK_SRC_ROOT}/framework/src/machine/device/
 add_library(tile_fwk_runtime SHARED)
 target_sources(tile_fwk_runtime PRIVATE ${_Runtime_Srcs} ${_Device_Srcs})
 target_include_directories(tile_fwk_runtime
-        PUBLIC
-            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         PUBLIC  # 编译 CANN 场景依赖
             $<BUILD_INTERFACE:$<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:${TOP_DIR}/inc>>
             $<BUILD_INTERFACE:$<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:${TOP_DIR}/abl/msprof/inc/toolchain>>
@@ -39,6 +37,7 @@ target_include_directories(tile_fwk_runtime
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/runtime>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/profiling>>
         PRIVATE
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
             ${PTO_FWK_SRC_ROOT}/framework/src/cost_model
 )
 target_compile_definitions(tile_fwk_runtime

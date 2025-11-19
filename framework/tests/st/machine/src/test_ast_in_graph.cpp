@@ -23,8 +23,8 @@
 #include "test_common.h"
 #include "machine/dump/machine_dump.h"
 #include "operator/models/llama/llama_def.h"
-#include "runtime.h"
-#include "tilefwk_runtime_api.h"
+#include "machine/runtime/runtime.h"
+#include "machine/runtime/tilefwk_runtime_api.h"
 
 namespace npu::tile_fwk {
 

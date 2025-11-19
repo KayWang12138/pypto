@@ -21,7 +21,7 @@
 #include <cstdint>
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "runtime.h"
+#include "machine/runtime/runtime.h"
 #include "machine/device/aicore_prof.h"
 #include "machine/device/aicpu_task_manager.h"
 #include "machine/device/aicore_manager.h"

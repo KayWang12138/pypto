@@ -21,7 +21,7 @@
 #include <cstdint>
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "runtime.h"
+#include "machine/runtime/runtime.h"
 #include "machine/device/aicore_dump.h"
 #include "interface/utils/common.h"
 #include "machine/utils/device_log.h"

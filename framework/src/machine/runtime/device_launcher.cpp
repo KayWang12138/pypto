@@ -14,10 +14,10 @@
  */
 
 #ifdef BUILD_WITH_CANN
-#include "device_launcher.h"
+#include "machine/runtime/device_launcher.h"
 
 #include "machine/host/backend.h"
-#include "host_prof.h"
+#include "machine/runtime/host_prof.h"
 namespace npu::tile_fwk::dynamic {
 namespace {
     constexpr uint32_t kMinDefaultDim = 20;

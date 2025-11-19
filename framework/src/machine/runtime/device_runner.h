@@ -22,7 +22,7 @@
 #include <mutex>
 #include <unistd.h>
 #include <sys/file.h>
-#include "host_prof.h"
+#include "machine/runtime/host_prof.h"
 
 #ifdef BUILD_WITH_CANN
 #include <runtime/rt.h>

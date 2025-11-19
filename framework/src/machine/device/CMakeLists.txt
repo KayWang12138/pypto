@@ -87,3 +87,14 @@ set_target_properties(tile_fwk_server PROPERTIES OUTPUT_NAME tilefwk_backend_ser
 if (NOT ENABLE_FEATURE_PYTHON_FRONT_END)
     install(TARGETS tile_fwk_server LIBRARY DESTINATION lib OPTIONAL)
 endif ()
+
+if (NOT BUILD_OPEN_PROJECT)
+    set(TILE_FWK_KERNEL_TAR_GZ_NAME "transformer_tile_fwk_aicpu_kernel.tar.gz")
+    add_custom_command(TARGET tile_fwk_server POST_BUILD
+        COMMAND echo "Begin to compress ${TILE_FWK_KERNEL_TAR_GZ_NAME} from ${CMAKE_CURRENT_BINARY_DIR}/libtilefwk_backend_server.so"
+        COMMAND cd ${CMAKE_CURRENT_BINARY_DIR}
+        COMMAND tar czf ${TILE_FWK_KERNEL_TAR_GZ_NAME} libtilefwk_backend_server.so
+        COMMAND echo "${CMAKE_CURRENT_BINARY_DIR}/${TILE_FWK_KERNEL_TAR_GZ_NAME} has been generated."
+    )
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${TILE_FWK_KERNEL_TAR_GZ_NAME} DESTINATION lib OPTIONAL)
+endif ()

@@ -18,14 +18,14 @@
 
 #include <cstdint>
 
-#include "device_launcher_binding.h"
+#include "machine/runtime/device_launcher_binding.h"
 
 #include "interface/configs/config_manager.h"
 #include "interface/function/function.h"
 #include "machine/utils/dynamic/dev_encode.h"
-#include "runtime.h"
+#include "machine/runtime/runtime.h"
 #include "runtime/dev.h"
-#include "device_runner.h"
+#include "machine/runtime/device_runner.h"
 #include "machine/platform/platform_manager.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"

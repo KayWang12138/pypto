@@ -23,9 +23,9 @@
 #include "test_suite_stest_ops.h"
 #include "interface/tensor/float.h"
 #include "operator/models/deepseek/mla_prolog.h"
-#include "runtime.h"
-#include "device_runner.h"
-#include "tilefwk_runtime_api.h"
+#include "machine/runtime/runtime.h"
+#include "machine/runtime/device_runner.h"
+#include "machine/runtime/tilefwk_runtime_api.h"
 
 using namespace npu::tile_fwk;
 

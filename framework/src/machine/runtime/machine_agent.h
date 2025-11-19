@@ -20,7 +20,7 @@
 #include "interface/cache/function_cache.h"
 #include "machine/host/machine_compiler.h"
 #include "machine/host/device_agent_task.h"
-#include "runtime.h"
+#include "machine/runtime/runtime.h"
 
 namespace npu::tile_fwk {
 constexpr int64_t MACHINE_DEBUG = 1;

@@ -19,12 +19,12 @@
 #include <cstdint>
 #include <vector>
 
-#include "device_launcher_binding.h"
+#include "machine/runtime/device_launcher_binding.h"
 
 #include "interface/configs/config_manager.h"
 #include "interface/function/function.h"
 #include "machine/utils/dynamic/dev_encode.h"
-#include "runtime.h"
+#include "machine/runtime/runtime.h"
 
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
@@ -32,7 +32,7 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/configs/config_manager.h"
 
-#include "device_launcher.h"
+#include "machine/runtime/device_launcher.h"
 
 namespace npu::tile_fwk::dynamic {
 

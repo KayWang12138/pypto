@@ -19,7 +19,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "tilefwk/data_type.h"
-#include "runtime.h"
+#include "machine/runtime/runtime.h"
 
 using namespace npu::tile_fwk;
 

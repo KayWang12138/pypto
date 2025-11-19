@@ -14,15 +14,15 @@
  */
 
 #ifdef BUILD_WITH_CANN
-#include "device_runner.h"
+#include "machine/runtime/device_runner.h"
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
 #include <mutex>
 #include <limits.h>
 #include "securec.h"
-#include "runtime.h"
-#include "device_launcher.h"
+#include "machine/runtime/runtime.h"
+#include "machine/runtime/device_launcher.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/kernel/aicore.h"
 #include "interface/utils/log.h"

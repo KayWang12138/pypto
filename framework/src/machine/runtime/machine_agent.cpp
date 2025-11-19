@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "machine_agent.h"
+#include "machine/runtime/machine_agent.h"
 #include <cstdint>
 #include <list>
 #include <map>
@@ -21,7 +21,7 @@
 #include <iostream>
 #include "machine/utils/machine_ws_intf.h"
 #include "interface/utils/common.h"
-#include "device_runner.h"
+#include "machine/runtime/device_runner.h"
 
 #ifdef BUILD_WITH_CANN
 #include "securec.h"

@@ -21,9 +21,9 @@
 #include "tilefwk/data_type.h"
 #include "test_common.h"
 #include "test_suite_stest_ops.h"
-#include "runtime.h"
-#include "device_runner.h"
-#include "tilefwk_runtime_api.h"
+#include "machine/runtime/runtime.h"
+#include "machine/runtime/device_runner.h"
+#include "machine/runtime/tilefwk_runtime_api.h"
 #define private public
 #include "machine/cache_manager/cache_manager.h"
 #undef private

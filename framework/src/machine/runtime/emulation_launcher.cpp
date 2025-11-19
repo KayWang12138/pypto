@@ -14,7 +14,7 @@
  */
 
 #ifdef BUILD_WITH_CANN
-#include "emulation_launcher.h"
+#include "machine/runtime/emulation_launcher.h"
 
 #include <thread>
 #include "machine/host/backend.h"

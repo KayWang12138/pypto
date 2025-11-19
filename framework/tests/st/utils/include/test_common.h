@@ -20,7 +20,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
-#include "runtime.h"
+#include "machine/runtime/runtime.h"
 #include "tilefwk/tilefwk_op.h"
 #include "interface/tensor/float.h"
 #include "interface/tensor/logical_tensor.h"

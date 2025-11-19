@@ -15,7 +15,7 @@
 
 #ifdef BUILD_WITH_CANN
 
-#include "runtime.h"
+#include "machine/runtime/runtime.h"
 
 namespace {
 const int32_t MODULE_TYPE_AI_CORE = 4;

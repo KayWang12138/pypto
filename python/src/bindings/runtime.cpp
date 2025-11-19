@@ -19,8 +19,8 @@
 #include <vector>
 
 #include "interface/interpreter/raw_tensor_data.h"
-#include "device_launcher_binding.h"
-#include "emulation_launcher.h"
+#include "machine/runtime/device_launcher_binding.h"
+#include "machine/runtime/emulation_launcher.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;

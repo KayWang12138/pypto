@@ -14,8 +14,8 @@
  */
 
 #include "gtest/gtest.h"
-#include "device_runner.h"
-#include "machine_agent.h"
+#include "machine/runtime/device_runner.h"
+#include "machine/runtime/machine_agent.h"
 #include "interface/tensor/logical_tensor.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"

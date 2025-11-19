@@ -12,7 +12,7 @@
 #include <fstream>
 #include <unistd.h>
 #include <sys/syscall.h>
-#include "host_prof.h"
+#include "machine/runtime/host_prof.h"
 #include "interface/utils/log.h"
 #include "interface/tensor/logical_tensor.h"
 #ifdef BUILD_WITH_CANN

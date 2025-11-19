@@ -8,9 +8,9 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "tilefwk_runtime_api.h"
+#include "machine/runtime/tilefwk_runtime_api.h"
 #include "machine/host/device_agent_task.h"
-#include "machine_agent.h"
+#include "machine/runtime/machine_agent.h"
 
 namespace npu::tile_fwk {
 void RunAsync(const void *stream, const void *workSpaceGmAddr, void *handle,

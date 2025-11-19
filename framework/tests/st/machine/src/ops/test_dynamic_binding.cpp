@@ -17,7 +17,7 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "operator/models/deepseek/page_attention.h"
 #include "machine/utils/dynamic/dev_encode.h"
-#include "device_launcher.h"
+#include "machine/runtime/device_launcher.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
