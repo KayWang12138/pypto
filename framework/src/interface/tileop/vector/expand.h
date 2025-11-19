@@ -18,8 +18,8 @@
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
 
-template <typename T0, typename T1>
-TILEOP void TExpand(T0 dst, T1 src, unsigned axis) {
+template <unsigned axis, typename T0, typename T1>
+TILEOP void TExpand(T0 dst, T1 src) {
     using ShapeValueType = typename Std::tuple_element<0, typename T0::Shape>::type;
     constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
 
@@ -56,7 +56,7 @@ TILEOP void TExpand(T0 dst, T1 src, unsigned axis) {
     constexpr auto srcTileH = Std::tuple_element<shapeSize - 2, typename T1::TileShape>::type::value;
     constexpr auto srcTileW = Std::tuple_element<shapeSize - 1, typename T1::TileShape>::type::value;
 
-    if (axis == 3) {
+    if constexpr (axis == 3) {
         for (size_t n0Index = 0; n0Index < dstShape0; ++n0Index) {
             for (size_t n1Index = 0; n1Index < dstShape1; ++n1Index) {
                 for (size_t n2Index = 0; n2Index < dstShape2; ++n2Index) {
@@ -75,68 +75,74 @@ TILEOP void TExpand(T0 dst, T1 src, unsigned axis) {
             }
         }
         return;
-    }
-
-    if (axis == 2) {
+    } else if constexpr (axis == 2) {
         for (size_t n0Index = 0; n0Index < dstShape0; ++n0Index) {
             for (size_t n1Index = 0; n1Index < dstShape1; ++n1Index) {
                 for (size_t n2Index = 0; n2Index < dstShape2; ++n2Index) {
-                    uint64_t blockLen = (dstShape4 * typeSize + TileOp::BLOCK_SIZE - 1) / TileOp::BLOCK_SIZE;
                     auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
                     auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
+                    using dstTileDefine =
+                        pto::Tile<pto::Location::Vec, typename T0::Type, 1, dstTileW, pto::BLayout::RowMajor, -1, -1>;
+                    using srcTileDefine =
+                        pto::Tile<pto::Location::Vec, typename T1::Type, 1, srcTileW, pto::BLayout::RowMajor, -1, -1>;
+                    dstTileDefine dstTile(1, dstShape4);
+                    srcTileDefine srcTile(1, srcShape4);
+                    pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * typeSize));
                     for (unsigned i = 0; i < dstShape3; i++) {
-                        copy_ubuf_to_ubuf((__ubuf__ void*)(dst.GetAddr() + (dstOffset + i * dstTileW) * typeSize),
-                        (__ubuf__ void*)(src.GetAddr() + srcOffset * typeSize), 0, 1, blockLen, 1, 1);
+                        pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + (dstOffset + i * dstTileW) * typeSize));
+                        pto::TMOV(dstTile, srcTile);
                     }
                 }
             }
         }
         return;
-    }
-
-    if (axis == 1) {
+    } else if constexpr (axis == 1) {
         for (size_t n0Index = 0; n0Index < dstShape0; ++n0Index) {
             for (size_t n1Index = 0; n1Index < dstShape1; ++n1Index) {
-                uint64_t blockLen = (dstShape4 * typeSize + TileOp::BLOCK_SIZE - 1) / TileOp::BLOCK_SIZE;
-                uint64_t srcGap = (srcTileW * typeSize + TileOp::BLOCK_SIZE - 1)  / TileOp::BLOCK_SIZE - blockLen;
-                uint64_t dstGap = (dstTileW * typeSize + TileOp::BLOCK_SIZE - 1)  / TileOp::BLOCK_SIZE - blockLen;
                 auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1;
                 auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1;
+                using dstTileDefine =
+                    pto::Tile<pto::Location::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
+                using srcTileDefine =
+                    pto::Tile<pto::Location::Vec, typename T1::Type, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
+                dstTileDefine dstTile(dstShape3, dstShape4);
+                srcTileDefine srcTile(srcShape3, srcShape4);
+                pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * typeSize));
                 for (unsigned i = 0; i < dstShape2; i++) {
-                    copy_ubuf_to_ubuf((__ubuf__ void*)(dst.GetAddr() + (dstOffset + i * dstTileH * dstTileW) * typeSize),
-                    (__ubuf__ void*)(src.GetAddr() + srcOffset * typeSize), 0, (unsigned short)dstShape3, blockLen, srcGap, dstGap);
+                    pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + (dstOffset + i * dstTileH * dstTileW) * typeSize));
+                    pto::TMOV(dstTile, srcTile);
                 }
             }
         }
         return;
-    }
-
-    if (axis == 0) {
+    } else if constexpr (axis == 0) {
         for (size_t n0Index = 0; n0Index < dstShape0; ++n0Index) {
-            uint64_t blockLen = (dstShape4 * typeSize + TileOp::BLOCK_SIZE - 1) / TileOp::BLOCK_SIZE;
-            uint64_t srcGap = (srcTileW * typeSize + TileOp::BLOCK_SIZE - 1)  / TileOp::BLOCK_SIZE - blockLen;
-            uint64_t dstGap = (dstTileW * typeSize + TileOp::BLOCK_SIZE - 1)  / TileOp::BLOCK_SIZE - blockLen;
             auto dstOffset = n0Index * dstStride0;
             auto srcOffset = n0Index * srcStride0;
+            using dstTileDefine =
+                pto::Tile<pto::Location::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
+            using srcTileDefine =
+                pto::Tile<pto::Location::Vec, typename T1::Type, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
+            dstTileDefine dstTile(dstShape3, dstShape4);
+            srcTileDefine srcTile(srcShape3, srcShape4);
+
             if constexpr (shapeSize > 2) {
                 constexpr auto dstRawShape2 = Std::tuple_element<shapeSize - 3, typename T0::TileShape>::type::value;
                 for (unsigned i = 0; i < dstShape1; ++i) {
                     for (unsigned j = 0; j < dstShape2; j++) {
-                        copy_ubuf_to_ubuf(
-                            (__ubuf__ void*)(dst.GetAddr() + (dstOffset + i * dstRawShape2 * dstTileH * dstTileW
-                            + j * dstTileH * dstTileW) * typeSize),
-                            (__ubuf__ void*)(src.GetAddr() + (srcOffset + j * srcTileH * srcTileW) * typeSize),
-                            0, (unsigned short)dstShape3, blockLen, srcGap, dstGap);
+                        pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + (srcOffset + j * srcTileH * srcTileW) * typeSize));
+                        pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + (dstOffset + i * dstRawShape2 * dstTileH * dstTileW
+                                                                            + j * dstTileH * dstTileW) * typeSize));
+                        pto::TMOV(dstTile, srcTile);
                     }
                 }
             } else {
                 for (unsigned i = 0; i < dstShape1; ++i) {
                     for (unsigned j = 0; j < dstShape2; j++) {
-                        copy_ubuf_to_ubuf(
-                            (__ubuf__ void*)(dst.GetAddr() + (dstOffset + i * dstShape2 * dstTileH * dstTileW
-                            + j * dstTileH * dstTileW) * typeSize),
-                            (__ubuf__ void*)(src.GetAddr() + (srcOffset + j * srcTileH * srcTileW) * typeSize),
-                            0, (unsigned short)dstShape3, blockLen, srcGap, dstGap);
+                        pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + (srcOffset + j * srcTileH * srcTileW) * typeSize));
+                        pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + (dstOffset + i * dstShape2 * dstTileH * dstTileW
+                                                                            + j * dstTileH * dstTileW) * typeSize));
+                        pto::TMOV(dstTile, srcTile);
                     }
                 }
             }
