@@ -19,9 +19,10 @@
 using namespace tile_fwk::test_operation;
 namespace {
 struct MinimumOpFuncArgs : public OpFuncArgs {
-    MinimumOpFuncArgs(const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape)
-        : viewShape_(viewShape), tileShape_(tileShape) {}
+    MinimumOpFuncArgs(const Element &value, const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape)
+        : value_(value), viewShape_(viewShape), tileShape_(tileShape) {}
 
+    Element value_;
     std::vector<int64_t> viewShape_;
     std::vector<int64_t> tileShape_;
 };
@@ -63,7 +64,7 @@ std::vector<int64_t> GetBroadCastOffsetRatio(const Tensor &self, const Tensor &o
     return result;
 }
 
-static void MinimumOperationExeFunc2Dims(
+void MinimumOperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
@@ -97,7 +98,7 @@ static void MinimumOperationExeFunc2Dims(
     }
 }
 
-static void MinimumOperationExeFunc3Dims(
+void MinimumOperationExeFunc3Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
@@ -143,7 +144,7 @@ static void MinimumOperationExeFunc3Dims(
     }
 }
 
-static void MinimumOperationExeFunc4Dims(
+void MinimumOperationExeFunc4Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
@@ -198,23 +199,178 @@ static void MinimumOperationExeFunc4Dims(
     }
 }
 
+void MinSOperationExeFuncDoubleCut(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+    FUNCTION("main", {inputs[0]}, {outputs[0]}) {
+        SymbolicScalar firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar secondDim = inputs[0].GetShape()[1];
+        auto args = static_cast<const MinimumOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
+        int bloop = CeilDiv(firstDim, firstViewShape);
+        int sloop = CeilDiv(secondDim, secondViewShape);
+
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
+                auto tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape},
+                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                        std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                    {bIdx * firstViewShape, sIdx * secondViewShape});
+                TileShape::Current().SetVecTile(args->tileShape_);
+                auto res = Minimum(tileTensor0, args->value_);
+                Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
+            }
+        }
+    }
+}
+
+void MinSOperationExeFuncTripleCut(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+    FUNCTION("main", {inputs[0]}, {outputs[0]}) {
+        SymbolicScalar firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar secondDim = inputs[0].GetShape()[1];
+        SymbolicScalar thirdDim = inputs[0].GetShape()[2];
+        auto args = static_cast<const MinimumOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
+        const int thirdViewShape = args->viewShape_[2];
+        int bloop = CeilDiv(firstDim, firstViewShape);
+        int sloop = CeilDiv(secondDim, secondViewShape);
+        int nloop = CeilDiv(thirdDim, thirdViewShape);
+
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
+                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
+                    auto tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                            std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
+                    TileShape::Current().SetVecTile(args->tileShape_);
+                    auto res = Minimum(tileTensor0, args->value_);
+                    Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
+                }
+            }
+        }
+    }
+}
+
+void MinSOperationExeFuncQuadrupleCut(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+    FUNCTION("main", {inputs[0]}, {outputs[0]}) {
+        SymbolicScalar firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar secondDim = inputs[0].GetShape()[1];
+        SymbolicScalar thirdDim = inputs[0].GetShape()[2];
+        SymbolicScalar fourthDim = inputs[0].GetShape()[3];
+        auto args = static_cast<const MinimumOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
+        const int thirdViewShape = args->viewShape_[2];
+        const int fourthViewShape = args->viewShape_[3];
+        int bloop = CeilDiv(firstDim, firstViewShape);
+        int sloop = CeilDiv(secondDim, secondViewShape);
+        int nloop = CeilDiv(thirdDim, thirdViewShape);
+        int qloop = CeilDiv(fourthDim, fourthViewShape);
+
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
+                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
+                    LOOP("LOOP_L3_qIdx", FunctionType::DYNAMIC_LOOP, qIdx, LoopRange(0, qloop, 1)) {
+                        auto tileTensor0 =
+                            View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
+                                {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                    std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                    std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape),
+                                    std::min(fourthDim - qIdx * fourthViewShape, fourthViewShape)},
+                                {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
+                                    qIdx * fourthViewShape});
+                        TileShape::Current().SetVecTile(args->tileShape_);
+                        auto res = Minimum(tileTensor0, args->value_);
+                        Assemble(res,
+                            {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
+                                qIdx * fourthViewShape},
+                            outputs[0]);
+                    }
+                }
+            }
+        }
+    }
+}
+
 class MinimumOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<MinimumOpMetaData> {};
 
 INSTANTIATE_TEST_SUITE_P(TestMinimum, MinimumOperationTest,
     ::testing::ValuesIn(GetOpMetaData<MinimumOpMetaData>(
         {MinimumOperationExeFunc2Dims, MinimumOperationExeFunc3Dims, MinimumOperationExeFunc4Dims}, "Minimum")));
 
+Element GetElementByType(DataType dataType, nlohmann::json test_data, string name) {
+    if (dataType == DT_FP32 || dataType == DT_FP16 || dataType == DT_BF16) {
+        Element element(dataType, GetValueByName<float>(test_data, name));
+        return element;
+    } else if (dataType == DT_INT8) {
+        Element element(dataType, GetValueByName<int8_t>(test_data, name));
+        return element;
+    } else if (dataType == DT_INT16) {
+        Element element(dataType, GetValueByName<int16_t>(test_data, name));
+        return element;
+    } else if (dataType == DT_INT32) {
+        Element element(dataType, GetValueByName<int32_t>(test_data, name));
+        return element;
+    } else if (dataType == DT_INT64) {
+        Element element(dataType, GetValueByName<int64_t>(test_data, name));
+        return element;
+    } else {
+        std::string errorMessage = "UnSupport Type in MinS ST Test" + DataType2String(dataType);
+        throw std::invalid_argument(errorMessage.c_str());
+    }
+}
+
 TEST_P(MinimumOperationTest, TestMinimum) {
     TestCaseDesc testCase;
     auto test_data = GetParam().test_data_;
     testCase.inputTensors = GetInputTensors(test_data);
     testCase.outputTensors = GetOutputTensors(test_data);
-    auto args = MinimumOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data));
+
+    bool isElementMode = testCase.inputTensors.size() <= 1;
+    Element value = {};
+    if (isElementMode) {
+        auto dtype = GetDataType(GetValueByName<std::string>(test_data, "scalar_type"));
+        value = GetElementByType(dtype, test_data, "scalar");
+    }
+    Shape viewShape = GetViewShape(test_data);
+    Shape tileShape = GetTileShape(test_data);
+
+    auto args = MinimumOpFuncArgs(value, viewShape, tileShape);
     testCase.args = &args;
-    testCase.opFunc = GetParam().opFunc_;
-    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin",
-        GetGoldenDir() + "/" + testCase.inputTensors[1].GetStorage()->Symbol() + ".bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
+
+    std::vector<OpFunc> opFuncs = {};
+    if (isElementMode) {
+        opFuncs = {
+            MinSOperationExeFuncDoubleCut,
+            MinSOperationExeFuncTripleCut,
+            MinSOperationExeFuncQuadrupleCut
+        };
+    }
+    else {
+        opFuncs = {
+            MinimumOperationExeFunc2Dims,
+            MinimumOperationExeFunc3Dims,
+            MinimumOperationExeFunc4Dims
+        };
+    }
+    testCase.opFunc = opFuncs[viewShape.size() - 2];
+
+    for (size_t i = 0; i < testCase.inputTensors.size(); i++) {
+        std::string symbolPath = GetGoldenDir() + "/" + testCase.inputTensors[i].GetStorage()->Symbol() + ".bin";
+        testCase.inputPaths.push_back(symbolPath);
+    }
+    for (size_t i = 0; i < testCase.outputTensors.size(); i++) {
+        std::string symbolPath = GetGoldenDir() + "/" + testCase.outputTensors[i].GetStorage()->Symbol() + ".bin";
+        testCase.goldenPaths.push_back(symbolPath);
+    }
     TestExecutor::runTest(testCase);
 }
 } // namespace

@@ -889,14 +889,29 @@ def gen_mul_op_golden(case_name: str, output: Path, case_index: int = None) -> b
     return gen_op_golden("Mul", golden_func, output, case_index)
 
 
+@TestCaseLoader.reg_params_handler(ops=["Maximum", "Minimum"])
+def maximum_minimum_parameter(params: dict):
+    params["scalar"] = 0 if not params.get("scalar") else params["scalar"]
+    params["scalar_type"] = "" if not params.get("scalar_type") else params["scalar_type"]
+    return params
+
+
 @GoldenRegister.reg_golden_func(
     case_names=[
         "TestMaximum/MaximumOperationTest.TestMaximum",
     ]
 )
 def gen_maximum_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
-    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
-    def golden_func(inputs: list, _config: dict):
+
+    def golden_func(inputs: list, config: dict):
+        is_element_mode = len(inputs) <= 1
+        if is_element_mode:
+            params = config["params"]
+            x = inputs[0]
+            scalar_type = params.get("scalar_type", "fp32")
+            scalar = get_dtype_by_name(scalar_type)(params["scalar"])
+            y = np.where(x < scalar, scalar, x)
+            return [y]
         return [np.maximum(inputs[0], inputs[1])]
 
     logging.debug("Case(%s), Golden creating...", case_name)
@@ -909,8 +924,16 @@ def gen_maximum_op_golden(case_name: str, output: Path, case_index: int = None) 
     ]
 )
 def gen_minimum_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
-    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
-    def golden_func(inputs: list, _config: dict):
+
+    def golden_func(inputs: list, config: dict):
+        is_element_mode = len(inputs) <= 1
+        if is_element_mode:
+            params = config["params"]
+            x = inputs[0]
+            scalar_type = params.get("scalar_type", "fp32")
+            scalar = get_dtype_by_name(scalar_type)(params["scalar"])
+            y = np.where(x > scalar, scalar, x)
+            return [y]
         return [np.minimum(inputs[0], inputs[1])]
 
     logging.debug("Case(%s), Golden creating...", case_name)
@@ -1440,46 +1463,6 @@ def gen_scatter__op_golden(
 ) -> bool:
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Scatter_", scatter_golden_func, output, case_index)
-
-
-@GoldenRegister.reg_golden_func(
-    case_names=[
-        "TestMaxS/MaxSOperationTest.TestMaxS",
-    ]
-)
-def gen_maxs_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
-    def golden_func(inputs, config: dict):
-        params = config["params"]
-        x = inputs[0]
-        scalar_type = params.get("scalar_type", "fp32")
-        scalar = get_dtype_by_name(scalar_type)(params["scalar"])
-        y = np.where(x < scalar, scalar, x)
-        return [y]
-
-    logging.debug("Case(%s), Golden creating...", case_name)
-    return gen_op_golden("MaxS", golden_func, output, case_index)
-
-
-@GoldenRegister.reg_golden_func(
-    case_names=[
-        "TestMinS/MinSOperationTest.TestMinS",
-    ]
-)
-def gen_mins_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
-    def golden_func(inputs, config: dict):
-        params = config["params"]
-        x = inputs[0]
-        scalar_type = params.get("scalar_type")
-        if scalar_type is None:
-            raise ValueError(
-                "Pleast give the `scalar_type` field in your csv/xlsx file !"
-            )
-        scalar = get_dtype_by_name(scalar_type)(params["scalar"])
-        y = np.where(x > scalar, scalar, x)
-        return [y]
-
-    logging.debug("Case(%s), Golden creating...", case_name)
-    return gen_op_golden("MinS", golden_func, output, case_index)
 
 
 @GoldenRegister.reg_golden_func(
