@@ -37,7 +37,6 @@ target_include_directories(tile_fwk_runtime
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/runtime>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/profiling>>
         PRIVATE
-            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
             ${PTO_FWK_SRC_ROOT}/framework/src/cost_model
 )
 target_compile_definitions(tile_fwk_runtime
@@ -76,5 +75,6 @@ if ((BUILD_WITH_CANN) AND (NOT PRODUCT_SIDE STREQUAL "device"))
                 ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}/kernel/kernel_host.o
     )
 endif ()
+
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_runtime)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_runtime)

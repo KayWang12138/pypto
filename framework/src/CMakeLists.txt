@@ -20,7 +20,7 @@ add_subdirectory(machine)
 
 if (NOT ENABLE_FEATURE_PYTHON_FRONT_END)
     add_subdirectory(cost_model)
-    if (BUILD_WITH_CANN)
+    if (NOT BUILD_OPEN_PROJECT)
         add_subdirectory(execute)
     endif()
 endif ()

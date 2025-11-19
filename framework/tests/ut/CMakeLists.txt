@@ -17,8 +17,10 @@ if (ENABLE_UTEST)
 
     if (BUILD_WITH_CANN)
         add_subdirectory(machine)
-        add_subdirectory(execute)
         add_subdirectory(codegen)
+    endif ()
+    if (NOT BUILD_OPEN_PROJECT)
+        add_subdirectory(execute)
     endif ()
 
     execute_process(
