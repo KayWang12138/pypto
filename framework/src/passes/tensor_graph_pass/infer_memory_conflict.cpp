@@ -68,9 +68,17 @@ bool InferMemoryConflict::CheckRawShapeConflict(const LogicalTensorPtr &inTensor
     Shape inShape = inTensor->GetRawTensor()->GetRawShape();
     Shape outShape = outTensor->GetRawTensor()->GetRawShape();
     for (size_t i = 0; i < inShape.size(); ++i) {
+        if (inShape[i] < 0) {
+            APASS_LOG_DEBUG_F(Elements::Operation, "inShape[%d] = %d, dynamic shape should trigger conflict", i, inShape[i]);
+            return true;
+        }
         inRawSize *= inShape[i];
     }
     for (size_t i = 0; i < outShape.size(); ++i) {
+        if (outShape[i] < 0) {
+            APASS_LOG_DEBUG_F(Elements::Operation, "outShape[%d] = %d, dynamic shape should trigger conflict", i, outShape[i]);
+            return true;
+        }
         outRawSize *= outShape[i];
     }
     if (inRawSize > 0 && outRawSize > 0 && inRawSize != outRawSize) {
@@ -111,9 +119,14 @@ bool InferMemoryConflict::IsValidTileShape(const Operation &op) const {
 
 Status InferMemoryConflict::UpdateForwardTensor(Function &function, const LogicalTensorPtr &curTensor, Operation* consumer, std::queue<LogicalTensorPtr> &curTensors) {
     for (auto &outputTensor : consumer->GetOOperands()) {
-        if (consumer->GetOpcode() == Opcode::OP_RESHAPE && CheckRawShapeConflict(memoryInfo[curTensor], outputTensor)) {
-            preregcopys.insert(consumer);
-        } else if (memoryInfo.find(outputTensor) != memoryInfo.end() && function.IsFromOutCast(memoryInfo[outputTensor])) {
+        if (consumer->GetOpcode() == Opcode::OP_RESHAPE) {
+            bool isInplace = consumer->GetBoolAttribute(OP_ATTR_PREFIX + "isInplace");
+            if (!isInplace && CheckRawShapeConflict(memoryInfo[curTensor], outputTensor)) {
+                preregcopys.insert(consumer);
+                continue;
+            }
+        }
+        if (memoryInfo.find(outputTensor) != memoryInfo.end() && function.IsFromOutCast(memoryInfo[outputTensor])) {
             if (CheckConflict(memoryInfo[curTensor], memoryInfo[outputTensor])) {
                 preregcopys.insert(consumer);
             }
@@ -136,9 +149,14 @@ Status InferMemoryConflict::UpdateBackwardTensor(const LogicalTensorPtr &curTens
         if (producer->GetOpcode() == Opcode::OP_INDEX_OUTCAST && producer->GetIOperandIndex(inputTensor) != index) {
             continue;
         }
-        if (producer->GetOpcode() == Opcode::OP_RESHAPE && CheckRawShapeConflict(inputTensor, memoryInfo[curTensor])) {
-            postregcopys.insert(producer);
-        } else if (memoryInfo.find(inputTensor) != memoryInfo.end()) {
+        if (producer->GetOpcode() == Opcode::OP_RESHAPE) {
+            bool isInplace = producer->GetBoolAttribute(OP_ATTR_PREFIX + "isInplace");
+            if (!isInplace && CheckRawShapeConflict(inputTensor, memoryInfo[curTensor])) {
+                postregcopys.insert(producer);
+                continue;
+            }
+        }
+        if (memoryInfo.find(inputTensor) != memoryInfo.end()) {
             if (CheckConflict(memoryInfo[curTensor], memoryInfo[inputTensor])) {
                 if (producer->GetOpcode() == Opcode::OP_RESHAPE) {
                     postregcopys.insert(producer);
@@ -277,7 +295,7 @@ Status InferMemoryConflict::ObtainReshapeTile(Operation *op, Shape &inTileShape,
         DerivationTileShape derivationTileShapePass;
         if (derivationTileShapePass.DerivationReshapeTileShape(op, inShape, outShape, inTileShape, outTileShape) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "DerivationReshapeTileShape failed.");
-            // 失败时返回空的tileshape，由InferTileShape
+            // 失败时返回空的tileshape，由InferTileShape自动推导
             return SUCCESS;
         }
     }
