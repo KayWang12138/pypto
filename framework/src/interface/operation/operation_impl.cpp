@@ -853,6 +853,84 @@ Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std
     op.SetOpAttribute(std::make_shared<ViewOpAttribute>(offsets, newOffsets, validShape));
     return result;
 }
+bool isInteger(float num) {
+    const float epsilon = 1e-6f;
+    double intPart;
+    double fracPart = std::modf(num, &intPart);
+    return std::abs(fracPart) < epsilon || std::abs(1 - std::abs(fracPart)) < epsilon;
+}
+ 
+void FactorCheck(const Tensor &operand, const float factor) {
+    ASSERT(factor > 0) << "factor must > 0";
+    if(factor > 1) {
+        ASSERT(isInteger(factor)) << "factor must be int";
+    }
+    else if(factor < 1) {
+        auto lastDim = operand.GetShape()[operand.GetShape().size() - 1];
+        ASSERT(isInteger(lastDim * factor)) << "lastDim * factor must be int,  lastDim = " << lastDim << ", factor = " << factor;
+    }
+}
+ 
+// viewtype op
+Tensor View(const Tensor &operand, const DataType dstDataType) {
+    DECLARE_TRACER();
+    auto originDType = operand.GetStorage()->Datatype();
+    float factor = (float)BytesOf(originDType) / (float)BytesOf(dstDataType); //factor就代表了目标tensor尾部维度要扩展的倍数
+    FactorCheck(operand, factor);
+ 
+    auto dstShape = operand.GetShape();
+    dstShape[dstShape.size() - 1] = int(dstShape[dstShape.size() - 1] * factor);
+    
+    auto validShape = operand.GetStorage()->GetDynValidShape();
+    auto changedDim = int(int(validShape[validShape.size() - 1]) * factor);
+    validShape[validShape.size() - 1] = SymbolicScalar(changedDim);
+ 
+    Tensor result(dstDataType, dstShape, "ViewType_" + operand.GetStorage()->GetRawTensor()->GetSymbol(), operand.Format());
+    result.GetStorage()->UpdateDynValidShape(validShape);
+ 
+    Program::GetInstance().GetCurrentFunction()->AddOperation(
+        Opcode::OP_VIEW_TYPE, {operand.GetStorage()}, {result.GetStorage()});
+    return result;
+}
+ 
+void TiledViewTypeOperation(Function &function, const TileShape &tileShape, const int cur, Input &input, float factor,
+    const LogicalTensorPtr &result) {
+    if (cur == static_cast<int>(input.tensor.GetShape().size())) {
+        auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
+ 
+        auto outputShape = input.tileInfo.shape;
+        outputShape[outputShape.size()-1] = int(outputShape[outputShape.size()-1] * factor);
+        auto outputOffset = input.tileInfo.offset;
+        outputOffset[outputOffset.size()-1] = int(outputOffset[outputOffset.size()-1] * factor);
+ 
+        auto resultTile = result->View(function, outputShape, outputOffset);
+        function.AddOperation(Opcode::OP_VIEW_TYPE, {tile}, {resultTile});
+        return;
+    }
+    auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
+        input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
+        input.tileInfo.offset[cur] = i;
+        TiledViewTypeOperation(function, tileShape, cur + 1, input, factor, result);
+    }
+}
+ 
+void TiledViewTypeOperation(Function &function, const TileShape &tileShape,
+    const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
+    assert(operand->shape.size() == operand->offset.size());
+ 
+    TileInfo operandTileInfo(operand->shape.size(), operand->offset.size());
+    auto input = Input{operand, operandTileInfo};
+ 
+    float factor = (float)BytesOf(operand->tensor->datatype) / (float)BytesOf(result->tensor->datatype);
+    // 检查TileShape是否符合要求
+    if(factor < 1){
+        auto vecTile = tileShape.GetVecTile();
+        auto lastDim = vecTile[vecTile.size() - 1];
+        ASSERT(isInteger(lastDim * factor)) << "TileShape lastDim * factor must be int";
+    }
+    TiledViewTypeOperation(function, tileShape, 0, input, factor, result);
+}
 
 Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<SymbolicScalar> &newOffsets,
     const void *lr) {

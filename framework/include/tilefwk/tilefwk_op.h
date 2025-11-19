@@ -94,6 +94,7 @@ void PrintIf(SymbolicScalar cond, Args... args) {
 void ToFile(const Tensor &operand, const std::string &fname, const std::vector<SymbolicScalar> &scalars = {}, SymbolicScalar cond = 1);
 
 Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<int64_t> &offsets);
+Tensor View(const Tensor &operand, const DataType dstDataType);
 Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<SymbolicScalar> &newOffsets);
 Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::initializer_list<SymbolicScalar> &newOffsets);
 Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes,

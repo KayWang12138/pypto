@@ -125,6 +125,7 @@ enum class Opcode {
     OP_RESHAPE_COPY_OUT,
     OP_ASSEMBLE,
     OP_VIEW,
+    OP_VIEW_TYPE,
     // Move
     OP_INDEX_OUTCAST,
     OP_REGISTER_COPY,

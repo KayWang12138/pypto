@@ -183,6 +183,20 @@ void LogicalAndInferFunc(Operation* op,
 }
 REGISTER_INFER_SHAPE_FUNC(OP_LOGICALAND, Opcode::OP_LOGICALAND, LogicalAndInferFunc);
 
+void ViewTypeInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    auto inputOperand = op->GetIOperands()[0];
+    auto outputOperand = op->GetOOperands()[0];
+ 
+    auto validShape = inputOperand->GetDynValidShape();
+    float factor = (float)BytesOf(inputOperand->Datatype()) / (float)BytesOf(outputOperand->Datatype());
+ 
+    auto changedDim = int(int(validShape[validShape.size() - 1]) * factor);
+    validShape[validShape.size() - 1] = SymbolicScalar(changedDim);
+ 
+    outValidShapes.push_back(validShape);
+}
+REGISTER_INFER_SHAPE_FUNC(OP_VIEW_TYPE, Opcode::OP_VIEW_TYPE, ViewTypeInferFunc);
+
 void PairReduceInferFunc(Operation* op,
                         std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
     auto dimSize = op->GetIOperands()[0]->GetDynValidShape().size();
