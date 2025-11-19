@@ -1196,7 +1196,7 @@ void CodeGenOpCloudNPU::GetVarAndTypeParam(
         outputTmpDtypeStr, condDtypeStr};
 }
 
-CodeGenOpCloudNPU::WhereParam CodeGenOpCloudNPU::PrepareWhereParam() const {
+WhereParam CodeGenOpCloudNPU::PrepareWhereParam() const {
     std::vector<std::string> varExpr;
     std::vector<std::string> dataTypeExpr;
     GetVarAndTypeParam(varExpr, dataTypeExpr);
@@ -1243,7 +1243,7 @@ CodeGenOpCloudNPU::WhereParam CodeGenOpCloudNPU::PrepareWhereParam() const {
     for (int i = 0; i < SHAPE_DIM4; i++) {
         dynParamList.emplace_back(dynSrcShape[i].Dump());
     }
-    CodeGenOpCloudNPU::WhereParam param{templateList, paramList, dynParamList, varExpr, dataTypeExpr};
+    WhereParam param{templateList, paramList, dynParamList, varExpr, dataTypeExpr};
     return param;
 }
 
@@ -1338,7 +1338,7 @@ std::string CodeGenOpCloudNPU::printWhereOpTileTensor() const {
 }
 
 std::string CodeGenOpCloudNPU::GenWhereOp() const {
-    CodeGenOpCloudNPU::WhereParam param = PrepareWhereParam();
+    WhereParam param = PrepareWhereParam();
     if (isSupportLayout) {
         return printWhereOpTileTensor();
     }

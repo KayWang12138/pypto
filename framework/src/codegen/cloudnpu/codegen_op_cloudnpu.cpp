@@ -21,12 +21,223 @@
 #include "securec.h"
 
 namespace npu::tile_fwk {
+CodeGenOpCloudNPU::CodeGenOpCloudNPU(
+    SymbolManager &symbolManager, FunctionType funcType, const std::map<int, int> &locToOffset, bool isUnderDynamicFunc)
+    : CodeGenOp(symbolManager, funcType, locToOffset, isUnderDynamicFunc),
+      mteFixPipeOps_({
+          // UB <-> GM
+          {         Opcode::OP_UB_COPY_IN,          [this]() { return GenUBCopyIn(); }},
+          {        Opcode::OP_UB_COPY_OUT,         [this]() { return GenUBCopyOut(); }},
+          {    Opcode::OP_RESHAPE_COPY_IN,     [this]() { return GenReshapeCopyIn(); }},
+          {   Opcode::OP_RESHAPE_COPY_OUT,    [this]() { return GenReshapeCopyOut(); }},
+          {Opcode::OP_L1_TO_FIX_QUANT_PRE,         [this]() { return GenMemL1ToFB(); }},
+          {       Opcode::OP_GATHER_IN_UB,        [this]() { return GenGatherInUB(); }},
+
+          // L1 <-> GM/BT/L1
+          {         Opcode::OP_L1_COPY_IN,       [this]() { return GenMemL1CopyIn(); }},
+          {        Opcode::OP_L1_COPY_OUT,      [this]() { return GenMemL1CopyOut(); }},
+          {       Opcode::OP_GATHER_IN_L1,        [this]() { return GenGatherInL1(); }},
+
+          // L0C <-> GM
+          {       Opcode::OP_L0C_COPY_OUT,     [this]() { return GenMemL0CCopyOut(); }},
+
+          {          Opcode::OP_L0C_TO_L1,        [this]() { return GenMemL0CToL1(); }},
+
+          // L1 <-> L0
+          {          Opcode::OP_L1_TO_L0A,         [this]() { return GenMemL1ToL0(); }},
+          {          Opcode::OP_L1_TO_L0B,         [this]() { return GenMemL1ToL0(); }},
+          {        Opcode::OP_L1_TO_L0_BT,         [this]() { return GenMemL1ToL0(); }},
+          {        Opcode::OP_L1_TO_L0_AT,         [this]() { return GenMemL1ToL0(); }},
+          {           Opcode::OP_L1_TO_BT,         [this]() { return GenMemL1ToBt(); }},
+
+          // load op
+          {               Opcode::OP_LOAD,            [this]() { return GenLoadOp(); }},
+
+          // transpose with gm
+          {  Opcode::OP_TRANSPOSE_MOVEOUT, [this]() { return GenTransposeDataMove(); }},
+          {   Opcode::OP_TRANSPOSE_MOVEIN, [this]() { return GenTransposeDataMove(); }},
+
+          // index outcast
+          {      Opcode::OP_INDEX_OUTCAST,    [this]() { return GenIndexOutCastOp(); }},
+}),
+      unaryOps_({
+          // cast op
+          {Opcode::OP_CAST, [this]() { return GenCastOp(); }},
+
+          // unary op
+          {Opcode::OP_EXP, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_NEG, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_RSQRT, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_SQRT, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_EXPAND, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_ONEHOT, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_RECIPROCAL, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_ROWSUM, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_ROWMAX, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_ROWEXPSUM, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_ROWEXPMAX, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_COPY_UB_TO_UB, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_ROWSUMLINE, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_ROWMAXLINE, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_ROWMINLINE, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_ABS, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_LN, [this]() { return GenUnaryOp(); }},
+
+          // unary with temp buffer
+          {Opcode::OP_COMPACT, [this]() { return GenUnaryOpWithTmpBuff(); }},
+          {Opcode::OP_ROWSUM_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
+          {Opcode::OP_ROWMAX_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
+          {Opcode::OP_ROWMIN_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
+          {Opcode::OP_TRANSPOSE_VNCHWCONV, [this]() { return GenUnaryOpWithTmpBuff(); }},
+          {Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
+          {Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
+      }),
+      binaryOps_({
+          // binary op: vector operations
+          {Opcode::OP_ADD, [this]() { return GenBinaryOp(); }},
+          {Opcode::OP_SUB, [this]() { return GenBinaryOp(); }},
+          {Opcode::OP_MUL, [this]() { return GenBinaryOp(); }},
+          {Opcode::OP_DIV, [this]() { return GenBinaryOp(); }},
+          {Opcode::OP_MAXIMUM, [this]() { return GenBinaryOp(); }},
+          {Opcode::OP_MINIMUM, [this]() { return GenBinaryOp(); }},
+          {Opcode::OP_PAIRSUM, [this]() { return GenBinaryOp(); }},
+          {Opcode::OP_PAIRMAX, [this]() { return GenBinaryOp(); }},
+          {Opcode::OP_PAIRMIN, [this]() { return GenBinaryOp(); }},
+
+          // binary op: broadcast associated vector
+          {Opcode::OP_ADD_BRC, [this]() { return GenBinaryWithBrc(); }},
+          {Opcode::OP_SUB_BRC, [this]() { return GenBinaryWithBrc(); }},
+          {Opcode::OP_MUL_BRC, [this]() { return GenBinaryWithBrc(); }},
+          {Opcode::OP_DIV_BRC, [this]() { return GenBinaryWithBrc(); }},
+          {Opcode::OP_MAX_BRC, [this]() { return GenBinaryWithBrc(); }},
+          {Opcode::OP_MIN_BRC, [this]() { return GenBinaryWithBrc(); }},
+
+          // binary op: vector scalar
+          {Opcode::OP_ADDS, [this]() { return GenVectorScalarOp(); }},
+          {Opcode::OP_SUBS, [this]() { return GenVectorScalarOp(); }},
+          {Opcode::OP_MULS, [this]() { return GenVectorScalarOp(); }},
+          {Opcode::OP_DIVS, [this]() { return GenVectorScalarOp(); }},
+          {Opcode::OP_MAXS, [this]() { return GenVectorScalarOp(); }},
+          {Opcode::OP_MINS, [this]() { return GenVectorScalarOp(); }},
+
+          // binary op: vector scalar, scalar mode
+          {Opcode::OP_S_ADDS, [this]() { return GenVectorScalarOpScalarMode(); }},
+          {Opcode::OP_S_SUBS, [this]() { return GenVectorScalarOpScalarMode(); }},
+          {Opcode::OP_S_MULS, [this]() { return GenVectorScalarOpScalarMode(); }},
+          {Opcode::OP_S_DIVS, [this]() { return GenVectorScalarOpScalarMode(); }},
+          {Opcode::OP_S_MAXS, [this]() { return GenVectorScalarOpScalarMode(); }},
+          {Opcode::OP_S_MINS, [this]() { return GenVectorScalarOpScalarMode(); }},
+      }),
+      compositeOps_({
+          // range op
+          {Opcode::OP_RANGE, [this]() { return GenRangeOp(); }},
+
+          // logicalnot
+          {Opcode::OP_LOGICALNOT, [this]() { return GenLogicalNotOp(); }},
+          // logicaland
+          {Opcode::OP_LOGICALAND, [this]() { return GenLogicalAndOp(); }},
+
+          // indexadd
+          {Opcode::OP_INDEX_ADD, [this]() { return GenIndexAddOp(); }},
+
+          // vector where
+          {Opcode::OP_WHERE_SS, [this]() { return GenWhereOp(); }},
+          {Opcode::OP_WHERE_TS, [this]() { return GenWhereOp(); }},
+          {Opcode::OP_WHERE_ST, [this]() { return GenWhereOp(); }},
+          {Opcode::OP_WHERE_TT, [this]() { return GenWhereOp(); }},
+
+          // max pool
+          {Opcode::OP_MAX_POOL, [this]() { return GenPoolOp(); }},
+
+          // fused pool
+          {Opcode::OP_FUSED_OP, [this]() { return GenFusedOp(); }},
+
+          // cmp op
+          {Opcode::OP_CMP, [this]() { return GenCmpOp(); }},
+      }),
+      sortOps_({
+          // sort
+          {Opcode::OP_BITSORT, [this]() { return GenBitSortOp(); }},
+          {Opcode::OP_MRGSORT, [this]() { return GenMrgSortOp(); }},
+          {Opcode::OP_EXTRACT, [this]() { return GenExtractOp(); }},
+          {Opcode::OP_TILEDMRGSORT, [this]() { return GenTiledMrgSortOp(); }},
+
+          {Opcode::OP_TOPK_SORT, [this]() { return GenTopKSortOp(); }},
+          {Opcode::OP_TOPK_MERGE, [this]() { return GenTopKMergeOp(); }},
+          {Opcode::OP_TOPK_EXTRACT, [this]() { return GenTopKExtractOp(); }},
+
+          // parallel sort
+          {Opcode::OP_SORT, [this]() { return GenSortOp(); }},
+          {Opcode::OP_COMPARE_SWAP, [this]() { return GenCompareAndSwapOp(); }},
+          {Opcode::OP_MERGE, [this]() { return GenMergeOp(); }},
+      }),
+      cubeOps_({
+          // matmul
+          {Opcode::OP_A_MUL_B, [this]() { return GenCubeOpMatmul(); }},
+          {Opcode::OP_A_MUL_BT, [this]() { return GenCubeOpMatmul(); }},
+          {Opcode::OP_A_MULACC_B, [this]() { return GenCubeOpMatmulAcc(); }},
+          {Opcode::OP_A_MULACC_BT, [this]() { return GenCubeOpMatmulAcc(); }},
+      }),
+      syncOps_({
+          // sync
+          {Opcode::OP_SYNC_SRC, [this]() { return GenSyncSetOp(); }},
+          {Opcode::OP_SYNC_DST, [this]() { return GenSyncWaitOp(); }},
+          {Opcode::OP_BAR_V, [this]() { return GenBarrier(); }},
+          {Opcode::OP_BAR_M, [this]() { return GenBarrier(); }},
+          {Opcode::OP_BAR_ALL, [this]() { return GenBarrier(); }},
+      }),
+      distributeOps_({
+          // distribute op
+          {Opcode::OP_WRITE_REMOTE, [this]() { return GenDistOp(); }},
+          {Opcode::OP_REMOTE_REDUCE, [this]() { return GenDistOp(); }},
+          {Opcode::OP_REMOTE_GATHER, [this]() { return GenDistOp(); }},
+          {Opcode::OP_LOCAL_COPY_OUT, [this]() { return GenDistOp(); }},
+          {Opcode::OP_MOE_FFN_TO_ATTN, [this]() { return GenDistOp(); }},
+          {Opcode::OP_MOE_ATTN_COMBINE, [this]() { return GenDistOp(); }},
+          {Opcode::OP_FFN_SCHED, [this]() { return GenDistOp(); }},
+          {Opcode::OP_FFN_BATCHING, [this]() { return GenDistOp(); }},
+          {Opcode::OP_SEND_TO_ROUTING_EXPERT, [this]() { return GenDistOp(); }},
+          {Opcode::OP_SEND_TO_SHARED_EXPERT, [this]() { return GenDistOp(); }},
+          {Opcode::OP_DISPATCH_SET_FLAG, [this]() { return GenDistOp(); }},
+          {Opcode::OP_COPY_TO_LOCAL_EXPERT, [this]() { return GenDistOp(); }},
+          {Opcode::OP_SHMEM_CLEAR_SIGNAL, [this]() { return GenDistOp(); }},
+          {Opcode::OP_SHMEM_PUT, [this]() { return GenDistOp(); }},
+          {Opcode::OP_SHMEM_PUT_UB2GM, [this]() { return GenDistOp(); }},
+          {Opcode::OP_SHMEM_SIGNAL, [this]() { return GenDistOp(); }},
+          {Opcode::OP_SHMEM_GET, [this]() { return GenDistOp(); }},
+          {Opcode::OP_SHMEM_GET_GM2UB, [this]() { return GenDistOp(); }},
+          {Opcode::OP_SHMEM_REDUCE, [this]() { return GenDistOp(); }},
+      }),
+      gatherScatterOps_({
+          // gather/scatter op
+          {Opcode::OP_GATHER, [this]() { return GenGatherOp(); }},
+          {Opcode::OP_GATHER_ELEMENT, [this]() { return GenGatherElementOp(); }},
+          {Opcode::OP_SCATTER_ELEMENT, [this]() { return GenScatterElementSOp(); }},
+      }),
+      normalVecOps_({
+          // vector dup
+          {Opcode::OP_VEC_DUP, [this]() { return GenDupOp(); }},
+      }),
+      perfOps_({
+          // for performace optimization
+          {Opcode::OP_PHASE1, []() { return "SUBKERNEL_PHASE1\n"; }},
+          {Opcode::OP_PHASE2, []() { return "SUBKERNEL_PHASE2\n"; }},
+      }),
+      aicpuOps_({
+          // for aicpu call
+          {Opcode::OP_AICPU_CALL_AIC, [this]() { return GenAicpuCallOp(); }},
+          {Opcode::OP_AICPU_CALL_AIV, [this]() { return GenAicpuCallOp(); }},
+      }) {
+    InitOpsGenMap();
+};
 void CodeGenOpCloudNPU::InitOpsGenMap() {
     InitScalaOpsMap();
     InitMTEOpsMap();
     InitVecOpsMap();
     InitCubeOpsMap();
     InitDistOpsMap();
+    InitPerfOpsMap();
+    InitAICPUOpsMap();
 }
 
 void CodeGenOpCloudNPU::InitScalaOpsMap() {
@@ -52,6 +263,14 @@ void CodeGenOpCloudNPU::InitCubeOpsMap() {
 
 void CodeGenOpCloudNPU::InitDistOpsMap() {
     opsGenMap_.insert(distributeOps_.cbegin(), distributeOps_.cend());
+}
+
+void CodeGenOpCloudNPU::InitPerfOpsMap() {
+    opsGenMap_.insert(perfOps_.cbegin(), perfOps_.cend());
+}
+
+void CodeGenOpCloudNPU::InitAICPUOpsMap() {
+    opsGenMap_.insert(aicpuOps_.cbegin(), aicpuOps_.cend());
 }
 
 void CodeGenOpCloudNPU::AppendLocalBufferVarOffset(const std::vector<std::string *> &vars) const {

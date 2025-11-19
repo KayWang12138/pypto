@@ -35,9 +35,9 @@ bool CodeGenOpCloudNPU::GetAttr(const std::string &key, T &value) const {
     return false;
 }
 
-CodeGenOpCloudNPU::DynamicParamPackMTE CodeGenOpCloudNPU::PrepareDynamicShapeInfoForMTE(
+DynamicParamPackMTE CodeGenOpCloudNPU::PrepareDynamicShapeInfoForMTE(
     int dynShapeIdx, int shapeDim, bool isGmSpill) const {
-    CodeGenOpCloudNPU::DynamicParamPackMTE pack;
+    DynamicParamPackMTE pack;
     int dim = static_cast<int>(rawShape[dynShapeIdx].size());
     if (isGmSpill) {
         for (auto s : shape[dynShapeIdx]) {
@@ -1195,7 +1195,7 @@ std::string CodeGenOpCloudNPU::GenGatherInUB() const {
     paramList.emplace_back(paramGMStride[1]);
     paramList.emplace_back(paramStartOffsets[0]);
     paramList.emplace_back(paramStartOffsets[1]);
-    
+
     paramList.emplace_back("1");
     paramList.emplace_back(SymbolicExpressionTable::BuildExpression(outputValidShapes[0]));
     auto indicesGMStride = GenParamIdxExprByIndex(1, 2, PREFIX_STR_RAW_SHAPE);
@@ -1204,7 +1204,7 @@ std::string CodeGenOpCloudNPU::GenGatherInUB() const {
     paramList.emplace_back(indicesGMStride[1]);
     paramList.emplace_back(indicesStartOffsets[0]);
     paramList.emplace_back(indicesStartOffsets[1]);
-    
+
     std::string tiloOpCallParam = JoinString(paramList, ", ");
     paramList.clear();
     os << tileOpName.c_str() << "<" << templateParam << ">"
