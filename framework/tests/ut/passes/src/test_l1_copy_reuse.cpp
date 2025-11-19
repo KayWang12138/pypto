@@ -22,6 +22,7 @@
 #include <fstream>
 #include <vector>
 #include <string>
+#include <nlohmann/json.hpp>
 #include "computational_graph_builder.h"
 #include "passes/tile_graph_pass/graph_partition/l1_copy_reuse.h"
 
@@ -273,6 +274,63 @@ TEST_F(L1CopyInReuseTest, TestInvalidL1Map) {
     EXPECT_EQ(LCRM.RunOnFunction(*function), SUCCESS);
     function->paramConfigs_.l1ReuseMap = {{0, -3}};
     EXPECT_EQ(LCRM.RunOnFunction(*function), FAILED);
+}
+
+// 健康检查用例:静态图和非静态图
+TEST_F(L1CopyInReuseTest, TestHealthReport) {
+    ComputationalGraphBuilder G;
+    std::vector<int64_t> tileShape{16, 16};
+    const int cube_nbuffer_num = 4;
+    const int l1_reuse_num = 2;
+    const int sg_cube_parallel_num = 4;
+    const int result = 5;
+    const int subGraphNum = 20;
+    InitGraphBuilder(G, tileShape, subGraphNum);
+    EXPECT_EQ(G.SetInCast({"incast0"}), true);
+    EXPECT_EQ(G.SetOutCast({"outcast"}), true);
+
+    Function *function = G.GetFunction();
+    function->paramConfigs_.cubeNBufferNum = cube_nbuffer_num;
+    function->paramConfigs_.cubeNBufferMap = {{1, 2}};
+    function->paramConfigs_.l1ReuseNum = l1_reuse_num;
+    function->paramConfigs_.l1ReuseMap = {{1, 2}};
+    function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;
+    function->SetTotalSubGraphCount(subGraphNum);
+
+    L1CopyInReuseMerge LCRM;
+    EXPECT_EQ(LCRM.RunOnFunction(*function), SUCCESS);
+    EXPECT_EQ(function->GetTotalSubGraphCount(), result);
+
+    nlohmann::json report;
+    const int maxFaninOpsResult = 23;
+    const int maxFanoutOpsResult = 2;
+    const int totalOpCount = 24;
+    const int peakMemoryUsage = 512;
+    const int copyDataCount = 1280;
+    // 计算operation节点信息
+    CalcOperatorInfo(*function, report);
+    EXPECT_EQ(report["totalOpCount"], totalOpCount);
+    EXPECT_EQ(report["peakMemory"]["peakMemoryUsage"], peakMemoryUsage);
+    EXPECT_EQ(report["copyDataCount"], copyDataCount);
+
+    // 构建operation节点图
+    std::vector<std::vector<int>> inMap; // magic到magic的映射，in - parent, out - child
+    std::vector<std::vector<int>> outMap;
+    std::vector<bool> actualMagic;
+    GetOpConnectionMap(*function, inMap, outMap, actualMagic);
+
+    // 计算图信息
+    CalcGraphMetrics(inMap, outMap, actualMagic, report);
+    EXPECT_EQ(report["maxFaninOps"].size(), maxFaninOpsResult);
+    EXPECT_EQ(report["maxFanoutOps"].size(), maxFanoutOpsResult);
+
+    // 计算operation节点信息，静态图下部分字段不计算
+    nlohmann::json reportNull;
+    function->SetFunctionType(FunctionType::DYNAMIC);
+    EXPECT_EQ(LCRM.RunOnFunction(*function), SUCCESS);
+    CalcOperatorInfo(*function, reportNull);
+    EXPECT_EQ(reportNull["peakMemory"], nullptr);
+    EXPECT_EQ(reportNull["copyDataCount"], nullptr);
 }
 }
 }

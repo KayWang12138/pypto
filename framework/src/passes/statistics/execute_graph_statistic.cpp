@@ -25,6 +25,8 @@
 using json = nlohmann::json;
 
 namespace npu::tile_fwk {
+
+constexpr float decimal = 10000.f; // 保留四位小数
 // 基础分析能力
 PathResult ExecutionGraphStatistic::FindLongestPath(Function& func) {
     PathResult result;
@@ -224,8 +226,6 @@ json ExecutionGraphStatistic::AnalyzeExecutionGraph(Function & func, const std::
         return report;
     }
 
-    std::vector<int> peakMemoryUsageSubgraphs;
-    auto peakMemoryUsage = AnalyzePeakMemoryUsage(rootFunc, peakMemoryUsageSubgraphs);
     auto coreTypeCounts = CountCoreTypes(rootFunc);
     uint64_t maxLatency;
     uint64_t minLatency;
@@ -241,8 +241,6 @@ json ExecutionGraphStatistic::AnalyzeExecutionGraph(Function & func, const std::
         {"avgSubgraphCycle", totalSubgraphNum > 0 ? totalLatency / totalSubgraphNum : 0},
         {"maxCycleSubgraphs", maxLatencySubgraphs},
         {"minCycleSubgraphs", minLatencySubgraphs},
-        {"peakMemoryUsage", peakMemoryUsage},
-        {"peakMemoryUsageSubgraphs", peakMemoryUsageSubgraphs},
         {"aivSubgraphCount", coreTypeCounts[CoreType::AIV]},
         {"aicSubgraphCount", coreTypeCounts[CoreType::AIC]},
         {"aicpuSubgraphCount", coreTypeCounts[CoreType::AICPU]},
@@ -252,13 +250,16 @@ json ExecutionGraphStatistic::AnalyzeExecutionGraph(Function & func, const std::
         {"mixSubgraphCount", coreTypeCounts[CoreType::MIX]}
     };
 
-    // 只在静态流程中添加拓扑相关指标
+    // 只在静态流程中添加拓扑相关指标和内存使用指标
     if (func.GetFunctionType() == FunctionType::STATIC) {
         auto dependencies = AnalyzeGraphDependencies(func);
         auto longestPath = FindLongestPath(func);
         auto concurrencyStats = CalculateConcurrency(func);
-        
+        std::vector<int> peakMemoryUsageSubgraphs;
+        auto peakMemoryUsage = AnalyzePeakMemoryUsage(rootFunc, peakMemoryUsageSubgraphs);
         report.update({
+            {"peakMemoryUsage", peakMemoryUsage},
+            {"peakMemoryUsageSubgraphs", peakMemoryUsageSubgraphs},
             {"maxSubgraphDepth", longestPath.maxLength},
             {"maxSubgraphWidth", concurrencyStats.maxConcurrency},
             {"maxSubgraphFanin", dependencies["Predecessors"]["MAX"]["value"]},
@@ -350,6 +351,10 @@ json ExecutionGraphStatistic::FormatDependencyStats(const DependencyStats& stats
     };
 }
 
+double ExecutionGraphStatistic::FormatUsageRate(double value) {
+    return std::round(value * decimal) / decimal;
+}
+
 // 基于psgToESgMap的同构性分析
 void ExecutionGraphStatistic::AnalyzeIsomorphism(
     json& report,
@@ -363,9 +368,8 @@ void ExecutionGraphStatistic::AnalyzeIsomorphism(
 
     // 计算同构率
     double homogeneityRatio = subgraphGroups.empty() ? 0.0 : static_cast<double>(subgraphGroups.size()) / isomorphicGroups.size();
-
     report["uniqueSubgraphTypes"] = isomorphicGroups.size();
-    report["homogeneityRatio"] = homogeneityRatio;
+    report["homogeneityRatio"] = FormatUsageRate(homogeneityRatio);
     
     // 构建实例映射关系
     json instanceMapping = json::object();

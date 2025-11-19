@@ -51,6 +51,14 @@ void CalcOperatorInfo(Function &function, json &report) {
     MetricData memoryMetric;
 
     auto operationViewer = function.Operations();
+    report["totalOpCount"] = operationViewer.size();
+
+    // 非静态场景下 无法计算size 直接返回
+    if(function.GetFunctionType() != FunctionType::STATIC) {
+        ALOG_INFO_F("PeakMemory can't be calculated; because functiontype is not static, name %s, hash %lu.",
+                     function.GetMagicName().c_str(), function.GetFunctionHash().GetHash());
+        return;
+    }
     uint64_t totalCopySize = 0;
     for (size_t i = 0; i < operationViewer.size(); i++) {
         auto opCode = operationViewer[i].GetOpcode();
@@ -73,12 +81,10 @@ void CalcOperatorInfo(Function &function, json &report) {
     }
 
     // 写出memoryMetric和copyMetric
-    report["totalOpCount"] = operationViewer.size();
     report["peakMemory"] = {
         {"peakMemoryUsage", memoryMetric.GetMaxSize()},
         {"peakMemoryUsageOps", *memoryMetric.GetMaxNodes()}
     };
-
     report["copyDataCount"] = totalCopySize;
 }
 
@@ -153,10 +159,12 @@ void CalcGraphMetrics(const std::vector<std::vector<int>> &inMap, const std::vec
 
     // 计算每层节点层数，inDegree和outDegree
     for (size_t i = 0; i < inMap.size(); i++) {
-        inDegreeMetric.UpdateMetricData(static_cast<uint64_t>(inMap[i].size()), static_cast<int>(i));
-        outDegreeMetric.UpdateMetricData(static_cast<uint64_t>(outMap[i].size()), static_cast<int>(i));
-        if (actualVertex[i] && (inMap[i].size() == 0)) {
-            TraversePathUp(static_cast<int>(i), outMap, layerMap);
+        if (actualVertex[i]) {
+            inDegreeMetric.UpdateMetricData(static_cast<uint64_t>(inMap[i].size()), static_cast<int>(i));
+            outDegreeMetric.UpdateMetricData(static_cast<uint64_t>(outMap[i].size()), static_cast<int>(i));
+            if (inMap[i].size() == 0) {
+                TraversePathUp(static_cast<int>(i), outMap, layerMap);
+            }
         }
     }
 

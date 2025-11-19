@@ -1157,6 +1157,12 @@ TEST_F(ScheduleOoOTest, TestBufferUsage) {
     };
     EXPECT_NE(ooOScheduler.oooCheck.bufferTotalUsage, invalidBufferTotalUsage);
     EXPECT_NE(ooOScheduler.oooCheck.bufferMaxUsage, invalidBufferMaxUsage);
+    
+    // 增加健康检查校验
+    ooOScheduler.oooCheck.clock = 3; // 模拟数据
+    res = ooOScheduler.oooCheck.HealthCheckOoOSchedule();
+    EXPECT_EQ(res, SUCCESS);
+    EXPECT_NE(ooOScheduler.oooCheck.report, nullptr);
 }
 
 TEST_F(ScheduleOoOTest, TestScheduleMainLoopRearrangeUB) {

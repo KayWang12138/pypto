@@ -28,6 +28,7 @@ class OoOSchedulerCheck {
 public:
     Status DoHealthCheck(Function *function, const std::string &fileName);
     void HealthCheckSpillInfo();
+    double FormatUsageRate(double value);
     Status HealthCheckOoOSchedule();
     void HealthCheckBlockGraph(Function *function);
     std::string jsonFileName;

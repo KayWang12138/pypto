@@ -16,6 +16,7 @@
 #include <gtest/gtest.h>
 #include <memory>
 #include <vector>
+#include <nlohmann/json.hpp>
 #include "interface/configs/config_manager.h"
 #include "computational_graph_builder.h"
 #include "tilefwk/data_type.h"
@@ -28,6 +29,7 @@
 #include "passes/tile_graph_pass/subgraph_to_function.h"
 #include "passes/tile_graph_pass/static_subgraph_processor.h"
 #include "passes/pass_mgr/pass_manager.h"
+#include "passes/statistics/execute_graph_statistic.h"
 #include "ut_json/ut_json_tool.h"
 
 namespace npu {
@@ -649,42 +651,36 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_2) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, false);
 }
 
-TEST_F(SubgraphToFunctionTest, TestBasicSubgraphConversion) {
-    ComputationalGraphBuilder G;
-
+/*
+* input -> view1(01) -> view1_out -/
+*                                  add(03) -> add_out -> abc(04) -> final_out
+* input -> View2(01) -> view2_out -/
+*/
+void InitGraphBuilder (ComputationalGraphBuilder &G, std::vector<int64_t> tileShape) {
     // 1. 定义张量和操作
-    std::vector<std::string> tensorNames = {
-        "input", "view1_out", "view2_out", "add_out", "final_out"
-    };
-
+    std::vector<std::string> tensorNames = {"input", "view1_out", "view2_out", "add_out", "final_out"};
     std::vector<Opcode> opCodes = {
-        Opcode::OP_VIEW,    // view1 (input -> view1_out)
-        Opcode::OP_VIEW,    // view2 (input -> view2_out)
-        Opcode::OP_ADD,     // add (view1_out + view2_out -> add_out)
-        Opcode::OP_ABS       // abs (add_out -> final_out)
+        Opcode::OP_VIEW, 
+        Opcode::OP_VIEW,
+        Opcode::OP_ADD,
+        Opcode::OP_ABS
     };
-
-    // 输入输出张量关系
     std::vector<std::vector<std::string>> ioperands = {
         {"input"},          // view1
         {"input"},          // view2 (确保与view1不同输出)
         {"view1_out", "view2_out"}, // add (两个不同输入)
         {"add_out"}         // abs
     };
-
     std::vector<std::vector<std::string>> ooperands = {
         {"view1_out"},
         {"view2_out"},
         {"add_out"},
         {"final_out"}
     };
-
-    std::vector<std::string> opNames = {
-        "view1", "view2", "add", "abs_final"
-    };
+    std::vector<std::string> opNames = {"view1", "view2", "add", "abs_final"};
 
     // 2. 添加张量和操作
-    EXPECT_TRUE(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames));
+    EXPECT_TRUE(G.AddTensors(DataType::DT_FP32, tileShape, tensorNames));
     EXPECT_TRUE(G.AddOps(opCodes, ioperands, ooperands, opNames, true));
 
     // 3. 设置内存类型和边界张量
@@ -703,8 +699,15 @@ TEST_F(SubgraphToFunctionTest, TestBasicSubgraphConversion) {
     for (const auto& opName : opNames) {
         G.GetOp(opName)->UpdateSubgraphID(0);
     }
+}
 
-    // 6. 获取Function并执行子图转换Pass
+TEST_F(SubgraphToFunctionTest, TestBasicSubgraphConversion) {
+    ComputationalGraphBuilder G;
+    std::vector<int64_t> tileShape{16, 16};
+    // 初始化
+    InitGraphBuilder(G, tileShape);
+
+    // 获取Function并执行子图转换Pass
     Function* function = G.GetFunction();
     ASSERT_NE(function, nullptr);
     function->SetTotalSubGraphCount(1);  // 总子图数=1
@@ -714,7 +717,7 @@ TEST_F(SubgraphToFunctionTest, TestBasicSubgraphConversion) {
     status = pass.PostCheck(*function);
     EXPECT_EQ(status, SUCCESS);
 
-    // 7. 验证结果
+    // 验证结果
     Function* rootFunc = function->rootFunc_;
     ASSERT_NE(rootFunc, nullptr);
     EXPECT_EQ(rootFunc->GetGraphType(), GraphType::EXECUTE_GRAPH);
@@ -1118,6 +1121,39 @@ TEST_F(SubgraphToFunctionTest, FullPassWithEmptySubgraph) {
         EXPECT_EQ(esg_info.GetOutcastTensorParamList().size(), psg_param.outCastArgs_.size());
         EXPECT_EQ(esg_info.GetTensorParamList().size(), psg_param.tensorsArgs_.size());
     }
+}
+
+TEST_F(SubgraphToFunctionTest, TestHealthReport) {
+    ComputationalGraphBuilder G;
+    std::vector<int64_t> tileShape{16, 16};
+    // 初始化
+    InitGraphBuilder(G, tileShape);
+
+    // 获取Function并执行子图转换Pass
+    Function* function = G.GetFunction();
+    ASSERT_NE(function, nullptr);
+    function->SetTotalSubGraphCount(1);  // 总子图数=1
+
+    SubgraphToFunction pass;
+    Status status = pass.RunOnFunction(*function);
+    EXPECT_EQ(status, SUCCESS);
+
+    const int result = 3072; // 16*16*4*3
+    
+    // 增加健康检查的校验
+    nlohmann::json report;
+    ExecutionGraphStatistic execAnalyzer;
+    report = execAnalyzer.AnalyzeExecutionGraph(*function, pass.psgToESgMap, pass.nLIST);
+    EXPECT_EQ(report["homogeneityRatio"], 1);
+    EXPECT_EQ(report["peakMemoryUsage"], result);
+    EXPECT_EQ(report["peakMemoryUsageSubgraphs"].size(), 1);
+
+    // 如果改为非静态图之后，部分字段无法计算
+    function->SetFunctionType(FunctionType::DYNAMIC);
+    report = execAnalyzer.AnalyzeExecutionGraph(*function, pass.psgToESgMap, pass.nLIST);
+    EXPECT_EQ(report["homogeneityRatio"], 1);
+    EXPECT_EQ(report["peakMemoryUsage"], nullptr);
+    EXPECT_EQ(report["peakMemoryUsageSubgraphs"], nullptr);
 }
 } // namespace tile_fwk
 } // namespace npu

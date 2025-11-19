@@ -72,6 +72,7 @@ private:
     json AnalyzeGraphDependencies(Function &func);
     void UpdateMinMaxStats(int count, int esgId, MinMaxStats &stats);
     json FormatDependencyStats(const DependencyStats &stats);
+    double FormatUsageRate(double value);
 };
 } // namespace npu::tile_fwk
 
