@@ -1,10 +1,11 @@
 /**
+ * This program is free software, you can redistribute it and/or modify it.
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+ * BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
@@ -85,7 +86,7 @@ class Float {
                 round-nearest-to-even :                 1111 0001 1010 1010
                 Hex half-ULP : 0x8000                   0xf1aa > 0x8000    Round up (add 1 to the upper 7 bits)
                 u16 : 0x3ed3     -> 0011 1110 1101 0011 = 0011 1110 1101 0010 + 1
-                
+
                 if 0xf1aa = X
                 X > Hex half-ULP : Round up (add 1 to the upper 7 bits)
                 X < Hex half-ULP : Round down (keep the original high 7 bits)
@@ -110,7 +111,7 @@ class Float {
             static_cast<uint32_t>(FloatExp::fp32ExpZero) + -static_cast<uint32_t>(FloatExp::expZero) + 1 + -fracBit) {
             /*  Smallest number:
              *      format: 0bS X...X 0...0 == 0bS 0...0 0...01
-             *                  (fp32)            (fp) 
+             *                  (fp32)            (fp)
              *      compute: 2 ^ (X - fp32ExpZero) = 2 ^ (-expZero + 1) * 2 ^ (-fracBit)
              *          ==>: X = fp32ExpZero + -expZero + 1 + -fracBit
              */
@@ -197,7 +198,7 @@ class Float {
             /*  Not a number:
              *      format: 0bS 1...1 X...X
              *      result: 0bS 1...1 X...X
-             */             
+             */
             exp32 = BitOf(static_cast<uint32_t>(FloatExp::fp32ExpBit));
             if (frac == 0) {
                 /* inf */
@@ -209,7 +210,7 @@ class Float {
         } else {
             /*  Normal:
              *      format: 0bS Y...Y Z...Z
-             *                        |<-fracBit  
+             *                        |<-fracBit
              *      result: 0bS E...E Z...Z0...0
              *                        |<-fp32FracBit
              */

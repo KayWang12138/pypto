@@ -1,10 +1,11 @@
 /**
+ * This program is free software, you can redistribute it and/or modify it.
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+ * BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
@@ -178,7 +179,7 @@ struct RawTensorData : public std::vector<uint8_t> {
     template <typename T>
     static std::shared_ptr<RawTensorData> CreateConstantTensorData(const Shape &shape, DataType dType, T value) {
         auto tensorData = std::make_shared<RawTensorData>(dType, shape);
- 
+
         T *data = reinterpret_cast<T *>(tensorData->data());
         ASSERT(sizeof(T) == tensorData->GetElementSize()) << "ConstantTensor's dtype and value's type don't match!";
         for (size_t i = 0; i < tensorData->nelem; i++) {
@@ -186,7 +187,7 @@ struct RawTensorData : public std::vector<uint8_t> {
         }
         return tensorData;
     }
- 
+
     template <typename T>
     static std::shared_ptr<RawTensorData> CreateTensorData(const Shape &shape, DataType dType, const std::vector<T> &values) {
         auto tensorData = std::make_shared<RawTensorData>(dType, shape);
@@ -194,7 +195,7 @@ struct RawTensorData : public std::vector<uint8_t> {
         StringUtils::DataCopy(data, tensorData->GetDataSize(), values.data(), values.size() * sizeof(T));
         return tensorData;
     }
-    
+
     static std::shared_ptr<RawTensorData> CreateTensor(DataType dtype, const std::vector<int64_t> &shape, uint8_t *data) {
         auto tensorData = std::make_shared<RawTensorData>(dtype, shape);
         StringUtils::DataCopy(tensorData->data(), tensorData->GetDataSize(), data, tensorData->GetDataSize());

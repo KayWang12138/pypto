@@ -1,10 +1,11 @@
 /**
+ * This program is free software, you can redistribute it and/or modify it.
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+ * BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
@@ -132,8 +133,8 @@ private:
         for (uint64_t i = 0; i < oldTopo->depNum; i++) {
             ALOG_DEBUG_F(" [TopoProcessor]batch depend topo id %lu ", oldTopo->depIds[i]);
         }
-        
-        // connect old topo with virtual subgraph topo 
+
+        // connect old topo with virtual subgraph topo
         for (uint64_t i =0; i < oldTopoVec.size(); i++) {
             oldTopo = oldTopoVec.at(i);
             oldTopo->depNum = 1;
@@ -244,7 +245,7 @@ private:
         const int index6 = 6;
         const int index7 = 7;
         const int shift = 8;
-        
+
         switch (len & index7) {
             case index7: {
                 h ^= (uint64_t(data2[index6]) << (shift * index6));
