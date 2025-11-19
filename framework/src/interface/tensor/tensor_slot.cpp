@@ -460,7 +460,7 @@ void TensorSlotManager::UpdateReshapeInplaceSlots(IncastOutcastLink& link) {
             for (std::vector<int> &slotsIdxIn : ioslot.incastSlot) {
                 for (auto &slotIdxIn : slotsIdxIn) {
                     if (slotIdxIn == slotIndexDict[slotIn]) {
-                        ALOG_ERROR_F("replace slot %d to %d \n", slotIdxIn, slotIndexDict[slotOut]);
+                        ALOG_DEBUG_F("replace slot %d to %d \n", slotIdxIn, slotIndexDict[slotOut]);
                         slotIdxIn = slotIndexDict[slotOut];
                     }
                 }
@@ -469,7 +469,7 @@ void TensorSlotManager::UpdateReshapeInplaceSlots(IncastOutcastLink& link) {
             for (std::vector<int> &slotsIdxOut : ioslot.outcastSlot) {
                 for (auto &slotIdxOut : slotsIdxOut) {
                     if (slotIdxOut == slotIndexDict[slotIn]){
-                        ALOG_ERROR_F("replace slot %d to %d \n", slotIdxOut, slotIndexDict[slotOut]);
+                        ALOG_DEBUG_F("replace slot %d to %d \n", slotIdxOut, slotIndexDict[slotOut]);
                         slotIdxOut = slotIndexDict[slotOut];
                     }
                 }
