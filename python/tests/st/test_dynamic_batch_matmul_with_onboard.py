@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 # coding: utf-8
+# This program is free software, you can redistribute it and/or modify it.
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This file is a part of the CANN Open Software.
-# Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+# Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
-# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
-# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+# BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
-
+"""
+"""
 import os
 from dataclasses import dataclass
 
@@ -148,7 +150,7 @@ def batch_matmul_split_m_util(tensor_a, tensor_b, tensor_c, input_config, m_idx)
                     valid_shape=[shape_a[0], (shape_a[1] - m_idx *
                     view_shape[1]).min(pto.symbolic_scalar(view_shape[1])), shape_a[2]])
 
-    dyn_b = pto.view(tensor_b, shape_b, [0, 0, 0], 
+    dyn_b = pto.view(tensor_b, shape_b, [0, 0, 0],
                     valid_shape=[shape_b[0], shape_b[1], shape_b[2]])
     res = pto.matmul(dyn_a, dyn_b, dtype, a_trans=input_config.a_trans, b_trans=input_config.b_trans,
                                             c_matrix_nz=input_config.c_format_nz)
@@ -181,7 +183,7 @@ def batch_matmul_split_n_utils(tensor_a, tensor_b, tensor_c, input_config, n_idx
     dtype = batch_matmul_convert_dtype(input_config.out_dtype)
     if input_config.a_format_nz or input_config.b_format_nz or input_config.c_format_nz:
         pto.set_matrix_size([input_config.ori_shape[1], input_config.ori_shape[2], input_config.ori_shape[3]])
-    dyn_a = pto.view(tensor_a, shape_a, [0, 0, 0], 
+    dyn_a = pto.view(tensor_a, shape_a, [0, 0, 0],
                      valid_shape=[shape_a[0], shape_a[1], shape_a[2]])
     if b_trans:
         dyn_b = pto.view(tensor_b, [shape_b[0], view_shape[2], shape_b[2]],
@@ -249,7 +251,7 @@ def batch_matmul_split_m_n_utils(tensor_a, tensor_b, tensor_c, input_config, m_i
         else:
             dyn_b = pto.view(tensor_b, [shape_b[0], view_shape[2], shape_b[2]],
             [0, n_idx * view_shape[1], 0],
-            valid_shape=[shape_b[0], (shape_b[1] - 
+            valid_shape=[shape_b[0], (shape_b[1] -
             n_idx * view_shape[2]).min(pto.symbolic_scalar(view_shape[2])), shape_b[2]])
 
         res = pto.matmul(dyn_a, dyn_b, dtype, a_trans=input_config.a_trans, b_trans=input_config.b_trans,

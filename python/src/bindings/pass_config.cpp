@@ -1,10 +1,11 @@
 /**
- * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+ * This program is free software, you can redistribute it and/or modify it.
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+ * BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
@@ -25,77 +26,77 @@ void bind_pass_const(py::module &m) {
 
 // config pass_global_configs.x parameters
 void bind_pass_global_config(py::module &m) {
-    m.def("GetPassGlobalConfig", [](const std::string &key, const bool &default_value) -> py::object { 
+    m.def("GetPassGlobalConfig", [](const std::string &key, const bool &default_value) -> py::object {
             return py::cast(config::GetPassGlobalConfig<bool>(key, default_value));
         }, py::arg("key"), py::arg("default_value"));
-    m.def("GetPassGlobalConfig", [](const std::string &key, const int64_t &default_value) -> py::object { 
+    m.def("GetPassGlobalConfig", [](const std::string &key, const int64_t &default_value) -> py::object {
             return py::cast(config::GetPassGlobalConfig<int64_t>(key, default_value));
         }, py::arg("key"), py::arg("default_value"));
-    m.def("GetPassGlobalConfig", [](const std::string &key, const std::string &default_value) -> py::object { 
+    m.def("GetPassGlobalConfig", [](const std::string &key, const std::string &default_value) -> py::object {
             return py::cast(config::GetPassGlobalConfig<std::string>(key, default_value));
         }, py::arg("key"), py::arg("default_value"));
-    
-    m.def("SetPassGlobalConfig", [](const std::string &key, const bool &value) { 
-            config::SetPassGlobalConfig<bool>(key, value); 
+
+    m.def("SetPassGlobalConfig", [](const std::string &key, const bool &value) {
+            config::SetPassGlobalConfig<bool>(key, value);
         }, py::arg("key"), py::arg("value"));
-    m.def("SetPassGlobalConfig", [](const std::string &key, const int64_t &value) { 
-            config::SetPassGlobalConfig<int64_t>(key, value); 
+    m.def("SetPassGlobalConfig", [](const std::string &key, const int64_t &value) {
+            config::SetPassGlobalConfig<int64_t>(key, value);
         }, py::arg("key"), py::arg("value"));
-    m.def("SetPassGlobalConfig", [](const std::string &key, const std::string &value) { 
-            config::SetPassGlobalConfig<std::string>(key, value); 
+    m.def("SetPassGlobalConfig", [](const std::string &key, const std::string &value) {
+            config::SetPassGlobalConfig<std::string>(key, value);
         }, py::arg("key"), py::arg("value"));
 }
 
 // config pass_global_configs.default_pass_configs.x parameters
 void bind_pass_default_config(py::module &m) {
-    m.def("GetPassDefaultConfig", [](const std::string &key, const bool &default_value) -> py::object { 
-            return py::cast(config::GetPassDefaultConfig<bool>(key, default_value)); 
+    m.def("GetPassDefaultConfig", [](const std::string &key, const bool &default_value) -> py::object {
+            return py::cast(config::GetPassDefaultConfig<bool>(key, default_value));
         }, py::arg("key"), py::arg("default_value"));
-    m.def("GetPassDefaultConfig", [](const std::string &key, const int64_t &default_value) -> py::object { 
-            return py::cast(config::GetPassDefaultConfig<int64_t>(key, default_value)); 
+    m.def("GetPassDefaultConfig", [](const std::string &key, const int64_t &default_value) -> py::object {
+            return py::cast(config::GetPassDefaultConfig<int64_t>(key, default_value));
         }, py::arg("key"), py::arg("default_value"));
-    m.def("GetPassDefaultConfig", [](const std::string &key, const std::string &default_value) -> py::object { 
-            return py::cast(config::GetPassDefaultConfig<std::string>(key, default_value)); 
+    m.def("GetPassDefaultConfig", [](const std::string &key, const std::string &default_value) -> py::object {
+            return py::cast(config::GetPassDefaultConfig<std::string>(key, default_value));
         }, py::arg("key"), py::arg("default_value"));
-    
-    m.def("SetPassDefaultConfig", [](const std::string &key, const bool &value) { 
-            config::SetPassDefaultConfig<bool>(key, value); 
+
+    m.def("SetPassDefaultConfig", [](const std::string &key, const bool &value) {
+            config::SetPassDefaultConfig<bool>(key, value);
         }, py::arg("key"), py::arg("value"));
-    m.def("SetPassDefaultConfig", [](const std::string &key, const int64_t &value) { 
-            config::SetPassDefaultConfig<int64_t>(key, value); 
+    m.def("SetPassDefaultConfig", [](const std::string &key, const int64_t &value) {
+            config::SetPassDefaultConfig<int64_t>(key, value);
         }, py::arg("key"), py::arg("value"));
-    m.def("SetPassDefaultConfig", [](const std::string &key, const std::string &value) { 
-            config::SetPassDefaultConfig<std::string>(key, value); 
+    m.def("SetPassDefaultConfig", [](const std::string &key, const std::string &value) {
+            config::SetPassDefaultConfig<std::string>(key, value);
         }, py::arg("key"), py::arg("value"));
 }
 
-// config strategies.x parameters 
+// config strategies.x parameters
 void bind_pass_config(py::module &m) {
-    m.def("GetPassConfig", 
-        [](const std::string &strategy, const std::string &identifier, const std::string &key, const bool &default_value) -> py::object { 
+    m.def("GetPassConfig",
+        [](const std::string &strategy, const std::string &identifier, const std::string &key, const bool &default_value) -> py::object {
             return py::cast(config::GetPassConfig<bool>(strategy, identifier, key, default_value));
         }, py::arg("strategy"), py::arg("identifier"), py::arg("key"), py::arg("default_value"));
-    m.def("GetPassConfig", 
-        [](const std::string &strategy, const std::string &identifier, const std::string &key, const int64_t &default_value) -> py::object { 
+    m.def("GetPassConfig",
+        [](const std::string &strategy, const std::string &identifier, const std::string &key, const int64_t &default_value) -> py::object {
             return py::cast(config::GetPassConfig<int64_t>(strategy, identifier, key, default_value));
-        }, py::arg("strategy"), py::arg("identifier"), py::arg("key"), py::arg("default_value")); 
-    m.def("GetPassConfig", 
-        [](const std::string &strategy, const std::string &identifier, const std::string &key, const std::string &default_value) -> py::object { 
+        }, py::arg("strategy"), py::arg("identifier"), py::arg("key"), py::arg("default_value"));
+    m.def("GetPassConfig",
+        [](const std::string &strategy, const std::string &identifier, const std::string &key, const std::string &default_value) -> py::object {
             return py::cast(config::GetPassConfig<std::string>(strategy, identifier, key, default_value));
         }, py::arg("strategy"), py::arg("identifier"), py::arg("key"), py::arg("default_value"));
 
-    m.def("SetPassConfig", 
-        [](const std::string &strategy, const std::string &identifier, const std::string &key, const bool &value) { 
+    m.def("SetPassConfig",
+        [](const std::string &strategy, const std::string &identifier, const std::string &key, const bool &value) {
             config::SetPassConfig<bool>(strategy, identifier, key, value);
-        }, py::arg("strategy"), py::arg("identifier"), py::arg("key"), py::arg("value"));  
-    m.def("SetPassConfig", 
-        [](const std::string &strategy, const std::string &identifier, const std::string &key, const int64_t &value) { 
+        }, py::arg("strategy"), py::arg("identifier"), py::arg("key"), py::arg("value"));
+    m.def("SetPassConfig",
+        [](const std::string &strategy, const std::string &identifier, const std::string &key, const int64_t &value) {
             config::SetPassConfig<int64_t>(strategy, identifier, key, value);
-        }, py::arg("strategy"), py::arg("identifier"), py::arg("key"), py::arg("value")); 
-    m.def("SetPassConfig", 
-        [](const std::string &strategy, const std::string &identifier, const std::string &key, const std::string &value) { 
+        }, py::arg("strategy"), py::arg("identifier"), py::arg("key"), py::arg("value"));
+    m.def("SetPassConfig",
+        [](const std::string &strategy, const std::string &identifier, const std::string &key, const std::string &value) {
             config::SetPassConfig<std::string>(strategy, identifier, key, value);
-        }, py::arg("strategy"), py::arg("identifier"), py::arg("key"), py::arg("value"));      
+        }, py::arg("strategy"), py::arg("identifier"), py::arg("key"), py::arg("value"));
 }
 
 void bind_pass_configs(py::module &m) {
@@ -113,9 +114,9 @@ void bind_pass_configs(py::module &m) {
         .def_readonly("expectedValueCheck", &PassConfigs::expectedValueCheck)
         .def_readonly("disablePass", &PassConfigs::disablePass)
         .def_readonly("healthCheck", &PassConfigs::healthCheck)
-        .def_readonly("resumePath", &PassConfigs::resumePath); 
-    m.def("GetPassConfigs", 
-        [](const std::string &strategy, const std::string &identifier) -> PassConfigs { 
+        .def_readonly("resumePath", &PassConfigs::resumePath);
+    m.def("GetPassConfigs",
+        [](const std::string &strategy, const std::string &identifier) -> PassConfigs {
             return ConfigManager::Instance().GetPassConfigs(strategy, identifier);
         }, py::arg("strategy"), py::arg("identifier"));
 }

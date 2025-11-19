@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 # coding: utf-8
-# Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
+# This program is free software, you can redistribute it and/or modify it.
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This file is a part of the CANN Open Software.
-# Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+# Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
-# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
-# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+# BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
+"""
+"""
 import os
 from typing import Union, Tuple, List, Callable
 import pytest
@@ -23,10 +26,10 @@ class Shape:
 
     def __getitem__(self, idx):
         return self.dims[idx]
-    
+
     def __len__(self):
         return len(self.dims)
-    
+
     def __iter__(self):
         return iter(self.dims)
 
@@ -89,7 +92,7 @@ class Shape:
         elif isinstance(other, (int,)):
             return Shape(*[op(d, other) for d in dims])
         else:
-            return NotImplemented 
+            return NotImplemented
 
 
 class TilePartitioner:
@@ -99,9 +102,9 @@ class TilePartitioner:
             shape = Shape(*shape)
         if isinstance(tile_shape, (tuple, list)):
             tile_shape = Shape(*tile_shape)
-        
+
         assert shape.rank == tile_shape.rank
-  
+
         self.shape = shape
         self.tile_shape = tile_shape
         # Calculate grid shape: ceil(shape / tile_shape)
@@ -118,7 +121,7 @@ class TilePartitioner:
         # assert tile_coord < self.grid_shape
         remaining = self.shape - (Shape(*tile_coord) * self.tile_shape)
         return Shape.min(self.tile_shape, remaining)
-    
+
     def get_tile_offset(self, tile_coord: Union[Tuple, List]) -> Shape:
         assert len(tile_coord) == self.shape.rank
         return Shape(*tile_coord) * self.tile_shape
@@ -167,7 +170,7 @@ def pto_one_hot(src_tensor: torch.Tensor,
 
     src_partitioner = make_tile_partitioner(src_shape, src_view_shape)
     dst_partitioner = make_tile_partitioner(dst_shape, dst_view_shape)
- 
+
     src_pto_tensor = pto.tensor(src_shape, pto_dtype, "PTO_TENSOR_SRC")
     dst_pto_tensor = pto.tensor(dst_shape, pto_dtype, "PTO_TENSOR_DST")
 
@@ -203,7 +206,7 @@ def one_hot_onboard(src_shape, view_shape, tile_shape, num_classes: int):
     torch.npu.set_device(device_id)
 
     src_tensor = torch.randint(0, num_classes, src_shape, dtype=torch_dtype)
-    
+
     golden_dst = golden_one_hot(src_tensor, num_classes)
 
     pto.runtime._device_init()
