@@ -3063,8 +3063,9 @@ TILEOP void DynWhere_TT(__ubuf__ T *dst, __ubuf__ half *castCondition,
     unsigned COUNT_MAX_BYTE = 4096;
     unsigned elementsPerCount = COUNT_MAX_BYTE / sizeof(float);
     unsigned numCountPerLine = T1 / elementsPerCount;
-    unsigned numRemainPerLine = T1 % elementsPerCount;
-    unsigned repeatNum = (COUNT_MAX_BYTE + REPEAT_BYTE - 1) / REPEAT_BYTE;
+    unsigned elementsRemainPerLine = T1 % elementsPerCount;
+    unsigned repeatNum = (elementsPerCount * sizeof(half) + REPEAT_BYTE - 1) / REPEAT_BYTE;
+    unsigned repeatNumRemain = (elementsRemainPerLine * sizeof(half) + REPEAT_BYTE - 1) / REPEAT_BYTE;
     if constexpr (std::is_same_v<U, bool>) {
         for (int i = 0; i < T0; i++) {
             for (int j = 0; j < numCountPerLine; j++) {
@@ -3076,14 +3077,14 @@ TILEOP void DynWhere_TT(__ubuf__ T *dst, __ubuf__ half *castCondition,
                             (__ubuf__ half *)compareCondition, (__ubuf__ uint64_t *)startAddrUB,
                             repeatNum, elementsPerCount);
             }
-            if (numRemainPerLine) {
+            if (elementsRemainPerLine) {
                     ProcessWhere(dst + i * DS + elementsPerCount * numCountPerLine,
                                 src0 + i * SS0 + elementsPerCount * numCountPerLine,
                                 src1 + i * SS0 + elementsPerCount * numCountPerLine,
                                 condition + i * CS + elementsPerCount * numCountPerLine,
                                 castCondition, (__ubuf__ int8_t *)vcmpBitResult,
                                 (__ubuf__ half *)compareCondition, (__ubuf__ uint64_t *)startAddrUB,
-                                1, numRemainPerLine);
+                                repeatNumRemain, elementsRemainPerLine);
             }
         }
     } else {
@@ -3097,14 +3098,14 @@ TILEOP void DynWhere_TT(__ubuf__ T *dst, __ubuf__ half *castCondition,
                             (__ubuf__ half *)compareCondition, (__ubuf__ uint64_t *)startAddrUB,
                             repeatNum, elementsPerCount);
             }
-            if (numRemainPerLine) {
+            if (elementsRemainPerLine) {
                     ProcessWhere(dst + i * DS + elementsPerCount * numCountPerLine,
                                 src0 + i * SS0 + elementsPerCount * numCountPerLine,
                                 src1 + i * SS0 + elementsPerCount * numCountPerLine,
                                 condition + i * CS + elementsPerCount * numCountPerLine / 8,
                                 castCondition, (__ubuf__ int8_t *)vcmpBitResult,
                                 (__ubuf__ half *)compareCondition, (__ubuf__ uint64_t *)startAddrUB,
-                                1, numRemainPerLine);
+                                repeatNumRemain, elementsRemainPerLine);
             }
         }
     }
@@ -3151,13 +3152,14 @@ TILEOP void DynWhere_TS(__ubuf__ T *dst, __ubuf__ half *castCondition,
     unsigned COUNT_MAX_BYTE = 4096;
     unsigned elementsPerCount = COUNT_MAX_BYTE / sizeof(float);
     unsigned numCountPerLine = T1 / elementsPerCount;
-    unsigned numRemainPerLine = T1 % elementsPerCount;
-    unsigned repeatNum = (COUNT_MAX_BYTE + REPEAT_BYTE - 1) / REPEAT_BYTE;
+    unsigned elementsRemainPerLine = T1 % elementsPerCount;
+    unsigned repeatNum = (elementsPerCount * sizeof(half) + REPEAT_BYTE - 1) / REPEAT_BYTE;
+    unsigned repeatNumRemain = (elementsRemainPerLine * sizeof(half) + REPEAT_BYTE - 1) / REPEAT_BYTE;
     set_vector_mask((uint64_t)-1, (uint64_t)-1);
     set_mask_count();
     set_vector_mask(0x0, (uint64_t)elementsPerCount);
     pipe_barrier(PIPE_V);
-    vector_dup(otherTempTensor, src1, 1, 1, 1, 8, 8);
+    vector_dup(otherTempTensor, src1, 16, 1, 0, 8, 0);
     pipe_barrier(PIPE_V);
     if constexpr (std::is_same_v<U, bool>) {
         for (int i = 0; i < T0; i++) {
@@ -3170,14 +3172,14 @@ TILEOP void DynWhere_TS(__ubuf__ T *dst, __ubuf__ half *castCondition,
                             (__ubuf__ half *)compareCondition, (__ubuf__ uint64_t *)startAddrUB,
                             repeatNum, elementsPerCount);
             }
-        if (numRemainPerLine) {
+        if (elementsRemainPerLine) {
                 ProcessWhere(dst + i * DS + elementsPerCount * numCountPerLine,
                             src0 + i * SS0 + elementsPerCount * numCountPerLine,
                             otherTempTensor,
                             condition + i * CS + elementsPerCount * numCountPerLine,
                             castCondition, (__ubuf__ int8_t *)vcmpBitResult,
                             (__ubuf__ half *)compareCondition, (__ubuf__ uint64_t *)startAddrUB,
-                            1, numRemainPerLine);
+                            repeatNumRemain, elementsRemainPerLine);
         }
     }
     } else {
@@ -3191,14 +3193,14 @@ TILEOP void DynWhere_TS(__ubuf__ T *dst, __ubuf__ half *castCondition,
                             (__ubuf__ half *)compareCondition, (__ubuf__ uint64_t *)startAddrUB,
                             repeatNum, elementsPerCount);
             }
-            if (numRemainPerLine) {
+            if (elementsRemainPerLine) {
                     ProcessWhere(dst + i * DS + elementsPerCount * numCountPerLine,
                                 src0 + i * SS0 + elementsPerCount * numCountPerLine,
                                 otherTempTensor,
                                 condition + i * CS + elementsPerCount * numCountPerLine / 8,
                                 castCondition, (__ubuf__ int8_t *)vcmpBitResult,
                                 (__ubuf__ half *)compareCondition, (__ubuf__ uint64_t *)startAddrUB,
-                                1, numRemainPerLine);
+                                repeatNumRemain, elementsRemainPerLine);
             }
         }
     }
@@ -3242,13 +3244,14 @@ TILEOP void DynWhere_ST(__ubuf__ T *dst, __ubuf__ half *castCondition,
     unsigned COUNT_MAX_BYTE = 4096;
     unsigned elementsPerCount = COUNT_MAX_BYTE / sizeof(float);
     unsigned numCountPerLine = T1 / elementsPerCount;
-    unsigned numRemainPerLine = T1 % elementsPerCount;
-    unsigned repeatNum = (COUNT_MAX_BYTE + REPEAT_BYTE - 1) / REPEAT_BYTE;
+    unsigned elementsRemainPerLine = T1 % elementsPerCount;
+    unsigned repeatNum = (elementsPerCount * sizeof(half) + REPEAT_BYTE - 1) / REPEAT_BYTE;
+    unsigned repeatNumRemain = (elementsRemainPerLine * sizeof(half) + REPEAT_BYTE - 1) / REPEAT_BYTE;
     set_vector_mask((uint64_t)-1, (uint64_t)-1);
     set_mask_count();
     set_vector_mask(0x0, (uint64_t)elementsPerCount);
     pipe_barrier(PIPE_V);
-    vector_dup(inputTempTensor, src0, 1, 1, 1, 8, 8);
+    vector_dup(inputTempTensor, src0, 16, 1, 0, 8, 0);
     pipe_barrier(PIPE_V);
     if constexpr (std::is_same_v<U, bool>) {
         for (int i = 0; i < T0; i++) {
@@ -3261,14 +3264,14 @@ TILEOP void DynWhere_ST(__ubuf__ T *dst, __ubuf__ half *castCondition,
                             (__ubuf__ half *)compareCondition, (__ubuf__ uint64_t *)startAddrUB,
                             repeatNum, elementsPerCount);
             }
-            if (numRemainPerLine) {
+            if (elementsRemainPerLine) {
                 ProcessWhere(dst + i * DS + elementsPerCount * numCountPerLine,
                             inputTempTensor,
                             src1 + i * SS0 + elementsPerCount * numCountPerLine,
                             condition + i * CS + elementsPerCount * numCountPerLine,
                             castCondition, (__ubuf__ int8_t *)vcmpBitResult,
                             (__ubuf__ half *)compareCondition, (__ubuf__ uint64_t *)startAddrUB,
-                            1, numRemainPerLine);
+                            repeatNumRemain, elementsRemainPerLine);
             }
         }
     } else {
@@ -3282,14 +3285,14 @@ TILEOP void DynWhere_ST(__ubuf__ T *dst, __ubuf__ half *castCondition,
                             (__ubuf__ half *)compareCondition, (__ubuf__ uint64_t *)startAddrUB,
                             repeatNum, elementsPerCount);
             }
-            if (numRemainPerLine) {
+            if (elementsRemainPerLine) {
                 ProcessWhere(dst + i * DS + elementsPerCount * numCountPerLine,
                             inputTempTensor,
                             src1 + i * SS0 + elementsPerCount * numCountPerLine,
                             condition + i * CS + elementsPerCount * numCountPerLine / 8,
                             castCondition, (__ubuf__ int8_t *)vcmpBitResult,
                             (__ubuf__ half *)compareCondition, (__ubuf__ uint64_t *)startAddrUB,
-                            1, numRemainPerLine);
+                            repeatNumRemain, elementsRemainPerLine);
             }
         }
     }
@@ -3333,14 +3336,15 @@ TILEOP void DynWhere_SS(__ubuf__ T *dst, __ubuf__ half *castCondition,
     unsigned COUNT_MAX_BYTE = 4096;
     unsigned elementsPerCount = COUNT_MAX_BYTE / sizeof(float);
     unsigned numCountPerLine = T1 / elementsPerCount;
-    unsigned numRemainPerLine = T1 % elementsPerCount;
-    unsigned repeatNum = (COUNT_MAX_BYTE + REPEAT_BYTE - 1) / REPEAT_BYTE;
+    unsigned elementsRemainPerLine = T1 % elementsPerCount;
+    unsigned repeatNum = (elementsPerCount * sizeof(half) + REPEAT_BYTE - 1) / REPEAT_BYTE;
+    unsigned repeatNumRemain = (elementsRemainPerLine * sizeof(half) + REPEAT_BYTE - 1) / REPEAT_BYTE;
     set_vector_mask((uint64_t)-1, (uint64_t)-1);
     set_mask_count();
     set_vector_mask(0x0, (uint64_t)elementsPerCount);
     pipe_barrier(PIPE_V);
-    vector_dup(inputTempTensor, src0, 1, 1, 1, 8, 8);
-    vector_dup(otherTempTensor, src1, 1, 1, 1, 8, 8);
+    vector_dup(inputTempTensor, src0, 16, 1, 0, 8, 0);
+    vector_dup(otherTempTensor, src1, 16, 1, 0, 8, 0);
     pipe_barrier(PIPE_V);
     if constexpr (std::is_same_v<U, bool>) {
         for (int i = 0; i < T0; i++) {
@@ -3353,14 +3357,14 @@ TILEOP void DynWhere_SS(__ubuf__ T *dst, __ubuf__ half *castCondition,
                             (__ubuf__ half *)compareCondition, (__ubuf__ uint64_t *)startAddrUB,
                             repeatNum, elementsPerCount);
             }
-            if (numRemainPerLine) {
+            if (elementsRemainPerLine) {
                 ProcessWhere(dst + i * DS + elementsPerCount * numCountPerLine,
                             inputTempTensor,
                             otherTempTensor,
                             condition + i * CS + elementsPerCount * numCountPerLine,
                             castCondition, (__ubuf__ int8_t *)vcmpBitResult,
                             (__ubuf__ half *)compareCondition, (__ubuf__ uint64_t *)startAddrUB,
-                            1, numRemainPerLine);
+                            repeatNumRemain, elementsRemainPerLine);
             }
         }
     } else {
@@ -3374,14 +3378,14 @@ TILEOP void DynWhere_SS(__ubuf__ T *dst, __ubuf__ half *castCondition,
                             (__ubuf__ half *)compareCondition, (__ubuf__ uint64_t *)startAddrUB,
                             repeatNum, elementsPerCount);
             }
-            if (numRemainPerLine) {
+            if (elementsRemainPerLine) {
                 ProcessWhere(dst + i * DS + elementsPerCount * numCountPerLine,
                             inputTempTensor,
                             otherTempTensor,
                             condition + i * CS + elementsPerCount * numCountPerLine / 8,
                             castCondition, (__ubuf__ int8_t *)vcmpBitResult,
                             (__ubuf__ half *)compareCondition, (__ubuf__ uint64_t *)startAddrUB,
-                            1, numRemainPerLine);
+                            repeatNumRemain, elementsRemainPerLine);
             }
         }
     }
