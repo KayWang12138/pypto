@@ -127,10 +127,11 @@ class FeatureParam(CMakeParam):
 
     @property
     def def_build_job_num(self) -> Optional[int]:
+        def_job_num: int = min(int(math.ceil(float(multiprocessing.cpu_count()) * 0.9)), 48)  # 设置 48 为缺省最大核数
         if self.frontend_type_python3:
-            return None
+            return None if MetaHelper.has_ninja() else def_job_num
         else:
-            return min(int(math.ceil(float(multiprocessing.cpu_count()) * 0.9)), 48)  # 设置 48 为 CMake 场景最大核数
+            return def_job_num
 
     @property
     def def_build_type(self) -> str:

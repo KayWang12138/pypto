@@ -31,6 +31,16 @@ class MetaHelper:
     _SRC_ROOT: Path
     _CONFIG: Any
 
+    @staticmethod
+    def has_ninja():
+        """检查 Ninja 是否可用
+        """
+        try:
+            subprocess.check_output(['ninja', '--version'], stderr=subprocess.DEVNULL)
+            return True
+        except (OSError, subprocess.CalledProcessError):
+            return False
+
     @classmethod
     def init(cls):
         cls._SRC_ROOT = Path(__file__).parent.resolve()
@@ -144,16 +154,6 @@ class CMakeBuild(build_ext, CMakeUserOption):
     """
     user_options = build_ext.user_options + CMakeUserOption.USER_OPTION
 
-    @staticmethod
-    def _has_ninja():
-        """检查 Ninja 是否可用
-        """
-        try:
-            subprocess.check_output(['ninja', '--version'], stderr=subprocess.DEVNULL)
-            return True
-        except (OSError, subprocess.CalledProcessError):
-            return False
-
     def initialize_options(self):
         """通过控制命令行选项初始化顺序, 实现实际命令行选项优先生效.
         """
@@ -179,7 +179,7 @@ class CMakeBuild(build_ext, CMakeUserOption):
         build_dir.mkdir(parents=True, exist_ok=True)
 
         # CMake Configure
-        generator: str = "Ninja" if self._has_ninja() else "Unix Makefiles"
+        generator: str = "Ninja" if MetaHelper.has_ninja() else "'Unix Makefiles'"
         cmd: str = f"cmake -S {MetaHelper.src_root()} -B {build_dir} -G {generator}"
         cmd += f" -DPython3_EXECUTABLE={sys.executable} -DCMAKE_INSTALL_PREFIX={self.build_lib}"
         cmd += f" {self.cmake_args}" if self.cmake_args else ""
