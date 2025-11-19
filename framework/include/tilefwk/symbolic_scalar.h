@@ -117,10 +117,13 @@ public:
     SYMBOLIC_SCALAR_DEFINE_BOP(Le, <=)
     SYMBOLIC_SCALAR_DEFINE_BOP(Gt, >)
     SYMBOLIC_SCALAR_DEFINE_BOP(Ge, >=)
+    SYMBOLIC_SCALAR_DEFINE_BOP(And, &&)
+    SYMBOLIC_SCALAR_DEFINE_BOP(Or, ||)
 #undef SYMBOLIC_SCALAR_DEFINE_BOP
 
     SymbolicScalar Min(const SymbolicScalar &sval) const;
     SymbolicScalar Max(const SymbolicScalar &sval) const;
+    SymbolicScalar Ternary(const SymbolicScalar &sval1, const SymbolicScalar &sval2) const;
 
     std::string Dump() const;
 
@@ -177,4 +180,13 @@ namespace std {
 SYMBOLIC_SCALAR_DEFINE(Min, min)
 SYMBOLIC_SCALAR_DEFINE(Max, max)
 #undef SYMBOLIC_SCALAR_DEFINE
+
+#define SYMBOLIC_SCALAR_DEFINE_TRI(name, bfn)                                                \
+static inline npu::tile_fwk::SymbolicScalar bfn(const npu::tile_fwk::SymbolicScalar cond,    \
+    const npu::tile_fwk::SymbolicScalar lhs,                                                 \
+    const npu::tile_fwk::SymbolicScalar rhs){                                                \
+    return cond.name(lhs,rhs);                                                               \
+}
+SYMBOLIC_SCALAR_DEFINE_TRI(Ternary, ternary)
+#undef SYMBOLIC_SCALAR_DEFINE_TRI
 } // namespace std

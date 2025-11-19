@@ -383,6 +383,20 @@ SYMBOLIC_SCALAR_DEFINE_BOP(Le, <=, RawSymbolicExpression::CreateBopLe)
 SYMBOLIC_SCALAR_DEFINE_BOP(Gt, >, RawSymbolicExpression::CreateBopGt)
 SYMBOLIC_SCALAR_DEFINE_BOP(Ge, >=, RawSymbolicExpression::CreateBopGe)
 #undef SYMBOLIC_SCALAR_DEFINE_BOP
+       
+SymbolicScalar SymbolicScalar::And(const SymbolicScalar &sval) const {
+    auto raw = RawSymbolicExpression::CreateBopAnd(raw_, sval.raw_);
+    if (ConcreteValid() && !Concrete()){return SymbolicScalar(raw, Concrete());}
+    if (sval.ConcreteValid() && !sval.Concrete()){return SymbolicScalar(raw, sval.Concrete());}
+    return SymbolicScalar(raw);
+}
+
+SymbolicScalar SymbolicScalar::Or(const SymbolicScalar &sval) const {
+    auto raw = RawSymbolicExpression::CreateBopOr(raw_, sval.raw_);
+    if (ConcreteValid() && Concrete()){return SymbolicScalar(raw, Concrete());}
+    if (sval.ConcreteValid() && sval.Concrete()){return SymbolicScalar(raw, sval.Concrete());}
+    return SymbolicScalar(raw);
+}
 
 static bool AllConcreteValid(const std::vector<SymbolicScalar> &slist) {
     for (auto &s : slist) {
@@ -508,6 +522,14 @@ SymbolicScalar SymbolicScalar::Max(const SymbolicScalar &sval) const {
     } else {
         return SymbolicScalar(raw);
     }
+}
+
+SymbolicScalar SymbolicScalar::Ternary(const SymbolicScalar &sval1, const SymbolicScalar &sval2) const{
+    std::string ternaryOpName = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::TernaryOP);
+    ternaryOpName = AddRuntimePrefix(ternaryOpName);
+    SymbolicScalar ternaryOp(ternaryOpName);
+    auto result = ternaryOp(raw_, sval1, sval2);
+    return result;
 }
 
 SymbolicScalar::SymbolicScalar(int64_t value)

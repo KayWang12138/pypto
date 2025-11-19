@@ -56,6 +56,7 @@ using Call5EntryType = uint64_t (*)(uint64_t, uint64_t, uint64_t, uint64_t, uint
     (((int32_t *)(input)->address)[((off0 * (input)->shape.dim[1] + off1) * (input)->shape.dim[2] + off2) * (input)->shape.dim[3] + (off3)])
 #define RuntimeIsLoopBegin(idx, begin) (idx) == (begin)
 #define RuntimeIsLoopEnd(idx, end) (idx) >= (end)
+#define RuntimeTernaryOP(cond, lhs, rhs) (cond) ? (lhs) : (rhs)
 
 __always_inline
 int64_t RuntimeGetViewValidShapeDim(int64_t validshape, int64_t viewOffset, int64_t viewshape) {
@@ -107,6 +108,8 @@ int64_t RuntimeNe(int64_t input1, int64_t input2) {
     RuntimeGetInputDataInt32Dim4(&(startArgs)->devTensorList[(inputIndex)], (off0), (off1), (off2), (off3))
 #define RUNTIME_IsLoopBegin(idx, begin) RuntimeIsLoopBegin((idx), (begin))
 #define RUNTIME_IsLoopEnd(idx, end) RuntimeIsLoopEnd((idx), (end))
+
+#define RUNTIME_TernaryOP(cond, lhs, rhs) RuntimeTernaryOP((cond), (lhs), (rhs))
 
 #define RUNTIME_GetViewValidShapeDim(validShape, viewOffset, viewShape) RuntimeGetViewValidShapeDim(validShape, viewOffset, viewShape)
 #define RUNTIME_Max(lhs, rhs) RuntimeMax(lhs, rhs)
