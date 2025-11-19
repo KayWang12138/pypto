@@ -1,0 +1,287 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+
+import os
+import pto
+import pytest
+import torch
+import torch_npu
+import numpy as np
+from numpy.testing import assert_allclose
+
+
+# golden
+def rms_norm_golden(x, gamma, eps):
+    x_dtype = x.dtype
+    mean_coff = 1.0 / x.shape[-1]
+    x_f32 = x.to(torch.float32)
+    square = x_f32 * x_f32
+    mean_res = square * mean_coff
+    
+    reduce_sum = torch.sum(mean_res, dim=-1, keepdim=True) + eps
+    reduce_sqrt = torch.sqrt(reduce_sum)
+    res_div = x_f32 / reduce_sqrt
+    
+    res = res_div * gamma
+    
+    if x_dtype != torch.float32:
+        res = res.to(x_dtype)
+    return res
+
+
+def _apply_rotary_emb_neuron(x, cos, sin):
+    x1, x2 = torch.chunk(x, 2, dim=-1)
+    o1 = x1 * cos - x2 * sin
+    o2 = x2 * cos + x1 * sin
+
+    return torch.cat((o1, o2), dim=-1)
+
+
+def apply_rotary_pos_emb_v2(q, k, cos, sin):
+    x_dtype = q.dtype
+    q = q.to(torch.float32)
+    k = k.to(torch.float32)
+    cos = cos.to(torch.float32)
+    sin = sin.to(torch.float32)
+
+    q_embed = _apply_rotary_emb_neuron(q, cos, sin)
+    k_embed = _apply_rotary_emb_neuron(k, cos, sin)
+
+    if x_dtype != torch.float32:
+        q_embed = q_embed.to(x_dtype)
+        k_embed = k_embed.to(x_dtype)
+    return q_embed, k_embed
+
+
+# pto
+def rms_norm(tensor_value, gamma, eps, tile_shape):
+    input_dtype = tensor_value.dtype
+    # cast
+    pto.set_vec_tile_shapes(*tile_shape)
+    tensor_value_fp32 = pto.cast(tensor_value, pto.DT_FP32)
+
+    # gamma reshape
+    pto.set_vec_tile_shapes(tile_shape[-1])
+    gamma_shape = [1] * len(tensor_value_fp32.shape)
+    gamma_shape[-1] = gamma.shape[0]
+    gamma_3d = pto.reshape(gamma, gamma_shape)
+
+    # gamma cast
+    pto.set_vec_tile_shapes(*tile_shape)
+    gamma_fp32 = pto.cast(gamma_3d, pto.DT_FP32)
+
+    # square
+    square = pto.mul(tensor_value_fp32, tensor_value_fp32)
+
+    # mean_res
+    mean_coff = 1.0 / tensor_value_fp32.shape[-1]
+    mean_res = pto.mul(square, mean_coff)
+
+    # reduce sum
+    reduce_asum = pto.sum(mean_res)
+    reduce_sum = pto.add(reduce_asum, eps)
+
+    # sqrt
+    reduce_sqrt = pto.sqrt(reduce_sum)
+
+    # div
+    res_div = pto.div(tensor_value_fp32, reduce_sqrt)
+
+    # gamma mul
+    res = pto.mul(res_div, gamma_fp32)
+
+    # cast
+    y_bf16 = pto.cast(res, input_dtype)
+
+    return y_bf16
+
+
+def rope_data(x1, x2, cos, sin, tile_shape):
+    pto.set_vec_tile_shapes(*tile_shape)
+    o1 = pto.sub(pto.mul(x1, cos), pto.mul(x2, sin))
+    o2 = pto.add(pto.mul(x2, cos), pto.mul(x1, sin))
+    # concat
+    res = pto.concat([o1, o2], 2)
+
+    # cast
+    y_bf16 = pto.cast(res, pto.DT_BF16)
+    return y_bf16
+
+
+@pto.jit
+def attention_pre(in_tensors, out_tensors):
+    # 1. 添加支持动态的config
+    pto.set_codegen_option("support_dynamic_unaligned", True) 
+    pto.set_host_option("only_codegen", True)
+    # 2. 从入参拿到输入和输出tensor
+    x = in_tensors[0]
+    weight = in_tensors[1]
+    q_gamma = in_tensors[2]
+    k_gamma = in_tensors[3]
+    cos = in_tensors[4]
+    sin = in_tensors[5]
+
+    q = out_tensors[0]
+    k = out_tensors[1]
+    v = out_tensors[2]
+    # 3. 设置axis=0为动态shape
+    pto.mark_dynamic(x, 0)
+    pto.mark_dynamic(cos, 0)
+    pto.mark_dynamic(sin, 0)
+    pto.mark_dynamic(q, 0)
+    pto.mark_dynamic(k, 0)
+    pto.mark_dynamic(v, 0)
+
+    # 4. 得到动态tensor的shape
+    bs = x.shape[0]
+    hidden_size = x.shape[1]
+    total_hidden_size = weight.shape[0]
+
+    head_size = 128
+    half_head_size = head_size // 2
+    q_size = q.shape[-1]
+    kv_size = k.shape[-1]
+    q_num_head = q_size // head_size
+    kv_num_head = kv_size // head_size
+    kv_index = q_num_head + kv_num_head
+    eps = 1e-6
+    bs_tile = 1
+    bs_loop = (bs + bs_tile - 1) // bs_tile
+
+    # 5. 定义动态函数
+    with pto.function("ATTENTION_PRE", [x, weight, q_gamma, k_gamma, cos, sin], [q, k, v]):
+        def inside_attention_pre_func():
+            # 6. 实现kernel逻辑，循环展开BS动态轴
+            for bs_idx in pto.loop(bs_loop, name="LOOP_ATT_PRE_L0", idx_name="bs_idx"):
+                def bs_loop_func(bs_idx):
+                    # 7. 通过view得到x_tile、cos_tile、sin_tile
+                    x_tile = pto.view(x, [bs_tile, hidden_size], [bs_idx * bs_tile, 0])
+                    cos_tile = pto.view(cos, [bs_tile, 1, half_head_size], [bs_idx * bs_tile, 0, 0])
+                    sin_tile = pto.view(sin, [bs_tile, 1, half_head_size], [bs_idx * bs_tile, 0, 0])
+
+                    # 8. 按照计算图实现运算逻辑
+                    # matmul
+                    pto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
+                    mm_res = pto.matmul(x_tile, weight, pto.DT_BF16, a_trans=False, b_trans=True)
+                    pto.set_vec_tile_shapes(128, 128, 128)
+                    mm_3d = pto.reshape(mm_res, [bs_tile, total_hidden_size // head_size, head_size])
+
+                    # split
+                    q_tile = pto.view(mm_3d, [bs_tile, q_num_head, head_size], [0, 0, 0])
+                    k_tile = pto.view(mm_3d, [bs_tile, kv_num_head, head_size], [0, q_num_head, 0])
+                    v_tile = pto.view(mm_3d, [bs_tile, kv_num_head, head_size], [0, kv_index, 0])
+
+                    # rms norm
+                    q_norm = rms_norm(q_tile, q_gamma, eps, [bs_tile, q_num_head, head_size])
+                    k_norm = rms_norm(k_tile, k_gamma, eps, [bs_tile, kv_num_head, head_size])
+
+                    # apply rope
+                    # cast
+                    pto.set_vec_tile_shapes(bs_tile, q_num_head, head_size)
+                    q_fp32 = pto.cast(q_norm, pto.DT_FP32)
+                    k_fp32 = pto.cast(k_norm, pto.DT_FP32)
+
+                    pto.set_vec_tile_shapes(bs_tile, kv_num_head, half_head_size)
+                    cos_fp32 = pto.cast(cos_tile, pto.DT_FP32)
+                    sin_fp32 = pto.cast(sin_tile, pto.DT_FP32)
+
+                    # q split
+                    q1 = pto.view(q_fp32, [bs_tile, q_num_head, half_head_size], [0, 0, 0])
+                    q2 = pto.view(q_fp32, [bs_tile, q_num_head, half_head_size], [0, 0, half_head_size])
+                    # rope data
+                    q_rope = rope_data(q1, q2, cos_fp32, sin_fp32, [bs_tile, q_num_head, half_head_size])
+
+                    # k split
+                    k1 = pto.view(k_fp32, [bs_tile, kv_num_head, half_head_size], [0, 0, 0])
+                    k2 = pto.view(k_fp32, [bs_tile, kv_num_head, half_head_size], [0, 0, half_head_size])
+                    # rope data
+                    k_rope = rope_data(k1, k2, cos_fp32, sin_fp32, [bs_tile, kv_num_head, half_head_size])
+
+                    # post process
+                    q_res = pto.reshape(q_rope, [bs_tile, q_size])
+                    k_res = pto.reshape(k_rope, [bs_tile, kv_size])
+                    v_res = pto.reshape(v_tile, [bs_tile, kv_size])
+
+                    # 9. 将结果搬运到输出tensor上
+                    # update output
+                    q[bs_idx * pto.symbolic_scalar(bs_tile):, 0:] = q_res
+                    k[bs_idx * pto.symbolic_scalar(bs_tile):, 0:] = k_res
+                    v[bs_idx * pto.symbolic_scalar(bs_tile):, 0:] = v_res
+
+                bs_loop_func(bs_idx)
+        inside_attention_pre_func()
+
+
+def test_attention_pre():
+    # 1. 设置参数
+    bs = 48
+    hidden_size = 2048
+    total_hidden_size = 768
+    head_size = 128
+    q_size = 512
+    kv_size = 128
+    half_head_size = head_size // 2
+
+    device_id = int(os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
+    eps = 1e-6
+
+    # 2. 构造多种shape，测试动态case
+    for i in range(0, 4):
+        if (i == 2):
+            bs = 5
+
+        # 3. 准备测试数据
+        np.random.seed(0)
+        # inputs
+        x = torch.rand(bs, hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
+        weight = torch.rand(total_hidden_size, hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
+        q_gamma = torch.rand(head_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
+        k_gamma = torch.rand(head_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
+        cos = torch.rand(bs, 1, half_head_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
+        sin = torch.rand(bs, 1, half_head_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
+        # outputs
+        q = torch.zeros((bs, q_size), dtype=torch.bfloat16, device=f'npu:{device_id}')
+        k = torch.zeros((bs, kv_size), dtype=torch.bfloat16, device=f'npu:{device_id}')
+        v = torch.zeros((bs, kv_size), dtype=torch.bfloat16, device=f'npu:{device_id}')
+
+        # 4. 执行kernel并获取结果
+        inputs = [x, weight, q_gamma, k_gamma, cos, sin]
+        outputs = [q, k, v]
+        attention_pre(inputs, outputs)
+        pto.runtime._device_synchronize()
+
+        # 5. 与PyTorch参考实现对比
+        # matmul
+        mm_golden = torch.matmul(x, weight.T)
+        # split
+        q_g, k_g, v_g = mm_golden.split([q_size, kv_size, kv_size], dim=-1)
+        # nms norm
+        q_by_head = q_g.view(*q_g.shape[:-1], q_g.shape[-1] // head_size, head_size)
+        q_by_head = rms_norm_golden(q_by_head, q_gamma, eps)
+        k_by_head = k_g.view(*k_g.shape[:-1], k_g.shape[-1] // head_size, head_size)
+        k_by_head = rms_norm_golden(k_by_head, k_gamma, eps)
+        # apply rope
+        q_r, k_r = apply_rotary_pos_emb_v2(q_by_head, k_by_head, cos, sin)
+        # post process
+        q_r = q_r.view(bs, q_size)
+        k_r = k_r.view(bs, kv_size)
+
+        # compare result
+        assert_allclose(np.array(q_r.cpu().flatten().tolist()), np.array(q.flatten().tolist()), rtol=0.001, atol=0.001)
+        assert_allclose(np.array(k_r.cpu().flatten().tolist()), np.array(k.flatten().tolist()), rtol=0.001, atol=0.001)
+        assert_allclose(np.array(v_g.cpu().flatten().tolist()), np.array(v.flatten().tolist()), rtol=0.001, atol=0.001)  
+
+
+def main():
+    test_attention_pre()
+
+if __name__ == "__main__":
+    main()
