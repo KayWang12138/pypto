@@ -575,14 +575,14 @@ bool LoopUnroll::IsWARDepend(const int slotIdx, std::set<LogicalTensorPtr> input
     if (globalTensor.first->GetConsumers().empty()) {
         return false;
     }
+    bool isDepend = false;
     for (auto &consumer : globalTensor.first->GetConsumers()) {
-        bool isDepend = false;
         FindSlotDepend(consumer, input2Global, isDepend);
-        if (!isDepend) {
-            return false;
+        if (isDepend) {
+            return true;
         }
     }
-    return true;
+    return false;
 }
 
 void LoopUnroll::FindSlotDepend(const Operation *op, std::set<LogicalTensorPtr> input2Global, bool &isDepend) {

@@ -511,7 +511,8 @@ TEST_F(DynamicBasicTest, TestInnerLoopOrder) {
     SetInterpreterConfig();
     TileShape::Current().SetVecTile(512, 512);
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
-
+    std::vector<std::string> funcName = {"TENSOR_main"};
+    config::SetPassConfig("FunctionUnroll", "LoopUnroll", "CONVERT_TO_STATIC", funcName);
     int vecLen = 16;
     int loopNum = 4;
     int tileNum = 3;
@@ -687,6 +688,8 @@ namespace DynamicTest {
 TEST_F(DynamicBasicTest, TestLoopIfWithRank456) {
     SetInterpreterConfig();
     TileShape::Current().SetVecTile(32, 32);   //设置Tileshape大小为32*32
+    std::vector<std::string> funcName = {"TENSOR_main"};
+    config::SetPassConfig("FunctionUnroll", "LoopUnroll", "CONVERT_TO_STATIC", funcName);
 
     int s = 32;
     int n = 10;

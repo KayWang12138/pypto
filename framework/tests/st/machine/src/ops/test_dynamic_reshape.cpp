@@ -90,6 +90,8 @@ TEST_F(DynamicReshapeTest, test_only_reshape) {
 TEST_F(DynamicReshapeTest, test_only_reshape2) {
     SetInterpreterConfig();
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+    std::vector<std::string> funcName = {"TENSOR_MAIN_FUNC"};
+    config::SetPassConfig("FunctionUnroll", "LoopUnroll", "CONVERT_TO_STATIC", funcName);
 
     int b = 2;
     int sq = 32;

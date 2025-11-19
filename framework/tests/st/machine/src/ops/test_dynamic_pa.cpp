@@ -187,6 +187,8 @@ TEST_F(DynamicPATest, dynamic_pa_low_lantency) {
 }
 
 TEST_F(DynamicPATest, dynamic_pa_low_lantency_imm_scalar) {
+    std::vector<std::string> funcName = {"TENSOR_main"};
+    config::SetPassConfig("FunctionUnroll", "LoopUnroll", "CONVERT_TO_STATIC", funcName);
     PaTileShapeConfig tileConfig;
     const int nTile = 32;
     const int blockSize = 256;

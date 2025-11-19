@@ -31,6 +31,7 @@ stest:
       - DynamicPATest.dynamic_pa_noflash_unalign
       - DynamicPATest.dynamic_pa_low_lantency_dyn_valid_shape
       - DynamicPATest.dynamic_pa_low_lantency_dyn_unalign
+      - DynamicPATest.dynamic_pa_low_lantency_imm_scalar
       #===========================================================================
       # NSA native spare attention
       #===========================================================================
