@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 # coding: utf-8
+# This program is free software, you can redistribute it and/or modify it.
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This file is a part of the CANN Open Software.
-# Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+# Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
-# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
-# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+# BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 """
@@ -68,7 +69,7 @@ def set_pass_options(*,
     cycle_lower_bound : int
         Merged graph parameter, used to configure
         the lower bound of subgraph size.
-    
+
     parallel_threshold : int
         Merged graph parameter, used to configure
         the minimum parallelism of subgraphs with the same structure.
@@ -80,32 +81,32 @@ def set_pass_options(*,
     nbuffer_merge_mode : int
         Merged graph parameter, used to configure
         the merging strategy for AIV subgraphs with the same structure.
-    
+
     vec_nbuffer_map : Dict[int, int]
         Merged graph parameter, used to configure
         the merging quantity of AIV subgraphs with the same structure.
-    
+
     l1_reuse : int
         Merged graph parameter, used to configure
         the merging strategy for subgraphs with the same structure
         and repeated transfer of the same GM data.
-    
+
     l1_reuse_map : Dict[int, int]
         Merged graph parameter, used to configure
         the merging quantity of subgraphs with the same structure
         and repeated transfer of the same GM data.
-    
+
     cube_nbuffer : int
         Merged graph parameter, used to configure
         the merging strategy for AIC subgraphs with the same structure.
-    
+
     cube_nbuffer_map : Dict[int, int]
         Merged graph parameter, used to configure
         the merging quantity of AIC subgraphs with the same structure.
-    
+
     copyin_threshold : int
         Merged graph parameter, used to configure the merged graph size.
-    
+
     ooo_preschedule_method : str
         Method for controlling the OoO PreSchedule of specific subgraphs.
     """
@@ -175,7 +176,7 @@ def set_codegen_options(*,
     ---------
     support_dynamic_unaligned : bool
         Whether to support dynamic Shape.
-    
+
     codegen_expression_fusion : bool
         Whether to support executing dynamic
         expression calculation on the device side.
@@ -217,21 +218,21 @@ def set_runtime_options(*,
     ---------
     machine_sched_mode : int
         Set the scheduling mode of the computation subgraph.
-    
+
     workspace_recycle_period : int
         Parameter for controlling the size of the non-outcast memory pool
         allocated to the root function, where the memory pool size is
         max_root_nonoutcast_workspace *.
-    
+
     estimated_stitch_task_max_loop_num : int
         Used to evaluate the size of workspace memory required by
         an operator during runtime when compiling the operator.
-    
+
     first_stitch_task_loop_num : int
         The amount of computation tasks for the first stitch task submitted to
         the scheduling AICPU for processing, controlled in the ctrlflow AICPU
         during machine runtime.
-    
+
     subseq_stitch_task_incr_loop_num : int
         The computation amount of the processing loop for non-initial
         stitch tasks, controlled in the ctrlflow AICPU during machine runtime.
