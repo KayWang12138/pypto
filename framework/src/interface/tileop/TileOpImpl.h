@@ -33,6 +33,7 @@
 #include "vector/unary.h"
 #include "vector/trans.h"
 #include "vector/binary.h"
+#include "vector/binary_scalar.h"
 #include "vector/cast.h"
 #include "vector/reduce.h"
 #include "vector/sort.h"
