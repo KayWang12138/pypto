@@ -19,10 +19,12 @@ namespace npu::tile_fwk {
 void RemoveAlloc::RemoveAllocCall(Function &function) const {
     for (auto &program : function.rootFunc_->programs_) {
         std::vector<std::shared_ptr<Operation>>& opList = program.second->GetProgramOp();
-        opList.erase(std::remove_if(opList.begin(), opList.end(), [](std::shared_ptr<npu::tile_fwk::Operation>& op) {
-            return op->GetOpcodeStr().find("ALLOC") != std::string::npos;
-        }), opList.end());
-        program.second->SetProgramOp(opList);
+        for (auto &op : opList) {
+            if (op->GetOpcodeStr().find("ALLOC") != std::string::npos) {
+                op->SetAsDeleted();
+            }
+        }
+        program.second->EraseOperations(false, false);
     }
 }
 } // namespace npu::tile_fwk

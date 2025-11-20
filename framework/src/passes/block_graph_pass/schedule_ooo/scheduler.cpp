@@ -268,6 +268,9 @@ Status OoOScheduler::AllocTensorMemRange(IssueEntryPtr issue) {
         }
         APASS_LOG_DEBUG_F(Elements::Tensor, "REALLOC Tensor[%u] %s --> %s.", 
             memId, tensorOccupyMap[memType][memId]->GetOpInfo(), issue->GetOpInfo());
+        if (tensorOccupyMap[memType][memId]->isAlloc) {
+            outTensor->SetAttr(OpAttributeKey::needAlloc, true);
+        }
         tensorOccupyMap[memType][memId] = issue;
         outTensor->memoryrange =
             TileRange(localBufferMap[memId]->start, localBufferMap[memId]->end, memId);
@@ -300,8 +303,7 @@ Status OoOScheduler::LaunchIssueStage(int& nextCycle) {
     return SUCCESS;
 }
 
-Status OoOScheduler::ExecuteAllocIssue(uint64_t &commitCnt,
-    MemoryType memType, IssueQueue &pipe) {
+Status OoOScheduler::ExecuteAllocIssue(uint64_t &commitCnt, MemoryType memType, IssueQueue &pipe) {
     bool canAlloc = true;
     while (canAlloc) {
         if (pipe.Empty()) {
@@ -325,7 +327,6 @@ Status OoOScheduler::ExecuteAllocIssue(uint64_t &commitCnt,
                 APASS_LOG_ERROR_F(Elements::Operation, "Alloc[%d] cannot find oOperand[0].", issue->tileOp.GetOpMagic());
                 return FAILED;
             }
-            issue->tileOp.GetOutputOperand(0)->SetAttr(OpAttributeKey::needAlloc, true);
             newOperations_.push_back(&(issue->tileOp));
             APASS_LOG_DEBUG_F(Elements::Operation, "Insert: %s.", issue->GetOpInfo());
             pipe.PopFront();
@@ -434,13 +435,12 @@ Status OoOScheduler::RetireIssueStage(uint64_t& commitCnt, int& nextCycle) {
 }
 
 void OoOScheduler::LaunchReadyIssue() {
-    for (size_t i = 0; i < issueEntries.size(); i++) {
-        if (USE_LESS_OPS.find(issueEntries[i]->tileOp.GetOpcode()) != USE_LESS_OPS.end() &&
-            issueEntries[i]->predecessors.empty()) {
-            issueQueues[issueEntries[i]->type].Insert(issueEntries[i]);
+    for (auto &issue : issueEntries) {
+        if (USE_LESS_OPS.find(issue->tileOp.GetOpcode()) != USE_LESS_OPS.end() && issue->predecessors.empty()) {
+            issueQueues[issue->type].Insert(issue);
         }
-        if (issueEntries[i]->isAlloc) {
-            allocIssueQueue[localBufferMap[issueEntries[i]->reqMemIds[0]]->memType].Insert(issueEntries[i]);
+        if (issue->isAlloc) {
+            allocIssueQueue[localBufferMap[issue->reqMemIds[0]]->memType].Insert(issue);
         }
     }
 }
@@ -574,9 +574,9 @@ void OoOScheduler::InitIssueQueuesAndBufferManager() {
     bufferManagerMap.clear();
     for (size_t i = 0; i < static_cast<int>(MemoryType::MEM_DEVICE_DDR); i++) {
         allocIssueQueue[static_cast<MemoryType>(i)] = IssueQueue();
-        if (inChipMemorySize.find(static_cast<MemoryType>(i)) != inChipMemorySize.end()) {
+        if (localMemorySize.find(static_cast<MemoryType>(i)) != localMemorySize.end()) {
             bufferManagerMap.insert({static_cast<MemoryType>(i),
-                BufferPool(static_cast<MemoryType>(i), inChipMemorySize[static_cast<MemoryType>(i)])});
+                BufferPool(static_cast<MemoryType>(i), localMemorySize[static_cast<MemoryType>(i)])});
         }
     }
 }
@@ -623,59 +623,92 @@ Status OoOScheduler::CheckAllocIssue() {
     return SUCCESS;
 }
 
-Status OoOScheduler::InitLocalBuffer(LogicalTensorPtr oOperand, int memId) {
+void OoOScheduler::InitLocalBuffer(LogicalTensorPtr oOperand, int memId) {
     if (oOperand->GetMemoryTypeOriginal() >= MemoryType::MEM_DEVICE_DDR) {
-        return SUCCESS;
+        return;
     }
     if (localBufferMap.find(memId) == localBufferMap.end()) {
         localBufferMap[memId] = std::make_shared<LocalBuffer>(
             memId, ShapeCeilAlign(oOperand->GetShape(), oOperand->Datatype()), oOperand->GetMemoryTypeOriginal());
-        if (localBufferMap[memId] == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "Init tensor[%d] localBuffer failed!", memId);
-            return FAILED;
-        }
     } else {
         localBufferMap[memId]->size =
             std::max(localBufferMap[memId]->size, ShapeCeilAlign(oOperand->GetShape(), oOperand->Datatype()));
     }
-    return SUCCESS;
 }
 
-void OoOScheduler::AddDependencies(
-    IssueEntryPtr issue, std::map<int, IssueEntryPtr> lastWriteOpMap, LogicalTensors tensors) {
-    for (auto &tensor : tensors) {
-        int memId = tensor->memoryrange.memId;
-        if (tensor->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
-            bufRefCount[memId]++;
-            issue->reqMemIds.push_back(memId);
+void OoOScheduler::UpdateBufRefCount(IssueEntryPtr issue, LogicalTensorPtr tensor) {
+    int memId = tensor->memoryrange.memId;
+    if (tensor->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+        bufRefCount[memId]++;
+        issue->reqMemIds.push_back(memId);
+    }
+}
+
+void OoOScheduler::InitBufRefCount() {
+    for (const auto &issue : issueEntries) {
+        for (auto &tensor : issue->tileOp.GetIOperands()) {
+            UpdateBufRefCount(issue, tensor);
         }
-        if (lastWriteOpMap.find(memId) != lastWriteOpMap.end()) {
-            issue->predecessors.insert(lastWriteOpMap[memId]->id);
-            lastWriteOpMap[memId]->successors.insert(issue->id);
+        for (auto &tensor : issue->tileOp.GetOOperands()) {
+            UpdateBufRefCount(issue, tensor);
+            int memId = tensor->memoryrange.memId;
+            maxTensorMagic = std::max(maxTensorMagic, std::max(tensor->GetMagic(), memId));
+            InitLocalBuffer(tensor, memId);
         }
     }
 }
 
-Status OoOScheduler::InitDependencies() {
-    bufRefCount.clear();
-    std::map<int, IssueEntryPtr> lastWriteOpMap;
-    for (const auto &issue : issueEntries) {
-        issue->Clear();
-        // 仅检测 RAW 和 WAW，不检测 WAR -->SSA
-        // RAW
-        AddDependencies(issue, lastWriteOpMap, issue->tileOp.GetIOperands());
-
-        // WAW
-        AddDependencies(issue, lastWriteOpMap, issue->tileOp.GetOOperands());
-
-        for (auto &oOperand : issue->tileOp.GetOOperands()) {
-            int memId = oOperand->memoryrange.memId;
-            maxTensorMagic = std::max(maxTensorMagic, std::max(oOperand->GetMagic(), memId));
-            lastWriteOpMap[memId] = issue;
-            if (InitLocalBuffer(oOperand, memId) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "InInitLocalBuffer failed.");
+Status OoOScheduler::InitAllocDependencies(IssueEntryPtr issue, std::map<int, IssueEntryPtr> tensor2AllocMap) {
+    for (auto &tensor : issue->tileOp.GetOOperands()) {
+        int memId = tensor->memoryrange.memId;
+        if (tensor->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+            if (tensor2AllocMap.find(memId) == tensor2AllocMap.end()) {
+                APASS_LOG_ERROR_F(Elements::Operation, "Tensor[%d] must have alloc.", memId);
                 return FAILED;
             }
+            tensor2AllocMap[memId]->successors.insert(issue->id);
+            issue->predecessors.insert(tensor2AllocMap[memId]->id);
+        }
+    }
+    return SUCCESS;
+}
+
+Status OoOScheduler::InitDependencies() {
+    bufRefCount.clear();
+    std::map<Operation*, IssueEntryPtr> op2IssueEntryMap;
+    for (const auto &issue : issueEntries) {
+        issue->Clear();
+        op2IssueEntryMap[&(issue->tileOp)] = issue;
+    }
+    InitBufRefCount();
+    std::map<int, IssueEntryPtr> tensor2AllocMap;
+    for (const auto &issue : issueEntries) {
+        if (issue->isAlloc) {
+            if (issue->tileOp.GetOOperands().size() != 1) {
+                APASS_LOG_ERROR_F(Elements::Operation, "Alloc[%d] oOperand must be 1.", issue->tileOp.GetOpMagic());
+                return FAILED;
+            }
+            int memId = issue->tileOp.GetOutputOperand(0)->memoryrange.memId;
+            tensor2AllocMap[memId] = issue;
+            continue;
+        }
+        for (auto &producer : issue->tileOp.ProducerOps()) {
+            auto prodissue = op2IssueEntryMap[producer];
+            if (!(prodissue->isAlloc)) {
+                prodissue->successors.insert(issue->id);
+                issue->predecessors.insert(prodissue->id);
+            }
+        }
+        for (auto &consumer : issue->tileOp.ConsumerOps()) {
+            auto consIssue = op2IssueEntryMap[consumer];
+            if (!(consIssue->isAlloc)) {
+                consIssue->predecessors.insert(issue->id);
+                issue->successors.insert(consIssue->id);
+            }
+        }
+        if (InitAllocDependencies(issue, tensor2AllocMap) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "InitAllocDependencies failed.");
+            return FAILED;
         }
     }
     PrintDependencies();
@@ -697,11 +730,11 @@ Status OoOScheduler::CheckOpBufferSize(Operation *op) {
     CalcBufferSize(op->GetIOperands(), bufferSize, memIdMap);
     CalcBufferSize(op->GetOOperands(), bufferSize, memIdMap);
     for (auto &buffer : bufferSize) {
-        if (inChipMemorySize.find(buffer.first) != inChipMemorySize.end()) {
-            if (buffer.second > inChipMemorySize[buffer.first]) {
+        if (localMemorySize.find(buffer.first) != localMemorySize.end()) {
+            if (buffer.second > localMemorySize[buffer.first]) {
                 APASS_LOG_ERROR_F(Elements::Operation, "OP %s[%d] in/output total size[%d] exceeds %s size[%d]!", 
                     op->GetOpcodeStr().c_str(), op->GetOpMagic(), buffer.second, MemoryTypeToString(buffer.first).c_str(),
-                    inChipMemorySize[buffer.first]);
+                    localMemorySize[buffer.first]);
                 return FAILED;
             }
         }
@@ -714,20 +747,20 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
     localBufferMap.clear();
 
     // 初始化芯片各buffer大小
-    inChipMemorySize = {
+    localMemorySize = {
         {MemoryType::MEM_L0A, MAX_L0A_SIZE},
         {MemoryType::MEM_L0C, MAX_L0C_SIZE},
         {MemoryType::MEM_BT, MAX_BT_SIZE},
         {MemoryType::MEM_FIX, MAX_FIX_SIZE},
         {MemoryType::MEM_FIX_QUANT_PRE, MAX_FIX_QUANT_PRE_SIZE},
     };
-    inChipMemorySize.insert({MemoryType::MEM_UB, 
+    localMemorySize.insert({MemoryType::MEM_UB, 
         PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_UB)});
-    inChipMemorySize.insert({MemoryType::MEM_L1, 
+    localMemorySize.insert({MemoryType::MEM_L1, 
         PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L1)});
-    inChipMemorySize.insert({MemoryType::MEM_L0B, 
+    localMemorySize.insert({MemoryType::MEM_L0B, 
         PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L0B)});
-    inChipMemorySize.insert({MemoryType::MEM_FIX_QUANT_PRE, 
+    localMemorySize.insert({MemoryType::MEM_FIX_QUANT_PRE, 
         PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_FIX_QUANT_PRE)});
     
     std::vector<Operation *> newOperations;

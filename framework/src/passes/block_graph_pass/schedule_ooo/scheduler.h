@@ -124,7 +124,7 @@ private:
 
     std::map<MemoryType, IssueQueue> allocIssueQueue;
     std::map<PipeType, IssueQueue> issueQueues;
-    std::unordered_map<MemoryType, int64_t> inChipMemorySize;
+    std::unordered_map<MemoryType, int64_t> localMemorySize;
 
     Function &function_;
     int issueId{0};
@@ -140,8 +140,10 @@ private:
     Status CheckOpBufferSize(Operation *op);
     void CalcBufferSize(LogicalTensors tensors, std::map<MemoryType, int64_t> &bufferSize, std::set<int> &memIdMap);
     Status InitDependencies();
-    void AddDependencies(IssueEntryPtr issue, std::map<int, IssueEntryPtr> lastWriteOpMap, LogicalTensors tensors);
-    Status InitLocalBuffer(LogicalTensorPtr oOperand, int memId);
+    Status InitAllocDependencies(IssueEntryPtr issue, std::map<int, IssueEntryPtr> tensor2AllocMap);
+    void InitLocalBuffer(LogicalTensorPtr oOperand, int memId);
+    void InitBufRefCount();
+    void UpdateBufRefCount(IssueEntryPtr issue, LogicalTensorPtr tensor);
     Status CheckAllocIssue();
     void UpdateAllocMap(IssueEntryPtr issue, std::map<int, IssueEntryPtr> &tensorAllocMap);
     void InitIssueQueuesAndBufferManager();

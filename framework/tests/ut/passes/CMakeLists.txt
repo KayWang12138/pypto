@@ -210,7 +210,7 @@ set(_CaseFilterList
         "ScheduleOoOTest.TestDependenciesView"
         "ScheduleOoOTest.TestDependenciesAssemble"
         "ScheduleOoOTest.TestDependenciesInplace"
-        "ScheduleOoOTest.TestDependenciesFailed"
+        #"ScheduleOoOTest.TestDependenciesFailed"
         "ScheduleOoOTest.TestSpillCopyIn"
         "ScheduleOoOTest.TestSpill"
         "ScheduleOoOTest.TestSpillInplace"

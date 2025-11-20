@@ -219,10 +219,8 @@ TEST_F(ScheduleOoOTest, TestDependenciesView) {
     EXPECT_TRUE(CheckExists(copyin->predecessors, subGraph.GetOp("Alloc1"), ooOScheduler.issueEntryMap));
     EXPECT_TRUE(CheckExists(copyin->successors, subGraph.GetOp("View3"), ooOScheduler.issueEntryMap));
     EXPECT_TRUE(CheckExists(view3->predecessors, subGraph.GetOp("Copyin1"), ooOScheduler.issueEntryMap));
-    EXPECT_TRUE(CheckExists(view3->successors, subGraph.GetOp("View2"), ooOScheduler.issueEntryMap));
-    EXPECT_TRUE(CheckExists(view2->predecessors, subGraph.GetOp("View3"), ooOScheduler.issueEntryMap));
-    EXPECT_TRUE(CheckExists(view2->successors, subGraph.GetOp("View1"), ooOScheduler.issueEntryMap));
-    EXPECT_TRUE(CheckExists(view1->predecessors, subGraph.GetOp("View2"), ooOScheduler.issueEntryMap));
+    EXPECT_TRUE(CheckExists(view2->predecessors, subGraph.GetOp("Copyin1"), ooOScheduler.issueEntryMap));
+    EXPECT_TRUE(CheckExists(view1->predecessors, subGraph.GetOp("Copyin1"), ooOScheduler.issueEntryMap));
     EXPECT_EQ(res, SUCCESS);
 }
 
@@ -256,8 +254,8 @@ TEST_F(ScheduleOoOTest, TestDependenciesAssemble) {
     IssueEntryPtr sub = GetIssueEntry("Sub1", subGraph, ooOScheduler);
     EXPECT_NE(sub, nullptr);
     EXPECT_TRUE(CheckExists(alloc->successors, subGraph.GetOp("Sub3"), ooOScheduler.issueEntryMap));
-    EXPECT_TRUE(CheckExists(sub->predecessors, subGraph.GetOp("Sub2"), ooOScheduler.issueEntryMap));
-    EXPECT_TRUE(CheckExists(sub->successors, subGraph.GetOp("Assemble3"), ooOScheduler.issueEntryMap));
+    EXPECT_TRUE(CheckExists(sub->predecessors, subGraph.GetOp("Alloc1"), ooOScheduler.issueEntryMap));
+    EXPECT_TRUE(CheckExists(sub->successors, subGraph.GetOp("Assemble1"), ooOScheduler.issueEntryMap));
     EXPECT_EQ(res, SUCCESS);
 }
 
@@ -407,7 +405,7 @@ TEST_F(ScheduleOoOTest, TestSpillInplace) {
     IssueEntryPtr add3 = GetIssueEntry("Add3", subGraph, ooOScheduler);
     EXPECT_NE(add3, nullptr);
     EXPECT_EQ(ooOScheduler.issueEntryMap[(*add1->successors.begin())]->tileOp.GetOpcodeStr(), "COPY_OUT");
-    EXPECT_EQ(add3->predecessors.size(), 2);
+    EXPECT_EQ(add3->predecessors.size(), 3);
 }
 
 TEST_F(ScheduleOoOTest, TestSpillMultiTensor) {

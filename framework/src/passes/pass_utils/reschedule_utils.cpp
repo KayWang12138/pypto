@@ -187,6 +187,60 @@ unsigned long RescheduleUtils::ComputeOperationHash(const Operation *op) {
     return result;
 }
 
+void RescheduleUtils::FindOtherGraphOp(Operation *op, int subGraphID, std::unordered_set<Operation*> &otherGraphOp) {
+    if (op->GetSubgraphID() != subGraphID) {
+        otherGraphOp.insert(op);
+    }
+}
+
+void RescheduleUtils::ClearInputConsProd(Operation &op, int subGraphID, 
+    std::unordered_set<LogicalTensorPtr> incastSet) {
+    for (auto &inOperand : op.GetIOperands()) {
+        if (incastSet.count(inOperand) == 0) {
+            std::unordered_set<Operation*> otherGraphOp;
+            for (auto prod : inOperand->GetProducers()) {
+                FindOtherGraphOp(prod, subGraphID, otherGraphOp);
+            }
+            inOperand->GetProducers().clear();
+            for (auto otherOp : otherGraphOp) {
+                inOperand->AddProducer(otherOp);
+            }
+        }
+        std::unordered_set<Operation*> otherGraphOps;
+        for (auto cons : inOperand->GetConsumers()) {
+            FindOtherGraphOp(cons, subGraphID, otherGraphOps);
+        }
+        inOperand->GetConsumers().clear();
+        for (auto otherOp : otherGraphOps) {
+            inOperand->AddConsumer(otherOp);
+        }
+    }
+}
+
+void RescheduleUtils::ClearOutputConsProd(Operation &op, int subGraphID,
+    std::unordered_set<LogicalTensorPtr> outcastSet) {
+    for (auto &outOperand : op.GetOOperands()) {
+        std::unordered_set<Operation*> otherGraphOp;
+        for (auto prod : outOperand->GetProducers()) {
+            FindOtherGraphOp(prod, subGraphID, otherGraphOp);
+        }
+        outOperand->GetProducers().clear();
+        for (auto otherOp : otherGraphOp) {
+            outOperand->AddProducer(otherOp);
+        }
+        if (outcastSet.count(outOperand) == 0) {
+            std::unordered_set<Operation*> otherGraphOps;
+            for (auto cons : outOperand->GetConsumers()) {
+                FindOtherGraphOp(cons, subGraphID, otherGraphOps);
+            }
+            outOperand->GetConsumers().clear();
+            for (auto otherOp : otherGraphOps) {
+                outOperand->AddConsumer(otherOp);
+            }
+        }
+    }
+}
+
 void RescheduleUtils::UpdateTensorConsProd(Function *funcPtr) {
     std::unordered_map<int, std::set<std::shared_ptr<LogicalTensor>, TensorPtrComparator>> tensorMap;
     std::unordered_map<int, std::shared_ptr<LogicalTensor>> inverseMap;
@@ -199,18 +253,9 @@ void RescheduleUtils::UpdateTensorConsProd(Function *funcPtr) {
         outcastSet.emplace(outcast);
     }
     for (auto &op : funcPtr->Operations()) {
-        for (auto &inOperand : op.GetIOperands()) {
-            if (incastSet.count(inOperand) == 0) {
-                inOperand->GetProducers().clear();
-            }
-            inOperand->GetConsumers().clear();
-        }
-        for (auto &outOperand : op.GetOOperands()) {
-            outOperand->GetProducers().clear();
-            if (outcastSet.count(outOperand) == 0) {
-                outOperand->GetConsumers().clear();
-            }
-        }
+        int subGraphID = op.GetSubgraphID();
+        ClearInputConsProd(op, subGraphID, incastSet);
+        ClearOutputConsProd(op, subGraphID, outcastSet);
     }
     for (auto &op : funcPtr->Operations()) {
         for (auto &inOperand : op.GetIOperands()) {

@@ -211,6 +211,20 @@ Status OoOScheduler::UpdateReloadIssueInfo(IssueEntryPtr reloadAlloc, IssueEntry
         APASS_LOG_ERROR_F(Elements::Operation, "UpdateRemainOpBufId failed.");
         return FAILED;
     }
+    for (auto& issue : issueEntries) {
+        if (issue->isRetired || issue->isAlloc) {
+            continue;
+        }
+        auto predecessors = issue->predecessors;
+        for (auto predId : predecessors) {
+            auto predecessor = issueEntryMap[predId];
+            if (predecessor->isAlloc && std::find(predecessor->reqMemIds.begin(), predecessor->reqMemIds.end(),
+                spillMemId) != predecessor->reqMemIds.end()) {
+                issue->predecessors.erase(predId);
+                issue->predecessors.insert(reloadAlloc->id);
+            }
+        }
+    }
     numTotalIssues += TWO_ISSUE;
     return SUCCESS;
 }
