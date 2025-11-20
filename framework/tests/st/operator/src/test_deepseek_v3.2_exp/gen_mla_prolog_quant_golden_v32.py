@@ -146,7 +146,7 @@ def apply_rotary_pos_emb_v2(q, k, cos, sin, unsqueeze_dim=2):
     return q_embed, k_embed
 
 
-def quant(input_t, is_pertoken: bool = True, has_smooth=False, smooth_cq=None, epsilon = 1e-10):
+def quant(input_t, is_pertoken: bool = True, has_smooth=False, smooth_cq=None):
     input_fp32 = input_t.astype(fp32)
     if has_smooth:
         input_fp32 = input_fp32 * smooth_cq
@@ -156,7 +156,7 @@ def quant(input_t, is_pertoken: bool = True, has_smooth=False, smooth_cq=None, e
         reduce_idx = -2
         logging.debug("This PerChannel Quant!!")
 
-    max_value = np.max(abs_res, axis=reduce_idx, keepdims=True) + epsilon
+    max_value = np.max(abs_res, axis=reduce_idx, keepdims=True)
     scale_quant = 127 / max_value
     out_fp32 = input_fp32 * scale_quant
     out_int32 = np.rint(out_fp32).astype(np.int32)
@@ -212,7 +212,7 @@ def mla_prolog_quant_v32_compute(inputs):
     # shape is: [b * s, h] @ [h, q_lora_rank] -> [b * s, q_lora_rank]
     if is_quant_a:
         # no smooth
-        x_2d_quant, x_2d_scale_dequant = quant(x_2d, True, epsilon = epsilon)
+        x_2d_quant, x_2d_scale_dequant = quant(x_2d, True)
         q_a_proj = np.matmul(x_2d_quant.astype(np.int32), w_dq.astype(np.int32))
 
         """ dequant """
@@ -231,9 +231,9 @@ def mla_prolog_quant_v32_compute(inputs):
     q_a_layernorm_scale_dequant = None
     if is_quant_b:
         if has_smooth:
-            q_a_layernorm, q_a_layernorm_scale_dequant = quant(q_a_layernorm, True, True, smooth_cq, epsilon = epsilon)
+            q_a_layernorm, q_a_layernorm_scale_dequant = quant(q_a_layernorm, True, True, smooth_cq)
         else:
-            q_a_layernorm, q_a_layernorm_scale_dequant = quant(q_a_layernorm, True, epsilon = epsilon)  # scale: [b*s,1]
+            q_a_layernorm, q_a_layernorm_scale_dequant = quant(q_a_layernorm, True)  # scale: [b*s,1]
         q_b_proj = np.matmul(q_a_layernorm.astype(np.int32), w_uqqr.astype(np.int32))  # q_b_proj
 
         """ dequant """
@@ -262,7 +262,7 @@ def mla_prolog_quant_v32_compute(inputs):
     # shape is: [b*s, h] @ [h, kv_lora_rank + qk_rope_head_dim] -> [b*s, kv_lora_rank + qk_rope_head_dim]
     if is_quant_a:
         # no smooth
-        x_2d_quant, x_2d_scale_dequant = quant(x_2d, True, epsilon = epsilon)
+        x_2d_quant, x_2d_scale_dequant = quant(x_2d, True)
         kv_a_proj = np.matmul(x_2d_quant.astype(np.int32), w_dkvkr.astype(np.int32))
         """ dequant """
         kv_a_proj_fp32 = kv_a_proj.astype(fp32)
@@ -281,7 +281,7 @@ def mla_prolog_quant_v32_compute(inputs):
     compressed_kv_quant_scale = None
     if is_quant_b:
         compressed_kv_norm_split = compressed_kv_norm.reshape(b*s, 4, kv_lora_rank//4)
-        compressed_kv_norm, compressed_kv_quant_scale = quant(compressed_kv_norm_split, True, epsilon = epsilon)
+        compressed_kv_norm, compressed_kv_quant_scale = quant(compressed_kv_norm_split, True)
         compressed_kv_quant_scale = compressed_kv_quant_scale.reshape(b, s, 1, 4)
     compressed_kv_r = compressed_kv_norm.reshape(b, s, 1, kv_lora_rank)
     if cache_mode != "BNSD":
@@ -361,7 +361,7 @@ def gen_block_table(act_seq, block_size, s1, need_indices=False):
         return block_num, block_table.numpy()
 
 def gen_mla_prolog_quant_v32_input_data(params, dtypes,  actual_seq,  output_dir: Path, is_quant=(False, False), is_nz=False,
-                                        has_smooth=False, block_size=128, cache_mode="BNSD", epsilon = 1e-10):
+                                        has_smooth=False, block_size=128, cache_mode="BNSD"):
     dtype, w_dtype = dtypes
     logging.debug(f"gen_mla_prolog_quant_v32_input_data  dtype:{dtype}, w_dtype:{w_dtype}")
     is_quant_a, is_quant_b = is_quant
@@ -444,8 +444,8 @@ def gen_mla_prolog_quant_v32_input_data(params, dtypes,  actual_seq,  output_dir
     res[4] = dict()
 
     if is_quant_a:
-        w_dq, w_qa_scale = quant(w_dq, False, epsilon = epsilon)
-        w_dkvkr, w_kva_scale = quant(w_dkvkr, False, epsilon = epsilon)
+        w_dq, w_qa_scale = quant(w_dq, False)
+        w_dkvkr, w_kva_scale = quant(w_dkvkr, False)
         w_qa_scale.tofile(w_qa_scale_path)
         w_kva_scale.tofile(w_kva_scale_path)
         res[4]["w_dq"] = w_qa_scale
@@ -465,7 +465,7 @@ def gen_mla_prolog_quant_v32_input_data(params, dtypes,  actual_seq,  output_dir
             w_dkvkr.tofile(w_dkvkr_path)
 
     if is_quant_b:
-        w_uqqr, w_qb_scale = quant(w_uqqr, False, epsilon = epsilon)
+        w_uqqr, w_qb_scale = quant(w_uqqr, False)
         w_qb_scale.tofile(w_qb_scale_path)
         res[4]["w_uqqr"] = w_qb_scale
         # smooth_data
@@ -527,7 +527,7 @@ def gen_mla_prolog_quant_v32_input_data(params, dtypes,  actual_seq,  output_dir
     kv_quant_scale_cache = None
     if is_quant_b:
         kv_cache_split = kv_cache.reshape(-1, 4, kv_lora_rank//4)
-        kv_cache, kv_quant_scale_cache = quant(kv_cache_split, True, epsilon = epsilon)
+        kv_cache, kv_quant_scale_cache = quant(kv_cache_split, True)
         kv_cache = kv_cache.reshape(kv_cache_shape)
         kv_quant_scale_cache = kv_quant_scale_cache.reshape(kv_quant_scale_cache_shape)
         kv_quant_scale_cache.tofile(kv_quant_scale_cache_path)
@@ -554,7 +554,7 @@ def gen_mla_prolog_quant_v32_data(params, dtypes, actual_seq, epsilon, output_di
     dtype, w_dtype = dtypes
     logging.debug(f"gen_mla_prolog_quant_v32_data  dtype:{dtype}, w_dtype:{w_dtype}")
     x, w_dq, w_uqqr, smooth_cq, scale_data, w_dkvkr, w_uk, gamma_cq, gamma_ckv, cos, sin, kv_len, kv_cache, kr_cache,  kv_quant_scale_cache, block_num, block_table= \
-        gen_mla_prolog_quant_v32_input_data(params, dtypes, actual_seq, output_dir, is_quant, is_nz, has_smooth, block_size, cache_mode, epsilon)
+        gen_mla_prolog_quant_v32_input_data(params, dtypes, actual_seq, output_dir, is_quant, is_nz, has_smooth, block_size, cache_mode)
     is_quant_a, is_quant_b = is_quant
     b = params.get("b")
     s2 = params.get("s2")  # s2=4k
@@ -641,79 +641,79 @@ def gen_mla_prolog_v32_quantB_test(dtypes, bn1s1s2, epsilon, output_dir: Path, i
 def gen_mla_prolog_quant_v32_data_wrap(case_name: str, output: Path):
     # fp16, quant, weight nd, "PA_BSND"
     if case_name == "MlaPrologQuantV32STest.b1_s64k2_pa_nd_fp16_quantB":
-        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (1, 128, 2, 64 * 1024), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (1, 128, 2, 64 * 1024), 1e-5, output, True, False, False, 128, "PA_BSND")
     elif case_name == "MlaPrologQuantV32STest.b4_s64k2_pa_nd_fp16_quantB":
-        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (4, 128, 2, 64 * 1024), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (4, 128, 2, 64 * 1024), 1e-5, output, True, False, False, 128, "PA_BSND")
     elif case_name == "MlaPrologQuantV32STest.b8_s64k2_pa_nd_fp16_quantB":
-        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (8, 128, 2, 64 * 1024), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (8, 128, 2, 64 * 1024), 1e-5, output, True, False, False, 128, "PA_BSND")
     elif case_name == "MlaPrologQuantV32STest.b16_s64k2_pa_nd_fp16_quantB":
-        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (16, 128, 2, 64 * 1024), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (16, 128, 2, 64 * 1024), 1e-5, output, True, False, False, 128, "PA_BSND")
     elif case_name == "MlaPrologQuantV32STest.b32_s64k2_pa_nd_fp16_quantB":
-        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (32, 128, 2, 64 * 1024), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (32, 128, 2, 64 * 1024), 1e-5, output, True, False, False, 128, "PA_BSND")
     elif case_name == "MlaPrologQuantV32STest.b64_s64k2_pa_nd_fp16_quantB":
-        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (64, 128, 2, 64 * 1024), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (64, 128, 2, 64 * 1024), 1e-5, output, True, False, False, 128, "PA_BSND")
     elif case_name == "MlaPrologQuantV32STest.b128_s64k2_pa_nd_fp16_quantB":
-        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (128, 128, 2, 64 * 1024), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (128, 128, 2, 64 * 1024), 1e-5, output, True, False, False, 128, "PA_BSND")
     # quant
     elif case_name == "MlaPrologQuantV32STest.b32_s64k1_pa_nd_fp16_quantB":
-        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (32, 128, 1, 64 * 1024), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (32, 128, 1, 64 * 1024), 1e-5, output, True, False, False, 128, "PA_BSND")
     elif case_name == "MlaPrologQuantV32STest.b32_s64k4_pa_nd_fp16_quantB":
-        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (32, 128, 4, 64 * 1024), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (32, 128, 4, 64 * 1024), 1e-5, output, True, False, False, 128, "PA_BSND")
     # quant
     elif case_name == "MlaPrologQuantV32STest.b32_s1k4_pa_nd_fp16_quantB":
-        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (32, 128, 4, 1 * 1024), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (32, 128, 4, 1 * 1024), 1e-5, output, True, False, False, 128, "PA_BSND")
     elif case_name == "MlaPrologQuantV32STest.b32_s4k4_pa_nd_fp16_quantB":
-        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (32, 128, 4, 4 * 1024), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (32, 128, 4, 4 * 1024), 1e-5, output, True, False, False, 128, "PA_BSND")
     elif case_name == "MlaPrologQuantV32STest.b32_s16k4_pa_nd_fp16_quantB":
-        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (32, 128, 4, 16 * 1024), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (32, 128, 4, 16 * 1024), 1e-5, output, True, False, False, 128, "PA_BSND")
     elif case_name == "MlaPrologQuantV32STest.b32_s128k4_pa_nd_fp16_quantB":
-        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (32, 128, 4, 128 * 1024), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (32, 128, 4, 128 * 1024), 1e-5, output, True, False, False, 128, "PA_BSND")
     # quant small shape
     elif case_name == "MlaPrologQuantV32STest.b1_s11_pa_nd_fp16_quantB":
-        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (1, 128, 1, 1), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (1, 128, 1, 1), 1e-5, output, True, False, False, 128, "PA_BSND")
     elif case_name == "MlaPrologQuantV32STest.b1_s129_1_pa_nd_fp16_quantB":
-        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (1, 128, 1, 129), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((np.float16, np.float16), (1, 128, 1, 129), 1e-5, output, True, False, False, 128, "PA_BSND")
 
     # bf16, quant, weight nd, "PA_BSND"
     elif case_name == "MlaPrologQuantV32STest.b1_s64k2_pa_nd_bf16_quantB":
-        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (1, 128, 2, 64 * 1024), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (1, 128, 2, 64 * 1024), 1e-5, output, True, False, False, 128, "PA_BSND")
     elif case_name == "MlaPrologQuantV32STest.b4_s64k2_pa_nd_bf16_quantB":
-        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (4, 128, 2, 64 * 1024), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (4, 128, 2, 64 * 1024), 1e-5, output, True, False, False, 128, "PA_BSND")
     elif case_name == "MlaPrologQuantV32STest.b8_s64k2_pa_nd_bf16_quantB":
-        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (8, 128, 2, 64 * 1024), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (8, 128, 2, 64 * 1024), 1e-5, output, True, False, False, 128, "PA_BSND")
     elif case_name == "MlaPrologQuantV32STest.b16_s64k2_pa_nd_bf16_quantB":
-        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (16, 128, 2, 64 * 1024), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (16, 128, 2, 64 * 1024), 1e-5, output, True, False, False, 128, "PA_BSND")
     elif case_name == "MlaPrologQuantV32STest.b32_s64k2_pa_nd_bf16_quantB":
-        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (32, 128, 2, 64 * 1024), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (32, 128, 2, 64 * 1024), 1e-5, output, True, False, False, 128, "PA_BSND")
     elif case_name == "MlaPrologQuantV32STest.b64_s64k2_pa_nd_bf16_quantB":
-        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (64, 128, 2, 64 * 1024), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (64, 128, 2, 64 * 1024), 1e-5, output, True, False, False, 128, "PA_BSND")
     elif case_name == "MlaPrologQuantV32STest.b128_s64k2_pa_nd_bf16_quantB":
-        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (128, 128, 2, 64 * 1024), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (128, 128, 2, 64 * 1024), 1e-5, output, True, False, False, 128, "PA_BSND")
     # quant
     elif case_name == "MlaPrologQuantV32STest.b32_s64k1_pa_nd_bf16_quantB":
-        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (32, 128, 1, 64 * 1024), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (32, 128, 1, 64 * 1024), 1e-5, output, True, False, False, 128, "PA_BSND")
     elif case_name == "MlaPrologQuantV32STest.b32_s64k4_pa_nd_bf16_quantB":
-        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (32, 128, 4, 64 * 1024), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (32, 128, 4, 64 * 1024), 1e-5, output, True, False, False, 128, "PA_BSND")
     # quant
     elif case_name == "MlaPrologQuantV32STest.b32_s1k4_pa_nd_bf16_quantB":
-        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (32, 128, 4, 1 * 1024), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (32, 128, 4, 1 * 1024), 1e-5, output, True, False, False, 128, "PA_BSND")
     elif case_name == "MlaPrologQuantV32STest.b32_s4k4_pa_nd_bf16_quantB":
-        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (32, 128, 4, 4 * 1024), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (32, 128, 4, 4 * 1024), 1e-5, output, True, False, False, 128, "PA_BSND")
     elif case_name == "MlaPrologQuantV32STest.b32_s16k4_pa_nd_bf16_quantB":
-        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (32, 128, 4, 16 * 1024), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (32, 128, 4, 16 * 1024), 1e-5, output, True, False, False, 128, "PA_BSND")
     elif case_name == "MlaPrologQuantV32STest.b32_s128k4_pa_nd_bf16_quantB":
-        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (32, 128, 4, 128 * 1024), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (32, 128, 4, 128 * 1024), 1e-5, output, True, False, False, 128, "PA_BSND")
     # quant small shape
     elif case_name == "MlaPrologQuantV32STest.b1_s11_pa_nd_bf16_quantB":
-        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (1, 128, 1, 1), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (1, 128, 1, 1), 1e-5, output, True, False, False, 128, "PA_BSND")
     elif case_name == "MlaPrologQuantV32STest.b1_s129_1_pa_nd_bf16_quantB":
-        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (1, 128, 1, 129), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (1, 128, 1, 129), 1e-5, output, True, False, False, 128, "PA_BSND")
     # unaligned shape
     elif case_name == "MlaPrologQuantV32STest.b104_s8k1_pa_nd_bf16_quantB":
-        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (104, 128, 1, 8 * 1024), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (104, 128, 1, 8 * 1024), 1e-5, output, True, False, False, 128, "PA_BSND")
     # special case from test
     elif case_name == "MlaPrologQuantV32STest.b32_s127104_3_pa_nd_bf16_quantB":
-        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (32, 128, 3, 127104), 1e-10, output, True, False, False, 128, "PA_BSND")
+        gen_mla_prolog_v32_quantB_test((bfloat16, bfloat16), (32, 128, 3, 127104), 1e-5, output, True, False, False, 128, "PA_BSND")
     else:
         logging.error("Can't get func to gen golden, Case(%s)", case_name)
         return False
