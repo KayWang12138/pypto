@@ -676,9 +676,11 @@ void CheckBiasOperand(const Tensor &operand, LogicalTensorPtr &result, const Mat
     }
     ASSERT(param.biasTensor.Format() == TileOpFormat::TILEOP_ND);
     ASSERT(operand.GetDataType() == DataType::DT_BF16 || operand.GetDataType() == DataType::DT_FP16 ||
-           operand.GetDataType() == DataType::DT_FP32);
+           operand.GetDataType() == DataType::DT_FP32 || operand.GetDataType() == DataType::DT_INT8);
     if (operand.GetDataType() == DataType::DT_BF16 || operand.GetDataType() == DataType::DT_FP32) {
         ASSERT(param.biasTensor.GetDataType() == DataType::DT_FP32);
+    } else if (operand.GetDataType() == DataType::DT_INT8) {
+        ASSERT(param.biasTensor.GetDataType() == DataType::DT_INT32);
     } else {
         ASSERT(
             param.biasTensor.GetDataType() == DataType::DT_FP32 || param.biasTensor.GetDataType() == DataType::DT_FP16);
