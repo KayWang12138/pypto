@@ -90,9 +90,9 @@ TILEOP void TgatherElement(T0 dst, T1 src0, T2 src1) {
         constexpr auto dstTypeSize = sizeof(typename T0::Type);
         constexpr auto idxTypeSize = sizeof(typename T2::Type);
         constexpr auto srcTileShape1 = TileOp::GetOutterAxisMergeResult<shapeSize, typename T1::TileShape>();
-        using srcTileDefine = pypto::Tile<pypto::Location::Vec, typename T1::Type, srcTileShape1, srcTileW, pypto::BLayout::RowMajor>;
-        using idxTileDefine = pypto::Tile<pypto::Location::Vec, typename T2::Type, idxTileH, idxTileW, pypto::BLayout::RowMajor, -1, -1>;
-        using dstTileDefine = pypto::Tile<pypto::Location::Vec, typename T0::Type, idxTileH, idxTileW, pypto::BLayout::RowMajor, -1, -1>;
+        using srcTileDefine = pto::Tile<pto::Location::Vec, typename T1::Type, srcTileShape1, srcTileW, pto::BLayout::RowMajor>;
+        using idxTileDefine = pto::Tile<pto::Location::Vec, typename T2::Type, idxTileH, idxTileW, pto::BLayout::RowMajor, -1, -1>;
+        using dstTileDefine = pto::Tile<pto::Location::Vec, typename T0::Type, idxTileH, idxTileW, pto::BLayout::RowMajor, -1, -1>;
         srcTileDefine srcTile;
         idxTileDefine idxTile(n3IdxShape, n4IdxShape);
         dstTileDefine dstTile(n3IdxShape, n4IdxShape);
@@ -100,10 +100,10 @@ TILEOP void TgatherElement(T0 dst, T1 src0, T2 src1) {
             for (int j = 0; j < n1IdxShape; ++j) {
                 for (int k = 0; k < n2IdxShape; ++k) {
                     auto offset = i * n0IdxStride + j * n1IdxStride + k * n2IdxStride;
-                    pypto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + offset * dstTypeSize));
-                    pypto::TASSIGN(srcTile, (uint64_t)(src0.GetAddr()));
-                    pypto::TASSIGN(idxTile, (uint64_t)(src1.GetAddr() + offset * idxTypeSize));
-                    pypto::TGATHER(dstTile, srcTile, idxTile);
+                    pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + offset * dstTypeSize));
+                    pto::TASSIGN(srcTile, (uint64_t)(src0.GetAddr()));
+                    pto::TASSIGN(idxTile, (uint64_t)(src1.GetAddr() + offset * idxTypeSize));
+                    pto::TGATHER(dstTile, srcTile, idxTile);
                 }
             }
         }

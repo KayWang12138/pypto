@@ -21,11 +21,11 @@
 template <BinaryOp op, typename T0, typename T1, typename T2>
 TILEOP void ReduceComputeImpl(T0 dst, T1 src, T2 tmp) {
     if constexpr (op == BinaryOp::SUM) {
-        pypto::TROWSUM(dst, src, tmp);
+        pto::TROWSUM(dst, src, tmp);
         return;
     }
     if constexpr (op == BinaryOp::AMAX) {
-        pypto::TROWMAX(dst, src, tmp);
+        pto::TROWMAX(dst, src, tmp);
     }
 }
 
@@ -38,7 +38,7 @@ TILEOP void ReduceCompute(T0 dst, T1 src, T2 tmp) {
     constexpr auto tmpTileH = Std::tuple_element<tmpShapeSize - 2, typename T2::TileShape>::type::value;
     constexpr auto tmpTileW = Std::tuple_element<tmpShapeSize - 1, typename T2::TileShape>::type::value;
     using TmpTileDefine =
-            pypto::Tile<pypto::Location::Vec, typename T2::Type, tmpTileH, tmpTileW, pypto::BLayout::RowMajor, tmpTileH, tmpTileW>;
+            pto::Tile<pto::Location::Vec, typename T2::Type, tmpTileH, tmpTileW, pto::BLayout::RowMajor, tmpTileH, tmpTileW>;
     TmpTileDefine tmpTile;
     if constexpr (TileOp::IsConstContinous<T0, T1>() == true) {
         constexpr auto srcTileH = TileOp::GetOutterAxisMergeResult<srcShapeSize, typename T1::TileShape>();
@@ -46,14 +46,14 @@ TILEOP void ReduceCompute(T0 dst, T1 src, T2 tmp) {
         constexpr auto dstTileH = TileOp::GetOutterAxisMergeResult<dstShapeSize, typename T0::TileShape>();
         constexpr auto dstTileW = Std::tuple_element<dstShapeSize - 1, typename T0::TileShape>::type::value;
         using SrcTileDefine =
-            pypto::Tile<pypto::Location::Vec, typename T1::Type, srcTileH, srcTileW, pypto::BLayout::RowMajor, srcTileH, srcTileW>;
+            pto::Tile<pto::Location::Vec, typename T1::Type, srcTileH, srcTileW, pto::BLayout::RowMajor, srcTileH, srcTileW>;
         using DstTileDefine =
-            pypto::Tile<pypto::Location::Vec, typename T0::Type, dstTileH, dstTileW, pypto::BLayout::RowMajor, dstTileH, dstTileW>;
+            pto::Tile<pto::Location::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor, dstTileH, dstTileW>;
         SrcTileDefine srcTile;
         DstTileDefine dstTile;
-        pypto::TASSIGN(dstTile, (uint64_t)dst.GetAddr());
-        pypto::TASSIGN(srcTile, (uint64_t)src.GetAddr());
-        pypto::TASSIGN(tmpTile, (uint64_t)tmp.GetAddr());
+        pto::TASSIGN(dstTile, (uint64_t)dst.GetAddr());
+        pto::TASSIGN(srcTile, (uint64_t)src.GetAddr());
+        pto::TASSIGN(tmpTile, (uint64_t)tmp.GetAddr());
         ReduceComputeImpl<op>(dstTile, srcTile, tmpTile);
         return;
     }
@@ -83,16 +83,16 @@ TILEOP void ReduceCompute(T0 dst, T1 src, T2 tmp) {
         for (size_t n1Index = 0; n1Index < dstShape1; ++n1Index) {
             for (size_t n2Index = 0; n2Index < dstShape2; ++n2Index) {
                 using DstTileDefine =
-                    pypto::Tile<pypto::Location::Vec, typename T0::Type, dstTileH, dstTileW, pypto::BLayout::RowMajor, -1, -1>;
+                    pto::Tile<pto::Location::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
                 using SrcTileDefine =
-                    pypto::Tile<pypto::Location::Vec, typename T1::Type, srcTileH, srcTileW, pypto::BLayout::RowMajor, -1, -1>;
+                    pto::Tile<pto::Location::Vec, typename T1::Type, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
                 DstTileDefine dstTile(dstShape3, dstShape4);
                 SrcTileDefine srcTile(srcShape3, srcShape4);
                 auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
                 auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
-                pypto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * srcTypeSize));
-                pypto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
-                pypto::TASSIGN(tmpTile, (uint64_t)(tmp.GetAddr()));
+                pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * srcTypeSize));
+                pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
+                pto::TASSIGN(tmpTile, (uint64_t)(tmp.GetAddr()));
                 if (srcShape3 == 0 || srcShape4 == 0){
                     return;
                 }

@@ -45,16 +45,16 @@ TILEOP void TCast(T0 dst, T1 src) {
         for (size_t n1Index = 0; n1Index < shape1; ++n1Index) {
             for (size_t n2Index = 0; n2Index < shape2; ++n2Index) {
                 using TileDefineDst =
-                    pypto::Tile<pypto::Location::Vec, typename T0::Type, dstTileH, dstTileW, pypto::BLayout::RowMajor, -1, -1>;
+                    pto::Tile<pto::Location::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
                 using TileDefineSrc =
-                    pypto::Tile<pypto::Location::Vec, typename T1::Type, srcTileH, srcTileW, pypto::BLayout::RowMajor, -1, -1>;
+                    pto::Tile<pto::Location::Vec, typename T1::Type, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
                 TileDefineDst dstTile(shape3, shape4);
                 TileDefineSrc srcTile(shape3, shape4);
                 auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
                 auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
-                pypto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize));
-                pypto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
-                pypto::TCVT(dstTile, srcTile, static_cast<pypto::RoundMode>(Mode));
+                pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize));
+                pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
+                pto::TCVT(dstTile, srcTile, static_cast<pto::RoundMode>(Mode));
             }
         }
     }
