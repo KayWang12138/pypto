@@ -14,7 +14,7 @@ import os
 from pathlib import Path
 import numpy as np
 from op_record_if_branch import op_record_if_branch, golden_if_branch
-sys.path.append(str(Path(os.path.abspath(__file__)).parents[3].joinpath("framework/tests/cmake/scripts/helper")))
+sys.path.append(str(Path(os.path.abspath(__file__)).parents[4].joinpath("framework/tests/cmake/scripts/helper")))
 from pypto_test import TestBuilder
 
 
