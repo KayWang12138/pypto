@@ -47,6 +47,68 @@ DeviceLauncherContext &DeviceLauncherContext::Get() {
     return context;
 }
 
+static const std::unordered_map<int, std::function<void(bool&)>> captureStatusHandlers = {
+    {aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_ACTIVE, [](bool& isCapture) {isCapture = true;}},
+    {aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_NONE,
+        [](bool& isCapture) {(void)isCapture; ALOG_DEBUG_F("GetStreamCaptureInfo: status NONE");}},
+    {aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_INVALIDATED,
+        [](bool& isCapture) {(void)isCapture; ALOG_DEBUG_F("GetStreamCaptureInfo: status invalidated");}}
+};
+
+int DeviceLauncher::GetStreamCaptureInfo(rtStream_t aicoreStream, aclmdlRI &rtModel, bool &isCapture)
+{
+    aclmdlRICaptureStatus captureStatus = aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_NONE;
+    aclError ret = aclmdlRICaptureGetInfo(aicoreStream, &captureStatus, &rtModel);
+    if (ret == ACL_ERROR_RT_FEATURE_NOT_SUPPORT) {
+        ALOG_WARN_F("Stream capture not support");
+        return 0;
+    } else if (ret != ACL_SUCCESS) {
+        ALOG_ERROR_F("aclmdlRICaptureGetInfo failed, return[%d]", ret);
+        return -1;
+    }
+
+    auto it = captureStatusHandlers.find(captureStatus);
+    if (it != captureStatusHandlers.end()) {
+        it->second(isCapture);
+    } else {
+        ALOG_ERROR_F("GetStreamCaptureInfo get unsupport capture status");
+        return -1;
+    }
+    ALOG_INFO_F("capture mode[%d]", isCapture);
+    return 0;
+}
+
+void DeviceLauncher::ChangeCaptureMode(aclmdlRICaptureMode &mode)
+{
+    mode = ACL_MODEL_RI_CAPTURE_MODE_RELAXED;   // aclgraph does not support rtmemcpy / rtmemset, set to relaxed mode
+    aclmdlRICaptureThreadExchangeMode(&mode);
+}
+
+int DeviceLauncher::SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuStream)
+{
+    aclmdlRI rtModel = nullptr;
+    bool isCapture = false;
+    aclmdlRICaptureMode mode = ACL_MODEL_RI_CAPTURE_MODE_GLOBAL;
+    if (GetStreamCaptureInfo(aicoreStream, rtModel, isCapture) < 0) {
+        return -1;
+    }
+
+    if (isCapture) {
+        if (rtModel ==  nullptr) {
+            ALOG_ERROR_F("rtModel is null!");
+            return -1;;
+        }
+        rtError_t ret = rtStreamAddToModel(aicpuStream, rtModel);
+        if (ret != 0) {
+            ALOG_ERROR_F("rtStreamAddToModel failed, return[%d]", ret);
+            return -1;
+        }
+        ChangeCaptureMode(mode);
+    }
+    DeviceRunner::Get().SetCaptureFlag(isCapture, mode);
+    return 0;
+}
+
 int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
         rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator,
@@ -55,8 +117,12 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     if (function != nullptr && function->GetDyndevAttribute() != nullptr) {
         DeviceRunner::SetBinData(function->GetDyndevAttribute()->kernelBinary);
     }
+    int rc = SetCaptureStream(aicoreStream, aicpuStream);
+    if (rc < 0) {
+        return rc;
+    }
     DeviceRunner::Get().GetHostProfInstance().SetProfFunction(function);
-    int rc = aclInit(nullptr);
+    rc = aclInit(nullptr);
     if (rc == 0 || rc == ACL_ERROR_REPEAT_INITIALIZE) {
         CachedOperator cachedOperatorData;
         if (cachedOperator == nullptr) {

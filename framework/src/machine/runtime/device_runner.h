@@ -26,6 +26,7 @@
 
 #ifdef BUILD_WITH_CANN
 #include <runtime/rt.h>
+#include <acl/acl_rt.h>
 #include "machine/utils/machine_ws_intf.h"
 constexpr int PMU_EVENT_TYPE_MAX = 8;
 constexpr int CORE_DEFAULT_NUM = 70;
@@ -65,6 +66,10 @@ public:
     static int RegiserKernelBin(void **hdl);
     static void SetBinData(const std::vector<uint8_t> &binBuf);
     HostProf& GetHostProfInstance();
+    inline void SetCaptureFlag(bool isCapture, aclmdlRICaptureMode mode) {
+        isCapture_ = isCapture;
+        captureMode_ = mode;
+    }
 
 private:
     DeviceRunner() = default;
@@ -102,6 +107,8 @@ private:
     rtBinHandle binHdl_;
     FileLock lock_;
     HostProf hostProf_;
+    bool isCapture_ = false;
+    aclmdlRICaptureMode captureMode_ = ACL_MODEL_RI_CAPTURE_MODE_GLOBAL;
 };
 
 #else

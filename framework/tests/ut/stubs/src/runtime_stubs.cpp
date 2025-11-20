@@ -333,4 +333,11 @@ rtError_t rtGetLogicDevIdByUserDevId(const int32_t userDevId, int32_t * const lo
     (void)logicDevId;
     return RT_ERROR_NONE;
 }
+
+rtError_t rtStreamAddToModel(rtStream_t stm, rtModel_t captureMdl)
+{
+    (void)stm;
+    (void)captureMdl;
+    return RT_ERROR_NONE;
+}
 }

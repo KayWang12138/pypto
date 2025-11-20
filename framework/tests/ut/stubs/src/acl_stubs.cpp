@@ -79,4 +79,18 @@ aclError aclrtMalloc(void **devPtr, size_t size, aclrtMemMallocPolicy policy)
     return 0;
 }
 
+aclError aclmdlRICaptureGetInfo(aclrtStream stream, aclmdlRICaptureStatus *status,
+                                aclmdlRI *modelRI)
+{
+    (void)stream;
+    (void)status;
+    (void)modelRI;
+    return 0;
+}
+
+aclError aclmdlRICaptureThreadExchangeMode(aclmdlRICaptureMode *mode)
+{
+    (void)mode;
+    return 0;
+}
 }

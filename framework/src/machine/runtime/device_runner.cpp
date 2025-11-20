@@ -461,6 +461,20 @@ int DeviceRunner::launchDynamicAiCpuInit(rtStream_t aicpuStream, AstKernelArgs *
 int DeviceRunner::RunPrepare(rtStream_t aicpuStream, rtStream_t aicoreStream) {
     int rc;
 
+    KernelArgs kernelArgs = {};
+    for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv; i++) {
+        kernelArgs.shakeBuffer[SHAK_BUF_DFX_DATA_INDEX] = reinterpret_cast<uint64_t>(perfData_[i]);
+        rtMemcpy((reinterpret_cast<uint8_t *>(args_.sharedBuffer)) + i * SHARED_BUFFER_SIZE,
+            SHARED_BUFFER_SIZE,
+            reinterpret_cast<uint8_t *>(&kernelArgs),
+            sizeof(kernelArgs),
+            RT_MEMCPY_HOST_TO_DEVICE);
+    }
+
+    if (isCapture_) {
+        aclmdlRICaptureThreadExchangeMode(&captureMode_);
+    }
+
     aclrtEvent event;
     rc = aclrtCreateEventExWithFlag(&event, ACL_EVENT_SYNC);
     if (rc < 0) {
@@ -480,15 +494,6 @@ int DeviceRunner::RunPrepare(rtStream_t aicpuStream, rtStream_t aicoreStream) {
         return rc;
     }
 
-    KernelArgs kernelArgs = {};
-    for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv; i++) {
-        kernelArgs.shakeBuffer[SHAK_BUF_DFX_DATA_INDEX] = reinterpret_cast<uint64_t>(perfData_[i]);
-        rtMemcpy((reinterpret_cast<uint8_t *>(args_.sharedBuffer)) + i * SHARED_BUFFER_SIZE,
-            SHARED_BUFFER_SIZE,
-            reinterpret_cast<uint8_t *>(&kernelArgs),
-            sizeof(kernelArgs),
-            RT_MEMCPY_HOST_TO_DEVICE);
-    }
     return 0;
 }
 
