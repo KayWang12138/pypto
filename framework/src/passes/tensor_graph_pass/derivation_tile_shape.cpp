@@ -569,7 +569,7 @@ Status DerivationTileShape::DerivationReshapeTileShape(Operation *op, const Shap
     if (op->GetOpcode() != Opcode::OP_RESHAPE) {
         return FAILED;
     }
-    if (!ValidShape(inShape) || !ValidShape(outShape) || !ValidShape(inTileShape)) {
+    if (!ValidShape(inShape) || !ValidShape(outShape) || !ValidShape(inTileShape) || (inShape.size() != inTileShape.size())) {
         APASS_LOG_WARN_F(Elements::Operation, "Op: %d has invalid shape, inShape%s, outShape%s, inTile%s",
             op->GetOpMagic(), GetStr(inShape).c_str(), GetStr(outShape).c_str(), GetStr(inTileShape).c_str());
         return FAILED;
@@ -612,7 +612,7 @@ Status DerivationTileShape::DerivationReshapeTileShape(Operation *op, const Shap
     }
     APASS_LOG_INFO_F(Elements::Operation, "Op: %d, inShape%s, alignShape%s, outShape%s, inTile%s, alignTile%s, outTile%s",
         op->GetOpMagic(), GetStr(inShape).c_str(), GetStr(alignedShape).c_str(), GetStr(outShape).c_str(),
-        GetTileStr(inStatus).c_str(), GetTileStr(alignedStatus).c_str(), GetStr(newTileShape).c_str());
+        GetStr(inTileShape).c_str(), GetTileStr(alignedStatus).c_str(), GetStr(newTileShape).c_str());
 
     /* 检查输入输出切分tile shape */
     if (CheckTileShape(inShape, outShape, inTileShape, newTileShape) != SUCCESS) {
