@@ -14,7 +14,7 @@ import math
 import copy
 import numpy as np
 import torch
-import pto
+import pypto
 import pytest
 import torch_npu
 
@@ -32,55 +32,55 @@ def test_gather_onboard():
     view_shape = (b, 4)
     tile_shape = (b, 4)
 
-    pto.runtime._device_init()
+    pypto.runtime._device_init()
 
-    src_tensor = pto.tensor(src_shape, pto.DataType.DT_INT32, "PTO_TENSOR_SRC")
-    index_tensor = pto.tensor(
-        index_shape, pto.DataType.DT_INT32, "PTO_TENSOR_INDEX")
-    dst_tensor = pto.tensor(
-        index_shape, pto.DataType.DT_INT32, "PTO_TENSOR_DST")
+    src_tensor = pypto.tensor(src_shape, pypto.DataType.DT_INT32, "PTO_TENSOR_SRC")
+    index_tensor = pypto.tensor(
+        index_shape, pypto.DataType.DT_INT32, "PTO_TENSOR_INDEX")
+    dst_tensor = pypto.tensor(
+        index_shape, pypto.DataType.DT_INT32, "PTO_TENSOR_DST")
 
     b_loop_num = math.ceil(index_shape[0] / view_shape[0])
     s_loop_num = math.ceil(index_shape[1] / view_shape[1])
-    pto.set_codegen_options(support_dynamic_unaligned=True)
-    with pto.function("GATHER", [src_tensor, index_tensor], [dst_tensor]):
-        for b_idx in pto.loop(b_loop_num, name="LOOP_DIV_L0", idx_name="b_idx"):
-            for s_idx in pto.loop(s_loop_num, name="LOOP_SIV_L0", idx_name="s_idx"):
-                pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
+    pypto.set_codegen_options(support_dynamic_unaligned=True)
+    with pypto.function("GATHER", [src_tensor, index_tensor], [dst_tensor]):
+        for b_idx in pypto.loop(b_loop_num, name="LOOP_DIV_L0", idx_name="b_idx"):
+            for s_idx in pypto.loop(s_loop_num, name="LOOP_SIV_L0", idx_name="s_idx"):
+                pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
 
-                view_tensor_src = pto.view(src_tensor, view_shape,
+                view_tensor_src = pypto.view(src_tensor, view_shape,
                                            [b_idx * view_shape[0],
                                             s_idx * view_shape[1]],
                                            valid_shape=[
-                                               pto.min(pto.symbolic_scalar(src_shape[0]) - b_idx * view_shape[0],
-                                                       pto.symbolic_scalar(view_shape[0])),
-                                               pto.min(pto.symbolic_scalar(src_shape[1]) - s_idx * view_shape[1],
-                                                       pto.symbolic_scalar(view_shape[1]))]
+                                               pypto.min(pypto.symbolic_scalar(src_shape[0]) - b_idx * view_shape[0],
+                                                       pypto.symbolic_scalar(view_shape[0])),
+                                               pypto.min(pypto.symbolic_scalar(src_shape[1]) - s_idx * view_shape[1],
+                                                       pypto.symbolic_scalar(view_shape[1]))]
                                            )
-                view_tensor_index = pto.view(index_tensor, view_shape,
+                view_tensor_index = pypto.view(index_tensor, view_shape,
                                              [b_idx * view_shape[0],
                                               s_idx * view_shape[1]],
                                              valid_shape=[
-                                                 pto.min(pto.symbolic_scalar(src_shape[0]) - b_idx * view_shape[0],
-                                                         pto.symbolic_scalar(view_shape[0])),
+                                                 pypto.min(pypto.symbolic_scalar(src_shape[0]) - b_idx * view_shape[0],
+                                                         pypto.symbolic_scalar(view_shape[0])),
 
-                                                 pto.min(pto.symbolic_scalar(src_shape[1]) - s_idx * view_shape[1],
-                                                         pto.symbolic_scalar(view_shape[1]))]
+                                                 pypto.min(pypto.symbolic_scalar(src_shape[1]) - s_idx * view_shape[1],
+                                                         pypto.symbolic_scalar(view_shape[1]))]
                                              )
-                tmp_dst_tensor = pto.tensor()
-                tmp_dst_tensor.move(pto.gather(
+                tmp_dst_tensor = pypto.tensor()
+                tmp_dst_tensor.move(pypto.gather(
                     view_tensor_src, axis, view_tensor_index))
-                pto.assemble(tmp_dst_tensor, [
+                pypto.assemble(tmp_dst_tensor, [
                              b_idx * view_shape[0], 0], dst_tensor)
                 del view_tensor_src, view_tensor_index, tmp_dst_tensor
-    assert isinstance(dst_tensor, pto.tensor)
+    assert isinstance(dst_tensor, pypto.tensor)
 
     input0_tensor = torch.randint(1, 100, src_shape, dtype=torch.int32)
     input1_tensor = torch.randint(
         0, src_shape[axis], index_shape, dtype=torch.int32)
     result_tensor = torch.zeros(index_shape, dtype=torch.int32)
 
-    pto.runtime._device_run_once_data_from_host(
+    pypto.runtime._device_run_once_data_from_host(
         [input0_tensor, input1_tensor], [result_tensor])
 
     result = torch.zeros(index_shape, dtype=torch.int32)
@@ -89,4 +89,4 @@ def test_gather_onboard():
             result[i][j] = input0_tensor[input1_tensor[i][j]][j]
 
     assert torch.equal(result_tensor, result)
-    pto.runtime._device_fini
+    pypto.runtime._device_fini

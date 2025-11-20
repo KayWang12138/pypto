@@ -10,7 +10,7 @@
 """
 """
 import os
-import pto
+import pypto
 import pytest
 import torch
 import numpy as np
@@ -21,7 +21,7 @@ import torch_npu
 def test_vector_operation_range():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-    dtype = pto.DT_FP32
+    dtype = pypto.DT_FP32
     size = 32
     view_shape = (16,)
     tile_shape = (8,)
@@ -29,27 +29,27 @@ def test_vector_operation_range():
     end_data = 32.1
     step_data = 1.0
 
-    pto.runtime._device_init()
-    pto.set_codegen_options(support_dynamic_unaligned=True)
+    pypto.runtime._device_init()
+    pypto.set_codegen_options(support_dynamic_unaligned=True)
 
-    a = pto.tensor((1, 1, 1), pto.DT_FP32, "Range_TENSOR_a")
-    b = pto.tensor((size,), pto.DT_FP32, "Range_TENSOR_b")
+    a = pypto.tensor((1, 1, 1), pypto.DT_FP32, "Range_TENSOR_a")
+    b = pypto.tensor((size,), pypto.DT_FP32, "Range_TENSOR_b")
     start = 1.0
     end = 32.1
     step = 1.0
 
-    with pto.function("RANGE", [a], [b]):
-        for b_idx in pto.loop(1, name="LOOP_L0_b_idex", idx_name="b_idx"):
-            pto.set_vec_tile_shapes(tile_shape[0])
-            res = pto.tensor()
-            res.move(pto.arange(start, end, step))
-            pto.assemble(res, [b_idx * view_shape[0]], b)
+    with pypto.function("RANGE", [a], [b]):
+        for b_idx in pypto.loop(1, name="LOOP_L0_b_idex", idx_name="b_idx"):
+            pypto.set_vec_tile_shapes(tile_shape[0])
+            res = pypto.tensor()
+            res.move(pypto.arange(start, end, step))
+            pypto.assemble(res, [b_idx * view_shape[0]], b)
             del res
     a_tensor = torch.rand([1, 1, 1], dtype=torch.float32) * 99.999 + 0.001
     res_tensor = torch.zeros(size, dtype=torch.float32)
-    pto.runtime._device_run_once_data_from_host([a_tensor], [res_tensor])
+    pypto.runtime._device_run_once_data_from_host([a_tensor], [res_tensor])
 
     expected = torch.arange(start_data, end_data, step_data)
     assert_allclose(res_tensor.flatten(), expected.flatten(), rtol=1e-6, atol=1e-7)
 
-    pto.runtime._device_fini()
+    pypto.runtime._device_fini()

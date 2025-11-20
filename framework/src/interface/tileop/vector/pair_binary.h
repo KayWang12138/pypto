@@ -87,15 +87,15 @@ TILEOP int GetWidthValidSize(T0 tensor) {
 template <PairBinaryOp op, typename T0, typename T1, typename T2>
 TILEOP void PairBinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
     if constexpr (op == PairBinaryOp::ADD) {
-        pto::TPARTADD(dst, src0, src1);
+        pypto::TPARTADD(dst, src0, src1);
         return;
     }
     if constexpr (op == PairBinaryOp::MAX) {
-        pto::TPARTMAX(dst, src0, src1);
+        pypto::TPARTMAX(dst, src0, src1);
         return;
     }
     if constexpr (op == PairBinaryOp::MIN) {
-        pto::TPARTMIN(dst, src0, src1);
+        pypto::TPARTMIN(dst, src0, src1);
         return;
     }
 }
@@ -162,11 +162,11 @@ TILEOP void InnerPairBinaryCompute(T0 dst, T1 src0, T2 src1) {
         auto src1Shape4 = GetWidthValidSize<reduceAxisIndex, shapeSize, T2>(src1);
 
         using DstTileDefine =
-            pto::Tile<pto::Location::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
+            pypto::Tile<pypto::Location::Vec, typename T0::Type, dstTileH, dstTileW, pypto::BLayout::RowMajor, -1, -1>;
         using Src0TileDefine =
-            pto::Tile<pto::Location::Vec, typename T0::Type, src0TileH, src0TileW, pto::BLayout::RowMajor, -1, -1>;
+            pypto::Tile<pypto::Location::Vec, typename T0::Type, src0TileH, src0TileW, pypto::BLayout::RowMajor, -1, -1>;
         using Src1TileDefine =
-            pto::Tile<pto::Location::Vec, typename T0::Type, src1TileH, src1TileW, pto::BLayout::RowMajor, -1, -1>;
+            pypto::Tile<pypto::Location::Vec, typename T0::Type, src1TileH, src1TileW, pypto::BLayout::RowMajor, -1, -1>;
 
         for (size_t n0Index = 0; n0Index < dstShape0; ++n0Index) {
             for (size_t n1Index = 0; n1Index < dstShape1; ++n1Index) {
@@ -177,9 +177,9 @@ TILEOP void InnerPairBinaryCompute(T0 dst, T1 src0, T2 src1) {
                     auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
                     auto src0Offset = n0Index * src0Stride0 + n1Index * src0Stride1 + n2Index * src0Stride2;
                     auto src1Offset = n0Index * src1Stride0 + n1Index * src1Stride1 + n2Index * src1Stride2;
-                    pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize));
-                    pto::TASSIGN(src0Tile, (uint64_t)(src0.GetAddr() + src0Offset * src0TypeSize));
-                    pto::TASSIGN(src1Tile, (uint64_t)(src1.GetAddr() + src1Offset * src1TypeSize));
+                    pypto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize));
+                    pypto::TASSIGN(src0Tile, (uint64_t)(src0.GetAddr() + src0Offset * src0TypeSize));
+                    pypto::TASSIGN(src1Tile, (uint64_t)(src1.GetAddr() + src1Offset * src1TypeSize));
                     PairBinaryComputeImpl<op>(dstTile, src0Tile, src1Tile);
                 }
             }

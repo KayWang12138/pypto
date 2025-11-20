@@ -9,7 +9,7 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
-import pto
+import pypto
 import pytest
 
 from test_case_class_vector_operations import CastTestCase
@@ -41,6 +41,6 @@ def test_tensor_cast():
         output_tensors,
         view_shape,
         tile_shape,
-        {"mode": pto.CastMode.CAST_NONE},
+        {"mode": pypto.CastMode.CAST_NONE},
     )
     test_case.exec(True)

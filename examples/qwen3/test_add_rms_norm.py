@@ -11,7 +11,7 @@
 """
 """
 import os
-import pto
+import pypto
 import torch
 import numpy as np
 from numpy.testing import assert_allclose
@@ -41,11 +41,11 @@ def add_rms_norm_golden(residual, hidden_states, gamma, eps):
     return res, x_out
 
 
-@pto.jit
+@pypto.jit
 def cust_add_rms_norm(in_tensor, out_tensor, eps):
     # 添加支持动态的config
-    pto.set_codegen_option("support_dynamic_unaligned", True) 
-    pto.set_host_option("only_codegen", True)
+    pypto.set_codegen_option("support_dynamic_unaligned", True) 
+    pypto.set_host_option("only_codegen", True)
     
     # 从入参拿到输入和输出tensor
     residual = in_tensor[0]
@@ -56,12 +56,12 @@ def cust_add_rms_norm(in_tensor, out_tensor, eps):
     x = out_tensor[1]
     
     # 设置axis=0为动态shape
-    pto.mark_dynamic(residual, 0)
-    pto.mark_dynamic(hidden_states, 0)
-    pto.mark_dynamic(y, 0)
-    pto.mark_dynamic(x, 0)
+    pypto.mark_dynamic(residual, 0)
+    pypto.mark_dynamic(hidden_states, 0)
+    pypto.mark_dynamic(y, 0)
+    pypto.mark_dynamic(x, 0)
     
-    calc_dtype = pto.DT_FP32
+    calc_dtype = pypto.DT_FP32
     input_dtype = hidden_states.dtype
     
     m = hidden_states.shape[0]
@@ -71,52 +71,52 @@ def cust_add_rms_norm(in_tensor, out_tensor, eps):
 
     bs_loop = (m + view_shape[0] - 1) // view_shape[0]
     # 定义动态函数
-    with pto.function("ADD_RMS_NORM", [residual, hidden_states, weight], [y, x]):
+    with pypto.function("ADD_RMS_NORM", [residual, hidden_states, weight], [y, x]):
         def rms_inside_func():
             # 实现kernel逻辑， 包在函数中实现变量自动回收
             # 循环展开BS动态轴
-            for idx_loop in pto.loop(bs_loop, name="LOOP_RMS_NORM_L0", idx_name="idx_loop"):
+            for idx_loop in pypto.loop(bs_loop, name="LOOP_RMS_NORM_L0", idx_name="idx_loop"):
                 def bs_loop_func(idx_loop):
                     # 通过view得到输入
-                    tile_residual = pto.view(residual, view_shape, 
+                    tile_residual = pypto.view(residual, view_shape, 
                                              [idx_loop * view_shape[0], 0],
                                              valid_shape=[(m - idx_loop * view_shape[0]).min(view_shape[0]), n])
-                    tile_hidden_states = pto.view(hidden_states, view_shape, 
+                    tile_hidden_states = pypto.view(hidden_states, view_shape, 
                                              [idx_loop * view_shape[0], 0],
                                              valid_shape=[(m - idx_loop * view_shape[0]).min(view_shape[0]), n])
 
                     # 设置set_vec_tile_shape时 尽可能用满UB，但不要超过UB的大小
-                    pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
+                    pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                     
                     mean_coff = 1.0 / tile_hidden_states.shape[-1]
                     
                     # 按照计算图实现逻辑
                     # cast to calc_dtype
-                    tile_residual_fp32 = pto.cast(tile_residual, calc_dtype)
-                    tile_hidden_states_fp32 = pto.cast(tile_hidden_states, calc_dtype)
+                    tile_residual_fp32 = pypto.cast(tile_residual, calc_dtype)
+                    tile_hidden_states_fp32 = pypto.cast(tile_hidden_states, calc_dtype)
                     
                     weight_shape = [1] * len(tile_hidden_states_fp32.shape)
                     weight_shape[-1] = weight.shape[0]
-                    weight_2d = pto.reshape(weight, weight_shape)
-                    tile_weight_fp32 = pto.cast(weight_2d, calc_dtype)
+                    weight_2d = pypto.reshape(weight, weight_shape)
+                    tile_weight_fp32 = pypto.cast(weight_2d, calc_dtype)
                     
-                    x_f32 = pto.add(tile_residual_fp32, tile_hidden_states_fp32) # tile_hidden_states
-                    square = pto.mul(x_f32, x_f32) # square
-                    mean_res = pto.mul(square, mean_coff) # mean_res = square * mean_coff
-                    reduce_asum = pto.sum(mean_res) # reduce_asum = mean_res.sum(dim=-1, keepdim=True)
-                    reduce_sum = pto.add(reduce_asum, eps) # reduce_sum = reduce_asum + eps
-                    reduce_sqrt = pto.sqrt(reduce_sum) # reduce_sqrt = torch.sqrt(reduce_sum)
-                    res_div = pto.div(x_f32, reduce_sqrt) # res_div = x_f32 / reduce_sqrt
-                    res = pto.mul(res_div, tile_weight_fp32) # res = res_div * weight
+                    x_f32 = pypto.add(tile_residual_fp32, tile_hidden_states_fp32) # tile_hidden_states
+                    square = pypto.mul(x_f32, x_f32) # square
+                    mean_res = pypto.mul(square, mean_coff) # mean_res = square * mean_coff
+                    reduce_asum = pypto.sum(mean_res) # reduce_asum = mean_res.sum(dim=-1, keepdim=True)
+                    reduce_sum = pypto.add(reduce_asum, eps) # reduce_sum = reduce_asum + eps
+                    reduce_sqrt = pypto.sqrt(reduce_sum) # reduce_sqrt = torch.sqrt(reduce_sum)
+                    res_div = pypto.div(x_f32, reduce_sqrt) # res_div = x_f32 / reduce_sqrt
+                    res = pypto.mul(res_div, tile_weight_fp32) # res = res_div * weight
                     
-                    y_output = pto.cast(res, input_dtype)
-                    y[idx_loop * pto.symbolic_scalar(view_shape[0]):, pto.symbolic_scalar(0):] = y_output
-                    x_output = pto.cast(x_f32, input_dtype)
-                    x[idx_loop * pto.symbolic_scalar(view_shape[0]):, pto.symbolic_scalar(0):] = x_output
+                    y_output = pypto.cast(res, input_dtype)
+                    y[idx_loop * pypto.symbolic_scalar(view_shape[0]):, pypto.symbolic_scalar(0):] = y_output
+                    x_output = pypto.cast(x_f32, input_dtype)
+                    x[idx_loop * pypto.symbolic_scalar(view_shape[0]):, pypto.symbolic_scalar(0):] = x_output
                 bs_loop_func(idx_loop)
         rms_inside_func()
-    assert isinstance(y, pto.tensor)
-    assert isinstance(x, pto.tensor)
+    assert isinstance(y, pypto.tensor)
+    assert isinstance(x, pypto.tensor)
 
    
 def test_rms_main():
@@ -142,7 +142,7 @@ def test_rms_main():
         outputs = [output_hidden_states, output_residual]
         
         cust_add_rms_norm(inputs, outputs, eps)
-        pto.runtime._device_synchronize()
+        pypto.runtime._device_synchronize()
         
         golden_res, golden_x = add_rms_norm_golden(
             residual_tensor.cpu(), 

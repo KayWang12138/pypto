@@ -14,7 +14,7 @@ from typing import Union, Tuple, List, Callable
 import pytest
 import torch
 import torch_npu
-import pto
+import pypto
 import torch.nn.functional as F
 
 
@@ -62,20 +62,20 @@ class Shape:
         assert shape0.rank == shape1.rank
         dims0 = shape0._symbolize_dims(shape1)
         return Shape(*[
-            (pto.min(a, b) if isinstance(a, pto.symbolic_scalar) else min(a, b))
+            (pypto.min(a, b) if isinstance(a, pypto.symbolic_scalar) else min(a, b))
             for a, b in zip(dims0, shape1.dims)
         ])
 
     def _symbolize_dims(self, other):
-        """Convert dimensions to pto symbolic scalars when needed."""
+        """Convert dimensions to pypto symbolic scalars when needed."""
         if isinstance(other, Shape):
             assert self.rank == other.rank
             return [
-                (pto.symbolic_scalar(a) if isinstance(b, pto.symbolic_scalar) else a)
+                (pypto.symbolic_scalar(a) if isinstance(b, pypto.symbolic_scalar) else a)
                 for a, b in zip(self.dims, other.dims)
             ]
-        elif isinstance(other, pto.symbolic_scalar):
-            return [pto.symbolic_scalar(d) for d in self.dims]
+        elif isinstance(other, pypto.symbolic_scalar):
+            return [pypto.symbolic_scalar(d) for d in self.dims]
         elif isinstance(other, int):
             return self.dims
         else:
@@ -141,12 +141,12 @@ def pto_nested_loop(ranges: List, names: List[str], idx_names: List[str]):
         yield ()
         return
 
-    for i in pto.loop(ranges[0], name=names[0], idx_name=idx_names[0]):
+    for i in pypto.loop(ranges[0], name=names[0], idx_name=idx_names[0]):
         for rest in pto_nested_loop(ranges[1:], names[1:], idx_names[1:]):
             yield (i,) + rest
 
 
-pto_dtype = pto.DT_INT64
+pto_dtype = pypto.DT_INT64
 torch_dtype = torch.int64
 
 
@@ -169,33 +169,33 @@ def pto_one_hot(src_tensor: torch.Tensor,
     src_partitioner = make_tile_partitioner(src_shape, src_view_shape)
     dst_partitioner = make_tile_partitioner(dst_shape, dst_view_shape)
 
-    src_pto_tensor = pto.tensor(src_shape, pto_dtype, "PTO_TENSOR_SRC")
-    dst_pto_tensor = pto.tensor(dst_shape, pto_dtype, "PTO_TENSOR_DST")
+    src_pto_tensor = pypto.tensor(src_shape, pto_dtype, "PTO_TENSOR_SRC")
+    dst_pto_tensor = pypto.tensor(dst_shape, pto_dtype, "PTO_TENSOR_DST")
 
     assert len(dst_shape) <= 4, "Currently only support rank <= 4"
     loop_names, loop_idx_names = generate_names(["b", "s", "n", "d"], len(dst_shape))
 
-    pto.set_codegen_options(support_dynamic_unaligned=True)
-    with pto.function("MAIN", [src_pto_tensor], [dst_pto_tensor]):
+    pypto.set_codegen_options(support_dynamic_unaligned=True)
+    with pypto.function("MAIN", [src_pto_tensor], [dst_pto_tensor]):
         for dst_coord in pto_nested_loop(dst_partitioner.grid_dims(), loop_names, loop_idx_names):
             src_coord = dst_coord[:-1]
-            src_view_tensor = pto.view(src_pto_tensor,
+            src_view_tensor = pypto.view(src_pto_tensor,
                                        src_view_shape,
                                        list(src_partitioner.get_tile_offset(src_coord)),
                                        valid_shape=list(src_partitioner.get_tile_shape(src_coord)))
 
-            dst_view_tensor = pto.tensor(dst_view_shape, pto_dtype, "PTO_TENSOR_TMP")
+            dst_view_tensor = pypto.tensor(dst_view_shape, pto_dtype, "PTO_TENSOR_TMP")
 
-            pto.set_vec_tile_shapes(*tile_shape)
-            dst_view_tensor.move(pto.one_hot(src_view_tensor, num_classes))
-            pto.assemble(dst_view_tensor, dst_partitioner.get_tile_offset(dst_coord), dst_pto_tensor)
+            pypto.set_vec_tile_shapes(*tile_shape)
+            dst_view_tensor.move(pypto.one_hot(src_view_tensor, num_classes))
+            pypto.assemble(dst_view_tensor, dst_partitioner.get_tile_offset(dst_coord), dst_pto_tensor)
 
             del src_view_tensor, dst_view_tensor
 
-    assert isinstance(dst_pto_tensor, pto.tensor)
+    assert isinstance(dst_pto_tensor, pypto.tensor)
 
     dst_tensor = torch.zeros(dst_shape, dtype=torch_dtype)
-    pto.runtime._device_run_once_data_from_host([src_tensor], [dst_tensor])
+    pypto.runtime._device_run_once_data_from_host([src_tensor], [dst_tensor])
     return dst_tensor
 
 
@@ -207,12 +207,12 @@ def one_hot_onboard(src_shape, view_shape, tile_shape, num_classes: int):
 
     golden_dst = golden_one_hot(src_tensor, num_classes)
 
-    pto.runtime._device_init()
+    pypto.runtime._device_init()
     try:
         pto_dst = pto_one_hot(src_tensor, num_classes, view_shape, tile_shape)
         assert torch.equal(golden_dst, pto_dst)
     finally:
-        pto.runtime._device_fini()
+        pypto.runtime._device_fini()
 
 
 def test_one_hot_onboard():

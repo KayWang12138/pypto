@@ -9,12 +9,12 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
-import pto
+import pypto
 
 
 class BaseTest:
     def setup_method(self):
-        pto.runtime._device_init()
+        pypto.runtime._device_init()
 
     def teardown_method(self):
-        pto.runtime._device_fini()
+        pypto.runtime._device_fini()

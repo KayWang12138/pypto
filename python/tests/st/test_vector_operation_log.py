@@ -10,7 +10,7 @@
 """
 """
 import os
-import pto
+import pypto
 import pytest
 import torch
 import numpy as np
@@ -21,108 +21,108 @@ import torch_npu
 def test_vector_operation_log():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-    dtype = pto.DT_FP32
+    dtype = pypto.DT_FP32
     tiling = 32
     n, m = tiling * 1, tiling * 1
     view_shape = (16, 16)
     tile_shape = (8, 8)
 
-    pto.runtime._device_init()
+    pypto.runtime._device_init()
 
-    a = pto.tensor((n, m), pto.DT_FP32, "LOG_TENSOR_a")
-    b = pto.tensor((n, m), pto.DT_FP32, "LOG_TENSOR_b")
+    a = pypto.tensor((n, m), pypto.DT_FP32, "LOG_TENSOR_a")
+    b = pypto.tensor((n, m), pypto.DT_FP32, "LOG_TENSOR_b")
 
-    with pto.function("LOG", [a], [b]):
-        for b_idx in pto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_LOG_L0", idx_name="b_idx"):
-            for s_idx in pto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_LOG_L1", idx_name="s_idx"):
-                tile_a = pto.view(a, view_shape, [b_idx * view_shape[0], s_idx * view_shape[1]],
+    with pypto.function("LOG", [a], [b]):
+        for b_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_LOG_L0", idx_name="b_idx"):
+            for s_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_LOG_L1", idx_name="s_idx"):
+                tile_a = pypto.view(a, view_shape, [b_idx * view_shape[0], s_idx * view_shape[1]],
                                   valid_shape=[
-                    pto.min(pto.symbolic_scalar(n) - b_idx * view_shape[0],
-                            pto.symbolic_scalar(n)),
-                    pto.min(pto.symbolic_scalar(m) - b_idx * view_shape[1],
-                            pto.symbolic_scalar(m))])
-                pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
-                tile_a.move(pto.log(tile_a))
-                pto.assemble(
+                    pypto.min(pypto.symbolic_scalar(n) - b_idx * view_shape[0],
+                            pypto.symbolic_scalar(n)),
+                    pypto.min(pypto.symbolic_scalar(m) - b_idx * view_shape[1],
+                            pypto.symbolic_scalar(m))])
+                pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
+                tile_a.move(pypto.log(tile_a))
+                pypto.assemble(
                     tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
                 del tile_a
     a_tensor = torch.rand(n, m, dtype=torch.float32) * 99.999 + 0.001
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
-    pto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+    pypto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
     golden_data = torch.log(a_tensor)
     assert torch.allclose(b_tensor, golden_data, rtol=1e-6, atol=1e-7)
-    pto.runtime._device_fini()
+    pypto.runtime._device_fini()
 
 
 @pytest.mark.skip(reason="Dep operation interface")
 def test_vector_operation_log2():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-    dtype = pto.DT_FP32
+    dtype = pypto.DT_FP32
     tiling = 32
     n, m = tiling * 1, tiling * 1
     view_shape = (16, 16)
     tile_shape = (8, 8)
 
-    pto.runtime._device_init()
+    pypto.runtime._device_init()
 
-    a = pto.tensor((n, m), pto.DT_FP32, "LOG2_TENSOR_a")
-    b = pto.tensor((n, m), pto.DT_FP32, "LOG2_TENSOR_b")
+    a = pypto.tensor((n, m), pypto.DT_FP32, "LOG2_TENSOR_a")
+    b = pypto.tensor((n, m), pypto.DT_FP32, "LOG2_TENSOR_b")
 
-    with pto.function("LOG2", [a], [b]):
-        for b_idx in pto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_LOG2_L0", idx_name="b_idx"):
-            for s_idx in pto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_LOG2_L1", idx_name="s_idx"):
-                tile_a = pto.view(a, view_shape,
+    with pypto.function("LOG2", [a], [b]):
+        for b_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_LOG2_L0", idx_name="b_idx"):
+            for s_idx in pypto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_LOG2_L1", idx_name="s_idx"):
+                tile_a = pypto.view(a, view_shape,
                                   [b_idx * view_shape[0], s_idx * view_shape[1]],
                                   valid_shape=[
-                                      pto.min(
-                                          pto.symbolic_scalar(n) - b_idx * view_shape[0], pto.symbolic_scalar(n)),
-                                      pto.min(
-                                          pto.symbolic_scalar(m) - b_idx * view_shape[1], pto.symbolic_scalar(m))])
-                pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
-                tile_a.move(pto.log(tile_a, pto.LogBaseType.LOG_2))
-                pto.assemble(
+                                      pypto.min(
+                                          pypto.symbolic_scalar(n) - b_idx * view_shape[0], pypto.symbolic_scalar(n)),
+                                      pypto.min(
+                                          pypto.symbolic_scalar(m) - b_idx * view_shape[1], pypto.symbolic_scalar(m))])
+                pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
+                tile_a.move(pypto.log(tile_a, pypto.LogBaseType.LOG_2))
+                pypto.assemble(
                     tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
                 del tile_a
     a_tensor = torch.rand(n, m, dtype=torch.float32) * 99.999 + 0.001
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
-    pto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+    pypto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
     golden_data = torch.log2(a_tensor)
     assert torch.allclose(b_tensor, golden_data, rtol=1e-6, atol=1e-7)
-    pto.runtime._device_fini()
+    pypto.runtime._device_fini()
 
 
 @pytest.mark.skip(reason="Dep operation interface")
 def test_vector_operation_log10():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-    dtype = pto.DT_FP32
+    dtype = pypto.DT_FP32
     tiling = 32
     n, m = tiling * 1, tiling * 1
     view_shape = (16, 16)
     tile_shape = (8, 8)
 
-    pto.runtime._device_init()
+    pypto.runtime._device_init()
 
-    a = pto.tensor((n, m), pto.DT_FP32, "LOG10_TENSOR_a")
-    b = pto.tensor((n, m), pto.DT_FP32, "LOG10_TENSOR_b")
+    a = pypto.tensor((n, m), pypto.DT_FP32, "LOG10_TENSOR_a")
+    b = pypto.tensor((n, m), pypto.DT_FP32, "LOG10_TENSOR_b")
 
-    with pto.function("LOG10", [a], [b]):
-        for b_idx in pto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_LOG2_L0", idx_name="b_idx"):
-            for s_idx in pto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_LOG2_L1", idx_name="s_idx"):
-                tile_a = pto.view(a, view_shape, [b_idx * view_shape[0], s_idx * view_shape[1]],
-                                  valid_shape=[pto.min(pto.symbolic_scalar(n) - b_idx * view_shape[0],
-                                                       pto.symbolic_scalar(n)),
-                                               pto.min(pto.symbolic_scalar(m) - b_idx * view_shape[1],
-                                                       pto.symbolic_scalar(m))])
-                pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
-                tile_a.move(pto.log(tile_a, pto.LogBaseType.LOG_10))
-                pto.assemble(
+    with pypto.function("LOG10", [a], [b]):
+        for b_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_LOG2_L0", idx_name="b_idx"):
+            for s_idx in pypto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_LOG2_L1", idx_name="s_idx"):
+                tile_a = pypto.view(a, view_shape, [b_idx * view_shape[0], s_idx * view_shape[1]],
+                                  valid_shape=[pypto.min(pypto.symbolic_scalar(n) - b_idx * view_shape[0],
+                                                       pypto.symbolic_scalar(n)),
+                                               pypto.min(pypto.symbolic_scalar(m) - b_idx * view_shape[1],
+                                                       pypto.symbolic_scalar(m))])
+                pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
+                tile_a.move(pypto.log(tile_a, pypto.LogBaseType.LOG_10))
+                pypto.assemble(
                     tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
                 del tile_a
     a_tensor = torch.rand(n, m, dtype=torch.float32) * 99.999 + 0.001
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
-    pto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+    pypto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
     golden_data = torch.log10(a_tensor)
     assert torch.allclose(b_tensor, golden_data, rtol=1e-6, atol=1e-7)
-    pto.runtime._device_fini()
+    pypto.runtime._device_fini()

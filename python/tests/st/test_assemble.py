@@ -10,7 +10,7 @@
 """
 """
 import os
-import pto
+import pypto
 import pytest
 import numpy as np
 import torch
@@ -20,33 +20,33 @@ import torch_npu
 
 F_1 = 1.0
 SHAPE = [8, 32]
-DTYPE = pto.DT_FP32
+DTYPE = pypto.DT_FP32
 
 
 def test_assmble_2d():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-    pto.runtime._device_init()
-    x = pto.tensor(SHAPE, DTYPE)
-    out = pto.tensor(SHAPE, DTYPE)
-    with pto.function("main", [x], [out]):
-        pto.set_vec_tile_shapes(8, 8)
-        for a_idx in pto.loop(4, name="LOOP_assemble_L0", idx_name="a_idx"):
-            tmp = pto.view(x, [8, 8], [0, a_idx * 8])
-            add_tensor = pto.add(tmp, F_1)
+    pypto.runtime._device_init()
+    x = pypto.tensor(SHAPE, DTYPE)
+    out = pypto.tensor(SHAPE, DTYPE)
+    with pypto.function("main", [x], [out]):
+        pypto.set_vec_tile_shapes(8, 8)
+        for a_idx in pypto.loop(4, name="LOOP_assemble_L0", idx_name="a_idx"):
+            tmp = pypto.view(x, [8, 8], [0, a_idx * 8])
+            add_tensor = pypto.add(tmp, F_1)
             offset = a_idx * 8
-            if pto.cond(a_idx == 0):
+            if pypto.cond(a_idx == 0):
                 # syntactic_sugar call: out[0:, :]
                 out[0:, :] = add_tensor
-            elif pto.cond(a_idx == 1):
+            elif pypto.cond(a_idx == 1):
                 # syntactic_sugar call
                 out[0:, offset:] = add_tensor
-            elif pto.cond(a_idx == 2):
+            elif pypto.cond(a_idx == 2):
                 # tensor call
                 out.assemble(add_tensor, [0, offset])
             else:
                 # function call
-                pto.assemble(add_tensor, [0, offset], out)
+                pypto.assemble(add_tensor, [0, offset], out)
             del add_tensor
             del tmp
 
@@ -54,22 +54,22 @@ def test_assmble_2d():
     res_data = torch.ones(SHAPE, dtype=torch.float32) * 3
     golden = torch.zeros(SHAPE, dtype=torch.float32)
     golden[:, :32] = 2
-    pto.runtime._device_run_once_data_from_host([torch_tensor], [res_data])
+    pypto.runtime._device_run_once_data_from_host([torch_tensor], [res_data])
     assert_allclose(res_data, golden, atol=1e-5, verbose=True)
-    pto.runtime._device_fini()
+    pypto.runtime._device_fini()
 
 
 def test_assmble_1d():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-    pto.runtime._device_init()
-    x = pto.tensor([24], DTYPE)
-    out = pto.tensor([24], DTYPE)
-    with pto.function("main", [x], [out]):
-        pto.set_vec_tile_shapes(8)
-        for a_idx in pto.loop(2, name="LOOP_assemble_L0", idx_name="a_idx"):
-            tmp = pto.view(x, [8], [a_idx * 8])
-            add_tensor = pto.add(tmp, F_1)
+    pypto.runtime._device_init()
+    x = pypto.tensor([24], DTYPE)
+    out = pypto.tensor([24], DTYPE)
+    with pypto.function("main", [x], [out]):
+        pypto.set_vec_tile_shapes(8)
+        for a_idx in pypto.loop(2, name="LOOP_assemble_L0", idx_name="a_idx"):
+            tmp = pypto.view(x, [8], [a_idx * 8])
+            add_tensor = pypto.add(tmp, F_1)
             # syntactic_sugar call
             out[a_idx * 8:] = add_tensor
     torch_tensor = torch.ones([24], dtype=torch.float32)
@@ -78,6 +78,6 @@ def test_assmble_1d():
 
     golden = torch.zeros([24], dtype=torch.float32)
     golden[:16] = 2
-    pto.runtime._device_run_once_data_from_host([torch_tensor], [res_data])
+    pypto.runtime._device_run_once_data_from_host([torch_tensor], [res_data])
     assert_allclose(res_data, golden, atol=1e-5, verbose=True)
-    pto.runtime._device_fini()
+    pypto.runtime._device_fini()

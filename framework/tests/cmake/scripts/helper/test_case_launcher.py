@@ -31,7 +31,7 @@ class TestCaseLauncher:
         self.index = [config.start_index, config.end_index]
         self.report_file = os.path.abspath(config.report)
         self.device = config.device
-        self.pto = config.pto
+        self.pypto = config.pypto
         self.json_only = config.json_only
         self.clean = config.clean
         self.save_data = config.save_data
@@ -53,7 +53,7 @@ class TestCaseLauncher:
         os.environ["TILE_FWK_DEVICE_ID"] = f"{self.device}"
         os.environ["ASCEND_PROCESS_LOG_PATH"] = self.plog_cache_path
 
-        if not self.pto:
+        if not self.pypto:
             golden_dir = str(self.golden_script.parent)
             if golden_dir not in sys.path:
                 sys.path.append(golden_dir)
@@ -65,29 +65,29 @@ class TestCaseLauncher:
         else:
             if self.pto_install_path not in sys.path:
                 sys.path.insert(0, self.pto_install_path)
-                sys.path.insert(0, self.pto_install_path + "/pto/lib")
+                sys.path.insert(0, self.pto_install_path + "/pypto/lib")
             torch_install_path = os.path.dirname(torch.__file__)
             os.environ["LD_LIBRARY_PATH"] = (
                 f"{torch_install_path}:{os.getenv('LD_LIBRARY_PATH')}"
             )
             os.environ["TILEFWK_CONFIG_PATH"] = (
-                f"{self.pto_install_path}/pto/configs/tile_fwk_config.json"
+                f"{self.pto_install_path}/pypto/configs/tile_fwk_config.json"
             )
             os.environ["PLATFORM_CONFIG_PATH"] = (
-                f"{self.pto_install_path}/pto/configs/tile_fwk_platform_info.json"
+                f"{self.pto_install_path}/pypto/configs/tile_fwk_platform_info.json"
             )
 
     def tear_down(self):
         if self.pto_install_path in sys.path:
             sys.path.remove(self.pto_install_path)
-            sys.path.remove(self.pto_install_path + "/pto/lib")
+            sys.path.remove(self.pto_install_path + "/pypto/lib")
         del os.environ["TILE_FWK_DEVICE_ID"]
         del os.environ["ASCEND_PROCESS_LOG_PATH"]
 
     def compile_if_need(self):
         clean_str = "-c" if self.clean else ""
         cmd = f"{sys.executable} build.py {clean_str} -s="
-        if self.pto:
+        if self.pypto:
             cmd += "python/tests/st/test_record_if_branch.py -f=python3"
         else:
             cmd += "'TestAdd/AddOperationTest.TestAdd/*' --disable_auto_execute"
@@ -151,18 +151,18 @@ class TestCaseLauncher:
             return
 
         self.compile_if_need()
-        is_package_ready = self.pto and os.path.exists(self.pto_install_path + "/pto")
+        is_package_ready = self.pypto and os.path.exists(self.pto_install_path + "/pypto")
         stest_exec_file = f"{self.work_path}/build/output/bin/tile_fwk_stest"
-        is_exec_ready = not self.pto and os.path.exists(stest_exec_file)
+        is_exec_ready = not self.pypto and os.path.exists(stest_exec_file)
         if not is_package_ready and not is_exec_ready:
             raise ValueError(
-                "Runtime time is not ready, Not found pto package or tile_fwk_stest."
+                "Runtime time is not ready, Not found pypto package or tile_fwk_stest."
             )
         for test_case_info in test_case_info_list:
             # run test
             (
                 self.run_pto_test_case(test_case_info)
-                if self.pto
+                if self.pypto
                 else self.run_test_case(test_case_info)
             )
             # generate test report

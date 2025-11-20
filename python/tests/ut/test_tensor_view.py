@@ -9,47 +9,47 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
-import pto
+import pypto
 
 def init_tensors():
-    dtype = pto.DT_FP32
+    dtype = pypto.DT_FP32
     shape = (128, 128)
-    a = pto.tensor(shape, dtype, "a")
-    b = pto.tensor(shape, dtype, "b")
-    c = pto.tensor(shape, dtype, "c")
+    a = pypto.tensor(shape, dtype, "a")
+    b = pypto.tensor(shape, dtype, "b")
+    c = pypto.tensor(shape, dtype, "c")
     return a, b, c
 
 
 def test_tensor_view():
     a, b, c = init_tensors()
-    with pto.function("MAIN", [a, b], [c]):
-        pto.set_vec_tile_shapes(16, 16)
+    with pypto.function("MAIN", [a, b], [c]):
+        pypto.set_vec_tile_shapes(16, 16)
 
-        for k in pto.loop(10):
+        for k in pypto.loop(10):
             a_view = a[k*16:(k+1)*16, k*16:(k+1)*16]
             b_view = b[:16, :16]
 
-            assert isinstance(a_view, pto.tensor)
-            assert isinstance(b_view, pto.tensor)
+            assert isinstance(a_view, pypto.tensor)
+            assert isinstance(b_view, pypto.tensor)
             assert a_view.shape == [16, 16]
             assert b_view.shape == [16, 16]
 
 
 def test_tensor_get_tensor_data():
-    a = pto.tensor((128, 128), pto.DT_INT32, "a")
-    with pto.function("MAIN", [a], []):
-        pto.set_vec_tile_shapes(16, 16)
+    a = pypto.tensor((128, 128), pypto.DT_INT32, "a")
+    with pypto.function("MAIN", [a], []):
+        pypto.set_vec_tile_shapes(16, 16)
         t = a[0, 0]
 
 
 def test_slice_neg_index():
     """Test negative index"""
     x_shape = [4, 8]
-    dtype = pto.DT_FP32
-    x = pto.tensor(x_shape, dtype)
+    dtype = pypto.DT_FP32
+    x = pypto.tensor(x_shape, dtype)
 
-    with pto.function("SLICE_NEG_INDEX", static=True):
-        pto.set_vec_tile_shapes(4, 4)
+    with pypto.function("SLICE_NEG_INDEX", static=True):
+        pypto.set_vec_tile_shapes(4, 4)
         res = x[-3:-1, -2:-1]
         assert res.shape == [2, 1]
 
@@ -57,11 +57,11 @@ def test_slice_neg_index():
 def test_slice_int_index():
     """Test mix use of slice and int"""
     x_shape = [4, 8, 8, 8, 8]
-    dtype = pto.DT_FP32
-    x = pto.tensor(x_shape, dtype)
+    dtype = pypto.DT_FP32
+    x = pypto.tensor(x_shape, dtype)
 
-    with pto.function("SLICE_INT_INDEX", static=True):
-        pto.set_vec_tile_shapes(4, 4, 4, 4, 4)
+    with pypto.function("SLICE_INT_INDEX", static=True):
+        pypto.set_vec_tile_shapes(4, 4, 4, 4, 4)
         res = x[-2, -3:8, :, 1:4, 2]
         assert res.shape == [3, 8, 3]
 
@@ -69,11 +69,11 @@ def test_slice_int_index():
 def test_slice_ellipsis_index():
     """Test mix use of ellipsis, slice and int"""
     x_shape = [4, 8, 8, 8]
-    dtype = pto.DT_FP32
-    x = pto.tensor(x_shape, dtype)
+    dtype = pypto.DT_FP32
+    x = pypto.tensor(x_shape, dtype)
 
-    with pto.function("SLICE_INT_ELLIPSIS_INDEX", static=True):
-        pto.set_vec_tile_shapes(4, 4, 4, 4)
+    with pypto.function("SLICE_INT_ELLIPSIS_INDEX", static=True):
+        pypto.set_vec_tile_shapes(4, 4, 4, 4)
         res1 = x[..., 2]
         res2 = x[1:2, :, ..., 3:5]
         res3 = x[2, 3, ...]

@@ -9,39 +9,39 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
-import pto
+import pypto
 
 
 def test_tile_shape_set_vec_tiles_shape_2d():
     expected = (8, 16)
-    pto.set_vec_tile_shapes(*expected)
-    actual = pto.get_vec_tile_shapes()
+    pypto.set_vec_tile_shapes(*expected)
+    actual = pypto.get_vec_tile_shapes()
     assert tuple(actual) == expected
 
 
 def test_tile_shape_set_vec_tiles_shape_3d():
     expected = (1, 2, 3)
-    pto.set_vec_tile_shapes(*expected)
-    actual = pto.get_vec_tile_shapes()
+    pypto.set_vec_tile_shapes(*expected)
+    actual = pypto.get_vec_tile_shapes()
     assert tuple(actual) == expected
 
 
 def test_tile_shape_set_vec_tiles_shape_4d():
     expected = (1, 2, 3, 8)
-    pto.set_vec_tile_shapes(*expected)
-    actual = pto.get_vec_tile_shapes()
+    pypto.set_vec_tile_shapes(*expected)
+    actual = pypto.get_vec_tile_shapes()
     assert tuple(actual) == expected
 
 
 def test_cube_tile_shapes():
     expected = ([16, 16], [256, 512, 512], [128, 128], True)
-    pto.set_cube_tile_shapes(*expected[:3], expected[3])
-    actual = pto.get_cube_tile_shapes()
+    pypto.set_cube_tile_shapes(*expected[:3], expected[3])
+    actual = pypto.get_cube_tile_shapes()
     assert actual == expected
 
 
 def test_cube_tile_shapes_l1():
     expected = ([16, 16], [256, 512, 512], [128, 128], False)
-    pto.set_cube_tile_shapes(*expected[:3], expected[3])
-    actual = pto.get_cube_tile_shapes()
+    pypto.set_cube_tile_shapes(*expected[:3], expected[3])
+    actual = pypto.get_cube_tile_shapes()
     assert actual == expected

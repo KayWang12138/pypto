@@ -16,9 +16,9 @@ def load_shared_libs():
     import ctypes
     import pkg_resources
 
-    dist = pkg_resources.get_distribution("pto")
-    lib_dir = os.path.join(f"{dist.location}", "pto", "lib")
-    lib_dir64 = os.path.join(f"{dist.location}", "pto", "lib64")
+    dist = pkg_resources.get_distribution("pypto")
+    lib_dir = os.path.join(f"{dist.location}", "pypto", "lib")
+    lib_dir64 = os.path.join(f"{dist.location}", "pypto", "lib64")
     libs = ["libtile_fwk_interface.so", "libtile_fwk_codegen.so",
             "libtile_fwk_compiler.so", "libtile_fwk_runtime.so"]
     for lib in libs:

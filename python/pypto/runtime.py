@@ -12,7 +12,7 @@
 from typing import List, overload
 
 import torch
-import pto
+import pypto
 from . import pto_impl
 
 _device_init = pto_impl.DeviceInit
@@ -20,41 +20,41 @@ _device_fini = pto_impl.DeviceFini
 _device_run_once_data_from_device = pto_impl.OperatorDeviceRunOnceDataFromDevice
 
 
-def _torch_to_pto_dtype(dtype: torch.dtype) -> pto.DataType:
-    "Converts torch.dtype to pto.DataType"
+def _torch_to_pto_dtype(dtype: torch.dtype) -> pypto.DataType:
+    "Converts torch.dtype to pypto.DataType"
     if dtype == torch.float16:
-        return pto.DT_FP16
+        return pypto.DT_FP16
     elif dtype == torch.bfloat16:
-        return pto.DT_BF16
+        return pypto.DT_BF16
     elif dtype == torch.float32:
-        return pto.DT_FP32
+        return pypto.DT_FP32
     elif dtype == torch.float64:
-        return pto.DT_DOUBLE
+        return pypto.DT_DOUBLE
     elif dtype == torch.int8:
-        return pto.DT_INT8
+        return pypto.DT_INT8
     elif dtype == torch.uint8:
-        return pto.DT_UINT8
+        return pypto.DT_UINT8
     elif dtype == torch.int16:
-        return pto.DT_INT16
+        return pypto.DT_INT16
     elif dtype == torch.int32:
-        return pto.DT_INT32
+        return pypto.DT_INT32
     elif dtype == torch.int64:
-        return pto.DT_INT64
+        return pypto.DT_INT64
     elif dtype == torch.bool:
-        return pto.DT_BOOL
+        return pypto.DT_BOOL
 
     raise ValueError(f"Input torch.dtype is not supported. Got {dtype}")
 
 
-def _torch_to_pto(t: torch.Tensor, name: str) -> pto.Tensor:
-    "Converts a `torch.tensor` to `pto.Tensor`."
+def _torch_to_pto(t: torch.Tensor, name: str) -> pypto.Tensor:
+    "Converts a `torch.tensor` to `pypto.Tensor`."
     dtype = _torch_to_pto_dtype(t.dtype)
-    format = pto.TileOpFormat.TILEOP_ND
+    format = pypto.TileOpFormat.TILEOP_ND
     if t.device.type == "npu":
         import torch_npu
         if torch_npu.get_npu_format(t) == 29:
-            format = pto.TileOpFormat.TILEOP_NZ
-    return pto.Tensor(tuple(t.shape), dtype, f"PTO_TENSOR_{name}", format)
+            format = pypto.TileOpFormat.TILEOP_NZ
+    return pypto.Tensor(tuple(t.shape), dtype, f"PTO_TENSOR_{name}", format)
 
 
 def _to_tensor_data(tensors: List[torch.Tensor]):
@@ -87,16 +87,16 @@ class JIT:
     def __call__(self, *args, **kwargs):
         in_tensors, out_tensors = args[0], args[1]
         if (len(args) < 2):
-            raise ValueError("pto.jit required at least two input arguments (input_tensors, output_tensors, ...).")
+            raise ValueError("pypto.jit required at least two input arguments (input_tensors, output_tensors, ...).")
 
         for in_tensor in in_tensors:
             if not in_tensor.is_contiguous():
-                raise RuntimeError("pto.jit requires that all in_tensors must be contiguous.")
+                raise RuntimeError("pypto.jit requires that all in_tensors must be contiguous.")
 
         if not self._is_function_compiled:
             pto_impl.DeviceInit()
             self._set_config_option()
-            # Convert I/O torch tensors to PTO tensors and run pto.dyn_function
+            # Convert I/O torch tensors to PyPTO tensors and run pypto.dyn_function
             in_pto_tensors = [
                 _torch_to_pto(t, f"IN_{idx}") for idx, t in enumerate(in_tensors)
             ]
@@ -124,16 +124,16 @@ class JIT:
     def _set_config_option(self):
         # 添加支持动态的config
         if isinstance(self.codegen_options, dict):
-            pto.set_codegen_options(** self.codegen_options)
+            pypto.set_codegen_options(** self.codegen_options)
 
         if isinstance(self.host_options, dict):
-            pto.set_host_options(** self.host_options)
+            pypto.set_host_options(** self.host_options)
 
         if isinstance(self.pass_options, dict):
-            pto.set_pass_options(** self.pass_options)
+            pypto.set_pass_options(** self.pass_options)
 
         if isinstance(self.runtime_options, dict):
-            pto.set_runtime_options(** self.runtime_options)
+            pypto.set_runtime_options(** self.runtime_options)
 
 
 @overload

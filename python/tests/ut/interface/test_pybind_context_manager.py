@@ -9,18 +9,18 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
-import pto
+import pypto
 
 
 def test_pybind_context_manager():
-    dtype = pto.DT_FP16
+    dtype = pypto.DT_FP16
     shape = (8, 8)
-    a = pto.tensor(shape, dtype, "tensor_a")
-    b = pto.tensor(shape, dtype, "tensor_a")
-    c = pto.tensor(shape, dtype, "tensor_c")
+    a = pypto.tensor(shape, dtype, "tensor_a")
+    b = pypto.tensor(shape, dtype, "tensor_a")
+    c = pypto.tensor(shape, dtype, "tensor_c")
 
-    with pto.function("fnc_name", a, b, static=True):
-        pto.set_vec_tile_shapes(8, 8)
-        c.move(pto.add(a, b))
+    with pypto.function("fnc_name", a, b, static=True):
+        pypto.set_vec_tile_shapes(8, 8)
+        c.move(pypto.add(a, b))
 
-    assert isinstance(c, pto.tensor)
+    assert isinstance(c, pypto.tensor)

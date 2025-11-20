@@ -53,17 +53,17 @@ __aicore__ inline void TLoad(T dst, U src, C coordinate) {
             // 对于静态整块场景，将UB合成二维，GM保持五维
             constexpr auto tileH = TileOp::GetOutterAxisMergeResult<shapeSize, typename T::TileShape>();
             constexpr auto tileW = Std::tuple_element<shapeSize - 1, typename T::TileShape>::type::value;
-            using ShapeDim5 = pto::Shape<-1, -1, -1, -1, -1>;
-            using StrideDim5 = pto::Stride<-1, -1, -1, -1, -1>;
-            using GlobalData = pto::GlobalTensor<SrcDtype, ShapeDim5, StrideDim5>;
+            using ShapeDim5 = pypto::Shape<-1, -1, -1, -1, -1>;
+            using StrideDim5 = pypto::Stride<-1, -1, -1, -1, -1>;
+            using GlobalData = pypto::GlobalTensor<SrcDtype, ShapeDim5, StrideDim5>;
             GlobalData src0Global((__gm__ SrcDtype *)(src.GetAddr() + gmOffset),
-                pto::Shape(dstShape0, dstShape1, dstShape2, dstShape3, dstShape4),
-                pto::Stride(srcStride0, srcStride1, srcStride2, srcStride3, srcStride4));
+                pypto::Shape(dstShape0, dstShape1, dstShape2, dstShape3, dstShape4),
+                pypto::Stride(srcStride0, srcStride1, srcStride2, srcStride3, srcStride4));
             using TileData =
-                pto::Tile<pto::Location::Vec, DstDtype, tileH, tileW, pto::BLayout::RowMajor, dstShape3, dstShape4>;
+                pypto::Tile<pypto::Location::Vec, DstDtype, tileH, tileW, pypto::BLayout::RowMajor, dstShape3, dstShape4>;
             TileData dstUB;
-            pto::TASSIGN(dstUB, (uint64_t)dst.GetAddr());
-            pto::TLOAD(dstUB, src0Global);
+            pypto::TASSIGN(dstUB, (uint64_t)dst.GetAddr());
+            pypto::TLOAD(dstUB, src0Global);
             return;
         }
 
@@ -72,18 +72,18 @@ __aicore__ inline void TLoad(T dst, U src, C coordinate) {
         for (size_t index0 = 0; index0 < dstShape0; ++index0) {
             for (size_t index1 = 0; index1 < dstShape1; ++index1) {
                 for (size_t index2 = 0; index2 < dstShape2; ++index2) {
-                    using ShapeDim5 = pto::Shape<-1, -1, -1, -1, -1>;
-                    using StrideDim5 = pto::Stride<-1, -1, -1, -1, -1>;
-                    using GlobalData = pto::GlobalTensor<SrcDtype, ShapeDim5, StrideDim5>;
+                    using ShapeDim5 = pypto::Shape<-1, -1, -1, -1, -1>;
+                    using StrideDim5 = pypto::Stride<-1, -1, -1, -1, -1>;
+                    using GlobalData = pypto::GlobalTensor<SrcDtype, ShapeDim5, StrideDim5>;
                     GlobalData src0Global((__gm__ SrcDtype *)(src.GetAddr() + gmOffset + index0 * srcStride0 +
                                                               index1 * srcStride1 + index2 * srcStride2),
-                        pto::Shape(1, 1, 1, dstShape3, dstShape4), pto::Stride(0, 0, 0, srcStride3, srcStride4));
+                        pypto::Shape(1, 1, 1, dstShape3, dstShape4), pypto::Stride(0, 0, 0, srcStride3, srcStride4));
                     using TileDefine =
-                        pto::Tile<pto::Location::Vec, DstDtype, tileH, tileW, pto::BLayout::RowMajor, -1, -1>;
+                        pypto::Tile<pypto::Location::Vec, DstDtype, tileH, tileW, pypto::BLayout::RowMajor, -1, -1>;
                     TileDefine dstUB(dstShape3, dstShape4);
                     auto ubOffset = index0 * dstStride0 + index1 * dstStride1 + index2 * dstStride2;
-                    pto::TASSIGN(dstUB, (uint64_t)(dst.GetAddr() + ubOffset * sizeof(DstDtype)));
-                    pto::TLOAD(dstUB, src0Global);
+                    pypto::TASSIGN(dstUB, (uint64_t)(dst.GetAddr() + ubOffset * sizeof(DstDtype)));
+                    pypto::TLOAD(dstUB, src0Global);
                 }
             }
         }
@@ -123,17 +123,17 @@ __aicore__ inline void TStore(T dst, U src, C coordinate) {
             // 对于静态整块场景，将UB合成二维，GM保持五维
             constexpr auto tileH = TileOp::GetOutterAxisMergeResult<shapeSize, typename U::TileShape>();
             constexpr auto tileW = Std::tuple_element<shapeSize - 1, typename U::TileShape>::type::value;
-            using ShapeDim5 = pto::Shape<-1, -1, -1, -1, -1>;
-            using StrideDim5 = pto::Stride<-1, -1, -1, -1, -1>;
-            using GlobalData = pto::GlobalTensor<DstDtype, ShapeDim5, StrideDim5>;
+            using ShapeDim5 = pypto::Shape<-1, -1, -1, -1, -1>;
+            using StrideDim5 = pypto::Stride<-1, -1, -1, -1, -1>;
+            using GlobalData = pypto::GlobalTensor<DstDtype, ShapeDim5, StrideDim5>;
             GlobalData dstGlobal((__gm__ DstDtype *)(dst.GetAddr() + gmOffset),
-                pto::Shape(srcShape0, srcShape1, srcShape2, srcShape3, srcShape4),
-                pto::Stride(dstStride0, dstStride1, dstStride2, dstStride3, dstStride4));
+                pypto::Shape(srcShape0, srcShape1, srcShape2, srcShape3, srcShape4),
+                pypto::Stride(dstStride0, dstStride1, dstStride2, dstStride3, dstStride4));
             using TileData =
-                pto::Tile<pto::Location::Vec, SrcDtype, tileH, tileW, pto::BLayout::RowMajor, srcShape3, srcShape4>;
+                pypto::Tile<pypto::Location::Vec, SrcDtype, tileH, tileW, pypto::BLayout::RowMajor, srcShape3, srcShape4>;
             TileData srcUB;
-            pto::TASSIGN(srcUB, (uint64_t)src.GetAddr());
-            pto::TSTORE(dstGlobal, srcUB);
+            pypto::TASSIGN(srcUB, (uint64_t)src.GetAddr());
+            pypto::TSTORE(dstGlobal, srcUB);
             return;
         }
 
@@ -142,18 +142,18 @@ __aicore__ inline void TStore(T dst, U src, C coordinate) {
         for (size_t index0 = 0; index0 < srcShape0; ++index0) {
             for (size_t index1 = 0; index1 < srcShape1; ++index1) {
                 for (size_t index2 = 0; index2 < srcShape2; ++index2) {
-                    using ShapeDim5 = pto::Shape<-1, -1, -1, -1, -1>;
-                    using StrideDim5 = pto::Stride<-1, -1, -1, -1, -1>;
-                    using GlobalData = pto::GlobalTensor<DstDtype, ShapeDim5, StrideDim5>;
+                    using ShapeDim5 = pypto::Shape<-1, -1, -1, -1, -1>;
+                    using StrideDim5 = pypto::Stride<-1, -1, -1, -1, -1>;
+                    using GlobalData = pypto::GlobalTensor<DstDtype, ShapeDim5, StrideDim5>;
                     GlobalData dstGlobal((__gm__ DstDtype *)(dst.GetAddr() + gmOffset + index0 * dstStride0 +
                                                              index1 * dstStride1 + index2 * dstStride2),
-                        pto::Shape(1, 1, 1, srcShape3, srcShape4), pto::Stride(0, 0, 0, dstStride3, dstStride4));
+                        pypto::Shape(1, 1, 1, srcShape3, srcShape4), pypto::Stride(0, 0, 0, dstStride3, dstStride4));
                     using TileDefine =
-                        pto::Tile<pto::Location::Vec, SrcDtype, tileH, tileW, pto::BLayout::RowMajor, -1, -1>;
+                        pypto::Tile<pypto::Location::Vec, SrcDtype, tileH, tileW, pypto::BLayout::RowMajor, -1, -1>;
                     TileDefine srcUB(srcShape3, srcShape4);
                     auto ubOffset = index0 * srcStride0 + index1 * srcStride1 + index2 * srcStride2;
-                    pto::TASSIGN(srcUB, (uint64_t)(src.GetAddr() + ubOffset * sizeof(SrcDtype)));
-                    pto::TSTORE(dstGlobal, srcUB);
+                    pypto::TASSIGN(srcUB, (uint64_t)(src.GetAddr() + ubOffset * sizeof(SrcDtype)));
+                    pypto::TSTORE(dstGlobal, srcUB);
                 }
             }
         }

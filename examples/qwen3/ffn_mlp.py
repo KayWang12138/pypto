@@ -10,7 +10,7 @@
 """
 """
 import os
-import pto
+import pypto
 import numpy as np
 from numpy.testing import assert_allclose
 import torch
@@ -109,7 +109,7 @@ def expert_infer_base(**kwargs):
     x_Dtype = expand_x.dtype
 
     # 计算对应激活专家的偏移地址
-    pto.set_vec_tile_shapes(32)
+    pypto.set_vec_tile_shapes(32)
     # 获取该激活专家的当前loop参与计算的token
     token_num = expert_tokens[exp_idx,]
     # 获取该激活专家的当前loop参与计算的token的偏移地址
@@ -120,38 +120,38 @@ def expert_infer_base(**kwargs):
     weight_2_offset = [exp_idx * hidden_size, 0]
     # 获取当前专家的实际token数
     cur_valid_size = (token_num - token_loop_idx * loop_base).min(loop_base)
-    pto.set_vec_tile_shapes(vec_tile_shape[0], vec_tile_shape[1])
-    x = pto.view(expand_x, [loop_base, hidden_size], expand_x_offset, valid_shape=[cur_valid_size, hidden_size])
+    pypto.set_vec_tile_shapes(vec_tile_shape[0], vec_tile_shape[1])
+    x = pypto.view(expand_x, [loop_base, hidden_size], expand_x_offset, valid_shape=[cur_valid_size, hidden_size])
     # 获取当前专家的weght_13[up_weight + gate_weight]
-    ffn_weight_2d = pto.view(weight_gate_upper, [intermediate_size * 2, hidden_size], weight_13_offset)
+    ffn_weight_2d = pypto.view(weight_gate_upper, [intermediate_size * 2, hidden_size], weight_13_offset)
 
     # # 获取当前专家的weght_2[down_weight]
-    down_proj_2d = pto.view(weight_down_proj, [hidden_size, intermediate_size], weight_2_offset)
+    down_proj_2d = pypto.view(weight_down_proj, [hidden_size, intermediate_size], weight_2_offset)
 
     # up_proj的matmul计算
-    pto.set_cube_tile_shapes([cube_tile_shape[0], cube_tile_shape[0]], [cube_tile_shape[1], cube_tile_shape[1]], [cube_tile_shape[2], cube_tile_shape[2]])
-    pto.set_matrix_size({loop_base, ffn_weight_2d.shape[1], ffn_weight_2d.shape[0]})
-    gate = pto.matmul(x, ffn_weight_2d, pto.DT_FP32, b_trans=True)
+    pypto.set_cube_tile_shapes([cube_tile_shape[0], cube_tile_shape[0]], [cube_tile_shape[1], cube_tile_shape[1]], [cube_tile_shape[2], cube_tile_shape[2]])
+    pypto.set_matrix_size({loop_base, ffn_weight_2d.shape[1], ffn_weight_2d.shape[0]})
+    gate = pypto.matmul(x, ffn_weight_2d, pypto.DT_FP32, b_trans=True)
 
-    pto.set_vec_tile_shapes(vec_tile_shape[0], vec_tile_shape[1])
-    gate_left = pto.view(gate, [loop_base, intermediate_size], [0, 0])
-    gate_right = pto.view(gate, [loop_base, intermediate_size], [0, intermediate_size])
+    pypto.set_vec_tile_shapes(vec_tile_shape[0], vec_tile_shape[1])
+    gate_left = pypto.view(gate, [loop_base, intermediate_size], [0, 0])
+    gate_right = pypto.view(gate, [loop_base, intermediate_size], [0, intermediate_size])
 
     # SwiGlu计算[x / (1 + e^(-x))]
-    swiglu_a = pto.mul(gate_left, -1.0)
-    swiglu_b = pto.exp(swiglu_a)
-    swiglu_c = pto.add(swiglu_b, 1.0)
-    swiglu_out = pto.div(gate_left, swiglu_c)
+    swiglu_a = pypto.mul(gate_left, -1.0)
+    swiglu_b = pypto.exp(swiglu_a)
+    swiglu_c = pypto.add(swiglu_b, 1.0)
+    swiglu_out = pypto.div(gate_left, swiglu_c)
 
     # SwiGlu计算结果与gate_right相乘
-    swiglu = pto.mul(swiglu_out, gate_right)
+    swiglu = pypto.mul(swiglu_out, gate_right)
 
     # down_proj的matmul计算
-    swish_fp16 = pto.cast(swiglu, x_Dtype)
-    pto.set_cube_tile_shapes([cube_tile_shape[0], cube_tile_shape[0]], [cube_tile_shape[1], cube_tile_shape[1]], [cube_tile_shape[2], cube_tile_shape[2]])
-    pto.set_matrix_size({loop_base, down_proj_2d.shape[1], down_proj_2d.shape[0]})
-    out = pto.matmul(swish_fp16, down_proj_2d, x_Dtype, b_trans=True)
-    pto.assemble(out, expand_x_offset, ffn_out)
+    swish_fp16 = pypto.cast(swiglu, x_Dtype)
+    pypto.set_cube_tile_shapes([cube_tile_shape[0], cube_tile_shape[0]], [cube_tile_shape[1], cube_tile_shape[1]], [cube_tile_shape[2], cube_tile_shape[2]])
+    pypto.set_matrix_size({loop_base, down_proj_2d.shape[1], down_proj_2d.shape[0]})
+    out = pypto.matmul(swish_fp16, down_proj_2d, x_Dtype, b_trans=True)
+    pypto.assemble(out, expand_x_offset, ffn_out)
 
 
 # tiling config
@@ -160,13 +160,13 @@ cube_tile_shape = (64, 128, 128)
 loop_base = 16
 
 
-@pto.jit(
+@pypto.jit(
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
 def moe_main(inputs, outputs):
 
-    pto.mark_dynamic(inputs[0], 0)
+    pypto.mark_dynamic(inputs[0], 0)
 
     expand_x = inputs[0]
     expert_tokens = inputs[1]
@@ -176,22 +176,22 @@ def moe_main(inputs, outputs):
     ffn_out = outputs[0]
     weight_dtype = weight_down_proj.dtype
 
-    with pto.function("FFN", [expand_x, expert_tokens, token_acc_table, weight_gate_upper, weight_down_proj], [ffn_out]):
+    with pypto.function("FFN", [expand_x, expert_tokens, token_acc_table, weight_gate_upper, weight_down_proj], [ffn_out]):
         def inside_main_function():
             # 获取当前device上专家总数
             expert_num = expert_tokens.shape[0]
             w1_2d_shape = (weight_gate_upper.shape[0] * weight_gate_upper.shape[1], weight_gate_upper.shape[2])
             w2_2d_shape = (weight_down_proj.shape[0] * weight_down_proj.shape[1], weight_down_proj.shape[2])
-            for _ in pto.loop(0, 1, 1, name="LOOP_RESHAPE", idx_name="reshape_inplace_1"):
-                w1_2d = pto.reshape(weight_gate_upper, w1_2d_shape, inplace=True)
-                w2_2d = pto.reshape(weight_down_proj, w2_2d_shape, inplace=True)
-            for exp_idx in pto.loop(0, expert_num, 1, name="LOOP_FFN_L0", idx_name="exp_idx"):
+            for _ in pypto.loop(0, 1, 1, name="LOOP_RESHAPE", idx_name="reshape_inplace_1"):
+                w1_2d = pypto.reshape(weight_gate_upper, w1_2d_shape, inplace=True)
+                w2_2d = pypto.reshape(weight_down_proj, w2_2d_shape, inplace=True)
+            for exp_idx in pypto.loop(0, expert_num, 1, name="LOOP_FFN_L0", idx_name="exp_idx"):
                 def loop_expert(exp_idx):
                     # 获取激活专家的token数
                     token_num = expert_tokens[exp_idx, ]
                     # 每个专家单次计算16token，不足部分会进行pad
                     exp_loop_times = (token_num + loop_base - 1) / loop_base
-                    for token_loop_idx in pto.loop(0, exp_loop_times, 1, name="LOOP_FFN_L1", idx_name="token_loop_idx"):
+                    for token_loop_idx in pypto.loop(0, exp_loop_times, 1, name="LOOP_FFN_L1", idx_name="token_loop_idx"):
                         def loop_token(exp_idx, token_loop_idx):
                             expert_infer_base(
                                 exp_idx=exp_idx,
@@ -228,7 +228,7 @@ def test_qwen3_ffn():
     inputs = [inputs_list[0], inputs_list[1], inputs_list[2], inputs_list[3], inputs_list[4]]
     outputs = [inputs_list[5]]
     moe_main(inputs, outputs)
-    pto.runtime._device_synchronize()
+    pypto.runtime._device_synchronize()
 
     # golden
     golden = ffn_golden_torch(topk, inputs_list[0], inputs_list[1], inputs_list[3], inputs_list[4])

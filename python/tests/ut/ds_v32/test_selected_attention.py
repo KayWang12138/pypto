@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from typing import List
 import logging
 import pytest
-import pto
+import pypto
 
 
 SHAPE_DIM_0 = 0
@@ -21,8 +21,8 @@ SHAPE_DIM_1 = 1
 
 
 def set_config():
-    pto.set_host_options(only_codegen=True)
-    pto.set_codegen_options(support_dynamic_unaligned=True)
+    pypto.set_host_options(only_codegen=True)
+    pypto.set_codegen_options(support_dynamic_unaligned=True)
 
 
 @dataclass
@@ -46,12 +46,12 @@ class SASimpleParams:
 
 @dataclass
 class SAInputs:
-    q_nope: pto.tensor
-    q_rope: pto.tensor
-    k_slc: pto.tensor
-    v_slc: pto.tensor
-    kv_slc_act_seqs: pto.tensor
-    attention_out: pto.tensor
+    q_nope: pypto.tensor
+    q_rope: pypto.tensor
+    k_slc: pypto.tensor
+    v_slc: pypto.tensor
+    kv_slc_act_seqs: pypto.tensor
+    attention_out: pypto.tensor
     params: SASimpleParams
 
 
@@ -88,10 +88,10 @@ def selected_attention_compute(args: SAInputs):
     input_tensors = [q_nope, q_rope, k_slc, v_slc, kv_slc_act_seqs]
     output_tensors = [attention_out]
 
-    with pto.function("SA_MAIN", input_tensors, output_tensors):
+    with pypto.function("SA_MAIN", input_tensors, output_tensors):
 
         def inside_main_function():
-            for b_idx in pto.loop(
+            for b_idx in pypto.loop(
                 0,
                 batch_size_sym,
                 1,
@@ -102,7 +102,7 @@ def selected_attention_compute(args: SAInputs):
 
                 def inside_b_idx_loop(b_idx):
                     cur_kv_slc_seq = kv_slc_act_seqs[b_idx]
-                    for s1_idx in pto.loop(
+                    for s1_idx in pypto.loop(
                         0, s1_sym, 1, name="LOOP_L1_s1_SA", idx_name="s1Idx"
                     ):
 
@@ -114,14 +114,14 @@ def selected_attention_compute(args: SAInputs):
                             )
                             cur_seq.as_variable()
                             bn_per_batch = (cur_seq + s2_tile - 1) // s2_tile
-                            for n2_idx in pto.loop(
+                            for n2_idx in pypto.loop(
                                 0, n2_sym, 1, name="LOOP_L2_n2_SA", idx_name="n2Idx"
                             ):
 
                                 def inside_n2_idx_loop(
                                     b_idx, s1_idx, n2_idx, bn_per_batch
                                 ):
-                                    for g_idx in pto.loop(
+                                    for g_idx in pypto.loop(
                                         0,
                                         g_loop_sym,
                                         1,
@@ -133,19 +133,19 @@ def selected_attention_compute(args: SAInputs):
                                             b_idx, s1_idx, n2_idx, g_idx, bn_per_batch
                                         ):
                                             cur_g_tile = g_tile
-                                            oi_update = pto.tensor(
+                                            oi_update = pypto.tensor(
                                                 [cur_g_tile, d_n],
-                                                pto.DT_FP32,
+                                                pypto.DT_FP32,
                                                 "oiUpdate",
                                             )
-                                            li_update = pto.tensor(
+                                            li_update = pypto.tensor(
                                                 [cur_g_tile, 1],
-                                                pto.DT_FP32,
+                                                pypto.DT_FP32,
                                                 "liUpdate",
                                             )
-                                            mi_update = pto.tensor(
+                                            mi_update = pypto.tensor(
                                                 [cur_g_tile, 1],
-                                                pto.DT_FP32,
+                                                pypto.DT_FP32,
                                                 "miUpdate",
                                             )
                                             curr_offset = (
@@ -159,7 +159,7 @@ def selected_attention_compute(args: SAInputs):
                                                 n2_idx * group + g_idx * cur_g_tile,
                                                 0,
                                             ]
-                                            for s2_idx in pto.loop(
+                                            for s2_idx in pypto.loop(
                                                 0,
                                                 bn_per_batch,
                                                 1,
@@ -182,27 +182,27 @@ def selected_attention_compute(args: SAInputs):
                                                         + s1_idx * s2_sym
                                                         + s2_idx * cur_s2_tile
                                                     )
-                                                    pto.set_semantic_label("Sa")
-                                                    qn = pto.view(
+                                                    pypto.set_semantic_label("Sa")
+                                                    qn = pypto.view(
                                                         q_nope,
                                                         [cur_g_tile, d_n],
                                                         [curr_offset, 0],
                                                         valid_shape=[cur_g_tile, d_n],
                                                     )
-                                                    qr = pto.view(
+                                                    qr = pypto.view(
                                                         q_rope,
                                                         [cur_g_tile, d_r],
                                                         [curr_offset, 0],
                                                         valid_shape=[cur_g_tile, d_r],
                                                     )
-                                                    qi = pto.tensor(
+                                                    qi = pypto.tensor(
                                                         [cur_g_tile, d_n + d_r],
                                                         dtype,
                                                         "qi",
                                                     )
-                                                    pto.assemble(qn, [0, 0], qi)
-                                                    pto.assemble(qr, [0, d_n], qi)
-                                                    kj = pto.view(
+                                                    pypto.assemble(qn, [0, 0], qi)
+                                                    pypto.assemble(qr, [0, d_n], qi)
+                                                    kj = pypto.view(
                                                         k_slc,
                                                         [cur_s2_tile, d_n + d_r],
                                                         [cur_kv_offset, 0],
@@ -214,7 +214,7 @@ def selected_attention_compute(args: SAInputs):
                                                             d_n + d_r,
                                                         ],
                                                     )
-                                                    vj = pto.view(
+                                                    vj = pypto.view(
                                                         v_slc,
                                                         [cur_s2_tile, d_n],
                                                         [cur_kv_offset, 0],
@@ -226,52 +226,52 @@ def selected_attention_compute(args: SAInputs):
                                                             d_n,
                                                         ],
                                                     )
-                                                    pto.set_cube_tile_shapes(
+                                                    pypto.set_cube_tile_shapes(
                                                         c1_tile[0],
                                                         c1_tile[1],
                                                         c1_tile[2],
                                                         False,
                                                     )
-                                                    pto.set_semantic_label("Sa_QkMM")
-                                                    pto.set_matrix_size(
+                                                    pypto.set_semantic_label("Sa_QkMM")
+                                                    pypto.set_matrix_size(
                                                         [qi.shape[0], 0, kj.shape[0]]
                                                     )
-                                                    sij = pto.matmul(
+                                                    sij = pypto.matmul(
                                                         qi,
                                                         kj,
-                                                        pto.DT_FP32,
+                                                        pypto.DT_FP32,
                                                         b_trans=True,
                                                     )
-                                                    pto.set_semantic_label("Sa_Qkvec1")
-                                                    pto.set_vec_tile_shapes(
+                                                    pypto.set_semantic_label("Sa_Qkvec1")
+                                                    pypto.set_vec_tile_shapes(
                                                         v1_tile[0], v1_tile[1]
                                                     )
                                                     sij_scale = (
                                                         sij * params.softmax_scale
                                                     )
-                                                    tilda_mij = pto.amax(sij_scale, -1, True)
+                                                    tilda_mij = pypto.amax(sij_scale, -1, True)
                                                     tsub = sij_scale - tilda_mij
-                                                    tilda_pij = pto.exp(tsub)
-                                                    tilda_pij_f16 = pto.cast(
+                                                    tilda_pij = pypto.exp(tsub)
+                                                    tilda_pij_f16 = pypto.cast(
                                                         tilda_pij, dtype
                                                     )
-                                                    tilda_lij = pto.sum(tilda_pij, -1, True)
-                                                    if pto.cond(
-                                                        pto.is_loop_begin(s2_idx)
+                                                    tilda_lij = pypto.sum(tilda_pij, -1, True)
+                                                    if pypto.cond(
+                                                        pypto.is_loop_begin(s2_idx)
                                                     ):
 
                                                         def inside_if_loop_begin():
                                                             nonlocal oi_update, li_update, mi_update
-                                                            pto.set_cube_tile_shapes(
+                                                            pypto.set_cube_tile_shapes(
                                                                 c2_tile[0],
                                                                 c2_tile[1],
                                                                 c2_tile[2],
                                                                 False,
                                                             )
-                                                            pto.set_semantic_label(
+                                                            pypto.set_semantic_label(
                                                                 "Sa_KvMm"
                                                             )
-                                                            pto.set_matrix_size(
+                                                            pypto.set_matrix_size(
                                                                 [
                                                                     tilda_pij_f16.shape[
                                                                         0
@@ -282,31 +282,31 @@ def selected_attention_compute(args: SAInputs):
                                                                     vj.shape[1],
                                                                 ]
                                                             )
-                                                            oi_tmp = pto.matmul(
+                                                            oi_tmp = pypto.matmul(
                                                                 tilda_pij_f16,
                                                                 vj,
-                                                                pto.DT_FP32,
+                                                                pypto.DT_FP32,
                                                             )
-                                                            pto.set_vec_tile_shapes(
+                                                            pypto.set_vec_tile_shapes(
                                                                 v2_tile[0], v2_tile[1]
                                                             )
-                                                            if pto.cond(
-                                                                pto.is_loop_end(s2_idx)
+                                                            if pypto.cond(
+                                                                pypto.is_loop_end(s2_idx)
                                                             ):
-                                                                pto.set_semantic_label(
+                                                                pypto.set_semantic_label(
                                                                     "Sa_KvVec2"
                                                                 )
                                                                 oi_update[:] = (
                                                                     oi_tmp / tilda_lij
                                                                 )
-                                                                pto.set_vec_tile_shapes(
+                                                                pypto.set_vec_tile_shapes(
                                                                     1,
                                                                     1,
                                                                     v2_tile[0],
                                                                     v2_tile[1],
                                                                 )
-                                                                oi_update_4dim = pto.cast(
-                                                                    pto.reshape(
+                                                                oi_update_4dim = pypto.cast(
+                                                                    pypto.reshape(
                                                                         oi_update,
                                                                         [
                                                                             1,
@@ -317,7 +317,7 @@ def selected_attention_compute(args: SAInputs):
                                                                     ),
                                                                     q_nope.dtype,
                                                                 )
-                                                                pto.assemble(
+                                                                pypto.assemble(
                                                                     oi_update_4dim,
                                                                     oi_offset,
                                                                     attention_out,
@@ -332,33 +332,33 @@ def selected_attention_compute(args: SAInputs):
 
                                                         def inside_else_loop_begin():
                                                             nonlocal oi_update, li_update, mi_update
-                                                            pto.set_semantic_label(
+                                                            pypto.set_semantic_label(
                                                                 "Sa_UpdateVec2"
                                                             )
                                                             oi = oi_update
                                                             li = li_update
                                                             mi = mi_update
-                                                            mi_new = pto.maximum(
+                                                            mi_new = pypto.maximum(
                                                                 mi, tilda_mij
                                                             )
                                                             t1 = mi - mi_new
-                                                            t2 = pto.exp(t1)
+                                                            t2 = pypto.exp(t1)
                                                             t3 = tilda_mij - mi_new
-                                                            t4 = pto.exp(t3)
+                                                            t4 = pypto.exp(t3)
                                                             t5 = t4 * tilda_lij
                                                             t6 = t2 * li
                                                             li_new = t6 + t5
                                                             q3 = oi * t2
-                                                            pto.set_cube_tile_shapes(
+                                                            pypto.set_cube_tile_shapes(
                                                                 c2_tile[0],
                                                                 c2_tile[1],
                                                                 c2_tile[2],
                                                                 False,
                                                             )
-                                                            pto.set_semantic_label(
+                                                            pypto.set_semantic_label(
                                                                 "Sa_UpdateMM2"
                                                             )
-                                                            pto.set_matrix_size(
+                                                            pypto.set_matrix_size(
                                                                 [
                                                                     tilda_pij_f16.shape[
                                                                         0
@@ -369,30 +369,30 @@ def selected_attention_compute(args: SAInputs):
                                                                     vj.shape[1],
                                                                 ]
                                                             )
-                                                            q1 = pto.matmul(
+                                                            q1 = pypto.matmul(
                                                                 tilda_pij_f16,
                                                                 vj,
-                                                                pto.DT_FP32,
+                                                                pypto.DT_FP32,
                                                             )
-                                                            pto.set_vec_tile_shapes(
+                                                            pypto.set_vec_tile_shapes(
                                                                 v2_tile[0], v2_tile[1]
                                                             )
                                                             q2 = q1 * t4
                                                             oi_tmp = q3 + q2
-                                                            if pto.cond(
-                                                                pto.is_loop_end(s2_idx)
+                                                            if pypto.cond(
+                                                                pypto.is_loop_end(s2_idx)
                                                             ):
                                                                 oi_update[:] = (
                                                                     oi_tmp / li_new
                                                                 )
-                                                                pto.set_vec_tile_shapes(
+                                                                pypto.set_vec_tile_shapes(
                                                                     1,
                                                                     1,
                                                                     v2_tile[0],
                                                                     v2_tile[1],
                                                                 )
-                                                                oi_update_4dim = pto.cast(
-                                                                    pto.reshape(
+                                                                oi_update_4dim = pypto.cast(
+                                                                    pypto.reshape(
                                                                         oi_update,
                                                                         [
                                                                             1,
@@ -403,7 +403,7 @@ def selected_attention_compute(args: SAInputs):
                                                                     ),
                                                                     q_nope.dtype,
                                                                 )
-                                                                pto.assemble(
+                                                                pypto.assemble(
                                                                     oi_update_4dim,
                                                                     oi_offset,
                                                                     attention_out,
@@ -462,8 +462,8 @@ class SABuildConfig:
 
 
 def build_selected_args(cfg: SABuildConfig = SABuildConfig()):
-    d_type = pto.DT_FP16
-    i32 = pto.DT_INT32
+    d_type = pypto.DT_FP16
+    i32 = pypto.DT_INT32
 
     q_nope_shape = [cfg.b * cfg.s1 * cfg.n_q, cfg.qk_nope_head_dim]
     q_rope_shape = [cfg.b * cfg.s1 * cfg.n_q, cfg.qk_rope_head_dim]
@@ -476,12 +476,12 @@ def build_selected_args(cfg: SABuildConfig = SABuildConfig()):
 
     attention_out_shape = [cfg.b, cfg.s1, cfg.n_q, cfg.qk_nope_head_dim]
 
-    q_nope = pto.tensor(q_nope_shape, d_type, "qNope")
-    q_rope = pto.tensor(q_rope_shape, d_type, "qRope")
-    k_slc = pto.tensor(k_slc_shape, d_type, "kSlc")
-    v_slc = pto.tensor(v_slc_shape, d_type, "vSlc")
-    kv_slc_act_seqs = pto.tensor(kv_slc_act_seqs_shape, i32, "kvSlcActSeqs")
-    attention_out = pto.tensor(attention_out_shape, d_type, "attentionOut")
+    q_nope = pypto.tensor(q_nope_shape, d_type, "qNope")
+    q_rope = pypto.tensor(q_rope_shape, d_type, "qRope")
+    k_slc = pypto.tensor(k_slc_shape, d_type, "kSlc")
+    v_slc = pypto.tensor(v_slc_shape, d_type, "vSlc")
+    kv_slc_act_seqs = pypto.tensor(kv_slc_act_seqs_shape, i32, "kvSlcActSeqs")
+    attention_out = pypto.tensor(attention_out_shape, d_type, "attentionOut")
 
     tile = SelectedAttentionTileConfig(
         g_tile=cfg.g_tile,

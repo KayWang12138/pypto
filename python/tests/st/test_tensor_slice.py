@@ -10,7 +10,7 @@
 """
 """
 import os
-import pto
+import pypto
 import pytest
 import torch
 import torch_npu
@@ -21,24 +21,24 @@ def test_slice_neg_index():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
     x_shape = [4, 8]
-    dtype = pto.DT_FP32
-    pto.runtime._device_init()
-    x = pto.tensor(x_shape, dtype)
-    res = pto.tensor(x_shape, dtype)
+    dtype = pypto.DT_FP32
+    pypto.runtime._device_init()
+    x = pypto.tensor(x_shape, dtype)
+    res = pypto.tensor(x_shape, dtype)
 
-    with pto.function("SLICE_NEG_INDEX", [x], [res]):
-        for _ in pto.loop(1, name="LOOP_L0", idx_name="a_idx"):
-            pto.set_vec_tile_shapes(4, 4)
+    with pypto.function("SLICE_NEG_INDEX", [x], [res]):
+        for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
+            pypto.set_vec_tile_shapes(4, 4)
             res[:] = (x[-3:-1, -2:-1])
             del res
 
     torch_tensor = torch.rand(4, 8, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(2, 1, dtype=torch.float32)
-    pto.runtime._device_run_once_data_from_host([torch_tensor], [res_tensor])
+    pypto.runtime._device_run_once_data_from_host([torch_tensor], [res_tensor])
     expected = torch_tensor[-3:-1, -2:-1]
 
     assert torch.equal(res_tensor.flatten(), expected.flatten())
-    pto.runtime._device_fini()
+    pypto.runtime._device_fini()
 
 
 def test_slice_int_index():
@@ -46,24 +46,24 @@ def test_slice_int_index():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
     x_shape = [4, 8, 8, 8, 8]
-    dtype = pto.DT_FP32
-    pto.runtime._device_init()
-    x = pto.tensor(x_shape, dtype)
-    res = pto.tensor(x_shape, dtype)
+    dtype = pypto.DT_FP32
+    pypto.runtime._device_init()
+    x = pypto.tensor(x_shape, dtype)
+    res = pypto.tensor(x_shape, dtype)
 
-    with pto.function("SLICE_INT_INDEX", [x], [res]):
-        for _ in pto.loop(1, name="LOOP_L0", idx_name="a_idx"):
-            pto.set_vec_tile_shapes(4, 4, 4, 4, 4)
+    with pypto.function("SLICE_INT_INDEX", [x], [res]):
+        for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
+            pypto.set_vec_tile_shapes(4, 4, 4, 4, 4)
             res[:] = x[-2, -3:8, :, 1:4, 2]
             del res
 
     torch_tensor = torch.rand(4, 8, 8, 8, 8, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(3, 8, 3, dtype=torch.float32)
-    pto.runtime._device_run_once_data_from_host([torch_tensor], [res_tensor])
+    pypto.runtime._device_run_once_data_from_host([torch_tensor], [res_tensor])
     expected = torch_tensor[-2, -3:8, :, 1:4, 2]
 
     assert torch.equal(res_tensor.flatten(), expected.flatten())
-    pto.runtime._device_fini()
+    pypto.runtime._device_fini()
 
 
 def test_slice_ellipsis_index():
@@ -71,17 +71,17 @@ def test_slice_ellipsis_index():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
     x_shape = [4, 8, 8, 8]
-    dtype = pto.DT_FP32
-    pto.runtime._device_init()
-    x = pto.tensor(x_shape, dtype)
-    res1 = pto.tensor(x_shape, dtype)
-    res2 = pto.tensor(x_shape, dtype)
-    res3 = pto.tensor(x_shape, dtype)
-    res4 = pto.tensor(x_shape, dtype)
+    dtype = pypto.DT_FP32
+    pypto.runtime._device_init()
+    x = pypto.tensor(x_shape, dtype)
+    res1 = pypto.tensor(x_shape, dtype)
+    res2 = pypto.tensor(x_shape, dtype)
+    res3 = pypto.tensor(x_shape, dtype)
+    res4 = pypto.tensor(x_shape, dtype)
 
-    with pto.function("SLICE_INT_ELLIPSIS_INDEX", [x], [res1, res2, res3, res4]):
-        for _ in pto.loop(1, name="LOOP_L0", idx_name="a_idx"):
-            pto.set_vec_tile_shapes(4, 4, 4, 4)
+    with pypto.function("SLICE_INT_ELLIPSIS_INDEX", [x], [res1, res2, res3, res4]):
+        for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
+            pypto.set_vec_tile_shapes(4, 4, 4, 4)
             res1[:] = x[..., 2]
             res2[:] = x[1:2, :, ..., 3:5]
             res3[:] = x[2, 3, ...]
@@ -96,7 +96,7 @@ def test_slice_ellipsis_index():
     res2_tensor = torch.zeros(1, 8, 8, 2, dtype=torch.float32)
     res3_tensor = torch.zeros(8, 8, dtype=torch.float32)
     res4_tensor = torch.zeros(4, 8, 8, 8, dtype=torch.float32)
-    pto.runtime._device_run_once_data_from_host([torch_tensor], [res1_tensor, res2_tensor, res3_tensor, res4_tensor])
+    pypto.runtime._device_run_once_data_from_host([torch_tensor], [res1_tensor, res2_tensor, res3_tensor, res4_tensor])
     expected1 = torch_tensor[..., 2]
     expected2 = torch_tensor[1:2, :, ..., 3:5]
     expected3 = torch_tensor[2, 3, ...]
@@ -106,4 +106,4 @@ def test_slice_ellipsis_index():
     assert torch.equal(res2_tensor.flatten(), expected2.flatten())
     assert torch.equal(res3_tensor.flatten(), expected3.flatten())
     assert torch.equal(res4_tensor.flatten(), expected4.flatten())
-    pto.runtime._device_fini()
+    pypto.runtime._device_fini()

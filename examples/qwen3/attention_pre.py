@@ -9,7 +9,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 
 import os
-import pto
+import pypto
 import pytest
 import torch
 import torch_npu
@@ -60,66 +60,66 @@ def apply_rotary_pos_emb_v2(q, k, cos, sin):
     return q_embed, k_embed
 
 
-# pto
+# pypto
 def rms_norm(tensor_value, gamma, eps, tile_shape):
     input_dtype = tensor_value.dtype
     # cast
-    pto.set_vec_tile_shapes(*tile_shape)
-    tensor_value_fp32 = pto.cast(tensor_value, pto.DT_FP32)
+    pypto.set_vec_tile_shapes(*tile_shape)
+    tensor_value_fp32 = pypto.cast(tensor_value, pypto.DT_FP32)
 
     # gamma reshape
-    pto.set_vec_tile_shapes(tile_shape[-1])
+    pypto.set_vec_tile_shapes(tile_shape[-1])
     gamma_shape = [1] * len(tensor_value_fp32.shape)
     gamma_shape[-1] = gamma.shape[0]
-    gamma_3d = pto.reshape(gamma, gamma_shape)
+    gamma_3d = pypto.reshape(gamma, gamma_shape)
 
     # gamma cast
-    pto.set_vec_tile_shapes(*tile_shape)
-    gamma_fp32 = pto.cast(gamma_3d, pto.DT_FP32)
+    pypto.set_vec_tile_shapes(*tile_shape)
+    gamma_fp32 = pypto.cast(gamma_3d, pypto.DT_FP32)
 
     # square
-    square = pto.mul(tensor_value_fp32, tensor_value_fp32)
+    square = pypto.mul(tensor_value_fp32, tensor_value_fp32)
 
     # mean_res
     mean_coff = 1.0 / tensor_value_fp32.shape[-1]
-    mean_res = pto.mul(square, mean_coff)
+    mean_res = pypto.mul(square, mean_coff)
 
     # reduce sum
-    reduce_asum = pto.sum(mean_res)
-    reduce_sum = pto.add(reduce_asum, eps)
+    reduce_asum = pypto.sum(mean_res)
+    reduce_sum = pypto.add(reduce_asum, eps)
 
     # sqrt
-    reduce_sqrt = pto.sqrt(reduce_sum)
+    reduce_sqrt = pypto.sqrt(reduce_sum)
 
     # div
-    res_div = pto.div(tensor_value_fp32, reduce_sqrt)
+    res_div = pypto.div(tensor_value_fp32, reduce_sqrt)
 
     # gamma mul
-    res = pto.mul(res_div, gamma_fp32)
+    res = pypto.mul(res_div, gamma_fp32)
 
     # cast
-    y_bf16 = pto.cast(res, input_dtype)
+    y_bf16 = pypto.cast(res, input_dtype)
 
     return y_bf16
 
 
 def rope_data(x1, x2, cos, sin, tile_shape):
-    pto.set_vec_tile_shapes(*tile_shape)
-    o1 = pto.sub(pto.mul(x1, cos), pto.mul(x2, sin))
-    o2 = pto.add(pto.mul(x2, cos), pto.mul(x1, sin))
+    pypto.set_vec_tile_shapes(*tile_shape)
+    o1 = pypto.sub(pypto.mul(x1, cos), pypto.mul(x2, sin))
+    o2 = pypto.add(pypto.mul(x2, cos), pypto.mul(x1, sin))
     # concat
-    res = pto.concat([o1, o2], 2)
+    res = pypto.concat([o1, o2], 2)
 
     # cast
-    y_bf16 = pto.cast(res, pto.DT_BF16)
+    y_bf16 = pypto.cast(res, pypto.DT_BF16)
     return y_bf16
 
 
-@pto.jit
+@pypto.jit
 def attention_pre(in_tensors, out_tensors):
     # 1. 添加支持动态的config
-    pto.set_codegen_option("support_dynamic_unaligned", True) 
-    pto.set_host_option("only_codegen", True)
+    pypto.set_codegen_option("support_dynamic_unaligned", True) 
+    pypto.set_host_option("only_codegen", True)
     # 2. 从入参拿到输入和输出tensor
     x = in_tensors[0]
     weight = in_tensors[1]
@@ -132,12 +132,12 @@ def attention_pre(in_tensors, out_tensors):
     k = out_tensors[1]
     v = out_tensors[2]
     # 3. 设置axis=0为动态shape
-    pto.mark_dynamic(x, 0)
-    pto.mark_dynamic(cos, 0)
-    pto.mark_dynamic(sin, 0)
-    pto.mark_dynamic(q, 0)
-    pto.mark_dynamic(k, 0)
-    pto.mark_dynamic(v, 0)
+    pypto.mark_dynamic(x, 0)
+    pypto.mark_dynamic(cos, 0)
+    pypto.mark_dynamic(sin, 0)
+    pypto.mark_dynamic(q, 0)
+    pypto.mark_dynamic(k, 0)
+    pypto.mark_dynamic(v, 0)
 
     # 4. 得到动态tensor的shape
     bs = x.shape[0]
@@ -156,27 +156,27 @@ def attention_pre(in_tensors, out_tensors):
     bs_loop = (bs + bs_tile - 1) // bs_tile
 
     # 5. 定义动态函数
-    with pto.function("ATTENTION_PRE", [x, weight, q_gamma, k_gamma, cos, sin], [q, k, v]):
+    with pypto.function("ATTENTION_PRE", [x, weight, q_gamma, k_gamma, cos, sin], [q, k, v]):
         def inside_attention_pre_func():
             # 6. 实现kernel逻辑，循环展开BS动态轴
-            for bs_idx in pto.loop(bs_loop, name="LOOP_ATT_PRE_L0", idx_name="bs_idx"):
+            for bs_idx in pypto.loop(bs_loop, name="LOOP_ATT_PRE_L0", idx_name="bs_idx"):
                 def bs_loop_func(bs_idx):
                     # 7. 通过view得到x_tile、cos_tile、sin_tile
-                    x_tile = pto.view(x, [bs_tile, hidden_size], [bs_idx * bs_tile, 0])
-                    cos_tile = pto.view(cos, [bs_tile, 1, half_head_size], [bs_idx * bs_tile, 0, 0])
-                    sin_tile = pto.view(sin, [bs_tile, 1, half_head_size], [bs_idx * bs_tile, 0, 0])
+                    x_tile = pypto.view(x, [bs_tile, hidden_size], [bs_idx * bs_tile, 0])
+                    cos_tile = pypto.view(cos, [bs_tile, 1, half_head_size], [bs_idx * bs_tile, 0, 0])
+                    sin_tile = pypto.view(sin, [bs_tile, 1, half_head_size], [bs_idx * bs_tile, 0, 0])
 
                     # 8. 按照计算图实现运算逻辑
                     # matmul
-                    pto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
-                    mm_res = pto.matmul(x_tile, weight, pto.DT_BF16, a_trans=False, b_trans=True)
-                    pto.set_vec_tile_shapes(128, 128, 128)
-                    mm_3d = pto.reshape(mm_res, [bs_tile, total_hidden_size // head_size, head_size])
+                    pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
+                    mm_res = pypto.matmul(x_tile, weight, pypto.DT_BF16, a_trans=False, b_trans=True)
+                    pypto.set_vec_tile_shapes(128, 128, 128)
+                    mm_3d = pypto.reshape(mm_res, [bs_tile, total_hidden_size // head_size, head_size])
 
                     # split
-                    q_tile = pto.view(mm_3d, [bs_tile, q_num_head, head_size], [0, 0, 0])
-                    k_tile = pto.view(mm_3d, [bs_tile, kv_num_head, head_size], [0, q_num_head, 0])
-                    v_tile = pto.view(mm_3d, [bs_tile, kv_num_head, head_size], [0, kv_index, 0])
+                    q_tile = pypto.view(mm_3d, [bs_tile, q_num_head, head_size], [0, 0, 0])
+                    k_tile = pypto.view(mm_3d, [bs_tile, kv_num_head, head_size], [0, q_num_head, 0])
+                    v_tile = pypto.view(mm_3d, [bs_tile, kv_num_head, head_size], [0, kv_index, 0])
 
                     # rms norm
                     q_norm = rms_norm(q_tile, q_gamma, eps, [bs_tile, q_num_head, head_size])
@@ -184,36 +184,36 @@ def attention_pre(in_tensors, out_tensors):
 
                     # apply rope
                     # cast
-                    pto.set_vec_tile_shapes(bs_tile, q_num_head, head_size)
-                    q_fp32 = pto.cast(q_norm, pto.DT_FP32)
-                    k_fp32 = pto.cast(k_norm, pto.DT_FP32)
+                    pypto.set_vec_tile_shapes(bs_tile, q_num_head, head_size)
+                    q_fp32 = pypto.cast(q_norm, pypto.DT_FP32)
+                    k_fp32 = pypto.cast(k_norm, pypto.DT_FP32)
 
-                    pto.set_vec_tile_shapes(bs_tile, kv_num_head, half_head_size)
-                    cos_fp32 = pto.cast(cos_tile, pto.DT_FP32)
-                    sin_fp32 = pto.cast(sin_tile, pto.DT_FP32)
+                    pypto.set_vec_tile_shapes(bs_tile, kv_num_head, half_head_size)
+                    cos_fp32 = pypto.cast(cos_tile, pypto.DT_FP32)
+                    sin_fp32 = pypto.cast(sin_tile, pypto.DT_FP32)
 
                     # q split
-                    q1 = pto.view(q_fp32, [bs_tile, q_num_head, half_head_size], [0, 0, 0])
-                    q2 = pto.view(q_fp32, [bs_tile, q_num_head, half_head_size], [0, 0, half_head_size])
+                    q1 = pypto.view(q_fp32, [bs_tile, q_num_head, half_head_size], [0, 0, 0])
+                    q2 = pypto.view(q_fp32, [bs_tile, q_num_head, half_head_size], [0, 0, half_head_size])
                     # rope data
                     q_rope = rope_data(q1, q2, cos_fp32, sin_fp32, [bs_tile, q_num_head, half_head_size])
 
                     # k split
-                    k1 = pto.view(k_fp32, [bs_tile, kv_num_head, half_head_size], [0, 0, 0])
-                    k2 = pto.view(k_fp32, [bs_tile, kv_num_head, half_head_size], [0, 0, half_head_size])
+                    k1 = pypto.view(k_fp32, [bs_tile, kv_num_head, half_head_size], [0, 0, 0])
+                    k2 = pypto.view(k_fp32, [bs_tile, kv_num_head, half_head_size], [0, 0, half_head_size])
                     # rope data
                     k_rope = rope_data(k1, k2, cos_fp32, sin_fp32, [bs_tile, kv_num_head, half_head_size])
 
                     # post process
-                    q_res = pto.reshape(q_rope, [bs_tile, q_size])
-                    k_res = pto.reshape(k_rope, [bs_tile, kv_size])
-                    v_res = pto.reshape(v_tile, [bs_tile, kv_size])
+                    q_res = pypto.reshape(q_rope, [bs_tile, q_size])
+                    k_res = pypto.reshape(k_rope, [bs_tile, kv_size])
+                    v_res = pypto.reshape(v_tile, [bs_tile, kv_size])
 
                     # 9. 将结果搬运到输出tensor上
                     # update output
-                    q[bs_idx * pto.symbolic_scalar(bs_tile):, 0:] = q_res
-                    k[bs_idx * pto.symbolic_scalar(bs_tile):, 0:] = k_res
-                    v[bs_idx * pto.symbolic_scalar(bs_tile):, 0:] = v_res
+                    q[bs_idx * pypto.symbolic_scalar(bs_tile):, 0:] = q_res
+                    k[bs_idx * pypto.symbolic_scalar(bs_tile):, 0:] = k_res
+                    v[bs_idx * pypto.symbolic_scalar(bs_tile):, 0:] = v_res
 
                 bs_loop_func(bs_idx)
         inside_attention_pre_func()
@@ -256,7 +256,7 @@ def test_attention_pre():
         inputs = [x, weight, q_gamma, k_gamma, cos, sin]
         outputs = [q, k, v]
         attention_pre(inputs, outputs)
-        pto.runtime._device_synchronize()
+        pypto.runtime._device_synchronize()
 
         # 5. 与PyTorch参考实现对比
         # matmul

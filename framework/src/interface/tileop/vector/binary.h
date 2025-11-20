@@ -21,27 +21,27 @@
 template <BinaryOp op, typename T0, typename T1, typename T2>
 TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
     if constexpr (op == BinaryOp::ADD) {
-        pto::TADD(dst, src0, src1);
+        pypto::TADD(dst, src0, src1);
         return;
     }
     if constexpr (op == BinaryOp::SUB) {
-        pto::TSUB(dst, src0, src1);
+        pypto::TSUB(dst, src0, src1);
     }
 
     if constexpr (op == BinaryOp::MUL) {
-        pto::TMUL(dst, src0, src1);
+        pypto::TMUL(dst, src0, src1);
     }
 
     if constexpr (op == BinaryOp::DIV) {
-        pto::TDIV(dst, src0, src1);
+        pypto::TDIV(dst, src0, src1);
     }
 
     if constexpr (op == BinaryOp::MAX) {
-        pto::TMAX(dst, src0, src1);
+        pypto::TMAX(dst, src0, src1);
     }
 
     if constexpr (op == BinaryOp::MIN) {
-        pto::TMIN(dst, src0, src1);
+        pypto::TMIN(dst, src0, src1);
     }
 }
 
@@ -53,11 +53,11 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
         constexpr auto tileH = TileOp::GetOutterAxisMergeResult<shapeSize, typename T0::TileShape>();
         constexpr auto tileW = Std::tuple_element<shapeSize - 1, typename T0::TileShape>::type::value;
         using TileDefine =
-            pto::Tile<pto::Location::Vec, typename T0::Type, tileH, tileW, pto::BLayout::RowMajor, tileH, tileW>;
+            pypto::Tile<pypto::Location::Vec, typename T0::Type, tileH, tileW, pypto::BLayout::RowMajor, tileH, tileW>;
         TileDefine dstTile, src0Tile, src1Tile;
-        pto::TASSIGN(dstTile, (uint64_t)dst.GetAddr());
-        pto::TASSIGN(src0Tile, (uint64_t)src0.GetAddr());
-        pto::TASSIGN(src1Tile, (uint64_t)src1.GetAddr());
+        pypto::TASSIGN(dstTile, (uint64_t)dst.GetAddr());
+        pypto::TASSIGN(src0Tile, (uint64_t)src0.GetAddr());
+        pypto::TASSIGN(src1Tile, (uint64_t)src1.GetAddr());
         BinaryComputeImpl<op>(dstTile, src0Tile, src1Tile);
         return;
     }
@@ -80,12 +80,12 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
         for (size_t n1Index = 0; n1Index < shape1; ++n1Index) {
             for (size_t n2Index = 0; n2Index < shape2; ++n2Index) {
                 using TileDefine =
-                    pto::Tile<pto::Location::Vec, typename T0::Type, tileH, tileW, pto::BLayout::RowMajor, -1, -1>;
+                    pypto::Tile<pypto::Location::Vec, typename T0::Type, tileH, tileW, pypto::BLayout::RowMajor, -1, -1>;
                 TileDefine dstTile(shape3, shape4), src0Tile(shape3, shape4), src1Tile(shape3, shape4);
                 auto offset = n0Index * stride0 + n1Index * stride1 + n2Index * stride2;
-                pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + offset * dstTypeSize));
-                pto::TASSIGN(src0Tile, (uint64_t)(src0.GetAddr() + offset * src0TypeSize));
-                pto::TASSIGN(src1Tile, (uint64_t)(src1.GetAddr() + offset * src1TypeSize));
+                pypto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + offset * dstTypeSize));
+                pypto::TASSIGN(src0Tile, (uint64_t)(src0.GetAddr() + offset * src0TypeSize));
+                pypto::TASSIGN(src1Tile, (uint64_t)(src1.GetAddr() + offset * src1TypeSize));
                 BinaryComputeImpl<op>(dstTile, src0Tile, src1Tile);
             }
         }

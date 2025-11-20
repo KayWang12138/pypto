@@ -9,35 +9,35 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
-import pto
+import pypto
 import sys
 import os
 
 def init_tensors():
-    dtype = pto.DT_FP32
+    dtype = pypto.DT_FP32
     shape = (128, 128)
-    a = pto.tensor(shape, dtype, "a")
-    b = pto.tensor(shape, dtype, "b")
-    c = pto.tensor(shape, dtype, "c")
+    a = pypto.tensor(shape, dtype, "a")
+    b = pypto.tensor(shape, dtype, "b")
+    c = pypto.tensor(shape, dtype, "c")
     return a, b, c
 
 
 def test_dynamic_loop_nomacro():
     a, b, c = init_tensors()
-    with pto.function("MAIN", [a, b], [c]):
-        pto.set_vec_tile_shapes(16, 16)
-        for k in pto.loop(10, name="LOOP", idx_name="k"):
-            b.move(pto.add(a, a))
+    with pypto.function("MAIN", [a, b], [c]):
+        pypto.set_vec_tile_shapes(16, 16)
+        for k in pypto.loop(10, name="LOOP", idx_name="k"):
+            b.move(pypto.add(a, a))
 
-            if pto.cond(k < 2):
-                b.move(pto.add(b, a))
+            if pypto.cond(k < 2):
+                b.move(pypto.add(b, a))
             else:
-                b.move(pto.sub(b, a))
+                b.move(pypto.sub(b, a))
 
-            if pto.cond(k < 5):
-                b.move(pto.mul(b, a))
+            if pypto.cond(k < 5):
+                b.move(pypto.mul(b, a))
             else:
-                b.move(pto.div(b, a))
-            c.move(pto.sub(b, a))
+                b.move(pypto.div(b, a))
+            c.move(pypto.sub(b, a))
 
-    assert isinstance(b, pto.tensor)
+    assert isinstance(b, pypto.tensor)

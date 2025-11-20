@@ -75,8 +75,8 @@ def set_vec_tile_shapes(*shapes: int):
 
     Examples
     --------
-    >>> pto.set_vec_tile_shapes(1, 1, 8, 8)
-    >>> print(pto.get_vec_tile_shapes())
+    >>> pypto.set_vec_tile_shapes(1, 1, 8, 8)
+    >>> print(pypto.get_vec_tile_shapes())
     [1, 1, 8, 8]
 
     """
@@ -101,8 +101,8 @@ def get_vec_tile_shapes() -> List[int]:
 
     Examples
     --------
-    >>> pto.set_vec_tile_shapes([1, 1, 8, 8])
-    >>> print(pto.get_vec_tile_shapes())
+    >>> pypto.set_vec_tile_shapes([1, 1, 8, 8])
+    >>> print(pypto.get_vec_tile_shapes())
     [1, 1, 8, 8]
 
     """
@@ -141,8 +141,8 @@ def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], set_l1_tile: 
 
     Examples
     --------
-    >>> pto.set_cube_tile_shapes([16, 16], [256, 512], [128, 128], True)
-    >>> print(pto.get_cube_tile_shapes())
+    >>> pypto.set_cube_tile_shapes([16, 16], [256, 512], [128, 128], True)
+    >>> print(pypto.get_cube_tile_shapes())
     [[16, 16], [256, 512], [128, 128], True]
 
     """
@@ -169,8 +169,8 @@ def get_cube_tile_shapes() -> Tuple[List[int], List[int], List[int], bool]:
 
     Examples
     --------
-    >>> pto.set_cube_tile_shapes([16, 16], [256, 512], [128, 128], True)
-    >>> print(pto.get_cube_tile_shapes())
+    >>> pypto.set_cube_tile_shapes([16, 16], [256, 512], [128, 128], True)
+    >>> print(pypto.get_cube_tile_shapes())
     [[16, 16], [256, 512], [128, 128], True]
 
     """
@@ -248,8 +248,8 @@ def is_loop_begin(scalar: SymInt):
 
     Examples
     --------
-    >>> for s2_idx in pto.loop(bn_per_batch):
-            if pto.cond(pto.is_loop_begin(s2_idx)):
+    >>> for s2_idx in pypto.loop(bn_per_batch):
+            if pypto.cond(pypto.is_loop_begin(s2_idx)):
                 ...
     '''
     if not hasattr(scalar, "_loop_begin"):
@@ -275,8 +275,8 @@ def is_loop_end(scalar: SymInt):
 
     Examples
     --------
-    >>> for s2_idx in pto.loop(0, bn_per_batch, 1, name="LOOP_L4_s2_SA", idx_name="s2_idx",
-            if pto.cond(pto.is_loop_end(s2_idx)):
+    >>> for s2_idx in pypto.loop(0, bn_per_batch, 1, name="LOOP_L4_s2_SA", idx_name="s2_idx",
+            if pypto.cond(pypto.is_loop_end(s2_idx)):
                 ...
     '''
     if not hasattr(scalar, "_loop_end"):
@@ -315,9 +315,9 @@ def function(
 
     Examples
     --------
-    >>> with pto.function("main", [a, b], c):
-            pto.set_vec_tile_shapes(16, 16)
-            for _ in pto.loop(0, b_loop, 1, name, = "LOOP_L0_bIdx_mla_prolog",
+    >>> with pypto.function("main", [a, b], c):
+            pypto.set_vec_tile_shapes(16, 16)
+            for _ in pypto.loop(0, b_loop, 1, name, = "LOOP_L0_bIdx_mla_prolog",
                 idx_name = "b_idx"):
                 c[:] = a+b
 
@@ -347,7 +347,7 @@ def function(name: str, *args, **kwargs):
 
     Examples
     --------
-    >>> with pto.function("main", a, b, c, static=True):
+    >>> with pypto.function("main", a, b, c, static=True):
             c[:] = a+b
 
     """
@@ -402,11 +402,11 @@ def cond(scalar: SymInt):
 
     Examples
     --------
-    >>> if pto.cond(pto.is_loop_begin(bn)):
+    >>> if pypto.cond(pypto.is_loop_begin(bn)):
             pass
-        elif pto.cond(pto.is_loop_end(bn)):
+        elif pypto.cond(pypto.is_loop_end(bn)):
             pass
-        elif pto.cond(1):
+        elif pypto.cond(1):
             pass
         else:
             pass
@@ -482,8 +482,8 @@ def loop(stop: SymInt, /, **kwargs) -> Iterator[SymInt]:
 
     Examples
     --------
-    with pto.loop(10, name="LOOP_L0_bIdx", idx_name="bIdx"):
-        if pto.cond(k==0):
+    with pypto.loop(10, name="LOOP_L0_bIdx", idx_name="bIdx"):
+        if pypto.cond(k==0):
             b[:] = a + a
         else:
             b[:] = a + b
@@ -513,8 +513,8 @@ def loop(start: SymInt, stop: SymInt, step: Optional[SymInt] = 1, /, **kwargs) -
 
     Examples
     --------
-    with pto.loop(0, 10, 1, name="LOOP_L0_bIdx", idx_name="bIdx"):
-        if pto.cond(k==0):
+    with pypto.loop(0, 10, 1, name="LOOP_L0_bIdx", idx_name="bIdx"):
+        if pypto.cond(k==0):
             b[:] = a + a
         else:
             b[:] = a + b

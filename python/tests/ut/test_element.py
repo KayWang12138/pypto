@@ -9,13 +9,13 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
-import pto
+import pypto
 
 def test_element():
-    a = pto.element(pto.DT_FP32, 1.0)
-    assert a.dtype == pto.DT_FP32
+    a = pypto.element(pypto.DT_FP32, 1.0)
+    assert a.dtype == pypto.DT_FP32
     assert a.value == 1.0
 
-    b = pto.element(pto.DT_INT32, 1)
-    assert b.dtype == pto.DT_INT32
+    b = pypto.element(pypto.DT_INT32, 1)
+    assert b.dtype == pypto.DT_INT32
     assert b.value == 1

@@ -14,8 +14,8 @@ import numpy as np
 import torch
 import pytest
 import torch_npu
-import pto
-from pto import (
+import pypto
+from pypto import (
     tensor, element, view, symbolic_scalar, function,
     set_vec_tile_shapes, set_codegen_options
 )
@@ -27,29 +27,29 @@ def test_maximum():
     scalar_data = 5
     first_dim, second_dim = 90, 90
     view_shape, tile_shape = (64, 64), (32, 32)
-    pto.runtime._device_init()
+    pypto.runtime._device_init()
     set_codegen_options(support_dynamic_unaligned=True)
-    x = tensor((first_dim, second_dim), pto.DT_INT32, "Operand1")
-    y = tensor((first_dim, second_dim), pto.DT_INT32, "Operand2")
-    out = tensor((first_dim, second_dim), pto.DT_INT32, "Operand2")
-    scalar = pto.element(pto.DT_INT32, scalar_data)
+    x = tensor((first_dim, second_dim), pypto.DT_INT32, "Operand1")
+    y = tensor((first_dim, second_dim), pypto.DT_INT32, "Operand2")
+    out = tensor((first_dim, second_dim), pypto.DT_INT32, "Operand2")
+    scalar = pypto.element(pypto.DT_INT32, scalar_data)
 
     first_view_shape, second_view_shape = view_shape
 
     with function("Maximum", [x, y], [out]):
 
-        for b_idx in pto.loop(int(np.ceil(first_dim / view_shape[0])), name="LOOP_ADD_L0", idx_name="b_idx"):
-            for s_idx in pto.loop(int(np.ceil(second_dim / view_shape[1])), name="LOOP_ADD_L1", idx_name="s_idx"):
+        for b_idx in pypto.loop(int(np.ceil(first_dim / view_shape[0])), name="LOOP_ADD_L0", idx_name="b_idx"):
+            for s_idx in pypto.loop(int(np.ceil(second_dim / view_shape[1])), name="LOOP_ADD_L1", idx_name="s_idx"):
                 tile_tensor_0 = view(
                     x, view_shape,
                     [b_idx * first_view_shape, s_idx * second_view_shape],
                     valid_shape=[
-                        pto.min(
+                        pypto.min(
                             symbolic_scalar(first_dim) -
                             b_idx * first_view_shape,
                             symbolic_scalar(first_view_shape)
                         ),
-                        pto.min(
+                        pypto.min(
                             symbolic_scalar(second_dim) -
                             s_idx * second_view_shape,
                             symbolic_scalar(second_view_shape)
@@ -60,12 +60,12 @@ def test_maximum():
                     y, view_shape,
                     [b_idx * first_view_shape, s_idx * second_view_shape],
                     valid_shape=[
-                        pto.min(
+                        pypto.min(
                             symbolic_scalar(first_dim) -
                             b_idx * first_view_shape,
                             symbolic_scalar(first_view_shape)
                         ),
-                        pto.min(
+                        pypto.min(
                             symbolic_scalar(second_dim) -
                             s_idx * second_view_shape,
                             symbolic_scalar(second_view_shape)
@@ -74,8 +74,8 @@ def test_maximum():
                 )
                 set_vec_tile_shapes(*tile_shape)
                 res = tensor()
-                res.move(pto.maximum(tile_tensor_0, tile_tensor_1))
-                pto.assemble(
+                res.move(pypto.maximum(tile_tensor_0, tile_tensor_1))
+                pypto.assemble(
                     res,
                     [b_idx * first_view_shape, s_idx * second_view_shape],
                     out,
@@ -87,8 +87,8 @@ def test_maximum():
     ny_tensor = torch.randint(-100, 100,
                               [first_dim, second_dim], dtype=torch.int32)
     nout_tensor = torch.zeros([first_dim, second_dim], dtype=torch.int32)
-    pto.runtime._device_run_once_data_from_host(
+    pypto.runtime._device_run_once_data_from_host(
         [nx_tensor, ny_tensor], [nout_tensor])
     golden_data = torch.maximum(nx_tensor, ny_tensor)
     assert torch.allclose(nout_tensor, golden_data, rtol=1e-9, atol=1e-10)
-    pto.runtime._device_fini()
+    pypto.runtime._device_fini()

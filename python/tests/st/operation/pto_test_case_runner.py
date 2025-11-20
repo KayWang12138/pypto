@@ -15,7 +15,7 @@ from pathlib import Path
 import sys
 import numpy as np
 import torch
-import pto
+import pypto
 
 helper_path: Path = Path(
     Path(__file__).parent.parent.parent.parent.parent,
@@ -30,25 +30,25 @@ from test_case_tools import get_dtype_by_name
 
 def get_pto_dtype_by_name(name: str):
     str_to_dtype = {
-        "int4": pto.DT_INT4,
-        "int8": pto.DT_INT8,
-        "int16": pto.DT_INT16,
-        "int32": pto.DT_INT32,
-        "int64": pto.DT_INT64,
-        "fp8": pto.DT_FP8,
-        "fp16": pto.DT_FP16,
-        "fp32": pto.DT_FP32,
-        "hf4": pto.DT_HF4,
-        "hf8": pto.DT_HF8,
-        "uint8": pto.DT_UINT8,
-        "uint16": pto.DT_UINT16,
-        "uint32": pto.DT_UINT32,
-        "uint64": pto.DT_UINT64,
-        "bool": pto.DT_BOOL,
-        "double": pto.DT_DOUBLE,
-        "bf16": pto.DT_BF16,
+        "int4": pypto.DT_INT4,
+        "int8": pypto.DT_INT8,
+        "int16": pypto.DT_INT16,
+        "int32": pypto.DT_INT32,
+        "int64": pypto.DT_INT64,
+        "fp8": pypto.DT_FP8,
+        "fp16": pypto.DT_FP16,
+        "fp32": pypto.DT_FP32,
+        "hf4": pypto.DT_HF4,
+        "hf8": pypto.DT_HF8,
+        "uint8": pypto.DT_UINT8,
+        "uint16": pypto.DT_UINT16,
+        "uint32": pypto.DT_UINT32,
+        "uint64": pypto.DT_UINT64,
+        "bool": pypto.DT_BOOL,
+        "double": pypto.DT_DOUBLE,
+        "bf16": pypto.DT_BF16,
     }
-    return str_to_dtype.get(name, pto.DT_FP32)
+    return str_to_dtype.get(name, pypto.DT_FP32)
 
 
 class PTOTestCaseRunner(TestCaseRunner):
@@ -86,7 +86,7 @@ class PTOTestCaseRunner(TestCaseRunner):
 
     def input_tensors(self):
         return [
-            pto.tensor(
+            pypto.tensor(
                 input_tensor.shape,
                 get_pto_dtype_by_name(input_tensor.dtype),
                 input_tensor.name,
@@ -116,7 +116,7 @@ class PTOTestCaseRunner(TestCaseRunner):
 
     def output_tensors(self):
         return [
-            pto.tensor(
+            pypto.tensor(
                 output_tensor.shape,
                 get_pto_dtype_by_name(output_tensor.dtype),
                 output_tensor.name,
@@ -146,7 +146,7 @@ class PTOTestCaseRunner(TestCaseRunner):
         ]
         tab = "    "
         prefix = tab
-        function = "import pto\n"
+        function = "import pypto\n"
         function += """import os\n"""
         function += """import torch\n"""
         function += """import torch_npu\n"""
@@ -155,12 +155,12 @@ class PTOTestCaseRunner(TestCaseRunner):
         function += """torch.npu.set_device(device_id)\n"""
         function += "\n"
         function += (
-            f"with pto.function('{self._operation}', input_tensors, output_tensors):\n"
+            f"with pypto.function('{self._operation}', input_tensors, output_tensors):\n"
         )
         for index in list(range(len(loop_range_tuple))):
             function += prefix + (tab * (index + 1))
-            function += f"with pto.controller._loop_function({loop_desc[index][0]}, {loop_desc[index][1]}, "
-            function += f"pto.controller._loop_range({loop_range_tuple[index]})) as {loop_desc[index][2]}:\n"
+            function += f"with pypto.controller._loop_function({loop_desc[index][0]}, {loop_desc[index][1]}, "
+            function += f"pypto.controller._loop_range({loop_range_tuple[index]})) as {loop_desc[index][2]}:\n"
         prefix = tab * (len(loop_range_tuple) + 1)
         for index in list(range(len(loop_range_tuple))):
             function += prefix + (tab * (index + 1))
@@ -173,14 +173,14 @@ class PTOTestCaseRunner(TestCaseRunner):
         ]
         for index in list(range(len(input_tensors))):
             function += prefix
-            function += f"input_{index} = pto.view(input_tensors[{index}], {self._view_shape}, ["
+            function += f"input_{index} = pypto.view(input_tensors[{index}], {self._view_shape}, ["
             for offset in view_offset:
                 function += offset + ", "
             function += "])\n"
             function += prefix + f"input_data.append(input_{index})\n"
         function += prefix + f"res = []\n"
         function += prefix + f"for _index in range(len(output_tensors)):\n"
-        function += prefix + f"    res.append(pto.tensor())\n"
+        function += prefix + f"    res.append(pypto.tensor())\n"
         function += prefix + f"if len(res) == 1:\n"
         function += prefix + f"    res[0].move(op_func(input_data, params))\n"
         function += prefix + f"else:\n"
@@ -197,7 +197,7 @@ class PTOTestCaseRunner(TestCaseRunner):
                 view_offset[self._params["first_dim"]],
             )
         function += prefix + "for dst_, src_ in zip(output_tensors, res):\n"
-        function += prefix + f"    pto.assemble(src_, ["
+        function += prefix + f"    pypto.assemble(src_, ["
         for offset in view_offset:
             function += offset + ", "
         function += "], dst_)\n"
@@ -207,9 +207,9 @@ class PTOTestCaseRunner(TestCaseRunner):
         function += prefix + "for tmp in res:\n"
         function += prefix + "    del tmp\n"
         logging.info(function)
-        pto.set_host_options(only_codegen=True)
-        pto.set_codegen_options(support_dynamic_unaligned=True)
-        pto.set_vec_tile_shapes(*self.tile_shape)
+        pypto.set_host_options(only_codegen=True)
+        pypto.set_codegen_options(support_dynamic_unaligned=True)
+        pypto.set_vec_tile_shapes(*self.tile_shape)
         exec(
             function,
             {
@@ -221,14 +221,14 @@ class PTOTestCaseRunner(TestCaseRunner):
         )
 
     def tear_up(self):
-        pto.runtime._device_init()
+        pypto.runtime._device_init()
 
     def tear_down(self):
-        pto.runtime._device_fini()
+        pypto.runtime._device_fini()
 
     def run_on_device(self, inputs: list) -> list:
         output = self.output_data()
-        pto.runtime._device_run_once_data_from_host(inputs, output)
+        pypto.runtime._device_run_once_data_from_host(inputs, output)
         return [
             torch.tensor(
                 output[index],

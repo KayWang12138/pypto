@@ -12,12 +12,12 @@
 from dataclasses import dataclass
 import logging
 import pytest
-import pto
+import pypto
 
 
 def set_config():
-    pto.set_host_options(only_codegen=True)
-    pto.set_codegen_options(support_dynamic_unaligned=True)
+    pypto.set_host_options(only_codegen=True)
+    pypto.set_codegen_options(support_dynamic_unaligned=True)
 
 
 @dataclass
@@ -42,15 +42,15 @@ class NSASimpleParamsObj:
 
 @dataclass
 class GatherInputs:
-    top_k_indices: pto.tensor
-    k_nope_cache: pto.tensor
-    k_rope_cache: pto.tensor
-    block_table: pto.tensor
-    act_seqs: pto.tensor
-    gather_res: pto.tensor
+    top_k_indices: pypto.tensor
+    k_nope_cache: pypto.tensor
+    k_rope_cache: pypto.tensor
+    block_table: pypto.tensor
+    act_seqs: pypto.tensor
+    gather_res: pypto.tensor
     nsa_params: NSASimpleParamsObj
-    b: pto.symbolic_scalar
-    s1: pto.symbolic_scalar
+    b: pypto.symbolic_scalar
+    s1: pypto.symbolic_scalar
 
 
 def gather_after_prolog_compute(args: GatherInputs):
@@ -71,30 +71,30 @@ def gather_after_prolog_compute(args: GatherInputs):
     unroll_list = {64, 32, 16, 8, 4, 2, 1}
     input_tensors = [top_k_indices, k_nope_cache, k_rope_cache, block_table, act_seqs]
     output_tensors = [gather_res]
-    with pto.function("main", input_tensors, output_tensors):
+    with pypto.function("main", input_tensors, output_tensors):
 
         def inside_main_function():
-            for b_idx in pto.loop(
+            for b_idx in pypto.loop(
                 0, b, 1, name="loop_b_gather", idx_name="bIdx", submit_before_loop=True
             ):
 
                 def inside_b_idx_loop_prolog(b_idx):
-                    for s1_idx in pto.loop(
+                    for s1_idx in pypto.loop(
                         0, s1, 1, name="loop_s1_gather", idx_name="s1Idx"
                     ):
 
                         def inside_s1_idx_loop_prolog(b_idx, s1_idx):
-                            for n2_idx in pto.loop(
+                            for n2_idx in pypto.loop(
                                 0, n2, 1, name="loop_n2_gather", idx_name="n2Idx"
                             ):
 
                                 def inside_n2_idx_loop_prolog(b_idx, s1_idx, n2_idx):
-                                    pto.set_semantic_label("gather0")
+                                    pypto.set_semantic_label("gather0")
                                     cur_kv_seq = act_seqs[b_idx]
                                     top_k_loop = (
                                         (cur_kv_seq - s1 + 1 + s1_idx).max(0).min(topk)
                                     )
-                                    for topk_idx in pto.loop(
+                                    for topk_idx in pypto.loop(
                                         0,
                                         top_k_loop,
                                         1,
@@ -106,7 +106,7 @@ def gather_after_prolog_compute(args: GatherInputs):
                                         def inside_topk_idx_loop_prolog(
                                             b_idx, s1_idx, n2_idx, topk_idx
                                         ):
-                                            pto.set_vec_tile_shapes(1, 1, 1, 16)
+                                            pypto.set_vec_tile_shapes(1, 1, 1, 16)
                                             topk_index = top_k_indices[
                                                 b_idx, s1_idx, n2_idx, topk_idx
                                             ]
@@ -117,29 +117,29 @@ def gather_after_prolog_compute(args: GatherInputs):
                                             slc_block_idx = block_table[
                                                 b_idx, block_idx_in_batch
                                             ]
-                                            pto.set_vec_tile_shapes(1, d_n)
-                                            kv_slc_block = pto.view(
+                                            pypto.set_vec_tile_shapes(1, d_n)
+                                            kv_slc_block = pypto.view(
                                                 k_nope_cache,
                                                 [1, d_n],
                                                 [slc_block_idx * block_size + tail, 0],
                                             )
-                                            kr_slc_block = pto.view(
+                                            kr_slc_block = pypto.view(
                                                 k_rope_cache,
                                                 [1, d_r],
                                                 [slc_block_idx * block_size + tail, 0],
                                             )
-                                            pto.set_semantic_label("gather1")
-                                            kv_slc_block_fp32 = pto.cast(
-                                                kv_slc_block, pto.DT_FP32
+                                            pypto.set_semantic_label("gather1")
+                                            kv_slc_block_fp32 = pypto.cast(
+                                                kv_slc_block, pypto.DT_FP32
                                             )
-                                            kr_slc_block_fp32 = pto.cast(
-                                                kr_slc_block, pto.DT_FP32
+                                            kr_slc_block_fp32 = pypto.cast(
+                                                kr_slc_block, pypto.DT_FP32
                                             )
-                                            pto.set_semantic_label("gather2")
-                                            kv_slc_block_fp16 = pto.cast(
+                                            pypto.set_semantic_label("gather2")
+                                            kv_slc_block_fp16 = pypto.cast(
                                                 kv_slc_block_fp32, gather_res.dtype
                                             )
-                                            kr_slc_block_fp16 = pto.cast(
+                                            kr_slc_block_fp16 = pypto.cast(
                                                 kr_slc_block_fp32, gather_res.dtype
                                             )
                                             ofs = (
@@ -148,10 +148,10 @@ def gather_after_prolog_compute(args: GatherInputs):
                                                 + n2_idx * topk
                                                 + topk_idx
                                             )
-                                            pto.assemble(
+                                            pypto.assemble(
                                                 kv_slc_block_fp16, [ofs, 0], gather_res
                                             )
-                                            pto.assemble(
+                                            pypto.assemble(
                                                 kr_slc_block_fp16,
                                                 [ofs, d_n],
                                                 gather_res,
@@ -189,18 +189,18 @@ class BuildConfig:
 
 
 def build_gather_args(cfg: BuildConfig = BuildConfig()):
-    cache_dtype = pto.DT_FP16
-    index_dtype = pto.DT_INT32
+    cache_dtype = pypto.DT_FP16
+    index_dtype = pypto.DT_INT32
     cache_rows = cfg.num_blocks * cfg.block_size
     max_block_per_batch = cfg.s2 // cfg.block_size
-    top_k_indices = pto.tensor(
+    top_k_indices = pypto.tensor(
         [cfg.b, cfg.s1, cfg.n2, cfg.topk], index_dtype, "topKIndices"
     )
-    k_nope_cache = pto.tensor([cache_rows, cfg.d_n], cache_dtype, "kNopeCache")
-    k_rope_cache = pto.tensor([cache_rows, cfg.d_r], cache_dtype, "kRopeCache")
-    block_table = pto.tensor([cfg.b, max_block_per_batch], index_dtype, "blockTable")
-    act_seqs = pto.tensor([cfg.b], index_dtype, "actSeqs")
-    gather_res = pto.tensor(
+    k_nope_cache = pypto.tensor([cache_rows, cfg.d_n], cache_dtype, "kNopeCache")
+    k_rope_cache = pypto.tensor([cache_rows, cfg.d_r], cache_dtype, "kRopeCache")
+    block_table = pypto.tensor([cfg.b, max_block_per_batch], index_dtype, "blockTable")
+    act_seqs = pypto.tensor([cfg.b], index_dtype, "actSeqs")
+    gather_res = pypto.tensor(
         [cfg.b * cfg.s1 * cfg.topk, cfg.d_n + cfg.d_r], cache_dtype, "gatherRes"
     )
     nsa_params = NSASimpleParamsObj(block_size=cfg.block_size, topk=cfg.topk)
@@ -212,8 +212,8 @@ def build_gather_args(cfg: BuildConfig = BuildConfig()):
         act_seqs=act_seqs,
         gather_res=gather_res,
         nsa_params=nsa_params,
-        b=pto.symbolic_scalar(cfg.b),
-        s1=pto.symbolic_scalar(cfg.s1),
+        b=pypto.symbolic_scalar(cfg.b),
+        s1=pypto.symbolic_scalar(cfg.s1),
     )
     meta = {
         "b": cfg.b,

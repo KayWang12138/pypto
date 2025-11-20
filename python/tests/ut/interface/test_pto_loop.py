@@ -9,242 +9,242 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
-import pto
+import pypto
 
 
 def init_tensors():
-    dtype = pto.DT_FP32
+    dtype = pypto.DT_FP32
     shape = (128, 128)
-    a = pto.tensor(shape, dtype, "a")
-    b = pto.tensor(shape, dtype, "b")
-    c = pto.tensor(shape, dtype, "c")
+    a = pypto.tensor(shape, dtype, "a")
+    b = pypto.tensor(shape, dtype, "b")
+    c = pypto.tensor(shape, dtype, "c")
     return a, b, c
 
 
 def test_pto_loop_end_only():
     a, b, c = init_tensors()
-    pto.reset()
+    pypto.reset()
 
-    with pto.function("MAIN", [a, b], [c]):
-        pto.set_vec_tile_shapes(16, 16)
+    with pypto.function("MAIN", [a, b], [c]):
+        pypto.set_vec_tile_shapes(16, 16)
 
-        for k in pto.loop(10):
-            b.move(pto.add(a, a))
+        for k in pypto.loop(10):
+            b.move(pypto.add(a, a))
 
-            if pto.cond(k < 2):
-                b.move(pto.add(b, a))
+            if pypto.cond(k < 2):
+                b.move(pypto.add(b, a))
             else:
-                b.move(pto.sub(b, a))
+                b.move(pypto.sub(b, a))
 
-            if pto.cond(k < 5):
-                b.move(pto.mul(b, a))
+            if pypto.cond(k < 5):
+                b.move(pypto.mul(b, a))
             else:
-                b.move(pto.div(b, a))
-            b.move(pto.sub(b, a))
+                b.move(pypto.div(b, a))
+            b.move(pypto.sub(b, a))
 
-    assert isinstance(b, pto.tensor)
+    assert isinstance(b, pypto.tensor)
 
 
 def test_pto_loop_end_only_with_custom_name():
     a, b, c = init_tensors()
-    pto.reset()
+    pypto.reset()
 
-    with pto.function("MAIN", [a, b], [c]):
-        pto.set_vec_tile_shapes(16, 16)
+    with pypto.function("MAIN", [a, b], [c]):
+        pypto.set_vec_tile_shapes(16, 16)
 
-        for k in pto.loop(10, name="LOOP"):
-            b.move(pto.add(a, a))
+        for k in pypto.loop(10, name="LOOP"):
+            b.move(pypto.add(a, a))
 
-            if pto.cond(k < 5):
-                b.move(pto.add(b, a))
+            if pypto.cond(k < 5):
+                b.move(pypto.add(b, a))
             else:
-                b.move(pto.sub(b, a))
+                b.move(pypto.sub(b, a))
 
-            if pto.cond(k < 3):
-                b.move(pto.mul(b, a))
+            if pypto.cond(k < 3):
+                b.move(pypto.mul(b, a))
             else:
-                b.move(pto.div(b, a))
-            b.move(pto.sub(b, a))
+                b.move(pypto.div(b, a))
+            b.move(pypto.sub(b, a))
 
-    assert isinstance(b, pto.tensor)
+    assert isinstance(b, pypto.tensor)
 
 
 def test_pto_loop_start_end():
     a, b, c = init_tensors()
-    pto.reset()
+    pypto.reset()
 
-    with pto.function("MAIN", [a, b], [c]):
-        pto.set_vec_tile_shapes(16, 16)
+    with pypto.function("MAIN", [a, b], [c]):
+        pypto.set_vec_tile_shapes(16, 16)
 
-        for k in pto.loop(1, 10):
-            b.move(pto.add(a, a))
+        for k in pypto.loop(1, 10):
+            b.move(pypto.add(a, a))
 
-            if pto.cond(k < 7):
-                b.move(pto.add(b, a))
+            if pypto.cond(k < 7):
+                b.move(pypto.add(b, a))
             else:
-                b.move(pto.sub(b, a))
+                b.move(pypto.sub(b, a))
 
-            if pto.cond(k < 8):
-                b.move(pto.mul(b, a))
+            if pypto.cond(k < 8):
+                b.move(pypto.mul(b, a))
             else:
-                b.move(pto.div(b, a))
-            b.move(pto.sub(b, a))
+                b.move(pypto.div(b, a))
+            b.move(pypto.sub(b, a))
 
-    assert isinstance(b, pto.tensor)
+    assert isinstance(b, pypto.tensor)
 
 
 def test_pto_loop_start_end_step():
     a, b, c = init_tensors()
-    pto.reset()
+    pypto.reset()
 
-    with pto.function("MAIN", [a, b], [c]):
-        pto.set_vec_tile_shapes(16, 16)
+    with pypto.function("MAIN", [a, b], [c]):
+        pypto.set_vec_tile_shapes(16, 16)
 
-        for k in pto.loop(1, 10, 2):
-            b.move(pto.add(a, a))
+        for k in pypto.loop(1, 10, 2):
+            b.move(pypto.add(a, a))
 
-            if pto.cond(k < 6):
-                b.move(pto.add(b, a))
+            if pypto.cond(k < 6):
+                b.move(pypto.add(b, a))
             else:
-                b.move(pto.sub(b, a))
+                b.move(pypto.sub(b, a))
 
-            if pto.cond(k < 2):
-                b.move(pto.add(b, a))
+            if pypto.cond(k < 2):
+                b.move(pypto.add(b, a))
             else:
-                b.move(pto.div(b, a))
-            b.move(pto.sub(b, a))
+                b.move(pypto.div(b, a))
+            b.move(pypto.sub(b, a))
 
-    assert isinstance(b, pto.tensor)
+    assert isinstance(b, pypto.tensor)
 
 
 def test_pto_loop_start_end_step_and_name():
     a, b, c = init_tensors()
-    pto.reset()
+    pypto.reset()
 
-    with pto.function("MAIN", [a, b], [c]):
-        pto.set_vec_tile_shapes(16, 16)
+    with pypto.function("MAIN", [a, b], [c]):
+        pypto.set_vec_tile_shapes(16, 16)
 
-        for k in pto.loop(1, 10, 2, name="LOOP"):
-            b.move(pto.add(a, a))
+        for k in pypto.loop(1, 10, 2, name="LOOP"):
+            b.move(pypto.add(a, a))
 
-            if pto.cond(k < 3):
-                b.move(pto.mul(b, a))
+            if pypto.cond(k < 3):
+                b.move(pypto.mul(b, a))
             else:
-                b.move(pto.sub(b, a))
+                b.move(pypto.sub(b, a))
 
-            if pto.cond(k < 8):
-                b.move(pto.mul(b, a))
+            if pypto.cond(k < 8):
+                b.move(pypto.mul(b, a))
             else:
-                b.move(pto.div(b, a))
-            b.move(pto.sub(b, a))
+                b.move(pypto.div(b, a))
+            b.move(pypto.sub(b, a))
 
-    assert isinstance(b, pto.tensor)
+    assert isinstance(b, pypto.tensor)
 
 
 def test_pto_loop_start_end_step_and_name():
     a, b, c = init_tensors()
-    pto.reset()
+    pypto.reset()
 
-    with pto.function("MAIN", [a, b], [c]):
-        pto.set_vec_tile_shapes(16, 16)
+    with pypto.function("MAIN", [a, b], [c]):
+        pypto.set_vec_tile_shapes(16, 16)
 
-        for k in pto.loop(1, 10, 2, name="LOOP"):
-            b.move(pto.add(a, a))
+        for k in pypto.loop(1, 10, 2, name="LOOP"):
+            b.move(pypto.add(a, a))
 
-            if pto.cond(k < 5):
-                b.move(pto.mul(b, a))
+            if pypto.cond(k < 5):
+                b.move(pypto.mul(b, a))
 
-    assert isinstance(b, pto.tensor)
+    assert isinstance(b, pypto.tensor)
 
 
 def test_pto_loop_unroll_n_submit_before_loop():
     a, b, c = init_tensors()
-    pto.reset()
+    pypto.reset()
 
-    with pto.function("MAIN", [a, b], [c]):
-        pto.set_vec_tile_shapes(16, 16)
+    with pypto.function("MAIN", [a, b], [c]):
+        pypto.set_vec_tile_shapes(16, 16)
 
-        for k in pto.loop(
+        for k in pypto.loop(
             1, 10, 2, name="LOOP", submit_before_loop=True
         ):
 
-            if pto.cond(k < 5):
-                b.move(pto.sub(b, a))
-            if pto.cond(1):
-                b.move(pto.add(b, a))
-            if pto.cond(pto.is_loop_end(k)):
-                b.move(pto.add(b, a))
+            if pypto.cond(k < 5):
+                b.move(pypto.sub(b, a))
+            if pypto.cond(1):
+                b.move(pypto.add(b, a))
+            if pypto.cond(pypto.is_loop_end(k)):
+                b.move(pypto.add(b, a))
 
-            b.move(pto.sub(a, a))
+            b.move(pypto.sub(a, a))
 
-    assert isinstance(b, pto.tensor)
+    assert isinstance(b, pypto.tensor)
 
 
 def test_loop_issue52():
-    pto.runtime._device_init()
+    pypto.runtime._device_init()
 
-    a = pto.tensor((128, 128), pto.DT_FP32, "a")
-    b = pto.tensor((128, 128), pto.DT_FP32, "b")
-    c = pto.tensor((128, 128), pto.DT_FP32, "c")
+    a = pypto.tensor((128, 128), pypto.DT_FP32, "a")
+    b = pypto.tensor((128, 128), pypto.DT_FP32, "b")
+    c = pypto.tensor((128, 128), pypto.DT_FP32, "c")
 
-    with pto.function("MAIN", [a, b], [c]):
-        pto.set_vec_tile_shapes(16, 16)
+    with pypto.function("MAIN", [a, b], [c]):
+        pypto.set_vec_tile_shapes(16, 16)
 
-        for i in pto.loop(a.shape[0] // 16):
-            for j in pto.loop(a.shape[1] // 16):
+        for i in pypto.loop(a.shape[0] // 16):
+            for j in pypto.loop(a.shape[1] // 16):
                 view_a = a[i * 16:(i + 1) * 16, j * 16:(j + 1) * 16]
                 view_b = b[i * 16:(i + 1) * 16, j * 16:(j + 1) * 16]
-                assert isinstance(view_a, pto.tensor)
-                assert isinstance(view_b, pto.tensor)
+                assert isinstance(view_a, pypto.tensor)
+                assert isinstance(view_b, pypto.tensor)
                 c[i * 16:, j * 16:] = view_b + view_a
 
-    pto.runtime._device_fini()
+    pypto.runtime._device_fini()
 
 
 def test_if_true():
-    A = pto.tensor((64, 64), pto.DT_FP32, "A")
-    B = pto.tensor((64, 64), pto.DT_FP32, "B")
+    A = pypto.tensor((64, 64), pypto.DT_FP32, "A")
+    B = pypto.tensor((64, 64), pypto.DT_FP32, "B")
 
-    pto.set_semantic_label("IF_TRUE")
-    with pto.function("MAIN", [A], [A]):
-        for _ in pto.loop(1):
-            pto.set_vec_tile_shapes(16, 16)
-            if pto.cond(True):
+    pypto.set_semantic_label("IF_TRUE")
+    with pypto.function("MAIN", [A], [A]):
+        for _ in pypto.loop(1):
+            pypto.set_vec_tile_shapes(16, 16)
+            if pypto.cond(True):
                 B[:] = A + 2
             else:
                 B[:] = A - 2
 
 
 def test_loop_manual_unroll():
-    pto.runtime._device_init()
-    A = pto.tensor((-1, 64), pto.DT_FP32, "A")
-    B = pto.tensor((-1, 64), pto.DT_FP32, "B")
+    pypto.runtime._device_init()
+    A = pypto.tensor((-1, 64), pypto.DT_FP32, "A")
+    B = pypto.tensor((-1, 64), pypto.DT_FP32, "B")
 
-    with pto.function("MAIN", [A], [B]):
-        pto.set_vec_tile_shapes(64, 64)
-        for b, k in pto.loop_unroll(A.shape[0] // 64, unroll_list=[1, 2, 4]):
+    with pypto.function("MAIN", [A], [B]):
+        pypto.set_vec_tile_shapes(64, 64)
+        for b, k in pypto.loop_unroll(A.shape[0] // 64, unroll_list=[1, 2, 4]):
             def inner(nb, nk):
                 tile_a = A[nb * 64:(nb + nk) * 64, :]
                 tile_a = tile_a + 2
                 B[nb * 64:, :] = tile_a
             inner(b, k)
 
-    pto.runtime._device_fini()
+    pypto.runtime._device_fini()
 
 
 def test_loop_manual_unroll_const():
-    A = pto.tensor((64, 64), pto.DT_FP32, "A")
-    B = pto.tensor((64, 64), pto.DT_FP32, "B")
+    A = pypto.tensor((64, 64), pypto.DT_FP32, "A")
+    B = pypto.tensor((64, 64), pypto.DT_FP32, "B")
 
     k_list = []
-    pto.runtime._device_init()
-    with pto.function("MAIN", [A], [B]):
-        pto.set_vec_tile_shapes(64, 64)
-        for _, k in pto.loop_unroll(1, 8, unroll_list=[1, 2, 4]):
+    pypto.runtime._device_init()
+    with pypto.function("MAIN", [A], [B]):
+        pypto.set_vec_tile_shapes(64, 64)
+        for _, k in pypto.loop_unroll(1, 8, unroll_list=[1, 2, 4]):
             k_list.append(k)
 
             def inner():
                 B[:] = A + 1
             inner()
     assert k_list == [4, 2, 1]
-    pto.runtime._device_fini()
+    pypto.runtime._device_fini()

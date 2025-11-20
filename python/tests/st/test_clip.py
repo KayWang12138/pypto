@@ -20,20 +20,20 @@ import torch
 import torch_npu
 import numpy as np
 
-import pto
-from pto import (
+import pypto
+from pypto import (
     tensor, view, function,
     set_vec_tile_shapes,
 )
-from pto.symbolic_scalar import SymInt
+from pypto.symbolic_scalar import SymInt
 
 
 TORCH_TO_PTO_TYPES = {
-    torch.int8: pto.DT_INT8,
-    torch.int16: pto.DT_INT16,
-    torch.int32: pto.DT_INT32,
-    torch.float16: pto.DT_FP16,
-    torch.float32: pto.DT_FP32,
+    torch.int8: pypto.DT_INT8,
+    torch.int16: pypto.DT_INT16,
+    torch.int32: pypto.DT_INT32,
+    torch.float16: pypto.DT_FP16,
+    torch.float32: pypto.DT_FP32,
 }
 
 
@@ -59,7 +59,7 @@ class ClipArgs:
 
     def __init__(
         self, tile_shape: List[int], view_shape: List[int], mode: ClipMode,
-        min_: Optional[pto.Element] = None, max_: Optional[pto.Element] = None, is_element: bool = False,
+        min_: Optional[pypto.Element] = None, max_: Optional[pypto.Element] = None, is_element: bool = False,
     ) -> None:
         self.tile_shape = tile_shape
         self.view_shape = view_shape
@@ -70,8 +70,8 @@ class ClipArgs:
 
 
 def get_broadcast_view_shape(
-    self: pto.Tensor,
-    other: pto.Tensor,
+    self: pypto.Tensor,
+    other: pypto.Tensor,
     view_shape: List[int],
 ) -> List[int]:
     results = []
@@ -84,8 +84,8 @@ def get_broadcast_view_shape(
 
 
 def get_broadcast_offset_ratio(
-    self: pto.Tensor,
-    other: pto.Tensor,
+    self: pypto.Tensor,
+    other: pypto.Tensor,
 ) -> List[int]:
     results = []
     for _, (self_dim, other_dim) in enumerate(zip(self.shape, other.shape)):
@@ -105,7 +105,7 @@ def get_valid_shape(
         raise ValueError("Length of `origin_shapes`/`view_shapes` should be the same as `loop_vars`")
     valid_shapes = []
     for origin_shape, view_shape, loop_var in zip(origin_shapes, view_shapes, loop_vars):
-        valid_shape = pto.min(origin_shape - loop_var * view_shape, view_shape)
+        valid_shape = pypto.min(origin_shape - loop_var * view_shape, view_shape)
         valid_shapes.append(valid_shape)
     return valid_shapes
 
@@ -126,11 +126,11 @@ def get_offsets(
 
 
 def broadcast_view(
-    need_broadcast: pto.Tensor,
-    broadcasted: pto.Tensor,
+    need_broadcast: pypto.Tensor,
+    broadcasted: pypto.Tensor,
     view_shapes: List[int],
     loop_vars: List[SymInt]
-) -> pto.Tensor:
+) -> pypto.Tensor:
     tile_view_shape = get_broadcast_view_shape(need_broadcast, broadcasted, view_shapes)
     tile_offset_ratio = get_broadcast_offset_ratio(need_broadcast, broadcasted)
     valid_shapes = get_valid_shape(broadcasted.shape, tile_view_shape, loop_vars)
@@ -142,13 +142,13 @@ def broadcast_view(
 def process_element_mode(tile_tensor_0, args):
     result = tensor()
     if args.mode in [ClipMode.NotDefault2D, ClipMode.NotDefault3D, ClipMode.NotDefault4D]:
-        result = pto.clip(tile_tensor_0, args.min_, args.max_)
+        result = pypto.clip(tile_tensor_0, args.min_, args.max_)
     elif args.mode == ClipMode.ElementDefaultMinDefaultMax:
-        result = pto.clip(tile_tensor_0)
+        result = pypto.clip(tile_tensor_0)
     elif args.mode == ClipMode.ElementDefaultMinNotDefaultMax:
-        result = pto.clip(tile_tensor_0, max_=args.max_)
+        result = pypto.clip(tile_tensor_0, max_=args.max_)
     elif args.mode == ClipMode.ElementNotDefaultMinDefaultMax:
-        result = pto.clip(tile_tensor_0, min_=args.min_)
+        result = pypto.clip(tile_tensor_0, min_=args.min_)
     return result
 
 
@@ -157,15 +157,15 @@ def process_tensor_mode(tile_tensor_0, inputs, args, loop_vars):
     if args.mode in [ClipMode.NotDefault2D, ClipMode.NotDefault3D, ClipMode.NotDefault4D]:
         min_ = broadcast_view(inputs[1], inputs[0], args.view_shape, loop_vars)
         max_ = broadcast_view(inputs[2], inputs[0], args.view_shape, loop_vars)
-        result = pto.clip(tile_tensor_0, min_, max_)
+        result = pypto.clip(tile_tensor_0, min_, max_)
     elif args.mode == ClipMode.TensorDefaultMinDefaultMax:
-        result = pto.clip(tile_tensor_0)
+        result = pypto.clip(tile_tensor_0)
     elif args.mode == ClipMode.TensorDefaultMinNotDefaultMax:
         max_ = broadcast_view(inputs[2], inputs[0], args.view_shape, loop_vars)
-        result = pto.clip(tile_tensor_0, max_=max_)
+        result = pypto.clip(tile_tensor_0, max_=max_)
     elif args.mode == ClipMode.TensorNotDefaultMinDefaultMax:
         min_ = broadcast_view(inputs[1], inputs[0], args.view_shape, loop_vars)
-        result = pto.clip(tile_tensor_0, min_=min_)
+        result = pypto.clip(tile_tensor_0, min_=min_)
     return result
 
 
@@ -173,8 +173,8 @@ def build_clip_2d(inputs, outputs, view_shape, tile_shape, args):
     shape = inputs[0].shape
     view_shape = [min(v, self_dim) for v, self_dim in zip(view_shape, shape)]
     with function("Clip", inputs, outputs):
-        for b_idx in pto.loop(math.ceil(shape[0] / view_shape[0])):
-            for s_idx in pto.loop(math.ceil(shape[1] / view_shape[1])):
+        for b_idx in pypto.loop(math.ceil(shape[0] / view_shape[0])):
+            for s_idx in pypto.loop(math.ceil(shape[1] / view_shape[1])):
                 loop_vars = [b_idx, s_idx]
                 offsets = get_offsets(view_shape, loop_vars)
                 valid_shape = get_valid_shape(inputs[0].shape, view_shape, loop_vars)
@@ -186,19 +186,19 @@ def build_clip_2d(inputs, outputs, view_shape, tile_shape, args):
                     res.move(process_element_mode(tile_tensor_0, args))
                 else:
                     res.move(process_tensor_mode(tile_tensor_0, inputs, args, loop_vars))
-                pto.assemble(res, offsets, outputs[0])
+                pypto.assemble(res, offsets, outputs[0])
 
 
 def run_clip(inputs: List[torch.Tensor], outputs: List[torch.Tensor], args: ClipArgs):
     device_id = int(os.environ.get("TILE_FWK_DEVICE_ID", 0))
     torch.npu.set_device(device_id)
-    pto.runtime._device_init()
-    pto.set_codegen_options(support_dynamic_unaligned=True)
+    pypto.runtime._device_init()
+    pypto.set_codegen_options(support_dynamic_unaligned=True)
     input_tensors = [tensor(x.shape, TORCH_TO_PTO_TYPES[x.dtype]) for x in inputs]
     output_tensors = [tensor(x.shape, TORCH_TO_PTO_TYPES[x.dtype]) for x in outputs]
     build_clip_2d(input_tensors, output_tensors, args.view_shape, args.tile_shape, args)
-    pto.runtime._device_run_once_data_from_host(inputs, outputs)
-    pto.runtime._device_fini()
+    pypto.runtime._device_run_once_data_from_host(inputs, outputs)
+    pypto.runtime._device_fini()
     return outputs
 
 

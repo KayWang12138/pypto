@@ -29,7 +29,7 @@ class TestCaseArgsParser:
         logging.info(f"End index : {args.end_index}")
         logging.info(f"Device : {args.device}")
         logging.info(f"Clean : {args.clean}")
-        logging.info(f"Is pto case : {args.pto}")
+        logging.info(f"Is pypto case : {args.pypto}")
         logging.info(f"Save data : {args.save_data}")
         logging.info(f"Is json only : {args.json_only}")
         logging.info(f"Report : {args.report}")
@@ -106,7 +106,7 @@ class TestCaseArgsParser:
         )
 
         self._parser.add_argument(
-            "--pto", action="store_true", help="Test pto test case."
+            "--pypto", action="store_true", help="Test pypto test case."
         )
         self._parser.add_argument(
             "--json_only",

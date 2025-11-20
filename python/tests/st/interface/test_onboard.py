@@ -10,7 +10,7 @@
 """
 """
 import os
-import pto
+import pypto
 
 import numpy as np
 import torch
@@ -23,29 +23,29 @@ def test_device_run_data_from_host_numpy():
     tiling = 16
     n, m, k = tiling * 1, tiling * 1, tiling * 1
 
-    pto.runtime._device_init()
+    pypto.runtime._device_init()
 
-    a = pto.tensor((n, m, k), pto.DT_FP32, "PTO_TENSOR_a")
-    b = pto.tensor((n, m, k), pto.DT_FP32, "PTO_TENSOR_b")
+    a = pypto.tensor((n, m, k), pypto.DT_FP32, "PTO_TENSOR_a")
+    b = pypto.tensor((n, m, k), pypto.DT_FP32, "PTO_TENSOR_b")
 
-    pto.set_vec_tile_shapes(tiling, tiling, tiling)
-    with pto.function("MAIN", [a], [b]):
-        for idx in pto.loop(10, name="s0", idx_name="idx"):
-            if pto.cond(idx == 0):
-                b.move(pto.add(a, a))
+    pypto.set_vec_tile_shapes(tiling, tiling, tiling)
+    with pypto.function("MAIN", [a], [b]):
+        for idx in pypto.loop(10, name="s0", idx_name="idx"):
+            if pypto.cond(idx == 0):
+                b.move(pypto.add(a, a))
             else:
-                b.move(pto.add(a, b))
-    assert isinstance(b, pto.tensor)
+                b.move(pypto.add(a, b))
+    assert isinstance(b, pypto.tensor)
 
     a_tensor = torch.rand(n, m, k, dtype=torch.float32) * 2 - 1
     b_tensor = torch.zeros(n, m, k, dtype=torch.float32)
 
-    pto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+    pypto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
 
     golden = 11 * a_tensor
 
     assert torch.allclose(golden, b_tensor, atol=1e-5)
-    pto.runtime._device_fini()
+    pypto.runtime._device_fini()
 
 
 def test_device_run_data_from_host_torch():
@@ -54,29 +54,29 @@ def test_device_run_data_from_host_torch():
     tiling = 8
     n, m = tiling * 1, tiling * 1
 
-    pto.runtime._device_init()
+    pypto.runtime._device_init()
 
-    a = pto.tensor((n, m), pto.DT_FP32, "PTO_TENSOR_a")
-    b = pto.tensor((n, m), pto.DT_FP32, "PTO_TENSOR_b")
+    a = pypto.tensor((n, m), pypto.DT_FP32, "PTO_TENSOR_a")
+    b = pypto.tensor((n, m), pypto.DT_FP32, "PTO_TENSOR_b")
 
-    pto.set_vec_tile_shapes(tiling, tiling)
-    with pto.function("MAIN", [a], [b]):
-        for k in pto.loop(10, name="s0", idx_name="k"):
-            if pto.cond(k == 0):
-                b.move(pto.add(a, a))
+    pypto.set_vec_tile_shapes(tiling, tiling)
+    with pypto.function("MAIN", [a], [b]):
+        for k in pypto.loop(10, name="s0", idx_name="k"):
+            if pypto.cond(k == 0):
+                b.move(pypto.add(a, a))
             else:
-                b.move(pto.add(a, b))
-    assert isinstance(b, pto.tensor)
+                b.move(pypto.add(a, b))
+    assert isinstance(b, pypto.tensor)
 
     a_tensor = torch.rand(n, m, dtype=torch.float32)
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
 
-    pto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+    pypto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
 
     golden = 11 * a_tensor
 
     assert torch.allclose(golden, b_tensor, atol=1e-5)
-    pto.runtime._device_fini()
+    pypto.runtime._device_fini()
 
 
 def test_device_run_data_from_host():
@@ -85,43 +85,43 @@ def test_device_run_data_from_host():
     tiling = 32
     n, m = tiling * 1, tiling * 1
 
-    pto.runtime._device_init()
+    pypto.runtime._device_init()
 
-    a = pto.tensor((n, m), pto.DT_INT32, "PTO_TENSOR_a")
-    b = pto.tensor((n, m), pto.DT_INT32, "PTO_TENSOR_b")
+    a = pypto.tensor((n, m), pypto.DT_INT32, "PTO_TENSOR_a")
+    b = pypto.tensor((n, m), pypto.DT_INT32, "PTO_TENSOR_b")
 
-    pto.set_vec_tile_shapes(tiling, tiling)
-    with pto.function("MAIN", [a], [b]):
-        for k in pto.loop(10, name="s0", idx_name="k"):
-            if pto.cond(k == 0):
-                b.move(pto.add(a, a))
+    pypto.set_vec_tile_shapes(tiling, tiling)
+    with pypto.function("MAIN", [a], [b]):
+        for k in pypto.loop(10, name="s0", idx_name="k"):
+            if pypto.cond(k == 0):
+                b.move(pypto.add(a, a))
             else:
-                b.move(pto.add(a, b))
-    assert isinstance(b, pto.tensor)
+                b.move(pypto.add(a, b))
+    assert isinstance(b, pypto.tensor)
 
     a_tensor = torch.arange(n * m, dtype=torch.int32).reshape(n, m)
     b_tensor = torch.zeros(n, m, dtype=torch.int32)
 
-    pto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+    pypto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
     golden = 11 * a_tensor
 
     assert torch.equal(golden, b_tensor)
-    pto.runtime._device_fini()
+    pypto.runtime._device_fini()
 
 
 # def dynamic function
-@pto.jit
+@pypto.jit
 def cust_dyn_func(in_tensors, out_tensors, tiling = None):
     a = in_tensors[0]
     b = out_tensors[0]
-    pto.set_vec_tile_shapes(tiling, tiling)
-    with pto.function("MAIN", [a], [b]):
-        for k in pto.loop(10, name="s0", idx_name="k"):
-            if pto.cond(k == 0):
-                b.move(pto.add(a, a))
+    pypto.set_vec_tile_shapes(tiling, tiling)
+    with pypto.function("MAIN", [a], [b]):
+        for k in pypto.loop(10, name="s0", idx_name="k"):
+            if pypto.cond(k == 0):
+                b.move(pypto.add(a, a))
             else:
-                b.move(pto.add(a, b))
-    assert isinstance(b, pto.tensor)
+                b.move(pypto.add(a, b))
+    assert isinstance(b, pypto.tensor)
 
 
 def test_device_run_data_from_device():
@@ -139,7 +139,7 @@ def test_device_run_data_from_device():
     outputs = [b_data]
     cust_dyn_func(inputs, outputs, tiling)
 
-    pto.runtime._device_synchronize()
+    pypto.runtime._device_synchronize()
     # get data and compare result
     a_data_cpu = a_data.cpu()
     b_data_cpu = b_data.cpu()
@@ -158,19 +158,19 @@ def test_device_run_data_from_device():
 
 
 # def dynamic function
-@pto.jit
+@pypto.jit
 def matmul_add(in_tensors, out_tensors, m, k, n, tiling = None):
     a = in_tensors[0]
     b = in_tensors[1]
     c = in_tensors[2]
     d = out_tensors[0]
-    pto.set_vec_tile_shapes(tiling, tiling)
-    pto.set_cube_tile_shapes([tiling, tiling], [tiling, tiling], [tiling, tiling])
-    with pto.function("MAIN", [a, b, c], [d]):
-        for i in pto.loop(1, name="s0", idx_name="i"):
-            a0 = pto.view(a, [n, k], [0, 0])
-            b0 = pto.view(b, [k, m], [0, 0])
-            d.move(pto.add(pto.matmul(a0, b0, pto.DT_INT32), c))
+    pypto.set_vec_tile_shapes(tiling, tiling)
+    pypto.set_cube_tile_shapes([tiling, tiling], [tiling, tiling], [tiling, tiling])
+    with pypto.function("MAIN", [a, b, c], [d]):
+        for i in pypto.loop(1, name="s0", idx_name="i"):
+            a0 = pypto.view(a, [n, k], [0, 0])
+            b0 = pypto.view(b, [k, m], [0, 0])
+            d.move(pypto.add(pypto.matmul(a0, b0, pypto.DT_INT32), c))
             del a0
             del b0
 
@@ -206,7 +206,7 @@ def test_device_run_data_from_device_mix_nodep():
         outputs = [d_data]
         matmul_add(inputs, outputs, m, k, n, tiling=tiling)
 
-    pto.runtime._device_synchronize()
+    pypto.runtime._device_synchronize()
 
     for idx in range(count):
         # get data and compare result

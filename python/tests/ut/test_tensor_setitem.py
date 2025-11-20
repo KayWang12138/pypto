@@ -9,69 +9,69 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
-import pto
+import pypto
 
 def init_tensors():
-    dtype = pto.DT_FP32
+    dtype = pypto.DT_FP32
     shape = (128, 128)
-    a = pto.tensor(shape, dtype, "a")
-    b = pto.tensor(shape, dtype, "b")
-    c = pto.tensor(shape, dtype, "c")
+    a = pypto.tensor(shape, dtype, "a")
+    b = pypto.tensor(shape, dtype, "b")
+    c = pypto.tensor(shape, dtype, "c")
     return a, b, c
 
 
 def test_tensor_setitem_inside_loop():
     a, b, c = init_tensors()
-    with pto.function("MAIN", [a, b], [c]):
-        pto.set_vec_tile_shapes(16, 16)
-        for k in pto.loop(10, name="LOOP", idx_name="k"):
-            b[:] = pto.add(a, a)
+    with pypto.function("MAIN", [a, b], [c]):
+        pypto.set_vec_tile_shapes(16, 16)
+        for k in pypto.loop(10, name="LOOP", idx_name="k"):
+            b[:] = pypto.add(a, a)
 
-            if pto.cond(k < 2):
-                b[:] = pto.add(b, a)
+            if pypto.cond(k < 2):
+                b[:] = pypto.add(b, a)
             else:
-                b[:] = pto.sub(b, a)
+                b[:] = pypto.sub(b, a)
 
-            if pto.cond(k < 5):
-                b[:] = pto.mul(b, a)
+            if pypto.cond(k < 5):
+                b[:] = pypto.mul(b, a)
             else:
-                b[:] = pto.div(b, a)
-            c[:] = pto.sub(b, a)
+                b[:] = pypto.div(b, a)
+            c[:] = pypto.sub(b, a)
 
-    assert isinstance(b, pto.tensor)
+    assert isinstance(b, pypto.tensor)
 
 
 def test_tensor_assmble_slice():
     a, b, c = init_tensors()
-    with pto.function("MAIN", [a, b], [c]):
-        pto.set_vec_tile_shapes(16, 16)
+    with pypto.function("MAIN", [a, b], [c]):
+        pypto.set_vec_tile_shapes(16, 16)
 
-        for k in pto.loop(10, name="LOOP", idx_name="k"):
-            b[k*16:, 0:] = pto.add(a, a)
+        for k in pypto.loop(10, name="LOOP", idx_name="k"):
+            b[k*16:, 0:] = pypto.add(a, a)
 
-            if pto.cond(k < 2):
-                b[k*16:, 0:] = pto.add(a, a)
+            if pypto.cond(k < 2):
+                b[k*16:, 0:] = pypto.add(a, a)
             else:
-                b[k*16:, 0:] = pto.sub(a, a)
+                b[k*16:, 0:] = pypto.sub(a, a)
 
-            if pto.cond(k < 5):
-                b[0:, :k*16] = pto.mul(a, a)
+            if pypto.cond(k < 5):
+                b[0:, :k*16] = pypto.mul(a, a)
             else:
-                b[0:, :k*16] = pto.div(a, a)
-            c[:] = pto.sub(b, a)
+                b[0:, :k*16] = pypto.div(a, a)
+            c[:] = pypto.sub(b, a)
 
-    assert isinstance(c, pto.tensor)
+    assert isinstance(c, pypto.tensor)
 
 
 def test_set_tensor_data():
-    a = pto.tensor([32, 32], pto.DT_INT32, "a")
-    b = pto.tensor([32, 32], pto.DT_INT32, "b")
-    c = pto.tensor([32, 32], pto.DT_INT32, "c")
-    with pto.function("MAIN", [a, b], [c]):
-        pto.set_vec_tile_shapes(16, 16)
+    a = pypto.tensor([32, 32], pypto.DT_INT32, "a")
+    b = pypto.tensor([32, 32], pypto.DT_INT32, "b")
+    c = pypto.tensor([32, 32], pypto.DT_INT32, "c")
+    with pypto.function("MAIN", [a, b], [c]):
+        pypto.set_vec_tile_shapes(16, 16)
         sym_a = a[0, 0]
         sym_b = b[0, 0]
-        assert isinstance(sym_a, pto.SymbolicScalar)
-        assert isinstance(sym_b, pto.SymbolicScalar)
+        assert isinstance(sym_a, pypto.SymbolicScalar)
+        assert isinstance(sym_b, pypto.SymbolicScalar)
         c[0, 0] = sym_a + sym_b
         c[1, 1] = 1

@@ -10,7 +10,7 @@
 """
 """
 import os
-import pto
+import pypto
 import pytest
 import torch
 import numpy as np
@@ -18,41 +18,41 @@ from numpy.testing import assert_allclose
 
 
 def softmax_core(input_tensor):
-    row_max = pto.amax(input_tensor)
+    row_max = pypto.amax(input_tensor)
     sub = input_tensor - row_max
-    exp = pto.exp(sub)
-    esum = pto.sum(exp)
+    exp = pypto.exp(sub)
+    esum = pypto.sum(exp)
     return exp / esum
 
 
 # enalbe jit for softmax_custom
-@pto.jit
+@pypto.jit
 def softmax_custom(inputs, outputs):
     input_tensor = inputs[0]
     output_tensor = outputs[0]
 
     # setting of dynamic axis, the actual size of the axis can be any integer number during runtime
     # the dynamic axis of input_tensor/output_tensor will be marked as symbolic_scalar
-    pto.mark_dynamic(input_tensor, 0)
-    pto.mark_dynamic(output_tensor, 0)
+    pypto.mark_dynamic(input_tensor, 0)
+    pypto.mark_dynamic(output_tensor, 0)
 
     # after the dynamic axis of tensor is marked, get the tensor shape accordingly
     tensor_shape = input_tensor.shape
     b = tensor_shape[0]
     n1, n2, dim = tensor_shape[1:]
-    tile_b = pto.symbolic_scalar(1)
+    tile_b = pypto.symbolic_scalar(1)
     b_loop = b / tile_b
 
     # tiling shape setting
-    pto.set_vec_tile_shapes(1, 4, 1, 64)
+    pypto.set_vec_tile_shapes(1, 4, 1, 64)
 
-    with pto.function("SOFTMAX", [input_tensor], [output_tensor]):
-        for idx in pto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx"):
+    with pypto.function("SOFTMAX", [input_tensor], [output_tensor]):
+        for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx"):
             b_offset = idx * tile_b
             b_offset_end = (idx + 1) * tile_b
             input_view = input_tensor[b_offset:b_offset_end, :n1, :n2, :dim]
             softmax_out = softmax_core(input_view)
-            pto.assemble(softmax_out, [b_offset, 0, 0, 0], output_tensor)
+            pypto.assemble(softmax_out, [b_offset, 0, 0, 0], output_tensor)
 
 
 def test_softmax_custom():

@@ -10,7 +10,7 @@
 """
 """
 import os
-import pto
+import pypto
 
 import torch
 import torch_npu
@@ -23,25 +23,25 @@ n1 = 64
 d = 64
 
 
-@pto.jit(
+@pypto.jit(
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
 def dyn_loop_with_loop_begin(in_tensors, out_tensors):
     in_tensor = in_tensors[0]
     out_tensor = out_tensors[0]
-    pto.set_vec_tile_shapes(1, 1, 64, 64)
+    pypto.set_vec_tile_shapes(1, 1, 64, 64)
 
-    with pto.function("MAIN", [in_tensor], [out_tensor]):
-        for b_idx in pto.loop(b, name="b_loop", idx_name="b_idx"):
-            for s_idx in pto.loop(s, name="s_loop", idx_name="s_idx"):
-                a0 = pto.view(in_tensor, [1, 1, n1, d], [b_idx, s_idx, 0, 0])
-                if pto.cond(pto.is_loop_begin(b_idx)):
-                    a1 = pto.add(a0, 1.0)
-                    pto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
+    with pypto.function("MAIN", [in_tensor], [out_tensor]):
+        for b_idx in pypto.loop(b, name="b_loop", idx_name="b_idx"):
+            for s_idx in pypto.loop(s, name="s_loop", idx_name="s_idx"):
+                a0 = pypto.view(in_tensor, [1, 1, n1, d], [b_idx, s_idx, 0, 0])
+                if pypto.cond(pypto.is_loop_begin(b_idx)):
+                    a1 = pypto.add(a0, 1.0)
+                    pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
                 else:
-                    a1 = pto.mul(a0, 1.0)
-                    pto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
+                    a1 = pypto.mul(a0, 1.0)
+                    pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
                 del a0
                 del a1
 
@@ -60,7 +60,7 @@ def test_is_loop_begin():
 
     # compute on npu
     dyn_loop_with_loop_begin([input_npu], [output_npu])
-    pto.runtime._device_synchronize()
+    pypto.runtime._device_synchronize()
 
 
     output_cpu = output_npu.cpu()
@@ -74,25 +74,25 @@ def test_is_loop_begin():
                     rtol=1e-3, atol=1e-3)
 
 
-@pto.jit(
+@pypto.jit(
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
 def dyn_loop_with_loop_end(in_tensors, out_tensors):
     in_tensor = in_tensors[0]
     out_tensor = out_tensors[0]
-    pto.set_vec_tile_shapes(1, 1, 64, 64)
+    pypto.set_vec_tile_shapes(1, 1, 64, 64)
 
-    with pto.function("MAIN", [in_tensor], [out_tensor]):
-        for b_idx in pto.loop(b, name="b_loop", idx_name="b_idx"):
-            for s_idx in pto.loop(s, name="s_loop", idx_name="s_idx"):
-                a0 = pto.view(in_tensor, [1, 1, n1, d], [b_idx, s_idx, 0, 0])
-                if pto.cond(pto.is_loop_end(b_idx)):
-                    a1 = pto.add(a0, 1.0)
-                    pto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
+    with pypto.function("MAIN", [in_tensor], [out_tensor]):
+        for b_idx in pypto.loop(b, name="b_loop", idx_name="b_idx"):
+            for s_idx in pypto.loop(s, name="s_loop", idx_name="s_idx"):
+                a0 = pypto.view(in_tensor, [1, 1, n1, d], [b_idx, s_idx, 0, 0])
+                if pypto.cond(pypto.is_loop_end(b_idx)):
+                    a1 = pypto.add(a0, 1.0)
+                    pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
                 else:
-                    a1 = pto.mul(a0, 1.0)
-                    pto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
+                    a1 = pypto.mul(a0, 1.0)
+                    pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
                 del a0
                 del a1
 
@@ -111,7 +111,7 @@ def test_is_loop_end():
 
     # compute on npu
     dyn_loop_with_loop_end([input_npu], [output_npu])
-    pto.runtime._device_synchronize()
+    pypto.runtime._device_synchronize()
 
     output_cpu = output_npu.cpu()
 

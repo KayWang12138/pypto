@@ -10,7 +10,7 @@
 """
 """
 import os
-import pto
+import pypto
 import pytest
 import torch
 import numpy as np
@@ -23,13 +23,13 @@ def test_softmax_shape_dim():
     """Test whether the ouput shape is correct"""
 
     x_shape = [4, 4]
-    dtype = pto.DT_FP32
-    x = pto.tensor(x_shape, dtype)
+    dtype = pypto.DT_FP32
+    x = pypto.tensor(x_shape, dtype)
     dim = -1
 
-    with pto.function("SOFTMAX_SHAPE", x, static=True):
-        pto.set_vec_tile_shapes(32, 32)
-        res = pto.softmax(x, dim)
+    with pypto.function("SOFTMAX_SHAPE", x, static=True):
+        pypto.set_vec_tile_shapes(32, 32)
+        res = pypto.softmax(x, dim)
         torch_case_tensor = torch.randn((4, 4), dtype = torch.float32)
         torch_case_res = torch.softmax(torch_case_tensor, dim)
         assert res.shape == list(torch_case_res.shape)
@@ -39,45 +39,45 @@ def test_softmax_FP32():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
     x_shape = [4, 4]
-    dtype = pto.DT_FP32
-    pto.runtime._device_init()
-    x = pto.tensor(x_shape, dtype)
-    res = pto.tensor(x_shape, dtype)
+    dtype = pypto.DT_FP32
+    pypto.runtime._device_init()
+    x = pypto.tensor(x_shape, dtype)
+    res = pypto.tensor(x_shape, dtype)
     dim = -1
 
-    with pto.function("SOFTMAX_CONTENT_FP32", [x], [res]):
-        for _ in pto.loop(1, name="LOOP_L0", idx_name="a_idx"):
-            pto.set_vec_tile_shapes(32, 32)
-            res.move(pto.softmax(x, dim))
+    with pypto.function("SOFTMAX_CONTENT_FP32", [x], [res]):
+        for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
+            pypto.set_vec_tile_shapes(32, 32)
+            res.move(pypto.softmax(x, dim))
             del res
 
     x_tensor = torch.rand(4, 4, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)
-    pto.runtime._device_run_once_data_from_host([x_tensor], [res_tensor])
+    pypto.runtime._device_run_once_data_from_host([x_tensor], [res_tensor])
     expected = torch.softmax(x_tensor, dim)
     assert_allclose(res_tensor.flatten(), expected.flatten(), atol=1e-3, verbose=True)
-    pto.runtime._device_fini()
+    pypto.runtime._device_fini()
 
 def test_tensor_softmax_FP32():
     """Test whether the ouput of FP32 is correct"""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
     x_shape = [4, 4]
-    dtype = pto.DT_FP32
-    pto.runtime._device_init()
-    x = pto.tensor(x_shape, dtype)
-    res = pto.tensor(x_shape, dtype)
+    dtype = pypto.DT_FP32
+    pypto.runtime._device_init()
+    x = pypto.tensor(x_shape, dtype)
+    res = pypto.tensor(x_shape, dtype)
     dim = -1
 
-    with pto.function("TENSOR_SOFTMAX_CONTENT_FP32", [x], [res]):
-        for _ in pto.loop(1, name="LOOP_L0", idx_name="a_idx"):
-            pto.set_vec_tile_shapes(32, 32)
+    with pypto.function("TENSOR_SOFTMAX_CONTENT_FP32", [x], [res]):
+        for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
+            pypto.set_vec_tile_shapes(32, 32)
             res.move(x.softmax(dim))
             del res
 
     x_tensor = torch.rand(4, 4, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)
-    pto.runtime._device_run_once_data_from_host([x_tensor], [res_tensor])
+    pypto.runtime._device_run_once_data_from_host([x_tensor], [res_tensor])
     expected = torch.softmax(x_tensor, dim)
     assert_allclose(res_tensor.flatten(), expected.flatten(), atol=1e-3, verbose=True)
-    pto.runtime._device_fini()
+    pypto.runtime._device_fini()

@@ -21,11 +21,11 @@
 template <UnaryOp op, typename T0, typename T1>
 TILEOP void UnaryComputeImpl(T0 dst, T1 src) {
     if constexpr (op == UnaryOp::EXP) {
-        pto::TEXP(dst, src);
+        pypto::TEXP(dst, src);
         return;
     }
     if constexpr (op == UnaryOp::RSQRT) {
-        pto::TRSQRT(dst, src);
+        pypto::TRSQRT(dst, src);
         return;
     }
 }
@@ -38,10 +38,10 @@ TILEOP void UnaryCompute(T0 dst, T1 src) {
         constexpr auto tileH = TileOp::GetOutterAxisMergeResult<shapeSize, typename T0::TileShape>();
         constexpr auto tileW = Std::tuple_element<shapeSize - 1, typename T0::TileShape>::type::value;
         using TileDefine =
-            pto::Tile<pto::Location::Vec, typename T0::Type, tileH, tileW, pto::BLayout::RowMajor, tileH, tileW>;
+            pypto::Tile<pypto::Location::Vec, typename T0::Type, tileH, tileW, pypto::BLayout::RowMajor, tileH, tileW>;
         TileDefine dstTile, srcTile;
-        pto::TASSIGN(dstTile, (uint64_t)dst.GetAddr());
-        pto::TASSIGN(srcTile, (uint64_t)src.GetAddr());
+        pypto::TASSIGN(dstTile, (uint64_t)dst.GetAddr());
+        pypto::TASSIGN(srcTile, (uint64_t)src.GetAddr());
         UnaryComputeImpl<op>(dstTile, srcTile);
         return;
     }
@@ -63,11 +63,11 @@ TILEOP void UnaryCompute(T0 dst, T1 src) {
         for (size_t n1Index = 0; n1Index < shape1; ++n1Index) {
             for (size_t n2Index = 0; n2Index < shape2; ++n2Index) {
                 using TileDefine =
-                    pto::Tile<pto::Location::Vec, typename T0::Type, tileH, tileW, pto::BLayout::RowMajor, -1, -1>;
+                    pypto::Tile<pypto::Location::Vec, typename T0::Type, tileH, tileW, pypto::BLayout::RowMajor, -1, -1>;
                 TileDefine dstTile(shape3, shape4), srcTile(shape3, shape4);
                 auto offset = n0Index * stride0 + n1Index * stride1 + n2Index * stride2;
-                pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + offset * dstTypeSize));
-                pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + offset * srcTypeSize));
+                pypto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + offset * dstTypeSize));
+                pypto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + offset * srcTypeSize));
                 UnaryComputeImpl<op>(dstTile, srcTile);
             }
         }

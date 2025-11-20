@@ -49,18 +49,18 @@ TILEOP void TExtract(T0 dst, T1 src) {
     for (size_t n0Index = 0; n0Index < dstShape0; ++n0Index) {
         for (size_t n1Index = 0; n1Index < dstShape1; ++n1Index) {
             for (size_t n2Index = 0; n2Index < dstShape2; ++n2Index) {
-                using DstTileDefine = pto::Tile<pto::Location::Vec, typename T0::Type, dstTileH, dstTileW,
-                                                pto::BLayout::RowMajor, -1, -1>;
-                using SrcTileDefine = pto::Tile<pto::Location::Vec, typename T1::Type, srcTileH, srcTileW,
-                                                pto::BLayout::RowMajor, -1, -1>;
+                using DstTileDefine = pypto::Tile<pypto::Location::Vec, typename T0::Type, dstTileH, dstTileW,
+                                                pypto::BLayout::RowMajor, -1, -1>;
+                using SrcTileDefine = pypto::Tile<pypto::Location::Vec, typename T1::Type, srcTileH, srcTileW,
+                                                pypto::BLayout::RowMajor, -1, -1>;
                 DstTileDefine dstTile(dstShape3, dstShape4);
                 SrcTileDefine srcTile(srcShape3, srcShape4);
                 auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
                 auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
-                pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize));
-                pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
-                constexpr auto pattern = (extractMode == 0) ? pto::MaskPattern::P0101 : pto::MaskPattern::P1010;
-                pto::TGATHER<DstTileDefine, SrcTileDefine, pattern>(dstTile, srcTile);
+                pypto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize));
+                pypto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
+                constexpr auto pattern = (extractMode == 0) ? pypto::MaskPattern::P0101 : pypto::MaskPattern::P1010;
+                pypto::TGATHER<DstTileDefine, SrcTileDefine, pattern>(dstTile, srcTile);
 
                 if constexpr (extractMode == 0 && isLargest == 0) {
                     pipe_barrier(PIPE_V);

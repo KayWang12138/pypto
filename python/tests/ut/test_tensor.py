@@ -9,46 +9,46 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
-import pto
+import pypto
 import pytest
 
 
 def test_init_tensor():
-    dtype = pto.DT_FP16
+    dtype = pypto.DT_FP16
     shape = [32, 1]
 
-    a = pto.tensor(shape, dtype, "a")
+    a = pypto.tensor(shape, dtype, "a")
     assert a.name == "a"
     assert a.dtype == dtype
     assert a.shape == shape
     assert a.dim == len(shape)
-    assert a.format == pto.TileOpFormat.TILEOP_ND
+    assert a.format == pypto.TileOpFormat.TILEOP_ND
 
-    b = pto.tensor([-1, 32], dtype, "b", pto.TileOpFormat.TILEOP_NZ)
+    b = pypto.tensor([-1, 32], dtype, "b", pypto.TileOpFormat.TILEOP_NZ)
     assert b.dtype == dtype
     assert b.name == "b"
-    assert b.format == pto.TileOpFormat.TILEOP_NZ
+    assert b.format == pypto.TileOpFormat.TILEOP_NZ
     with pytest.raises(ValueError):
         # dynamic shape could not be compared
         assert b.shape == [-1, 32]
 
 
 def test_init_tensor_no_name():
-    expected_dtype = pto.DT_FP16
+    expected_dtype = pypto.DT_FP16
     shape = [32, 1]
-    tensor = pto.tensor(shape, expected_dtype)
+    tensor = pypto.tensor(shape, expected_dtype)
 
     assert tensor.dtype == expected_dtype
     assert tensor.shape == shape
 
 def test_tensor_add_plus_op():
-    dtype = pto.DT_FP16
+    dtype = pypto.DT_FP16
     shape = [8, 8]
-    a = pto.tensor(shape, dtype, "tensor_a")
-    b = pto.tensor(shape, dtype, "tensor_b")
+    a = pypto.tensor(shape, dtype, "tensor_a")
+    b = pypto.tensor(shape, dtype, "tensor_b")
 
-    with pto.function("ADD", a, b, static=True):
-        pto.set_vec_tile_shapes(8, 8)
+    with pypto.function("ADD", a, b, static=True):
+        pypto.set_vec_tile_shapes(8, 8)
         c = a + b
 
     assert c.shape == shape
@@ -56,12 +56,12 @@ def test_tensor_add_plus_op():
 
 
 def test_tensor_add_tensor_element():
-    dtype = pto.DT_FP16
+    dtype = pypto.DT_FP16
     shape = [8, 8]
-    a = pto.tensor(shape, dtype, "tensor_a")
+    a = pypto.tensor(shape, dtype, "tensor_a")
 
-    with pto.function("ADD", a, static=True):
-        pto.set_vec_tile_shapes(8, 8)
+    with pypto.function("ADD", a, static=True):
+        pypto.set_vec_tile_shapes(8, 8)
         c = a + 3.14
 
     assert c.shape == shape
@@ -69,12 +69,12 @@ def test_tensor_add_tensor_element():
 
 
 def test_tensor_add_element_tensor():
-    dtype = pto.DT_FP16
+    dtype = pypto.DT_FP16
     shape = [8, 8]
-    a = pto.tensor(shape, dtype, "tensor_a")
+    a = pypto.tensor(shape, dtype, "tensor_a")
 
-    with pto.function("ADD", a, static=True):
-        pto.set_vec_tile_shapes(8, 8)
+    with pypto.function("ADD", a, static=True):
+        pypto.set_vec_tile_shapes(8, 8)
         c = 3.14 + a
 
     assert c.shape == shape
@@ -82,13 +82,13 @@ def test_tensor_add_element_tensor():
 
 
 def test_tensor_sub_op():
-    dtype = pto.DT_FP16
+    dtype = pypto.DT_FP16
     shape = [8, 8]
-    a = pto.tensor(shape, dtype, "tensor_a")
-    b = pto.tensor(shape, dtype, "tensor_b")
+    a = pypto.tensor(shape, dtype, "tensor_a")
+    b = pypto.tensor(shape, dtype, "tensor_b")
 
-    with pto.function("SUB", a, b, static=True):
-        pto.set_vec_tile_shapes(8, 8)
+    with pypto.function("SUB", a, b, static=True):
+        pypto.set_vec_tile_shapes(8, 8)
         c = a - b
 
     assert c.shape == shape
@@ -96,12 +96,12 @@ def test_tensor_sub_op():
 
 
 def test_tensor_subs_tensor_element():
-    dtype = pto.DT_FP16
+    dtype = pypto.DT_FP16
     shape = [8, 8]
-    a = pto.tensor(shape, dtype, "tensor_a")
+    a = pypto.tensor(shape, dtype, "tensor_a")
 
-    with pto.function("SUBS", a, static=True):
-        pto.set_vec_tile_shapes(8, 8)
+    with pypto.function("SUBS", a, static=True):
+        pypto.set_vec_tile_shapes(8, 8)
         c = a - 3.14
 
     assert c.shape == shape

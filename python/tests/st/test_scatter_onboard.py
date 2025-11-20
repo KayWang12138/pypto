@@ -15,7 +15,7 @@ import copy
 import pytest
 import numpy as np
 import torch
-import pto
+import pypto
 import torch_npu
 
 
@@ -30,50 +30,50 @@ class ScatterParamInfo:
 
 
 def scatter_2dim_proc(scatter_para, is_inplace):
-    pto.runtime._device_init()
+    pypto.runtime._device_init()
     src_shape = scatter_para.src_shape
     indices_shape = scatter_para.indices_shape
     view_shape = scatter_para.view_shape
     tile_shape = scatter_para.tile_shape
 
-    self_tensor = pto.tensor(src_shape, pto.DT_FP32, "PTO_TENSOR_SRC")
-    indices_tensor = pto.tensor(indices_shape, pto.DT_INT64, "PTO_TENSOR_INDEX")
-    dst_tensor = pto.tensor(src_shape, pto.DT_FP32, "PTO_TENSOR_DST")
+    self_tensor = pypto.tensor(src_shape, pypto.DT_FP32, "PTO_TENSOR_SRC")
+    indices_tensor = pypto.tensor(indices_shape, pypto.DT_INT64, "PTO_TENSOR_INDEX")
+    dst_tensor = pypto.tensor(src_shape, pypto.DT_FP32, "PTO_TENSOR_DST")
     src = scatter_para.sdata
 
     b_loop_num = math.ceil(indices_shape[0] / view_shape[0])
     s_loop_num = math.ceil(indices_shape[1] / view_shape[1])
-    pto.set_codegen_options(support_dynamic_unaligned=True)
-    with pto.function("MAIN", [self_tensor, indices_tensor], [dst_tensor]):
-        for b_idx in pto.loop(b_loop_num, name="b0", idx_name="bidx"):
-            for s_idx in pto.loop(s_loop_num, name="s0", idx_name="sidx"):
-                tmp_dst_tensor = pto.tensor(view_shape, pto.DT_FP32, "PTO_TENSOR_TMP")
-                view_tensor_src = pto.view(self_tensor, view_shape,
+    pypto.set_codegen_options(support_dynamic_unaligned=True)
+    with pypto.function("MAIN", [self_tensor, indices_tensor], [dst_tensor]):
+        for b_idx in pypto.loop(b_loop_num, name="b0", idx_name="bidx"):
+            for s_idx in pypto.loop(s_loop_num, name="s0", idx_name="sidx"):
+                tmp_dst_tensor = pypto.tensor(view_shape, pypto.DT_FP32, "PTO_TENSOR_TMP")
+                view_tensor_src = pypto.view(self_tensor, view_shape,
                     [b_idx * view_shape[0], s_idx * view_shape[1]],
-                    valid_shape=[(pto.symbolic_scalar(src_shape[0]) -
-                        b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
-                        (pto.symbolic_scalar(src_shape[1]) -
-                        s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
-                view_tensor_index = pto.view(indices_tensor, view_shape,
+                    valid_shape=[(pypto.symbolic_scalar(src_shape[0]) -
+                        b_idx * view_shape[0]).min(pypto.symbolic_scalar(view_shape[0])),
+                        (pypto.symbolic_scalar(src_shape[1]) -
+                        s_idx * view_shape[1]).min(pypto.symbolic_scalar(view_shape[1]))])
+                view_tensor_index = pypto.view(indices_tensor, view_shape,
                     [b_idx * view_shape[0], s_idx * view_shape[1]],
-                    valid_shape=[(pto.symbolic_scalar(indices_shape[0]) -
-                        b_idx * view_shape[0]).min(pto.symbolic_scalar(view_shape[0])),
-                        (pto.symbolic_scalar(indices_shape[1]) -
-                        s_idx * view_shape[1]).min(pto.symbolic_scalar(view_shape[1]))])
-                pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
+                    valid_shape=[(pypto.symbolic_scalar(indices_shape[0]) -
+                        b_idx * view_shape[0]).min(pypto.symbolic_scalar(view_shape[0])),
+                        (pypto.symbolic_scalar(indices_shape[1]) -
+                        s_idx * view_shape[1]).min(pypto.symbolic_scalar(view_shape[1]))])
+                pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                 if is_inplace == True:
-                    tmp_dst_tensor.move(pto.scatter_(view_tensor_src, scatter_para.axis, view_tensor_index, src))
+                    tmp_dst_tensor.move(pypto.scatter_(view_tensor_src, scatter_para.axis, view_tensor_index, src))
                 else:
-                    tmp_dst_tensor.move(pto.scatter(view_tensor_src, scatter_para.axis, view_tensor_index, src))
-                pto.assemble(tmp_dst_tensor, [b_idx * view_shape[0], s_idx * view_shape[1]], dst_tensor)
+                    tmp_dst_tensor.move(pypto.scatter(view_tensor_src, scatter_para.axis, view_tensor_index, src))
+                pypto.assemble(tmp_dst_tensor, [b_idx * view_shape[0], s_idx * view_shape[1]], dst_tensor)
                 del view_tensor_src, view_tensor_index, tmp_dst_tensor
-    assert isinstance(dst_tensor, pto.tensor)
+    assert isinstance(dst_tensor, pypto.tensor)
 
     input0_tensor = torch.rand(*src_shape, dtype=torch.float32) * 2 - 1
     input1_tensor = torch.randint(0, src_shape[scatter_para.axis], indices_shape, dtype=torch.int64)
     c_tensor = torch.zeros_like(input0_tensor)
 
-    pto.runtime._device_run_once_data_from_host([input0_tensor, input1_tensor], [c_tensor])
+    pypto.runtime._device_run_once_data_from_host([input0_tensor, input1_tensor], [c_tensor])
 
     result = input0_tensor.clone()
     for i in range(indices_shape[0]):
@@ -84,7 +84,7 @@ def scatter_2dim_proc(scatter_para, is_inplace):
                 result[i, input1_tensor[i, j]] = scatter_para.sdata
 
     assert torch.equal(c_tensor, result)
-    pto.runtime._device_fini()
+    pypto.runtime._device_fini()
 
 
 def test_scatter__onboard():

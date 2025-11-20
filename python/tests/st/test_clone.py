@@ -10,7 +10,7 @@
 """
 """
 import os
-import pto
+import pypto
 
 import torch
 import torch_npu
@@ -23,23 +23,23 @@ n1 = 64
 d = 64
 
 
-@pto.jit(
+@pypto.jit(
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
 def kernel_func(in_tensors, out_tensors):
     in_tensor = in_tensors[0]
     out_tensor = out_tensors[0]
-    pto.set_vec_tile_shapes(1, 1, 64, 64)
+    pypto.set_vec_tile_shapes(1, 1, 64, 64)
 
-    with pto.function("MAIN", [in_tensor], [out_tensor]):
-        for b_idx in pto.loop(b, name="b_loop", idx_name="b_idx"):
-            for s_idx in pto.loop(s, name="s_loop", idx_name="s_idx"):
-                a0 = pto.view(in_tensor, [1, 1, n1, d], [b_idx, s_idx, 0, 0])
-                a1 = pto.add(a0, 1.0)
-                a2 = pto.reshape(a1, [1, 1, n1*d])
-                a3 = pto.clone(a2)
-                pto.assemble(a3, [b_idx, s_idx, 0], out_tensor)
+    with pypto.function("MAIN", [in_tensor], [out_tensor]):
+        for b_idx in pypto.loop(b, name="b_loop", idx_name="b_idx"):
+            for s_idx in pypto.loop(s, name="s_loop", idx_name="s_idx"):
+                a0 = pypto.view(in_tensor, [1, 1, n1, d], [b_idx, s_idx, 0, 0])
+                a1 = pypto.add(a0, 1.0)
+                a2 = pypto.reshape(a1, [1, 1, n1*d])
+                a3 = pypto.clone(a2)
+                pypto.assemble(a3, [b_idx, s_idx, 0], out_tensor)
                 del a0
                 del a1
                 del a2
@@ -60,7 +60,7 @@ def test_clone():
 
     # compute on npu
     kernel_func([input_npu], [output_npu])
-    pto.runtime._device_synchronize()
+    pypto.runtime._device_synchronize()
 
     output_cpu = output_npu.cpu()
 

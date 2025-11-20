@@ -24,7 +24,7 @@
 ├── LICENSE
 │
 ├── python                                  # Python 源码
-│   ├── pto                                 # Python 包源码根目录
+│   ├── pypto                               # Python 包源码根目录
 │   ├── src                                 # pybind11 源码跟目录
 │   └── tests                               # Python 测试用例源码(UTest, STest)
 │       ├── st
@@ -110,7 +110,7 @@ tomli>=2.0.0 ; python_version >= "3.0" and python_version < "3.11"
 
 #### 4.1.2 编译执行
 
-可通过如下命令一键式编译 PyPTO 对应 whl 包, 编译完成后会在源码根目录 `dist` 目录下产生 `pto-*.whl` 包. 而后可以通过 pip 包管理命令进行安装.
+可通过如下命令一键式编译 PyPTO 对应 whl 包, 编译完成后会在源码根目录 `build_out` 目录下产生 `pypto-*.whl` 包. 而后可以通过 pip 包管理命令进行安装.
 
 ```shell
 # source CANN 包环境变量
@@ -120,7 +120,7 @@ source /usr/local/Ascend/ascend-toolkit/latest/bin/setenv.bash
 python3 build.py --clean --frontend=python3
 ```
 
-***注意:*** 如果把 `pto-*.whl` 安装在非默认路径, 则需要根据实际安装路径, 结合 pip 包管理机制要求, 额外配置 `PYTHONPATH` 环境变量.
+***注意:*** 如果把 `pypto-*.whl` 安装在非默认路径, 则需要根据实际安装路径, 结合 pip 包管理机制要求, 额外配置 `PYTHONPATH` 环境变量.
 
 ***注意:*** CANN 包安装结束后, 需要按照对应要求安装其运行所依赖的 pip 包, 可参考对应 CANN 版本的 "安装后配置" 章节描述，
 如[CANN 8.2.RC1 版本说明](https://www.hiascend.com/document/detail/zh/canncommercial/82RC1/softwareinst/instg/instg_0094.html?Mode=PmIns&InstallType=local&OS=Debian&Software=cannToolKit)。

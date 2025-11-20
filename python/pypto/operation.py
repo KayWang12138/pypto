@@ -100,9 +100,9 @@ def add(
 
     Examples
     --------
-    a = pto.tensor([1, 3], pto.DT_FP32)
-    b = pto.tensor([1, 3], pto.DT_FP32)
-    out = pto.add(a, b)
+    a = pypto.tensor([1, 3], pypto.DT_FP32)
+    b = pypto.tensor([1, 3], pypto.DT_FP32)
+    out = pypto.add(a, b)
 
     Input a:    [1 2 3]
     Input b:    [2 3 4]
@@ -154,9 +154,9 @@ def sub(
 
     Examples
     --------
-    x = pto.tensor([2, 3], pto.DT_FP32)
-    y = pto.tensor([2, 3], pto.DT_FP32)
-    out1 = pto.sub(a, b)
+    x = pypto.tensor([2, 3], pypto.DT_FP32)
+    y = pypto.tensor([2, 3], pypto.DT_FP32)
+    out1 = pypto.sub(a, b)
 
     Input x:      [[9 9 9],
                    [9 9 9]]
@@ -166,7 +166,7 @@ def sub(
                    [8 7 6]]
 
     # Using a scalar and alpha
-    c = pto.sub(x, 2, alpha=3) # Computes x - 2 * 3
+    c = pypto.sub(x, 2, alpha=3) # Computes x - 2 * 3
 
     Output c:[[3 3 3],
               [3 3 3]]
@@ -213,9 +213,9 @@ def mul(
 
     Examples
     --------
-    x = pto.tensor([2, 3], pto.DT_FP32)
-    y = pto.tensor([2, 3], pto.DT_FP32)
-    z = pto.mul(a, b)
+    x = pypto.tensor([2, 3], pypto.DT_FP32)
+    y = pypto.tensor([2, 3], pypto.DT_FP32)
+    z = pypto.mul(a, b)
 
     Input x:[[1 2 3],
              [1 2 3]]
@@ -264,9 +264,9 @@ def div(
 
     Examples
     --------
-    a = pto.tensor([3], pto.DT_FP32)
-    b = pto.tensor([3], pto.DT_FP32)
-    out = pto.div(a, b)
+    a = pypto.tensor([3], pypto.DT_FP32)
+    b = pypto.tensor([3], pypto.DT_FP32)
+    out = pypto.div(a, b)
 
     Input a:    [2 4 6]
     Input b:    [2 2 2]
@@ -301,9 +301,9 @@ def pow(
 
     Examples
     --------
-    x = pto.tensor([2, 2], pto.DT_FP32)
+    x = pypto.tensor([2, 2], pypto.DT_FP32)
     a = 2
-    y = pto.pow(x, a)
+    y = pypto.pow(x, a)
 
     Input x:[[1 2],
              [3 4]]
@@ -332,10 +332,10 @@ def assemble(input: Tensor, offsets: List[Union[int, SymbolicScalar]], out: Tens
         The larger output tensor that will contain the assembled input tensor
     Examples
     ---------
-    x = pto.tensor([2, 2], pto.data_type.DT_FP32)
-    out = pto.tensor([4, 4], pto.data_type.DT_FP32)
+    x = pypto.tensor([2, 2], pypto.data_type.DT_FP32)
+    out = pypto.tensor([4, 4], pypto.data_type.DT_FP32)
     offsets = [0, 0]
-    pto.assemble(x, offsets, out)
+    pypto.assemble(x, offsets, out)
 
     Input x:[[1 1],
             [1,1]]
@@ -388,8 +388,8 @@ def exp(
 
     Examples
     --------
-    x = pto.tensor([3], pto.DT_FP32)
-    y = pto.exp(x)
+    x = pypto.tensor([3], pypto.DT_FP32)
+    y = pypto.exp(x)
 
     Input x: [0 1 2]
     Output y:[1.0000 2.7183 7.3891]
@@ -426,8 +426,8 @@ def transpose(
 
     Examples
     --------
-    x = pto.tensor([2, 3], pto.DT_FP32)
-    out = pto.transpose(x, 0, 1)
+    x = pypto.tensor([2, 3], pypto.DT_FP32)
+    out = pypto.transpose(x, 0, 1)
 
     Input x:    [[ 1.0028 -0.9893 0.5809],
                  [-0.1669 0.7299 0.4942]])
@@ -469,8 +469,8 @@ def logical_not(
 
     Examples
     --------
-    a = pto.tensor([5], pto.DT_INT32)
-    out = pto.logical_not(a)
+    a = pypto.tensor([5], pypto.DT_INT32)
+    out = pypto.logical_not(a)
 
     Input a:    [0 1 2 3 4]
     Output out: [True False False False False False]
@@ -507,8 +507,8 @@ def rsqrt(
 
     Examples
     --------
-    x = pto.tensor([2, 2], pto.DT_FP32)
-    y = pto.rsqrt(x)
+    x = pypto.tensor([2, 2], pypto.DT_FP32)
+    y = pypto.rsqrt(x)
 
     Input x: [[1  4],
              [16 9]]
@@ -542,8 +542,8 @@ def sqrt(
 
     Examples
     --------
-    x = pto.tensor([5], pto.DT_FP32)
-    y = pto.sqrt(x)
+    x = pypto.tensor([5], pypto.DT_FP32)
+    y = pypto.sqrt(x)
 
     Input x:  [1.0 4.0 9.0 16.0 25.0]
     Output y: [1.0 2.0 3.0 4.0 5.0]
@@ -590,8 +590,8 @@ def topk(
 
     Examples
     --------
-    x = pto.tensor([2, 3], pto.DT_FP32)
-    y = pto.topk(x, 2, -1, True)
+    x = pypto.tensor([2, 3], pypto.DT_FP32)
+    y = pypto.topk(x, 2, -1, True)
 
     Input x:     [[1 2 3],
                   [1 2 3]]
@@ -644,11 +644,11 @@ def gather(
 
     Examples
     --------
-    x = pto.tensor([3, 5], pto.DT_FP32)        # shape (3, 5)
+    x = pypto.tensor([3, 5], pypto.DT_FP32)        # shape (3, 5)
 
-    index = pto.tensor([3, 4], pto.DT_INT32)   # shape (3, 4)
+    index = pypto.tensor([3, 4], pypto.DT_INT32)   # shape (3, 4)
     dim = 0
-    y = pto.gather(x, dim, index)
+    y = pypto.gather(x, dim, index)
 
     Input x:  [[0 1 2 3 4],
                [5 6 7 8 9],
@@ -711,10 +711,10 @@ def scatter_update(
     Examples
     --------
     # dim2
-    x = pto.tensor([8, 3], pto.DT_FP32)
-    y = pto.tensor([2, 2], pto.DT_INT64)
-    z = pto.tensor([4, 3], pto.DT_FP32)
-    o = pto.scatter_update(x, -2, y, z)
+    x = pypto.tensor([8, 3], pypto.DT_FP32)
+    y = pypto.tensor([2, 2], pypto.DT_INT64)
+    z = pypto.tensor([4, 3], pypto.DT_FP32)
+    o = pypto.scatter_update(x, -2, y, z)
 
     Input x:[[0 0 0],
              [0 0 0],
@@ -740,10 +740,10 @@ def scatter_update(
               [0 0 0]])
 
     #dim4
-    x = pto.tensor([2, 6, 1, 3], pto.DT_FP32)
-    y = pto.tensor([2, 2], pto.DT_INT64)
-    z = pto.tensor([2, 2, 1, 3], pto.DT_FP32)
-    o = pto.scatter_update(x, -2, y, z)
+    x = pypto.tensor([2, 6, 1, 3], pypto.DT_FP32)
+    y = pypto.tensor([2, 2], pypto.DT_INT64)
+    z = pypto.tensor([2, 2, 1, 3], pypto.DT_FP32)
+    o = pypto.scatter_update(x, -2, y, z)
 
     Input x:[[
                 [[0 0 0]],
@@ -847,9 +847,9 @@ def scatter_(
     Examples
     --------
     # dim2
-    x = pto.tensor([3, 5], pto.DT_FP32)
-    y = pto.tensor([2, 2], pto.DT_INT64)
-    o = pto.scatter_(x, 0, y, 2.0)
+    x = pypto.tensor([3, 5], pypto.DT_FP32)
+    y = pypto.tensor([2, 2], pypto.DT_INT64)
+    o = pypto.scatter_(x, 0, y, 2.0)
 
     Input x:[[0 0 0 0 0],
              [0 0 0 0 0],
@@ -919,10 +919,10 @@ def where(
 
     Examples
     --------
-    cond = pto.tensor([4], pto.DT_BOOL)
-    x = pto.tensor([4], pto.DT_FP32)
-    y = pto.tensor([4], pto.DT_FP32)
-    out1 = pto.where(cond, x, y)
+    cond = pypto.tensor([4], pypto.DT_BOOL)
+    x = pypto.tensor([4], pypto.DT_FP32)
+    y = pypto.tensor([4], pypto.DT_FP32)
+    out1 = pypto.where(cond, x, y)
 
     Input cond:  [True False True False]
     Input x:     [1 2 3 4]
@@ -930,15 +930,15 @@ def where(
     Output out1: [1 20 3 40]
 
     # Using scalar inputs
-    out2 = pto.where(cond, 1, 0)
+    out2 = pypto.where(cond, 1, 0)
 
     Output out2: [1 0 1 0]
 
     # Broadcasting example
-    cond = pto.tensor([2, 2], pto.DT_BOOL)
-    x = pto.tensor([1, 2], pto.DT_FP32)  # Will be broadcasted
+    cond = pypto.tensor([2, 2], pypto.DT_BOOL)
+    x = pypto.tensor([1, 2], pypto.DT_FP32)  # Will be broadcasted
     y = 0
-    out3 = pto.where(cond, x, y)
+    out3 = pypto.where(cond, x, y)
 
     Input cond:  [[True False], [False True]]
     Input x:     [1 2]
@@ -1015,9 +1015,9 @@ def arange(*args: Union[int, float]) -> Tensor:
 
     Examples
     --------
-    a = pto.arange(1.0, 4.0, 0.5)
-    b = pto.arange(1.0, 4.0)
-    c = pto.arange(4)
+    a = pypto.arange(1.0, 4.0, 0.5)
+    b = pypto.arange(1.0, 4.0)
+    c = pypto.arange(4)
 
     Output a: [1.0 1.5 2.0 2.5 3.0 3.5]
     Output b: [1.0 2.0 3.0]
@@ -1064,8 +1064,8 @@ def log(
 
     Examples
     --------
-    x = pto.tensor([3], pto.DT_FP32)
-    y = pto.log(x)
+    x = pypto.tensor([3], pypto.DT_FP32)
+    y = pypto.log(x)
 
     Input x:[1 2 3]
     Output y:[0.0000 0.6931 1.0986]
@@ -1102,11 +1102,11 @@ def cast(
 
     Examples
     --------
-    x = pto.tensor([2], pto.DT_FP32)
-    y = pto.cast(x, pto.DT_FP16)
+    x = pypto.tensor([2], pypto.DT_FP32)
+    y = pypto.cast(x, pypto.DT_FP16)
 
-    Input  x: [2.0, 3.0] x.dtype: pto.DT_FP32
-    Output y: [2.0, 3.0] y.dtype: pto.DT_FP16
+    Input  x: [2.0, 3.0] x.dtype: pypto.DT_FP32
+    Output y: [2.0, 3.0] y.dtype: pypto.DT_FP16
     """
     if dtype == input.dtype and mode == CastMode.CAST_NONE:
         return input
@@ -1140,8 +1140,8 @@ def amax(
 
     Examples
     --------
-    x = pto.tensor([2, 3], pto.DT_FP32)
-    y = pto.amax(x, -1, True)
+    x = pypto.tensor([2, 3], pypto.DT_FP32)
+    y = pypto.amax(x, -1, True)
 
     Input x:[[1 2 3],
              [1 2 3]]
@@ -1178,8 +1178,8 @@ def sum(
 
     Examples
     --------
-    x = pto.tensor([2, 3], pto.DT_FP32)
-    y = pto.sum(x, -1, True)
+    x = pypto.tensor([2, 3], pypto.DT_FP32)
+    y = pypto.sum(x, -1, True)
 
     Input x:[[1 2 3],
              [1 2 3]]
@@ -1204,9 +1204,9 @@ def full(size: List[int],
     ----------
     size : List[int]
         target shape; must be non-negative integers
-    fill_value : int | float | SymbolicScalar | pto.element
+    fill_value : int | float | SymbolicScalar | pypto.element
         scalar value to replicate
-    dtype : pto.DataType
+    dtype : pypto.DataType
         desired data type; only int/float are supported (DT_FP32, DT_INT32).
         If elem is a SymbolicScalar, dtype must be int32.
     valid_shape : List[int] | List[SymbolicScalar]]
@@ -1220,14 +1220,14 @@ def full(size: List[int],
     --------
     # Valid shapes use keyword argument
     x1 = 1.0
-    y1 = pto.full([2,2], x1, pto.DT_FP32, valid_shape=[2, 2])
+    y1 = pypto.full([2,2], x1, pypto.DT_FP32, valid_shape=[2, 2])
 
-    x2 = pto.symbolic_scalar(1)
-    y2 = pto.full([2,2], x2, pto.DT_INT32, valid_shape=[2, 2])
+    x2 = pypto.symbolic_scalar(1)
+    y2 = pypto.full([2,2], x2, pypto.DT_INT32, valid_shape=[2, 2])
 
     #  In static graphs, validshape can be ignored
     x3 = 1
-    y3 = pto.full([2,2], x3, pto.DT_INT32)
+    y3 = pypto.full([2,2], x3, pypto.DT_INT32)
 
     Output y1: [[1.0 1.0], [1.0 1.0]]
     Output y2: [[1 1], [1 1]]
@@ -1271,8 +1271,8 @@ def amin(
 
     Examples
     --------
-    x = pto.tensor([2, 3], pto.DT_FP32)
-    y = pto.amin(x, -1, True)
+    x = pypto.tensor([2, 3], pypto.DT_FP32)
+    y = pypto.amin(x, -1, True)
 
     Input x:[[1 2 3],
              [1 2 3]]
@@ -1311,9 +1311,9 @@ def greater(
 
     Examples
     --------
-    a = pto.tensor([3], pto.DT_FP32)
-    b = pto.tensor([3], pto.DT_FP32)
-    out = pto.greater(a, b)
+    a = pypto.tensor([3], pypto.DT_FP32)
+    b = pypto.tensor([3], pypto.DT_FP32)
+    out = pypto.greater(a, b)
 
     Input a:    [1 2 3]
     Input b:    [2 2 2]
@@ -1343,10 +1343,10 @@ def concat(
         The concatenated tensor
     Examples
     ---------
-    x = pto.tensor([2, 2], pto.data_type.DT_FP32)  # 2x2 tensor with all 1s
-    y = pto.tensor([2, 2], pto.data_type.DT_FP32)  # 2x2 tensor with all 0s
+    x = pypto.tensor([2, 2], pypto.data_type.DT_FP32)  # 2x2 tensor with all 1s
+    y = pypto.tensor([2, 2], pypto.data_type.DT_FP32)  # 2x2 tensor with all 0s
     dim = 0
-    out = pto.concat([x, y], dim)
+    out = pypto.concat([x, y], dim)
 
     Input  x : [[1 1],
                 [1 1]]
@@ -1413,32 +1413,32 @@ def matmul(input, mat2, out_dtype, *, a_trans=False, b_trans=False, c_matrix_nz=
     Examples
     --------
     # matrix x matrix
-    a = pto.tensor((16, 32), pto.DT_BF16, "tensor_a")
-    b = pto.tensor((32, 64), pto.DT_BF16, "tensor_b")
-    pto.matmul(a, b, pto.DT_BF16)
+    a = pypto.tensor((16, 32), pypto.DT_BF16, "tensor_a")
+    b = pypto.tensor((32, 64), pypto.DT_BF16, "tensor_b")
+    pypto.matmul(a, b, pypto.DT_BF16)
 
     # batched matrix multiplication
-    a = pto.tensor((2, 16, 32), pto.DT_FP16, "tensor_a")
-    b = pto.tensor((2, 32, 16), pto.DT_FP16, "tensor_b")
-    pto.matmul(a, b, pto.DT_FP16)
+    a = pypto.tensor((2, 16, 32), pypto.DT_FP16, "tensor_a")
+    b = pypto.tensor((2, 32, 16), pypto.DT_FP16, "tensor_b")
+    pypto.matmul(a, b, pypto.DT_FP16)
 
     # batched matrix multiplication with broadcast
-    a = pto.tensor((1, 32, 64), pto.DT_FP32, "tensor_a")
-    b = pto.tensor((3, 64, 16), pto.DT_FP32, "tensor_b")
-    pto.matmul(a, b, pto.DT_DT_FP32)
+    a = pypto.tensor((1, 32, 64), pypto.DT_FP32, "tensor_a")
+    b = pypto.tensor((3, 64, 16), pypto.DT_FP32, "tensor_b")
+    pypto.matmul(a, b, pypto.DT_DT_FP32)
 
     # matrix multiplication with bias
-    a = pto.tensor((16, 32), ptoDT_FP16, "tensor_a")
-    b = pto.tensor((32, 64), pto.DT_FP16, "tensor_b")
-    bias = pto.tensor((1, 64), pto.DT_FP16, "tensor_bias")
+    a = pypto.tensor((16, 32), ptoDT_FP16, "tensor_a")
+    b = pypto.tensor((32, 64), pypto.DT_FP16, "tensor_b")
+    bias = pypto.tensor((1, 64), pypto.DT_FP16, "tensor_bias")
     extend_params = {'bias_tensor': bias}
-    pto.matmul(a, b, pto.DT_BF16, a_trans=False, b_trans=False, c_matrix_nz=False, extend_params=extend_params)
+    pypto.matmul(a, b, pypto.DT_BF16, a_trans=False, b_trans=False, c_matrix_nz=False, extend_params=extend_params)
 
     # matrix multiplication with dequantization
-    a = pto.tensor((16, 32), pto.DT_INT8, "tensor_a")
-    b = pto.tensor((32, 64), pto.DT_INT8, "tensor_b")
+    a = pypto.tensor((16, 32), pypto.DT_INT8, "tensor_a")
+    b = pypto.tensor((32, 64), pypto.DT_INT8, "tensor_b")
     extend_params = {'scale': 0.2}
-    pto.matmul(a, b, pto.DT_BF16, a_trans=False, b_trans=False, c_matrix_nz=False, extend_params=extend_params)
+    pypto.matmul(a, b, pypto.DT_BF16, a_trans=False, b_trans=False, c_matrix_nz=False, extend_params=extend_params)
 
     """
     input_dim = input.Dim()
@@ -1464,7 +1464,7 @@ def reshape(input: Tensor, shape: List[int], *,
 
     Parameters
     ---------
-    input: pto.Tensor
+    input: pypto.Tensor
         The input tensor to be reshaped.
 
     shape : List[int]
@@ -1481,14 +1481,14 @@ def reshape(input: Tensor, shape: List[int], *,
 
     Return
     ------
-    pto.Tensor
+    pypto.Tensor
         A new tensor with the specific shape.
 
     Examples
     ---------
-    x = pto.tensor([2, 2], pto.DT_FP32)
-    y = pto.reshape(x, [4, 1], [2, 1])
-    z = pto.add(y, 1.0)
+    x = pypto.tensor([2, 2], pypto.DT_FP32)
+    y = pypto.reshape(x, [4, 1], [2, 1])
+    z = pypto.add(y, 1.0)
 
     input x: [[1, 2],
               [3, 4]]
@@ -1502,8 +1502,8 @@ def reshape(input: Tensor, shape: List[int], *,
                [4]]
 
     # inplace
-    x = pto.tensor([2, 2], pto.DT_FP32)
-    y = pto.reshape(x, [1, 4], inplace=True)
+    x = pypto.tensor([2, 2], pypto.DT_FP32)
+    y = pypto.reshape(x, [1, 4], inplace=True)
 
     input x: [[1, 2],
               [3, 4]]
@@ -1526,18 +1526,18 @@ def clone(input: Tensor) -> Tensor:
 
     Parameters
     ---------
-    input: pto.Tensor
+    input: pypto.Tensor
         The input tensor to be cloned.
 
     Return
     ------
-    pto.Tensor
+    pypto.Tensor
         A new tensor with the same shape.
 
     Examples
     ---------
-    x = pto.tensor([2, 2], pto.DT_FP32)
-    y = pto.clone(y)
+    x = pypto.tensor([2, 2], pypto.DT_FP32)
+    y = pypto.clone(y)
 
     input x: [[1, 2],
               [3, 4]]
@@ -1572,8 +1572,8 @@ def unsqueeze(input: Tensor, dim: int) -> Tensor:
 
     Examples
     --------
-    x = pto.tensor([2, 3], pto.DT_FP32)
-    y = pto.unsqueeze(x, 0)
+    x = pypto.tensor([2, 3], pypto.DT_FP32)
+    y = pypto.unsqueeze(x, 0)
 
     Input x:[[1, 2, 3],
              [4, 5, 6]]
@@ -1613,10 +1613,10 @@ def view(input: Tensor, shape: List[int], offsets: List[Union[int, SymbolicScala
 
     Examples
     --------
-    x = pto.tensor([4, 8], pto.DT_FP32)
+    x = pypto.tensor([4, 8], pypto.DT_FP32)
     shape = [4, 4]
     offsets = [0, 4]
-    y = pto.view(x, shape, offsets)
+    y = pypto.view(x, shape, offsets)
 
     Input x:[[1 1 2 2 3 3 4 4],
              [1 1 2 2 3 3 4 4],
@@ -1628,11 +1628,11 @@ def view(input: Tensor, shape: List[int], offsets: List[Union[int, SymbolicScala
               [3 3 4 4]]
 
     # add valid_shape
-    x = pto.tensor([4, 8], pto.DT_FP32)
+    x = pypto.tensor([4, 8], pypto.DT_FP32)
     shape = [4, 4]
     offsets = [2, 4]
     valid_shape = [2, 4]
-    y = pto.view(x, shape, offsets, valid_shape=valid_shape)
+    y = pypto.view(x, shape, offsets, valid_shape=valid_shape)
 
     Input x:[[1 1 2 2 3 3 4 4],
              [1 1 2 2 3 3 4 4],
@@ -1668,9 +1668,9 @@ def maximum(input: Union[Tensor, Element, int, float], other: Union[Tensor, Elem
 
     Examples
     --------
-    a = pto.tensor([3], pto.DT_INT32)
-    b = pto.tensor([3], pto.DT_INT32)
-    out = pto.maximum(a, b)
+    a = pypto.tensor([3], pypto.DT_INT32)
+    b = pypto.tensor([3], pypto.DT_INT32)
+    out = pypto.maximum(a, b)
 
     Input a:    [0 2 4]
     Input b:    [3 1 3]
@@ -1705,9 +1705,9 @@ def minimum(input: Union[Tensor, Element, int, float], other: Union[Tensor, Elem
 
     Examples
     --------
-    a = pto.tensor([3], pto.DT_INT32)
-    b = pto.tensor([3], pto.DT_INT32)
-    out = pto.minimum(a, b)
+    a = pypto.tensor([3], pypto.DT_INT32)
+    b = pypto.tensor([3], pypto.DT_INT32)
+    out = pypto.minimum(a, b)
 
     Input a:    [0 2 4]
     Input b:    [3 1 3]
@@ -1754,18 +1754,18 @@ def logical_and(
 
     Examples
     --------
-    x = pto.tensor([True, False], pto.DT_BOOL)
-    y = pto.tensor([True, True], pto.DT_BOOL)
-    z = pto.logical_and(x, y)
+    x = pypto.tensor([True, False], pypto.DT_BOOL)
+    y = pypto.tensor([True, True], pypto.DT_BOOL)
+    z = pypto.logical_and(x, y)
 
     Input x: [True, False]
     Input y: [True, True]
     Output z: [True, False]
 
     # 支持广播
-    x = pto.tensor([[True, False], [False, True]], pto.DT_BOOL)
-    y = pto.tensor([True, False], pto.DT_BOOL)
-    z = pto.logical_and(x, y)
+    x = pypto.tensor([[True, False], [False, True]], pypto.DT_BOOL)
+    y = pypto.tensor([True, False], pypto.DT_BOOL)
+    z = pypto.logical_and(x, y)
 
     Input x: [[True, False], [False, True]]
     Input y: [True, False]
@@ -1793,9 +1793,9 @@ def minimum(input: Union[Tensor, Element, int, float], other: Union[Tensor, Elem
 
     Examples
     --------
-    a = pto.tensor([3], pto.DT_INT32)
-    b = pto.tensor([3], pto.DT_INT32)
-    out = pto.minimum(a, b)
+    a = pypto.tensor([3], pypto.DT_INT32)
+    b = pypto.tensor([3], pypto.DT_INT32)
+    out = pypto.minimum(a, b)
 
     Input a:    [0 2 4]
     Input b:    [3 1 3]
@@ -1842,18 +1842,18 @@ def logical_and(
 
     Examples
     --------
-    x = pto.tensor([True, False], pto.DT_BOOL)
-    y = pto.tensor([True, True], pto.DT_BOOL)
-    z = pto.logical_and(x, y)
+    x = pypto.tensor([True, False], pypto.DT_BOOL)
+    y = pypto.tensor([True, True], pypto.DT_BOOL)
+    z = pypto.logical_and(x, y)
 
     Input x: [True, False]
     Input y: [True, True]
     Output z: [True, False]
 
     # 支持广播
-    x = pto.tensor([[True, False], [False, True]], pto.DT_BOOL)
-    y = pto.tensor([True, False], pto.DT_BOOL)
-    z = pto.logical_and(x, y)
+    x = pypto.tensor([[True, False], [False, True]], pypto.DT_BOOL)
+    y = pypto.tensor([True, False], pypto.DT_BOOL)
+    z = pypto.logical_and(x, y)
 
     Input x: [[True, False], [False, True]]
     Input y: [True, False]
@@ -1883,8 +1883,8 @@ def one_hot(input: Tensor, num_classes: int) -> Tensor:
 
     Examples
     --------
-    a = pto.tensor([3], pto.DT_INT32)
-    out = pto.one_hot(a, 1)
+    a = pypto.tensor([3], pypto.DT_INT32)
+    out = pypto.one_hot(a, 1)
 
     Input a:    [0 2 4]
     Input num_classes:  5
@@ -1923,9 +1923,9 @@ def minimum(input: Tensor, other: Union[Tensor, Element]) -> Tensor:
 
     Examples
     --------
-    a = pto.tensor([3], pto.DT_INT32)
-    b = pto.tensor([3], pto.DT_INT32)
-    out = pto.minimum(a, b)
+    a = pypto.tensor([3], pypto.DT_INT32)
+    b = pypto.tensor([3], pypto.DT_INT32)
+    out = pypto.minimum(a, b)
 
     Input a:    [0 2 4]
     Input b:    [3 1 3]
@@ -1959,9 +1959,9 @@ def clip(
 
     Examples
     --------
-    a = pto.tensor([3], pto.DT_INT32)
-    b = pto.tensor([3], pto.DT_INT32)
-    out = pto.minimum(a, b)
+    a = pypto.tensor([3], pypto.DT_INT32)
+    b = pypto.tensor([3], pypto.DT_INT32)
+    out = pypto.minimum(a, b)
 
     Input a:    [0 2 4]
     Input b:    [3 1 3]

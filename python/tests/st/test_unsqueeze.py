@@ -10,7 +10,7 @@
 """
 """
 import os
-import pto
+import pypto
 import pytest
 import torch
 import numpy as np
@@ -21,15 +21,15 @@ def test_unsqueeze_shape_dim():
     """Test whether the ouput shape is correct"""
 
     shape = [8, 16, 16]
-    dtype = pto.DT_FP32
-    x = pto.tensor(shape, dtype)
+    dtype = pypto.DT_FP32
+    x = pypto.tensor(shape, dtype)
     dim = 0
-    with pto.function("UNSQUEEZE_SHAPE", x, static=True):
-        pto.set_vec_tile_shapes(8, 8, 8, 8)
+    with pypto.function("UNSQUEEZE_SHAPE", x, static=True):
+        pypto.set_vec_tile_shapes(8, 8, 8, 8)
 
         #Test each valid dim:[-4, -3, -2, -1, 0, 1, 2, 3]
         for dim in range(-4, 4, 1):
-            res = pto.unsqueeze(x, dim)
+            res = pypto.unsqueeze(x, dim)
             torch_case_tensor = torch.randn((8, 16, 16), dtype = torch.float32)
             torch_case_res = torch.unsqueeze(torch_case_tensor, dim)
             assert res.shape == list(torch_case_res.shape)
@@ -39,36 +39,36 @@ def test_unsqueeze_content_equal():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
     shape = [2, 2]
-    dtype = pto.DT_FP32
-    pto.runtime._device_init()
-    x = pto.tensor(shape, dtype)
-    res = pto.tensor([1, 2, 2], dtype)
+    dtype = pypto.DT_FP32
+    pypto.runtime._device_init()
+    x = pypto.tensor(shape, dtype)
+    res = pypto.tensor([1, 2, 2], dtype)
     dim = 0
-    with pto.function("UNSQUEEZE_CONTENT", [x], [res]):
-        for _ in pto.loop(1, name="LOOP_L0", idx_name="a_idx"):
-            pto.set_vec_tile_shapes(2, 2, 2)
-            res.move(pto.unsqueeze(x, dim))
+    with pypto.function("UNSQUEEZE_CONTENT", [x], [res]):
+        for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
+            pypto.set_vec_tile_shapes(2, 2, 2)
+            res.move(pypto.unsqueeze(x, dim))
             del res
 
     torch_case_tensor = torch.rand(2, 2, dtype=torch.float32)
     res_tensor = torch.zeros((1,) + torch_case_tensor.shape, dtype=torch.float32)
 
-    pto.runtime._device_run_once_data_from_host([torch_case_tensor], [res_tensor])
+    pypto.runtime._device_run_once_data_from_host([torch_case_tensor], [res_tensor])
 
     torch_case_res = torch.unsqueeze(torch_case_tensor, dim)
 
     assert torch.equal(res_tensor.flatten(), torch_case_res.flatten())
-    pto.runtime._device_fini()
+    pypto.runtime._device_fini()
 
 def test_tensor_unsqueeze_shape_dim():
     """Test whether the ouput shape is correct"""
 
     shape = [8, 16, 16]
-    dtype = pto.DT_FP32
-    x = pto.tensor(shape, dtype)
+    dtype = pypto.DT_FP32
+    x = pypto.tensor(shape, dtype)
     dim = 1
-    with pto.function("TENSOR_UNSQUEEZE_SHAPE", x, static=True):
-        pto.set_vec_tile_shapes(8, 8, 8, 8)
+    with pypto.function("TENSOR_UNSQUEEZE_SHAPE", x, static=True):
+        pypto.set_vec_tile_shapes(8, 8, 8, 8)
 
         res = x.unsqueeze(dim)
         torch_case_tensor = torch.randn((8, 16, 16), dtype = torch.float32)

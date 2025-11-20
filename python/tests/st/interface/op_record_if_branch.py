@@ -9,15 +9,15 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
-import pto
+import pypto
 
 
 def op_record_if_branch(a, b, c, params):
     tile_shape = params[1]
-    pto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
-    for k in pto.loop(2, name="LOOP", idx_name="k"):
-        if pto.cond(k < 10):
-            c.move(pto.add(a, b))
+    pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
+    for k in pypto.loop(2, name="LOOP", idx_name="k"):
+        if pypto.cond(k < 10):
+            c.move(pypto.add(a, b))
 
 
 def golden_if_branch(a, b):

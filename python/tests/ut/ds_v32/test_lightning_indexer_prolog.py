@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from typing import List, Set
 import logging
 import pytest
-import pto
+import pypto
 
 SHAPE_DIM_2 = 2
 SHAPE_DIM_3 = 3
@@ -66,21 +66,21 @@ class LightningIndexerPrologParams:
 
 @dataclass
 class LightningIndexerPrologArgs:
-    x: pto.Tensor
-    qr: pto.Tensor
-    q_w: pto.Tensor
-    k_w: pto.Tensor
-    proj_w: pto.Tensor
-    ln_w: pto.Tensor
-    ln_b: pto.Tensor
-    cos: pto.Tensor
-    sin: pto.Tensor
-    k_cache: pto.Tensor
-    k_cache_index: pto.Tensor
-    block_table: pto.Tensor
-    query: pto.Tensor
-    weight: pto.Tensor
-    k_cache_out: pto.Tensor
+    x: pypto.Tensor
+    qr: pypto.Tensor
+    q_w: pypto.Tensor
+    k_w: pypto.Tensor
+    proj_w: pypto.Tensor
+    ln_w: pypto.Tensor
+    ln_b: pypto.Tensor
+    cos: pypto.Tensor
+    sin: pypto.Tensor
+    k_cache: pypto.Tensor
+    k_cache_index: pypto.Tensor
+    block_table: pypto.Tensor
+    query: pypto.Tensor
+    weight: pypto.Tensor
+    k_cache_out: pypto.Tensor
     tile_config: LightningIndexerPrologTileConfig
     unroll_list: List[int]
     params: LightningIndexerPrologParams
@@ -128,26 +128,26 @@ class LightningIndexerPrologBuildConfig:
 
 
 def layer_norm(
-    x: pto.Tensor, weight: pto.Tensor, bias: pto.Tensor, dim: int
-) -> pto.Tensor:
+    x: pypto.Tensor, weight: pypto.Tensor, bias: pypto.Tensor, dim: int
+) -> pypto.Tensor:
     assert dim == (len(x.shape) - 1) or dim == -1
-    assert x.dtype == pto.DataType.DT_FP32
+    assert x.dtype == pypto.DataType.DT_FP32
     eps = 1e-6
     actual_dim = dim + len(x.shape) if dim < 0 else dim
     x_scaled = x / (x.shape[actual_dim])
-    mean = pto.sum(x_scaled, -1, True)
+    mean = pypto.sum(x_scaled, -1, True)
     diff = x - mean
     squared_diff = diff * diff
     square_diff_scaled = squared_diff / (x.shape[actual_dim])
-    var = pto.sum(square_diff_scaled, -1, True)
-    std_var = pto.sqrt(var + eps)
+    var = pypto.sum(square_diff_scaled, -1, True)
+    std_var = pypto.sqrt(var + eps)
     res32 = diff / std_var
-    weight32 = pto.cast(weight, pto.DataType.DT_FP32)
-    bias32 = pto.cast(bias, pto.DataType.DT_FP32)
+    weight32 = pypto.cast(weight, pypto.DataType.DT_FP32)
+    bias32 = pypto.cast(bias, pypto.DataType.DT_FP32)
     return res32 * weight32 + bias32
 
 
-def rotate_half(input_tensor: pto.Tensor) -> pto.Tensor:
+def rotate_half(input_tensor: pypto.Tensor) -> pypto.Tensor:
     shape = input_tensor.shape
     shape_size = len(shape)
     assert shape_size >= 1
@@ -156,12 +156,12 @@ def rotate_half(input_tensor: pto.Tensor) -> pto.Tensor:
     offset1 = [0] * shape_size
     offset2 = [0] * shape_size
     offset2[shape_size - 1] = shape[shape_size - 1]
-    x1 = pto.view(input_tensor, shape, offset1)
-    x2 = pto.view(input_tensor, shape, offset2)
-    return pto.concat([x2 * (-1.0), x1 + 0.0], -1)
+    x1 = pypto.view(input_tensor, shape, offset1)
+    x2 = pypto.view(input_tensor, shape, offset2)
+    return pypto.concat([x2 * (-1.0), x1 + 0.0], -1)
 
 
-def rotate_half_valid_shape(input_tensor: pto.Tensor) -> pto.Tensor:
+def rotate_half_valid_shape(input_tensor: pypto.Tensor) -> pypto.Tensor:
     shape = input_tensor.shape
     shape_size = len(shape)
     assert shape_size >= 1
@@ -172,32 +172,32 @@ def rotate_half_valid_shape(input_tensor: pto.Tensor) -> pto.Tensor:
     offset2[shape_size - 1] = shape[shape_size - 1]
     valid_shape = input_tensor.shape
     valid_shape[shape_size - 1] //= NUM_2
-    x1 = pto.view(input_tensor, shape, offset1, valid_shape=valid_shape)
-    x2 = pto.view(input_tensor, shape, offset2, valid_shape=valid_shape)
-    return pto.concat([x2 * (-1.0), x1 + 0.0], -1)
+    x1 = pypto.view(input_tensor, shape, offset1, valid_shape=valid_shape)
+    x2 = pypto.view(input_tensor, shape, offset2, valid_shape=valid_shape)
+    return pypto.concat([x2 * (-1.0), x1 + 0.0], -1)
 
 
 def rope_3d(
-    x: pto.Tensor,
-    cos: pto.Tensor,
-    sin: pto.Tensor,
+    x: pypto.Tensor,
+    cos: pypto.Tensor,
+    sin: pypto.Tensor,
     tile_config: LightningIndexerPrologTileConfig,
-) -> pto.Tensor:
+) -> pypto.Tensor:
     assert (
         len(x.shape) == SHAPE_DIM_3
         and len(cos.shape) == SHAPE_DIM_2
         and len(sin.shape) == SHAPE_DIM_2
     )
-    pto.set_vec_tile_shapes(NUM_1, NUM_32, NUM_128)
-    cast_x = pto.cast(x, pto.DataType.DT_FP32)
-    if x.dtype == pto.DataType.DT_FP32:
+    pypto.set_vec_tile_shapes(NUM_1, NUM_32, NUM_128)
+    cast_x = pypto.cast(x, pypto.DataType.DT_FP32)
+    if x.dtype == pypto.DataType.DT_FP32:
         cast_x = cast_x + 0.0
-    cast_cos = pto.cast(cos, pto.DataType.DT_FP32)
-    cast_sin = pto.cast(sin, pto.DataType.DT_FP32)
-    cast_cos[:] = pto.reshape(cast_cos, [x.shape[NUM_0], 1, x.shape[NUM_2]])
-    cast_sin[:] = pto.reshape(cast_sin, [x.shape[NUM_0], 1, x.shape[NUM_2]])
+    cast_cos = pypto.cast(cos, pypto.DataType.DT_FP32)
+    cast_sin = pypto.cast(sin, pypto.DataType.DT_FP32)
+    cast_cos[:] = pypto.reshape(cast_cos, [x.shape[NUM_0], 1, x.shape[NUM_2]])
+    cast_sin[:] = pypto.reshape(cast_sin, [x.shape[NUM_0], 1, x.shape[NUM_2]])
     x_valid_shape = x.shape
-    x_view = pto.reshape(
+    x_view = pypto.reshape(
         cast_x,
         [x.shape[NUM_0], x.shape[NUM_1], x.shape[NUM_2] // NUM_2, NUM_2],
         valid_shape=[
@@ -207,20 +207,20 @@ def rope_3d(
             NUM_2,
         ],
     )
-    pto.set_vec_tile_shapes(NUM_1, NUM_32, NUM_128, NUM_128)
-    x_trans = pto.transpose(x_view, NUM_2, NUM_3)
-    x_re_second = pto.reshape(x_trans, x.shape, valid_shape=x_valid_shape)
-    pto.set_vec_tile_shapes(NUM_1, NUM_32, NUM_128, NUM_128)
+    pypto.set_vec_tile_shapes(NUM_1, NUM_32, NUM_128, NUM_128)
+    x_trans = pypto.transpose(x_view, NUM_2, NUM_3)
+    x_re_second = pypto.reshape(x_trans, x.shape, valid_shape=x_valid_shape)
+    pypto.set_vec_tile_shapes(NUM_1, NUM_32, NUM_128, NUM_128)
     x_embed = x_re_second * cast_cos + rotate_half_valid_shape(x_re_second) * cast_sin
-    return pto.cast(x_embed, x.dtype)
+    return pypto.cast(x_embed, x.dtype)
 
 
 def rope(
-    x: pto.Tensor,
-    cos: pto.Tensor,
-    sin: pto.Tensor,
+    x: pypto.Tensor,
+    cos: pypto.Tensor,
+    sin: pypto.Tensor,
     tile_config: LightningIndexerPrologTileConfig,
-) -> pto.Tensor:
+) -> pypto.Tensor:
     assert (
         len(x.shape) == SHAPE_DIM_2
         and len(cos.shape) == SHAPE_DIM_2
@@ -229,30 +229,30 @@ def rope(
     seq_size = x.shape[NUM_0]
     d_r = x.shape[NUM_1]
     x_dtype = x.dtype
-    pto.set_vec_tile_shapes(
+    pypto.set_vec_tile_shapes(
         tile_config.rope_2d[NUM_0],
         tile_config.rope_2d[NUM_1],
     )
-    cast_x = pto.cast(x, pto.DataType.DT_FP32)
-    if x_dtype == pto.DataType.DT_FP32:
+    cast_x = pypto.cast(x, pypto.DataType.DT_FP32)
+    if x_dtype == pypto.DataType.DT_FP32:
         cast_x = cast_x + 0.0
-    cast_cos = pto.cast(cos, pto.DataType.DT_FP32)
-    cast_sin = pto.cast(sin, pto.DataType.DT_FP32)
-    x_view = pto.reshape(cast_x, [1, seq_size, d_r // NUM_2, NUM_2])
-    pto.set_vec_tile_shapes(
+    cast_cos = pypto.cast(cos, pypto.DataType.DT_FP32)
+    cast_sin = pypto.cast(sin, pypto.DataType.DT_FP32)
+    x_view = pypto.reshape(cast_x, [1, seq_size, d_r // NUM_2, NUM_2])
+    pypto.set_vec_tile_shapes(
         tile_config.rope_4d[0],
         tile_config.rope_4d[1],
         tile_config.rope_4d[2],
         tile_config.rope_4d[3],
     )
-    x_trans = pto.transpose(x_view, NUM_2, NUM_3)
-    x_re_second = pto.reshape(x_trans, [seq_size, d_r])
-    pto.set_vec_tile_shapes(
+    x_trans = pypto.transpose(x_view, NUM_2, NUM_3)
+    x_re_second = pypto.reshape(x_trans, [seq_size, d_r])
+    pypto.set_vec_tile_shapes(
         tile_config.rope_2d[NUM_0],
         tile_config.rope_2d[NUM_1],
     )
     x_embed = x_re_second * cast_cos + rotate_half(x_re_second) * cast_sin
-    return pto.cast(x_embed, x_dtype)
+    return pypto.cast(x_embed, x_dtype)
 
 
 def lightning_indexer_prolog_impl(args: LightningIndexerPrologArgs):
@@ -283,22 +283,22 @@ def lightning_indexer_prolog_impl(args: LightningIndexerPrologArgs):
     dim = params.dim
     head_num = params.head_num
 
-    x_2d = pto.tensor(dtype=x.dtype, shape=[b * seq, dim], name="x_2d")
-    qr_2d = pto.tensor(dtype=qr.dtype, shape=[b * seq, q_lora_rank], name="qr_2d")
-    cos_2d = pto.tensor(dtype=cos.dtype, shape=[b * seq, rope_head_dim], name="cos_2d")
-    sin_2d = pto.tensor(dtype=sin.dtype, shape=[b * seq, rope_head_dim], name="sin_2d")
-    ln_w_2d = pto.tensor(dtype=ln_w.dtype, shape=[1, ln_w.shape[0]], name="ln_w_2d")
-    ln_b_2d = pto.tensor(dtype=ln_b.dtype, shape=[1, ln_b.shape[0]], name="ln_b_2d")
+    x_2d = pypto.tensor(dtype=x.dtype, shape=[b * seq, dim], name="x_2d")
+    qr_2d = pypto.tensor(dtype=qr.dtype, shape=[b * seq, q_lora_rank], name="qr_2d")
+    cos_2d = pypto.tensor(dtype=cos.dtype, shape=[b * seq, rope_head_dim], name="cos_2d")
+    sin_2d = pypto.tensor(dtype=sin.dtype, shape=[b * seq, rope_head_dim], name="sin_2d")
+    ln_w_2d = pypto.tensor(dtype=ln_w.dtype, shape=[1, ln_w.shape[0]], name="ln_w_2d")
+    ln_b_2d = pypto.tensor(dtype=ln_b.dtype, shape=[1, ln_b.shape[0]], name="ln_b_2d")
 
-    for _ in pto.loop(0, 1, 1, name="LOOP_RESHAPE_IN", idx_name="dummy"):
-        x_2d[:] = pto.reshape(x, [b * seq, dim], inplace=True)
-        qr_2d[:] = pto.reshape(qr, [b * seq, q_lora_rank], inplace=True)
-        cos_2d[:] = pto.reshape(cos, [b * seq, rope_head_dim], inplace=True)
-        sin_2d[:] = pto.reshape(sin, [b * seq, rope_head_dim], inplace=True)
-        ln_w_2d[:] = pto.reshape(ln_w, [1, ln_w.shape[0]], inplace=True)
-        ln_b_2d[:] = pto.reshape(ln_b, [1, ln_w.shape[0]], inplace=True)
+    for _ in pypto.loop(0, 1, 1, name="LOOP_RESHAPE_IN", idx_name="dummy"):
+        x_2d[:] = pypto.reshape(x, [b * seq, dim], inplace=True)
+        qr_2d[:] = pypto.reshape(qr, [b * seq, q_lora_rank], inplace=True)
+        cos_2d[:] = pypto.reshape(cos, [b * seq, rope_head_dim], inplace=True)
+        sin_2d[:] = pypto.reshape(sin, [b * seq, rope_head_dim], inplace=True)
+        ln_w_2d[:] = pypto.reshape(ln_w, [1, ln_w.shape[0]], inplace=True)
+        ln_b_2d[:] = pypto.reshape(ln_b, [1, ln_w.shape[0]], inplace=True)
 
-    for b_idx, unroll_length in pto.loop_unroll(
+    for b_idx, unroll_length in pypto.loop_unroll(
         0,
         b * seq,
         1,
@@ -311,42 +311,42 @@ def lightning_indexer_prolog_impl(args: LightningIndexerPrologArgs):
             tile_bs = unroll_length
             act_bs = tile_bs
 
-            pto.set_semantic_label("QMatmul")
-            pto.set_cube_tile_shapes(
+            pypto.set_semantic_label("QMatmul")
+            pypto.set_cube_tile_shapes(
                 tile_cfg.c1_tile[0],
                 tile_cfg.c1_tile[1],
                 tile_cfg.c1_tile[2],
                 True,
             )
 
-            qr_block = pto.view(
+            qr_block = pypto.view(
                 qr_2d,
                 [tile_bs, q_lora_rank],
                 [b_idx, 0],
                 valid_shape=[act_bs, q_lora_rank],
             )
 
-            q_32 = pto.matmul(qr_block, q_w, pto.DataType.DT_FP32)
+            q_32 = pypto.matmul(qr_block, q_w, pypto.DataType.DT_FP32)
 
-            pto.set_semantic_label("QCast")
-            pto.set_vec_tile_shapes(
-                pto.symbolic_scalar(tile_bs).min(4),
+            pypto.set_semantic_label("QCast")
+            pypto.set_vec_tile_shapes(
+                pypto.symbolic_scalar(tile_bs).min(4),
                 NUM_64,
                 tile_cfg.v1_tile[NUM_1],
             )
 
-            q = pto.cast(
-                pto.reshape(q_32, [tile_bs, head_num, head_dim]),
+            q = pypto.cast(
+                pypto.reshape(q_32, [tile_bs, head_num, head_dim]),
                 qr_block.dtype,
             )
 
-            q_rope = pto.view(
+            q_rope = pypto.view(
                 q,
                 [tile_bs, head_num, rope_head_dim],
                 [0, 0, 0],
                 valid_shape=[act_bs, head_num, rope_head_dim],
             )
-            q_nope = pto.view(
+            q_nope = pypto.view(
                 q,
                 [tile_bs, head_num, head_dim - rope_head_dim],
                 [0, 0, rope_head_dim],
@@ -357,48 +357,48 @@ def lightning_indexer_prolog_impl(args: LightningIndexerPrologArgs):
                 ],
             )
 
-            q_nope[:] = pto.cast(
-                pto.cast(q_nope, pto.DataType.DT_FP32), q_nope.dtype
+            q_nope[:] = pypto.cast(
+                pypto.cast(q_nope, pypto.DataType.DT_FP32), q_nope.dtype
             )
 
-            pto.set_semantic_label("KMatmul")
-            pto.set_cube_tile_shapes(
+            pypto.set_semantic_label("KMatmul")
+            pypto.set_cube_tile_shapes(
                 tile_cfg.c2_tile[0],
                 tile_cfg.c2_tile[1],
                 tile_cfg.c2_tile[2],
                 True,
             )
 
-            pto.set_vec_tile_shapes(
+            pypto.set_vec_tile_shapes(
                 tile_cfg.v1_tile[NUM_0],
                 tile_cfg.v1_tile[NUM_1],
                 tile_cfg.v1_tile[NUM_1],
             )
 
-            x_block = pto.view(
+            x_block = pypto.view(
                 x_2d,
                 [tile_bs, dim],
                 [b_idx, 0],
                 valid_shape=[act_bs, dim],
             )
 
-            weights = pto.matmul(x_block, proj_w, x_block.dtype)
-            pto.assemble(weights, [b_idx, 0], weight)
+            weights = pypto.matmul(x_block, proj_w, x_block.dtype)
+            pypto.assemble(weights, [b_idx, 0], weight)
 
-            k = pto.matmul(x_block, k_w, pto.DataType.DT_FP32)
+            k = pypto.matmul(x_block, k_w, pypto.DataType.DT_FP32)
 
-            k[:] = pto.cast(
+            k[:] = pypto.cast(
                 layer_norm(k, ln_w_2d, ln_b_2d, -1),
                 x_block.dtype,
             )
 
-            k_rope = pto.view(
+            k_rope = pypto.view(
                 k,
                 [tile_bs, rope_head_dim],
                 [0, 0],
                 valid_shape=[act_bs, rope_head_dim],
             )
-            k_nope = pto.view(
+            k_nope = pypto.view(
                 k,
                 [tile_bs, head_dim - rope_head_dim],
                 [0, rope_head_dim],
@@ -408,25 +408,25 @@ def lightning_indexer_prolog_impl(args: LightningIndexerPrologArgs):
                 ],
             )
 
-            pto.set_vec_tile_shapes(
+            pypto.set_vec_tile_shapes(
                 tile_cfg.v1_tile[NUM_0],
                 tile_cfg.v1_tile[NUM_1],
                 tile_cfg.v1_tile[NUM_2],
             )
-            cos_2d[:] = pto.view(
+            cos_2d[:] = pypto.view(
                 cos_2d,
                 [tile_bs, rope_head_dim],
                 [b_idx, 0],
                 valid_shape=[act_bs, rope_head_dim],
             )
-            sin_2d[:] = pto.view(
+            sin_2d[:] = pypto.view(
                 sin_2d,
                 [tile_bs, rope_head_dim],
                 [b_idx, 0],
                 valid_shape=[act_bs, rope_head_dim],
             )
 
-            pto.set_semantic_label("QRope")
+            pypto.set_semantic_label("QRope")
             q_roped = rope_3d(
                 q_rope,
                 cos_2d,
@@ -434,8 +434,8 @@ def lightning_indexer_prolog_impl(args: LightningIndexerPrologArgs):
                 tile_cfg,
             )
 
-            pto.set_semantic_label("KRope")
-            pto.set_vec_tile_shapes(
+            pypto.set_semantic_label("KRope")
+            pypto.set_vec_tile_shapes(
                 tile_cfg.v1_tile[NUM_0],
                 tile_cfg.v1_tile[NUM_1],
             )
@@ -446,51 +446,51 @@ def lightning_indexer_prolog_impl(args: LightningIndexerPrologArgs):
                 tile_cfg,
             )
 
-            pto.set_semantic_label("KAssemble")
-            pto.set_vec_tile_shapes(
+            pypto.set_semantic_label("KAssemble")
+            pypto.set_vec_tile_shapes(
                 tile_bs,
                 NUM_128,
                 NUM_128,
                 NUM_128,
             )
-            pto.assemble(
+            pypto.assemble(
                 q_roped,
                 [b_idx, 0, 0],
                 query,
             )
-            pto.assemble(
+            pypto.assemble(
                 q_nope,
                 [b_idx, 0, rope_head_dim],
                 query,
             )
 
-            pto.set_vec_tile_shapes(tile_bs, NUM_128 * NUM_2)
+            pypto.set_vec_tile_shapes(tile_bs, NUM_128 * NUM_2)
             k_type = k_nope.dtype
-            k_nope[:] = pto.cast(
-                pto.cast(k_nope, pto.DataType.DT_FP32),
+            k_nope[:] = pypto.cast(
+                pypto.cast(k_nope, pypto.DataType.DT_FP32),
                 k_type,
             )
 
-            k_update = pto.concat([k_roped, k_nope], -1)
-            k_update_4d = pto.reshape(
+            k_update = pypto.concat([k_roped, k_nope], -1)
+            k_update_4d = pypto.reshape(
                 k_update,
                 [tile_bs, 1, 1, head_dim],
             )
 
-            index = pto.view(
+            index = pypto.view(
                 k_cache_index,
                 [tile_bs, 1],
                 [b_idx, 0],
                 valid_shape=[act_bs, 1],
             )
 
-            pto.set_vec_tile_shapes(
+            pypto.set_vec_tile_shapes(
                 tile_bs,
                 NUM_128,
                 NUM_128,
                 NUM_128,
             )
-            k_cache_out[:] = pto.scatter_update(
+            k_cache_out[:] = pypto.scatter_update(
                 k_cache,
                 -2,
                 index,
@@ -518,7 +518,7 @@ def lightning_indexer_prolog_inner(args: LightningIndexerPrologArgs):
     output_tensors = [args.query, args.weight]
     inplace_tensors = [[args.k_cache_out, args.k_cache]]
 
-    with pto.function(
+    with pypto.function(
         "LightningIndexerProlog",
         input_tensors,
         output_tensors,
@@ -532,8 +532,8 @@ def lightning_indexer_prolog_inner(args: LightningIndexerPrologArgs):
 
 
 def setup_lightning_indexer_prolog_config():
-    pto.set_codegen_options(support_dynamic_unaligned=True)
-    pto.set_pass_options(nbuffer_merge_mode=NUM_1,
+    pypto.set_codegen_options(support_dynamic_unaligned=True)
+    pypto.set_pass_options(nbuffer_merge_mode=NUM_1,
                          l1_reuse=NUM_4,
                          cube_nbuffer_map={NUM_3: NUM_4},
                          copyin_threshold=NUM_2 * NUM_1024 * NUM_1024)
@@ -542,77 +542,77 @@ def setup_lightning_indexer_prolog_config():
 def build_lightning_indexer_prolog_args(
     cfg: LightningIndexerPrologBuildConfig = LightningIndexerPrologBuildConfig(),
 ):
-    d_bf16 = pto.DataType.DT_BF16
-    d_i32 = pto.DataType.DT_INT32
+    d_bf16 = pypto.DataType.DT_BF16
+    d_i32 = pypto.DataType.DT_INT32
 
-    x = pto.tensor(dtype=d_bf16, shape=[cfg.b, cfg.s1, cfg.dim], name="x")
-    qr = pto.tensor(
+    x = pypto.tensor(dtype=d_bf16, shape=[cfg.b, cfg.s1, cfg.dim], name="x")
+    qr = pypto.tensor(
         dtype=d_bf16,
         shape=[cfg.b, cfg.s1, cfg.q_lora_rank],
         name="qr",
     )
-    q_w = pto.tensor(
+    q_w = pypto.tensor(
         dtype=d_bf16,
         shape=[cfg.q_lora_rank, cfg.head_num * cfg.head_dim],
         name="q_w",
     )
-    k_w = pto.tensor(
+    k_w = pypto.tensor(
         dtype=d_bf16,
         shape=[cfg.dim, cfg.head_dim],
         name="k_w",
     )
-    proj_w = pto.tensor(
+    proj_w = pypto.tensor(
         dtype=d_bf16,
         shape=[cfg.dim, cfg.head_num],
         name="proj_w",
     )
-    ln_w = pto.tensor(
+    ln_w = pypto.tensor(
         dtype=d_bf16,
         shape=[cfg.head_dim],
         name="ln_w",
     )
-    ln_b = pto.tensor(
+    ln_b = pypto.tensor(
         dtype=d_bf16,
         shape=[cfg.head_dim],
         name="ln_b",
     )
-    cos = pto.tensor(
+    cos = pypto.tensor(
         dtype=d_bf16,
         shape=[cfg.b, cfg.s1, cfg.rope_head_dim],
         name="cos",
     )
-    sin = pto.tensor(
+    sin = pypto.tensor(
         dtype=d_bf16,
         shape=[cfg.b, cfg.s1, cfg.rope_head_dim],
         name="sin",
     )
-    k_cache = pto.tensor(
+    k_cache = pypto.tensor(
         dtype=d_bf16,
         shape=[cfg.block_num, cfg.block_size, cfg.n_kv, cfg.head_dim],
         name="k_cache",
     )
-    k_cache_index = pto.tensor(
+    k_cache_index = pypto.tensor(
         dtype=d_i32,
         shape=[cfg.b, cfg.s1],
         name="k_cache_index",
     )
-    block_table = pto.tensor(
+    block_table = pypto.tensor(
         dtype=d_i32,
         shape=[cfg.b, cfg.s2_tile // cfg.block_size],
         name="block_table",
     )
 
-    query = pto.tensor(
+    query = pypto.tensor(
         dtype=d_bf16,
         shape=[cfg.b * cfg.s1, cfg.head_num, cfg.head_dim],
         name="qOut",
     )
-    weight = pto.tensor(
+    weight = pypto.tensor(
         dtype=d_bf16,
         shape=[cfg.b * cfg.s1, cfg.head_num],
         name="weightOut",
     )
-    k_cache_out = pto.tensor(
+    k_cache_out = pypto.tensor(
         dtype=d_bf16,
         shape=[cfg.block_num, cfg.block_size, cfg.n_kv, cfg.head_dim],
         name="kCacheOut",

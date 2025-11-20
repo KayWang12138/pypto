@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from typing import List, Set, Optional
 import logging
 import pytest
-import pto
+import pypto
 
 SHAPE_DIM0 = 0
 SHAPE_DIM1 = 1
@@ -66,16 +66,16 @@ class LightningIndexerParams:
 
 @dataclass
 class LightningIndexerInputs:
-    query: pto.Tensor
-    key: pto.Tensor
-    weights: pto.Tensor
-    act_seq_key: pto.Tensor
-    block_table: pto.Tensor
-    topk_res: pto.Tensor
-    q_scale: Optional[pto.Tensor]
-    k_scale: Optional[pto.Tensor]
-    tmp_out: Optional[pto.Tensor]
-    topk_value: Optional[pto.Tensor]
+    query: pypto.Tensor
+    key: pypto.Tensor
+    weights: pypto.Tensor
+    act_seq_key: pypto.Tensor
+    block_table: pypto.Tensor
+    topk_res: pypto.Tensor
+    q_scale: Optional[pypto.Tensor]
+    k_scale: Optional[pypto.Tensor]
+    tmp_out: Optional[pypto.Tensor]
+    topk_value: Optional[pypto.Tensor]
     tile_config: LightningIndexerTileConfig
     unroll_list: Set[int]
     params: LightningIndexerParams
@@ -108,7 +108,7 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
     n2 = key.shape[SHAPE_DIM2]
 
     qk_dtype = query.dtype
-    scale_dtype = q_scale.dtype if is_quant else pto.DataType.DT_FP16
+    scale_dtype = q_scale.dtype if is_quant else pypto.DataType.DT_FP16
     w_dtype = weights.dtype
 
     group = index_n1 // n2
@@ -119,40 +119,40 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
     max_n2 = NUM_1
     max_s2 = NUM_128 * NUM_1024
 
-    query_2d = pto.tensor([b * s1 * index_n1, index_d], qk_dtype, "query2D")
-    key_2d = pto.tensor([block_num * block_size, n2 * index_d], qk_dtype, "key2D")
-    q_scale_2d = pto.tensor([b * s1 * index_n1, 1], scale_dtype, "qScale2D")
-    k_scale_2d = pto.tensor([block_num * block_size, n2], scale_dtype, "kScale2D")
-    weight_2d = pto.tensor([b * s1 * index_n1, 1], w_dtype, "weight2D")
-    local_sum = pto.tensor(
+    query_2d = pypto.tensor([b * s1 * index_n1, index_d], qk_dtype, "query2D")
+    key_2d = pypto.tensor([block_num * block_size, n2 * index_d], qk_dtype, "key2D")
+    q_scale_2d = pypto.tensor([b * s1 * index_n1, 1], scale_dtype, "qScale2D")
+    k_scale_2d = pypto.tensor([block_num * block_size, n2], scale_dtype, "kScale2D")
+    weight_2d = pypto.tensor([b * s1 * index_n1, 1], w_dtype, "weight2D")
+    local_sum = pypto.tensor(
         [max_batch * max_s1 * max_n2, max_s2],
-        pto.DataType.DT_FP32,
+        pypto.DataType.DT_FP32,
         "localSum",
     )
 
-    for _ in pto.loop(0, 1, 1, name="INPUT_4D_2_2D", idx_name="unUsedIdx"):
-        query_2d[:] = pto.reshape(query, [b * s1 * index_n1, index_d], inplace=True)
-        key_2d[:] = pto.reshape(
+    for _ in pypto.loop(0, 1, 1, name="INPUT_4D_2_2D", idx_name="unUsedIdx"):
+        query_2d[:] = pypto.reshape(query, [b * s1 * index_n1, index_d], inplace=True)
+        key_2d[:] = pypto.reshape(
             key, [block_num * block_size, n2 * index_d], inplace=True
         )
-        weight_2d[:] = pto.reshape(weights, [b * s1 * index_n1, 1], inplace=True)
+        weight_2d[:] = pypto.reshape(weights, [b * s1 * index_n1, 1], inplace=True)
         if is_quant:
-            q_scale_2d[:] = pto.reshape(q_scale, [b * s1 * index_n1, 1], inplace=True)
-            k_scale_2d[:] = pto.reshape(
+            q_scale_2d[:] = pypto.reshape(q_scale, [b * s1 * index_n1, 1], inplace=True)
+            k_scale_2d[:] = pypto.reshape(
                 k_scale, [block_num * block_size, n2], inplace=True
             )
 
-    for b_idx in pto.loop(0, b, 1, name="INDEX_LOOP_BATCH", idx_name="bIdx"):
+    for b_idx in pypto.loop(0, b, 1, name="INDEX_LOOP_BATCH", idx_name="bIdx"):
 
         def _inside_b(b_idx):
             cur_seq = act_seq_key[b_idx]
-            for s1_idx in pto.loop(0, s1, 1, name="INDEX_LOOP_S1", idx_name="s1Idx"):
+            for s1_idx in pypto.loop(0, s1, 1, name="INDEX_LOOP_S1", idx_name="s1Idx"):
 
                 def _inside_s1(s1_idx):
                     causal_offset = s1 - s1_idx - 1
                     eff_seq = cur_seq - causal_offset
                     act_block = (eff_seq + block_size - 1) // block_size
-                    for n2_idx in pto.loop(
+                    for n2_idx in pypto.loop(
                         0, n2, 1, name="INDEX_LOOP_N2", idx_name="n2Idx"
                     ):
 
@@ -166,7 +166,7 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
 
                             def unrolling_process(
                                 unroll_length: int,
-                                first_block_idx: pto.symbolic_scalar,
+                                first_block_idx: pypto.symbolic_scalar,
                                 b_idx,
                                 s1_idx,
                                 n2_idx,
@@ -174,7 +174,7 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
                                 bs1n2_offset,
                                 q_offset,
                             ):
-                                cur_q = pto.view(
+                                cur_q = pypto.view(
                                     query_2d, [group, index_d], [q_offset, 0]
                                 )
 
@@ -184,12 +184,12 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
                                     block_idx = first_block_idx + sub_block_idx
                                     cur_block_idx = block_table[b_idx, block_idx]
 
-                                    cur_k = pto.view(
+                                    cur_k = pypto.view(
                                         key_2d,
                                         [block_size, index_d],
                                         [cur_block_idx * block_size, n2_idx * index_d],
                                         valid_shape=[
-                                            pto.min(
+                                            pypto.min(
                                                 block_size,
                                                 eff_seq - (block_idx * block_size),
                                             ),
@@ -197,39 +197,39 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
                                         ],
                                     )
 
-                                    pto.set_cube_tile_shapes(
+                                    pypto.set_cube_tile_shapes(
                                         c1_tile[0], c1_tile[1], c1_tile[2], False
                                     )
 
-                                    mm_res = pto.matmul(
+                                    mm_res = pypto.matmul(
                                         cur_q,
                                         cur_k,
-                                        pto.DT_FP32,
+                                        pypto.DT_FP32,
                                         a_trans=False,
                                         b_trans=True,
                                     )
                                     concat_srcs.append(mm_res)
 
-                                pto.set_vec_tile_shapes(*tile_config.weight_tile)
+                                pypto.set_vec_tile_shapes(*tile_config.weight_tile)
 
-                                cur_w = pto.view(weight_2d, [group, 1], [q_offset, 0])
-                                w_b32 = pto.cast(cur_w, pto.DT_FP32)
+                                cur_w = pypto.view(weight_2d, [group, 1], [q_offset, 0])
+                                w_b32 = pypto.cast(cur_w, pypto.DT_FP32)
 
-                                mm_res_cat = pto.concat(concat_srcs, -1)
+                                mm_res_cat = pypto.concat(concat_srcs, -1)
 
-                                pto.set_vec_tile_shapes(*tile_config.v1_tile)
+                                pypto.set_vec_tile_shapes(*tile_config.v1_tile)
 
-                                relu_res = pto.maximum(mm_res_cat, 0.0)
+                                relu_res = pypto.maximum(mm_res_cat, 0.0)
                                 mul_res = relu_res * w_b32
-                                sum_res = pto.sum(mul_res, 0)
+                                sum_res = pypto.sum(mul_res, 0)
 
-                                pto.assemble(
+                                pypto.assemble(
                                     sum_res,
                                     [bs1n2_offset, first_block_idx * block_size],
                                     local_sum,
                                 )
                                 if tmp_out is not None:
-                                    pto.assemble(
+                                    pypto.assemble(
                                         sum_res,
                                         [bs1n2_offset, first_block_idx * block_size],
                                         tmp_out,
@@ -237,7 +237,7 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
 
                             def unrolling_process_quant(
                                 unroll_length: int,
-                                first_block_idx: pto.symbolic_scalar,
+                                first_block_idx: pypto.symbolic_scalar,
                                 b_idx,
                                 s1_idx,
                                 n2_idx,
@@ -245,10 +245,10 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
                                 bs1n2_offset,
                                 q_offset,
                             ):
-                                cur_q = pto.view(
+                                cur_q = pypto.view(
                                     query_2d, [group, index_d], [q_offset, 0]
                                 )
-                                cur_q_scale = pto.view(
+                                cur_q_scale = pypto.view(
                                     q_scale_2d, [group, 1], [q_offset, 0]
                                 )
 
@@ -259,12 +259,12 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
                                     block_idx = first_block_idx + sub_block_idx
                                     cur_block_idx = block_table[b_idx, block_idx]
 
-                                    cur_k = pto.view(
+                                    cur_k = pypto.view(
                                         key_2d,
                                         [block_size, index_d],
                                         [cur_block_idx * block_size, n2_idx * index_d],
                                         valid_shape=[
-                                            pto.min(
+                                            pypto.min(
                                                 block_size,
                                                 eff_seq - (block_idx * block_size),
                                             ),
@@ -272,25 +272,25 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
                                         ],
                                     )
 
-                                    pto.set_cube_tile_shapes(
+                                    pypto.set_cube_tile_shapes(
                                         c1_tile[0], c1_tile[1], c1_tile[2], False
                                     )
 
-                                    mm_res = pto.matmul(
+                                    mm_res = pypto.matmul(
                                         cur_q,
                                         cur_k,
-                                        pto.DataType.DT_INT32,
+                                        pypto.DataType.DT_INT32,
                                         a_trans=False,
                                         b_trans=True,
                                     )
                                     mm_res_quant_concat_srcs.append(mm_res)
 
-                                    cur_k_scale = pto.view(
+                                    cur_k_scale = pypto.view(
                                         k_scale_2d,
                                         [block_size, 1],
                                         [cur_block_idx * block_size, n2_idx],
                                         valid_shape=[
-                                            pto.min(
+                                            pypto.min(
                                                 block_size,
                                                 eff_seq - (block_idx * block_size),
                                             ),
@@ -299,49 +299,49 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
                                     )
                                     k_scale_concat_srcs.append(cur_k_scale)
 
-                                pto.set_vec_tile_shapes(*tile_config.weight_tile)
+                                pypto.set_vec_tile_shapes(*tile_config.weight_tile)
 
-                                cur_w = pto.view(weight_2d, [group, 1], [q_offset, 0])
-                                w_f16 = pto.cast(cur_w, pto.DataType.DT_FP16)
+                                cur_w = pypto.view(weight_2d, [group, 1], [q_offset, 0])
+                                w_f16 = pypto.cast(cur_w, pypto.DataType.DT_FP16)
 
-                                pto.set_vec_tile_shapes(*tile_config.v1_tile)
+                                pypto.set_vec_tile_shapes(*tile_config.v1_tile)
 
-                                cur_k_scale = pto.concat(k_scale_concat_srcs, 0)
-                                mm_res_i32 = pto.concat(mm_res_quant_concat_srcs, -1)
+                                cur_k_scale = pypto.concat(k_scale_concat_srcs, 0)
+                                mm_res_i32 = pypto.concat(mm_res_quant_concat_srcs, -1)
                                 mm_res_fp32 = (
-                                    pto.cast(mm_res_i32, pto.DataType.DT_FP32)
+                                    pypto.cast(mm_res_i32, pypto.DataType.DT_FP32)
                                     * AVOID_FP32_TO_FP16_OVERFLOW_SCALE
                                 )
-                                mm_res_fp16 = pto.cast(
-                                    mm_res_fp32, pto.DataType.DT_FP16
+                                mm_res_fp16 = pypto.cast(
+                                    mm_res_fp32, pypto.DataType.DT_FP16
                                 )
                                 mm_res_dequant = (
                                     mm_res_fp16
                                     * cur_q_scale
-                                    * pto.transpose(cur_k_scale, 0, 1)
+                                    * pypto.transpose(cur_k_scale, 0, 1)
                                 )
-                                relu_res = pto.maximum(mm_res_dequant, 0.0)
+                                relu_res = pypto.maximum(mm_res_dequant, 0.0)
                                 mul_res = relu_res * w_f16
 
-                                sum_res = pto.sum(
-                                    pto.cast(mul_res, pto.DataType.DT_FP32),
+                                sum_res = pypto.sum(
+                                    pypto.cast(mul_res, pypto.DataType.DT_FP32),
                                     0,
                                     True
                                 )
 
-                                pto.assemble(
+                                pypto.assemble(
                                     sum_res,
                                     [bs1n2_offset, first_block_idx * block_size],
                                     local_sum,
                                 )
                                 if tmp_out is not None:
-                                    pto.assemble(
+                                    pypto.assemble(
                                         sum_res,
                                         [bs1n2_offset, first_block_idx * block_size],
                                         tmp_out,
                                     )
 
-                            for loop_block_idx, unroll_length in pto.loop_unroll(
+                            for loop_block_idx, unroll_length in pypto.loop_unroll(
                                 0,
                                 act_block,
                                 1,
@@ -396,9 +396,9 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
     length_64k = NUM_1024 * NUM_64
     length_128k = max_s2
 
-    pto.set_vec_tile_shapes(1, tile_size)
+    pypto.set_vec_tile_shapes(1, tile_size)
 
-    for bs1n2_offset in pto.loop(
+    for bs1n2_offset in pypto.loop(
         0,
         b * s1 * n2,
         1,
@@ -418,38 +418,38 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
             length_is_le2k = eff_seq <= length_2k
             length_is_gt2k = eff_seq > length_2k
 
-            pad_x_2k = pto.tensor(
+            pad_x_2k = pypto.tensor(
                 [max_batch * max_s1 * max_n2, length_2k],
                 x_dtype,
                 "padX2K",
             )
-            pto.set_vec_tile_shapes(1, tile_size)
+            pypto.set_vec_tile_shapes(1, tile_size)
 
-            for unused in pto.loop(
+            for unused in pypto.loop(
                 0, length_is_le2k, 1, name="2K_LOOP", idx_name="unused"
             ):
 
                 def _inside_2k(unused):
-                    pto.set_pass_options(sg_skip_partition=True)
+                    pypto.set_pass_options(sg_skip_partition=True)
 
-                    for unused1 in pto.loop(0, 1, 1, name="2K_PAD", idx_name="unused1"):
+                    for unused1 in pypto.loop(0, 1, 1, name="2K_PAD", idx_name="unused1"):
 
                         def _inside_2k_pad(unused1):
-                            pto.set_vec_tile_shapes(1, length_2k)
+                            pypto.set_vec_tile_shapes(1, length_2k)
 
-                            eff_sum_res = pto.view(
+                            eff_sum_res = pypto.view(
                                 local_sum,
                                 [1, length_2k],
                                 [bs1n2_offset, 0],
                                 valid_shape=[1, eff_seq],
                             )
-                            ax = pto.view(
+                            ax = pypto.view(
                                 eff_sum_res,
                                 [1, length_2k],
                                 [0, 0],
                                 valid_shape=[1, eff_seq],
                             )
-                            bx = pto.full(
+                            bx = pypto.full(
                                 [1, length_2k],
                                 pad_value,
                                 x_dtype,
@@ -459,12 +459,12 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
                                 ],
                             )
 
-                            pto.assemble(
-                                pto.clone(ax),
+                            pypto.assemble(
+                                pypto.clone(ax),
                                 [bs1n2_offset, 0],
                                 pad_x_2k,
                             )
-                            pto.assemble(
+                            pypto.assemble(
                                 bx,
                                 [bs1n2_offset, eff_seq],
                                 pad_x_2k,
@@ -472,15 +472,15 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
 
                         _inside_2k_pad(unused1)
 
-                    pto.set_pass_options(sg_skip_partition=False)
+                    pypto.set_pass_options(sg_skip_partition=False)
 
-                    for unused2 in pto.loop(
+                    for unused2 in pypto.loop(
                         0, 1, 1, name="2K_TOPK", idx_name="unused2"
                     ):
 
                         def _inside_2k_topk(unused2):
-                            res, res_idx = pto.topk(
-                                pto.view(
+                            res, res_idx = pypto.topk(
+                                pypto.view(
                                     pad_x_2k,
                                     [1, length_2k],
                                     [bs1n2_offset, 0],
@@ -488,10 +488,10 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
                                 selected_count,
                                 1,
                             )
-                            pto.set_vec_tile_shapes(*tile_config.adds_tile)
+                            pypto.set_vec_tile_shapes(*tile_config.adds_tile)
 
-                            topk_4d = pto.reshape(
-                                pto.view(
+                            topk_4d = pypto.reshape(
+                                pypto.view(
                                     res_idx,
                                     [1, selected_count],
                                     [0, 0],
@@ -500,13 +500,13 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
                                 [1, 1, 1, selected_count],
                                 valid_shape=[1, 1, 1, eff_seq],
                             )
-                            pto.assemble(
-                                pto.clone(topk_4d),
+                            pypto.assemble(
+                                pypto.clone(topk_4d),
                                 [b_idx, s1_idx, n2_idx, 0],
                                 topk_res,
                             )
 
-                            topk_indices_pad = pto.full(
+                            topk_indices_pad = pypto.full(
                                 [1, 1, 1, selected_count],
                                 pad_idx_value,
                                 idx_dtype,
@@ -517,15 +517,15 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
                                     selected_count - eff_seq,
                                 ],
                             )
-                            pto.assemble(
+                            pypto.assemble(
                                 topk_indices_pad,
                                 [b_idx, s1_idx, n2_idx, eff_seq],
                                 topk_res,
                             )
 
                             if topk_value is not None:
-                                topk_4d_value = pto.reshape(
-                                    pto.view(
+                                topk_4d_value = pypto.reshape(
+                                    pypto.view(
                                         res,
                                         [1, selected_count],
                                         [0, 0],
@@ -539,15 +539,15 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
                                         eff_seq,
                                     ],
                                 )
-                                pto.assemble(
-                                    pto.clone(topk_4d_value),
+                                pypto.assemble(
+                                    pypto.clone(topk_4d_value),
                                     [b_idx, s1_idx, n2_idx, 0],
                                     topk_value,
                                 )
-                                topk_value_pad = pto.full(
+                                topk_value_pad = pypto.full(
                                     [1, 1, 1, selected_count],
                                     pad_value,
-                                    pto.DataType.DT_FP32,
+                                    pypto.DataType.DT_FP32,
                                     valid_shape=[
                                         1,
                                         1,
@@ -555,7 +555,7 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
                                         selected_count - eff_seq,
                                     ],
                                 )
-                                pto.assemble(
+                                pypto.assemble(
                                     topk_value_pad,
                                     [
                                         b_idx,
@@ -566,7 +566,7 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
                                     topk_value,
                                 )
 
-                            pto.set_vec_tile_shapes(1, tile_size)
+                            pypto.set_vec_tile_shapes(1, tile_size)
 
                         _inside_2k_topk(unused2)
 
@@ -575,11 +575,11 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
             length_is_le8k = eff_seq <= length_8k
             length_is_gt8k = eff_seq > length_8k
 
-            pad_x_8k = pto.tensor(
+            pad_x_8k = pypto.tensor(
                 [max_batch * max_s1 * max_n2, length_8k], x_dtype, "padX8K"
             )
 
-            for unused in pto.loop(
+            for unused in pypto.loop(
                 0,
                 length_is_gt2k * length_is_le8k,
                 1,
@@ -588,24 +588,24 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
             ):
 
                 def _inside_8k(unused):
-                    for unused0 in pto.loop(0, 1, 1, name="8K_PAD", idx_name="unused0"):
+                    for unused0 in pypto.loop(0, 1, 1, name="8K_PAD", idx_name="unused0"):
 
                         def _inside_8k_pad(unused0):
-                            pto.set_vec_tile_shapes(1, tile_size)
+                            pypto.set_vec_tile_shapes(1, tile_size)
 
-                            eff_sum_res = pto.view(
+                            eff_sum_res = pypto.view(
                                 local_sum,
                                 [1, length_8k],
                                 [bs1n2_offset, 0],
                                 valid_shape=[1, eff_seq],
                             )
-                            ax = pto.view(
+                            ax = pypto.view(
                                 eff_sum_res,
                                 [1, length_8k],
                                 [0, 0],
                                 valid_shape=[1, eff_seq],
                             )
-                            bx = pto.full(
+                            bx = pypto.full(
                                 [1, length_8k],
                                 pad_value,
                                 x_dtype,
@@ -614,47 +614,47 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
                                     length_8k - eff_seq,
                                 ],
                             )
-                            pto.assemble(pto.clone(ax), [bs1n2_offset, 0], pad_x_8k)
-                            pto.assemble(bx, [bs1n2_offset, eff_seq], pad_x_8k)
+                            pypto.assemble(pypto.clone(ax), [bs1n2_offset, 0], pad_x_8k)
+                            pypto.assemble(bx, [bs1n2_offset, eff_seq], pad_x_8k)
 
                         _inside_8k_pad(unused0)
 
-                    pto.set_vec_tile_shapes(1, tile_size)
+                    pypto.set_vec_tile_shapes(1, tile_size)
 
-                    for unused1 in pto.loop(
+                    for unused1 in pypto.loop(
                         0, 1, 1, name="8K_TOPK", idx_name="unused1"
                     ):
 
                         def _inside_8k_topk(unused1):
-                            res, res_idx = pto.topk(
-                                pto.view(pad_x_8k, [1, length_8k], [bs1n2_offset, 0]),
+                            res, res_idx = pypto.topk(
+                                pypto.view(pad_x_8k, [1, length_8k], [bs1n2_offset, 0]),
                                 selected_count,
                                 1,
                             )
-                            pto.set_vec_tile_shapes(*tile_config.adds_tile)
+                            pypto.set_vec_tile_shapes(*tile_config.adds_tile)
 
-                            topk_4d = pto.reshape(
+                            topk_4d = pypto.reshape(
                                 res_idx,
                                 [1, 1, 1, selected_count],
                             )
-                            pto.assemble(
-                                pto.clone(topk_4d),
+                            pypto.assemble(
+                                pypto.clone(topk_4d),
                                 [b_idx, s1_idx, n2_idx, 0],
                                 topk_res,
                             )
 
                             if topk_value is not None:
-                                pto.set_vec_tile_shapes(*tile_config.adds_tile)
-                                topk_4d_value = pto.reshape(
+                                pypto.set_vec_tile_shapes(*tile_config.adds_tile)
+                                topk_4d_value = pypto.reshape(
                                     res, [1, 1, 1, selected_count]
                                 )
-                                pto.assemble(
-                                    pto.clone(topk_4d_value),
+                                pypto.assemble(
+                                    pypto.clone(topk_4d_value),
                                     [b_idx, s1_idx, n2_idx, 0],
                                     topk_value,
                                 )
 
-                            pto.set_vec_tile_shapes(1, tile_size)
+                            pypto.set_vec_tile_shapes(1, tile_size)
 
                         _inside_8k_topk(unused1)
 
@@ -663,11 +663,11 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
             length_is_le64k = eff_seq <= length_64k
             length_is_gt64k = eff_seq > length_64k
 
-            pad_x_64k = pto.tensor(
+            pad_x_64k = pypto.tensor(
                 [max_batch * max_s1 * max_n2, length_64k], x_dtype, "padX64K"
             )
 
-            for unused in pto.loop(
+            for unused in pypto.loop(
                 0,
                 length_is_gt8k * length_is_le64k,
                 1,
@@ -676,26 +676,26 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
             ):
 
                 def _inside_64k(unused):
-                    for unused0 in pto.loop(
+                    for unused0 in pypto.loop(
                         0, 1, 1, name="64K_PAD", idx_name="unused0"
                     ):
 
                         def _inside_64k_pad(unused0):
-                            pto.set_vec_tile_shapes(1, tile_size)
+                            pypto.set_vec_tile_shapes(1, tile_size)
 
-                            eff_sum_res = pto.view(
+                            eff_sum_res = pypto.view(
                                 local_sum,
                                 [1, length_64k],
                                 [bs1n2_offset, 0],
                                 valid_shape=[1, eff_seq],
                             )
-                            ax = pto.view(
+                            ax = pypto.view(
                                 eff_sum_res,
                                 [1, length_64k],
                                 [0, 0],
                                 valid_shape=[1, eff_seq],
                             )
-                            bx = pto.full(
+                            bx = pypto.full(
                                 [1, length_64k],
                                 pad_value,
                                 x_dtype,
@@ -704,77 +704,77 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
                                     length_64k - eff_seq,
                                 ],
                             )
-                            pto.assemble(pto.clone(ax), [bs1n2_offset, 0], pad_x_64k)
-                            pto.assemble(bx, [bs1n2_offset, eff_seq], pad_x_64k)
+                            pypto.assemble(pypto.clone(ax), [bs1n2_offset, 0], pad_x_64k)
+                            pypto.assemble(bx, [bs1n2_offset, eff_seq], pad_x_64k)
 
                         _inside_64k_pad(unused0)
 
-                    pto.set_vec_tile_shapes(1, tile_size)
+                    pypto.set_vec_tile_shapes(1, tile_size)
 
-                    for unused1 in pto.loop(
+                    for unused1 in pypto.loop(
                         0, 1, 1, name="64K_TOPK", idx_name="unused1"
                     ):
 
                         def _inside_64k_topk(unused1):
-                            res, res_idx = pto.topk(
-                                pto.view(pad_x_64k, [1, length_64k], [bs1n2_offset, 0]),
+                            res, res_idx = pypto.topk(
+                                pypto.view(pad_x_64k, [1, length_64k], [bs1n2_offset, 0]),
                                 selected_count,
                                 1,
                             )
-                            pto.set_vec_tile_shapes(*tile_config.adds_tile)
-                            topk_4d = pto.reshape(res_idx, [1, 1, 1, selected_count])
-                            pto.assemble(
-                                pto.clone(topk_4d),
+                            pypto.set_vec_tile_shapes(*tile_config.adds_tile)
+                            topk_4d = pypto.reshape(res_idx, [1, 1, 1, selected_count])
+                            pypto.assemble(
+                                pypto.clone(topk_4d),
                                 [b_idx, s1_idx, n2_idx, 0],
                                 topk_res,
                             )
 
                             if topk_value is not None:
-                                pto.set_vec_tile_shapes(*tile_config.adds_tile)
-                                topk_4d_value = pto.reshape(
+                                pypto.set_vec_tile_shapes(*tile_config.adds_tile)
+                                topk_4d_value = pypto.reshape(
                                     res, [1, 1, 1, selected_count]
                                 )
-                                pto.assemble(
-                                    pto.clone(topk_4d_value),
+                                pypto.assemble(
+                                    pypto.clone(topk_4d_value),
                                     [b_idx, s1_idx, n2_idx, 0],
                                     topk_value,
                                 )
 
-                            pto.set_vec_tile_shapes(1, tile_size)
+                            pypto.set_vec_tile_shapes(1, tile_size)
 
                         _inside_64k_topk(unused1)
 
                 _inside_64k(unused)
 
-            pad_x_128k = pto.tensor(
+            pad_x_128k = pypto.tensor(
                 [max_batch * max_s1 * max_n2, length_128k], x_dtype, "padX128K"
             )
 
-            for unused in pto.loop(
+            for unused in pypto.loop(
                 0, length_is_gt64k, 1, name="128K_LOOP", idx_name="unused"
             ):
 
                 def _inside_128k(unused):
-                    for unused0 in pto.loop(
+                    for unused0 in pypto.loop(
                         0, 1, 1, name="128K_PAD", idx_name="unused0"
                     ):
 
                         def _inside_128k_pad(unused0):
-                            pto.set_vec_tile_shapes(1, tile_size)
+                            pypto.set_vec_tile_shapes(1, tile_size)
 
-                            eff_sum_res = pto.view(
+                            eff_sum_res = pypto.view(
                                 local_sum,
                                 [1, length_128k],
                                 [bs1n2_offset, 0],
                                 valid_shape=[1, eff_seq],
                             )
-                            ax = pto.view(
+                            ax = pypto.view(
                                 eff_sum_res,
                                 [1, length_128k],
                                 [0, 0],
                                 valid_shape=[1, eff_seq],
                             )
-                            bx = pto.full(
+                            bx = pypto.full(
                                 [1, length_128k],
                                 pad_value,
                                 x_dtype,
@@ -783,45 +783,45 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
                                     length_128k - eff_seq,
                                 ],
                             )
-                            pto.assemble(pto.clone(ax), [bs1n2_offset, 0], pad_x_128k)
-                            pto.assemble(bx, [bs1n2_offset, eff_seq], pad_x_128k)
+                            pypto.assemble(pypto.clone(ax), [bs1n2_offset, 0], pad_x_128k)
+                            pypto.assemble(bx, [bs1n2_offset, eff_seq], pad_x_128k)
 
                         _inside_128k_pad(unused0)
 
-                    pto.set_vec_tile_shapes(1, tile_size)
+                    pypto.set_vec_tile_shapes(1, tile_size)
 
-                    for unused1 in pto.loop(
+                    for unused1 in pypto.loop(
                         0, 1, 1, name="128K_TOPK", idx_name="unused1"
                     ):
 
                         def _inside_128k_topk(unused1):
-                            res, res_idx = pto.topk(
-                                pto.view(
+                            res, res_idx = pypto.topk(
+                                pypto.view(
                                     pad_x_128k, [1, length_128k], [bs1n2_offset, 0]
                                 ),
                                 selected_count,
                                 1,
                             )
-                            pto.set_vec_tile_shapes(*tile_config.adds_tile)
-                            topk_4d = pto.reshape(res_idx, [1, 1, 1, selected_count])
-                            pto.assemble(
-                                pto.clone(topk_4d),
+                            pypto.set_vec_tile_shapes(*tile_config.adds_tile)
+                            topk_4d = pypto.reshape(res_idx, [1, 1, 1, selected_count])
+                            pypto.assemble(
+                                pypto.clone(topk_4d),
                                 [b_idx, s1_idx, n2_idx, 0],
                                 topk_res,
                             )
 
                             if topk_value is not None:
-                                pto.set_vec_tile_shapes(*tile_config.adds_tile)
-                                topk_4d_value = pto.reshape(
+                                pypto.set_vec_tile_shapes(*tile_config.adds_tile)
+                                topk_4d_value = pypto.reshape(
                                     res, [1, 1, 1, selected_count]
                                 )
-                                pto.assemble(
-                                    pto.clone(topk_4d_value),
+                                pypto.assemble(
+                                    pypto.clone(topk_4d_value),
                                     [b_idx, s1_idx, n2_idx, 0],
                                     topk_value,
                                 )
 
-                            pto.set_vec_tile_shapes(1, tile_size)
+                            pypto.set_vec_tile_shapes(1, tile_size)
 
                         _inside_128k_topk(unused1)
 
@@ -847,7 +847,7 @@ def lightning_indexer_topk_inner(args: LightningIndexerInputs):
     if args.topk_value is not None:
         output_tensors.append(args.topk_value)
 
-    with pto.function("LightningIndexerTopkInner", input_tensors, output_tensors):
+    with pypto.function("LightningIndexerTopkInner", input_tensors, output_tensors):
 
         def inside_main_function():
             lightning_indexer_topk_impl(args)
@@ -882,17 +882,17 @@ class LightningIndexerBuildConfig:
 
 
 def setup_lightning_indexer_topk_config():
-    pto.set_codegen_options(support_dynamic_unaligned=True,
+    pypto.set_codegen_options(support_dynamic_unaligned=True,
                             codegen_expression_fusion=True)
 
-    pto.set_pass_options(copyin_threshold=NUM_100 * NUM_1024 * NUM_1024,
+    pypto.set_pass_options(copyin_threshold=NUM_100 * NUM_1024 * NUM_1024,
                          cycle_lower_bound=NUM_1024,
                          cycle_upper_bound=NUM_1024 * NUM_1024,
                          l1_reuse=NUM_32,
                          sg_skip_partition=NUM_2,
                          nbuffer_merge_mode=NUM_2,
                          vec_nbuffer_map={NUM_NEG1: NUM_16})
-    pto.set_runtime_options(machine_sched_mode=NUM_3,
+    pypto.set_runtime_options(machine_sched_mode=NUM_3,
                             workspace_recycle_period=NUM_128,
                             estimated_stitch_task_max_loop_num=NUM_128)
 
@@ -900,10 +900,10 @@ def setup_lightning_indexer_topk_config():
 def build_lightning_indexer_topk_args(
     cfg: LightningIndexerBuildConfig = LightningIndexerBuildConfig(),
 ):
-    d_bf16 = pto.DT_FP16
-    d_i32 = pto.DT_INT32
-    d_int8 = pto.DT_INT8
-    d_f16 = pto.DT_FP16
+    d_bf16 = pypto.DT_FP16
+    d_i32 = pypto.DT_INT32
+    d_int8 = pypto.DT_INT8
+    d_f16 = pypto.DT_FP16
 
     index_d = cfg.qk_nope + cfg.qk_rope
     max_block_num = NUM_1024
@@ -915,44 +915,44 @@ def build_lightning_indexer_topk_args(
         qk_dtype = d_bf16
         scale_dtype = d_f16
 
-    query = pto.tensor(
+    query = pypto.tensor(
         [cfg.b, cfg.s1, cfg.index_n1, index_d],
         qk_dtype,
         "query",
     )
 
-    key = pto.tensor(
+    key = pypto.tensor(
         [cfg.block_num, cfg.block_size, cfg.n2, index_d],
         qk_dtype,
         "key",
     )
 
-    weights = pto.tensor(
+    weights = pypto.tensor(
         [cfg.b, cfg.s1, cfg.index_n1],
         d_bf16,
         "weights",
     )
 
-    act_seq_key = pto.tensor(
+    act_seq_key = pypto.tensor(
         [cfg.b],
         d_i32,
         "actSeqKey",
     )
 
-    block_table = pto.tensor(
+    block_table = pypto.tensor(
         [cfg.b, max_block_num],
         d_i32,
         "blockTable",
     )
 
-    topk_res = pto.tensor(
+    topk_res = pypto.tensor(
         [cfg.b, cfg.s1, cfg.n2, cfg.selected_count],
         d_i32,
         "topkRes",
     )
 
     q_scale = (
-        pto.tensor(
+        pypto.tensor(
             [cfg.b, cfg.s1, cfg.index_n1, 1],
             scale_dtype,
             "qScale",
@@ -961,7 +961,7 @@ def build_lightning_indexer_topk_args(
         else None
     )
     k_scale = (
-        pto.tensor(
+        pypto.tensor(
             [cfg.block_num, cfg.block_size, cfg.n2, 1],
             scale_dtype,
             "kScale",

@@ -10,7 +10,7 @@
 """
 """
 import os
-import pto
+import pypto
 import pytest
 import torch
 import torch_npu
@@ -22,7 +22,7 @@ def main():
     test_expert_offset_table()
 
 
-@pto.jit(
+@pypto.jit(
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
@@ -30,28 +30,28 @@ def get_table_main(inputs, outputs):
     expert_tokens = inputs[0]
     expert_offset = outputs[0]
 
-    pto.mark_dynamic(inputs[0], 0)
+    pypto.mark_dynamic(inputs[0], 0)
 
-    with pto.function("GET_TOKEN_TABLE", [expert_tokens], [expert_offset]):
+    with pypto.function("GET_TOKEN_TABLE", [expert_tokens], [expert_offset]):
         def inside_main_function():
             expert_num = expert_tokens.shape[0]
-            pto.set_vec_tile_shapes(32)
+            pypto.set_vec_tile_shapes(32)
             # 计算每个专家的token的偏移地址
-            for _ in pto.loop(0, 1, 1, name="LOOP_init", idx_name="idx"):
+            for _ in pypto.loop(0, 1, 1, name="LOOP_init", idx_name="idx"):
                 def loop_for_init_offset():
-                    pto.set_vec_tile_shapes(32)
-                    tmp = pto.full([32,], 0, pto.DT_INT32)
-                    pto.assemble(tmp, [0,], expert_offset)
+                    pypto.set_vec_tile_shapes(32)
+                    tmp = pypto.full([32,], 0, pypto.DT_INT32)
+                    pypto.assemble(tmp, [0,], expert_offset)
                 loop_for_init_offset()
-            for exp_idx in pto.loop(1, expert_num, 1, name="LOOP_expert", idx_name="exp_idx", submit_before_loop=True):
+            for exp_idx in pypto.loop(1, expert_num, 1, name="LOOP_expert", idx_name="exp_idx", submit_before_loop=True):
                 def loop_for_offset(exp_idx):
-                    pto.set_vec_tile_shapes(32)
-                    view_shape = [pto.min(exp_idx, expert_num),]
-                    tmp_view = pto.view(expert_tokens, [16,], [0,], valid_shape=view_shape)
-                    tmp_cast = pto.cast(tmp_view, pto.DT_FP32)
-                    tmp_acc = pto.sum(tmp_cast, -1, True)
-                    tmp_int = pto.cast(tmp_acc, pto.DT_INT32)
-                    pto.assemble(tmp_int, [(exp_idx),], expert_offset)
+                    pypto.set_vec_tile_shapes(32)
+                    view_shape = [pypto.min(exp_idx, expert_num),]
+                    tmp_view = pypto.view(expert_tokens, [16,], [0,], valid_shape=view_shape)
+                    tmp_cast = pypto.cast(tmp_view, pypto.DT_FP32)
+                    tmp_acc = pypto.sum(tmp_cast, -1, True)
+                    tmp_int = pypto.cast(tmp_acc, pypto.DT_INT32)
+                    pypto.assemble(tmp_int, [(exp_idx),], expert_offset)
                 loop_for_offset(exp_idx)
         inside_main_function()
 
@@ -77,7 +77,7 @@ def test_expert_offset_table():
     inputs = [expert_tokens]
     outputs = [expert_offset]
     get_table_main(inputs, outputs)
-    pto.runtime._device_synchronize()
+    pypto.runtime._device_synchronize()
 
     # golden
     token_acc_table_tensor = get_token_acc_table(expert_tokens)

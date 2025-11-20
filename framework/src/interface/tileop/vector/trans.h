@@ -54,21 +54,21 @@ TILEOP void TTrans(T0 dst, T1 src) {
 
     constexpr auto srcTileH = Std::tuple_element<shapeSize1 - 2, typename T1::TileShape>::type::value;
     constexpr auto srcTileW = Std::tuple_element<shapeSize1 - 1, typename T1::TileShape>::type::value;
-    
+
     for (size_t n0Index = 0; n0Index < dstShape0; ++n0Index) {
         for (size_t n1Index = 0; n1Index < dstShape1; ++n1Index) {
             for (size_t n2Index = 0; n2Index < dstShape2; ++n2Index) {
                 using DstTileDefine =
-                    pto::Tile<pto::Location::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
+                    pypto::Tile<pypto::Location::Vec, typename T0::Type, dstTileH, dstTileW, pypto::BLayout::RowMajor, -1, -1>;
                 using SrcTileDefine =
-                    pto::Tile<pto::Location::Vec, typename T1::Type, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
+                    pypto::Tile<pypto::Location::Vec, typename T1::Type, srcTileH, srcTileW, pypto::BLayout::RowMajor, -1, -1>;
                 DstTileDefine dstTile(dstShape3, dstShape4);
                 SrcTileDefine srcTile(srcShape3, srcShape4);
                 auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
                 auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
-                pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize));
-                pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
-                pto::TTRANS(dstTile, srcTile);
+                pypto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize));
+                pypto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
+                pypto::TTRANS(dstTile, srcTile);
             }
         }
     }

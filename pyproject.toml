@@ -11,9 +11,9 @@
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pto"
+name = "pypto"
 version = "1.0.0"
-description = "PTO"
+description = "PyPTO"
 readme = "README.md"
 requires-python = ">=3.8"
 license = { file = "LICENSE" }
