@@ -93,6 +93,8 @@ set(_CaseFilterList
         "TestCodegenDynCopy.L1CopyInNZWithValue"
         "TestCodegenDynCopy.UBCopyIn"
         "TestCodegenDynCopy.L0CToL1"
+        "TestCodegenDynCopy.InjectSyncSet"
+        "TestCodegenDynCopy.InjectSyncWait"
         "TestCodegenDynTransposeDataMove.TransposeDataMoveDim3"
         "TestCodegenDynTransposeDataMove.TransposeDataMoveDim4"
         "TestCodegenDynDataMove.TestDatamoveAlignDim4"

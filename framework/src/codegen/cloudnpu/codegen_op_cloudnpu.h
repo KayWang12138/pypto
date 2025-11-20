@@ -37,6 +37,8 @@ public:
         const std::map<int, int> &locToOffset = {}, bool isUnderDynamicFunc = false);
     ~CodeGenOpCloudNPU() override = default;
 
+    std::string GenCVSyncSetOp() const;
+    std::string GenCVSyncWaitOp() const ;
     std::string GenMemL1ToBt() const;
     std::string GenMemL1CopyIn() const;
     std::string GenMemL1CopyOut() const;

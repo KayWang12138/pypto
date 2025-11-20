@@ -186,6 +186,8 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(
           {Opcode::OP_BAR_V, [this]() { return GenBarrier(); }},
           {Opcode::OP_BAR_M, [this]() { return GenBarrier(); }},
           {Opcode::OP_BAR_ALL, [this]() { return GenBarrier(); }},
+          {Opcode::OP_CV_SYNC_SRC, [this]() { return GenCVSyncSetOp(); }},
+          {Opcode::OP_CV_SYNC_DST, [this]() { return GenCVSyncWaitOp(); }},
       }),
       distributeOps_({
           // distribute op
@@ -515,6 +517,20 @@ void CodeGenOpCloudNPU::UpdateTileTensorInfo() {
         TileTensor tileTensor = BuildTileTensor(i, usingType);
         sm->AddTileTensor(tileTensor);
     }
+}
+
+std::string CodeGenOpCloudNPU::GenCVSyncSetOp() const {
+    auto pipeId = GetPipeId(syncQueue.pipeId_);
+    std::ostringstream oss;
+    oss << "set_intra_block(" << pipeId << ", " << std::to_string(syncQueue.eventId_) << ");\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenCVSyncWaitOp() const {
+    auto pipeId = GetPipeId(syncQueue.pipeId_);
+    std::ostringstream oss;
+    oss << "wait_intra_block(" << pipeId << ", " << std::to_string(syncQueue.eventId_) << ");\n";
+    return oss.str();
 }
 
 } // namespace npu::tile_fwk
