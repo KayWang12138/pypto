@@ -233,6 +233,46 @@ __aicore__ inline constexpr auto GetOuterStride() {
     return Std::tuple_element<0, StrideType>::type::value;
 }
 
+template <int leftAxis, int rightAxis, typename Shape>
+__aicore__ inline constexpr size_t GetAnyAxisMergeResult() {
+    constexpr auto n0 = []() constexpr {
+        if constexpr (leftAxis <= 1 && 1 <= rightAxis) {
+            return Std::tuple_element<DIM_1ST, Shape>::type::value;
+        } else {
+            return 1;
+        }
+    }();
+    constexpr auto n1 = []() constexpr {
+        if constexpr (leftAxis <= 2 && 2 <= rightAxis) {
+            return Std::tuple_element<DIM_2ND, Shape>::type::value;
+        } else {
+            return 1;
+        }
+    }();
+    constexpr auto n2 = []() constexpr {
+        if constexpr (leftAxis <= 3 && 3 <= rightAxis) {
+            return Std::tuple_element<DIM_3RD, Shape>::type::value;
+        } else {
+            return 1;
+        }
+    }();
+    constexpr auto n3 = []() constexpr {
+        if constexpr (leftAxis <= 4 && 4 <= rightAxis) {
+            return Std::tuple_element<DIM_4TH, Shape>::type::value;
+        } else {
+            return 1;
+        }
+    }();
+    constexpr auto n4 = []() constexpr {
+        if constexpr (leftAxis <= 5 && 5 <= rightAxis) {
+            return Std::tuple_element<DIM_5TH, Shape>::type::value;
+        } else {
+            return 1;
+        }
+    }();
+    return n0 * n1 * n2 * n3 * n4;
+}
+
 template <size_t shapeSize, typename Shape>
 __aicore__ inline constexpr size_t GetNonFirstAxisMergeResult() {
     if constexpr (shapeSize == 5) {
