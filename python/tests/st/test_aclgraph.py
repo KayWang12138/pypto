@@ -11,7 +11,7 @@
 """
 """
 import os
-import pto
+import pypto
 import pytest
 import torch
 import torch_npu
@@ -19,15 +19,15 @@ import numpy as np
 from numpy.testing import assert_allclose
 
 
-@pto.jit
+@pypto.jit
 def cust_dyn_func(in_tensors, out_tensors, tiling=None):
     a = in_tensors[0]
     b = in_tensors[1]
     c = out_tensors[0]
-    pto.set_vec_tile_shapes(32, 32)
-    with pto.function("MAIN", [a, b], [c]):
-        for _ in pto.loop(1, name="s0", idx_name="k"):
-            c.move(pto.add(a, b))
+    pypto.set_vec_tile_shapes(32, 32)
+    with pypto.function("MAIN", [a, b], [c]):
+        for _ in pypto.loop(1, name="s0", idx_name="k"):
+            c.move(pypto.add(a, b))
 
 
 class Network(torch.nn.Module):
