@@ -1497,6 +1497,8 @@ def gen_concat_op_golden(case_name: str, output: Path, case_index: int = None) -
     case_names=[
         "TestCompare/CompareOperationTest.TestCompare",
         "TestCompareBitMode/CompareOperationTest.TestCompareBitMode",
+        "TestCmps/CmpsOperationTest.TestCmps",
+        "TestCmpsBitMode/CmpsOperationTest.TestCmpsBitMode"
     ]
 )
 def gen_compare_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
@@ -1509,8 +1511,11 @@ def gen_compare_op_golden(case_name: str, output: Path, case_index: int = None) 
 
         if len(inputs) > 1:
             input2 = torch.tensor(inputs[1])
+        elif "scalar" in params:
+            input2 = params["scalar"]
         else:
             input2 = params.get("other", 0)
+
         cmp_operations = {
             "eq": torch.eq,
             "ne": torch.ne,
@@ -1538,8 +1543,9 @@ def gen_compare_op_golden(case_name: str, output: Path, case_index: int = None) 
 
         return [result.numpy()]
 
-    logging.debug("Case(%s),  Compare Golden creating...", case_name)
-    return gen_op_golden("Compare", golden_func, output, case_index)
+    op_type = "Compare" if "Compare" in case_name else "Cmps"
+    logging.debug("Case(%s), %s Golden creating...", case_name, op_type)
+    return gen_op_golden(op_type, golden_func, output, case_index)
 
 
 def as_float(value):

@@ -1501,6 +1501,119 @@ TILEOP void DynCompare(__ubuf__ uint8_t* dst, __ubuf__ T* src0, __ubuf__ T* src1
     }    
 }
 
+template <typename T, int64_t cmpOp, int64_t mode>
+TILEOP void ProcessCmps(__ubuf__ uint8_t* dst, __ubuf__ T* src0,
+                        __ubuf__ uint8_t* vcmpBitResult, __ubuf__ T *zeroCondition, 
+                        __ubuf__ T *oneCondition, __ubuf__ T *vselResult, 
+                        __ubuf__ uint64_t *startAddrUB, uint64_t countNum, T scalarVal, uint64_t repeatNum) {
+    set_vector_mask(0x0, (uint64_t)countNum);
+    auto dst0 = mode == 0 ? vcmpBitResult : dst;
+
+    switch (cmpOp) {
+        case 0:  // eq
+            vcmpvs_eq(dst0, src0, scalarVal, repeatNum, 1, 1, 1, 8);
+            break;
+        case 1:  // ne
+            vcmpvs_ne(dst0, src0, scalarVal, repeatNum, 1, 1, 1, 8);
+            break;
+        case 2:  // lt
+            vcmpvs_lt(dst0, src0, scalarVal, repeatNum, 1, 1, 1, 8);
+            break;
+        case 3:  // le
+            vcmpvs_le(dst0, src0, scalarVal, repeatNum, 1, 1, 1, 8);
+            break;
+        case 4:  // gt
+            vcmpvs_gt(dst0, src0, scalarVal, repeatNum, 1, 1, 1, 8);
+            break;
+        case 5:  // ge
+            vcmpvs_ge(dst0, src0, scalarVal, repeatNum, 1, 1, 1, 8);
+            break;
+    }
+    if (mode == 1) {
+        return;
+    }
+    set_flag(PIPE_V, PIPE_S, EVENT_ID0);
+    wait_flag(PIPE_V, PIPE_S, EVENT_ID0);
+    uint64_t startREG[1] = {0};
+    startREG[0] = (uint64_t)((int8_t*) (((uint64_t)((__ubuf__ int8_t *)vcmpBitResult))));
+    *(__ubuf__ uint64_t *)((__ubuf__ uint64_t *)startAddrUB) = startREG[0];
+    set_flag(PIPE_S, PIPE_V, EVENT_ID0);
+    wait_flag(PIPE_S, PIPE_V, EVENT_ID0);
+    set_cmpmask(((__ubuf__ uint64_t *)startAddrUB));
+    vector_dup((__ubuf__ T *)zeroCondition, (T)0.000000e+00f, 1, 1, 1, 8, 0);
+    vector_dup((__ubuf__ T *)oneCondition, (T)1.000000e+00f, 1, 1, 1, 8, 0);
+    pipe_barrier(PIPE_V);
+    vsel(vselResult, oneCondition, zeroCondition, (uint64_t)571780540399617ULL);
+    pipe_barrier(PIPE_V);
+    if constexpr (sizeof(T) == 2) {
+        vconv_f162u8(dst, vselResult, 1, 1, 1, 4, 8);
+    } else if constexpr (sizeof(T) == 4) {
+        vconv_f322f16((__ubuf__ half *)vselResult, vselResult, 1, 1, 1, 4, 8);
+        pipe_barrier(PIPE_V);
+        vconv_f162u8(dst, (__ubuf__ half *)vselResult, 1, 1, 1, 4, 8);
+    }
+}
+
+template <typename T, int64_t cmpOp, int64_t mode>
+TILEOP void DynCmps(__ubuf__ uint8_t* dst, __ubuf__ T* src0, unsigned T0,
+                    __ubuf__ uint8_t* vcmpBitResult, __ubuf__ T *zeroCondition, 
+                    __ubuf__ T *oneCondition, __ubuf__ T *vselResult, 
+                    __ubuf__ uint64_t *startAddrUB, T scalarVal) {
+    constexpr uint64_t COUNT_MAX = 4096 / sizeof(T);
+    unsigned numLoop = T0 / COUNT_MAX;
+    unsigned remainAfterLoop = T0 % COUNT_MAX;
+    uint64_t repeatNum = (COUNT_MAX * sizeof(T) + 255) / 256;
+    constexpr int64_t TYPE_REPEAT = 256 / sizeof(T);
+    int64_t repeatNumRemain = (remainAfterLoop + TYPE_REPEAT - 1) / TYPE_REPEAT;
+
+    set_mask_count();
+    for (int j = 0; j < numLoop; j++) {
+        ProcessCmps<T, cmpOp, mode>(dst + j * COUNT_MAX, src0 + j * COUNT_MAX,
+                                    vcmpBitResult, zeroCondition, oneCondition,
+                                    vselResult, startAddrUB, COUNT_MAX, scalarVal, repeatNum);
+    }
+    if (remainAfterLoop > 0) {
+        ProcessCmps<T, cmpOp, mode>(dst + numLoop * COUNT_MAX, src0 + numLoop * COUNT_MAX,
+                                    vcmpBitResult, zeroCondition, oneCondition,
+                                    vselResult, startAddrUB, remainAfterLoop, scalarVal, repeatNumRemain);
+    }
+    set_mask_norm();
+    set_vector_mask(-1, -1);
+}
+    
+template <typename T, unsigned DS0, unsigned DS1, unsigned DS2, 
+          unsigned SS0_0, unsigned SS0_1, unsigned SS0_2, 
+          int64_t cmpOp, int64_t mode>
+TILEOP void DynCmps(__ubuf__ uint8_t* dst, __ubuf__ T* src0,
+                    unsigned T0, unsigned T1, unsigned T2, unsigned T3,
+                    __ubuf__ uint8_t* vcmpBitResult, __ubuf__ T *zeroCondition,
+                    __ubuf__ T *oneCondition, __ubuf__ T *vselResult,
+                    __ubuf__ uint64_t *startAddrUB, T scalarVal) {
+    static_assert((DS2 * sizeof(uint8_t)) % BLOCK_SIZE == 0, "DST dimension 2 not aligned");
+    static_assert((SS0_2 * sizeof(T)) % BLOCK_SIZE == 0, "SRC0 dimension 2 not aligned");
+
+    for (int i = 0; i < T0; i++) {
+        auto dst_1 = dst;
+        auto src0_1 = src0;
+        for (int j = 0; j < T1; j++) {
+            auto dst_2 = dst_1;
+            auto src0_2 = src0_1;
+            for(int k = 0; k < T2; k++) {
+                DynCmps<T, cmpOp, mode>(dst_2, src0_2, T3,
+                                        vcmpBitResult, zeroCondition, oneCondition,
+                                        vselResult, startAddrUB, scalarVal);
+                dst_2 += DS2;
+                src0_2 += SS0_2;
+            }
+            dst_1 += DS1 * DS2;
+            src0_1 += SS0_1 * SS0_2;
+        }
+
+        dst += DS0 * DS1 * DS2;
+        src0 += SS0_0 * SS0_1 * SS0_2;
+    }    
+}
+
 template <typename T, unsigned srcRawShape1, unsigned srcRawShape2, unsigned axis0, unsigned axis1>
 TILEOP void DynTtransposeMoveOut3dim_(__gm__ T *dst, __ubuf__ T *src, unsigned TShape0, unsigned TShape1,
     unsigned TShape2, unsigned dstShape1, unsigned dstShape2) {

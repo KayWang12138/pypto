@@ -154,6 +154,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(
 
           // cmp op
           {Opcode::OP_CMP, [this]() { return GenCmpOp(); }},
+          {Opcode::OP_CMPS, [this]() { return GenCmpOp(); }},
       }),
       sortOps_({
           // sort

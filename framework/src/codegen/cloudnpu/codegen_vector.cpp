@@ -1407,35 +1407,54 @@ std::string CodeGenOpCloudNPU::GenLogicalNotOp() const {
 }
 
 std::string CodeGenOpCloudNPU::GenCmpOp() const {
-    enum class OpIdx : int { dstIdx = 0, tmp1Idx, tmp2Idx, tmp3Idx, tmp4Idx, tmp5Idx, src0Idx, src1Idx };
+    enum class TensorIdx : int {dstIdx = 0, tmp1Idx, tmp2Idx, tmp3Idx, tmp4Idx, tmp5Idx, src0Idx, src1Idx};
 
-    std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::src0Idx)]);
-    std::string s1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::src1Idx)]);
-    std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::dstIdx)]);
-    std::string tVar1 = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::tmp1Idx)]);
-    std::string tVar2 = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::tmp2Idx)]);
-    std::string tVar3 = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::tmp3Idx)]);
-    std::string tVar4 = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::tmp4Idx)]);
-    std::string tVar5 = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::tmp5Idx)]);
+    std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(TensorIdx::dstIdx)]);
+    std::string tVar1 = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(TensorIdx::tmp1Idx)]);
+    std::string tVar2 = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(TensorIdx::tmp2Idx)]);
+    std::string tVar3 = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(TensorIdx::tmp3Idx)]);
+    std::string tVar4 = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(TensorIdx::tmp4Idx)]);
+    std::string tVar5 = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(TensorIdx::tmp5Idx)]);
 
-    std::vector<int64_t> src0RawShape = NormalizeShape(rawShape[ToUnderlying(OpIdx::src0Idx)], SHAPE_DIM4);
-    std::vector<int64_t> src1RawShape = NormalizeShape(rawShape[ToUnderlying(OpIdx::src1Idx)], SHAPE_DIM4);
-    std::vector<int64_t> dstRawShape = NormalizeShape(rawShape[ToUnderlying(OpIdx::dstIdx)], SHAPE_DIM4);
-    auto newDynSrcValidShape = dynamicValidShape[ToUnderlying(OpIdx::src0Idx)];
-    FillIntVecWithDummyInHead<SymbolicScalar>(
-        newDynSrcValidShape, SHAPE_DIM4 - dynamicValidShape[ToUnderlying(OpIdx::src0Idx)].size(), 1);
+    bool isScalarMode = (opCode == Opcode::OP_CMPS);
+    std::string s0Var, s1Var;
+    std::vector<int64_t> src0RawShape, src1RawShape;
+    auto newDynSrcValidShape = dynamicValidShape[ToUnderlying(TensorIdx::src0Idx)];
 
-    std::string srcDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::src0Idx)]);
+    if (isScalarMode) {
+        s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(TensorIdx::src0Idx)]);
+        src0RawShape = NormalizeShape(rawShape[ToUnderlying(TensorIdx::src0Idx)], SHAPE_DIM4);
+        FillIntVecWithDummyInHead<SymbolicScalar>(newDynSrcValidShape, 
+            SHAPE_DIM4 - dynamicValidShape[ToUnderlying(TensorIdx::src0Idx)].size(), 1);
+    } else {
+        s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(TensorIdx::src0Idx)]);
+        s1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(TensorIdx::src1Idx)]);
+        src0RawShape = NormalizeShape(rawShape[ToUnderlying(TensorIdx::src0Idx)], SHAPE_DIM4);
+        src1RawShape = NormalizeShape(rawShape[ToUnderlying(TensorIdx::src1Idx)], SHAPE_DIM4);
+        FillIntVecWithDummyInHead<SymbolicScalar>(newDynSrcValidShape, 
+            SHAPE_DIM4 - dynamicValidShape[ToUnderlying(TensorIdx::src0Idx)].size(), 1);
+    }
 
-    AppendLocalBufferVarOffset(std::vector{&dVar, &tVar1, &tVar2, &tVar3, &tVar4, &tVar5, &s0Var, &s1Var});
+    std::vector<int64_t> dstRawShape = NormalizeShape(rawShape[ToUnderlying(TensorIdx::dstIdx)], SHAPE_DIM4);
+    std::string srcDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(TensorIdx::src0Idx)]);
+
+    if (isScalarMode) {
+        AppendLocalBufferVarOffset(std::vector{&dVar, &tVar1, &tVar2, &tVar3, &tVar4, &tVar5, &s0Var});
+    } else {
+        AppendLocalBufferVarOffset(std::vector{&dVar, &tVar1, &tVar2, &tVar3, &tVar4, &tVar5, &s0Var, &s1Var});
+    }
 
     auto cmpOp = opAttrs.at(OP_ATTR_PREFIX + "cmp_operation");
     auto mode = opAttrs.at(OP_ATTR_PREFIX + "cmp_mode");
-    std::string cmpOpVal;
-    std::string modeVal;
-    ASSERT(cmpOp.HasValue() && mode.HasValue()) << "GenCmpOp failed";
-    cmpOpVal = std::to_string(npu::tile_fwk::AnyCast<int64_t>(cmpOp));
-    modeVal = std::to_string(npu::tile_fwk::AnyCast<int64_t>(mode));
+    std::string cmpOpVal = std::to_string(npu::tile_fwk::AnyCast<int64_t>(cmpOp));
+    std::string modeVal = std::to_string(npu::tile_fwk::AnyCast<int64_t>(mode));
+
+    float scalarValue = 0.0f;
+    if (isScalarMode) {
+        auto scalarAttr = opAttrs.at(OpAttributeKey::scalar);
+        auto scalarElement = npu::tile_fwk::AnyCast<npu::tile_fwk::Element>(scalarAttr);
+        scalarValue = static_cast<float>(scalarElement.GetFloatData());
+    }
 
     std::ostringstream oss;
     std::vector<std::string> paramList;
@@ -1446,33 +1465,46 @@ std::string CodeGenOpCloudNPU::GenCmpOp() const {
     for (int i = ID1; i < SHAPE_DIM4; ++i) {
         paramList.emplace_back(std::to_string(src0RawShape[i]));
     }
-    for (int i = ID1; i < SHAPE_DIM4; ++i) {
-        paramList.emplace_back(std::to_string(src1RawShape[i]));
+    if (!isScalarMode) {
+        for (int i = ID1; i < SHAPE_DIM4; ++i) {
+            paramList.emplace_back(std::to_string(src1RawShape[i]));
+        }
     }
     paramList.emplace_back(cmpOpVal);
     paramList.emplace_back(modeVal);
-    std::string templateParam = JoinString(paramList, CONN_COMMA);
-    // func actual param
+    std::string templateParam = JoinString(paramList, ", ");
+
     paramList.clear();
     std::string dst = "(" + GetAddrTypeByOperandType(BUF_UB) + " uint8_t*)" + dVar;
     std::string src0 = "(" + GetAddrTypeByOperandType(BUF_UB) + " " + srcDtypeStr + "*)" + s0Var;
-    std::string src1 = "(" + GetAddrTypeByOperandType(BUF_UB) + " " + srcDtypeStr + "*)" + s1Var;
+
     std::string tmp1 = "(" + GetAddrTypeByOperandType(BUF_UB) + " uint8_t*)" + tVar1;
     std::string tmp2 = "(" + GetAddrTypeByOperandType(BUF_UB) + " " + srcDtypeStr + "*)" + tVar2;
     std::string tmp3 = "(" + GetAddrTypeByOperandType(BUF_UB) + " " + srcDtypeStr + "*)" + tVar3;
     std::string tmp4 = "(" + GetAddrTypeByOperandType(BUF_UB) + " " + srcDtypeStr + "*)" + tVar4;
     std::string tmp5 = "(" + GetAddrTypeByOperandType(BUF_UB) + " uint64_t*)" + tVar5;
 
-    paramList.insert(paramList.end(), {dst, src0, src1});
+    paramList.insert(paramList.end(), {dst, src0});
+    if (!isScalarMode) {
+        std::string src1 = "(" + GetAddrTypeByOperandType(BUF_UB) + " " + srcDtypeStr + "*)" + s1Var;
+        paramList.emplace_back(src1);
+    }
+
     for (auto dynShape : newDynSrcValidShape) {
         paramList.emplace_back(dynShape.Dump());
     }
+
     paramList.emplace_back(tmp1);
     paramList.emplace_back(tmp2);
     paramList.emplace_back(tmp3);
     paramList.emplace_back(tmp4);
     paramList.emplace_back(tmp5);
-    std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
+
+    if (isScalarMode) {
+        paramList.emplace_back(std::to_string(scalarValue));
+    }
+
+    std::string tiloOpCallParam = JoinString(paramList, ", ");
     oss << tileOpName << "<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
     return oss.str();
 }
