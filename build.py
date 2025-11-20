@@ -769,7 +769,7 @@ class BuildCtrl:
         self.model: ModelParam = ModelParam(args=args)
         if self.feature.frontend_type_python3:
             self.build_root: Path = Path(Path.cwd(), "build_whl")
-            self.install_root: Path = Path(self.build_root.parent, "dist")
+            self.install_root: Path = Path(self.build_root.parent, "build_out")
 
     def __str__(self):
         ver = sys.version_info
@@ -998,8 +998,9 @@ class BuildCtrl:
     def py_build(self):
         # 基本配置
         build_whl = self.build_root.name
-        cmake_args = f"{self.build.get_cfg_cmd()} {self.feature.get_cfg_cmd()}"
+        cmake_args = f"{self.build.get_cfg_cmd()}"
         cmd: str = f"{sys.executable} setup.py bdist_wheel"
+        cmd += f" --dist-dir={self.install_root}"
         cmd += f" --plat-name={self.feature.whl_plat_name}" if self.feature.whl_plat_name else ""
         cmd += f" --cmake-args='{cmake_args}'" if cmake_args else ""
         cmd += f" --clean-first" if self.build.clean else ""

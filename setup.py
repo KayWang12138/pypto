@@ -180,6 +180,7 @@ class CMakeBuild(build_ext, CMakeUserOption):
         generator: str = "Ninja" if MetaHelper.has_ninja() else "'Unix Makefiles'"
         cmd: str = f"cmake -S {MetaHelper.src_root()} -B {build_dir} -G {generator}"
         cmd += f" -DPython3_EXECUTABLE={sys.executable} -DCMAKE_INSTALL_PREFIX={self.build_lib}"
+        cmd += f" -DENABLE_FEATURE_PYTHON_FRONT_END={MetaHelper.name()} -DBUILD_WITH_CANN=ON"
         cmd += f" {self.cmake_args}" if self.cmake_args else ""
         logging.info("CMake Configure, Cmd: %s", cmd)
         ret = subprocess.run(shlex.split(cmd), capture_output=False, check=True, text=True, encoding='utf-8')
