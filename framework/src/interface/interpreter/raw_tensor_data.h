@@ -343,8 +343,8 @@ struct LogicalTensorData {
     }
 
     static std::shared_ptr<LogicalTensorData> CreateEmpty(
-        DataType dataType, const std::vector<int64_t> &shape, const std::vector<int64_t> &validShape) {
-        auto tensorData = std::make_shared<RawTensorData>(dataType, shape);
+        DataType dataType, const std::vector<int64_t> &shape, const std::vector<int64_t> &validShape, const std::vector<int64_t> &rawShape) {
+        auto tensorData = std::make_shared<RawTensorData>(dataType, rawShape);
         return std::make_shared<LogicalTensorData>(
             tensorData, shape, validShape, std::vector<int64_t>(shape.size(), 0));
     }

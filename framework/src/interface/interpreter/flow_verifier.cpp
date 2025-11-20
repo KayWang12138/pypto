@@ -124,15 +124,18 @@ void FlowVerifier::VerifyTensorGraph(Function *entry,
     std::unordered_map<std::string, ScalarImmediateType> controlFlowSymbolDict;
     const std::vector<std::string> &inputNameList = slotManager->GetInputNameList();
     const std::vector<std::string> &outputNameList = slotManager->GetOutputNameList();
+    size_t idx = 0;
     for (size_t i = 0; i < inputNameList.size(); i++) {
-        controlFlowSymbolDict[AddArgPrefix(inputNameList[i])] = SymbolicScalar(i);
+        controlFlowSymbolDict[AddArgPrefix(inputNameList[i])] = idx++;
     }
     for (size_t i = 0; i < outputNameList.size(); i++) {
-        controlFlowSymbolDict[AddArgPrefix(outputNameList[i])] = SymbolicScalar(i);
+        controlFlowSymbolDict[AddArgPrefix(outputNameList[i])] = idx++;
     }
 
+    std::vector<std::shared_ptr<LogicalTensorData>> inoutDataViewList = inputDataViewList_;
+    inoutDataViewList.insert(inoutDataViewList.end(), outputDataViewList.begin(), outputDataViewList.end());
     functionInterpreter_ = std::make_shared<FunctionInterpreter>();
-    functionInterpreter_->Initialize(entry, inputDataViewList_);
+    functionInterpreter_->Initialize(entry, inoutDataViewList);
     functionInterpreter_->verifyType = VerifyType::TENSOR_GRAPH;
     UpdateInterpreterCache();
 

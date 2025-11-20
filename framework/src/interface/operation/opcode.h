@@ -551,11 +551,6 @@ inline bool IsAllocOpCode(Opcode opCode) {
     return (ALLOC_OPCODE.count(opCode) != 0);
 }
 
-inline bool IsMatmulOpCode(Opcode opCode) {
-    return opCode == Opcode::OP_A_MUL_B || opCode == Opcode::OP_A_MULACC_B || opCode == Opcode::OP_A_MUL_BT ||
-           opCode == Opcode::OP_AT_MUL_B || opCode == Opcode::OP_AT_MUL_BT;
-}
-
 inline bool IsEmptyOut(const Opcode opCode) {
     return opCode == Opcode::OP_WRITE_REMOTE || opCode == Opcode::OP_MOE_FFN_TO_ATTN ||
            opCode == Opcode::OP_SHMEM_SIGNAL;

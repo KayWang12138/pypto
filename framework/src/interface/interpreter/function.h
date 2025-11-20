@@ -333,13 +333,13 @@ struct FunctionInterpreter {
     }
 
     LogicalTensorDataPtr FormatNZ2ND(LogicalTensorDataPtr &view) {
-        auto out = LogicalTensorData::CreateEmpty(view->GetDataType(), view->GetShape(), view->GetValidShape());
+        auto out = LogicalTensorData::CreateEmpty(view->GetDataType(), view->GetShape(), view->GetValidShape(), view->GetData()->GetShape());
         calc::FormatNZ2ND(out, view);
         return out;
     }
 
     LogicalTensorDataPtr FormatND2NZ(LogicalTensorDataPtr &view) {
-        auto out = LogicalTensorData::CreateEmpty(view->GetDataType(), view->GetShape(), view->GetValidShape());
+        auto out = LogicalTensorData::CreateEmpty(view->GetDataType(), view->GetShape(), view->GetValidShape(), view->GetData()->GetShape());
         calc::FormatND2NZ(out, view);
         return out;
     }
@@ -437,6 +437,16 @@ struct FunctionInterpreter {
         }
     }
 
+    bool isConsumerAccMatmul(Operation *op) {
+        for (auto cons : op->ConsumerOps()) {
+            if (cons->GetOpcode() == Opcode::OP_A_MULACC_B ||
+                cons->GetOpcode() == Opcode::OP_A_MULACC_BT) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     void ExecuteOperation(FunctionFrame &frame, Operation *op) {
         auto iOpDataList = frame.GetDataViewList(op->GetIOperands());
         for (size_t index = 0; index < iOpDataList.size(); index++) {
@@ -452,7 +462,7 @@ struct FunctionInterpreter {
             if (auto index = GetInplaceIndex(op, i); index != -1) {
                 ExecuteInplaceOperation(frame, *op, i, iOpDataList, oOpDataList);
             } else {
-                if (IsMatmulOpCode(op->GetOpcode())) {
+                if (isConsumerAccMatmul(op)) {
                     auto dtype = oop->GetRawTensor()->GetDataType();
                     // mm output dtype promotion
                     if ((dtype == DataType::DT_FP16 || dtype == DataType::DT_BF16)) {
@@ -637,8 +647,9 @@ struct FunctionInterpreter {
                     } else {
                         auto outcast = func->GetOutcast()[i];
                         auto validShape = EvaluateValidShape(outcast->GetDynValidShape());
+                        auto rawShape = EvaluateValidShape(outcast->GetRawTensor()->GetDynRawShape());
                         outcastView =
-                            LogicalTensorData::CreateEmpty(outcast->Datatype(), outcast->GetShape(), validShape);
+                            LogicalTensorData::CreateEmpty(outcast->Datatype(), outcast->GetShape(), validShape, rawShape);
                     }
                     for (auto &s : outcastSlot[i]) {
                         slotDataViewDict_[s] = outcastView;

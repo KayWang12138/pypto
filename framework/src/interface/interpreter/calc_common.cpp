@@ -89,7 +89,8 @@ void ExecuteOpCopyIn(ExecuteOperationContext *ctx) {
     LogicalTensorDataPtr oopTrans;
     if (outputCombineAxisDone && oopShape.size() == SIZE_TWO) {
         std::vector<int64_t> transShape = {oopShape[1], oopShape[0]};
-        oopTrans = LogicalTensorData::CreateEmpty(oop->GetDataType(), transShape, std::vector<int64_t>(0));
+        std::vector<int64_t> transRawShape = {oop->GetData()->GetShape()[1], oop->GetData()->GetShape()[0]};
+        oopTrans = LogicalTensorData::CreateEmpty(oop->GetDataType(), transShape, std::vector<int64_t>(0), transRawShape);
     }
 
     // HACK: copyin's default attribute should be full tensor
@@ -179,7 +180,7 @@ void ExecutePrint(ExecuteOperationContext *ctx) {
         if (shape.empty()) {
             shape = iop->GetShape();
         }
-        auto oop = LogicalTensorData::CreateEmpty(iop->GetDataType(), shape, shape);
+        auto oop = LogicalTensorData::CreateEmpty(iop->GetDataType(), shape, shape, iop->GetData()->GetShape());
         calc::Copy(oop, iop);
         oop->GetData()->ToFile(fpath);
     }
