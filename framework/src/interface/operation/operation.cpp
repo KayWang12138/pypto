@@ -349,6 +349,7 @@ Json Operation::DumpJson(bool dumpTensor) const {
     if (location_ && config::GetPlatformConfig(KEY_DUMP_SOURCE_LOCATION, 0)) {
         opDump["file"] = location_->GetFileName();
         opDump["line"] = location_->GetLineno();
+        opDump["backtrace"] = location_->GetBacktrace();
     }
 
     opDump["subgraphid"] = subgraphID_;
@@ -443,7 +444,7 @@ std::shared_ptr<Operation> Operation::LoadJson(
     }
 
     if (opDump.count("file")) {
-        op->location_ = std::make_shared<SourceLocation>(opDump["file"].get<std::string>(), opDump["line"].get<int>());
+        op->location_ = std::make_shared<SourceLocation>(opDump["file"].get<std::string>(), opDump["line"].get<int>(), opDump["backtrace"].get<std::string>());
     }
 
     int subgraphid = opDump["subgraphid"].get<int>();

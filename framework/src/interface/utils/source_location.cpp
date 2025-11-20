@@ -79,9 +79,13 @@ int SourceLocation::GetLineno() const {
     return lineno_;
 }
 
-std::string SourceLocation::GetFileName() const {
+const std::string& SourceLocation::GetFileName() const {
     Init();
     return fname_;
+}
+
+const std::string& SourceLocation::GetBacktrace() const {
+    return backtrace_;
 }
 
 bool SourceLocation::isCppMode_ = true;

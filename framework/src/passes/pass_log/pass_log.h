@@ -16,10 +16,15 @@
 #ifndef PASS_LOG_H
 #define PASS_LOG_H
 
-#include "interface/utils/log.h"
 #include <string>
+#include "interface/utils/log.h"
+#include "interface/operation/operation.h"
+#include "interface/function/function.h"
 
 namespace npu::tile_fwk {
+
+std::string GetFormatBacktrace(const Operation& op);
+
 enum class Elements {
     Operation,
     Tensor,

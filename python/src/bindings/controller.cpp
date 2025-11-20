@@ -17,6 +17,7 @@
 
 #include <utility>
 #include <vector>
+#include <string>
 
 using namespace npu::tile_fwk;
 using ref_tensors = std::vector<std::reference_wrapper<const Tensor>>;
@@ -201,6 +202,9 @@ void bind_controller_utils(py::module &m) {
     m.def("SetLocation", [](const std::string &fname, int lineno) {
         SourceLocation::SetLocation(fname, lineno);
     }, py::arg("fname"), py::arg("lineno"));
+    m.def("SetLocation", [](const std::string &fname, int lineno, std::string &backtrace) {
+        SourceLocation::SetLocation(fname, lineno, backtrace);
+    }, py::arg("fname"), py::arg("lineno"), py::arg("backtrace"));
     m.def("ClearLocation", &SourceLocation::ClearLocation);
 }
 
