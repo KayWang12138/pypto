@@ -76,6 +76,10 @@ bool PadLocalBuffer::IsInputInt8(const Operation &op, const LogicalTensorPtr &in
 }
 
 void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
+    if (in == nullptr || in->tensor == nullptr) {
+        APASS_LOG_ERROR_F(Elements::Tensor, "logical tensor pointer is null.");
+        return;
+    }
     if (in->shape.size() < MATMUL_MIN_SHAPE_SIZE) {
         APASS_LOG_ERROR_F(Elements::Tensor, "Matmul Op %d %s input %d shape size is less than 2; Please check the input size.", op.opmagic, op.GetOpcodeStr().c_str(), in->magic);
         return;
@@ -84,7 +88,10 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
     auto highIndex = in->shape.size() - 2; // matmul高轴
     auto lowIndex = in->shape.size() - 1;  // matmul低轴
 
-    if (IsInputInt8(op, in)) {
+    if (*in->GetProducers().begin() != nullptr &&
+        (*in->GetProducers().begin())->GetOpcode() == Opcode::OP_L1_TO_FIX_QUANT_PRE) {
+        in->shape[lowIndex] = Pad(in->shape[lowIndex], CUBE_PAD_VALUE);
+    } else if (IsInputInt8(op, in)) {
         in->shape[highIndex] = Pad(in->shape[highIndex], CUBE_PAD_INT8_VALUE);
         in->shape[lowIndex] = Pad(in->shape[lowIndex], CUBE_PAD_INT8_VALUE);
     } else {
@@ -94,9 +101,16 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
 
     APASS_LOG_DEBUG_F(Elements::Tensor, "####### %d original shape is %s\n", in->magic, IntVecToStr(in->oriShape).c_str());
     APASS_LOG_DEBUG_F(Elements::Tensor, "####### %d #current shape is %s\n", in->magic, IntVecToStr(in->shape).c_str());
+    if (in->tensor->rawshape.size() < MATMUL_MIN_SHAPE_SIZE) {
+        APASS_LOG_ERROR_F(Elements::Tensor, "Matmul Op %d %s input %d raw shape size is less than 2; Please check the input size.", op.opmagic, op.GetOpcodeStr().c_str(), in->magic);
+        return;
+    }
     in->tensor->oriRawshape = in->tensor->rawshape;
 
-    if (IsInputInt8(op, in)) {
+    if (*in->GetProducers().begin() != nullptr &&
+        (*in->GetProducers().begin())->GetOpcode() == Opcode::OP_L1_TO_FIX_QUANT_PRE) {
+        in->tensor->rawshape[lowIndex] = Pad(in->tensor->oriRawshape[lowIndex], CUBE_PAD_VALUE);
+    } else if (IsInputInt8(op, in)) {
         in->tensor->rawshape[highIndex] = Pad(in->tensor->oriRawshape[highIndex], CUBE_PAD_INT8_VALUE);
         in->tensor->rawshape[lowIndex] = Pad(in->tensor->oriRawshape[lowIndex], CUBE_PAD_INT8_VALUE);
     } else {
@@ -313,7 +327,8 @@ bool PadLocalBuffer::IsMatmul(const LogicalTensorPtr &tensor) const {
     if ((tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L1) ||
         (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0A) ||
         (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0B) ||
-        (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0C)) {
+        (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) ||
+        (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_FIX_QUANT_PRE)) {
         return true;
     }
     return false;
