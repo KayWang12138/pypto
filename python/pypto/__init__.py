@@ -33,9 +33,11 @@ load_shared_libs()
 
 from .config import *  # noqa
 from .controller import *  # noqa
+from .cube import *  # noqa
 from .element import Element
 from .enum import *  # noqa
 from .operation import *  # noqa
+from .vector import *  # noqa
 from .operator import *  # noqa
 from .pass_config import * # noqa
 from .pto_utils import ceil, bytes_of

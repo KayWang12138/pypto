@@ -159,6 +159,9 @@ void bind_operation(py::module &m) {
         { return npu::tile_fwk::Full(src, dType, dstShape, validShape); },
         py::arg("src"), py::arg("dType"), py::arg("dstShape"), py::arg("validShape") = std::vector<SymbolicScalar>{},
         "Tensor vector duplicate.");
+    m.def(
+        "load", [](const Tensor &src, const Tensor &offsets) { return npu::tile_fwk::Load(src, offsets); },
+        py::arg("src"), py::arg("offsets"), "Tensor load.");
     m.def("reshape", [](const Tensor &input, const std::vector<int64_t> &dstShape,
         const std::vector<SymbolicScalar> validShape, const bool inplace)
         { return npu::tile_fwk::Reshape(input, dstShape, validShape, inplace); },
