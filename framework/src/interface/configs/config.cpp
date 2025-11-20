@@ -249,7 +249,7 @@ void CreateRunDataDir() {
     timestamp << std::put_time(std::localtime(&time), "%Y%m%d%H%M%S");
 
     std::string envStr = GetEnvVar(ENV_VAR_PYPTO_HOME);
-    std::string dir = envStr.empty() ? (GetEnvVar(ENV_VAR_HOME) + "/.pto") : envStr;
+    std::string dir = envStr.empty() ? (GetEnvVar(ENV_VAR_HOME) + "/.pypto") : envStr;
 
     dir = dir + "/run/rundata_" + timestamp.str();
     bool res = CreateMultiLevelDir(dir);
