@@ -236,9 +236,6 @@ void DevAscendFunction::FillOutputSlotMark(const IncastOutcastLink *inoutLink, s
     for (int slotIdx: inoutLink->assembleSlotIndexList) {
         isOutputSlotMarks[slotIdx] = true;
     }
-    for (int slotIdx: inoutLink->partialUpdateSlotIdexList) {
-        isOutputSlotMarks[slotIdx] = true;
-    }
 }
 
 void DevAscendFunction::InitRawTensorAndMemoryRequirement(
@@ -981,6 +978,9 @@ struct EncodeDevAscendFunctionInfo {
                     if (i->tensor->rawmagic == iOperand->tensor->rawmagic) {
                         ASSERT(iOperand->GetShape().size() == dim);
                         std::vector<int64_t> shape = callAttr->GetLinearImmediateArgList(coaIndex + dim, coaIndex + dim * 0x2, false);
+                        if (shape == Shape(shape.size())) { // 跳过全0
+                            continue;
+                        }
                         incastOpAttr.useList.emplace_back(j, k, coaIndex, coaIndex + dim);
                         UpdateCellMatchShape(incastOpAttr.cellMatchTableDesc, shape);
                         ALOG_DEBUG_F("minimal shape for incast %d raw %d op %d %d is %s\n", i->magic, i->GetRawMagic(), j,

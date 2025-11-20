@@ -24,6 +24,7 @@
 #include "cost_model/simulation/pv/PvModelFactory.h"
 #include "machine/device/dynamic/costmodel_utils.h"
 #include "tilefwk/core_func_data.h"
+#include "runtime.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -31,6 +32,61 @@ using namespace CostModel;
 
 extern "C" int DynTileFwkBackendKernelServer(void *targ);
 extern "C" int DynTileFwkBackendKernelServerInit(void *targ);
+
+struct MemoryH {
+    MemoryH(bool isTest) : isTest_(isTest) {}
+
+    uint8_t *CopyToDev(uint8_t *data, uint64_t size) {
+        uint8_t *devPtr = AllocDev(size);
+        if (isTest_)
+            memcpy_s(devPtr, size, data, size);
+        else
+            rtMemcpy(devPtr, size, data, size, RT_MEMCPY_HOST_TO_DEVICE);
+        return devPtr;
+    }
+
+    void CopyFromDev(uint8_t *data, uint8_t *devPtr, uint64_t size) {
+        if (isTest_)
+            memcpy_s(data, size, devPtr, size);
+        else
+            rtMemcpy(data, size, devPtr, size, RT_MEMCPY_DEVICE_TO_HOST);
+    }
+
+    template <typename T>
+    T *CopyToDev(std::vector<T> data) {
+        return (T *)CopyToDev((uint8_t *)data.data(), data.size() * sizeof(T));
+    }
+
+    uint8_t *CopyToDev(RawTensorData &data) {
+        if (data.GetDevPtr() == nullptr) {
+            auto devPtr = CopyToDev((uint8_t *)data.data(), data.size());
+            data.SetDevPtr(devPtr);
+        }
+        return data.GetDevPtr();
+    }
+
+    uint8_t *AllocZero(uint64_t size) {
+        uint8_t *devPtr = AllocDev(size);
+        if (isTest_)
+            memset(devPtr, 0, size);
+        else
+            rtMemset(devPtr, size, 0, size);
+        return devPtr;
+    }
+
+    uint8_t *AllocDev(size_t size) {
+        uint8_t *devPtr = nullptr;
+        if (isTest_)
+            devPtr = (uint8_t *)malloc(size);
+        else
+            machine::GetRA()->AllocDevAddr(&devPtr, size);
+        return devPtr;
+    }
+
+    void CopyFromDev(RawTensorData &t) { CopyFromDev(t.data(), t.GetDevPtr(), t.size()); }
+
+    bool isTest_{true};
+};
 
 class AiCorePvModelImpl : public AiCoreModel
 {
@@ -96,8 +152,30 @@ private:
         return devProg->inplaceSlotList.size() != 0;
     }
 
+    void InitTilingData(AstKernelArgs *kArgs, bool isTest) {
+        MemoryH h{isTest};
+        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t *>(devProg_.data()));
+        devProg->devArgs.nrAic = 25;
+        devProg->devArgs.nrAiv = 50;
+        devProg->devArgs.nrAicpu = 6;
+        devProg->devArgs.nrValidAic = 24;
+        devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
+        devProg->workspaceSize = devProg->memBudget.metadata.Total() +
+                                 devProg->memBudget.tensor.Total() +
+                                 devProg->memBudget.aicoreSpilled +
+                                 devProg->memBudget.debug.dumpTensor;
+        std::cout << devProg->workspaceSize << std::endl;
+        devProg->l2CacheOffset = machine::GetRA()->GetL2Offset();
+        devProg->l2CacheOffset = machine::GetRA()->GetL2Offset();
+        kArgs->workspace = (int64_t *)h.AllocDev(devProg->workspaceSize);
+        kArgs->cfgdata = (int64_t *)h.CopyToDev(devProg_);
+        kArgs->machineConfig = devProg->devArgs.machineConfig;
+        return;
+    }
+
     void RunTestMode(AstKernelArgs *kArgs) {
         (void) kArgs;
+        InitTilingData(kArgs, true);
         constexpr int threadNum = 6;
         std::thread aicpus[threadNum];
         std::atomic<int> idx{0};

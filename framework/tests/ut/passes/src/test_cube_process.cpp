@@ -618,8 +618,8 @@ TEST_F(SplitKTest, Test_MM_FP16_Atomic_On) {
         config::SetBuildStatic(true);
         FUNCTION("MM_FP16_Atomic_On", {mat_a, mat_b, final_out}) {
             TileShape::Current().SetVecTile(64, 64);
-            Tensor tmpC(outputAstDtype, shape_c, "tmp_c");
-            tmpC = Mul(tmpC, Element(DataType::DT_FP32, 0.0f));
+            auto tmpC = Full(Element(outputAstDtype, 0.0f), outputAstDtype, shape_c);
+            tmpC.SetName("tmp_c");
             std::vector<Tensor> matmulResult;
             TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {64, 64});
             for (int ki = 0; ki < kSplit; ki++) {

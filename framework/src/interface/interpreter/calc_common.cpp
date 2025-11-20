@@ -18,24 +18,9 @@
 #include "interface/interpreter/operation.h"
 
 namespace npu::tile_fwk {
-
-void ExecuteOpView(ExecuteOperationContext *ctx) {
-    ASSERT(ctx->ioperandDataViewList->size() == 1);
-    auto iop = ctx->ioperandDataViewList->at(0);
-    ASSERT(iop != nullptr) << ctx->op->Dump();
-
-    auto view = std::static_pointer_cast<ViewOpAttribute>(ctx->op->GetOpAttribute());
-    std::vector<int64_t> offset = ctx->opInter->EvaluateOffset(view->GetFromOffset(), view->GetFromDynOffset());
-    std::vector<int64_t> shape = ctx->opInter->EvaluateOpImmediate(ctx->frame, OpImmediate::Specified(view->GetToDynValidShape()));
-    auto iopValid = std::make_shared<LogicalTensorData>(iop->GetData(), shape, offset);
-    auto oop = ctx->ooperandInplaceDataViewList->at(0);
-    calc::Copy(oop, iopValid);
-}
-REGISTER_CALC_OP(OP_VIEW, Opcode::OP_VIEW, ExecuteOpView);
-
 void ExecuteOpAssemble(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
-    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    ASSERT(ctx->ioperandDataViewList->size() <= NUM_VALUE_2);
     auto &oop = ctx->ooperandInplaceDataViewList->at(0);
     auto &iop = ctx->ioperandDataViewList->at(0);
 
@@ -45,6 +30,7 @@ void ExecuteOpAssemble(ExecuteOperationContext *ctx) {
     calc::Copy(ret, iop);
 }
 REGISTER_CALC_OP(OP_ASSEMBLE, Opcode::OP_ASSEMBLE, ExecuteOpAssemble);
+REGISTER_CALC_OP(OP_ASSEMBLE_SSA, Opcode::OP_ASSEMBLE_SSA, ExecuteOpAssemble);
 
 void ExecuteOpNone(ExecuteOperationContext *ctx) {
     (void)ctx;
@@ -55,10 +41,12 @@ REGISTER_CALC_OP(OP_SYNC_SRC, Opcode::OP_SYNC_SRC, ExecuteOpNone);
 REGISTER_CALC_OP(OP_SYNC_DST, Opcode::OP_SYNC_DST, ExecuteOpNone);
 REGISTER_CALC_OP(OP_BAR_V, Opcode::OP_BAR_V, ExecuteOpNone);
 REGISTER_CALC_OP(OP_BAR_M, Opcode::OP_BAR_M, ExecuteOpNone);
+REGISTER_CALC_OP(OP_NOP, Opcode::OP_NOP, ExecuteOpNone);
+REGISTER_CALC_OP(OP_VIEW, Opcode::OP_VIEW, ExecuteOpNone); // View作为视图操作，操作前后是同一块内存
 
 void ExecuteOpCopyOut(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
-    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    ASSERT(ctx->ioperandDataViewList->size() <= NUM_VALUE_2);
     auto &oop = ctx->ooperandInplaceDataViewList->at(0);
     auto iop = ctx->ioperandDataViewList->at(0);
 

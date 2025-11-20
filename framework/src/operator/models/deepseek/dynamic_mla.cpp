@@ -49,9 +49,9 @@ std::vector<Tensor> mlaPre(const Tensor &tokenX, const Tensor &wDq, const Tensor
     // [b*s,h] * [h,q_lora_rank] = [b*s,q_lora_rank]
     Tensor qMmRes;
     if (splitK) {
-        Tensor tmpC(DT_FP32, {bs, q_lora_rank}, "tmp_q");
         TileShape::Current().SetVecTile(std::min(32, bs), 128); // 32, 128
-        tmpC = Mul(tmpC, Element(DataType::DT_FP32, 0.0f));
+        auto tmpC = Full(Element(DataType::DT_FP32, 0.0f), DT_FP32, {bs, q_lora_rank});
+        tmpC.SetName("tmp_q");
         std::vector<Tensor> matmulResult;
         auto kSplit = 7;
         auto kSplitSize = h / kSplit;
@@ -97,8 +97,8 @@ std::vector<Tensor> mlaPre(const Tensor &tokenX, const Tensor &wDq, const Tensor
     if (splitK) {
         TileShape::Current().SetVecTile(std::min(32, bs), 64); // 32, 64
         int kv_n = wDkvKr.GetShape()[1];
-        Tensor tmpC_kv(DT_FP32, {bs, kv_n}, "tmp_kv");
-        tmpC_kv = Mul(tmpC_kv, Element(DataType::DT_FP32, 0.0f));
+        auto tmpC_kv = Full(Element(DataType::DT_FP32, 0.0f), DT_FP32, {bs, kv_n});
+        tmpC_kv.SetName("tmp_kv");
         std::vector<Tensor> matmulResult_kv;
         auto kSplit_kv = 7;
         auto kSplitSize_kv = h / kSplit_kv;

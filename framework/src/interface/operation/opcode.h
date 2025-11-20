@@ -125,6 +125,7 @@ enum class Opcode {
     OP_RESHAPE_COPY_IN,
     OP_RESHAPE_COPY_OUT,
     OP_ASSEMBLE,
+    OP_ASSEMBLE_SSA,
     OP_VIEW,
     OP_VIEW_TYPE,
     // Move
@@ -397,6 +398,13 @@ public:
     inline bool IsCopyInOrOut(Opcode opCode) const { return IsCopyIn(opCode) || IsCopyOut(opCode); }
 
     inline bool IsSync(Opcode opcode) const { return opcode == Opcode::OP_SYNC_SRC || opcode == Opcode::OP_SYNC_DST; }
+
+    inline bool IsSharedMemory(Opcode opCode) const {
+        return opCode == Opcode::OP_SHMEM_WAIT_UNTIL || opCode == Opcode::OP_SHMEM_PUT ||
+               opCode == Opcode::OP_SHMEM_SIGNAL || opCode == Opcode::OP_SHMEM_GET ||
+               opCode == Opcode::OP_SHMEM_REDUCE || opCode == Opcode::OP_SHMEM_CLEAR_SIGNAL ||
+               opCode == Opcode::OP_SHMEM_PUT_UB2GM || opCode == Opcode::OP_SHMEM_GET_GM2UB;
+    }
 
 private:
     struct OpcodeInfo {

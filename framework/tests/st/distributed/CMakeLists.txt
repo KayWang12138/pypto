@@ -42,16 +42,6 @@ endif ()
 # aicpuWaitFlag_single_test_reduce_scatter_int32_32_32_4 "4"
 # aicpuWaitFlag和aiv两方式_单Tensor和多Tensor_算子名称_数据类型_row_col_卡数 卡数
 set(_DistributedGTestCaseFilterConfig
-        "DistributedTest.aicpuWaitFlag_single_test_reduce_scatter_int32_32_32_4" "4"
-        "DistributedTest.aicpuWaitFlag_single_test_all_gather_bfloat16_256_256_4" "4"
-        "DistributedTest.aicpuWaitFlag_multi_test_reduce_scatter_float32_128_256_4" "4"
-        "DistributedTest.aicpuWaitFlag_multi_test_all_gather_float16_32_32_4" "4"
-        "DistributedTest.aivWaitFlag_single_test_reduce_scatter_int32_128_256_4" "4"
-        "DistributedTest.aivWaitFlag_single_test_all_gather_bfloat16_256_128_4" "4"
-        "DistributedTest.aivWaitFlag_multi_test_reduce_scatter_float32_128_256_4" "4"
-        "DistributedTest.aivWaitFlag_multi_test_all_gather_float16_32_32_4" "4"
-        "DistributedTest.aivWaitFlag_single_test_moe_dispatch_bfloat16_rank_size_4" "4"
-        "DistributedTest.aivWaitFlag_single_test_moe_combine_bfloat16_rank_size_4" "4"
         "DistributedTest.shmem_allgather_attn_post_reducescatter_bfloat16_64_1_32_256_128_128_4" "4"
         "DistributedTest.shmem_all_gather_int32_128_256_4" "4"
         "DistributedTest.shmem_reduce_scatter_int32_128_256_4" "4"

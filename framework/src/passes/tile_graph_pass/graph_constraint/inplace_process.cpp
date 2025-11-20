@@ -102,6 +102,12 @@ Status InplaceProcess::RunOnFunction(Function &function) {
             return FAILED;
         }
     }
+
+    // 将View提取到由inplace最开始的tensor调用，并在原地留下一个NOP保持依赖关系。
+    if (RefactorViewConnectForInplace(function) != SUCCESS) {
+        return FAILED;
+    }
+
     APASS_LOG_INFO_F(Elements::Operation, "===> End InplaceProcess.");
     return SUCCESS;
 }
@@ -153,6 +159,7 @@ void InplaceProcess::ProcessView(Function &function, Operation &op) const {
             }
         }
         viewAttr->SetFromOffset(viewOpOffset, viewAttr->GetFromDynOffset());
+        function.UpdateLinkMap(consumer->oOperand[0], op.GetIOperands()[0]);
         consumer->oOperand[0]->tensor = op.GetIOperands()[0]->tensor;
         TensorOffset newOffset(viewOpOffset, attrDynOffset);
         consumer->oOperand[0]->UpdateOffset(newOffset);
@@ -205,7 +212,7 @@ void InplaceProcess::ReplaceRawTensor(Function &function, std::shared_ptr<Logica
         return;
     }
     logicalTensor->tensor = targetTensor->tensor;
-    logicalTensor->UpdateOffset(dynamic_cast<AssembleOpAttribute *>(op.GetOpAttribute().get())->GetToOffset());
+    logicalTensor->UpdateOffset(dynamic_cast<AssembleOpAttribute *>(op.GetOpAttribute().get())->GetToTensorOffset());
     /*
         需要将所有和logicalTensor共用一个raw 的所有logical tensor 都刷新
         当前仅往前更新一层
@@ -262,10 +269,15 @@ void InplaceProcess::ProcessReshape(Function &function, Operation &op) const {
 
 Status InplaceProcess::ProcessInplaceOp(Function &function, Operation &op) const {
     auto opcode = op.GetOpcode();
-    if (inplaceOpMap.find(opcode) == inplaceOpMap.end()) {
+    std::vector<std::pair<size_t, size_t>> reusePairList;
+    if (inplaceOpMap.find(opcode) != inplaceOpMap.end()) {
+        reusePairList = inplaceOpMap.at(opcode);
+    } else if (op.HasAttribute(OpAttributeKey::inplaceIdx)) {
+        reusePairList.emplace_back(op.GetIntAttribute(OpAttributeKey::inplaceIdx), 0);
+    } else {
         return SUCCESS;
     }
-    for (auto &reusePair : inplaceOpMap.at(opcode)) {
+    for (auto &reusePair : reusePairList) {
         auto inputIdx = reusePair.first;
         auto outputIdx = reusePair.second;
         if (inputIdx >= op.GetIOperands().size() || outputIdx >= op.GetOOperands().size()) {
@@ -302,6 +314,7 @@ Status InplaceProcess::ProcessInplaceOp(Function &function, Operation &op) const
         if ((tensorIn->tensor->symbol == "") && (tensorOut->tensor->symbol != "")) {
             tensorIn->tensor->symbol = tensorOut->tensor->symbol;
         }
+        function.UpdateLinkMap(tensorOut, tensorIn);
         tensorOut->tensor = tensorIn->tensor;
         tensorOut->UpdateOffset(tensorIn->GetOffset());
         APASS_LOG_DEBUG_F(Elements::Tensor, "Output magic: %d, raw maigc: %d.", tensorOut->magic, tensorOut->tensor->GetRawMagic());
@@ -310,5 +323,81 @@ Status InplaceProcess::ProcessInplaceOp(Function &function, Operation &op) const
     return SUCCESS;
 }
 
+LogicalTensorPtr FindInplaceSource(Function &function, Operation &op, std::unordered_map<Operation *, LogicalTensorPtr> &visited) {
+    if (visited.count(&op) > 0) {
+        return visited.at(&op);
+    }
+    auto inplaceIdx = op.GetIntAttribute(OpAttributeKey::inplaceIdx);
+    ASSERT(inplaceIdx >= 0 && inplaceIdx < static_cast<int>(op.GetIOperands().size()));
+    auto inplaceIOperand = op.GetInputOperand(inplaceIdx);
+    LogicalTensorPtr res = nullptr;
+    for (auto producer : inplaceIOperand->GetProducers()) {
+        if (!producer->HasAttribute(OpAttributeKey::inplaceIdx)) {
+            continue;
+        }
+        auto tmp = FindInplaceSource(function, *producer, visited);
+        if (res == nullptr) {
+            res = tmp;
+        } else {
+            ASSERT(res == tmp); // inplace路径应总是交汇于同一起点
+        }
+    }
+    if (res == nullptr) {
+        res = inplaceIOperand; // 向前没有inplace了，自己就是起点
+    }
+    visited.emplace(&op, res);
+    return res;
+}
+
+Status InplaceProcess::RefactorViewConnectForInplace(Function &function) {
+    APASS_LOG_INFO_F(Elements::Operation, "===> Start RefactorViewConnectForInplace.");
+    for (auto &op : function.Operations()) {
+        if (op.GetOpcode() != Opcode::OP_VIEW) {
+            continue;
+        }
+        if (op.GetInputOperand(0)->GetRawTensor() == op.GetOutputOperand(0)->GetRawTensor()) {
+            op.SetAttribute(OpAttributeKey::inplaceIdx, 0);
+        }
+    }
+    std::unordered_map<Operation *, LogicalTensorPtr> visited;
+    for (Operation &op : function.Operations()) {
+        if (!op.HasAttribute(OpAttributeKey::inplaceIdx) || visited.count(&op) > 0) {
+            continue;
+        }
+        FindInplaceSource(function, op, visited);
+    }
+
+    for (auto &[op, srcTensor] : visited) {
+        if (op->GetOpcode() != Opcode::OP_VIEW) { // 仅重构View连接
+            continue;
+        }
+        auto inplaceIdx = op->GetIntAttribute(OpAttributeKey::inplaceIdx);
+        ASSERT(inplaceIdx == 0);
+        auto iOperand = op->GetInputOperand(inplaceIdx);
+        auto oOperand = op->GetOutputOperand(0);
+        if (iOperand == srcTensor) { // 开头的VIEW不需要插入NOP来控制顺序
+            continue;
+        }
+        ASSERT(iOperand->GetRawTensor() == srcTensor->GetRawTensor());
+        ASSERT(oOperand->GetRawTensor() == srcTensor->GetRawTensor());
+        op->ReplaceIOperand(0, srcTensor);
+        // 含inplace语义，都为同一个RawTensor
+        auto nopOutput = std::make_shared<LogicalTensor>(function, srcTensor->GetRawTensor(),
+            Offset(srcTensor->GetOffset().size()), srcTensor->GetShape(), NodeType::LOCAL);
+        nopOutput->SetMemoryTypeBoth(oOperand->GetMemoryTypeOriginal());
+        auto &nop = function.AddRawOperation(Opcode::OP_NOP, {iOperand, oOperand}, {nopOutput});
+        nop.SetAttribute(OpAttributeKey::inplaceIdx, 0); // 期望上设成任何一个都可以，因为来源一致
+        nop.UpdateSubgraphID(op->GetSubgraphID());
+        auto consumers = oOperand->GetConsumers(); // deep copy
+        for (auto consumer : consumers) {
+            if (consumer->GetOpcode() == Opcode::OP_NOP || !consumer->HasAttribute(OpAttributeKey::inplaceIdx)) {
+                continue;
+            }
+            consumer->ReplaceIOperand(consumer->GetIntAttribute(OpAttributeKey::inplaceIdx), nopOutput);
+        }
+    }
+    APASS_LOG_INFO_F(Elements::Operation, "===> End RefactorViewConnectForInplace.");
+    return SUCCESS;
+}
 } // namespace tile_fwk
 } // namespace npu

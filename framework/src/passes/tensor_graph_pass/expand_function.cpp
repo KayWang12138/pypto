@@ -87,6 +87,20 @@ Status UpdateIOOperand(const std::vector<OperationPtr> &tensorOperations) {
     }
     return SUCCESS;
 }
+
+bool NotNeedExpand(Opcode opcode, bool needCopy) {
+    return opcode == Opcode::OP_VIEW || (opcode == Opcode::OP_ASSEMBLE && !needCopy) || opcode == Opcode::OP_PAD ||
+           opcode == Opcode::OP_NOP;
+}
+
+void ProcessForNotExpandOp(Function &function, Operation &op) {
+    auto &newOp = function.AddOperation(op.GetOpcode(), op.GetIOperands(), op.GetOOperands());
+    newOp.SetOpAttribute(op.GetOpAttribute());
+    newOp.CopyAttrFrom(op, OP_EMUOP_PREFIX);
+    if (op.HasAttribute(OpAttributeKey::inplaceIdx)) {
+        newOp.SetAttribute(OpAttributeKey::inplaceIdx, op.GetIntAttribute(OpAttributeKey::inplaceIdx));
+    }
+}
 }
 
 Status ExpandFunction::PreCheck(Function &function) {
@@ -134,16 +148,14 @@ Status ExpandFunction::Expandfunction(Function &function) const {
             APASS_LOG_ERROR_F(Elements::Operation, "Encountered null operation in function.");
             return FAILED;
         }
-        if (op->GetOpcode() == Opcode::OP_NOP || op->GetOpcode() == Opcode::OP_PRINT) {
+        if (op->GetOpcode() == Opcode::OP_PRINT) {
             continue;
         }
         SourceLocation::SetLocation(op->GetLocation());
         bool needCopy = CheckAssembleNeedCopy(function, op);
         APASS_LOG_DEBUG_F(Elements::Operation, "Op %s[%d] needCopy: %d", op->GetOpcodeStr().c_str(), op->GetOpMagic(), needCopy);
-        if (op->GetOpcode() == Opcode::OP_VIEW || (op->GetOpcode() == Opcode::OP_ASSEMBLE && !needCopy) || op->GetOpcode() == Opcode::OP_PAD) {
-            auto &newOp = function.AddOperation(op->GetOpcode(), op->GetIOperands(), op->GetOOperands());
-            newOp.SetOpAttribute(op->GetOpAttribute());
-            newOp.CopyAttrFrom(*op, OP_EMUOP_PREFIX);
+        if (NotNeedExpand(op->GetOpcode(), needCopy)) {
+            ProcessForNotExpandOp(function, *op);
             continue;
         }
         config::SetSemanticLabel(op->GetSemanticLabel());

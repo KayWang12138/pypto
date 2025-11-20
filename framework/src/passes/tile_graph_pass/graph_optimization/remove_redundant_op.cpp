@@ -141,6 +141,10 @@ Status ProcessAssembleDDR(const Operation &op, const LogicalTensorPtr &assembleI
 
 Status ProcessAssembleUB(const Operation &op, const LogicalTensorPtr &ASSEMBLE_in, const LogicalTensorPtr &ASSEMBLE_out,
     Function &function, bool &needToDelete) {
+    // 如果输出存在多个producer则意味着是多assemble场景，则assemble不能消除。
+    if (ASSEMBLE_out->GetProducers().size() > 1) {
+        return SUCCESS;
+    }
     /*
     assemble 输入和输出相同，无意义
     */

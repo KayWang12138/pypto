@@ -28,6 +28,7 @@
 #include "passes/tensor_graph_pass/remove_redundant_reshape.h"
 #include "passes/tensor_graph_pass/auto_cast.h"
 #include "passes/tensor_graph_pass/infer_memory_conflict.h"
+#include "passes/tensor_graph_pass/remove_undriven_view.h"
 #include "passes/tensor_graph_pass/expand_function.h"
 #include "passes/tensor_graph_pass/loop_unroll.h"
 //  tile graph pass
@@ -58,6 +59,7 @@ void RegPass() {
     REG_PASS(GraphPartition);
     REG_PASS(InsertSync);
     REG_PASS(OoOSchedule);
+    REG_PASS(RemoveUndrivenView);
     REG_PASS(ExpandFunction);
     REG_PASS(CommonOperationEliminate);
     REG_PASS(GenerateMoveOp);
@@ -99,6 +101,7 @@ void PassManager::RegDefaultStrategy() {
             {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
             {                 "AutoCast",                 "AutoCast"},
             {      "InferMemoryConflict",      "InferMemoryConflict"},
+            {       "RemoveUndrivenView",       "RemoveUndrivenView"},
             {           "ExpandFunction",           "ExpandFunction"},
             {             "DuplicateOp1",              "DuplicateOp"},
             {        "MergeViewAssemble",        "MergeViewAssemble"},

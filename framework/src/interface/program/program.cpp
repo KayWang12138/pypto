@@ -555,16 +555,10 @@ void Program::GraphCheck() const {
         ASSERT(opMagic + 1 == function.opSeed_);
         std::unordered_set<const Operation *> opMap;
         for (auto &op : opsView) {
-            if (op.IsNOP()) {
-                continue;
-            }
             opMap.emplace(&op);
         }
 
         for (auto &op : opsView) {
-            if (op.IsNOP()) {
-                continue;
-            }
             if (op.GetOpcode() == Opcode::OP_VIEW || op.GetOpcode() == Opcode::OP_ASSEMBLE ||
                 op.GetOpcode() == Opcode::OP_CALL) {
                 ASSERT(op.GetOpAttribute() != nullptr);

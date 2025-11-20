@@ -225,9 +225,8 @@ void LightningIndexerPrologCompute(
                 auto kRoped = Rope(kRope, cos2DView, sin2DView, params.ropeTileConfigs); // {tileBS, ropeHeadDim}
 
                 config::SetSemanticLabel("KAssemble");
-                TileShape::Current().SetVecTile(tileBS, NUM_128, NUM_128, NUM_128);
-                Assemble(qRoped, {bsIdx, 0, 0}, outputs.query);
-                Assemble(qNope, {bsIdx, 0, ropeHeadDim}, outputs.query);
+                TileShape::Current().SetVecTile(NUM_1, NUM_32, NUM_128, NUM_128);
+                Assemble({{qRoped, {bsIdx, 0, 0}}, {qNope, {bsIdx, 0, ropeHeadDim}}}, outputs.query, true);
 
                 TileShape::Current().SetVecTile(tileBS, NUM_256);
                 auto kType = kNope.GetDataType();

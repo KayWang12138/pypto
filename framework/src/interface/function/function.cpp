@@ -586,7 +586,7 @@ FunctionCallArgs Function::EndFunction(const std::shared_ptr<TensorSlotScope> &s
         }
         for (auto &op : Operations()) {
             for (auto &iOperand : op.iOperand) {
-                if (op.IsCall() || tensorMap_.tensorMap_.count(iOperand->tensor->rawmagic) == 0) {
+                if (op.IsCall() || (tensorMap_.tensorMap_.count(iOperand->tensor->rawmagic) == 0 && (&iOperand->BelongFunction() != this))) {
                     incasts.Insert(iOperand);
                 }
             }
@@ -1176,12 +1176,19 @@ void Function::RefreshOpPosition() {
 bool Function::enableMagicLookupRecord_{false};
 std::map<std::pair<int, int>, std::set<Operation *, LogicalTensor::CompareOp>> Function::tensorAndSubgraphToProducer_;
 
-void Function::ProducerMagicLookup(const Function *function, const std::set<Operation *, LogicalTensor::CompareOp> &producers,
+void Function::ProducerMagicLookup(const Function *function, const LogicalTensorPtr &tensor, const std::set<Operation *, LogicalTensor::CompareOp> &producers,
         const int subGraphId, int &index, std::unordered_map<int, int> &magic2index, std::stringstream &ss)
 {
     for (auto &op : producers) {
         if (subGraphId != INT32_MIN && op->GetSubgraphID() != subGraphId) {
             continue;
+        }
+        if (op->GetOOperands().size() > 1) {
+            for (size_t i = 0; i < op->GetOOperands().size(); i++) {
+                if (op->GetOutputOperand(i) == tensor) {
+                    ss << "ooperand " << i << " ";
+                }
+            }
         }
         bool isInBoundary = OpcodeManager::Inst().IsBoundaryIn(op->GetOpcode());
         if (isInBoundary) {
@@ -1243,9 +1250,9 @@ void Function::MagicLookup(const Function *function, const std::vector<LogicalTe
             }
         }
         if (!enableMagicLookupRecord_) {
-            ProducerMagicLookup(function, t->GetProducers(), subGraphId, index, magic2index, ss);
+            ProducerMagicLookup(function, t, t->GetProducers(), subGraphId, index, magic2index, ss);
         } else if (tensorAndSubgraphToProducer_.count({t->GetMagic(), subGraphId}) > 0) {
-            ProducerMagicLookup(function, tensorAndSubgraphToProducer_[{t->GetMagic(), subGraphId}], subGraphId,
+            ProducerMagicLookup(function, t, tensorAndSubgraphToProducer_[{t->GetMagic(), subGraphId}], subGraphId,
                                 index, magic2index, ss);
         }
         ss << ")";
@@ -1460,11 +1467,11 @@ const Opcode opCode, const LogicalTensors &iOperands, const LogicalTensors &oOpe
     return *operations_.back();
 }
 
-void Function::SetSameMemId(const Tensor &operand, Tensor &dst) {
-    ASSERT(operand.GetDataType() == dst.GetDataType()) << " Check Dtype failed!";
+void Function::SetSameMemId(const LogicalTensorPtr &operand, LogicalTensorPtr &dst) {
+    ASSERT(operand->Datatype() == dst->Datatype()) << " Check Dtype failed!";
 
-    auto dstRaw = dst.GetStorage()->GetRawTensor();
-    auto operandRaw = operand.GetStorage()->GetRawTensor();
+    auto dstRaw = dst->GetRawTensor();
+    auto operandRaw = operand->GetRawTensor();
     dstRaw->memoryId = operandRaw->memoryId;
     outIncastLinkMap[dstRaw] = operandRaw;
 }
@@ -1848,20 +1855,25 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
         ASSERT(rawSymbol->GetProducers().empty());
         ASSERT(iOperand.size() == newOutcastOffsets.size());
         for (size_t i = 0; i < iOperand.size(); i++) {
-            auto producerSet = iOperand[i]->GetProducers();
-            auto assembleCount = std::count_if(producerSet.begin(), producerSet.end(),
-                [](Operation *op) { return op->GetOpcode() == Opcode::OP_ASSEMBLE && op->HasAttribute("dassemble"); });
-            if (assembleCount) {
+            auto producerSet = iOperand[i]->GetProducers(); // deep copy
+            auto partitalAssemble = std::any_of(producerSet.begin(), producerSet.end(), [](Operation *op) {
+                return (op->GetOpcode() == Opcode::OP_ASSEMBLE && op->HasAttribute("dassemble")) || op->GetOpcode() == Opcode::OP_ASSEMBLE_SSA;
+            });
+            if (partitalAssemble) {
                 for (auto producer : producerSet) {
                     DEFINE_SOURCE_LOCATION();
                     auto producerAttr = std::static_pointer_cast<AssembleOpAttribute>(producer->GetOpAttribute());
                     auto [offset, dynOffset] = TensorOffset::Add(iOperand[i]->GetOffset(), iOperand[i]->GetDynOffset(), producerAttr->GetToOffset(), producerAttr->GetToDynOffset());
-                    auto &assembleOp = AddOperation(Opcode::OP_ASSEMBLE, {producer->GetIOperands()[0]}, oOperand);
-                    assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(offset, dynOffset));
-                    producer->SetAsDeleted();
+                    producer->ReplaceOOperand(0, rawSymbol);
+                    producer->SetOpAttribute(std::make_shared<AssembleOpAttribute>(offset, dynOffset));
+                }
+                auto consumers = iOperand[i]->GetConsumers(); // deep copy
+                for (auto consumer : consumers) {
+                    DEFINE_SOURCE_LOCATION();
+                    consumer->ReplaceInputOperand(iOperand[i], rawSymbol);
                 }
                 if (scope) {
-                    scope->partialUpdateOutcastDict[rawSymbol] = assembleCount;
+                    scope->partialUpdateOutcastDict[rawSymbol] = partitalAssemble;
                 }
             } else {
                 DEFINE_SOURCE_LOCATION();
@@ -2553,13 +2565,19 @@ static std::vector<SymbolicScalar> NormalizeCopyOut(Operation *op, int coaIndexB
     return operandCoaList;
 }
 
-static std::vector<SymbolicScalar> NormalizeTensor(LogicalTensorPtr operand, int coaIndexBase) {
+static std::vector<SymbolicScalar> NormalizeTensor(LogicalTensorPtr operand, int coaIndexBase, bool isNop = false) {
     auto offset = OpImmediate::Specified(operand->GetOffset());
     auto dynOffset = OpImmediate::Specified(operand->GetDynOffset());
     auto shape = OpImmediate::Specified(operand->GetShape());
     auto rawshape = OpImmediate::Specified(operand->GetRawTensor()->GetRawShape());
     auto dynRawshape = OpImmediate::Specified(operand->GetRawTensor()->GetDynRawShape());
     auto dynValidShape = OpImmediate::Specified(operand->GetDynValidShape());
+    if (isNop) {
+        offset = OpImmediate::Specified(Offset(operand->GetShape().size()));
+        dynOffset = OpImmediate::Specified(Offset(operand->GetShape().size()));
+        shape = OpImmediate::Specified(Shape(operand->GetShape().size()));
+        dynValidShape = OpImmediate::Specified(Shape(operand->GetShape().size()));
+    }
 
     int dim = shape.size();
     int operandCoaIndex = COA_INDEX_DIM_BASE;
@@ -2648,7 +2666,7 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(
                 GetTensorDataSetCoaIndex(op, coaIndex);
             }
         } else {
-            operandCoaList = NormalizeTensor(op->GetIOperands()[k], coaIndex);
+            operandCoaList = NormalizeTensor(op->GetIOperands()[k], coaIndex, op->GetOpcode() == Opcode::OP_NOP);
         }
         op->SetIOpAttrOffset(k, coaIndex);
         iOffset.emplace_back(coaIndex);
@@ -2659,6 +2677,9 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(
     oOffset.reserve(outcastPosition.size() + extraOutcasts.size());
     for (auto [opmagic, k] : outcastPosition) {
         auto op = opmagicToOp[opmagic];
+        if (op->GetOOpAttrOffset(k) != -1) {
+            continue;
+        }
         std::vector<SymbolicScalar> operandCoaList;
         if (IsCopyOut(op->GetOpcode()) && k == 0) {
             operandCoaList = NormalizeCopyOut(op, coaIndex, valueToIndex);

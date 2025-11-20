@@ -120,7 +120,7 @@ TEST_F(TestCodegenGather, TestGatherEleTileTensor) {
     std::string res = GetResultFromCpp(func);
     std::string expect = R"!!!(#include "TileOpImpl.h"
 
-// funcHash: 2101778897941530938
+// funcHash: 2587802126663378215
 
 extern "C" [aicore] void TENSOR_GATHER_ELEMET_TILETENSOR_2_0_4503599627370496(__gm__ GMTensorInfo* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
 float __ubuf__ *UB_S0_E256 = (float __ubuf__ *)get_imm(0x0); // size: 0x100

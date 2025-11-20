@@ -257,6 +257,7 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_RESHAPE_COPY_IN, OpCoreType::ANY, "RESHAPE_COPY_IN", {MemoryType::MEM_DEVICE_DDR}, {MemoryType::MEM_UB}, {"TileOp::ReshapeCopyIn", PIPE_MTE2, PIPE_MTE2, CoreType::AIV}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "validShape"});
     registerInfo(Opcode::OP_RESHAPE_COPY_OUT, OpCoreType::ANY, "RESHAPE_COPY_OUT", {MemoryType::MEM_UB}, {MemoryType::MEM_DEVICE_DDR}, {"TileOp::ReshapeCopyOut", PIPE_MTE3, PIPE_MTE3, CoreType::AIV}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "validShape"});
     registerInfo(Opcode::OP_ASSEMBLE, OpCoreType::ANY, "ASSEMBLE", {}, {MemoryType::MEM_DEVICE_DDR}, {"ASSEMBLE", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::MOVE_LOCAL);
+    registerInfo(Opcode::OP_ASSEMBLE_SSA, OpCoreType::ANY, "ASSEMBLE_SSA", {MemoryType::MEM_UB, MemoryType::MEM_DEVICE_DDR}, {MemoryType::MEM_DEVICE_DDR}, {"ASSEMBLE_SSA", PIPE_MTE3, PIPE_MTE3, CoreType::AIV}, OpCalcType::MOVE_OUT); // 输出输出支持其他类型
     registerInfo(Opcode::OP_VIEW, OpCoreType::ANY, "VIEW", {}, {}, {"VIEW", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::MOVE_LOCAL);
     registerInfo(Opcode::OP_VIEW_TYPE, OpCoreType::ANY, "VIEW_TYPE", {}, {}, {"VIEW_TYPE", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::MOVE_LOCAL);
     registerInfo(Opcode::OP_INDEX_OUTCAST, OpCoreType::ANY, "INDEX_OUTCAST", {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_DEVICE_DDR},

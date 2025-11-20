@@ -150,7 +150,7 @@ namespace CostModel
     template <typename Simulator>
     uint64_t PipeSimulator<Simulator>::Simulate(const TileOpPtr& tileOp)
     {
-        if(tileOp->opcode == "RESHAPE" || tileOp->opcode == "VIEW" || tileOp->opcode == "ASSEMBLE"){
+        if(tileOp->opcode == "RESHAPE" || tileOp->opcode == "VIEW" || tileOp->opcode == "ASSEMBLE" || tileOp->opcode == "NOP") {
             MLOG_INFO("ignore reshape op");
             return 0;
         }

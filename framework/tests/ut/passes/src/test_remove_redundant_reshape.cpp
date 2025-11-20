@@ -210,5 +210,5 @@ TEST_F(RemoveRedundantReshapeTest, TestReplaceInput) {
     }
 
     // Verify if the RemoveRedundantReshape Pass replaces Input of the reshape operation
-    EXPECT_EQ(updated_operations.size(), 7) << "After the Pass, there should be 5 operations (View + Reshape + Reshape + Add + Assemble)";
+    EXPECT_EQ(updated_operations.size(), 6) << "After the Pass, there should be 5 operations (View + Reshape + Reshape + Add + Assemble)";
 }

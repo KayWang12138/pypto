@@ -27,10 +27,17 @@
 #define MODULE_NAME "SubgraphToFunction"
 
 namespace npu::tile_fwk {
+void SubgraphToFunction::Init() {
+    subFuncInvokeInfos.clear();
+    viewToCopyInMapping_.clear();
+}
 
 Status SubgraphToFunction::RunOnFunction(Function &function) {
     /* 需要将所有缓存在类成员的信息清零 */
-    subFuncInvokeInfos.clear();
+    Init();
+
+    TransViewToCopyInBeforeGenSubgraph(function);
+
     // build in-graph and out-graph at first
     // GetTensorData: Add dependency
     GetTensorDataDependencyInsert(function);
@@ -56,6 +63,9 @@ Status SubgraphToFunction::RunOnFunction(Function &function) {
     Function::EnableMagicLookupRecord(false, &function);
     // GetTensorData: Remove dependency
     GetTensorDataDependencyClear(function);
+
+    RecoverCopyInToViewAfterGenSubgraph(function);
+
     return SUCCESS;
 }
 
@@ -105,6 +115,13 @@ void SubgraphToFunction::RecordIncastInfo(Function &function, RecordInfo recordI
     LogicalTensorPtr iOperand = recordInfo.operand;
     Offset offset = recordInfo.offset;
     Shape shape = recordInfo.shape;
+    auto &op = *nLIST[i][j];
+    // 这里逻辑可能有一些问题，期望是尽可能不要把inplace语义的COPY_OUT的输出变成leaf的incast
+    if (op.HasAttribute(OpAttributeKey::inplaceIdx) && !iOperand->GetProducers().empty()) {
+        if (!iOperand->isSubGraphBoundary) {
+            return;
+        }
+    }
     if (function.IsFromInCast(iOperand) || function.IsFromOutCast(iOperand)) {
         iter.RecordTensorArg(k, iOperand->GetRawMagic(), offset, shape, iOperand->tensor->rawshape,
             iOperand->Datatype(), false, iOperand, nLIST[i][j]->opmagic);
@@ -152,6 +169,10 @@ void SubgraphToFunction::RecordOutcastInfo(Function &function, RecordInfo record
     LogicalTensorPtr oOperand = recordInfo.operand;
     Offset offset = recordInfo.offset;
     Shape shape = recordInfo.shape;
+    auto &op = *nLIST[i][j];
+    if (op.HasAttribute(OpAttributeKey::inplaceIdx) && op.GetOpcode() != Opcode::OP_COPY_OUT) {
+        return;
+    }
     if (function.IsFromOutCast(oOperand) || function.IsFromInCast(oOperand)) {
         iter.RecordTensorArg(k, oOperand->GetRawMagic(), offset, shape, oOperand->tensor->rawshape,
             oOperand->Datatype(), true, oOperand, nLIST[i][j]->opmagic);
@@ -205,7 +226,7 @@ void SubgraphToFunction::ConstructnList(Function &function) {
     auto list = function.Operations();
     nLIST.resize(function.GetTotalSubGraphCount());
     for (size_t i = 0; i < list.size(); i++) {
-        if (list[i].IsNOP() || list[i].GetSubgraphID() < 0) {
+        if (list[i].GetSubgraphID() < 0) {
             continue;
         }
         nLIST[list[i].GetSubgraphID()].push_back(list.operations_[i]);
@@ -256,7 +277,11 @@ void SubgraphToFunction::ProcessInputOperands(Function* rootFunc, Operation& til
         std::string name = FindSymbolName(iOperand, iOperand->GetRawMagic());
         auto offset = iOperand->offset;
         auto shape = iOperand->shape;
-
+        if (tileOp.HasAttribute(OpAttributeKey::inplaceIdx) && !iOperand->GetProducers().empty()) {
+            if (!iOperand->isSubGraphBoundary) {
+                continue;
+            }
+        }
         if (IsCopyIn(tileOp.GetOpcode())){
             ProcessCopyInOperand(tileOp, offset, shape);
         }
@@ -285,6 +310,9 @@ void SubgraphToFunction::ProcessOutputOperands(Function* rootFunc, Operation& ti
         std::string name = FindSymbolName(oOperand, oOperand->GetRawMagic());
         auto offset = oOperand->offset;
         auto shape = oOperand->shape;
+        if (tileOp.HasAttribute(OpAttributeKey::inplaceIdx) && tileOp.GetOpcode() != Opcode::OP_COPY_OUT) {
+            return;
+        }
         if (IsCopyOut(tileOp.GetOpcode())){
             ProcessCopyOutOperand(tileOp, offset, shape);
         }
@@ -737,6 +765,50 @@ void SubgraphToFunction::GenerateAndExportCombinedReport(
     constexpr int JSON_INDENTATION_SPACES = 4;
     outfile << report.dump(JSON_INDENTATION_SPACES); // 4空格缩进
     outfile.close();
+}
+
+void SubgraphToFunction::TransViewToCopyInBeforeGenSubgraph(Function &function) {
+    for (auto &op : function.Operations(false)) {
+        if (op.GetOpcode() != Opcode::OP_VIEW) {
+            continue;
+        }
+        if (!op.HasAttribute(OpAttributeKey::inplaceIdx)) {
+            continue;
+        }
+        ASSERT(op.GetOOperands().size() == 1);
+        auto oOperand = op.GetOutputOperand(0);
+        bool canTrans = true;
+        for (const auto &consumer : oOperand->GetConsumers()) {
+            if (OpcodeManager::Inst().IsSharedMemory(consumer->GetOpcode())) {
+                canTrans = false;
+                break;
+            }
+        }
+        if (!canTrans) {
+            continue;
+        }
+        op.SetOpCode(Opcode::OP_COPY_IN);
+        auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
+        ASSERT(viewOpAttribute != nullptr);
+        viewToCopyInMapping_.emplace(&op, op.GetOpAttribute());
+        op.SetOpAttribute(
+            std::make_shared<CopyOpAttribute>(OpImmediate::Specified(viewOpAttribute->GetFromTensorOffset()),
+                viewOpAttribute->GetTo(), OpImmediate::Specified(op.oOperand.front()->shape),
+                OpImmediate::Specified(op.iOperand.front()->tensor->GetDynRawShape()),
+                OpImmediate::Specified(viewOpAttribute->GetToDynValidShape())));
+    }
+}
+
+void SubgraphToFunction::RecoverCopyInToViewAfterGenSubgraph(Function &function) {
+    for (auto &program : function.rootFunc_->programs_) {
+        for (auto &op: program.second->Operations(false)) {
+            if (op.HasAttribute(OpAttributeKey::inplaceIdx) && op.GetOpcode() == Opcode::OP_COPY_IN) {
+                ASSERT(viewToCopyInMapping_.count(&op) > 0);
+                op.SetOpCode(Opcode::OP_VIEW);
+                op.SetOpAttribute(viewToCopyInMapping_.at(&op));
+            }
+        }
+    }
 }
 
 Status SubgraphToFunction::PreCheck(Function &function) {

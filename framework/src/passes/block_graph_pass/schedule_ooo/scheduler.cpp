@@ -650,10 +650,6 @@ void OoOScheduler::AddDependencies(
             issue->reqMemIds.push_back(memId);
         }
         if (lastWriteOpMap.find(memId) != lastWriteOpMap.end()) {
-            // 解除DDR地址依赖
-            if (lastWriteOpMap[memId]->tileOp.GetOpcode() == Opcode::OP_COPY_OUT && issue->tileOp.GetOpcode() == Opcode::OP_COPY_OUT) {
-                continue;
-            }
             issue->predecessors.insert(lastWriteOpMap[memId]->id);
             lastWriteOpMap[memId]->successors.insert(issue->id);
         }

@@ -248,9 +248,7 @@ Status PipeSync::InsertSync(Function &function, std::vector<Operation *> &synced
     }
 
     for (auto &log : synced) {
-        if (log.second->GetOpcode() != Opcode::OP_NOP) {
-            syncedOpLog.push_back(log.second);
-        }
+        syncedOpLog.push_back(log.second);
     }
     return SUCCESS;
 }
@@ -472,7 +470,8 @@ void PipeSync::InitIssueQueue() {
 }
 
 void PipeSync::EnqueueOp(DepOp &op, const std::vector<Operation *> opLogPtr, std::vector<IndexOp> &syncedOpLog) {
-   if (opLogPtr[op.idx]->GetOpcode() == Opcode::OP_ASSEMBLE || opLogPtr[op.idx]->GetOpcode() == Opcode::OP_VIEW) {
+   if (opLogPtr[op.idx]->GetOpcode() == Opcode::OP_ASSEMBLE || opLogPtr[op.idx]->GetOpcode() == Opcode::OP_VIEW ||
+        opLogPtr[op.idx]->GetOpcode() == Opcode::OP_NOP) {
         syncedOpLog.emplace_back(std::make_pair(op.idx, opLogPtr[op.idx]));
         return;
     }
@@ -1189,8 +1188,9 @@ bool PipeSync::IgnorableIntraPipeDep(size_t prev, size_t curr, const std::vector
     // true表示依赖关系可忽略，false表示依赖关系不可忽略
     // VIEW or ASSEMBLE data dependency can be ignored
     if (opLogPtr[prev]->GetOpcode() == Opcode::OP_VIEW || opLogPtr[curr]->GetOpcode() == Opcode::OP_VIEW ||
-        opLogPtr[prev]->GetOpcode() == Opcode::OP_ASSEMBLE || opLogPtr[curr]->GetOpcode() == Opcode::OP_ASSEMBLE) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "%d %s and %d %s dependency is ignorable because op is VIEW or ASSEMBLE",
+        opLogPtr[prev]->GetOpcode() == Opcode::OP_ASSEMBLE || opLogPtr[curr]->GetOpcode() == Opcode::OP_ASSEMBLE ||
+        opLogPtr[prev]->GetOpcode() == Opcode::OP_NOP || opLogPtr[curr]->GetOpcode() == Opcode::OP_NOP) {
+        APASS_LOG_DEBUG_F(Elements::Operation, "%d %s and %d %s dependency is ignorable because op is VIEW or ASSEMBLE or NOP",
             opLogPtr[prev]->GetOpMagic(), opLogPtr[prev]->GetOpcodeStr().c_str(), opLogPtr[curr]->GetOpMagic(), opLogPtr[curr]->GetOpcodeStr().c_str());
         return true;
     }

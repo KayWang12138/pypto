@@ -168,6 +168,8 @@ struct DeviceExecuteProgram {
     }
 };
 
+using StitchedList = Vector<DevAscendFunctionDupped, WsMemCategory::VECTOR_STITCHED_LIST, DeviceWorkspaceAllocator>;
+
 struct DeviceSlotContext {
     void InitAllocator(DeviceWorkspaceAllocator &workspace, uint64_t slotSize) {
         workspace.SetupVector(slotList_);
@@ -180,8 +182,8 @@ struct DeviceSlotContext {
         FillInputOutputSlot(slotList_.data(), slotList_.size(), devProg, args);
     }
 
-    void UpdateSlots(DevAscendFunctionDupped &devRootDup, uint32_t devTaskId, uint32_t devNextIdx) {
-        UpdateSlots(workspace_, slotList_.data(), slotList_.size(), slotRefCntPool_, devRootDup, devTaskId, devNextIdx);
+    void UpdateSlots(DevAscendFunctionDupped &devRootDup, const StitchedList &stitchedList, uint32_t devTaskId, uint32_t devNextIdx) {
+        UpdateSlots(workspace_, slotList_.data(), stitchedList, slotList_.size(), slotRefCntPool_, devRootDup, devTaskId, devNextIdx);
     }
 
     DeviceExecuteSlot *GetSlotList() { return slotList_.data(); }
@@ -275,7 +277,7 @@ public:
     }
 
     template <WsMemCategory category>
-    static void UpdateSlots(DeviceWorkspaceAllocator *workspace, DeviceExecuteSlot *slotList, int slotSize,
+    static void UpdateSlots(DeviceWorkspaceAllocator *workspace, DeviceExecuteSlot *slotList, const StitchedList &stitchedList, int slotSize,
         ItemPool<uint32_t, category> &slotRefCntPool, DevAscendFunctionDupped &devRootDup, uint32_t devTaskId, uint32_t devNextIdx) {
         UNUSED(slotSize);
 
@@ -283,6 +285,27 @@ public:
         DevAscendFunction *devRootSrc = devRootDup.GetSource();
         uint64_t *expressionList = &devRootDup.GetExpression(0);
         size_t outcastSize = devRootSrc->GetOutcastSize();
+
+        std::vector<uint32_t *> newRefCnt;
+        newRefCnt.resize(outcastSize, nullptr);
+
+        // Increase refCnt for linked incasts
+        for (size_t i = 0; i < outcastSize; ++i) {
+            auto &outcast = devRootSrc->GetOutcast(i);
+            auto *rawTensor = devRootSrc->GetOutcastRawTensor(i);
+            if (rawTensor->linkedIncastId != -1) {
+                auto &incast = devRootSrc->GetIncast(rawTensor->linkedIncastId);
+                DEV_DEBUG_ASSERT(incast.fromSlotList.size() > 0);
+                int slotIndex = devRootSrc->At(incast.fromSlotList, 0);
+                uint32_t *refCnt = slotList[slotIndex].refCnt;
+                if (refCnt != nullptr) {
+                    *refCnt += outcast.toSlotList.size();
+                }
+                newRefCnt[i] = refCnt;
+            }
+        }
+
+        // Update slot address
         for (size_t i = 0; i < outcastSize; ++i) {
             auto &srcDesc = devRootDup.GetOutcastAddress(i);
             auto &outcast = devRootSrc->GetOutcast(i);
@@ -292,15 +315,20 @@ public:
                 UpdateSlotsForStitch(slotIdx, slot, devRootSrc, outcast, devTaskId, devNextIdx, i, expressionList);
                 if (slot.refCnt != nullptr && slot.DerefAndCheckIfZeroRefCnt(slotRefCntPool)) {
                     DEV_DEBUG_ASSERT(!slot.desc.IsNullAddress());
-                    workspace->DelayedRecycleSlotMem(slot.desc.addr);
+                    auto freeAddr = slot.desc.addr;
+                    if (!slot.desc.IsAddress()) {
+                        freeAddr = stitchedList[slot.desc.dupIdx].GetOutcastAddress(slot.desc.outcastIdx).GetAddress();
+                    }
+                    workspace->DelayedRecycleSlotMem(freeAddr);
                 }
+                DEV_DEBUG_ASSERT(slot.refCnt == nullptr || *slot.refCnt >= 0);
 
                 if (!srcDesc.IsAddress() /* Unroll secondary placeholder */) {
                     slot.desc = srcDesc;
                 } else {
                     slot.desc = AddressDescriptor(devNextIdx, i);
                 }
-                slot.refCnt = nullptr;
+                slot.refCnt = newRefCnt[i];
                 DEV_VERBOSE_DEBUG("[UpdateSlots]   Outcast [%3zu] to slot [%3d], address %s.", i, slotIdx, slot.desc.Dump().c_str());
             }
         }
@@ -339,6 +367,8 @@ struct DeviceStitchContext {
         stitchReuseContext_.lastNonEmptyDupIdx = -1;
     }
     void Append(DevAscendFunctionDupped &devRootDup) { stitchedList_.push_back(devRootDup); }
+
+    const auto &GetStitchedList() const { return stitchedList_; }
 
     static void CheckStitch(DevAscendFunctionDupped *stitchedList, int size, DevAscendFunctionDupped *nextDup) {
         DEV_IF_NONDEVICE {
@@ -548,7 +578,7 @@ private:
         uint32_t *refCnt{nullptr};
     };
     uint32_t stitchedCallOpSize_{0};
-    Vector<DevAscendFunctionDupped, WsMemCategory::VECTOR_STITCHED_LIST, DeviceWorkspaceAllocator> stitchedList_;
+    StitchedList stitchedList_;
     Vector<SlotAdditionalInfo, WsMemCategory::VECTOR_TEMPORARY> slotInfosInDecidingSlotMem_;
     DeviceWorkspaceAllocator *workspace_{nullptr};
 
@@ -1663,7 +1693,7 @@ void GELaunchRunCached(DevStartArgs *startArgs, std::function<void(uint64_t, Dev
         size_t devNextIdx = stitchContext.Size();
         stitchContext.Stitch(slotContext, currDevRootDup, taskId, devNextIdx);
 
-        slotContext.UpdateSlots(currDevRootDup, taskId, devNextIdx);
+        slotContext.UpdateSlots(currDevRootDup, stitchContext.GetStitchedList(), taskId, devNextIdx);
         PROF_STAGE_END(PERF_EVT_STAGE_STITCH, "stitch.after\n");
         DEV_TRACE_DEBUG(DEvent(taskId, DActStitchFinish(GetRuid(rootKey, true))));
         return nullptr;

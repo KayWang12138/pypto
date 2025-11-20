@@ -322,6 +322,7 @@ struct OrderedSet : std::unordered_map<T, int> {
     const T &operator[](int index) const { return order[index]; }
     T &operator[](int index) { return order[index]; }
 
+    bool HasData(const T &data) const { return this->find(data) != static_cast<const std::unordered_map<T, int> &>(*this).end(); }
     int GetIndex(const T &data) const { return this->find(data)->second; }
 
     void Remove(const std::vector<T> &items) {

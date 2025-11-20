@@ -89,10 +89,6 @@ void Scheduler::SortTile(std::unordered_map<int, TilePtr> &tiles, std::unordered
         }
     }
     for (auto &tileOp : tileOps) {
-        if (tileOp.second->IsNOP()) {
-            tileOpsVisited[tileOp.first] = true;
-            continue;
-        }
         tileOpsVisited[tileOp.first] = false;
         if (tileOp.second->oOperand.empty()) {
             queue.emplace_back(tileOp.first, false);

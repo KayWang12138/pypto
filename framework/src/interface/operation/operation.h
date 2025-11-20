@@ -325,6 +325,19 @@ public:
 
     void SetOpAttribute(const std::shared_ptr<OpAttribute> &attr) {
         opAttribute_ = attr;
+        static std::unordered_set<Opcode> copyOpAttrOpTypes{Opcode::OP_L1_COPY_IN, Opcode::OP_L1_COPY_OUT,
+            Opcode::OP_COPY_IN, Opcode::OP_L1_TO_BT, Opcode::OP_L1_TO_FIX_QUANT_PRE, Opcode::OP_COPY_OUT,
+            Opcode::OP_RESHAPE_COPY_IN, Opcode::OP_RESHAPE_COPY_OUT, Opcode::OP_INDEX_OUTCAST,
+            Opcode::OP_TRANSPOSE_MOVEIN, Opcode::OP_TRANSPOSE_MOVEOUT, Opcode::OP_REMOTE_GATHER,
+            Opcode::OP_LOCAL_COPY_OUT, Opcode::OP_REMOTE_REDUCE, Opcode::OP_FFN_SCHED, Opcode::OP_FFN_BATCHING,
+            Opcode::OP_SHMEM_PUT, Opcode::OP_SHMEM_PUT_UB2GM, Opcode::OP_SHMEM_SIGNAL, Opcode::OP_SHMEM_GET,
+            Opcode::OP_SHMEM_GET_GM2UB, Opcode::OP_SHMEM_REDUCE, Opcode::OP_GATHER_IN_UB,
+            Opcode::OP_COPY_TO_LOCAL_EXPERT};
+        if (copyOpAttrOpTypes.count(opcode_) > 0) {
+            ASSERT(dynamic_cast<CopyOpAttribute *>(opAttribute_.get()) != nullptr);
+            return;
+        }
+
         switch (opcode_) {
             case Opcode::OP_VIEW: {
                 ASSERT(dynamic_cast<ViewOpAttribute *>(opAttribute_.get()) != nullptr);
@@ -334,6 +347,10 @@ public:
                 ASSERT(dynamic_cast<AssembleOpAttribute *>(opAttribute_.get()) != nullptr);
                 break;
             }
+            case Opcode::OP_ASSEMBLE_SSA:
+                ASSERT(dynamic_cast<AssembleOpAttribute *>(opAttribute_.get()) != nullptr ||
+                       dynamic_cast<CopyOpAttribute *>(opAttribute_.get()) != nullptr);
+                break;
             case Opcode::OP_CALL: {
                 ASSERT(dynamic_cast<CallOpAttribute *>(opAttribute_.get()) != nullptr);
                 break;
@@ -342,40 +359,13 @@ public:
                 ASSERT(dynamic_cast<ConvertOpAttribute *>(opAttribute_.get()) != nullptr);
                 break;
             }
-            case Opcode::OP_L1_COPY_IN:
-            case Opcode::OP_L1_COPY_OUT:
-            case Opcode::OP_COPY_IN:
-            case Opcode::OP_L1_TO_BT:
-            case Opcode::OP_L1_TO_FIX_QUANT_PRE:
-            case Opcode::OP_COPY_OUT:
-            case Opcode::OP_RESHAPE_COPY_IN:
-            case Opcode::OP_RESHAPE_COPY_OUT:
-            case Opcode::OP_INDEX_OUTCAST:
-            case Opcode::OP_TRANSPOSE_MOVEIN:
-            case Opcode::OP_TRANSPOSE_MOVEOUT:
-            case Opcode::OP_REMOTE_GATHER:
-            case Opcode::OP_LOCAL_COPY_OUT:
-            case Opcode::OP_REMOTE_REDUCE:
-            case Opcode::OP_FFN_SCHED:
-            case Opcode::OP_FFN_BATCHING:
-            case Opcode::OP_SHMEM_PUT:
-            case Opcode::OP_SHMEM_PUT_UB2GM:
-            case Opcode::OP_SHMEM_SIGNAL:
-            case Opcode::OP_SHMEM_GET:
-            case Opcode::OP_SHMEM_GET_GM2UB:
-            case Opcode::OP_SHMEM_REDUCE:
-            case Opcode::OP_GATHER_IN_UB:
-            case Opcode::OP_COPY_TO_LOCAL_EXPERT: {
-                ASSERT(dynamic_cast<CopyOpAttribute *>(opAttribute_.get()) != nullptr);
-                break;
-            }
             default: ASSERT(opAttribute_ == nullptr);
         }
     }
 
     void SetAssembleOpAttribute(
         const std::vector<int64_t> &toOffset, const std::vector<SymbolicScalar> &toDynOffset = {}) {
-        ASSERT(opcode_ == Opcode::OP_ASSEMBLE);
+        ASSERT(opcode_ == Opcode::OP_ASSEMBLE || opcode_ == Opcode::OP_ASSEMBLE_SSA);
         SetOpAttribute(std::make_shared<AssembleOpAttribute>(toOffset, toDynOffset));
     }
 

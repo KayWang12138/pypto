@@ -732,7 +732,6 @@ void CoreMachine::AnalysisDeadlock(std::set<int> &unissuedTileMagics)
 
 void CoreMachine::CheckDeadlock()
 {
-    uint64_t nopTileOps = 0;
     uint64_t unissuedTileOps = 0;
     uint64_t retiredTileOps = 0;
     std::set<int> unissuedTileMagics;
@@ -740,9 +739,7 @@ void CoreMachine::CheckDeadlock()
         if (tileop.second->exeInfo.retired) {
             retiredTileOps++;
         }
-        if (tileop.second->IsNOP()) {
-            nopTileOps++;
-        } else if (!tileop.second->exeInfo.issued || !tileop.second->exeInfo.retired) {
+        if (!tileop.second->exeInfo.issued || !tileop.second->exeInfo.retired) {
             unissuedTileOps++;
             unissuedTileMagics.insert(tileop.first);
         }
@@ -754,8 +751,6 @@ void CoreMachine::CheckDeadlock()
                   retiredTileOps);
         MLOG_WARN("[Cycle:", GetSim()->GetCycles(), "][CoreMachine][CheckDeadlock] ", "Unissued Tile Operations  ",
                   unissuedTileOps);
-        MLOG_WARN("[Cycle:", GetSim()->GetCycles(), "][CoreMachine][CheckDeadlock] ", "Nop Tile Operations  ",
-                  nopTileOps);
         AnalysisDeadlock(unissuedTileMagics);
         GetSim()->ReportDeadlock(machineId);
         return;

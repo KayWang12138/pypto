@@ -164,13 +164,13 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest2) {
             EXPECT_NE(pad_op.GetOpMagic(), op.GetOpMagic());
             ++pad_num;
         } else if (op.GetOpcode() == Opcode::OP_NOP) {
-            EXPECT_EQ(nop_op.GetOpMagic(), op.GetOpMagic());
+            EXPECT_NE(nop_op.GetOpMagic(), op.GetOpMagic());
             ++nop_num;
         }
     }
     EXPECT_EQ(view_num, kNumOne);
     EXPECT_EQ(pad_num, kNumOne);
-    EXPECT_EQ(nop_num, kNumZero);
+    EXPECT_EQ(nop_num, kNumOne);
 }
 
 /*

@@ -147,16 +147,17 @@ struct FunctionFrame {
 
     std::shared_ptr<LogicalTensorData> AllocateDataView(const std::shared_ptr<LogicalTensor> &tensor,
         const std::vector<int64_t> &offset, const std::vector<int64_t> &validShape,
-        const std::vector<int64_t> &rawShape, DataType dtype) {
+        const std::vector<int64_t> &rawShape, DataType dtype,
+        const std::shared_ptr<LogicalTensor> &inplaceTensor = nullptr) {
         if (tensorDataViewDict.count(tensor)) {
             return tensorDataViewDict[tensor];
         }
 
-        auto raw = tensor->GetRawTensor();
+        auto raw = inplaceTensor ? inplaceTensor->GetRawTensor() : tensor->GetRawTensor();
         bool isSpilled = false;
 
         std::string spillRawMaigc = "1056964608";
-        std::string rawMagic = std::to_string(tensor->GetRawTensor()->GetRawMagic());
+        std::string rawMagic = std::to_string(raw->GetRawMagic());
         if (rawMagic.find(spillRawMaigc) != std::string::npos) {
             if (spillRawTensorDict.count(tensor)) {
                 raw = spillRawTensorDict[tensor];
@@ -170,10 +171,11 @@ struct FunctionFrame {
         if (rawTensorDataDict.count(raw)) {
             rawData = rawTensorDataDict[raw];
         } else {
+            ASSERT(inplaceTensor == nullptr);
             rawData = std::make_shared<RawTensorData>(dtype, rawShape);
             rawData->resize(rawData->GetElementSize() * rawData->GetSize());
-            DoAddRawTensorDataView(raw, rawData);
         }
+        DoAddRawTensorDataView(tensor->GetRawTensor(), rawData);
         std::shared_ptr<LogicalTensorData> view =
             std::make_shared<LogicalTensorData>(rawData, tensor->GetShape(), validShape, offset);
         view->SetIsSpilled(isSpilled);
@@ -368,18 +370,19 @@ struct FunctionInterpreter {
         }
     }
 
-    std::shared_ptr<LogicalTensorData> AllocateDataView(
-        FunctionFrame &frame, const std::shared_ptr<LogicalTensor> &tensor, DataType dtype) {
+    std::shared_ptr<LogicalTensorData> AllocateDataView(FunctionFrame &frame,
+        const std::shared_ptr<LogicalTensor> &tensor, DataType dtype,
+        const std::shared_ptr<LogicalTensor> &inplaceTensor = nullptr) {
         std::vector<int64_t> offset = EvaluateOffset(tensor->GetOffset(), tensor->GetDynOffset());
         auto validShape = EvaluateValidShape(tensor->GetDynValidShape());
         auto rawShape = EvaluateValidShape(tensor->GetRawTensor()->GetDynRawShape());
-        auto ret = frame.AllocateDataView(tensor, offset, validShape, rawShape, dtype);
+        auto ret = frame.AllocateDataView(tensor, offset, validShape, rawShape, dtype, inplaceTensor);
         return ret;
     }
-
-    std::shared_ptr<LogicalTensorData> AllocateDataView(
-        FunctionFrame &frame, const std::shared_ptr<LogicalTensor> &tensor) {
-        return AllocateDataView(frame, tensor, tensor->GetRawTensor()->GetDataType());
+ 
+    std::shared_ptr<LogicalTensorData> AllocateDataView(FunctionFrame &frame,
+        const std::shared_ptr<LogicalTensor> &tensor, const std::shared_ptr<LogicalTensor> &inplaceTensor = nullptr) {
+        return AllocateDataView(frame, tensor, tensor->GetRawTensor()->GetDataType(), inplaceTensor);
     }
 
     void ExecuteOpCallLeaf(ExecuteOperationContext *ctx) {
@@ -395,14 +398,43 @@ struct FunctionInterpreter {
             int oPos;
             int iPos;
         } inplaceInfo[] = {
-            {Opcode::OP_INDEX_OUTCAST, 0, 2}
+            {Opcode::OP_INDEX_OUTCAST, 0, 2},
+            {Opcode::OP_VIEW, 0, 0}
         };
         for (auto &info : inplaceInfo) {
             if (info.opcode == op->GetOpcode() && pos == info.oPos) {
                 return info.iPos;
             }
         }
+        if (op->HasAttribute(OpAttributeKey::inplaceIdx)) {
+            ASSERT(pos == 0);
+            return op->GetIntAttribute(OpAttributeKey::inplaceIdx);
+        }
         return -1;
+    }
+
+    void ExecuteInplaceOperation(FunctionFrame &frame, Operation &op, int oOperandIdx,
+        const std::vector<std::shared_ptr<LogicalTensorData>> &iOpDataList,
+        std::vector<std::shared_ptr<LogicalTensorData>> &oOpDataList) {
+        auto oop = op.GetOOperands()[oOperandIdx];
+        auto index = GetInplaceIndex(&op, oOperandIdx);
+        ASSERT(index != -1);
+        auto iop = op.GetInputOperand(index);
+        ASSERT(iOpDataList[index] != nullptr);
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            auto opAttr = std::static_pointer_cast<ViewOpAttribute>(op.GetOpAttribute());
+            ASSERT(opAttr != nullptr);
+            Offset iopOffsets = iOpDataList[index]->GetOffset();
+            Offset viewOffsets = EvaluateOffset(opAttr->GetFromOffset(), opAttr->GetFromDynOffset());
+            ASSERT(iopOffsets.size() == viewOffsets.size());
+            Offset actualOffsets = TensorOffset::Add(iopOffsets, viewOffsets);
+            auto validShape = EvaluateValidShape(oop->GetDynValidShape());
+            auto rawShape = EvaluateValidShape(oop->GetRawTensor()->GetDynRawShape());
+            auto ret = frame.AllocateDataView(
+                oop, actualOffsets, validShape, rawShape, oop->GetRawTensor()->GetDataType(), iop);
+        } else {
+            oOpDataList.emplace_back(AllocateDataView(frame, oop, iop));
+        }
     }
 
     void ExecuteOperation(FunctionFrame &frame, Operation *op) {
@@ -418,8 +450,7 @@ struct FunctionInterpreter {
         for (size_t i = 0; i < op->GetOOperands().size(); i++) {
             auto oop = op->GetOOperands()[i];
             if (auto index = GetInplaceIndex(op, i); index != -1) {
-                oOpDataList.push_back(iOpDataList[index]);
-                frame.AddDataView(oop, oOpDataList.back());
+                ExecuteInplaceOperation(frame, *op, i, iOpDataList, oOpDataList);
             } else {
                 if (IsMatmulOpCode(op->GetOpcode())) {
                     auto dtype = oop->GetRawTensor()->GetDataType();

@@ -22,7 +22,7 @@ class OnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 TEST_F(OnBoardTest, test_query_states_fp16_b32_n2) {
     aclInit(nullptr);
-    rtSetDevice(0);
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     int b = 32;        //--> 32
     int num_heads = 2; //--> 32
@@ -89,7 +89,7 @@ TEST_F(OnBoardTest, test_query_states_fp16_b32_n2) {
 
 TEST_F(OnBoardTest, test_query_states_fp16_b32_n16) {
     aclInit(nullptr);
-    rtSetDevice(0);
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     int b = 32;
     int num_heads = 16;
@@ -156,7 +156,7 @@ TEST_F(OnBoardTest, test_query_states_fp16_b32_n16) {
 
 TEST_F(OnBoardTest, test_query_states_fp16_b32_n32) {
     aclInit(nullptr);
-    rtSetDevice(0);
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     int b = 32;
     int num_heads = 32;
@@ -223,7 +223,7 @@ TEST_F(OnBoardTest, test_query_states_fp16_b32_n32) {
 
 TEST_F(OnBoardTest, test_query_states_bf16_b32_n2) {
     aclInit(nullptr);
-    rtSetDevice(0);
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     DataType dType = DataType::DT_BF16;
     int b = 32;        //--> 32
@@ -291,7 +291,7 @@ TEST_F(OnBoardTest, test_query_states_bf16_b32_n2) {
 
 TEST_F(OnBoardTest, test_query_states_bf16_b32_n2_concat) {
     aclInit(nullptr);
-    rtSetDevice(0);
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     DataType dType = DataType::DT_BF16;
     int b = 32;        //--> 32
@@ -343,7 +343,7 @@ TEST_F(OnBoardTest, test_query_states_bf16_b32_n2_concat) {
 
 TEST_F(OnBoardTest, test_query_states_bf16_b32_n2_nocat) {
     aclInit(nullptr);
-    rtSetDevice(0);
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     DataType dType = DataType::DT_BF16;
     int b = 32;        //--> 32
@@ -409,7 +409,7 @@ TEST_F(OnBoardTest, test_query_states_bf16_b32_n2_nocat) {
 
 TEST_F(OnBoardTest, test_query_states_bf16_b32_n16) {
     aclInit(nullptr);
-    rtSetDevice(0);
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     DataType dType = DataType::DT_BF16;
     int b = 32;
@@ -477,7 +477,7 @@ TEST_F(OnBoardTest, test_query_states_bf16_b32_n16) {
 
 TEST_F(OnBoardTest, test_query_states_bf16_b32_n32) {
     aclInit(nullptr);
-    rtSetDevice(0);
+    rtSetDevice(GetDeviceIdByEnvVar());
 
     DataType dType = DataType::DT_BF16;
     int b = 32;

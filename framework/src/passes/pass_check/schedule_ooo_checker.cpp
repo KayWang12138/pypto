@@ -65,7 +65,7 @@ bool OoOScheduleChecker::PreCheckOpInfo(const Operation *op) {
     }
     // 开始检查ASSEMBLE/RESHAPE/VIEW op
     if (op->GetOpcode() != Opcode::OP_ASSEMBLE && op->GetOpcode() != Opcode::OP_RESHAPE &&
-        op->GetOpcode() != Opcode::OP_VIEW) {
+        op->GetOpcode() != Opcode::OP_VIEW && op->GetOpcode() != Opcode::OP_NOP) {
             return true;
     }
     // 检查ASSEMBLE/RESHAPE/VIEW op的latency

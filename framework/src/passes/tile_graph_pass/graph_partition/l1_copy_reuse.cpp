@@ -514,9 +514,6 @@ Status L1CopyInReuseMerge::InitColorNode(Function &func, std::vector<std::vector
     int color = colorMax + 1;
     colorNode.resize(color);
     for (size_t i = 0; i < opOriList.size(); i++) {
-        if (opOriList[i].IsNOP()) {
-            continue;
-        }
         auto opColor = opOriList[i].GetSubgraphID();
         colorNode[opColor].push_back(i);
     }

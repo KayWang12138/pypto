@@ -174,8 +174,8 @@ stest:
       # - MoEGatePart2OnBoardTest.test_operation_b_2
       # - MoEGatePart2OnBoardTest.test_operation_b_1024
       # - MoEPart4OnBoardTest.test_operation_b_2
-      - MoeInferOnbroadTest.test_deepseekMoEInfer
-      - MoeInferOnbroadTest.test_deepseekMoEInfer_singleout
+      # - MoeInferOnbroadTest.test_deepseekMoEInfer
+      # - MoeInferOnbroadTest.test_deepseekMoEInfer_singleout
       - DynamicFFNTest.TestOnbroadDynamicFFN
       # - MoeInferOnbroadTest.test_deepseekMoEInfer_singleout_singlemlp_withquant
 

@@ -546,12 +546,12 @@ void SplitLargeFanoutTensor::UpdateForRedundantView(Operation &op, Operation &co
         nextViewAttr->GetFromDynOffset(), consumer.oOperand.front()->GetShape());
     nextViewAttr->SetToDynValidShape(viewDynShape);
     auto nextViewOffset = nextViewAttr->GetFromOffset();
+    auto nextViewDynOffset = nextViewAttr->GetFromDynOffset();
     auto newDynOffset = viewAttr->GetFromDynOffset();
-    for (size_t i = 0; i < newOffset.size(); ++i) {
-        newOffset[i] = newOffset[i] + nextViewOffset[i];
-    }
-    for (size_t i = 0; i < newDynOffset.size(); i++) {
-        newDynOffset[i] = newDynOffset[i] + nextViewOffset[i];
+    auto ret = TensorOffset::Add(newOffset, newDynOffset, nextViewOffset, nextViewDynOffset);
+    if (!ret.first.empty()) {
+        newOffset = ret.first;
+        newDynOffset = ret.second;
     }
     nextViewAttr->SetFromOffset(newOffset, newDynOffset);
     if (newDynOffset.size() == 0) {

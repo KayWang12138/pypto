@@ -37,6 +37,7 @@ inline uint64_t CeilAlign(uint64_t a, int b) {
 using LocalBufferPtr = std::shared_ptr<LocalBuffer>;
 
 const std::unordered_set<Opcode> USE_LESS_OPS = {
+    Opcode::OP_NOP,
     Opcode::OP_RESHAPE, 
     Opcode::OP_VIEW, 
     Opcode::OP_ASSEMBLE, 

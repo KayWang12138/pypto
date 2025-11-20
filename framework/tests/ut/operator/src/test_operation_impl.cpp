@@ -237,8 +237,8 @@ TEST_F(OperationImplTest, Test_MatmulWithSplitK) {
         TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
         config::SetBuildStatic(true);
         FUNCTION("Matmul_T", {matA, matB, matC}) {
-            Tensor tmpC(DT_FP32, {m, n}, "tmp_c");
-            tmpC = Mul(tmpC, Element(DataType::DT_FP32, 0.0f));
+            auto tmpC = Full(Element(DataType::DT_FP32, 0.0f), DT_FP32, {m, n});
+            tmpC.SetName("tmp_c");
             std::vector<Tensor> matmulResult;
             auto kSplitSize = k / kSplit;
             for (int ki = 0; ki < kSplit; ki++) {
@@ -265,8 +265,8 @@ TEST_F(OperationImplTest, Test_MatmulWithSplitKWithTrans) {
         TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
         config::SetBuildStatic(true);
         FUNCTION("Matmul_T", {matA, matB, matC}) {
-            Tensor tmpC(DT_FP32, {m, n}, "tmp_c");
-            tmpC = Mul(tmpC, Element(DataType::DT_FP32, 0.0f));
+            auto tmpC = Full(Element(DataType::DT_FP32, 0.0f), DT_FP32, {m, n});
+            tmpC.SetName("tmp_c");
             std::vector<Tensor> matmulResult;
             auto kSplitSize = k / kSplit;
             for (int ki = 0; ki < kSplit; ki++) {

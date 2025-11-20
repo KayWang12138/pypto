@@ -48,6 +48,7 @@ private:
     Status PostCheck(Function &function) override;
     Status RunOnFunction(Function &function) override;
 
+    void Init();
     void GetTensorDataDependencyInsert(Function &function);
     void GetTensorDataDependencyClear(Function &function);
        
@@ -84,6 +85,10 @@ private:
     const std::multimap<int, int>& psgToESgMapParam,
     const std::vector<std::vector<OperationPtr>>& subgraphGroups,
     const std::string& filename="ExecuteGraph_Health_Report.json");
+
+    // 在子图生成前将View转成CopyIn用于coa记录，子图生成后转回View
+    void TransViewToCopyInBeforeGenSubgraph(Function &function);
+    void RecoverCopyInToViewAfterGenSubgraph(Function &function);
     
     // 静态流程处理器
     StaticSubgraphProcessor staticProcessor_;
@@ -92,6 +97,7 @@ private:
     std::vector<Function *> mergedFuncList;
     std::multimap<int, int> psgToESgMap;
     std::vector<SubfuncInvokeInfoTy> subFuncInvokeInfos;
+    std::unordered_map<const Operation *, std::shared_ptr<OpAttribute>> viewToCopyInMapping_;
     static constexpr int kShapePlaceholderForParameterized = -2;
 };
 } // namespace npu::tile_fwk

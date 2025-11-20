@@ -359,7 +359,7 @@ def vector_duplicate(h: CodeHelper, inst: Instruction):
     if not isinstance(inst.dst, Tensor):
         raise Exception()
 
-    h(f'auto {get_var_str(inst.dst)} = VectorDuplicate(Element(\
+    h(f'auto {get_var_str(inst.dst)} = Full(Element(\
         {get_scalar_dtype(inst.src[0]) + ", " + inst.src[0]}), \
         {get_var_str(inst.src[2])}, {get_curlybrace_list(inst.src[1])});')
 

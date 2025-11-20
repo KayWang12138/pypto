@@ -1062,6 +1062,104 @@ void Assemble(const Tensor &tensor, const std::vector<SymbolicScalar> &dynOffset
     Program::GetInstance().GetTensorSlotManager()->TensorWrite(dest, true);
 }
 
+void TiledInnerAssemble(Function &function, const TileShape &tileShape, size_t cur,
+    const std::vector<SymbolicScalar> &initialOffsets, const LogicalTensorPtr &src, const LogicalTensorPtr &dst,
+    const LogicalTensorPtr &result, TileInfo &tileInfo) {
+    if (cur == src->GetShape().size()) {
+        auto srcTile = src->View(function, tileInfo.shape, tileInfo.offset);
+        auto &op = function.AddOperation(Opcode::OP_ASSEMBLE_SSA, {srcTile, dst}, {result});
+        auto srcTileOffset = initialOffsets;
+        ASSERT(initialOffsets.size() == tileInfo.offset.size());
+        for (size_t i = 0; i < srcTileOffset.size(); i++) {
+            srcTileOffset[i] = srcTileOffset[i] + tileInfo.offset[i];
+        }
+        Offset staticSrcTileOffsets = SymbolicScalar::Concrete(srcTileOffset, 0);
+        op.SetAssembleOpAttribute(staticSrcTileOffsets, srcTileOffset);
+        op.SetAttribute(OpAttributeKey::inplaceIdx, 1);
+        return;
+    }
+    const auto &vecTile = tileShape.GetVecTile();
+    for (auto i = 0; i < src->shape[cur]; i += vecTile[cur]) {
+        tileInfo.offset[cur] = i;
+        tileInfo.shape[cur] = std::min(src->shape[cur] - tileInfo.offset[cur], vecTile[cur]);
+        TiledInnerAssemble(function, tileShape, cur + 1, initialOffsets, src, dst, result, tileInfo);
+    }
+}
+
+void TiledInnerAssemble(Function &function, const TileShape &tileShape, const Operation &op) {
+    ASSERT(op.GetIOperands().size() == NUM_VALUE_2);
+    ASSERT(op.GetOOperands().size() == 1);
+    ASSERT(op.HasAttribute(OpAttributeKey::inplaceIdx));
+    auto src = op.GetInputOperand(0);
+    auto dst = op.GetInputOperand(1);
+    auto result = op.GetOutputOperand(0);
+    auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(op.GetOpAttribute().get());
+    ASSERT(assembleOpAttribute != nullptr);
+    const auto &initialOffsets = assembleOpAttribute->GetToDynOffset();
+    TileInfo tileInfo(src->GetShape().size(), src->GetOffset().size());
+    TiledInnerAssemble(function, tileShape, 0, initialOffsets, src, dst, result, tileInfo);
+}
+
+void TensorInnerAssemble(Function &function, const LogicalTensorPtr &value, const std::vector<SymbolicScalar> &offsets,
+    const LogicalTensorPtr &dst, const LogicalTensorPtr &result) {
+    Offset staticOffsets = SymbolicScalar::Concrete(offsets, 0);
+    auto &op = function.AddOperation(Opcode::OP_ASSEMBLE_SSA, {value, dst}, {result});
+    op.SetAssembleOpAttribute(staticOffsets, offsets);
+    op.SetAttribute(OpAttributeKey::inplaceIdx, 1);
+    function.UpdateTensorDataUsage(op);
+}
+
+void Assemble(const std::vector<AssembleItem> &items, Tensor &src, bool parallelInAssemble) {
+    DECLARE_TRACER();
+
+    ASSERT(!items.empty());
+
+    for (const auto &item : items) {
+        ASSERT(src.GetStorage(false)->Format() == item.tensor.GetStorage(false)->Format())
+            << "Assemble: src and dest requires same format";
+        ASSERT(src.GetShape().size() == item.tensor.GetShape().size())
+            << "Assemble: src and dest requires same shape size";
+        ASSERT(src.GetShape().size() == item.offsets.size()) << "Assemble: offsets and dest requires same shape size";
+    }
+
+    if (parallelInAssemble) {
+        Tensor result(src.GetDataType(), src.GetShape(), "assemble_parallel_out", src.GetStorage()->Format());
+        auto shapes = result.GetStorage()->GetShape();
+        if (std::find(shapes.begin(), shapes.end(), -1) != shapes.end()) {
+            result = Tensor(src.GetDataType(), src.GetStorage()->GetDynValidShape(), "assemble_parallel_out",
+                src.GetStorage()->Format());
+        }
+        for (const auto &item : items) {
+            auto viewTensor = View(src.GetStorage(), item.tensor.GetShape(), item.offsets);
+            TensorInnerAssemble(*Program::GetInstance().GetCurrentFunction(), item.tensor.GetStorage(), item.offsets,
+                viewTensor.GetStorage(), result.GetStorage());
+        }
+        Program::GetInstance().GetCurrentFunction()->SetSameMemId(src.GetStorage(), result.GetStorage());
+        src = result;
+        return;
+    }
+
+    auto preResult = src.GetStorage();
+    int i = 0;
+    for (const auto &item : items) {
+        auto viewTensor = View(preResult, item.tensor.GetShape(), item.offsets);
+        Tensor curResult(src.GetDataType(), src.GetShape(), "assemble_seq_out" + std::to_string(i),
+            src.GetStorage()->Format());
+        auto shapes = curResult.GetStorage()->GetShape();
+        if (std::find(shapes.begin(), shapes.end(), -1) != shapes.end()) {
+            curResult = Tensor(src.GetDataType(), src.GetStorage()->GetDynValidShape(), "assemble_seq_out",
+                src.GetStorage()->Format());
+        }
+        TensorInnerAssemble(*Program::GetInstance().GetCurrentFunction(), item.tensor.GetStorage(), item.offsets,
+            viewTensor.GetStorage(), curResult.GetStorage());
+        preResult = curResult.GetStorage();
+        i++;
+    }
+    Program::GetInstance().GetCurrentFunction()->SetSameMemId(src.GetStorage(), preResult);
+    src = preResult;
+    return;
+}
+
 template <bool isB, bool isTrans>
 void TiledGatherInL1(Function &function, const TileShape &tileShape, const LogicalTensorPtr &src,
     const LogicalTensorPtr &offsets, const LogicalTensorPtr &dst) {
@@ -1225,7 +1323,7 @@ Tensor Reshape( const Tensor &operand, const std::vector<SymbolicScalar> &dstSha
     auto &operation = Program::GetInstance().GetCurrentFunction()->AddOperation(Opcode::OP_RESHAPE, {operand.GetStorage()}, {dst.GetStorage()});
     operation.SetAttribute(OP_ATTR_PREFIX + "isInplace", true);
     slotManager->TensorWrite(dst, true);
-    Program::GetInstance().GetCurrentFunction()->SetSameMemId(operand, dst);
+    Program::GetInstance().GetCurrentFunction()->SetSameMemId(operand.GetStorage(), dst.GetStorage());
     if (slotManager->GetOutputIndex(dst) != -1){
         slotManager->SetSameSlot(operand, dst);
     }
@@ -1279,7 +1377,7 @@ void Reshape(const Tensor &operand, Tensor &dst) {
     auto &operation = Program::GetInstance().GetCurrentFunction()->AddOperation(Opcode::OP_RESHAPE, {operand.GetStorage()}, {dst.GetStorage()});
     operation.SetAttribute(OP_ATTR_PREFIX + "isInplace", true);
     slotManager->TensorWrite(dst, true);
-    Program::GetInstance().GetCurrentFunction()->SetSameMemId(operand, dst);
+    Program::GetInstance().GetCurrentFunction()->SetSameMemId(operand.GetStorage(), dst.GetStorage());
     if (slotManager->GetOutputIndex(dst) != -1){
         slotManager->SetSameSlot(operand, dst);
     }
@@ -1441,6 +1539,10 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
         case Opcode::OP_ASSEMBLE: {
             auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(op.GetOpAttribute().get());
             TiledAssemble(function, tileShape, iOperand[0], oOperand[0], assembleOpAttribute);
+            break;
+        }
+        case Opcode::OP_ASSEMBLE_SSA: {
+            TiledInnerAssemble(function, tileShape, op);
             break;
         }
         case Opcode::OP_RESHAPE: {

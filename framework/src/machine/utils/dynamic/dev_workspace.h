@@ -398,7 +398,7 @@ public:
             auto &toSlotList = devRootSrc->GetOutcast(i).toSlotList;
             for (size_t k = 0; k < toSlotList.size(); ++k) {
                 auto idx = devRootSrc->At(toSlotList, k);
-                if (slotList[idx].IsFixedAddress() || slotList[idx].isPartialUpdateStitch) { // true表示固定地址，用户输出/Assemble的结果
+                if (slotList[idx].IsFixedAddress()) { // true表示固定地址，用户输出Assemble的结果
                     slotIndex = idx;
                     break;
                 }
@@ -430,6 +430,16 @@ public:
             auto rawTensor = devRootSrc->GetOutcastRawTensor(i);
             if (rawTensor->linkedIncastId != -1) {
                 desc = devRootDup.GetIncastAddress(rawTensor->linkedIncastId);
+                if (desc.IsNullAddress()) {
+                    auto memReq = rawTensor->GetMemoryRequirement(devRootDup.GetExpressionAddr());
+                    auto allocation = tensorAllocators_.dassembleDests.Allocate<uint8_t>(memReq);
+#if DEBUG_INFINITE_LIFETIME
+                    allocation = DebugDumpTensorAllocate(memReq);
+#endif // DEBUG_INFINITE_LIFETIME
+                    desc = AddressDescriptor(allocation.ptr);
+                    slotList[slotIndex].desc = desc;
+                    devRootDup.GetIncastAddress(rawTensor->linkedIncastId) = desc;
+                }
             }
 
             devRootDup.GetOutcastAddress(i) = desc;

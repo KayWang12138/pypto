@@ -176,6 +176,7 @@ Status GenerateMoveOp::CreateMoveOpForConvert(Operation &op) const {
 Status GenerateMoveOp::CreateMoveOp(Function &function) const {
     for (auto &op : function.Operations()) {
         switch (op.GetOpcode()) {
+            case Opcode::OP_ASSEMBLE_SSA:
             case Opcode::OP_ASSEMBLE: {
                 CreateMoveOpForAssemble(op);
                 break;

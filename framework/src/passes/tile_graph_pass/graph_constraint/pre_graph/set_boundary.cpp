@@ -101,14 +101,9 @@ void SetBoundary::SetTensorBoundary(Function &function) const {
         }
         if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
             /* Copy Out 的输出*/
-            op.GetOOperands().front()->isSubGraphBoundary = true;
-            continue;
-        }
-        if (op.GetOpcode() == Opcode::OP_VIEW) {
-            /* GM上的View*/
-            auto viewOut = op.GetOOperands().front();
-            bool isBoundary = (viewOut->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR);
-            viewOut->isSubGraphBoundary = isBoundary;
+            if (!op.HasAttribute(OpAttributeKey::inplaceIdx)) {
+                op.GetOOperands().front()->isSubGraphBoundary = true;
+            }
             continue;
         }
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {

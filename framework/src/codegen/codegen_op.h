@@ -45,6 +45,7 @@ const std::unordered_set<Opcode> SKIP_OPCODE = {
     Opcode::OP_FIX_ALLOC,
     Opcode::OP_BT_ALLOC,
     Opcode::OP_BIND_TENSOR,
+    Opcode::OP_NOP,
 };
 
 const int MAX_OPERANDS = 11;

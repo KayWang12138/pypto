@@ -61,6 +61,8 @@ private:
     Status ValidMeaninglessOp(const Operation &op) const;
     void ReplaceRawTensor(Function &function, std::shared_ptr<LogicalTensor> logicalTensor,
         const std::shared_ptr<LogicalTensor> targetTensor, const Operation &op);
+    Status RefactorViewConnectForInplace(Function &function);
+
     std::vector<int> visitedAssembleOp;
 };
 } // namespace tile_fwk

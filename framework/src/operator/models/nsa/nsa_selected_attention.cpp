@@ -101,6 +101,7 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
                         SymbolicScalar sSlc = (curActSeq - s1Sym + 1 + s1Idx - cmpBlockSize + slcBlockSize) / slcBlockSize;
                         sSlc.AsIntermediateVariable();
                         SymbolicScalar positions = 0;
+                        std::vector<AssembleItem> assembeItems;
                         for (int topKIdx = 0; topKIdx < topk; topKIdx++) {
                             if (topKIdx < front) {
                                 // 获取到topk的position
@@ -140,18 +141,19 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
                             TileShape::Current().SetVecTile(v0Tile[0], v0Tile[1]);
 
                             SymbolicScalar slcOutSOffset = topKIdx * slcBlockSize;
-                            Assemble(kvSlcBlock_fp16, {slcOutSOffset, 0}, kSlc);
-                            Assemble(krSlcBlock_fp16, {slcOutSOffset, dN}, kSlc);
+                            assembeItems.emplace_back(AssembleItem{kvSlcBlock_fp16, std::vector<SymbolicScalar>{slcOutSOffset, 0}});
+                            assembeItems.emplace_back(AssembleItem{krSlcBlock_fp16, std::vector<SymbolicScalar>{slcOutSOffset, dN}});
                         }
+                        Assemble(assembeItems, kSlc, true);
 
                         // qAssemble
                         config::SetSemanticLabel("Sa");
                         // View, 临时规避改成 View
-                        auto qn = View(qNope, {curGTile, dN}, {curGTile, dN}, {curOffset, 0});
-                        auto qr = View(qRope, {curGTile, dR}, {curGTile, dR}, {curOffset, 0});
+                        auto qn = View(qNope, {curGTile, dN}, {curOffset, 0});
+                        auto qr = View(qRope, {curGTile, dR}, {curOffset, 0});
                         Tensor qi(dtype, {curGTile, dN + dR}, "qi");
-                        Assemble(qn, {0, 0}, qi);
-                        Assemble(qr, {0, dN}, qi);
+                        TileShape::Current().SetVecTile(c1Tile[0], c1Tile[NUM_VALUE_2]);
+                        Assemble({{qn, {0, 0}}, {qr, {0, dN}}}, qi, true);
 
                         // slc_attn
                         SymbolicScalar curSeq = std::max(curKvSlcSeq - s1Sym + 1 + s1Idx, 0); // for MTP s1!= 1 casual计算
@@ -191,7 +193,7 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
                         config::SetSemanticLabel("Sa_KvVec2");
                         TileShape::Current().SetVecTile(1, 1, v2Tile[0], v2Tile[1]);
                         auto oi4Dim = Add(Reshape(oi, {1, 1, curGTile, dN}), Element(oi.GetStorage()->Datatype(), float(0)));
-                        Assemble(oi4Dim, oiOffset, attentionOut);
+                        Assemble({{oi4Dim, oiOffset}}, attentionOut, true);
                     }
                 }
             }
