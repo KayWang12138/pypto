@@ -46,6 +46,12 @@ private:
     Status NeedToDelete(const Operation &op, Function &function, bool &needToDelete) const;
     Status RemoveDummyExpand(Function &function) const;
     Status DeleteRedundantOps(Function &function) const;
+    Status RemoveViewAssemble(Function &function) const;
+    void ProcessPerfectMatch (Function &function,LogicalTensorPtr &startTensor,LogicalTensorPtr &endTensor) const;
+    bool IsNotSameViewInput (LogicalTensorPtr &startTensor,LogicalTensorPtr &endTensor) const;
+    bool IsDataReplace (LogicalTensorPtr &endTensor) const;
+    void GenerateNewView(Function &function,Operation &op,LogicalTensorPtr &startTensor,LogicalTensorPtr &endTensor) const;
+    void EraseRedundantAssemble(Function &function) const;
 };
 } // namespace npu::tile_fwk
 #endif  // REMOVE_REDUNDANT_OP_H

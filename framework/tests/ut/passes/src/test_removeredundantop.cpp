@@ -1042,5 +1042,305 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpL1DataMove) {
     }
     EXPECT_EQ(view_count_after_pass,6);
 }
+//测试view和assemble对消逻辑：非同源输入
+void NonHomogeneousInput (std::shared_ptr<Function> &currFunctionPtr) {
+    //Define the shape of the Tensors
+    std::vector<int64_t> shape = {16,64};
+    std::vector<int64_t> shape2 = {4,64};
+    std::vector<int64_t> shape3 = {64,64};
+
+    std::shared_ptr<LogicalTensor> startTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    std::shared_ptr<LogicalTensor> startTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    std::shared_ptr<LogicalTensor> tempTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    std::shared_ptr<LogicalTensor> tempTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    std::shared_ptr<LogicalTensor> tempTensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    std::shared_ptr<LogicalTensor> tempTensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    std::shared_ptr<LogicalTensor> endTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    std::shared_ptr<LogicalTensor> outTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
+
+    startTensor1 ->SetMemoryTypeBoth(MEM_DEVICE_DDR);
+    startTensor2 ->SetMemoryTypeBoth(MEM_DEVICE_DDR);
+    tempTensor1 ->SetMemoryTypeBoth(MEM_L1);
+    tempTensor2 ->SetMemoryTypeBoth(MEM_L1);
+    tempTensor3 ->SetMemoryTypeBoth(MEM_L1);
+    tempTensor4 ->SetMemoryTypeBoth(MEM_L1);
+    endTensor1 ->SetMemoryTypeBoth(MEM_DEVICE_DDR);
+    
+    auto &view_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {startTensor1}, {tempTensor1});
+    auto viewAttribute1 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
+    view_op1.SetOpAttribute(viewAttribute1);
+
+    auto &view_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {startTensor1}, {tempTensor2});
+    auto viewAttribute2 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{4,0});
+    view_op2.SetOpAttribute(viewAttribute2);
+
+    auto &view_op3 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {startTensor2}, {tempTensor3});
+    auto viewAttribute3 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
+    view_op3.SetOpAttribute(viewAttribute3);
+
+    auto &view_op4 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {startTensor2}, {tempTensor4});
+    auto viewAttribute4 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{4,0});
+    view_op4.SetOpAttribute(viewAttribute4);
+
+    auto &assemble_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {tempTensor1}, {endTensor1});
+    auto assembleAttribute1 =std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{8,0});
+    assemble_op1.SetOpAttribute(assembleAttribute1);
+    
+    auto &assemble_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {tempTensor2}, {endTensor1});
+    auto assembleAttribute2 =std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{12,0});
+    assemble_op2.SetOpAttribute(assembleAttribute2);
+
+    auto &assemble_op3 = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {tempTensor3}, {endTensor1});
+    auto assembleAttribute3 =std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0,0});
+    assemble_op3.SetOpAttribute(assembleAttribute3);
+    
+    auto &assemble_op4 = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {tempTensor4}, {endTensor1});
+    auto assembleAttribute4 =std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{4,0});
+    assemble_op4.SetOpAttribute(assembleAttribute4);
+
+    currFunctionPtr->AddRawOperation(Opcode::OP_EXPAND, {endTensor1}, {outTensor1});
+
+    currFunctionPtr->inCasts_.push_back(startTensor1);
+    currFunctionPtr->inCasts_.push_back(startTensor2);
+    currFunctionPtr->outCasts_.push_back(outTensor1);
+}
+TEST_F(TestRemoveRedundantOpPass, NonHomogeneousInput) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "NonHomogeneousInput", "NonHomogeneousInput", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap("NonHomogeneousInput", currFunctionPtr);
+
+    NonHomogeneousInput(currFunctionPtr);
+
+    //验证构图
+    int view_count = 0;
+    int assemble_count =0;
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            view_count++;
+        }else if(op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            assemble_count++;
+        }
+    }
+    EXPECT_EQ(view_count,kNumFour);
+    EXPECT_EQ(assemble_count,kNumFour);
+
+    std::stringstream ssBefore;
+    ssBefore << "Before_RemoveRedundantOp";
+
+    // Call the pass
+    RemoveRedundantOp removeRedundantOp;
+    removeRedundantOp.PreCheck(*currFunctionPtr);
+    currFunctionPtr->DumpJsonFile("./config/pass/json/removeRedundant_NotEqualShapeOut.json");
+    removeRedundantOp.RunOnFunction(*currFunctionPtr);
+    currFunctionPtr->DumpJsonFile("./config/pass/json/removeRedundant_NotEqualShapeOut.json");
+    removeRedundantOp.PostCheck(*currFunctionPtr);
+
+    std::stringstream ss;
+    ss << "After_RemoveRedundantOp";
+
+    // Validate the results
+    int view_count_after_pass = 0;
+    int assemble_count_after_pass = 0;
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            view_count_after_pass++;
+        }
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            assemble_count_after_pass++;
+        }
+    }
+    EXPECT_EQ(view_count_after_pass,kNumFour);
+    EXPECT_EQ(assemble_count_after_pass,kNumFour);
+}
+//测试view和assemble对消逻辑
+void NotEqualShapeOutput (std::shared_ptr<Function> &currFunctionPtr) {
+    //Define the shape of the Tensors
+    std::vector<int64_t> shape = {16,64};
+    std::vector<int64_t> shape2 = {8,64};
+    std::vector<int64_t> shape3 = {12,64};
+    std::vector<int64_t> shape4 = {64,64};
+
+    std::shared_ptr<LogicalTensor> startTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    std::shared_ptr<LogicalTensor> tempTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    std::shared_ptr<LogicalTensor> tempTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    std::shared_ptr<LogicalTensor> endTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    std::shared_ptr<LogicalTensor> endTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
+    std::shared_ptr<LogicalTensor> outTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape4);
+    std::shared_ptr<LogicalTensor> outTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape4);
+    startTensor ->SetMemoryTypeBoth(MEM_DEVICE_DDR);
+    tempTensor1 ->SetMemoryTypeBoth(MEM_L1);
+    tempTensor2 ->SetMemoryTypeBoth(MEM_L1);
+    endTensor1 ->SetMemoryTypeBoth(MEM_DEVICE_DDR);
+    endTensor2 ->SetMemoryTypeBoth(MEM_DEVICE_DDR);
+    
+    auto &view_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {startTensor}, {tempTensor1});
+    auto viewAttribute1 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
+    view_op1.SetOpAttribute(viewAttribute1);
+
+    auto &view_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {startTensor}, {tempTensor2});
+    auto viewAttribute2 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{8,0});
+    view_op2.SetOpAttribute(viewAttribute2);
+
+    auto &assemble_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {tempTensor1}, {endTensor1});
+    auto assembleAttribute1 =std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0,0});
+    assemble_op1.SetOpAttribute(assembleAttribute1);
+    
+    auto &assemble_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {tempTensor2}, {endTensor1});
+    auto assembleAttribute2 =std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{8,0});
+    assemble_op2.SetOpAttribute(assembleAttribute2);
+
+    auto &assemble_op3 = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {tempTensor1}, {endTensor2});
+    auto assembleAttribute3 =std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0,0});
+    assemble_op3.SetOpAttribute(assembleAttribute3);
+    
+    auto &assemble_op4 = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {tempTensor2}, {endTensor2});
+    auto assembleAttribute4 =std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{8,0});
+    assemble_op4.SetOpAttribute(assembleAttribute4);
+
+    currFunctionPtr->AddRawOperation(Opcode::OP_EXPAND, {endTensor1}, {outTensor1});
+    currFunctionPtr->AddRawOperation(Opcode::OP_EXPAND, {endTensor2}, {outTensor2});
+
+    currFunctionPtr->inCasts_.push_back(startTensor);
+    currFunctionPtr->outCasts_.push_back(outTensor1);
+    currFunctionPtr->outCasts_.push_back(outTensor2);
+}
+TEST_F(TestRemoveRedundantOpPass, NotEqualShapeOutput) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "NotEqualShapeOutput", "NotEqualShapeOutput", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap("NotEqualShapeOutput", currFunctionPtr);
+
+    NotEqualShapeOutput(currFunctionPtr);
+
+    //验证构图
+    int view_count = 0;
+    int assemble_count =0;
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            view_count++;
+        }else if(op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            assemble_count++;
+        }
+    }
+    EXPECT_EQ(view_count,kNumTwo);
+    EXPECT_EQ(assemble_count,kNumFour);
+
+    std::stringstream ssBefore;
+    ssBefore << "Before_RemoveRedundantOp";
+
+    // Call the pass
+    RemoveRedundantOp removeRedundantOp;
+    removeRedundantOp.PreCheck(*currFunctionPtr);
+    currFunctionPtr->DumpJsonFile("./config/pass/json/removeRedundant_NotEqualShapeOut.json");
+    removeRedundantOp.RunOnFunction(*currFunctionPtr);
+    currFunctionPtr->DumpJsonFile("./config/pass/json/removeRedundant_NotEqualShapeOut.json");
+    removeRedundantOp.PostCheck(*currFunctionPtr);
+
+    std::stringstream ss;
+    ss << "After_RemoveRedundantOp";
+
+    // Validate the results
+    int view_count_after_pass = 0;
+    int assemble_count_after_pass = 0;
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            view_count_after_pass++;
+        }
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            assemble_count_after_pass++;
+        }
+    }
+    EXPECT_EQ(view_count_after_pass,1);
+    EXPECT_EQ(assemble_count_after_pass,0);
+}
+//测试view和assemble对消逻辑:新建view
+void NewView (std::shared_ptr<Function> &currFunctionPtr) {
+    //Define the shape of the Tensors
+    std::vector<int64_t> shape = {16,64};
+    std::vector<int64_t> shape2 = {4,16};
+    std::vector<int64_t> shape3 = {8,16};
+    std::vector<int64_t> shape4 = {8,64};
+
+    std::shared_ptr<LogicalTensor> startTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    std::shared_ptr<LogicalTensor> tempTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    std::shared_ptr<LogicalTensor> tempTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    std::shared_ptr<LogicalTensor> endTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
+    std::shared_ptr<LogicalTensor> outTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape4);
+    std::shared_ptr<LogicalTensor> outTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape4);
+    startTensor ->SetMemoryTypeBoth(MEM_DEVICE_DDR);
+    tempTensor1 ->SetMemoryTypeBoth(MEM_L1);
+    tempTensor2 ->SetMemoryTypeBoth(MEM_L1);
+    endTensor1 ->SetMemoryTypeBoth(MEM_DEVICE_DDR);
+    
+    auto &view_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {startTensor}, {tempTensor1});
+    auto viewAttribute1 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
+    view_op1.SetOpAttribute(viewAttribute1);
+
+    auto &view_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {startTensor}, {tempTensor2});
+    auto viewAttribute2 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{4,0});
+    view_op2.SetOpAttribute(viewAttribute2);
+
+    auto &assemble_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {tempTensor1}, {endTensor1});
+    auto assembleAttribute1 =std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0,0});
+    assemble_op1.SetOpAttribute(assembleAttribute1);
+    
+    auto &assemble_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {tempTensor2}, {endTensor1});
+    auto assembleAttribute2 =std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{4,0});
+    assemble_op2.SetOpAttribute(assembleAttribute2);
+
+    currFunctionPtr->AddRawOperation(Opcode::OP_EXPAND, {endTensor1}, {outTensor1});
+    currFunctionPtr->AddRawOperation(Opcode::OP_EXPAND, {tempTensor1}, {outTensor2});
+
+    currFunctionPtr->inCasts_.push_back(startTensor);
+    currFunctionPtr->outCasts_.push_back(outTensor1);
+    currFunctionPtr->outCasts_.push_back(outTensor2);
+}
+TEST_F(TestRemoveRedundantOpPass, NewView) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "NewView", "NewView", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap("NewView", currFunctionPtr);
+
+    NewView(currFunctionPtr);
+
+    //验证构图
+    int view_count = 0;
+    int assemble_count =0;
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            view_count++;
+        }else if(op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            assemble_count++;
+        }
+    }
+    EXPECT_EQ(view_count,kNumTwo);
+    EXPECT_EQ(assemble_count,kNumTwo);
+
+    std::stringstream ssBefore;
+    ssBefore << "Before_RemoveRedundantOp";
+
+    // Call the pass
+    RemoveRedundantOp removeRedundantOp;
+    removeRedundantOp.PreCheck(*currFunctionPtr);
+    currFunctionPtr->DumpJsonFile("./config/pass/json/removeRedundant_NewView_before.json");
+    removeRedundantOp.RunOnFunction(*currFunctionPtr);
+    currFunctionPtr->DumpJsonFile("./config/pass/json/removeRedundant_NewView_after.json");
+    removeRedundantOp.PostCheck(*currFunctionPtr);
+
+    std::stringstream ss;
+    ss << "After_RemoveRedundantOp";
+
+    // Validate the results
+    int view_count_after_pass = 0;
+    int assemble_count_after_pass = 0;
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            view_count_after_pass++;
+        }
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            assemble_count_after_pass++;
+        }
+    }
+    EXPECT_EQ(view_count_after_pass,kNumTwo);
+    EXPECT_EQ(assemble_count_after_pass,kNumZero);
+}
 }
 }
