@@ -149,10 +149,15 @@ TILEOP void TMrgSort(T0 dst, T1 src) {
                         uint32_t repeat_mrg = totalNum / (z * 4);
                         pypto::TMRGSORT(tmpTile, srcTile, z * 2);
                         pipe_barrier(PIPE_V);
-                        copy_ubuf_to_ubuf(
-                            (__ubuf__ void *)((uint64_t)(src.GetAddr() + srcOffset * srcTypeSize)),
-                            (__ubuf__ void *)((uint64_t)(src.GetAddr() + (srcOffset + srcTileW) * srcTypeSize)),
-                            0, 1, z * repeat_mrg, 0, 0);
+                        using SrcMovTileDefine =
+                            pto::Tile<pto::Location::Vec, typename T1::Type, 1, srcTileW, pto::BLayout::RowMajor, -1, -1>;
+                        using TmpMovTileDefine =
+                            pto::Tile<pto::Location::Vec, typename T1::Type, 1, srcTileW, pto::BLayout::RowMajor, -1, -1>;
+                        SrcMovTileDefine srcMovTile(1, z * repeat_mrg);
+                        TmpMovTileDefine tmpMovTile(1, z * repeat_mrg);
+                        pto::TASSIGN(srcMovTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
+                        pto::TASSIGN(tmpMovTile, (uint64_t)(src.GetAddr() + (srcOffset + srcTileW) * srcTypeSize));
+                        pto::TMOV(srcMovTile, tmpMovTile);
                         pipe_barrier(PIPE_V);
                     }
                     if (z < totalNum) {
@@ -190,10 +195,16 @@ TILEOP void TMrgSort(T0 dst, T1 src) {
                             pipe_barrier(PIPE_V);
                         }
                     }
-                    copy_ubuf_to_ubuf(
-                            (__ubuf__ void *)((uint64_t)(dst.GetAddr() + dstOffset * srcTypeSize)),
-                            (__ubuf__ void *)((uint64_t)(src.GetAddr() + srcOffset * srcTypeSize)),
-                            0, 1, (k + 7) / 4, 0, 0);
+                    constexpr int64_t TileW = ((k + 7) / 4) * 8;
+                    using DstTileMovDefine =
+                        pto::Tile<pto::Location::Vec, typename T0::Type, 1, TileW, pto::BLayout::RowMajor, -1, -1>;
+                    using SrcTileMovDefine =
+                        pto::Tile<pto::Location::Vec, typename T1::Type, 1, TileW, pto::BLayout::RowMajor, -1, -1>;
+                    DstTileDefine dstTileMov(1, ((k + 7) / 4) * 8);
+                    SrcTileDefine srcTileMov(1, ((k + 7) / 4) * 8);
+                    pto::TASSIGN(dstTileMov, (uint64_t)(dst.GetAddr() + dstOffset * srcTypeSize));
+                    pto::TASSIGN(srcTileMov, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
+                    pto::TMOV(dstTileMov, srcTileMov);
                     pipe_barrier(PIPE_V);
                 }
             }
