@@ -561,14 +561,6 @@ void InnerConcatNew(Function &function, const LogicalTensorPtr &operand, const L
 Tensor Cat(const std::vector<Tensor> &tensors, int axis) {
     DECLARE_TRACER();
 
-    if (tensors.size() > MAX_CAT_NUM_ONCE) {
-        std::vector<Tensor> front(tensors.begin(), tensors.begin() + MAX_CAT_NUM_ONCE);
-        std::vector<Tensor> back(tensors.begin() + MAX_CAT_NUM_ONCE, tensors.end());
-        Tensor concatFront = Cat(front, axis);
-        back.insert(back.begin(), concatFront);
-        return Cat(back, axis);
-    }
-
     auto shape = tensors[0].GetShape();
     auto format = tensors[0].Format();
     auto shapeSize = shape.size();
