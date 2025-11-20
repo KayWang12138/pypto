@@ -67,38 +67,17 @@ inline int32_t GetLogDeviceId() {
     return logicDeviceId;
 }
 
-inline constexpr uint32_t ONG_GB_HUGE_PAGE_FLAGS = RT_MEMORY_HBM | RT_MEMORY_POLICY_HUGE1G_PAGE_ONLY;
-inline constexpr size_t ONT_GB_SIZE = 1024 * 1024 * 1024;
-inline constexpr uint32_t TWO_MB_HUGE_PAGE_FLAGS = RT_MEMORY_HBM | RT_MEMORY_POLICY_HUGE_PAGE_FIRST;
-
 class RuntimeAgentMemory {
 public:
     void AllocDevAddr(uint8_t **devAddr, uint64_t size) {
         auto alignSize = MemSizeAlign(size);
-        ALOG_INFO_F("RuntimeAgent::Alloc size[%u] with align size[%lu].", size, alignSize);
-        if (TryGetHugePageMem(devAddr, alignSize)) {
-            return;
-        }
-        size_t allocSize = ((alignSize - 1) / ONT_GB_SIZE + 1) * ONT_GB_SIZE;
-        int res = rtMalloc((void **)devAddr, allocSize, ONG_GB_HUGE_PAGE_FLAGS, 0);
+        auto res = rtMalloc((void **)devAddr, alignSize, RT_MEMORY_HBM | RT_MEMORY_POLICY_HUGE_PAGE_FIRST, 0);
         if (res != 0) {
-            ALOG_WARN_F("1G page mem alloc failed, turn to 2M page.\n");
-            res = rtMalloc((void **)devAddr, alignSize, TWO_MB_HUGE_PAGE_FLAGS, 0);
-            if (res != 0) {
-                ALOG_ERROR_F("RuntimeAgent::AllocDevAddr failed for size %lu", size);
-                return;
-            }
-            allocatedDevAddr.emplace_back(*devAddr);
-            ALOG_INFO_F("AllocDevAddr %p size is %lu", *devAddr, size);
-            return;
-        }
-        allocatedDevAddr.emplace_back(*devAddr);
-        hugePageVec.emplace_back(HugePageDesc(*devAddr, allocSize));
-        if (!TryGetHugePageMem(devAddr, alignSize)) {
             ALOG_ERROR_F("RuntimeAgent::AllocDevAddr failed for size %lu", size);
             return;
         }
-        ALOG_INFO_F("Alloc 1G page mem %p size is %lu", *devAddr, allocSize);
+        allocatedDevAddr.emplace_back(*devAddr);
+        ALOG_INFO_F("AllocDevAddr %p size is %lu", *devAddr, size);
         return;
     }
 
