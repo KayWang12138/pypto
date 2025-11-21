@@ -468,7 +468,7 @@ def l0c2l1_params_func(params: dict):
         raise ValueError("l0c2l1_info params is invalid, please check!")
     l0c2l1_is_as_left_matrix = str_to_bool(l0c2l1_info["is_as_left_matrix"])
     l0c2l1_is_trans = str_to_bool(l0c2l1_info.get("is_trans", False))
-    l0c2l1_range = l0c2l1_info.get("input_range", [-1, 1])
+    l0c2l1_range = parse_list_str(l0c2l1_info.get("input_range", "[-1, 1]"))
     l0c2l1_tensor = TensorDesc("l0c2l1_tensor", parse_list_str(l0c2l1_info["input_shape"]), l0c2l1_info["input_dtype"],
                 l0c2l1_range, l0c2l1_info["input_format"], need_trans=l0c2l1_is_trans)
     params["l0c2l1_tensor"] = l0c2l1_tensor.dump_to_json()

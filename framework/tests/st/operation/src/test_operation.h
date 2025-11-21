@@ -473,7 +473,7 @@ T2 GetMapValByName(const std::map<T1, T2> &map_data, const T1 &name) {
     param.isBMatrixNz = json_data.at("input_tensors")[1].at("format") == "NZ";
     param.isCMatrixNz = json_data.at("output_tensors")[0].at("format") == "NZ";
     param.outDtype = GetDataType(json_data.at("output_tensors")[0].at("dtype"));
-    if (json_data.find("enableKSplit") != json_data.end()) {
+    if (json_data.at("params").find("enableKSplit") != json_data.at("params").end()) {
         param.enableKSplit = GetValueByName<bool>(json_data, "enableKSplit");
     }
     if (json_data.at("params").find("relu_type") != json_data.at("params").end()) {
