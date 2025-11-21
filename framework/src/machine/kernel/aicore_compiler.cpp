@@ -159,25 +159,25 @@ static int LinkObject(const std::string &src_objs, std::string &objPath, const s
 }
 
 int CompileAICoreKernel(std::map<uint64_t, Function *> &leafDict, dynamic::EncodeDevAscendFunctionParam &param,
-                        const std::string &ccePath, std::string &kernelPath) {
+                        const std::string &ccePath, const std::string &funcHash, std::string &kernelPath) {
   if (ccePath.empty()) {
     ALOG_ERROR_F("No cce path.");
     return -1;
   }
   uint64_t tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
-  std::string aic_obj = ccePath + "dy_kernel_aic_" + std::to_string(tilingKey) + ".o";
-  std::string aiv_obj = ccePath + "dy_kernel_aiv_" + std::to_string(tilingKey) + ".o";
+  std::string aic_obj = ccePath + "dy_kernel_" + funcHash + "_aic_" + std::to_string(tilingKey) + ".o";
+  std::string aiv_obj = ccePath + "dy_kernel_" + funcHash + "_aiv_" + std::to_string(tilingKey) + ".o";
   std::string aicoreSrcFile = ccePath + "aicore.cpp";
-  if (!GenAicoreSrcFile(aicoreSrcFile)) {
+  if (!GenAicoreSrcFile(aicoreSrcFile, funcHash)) {
     ALOG_ERROR_F("Fail to generate aicore src file.");
     return -1;
   }
   std::deque<std::function<void(void)>> tasks;
-  std::function task = [&ccePath, &leafDict, &param, &aic_obj, &aicoreSrcFile, &tilingKey]() {
+  std::function task = [&ccePath, &funcHash, &leafDict, &param, &aic_obj, &aicoreSrcFile, &tilingKey]() {
       // gen switch case func
       std::stringstream src_aic_obj;
       auto headFile = GenSubFuncCall(leafDict, CoreType::AIC, param, ccePath, tilingKey, src_aic_obj);
-      std::string mid_aic_obj = ccePath + "mid_kernel_aic_" + std::to_string(tilingKey) + ".o";
+      std::string mid_aic_obj = ccePath + "mid_kernel_" + funcHash + "_aic_" + std::to_string(tilingKey) + ".o";
       auto ret = CompileCoreMachine(mid_aic_obj, true, tilingKey, headFile, aicoreSrcFile);
       ASSERT(ret == 0);
       src_aic_obj << mid_aic_obj;
@@ -187,10 +187,10 @@ int CompileAICoreKernel(std::map<uint64_t, Function *> &leafDict, dynamic::Encod
   };
   tasks.push_back(task);
 
-  std::function task1 = [&ccePath, &leafDict, &param, &aiv_obj, &aicoreSrcFile, &tilingKey]() {
+  std::function task1 = [&ccePath, &funcHash, &leafDict, &param, &aiv_obj, &aicoreSrcFile, &tilingKey]() {
       std::stringstream src_aiv_obj;
       auto headFile = GenSubFuncCall(leafDict, CoreType::AIV, param, ccePath, tilingKey, src_aiv_obj);
-      std::string mid_aiv_obj = ccePath + "mid_kernel_aiv_" + std::to_string(tilingKey) + ".o";
+      std::string mid_aiv_obj = ccePath + "mid_kernel_" + funcHash + "_aiv_" + std::to_string(tilingKey) + ".o";
       auto ret = CompileCoreMachine(mid_aiv_obj, false, tilingKey, headFile, aicoreSrcFile);
       ASSERT(ret == 0);
       src_aiv_obj << mid_aiv_obj;
@@ -203,7 +203,7 @@ int CompileAICoreKernel(std::map<uint64_t, Function *> &leafDict, dynamic::Encod
 
   std::stringstream src_obj;
   src_obj << " " << aic_obj << " " << aiv_obj;
-  kernelPath = ccePath + "dy_kernel_" + std::to_string(tilingKey) + ".o";
+  kernelPath = ccePath + "dy_kernel_" + funcHash + "_" + std::to_string(tilingKey) + ".o";
   ALOG_DEBUG_F("Compile dynamic kernel to %s.", kernelPath.c_str());
   auto ret = LinkObject(src_obj.str(), kernelPath, ccePath, false, "mix");
   return ret;

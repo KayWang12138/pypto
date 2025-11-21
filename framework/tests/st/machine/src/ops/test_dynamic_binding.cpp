@@ -204,7 +204,7 @@ TEST_F(DynamicBindingTest, TestDeviceCompute) {
 
     auto aicpuStream = reinterpret_cast<DeviceStream>(machine::GetRA()->GetStreamAICPU());
     auto aicoreStream = reinterpret_cast<DeviceStream>(machine::GetRA()->GetStream());
-    EXPECT_EQ(0, ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(op, inputList, outputList, aicpuStream, aicoreStream, true));
+    EXPECT_EQ(0, ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(op, inputList, outputList, aicpuStream, aicoreStream, true, reinterpret_cast<uintptr_t>(nullptr)));
 
     agent->CopyFromDev((uint8_t *)outputData.data(), outputDevAddr, outputData.size() * sizeof(int32_t));
 

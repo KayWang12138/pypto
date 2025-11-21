@@ -549,10 +549,6 @@ int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreS
 }
 
 int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t taskId, AstKernelArgs *kernelArgs, int blockdim, int launchAicpuNum) {
-    if (RegiserKernelBin(&binHdl_) != 0) {
-        ALOG_ERROR("RegiserKernelBin failed\n");
-        return -1;
-    }
     if (!g_IsFirstInit) {
         InitAiCpuSoBin();
     }
@@ -617,7 +613,11 @@ void DeviceRunner::SetBinData(const std::vector<uint8_t> &binBuf) {
   return;
 }
 
-int DeviceRunner::RegiserKernelBin(void **hdl) {
+int DeviceRunner::RegisterKernelBin(void **hdl) {
+    if (*hdl) {
+        binHdl_ = *hdl;
+        ALOG_DEBUG_F("RegisterKernelBin reuse cache.");
+    }
     void *bin = nullptr;
     size_t binSize = 0;
     if (g_binBuf.size() != 0) {
@@ -632,9 +632,10 @@ int DeviceRunner::RegiserKernelBin(void **hdl) {
     rtDevBinary_t binary{.magic = RT_DEV_BINARY_MAGIC_ELF, .version = 0, .data = bin, .length = binSize};
     int rc = rtRegisterAllKernel(&binary, hdl);
     if (rc != 0) {
-        ALOG_ERROR("RegiserKernelBin failed\n");
+        ALOG_ERROR("RegisterKernelBin failed\n");
     }
-    ALOG_DEBUG_F("finish RegiserKernelBin...");
+    binHdl_ = *hdl;
+    ALOG_DEBUG_F("finish RegisterKernelBin...");
     return rc;
 }
 
@@ -646,8 +647,8 @@ int DeviceRunner::Init(void) {
         ALOG_ERROR("prepareArgs failed\n");
         return -1;
     }
-    if (RegiserKernelBin(&binHdl_) != 0) {
-        ALOG_ERROR("RegiserKernelBin failed\n");
+    if (RegisterKernelBin(&binHdl_) != 0) {
+        ALOG_ERROR("RegisterKernelBin failed\n");
         return -1;
     }
     return 0;

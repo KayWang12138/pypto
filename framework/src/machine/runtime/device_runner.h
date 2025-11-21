@@ -63,7 +63,7 @@ public:
     int DynamicLaunchSynchronize(rtStream_t aicpuStream, rtStream_t aicoreStream);
     int DynamicRun(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t taskId, AstKernelArgs *kernelArgs, int blockdim = 25, int launchAicpuNum = 5);
     void InitDynamicArgs(DeviceArgs &args, int nrCore = CORE_DEFAULT_NUM);
-    static int RegiserKernelBin(void **hdl);
+    int RegisterKernelBin(void **hdl);
     static void SetBinData(const std::vector<uint8_t> &binBuf);
     HostProf& GetHostProfInstance();
     inline void SetCaptureFlag(bool isCapture, aclmdlRICaptureMode mode) {

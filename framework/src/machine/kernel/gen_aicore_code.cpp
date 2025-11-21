@@ -18,6 +18,8 @@
 
 namespace npu::tile_fwk {
 namespace {
+const std::string kKernelEntryStr = "KERNEL_ENTRY";
+const size_t kKernelEntryStrSize = 12;
 const std::string kAicoreSrcCode = R"!!!(
 #include <stdint.h>
 #include <cstdint>
@@ -465,7 +467,13 @@ extern "C" __global__ __aicore__ void KERNEL_ENTRY(__OPTYPE__, __TILINGKEY__)(in
 )!!!";
 }
 
-bool GenAicoreSrcFile(const std::string &codeSrcPath) {
+bool GenAicoreSrcFile(const std::string &codeSrcPath, const std::string &funcHash) {
+    std::string newSrcCode = kAicoreSrcCode;
+    size_t pos = newSrcCode.find(kKernelEntryStr);
+    while (pos != std::string::npos) {
+        newSrcCode.replace(pos, kKernelEntryStrSize, kKernelEntryStr + "_" + funcHash);
+        pos = newSrcCode.find(kKernelEntryStr, pos + kKernelEntryStrSize + 1);
+    }
     if (RealPath(codeSrcPath).empty()) {
         DumpFile(kAicoreSrcCode, codeSrcPath);
     }

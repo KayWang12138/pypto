@@ -95,5 +95,6 @@ TEST_F(TestDynamicDeviceRunner, TestDynMachineAgent) {
 
 TEST_F(TestDynamicDeviceRunner, TestRegisterDynamicKernel) {
     [[maybe_unused]]rtBinHandle staticHdl_;
-    npu::tile_fwk::DeviceRunner::RegiserKernelBin(&staticHdl_);
+    npu::tile_fwk::DeviceRunner runner;
+    runner.RegisterKernelBin(&staticHdl_);
 }

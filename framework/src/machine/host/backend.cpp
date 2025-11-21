@@ -688,7 +688,8 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, cons
         DumpFile(expressionSource, expressionFilePath);
     }
 
-    std::string controlFlowHostFilePath = aicpuDirPath + "/controlFlow_host.cpp";
+    std::string funcHash = function->GetFunctionHash().Data();
+    std::string controlFlowHostFilePath = aicpuDirPath + "/controlFlow_host_" + funcHash + ".cpp";
     attr->hostControlFlowBinary = CompileAndLoadSection(
         controlFlowSource, controlFlowHostFilePath,
         "g++", "objcopy", "ast2", IsNeedDumpAicpuKernel(controlFlowHostFilePath), cflags);
@@ -696,7 +697,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, cons
 
     std::string arm64TargetToolPath = Arm64TargetTool("g++");
     if (ToolchainExist(arm64TargetToolPath)) {
-        std::string controlFlowDevFilePath = aicpuDirPath + "/controlFlow_dev.cpp";
+        std::string controlFlowDevFilePath = aicpuDirPath + "/controlFlow_dev_" + funcHash + ".cpp";
         ALOG_INFO_F("Compile control flow src file[%s] with arm64 target tool[%s].",
                     controlFlowDevFilePath.c_str(), arm64TargetToolPath.c_str());
         attr->devControlFlowBinary = CompileAndLoadSection(
@@ -736,7 +737,8 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, cons
 
     encodeDevAscendFunctionParam.inoutLink = &attr->inoutLink;
 
-    int ret = CompileAICoreKernel(leafDict, encodeDevAscendFunctionParam, ccePath, kernelPath);
+    int ret = CompileAICoreKernel(leafDict, encodeDevAscendFunctionParam,
+                                  ccePath, function->GetFunctionHash().Data(), kernelPath);
     if (ret != 0) {
       ALOG_ERROR_F("Compile dynamic aicore.o failed.");
       return;

@@ -169,7 +169,9 @@ public:
             devProg->hcclContext[i] = config.hcclContext[i];
         }
         devProg->devArgs.startArgsAddr = (uint64_t)devMem.AllocDev(DEV_ARGS_SIZE, CachedOperator::GetMetaDataDevAddrHolder(cachedOperator));
-        kArgs.workspace = (int64_t *)devMem.AllocDev(devProg->workspaceSize, CachedOperator::GetWorkspaceDevAddrHolder(cachedOperator));
+        if (kArgs.workspace == nullptr) {
+            kArgs.workspace = (int64_t *)devMem.AllocDev(devProg->workspaceSize, CachedOperator::GetWorkspaceDevAddrHolder(cachedOperator));
+        }
         if (devProg->controlFlowCache.isRecording && !devMem.IsDevice()) {
             kArgs.cfgdata = (int64_t *)devProg;
         } else if (CachedOperator::GetCfgDataDevAddrHolder(cachedOperator) && *CachedOperator::GetCfgDataDevAddrHolder(cachedOperator)) {
@@ -258,7 +260,7 @@ public:
     static int SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuStream);
     static int DeviceLaunchOnceWithDeviceTensorData(
             Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
-            rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator,
+            rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator, uintptr_t workspacePtr,
             const DeviceLauncherConfig &config = DeviceLauncherConfig());
 
     static int DeviceSynchronize(rtStream_t aicpuStream, rtStream_t aicoreStream);

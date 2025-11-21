@@ -116,11 +116,16 @@ class JIT:
 
     def run(self, inputs, outputs):
         assert self._handler is not None
+        workspace_size = pto_impl.GetWorkSpaceSize(self._handler)
+        if (len(inputs) < 1):
+            raise ValueError("inputs missing")
+        workspace_tensor = torch.zeros(workspace_size, device=inputs[0].device.index)
         pto_impl.OperatorDeviceRunOnceDataFromDevice(
             self._handler,
             to_tensor_data(inputs),
             to_tensor_data(outputs),
-            current_stream())
+            current_stream(),
+            workspace_tensor.data_ptr())
 
     def __call__(self, *args, **kwargs):
         if (len(args) < 2):

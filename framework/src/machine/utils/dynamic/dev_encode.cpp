@@ -171,7 +171,7 @@ void HandleActualRaw(const OrderedSet<std::shared_ptr<RawTensor>> &incastRawList
 void DevAscendFunction::UpdateRawTensorDesc(const std::shared_ptr<RawTensor> &rawTensor, size_t i, size_t incastRawListSize,
     DevAscendRawTensor &encoded) {
     if (rawTensor->actualRawmagic != -1) {
-        ALOG_ERROR_F("[%3zu] raw %d, actualRaw %d, IOType <%s>, addrOffset 0x%lx, ioIndex %d",
+        ALOG_DEBUG_F("[%3zu] raw %d, actualRaw %d, IOType <%s>, addrOffset 0x%lx, ioIndex %d",
                 i, rawTensor->rawmagic, rawTensor->actualRawmagic, DevIOProperty2String(encoded.ioProperty).c_str(),
                 encoded.addrOffset, encoded.ioIndex);
     }

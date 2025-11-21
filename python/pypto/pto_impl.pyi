@@ -321,7 +321,8 @@ def SetVerifyData(inputs: List[DeviceTensorData],
 def OperatorDeviceRunOnceDataFromDevice(operator_id: int,
                                         a: List[DeviceTensorData],
                                         dst: List[DeviceTensorData],
-                                        stream_id: int): ...
+                                        stream_id: int,
+                                        workspace_id: int): ...
 def DeviceRunOnceDataFromHost(a: List[DeviceTensorData],
                               dst: List[DeviceTensorData]): ...
 

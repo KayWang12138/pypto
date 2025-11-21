@@ -101,10 +101,14 @@ std::string DeviceRunOnceDataFromHost(
 
 std::string OperatorDeviceRunOnceDataFromDevice(py::int_ pythonOperatorPython,
     const std::vector<DeviceTensorData> &inputs, const std::vector<DeviceTensorData> &outputs,
-    py::int_ incomingStreamPython) {
+    py::int_ incomingStreamPython, py::int_ workspaceData) {
     auto opAddr = static_cast<uintptr_t>(pythonOperatorPython);
     if (opAddr == 0) {
         return "invalid operator";
+    }
+    auto workspaceDataAddr = static_cast<uintptr_t>(workspaceData);
+    if (workspaceDataAddr == 0) {
+        return "invalid workspaceData";
     }
 
     ExportedOperator *op = reinterpret_cast<ExportedOperator *>(opAddr);
@@ -142,11 +146,19 @@ std::string OperatorDeviceRunOnceDataFromDevice(py::int_ pythonOperatorPython,
     auto aicoreStream = incomingStream;
     auto aicpuStream = DeviceGetAicpuStream();
     int rc =
-        ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(op, inputs, outputs, aicpuStream, aicoreStream, false);
+        ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(op, inputs, outputs, aicpuStream, aicoreStream, false, workspaceDataAddr);
     if (rc < 0) {
         return "device run failed";
     }
     return "";
+}
+
+uint64_t GetWorkSpaceSize(uintptr_t opAddr) {
+    ExportedOperator *op = reinterpret_cast<ExportedOperator *>(opAddr);
+    if (op) {
+        return op->GetWorkSpaceSize();
+    }
+    return 0;
 }
 
 std::string OperatorDeviceSynchronize(py::int_ incomingStreamPython) {
@@ -200,6 +212,7 @@ void BindRuntime(py::module &m) {
     m.def("DeviceRunOnceDataFromHost", &DeviceRunOnceDataFromHost);
     m.def("OperatorDeviceRunOnceDataFromDevice", &OperatorDeviceRunOnceDataFromDevice);
     m.def("OperatorDeviceSynchronize", &OperatorDeviceSynchronize);
+    m.def("GetWorkSpaceSize", &GetWorkSpaceSize);
     m.def("OperatorBegin", OperatorBegin);
     m.def("OperatorEnd", OperatorEnd);
     m.def("SetVerifyData", &SetVerifyData);
