@@ -458,21 +458,37 @@ private:
 
     inline bool CheckTaskFinished(int coreIdx) {
         uint64_t finTaskVal = aicoreHal_.GetFinishedTask(coreIdx);
-        uint32_t regLFinTaskId = REG_LOW_TASK_ID(finTaskVal);
-        uint32_t regLFinTaskState = REG_LOW_TASK_STATE(finTaskVal);
+        uint32_t finTaskId = REG_LOW_TASK_ID(finTaskVal);
+        uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskVal);
+
+        DEV_VERBOSE_DEBUG("reslove task core index: %d, finishtaskid:%x, finishstate: %u.", coreIdx, finTaskId, finTaskState);
 
         int type =static_cast<int>(AicoreType(coreIdx));
-        if (regLFinTaskState == TASK_FIN_STATE &&
-            (pendingIds_[coreIdx] == regLFinTaskId || runningIds_[coreIdx] == regLFinTaskId)) {
-            if (pendingIds_[coreIdx] == regLFinTaskId) {
+        if (finTaskState == TASK_FIN_STATE &&
+            (pendingIds_[coreIdx] == finTaskId || runningIds_[coreIdx] == finTaskId)) {
+
+            auto &pendingIdRef = pendingIds_[coreIdx];
+            auto &runningIdRef = runningIds_[coreIdx];
+            if (pendingIds_[coreIdx] == finTaskId) {
+                uint32_t runningIdValue = runningIdRef;
+                uint32_t pendingIdValue = pendingIdRef;
+
                 runReadyCoreIdx_[type][coreRunReadyCnt_[type]++] = coreIdx;
                 corePendReadyCnt_[type]++;
-            }
 
-            if (runningIds_[coreIdx] == regLFinTaskId) {
-                runReadyCoreIdx_[type][coreRunReadyCnt_[type]++] = coreIdx;
+                if (runningIdValue != AICORE_TASK_INIT) {
+                    NotifyFinish(coreIdx, runningIdValue);
+                }
+                NotifyFinish(coreIdx, pendingIdValue);
             }
-            DfxProcAfterFinishTask(coreIdx, regLFinTaskId);
+            if (runningIds_[coreIdx] == finTaskId) {
+                uint32_t pendingIdValue = pendingIdRef;
+
+                runReadyCoreIdx_[type][coreRunReadyCnt_[type]++] = coreIdx;
+
+                NotifyFinish(coreIdx, pendingIdValue);
+            }
+            DfxProcAfterFinishTask(coreIdx, finTaskId);
             pendingIds_[coreIdx] = AICORE_TASK_INIT;
             pendingResolveIndexList_[coreIdx] = 0;
             runningIds_[coreIdx] = AICORE_TASK_INIT;
@@ -1005,13 +1021,17 @@ private:
         }
     }
 
+    inline void NotifyFinish(int coreIdx, uint64_t finishId) {
+        DEV_TRACE_DEBUG(LEvent(
+            LUid(curTaskCtrl_->taskId, FuncID(finishId), GetRootIndex(finishId), TaskID(finishId), GetLeafIndex(finishId)),
+            LActFinish(coreIdx)));
+    }
+
     inline void ResolveDepWithDfx(CoreType type, int coreIdx, uint64_t finishId, size_t resolveIndexBase = 0) {
         ResolveDepDyn(finishId, resolveIndexBase);
         DEV_VERBOSE_DEBUG("[Call]: Core %d Dispatch Task: %lu, %u, %u", coreIdx, seq,
                   FuncID(finishId), TaskID(finishId));
-        DEV_TRACE_DEBUG(LEvent(
-            LUid(curTaskCtrl_->taskId, FuncID(finishId), GetRootIndex(finishId), TaskID(finishId), GetLeafIndex(finishId)),
-            LActFinish(coreIdx)));
+        NotifyFinish(coreIdx, finishId);
         DfxProcAfterFinishTask(coreIdx, finishId);
         waitTaskCnt_[static_cast<int>(type)]--;
     }

@@ -44,6 +44,10 @@ public:
         }
         return size;
     }
+
+    static DeviceTensorData Create(const std::shared_ptr<LogicalTensor> &t) {
+        return DeviceTensorData(t->Datatype(), 0, t->GetShape());
+    }
 private:
     DataType dtype_;
     uintptr_t devAddr_;
@@ -80,10 +84,25 @@ public:
     static uint8_t **GetMetaDataDevAddrHolder(CachedOperator *cachedOperator) {
         return cachedOperator == nullptr ? nullptr : &cachedOperator->metaDataDevAddr_;
     }
+
+    void UpdateInputOutput(
+            const std::vector<std::shared_ptr<LogicalTensor>> &inputList,
+            const std::vector<std::shared_ptr<LogicalTensor>> &outputList) {
+        for (auto &input : inputList) {
+            inputList_.emplace_back(DeviceTensorData::Create(input));
+        }
+        for (auto &output : outputList) {
+            outputList_.emplace_back(DeviceTensorData::Create(output));
+        }
+    }
+    const std::vector<DeviceTensorData> &GetInputList() { return inputList_; }
+    const std::vector<DeviceTensorData> &GetOutputList() { return outputList_; }
 private:
     uint8_t *workspaceDevAddr_{nullptr};
     uint8_t *cfgDataDevAddr_{nullptr};
     uint8_t *metaDataDevAddr_{nullptr};
+    std::vector<DeviceTensorData> inputList_;
+    std::vector<DeviceTensorData> outputList_;
 };
 
 class ExportedOperator : public CachedOperator {

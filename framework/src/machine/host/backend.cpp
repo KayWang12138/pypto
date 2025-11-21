@@ -369,7 +369,7 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         for (auto &callee : GetCalleeList(cache, func)) {
             BuildControlFlow(cache, linker, sectionName, callee, group, rootTileDict, controlFlowOss, expressionOss, indent + 1, expName);
         }
-        controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "callRootList[CallRootStage::T_CALLROOT_STITCH](ctx, RUNTIME_FINISH_FUNCKEY); // Notify finish \n";
+        controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_FINISH); // Notify finish \n";
         controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "return 0;\n";
         controlFlowOss << "}\n";
         controlFlowOss << "} // namespace npu::tile_fwk\n";
@@ -404,8 +404,17 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         auto attr = func->GetDynloopAttribute();
         ASSERT(attr != nullptr);
         if (attr->submitBeforeLoop) {
-            controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "callRootList[CallRootStage::T_CALLROOT_STITCH](ctx, RUNTIME_FINISH_FUNCKEY); // force submit before LOOP \n";
+            controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_FINISH); // force submit before LOOP \n";
         }
+
+        auto currDynFuncAttr = Program::GetInstance().GetCurrentDynamicFunction()->GetDyndevAttribute();
+        if (currDynFuncAttr->valueDependDescDict.count(func)) {
+            auto valueDependDesc = currDynFuncAttr->valueDependDescDict[func];
+            if (valueDependDesc.getInputDataCount + valueDependDesc.getTensorDataCount != 0) {
+                controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_CACHESTOP); // force stop cache due to value depend in control\n";
+            }
+        }
+
         std::string iterBegin = SymbolicExpressionTable::BuildExpression(attr->Begin());
         std::string iterEnd = SymbolicExpressionTable::BuildExpression(attr->End());
         std::string iterStep = SymbolicExpressionTable::BuildExpression(attr->Step());
@@ -441,19 +450,30 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         if (group.devRootList.count(func) <= 0) {
             return;
         }
+
+        auto currDynFuncAttr = Program::GetInstance().GetCurrentDynamicFunction()->GetDyndevAttribute();
+        ASSERT(rootTileDict.count(func));
+        Function *tile = rootTileDict[func];
+        if (currDynFuncAttr->valueDependDescDict.count(tile)) {
+            auto valueDependDesc = currDynFuncAttr->valueDependDescDict[tile];
+            if (valueDependDesc.getInputDataCount + valueDependDesc.getTensorDataCount != 0) {
+                controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_CACHESTOP); // force stop cache due to value depend in data\n";
+            }
+        }
+
         int devRootKey = group.devRootList.GetIndex(func);
         controlFlowOss << BuildControlFlowCallee(func, indent * TABSIZE);
-        controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "uint64_t *exprList" << devRootKey << " = (uint64_t *)callRootList[CallRootStage::T_CALLROOT_ALLOC](ctx, " << devRootKey << "ULL);\n";
+        controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "uint64_t *exprList" << devRootKey << " = (uint64_t *)RUNTIME_RootAlloc(" << devRootKey << "ULL);\n";
 
         SymbolicExpressionTable *exprTable = linker.LookupDevRootCoa(func);
         if (exprTable != nullptr) {
             for (auto &expr : exprTable->GetPrimaryExpressionSet()) {
                 auto index = exprTable->GetPrimaryExpressionSet().GetIndex(expr);
                 auto exprStr = exprTable->BuildExpression(expr);
-                controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "exprList" << devRootKey << "[" << index << "] = " << exprStr << ";\n";
+                controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "RUNTIME_SetExpr(exprList" << devRootKey << ", " << index << ", " << exprStr << ");\n";
             }
         }
-        controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "callRootList[CallRootStage::T_CALLROOT_STITCH](ctx, " << devRootKey << "ULL);\n";
+        controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "RUNTIME_RootStitch(" << devRootKey << "ULL);\n";
     } else {
         ASSERT(false) << "Impossible function type: " << GetFunctionTypeNameDict().Find(funcType);
     }
@@ -529,7 +549,7 @@ static void SetDyndevProgBinary(Function *function) {
             func->DumpFile(loopDirPath + "/" + func->GetMagicName() + ".tifwkgr");
         }
     }
-    devProg->RelocProgram(-reinterpret_cast<int64_t>(devProg));
+    devProg->RelocProgram(reinterpret_cast<int64_t>(devProg), 0);
     if (config::GetPassDefaultConfig(npu::tile_fwk::KEY_PRINT_PROGRAM, false)) {
         SaveFile(config::LogTopFolder() + "/program.tifwkbin", dynAttrPtr->devProgBinary);
     }
@@ -750,6 +770,8 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, cons
         funcBin->rootHash = devRoot->GetFunctionHash().GetHash();
         funcBin->funcKey = devRootKey;
         funcBin->stackWorkSpaceSize = devTile->GetStackWorkespaceSize();
+        funcBin->getInputDataCount = 0;
+        funcBin->getTensorDataCount = 0;
         EncodeDevAscendFunction(function, encodeDevAscendFunctionParam, size, funcBin);
         funcBin->Reloc(-reinterpret_cast<int64_t>(funcBin), true);
         uint32_t CallOpmaxSize = config::GetRuntimeOption<uint32_t>(SINGLE_LOOP_CALLOP_MAX_NUM);

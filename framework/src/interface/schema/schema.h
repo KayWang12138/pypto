@@ -38,6 +38,10 @@ static inline std::string DumpAttr(const Ty0 &arg0, const Tys&...args) {
 #include "schema_def_attr.h"
 #include "schema_def_trace.h"
 
+static inline range Range(uint64_t begin, uint64_t end) {
+    return range(begin, end, end - begin);
+}
+
 #define DEV_TRACE_PREFIX        "#trace:"
 
 #define DEV_TRACE_DEBUG(arg, args...) \

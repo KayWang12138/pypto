@@ -113,14 +113,14 @@ TEST_F(DeterminismTest, LoadTrace) {
     using namespace npu::tile_fwk::schema;
 
     TraceExecution exec;
-    LoadEvent(exec, REvent(RUid(0, 0x7, 1), RActWorkspace(range(0x1734bc90, 0x17368290))));
+    LoadEvent(exec, REvent(RUid(0, 0x7, 1), RActWorkspace(Range(0x1734bc90, 0x17368290))));
     LoadEvent(exec, REvent(RUid(0, 0x7, 1), expr(std::vector<int>({0x6, 0x5, 0x0, 0x0, 0x3, 0x1}))));
     LoadEvent(exec, REvent(RUid(0, 0x7, 1), RActIncastCount(0x8)));
-    LoadEvent(exec, REvent(RUid(0, 0x7, 1), RActIncast(incast(0x0), range(0x17912d60, 0x17932d60))));
-    LoadEvent(exec, REvent(RUid(0, 0x7, 1), RActIncast(incast(0x1), range(0x17712d40, 0x17812d40))));
+    LoadEvent(exec, REvent(RUid(0, 0x7, 1), RActIncast(incast(0x0), Range(0x17912d60, 0x17932d60))));
+    LoadEvent(exec, REvent(RUid(0, 0x7, 1), RActIncast(incast(0x1), Range(0x17712d40, 0x17812d40))));
     LoadEvent(exec, REvent(RUid(0, 0x7, 1), RActOutcastCount(0x4)));
-    LoadEvent(exec, REvent(RUid(0, 0x7, 1), RActOutcast(outcast(0x0), range(0x17255290, 0x17255310))));
-    LoadEvent(exec, REvent(RUid(0, 0x7, 1), RActOutcast(outcast(0x1), range(0x17265290, 0x17265310))));
+    LoadEvent(exec, REvent(RUid(0, 0x7, 1), RActOutcast(outcast(0x0), Range(0x17255290, 0x17255310))));
+    LoadEvent(exec, REvent(RUid(0, 0x7, 1), RActOutcast(outcast(0x1), Range(0x17265290, 0x17265310))));
     LoadEvent(exec, REvent(RUid(0, 0x7, 1), RActRawTensorCount(0x18)));
     LoadEvent(exec, REvent(RUid(0, 0x7, 1), RActRawTensor(0x0, rawDesc(0x1, 0x1, 0x100000))));
     LoadEvent(exec, REvent(RUid(0, 0x7, 1), RActRawTensor(0x1, rawDesc(0x1, 0x3, 0x20000))));

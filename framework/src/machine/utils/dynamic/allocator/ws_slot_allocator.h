@@ -23,6 +23,7 @@
 namespace npu::tile_fwk::dynamic {
 
 class WsSlotAllocator {
+public:
     using uintdevptr_t = uint64_t;
 
     struct BlockHeader {
@@ -48,6 +49,8 @@ public:
             InsertList(arr + i, freeListHeader_);
         }
     }
+
+    BlockHeader *GetBlockHeaderBase() { return allocation_.As<BlockHeader>(); }
 
     bool IsValidSlotMemRequirement(uint64_t memReq) const {
         return memReq <= slotStandardMemReq_;
@@ -111,22 +114,24 @@ private:
     }
 
 private:
-    uintdevptr_t workspaceAddr_{0};
+    WsMetadataAllocator *allocator_{nullptr};
+    WsAllocation allocation_;
+
+    size_t availableSlots_{0};
     size_t slotNum_{0};
     uint64_t slotStandardMemReq_{0};
 
-    WsMetadataAllocator *allocator_{nullptr};
-    WsAllocation allocation_;
+    uintdevptr_t workspaceAddr_{0};
     BlockHeader *freeListHeader_{nullptr};
     BlockHeader *notInUseHeaders_{nullptr};
-
-    size_t availableSlots_{0};
 
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_LIGHT
     struct DfxInfo {
         size_t historicalAllocated_{0};
     } dfx_;
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_LIGHT
+
+    friend class DevProgramControlFlowCache;
 };
 
 } // namespace npu::tile_fwk::dynamic

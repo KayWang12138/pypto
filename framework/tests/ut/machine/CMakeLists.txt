@@ -41,7 +41,9 @@ set(_CaseFilterList
         # distributed
         "CommWaitFlagTest.CommWaitFlag_EnqueueOp_and_PollCompleted_success"
         "ShmemWaitUntilTest.*"
+        # runtime
         "SlabWsAllocatorTest.*"
+        "ItemPoolTest.*"
         # Platform
         "PlatformTest.TestPlatfromCase1"
         # 框架相关用例

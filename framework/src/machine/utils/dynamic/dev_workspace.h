@@ -128,35 +128,7 @@ struct DynDeviceTask : DynDeviceTaskBase {
 #endif
 };
 
-#define INVALID_STITCH_IDX      ((uint32_t)-1)
-
-struct DeviceExecuteSlot {
-    AddressDescriptor desc;
-    bool isOutputSlot{false};
-    bool isAssembleSlot{false};
-    bool isPartialUpdateStitch{false};
-    bool isPartialUpdateDirty{false};
-    uint32_t *refCnt{nullptr}; // refCnt to stored tensor
-    uint32_t stitchDupIdx{INVALID_STITCH_IDX};
-    uint32_t stitchOutcastIdx;
-
-    DevAscendProgramPartialUpdate *partialUpdate{nullptr};
-    bool IsFixedAddress() const {
-        return isOutputSlot || isAssembleSlot;
-    }
-
-    template <WsMemCategory category>
-    bool DerefAndCheckIfZeroRefCnt(ItemPool<uint32_t, category> &pool) {
-        DEV_DEBUG_ASSERT(refCnt != nullptr);
-        --*refCnt;
-        if (*refCnt == 0) {
-            pool.Destroy(refCnt);
-            refCnt = nullptr;
-            return true;
-        }
-        return false;
-    }
-};
+static_assert(sizeof(DynDeviceTask) < sizeof(DynDeviceTaskBase) + DYN_DEVICE_TASK_EXT_SIZE, "Invalid dyn device task extension");
 
 constexpr uint32_t SUBMMIT_TASK_QUE_SIZE = 32;
 class DeviceWorkspaceAllocator {
@@ -165,12 +137,12 @@ public:
     ~DeviceWorkspaceAllocator() = default;
 
     void Init(DevStartArgs *args) {
-        uintdevptr_t baseAddr = args->workspaceAddr;
+        uintdevptr_t baseAddr = args->contextWorkspaceAddr;
         DevAscendProgram *devProg = args->devProg;
 
         // Host coherent allocators MUST be initialized EARLIEST since some other allocators might depend on them
-        InitMetadataAllocators(baseAddr, devProg->memBudget.metadata.Total(), devProg);
-        baseAddr += devProg->memBudget.metadata.Total();
+        InitMetadataAllocators(baseAddr, devProg->memBudget.metadata.ContextTotal(), devProg);
+        baseAddr += devProg->memBudget.metadata.ContextTotal();
 
         InitTensorAllocators(baseAddr, devProg->memBudget.tensor.Total(), devProg);
         baseAddr += devProg->memBudget.tensor.Total();
@@ -353,7 +325,6 @@ public:
             if (!tensorAllocators_.devTaskInnerOutcasts.CanAllocate(outcastSize)) {
                 return false;
             }
-
             WsAllocation allocation = tensorAllocators_.devTaskInnerOutcasts.Malloc(
                 outcastSize, WsMemCategory::TENSOR_ROOTFUNC_INTERNAL);
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
@@ -631,9 +602,12 @@ private:
         // Initialize aicpu memory
         uint64_t baseAddr = workspaceAddr;
 
-        metadataAllocators_.general.InitMetadataAllocator(baseAddr, devProg->memBudget.metadata.general);
-        baseAddr += devProg->memBudget.metadata.general;
+        metadataAllocators_.general.InitMetadataAllocator(baseAddr, devProg->memBudget.metadata.ContextGeneral());
+        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceMetadataGeneral(Range(baseAddr, baseAddr + devProg->memBudget.metadata.ContextGeneral()))));
+        baseAddr += devProg->memBudget.metadata.ContextGeneral();
+
         InitAicpuStitchSlabAllocator(reinterpret_cast<void*>(baseAddr), devProg->memBudget.metadata.stitchPool);
+        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceMetadataStitch(Range(baseAddr, baseAddr + devProg->memBudget.metadata.stitchPool))));
         baseAddr += devProg->memBudget.metadata.stitchPool;
 
         DEV_ASSERT(workspaceAddr <= baseAddr && baseAddr <= workspaceAddr + metadataWsSize);
@@ -657,28 +631,28 @@ private:
             devProg->memBudget.tensor.pooledSlotNum,
             devProg->memBudget.tensor.singleSlotMem,
             metadataAllocators_.general);
-        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceCrossDeviceTaskOutcast(range(baseAddr, baseAddr + slottedOutcastsBudget))));
+        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceCrossDeviceTaskOutcast(Range(baseAddr, baseAddr + slottedOutcastsBudget))));
         baseAddr += slottedOutcastsBudget;
 
         // Initialize dassembleDests tensor memory
         auto dassembleDestsTensorBudget = devProg->memBudget.tensor.dassembleDests;
         dassembleDestsTensorVerifier_.Init(baseAddr, dassembleDestsTensorBudget);
         tensorAllocators_.dassembleDests.InitTensorAllocator(baseAddr, dassembleDestsTensorBudget);
-        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspacePartialOutcast(range(baseAddr, baseAddr + dassembleDestsTensorBudget))));
+        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspacePartialOutcast(Range(baseAddr, baseAddr + dassembleDestsTensorBudget))));
         baseAddr += dassembleDestsTensorBudget;
 
         // Initialize root function non-outcast tensor memory
         auto rootInnerBudget = devProg->memBudget.tensor.rootInner;
         rootInnerWsVerifier_.Init(baseAddr, rootInnerBudget);
         tensorAllocators_.rootInner.InitTensorAllocator(baseAddr, rootInnerBudget);
-        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceInnerTensor(range(baseAddr, baseAddr + rootInnerBudget))));
+        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceInnerTensor(Range(baseAddr, baseAddr + rootInnerBudget))));
         baseAddr += rootInnerBudget;
 
         // Initialize root function sequential outcast tensor memory
         uint64_t remaining = workspaceAddr + tensorWorkspaceSize - baseAddr;
         devTaskInnerOutcastsWsVerifier_.Init(baseAddr, remaining);
         tensorAllocators_.devTaskInnerOutcasts.InitTensorAllocator(baseAddr, remaining); // Remaining all
-        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceInDeviceTaskOutcast(range(baseAddr, baseAddr + remaining))));
+        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceInDeviceTaskOutcast(Range(baseAddr, baseAddr + remaining))));
         baseAddr += remaining;
 
         DEV_ASSERT(workspaceAddr <= baseAddr && baseAddr <= workspaceAddr + tensorWorkspaceSize);
@@ -698,7 +672,7 @@ private:
         stackWorkspaceSize_ = devProg->memBudget.aicoreSpilled;
         DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceSpill(
             mem(perCoreMem), coreNum,
-            range(stackWorkspaceBase_, stackWorkspaceBase_ + stackWorkspaceSize_))));
+            Range(stackWorkspaceBase_, stackWorkspaceBase_ + stackWorkspaceSize_))));
     }
 
     uint32_t DevFunctionDuppedSlabMemObjSize() {
@@ -797,6 +771,8 @@ private:
             DEV_ASSERT(false);
         }
     }
+public:
+    TensorAllocator &GetTensorAllocator() { return tensorAllocators_; }
 private:
     bool SlabStageAllocMemTryRecycle() {
         auto FreeTaskSlabMemfunc = [this] (WsSlabStageAllocMem* slabStageMem) -> bool {
@@ -818,18 +794,8 @@ private:
     DelayedDumper wsMemDelayedDumper_;
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
 
-    struct {
-        WsMetadataAllocator general; // aicpu coherent for small suballocation, not support recycle
-        SlabWsAllocator generalSlab;      // aicpu meta memory, support reclamation
-        SlabWsAllocator stitchSlab;       // aicpu stitched data support reclamation
-    } metadataAllocators_;
-
-    struct {
-        SeqWsAllocator dassembleDests;
-        SeqWsAllocator rootInner;
-        SeqWsAllocator devTaskInnerOutcasts;
-        WsSlotAllocator slottedOutcasts;
-    } tensorAllocators_;
+    MetadataAllocator metadataAllocators_;
+    TensorAllocator tensorAllocators_;
 
 #if DEBUG_INFINITE_LIFETIME
     SeqWsAllocator dumpTensorWsAllocator_;

@@ -88,9 +88,7 @@ TEST_F(DynamicControlFlowCacheTest, KernelReuse) {
         }
     }
 
-    DeviceLauncherConfig config;
-    config.controlFlowCache = true;
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), config));
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction()));
 
     DeviceLauncher::DeviceRunCacheKernelEnable(Program::GetInstance().GetLastFunction(), true);
 
@@ -147,16 +145,14 @@ TEST_F(DynamicControlFlowCacheTest, CheckShape) {
         }
     }
 
-    DeviceLauncherConfig config;
-    config.controlFlowCache = true;
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), config));
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction()));
 
     DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(
         const_cast<uint8_t*>(DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction()).data()));
     EXPECT_NE(devProg->controlFlowCache.deviceTaskCount, 0);
 
-    devProg->RelocProgram((intptr_t)devProg);
-    devProg->RelocControlFlowCache(0, (intptr_t)devProg, 0, 0);
+    devProg->RelocProgram(0, (intptr_t)devProg);
+    devProg->controlFlowCache.RelocProgram(0, (intptr_t)devProg);
 
     {
         // check success
@@ -194,8 +190,8 @@ TEST_F(DynamicControlFlowCacheTest, CheckShape) {
         EXPECT_FALSE(devProg->controlFlowCache.MatchInputOutput(&arg));
     }
 
-    devProg->RelocControlFlowCache((intptr_t)devProg, 0, 0, 0);
-    devProg->RelocProgram(-(intptr_t)devProg);
+    devProg->controlFlowCache.RelocProgram((intptr_t)devProg, 0);
+    devProg->RelocProgram((intptr_t)devProg, 0);
 
     int n2 = tiling * 2;
     ProgramData::GetInstance().GetInputDataList()[0] = RawTensorData::CreateConstantTensor<int32_t>(Tensor(DT_INT32, {n2, n2}), 2);
@@ -252,9 +248,7 @@ TEST_F(DynamicControlFlowCacheTest, CheckLackMemory) {
         }
     }
 
-    DeviceLauncherConfig config;
-    config.controlFlowCache = true;
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), config));
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction()));
 
     DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(
         const_cast<uint8_t*>(DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction()).data()));
@@ -302,14 +296,251 @@ TEST_F(DynamicControlFlowCacheTest, CheckGetTensorData) {
         }
     }
 
-    DeviceLauncherConfig config;
-    config.controlFlowCache = true;
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), config));
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction()));
+}
+
+TEST_F(DynamicControlFlowCacheTest, PartialCache) {
+    config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
+    // cache at most 3 task
+    config::SetRuntimeOption<int64_t>(CFGCACHE_DEVICE_TASK_NUM, 0x3);
+    config::SetRuntimeOption<int64_t>(CFGCACHE_ROOT_TASK_NUM, 0x20);
+    config::SetRuntimeOption<int64_t>(CFGCACHE_LEAF_TASK_NUM, 0x20);
+
+    // every task 4 root func
+    config::SetRuntimeOption<int64_t>(FIRST_STITCH_TASK_LOOP_NUM, 0x4);
+    config::SetRuntimeOption<int64_t>(SUBSEQ_STITCH_TASK_INCR_LOOP_NUM, 0);
+
+    int tiling = 32;
+    TileShape::Current().SetVecTile(tiling, tiling);
+
+    int n = tiling * 4;
+    Tensor inputA(DT_INT32, {n, n}, "A");
+    Tensor inputB(DT_INT32, {n, n}, "B");
+    Tensor output(DT_INT32, {n, n}, "O");
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<int32_t>(inputA, 1),
+        RawTensorData::CreateConstantTensor<int32_t>(inputB, 2),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<int32_t>(output, 0),
+    });
+
+    std::vector<int32_t> outputGolden(n * n, 6);
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<int32_t>(output, outputGolden),
+    });
+
+    // 17 root func in total
+    FUNCTION("main", {inputA, inputB}, {output}) {
+        Tensor sum(DT_INT32, {n, n}, "sum");
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShape(inputA, 0) / tiling)) {
+            LOOP("L1", FunctionType::DYNAMIC_LOOP, j, LoopRange(GetInputShape(inputA, 1) / tiling)) {
+                auto a = View(inputA, {tiling, tiling}, std::vector<SymbolicScalar>({i * tiling, j * tiling}));
+                auto b = View(inputB, {tiling, tiling}, std::vector<SymbolicScalar>({i * tiling, j * tiling}));
+                Assemble(Add(a, b), {i * tiling, j * tiling}, sum);
+            }
+        }
+        LOOP("Use", FunctionType::DYNAMIC_LOOP, _, LoopRange(1)) {
+            (void)_;
+            output = Add(sum, sum);
+        }
+    }
+
+    std::vector<DeviceTensorData> inputList = {DeviceTensorData::Create(inputA.GetStorage()), DeviceTensorData::Create(inputB.GetStorage())};
+    std::vector<DeviceTensorData> outputList = {DeviceTensorData::Create(output.GetStorage())};
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), inputList, outputList));
 
     DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(
         const_cast<uint8_t*>(DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction()).data()));
-    EXPECT_NE(devProg->controlFlowCache.getInputDataCount, 0);
-    EXPECT_NE(devProg->controlFlowCache.getTensorDataCount, 0);
+
+    EXPECT_EQ(0x3, devProg->controlFlowCache.deviceTaskCount);
+    EXPECT_EQ(0x2, devProg->controlFlowCache.deviceTaskSkippedCount);
+
+    devProg->RelocProgram(0, (intptr_t)devProg);
+    devProg->controlFlowCache.RelocProgram(0, (intptr_t)devProg);
+
+    for (int i = 0; i < 0x3; i++) {
+        auto dynTaskBase = devProg->controlFlowCache.deviceTaskCacheList[i].dynTaskBase;
+        EXPECT_EQ(0x4, dynTaskBase->GetDynFuncDataList()->Size());
+    }
+
+    devProg->controlFlowCache.RelocProgram((intptr_t)devProg, 0);
+    devProg->RelocProgram((intptr_t)devProg, 0);
+
+    DeviceLauncher::DeviceRunCacheKernelEnable(Program::GetInstance().GetLastFunction(), true);
+
+    EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction()));
+
+#ifdef BUILD_WITH_CANN
+    for (int k = 0; k < 0x3; k++) {
+        EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction()));
+        auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+        EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
+    }
+#endif
+}
+
+TEST_F(DynamicControlFlowCacheTest, PartialCacheValueDependData) {
+    config::SetRuntimeOption<int64_t>(CFGCACHE_DEVICE_TASK_NUM, 0x3);
+    config::SetRuntimeOption<int64_t>(CFGCACHE_ROOT_TASK_NUM, 0x20);
+    config::SetRuntimeOption<int64_t>(CFGCACHE_LEAF_TASK_NUM, 0x20);
+
+    config::SetRuntimeOption<int64_t>(FIRST_STITCH_TASK_LOOP_NUM, 0x4);
+    config::SetRuntimeOption<int64_t>(SUBSEQ_STITCH_TASK_INCR_LOOP_NUM, 0);
+
+    int tiling = 32;
+    TileShape::Current().SetVecTile(tiling, tiling);
+
+    int n = tiling * 4;
+    Tensor inputA(DT_INT32, {n, n}, "A");
+    Tensor inputB(DT_INT32, {n, n}, "B");
+    Tensor output(DT_INT32, {n, n}, "O");
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<int32_t>(inputA, 1),
+        RawTensorData::CreateConstantTensor<int32_t>(inputB, 2),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<int32_t>(output, 0),
+    });
+
+    std::vector<int32_t> outputGolden(n * n, 12);
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<int32_t>(output, outputGolden),
+    });
+
+    FUNCTION("main", {inputA, inputB}, {output}) {
+        Tensor sum(DT_INT32, {n, n}, "sum");
+        LOOP("s00", FunctionType::DYNAMIC_LOOP, _, LoopRange(1)) {
+            (void)_;
+            sum = Add(inputA, inputB);
+        }
+        LOOP("s01", FunctionType::DYNAMIC_LOOP, _, LoopRange(1)) {
+            (void)_;
+            sum = Add(sum, inputB);
+        }
+        LOOP("s1", FunctionType::DYNAMIC_LOOP, _, LoopRange(1)) {
+            (void)_;
+            auto v = GetTensorData(inputA, {0, 0});
+            auto another = Full(v, DT_INT32, {n, n}, {n, n});
+            sum = Add(sum, another);
+        }
+        LOOP("s2", FunctionType::DYNAMIC_LOOP, _, LoopRange(1)) {
+            (void)_;
+            output = Add(sum, sum);
+        }
+    }
+
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction()));
+
+    DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(
+        const_cast<uint8_t*>(DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction()).data()));
+
+    EXPECT_EQ(0x1, devProg->controlFlowCache.deviceTaskCount);
+    EXPECT_EQ(0x0, devProg->controlFlowCache.deviceTaskSkippedCount);
+
+    devProg->RelocProgram(0, (intptr_t)devProg);
+    devProg->controlFlowCache.RelocProgram(0, (intptr_t)devProg);
+
+    auto dynTaskBase = devProg->controlFlowCache.deviceTaskCacheList[0].dynTaskBase;
+    EXPECT_EQ(0x2, dynTaskBase->GetDynFuncDataList()->Size());
+
+    devProg->controlFlowCache.RelocProgram((intptr_t)devProg, 0);
+    devProg->RelocProgram((intptr_t)devProg, 0);
+
+    DeviceLauncher::DeviceRunCacheKernelEnable(Program::GetInstance().GetLastFunction(), true);
+
+    EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction()));
+
+#ifdef BUILD_WITH_CANN
+    for (int k = 0; k < 0x3; k++) {
+        EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction()));
+        auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+        EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
+    }
+#endif
+}
+
+TEST_F(DynamicControlFlowCacheTest, PartialCacheValueDependControl) {
+    config::SetRuntimeOption<int64_t>(CFGCACHE_DEVICE_TASK_NUM, 3);
+    config::SetRuntimeOption<int64_t>(CFGCACHE_ROOT_TASK_NUM, 9);
+    config::SetRuntimeOption<int64_t>(CFGCACHE_LEAF_TASK_NUM, 18);
+
+    config::SetRuntimeOption<int64_t>(FIRST_STITCH_TASK_LOOP_NUM, 4);
+    config::SetRuntimeOption<int64_t>(SUBSEQ_STITCH_TASK_INCR_LOOP_NUM, 0);
+
+    int tiling = 32;
+    TileShape::Current().SetVecTile(tiling, tiling);
+
+    int n = tiling * 4;
+    Tensor inputA(DT_INT32, {n, n}, "A");
+    Tensor inputB(DT_INT32, {n, n}, "B");
+    Tensor output(DT_INT32, {n, n}, "O");
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<int32_t>(inputA, 1),
+        RawTensorData::CreateConstantTensor<int32_t>(inputB, 2),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<int32_t>(output, 0),
+    });
+
+    std::vector<int32_t> outputGolden(n * n, 12);
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<int32_t>(output, outputGolden),
+    });
+
+    FUNCTION("main", {inputA, inputB}, {output}) {
+        Tensor sum(DT_INT32, {n, n}, "sum");
+        LOOP("s00", FunctionType::DYNAMIC_LOOP, _, LoopRange(1)) {
+            (void)_;
+            sum = Add(inputA, inputB);
+        }
+        LOOP("s01", FunctionType::DYNAMIC_LOOP, _, LoopRange(1)) {
+            (void)_;
+            sum = Add(sum, inputB);
+        }
+        LOOP("s1", FunctionType::DYNAMIC_LOOP, _, LoopRange(GetTensorData(inputA, {0, 0}))) {
+            (void)_;
+            sum = Add(sum, inputA);
+        }
+        LOOP("s2", FunctionType::DYNAMIC_LOOP, _, LoopRange(1)) {
+            (void)_;
+            output = Add(sum, sum);
+        }
+    }
+
+    std::vector<DeviceTensorData> inputList = {DeviceTensorData::Create(inputA.GetStorage()), DeviceTensorData::Create(inputB.GetStorage())};
+    std::vector<DeviceTensorData> outputList = {DeviceTensorData::Create(output.GetStorage())};
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), inputList, outputList));
+
+    DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(
+        const_cast<uint8_t*>(DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction()).data()));
+
+    EXPECT_EQ(0x1, devProg->controlFlowCache.deviceTaskCount);
+    EXPECT_EQ(0x0, devProg->controlFlowCache.deviceTaskSkippedCount);
+
+    devProg->RelocProgram(0, (intptr_t)devProg);
+    devProg->controlFlowCache.RelocProgram(0, (intptr_t)devProg);
+
+    auto dynTaskBase = devProg->controlFlowCache.deviceTaskCacheList[0].dynTaskBase;
+    EXPECT_EQ(0x2, dynTaskBase->GetDynFuncDataList()->Size());
+
+    devProg->controlFlowCache.RelocProgram((intptr_t)devProg, 0);
+    devProg->RelocProgram((intptr_t)devProg, 0);
+
+    DeviceLauncher::DeviceRunCacheKernelEnable(Program::GetInstance().GetLastFunction(), true);
+
+    EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction()));
+
+#ifdef BUILD_WITH_CANN
+    for (int k = 0; k < 0x3; k++) {
+        EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction()));
+        auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+        EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
+    }
+#endif
 }
 
 }

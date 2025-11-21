@@ -21,3 +21,18 @@
 #include "seq_ws_allocator.h"
 #include "ws_allocator_counter.h"
 #include "ws_metadata_allocator.h"
+
+namespace npu::tile_fwk::dynamic {
+    struct MetadataAllocator {
+        WsMetadataAllocator general; // aicpu coherent for small suballocation, not support recycle
+        SlabWsAllocator generalSlab;      // aicpu meta memory, support reclamation
+        SlabWsAllocator stitchSlab;       // aicpu stitched data support reclamation
+    };
+
+    struct TensorAllocator {
+        SeqWsAllocator dassembleDests;
+        SeqWsAllocator rootInner;
+        SeqWsAllocator devTaskInnerOutcasts;
+        WsSlotAllocator slottedOutcasts;
+    };
+}

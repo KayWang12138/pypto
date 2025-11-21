@@ -134,7 +134,7 @@ public:
 
     static bool HasInplaceArgs(Function *function) {
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(GetDevProg(function).data()));
-        return devProg->inplaceSlotList.size() != 0;
+        return devProg->outputInplaceSlotList.size() != 0;
     }
 
     template<typename DeviceMemoryTy>
@@ -156,10 +156,11 @@ public:
         static constexpr int64_t TENSOR_ADDR_ALIGNMENT = 512;
         devProg->memBudget.tensor.dassembleDests =
             AlignUp(devProg->memBudget.tensor.dassembleDests + config.dynWorkspaceSize, TENSOR_ADDR_ALIGNMENT);
-        devProg->workspaceSize = devProg->memBudget.metadata.Total() +
-                                 devProg->memBudget.tensor.Total() +
-                                 devProg->memBudget.aicoreSpilled +
-                                 devProg->memBudget.debug.dumpTensor;
+        devProg->workspaceSize = (
+            devProg->memBudget.metadata.Total() +
+            devProg->memBudget.tensor.Total() +
+            devProg->memBudget.aicoreSpilled +
+            devProg->memBudget.debug.dumpTensor);
 
         devProg->l2CacheOffset = machine::GetRA()->GetL2Offset();
         ASSERT((devProg->commGroupNum == config.hcclContext.size()) &&

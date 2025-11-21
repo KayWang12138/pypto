@@ -208,7 +208,10 @@ def set_runtime_options(*,
                         workspace_recycle_period: int = None,
                         estimated_stitch_task_max_loop_num: int = None,
                         first_stitch_task_loop_num: int = None,
-                        subseq_stitch_task_incr_loop_num: int = None
+                        subseq_stitch_task_incr_loop_num: int = None,
+                        cfgcache_device_task_num: int = None,
+                        cfgcache_root_task_num: int = None,
+                        cfgcache_leaf_task_num: int = None
                         ) -> None:
     """
     Set runtime options.

@@ -165,6 +165,10 @@ struct DynFuncHeader {
     uint32_t funcSize;
     __gm__ DynFuncBin *cceBinary;
 
+    uint64_t GetIndex() {
+        return seqNo;
+    }
+
     inline DynFuncData &At(int index) {
         return ((DynFuncData *)(this + 1))[index];
     }

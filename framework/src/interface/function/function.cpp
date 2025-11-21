@@ -704,6 +704,13 @@ FunctionCallArgs Function::EndFunction(const std::shared_ptr<TensorSlotScope> &s
         auto iodescDict = GetTensorDataForTensorGraph();
         GetTensorDataRefreshIO(iodescDict);
         SortOperations();
+        if (Program::GetInstance().GetCurrentDynamicFunction()) {
+            DyndevFunctionAttribute::ValueDependDesc desc = LookupValueDepend();
+            auto currDynFuncAttr = Program::GetInstance().GetCurrentDynamicFunction()->GetDyndevAttribute();
+            if (currDynFuncAttr != nullptr) {
+                currDynFuncAttr->valueDependDescDict[this] = desc;
+            }
+        }
     } else if (graphType_ == GraphType::EXECUTE_GRAPH) {
     } else if (graphType_ == GraphType::BLOCK_GRAPH) {
         for (auto &out : outCasts_) {
@@ -3333,6 +3340,48 @@ void Function::OpValidCheck(Operation &op) const {
 
     ASSERT(opMap.count(&op) == 0);
     opMap.emplace(&op);
+}
+
+DyndevFunctionAttribute::ValueDependDesc Function::LookupValueDepend() {
+    struct ValueDependSearcher {
+        static void Search(DyndevFunctionAttribute::ValueDependDesc &desc, const SymbolicScalar &attr) {
+            std::vector<RawSymbolicScalarPtr> callList = LookupExpressionByOpcode(attr.Raw(), SymbolicOpcode::T_MOP_CALL);
+            for (auto &call : callList) {
+                auto caller = call->GetExpressionOperandList()[0];
+                if (!caller->IsSymbol()) {
+                    continue;
+                }
+                std::string name = caller->GetSymbolName();
+                if (CallIsGetInputData(name)) {
+                    desc.getInputDataCount++;
+                } else if (CallIsGetTensorData(name)) {
+                    desc.getTensorDataCount++;
+                }
+            }
+        }
+    };
+
+    DyndevFunctionAttribute::ValueDependDesc desc;
+    if (GetFunctionType() == FunctionType::DYNAMIC_LOOP) {
+        auto loopAttr = GetDynloopAttribute();
+        ValueDependSearcher::Search(desc, loopAttr->Begin());
+        ValueDependSearcher::Search(desc, loopAttr->End());
+        ValueDependSearcher::Search(desc, loopAttr->Step());
+        for (auto &path : loopAttr->GetPathList()) {
+            for (auto &cond : path.GetPathCondList()) {
+                ValueDependSearcher::Search(desc, cond.GetCond());
+            }
+        }
+
+    } else {
+        for (auto &op : Operations(false)) {
+            std::vector<std::reference_wrapper<SymbolicScalar>> attrList = op.GetDynamicAttributeList();
+            for (auto &attr : attrList) {
+                ValueDependSearcher::Search(desc, attr.get());
+            }
+        }
+    }
+    return desc;
 }
 
 void Function::ValidCheck() const {

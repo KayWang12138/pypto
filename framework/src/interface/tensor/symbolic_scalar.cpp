@@ -577,4 +577,27 @@ void RawSymbolicScalar::ResetValueGuesser(ValueGuesser valueGuesser) {
     valueGuesser_ = valueGuesser;
 }
 
+static void LookupExpressionByOpcode(std::vector<RawSymbolicScalarPtr> &exprList, SymbolicOpcode opcode, const RawSymbolicScalarPtr &raw) {
+    switch (raw->Kind()) {
+        case SymbolicScalarKind::T_SCALAR_SYMBOLIC_IMMEDIATE:
+        case SymbolicScalarKind::T_SCALAR_SYMBOLIC_SYMBOL:
+            break;
+        case SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION: {
+            if (raw->GetExpressionOpcode() == opcode) {
+                exprList.emplace_back(raw);
+            }
+            for (auto &op : raw->GetExpressionOperandList()) {
+                LookupExpressionByOpcode(exprList, opcode, op);
+            }
+        } break;
+        default: ASSERT(false); break;
+    }
+}
+
+std::vector<RawSymbolicScalarPtr> LookupExpressionByOpcode(const RawSymbolicScalarPtr &value, SymbolicOpcode opcode) {
+    std::vector<RawSymbolicScalarPtr> exprList;
+    LookupExpressionByOpcode(exprList, opcode, value);
+    return exprList;
+}
+
 } // namespace npu::tile_fwk

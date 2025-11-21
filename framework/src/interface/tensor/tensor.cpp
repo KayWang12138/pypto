@@ -442,7 +442,6 @@ SymbolicScalar GetTensorData(const Tensor &t, const std::vector<SymbolicScalar> 
     if (funcPtr) {
         auto inputTensorList = funcPtr->GetDyndevAttribute()->startArgsInputTensorList;
         if (FindTensor(t, inputTensorList) != inputTensorList.end()) {
-            funcPtr->GetDyndevAttribute()->getInputDataCount++;
             return GetInputData(t, offset);
         }
     }

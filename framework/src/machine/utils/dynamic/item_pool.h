@@ -19,14 +19,17 @@
 
 namespace npu::tile_fwk::dynamic {
 
-template <typename T, WsMemCategory category = WsMemCategory::UNCLASSIFIED_ITEMPOOL,
+static constexpr int64_t itemPoolInvalidIndex = -1;
+
+template <typename T = uint32_t, WsMemCategory category = WsMemCategory::UNCLASSIFIED_ITEMPOOL,
     typename WsAllocator_T = WsMetadataAllocator>
 class ItemPool {
 public:
+    static constexpr int64_t createdIndex = -2;
+public:
     struct ItemBlock {
         char buf[sizeof(T)];
-        bool isFree{false};
-        ItemBlock *freeListNext{nullptr};
+        int64_t freeListNextIndex;
     };
 
 public:
@@ -38,10 +41,10 @@ public:
     ~ItemPool() {
         if (allocation_) {
             // Call destructor on alive items
-            ItemBlock *arr = allocation_.As<ItemBlock>();
+            ItemBlock *itemBase = &ItemAt();
             for (size_t i = 0; i < count_; i++) {
-                if (!arr[i].isFree) {
-                    ((T *)(arr + i))->~T();
+                if (itemBase[i].freeListNextIndex == createdIndex) {
+                    ((T *)(itemBase + i))->~T();
                 }
             }
 
@@ -55,40 +58,54 @@ public:
         allocator_ = &allocator;
         count_ = count;
         allocation_ = allocator_->template Allocate<ItemBlock>(count_, category);
-        ItemBlock *arr = allocation_.As<ItemBlock>();
+        ItemBlock *itemBase = &ItemAt();
         for (size_t i = 0; i < count_; i++) {
-            InsertFreeList(arr + i);
+            AppendFreeList(itemBase + i);
         }
     }
 
     template <typename ...Args>
-    T *Make(Args &&...args) {
-        DEV_ASSERT(freeListHead_ != nullptr);
-        freeListHead_->isFree = false;
-        T *newItem = (T *)freeListHead_->buf;
-        freeListHead_ = freeListHead_->freeListNext;
+    T *Create(Args &&...args) {
+        DEV_ASSERT(freeListHeadIndex_ != itemPoolInvalidIndex);
+        ItemBlock *item = &ItemAt(freeListHeadIndex_);
+        freeListHeadIndex_ = item->freeListNextIndex;
+        item->freeListNextIndex = createdIndex;
+
+        T *newItem = (T *)item->buf;
         new(newItem) T(std::forward<Args>(args)...);
         return newItem;
+    }
+
+    template <typename ...Args>
+    int64_t Allocate(Args &&...args) {
+        T *item = Create(args...);
+        return (ItemBlock *)item - &ItemAt(0);
     }
 
     void Destroy(T *item) {
         item->~T();
         ItemBlock *block = (ItemBlock *)item;
-        block->isFree = true;
-        InsertFreeList(block);
+        AppendFreeList(block);
     }
 
-private:
-    inline void InsertFreeList(ItemBlock *block) {
-        block->freeListNext = freeListHead_;
-        freeListHead_ = block;
+    T &At(int64_t index) { return *(T *)allocation_.As<ItemBlock>()[index].buf; }
+
+    void DestroyAt(int64_t index) {
+        Destroy(&At(index));
     }
+private:
+    inline void AppendFreeList(ItemBlock *block) {
+        block->freeListNextIndex = freeListHeadIndex_;
+        freeListHeadIndex_ = block - &ItemAt(0);
+    }
+
+    ItemBlock &ItemAt(int64_t index = 0) { return allocation_.As<ItemBlock>()[index]; }
 
 private:
     WsAllocator_T *allocator_{nullptr};
     WsAllocation allocation_;
     size_t count_;
-    ItemBlock *freeListHead_{nullptr};
+    int64_t freeListHeadIndex_{itemPoolInvalidIndex};
 };
 
 } // namespace npu::tile_fwk::dynamic

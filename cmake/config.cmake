@@ -268,8 +268,11 @@ if (ENABLE_TESTS)
                 OUTPUT_VARIABLE TORCH_ENV_OUTPUT
         )
         string(REPLACE "\n" ";" _TORCH_ENV_LIST "${TORCH_ENV_OUTPUT}")
-        list(GET _TORCH_ENV_LIST 0 TORCH_ROOT_PATH)
-        list(GET _TORCH_ENV_LIST 1 TORCH_ABI_VERSION)
+        # To avoid obstruct message caused by `import torch`, we count from back.
+        # As the above uses `print` to print the information, the last string is empty. And we count from
+        # the second before last which is -2
+        list(GET _TORCH_ENV_LIST -3 TORCH_ROOT_PATH)
+        list(GET _TORCH_ENV_LIST -2 TORCH_ABI_VERSION)
         get_filename_component(TORCH_ROOT_PATH "${TORCH_ROOT_PATH}/../.." REALPATH)
     endif()
 endif()

@@ -144,7 +144,7 @@ struct DynMachineManager {
                 DEV_TRACE_DEBUG(schema::CtrlEvent(threadIdx, schema::ThreadStart()));
                 ret = machine_.ExecDyn(threadIdx, devArgs->taskId, args);
             } else if (threadIdx == MAX_SCHEDULE_AICPU_NUM + 1) {
-                CreateLogFile(LOG_TYPE_PREFETCH, 0); 
+                CreateLogFile(LOG_TYPE_PREFETCH, 0);
                 if (devArgs->taskType == DEVICE_TASK_TYPE_DYN) {
                   auto startArgs = (DevStartArgs *)devArgs->startArgsAddr;
                   DySdmaPrefetch(startArgs);
@@ -212,6 +212,7 @@ void SigAct(int signum, siginfo_t* info, void* act) {
     (void)info;
     (void)act;
     DEV_ERROR("Exception Signum[%d] Act.", signum);
+    PrintBacktrace("signal " + std::to_string(signum));
     if (g_machine_mgr.reset_.load()) {
       DEV_ERROR("Exception Already reset.");
       sleep(SIGNAL_DELAY_SECONDS);
@@ -262,11 +263,10 @@ static bool CheckValidArgs(AstKernelArgs *kargs) {
     return true;
 }
 
+
 extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelServerInit(void *targ) {
     PerfBegin(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
-#if DEBUG_PLOG && defined(__DEVICE__)
     InitLogSwitch();
-#endif
     auto kargs = (AstKernelArgs *)targ;
     if (!CheckValidArgs(kargs)) {
         DEV_ERROR("invalid parameter.");

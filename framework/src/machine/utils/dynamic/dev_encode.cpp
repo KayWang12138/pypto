@@ -719,6 +719,7 @@ void DevAscendFunction::InitIncastOutcast(
 
 struct EncodeDevAscendFunctionInfo {
     Function *devRoot{nullptr};
+    Function *devTile{nullptr};
 
     const std::unordered_map<uint64_t, int> &calleeHashIndexDict;
     const std::vector<CceCodeInfo> &cceCodeInfoList;
@@ -763,6 +764,8 @@ struct EncodeDevAscendFunctionInfo {
     std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> outcastOpAttrDict;
 
     std::unordered_map<Operation *, std::vector<int>> copyOutResolveSuccIndexListDict;
+
+    DyndevFunctionAttribute::ValueDependDesc valueDependDesc;
 
     static DevShape InitShape(const std::vector<int64_t> &shape) {
         DevShape initShape;
@@ -1218,6 +1221,12 @@ struct EncodeDevAscendFunctionInfo {
               cceCodeInfoList(tCceCodeInfoList),
               expressionTable(tExpressionTable) {
         (void)dyndev;
+        ASSERT(dyndev->GetDyndevAttribute()->rootTileDict.count(devRoot));
+        devTile = dyndev->GetDyndevAttribute()->rootTileDict[devRoot];
+        if (dyndev->GetDyndevAttribute()->valueDependDescDict.count(devTile)) {
+            valueDependDesc = dyndev->GetDyndevAttribute()->valueDependDescDict[devTile];
+        }
+
         std::unordered_map<std::shared_ptr<LogicalTensor>, OrderedSet<Operation *>> consumerDict;
         std::unordered_map<Operation *, int> callopIndexDict;
 
@@ -1426,6 +1435,8 @@ struct EncodeDevAscendFunctionInfo {
         DevAscendFunctionPredInfo predInfo = {totalZeroPred, totalZeroPredAIV, totalZeroPredAIC, totalZeroPredHub,
             totalZeroPredAicpu};
         devFunc->sourceFunc = nullptr;
+        devFunc->getInputDataCount = valueDependDesc.getInputDataCount;
+        devFunc->getTensorDataCount = valueDependDesc.getTensorDataCount;
         devFunc->InitIncastOutcastAttr(initOffset, incastList, outcastList, fillContent);
         devFunc->InitOperationDynamicField(initOffset, predInfo, outcastStitchCount, calleeHashIndexDict,
             expressionTable, callList, incastList, outcastList, callOpSuccDict, fillContent);
@@ -1570,7 +1581,7 @@ void DevAscendProgram::InitStartArgsABIParamList(
     this->startArgsInputSymbolIndexList.HostInitDataSizeOffset(initOffset, tStartArgsInputSymbolIndexList.size());
     this->startArgsSymbolHandlerList.HostInitDataSizeOffset(initOffset, tStartArgsSymbolHandlerList.size());
     this->assembleSlotIndexList.HostInitDataSizeOffset(initOffset, tAsembleSlotIndexList.size());
-    this->inplaceSlotList.HostInitDataSizeOffset(initOffset, tInplaceSlotIndexList.size());
+    this->outputInplaceSlotList.HostInitDataSizeOffset(initOffset, tInplaceSlotIndexList.size());
 
     ONFILLCONTENT {
         for (size_t i = 0; i < tStartArgsInputTensorSlotIndexList.size(); i++) {
@@ -1589,7 +1600,7 @@ void DevAscendProgram::InitStartArgsABIParamList(
             this->assembleSlotIndexList[i] = tAsembleSlotIndexList[i];
         }
         for (size_t i = 0; i < tInplaceSlotIndexList.size(); i++) {
-            this->inplaceSlotList[i] = tInplaceSlotIndexList[i];
+            this->outputInplaceSlotList[i] = tInplaceSlotIndexList[i];
         }
     }
 }
@@ -1678,18 +1689,27 @@ void DevAscendProgram::InitPartialUpdateSlot(
     this->cellMatchRuntimePartialUpdateTableList.HostInitDataSizeOffset(initOffset, totalCellMatchSize);
 }
 
+struct ControlFlowCacheFactor {
+    const std::string name;
+    uint64_t deviceElementFactor;
+    uint64_t rootElementFactor;
+    uint64_t leafElementFactor;
+    ControlFlowCacheFactor(const std::string &name_, uint64_t device, uint64_t root, uint64_t leaf)
+      : name(name_), deviceElementFactor(device), rootElementFactor(root), leafElementFactor(leaf) {}
+};
+
 void DevAscendProgram::InitControlFlowCache(
         uintdevptr_t &initOffset,
         const std::shared_ptr<DyndevFunctionAttribute> &dyndevAttr,
-        uint64_t getTensorDataCount, uint64_t getInputDataCount,
         bool fillContent) {
     (void)fillContent;
 
-    /* dynamic predCount + back up predCount */
-    uint64_t leafElementSize = sizeof(uint16_t) + sizeof(uint16_t);
-    uint64_t leafTotalSize = leafElementSize * config::GetRuntimeOption<int64_t>(CFGCACHE_LEAF_TASK_NUM);
+    uint64_t leafElementCount = config::GetRuntimeOption<int64_t>(CFGCACHE_LEAF_TASK_NUM);
+    uint64_t rootElementCount = config::GetRuntimeOption<int64_t>(CFGCACHE_ROOT_TASK_NUM);
+    uint64_t deviceElementCount = config::GetRuntimeOption<int64_t>(CFGCACHE_DEVICE_TASK_NUM);
 
     uint64_t maxDuppedDataAllocSize = 0;
+    uint64_t maxIncastOutcastCount = 0;
     for (size_t i = 0; i < dyndevAttr->devEncodeList.size(); i++) {
         std::vector<uint8_t> &devEncode = dyndevAttr->devEncodeList[i];
         const DevAscendFunction *devFunc = reinterpret_cast<const DevAscendFunction *>(devEncode.data());
@@ -1697,27 +1717,45 @@ void DevAscendProgram::InitControlFlowCache(
         if (maxDuppedDataAllocSize < duppedDataAllocSize) {
             maxDuppedDataAllocSize = duppedDataAllocSize;
         }
+        uint64_t incastOutcastCount = devFunc->GetIncastSize() + devFunc->GetOutcastSize();
+        if (maxIncastOutcastCount < incastOutcastCount) {
+            maxIncastOutcastCount = incastOutcastCount;
+        }
     }
-
-    /* data + dupped + data's address's size */
-    uint64_t rootElementSize = sizeof(DynFuncData) + maxDuppedDataAllocSize + sizeof(DynFuncData *);
-    uint64_t rootTotalSize = rootElementSize * config::GetRuntimeOption<int64_t>(CFGCACHE_ROOT_TASK_NUM);
-
-    /* header + header's address's size */
-    uint64_t deviceElementSize = sizeof(DynFuncHeader);
-    uint64_t deviceTotalSize = deviceElementSize * config::GetRuntimeOption<int64_t>(CFGCACHE_DEVICE_TASK_NUM);
-    uint64_t totalSize = leafTotalSize + rootTotalSize + deviceTotalSize;
+    ControlFlowCacheFactor factorList[] = {
+        {"actualDupped",        0, maxDuppedDataAllocSize, 0},
+        {"actualDeviceTask",    sizeof(DynDeviceTaskBase) + DYN_DEVICE_TASK_EXT_SIZE, 0, 0},
+        {"actualStitch",        0, 0, sizeof(DevAscendFunctionDuppedStitch)},
+        {"actualDynFuncData",   sizeof(DynFuncHeader), sizeof(DynFuncData), 0},
+        {"actualReadyQueue",    sizeof(ReadyCoreFunctionQueue) * READY_QUEUE_SIZE, 0, sizeof(taskid_t) * READY_QUEUE_SIZE},
+        {"backupPredCount",     0, 0, sizeof(predcount_t)},
+        {"backupReadyQueue",    sizeof(ReadyQueueCache), 0, sizeof(taskid_t) * READY_QUEUE_SIZE},
+        {"backupIncastOutcast", 0, sizeof(uint64_t) * maxIncastOutcastCount, 0},
+    };
+    uint64_t deviceTotalFactor = 0;
+    uint64_t rootTotalFactor = 0;
+    uint64_t leafTotalFactor = 0;
+    for (auto &factor : factorList) {
+        deviceTotalFactor += factor.deviceElementFactor;
+        rootTotalFactor += factor.rootElementFactor;
+        leafTotalFactor += factor.leafElementFactor;
+    }
+    uint64_t totalSize = deviceTotalFactor * deviceElementCount + rootTotalFactor * rootElementCount + leafTotalFactor * leafElementCount;
 
     initOffset = ALIGN_UP(initOffset, alignof(DevTensorData));
     controlFlowCache.inputTensorDataList.HostInitDataSizeOffset(initOffset, dyndevAttr->startArgsInputTensorList.size());
     controlFlowCache.outputTensorDataList.HostInitDataSizeOffset(initOffset, dyndevAttr->startArgsOutputTensorList.size());
+
+    controlFlowCache.runtimeBackup.workspace.tensorAllocators.slottedOutcastsBlockList.HostInitDataSizeOffset(initOffset, slotSize);
+
+    controlFlowCache.runtimeBackup.slotContext.slotList.HostInitDataSizeOffset(initOffset, slotSize);
+    controlFlowCache.runtimeBackup.slotContext.slotRefCntList.HostInitDataSizeOffset(initOffset, slotSize);
+
     initOffset = ALIGN_UP(initOffset, alignof(DynFuncHeader *));
-    controlFlowCache.getTensorDataCount = getTensorDataCount;
-    controlFlowCache.getInputDataCount = getInputDataCount;
     controlFlowCache.deviceTaskCacheList.HostInitDataSizeOffset(initOffset, config::GetRuntimeOption<int64_t>(CFGCACHE_DEVICE_TASK_NUM));
     controlFlowCache.cacheData.HostInitDataSizeOffset(initOffset, totalSize);
     controlFlowCache.isRecording = false;
-    controlFlowCache.isRecordingFailed = false;
+    controlFlowCache.isRecordingStopped= false;
     controlFlowCache.isActivated = false;
     controlFlowCache.deviceTaskCount = 0;
     controlFlowCache.deviceTaskSkippedCount = 0;
@@ -1733,8 +1771,6 @@ struct EncodeDevAscendProgramInfo {
     explicit EncodeDevAscendProgramInfo(Function *tfunc) : func(tfunc) {
         ASSERT(func->GetDyndevAttribute() != nullptr);
         dyndevAttr = func->GetDyndevAttribute();
-        getInputDataCount = tfunc->GetDyndevAttribute()->getInputDataCount;
-        getTensorDataCount = tfunc->GetDyndevAttribute()->getTensorDataCount;
     }
 
     void Init(DevAscendProgram *devProg, bool fillContent) {
@@ -1774,8 +1810,10 @@ struct EncodeDevAscendProgramInfo {
         devProg->InitDisableL2List(initOffset, dyndevAttr->disableL2List, fillContent);
 
         // control flow cache is always at the back of the program. So it should be the last.
-        devProg->InitControlFlowCache(initOffset, dyndevAttr, getTensorDataCount, getInputDataCount, fillContent);
+        devProg->InitControlFlowCache(initOffset, dyndevAttr, fillContent);
+        devProg->dataSize = initOffset - reinterpret_cast<uintdevptr_t>(devProg->data);
         ASSERT(reinterpret_cast<uint8_t *>(devProg->controlFlowCache.cacheData.end()) == reinterpret_cast<uint8_t *>(initOffset));
+        ASSERT(devProg->GetSize() == sizeof(*devProg) + devProg->dataSize);
     }
 };
 
@@ -1969,6 +2007,7 @@ void EncodeDevAscendProgram(Function *func, uint64_t &offset, DevAscendProgram *
 
         base->memBudget.aicoreSpilled = tensorWsRes.perCoreSpilledMem * DEFAULT_CORE_NUM;
 
+        base->memBudget.metadata.prepDeduct = 0;
         base->memBudget.metadata.general = CalcGeneralMetadataWorkspace(*base);
         base->memBudget.metadata.stitchPool = CalcStitchWorkspace(*base);
 

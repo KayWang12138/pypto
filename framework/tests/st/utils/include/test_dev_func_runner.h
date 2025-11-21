@@ -57,7 +57,7 @@ struct MemoryHelper {
         (void)cachedDevAddrHolder;
         uint8_t *devPtr = nullptr;
         if (isTest_)
-            devPtr = machine::GetRA()->AllocHostAddr(size);
+            devPtr = machine::GetRuntimeHostAgent()->AllocHostAddr(size);
         else
             machine::GetRA()->AllocDevAddr(&devPtr, size);
         return devPtr;
@@ -135,10 +135,13 @@ private:
         if (functionDevProg->controlFlowCache.isRecording) {
             functionDevProg->controlFlowCache.isRecording = false;
 
-            uint64_t workspace = functionDevProg->controlFlowCache.alignedWorkspaceAddr;
+            uint64_t contextWorkspaceAddr = functionDevProg->controlFlowCache.contextWorkspaceAddr;
 
-            functionDevProg->RelocControlFlowCacheInputOutput(workspace, 0, nullptr);
-            functionDevProg->RelocControlFlowCache(reinterpret_cast<uint64_t>(functionDevProg), 0, workspace, 0);
+            functionDevProg->controlFlowCache.IncastOutcastAddrReloc(contextWorkspaceAddr, 0, nullptr);
+            functionDevProg->controlFlowCache.RuntimeAddrRelocWorkspace(contextWorkspaceAddr, 0, nullptr, nullptr);
+            functionDevProg->controlFlowCache.RuntimeAddrRelocProgram(reinterpret_cast<uint64_t>(functionDevProg), 0);
+            functionDevProg->controlFlowCache.RelocWorkspace(contextWorkspaceAddr, 0);
+            functionDevProg->controlFlowCache.RelocProgram(reinterpret_cast<uint64_t>(functionDevProg), 0);
             functionDevProg->ResetFromLaunch();
             functionDevProg->controlFlowCache.isActivated = true;
         }

@@ -43,7 +43,10 @@ using Call5EntryType = uint64_t (*)(uint64_t, uint64_t, uint64_t, uint64_t, uint
 
 using Call5EntryType = uint64_t (*)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t);
 
-#define RUNTIME_FINISH_FUNCKEY (static_cast<uint64_t>(-1))
+#define RUNTIME_FUNCKEY_FINISH                      (static_cast<uint64_t>(-1))
+#define RUNTIME_FUNCKEY_CACHESTOP                   (static_cast<uint64_t>(-2))
+#define RUNTIME_FUNCRET_CACHESTOP_CONTINUE          ((void *)(uintptr_t)0)
+#define RUNTIME_FUNCRET_CACHESTOP_RETURN            ((void *)(uintptr_t)1)
 
 #define RuntimeGetInputShapeDimSize(input) ((input)->shape.dimSize)
 #define RuntimeGetInputShapeDim(input, n) ((input)->shape.dim[(n)])
@@ -116,5 +119,21 @@ int64_t RuntimeNe(int64_t input1, int64_t input2) {
 #define RUNTIME_Min(lhs, rhs) RuntimeMin(lhs, rhs)
 
 #define RUNTIME_GetSymbol(idx)          (symbolTable[idx])
+
+#define RUNTIME_SetExpr(exprList, index, value) \
+    do { \
+        if (exprList) { \
+            (exprList)[index] = (value); \
+        } \
+    } while (0)
+
+#define RUNTIME_RootAlloc(funcKey) callRootList[CallRootStage::T_CALLROOT_ALLOC](ctx, funcKey)
+#define RUNTIME_RootStitch(funcKey) \
+    do { \
+        if (callRootList[CallRootStage::T_CALLROOT_STITCH](ctx, funcKey) == RUNTIME_FUNCRET_CACHESTOP_RETURN) { \
+            return 0; \
+        } \
+    } while (0)
+
 
 }  // namespace npu::tile_fwk

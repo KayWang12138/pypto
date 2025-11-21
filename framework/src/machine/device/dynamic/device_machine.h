@@ -53,7 +53,7 @@ public:
     }
 
     void init(DeviceArgs *args, uint32_t schNum) {
-        DEV_INFO("device machine init: %d\n", args->taskType);
+        DEV_INFO("device machine init: %d\n", (int)args->taskType);
         schAicpuNum_ = schNum;
 
         coreNum_ = args->nrAic + args->nrAiv;
@@ -110,9 +110,9 @@ public:
         }
     }
 
-    int PushTask(int type, uint64_t taskId, DeviceTask *devTask, DeviceExecuteContext *ctx, FinishCallback callback = nullptr) {
+    int PushTask(int type, DynDeviceTask *dynTask, DeviceExecuteContext *ctx, FinishCallback callback = nullptr) {
         auto idx = AllocNewTaskCtrl();
-        InitTaskCtrl(idx, type, taskId, devTask, ctx, callback);
+        InitTaskCtrl(idx, type, dynTask->GetIndex(), &dynTask->devTask, ctx, callback);
         for (uint32_t i = 0; i < schAicpuNum_; ++i) {
           aicoreManager_[i]->PushTask(&taskctrl_[idx]);
         }
@@ -175,7 +175,7 @@ public:
         PerfBegin(PERF_EVT_INIT);
         bool firstInit = false;
         if (devProg->controlFlowBinaryAddr == nullptr) {
-            devProg->RelocProgram((uint64_t)devProg, true);
+            devProg->RelocProgram(0, reinterpret_cast<uint64_t>(devProg), true);
             auto execProg = DeviceExecuteProgram(devProg, nullptr);
             devProg->controlFlowBinaryAddr = execProg.GetControlFlowEntry();
             firstInit = true;
@@ -192,26 +192,28 @@ public:
         devArgs->devTensorList = inputPtr;
         devArgs->inputTensorSize = static_cast<uint64_t>(inputSize);
         devArgs->outputTensorSize = static_cast<uint64_t>(outputSize);
-        devArgs->workspaceAddr = PtrToValue(kargs->workspace);;
+        devArgs->contextWorkspaceAddr = PtrToValue(kargs->workspace);
+        devArgs->contextWorkspaceSize = devProg->workspaceSize;
         devArgs->devProg = devProg;
+
         devArgs->inputSymbolList = nullptr;
         devArgs->inputSymbolSize = 0;
         devArgs->hcclContextAddr = (uint64_t*)&devProg->hcclContext[0];
 
         if (devProg->controlFlowCache.isRecording) {
-            devProg->controlFlowCache.alignedWorkspaceAddr = devArgs->workspaceAddr;
+            devProg->controlFlowCache.contextWorkspaceAddr = devArgs->contextWorkspaceAddr;
         }
         DEV_INFO("ControlFlowCache: deviceTask:%d firstInit:%d\n", (int)devProg->controlFlowCache.deviceTaskCount, (int)firstInit);
         if (devProg->controlFlowCache.deviceTaskCount != 0) {
             // Actual run
             if (firstInit) {
-                devProg->RelocControlFlowCache(0, reinterpret_cast<uint64_t>(devProg), 0, devArgs->workspaceAddr);
+                devProg->controlFlowCache.RelocProgram(0, reinterpret_cast<uint64_t>(devProg));
+                devProg->controlFlowCache.RelocWorkspace(0, devArgs->contextWorkspaceAddr);
+                devProg->controlFlowCache.RuntimeAddrRelocProgram(0, reinterpret_cast<uint64_t>(devProg));
             }
-            for (size_t i = 0; i < devProg->controlFlowCache.deviceTaskCount; i++) {
-                DynDeviceTaskBase *dynTaskBase = devProg->controlFlowCache.deviceTaskCacheList[i].dynTaskBase;
-                devProg->controlFlowCache.IncastOutcastRestore(dynTaskBase);
-            }
-            devProg->RelocControlFlowCacheInputOutput(0, devArgs->workspaceAddr, devArgs);
+            devProg->controlFlowCache.IncastOutcastAddrRestore();
+            devProg->controlFlowCache.IncastOutcastAddrReloc(0, devArgs->contextWorkspaceAddr, devArgs);
+            devProg->ResetRerun();
         }
         DEV_INFO("AscendCppDyInitTask done.");
         return 0;
@@ -227,11 +229,11 @@ public:
         ctx.aicoreModel = args->aicoreModel;
         PerfBegin(PERF_EVT_EXEC_DYN);
         PerfBegin(PERF_EVT_CONTROL_FLOW_CALL);
-        ctx.GELaunch(devStartArgs, [this](uint64_t dynTaskId, DeviceTask *devTask, DeviceExecuteContext *ctx_) {
+        ctx.GELaunch(devStartArgs, [this](DynDeviceTask *dynTask, DeviceExecuteContext *ctx_) {
             DEV_IF_DEBUG {
-                DumpTask(dynTaskId, (DeviceTask *)devTask, true);
+                DumpTask(dynTask->GetIndex(), (DeviceTask *)dynTask, true);
             }
-            PushTask(DEVICE_TASK_TYPE_DYN, dynTaskId, devTask, ctx_, DeviceExecuteContext::TaskFinish);
+            PushTask(DEVICE_TASK_TYPE_DYN, dynTask, ctx_, DeviceExecuteContext::TaskFinish);
         });
         PerfEnd(PERF_EVT_CONTROL_FLOW_CALL);
         DEV_INFO("end control flow.");

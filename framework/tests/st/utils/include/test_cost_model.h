@@ -149,7 +149,7 @@ private:
 
     bool HasInplaceArgs() {
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProg_.data()));
-        return devProg->inplaceSlotList.size() != 0;
+        return devProg->outputInplaceSlotList.size() != 0;
     }
 
     void InitTilingData(AstKernelArgs *kArgs, bool isTest) {

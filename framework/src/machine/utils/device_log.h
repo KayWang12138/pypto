@@ -19,12 +19,14 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <vector>
 #include <ctime>
 #include <cassert>
 #include <sys/time.h>
 #include <fcntl.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+#include <execinfo.h>
 #include "securec.h"
 #include "machine/utils/device_switch.h"
 #ifdef __DEVICE__
@@ -49,6 +51,14 @@ namespace npu::tile_fwk {
 #else
 #define DEBUG_PLOG 0
 #endif/*DEBUG_PLOG*/
+
+inline constexpr bool IsCompileVerboseLog() {
+#if ENABLE_COMPILE_VERBOSE_LOG
+    return true;
+#else
+    return false;
+#endif
+}
 
 constexpr int LOG_LEVEL_DEBUG = 0;
 constexpr int LOG_LEVEL_INFO = 1;
@@ -146,13 +156,13 @@ inline void CreateLogFile(LogType type, int threadIdx) {
     char logfile[256];
     switch (type) {
         case LOG_TYPE_SCHEDULER:
-            (void)sprintf_s(logfile, sizeof(logfile), "/tmp/tile_fwk_aicpu_sch%d.txt", threadIdx);
+            (void)sprintf_s(logfile, sizeof(logfile), "/tmp/pypto_aicpu_sch%d.txt", threadIdx);
             break;
         case LOG_TYPE_CONTROLLER:
-            (void)sprintf_s(logfile, sizeof(logfile), "/tmp/tile_fwk_aicpu_ctrl.txt");
+            (void)sprintf_s(logfile, sizeof(logfile), "/tmp/pypto_aicpu_ctrl.txt");
             break;
         case LOG_TYPE_PREFETCH:
-            (void)sprintf_s(logfile, sizeof(logfile), "/tmp/tile_fwk_aicpu_prefetch.txt");
+            (void)sprintf_s(logfile, sizeof(logfile), "/tmp/pypto_aicpu_prefetch.txt");
             break;
         default:
             return;
@@ -161,65 +171,83 @@ inline void CreateLogFile(LogType type, int threadIdx) {
 #endif
 }
 
+void InitLogSwitch();
+
+extern bool g_isLogEnableDebug;
+extern bool g_isLogEnableInfo;
+extern bool g_isLogEnableWarn;
+extern bool g_isLogEnableError;
+
+#if DEBUG_PLOG && defined(__DEVICE__)
+static inline bool IsLogEnableDebug() { return g_isLogEnableDebug; }
+static inline bool IsLogEnableInfo() { return g_isLogEnableInfo; }
+static inline bool IsLogEnableWarn() { return g_isLogEnableWarn; }
+static inline bool IsLogEnableError() { return g_isLogEnableError; }
+#else
+#if ENABLE_TMP_LOG
+static inline bool IsLogEnableDebug() { return true; }
+static inline bool IsLogEnableInfo() { return true; }
+static inline bool IsLogEnableWarn() { return true; }
+static inline bool IsLogEnableError() { return true; }
+#else
+static inline bool IsLogEnableDebug() { return false; }
+static inline bool IsLogEnableInfo() { return false; }
+static inline bool IsLogEnableWarn() { return false; }
+static inline bool IsLogEnableError() { return true; }
+#endif
+#endif
+
 #if DEBUG_PLOG && defined(__DEVICE__)
 #define GET_TID() syscall(__NR_gettid)
 const std::string TILE_FWK_DEVICE_MACHINE = "AI_CPU";
 
-extern bool g_isLogDEnable;
-extern bool g_isLogIEnable;
-extern bool g_isLogWEnable;
-extern bool g_isLogEEnable;
-
 inline bool IsDebugMode() {
-    return g_isLogDEnable;
+    return g_isLogEnableDebug;
 }
-
-void InitLogSwitch();
 
 #define D_DEV_LOGD(MODE_NAME, fmt, ...)                                               \
   do {                                                                                \
-      if (g_isLogDEnable) {                                                  \
+      if (IsLogEnableDebug()) {                                                  \
         dlog_debug(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);  \
       }                                                                               \
   } while (false)
 
 #define D_DEV_LOGI(MODE_NAME, fmt, ...)                                               \
   do {                                                                                \
-      if (g_isLogIEnable) {                                                   \
+      if (IsLogEnableInfo()) {                                                   \
         dlog_info(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);   \
       }                                                                               \
   } while(false)
 
 #define D_DEV_LOGW(MODE_NAME, fmt, ...)                                               \
   do {                                                                                \
-      if (g_isLogWEnable) {                                                   \
+      if (IsLogEnableWarn()) {                                                   \
         dlog_warn(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);   \
       }                                                                               \
   } while(false)
 
 #define D_DEV_LOGE(MODE_NAME, fmt, ...)                                               \
   do {                                                                                \
-    if (g_isLogEEnable) {                                                  \
+    if (IsLogEnableError()) {                                                  \
         dlog_error(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);  \
       }                                                                               \
   } while(false)
 
-#define DEV_DEBUG(fmt, args...) D_DEV_LOGD(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
-#define DEV_INFO(fmt, args...) D_DEV_LOGI(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
-#define DEV_ERROR(fmt, args...) D_DEV_LOGE(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
-#define DEV_WARN(fmt, args...) D_DEV_LOGW(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
 #define DEV_VERBOSE_DEBUG(fmt, args...)                                  \
   do {                                                                  \
     if constexpr (IsCompileVerboseLog())  {                          \
         D_DEV_LOGD(TILE_FWK_DEVICE_MACHINE, fmt, ##args);               \
     }                                                                   \
   } while(0)
-
+#define DEV_DEBUG(fmt, args...) D_DEV_LOGD(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
+#define DEV_INFO(fmt, args...) D_DEV_LOGI(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
+#define DEV_WARN(fmt, args...) D_DEV_LOGW(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
+#define DEV_ERROR(fmt, args...) D_DEV_LOGE(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
 
 #define DEV_ASSERT_MSG(expr, fmt, args...)                                                   \
     do {                                                                                     \
         if (!(expr)) {                                                                       \
-            DEV_ERROR(fmt, ##args);                                                          \
+            DEV_ERROR("assert failed for " #expr ": " fmt, ##args);                          \
             assert(0);                                                                       \
         }                                                                                    \
     } while (0)
@@ -227,6 +255,7 @@ void InitLogSwitch();
 #define DEV_ASSERT(expr)                                                       \
     do {                                                                       \
         if (!(expr)) {                                                         \
+            DEV_ERROR("assert failed: " #expr);                                \
             assert(0);                                                         \
         }                                                                      \
     } while (0)
@@ -243,59 +272,48 @@ void InitLogSwitch();
 
 #define DEV_MEM_DUMP(fmt, args...)
 
-inline constexpr bool IsCompileVerboseLog() {
-#if ENABLE_COMPILE_VERBOSE_LOG
-    return true;
-#else
-    return false;
-#endif
-}
-
 #else
 
 inline bool IsDebugMode() {
     return true;
 }
 
-#ifdef CONFIG_BAREMETAL
-
-#define DEV_DEBUG(fmt, args...)
-#define DEV_INFO(fmt, args...)
-#define DEV_ERROR(fmt, args...) GetLogger().Log(LOG_LEVEL_ERROR, __FILE__, __LINE__, fmt, ##args)
-#define DEV_WARN(fmt, args...)
-#define DEV_MEM_DUMP(fmt, args...)
-
-#else
-
-#if ENABLE_TMP_LOG
-inline constexpr bool IsCompileVerboseLog() {
-    return true;
-}
-
-#define DEV_DEBUG(fmt, args...) GetLogger().Log(LOG_LEVEL_DEBUG, __FILE__, __LINE__, fmt, ##args)
-#define DEV_INFO(fmt, args...) GetLogger().Log(LOG_LEVEL_INFO, __FILE__, __LINE__, fmt, ##args)
-#define DEV_ERROR(fmt, args...) GetLogger().Log(LOG_LEVEL_ERROR, __FILE__, __LINE__, fmt, ##args)
-#define DEV_WARN(fmt, args...) GetLogger().Log(LOG_LEVEL_WARN, __FILE__, __LINE__, fmt, ##args)
-#define DEV_VERBOSE_DEBUG(fmt, args...)  GetLogger().Log(LOG_LEVEL_DEBUG, __FILE__, __LINE__, fmt, ##args)
-#else
-inline constexpr bool IsCompileVerboseLog() {
-    return false;
-}
-
-#define DEV_DEBUG(fmt, args...)
-#define DEV_INFO(fmt, args...)
-#define DEV_ERROR(fmt, args...) GetLogger().Log(LOG_LEVEL_ERROR, __FILE__, __LINE__, fmt, ##args)
-#define DEV_WARN(fmt, args...)
-#define DEV_VERBOSE_DEBUG(fmt, args...)
-#endif
+#define DEV_VERBOSE_DEBUG(fmt, args...)  \
+    do { \
+        if (IsLogEnableDebug()) { \
+            GetLogger().Log(LOG_LEVEL_DEBUG, __FILE__, __LINE__, fmt, ##args); \
+        } \
+    } while (0)
+#define DEV_DEBUG(fmt, args...) \
+    do { \
+        if (IsLogEnableDebug()) { \
+            GetLogger().Log(LOG_LEVEL_DEBUG, __FILE__, __LINE__, fmt, ##args); \
+        } \
+    } while (0)
+#define DEV_INFO(fmt, args...) \
+    do { \
+        if (IsLogEnableInfo()) { \
+            GetLogger().Log(LOG_LEVEL_INFO, __FILE__, __LINE__, fmt, ##args); \
+        } \
+    } while (0)
+#define DEV_WARN(fmt, args...) \
+    do { \
+        if (IsLogEnableWarn()) { \
+            GetLogger().Log(LOG_LEVEL_WARN, __FILE__, __LINE__, fmt, ##args); \
+        } \
+    } while (0)
+#define DEV_ERROR(fmt, args...) \
+    do { \
+        if (IsLogEnableError()) { \
+            GetLogger().Log(LOG_LEVEL_ERROR, __FILE__, __LINE__, fmt, ##args); \
+        } \
+    } while (0)
 
 #if DEBUG_MEM_DUMP_LEVEL != DEBUG_MEM_DUMP_DISABLE
 #define DEV_MEM_DUMP(fmt, args...) GetLogger().Log(LOG_LEVEL_DEBUG, "/memdump", 0, "[WsMem Statistics] " fmt, ##args)
 #else
 #define DEV_MEM_DUMP(fmt, args...)
 #endif // DEBUG_MEM_DUMP_LEVEL != DEBUG_MEM_DUMP_DISABLE
-
-#endif // CONFIG_BAREMETAL
 
 #define DEV_ASSERT_MSG(expr, fmt, args...)                                                   \
     do {                                                                                     \
@@ -319,4 +337,18 @@ inline constexpr bool IsCompileVerboseLog() {
 #define DEV_DEBUG_ASSERT(expr) DEV_ASSERT(expr)
 #define DEV_DEBUG_ASSERT_MSG(expr, fmt, args...) DEV_ASSERT_MSG(expr, fmt, ##args)
 #endif // DEBUG_PLOG
+
+#define BACKTRACE_STACK_COUNT 64
+
+static inline void PrintBacktrace(const std::string &prefix = "", int count = BACKTRACE_STACK_COUNT) {
+    std::vector<void *> backtraceStack(count);
+    int backtraceStackCount = backtrace(backtraceStack.data(), static_cast<int>(backtraceStack.size()));
+    DEV_ERROR("backtrace %s count:%d", prefix.c_str(), backtraceStackCount);
+    char **backtraceSymbolList = backtrace_symbols(backtraceStack.data(), backtraceStackCount);
+    for (int i = 0; i < backtraceStackCount; i++) {
+        DEV_ERROR("backtrace %s frame[%d]: %s", prefix.c_str(), i, backtraceSymbolList[i]);
+    }
+    free(backtraceSymbolList);
+}
+
 } // namespace npu::tile_fwk

@@ -86,6 +86,15 @@ SCHEMA_DEF_ATTR(DEvent, DUidType, DActType);
 
 SCHEMA_DEF_ATTR(ThreadStart);
 SCHEMA_DEF_ATTR(ThreadFinish);
+SCHEMA_DEF_ATTR(ControlFlowCacheFullRunCache);
+SCHEMA_DEF_ATTR(ControlFlowCacheFullRunControl);
+SCHEMA_DEF_ATTR(ControlFlowCachePartRunCache, Int64Type, Int64Type);
+SCHEMA_DEF_ATTR(ControlFlowCachePartRunControl);
+SCHEMA_DEF_ATTR(ControlFlowCachePartRunControlContinue);
+SCHEMA_DEF_ATTR(RawWorkspace, AddressType, AddressType);
+SCHEMA_DEF_ATTR(Workspace, range);
+SCHEMA_DEF_ATTR(WorkspaceMetadataGeneral, range);
+SCHEMA_DEF_ATTR(WorkspaceMetadataStitch, range);
 SCHEMA_DEF_ATTR(WorkspaceInnerTensor, range);
 SCHEMA_DEF_ATTR(WorkspacePartialOutcast, range);
 SCHEMA_DEF_ATTR(WorkspaceInDeviceTaskOutcast, range);
@@ -100,6 +109,14 @@ SCHEMA_DEF_ATTR(OutputTensorElement, Int64Type, AddressType, Int64Type);
 
 SCHEMA_DEF_TYPE_UNION(CtrlActType,
                       ThreadStart, ThreadFinish,
+                      ControlFlowCacheFullRunCache,
+                      ControlFlowCacheFullRunControl,
+                      ControlFlowCachePartRunCache,
+                      ControlFlowCachePartRunControl,
+                      ControlFlowCachePartRunControlContinue,
+                      RawWorkspace,
+                      Workspace,
+                      WorkspaceMetadataGeneral, WorkspaceMetadataStitch,
                       WorkspaceInnerTensor, WorkspacePartialOutcast,
                       WorkspaceInDeviceTaskOutcast, WorkspaceCrossDeviceTaskOutcast,
                       WorkspaceSpill,

@@ -15,18 +15,18 @@
 
 #include "machine/utils/device_log.h"
 namespace npu::tile_fwk {
-#if DEBUG_PLOG && defined(__DEVICE__)
 
-bool g_isLogDEnable = false;
-bool g_isLogIEnable = false;
-bool g_isLogWEnable = false;
-bool g_isLogEEnable = false;
+bool g_isLogEnableDebug = false;
+bool g_isLogEnableInfo = false;
+bool g_isLogEnableWarn = false;
+bool g_isLogEnableError = false;
 
 void InitLogSwitch() {
-    g_isLogDEnable = CheckLogLevel(AICPU, DLOG_DEBUG);
-    g_isLogIEnable = CheckLogLevel(AICPU, DLOG_INFO);
-    g_isLogWEnable = CheckLogLevel(AICPU, DLOG_WARN);
-    g_isLogEEnable = CheckLogLevel(AICPU, DLOG_ERROR);
-}
+#if DEBUG_PLOG && defined(__DEVICE__)
+    g_isLogEnableDebug = CheckLogLevel(AICPU, DLOG_DEBUG);
+    g_isLogEnableInfo = CheckLogLevel(AICPU, DLOG_INFO);
+    g_isLogEnableWarn = CheckLogLevel(AICPU, DLOG_WARN);
+    g_isLogEnableError = CheckLogLevel(AICPU, DLOG_ERROR);
 #endif
+}
 } // namespace npu::tile_fwk

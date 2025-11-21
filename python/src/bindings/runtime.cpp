@@ -102,6 +102,11 @@ std::string OperatorDeviceRunOnceDataFromDevice(py::int_ pythonOperatorPython,
         return "mismatch input/output";
     }
 
+    if (config::GetRuntimeOption<int64_t>(CFGCACHE_DEVICE_TASK_NUM) != 0 &&
+        EmulationLauncher::BuildControlFlowCache(func, op->GetInputList(), op->GetOutputList()) != 0) {
+        return "control flow cache failed";
+    }
+
     if (config::GetOption<bool>(PROFILE_ENABLE) &&
         EmulationLauncher::EmulationLaunchDeviceTensorData(func, inputs, outputs) != 0) {
         return "emulation run failed";
@@ -145,8 +150,19 @@ void DeviceFini() {
     DeviceLauncherFini();
 }
 
-uintptr_t OperatorBegin() {
-    auto op = ExportedOperatorBegin();
+uintptr_t OperatorBegin(const std::vector<std::reference_wrapper<Tensor>> &inputTensorList,
+                        const std::vector<std::reference_wrapper<Tensor>> &outputTensorList) {
+    ExportedOperator *op = ExportedOperatorBegin();
+
+    std::vector<std::shared_ptr<LogicalTensor>> inputList;
+    std::vector<std::shared_ptr<LogicalTensor>> outputList;
+    for (auto &tensor : inputTensorList) {
+        inputList.push_back(tensor.get().GetStorage());
+    }
+    for (auto &tensor : outputTensorList) {
+        outputList.push_back(tensor.get().GetStorage());
+    }
+    op->UpdateInputOutput(inputList, outputList);
     auto opAddr = reinterpret_cast<uintptr_t>(op);
     return opAddr;
 }

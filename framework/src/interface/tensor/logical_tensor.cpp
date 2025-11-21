@@ -621,29 +621,6 @@ void TensorInsert(const Tensor &src, const std::vector<SymbolicScalar> &offset, 
     emuopAssemble.SetAttribute(OP_EMUOP_PREFIX + "opc", EMUOP_TENSOR_INSERT);
 }
 
-static void LookupExpressionByOpcode(std::vector<RawSymbolicScalarPtr> &exprList, SymbolicOpcode opcode, const RawSymbolicScalarPtr &raw) {
-    switch (raw->Kind()) {
-        case SymbolicScalarKind::T_SCALAR_SYMBOLIC_IMMEDIATE:
-        case SymbolicScalarKind::T_SCALAR_SYMBOLIC_SYMBOL:
-            break;
-        case SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION: {
-            if (raw->GetExpressionOpcode() == opcode) {
-                exprList.emplace_back(raw);
-            }
-            for (auto &op : raw->GetExpressionOperandList()) {
-                LookupExpressionByOpcode(exprList, opcode, op);
-            }
-        } break;
-        default: ASSERT(false); break;
-    }
-}
-
-static std::vector<RawSymbolicScalarPtr> LookupExpressionByOpcode(const RawSymbolicScalarPtr &value, SymbolicOpcode opcode) {
-    std::vector<RawSymbolicScalarPtr> exprList;
-    LookupExpressionByOpcode(exprList, opcode, value);
-    return exprList;
-}
-
 static RawSymbolicScalarPtr ReplaceExpression(const RawSymbolicScalarPtr &expr, const RawSymbolicScalarPtr &src, const RawSymbolicScalarPtr &dst) {
     if (expr == src) {
         return dst;

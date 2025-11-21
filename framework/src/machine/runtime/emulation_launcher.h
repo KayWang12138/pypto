@@ -40,7 +40,7 @@ struct EmulationMemoryUtils {
     static bool IsDevice() { return false; }
     uint8_t *AllocDev(size_t size, uint8_t **cachedDevAddrHolder) {
         (void)cachedDevAddrHolder;
-        uint8_t *devPtr = machine::GetRA()->AllocHostAddr(size);
+        uint8_t *devPtr = machine::GetRuntimeHostAgent()->AllocHostAddr(size);
         return devPtr;
     }
 
@@ -87,7 +87,13 @@ public:
             CachedOperator *cachedOperator,
             const DeviceLauncherConfig &config = DeviceLauncherConfig());
 
-    static int BuildControlFlowCache(Function *function, const DeviceLauncherConfig &config = DeviceLauncherConfig());
+#define CONTROL_FLOW_CACHE_BASE_ADDR                    0x100000000
+#define CONTROL_FLOW_CACHE_TENSOR_SIZE                  0x100000000
+    static int BuildControlFlowCache(
+            Function *function,
+            const std::vector<DeviceTensorData> &inputList = {},
+            const std::vector<DeviceTensorData> &outputList = {},
+            const DeviceLauncherConfig &config = DeviceLauncherConfig());
     static int BuildControlFlowCache(std::vector<uint8_t> &devProgData,
                                      const DeviceLauncherConfig &config = DeviceLauncherConfig());
 };

@@ -119,6 +119,8 @@ public:
     uint64_t FreeMemorySize() const { return workspaceSize_ - allocated_; }
     uint64_t Capacity() const { return workspaceSize_; }
 
+    uintdevptr_t &GetWorkspaceAddr() { return workspaceAddr_; }
+
 private:
     void InternalInit(uintdevptr_t workspaceAddr, uint64_t workspaceSize, WsAllocatorProperty property) {
         property_ = property;
@@ -151,6 +153,8 @@ private:
         size_t allocNum{0};
     } dfx_;
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_LIGHT
+
+    friend class DevProgramControlFlowCache;
 };
 
 } // namespace npu::tile_fwk::dynamic

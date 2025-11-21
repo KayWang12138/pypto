@@ -14,6 +14,7 @@ import sys
 import argparse
 import logging
 import importlib
+import subprocess
 from pathlib import Path
 from typing import Optional
 
@@ -55,9 +56,10 @@ class Analysis:
     def analysis_torch_version() -> str:
         torch_version: Optional[str] = None
         try:
-            import torch
-            torch_version = str(torch.__version__)
-        except ModuleNotFoundError:
+            BAR = '-----'
+            info = subprocess.check_output([sys.executable, '-c', f'import torch;print("{BAR}");print(torch.__version__)'], universal_newlines=True)
+            torch_version = info.split(BAR)[-1].strip()
+        except subprocess.CalledProcessError:
             pass
         return str(torch_version) if torch_version else ""
 

@@ -40,7 +40,7 @@ SCHEMA_DEF_ATTR(outSuccIndex, outSuccIndexList);
 
 SCHEMA_DEF_TYPE_ARRAY(ExpressionTable, Int64Type);
 SCHEMA_DEF_ATTR(expr, ExpressionTable);
-SCHEMA_DEF_ATTR(range, AddressType, AddressType);
+SCHEMA_DEF_ATTR(range, AddressType, AddressType, AddressType);
 SCHEMA_DEF_TYPE_UNION(AttrType, expr, range, incast, outcast, name, coa);
 
 SCHEMA_DEF_ATTR(rawDesc, Int32Type, Int64Type, Int64Type);

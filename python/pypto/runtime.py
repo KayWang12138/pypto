@@ -104,7 +104,9 @@ class JIT:
             out_pto_tensors = [
                 _torch_to_pto(t, f"OUT_{idx}") for idx, t in enumerate(out_tensors)
             ]
-            handler = pto_impl.OperatorBegin()
+            handler = pto_impl.OperatorBegin(
+                pypto.Tensor.to_base_list(in_pto_tensors),
+                pypto.Tensor.to_base_list(out_pto_tensors))
             self.dyn_func(in_pto_tensors, out_pto_tensors, *args[2:], **kwargs)
             pto_impl.OperatorEnd(handler)
             self._handler = handler

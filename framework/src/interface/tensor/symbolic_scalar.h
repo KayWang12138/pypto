@@ -563,6 +563,14 @@ inline bool CheckArgPrefix(const std::string &name) {
     return StringUtils::StartsWith(name, SPECIAL_SYMBOL_NAME_ARG_PREFIX);
 }
 
+static inline bool CallIsGetTensorData(const std::string &name) {
+    return StringUtils::StartsWith(name, AddRuntimePrefix("GetTensorData"));
+}
+
+static inline bool CallIsGetInputData(const std::string &name) {
+    return StringUtils::StartsWith(name, AddRuntimePrefix("GetInputData"));
+}
+
 Json ToJson(const SymbolicScalar &sval);
 
 SymbolicScalar LoadSymbolicScalar(const Json &jval);
@@ -864,4 +872,7 @@ std::string CompileCopyLink(const std::string &code, const std::string &sourceFi
         const std::map<std::string, std::string> &sectionDataDict);
 
 void RunMake(const std::string &makefilePath);
+
+std::vector<RawSymbolicScalarPtr> LookupExpressionByOpcode(const RawSymbolicScalarPtr &value, SymbolicOpcode opcode);
+
 } // namespace npu::tile_fwk
