@@ -48,6 +48,35 @@ Status InferMemoryConflict::RunOnFunction(Function &function) {
         APASS_LOG_ERROR_F(Elements::Operation, "InsertCopys failed.");
         return FAILED;
     }
+    for (auto &op : function.Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW_TYPE) {
+            auto output = op.GetOOperands()[0];
+            auto outOp = *output->GetConsumers().begin();
+            TileShape viewTypeTile;
+            auto vecTypeTile = op.GetTileShape().GetVecTile();
+            auto viewTypeIn = op.GetIOperands()[0];
+            auto viewTypeOut = op.GetOOperands()[0];
+            auto inType = viewTypeIn->tensor->datatype;
+            auto outType = viewTypeOut->tensor->datatype;
+            auto inEntry = viewTypeTable.find(inType);
+            auto outEntry = viewTypeTable.find(outType);
+            if (inEntry == viewTypeTable.end() || outEntry == viewTypeTable.end()) {
+                APASS_LOG_ERROR_F(Elements::Operation, "ViewType Input Tensor OR Output Tensor DataType is not in viewType, Please check it!");
+                return FAILED;
+            }
+            if (inEntry->second < outEntry->second) {
+                if (vecTypeTile.tile[vecTypeTile.tile.size()-1] % (outEntry->second / inEntry->second) != 0) {
+                    APASS_LOG_ERROR_F(Elements::Operation, "vecTypeTile tile dim n is not even.");
+                    return FAILED;
+                }
+                vecTypeTile.tile[vecTypeTile.tile.size()-1] /= (outEntry->second / inEntry->second);
+            } else {
+                vecTypeTile.tile[vecTypeTile.tile.size()-1] *= (inEntry->second / outEntry->second);
+            }
+            viewTypeTile.SetVecTile(vecTypeTile);
+            outOp->UpdateTileShape(viewTypeTile);
+        }
+    }
     APASS_LOG_INFO_F(Elements::Operation, "End InferMemoryConflict for function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }
@@ -67,6 +96,22 @@ bool InferMemoryConflict::CheckRawShapeConflict(const LogicalTensorPtr &inTensor
     int64_t outRawSize = 1;
     Shape inShape = inTensor->GetRawTensor()->GetRawShape();
     Shape outShape = outTensor->GetRawTensor()->GetRawShape();
+    auto inType = inTensor->tensor->datatype;
+    auto outType = outTensor->tensor->datatype;
+    auto inEntry = viewTypeTable.find(inType);
+    auto outEntry = viewTypeTable.find(outType);
+    auto consumerOp = *inTensor->GetConsumers().begin();
+    if (consumerOp->GetOpcode() == Opcode::OP_VIEW_TYPE) {
+        if (inEntry == viewTypeTable.end() || outEntry == viewTypeTable.end()) {
+            APASS_LOG_ERROR_F(Elements::Operation, "ViewType Input Tensor OR Output Tensor DataType is not in viewType, Please check it!");
+            return true;
+        }
+        if (inEntry->second > outEntry->second) {
+            inRawSize *= (inEntry->second / outEntry->second);
+        } else {
+            outRawSize *= (outEntry->second / inEntry->second);
+        }
+    }
     for (size_t i = 0; i < inShape.size(); ++i) {
         if (inShape[i] < 0) {
             APASS_LOG_DEBUG_F(Elements::Operation, "inShape[%d] = %d, dynamic shape should trigger conflict", i, inShape[i]);
@@ -90,7 +135,7 @@ bool InferMemoryConflict::CheckRawShapeConflict(const LogicalTensorPtr &inTensor
 
 bool InferMemoryConflict::CheckTransmit(Operation* curOp) {
     LogicalTensorPtr curTensor;
-    std::set<Opcode> NonCalcNode = {Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_RESHAPE, Opcode::OP_INDEX_OUTCAST};
+    std::set<Opcode> NonCalcNode = {Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_RESHAPE, Opcode::OP_INDEX_OUTCAST, Opcode::OP_VIEW_TYPE};
     bool transmit = (NonCalcNode.find(curOp->GetOpcode()) != NonCalcNode.end());
     if (curOp->GetOpcode() == Opcode::OP_ASSEMBLE) {
         curTensor = *(curOp->GetIOperands().begin());

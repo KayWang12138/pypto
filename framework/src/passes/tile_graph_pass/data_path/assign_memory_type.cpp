@@ -223,6 +223,17 @@ void AssignMemoryType::AssignSpecialOpMemtype(Operation &op) {
             output->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
         }
     }
+    if (op.GetOpcode() == npu::tile_fwk::Opcode::OP_VIEW_TYPE) {
+        auto &viewTypeIn = op.iOperand.front();
+        auto &viewTypeOut = op.oOperand.front();
+        auto inputMemType = inserter.GetMemoryTypeFromTensorTobeMap(*viewTypeIn, op);
+        if (inputMemType != viewTypeOut->GetMemoryTypeOriginal()) {
+            APASS_LOG_DEBUG_F(Elements::Operation, "OP_RESHAPE[%d] input: %s, output: %s.",
+                op.opmagic, PrintTensorMem(viewTypeIn).c_str(), PrintTensorMem(viewTypeOut).c_str());
+            inserter.UpdateTensorTobeMap(*viewTypeIn, op, MemoryType::MEM_DEVICE_DDR);
+            viewTypeOut->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
+        }
+    }
     if (op.GetOpcode() == npu::tile_fwk::Opcode::OP_NOP) {
         auto &input = op.iOperand.front();
         auto &output = op.oOperand.front();

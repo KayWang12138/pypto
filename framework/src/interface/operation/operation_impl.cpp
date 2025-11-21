@@ -1615,6 +1615,10 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
             npu::tile_fwk::Distributed::TiledShmemClearSignal(function, tileShape, iOperand, oOperand, op);
             break;
         }
+        case Opcode::OP_VIEW_TYPE: {
+            TiledViewTypeOperation(function, tileShape, iOperand[0], oOperand[0]);
+            break;
+        }
         default: {
             ASLOGE("Unsupported opcode %d, opmagic is %d", static_cast<int>(opCode), op.GetOpMagic());
             ASSERT(false) << "Unsupported opcode " << static_cast<int>(opCode) << ", opmagic is " << op.GetOpMagic();

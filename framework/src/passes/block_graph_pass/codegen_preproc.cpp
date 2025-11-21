@@ -137,6 +137,11 @@ Status CodegenPreproc::ForceCombineAxis(Function &func) const {
 
 Status CodegenPreproc::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Operation, "===============================================================> Start CodegenPreproc.");
+    for (auto &op : function.Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW_TYPE) {
+            op.SetOpCode(Opcode::OP_VIEW);
+        }
+    }
     if (SaveGmTensorParamIdxToOp(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "CodegenPreproc RunOnFunction failed at function SaveGmTensorParamIdxToOp.");
         return FAILED;

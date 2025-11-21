@@ -1,0 +1,170 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# ======================================================================================================================
+"""
+
+本脚本有 2 种执行模式:
+1. CI批跑时, 由 tests/cmake/scripts/golden_ctrl.py 调用, 为避免日志过多, 此时 logging 级别为 logging.INFO;
+2. 单独调试时, 本脚本单独被调用, 此时 logging 级别为 logging.DEBUG;
+"""
+import math
+import os
+import sys
+import logging
+import torch
+import copy
+
+import numpy as np
+
+from enum import Enum
+from pathlib import Path
+from typing import List
+from common_func import dump_file
+from bfloat16 import bfloat16
+
+project_root = os.path.dirname(os.path.abspath(__file__))  # 当前脚本目录
+golden_parent = os.path.join(project_root, "../../../../")  # 假设 golden 在上级目录
+sys.path.insert(0, golden_parent)
+
+
+if __name__ == "__main__":
+    """单独调试时配置"""
+    # 日志级别
+    logging.basicConfig(
+        format="%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s",
+        level=logging.DEBUG,
+    )
+    # 系统 import 路径
+    g_src_root: Path = Path(Path(__file__).parent, "../../../../../").resolve()
+    logging.debug("SrcRoot: %s", g_src_root)
+    g_ctrl_path: Path = Path(g_src_root, "scripts")
+    if str(g_ctrl_path) not in sys.path:
+        sys.path.append(str(g_ctrl_path))
+    from golden_register import (
+        GoldenRegister,
+    )  # 单独调试 import 失败, 需确认上文中 '系统 import 路径' 配置正确
+else:
+    from golden_register import GoldenRegister
+
+
+def tensor_tofile(t: torch.Tensor, output: Path):
+    input_file_bin = open(str(output), "wb")
+    for each in t:
+        if t.dtype == torch.bfloat16:
+            input_file_bin.write(each.view(torch.int16).numpy().tobytes())
+        elif t.dtype == torch.float16:
+            input_file_bin.write(each.view(torch.int16).numpy().tobytes())
+        elif t.dtype == torch.float32:
+            input_file_bin.write(each.view(torch.int32).numpy().tobytes())
+        elif t.dtype == torch.int32:
+            input_file_bin.write(each.numpy().tobytes())
+        elif t.dtype == torch.int8:
+            input_file_bin.write(each.numpy().tobytes())
+        else:
+            raise ValueError(f"Unsupported dtype: {t.dtype}, please add in framework/tests/st/operator/src/test_view_type.py")
+    input_file_bin.close()
+    
+
+def view_type_entry(mkn, origin_dtype, dst_dtype, output_dir: Path):
+    x_path = Path(output_dir, 'x.bin')
+    result_path = Path(output_dir, 'result.bin')
+
+    m, k, n = mkn
+    x_shape = [m, k, n]
+
+    x = torch.randint(-128, 127, x_shape, dtype=origin_dtype)
+    result = x.view(dst_dtype)
+
+    tensor_tofile(x, x_path)
+    tensor_tofile(result, result_path)
+
+
+def view_type_cast_entry(mkn, origin_dtype, dst_dtype, output_dir: Path, cast_dtype):
+    x_path = Path(output_dir, 'x.bin')
+    result_path = Path(output_dir, 'result.bin')
+
+    m, k, n = mkn
+    x_shape = [m, k, n]
+
+    x = torch.randint(-128, 127, x_shape, dtype=origin_dtype)
+    result = x.view(dst_dtype).to(cast_dtype)
+
+    tensor_tofile(x, x_path)
+    tensor_tofile(result, result_path)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "ViewType.int8_2_float32",
+        "ViewType.int8_2_bfloat16",
+        "ViewType.int8_2_float16",
+        "ViewType.float32_2_int8",
+        "ViewType.bfloat16_2_int8",
+        "ViewType.float16_2_int8",
+        "ViewType.float16_2_float32",
+        "ViewType.float32_2_float16",
+        "ViewType.bfloat16_2_float32",
+        "ViewType.float32_2_bfloat16",
+        "ViewType.int8_2_bfloat16_cast_fp32",
+        "ViewType.int8_2_float16_cast_fp32",
+    ]
+)
+
+
+def view_type_func(case_name: str, output: Path) -> bool:
+    if case_name == "ViewType.int8_2_float32":
+        view_type_entry((4, 32, 1024), torch.int8, torch.float32, output)
+    elif case_name == "ViewType.int8_2_bfloat16":
+        view_type_entry((4, 32, 1024), torch.int8, torch.bfloat16, output)
+    elif case_name == "ViewType.int8_2_float16":
+        view_type_entry((4, 32, 1024), torch.int8, torch.float16, output)
+    elif case_name == "ViewType.float32_2_int8":
+        view_type_entry((4, 32, 1024), torch.float32, torch.int8, output)
+    elif case_name == "ViewType.bfloat16_2_int8":
+        view_type_entry((4, 32, 1024), torch.bfloat16, torch.int8, output)
+    elif case_name == "ViewType.float16_2_int8":
+        view_type_entry((4, 32, 1024), torch.float16, torch.int8, output)
+    elif case_name == "ViewType.float16_2_float32":
+        view_type_entry((4, 32, 1024), torch.float16, torch.float32, output)
+    elif case_name == "ViewType.float32_2_float16":
+        view_type_entry((4, 32, 1024), torch.float32, torch.float16, output)
+    elif case_name == "ViewType.bfloat16_2_float32":
+        view_type_entry((4, 32, 1024), torch.bfloat16, torch.float32, output)
+    elif case_name == "ViewType.float32_2_bfloat16":
+        view_type_entry((4, 32, 1024), torch.float32, torch.bfloat16, output)
+    elif case_name == "ViewType.int8_2_bfloat16_cast_fp32":
+        view_type_cast_entry((4, 32, 1024), torch.int8, torch.bfloat16, output, torch.float32)
+    elif case_name == "ViewType.int8_2_float16_cast_fp32":
+        view_type_cast_entry((4, 32, 1024), torch.int8, torch.float16, output, torch.float32)
+    else:
+        logging.error("Can't get func to gen golden, Case(%s)", case_name)
+        return False
+    return True
+
+
+def main() -> bool:
+    """
+    单独调试 入口函数
+    """
+    case_name_list: List[str] = [
+        "ViewType.short2long"
+        "ViewType.long2short",
+    ]
+
+    for cs in case_name_list:
+        output = Path(g_src_root, "build/tests/st/golden", cs).resolve()
+        output.mkdir(parents=True, exist_ok=True)
+        ret = view_type_func(case_name=cs, output=output)
+
+    return ret
+
+
+if __name__ == "__main__":
+    exit(0 if main() else 1)

@@ -321,6 +321,7 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
 
         for (size_t i = 0; i < rawList.size(); i++) {
             const auto &rawTensor = rawList[i];
+            std::unordered_map<DataType, int> viewTypeTable = {{DT_INT8, 1}, {DT_BF16, 2}, {DT_FP16, 2}, {DT_FP32, 4}};
             if (rawTensor->actualRawmagic != -1 && rawTensor->actualRawmagic != rawTensor->rawmagic) {
                 auto it = rawMagicToRawTensor.find(rawTensor->actualRawmagic);
                 ASSERT(it != rawMagicToRawTensor.end());
@@ -333,6 +334,21 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                     }
                 }
                 if (isDynamicShape) continue;
+                auto fromType = rawTensor->datatype;
+                auto toType = actualRaw->datatype;
+                if (fromType != toType) {
+                    auto inEntry = viewTypeTable.find(fromType);
+                    auto outEntry = viewTypeTable.find(toType);
+                    int inSize = inEntry->second;
+                    int outSize = outEntry->second;
+                    if (inSize > outSize) {
+                        ASSERT((rawTensor->GetRawShapeSize() * (inSize / outSize)) == actualRaw->GetRawShapeSize());
+                    } else {
+                        ASSERT(rawTensor->GetRawShapeSize() == (actualRaw->GetRawShapeSize() * (outSize / inSize)));
+                    }
+                    ASSERT(rawTensor->GetRawDataSize() == actualRaw->GetRawDataSize());
+                    continue;
+                }
                 ASSERT(rawTensor->GetRawShapeSize() == actualRaw->GetRawShapeSize());
                 ASSERT(rawTensor->GetRawDataSize() == actualRaw->GetRawDataSize());
             }

@@ -73,6 +73,16 @@ Status InplaceProcess::RunOnFunction(Function &function) {
             ProcessView(function, op);
             continue;
         }
+        if (op.GetOpcode() == Opcode::OP_VIEW_TYPE) {
+            if (ValidMeaninglessOp(op) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation, "Invalid view operation; Please check operands size and memory type.");
+                return FAILED;
+            }
+            if (ProcessViewType(function, op) == FAILED) {
+                return FAILED;
+            }
+            continue;
+        }
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
             if (ValidMeaninglessOp(op) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "Invalid assemble operation; Please check operands size and memory type.");
@@ -166,42 +176,107 @@ void InplaceProcess::ProcessView(Function &function, Operation &op) const {
     }
 }
 
-void InplaceProcess::AlignCopyInConsumer(std::shared_ptr<LogicalTensor> tensorGm) const {
-    if (tensorGm->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
-        return;
+Status InplaceProcess::ProcessViewType(Function &function, Operation &op) const {
+    APASS_LOG_DEBUG_F(Elements::Operation, "Find Internal ViewType %d.", op.opmagic);
+    auto viewTypeIn = op.GetIOperands()[0];
+    auto viewTypeOut = op.GetOOperands()[0];
+    if (function.IsFromInCast(viewTypeIn)) {
+        viewTypeOut->tensor->actualRawmagic = viewTypeIn->GetRawMagic();
+        if(AdjustOffsetAndRawShape(viewTypeIn, viewTypeOut) == FAILED) {
+            return FAILED;
+        }
+        return AlignCopyInConsumer(viewTypeOut);
     }
+    if (function.IsFromOutCast(viewTypeOut)) {
+        viewTypeIn->tensor->actualRawmagic = viewTypeOut->GetRawMagic();
+        if(AdjustOffsetAndRawShape(viewTypeOut, viewTypeIn) == FAILED) {
+            return FAILED;
+        }
+        return AlignCopyOutProducer(viewTypeIn);
+    }
+    return SUCCESS;
+}
+
+Status InplaceProcess::AdjustOffsetAndRawShape(LogicalTensorPtr &fromView, LogicalTensorPtr &toView) const {
+    auto fromType = fromView->tensor->datatype;
+    auto toType = toView->tensor->datatype;
+    auto inEntry = viewTypeTable.find(fromType);
+    auto outEntry = viewTypeTable.find(toType);
+    if (inEntry == viewTypeTable.end() || outEntry == viewTypeTable.end()) {
+        APASS_LOG_ERROR_F(Elements::Operation, "ViewType Input Tensor OR Output Tensor DataType is not in viewType, Please check it!");
+        return FAILED;
+    }
+    int inSize = inEntry->second;
+    int outSize = outEntry->second;
+    int ratio = inSize > outSize ? inSize / outSize : outSize / inSize;
+    bool isExpand = inSize > outSize;
+    std::vector<int64_t> fromOffset = fromView->GetOffset();
+    std::vector<int64_t> toOffset(fromOffset.size(), 0);
+    std::vector<int64_t> inShape = fromView->GetRawTensor()->rawshape;
+    std::vector<int64_t> outShape(inShape.size(), 0);
+    for (size_t i = 0; i < fromOffset.size(); ++i) {
+        if (i != fromOffset.size() - 1) {
+            toOffset[i] = fromOffset[i];
+            outShape[i] = inShape[i];
+            continue;
+        }
+        if (isExpand) {
+            toOffset[i] = fromOffset[i] * ratio;
+            outShape[i] = inShape[i] * ratio;
+        } else {
+            if (fromOffset[i] % ratio != 0 || inShape[i] % ratio != 0) {
+                APASS_LOG_ERROR_F(Elements::Operation, "ViewType Offset is not Even.");
+                return FAILED;
+            }
+            toOffset[i] = fromOffset[i] / ratio;
+            outShape[i] = inShape[i] / ratio;
+        }
+    }
+    toView->UpdateOffset(toOffset);
+    toView->GetRawTensor()->rawshape = outShape;
+    return SUCCESS;
+}
+
+Status InplaceProcess::AlignCopyInConsumer(std::shared_ptr<LogicalTensor> tensorGm) const {
     APASS_LOG_DEBUG_F(Elements::Tensor, "InplaceProcess::AlignCopyInConsumer tensor[%d].", tensorGm->magic);
     for (auto &consumerOp : tensorGm->GetConsumers()) {
         if (consumerOp->GetOpcode() == Opcode::OP_COPY_IN) {
             std::shared_ptr<CopyOpAttribute> opAttr = std::static_pointer_cast<CopyOpAttribute>(consumerOp->GetOpAttribute());
+            if (opAttr == nullptr) {
+                APASS_LOG_ERROR_F(Elements::Operation, "InplaceProcess::AlignCopyInConsumer OP_COPY_IN %d has no Attribute.", consumerOp->GetOpMagic());
+                return FAILED;
+            }
             std::vector<OpImmediate> newFromOffset;
             for (size_t i = 0; i < opAttr->GetFromOffset().size(); i++) {
                 newFromOffset.push_back(opAttr->GetFromOffset()[i] + OpImmediate::Specified(SymbolicScalar(tensorGm->offset[i])));
             }
             opAttr->SetFromOffset(newFromOffset);
-            opAttr->SetRawShape(OpImmediate::Specified(tensorGm->tensor->GetDynRawShape()));
+            opAttr->SetRawShape(OpImmediate::Specified(tensorGm->tensor->GetRawShape()));
         }
     }
+    return SUCCESS;
 }
 
-void InplaceProcess::AlignCopyOutProducer(std::shared_ptr<LogicalTensor> tensorGm) const {
-    if (tensorGm->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
-        return;
-    }
+Status InplaceProcess::AlignCopyOutProducer(std::shared_ptr<LogicalTensor> tensorGm) const {
     APASS_LOG_DEBUG_F(Elements::Tensor, "InplaceProcess::AlignCopyOutProducer tensor[%d].", tensorGm->magic);
     for (auto &producerOp : tensorGm->GetProducers()) {
         if (producerOp->GetOpcode() == Opcode::OP_COPY_OUT) {
             std::shared_ptr<CopyOpAttribute> opAttr = std::static_pointer_cast<CopyOpAttribute>(producerOp->GetOpAttribute());
+            if (opAttr == nullptr) {
+                APASS_LOG_ERROR_F(Elements::Operation, "InplaceProcess::AlignCopyOutProducer OP_COPY_OUT %d has no Attribute.", producerOp->GetOpMagic());
+                return FAILED;
+            }
             std::vector<OpImmediate> newToOffset;
             for (size_t i = 0; i < opAttr->GetToOffset().size(); i++) {
                 newToOffset.push_back(opAttr->GetToOffset()[i] + OpImmediate::Specified(SymbolicScalar(tensorGm->offset[i])));
             }
             opAttr->SetToOffset(newToOffset);
-            opAttr->SetRawShape(OpImmediate::Specified(tensorGm->tensor->GetDynRawShape()));
+            opAttr->SetRawShape(OpImmediate::Specified(tensorGm->tensor->GetRawShape()));
             APASS_LOG_DEBUG_F(Elements::Operation, "InplaceProcess::AlignCopyOutProducer update Attr for %s[%d].",
                 producerOp->GetOpcodeStr().c_str(), producerOp->GetOpMagic());
         }
     }
+    return SUCCESS;
 }
 
 void InplaceProcess::ReplaceRawTensor(Function &function, std::shared_ptr<LogicalTensor> logicalTensor,

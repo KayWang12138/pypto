@@ -54,15 +54,17 @@ private:
     bool HasSameConsecutive(Operation &op);
     void ProcessView(Function &function, Operation &op) const;
     void ProcessAssemble(Function &function, Operation &op);
-    void AlignCopyInConsumer(std::shared_ptr<LogicalTensor> tensorGm) const;
-    void AlignCopyOutProducer(std::shared_ptr<LogicalTensor> tensorGm) const;
+    Status AlignCopyInConsumer(std::shared_ptr<LogicalTensor> tensorGm) const;
+    Status AlignCopyOutProducer(std::shared_ptr<LogicalTensor> tensorGm) const;
     void ProcessReshape(Function &function, Operation &op) const;
+    Status ProcessViewType(Function &function, Operation &op) const;
     Status ProcessInplaceOp(Function &function, Operation &op) const;
     Status ValidMeaninglessOp(const Operation &op) const;
+    Status AdjustOffsetAndRawShape(LogicalTensorPtr &fromView, LogicalTensorPtr &toView) const;
     void ReplaceRawTensor(Function &function, std::shared_ptr<LogicalTensor> logicalTensor,
         const std::shared_ptr<LogicalTensor> targetTensor, const Operation &op);
     Status RefactorViewConnectForInplace(Function &function);
-
+    std::unordered_map<DataType, int> viewTypeTable = {{DT_INT8, 1}, {DT_BF16, 2}, {DT_FP16, 2}, {DT_FP32, 4}};
     std::vector<int> visitedAssembleOp;
 };
 } // namespace tile_fwk

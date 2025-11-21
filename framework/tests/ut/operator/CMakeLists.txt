@@ -145,6 +145,10 @@ set(_CaseFilterList
 
         # QuantLightningIndexerProlog
         "DynamicQuantLightningIndexerPrologUtest.b4_s1_2_s2_64k"
+
+        # ViewType
+        "ViewTypeUtest.add0_test"
+        "ViewTypeUtest.cast_add0_test"
 )
 
 set(_Target ${PTO_Fwk_UTestNamePrefix}_operator)
