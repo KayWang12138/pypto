@@ -18,7 +18,6 @@
 #include "interface/function/function.h"
 #include "interface/tensor/logical_tensor.h"
 #include "passes/pass_log/pass_log.h"
-#include "passes/pass_utils/dead_operation_eliminate.h"
 
 #define MODULE_NAME "DuplicateOp"
 
@@ -27,7 +26,7 @@ Status DuplicateOp::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, 
     "===> Start DuplicateViewGatherIn for function [%s].", function.GetRawName().c_str());
     if (Process(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Process failed.");
+        APASS_LOG_ERROR_F(Elements::Function, "Process failed.");
         return FAILED;
     }
     APASS_LOG_INFO_F(Elements::Function,
@@ -39,8 +38,8 @@ Status DuplicateOp::ProcessGatherIn(Function &function, Operation &operation) co
      for (auto &oOperand : operation.GetOOperands()) {
         if (oOperand == nullptr) {
             APASS_LOG_ERROR_F(Elements::Operation,
-            "%s[%d]'s cannot be nullptr; Please check if the oOperand of %s[%d] is nullptr.", 
-            operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), operation.GetOpcodeStr().c_str(), operation.GetOpMagic());
+            "%s[%d]'s oOperand cannot be nullptr; Please check if the oOperand of %s[%d] is nullptr.%s", 
+            operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), GetFormatBacktrace(operation).c_str());
             return FAILED;
         }
         bool isFirst = true;
@@ -48,12 +47,12 @@ Status DuplicateOp::ProcessGatherIn(Function &function, Operation &operation) co
         auto consumers = oOperand->GetConsumers(); // copy consumers to avoid erase while iteration
         for (auto &consumer : consumers) {
             if (consumer == nullptr) {
-                APASS_LOG_ERROR_F(Elements::Operation,
+                APASS_LOG_ERROR_F(Elements::Tensor,
                 "OP_GATHER_IN_L1's consumer cannot be nullptr; Please check if the output of OP_GATHER_IN_L1[%d]'s consumer is nullptr.", oOperand->GetMagic());
                 return FAILED;
             }
             if (consumer->GetOpcode() == Opcode::OP_GATHER_IN_L1) {
-                APASS_LOG_ERROR_F(Elements::Operation,
+                APASS_LOG_ERROR_F(Elements::Tensor,
                 "OP_GATHER_IN_L1's consumer cannot be OP_GATHER_IN_L1; Please check if the type output of OP_GATHER_IN_L1[%d]'s consumer is OP_GATHER_IN_L1.",
                 oOperand->GetMagic());
                 return FAILED;
@@ -64,7 +63,7 @@ Status DuplicateOp::ProcessGatherIn(Function &function, Operation &operation) co
             }
             auto dst = oOperand->Clone(function, true);
             if (dst == nullptr) {
-                APASS_LOG_ERROR_F(Elements::Operation, 
+                APASS_LOG_ERROR_F(Elements::Tensor, 
                 "Clone OP_GATHER_IN_L1's oOperand[%d] failed; Please check if dst is nullptr.", oOperand->GetMagic());
                 return FAILED;
              }
@@ -84,7 +83,8 @@ Status DuplicateOp::ProcessView(Function &function, Operation &operation) const{
     auto iOperand = operation.iOperand[0];
     for (auto &oOperand : operation.oOperand) {
         if (oOperand == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Null output operand detected while iterating over the output operands of the operation [%d].", operation.opmagic); 
+            APASS_LOG_ERROR_F(Elements::Operation, "Null output operand detected while iterating over the output operands of the operation [%d].%s",
+            operation.opmagic, GetFormatBacktrace(operation).c_str()); 
             return FAILED;
         }
         if (oOperand->GetConsumers().size() == 1) {
@@ -93,7 +93,7 @@ Status DuplicateOp::ProcessView(Function &function, Operation &operation) const{
         auto consumers = oOperand->GetConsumers();
         for (auto &consumer : consumers) {
             if (consumer == nullptr) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Null consumer detected while iterating over the consumers of the output operand [%d].", oOperand->magic);
+                APASS_LOG_ERROR_F(Elements::Tensor, "Null consumer detected while iterating over the consumers of the output operand [%d].", oOperand->magic);
                 return FAILED;
             }
             if (consumer->GetOpcode() == Opcode::OP_VIEW) {
@@ -101,7 +101,7 @@ Status DuplicateOp::ProcessView(Function &function, Operation &operation) const{
             }
             auto dst = oOperand->Clone(function, true);
             if (dst == nullptr) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Clone failed for output operand [%d].", oOperand->magic);
+                APASS_LOG_ERROR_F(Elements::Tensor, "Clone failed for output operand [%d].", oOperand->magic);
                 return FAILED;
             }
             consumer->ReplaceInput(dst, oOperand);
@@ -124,12 +124,13 @@ Status DuplicateOp::ProcessOp(Function &function, Operation &operation) const {
     }
     if (opcode == Opcode::OP_GATHER_IN_L1){
         if(ProcessGatherIn(function, operation)!= SUCCESS){
-            APASS_LOG_ERROR_F(Elements::Function, "ProcessGatherIn failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "ProcessGatherIn failed.%s", GetFormatBacktrace(operation).c_str());
             return FAILED;
         }
-    }else{
+    }
+    if (opcode == Opcode::OP_VIEW){
         if(ProcessView(function, operation)!= SUCCESS){
-            APASS_LOG_ERROR_F(Elements::Function, "ProcessView failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "ProcessView failed.%s", GetFormatBacktrace(operation).c_str());
             return FAILED;
         }
     }
@@ -139,7 +140,6 @@ Status DuplicateOp::ProcessOp(Function &function, Operation &operation) const {
 Status DuplicateOp::Process(Function &function) const {
     std::stack<Operation*> stack;
     std::unordered_set<Operation*> visited;
-
     for (auto &outcast : function.GetOutcast()) {
         for(auto op : outcast->GetProducers()){
             stack.push(op);
@@ -153,7 +153,7 @@ Status DuplicateOp::Process(Function &function) const {
             }
             visited.insert(CurrentOp);
             if (ProcessOp(function, *CurrentOp) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Function, "ProcessOp failed.");
+                APASS_LOG_ERROR_F(Elements::Operation, "ProcessOp failed.");
                 return FAILED;
             }
             for(auto &iOperand : CurrentOp->iOperand) {

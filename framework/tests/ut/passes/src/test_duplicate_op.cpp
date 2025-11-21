@@ -21,9 +21,9 @@
 #include "passes/pass_mgr/pass_manager.h"
 #include "ut_json/ut_json_tool.h"
 #include "interface/configs/config_manager.h"
+#include "passes/tile_graph_pass/graph_optimization/duplicate_op.h"
 
 #define private public
-#include "passes/tile_graph_pass/graph_optimization/duplicate_op.h"
 namespace npu {
 namespace tile_fwk{
 static const size_t kSizeZero = 0UL;
@@ -77,9 +77,9 @@ TEST_F(TestDuplicateOpPass, DuplicateViewUTest1) {
     auto ubTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
 
-    auto &veiwOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor});
+    auto &viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor});
     auto &tensorOffset = inCast->GetTensorOffset();
-    veiwOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(tensorOffset.GetOffset(), tensorOffset.GetDynOffset(), ubTensor->GetDynValidShape()));
+    viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(tensorOffset.GetOffset(), tensorOffset.GetDynOffset(), ubTensor->GetDynValidShape()));
     currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor}, {outCast});
 
     currFunctionPtr->inCasts_.push_back(inCast);
@@ -89,13 +89,13 @@ TEST_F(TestDuplicateOpPass, DuplicateViewUTest1) {
     auto status = duplicateoppass.RunOnFunction(*currFunctionPtr);
     EXPECT_EQ(status, SUCCESS);
 
-    uint32_t view_num = kNumZero;
+    uint32_t viewNum = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
-            ++view_num;
+            ++viewNum;
         }
     }
-    EXPECT_EQ(view_num, kNumOne);
+    EXPECT_EQ(viewNum, kNumOne);
 }
 
 /*
@@ -120,14 +120,14 @@ TEST_F(TestDuplicateOpPass, DuplicateViewUTest2) {
     auto outCast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     auto outCast3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
 
-    auto &veiwOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor});
+    auto &viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor});
     auto &tensorOffset = inCast->GetTensorOffset();
-    veiwOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(tensorOffset.GetOffset(), tensorOffset.GetDynOffset(), ubTensor->GetDynValidShape()));
-    auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor}, {outCast2});
+    viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(tensorOffset.GetOffset(), tensorOffset.GetDynOffset(), ubTensor->GetDynValidShape()));
+    auto &viewOp1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor}, {outCast2});
     auto &tensorOffset1 = ubTensor->GetTensorOffset();
-    view_op.SetOpAttribute(std::make_shared<ViewOpAttribute>(tensorOffset1.GetOffset(), tensorOffset1.GetDynOffset(), outCast2->GetDynValidShape()));
-    auto &sqrt_op = currFunctionPtr->AddOperation(Opcode::OP_SQRT, {ubTensor}, {outCast3});
-    auto &exp_op = currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor}, {outCast1});
+    viewOp1.SetOpAttribute(std::make_shared<ViewOpAttribute>(tensorOffset1.GetOffset(), tensorOffset1.GetDynOffset(), outCast2->GetDynValidShape()));
+    auto &sqrtOp = currFunctionPtr->AddOperation(Opcode::OP_SQRT, {ubTensor}, {outCast3});
+    auto &expOp = currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor}, {outCast1});
 
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast2);
@@ -139,20 +139,20 @@ TEST_F(TestDuplicateOpPass, DuplicateViewUTest2) {
 
     EXPECT_EQ(status, SUCCESS);
 
-    uint32_t view_num = kNumZero;
+    uint32_t viewNum = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
-            ++view_num;
+            ++viewNum;
         }
     }
     // 旧的两个 + 新的两个
-    EXPECT_EQ(view_num, kNumFour);
-    EXPECT_EQ(exp_op.GetInputOperandSize(), kNumOne);
-    EXPECT_NE(exp_op.GetInputOperand(kSizeZero), ubTensor);
-    EXPECT_EQ(view_op.GetInputOperandSize(), kNumOne);
-    EXPECT_EQ(view_op.GetInputOperand(kSizeZero), ubTensor);
-    EXPECT_EQ(sqrt_op.GetInputOperandSize(), kNumOne);
-    EXPECT_NE(sqrt_op.GetInputOperand(kSizeZero), ubTensor);
+    EXPECT_EQ(viewNum, kNumFour);
+    EXPECT_EQ(expOp.GetInputOperandSize(), kNumOne);
+    EXPECT_NE(expOp.GetInputOperand(kSizeZero), ubTensor);
+    EXPECT_EQ(viewOp1.GetInputOperandSize(), kNumOne);
+    EXPECT_EQ(viewOp1.GetInputOperand(kSizeZero), ubTensor);
+    EXPECT_EQ(sqrtOp.GetInputOperandSize(), kNumOne);
+    EXPECT_NE(sqrtOp.GetInputOperand(kSizeZero), ubTensor);
 }
 
 /*
@@ -185,12 +185,12 @@ TEST_F(TestDuplicateOpPass, DuplicateViewUTest3) {
     auto outCast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     auto outCast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     auto outCast3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
-    auto &veiwOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor1});
+    auto &viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor1});
     auto &tensorOffset = inCast->GetTensorOffset();
-    veiwOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(tensorOffset.GetOffset(), tensorOffset.GetDynOffset(), ubTensor1->GetDynValidShape()));
-    auto &veiwOp1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor2});
+    viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(tensorOffset.GetOffset(), tensorOffset.GetDynOffset(), ubTensor1->GetDynValidShape()));
+    auto &viewOp1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor2});
     auto &tensorOffset1 = inCast->GetTensorOffset();
-    veiwOp1.SetOpAttribute(std::make_shared<ViewOpAttribute>(tensorOffset1.GetOffset(), tensorOffset1.GetDynOffset(), ubTensor2->GetDynValidShape()));
+    viewOp1.SetOpAttribute(std::make_shared<ViewOpAttribute>(tensorOffset1.GetOffset(), tensorOffset1.GetDynOffset(), ubTensor2->GetDynValidShape()));
     auto &div1 = currFunctionPtr->AddOperation(Opcode::OP_DIV, {ubTensor1, ubTensor1}, {outCast1});
     auto &div2 = currFunctionPtr->AddOperation(Opcode::OP_DIV, {ubTensor1, ubTensor2}, {outCast2});
     auto &div3 = currFunctionPtr->AddOperation(Opcode::OP_DIV, {ubTensor2, ubTensor2}, {outCast3});
@@ -201,29 +201,29 @@ TEST_F(TestDuplicateOpPass, DuplicateViewUTest3) {
     DuplicateOp duplicateoppass;
     auto status = duplicateoppass.RunOnFunction(*currFunctionPtr);
     EXPECT_EQ(status, SUCCESS);
-    uint32_t view_num = 0;
+    uint32_t viewNum = 0;
     for (auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
-            ++view_num;
+            ++viewNum;
         }
     }
-    EXPECT_EQ(view_num, kNumSix);
+    EXPECT_EQ(viewNum, kNumSix);
     EXPECT_EQ(div1.GetInputOperandSize(), kNumTwo);
     EXPECT_EQ(div2.GetInputOperandSize(), kNumTwo);
     EXPECT_EQ(div3.GetInputOperandSize(), kNumTwo);
-    auto div1_input1 = div1.GetInputOperand(kSizeZero);
-    auto div1_input2 = div1.GetInputOperand(kSizeOne);
-    EXPECT_NE(div1_input1, ubTensor1);
-    EXPECT_EQ(div1_input1, div1_input2);
-    auto div2_input1 = div2.GetInputOperand(kSizeZero);
-    auto div2_input2 = div2.GetInputOperand(kSizeOne);
-    EXPECT_NE(div2_input1, ubTensor1);
-    EXPECT_NE(div2_input2, ubTensor2);
-    EXPECT_NE(div2_input1, div2_input2);
-    auto div3_input1 = div3.GetInputOperand(kSizeZero);
-    auto div3_input2 = div3.GetInputOperand(kSizeOne);
-    EXPECT_NE(div3_input2, ubTensor2);
-    EXPECT_EQ(div3_input1, div3_input2);
+    auto div1Input1 = div1.GetInputOperand(kSizeZero);
+    auto div1Input2 = div1.GetInputOperand(kSizeOne);
+    EXPECT_NE(div1Input1, ubTensor1);
+    EXPECT_EQ(div1Input1, div1Input2);
+    auto div2Input1 = div2.GetInputOperand(kSizeZero);
+    auto div2Input2 = div2.GetInputOperand(kSizeOne);
+    EXPECT_NE(div2Input1, ubTensor1);
+    EXPECT_NE(div2Input2, ubTensor2);
+    EXPECT_NE(div2Input1, div2Input2);
+    auto div3Input1 = div3.GetInputOperand(kSizeZero);
+    auto div3Input2 = div3.GetInputOperand(kSizeOne);
+    EXPECT_NE(div3Input2, ubTensor2);
+    EXPECT_EQ(div3Input1, div3Input2);
 }
 
 /*
@@ -241,29 +241,29 @@ TEST_F(TestDuplicateOpPass, TestDupViewL1) {
     auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto outcast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto outcast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast}, {tensor1});
-    auto &exp_op1 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {tensor1}, {outcast1});
-    auto &exp_op2 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {tensor1}, {outcast2});
-    (void) exp_op1;
-    (void) exp_op2;
-    auto view_attr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}, 
+    auto &viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast}, {tensor1});
+    auto &expOp1 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {tensor1}, {outcast1});
+    auto &expOp2 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {tensor1}, {outcast2});
+    (void) expOp1;
+    (void) expOp2;
+    auto viewAttr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}, 
                                                        MEM_L1, 
                                                        std::vector<SymbolicScalar>(), 
                                                        std::vector<SymbolicScalar>());
-    view_op.SetOpAttribute(view_attr);
+    viewOp.SetOpAttribute(viewAttr);
     currFunctionPtr->inCasts_.push_back(incast);
     currFunctionPtr->outCasts_.push_back(outcast1);
     currFunctionPtr->outCasts_.push_back(outcast2);
     DuplicateOp duplicateoppass;
     duplicateoppass.RunOnFunction(*currFunctionPtr);
-    int view_num = 0;
+    int viewNum = 0;
     auto opList = currFunctionPtr->Operations();
     for (auto &op : opList) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
-            view_num++;
+            viewNum++;
         }
     }
-    EXPECT_EQ(view_num, 1);
+    EXPECT_EQ(viewNum, 1);
 }
 
 /*
@@ -283,29 +283,29 @@ TEST_F(TestDuplicateOpPass, TestContinuousView) {
     auto outcast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto outcast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto outcast3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    auto &view_op1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast}, {tensor1});
-    auto &view_op2 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {tensor1}, {tensor2});
-    auto &view_op3 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {tensor2}, {outcast2});
-    [[maybe_unused]] auto &exp_op = currFunctionPtr->AddOperation(Opcode::OP_EXP, {tensor1}, {outcast1});
-    [[maybe_unused]] auto &exp_op1 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {tensor2}, {outcast3});
+    auto &viewOp1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast}, {tensor1});
+    auto &viewOp2 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {tensor1}, {tensor2});
+    auto &viewOp3 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {tensor2}, {outcast2});
+    [[maybe_unused]] auto &expOp = currFunctionPtr->AddOperation(Opcode::OP_EXP, {tensor1}, {outcast1});
+    [[maybe_unused]] auto &expOp1 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {tensor2}, {outcast3});
 
-    auto view_attr1 = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0},
+    auto viewAttr1 = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0},
                                                         MEM_UNKNOWN, 
                                                         std::vector<SymbolicScalar>(), 
                                                         std::vector<SymbolicScalar>());
-    view_op1.SetOpAttribute(view_attr1);
+    viewOp1.SetOpAttribute(viewAttr1);
 
-    auto view_attr2 = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0},
+    auto viewAttr2 = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0},
                                                         MEM_UNKNOWN, 
                                                         std::vector<SymbolicScalar>(), 
                                                         std::vector<SymbolicScalar>());
-    view_op2.SetOpAttribute(view_attr2);
+    viewOp2.SetOpAttribute(viewAttr2);
 
-    auto view_attr3 = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0},
+    auto viewAttr3 = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0},
                                                         MEM_UNKNOWN, 
                                                         std::vector<SymbolicScalar>(), 
                                                         std::vector<SymbolicScalar>());
-    view_op3.SetOpAttribute(view_attr3);
+    viewOp3.SetOpAttribute(viewAttr3);
 
     currFunctionPtr->inCasts_.push_back(incast);
     currFunctionPtr->outCasts_.push_back(outcast1);
@@ -314,16 +314,16 @@ TEST_F(TestDuplicateOpPass, TestContinuousView) {
 
     DuplicateOp duplicateoppass;
     duplicateoppass.RunOnFunction(*currFunctionPtr);
-    int view_num = 0;
+    int viewNum = 0;
     auto opList = currFunctionPtr->Operations();
     for (const auto& op : opList)
     {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
-            view_num++;
+            viewNum++;
         }
     }
     const int res = 5;
-    EXPECT_EQ(view_num, res);
+    EXPECT_EQ(viewNum, res);
 }
 
 /*
@@ -371,14 +371,14 @@ TEST_F(TestDuplicateOpPass, DuplicateViewSTest1) {
     // =======================Verify the effect of the pass ================
     auto updated_operations = func->Operations();
 
-    int view_num = 0;
+    int viewNum = 0;
     EXPECT_EQ(updated_operations.size(), kNumForteen);
     for (const auto &op : updated_operations) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
-            view_num++;
+            viewNum++;
         }
     }
-    EXPECT_EQ(view_num, kNumSeven);
+    EXPECT_EQ(viewNum, kNumSeven);
 }
 
 /*
@@ -408,13 +408,13 @@ TEST_F(TestDuplicateOpPass, DuplicateGatherInUTest1) {
     auto status = duplicateoppass.RunOnFunction(*currFunctionPtr);
     EXPECT_EQ(status, SUCCESS);
 
-    uint32_t gatherin_num = kNumZero;
+    uint32_t gatherinNum = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_GATHER_IN_L1) {
-            ++gatherin_num;
+            ++gatherinNum;
         }
     }
-    EXPECT_EQ(gatherin_num, kNumOne);
+    EXPECT_EQ(gatherinNum, kNumOne);
 }
 
 /*
@@ -442,11 +442,11 @@ TEST_F(TestDuplicateOpPass, DuplicateGatherInUTest2) {
 
     auto &gatherinOp = currFunctionPtr->AddOperation(Opcode::OP_GATHER_IN_L1, {inCast}, {ubTensor});
     gatherinOp.SetAttribute(OpAttributeKey::startOffset,j);
-    auto &exp_op = currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor}, {outCast1});
-    auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor}, {outCast2});
+    auto &expOp = currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor}, {outCast1});
+    auto &viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor}, {outCast2});
     auto &tensorOffset1 = ubTensor->GetTensorOffset();
-    view_op.SetOpAttribute(std::make_shared<ViewOpAttribute>(tensorOffset1.GetOffset(), tensorOffset1.GetDynOffset(), outCast2->GetDynValidShape()));
-    auto &sqrt_op = currFunctionPtr->AddOperation(Opcode::OP_SQRT, {ubTensor}, {outCast3});
+    viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(tensorOffset1.GetOffset(), tensorOffset1.GetDynOffset(), outCast2->GetDynValidShape()));
+    auto &sqrtOp = currFunctionPtr->AddOperation(Opcode::OP_SQRT, {ubTensor}, {outCast3});
 
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast1);
@@ -465,12 +465,12 @@ TEST_F(TestDuplicateOpPass, DuplicateGatherInUTest2) {
     }
     // 旧的两个 + 新的两个
     EXPECT_EQ(gatherinnum, KNumThree);
-    EXPECT_EQ(exp_op.GetInputOperandSize(), kNumOne);
-    EXPECT_EQ(exp_op.GetInputOperand(kSizeZero), ubTensor);
-    EXPECT_EQ(view_op.GetInputOperandSize(), kNumOne);
-    EXPECT_NE(view_op.GetInputOperand(kSizeZero), ubTensor);
-    EXPECT_EQ(sqrt_op.GetInputOperandSize(), kNumOne);
-    EXPECT_NE(sqrt_op.GetInputOperand(kSizeZero), ubTensor);
+    EXPECT_EQ(expOp.GetInputOperandSize(), kNumOne);
+    EXPECT_EQ(expOp.GetInputOperand(kSizeZero), ubTensor);
+    EXPECT_EQ(viewOp.GetInputOperandSize(), kNumOne);
+    EXPECT_NE(viewOp.GetInputOperand(kSizeZero), ubTensor);
+    EXPECT_EQ(sqrtOp.GetInputOperandSize(), kNumOne);
+    EXPECT_NE(sqrtOp.GetInputOperand(kSizeZero), ubTensor);
 }
 
 /*
@@ -508,9 +508,9 @@ TEST_F(TestDuplicateOpPass, DuplicateGatherInUTest3) {
     gatherinOp.SetAttribute(OpAttributeKey::startOffset, i);
     auto &gatherinOp1 = currFunctionPtr->AddOperation(Opcode::OP_GATHER_IN_L1, {inCast}, {ubTensor2});
     gatherinOp1.SetAttribute(OpAttributeKey::startOffset, j);
-    auto &div_op1 = currFunctionPtr->AddOperation(Opcode::OP_DIV, {ubTensor1, ubTensor1}, {outCast1});
-    auto &div_op2 = currFunctionPtr->AddOperation(Opcode::OP_DIV, {ubTensor1, ubTensor2}, {outCast2});
-    auto &div_op3 = currFunctionPtr->AddOperation(Opcode::OP_DIV, {ubTensor2, ubTensor2}, {outCast3});
+    auto &divOp1 = currFunctionPtr->AddOperation(Opcode::OP_DIV, {ubTensor1, ubTensor1}, {outCast1});
+    auto &divOp2 = currFunctionPtr->AddOperation(Opcode::OP_DIV, {ubTensor1, ubTensor2}, {outCast2});
+    auto &divOp3 = currFunctionPtr->AddOperation(Opcode::OP_DIV, {ubTensor2, ubTensor2}, {outCast3});
 
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast1);
@@ -521,32 +521,32 @@ TEST_F(TestDuplicateOpPass, DuplicateGatherInUTest3) {
     auto status = duplicateoppass.RunOnFunction(*currFunctionPtr);
     EXPECT_EQ(status, SUCCESS);
 
-    uint32_t gatherin_num = kNumZero;
+    uint32_t gatherinNum = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_GATHER_IN_L1) {
-            ++gatherin_num;
+            ++gatherinNum;
         }
     }
-    EXPECT_EQ(gatherin_num, kNumFour);
-    EXPECT_EQ(div_op1.GetInputOperandSize(), kNumTwo);
-    EXPECT_EQ(div_op2.GetInputOperandSize(), kNumTwo);
-    EXPECT_EQ(div_op3.GetInputOperandSize(), kNumTwo);
+    EXPECT_EQ(gatherinNum, kNumFour);
+    EXPECT_EQ(divOp1.GetInputOperandSize(), kNumTwo);
+    EXPECT_EQ(divOp2.GetInputOperandSize(), kNumTwo);
+    EXPECT_EQ(divOp3.GetInputOperandSize(), kNumTwo);
 
-    auto div1_input1 = div_op1.GetInputOperand(kSizeZero);
-    auto div1_input2 = div_op1.GetInputOperand(kSizeOne);
-    EXPECT_EQ(div1_input2, ubTensor1);
-    EXPECT_EQ(div1_input1, div1_input2);
+    auto div1Input1 = divOp1.GetInputOperand(kSizeZero);
+    auto div1Input2 = divOp1.GetInputOperand(kSizeOne);
+    EXPECT_EQ(div1Input2, ubTensor1);
+    EXPECT_EQ(div1Input1, div1Input2);
 
-    auto div2_input1 = div_op2.GetInputOperand(kSizeZero);
-    auto div2_input2 = div_op2.GetInputOperand(kSizeOne);
-    EXPECT_NE(div2_input1, ubTensor1);
-    EXPECT_EQ(div2_input2, ubTensor2);
-    EXPECT_NE(div2_input1, div2_input2);
+    auto div2Input1 = divOp2.GetInputOperand(kSizeZero);
+    auto div2Input2 = divOp2.GetInputOperand(kSizeOne);
+    EXPECT_NE(div2Input1, ubTensor1);
+    EXPECT_EQ(div2Input2, ubTensor2);
+    EXPECT_NE(div2Input1, div2Input2);
 
-    auto div3_input1 = div_op3.GetInputOperand(kSizeZero);
-    auto div3_input2 = div_op3.GetInputOperand(kSizeOne);
-    EXPECT_NE(div3_input2, ubTensor2);
-    EXPECT_EQ(div3_input1, div3_input2);
+    auto div3Input1 = divOp3.GetInputOperand(kSizeZero);
+    auto div3Input2 = divOp3.GetInputOperand(kSizeOne);
+    EXPECT_NE(div3Input2, ubTensor2);
+    EXPECT_EQ(div3Input1, div3Input2);
 }
 
 /*
@@ -600,13 +600,13 @@ TEST_F(TestDuplicateOpPass, DuplicateViewGatherInUTest1) {
     auto &gatherin = currFunctionPtr->AddOperation(Opcode::OP_GATHER_IN_L1, {inCast}, {ubTensor1});
     gatherin.SetAttribute(OpAttributeKey::startOffset, i);
     currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor1}, {outCast1});
-    auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor1}, {ubTensor2});
+    auto &viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor1}, {ubTensor2});
     auto &tensorOffset1 = ubTensor1->GetTensorOffset();
-    view_op.SetOpAttribute(std::make_shared<ViewOpAttribute>(tensorOffset1.GetOffset(), tensorOffset1.GetDynOffset(), ubTensor2->GetDynValidShape()));
+    viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(tensorOffset1.GetOffset(), tensorOffset1.GetDynOffset(), ubTensor2->GetDynValidShape()));
     currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor2}, {outCast2});
-    auto &view_op1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {outCast3});
+    auto &viewOp1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {outCast3});
     auto &tensorOffset2 = ubTensor2->GetTensorOffset();
-    view_op1.SetOpAttribute(std::make_shared<ViewOpAttribute>(tensorOffset2.GetOffset(), tensorOffset2.GetDynOffset(), outCast3->GetDynValidShape()));
+    viewOp1.SetOpAttribute(std::make_shared<ViewOpAttribute>(tensorOffset2.GetOffset(), tensorOffset2.GetDynOffset(), outCast3->GetDynValidShape()));
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast1);
     currFunctionPtr->outCasts_.push_back(outCast2);
@@ -616,20 +616,20 @@ TEST_F(TestDuplicateOpPass, DuplicateViewGatherInUTest1) {
     auto status = duplicateoppass.RunOnFunction(*currFunctionPtr);
     EXPECT_EQ(status, SUCCESS);
 
-    uint32_t gatherin_num = kNumZero;
-    uint32_t view_num = kNumZero;
+    uint32_t gatherinNum = kNumZero;
+    uint32_t viewNum = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
-            ++view_num;
+            ++viewNum;
         }
     }
     for (auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_GATHER_IN_L1) {
-            ++gatherin_num;
+            ++gatherinNum;
         }
     }
-    EXPECT_EQ(gatherin_num, KNumThree);
-    EXPECT_EQ(view_num, KNumThree);
+    EXPECT_EQ(gatherinNum, KNumThree);
+    EXPECT_EQ(viewNum, KNumThree);
 }
 
 /*
@@ -655,9 +655,9 @@ TEST_F(TestDuplicateOpPass, DuplicateViewGatherInUTest2) {
     auto outCast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     auto &gatherin = currFunctionPtr->AddOperation(Opcode::OP_GATHER_IN_L1, {inCast}, {ubTensor0});
     gatherin.SetAttribute(OpAttributeKey::startOffset, i);
-    auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor0}, {ubTensor1});
+    auto &viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor0}, {ubTensor1});
     auto &tensorOffset1 = ubTensor0->GetTensorOffset();
-    view_op.SetOpAttribute(std::make_shared<ViewOpAttribute>(tensorOffset1.GetOffset(), tensorOffset1.GetDynOffset(), ubTensor1->GetDynValidShape()));
+    viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(tensorOffset1.GetOffset(), tensorOffset1.GetDynOffset(), ubTensor1->GetDynValidShape()));
     auto &gatherin1 = currFunctionPtr->AddOperation(Opcode::OP_GATHER_IN_L1, {ubTensor1}, {ubTensor2});
     gatherin1.SetAttribute(OpAttributeKey::startOffset, j);
     currFunctionPtr->AddOperation(Opcode::OP_SQRT, {ubTensor2}, {outCast1});
@@ -670,18 +670,18 @@ TEST_F(TestDuplicateOpPass, DuplicateViewGatherInUTest2) {
     auto status = duplicateoppass.RunOnFunction(*currFunctionPtr);
     EXPECT_EQ(status, SUCCESS);
 
-    uint32_t gatherin_num = kNumZero;
-    uint32_t view_num = kNumZero;
+    uint32_t gatherinNum = kNumZero;
+    uint32_t viewNum = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_GATHER_IN_L1) {
-            ++gatherin_num;
+            ++gatherinNum;
         }
         if (op.GetOpcode() == Opcode::OP_VIEW) {
-            ++view_num;
+            ++viewNum;
         }
     }
-    EXPECT_EQ(gatherin_num, kNumFive);
-    EXPECT_EQ(view_num, KNumThree);
+    EXPECT_EQ(gatherinNum, kNumFive);
+    EXPECT_EQ(viewNum, KNumThree);
 }
 
 /*
@@ -704,14 +704,14 @@ TEST_F(TestDuplicateOpPass, DuplicateViewGatherInUTest3) {
     auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     auto outCast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     auto outCast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
-    auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor0});
+    auto &viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor0});
     auto &tensorOffset1 = inCast->GetTensorOffset();
-    view_op.SetOpAttribute(std::make_shared<ViewOpAttribute>(tensorOffset1.GetOffset(), tensorOffset1.GetDynOffset(), ubTensor0->GetDynValidShape()));
+    viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(tensorOffset1.GetOffset(), tensorOffset1.GetDynOffset(), ubTensor0->GetDynValidShape()));
     auto &gatherin = currFunctionPtr->AddOperation(Opcode::OP_GATHER_IN_L1, {ubTensor0}, {ubTensor1});
     gatherin.SetAttribute(OpAttributeKey::startOffset, i);
-    auto &view_op1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor1}, {ubTensor2});
+    auto &viewOp1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor1}, {ubTensor2});
     auto &tensorOffset2 = ubTensor1->GetTensorOffset();
-    view_op1.SetOpAttribute(std::make_shared<ViewOpAttribute>(tensorOffset1.GetOffset(), tensorOffset2.GetDynOffset(), ubTensor2->GetDynValidShape()));
+    viewOp1.SetOpAttribute(std::make_shared<ViewOpAttribute>(tensorOffset1.GetOffset(), tensorOffset2.GetDynOffset(), ubTensor2->GetDynValidShape()));
 
     currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor2}, {outCast2});
     currFunctionPtr->AddOperation(Opcode::OP_SQRT, {ubTensor2}, {outCast1});
@@ -723,18 +723,18 @@ TEST_F(TestDuplicateOpPass, DuplicateViewGatherInUTest3) {
     auto status = duplicateoppass.RunOnFunction(*currFunctionPtr);
     EXPECT_EQ(status, SUCCESS);
 
-    uint32_t view_num = kNumZero;
-    uint32_t gatherin_num = kNumZero;
+    uint32_t viewNum = kNumZero;
+    uint32_t gatherinNum = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
-            ++view_num;
+            ++viewNum;
         }
         if (op.GetOpcode() == Opcode::OP_GATHER_IN_L1) {
-            ++gatherin_num;
+            ++gatherinNum;
         }
     }
-    EXPECT_EQ(view_num, kNumSeven);
-    EXPECT_EQ(gatherin_num, KNumThree);
+    EXPECT_EQ(viewNum, kNumSeven);
+    EXPECT_EQ(gatherinNum, KNumThree);
 }
 }
 }

@@ -87,7 +87,7 @@ Status ProcessRegCopy(const Operation &op, const Function &function, bool &needT
         /* register copy 一定有后继op*/
         if (consumerOps.empty()) {
             APASS_LOG_ERROR_F(Elements::Operation, 
-            "OP_REG_COPY[%d]'s output has no consumer; OP_REG_COPY[%d]'s output must have consumer.", op.opmagic, op.opmagic);
+            "OP_REG_COPY[%d]'s output has no consumer; OP_REG_COPY[%d]'s output must have consumer.%s", op.opmagic, op.opmagic, GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         for (auto &consumerOp : consumerOps) {
@@ -116,7 +116,8 @@ Status ProcessAssembleDDR(const Operation &op, const LogicalTensorPtr &assembleI
     /* DDR --> Assemble --> OUTCAST */
     if (assembleOut->nodetype != NodeType::OUTCAST || !function.IsFromOutCast(assembleOut)) {
         APASS_LOG_ERROR_F(Elements::Operation, 
-        "OP_ASSEMBLE[%d]'s output has no consumer but is not outcast; Please check if the OP_ASSEMBLE[%d]'s output is outcast.", op.opmagic, op.opmagic);
+        "OP_ASSEMBLE[%d]'s output has no consumer but is not outcast; Please check if the OP_ASSEMBLE[%d]'s output is outcast.%s", 
+        op.opmagic, op.opmagic, GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     APASS_LOG_DEBUG_F(Elements::Operation, "OP_ASSEMBLE has no consumers, opmagic: %d.", op.opmagic);
@@ -153,7 +154,7 @@ Status ProcessAssembleUB(const Operation &op, const LogicalTensorPtr &ASSEMBLE_i
     /* UB 上的 ASSEMBLE 一定有后继op*/
     if (consumerOps.empty()) {
         APASS_LOG_ERROR_F(Elements::Operation, 
-        "OP_ASSEMBLE[%d]'s output is empty; OP_ASSEMBLE[%d]'s output for ub must have consumer.", op.opmagic, op.opmagic);
+        "OP_ASSEMBLE[%d]'s output is empty; OP_ASSEMBLE[%d]'s output for ub must have consumer.%s", op.opmagic, op.opmagic, GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     for (auto &consumerOp : consumerOps) {
@@ -175,12 +176,12 @@ Status ProcessAssemble(const Operation &op, Function &function, bool &needToDele
     }
     if (ASSEMBLE_in->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
         ProcessAssembleDDR(op, ASSEMBLE_in, ASSEMBLE_out, function, needToDelete)) {
-        APASS_LOG_ERROR_F(Elements::Operation, "ProcessAssembleDDR failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "ProcessAssembleDDR failed.%s", GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     if (ASSEMBLE_in->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
         ProcessAssembleUB(op, ASSEMBLE_in, ASSEMBLE_out, function, needToDelete)) {
-        APASS_LOG_ERROR_F(Elements::Operation, "ProcessAssembleUB failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "ProcessAssembleUB failed.%s", GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     return SUCCESS;
@@ -227,7 +228,8 @@ inputTensor    --> child2
 Status ProcessExpand(const Operation &op, bool &needToDelete) {
     if (op.GetIOperands().size() != 1 || op.GetOOperands().size() != 1) {
         APASS_LOG_ERROR_F(Elements::Operation, 
-        "Expand[%d] has incorrect input/output num; Please check the Expand[%d]'s input/output num.", op.opmagic, op.opmagic);
+        "Expand[%d] has incorrect input or output num; Please check the Expand[%d]'s input/output num.%s", 
+        op.opmagic, op.opmagic, GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     needToDelete = false;
@@ -239,20 +241,20 @@ Status ProcessExpand(const Operation &op, bool &needToDelete) {
 }
 
 Status RemoveRedundantOp::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(Elements::Operation, "===> Start RemoveRedundantOp");
+    APASS_LOG_INFO_F(Elements::Function, "===> Start RemoveRedundantOp");
     if (RemoveViewAssemble(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "RemoveDummyExpand failed.");
+        APASS_LOG_ERROR_F(Elements::Function, "RemoveDummyExpand failed.");
         return FAILED;
     }
     if (DeleteRedundantOps(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "DeleteRedundantOps failed.");
+        APASS_LOG_ERROR_F(Elements::Function, "DeleteRedundantOps failed.");
         return FAILED;
     }
     if (RemoveDummyExpand(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "RemoveDummyExpand failed.");
+        APASS_LOG_ERROR_F(Elements::Function, "RemoveDummyExpand failed.");
         return FAILED;
     }
-    APASS_LOG_INFO_F(Elements::Operation, "===> End RemoveRedundantOp");
+    APASS_LOG_INFO_F(Elements::Function, "===> End RemoveRedundantOp");
     return SUCCESS;
 }
 
@@ -272,7 +274,7 @@ Status RemoveRedundantOp::RemoveDummyExpand(Function &function) const {
     for (auto &op: function.Operations()) {
         if (op.GetOpcode() == Opcode::OP_EXPAND) {
             if (ProcessExpand(op, needToDelete) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "ProcessExpand failed.");
+                APASS_LOG_ERROR_F(Elements::Operation, "ProcessExpand failed.%s", GetFormatBacktrace(op).c_str());
                 return FAILED;
             }
             if (needToDelete) {
@@ -302,21 +304,21 @@ Status RemoveRedundantOp::NeedToDelete(const Operation &op, Function &function, 
     switch (opcode) {
         case Opcode::OP_REGISTER_COPY: {
             if (ProcessRegCopy(op, function, needToDelete)) {
-                APASS_LOG_ERROR_F(Elements::Operation, "ProcessRegCopy failed.");
+                APASS_LOG_ERROR_F(Elements::Operation, "ProcessView failed.%s", GetFormatBacktrace(op).c_str());
                 return FAILED;
             }
             break;
         }
         case Opcode::OP_ASSEMBLE: {
             if (ProcessAssemble(op, function, needToDelete)) {
-                APASS_LOG_ERROR_F(Elements::Operation, "ProcessAssemble failed.");
+                APASS_LOG_ERROR_F(Elements::Operation, "ProcessView failed.%s", GetFormatBacktrace(op).c_str());
                 return FAILED;
             }
             break;
         }
         case Opcode::OP_VIEW: {
             if (ProcessView(op, function, needToDelete)) {
-                APASS_LOG_ERROR_F(Elements::Operation, "ProcessView failed.");
+                APASS_LOG_ERROR_F(Elements::Operation, "ProcessView failed.%s", GetFormatBacktrace(op).c_str());
                 return FAILED;
             }
             break;
@@ -332,7 +334,7 @@ Status RemoveRedundantOp::DeleteRedundantOps(Function &function) const {
     bool needToDelete;
     for (auto &op : function.Operations()) {
         if (NeedToDelete(op, function, needToDelete) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "NeedToDelete failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "NeedToDelete failed.%s", GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         if (needToDelete) {
@@ -401,14 +403,14 @@ void RemoveRedundantOp::ProcessPerfectMatch (Function &function,LogicalTensorPtr
     //step1：排除view输入非同源场景
     bool isNotSameViewInput = IsNotSameViewInput(startTensor,endTensor); //true表示view的输入非同源
     if (isNotSameViewInput) {
-        APASS_LOG_DEBUG_F(Elements::Operation, 
-            "OP_ASSEMBLE'S output endTensor[%d] has different input except startTesnor[%d] .", startTensor->magic, endTensor->magic);    
+        APASS_LOG_DEBUG_F(Elements::Tensor, 
+            "OP_ASSEMBLE'S output endTensor[%d] has different input except startTesnor[%d].", startTensor->magic, endTensor->magic);    
         return; 
     }
     //step2:排除assemble数据重排场景
     bool isDataRepalce = IsDataReplace(endTensor);  //true表示assemble后数据重排布
     if (isDataRepalce) {
-        APASS_LOG_DEBUG_F(Elements::Operation, 
+        APASS_LOG_DEBUG_F(Elements::Tensor, 
             "OP_ASSEMBLE'S output endTensor[%d] is repalced comparing with startTesnor[%d].", startTensor->magic, endTensor->magic);
         return; 
     }
