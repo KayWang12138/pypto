@@ -155,8 +155,9 @@ OpcodeManager::OpcodeManager() {
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::TscatterElementS", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "axis", OpAttributeKey::scalar, OP_ATTR_PREFIX + "scatter_mode"}, TileShapeVerifier::Verify);
     registerInfo(Opcode::OP_SCATTER, OpCoreType::AIV, "SCATTER",
         {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tscatter", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "scatter_mode"}, TileShapeVerifier::Verify);
-    registerInfo(Opcode::OP_INDEX_PUT, OpCoreType::AIV, "INDEX_PUT",
-        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tindexput", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {"axis"}, TileShapeVerifier::Verify);
+    registerInfo(Opcode::OP_INDEX_PUT, OpCoreType::ANY, "INDEX_PUT",
+        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {MemoryType::MEM_DEVICE_DDR}, {"TileOp::TindexPut", PIPE_MTE3, PIPE_MTE3, CoreType::AIV}, OpCalcType::MOVE_OUT, {OP_ATTR_PREFIX + "accumulate", OP_ATTR_PREFIX + "indicesSize"});
     registerInfo(Opcode::OP_SCATTER_UPDATE, OpCoreType::ANY, "SCATTER_UPDATE",
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {}, OpCalcType::OTHER);
     registerInfo(Opcode::OP_SCATTER_SCALAR, OpCoreType::ANY, "SCATTER_SCALAR",
