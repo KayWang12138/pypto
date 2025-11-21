@@ -28,7 +28,7 @@ void TiledCompareOperationImpl(Function &function, const TileShape &tileShape, s
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
 
         const int64_t COUNT_MODE_SIZE = 4096;
-        std::vector<int64_t> vcmpBitResultShape({COUNT_MODE_SIZE / (int64_t)BytesOf(input1.tensor.GetDataType()) / 8});
+        std::vector<int64_t> vcmpBitResultShape({COUNT_MODE_SIZE / (int64_t)BytesOf(input1.tensor.GetDataType()) / NUM_VALUE_8});
         auto vcmpBitResultTensor = std::make_shared<LogicalTensor>(function, DT_UINT8, vcmpBitResultShape);
         std::vector<int64_t> zeroCondShape({COUNT_MODE_SIZE / (int64_t)BytesOf(input1.tensor.GetDataType())});
         auto zeroCondTensor = std::make_shared<LogicalTensor>(function, input1.tensor.GetDataType(), zeroCondShape);
@@ -47,28 +47,44 @@ void TiledCompareOperationImpl(Function &function, const TileShape &tileShape, s
     }
 
     auto &vecTile = tileShape.GetVecTile();
-    for (int i = 0; i < result->shape[cur];) {
-        resultTileInfo.offset[cur] = i;
-        resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
-        input1.tileInfo.offset[cur] = i % input1.tensor.GetShape()[cur];
-        input1.tileInfo.shape[cur] =
-            std::min(input1.tensor.GetShape()[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
-        input2.tileInfo.offset[cur] = i % input2.tensor.GetShape()[cur];
-        input2.tileInfo.shape[cur] =
-            std::min(input2.tensor.GetShape()[cur] - input2.tileInfo.offset[cur], vecTile[cur]);
-        if (mode ==OutType::BIT && cur == result->shape.size() - 1) {
-            int64_t compressedBlockSize = (vecTile[cur] / 8 >= 1) ? (vecTile[cur] / 8) : 1;
-            resultTileInfo.shape[cur] = std::min(
-                result->shape[cur] - resultTileInfo.offset[cur],
-                compressedBlockSize
-            );
-            i += vecTile[cur] / 8; // compare output 8 bit to 1 byte
+    int64_t step = vecTile[cur];
+
+    if (mode == OutType::BIT && cur == result->shape.size() - 1) {
+        step = vecTile[cur] / NUM_VALUE_8;
+        if (step < 1) step = 1;
+
+        int64_t actualInputStep = step * NUM_VALUE_8;
+
+        for (int i = 0; i < result->shape[cur]; i += step) {
+            resultTileInfo.offset[cur] = i;
+            resultTileInfo.shape[cur] = std::min(result->shape[cur] - i, step);
+
+            input1.tileInfo.offset[cur] = (i * NUM_VALUE_8) % input1.tensor.GetShape()[cur];
+            input1.tileInfo.shape[cur] =
+            std::min(input1.tensor.GetShape()[cur] - input1.tileInfo.offset[cur], actualInputStep);
+            input2.tileInfo.offset[cur] = (i * NUM_VALUE_8) % input2.tensor.GetShape()[cur];
+            input2.tileInfo.shape[cur] =
+            std::min(input2.tensor.GetShape()[cur] - input2.tileInfo.offset[cur], actualInputStep);
+
+            TiledCompareOperationImpl(
+                function, tileShape, cur + 1, input1, input2, result, resultTileInfo, operation, mode);
         }
-        else {
-            i += vecTile[cur];
+    } else {
+        for (int i = 0; i < result->shape[cur]; i += step) {
+            resultTileInfo.offset[cur] = i;
+            resultTileInfo.shape[cur] = std::min(result->shape[cur] - i, step);
+
+            input1.tileInfo.offset[cur] = i % input1.tensor.GetShape()[cur];
+            input1.tileInfo.shape[cur] =
+            std::min(input1.tensor.GetShape()[cur] - input1.tileInfo.offset[cur], step);
+
+            input2.tileInfo.offset[cur] = i % input2.tensor.GetShape()[cur];
+            input2.tileInfo.shape[cur] =
+            std::min(input2.tensor.GetShape()[cur] - input2.tileInfo.offset[cur], step);
+
+            TiledCompareOperationImpl(
+                function, tileShape, cur + 1, input1, input2, result, resultTileInfo, operation, mode);
         }
-        TiledCompareOperationImpl(
-            function, tileShape, cur + 1, input1, input2, result, resultTileInfo, operation, mode);
     }
 }
 
@@ -77,7 +93,7 @@ void TiledCompareOperation(Function &function, const TileShape &tileShape, Logic
     auto broadcastOperand = [&](LogicalTensorPtr &operand, LogicalTensorPtr &other) {
         auto dstShape = result->shape;
         if (mode == OutType::BIT) {
-            dstShape[dstShape.size() - 1] *= 8; // compare output 8 bit to 1 byte
+            dstShape[dstShape.size() - 1] *= NUM_VALUE_8;
         }
         if (operand->shape == dstShape) {
             return;
@@ -187,7 +203,7 @@ void TiledCmpsOperationImpl(Function &function, const TileShape &tileShape, size
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
 
         const int64_t COUNT_MODE_SIZE = 4096;
-        std::vector<int64_t> vcmpBitResultShape({COUNT_MODE_SIZE / (int64_t)BytesOf(input.tensor.GetDataType()) / 8});
+        std::vector<int64_t> vcmpBitResultShape({COUNT_MODE_SIZE / (int64_t)BytesOf(input.tensor.GetDataType()) / NUM_VALUE_8});
         auto vcmpBitResultTensor = std::make_shared<LogicalTensor>(function, DT_UINT8, vcmpBitResultShape);
         std::vector<int64_t> zeroCondShape({COUNT_MODE_SIZE / (int64_t)BytesOf(input.tensor.GetDataType())});
         auto zeroCondTensor = std::make_shared<LogicalTensor>(function, input.tensor.GetDataType(), zeroCondShape);
@@ -207,26 +223,35 @@ void TiledCmpsOperationImpl(Function &function, const TileShape &tileShape, size
     }
 
     auto &vecTile = tileShape.GetVecTile();
-    for (int i = 0; i < result->shape[cur];) {
-        resultTileInfo.offset[cur] = i;
-        resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
+    int64_t step = vecTile[cur];
 
-        input.tileInfo.offset[cur] = i % input.tensor.GetShape()[cur];
-        input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - input.tileInfo.offset[cur], vecTile[cur]);
+    if (mode == OutType::BIT && cur == result->shape.size() - 1) {
+        step = vecTile[cur] / NUM_VALUE_8;
+        if (step < 1) step = 1;
 
-        if (mode ==OutType::BIT && cur == result->shape.size() - 1) {
-            int64_t compressedBlockSize = (vecTile[cur] / 8 >= 1) ? (vecTile[cur] / 8) : 1;
-            resultTileInfo.shape[cur] = std::min(
-                result->shape[cur] - resultTileInfo.offset[cur],
-                compressedBlockSize
-            );
-            i += vecTile[cur] / 8; // compare output 8 bit to 1 byte
+        int64_t actualInputStep = step * NUM_VALUE_8;
+
+        for (int i = 0; i < result->shape[cur]; i += step) {
+            resultTileInfo.offset[cur] = i;
+            resultTileInfo.shape[cur] = std::min(result->shape[cur] - i, step);
+
+            input.tileInfo.offset[cur] = (i * NUM_VALUE_8) % input.tensor.GetShape()[cur];
+            input.tileInfo.shape[cur] =
+            std::min(input.tensor.GetShape()[cur] - input.tileInfo.offset[cur], actualInputStep);
+
+            TiledCmpsOperationImpl(function, tileShape, cur + 1, input, scalar, result, resultTileInfo, operation, mode);
         }
-        else {
-            i += vecTile[cur];
+    } else {
+        for (int i = 0; i < result->shape[cur]; i += step) {
+            resultTileInfo.offset[cur] = i;
+            resultTileInfo.shape[cur] = std::min(result->shape[cur] - i, step);
+
+            input.tileInfo.offset[cur] = i % input.tensor.GetShape()[cur];
+            input.tileInfo.shape[cur] =
+            std::min(input.tensor.GetShape()[cur] - input.tileInfo.offset[cur], step);
+
+            TiledCmpsOperationImpl(function, tileShape, cur + 1, input, scalar, result, resultTileInfo, operation, mode);
         }
-        TiledCmpsOperationImpl(function, tileShape, cur + 1, input, scalar, result, resultTileInfo,
-            operation, mode);
     }
 }
 
