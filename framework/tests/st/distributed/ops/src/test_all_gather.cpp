@@ -118,7 +118,7 @@ void TestDynAllGather(OpTestParam &testParam)
     Tensor barrierDummy(DT_INT32, {1, 1}, "barrierDummy");
     Tensor out(dType, outShape, "out");
 
-    std::vector<int32_t> inPtr = ReadToVector<int32_t>(GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", shape);
+    std::vector<T> inPtr = ReadToVector<T>(GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", shape);
 
     int32_t tileNum1 = 8;
     int32_t tileNum2 = 8;
@@ -131,7 +131,7 @@ void TestDynAllGather(OpTestParam &testParam)
     }
 
     ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<int32_t>(in, inPtr),
+        RawTensorData::CreateTensor<T>(in, inPtr),
         RawTensorData::CreateTensorZero(barrierDummy)
     });
     ProgramData::GetInstance().AppendOutputs({

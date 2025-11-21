@@ -85,7 +85,7 @@ auto GetFunction(const std::string& funcName) -> FuncType
 }
 } // namespace
 
-void TestFrameworkInit(OpTestParam &testParam, HcomTestParam &hcomTestParam)
+void TestFrameworkInit(OpTestParam &testParam, HcomTestParam &hcomTestParam, int &physicalDeviceId)
 {
     // 获取MPI函数指针（类型安全）
     auto mpiInit = GetFunction<MpiInitFunc>("MPI_Init");
@@ -105,13 +105,27 @@ void TestFrameworkInit(OpTestParam &testParam, HcomTestParam &hcomTestParam)
     mpiCommSize(MPI_COMM_WORLD, &testParam.rankSize);
     mpiCommRank(MPI_COMM_WORLD, &testParam.rankId);
 
-    setenv("TILE_FWK_DEVICE_ID", std::to_string(testParam.rankId).c_str(), 1);
-    ALOG_INFO_F("device_%d set stub device id to %s", testParam.rankId, std::to_string(testParam.rankId).c_str());
+    // 获取物理卡id
+    const char* dev_list_str = getenv("TILE_FWK_DEVICE_ID_LIST");
+    if (dev_list_str != nullptr) {
+        std::vector<int> device_list;
+        std::stringstream ss(dev_list_str);
+        std::string id;
+        while (std::getline(ss, id, ',')) {
+            device_list.push_back(std::stoi(id));
+        }
+        ASSERT(testParam.rankId < static_cast<int>(device_list.size()));
+        physicalDeviceId = device_list[testParam.rankId];
+    } else {
+        physicalDeviceId = testParam.rankId;
+    }
 
-    // 设备资源初始化
-    ASSERT(aclInit(NULL) == 0);
-    // 指定集合通信操作使用的设备
-    ASSERT(aclrtSetDevice(testParam.rankId) == 0);
+    // ACL、NPU初始化与绑定
+    ASSERT(aclInit(NULL) == 0);   // 设备资源初始化
+    if (testParam.rankId == 0) {
+        ASSERT(rtSetDevice(physicalDeviceId) == 0);   // 将当前进程绑定到指定的物理NPU
+    }
+    ASSERT(aclrtSetDevice(physicalDeviceId) == 0);   // 指定集合通信操作使用的设备
 
     // 在 rootRank 获取 rootInfo
     hcomTestParam.rootRank = 0;

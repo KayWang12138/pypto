@@ -32,12 +32,11 @@ public:
 
     void SetUp() override
     {   
-        rtSetDevice(GetDeviceIdByEnvVar());
+        Distributed::TestFrameworkInit(testParam, hcomTestParam, physicalDeviceId);
         std::string folderPath = "output/output_" + getTimeStamp() + "_" + std::to_string(getpid());
         setenv("TILE_FWK_OUTPUT_DIR", folderPath.c_str(), 0);
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
         Program::GetInstance().Reset();
-        Distributed::TestFrameworkInit(testParam, hcomTestParam);
     }
 
     void TearDown() override
@@ -58,7 +57,7 @@ protected:
         // 销毁集合通信域
         ASSERT(HcclCommDestroy(hcomTestParam.hcclComm) == 0);
         // 重置设备
-        ASSERT(aclrtResetDevice(testParam.rankId) == 0);
+        ASSERT(aclrtResetDevice(physicalDeviceId) == 0);
         // 设备去初始化
         ASSERT(aclFinalize() == 0);
     }
@@ -66,6 +65,7 @@ protected:
     Distributed::OpTestParam testParam;
     Distributed::HcomTestParam hcomTestParam;
     int32_t timeout = 10;
+    int physicalDeviceId;
 };
 
 TEST_F(DistributedTest, aicpuWaitFlag_single_test_reduce_scatter_int32_32_32_4)

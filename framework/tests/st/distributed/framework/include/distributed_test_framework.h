@@ -28,7 +28,7 @@ struct HcomTestParam {
     HcclRootInfo rootInfo;
 };
 
-void TestFrameworkInit(OpTestParam &testParam, HcomTestParam &hcomTestParam);
+void TestFrameworkInit(OpTestParam &testParam, HcomTestParam &hcomTestParam, int &physicalDeviceId);
 void TestFrameworkDestroy(int32_t timeout);
 std::string getTimeStamp() ;
 

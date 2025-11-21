@@ -203,7 +203,6 @@ void ShmemAllGather(const Tensor &in, const Tensor &barrierDummy, const char *gr
     Shape shmDataShape = {row, col};
     Shape shmSignalShape = {tileCount, 8};
     Shape outShape = {row * rankSize, col};
-
     SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
 
     Tensor shmemData;
@@ -243,8 +242,8 @@ void ShmemReduceScatter(Tensor &in, const char* group, DistReduceType reduceType
 
     SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
 
-    Shape outShape = {rowOut, col};
-    Shape signalShape = {tileCount, 8};
+    Shape shmDataShape = {rowOut, col};
+    Shape shmSignalShape = {tileCount, 8};
     Tensor shmemData;
     Tensor shmemSignal;
     DataType shmemDataType = in.GetDataType();
@@ -253,8 +252,8 @@ void ShmemReduceScatter(Tensor &in, const char* group, DistReduceType reduceType
     }
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
-        shmemData = CreateShmemTensor(rankSize, hcclGroupIndex, shmemDataType, outShape);
-        shmemSignal = CreateShmemTensor(rankSize, hcclGroupIndex, DT_INT32, signalShape);
+        shmemData = CreateShmemTensor(rankSize, hcclGroupIndex, shmemDataType, shmDataShape);
+        shmemSignal = CreateShmemTensor(rankSize, hcclGroupIndex, DT_INT32, shmSignalShape);
     }
     Tensor barrierDummy(DT_INT32, {1, 1}, "barrierDummy");
     LOOP("RS", FunctionType::DYNAMIC_LOOP, dynRankId, LoopRange(0, rankSize, 1)) {
