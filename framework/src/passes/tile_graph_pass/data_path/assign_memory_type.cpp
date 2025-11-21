@@ -29,7 +29,7 @@
 namespace npu::tile_fwk {
 
 Status AssignMemoryType::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(Elements::Operation, "===> Start AssignMemoryType.");
+    APASS_LOG_INFO_F(Elements::Function, "===> Start AssignMemoryType.");
     for (auto &op : function.Operations()) {
         RunOnOperation(op);
     }
@@ -66,7 +66,7 @@ Status AssignMemoryType::RunOnFunction(Function &function) {
     // 插入convert op
     Status insertionStatus = inserter.DoInsertion(function);
     if(insertionStatus != SUCCESS) {return insertionStatus;}
-    APASS_LOG_INFO_F(Elements::Operation, "===> End AssignMemoryType.");
+    APASS_LOG_INFO_F(Elements::Function, "===> End AssignMemoryType.");
     return SUCCESS;
 }
 Status AssignMemoryType::PreCheck(Function &function){
@@ -75,7 +75,7 @@ Status AssignMemoryType::PreCheck(Function &function){
 }
 
 void AssignMemoryType::RunOnOperation(Operation &operation) {
-    APASS_LOG_DEBUG_F(Elements::Operation, "--- AssignMemoryType::RunOnOperation %s[%d] ---",
+    APASS_LOG_DEBUG_F(Elements::Function, "--- AssignMemoryType::RunOnOperation %s[%d] ---",
         operation.GetOpcodeStr().c_str(), operation.GetOpMagic());
     auto opcode = operation.GetOpcode();
     const auto &inputsMemType = OpcodeManager::Inst().GetInputsMemType(opcode);

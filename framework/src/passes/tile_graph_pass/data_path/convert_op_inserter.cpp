@@ -265,12 +265,13 @@ Status ConvertInserter::ConstructPath(MemoryType from, MemoryType to, std::vecto
     PassConfigManager::Instance().GetPlatformConfig().FindNearestPath(from,to,paths);
     if (paths.empty()) {
         //path为空的两种场景:1、from和to内存类型一致；2、from和to不一致，且未找到数据通路。这里处理场景2，报错退出
-        APASS_LOG_ERROR_F(Elements::Operation, "No memory path found from %s to %s for tensor %d in operation %s[%d].",
+        APASS_LOG_ERROR_F(Elements::Operation, "No memory path found from %s to %s for tensor %d in operation %s[%d]. %s",
             BriefMemoryTypeToString(from).c_str(),
             BriefMemoryTypeToString(to).c_str(),
             oOperand->magic,
             op.GetOpcodeStr().c_str(),
-            op.GetOpMagic());
+            op.GetOpMagic(),
+            GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     return SUCCESS;
@@ -421,7 +422,7 @@ Status ConvertInserter::DoInsertion(Function &function) {
     if(status != SUCCESS) { return status; }
     InsertConvertOps(function);
     CheckUnknown(function);
-    APASS_LOG_INFO_F(Elements::Operation, "After Insert Convert, total op Num: %d.",
+    APASS_LOG_INFO_F(Elements::Function, "After Insert Convert, total op Num: %d.",
         function.Operations().size());
     return SUCCESS;
 }

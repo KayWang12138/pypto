@@ -25,25 +25,25 @@ Status MergeViewAssemble::RunOnFunction(Function &function) {
     Status status = Initialize();
     if (status != SUCCESS)
     {
-        APASS_LOG_ERROR_F(Elements::Operation, "MergeViewAssemble initialization failed.");
+        APASS_LOG_ERROR_F(Elements::Function, "MergeViewAssemble initialization failed.");
         return status;
     }
     status = ProcessViewOperations(function);
     if (status != SUCCESS)
     {
-        APASS_LOG_ERROR_F(Elements::Operation, "Processing view operations failed.");
+        APASS_LOG_ERROR_F(Elements::Function, "Processing view operations failed.");
         return status;
     }
     status = ProcessAssembleOperations(function);
     if (status != SUCCESS)
     {
-        APASS_LOG_ERROR_F(Elements::Operation, "Processing assemble operations failed.");
+        APASS_LOG_ERROR_F(Elements::Function, "Processing assemble operations failed.");
         return status;
     }
     status = CleanUp(function);
     if (status != SUCCESS)
     {
-        APASS_LOG_ERROR_F(Elements::Operation, "Cleanup phase failed.");
+        APASS_LOG_ERROR_F(Elements::Function, "Cleanup phase failed.");
         return status;
     }
     return SUCCESS;
@@ -51,7 +51,7 @@ Status MergeViewAssemble::RunOnFunction(Function &function) {
 
 Status MergeViewAssemble::Initialize() {
     visitedOp_.clear();
-    APASS_LOG_INFO_F(Elements::Operation, "===> Start MergeViewAssemble.");
+    APASS_LOG_INFO_F(Elements::Function, "===> Start MergeViewAssemble.");
     viewOpToAppend_.clear();
     assembleOpToAppend_.clear();
     return SUCCESS;
@@ -63,7 +63,11 @@ Status MergeViewAssemble::ProcessViewOperations(Function &function) {
             std::vector<Operation *> chain;
             if (visitedOp_.count(op.opmagic) == 0) {
                 Status status = MergeViewChain(function, op, chain);
-                if (status != SUCCESS) { APASS_LOG_ERROR_F(Elements::Operation, "MergeViewChain failed for operation %d.", op.opmagic); return status; }
+                if (status != SUCCESS) {
+                    APASS_LOG_ERROR_F(Elements::Operation, "MergeViewChain failed for operation %d.%s", op.opmagic,
+                        GetFormatBacktrace(op).c_str());
+                    return status;
+                }
             }
         }
     }
@@ -75,7 +79,11 @@ Status MergeViewAssemble::ProcessAssembleOperations(Function &function) {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE && visitedOp_.count(op.GetOpMagic()) == 0) {
             std::vector<Operation *> chain;
             Status status = MergeAssembleChain(function, op, chain);
-            if (status != SUCCESS) { APASS_LOG_ERROR_F(Elements::Operation, "MergeAssembleChain failed for operation %d.", op.GetOpMagic()); return status; }
+            if (status != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation, "MergeAssembleChain failed for operation %d.%s", op.GetOpMagic(),
+                    GetFormatBacktrace(op).c_str());
+                return status;
+            }
         }
     }
     return AppendMergedAssembleOperations(function);
@@ -86,7 +94,10 @@ Status MergeViewAssemble::AppendMergedViewOperations(Function &function) {
     for (auto &viewOp : viewOpToAppend_) {
         auto attr = std::make_shared<ViewOpAttribute>(viewOp.offset, viewOp.toType, viewOp.dynOffset,
                      viewOp.dynValidShape);
-        if (!attr) { APASS_LOG_ERROR_F(Elements::Operation, "Failed to create ViewOpAttribute."); return FAILED; }
+        if (!attr) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Failed to create ViewOpAttribute.");
+            return FAILED;
+        }
         auto &mergedViewOp = function.AddRawOperation(Opcode::OP_VIEW, {viewOp.input}, {viewOp.output});
         mergedViewOp.SetOpAttribute(attr);
         // 继承op_attr_copy_in_mode属性
@@ -103,7 +114,10 @@ Status MergeViewAssemble::AppendMergedViewOperations(Function &function) {
 Status MergeViewAssemble::AppendMergedAssembleOperations(Function &function) {
     for (auto &assembleOp : assembleOpToAppend_) {
         auto attr = std::make_shared<AssembleOpAttribute>(assembleOp.offset, assembleOp.dynOffset);
-        if (!attr) { APASS_LOG_ERROR_F(Elements::Operation, "Failed to create AssembleOpAttribute."); return FAILED; }
+        if (!attr) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Failed to create AssembleOpAttribute.");
+            return FAILED;
+        }
         auto &mergedAssembleOp = function.AddRawOperation(Opcode::OP_ASSEMBLE, {assembleOp.input}, {assembleOp.output});
         mergedAssembleOp.SetOpAttribute(attr);
     }
@@ -114,12 +128,12 @@ Status MergeViewAssemble::CleanUp(Function &function) {
     Status status = EraseRedundantAssemble(function);
     if (status != SUCCESS)
     {
-        APASS_LOG_ERROR_F(Elements::Operation, "EraseRedundantAssemble failed.");
+        APASS_LOG_ERROR_F(Elements::Function, "EraseRedundantAssemble failed.");
         return status;
     }
     DeadOperationEliminator eliminator;
     eliminator.EliminateDeadOperationBackward(function);
-    APASS_LOG_INFO_F(Elements::Operation, "===> End MergeViewAssemble.");
+    APASS_LOG_INFO_F(Elements::Function, "===> End MergeViewAssemble.");
     return SUCCESS;
 }
 
@@ -137,7 +151,9 @@ Status MergeViewAssemble::MergeViewChain(
     auto consumers = function.FindConsumers(operation);
     bool chainEnd = true;
     Status status = ProcessConsumerChain(function, consumers, chain, chainEnd);
-    if (status != SUCCESS) { return status; }
+    if (status != SUCCESS) {
+        return status;
+    }
 
     // 3. 处理链尾情况
     if (chainEnd && chain.size() > 1) {
@@ -159,15 +175,21 @@ Status MergeViewAssemble::ProcessConsumerChain(
     std::vector<Operation *> &chain,
     bool &chainEnd)
 {
-    if (consumers.empty()) { return SUCCESS; }
-    auto currentViewAttr = dynamic_cast<ViewOpAttribute *>(chain.back()->GetOpAttribute().get());
+    if (consumers.empty()) {
+        return SUCCESS;
+    }
+    Operation *currentOp = chain.back();
+    auto currentViewAttr = dynamic_cast<ViewOpAttribute *>(currentOp->GetOpAttribute().get());
     if (!currentViewAttr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Failed to get current view attribute.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Failed to get current view attribute.%s", GetFormatBacktrace(*currentOp).c_str());
         return FAILED;
     }
     MemoryType currentMemType = currentViewAttr->GetTo();
     for (auto &op : consumers) {
-        if (!op) { APASS_LOG_ERROR_F(Elements::Operation, "Null consumer operation found."); return FAILED; }
+        if (!op) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Null consumer operation found.%s", GetFormatBacktrace(*currentOp).c_str());
+            return FAILED;
+        }
         if (op->GetOpcode() == Opcode::OP_VIEW) {
             auto viewOpAttribute =dynamic_cast<ViewOpAttribute *>(op->GetOpAttribute().get());
             auto memory_to = viewOpAttribute->GetTo();
@@ -190,7 +212,9 @@ Status MergeViewAssemble::ProcessConsumerChain(
             if (canMerge) {
                 chainEnd = false;
                 Status status = MergeViewChain(function, *op, chain);
-                if (status != SUCCESS) { return status; }
+                if (status != SUCCESS) {
+                    return status;
+                }
                 chain.pop_back();
             } else {
                 chainEnd = true;
@@ -205,25 +229,45 @@ Status MergeViewAssemble::ProcessChainEnd(
     std::vector<Operation *> &chain)
 {
     // 1. 验证链的有效性
-    if (chain.front()->iOperand.empty()) { APASS_LOG_ERROR_F(Elements::Operation, "First operation in chain (opmagic: %d) has no input operands.", chain.front()->GetOpMagic()); return FAILED;}
-    if (chain.back()->oOperand.empty()) { APASS_LOG_ERROR_F(Elements::Operation, "Last operation in chain (opmagic: %d) has no output operands.", chain.back()->GetOpMagic()); return FAILED; }
-    auto &startTensor = chain.front()->iOperand.front();
-    auto &endTensor = chain.back()->oOperand.front();
-    if (!startTensor) { APASS_LOG_ERROR_F(Elements::Operation, "Null input tensor found for first operation in chain (opmagic: %d).", chain.front()->GetOpMagic()); return FAILED;}
-    if (!endTensor) { APASS_LOG_ERROR_F(Elements::Operation, "Null output tensor found for last operation in chain (opmagic: %d).", chain.back()->GetOpMagic()); return FAILED; }
+    Operation *startOp = chain.front();
+    Operation *endOp = chain.back();
+    if (startOp->iOperand.empty()) {
+        APASS_LOG_ERROR_F(Elements::Operation, "First operation in chain (opmagic: %d) has no input operands.%s",
+            startOp->GetOpMagic(), GetFormatBacktrace(*startOp).c_str());
+        return FAILED;
+    }
+    if (endOp->oOperand.empty()) {
+        APASS_LOG_ERROR_F(Elements::Operation, "Last operation in chain (opmagic: %d) has no output operands.%s",
+            endOp->GetOpMagic(), GetFormatBacktrace(*endOp).c_str());
+        return FAILED;
+    }
+    auto &startTensor = startOp->iOperand.front();
+    auto &endTensor = endOp->oOperand.front();
+    if (!startTensor) {
+        APASS_LOG_ERROR_F(Elements::Operation, "Null input tensor found for first operation in chain (opmagic: %d).%s",
+            startOp->GetOpMagic(), GetFormatBacktrace(*startOp).c_str());
+        return FAILED;
+    }
+    if (!endTensor) {
+        APASS_LOG_ERROR_F(Elements::Operation, "Null output tensor found for last operation in chain (opmagic: %d).%s",
+            endOp->GetOpMagic(), GetFormatBacktrace(*endOp).c_str());
+        return FAILED;
+    }
     std::vector<int64_t> newOffset;
     std::vector<SymbolicScalar> newDynOffset;
     std::vector<SymbolicScalar> newDynValidShape;
     Status status = CalculateMergedOffsets(chain, newOffset, newDynOffset, newDynValidShape);
-    if (status != SUCCESS) { return status; }
+    if (status != SUCCESS) {
+        return status;
+    }
     // 记录合并操作
-    RecordMergedViewOperation(chain.back(), startTensor, endTensor, newOffset, newDynOffset, newDynValidShape);
+    RecordMergedViewOperation(endOp, startTensor, endTensor, newOffset, newDynOffset, newDynValidShape);
 
     // 清理链尾
-    chain.back()->oOperand.clear();
+    endOp->oOperand.clear();
     function.GetTensorMap().Erase(endTensor);
     APASS_LOG_INFO_F(Elements::Operation, "Successfully processed view chain ending with opmagic: %d, chain size: %zu.", 
-                chain.back()->GetOpMagic(), chain.size());
+                endOp->GetOpMagic(), chain.size());
     return SUCCESS;
 }
 
@@ -231,9 +275,15 @@ Status MergeViewAssemble::CalculateMergedOffsets(const std::vector<Operation *> 
     std::vector<SymbolicScalar> &newDynOffset, std::vector<SymbolicScalar> &newDynValidShape) {
     for (size_t i = 0; i < chain.size(); ++i) {
         const auto &view = chain[i];
-        if (!view) { APASS_LOG_ERROR_F(Elements::Operation, "Null view operation in chain."); return FAILED; }
+        if (!view) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Null view operation in chain.");
+            return FAILED;
+        }
         auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(view->GetOpAttribute().get());
-        if (!viewOpAttribute) { APASS_LOG_ERROR_F(Elements::Operation, "Failed to get ViewOpAttribute."); return FAILED; }
+        if (!viewOpAttribute) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Failed to get ViewOpAttribute.%s", GetFormatBacktrace(*view).c_str());
+            return FAILED;
+        }
         if (i == 0) {
             newOffset = viewOpAttribute->GetFromOffset();
             newDynOffset = viewOpAttribute->GetFromDynOffset();
@@ -263,8 +313,8 @@ void MergeViewAssemble::RecordMergedViewOperation(Operation* lastViewOp, const s
     // 获取最后一个VIEW的属性
     auto* lastViewAttr = dynamic_cast<ViewOpAttribute*>(lastViewOp->GetOpAttribute().get());
     if (!lastViewAttr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Failed to get last ViewOpAttribute for opmagic: %d.", 
-                    lastViewOp->GetOpMagic());
+        APASS_LOG_ERROR_F(Elements::Operation, "Failed to get last ViewOpAttribute for opmagic: %d.%s", 
+                    lastViewOp->GetOpMagic(), GetFormatBacktrace(*lastViewOp).c_str());
         return;
     }
     // 获取特定的 op_attr_copy_in_mode 属性
@@ -286,12 +336,16 @@ Status MergeViewAssemble::MergeAssembleChain(Function &function, Operation &oper
     auto consumers = function.FindConsumers(operation);
     bool chainEnd = consumers.empty();
     Status status = ProcessAssembleConsumers(function, consumers, chain, chainEnd);
-    if (status != SUCCESS) { return status; }
+    if (status != SUCCESS) {
+        return status;
+    }
 
     // 3. 处理链尾情况
     if (chainEnd && chain.size() > 1) {
         status = ProcessAssembleChainEnd(function, chain, operation);
-        if (status != SUCCESS) { return status; }
+        if (status != SUCCESS) {
+            return status;
+        }
     }
 
     chain.pop_back();
@@ -312,13 +366,18 @@ Status MergeViewAssemble::ProcessAssembleConsumers(
     std::vector<Operation *> &chain,
     bool &chainEnd)
 {
-    if (consumers.empty()) { return SUCCESS; }
+    if (consumers.empty()) {
+        return SUCCESS;
+    }
     for (auto &op : consumers) {
-        if (!op) { APASS_LOG_ERROR_F(Elements::Operation, "Null consumer operation found."); return FAILED; }
+        if (!op) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Null consumer operation found.");
+            return FAILED;
+        }
         if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
             Status status = MergeAssembleChain(function, *op, chain);
             if (status != SUCCESS) { 
-                APASS_LOG_ERROR_F(Elements::Operation, "Run MergeAssembleChain failed for operation %d.", op->opmagic);
+                APASS_LOG_ERROR_F(Elements::Operation, "Run MergeAssembleChain failed for operation %d.%s", op->opmagic, GetFormatBacktrace(*op).c_str());
                 return status;
             }
             continue;
@@ -334,10 +393,16 @@ Status MergeViewAssemble::ProcessAssembleChainEnd(
     Operation &operation)
 {
     // 验证链有效性
-    if (chain.front()->iOperand.empty() || chain.back()->oOperand.empty()) { APASS_LOG_ERROR_F(Elements::Operation, "Invalid chain operations."); return FAILED; }
+    if (chain.front()->iOperand.empty() || chain.back()->oOperand.empty()) {
+        APASS_LOG_ERROR_F(Elements::Operation, "Invalid chain operations.");
+        return FAILED;
+    }
     auto &startTensor = chain.front()->iOperand.front();
     auto &endTensor = chain.back()->oOperand.front();
-    if (!startTensor || !endTensor) { APASS_LOG_ERROR_F(Elements::Operation, "Null tensor found in chain."); return FAILED; }
+    if (!startTensor || !endTensor) {
+        APASS_LOG_ERROR_F(Elements::Operation, "Null tensor found in chain.");
+        return FAILED;
+    }
     // 计算合并offset
     auto [newOffset, newDynOffset] = CalculateAssembleOffsets(chain, startTensor->offset.size());
     // 4. 记录并清理
@@ -354,9 +419,15 @@ std::pair<std::vector<int64_t>, std::vector<SymbolicScalar>> MergeViewAssemble::
     std::vector<SymbolicScalar> newDynOffset;
     for (size_t i = 0; i < chain.size(); ++i) {
         const auto &assemble = chain[i];
-        if (!assemble) { APASS_LOG_ERROR_F(Elements::Operation, "Null assemble operation in chain."); return {}; }
+        if (!assemble) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Null assemble operation in chain.");
+            return {};
+        }
         auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(assemble->GetOpAttribute().get());
-        if (!assembleOpAttribute) { APASS_LOG_ERROR_F(Elements::Operation, "Failed to get AssembleOpAttribute."); return {}; }
+        if (!assembleOpAttribute) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Failed to get AssembleOpAttribute.%s", GetFormatBacktrace(*assemble).c_str());
+            return {};
+        }
         if (i == 0) {
             newOffset = assembleOpAttribute->GetToOffset();
             newDynOffset = assembleOpAttribute->GetToDynOffset();
@@ -383,7 +454,10 @@ Status MergeViewAssemble::EraseRedundantAssemble(Function &function) const {
         if (op.GetOpcode() !=  Opcode::OP_ASSEMBLE) {
             continue;
         }
-        if (op.iOperand.empty()) { APASS_LOG_ERROR_F(Elements::Operation, "Assemble operation with no input operands."); return FAILED; }
+        if (op.iOperand.empty()) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Assemble operation with no input operands.%s", GetFormatBacktrace(op).c_str());
+            return FAILED;
+        }
         if (op.iOperand.front()->GetProducers().empty()) {
             redundantAssembles.emplace(&op);
         }

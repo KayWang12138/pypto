@@ -40,7 +40,7 @@ Status PassDependency::CheckStrategyDependency(const std::string &strategyName, 
     std::unordered_set<std::string> processedPasses;
     std::string prePass;
 
-    for (std::string pName : passes) {
+    for (auto &pName : passes) {
         if (!prePass.empty() && prePass == pName) {
             needWarn = true;
             APASS_LOG_WARN_F(Elements::Manager, "Strategy %s has at least two %s in a row; Please make sure all are needed.",
@@ -66,7 +66,8 @@ Status PassDependency::CheckStrategyDependency(const std::string &strategyName, 
         }
         needWarn = true;
         APASS_LOG_WARN_F(Elements::Manager, "In strategy %s, %s is missing dependencies, %s are required; Please insert %s before %s.",
-            strategyName.c_str(), pName.c_str(), CommonUtils::VecToStr(it->second).c_str(), CommonUtils::VecToStr(missingDeps).c_str(), pName.c_str());
+            strategyName.c_str(), pName.c_str(), CommonUtils::VecToStr<std::string>(it->second).c_str(),
+            CommonUtils::VecToStr<std::string>(missingDeps).c_str(), pName.c_str());
     }
     return needWarn ? WARNING: SUCCESS;
 }

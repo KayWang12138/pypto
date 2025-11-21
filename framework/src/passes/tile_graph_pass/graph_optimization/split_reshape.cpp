@@ -67,36 +67,36 @@ bool CheckProducerCopyOut(const LogicalTensorPtr &input) {
 }
 
 Status SplitReshape::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(Elements::Operation, "===> Start SplitReshapeOp.");
+    APASS_LOG_INFO_F(Elements::Function, "===> Start SplitReshapeOp.");
     if (Init() != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Init failed!");
+        APASS_LOG_ERROR_F(Elements::Function, "Init failed!");
         return FAILED;
     }
     if (CollectCopyOut(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "CollectCopyOut failed!");
+        APASS_LOG_ERROR_F(Elements::Function, "CollectCopyOut failed!");
         return FAILED;
     }
     if (CheckCopyIn(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "CheckCopyIn failed!");
+        APASS_LOG_ERROR_F(Elements::Function, "CheckCopyIn failed!");
         return FAILED;
     }
     if (AddOperation(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "AddOperation failed!");
+        APASS_LOG_ERROR_F(Elements::Function, "AddOperation failed!");
         return FAILED;
     }
     if (EraseReshape(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "EraseReshape failed!");
+        APASS_LOG_ERROR_F(Elements::Function, "EraseReshape failed!");
         return FAILED;
     }
     if (EliminateDeadOperation(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "EliminateDeadOperation failed!");
+        APASS_LOG_ERROR_F(Elements::Function, "EliminateDeadOperation failed!");
         return FAILED;
     }
     if (SetMemoryType(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "SetMemoryType failed!");
+        APASS_LOG_ERROR_F(Elements::Function, "SetMemoryType failed!");
         return FAILED;
     }
-    APASS_LOG_INFO_F(Elements::Operation, "===> End SplitReshapeOp.");
+    APASS_LOG_INFO_F(Elements::Function, "===> End SplitReshapeOp.");
     return SUCCESS;
 }
 
@@ -152,7 +152,7 @@ Status SplitReshape::CheckDynStatus(std::vector<int64_t> alignedShape, std::vect
     input.erase(std::remove(input.begin(), input.end(), 1), input.end());
     std::vector<bool> ChangingAxis(alignedShape.size());
     if (ObtainChangingAxis(alignedShape, input, ChangingAxis) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "ObtainChangingAxis failed.");
+        APASS_LOG_ERROR_F(Elements::Tensor, "ObtainChangingAxis failed.");
         return FAILED;
     }
     for (size_t i = 0; i < output.size(); ++i) {
@@ -322,7 +322,8 @@ Status SplitReshape::CollectCopyOut(Function &function) {
             auto input = op.GetIOperands().front();
             auto output = op.GetOOperands().front();
             if (input == nullptr || output == nullptr || output->GetRawTensor() == nullptr) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Invalid reshape op [%d], at least one of input, output or raw tensor of output is nullptr; Please check the input and output of op.", op.opmagic);
+                APASS_LOG_ERROR_F(Elements::Operation, "Invalid reshape op [%d], at least one of input, output or raw tensor of output is nullptr; "
+                    "Please check the input and output of op. %s", op.opmagic, GetFormatBacktrace(op).c_str());
                 return FAILED;
             }
             std::vector<SymbolicScalar> dynOutput;
@@ -338,7 +339,8 @@ Status SplitReshape::CollectCopyOut(Function &function) {
                 continue;
             }
             if (input == nullptr || output == nullptr || input->GetRawTensor() == nullptr || output->GetRawTensor() == nullptr) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Invalid assemble op [%d], at least one of input, output, raw tensor of input, raw tensor of input is nullptr; Please check the input and output of op.", op.opmagic);
+                APASS_LOG_ERROR_F(Elements::Operation, "Invalid assemble op [%d], at least one of input, output, raw tensor of input, raw tensor of input is nullptr; "
+                    "Please check the input and output of op. %s", op.opmagic, GetFormatBacktrace(op).c_str());
                 return FAILED;
             }
             AssembleOutToInput[output->GetRawTensor()->GetRawMagic()].insert(input);
@@ -572,11 +574,11 @@ Status SplitReshape::ObtainCopyOutTile(Function &function, const copyOutTilePara
         ReshapeTilePara CopyOutInfo = {reshapeSource->GetRawTensor()->GetRawShape(), alignedShape, copyOutOffset, copyOutSource->shape};
         Status ret = RawToAlign(CopyOutInfo, newCopyOutTileOffset, newCopyOutTileShape);
         if (ret == WARNING) {
-            APASS_LOG_WARN_F(Elements::Operation, "Found RawToAlign warning case, copyOutInfo is %s.", GetStr(CopyOutInfo).c_str());
+            APASS_LOG_WARN_F(Elements::Tensor, "Found RawToAlign warning case, copyOutInfo is %s.", GetStr(CopyOutInfo).c_str());
             return WARNING;
         }
         if (ret == FAILED) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Run RawToAlign failed, copyOutInfo is %s.", GetStr(CopyOutInfo).c_str());
+            APASS_LOG_ERROR_F(Elements::Tensor, "Run RawToAlign failed, copyOutInfo is %s.", GetStr(CopyOutInfo).c_str());
             return FAILED;
         }
         auto newCopyOutSource = std::make_shared<LogicalTensor>(function, reshapeSource->GetRawTensor(), newCopyOutTileOffset, newCopyOutTileShape);
@@ -602,14 +604,14 @@ Status SplitReshape::ObtainReshapeSource(Function &function, const OpPara &para,
         auto reshapeRawInput = std::make_shared<RawTensor>(overlap->Datatype(),
             overlap->GetRawTensor()->GetRawShape(), overlap->Format());
         if (reshapeRawInput == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Failed to make a shared ptr for raw tensor.");
+            APASS_LOG_ERROR_F(Elements::Tensor, "Failed to make a shared ptr for raw tensor.");
             return FAILED;
         }
         reshapeRawInputs[overlap->GetRawTensor()->GetRawMagic()] = reshapeRawInput;
     }
     newReshapeSource = std::make_shared<LogicalTensor>(function, reshapeRawInputs[overlap->GetRawTensor()->GetRawMagic()], assembleOffset, overlap->shape);
     if (newReshapeSource == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Failed to make a shared ptr for newReshapeSource.");
+        APASS_LOG_ERROR_F(Elements::Tensor, "Failed to make a shared ptr for newReshapeSource.");
         return FAILED;
     }
     newReshapeSource->SetMemoryTypeBoth(reshapeSource->GetMemoryTypeOriginal());
@@ -625,13 +627,14 @@ Status SplitReshape::ProcessPerfectlyMatch(Function &function, Operation &op, co
     OpPara opPara = {overlap, reshapeSource, nullptr, nullptr, {}};
     std::vector<int64_t> assembleOffset = ObtainMapOffset(overlap, reshapeSource);
     if (ObtainReshapeSource(function, opPara, newReshapeSource) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "ObtainReshapeSource failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "ObtainReshapeSource failed. %s", GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
     auto isAddReshapeOp = std::make_shared<ReshapeOp>(newReshapeSource, reshapeOutput);
     if (isAddReshapeOp == nullptr || viewOpAttribute == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Failed to make a shared ptr for isAddReshapeOp or found null view attr for op[%d].", op.opmagic);
+        APASS_LOG_ERROR_F(Elements::Operation, "Failed to make a shared ptr for isAddReshapeOp or found null view attr for op[%d]. %s",
+            op.opmagic, GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     auto existOp = ReshapeOperationExist(isAddReshapeOp);
@@ -641,13 +644,13 @@ Status SplitReshape::ProcessPerfectlyMatch(Function &function, Operation &op, co
         GraphUtils::UpdateViewAttr(function, op);
         if (UpdateDynShape(existOp, existOp->output->offset, para.viewDynShape) != SUCCESS ||
             GroupReshapeOffset(existOp, existOp->output->offset) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "UpdateDynShape or GroupReshapeOffset failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "UpdateDynShape or GroupReshapeOffset failed. %s", GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         return SUCCESS;
     }
     if (AddAssembleOp(overlap->GetMemoryTypeOriginal(), assembleOffset, overlap, newReshapeSource) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "AddAssembleOp failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "AddAssembleOp failed. %s", GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     op.ReplaceInput(reshapeOutput, input);
@@ -655,7 +658,7 @@ Status SplitReshape::ProcessPerfectlyMatch(Function &function, Operation &op, co
     GraphUtils::UpdateViewAttr(function, op);
     if (UpdateDynShape(isAddReshapeOp, reshapeOutput->offset, para.viewDynShape) != SUCCESS ||
         GroupReshapeOffset(isAddReshapeOp, reshapeOutput->offset) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "UpdateDynShape or GroupReshapeOffset failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "UpdateDynShape or GroupReshapeOffset failed. %s", GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     return SUCCESS;
@@ -673,18 +676,19 @@ Status SplitReshape::ProcessOnetoOne(Function &function, Operation &op, const Ca
     std::vector<int64_t> reshapeTileShape;
     std::vector<int64_t> reshapeTileOffset;
     if (AlignToRaw(reshapeInfo, reshapeTileOffset, reshapeTileShape) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "AlignToRaw failed, reshape info is %s", GetStr(reshapeInfo).c_str());
+        APASS_LOG_ERROR_F(Elements::Tensor, "AlignToRaw failed, reshape info is %s.", GetStr(reshapeInfo).c_str());
         return FAILED;
     }
     if (reshapeTileShape != output->shape) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "Shape of output (%s) is different from reshapeTileShape (%s).", GetStr(output->shape), GetStr(reshapeTileShape));
+        APASS_LOG_ERROR_F(Elements::Tensor, "Shape of output (%s) is different from reshapeTileShape (%s).",
+            GetStr(output->shape), GetStr(reshapeTileShape));
         return FAILED;
     }
     if (reshapeRawOutputs.find(overlap->GetRawTensor()->GetRawMagic()) == reshapeRawOutputs.end()) {
         auto reshaperawOutput = std::make_shared<RawTensor>(input->Datatype(),
             inputView->GetRawTensor()->GetRawShape(), inputView->Format());
         if (reshaperawOutput == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Failed to make a shared ptr for reshaperawOutput.");
+            APASS_LOG_ERROR_F(Elements::Tensor, "Failed to make a shared ptr for reshaperawOutput.");
             return FAILED;
         }
         reshapeRawOutputs[overlap->GetRawTensor()->GetRawMagic()] = reshaperawOutput;
@@ -694,7 +698,7 @@ Status SplitReshape::ProcessOnetoOne(Function &function, Operation &op, const Ca
     reshapeOutput->SetMemoryTypeBoth(input->GetMemoryTypeOriginal());
     PerfectlyMatchPara perfectlyMatchPara = {input, output, overlap, reshapeSource, reshapeOutput, para.oriViewDynShape};
     if (ProcessPerfectlyMatch(function, op, perfectlyMatchPara) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "ProcessPerfectlyMatch failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "ProcessPerfectlyMatch failed. %s", GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     return SUCCESS;
@@ -708,13 +712,13 @@ Status SplitReshape::ProcessBeCovered(Function &function, Operation &op, const B
     auto newOffset = para.newOffset;
     auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
     if (viewOpAttribute == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Failed to obtain a shared ptr for viewOpAttribute.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Failed to obtain a shared ptr for viewOpAttribute. %s", GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     LogicalTensorPtr newReshapeSource;
     OpPara checkPara = {overlap, reshapeSource, nullptr, nullptr, {}};
     if (ObtainReshapeSource(function, checkPara, newReshapeSource) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "ObtainReshapeSource failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "ObtainReshapeSource failed. %s", GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     auto isAddReshapeOp = std::make_shared<ReshapeOp>(newReshapeSource, reshapeOutput);
@@ -725,19 +729,19 @@ Status SplitReshape::ProcessBeCovered(Function &function, Operation &op, const B
         op.ReplaceInput(existOp->output, input);
         if (UpdateDynShape(existOp, newOffset, para.viewDynShape) != SUCCESS ||
             GroupReshapeOffset(existOp, newOffset) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "UpdateDynShape or GroupReshapeOffset failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "UpdateDynShape or GroupReshapeOffset failed. %s", GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         return SUCCESS;
     }
     if (AddAssembleOp(overlap->GetMemoryTypeOriginal(), newReshapeSource->offset, overlap, newReshapeSource) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "AddAssembleOp failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "AddAssembleOp failed. %s", GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     op.ReplaceInput(reshapeOutput, input);
     if (UpdateDynShape(isAddReshapeOp, newOffset, para.viewDynShape) != SUCCESS ||
         GroupReshapeOffset(isAddReshapeOp, newOffset) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "UpdateDynShape or GroupReshapeOffset failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "UpdateDynShape or GroupReshapeOffset failed. %s", GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     return SUCCESS;
@@ -751,7 +755,7 @@ Status SplitReshape::CalcTileInfo(const CalcOverlapPara &para, std::vector<int64
     auto newoverlap = para.newOverlaps.front();
     ReshapeTilePara newInfo = {alignedShape, inputView->GetRawTensor()->GetRawShape(), para.newInputViewTileOffset, para.newInputViewTileShape};
     if (AlignToRaw(newInfo, newOffset, newShape) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Failed to compute the tile of the raw input, newInfo is %s.", GetStr(newInfo).c_str());
+        APASS_LOG_ERROR_F(Elements::Tensor, "Failed to compute the tile of the raw input, newInfo is %s.", GetStr(newInfo).c_str());
         return FAILED;
     }
     if (newShape != output->shape) {
@@ -777,7 +781,7 @@ Status SplitReshape::ProcessOnetoMulti(Function &function, Operation &op, const 
     std::vector<int64_t> reshapeTileShape;
     std::vector<int64_t> reshapeTileOffset;
     if (CalcTileInfo(para, newShape, newOffset, reshapeTileShape, reshapeTileOffset)) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Process CalcTileInfo failed for view op[%d].", op.GetOpMagic());
+        APASS_LOG_ERROR_F(Elements::Operation, "Process CalcTileInfo failed for view op[%d]. %s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     if (reshapeTileOffset.size() == 0 && reshapeTileShape.size() == 0) {
@@ -788,7 +792,7 @@ Status SplitReshape::ProcessOnetoMulti(Function &function, Operation &op, const 
         auto reshaperawOutput = std::make_shared<RawTensor>(input->Datatype(),
             inputView->GetRawTensor()->GetRawShape(), inputView->Format());
         if (reshaperawOutput == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Failed to make a rawtensor ptr for reshapeRawOutput.");
+            APASS_LOG_ERROR_F(Elements::Tensor, "Failed to make a rawtensor ptr for reshapeRawOutput.");
             return FAILED;
         }
         reshapeRawOutputs[overlap->GetRawTensor()->GetRawMagic()] = reshaperawOutput;
@@ -797,7 +801,7 @@ Status SplitReshape::ProcessOnetoMulti(Function &function, Operation &op, const 
     reshapeOutput->SetMemoryTypeBoth(input->GetMemoryTypeOriginal());
     BeCoveredPara beCoveredPara = {overlap, input, reshapeOutput, para.reshapeSource, newOffset, para.oriViewDynShape};
     if (ProcessBeCovered(function, op, beCoveredPara) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Process ProcessBeCovered failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Process ProcessBeCovered failed. %s", GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     return SUCCESS;
@@ -811,14 +815,15 @@ Status SplitReshape::ProcessPerfectlyMatchWithAll(Function &function, Operation 
     auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
     auto isAddReshapeOp = std::make_shared<ReshapeOp>(newReshapeSource, reshapeOutput);
     if (isAddReshapeOp == nullptr || viewOpAttribute == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Failed to create isAddReshapeOp or viewOpAttribute; Please make sure newReshapeSource, reshapeOutput are valid and op has attribute.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Failed to create isAddReshapeOp or viewOpAttribute; Please make sure newReshapeSource, "
+            "reshapeOutput are valid and op has attribute. %s", GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     auto existOp = ReshapeOperationExist(isAddReshapeOp);
     if (existOp != nullptr) {
         if (UpdateDynShape(existOp, existOp->output->offset, para.viewDynShape) != SUCCESS ||
             GroupReshapeOffset(existOp, existOp->output->offset) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Failed to UpdateDynShape or GroupReshapeOffset for existOp.");
+            APASS_LOG_ERROR_F(Elements::Operation, "Failed to UpdateDynShape or GroupReshapeOffset for existOp. %s", GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         op.ReplaceInput(existOp->output, input);
@@ -831,7 +836,7 @@ Status SplitReshape::ProcessPerfectlyMatchWithAll(Function &function, Operation 
     GraphUtils::UpdateViewAttr(function, op);
     if (UpdateDynShape(isAddReshapeOp, reshapeOutput->offset, para.viewDynShape) != SUCCESS ||
         GroupReshapeOffset(isAddReshapeOp, reshapeOutput->offset) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Failed to UpdateDynShape or GroupReshapeOffset for isAddReshapeOp.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Failed to UpdateDynShape or GroupReshapeOffset for isAddReshapeOp. %s", GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     return SUCCESS;
@@ -850,14 +855,14 @@ Status SplitReshape::UpdateForPerfectlyMatchWithAll(Function &function, Operatio
         auto reshapeRawInput = std::make_shared<RawTensor>(tensor->Datatype(),
             tensor->GetRawTensor()->GetRawShape(), tensor->Format());
         if (reshapeRawInput == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Failed to make a rawtensor ptr for reshapeRawInput.");
+            APASS_LOG_ERROR_F(Elements::Tensor, "Failed to make a rawtensor ptr for reshapeRawInput.");
             return FAILED;
         }
         reshapeRawInputs[overlaps.front()->GetRawTensor()->GetRawMagic()] = reshapeRawInput;
     }
     auto newReshapeSource = std::make_shared<LogicalTensor>(function, reshapeRawInputs[overlaps.front()->GetRawTensor()->GetRawMagic()], newReshapeSourceTileOffset, newReshapeSourceTileShape);
     if (newReshapeSource == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Failed to make a newReshapeSource ptr.");
+        APASS_LOG_ERROR_F(Elements::Tensor, "Failed to make a newReshapeSource ptr.");
         return FAILED;
     }
     newReshapeSource->SetMemoryTypeBoth(reshapeSource->GetMemoryTypeOriginal());
@@ -865,14 +870,14 @@ Status SplitReshape::UpdateForPerfectlyMatchWithAll(Function &function, Operatio
         auto reshaperawOutput = std::make_shared<RawTensor>(input->Datatype(),
             inputView->GetRawTensor()->GetRawShape(), inputView->Format());
         if (reshaperawOutput == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Failed to make a rawtensor ptr for reshaperawOutput.");
+            APASS_LOG_ERROR_F(Elements::Tensor, "Failed to make a rawtensor ptr for reshaperawOutput.");
             return FAILED;
         }
         reshapeRawOutputs[overlaps.front()->GetRawTensor()->GetRawMagic()] = reshaperawOutput;
     }
     auto reshapeOutput = std::make_shared<LogicalTensor>(function, reshapeRawOutputs[overlaps.front()->GetRawTensor()->GetRawMagic()], inputView->offset, inputView->shape);
     if (reshapeOutput == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Failed to make a reshapeOutput ptr.");
+        APASS_LOG_ERROR_F(Elements::Tensor, "Failed to make a reshapeOutput ptr.");
         return FAILED;
     }
     reshapeOutput->UpdateOffset(inputView->GetTensorOffset());
@@ -880,13 +885,13 @@ Status SplitReshape::UpdateForPerfectlyMatchWithAll(Function &function, Operatio
     for (auto &overlap : overlaps) {
         std::vector<int64_t> overlapOffset = ObtainMapOffset(overlap, reshapeSource);
         if (AddAssembleOp(overlap->GetMemoryTypeOriginal(), overlapOffset, overlap, newReshapeSource) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "AddAssembleOp failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "AddAssembleOp failed. %s", GetFormatBacktrace(op).c_str());
             return FAILED;
         }
     }
     PerfectlyMatchWithAllPara perfectlyMatchwithAllPara = {input, output, overlaps.front(), reshapeOutput, newReshapeSource, para.oriViewDynShape};
     if (ProcessPerfectlyMatchWithAll(function, op, perfectlyMatchwithAllPara) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Process ProcessPerfectlyMatchWithAll failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Process ProcessPerfectlyMatchWithAll failed. %s", GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     return SUCCESS;
@@ -901,7 +906,7 @@ Status SplitReshape::ProcessMultitoOne(Function &function, Operation &op, const 
     std::vector<int64_t> newReshapeSourceTileOffset;
     ReshapeTilePara newInfo = {alignedShape, reshapeSource->GetRawTensor()->GetRawShape(), newInputViewTileOffset, newInputViewTileShape};
     if (AlignToRaw(newInfo, newReshapeSourceTileOffset, newReshapeSourceTileShape) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Failed to compute the tile of the raw input of reshapeSource, newInfo is %s.", GetStr(newInfo).c_str());
+        APASS_LOG_ERROR_F(Elements::Tensor, "Failed to compute the tile of the raw input of reshapeSource, newInfo is %s.", GetStr(newInfo).c_str());
         return FAILED;
     }
     // reshape前的tile无法assemble表达成一个tile时需要先reshape成alignshape然后再assemble成dstshape
@@ -911,7 +916,7 @@ Status SplitReshape::ProcessMultitoOne(Function &function, Operation &op, const 
     }
     ReshapeSourcePara sourcePara = {newReshapeSourceTileShape, newReshapeSourceTileOffset};
     if (UpdateForPerfectlyMatchWithAll(function, op, para, sourcePara) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Process ProcessMultitoOne failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Process ProcessMultitoOne failed. %s", GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     return SUCCESS;
@@ -920,21 +925,21 @@ Status SplitReshape::ProcessMultitoOne(Function &function, Operation &op, const 
 Status SplitReshape::UpdateReshapeOp(Function &function, Operation &op, const OverlapStatus &status, const CalcOverlapPara &calcpara) {
     if (status == OverlapStatus::PERFECTLY_MATCH) {
         if (ProcessOnetoOne(function, op, calcpara) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Process ProcessOnetoOne of view[%d] failed.", op.GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "Process ProcessOnetoOne of view[%d] failed. %s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         return SUCCESS;
     }
     if (status == OverlapStatus::BE_COVERED) {
         if (ProcessOnetoMulti(function, op, calcpara) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Process ProcessOnetoMulti of view[%d] failed.", op.GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "Process ProcessOnetoMulti of view[%d] failed. %s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         return SUCCESS;
     }
     if (status == OverlapStatus::PERFECTLY_MATCH_WITH_ALL) {
         if (ProcessMultitoOne(function, op, calcpara) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Process ProcessMultitoOne of view[%d] failed.", op.GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "Process ProcessMultitoOne of view[%d] failed. %s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         return SUCCESS;
@@ -957,33 +962,37 @@ Status SplitReshape::CheckValidOp(const CheckParam &para, CheckOutputParam &chec
     }
     checkOutputParam.reshapeSource = reshapeSources[input->GetRawTensor()->GetRawMagic()];
     if (!CheckSameRawInput(checkOutputParam.reshapeSource)) {
-        APASS_LOG_WARN_F(Elements::Operation, "Found assembling block from different raw tensor.");
+        APASS_LOG_WARN_F(Elements::Tensor, "Found assembling block from different raw tensor.");
         return WARNING;
     }
     if (ShapeAlign(checkOutputParam.reshapeSource->GetRawTensor()->GetRawShape(), input->GetRawTensor()->GetRawShape(), checkOutputParam.alignedShape) == WARNING) {
-        APASS_LOG_WARN_F(Elements::Operation, "Can not construct align for rawshape.");
+        APASS_LOG_WARN_F(Elements::Tensor, "Can not construct align for rawshape.");
         return WARNING;
     }
     Status dynStatus = CheckDynStatus(checkOutputParam.alignedShape,
      checkOutputParam.reshapeSource->GetRawTensor()->GetRawShape(), input->GetRawTensor()->GetRawShape(),
      reshapeDynOutput[input->GetRawTensor()->GetRawMagic()]);
     if (dynStatus == WARNING) {
-        APASS_LOG_WARN_F(Elements::Operation, "Undetermined variable in the changing axis, input is %s, output is %s, dynOutput is %s.", GetStr(checkOutputParam.reshapeSource->GetRawTensor()->GetRawShape()).c_str(), GetStr(input->GetRawTensor()->GetRawShape()).c_str(), GetStr(reshapeDynOutput[input->GetRawTensor()->GetRawMagic()]).c_str());
+        APASS_LOG_WARN_F(Elements::Tensor, "Undetermined variable in the changing axis, input is %s, output is %s, dynOutput is %s.",
+            GetStr(checkOutputParam.reshapeSource->GetRawTensor()->GetRawShape()).c_str(), GetStr(input->GetRawTensor()->GetRawShape()).c_str(),
+            GetStr(reshapeDynOutput[input->GetRawTensor()->GetRawMagic()]).c_str());
         return WARNING;
     }
     if (dynStatus == FAILED) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Illegal dynamic info for the reshape op, input is %s, output is %s, dynOutput is %s", GetStr(checkOutputParam.reshapeSource->GetRawTensor()->GetRawShape()).c_str(), GetStr(input->GetRawTensor()->GetRawShape()).c_str(), GetStr(reshapeDynOutput[input->GetRawTensor()->GetRawMagic()]).c_str());
+        APASS_LOG_ERROR_F(Elements::Tensor, "Illegal dynamic info for the reshape op, input is %s, output is %s, dynOutput is %s.",
+            GetStr(checkOutputParam.reshapeSource->GetRawTensor()->GetRawShape()).c_str(), GetStr(input->GetRawTensor()->GetRawShape()).c_str(),
+            GetStr(reshapeDynOutput[input->GetRawTensor()->GetRawMagic()]).c_str());
         return FAILED;
     }
     checkOutputParam.curViewDynShape = GetViewValidShape(reshapeDynOutput[input->GetRawTensor()->GetRawMagic()], inputView->offset, {}, inputView->shape);
     ReshapeTilePara reshapeInfo = {inputView->GetRawTensor()->GetRawShape(), checkOutputParam.alignedShape, inputView->offset, inputView->shape};
     Status alignRet = RawToAlign(reshapeInfo, checkOutputParam.newInputViewTileOffset, checkOutputParam.newInputViewTileShape);
     if (alignRet == WARNING) {
-        APASS_LOG_WARN_F(Elements::Operation, "Cannot process the cond, reshapeInfo is %s.", GetStr(reshapeInfo).c_str());
+        APASS_LOG_WARN_F(Elements::Tensor, "Cannot process the cond, reshapeInfo is %s.", GetStr(reshapeInfo).c_str());
         return WARNING;
     }
     if (alignRet == FAILED) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Process RawToAlign failed, reshapeInfo is %s.", GetStr(reshapeInfo).c_str());
+        APASS_LOG_ERROR_F(Elements::Tensor, "Process RawToAlign failed, reshapeInfo is %s.", GetStr(reshapeInfo).c_str());
         return FAILED;
     }
     return SUCCESS;
@@ -995,12 +1004,13 @@ Status SplitReshape::CheckOp(Function &function, Operation &op) {
     auto input = op.GetIOperands().front();
     auto output = op.GetOOperands().front();
     if (input == nullptr || output == nullptr || input->GetRawTensor() == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Invalid op [%d], at least one of input, output or raw tensor of input is nullptr; Please check the input and output of op.", op.GetOpMagic());
+        APASS_LOG_ERROR_F(Elements::Operation, "Invalid op [%d], at least one of input, output or raw tensor of input is nullptr; "
+            "Please check the input and output of op. %s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
     if (viewOpAttribute == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Failed to obtain a view attr for op[%d].", op.opmagic);
+        APASS_LOG_ERROR_F(Elements::Operation, "Failed to obtain a view attr for op[%d]. %s", op.opmagic, GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     auto inputView = std::make_shared<LogicalTensor>(function, input->GetRawTensor(), viewOpAttribute->GetFrom(), output->shape);
@@ -1012,7 +1022,7 @@ Status SplitReshape::CheckOp(Function &function, Operation &op) {
         return SUCCESS;
     }
     if (checkRet == FAILED) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Failed to CheckValidOp for op[%d].", op.GetOpMagic());
+        APASS_LOG_ERROR_F(Elements::Operation, "Failed to CheckValidOp for op[%d]. %s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     auto newInputView = std::make_shared<LogicalTensor>(function, inputView->GetRawTensor(), checkOutputParam.newInputViewTileOffset, checkOutputParam.newInputViewTileShape);
@@ -1023,7 +1033,7 @@ Status SplitReshape::CheckOp(Function &function, Operation &op) {
         return SUCCESS;
     }
     if (ret == FAILED) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Process ObtainCopyOutTile failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Process ObtainCopyOutTile failed. %s", GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     auto status = CalcOverlap(newInputView, newOverlaps, true);
@@ -1031,7 +1041,7 @@ Status SplitReshape::CheckOp(Function &function, Operation &op) {
                                 checkOutputParam.newInputViewTileOffset, checkOutputParam.newInputViewTileShape,
                                 checkOutputParam.curViewDynShape, overlaps, newOverlaps, input, inputView, output};
     if (UpdateReshapeOp(function, op, status, calcpara) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Process UpdateReshapeOp failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Process UpdateReshapeOp failed. %s", GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     return SUCCESS;
@@ -1043,7 +1053,7 @@ Status SplitReshape::CheckCopyIn(Function &function) {
             continue;
         }
         if (CheckOp(function, op) == FAILED) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Run CheckOp failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "Run CheckOp failed. %s", GetFormatBacktrace(op).c_str());
             return FAILED;
         }
     }
@@ -1053,7 +1063,7 @@ Status SplitReshape::CheckCopyIn(Function &function) {
 Status SplitReshape::GetAssembleDynShape(const LogicalTensorPtr &input, const LogicalTensorPtr &output, const std::vector<int64_t> &toOffset, std::vector<SymbolicScalar> &dynValidShape) {
     auto iter = reshapeOffset.find(output);
     if (iter == reshapeOffset.end()) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Cannot find output from reshapeOffset.");
+        APASS_LOG_ERROR_F(Elements::Tensor, "Cannot find output from reshapeOffset.");
         return FAILED;
     }
     auto upperleftIdx = iter->second;
@@ -1110,7 +1120,8 @@ Status SplitReshape::GetReshapeDynShape(const std::shared_ptr<ReshapeOp> &op, st
             Clear(validShape.size(), upperleftIdx);
         }
         if (dynValidShape.size() != validShape.size() || upperleftIdx.size() != validShape.size()) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "Incorrect size, dynValidShape is %s, validShape is %s, upperleftIdx is %s.", GetStr(dynValidShape).c_str(), GetStr(validShape).c_str(), GetStr(upperleftIdx).c_str());
+            APASS_LOG_ERROR_F(Elements::Tensor, "Incorrect size, dynValidShape is %s, validShape is %s, upperleftIdx is %s.",
+                GetStr(dynValidShape).c_str(), GetStr(validShape).c_str(), GetStr(upperleftIdx).c_str());
             return FAILED;
         }
         for (size_t i = 0; i < validShape.size(); ++i) {
@@ -1167,7 +1178,7 @@ Status SplitReshape::EraseReshape(Function &function) {
         }
         auto output=op.oOperand.front();
         if (output == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Found null oOperand ptr for op[%d].", op.opmagic);
+            APASS_LOG_ERROR_F(Elements::Operation, "Found null oOperand ptr for op[%d]. %s", op.opmagic, GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         if (output->nodetype == NodeType::LOCAL && output->GetConsumers().empty()) {
@@ -1182,7 +1193,7 @@ Status SplitReshape::EraseReshape(Function &function) {
         }
         auto output = op.oOperand.front();
         if (output == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Found null oOperand ptr for op[%d].", op.opmagic);
+            APASS_LOG_ERROR_F(Elements::Operation, "Found null oOperand ptr for op[%d]. %s", op.opmagic, GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         if (output->nodetype == NodeType::LOCAL && output->GetConsumers().empty()) {

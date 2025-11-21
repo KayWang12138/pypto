@@ -492,6 +492,18 @@ public:
 
 class CommonUtils {
 public:
-    static std::string VecToStr(const std::vector<std::string> &vec);
+    template <typename T>
+    static std::string VecToStr(const std::vector<T> &vec, const std::string &delimiter = ", ") {
+        if (vec.empty()) {
+            return "";
+        }
+        std::ostringstream oss;
+        oss << "{" << vec[0];
+        for (size_t i = 1; i < vec.size(); ++i) {
+            oss << delimiter << vec[i];
+        }
+        oss << "}";
+        return oss.str();
+    }
 };
 }

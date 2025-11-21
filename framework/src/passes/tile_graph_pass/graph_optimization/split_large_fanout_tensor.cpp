@@ -21,17 +21,17 @@
 
 namespace npu::tile_fwk {
 Status SplitLargeFanoutTensor::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(Elements::Operation, "===> Start SplitLargeFanoutTensor.");
+    APASS_LOG_INFO_F(Elements::Function, "===> Start SplitLargeFanoutTensor.");
     CollectLargeTensor(function);
     SplitLargeTensor(function);
     EraseRedundantAssembleOp(function);
     EraseRedundantViewOp(function);
     if (DeadOperationEliminator::EliminateDeadOperation(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Eliminate dead operation failed "
+        APASS_LOG_ERROR_F(Elements::Function, "Eliminate dead operation failed "
             "in general DeadOperation Eliminator; Please check abnormal unused operations and error messages (if any) above.");
         return FAILED;
     }
-    APASS_LOG_INFO_F(Elements::Operation, "===> End SplitLargeFanoutTensor.");
+    APASS_LOG_INFO_F(Elements::Function, "===> End SplitLargeFanoutTensor.");
     return SUCCESS;
 }
 
@@ -355,7 +355,7 @@ void SplitLargeFanoutTensor::CollectLargeTensorFromInfo(const LogicalTensorPtr &
 
 // 遍历所有的tensor, 对前序为Assemble后序为View的大Tensor进行拆分
 void SplitLargeFanoutTensor::CollectLargeTensor(Function &function) {
-    APASS_LOG_INFO_F(Elements::Tensor, "---> CollectLargeTensor.");
+    APASS_LOG_INFO_F(Elements::Function, "---> CollectLargeTensor.");
     auto &tensorMap = function.GetTensorMap().tensorMap_;
     for (const auto &tMap : tensorMap) {
         for (auto &logicalTensor : tMap.second) {
@@ -504,7 +504,8 @@ void SplitLargeFanoutTensor::EraseRedundantAssembleOp(Function &function) {
         auto input = op.iOperand.front();
         if ((input == nullptr) || (output == nullptr)) {
             APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has nullptr input/output; "
-                "Please ensure input and output are valid.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+                "Please ensure input and output are valid. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(),
+                GetFormatBacktrace(op).c_str());
             continue;
         }
         if (!function.IsFromOutCast(output) && output->GetConsumers().empty()) {

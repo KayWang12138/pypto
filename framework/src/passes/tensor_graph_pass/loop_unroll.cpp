@@ -69,20 +69,20 @@ Status LoopUnroll::AddNewOperation(Operation *localOp,
         std::unordered_map<Operation *, std::vector<int64_t>> opDynShapeMap) {
     LogicalTensors globalIOperands;
     if (MapLocalTensorToGlobal(localOp->GetIOperands(), globalIOperands, tensorLocal2Global) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] input MapLocalTensorToGlobal failed.", localOp->GetOpcodeStr().c_str(),
-            localOp->GetOpMagic());
+        APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] input MapLocalTensorToGlobal failed.%s", localOp->GetOpcodeStr().c_str(),
+            localOp->GetOpMagic(), GetFormatBacktrace(*localOp).c_str());
         return FAILED;
     }
     LogicalTensors globalOOperands;
     if (MapLocalTensorToGlobal(localOp->GetOOperands(), globalOOperands, tensorLocal2Global) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] output MapLocalTensorToGlobal failed.", localOp->GetOpcodeStr().c_str(),
-            localOp->GetOpMagic());
+        APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] output MapLocalTensorToGlobal failed.%s", localOp->GetOpcodeStr().c_str(),
+            localOp->GetOpMagic(), GetFormatBacktrace(*localOp).c_str());
         return FAILED;
     }
     Operation &cloneOp = localOp->CloneOperation(*topFunction_, globalIOperands, globalOOperands);
     // 更新op属性
     if (UpdateCloneOpAttributes(localOp, &cloneOp, opDynOffsetMap, opDynShapeMap) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "UpdateCloneOpAttributes failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "UpdateCloneOpAttributes failed.%s", GetFormatBacktrace(*localOp).c_str());
         return FAILED;
     }
 
@@ -97,7 +97,7 @@ Status LoopUnroll::UpdateCloneOpAttributes(Operation *localOp, Operation *cloneO
     // 更新shape相关属性
     if (opDynShapeMap.find(localOp) != opDynShapeMap.end()) {
         if (opDynShapeMap[localOp].empty()) {
-            APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] cannot find dynShape.", localOp->GetOpcodeStr().c_str(), localOp->GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] cannot find dynShape.%s", localOp->GetOpcodeStr().c_str(), localOp->GetOpMagic(), GetFormatBacktrace(*localOp).c_str());
             return FAILED;
         }
         auto staticSymbolicValidShape = ConvertToSymbolicScalar(opDynShapeMap[localOp]);
@@ -120,7 +120,7 @@ Status LoopUnroll::UpdateCloneOpAttributes(Operation *localOp, Operation *cloneO
     // 更新offset
     if (opDynOffsetMap.find(localOp) != opDynOffsetMap.end()) {
         if (opDynOffsetMap[localOp].empty()) {
-            APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] cannot find dynOffset.", localOp->GetOpcodeStr().c_str(), localOp->GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] cannot find dynOffset.%s", localOp->GetOpcodeStr().c_str(), localOp->GetOpMagic(), GetFormatBacktrace(*localOp).c_str());
             return FAILED;
         }
         auto staticSymbolicOffset = ConvertToSymbolicScalar(opDynOffsetMap[localOp]);
@@ -282,11 +282,11 @@ Status LoopUnroll::ExpandDynamicFunction(Operation *callop) {
         for (auto &op : currFunction->Operations()) {
             EvaluateDynamicOpParams(&op, *evaluateSymbol_, opDynOffsetMap, opDynShapeMap);
             if (CreateGlobalTensor(opDynOffsetMap, tensorLocal2Global, &op, currFunction) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] CreateGlobalTensor failed.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+                APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] CreateGlobalTensor failed.%s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
                 return FAILED;
             }
             if (AddNewOperation(&op, tensorLocal2Global, opDynOffsetMap, opDynShapeMap) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] AddNewOperation failed.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+                APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] AddNewOperation failed.%s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
                 return FAILED;
             }
         }

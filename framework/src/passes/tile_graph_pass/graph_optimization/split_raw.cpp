@@ -172,9 +172,9 @@ void SplitRawTensor::SplitRaw(Function &function) const {
 }
 
 Status SplitRawTensor::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(Elements::Operation, "===> Start SplitRaw.");
+    APASS_LOG_INFO_F(Elements::Function, "===> Start SplitRaw.");
     SplitRaw(function);
-    APASS_LOG_INFO_F(Elements::Operation, "===> End SplitRaw.");
+    APASS_LOG_INFO_F(Elements::Function, "===> End SplitRaw.");
     return SUCCESS;
 }
 } // namespace tile_fwk

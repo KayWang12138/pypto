@@ -983,21 +983,21 @@ Status Allocator::UpdateIncastOutCast() {
         }
         auto callAttr = dynamic_cast<CallOpAttribute *>(callOp.GetOpAttribute().get());
         if (callAttr == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Op %d callAttr is nullptr.", callOp.opmagic);
+            APASS_LOG_ERROR_F(Elements::Operation, "Op %d callAttr is nullptr.%s", callOp.opmagic, GetFormatBacktrace(callOp).c_str());
             return FAILED;
         }
         auto &incasts = callAttr->invokeInfo_->incastTensorParamList_;
         auto &outcasts = callAttr->invokeInfo_->outcastTensorParamList_;
         if (incasts.size() > callOp.iOperand.size()) {
             APASS_LOG_ERROR_F(Elements::Operation,
-                              "Op incasts.size:%ld, is larger than iOperand.size:%ld, opCode:%d.", incasts.size(),
-                              callOp.iOperand.size(), callOp.GetOpcode());
+                              "Op incasts.size:%ld, is larger than iOperand.size:%ld, opCode:%d.%s", incasts.size(),
+                              callOp.iOperand.size(), callOp.GetOpcode(), GetFormatBacktrace(callOp).c_str());
             return FAILED;
         }
         if (outcasts.size() > callOp.oOperand.size()) {
             APASS_LOG_ERROR_F(Elements::Operation,
-                              "Op incasts.size:%ld, is larger than iOperand.size:%ld, opCode:%d.", incasts.size(),
-                              callOp.iOperand.size(), callOp.GetOpcode());
+                              "Op incasts.size:%ld, is larger than iOperand.size:%ld, opCode:%d.%s", incasts.size(),
+                              callOp.iOperand.size(), callOp.GetOpcode(), GetFormatBacktrace(callOp).c_str());
             return FAILED;
         }
         for (size_t i = 0; i < incasts.size(); ++i) {
