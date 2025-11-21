@@ -52,6 +52,7 @@ void TiledAssemble(Function &function, const TileShape &tileShape, size_t cur, I
         return;
     }
     auto &vecTile = tileShape.GetVecTile();
+    ASSERT(vecTile.size() >= input.tensor.GetShape().size());
     for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
         input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
         input.tileInfo.offset[cur] = i;
@@ -274,6 +275,7 @@ void TiledInnerRegisterCopy(const int dimIdx, Function &function, const TileShap
         return;
     }
     auto &vecTile = tileShape.GetVecTile();
+    ASSERT(vecTile.size() >= result->GetShape().size());
     for (auto i = 0; i < result->GetShape()[dimIdx]; i += vecTile[dimIdx]) {
         actTileShape[dimIdx] = std::min(result->GetShape()[dimIdx] - i, vecTile[dimIdx]);
         actOffset[dimIdx] = i;
@@ -1079,6 +1081,7 @@ void TiledInnerAssemble(Function &function, const TileShape &tileShape, size_t c
         return;
     }
     const auto &vecTile = tileShape.GetVecTile();
+    ASSERT(vecTile.size() >= src->shape.size());
     for (auto i = 0; i < src->shape[cur]; i += vecTile[cur]) {
         tileInfo.offset[cur] = i;
         tileInfo.shape[cur] = std::min(src->shape[cur] - tileInfo.offset[cur], vecTile[cur]);
