@@ -474,8 +474,8 @@ void OoOScheduler::FindFilterLtags(IssueEntryPtr allocIssue, std::set<IssueEntry
 bool OoOScheduler::IsBelongSpillBlackList(IssueEntryPtr spillIssue, IssueEntryPtr issue) {
     std::set<IssueEntryPtr> filterLtags;
     FindFilterLtags(issue, filterLtags);
-    if (spillIssue->isAlloc || spillIssue->tileOp.GetOpcode() == Opcode::OP_VIEW ||
-        spillIssue->tileOp.GetOpcode() == Opcode::OP_ASSEMBLE || filterLtags.count(spillIssue) != 0) {
+    if (spillIssue->isAlloc || spillIssue->tileOp.GetOpcode() == Opcode::OP_ASSEMBLE ||
+        filterLtags.count(spillIssue) != 0) {
         return true;
     }
     return false;

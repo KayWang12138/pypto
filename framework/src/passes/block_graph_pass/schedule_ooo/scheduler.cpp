@@ -35,6 +35,14 @@ IssueEntry::IssueEntry(Operation &op, uint64_t issueId)
     if (tileOp.GetOpcodeStr().find("ALLOC") != std::string::npos) {
         isAlloc = true;
     }
+    for (auto iOperand : op.GetIOperands()) {
+        for (auto pre : iOperand->GetProducers()) {
+            if (pre->GetOpcode() == Opcode::OP_VIEW &&
+                pre->GetOutputOperand(0)->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+                viewOps.push_back(pre);
+            }
+        }
+    }
 }
 
 int IssueEntry::GetOOperandIdx(int curMemId) {
@@ -55,10 +63,29 @@ void IssueEntry::Clear() {
 
 void IssueEntry::UpdateTensorInput(std::shared_ptr<IssueEntry> &spillSrcIssue, LogicalTensorPtr tensor) const {
     for (size_t index = 0; index < tileOp.GetIOperands().size(); index++) {
-        for (auto &inOp : tileOp.GetIOperands()[index]->GetProducers()) {
-            if (inOp == &(spillSrcIssue->tileOp)) {
-                tileOp.UpdateInputOperand(index, tensor);
-            }
+        UpdateTensorInputForOperand(index, spillSrcIssue, tensor);
+    }
+}
+
+void IssueEntry::UpdateTensorInputForOperand(size_t index, std::shared_ptr<IssueEntry> &spillSrcIssue,
+    LogicalTensorPtr tensor) const {
+    for (auto &inOp : tileOp.GetIOperands()[index]->GetProducers()) {
+        if (inOp->GetOpcode() == Opcode::OP_VIEW) {
+            Operation* op = inOp;
+            UpdateTensorInputForView(op, spillSrcIssue, tensor);
+        } else if (inOp == &(spillSrcIssue->tileOp)) {
+            tileOp.UpdateInputOperand(index, tensor);
+        }
+    }
+}
+
+void IssueEntry::UpdateTensorInputForView(Operation *op,
+    std::shared_ptr<IssueEntry> &spillSrcIssue, LogicalTensorPtr tensor) const {
+    for (auto it : op->GetInputOperand(0)->GetProducers()) {
+        if (it == &(spillSrcIssue->tileOp)) {
+            op->UpdateInputOperand(0, tensor);
+            op->GetOutputOperand(0)->memoryrange.memId = tensor->memoryrange.memId;
+            break;
         }
     }
 }
@@ -246,7 +273,29 @@ Status OoOScheduler::SpillOnBlock() {
     return SUCCESS;
 }
 
+Status OoOScheduler::AllocViewTensorMemRange(Operation &operation) {
+    auto outTensor = operation.GetOOperands()[0];
+    int memId = outTensor->memoryrange.memId;
+    if (localBufferMap.find(memId) == localBufferMap.end()) {
+        APASS_LOG_ERROR_F(Elements::Tensor, "Tensor[%d] cannot find in localBufferMap.", memId);
+        return FAILED;
+    }
+    outTensor->memoryrange =
+            TileRange(localBufferMap[memId]->start, localBufferMap[memId]->end, memId);
+    return SUCCESS;
+}
+
 Status OoOScheduler::AllocTensorMemRange(IssueEntryPtr issue) {
+    for (auto& op : issue->viewOps) {
+        if (op->GetOpcode() != Opcode::OP_VIEW) {
+            APASS_LOG_ERROR_F(Elements::Operation, "op[%s] is not OP_VIEW.", op->GetOpMagic());
+            return FAILED;
+        }
+        if (AllocViewTensorMemRange(*op) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "AllocViewTensorMemRange failed.");
+            return FAILED;
+        }
+    }
     for (auto& outTensor : issue->tileOp.GetOOperands()) {
         MemoryType memType = outTensor->GetMemoryTypeOriginal();
         if (memType == MemoryType::MEM_DEVICE_DDR) {
@@ -289,7 +338,12 @@ Status OoOScheduler::LaunchIssueStage(int& nextCycle) {
         pipe.curIssue = issue;
         pipe.curOpRetireCycle = clock + issue->tileOp.GetLatency();
         oooCheck.pipeUsageCount[pipeType] += issue->tileOp.GetLatency();
-
+        for (auto& op : issue->viewOps) {
+            if (std::find(newOperations_.begin(), newOperations_.end(), op) != newOperations_.end()) {
+                continue;
+            }
+            newOperations_.emplace_back(op);
+        }
         newOperations_.emplace_back(&(issue->tileOp));
         if (nextCycle == -1 || nextCycle > pipe.curOpRetireCycle) {
             nextCycle = pipe.curOpRetireCycle;
@@ -666,11 +720,17 @@ Status OoOScheduler::InitAllocDependencies(IssueEntryPtr issue, std::map<int, Is
                 APASS_LOG_ERROR_F(Elements::Operation, "Tensor[%d] must have alloc.", memId);
                 return FAILED;
             }
-            tensor2AllocMap[memId]->successors.insert(issue->id);
-            issue->predecessors.insert(tensor2AllocMap[memId]->id);
+            AddDependency(tensor2AllocMap[memId], issue, true);
         }
     }
     return SUCCESS;
+}
+
+void OoOScheduler::AddDependency(IssueEntryPtr preIssue, IssueEntryPtr postIssue, bool isAlloc) {
+    if (isAlloc || (!preIssue->isAlloc && !postIssue->isAlloc)) {
+        preIssue->successors.insert(postIssue->id);
+        postIssue->predecessors.insert(preIssue->id);
+    }
 }
 
 Status OoOScheduler::InitDependencies() {
@@ -693,17 +753,22 @@ Status OoOScheduler::InitDependencies() {
             continue;
         }
         for (auto &producer : issue->tileOp.ProducerOps()) {
-            auto prodissue = op2IssueEntryMap[producer];
-            if (!(prodissue->isAlloc)) {
-                prodissue->successors.insert(issue->id);
-                issue->predecessors.insert(prodissue->id);
+            if (producer->GetOpcode() == Opcode::OP_VIEW) {
+                for (auto viewProducer : producer->ProducerOps()) {
+                    auto viewProdIsue = op2IssueEntryMap[viewProducer];
+                    AddDependency(viewProdIsue, issue, false);
+                }
+            } else {
+                auto prodIssue = op2IssueEntryMap[producer];
+                AddDependency(prodIssue, issue, false);
             }
         }
         for (auto &consumer : issue->tileOp.ConsumerOps()) {
-            auto consIssue = op2IssueEntryMap[consumer];
-            if (!(consIssue->isAlloc)) {
-                consIssue->predecessors.insert(issue->id);
-                issue->successors.insert(consIssue->id);
+            if (consumer->GetOpcode() == Opcode::OP_VIEW) {
+                for (auto viewConsumer : consumer->ConsumerOps()) {
+                    auto viewConIssue = op2IssueEntryMap[viewConsumer];
+                    AddDependency(issue, viewConIssue, false);
+                }
             }
         }
         if (InitAllocDependencies(issue, tensor2AllocMap) != SUCCESS) {
@@ -747,22 +812,8 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
     localBufferMap.clear();
 
     // 初始化芯片各buffer大小
-    localMemorySize = {
-        {MemoryType::MEM_L0A, MAX_L0A_SIZE},
-        {MemoryType::MEM_L0C, MAX_L0C_SIZE},
-        {MemoryType::MEM_BT, MAX_BT_SIZE},
-        {MemoryType::MEM_FIX, MAX_FIX_SIZE},
-        {MemoryType::MEM_FIX_QUANT_PRE, MAX_FIX_QUANT_PRE_SIZE},
-    };
-    localMemorySize.insert({MemoryType::MEM_UB, 
-        PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_UB)});
-    localMemorySize.insert({MemoryType::MEM_L1, 
-        PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L1)});
-    localMemorySize.insert({MemoryType::MEM_L0B, 
-        PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L0B)});
-    localMemorySize.insert({MemoryType::MEM_FIX_QUANT_PRE, 
-        PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_FIX_QUANT_PRE)});
-    
+    InitMemorySize();
+
     std::vector<Operation *> newOperations;
     for (auto& op : operations) {
         if (op->GetOpcodeStr().find("ALLOC") != std::string::npos) {
@@ -774,6 +825,12 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
 
     // 校验并初始化issueEntry
     for (const auto &op : newOperations) {
+        if (op->GetOpcode() == Opcode::OP_VIEW) {
+            if (op->GetOutputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+                newOperations_.push_back(op);
+            }
+            continue;
+        }
         maxOpMagic = std::max(maxOpMagic, op->GetOpMagic());
         if (CheckOpBufferSize(op) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] CheckOpBufferSize failed!", op->GetOpcodeStr().c_str(), op->GetOpMagic());
@@ -803,6 +860,24 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
     // 初始化内存管理器
     InitIssueQueuesAndBufferManager();
     return SUCCESS;
+}
+
+void OoOScheduler::InitMemorySize() {
+    localMemorySize = {
+        {MemoryType::MEM_L0A, MAX_L0A_SIZE},
+        {MemoryType::MEM_L0C, MAX_L0C_SIZE},
+        {MemoryType::MEM_BT, MAX_BT_SIZE},
+        {MemoryType::MEM_FIX, MAX_FIX_SIZE},
+        {MemoryType::MEM_FIX_QUANT_PRE, MAX_FIX_QUANT_PRE_SIZE},
+    };
+    localMemorySize.insert({MemoryType::MEM_UB,
+        PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_UB)});
+    localMemorySize.insert({MemoryType::MEM_L1,
+        PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L1)});
+    localMemorySize.insert({MemoryType::MEM_L0B,
+        PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L0B)});
+    localMemorySize.insert({MemoryType::MEM_FIX_QUANT_PRE,
+        PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_FIX_QUANT_PRE)});
 }
 
 Status OoOScheduler::Schedule(const std::vector<Operation *> &operations) {

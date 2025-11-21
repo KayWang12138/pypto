@@ -160,6 +160,15 @@ static bool CheckExists(std::unordered_set<int> &issueList, Operation *op,
     return false;
 }
 
+static bool CheckViewOps(std::vector<Operation*> &viewOps, Operation *op) {
+    for (auto viewop : viewOps) {
+        if (viewop == op) {
+            return true;
+        }
+    }
+    return false;
+}
+
 TEST_F(ScheduleOoOTest, TestDependencies) {
     ComputationalGraphBuilder subGraph;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8"};
@@ -188,39 +197,38 @@ TEST_F(ScheduleOoOTest, TestDependencies) {
 
 TEST_F(ScheduleOoOTest, TestDependenciesView) {
     ComputationalGraphBuilder subGraph;
-    std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5"};
+    std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6"};
     std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB,
-        MemoryType::MEM_UB, MemoryType::MEM_UB};
-    std::vector<Opcode> opCodes{Opcode::OP_UB_ALLOC, Opcode::OP_COPY_IN, Opcode::OP_VIEW, Opcode::OP_VIEW, Opcode::OP_VIEW};
-    std::vector<std::vector<std::string>> ioperands{{}, {"t1"}, {"t2"}, {"t2"}, {"t2"}};
-    std::vector<std::vector<std::string>> ooperands{{"t2"}, {"t2"}, {"t3"}, {"t4"}, {"t5"}};
-    std::vector<std::string> opNames{"Alloc1", "Copyin1", "View1", "View2", "View3"};
+        MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB};
+    std::vector<Opcode> opCodes{Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_COPY_IN, Opcode::OP_VIEW,
+        Opcode::OP_VIEW, Opcode::OP_VIEW, Opcode::OP_ADD};
+    std::vector<std::vector<std::string>> ioperands{{}, {}, {"t1"}, {"t2"}, {"t2"}, {"t2"}, {"t3", "t4"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}, {"t6"}, {"t2"}, {"t3"}, {"t4"}, {"t5"}, {"t6"}};
+    std::vector<std::string> opNames{"Alloc1", "Alloc2", "Copyin1", "View1", "View2", "View3", "Add1"};
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {16, 16}, tensorMemTypes, tensorNames, 0), true);
     EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     Function *function = subGraph.GetFunction();
     EXPECT_NE(function, nullptr);
-    for (size_t i = 1; i < tensorNames.size(); i++) {
-        EXPECT_NE(subGraph.GetTensor(tensorNames[i]), nullptr);
-        std::shared_ptr<LogicalTensor> tensor = subGraph.GetTensor(tensorNames[i]);
-        tensor->memoryrange.memId =
-            subGraph.GetTensor("t2")->memoryrange.memId;
-    }
-
+    std::shared_ptr<LogicalTensor> tensor1 = subGraph.GetTensor("t3");
+    tensor1->memoryrange.memId =
+        subGraph.GetTensor("t2")->memoryrange.memId;
+    std::shared_ptr<LogicalTensor> tensor2 = subGraph.GetTensor("t4");
+    tensor2->memoryrange.memId =
+        subGraph.GetTensor("t2")->memoryrange.memId;
+    std::shared_ptr<LogicalTensor> tensor3 = subGraph.GetTensor("t5");
+    tensor3->memoryrange.memId =
+        subGraph.GetTensor("t2")->memoryrange.memId;
     OoOScheduler ooOScheduler(*function);
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     IssueEntryPtr copyin = GetIssueEntry("Copyin1", subGraph, ooOScheduler);
     EXPECT_NE(copyin, nullptr);
-    IssueEntryPtr view3 = GetIssueEntry("View3", subGraph, ooOScheduler);
-    EXPECT_NE(view3, nullptr);
-    IssueEntryPtr view2 = GetIssueEntry("View2", subGraph, ooOScheduler);
-    EXPECT_NE(view2, nullptr);
-    IssueEntryPtr view1 = GetIssueEntry("View1", subGraph, ooOScheduler);
-    EXPECT_NE(copyin, nullptr);
+    IssueEntryPtr add = GetIssueEntry("Add1", subGraph, ooOScheduler);
+    EXPECT_NE(add, nullptr);
     EXPECT_TRUE(CheckExists(copyin->predecessors, subGraph.GetOp("Alloc1"), ooOScheduler.issueEntryMap));
-    EXPECT_TRUE(CheckExists(copyin->successors, subGraph.GetOp("View3"), ooOScheduler.issueEntryMap));
-    EXPECT_TRUE(CheckExists(view3->predecessors, subGraph.GetOp("Copyin1"), ooOScheduler.issueEntryMap));
-    EXPECT_TRUE(CheckExists(view2->predecessors, subGraph.GetOp("Copyin1"), ooOScheduler.issueEntryMap));
-    EXPECT_TRUE(CheckExists(view1->predecessors, subGraph.GetOp("Copyin1"), ooOScheduler.issueEntryMap));
+    EXPECT_TRUE(CheckExists(add->predecessors, subGraph.GetOp("Alloc2"), ooOScheduler.issueEntryMap));
+    EXPECT_TRUE(CheckExists(add->predecessors, subGraph.GetOp("Copyin1"), ooOScheduler.issueEntryMap));
+    EXPECT_TRUE(CheckViewOps(add->viewOps, subGraph.GetOp("View1")));
+    EXPECT_TRUE(CheckViewOps(add->viewOps, subGraph.GetOp("View2")));
     EXPECT_EQ(res, SUCCESS);
 }
 
@@ -473,7 +481,7 @@ TEST_F(ScheduleOoOTest, TestSpillView) {
     res = ooOScheduler.SortOps();
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.GenSpillSchedule();
-    EXPECT_EQ(res, FAILED);
+    EXPECT_EQ(res, SUCCESS);
 }
 
 TEST_F(ScheduleOoOTest, TestSpillAssemble) {
@@ -669,16 +677,12 @@ TEST_F(ScheduleOoOTest, TestScheduleView) {
     EXPECT_EQ(res, SUCCESS);
     IssueEntryPtr copyin = GetIssueEntry("Copyin1", subGraph, ooOScheduler);
     EXPECT_NE(copyin, nullptr);
-    IssueEntryPtr view1 = GetIssueEntry("View1", subGraph, ooOScheduler);
-    EXPECT_NE(view1, nullptr);
-    IssueEntryPtr view2 = GetIssueEntry("View2", subGraph, ooOScheduler);
-    EXPECT_NE(view2, nullptr);
     EXPECT_EQ(copyin->tileOp.oOperand[0]->memoryrange.start, 0);
     EXPECT_EQ(copyin->tileOp.oOperand[0]->memoryrange.end, 16384);
-    EXPECT_EQ(view1->tileOp.oOperand[0]->memoryrange.start, 0);
-    EXPECT_EQ(view1->tileOp.oOperand[0]->memoryrange.end, 16384);
-    EXPECT_EQ(view2->tileOp.oOperand[0]->memoryrange.start, 0);
-    EXPECT_EQ(view2->tileOp.oOperand[0]->memoryrange.end, 16384);
+    EXPECT_EQ(subGraph.GetOp("View1")->GetOutputOperand(0)->memoryrange.start, 0);
+    EXPECT_EQ(subGraph.GetOp("View1")->GetOutputOperand(0)->memoryrange.end, 16384);
+    EXPECT_EQ(subGraph.GetOp("View2")->GetOutputOperand(0)->memoryrange.start, 0);
+    EXPECT_EQ(subGraph.GetOp("View2")->GetOutputOperand(0)->memoryrange.end, 16384);
 }
 
 TEST_F(ScheduleOoOTest, TestScheduleAssemble) {

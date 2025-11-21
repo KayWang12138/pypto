@@ -53,6 +53,7 @@ struct IssueEntry {
     PipeType type{PipeType::PIPE_ALL};
     bool isAlloc{false};
     bool isRetired{false};
+    std::vector<Operation*> viewOps;
 
     // 当前op的前序op
     std::unordered_set<int> predecessors;
@@ -67,6 +68,10 @@ struct IssueEntry {
     void Clear();
     int GetOOperandIdx(int curMemId);
     void UpdateTensorInput(std::shared_ptr<IssueEntry> &spillSrcIssue, LogicalTensorPtr tensor) const;
+    void UpdateTensorInputForOperand(size_t index, std::shared_ptr<IssueEntry> &spillSrcIssue,
+        LogicalTensorPtr tensor) const;
+    void UpdateTensorInputForView(Operation *op, std::shared_ptr<IssueEntry> &spillSrcIssue,
+        LogicalTensorPtr tensor) const;
     const char* GetOpInfo();
 };
 
@@ -137,9 +142,11 @@ private:
 
     // scheduler
     Status Init(const std::vector<Operation *> &operations);
+    void InitMemorySize();
     Status CheckOpBufferSize(Operation *op);
     void CalcBufferSize(LogicalTensors tensors, std::map<MemoryType, int64_t> &bufferSize, std::set<int> &memIdMap);
     Status InitDependencies();
+    void AddDependency(IssueEntryPtr preIssue, IssueEntryPtr postIssue, bool isAlloc);
     Status InitAllocDependencies(IssueEntryPtr issue, std::map<int, IssueEntryPtr> tensor2AllocMap);
     void InitLocalBuffer(LogicalTensorPtr oOperand, int memId);
     void InitBufRefCount();
@@ -162,6 +169,7 @@ private:
         IssueQueue &pipe);
     Status LaunchIssueStage(int& nextCycle);
     Status AllocTensorMemRange(IssueEntryPtr issue);
+    Status AllocViewTensorMemRange(Operation &operation);
     Status SpillOnBlock();
     Status CheckAndUpdateLifecycle();
     
