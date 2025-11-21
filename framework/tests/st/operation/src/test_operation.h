@@ -20,6 +20,7 @@
 #include <functional>
 
 #include "test_suite_stest_ops.h"
+#include "interface/inner/config.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "test_dev_func_runner.h"
@@ -215,20 +216,12 @@ public:
 
 private:
     static void init() {
-        config::SetPlatformConfig(npu::tile_fwk::KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, true);
-        config::SetPlatformConfig(npu::tile_fwk::KEY_VERIFY_TENSOR_GRAPH, true);
-        config::SetPlatformConfig(npu::tile_fwk::KEY_VERIFY_TENSOR_GRAPH_CHECK_PRECISION, true);
-        config::SetPlatformConfig(npu::tile_fwk::KEY_VERIFY_PASS, true);
-        config::SetPlatformConfig(npu::tile_fwk::KEY_VERIFY_PASS_CHECK_PRECISION, true);
-        config::SetPlatformConfig(npu::tile_fwk::KEY_VERIFY_EXECUTE_GRAPH, true);
-        config::SetPlatformConfig(npu::tile_fwk::KEY_VERIFY_EXECUTE_GRAPH_CHECK_PRECISION, true);
-
-        config::SetPlatformConfig(npu::tile_fwk::KEY_VERIFY_TENSOR_GRAPH_DUMP_OPERATION, true);
-        config::SetPlatformConfig(npu::tile_fwk::KEY_VERIFY_TENSOR_GRAPH_DUMP_TENSOR, true);
-        config::SetPlatformConfig(npu::tile_fwk::KEY_VERIFY_PASS_DUMP_OPERATION, true);
-        config::SetPlatformConfig(npu::tile_fwk::KEY_VERIFY_PASS_DUMP_TENSOR, true);
-        config::SetPlatformConfig(npu::tile_fwk::KEY_VERIFY_EXECUTE_GRAPH_DUMP_OPERATION, true);
-        config::SetPlatformConfig(npu::tile_fwk::KEY_VERIFY_EXECUTE_GRAPH_DUMP_TENSOR, true);
+        config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
+        config::SetVerifyOption(KEY_VERIFY_PASS, true);
+        config::SetVerifyOption(KEY_VERIFY_EXECUTE_GRAPH, true);
+        config::SetVerifyOption(KEY_VERIFY_CHECK_PRECISION, true);
+        config::SetVerifyOption(KEY_VERIFY_DUMP_OPERATION, true);
+        config::SetVerifyOption(KEY_VERIFY_DUMP_TENSOR, true);
 
         config::SetHostOption(ONLY_CODEGEN, true);
         config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);

@@ -85,7 +85,7 @@ void FlowVerifier::VerifyTensorGraph(Function *entry,
     outputDataViewList_ = outputDataViewList;
     goldenDataViewList_ = goldenDataViewList;
 
-    ASSERT(!strcmp(calc::Model(), "torch")) << "Tensor graph verification requires torch model. Current model: '" << calc::Model() << "'. Please enable torch backend for tensor graph verification.";
+    ASSERT(calc::IsVerifyEnabled()) << "Verify not supported";
     auto attr = entry->GetDyndevAttribute();
     std::vector<int> inputSlotList = slotManager->LookupSlotIndexConst(attr->startArgsInputTensorList);
     std::vector<int> outputSlotList = slotManager->LookupSlotIndexConst(attr->startArgsOutputTensorList);
@@ -139,10 +139,10 @@ void FlowVerifier::VerifyTensorGraph(Function *entry,
     functionInterpreter_->verifyType = VerifyType::TENSOR_GRAPH;
     UpdateInterpreterCache();
 
-    if (config::GetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_DUMP_OPERATION, false)) {
+    if (config::GetVerifyOption<bool>(KEY_VERIFY_DUMP_OPERATION)) {
         functionInterpreter_->DumpSetLevelOperation();
     }
-    if (config::GetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_DUMP_TENSOR, false)) {
+    if (config::GetVerifyOption<bool>(KEY_VERIFY_DUMP_TENSOR)) {
         functionInterpreter_->DumpSetLevelTensor();
     }
 
@@ -152,40 +152,15 @@ void FlowVerifier::VerifyTensorGraph(Function *entry,
     controlFlowExecution_ =
         functionInterpreter_->RunForControlFlow("tensor_graph", goldenDataViewList_, slotTileOpFormatDict, slotDataViewDict, outputSlotSet, controlFlowSymbolDict);
 
-    if (config::GetPlatformConfig(KEY_VERIFY_DUMP_PERF_DATA, false)) {
+    if (config::GetVerifyOption<bool>(KEY_VERIFY_PROFILE_ENABLE)) {
         ALOG_EVENT(entry->GetMagicName() + "_tensor_graph\n", functionInterpreter_->DumpStatistics());
     }
     functionInterpreter_->DumpReset();
 
-    if (config::GetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_CHECK_PRECISION, true)) {
+    if (config::GetVerifyOption<bool>(KEY_VERIFY_CHECK_PRECISION)) {
         auto tensorGraphResult = VerifyResult("Tensor graph", goldenDataViewList_, outputDataViewList_, static_cast<float>(1e-2));
         ASSERT(tensorGraphResult) << "Verify Tensor Graph Fail!";
     }
-}
-
-static bool VerifyPassDumpOperation(int passIndex) {
-    if (config::GetPlatformConfig(KEY_VERIFY_PASS_DUMP_OPERATION, false)) {
-        return true;
-    }
-    std::vector<int> select = config::GetPlatformConfig<std::vector<int>>(KEY_VERIFY_PASS_DUMP_OPERATION_SELECT, {});
-    for (auto &i : select) {
-        if (i == passIndex) {
-            return true;
-        }
-    }
-    return false;
-}
-static bool VerifyPassDumpTensor(int passIndex) {
-    if (config::GetPlatformConfig(KEY_VERIFY_PASS_DUMP_TENSOR, false)) {
-        return true;
-    }
-    std::vector<int> select = config::GetPlatformConfig<std::vector<int>>(KEY_VERIFY_PASS_DUMP_TENSOR_SELECT, {});
-    for (auto &i : select) {
-        if (i == passIndex) {
-            return true;
-        }
-    }
-    return false;
 }
 
 template <typename T>
@@ -209,11 +184,10 @@ void FlowVerifier::VerifyPass(Function *func, int passIndex, const std::string &
     if (!lastCaptureExecution_.count(func)) {
         lastCaptureExecution_[func].resize(captureList.size());
     }
-
-    if (VerifyPassDumpOperation(passIndex)) {
+    if (config::GetVerifyOption<bool>(KEY_VERIFY_DUMP_OPERATION)) {
         functionInterpreter_->DumpSetLevelOperation();
     }
-    if (VerifyPassDumpTensor(passIndex)) {
+    if (config::GetVerifyOption<bool>(KEY_VERIFY_DUMP_TENSOR)) {
         functionInterpreter_->DumpSetLevelTensor();
     }
     for (size_t captureIndex = 0; captureIndex < captureList.size(); captureIndex++) {
@@ -223,16 +197,7 @@ void FlowVerifier::VerifyPass(Function *func, int passIndex, const std::string &
 
         std::shared_ptr<FunctionCaptureExecution> capture = nullptr;
         float eps = static_cast<float>(1e-3);
-        constexpr int SELECT_ALL_PASS = -1;
-        int selectIndex = config::GetPlatformConfig(KEY_VERIFY_PASS_SELECT, SELECT_ALL_PASS);
-        if (passIndex == 0 || passIndex == selectIndex - 1) {
-            /* The first passes uses tensor graph's execution golden */
-            capture = captureList[captureIndex];
-        } else {
-            /* The rest passes uses previous pass's execution result as input */
-            capture = lastCaptureExecution_[func][captureIndex];
-            eps = static_cast<float>(1e-3);
-        }
+        capture = captureList[captureIndex];
 
         auto captureExecution = functionInterpreter_->RunForPass(key, func, capture);
         auto goldenDataViewList = capture->golden->outcastDataViewList;
@@ -240,13 +205,13 @@ void FlowVerifier::VerifyPass(Function *func, int passIndex, const std::string &
         /* record it */
         lastCaptureExecution_[func][captureIndex] = captureExecution;
 
-        if (config::GetPlatformConfig(KEY_VERIFY_PASS_CHECK_PRECISION, true)) {
+        if (config::GetVerifyOption<bool>(KEY_VERIFY_CHECK_PRECISION)) {
             auto passResult = VerifyResult(key, goldenDataViewList, executeDataViewList, eps);
             ASSERT(passResult) << "Verify Pass Fail!";
         }
     }
 
-    if (config::GetPlatformConfig(KEY_VERIFY_DUMP_PERF_DATA, false)) {
+    if (config::GetVerifyOption<bool>(KEY_VERIFY_PROFILE_ENABLE)) {
         ALOG_EVENT(func->GetMagicName() + "_" + passIdentifier + "\n", functionInterpreter_->DumpStatistics());
     }
     functionInterpreter_->DumpReset();
@@ -261,21 +226,21 @@ void FlowVerifier::VerifyExecuteGraph() {
             const std::string key =
                 "function_" + func->GetMagicName() + ".exec_graph.capture_" + ToString(captureIndex, 3);
             ALOG_INFO(key, ": Verify");
-            if (config::GetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_OPERATION, false)) {
+            if (config::GetVerifyOption<bool>(KEY_VERIFY_DUMP_OPERATION)) {
                 functionInterpreter_->DumpSetLevelOperation();
             }
-            if (config::GetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_TENSOR, false)) {
+            if (config::GetVerifyOption<bool>(KEY_VERIFY_DUMP_TENSOR)) {
                 functionInterpreter_->DumpSetLevelTensor();
             }
             auto &capture = captureList[captureIndex];
             auto captureExecution = functionInterpreter_->RunForExecuteGraph(key, func, capture);
 
-            if (config::GetPlatformConfig(KEY_VERIFY_DUMP_PERF_DATA, false)) {
+            if (config::GetVerifyOption<bool>(KEY_VERIFY_PROFILE_ENABLE)) {
                 ALOG_EVENT(func->GetMagicName() + "_tensor_graph\n", functionInterpreter_->DumpStatistics());
             }
             functionInterpreter_->DumpReset();
 
-            if (config::GetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_CHECK_PRECISION, true)) {
+            if (config::GetVerifyOption<bool>(KEY_VERIFY_CHECK_PRECISION)) {
                 auto executeResult = VerifyResult(key, capture->golden->outcastDataViewList, captureExecution->golden->outcastDataViewList,
                     static_cast<float>(1e-3));
                 ASSERT(executeResult) << "Verify Execute Graph Fail!";

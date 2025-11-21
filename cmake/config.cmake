@@ -258,7 +258,7 @@ endif ()
 ########################################################################################################################
 
 # torch optional
-if (ENABLE_TESTS)
+if (ENABLE_TESTS OR ENABLE_FEATURE_PYTHON_FRONT_END)
     PTO_Fwk_AnalysisPython3Environ(torch_Version GET_TORCH_VERSION)
     message(STATUS "Torch=${torch_Version}")
     if ("${torch_Version}" STRGREATER_EQUAL "2.1.0")

@@ -19,9 +19,6 @@ using namespace npu::tile_fwk;
 
 namespace pypto {
 void BindSymbolicScalar(py::module &m) {
-    py::class_<NotLessThan>(m, "NotLessThan").def(py::init<int64_t>(), py::arg("threshold"));
-    py::class_<NotGreaterThan>(m, "NotGreaterThan").def(py::init<int64_t>(), py::arg("threshold"));
-
     py::class_<SymbolicScalar> _SymbolicScalar(m, "SymbolicScalar");
 
     _SymbolicScalar
@@ -29,9 +26,6 @@ void BindSymbolicScalar(py::module &m) {
         .def(py::init<const SymbolicScalar &>(), py::arg("val"))
         .def(py::init<std::string>(), py::arg("name"))
         .def(py::init<std::int64_t>(), py::arg("value"))
-        .def(py::init<std::string, NotLessThan>(), py::arg("name"), py::arg(">"))
-        .def(py::init<std::string, NotGreaterThan>(), py::arg("name"), py::arg("<"))
-        .def(py::init<std::string, NotLessThan, NotGreaterThan>(), py::arg("name"), py::arg("<"), py::arg(">"))
         .def(py::init<std::string, int64_t>(), py::arg("name"), py::arg("value"));
 
     py::implicitly_convertible<int64_t, SymbolicScalar>();

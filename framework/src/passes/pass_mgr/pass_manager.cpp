@@ -241,17 +241,8 @@ Status PassManager::RunPass(Program &program, Function &function, const std::str
             ALOG_INFO_F("Runtime of pass %s for program %s function %s is %ld us.", identifier.c_str(), program.Name().c_str(),
                 function.GetMagicName().c_str(), duration.count());
         }
-        if (config::GetPlatformConfig(KEY_VERIFY_PASS, false)) {
-            constexpr int SELECT_ALL_PASS = -1;
-            int selectIndex = config::GetPlatformConfig(KEY_VERIFY_PASS_SELECT, SELECT_ALL_PASS);
-            if ((selectIndex < SELECT_ALL_PASS) || (selectIndex > static_cast<int>(strategyPasses.size()))) {
-                ALOG_ERROR_F("Invalid PASS Index %s.", selectIndex);
-                return FAILED;
-            }
-            if (selectIndex == SELECT_ALL_PASS ||
-                (((static_cast<size_t>(selectIndex) - 1) <= i) && (i <= static_cast<size_t>(selectIndex)))) {
-                Program::GetInstance().VerifyPass(&function, i, identifier);
-            }
+        if (config::GetVerifyOption<bool>(KEY_VERIFY_PASS)) {
+            Program::GetInstance().VerifyPass(&function, i, identifier);
         }
     }
     return SUCCESS;

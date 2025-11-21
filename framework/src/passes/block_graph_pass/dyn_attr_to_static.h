@@ -55,9 +55,6 @@ static const SymbolicScalar MAYBE_CONST_COA_GetParam = AddRuntimeCoaPrefix("GET_
 
 Status SToIWrapper(const std::string str, int& result);
 
-static const std::regex paramOffsetPattern("RUNTIME_COA_GET_PARAM_OFFSET\\((\\d+), (\\d+), (\\d+)\\)");
-static const std::regex paramShapePattern("RUNTIME_COA_GET_PARAM_VALID_SHAPE\\((\\d+), (\\d+), (\\d+)\\)");
-static const std::regex paramPattern("RUNTIME_COA_GET_PARAM\\((\\d+)\\)");
 
 constexpr int OFFSET_INDEX_ORDER = 0;
 constexpr int SHAPE_INDEX_ORDER = 1;
@@ -72,6 +69,21 @@ struct CoaInfo {
     int dim = -1;
     int base = -1;
     int idx = -1;
+
+    static bool ParseParamOffset(const std::string &coaExpr, std::smatch &match) {
+         static std::regex pattern("RUNTIME_COA_GET_PARAM_OFFSET\\((\\d+), (\\d+), (\\d+)\\)");
+         return std::regex_search(coaExpr, match, pattern);
+    }
+
+    static bool ParseParamValidShape(const std::string &coaExpr, std::smatch &match) {
+         static std::regex pattern("RUNTIME_COA_GET_PARAM_VALID_SHAPE\\((\\d+), (\\d+), (\\d+)\\)");
+         return std::regex_search(coaExpr, match, pattern);
+    }
+
+    static bool ParseParam(const std::string &coaExpr, std::smatch &match) {
+            static std::regex pattern("RUNTIME_COA_GET_PARAM\\((\\d+)\\)");
+            return std::regex_search(coaExpr, match, pattern);
+    }
 
     Status SToIParamShapeAndOffset(const std::smatch &match) {
         if (SToIWrapper(match[INPUT_PARAM_POS_ONE].str(), dim) != SUCCESS) {
@@ -88,24 +100,24 @@ struct CoaInfo {
         }
         return SUCCESS;
     }
-    
+
     Status ParseCoaString(const std::string &coaExpr) {
         std::smatch match;
-        if (std::regex_search(coaExpr, match, paramOffsetPattern)) {
+        if (ParseParamOffset(coaExpr, match)) {
             macroType = CoaType::PARAM_OFFSET;
             if (SToIParamShapeAndOffset(match) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "ParseCoaString failed to convert indices,"
                     "CoaType::PARAM_OFFSET, input coaExpr %s.", coaExpr.c_str());
                 return FAILED;
             }
-        } else if (std::regex_search(coaExpr, match, paramShapePattern)) {
+        } else if (ParseParamValidShape(coaExpr, match)) {
             macroType = CoaType::PARAM_VALID_SHAPE;
             if (SToIParamShapeAndOffset(match) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "ParseCoaString failed to convert indices,"
                     "CoaType::PARAM_VALID_SHAPE, input coaExpr %s.", coaExpr.c_str());
                 return FAILED;
             }
-        } else if (std::regex_search(coaExpr, match, paramPattern)) {
+        } else if (ParseParam(coaExpr, match)) {
             macroType = CoaType::PARAM;
             if (SToIWrapper(match[INPUT_PARAM_POS_ONE].str(), idx) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "ParseCoaString failed to convert indices,"
@@ -169,7 +181,7 @@ public:
     ~DynAttrToStatic() override = default;
 private:
     std::unordered_map<Function*, std::vector<Operation*>> leaf2Caller;
-    
+
     Status RunOnFunction(Function &function) override;
     std::vector<std::reference_wrapper<SymbolicScalar>> GetOpDynamicAttributeList(Operation &op);
     Status GetCallee(const Operation *callop, Function *&callFunc);

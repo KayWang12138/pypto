@@ -15,17 +15,24 @@
 def load_shared_libs():
     import os
     import ctypes
-    import pkg_resources
+    from importlib import metadata
 
-    dist = pkg_resources.get_distribution("pypto")
-    lib_dir = os.path.join(f"{dist.location}", "pypto", "lib")
-    lib_dir64 = os.path.join(f"{dist.location}", "pypto", "lib64")
+    pypto_dir = metadata.distribution("pypto").locate_file("pypto")
+    lib_dir = os.path.join(f"{pypto_dir}", "lib64")
+    if not os.path.exists(lib_dir):
+        lib_dir = os.path.join(f"{pypto_dir}", "lib")
+
+    calc_path = os.path.join(lib_dir, "libtile_fwk_calculator.so")
+    if os.path.exists(calc_path):
+        import torch
+
+        # calculator.so depends on torch, so load it after torch
+        ctypes.CDLL(calc_path, mode=ctypes.RTLD_LOCAL)
+
     libs = ["libtile_fwk_interface.so", "libtile_fwk_codegen.so",
             "libtile_fwk_compiler.so", "libtile_fwk_runtime.so"]
     for lib in libs:
-        if os.path.exists(os.path.join(lib_dir64, lib)):
-            ctypes.CDLL(os.path.join(lib_dir64, lib), mode=ctypes.RTLD_GLOBAL)
-        elif os.path.exists(os.path.join(lib_dir, lib)):
+        if os.path.exists(os.path.join(lib_dir, lib)):
             ctypes.CDLL(os.path.join(lib_dir, lib), mode=ctypes.RTLD_GLOBAL)
 
 
@@ -42,7 +49,7 @@ from .vector import *  # noqa
 from .operator import *  # noqa
 from .pass_config import * # noqa
 from .pto_utils import ceil, bytes_of
-from .runtime import jit
+from .runtime import jit, verify
 from .symbolic_scalar import SymbolicScalar
 from .tensor import Tensor, mark_dynamic
 
@@ -50,3 +57,5 @@ from .tensor import Tensor, mark_dynamic
 tensor = Tensor
 element = Element
 symbolic_scalar = SymbolicScalar
+
+verify_enable = pto_impl.IsVerifyEnabled

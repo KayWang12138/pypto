@@ -30,34 +30,27 @@ public:
         config::Reset();
         ProgramData::GetInstance().Reset();
         config::SetHostOption(ONLY_CODEGEN, true);
-        if (strcmp(calc::Model(), "torch")) {
-            GTEST_SKIP() << "torch missing skip the verify test";
+        if (!calc::IsVerifyEnabled()) {
+            GTEST_SKIP() << "Verify not supported skip the verify test";
         }
         TileShape::Current().SetVecTile(32, 32);
         TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
     }
 
     void TearDown() override {
-        config::SetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, false);
-        config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, false);
-        config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_DUMP_OPERATION, false);
-        config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_DUMP_TENSOR, false);
-        config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_CHECK_PRECISION, false);
-        config::SetPlatformConfig(KEY_VERIFY_PASS, false);
-        config::SetPlatformConfig(KEY_VERIFY_PASS_DUMP_OPERATION, false);
-        config::SetPlatformConfig(KEY_VERIFY_PASS_DUMP_TENSOR, false);
-        config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, false);
-        config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_OPERATION, false);
-        config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_TENSOR, false);
-        config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_CHECK_PRECISION, false);
+        config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, false);
+        config::SetVerifyOption(KEY_VERIFY_DUMP_OPERATION, false);
+        config::SetVerifyOption(KEY_VERIFY_DUMP_TENSOR, false);
+        config::SetVerifyOption(KEY_VERIFY_CHECK_PRECISION, false);
+        config::SetVerifyOption(KEY_VERIFY_PASS, false);
+        config::SetVerifyOption(KEY_VERIFY_EXECUTE_GRAPH, false);
     }
 };
 
 TEST_F(DynamicOpsTest, Assemble) {
-    config::SetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, true);
-    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);
-    config::SetPlatformConfig(KEY_VERIFY_PASS, true);
-    config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, true);
+    config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
+    config::SetVerifyOption(KEY_VERIFY_PASS, true);
+    config::SetVerifyOption(KEY_VERIFY_EXECUTE_GRAPH, true);
 
     int s = 32;
     int n = 2;
@@ -96,10 +89,9 @@ TEST_F(DynamicOpsTest, Assemble) {
 }
 
 TEST_F(DynamicOpsTest, AssembleFp16) {
-    config::SetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, true);
-    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);
-    config::SetPlatformConfig(KEY_VERIFY_PASS, true);
-    config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, true);
+    config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
+    config::SetVerifyOption(KEY_VERIFY_PASS, true);
+    config::SetVerifyOption(KEY_VERIFY_EXECUTE_GRAPH, true);
 
     int s = 32;
     int n = 2;
@@ -139,17 +131,12 @@ TEST_F(DynamicOpsTest, AssembleFp16) {
 }
 
 TEST_F(DynamicOpsTest, OpsElementWise) {
-    config::SetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, true);
-    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);
-    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_DUMP_OPERATION, true);
-    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_DUMP_TENSOR, true);
-    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_CHECK_PRECISION, true);
-    config::SetPlatformConfig(KEY_VERIFY_PASS, true);
-    config::SetPlatformConfig(KEY_VERIFY_PASS_DUMP_OPERATION, true);
-    config::SetPlatformConfig(KEY_VERIFY_PASS_DUMP_TENSOR, true);
-    config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, true);
-    config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_OPERATION, true);
-    config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_TENSOR, true);
+    config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
+    config::SetVerifyOption(KEY_VERIFY_DUMP_OPERATION, true);
+    config::SetVerifyOption(KEY_VERIFY_DUMP_TENSOR, true);
+    config::SetVerifyOption(KEY_VERIFY_CHECK_PRECISION, true);
+    config::SetVerifyOption(KEY_VERIFY_PASS, true);
+    config::SetVerifyOption(KEY_VERIFY_EXECUTE_GRAPH, true);
 
     std::vector<uint8_t> devProgBinary;
 
@@ -244,18 +231,12 @@ TEST_F(DynamicOpsTest, OpsElementWise) {
 }
 
 TEST_F(DynamicOpsTest, OpsElementWiseFp16) {
-    config::SetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, true);
-    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);
-    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_DUMP_OPERATION, true);
-    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_DUMP_TENSOR, true);
-    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_CHECK_PRECISION, true);
-    config::SetPlatformConfig(KEY_VERIFY_PASS, true);
-    config::SetPlatformConfig(KEY_VERIFY_PASS_DUMP_OPERATION, true);
-    config::SetPlatformConfig(KEY_VERIFY_PASS_DUMP_TENSOR, true);
-    config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, true);
-    config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_OPERATION, true);
-    config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_TENSOR, true);
-    config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_CHECK_PRECISION, true);
+    config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
+    config::SetVerifyOption(KEY_VERIFY_DUMP_OPERATION, true);
+    config::SetVerifyOption(KEY_VERIFY_DUMP_TENSOR, true);
+    config::SetVerifyOption(KEY_VERIFY_CHECK_PRECISION, true);
+    config::SetVerifyOption(KEY_VERIFY_PASS, true);
+    config::SetVerifyOption(KEY_VERIFY_EXECUTE_GRAPH, true);
 
     std::vector<uint8_t> devProgBinary;
 
@@ -345,13 +326,10 @@ TEST_F(DynamicOpsTest, OpsElementWiseFp16) {
 }
 
 TEST_F(DynamicOpsTest, Cube) {
-    config::SetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, true);
-    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);
-    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_DUMP_TENSOR, true);
-    config::SetPlatformConfig(KEY_VERIFY_PASS, false);
-    config::SetPlatformConfig(KEY_VERIFY_PASS_DUMP_TENSOR, true);
-    config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, false);
-    config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_TENSOR, true);
+    config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
+    config::SetVerifyOption(KEY_VERIFY_CHECK_PRECISION, true);
+    config::SetVerifyOption(KEY_VERIFY_PASS, true);
+    config::SetVerifyOption(KEY_VERIFY_EXECUTE_GRAPH, true);
 
     int n = 4;
     int k = 1024;
@@ -518,11 +496,9 @@ TEST_F(DynamicOpsTest, ElementScalar) {
 }
 
 TEST_F(DynamicOpsTest, MatmulAcc) {
-    config::SetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, true);
-    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);
-    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_CHECK_PRECISION, true);
-    config::SetPlatformConfig(KEY_VERIFY_PASS, true);
-    config::SetPlatformConfig(KEY_VERIFY_PASS_CHECK_PRECISION, true);
+    config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
+    config::SetVerifyOption(KEY_VERIFY_PASS, true);
+    config::SetVerifyOption(KEY_VERIFY_CHECK_PRECISION, true);
 
     Tensor t0(DT_FP32, {128, 128}, "t0");
     Tensor t1(DT_FP32, {128, 128}, "t1");
@@ -548,11 +524,9 @@ TEST_F(DynamicOpsTest, MatmulAcc) {
 }
 
 TEST_F(DynamicOpsTest, GetTensorData) {
-    config::SetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, true);
-    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);
-    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_CHECK_PRECISION, true);
-    config::SetPlatformConfig(KEY_VERIFY_PASS, true);
-    config::SetPlatformConfig(KEY_VERIFY_PASS_CHECK_PRECISION, true);
+    config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
+    config::SetVerifyOption(KEY_VERIFY_PASS, true);
+    config::SetVerifyOption(KEY_VERIFY_CHECK_PRECISION, true);
 
     Tensor t0(DT_FP32, {32, 32}, "t0");
     Tensor out(DT_FP32, {64, 64}, "out");
@@ -582,11 +556,9 @@ static auto Random(DataType t, const std::vector<int64_t> &shape) {
 }
 
 static void TestMatmul(DataType inType, DataType outType) {
-config::SetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, true);
-    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);
-    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_CHECK_PRECISION, true);
-    config::SetPlatformConfig(KEY_VERIFY_PASS, true);
-    config::SetPlatformConfig(KEY_VERIFY_PASS_CHECK_PRECISION, true);
+    config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
+    config::SetVerifyOption(KEY_VERIFY_PASS, true);
+    config::SetVerifyOption(KEY_VERIFY_CHECK_PRECISION, true);
 
     Tensor t0(inType, {64, 256}, "t0");
     Tensor t1(inType, {256, 64}, "t1");
@@ -671,12 +643,11 @@ TEST_F(DynamicOpsTest, TestLocalTempTensor) {
 }
 
 TEST_F(DynamicOpsTest, GetTensorDataRedundantUpdate) {
-    config::SetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, true);
-    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);
-    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_CHECK_PRECISION, true);
-    config::SetPlatformConfig(KEY_VERIFY_PASS, true);
-    config::SetPlatformConfig(KEY_VERIFY_PASS_CHECK_PRECISION, true);
-    config::SetPlatformConfig(KEY_VERIFY_DUMP_PERF_DATA, true);
+    config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
+    config::SetVerifyOption(KEY_VERIFY_CHECK_PRECISION, true);
+    config::SetVerifyOption(KEY_VERIFY_PASS, true);
+    config::SetVerifyOption(KEY_VERIFY_CHECK_PRECISION, true);
+    config::SetVerifyOption(KEY_VERIFY_PROFILE_ENABLE, true);
 
     Tensor t0(DT_FP32, {32, 32}, "t0");
     Tensor out(DT_FP32, {64, 64}, "out");

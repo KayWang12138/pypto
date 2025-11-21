@@ -90,6 +90,9 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
     # 安装 二进制文件
     set(InstallExport ${PROJECT_NAME}Targets)
     set(InstallTargets tile_fwk_interface tile_fwk_codegen tile_fwk_compiler tile_fwk_runtime)
+    if (ENABLE_TORCH_VERIFIER)
+        list(APPEND InstallTargets tile_fwk_calculator)
+    endif()
     PTO_Fwk_InstallBinaries(
             EXPORT  ${InstallExport}
             TARGETS ${InstallTargets}

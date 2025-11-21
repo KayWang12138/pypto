@@ -16,53 +16,65 @@ import torch
 import pypto
 from . import pto_impl
 
+__all__ = [
+    "_device_init",
+    "_device_fini",
+    "_device_run_once_data_from_host",
+    "_device_synchronize",
+    "jit",
+    "verify",
+    "to_pto",
+]
+
 _device_init = pto_impl.DeviceInit
 _device_fini = pto_impl.DeviceFini
-_device_run_once_data_from_device = pto_impl.OperatorDeviceRunOnceDataFromDevice
 
 
-def _torch_to_pto_dtype(dtype: torch.dtype) -> pypto.DataType:
-    "Converts torch.dtype to pypto.DataType"
-    if dtype == torch.float16:
-        return pypto.DT_FP16
-    elif dtype == torch.bfloat16:
-        return pypto.DT_BF16
-    elif dtype == torch.float32:
-        return pypto.DT_FP32
-    elif dtype == torch.float64:
-        return pypto.DT_DOUBLE
-    elif dtype == torch.int8:
-        return pypto.DT_INT8
-    elif dtype == torch.uint8:
-        return pypto.DT_UINT8
-    elif dtype == torch.int16:
-        return pypto.DT_INT16
-    elif dtype == torch.int32:
-        return pypto.DT_INT32
-    elif dtype == torch.int64:
-        return pypto.DT_INT64
-    elif dtype == torch.bool:
-        return pypto.DT_BOOL
-
-    raise ValueError(f"Input torch.dtype is not supported. Got {dtype}")
+_dtype_dict = {
+    torch.float16: pypto.DT_FP16,
+    torch.bfloat16: pypto.DT_BF16,
+    torch.float32: pypto.DT_FP32,
+    torch.float64: pypto.DT_DOUBLE,
+    torch.int8: pypto.DT_INT8,
+    torch.uint8: pypto.DT_UINT8,
+    torch.int16: pypto.DT_INT16,
+    torch.int32: pypto.DT_INT32,
+    torch.int64: pypto.DT_INT64,
+    torch.bool: pypto.DT_BOOL,
+}
 
 
-def _torch_to_pto(t: torch.Tensor, name: str) -> pypto.Tensor:
-    "Converts a `torch.tensor` to `pypto.Tensor`."
-    dtype = _torch_to_pto_dtype(t.dtype)
+def dtype_from(dtype: torch.dtype) -> pypto.DataType:
+    return _dtype_dict[dtype]
+
+
+def set_device(device: int):
+    torch.npu.set_device(device)
+
+
+def current_device() -> int:
+    return torch.npu.current_device()
+
+
+def to_pto(t: torch.Tensor, name: str) -> pypto.Tensor:
+    dtype = dtype_from(t.dtype)
     format = pypto.TileOpFormat.TILEOP_ND
     if t.device.type == "npu":
         import torch_npu
         if torch_npu.get_npu_format(t) == 29:
             format = pypto.TileOpFormat.TILEOP_NZ
-    return pypto.Tensor(tuple(t.shape), dtype, f"PTO_TENSOR_{name}", format)
+    return pypto.Tensor(tuple(t.shape), dtype, name, format)
 
 
-def _to_tensor_data(tensors: List[torch.Tensor]):
+def current_stream():
+    return torch.npu.current_stream().npu_stream
+
+
+def to_tensor_data(tensors: List[torch.Tensor]):
     datas = []
     for t in tensors:
         data = pto_impl.DeviceTensorData(
-            _torch_to_pto_dtype(t.dtype),
+            dtype_from(t.dtype),
             t.data_ptr(),
             list(t.shape),
         )
@@ -71,72 +83,85 @@ def _to_tensor_data(tensors: List[torch.Tensor]):
 
 
 def _device_run_once_data_from_host(inputs: List[torch.Tensor], outputs: List[torch.Tensor]):
-    pto_impl.DeviceRunOnceDataFromHost(_to_tensor_data(inputs), _to_tensor_data(outputs))
+    pto_impl.DeviceRunOnceDataFromHost(
+        to_tensor_data(inputs), to_tensor_data(outputs))
 
 
 class JIT:
     def __init__(self, dyn_func, codegen_options=None,
                  host_options=None, pass_options=None, runtime_options=None):
         self.dyn_func = dyn_func
-        self._is_function_compiled: bool = False
+        self._is_compiled: bool = False
         self._handler = None
         self.codegen_options = codegen_options
         self.host_options = host_options
         self.pass_options = pass_options
         self.runtime_options = runtime_options
 
-    def __call__(self, *args, **kwargs):
-        in_tensors, out_tensors = args[0], args[1]
-        if (len(args) < 2):
-            raise ValueError("pypto.jit required at least two input arguments (input_tensors, output_tensors, ...).")
+    def compile(self, inputs, outputs, *args, **kwargs):
+        pto_impl.DeviceInit()
+        self._set_config_option()
 
-        for in_tensor in in_tensors:
-            if not in_tensor.is_contiguous():
-                raise RuntimeError("pypto.jit requires that all in_tensors must be contiguous.")
+        inputs = [to_pto(t, f"IN_{idx}")
+                  for idx, t in enumerate(inputs)]
+        outputs = [to_pto(t, f"OUT_{idx}")
+                   for idx, t in enumerate(outputs)]
+        handler = pto_impl.OperatorBegin([t.base() for t in inputs],
+                                         [t.base() for t in outputs])
+        self.dyn_func(inputs, outputs, *args, **kwargs)
+        pto_impl.OperatorEnd(handler)
 
-        if not self._is_function_compiled:
-            pto_impl.DeviceInit()
-            self._set_config_option()
-            # Convert I/O torch tensors to PyPTO tensors and run pypto.dyn_function
-            in_pto_tensors = [
-                _torch_to_pto(t, f"IN_{idx}") for idx, t in enumerate(in_tensors)
-            ]
-            out_pto_tensors = [
-                _torch_to_pto(t, f"OUT_{idx}") for idx, t in enumerate(out_tensors)
-            ]
-            handler = pto_impl.OperatorBegin(
-                pypto.Tensor.to_base_list(in_pto_tensors),
-                pypto.Tensor.to_base_list(out_pto_tensors))
-            self.dyn_func(in_pto_tensors, out_pto_tensors, *args[2:], **kwargs)
-            pto_impl.OperatorEnd(handler)
-            self._handler = handler
-            self._is_function_compiled = True
+        self._handler = handler
+        self._is_compiled = True
 
-        stream = torch.npu.current_stream()
+    def run(self, inputs, outputs):
         assert self._handler is not None
         pto_impl.OperatorDeviceRunOnceDataFromDevice(
             self._handler,
-            _to_tensor_data(in_tensors),
-            _to_tensor_data(out_tensors),
-            stream.npu_stream)
+            to_tensor_data(inputs),
+            to_tensor_data(outputs),
+            current_stream())
+
+    def __call__(self, *args, **kwargs):
+        if (len(args) < 2):
+            raise ValueError("inputs or outputs missing")
+        device = None
+        inputs, outputs = args[0], args[1]
+        for t in inputs + outputs:
+            if not t.is_contiguous():
+                raise RuntimeError("not all tensors are contiguous")
+            if device is None:
+                device = t.device
+            elif device != t.device:
+                raise RuntimeError("not all tensors are on the same device")
+
+        if not self._is_compiled:
+            self.compile(inputs, outputs, *args[2:], **kwargs)
+
+        ori_device = current_device()
+        if device and device.index != ori_device:
+            set_device(device.index)
+            self.run(inputs, outputs)
+            set_device(ori_device)
+        else:
+            self.run(inputs, outputs)
 
     @property
     def handler(self):
         return self._handler
 
     def _set_config_option(self):
-        # 添加支持动态的config
         if isinstance(self.codegen_options, dict):
-            pypto.set_codegen_options(** self.codegen_options)
+            pypto.set_codegen_options(**self.codegen_options)
 
         if isinstance(self.host_options, dict):
-            pypto.set_host_options(** self.host_options)
+            pypto.set_host_options(**self.host_options)
 
         if isinstance(self.pass_options, dict):
-            pypto.set_pass_options(** self.pass_options)
+            pypto.set_pass_options(**self.pass_options)
 
         if isinstance(self.runtime_options, dict):
-            pypto.set_runtime_options(** self.runtime_options)
+            pypto.set_runtime_options(**self.runtime_options)
 
 
 @overload
@@ -151,7 +176,7 @@ def jit(
         host_options=None,
         pass_options=None,
         runtime_options=None
-        ):
+):
     ...
 
 
@@ -176,5 +201,60 @@ def jit(dyn_func=None,
 
 
 def _device_synchronize():
-    stream = torch.npu.current_stream()
-    pto_impl.OperatorDeviceSynchronize(stream.npu_stream)
+    pto_impl.OperatorDeviceSynchronize(current_stream())
+
+
+def verify(func, inputs, outputs, goldens, *args,
+           codegen_options=None,
+           host_options=None,
+           pass_options=None,
+           verify_options=None, **kwargs):
+    """
+    Verify the tensor graph of the function.
+
+    Args:
+        func: The function to verify.
+        inputs: The input tensors.
+        outputs: The output tensors.
+        goldens: The golden tensors.
+        *args: The extra arguments for func.
+        verify_options: dict
+            see :func:`set_verify_options`.
+        codegen_options: dict
+            see :func:`set_codegen_options`.
+        host_options: dict
+            see :func:`set_host_options`.
+        pass_options: dict
+            see :func:`set_pass_options`.
+        **kwargs: The extra keyword arguments for func.
+    Returns:
+        None
+    """
+    pto_impl.DeviceInit()
+
+    if codegen_options is None:
+        codegen_options = {"support_dynamic_unaligned": True}
+    pypto.set_codegen_options(**codegen_options)
+
+    if host_options is None:
+        host_options = {"only_codegen": True}
+    pypto.set_host_options(**host_options)
+
+    if pass_options is None:
+        pass_options = {}
+    pypto.set_pass_options(**pass_options)
+
+    if verify_options is None:
+        verify_options = {"verify_tensor_graph": True}
+    pypto.set_verify_options(**verify_options)
+
+    pto_impl.SetVerifyData(to_tensor_data(inputs),
+                           to_tensor_data(outputs),
+                           to_tensor_data(goldens))
+
+    inputs = [to_pto(t, f"IN_{idx}") for idx, t in enumerate(inputs)]
+    outputs = [to_pto(t, f"OUT_{idx}") for idx, t in enumerate(outputs)]
+    handler = pto_impl.OperatorBegin([t.base() for t in inputs],
+                                     [t.base() for t in outputs])
+    func(inputs, outputs, *args, **kwargs)
+    pto_impl.OperatorEnd(handler)

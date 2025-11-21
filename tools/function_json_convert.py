@@ -19,7 +19,10 @@ def get_sematic(func_index, opmagic, func_data):
         return ""
     for call_op in func_data[func_index]["operations"]:
         if call_op["opmagic"] == opmagic:
-            return ", ".join(call_op["semantic_label"])
+            if "semantic_label" in call_op:
+                return call_op["semantic_label"]["label"]
+            else:
+                return ""
     return ""
 
 

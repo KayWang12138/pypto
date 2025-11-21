@@ -251,18 +251,10 @@ void TestAuxTensor() {
 TEST_F(DynKVCmp, AuxVectorBuildFloat32) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
     // // 精度工具
-    // config::SetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, true);
-    // config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);
-    // config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_DUMP_OPERATION, true);
-    // config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_DUMP_TENSOR, true);
-    // config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_CHECK_PRECISION, true);
-    // config::SetPlatformConfig(KEY_VERIFY_PASS, true);
-    // config::SetPlatformConfig(KEY_VERIFY_PASS_DUMP_OPERATION, true);
-    // config::SetPlatformConfig(KEY_VERIFY_PASS_DUMP_TENSOR, true);
-    // config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, true);
-    // config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_OPERATION, true);
-    // config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_TENSOR, true);
-    // config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_CHECK_PRECISION, true);
+    // config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
+    // config::SetVerifyOption(KEY_VERIFY_PASS, true);
+    // config::SetVerifyOption(KEY_VERIFY_EXECUTE_GRAPH, true);
+    // config::SetVerifyOption(KEY_VERIFY_CHECK_PRECISION, true);
 
     TestAuxTensor<float>();
 }

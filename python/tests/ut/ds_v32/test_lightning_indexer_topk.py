@@ -890,7 +890,7 @@ def setup_lightning_indexer_topk_config():
                          cycle_lower_bound=NUM_1024,
                          cycle_upper_bound=NUM_1024 * NUM_1024,
                          l1_reuse=NUM_32,
-                         sg_skip_partition=NUM_2,
+                         parallel_threshold=NUM_2,
                          nbuffer_merge_mode=NUM_2,
                          vec_nbuffer_map={NUM_NEG1: NUM_16})
     pypto.set_runtime_options(machine_sched_mode=NUM_3,

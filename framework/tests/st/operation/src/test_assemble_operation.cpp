@@ -31,12 +31,10 @@ class AssembleTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
         config::SetHostOption(ONLY_CODEGEN, true);
         config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
         // 测试精度工具功能支持时，打开下面的注释
-        // config::SetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, true);
-        // config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);
-        // config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_DUMP_OPERATION, true);
-        // config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_DUMP_TENSOR, true);
-        // config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_CHECK_PRECISION, true);
-        // config::SetPlatformConfig(KEY_VERIFY_PASS, true);
+        // config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
+        // config::SetVerifyOption(KEY_VERIFY_PASS, true);
+        // config::SetVerifyOption(KEY_VERIFY_EXECUTE_GRAPH, true);
+        // config::SetVerifyOption(KEY_VERIFY_CHECK_PRECISION, true);
     }
 
     void TearDown() override {}

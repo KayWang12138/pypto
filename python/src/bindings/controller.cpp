@@ -43,7 +43,7 @@ void bind_controller_config(py::module &m) {
         [](const std::string &key, const std::map<int64_t, int64_t> &value) { config::SetOption(key, value); },
         py::arg("key"), py::arg("value"));
 
-    m.def(
+        m.def(
         "GetOption",
         [](const std::string &key) -> py::object {
             if (config::IsType<int64_t>(key)) {
@@ -77,6 +77,8 @@ void bind_controller_config(py::module &m) {
         [](const std::string &label, const std::string &filename, int lineno) {
             config::SetSemanticLabel(label, filename.c_str(), lineno);
         }, py::arg("label"), py::arg("filename"), py::arg("lineno"));
+
+    m.attr("IsVerifyEnabled") = calc::IsVerifyEnabled();
 }
 
 
@@ -149,28 +151,17 @@ void bind_controller_function(py::module &m) {
             py::init<const std::string &, const ref_tensors &, const ref_tensors &,
                 const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>>
                     &>(),
-            py::arg("name"), py::arg("start_args_input_tensor_list"), py::arg("start_args_output_tensor_list"),
+            py::arg("name"), py::arg("inputs"), py::arg("outputs"),
             py::arg("in_place_args"));
     py::class_<RecordLoopFunc>(m, "RecordLoopFunc")
         .def(py::init<const std::string &, FunctionType, const std::string &, const LoopRange &, const std::set<int> &,
                  bool>(),
             py::arg("name"), py::arg("func_type"), py::arg("iter_name"), py::arg("loop_range"), py::arg("unroll_List"),
             py::arg("submit_before_loop"))
-        .def("BeginLoopFunction", &RecordLoopFunc::BeginLoopFunction)
-        .def("EndLoopFunction", &RecordLoopFunc::EndLoopFunction)
-        .def("IterationBegin", &RecordLoopFunc::IterationBegin)
-        .def("IterationNext", &RecordLoopFunc::IterationNext)
-        .def("IterationEnd", &RecordLoopFunc::IterationEnd)
-        .def("MatchUnrollTimes", &RecordLoopFunc::MatchUnrollTimes)
         .def("__iter__", [](RecordLoopFunc &c) {
             // Return Python iterator from C++ begin/end
             return py::make_iterator(c.begin(), c.end());
         });
-
-    py::class_<RecordLoopFunc::Iterator>(m, "RecordLoopFunc_Iterator")
-        .def(py::init<RecordLoopFunc &, const SymbolicScalar &>(), py::arg("rlf"), py::arg("scalar"));
-    py::class_<RecordLoopFunc::IteratorEnd>(m, "RecordLoopFunc_IteratorEnd")
-        .def(py::init<RecordLoopFunc &, const SymbolicScalar &>(), py::arg("rlf"), py::arg("scalar"));
 }
 
 void bind_controller_loop(py::module &m) {

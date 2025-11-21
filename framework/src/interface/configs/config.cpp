@@ -28,38 +28,38 @@ using json = nlohmann::json;
 
 namespace npu::tile_fwk {
 
-using ValueType = std::variant<int64_t, std::string, std::vector<int64_t>, std::map<int64_t, int64_t>>;
+using ValueType = std::variant<bool, int64_t, std::string, std::vector<int64_t>, std::map<int64_t, int64_t>>;
 
 using MapType = std::map<int64_t, int64_t>;
 
 static std::map<std::string, ValueType> g_passConfig = {
-    {SG_PARALLEL_NUM, 20},
-    {SG_CYCLE_UPPER_BOUND, 10000},
-    {SG_CYCLE_LOWER_BOUND, 512},
-    {L1_REUSE, 0},
+    {SG_PARALLEL_NUM, 20L},
+    {SG_CYCLE_UPPER_BOUND, 10000L},
+    {SG_CYCLE_LOWER_BOUND, 512L},
+    {L1_REUSE, 0L},
     {L1_REUSE_MAP, std::map<int64_t, int64_t>{}},
-    {CUBE_NBUFFER, 1},
+    {CUBE_NBUFFER, 1L},
     {CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{}},
-    {COPYIN_THRESHOLD, 1024 * 1024},
-    {OOO_PRESCHEDULE_METHOD, "PriorDFS"},
-    {NBUFFER_MERGE_MODE, 1},
+    {COPYIN_THRESHOLD, 1024 * 1024L},
+    {OOO_PRESCHEDULE_METHOD, std::string("PriorDFS")}, // bugs in gcc 9.4
+    {NBUFFER_MERGE_MODE, 1L},
     {VEC_NBUFFER_MAP, std::map<int64_t, int64_t>{}},
-    {SG_VEC_PARALLEL_NUM, 48},
-    {SG_CUBE_PARALLEL_NUM, 24},
+    {SG_VEC_PARALLEL_NUM, 48L},
+    {SG_CUBE_PARALLEL_NUM, 24L},
     {SG_SKIP_PARTITION, false},
-    {COPYOUT_RESOLVE_COALESCING, 0},
+    {COPYOUT_RESOLVE_COALESCING, 0L},
 };
 
 static std::map<std::string, ValueType> g_runtimeConfig = {
-    {MACHINE_SCHED_MODE, 0},
-    {WORKSPACE_RECYCLE_PERIOD, 10},
-    {ESTIMATED_STITCH_TASK_MAX_LOOP_NUM, 50},
-    {FIRST_STITCH_TASK_LOOP_NUM, 30},
-    {SUBSEQ_STITCH_TASK_INCR_LOOP_NUM, 30}, // Increasing loop number
-    {CFGCACHE_DEVICE_TASK_NUM, 0},
-    {CFGCACHE_ROOT_TASK_NUM, 0},
-    {CFGCACHE_LEAF_TASK_NUM, 0},
-    {SINGLE_LOOP_CALLOP_MAX_NUM, 20000},
+    {MACHINE_SCHED_MODE, 0L},
+    {WORKSPACE_RECYCLE_PERIOD, 10L},
+    {ESTIMATED_STITCH_TASK_MAX_LOOP_NUM, 50L},
+    {FIRST_STITCH_TASK_LOOP_NUM, 30L},
+    {SUBSEQ_STITCH_TASK_INCR_LOOP_NUM, 30L}, // Increasing loop number
+    {CFGCACHE_DEVICE_TASK_NUM, 0L},
+    {CFGCACHE_ROOT_TASK_NUM, 0L},
+    {CFGCACHE_LEAF_TASK_NUM, 0L},
+    {SINGLE_LOOP_CALLOP_MAX_NUM, 20000L},
 };
 
 static std::map<std::string, ValueType> g_hostConfig = {
@@ -69,6 +69,16 @@ static std::map<std::string, ValueType> g_hostConfig = {
 static std::map<std::string, ValueType> g_codegenConfig = {
     {SUPPORT_DYNAMIC_UNALIGNED, false},
     {CODEGEN_EXPRESSION_FUSION, false},
+};
+
+static std::map<std::string, ValueType> g_verifyConfig = {
+    {KEY_VERIFY_TENSOR_GRAPH, false},
+    {KEY_VERIFY_PASS, false},
+    {KEY_VERIFY_EXECUTE_GRAPH, false},
+    {KEY_VERIFY_CHECK_PRECISION, false},
+    {KEY_VERIFY_DUMP_TENSOR, false},
+    {KEY_VERIFY_DUMP_OPERATION, false},
+    {KEY_VERIFY_PROFILE_ENABLE, false},
 };
 
 static std::map<std::string, ValueType> g_globalConfig = {
@@ -105,6 +115,9 @@ struct ConfigStorage {
         }
         for (auto &[key, val] : g_codegenConfig) {
             options["codegen." + key] = val;
+        }
+        for (auto &[key, val] : g_verifyConfig) {
+            options["verify." + key] = val;
         }
     }
 
@@ -154,14 +167,18 @@ std::string Dump() {
 
     std::shared_lock lock(g_rwlock);
     oss << "funcType: " << (g_config.funcType == FunctionType::DYNAMIC ? "dynamic" : "static") << std::endl;
-    oss << "sematicLabel: " << g_config.semanticLabel->label << std::endl;
+    if (g_config.semanticLabel) {
+        oss << "sematicLabel: " << g_config.semanticLabel->label << std::endl;
+    }
     oss << "printOption.edgeItems: " << printOption.edgeItems << std::endl;
     oss << "printOption.precision: " << printOption.precision << std::endl;
     oss << "printOption.threshold: " << printOption.threshold << std::endl;
     oss << "printOption.linewidth: " << printOption.linewidth << std::endl;
 
     for (auto &it : g_config.options) {
-        if (std::holds_alternative<int64_t>(it.second)) {
+        if (std::holds_alternative<bool>(it.second)) {
+            oss << it.first << ": " << std::get<bool>(it.second) << std::endl;
+        } else if (std::holds_alternative<int64_t>(it.second)) {
             oss << it.first << ": " << std::get<int64_t>(it.second) << std::endl;
         } else if (std::holds_alternative<std::string>(it.second)) {
             oss << it.first << ": " << std::get<std::string>(it.second) << std::endl;
@@ -187,7 +204,9 @@ bool internal::IsType(const std::string &key, const std::type_info &type) {
     if (iter == g_config.options.end()) {
         return false;
     }
-    if (std::holds_alternative<int64_t>(iter->second)) {
+    if (std::holds_alternative<bool>(iter->second)) {
+        return type == typeid(bool);
+    } else if (std::holds_alternative<int64_t>(iter->second)) {
         return type == typeid(int64_t);
     } else if (std::holds_alternative<std::string>(iter->second)) {
         return type == typeid(std::string);
@@ -211,6 +230,7 @@ bool internal::IsType(const std::string &key, const std::type_info &type) {
         return true;                                                  \
     }
 
+DEFINE_GET_OPTION(bool)
 DEFINE_GET_OPTION(int64_t)
 DEFINE_GET_OPTION(std::string)
 DEFINE_GET_OPTION(std::vector<int64_t>)
@@ -270,6 +290,20 @@ static void SetOptionPost(const std::string &key) {
 }
 
 void internal::SetOption(const std::string &key, int64_t value) {
+    g_rwlock.lock();
+    g_config.options[StringUtils::ToLower(key)] = value;
+    g_rwlock.unlock();
+    SetOptionPost(key);
+}
+
+void internal::SetOption(const std::string &key, bool value) {
+    g_rwlock.lock();
+    g_config.options[StringUtils::ToLower(key)] = value;
+    g_rwlock.unlock();
+    SetOptionPost(key);
+}
+
+void internal::SetOption(const std::string &key, const char *value) {
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
     g_rwlock.unlock();

@@ -86,7 +86,6 @@ void Program::Reset() {
     functionmap_.clear();
     functionMagicNameStack_.clear();
     currentFunctionMagicName_ = PROGRAM_ENTRY_FUNCTION_NAME;
-    operatorChecker_ = false;
     config::Reset();
     aliveTensors_.clear();
     functionCache_.Reset();
@@ -666,7 +665,7 @@ void Program::VerifyTensorGraph() {
 }
 
 void Program::VerifyPass(Function *func, int passIndex, const std::string &passIdentifier) {
-    if (!config::GetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, false)) {
+    if (!config::GetVerifyOption<bool>(KEY_VERIFY_TENSOR_GRAPH)) {
         std::string key = "Please enable VERIFY_TENSOR_GRAPH first ";
         ALOG_ERROR(key, "Verify ERROR: ");
         return;
@@ -683,7 +682,7 @@ void Program::VerifyPass(Function *func, int passIndex, const std::string &passI
 }
 
 void Program::VerifyExecuteGraph() {
-    if (!config::GetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, false)) {
+    if (!config::GetVerifyOption<bool>(KEY_VERIFY_TENSOR_GRAPH)) {
         std::string key = "Please enable VERIFY_TENSOR_GRAPH first ";
         ALOG_ERROR(key, "Verify ERROR: ");
         return;
@@ -790,9 +789,9 @@ RecordFunc::RecordFunc(const std::string &name,
 }
 
 inline bool IsVerifyEnable() {
-    return config::GetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, false) ||
-        config::GetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, false) ||
-        config::GetPlatformConfig(KEY_VERIFY_PASS, false);
+    return config::GetVerifyOption<bool>(KEY_VERIFY_TENSOR_GRAPH) ||
+        config::GetVerifyOption<bool>(KEY_VERIFY_EXECUTE_GRAPH) ||
+        config::GetVerifyOption<bool>(KEY_VERIFY_PASS);
 }
 
 RecordFunc::~RecordFunc() {
@@ -809,7 +808,7 @@ RecordFunc::~RecordFunc() {
             attr->getTensorDataDescDict.clear();
 
             dynFunc_->ApplyLoopCallOrderGroup();
-            if (config::GetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, false)) {
+            if (config::GetVerifyOption<bool>(KEY_VERIFY_TENSOR_GRAPH)) {
                 Program::GetInstance().VerifyTensorGraph();
             }
             MergeAllFuncDupIocast(nullptr);
@@ -819,7 +818,7 @@ RecordFunc::~RecordFunc() {
                 Program::GetInstance().UpdateCompileTask();
             }
 
-            if (config::GetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, false)) {
+            if (config::GetVerifyOption<bool>(KEY_VERIFY_EXECUTE_GRAPH)) {
                 Program::GetInstance().VerifyExecuteGraph();
             }
         }

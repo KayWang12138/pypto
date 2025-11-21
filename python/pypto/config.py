@@ -11,10 +11,39 @@
 """
 """
 import inspect
-from typing import List, Union, Dict
+from typing import List, Union, Dict, Optional
 import inspect
 
 from . import pto_impl
+
+
+class CachedOptions:
+
+    def __init__(self):
+        self._options = pto_impl.GetOptions()
+
+    def reset(self):
+        self._options = pto_impl.GetOptions()
+
+    def set_options(self, prefix, options):
+        for name, value in options.items():
+            key = f"{prefix}.{name}"
+            if key in self._options and value is not None:
+                self._options[key] = value
+                pto_impl.SetOption(key, value)
+
+    def __getitem__(self, key):
+        return self._options[key]
+
+    def __setitem__(self, key, value):
+        self._options[key] = value
+        pto_impl.SetOption(key, value)
+
+    def get_options(self, prefix):
+        prefix = f"{prefix}."
+        return {k[len(prefix):]: v for k, v in self._options.items() if k.startswith(prefix)}
+
+_pto_options = CachedOptions()
 
 
 def set_print_options(edge_items: int, precision: int, threshold: int, linewidth: int):
@@ -39,19 +68,19 @@ def set_print_options(edge_items: int, precision: int, threshold: int, linewidth
 
 
 def set_pass_options(*,
-                     sg_skip_partition: bool = None,
-                     cycle_upper_bound: int = None,
-                     cycle_lower_bound: int = None,
-                     parallel_threshold: int = None,
-                     sg_vec_parallel_num: int = None,
-                     nbuffer_merge_mode: int = None,
-                     vec_nbuffer_map: Dict[int, int] = None,
-                     l1_reuse: int = None,
-                     l1_reuse_map: Dict[int, int] = None,
-                     cube_nbuffer: int = None,
-                     cube_nbuffer_map: Dict[int, int] = None,
-                     copyin_threshold: int = None,
-                     ooo_preschedule_method: str = None
+                     sg_skip_partition: Optional[bool] = None,
+                     cycle_upper_bound: Optional[int] = None,
+                     cycle_lower_bound: Optional[int] = None,
+                     parallel_threshold: Optional[int] = None,
+                     sg_vec_parallel_num: Optional[int] = None,
+                     nbuffer_merge_mode: Optional[int] = None,
+                     vec_nbuffer_map: Optional[Dict[int, int]] = None,
+                     l1_reuse: Optional[int] = None,
+                     l1_reuse_map: Optional[Dict[int, int]] = None,
+                     cube_nbuffer: Optional[int] = None,
+                     cube_nbuffer_map: Optional[Dict[int, int]] = None,
+                     copyin_threshold: Optional[int] = None,
+                     ooo_preschedule_method: Optional[str] = None
                      ) -> None:
     """
     Set pass options.
@@ -109,10 +138,7 @@ def set_pass_options(*,
     ooo_preschedule_method : str
         Method for controlling the OoO PreSchedule of specific subgraphs.
     """
-    params = locals()
-    for name, value in params.items():
-        if f"pass.{name}" in pto_impl.GetOptions() and value is not None:
-            pto_impl.SetOption(f"pass.{name}", value)
+    _pto_options.set_options("pass", locals())
 
 
 def get_pass_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
@@ -124,15 +150,10 @@ def get_pass_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
     Dict[str, Union[str, int, List[int], Dict[int, int]]]
         All pass options
     """
-    pass_options = {}
-    for k in pto_impl.GetOptions():
-        if k.startswith("pass."):
-            pass_options[k[5:]] = pto_impl.GetOption(k)
-
-    return pass_options
+    return _pto_options.get_options("pass")
 
 
-def set_host_options(*, only_codegen: bool = None) -> None:
+def set_host_options(*, only_codegen: Optional[bool] = None) -> None:
     """
     Set host options.
 
@@ -141,10 +162,7 @@ def set_host_options(*, only_codegen: bool = None) -> None:
     only_codegen : bool
         Shield the static on-board process.
     """
-    params = locals()
-    for name, value in params.items():
-        if f"host.{name}" in pto_impl.GetOptions() and value is not None:
-            pto_impl.SetOption(f"host.{name}", value)
+    _pto_options.set_options("host", locals())
 
 
 def get_host_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
@@ -156,17 +174,12 @@ def get_host_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
     Dict[str, Union[str, int, List[int], Dict[int, int]]]
         All host options
     """
-    host_options = {}
-    for k in pto_impl.GetOptions():
-        if k.startswith("host."):
-            host_options[k[5:]] = pto_impl.GetOption(k)
-
-    return host_options
+    return _pto_options.get_options("host")
 
 
 def set_codegen_options(*,
-                        support_dynamic_unaligned: bool = None,
-                        codegen_expression_fusion: bool = None
+                        support_dynamic_unaligned: Optional[bool] = None,
+                        codegen_expression_fusion: Optional[bool] = None
                         ) -> None:
     """
     Set codegen options.
@@ -180,10 +193,7 @@ def set_codegen_options(*,
         Whether to support executing dynamic
         expression calculation on the device side.
     """
-    params = locals()
-    for name, value in params.items():
-        if f"codegen.{name}" in pto_impl.GetOptions() and value is not None:
-            pto_impl.SetOption(f"codegen.{name}", value)
+    return _pto_options.set_options("codegen", locals())
 
 
 def get_codegen_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
@@ -195,23 +205,18 @@ def get_codegen_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]
     Dict[str, Union[str, int, List[int], Dict[int, int]]]
         All codegen options
     """
-    codegen_options = {}
-    for k in pto_impl.GetOptions():
-        if k.startswith("codegen."):
-            codegen_options[k[8:]] = pto_impl.GetOption(k)
-
-    return codegen_options
+    return _pto_options.get_options("codegen")
 
 
 def set_runtime_options(*,
-                        machine_sched_mode: int = None,
-                        workspace_recycle_period: int = None,
-                        estimated_stitch_task_max_loop_num: int = None,
-                        first_stitch_task_loop_num: int = None,
-                        subseq_stitch_task_incr_loop_num: int = None,
-                        cfgcache_device_task_num: int = None,
-                        cfgcache_root_task_num: int = None,
-                        cfgcache_leaf_task_num: int = None
+                        machine_sched_mode: Optional[int] = None,
+                        workspace_recycle_period: Optional[int] = None,
+                        estimated_stitch_task_max_loop_num: Optional[int] = None,
+                        first_stitch_task_loop_num: Optional[int] = None,
+                        subseq_stitch_task_incr_loop_num: Optional[int] = None,
+                        cfgcache_device_task_num: Optional[int] = None,
+                        cfgcache_root_task_num: Optional[int] = None,
+                        cfgcache_leaf_task_num: Optional[int] = None
                         ) -> None:
     """
     Set runtime options.
@@ -239,10 +244,7 @@ def set_runtime_options(*,
         The computation amount of the processing loop for non-initial
         stitch tasks, controlled in the ctrlflow AICPU during machine runtime.
     """
-    params = locals()
-    for name, value in params.items():
-        if f"runtime.{name}" in pto_impl.GetOptions() and value is not None:
-            pto_impl.SetOption(f"runtime.{name}", value)
+    _pto_options.set_options("runtime", locals())
 
 
 def get_runtime_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
@@ -254,12 +256,51 @@ def get_runtime_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]
     Dict[str, Union[str, int, List[int], Dict[int, int]]]
         All runtime options
     """
-    runtime_options = {}
-    for k in pto_impl.GetOptions():
-        if k.startswith("runtime."):
-            runtime_options[k[8:]] = pto_impl.GetOption(k)
+    return _pto_options.get_options("runtime")
 
-    return runtime_options
+
+def set_verify_options(*,
+                       verify_tensor_graph: Optional[bool] = None,
+                       verify_pass: Optional[bool] = None,
+                       check_precision: Optional[bool] = None,
+                       dump_tensor: Optional[bool] = None,
+                       dump_operation: Optional[bool] = None,
+                       profile_enable: Optional[bool] = None,
+                       verify_execute_graph: Optional[bool] = None,
+                       ) -> None:
+    """
+    Set verify options.
+
+    Parameters
+    ---------
+    verify_tensor_graph : bool
+        Whether to verify the tensor graph.
+
+    verify_pass : bool
+        Whether to verify the pass.
+
+    check_precision : bool
+        Whether to check the precision.
+
+    dump_tensor : bool
+        Whether to dump the tensor.
+
+    dump_operation : bool
+        Whether to dump the operation.
+    """
+    _pto_options.set_options("verify", locals())
+
+
+def get_verify_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
+    """
+    Get verify options.
+
+    Returns
+    -------
+    Dict[str, Union[str, int, List[int], Dict[int, int]]]
+        All verify options
+    """
+    return _pto_options.get_options("verify")
 
 
 def set_semantic_label(label: str) -> None:
@@ -273,7 +314,8 @@ def set_semantic_label(label: str) -> None:
         Note: label will be attached to subsequent operations
 
     """
-    pto_impl.SetSemanticLabel(label, inspect.stack()[1].filename, inspect.stack()[1].lineno)
+    pto_impl.SetSemanticLabel(label, inspect.stack()[
+                              1].filename, inspect.stack()[1].lineno)
 
 
 def set_option(key: str, value: Union[str, int, List[int], Dict[int, int]]) -> None:
@@ -288,8 +330,7 @@ def set_option(key: str, value: Union[str, int, List[int], Dict[int, int]]) -> N
     value : Union[str, int, List[int], Dict[int, int]]
         Config option value.
     """
-
-    pto_impl.SetOption(key, value)
+    _pto_options[key] = value
 
 
 def get_option(key: str) -> Union[str, int, List[int], Dict[int, int]]:
@@ -307,11 +348,12 @@ def get_option(key: str) -> Union[str, int, List[int], Dict[int, int]]:
         Config option value.
     """
 
-    return pto_impl.GetOption(key)
+    return _pto_options[key]
 
 
 def reset_options() -> None:
     """
         Reset all configuration items to their default values.
     """
-    return pto_impl.Reset()
+    pto_impl.Reset()
+    _pto_options.reset()

@@ -88,7 +88,7 @@ const std::string& SourceLocation::GetBacktrace() const {
     return backtrace_;
 }
 
-bool SourceLocation::isCppMode_ = true;
+bool SourceLocation::isCppMode_ = false;
 std::mutex SourceLocation::mutex;
 std::stack<std::shared_ptr<SourceLocation>> SourceLocation::callStack;
 std::unordered_set<uint64_t> SourceLocation::pcSet;

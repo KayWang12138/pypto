@@ -372,8 +372,8 @@ def function(name: str, *args, **kwargs):
             end_function(name)
     else:
         in_tensors, out_tensors = args[0], args[1]
-        inputs = Tensor.to_base_list(in_tensors)
-        outputs = Tensor.to_base_list(out_tensors)
+        inputs = [t.base() for t in in_tensors]
+        outputs = [t.base() for t in out_tensors]
         func = None
         try:
             Controller.reset()

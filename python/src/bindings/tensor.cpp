@@ -58,6 +58,7 @@ void BindTensor(py::module &m) {
             py::arg("shape"), py::arg("data_ptr"), py::arg("name"), py::arg("format") = TileOpFormat::TILEOP_ND)
         .def(py::init<DataType, std::vector<SymbolicScalar>, std::string, TileOpFormat>(), py::arg("dtype"),
             py::arg("shape"), py::arg("name") = "", py::arg("format") = TileOpFormat::TILEOP_ND)
+        .def("IsEmpty", &Tensor::IsEmpty)
         .def("GetDataType",
             [](const Tensor &t) -> DataType {
                 if (t.IsEmpty()) {

@@ -91,13 +91,10 @@ void TestDynBatchMatmul4D(vector<int> b1, vector<int> b2, int m, int k, int n, s
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetHostOption(ONLY_CODEGEN, true);
 
-    config::SetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, true);
-    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);
-    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_CHECK_PRECISION, true);
-    config::SetPlatformConfig(KEY_VERIFY_PASS, true);
-    config::SetPlatformConfig(KEY_VERIFY_PASS_CHECK_PRECISION, true);
-    config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, true);
-    config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_CHECK_PRECISION, true);
+    config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
+    config::SetVerifyOption(KEY_VERIFY_PASS, true);
+    config::SetVerifyOption(KEY_VERIFY_EXECUTE_GRAPH, true);
+    config::SetVerifyOption(KEY_VERIFY_CHECK_PRECISION, true);
 
     int ka = k;
     int kb = k;

@@ -96,9 +96,7 @@ void Dump(std::ostream &os, LogicalTensorDataPtr self) {
     os << From(self);
 }
 
-const char *Model() {
-    return "torch";
-}
+bool IsVerifyEnabled() { return true; }
 
 bool AllClose(LogicalTensorDataPtr self, LogicalTensorDataPtr other, double atol, double rtol) {
     return From(self).allclose(From(other), atol, rtol);

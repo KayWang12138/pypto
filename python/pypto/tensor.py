@@ -252,10 +252,6 @@ class Tensor:
         obj._base = base
         return obj
 
-    @staticmethod
-    def to_base_list(tensor_list: List['Tensor']) -> List[pto_impl.Tensor]:
-        return [t.base() for t in tensor_list]
-
     def add(self, other: 'Tensor | int | float') -> 'Tensor':
         return pypto.add(self, other)
 

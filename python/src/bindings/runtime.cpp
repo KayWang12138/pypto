@@ -28,6 +28,28 @@ using namespace npu::tile_fwk::dynamic;
 namespace pypto {
 
 #ifdef BUILD_WITH_CANN
+
+void SetVerifyData(const std::vector<DeviceTensorData> &inputs,
+                   const std::vector<DeviceTensorData> &outputs,
+                   const std::vector<DeviceTensorData> &goldens) {
+    ProgramData::GetInstance().Reset();
+    for (size_t i = 0; i < inputs.size(); i++) {
+        auto rawData = RawTensorData::CreateTensor(
+            inputs[i].GetDataType(), inputs[i].GetShape(), (uint8_t *)inputs[i].GetDevAddr());
+        ProgramData::GetInstance().AppendInput(rawData);
+    }
+    for (size_t i = 0; i < outputs.size(); i++) {
+        auto rawData = std::make_shared<RawTensorData>(
+            outputs[i].GetDataType(), outputs[i].GetShape());
+        ProgramData::GetInstance().AppendOutput(rawData);
+    }
+    for (size_t i = 0; i < goldens.size(); i++) {
+        auto rawData = RawTensorData::CreateTensor(
+            goldens[i].GetDataType(), goldens[i].GetShape(), (uint8_t *)goldens[i].GetDevAddr());
+        ProgramData::GetInstance().AppendGolden(rawData);
+    }
+}
+
 std::string DeviceRunOnceDataFromHost(
     const std::vector<DeviceTensorData> &inputs, const std::vector<DeviceTensorData> &outputs) {
     Function *func = Program::GetInstance().GetLastFunction();
@@ -180,6 +202,7 @@ void BindRuntime(py::module &m) {
     m.def("OperatorDeviceSynchronize", &OperatorDeviceSynchronize);
     m.def("OperatorBegin", OperatorBegin);
     m.def("OperatorEnd", OperatorEnd);
+    m.def("SetVerifyData", &SetVerifyData);
 
     py::class_<DeviceTensorData>(m, "DeviceTensorData")
         .def(py::init<DataType, uintptr_t, const std::vector<int64_t> &>(), py::arg("dtype"), py::arg("addr"),

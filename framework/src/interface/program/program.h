@@ -115,7 +115,6 @@ private:
     Function *lastFunc_{nullptr};
     Function *currentDynamicFunctionPtr_{nullptr};
     FunctionCache functionCache_;
-    bool operatorChecker_{false};
     std::unordered_set<Tensor *> aliveTensors_;
     std::map<std::string, std::shared_ptr<npu::tile_fwk::Function>> functionmap_;
     std::shared_ptr<TensorSlotManager> tensorSlotManager_;

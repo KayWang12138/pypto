@@ -15,9 +15,7 @@
 
 #pragma once
 
-inline const char *Model() {
-    return "nop";
-}
+inline bool IsVerifyEnabled() { return false; }
 inline void Dump(std::ostream &, LogicalTensorDataPtr) {}
 inline void Random(LogicalTensorDataPtr) {}
 inline bool AllClose(LogicalTensorDataPtr, LogicalTensorDataPtr, double, double) { return true; }

@@ -45,7 +45,7 @@ enum class CmpModeType {
 };
 
 extern "C" {
-const char *Model();
+bool IsVerifyEnabled();
 void Dump(std::ostream &os, LogicalTensorDataPtr self);
 
 void Random(LogicalTensorDataPtr out);

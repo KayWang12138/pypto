@@ -63,6 +63,16 @@ constexpr const char *KEY_SWIM_GRAPH_PATH = "swim_graph_path";
 constexpr const char *KEY_FLOW_VERIFY_PATH = "flow_verify_path";
 constexpr const char *KEY_PROGRAM_PATH = "program_file";
 
+
+/* flow virifer tools KEYs */
+const std::string KEY_VERIFY_TENSOR_GRAPH = "verify_tensor_graph";
+const std::string KEY_VERIFY_PASS = "verify_pass";
+const std::string KEY_VERIFY_EXECUTE_GRAPH = "verify_execute_graph";
+const std::string KEY_VERIFY_DUMP_OPERATION = "dump_operation";
+const std::string KEY_VERIFY_DUMP_TENSOR = "dump_tensor";
+const std::string KEY_VERIFY_CHECK_PRECISION = "check_precision";
+const std::string KEY_VERIFY_PROFILE_ENABLE = "profile_enable";
+
 struct ConfigStorage;
 
 struct PrintOptions {
@@ -90,7 +100,7 @@ std::shared_ptr<SemanticLabel> GetSemanticLabel();
 void SetSemanticLabel(std::shared_ptr<SemanticLabel> label);
 
 namespace internal {
-bool IsType(const std::string &key, const std::type_info &type);
+bool GetOption(const std::string &key, bool &value);
 bool GetOption(const std::string &key, int64_t &value);
 bool GetOption(const std::string &key, std::string &value);
 bool GetOption(const std::string &key, std::vector<int64_t> &value);
@@ -101,7 +111,9 @@ template <typename T>
 T GetOption(const std::string &key) {
     bool exist = false;
     T val = {};
-    if constexpr (std::is_integral_v<T>) {
+    if constexpr (std::is_same_v<T, bool>) {
+        exist = internal::GetOption(key, val);
+    } else if constexpr (std::is_integral_v<T>) {
         int64_t tmp = 0;
         exist = internal::GetOption(key, tmp);
         val = static_cast<T>(tmp);
@@ -113,15 +125,6 @@ T GetOption(const std::string &key) {
         throw std::runtime_error("config " + key + " not exist");
     }
     return val;
-}
-
-template <typename T>
-bool IsType(const std::string &key) {
-    if constexpr (std::is_integral_v<T>) {
-        return internal::IsType(key, typeid(int64_t));
-    } else {
-        return internal::IsType(key, typeid(T));
-    }
 }
 
 #define DEFINE_CONFIG_GROUP(group, prefix)                   \
@@ -137,6 +140,7 @@ DEFINE_CONFIG_GROUP(CodeGen, "codegen")
 DEFINE_CONFIG_GROUP(Pass, "pass")
 DEFINE_CONFIG_GROUP(Runtime, "runtime")
 DEFINE_CONFIG_GROUP(Host, "host")
+DEFINE_CONFIG_GROUP(Verify, "verify")
 
 std::shared_ptr<ConfigStorage> Duplicate();
 void Restore(std::shared_ptr<ConfigStorage> config);
@@ -144,11 +148,12 @@ void Restore(std::shared_ptr<ConfigStorage> config);
 PrintOptions &GetPrintOptions();
 
 template <typename T>
-void SetRunDataOption(const std::string &key, const T &value) {
+void SetRunDataOption(const std::string &key, T &&value) {
     internal::SetOption("rundata." + key, value);
 }
 void CreateRunDataDir();
 
-std::unordered_map<std::string, std::variant<int64_t, std::string, std::vector<int64_t>, std::map<int64_t, int64_t>>> GetOptions();
+using ValueType = std::variant<bool, int64_t, std::string, std::vector<int64_t>, std::map<int64_t, int64_t>>;
+std::unordered_map<std::string, ValueType> GetOptions();
 } // namespace config
 } // namespace npu::tile_fwk
