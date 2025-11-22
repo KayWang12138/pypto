@@ -79,7 +79,7 @@ Status AddAlloc::UpdateTensorAllocMsg(Operation *op, size_t i, const std::vector
                                       std::unordered_map<int, TensorAllocMsg> &tensorAllocMsgMap) const {
     auto memId = op->GetOutputOperand(i)->memoryrange.memId;
     if (memId == -1) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "Get memId in memoryrange failed.");
+        APASS_LOG_ERROR_F(Elements::Tensor, "Get memId in memoryrange failed, op:%d, operand: %zu.%s", op->GetOpMagic(), i, GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     if (tensorAllocMsgMap.find(memId) == tensorAllocMsgMap.end()) {

@@ -26,7 +26,7 @@ Status StaticSubgraphProcessor::BuildGraph(Function &function) {
     inGraph.resize(operationViewer.size());
     outGraph.resize(operationViewer.size());
     if (BuildInGraph(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Build failed, Please check above for detailed inforamtion.");
+        APASS_LOG_ERROR_F(Elements::Function, "Build failed, Please check above for detailed inforamtion.");
         return FAILED;
     }
     for (size_t i = 0; i < operationViewer.size(); i++) {
@@ -47,8 +47,8 @@ Status StaticSubgraphProcessor::BuildInGraph(Function &function) {
             for (auto &parentOp : inOperand->GetProducers()) {
                 auto [parentSeqNo, found] = operationViewer.FindOpPosition(*parentOp);
                 if (EdgeIndexCheck(found, parentSeqNo, inGraph.size()) != SUCCESS) {
-                    APASS_LOG_ERROR_F(Elements::Tensor, "Error inserting op magic %d in function %d %s to inGraph.", parentOp->GetOpMagic(), function.GetFuncMagic(),
-                        function.GetRawName().c_str());
+                    APASS_LOG_ERROR_F(Elements::Operation, "Error inserting op magic %d in function %d %s to inGraph. %s", parentOp->GetOpMagic(), function.GetFuncMagic(),
+                        function.GetRawName().c_str(), GetFormatBacktrace(parentOp).c_str());
                     return FAILED;
                 }
                 inGraph[i].push_back(parentSeqNo);
@@ -58,8 +58,8 @@ Status StaticSubgraphProcessor::BuildInGraph(Function &function) {
         for (const auto &inControlOp : operationViewer[i].GetInCtrlOperations()) {
             auto [parentSeqNo, found] = operationViewer.FindOpPosition(*inControlOp);
             if (EdgeIndexCheck(found, parentSeqNo, inGraph.size()) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Error inserting op magic %d in function %d %s to inGraph.", inControlOp->GetOpMagic(), function.GetFuncMagic(),
-                    function.GetRawName().c_str());
+                APASS_LOG_ERROR_F(Elements::Operation, "Error inserting op magic %d in function %d %s to inGraph. %s", inControlOp->GetOpMagic(), function.GetFuncMagic(),
+                    function.GetRawName().c_str(), GetFormatBacktrace(inControlOp).c_str());
                 return FAILED;
             }
             inGraph[i].push_back(parentSeqNo);
@@ -263,7 +263,7 @@ void StaticSubgraphProcessor::ProcessColorGraph(Function &function) {
 Status StaticSubgraphProcessor::SetReadySubGraphType(Function* rootFunc, size_t i, const CoreType &esgGraphType) {
     // Verify topology index is valid
     if (i >= rootFunc->topoInfo_.topology_.size()) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Topology index %zu out of bounds (total topology entries: %zu).", i, rootFunc->topoInfo_.topology_.size());
+        APASS_LOG_ERROR_F(Elements::Function, "Topology index %zu out of bounds (total topology entries: %zu).", i, rootFunc->topoInfo_.topology_.size());
         return FAILED;
     }
     if (rootFunc->topoInfo_.topology_[i].readyState != 0) {
@@ -271,21 +271,21 @@ Status StaticSubgraphProcessor::SetReadySubGraphType(Function* rootFunc, size_t 
     }
     if (esgGraphType == CoreType::AIC) {
         rootFunc->EmplaceReadySubGraphIds(CoreType::AIC, i);
-        APASS_LOG_DEBUG_F(Elements::Operation, "Esg %zu is ready aic sub graph.", i);
+        APASS_LOG_DEBUG_F(Elements::Graph, "Esg %zu is ready aic sub graph.", i);
         return SUCCESS;
     }
     if (esgGraphType == CoreType::AIV) {
         rootFunc->EmplaceReadySubGraphIds(CoreType::AIV, i);
-        APASS_LOG_DEBUG_F(Elements::Operation, "Esg %zu is ready aiv sub graph.", i);
+        APASS_LOG_DEBUG_F(Elements::Graph, "Esg %zu is ready aiv sub graph.", i);
         return SUCCESS;
     }
     if (esgGraphType == CoreType::AICPU) {
         rootFunc->EmplaceReadySubGraphIds(CoreType::AICPU, i);
-        APASS_LOG_DEBUG_F(Elements::Operation, "Esg %zu is ready aicpu sub graph.", i);
+        APASS_LOG_DEBUG_F(Elements::Graph, "Esg %zu is ready aicpu sub graph.", i);
         return SUCCESS;
     }
     if (esgGraphType == CoreType::MIX) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "Esg %zu is ready mix sub graph.", i);
+        APASS_LOG_DEBUG_F(Elements::Graph, "Esg %zu is ready mix sub graph.", i);
     }
     return SUCCESS;
 }
@@ -300,10 +300,10 @@ void StaticSubgraphProcessor::UpdateTopoEntry(size_t i, int eSgId, int realOutDe
         if (op->HasAttr(extParamKey)) {
             std::vector<int64_t> extParams = op->GetVectorIntAttribute(extParamKey);
             topo.UpdateEntry(static_cast<uint32_t>(op->GetOpcode()), extParams.size(), extParams);
-            APASS_LOG_DEBUG_F(Elements::Operation, "UpdateEntry size=%lu.", extParams.size());
+            APASS_LOG_DEBUG_F(Elements::Graph, "UpdateEntry size=%lu.", extParams.size());
         }
     }
-    APASS_LOG_DEBUG_F(Elements::Operation, "AddEntry ESgId %d ReadyOrNot %d %zu %d.", eSgId, readyOrNot, topo.readyIds_.size(),
+    APASS_LOG_DEBUG_F(Elements::Graph, "AddEntry ESgId %d ReadyOrNot %d %zu %d.", eSgId, readyOrNot, topo.readyIds_.size(),
         topo.readyIds_[0]);
 }
 
@@ -325,7 +325,7 @@ Status StaticSubgraphProcessor::SetESGGraphType(int32_t cubeOpCnt, int32_t vecOp
     }
     esgGraphType = CoreType::MIX;
     if (IsCVSeparatePlatform() == true) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Get CoreType::MIX in C-V separate platform.");
+        APASS_LOG_ERROR_F(Elements::Graph, "Get CoreType::MIX in C-V separate platform.");
         return FAILED;
     }
     return SUCCESS;
@@ -336,11 +336,11 @@ Status StaticSubgraphProcessor::DetermineGraphType(size_t i, CoreType &esgGraphT
     int32_t vecOpCnt = 0;
     int32_t aicpuOpCnt = 0;
     if (CalOpCnt(i, cubeOpCnt, vecOpCnt, aicpuOpCnt) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "CalOpCnt failed.");
+        APASS_LOG_ERROR_F(Elements::Graph, "CalOpCnt failed.");
         return FAILED;
     }
     if (SetESGGraphType(cubeOpCnt, vecOpCnt, aicpuOpCnt, esgGraphType) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "SetESGGraphType failed.");
+        APASS_LOG_ERROR_F(Elements::Graph, "SetESGGraphType failed.");
         return FAILED;
     }
     if(GetNList()[i].size() == 1 && GetNList()[i][0]->GetOpcode() == Opcode::OP_RESHAPE && colorInGraph[i].size() != 0){
@@ -352,13 +352,13 @@ Status StaticSubgraphProcessor::DetermineGraphType(size_t i, CoreType &esgGraphT
 Status StaticSubgraphProcessor::SetCallAttrGraphType(Function* rootFunc, size_t i, const CoreType &esgGraphType) {
     // Get the operation and verify it exists
     if (i >= rootFunc->Operations().size()) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Operation index %zu out of bounds (total operations: %zu).", i, rootFunc->Operations().size());
+        APASS_LOG_ERROR_F(Elements::Function, "Operation index %zu out of bounds (total operations: %zu).", i, rootFunc->Operations().size());
         return FAILED;
     }
     auto& op = rootFunc->Operations()[i];
     auto callAttr = dynamic_cast<CallOpAttribute *>(op.GetOpAttribute().get());
     if (callAttr == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Failed to get CallOpAttribute for operation %zu (opcode: %s).", i, op.GetOpcodeStr().c_str());
+        APASS_LOG_ERROR_F(Elements::Operation, "Failed to get CallOpAttribute for operation %zu (opcode: %s). %s", i, op.GetOpcodeStr().c_str(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     callAttr->invokeInfo_->SetGraphType(esgGraphType);
@@ -400,22 +400,22 @@ Status StaticSubgraphProcessor::CalOpCnt(size_t i, int32_t &cubeOpCnt, int32_t &
 
 Status StaticSubgraphProcessor::HandleReadyStates(Function* rootFunc) {
     if (rootFunc == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "Root function is nullptr.");
+        APASS_LOG_ERROR_F(Elements::Function, "Root function is nullptr.");
         return FAILED;
     }
     auto& nList = GetNList();
     for (size_t i = 0; i < nList.size(); i++) {
         CoreType esgGraphType = CoreType::AIV;
         if (DetermineGraphType(i, esgGraphType) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "DetermineGraphType failed.");
+            APASS_LOG_ERROR_F(Elements::Function, "DetermineGraphType failed.");
             return FAILED;
         }
         if (SetCallAttrGraphType(rootFunc, i, esgGraphType) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "SetCallAttrGraphType failed.");
+            APASS_LOG_ERROR_F(Elements::Function, "SetCallAttrGraphType failed.");
             return FAILED;
         }
         if (SetReadySubGraphType(rootFunc, i, esgGraphType) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "SetReadySubGraphType failed.");
+            APASS_LOG_ERROR_F(Elements::Function, "SetReadySubGraphType failed.");
             return FAILED;
         }
     }

@@ -222,7 +222,7 @@ json ExecutionGraphStatistic::AnalyzeExecutionGraph(Function & func, const std::
     json report;
     Function *rootFunc = func.GetRootFunction();
     if (!rootFunc) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Root function is null");
+        APASS_LOG_ERROR_F(Elements::Function, "Root function is null");
         return report;
     }
 

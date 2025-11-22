@@ -31,12 +31,12 @@ bool InplaceProcess::HasSameConsecutive(Operation &op) {
 Status InplaceProcess::PreCheck(Function &function) {
     APASS_LOG_INFO_F(Elements::Operation, "PreCheck for InplaceProcess.");
     if (!function.LoopCheck().empty()) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Loopcheck failed before PreGraph; Please check whether there is a loop.");
+        APASS_LOG_ERROR_F(Elements::Function, "Loopcheck failed before PreGraph; Please check whether there is a loop.");
         return FAILED;
     }
     for (auto &op : function.Operations()) {
         if (op.GetSubgraphID() == NOT_IN_SUBGRAPH) {
-            APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] is not partitioned; Please check subGraphIDs.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] is not partitioned; Please check subGraphIDs. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         if ((op.GetOpcode() != Opcode::OP_ASSEMBLE) && (op.GetOpcode() != Opcode::OP_VIEW) &&
@@ -44,7 +44,7 @@ Status InplaceProcess::PreCheck(Function &function) {
             continue;
         }
         if (HasSameConsecutive(op)) {
-            APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has the same Opcode child op; Plese check child ops.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has the same Opcode child op; Plese check child ops. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         auto tensorIn = op.GetIOperands().front();
@@ -67,7 +67,7 @@ Status InplaceProcess::RunOnFunction(Function &function) {
     for (auto &op : opList) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             if (ValidMeaninglessOp(op) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Invalid view operation; Please check operands size and memory type.");
+                APASS_LOG_ERROR_F(Elements::Operation, "Invalid view operation; Please check operands size and memory type. %s", GetFormatBacktrace(op).c_str());
                 return FAILED;
             }
             ProcessView(function, op);
@@ -85,7 +85,7 @@ Status InplaceProcess::RunOnFunction(Function &function) {
         }
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
             if (ValidMeaninglessOp(op) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Invalid assemble operation; Please check operands size and memory type.");
+                APASS_LOG_ERROR_F(Elements::Operation, "Invalid assemble operation; Please check operands size and memory type. %s", GetFormatBacktrace(op).c_str());
                 return FAILED;
             }
             auto assembleOut = op.GetOOperands().front();
@@ -101,14 +101,14 @@ Status InplaceProcess::RunOnFunction(Function &function) {
         }
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
             if (ValidMeaninglessOp(op) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Invalid reshape operation; Please check operands size and memory type.");
+                APASS_LOG_ERROR_F(Elements::Operation, "Invalid reshape operation; Please check operands size and memory type. %s", GetFormatBacktrace(op).c_str());
                 return FAILED;
             }
             ProcessReshape(function, op);
             continue;
         }
         if (ProcessInplaceOp(function, op) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Processing inplace op %s[%d] failed.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "Processing inplace op %s[%d] failed. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
     }
@@ -129,10 +129,10 @@ Status InplaceProcess::ValidMeaninglessOp(const Operation &op) const {
         (op.GetIOperands().front()->GetMemoryTypeOriginal() != op.GetOOperands().front()->GetMemoryTypeOriginal())) {
         APASS_LOG_ERROR_F(Elements::Operation, "InplaceProcess %s[%d] Invalid: IOperands.size is %d; OOperands.size is %d; "
             "IOperands.front is nullptr (%d); OOperands.front is nullptr (%d); IOperands.front.MemoryType is %d; "
-            "OOperands.front.MemoryType is %d.",
+            "OOperands.front.MemoryType is %d. %s",
             (op.GetOpcodeStr().c_str()), (op.GetOpMagic()), (op.GetIOperands().size()), (op.GetOOperands().size()),
             (op.GetIOperands().front() == nullptr), (op.GetOOperands().front() == nullptr),
-            (op.GetIOperands().front()->GetMemoryTypeOriginal()), (op.GetOOperands().front()->GetMemoryTypeOriginal()));
+            (op.GetIOperands().front()->GetMemoryTypeOriginal()), (op.GetOOperands().front()->GetMemoryTypeOriginal()), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     return SUCCESS;
@@ -296,9 +296,9 @@ void InplaceProcess::ReplaceRawTensor(Function &function, std::shared_ptr<Logica
      */
     for (auto &producerOp : logicalTensor->GetProducers()) {
         if (ProcessInplaceOp(function, *producerOp) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Processing inplace op %s[%d] failed after updating %s[%d].", 
+            APASS_LOG_ERROR_F(Elements::Operation, "Processing inplace op %s[%d] failed after updating %s[%d]. %s", 
                 producerOp->GetOpcodeStr().c_str(), producerOp->GetOpMagic(),
-                op.GetOpcodeStr().c_str(), op.GetOpMagic());
+                op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
         }
     }
     APASS_LOG_DEBUG_F(Elements::Tensor, "update the offset for Tensor %d.", logicalTensor->magic);
@@ -359,9 +359,9 @@ Status InplaceProcess::ProcessInplaceOp(Function &function, Operation &op) const
             APASS_LOG_ERROR_F(Elements::Operation, "Invalid inplace op info for %s[%d]. Please check op inputs&outputs, supported inplace info "
                 "can be found in inplace_process.h."
                 "\n|----detect input size: %d, recorded inplace input idx: %d."
-                "\n|----detect output size: %d, recorded inplace output idx: %d.",
+                "\n|----detect output size: %d, recorded inplace output idx: %d. %s",
                 op.GetOpcodeStr().c_str(), op.GetOpMagic(), op.GetIOperands().size(), inputIdx,
-                op.GetOOperands().size(), outputIdx);
+                op.GetOOperands().size(), outputIdx, GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         auto tensorIn = op.GetIOperands()[inputIdx];

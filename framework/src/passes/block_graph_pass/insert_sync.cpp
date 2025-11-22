@@ -361,7 +361,7 @@ PipeSync::PipeCoreReal PipeSync::GetPipeFromSeq(PipeSeq seq) {
 
 Status PipeSync::AdjustReshapeCfg(TileOpCfg &opcfg, Operation *opptr) {
     if (opptr->GetIOperands().size() < 1 || opptr->GetOOperands().size() < 1) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%d RESHAPE op operands size is 0, AdjustOpCfg failed.", opptr->GetOpMagic());
+        APASS_LOG_ERROR_F(Elements::Operation, "%d RESHAPE op operands size is 0, AdjustOpCfg failed.%s", opptr->GetOpMagic(), GetFormatBacktrace(opptr).c_str());
         return FAILED;
     }
     if (opptr->GetIOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
@@ -374,7 +374,7 @@ Status PipeSync::AdjustReshapeCfg(TileOpCfg &opcfg, Operation *opptr) {
 
 Status PipeSync::AdjustCopyInCfg(TileOpCfg &opcfg, Operation *opptr) {
     if (opptr->GetOpAttribute() == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%d COPYIN op attr is nullptr, AdjustOpCfg failed.", opptr->GetOpMagic());
+        APASS_LOG_ERROR_F(Elements::Operation, "%d COPYIN op attr is nullptr, AdjustOpCfg failed.%s", opptr->GetOpMagic(), GetFormatBacktrace(opptr).c_str());
         return FAILED;
     }
     std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(opptr->GetOpAttribute());
@@ -395,7 +395,7 @@ Status PipeSync::AdjustCopyInCfg(TileOpCfg &opcfg, Operation *opptr) {
 
 Status PipeSync::AdjustCopyOutCfg(TileOpCfg &opcfg, Operation *opptr) {
     if (opptr->GetOpAttribute() == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%d COPYOUT op attr is nullptr, AdjustOpCfg failed.", opptr->GetOpMagic());
+        APASS_LOG_ERROR_F(Elements::Operation, "%d COPYOUT op attr is nullptr, AdjustOpCfg failed.%s", opptr->GetOpMagic(), GetFormatBacktrace(opptr).c_str());
         return FAILED;
     }
     std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(opptr->GetOpAttribute());
@@ -446,7 +446,7 @@ Status PipeSync::PipeDispatch(const std::vector<Operation *> opLogPtr, std::vect
     DataDependencySearcher dataDependencySearcher;
     for (size_t i = 0; i < opLogPtr.size(); i++) {
         if (opLogPtr[i]->GetOpcodeStr().find("ALLOC") != std::string::npos) { 
-            APASS_LOG_ERROR_F(Elements::Operation, "%d ALLOC op should not appear in InsertSync, PipeDispatch failed.", opLogPtr[i]->GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "%d ALLOC op should not appear in InsertSync, PipeDispatch failed.%s", opLogPtr[i]->GetOpMagic(), GetFormatBacktrace(opLogPtr[i]).c_str());
             return FAILED;
         }
         maxOpMagic = std::max(maxOpMagic, opLogPtr[i]->GetOpMagic());
@@ -1361,7 +1361,7 @@ Status PipeSync::ReorderViewAssemble(std::vector<Operation *> &opLog, std::vecto
 Status PipeSync::ProcessViewOrder(Operation *opPtr, std::vector<Operation *> &opLog, std::unordered_map<Operation *, Operation *> &changeMap) {
     auto consumers = opPtr->ConsumerOps();
     if (consumers.empty()) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%d VIEW op doesn't have consumer, ProcessViewAssembleOrder failed.", opPtr->GetOpMagic());
+        APASS_LOG_ERROR_F(Elements::Operation, "%d VIEW op doesn't have consumer, ProcessViewAssembleOrder failed.%s", opPtr->GetOpMagic(), GetFormatBacktrace(opPtr).c_str());
         return FAILED;
     }
     auto minIt = opLog.end();
@@ -1384,15 +1384,15 @@ Status PipeSync::ProcessViewOrder(Operation *opPtr, std::vector<Operation *> &op
 Status PipeSync::ProcessAssembleOrder(Operation *opPtr, std::vector<Operation *> &opLog, std::unordered_map<Operation *, Operation *> &changeMap) {
     auto producers = opPtr->ProducerOps();
     if (producers.empty()) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%d ASSEMBLE op doesn't have producer, ProcessViewAssembleOrder failed.", opPtr->GetOpMagic());
+        APASS_LOG_ERROR_F(Elements::Operation, "%d ASSEMBLE op doesn't have producer, ProcessViewAssembleOrder failed.%s", opPtr->GetOpMagic(), GetFormatBacktrace(opPtr).c_str());
         return FAILED;
     }
     auto maxIt = opLog.begin();
     for (auto &producer : producers) {
         auto it = std::find(opLog.begin(), opLog.end(), producer);
         if (it == opLog.end()) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Producer of ASSEMBLE op: %d %s is not in the subgraph, ProcessViewAssembleOrder failed",
-                producer->GetOpMagic(), producer->GetOpcodeStr().c_str());
+            APASS_LOG_ERROR_F(Elements::Operation, "Producer of ASSEMBLE op: %d %s is not in the subgraph, ProcessViewAssembleOrder failed.%s",
+                producer->GetOpMagic(), producer->GetOpcodeStr().c_str(), GetFormatBacktrace(*producer).c_str());
             return FAILED;
         }
         if (it != opLog.begin() && it > maxIt) {

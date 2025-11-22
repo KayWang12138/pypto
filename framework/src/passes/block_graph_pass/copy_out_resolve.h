@@ -34,9 +34,9 @@ public:
 
 private:
     Status RunOnFunction(Function &function) override {
-        APASS_LOG_INFO_F(Elements::Operation, "===> Start CopyOutResolve.");
+        APASS_LOG_INFO_F(Elements::Function, "===> Start CopyOutResolve.");
         CopyOutResolveCall(function);
-        APASS_LOG_INFO_F(Elements::Operation, "===> End CopyOutResolve.");
+        APASS_LOG_INFO_F(Elements::Function, "===> End CopyOutResolve.");
         return SUCCESS;
     }
     void CopyOutResolveCall(Function &function) const;

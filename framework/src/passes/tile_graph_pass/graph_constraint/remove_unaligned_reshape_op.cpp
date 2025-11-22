@@ -28,7 +28,7 @@ after:
     add->copyout->reshape->copyin->mul
 */
 Status RemoveUnalignedReshape::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(Elements::Operation, "===> Start RemoveUnalignedReshape.");
+    APASS_LOG_INFO_F(Elements::Function, "===> Start RemoveUnalignedReshape.");
     ReplaceDynUnalignedReshapeOps(function);
     CollectReshapeOps(function);
     for (auto &a : copyOuts) {
@@ -54,7 +54,7 @@ Status RemoveUnalignedReshape::RunOnFunction(Function &function) {
         APASS_LOG_INFO_F(Elements::Operation, "ADD OP_VIEW, magic %d ,IOperand tensor magic %d OOperand tensor magic %d.",
             newCopyIn.opmagic, b.input->magic, b.output->magic);
     }
-    APASS_LOG_INFO_F(Elements::Operation, "===> End RemoveUnalignedReshape.");
+    APASS_LOG_INFO_F(Elements::Function, "===> End RemoveUnalignedReshape.");
     return SUCCESS;
 }
 
@@ -127,7 +127,7 @@ std::vector<int64_t> FindChangedDims(const std::vector<int64_t>& inputShapes, co
 }
 
 void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOps(Function &function) {
-    APASS_LOG_INFO_F(Elements::Operation, "===> Start ReplaceDynUnalignedReshapeOps.");
+    APASS_LOG_INFO_F(Elements::Function, "===> Start ReplaceDynUnalignedReshapeOps.");
     // 寻找到无法处理的reshape op
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_RESHAPE){
@@ -190,7 +190,7 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOps(Function &function) {
 
     function.EraseOperations(true, false);
 
-    APASS_LOG_INFO_F(Elements::Operation, "===> End ReplaceDynUnalignedReshapeOps.");
+    APASS_LOG_INFO_F(Elements::Function, "===> End ReplaceDynUnalignedReshapeOps.");
 }
 
 void RemoveUnalignedReshape::CollectReshapeOps(Function &function) {

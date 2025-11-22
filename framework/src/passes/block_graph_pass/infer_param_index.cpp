@@ -86,19 +86,19 @@ Status InferParamIndex::ResetAssembleDynValidShape(const Operation &op) {
 Status InferParamIndex::ResetDynValidShape(Function& function) {
     for (auto &op : function.Operations(false)) {
         if (ResetOutputDynValidShape(op) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Fail to reset the output operand shape of operation %d in function %s. Please check whether the shape is valid in your input graph.", op.GetOpMagic(), function.GetRawName().c_str());
+            APASS_LOG_ERROR_F(Elements::Operation, "Fail to reset the output operand shape of operation %d in function %s. Please check whether the shape is valid in your input graph.%s", op.GetOpMagic(), function.GetRawName().c_str(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         // 清空view和assemble的属性中的dynvalidshape，以便后续重新推导符号化的dynvalidshape
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             if (ResetViewDynValidShape(op) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Fail to reset the output operand shape of VIEW operation %d in function %s.", op.GetOpMagic(), function.GetRawName().c_str());
+                APASS_LOG_ERROR_F(Elements::Operation, "Fail to reset the output operand shape of VIEW operation %d in function %s. %s", op.GetOpMagic(), function.GetRawName().c_str(), GetFormatBacktrace(op).c_str());
                 return FAILED;
             }
         }
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
             if (ResetAssembleDynValidShape(op) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Fail to reset the output operand shape of ASSEMBLE operation %d in function %s.", op.GetOpMagic(), function.GetRawName().c_str());
+                APASS_LOG_ERROR_F(Elements::Operation, "Fail to reset the output operand shape of ASSEMBLE operation %d in function %s. %s", op.GetOpMagic(), function.GetRawName().c_str(), GetFormatBacktrace(op).c_str());
                 return FAILED;
             }
         }

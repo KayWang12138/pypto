@@ -81,7 +81,7 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
         return;
     }
     if (in->shape.size() < MATMUL_MIN_SHAPE_SIZE) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "Matmul Op %d %s input %d shape size is less than 2; Please check the input size.", op.opmagic, op.GetOpcodeStr().c_str(), in->magic);
+        APASS_LOG_ERROR_F(Elements::Tensor, "Matmul Op %d %s input %d shape size is less than 2; Please check the input size. %s", op.opmagic, op.GetOpcodeStr().c_str(), in->magic, GetFormatBacktrace(op).c_str());
         return;
     }
 
@@ -136,7 +136,7 @@ size_t PadLocalBuffer::GetPaddingValue(LogicalTensorPtr &in) {
 void PadLocalBuffer::PadVector(Operation &op, LogicalTensorPtr &in, std::unordered_set<std::shared_ptr<RawTensor>> &visitedRaw,
     bool noPadding) {
     if (in->shape.empty()) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "Vector Op %d %s input %d shape size is less than 2; Please check the input size.", op.opmagic, op.GetOpcodeStr().c_str(), in->magic);
+        APASS_LOG_ERROR_F(Elements::Operation, "Vector Op %d %s input %d shape size is less than 2; Please check the input size. %s", op.opmagic, op.GetOpcodeStr().c_str(), in->magic, GetFormatBacktrace(op).c_str());
         return;
     }
     OpCalcType calcType = OpcodeManager::Inst().GetOpCalcType(op.GetOpcode());
@@ -385,7 +385,7 @@ Status PadLocalBuffer::ProcessTranspose(Function &function) {
             continue;
         }
         if (op.iOperand.size() <= 0 || op.oOperand.size() <= 0) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "transpose op %d %s's input or output is empty.", op.opmagic, op.GetOpcodeStr().c_str());
+            APASS_LOG_ERROR_F(Elements::Operation, "transpose op %d %s's input or output is empty. %s", op.opmagic, op.GetOpcodeStr().c_str(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         auto &inTensor = op.iOperand[0];
@@ -437,7 +437,7 @@ Status PadLocalBuffer::RunOnFunction(Function &function) {
     DoPadding(function);
     if (processTranspose_) {
         if (ProcessTranspose(function) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "ProcessTranspose failed.");
+            APASS_LOG_ERROR_F(Elements::Function, "ProcessTranspose failed.");
             return FAILED;
         }
     }

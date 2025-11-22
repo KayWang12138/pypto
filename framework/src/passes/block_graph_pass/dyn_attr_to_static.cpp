@@ -106,8 +106,8 @@ Status DynAttrToStatic::BuildLeafToCaller(Function *func) {
         for (auto callop : func->GetCallopList()) {
             Function *nextFunc = nullptr;
             if (GetCallee(callop, nextFunc) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "BuildLeafToCaller at %s, %s[%d] GetCallee failed.",
-                    func->GetRawName().c_str(), callop->GetOpcodeStr().c_str(), callop->GetOpMagic());
+                APASS_LOG_ERROR_F(Elements::Operation, "BuildLeafToCaller at %s, %s[%d] GetCallee failed.%s",
+                    func->GetRawName().c_str(), callop->GetOpcodeStr().c_str(), callop->GetOpMagic(), GetFormatBacktrace(callop).c_str());
                 return FAILED;
             }
             if (BuildLeafToCaller(nextFunc) != SUCCESS) {
@@ -124,8 +124,8 @@ Status DynAttrToStatic::BuildLeafToCaller(Function *func) {
         for (auto callop : func->GetCallopList()) {
             Function *leafFunc = nullptr;
             if (GetCallee(callop, leafFunc) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "BuildLeafToCaller at %s, %s[%d] GetCallee failed.",
-                    func->GetRawName().c_str(), callop->GetOpcodeStr().c_str(), callop->GetOpMagic());
+                APASS_LOG_ERROR_F(Elements::Operation, "BuildLeafToCaller at %s, %s[%d] GetCallee failed.%s",
+                    func->GetRawName().c_str(), callop->GetOpcodeStr().c_str(), callop->GetOpMagic(), GetFormatBacktrace(callop).c_str());
                 return FAILED;
             }
             leaf2Caller[leafFunc].push_back(callop);

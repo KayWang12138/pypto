@@ -47,7 +47,7 @@ void SrcDstBufferMergeImpl::InitTensorMaxSize(const LogicalTensorPtr &output) {
 
 Status SrcDstBufferMergeImpl::CheckOpValid(const Operation *op, int opId) {
     if (op == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Op:%d is null.", opId);
+        APASS_LOG_ERROR_F(Elements::Operation, "Op:%d is null.%s", opId, GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     return SUCCESS;
@@ -121,7 +121,7 @@ std::pair<bool, Status> SrcDstBufferMergeImpl::CheckHasInplaced(const Operation 
     if (oriOps->HasAttr(OpAttributeKey::inplaceInfo)) {
         std::map<int, int> inplaceInfo;
         if (!oriOps->GetAttr(OpAttributeKey::inplaceInfo, inplaceInfo)) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "OriOps:%s[%d] get inplaceInfo error.", oriOps->GetOpcodeStr().c_str(), oriOps->GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Tensor, "OriOps:%s[%d] get inplaceInfo error.%s", oriOps->GetOpcodeStr().c_str(), oriOps->GetOpMagic(), GetFormatBacktrace(oriOps).c_str());
             return std::make_pair(false, FAILED);
         }
         for (auto &[iIdx, oIdx] : inplaceInfo) {

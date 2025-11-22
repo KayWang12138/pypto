@@ -361,7 +361,7 @@ Status LoopUnroll::CreateLoopUnrollFunc(Function *function) {
 
 Status LoopUnroll::TopFunctionUnroll(Function *function, std::vector<Operation *> callopList) {
     if (CreateLoopUnrollFunc(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "CreateLoopUnrollFunc failed.");
+        APASS_LOG_ERROR_F(Elements::Function, "CreateLoopUnrollFunc failed.");
         return FAILED;
     }
     for (auto incast : function->GetIncast()) {
@@ -433,16 +433,16 @@ Status LoopUnroll::UpdateTopFuncInoutCast(Function *function) {
 Status LoopUnroll::TraverseCallOp(Function *function) {
     std::vector<Operation *> callopList = function->GetCallopList();
     if (IsConvertingToStatic(function)) { // 当前function是做静态转换入口的topFunction
-        APASS_LOG_INFO_F(Elements::Operation, "Begin unroll function[%s].", function->GetRawName().c_str());
+        APASS_LOG_INFO_F(Elements::Function, "Begin unroll function[%s].", function->GetRawName().c_str());
         if (TopFunctionUnroll(function, callopList) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Function[%s] TopFunctionUnroll failed.", function->GetRawName().c_str());
+            APASS_LOG_ERROR_F(Elements::Function, "Function[%s] TopFunctionUnroll failed.", function->GetRawName().c_str());
             return FAILED;
         }
 
         Program::GetInstance().GetTensorSlotManager()->scopeList.clear();
         Program::GetInstance().GetTensorSlotManager()->BeginScope(topFunction_);
         if (UpdateTopFuncInoutCast(function) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Function[%s] UpdateTopFuncInoutCast failed.", function->GetRawName().c_str());
+            APASS_LOG_ERROR_F(Elements::Function, "Function[%s] UpdateTopFuncInoutCast failed.", function->GetRawName().c_str());
             return FAILED;
         }
 
@@ -666,18 +666,18 @@ bool LoopUnroll::IsNoOverlapWAW(int slotIdx, LogicalTensorPtr tensor,
 }
 
 Status LoopUnroll::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(Elements::Operation, "==============> Start LoopUnroll.");
+    APASS_LOG_INFO_F(Elements::Function, "==============> Start LoopUnroll.");
     staticFuncNames_ = GetConfig<std::vector<std::string>>("CONVERT_TO_STATIC", {});
     if (staticFuncNames_.size() == 0) {
-        APASS_LOG_INFO_F(Elements::Operation, "Found no names to convert to static function.");
+        APASS_LOG_INFO_F(Elements::Function, "Found no names to convert to static function.");
         return SUCCESS;
     }
     evaluateSymbol_ = std::make_shared<EvaluateSymbol>();
     if (TraverseCallOp(&function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Function[%s] TraverseCallOp failed.", function.GetRawName().c_str());
+        APASS_LOG_ERROR_F(Elements::Function, "Function[%s] TraverseCallOp failed.", function.GetRawName().c_str());
         return FAILED;
     }
-    APASS_LOG_INFO_F(Elements::Operation, "==============> End LoopUnroll.");
+    APASS_LOG_INFO_F(Elements::Function, "==============> End LoopUnroll.");
     return SUCCESS;
 }
 } // namespace tile_fwk

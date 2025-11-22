@@ -186,7 +186,7 @@ inline std::string DataType2VectorRegStr(DataType t) {
     switch (t) {
         case DT_FP16: return "vector_f16";
         case DT_FP32: return "vector_f32";
-        default: throw std::invalid_argument("Unknown DataType");
+        default: return "Unknown DataType";
     }
 }
 

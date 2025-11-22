@@ -21,15 +21,15 @@
 namespace npu {
 namespace tile_fwk {
 Status PreGraphProcessChecker::DoPreCheck(Function &function) {
-    ALOG_INFO_F("PreCheck for PreGraph");
+    APASS_LOG_INFO_F(Elements::Function, "PreCheck for PreGraph.");
     if (!function.LoopCheck().empty()) {
-        ALOG_ERROR_F("Loopcheck failed before PreGraph");
+        APASS_LOG_ERROR_F(Elements::Function, "Loopcheck failed before PreGraph.");
         return FAILED;
     }
     for (auto &op : function.Operations()) {
         // 校验是否切分
         if (op.GetSubgraphID() == NOT_IN_SUBGRAPH) {
-            ALOG_ERROR_F("%s[%d] is not partitioned.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] is not partitioned. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         if ((op.GetOpcode() != Opcode::OP_ASSEMBLE) && (op.GetOpcode() != Opcode::OP_VIEW) &&
@@ -38,21 +38,21 @@ Status PreGraphProcessChecker::DoPreCheck(Function &function) {
         }
         if ((op.GetIOperands().size() != 1) || (op.GetOOperands().size() != 1)) {
             // 校验非空单输入单输出
-            ALOG_ERROR_F("PreGraphProcess Precheck] Invalid %s[%d], input num: %d, output num: %d",
-                op.GetOpcodeStr().c_str(), op.opmagic, op.GetIOperands().size(), op.GetOOperands().size());
+            APASS_LOG_ERROR_F(Elements::Operation, "Invalid %s[%d], input num: %d, output num: %d .%s",
+                op.GetOpcodeStr().c_str(), op.opmagic, op.GetIOperands().size(), op.GetOOperands().size(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         auto tensorIn = op.GetIOperands().front();
         auto tensorOut = op.GetOOperands().front();
         if ((tensorIn == nullptr) || (tensorIn == nullptr)) {
             // 校验输入输出非空
-            ALOG_ERROR_F("PreGraphProcess Precheck] Invalid %s[%d], has nullptr input/output",
-                op.GetOpcodeStr().c_str(), op.opmagic);
+            APASS_LOG_ERROR_F(Elements::Operation, "Invalid %s[%d], has nullptr input/output. %s",
+                op.GetOpcodeStr().c_str(), op.opmagic, GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         if (tensorIn->GetMemoryTypeOriginal() != tensorOut->GetMemoryTypeOriginal()) {
             // 校验输入输出mem类型相同
-            ALOG_ERROR_F("[PreGraphProcess Precheck] unmatched input output memory type for %s[%d], input mem type: "
+            APASS_LOG_ERROR_F(Elements::Tensor, "Unmatched input output memory type for %s[%d], input mem type: "
                          "%s, output mem type: %s",
                 op.GetOpcodeStr().c_str(), op.opmagic, MemoryTypeToString(tensorIn->GetMemoryTypeOriginal()).c_str(),
                 MemoryTypeToString(tensorOut->GetMemoryTypeOriginal()).c_str());
@@ -63,24 +63,24 @@ Status PreGraphProcessChecker::DoPreCheck(Function &function) {
 }
 
 Status PreGraphProcessChecker::DoPostCheck(Function &function) {
-    ALOG_INFO_F("PostCheck for PreGraph");
+    APASS_LOG_INFO_F(Elements::Function, "PostCheck for PreGraph.");
     // 检测是否成环
     if (!function.LoopCheck().empty()) {
-        ALOG_ERROR_F("Loopcheck failed after PreGraph");
+        APASS_LOG_ERROR_F(Elements::Function, "Loopcheck failed after PreGraph.");
         return FAILED;
     }
     std::unordered_set<std::shared_ptr<LogicalTensor>> checkedTensors;
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE && PostCheckAssemble(function, op) != SUCCESS) {
-            ALOG_ERROR_F("PostCheckAssemble failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "PostCheckAssemble failed. %s", GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         if (op.GetOpcode() == Opcode::OP_VIEW && PostCheckView(function, op) != SUCCESS) {
-            ALOG_ERROR_F("PostCheckView failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "PostCheckView failed. %s", GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         if (op.GetOpcode() == Opcode::OP_RESHAPE && PostCheckReshape(function, op) != SUCCESS) {
-            ALOG_ERROR_F("PostCheckReshape failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "PostCheckReshape failed. %s", GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         for (const std::shared_ptr<LogicalTensor> &inputTensor : op.GetIOperands()) {
@@ -89,7 +89,7 @@ Status PreGraphProcessChecker::DoPostCheck(Function &function) {
             }
             checkedTensors.insert(inputTensor);
             if (PostCheckHelpFunc(*inputTensor) != SUCCESS) {
-                ALOG_ERROR_F("PostCheckHelpFunc inputTensor failed.");
+                APASS_LOG_ERROR_F(Elements::Tensor, "PostCheckHelpFunc inputTensor failed.");
                 return FAILED;
             }
         }
@@ -99,7 +99,7 @@ Status PreGraphProcessChecker::DoPostCheck(Function &function) {
             }
             checkedTensors.insert(outputTensor);
             if (PostCheckHelpFunc(*outputTensor) != SUCCESS) {
-                ALOG_ERROR_F("PostCheckHelpFunc outputTensor failed.");
+                APASS_LOG_ERROR_F(Elements::Tensor, "PostCheckHelpFunc outputTensor failed.");
                 return FAILED;
             }
         }
@@ -110,26 +110,25 @@ Status PreGraphProcessChecker::DoPostCheck(Function &function) {
 Status PreGraphProcessChecker::PostCheckHelpFunc(const LogicalTensor &singleTensor) {
     if (singleTensor.subGraphID == NOT_IN_SUBGRAPH) {
         // tensor 的子图编号是否被设置过
-        ALOG_ERROR_F(
-            "Tensor magic: %d, its subgraph id should not be %d.", singleTensor.GetMagic(), NOT_IN_SUBGRAPH);
+        APASS_LOG_ERROR_F(Elements::Graph, "Tensor magic: %d, its subgraph id should not be %d.", singleTensor.GetMagic(), NOT_IN_SUBGRAPH);
         return FAILED;
     }
     if (singleTensor.GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
         singleTensor.isSubGraphBoundary == false) {
         // gm tensor 是否被标记为boundary
-        ALOG_WARN_F("Tensor magic: %d, when memory type is DDR, this tensor should be subgraph boundary.",
+        APASS_LOG_WARN_F(Elements::Tensor, "Tensor magic: %d, when memory type is DDR, this tensor should be subgraph boundary.",
             singleTensor.GetMagic());
     }
     if (singleTensor.GetMemoryTypeOriginal() == MemoryType::MEM_L0C &&
         (singleTensor.Datatype() != DataType::DT_FP32 && singleTensor.Datatype() != DataType::DT_INT32)) {
         // L0C tensor 数据类型是否为FP32或INT32
-        ALOG_ERROR_F("Tensor magic: %d, when memory type is L0C, this tensor should be fp32 or int32.",
+        APASS_LOG_ERROR_F(Elements::Tensor, "Tensor magic: %d, when memory type is L0C, this tensor should be fp32 or int32.",
             singleTensor.GetMagic());
         return FAILED;
     }
     if (singleTensor.MemorySize() < 1 && !singleTensor.IsDummy()) {
         // 是否存在 dummy tensor
-        ALOG_INFO_F("Tensor magic: %d, its memory size %d should be over than 0, but not.",
+        APASS_LOG_INFO_F(Elements::Tensor, "Tensor magic: %d, its memory size %d should be over than 0, but not.",
             singleTensor.GetMagic(), singleTensor.MemorySize());
     }
     return SUCCESS;
@@ -161,15 +160,13 @@ Status PreGraphProcessChecker::PostCheckAssemble(Function &function, const Opera
     auto assembleIn = op.GetIOperands().front();
     for (Operation *producer : assembleIn->GetProducers()) {
         if (producer->GetOpcode() == Opcode::OP_VIEW) {
-            ALOG_ERROR_F(
-                "Assemble[%d] Unsupported OP connection scenaios: assemble input tensor has view producer op[%d]",
-                op.GetOpMagic(), producer->GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "Assemble[%d] Unsupported OP connection scenaios: assemble input tensor has view producer op[%d]. %s",
+                op.GetOpMagic(), producer->GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         if (producer->GetOpcode() == Opcode::OP_RESHAPE) {
-            ALOG_ERROR_F(
-                "Assemble[%d] Unsupported OP connection scenaios: assemble input tensor has reshape producer op[%d]",
-                op.GetOpMagic(), producer->GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "Assemble[%d] Unsupported OP connection scenaios: assemble input tensor has reshape producer op[%d]. %s",
+                op.GetOpMagic(), producer->GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
     }
@@ -178,19 +175,17 @@ Status PreGraphProcessChecker::PostCheckAssemble(Function &function, const Opera
             continue;
         }
         if (consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
-            ALOG_ERROR_F(
-                "Assemble[%d] Unsupported OP connection scenaios: assemble input tensor has other assemble consumer op[%d]",
-                op.GetOpMagic(), consumer->GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "Assemble[%d] Unsupported OP connection scenaios: assemble input tensor has other assemble consumer op[%d]. %s",
+                op.GetOpMagic(), consumer->GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         if (consumer->GetOpcode() == Opcode::OP_RESHAPE && function.IsFromOutCast(consumer->GetOOperands().front())) {
-            ALOG_ERROR_F(
-                "Assemble[%d] Unsupported OP connection scenaios: assemble input tensor has reshape->outcast consumer op[%d]",
-                op.GetOpMagic(), consumer->GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "Assemble[%d] Unsupported OP connection scenaios: assemble input tensor has reshape->outcast consumer op[%d]. %s",
+                op.GetOpMagic(), consumer->GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
     }
-    ALOG_ERROR_F("Operation magic: %d, assemble op raw magic should not changed.", op.GetOpMagic());
+    APASS_LOG_ERROR_F(Elements::Operation, "Operation magic: %d, assemble op raw magic should not changed. %s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
     return FAILED;
 }
 
@@ -223,33 +218,29 @@ Status PreGraphProcessChecker::PostCheckView(Function &function, const Operation
             continue;
         }
         if (producer->GetOpcode() == Opcode::OP_VIEW) {
-            ALOG_ERROR_F(
-                "View[%d] Unsupported OP connection scenaios: view input tensor has other view producer op[%d]",
-                op.GetOpMagic(), producer->GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "View[%d] Unsupported OP connection scenaios: view output tensor has other view producer op[%d]. %s",
+                op.GetOpMagic(), producer->GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         if (producer->GetOpcode() == Opcode::OP_RESHAPE) {
-            ALOG_ERROR_F(
-                "View[%d] Unsupported OP connection scenaios: view input tensor has reshape producer op[%d]",
-                op.GetOpMagic(), producer->GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "View[%d] Unsupported OP connection scenaios: view output tensor has reshape producer op[%d]. %s",
+                op.GetOpMagic(), producer->GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
     }
     for (Operation *consumer : viewOut->GetConsumers()) {
         if (consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
-            ALOG_ERROR_F(
-                "View[%d] Unsupported OP connection scenaios: view input tensor has assemble consumer op[%d]",
-                op.GetOpMagic(), consumer->GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "View[%d] Unsupported OP connection scenaios: view output tensor has assemble consumer op[%d]. %s",
+                op.GetOpMagic(), consumer->GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         if (consumer->GetOpcode() == Opcode::OP_RESHAPE && function.IsFromOutCast(consumer->GetOOperands().front())) {
-            ALOG_ERROR_F(
-                "View[%d] Unsupported OP connection scenaios: view input tensor has reshape->outcast consumer op[%d]",
-                op.GetOpMagic(), consumer->GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "View[%d] Unsupported OP connection scenaios: view output tensor has reshape->outcast consumer op[%d]. %s",
+                op.GetOpMagic(), consumer->GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
     }
-    ALOG_ERROR_F("Operation magic: %d, view op raw magic should not changed.", op.GetOpMagic());
+    APASS_LOG_ERROR_F(Elements::Operation, "Operation magic: %d, view op raw magic should not changed. %s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
     return FAILED;
 }
 
@@ -257,15 +248,15 @@ Status PreGraphProcessChecker::HandleScenarioReshapeOutCast(
     Function &function, const Operation &op, const LogicalTensorPtr reshapeIn) {
     for (Operation *producer : reshapeIn->GetProducers()) {
         if (producer->GetOpcode() == Opcode::OP_VIEW) {
-            ALOG_ERROR_F("Reshape[%d]->outcast Unsupported OP connection scenaios: reshape->outcast input tensor "
-                         "has view producer op[%d]",
-                op.GetOpMagic(), producer->GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "Reshape[%d]->incast Unsupported OP connection scenaios: reshape->incast input tensor "
+                         "has view producer op[%d]. %s",
+                op.GetOpMagic(), producer->GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         if (producer->GetOpcode() == Opcode::OP_RESHAPE) {
-            ALOG_ERROR_F("Reshape[%d]->outcast Unsupported OP connection scenaios: reshape->outcast input tensor "
-                         "has reshape producer op[%d]",
-                op.GetOpMagic(), producer->GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "Reshape[%d]->incast Unsupported OP connection scenaios: reshape->incast input tensor "
+                         "has reshape producer op[%d]. %s",
+                op.GetOpMagic(), producer->GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
     }
@@ -274,20 +265,20 @@ Status PreGraphProcessChecker::HandleScenarioReshapeOutCast(
             continue;
         }
         if (consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
-            ALOG_ERROR_F("Reshape[%d]->outcast Unsupported OP connection scenaios: reshape->outcast input tensor has "
-                         "other assemble consumer op[%d]",
-                op.GetOpMagic(), consumer->GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "Reshape[%d]->incast Unsupported OP connection scenaios: reshape->incast input tensor has "
+                         "other assemble consumer op[%d]. %s",
+                op.GetOpMagic(), consumer->GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         if (consumer->GetOpcode() == Opcode::OP_RESHAPE && function.IsFromOutCast(consumer->GetOOperands().front())) {
-            ALOG_ERROR_F("Reshape[%d]->outcast Unsupported OP connection scenaios: reshape->outcast input tensor has "
-                         "reshape->outcast consumer op[%d]",
-                op.GetOpMagic(), consumer->GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "Reshape[%d]->incast Unsupported OP connection scenaios: reshape->incast input tensor has "
+                         "reshape->outcast consumer op[%d]. %s",
+                op.GetOpMagic(), consumer->GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
     }
-    ALOG_ERROR_F("Operation magic: %d, reshape op's output actual raw magic shoule be same with input raw magic.",
-        op.GetOpMagic());
+    APASS_LOG_ERROR_F(Elements::Operation, "Operation magic: %d, reshape op's output actual raw magic shoule be same with input raw magic. %s",
+        op.GetOpMagic(), GetFormatBacktrace(op).c_str());
     return FAILED;
 }
 
@@ -304,33 +295,29 @@ Status PreGraphProcessChecker::VerifyReshapeResult(
             continue;
         }
         if (producer->GetOpcode() == Opcode::OP_VIEW) {
-            ALOG_ERROR_F(
-                "Reshape[%d] Unsupported OP connection scenaios: reshape input tensor has other view producer op[%d]",
-                op.GetOpMagic(), producer->GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "Reshape[%d] Unsupported OP connection scenaios: reshape output tensor has other view producer op[%d]. %s",
+                op.GetOpMagic(), producer->GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         if (producer->GetOpcode() == Opcode::OP_RESHAPE) {
-            ALOG_ERROR_F(
-                "Reshape[%d] Unsupported OP connection scenaios: reshape input tensor has reshape producer op[%d]",
-                op.GetOpMagic(), producer->GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "Reshape[%d] Unsupported OP connection scenaios: reshape output tensor has reshape producer op[%d]. %s",
+                op.GetOpMagic(), producer->GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
     }
     for (Operation *consumer : reshapeOut->GetConsumers()) {
         if (consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
-            ALOG_ERROR_F(
-                "Reshape[%d] Unsupported OP connection scenaios: reshape input tensor has assemble consumer op[%d]",
-                op.GetOpMagic(), consumer->GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "Reshape[%d] Unsupported OP connection scenaios: reshape output tensor has assemble consumer op[%d]. %s",
+                op.GetOpMagic(), consumer->GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         if (consumer->GetOpcode() == Opcode::OP_RESHAPE && function.IsFromOutCast(consumer->GetOOperands().front())) {
-            ALOG_ERROR_F("Reshape[%d] Unsupported OP connection scenaios: reshape input tensor has reshape->outcast "
-                         "consumer op[%d]", op.GetOpMagic(), consumer->GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "Reshape[%d] Unsupported OP connection scenaios: reshape output tensor has reshape->outcast consumer op[%d]. %s", op.GetOpMagic(), consumer->GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
     }
-    ALOG_ERROR_F("Operation magic: %d, reshape op's output actual raw magic shoule be same with input raw magic.",
-        op.GetOpMagic());
+    APASS_LOG_ERROR_F(Elements::Operation, "Operation magic: %d, reshape op's output actual raw magic shoule be same with input raw magic. %s",
+        op.GetOpMagic(), GetFormatBacktrace(op).c_str());
     return FAILED;
 }
 
@@ -338,28 +325,28 @@ Status PreGraphProcessChecker::PostCheckReshape(Function &function, const Operat
     auto reshapeIn = op.GetIOperands().front();
     auto reshapeOut = op.GetOOperands().front();
     if (VerifyReshapeResult(function, op, reshapeIn, reshapeOut) == FAILED) {
-        APASS_LOG_ERROR_F(Elements::Operation, "VerifyReshapeResult failed; Please check the VerifyReshapeResult method.");
+        APASS_LOG_ERROR_F(Elements::Operation, "VerifyReshapeResult failed; Please check the VerifyReshapeResult method. %s", GetFormatBacktrace(op).c_str());
         return FAILED;
     }
 
     if (reshapeIn->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
-        ALOG_DEBUG_F(" reshape on local buffer, opmagic: %d", op.opmagic);
+        APASS_LOG_DEBUG_F(Elements::Operation, "Reshape on local buffer, opmagic: %d.", op.opmagic);
         auto opSubgraphId = op.GetSubgraphID();
         auto inputSubgraphId = reshapeIn->GetSubgraphID();
         auto outSubgraphId = reshapeIn->GetSubgraphID();
         if (opSubgraphId != inputSubgraphId || opSubgraphId != outSubgraphId) {
             // local buffer 上的reshape，输入/输出/op的子图编号相同
-            ALOG_ERROR_F("OP_RESHAPE[%d], op subGraphId: %d, input subGraphId: %d, output subGraphId: %d,",
-                op.GetOpMagic(), opSubgraphId, inputSubgraphId, outSubgraphId);
+            APASS_LOG_ERROR_F(Elements::Operation, "OP_RESHAPE[%d], op subGraphId: %d, input subGraphId: %d, output subGraphId: %d, %s",
+                op.GetOpMagic(), opSubgraphId, inputSubgraphId, outSubgraphId, GetFormatBacktrace(op).c_str());
             return FAILED;
         }
 
         // Debug Print
-        ALOG_DEBUG_F(" check done, input magic %d (raw %d), output magic %d (raw %d)", reshapeIn->magic,
+        APASS_LOG_DEBUG_F(Elements::Operation, "Check done, input magic %d (raw %d), output magic %d (raw %d)", reshapeIn->magic,
             reshapeIn->GetRawMagic(), reshapeOut->magic, reshapeOut->GetRawMagic());
         auto childOp = *(reshapeOut->GetConsumers().begin());
-        ALOG_DEBUG_F(" child op: %s, opmagic: %d", childOp->GetOpcodeStr().c_str(), childOp->opmagic);
-        ALOG_DEBUG_F(" child op output magic %d (raw %d)", childOp->GetOOperands()[0]->magic,
+        APASS_LOG_DEBUG_F(Elements::Operation, "Child op: %s, opmagic: %d", childOp->GetOpcodeStr().c_str(), childOp->opmagic);
+        APASS_LOG_DEBUG_F(Elements::Operation, "Child op output magic %d (raw %d)", childOp->GetOOperands()[0]->magic,
             childOp->GetOOperands()[0]->GetRawMagic());
     }
     return SUCCESS;

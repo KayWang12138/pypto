@@ -75,7 +75,7 @@ Status PreGraphProcess::RunOnFunction(Function &function) {
     removeRedundantAssemble.DeleteRedundantAssemble(function);
     CubeProcess cubeProcess;
     if (cubeProcess.UpdateCubeOp(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Update Cube attr failed.");
+        APASS_LOG_ERROR_F(Elements::Function, "Update Cube attr failed.");
         return FAILED;
     }
     APASS_LOG_INFO_F(Elements::Operation, "===> End PreGraph.");

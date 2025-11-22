@@ -25,6 +25,10 @@ namespace npu::tile_fwk {
 
 std::string GetFormatBacktrace(const Operation& op);
 
+std::string GetFormatBacktrace(const OperationPtr& op);
+
+std::string GetFormatBacktrace(const Operation* op);
+
 enum class Elements {
     Operation,
     Tensor,
