@@ -244,6 +244,8 @@ set(_CaseFilterList
         "ScheduleOoOTest.TestScheduleMainLoopRearrangeUB"
         "ScheduleOoOTest.TestScheduleMainLoopRearrangeUBbf16"
         "ScheduleOoOTest.TestScheduleMainLoopRearrangeL1"
+        "ScheduleOoOTest.TestCheckOpBufferSize"
+        "ScheduleOoOTest.TestCheckAllocBufferSize"
         "TestRemoveUnalignedReshapeOp.reshaped_padded_ub"
         "TestRemoveUnalignedReshapeOp.reshaped_unpadded_ub"
         "TestRemoveUnalignedReshapeOp.reshaped_unpadded_ub_gm"

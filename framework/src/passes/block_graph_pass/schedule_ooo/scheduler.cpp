@@ -797,20 +797,75 @@ void OoOScheduler::CalcBufferSize(LogicalTensors tensors, std::map<MemoryType, i
     }
 }
 
+std::string OoOScheduler::dumpTensorInfo(const std::shared_ptr<LogicalTensor> &tensor) {
+    std::ostringstream oss;
+    oss << "<";
+    auto shape = tensor->GetShape();
+    for (size_t i = 0; i < shape.size(); i++) {
+        oss << shape[i] << " x ";
+    }
+    oss << DataType2String(tensor->Datatype());
+    if (tensor->Format() == TileOpFormat::TILEOP_NZ) {
+        oss << "_NZ";
+    }
+    oss << ">";
+    return oss.str();
+}
+
+std::string OoOScheduler::dumpOpInfo(Operation &op) {
+    std::ostringstream oss;
+    oss << "OP: " << op.GetOpcodeStr().c_str() << "[" << op.GetOpMagic() << "] | ";
+    oss << "Inputs: {";
+    for (size_t i = 0; i < op.iOperand.size(); i++) {
+        oss << "Tensor[" << op.GetInputOperand(i)->GetMagic() << "] ";
+        oss << dumpTensorInfo(op.GetInputOperand(i));
+        if (i != op.iOperand.size() - 1) {
+            oss << ", ";
+        }
+    }
+    oss << "}" << " | ";
+    oss << "Outputs: {";
+    for (size_t i = 0; i < op.oOperand.size(); i++) {
+        oss << "Tensor[" << op.GetOutputOperand(i)->GetMagic() << "] ";
+        oss << dumpTensorInfo(op.GetOutputOperand(i));
+        if (i != op.oOperand.size() - 1) {
+            oss << ", ";
+        }
+    }
+    oss << "}";
+    return oss.str();
+}
+
 Status OoOScheduler::CheckOpBufferSize(Operation *op) {
     std::map<MemoryType, int64_t> bufferSize;
     std::set<int> memIdMap;
     CalcBufferSize(op->GetIOperands(), bufferSize, memIdMap);
     CalcBufferSize(op->GetOOperands(), bufferSize, memIdMap);
     for (auto &buffer : bufferSize) {
-        if (localMemorySize.find(buffer.first) != localMemorySize.end()) {
-            if (buffer.second > localMemorySize[buffer.first]) {
-                APASS_LOG_ERROR_F(Elements::Operation, "OP %s[%d] in/output total size[%d] exceeds %s size[%d]!", 
-                    op->GetOpcodeStr().c_str(), op->GetOpMagic(), buffer.second, MemoryTypeToString(buffer.first).c_str(),
-                    localMemorySize[buffer.first]);
-                return FAILED;
-            }
+        if (localMemorySize.find(buffer.first) == localMemorySize.end()) {
+            continue;
         }
+        if (buffer.second <= localMemorySize[buffer.first]) {
+            continue;
+        }
+        if (op->GetOpcodeStr().find("ALLOC") != std::string::npos) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Alloc tensor[%d] size[%d] exceeds %s size[%d]! %s", 
+                op->GetOutputOperand(0)->GetMagic(), buffer.second, MemoryTypeToString(buffer.first).c_str(), 
+                localMemorySize[buffer.first], GetFormatBacktrace(*op).c_str());
+            APASS_LOG_ERROR_F(Elements::Operation, "Tensor[%d] producer info:", op->GetOutputOperand(0)->GetMagic());
+            for (auto producer : op->GetOutputOperand(0)->GetProducers()) {
+                if (producer == op) {
+                    continue;
+                }
+                APASS_LOG_ERROR_F(Elements::Operation, "    %s.", dumpOpInfo(*producer).c_str());
+            }
+        } else {
+            APASS_LOG_ERROR_F(Elements::Operation, "OP %s[%d] in/output total size[%d] exceeds %s size[%d]!", 
+                op->GetOpcodeStr().c_str(), op->GetOpMagic(), buffer.second, MemoryTypeToString(buffer.first).c_str(),
+                localMemorySize[buffer.first]);
+            APASS_LOG_ERROR_F(Elements::Operation, "%s.", dumpOpInfo(*op).c_str());
+        }
+        return FAILED;
     }
     return SUCCESS;
 }
