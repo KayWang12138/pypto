@@ -78,6 +78,7 @@ public:
     std::string GenGatherElementOp() const;
 
     std::string GenRangeOp() const;
+    std::string GenL0CToUBTileTensor() const;
 
     std::string GenScatterElementSOp() const;
 
@@ -200,10 +201,12 @@ private:
     std::string PrintMemCopyWithL0CDynamic(const PrintMemCopyWithL0CParam &param) const;
     std::string PrintL0CCopyOutDynamicUnalign(const PrintMemCopyWithL0CParam &param,
         std::vector<std::string> &gmShapeExpr, std::vector<std::string> &gmOffsetExpr) const;
+    std::string PrintMemCopyWithL0CTileTensor(const PrintMemCopyWithL0CParam &param) const;
 
     std::string PrintMemCopyWithL1(const PrintMemCopyWithL1Param &param) const;
     std::string PrintMemCopyWithL1Static(const PrintMemCopyWithL1Param &param) const;
     std::string PrintMemCopyWithL1Dynamic(const PrintMemCopyWithL1Param &param) const;
+    std::string PrintL1CopyInTileTensor(const PrintMemCopyWithL1Param &param) const;
 
     std::string PrintMemCopyWithUB(PrintMemCopyWithUBParam &param) const;
     std::string PrintMemCopyWithUBStatic(const PrintMemCopyWithUBParam &param) const;
@@ -283,6 +286,9 @@ private:
     std::string PrintReduceCombine(const PrintUnaryTmpBuffParam &param) const;
     std::string PrintVectorScalarTileTensor(const PrintUnaryParam &param) const;
     std::string PrintVectorScalarOpDynamicUnalign(const PrintUnaryParam &param) const;
+    std::string PrintMemL1ToL0TileTensor() const;
+    std::string PrintMatmulTileTensor(bool isAcc) const;
+    std::string PrintTmove() const;
 
     std::string PrintScatterElementSOpStatic(const PrintScatterElemParam &param) const;
     std::string PrintScatterElementSOpDynamicUnaligned(const PrintScatterElemParam &param) const;

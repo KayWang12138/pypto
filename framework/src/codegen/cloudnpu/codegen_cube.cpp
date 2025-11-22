@@ -19,7 +19,30 @@
 #include "securec.h"
 
 namespace npu::tile_fwk {
+std::string CodeGenOpCloudNPU::PrintMatmulTileTensor(bool isAcc) const {
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::DST_IDX)]);
+    std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC0_IDX)]);
+    std::string src1Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC1_IDX)]);
+
+    std::ostringstream oss;
+    if (opAttrs.count(OP_ATTR_PREFIX + "has_bias")) {
+        bool hasBias = npu::tile_fwk::AnyCast<bool>(opAttrs.at(OP_ATTR_PREFIX + "has_bias"));
+        if (hasBias) {
+            std::string biasTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC2_IDX)]);
+            oss << tileOpName << "(" << dstTensor << ", " << src0Tensor << ", "
+                << src1Tensor << ", " << biasTensor << ");\n";
+            return oss.str();
+        }
+    }
+    oss << tileOpName << "<" << std::to_string(isAcc) << ">" << "(" << dstTensor << ", " << src0Tensor << ", "
+        << src1Tensor << ");\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::GenCubeOp(bool zeroC) const {
+    if (isSupportLayout) {
+        return PrintMatmulTileTensor(!zeroC);
+    }
     // shape: dst, src0, src1
     bool isOffsetValid =
         (offset[ID1][ID0] == 0) && (offset[ID1][ID1] == 0) && (offset[ID2][ID0] == 0) && (offset[ID2][ID1] == 0);

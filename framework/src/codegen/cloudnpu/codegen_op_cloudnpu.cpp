@@ -59,6 +59,8 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(
 
           // index outcast
           {      Opcode::OP_INDEX_OUTCAST,    [this]() { return GenIndexOutCastOp(); }},
+          // lOC -> UB
+          {        Opcode::OP_L0C_COPY_UB, [this]() { return GenL0CToUBTileTensor(); }},
 }),
       unaryOps_({
           // cast op

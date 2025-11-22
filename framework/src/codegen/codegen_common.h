@@ -66,6 +66,7 @@ enum class DISOIdx : int {
     DST_IDX = 0,
     SRC0_IDX = 1,
     SRC1_IDX = 2,
+    SRC2_IDX = 3,
 };
 
 const std::unordered_map<OperandType, std::string> OPERAND_TYPE_TO_ADDR_TYPE{
@@ -97,7 +98,7 @@ const std::map<OperandType, std::string> BUFFER_TYPE_TO_PREFIX = {
     {OperandType::BUF_L0B,  "L0B"},
     {OperandType::BUF_L0C,  "L0C"},
     {OperandType::BUF_FIX, "FBUF"},
-    { OperandType::BUF_BT,   "BT"},
+    { OperandType::BUF_BT, "BIAS"},
     {OperandType::BUF_DDR,   "GM"},
 };
 

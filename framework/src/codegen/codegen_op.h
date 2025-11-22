@@ -71,6 +71,8 @@ public:
     virtual std::string GenSyncWaitOp() const;
 
     virtual std::string GenOpCode() const = 0;
+    void SetSubBlockId(int aivCoreId);
+    int GetSubBlockId() const;
 
     bool hasNan{false};
     bool hasPosInf{false};
@@ -126,6 +128,7 @@ protected:
     const std::map<int, int> &paramLocToParamListOffset{};
     bool isUnderDynamicFunction;
     int operandCnt{0};
+    int subBlockId{0};
 
 private:
     void UpdateCodegenOpInfoByTensor(
