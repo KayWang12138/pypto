@@ -94,8 +94,8 @@ TEST_F(MoegateOnBoardTest, test_moegate_graph3_case1) {
 
     std::vector<void*> opArgsRun = {x_ptr, zero_ptr, y_ptr, outTensorAddr};
     // std::vector<void*> opArgsRun = {x_ptr, zero_ptr, outTensorAddr};
-    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
-    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
     if (rc < 0) {
         ASSERT(false);
         ALOG_INFO_F("FA function aicpu stream sync failed");
@@ -178,8 +178,8 @@ TEST_F(MoegateOnBoardTest, test_moegate_graph3_case2_32_1_7168) {
 
     std::vector<void*> opArgsRun = {x_ptr, zero_ptr, y_ptr, outTensorAddr};
     // std::vector<void*> opArgsRun = {x_ptr, zero_ptr, outTensorAddr};
-    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
-    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
     if (rc < 0) {
         ASSERT(false);
         ALOG_INFO_F("FA function aicpu stream sync failed");
@@ -261,8 +261,8 @@ TEST_F(MoegateOnBoardTest, test_moegate_graph3_case2_8_1_7168) {
 
     std::vector<void*> opArgsRun = {x_ptr, zero_ptr, y_ptr, outTensorAddr};
     // std::vector<void*> opArgsRun = {x_ptr, zero_ptr, outTensorAddr};
-    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
-    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
     if (rc < 0) {
         ASSERT(false);
         ALOG_INFO_F("FA function aicpu stream sync failed");
@@ -354,8 +354,8 @@ TEST_F(MoegateOnBoardTest, test_moegate_graph3_graph4_case_32_1_7168) {
     machine::GetRA()->AllocDevAddr(&outTensorAddr, capacity4 * sizeof(float));
 
     std::vector<void*> opArgsRun = {x_ptr, zero_ptr, y_ptr, z_ptr, outTensorAddr};
-    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
-    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
     if (rc < 0) {
         ASSERT(false);
         ALOG_INFO_F("FA function aicpu stream sync failed");

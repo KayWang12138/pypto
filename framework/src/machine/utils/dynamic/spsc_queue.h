@@ -17,6 +17,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <functional>
 
 template <typename T, int N>
 class SPSCQueue {

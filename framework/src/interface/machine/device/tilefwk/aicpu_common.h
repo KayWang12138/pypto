@@ -55,8 +55,6 @@ constexpr const int DEV_SHAPE_DIM_NUM_5 = 5;
 #define DEVICE_TASK_TYPE_DYN     1
 #define DEVICE_TASK_TYPE_INVALID 0xf
 
-const uint64_t DEV_ARGS_SIZE = 4096;
-
 struct DeviceArgs {
     uint32_t nrAic{0};
     uint32_t nrAiv{0};
@@ -77,6 +75,10 @@ struct DeviceArgs {
     uint64_t aicpuSoBin{0};    // server so Bin
     uint64_t aicpuSoLen{0};    // server so len
     uint64_t startArgsAddr{0}; // DevStartArgs addr
+    uint64_t taskQueue{0};     // task queue between ctrl and sche
+    uint64_t taskCtrl{0};      // task ctrl between ctrl and sche
+    uint32_t scheCpuNum{0};    // sche cpu num calc by host
+    uint32_t enableCtrl{0};    // if enable builtin ctrl
     uint64_t GetBlockNum() { return nrValidAic * (nrAiv / nrAic + 1); }
 };
 #endif

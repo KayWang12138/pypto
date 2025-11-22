@@ -75,8 +75,8 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_1_16_16) {
     // uint8_t* outTensorAddr = nullptr;
     // machine::GetRA()->AllocDevAddr(&outTensorAddr, capacity * sizeof(float));
     std::vector<void*> opArgsRun = {x_ptr, indices_ptr, y_ptr};
-    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
-    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
     if (rc < 0) {
         ASSERT(false);
         ALOG_INFO_F("FA function aicpu stream sync failed");
@@ -141,8 +141,8 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_1_20_20) {
     // uint8_t* outTensorAddr = nullptr;
     // machine::GetRA()->AllocDevAddr(&outTensorAddr, capacity * sizeof(float));
     std::vector<void*> opArgsRun = {x_ptr, indices_ptr, y_ptr};
-    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
-    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
     if (rc < 0) {
         ASSERT(false);
         ALOG_INFO_F("FA function aicpu stream sync failed");
@@ -205,8 +205,8 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_1_16_16_bf16) {
     // uint8_t* outTensorAddr = nullptr;
     // machine::GetRA()->AllocDevAddr(&outTensorAddr, capacity * sizeof(float));
     std::vector<void*> opArgsRun = {x_ptr, indices_ptr, y_ptr};
-    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
-    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
     if (rc < 0) {
         ASSERT(false);
         ALOG_INFO_F("FA function aicpu stream sync failed");
@@ -270,8 +270,8 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_16_16_16) {
     // uint8_t* outTensorAddr = nullptr;
     // machine::GetRA()->AllocDevAddr(&outTensorAddr, capacity * sizeof(float));
     std::vector<void*> opArgsRun = {x_ptr, y_ptr, indices_ptr};
-    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
-    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
     if (rc < 0) {
         ASSERT(false);
         ALOG_INFO_F("FA function aicpu stream sync failed");
@@ -334,8 +334,8 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_48_4096_512) {
     // uint8_t* outTensorAddr = nullptr;
     // machine::GetRA()->AllocDevAddr(&outTensorAddr, capacity * sizeof(float));
     std::vector<void*> opArgsRun = {x_ptr, y_ptr, indices_ptr};
-    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
-    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
     if (rc < 0) {
         ASSERT(false);
         ALOG_INFO_F("FA function aicpu stream sync failed");
@@ -402,8 +402,8 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_1_16_16_exp) {
     uint8_t* outTensorAddr = nullptr;
     machine::GetRA()->AllocDevAddr(&outTensorAddr, capacity0 * sizeof(float));
     std::vector<void*> opArgsRun = {x_ptr, indices_ptr, y_ptr, outTensorAddr};
-    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
-    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
     if (rc < 0) {
         ASSERT(false);
         ALOG_INFO_F("FA function aicpu stream sync failed");
@@ -466,8 +466,8 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_2_1_512_576) {
 
     /* torch prepare args device memory and run  */
     std::vector<void*> opArgsRun = {x_ptr, indices_ptr, y_ptr};
-    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
-    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
     if (rc < 0) {
         ASSERT(false);
         ALOG_INFO_F("FA function aicpu stream sync failed");
@@ -530,8 +530,8 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_2_1_512_576_multi_row3) {
 
     /* torch prepare args device memory and run  */
     std::vector<void*> opArgsRun = {x_ptr, indices_ptr, y_ptr};
-    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
-    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
     if (rc < 0) {
         ASSERT(false);
         ALOG_INFO_F("FA function aicpu stream sync failed");
@@ -608,8 +608,8 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_2_1_512_576_graphD) {
 
     /* torch prepare args device memory and run  */
     std::vector<void*> opArgsRun = {x_ptr, compress_kv_ptr, indices_ptr, y_ptr};
-    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
-    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
     if (rc < 0) {
         ASSERT(false);
         ALOG_INFO_F("FA function aicpu stream sync failed");
@@ -681,8 +681,8 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_2_1_512_576_graphD_bf16) {
 
     /* torch prepare args device memory and run  */
     std::vector<void*> opArgsRun = {x_ptr, compress_kv_ptr, indices_ptr, y_ptr};
-    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
-    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
     if (rc < 0) {
         ASSERT(false);
         ALOG_INFO_F("FA function aicpu stream sync failed");
@@ -754,8 +754,8 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_32_1_512_576_graphD_bf16) {
 
     /* torch prepare args device memory and run  */
     std::vector<void*> opArgsRun = {x_ptr, compress_kv_ptr, indices_ptr, y_ptr};
-    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
-    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
     if (rc < 0) {
         ASSERT(false);
         ALOG_INFO_F("FA function aicpu stream sync failed");
@@ -826,8 +826,8 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_32_1_512_576_graphD) {
 
     /* torch prepare args device memory and run  */
     std::vector<void*> opArgsRun = {x_ptr, compress_kv_ptr, indices_ptr, y_ptr};
-    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
-    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
     if (rc < 0) {
         ASSERT(false);
         ALOG_INFO_F("FA function aicpu stream sync failed");
@@ -891,8 +891,8 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_64_7168_64_moe) {
     // uint8_t* outTensorAddr = nullptr;
     // machine::GetRA()->AllocDevAddr(&outTensorAddr, capacity * sizeof(float));
     std::vector<void*> opArgsRun = {x_ptr, indices_ptr, y_ptr};
-    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
-    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
     if (rc < 0) {
         ASSERT(false);
         ALOG_INFO_F("FA function aicpu stream sync failed");
@@ -955,8 +955,8 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_48_4096_512_BSNZ) {
     // uint8_t* outTensorAddr = nullptr;
     // machine::GetRA()->AllocDevAddr(&outTensorAddr, capacity * sizeof(float));
     std::vector<void*> opArgsRun = {x_ptr, y_ptr, indices_ptr};
-    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
-    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
     if (rc < 0) {
         ASSERT(false);
         ALOG_INFO_F("FA function aicpu stream sync failed");
@@ -1020,8 +1020,8 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_48_4096_512_BSNZ_bf16) {
     // uint8_t* outTensorAddr = nullptr;
     // machine::GetRA()->AllocDevAddr(&outTensorAddr, capacity * sizeof(float));
     std::vector<void*> opArgsRun = {x_ptr, y_ptr, indices_ptr};
-    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
-    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
     if (rc < 0) {
         ASSERT(false);
         ALOG_INFO_F("FA function aicpu stream sync failed");
@@ -1090,8 +1090,8 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_1_1_64_BSND_4dims) {
     // uint8_t* outTensorAddr = nullptr;
     // machine::GetRA()->AllocDevAddr(&outTensorAddr, capacity * sizeof(float));
     std::vector<void*> opArgsRun = {x_ptr, y_ptr, indices_ptr};
-    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
-    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
     if (rc < 0) {
         ASSERT(false);
         ALOG_INFO_F("FA function aicpu stream sync failed");
@@ -1158,8 +1158,8 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_1_1_64_BSND_2dims) {
     // uint8_t* outTensorAddr = nullptr;
     // machine::GetRA()->AllocDevAddr(&outTensorAddr, capacity * sizeof(float));
     std::vector<void*> opArgsRun = {x_ptr, y_ptr, indices_ptr};
-    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
-    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
     if (rc < 0) {
         ASSERT(false);
         ALOG_INFO_F("FA function aicpu stream sync failed");

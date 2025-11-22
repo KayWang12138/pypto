@@ -145,26 +145,26 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
             ALOG_ERROR_F("Register kernel bin failed.");
             return rc;
         }
-        rc = DeviceRunner::Get().DynamicLaunch(aicpuStream, aicoreStream, 0, &kArgs, config.blockdim, config.aicpuNum);
+        rc = DeviceRunner::Get().DynamicLaunch(aicpuStream, nullptr, aicoreStream, 0, &kArgs, config.blockdim, config.aicpuNum);
         if (rc < 0) {
             return rc;
         }
         if (streamSynchronize) {
-            rc = DeviceRunner::Get().DynamicLaunchSynchronize(aicpuStream, aicoreStream);
+            rc = DeviceRunner::Get().DynamicLaunchSynchronize(aicpuStream, nullptr, aicoreStream);
         }
     }
     return rc;
 }
 
 int DeviceLauncher::DeviceSynchronize(rtStream_t aicpuStream, rtStream_t aicoreStream) {
-    int rc = DeviceRunner::Get().DynamicLaunchSynchronize(aicpuStream, aicoreStream);
+    int rc = DeviceRunner::Get().DynamicLaunchSynchronize(aicpuStream, nullptr, aicoreStream);
     return rc;
 }
 
 int DeviceLauncher::DeviceRunOnce(Function *function, const DeviceLauncherConfig &config) {
     auto &inputDataList = ProgramData::GetInstance().GetInputDataList();
     auto &outputDataList = ProgramData::GetInstance().GetOutputDataList();
-    auto aicpuStream = machine::GetRA()->GetStreamAICPU();
+    auto aicpuStream = machine::GetRA()->GetScheStream();
     auto aicoreStream = machine::GetRA()->GetStream();
     std::vector<DeviceTensorData> inputDeviceDataList;
     std::vector<DeviceTensorData> outputDeviceDataList;
@@ -210,7 +210,7 @@ uint8_t *DeviceLauncher::DeviceRunCacheKernelGet(Function *func) {
 }
 
 DeviceStream DeviceGetAicpuStream() {
-    rtStream_t aicpuStreamValue = machine::GetRA()->GetStreamAICPU();
+    rtStream_t aicpuStreamValue = machine::GetRA()->GetScheStream();
     return reinterpret_cast<DeviceStream>(aicpuStreamValue);
 }
 

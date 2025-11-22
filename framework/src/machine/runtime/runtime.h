@@ -177,19 +177,24 @@ class RuntimeAgentStream {
 public:
     rtStream_t &GetStream() { return raStreamInstance; }
 
-    aclrtStream &GetStreamAICPU() { return raStreamInstanceAicpu; }
+    aclrtStream &GetScheStream() { return raStreamInstanceSche; }
+
+    rtStream_t &GetCtrlStream() { return raStreamInstanceCtrl; }
 
     void CreateStream() {
         rtStreamCreate(&raStreamInstance, RT_STREAM_PRIORITY_DEFAULT);
-        rtStreamCreate(&raStreamInstanceAicpu, RT_STREAM_PRIORITY_DEFAULT);
+        rtStreamCreate(&raStreamInstanceSche, RT_STREAM_PRIORITY_DEFAULT);
+        rtStreamCreate(&raStreamInstanceCtrl, RT_STREAM_PRIORITY_DEFAULT);
     }
     void DestroyStream() {
         rtStreamDestroy(raStreamInstance);
-        rtStreamDestroy(raStreamInstanceAicpu);
+        rtStreamDestroy(raStreamInstanceSche);
+        rtStreamDestroy(raStreamInstanceCtrl);
     }
 private:
     rtStream_t raStreamInstance{0};
-    aclrtStream raStreamInstanceAicpu{0};
+    rtStream_t raStreamInstanceCtrl{0};
+    aclrtStream raStreamInstanceSche{0};
 };
 
 class RuntimeAgent : public RuntimeAgentMemory, public RuntimeAgentStream {

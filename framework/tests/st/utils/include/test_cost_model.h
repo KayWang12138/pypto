@@ -20,6 +20,7 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "machine/runtime/device_runner.h"
+#include "machine/device/dynamic/device_common.h"
 #include "cost_model/simulation/pv/PvModel.h"
 #include "cost_model/simulation/pv/PvModelFactory.h"
 #include "machine/device/dynamic/costmodel_utils.h"

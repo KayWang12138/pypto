@@ -9,78 +9,28 @@
  */
 
 /*!
- * \file device_machine.h
+ * \file device_ctrl.h
  * \brief
  */
 
 #pragma once
 
-#include <atomic>
+#include "device_common.h"
 #include <cstdint>
 #include <cstdlib>
-
-#include "aicore_manager.h"
 #include "device_utils.h"
 #include "device_context.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/utils/device_log.h"
-#include "tilefwk/aicore_print.h"
-#include "device_utils.h"
+#ifdef __USE_CUSTOM_CTRLFLOW__
+extern "C" __attribute__((weak)) void* GetTilingKeyFunc(const uint64_t tilingKey);    
+#endif
+
 namespace npu::tile_fwk::dynamic {
-
-struct AicoreLogManager {
-    AicoreLogManager() {
-        data_ = aligned_alloc(PAGE_SIZE, MAX_AICORE_NUM * PRINT_BUFFER_SIZE);
-        uint8_t *buf = (uint8_t *)data_;
-        for (uint32_t i = 0; i < MAX_AICORE_NUM; i++) {
-            logger[i].Init(buf, PRINT_BUFFER_SIZE);
-            buf += PRINT_BUFFER_SIZE;
-        }
-    }
-    ~AicoreLogManager() { free(data_); }
-
-    void *data_;
-    AicoreLogger logger[MAX_AICORE_NUM];
-};
-
-class DeviceMachine {
-public:
-    DeviceMachine() {
-        for (uint32_t i = 0; i < MAX_SCHEDULE_AICPU_NUM; ++i) {
-            aicoreManager_[i] = std::make_unique<AiCoreManager>(aicpuTaskManager_);
-        }
-    }
-
-    void init(DeviceArgs *args, uint32_t schNum) {
-        DEV_INFO("device machine init: %d\n", (int)args->taskType);
-        schAicpuNum_ = schNum;
-
-        coreNum_ = args->nrAic + args->nrAiv;
-        sharedBuffer_ = args->sharedBuffer;
-
-        if (args->taskType == DEVICE_TASK_TYPE_STATIC) {
-            auto devTask = reinterpret_cast<DeviceTask *>(args->taskData);
-            DEV_IF_DEBUG {
-                DumpTask(args->taskId, devTask, false);
-            }
-            auto idx = AllocNewTaskCtrl();
-            InitTaskCtrl(idx, DEVICE_TASK_TYPE_STATIC, args->taskId, devTask, nullptr);
-            initTaskCtrl = &taskctrl_[idx];
-        }
-    }
-    int AllocNewTaskCtrl() {
-        while (true) {
-            if (taskCtrlIndex_ == MAX_DEVICE_TASK_NUM)
-                taskCtrlIndex_ = 0;
-            if (taskctrl_[taskCtrlIndex_].IsFree()) {
-                return taskCtrlIndex_++;
-            }
-            taskCtrlIndex_++;
-        }
-    }
-
-    void InitTaskCtrl(int idx, int type, uint64_t taskId, DeviceTask *devTask, DeviceExecuteContext *ctx, FinishCallback callback = nullptr) {
+class DeviceCtrlMachine {
+ public:
+    void InitTaskCtrl(int idx, int type, uint64_t taskId, DeviceTask *devTask, DeviceExecuteContext *ctx) {
         if (ctx == nullptr) {
             DEV_ERROR("Init Task control failed, which ctx is null.");
             return;
@@ -95,38 +45,48 @@ public:
         taskCtrl->finishedAivFunctionCnt = 0;
         taskCtrl->finishedAicpuFunctionCnt = 0;
         taskCtrl->finishedFunctionCnt.store(0, std::memory_order_relaxed);
-        taskCtrl->finishFlag.store(false, std::memory_order_relaxed);
+        taskCtrl->runFlag.store(true, std::memory_order_relaxed);
         taskCtrl->runcnt.store(schAicpuNum_, std::memory_order_relaxed);
-        taskCtrl->finish = callback;
         taskCtrl->ctx = ctx;
         devTask->aicoreModel = reinterpret_cast<uint64_t>(ctx->aicoreModel);
         if (ctx->costModelData != nullptr) {
             devTask->costModelData = reinterpret_cast<uint64_t>(ctx->costModelData);
         }
-        for (auto& eType : taskCtrl->isAicpuIdle) {
-            for (auto& e : eType) {
-                e.store(true);
+        for (size_t i = 0; i < AICORE_TYPE_NUM; ++i) {
+            for (size_t j = 0; j < MAX_SCHEDULE_AICPU_NUM; ++j) {
+                taskCtrl->isAicpuIdle[i][j].store(true);
             }
         }
     }
 
-    int PushTask(int type, DynDeviceTask *dynTask, DeviceExecuteContext *ctx, FinishCallback callback = nullptr) {
+    int AllocNewTaskCtrl() {
+        while (true) {
+            if (taskCtrlIndex_ == MAX_DEVICE_TASK_NUM)
+                taskCtrlIndex_ = 0;
+            if (!taskctrl_[taskCtrlIndex_].IsNotFree()) {
+                return taskCtrlIndex_++;
+            }
+            taskCtrlIndex_++;
+        }
+    }
+
+    int PushTask(int type, DynDeviceTask *dynTask, DeviceExecuteContext *ctx) {
         auto idx = AllocNewTaskCtrl();
-        InitTaskCtrl(idx, type, dynTask->GetIndex(), &dynTask->devTask, ctx, callback);
+        InitTaskCtrl(idx, type, dynTask->GetIndex(), &dynTask->devTask, ctx);
         for (uint32_t i = 0; i < schAicpuNum_; ++i) {
-          aicoreManager_[i]->PushTask(&taskctrl_[idx]);
+            taskQueue_->Enqueue(&taskctrl_[idx]);
         }
         return idx;
     }
 
     void StopAicoreManager() {
-      for (uint32_t i = 0; i < schAicpuNum_; ++i) {
-          aicoreManager_[i]->PushTask(nullptr);
-      }
+        for (uint32_t i = 0; i < schAicpuNum_; ++i) {
+            taskQueue_->Enqueue(nullptr);
+        }
     }
 
     int SyncTask(int idx) {
-        while (!taskctrl_[idx].IsFree())
+        while (taskctrl_[idx].IsNotFree())
             ;
         return taskctrl_[idx].retCode;
     }
@@ -145,39 +105,23 @@ public:
         return ret;
     }
 
-    int Run(int threadIdx, DeviceArgs *args) {
-        int ret = 0;
-        if (args->nrAic == 0 || args->nrValidAic == 0 || args->nrAicpu < NEED_LAUNCH_AICPU_MINNUM) {
-            DEV_ERROR("Device machinr run invalid args aicnum:%u, blockdim:%u, launchAicpu num:%u",
-                args->nrAic, args->nrValidAic, args->nrAicpu);
-            return DEVICE_MACHINE_ERROR;
-        }
-
-        DEV_INFO("thread %d start .", threadIdx);
-        if (static_cast<uint32_t>(threadIdx) >= MAX_SCHEDULE_AICPU_NUM) {
-            DEV_INFO("thread start ignore ");
-            return DEVICE_MACHINE_OK;
-        }
-#if ENABLE_AICORE_PRINT
-        aicoreManager_[threadIdx]->InitLogger(logManager.logger);
-#endif
-        ret = aicoreManager_[threadIdx]->Run(threadIdx, args, initTaskCtrl);
-        DEV_INFO("thread  %d end , ret = %d", threadIdx, ret);
-        return ret;
-    }
-
-    static int InitDyn(AstKernelArgs *args) {
-        auto kargs = (AstKernelArgs *) args;
+    int InitDyn(AstKernelArgs *kargs) {
         DEV_INFO("AscendCppDyInitTask begin");
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
         auto devArgs = reinterpret_cast<DevStartArgs *>(devProg->devArgs.startArgsAddr);
-
+        taskctrl_ = reinterpret_cast<DeviceTaskCtrl *>(devProg->devArgs.taskCtrl);
+        taskQueue_ = reinterpret_cast<SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> *>(devProg->devArgs.taskQueue);
+        schAicpuNum_ = devProg->devArgs.scheCpuNum;
         PerfBegin(PERF_EVT_INIT);
         bool firstInit = false;
         if (devProg->controlFlowBinaryAddr == nullptr) {
             devProg->RelocProgram(0, reinterpret_cast<uint64_t>(devProg), true);
+#ifdef __USE_CUSTOM_CTRLFLOW__
+            devProg->controlFlowBinaryAddr = GetTilingKeyFunc(devProg->configKey);
+#else
             auto execProg = DeviceExecuteProgram(devProg, nullptr);
             devProg->controlFlowBinaryAddr = execProg.GetControlFlowEntry();
+#endif
             firstInit = true;
         }
         devArgs->controlFlowEntry = devProg->controlFlowBinaryAddr;
@@ -219,7 +163,7 @@ public:
         return 0;
     }
 
-    int ExecDyn(int threadIdx, uint64_t taskId, npu::tile_fwk::AstKernelArgs *args) {
+    int ExecDyn(npu::tile_fwk::AstKernelArgs *args) {
         int ret = 0;
         DEV_INFO("start control flow.");
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(args->cfgdata);
@@ -229,11 +173,11 @@ public:
         ctx.aicoreModel = args->aicoreModel;
         PerfBegin(PERF_EVT_EXEC_DYN);
         PerfBegin(PERF_EVT_CONTROL_FLOW_CALL);
-        ctx.GELaunch(devStartArgs, [this](DynDeviceTask *dynTask, DeviceExecuteContext *ctx_) {
+        ctx.GELaunch(devStartArgs, [this](DynDeviceTask *dynTask, DeviceExecuteContext *exeCtx) {
             DEV_IF_DEBUG {
                 DumpTask(dynTask->GetIndex(), (DeviceTask *)dynTask, true);
             }
-            PushTask(DEVICE_TASK_TYPE_DYN, dynTask, ctx_, DeviceExecuteContext::TaskFinish);
+            PushTask(DEVICE_TASK_TYPE_DYN, dynTask, exeCtx);
         });
         PerfEnd(PERF_EVT_CONTROL_FLOW_CALL);
         DEV_INFO("end control flow.");
@@ -251,50 +195,10 @@ public:
         ctx.ShowStats();
         PerfEvtMgr::Instance().Dump();
         PerfettoMgr::Instance().Dump("/tmp/perfetto.txt");
-#endif
-        (void)threadIdx;
-        (void)taskId;
+    #endif
         return ret;
     }
 
-    void ResetRegAll() {
-      sleep(1);
-      DEV_ERROR("ResetRegAll");
-      for (uint32_t i = 0; i < schAicpuNum_; ++i) {
-        aicoreManager_[i]->ResetRegAll();
-      }
-      sleep(1);
-      DEV_ERROR("Exception reset reg finish.");
-    }
-
-    inline void DumpAicorePerfTrace(std::string file = "") {
-        (void)file;
-#if ENABLE_PERF_TRACE
-        std::ostringstream oss;
-        for (uint32_t i = 0; i < schAicpuNum_; ++i) {
-            aicoreManager_[i]->DumpAicorePerfTrace(oss);
-            oss << (i == schAicpuNum_ - 1 ? "" : ",");
-        }
-
-        const std::string& str = oss.str();
-        uint32_t totalLength = str.length();
-        uint32_t startPos = 0;
-        uint32_t batchSize = 600;
-        while (startPos < totalLength) {
-            uint32_t endPos = std::min(startPos + batchSize, totalLength);
-            std::string batch = str.substr(startPos, endPos - startPos);
-            DEV_ERROR("tile_fwk aicore prof:%s", batch.c_str());
-            startPos = endPos;
-        }
-
-        if (file != "") {
-            std::ofstream os(file);
-            os << "[";
-            os << oss.str();
-            os << "]";
-        }
-#endif
-    }
 private:
     static void DumpTask(int64_t taskId, DeviceTask *devTask, bool isDyn) {
         DEV_DEBUG("devTask %ld %p.", taskId, devTask);
@@ -354,18 +258,10 @@ private:
         (void)taskId;
         DEV_DEBUG("===== dev task end =====");
     }
-private:
-    uint64_t sharedBuffer_{0};
-    uint64_t coreNum_{0};
-    bool serverMode_{false};
-    DeviceTaskCtrl taskctrl_[MAX_DEVICE_TASK_NUM];
-    uint64_t taskCtrlIndex_{0};
-    DeviceTaskCtrl *initTaskCtrl{nullptr};
-    AicpuTaskManager aicpuTaskManager_;
+ private:
+    uint32_t taskCtrlIndex_{0};
+    DeviceTaskCtrl *taskctrl_{nullptr};
+    SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> *taskQueue_{nullptr};
     uint32_t schAicpuNum_{MAX_SCHEDULE_AICPU_NUM};
-    std::unique_ptr<AiCoreManager> aicoreManager_[MAX_SCHEDULE_AICPU_NUM];
-#if ENABLE_AICORE_PRINT
-    AicoreLogManager logManager;
-#endif
 };
 } // namespace npu::tile_fwk

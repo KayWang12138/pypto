@@ -258,18 +258,6 @@ inline std::vector<uint64_t> VPtrToValue(const std::vector<void *> v_ptr) {
   return v_value;
 }
 
-inline uint32_t CalcSchAicpuNumByBlockDim(uint32_t blockDim) {
-    if (blockDim > (MAX_SCHEDULE_AICPU_NUM - 1) * MAX_MNG_AICORE_AVG_NUM) {
-        return MAX_SCHEDULE_AICPU_NUM;
-    }
-
-    if (blockDim % MAX_MNG_AICORE_AVG_NUM == 0) {
-        return blockDim / MAX_MNG_AICORE_AVG_NUM;
-    }
-
-    return blockDim / MAX_MNG_AICORE_AVG_NUM + 1;
-}
-
 inline uint64_t GetTimeMonotonic() {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);

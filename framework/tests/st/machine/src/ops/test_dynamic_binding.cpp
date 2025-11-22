@@ -202,7 +202,7 @@ TEST_F(DynamicBindingTest, TestDeviceCompute) {
         DeviceTensorData(output.GetDataType(), (uintdevptr_t)outputDevAddr, output.GetShape()),
     };
 
-    auto aicpuStream = reinterpret_cast<DeviceStream>(machine::GetRA()->GetStreamAICPU());
+    auto aicpuStream = reinterpret_cast<DeviceStream>(machine::GetRA()->GetScheStream());
     auto aicoreStream = reinterpret_cast<DeviceStream>(machine::GetRA()->GetStream());
     EXPECT_EQ(0, ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(op, inputList, outputList, aicpuStream, aicoreStream, true, reinterpret_cast<uintptr_t>(nullptr)));
 

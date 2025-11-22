@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "device_machine.h"
+#include "device_sche.h"
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
@@ -34,42 +34,8 @@ constexpr int CPUS_PER_CLUSTER = 4;
 constexpr uint64_t SIGNAL_DELAY_SECONDS = 2;
 
 extern void SigAct(int signum, siginfo_t* info, void* act);
-
-void DySdmaPrefetch(DevStartArgs *devArgs) {
-    if (devArgs == nullptr || devArgs->devProg == nullptr) {
-      return;
-    }
-    auto devProg = devArgs->devProg;
-    size_t prefetchNum = devProg->prefetchInfoList.size();
-    DEV_INFO("Prefetch num %zu.", prefetchNum);
-    if (prefetchNum > devArgs->inputTensorSize) {
-      DEV_ERROR("Prefetch invalid num %zu.", prefetchNum);
-      return;
-    }
-    int fd = open(SDMA_FILE.c_str(), O_RDWR);
-    if (fd == -1) {
-      return;
-    }
-    struct sdma_l2_cmo_desc desc;
-    desc.cmo_opcode = 0x6;
-    int ret = 0;
-    for (size_t i = 0; i < prefetchNum; ++i) {
-      auto &preInfo = devProg->prefetchInfoList[i];
-      DEV_INFO("Prefetch tensor idx[%lu] with size[%lu].", preInfo.tensorIdx, preInfo.tensorSize);
-      if (preInfo.tensorIdx >= static_cast<uint64_t>(devArgs->GetInputTensorSize())) {
-        DEV_WARN("TensorIdx[%lu] over inpust size[%d].", preInfo.tensorIdx, devArgs->GetInputTensorSize());
-        continue;
-      }
-      auto &inTensor = devArgs->GetInputTensor(preInfo.tensorIdx);
-      desc.src_addr = inTensor.address;
-      desc.size = preInfo.tensorSize;
-      ret |= ioctl(fd, IOCTL_SDMA_L2_CMO, &desc);
-      DEV_DEBUG("Prefetch %lx %lu ret:%d.", inTensor.address, preInfo.tensorSize, ret);
-    }
-    DEV_INFO("Prefetch tensor num %zu ret %d.", prefetchNum, ret);
-    close(fd);
-    return;
-}
+extern "C" __attribute__((visibility("default"))) int PyptoKernelCtrlServerInit(void *targ);
+extern "C" __attribute__((visibility("default"))) int PyptoKernelCtrlServer(void *targ);
 
 struct DynMachineManager {
     int allocThreadIdx(int nrAicpu) {
@@ -139,19 +105,12 @@ struct DynMachineManager {
         } else {
             threadIdx = ctrlcpuIdx_.fetch_add(1);
             DEV_INFO("devArgs->taskType %d.",  static_cast<int>(devArgs->taskType));
-            if (devArgs->taskType == DEVICE_TASK_TYPE_DYN && threadIdx == CTRL_CPU_THREAD_IDX) {
+            if (devArgs->enableCtrl == 1 && threadIdx == schAicpuNum_) {
                 CreateLogFile(LOG_TYPE_CONTROLLER, 0);
                 DEV_TRACE_DEBUG(schema::CtrlEvent(threadIdx, schema::ThreadStart()));
-                ret = machine_.ExecDyn(threadIdx, devArgs->taskId, args);
-            } else if (threadIdx == MAX_SCHEDULE_AICPU_NUM + 1) {
-                CreateLogFile(LOG_TYPE_PREFETCH, 0);
-                if (devArgs->taskType == DEVICE_TASK_TYPE_DYN) {
-                  auto startArgs = (DevStartArgs *)devArgs->startArgsAddr;
-                  DySdmaPrefetch(startArgs);
-                } else {
-                  auto devTask = reinterpret_cast<DeviceTask *>(devArgs->taskData);
-                  SdmaPrefetch(devTask);
-                }
+                ret = PyptoKernelCtrlServer((void*)args);
+            } else {
+                SignalReg();
             }
         }
         PerfMtTrace(PERF_TRACE_BEGIN, threadIdx, args->taskWastTime);
@@ -167,9 +126,13 @@ struct DynMachineManager {
     }
 
     void Init(DeviceArgs *args) {
-        SignalReg();
-        schAicpuNum_ = CalcSchAicpuNumByBlockDim(args->nrValidAic);
-        machine_.init(args, schAicpuNum_);
+        if (init_.load()) {
+            return;
+        }
+        init_.store(true);
+        schAicpuNum_ = args->scheCpuNum;
+        ctrlcpuIdx_.store(schAicpuNum_);
+        machine_.init(schAicpuNum_);
     }
 
     void SignalReset() {
@@ -186,7 +149,8 @@ struct DynMachineManager {
       threadIdx_ = 0;
       finished_ = 0;
       cpumask_ = 0;
-      ctrlcpuIdx_ = MAX_SCHEDULE_AICPU_NUM;
+      ctrlcpuIdx_ = 0;
+      init_.store(false);
       SignalReset();
     }
 
@@ -194,7 +158,7 @@ struct DynMachineManager {
     std::atomic<int> threadIdx_{0};
     std::atomic<int> finished_{0};
     std::atomic<uint64_t> cpumask_{0};
-    std::atomic<int> ctrlcpuIdx_{MAX_SCHEDULE_AICPU_NUM};
+    std::atomic<int> ctrlcpuIdx_{0};
     int schAicpuNum_{MAX_SCHEDULE_AICPU_NUM};
     DeviceMachine machine_;
     struct sigaction oriFPEAct_;
@@ -204,6 +168,7 @@ struct DynMachineManager {
     struct sigaction oriILLAct_;
     struct sigaction oriBordAct_;
     std::atomic<bool> reset_{false};
+    std::atomic<bool> init_{false};
 };
 
 DynMachineManager g_machine_mgr;
@@ -231,7 +196,16 @@ void SigAct(int signum, siginfo_t* info, void* act) {
 }
 }
 
-static int RunDynamic(AstKernelArgs *kargs) {
+
+extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelServerInit(void *targ) {
+    return PyptoKernelCtrlServerInit(targ);
+}
+
+extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelServer(void *targ) {
+    auto kargs = (AstKernelArgs *)targ;
+    auto devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
+    kargs->taskWastTime = GetCycles();
+    g_machine_mgr.Init(devArgs);
     int rc = g_machine_mgr.Run(kargs);
     if (rc == npu::tile_fwk::dynamic::DEVICE_MACHINE_FINISHED) {
         DEV_INFO("All schedule exited, destroy the machine.\n");
@@ -248,39 +222,4 @@ static int RunDynamic(AstKernelArgs *kargs) {
         return DEVICE_MACHINE_OK;
     }
     return rc;
-}
-
-static bool CheckValidArgs(AstKernelArgs *kargs) {
-    if (kargs == nullptr) {
-        return false;
-    }
-    if (kargs->inputs == nullptr || kargs->outputs == nullptr || kargs->workspace == nullptr
-        || kargs->cfgdata == nullptr) {
-        DEV_ERROR("Args has null in inputs[%p] outputs[%p] work[%p] or cfg[%p].\n", kargs->inputs,
-                 kargs->outputs, kargs->workspace, kargs->cfgdata);
-        return false;
-    }
-    return true;
-}
-
-
-extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelServerInit(void *targ) {
-    PerfBegin(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
-    InitLogSwitch();
-    auto kargs = (AstKernelArgs *)targ;
-    if (!CheckValidArgs(kargs)) {
-        DEV_ERROR("invalid parameter.");
-        return -EINVAL;
-    }
-    auto devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
-    DeviceMachine::InitDyn(kargs);
-    g_machine_mgr.Init(devArgs);
-    PerfEnd(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
-    return 0;
-}
-
-extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelServer(void *targ) {
-    auto kargs = (AstKernelArgs *)targ;
-    kargs->taskWastTime = GetCycles();
-    return RunDynamic(kargs);
 }

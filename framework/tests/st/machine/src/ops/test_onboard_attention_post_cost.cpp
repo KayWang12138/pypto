@@ -150,8 +150,8 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_batch4_onlymm5) {
 
     std::vector<void*> opArgsRun = {inputPtr, wUvPtr, wUvScaleWPtr, wOPtr, wOScaleWPtr, outPtr};
 
-    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
-    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
     if (rc < 0) {
         ASSERT(false);
         ALOG_INFO_F("FA function aicpu stream sync failed");
@@ -290,8 +290,8 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_n128_onlymm5) {
 
     std::vector<void*> opArgsRun = {inputPtr, wUvPtr, wUvScaleWPtr, wOPtr, wOScaleWPtr, outPtr};
 
-    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
-    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
     if (rc < 0) {
         ASSERT(false);
         ALOG_INFO_F("FA function aicpu stream sync failed");
@@ -467,8 +467,8 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_n128_onlymm5He) {
 
     std::vector<void*> opArgsRun = {inputPtr, wUvPtr, wUvScaleWPtr, wOPtr, wOScaleWPtr, outPtr};
 
-    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
-    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
     if (rc < 0) {
         ASSERT(false);
         ALOG_INFO_F("FA function aicpu stream sync failed");
@@ -614,8 +614,8 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_batch4_onlymm5K) {
 
     std::vector<void*> opArgsRun = {inputPtr, wUvPtr, wUvScaleWptr, wOptr, wOscaleWptr, outPtr};
 
-    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
-    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
     if (rc < 0) {
         ASSERT(false);
         ALOG_INFO_F("FA function aicpu stream sync failed");
@@ -775,8 +775,8 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_n128_onlymm5K) {
 
     std::vector<void*> opArgsRun = {inputPtr, wUvPtr, wUvScaleWptr, wOptr, wOscaleWptr, outPtr, mm5int32_ptr, mm5fp32_ptr};
 
-    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
-    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
     if (rc < 0) {
         ASSERT(false);
         ALOG_INFO_F("FA function aicpu stream sync failed");
@@ -952,8 +952,8 @@ TEST_F(OnBoardCostTest, dynamic_pa_post_static_cast_first) {
 
     std::vector<void*> opArgsRun = {inputPtr, wUvPtr, wOptr, wOscaleWptr, outPtr, mm5int32_ptr, mm5fp32_ptr};
 
-    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
-    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
     if (rc < 0) {
         ASSERT(false);
         ALOG_INFO_F("FA function aicpu stream sync failed");

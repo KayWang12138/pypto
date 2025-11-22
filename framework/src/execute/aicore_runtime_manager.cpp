@@ -21,6 +21,11 @@ const int32_t MODULE_TYPE_AI_CORE = 4;
 const int32_t INFO_TYPE_OCCUPY = 8;
 const uint64_t SHARE_BUFFER_SIZE = 512;
 const uint64_t AICPU_COUNT = 5;
+const uint64_t DEV_ARGS_SIZE = 4096;
+const uint64_t DEVICE_TASK_CTRL_SIZE = 7168;
+const uint64_t DEVICE_QUEUE_SIZE = 2048;
+const uint64_t DEVICE_SHM_SIZE = DEV_ARGS_SIZE + DEVICE_TASK_CTRL_SIZE + DEVICE_QUEUE_SIZE;
+
 bool GetPgmsk(const int32_t deviceId, uint64_t &valid) {
   uint64_t aicore_bitmap[AICORE_MAP_BUFF_LEN] = {0};
   int32_t size_n = static_cast<int32_t>(sizeof(uint64_t)) * AICORE_MAP_BUFF_LEN;
@@ -150,7 +155,16 @@ bool AicoreRtManager::InitDyBinData(const std::vector<int64_t> &aic, const std::
     TILE_FWK_LOGE("Failed to copy shared buffer to device.");
     return false;
   }
-
+  uint64_t meta_addr = 0;
+  if (!AllocDevAddr((void**)&meta_addr, DEVICE_SHM_SIZE, allocated_addrs)) {
+    TILE_FWK_LOGE("Failed to alloc meta addr.");
+    return false;
+  }
+  TILE_FWK_LOGD("Alloc meta size:%lu.", DEVICE_SHM_SIZE);
+  host_args->devArgs.startArgsAddr = meta_addr;
+  host_args->devArgs.taskCtrl = meta_addr + DEV_ARGS_SIZE;
+  host_args->devArgs.taskQueue = meta_addr + DEV_ARGS_SIZE + DEVICE_TASK_CTRL_SIZE;
+  host_args->devArgs.enableCtrl = 1;
   size_t core_reg_size = regs.size() * sizeof(uint64_t);
   if (!AllocDevAddr((void**)&host_args->devArgs.coreRegAddr, core_reg_size, allocated_addrs)) {
     TILE_FWK_LOGE("Failed to alloc core reg addr.");

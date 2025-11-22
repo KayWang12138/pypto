@@ -156,8 +156,8 @@ void MoEGateOnBoardFunc(MoEGateParams& opsParams) {
     machine::GetRA()->AllocDevAddr(&workspaceAddr, workspaceSize);
     std::vector<void*> opArgsRun = {inputEScoreCorrectionBiasPtr, inputHiddenStatePtr,
                             inputWeightPtr, outputTopkIdxPtr, outputTopkWeightPtr};
-    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(), opArgsRun);
-    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(), opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
     if (rc < 0) {
         ASSERT(false);
         ALOG_INFO_F("moe gate function aicpu stream sync failed");

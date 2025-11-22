@@ -63,7 +63,8 @@ struct MemoryHelper {
         return devPtr;
     }
 
-    uint8_t *AllocZero(uint64_t size) {
+    uint8_t *AllocZero(uint64_t size, uint8_t **cachedDevAddrHolder) {
+        (void)cachedDevAddrHolder;
         uint8_t *devPtr = AllocDev(size, nullptr);
         if (isTest_)
             memset(devPtr, 0, size);
@@ -95,6 +96,7 @@ struct MemoryHelper {
 
 extern "C" int DynTileFwkBackendKernelServer(void *targ);
 extern "C" int DynTileFwkBackendKernelServerInit(void *targ);
+extern "C" int PyptoKernelCtrlServer(void *targ);
 
 class DevFuncRunner : public DeviceLauncher {
 public:
@@ -256,11 +258,12 @@ private:
             SetDefaultDevice();
             AstKernelArgs kArgs;
             DeviceInitTilingData(MemoryHelper(false), kArgs, function_->GetDyndevAttribute()->devProgBinary, config_, nullptr);
-            auto aicpuStream = machine::GetRA()->GetStreamAICPU();
+            auto aicpuStream = machine::GetRA()->GetScheStream();
             auto aicoreStream = machine::GetRA()->GetStream();
+            auto ctrlStream = machine::GetRA()->GetCtrlStream();
             for (int i = 0; i < config_.repeatNum; i++) {
                 InitKernelInOuts(kArgs, inputs, outputs, false);
-                rc = DeviceRunner::Get().DynamicRun(aicpuStream, aicoreStream, 0, &kArgs, config_.blockdim, config_.aicpuNum);
+                rc = DeviceRunner::Get().DynamicRun(aicpuStream, ctrlStream, aicoreStream, 0, &kArgs, config_.blockdim, config_.aicpuNum);
                 EXPECT_EQ(rc, 0);
             }
             CopyFromDev(MemoryHelper(false), outputs);
@@ -314,12 +317,14 @@ private:
 
     void RunTestMode(AstKernelArgs *kArgs) {
         (void) kArgs;
-        std::thread aicpus[6];
+        std::thread aicpus[DEVICE_MAX_AICPU_NUM];
         std::atomic<int> idx{0};
         auto *devProg = (DevAscendProgram *)(kArgs->cfgdata);
         auto rc0 = DynTileFwkBackendKernelServerInit(kArgs);
         EXPECT_EQ(rc0, 0);
-        for (int i = 0; i < static_cast<int>(devProg->devArgs.nrAicpu); i++) {
+        int threadNum = static_cast<int>(devProg->devArgs.nrAicpu);
+        threadNum = (devProg->devArgs.enableCtrl == 1) ? threadNum : threadNum + 1;
+        for (int i = 0; i < threadNum; i++) {
             aicpus[i] = std::thread([&]() {
                 int tidx = idx++;
                 cpu_set_t cpuset;
@@ -330,12 +335,17 @@ private:
                 std::cout << "start thread: " << name << std::endl;
                 pthread_setname_np(pthread_self(), name);
                 pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
-                auto rc = DynTileFwkBackendKernelServer(kArgs);
+                auto rc = 0;
+                if ((devProg->devArgs.enableCtrl == 0) && (uint32_t)tidx == devProg->devArgs.scheCpuNum) {
+                    rc = PyptoKernelCtrlServer(kArgs);
+                } else {
+                    rc = DynTileFwkBackendKernelServer(kArgs);
+                }
                 EXPECT_EQ(rc, 0);
             });
         }
 
-        for (int i = 0; i < 6; i++) {
+        for (int i = 0; i < threadNum; i++) {
             if (aicpus[i].joinable()) {
                 aicpus[i].join();
             }

@@ -44,6 +44,13 @@ struct EmulationMemoryUtils {
         return devPtr;
     }
 
+    uint8_t *AllocZero(uint64_t size, uint8_t **cachedDevAddrHolder) {
+        (void)cachedDevAddrHolder;
+        uint8_t *devPtr = AllocDev(size, nullptr);
+        (void)memset_s(devPtr, size, 0, size);
+        return devPtr;
+    }
+
     uint8_t *CopyToDev(uint8_t *data, uint64_t size) {
         uint8_t *devPtr = AllocDev(size, nullptr);
         memcpy_s(devPtr, size, data, size);

@@ -10,19 +10,11 @@
 
 cmake_minimum_required(VERSION 3.16)
 
-project(tile_fwk_server LANGUAGES C CXX)
+project(pypto_ctrl_server LANGUAGES C CXX)
 
 ########################################################################################################################
 # 基础配置
 ########################################################################################################################
-if (BUILD_OPEN_PROJECT)
-    add_subdirectory(stub)
-else ()
-    set(CMAKE_SKIP_RPATH TRUE)
-    get_filename_component(PTO_FWK_SRC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../" ABSOLUTE)
-endif()
-
-add_subdirectory(dynamic)
 
 # 缺省编译配置, 编译函数
 if (BUILD_WITH_CANN)
@@ -37,13 +29,14 @@ message(STATUS "CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
 # 编译流程
 ########################################################################################################################
 
-file(GLOB_RECURSE _Device_Srcs *.cpp)
-file(GLOB_RECURSE _Stub_Srcs stub/*.cpp)
-list(REMOVE_ITEM _Device_Srcs ${_Stub_Srcs})
+set(CTRL_FILES
+    device_ctrl.cpp
+    ../device_log.cpp
+)
 
-add_library(tile_fwk_server SHARED)
-target_sources(tile_fwk_server PRIVATE ${_Device_Srcs})
-target_compile_options(tile_fwk_server
+add_library(pypto_ctrl_server STATIC)
+target_sources(pypto_ctrl_server PRIVATE ${CTRL_FILES})
+target_compile_options(pypto_ctrl_server
         PRIVATE
             -Wall
             -Wextra
@@ -54,16 +47,15 @@ target_compile_options(tile_fwk_server
             -fPIC
             -D__DEVICE__
             -Werror
-            -fno-common
+            -D__USE_CUSTOM_CTRLFLOW__
 )
-target_include_directories(tile_fwk_server
+target_include_directories(pypto_ctrl_server
         PRIVATE
             ${PTO_FWK_SRC_ROOT}/framework/include
             ${PTO_FWK_SRC_ROOT}/framework/src
             ${PTO_FWK_SRC_ROOT}/framework/src/include
             ${PTO_FWK_SRC_ROOT}/framework/src/interface
             ${PTO_FWK_SRC_ROOT}/framework/src/interface/machine/device
-            ${PTO_FWK_SRC_ROOT}/framework/src/cost_model
         PRIVATE  # 使用 CANN 场景依赖
             $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/include>
         PRIVATE  # 使用 CANN 整包
@@ -71,13 +63,13 @@ target_include_directories(tile_fwk_server
         PRIVATE  # 使用 CANN 分包
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/base>>
 )
-target_link_directories(tile_fwk_server
+target_link_directories(pypto_ctrl_server
         PRIVATE
             $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/devlib/linux/aarch64/>
             $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/devlib/device/>
             $<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/lib64>
 )
-target_link_libraries(tile_fwk_server
+target_link_libraries(pypto_ctrl_server
         PRIVATE
             -Wl,--no-as-needed
             c_sec
@@ -85,19 +77,6 @@ target_link_libraries(tile_fwk_server
             -ldl
             $<$<TARGET_EXISTS:intf_pub>:$<BUILD_INTERFACE:intf_pub>>
 )
-set_target_properties(tile_fwk_server PROPERTIES OUTPUT_NAME tilefwk_backend_server)
+set_target_properties(pypto_ctrl_server PROPERTIES OUTPUT_NAME pypto_ctrl_server)
 
-if (NOT ENABLE_FEATURE_PYTHON_FRONT_END)
-    install(TARGETS tile_fwk_server LIBRARY DESTINATION lib OPTIONAL)
-endif ()
-
-if (NOT BUILD_OPEN_PROJECT)
-    set(TILE_FWK_KERNEL_TAR_GZ_NAME "transformer_tile_fwk_aicpu_kernel.tar.gz")
-    add_custom_command(TARGET tile_fwk_server POST_BUILD
-        COMMAND echo "Begin to compress ${TILE_FWK_KERNEL_TAR_GZ_NAME} from ${CMAKE_CURRENT_BINARY_DIR}/libtilefwk_backend_server.so"
-        COMMAND cd ${CMAKE_CURRENT_BINARY_DIR}
-        COMMAND tar czf ${TILE_FWK_KERNEL_TAR_GZ_NAME} libtilefwk_backend_server.so
-        COMMAND echo "${CMAKE_CURRENT_BINARY_DIR}/${TILE_FWK_KERNEL_TAR_GZ_NAME} has been generated."
-    )
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${TILE_FWK_KERNEL_TAR_GZ_NAME} DESTINATION lib OPTIONAL)
-endif ()
+install(TARGETS pypto_ctrl_server ARCHIVE DESTINATION lib OPTIONAL)

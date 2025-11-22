@@ -196,8 +196,8 @@ void TestMlaProlog(std::vector<int> &params, string dataPath, bool isQuant = fal
         TileFwkGetWorkspaceSize(handle, &workspaceSize);
         machine::GetRA()->AllocDevAddr(&workspaceAddr, workspaceSize);
         std::vector<size_t> opSizes = {0, wDq.GetStorage()->MemorySize(), wUqQr.GetStorage()->MemorySize(), 0, 0, 0, 0};
-        TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(), opArgsRun, opSizes);
-        int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+        TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(), opArgsRun, opSizes);
+        int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
         if (rc < 0) {
             ASSERT(false);
             ALOG_INFO_F("MlaProlog function aicpu stream sync failed");

@@ -1794,16 +1794,6 @@ struct DeviceExecuteContext {
         return nullptr;
     }
 
-    void TaskFinish(DynDeviceTask *dynTask) {
-        dynTask->taskStageAllocMem.canFree.store(true); // mark memory can recycle
-    }
-
-    static void TaskFinish(DeviceTask *task, void *ctx_) {
-        DeviceExecuteContext *ctx = (DeviceExecuteContext *)ctx_;
-        auto *dynTask = (DynDeviceTask *)task;
-        ctx->TaskFinish(dynTask);
-    }
-
 private:
     static void *DeviceExecuteCallAlloc(void *ctx_, uint64_t rootKey) {
         DeviceExecuteContext *ctx = (DeviceExecuteContext *)ctx_;

@@ -25,6 +25,7 @@
 #include "machine/runtime/device_launcher.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/kernel/aicore.h"
+#include "machine/device/dynamic/device_common.h"
 #include "interface/utils/log.h"
 #include "interface/utils/file_utils.h"
 #include "runtime/mem.h"
@@ -56,7 +57,6 @@ constexpr uint32_t HIGHT_BIT = 16;
 
 extern "C" __attribute__((weak)) int AdxDataDumpServerUnInit();
 namespace npu::tile_fwk {
-
 DeviceRunner &DeviceRunner::Get() {
     static DeviceRunner runner;
     std::call_once(runner.once_, [&]() { runner.Init(); });
@@ -180,7 +180,10 @@ int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
     args.corePmuRegAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * sizeof(uint64_t)));
     args.corePmuAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * PMU_BUFFER_SIZE));
     args.taskWastTime = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(DevAlloc(sizeof(uint64_t))));
-    args.startArgsAddr = reinterpret_cast<uint64_t>(DevAlloc(DEV_ARGS_SIZE));
+    uint64_t shmAddr = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(DevAlloc(dynamic::DEVICE_SHM_SIZE)));
+    args.startArgsAddr = shmAddr;
+    args.taskCtrl = shmAddr + dynamic::DEV_ARGS_SIZE;
+    args.taskQueue = shmAddr + dynamic::DEV_ARGS_SIZE + dynamic::DEVICE_TASK_CTRL_SIZE;
     pmuEvtType_.resize(PMU_EVENT_TYPE_MAX, 0x0);
     args.pmuEventAddr = reinterpret_cast<uint64_t>(DevAlloc(pmuEvtType_.size() * sizeof(int64_t)));
 
@@ -379,18 +382,21 @@ void DeviceRunner::Dump() {
 }
 
 /**************************** DynamicFunction *****************************/
-int DeviceRunner::DynamicLaunchSynchronize(rtStream_t aicpuStream, rtStream_t aicoreStream) {
+int DeviceRunner::DynamicLaunchSynchronize(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream) {
     int rcAicore = rtStreamSynchronize(aicoreStream);
     int rcAicpu = rtStreamSynchronize(aicpuStream);
-
+    int rcCtrl = 0;
+    if (ctrlStream != nullptr) {
+        rcCtrl = rtStreamSynchronize(aicpuStream);
+    }
     if (IsAstDataDumpEnabled()) {
         ALOG_DEBUG_F("DataDumpServerInit is called \n");
         AdxDataDumpServerUnInit();
     }
-    if (rcAicore != 0 || rcAicpu != 0) {
-        ALOG_WARN_F("sync stream failed aicpu:%d aicore:%d", rcAicpu, rcAicore);
+    if (rcAicore != 0 || rcAicpu != 0 || rcCtrl != 0) {
+        ALOG_WARN_F("sync stream failed aicpu:%d aicore:%d ctrl cpu:%d", rcAicpu, rcAicore, rcCtrl);
     }
-    return rcAicore + rcAicpu;
+    return rcAicore + rcAicpu + rcCtrl;
 }
 
 int DeviceRunner::launchDynamicAiCore(rtStream_t aicoreStream, AstKernelArgs *kernelArgs) {
@@ -519,8 +525,9 @@ int DeviceRunner::RunPost(rtStream_t aicpuStream, rtStream_t aicoreStream) {
     return 0;
 }
 
-int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream,
+int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream,
                                       AstKernelArgs *kernelArgs, int blockdim) {
+    (void)ctrlStream;
     uint64_t startTime = MsprofSysCycleTime();
     int rc = launchDynamicAiCore(aicoreStream, kernelArgs);
     if (rc < 0) {
@@ -548,7 +555,8 @@ int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreS
     return rc;
 }
 
-int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t taskId, AstKernelArgs *kernelArgs, int blockdim, int launchAicpuNum) {
+int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, int64_t taskId,
+    AstKernelArgs *kernelArgs, int blockdim, int launchAicpuNum) {
     if (!g_IsFirstInit) {
         InitAiCpuSoBin();
     }
@@ -566,6 +574,8 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream,
     localArgs.nrAicpu = launchAicpuNum;
     blockDim_ = blockdim;
     aicpuNum_ = launchAicpuNum;
+    localArgs.scheCpuNum = dynamic::CalcSchAicpuNumByBlockDim(blockdim);
+    localArgs.enableCtrl = 1; // need set 0 if use custom cpu launch ctrl cpu
     int rc = rtMemcpy(kernelArgs->cfgdata, size, &localArgs, size, RT_MEMCPY_HOST_TO_DEVICE);
     if (rc != 0) {
         ALOG_ERROR_F("rtmemcpy failed %p rc %d\n", kernelArgs->cfgdata, rc);
@@ -577,7 +587,7 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream,
         ALOG_ERROR_F("prepare failed %d\n", rc);
         return rc;
     }
-    return DynamicKernelLaunch(aicpuStream, aicoreStream, kernelArgs, blockDim_);
+    return DynamicKernelLaunch(aicpuStream, ctrlStream, aicoreStream, kernelArgs, blockDim_);
 }
 
 void DeviceRunner::ReportHostProfInfo(uint64_t startTime, uint32_t blockDim, uint16_t taskType, bool isCore) {
@@ -596,12 +606,12 @@ void DeviceRunner::ReportHostProfInfo(uint64_t startTime, uint32_t blockDim, uin
     }
 }
 
-int DeviceRunner::DynamicRun(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t taskId, AstKernelArgs *kernelArgs, int blockdim, int launchAicpuNum) {
-    int rc = DynamicLaunch(aicpuStream, aicoreStream, taskId, kernelArgs, blockdim, launchAicpuNum);
+int DeviceRunner::DynamicRun(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, int64_t taskId, AstKernelArgs *kernelArgs, int blockdim, int launchAicpuNum) {
+    int rc = DynamicLaunch(aicpuStream, ctrlStream, aicoreStream, taskId, kernelArgs, blockdim, launchAicpuNum);
     if (rc < 0) {
         return rc;
     }
-    return DynamicLaunchSynchronize(aicpuStream, aicoreStream);
+    return DynamicLaunchSynchronize(aicpuStream, ctrlStream, aicoreStream);
 }
 
 /**************************** DynamicFunction *****************************/

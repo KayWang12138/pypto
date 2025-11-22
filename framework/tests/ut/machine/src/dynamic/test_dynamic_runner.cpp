@@ -58,7 +58,7 @@ TEST_F(TestDynamicDeviceRunner, TestDynamicRun) {
     [[maybe_unused]]npu::tile_fwk::AstKernelArgs taskArgs;
     runner.args_.nrAic = 2;
     runner.args_.nrAiv = 2;
-    int ret = runner.DynamicRun(0, 0, 0, &taskArgs, 2);
+    int ret = runner.DynamicRun(0, 0, 0, 0, &taskArgs, 2);
     EXPECT_EQ(ret, 0);
 }
 

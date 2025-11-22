@@ -22,6 +22,7 @@
 #include <array>
 #include <semaphore.h>
 #include "securec.h"
+#include "device_common.h"
 #include "tilefwk/config.h"
 #include "tilefwk/aicore_print.h"
 #include "interface/utils/common.h"
@@ -52,7 +53,7 @@ const int INVALID_CORE_IDX = 0xFF;
 const uint32_t AICORE_STATUS_INIT = 0xFFFFFFFFU;
 const uint32_t AIV_NUM_PER_AI_CORE = 2;
 const uint32_t READY_ID_FIX_CACHE_NUM = 2048;
-const uint32_t AICORE_TYPE_NUM = 2;
+
 
 constexpr uint32_t  MAX_MANAGER_AIV_NUM = (NAX_AIV_TOTAL_NUM / MAX_SCHEDULE_AICPU_NUM) + 1;
 
@@ -64,64 +65,11 @@ constexpr uint32_t TASK_FIN_STATE = 1; // 任务执行完成完成
 constexpr uint32_t TASK_ACK_STATE = 0; // 收到任务状态，没执行完成
 constexpr uint32_t REG_TASK_NUM = 2; // 一次寄存器task个数
 
-constexpr uint32_t DEFAULT_QUEUE_SIZE = 64;
-
 struct TaskInfo {
     int coreIdx;
     uint64_t taskId;
     TaskInfo(int idx, uint64_t id) : coreIdx(idx), taskId(id) {}
 };
-
-typedef void (*FinishCallback)(DeviceTask *, void *);
-
-struct sdma_l2_cmo_desc {
-    unsigned long   src_addr;
-    size_t          size;
-    char            cmo_opcode;
-};
-
-const std::string SDMA_FILE = "/dev/sdma";
-
-#define IOCTL_SDMA_L2_CMO  _IOW('s', 3, struct sdma_l2_cmo_desc)
-
-struct DeviceTaskCtrl {
-    int taskType{0};
-    uint64_t taskId{0};
-    DeviceTask *devTask{nullptr};
-    uint64_t initAicFuncNum{0};
-    uint64_t initAivFuncNum{0};
-    uint64_t finishedAicFunctionCnt{0}; // 所有aicpu处理完成的aic function个数，多线程增加修改
-    uint64_t finishedAivFunctionCnt{0}; // 所有aicpu处理完成的aiv function个数，多线程增加修改
-    uint64_t finishedAicpuFunctionCnt{0}; // 所有aicpu处理完成的aicpu function个数，多线程增加修改
-    uint64_t finishedHubFunctionCnt{0}; // 所有aicpu处理完成的hub function个数，多线程增加修改
-    std::atomic<uint64_t> finishedFunctionCnt{0};
-    std::atomic<bool> finishFlag{true};
-    std::atomic<int> runcnt{0};
-    void *ctx{nullptr};
-    FinishCallback finish{nullptr};
-    int retCode{0};
-    std::array<std::array<std::atomic<bool>, MAX_SCHEDULE_AICPU_NUM>, AICORE_TYPE_NUM>  isAicpuIdle;
-
-    inline bool IsFree() { return finishFlag.load(std::memory_order_acquire); }
-
-    void PutTask(int ret) {
-        if (ret != 0)
-            retCode = ret;
-
-        // sync point, ensure all aiore_manager threads task finished
-        int cnt = runcnt.fetch_sub(1, std::memory_order_acq_rel);
-        if (cnt == 1) {
-            if (finish) {
-                finish(devTask, ctx);
-            }
-            finishFlag.store(true, std::memory_order_release); // set finish
-        } else {
-            // wait finish
-            while (!finishFlag.load(std::memory_order_acquire)) {}
-        }
-    }
-};
-
 
 inline void ReadyQueueLock(ReadyCoreFunctionQueue* rq) {
   while (!__sync_bool_compare_and_swap(&rq->lock, 0, 1)) {
@@ -133,32 +81,6 @@ inline void ReadyQueueUnLock(ReadyCoreFunctionQueue* rq) {
   }
 }
 
-inline void SdmaPrefetch(DeviceTask *devTask) {
-    if (devTask == nullptr || devTask->l2Info.prefetchNum == 0) {
-      return;
-    }
-    if (devTask->l2Info.prefetchNum > MAX_PREFETCH_NUM) {
-      DEV_ERROR("Prefetch invalid num %ld.", devTask->l2Info.prefetchNum);
-      return;
-    }
-    int fd = open(SDMA_FILE.c_str(), O_RDWR);
-    if (fd == -1) {
-      return;
-    }
-    struct sdma_l2_cmo_desc desc;
-    desc.cmo_opcode = 0x6;
-    int ret = 0;
-    for (int64_t i = 0; i < devTask->l2Info.prefetchNum; ++i) {
-      desc.src_addr = devTask->l2Info.prefetchAddrs[i];
-      desc.size = devTask->l2Info.prefetchSizes[i];
-      ret |= ioctl(fd, IOCTL_SDMA_L2_CMO, &desc);
-      DEV_DEBUG("Prefetch %lx %lu ret:%d.", devTask->l2Info.prefetchAddrs[i],
-          devTask->l2Info.prefetchSizes[i], ret);
-    }
-    DEV_INFO("Prefetch tensor num %ld ret %d.", devTask->l2Info.prefetchNum, ret);
-    close(fd);
-    return;
-}
 
 class AiCoreManager {
 public:
@@ -314,69 +236,67 @@ public:
       });
     }
 
-    inline int Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *taskCtrl = nullptr) {
+    inline int Run(int threadIdx, DeviceArgs *deviceArgs) {
         int ret = 0;
-        DEV_DEBUG("schedule run: %p", taskCtrl);
+        DEV_DEBUG("schedule run threadIdx:%d", threadIdx);
         Init(threadIdx, deviceArgs);
         PerfMtTrace(PERF_TRACE_INIT, threadIdx);
         DEV_DEBUG("schedule run init succ");
+        DeviceTaskCtrl *taskCtrl = nullptr;
+        taskQueue_ = reinterpret_cast<SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE>*>(deviceArgs->taskQueue);
         if constexpr (IsDeviceMode()) {
             ret = HandShake();
             PerfMtTrace(PERF_TRACE_CORE_HAND_SHAKE, threadIdx);
             if (ret != DEVICE_MACHINE_OK) {
                 DEV_ERROR("hand shake timeout.");
                 AbnormalStop();
-                do {
+                while ((taskCtrl = taskQueue_->Dequeue())) {
                     taskCtrl->PutTask(ret);
-                } while ((taskCtrl = taskQueue_.Dequeue()));
+                } 
                 return ret;
             }
             aicoreProf_.ProfStart();
         }
         DEV_DEBUG("schedule run start succ");
-        if (taskCtrl != nullptr) {
+        uint64_t lastDevTaskFinCycle = 0;
+        while (ret == 0) {
+            DEV_DEBUG("schedule task wait");
+            taskCtrl = taskQueue_->Dequeue();
+            DEV_DEBUG("schedule task recv");
+            if (taskCtrl == nullptr) {
+                PerfMtTrace(PERF_TRACE_WAIT_ALL_DEV_TASK_FINISH, aicpuIdx_, lastDevTaskFinCycle);
+                break;
+            }
+            PerfMtTrace(PERF_TRACE_DEV_TASK_RCV, aicpuIdx_);
+            PROF_STAGE_BEGIN_MTSAFE(PERF_EVT_STAGE_SCHEDULE, threadIdx, "dispatch.before\n");
+            PerfMtBegin(PERF_EVT_RUN_TASK, threadIdx);
             ret = RunTask(taskCtrl);
-        } else {
-            uint64_t lastDevTaskFinCycle = 0;
-            while (ret == 0) {
-                DEV_DEBUG("schedule task wait");
-                taskCtrl = taskQueue_.Dequeue();
-                DEV_DEBUG("schedule task recv");
-                if (taskCtrl == nullptr) {
-                    PerfMtTrace(PERF_TRACE_WAIT_ALL_DEV_TASK_FINISH, aicpuIdx_, lastDevTaskFinCycle);
-                    break;
-                }
-                PerfMtTrace(PERF_TRACE_DEV_TASK_RCV, aicpuIdx_);
-                PROF_STAGE_BEGIN_MTSAFE(PERF_EVT_STAGE_SCHEDULE, threadIdx, "dispatch.before\n");
-                PerfMtBegin(PERF_EVT_RUN_TASK, threadIdx);
-                ret = RunTask(taskCtrl);
-                lastDevTaskFinCycle = GetCycles();
-                PerfMtTrace(PERF_TRACE_DEV_TASK_SCHED_EXEC, aicpuIdx_, lastDevTaskFinCycle);
-                PerfMtEnd(PERF_EVT_RUN_TASK, threadIdx);
-                DEV_DEBUG("run task finish taskid=%d ret %d.", curTaskId_, ret);
-                if (ret != 0)
-                    break;
+            lastDevTaskFinCycle = GetCycles();
+            PerfMtTrace(PERF_TRACE_DEV_TASK_SCHED_EXEC, aicpuIdx_, lastDevTaskFinCycle);
+            PerfMtEnd(PERF_EVT_RUN_TASK, threadIdx);
+            DEV_DEBUG("run task finish taskid=%d ret %d.", curTaskId_, ret);
+            if (ret != 0)
+                break;
 
-                PerfMtBegin(PERF_EVT_SYNC_AICORE, threadIdx);
-                SyncAiCore(taskCtrl->taskId);
-                PerfMtTrace(PERF_TRACE_DEV_TASK_SYNC_CORE_STOP, aicpuIdx_);
-                PerfMtEnd(PERF_EVT_SYNC_AICORE, threadIdx);
-                DEV_DEBUG("sync finish.");
+            PerfMtBegin(PERF_EVT_SYNC_AICORE, threadIdx);
+            SyncAiCore(taskCtrl->taskId);
+            PerfMtTrace(PERF_TRACE_DEV_TASK_SYNC_CORE_STOP, aicpuIdx_);
+            PerfMtEnd(PERF_EVT_SYNC_AICORE, threadIdx);
+            DEV_DEBUG("sync finish.");
+            taskCtrl->PutTask(ret);
+            PerfMtTrace(PERF_TRACE_DEV_TASK_RSP, threadIdx);
+            PROF_STAGE_END_MTSAFE(PERF_EVT_STAGE_SCHEDULE, threadIdx, "dispatch.after\n");
+        }
+        if (ret) {
+            DEV_ERROR("task %lu execute error %d, skip rest tasks.", taskCtrl->taskId, ret);
+            if (IsDeviceMode()) {
+                ForEachManageAicore([&](int coreIdx) {
+                    DumpLastWord(coreIdx);
+                });
+            }
+            do {
                 taskCtrl->PutTask(ret);
-                PerfMtTrace(PERF_TRACE_DEV_TASK_RSP, threadIdx);
-                PROF_STAGE_END_MTSAFE(PERF_EVT_STAGE_SCHEDULE, threadIdx, "dispatch.after\n");
-            }
-            if (ret) {
-                DEV_ERROR("task %lu execute error %d, skip rest tasks.", taskCtrl->taskId, ret);
-                if (IsDeviceMode()) {
-                    ForEachManageAicore([&](int coreIdx) {
-                        DumpLastWord(coreIdx);
-                    });
-                }
-                do {
-                    taskCtrl->PutTask(ret);
-                } while ((taskCtrl = taskQueue_.Dequeue()));
-            }
+            } while ((taskCtrl = taskQueue_->Dequeue()));
         }
 
         if constexpr (IsDeviceMode()) {
@@ -391,8 +311,6 @@ public:
             procAivCoreFunctionCnt_);
         return ret;
     }
-
-    void PushTask(DeviceTaskCtrl *taskCtrl) { taskQueue_.Enqueue(taskCtrl); }
 
     inline void DumpAicorePerfTrace(std::ostringstream& oss) {
         (void)oss;
@@ -1071,7 +989,7 @@ private:
     inline void Init(int threadIdx, DeviceArgs *deviceArgs) {
         aicNum_ = static_cast<int32_t>(deviceArgs->nrAic);
         aivNum_ = static_cast<int32_t>(deviceArgs->nrAiv);
-        aicpuNum_ = CalcSchAicpuNumByBlockDim(deviceArgs->nrValidAic);
+        aicpuNum_ = deviceArgs->scheCpuNum;
         aicpuIdx_ = threadIdx;
         aicValidNum_ = deviceArgs->nrValidAic;
         aicoreHal_.Init(deviceArgs, &aicoreProf_);
@@ -1314,7 +1232,7 @@ private:
 
     std::array<int, MAX_AICORE_NUM> taskDfxStatPos_;
 
-    SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> taskQueue_;
+    SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> *taskQueue_{nullptr};
     AicpuTaskManager &aicpuTaskManager_;
     AiCoreProf aicoreProf_;
     AicoreDump aicoreDump_;

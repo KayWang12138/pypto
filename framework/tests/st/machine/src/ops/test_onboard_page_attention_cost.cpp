@@ -129,8 +129,8 @@ static void IfaCommonTestInner(IfaTestParam params, IfaTileShapeConfig tileConfi
 
     std::vector<void*> opArgsRun = {qNopeData, kvNopeCacheData, qRopeData, kRopeCacheData, outPtr};
 
-    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
-    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetScheStream(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetScheStream());
     if (rc < 0) {
         ASSERT(false);
         ALOG_INFO_F("FA function aicpu stream sync failed");

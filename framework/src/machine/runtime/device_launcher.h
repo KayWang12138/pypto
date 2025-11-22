@@ -24,6 +24,7 @@
 #include "interface/function/function.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "machine/runtime/runtime.h"
+#include "machine/device/dynamic/device_common.h"
 #include "runtime/dev.h"
 #include "machine/runtime/device_runner.h"
 #include "machine/platform/platform_manager.h"
@@ -96,6 +97,12 @@ struct DeviceMemoryUtils {
         return devPtr;
     }
 
+    uint8_t *AllocZero(uint64_t size, uint8_t **cachedDevAddrHolder) {
+        uint8_t *devPtr = AllocDev(size, cachedDevAddrHolder);
+        (void)rtMemset(devPtr, size, 0, size);
+        return devPtr;
+    }
+
     uint8_t *CopyToDev(uint8_t *data, uint64_t size, uint8_t **cachedDevAddrHolder) {
         uint8_t *devPtr = AllocDev(size, cachedDevAddrHolder);
         rtMemcpy(devPtr, size, data, size, RT_MEMCPY_HOST_TO_DEVICE);
@@ -145,15 +152,23 @@ public:
         if (config.blockdim == 0 || config.blockdim > maxBlockDim) {
             launchConfig.blockdim = maxBlockDim;
         }
-        ALOG_DEBUG_F("Set aicore blockdim:%d.", config.blockdim);
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
         devProg->devArgs.nrAic = kDefaultAicNum;
         devProg->devArgs.nrAiv = kDefaultAivNum;
-        devProg->devArgs.nrAicpu = config.aicpuNum;
         devProg->devArgs.nrValidAic = config.blockdim;
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
-
-        static constexpr int64_t TENSOR_ADDR_ALIGNMENT = 512;
+        uint64_t shmAddr = (uint64_t)devMem.AllocZero(DEVICE_SHM_SIZE, CachedOperator::GetMetaDataDevAddrHolder(cachedOperator));
+        devProg->devArgs.startArgsAddr = shmAddr;
+        devProg->devArgs.taskCtrl = shmAddr + DEV_ARGS_SIZE;
+        devProg->devArgs.taskQueue = shmAddr + DEV_ARGS_SIZE + DEVICE_TASK_CTRL_SIZE;
+        devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(launchConfig.blockdim);
+        int minCpuNum = devProg->devArgs.scheCpuNum + 1;
+        if (config.aicpuNum < minCpuNum || config.aicpuNum > DEVICE_MAX_AICPU_NUM) {
+            launchConfig.aicpuNum = minCpuNum + 1;
+        }
+        devProg->devArgs.nrAicpu = config.aicpuNum;
+        ALOG_DEBUG_F("Set aicore blockdim:%d aicpu blockdim:%d.", config.blockdim, config.aicpuNum);
+        devProg->devArgs.enableCtrl = 1; // need set 0 if use custom cpu launch ctrl cpu
         devProg->memBudget.tensor.dassembleDests =
             AlignUp(devProg->memBudget.tensor.dassembleDests + config.dynWorkspaceSize, TENSOR_ADDR_ALIGNMENT);
         devProg->workspaceSize = (
@@ -168,7 +183,6 @@ public:
         for (size_t i = 0; i < devProg->commGroupNum; i++) {
             devProg->hcclContext[i] = config.hcclContext[i];
         }
-        devProg->devArgs.startArgsAddr = (uint64_t)devMem.AllocDev(DEV_ARGS_SIZE, CachedOperator::GetMetaDataDevAddrHolder(cachedOperator));
         if (kArgs.workspace == nullptr) {
             kArgs.workspace = (int64_t *)devMem.AllocDev(devProg->workspaceSize, CachedOperator::GetWorkspaceDevAddrHolder(cachedOperator));
         }

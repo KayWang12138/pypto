@@ -81,7 +81,7 @@ TEST(OnBoardTestAstApi, test_fa_all2all_ast_api_mode) {
     Tensor L(DataType::DT_FP32, shape_reduce, "L");
     Tensor Res(DataType::DT_FP32, shape, "Res");
     std::vector<std::reference_wrapper<Tensor>> opArgs = {Q, K, V, M, L, Res};
-    aclrtStream aicpuStream = nullptr;
+    rtStream_t aicpuStream = nullptr;
     rtStreamCreate(&aicpuStream, RT_STREAM_PRIORITY_DEFAULT);
     ASSERT(aicpuStream != nullptr);
 
@@ -134,7 +134,7 @@ TEST(OnBoardTestAstApi, test_add_sub_all2all_torchapi_multi_function) {
     Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
     Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
     Tensor output(DataType::DT_FP32, shape, "C");
-    aclrtStream aicpuStream = nullptr;
+    rtStream_t aicpuStream = nullptr;
     rtStreamCreate(&aicpuStream, RT_STREAM_PRIORITY_DEFAULT);
     ASSERT(aicpuStream != nullptr);
 

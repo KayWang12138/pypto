@@ -590,7 +590,7 @@ void MachinePipe::PipeProc(DeviceAgentTask *task) {
     /* send to device machine */
 #ifdef BUILD_WITH_CANN
     auto &runner = DeviceRunner::Get();
-    rtStream_t aicpuStream = task->aicpuStream_ == nullptr ? machine::GetRA()->GetStreamAICPU() : task->aicpuStream_;
+    rtStream_t aicpuStream = task->aicpuStream_ == nullptr ? machine::GetRA()->GetScheStream() : task->aicpuStream_;
     rtStream_t aicoreStream = machine::GetRA()->GetStream();
     if (task->IsAsync()) {
         runner.RunAsync(aicpuStream, aicoreStream, task->GetTaskId(), reinterpret_cast<int64_t>(task->GetDeviceTaskGmAddr()));
