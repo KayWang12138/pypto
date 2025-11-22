@@ -135,6 +135,9 @@ stest:
       #- DynamicControlFlowCacheTest.CheckShape
       #- DynamicControlFlowCacheTest.CheckLackMemory
       #- DynamicControlFlowCacheTest.CheckGetTensorData
+      - DynamicControlFlowCacheTest.PartialCache
+      - DynamicControlFlowCacheTest.PartialCacheValueDependData
+      - DynamicControlFlowCacheTest.PartialCacheValueDependControl
       #===========================================================================
       # parallel sort
       #===========================================================================
