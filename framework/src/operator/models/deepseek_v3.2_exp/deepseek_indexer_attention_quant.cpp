@@ -167,22 +167,31 @@ void DeepSeekIndexerAttentionQuant(
         }
 #endif
 
+        constexpr int64_t IAQ_NUM_2 = 2;
+        constexpr int64_t IAQ_NUM_8 = 8;
+        constexpr int64_t IAQ_NUM_20 = 20;
+        constexpr int64_t IAQ_NUM_32 = 32;
+        constexpr int64_t IAQ_NUM_100 = 100;
+        constexpr int64_t IAQ_NUM_128 = 128;
+        constexpr int64_t IAQ_NUM_512 = 512;
+        constexpr int64_t IAQ_NUM_1024 = 1024;
+        constexpr int64_t IAQ_NUM_10000 = 10000;
         //===================== indexer topk ============================
         config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
-        config::SetPassOption(COPYIN_THRESHOLD, 100 * 1024 * 1024);
-        config::SetPassOption(SG_CYCLE_LOWER_BOUND, 1024);
-        config::SetPassOption(SG_CYCLE_UPPER_BOUND, 1024 * 1024);
-        config::SetPassOption(L1_REUSE, 32);
-        config::SetPassOption(SG_PARALLEL_NUM, 2);
-        config::SetPassOption(NBUFFER_MERGE_MODE, 2);
+        config::SetPassOption(COPYIN_THRESHOLD, IAQ_NUM_100 * IAQ_NUM_1024 * IAQ_NUM_1024);
+        config::SetPassOption(SG_CYCLE_LOWER_BOUND, IAQ_NUM_1024);
+        config::SetPassOption(SG_CYCLE_UPPER_BOUND, IAQ_NUM_1024 * IAQ_NUM_1024);
+        config::SetPassOption(L1_REUSE, IAQ_NUM_32);
+        config::SetPassOption(SG_PARALLEL_NUM, IAQ_NUM_2);
+        config::SetPassOption(NBUFFER_MERGE_MODE, IAQ_NUM_2);
         config::SetPassOption(VEC_NBUFFER_MAP, std::map<int64_t, int64_t>{
             {-1, 16}
         });
         config::SetRuntimeOption<uint8_t>(
             MACHINE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH) |
                                 static_cast<uint8_t>(MachineScheduleConfig::MULTI_CORE_FAIR_SCH));
-        config::SetRuntimeOption(WORKSPACE_RECYCLE_PERIOD, 128);
-        config::SetRuntimeOption(ESTIMATED_STITCH_TASK_MAX_LOOP_NUM, 128);
+        config::SetRuntimeOption(WORKSPACE_RECYCLE_PERIOD, IAQ_NUM_128);
+        config::SetRuntimeOption(ESTIMATED_STITCH_TASK_MAX_LOOP_NUM, IAQ_NUM_128);
 
         Tensor queryOut4D(DT_INT8, {b, s1, params.idx_n_heads, params.idx_head_dim}, "qOut4D");
         Tensor qScaleOut4D(DT_FP16, {b, s1, params.idx_n_heads, 1}, "qScaleOut4D");
@@ -211,17 +220,17 @@ void DeepSeekIndexerAttentionQuant(
         config::SetPassOption(VEC_NBUFFER_MAP, std::map<int64_t, int64_t>{});
         config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{});
         config::SetPassOption(L1_REUSE_MAP, std::map<int64_t, int64_t>{});
-        config::SetPassOption(SG_PARALLEL_NUM, 20);
-        config::SetPassOption(COPYIN_THRESHOLD, 1 * 1024 * 1024);
-        config::SetPassOption(SG_CYCLE_UPPER_BOUND, 10000);
-        config::SetPassOption(SG_CYCLE_LOWER_BOUND, 512);
+        config::SetPassOption(SG_PARALLEL_NUM, IAQ_NUM_20);
+        config::SetPassOption(COPYIN_THRESHOLD, 1 * IAQ_NUM_1024 * IAQ_NUM_1024);
+        config::SetPassOption(SG_CYCLE_UPPER_BOUND, IAQ_NUM_10000);
+        config::SetPassOption(SG_CYCLE_LOWER_BOUND, IAQ_NUM_512);
         // set config for attention
-        config::SetPassOption(L1_REUSE, 8);
+        config::SetPassOption(L1_REUSE, IAQ_NUM_8);
         config::SetRuntimeOption<uint8_t>(
             MACHINE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH) |
                                 static_cast<uint8_t>(MachineScheduleConfig::MULTI_CORE_FAIR_SCH));
-        config::SetRuntimeOption(WORKSPACE_RECYCLE_PERIOD, 128);
-        config::SetRuntimeOption(ESTIMATED_STITCH_TASK_MAX_LOOP_NUM, 128);
+        config::SetRuntimeOption(WORKSPACE_RECYCLE_PERIOD, IAQ_NUM_128);
+        config::SetRuntimeOption(ESTIMATED_STITCH_TASK_MAX_LOOP_NUM, IAQ_NUM_128);
 
         Tensor topkRes2D(DT_INT32, {b * s1, n2 * selectedCount}, "topkRes2D");
         LOOP("GATHER_4D_2_2D", FunctionType::DYNAMIC_LOOP, unUsedIdx, LoopRange(1)) {
