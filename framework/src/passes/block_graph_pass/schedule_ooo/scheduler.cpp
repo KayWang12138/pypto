@@ -620,6 +620,7 @@ Status OoOScheduler::GenSpillSchedule() {
         }
     }
     APASS_LOG_DEBUG_F(Elements::Operation, "=========> End GenSpillSchedule.");
+    InitBufRefCount();
     // 更新依赖关系
     if (InitDependencies() != SUCCESS) { 
         APASS_LOG_ERROR_F(Elements::Operation, "InitDependencies failed!"); 
@@ -707,7 +708,9 @@ void OoOScheduler::UpdateBufRefCount(IssueEntryPtr issue, LogicalTensorPtr tenso
 }
 
 void OoOScheduler::InitBufRefCount() {
+    bufRefCount.clear();
     for (const auto &issue : issueEntries) {
+        issue->Clear();
         for (auto &tensor : issue->tileOp.GetIOperands()) {
             UpdateBufRefCount(issue, tensor);
         }
@@ -742,13 +745,10 @@ void OoOScheduler::AddDependency(IssueEntryPtr preIssue, IssueEntryPtr postIssue
 }
 
 Status OoOScheduler::InitDependencies() {
-    bufRefCount.clear();
     std::map<Operation*, IssueEntryPtr> op2IssueEntryMap;
     for (const auto &issue : issueEntries) {
-        issue->Clear();
         op2IssueEntryMap[&(issue->tileOp)] = issue;
     }
-    InitBufRefCount();
     std::map<int, IssueEntryPtr> tensor2AllocMap;
     for (const auto &issue : issueEntries) {
         if (issue->isAlloc) {
@@ -909,6 +909,7 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
     }
     numTotalIssues = issueEntries.size();
 
+    InitBufRefCount();
     // 初始化issueEntry，构建依赖关系
     if (InitDependencies() != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "InitDependencies failed!");

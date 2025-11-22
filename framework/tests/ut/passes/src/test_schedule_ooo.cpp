@@ -487,27 +487,61 @@ TEST_F(ScheduleOoOTest, TestSpillView) {
 
 TEST_F(ScheduleOoOTest, TestSpillAssemble) {
     ComputationalGraphBuilder subGraph;
-    std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11"};
+    std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11", "t12", "t13", "t14"};
     std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR,
         MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB,
-        MemoryType::MEM_UB, MemoryType::MEM_UB};
-    std::vector<Opcode> opCodes{Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_COPY_IN,
-        Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_ASSEMBLE, Opcode::OP_ASSEMBLE, Opcode::OP_ADD, Opcode::OP_ADD};
-    std::vector<std::vector<std::string>> ioperands{{}, {}, {}, {}, {}, {"t1"}, {"t2"}, {"t3"}, {"t4"}, {"t5"}, {"t6"}, {"t7", "t8"}, {"t9", "t10"}};
-    std::vector<std::vector<std::string>> ooperands{{"t5"}, {"t7"}, {"t8"}, {"t10"}, {"t11"}, {"t5"}, {"t6"}, {"t7"}, {"t8"}, {"t9"}, {"t9"}, {"t10"}, {"t11"}};
-    std::vector<std::string> opNames{"Alloc1", "Alloc2", "Alloc3", "Alloc4", "Alloc5", "Copyin1", "Copyin2", "Copyin3", "Copyin4", "Assemble1", "Assemble2", "Add1", "Add2"};
-    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {128, 128}, tensorMemTypes, tensorNames, 0), true);
+        MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB};
+    std::vector<Opcode> opCodes{Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_ADD,
+        Opcode::OP_ADD, Opcode::OP_ADD, Opcode::OP_ADD, Opcode::OP_ADD, Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_SUB, Opcode::OP_ASSEMBLE, Opcode::OP_ASSEMBLE, 
+        Opcode::OP_ASSEMBLE, Opcode::OP_ASSEMBLE, Opcode::OP_MUL};
+    std::vector<std::vector<std::string>> ioperands{{}, {}, {}, {}, {}, {"t1"}, {"t2"}, {"t3"}, {"t4"}, {"t5"}, {"t6"}, {"t7"}, {"t8"}, {"t9"}, {"t10"}, {"t11"}, {"t12"}, {"t13"}};
+    std::vector<std::vector<std::string>> ooperands{{"t5"}, {"t6"}, {"t7"}, {"t8"}, {"t12"}, {"t5"}, {"t6"}, {"t7"}, {"t8"}, {"t9"}, {"t10"}, {"t11"}, {"t12"}, {"t13"}, {"t13"}, {"t13"}, {"t13"}, {"t14"}};
+    std::vector<std::string> opNames{"Alloc1", "Alloc2", "Alloc3", "Alloc4", "Alloc5", "Copyin1", "Copyin2", "Copyin3", "Copyin4", "Add1", "Add2", "Sub1", "Sub2", "Assemble1", "Assemble2", "Assemble3", "Assemble4", "Mul1"};
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {128, 64}, tensorMemTypes, tensorNames, 0), true);
     EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     Function *function = subGraph.GetFunction();
     EXPECT_NE(function, nullptr);
 
     EXPECT_NE(subGraph.GetTensor("t9"), nullptr);
-    std::shared_ptr<LogicalTensor> tensor1 = subGraph.GetTensor("t9");
+    std::shared_ptr<LogicalTensor> tensor1 = subGraph.GetTensor("t10");
     tensor1->memoryrange.memId =
-        subGraph.GetTensor("t5")->memoryrange.memId;
-    std::shared_ptr<LogicalTensor> tensor2 = subGraph.GetTensor("t6");
+        subGraph.GetTensor("t9")->memoryrange.memId;
+    std::shared_ptr<LogicalTensor> tensor2 = subGraph.GetTensor("t11");
     tensor2->memoryrange.memId =
-        subGraph.GetTensor("t5")->memoryrange.memId;
+        subGraph.GetTensor("t9")->memoryrange.memId;
+    tensor2->shape= {128, 128};
+    std::shared_ptr<LogicalTensor> tensor3 = subGraph.GetTensor("t12");
+    tensor3->memoryrange.memId =
+        subGraph.GetTensor("t9")->memoryrange.memId;
+    tensor3->shape= {128, 128};
+    std::shared_ptr<LogicalTensor> tensor4 = subGraph.GetTensor("t13");
+    tensor4->memoryrange.memId =
+        subGraph.GetTensor("t9")->memoryrange.memId;
+    tensor4->shape = {128, 256};
+    std::shared_ptr<LogicalTensor> tensor5 = subGraph.GetTensor("t14");
+    tensor5->memoryrange.memId =
+        subGraph.GetTensor("t9")->memoryrange.memId;
+    tensor5->shape = {128, 256};
+    std::shared_ptr<LogicalTensor> tensor6 = subGraph.GetTensor("t7");
+    tensor6->shape = {128, 128};
+    std::shared_ptr<LogicalTensor> tensor7 = subGraph.GetTensor("t8");
+    tensor7->shape = {128, 128};
+    std::vector<int64_t> offset1 = {0, 0};
+    std::vector<int64_t> offset2 = {0, 128};
+    std::vector<int64_t> offset3 = {64, 0};
+    std::vector<int64_t> offset4 = {64, 128};
+    auto assembleAttr = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, offset1);
+    auto assemble1 = subGraph.GetOp("Assemble1");
+    assemble1->SetOpAttribute(assembleAttr);
+    auto assembleAttr2 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, offset2);
+    auto assemble2 = subGraph.GetOp("Assemble2");
+    assemble2->SetOpAttribute(assembleAttr2);
+    auto assembleAttr3 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, offset3);
+    auto assemble3 = subGraph.GetOp("Assemble3");
+    assemble3->SetOpAttribute(assembleAttr3);
+    auto assembleAttr4 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, offset4);
+    auto assemble4 = subGraph.GetOp("Assemble4");
+    assemble4->SetOpAttribute(assembleAttr4);
 
     OoOScheduler ooOScheduler(*function);
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
@@ -515,7 +549,7 @@ TEST_F(ScheduleOoOTest, TestSpillAssemble) {
     res = ooOScheduler.SortOps();
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.GenSpillSchedule();
-    EXPECT_EQ(res, FAILED);
+    EXPECT_EQ(res, SUCCESS);
 }
 
 TEST_F(ScheduleOoOTest, TestGenSpillRearrange) {
