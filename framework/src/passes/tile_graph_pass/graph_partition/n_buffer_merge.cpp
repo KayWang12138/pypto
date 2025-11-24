@@ -319,7 +319,7 @@ inline int GetCopyIn(const OperationsViewer &opOriList, std::vector<int> &colorN
             int volume = BytesOf(opOriList[j].GetOOperands()[0]->Datatype());
             std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(opOriList[j].GetOpAttribute());
             if (attr == nullptr) {
-                APASS_LOG_ERROR_F(Elements::Operation, "CopyOpAttribute is nullptr, origin op magic : %d; Please check whether the source OpAttribute attribute can be convert to CopyOpAttribute.", opOriList[j].GetOpMagic());
+                APASS_LOG_ERROR_F(Elements::Operation, "CopyOpAttribute is nullptr, origin op magic : %d; Please check whether the source OpAttribute attribute can be convert to CopyOpAttribute.%s", opOriList[j].GetOpMagic(), GetFormatBacktrace(opOriList[j]).c_str());
                 return -1;
             }
             auto shape = attr->GetSpecifiedShape(1);
@@ -471,17 +471,17 @@ Status NBufferMerge::NBufferMergeProcess(Function &func) {
     std::map<int, size_t> hashMergeNum;
     if (nBufferMergeMode == 1) {
         if (vecNBufferMap.size() != 0) {
-            APASS_LOG_ERROR_F(Elements::Operation, "NBUFFER_MERGE_MODE is manually set to 1; Please set VEC_NBUFFER_MAP to empty.");
+            APASS_LOG_ERROR_F(Elements::Config, "NBUFFER_MERGE_MODE is manually set to 1; Please set VEC_NBUFFER_MAP to empty.");
             return FAILED;
         }
-        APASS_LOG_INFO_F(Elements::Operation, "Manually set NBUFFER_MERGE_MODE to 1, automatically calculate mergeNum.");
+        APASS_LOG_INFO_F(Elements::Config, "Manually set NBUFFER_MERGE_MODE to 1, automatically calculate mergeNum.");
         hashMergeNum = GetIsoColorMergeNum(opOriList, hashMap);
     } else {
         if (CheckVecNBufferMapForManualMerge() == FAILED) {
             APASS_LOG_ERROR_F(Elements::Config, "Check VEC_NBUFFER_MAP for manualMerge failed; Please check the VEC_NBUFFER_MAP config.");
             return FAILED;
         }
-        APASS_LOG_INFO_F(Elements::Operation, "Manually set NBUFFER_MERGE_MODE to %d.", nBufferMergeMode);
+        APASS_LOG_INFO_F(Elements::Config, "Manually set NBUFFER_MERGE_MODE to %d.", nBufferMergeMode);
         hashMergeNum = SetNumDB(hashMap);
     }
     if (MergeProcess(opOriList, hashMap, hashMergeNum, hashColor) == FAILED) {
@@ -520,12 +520,12 @@ Status NBufferMerge::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Operation, "===> Start NBufferMerge.");
     nBufferMergeMode = function.paramConfigs_.nBufferMergeMode;
     if (nBufferMergeMode != noMerge && nBufferMergeMode != autoMerge && nBufferMergeMode != manualMerge) {
-        APASS_LOG_ERROR_F(Elements::Operation, "NBUFFER_MERGE_MODE is set to %d; Please set NBUFFER_MERGE_MODE to 0, 1 or 2.", nBufferMergeMode);
+        APASS_LOG_ERROR_F(Elements::Config, "NBUFFER_MERGE_MODE is set to %d; Please set NBUFFER_MERGE_MODE to 0, 1 or 2.", nBufferMergeMode);
         return FAILED;
     }
-    APASS_LOG_INFO_F(Elements::Operation, "NBUFFER_MERGE_MODE is set to %d.", nBufferMergeMode);
+    APASS_LOG_INFO_F(Elements::Config, "NBUFFER_MERGE_MODE is set to %d.", nBufferMergeMode);
     if (nBufferMergeMode == noMerge) {
-        APASS_LOG_INFO_F(Elements::Operation, "Manually set NBUFFER_MERGE_MODE to 0, skip NBufferMerge.");
+        APASS_LOG_INFO_F(Elements::Config, "Manually set NBUFFER_MERGE_MODE to 0, skip NBufferMerge.");
         return SUCCESS;
     }
     sgCubeParallelNum = function.paramConfigs_.sgCubeParallelNum;

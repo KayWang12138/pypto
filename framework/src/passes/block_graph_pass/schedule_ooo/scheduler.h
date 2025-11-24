@@ -145,7 +145,6 @@ private:
     Status Init(const std::vector<Operation *> &operations);
     void InitMemorySize();
     Status CheckOpBufferSize(Operation *op);
-    std::string dumpTensorInfo(const std::shared_ptr<LogicalTensor> &tensor);
     std::string dumpOpInfo(Operation &op);
     void CalcBufferSize(LogicalTensors tensors, std::map<MemoryType, int64_t> &bufferSize, std::set<int> &memIdMap);
     Status InitDependencies();

@@ -137,7 +137,7 @@ Status NodeGraphInfo::MergeSrcToDstIsland(const std::shared_ptr<OperationGraphIn
     int32_t srcParent = FindParent(parent, src);
     int32_t dstParent = FindParent(parent, dst);
     if (srcParent == -1 || dstParent == -1) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Merge node in the disjoint set failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Merge node in the disjoint set failed.%s", GetFormatBacktrace(*(operationGraphInfo->opList_[src])).c_str());
         return FAILED;
     }
     std::set<OpCoreType> coreTypes{operationGraphInfo->opCoreType_[src], operationGraphInfo->opCoreType_[dst],
@@ -158,8 +158,8 @@ Status NodeGraphInfo::MergeSrcToDstIsland(const std::shared_ptr<OperationGraphIn
         std::set<int> mergeIdxs{src, srcParent, dst, dstParent};
         for (int mergeIdx : mergeIdxs) {
             auto &mergeOp = operationGraphInfo->opList_[mergeIdx];
-            APASS_LOG_ERROR_F(Elements::Operation, "%s [opMagic: %d] [opCoreType: %s]", mergeOp->GetOpcodeStr().c_str(), mergeOp->GetOpMagic(),
-                         GetOpCoreTypeStr(operationGraphInfo->opCoreType_[mergeIdx]).c_str());
+            APASS_LOG_ERROR_F(Elements::Operation, "%s [opMagic: %d] [opCoreType: %s].%s", mergeOp->GetOpcodeStr().c_str(), mergeOp->GetOpMagic(),
+                         GetOpCoreTypeStr(operationGraphInfo->opCoreType_[mergeIdx]).c_str(), GetFormatBacktrace(*mergeOp).c_str());
         }
         return FAILED;
     }
@@ -222,7 +222,7 @@ Status NodeGraphInfo::AvoidLoop(const std::shared_ptr<OperationGraphInfo> operat
     for (int32_t i = 0; i < static_cast<int32_t>(opList.size()); i++) {
         int32_t currParent = FindParent(parent, i);
         if (currParent == -1) { 
-            APASS_LOG_ERROR_F(Elements::Operation, "Find parent in the union set failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "Find parent in the union set failed.%s", GetFormatBacktrace(*(operationGraphInfo->opList_[i])).c_str());
             return FAILED; 
         }
         if (currParent == i) {
@@ -233,7 +233,7 @@ Status NodeGraphInfo::AvoidLoop(const std::shared_ptr<OperationGraphInfo> operat
     for (int32_t i = 0; i < static_cast<int32_t>(operationGraphInfo->opList_.size()); i++) {
         int32_t currParent = FindParent(parent, i);
         if (currParent == -1) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Find parent in the union set failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "Find parent in the union set failed.%s", GetFormatBacktrace(*(operationGraphInfo->opList_[i])).c_str());
             return FAILED;
         }
         int32_t nodeIdx = parentToNodes[currParent];
@@ -247,7 +247,7 @@ Status NodeGraphInfo::AvoidLoop(const std::shared_ptr<OperationGraphInfo> operat
         updated = true;
         for (size_t opIdx = 1; opIdx < expandNode.size(); opIdx++) {
             if (MergeSrcToDstIsland(operationGraphInfo, parent, expandNode[0], expandNode[opIdx]) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Build the disjoint set failed.");
+                APASS_LOG_ERROR_F(Elements::Function, "Build the disjoint set failed.");
                 return FAILED;
             }
         }
@@ -265,7 +265,7 @@ Status NodeGraphInfo::Build(const std::shared_ptr<OperationGraphInfo> operationG
     }
     for (auto &pr : mergePair) {
         if (MergeSrcToDstIsland(operationGraphInfo, parent, pr.first, pr.second) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Build the disjoint set failed.");
+            APASS_LOG_ERROR_F(Elements::Function, "Build the disjoint set failed.");
             return FAILED;
         }
     }
@@ -273,7 +273,7 @@ Status NodeGraphInfo::Build(const std::shared_ptr<OperationGraphInfo> operationG
     while (updated) {
         updated = false;
         if (AvoidLoop(operationGraphInfo, parent, node2Op_, updated) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Avoid loop in building node failed");
+            APASS_LOG_ERROR_F(Elements::Function, "Avoid loop in building node failed");
             return FAILED;
         }
     }
@@ -364,7 +364,7 @@ Status SuperNodeGraphBuilder::BuildOpGraph(const std::vector<Operation*> &opList
 {
     operationInfo_ = std::make_shared<OperationGraphInfo>();
     if (operationInfo_ == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Create OperationInfo failed.");
+        APASS_LOG_ERROR_F(Elements::Function, "Create OperationInfo failed.");
         return FAILED;
     }
     operationInfo_->opList_ = opList;
@@ -530,7 +530,7 @@ Status SuperNodeGraphBuilder::BuildSuperNodeGraph()
 {
     std::vector<Operation*> &opList = operationInfo_->opList_;
     if (opList.size() != operationInfo_->inGraph_.size() || opList.size() != operationInfo_->outGraph_.size()) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Operation inGraph and outGraph have not been initialized.");
+        APASS_LOG_ERROR_F(Elements::Function, "Operation inGraph and outGraph have not been initialized.");
         return FAILED;
     }
     std::vector<std::pair<int32_t, int32_t>> mergePair;
@@ -556,11 +556,11 @@ Status SuperNodeGraphBuilder::BuildSuperNodeGraph()
     }
     superNodeInfo_ = std::make_shared<NodeGraphInfo>();
     if (superNodeInfo_ == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Create SuperNodeInfo failed.");
+        APASS_LOG_ERROR_F(Elements::Function, "Create SuperNodeInfo failed.");
         return FAILED;
     }
     if (superNodeInfo_->Build(operationInfo_, mergePair, !useCVMixPartition_) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Build SuperNodeInfo Failed.");
+        APASS_LOG_ERROR_F(Elements::Function, "Build SuperNodeInfo Failed.");
         return FAILED;
     }
     return SUCCESS;
@@ -609,7 +609,7 @@ Status SuperNodeGraphBuilder::BuildReduceNodeHash(std::shared_ptr<NodeGraphInfo>
     std::vector<uint64_t> reduceNodeHashListBack(reduceNodeInfo->node2Op_.size(), 0);
     std::vector<uint64_t> reduceNodeHashList(reduceNodeInfo->node2Op_.size(), 0);
     if (operationInfo_->opHashList_.size() != reduceNodeInfo->op2Node_.size()) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Operation number mismatch in OperationInfo and ReduceNodeInfo.");
+        APASS_LOG_ERROR_F(Elements::Function, "Operation number mismatch in OperationInfo and ReduceNodeInfo.");
         return FAILED;
     }
     for (size_t i = 0; i < reduceNodeInfo->node2Op_.size(); i++) {
@@ -654,7 +654,7 @@ Status SuperNodeGraphBuilder::BuildBalanceOpHash(std::vector<uint64_t> &opHashLi
     std::vector<std::pair<int32_t, int32_t>> mergePair = GetReduceNodeMergePair();
     std::shared_ptr<NodeGraphInfo> reduceNodeInfo = std::make_shared<NodeGraphInfo>();
     if (reduceNodeInfo == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Create ReduceNodeInfo failed.");
+        APASS_LOG_ERROR_F(Elements::Function, "Create ReduceNodeInfo failed.");
         return FAILED;
     }
     reduceNodeInfo->Build(operationInfo_, mergePair, false);
@@ -701,7 +701,7 @@ Status SuperNodeGraphBuilder::BuildHashValues()
     std::vector<uint64_t> opHashList;
     if (useReduceBalanceHash_) {
         if (BuildBalanceOpHash(opHashList) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "BuildBalanceOpHash failed.");
+            APASS_LOG_ERROR_F(Elements::Function, "BuildBalanceOpHash failed.");
             return FAILED;
         }
     } else {
@@ -730,7 +730,7 @@ Status SuperNodeGraphBuilder::BuildHashValues()
         opHashList.swap(opHashListFrontBack);
     }
     if (superNodeInfo_->op2Node_.size() != operationInfo_->opList_.size()) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Operation number mismatch in SuperNodeInfo and OperationInfo.");
+        APASS_LOG_ERROR_F(Elements::Function, "Operation number mismatch in SuperNodeInfo and OperationInfo.");
         return FAILED;
     }
     int32_t numNode = superNodeInfo_->node2Op_.size();

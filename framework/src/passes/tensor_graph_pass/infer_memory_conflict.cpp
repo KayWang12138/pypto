@@ -152,9 +152,9 @@ bool InferMemoryConflict::IsValidTileShape(const Operation &op) const {
     auto input = op.GetIOperands().front();
     VecTile tileSize = op.GetTileShape().GetVecTile();
     if (input->GetShape().size() != tileSize.size()) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has unequal input shape dims size and tile shape dims, input shape: %s, tile size: %s", 
+        APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has unequal input shape dims size and tile shape dims, input shape: %s, tile size: %s. %s", 
                             op.GetOpcodeStr().c_str(), op.GetOpMagic(),
-                            input->DumpType().c_str(), op.GetTileShape().toString(TileType::VEC).c_str());
+                            input->DumpType().c_str(), op.GetTileShape().toString(TileType::VEC).c_str(), GetFormatBacktrace(op).c_str());
         return false;
     }
     APASS_LOG_DEBUG_F(Elements::Operation, "The size info of %s[%d]: input shape: %s, tile size: %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(),
@@ -323,7 +323,7 @@ Status InferMemoryConflict::InferTileShape(Operation &op, const LogicalTensorPtr
         op.UpdateTileShape(parentTile);
     }
     if (!IsValidTileShape(op)) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Invalid tile size for %s[%d].", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+        APASS_LOG_ERROR_F(Elements::Operation, "Invalid tile size for %s[%d]. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     return SUCCESS;
@@ -339,7 +339,7 @@ Status InferMemoryConflict::ObtainReshapeTile(Operation *op, Shape &inTileShape,
         Shape outShape = op->GetOOperands().front()->shape;
         DerivationTileShape derivationTileShapePass;
         if (derivationTileShapePass.DerivationReshapeTileShape(op, inShape, outShape, inTileShape, outTileShape) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "DerivationReshapeTileShape failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "DerivationReshapeTileShape failed. %s", GetFormatBacktrace(*op).c_str());
             // 失败时返回空的tileshape，由InferTileShape自动推导
             return SUCCESS;
         }
@@ -357,11 +357,11 @@ Status InferMemoryConflict::InsertPrecededCopys(Function &function) {
         APASS_LOG_DEBUG_F(Elements::Operation, "Insert copy op [%d].", copyOp.GetOpMagic());
         Shape reshapeTile;
         if (ObtainReshapeTile(op, reshapeTile, ObtainTileShape(op->ConsumerOps()).GetVecTile().tile) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "ObtainReshapeTile failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "ObtainReshapeTile failed. %s", GetFormatBacktrace(*op).c_str());
             return FAILED;
         }
         if (InferTileShape(copyOp, inputTensor, ObtainTileShape(copyOp.ProducerOps()), reshapeTile) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "InferTileShape failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "InferTileShape failed. %s", GetFormatBacktrace(copyOp).c_str());
             return FAILED;
         }
         inputTensor->RemoveConsumer(op);
@@ -380,11 +380,11 @@ Status InferMemoryConflict::InsertPostCopys(Function &function) {
         APASS_LOG_DEBUG_F(Elements::Operation, "Insert copy op [%d].", copyOp.GetOpMagic());
         Shape reshapeTile;
         if (ObtainReshapeTile(op, ObtainTileShape(op->ProducerOps()).GetVecTile().tile, reshapeTile) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "ObtainReshapeTile failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "ObtainReshapeTile failed. %s", GetFormatBacktrace(*op).c_str());
             return FAILED;
         }
         if (InferTileShape(copyOp, outputTensor, ObtainTileShape(copyOp.ConsumerOps()), reshapeTile) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "InferTileShape failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "InferTileShape failed. %s", GetFormatBacktrace(copyOp).c_str());
             return FAILED;
         }
         outputTensor->RemoveConsumer(op);

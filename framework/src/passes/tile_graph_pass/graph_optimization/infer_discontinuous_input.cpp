@@ -22,17 +22,17 @@
 namespace npu {
 namespace tile_fwk {
 Status InferDiscontinuousInput::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(Elements::Operation, "===> Start InferDiscontinuousInput for function [%s].", function.GetRawName().c_str());
+    APASS_LOG_INFO_F(Elements::Function, "===> Start InferDiscontinuousInput for function [%s].", function.GetRawName().c_str());
     Init(function);
     if (InferFromIncast() != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Infer INCAST and OUTCAST address failed.");
+        APASS_LOG_ERROR_F(Elements::Function, "Infer INCAST and OUTCAST address failed.");
         return FAILED;
     }
     if (InsertTensorCopy(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Insert copy op failed.");
+        APASS_LOG_ERROR_F(Elements::Function, "Insert copy op failed.");
         return FAILED;
     }
-    APASS_LOG_INFO_F(Elements::Operation, "===> End InferDiscontinuousInput for function [%s].", function.GetRawName().c_str());
+    APASS_LOG_INFO_F(Elements::Function, "===> End InferDiscontinuousInput for function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }
 

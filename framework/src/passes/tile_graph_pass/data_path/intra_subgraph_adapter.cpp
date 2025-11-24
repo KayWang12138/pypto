@@ -122,14 +122,14 @@ Status IntraSubgraphAdapter::SplitBoundaryTensor(Function &function, LogicalTens
             Opcode producerOpcode = producer->GetOpcode();
             if (OpcodeManager::Inst().GetOpCalcType(producerOpcode) != OpCalcType::MOVE_OUT &&
                 OpcodeManager::Inst().GetOpCalcType(producerOpcode) != OpCalcType::MOVE_LOCAL) {
-                APASS_LOG_ERROR_F(Elements::Tensor, "OpCalcType error, boundary tensor magic : %d, producer op magic : %d, producer op : %s; If the tensor has multiple producers, then the producers can only be OP_ASSEMBLE/OP_COPY_OUT.",
-                    tensor->GetMagic(), producer->GetOpMagic(), producer->GetOpcodeStr().c_str());
+                APASS_LOG_ERROR_F(Elements::Operation, "OpCalcType error, boundary tensor magic : %d, producer op magic : %d, producer op : %s; If the tensor has multiple producers, then the producers can only be OP_ASSEMBLE/OP_COPY_OUT.%s",
+                    tensor->GetMagic(), producer->GetOpMagic(), producer->GetOpcodeStr().c_str(), GetFormatBacktrace(*producer).c_str());
                 return FAILED;
             }
             LogicalTensors& producerInputs = producer->GetIOperands();
             if (producerInputs.size() != 1) {
-                APASS_LOG_ERROR_F(Elements::Tensor, "Producer input error, boundary tensor magic : %d, producer op magic : %d, producer op : %s; The OP_ASSEMBLE should have one input operand.",
-                    tensor->GetMagic(), producer->GetOpMagic(), producer->GetOpcodeStr().c_str());
+                APASS_LOG_ERROR_F(Elements::Operation, "Producer input error, boundary tensor magic : %d, producer op magic : %d, producer op : %s; The OP_ASSEMBLE should have one input operand.%s",
+                    tensor->GetMagic(), producer->GetOpMagic(), producer->GetOpcodeStr().c_str(), GetFormatBacktrace(*producer).c_str());
                 return FAILED;
             }
             // When there are multiple consumers, for producer from other subgraph, we insert a new ASSEMBLE
@@ -208,7 +208,7 @@ Status IntraSubgraphAdapter::AdapteTensorProducers(Function &function, LogicalTe
             }
             if (OpcodeManager::Inst().GetOpCalcType(producer->GetOpcode()) != OpCalcType::MOVE_OUT &&
                 OpcodeManager::Inst().GetOpCalcType(producer->GetOpcode()) != OpCalcType::MOVE_LOCAL) {
-                APASS_LOG_ERROR_F(Elements::Operation, "OpCalcType error; If the tensor has multiple producers, then the producers can only be OP_ASSEMBLE/OP_COPY_OUT.");
+                APASS_LOG_ERROR_F(Elements::Operation, "OpCalcType error; If the tensor has multiple producers, then the producers can only be OP_ASSEMBLE/OP_COPY_OUT.%s", GetFormatBacktrace(*producer).c_str());
                 return FAILED;
             }
         }

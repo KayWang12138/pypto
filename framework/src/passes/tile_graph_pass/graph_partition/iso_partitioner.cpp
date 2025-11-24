@@ -29,21 +29,21 @@ namespace npu::tile_fwk {
 
 Status GraphPartition::RunOnFunction(Function &function)
 {
-    APASS_LOG_INFO_F(Elements::Operation, "===> Start GraphPartition.");
+    APASS_LOG_INFO_F(Elements::Function, "===> Start GraphPartition.");
     IsoPartitioner partitioner;
     if (partitioner.SetParameter(function.paramConfigs_.sgCycleUpperBound,
                                  function.paramConfigs_.sgParallelNum,
                                  function.paramConfigs_.sgCycleLowerBound,
                                  true,
                                  function.paramConfigs_.sgSkipPartition) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Set parameters of GraphPartition failed.");
+        APASS_LOG_ERROR_F(Elements::Config, "Set parameters of GraphPartition failed.");
         return FAILED;
     }
     if (partitioner.PartitionGraph(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "GraphPartition failed.");
+        APASS_LOG_ERROR_F(Elements::Function, "GraphPartition failed.");
         return FAILED;
     }
-    APASS_LOG_INFO_F(Elements::Operation, "===> End GraphPartition.");
+    APASS_LOG_INFO_F(Elements::Function, "===> End GraphPartition.");
     return SUCCESS;
 }
 
@@ -70,35 +70,35 @@ Status IsoPartitioner::PartitionGraph(Function &function)
         return SUCCESS;
     }
     if (cycleUB_ == -1 || parallelNum_ == -1 || cycleLB_ == -1) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Partition parameters not initialized.");
+        APASS_LOG_ERROR_F(Elements::Config, "Partition parameters not initialized.");
         return FAILED;
     }
     if (BuildOpGraph(function.Operations().DuplicatedOpList()) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Partition the computational graph failed in building operation graph.");
+        APASS_LOG_ERROR_F(Elements::Function, "Partition the computational graph failed in building operation graph.");
         return FAILED;
     }
     if (BuildSuperNodeGraph() != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Partition the computational graph failed in building SuperNode graph.");
+        APASS_LOG_ERROR_F(Elements::Function, "Partition the computational graph failed in building SuperNode graph.");
         return FAILED;
     }
     if (BuildHashValues() != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Partition the computational graph failed in building SuperNode hash values.");
+        APASS_LOG_ERROR_F(Elements::Function, "Partition the computational graph failed in building SuperNode hash values.");
         return FAILED;
     }
     if (BuildIsomorphismGroups() != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Partition the computational graph failed in partitioning the graph.");
+        APASS_LOG_ERROR_F(Elements::Function, "Partition the computational graph failed in partitioning the graph.");
         return FAILED;
     }
     if (IsomorphismGroupMergeProcess(true) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Partition the computational graph failed in merging non-isomorphism groups.");
+        APASS_LOG_ERROR_F(Elements::Function, "Partition the computational graph failed in merging non-isomorphism groups.");
         return FAILED;
     }
     if (IsomorphismGroupMergeProcess(false) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Partition the computational graph failed in merging isomorphism groups.");
+        APASS_LOG_ERROR_F(Elements::Function, "Partition the computational graph failed in merging isomorphism groups.");
         return FAILED;
     }
     if (UpdatePartitionResult(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Partition the computational graph failed in updating the Function.");
+        APASS_LOG_ERROR_F(Elements::Function, "Partition the computational graph failed in updating the Function.");
         return FAILED;
     }
     return SUCCESS;
@@ -133,18 +133,18 @@ Status IsoPartitioner::BuildIsomorphismGroups()
         }
         std::shared_ptr<IsomorphismGraphGroup> currentGraphGroup = std::make_shared<IsomorphismGraphGroup>();
         if (currentGraphGroup == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Create current IsomorphismGraphGroup failed.");
+            APASS_LOG_ERROR_F(Elements::Function, "Create current IsomorphismGraphGroup failed.");
             return FAILED;
         }
         if (currentGraphGroup->BuildGraphGroup(operationInfo_, superNodeInfo_, expandCandidate, currentNodeSet,
                                                idxInLinkNum, zeroInQueue) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Build initial IsomorphismGraphGroup failed.");
+            APASS_LOG_ERROR_F(Elements::Function, "Build initial IsomorphismGraphGroup failed.");
             return FAILED;
         }
         if (currentGraphGroup->GetMergeable()) {
             if (currentGraphGroup->ExpandIsoGraphs(currentNodeSet, idxInLinkNum,
                                                    zeroInQueue, cycleUB_) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Expand the isomorphism group failed.");
+                APASS_LOG_ERROR_F(Elements::Function, "Expand the isomorphism group failed.");
                 return FAILED;
             }
         }
@@ -166,12 +166,12 @@ Status IsomorphismGraphGroup::BuildGraphGroup(std::shared_ptr<OperationGraphInfo
     currentNodeSet.insert(expandCandidate.begin(), expandCandidate.end());
     for (int32_t nodeIdx : expandCandidate) {
         if (InLinkCountDelete(nodeIdx, idxInLinkNum, zeroInQueue) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "In-link count delete failed.");
+            APASS_LOG_ERROR_F(Elements::Function, "In-link count delete failed.");
             return FAILED;
         }
         std::shared_ptr<SubGraph> sgPtr = std::make_shared<SubGraph>(operationInfo, superNodeInfo);
         if (sgPtr == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Create SubGraph failed.");
+            APASS_LOG_ERROR_F(Elements::Function, "Create SubGraph failed.");
             return FAILED;
         }
         sgPtr->AddNode(nodeIdx);
@@ -522,7 +522,7 @@ Status IsoPartitioner::IsomorphismGroupMergeStep(bool nonIsoGraphsMerge)
     std::vector<std::vector<int32_t>> isoNodeList;
     std::vector<int32_t> isoIdx2color;
     if (IsomorphismGroupMergePrepare(isoSubIdxs, isoInGraph, isoOutGraph, isoNodeList, isoIdx2color) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "IsomorphismGroupMergePrepare failed.");
+        APASS_LOG_ERROR_F(Elements::Function, "IsomorphismGroupMergePrepare failed.");
         return FAILED;
     }
     size_t currColor = 0;
@@ -555,7 +555,7 @@ Status IsoPartitioner::IsomorphismGroupMergeProcess(bool nonIsoGraphsMerge)
 {
     for (int32_t loopCount = 0; loopCount < tryMergeLoopNum_; loopCount++) {
         if (IsomorphismGroupMergeStep(nonIsoGraphsMerge) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "IsomorphismGroupMergeStep failed.");
+            APASS_LOG_ERROR_F(Elements::Function, "IsomorphismGroupMergeStep failed.");
             return FAILED;
         }
         size_t originalColor = isoSubGroups_.size();
@@ -706,15 +706,15 @@ Status IsoPartitioner::SetParameter(int32_t cycleUpperBound, int32_t parallelNum
         return SUCCESS;
     }
     if (cycleUpperBound < 0) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Illegal cycleUpperBound: %d; Parameter cycleUpperBound must be non-negative.", cycleUpperBound);
+        APASS_LOG_ERROR_F(Elements::Config, "Illegal cycleUpperBound: %d; Parameter cycleUpperBound must be non-negative.", cycleUpperBound);
         return FAILED;
     }
     if (parallelNum < 0) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Illegal parallelNum: %d; Parameter parallelNum must be non-negative.", parallelNum);
+        APASS_LOG_ERROR_F(Elements::Config, "Illegal parallelNum: %d; Parameter parallelNum must be non-negative.", parallelNum);
         return FAILED;
     }
     if (cycleLowerBound < 0) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Illegal cycleLowerBound: %d; Parameter cycleLowerBound must be non-negative.", cycleLowerBound);
+        APASS_LOG_ERROR_F(Elements::Config, "Illegal cycleLowerBound: %d; Parameter cycleLowerBound must be non-negative.", cycleLowerBound);
         return FAILED;
     }
     cycleUB_ = cycleUpperBound;

@@ -172,12 +172,12 @@ Status OoOScheduler::UpdateReloadIssueDepend(IssueEntryPtr reloadCopyin, IssueEn
         if (!succ->isRetired && (std::count(succ->reqMemIds.begin(), succ->reqMemIds.end(), spillMemId) > 0)) {
             reloadCopyin->successors.insert(succ->id);
             if (succ->predecessors.erase(spillIssue->id) == 0) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Erase issueEntry %s failed.", spillIssue->GetOpInfo());
+                APASS_LOG_ERROR_F(Elements::Operation, "Erase issueEntry %s failed. %s", spillIssue->GetOpInfo(), GetFormatBacktrace(spillIssue->tileOp).c_str());
                 return FAILED;
             }
             succ->predecessors.insert(reloadCopyin->id);
             if (reloadCopyin->tileOp.GetOutputOperand(0) == nullptr) {
-                APASS_LOG_ERROR_F(Elements::Operation, "%s cannot find oOperand[0].", reloadCopyin->GetOpInfo());
+                APASS_LOG_ERROR_F(Elements::Operation, "%s cannot find oOperand[0]. %s", reloadCopyin->GetOpInfo(), GetFormatBacktrace(reloadCopyin->tileOp).c_str());
                 return FAILED;
             }
             succ->UpdateTensorInput(spillIssue, reloadCopyin->tileOp.GetOutputOperand(0));
@@ -204,11 +204,11 @@ Status OoOScheduler::UpdateReloadIssueInfo(IssueEntryPtr reloadAlloc, IssueEntry
     InsertIssueEntries(reloadCopyin);
 
     if (UpdateReloadIssueDepend(reloadCopyin, spillIssue, spillMemId) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "UpdateReloadIssueDepend failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "UpdateReloadIssueDepend failed. %s", GetFormatBacktrace(reloadCopyin->tileOp).c_str());
         return FAILED;
     }
     if (UpdateRemainOpBufId(spillMemId, reloadAlloc->reqMemIds[0])) {
-        APASS_LOG_ERROR_F(Elements::Operation, "UpdateRemainOpBufId failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "UpdateRemainOpBufId failed. %s", GetFormatBacktrace(reloadAlloc->tileOp).c_str());
         return FAILED;
     }
     for (auto& issue : issueEntries) {
@@ -305,7 +305,7 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
         std::make_shared<RawTensor>(spillTensor->Datatype(), spillTensor->GetShape(),
         TileOpFormat::TILEOP_ND, "WorkspaceGm", SYMBOL_STACK_BASE);
     if (ddrRawTensor == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Create DDR raw tensor failed!");
+        APASS_LOG_ERROR_F(Elements::Tensor, "Create DDR raw tensor failed!");
         return FAILED;
     }
     std::vector<int64_t> offset(spillTensor->GetShape().size(), 0);
@@ -313,7 +313,7 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
 
     LogicalTensorPtr ddrTensor = std::make_shared<LogicalTensor>(function_, ddrRawTensor, offset, spillTensor->GetShape());
     if (ddrTensor == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Create DDR tensor failed!");
+        APASS_LOG_ERROR_F(Elements::Tensor, "Create DDR tensor failed!");
         return FAILED;
     }
     if (UpdateTensorAttr(ddrTensor, MEM_DEVICE_DDR, spillTensor, spillMemId) != SUCCESS) {
@@ -329,7 +329,7 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
     spillCopyout = std::make_shared<IssueEntry>(spillOutOp, issueId);
     issueEntryMap[issueId++] = spillCopyout;
     if (spillCopyout == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Create OP_COPY_OUT issueEntry failed!");
+        APASS_LOG_ERROR_F(Elements::Operation, "Create OP_COPY_OUT issueEntry failed! %s", GetFormatBacktrace(spillOutOp).c_str());
         return FAILED;
     }
     spillCopyout->reqMemIds = {spillMemId};
@@ -345,7 +345,7 @@ Status OoOScheduler::SpillOutBuffer(SpillInfo &spillInfo, IssueEntryPtr issue, s
         IssueEntryPtr spillCopyout = nullptr;
         if (CreateSpillCopyout(spillInfo.spillIssue_, spillInfo.spillTensor_, spillInfo.spillMemId_,
             spillCopyout) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "CreateSpillCopyout failed!");
+            APASS_LOG_ERROR_F(Elements::Operation, "CreateSpillCopyout failed! %s", GetFormatBacktrace(spillInfo.spillIssue_->tileOp).c_str());
             return FAILED;
         }
         int bufLastUseOrder = GetBufLastUseOrder(issue, spillInfo.spillMemId_);
@@ -377,7 +377,7 @@ Status OoOScheduler::GetSpillTensor(IssueEntryPtr spillIssue, int spillMemId, Lo
     }
     spillTensor = spillIssue->tileOp.GetOutputOperand(spillTensorIdx);
     if (spillTensor == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Op cannot find oOperand[%d].", spillTensorIdx);
+        APASS_LOG_ERROR_F(Elements::Operation, "Op cannot find oOperand[%d]. %s", spillTensorIdx, GetFormatBacktrace(spillIssue->tileOp).c_str());
         return FAILED;
     }
     return SUCCESS;
@@ -386,7 +386,7 @@ Status OoOScheduler::GetSpillTensor(IssueEntryPtr spillIssue, int spillMemId, Lo
 Status OoOScheduler::SpillBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, size_t &pcIdx,
     LocalBufferPtr allocBuffer, bool isGenSpill) {
     if (SpillOutBuffer(spillInfo, allocIssue, pcIdx, isGenSpill) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "SpillOutBuffer failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "SpillOutBuffer failed. %s", GetFormatBacktrace(spillInfo.spillIssue_->tileOp).c_str());
         return FAILED;
     }
     // Healthcheck record - spill info
@@ -396,7 +396,7 @@ Status OoOScheduler::SpillBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue,
                 spillInfo.spillIssue_->tileOp.GetOpcodeStr().find("COPY_IN") == std::string::npos));
     }
     if (SpillInBuffer(spillInfo, allocIssue, allocBuffer->memType, isGenSpill) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "SpillInBuffer failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "SpillInBuffer failed. %s", GetFormatBacktrace(spillInfo.spillIssue_->tileOp).c_str());
         return FAILED;
     }
     if (!isGenSpill) {
@@ -572,7 +572,7 @@ Status OoOScheduler::GetSpillInfo(IssueEntryPtr allocIssue, int spillMemId, bool
     }
     LogicalTensorPtr spillTensor = nullptr;
     if (GetSpillTensor(spillIssue, spillMemId, spillTensor) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%s GetSpillTensor failed!", spillIssue->GetOpInfo());
+        APASS_LOG_ERROR_F(Elements::Operation, "%s GetSpillTensor failed! %s", spillIssue->GetOpInfo(), GetFormatBacktrace(spillIssue->tileOp).c_str());
         return FAILED;
     }
     APASS_LOG_DEBUG_F(Elements::Operation, "Begin spill %s tensor[%d].", spillIssue->GetOpInfo(), spillMemId);
@@ -589,7 +589,7 @@ Status OoOScheduler::SpillMultiBuffer(IssueEntryPtr allocIssue, std::vector<int>
     for (auto &spillMemId : spillGroup) {
         SpillInfo spillInfo;
         if (GetSpillInfo(allocIssue, spillMemId, isGenSpill, spillInfo) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "GetSpillInfo failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "GetSpillInfo failed. %s", GetFormatBacktrace(spillInfo.spillIssue_->tileOp).c_str());
             return FAILED;
         }
         if (spillInfo.spillIssue_->tileOp.GetOpcode() == Opcode::OP_ASSEMBLE) {
@@ -599,7 +599,7 @@ Status OoOScheduler::SpillMultiBuffer(IssueEntryPtr allocIssue, std::vector<int>
             }
         } else {
             if (SpillBuffer(spillInfo, allocIssue, pcIdx, allocBuffer, isGenSpill) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "SpillBuffer[%d] failed.", spillMemId);
+                APASS_LOG_ERROR_F(Elements::Operation, "SpillBuffer[%d] failed. %s", spillMemId, GetFormatBacktrace(spillInfo.spillIssue_->tileOp).c_str());
                 return FAILED;
             }
         }
@@ -797,11 +797,11 @@ Status OoOScheduler::GenBufferSpill(IssueEntryPtr allocIssue) {
             }
             SpillInfo spillInfo;
             if (GetSpillInfo(allocIssue, memId, false, spillInfo) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "GetSpillInfo failed.");
+                APASS_LOG_ERROR_F(Elements::Operation, "GetSpillInfo failed. %s", GetFormatBacktrace(spillInfo.spillIssue_->tileOp).c_str());
                 return FAILED;
             }
             if (SpillBuffer(spillInfo, allocIssue, temp, localBufferMap[allocIssue->reqMemIds[0]], false) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "SpillBuffer[%d] failed.", memId);
+                APASS_LOG_ERROR_F(Elements::Operation, "SpillBuffer[%d] failed. %s", memId, GetFormatBacktrace(spillInfo.spillIssue_->tileOp).c_str());
                 return FAILED;
             }
         }
@@ -812,13 +812,13 @@ Status OoOScheduler::GenBufferSpill(IssueEntryPtr allocIssue) {
             bufferManagerMap[memType].Allocate(localBufferMap[issue.first]);
         }
         if (!HasEnoughBuffer(allocIssue, memType)) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Spill all buffer failed!");
+            APASS_LOG_ERROR_F(Elements::Operation, "Spill all buffer failed! %s", GetFormatBacktrace(allocIssue->tileOp).c_str());
             PrintSpillFailedInfo(allocIssue, memType);
             return FAILED;
         }
     } else {
         if (SpillMultiBuffer(allocIssue, spillGroup, temp, localBufferMap[allocIssue->reqMemIds[0]], false) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "SpillMultiBuffer failed!");
+            APASS_LOG_ERROR_F(Elements::Operation, "SpillMultiBuffer failed! %s", GetFormatBacktrace(allocIssue->tileOp).c_str());
             return FAILED;
         }
     }
@@ -829,10 +829,10 @@ Status OoOScheduler::GenSpillOp(LocalBufferPtr allocBuffer, size_t &pcIdx) {
     APASS_LOG_DEBUG_F(Elements::Operation, "---> START: SPILL tensor.");
     if (allocBuffer->memType != MemoryType::MEM_L1 && allocBuffer->memType != MemoryType::MEM_UB) {
         if (PrintSpillFailedInfo(issueEntries[pcIdx]) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "PrintSpillFailedInfo failed; Please check the PrintSpillFailedInfo method.");
+            APASS_LOG_ERROR_F(Elements::Operation, "PrintSpillFailedInfo failed; Please check the PrintSpillFailedInfo method. %s", GetFormatBacktrace(issueEntries[pcIdx]->tileOp).c_str());
             return FAILED;
         }
-        APASS_LOG_ERROR_F(Elements::Operation, "Buffer[L0A/B/C] is Full. Please check tile shape and OOO spill failed info.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Buffer[L0A/B/C] is Full. Please check tile shape and OOO spill failed info. %s", GetFormatBacktrace(issueEntries[pcIdx]->tileOp).c_str());
         return FAILED;
     }
     // 选择最晚被使用的spill 单个或多个tensor
@@ -842,7 +842,7 @@ Status OoOScheduler::GenSpillOp(LocalBufferPtr allocBuffer, size_t &pcIdx) {
         return FAILED;
     }
     if (SpillMultiBuffer(issueEntries[pcIdx], spillGroup, pcIdx, allocBuffer, true) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "SpillMultiBuffer failed!");
+        APASS_LOG_ERROR_F(Elements::Operation, "SpillMultiBuffer failed! %s", GetFormatBacktrace(issueEntries[pcIdx]->tileOp).c_str());
         return FAILED;
     }
     APASS_LOG_DEBUG_F(Elements::Operation, "---> END: SPILL tensor.");

@@ -32,7 +32,7 @@ Status RemoveRedundantReshapeChecker::DoPreCheck(Function &function) {
     }
     for (const auto &op : function.Operations().DuplicatedOpList()) {
         if (ProcessPreCheck(op)) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Precheck RemoveRedundantShape failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "Precheck RemoveRedundantShape failed. %s", GetFormatBacktrace(*op).c_str());
             return FAILED;
         }
     }
@@ -42,7 +42,7 @@ Status RemoveRedundantReshapeChecker::ProcessPreCheck(const Operation *op) {
     if (op->GetOpcode() == Opcode::OP_RESHAPE) {
         auto in = op->iOperand.front();
         if (PreCheckReshape(in) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Precheck of reshape op[%d] failed.", op->GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "Precheck of reshape op[%d] failed. %s", op->GetOpMagic(), GetFormatBacktrace(*op).c_str());
             return FAILED;
         }
     }

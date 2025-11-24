@@ -70,7 +70,7 @@ Status UpdateIOOperand(const std::vector<OperationPtr> &tensorOperations) {
         // clear consumers and producers
         for (auto &iOperand : op->GetIOperands()) {
             if (iOperand == nullptr) {
-                APASS_LOG_ERROR_F(Elements::Tensor, "Op:%s[%d] input is null.",  op->GetOpcodeStr().c_str(), op->GetOpMagic());
+                APASS_LOG_ERROR_F(Elements::Operation, "Op:%s[%d] input is null.%s",  op->GetOpcodeStr().c_str(), op->GetOpMagic(), GetFormatBacktrace(*op).c_str());
                 return FAILED;
             }
             iOperand->GetConsumers().clear();
@@ -78,7 +78,7 @@ Status UpdateIOOperand(const std::vector<OperationPtr> &tensorOperations) {
         }
         for (auto &oOperand : op->GetOOperands()) {
             if (oOperand == nullptr) {
-                APASS_LOG_ERROR_F(Elements::Tensor, "Op:%s[%d] output is null.",  op->GetOpcodeStr().c_str(), op->GetOpMagic());
+                APASS_LOG_ERROR_F(Elements::Operation, "Op:%s[%d] output is null.%s",  op->GetOpcodeStr().c_str(), op->GetOpMagic(), GetFormatBacktrace(*op).c_str());
                 return FAILED;
             }
             oOperand->GetConsumers().clear();
@@ -114,18 +114,18 @@ Status ExpandFunction::PostCheck(Function &function) {
 }
 
 Status ExpandFunction::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(Elements::Operation, "Start ExpandFunction for function [%s].", function.GetRawName().c_str());
+    APASS_LOG_INFO_F(Elements::Function, "Start ExpandFunction for function [%s].", function.GetRawName().c_str());
     if (Expandfunction(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Function[%s] ExpandFunction failed.", function.GetRawName().c_str());
+        APASS_LOG_ERROR_F(Elements::Function, "Function[%s] ExpandFunction failed.", function.GetRawName().c_str());
         return FAILED;
     }
-    APASS_LOG_INFO_F(Elements::Operation, "End ExpandFunction for function [%s].", function.GetRawName().c_str());
+    APASS_LOG_INFO_F(Elements::Function, "End ExpandFunction for function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }
 
 Status ExpandFunction::Expandfunction(Function &function) const {
     if (!function.IsGraphType(GraphType::TENSOR_GRAPH)) {
-        APASS_LOG_INFO_F(Elements::Operation, "Function %s is not static tensor graph, skip expanding.", function.GetRawName().c_str());
+        APASS_LOG_INFO_F(Elements::Function, "Function %s is not static tensor graph, skip expanding.", function.GetRawName().c_str());
         return SUCCESS;
     }
     function.expandFunctionAccelerate = true;

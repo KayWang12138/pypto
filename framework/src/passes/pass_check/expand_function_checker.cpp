@@ -21,9 +21,9 @@
 namespace npu {
 namespace tile_fwk {
 Status ExpandFunctionChecker::DoPreCheck(Function &function) {
-    APASS_LOG_INFO_F(Elements::Operation, "PreCheck for ExpandFunction.");
+    APASS_LOG_INFO_F(Elements::Function, "PreCheck for ExpandFunction.");
     if (!function.OperationLoopCheck()) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Operation Loop detected before expand function; Please validate the operation input specifications.");
+        APASS_LOG_ERROR_F(Elements::Function, "Operation Loop detected before expand function; Please validate the operation input specifications.");
         return FAILED;
     }
     std::unordered_set<OpCalcType> calTypes{OpCalcType::ELMWISE, OpCalcType::BROADCAST, OpCalcType::REDUCE,
@@ -49,13 +49,13 @@ Status ExpandFunctionChecker::DoPreCheck(Function &function) {
 }
 
 Status ExpandFunctionChecker::DoPostCheck(Function &function) {
-    APASS_LOG_INFO_F(Elements::Operation, "PostCheck for ExpandFunction.");
+    APASS_LOG_INFO_F(Elements::Function, "PostCheck for ExpandFunction.");
     if (function.expandFunctionAccelerate != false) {
-        APASS_LOG_ERROR_F(Elements::Operation, "ExpandFunctionAccelerate should equal to false after ExpandFunction process.");
+        APASS_LOG_ERROR_F(Elements::Function, "ExpandFunctionAccelerate should equal to false after ExpandFunction process.");
         return FAILED;
     }
     if (!function.OperationLoopCheck()) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Operation Loop detected after expand function; Please review the error messages generated during the processing procedure.");
+        APASS_LOG_ERROR_F(Elements::Function, "Operation Loop detected after expand function; Please review the error messages generated during the processing procedure.");
         return FAILED;
     }
     return SUCCESS;

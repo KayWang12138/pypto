@@ -169,8 +169,8 @@ void GroupBubbles(std::vector<std::pair<size_t, size_t>> &bubbleGroups, size_t s
             start += 1;
         }
         if (start + 1 >= end) {    // 至少要选中两个气泡作为一组
-            APASS_LOG_ERROR_F(Elements::Tensor, "Rerange buffer unexpected result: only choose one bubble for rearange");
-            APASS_LOG_ERROR_F(Elements::Tensor, "sizeNeeded : %d", sizeNeeded);
+            APASS_LOG_ERROR_F(Elements::Tensor, "Rerange buffer unexpected result: only choose one bubble for rearange.");
+            APASS_LOG_ERROR_F(Elements::Tensor, "sizeNeeded : %d.", sizeNeeded);
             failed = true;
             break;
         }
