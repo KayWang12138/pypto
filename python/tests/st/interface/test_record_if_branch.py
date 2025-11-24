@@ -10,13 +10,21 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
-import sys
-import os
-from pathlib import Path
+import pypto
 import numpy as np
-from op_record_if_branch import op_record_if_branch, golden_if_branch
-sys.path.append(str(Path(os.path.abspath(__file__)).parents[4].joinpath("framework/tests/cmake/scripts/helper")))
-from pypto_test import TestBuilder
+from st.pypto_test import TestBuilder
+
+
+def op_record_if_branch(params, a, b, c):
+    tile_shape = params[1]
+    pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
+    for k in pypto.loop(2, name="LOOP", idx_name="k"):
+        if pypto.cond(k < 10):
+            c.move(pypto.add(a, b))
+
+
+def golden_if_branch(params, a, b, c):
+    return a + b
 
 
 class AddIfTest(TestBuilder):
@@ -38,5 +46,4 @@ def test():
 
 
 if __name__ == "__main__":
-    st = AddIfTest(((32, 32), (8, 8)), op_record_if_branch, golden_if_branch, tiling=32)
-    st(False)
+    test()

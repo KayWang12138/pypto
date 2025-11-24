@@ -1,130 +1,110 @@
 #!/usr/bin/env python3
 # coding: utf-8
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
-# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
-# CANN Open Software License Agreement Version 2.0 (the "License").
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
-# -----------------------------------------------------------------------------------------------------------
+# ======================================================================================================================
 """
 """
 import os
-import pypto
-import pytest
-import torch
-import torch_npu
 import numpy as np
-from numpy.testing import assert_allclose
+import torch
+import pypto
+from st.pypto_test import TestBuilder
 
 
-# 1. 添加支持动态的config
 @pypto.jit(
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
-def select_experts(in_tensors, out_tensors, renormalize_flag):
-    # 2. 从入参拿到输入和输出tensor
-    logits_input = in_tensors[0]
-    ids_k = out_tensors[0]
-    weight_k = out_tensors[1]
+def op_select_experts(input_tensors, output_tensors, params):
 
-    # 3. 设置axis=0为动态shape
-    pypto.mark_dynamic(logits_input, 0)
+    bs, ne, topk, renormalize_flag = params
+    router_logits = input_tensors[0]
+    ids_k = output_tensors[0]
+    weight_k = output_tensors[1]
+
+    pypto.mark_dynamic(router_logits, 0)
     pypto.mark_dynamic(ids_k, 0)
     pypto.mark_dynamic(weight_k, 0)
 
-    # 4. 得到动态tensor的shape
-    bs = logits_input.shape[0]
-    ne = logits_input.shape[1]
-    idx_k_shape = ids_k.shape
-    topk = idx_k_shape[1]
     view_shape = (1024, ne)
     bs_loop = (bs + view_shape[0] - 1) // view_shape[0]
 
-    # 5. 定义动态函数
-    with pypto.function("MOEGATE", [logits_input], [ids_k, weight_k]):
+    with pypto.function("MOEGATE", [router_logits], [ids_k, weight_k]):
         def inside_select_experts():
-            # 6. 实现kernel逻辑，循环展开BS动态轴
             for bs_idx in pypto.loop(bs_loop, name="LOOP_MOEGATE_L0", idx_name="bs_idx", unroll_List={1}):
                 def bs_loop_func(bs_idx):
-                    # 7. 通过view得到tile_logits
-                    tile_logits = pypto.view(logits_input, view_shape,
+                    tile_logits = pypto.view(router_logits, view_shape,
                         [bs_idx * view_shape[0], 0],
                         valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]), ne])
-
-                    # 8. 按照计算图实现运算逻辑，设置set_vec_tile_shapes时应尽可能用满UB，但不要超过UB的大小。
                     pypto.set_vec_tile_shapes(64, 128)
 
-                    # cast to fp32
                     tile_logits_fp32 = pypto.cast(tile_logits, pypto.DT_FP32)
-                    # softmax
                     softmax_out = pypto.softmax(tile_logits_fp32, -1)
-                    # topK
                     topk_weight_tmp, topk_ids_tmp = pypto.topk(softmax_out, topk, -1, True)
 
                     pypto.set_vec_tile_shapes(128, 8)
                     if pypto.cond(pypto.symbolic_scalar(renormalize_flag)):
-                        # sum
                         denominator = pypto.sum(topk_weight_tmp, -1, True)
-                        # div
-                        # for shape (b*s, k) (b*s, 1)
                         topk_weight2 = pypto.div(topk_weight_tmp, denominator)
                     else:
                         denominator = topk_weight_tmp
                         topk_weight2 = denominator
-                    # weight cast
                     topk_weight2_f16 = pypto.cast(topk_weight2, weight_k.dtype)
 
-                    # 9. 将结果搬运到输出tensor上
-                    weight_k[bs_idx * pypto.symbolic_scalar(view_shape[0]):, pypto.symbolic_scalar(0):] = topk_weight2_f16
                     ids_k[bs_idx * pypto.symbolic_scalar(view_shape[0]):, pypto.symbolic_scalar(0):] = topk_ids_tmp
+                    weight_k[bs_idx * pypto.symbolic_scalar(view_shape[0]):, pypto.symbolic_scalar(0):] = topk_weight2_f16
                 bs_loop_func(bs_idx)
         inside_select_experts()
 
 
-def test_select_experts():
-    # 1. 设置参数
+def golden_select_experts(params, router_logits, topk_ids_tensor_list, topk_weight_2_tensor_list):
+    _, _, topk, _ = params
+    result = torch.softmax(router_logits.to(torch.float32), dim=-1)
+    topk_weight_tensor, topk_ids_tensor = torch.topk(result, topk, dim=-1, largest=True, sorted=True)
+    topk_ids_tensor_list = topk_ids_tensor.to(torch.int32)
+
+
+def golden_select_experts(params, router_logits, topk_ids_tensor_list, topk_weight_2_tensor_list):
+    _, _, topk, _ = params
+    result = torch.softmax(router_logits.to(torch.float32), dim=-1)
+    topk_weight_tensor, topk_ids_tensor = torch.topk(result, topk, dim=-1, largest=True, sorted=True)
+    topk_ids_tensor_list = topk_ids_tensor.to(torch.int32)
+
+    denominator_g = torch.sum(topk_weight_tensor, dim=-1, keepdim=True)
+    topk_weight_2_tensor = torch.div(topk_weight_tensor, denominator_g).to(torch.float16)
+    topk_weight_2_tensor_list = topk_weight_2_tensor
+    return topk_ids_tensor_list, topk_weight_2_tensor_list
+
+
+class SelectExpertsTest(TestBuilder):
+    def __init__(self, params: tuple, kernel, kernel_golden, tiling: int):
+        super().__init__(params, kernel, kernel_golden, tiling)
+        self.set_tol(rtol=5e-3, atol=5e-3)
+        self.device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+        
+    def get_input_from_param(self):
+        bs, ne, top_k, renormalize = self.params
+        np.random.seed(0)
+        router_logits = torch.rand((bs, ne), dtype=torch.float16, device=f'npu:{self.device_id}')
+        self.setup_inputs_jit(router_logits)
+        return (router_logits, )
+
+
+def test():
     bs = 4959
     ne = 128
     top_k = 8
     renormalize = True
-    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
-    torch.npu.set_device(device_id)
 
-    # 2. 构造多种shape，测试动态case
     for i in range(0, 2):
         if (i == 1):
             bs = 1
-
-        # 3. 准备测试数据
-        np.random.seed(0)
-        router_logits = torch.rand((bs, ne), dtype=torch.float16, device=f'npu:{device_id}')
-        topk_weights = torch.zeros((bs, top_k), dtype=torch.float16, device=f'npu:{device_id}')
-        topk_ids = torch.zeros((bs, top_k), dtype=torch.int32, device=f'npu:{device_id}')
-
-        # 4. 执行kernel并获取结果
-        inputs = [router_logits]
-        outputs = [topk_ids, topk_weights]
-        select_experts(inputs, outputs, renormalize)
-        pypto.runtime._device_synchronize()
-
-        # 5. 与PyTorch参考实现对比
-        result = torch.softmax(router_logits.to(torch.float32), dim=-1)
-        topk_weight_tensor, topk_ids_tensor = torch.topk(result, top_k, dim=-1, largest=True, sorted=True)
-        topk_ids_tensor_list = topk_ids_tensor.flatten().tolist()
-
-        denominator_g = torch.sum(topk_weight_tensor, dim=-1, keepdim=True)
-        topk_weight_2_tensor = torch.div(topk_weight_tensor, denominator_g).to(torch.float16)
-        topk_weight_2_tensor_list = topk_weight_2_tensor.flatten().tolist()
-
-        # idx result
-        assert_allclose(np.array(topk_ids.cpu().flatten().tolist()),
-                    np.array(topk_ids_tensor_list),
-                    rtol=5e-3, atol=5e-3)
-
-        # weight result
-        assert_allclose(np.array(topk_weights.cpu().flatten().tolist()),
-                    np.array(topk_weight_2_tensor_list),
-                    rtol=5e-3, atol=5e-3)
+        params = (bs, ne, top_k, renormalize)
+        st = SelectExpertsTest(params, op_select_experts, golden_select_experts, tiling=32)
+        st(jit=True)
