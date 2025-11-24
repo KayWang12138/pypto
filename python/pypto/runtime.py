@@ -83,6 +83,9 @@ def to_tensor_data(tensors: List[torch.Tensor]):
 
 
 def _device_run_once_data_from_host(inputs: List[torch.Tensor], outputs: List[torch.Tensor]):
+    for in_tensor in inputs:
+        if not in_tensor.is_contiguous():
+            raise RuntimeError("all input tensor must be contiguous.")
     pto_impl.DeviceRunOnceDataFromHost(
         to_tensor_data(inputs), to_tensor_data(outputs))
 
