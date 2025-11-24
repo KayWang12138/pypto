@@ -227,7 +227,7 @@ template <typename T, unsigned DS, unsigned SS, unsigned TBS>
 TILEOP void DynTrowsumsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp, unsigned OS0, unsigned OS1) {
     //    OS0 <= REPEAT_MAX
     uint64_t srcRepeatPerRow = static_cast<uint64_t>(OS1 * sizeof(T) / REPEAT_BYTE);
-    uint16_t srcRepeatStride = SS * sizeof(T) / BLOCK_SIZE;
+    constexpr uint16_t srcRepeatStride = SS * sizeof(T) / BLOCK_SIZE;
     constexpr unsigned nElemPerRepeat = REPEAT_BYTE / sizeof(T);
     unsigned remain = OS1 % nElemPerRepeat;
     if (srcRepeatPerRow == 1 && remain == 0) {
@@ -249,10 +249,22 @@ TILEOP void DynTrowsumsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp,
         return;
     }
 
+    constexpr bool strideOverFlag = (tmpRepeatStride > REPEAT_STRIDE_MAX) || (srcRepeatStride > REPEAT_STRIDE_MAX);
+    unsigned tmpOffset = tmpRepeatStride * BLOCK_SIZE / sizeof(T);
+    unsigned srcOffset = srcRepeatStride * BLOCK_SIZE / sizeof(T);
     unsigned curLen = srcRepeatPerRow;
-    for (unsigned i = 0; i < curLen / 2; i++) {
-        vadd(tmp + i * nElemPerRepeat, src + i * 2 * nElemPerRepeat, src + (i * 2 + 1) * nElemPerRepeat, OS0, 1, 1, 1,
-            tmpRepeatStride, srcRepeatStride, srcRepeatStride);
+    if constexpr (strideOverFlag) {
+        for (unsigned j = 0; j < OS0; j++) {
+            for (unsigned i = 0; i < curLen / 2; i++) {
+                vadd(tmp + i * nElemPerRepeat + j * tmpOffset, src + i * 2 * nElemPerRepeat + j * srcOffset, 
+                    src + (i * 2 + 1) * nElemPerRepeat + j * srcOffset, 1, 1, 1, 1, 8, 8, 8);
+            }
+        }
+    } else {
+        for (unsigned i = 0; i < curLen / 2; i++) {	
+            vadd(tmp + i * nElemPerRepeat, src + i * 2 * nElemPerRepeat, src + (i * 2 + 1) * nElemPerRepeat, OS0, 
+                1, 1, 1, tmpRepeatStride, srcRepeatStride, srcRepeatStride);
+        }
     }
     pipe_barrier(PIPE_V);
     if (curLen == 1 && remain > 0) {
@@ -260,16 +272,31 @@ TILEOP void DynTrowsumsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp,
             tmpRepeatStride - BLOCK_MAX_PER_REPEAT);
         pipe_barrier(PIPE_V);
     } else if (curLen % 2 > 0) {
-        vadd(tmp, tmp, src + (curLen - 1) * nElemPerRepeat, OS0, 1, 1, 1, tmpRepeatStride, tmpRepeatStride,
-            srcRepeatStride);
+        if constexpr (strideOverFlag) {
+            for (unsigned j = 0; j < OS0; j++) {
+                vadd(tmp + j * tmpOffset, tmp + j * tmpOffset, src + (curLen - 1) * nElemPerRepeat + j * srcOffset, 
+                    1, 1, 1, 1, 8, 8, 8);
+            }
+        } else {
+            vadd(tmp, tmp, src + (curLen - 1) * nElemPerRepeat, OS0, 1, 1, 1, tmpRepeatStride, tmpRepeatStride,
+                srcRepeatStride);
+        }
         pipe_barrier(PIPE_V);
     }
 
     if (remain > 0) {
         unsigned repeatOffset = curLen == 1 ? 0 : curLen / 2 - 1;
         SetContinuousMask(remain);
-        vadd(tmp + repeatOffset * nElemPerRepeat, src + curLen * nElemPerRepeat, tmp + repeatOffset * nElemPerRepeat,
-            OS0, 1, 1, 1, tmpRepeatStride, srcRepeatStride, tmpRepeatStride);
+        if constexpr (strideOverFlag) {
+            for (unsigned i = 0; i < OS0; i++) {
+                vadd(tmp + repeatOffset * nElemPerRepeat + i * tmpOffset, src + curLen * nElemPerRepeat + i * srcOffset, 
+                    tmp + repeatOffset * nElemPerRepeat + i * tmpOffset,
+                    1, 1, 1, 1, 8, 8, 8);
+            }
+        } else {
+            vadd(tmp + repeatOffset * nElemPerRepeat, src + curLen * nElemPerRepeat, tmp + repeatOffset * nElemPerRepeat,
+                OS0, 1, 1, 1, tmpRepeatStride, srcRepeatStride, tmpRepeatStride);
+        }
         set_vector_mask(-1, -1);
         pipe_barrier(PIPE_V);
     }
@@ -277,17 +304,34 @@ TILEOP void DynTrowsumsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp,
     curLen = curLen / 2;
     bool mergeLast = true;
     while (curLen > 1) {
-        for (unsigned i = 0; i < curLen / 2; i++) {
-            vadd(tmp + i * nElemPerRepeat, tmp + i * 2 * nElemPerRepeat, tmp + (i * 2 + 1) * nElemPerRepeat, OS0, 1, 1,
-                1, tmpRepeatStride, tmpRepeatStride, tmpRepeatStride);
+        if constexpr (strideOverFlag) {
+            for (unsigned j = 0; j < OS0; j++) {
+                for (unsigned i = 0; i < curLen / 2; i++) {
+                    vadd(tmp + i * nElemPerRepeat + j * tmpOffset, tmp + i * 2 * nElemPerRepeat + j * tmpOffset, 
+                        tmp + (i * 2 + 1) * nElemPerRepeat + j * tmpOffset, 1, 1, 1, 1, 8, 8, 8);
+                }
+            }
+        } else {
+            for (unsigned i = 0; i < curLen / 2; i++) {	
+                vadd(tmp + i * nElemPerRepeat, tmp + i * 2 * nElemPerRepeat, tmp + (i * 2 + 1) * nElemPerRepeat, OS0, 
+                    1, 1, 1, tmpRepeatStride, tmpRepeatStride, tmpRepeatStride);
+            }
         }
         unsigned loopRemain = curLen % 2;
         curLen = curLen / 2;
         if (loopRemain > 0) {
             pipe_barrier(PIPE_V);
-            vadd(tmp + (curLen - 1) * nElemPerRepeat /*last repeat of new curLen*/,
-                tmp + curLen * 2 * nElemPerRepeat /*remain repeat*/, tmp + (curLen - 1) * nElemPerRepeat, OS0, 1, 1, 1,
-                tmpRepeatStride, tmpRepeatStride, tmpRepeatStride);
+            if constexpr (strideOverFlag) {
+                for (unsigned i = 0; i < OS0; i++) {
+                    vadd(tmp + (curLen - 1) * nElemPerRepeat + i * tmpOffset /*last repeat of new curLen*/,
+                        tmp + curLen * 2 * nElemPerRepeat + i * tmpOffset /*remain repeat*/, 
+                        tmp + (curLen - 1) * nElemPerRepeat + i * tmpOffset, 1, 1, 1, 1, 8, 8, 8);
+                }
+            } else {
+                vadd(tmp + (curLen - 1) * nElemPerRepeat /*last repeat of new curLen*/,	
+                    tmp + curLen * 2 * nElemPerRepeat /*remain repeat*/, tmp + (curLen - 1) * nElemPerRepeat, OS0, 
+                    1, 1, 1, tmpRepeatStride, tmpRepeatStride, tmpRepeatStride);
+            }
         }
         pipe_barrier(PIPE_V);
     }
