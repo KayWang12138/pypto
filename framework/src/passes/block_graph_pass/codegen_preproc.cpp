@@ -135,6 +135,38 @@ Status CodegenPreproc::ForceCombineAxis(Function &func) const {
     return SUCCESS;
 }
 
+void CodegenPreproc::SetNeedAllocAttr(Function &function) {
+    for (auto &subProgram : function.rootFunc_->programs_) {
+        std::unordered_set<int> appearedMemId;
+        for (auto &op : subProgram.second->Operations(false)) {
+            for (auto &outTensor : op.GetOOperands()) {
+                if (outTensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+                    continue;
+                }
+                auto it = appearedMemId.find(outTensor->memoryrange.memId);
+                if (it == appearedMemId.end()) {
+                    outTensor->SetAttr(OpAttributeKey::needAlloc, true);
+                    appearedMemId.insert(outTensor->memoryrange.memId);
+                }
+            }
+        }
+    }
+    for (auto &subProgram : function.rootFunc_->programs_) {
+        APASS_LOG_DEBUG_F(Elements::Operation, "==================== OP_LIST Codegen_Preproc =====================");
+        for (auto &op : subProgram.second->Operations(false)) {
+            if (!op.oOperand.empty()) {
+                bool needAlloc = false;
+                op.oOperand[0]->GetAttr(OpAttributeKey::needAlloc, needAlloc);
+                APASS_LOG_DEBUG_F(Elements::Operation, "%s[%d], range[%zu, %zu], needAlloc: %d, memId: %d", 
+                    op.GetOpcodeStr().c_str(), op.GetOpMagic(), op.oOperand[0]->memoryrange.start,
+                    op.oOperand[0]->memoryrange.end, static_cast<int>(needAlloc), op.oOperand[0]->memoryrange.memId);
+            } else {
+                APASS_LOG_DEBUG_F(Elements::Operation, "%s[%d]", op.GetOpcodeStr().c_str(), op.GetOpMagic()); 
+            }
+        }
+    }
+}
+
 Status CodegenPreproc::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Operation, "===============================================================> Start CodegenPreproc.");
     for (auto &op : function.Operations()) {
@@ -150,6 +182,7 @@ Status CodegenPreproc::RunOnFunction(Function &function) {
         APASS_LOG_ERROR_F(Elements::Operation, "CodegenPreproc RunOnFunction failed at function ForceCombineAxis.");
         return FAILED;
     }
+    SetNeedAllocAttr(function);
     APASS_LOG_INFO_F(Elements::Operation, "===============================================================> Finish CodegenPreproc.");
     return SUCCESS;
 }

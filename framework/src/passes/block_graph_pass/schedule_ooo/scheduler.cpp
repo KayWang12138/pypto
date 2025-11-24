@@ -179,16 +179,16 @@ Status OoOScheduler::DelBufRefCount(const int memId) {
 }
 
 void OoOScheduler::PrintOpList(std::vector<Operation *> operations) {
-    APASS_LOG_DEBUG_F(Elements::Operation, "==================== OP_LIST =====================");
+    APASS_LOG_INFO_F(Elements::Operation, "==================== OP_LIST =====================");
     for (auto &op : operations) {
         if (!op->oOperand.empty()) {
             bool needAlloc = false;
             op->oOperand[0]->GetAttr(OpAttributeKey::needAlloc, needAlloc);
-            APASS_LOG_DEBUG_F(Elements::Operation, "%s[%d], range[%zu, %zu], needAlloc: %d", 
+            APASS_LOG_INFO_F(Elements::Operation, "%s[%d], range[%zu, %zu], needAlloc: %d", 
                 op->GetOpcodeStr().c_str(), op->GetOpMagic(), op->oOperand[0]->memoryrange.start,
                 op->oOperand[0]->memoryrange.end, static_cast<int>(needAlloc));
         } else {
-            APASS_LOG_INFO_F(Elements::Operation, "%s[%d]", op->GetOpcodeStr(), op->GetOpMagic()); 
+            APASS_LOG_INFO_F(Elements::Operation, "%s[%d]", op->GetOpcodeStr().c_str(), op->GetOpMagic()); 
         }
     }
 }
@@ -324,9 +324,6 @@ Status OoOScheduler::AllocTensorMemRange(IssueEntryPtr issue) {
         }
         APASS_LOG_DEBUG_F(Elements::Tensor, "REALLOC Tensor[%u] %s --> %s.", 
             memId, tensorOccupyMap[memType][memId]->GetOpInfo(), issue->GetOpInfo());
-        if (tensorOccupyMap[memType][memId]->isAlloc) {
-            outTensor->SetAttr(OpAttributeKey::needAlloc, true);
-        }
         tensorOccupyMap[memType][memId] = issue;
         outTensor->memoryrange =
             TileRange(localBufferMap[memId]->start, localBufferMap[memId]->end, memId);
@@ -1080,7 +1077,6 @@ Status OoOScheduler::GenRearrangeCopyOp(MemoryType memType, int oldMemId, int &n
     }
     LogicalTensorPtr moveToTensor = std::make_shared<LogicalTensor>(function_, moveFromTensor->Datatype(), moveFromTensor->shape);
     // 给moveToTensor分配memId和创建新的localbuffer
-    moveToTensor->SetAttr(OpAttributeKey::needAlloc, true);
     if (UpdateTensorAttr(moveToTensor, memType, moveFromTensor, oldMemId) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "GenRearrangeCopyOp failed at UpdateTensorAttr.");
         return FAILED;
