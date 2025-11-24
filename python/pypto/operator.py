@@ -15,7 +15,7 @@ import pypto
 from pypto import Tensor
 
 
-__all__ = ["sin", "cos", "sigmoid", "softmax"]
+__all__ = ["sin", "cos", "sigmoid", "softmax", "rms_norm"]
 
 
 def sin(input: Tensor) -> Tensor:
@@ -455,3 +455,44 @@ def softmax(input: Tensor, dim: int) -> Tensor:
     if dtype != pypto.DT_FP32:
         output = pypto.cast(output, dtype)
     return output
+
+
+def rms_norm(input_x: Tensor, gamma: Tensor = None, epsilon: float = 1e-6) -> Tensor:
+    """
+    Root Mean Square LayerNorm (RMSNorm) along the last dimension.
+    If `gamma` is provided, applies an element-wise scale on the last dim.
+
+    Parameters
+    ----------
+    input_x : Tensor
+        Input tensor. Any shape (..., C).
+    gamma : Tensor | None
+        Optional scale of shape (C,).
+    epsilon : float
+        Numerical stability constant (default: 1e-6).
+
+    Returns
+    -------
+    Tensor
+        Same shape as `input`, cast back to the original dtype.
+    """
+    in_dtype = input_x.dtype
+    x = pypto.cast(input_x, pypto.DT_FP32)
+
+    n = x.shape[-1]
+
+    y = pypto.sqrt(pypto.sum(x * x * (1.0 / n), keepdim=True)) + epsilon
+
+    ones = pypto.full(y.shape, 1.0, pypto.DT_FP32)
+    y = x * ones / y
+
+    if gamma is not None:
+        rank = input_x.dim
+        shape = [1] * rank
+        shape[-1] = gamma.shape[0]
+        g = pypto.cast(pypto.reshape(gamma, shape), pypto.DT_FP32)
+        y *= g
+
+    if in_dtype != pypto.DT_FP32:
+        y = pypto.cast(y, in_dtype)
+    return y
