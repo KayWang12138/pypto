@@ -30,7 +30,7 @@ def test_slice_neg_index():
     with pypto.function("SLICE_NEG_INDEX", [x], [res]):
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
             pypto.set_vec_tile_shapes(4, 4)
-            res[:] = (x[-3:-1, -2:-1])
+            res[:] = x[-3:-1, -2:-1]
             del res
 
     torch_tensor = torch.rand(4, 8, dtype=torch.float32) * 200 - 100

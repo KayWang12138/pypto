@@ -77,12 +77,15 @@ class Tensor:
     def _get_assemble_offset(self, key, shape):
         offsets = []
         for axis, k in enumerate(key):
-            if isinstance(k.start, (int, SymbolicScalar)):
-                offsets.append(k.start)
-            elif isinstance(k.stop, (int, SymbolicScalar)):
-                offsets.append(k.stop - shape[axis])
-            else:
+            start, stop, step = k.start, k.stop, k.step
+            if step not in (1, None):
+                raise ValueError("step must be 1 or None")
+            if start is None and stop is None:
                 offsets.append(0)
+            elif isinstance(start, (int, SymbolicScalar)):
+                offsets.append(start)
+            elif isinstance(stop, (int, SymbolicScalar)):
+                offsets.append(stop - shape[axis])
         return offsets
 
     def _is_empty_slice(self, key):
@@ -94,6 +97,24 @@ class Tensor:
             return False
         return all([self._is_empty_slice(k) for k in key])
 
+
+    @staticmethod
+    def _add_one_dim(key, value_shape):
+        slices_cout = sum(1 for k in key if isinstance(k, slice))
+        assert slices_cout == len(value_shape), (
+            f"The number of slice in key ({slices_cout}) "
+            f"must match the length of input Tensor ({len(value_shape)}). "
+        )
+        new_shape = []
+        idx = 0
+        for k in key:
+            if isinstance(k, slice):
+                new_shape.append(value_shape[idx])
+                idx += 1
+            else:
+                new_shape.append(1)
+        return new_shape
+
     def __setitem__(self, key, value):
         """
         Set tensor data by index or slice.
@@ -102,36 +123,126 @@ class Tensor:
             key (Union[int, SymbolicScalar, slice]): Index or slice to set.
             value (Tensor | Element): value to set.
 
-            example:
-            >>> a = pypto.tensor((16, 16), pypto.FLOAT32)
-            >>> b = pypto.tensor((4, 4), pypto.FLOAT32)
-            >>> a[0, 0] = 1.0 # SetTensorData
-            >>> a[0, 1:] = 2.0 # Not supported now
-            >>> a[1:, 1:] = b # Assemb(b, (1, 1), a)
-            >>> a[:16, :16] = b # Assemb(b, (16 - 4, 16 - 4), a)
+        example:
+        # All slice
+        a = pypto.tensor((4, 4), pypto.DT_FP32)
+        b = pypto.tensor((2, 2), pypto.DT_FP32)
+        a[0:, 0:] = b # assemble(b, (0, 0), a)
+        Input a:[[0, 0, 0, 0],
+                 [0, 0, 0, 0],
+                 [0, 0, 0, 0],
+                 [0, 0, 0, 0],]
+        Input b:[[10, 10]
+                 [10, 10]]
+        Output a:[[10, 10, 0, 0],
+                  [10, 10, 0, 0],
+                  [0, 0, 0, 0],
+                  [0, 0, 0, 0]]
+
+        # Index and slice
+        a = pypto.tensor((4, 4), pypto.DT_FP32)
+        b = pypto.tensor((2), pypto.DT_FP32)
+        a[0, 1:3] = b # reshape b to (1, 2), assemble(b, (0, 1), a)
+        Input a:[[0, 0, 0, 0],
+                 [0, 0, 0, 0],
+                 [0, 0, 0, 0],
+                 [0, 0, 0, 0],]
+        Input b:[10, 10]
+        Output a:[[0, 10, 10, 0],
+                  [0, 0, 0, 0],
+                  [0, 0, 0, 0],
+                  [0, 0, 0, 0]]
+
+        # Negative index
+        a = pypto.tensor((4, 4), pypto.DT_FP32)
+        b = pypto.tensor(2), pypto.DT_FP32)
+        a[-1, -3:-1] = b # equivalent to a[3, 1:3]
+
+        # Ellipsis index
+        a = pypto.tensor((4, 4), pypto.DT_FP32)
+        b = pypto.tensor((2, 2), pypto.DT_FP32)
+        a[..., 1:3] = b # equivalent to a[0:2, 1:3]
+
+        # single data
+        a = pypto.tensor((4, 4), pypto.DT_INT32)
+        a[0, 0] = 1 #SetTensorData, supports only DT_INT32 tensors
+
         """
+
         if self._is_empty_slice(key):
             self.move(value)
-        elif isinstance(key, (int, SymbolicScalar)):
-            self.__setitem__((key,), value)
-        elif isinstance(key, slice):
-            if isinstance(key.stop, Tensor):
-                assert isinstance(key.start, int)
-                return pypto.scatter(self, key.start, key.stop, value)
-            else:
-                self.__setitem__((key,), value)
-        elif isinstance(key, tuple):
-            assert self.dim == len(
-                key), f"rank not match, expect {self.dim}, but got {len(key)}"
-            if all([isinstance(k, (int, SymbolicScalar)) for k in key]):
-                pto_impl.SetTensorData(to_sym(value), to_syms(key), self._base)
-            elif all([isinstance(k, slice) for k in key]):
-                offsets = self._get_assemble_offset(key, value.shape)
-                pypto.assemble(value, offsets, self)
-            else:
-                raise ValueError("tuple key must be int or SymbolicScalar")
-        else:
+            return
+
+        if isinstance(key, slice) and isinstance(key.stop, Tensor):
+            assert isinstance(key.start, int)
+            return pypto.scatter(self, key.start, key.stop, value)
+
+        key = self._normalize_key(key)
+
+        if all(isinstance(k, (int, SymbolicScalar)) for k in key):
+            pto_impl.SetTensorData(to_sym(value), to_syms(key), self._base)
+            return
+
+        if all(isinstance(k, slice) for k in key):
+            offsets = self._get_assemble_offset(key, self.shape)
+            return pypto.assemble(value, offsets, self)
+
+        if all(isinstance(k, (slice, int, SymbolicScalar)) for k in key):
+            new_shape = self._add_one_dim(key, value.shape)
+            value_reshaped = pypto.reshape(value, new_shape)
+            new_key, _ = self._get_slice_index(key)  # int→slice
+            offsets = self._get_assemble_offset(tuple(new_key), self.shape)
+            return pypto.assemble(value_reshaped, offsets, self)
+
+        raise ValueError("tuple key must be int, SymbolicScalar or slice")
+
+
+    def _normalize_key(self, key):
+        if self._is_empty_slice(key):
+            return key
+
+        if isinstance(key, (int, SymbolicScalar, slice)) or key is Ellipsis:
+            key = (key,)
+
+        if not isinstance(key, tuple):
             raise RuntimeError("Invalid key type")
+
+        if any(k is Ellipsis for k in key):
+            ellipsis_count = sum(k is Ellipsis for k in key)
+            if ellipsis_count > 1:
+                raise ValueError("Only one ... is supported")
+
+            ellipsis_pos = next(i for i, k in enumerate(key) if k is Ellipsis)
+            other_len = len(key) - 1
+            colon_count = self.dim - other_len
+            if colon_count < 0:
+                raise IndexError(f"Too many indices for tensor with dimension {self.dim}")
+            colons = (slice(None),) * colon_count
+            key = key[:ellipsis_pos] + colons + key[ellipsis_pos + 1:]
+
+        assert self.dim == len(key), f"rank not match, expect {self.dim}, but got {len(key)}"
+        key = self._negative_index_to_positive(key, self.shape)
+        return key
+
+
+    @staticmethod
+    def _negative_index_to_positive(key, shape):
+        normalized = []
+        for axis, k in enumerate(key):
+            size = shape[axis]
+            if isinstance(k, (int, SymbolicScalar)):
+                if isinstance(k, int) and k < 0:
+                    k = size + k
+                normalized.append(k)
+                continue
+            start, stop, step = k.start, k.stop, k.step
+            if isinstance(start, int) and start < 0:
+                start = size + start
+            if isinstance(stop, int) and stop < 0:
+                stop = size + stop
+            normalized.append(slice(start, stop, step))
+        return tuple(normalized)
+
 
     def _get_view_offset_shape(self, key, shape):
         offsets = []
@@ -234,12 +345,12 @@ class Tensor:
     def _get_slice_index(key):
         new_key = []
         bool_shape = []
-        for axis, k in enumerate(key):
+        for k in key:
             if isinstance(k, (int, SymbolicScalar)):
-                new_key.append(slice(int(k), int(k) + 1))
+                new_key.append(slice(k, k + 1))
                 bool_shape.append(False)
             else:
-                new_key.append(key[axis])
+                new_key.append(k)
                 bool_shape.append(True)
         return new_key, bool_shape
 
@@ -336,9 +447,9 @@ class Tensor:
             offsets (Union[List[int], List[SymbolicScalar]]): Offset for placing the input tensor.
 
         example:
-        >>> s = pypto.tensor((16, 16), pypto.DT_FP32)
-        >>> a = pypto.tensor((2, 2), pypto.DT_FP32)
-        >>> s.assemble(a, [0, 0])
+        s = pypto.tensor((16, 16), pypto.DT_FP32)
+        a = pypto.tensor((2, 2), pypto.DT_FP32)
+        s.assemble(a, [0, 0])
         """
         pypto.assemble(input, offsets, self)
 
