@@ -49,7 +49,7 @@ def amin(input: Tensor, dim: int = -1, keepdim: bool = False) -> Tensor:
               [1]]
 
     """
-    return pto_impl.amin(input, dim, keepdim)
+    return pto_impl.Amin(input, dim, keepdim)
 
 
 @op_wrapper
@@ -83,7 +83,7 @@ def amax(input: Tensor, dim: int = -1, keepdim: bool = False) -> Tensor:
               [3]]
 
     """
-    return pto_impl.amax(input, dim, keepdim)
+    return pto_impl.Amax(input, dim, keepdim)
 
 
 @op_wrapper
@@ -124,7 +124,7 @@ def maximum(
         input, other = other, input
     if isinstance(other, (int, float)):
         other = pto_impl.Element(input.dtype, other)
-    return pto_impl.maximum(input, other)
+    return pto_impl.Maximum(input, other)
 
 
 @op_wrapper
@@ -165,7 +165,7 @@ def minimum(
         input, other = other, input
     if isinstance(other, (int, float)):
         other = pto_impl.Element(input.dtype, other)
-    return pto_impl.minimum(input, other)
+    return pto_impl.Minimum(input, other)
 
 
 @op_wrapper
@@ -199,4 +199,4 @@ def sum(input: Tensor, dim: int = -1, keepdim: bool = False) -> Tensor:
               [6]]
 
     """
-    return pto_impl.sum(input, dim, keepdim)
+    return pto_impl.Sum(input, dim, keepdim)

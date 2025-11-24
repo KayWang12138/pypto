@@ -94,7 +94,7 @@ def where(
         other_base = other
     else:
         other_base = pto_impl.Element(pto_impl.DT_FP32, other)
-    return pto_impl.where(condition, input_base, other_base)
+    return pto_impl.Where(condition, input_base, other_base)
 
 
 @op_wrapper
@@ -136,4 +136,4 @@ def one_hot(input: Tensor, num_classes: int) -> Tensor:
         raise RuntimeError("num_classes must be specified")
     if num_classes <= 0:
         raise RuntimeError("num_classes must be a positive integer")
-    return pto_impl.one_hot(input, num_classes)
+    return pto_impl.OneHot(input, num_classes)

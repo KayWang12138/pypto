@@ -62,18 +62,18 @@ def add(
     """
     if isinstance(other, pto_impl.Tensor):
         if alpha == 1 or alpha == 1.0:
-            return pto_impl.add(input, other)
+            return pto_impl.Add(input, other)
         else:
-            return pto_impl.add(
-                input, pto_impl.mul_s(other, pto_impl.Element(input.dtype, alpha))
+            return pto_impl.Add(
+                input, pto_impl.Mul(other, pto_impl.Element(input.dtype, alpha))
             )
     else:
         if alpha == 1 or alpha == 1.0:
-            return pto_impl.add_s(input, pto_impl.Element(input.dtype, other))
+            return pto_impl.Add(input, pto_impl.Element(input.dtype, other))
         else:
             if not isinstance(other, (int, float)):
                 raise TypeError(f"alpha must be int or float, but got {type(other)}.")
-            return pto_impl.add_s(input, pto_impl.Element(input.dtype, other * alpha))
+            return pto_impl.Add(input, pto_impl.Element(input.dtype, other * alpha))
 
 
 @op_wrapper
@@ -125,18 +125,18 @@ def sub(
     """
     if isinstance(other, pto_impl.Tensor):
         if alpha == 1 or alpha == 1.0:
-            return pto_impl.sub(input, other)
+            return pto_impl.Sub(input, other)
         else:
-            return pto_impl.sub(
-                input, pto_impl.mul_s(other, pto_impl.Element(input.dtype, alpha))
+            return pto_impl.Sub(
+                input, pto_impl.Mul(other, pto_impl.Element(input.dtype, alpha))
             )
     else:
         if alpha == 1 or alpha == 1.0:
-            return pto_impl.sub(input, pto_impl.Element(input.dtype, other))
+            return pto_impl.Sub(input, pto_impl.Element(input.dtype, other))
         else:
             if not isinstance(other, (int, float)):
                 raise TypeError(f"alpha must be int or float, but got {type(other)}.")
-            return pto_impl.sub(input, pto_impl.Element(input.dtype, other * alpha))
+            return pto_impl.Sub(input, pto_impl.Element(input.dtype, other * alpha))
 
 
 @op_wrapper
@@ -177,9 +177,9 @@ def mul(input: Tensor, other: Union[Tensor, int, float]) -> Tensor:
               [1 4 9]]
     """
     if isinstance(other, pto_impl.Tensor):
-        return pto_impl.mul(input, other)
+        return pto_impl.Mul(input, other)
     else:
-        return pto_impl.mul_s(input, pto_impl.Element(input.dtype, other))
+        return pto_impl.Mul(input, pto_impl.Element(input.dtype, other))
 
 
 @op_wrapper
@@ -222,9 +222,9 @@ def div(input: Tensor, other: Union[Tensor, int, float]) -> Tensor:
     Output out: [1 2 3]
     """
     if isinstance(other, pto_impl.Tensor):
-        return pto_impl.div(input, other)
+        return pto_impl.Div(input, other)
     else:
-        return pto_impl.div_s(input, pto_impl.Element(input.dtype, other))
+        return pto_impl.Div(input, pto_impl.Element(input.dtype, other))
 
 
 @op_wrapper
@@ -258,7 +258,7 @@ def pow(input: Tensor, other: Union[int, float]) -> Tensor:
     """
     if not isinstance(other, (int, float)):
         raise TypeError(f"other must be int or float, but got {type(other)}.")
-    return pto_impl.pow(input, pto_impl.Element(input.dtype, other))
+    return pto_impl.Pow(input, pto_impl.Element(input.dtype, other))
 
 
 @op_wrapper
@@ -289,17 +289,17 @@ def exp(input: Tensor) -> Tensor:
     Input x: [0 1 2]
     Output y:[1.0000 2.7183 7.3891]
     """
-    return pto_impl.exp(input)
+    return pto_impl.Exp(input)
 
 
 @op_wrapper
 def abs(a) -> Tensor:
-    return pto_impl.abs(a)
+    return pto_impl.Abs(a)
 
 
 @op_wrapper
 def reciprocal(a) -> Tensor:
-    return pto_impl.reciprocal(a)
+    return pto_impl.Reciprocal(a)
 
 
 @op_wrapper
@@ -328,7 +328,7 @@ def logical_not(input: Tensor) -> Tensor:
     Output out: [True False False False False False]
 
     """
-    return pto_impl.logical_not(input)
+    return pto_impl.LogicalNot(input)
 
 
 @op_wrapper
@@ -368,7 +368,7 @@ def logical_and(input: Tensor, other: Tensor) -> Tensor:
     Input y: [True, False]
     Output z: [[True, False], [False, False]]
     """
-    return pto_impl.logical_and(input, other)
+    return pto_impl.LogicalAnd(input, other)
 
 
 @op_wrapper
@@ -405,7 +405,7 @@ def rsqrt(input: Tensor) -> Tensor:
     Output y:[[1  0.5],
               [0.25 0.33333]]
     """
-    return pto_impl.rsqrt(input)
+    return pto_impl.Rsqrt(input)
 
 
 @op_wrapper
@@ -436,12 +436,12 @@ def sqrt(input: Tensor) -> Tensor:
     Input x:  [1.0 4.0 9.0 16.0 25.0]
     Output y: [1.0 2.0 3.0 4.0 5.0]
     """
-    return pto_impl.sqrt(input)
+    return pto_impl.Sqrt(input)
 
 
 @op_wrapper
 def neg(a) -> Tensor:
-    return pto_impl.neg(a)
+    return pto_impl.Neg(a)
 
 
 @op_wrapper
@@ -473,7 +473,7 @@ def log(input: Tensor) -> Tensor:
     Output y:[0.0000 0.6931 1.0986]
     """
 
-    return pto_impl.log(input, pto_impl.LogBaseType.LOG_E)
+    return pto_impl.Log(input, pto_impl.LogBaseType.LOG_E)
 
 
 @op_wrapper
@@ -521,4 +521,4 @@ def clip(
     )
     min_ = min_ or default
     max_ = max_ or default
-    return pto_impl.clip(input, min_, max_)
+    return pto_impl.Clip(input, min_, max_)

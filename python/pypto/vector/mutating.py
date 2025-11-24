@@ -52,7 +52,7 @@ def transpose(input: Tensor, dim0: int, dim1: int) -> Tensor:
                  [-0.9893 0.7299],
                  [ 0.5809 0.4942]])
     """
-    return pto_impl.transpose(input, {dim0, dim1})
+    return pto_impl.Transpose(input, {dim0, dim1})
 
 
 @op_wrapper
@@ -88,7 +88,7 @@ def cast(input: Tensor, dtype: DataType, mode: CastMode = CastMode.CAST_NONE) ->
     if dtype == input.dtype and mode == CastMode.CAST_NONE:
         return input
     else:
-        return pto_impl.cast(input, dtype, mode)
+        return pto_impl.Cast(input, dtype, mode)
 
 
 @op_wrapper
@@ -100,4 +100,4 @@ def expand_clone(
 ) -> Tensor:
     if valid_shape is None:
         valid_shape = []
-    return pto_impl.expand(input, shape, valid_shape)
+    return pto_impl.Expand(input, shape, valid_shape)

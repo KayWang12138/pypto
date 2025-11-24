@@ -86,7 +86,7 @@ def arange(*args: Union[int, float]) -> Tensor:
     """
     if len(args) == 1:
         end = args[0]
-        return pto_impl.range(
+        return pto_impl.Range(
             pto_impl.Element(pto_impl.DataType.DT_INT32, 0),
             convert_to_element(end),
             pto_impl.Element(pto_impl.DataType.DT_INT32, 1),
@@ -94,7 +94,7 @@ def arange(*args: Union[int, float]) -> Tensor:
 
     if len(args) == 2:
         start, end = args
-        return pto_impl.range(
+        return pto_impl.Range(
             convert_to_element(start),
             convert_to_element(end),
             pto_impl.Element(pto_impl.DataType.DT_INT32, 1),
@@ -106,7 +106,7 @@ def arange(*args: Union[int, float]) -> Tensor:
         )
 
     start, end, step = args
-    return pto_impl.range(
+    return pto_impl.Range(
         convert_to_element(start), convert_to_element(end), convert_to_element(step)
     )
 
@@ -159,10 +159,10 @@ def full(
     if valid_shape is None:
         valid_shape = []
     if isinstance(fill_value, pto_impl.SymbolicScalar):
-        return pto_impl.full(fill_value, dtype, size, to_syms(valid_shape))
+        return pto_impl.Full(fill_value, dtype, size, to_syms(valid_shape))
     elif isinstance(fill_value, pto_impl.Element):
-        return pto_impl.full(fill_value, dtype, size, to_syms(valid_shape))
+        return pto_impl.Full(fill_value, dtype, size, to_syms(valid_shape))
     else:
-        return pto_impl.full(
+        return pto_impl.Full(
             pto_impl.Element(dtype, fill_value), dtype, size, to_syms(valid_shape)
         )

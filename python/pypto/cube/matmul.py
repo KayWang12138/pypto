@@ -111,18 +111,18 @@ def matmul(
     mat2_dim = mat2.Dim()
     if input_dim == mat2_dim == 2:
         if (extend_params is None) or (not extend_params):
-            return pto_impl.matmul(
+            return pto_impl.Matmul(
                 out_dtype, input, mat2, a_trans, b_trans, c_matrix_nz
             )
         else:
             extend_params = pto_impl.MatmulExtendParam(
                 **convert_matmul_extend_params(extend_params)
             )
-            return pto_impl.matmul(
+            return pto_impl.Matmul(
                 out_dtype, input, mat2, a_trans, b_trans, c_matrix_nz, extend_params
             )
     elif (input_dim == mat2_dim == 3) or (input_dim == mat2_dim == 4):
-        return pto_impl.batch_matmul(
+        return pto_impl.BatchMatmul(
             out_dtype, input, mat2, a_trans, b_trans, c_matrix_nz
         )
     else:

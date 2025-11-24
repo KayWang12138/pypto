@@ -59,7 +59,7 @@ def assemble(
                 [0 0 0 0]
                 [0 0 0 0]]
     """
-    pto_impl.assemble(input, to_syms(offsets), out)
+    pto_impl.Assemble(input, to_syms(offsets), out)
 
 
 def min(a: "SymbolicScalar | int", b: "SymbolicScalar | int") -> "SymbolicScalar":
@@ -133,12 +133,12 @@ def reshape(
     output y: [1, 2, 3, 4]
     """
     if inplace:
-        out = pto_impl.reshape(input, to_syms(shape), inplace)
+        out = pto_impl.Reshape(input, to_syms(shape), inplace)
     else:
         if valid_shape is None:
-            out = pto_impl.reshape(input, shape)
+            out = pto_impl.Reshape(input, shape)
         else:
-            out = pto_impl.reshape(input, shape, valid_shape)
+            out = pto_impl.Reshape(input, shape, valid_shape)
     return out
 
 
@@ -167,7 +167,7 @@ def clone(input: Tensor) -> Tensor:
     output y: [[1, 2],
               [3, 4]]
     """
-    return pto_impl.clone(input)
+    return pto_impl.Assign(input)
 
 
 @op_wrapper
@@ -205,7 +205,7 @@ def unsqueeze(input: Tensor, dim: int) -> Tensor:
                [4, 5, 6]]]
 
     """
-    return pto_impl.unsqueeze(input, dim)
+    return pto_impl.Unsqueeze(input, dim)
 
 
 @op_wrapper
@@ -273,6 +273,6 @@ def view(
               [0 0 0 0]]
     """
     if valid_shape is None:
-        return pto_impl.view(input, shape, offsets)
+        return pto_impl.View(input, shape, offsets)
     else:
-        return pto_impl.view(input, shape, to_syms(valid_shape), to_syms(offsets))
+        return pto_impl.View(input, shape, to_syms(valid_shape), to_syms(offsets))

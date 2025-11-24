@@ -51,7 +51,7 @@ def greater(input: Tensor, other: Tensor) -> Tensor:
     Output out: [False False True]
 
     """
-    return pto_impl.compare(input, other, OpType.GT, OutType.BOOL)
+    return pto_impl.Compare(input, other, OpType.GT, OutType.BOOL)
 
 
 @op_wrapper
@@ -96,4 +96,4 @@ def topk(
                   [2 1]]
     """
 
-    return pto_impl.topk(input, k, (-1 if dim is None else dim), largest)
+    return pto_impl.TopK(input, k, (-1 if dim is None else dim), largest)

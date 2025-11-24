@@ -46,4 +46,4 @@ def concat(tensors: List[Tensor], dim: int = 0) -> Tensor:
                 [0 0],
                 [0 0]]
     """
-    return pto_impl.concat(tensors, dim)
+    return pto_impl.Cat(tensors, dim)

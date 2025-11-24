@@ -69,7 +69,7 @@ def gather(input: Tensor, dim: int, index: Tensor) -> Tensor:
 
     """
 
-    return pto_impl.gather_element(input, index, dim)
+    return pto_impl.GatherElements(input, index, dim)
 
 
 @op_wrapper
@@ -199,7 +199,7 @@ def scatter_update(input: Tensor, dim: int, index: Tensor, src: Tensor) -> Tenso
     else:
         raise ValueError("dim must be 2 or 4")
 
-    return pto_impl.scatter_update(input, index, src, -2, "PA_BSND", chunk_size)
+    return pto_impl.ScatterUpdate(input, index, src, -2, "PA_BSND", chunk_size)
 
 
 @op_wrapper
@@ -256,11 +256,11 @@ def scatter_(input: Tensor, dim: int, index: Tensor, src: float) -> Tensor:
               [0   2.0 0 0 0]]
     """
 
-    return pto_impl.scatter_(input, index, pto_impl.Element(input.dtype, src), dim)
+    return pto_impl.Scatter_(input, index, pto_impl.Element(input.dtype, src), dim)
 
 
 @op_wrapper
 def scatter(input: Tensor, dim: int, index: Tensor, src: float) -> Tensor:
     """Out-of-place version of 'scatter_'."""
 
-    return pto_impl.scatter(input, index, pto_impl.Element(input.dtype, src), dim)
+    return pto_impl.Scatter(input, index, pto_impl.Element(input.dtype, src), dim)
