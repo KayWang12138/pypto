@@ -198,7 +198,7 @@ def matmul_split_m_utils(tensor_a, tensor_b, tensor_c, input_config, m_idx):
                     valid_shape=[shape_a[0], (shape_a[1] - m_idx * view_shape[0]).min(pypto.symbolic_scalar(view_shape[0]))])
     else:
         dyn_a = pypto.view(tensor_a, [view_shape[0], shape_a[1]],
-                    [0, m_idx * view_shape[0]],
+                    [m_idx * view_shape[0], 0],
                     valid_shape=[(shape_a[0] - m_idx * view_shape[0]).min(pypto.symbolic_scalar(view_shape[0])), shape_a[1]])
 
     dyn_b = pypto.view(tensor_b, shape_b, [0, 0], valid_shape=[shape_b[0], shape_b[1]])
@@ -283,7 +283,7 @@ def matmul_split_m_n_util(tensor_a, tensor_b, tensor_c, input_config, m_idx):
                         valid_shape=[shape_a[0], (shape_a[1] - m_idx * view_shape[0]).min(pypto.symbolic_scalar(view_shape[0]))])
         else:
             dyn_a = pypto.view(tensor_a, [view_shape[0], shape_a[1]],
-                        [0, m_idx * view_shape[0]],
+                        [m_idx * view_shape[0], 0],
                         valid_shape=[(shape_a[0] - m_idx * view_shape[0]).min(pypto.symbolic_scalar(view_shape[0])), shape_a[1]])
         if not b_trans:
             dyn_b = pypto.view(tensor_b, [shape_b[0], view_shape[1]],

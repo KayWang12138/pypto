@@ -11,7 +11,6 @@
 """
 """
 import inspect
-import struct
 from typing import Sequence, Union, List
 
 from . import pto_impl
@@ -50,7 +49,7 @@ def extract_user_backtrace(stack_frames) -> str:
         skip_site = "site-packages" in filename or "lib/python" in filename
         skip_frozen = "<frozen runpy>" in filename
         skip_func = frame.function in ("wrapper", "decorator")
-        
+
         if skip_site or skip_frozen or skip_func:
             continue
         result.append(f"{(filename)}:{lineno}")
@@ -59,31 +58,14 @@ def extract_user_backtrace(stack_frames) -> str:
 
 def set_source_location(level: int = 1):
     pto_impl.SetLocation(
-        inspect.stack()[level + 1].filename, 
-        inspect.stack()[level + 1].lineno, 
+        inspect.stack()[level + 1].filename,
+        inspect.stack()[level + 1].lineno,
         extract_user_backtrace(inspect.stack())
     )
 
 
 def clear_source_location():
     pto_impl.ClearLocation()
-
-
-def convert_matmul_extend_params(extend_params) -> dict:
-    extend_params.setdefault('bias_tensor', pto_impl.Tensor())
-    extend_params.setdefault('scale_tensor', pto_impl.Tensor())
-    extend_params.setdefault('relu_type', pto_impl.ReLuType.NoReLu)
-    # scale: float trans to uint64
-    if 'scale' not in extend_params:
-        extend_params['scale'] = 0
-    else:
-        scale_value = extend_params['scale']
-        if not isinstance(scale_value, float):
-            raise RuntimeError("scale must float type")
-        pakced_float: bytes = struct.pack('f', scale_value)
-        scale_trans_val: int = struct.unpack('<I', pakced_float)[0]
-        extend_params['scale'] = scale_trans_val
-    return extend_params
 
 
 def bytes_of(dtype: DataType) -> int:

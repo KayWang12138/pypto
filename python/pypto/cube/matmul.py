@@ -8,10 +8,10 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """ """
+import struct
 from .. import pto_impl
 
 from ..op_wrapper import op_wrapper
-from ..pto_utils import convert_matmul_extend_params
 from ..tensor import Tensor
 
 
@@ -129,3 +129,20 @@ def matmul(
         raise RuntimeError(
             "input dim and mat dim must equals, which only support 2-D/3-D/4-D currently"
         )
+
+
+def convert_matmul_extend_params(extend_params) -> dict:
+    extend_params.setdefault('bias_tensor', pto_impl.Tensor())
+    extend_params.setdefault('scale_tensor', pto_impl.Tensor())
+    extend_params.setdefault('relu_type', pto_impl.ReLuType.NoReLu)
+    # scale: float trans to uint64
+    if 'scale' not in extend_params:
+        extend_params['scale'] = 0
+    else:
+        scale_value = extend_params['scale']
+        if not isinstance(scale_value, float):
+            raise RuntimeError("scale must float type")
+        pakced_float: bytes = struct.pack('f', scale_value)
+        scale_trans_val: int = struct.unpack('<I', pakced_float)[0]
+        extend_params['scale'] = scale_trans_val
+    return extend_params
