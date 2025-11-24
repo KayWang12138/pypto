@@ -35,6 +35,7 @@
 #include "interface/utils/op_info_manager.h"
 #include "toolchain/prof_api.h"
 #include "prof_common.h"
+#include "load_aicpu_op.h"
 
 extern char _binary_kernel_o_start[];
 extern char _binary_kernel_o_end[];
@@ -52,6 +53,7 @@ constexpr int32_t L2_CACHE = 8;
 constexpr int32_t PATH_LENGTH = 64;
 constexpr uint32_t LOG_BUF_SIZE = 64 * 1024;
 bool g_IsFirstInit = false;
+bool g_IsNullLaunched = false;
 constexpr uint32_t MIX_BLOCK_DIM = 2;
 constexpr uint32_t HIGHT_BIT = 16;
 
@@ -410,23 +412,7 @@ int DeviceRunner::launchDynamicAiCore(rtStream_t aicoreStream, AstKernelArgs *ke
 }
 
 int DeviceRunner::launchDynamicAiCpu(rtStream_t aicpuStream, AstKernelArgs *kArgs) {
-    struct Args {
-        AstKernelArgs kArgs;
-        const char kernelName[32] = {"DynTileFwkKernelServer"};
-        const char soName[32] = {"libaicpu_extend_kernels.so"};
-        const char opName[32] = {""};
-    } args;
-
-    args.kArgs = *kArgs;
-
-    rtAicpuArgsEx_t rtArgs;
-    memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
-    rtArgs.args = &args;
-    rtArgs.argsSize = sizeof(args);
-    rtArgs.kernelNameAddrOffset = offsetof(struct Args, kernelName);
-    rtArgs.soNameAddrOffset = offsetof(struct Args, soName);
-    return rtAicpuKernelLaunchExWithArgs(
-        rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", aicpuNum_, &rtArgs, nullptr, aicpuStream, 0);
+    return LoadAicpuOp::GetInstance().LaunchBuiltInOp(aicpuStream, kArgs, aicpuNum_, "PyptoRun");
 }
 
 void DeviceRunner::InitAiCpuSoBin() {
@@ -445,23 +431,7 @@ void DeviceRunner::InitAiCpuSoBin() {
 }
 
 int DeviceRunner::launchDynamicAiCpuInit(rtStream_t aicpuStream, AstKernelArgs *kArgs) {
-    struct Args {
-        AstKernelArgs kArgs;
-        const char kernelName[32] = {"DynTileFwkKernelServerInit"};
-        const char soName[32] = {"libaicpu_extend_kernels.so"};
-        const char opName[32] = {""};
-    } args;
-
-    args.kArgs = *kArgs;
-
-    rtAicpuArgsEx_t rtArgs;
-    memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
-    rtArgs.args = &args;
-    rtArgs.argsSize = sizeof(args);
-    rtArgs.kernelNameAddrOffset = offsetof(struct Args, kernelName);
-    rtArgs.soNameAddrOffset = offsetof(struct Args, soName);
-    return rtAicpuKernelLaunchExWithArgs(
-        rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 1, &rtArgs, nullptr, aicpuStream, 0);
+    return LoadAicpuOp::GetInstance().LaunchBuiltInOp(aicpuStream, kArgs, 1, "PyptoInit");
 }
 
 int DeviceRunner::RunPrepare(rtStream_t aicpuStream, rtStream_t aicoreStream) {
@@ -561,6 +531,14 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
         InitAiCpuSoBin();
     }
     g_IsFirstInit = true;
+    if (!g_IsNullLaunched) {
+        auto ret = LoadAicpuOp::GetInstance().LaunchBuiltInOp(aicpuStream, kernelArgs, 1, "PyptoNull");
+        if (ret != 0) {
+            ALOG_ERROR_F("launch built null failed");
+            return ret;
+        }
+    }
+    g_IsNullLaunched = true;
     auto localArgs = args_;
     auto size = sizeof(localArgs);
 
@@ -653,6 +631,13 @@ int DeviceRunner::Init(void) {
     char path[PATH_LENGTH];
     sprintf_s(path, PATH_LENGTH, "/tmp/aicpu%d.lock", devId_);
     lock_.Init(path);
+    std::string builtInOpPath = config::LogTopFolder() + "/built_in";
+    CreateMultiLevelDir(builtInOpPath);
+    LoadAicpuOp::GetInstance().GenBuiltInOpInfo(builtInOpPath);
+    if (LoadAicpuOp::GetInstance().GetBuiltInOpBinHandle() != 0) {
+        ALOG_ERROR("Get builtInOp Funchandle failed\n");
+        return -1;
+    }
     if (InitDeviceArgs(args_) != 0) {
         ALOG_ERROR("prepareArgs failed\n");
         return -1;

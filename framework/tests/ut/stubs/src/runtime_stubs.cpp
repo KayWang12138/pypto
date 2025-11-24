@@ -17,6 +17,7 @@
 #include <string>
 #include <runtime/rt.h>
 #include <runtime/base.h>
+#include "rts/rts_kernel.h"
 #define EVENT_LENTH 10
 #define DEVICE_VALUE 2000
 #define TIME 12345
@@ -340,4 +341,36 @@ rtError_t rtStreamAddToModel(rtStream_t stm, rtModel_t captureMdl)
     (void)captureMdl;
     return RT_ERROR_NONE;
 }
+rtError_t rtsBinaryLoadFromFile([[maybe_unused]] const char * const binPath, [[maybe_unused]] const rtLoadBinaryConfig_t *const optionalCfg,
+    [[maybe_unused]] rtBinHandle *binHandle)
+{
+    return RT_ERROR_NONE;
+}
+
+rtError_t rtsFuncGetByName([[maybe_unused]] const rtBinHandle binHandle, [[maybe_unused]] const char *kernelName,
+    [[maybe_unused]] rtFuncHandle *funcHandle)
+{
+    return RT_ERROR_NONE;
+}
+
+rtError_t rtsLaunchCpuKernel([[maybe_unused]] const rtFuncHandle funcHandle, [[maybe_unused]]  const uint32_t blockDim,
+    [[maybe_unused]] rtStream_t st, [[maybe_unused]] const rtKernelLaunchCfg_t *cfg, [[maybe_unused]] rtCpuKernelArgs_t *argsInfo)
+{
+    return RT_ERROR_NONE;
+}
+
+rtError_t rtCpuKernelLaunchWithFlag(const void *soName, const void *kernelName, uint32_t blockDim,
+                                    const rtArgsEx_t *argsInfo, rtSmDesc_t *smDesc, rtStream_t stream,
+                                    uint32_t flags)
+{
+    (void)soName;
+    (void)kernelName;
+    (void)blockDim;
+    (void)argsInfo;
+    (void)smDesc;
+    (void)stream;
+    (void)flags;
+    return RT_ERROR_NONE;
+}
+
 }

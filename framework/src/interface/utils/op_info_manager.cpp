@@ -52,5 +52,32 @@ void OpInfoManager::SetOpType(const std::string &opType) {
 const std::string &OpInfoManager::GetOpType() const {
   return opType_;
 }
+
+std::vector<char>& OpInfoManager::GetControlBuffer() {
+  return controlBuffer_;
+}
+
+std::vector<char>& OpInfoManager::GetCustomJson() {
+  return customJson_;
+}
+
+std::string &OpInfoManager::GetCustomOpJsonPath() {
+  return controlFlowSoPath_;
+}
+
+void *OpInfoManager::GetControlBinHandle(const std::string &controlJsonPath) {
+ if (controlBinHandle_.find(controlJsonPath) != controlBinHandle_.end()) {
+    return controlBinHandle_[controlJsonPath];
+ }
+ return nullptr;
+}
+
+void OpInfoManager::SetControlBinHandle(void *controlFlowBindHandle) {
+  controlBinHandle_[controlFlowSoPath_] = controlFlowBindHandle;
+}
+
+std::string &OpInfoManager::GetOpFuncName() {
+  return funcName_;
+}
 }
 

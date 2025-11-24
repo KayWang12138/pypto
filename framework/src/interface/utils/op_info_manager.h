@@ -36,10 +36,22 @@ public:
     uint64_t GetCurSubTilingKey() const;
     void SetOpType(const std::string &opType);
     const std::string &GetOpType() const;
+    bool IsNotFabinCompile();
+    std::vector<char>& GetControlBuffer();
+    std::vector<char>& GetCustomJson();
+    std::string &GetCustomOpJsonPath();
+    std::string &GetOpFuncName();
+    void *GetControlBinHandle(const std::string &controlJsonPath);
+    void SetControlBinHandle(void *controlFlowBindHandle);
 private:
   std::mutex mtx_;
   std::string opType_ = "tilefwk";
   uint64_t opTilingKey_{0};
   uint64_t subTilingKey_{0};
+  std::vector<char> controlBuffer_ = {'0'};
+  std::vector<char> customJson_ = {'0'};
+  std::string controlFlowSoPath_;
+  std::string funcName_;
+  std::map<std::string, void*> controlBinHandle_;
 };
 }
