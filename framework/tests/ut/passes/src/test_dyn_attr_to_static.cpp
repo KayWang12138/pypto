@@ -44,11 +44,9 @@ public:
 };
 
 const std::string LEFT_BRACKER = "(";
-const std::string MAYBE_CONST_POSTFIX = "MAYBE_CONST";
 
 bool VerifyNewMacroExpr(std::reference_wrapper<SymbolicScalar>& dynScalar) {
     std::string dynParamExpr = SymbolicExpressionTable::BuildExpression(dynScalar);
-
     // COA类型宏格式是"(RUNTIME_GET_COA_XXX("
     if (dynParamExpr.find(COA_PREFIX) != 1) {// 只保留COA类型宏，进行下一步检查
         return true;

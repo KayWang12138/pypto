@@ -47,7 +47,8 @@ enum class CoaType {
     INVALID
 };
 
-const std::string COA_PREFIX = "RUNTIME_COA_GET_PARAM";
+static const std::string COA_PREFIX = "RUNTIME_COA_GET_PARAM";
+static const std::string MAYBE_CONST_POSTFIX = "MAYBE_CONST";
 
 static const SymbolicScalar MAYBE_CONST_COA_GetOffset = AddRuntimeCoaPrefix("GET_PARAM_OFFSET_MAYBE_CONST");
 static const SymbolicScalar MAYBE_CONST_COA_GetValidShape = AddRuntimeCoaPrefix("GET_PARAM_VALID_SHAPE_MAYBE_CONST");
@@ -124,6 +125,10 @@ struct CoaInfo {
                     "CoaType::PARAM, input coaExpr %s.", coaExpr.c_str());
                 return FAILED;
             }
+        } else if (coaExpr.find(MAYBE_CONST_POSTFIX) != std::string::npos) {
+            APASS_LOG_ERROR_F(Elements::Function, "This function has already been processed. %s only supportsd be turned on or off using %s, "
+                "don't register it in custom strategy.", MODULE_NAME, CODEGEN_EXPRESSION_FUSION);
+            return FAILED;
         } else {
             APASS_LOG_ERROR_F(Elements::Operation, "ParseCoaString input coaExpr %s is not recognized.", coaExpr.c_str());
             return FAILED;
