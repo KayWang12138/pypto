@@ -35,9 +35,9 @@ def test_host_option():
 
 
 def test_runtime_option():
-    pypto.set_runtime_options(first_stitch_task_loop_num=33)
+    pypto.set_runtime_options(stitch_callop_max_num=30000)
     runtime_option = pypto.get_runtime_options()
-    assert runtime_option["first_stitch_task_loop_num"] == 33
+    assert runtime_option["stitch_callop_max_num"] == 30000
 
 
 def test_reset_option():

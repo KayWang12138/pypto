@@ -216,7 +216,8 @@ def set_runtime_options(*,
                         subseq_stitch_task_incr_loop_num: Optional[int] = None,
                         cfgcache_device_task_num: Optional[int] = None,
                         cfgcache_root_task_num: Optional[int] = None,
-                        cfgcache_leaf_task_num: Optional[int] = None
+                        cfgcache_leaf_task_num: Optional[int] = None,
+                        stitch_callop_max_num: int = None
                         ) -> None:
     """
     Set runtime options.
@@ -243,6 +244,10 @@ def set_runtime_options(*,
     subseq_stitch_task_incr_loop_num : int
         The computation amount of the processing loop for non-initial
         stitch tasks, controlled in the ctrlflow AICPU during machine runtime.
+        
+    stitch_callop_max_num: int
+        The maximum Callop computation amount per loop for stitch tasks,
+        controlled in the ctrlflow AICPU during machine runtime.
     """
     _pto_options.set_options("runtime", locals())
 

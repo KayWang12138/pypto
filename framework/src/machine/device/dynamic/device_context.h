@@ -1036,7 +1036,7 @@ private:
     void BuildReadyQueue(DynDeviceTask *dyntask, DevAscendProgram *devProg) {
         PerfBegin(PERF_EVT_READY_QUEUE_IN);
         uint32_t size = sizeof(ReadyCoreFunctionQueue) + dyntask->devTask.coreFunctionCnt * sizeof(taskid_t);
-        DEV_ASSERT(dyntask->devTask.coreFunctionCnt <= devProg->singleLoopCallopMaxNum);
+        DEV_ASSERT(dyntask->devTask.coreFunctionCnt <= devProg->stitchCallopMaxNum);
         ReadyCoreFunctionQueue *queue[READY_QUEUE_SIZE];
         for (size_t index = 0; index < READY_QUEUE_SIZE; ++index) {
             WsAllocation qalloc = ControlFlowAllocateSlab(devProg_, size, workspace_->SlabAlloc(size, WsAicpuSlabMemType::READY_QUE));
@@ -1741,7 +1741,7 @@ struct DeviceExecuteContext {
         DevAscendFunction *devRoot = devProg->GetFunction(rootKey);
         DEV_DEBUG("alloc one func %lu %p %s.", rootKey, devRoot, devRoot->GetRawName());
         if (stitchContext.Size() == stitchTaskLoopNumThreshold ||
-            stitchContext.stitchedCallOpSize() + devRoot->GetOperationSize() > devProg->singleLoopCallopMaxNum) {
+            stitchContext.stitchedCallOpSize() + devRoot->GetOperationSize() > devProg->stitchCallopMaxNum) {
             SubmitToAicoreAndRecycleMemory(false);
             stitchTaskLoopNumThreshold =
                 std::min<uint16_t>(stitchTaskLoopNumThreshold + devProg->stitchTaskIncrLoopNum, MAX_CACHED_FUNC_NUM);

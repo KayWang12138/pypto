@@ -707,7 +707,7 @@ private:
     }
 
     uint32_t ReadyQueSlabMemObjSize() {
-        return sizeof(ReadyCoreFunctionQueue) + devProg_-> singleLoopCallopMaxNum * sizeof(uint32_t);
+        return sizeof(ReadyCoreFunctionQueue) + devProg_-> stitchCallopMaxNum * sizeof(uint32_t);
     }
 
     uint32_t (DeviceWorkspaceAllocator::*slabMemObjSizeFunc[ToUnderlying(WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT)])() = {
