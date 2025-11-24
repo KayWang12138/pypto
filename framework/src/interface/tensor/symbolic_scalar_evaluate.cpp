@@ -15,6 +15,7 @@
 
 #include "interface/tensor/symbolic_scalar_evaluate.h"
 #include "interface/interpreter/function.h"
+#include "tensor/symbolic_scalar.h"
 
 namespace npu::tile_fwk {
 namespace {

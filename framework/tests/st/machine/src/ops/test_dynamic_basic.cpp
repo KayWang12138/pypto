@@ -107,7 +107,7 @@ TEST_F(DynamicBasicTest, TestHybridLoopIfWithTernary) {
     FUNCTION("main", {t0, t1, t2}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(LOOP_COUNT_INNER)) {
             auto temp = Add(t0, t0);
-            SymbolicScalar s_min = std::ternary(i < 2 && i >= 0, i, i + 1);
+            SymbolicScalar s_min = std::ternary(i < 2, i, i + 1);
             
             IF(s_min == i){
                 temp = Add(temp, t1);
@@ -123,60 +123,6 @@ TEST_F(DynamicBasicTest, TestHybridLoopIfWithTernary) {
     std::vector<float> golden1(s * s, 20.0f);
     std::vector<float> golden2(s * s, 20.0f);
     std::vector<float> golden3(s * s, 30.0f);
-    std::vector<float> golden4(s * s, 30.0f);
-    golden1.insert(golden1.end(), golden2.begin(), golden2.end());
-    golden1.insert(golden1.end(), golden3.begin(), golden3.end());
-    golden1.insert(golden1.end(), golden4.begin(), golden4.end());
-    EXPECT_TRUE(resultCmp(golden1, (float *)outs->data(), 0.004f));
-}
-
-
-TEST_F(DynamicBasicTest, TestHybridLoopIfWithAndOr) {
-    constexpr int LOOP_COUNT_INNER = 4;
-    int s = 32;
-    Tensor t0(DT_FP32, {s, s}, "t0");
-    Tensor t1(DT_FP32, {s, s}, "t1");
-    Tensor t2(DT_FP32, {s, s}, "t2");
-    Tensor t3(DT_FP32, {s, s}, "t3");
-    Tensor t4(DT_FP32, {s, s}, "t4");
-    Tensor out(DT_FP32, {LOOP_COUNT_INNER * s, s}, "out");
-
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateConstantTensor<float>(t0, 0.0),
-        RawTensorData::CreateConstantTensor<float>(t1, 20.0),
-        RawTensorData::CreateConstantTensor<float>(t2, 30.0),
-        RawTensorData::CreateConstantTensor<float>(t3, 40.0),
-        RawTensorData::CreateConstantTensor<float>(t4, 50.0),
-    });
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<float>(out, 0),
-    });
-
-    //clc
-    FUNCTION("main", {t0, t1, t2, t3, t4}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(LOOP_COUNT_INNER)) {
-            auto temp = Add(t0, t0);
-            IF(0 <= i && i < 1){        // i == 0
-                temp = Add(temp, t1);
-            }
-            ELSE IF(i % 3 == 0){        // i == 3
-                temp = Add(temp, t2);
-            }
-            ELSE IF(i > 4 || (i % 2 == 0 && i < 4)){  // i == 2 
-                temp = Add(temp, t3);
-            }
-            ELSE IF(i == 1){            // i == 1
-                temp = Add(temp, t4);
-            }
-            Assemble(temp, {i * s, 0}, out);
-        }
-    }
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
-    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    
-    std::vector<float> golden1(s * s, 20.0f);
-    std::vector<float> golden2(s * s, 50.0f);
-    std::vector<float> golden3(s * s, 40.0f);
     std::vector<float> golden4(s * s, 30.0f);
     golden1.insert(golden1.end(), golden2.begin(), golden2.end());
     golden1.insert(golden1.end(), golden3.begin(), golden3.end());

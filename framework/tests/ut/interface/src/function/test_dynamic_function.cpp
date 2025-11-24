@@ -802,7 +802,7 @@ TEST_F(DynamicFunctionTest, TestLoopWithManualRank) {
 }
 
 TEST_F(DynamicFunctionTest, TestSymbolicScalarDumpLoad) {
-    const Json expJson = {2, 6, 2, 18, 3, 1, "RUNTIME_GetInputDataInt32Dim1", 1, "INPUT_actSeqs", 1, "bIdx", 0, 256};
+    const Json expJson = {2, 6, 2, 16, 3, 1, "RUNTIME_GetInputDataInt32Dim1", 1, "INPUT_actSeqs", 1, "bIdx", 0, 256};
     SymbolicScalar exp = LoadSymbolicScalar(expJson);
     EXPECT_EQ(expJson, ToJson(exp));
 }

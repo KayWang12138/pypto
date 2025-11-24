@@ -384,20 +384,6 @@ SYMBOLIC_SCALAR_DEFINE_BOP(Gt, >, RawSymbolicExpression::CreateBopGt)
 SYMBOLIC_SCALAR_DEFINE_BOP(Ge, >=, RawSymbolicExpression::CreateBopGe)
 #undef SYMBOLIC_SCALAR_DEFINE_BOP
 
-SymbolicScalar SymbolicScalar::And(const SymbolicScalar &sval) const {
-    auto raw = RawSymbolicExpression::CreateBopAnd(raw_, sval.raw_);
-    if (ConcreteValid() && !Concrete()){return SymbolicScalar(raw, Concrete());}
-    if (sval.ConcreteValid() && !sval.Concrete()){return SymbolicScalar(raw, sval.Concrete());}
-    return SymbolicScalar(raw);
-}
-
-SymbolicScalar SymbolicScalar::Or(const SymbolicScalar &sval) const {
-    auto raw = RawSymbolicExpression::CreateBopOr(raw_, sval.raw_);
-    if (ConcreteValid() && Concrete()){return SymbolicScalar(raw, Concrete());}
-    if (sval.ConcreteValid() && sval.Concrete()){return SymbolicScalar(raw, sval.Concrete());}
-    return SymbolicScalar(raw);
-}
-
 static bool AllConcreteValid(const std::vector<SymbolicScalar> &slist) {
     for (auto &s : slist) {
         if (!s.ConcreteValid()) {

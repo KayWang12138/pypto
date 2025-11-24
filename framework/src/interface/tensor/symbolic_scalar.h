@@ -84,8 +84,6 @@ enum class SymbolicOpcode {
     T_BOP_LE,
     T_BOP_GT,
     T_BOP_GE,
-    T_BOP_AND,
-    T_BOP_OR,
 
     T_BOP_MIN,
     T_BOP_MAX,
@@ -262,8 +260,6 @@ public:
     RAW_SYMBOLIC_EXPRESSION_CALC_DEFINE_BOP(CalcBopLe, <=)
     RAW_SYMBOLIC_EXPRESSION_CALC_DEFINE_BOP(CalcBopGt, >)
     RAW_SYMBOLIC_EXPRESSION_CALC_DEFINE_BOP(CalcBopGe, >=)
-    RAW_SYMBOLIC_EXPRESSION_CALC_DEFINE_BOP(CalcBopAnd, &&)
-    RAW_SYMBOLIC_EXPRESSION_CALC_DEFINE_BOP(CalcBopOr, ||)
 #undef  RAW_SYMBOLIC_EXPRESSION_CALC_DEFINE_BOP
 
 #define RAW_SYMBOLIC_EXPRESSION_CALC_DEFINE_BOPF(name, bfn) \
@@ -301,8 +297,6 @@ public:
             RawSymbolicExpression::CalcBopLe,
             RawSymbolicExpression::CalcBopGt,
             RawSymbolicExpression::CalcBopGe,
-            RawSymbolicExpression::CalcBopAnd,
-            RawSymbolicExpression::CalcBopOr,
 
             RawSymbolicExpression::CalcBopMin,
             RawSymbolicExpression::CalcBopMax,
@@ -326,8 +320,6 @@ public:
             "<=",
             ">",
             ">=",
-            "&&",
-            "||",
             "<:min:>",
             "<:max:>",
         };
@@ -463,8 +455,6 @@ public:
     RAW_SYMBOLIC_EXPRESSION_DEFINE_BOP(CreateBopLe, SymbolicOpcode::T_BOP_LE)
     RAW_SYMBOLIC_EXPRESSION_DEFINE_BOP(CreateBopGt, SymbolicOpcode::T_BOP_GT)
     RAW_SYMBOLIC_EXPRESSION_DEFINE_BOP(CreateBopGe, SymbolicOpcode::T_BOP_GE)
-    RAW_SYMBOLIC_EXPRESSION_DEFINE_BOP(CreateBopAnd, SymbolicOpcode::T_BOP_AND)
-    RAW_SYMBOLIC_EXPRESSION_DEFINE_BOP(CreateBopOr, SymbolicOpcode::T_BOP_OR)
 
     RAW_SYMBOLIC_EXPRESSION_DEFINE_BOP(CreateBopMin, SymbolicOpcode::T_BOP_MIN)
     RAW_SYMBOLIC_EXPRESSION_DEFINE_BOP(CreateBopMax, SymbolicOpcode::T_BOP_MAX)
