@@ -219,7 +219,7 @@ class BuildParam(CMakeParam):
                             help="clean, clean Build-Tree and Install-Tree before build.")
         parser.add_argument("--timeout", nargs="?", type=int, default=0,
                             help="build task timeout.")
-        parser.add_argument("--build_type", nargs="?", type=str, default=None,
+        parser.add_argument("--build_type", "--build-type", nargs="?", type=str, default=None,
                             choices=["Debug", "Release", "MinSizeRel", "RelWithDebInfo"],
                             help="build type.")
         parser.add_argument("--asan", action="store_true", default=False,
