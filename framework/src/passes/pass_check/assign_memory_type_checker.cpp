@@ -21,7 +21,7 @@
 namespace npu {
 namespace tile_fwk {
 Status AssignMemoryTypeChecker::DoPreCheck(Function &function) {
-    APASS_LOG_INFO_F(Elements::Operation, "===> Start Precheck for AssignMemoryType.");
+    APASS_LOG_INFO_F(Elements::Function, "===> Start Precheck for AssignMemoryType.");
     auto operations = function.Operations();
     for(auto &operation : operations){
         Operation *op_ptr = &operation;
@@ -63,16 +63,18 @@ Status AssignMemoryTypeChecker::CheckAmulBInputProducers(Operation &operation) {
         if(producerOpcode != Opcode::OP_L1_TO_L0A && producerOpcode !=Opcode::OP_L1_TO_L0B && 
            producerOpcode != Opcode::OP_L1_TO_L0_AT && producerOpcode !=Opcode::OP_L1_TO_L0_BT && 
            producerOpcode != Opcode::OP_VIEW && producerOpcode !=Opcode::OP_VEC_DUP) {
-            ALOG_ERROR_F("MEMORY ERROR:%s[%d] has invalid input producer:%s[%d].",
-                operation.GetOpcodeStr().c_str(),operation.GetOpMagic(),producerOp->GetOpcodeStr().c_str(),producerOp->GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "Memory error, %s[%d] has invalid input producer; "
+                "Please check input producer %s[%d]. %s", operation.GetOpcodeStr().c_str(), operation.GetOpMagic(),
+                producerOp->GetOpcodeStr().c_str(), producerOp->GetOpMagic(), GetFormatBacktrace(operation).c_str());
             return FAILED;
            }
         if(producerOpcode == Opcode::OP_VIEW) {
             auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(producerOp->GetOpAttribute().get());
             MemoryType attrToType = viewOpAttribute->GetTo();
             if(attrToType != MemoryType::MEM_BT && attrToType != MemoryType::MEM_FIX_QUANT_PRE) {
-                ALOG_ERROR_F("VIEW Attribute ERROR:%s[%d] has invalid input OP_VIEW:%s[%d].",
-                    operation.GetOpcodeStr().c_str(),operation.GetOpMagic(),producerOp->GetOpcodeStr().c_str(),producerOp->GetOpMagic());
+                APASS_LOG_ERROR_F(Elements::Operation, "View attribute error, %s[%d] has invalid input OP_VIEW; "
+                    "Please check input view %s[%d]. %s", operation.GetOpcodeStr().c_str(), operation.GetOpMagic(),
+                    producerOp->GetOpcodeStr().c_str(), producerOp->GetOpMagic(), GetFormatBacktrace(operation).c_str());
                 return FAILED;
             }
         }

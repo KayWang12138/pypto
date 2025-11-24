@@ -59,8 +59,17 @@ Status AssignMemoryType::RunOnFunction(Function &function) {
         outcast->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
     }
     AssignMemUnknown(function);
+    bool infoBufferSize = false;
     for (auto &op : function.Operations()) {
-        AssignSpecialOpMemtype(op);
+        AssignSpecialOpMemtype(op, infoBufferSize);
+    }
+    if (infoBufferSize) {
+        const int UB_SIZE_THRESHOLD =
+            static_cast<int>(PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_UB) * 0.5);
+        const int L1_SIZE_THRESHOLD =
+            static_cast<int>(PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L1) * 0.5);
+        APASS_LOG_INFO_F(Elements::Operation, "UB buffer size threshold %d, L1 buffer size threshold %d.",
+            UB_SIZE_THRESHOLD, L1_SIZE_THRESHOLD);
     }
 
     // 插入convert op
@@ -210,7 +219,7 @@ void AssignMemoryType::AssignMemtypeForSplitReshape(Operation &op, const Logical
     }
 }
 
-void AssignMemoryType::AssignSpecialOpMemtype(Operation &op) {
+void AssignMemoryType::AssignOpReshapeMemtype(Operation &op){
     if (op.GetOpcode() == npu::tile_fwk::Opcode::OP_RESHAPE) {
         auto &input = op.iOperand.front();
         auto &output = op.oOperand.front();
@@ -223,6 +232,9 @@ void AssignMemoryType::AssignSpecialOpMemtype(Operation &op) {
             output->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
         }
     }
+}
+
+void AssignMemoryType::AssignOpViewTypeMemtype(Operation &op){
     if (op.GetOpcode() == npu::tile_fwk::Opcode::OP_VIEW_TYPE) {
         auto &viewTypeIn = op.iOperand.front();
         auto &viewTypeOut = op.oOperand.front();
@@ -234,6 +246,9 @@ void AssignMemoryType::AssignSpecialOpMemtype(Operation &op) {
             viewTypeOut->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
         }
     }
+}
+
+void AssignMemoryType::AssignOpNopMemtype(Operation &op){
     if (op.GetOpcode() == npu::tile_fwk::Opcode::OP_NOP) {
         auto &input = op.iOperand.front();
         auto &output = op.oOperand.front();
@@ -246,7 +261,12 @@ void AssignMemoryType::AssignSpecialOpMemtype(Operation &op) {
             output->SetMemoryTypeBoth(output->GetMemoryTypeOriginal(), true);
         }
     }
+}
 
+void AssignMemoryType::AssignSpecialOpMemtype(Operation &op, bool &infoBufferSize) {
+    AssignOpReshapeMemtype(op);
+    AssignOpViewTypeMemtype(op);
+    AssignOpNopMemtype(op);
     if (op.GetOpcode() == Opcode::OP_REDUCE_ACC) {
         /*
         reduce acc 输入数量不确定，由Ksplit决定
@@ -276,6 +296,7 @@ void AssignMemoryType::AssignSpecialOpMemtype(Operation &op) {
             output->SetMemoryTypeBoth(output->GetMemoryTypeOriginal(), true);
         }
         UpdateOverSizedLocalBuffer(op);
+        infoBufferSize = true;
     }
 }
 
@@ -284,8 +305,6 @@ void AssignMemoryType::UpdateOverSizedLocalBuffer(Operation &operation) {
         static_cast<int>(PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_UB) * 0.5);
     const int L1_SIZE_THRESHOLD =
         static_cast<int>(PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L1) * 0.5);
-    APASS_LOG_INFO_F(Elements::Operation, "UB buffer size threshold %d, L1 buffer size threshold %d.",
-        UB_SIZE_THRESHOLD, L1_SIZE_THRESHOLD);
 
     auto assembleOut = operation.GetOOperands().front();
     auto memType = assembleOut->GetMemoryTypeOriginal();

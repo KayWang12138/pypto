@@ -16,6 +16,7 @@
 #include "split_large_fanout_tensor.h"
 #include "passes/pass_utils/graph_utils.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes/pass_utils/pass_utils.h"
 
 #define MODULE_NAME "SplitLargeFanoutTensor"
 
@@ -449,15 +450,29 @@ void SplitLargeFanoutTensor::TryToSplitLargeTensor(Function &function, const Sha
         if (overlaps.size() == 0 || dualOverlaps.size() == 0) {
             APASS_LOG_INFO_F(Elements::Tensor, "Split large tensor miss, this lcmTile does NOT have both overlaps([%d]) "
                 "and dualOverlaps([%d]) simultaneously.", overlaps.size(), dualOverlaps.size());
+            continue;
+        }
+        
+        auto multiply = [](const std::vector<int64_t>& vec) -> int64_t {
+            return std::accumulate(
+                vec.begin(), vec.end(), static_cast<int64_t>(1), [](int64_t a, int64_t b) { return a * b; });
+        };
+        int64_t overlapTotalArea = 0;
+        for (auto &overlap : overlaps) {
+            overlapTotalArea += multiply(overlap->shape);
+        }
+        if (overlapTotalArea != multiply(lcmShape)) {
+            APASS_LOG_INFO_F(Elements::Tensor, "Split large tensor miss, this lcmTile(shape %s, offset %s) of largeTensor %d is not filled up by all collected overlaps.",
+                CommonUtils::VecToStr<int64_t>(lcmShape).c_str(), CommonUtils::VecToStr<int64_t>(lcmTileOffset).c_str(), largeTensor->GetMagic());
+            continue;
+        }
+        APASS_LOG_INFO_F(Elements::Tensor, "Split large tensor hit, this lcmTile has [%d] overlaps and [%d] dualOverlaps.",
+            overlaps.size(), dualOverlaps.size());
+        // 对于是否有[多个tensor聚合到一个Tensor]的情况进行不同处理
+        if (overlaps.size() == 1) {
+            CreateOpFor1toM(function, largeTensor, lcmTileShape, lcmTileOffset, overlaps, dualOverlaps);
         } else {
-            APASS_LOG_INFO_F(Elements::Tensor, "Split large tensor hit, this lcmTile has [%d] overlaps and [%d] dualOverlaps.",
-                overlaps.size(), dualOverlaps.size());
-            // 对于是否有[多个tensor聚合到一个Tensor]的情况进行不同处理
-            if (overlaps.size() == 1) {
-                CreateOpFor1toM(function, largeTensor, lcmTileShape, lcmTileOffset, overlaps, dualOverlaps);
-            } else {
-                CreateOpForMtoM(function, largeTensor, lcmTileShape, lcmTileOffset, overlaps, dualOverlaps);
-            }
+            CreateOpForMtoM(function, largeTensor, lcmTileShape, lcmTileOffset, overlaps, dualOverlaps);
         }
     }
 }
