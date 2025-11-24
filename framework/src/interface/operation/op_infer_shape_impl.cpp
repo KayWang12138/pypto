@@ -718,6 +718,7 @@ const std::string TOPK_KVALUE = OP_ATTR_PREFIX + "kvalue";
 const std::string EXTRACT_MASKMODE = OP_ATTR_PREFIX + "makeMode";
 constexpr int32_t blockSize = 32;
 constexpr int32_t kFactorSize = 4;
+constexpr int32_t NUM3 = 3;
 constexpr int32_t kBlockFpNum = 8;
 
 // m,n -> m,4*n align32
@@ -732,7 +733,7 @@ void BitSortFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outVal
     std::vector<SymbolicScalar> res(inputValidShapes[0]);
     auto topk_axis = op->GetIntAttribute(TOPK_AXIS);
     res[topk_axis] = (res[topk_axis] + blockSize - 1) / blockSize * blockSize;
-    res[topk_axis] = res[topk_axis] * kFactorSize; // todo topk_axis -1  what happen?
+    res[topk_axis] = res[topk_axis] * NUM2 + inputValidShapes[0][topk_axis];
     outValidShapes.push_back(res);
 }
 
@@ -750,7 +751,9 @@ void MrgSortFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outVal
     std::vector<SymbolicScalar> res(inputValidShapes[0]);
     auto topk_axis = op->GetIntAttribute(TOPK_AXIS);
     auto topk_kvalue = op->GetIntAttribute(TOPK_KVALUE);
-    res[topk_axis] = (topk_kvalue + kBlockFpNum - 1) / kBlockFpNum * kBlockFpNum * NUM2;
+    SymbolicScalar tmp = (res[topk_axis] + blockSize - 1) / blockSize * blockSize;
+    res[topk_axis] = std::min(res[topk_axis] - tmp / NUM3 * NUM2,
+     (topk_kvalue + kBlockFpNum - 1) / kBlockFpNum * kBlockFpNum) * NUM2;
     outValidShapes.push_back(res);
 }
 

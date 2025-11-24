@@ -148,7 +148,7 @@ void TiledTopK(Function &function, const TileShape &tileShape, size_t cur, Input
             auto inputTile = source->View(function, tileSourceShape, tileSourceOffset);
             auto tileBitsortRemain = (source->shape[axis] - i + blockSize - 1) / blockSize * blockSize;
             tileBitsortShape[axis] = std::min(axisBlockSizeAlign * kFactorSize, tileBitsortRemain * kFactorSize);
-            dynValidShape[axis] = inputTile->GetDynValidShape()[axis] * kFactorSize;
+            dynValidShape[axis] = inputTile->GetDynValidShape()[axis];
             auto bitsortTile =
                 std::make_shared<LogicalTensor>(function, source->Datatype(), tileBitsortShape, dynValidShape);
             auto &bitsortOp = function.AddOperation(Opcode::OP_BITSORT, {inputTile}, {bitsortTile});

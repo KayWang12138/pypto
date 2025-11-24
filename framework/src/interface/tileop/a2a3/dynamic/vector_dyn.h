@@ -2760,7 +2760,7 @@ TILEOP void DynBitSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, uns
         }
         // 需要将尾块部分置为-inf，之后再排序
         // 计算duplicate的mask
-        uint64_t mask = ~(((static_cast<uint64_t>(1)) << oriShape1) - 1);
+        uint64_t mask = ~(((static_cast<uint32_t>(1)) << oriShape1) - 1);
         mask = mask & 0xFFFFFFFF;
         for (int rowIdx = 0; rowIdx < oriShape0; rowIdx++) {
             set_mask_norm();
@@ -2839,7 +2839,7 @@ TILEOP void DynBitSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, uns
             // 首先逐32个数进行排序,需要补齐不对齐的部分
             if (tail_sort32 > 0) {
                 // 非整块的时候,首先对尾部补充-nan
-                uint64_t mask = ~(((static_cast<uint64_t>(1)) << ( tail_sort32)) - 1);
+                uint64_t mask = ~(((static_cast<uint32_t>(1)) << ( tail_sort32)) - 1);
                 set_mask_norm();
                 set_vector_mask(0, mask);
                 vector_dup(srcData + repeat_sort32 * 32, FLOAT_MIN, 1, 1, 1, 8, (int64_t)0);
@@ -2876,16 +2876,17 @@ TILEOP void DynBitSort(
 template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0, unsigned srcShape1, int axis, int k, int isLargest>
 TILEOP void DynMrgSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, unsigned oriShape1) {
     constexpr int32_t kAlign = (k + 7) / 8 * 8; // k需要向32Bytes取整,否则最后搬运出问题
-    int32_t totalNum = oriShape1 / 4;
+    int32_t totalNum = srcShape1 / 4;
+    oriShape1 = oriShape1 - totalNum * 2;
     for (int rowIdx = 0; rowIdx < oriShape0; rowIdx++) {
         // 每4个合并,计算整块
         int32_t z = 32;
-        for (; z * 4 <= totalNum; z *= 4) {
+        for (; z * 4 <= oriShape1; z *= 4) {
             __ubuf__ float *srcData = reinterpret_cast<__ubuf__ float *>(src) + rowIdx * srcShape1;
             __ubuf__ float *dstData = reinterpret_cast<__ubuf__ float *>(src) + rowIdx * srcShape1 + totalNum * 2;
             uint64_t config = 0;
-            uint32_t repeat_mrg = totalNum / (z * 4);
-            config |= uint64_t(totalNum / (z * 4)); // Xt[7:0]: repeat time
+            uint32_t repeat_mrg = oriShape1 / (z * 4);
+            config |= uint64_t(oriShape1 / (z * 4)); // Xt[7:0]: repeat time
             config |= (uint64_t(0b1111) << 8);      // Xt[11:8]: 4-bit mask signal
             config |= (uint64_t(0b0) << 12);        // Xt[12]: 1-enable input list exhausted suspension
 
@@ -2907,16 +2908,19 @@ TILEOP void DynMrgSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, uns
             pipe_barrier(PIPE_V);
         }
         // 合并尾块
-        if (z < totalNum) {
+        if (z < oriShape1) {
             int32_t arrayCount = 0;
             int32_t mrgArray[15] = {0};
-            int32_t tmpInner = totalNum;
+            int32_t tmpInner = oriShape1;
             for (int32_t i = z; i >= 32; i /= 4) {
                 int32_t count;
                 for (count = 0; count < tmpInner / i; count++) {
                     mrgArray[arrayCount++] = i;
                 }
                 tmpInner -= count * i;
+            }
+            if (tmpInner > 0) {
+                mrgArray[arrayCount++] = tmpInner;
             }
             uint16_t mrgSortedLen = 0;
             for (int32_t i = 0; i < arrayCount - 1; ++i) {
@@ -2982,7 +2986,7 @@ TILEOP void DynTiledMrgSort(
     __ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, __ubuf__ T *src2, __ubuf__ T *src3, __ubuf__ T *tmp, 
     unsigned oriShape0, unsigned oriShape1, unsigned oriShapeLast) {
     constexpr int32_t kAlign = (k + 7) / 8 * 8;
-    constexpr int32_t kLast = k * 2 > srcShapeLast ? srcShapeLast / 2 : k;
+    int32_t kLast = k * 2 > oriShapeLast ? oriShapeLast / 2 : k;
     for (int rowIdx = 0; rowIdx < oriShape0; rowIdx++) {
         if constexpr (validBit == 4) {
             __ubuf__ float *src0Data = reinterpret_cast<__ubuf__ float *>(src0) + rowIdx * srcShape1;
