@@ -95,8 +95,10 @@ if (NOT BUILD_OPEN_PROJECT)
     set(TILE_FWK_KERNEL_TAR_GZ_NAME "transformer_tile_fwk_aicpu_kernel.tar.gz")
     add_custom_command(TARGET tile_fwk_server POST_BUILD
         COMMAND echo "Begin to compress ${TILE_FWK_KERNEL_TAR_GZ_NAME} from ${CMAKE_CURRENT_BINARY_DIR}/libtilefwk_backend_server.so"
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/aicpu_kernels_device
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/libtilefwk_backend_server.so ${CMAKE_CURRENT_BINARY_DIR}/aicpu_kernels_device
         COMMAND cd ${CMAKE_CURRENT_BINARY_DIR}
-        COMMAND tar czf ${TILE_FWK_KERNEL_TAR_GZ_NAME} libtilefwk_backend_server.so
+        COMMAND tar czf ${TILE_FWK_KERNEL_TAR_GZ_NAME} aicpu_kernels_device
         COMMAND echo "${CMAKE_CURRENT_BINARY_DIR}/${TILE_FWK_KERNEL_TAR_GZ_NAME} has been generated."
     )
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${TILE_FWK_KERNEL_TAR_GZ_NAME} DESTINATION lib OPTIONAL)
