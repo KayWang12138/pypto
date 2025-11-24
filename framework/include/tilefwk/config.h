@@ -99,7 +99,7 @@ void SetOption(const std::string &key, T &&value) {
     if constexpr (std::is_same_v<type, bool>) {
         internal::SetOption(key, value);
     } else if constexpr (std::is_integral_v<type>) {
-        internal::SetOption(key, (int64_t)value);
+        internal::SetOption(key, static_cast<int64_t>(value));
     } else {
         internal::SetOption(key, value);
     }
