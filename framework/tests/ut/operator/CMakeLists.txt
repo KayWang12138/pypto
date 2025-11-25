@@ -149,6 +149,7 @@ set(_CaseFilterList
         # ViewType
         "ViewTypeUtest.add0_test"
         "ViewTypeUtest.cast_add0_test"
+        "ViewTypeUtest.quant_test"
 )
 
 set(_Target ${PTO_Fwk_UTestNamePrefix}_operator)

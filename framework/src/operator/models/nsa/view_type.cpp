@@ -20,7 +20,6 @@
 #include "interface/utils/common.h"
 #include "interface/configs/config_manager.h"
 #include "operator/models/deepseek/deepseek_mla.h"
-#include "gen_gated_score.h"
 
 using namespace npu::tile_fwk;
 
@@ -63,6 +62,59 @@ void ViewTypeCastFunc(const Tensor &x, Tensor &result, DataType dstDtype, DataTy
                 resultRes = Add(resultCast, Element(castDtype, float(0)));
             }
             Assemble(resultRes, {0, 0, nOffset}, result);
+        }
+    }
+}
+
+std::tuple<Tensor, Tensor> MyPrologQuant(const Tensor &input) {
+    config::SetSemanticLabel("Prolog-Quant");
+    constexpr const float s8_max_value = 127.0f;
+    constexpr const float s8_one_value = 1.0f;
+    auto inputFp32 = Cast(input, DataType::DT_FP32, CAST_NONE);
+
+    auto absRes = Abs(inputFp32);
+    auto maxValue = Amax(absRes, -1, true);
+    auto temp127 = Full(Element(DT_FP32, s8_max_value), DT_FP32, maxValue.GetShape());
+
+    auto scaleQuant = Div(temp127, maxValue);
+    auto outFp32 = Mul(inputFp32, scaleQuant);
+    auto outInt32 = Cast(outFp32, DataType::DT_INT32, CAST_RINT);
+    auto outHalf = Cast(outInt32, DataType::DT_FP16, CAST_ROUND);
+    auto outInt8 = Cast(outHalf, DataType::DT_INT8, CAST_TRUNC);
+    auto temp1 = Full(Element(DT_FP32, s8_one_value), DT_FP32, scaleQuant.GetShape());
+    auto scaleDeQuant = Div(temp1, scaleQuant);
+    return std::tie(outInt8, scaleDeQuant);
+}
+
+void ViewTypeQuantTestFunc(const Tensor &x, Tensor &result) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+    FUNCTION("VIEWTYPE", {x}, {result}) {
+        int m = x.GetShape()[0];
+        int k = x.GetShape()[1];
+        int n = x.GetShape()[2];
+        int tileM = m / 2;
+        SymbolicScalar mLoop = m / tileM;
+        LOOP("LOOP_L0_mIdx_view_type", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mLoop, 1)) {
+            SymbolicScalar mOffset = mIdx * tileM;
+            TileShape::Current().SetVecTile({tileM, k, n});
+            auto xView = View(x, {tileM, k, n}, {mOffset, 0, 0});
+            TileShape::Current().SetVecTile({tileM, k, n});
+            auto xReshape = Reshape(xView, {tileM, k, 4, n/4});
+            TileShape::Current().SetVecTile({tileM, k, 4, n/4});
+            std::tuple<Tensor, Tensor> xQuant = MyPrologQuant(xReshape);
+            auto outInt8 = std::get<0>(xQuant);
+            auto scaleDeQuant = std::get<1>(xQuant);
+
+            TileShape::Current().SetVecTile({tileM, k, 4, n/4});
+            auto outInt8Reshape = Reshape(outInt8, {tileM, k, n});
+            TileShape::Current().SetVecTile({tileM, k, 4});
+            auto scaleDeQuantReshape = Reshape(scaleDeQuant, {tileM, k, 4});
+            TileShape::Current().SetVecTile({tileM, k, 4});
+            auto scaleQuantView = View(scaleDeQuantReshape, DT_INT8);
+            auto scaleQuantViewRes = Reshape(scaleQuantView, {tileM, k, 16});
+            TileShape::Current().SetVecTile({tileM, k, n});
+            auto combinedRes = Cat({outInt8Reshape, scaleQuantViewRes}, -1);
+            Assemble(combinedRes, {mOffset, 0, 0}, result);
         }
     }
 }

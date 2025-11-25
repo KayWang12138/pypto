@@ -112,6 +112,40 @@ void ViewTypeCastEntry(const std::vector<int64_t>& mkn) {
 #endif
 }
 
+template<typename InputT, typename OutputT>
+void ViewTypeQuantTestEntry(const std::vector<int64_t>& mkn) {
+    config::SetHostOption(ONLY_CODEGEN, true);
+
+    int64_t m = mkn[0];
+    int64_t k = mkn[1];
+    int64_t n = mkn[2];
+
+    DataType originDtype = GetAstDtype<InputT>();
+    DataType dstDtype = GetAstDtype<OutputT>();
+
+    std::vector<int64_t> xShape = {m, k, n};
+    std::vector<int64_t> resultShape = {m, k, n + 16};
+
+    Tensor x(originDtype, xShape, "x");
+    Tensor result(dstDtype, resultShape, "result");
+
+    auto goldenData = GetGoldenVec<OutputT>(resultShape, "/result.bin");
+    auto xData = CreateTensorData<InputT>(x, "/x.bin");
+
+    auto resultData = RawTensorData::CreateConstantTensor<OutputT>(result, 0.0);
+
+    std::vector<RawTensorDataPtr> inputDataList = {xData};
+    std::vector<RawTensorDataPtr> outputDataList = {resultData};
+
+    ViewTypeQuantTestFunc(x, result);
+
+#ifdef BUILD_WITH_CANN
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
+    std::cout << "====== result ======" << std::endl;
+    EXPECT_TRUE(resultCmp<OutputT>(goldenData, (OutputT *)resultData->data(), 0.005f));
+#endif
+}
+
 TEST_F(ViewType, int8_2_float32) {
     std::vector<int64_t> mkn = {4, 32, 1024};
     ViewTypeEntry<int8_t, float>(mkn);
@@ -170,4 +204,9 @@ TEST_F(ViewType, int8_2_bfloat16_cast_fp32) {
 TEST_F(ViewType, int8_2_float16_cast_fp32) {
     std::vector<int64_t> mkn = {4, 32, 1024};
     ViewTypeCastEntry<int8_t, float16>(mkn);
+}
+
+TEST_F(ViewType, quant_test_bf16_2_int8) {
+    std::vector<int64_t> mkn = {64, 1, 512};
+    ViewTypeQuantTestEntry<bfloat16, int8_t>(mkn);
 }

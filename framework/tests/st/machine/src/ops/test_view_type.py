@@ -100,6 +100,41 @@ def view_type_cast_entry(mkn, origin_dtype, dst_dtype, output_dir: Path, cast_dt
     tensor_tofile(result, result_path)
 
 
+def view_type_quant_test_entry(output_dir: Path):
+    x_path = Path(output_dir, 'x.bin')
+    result_path = Path(output_dir, 'result.bin')
+
+    t, d_kv = 64, 512
+    n_kv = 1
+
+    def dynamic_quant(x):
+        x_dtype = x.dtype
+        x_fp32 = x.to(torch.float32)
+        max_value = torch.amax(torch.abs(x_fp32), dim=-1, keepdim=True)
+        scale_quant = 127.0 / max_value
+        y_fp32 = x_fp32 * scale_quant
+        y_fp32 = y_fp32.view(x.shape)
+        y_int32 = torch.round(y_fp32).to(torch.int32)
+        y_int8 = torch.trunc(y_int32.to(x_dtype)).to(torch.int8)
+        scale_dequant = 1.0 / scale_quant
+        return y_int8, scale_dequant
+
+    k_nope = torch.empty((t, n_kv, d_kv), dtype=torch.bfloat16).uniform_(-1, 1)
+    x = k_nope
+    tensor_tofile(x, x_path)
+
+    k_nope = k_nope.reshape((t, n_kv, 4, d_kv // 4))
+    k_nope_int8, k_scale = dynamic_quant(k_nope)
+
+    k_nope_int8 = k_nope_int8.reshape((t, n_kv, d_kv))
+    k_scale = k_scale.reshape((t, n_kv, 4))
+    k_scale_view_int8 = k_scale.view(torch.int8)
+    k_combined = torch.cat((k_nope_int8, k_scale_view_int8), dim=-1)
+
+    result = k_combined
+    tensor_tofile(result, result_path)
+
+
 @GoldenRegister.reg_golden_func(
     case_names=[
         "ViewType.int8_2_float32",
@@ -114,6 +149,7 @@ def view_type_cast_entry(mkn, origin_dtype, dst_dtype, output_dir: Path, cast_dt
         "ViewType.float32_2_bfloat16",
         "ViewType.int8_2_bfloat16_cast_fp32",
         "ViewType.int8_2_float16_cast_fp32",
+        "ViewType.quant_test_bf16_2_int8",
     ]
 )
 
@@ -122,11 +158,11 @@ def view_type_func(case_name: str, output: Path) -> bool:
     if case_name == "ViewType.int8_2_float32":
         view_type_entry((4, 32, 1024), torch.int8, torch.float32, output)
     elif case_name == "ViewType.int8_2_bfloat16":
-        view_type_entry((4, 32, 1024), torch.int8, torch.bfloat16, output)
+        view_type_entry((2048, 1, 64), torch.int8, torch.bfloat16, output)
     elif case_name == "ViewType.int8_2_float16":
         view_type_entry((4, 32, 1024), torch.int8, torch.float16, output)
     elif case_name == "ViewType.float32_2_int8":
-        view_type_entry((4, 32, 1024), torch.float32, torch.int8, output)
+        view_type_entry((64, 1, 4), torch.float32, torch.int8, output)
     elif case_name == "ViewType.bfloat16_2_int8":
         view_type_entry((4, 32, 1024), torch.bfloat16, torch.int8, output)
     elif case_name == "ViewType.float16_2_int8":
@@ -143,6 +179,8 @@ def view_type_func(case_name: str, output: Path) -> bool:
         view_type_cast_entry((4, 32, 1024), torch.int8, torch.bfloat16, output, torch.float32)
     elif case_name == "ViewType.int8_2_float16_cast_fp32":
         view_type_cast_entry((4, 32, 1024), torch.int8, torch.float16, output, torch.float32)
+    elif case_name == "ViewType.quant_test_bf16_2_int8":
+        view_type_quant_test_entry(output)
     else:
         logging.error("Can't get func to gen golden, Case(%s)", case_name)
         return False

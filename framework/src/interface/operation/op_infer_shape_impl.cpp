@@ -189,10 +189,8 @@ void ViewTypeInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& 
     auto outputOperand = op->GetOOperands()[0];
  
     auto validShape = inputOperand->GetDynValidShape();
-    float factor = (float)BytesOf(inputOperand->Datatype()) / (float)BytesOf(outputOperand->Datatype());
- 
-    auto changedDim = int(int(validShape[validShape.size() - 1]) * factor);
-    validShape[validShape.size() - 1] = SymbolicScalar(changedDim);
+    auto changedDim = validShape[validShape.size() - 1] * BytesOf(inputOperand->Datatype()) / BytesOf(outputOperand->Datatype());
+    validShape[validShape.size() - 1] = changedDim;
  
     outValidShapes.push_back(validShape);
 }

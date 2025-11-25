@@ -78,3 +78,21 @@ TEST_F(ViewTypeUtest, cast_add0_test) {
 
     ViewTypeCastFunc(x, result, dstDtype, castDtype);  
 }
+
+TEST_F(ViewTypeUtest, quant_test) {
+    config::SetHostOption(ONLY_CODEGEN, true);
+
+    int64_t m = 64;
+    int64_t k = 1;
+    int64_t n = 512;
+
+    DataType originDtype = DT_BF16;
+    DataType dstDtype = DT_INT8;
+    std::vector<int64_t> xShape = {m, k, n};
+    std::vector<int64_t> resultShape = {m, k, n + 16};
+
+    Tensor x(originDtype, xShape, "x");
+    Tensor result(dstDtype, resultShape, "result");
+
+    ViewTypeQuantTestFunc(x, result);
+}

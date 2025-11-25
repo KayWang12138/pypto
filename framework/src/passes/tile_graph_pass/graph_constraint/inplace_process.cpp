@@ -194,6 +194,7 @@ Status InplaceProcess::ProcessViewType(Function &function, Operation &op) const 
         }
         return AlignCopyOutProducer(viewTypeIn);
     }
+    viewTypeOut->tensor->actualRawmagic = viewTypeIn->GetRawMagic();
     return SUCCESS;
 }
 
