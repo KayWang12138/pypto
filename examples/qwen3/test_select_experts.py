@@ -94,7 +94,7 @@ def test_select_experts():
     ne = 128
     top_k = 8
     renormalize = True
-    device_id = int(os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0))
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
 
     # 2. 构造多种shape，测试动态case
