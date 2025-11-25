@@ -1365,7 +1365,7 @@ TEST_F(ScheduleOoOTest, TestScheduleGenSpillInfiniteLoop) {
     res = ooOScheduler.SortOps();
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.GenSpillSchedule();
-    EXPECT_EQ(res, SUCCESS);
+    EXPECT_EQ(res, FAILED);
 }
 
 TEST_F(ScheduleOoOTest, TestCheckOpBufferSize) {

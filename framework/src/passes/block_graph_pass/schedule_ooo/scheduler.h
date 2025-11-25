@@ -47,6 +47,18 @@ const std::unordered_set<Opcode> USE_LESS_OPS = {
     Opcode::OP_VIEW_TYPE
 };
 
+const std::unordered_set<Opcode> COPY_IN_OPS = {
+    Opcode::OP_COPY_IN,
+    Opcode::OP_UB_COPY_IN,
+    Opcode::OP_L1_COPY_IN,
+    Opcode::OP_L1_COPY_IN_FRACTAL_Z,
+    Opcode::OP_L1_COPY_IN_DMA,
+    Opcode::OP_L1_COPY_UB,
+    Opcode::OP_L0C_COPY_UB,
+    Opcode::OP_UB_COPY_L1,
+    Opcode::OP_UB_COPY_L1_ND
+};
+
 struct IssueEntry {
     Operation &tileOp;
     int id{-1};
