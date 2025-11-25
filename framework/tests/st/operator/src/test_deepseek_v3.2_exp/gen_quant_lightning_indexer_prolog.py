@@ -30,13 +30,13 @@ if __name__ == "__main__":
         level=logging.DEBUG,
     )
     # 系统 import 路径
-    g_src_root: Path = Path(Path(__file__).parent, "../../../../../").resolve()
+    g_src_root: Path = Path(Path(__file__).parent, "../../../../../../").resolve()
     logging.debug("SrcRoot: %s", g_src_root)
     g_ctrl_path: Path = Path(g_src_root, "/tests/st/operator/src/test_deepseek_v3.2_exp")
     if str(g_ctrl_path) not in sys.path:
         sys.path.append(str(g_ctrl_path))
     sys.path.append(str(g_src_root))
-    from tests.cmake.scripts.golden_register import (
+    from framework.tests.cmake.scripts.golden_register import (
         GoldenRegister,
     )  # 单独调试 import 失败, 需确认上文中 '系统 import 路径' 配置正确
 else:
@@ -77,12 +77,9 @@ def single_rope(x, cos_in, sin_in):
     x_cast = x.to(torch.float32)
     cos_cast = cos_in.to(torch.float32)
     sin_cast = sin_in.to(torch.float32)
-    cos_re = cos_cast.unsqueeze(2) # (b, s, 1, d)
-    sin_re = sin_cast.unsqueeze(2) # (b, s, 1, d)
-    x_re = x_cast.reshape(b, s, n, d // 2, 2)
-    x_trans = x_re.permute(0, 1, 2, 4, 3) # (b, s, n, 2, d // 2)
-    x_re1 = x_trans.reshape(b, s, n, d)
-    res = x_re1 * cos_re + rotate_half(x_re1) * sin_re # (b, s, n, d)
+    cos_re = cos_cast.unsqueeze(2)  # (b, s, 1, d)
+    sin_re = sin_cast.unsqueeze(2)  # (b, s, 1, d)
+    res = x_cast * cos_re + rotate_half(x_cast) * sin_re  # (b, s, n, d)
     return res.to(x_dtype)
 
 
@@ -98,13 +95,13 @@ def layer_norm(x: torch.Tensor, gamma: torch.Tensor, beta: torch.Tensor, eps=1e-
 
 def quant_int8(x: torch.Tensor):
     # pertoken
-    x_dtype = x.dtype # bf16, (b, s, n, d)
+    x_dtype = x.dtype  # bf16, (b, s, n, d)
     x_fp32 = x.to(torch.float32)
     max_value = torch.amax(torch.abs(x_fp32), dim=-1, keepdim=True)
     scale_quant = 127.0 / max_value
     y_fp32 = x_fp32 * scale_quant
     y_fp32 = y_fp32.view(x.shape)
-    y_int32 = torch.round(y_fp32).to(torch.int32) # rint mode
+    y_int32 = torch.round(y_fp32).to(torch.int32)  # rint mode
     y_int8 = torch.trunc(y_int32.to(x_dtype)).to(torch.int8)
     scale_dequant = 1.0 / scale_quant
     # (b, s, n, d) int8, (b, s, n, 1) fp32
@@ -170,7 +167,7 @@ def gen_cache_tensor(k_cache_bsnd, block_table, block_num, block_size):
                 continue
             else:
                 k_cache[cache_block_idx, :, :, :] = k_cache_raw[
-                    b_idx, block_offset : (block_offset + block_size), :, :
+                    b_idx, block_offset: (block_offset + block_size), :, :
                 ]
 
     return k_cache
@@ -196,22 +193,22 @@ def indexer_prolog(inputs: dict, dims: dict):
     s = t // b
 
     rope_head_dim = dims["rope_head_dim"]
-    x = inputs["token_x"] # (b, s, h)
-    q_norm = inputs["q_norm"] # (b, s, q_lora_rank), int8
-    q_norm_scale = inputs["q_norm_scale"] # (b, s, 1), fp32
-    w_idx_qb = inputs["w_idx_qb"] # (q_lora_rank, n * d), int8
-    w_idx_qb_scale = inputs["w_idx_qb_scale"] # (n * d, 1), fp32
-    w_idx_k = inputs["w_idx_k"] # (h, d)
-    w_idx_proj = inputs["w_idx_proj"] # (h, n)
-    layer_norm_gamma = inputs["layer_norm_gamma"] # (d,)
-    layer_norm_beta = inputs["layer_norm_beta"] # (d,)
-    cos = inputs["cos_idx_rope"] # (b, s, rope_head_dim)
-    sin = inputs["sin_idx_rope"] # (b, s, rope_head_dim)
-    hadamard_q = inputs["hadamard_q"] # (d, d)
-    hadamard_k = inputs["hadamard_k"] # (d, d)
-    idx_k_cache = inputs["idx_k_cache"] # input13, int8
-    idx_k_scale_cache = inputs["idx_k_scale_cache"] # input14, fp16
-    cache_index = inputs["idx_k_cache_index"] # (b, s), int32
+    x = inputs["token_x"]  # (b, s, h)
+    q_norm = inputs["q_norm"]  # (b, s, q_lora_rank), int8
+    q_norm_scale = inputs["q_norm_scale"]  # (b, s, 1), fp32
+    w_idx_qb = inputs["w_idx_qb"]  # (q_lora_rank, n * d), int8
+    w_idx_qb_scale = inputs["w_idx_qb_scale"]  # (n * d, 1), fp32
+    w_idx_k = inputs["w_idx_k"]  # (h, d)
+    w_idx_proj = inputs["w_idx_proj"]  # (h, n)
+    layer_norm_gamma = inputs["layer_norm_gamma"]  # (d,)
+    layer_norm_beta = inputs["layer_norm_beta"]  # (d,)
+    cos = inputs["cos_idx_rope"]  # (b, s, rope_head_dim)
+    sin = inputs["sin_idx_rope"]  # (b, s, rope_head_dim)
+    hadamard_q = inputs["hadamard_q"]  # (d, d)
+    hadamard_k = inputs["hadamard_k"]  # (d, d)
+    idx_k_cache = inputs["idx_k_cache"]  # input13, int8
+    idx_k_scale_cache = inputs["idx_k_scale_cache"]  # input14, fp16
+    cache_index = inputs["idx_k_cache_index"]  # (b, s), int32
     x_dtype = x.dtype
 
     # calculate
@@ -228,7 +225,7 @@ def indexer_prolog(inputs: dict, dims: dict):
     q_int8, q_scale = quant_int8(q)  # (b, s, n, d) int8, (b, s, n, 1) fp32
     q_scale = q_scale.to(torch.float16)
 
-    k = torch.matmul(x.to(torch.float32), w_idx_k.to(torch.float32)) # (b, s, d)
+    k = torch.matmul(x.to(torch.float32), w_idx_k.to(torch.float32))  # (b, s, d)
     k = layer_norm(k, layer_norm_gamma, layer_norm_beta).to(x_dtype)
     k_rope, k_nope = torch.split(k, [rope_head_dim, d - rope_head_dim], dim=-1)
     k_rope = single_rope(k_rope.unsqueeze(2), cos, sin).squeeze(2)
@@ -328,7 +325,7 @@ def gen_indexer_prolog_inputs(dims, dtype=torch.bfloat16, qunat_dtype=torch.int8
         "sin_idx_rope": sin,  # input10, bf16
         "hadamard_q": hadamard_q,  # input11, bf16
         "hadamard_k": hadamard_k,  # input12, bf16
-        "idx_k_cache": k_cache,              # input13, int8  # (block_num, block_size, n_kv, d)
+        "idx_k_cache": k_cache,  # input13, int8  # (block_num, block_size, n_kv, d)
         "idx_k_scale_cache": k_scale_cache,  # input14, fp16  # (block_num, block_size, n_kv, 1)
         "idx_k_cache_index": k_cache_index,  # input15, int64  (b, s)/（t,)
         "idx_block_table": block_table,  # input16, int32  (b, ceil(s2, block_size))
@@ -353,13 +350,13 @@ def gen_indexer_golden(params, output):
 
 
 @GoldenRegister.reg_golden_func(
-    case_names = [
+    case_names=[
         "QuantLightningIndexerPrologSTest.b4_s1_2_s2_64k",
         "QuantLightningIndexerPrologSTest.b8_s1_2_s2_64k",
+        "QuantLightningIndexerPrologSTest.b1_s1_4k_s2_64k",
+        "QuantLightningIndexerPrologSTest.b2_s1_4k_s2_64k"
     ]
 )
-
-
 def indexer_test(case_name: str, output: Path) -> bool:
     if case_name.startswith("QuantLightningIndexerPrologSTest.b4_s1_2_s2_64k"):
         params = {
@@ -371,6 +368,18 @@ def indexer_test(case_name: str, output: Path) -> bool:
         params = {
             "b": 8,
             "s1": 2,
+            "s2": 1024 * 64
+        }
+    elif case_name.startswith("QuantLightningIndexerPrologSTest.b1_s1_4k_s2_64k"):
+        params = {
+            "b": 1,
+            "s1": 1024 * 4,
+            "s2": 1024 * 64
+        }
+    elif case_name.startswith("QuantLightningIndexerPrologSTest.b2_s1_4k_s2_64k"):
+        params = {
+            "b": 2,
+            "s1": 1024 * 4,
             "s2": 1024 * 64
         }
     else:
@@ -388,15 +397,17 @@ def main() -> bool:
     case_name_list: List[str] = [
         "QuantLightningIndexerPrologSTest.b4_s1_2_s2_64k",
         "QuantLightningIndexerPrologSTest.b8_s1_2_s2_64k",
+        "QuantLightningIndexerPrologSTest.b1_s1_4k_s2_64k",
+        "QuantLightningIndexerPrologSTest.b2_s1_4k_s2_64k"
     ]
     # 函数调用
     ret: bool = True
     for cs in case_name_list:
-        output: Path = Path(g_src_root, "build/tests/st/golden", cs).resolve()
+        output: Path = Path(g_src_root, "build/framework/tests/st/golden", cs).resolve()
         output.mkdir(parents=True, exist_ok=True)
         ret = indexer_test(case_name=cs, output=output)
     return ret
 
 
-if __name__ == "main":
+if __name__ == "__main__":
     exit(0 if main() else 1)

@@ -88,8 +88,6 @@ Tensor QuantRope3D(const Tensor &x, const Tensor &cos, const Tensor &sin) {
     constexpr size_t query_rope_dim = 3;
     constexpr size_t head_num_axis = 1;
     constexpr size_t head_dim_axis = 2;
-    constexpr int chunk_head_axis = 2;
-    constexpr int trans_last_axis = 3;
     ASSERT(x.GetShape().size() == query_rope_dim && cos.GetShape().size() == COS_SIN_DIM &&
            sin.GetShape().size() == COS_SIN_DIM);
 
@@ -107,15 +105,7 @@ Tensor QuantRope3D(const Tensor &x, const Tensor &cos, const Tensor &sin) {
     castCos = Reshape(castCos, {tTile, 1, ropeDim});
     castSin = Reshape(castSin, {tTile, 1, ropeDim});
 
-    TileShape::Current().SetVecTile(1, headNum / CHUNK_SIZE, VEC_TILE_128, VEC_TILE_128);
-    xView = Reshape(
-        xView, {tTile, headNum, ropeDim / CHUNK_SIZE, CHUNK_SIZE}, {tTile, headNum, ropeDim / CHUNK_SIZE, CHUNK_SIZE});
-    auto xTrans = Transpose(xView, {chunk_head_axis, trans_last_axis});
-
-    TileShape::Current().SetVecTile(1, headNum / CHUNK_SIZE, ropeDim);
-    xTrans = Reshape(xTrans, {tTile, headNum, ropeDim}, {tTile, headNum, ropeDim});
-
-    auto xEmbed = Add(Mul(xTrans, castCos), Mul(LIPrologRotateHalf(xTrans), castSin));
+    auto xEmbed = Add(Mul(xView, castCos), Mul(LIPrologRotateHalf(xView), castSin));
     auto res = Cast(xEmbed, xDtype);
     return res;
 }
@@ -123,8 +113,6 @@ Tensor QuantRope3D(const Tensor &x, const Tensor &cos, const Tensor &sin) {
 Tensor QuantRope2D(const Tensor &x, const Tensor &cos, const Tensor &sin) {
     config::SetSemanticLabel("Key-Rope2D");
     constexpr size_t key_rope_dim = 2;
-    constexpr int chunk_head_axis = 2;
-    constexpr int trans_last_axis = 3;
     auto xDtype = x.GetDataType();
     int tTile = x.GetShape()[0];
     int ropeDim = x.GetShape()[1];
@@ -136,13 +124,8 @@ Tensor QuantRope2D(const Tensor &x, const Tensor &cos, const Tensor &sin) {
     auto castSin = Cast(sin, DT_FP32);
     auto xView = Cast(x, DT_FP32);
 
-    TileShape::Current().SetVecTile(1, tTile, ropeDim / CHUNK_SIZE, VEC_TILE_128);
-    xView = Reshape(xView, {1, tTile, ropeDim / CHUNK_SIZE, CHUNK_SIZE});
-    auto xTrans = Transpose(xView, {chunk_head_axis, trans_last_axis});
-    xTrans = Reshape(xTrans, {tTile, ropeDim}, {tTile, ropeDim});
-
     TileShape::Current().SetVecTile(tTile, ropeDim);
-    auto xEmbed = Add(Mul(xTrans, castCos), Mul(LIPrologRotateHalf(xTrans), castSin));
+    auto xEmbed = Add(Mul(xView, castCos), Mul(LIPrologRotateHalf(xView), castSin));
     auto res = Cast(xEmbed, xDtype);
     return res;
 }

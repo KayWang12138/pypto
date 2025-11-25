@@ -263,4 +263,22 @@ TEST_F(QuantLightningIndexerPrologSTest, b8_s1_2_s2_64k) {
     configs.wLinear = {16, 16, 1024, 1024, 32, 32};
     TestQuantLightningIndexerProlog<npu::tile_fwk::bfloat16, true>(configs);
 }
+
+TEST_F(QuantLightningIndexerPrologSTest, b1_s1_4k_s2_64k) {
+    QuantIndexerConfigs configs;
+    configs.qLinear = {32, 32, 512, 512, 128, 128};
+    configs.qHd = {64, 64, 128, 128, 128, 128};
+    configs.kLinear = {16, 16, 512, 512, 64, 64};
+    configs.wLinear = {16, 16, 1024, 1024, 32, 32};
+    TestQuantLightningIndexerProlog<npu::tile_fwk::bfloat16, true>(configs);
+}
+
+TEST_F(QuantLightningIndexerPrologSTest, b2_s1_4k_s2_64k) {
+    QuantIndexerConfigs configs;
+    configs.qLinear = {32, 32, 512, 512, 128, 128};
+    configs.qHd = {64, 64, 128, 128, 128, 128};
+    configs.kLinear = {16, 16, 512, 512, 64, 64};
+    configs.wLinear = {16, 16, 1024, 1024, 32, 32};
+    TestQuantLightningIndexerProlog<npu::tile_fwk::bfloat16, true>(configs);
+}
 } // namespace
