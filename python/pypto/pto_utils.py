@@ -12,6 +12,7 @@
 """
 import inspect
 from typing import Sequence, Union, List
+from pathlib import Path
 
 from . import pto_impl
 
@@ -58,7 +59,7 @@ def extract_user_backtrace(stack_frames) -> str:
 
 def set_source_location(level: int = 1):
     pto_impl.SetLocation(
-        inspect.stack()[level + 1].filename,
+        str(Path(inspect.stack()[level + 1].filename).resolve()),
         inspect.stack()[level + 1].lineno,
         extract_user_backtrace(inspect.stack())
     )
