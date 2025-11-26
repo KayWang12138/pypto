@@ -1327,13 +1327,23 @@ std::string CodeGenOpCloudNPU::printWhereOp(const WhereParam &param) const {
 }
 
 std::string CodeGenOpCloudNPU::printWhereOpTileTensor() const {
-    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ID0]);
-    std::string maskTensor = sm->QueryTileTensorByMagic(operandWithMagic[ID1]);
-    std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ID2]);
-    std::string src1Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ID3]);
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[static_cast<int>(WhereOpIdx::resIdx)]);
+    std::string castTensor = sm->QueryTileTensorByMagic(operandWithMagic[static_cast<int>(WhereOpIdx::castIdx)]);
+    std::string cmpTensor = sm->QueryTileTensorByMagic(operandWithMagic[static_cast<int>(WhereOpIdx::cmpIdx)]);
+    std::string vcmpTensor = sm->QueryTileTensorByMagic(operandWithMagic[static_cast<int>(WhereOpIdx::vcmpResIdx)]);
+    std::string startUBTensor = sm->QueryTileTensorByMagic(operandWithMagic[static_cast<int>(WhereOpIdx::startUBIdx)]);
+    std::string inputTempTensor =
+        sm->QueryTileTensorByMagic(operandWithMagic[static_cast<int>(WhereOpIdx::inputTempIdx)]);
+    std::string outputTempTensor =
+        sm->QueryTileTensorByMagic(operandWithMagic[static_cast<int>(WhereOpIdx::outputTmpIdx)]);
+    std::string condTensor = sm->QueryTileTensorByMagic(operandWithMagic[static_cast<int>(WhereOpIdx::condIdx)]);
+    std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[static_cast<int>(WhereOpIdx::src0Idx)]);
+    std::string src1Tensor = sm->QueryTileTensorByMagic(operandWithMagic[static_cast<int>(WhereOpIdx::src1Idx)]);
 
     std::ostringstream oss;
-    oss << tileOpName << "(" << dstTensor << ", " << maskTensor << ", " << src0Tensor << ", " << src1Tensor << ");\n";
+    oss << tileOpName << "(" << dstTensor << ", " << castTensor << ", " << cmpTensor << ", " << vcmpTensor << ", "
+        << startUBTensor << ", " << inputTempTensor << ", " << outputTempTensor << ", " << condTensor << ", "
+        << src0Tensor << ", " << src1Tensor << ");\n";
     return oss.str();
 }
 

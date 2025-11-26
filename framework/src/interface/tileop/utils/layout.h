@@ -383,6 +383,10 @@ using DynLayout4Dim = TileOp::Layout<Shape4Dim, Stride4Dim, TileOp::TileShape<si
 using DynLayout5Dim = TileOp::Layout<Shape5Dim, Stride5Dim, TileOp::TileShape<size_t, size_t, size_t, size_t, size_t>>;
 
 // common Local layouts
+template <size_t TileW>
+using LocalLayout1Dim = TileOp::Layout<Shape1Dim, TileOp::Stride<Std::Int<1>>,
+    TileOp::TileShape<Std::Int<TileW>>>;
+
 template <size_t TileH, size_t TileW>
 using LocalLayout2Dim = TileOp::Layout<Shape2Dim, TileOp::Stride<Std::Int<TileW>, Std::Int<1>>,
     TileOp::TileShape<Std::Int<TileH>, Std::Int<TileW>>>;
