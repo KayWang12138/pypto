@@ -8,8 +8,6 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-find_package(Threads REQUIRED)
-
 if (NOT ENABLE_FEATURE_PYTHON_FRONT_END)
     add_subdirectory(operator)
 endif ()
@@ -18,9 +16,9 @@ add_subdirectory(interface)
 add_subdirectory(passes)
 add_subdirectory(codegen)
 add_subdirectory(machine)
+add_subdirectory(cost_model)
 
 if (NOT ENABLE_FEATURE_PYTHON_FRONT_END)
-    add_subdirectory(cost_model)
     if (NOT BUILD_OPEN_PROJECT)
         add_subdirectory(execute)
     endif()

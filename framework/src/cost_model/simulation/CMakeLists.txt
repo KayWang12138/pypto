@@ -20,13 +20,13 @@ target_include_directories(tile_fwk_simulation
 target_link_libraries(tile_fwk_simulation
         PUBLIC
             dl
-            json
             $<$<BOOL:${ENABLE_UTEST}>:tile_fwk_interface>
             $<$<BOOL:${ENABLE_UTEST}>:tile_fwk_passes>
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub
             c_sec
+            json
 )
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_simulation)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_simulation)

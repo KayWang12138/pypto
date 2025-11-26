@@ -10,6 +10,8 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
+import logging
+
 import pypto
 
 def test_element():
@@ -20,3 +22,9 @@ def test_element():
     b = pypto.element(pypto.DT_INT32, 1)
     assert b.dtype == pypto.DT_INT32
     assert b.value == 1
+
+
+if __name__ == "__main__":
+    logging.basicConfig(format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s', level=logging.INFO)
+    test_element()
+    logging.info("Exist")

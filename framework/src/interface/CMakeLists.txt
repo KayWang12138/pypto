@@ -45,7 +45,7 @@ target_include_directories(tile_fwk_interface
 target_link_libraries(tile_fwk_interface
         PUBLIC
             $<BUILD_INTERFACE:json>
-            c_sec
+            $<BUILD_INTERFACE:c_sec>
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub

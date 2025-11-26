@@ -67,11 +67,15 @@ option(ENABLE_STEST_TOOLS_PROF_TRY_CNT "Specify STest Tools Profiling Try cnt" O
 option(ENABLE_STEST_TOOLS_PROF_MAX_CNT "Specify STest Tools Profiling Max cnt" OFF)
 
 # 缺省编译配置, 编译函数
-include(cmake/third_party/nlohmann_json.cmake)
+find_package(Threads REQUIRED)
+include(ExternalProject)
+include(CMakePackageConfigHelpers)
 include(cmake/func.cmake)
 include(cmake/config.cmake)
 include(cmake/intf.cmake)
-include(CMakePackageConfigHelpers)
+include(cmake/third_party/nlohmann_json/nlohmann_json.cmake)
+include(cmake/third_party/libboundscheck/libboundscheck.cmake)
+include(cmake/third_party/googletest/googletest.cmake)
 
 
 ########################################################################################################################
@@ -89,7 +93,20 @@ add_subdirectory(python)
 if (ENABLE_FEATURE_PYTHON_FRONT_END)
     # 安装 二进制文件
     set(InstallExport ${PROJECT_NAME}Targets)
-    set(InstallTargets tile_fwk_interface tile_fwk_codegen tile_fwk_compiler tile_fwk_runtime)
+    set(InstallTargets tile_fwk_interface tile_fwk_codegen tile_fwk_compiler)
+    if (BUILD_WITH_CANN)
+        list(APPEND InstallTargets tile_fwk_runtime)
+        install(TARGETS tile_fwk_server LIBRARY DESTINATION "${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}")
+    else ()
+        list(APPEND InstallTargets tile_fwk_simulation)
+        get_target_property(cSecSharedFile c_sec_shared IMPORTED_LOCATION)
+        install(FILES ${cSecSharedFile}
+                DESTINATION "${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}"
+                PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+                            GROUP_READ GROUP_EXECUTE
+                            WORLD_READ WORLD_EXECUTE
+        )
+    endif ()
     if (ENABLE_TORCH_VERIFIER)
         list(APPEND InstallTargets tile_fwk_calculator)
     endif()
@@ -97,7 +114,6 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
             EXPORT  ${InstallExport}
             TARGETS ${InstallTargets}
     )
-    install(TARGETS tile_fwk_server LIBRARY DESTINATION "${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}")
     PTO_Fwk_InstallBinaries(
             TARGETS         pto_impl
             INSTALL_LIBDIR  ${CMAKE_INSTALL_PREFIX}/${ENABLE_FEATURE_PYTHON_FRONT_END}

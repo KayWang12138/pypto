@@ -9,5 +9,8 @@
 # -----------------------------------------------------------------------------------------------------------
 
 add_subdirectory(simulation)
-add_subdirectory(simulation_ca)
-add_subdirectory(simulation_pv)
+
+if (BUILD_WITH_CANN AND NOT ENABLE_FEATURE_PYTHON_FRONT_END)
+    add_subdirectory(simulation_ca)
+    add_subdirectory(simulation_pv)
+endif ()

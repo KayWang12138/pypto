@@ -8,20 +8,26 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
+if (NOT BUILD_OPEN_PROJECT)
+    return()
+endif ()
+
+set(_TargetNameAlias "json")
 set(_TargetVersion 3.11.3)
 
 # 免重入
-if (nlohmann_json_FOUND)
-    message(STATUS "Use nlohmann_json from ${nlohmann_json_DIR}")
+if (TARGET ${_TargetNameAlias})
     return()
 endif ()
 
 # 直接查找制品, 若找到则直接退出
-if (DEFINED ENV{CANN_3RD_LIB_PATH} AND EXISTS "$ENV{CANN_3RD_LIB_PATH}" AND IS_DIRECTORY "$ENV{CANN_3RD_LIB_PATH}")
+if (DEFINED ENV{CANN_3RD_LIB_PATH})
     get_filename_component(CANN_3RD_LIB_PATH "$ENV{CANN_3RD_LIB_PATH}" REALPATH)
-    find_package(nlohmann_json ${_TargetVersion} EXACT CONFIG PATHS ${CANN_3RD_LIB_PATH} NO_DEFAULT_PATH)
     get_filename_component(_TargetTarGzFile "${CANN_3RD_LIB_PATH}/json-${_TargetVersion}.tar.gz" REALPATH)
+    get_filename_component(_TargetInstallPrefix "${CANN_3RD_LIB_PATH}/${CMAKE_BUILD_TYPE}" REALPATH)
+    find_package(nlohmann_json ${_TargetVersion} EXACT CONFIG PATHS ${_TargetInstallPrefix} NO_DEFAULT_PATH)
 else ()
+    # 兼容蓝区云龙设置
     find_package(nlohmann_json ${_TargetVersion} EXACT CONFIG)
     if (NOT ${nlohmann_json_FOUND})
         if (DEFINED ENV{ASCEND_3RD_LIB_PATH} AND EXISTS "$ENV{ASCEND_3RD_LIB_PATH}" AND IS_DIRECTORY "$ENV{ASCEND_3RD_LIB_PATH}")
@@ -36,12 +42,11 @@ else ()
         find_package(nlohmann_json ${_TargetVersion} EXACT CONFIG)
     endif ()
     if (NOT ${nlohmann_json_FOUND})
-        message(FATAL_ERROR "No nlohmann_json found, please refer to the ReadMe of this project for installation instructions.")
+        message(FATAL_ERROR "Failed to get nlohmann_json source dir, When CANN is not used, ENV CANN_3RD_LIB_PATH must be set.")
     endif ()
-    message(STATUS "Use nlohmann_json from ${nlohmann_json_DIR}")
 endif ()
 if (nlohmann_json_FOUND)
-    message(STATUS "Use nlohmann_json from ${nlohmann_json_DIR}")
+    message(STATUS "Use nlohmann_json from binary, nlohmann_json_DIR=${nlohmann_json_DIR}")
     # 重命名目标
     if (NOT TARGET json)
         get_target_property(_JsonInc nlohmann_json::nlohmann_json INTERFACE_INCLUDE_DIRECTORIES)
@@ -51,47 +56,43 @@ if (nlohmann_json_FOUND)
     return()
 endif ()
 
-# 获取源码路径
-if (EXISTS "${_TargetTarGzFile}" AND NOT IS_DIRECTORY "${_TargetTarGzFile}")
-    execute_process(
-            COMMAND ${CMAKE_COMMAND} -E tar xzf ${_TargetTarGzFile}
-            WORKING_DIRECTORY ${CANN_3RD_LIB_PATH}
-            RESULT_VARIABLE _Rst
-    )
-    if (NOT _Rst EQUAL 0)
-        message(FATAL_ERROR "Failed to decompress ${_TargetTarGzFile}")
-    endif ()
-endif ()
+# 触发编译
 get_filename_component(_TargetSourceDir "${CANN_3RD_LIB_PATH}/json-${_TargetVersion}" REALPATH)
-if (NOT EXISTS "${_TargetSourceDir}")
-    get_filename_component(_TargetSourceDir "${CANN_3RD_LIB_PATH}/json" REALPATH)
+get_filename_component(_TargetBinaryDir "${CANN_3RD_LIB_PATH}/${CMAKE_BUILD_TYPE}/build/json-${_TargetVersion}" REALPATH)
+
+set(_ExtArgs)
+if (NOT EXISTS ${_TargetSourceDir})
+    list(APPEND _ExtArgs
+            URL "https://gitcode.com/cann-src-third-party/json/releases/download/v3.11.3/json-3.11.3.tar.gz"
+            URL_HASH SHA256=0d8ef5af7f9794e3263480193c491549b2ba6cc74bb018906202ada498a79406
+            DOWNLOAD_DIR ${CANN_3RD_LIB_PATH}
+    )
 endif ()
 
-# 触发编译
-include(ExternalProject)
-if (EXISTS "${_TargetSourceDir}")
-    get_filename_component(_TargetBinaryDir "${CANN_3RD_LIB_PATH}/build/${CMAKE_BUILD_TYPE}/json" REALPATH)
-    ExternalProject_Add(ExternalProject_Nlohmann_Json
-            PREFIX ${_TargetBinaryDir}
-            SOURCE_DIR ${_TargetSourceDir}
-            INSTALL_DIR ${CANN_3RD_LIB_PATH}
-            CONFIGURE_COMMAND ${CMAKE_COMMAND} -G ${CMAKE_GENERATOR} -S <SOURCE_DIR> -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-                -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
-                # 编译器相关配置
-                -DCMAKE_CXX_COMPILER_LAUNCHER=${CMAKE_CXX_COMPILER_LAUNCHER}
-                # 具体软件相关变量
-                -DJSON_MultipleHeaders=ON
-                -DJSON_BuildTests=OFF
-            BUILD_ALWAYS FALSE
-            EXCLUDE_FROM_ALL TRUE
-            BUILD_BYPRODUCTS
-            ${CANN_3RD_LIB_PATH}/include/nlohmann/
-    )
-    if (NOT TARGET json)
-        add_library(json INTERFACE)
-        set_target_properties(json PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${CANN_3RD_LIB_PATH}/include")
-        add_dependencies(json ExternalProject_Nlohmann_Json)
-    endif ()
-else ()
-    message(FATAL_ERROR "Failed to get nlohmann_json src path.")
+ExternalProject_Add(ExternalProject_nlohmann_json   ${_ExtArgs}
+        PREFIX ${CMAKE_CURRENT_BINARY_DIR}/third_party/json-${_TargetVersion}
+        SOURCE_DIR ${_TargetSourceDir}
+        BINARY_DIR ${_TargetBinaryDir}
+        INSTALL_DIR ${_TargetInstallPrefix}
+        CMAKE_ARGS
+            -G ${CMAKE_GENERATOR}
+            -S <SOURCE_DIR>
+            -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+            -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+            # 编译器相关配置
+            -DCMAKE_CXX_COMPILER_LAUNCHER=${CMAKE_CXX_COMPILER_LAUNCHER}
+            # 具体软件相关变量
+            -DJSON_MultipleHeaders=ON
+            -DJSON_BuildTests=OFF
+        BUILD_ALWAYS FALSE
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+        EXCLUDE_FROM_ALL TRUE
+        BUILD_BYPRODUCTS
+            ${_TargetInstallPrefix}/include/nlohmann/
+)
+if (NOT TARGET json)
+    add_library(json INTERFACE)
+    set_target_properties(json PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${_TargetInstallPrefix}/include")
+    add_dependencies(json ExternalProject_nlohmann_json)
+    message(STATUS "Use nlohmann_json from source: ${_TargetSourceDir}")
 endif ()

@@ -31,29 +31,3 @@ if (ENABLE_STEST_GOLDEN_PATH)
 else ()
     get_filename_component(ENABLE_STEST_GOLDEN_PATH "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/golden" REALPATH)
 endif ()
-
-
-########################################################################################################################
-# 三方库
-########################################################################################################################
-
-# GTest
-if (BUILD_OPEN_PROJECT AND (ENABLE_UTEST OR ENABLE_STEST OR ENABLE_STEST_DISTRIBUTED))
-    find_package(GTest CONFIG)
-    if (NOT ${GTest_FOUND})
-        if (DEFINED ENV{ASCEND_3RD_LIB_PATH} AND NOT "${ASCEND_3RD_LIB_PATH}x" STREQUAL "x")
-            get_filename_component(ASCEND_3RD_LIB_PATH "$ENV{ASCEND_3RD_LIB_PATH}" REALPATH)
-            if (EXISTS "${ASCEND_3RD_LIB_PATH}/cmake/modules")
-                list(APPEND CMAKE_MODULE_PATH ${ASCEND_3RD_LIB_PATH}/cmake/modules)
-            endif ()
-            if (EXISTS "${ASCEND_3RD_LIB_PATH}/gtest/lib/cmake/GTest")
-                list(APPEND CMAKE_PREFIX_PATH ${ASCEND_3RD_LIB_PATH}/gtest/lib/cmake/GTest)
-            endif ()
-        endif ()
-        find_package(GTest CONFIG)
-    endif ()
-    if (NOT ${GTest_FOUND})
-        message(FATAL_ERROR "No GTest found, please refer to the ReadMe of this project for installation instructions.")
-    endif ()
-    message(STATUS "Use GTest from ${GTest_DIR}")
-endif ()

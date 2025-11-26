@@ -95,12 +95,14 @@ class CMakeUserOption:
     USER_OPTION: List[Any] = [
         ('clean-first', None, 'Clean before build', None),
         ('cmake-args=', None, 'Additional CMake parameters', None),
+        ('backend=', None, 'Backend type', None),
         ('disable-install-strip', None, 'Disable strip when install', None),
     ]
 
     def __init__(self):
         self.clean_first: Optional[bool] = None
         self.cmake_args: Optional[str] = None
+        self.backend: Optional[str] = None
         self.disable_install_strip: bool = False
         self.initialize_options_default()
 
@@ -112,6 +114,7 @@ class CMakeUserOption:
         desc += f"\n{self.__class__.__name__}"
         desc += f"\n    clean-first           : {self.clean_first}"
         desc += f"\n    cmake-args            : {self.cmake_args}"
+        desc += f"\n    backend               : {self.backend}"
         desc += f"\n    disable-install-strip : {self.disable_install_strip}"
         desc += f"\n"
         return desc
@@ -119,6 +122,7 @@ class CMakeUserOption:
     def initialize_options_default(self):
         self.clean_first = None
         self.cmake_args = None
+        self.backend = None
         self.disable_install_strip = False
 
     def initialize_options_from_env(self):
@@ -127,10 +131,12 @@ class CMakeUserOption:
             parser = argparse.ArgumentParser(description=f"Setuptools CMakeBuild Ext.", add_help=False)
             parser.add_argument("--clean-first", action="store_true", default=False, dest="clean")
             parser.add_argument("--cmake-args", nargs="?", type=str, default="", dest="cmake_args")
+            parser.add_argument("--backend", nargs="?", type=str, default="", dest="backend")
             parser.add_argument("--disable-install-strip", action="store_true", default=False, dest="strip")
             args, _ = parser.parse_known_args(env_build_ext_args.split())
             self.clean_first = args.clean
             self.cmake_args = str(args.cmake_args).replace("'", "")
+            self.backend = str(args.backend).lower()
             self.disable_install_strip = args.strip
 
     def initialize_options_from_distribution(self, distribution):
@@ -139,12 +145,15 @@ class CMakeUserOption:
         if hasattr(distribution, 'cmake_args'):
             if distribution.cmake_args is not None:
                 self.cmake_args = distribution.cmake_args
+        if hasattr(distribution, 'backend'):
+            self.backend = str(distribution.backend).lower() if distribution.backend else ""
         if hasattr(distribution, 'disable_install_strip'):
             self.disable_install_strip = distribution.disable_install_strip
 
     def finalize_options_normal(self):
         self.clean_first = True if self.clean_first else False
         self.cmake_args = None if not self.cmake_args else self.cmake_args
+        self.backend = str(self.backend).lower() if self.backend else ""
         self.disable_install_strip = True if self.disable_install_strip else False
 
 
@@ -181,7 +190,8 @@ class CMakeBuild(build_ext, CMakeUserOption):
         generator: str = "Ninja" if MetaHelper.has_ninja() else "'Unix Makefiles'"
         cmd: str = f"cmake -S {MetaHelper.src_root()} -B {build_dir} -G {generator}"
         cmd += f" -DPython3_EXECUTABLE={sys.executable} -DCMAKE_INSTALL_PREFIX={self.build_lib}"
-        cmd += f" -DENABLE_FEATURE_PYTHON_FRONT_END={MetaHelper.name()} -DBUILD_WITH_CANN=ON"
+        cmd += f" -DENABLE_FEATURE_PYTHON_FRONT_END={MetaHelper.name()}"
+        cmd += f" -DBUILD_WITH_CANN=OFF" if self.backend in ["cost_model", ] else f" -DBUILD_WITH_CANN=ON"
         cmd += f" {self.cmake_args}" if self.cmake_args else ""
         logging.info("CMake Configure, Cmd: %s", cmd)
         ret = subprocess.run(shlex.split(cmd), capture_output=False, check=True, text=True, encoding='utf-8')
@@ -216,6 +226,7 @@ class CustomBdistWheel(bdist_wheel, CMakeUserOption):
         # 将参数存储到 distribution 中
         self.distribution.clean_first = self.clean_first
         self.distribution.cmake_args = self.cmake_args
+        self.distribution.backend = self.backend
         self.distribution.disable_install_strip = self.disable_install_strip
 
     def run(self):
@@ -226,6 +237,8 @@ class CustomBdistWheel(bdist_wheel, CMakeUserOption):
                 build_ext_cmd.cmake_args = self.cmake_args
             if self.cmake_args:
                 build_ext_cmd.cmake_args = self.cmake_args
+            if self.backend:
+                build_ext_cmd.backend = self.backend
             if self.disable_install_strip:
                 build_ext_cmd.disable_install_strip = self.disable_install_strip
         super().run()

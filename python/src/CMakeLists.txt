@@ -24,13 +24,17 @@ target_include_directories(pto_impl
         PRIVATE
             .
 )
+target_compile_definitions(pto_impl
+        PRIVATE
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:BUILD_WITH_CANN>>
+)
 target_link_libraries(pto_impl
         PRIVATE
             c_sec
             tile_fwk_interface
             tile_fwk_codegen
             tile_fwk_compiler
-            tile_fwk_runtime
+            $<$<BOOL:${BUILD_WITH_CANN}>:tile_fwk_runtime>
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub

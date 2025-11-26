@@ -30,3 +30,6 @@ build_whl
 build_out
 kernel_meta
 *.egg-info
+
+cann_src_third_party/
+cann_third_party/

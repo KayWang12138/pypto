@@ -13,27 +13,30 @@
 
 
 def load_shared_libs():
-    import os
     import ctypes
+    from pathlib import Path
     from importlib import metadata
 
-    pypto_dir = metadata.distribution("pypto").locate_file("pypto")
-    lib_dir = os.path.join(f"{pypto_dir}", "lib64")
-    if not os.path.exists(lib_dir):
-        lib_dir = os.path.join(f"{pypto_dir}", "lib")
+    cur_dir: Path = Path(str(metadata.distribution("pypto").locate_file("pypto"))).resolve()
+    lib_dir: Path = Path(cur_dir, "lib64")
+    lib_dir = lib_dir if lib_dir.exists() else Path(cur_dir, "lib")
 
-    calc_path = os.path.join(lib_dir, "libtile_fwk_calculator.so")
-    if os.path.exists(calc_path):
+    c_sec_path: Path = Path(lib_dir, "libc_sec.so")
+    if c_sec_path.exists():
+        ctypes.CDLL(str(c_sec_path), mode=ctypes.RTLD_GLOBAL)
+
+    calc_path: Path = Path(lib_dir, "libtile_fwk_calculator.so")
+    if calc_path.exists:
         import torch
-
         # calculator.so depends on torch, so load it after torch
-        ctypes.CDLL(calc_path, mode=ctypes.RTLD_LOCAL)
+        ctypes.CDLL(str(calc_path), mode=ctypes.RTLD_LOCAL)
 
     libs = ["libtile_fwk_interface.so", "libtile_fwk_codegen.so",
             "libtile_fwk_compiler.so", "libtile_fwk_runtime.so"]
-    for lib in libs:
-        if os.path.exists(os.path.join(lib_dir, lib)):
-            ctypes.CDLL(os.path.join(lib_dir, lib), mode=ctypes.RTLD_GLOBAL)
+    for name in libs:
+        lib: Path = Path(lib_dir, name)
+        if lib.exists():
+            ctypes.CDLL(str(lib), mode=ctypes.RTLD_GLOBAL)
 
 
 load_shared_libs()

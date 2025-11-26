@@ -181,7 +181,6 @@ class BuildParam(CMakeParam):
         self.ubsan = args.ubsan
         self.gcov = args.gcov
         self.clang_install_path = self._get_clang_install_path(opt=args.clang)
-        self.open_source_path = args.cann_3rd_lib_path if args.cann_3rd_lib_path else None
 
     def __str__(self):
         desc: str = ""
@@ -195,18 +194,11 @@ class BuildParam(CMakeParam):
         desc += f"\n    UbSan                   : {self.ubsan}"
         desc += f"\n    GCov                    : {self.gcov}"
         desc += f"\n    ClangInstallPath        : {self.clang_install_path}"
-        desc += f"\n    CANN 3rd Lib Path       : {self.open_source_path}"
         return desc
 
     @property
     def disable_install_strip(self) -> bool:
         return self.type_ in ["Debug"]
-
-    @property
-    def cann_3rd_lib_path(self) -> Optional[Path]:
-        p: Optional[Path] = Path(self.open_source_path) if self.open_source_path else None
-        p = p if p and p.exists() else None
-        return p
 
     @staticmethod
     def reg_args(parser, ext: Optional[Any] = None):
@@ -230,8 +222,6 @@ class BuildParam(CMakeParam):
                             help="Enable GNU Coverage Instrumentation Tool.")
         parser.add_argument("--clang", nargs="?", type=str, default="",
                             help="Specify clang install path, such as /usr/bin/clang")
-        parser.add_argument("--cann_3rd_lib_path", nargs="?", type=str, default="",
-                            help="Specify CANN 3rd Libraries Path")
 
     @staticmethod
     def _get_clang_install_path(opt: Optional[str]) -> Optional[Path]:
@@ -291,12 +281,6 @@ class BuildParam(CMakeParam):
         cmd += self._cfg_pep517_require(opt="ENABLE_UBSAN", ctr=self.ubsan)
         cmd += self._cfg_pep517_require(opt="ENABLE_GCOV", ctr=self.gcov)
         return cmd
-
-    def get_cfg_update_env(self) -> Dict[str, str]:
-        env: Dict[str, str] = {}
-        if self.cann_3rd_lib_path:
-            env.update({"CANN_3RD_LIB_PATH": self.cann_3rd_lib_path})
-        return env
 
 
 @dataclasses.dataclass
@@ -771,6 +755,12 @@ class BuildCtrl:
         if self.feature.frontend_type_python3:
             self.build_root: Path = Path(Path.cwd(), "build_whl")
             self.install_root: Path = Path(self.build_root.parent, "build_out")
+        if args.cann_3rd_lib_path is None:
+            self.open_source_path = self.build_root / "cann_3rd_lib_path"
+        elif args.cann_3rd_lib_path == "":
+            self.open_source_path = None
+        else:
+            self.open_source_path = Path(args.cann_3rd_lib_path).resolve()
 
     def __str__(self):
         ver = sys.version_info
@@ -781,6 +771,7 @@ class BuildCtrl:
         desc += f"\n    Source  Dir             : {self.src_root}"
         desc += f"\n    Build   Dir             : {self.build_root}"
         desc += f"\n    Install Dir             : {self.install_root}"
+        desc += f"\n    CANN 3rd lib Dir        : {self.open_source_path}"
         desc += f"{self.feature}"
         desc += f"{self.build}"
         desc += f"{self.tests}"
@@ -866,6 +857,8 @@ class BuildCtrl:
         BuildParam.reg_args(parser=parser)
         TestsParam.reg_args(parser=parser, ext=sub_parser)
         ModelParam.reg_args(parser=parser)
+        parser.add_argument("--cann_3rd_lib_path", nargs="?", type=str, default="",
+                            help="Specify CANN 3rd Libraries Path")
         # 参数处理
         args = parser.parse_args()
         ctrl = BuildCtrl(args=args)
@@ -922,6 +915,12 @@ class BuildCtrl:
         ret.check_returncode()
         logging.info("Success install %s%s", whl, f" to {path}" if path else "")
 
+    def get_cfg_update_env(self) -> Dict[str, str]:
+        env: Dict[str, str] = {}
+        if self.open_source_path:
+            env.update({"CANN_3RD_LIB_PATH": self.open_source_path})
+        return env
+
     def cmake_clean(self):
         """清理中间结果, 清理内容包括构建树, 安装树全部内容.
         """
@@ -954,7 +953,7 @@ class BuildCtrl:
         cmd += self.build.get_cfg_cmd()
         cmd += self.tests.get_cfg_cmd()
         # 执行
-        update_env: Dict[str, str] = self.build.get_cfg_update_env()
+        update_env: Dict[str, str] = self.get_cfg_update_env()
         logging.info("CMake Configure, Cmd: %s", cmd)
         ret = self.run_build_cmd(cmd=cmd, update_env=update_env, check=True)
         ret.check_returncode()
@@ -1004,11 +1003,12 @@ class BuildCtrl:
         cmd += f" --dist-dir={self.install_root}"
         cmd += f" --plat-name={self.feature.whl_plat_name}" if self.feature.whl_plat_name else ""
         cmd += f" --cmake-args='{cmake_args}'" if cmake_args else ""
+        cmd += f" --backend={self.feature.backend_type}"
         cmd += f" --clean-first" if self.build.clean else ""
         cmd += f" --disable-install-strip" if self.build.disable_install_strip else ""
         cmd += f" build --build-base={build_whl}"
         cmd += f" --parallel={self.build.job_num}" if self.build.job_num else ""
-        update_env: Dict[str, str] = self.build.get_cfg_update_env()
+        update_env: Dict[str, str] = self.get_cfg_update_env()
         ts = datetime.now(tz=timezone.utc)
         logging.info("Begin Build whl, Cmd: %s", cmd)
         ret = self.run_build_cmd(cmd=cmd, update_env=update_env, check=True, timeout=self.build.timeout)

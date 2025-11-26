@@ -1,0 +1,97 @@
+# -----------------------------------------------------------------------------------------------------------
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
+
+if (NOT BUILD_OPEN_PROJECT OR BUILD_WITH_CANN)
+    return()
+endif ()
+
+function(TryAdd_c_sec)
+    cmake_parse_arguments(
+            ARG
+            "SKIP_CHECK"
+            "PREFIX"
+            "DEPENDS"
+            ""
+            ${ARGN}
+    )
+    if ((EXISTS "${ARG_PREFIX}/lib/libc_sec.so" AND EXISTS "${ARG_PREFIX}/include/securec.h" AND EXISTS "${ARG_PREFIX}/include/securectype.h") OR ARG_SKIP_CHECK)
+        add_library(c_sec_shared SHARED IMPORTED)
+        set_target_properties(c_sec_shared PROPERTIES
+                IMPORTED_LOCATION ${ARG_PREFIX}/lib/libc_sec.so
+        )
+        add_library(c_sec INTERFACE)
+        set_target_properties(c_sec PROPERTIES
+                INTERFACE_INCLUDE_DIRECTORIES "${ARG_PREFIX}/include"
+                INTERFACE_LINK_LIBRARIES "c_sec_shared"
+        )
+        if (ARG_DEPENDS)
+            add_dependencies(c_sec ${ARG_DEPENDS})
+        endif ()
+    endif ()
+endfunction()
+
+# 免重入
+if (TARGET c_sec)
+    return()
+endif ()
+
+set(_TargetVersion "1.1.16")
+
+# 直接查找制品, 若找到则直接退出
+if (DEFINED ENV{CANN_3RD_LIB_PATH})
+    get_filename_component(CANN_3RD_LIB_PATH "$ENV{CANN_3RD_LIB_PATH}" REALPATH)
+    get_filename_component(_TargetTarGzFile "${CANN_3RD_LIB_PATH}/libboundscheck-v${_TargetVersion}.tar.gz" REALPATH)
+    get_filename_component(_TargetInstallPrefix "${CANN_3RD_LIB_PATH}/${CMAKE_BUILD_TYPE}" REALPATH)
+    TryAdd_c_sec(PREFIX ${_TargetInstallPrefix})
+    if (TARGET c_sec)
+        message(STATUS "Use c_sec from binary, c_sec_Install_Prefix=${_TargetInstallPrefix}")
+        return()
+    endif ()
+else ()
+    message(FATAL_ERROR "Failed to get c_sec source dir, When CANN is not used, ENV CANN_3RD_LIB_PATH must be set.")
+endif ()
+
+# 触发编译
+get_filename_component(_TargetSourceDir "${CANN_3RD_LIB_PATH}/libboundscheck-v${_TargetVersion}" REALPATH)
+get_filename_component(_TargetBinaryDir "${CANN_3RD_LIB_PATH}/${CMAKE_BUILD_TYPE}/build/libboundscheck-v${_TargetVersion}" REALPATH)
+
+set(_ExtArgs)
+if (NOT EXISTS ${_TargetSourceDir})
+    list(APPEND _ExtArgs
+            URL "https://gitcode.com/cann-src-third-party/libboundscheck/releases/download/v1.1.16/libboundscheck-v1.1.16.tar.gz"
+            URL_HASH SHA256=aee8368ef04a42a499edd5bfebce529e7f32dd138bfed383d316e48af4e45d2c
+            DOWNLOAD_DIR ${CANN_3RD_LIB_PATH}
+    )
+endif ()
+ExternalProject_Add(ExternalProject_c_sec   ${_ExtArgs}
+        PREFIX ${CMAKE_CURRENT_BINARY_DIR}/third_party/libboundscheck-v${_TargetVersion}
+        SOURCE_DIR ${_TargetSourceDir}
+        BINARY_DIR ${_TargetBinaryDir}
+        INSTALL_DIR ${_TargetInstallPrefix}
+        CONFIGURE_COMMAND ${CMAKE_COMMAND}
+            -G ${CMAKE_GENERATOR}
+            -S ${CMAKE_CURRENT_LIST_DIR}
+            -B <BINARY_DIR>
+            -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+            -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+            # 编译器相关配置
+            -DCMAKE_C_COMPILER_LAUNCHER=${CMAKE_C_COMPILER_LAUNCHER}
+            # 具体软件相关变量
+            -Dlibboundscheck_SRC_DIR=${_TargetSourceDir}
+        BUILD_ALWAYS FALSE
+        EXCLUDE_FROM_ALL TRUE
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+        BUILD_BYPRODUCTS
+            ${_TargetInstallPrefix}/include/securec.h
+            ${_TargetInstallPrefix}/include/securectype.h
+            ${_TargetInstallPrefix}/lib/libc_sec.so
+)
+TryAdd_c_sec(PREFIX ${_TargetInstallPrefix} DEPENDS ExternalProject_c_sec SKIP_CHECK)
+message(STATUS "Use c_sec from source: ${_TargetSourceDir}")

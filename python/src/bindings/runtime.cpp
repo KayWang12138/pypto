@@ -15,15 +15,16 @@
 
 #include "pybind_common.h"
 
+#ifdef BUILD_WITH_CANN
 #include <utility>
 #include <vector>
-
 #include "interface/interpreter/raw_tensor_data.h"
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/runtime/emulation_launcher.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
+#endif
 
 namespace pypto {
 
@@ -229,8 +230,15 @@ void BindRuntime(py::module &m) {
 
 #else
 
-void BindRuntime(py::module &m) {
-    (void)m;
+void __attribute__((used)) DeviceInit() {
+}
+
+void __attribute__((used)) DeviceFini() {
+}
+
+void __attribute__((used)) BindRuntime(py::module &m) {
+    m.def("DeviceInit", &DeviceInit);
+    m.def("DeviceFini", &DeviceFini);
 }
 
 #endif
