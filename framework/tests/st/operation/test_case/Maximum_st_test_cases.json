@@ -55,8 +55,8 @@
                 16
             ],
             "params": {
-                "scalar": 0,
-                "scalar_type": "",
+                "scalar": null,
+                "scalar_type": null,
                 "func_id": -1
             },
             "index": 0
@@ -116,8 +116,8 @@
                 16
             ],
             "params": {
-                "scalar": 0,
-                "scalar_type": "",
+                "scalar": null,
+                "scalar_type": null,
                 "func_id": -1
             },
             "index": 1
@@ -177,8 +177,8 @@
                 32
             ],
             "params": {
-                "scalar": 0,
-                "scalar_type": "",
+                "scalar": null,
+                "scalar_type": null,
                 "func_id": -1
             },
             "index": 2
@@ -238,8 +238,8 @@
                 16
             ],
             "params": {
-                "scalar": 0,
-                "scalar_type": "",
+                "scalar": null,
+                "scalar_type": null,
                 "func_id": -1
             },
             "index": 3
@@ -299,8 +299,8 @@
                 64
             ],
             "params": {
-                "scalar": 0,
-                "scalar_type": "",
+                "scalar": null,
+                "scalar_type": null,
                 "func_id": -1
             },
             "index": 4
@@ -360,8 +360,8 @@
                 32
             ],
             "params": {
-                "scalar": 0,
-                "scalar_type": "",
+                "scalar": null,
+                "scalar_type": null,
                 "func_id": -1
             },
             "index": 5
@@ -421,8 +421,8 @@
                 32
             ],
             "params": {
-                "scalar": 0,
-                "scalar_type": "",
+                "scalar": null,
+                "scalar_type": null,
                 "func_id": -1
             },
             "index": 6
@@ -482,8 +482,8 @@
                 64
             ],
             "params": {
-                "scalar": 0,
-                "scalar_type": "",
+                "scalar": null,
+                "scalar_type": null,
                 "func_id": -1
             },
             "index": 7
@@ -543,8 +543,8 @@
                 128
             ],
             "params": {
-                "scalar": 0,
-                "scalar_type": "",
+                "scalar": null,
+                "scalar_type": null,
                 "func_id": -1
             },
             "index": 8
@@ -604,8 +604,8 @@
                 64
             ],
             "params": {
-                "scalar": 0,
-                "scalar_type": "",
+                "scalar": null,
+                "scalar_type": null,
                 "func_id": -1
             },
             "index": 9
@@ -665,8 +665,8 @@
                 128
             ],
             "params": {
-                "scalar": 0,
-                "scalar_type": "",
+                "scalar": null,
+                "scalar_type": null,
                 "func_id": -1
             },
             "index": 10
@@ -736,8 +736,8 @@
                 40
             ],
             "params": {
-                "scalar": 0,
-                "scalar_type": "",
+                "scalar": null,
+                "scalar_type": null,
                 "func_id": -1
             },
             "index": 11
@@ -807,8 +807,8 @@
                 40
             ],
             "params": {
-                "scalar": 0,
-                "scalar_type": "",
+                "scalar": null,
+                "scalar_type": null,
                 "func_id": -1
             },
             "index": 12
@@ -878,8 +878,8 @@
                 40
             ],
             "params": {
-                "scalar": 0,
-                "scalar_type": "",
+                "scalar": null,
+                "scalar_type": null,
                 "func_id": -1
             },
             "index": 13
@@ -949,8 +949,8 @@
                 40
             ],
             "params": {
-                "scalar": 0,
-                "scalar_type": "",
+                "scalar": null,
+                "scalar_type": null,
                 "func_id": -1
             },
             "index": 14
@@ -2581,617 +2581,6 @@
         },
         {
             "case_index": 47,
-            "case_name": "MaxS_test_32",
-            "operation": "Maximum",
-            "input_tensors": [
-                {
-                    "name": "input0",
-                    "shape": [
-                        32,
-                        128
-                    ],
-                    "dtype": "int32",
-                    "format": "ND",
-                    "need_trans": false,
-                    "data_range": {
-                        "min": -100,
-                        "max": 100
-                    }
-                }
-            ],
-            "output_tensors": [
-                {
-                    "name": "output0",
-                    "shape": [
-                        32,
-                        128
-                    ],
-                    "dtype": "int16",
-                    "format": "ND",
-                    "need_trans": false
-                }
-            ],
-            "view_shape": [
-                16,
-                32
-            ],
-            "tile_shape": [
-                16,
-                16
-            ],
-            "params": {
-                "scalar": 50.0,
-                "scalar_type": "int32",
-                "func_id": -1
-            },
-            "index": 47
-        },
-        {
-            "case_index": 48,
-            "case_name": "MaxS_test_33",
-            "operation": "Maximum",
-            "input_tensors": [
-                {
-                    "name": "input0",
-                    "shape": [
-                        32,
-                        128
-                    ],
-                    "dtype": "int32",
-                    "format": "ND",
-                    "need_trans": false,
-                    "data_range": {
-                        "min": -100,
-                        "max": 100
-                    }
-                }
-            ],
-            "output_tensors": [
-                {
-                    "name": "output0",
-                    "shape": [
-                        32,
-                        128
-                    ],
-                    "dtype": "fp32",
-                    "format": "ND",
-                    "need_trans": false
-                }
-            ],
-            "view_shape": [
-                16,
-                32
-            ],
-            "tile_shape": [
-                16,
-                16
-            ],
-            "params": {
-                "scalar": 50.0,
-                "scalar_type": "int32",
-                "func_id": -1
-            },
-            "index": 48
-        },
-        {
-            "case_index": 49,
-            "case_name": "MaxS_test_34",
-            "operation": "Maximum",
-            "input_tensors": [
-                {
-                    "name": "input0",
-                    "shape": [
-                        32,
-                        128
-                    ],
-                    "dtype": "int32",
-                    "format": "ND",
-                    "need_trans": false,
-                    "data_range": {
-                        "min": -100,
-                        "max": 100
-                    }
-                }
-            ],
-            "output_tensors": [
-                {
-                    "name": "output0",
-                    "shape": [
-                        32,
-                        128
-                    ],
-                    "dtype": "fp16",
-                    "format": "ND",
-                    "need_trans": false
-                }
-            ],
-            "view_shape": [
-                16,
-                32
-            ],
-            "tile_shape": [
-                16,
-                16
-            ],
-            "params": {
-                "scalar": 50.0,
-                "scalar_type": "int32",
-                "func_id": -1
-            },
-            "index": 49
-        },
-        {
-            "case_index": 50,
-            "case_name": "MaxS_test_35",
-            "operation": "Maximum",
-            "input_tensors": [
-                {
-                    "name": "input0",
-                    "shape": [
-                        32,
-                        128
-                    ],
-                    "dtype": "int16",
-                    "format": "ND",
-                    "need_trans": false,
-                    "data_range": {
-                        "min": -100,
-                        "max": 100
-                    }
-                }
-            ],
-            "output_tensors": [
-                {
-                    "name": "output0",
-                    "shape": [
-                        32,
-                        128
-                    ],
-                    "dtype": "int32",
-                    "format": "ND",
-                    "need_trans": false
-                }
-            ],
-            "view_shape": [
-                16,
-                32
-            ],
-            "tile_shape": [
-                16,
-                16
-            ],
-            "params": {
-                "scalar": 50.0,
-                "scalar_type": "int16",
-                "func_id": -1
-            },
-            "index": 50
-        },
-        {
-            "case_index": 51,
-            "case_name": "MaxS_test_36",
-            "operation": "Maximum",
-            "input_tensors": [
-                {
-                    "name": "input0",
-                    "shape": [
-                        32,
-                        128
-                    ],
-                    "dtype": "int16",
-                    "format": "ND",
-                    "need_trans": false,
-                    "data_range": {
-                        "min": -100,
-                        "max": 100
-                    }
-                }
-            ],
-            "output_tensors": [
-                {
-                    "name": "output0",
-                    "shape": [
-                        32,
-                        128
-                    ],
-                    "dtype": "fp32",
-                    "format": "ND",
-                    "need_trans": false
-                }
-            ],
-            "view_shape": [
-                16,
-                32
-            ],
-            "tile_shape": [
-                16,
-                16
-            ],
-            "params": {
-                "scalar": 50.0,
-                "scalar_type": "int16",
-                "func_id": -1
-            },
-            "index": 51
-        },
-        {
-            "case_index": 52,
-            "case_name": "MaxS_test_37",
-            "operation": "Maximum",
-            "input_tensors": [
-                {
-                    "name": "input0",
-                    "shape": [
-                        32,
-                        128
-                    ],
-                    "dtype": "int16",
-                    "format": "ND",
-                    "need_trans": false,
-                    "data_range": {
-                        "min": -100,
-                        "max": 100
-                    }
-                }
-            ],
-            "output_tensors": [
-                {
-                    "name": "output0",
-                    "shape": [
-                        32,
-                        128
-                    ],
-                    "dtype": "fp16",
-                    "format": "ND",
-                    "need_trans": false
-                }
-            ],
-            "view_shape": [
-                16,
-                32
-            ],
-            "tile_shape": [
-                16,
-                16
-            ],
-            "params": {
-                "scalar": 50.0,
-                "scalar_type": "int16",
-                "func_id": -1
-            },
-            "index": 52
-        },
-        {
-            "case_index": 53,
-            "case_name": "MaxS_test_38",
-            "operation": "Maximum",
-            "input_tensors": [
-                {
-                    "name": "input0",
-                    "shape": [
-                        32,
-                        128
-                    ],
-                    "dtype": "fp32",
-                    "format": "ND",
-                    "need_trans": false,
-                    "data_range": {
-                        "min": -100,
-                        "max": 100
-                    }
-                }
-            ],
-            "output_tensors": [
-                {
-                    "name": "output0",
-                    "shape": [
-                        32,
-                        128
-                    ],
-                    "dtype": "int16",
-                    "format": "ND",
-                    "need_trans": false
-                }
-            ],
-            "view_shape": [
-                16,
-                32
-            ],
-            "tile_shape": [
-                16,
-                16
-            ],
-            "params": {
-                "scalar": 50.0,
-                "scalar_type": "fp32",
-                "func_id": -1
-            },
-            "index": 53
-        },
-        {
-            "case_index": 54,
-            "case_name": "MaxS_test_39",
-            "operation": "Maximum",
-            "input_tensors": [
-                {
-                    "name": "input0",
-                    "shape": [
-                        32,
-                        128
-                    ],
-                    "dtype": "fp32",
-                    "format": "ND",
-                    "need_trans": false,
-                    "data_range": {
-                        "min": -100,
-                        "max": 100
-                    }
-                }
-            ],
-            "output_tensors": [
-                {
-                    "name": "output0",
-                    "shape": [
-                        32,
-                        128
-                    ],
-                    "dtype": "int32",
-                    "format": "ND",
-                    "need_trans": false
-                }
-            ],
-            "view_shape": [
-                16,
-                32
-            ],
-            "tile_shape": [
-                16,
-                16
-            ],
-            "params": {
-                "scalar": 50.0,
-                "scalar_type": "fp32",
-                "func_id": -1
-            },
-            "index": 54
-        },
-        {
-            "case_index": 55,
-            "case_name": "MaxS_test_40",
-            "operation": "Maximum",
-            "input_tensors": [
-                {
-                    "name": "input0",
-                    "shape": [
-                        32,
-                        128
-                    ],
-                    "dtype": "fp32",
-                    "format": "ND",
-                    "need_trans": false,
-                    "data_range": {
-                        "min": -100,
-                        "max": 100
-                    }
-                }
-            ],
-            "output_tensors": [
-                {
-                    "name": "output0",
-                    "shape": [
-                        32,
-                        128
-                    ],
-                    "dtype": "fp16",
-                    "format": "ND",
-                    "need_trans": false
-                }
-            ],
-            "view_shape": [
-                16,
-                32
-            ],
-            "tile_shape": [
-                16,
-                16
-            ],
-            "params": {
-                "scalar": 50.0,
-                "scalar_type": "fp32",
-                "func_id": -1
-            },
-            "index": 55
-        },
-        {
-            "case_index": 56,
-            "case_name": "MaxS_test_41",
-            "operation": "Maximum",
-            "input_tensors": [
-                {
-                    "name": "input0",
-                    "shape": [
-                        32,
-                        128
-                    ],
-                    "dtype": "fp16",
-                    "format": "ND",
-                    "need_trans": false,
-                    "data_range": {
-                        "min": -100,
-                        "max": 100
-                    }
-                }
-            ],
-            "output_tensors": [
-                {
-                    "name": "output0",
-                    "shape": [
-                        32,
-                        128
-                    ],
-                    "dtype": "int16",
-                    "format": "ND",
-                    "need_trans": false
-                }
-            ],
-            "view_shape": [
-                16,
-                32
-            ],
-            "tile_shape": [
-                16,
-                16
-            ],
-            "params": {
-                "scalar": 50.0,
-                "scalar_type": "fp16",
-                "func_id": -1
-            },
-            "index": 56
-        },
-        {
-            "case_index": 57,
-            "case_name": "MaxS_test_42",
-            "operation": "Maximum",
-            "input_tensors": [
-                {
-                    "name": "input0",
-                    "shape": [
-                        32,
-                        128
-                    ],
-                    "dtype": "fp16",
-                    "format": "ND",
-                    "need_trans": false,
-                    "data_range": {
-                        "min": -100,
-                        "max": 100
-                    }
-                }
-            ],
-            "output_tensors": [
-                {
-                    "name": "output0",
-                    "shape": [
-                        32,
-                        128
-                    ],
-                    "dtype": "int32",
-                    "format": "ND",
-                    "need_trans": false
-                }
-            ],
-            "view_shape": [
-                16,
-                32
-            ],
-            "tile_shape": [
-                16,
-                16
-            ],
-            "params": {
-                "scalar": 50.0,
-                "scalar_type": "fp16",
-                "func_id": -1
-            },
-            "index": 57
-        },
-        {
-            "case_index": 58,
-            "case_name": "MaxS_test_43",
-            "operation": "Maximum",
-            "input_tensors": [
-                {
-                    "name": "input0",
-                    "shape": [
-                        32,
-                        128
-                    ],
-                    "dtype": "fp16",
-                    "format": "ND",
-                    "need_trans": false,
-                    "data_range": {
-                        "min": -100,
-                        "max": 100
-                    }
-                }
-            ],
-            "output_tensors": [
-                {
-                    "name": "output0",
-                    "shape": [
-                        32,
-                        128
-                    ],
-                    "dtype": "fp32",
-                    "format": "ND",
-                    "need_trans": false
-                }
-            ],
-            "view_shape": [
-                16,
-                32
-            ],
-            "tile_shape": [
-                16,
-                16
-            ],
-            "params": {
-                "scalar": 50.0,
-                "scalar_type": "fp16",
-                "func_id": -1
-            },
-            "index": 58
-        },
-        {
-            "case_index": 59,
-            "case_name": "MaxS_test_44",
-            "operation": "Maximum",
-            "input_tensors": [
-                {
-                    "name": "input0",
-                    "shape": [
-                        32,
-                        128
-                    ],
-                    "dtype": "int8",
-                    "format": "ND",
-                    "need_trans": false,
-                    "data_range": {
-                        "min": -100,
-                        "max": 100
-                    }
-                }
-            ],
-            "output_tensors": [
-                {
-                    "name": "output0",
-                    "shape": [
-                        32,
-                        128
-                    ],
-                    "dtype": "int8",
-                    "format": "ND",
-                    "need_trans": false
-                }
-            ],
-            "view_shape": [
-                16,
-                32
-            ],
-            "tile_shape": [
-                16,
-                16
-            ],
-            "params": {
-                "scalar": 50.0,
-                "scalar_type": "int8",
-                "func_id": -1
-            },
-            "index": 59
-        },
-        {
-            "case_index": 60,
             "case_name": "MaxS_test_45",
             "operation": "Maximum",
             "input_tensors": [
@@ -3235,10 +2624,10 @@
                 "scalar_type": "fp32",
                 "func_id": -1
             },
-            "index": 60
+            "index": 47
         },
         {
-            "case_index": 61,
+            "case_index": 48,
             "case_name": "MaxS_test_46",
             "operation": "Maximum",
             "input_tensors": [
@@ -3282,10 +2671,10 @@
                 "scalar_type": "fp32",
                 "func_id": -1
             },
-            "index": 61
+            "index": 48
         },
         {
-            "case_index": 62,
+            "case_index": 49,
             "case_name": "MaxS_test_47",
             "operation": "Maximum",
             "input_tensors": [
@@ -3333,10 +2722,10 @@
                 "scalar_type": "fp32",
                 "func_id": -1
             },
-            "index": 62
+            "index": 49
         },
         {
-            "case_index": 63,
+            "case_index": 50,
             "case_name": "MaxS_test_48",
             "operation": "Maximum",
             "input_tensors": [
@@ -3384,117 +2773,7 @@
                 "scalar_type": "fp32",
                 "func_id": -1
             },
-            "index": 63
-        },
-        {
-            "case_index": 64,
-            "case_name": "MaxS_test_49",
-            "operation": "Maximum",
-            "input_tensors": [
-                {
-                    "name": "input0",
-                    "shape": [
-                        32,
-                        128,
-                        32,
-                        32
-                    ],
-                    "dtype": "fp32",
-                    "format": "ND",
-                    "need_trans": false,
-                    "data_range": {
-                        "min": "inf",
-                        "max": "inf"
-                    }
-                }
-            ],
-            "output_tensors": [
-                {
-                    "name": "output0",
-                    "shape": [
-                        32,
-                        128,
-                        32,
-                        32
-                    ],
-                    "dtype": "fp32",
-                    "format": "ND",
-                    "need_trans": false
-                }
-            ],
-            "view_shape": [
-                16,
-                32,
-                16,
-                16
-            ],
-            "tile_shape": [
-                16,
-                16,
-                16,
-                16
-            ],
-            "params": {
-                "scalar": 50.0,
-                "scalar_type": "fp32",
-                "func_id": -1
-            },
-            "index": 64
-        },
-        {
-            "case_index": 65,
-            "case_name": "MaxS_test_50",
-            "operation": "Maximum",
-            "input_tensors": [
-                {
-                    "name": "input0",
-                    "shape": [
-                        32,
-                        128,
-                        32,
-                        32
-                    ],
-                    "dtype": "fp32",
-                    "format": "ND",
-                    "need_trans": false,
-                    "data_range": {
-                        "min": "nan",
-                        "max": "nan"
-                    }
-                }
-            ],
-            "output_tensors": [
-                {
-                    "name": "output0",
-                    "shape": [
-                        32,
-                        128,
-                        32,
-                        32
-                    ],
-                    "dtype": "fp32",
-                    "format": "ND",
-                    "need_trans": false
-                }
-            ],
-            "view_shape": [
-                16,
-                32,
-                16,
-                16
-            ],
-            "tile_shape": [
-                16,
-                16,
-                16,
-                16
-            ],
-            "params": {
-                "scalar": 50.0,
-                "scalar_type": "fp32",
-                "func_id": -1
-            },
-            "index": 65
+            "index": 50
         }
     ]
 }
