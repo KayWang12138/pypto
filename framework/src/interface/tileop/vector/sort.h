@@ -23,10 +23,8 @@ TILEOP void TBitSort(T0 dst, T1 src) {
     using ShapeValueType = typename Std::tuple_element<0, typename T1::Shape>::type;
     constexpr auto srcShapeSize = Std::tuple_size<typename T1::Shape>::value;
     constexpr auto dstShapeSize = Std::tuple_size<typename T0::Shape>::value;
-    constexpr auto tmpShapeSize = Std::tuple_size<typename T1::Shape>::value;
-    constexpr auto tmpTileH = Std::tuple_element<tmpShapeSize - 2, typename T1::TileShape>::type::value;
-    constexpr auto tmpTileW = Std::tuple_element<tmpShapeSize - 1, typename T1::TileShape>::type::value;
-    constexpr auto dstTileW = Std::tuple_element<tmpShapeSize - 1, typename T0::TileShape>::type::value / 2;
+    constexpr auto dstTileW = Std::tuple_element<dstShapeSize - 1, typename T0::TileShape>::type::value / 2;
+    constexpr auto tmpTileW = dstTileW / 2;
     constexpr size_t expectSize = 5;
     const auto dstLayout = dst.GetLayout();
     auto dstShape0 = dstLayout.template GetShapeDim<0, expectSize>();
@@ -59,36 +57,39 @@ TILEOP void TBitSort(T0 dst, T1 src) {
                     using SrcTileDefine =
                         pto::Tile<pto::Location::Vec, typename T1::Type, 1, srcTileW, pto::BLayout::RowMajor, -1, -1>;
                     using IdxTileDefine =
-                        pto::Tile<pto::Location::Vec, uint32_t, 1, dstTileW, pto::BLayout::RowMajor, -1, -1>;
+                        pto::Tile<pto::Location::Vec, uint32_t, 1, tmpTileW, pto::BLayout::RowMajor, -1, -1>;
                     using TmpTileDefine =
-                        pto::Tile<pto::Location::Vec, typename T1::Type, 1, dstTileW, pto::BLayout::RowMajor, -1, -1>;
+                        pto::Tile<pto::Location::Vec, typename T1::Type, 1, tmpTileW, pto::BLayout::RowMajor, -1, -1>;
                     DstTileDefine dstTile(1, dstShape4);
                     SrcTileDefine srcTile(1, srcShape4);
                     IdxTileDefine idxTile(1, srcShape4);
-                    TmpTileDefine tmpTile(1, srcTileW);
+                    TmpTileDefine tmpTile(1, tmpTileW);
                     auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 +
                      n2Index * dstStride2 + n3Index * dstStride3;
                     auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 +
                      n2Index * srcStride2 + n3Index * srcStride3;
                     pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * srcTypeSize));
                     pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
-                    pto::TASSIGN(tmpTile, (uint64_t)(dst.GetAddr() + (dstOffset + srcTileW + dstTileW) * srcTypeSize));
+                    pto::TASSIGN(tmpTile, (uint64_t)(dst.GetAddr() + (dstOffset + tmpTileW + dstTileW) * srcTypeSize));
                     pto::TASSIGN(idxTile, (uint64_t)(dst.GetAddr() + (dstOffset + dstTileW) * srcTypeSize));
-                    for (uint32_t j = 0; j < srcShape4; ++j) {
-                        *(idxTile.data() + j) = (j + offset);
-                    }
+                    pto::TCI<IdxTileDefine, uint32_t, 0>(idxTile, offset);
                     set_flag(PIPE_S, PIPE_V, EVENT_ID7);
                     wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
                     if constexpr (isLargest == 0) {
-                        set_mask_count();
-                        set_vector_mask(0, srcShape4);
-                        vadds((__ubuf__ int32_t *)((uint64_t)(src.GetAddr() + srcOffset * srcTypeSize)),
-                        (__ubuf__ int32_t *)((uint64_t)(src.GetAddr() + srcOffset * srcTypeSize)), 0x80000000, 1, 1, 1, 8, 8);
+                        using SrcAddTileDefine = pto::Tile<pto::Location::Vec,
+                        int32_t, 1, srcTileW, pto::BLayout::RowMajor, -1, -1>;
+                        SrcAddTileDefine srcAddTile(1, srcShape4);
+                        pto::TASSIGN(srcAddTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
+                        int32_t scalar = -2147483648;
+                        pto::TADDS(srcAddTile, srcAddTile, scalar);
+                        #ifdef __DAV_V220
                         pipe_barrier(PIPE_V);
-                        set_mask_norm();
-                        set_vector_mask(-1, -1);
+                        #endif
                     }
                     pto::TSORT32(dstTile, srcTile, idxTile, tmpTile);
+                    #ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+                    #endif
                 }
             }
         }
@@ -123,6 +124,11 @@ TILEOP void TMrgSort(T0 dst, T1 src) {
     constexpr auto srcTileH = Std::tuple_element<srcShapeSize - 2, typename T1::TileShape>::type::value;
     constexpr auto srcTileW = Std::tuple_element<srcShapeSize - 1, typename T1::TileShape>::type::value / 2;
     constexpr auto srcTypeSize = sizeof(typename T1::Type);
+    uint32_t totalNum = srcTileW / 2;
+    srcShape4 = srcShape4 - srcTileW;
+    if (srcShape4 == 0) {
+        return;
+    }
     for (size_t n0Index = 0; n0Index < dstShape0; ++n0Index) {
         for (size_t n1Index = 0; n1Index < dstShape1; ++n1Index) {
             for (size_t n2Index = 0; n2Index < dstShape2; ++n2Index) {
@@ -134,7 +140,7 @@ TILEOP void TMrgSort(T0 dst, T1 src) {
                     using TmpTileDefine =
                         pto::Tile<pto::Location::Vec, typename T1::Type, 1, srcTileW, pto::BLayout::RowMajor, -1, -1>;
                     DstTileDefine dstTile(1, dstShape4);
-                    SrcTileDefine srcTile(1, srcShape4 / 2);
+                    SrcTileDefine srcTile(1, srcShape4 * 2);
                     TmpTileDefine tmpTile(1, srcTileW);
                     auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 +
                      n2Index * dstStride2 + n3Index * dstStride3;
@@ -144,32 +150,38 @@ TILEOP void TMrgSort(T0 dst, T1 src) {
                     pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
                     pto::TASSIGN(tmpTile, (uint64_t)(src.GetAddr() + (srcOffset + srcTileW) * srcTypeSize));
                     uint32_t z = 32;
-                    uint32_t totalNum = srcShape4 / 4;
-                    for (; z * 4 <= totalNum; z *= 4) {
-                        uint32_t repeat_mrg = totalNum / (z * 4);
+                    for (; z * 4 <= srcShape4; z *= 4) {
+                        uint32_t repeat_mrg = srcShape4 / (z * 4);
                         pto::TMRGSORT(tmpTile, srcTile, z * 2);
+                        #ifdef __DAV_V220
                         pipe_barrier(PIPE_V);
+                        #endif
                         using SrcMovTileDefine =
                             pto::Tile<pto::Location::Vec, typename T1::Type, 1, srcTileW, pto::BLayout::RowMajor, -1, -1>;
                         using TmpMovTileDefine =
                             pto::Tile<pto::Location::Vec, typename T1::Type, 1, srcTileW, pto::BLayout::RowMajor, -1, -1>;
-                        SrcMovTileDefine srcMovTile(1, z * repeat_mrg);
-                        TmpMovTileDefine tmpMovTile(1, z * repeat_mrg);
+                        SrcMovTileDefine srcMovTile(1, z * repeat_mrg * 8);
+                        TmpMovTileDefine tmpMovTile(1, z * repeat_mrg * 8);
                         pto::TASSIGN(srcMovTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
-                        pto::TASSIGN(tmpMovTile, (uint64_t)(src.GetAddr() + (srcOffset + srcTileW) * srcTypeSize));
+                        pto::TASSIGN(tmpMovTile, (uint64_t)(src.GetAddr() + (srcOffset + totalNum * 2) * srcTypeSize));
                         pto::TMOV(srcMovTile, tmpMovTile);
+                        #ifdef __DAV_V220
                         pipe_barrier(PIPE_V);
+                        #endif
                     }
-                    if (z < totalNum) {
+                    if (z < srcShape4) {
                         int32_t arrayCount = 0;
                         int32_t mrgArray[15] = {0};
-                        int32_t tmpInner = totalNum;
+                        int32_t tmpInner = srcShape4;
                         for (int32_t i = z; i >= 32; i /= 4) {
                             int32_t count;
                             for (count = 0; count < tmpInner / i; count++) {
                                 mrgArray[arrayCount++] = i;
                             }
                             tmpInner -= count * i;
+                        }
+                        if (tmpInner > 0) {
+                            mrgArray[arrayCount++] = tmpInner;
                         }
                         uint16_t mrgSortedLen = 0;
                         for (int32_t i = 0; i < arrayCount - 1; ++i) {
@@ -192,20 +204,24 @@ TILEOP void TMrgSort(T0 dst, T1 src) {
                             pto::MrgSortExecutedNumList executedNumList;
                             pto::TMRGSORT<DstTileDefine, TmpTileDefine, SrcTileDefine, SrcTileDefine, false>(dst1Tile,
                                 executedNumList, tmp1Tile, src1Tile, src2Tile);
+                            #ifdef __DAV_V220
                             pipe_barrier(PIPE_V);
+                            #endif
                         }
                     }
-                    constexpr int64_t TileW = ((k + 7) / 4) * 8;
+                    constexpr int64_t TileW = ((k + 7) / 8) * 16;
                     using DstTileMovDefine =
                         pto::Tile<pto::Location::Vec, typename T0::Type, 1, TileW, pto::BLayout::RowMajor, -1, -1>;
                     using SrcTileMovDefine =
                         pto::Tile<pto::Location::Vec, typename T1::Type, 1, TileW, pto::BLayout::RowMajor, -1, -1>;
-                    DstTileDefine dstTileMov(1, ((k + 7) / 4) * 8);
-                    SrcTileDefine srcTileMov(1, ((k + 7) / 4) * 8);
+                    DstTileMovDefine dstTileMov(1, ((k + 7) / 8) * 16);
+                    SrcTileMovDefine srcTileMov(1, ((k + 7) / 8) * 16);
                     pto::TASSIGN(dstTileMov, (uint64_t)(dst.GetAddr() + dstOffset * srcTypeSize));
                     pto::TASSIGN(srcTileMov, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
                     pto::TMOV(dstTileMov, srcTileMov);
+                    #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
+                    #endif
                 }
             }
         }
@@ -253,6 +269,10 @@ TILEOP void TTiledMrgSort(T0 dst, T1 src1, T2 src2, T3 src3, T4 src4, T5 tmp) {
     constexpr auto src4TileW = Std::tuple_element<src4ShapeSize - 1, typename T4::TileShape>::type::value;
 
     constexpr auto srcTypeSize = sizeof(typename T1::Type);
+    int32_t kLast = k * 2;
+    if (k * 2 > src4Shape4) {
+        kLast = src4Shape4;
+    }
     for (size_t n0Index = 0; n0Index < dstShape0; ++n0Index) {
         for (size_t n1Index = 0; n1Index < dstShape1; ++n1Index) {
             for (size_t n2Index = 0; n2Index < dstShape2; ++n2Index) {
@@ -277,26 +297,26 @@ TILEOP void TTiledMrgSort(T0 dst, T1 src1, T2 src2, T3 src3, T4 src4, T5 tmp) {
                     pto::TASSIGN(tmpTile, (uint64_t)(tmp.GetAddr()));
                     pto::MrgSortExecutedNumList executedNumList;
                     if constexpr (validBit == 2) {
-                        Src1TileDefine src1Tile(1, src1Shape4);
-                        Src4TileDefine src2Tile(1, src4Shape4);
+                        Src1TileDefine src1Tile(1, k * 2);
+                        Src4TileDefine src2Tile(1, kLast);
                         pto::TASSIGN(src1Tile, (uint64_t)(src1.GetAddr() + src1Offset * srcTypeSize));
                         pto::TASSIGN(src2Tile, (uint64_t)(src2.GetAddr() + src4Offset * srcTypeSize));
                         pto::TMRGSORT<DstTileDefine, TmpTileDefine, Src1TileDefine, Src4TileDefine, false>(dstTile,
                                 executedNumList, tmpTile, src1Tile, src2Tile);
                     } else if constexpr (validBit == 3) {
-                        Src1TileDefine src1Tile(1, src1Shape4);
-                        Src1TileDefine src2Tile(1, src1Shape4);
-                        Src4TileDefine src3Tile(1, src4Shape4);
+                        Src1TileDefine src1Tile(1, k * 2);
+                        Src1TileDefine src2Tile(1, k * 2);
+                        Src4TileDefine src3Tile(1, kLast);
                         pto::TASSIGN(src1Tile, (uint64_t)(src1.GetAddr() + src1Offset * srcTypeSize));
                         pto::TASSIGN(src2Tile, (uint64_t)(src2.GetAddr() + src1Offset * srcTypeSize));
                         pto::TASSIGN(src3Tile, (uint64_t)(src3.GetAddr() + src4Offset * srcTypeSize));
                         pto::TMRGSORT<DstTileDefine, TmpTileDefine, Src1TileDefine, Src1TileDefine, Src4TileDefine, false>(dstTile,
                                 executedNumList, tmpTile, src1Tile, src2Tile, src3Tile);
                     } else if constexpr (validBit == 4) {
-                        Src1TileDefine src1Tile(1, src1Shape4);
-                        Src1TileDefine src2Tile(1, src1Shape4);
-                        Src1TileDefine src3Tile(1, src1Shape4);
-                        Src4TileDefine src4Tile(1, src4Shape4);
+                        Src1TileDefine src1Tile(1, k * 2);
+                        Src1TileDefine src2Tile(1, k * 2);
+                        Src1TileDefine src3Tile(1, k * 2);
+                        Src4TileDefine src4Tile(1, kLast);
                         pto::TASSIGN(src1Tile, (uint64_t)(src1.GetAddr() + src1Offset * srcTypeSize));
                         pto::TASSIGN(src2Tile, (uint64_t)(src2.GetAddr() + src1Offset * srcTypeSize));
                         pto::TASSIGN(src3Tile, (uint64_t)(src3.GetAddr() + src1Offset * srcTypeSize));
@@ -304,6 +324,9 @@ TILEOP void TTiledMrgSort(T0 dst, T1 src1, T2 src2, T3 src3, T4 src4, T5 tmp) {
                         pto::TMRGSORT<DstTileDefine, TmpTileDefine, Src1TileDefine, Src1TileDefine, Src1TileDefine, Src4TileDefine, false>(dstTile,
                                 executedNumList, tmpTile, src1Tile, src2Tile, src3Tile, src4Tile);
                     }
+                    #ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+                    #endif
                 }
             }
         }

@@ -61,17 +61,19 @@ TILEOP void TExtract(T0 dst, T1 src) {
                 pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
                 constexpr auto pattern = (extractMode == 0) ? pto::MaskPattern::P0101 : pto::MaskPattern::P1010;
                 pto::TGATHER<DstTileDefine, SrcTileDefine, pattern>(dstTile, srcTile);
-
+                #ifdef __DAV_V220
+                pipe_barrier(PIPE_V);
+                #endif
                 if constexpr (extractMode == 0 && isLargest == 0) {
+                    using DstAddTileDefine = pto::Tile<pto::Location::Vec,
+                     int32_t, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
+                    DstAddTileDefine dstAddTile(dstShape3, dstTileW);
+                    pto::TASSIGN(dstAddTile, (uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize));
+                    int32_t scalar = -2147483648;
+                    pto::TADDS(dstAddTile, dstAddTile, scalar);
+                    #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
-                    set_mask_count();
-                    set_vector_mask(0, dstShape3 * dstTileW);
-                    vadds((__ubuf__ int32_t *)((uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize)),
-                          (__ubuf__ int32_t *)((uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize)),
-                          0x80000000, 1, 1, 1, 8, 8);
-                    set_mask_norm();
-                    set_vector_mask(-1, -1);
-                    pipe_barrier(PIPE_V);
+                    #endif
                 }
             }
         }
