@@ -128,11 +128,6 @@ std::string OperatorDeviceRunOnceDataFromDevice(py::int_ pythonOperatorPython,
         return "mismatch input/output";
     }
 
-    if (config::GetRuntimeOption<int64_t>(CFGCACHE_DEVICE_TASK_NUM) != 0 &&
-        EmulationLauncher::BuildControlFlowCache(func, op->GetInputList(), op->GetOutputList()) != 0) {
-        return "control flow cache failed";
-    }
-
     if (config::GetOption<bool>(PROFILE_ENABLE) &&
         EmulationLauncher::EmulationLaunchDeviceTensorData(func, inputs, outputs) != 0) {
         return "emulation run failed";
@@ -201,9 +196,16 @@ uintptr_t OperatorBegin(const std::vector<std::reference_wrapper<Tensor>> &input
     return opAddr;
 }
 
-void OperatorEnd(uintptr_t opAddr) {
+std::string OperatorEnd(uintptr_t opAddr) {
     ExportedOperator *op = reinterpret_cast<ExportedOperator *>(opAddr);
     ExportedOperatorEnd(op);
+
+    if (config::GetRuntimeOption<int64_t>(CFGCACHE_DEVICE_TASK_NUM) != 0 &&
+        EmulationLauncher::BuildControlFlowCache(op->GetFunction(), op->GetInputList(), op->GetOutputList()) != 0) {
+        return "control flow cache failed";
+    }
+
+    return "";
 }
 
 void BindRuntime(py::module &m) {
