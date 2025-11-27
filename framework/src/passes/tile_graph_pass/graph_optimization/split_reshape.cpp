@@ -156,7 +156,7 @@ Status SplitReshape::CheckDynStatus(std::vector<int64_t> alignedShape, std::vect
         return FAILED;
     }
     for (size_t i = 0; i < output.size(); ++i) {
-        if (alignedShape[alignIdx] == output[i]) {
+        if (alignIdx < alignedShape.size() && alignedShape[alignIdx] == output[i]) {
             if (ChangingAxis[alignIdx] && !dynOutput[i].IsImmediate()) {
                 APASS_LOG_WARN_F(Elements::Tensor, "Found undetermined axis from dynOutput[%d], which is also a merged/split axis.", i);
                 return WARNING;

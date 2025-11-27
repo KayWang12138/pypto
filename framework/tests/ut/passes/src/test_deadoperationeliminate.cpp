@@ -75,14 +75,16 @@ TEST_F(TestDeadOperationEliminatePass, DeadOperationEliminateUTest1) {
     EXPECT_EQ(status, SUCCESS);
 
     uint32_t view_num = kNumZero;
-    for (auto &op : currFunctionPtr->Operations()) {
+    const auto &operations = currFunctionPtr->Operations();
+
+    for (auto &op : operations) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
-            EXPECT_NE(view1.GetOpMagic(), op.GetOpMagic());
             EXPECT_EQ(view2.GetOpMagic(), op.GetOpMagic());
             EXPECT_EQ(view2.GetInputOperand(kSizeZero), inCast);
             ++view_num;
         }
     }
+    EXPECT_EQ(operations.Contains(view1), false);
     EXPECT_EQ(view_num, kNumOne);
 }
 }

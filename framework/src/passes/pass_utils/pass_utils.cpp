@@ -288,7 +288,7 @@ void SubfuncInvokeInfoTy::Print(const std::string &extInfo) const {
         ss << "SrcESgId: " << outCast.srcESgId << ", ";
         ss << "RefCount: " << outCast.refCount << ", ";
         int ddrId = outCast.realOutCastDDRId;
-        ss << "ddrId: " << (ddrId != -1 ? "$" + ddrId : "NOT_CONNECTED");
+        ss << "ddrId: " << (ddrId != -1 ? ("$" + std::to_string(ddrId)) : "NOT_CONNECTED");
         auto printLeadingSpace = [](std::ostream &osm, const int numSpace) {
             for (int i = 0; i < numSpace; i++) {
                 osm << " ";

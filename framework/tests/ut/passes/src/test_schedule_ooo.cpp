@@ -109,7 +109,7 @@ TEST_F(ScheduleOoOTest, TestMainScheduleOoO) {
     auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestParams", "TestParams", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestOOO", "TestOOO", rootFuncPtr.get());
-    currFunctionPtr->paramConfigs_.OoOPreScheduleMethod = "LayerBasedDFS";
+    currFunctionPtr->paramConfigs_.OoOPreScheduleMethod = "PriorDFS";
     auto emptyOpFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "", "", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
     EXPECT_TRUE(emptyOpFunctionPtr != nullptr);

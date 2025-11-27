@@ -49,21 +49,20 @@ SaTileShapeConfig GetDefaultSaTileShapeConfig(const int gTile, const int sTile) 
 
 void TestSaUT(const std::vector<int64_t> &input_param, SaTileShapeConfig& tileConfig) {
     config::SetHostOption(ONLY_CODEGEN, true);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
-    int b = input_param[0];
-    int sq = input_param[1];
-    int nq = input_param[2];
-    int nkv = input_param[3];
-    int dn = input_param[4];
-    int dr = input_param[5];
-    int blockNum = input_param[6];
-    int blockSize = input_param[7];
-    int topk = input_param[8];
-    int is_kn_quant = input_param[9];
+    int b = input_param.at(0);
+    int sq = input_param.at(1);
+    int nq = input_param.at(2);
+    int nkv = input_param.at(3);
+    int dn = input_param.at(4);
+    int dr = input_param.at(5);
+    int blockNum = input_param.at(6);
+    int blockSize = input_param.at(7);
+    int topk = input_param.at(8);
+    int isKnQuant = input_param.at(9);
     int nQ = nq;
     DataType dType = DT_BF16;
     DataType knDType = DT_BF16;
-    if(is_kn_quant) knDType = DT_INT8;
+    if(isKnQuant) knDType = DT_INT8;
 
     float softmaxScale = static_cast<float>(1.0 / sqrtf((dn + dr)));
     std::vector<int64_t> qNopeShape = {b * sq * nq, dn};
@@ -93,12 +92,12 @@ void TestSaUT(const std::vector<int64_t> &input_param, SaTileShapeConfig& tileCo
 
 TEST_F(DynamicGatherSlcFlashAttnUtest, dsa_gather_slc_attn_bf16_b32_s4) {
     SaTileShapeConfig tileConfig = GetDefaultSaTileShapeConfig(128, 2048);
-    std::vector<int64_t> input_param = {32, 4, 128, 1, 512, 64, 4096, 2048, 0};
+    std::vector<int64_t> input_param = {32, 4, 128, 1, 512, 64, 32, 128, 2048, 0};
     TestSaUT(input_param, tileConfig);
 }
 
 TEST_F(DynamicGatherSlcFlashAttnUtest, dsa_gather_slc_attn_bf16_b32_s4_int8) {
     SaTileShapeConfig tileConfig = GetDefaultSaTileShapeConfig(128, 2048);
-    std::vector<int64_t> input_param = {32, 4, 128, 1, 512, 64, 4096, 2048, 1};
+    std::vector<int64_t> input_param = {32, 4, 128, 1, 512, 64, 32, 128, 2048, 1};
     TestSaUT(input_param, tileConfig);
 }

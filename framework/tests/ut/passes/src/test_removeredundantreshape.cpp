@@ -87,10 +87,10 @@ TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeUTest1) {
     auto status = removeredundantpass.RunOnFunction(*currFunctionPtr);
     EXPECT_EQ(status, SUCCESS);
 
+    const auto &operations = currFunctionPtr->Operations();
     uint32_t reshape_num = kNumZero;
-    for (auto &op : currFunctionPtr->Operations()) {
+    for (auto &op : operations) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
-            EXPECT_NE(reshape1.GetOpMagic(), op.GetOpMagic());
             EXPECT_EQ(reshape2.GetOpMagic(), op.GetOpMagic());
             EXPECT_EQ(reshape2.GetInputOperand(kSizeZero), inCast);
             ++reshape_num;
@@ -99,6 +99,7 @@ TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeUTest1) {
             EXPECT_EQ(sqrt.GetInputOperand(kSizeZero), ubTensor2);
         }
     }
+    EXPECT_EQ(operations.Contains(reshape1), false);
     EXPECT_EQ(reshape_num, kNumOne);
 }
 

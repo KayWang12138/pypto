@@ -184,13 +184,15 @@ TEST_F(MergeViewAssembleTest, MergeTwoConsecutiveViews) {
 
     // 4. 验证结果
     // 4.1 检查原始VIEW操作是否被标记为删除
-    EXPECT_TRUE(view1Op.IsDeleted());
-    EXPECT_TRUE(view2Op.IsDeleted());
+
+    const auto &operations = function->Operations();
+    EXPECT_EQ(operations.Contains(view1Op), false);
+    EXPECT_EQ(operations.Contains(view2Op), false);
 
     // 4.2 检查合并后的VIEW操作
     int viewOpCount = 0;
     Operation* mergedViewOp = nullptr;
-    for (auto& op : function->Operations()) {
+    for (auto& op : operations) {
         if (op.GetOpcode() == Opcode::OP_VIEW && !op.IsDeleted()) {
             viewOpCount++;
             mergedViewOp = &op;
@@ -285,12 +287,13 @@ TEST_F(MergeViewAssembleTest, MergeThreeConsecutiveAssembles) {
 
     // 4.验证结果
     // 4.1检查原始ASSEMBLE操作是否被标记为已删除
-    EXPECT_TRUE(assemble1Op.IsDeleted());
-    EXPECT_TRUE(assemble2Op.IsDeleted());
-    EXPECT_TRUE(assemble3Op.IsDeleted());
+    const auto &operations = function->Operations();
+    EXPECT_EQ(operations.Contains(assemble1Op), false);
+    EXPECT_EQ(operations.Contains(assemble2Op), false);
+    EXPECT_EQ(operations.Contains(assemble3Op), false);
 
     // 4.2检查合并后的ASSEMBLE操作
-    ASSERT_EQ(function->Operations().size(), 0) << "所有op都应该被删除";
+    ASSERT_EQ(operations.size(), 0) << "所有op都应该被删除";
 
     // 4.3检查中间tensor是否被清理
     bool midTensor1Exists = false;
