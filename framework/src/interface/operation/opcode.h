@@ -600,6 +600,7 @@ const std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {               Opcode::OP_MULS,          "TMulS"},
     {               Opcode::OP_DIVS,          "TDivS"},
     {              Opcode::OP_RSQRT,         "TRsqrt"},
+    {               Opcode::OP_SQRT,          "TSqrt"},
     {                Opcode::OP_EXP,           "TExp"},
     {            Opcode::OP_MAXIMUM,           "TMax"},
     {            Opcode::OP_MINIMUM,           "TMin"},

@@ -28,6 +28,10 @@ TILEOP void UnaryComputeImpl(T0 dst, T1 src) {
         pto::TRSQRT(dst, src);
         return;
     }
+    if constexpr (op == UnaryOp::SQRT) {
+        pto::TSQRT(dst, src);
+        return;
+    }
 }
 
 template <UnaryOp op, typename T0, typename T1>
@@ -82,5 +86,10 @@ TILEOP void TExp(T0 dst, T1 src) {
 template <typename T0, typename T1>
 TILEOP void TRsqrt(T0 dst, T1 src) {
     UnaryCompute<UnaryOp::RSQRT>(dst, src);
+}
+
+template <typename T0, typename T1>
+TILEOP void TSqrt(T0 dst, T1 src) {
+    UnaryCompute<UnaryOp::SQRT>(dst, src);
 }
 #endif
