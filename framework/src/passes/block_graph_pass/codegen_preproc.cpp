@@ -135,6 +135,26 @@ Status CodegenPreproc::ForceCombineAxis(Function &func) const {
     return SUCCESS;
 }
 
+std::string CodegenPreproc::DumpOpList(Function &function) {
+    std::stringstream ss;
+    int idx = 0;
+    for (auto &subProgram : function.rootFunc_->programs_) {
+        ss << "==================== OP_LIST Codegen_Preproc " << idx << " =====================" << "\n";
+        for (auto &op : subProgram.second->Operations(false)) {
+            if (!op.oOperand.empty()) {
+                bool needAlloc = false;
+                op.oOperand[0]->GetAttr(OpAttributeKey::needAlloc, needAlloc);
+                ss << op.GetOpcodeStr() << "[" << op.GetOpMagic() << "], needAlloc: " << static_cast<int>(needAlloc)
+                    << ", memId: " << op.oOperand[0]->memoryrange.memId << "\n";
+            } else {
+                ss << op.GetOpcodeStr() << "[" << op.GetOpMagic() << "]" << "\n";
+            }
+        }
+        idx++;
+    }
+    return ss.str();
+}
+
 void CodegenPreproc::SetNeedAllocAttr(Function &function) {
     for (auto &subProgram : function.rootFunc_->programs_) {
         std::unordered_set<int> appearedMemId;
@@ -151,20 +171,7 @@ void CodegenPreproc::SetNeedAllocAttr(Function &function) {
             }
         }
     }
-    for (auto &subProgram : function.rootFunc_->programs_) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "==================== OP_LIST Codegen_Preproc =====================");
-        for (auto &op : subProgram.second->Operations(false)) {
-            if (!op.oOperand.empty()) {
-                bool needAlloc = false;
-                op.oOperand[0]->GetAttr(OpAttributeKey::needAlloc, needAlloc);
-                APASS_LOG_DEBUG_F(Elements::Operation, "%s[%d], range[%zu, %zu], needAlloc: %d, memId: %d", 
-                    op.GetOpcodeStr().c_str(), op.GetOpMagic(), op.oOperand[0]->memoryrange.start,
-                    op.oOperand[0]->memoryrange.end, static_cast<int>(needAlloc), op.oOperand[0]->memoryrange.memId);
-            } else {
-                APASS_LOG_DEBUG_F(Elements::Operation, "%s[%d]", op.GetOpcodeStr().c_str(), op.GetOpMagic()); 
-            }
-        }
-    }
+    APASS_LOG_DEBUG_F(Elements::Operation, "%s", DumpOpList(function).c_str());
 }
 
 Status CodegenPreproc::RunOnFunction(Function &function) {

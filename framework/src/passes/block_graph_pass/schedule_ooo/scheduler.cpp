@@ -998,6 +998,7 @@ void OoOScheduler::UpdateMoveOpAttr(Operation &moveOp, Operation &occupyOp) {
     if (moveOp.GetOpcode() == Opcode::OP_COPY_IN && occupyOp.GetOpcode() == Opcode::OP_COPY_IN) {
         moveOp.SetOpAttribute(occupyOp.GetOpAttribute());
         moveOp.inParamLocation_ = occupyOp.inParamLocation_;
+        moveOp.SetIOpAttrOffset(0, occupyOp.GetIOpAttrOffset(0));
     } else if (moveOp.GetOpcode() == Opcode::OP_ADDS) {
         moveOp.SetAttr(OpAttributeKey::scalar, Element(DataType::DT_UINT64, 0));
     }
