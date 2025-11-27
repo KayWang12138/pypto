@@ -19,10 +19,10 @@ from numpy.testing import assert_allclose
 
 
 def softmax_core(input_tensor):
-    row_max = pypto.amax(input_tensor)
+    row_max = pypto.amax(input_tensor, -1, True)
     sub = input_tensor - row_max
     exp = pypto.exp(sub)
-    esum = pypto.sum(exp)
+    esum = pypto.sum(exp, -1, True)
     return exp / esum
 
 
