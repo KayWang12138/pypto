@@ -40,7 +40,7 @@
       如果您的本地开发环境能够访问 [CANN 开源第三方软件仓库](https://gitcode.com/cann-src-third-party),
       构建脚本将自动下载所需软件（详见下文“编译”章节）。
 
-      如果无法访问，则需要手动下载以下开源软件的源码压缩包（**必须为 .tar.gz格式**）至开发环境的任意目录（例如 /home/cann_src_third_party）：
+      如果无法访问，则需要手动下载以下开源软件的源码压缩包（**必须为 .tar.gz格式**）至开发环境的任意目录（例如 /home/third_party_path）：
 
       - [JSON for Modern C++ version 3.11.3](https://gitcode.com/cann-src-third-party/json/releases/v3.11.3)
       - [libboundscheck v1.1.16](https://gitcode.com/cann-src-third-party/libboundscheck/releases/v1.1.16)
@@ -55,13 +55,13 @@
    # 1. --clean 表示在构建前清理构建缓存;
    # 2. --third_party_path 指定依赖的开源软件源码包的下载、解压、构建和安装路径，
    #      若可访问 CANN 开源软件仓库，构建时将自动下载并安装依赖至该路径.
-   python3 build.py --frontend=python3 --clean --third_party_path=/home/cann_src_third_party
+   python3 build.py --frontend=python3 --clean --third_party_path=/home/third_party_path
    ```
 
    本项目也支持使用标准的 Python 包安装命令：
    ```shell
    # 使用前需设置环境变量 PYPTO_3RD_SRC_PATH，其值为 build.py 中 --third_party_path 指定的路径
-   export PYPTO_3RD_SRC_PATH=/home/cann_src_third_party
+   export PYPTO_3RD_SRC_PATH=/home/third_party_path
 
    python3 -m pip install .    # 常规安装
    python3 -m pip install -e . # 可编辑模式安装
