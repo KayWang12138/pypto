@@ -54,7 +54,7 @@ TILEOP void TExtract(T0 dst, T1 src) {
                 using SrcTileDefine = pto::Tile<pto::Location::Vec, typename T1::Type, srcTileH, srcTileW,
                                                 pto::BLayout::RowMajor, -1, -1>;
                 DstTileDefine dstTile(dstShape3, dstShape4);
-                SrcTileDefine srcTile(srcShape3, srcShape4);
+                SrcTileDefine srcTile(srcShape3, srcTileW);
                 auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
                 auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
                 pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize));
