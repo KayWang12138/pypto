@@ -49,7 +49,7 @@ void TestScatterUpdate(std::vector<int64_t> tileShape) {
         {
             {"RemoveRedundantReshape", "RemoveRedundantReshape"},
             {        "ExpandFunction",         "ExpandFunction"},
-            {         "DuplicateView",          "DuplicateView"},
+            {           "DuplicateOp",            "DuplicateOp"},
             {     "MergeViewAssemble",      "MergeViewAssemble"},
             {      "AssignMemoryType",       "AssignMemoryType"},
             {"SplitLargeFanoutTensor", "SplitLargeFanoutTensor"},

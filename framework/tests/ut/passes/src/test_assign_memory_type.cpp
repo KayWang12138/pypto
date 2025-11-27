@@ -56,7 +56,7 @@ public:
             {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
             {      "InferMemoryConflict",      "InferMemoryConflict"},
             {           "ExpandFunction",           "ExpandFunction"},
-            {            "DuplicateView",            "DuplicateView"},
+            {              "DuplicateOp",              "DuplicateOp"},
             {        "MergeViewAssemble",        "MergeViewAssemble"},
         });
         ConfigManager::Instance();

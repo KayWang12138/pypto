@@ -117,7 +117,7 @@ TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned) {
         {
             {"RemoveRedundantReshape", "RemoveRedundantReshape"},
             {        "ExpandFunction",         "ExpandFunction"},
-            {         "DuplicateView",          "DuplicateView"},
+            {           "DuplicateOp",            "DuplicateOp"},
             {     "MergeViewAssemble",      "MergeViewAssemble"},
             {      "AssignMemoryType",       "AssignMemoryType"},
             {"SplitLargeFanoutTensor", "SplitLargeFanoutTensor"},

@@ -32,12 +32,11 @@ enum class PassName {
     REMOVE_REDUNDANT_RESHAPE,
     INFER_MEMORY_CONFLICT,
     EXPAND_FUNCTION,
-    DUPLICATE_VIEW,
+    DUPLICATE_OP,
     MERGE_VIEW_ASSEMBLE,
     SPLIT_RESHAPE,
     SPLIT_RAW_TENSOR,
     SPLIT_LARGE_FANOUT_TENSOR,
-    DUPLICATE_GATHER_IN,
     ASSIGN_MEMORY_TYPE,
     INFER_DISCONTINUOUS_INPUT,
     REMOVE_REDUNDANT_OP,
@@ -72,12 +71,11 @@ inline constexpr const char *PassNameStr(PassName name){
         case PassName::REMOVE_REDUNDANT_RESHAPE: return "RemoveRedundantReshape";
         case PassName::INFER_MEMORY_CONFLICT: return "InferMemoryConflict";
         case PassName::EXPAND_FUNCTION: return "ExpandFunction";
-        case PassName::DUPLICATE_VIEW: return "DuplicateView";
+        case PassName::DUPLICATE_OP: return "DuplicateOp";
         case PassName::MERGE_VIEW_ASSEMBLE: return "MergeViewAssemble";
         case PassName::SPLIT_RESHAPE: return "SplitReshape";
         case PassName::SPLIT_RAW_TENSOR: return "SplitRawTensor";
         case PassName::SPLIT_LARGE_FANOUT_TENSOR: return "SplitLargeFanoutTensor";
-        case PassName::DUPLICATE_GATHER_IN: return "DuplicateGatherIn";
         case PassName::ASSIGN_MEMORY_TYPE: return "AssignMemoryType";
         case PassName::INFER_DISCONTINUOUS_INPUT: return "InferDiscontinuousInput";
         case PassName::REMOVE_REDUNDANT_OP: return "RemoveRedundantOp";

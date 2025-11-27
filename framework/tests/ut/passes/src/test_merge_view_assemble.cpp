@@ -67,7 +67,7 @@ TEST_F(MergeViewAssembleTest, TestMergeViewAssemble) {
         {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
         {      "InferMemoryConflict",      "InferMemoryConflict"},
         {           "ExpandFunction",           "ExpandFunction"},
-        {            "DuplicateView",            "DuplicateView"},
+        {              "DuplicateOp",              "DuplicateOp"},
     });
 
     Function* originFunction = nullptr;

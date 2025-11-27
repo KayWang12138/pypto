@@ -90,8 +90,6 @@ void RegPass() {
     REG_PASS(LoopUnroll);
     REG_PASS(DynAttrToStatic);
     REG_PASS(InferDiscontinuousInput);
-    REG_PASS(DuplicateGatherIn);
-    REG_PASS(DuplicateView);
     REG_PASS(DuplicateOp);
 }
 

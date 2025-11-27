@@ -276,7 +276,7 @@ TEST_F(PreGraphTest, TestVCPartition) {
         {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
         {      "InferMemoryConflict",      "InferMemoryConflict"},
         {           "ExpandFunction",           "ExpandFunction"},
-        {            "DuplicateView",            "DuplicateView"},
+        {              "DuplicateOp",              "DuplicateOp"},
         {        "MergeViewAssemble",        "MergeViewAssemble"},
         {             "SplitReshape",             "SplitReshape"},
         {           "SplitRawTensor",           "SplitRawTensor"},
@@ -363,7 +363,7 @@ TEST_F(PreGraphTest, TestAssemble) {
         {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
         {      "InferMemoryConflict",      "InferMemoryConflict"},
         {           "ExpandFunction",           "ExpandFunction"},
-        {            "DuplicateView",            "DuplicateView"},
+        {              "DuplicateOp",              "DuplicateOp"},
         {        "MergeViewAssemble",        "MergeViewAssemble"},
         {             "SplitReshape",             "SplitReshape"},
         {           "SplitRawTensor",           "SplitRawTensor"},
@@ -434,7 +434,7 @@ config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
         {      "InferMemoryConflict",      "InferMemoryConflict"},
         {           "ExpandFunction",           "ExpandFunction"},
-        {            "DuplicateView",            "DuplicateView"},
+        {              "DuplicateOp",              "DuplicateOp"},
         {        "MergeViewAssemble",        "MergeViewAssemble"},
         {             "SplitReshape",             "SplitReshape"},
         {           "SplitRawTensor",           "SplitRawTensor"},
@@ -510,7 +510,7 @@ TEST_F(PreGraphTest, TestROWMAX_SINGLE) {
         {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
         {      "InferMemoryConflict",      "InferMemoryConflict"},
         {           "ExpandFunction",           "ExpandFunction"},
-        {            "DuplicateView",            "DuplicateView"},
+        {              "DuplicateOp",              "DuplicateOp"},
         {        "MergeViewAssemble",        "MergeViewAssemble"},
         {             "SplitReshape",             "SplitReshape"},
         {           "SplitRawTensor",           "SplitRawTensor"},
@@ -567,9 +567,8 @@ TEST_F(PreGraphTest, TestROWMAX_SINGLE) {
 
     // ================== Verify the effect of the Pass ==================
     auto updated_operations = func->Operations();
-    int opSize = 21;
-
-    EXPECT_EQ(updated_operations.size(), opSize) << "After the Pass, there should be 29 operations";
+    int opSize = 32;
+    EXPECT_EQ(updated_operations.size(), opSize) << "After the Pass, there should be 31 operations";
     EXPECT_EQ(tensorMagicWithColorSet.size() > 0, true) << "There should be many tensor magic with color";
 }
 
