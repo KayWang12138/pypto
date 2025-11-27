@@ -44,7 +44,7 @@ struct InvokeParaOffset {
     uint64_t rawShapeSize{0};
     int rawMagic{0};
     std::string rawSymbol{""};
-    size_t opOriginArgsSeq{INVALID_IN_OUT_INDEX}; // map origin args seq no
+    int opOriginArgsSeq{INVALID_IN_OUT_INDEX}; // map origin args seq no
     int funcitonMagic{-1};
     int8_t ioIndex{-1};
     int8_t paramType{-1};

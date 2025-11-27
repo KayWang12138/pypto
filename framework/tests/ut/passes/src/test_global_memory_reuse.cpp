@@ -58,7 +58,8 @@ public:
         * [2*dim+1, 3*dim]: rawshape
         * [3*dim+1, 4*dim]: validshape
         */
-        symbolicScalar.push_back(SymbolicScalar(rawTensor->GetRawTensor()->GetTensorInfo().tensorIndex));
+        (void)rawTensor;
+        symbolicScalar.push_back(-1);
 
         symbolicScalar.reserve(offset.size() * 4); // 预留4倍空间
         symbolicScalar.insert(symbolicScalar.end(), offset.begin(), offset.end());

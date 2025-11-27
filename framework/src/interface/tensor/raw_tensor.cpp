@@ -41,18 +41,12 @@ Json RawTensor::DumpJson() const {
     rawTensorDump["rawshape"] = rawshape;
     rawTensorDump["ori_rawshape"] = oriRawshape;
     rawTensorDump["rawmagic"] = rawmagic;
-    rawTensorDump["tensorIndex"] = tensorInfo_.tensorIndex;
-    rawTensorDump["tensorSubscript"] = tensorInfo_.subscript;
     if (actualRawmagic != -1) {
         rawTensorDump["actual_rawmagic"] = actualRawmagic;
     }
 
     if (symbol != "") {
         rawTensorDump["symbol"] = symbol;
-    }
-
-    if (rawData != nullptr) {
-        rawTensorDump["raw_data_ptr"] = reinterpret_cast<uintptr_t>(rawData);
     }
     return rawTensorDump;
 }
@@ -68,19 +62,10 @@ std::shared_ptr<RawTensor> RawTensor::LoadJson(const Json &rawTensorDump) {
         dumpSymbol = rawTensorDump["symbol"].get<std::string>();
     }
     auto ret = std::make_shared<RawTensor>(dtype, rawshapeJson, format, dumpSymbol, dumpRawmagic);
-    if (rawTensorDump.count("tensorIndex") > 0) {
-        ret->tensorInfo_.tensorIndex = rawTensorDump["tensorIndex"].get<int>();
-    }
-    if (rawTensorDump.count("tensorSubscript") > 0) {
-        ret->tensorInfo_.subscript = rawTensorDump["tensorSubscript"].get<int>();
-    }
     if (rawTensorDump.count("actual_rawmagic") != 0) {
         ret->actualRawmagic = rawTensorDump["actual_rawmagic"].get<int>();
     }
     ret->oriRawshape = rawTensorDump["ori_rawshape"].get<std::vector<int64_t>>();
-    if (rawTensorDump.count("raw_data_ptr") != 0) {
-        ret->SetRawDataPtr(reinterpret_cast<uint8_t *>(rawTensorDump["raw_data_ptr"].get<uintptr_t>()));
-    }
     return ret;
 }
 

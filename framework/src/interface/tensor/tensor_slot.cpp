@@ -103,6 +103,34 @@ std::unordered_set<TensorSlot> TensorSlotScope::LookupOutcastWriteTo(const std::
     return tensorSlot;
 }
 
+std::unordered_set<TensorSlot> TensorSlotScope::LoopupArgSlot(std::shared_ptr<RawTensor> tensor) {
+    auto realArgs = tensor;
+
+    for (auto &[incast, arg] : incastToInArgumentDict) {
+        if (incast->tensor == tensor) {
+            realArgs = arg->tensor;
+            break;
+        }
+    }
+    for (auto &[outcast, arg] : outcastToOutArgumentDict) {
+        if (outcast->tensor == tensor) {
+            realArgs = arg->tensor;
+            break;
+        }
+    }
+
+    std::unordered_set<TensorSlot> tensorSlot;
+    for (auto &[slot, access] : accessRecord) {
+        if (access.GetFirstReadTensor() && access.GetFirstReadTensor()->tensor == realArgs) {
+            tensorSlot.insert(slot);
+        }
+        if (access.GetLastWriteTensor() && access.GetLastWriteTensor()->tensor == realArgs) {
+            tensorSlot.insert(slot);
+        }
+    }
+    return tensorSlot;
+}
+
 void TensorSlotScope::BuildSlotSet() {
     if (accessRecord.size() == 0) {
         return;

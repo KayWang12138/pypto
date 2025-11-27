@@ -233,20 +233,20 @@ float __ubuf__ *UB_S2048_E2112 = (float __ubuf__ *)get_imm(0x800); // size: 0x40
 float *UB_S2048_E2112_T = (float *)get_imm(0x800); // size: 0x40
 float __ubuf__ *UB_S2112_E2176 = (float __ubuf__ *)get_imm(0x840); // size: 0x40
 float *UB_S2112_E2176_T = (float *)get_imm(0x840); // size: 0x40
-uint64_t sym_2_dim_0 = 2; //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 0);
-uint64_t sym_2_dim_1 = 8; //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 1);
-uint64_t sym_4_dim_0 = 2; //GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 0);
-uint64_t sym_4_dim_1 = 256; //GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 1);
+uint64_t sym_2_dim_0 = 2; //GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 0);
+uint64_t sym_2_dim_1 = 256; //GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 1);
+uint64_t sym_4_dim_0 = 2; //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 0);
+uint64_t sym_4_dim_1 = 8; //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 1);
 uint64_t sym_5_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 2, 19, 2, 0);
 uint64_t sym_5_dim_1 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 2, 19, 2, 1);
 using GMTileTensorFP32Dim2_4 = TileTensor<__gm__ float, DynLayout2Dim, Hardware::GM>;
 using UBTileTensorFP32Dim2_3 = TileTensor<float, LocalLayout2Dim<2, 8>, Hardware::UB>;
 using GMTileTensorFP32Dim2_2 = TileTensor<__gm__ float, DynLayout2Dim, Hardware::GM>;
 using UBTileTensorFP32Dim2_1 = TileTensor<float, LocalLayout2Dim<2, 256>, Hardware::UB>;
-UBTileTensorFP32Dim2_3 ubTensor_5((uint64_t)UB_S2112_E2176_T, (Shape2Dim(sym_2_dim_0, sym_2_dim_1)));
-UBTileTensorFP32Dim2_3 ubTensor_3((uint64_t)UB_S2048_E2112_T, (Shape2Dim(sym_2_dim_0, sym_2_dim_1)));
+UBTileTensorFP32Dim2_3 ubTensor_5((uint64_t)UB_S2112_E2176_T, (Shape2Dim(sym_4_dim_0, sym_4_dim_1)));
+UBTileTensorFP32Dim2_3 ubTensor_3((uint64_t)UB_S2048_E2112_T, (Shape2Dim(sym_4_dim_0, sym_4_dim_1)));
 GMTileTensorFP32Dim2_2 gmTensor_2((__gm__ float*)GET_PARAM_ADDR(param, 0, 0), DynLayout2Dim(Shape2Dim(GET_PARAM_RAWSHAPE_2(param, 0, 0)), Stride2Dim(GET_PARAM_STRIDE_2(param, 0, 0))));
-UBTileTensorFP32Dim2_1 ubTensor_1((uint64_t)UB_S0_E2048_T, (Shape2Dim(sym_4_dim_0, sym_4_dim_1)));
+UBTileTensorFP32Dim2_1 ubTensor_1((uint64_t)UB_S0_E2048_T, (Shape2Dim(sym_2_dim_0, sym_2_dim_1)));
 SUBKERNEL_PHASE1
 TLoad(ubTensor_1, gmTensor_2, Coord2Dim(0, 0));
 TLoad(ubTensor_3, gmTensor_2, Coord2Dim(0, 0));

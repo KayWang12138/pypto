@@ -145,6 +145,7 @@ struct TensorSlotScope {
 
     std::unordered_set<TensorSlot> LookupIncastReadFrom(const std::shared_ptr<LogicalTensor> &tensor) const;
     std::unordered_set<TensorSlot> LookupOutcastWriteTo(const std::shared_ptr<LogicalTensor> &tensor) const;
+    std::unordered_set<TensorSlot> LoopupArgSlot(std::shared_ptr<RawTensor> tensor);
 
     void BuildSlotSet();
     void BuildIncastOutcastSlot(const std::unordered_map<TensorSlot, int> &slotIndexDict);

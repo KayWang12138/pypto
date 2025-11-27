@@ -121,7 +121,6 @@ Tensor IndexAdd_(const Tensor &self, const Tensor &src, const Tensor &indices, i
     DECLARE_TRACER();
     axis = axis < 0 ? self.GetStorage()->GetShape().size() + axis : axis;
     Tensor result(self.GetDataType(), self.GetShape());
-    result.GetStorage()->tensor->SetTensorInfo(self.GetStorage()->tensor->GetTensorInfo());
     CALL(IndexAdd, *Program::GetInstance().GetCurrentFunction(),
         {self.GetStorage(), src.GetStorage(), indices.GetStorage(), result.GetStorage(), axis, alpha});
     return result;
@@ -405,9 +404,9 @@ void TiledLogicalAndOperation(Function& function, const TileShape& tileShape, si
         std::vector<int64_t> startAddrUBShape({1});
         auto startAddrUBTensor = std::make_shared<LogicalTensor>(function, DT_UINT64, startAddrUBShape);
 
-        function.AddOperation(Opcode::OP_LOGICALAND, {tile0, tile1}, 
-                            {resultTile, castConditionTensor0, castConditionTensor1, tempConditionTensor, 
-                            oneConditionTensor, zeroConditionTensor, vcmpBitResultTensor, startAddrUBTensor});    
+        function.AddOperation(Opcode::OP_LOGICALAND, {tile0, tile1},
+                            {resultTile, castConditionTensor0, castConditionTensor1, tempConditionTensor,
+                            oneConditionTensor, zeroConditionTensor, vcmpBitResultTensor, startAddrUBTensor});
         return;
     }
 
@@ -504,7 +503,7 @@ Tensor Clip(const Tensor &self, const Element &min, const Element &max) {
     ASSERT(self.GetShape().size() >= SHAPE_DIM2 && self.GetShape().size() <= SHAPE_DIM4);
     std::vector<DataType> CLIP_SUPPORT_DATATYPES = {
         DataType::DT_FP32, DataType::DT_FP16, DataType::DT_INT32, DataType::DT_INT16};
-    ASSERT(std::find(CLIP_SUPPORT_DATATYPES.begin(), CLIP_SUPPORT_DATATYPES.end(), self.GetDataType()) != 
+    ASSERT(std::find(CLIP_SUPPORT_DATATYPES.begin(), CLIP_SUPPORT_DATATYPES.end(), self.GetDataType()) !=
         CLIP_SUPPORT_DATATYPES.end());
 
     Element min_ = min, max_ = max;
@@ -522,9 +521,9 @@ Tensor Clip(const Tensor &self, const Tensor &min, const Tensor &max) {
     ASSERT(self.GetShape().size() >= SHAPE_DIM2 && self.GetShape().size() <= SHAPE_DIM4);
     std::vector<DataType> CLIP_SUPPORT_DATATYPES = {
         DataType::DT_FP32, DataType::DT_FP16, DataType::DT_INT32, DataType::DT_INT16};
-    ASSERT(std::find(CLIP_SUPPORT_DATATYPES.begin(), CLIP_SUPPORT_DATATYPES.end(), self.GetDataType()) != 
+    ASSERT(std::find(CLIP_SUPPORT_DATATYPES.begin(), CLIP_SUPPORT_DATATYPES.end(), self.GetDataType()) !=
         CLIP_SUPPORT_DATATYPES.end());
-    
+
     Tensor result = self;
     if (min.GetStorage() != nullptr) {
         ASSERT(min.GetDataType() == self.GetDataType());

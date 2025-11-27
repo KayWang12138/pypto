@@ -632,7 +632,8 @@ bool Program::QueryAndUpdateCurrentFunction() {
 int Program::EndFunction(const bool isWaitTaskFinished)
 {
     ASSERT(currentFunctionPtr_ != nullptr);
-    auto funcArgs = currentFunctionPtr_->EndFunction(nullptr);
+    auto scope = GetTensorSlotManager()->EndScope();
+    auto funcArgs = currentFunctionPtr_->EndFunction(scope);
     if (currentFunctionPtr_->HasParent()) {
         auto &callop =
             currentFunctionPtr_->Parent().AddOperation(Opcode::OP_CALL, funcArgs.iOperands, funcArgs.oOperands, false);

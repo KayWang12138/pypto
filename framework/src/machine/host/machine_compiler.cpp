@@ -141,7 +141,7 @@ void CalcFunctionInvokeWorkespace(Function* cacheFunction, Function* function,
             paraOffset.opMagic = elm.opMagic;
             /* begin function explicit 模式，等待后面run接口调用时候根据传入的op args确定rawtensor 地址 */
             paraOffset.rawTensorAddr = nullptr;
-            paraOffset.opOriginArgsSeq = function->GetParamIndex(*rawTensor);
+            paraOffset.opOriginArgsSeq = function->GetParamIndex(rawTensor);
             paraOffset.isTensorParam = true;
             paraOffset.LogRawTensorInfo(rawTensor);
             ALOG_DEBUG_F("tensor para offset, magic: %d, offset [%d, %d], rawshape:[%d, %d], rawAddr: %lx, offsetsize "

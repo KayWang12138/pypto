@@ -171,7 +171,7 @@ void PvModelImpl<SystemConfig, CaseConfig>::CalcInvokeWorkespace(npu::tile_fwk::
             paraOffset.opMagic = elm.opMagic;
             /* begin function explicit 模式，等待后面run接口调用时候根据传入的op args确定rawtensor 地址 */
             paraOffset.rawTensorAddr = nullptr;
-            paraOffset.opOriginArgsSeq = function->GetParamIndex(*rawTensor);
+            paraOffset.opOriginArgsSeq = function->GetParamIndex(rawTensor);
             paraOffset.isTensorParam = true;
             paraOffset.LogRawTensor(rawTensor);
             if (paraOffset.rawTensorAddr == nullptr && paraOffset.opOriginArgsSeq == INVALID_ARG_INDEX) {

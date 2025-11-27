@@ -29,7 +29,7 @@
 #include "interface/configs/config_manager.h"
 
 
-constexpr size_t INVALID_ARG_INDEX = 0xFFFFFFFF;
+constexpr int INVALID_ARG_INDEX = 0xFFFFFFFF;
 
 namespace CostModel {
 
@@ -49,7 +49,7 @@ struct InvokeParaOffset {
     uint64_t rawShapeSize{0};
     int rawMagic{0};
     std::string rawSymbol{""};
-    size_t opOriginArgsSeq{INVALID_ARG_INDEX}; // map origin args seq no
+    int opOriginArgsSeq{INVALID_ARG_INDEX}; // map origin args seq no
     int funcitonMagic{-1};
     int8_t ioIndex{-1};
     int8_t paramType{-1};

@@ -363,7 +363,6 @@ Tensor Scatter_(const Tensor &self, const Tensor &indices, const Element &src, i
     axis = axis < 0 ? self.GetShape().size() + axis : axis;
     CheckScatterElementSParamsInvalid(self, indices, axis, reduce);
     Tensor result(self.GetStorage()->tensor->datatype, self.GetShape());
-    result.GetStorage()->tensor->SetTensorInfo(self.GetStorage()->tensor->GetTensorInfo());
     CALL(ScatterElementS, *Program::GetInstance().GetCurrentFunction(),
         {result.GetStorage(), self.GetStorage(), indices.GetStorage(), src, axis, static_cast<int>(reduce)});
     return result;
@@ -646,8 +645,6 @@ Tensor ScatterUpdate(
         result = resTmp;
     }
 
-    result.GetStorage()->tensor->SetTensorInfo(dst.GetStorage()->tensor->GetTensorInfo());
-
     if (cacheMode == "PA_NZ") {
         axis = 1;
         ASSERT(src.GetShape().size() == NUM_VALUE_2); // only support 2 dim
@@ -666,7 +663,6 @@ Tensor IndexPut(const Tensor &src, std::vector<Tensor> indices, const Tensor &va
     DECLARE_TRACER();
 
     Tensor result(src.GetStorage()->tensor->datatype, src.GetShape());
-    result.GetStorage()->tensor->SetTensorInfo(src.GetStorage()->tensor->GetTensorInfo());
     for (auto index : indices) {
         CALL(ScatterUpdate, *Program::GetInstance().GetCurrentFunction(), result.GetStorage(), src.GetStorage(),
             index.GetStorage(), values.GetStorage(), 0, "PA_PNSD", 1);

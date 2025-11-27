@@ -76,10 +76,10 @@ TEST_F(FunctionCoverageTest, ConverageCase1) {
     SubfuncInvokeInfoTy::TensorParamPackTy tensorParam;
 
     // GetParamIndex
-    EXPECT_EQ(func->GetParamIndex(*input.GetStorage()->GetRawTensor()), INVALID_IN_OUT_INDEX);
-    EXPECT_EQ(func->GetParamIndex(*output.GetStorage()->GetRawTensor()), INVALID_IN_OUT_INDEX);
-    EXPECT_EQ(func->GetParamIndex(*func->GetIncast()[0]->GetRawTensor()), INVALID_IN_OUT_INDEX);
-    EXPECT_EQ(func->GetParamIndex(*func->GetOutcast()[0]->GetRawTensor()), INVALID_IN_OUT_INDEX);
+    EXPECT_EQ(func->GetParamIndex(input.GetStorage()->GetRawTensor()), INVALID_IN_OUT_INDEX);
+    EXPECT_EQ(func->GetParamIndex(output.GetStorage()->GetRawTensor()), INVALID_IN_OUT_INDEX);
+    EXPECT_EQ(func->GetParamIndex(func->GetIncast()[0]->GetRawTensor()), INVALID_IN_OUT_INDEX);
+    EXPECT_EQ(func->GetParamIndex(func->GetOutcast()[0]->GetRawTensor()), INVALID_IN_OUT_INDEX);
 
     std::cout << "===========TensorMagicCheck==========" << std::endl;
     func->TensorMagicCheck();
@@ -119,10 +119,10 @@ TEST_F(FunctionCoverageTest, ConverageCase2) {
     ASSERT_NE(func, nullptr);
 
     // GetParamIndex
-    EXPECT_EQ(func->GetParamIndex(*input.GetStorage()->GetRawTensor()), 0);
-    EXPECT_EQ(func->GetParamIndex(*output.GetStorage()->GetRawTensor()), 1);
-    EXPECT_EQ(func->GetParamIndex(*func->GetIncast()[0]->GetRawTensor()), 0);
-    EXPECT_EQ(func->GetParamIndex(*func->GetOutcast()[0]->GetRawTensor()), 1);
+    EXPECT_EQ(func->GetParamIndex(input.GetStorage()->GetRawTensor()), 0);
+    EXPECT_EQ(func->GetParamIndex(output.GetStorage()->GetRawTensor()), 1);
+    EXPECT_EQ(func->GetParamIndex(func->GetIncast()[0]->GetRawTensor()), 0);
+    EXPECT_EQ(func->GetParamIndex(func->GetOutcast()[0]->GetRawTensor()), 1);
 }
 
 TEST_F(FunctionCoverageTest, ConverageCase3) {
@@ -150,10 +150,10 @@ TEST_F(FunctionCoverageTest, ConverageCase3) {
     ASSERT_NE(func, nullptr);
 
     // GetParamIndex
-    EXPECT_EQ(func->GetParamIndex(*input.GetStorage()->GetRawTensor()), INVALID_IN_OUT_INDEX);
-    EXPECT_EQ(func->GetParamIndex(*output.GetStorage()->GetRawTensor()), INVALID_IN_OUT_INDEX);
-    EXPECT_EQ(func->GetParamIndex(*func->GetIncast()[0]->GetRawTensor()), 0);
-    EXPECT_EQ(func->GetParamIndex(*func->GetOutcast()[0]->GetRawTensor()), 1);
+    EXPECT_EQ(func->GetParamIndex(input.GetStorage()->GetRawTensor()), -1);
+    EXPECT_EQ(func->GetParamIndex(output.GetStorage()->GetRawTensor()), -1);
+    EXPECT_EQ(func->GetParamIndex(func->GetIncast()[0]->GetRawTensor()), -1);
+    EXPECT_EQ(func->GetParamIndex(func->GetOutcast()[0]->GetRawTensor()), -1);
 }
 
 TEST_F(FunctionCoverageTest, TestReuseTensorCase1) {

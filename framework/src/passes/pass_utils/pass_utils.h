@@ -35,7 +35,7 @@ public:
     static bool IsContinuous(const std::vector<std::shared_ptr<LogicalTensor>> &tensors);
 };
 
-constexpr size_t INVALID_IN_OUT_INDEX = 0xFFFFFFFF;
+constexpr int INVALID_IN_OUT_INDEX = -1;
 // 每个调用子图的实参列表
 class SubfuncInvokeInfoTy {
 public:

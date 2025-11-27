@@ -31,15 +31,6 @@ using Json = nlohmann::json;
 namespace npu::tile_fwk {
 class RawTensor {
 public:
-    struct TensorInfo {
-        int tensorIndex{-1}; // 用户定义Tensor的唯一标识
-        int subscript{-1}; // 该用户定义Tensor是第几个传参
-
-        bool operator==(const TensorInfo &other) const {
-            return tensorIndex == other.tensorIndex && subscript == other.subscript;
-        }
-    };
-public:
     int rawmagic;
     int memoryId{-1};
     int actualRawmagic = -1;
@@ -93,15 +84,6 @@ public:
         rawshape = trawShape;
         dynRawShape = SymbolicScalar::FromConcrete(trawShape);
     }
-    /* rawData just used to identify the user value, RawTensor do not have the ownership */
-    BinDataPtr GetRawDataPtr() const { return rawData; };
-    void SetRawDataPtr(uint8_t *ptr) { rawData = ptr; }
-
-    void SetTensorIndex(int tensorIndex) { tensorInfo_.tensorIndex = tensorIndex; }
-    void SetTensorSubScript(int subscript) { tensorInfo_.subscript = subscript; }
-    void SetTensorInfo(const TensorInfo &other) { tensorInfo_ = other; }
-
-    const auto &GetTensorInfo() const { return tensorInfo_; }
 
     void SetCachePolicy(CachePolicy policy, bool value) {
       cachePolicy_[static_cast<int>(policy)] = value;
@@ -116,10 +98,8 @@ public:
       return cachePolicy_[static_cast<int>(policy)];
     }
 private:
-    BinDataPtr rawData{nullptr};
     bool isDummy_{false};
     int refCount_{0}; // 被 npu::tile_fwk::Tensor引用的次数，用于outcast自动推导
-    TensorInfo tensorInfo_{};
     bool cachePolicy_[static_cast<int>(CachePolicy::MAX_NUM)] = {false};
 };
 } // namespace npu::tile_fwk

@@ -565,7 +565,7 @@ public:
 
     bool IsEager() const { return functionType_ == FunctionType::EAGER; }
     bool IsStatic() const { return functionType_ == FunctionType::STATIC; }
-    bool IsExplicit() const { return isExplicit_; }
+    bool IsExplicit() const { return explicitArgSlots_.empty(); }
     const std::string &GetMagicName() const { return funcMagicName_; }
     const std::string &GetRawName() const { return funcRawName_; }
     void AppendCalleeMagicName(const std::string &name) { calleeMagicNameList_.push_back(name); }
@@ -599,7 +599,6 @@ public:
     void SetFunctionType(FunctionType type);
     std::string GetFunctionTypeStr() const;
 
-    void SetExplicit() { isExplicit_ = true; }
     GraphType GetGraphType() const;
     void SetGraphType(GraphType type);
 
@@ -621,7 +620,8 @@ public:
     FunctionCallArgs EndFunction(const std::shared_ptr<TensorSlotScope> &scope);
     /* -------------------------常用改图接口------------------------------ */
     Operation* GetOpByOpMagic(const int opMagic) const;
-    size_t GetParamIndex(const RawTensor& rawTensor);
+    int GetParamIndex(const std::shared_ptr<RawTensor> &rawTensor);
+    void *GetParamAddress(int index);
 
     static bool TensorReuse(const LogicalTensorPtr &dstTensor, const LogicalTensorPtr &srcTensor);
     std::set<Operation *, LogicalTensor::CompareOp> FindConsumers(const Operation &op) const;
@@ -816,9 +816,6 @@ private:
     TensorMap tensorMap_; // TensorMap to register tensors
     std::unordered_set<std::shared_ptr<LogicalTensor>> globalTensors_; // global tensors
 
-    // 当显式传参时，存储所有显式传参在Function前后的值
-    // 当隐式传参或动态Function时，存储所有进入Function前存活的Tensor在Function前后的值
-    std::vector<FunctionParamInfo> functionParamInfos_;
     // -----------------------子图信息------------------------
     SubfuncParam parameter_; // 每一个异构子图的形参
     int programId_; // 异构子图的id
@@ -835,7 +832,8 @@ private:
     Function *parent_{nullptr};
     FunctionType functionType_{FunctionType::INVALID};
     GraphType graphType_{GraphType::INVALID};
-    bool isExplicit_{false};
+    std::vector<TensorSlot> explicitArgSlots_;
+    std::vector<void *> explicitArgAddrs_;
 
     std::map<std::string, DynParamInfo> dynParamTable_;
 

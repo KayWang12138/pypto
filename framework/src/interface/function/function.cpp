@@ -315,11 +315,23 @@ const SubfuncInvokeInfoTy &Function::GetSubFuncInvokeInfo(const size_t i) const 
     return *(callAttr->invokeInfo_);
 }
 
-size_t Function::GetParamIndex(const RawTensor& rawTensor) {
-    if (rawTensor.GetTensorInfo().subscript == -1) {
-        return INVALID_IN_OUT_INDEX;
+int Function::GetParamIndex(const std::shared_ptr<RawTensor> &rawTensor) {
+    if (slotScope_ == nullptr) {
+        return -1;
     }
-    return rawTensor.GetTensorInfo().subscript;
+    auto slots = slotScope_->LoopupArgSlot(rawTensor);
+    for (auto slot : slots) {
+        for (int i = 0; i < (int)explicitArgSlots_.size(); i++) {
+            if (slot == explicitArgSlots_[i]) {
+                return i;
+            }
+        }
+    }
+    return -1;
+}
+
+void *Function::GetParamAddress(int index) {
+    return explicitArgAddrs_[index];
 }
 
 bool Function::HasCallOperation() {
@@ -418,27 +430,10 @@ void Function::GetTensorDataRefreshIO(const GetTensorDataIODescDict &iodescDict)
 }
 
 void Function::BeginFunction(const std::vector<std::reference_wrapper<Tensor>> &explicitOpArgs) {
-    if (!IsGraphType(GraphType::TENSOR_GRAPH) && !IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
-        return;
-    }
-    std::unordered_set<LogicalTensorPtr> used;
-    if (explicitOpArgs.empty()) {
-        for (const auto &tensor : BelongTo().GetAliveTensors()) {
-            auto logicalTensor = tensor->GetStorage(false);
-            functionParamInfos_.emplace_back(
-                FunctionParamInfo{.key = tensor, .beginValue = logicalTensor, .endValue = logicalTensor});
-        }
-        return;
-    }
-    ASSERT(GetFunctionType() != FunctionType::DYNAMIC); // 只有静态function才能走进这个逻辑
-    SetExplicit();
-    for (const Tensor &tensor : explicitOpArgs) {
-        auto logicalTensor = tensor.GetStorage(false);
-        ASSERT(logicalTensor != nullptr);
-        ASSERT(used.count(logicalTensor) == 0);
-        used.emplace(logicalTensor);
-        functionParamInfos_.emplace_back(
-            FunctionParamInfo{.key = &tensor, .beginValue = logicalTensor, .endValue = logicalTensor});
+    auto slotManager = Program::GetInstance().GetTensorSlotManager();
+    for (auto &arg : explicitOpArgs) {
+        explicitArgSlots_.push_back(TensorSlot::CreateTensor(arg));
+        explicitArgAddrs_.push_back(arg.get().GetData());
     }
 }
 
@@ -591,14 +586,7 @@ FunctionCallArgs Function::EndFunction(const std::shared_ptr<TensorSlotScope> &s
     if (IsGraphType(GraphType::TENSOR_GRAPH) || IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
         OrderedSet<LogicalTensorPtr> incasts;
         OrderedSet<LogicalTensorPtr> outcasts;
-        // update functionParamInfo endValue
-        for (auto &functionParamInfo : functionParamInfos_) {
-            functionParamInfo.endValue = functionParamInfo.key->GetStorage(false);
-            if (functionParamInfo.beginValue != nullptr) {
-                ASSERT(functionParamInfo.endValue != nullptr);
-                functionParamInfo.endValue->GetRawTensor()->SetRawDataPtr(functionParamInfo.beginValue->GetRawTensor()->GetRawDataPtr());
-            }
-        }
+
         for (auto &op : Operations()) {
             for (auto &iOperand : op.iOperand) {
                 if (op.IsCall() || (tensorMap_.tensorMap_.count(iOperand->tensor->rawmagic) == 0 && (&iOperand->BelongFunction() != this))) {
@@ -612,110 +600,19 @@ FunctionCallArgs Function::EndFunction(const std::shared_ptr<TensorSlotScope> &s
                 }
             }
         }
-        if (isExplicit_) {
-            for (const auto &functionParamInfo : functionParamInfos_) {
-                auto beginTensor = functionParamInfo.beginValue;
-                auto endTensor = functionParamInfo.beginValue;
-            }
-            int subscript = 0;
-            for (const auto &functionParamInfo : functionParamInfos_) {
-                auto beginTensor = functionParamInfo.beginValue;
-                auto endTensor = functionParamInfo.endValue;
-                ASSERT(beginTensor->GetRawTensor()->GetTensorInfo().subscript == -1);
-                RawTensor::TensorInfo tensorInfo{functionParamInfo.key->Id(), subscript};
-                beginTensor->GetRawTensor()->SetTensorInfo(tensorInfo);
-                endTensor->GetRawTensor()->SetTensorInfo(tensorInfo);
-                if (incasts.count(beginTensor) > 0) {
-                    AddOriginIncast(beginTensor);
-                    incasts.Remove({beginTensor});
-                    beginTensor->GetRawTensor()->SetRawDataPtr(functionParamInfo.key->GetData());
-                    beginTensor->GetRawTensor()->SetTensorInfo(tensorInfo);
-                }
-                if (outcasts.count(endTensor) > 0) {
-                    AddOriginOutcast(endTensor);
-                    outcasts.Remove({endTensor});
-                    endTensor->GetRawTensor()->SetRawDataPtr(functionParamInfo.key->GetData());
-                    endTensor->GetRawTensor()->SetTensorInfo(tensorInfo);
-                }
-                subscript++;
-            }
-            for (const auto &incast : incasts) {
-                AddOriginIncast(incast);
-                ASSERT(incast->GetRawTensor()->GetRawDataPtr() == nullptr);
-                ASSERT(incast->GetRawTensor()->GetTensorInfo().tensorIndex == -1);
-                ASSERT(incast->GetRawTensor()->GetTensorInfo().subscript == -1);
-            }
-            for (const auto &outcast : outcasts) {
-                AddOriginOutcast(outcast);
-                ASSERT(outcast->GetRawTensor()->GetRawDataPtr() == nullptr);
-                ASSERT(outcast->GetRawTensor()->GetTensorInfo().tensorIndex == -1);
-                ASSERT(outcast->GetRawTensor()->GetTensorInfo().subscript == -1);
-            }
-        } else { // !isExplicit_ or dynamicFunction
-            std::map<LogicalTensorPtr, int> beginMapping;
-            std::map<LogicalTensorPtr, int> endMapping;
-            for (size_t i = 0; i < functionParamInfos_.size(); i++) {
-                beginMapping.emplace(functionParamInfos_[i].beginValue, i);
-                endMapping.emplace(functionParamInfos_[i].endValue, i);
-            }
-
-            int subscript = 0;
-            std::unordered_map<std::shared_ptr<RawTensor>, std::shared_ptr<LogicalTensor>> updated;
-            for (const auto &incast : incasts) {
-                AddOriginIncast(incast);
-                ASSERT(incast->GetShape() == incast->GetRawTensor()->GetRawShape());
-                if (beginMapping.count(incast) == 0) {
-                    continue;
-                }
-                auto &functionParamInfo = functionParamInfos_[beginMapping.at(incast)];
-                if (functionParamInfo.key->GetData() == nullptr) {
-                    continue;
-                }
-                if (updated.count(incast->GetRawTensor()) > 0) {
-                    ASSERT(incast->GetShape() == updated.at(incast->GetRawTensor())->GetShape());
-                    continue;
-                }
-                ASSERT(incast->GetRawTensor()->GetTensorInfo().subscript == -1);
-                incast->GetRawTensor()->SetRawDataPtr(functionParamInfo.key->GetData());
-                incast->GetRawTensor()->SetTensorInfo({functionParamInfo.key->Id(), subscript++});
-                updated.emplace(incast->GetRawTensor(), incast);
-            }
-            for (const auto &outcast : outcasts) {
-                AddOriginOutcast(outcast);
-                ASSERT(outcast->GetShape() == outcast->GetRawTensor()->GetRawShape());
-                if (endMapping.count(outcast) == 0) {
-                    continue;
-                }
-                auto &functionParamInfo = functionParamInfos_[endMapping.at(outcast)];
-                if (functionParamInfo.key->GetData() == nullptr) {
-                    continue;
-                }
-                if (updated.count(outcast->GetRawTensor()) > 0) {
-                    ASSERT(outcast->GetShape() == updated.at(outcast->GetRawTensor())->GetShape());
-                    continue;
-                }
-                ASSERT(outcast->GetRawTensor()->GetTensorInfo().subscript == -1);
-                outcast->GetRawTensor()->SetRawDataPtr(functionParamInfo.key->GetData());
-                outcast->GetRawTensor()->SetTensorInfo({functionParamInfo.key->Id(), subscript++});
-                updated.emplace(outcast->GetRawTensor(), outcast);
-            }
+        for (const auto &incast : incasts) {
+            AddOriginIncast(incast);
+        }
+        for (const auto &outcast : outcasts) {
+            AddOriginOutcast(outcast);
         }
     }
-    functionParamInfos_.clear();
 
     LogicalTensors inArgumentList, outArgumentList;
     if (IsGraphType(GraphType::TENSOR_GRAPH) || IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
         SetCallOpSlot();
         inArgumentList = MakeIncasts(scope);
         outArgumentList = MakeOutcasts(scope);
-        if (!isExplicit_) {
-            for (auto arg : inArgumentList) {
-                arg->GetRawTensor()->SetTensorSubScript(-1);
-            }
-            for (auto arg : outArgumentList) {
-                arg->GetRawTensor()->SetTensorSubScript(-1);
-            }
-        }
         auto iodescDict = GetTensorDataForTensorGraph();
         GetTensorDataRefreshIO(iodescDict);
         SortOperations();
@@ -1673,8 +1570,6 @@ std::pair<std::shared_ptr<LogicalTensor>, std::shared_ptr<LogicalTensor>> Functi
     }
     auto incastSymbol = std::make_shared<LogicalTensor>(*this, inArgument->tensor->datatype, inArgument->shape,
         inArgument->tensor->GetDynRawShape(), inArgument->Format(), newSymbol, NodeType::INCAST);
-    incastSymbol->tensor->SetRawDataPtr(inArgument->tensor->GetRawDataPtr());
-    incastSymbol->tensor->SetTensorInfo(inArgument->tensor->GetTensorInfo());
     tensorMap_.Insert(incastSymbol);
     inCasts_.push_back(incastSymbol);
     incastToInArgumentDict[incastSymbol] = inArgument;
@@ -1840,8 +1735,6 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
         auto outArgument = std::make_shared<LogicalTensor>(Parent(), rawOutcast, nonOffsets, rawOutcast->rawshape, NodeType::LOCAL);
         rawSymbol->tensor->UpdateDynRawShape(rawOutcast->GetDynRawShape());
         rawBuf->tensor->UpdateDynRawShape(rawOutcast->GetDynRawShape());
-        rawSymbol->tensor->SetRawDataPtr(rawOutcast->GetRawDataPtr());
-        rawSymbol->tensor->SetTensorInfo(rawOutcast->GetTensorInfo());
         Parent().tensorMap_.Insert(outArgument);
         outArgumentList.push_back(outArgument);
         UpdateLinkMap(outArgument, rawSymbol, true);
@@ -3254,12 +3147,12 @@ std::vector<OriArgInfo> Function::GetOpOriginArgsInfo() {
     std::map<int, OriArgInfo> args;
     int maxSubscript = 0;
     for (const auto &incast : inCasts_) {
-        auto subscript = incast->GetRawTensor()->GetTensorInfo().subscript;
+        auto subscript = GetParamIndex(incast->GetRawTensor());
         if (subscript == -1) {
             continue;
         }
         maxSubscript = std::max(maxSubscript, subscript);
-        OriArgInfo info{reinterpret_cast<uint64_t>(incast->GetRawTensor()->GetRawDataPtr()), incast->MemorySize(),
+        OriArgInfo info{reinterpret_cast<uint64_t>(GetParamAddress(subscript)), incast->MemorySize(),
             incast->GetCachePolicy(CachePolicy::PREFETCH)};
         if (args.count(subscript) > 0) {
             ASSERT(args.at(subscript) == info);
@@ -3268,12 +3161,12 @@ std::vector<OriArgInfo> Function::GetOpOriginArgsInfo() {
         }
     }
     for (const auto &outcast : outCasts_) {
-        auto subscript = outcast->GetRawTensor()->GetTensorInfo().subscript;
+        auto subscript = GetParamIndex(outcast->GetRawTensor());
         if (subscript == -1) {
             continue;
         }
         maxSubscript = std::max(maxSubscript, subscript);
-        OriArgInfo info{reinterpret_cast<uint64_t>(outcast->GetRawTensor()->GetRawDataPtr()), outcast->MemorySize(),
+        OriArgInfo info{reinterpret_cast<uint64_t>(GetParamAddress(subscript)), outcast->MemorySize(),
             outcast->GetCachePolicy(CachePolicy::PREFETCH)};
         if (args.count(subscript) > 0) {
             ASSERT(args.at(subscript) == info);
