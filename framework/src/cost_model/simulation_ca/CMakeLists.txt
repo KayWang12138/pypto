@@ -18,40 +18,37 @@ target_include_directories(tile_fwk_simulation_ca
         PRIVATE
             ${PTO_FWK_SRC_ROOT}/framework/src/cost_model
 )
-target_compile_definitions(tile_fwk_simulation_ca
-        PRIVATE
-            SRCPATH="${PTO_FWK_SRC_ROOT}"
-)
 target_link_libraries(tile_fwk_simulation_ca
         PUBLIC
             $<$<BOOL:${ENABLE_UTEST}>:tile_fwk_codegen>
             $<$<BOOL:${ENABLE_UTEST}>:tile_fwk_simulation>
-            json
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub
             c_sec
+            json
 )
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_simulation_ca)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_simulation_ca)
 
-
-# 新增CCE前仿二进制
-add_executable(get_cce_simulation)
-target_sources(get_cce_simulation PRIVATE tools/GenSimulation.cpp)
-target_include_directories(get_cce_simulation
-        PRIVATE
-            ${PTO_FWK_SRC_ROOT}/framework/src/cost_model
-)
-target_link_libraries(get_cce_simulation
-        PRIVATE
-            intf_pub_cxx17
-            tile_fwk_intf_pub
-            tile_fwk_simulation_ca
-            tile_fwk_interface
-            tile_fwk_passes
-            tile_fwk_codegen
-            tile_fwk_simulation
-            dl
-            Threads::Threads
-)
+if (BUILD_WITH_CANN AND NOT ENABLE_FEATURE_PYTHON_FRONT_END)
+    # 新增CCE前仿二进制
+    add_executable(get_cce_simulation)
+    target_sources(get_cce_simulation PRIVATE tools/GenSimulation.cpp)
+    target_include_directories(get_cce_simulation
+            PRIVATE
+                ${PTO_FWK_SRC_ROOT}/framework/src/cost_model
+    )
+    target_link_libraries(get_cce_simulation
+            PRIVATE
+                intf_pub_cxx17
+                tile_fwk_intf_pub
+                tile_fwk_simulation_ca
+                tile_fwk_interface
+                tile_fwk_passes
+                tile_fwk_codegen
+                tile_fwk_simulation
+                dl
+                Threads::Threads
+    )
+endif ()

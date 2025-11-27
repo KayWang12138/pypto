@@ -32,7 +32,8 @@ def load_shared_libs():
         ctypes.CDLL(str(calc_path), mode=ctypes.RTLD_LOCAL)
 
     libs = ["libtile_fwk_interface.so", "libtile_fwk_codegen.so",
-            "libtile_fwk_compiler.so", "libtile_fwk_runtime.so"]
+            "libtile_fwk_compiler.so", "libtile_fwk_runtime.so",
+            "libtile_fwk_simulation.so", "libtile_fwk_simulation_ca.so"]
     for name in libs:
         lib: Path = Path(lib_dir, name)
         if lib.exists():

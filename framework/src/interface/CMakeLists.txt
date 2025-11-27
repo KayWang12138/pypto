@@ -68,15 +68,15 @@ if (ENABLE_TORCH_VERIFIER)
     )
     target_compile_definitions(tile_fwk_calculator
             PRIVATE
-                -D_GLIBCXX_USE_CXX11_ABI=${TORCH_ABI_VERSION}
+                -D_GLIBCXX_USE_CXX11_ABI=${PY3_MOD_TORCH_C_GLIBCXX_USE_CXX11_ABI}
                 -D__DEVICE__
             PUBLIC
                 -DENABLE_VERIFIER=1
     )
     target_include_directories(tile_fwk_calculator
             SYSTEM PRIVATE
-                ${TORCH_ROOT_PATH}/include
-                ${TORCH_ROOT_PATH}/include/torch/csrc/api/include
+                ${PY3_MOD_TORCH_ROOT_PATH}/include
+                ${PY3_MOD_TORCH_ROOT_PATH}/include/torch/csrc/api/include
                 ${PTO_FWK_SRC_ROOT}/framework/include
                 ${PTO_FWK_SRC_ROOT}/framework/src/
                 ${PTO_FWK_SRC_ROOT}/framework/src/interface
@@ -84,8 +84,8 @@ if (ENABLE_TORCH_VERIFIER)
     )
     target_link_directories(tile_fwk_calculator
             PUBLIC
-                ${TORCH_ROOT_PATH}/lib
-                ${TORCH_ROOT_PATH}/../torch.libs
+                ${PY3_MOD_TORCH_ROOT_PATH}/lib
+                ${PY3_MOD_TORCH_ROOT_PATH}/../torch.libs
                 $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/lib64>
     )
     target_link_libraries(tile_fwk_calculator
@@ -96,7 +96,7 @@ if (ENABLE_TORCH_VERIFIER)
     )
     target_link_options(tile_fwk_calculator
             PRIVATE
-                -Wl,-no-as-needed,${TORCH_ROOT_PATH}/lib/libtorch_cpu.so -Wl,-as-needed
-                -Wl,-no-as-needed,${TORCH_ROOT_PATH}/lib/libc10.so -Wl,-as-needed
+                -Wl,-no-as-needed,${PY3_MOD_TORCH_ROOT_PATH}/lib/libtorch_cpu.so -Wl,-as-needed
+                -Wl,-no-as-needed,${PY3_MOD_TORCH_ROOT_PATH}/lib/libc10.so -Wl,-as-needed
     )
 endif () ## ENABLE_TORCH_VERIFIER

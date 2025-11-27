@@ -13,25 +13,50 @@
 import sys
 import argparse
 import logging
-import importlib
-import subprocess
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 
 class Analysis:
 
     def __init__(self, args):
-        self.executable: Path = Path(args.executable[0]).resolve()
-        self.print_python_version_id: bool = args.print_python_version_id
-        self.print_pybind11_dir: bool = args.print_pybind11_dir
-        self.print_torch_version: bool = args.print_torch_version
-        self.judge_pytest_installed: bool = args.judge_pytest_installed
-        self.judge_pytest_forked_installed: bool = args.judge_pytest_forked_installed
+        self.output: Path = Path(args.output[0]).resolve()
+        self.interpreter_version: str = self._get_interpreter_version()
+        self.py_mod_pybind11_cmake_dir: str = self._get_py_mod_pybind11_dir()
+        self.py_mod_torch_version: str = ""
+        self.py_mod_torch_cmake_dir: str = ""
+        self.py_mod_torch_c_use_cxx11_abi: int = 1
+        self._init_torch_param()
+
+    def __str__(self) -> str:
+        ver = sys.version_info
+        desc: str = "\n"
+        desc += f"\nEnviron"
+        desc += f"\n  Output  : {self.output}"
+        desc += f"\n  Python3 : {sys.executable} ({ver.major}.{ver.minor}.{ver.micro})"
+        desc += f"\n    pybind11"
+        desc += f"\n      CMake_Dir                : {self.py_mod_pybind11_cmake_dir}"
+        desc += f"\n    torch"
+        desc += f"\n      Version                  : {self.py_mod_torch_version}"
+        desc += f"\n      CMake_Dir                : {self.py_mod_torch_cmake_dir}"
+        desc += f"\n      C._GLIBCXX_USE_CXX11_ABI : {self.py_mod_torch_c_use_cxx11_abi}"
+        return desc
 
     @staticmethod
-    def analysis_python_version_id() -> str:
-        """获取 python3 version(major.minor)
+    def main():
+        """主处理流程
+        """
+        # 参数注册
+        parser = argparse.ArgumentParser(description=f"Python3-Environ Analysis.", epilog="Best Regards!")
+        parser.add_argument("-o", "--output", nargs=1, type=Path, default=None, required=True,
+                            help="Specify output file path.")
+        # 流程处理
+        ctrl = Analysis(args=parser.parse_args())
+        ctrl.analysis()
+
+    @staticmethod
+    def _get_interpreter_version():
+        """Init python3 version(major.minor)
 
         :return: python3 version(major.minor)
         """
@@ -39,7 +64,7 @@ class Analysis:
         return f"{ver.major}.{ver.minor}"
 
     @staticmethod
-    def analysis_pybind11_dir() -> str:
+    def _get_py_mod_pybind11_dir() -> str:
         """获取 pybind11_DIR, 以便外层 CMake 处理
 
         :return: pybind11_DIR
@@ -48,78 +73,51 @@ class Analysis:
         try:
             import pybind11
             pybind11_dir = Path(pybind11.get_cmake_dir()).resolve()
-        except ModuleNotFoundError:
+        except (ModuleNotFoundError or ImportError):
             pass
         return str(pybind11_dir) if pybind11_dir else ""
 
-    @staticmethod
-    def analysis_torch_version() -> str:
-        torch_version: Optional[str] = None
-        try:
-            BAR = '-----'
-            info = subprocess.check_output([sys.executable, '-c', f'import torch;print("{BAR}");print(torch.__version__)'], universal_newlines=True)
-            torch_version = info.split(BAR)[-1].strip()
-        except subprocess.CalledProcessError:
-            pass
-        return str(torch_version) if torch_version else ""
+    def analysis(self):
+        lines: List[str] = [
+            f'\n# Python3 Version',
+            f'\nset(PYTHON3_VERSION_ID "{self.interpreter_version}")',
+            '\nmessage(STATUS "PYTHON3_VERSION_ID=${PYTHON3_VERSION_ID}")',
+            '\n',
+        ]
+        if self.py_mod_pybind11_cmake_dir:
+            lines += [
+                f'\n# Python3 module pybind11',
+                f'\nget_filename_component(PY3_MOD_PYBIND11_CMAKE_DIR "{self.py_mod_pybind11_cmake_dir}" REALPATH)',
+                '\nmessage(STATUS "PY3_MOD_PYBIND11_CMAKE_DIR=${PY3_MOD_PYBIND11_CMAKE_DIR}")',
+                '\n',
+            ]
+        if self.py_mod_torch_version:
+            py_mod_torch_root_path: Path = Path(self.py_mod_torch_cmake_dir, "../../")
+            lines += [
+                f'\n# Python3 module pybind11',
+                f'\nset(PY3_MOD_TORCH_VERSION "{self.py_mod_torch_version}")',
+                f'\nget_filename_component(PY3_MOD_TORCH_ROOT_PATH "{py_mod_torch_root_path}" REALPATH)',
+                f'\nget_filename_component(PY3_MOD_TORCH_CMAKE_DIR "{self.py_mod_torch_cmake_dir}" REALPATH)',
+                f'\nset(PY3_MOD_TORCH_C_GLIBCXX_USE_CXX11_ABI {self.py_mod_torch_c_use_cxx11_abi})',
+                '\nmessage(STATUS "PY3_MOD_TORCH_VERSION=${PY3_MOD_TORCH_VERSION}")',
+                '\nmessage(STATUS "PY3_MOD_TORCH_ROOT_PATH=${PY3_MOD_TORCH_ROOT_PATH}")',
+                '\nmessage(STATUS "PY3_MOD_TORCH_CMAKE_DIR=${PY3_MOD_TORCH_CMAKE_DIR}")',
+                '\nmessage(STATUS "PY3_MOD_TORCH_C_GLIBCXX_USE_CXX11_ABI=${PY3_MOD_TORCH_C_GLIBCXX_USE_CXX11_ABI}")',
+                '\n',
+            ]
+        with open(str(self.output), "w", encoding="utf-8") as f:
+            f.writelines(lines)
 
-    @staticmethod
-    def analysis_pytest() -> str:
-        installed: bool = False
+    def _init_torch_param(self):
         try:
-            importlib.import_module("pytest")
-            installed = True
+            import torch
+            self.py_mod_torch_version = str(torch.__version__)
+            self.py_mod_torch_cmake_dir = str(Path(torch.utils.cmake_prefix_path).resolve())
+            self.py_mod_torch_c_use_cxx11_abi = int(torch._C._GLIBCXX_USE_CXX11_ABI)
         except (ModuleNotFoundError or ImportError):
             pass
-        return "True" if installed else ""
-
-    @staticmethod
-    def analysis_pytest_forked() -> str:
-        installed: bool = False
-        try:
-            importlib.import_module("pytest_forked")
-            installed = True
-        except (ModuleNotFoundError or ImportError):
-            pass
-        return "True" if installed else ""
-
-    @staticmethod
-    def main() -> str:
-        """主处理流程
-        """
-        # 参数注册
-        parser = argparse.ArgumentParser(description=f"Python3-Environ Analysis.", epilog="Best Regards!")
-        parser.add_argument("-e", "--executable", nargs=1, type=str, required=True,
-                            help="Specific python3 executable path.")
-        parser.add_argument("--print_python_version_id", action="store_true", default=False,
-                        help="Print Python3 version(major.minor).")
-        parser.add_argument("--print_pybind11_dir", action="store_true", default=False,
-                            help="Print pip3::pybind11 dir.")
-        parser.add_argument("--print_torch_version", action="store_true", default=False,
-                            help="Print pip3::torch version.")
-        parser.add_argument("--judge_pytest_installed", action="store_true", default=False,
-                            help="Judge pip3::pytest installed.")
-        parser.add_argument("--judge_pytest_forked_installed", action="store_true", default=False,
-                            help="Judge pip3::pytest-forked installed.")
-        # 流程处理
-        ctrl = Analysis(args=parser.parse_args())
-        return ctrl.analysis()
-
-    def analysis(self) -> str:
-        if self.print_python_version_id:
-            return self.analysis_python_version_id()
-        elif self.print_pybind11_dir:
-            return self.analysis_pybind11_dir()
-        elif self.print_torch_version:
-            return self.analysis_torch_version()
-        elif self.judge_pytest_installed:
-            return self.analysis_pytest()
-        elif self.judge_pytest_forked_installed:
-            return self.analysis_pytest_forked()
-        else:
-            return ""
 
 
 if __name__ == "__main__":
     logging.basicConfig(format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s', level=logging.INFO)
-    print(Analysis.main(), end='')
+    Analysis.main()

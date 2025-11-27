@@ -8,6 +8,12 @@
 # ======================================================================================================================
 
 [build-system]
+requires = [
+    "setuptools",
+    "wheel",
+    "pybind11>=2.0.1",
+    'tomli>=2.0.0; python_version >= "3.0" and python_version < "3.11"'
+]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -20,4 +26,17 @@ license = { file = "LICENSE" }
 dependencies = [
     "torch>=2.1.0",
     "torch_npu>=2.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "setuptools",
+    "wheel",
+    "pybind11>=2.0.1",
+    'tomli>=2.0.0; python_version >= "3.0" and python_version < "3.11"'
+]
+tests = [
+    "pytest",
+    "pytest-forked",
+    "pytest-xdist",
 ]

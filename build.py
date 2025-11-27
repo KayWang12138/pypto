@@ -755,12 +755,12 @@ class BuildCtrl:
         if self.feature.frontend_type_python3:
             self.build_root: Path = Path(Path.cwd(), "build_whl")
             self.install_root: Path = Path(self.build_root.parent, "build_out")
-        if args.cann_3rd_lib_path is None:
-            self.open_source_path = self.build_root / "cann_3rd_lib_path"
-        elif args.cann_3rd_lib_path == "":
+        if args.third_party_path is None:
+            self.open_source_path = self.build_root / "third_party_path"
+        elif args.third_party_path == "":
             self.open_source_path = None
         else:
-            self.open_source_path = Path(args.cann_3rd_lib_path).resolve()
+            self.open_source_path = Path(args.third_party_path).resolve()
 
     def __str__(self):
         ver = sys.version_info
@@ -771,7 +771,7 @@ class BuildCtrl:
         desc += f"\n    Source  Dir             : {self.src_root}"
         desc += f"\n    Build   Dir             : {self.build_root}"
         desc += f"\n    Install Dir             : {self.install_root}"
-        desc += f"\n    CANN 3rd lib Dir        : {self.open_source_path}"
+        desc += f"\n    3rd     Dir             : {self.open_source_path}"
         desc += f"{self.feature}"
         desc += f"{self.build}"
         desc += f"{self.tests}"
@@ -857,8 +857,9 @@ class BuildCtrl:
         BuildParam.reg_args(parser=parser)
         TestsParam.reg_args(parser=parser, ext=sub_parser)
         ModelParam.reg_args(parser=parser)
-        parser.add_argument("--cann_3rd_lib_path", nargs="?", type=str, default="",
-                            help="Specify CANN 3rd Libraries Path")
+        parser.add_argument("--cann_3rd_lib_path", "--third_party_path",
+                            nargs="?", type=str, default="", dest="third_party_path",
+                            help="Specify 3rd Libraries Path")
         # 参数处理
         args = parser.parse_args()
         ctrl = BuildCtrl(args=args)
@@ -918,7 +919,7 @@ class BuildCtrl:
     def get_cfg_update_env(self) -> Dict[str, str]:
         env: Dict[str, str] = {}
         if self.open_source_path:
-            env.update({"CANN_3RD_LIB_PATH": self.open_source_path})
+            env.update({"PYPTO_3RD_SRC_PATH": self.open_source_path})
         return env
 
     def cmake_clean(self):

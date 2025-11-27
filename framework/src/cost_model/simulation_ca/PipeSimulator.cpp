@@ -108,17 +108,13 @@ namespace CostModel
 
     static std::vector<std::string> CompileAndRunCode(const std::string &source, const EnvConfig &config)
     {
-#ifdef SRCPATH
-        std::string projSrcPath = SRCPATH;
-#else
-        std::string projSrcPath = ".";
-#endif
+        std::string incPath = GetCurrentSharedLibPath() + "/include";
         std::string cPlusPlus = "g++";
 
         std::string executable = source.substr(0, source.size() - 4);
-        std::string cmd = config.cPlusPlus + " -w -std=c++17 " + source + " -o " + executable + " -I " + projSrcPath +
-                          "/framework/src/interface/tileop/a2a3 -I " + projSrcPath +
-                          "/framework/src/cost_model/simulation_ca/mock"; //  + ">/dev/null 2>&1"
+        std::string cmd = config.cPlusPlus + " -w -std=c++17 " + source + " -o " + executable +
+                          " -I " + incPath + "/tileop/a2a3" +
+                          " -I " + incPath + "/mock"; //  + ">/dev/null 2>&1"
         int result = std::system(cmd.c_str());
         if (result != 0) {
             MLOG_ERROR("compile error: ", cmd);

@@ -144,36 +144,30 @@ endfunction()
 # 分析 Python3 环境信息, 主要是 pip 包信息
 #[[
 Parameters:
-  options:
-      GET_PYBIND11_DIR            : [Optional] 获取 pybind11 路径
+  one_value_keywords:
+      OUTPUT_FILE            : [Require] 输出 cmake 文件路径
 ]]
-function(PTO_Fwk_AnalysisPython3Environ OUT_VALUE)
+function(PTO_Fwk_AnalysisPython3Environ)
     cmake_parse_arguments(
             ARG
-            "GET_PYTHON_V;GET_PYBIND11_DIR;GET_TORCH_VERSION;JUDGE_PYTEST_INSTALLED;JUDGE_PYTEST_FORKED_INSTALLED"
             ""
+            "OUTPUT_FILE"
             ""
             ""
             ${ARGN}
     )
     get_filename_component(_PyScript "${PTO_FWK_SRC_ROOT}/cmake/scripts/analysis_python3_environ.py" REALPATH)
-    set(_Args "-e=${Python3_EXECUTABLE}")
-    if (ARG_GET_PYTHON_V)
-        list(APPEND _Args "--print_python_version_id")
-    elseif (ARG_GET_PYBIND11_DIR)
-        list(APPEND _Args "--print_pybind11_dir")
-    elseif (ARG_GET_TORCH_VERSION)
-        list(APPEND _Args "--print_torch_version")
-    elseif (ARG_JUDGE_PYTEST_INSTALLED)
-        list(APPEND _Args "--judge_pytest_installed")
-    elseif (ARG_JUDGE_PYTEST_FORKED_INSTALLED)
-        list(APPEND _Args "--judge_pytest_forked_installed")
-    endif ()
+    set(_Args "-o=${ARG_OUTPUT_FILE}")
     execute_process(
             COMMAND ${Python3_EXECUTABLE} ${_PyScript} ${_Args}
-            OUTPUT_VARIABLE OutVariable
+            RESULT_VARIABLE _Rst
     )
-    set(${OUT_VALUE} ${OutVariable} PARENT_SCOPE)
+    if (NOT ${_Rst} EQUAL 0)
+        message(FATAL_ERROR "Analysis python3 environ failed.")
+    endif ()
+    if (NOT EXISTS ${ARG_OUTPUT_FILE} OR IS_DIRECTORY ${ARG_OUTPUT_FILE})
+        message(FATAL_ERROR "Analysis python3 environ failed, ${ARG_OUTPUT_FILE} not exist.")
+    endif ()
 endfunction()
 
 function(PTO_Fwk_InstallBinaries)
@@ -307,4 +301,23 @@ function(PTO_Fwk_InstallCMakeConfig)
             ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
             DESTINATION ${ARG_CMAKE_PARENT_DIR}/cmake/${PROJECT_NAME}
     )
+endfunction()
+
+function(PTO_Fwk_CleanEmptyDir)
+    cmake_parse_arguments(
+            ARG
+            ""
+            "DIR"
+            ""
+            ""
+            ${ARGN}
+    )
+    if (EXISTS ${ARG_DIR} AND IS_DIRECTORY ${ARG_DIR})
+        file(GLOB _DirItemLst LIST_DIRECTORIES true RELATIVE "${ARG_DIR}" "${ARG_DIR}/*")
+        list(LENGTH _DirItemLst _DirItemNum)
+        if (_DirItemNum EQUAL 0)
+            file(REMOVE_RECURSE FORCE ${ARG_DIR})
+            message(STATUS "Remove empty dir: ${ARG_DIR}")
+        endif()
+    endif ()
 endfunction()

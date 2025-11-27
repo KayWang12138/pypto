@@ -93,12 +93,11 @@ add_subdirectory(python)
 if (ENABLE_FEATURE_PYTHON_FRONT_END)
     # 安装 二进制文件
     set(InstallExport ${PROJECT_NAME}Targets)
-    set(InstallTargets tile_fwk_interface tile_fwk_codegen tile_fwk_compiler)
+    set(InstallTargets tile_fwk_interface tile_fwk_codegen tile_fwk_compiler tile_fwk_simulation tile_fwk_simulation_ca)
     if (BUILD_WITH_CANN)
         list(APPEND InstallTargets tile_fwk_runtime)
         install(TARGETS tile_fwk_server LIBRARY DESTINATION "${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}")
     else ()
-        list(APPEND InstallTargets tile_fwk_simulation)
         get_target_property(cSecSharedFile c_sec_shared IMPORTED_LOCATION)
         install(FILES ${cSecSharedFile}
                 DESTINATION "${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}"
@@ -138,6 +137,13 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
     )
     install(DIRECTORY framework/src/interface/tileop/
             DESTINATION ${CMAKE_INSTALL_PREFIX}/${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}/include/tileop
+            PATTERN "*.h"
+            PATTERN "*.hpp"
+            PATTERN ".svn" EXCLUDE
+            PATTERN ".git" EXCLUDE
+    )
+    install(DIRECTORY framework/src/cost_model/simulation_ca/mock/
+            DESTINATION ${CMAKE_INSTALL_PREFIX}/${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}/include/mock
             PATTERN "*.h"
             PATTERN "*.hpp"
             PATTERN ".svn" EXCLUDE

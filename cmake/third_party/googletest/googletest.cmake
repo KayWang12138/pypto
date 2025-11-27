@@ -20,10 +20,10 @@ if (GTest_FOUND)
 endif ()
 
 # 直接查找制品, 若找到则直接退出
-if (DEFINED ENV{CANN_3RD_LIB_PATH})
-    get_filename_component(CANN_3RD_LIB_PATH "$ENV{CANN_3RD_LIB_PATH}" REALPATH)
-    get_filename_component(_TargetTarGzFile "${CANN_3RD_LIB_PATH}/googletest-${_TargetVersion}.tar.gz" REALPATH)
-    get_filename_component(_TargetInstallPrefix "${CANN_3RD_LIB_PATH}/${CMAKE_BUILD_TYPE}" REALPATH)
+if (DEFINED ENV{PYPTO_3RD_SRC_PATH})
+    get_filename_component(PYPTO_3RD_SRC_PATH "$ENV{PYPTO_3RD_SRC_PATH}" REALPATH)
+    get_filename_component(_TargetTarGzFile "${PYPTO_3RD_SRC_PATH}/googletest-${_TargetVersion}.tar.gz" REALPATH)
+    get_filename_component(_TargetInstallPrefix "${PYPTO_3RD_SRC_PATH}/${CMAKE_BUILD_TYPE}" REALPATH)
     find_package(GTest ${_TargetVersion} EXACT CONFIG PATHS ${_TargetInstallPrefix} NO_DEFAULT_PATH)
 else ()
     # 兼容蓝区云龙设置
@@ -41,7 +41,7 @@ else ()
         find_package(GTest CONFIG)
     endif ()
     if (NOT ${GTest_FOUND})
-        message(FATAL_ERROR "Failed to get GTest source dir, When CANN is not used, ENV CANN_3RD_LIB_PATH must be set.")
+        message(FATAL_ERROR "Failed to get GTest source dir, When CANN is not used, ENV PYPTO_3RD_SRC_PATH must be set.")
     endif ()
 endif ()
 if (GTest_FOUND)
@@ -50,15 +50,16 @@ if (GTest_FOUND)
 endif ()
 
 # 触发编译
-get_filename_component(_TargetSourceDir "${CANN_3RD_LIB_PATH}/googletest-${_TargetVersion}" REALPATH)
-get_filename_component(_TargetBinaryDir "${CANN_3RD_LIB_PATH}/${CMAKE_BUILD_TYPE}/build/googletest-${_TargetVersion}" REALPATH)
+get_filename_component(_TargetSourceDir "${PYPTO_3RD_SRC_PATH}/googletest-${_TargetVersion}" REALPATH)
+get_filename_component(_TargetBinaryDir "${PYPTO_3RD_SRC_PATH}/${CMAKE_BUILD_TYPE}/build/googletest-${_TargetVersion}" REALPATH)
+PTO_Fwk_CleanEmptyDir(DIR ${_TargetSourceDir})
 
 set(_ExtArgs)
 if (NOT EXISTS ${_TargetSourceDir})
     list(APPEND _ExtArgs
             URL "https://gitcode.com/cann-src-third-party/googletest/releases/download/v1.14.0/googletest-1.14.0.tar.gz"
             URL_HASH SHA256=8ad598c73ad796e0d8280b082cebd82a630d73e73cd3c70057938a6501bba5d7
-            DOWNLOAD_DIR ${CANN_3RD_LIB_PATH}
+            DOWNLOAD_DIR ${PYPTO_3RD_SRC_PATH}
     )
 endif ()
 

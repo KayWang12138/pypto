@@ -13,33 +13,29 @@
 # 环境检查
 ########################################################################################################################
 
-# Python3
+# Python3 分析
 if (NOT DEFINED Python3_EXECUTABLE)
     # 当外部未指定 Python3 时, 一般是从 CMake 为入口触发的编译, 此时直接 find
     find_package(Python3 COMPONENTS Interpreter Development)
     if ("${Python3_EXECUTABLE}x" STREQUAL "x")
         message(FATAL_ERROR "Can't find python3 Interpreter.")
     endif ()
-else ()
-    # 当外部指定 Python3 时, 此时强制使用外部指定的 Python3 对应版本, 若外部未指定 Python3 版本, 尝试重新获取
-    if (NOT DEFINED Python3_FIND_VERSION)
-        PTO_Fwk_AnalysisPython3Environ(Python3_FIND_VERSION GET_PYTHON_V)
-    endif ()
-    find_package(Python3 ${Python3_FIND_VERSION} EXACT COMPONENTS Development)
 endif ()
+message(STATUS "Python3_EXECUTABLE=${Python3_EXECUTABLE}")
+
+get_filename_component(_Py3CMakeFile "${PTO_FWK_BIN_ROOT}/_py3_env.cmake" REALPATH)
+PTO_Fwk_AnalysisPython3Environ(OUTPUT_FILE ${_Py3CMakeFile})
+include(${_Py3CMakeFile})
 
 if (ENABLE_FEATURE_PYTHON_FRONT_END)
+    find_package(Python3 ${PYTHON3_VERSION_ID} EXACT COMPONENTS Development)
     if (NOT Python3_Development_FOUND)
         message(FATAL_ERROR "Can't get python3-dev, Python Frontend can't build.")
     endif ()
-    PTO_Fwk_AnalysisPython3Environ(pybind11_DIR GET_PYBIND11_DIR)
-    message(STATUS "pybind11_DIR=${pybind11_DIR}")
-    if (NOT "${pybind11_DIR}x" STREQUAL "x")
-        find_package(pybind11 CONFIG REQUIRED PATHS ${pybind11_DIR} NO_DEFAULT_PATH)
+    if ("${PY3_MOD_PYBIND11_CMAKE_DIR}x" STREQUAL "x")
+        message(FATAL_ERROR "Can't get pybind11 cmake dir, Python Frontend can't build.")
     endif ()
-    if (NOT pybind11_FOUND)
-        message(WARNING "Can't get pybind11, Python Frontend can't build.")
-    endif ()
+    find_package(pybind11 CONFIG REQUIRED PATHS ${PY3_MOD_PYBIND11_CMAKE_DIR} NO_DEFAULT_PATH)
 endif ()
 
 
@@ -273,20 +269,8 @@ endif ()
 
 # torch optional
 if (ENABLE_TESTS OR ENABLE_FEATURE_PYTHON_FRONT_END)
-    PTO_Fwk_AnalysisPython3Environ(torch_Version GET_TORCH_VERSION)
-    message(STATUS "Torch=${torch_Version}")
-    if ("${torch_Version}" STRGREATER_EQUAL "2.1.0")
+    message(STATUS "PY3_MOD_TORCH_VERSION=${PY3_MOD_TORCH_VERSION}")
+    if ("${PY3_MOD_TORCH_VERSION}" STRGREATER_EQUAL "2.1.0")
         set(ENABLE_TORCH_VERIFIER ON)
-        execute_process(
-                COMMAND ${Python3_EXECUTABLE} -c "import torch;print(torch.utils.cmake_prefix_path);print(int(torch._C._GLIBCXX_USE_CXX11_ABI))"
-                OUTPUT_VARIABLE TORCH_ENV_OUTPUT
-        )
-        string(REPLACE "\n" ";" _TORCH_ENV_LIST "${TORCH_ENV_OUTPUT}")
-        # To avoid obstruct message caused by `import torch`, we count from back.
-        # As the above uses `print` to print the information, the last string is empty. And we count from
-        # the second before last which is -2
-        list(GET _TORCH_ENV_LIST -3 TORCH_ROOT_PATH)
-        list(GET _TORCH_ENV_LIST -2 TORCH_ABI_VERSION)
-        get_filename_component(TORCH_ROOT_PATH "${TORCH_ROOT_PATH}/../.." REALPATH)
     endif()
 endif()
