@@ -322,6 +322,7 @@ public:
         }
         return std::make_optional(it->second);
     }
+    std::map<int, SymbolicScalar> &GetOutCastIndexToExpr() { return outIndexToExpr_; }
 
     std::shared_ptr<SubfuncInvokeInfoTy> invokeInfo_;
 

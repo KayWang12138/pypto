@@ -892,6 +892,7 @@ private:
     TensorGraphInfo GetGraphInfo();
     void ClearUselessLink(TensorGraphInfo &graphInfo);
     void LinkIoWithCallOp(std::vector<LogicalTensors> &callopInCasts, std::vector<LogicalTensors> &callopOutCasts);
+    void EraseCallOpOpnd(const FunctionHash &calleeHash, size_t index);
     void CheckAndUpdateGetTensorData(size_t currOutcastIdx, size_t newOutcastIdx);
     void CleanRedundantOutcast(std::map<Function *, std::set<size_t>> &removeRecord,
         std::map<Function *, std::set<size_t>> &getTensorDataRecord);

@@ -447,9 +447,6 @@ bool HasCalleeConsumer(Function &func, Function &calleeFunc, size_t outcastIdx) 
     auto outcastSlots = calleeFunc.GetOutCastSlot(outcast);
     for (auto otherCallee : func.GetCalleeFunctionList()) {
         ASSERT(otherCallee != nullptr) << func.GetRawName() << " has nullptr callee";
-        if (otherCallee == &calleeFunc) {
-            continue;
-        }
         for (auto &incast : otherCallee->GetIncast()) {
             auto incastSlots = otherCallee->GetInCastSlot(incast);
             if (TensorSlotManager::HasSameSlot(incastSlots, outcastSlots)) {
@@ -478,6 +475,25 @@ void CalleeSlotNoConsumer(Function &calleeFunc, Function &func, const std::map<s
     }
 }
 
+void Function::EraseCallOpOpnd(const FunctionHash &calleeHash, size_t index) {
+    for (auto callop : GetCallopList()) {
+        auto callopAttr = std::static_pointer_cast<CallOpAttribute>(callop->GetOpAttribute());
+        ASSERT(callopAttr != nullptr);
+        if (callopAttr->GetCalleeHash() != calleeHash) {
+            continue;
+        }
+        ASSERT(index < callop->oOperand.size() && callop->oOpAttrOffset.empty() && 
+            callopAttr->GetArgList().empty() && callopAttr->GetOutCastIndexToExpr().empty());
+        for (auto &consumer : callop->oOperand[index]->GetConsumers()) {
+            if (consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
+                consumer->SetAsDeleted();
+            }
+        }
+        callop->oOperand.erase(callop->oOperand.begin() + index);
+    }
+    EraseOperations(true, false);
+}
+
 void Function::CheckAndUpdateGetTensorData(size_t currOutcastIdx, size_t newOutcastIdx) {
     for (auto &op : Operations(false)) {
         if (!op.IsCall()) {
@@ -493,6 +509,7 @@ void Function::CleanRedundantOutcast(
     for (auto &[func, removeList] : removeRecord) {
         for (auto it = removeList.rbegin(); it != removeList.rend(); ++it) {
             auto outCastIdx = *it;
+            func->Parent().EraseCallOpOpnd(func->GetFunctionHash(), outCastIdx);
             func->RemoveOutcast(outCastIdx);
         }
         if (getTensorDataRecord.count(func) <= 0) {
@@ -502,8 +519,9 @@ void Function::CleanRedundantOutcast(
         for (auto currOutcastIdx : tensorDataList) {
             auto it = std::lower_bound(removeList.begin(), removeList.end(), currOutcastIdx);
             size_t newOutcastIdx = currOutcastIdx - std::distance(removeList.begin(), it);
-            if (currOutcastIdx != newOutcastIdx)
+            if (currOutcastIdx != newOutcastIdx) {
                 func->CheckAndUpdateGetTensorData(currOutcastIdx, newOutcastIdx);
+            }
         }
     }
 }
@@ -511,7 +529,7 @@ void Function::CleanRedundantOutcast(
 void RedundantOutCastCheck(std::map<Function *, std::set<size_t>> &removeRecord,
     std::map<Function *, std::set<size_t>> &getTensorDataRecord, Function *func, std::map<size_t, size_t> &outcasts) {
     for (auto calleeFunc : func->GetCalleeFunctionList()) {
-        ASSERT(calleeFunc != nullptr) << func->GetRawName() << " has nullptr calleeFunc";
+        ASSERT(calleeFunc != nullptr) << func->GetMagicName() << " has nullptr calleeFunc";
         std::map<size_t, size_t> outcastIdx2parent; // key: callee outcastIdx, value: caller outcastIdx
         CalleeSlotNoConsumer(*calleeFunc, *func, outcasts, outcastIdx2parent);
         if (!outcastIdx2parent.empty()) {
@@ -544,28 +562,25 @@ void Function::CleanRedundantOutCast() {
     std::map<Function *, std::set<size_t>> removeRecord;
     std::map<Function *, std::set<size_t>> getTensorDataRecord;
     auto calleeLists = GetCalleeFunctionList();
-    for (auto calleeFunc : calleeLists) {
-        ASSERT(calleeFunc != nullptr) << "PROGRAM_ENTRY_FUNCTION_NAME has nullptr calleeFunc";
-        auto &calleeOutCasts = calleeFunc->GetOutcast();
-        std::map<size_t, size_t> outputMap;
-        for (size_t outCastIdx = 0; outCastIdx < calleeOutCasts.size(); outCastIdx++) {
-            auto outcastSlots = calleeFunc->GetOutCastSlot(calleeOutCasts[outCastIdx]);
-            if ((!TensorSlotManager::HasSameSlot(outputSlots, outcastSlots)) &&
-                !HasCalleeConsumer(*this, *calleeFunc, outCastIdx)) {
-                outputMap[outCastIdx] = 0;
-            }
+    auto &calleeOutCasts = GetOutcast();
+    std::map<size_t, size_t> outputMap;
+    for (size_t outCastIdx = 0; outCastIdx < calleeOutCasts.size(); outCastIdx++) {
+        auto outcastSlots = GetOutCastSlot(calleeOutCasts[outCastIdx]);
+        if ((!TensorSlotManager::HasSameSlot(outputSlots, outcastSlots)) &&
+            !HasCalleeConsumer(Parent(), *this, outCastIdx)) {
+            outputMap[outCastIdx] = 0;
         }
-        if (!outputMap.empty()) {
-            RedundantOutCastCheck(removeRecord, getTensorDataRecord, calleeFunc, outputMap);
-        }
-        for (auto &[outCastIdx, val] : outputMap) {
-            (void)val;
-            if (getTensorDataRecord[calleeFunc].count(outCastIdx) > 0) {
-                ASSERT(outputMap.count(outCastIdx) > 0);
-                getTensorDataRecord[this].insert(outputMap[outCastIdx]);
-            } else {
-                removeRecord[calleeFunc].insert(outCastIdx);
-            }
+    }
+    if (!outputMap.empty()) {
+        RedundantOutCastCheck(removeRecord, getTensorDataRecord, this, outputMap);
+    }
+    for (auto &[outCastIdx, val] : outputMap) {
+        (void)val;
+        if (getTensorDataRecord[this].count(outCastIdx) > 0) {
+            ASSERT(outputMap.count(outCastIdx) > 0);
+            getTensorDataRecord[parent_].insert(outputMap[outCastIdx]);
+        } else {
+            removeRecord[this].insert(outCastIdx);
         }
     }
     CleanRedundantOutcast(removeRecord, getTensorDataRecord);
@@ -1847,6 +1862,7 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
         for (auto &originOutcast : sameRawOutcasts) {
             if (newOutcast == nullptr) {
                 newOutcast = rawBuf->View(*this, originOutcast->shape, originOutcast->offset);
+                newOutcast->UpdateDynValidShape(originOutcast->GetDynValidShape());
                 newOutcastOffsets.emplace_back(originOutcast->offset);
                 iOperand.emplace_back(newOutcast);
             }

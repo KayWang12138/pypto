@@ -290,9 +290,6 @@ std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string 
             HostMachine::GetInstance().WaitTaskFinish();
         }
     }
-    if (funcName == PROGRAM_ENTRY_FUNCTION_NAME) {
-        result->CleanRedundantOutCast();
-    }
     return std::make_tuple(result, callop, hit);
 }
 
@@ -803,6 +800,7 @@ RecordFunc::~RecordFunc() {
     if (dynFunc_) {
         Program::GetInstance().SetLastFunction(dynFunc_);
         if (dynFunc_->IsDyndev()) {
+            dynFunc_->CleanRedundantOutCast();
             // Destructor GetTensorData small Tensor
             auto attr = dynFunc_->GetDyndevAttribute();
             attr->getTensorDataDescDict.clear();
