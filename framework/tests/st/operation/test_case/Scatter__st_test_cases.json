@@ -1124,7 +1124,7 @@
                 128
             ],
             "params": {
-                "axis": 0,
+                "axis": 1,
                 "src": -75.39415724,
                 "reduce": "add",
                 "func_id": -1

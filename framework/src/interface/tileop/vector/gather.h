@@ -17,9 +17,6 @@
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
 
-#define CALC_SRC0_INDEX(s0, s1, s2, s3, s4) \
-   ((s0) * n0SrcStride  + (s1) * n1SrcStride + (s2) * n2SrcStride + (s3) * n3SrcStride + (s4))
-
 template <int axis, typename T0, typename T1, typename T2>
 TILEOP void TgatherElement(T0 dst, T1 src0, T2 src1) {
     constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
@@ -64,15 +61,20 @@ TILEOP void TgatherElement(T0 dst, T1 src0, T2 src1) {
                         auto orgIdxValue = *(idxAddr + idxOffset);
                         auto newIdxValue = 0;
                         if constexpr (axis == 0) {
-                            newIdxValue = CALC_SRC0_INDEX(orgIdxValue, j, k, l, m);
+                            newIdxValue =
+                                orgIdxValue * n0SrcStride  + j * n1SrcStride + k * n2SrcStride + l * n3SrcStride + m;
                         } else if (axis == 1) {
-                            newIdxValue = CALC_SRC0_INDEX(i, orgIdxValue, k, l, m);
+                            newIdxValue =
+                                i * n0SrcStride  + orgIdxValue * n1SrcStride + k * n2SrcStride + l * n3SrcStride + m;
                         } else if (axis == 2) {
-                            newIdxValue = CALC_SRC0_INDEX(i, j, orgIdxValue, l, m);
+                            newIdxValue =
+                                i * n0SrcStride  + j * n1SrcStride + orgIdxValue * n2SrcStride + l * n3SrcStride + m;
                         } else if (axis == 3) {
-                            newIdxValue = CALC_SRC0_INDEX(i, j, k, orgIdxValue, m);
+                            newIdxValue =
+                                i * n0SrcStride  + j * n1SrcStride + k * n2SrcStride + orgIdxValue * n3SrcStride + m;
                         } else {
-                            newIdxValue = CALC_SRC0_INDEX(i, j, k, l, orgIdxValue);
+                            newIdxValue =
+                                i * n0SrcStride  + j * n1SrcStride + k * n2SrcStride + l * n3SrcStride + orgIdxValue;
                         }
                         *(idxAddr + idxOffset) = newIdxValue;
                         if (scalarFlag) {

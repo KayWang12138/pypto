@@ -343,6 +343,9 @@ static void CheckScatterElementSParamsInvalid(
     ASSERT(axis < static_cast<int>(self.GetShape().size()));
     ASSERT(reduce <= ScatterMode::UNKNOWN);
     for (size_t i = 0; i < self.GetShape().size(); i++) {
+        if (static_cast<int>(i) == axis) {
+            continue;
+        }
         ASSERT(indices.GetShape()[i] <= self.GetShape()[i]);
     }
 }
