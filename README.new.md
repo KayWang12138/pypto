@@ -1,0 +1,42 @@
+# Pypto
+## Pypto简介
+*pypto的介绍，特点，*
+*TileLang参考：Tile Language (tile-lang) is a concise domain-specific language designed to streamline the development of high-performance GPU/CPU kernels (e.g., GEMM, Dequant GEMM, FlashAttention, LinearAttention). By employing a Pythonic syntax with an underlying compiler infrastructure on top of TVM, tile-lang allows developers to focus on productivity without sacrificing the low-level optimizations necessary for state-of-the-art performance.*
+## 核心特性
+- 易用性
+- 高性能
+- ...
+## 典型Examples介绍
+## QuickStart
+### 安装指导
+#### 方法1：通过whl包（pip）安装
+1. whl包安装
+#### 方法2：通过源码编译安装
+##### 场景1：仿真环境（无NPU环境，适合仿真调测）
+1. 环境准备：
+2. 依赖安装：
+3. 编译：
+4. 安装
+##### 场景2：实际运行环境（有NPU环境，适合实际精度、性能调测和部署验证）
+1. 环境准备：
+2. 依赖安装：
+3. 编译：
+4. 安装
+#### 方法3：使用docker镜像
+*代码中归档docker参考tilelang*
+1. docker下载
+2. docker运行
+### Sample运行指南（有没有docker，运行方式相同，用docker不需要再安装依赖）
+#### 仿真sample运行
+- 依赖安装
+- 执行sample
+- 计算图、泳道图？
+#### 真实环境sample运行
+- 依赖安装
+- 执行sample
+- 计算图、泳道图？
+### 测试用例运行指南
+- 测试用例运行依赖安装
+- 测试用例运行指南
+## 性能基准
+## 贡献指南
