@@ -25,6 +25,7 @@
    
    # EularOS
    sudo yum install python3 python3-devel
+   python3 --version # 查看 python3 版本, 应 >= 3.9
    ```
 
 2. 依赖安装：
@@ -33,14 +34,8 @@
       - make
       - ninja (可在一定程度上提升编译速度)
       - gcc >= 7.3.0
-   2. pip 包
-      
-      相关依赖请参见本项目根目录的 `pyproject.toml` 文件, 您可以使用如下命令完成编译 whl 包过程所依赖的 pip 包安装:
-      ```shell
-      python3 -m pip install "[.dev]"
-      ```
 
-   3. 开源第三方软件源码准备
+   2. 开源第三方软件源码准备
 
       如果您本地开发环境可以正常访问 [CANN 开源第三方源码“中心仓”](https://gitcode.com/cann-src-third-party), 
       则可以选择使用本仓构建脚本的自动下载开源软件功能(详见下文 '编译' 章节描述)来完成所依赖开源软件的下载、安装。
