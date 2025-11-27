@@ -299,7 +299,28 @@ void bind_operation(py::module &m) {
         py::arg("out_type"), py::arg("tensor_a"), py::arg("tensor_b"), py::arg("a_trans") = false,
         py::arg("b_trans") = false, py::arg("c_matrix_nz") = false,
         py::arg("extend_params"), "Matrix multiply with extend param.");
-
+     m.def(
+        "gather_in_l1",
+        [](const Tensor &src, const Tensor &offsets, int size, bool is_b_matrix, bool is_trans) {
+            if (!is_b_matrix && !is_trans) {
+                std::cout << " gather in l1 m def" << std::endl;
+                return internal::GatherInL1<false, false>(src, offsets, size);
+            } else if (!is_b_matrix && is_trans) {
+                return internal::GatherInL1<false, true>(src, offsets, size);
+            } else if (is_b_matrix && !is_trans) {
+                return internal::GatherInL1<true, false>(src, offsets, size);
+            } else {
+                return internal::GatherInL1<true, true>(src, offsets, size);
+            }
+        },
+        py::arg("src"), py::arg("offsets"), py::arg("size"), py::arg("is_b_matrix"), py::arg("is_trans"),
+        "gather load L1.");
+    m.def(
+        "gather_in_ub",
+        [](const Tensor &param, const Tensor &indices, int axis) {
+            return internal::GatherInUB(param, indices, axis);
+        },
+        py::arg("param"), py::arg("indices"), py::arg("axis"), "Tensor gather_in_ub");
     m.def(
         "BatchMatmul",
         [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_b, bool a_trans, bool b_trans,
