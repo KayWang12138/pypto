@@ -63,6 +63,8 @@ def to_pto(t: torch.Tensor, name: str) -> pypto.Tensor:
         import torch_npu
         if torch_npu.get_npu_format(t) == 29:
             format = pypto.TileOpFormat.TILEOP_NZ
+    if t.dim() == 0:
+        return pypto.Tensor(tuple([1]), dtype, name, format)
     return pypto.Tensor(tuple(t.shape), dtype, name, format)
 
 
