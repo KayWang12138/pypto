@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # coding: utf-8
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
-# This file is a part of the CANN Open Software.
-# Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
-# ======================================================================================================================
+# -----------------------------------------------------------------------------------------------------------
 """
 """
 import os
@@ -44,8 +44,8 @@ def add_rms_norm_golden(residual, hidden_states, gamma, eps):
 @pypto.jit
 def cust_add_rms_norm(in_tensor, out_tensor, eps):
     # 添加支持动态的config
-    pypto.set_codegen_option("support_dynamic_unaligned", True) 
-    pypto.set_host_option("only_codegen", True)
+    pypto.set_codegen_options(support_dynamic_unaligned=True)
+    pypto.set_host_options(only_codegen=True)
     
     # 从入参拿到输入和输出tensor
     residual = in_tensor[0]
@@ -103,7 +103,7 @@ def cust_add_rms_norm(in_tensor, out_tensor, eps):
                     x_f32 = pypto.add(tile_residual_fp32, tile_hidden_states_fp32) # tile_hidden_states
                     square = pypto.mul(x_f32, x_f32) # square
                     mean_res = pypto.mul(square, mean_coff) # mean_res = square * mean_coff
-                    reduce_asum = pypto.sum(mean_res) # reduce_asum = mean_res.sum(dim=-1, keepdim=True)
+                    reduce_asum = pypto.sum(mean_res, -1, True) # reduce_asum = mean_res.sum(dim=-1, keepdim=True)
                     reduce_sum = pypto.add(reduce_asum, eps) # reduce_sum = reduce_asum + eps
                     reduce_sqrt = pypto.sqrt(reduce_sum) # reduce_sqrt = torch.sqrt(reduce_sum)
                     res_div = pypto.div(x_f32, reduce_sqrt) # res_div = x_f32 / reduce_sqrt

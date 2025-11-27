@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # coding: utf-8
-# Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
-# This file is a part of the CANN Open Software.
-# Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
-
+# -----------------------------------------------------------------------------------------------------------
 import os
 import pypto
 import pytest
@@ -85,7 +85,7 @@ def rms_norm(tensor_value, gamma, eps, tile_shape):
     mean_res = pypto.mul(square, mean_coff)
 
     # reduce sum
-    reduce_asum = pypto.sum(mean_res)
+    reduce_asum = pypto.sum(mean_res, -1, True)
     reduce_sum = pypto.add(reduce_asum, eps)
 
     # sqrt
@@ -118,8 +118,8 @@ def rope_data(x1, x2, cos, sin, tile_shape):
 @pypto.jit
 def attention_pre(in_tensors, out_tensors):
     # 1. 添加支持动态的config
-    pypto.set_codegen_option("support_dynamic_unaligned", True) 
-    pypto.set_host_option("only_codegen", True)
+    pypto.set_codegen_options(support_dynamic_unaligned=True)
+    pypto.set_host_options(only_codegen=True)
     # 2. 从入参拿到输入和输出tensor
     x = in_tensors[0]
     weight = in_tensors[1]

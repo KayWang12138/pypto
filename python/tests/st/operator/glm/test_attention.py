@@ -16,8 +16,8 @@ import pypto
 import torch
 import numpy as np
 import math
-import os
 from utils.np_compare import detailed_allclose_manual
+import os
 
 np.random.seed(0)
 torch.manual_seed(0)
@@ -202,7 +202,6 @@ def softmax(x, is_fp16=False):
 
     return ans, x_max, x_sum
 
-
 @pypto.jit
 def ifa_func(inputs, outputs):
     # 1. 添加支持动态的config
@@ -386,8 +385,7 @@ def ifa_func(inputs, outputs):
 
 
 def IFA(atten_cfg):
-    device_id = os.environ.get('TILE_FWK_STEST_DEVICE_ID', 1)
-    print(f'xxxxxx device id {int(device_id)}')
+    device_id = os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0)
     torch_dtype = torch.float16
     torch.npu.set_device(int(device_id))
     b = atten_cfg.b
