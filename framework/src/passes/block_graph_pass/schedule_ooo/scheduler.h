@@ -149,7 +149,6 @@ private:
     uint64_t spillIssueCnt{0};
     int workspaceMemId{SYMBOL_STACK_BASE};
     int maxTensorMagic{-1};
-    int maxOpMagic{-1};
     uint64_t numTotalIssues{0};
     std::vector<Operation *> newOperations_;
 

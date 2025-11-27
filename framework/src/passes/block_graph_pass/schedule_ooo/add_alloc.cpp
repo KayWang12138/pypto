@@ -125,17 +125,11 @@ Status AddAlloc::FindTensorAllocMsg(Operation *op,
 }
 
 Status AddAlloc::GenAllocOpcode(const Opcode &allocOpcode, const TensorAllocMsg& tensorAllocMsg, Function& function) {
-    int maxOpMagic = -1;
-    for (auto &op : function.Operations(false)) {
-        maxOpMagic = std::max(maxOpMagic, op.GetOpMagic());
-    }
     for (auto &oOperand : tensorAllocMsg.producer[0]->GetOOperands()) {
         if (oOperand->memoryrange.memId != tensorAllocMsg.memId) {
             continue;
         }
-        auto &allocOp = function.AddOperation(allocOpcode, {}, 
-            std::vector<std::shared_ptr<LogicalTensor>>({oOperand}));
-        allocOp.opmagic = maxOpMagic + 1;
+        function.AddOperation(allocOpcode, {}, std::vector<std::shared_ptr<LogicalTensor>>({oOperand}));
     }
     return SUCCESS;
 }

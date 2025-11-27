@@ -134,7 +134,6 @@ void OoOScheduler::UpdateOpAttr(
         }
     }
     op.UpdateLatency(opLatency);
-    op.opmagic = ++maxOpMagic;
 }
 
 void OoOScheduler::ReplaceTensorMemId(IssueEntryPtr &issue, int oldMemId, int newMemId) {
@@ -243,6 +242,7 @@ Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
         APASS_LOG_ERROR_F(Elements::Tensor, "UpdateTensorAttr local tensor failed!");
         return FAILED;
     }
+    localTensor->offset = std::vector<int64_t>(localTensor->GetShape().size(), 0);
 
     // 创建spill搬出数据搬回OP_COPY_IN/OP_ALLOC
     Opcode allocOp = memType == MemoryType::MEM_UB ? Opcode::OP_UB_ALLOC : Opcode::OP_L1_ALLOC;
@@ -451,7 +451,6 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr all
         Opcode allocOp = assembleTensor->GetMemoryTypeToBe() == MemoryType::MEM_UB ? Opcode::OP_UB_ALLOC : Opcode::OP_L1_ALLOC;
         auto &spillAllocOp = function_.AddRawOperation(allocOp, {}, {localTensor});
         spillAllocOp.UpdateLatency(1);
-        spillAllocOp.opmagic = ++maxOpMagic;
         IssueEntryPtr spillAllocInst = std::make_shared<IssueEntry>(spillAllocOp, issueId);
         issueEntryMap[issueId++] = spillAllocInst;
         spillAllocInst->reqMemIds = {assembleTensor->memoryrange.memId};
@@ -467,7 +466,6 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr all
                 iOperand->GetMemoryTypeOriginal(), OpImmediate::Specified(assembleTensor->GetShape()),
                 OpImmediate::Specified(assembleTensor->tensor->GetDynRawShape())));
     spillCopyInOp.UpdateLatency(DEFAULT_LATENCY);
-    spillCopyInOp.opmagic = ++maxOpMagic;
     IssueEntryPtr spillInInst = std::make_shared<IssueEntry>(spillCopyInOp, issueId);
     issueEntryMap[issueId++] = spillInInst;
     spillInInst->reqMemIds = {assembleTensor->memoryrange.memId};
@@ -478,7 +476,6 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr all
     assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(assembleAttr->GetFrom(), 
         assembleAttr->GetToOffset(), assembleAttr->GetToDynOffset(), assembleAttr->GetFromDynValidShape()));
     assembleOp.UpdateLatency(1);
-    assembleOp.opmagic = ++maxOpMagic;
     IssueEntryPtr assembleInst = std::make_shared<IssueEntry>(assembleOp, issueId);
     issueEntryMap[issueId++] = assembleInst;
     assembleInst->reqMemIds = {assembleTensor->memoryrange.memId, assembleTensor->memoryrange.memId};

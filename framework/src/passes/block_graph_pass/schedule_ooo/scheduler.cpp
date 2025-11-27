@@ -878,7 +878,6 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
             }
             continue;
         }
-        maxOpMagic = std::max(maxOpMagic, op->GetOpMagic());
         if (CheckOpBufferSize(op) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] CheckOpBufferSize failed! %s", 
                 op->GetOpcodeStr().c_str(), op->GetOpMagic(), GetFormatBacktrace(*op).c_str());
