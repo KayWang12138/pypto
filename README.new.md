@@ -16,64 +16,61 @@
 
 1. 环境准备：
 
-   确保本地 Python3 版本 >= 3.9, 且正确安装 python3-dev 包，对应安装方式如下:
+   确保本地 Python3 版本 >= 3.9，并已正确安装 python3-dev (或 python3-devel) 包。安装方式如下：
    ```shell
    # Ubuntu
-   sudo apt update # 首先更新软件包列表
+   sudo apt update # 更新软件包列表
    sudo apt install python3 python3-dev # 安装 python3 和 python3-dev
    python3 --version # 查看 python3 版本, 应 >= 3.9
    
-   # EularOS
-   sudo yum install python3 python3-devel
+   # EulerOS
+   sudo yum install python3 python3-devel # 在 EulerOS 上 python3-dev 包名称为 python3-devel
    python3 --version # 查看 python3 版本, 应 >= 3.9
    ```
 
 2. 依赖安装：
    1. 编译工具
-      - cmake >= 3.16.0
+      - cmake >= 3.16
       - make
-      - ninja (可在一定程度上提升编译速度)
+      - ninja (可选，可提升编译速度)
       - gcc >= 7.3.0
 
    2. 开源第三方软件源码准备
 
-      如果您本地开发环境可以正常访问 [CANN 开源第三方源码“中心仓”](https://gitcode.com/cann-src-third-party), 
-      则可以选择使用本仓构建脚本的自动下载开源软件功能(详见下文 '编译' 章节描述)来完成所依赖开源软件的下载、安装。
+      如果您的本地开发环境能够访问 [CANN 开源第三方软件仓库](https://gitcode.com/cann-src-third-party),
+      构建脚本将自动下载所需软件（详见下文“编译”章节）。
 
-      否则您需要手工下载以下开源软件源码压缩包(**要求 `.tar.gz` 格式**)至您开发环境任意目录(如 `/home/cann_src_third_party` 目录)。
+      如果无法访问，则需要手动下载以下开源软件的源码压缩包（**必须为 .tar.gz格式**）至开发环境的任意目录（例如 /home/cann_src_third_party）：
 
-      - [JSON for Modern C++ version 3.11.3](https://gitcode.com/cann-src-third-party/json/releases/download/v3.11.3/json-3.11.3.tar.gz)
-      - [libboundscheck v1.1.16](https://gitcode.com/cann-src-third-party/libboundscheck/releases/download/v1.1.16/libboundscheck-v1.1.16.tar.gz)
+      - [JSON for Modern C++ version 3.11.3](https://gitcode.com/cann-src-third-party/json/releases/v3.11.3)
+      - [libboundscheck v1.1.16](https://gitcode.com/cann-src-third-party/libboundscheck/releases/v1.1.16)
 
 3. 编译：
 
-   推荐使用一键式构建脚本 `build.py` 完成编译, 编译完成后会在 `build_out` 目录生成 `pypto` 对应的 `whl` 包;
+   推荐使用一键式构建脚本 `build.py` 完成编译。编译完成后, 将在 `build_out` 目录生成 `pypto` 对应的 `whl` 包.
 
-   一键式构建脚本 `build.py` , 对应命令如下
+   对应命令如下:
    ```shell
    # 说明:
    # 1. --clean 表示在构建前清理构建缓存;
-   # 2. --third_party_path 指定所依赖的开源软件源码压缩包下载、解压、构建及安装路径，
-   #      如果您的开发环境可以正常访问 CANN 开源第三方源码“中心仓”, 
-   #      则在构建过程中会自动下载、安装所依赖的开源第三方软件至 third_party_path 指定目录;
+   # 2. --third_party_path 指定依赖的开源软件源码包的下载、解压、构建和安装路径，
+   #      若可访问 CANN 开源软件仓库，构建时将自动下载并安装依赖至该路径.
    python3 build.py --frontend=python3 --clean --third_party_path=/home/cann_src_third_party
    ```
 
-   本项目也支持 python3 构建 whl 包常用的 `python3 -m pip install .` 命令及 `python3 -m pip install -e .` 来构建 whl 包。
-   但是通过这种方式构建前，您需要额外配置环境变量 `PYPTO_3RD_SRC_PATH` 的值为 `build.py` 中 `--third_party_path` 参数指定的路径。
-   
-   对应示例如下:
+   本项目也支持使用标准的 Python 包安装命令：
    ```shell
+   # 使用前需设置环境变量 PYPTO_3RD_SRC_PATH，其值为 build.py 中 --third_party_path 指定的路径
    export PYPTO_3RD_SRC_PATH=/home/cann_src_third_party
+
    python3 -m pip install .    # 常规安装
    python3 -m pip install -e . # 可编辑模式安装
    ```
 
 4. 安装
 
-   在使用一键式构建脚本 `build.py` 完成`pypto` 对应的 `whl` 包的编译后, 可以使用 `pip` 标准命令完成对应 `whl` 包的安装, 对应示例如下:
+   使用 `build.py` 脚本生成 whl 包后，可通过 pip命令安装。例如（在 pypto 源码根目录下，以 Python 3.9 和 x86_64 平台为例）：
    ```shell
-   # 如果在 pypto 源码根目录下执行, 以 python3.9 版本, x86_64 平台为例
    python3 -m pip install build_out/pypto-1.0.0-cp39-cp39-linux_x86_64.whl
    ```
 
