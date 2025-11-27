@@ -408,7 +408,9 @@ public:
                     allocation = DebugDumpTensorAllocate(memReq);
 #endif // DEBUG_INFINITE_LIFETIME
                     desc = AddressDescriptor(allocation.ptr);
-                    slotList[slotIndex].desc = desc;
+                    if (slotIndex != -1) {
+                        slotList[slotIndex].desc = desc;
+                    }
                     devRootDup.GetIncastAddress(rawTensor->linkedIncastId) = desc;
                 }
             }

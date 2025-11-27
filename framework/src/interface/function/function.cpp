@@ -1786,7 +1786,11 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
                 auto consumers = iOperand[i]->GetConsumers(); // deep copy
                 for (auto consumer : consumers) {
                     DEFINE_SOURCE_LOCATION();
-                    consumer->ReplaceInputOperand(iOperand[i], rawSymbol);
+                    for (size_t j = 0; j < consumer->GetIOperands().size(); j++) {
+                        if (consumer->GetInputOperand(j) == iOperand[i]) {
+                            consumer->ReplaceIOperand(j, rawSymbol);
+                        }
+                    }
                 }
                 if (scope) {
                     scope->partialUpdateOutcastDict[rawSymbol] = partitalAssemble;
