@@ -22,7 +22,7 @@ from typing import List
 import time
 
 import numpy as np
-from bfloat16 import bfloat16
+from ml_dtypes import bfloat16
 import os
 import torch
 

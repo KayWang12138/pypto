@@ -22,7 +22,7 @@ from typing import List
 import time
 
 import numpy as np
-from bfloat16 import bfloat16
+from ml_dtypes import bfloat16
 import os
 # np.random.seed(0)
 # 添加 golden 所在目录的父路径（例如项目根目录）

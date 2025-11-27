@@ -23,7 +23,7 @@ from typing import List
 import numpy as np
 from pathlib import Path
 from collections import namedtuple
-from bfloat16 import bfloat16
+from ml_dtypes import bfloat16
 
 # from scatterupdate_operator import gen_graph_D_data_bf16
 # from scatterupdate_operator import scatter_update

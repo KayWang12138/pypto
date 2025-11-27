@@ -16,7 +16,7 @@ from typing import List
 import torch
 import numpy as np
 import torch
-from bfloat16 import bfloat16
+from ml_dtypes import bfloat16
 sys.path.append(str(Path(__file__).parents[4].joinpath("helper")))
 from config_gen import TestBase
 

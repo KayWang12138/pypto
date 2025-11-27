@@ -25,7 +25,7 @@ import torch
 
 from pathlib import Path
 from typing import List
-from bfloat16 import bfloat16
+from ml_dtypes import bfloat16
 
 # 添加 golden 所在目录的父路径（例如项目根目录）
 project_root = os.path.dirname(os.path.abspath(__file__))  # 当前脚本目录

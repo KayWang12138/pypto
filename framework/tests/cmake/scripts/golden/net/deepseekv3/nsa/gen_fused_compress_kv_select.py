@@ -22,7 +22,7 @@ from typing import List
 from common_func import dump_file
 
 import numpy as np
-from bfloat16 import bfloat16
+from ml_dtypes import bfloat16
 
 if __name__ == "__main__":
     """单独调试时配置"""

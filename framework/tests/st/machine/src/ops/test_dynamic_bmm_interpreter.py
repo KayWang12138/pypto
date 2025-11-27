@@ -21,7 +21,7 @@ import logging
 from pathlib import Path
 
 import numpy as np
-from bfloat16 import bfloat16
+from ml_dtypes import bfloat16
 
 np.set_printoptions(suppress=True, threshold=np.inf)
 

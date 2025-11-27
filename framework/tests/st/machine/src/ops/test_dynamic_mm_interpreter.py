@@ -18,7 +18,7 @@ import math
 import logging
 from pathlib import Path
 
-from bfloat16 import bfloat16
+from ml_dtypes import bfloat16
 import numpy as np
 
 if __name__ == "__main__":

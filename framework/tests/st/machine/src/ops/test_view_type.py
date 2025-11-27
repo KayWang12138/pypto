@@ -27,7 +27,7 @@ from enum import Enum
 from pathlib import Path
 from typing import List
 from common_func import dump_file
-from bfloat16 import bfloat16
+from ml_dtypes import bfloat16
 
 project_root = os.path.dirname(os.path.abspath(__file__))  # 当前脚本目录
 golden_parent = os.path.join(project_root, "../../../../")  # 假设 golden 在上级目录

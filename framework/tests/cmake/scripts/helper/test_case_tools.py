@@ -58,7 +58,7 @@ def str_to_bool(input_str: str):
 
 def get_dtype_by_name(name: str, is_torch: bool = False, check: bool = True):
     if pkgutil.find_loader("bfloat16"):
-        from bfloat16 import bfloat16
+        from ml_dtypes import bfloat16
     else:
         bfloat16 = None
 

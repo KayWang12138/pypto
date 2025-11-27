@@ -23,7 +23,7 @@ import time
 
 import torch
 import numpy as np
-from bfloat16 import bfloat16
+from ml_dtypes import bfloat16
 import os
 
 project_root = os.path.dirname(os.path.abspath(__file__))  # 当前脚本目录

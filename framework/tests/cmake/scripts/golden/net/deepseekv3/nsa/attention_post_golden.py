@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import List, Tuple, Union
 
 import numpy as np
-from bfloat16 import bfloat16
+from ml_dtypes import bfloat16
 
 
 class PostConfig:

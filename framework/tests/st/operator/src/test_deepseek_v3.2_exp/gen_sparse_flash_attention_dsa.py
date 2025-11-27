@@ -22,7 +22,8 @@ from typing import List
 
 import numpy as np
 import torch
-from bfloat16 import bfloat16
+
+from ml_dtypes import bfloat16
 
 if __name__ == "__main__":
     """ 单独调试时配置 """
