@@ -634,8 +634,9 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL0CTileTensor(const PrintMemCopyW
     GetAttr(OP_ATTR_PREFIX + "atomic_add", isAcc);
     GetAttr("op_attr_is_nz", nzValue);
     GetAttr(OP_ATTR_PREFIX + "relu_type", reluMode);
+    std::string nzVar = nzValue ? "false" : "true";
     std::vector<std::string> storeConfigList = {
-        std::to_string(nzValue), std::to_string(isAcc), std::to_string(reluMode)};
+        nzVar, std::to_string(isAcc), std::to_string(reluMode)};
     std::string storeConfig = PrintParams({"<", ">"}, storeConfigList, ", ");
     std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, coord};
 
@@ -784,7 +785,7 @@ std::string CodeGenOpCloudNPU::PrintL1CopyInTileTensor(const PrintMemCopyWithL1P
     std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(SISOIdx::SRC_IDX)]);
 
     std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, coord};
-    int64_t copyInMode = 1;
+    int64_t copyInMode = -1;
     std::string cpModeStr = "";
     const int64_t ND2ND = 0;
     const int64_t ND2NZ = 1;
@@ -799,6 +800,8 @@ std::string CodeGenOpCloudNPU::PrintL1CopyInTileTensor(const PrintMemCopyWithL1P
         cpModeStr = "CopyInMode::ND2NZ";
     } else if (ret && nzValue) {
         cpModeStr = "CopyInMode::NZ2NZ";
+    } else {
+        cpModeStr = "CopyInMode::ND2NZ";
     }
     std::ostringstream oss;
     oss << tileOpName << "<" << cpModeStr << ">";

@@ -59,13 +59,14 @@
     wait_flag(PIPE_MTE1, PIPE_MTE2, EVENT_ID7)
 #endif
 
-enum CopyInMode : int64_t 
+enum CopyInMode : int64_t
 {
     ND2ND = 0,
-    ND2NZ = 1
+    ND2NZ = 1,
+    NZ2NZ = 2
 };
 
-enum ReLuType : int64_t 
+enum ReLuType : int64_t
 {
     NoReLu = 0,
     ReLu = 1
