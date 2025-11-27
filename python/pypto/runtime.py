@@ -119,12 +119,10 @@ class JIT:
         self._handler = handler
         self._is_compiled = True
 
-    def run(self, inputs, outputs):
+    def run(self, inputs, outputs, device_id):
         assert self._handler is not None
         workspace_size = pto_impl.GetWorkSpaceSize(self._handler)
-        if (len(inputs) < 1):
-            raise ValueError("inputs missing")
-        workspace_tensor = torch.zeros(workspace_size, device=inputs[0].device.index)
+        workspace_tensor = torch.zeros(workspace_size, dtype=torch.uint8, device=device_id)
         pto_impl.OperatorDeviceRunOnceDataFromDevice(
             self._handler,
             to_tensor_data(inputs),
@@ -137,6 +135,8 @@ class JIT:
             raise ValueError("inputs or outputs missing")
         device = None
         inputs, outputs = args[0], args[1]
+        if (len(inputs + outputs) < 1):
+            raise ValueError("inputs or outputs missing")
         for t in inputs + outputs:
             if not t.is_contiguous():
                 raise RuntimeError("not all tensors are contiguous")
@@ -151,10 +151,10 @@ class JIT:
         ori_device = current_device()
         if device and device.index != ori_device:
             set_device(device.index)
-            self.run(inputs, outputs)
+            self.run(inputs, outputs, device.index)
             set_device(ori_device)
         else:
-            self.run(inputs, outputs)
+            self.run(inputs, outputs, ori_device)
 
     @property
     def handler(self):
