@@ -31,6 +31,7 @@ message(STATUS "CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
 
 set(CTRL_FILES
     device_ctrl.cpp
+    device_context.cpp
     ../device_log.cpp
 )
 

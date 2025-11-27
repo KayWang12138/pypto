@@ -21,6 +21,7 @@
 #include "spsc_queue.h"
 #include "../machine_ws_intf.h"
 #include "allocator/allocators.h"
+#include "machine/device/dynamic/device_perf.h"
 
 #ifndef __DEVICE__
 #include "interface/configs/config_manager.h"

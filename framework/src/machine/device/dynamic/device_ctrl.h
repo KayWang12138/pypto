@@ -19,10 +19,12 @@
 #include <cstdint>
 #include <cstdlib>
 #include "device_utils.h"
+#include "device_perf.h"
 #include "device_context.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/utils/device_log.h"
+
 #ifdef __USE_CUSTOM_CTRLFLOW__
 extern "C" __attribute__((weak)) void* GetTilingKeyFunc(const uint64_t tilingKey);    
 #endif
