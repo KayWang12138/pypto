@@ -27,7 +27,6 @@ namespace npu::tile_fwk {
 using InputMaigc = int;
 using OutputMaigc = int;
 using OverlaprawMagic = int;
-inline constexpr uint32_t WARNING = 2;
 
 class ReshapeOp {
     public:

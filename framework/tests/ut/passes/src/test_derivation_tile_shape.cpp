@@ -93,7 +93,7 @@ static void BuildShapeAndCheckFail(Function *function, const Shape &inShape, con
         auto op = opList[i];
         auto status = derivationTileShapePass.DerivationReshapeTileShape(op, inShape, outShape, inTileShape, outTileShape);
 
-        EXPECT_EQ(status, FAILED);
+        EXPECT_EQ(status, WARNING);
     }
 }
 

@@ -27,6 +27,8 @@ using setType = std::conditional<true, std::unordered_set<int>, std::set<int>>::
 using setType = std::conditional<false, std::unordered_set<int>, std::set<int>>::type;
 #endif
 
+inline constexpr uint32_t WARNING = 2;
+
 class FunctionUtils {
 public:
     static void RelinkOperationInput(Operation *op, const size_t inputIndex, const Operation *targetOp,

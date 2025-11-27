@@ -339,7 +339,7 @@ Status InferMemoryConflict::ObtainReshapeTile(Operation *op, Shape &inTileShape,
         Shape outShape = op->GetOOperands().front()->shape;
         DerivationTileShape derivationTileShapePass;
         if (derivationTileShapePass.DerivationReshapeTileShape(op, inShape, outShape, inTileShape, outTileShape) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "DerivationReshapeTileShape failed. %s", GetFormatBacktrace(*op).c_str());
+            APASS_LOG_WARN_F(Elements::Operation, "DerivationReshapeTileShape failed. %s", GetFormatBacktrace(*op).c_str());
             // 失败时返回空的tileshape，由InferTileShape自动推导
             return SUCCESS;
         }
