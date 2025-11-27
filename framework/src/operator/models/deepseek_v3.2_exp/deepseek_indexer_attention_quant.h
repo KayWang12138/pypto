@@ -25,6 +25,9 @@
 
 namespace npu::tile_fwk {
 
+constexpr int NUM_100 = 100;
+constexpr int NUM_10000 = 10000;
+
 struct DiaQuantAttr {
     float rmsnormEpsilonCq = 1e-6f;
     float rmsnormEpsilonCkv = 1e-6f;

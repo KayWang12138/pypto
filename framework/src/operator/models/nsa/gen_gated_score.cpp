@@ -13,12 +13,6 @@
  * \brief
  */
 
-#include "interface/function/function.h"
-#include "tilefwk/tilefwk_op.h"
-#include "tilefwk/tensor.h"
-#include "interface/tensor/logical_tensor.h"
-#include "interface/utils/common.h"
-#include "interface/configs/config_manager.h"
 #include "operator/models/deepseek/deepseek_mla.h"
 #include "gen_gated_score.h"
 

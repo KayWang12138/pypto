@@ -15,10 +15,6 @@
 
 #include "operator/models/llama/llama_def.h"
 
-#include "interface/function/function.h"
-#include "tilefwk/tensor.h"
-#include "interface/tensor/logical_tensor.h"
-
 namespace npu::tile_fwk {
 
 static constexpr int NUM_64 = 64;

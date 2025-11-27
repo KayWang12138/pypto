@@ -17,10 +17,6 @@
 #ifndef DYNAMIC_NSA_COMMON
 #define DYNAMIC_NSA_COMMON
 
-#include "interface/inner/pre_def.h"
-#include "tilefwk/tilefwk.h"
-#include "interface/program/program.h"
-
 namespace npu::tile_fwk {
 #define DEBUG_DUMP_TMP_IN_OUT 1 // debug模式，用于打印中间输出及设置临时输入
 

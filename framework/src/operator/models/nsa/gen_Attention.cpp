@@ -12,19 +12,9 @@
  * \file gen_Attention.cpp
  * \brief
  */
-#include "interface/operation/operation_impl.h"
-#include "interface/operation/operation.h"
-#include "interface/function/function.h"
-#include "tilefwk/tensor.h"
-#include "interface/tensor/logical_tensor.h"
-#include "interface/tensor/raw_tensor.h"
+ 
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/tensor/tensormap.h"
-#include "interface/configs/config_manager.h"
-#include "interface/utils/common.h"
-#include "interface/utils/id_gen.h"
-#include "interface/utils/log.h"
 #include "gen_Attention.h"
 
 using namespace npu::tile_fwk;

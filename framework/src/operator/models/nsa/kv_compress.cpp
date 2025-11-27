@@ -13,24 +13,9 @@
  * \brief
  */
 
-#include "interface/operation/operation_impl.h"
-#include "interface/operation/operation.h"
-#include "interface/function/function.h"
-#include "tilefwk/tilefwk_op.h"
 #include "operator/models/deepseek/deepseek_mla.h"
-#include "tilefwk/tensor.h"
-#include "tilefwk/symbolic_scalar.h"
 #include "tilefwk/tilefwk.h"
-#include "interface/program/program.h"
-#include "interface/tensor/tensormap.h"
-#include "interface/tensor/raw_tensor.h"
-#include "interface/tensor/logical_tensor.h"
-#include "interface/configs/config_manager.h"
 #include "interface/utils/common.h"
-#include "interface/utils/id_gen.h"
-#include "interface/utils/log.h"
-#include "fused_compress_kv_select.h"
-#include "operator/models/deepseek/dynamic_nsa.h"
 #include "kv_compress.h"
 
 using namespace npu::tile_fwk;

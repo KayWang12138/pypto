@@ -16,12 +16,6 @@
 #include "operator/models/deepseek/mla_prolog.h"
 #include "operator/models/deepseek/deepseek_mla.h"
 
-#include "interface/operation/operation.h"
-#include "interface/function/function.h"
-#include "tilefwk/tensor.h"
-#include "interface/tensor/logical_tensor.h"
-#include "interface/utils/common.h"
-
 namespace npu::tile_fwk {
 std::vector<Tensor> QkvPre(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tensor &wDkvKr,
     const Tensor &gammaCq, float epsilonCq, MlaQuantInputs quantInputs,bool splitReduceLastDim, bool splitK) {

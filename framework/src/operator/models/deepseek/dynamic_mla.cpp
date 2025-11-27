@@ -14,12 +14,6 @@
  */
 
 #include "operator/models/deepseek/dynamic_mla.h"
-#include "interface/configs/config_manager.h"
-#include "interface/operation/operation.h"
-#include "interface/function/function.h"
-#include "tilefwk/tensor.h"
-#include "interface/tensor/logical_tensor.h"
-#include "interface/utils/common.h"
 
 namespace npu::tile_fwk {
 std::vector<Tensor> mlaPre(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tensor &wDkvKr,

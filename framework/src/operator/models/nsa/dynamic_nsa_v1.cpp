@@ -15,14 +15,6 @@
 
 #include "operator/models/nsa/dynamic_nsa_v1.h"
 
-#include "interface/operation/operation.h"
-#include "interface/function/function.h"
-#include "operator/models/nsa/attention_post.h"
-#include "tilefwk/tensor.h"
-#include "interface/tensor/logical_tensor.h"
-#include "interface/utils/common.h"
-#include "interface/configs/config_manager.h"
-
 namespace npu::tile_fwk {
 
 void GenGatedScoreCompute(const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, const Tensor &gateSimW1,

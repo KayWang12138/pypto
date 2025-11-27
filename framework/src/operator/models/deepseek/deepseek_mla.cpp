@@ -15,11 +15,6 @@
 
 #include "operator/models/deepseek/deepseek_mla.h"
 
-#include "interface/operation/operation.h"
-#include "interface/function/function.h"
-#include "tilefwk/tensor.h"
-#include "interface/tensor/logical_tensor.h"
-
 namespace npu::tile_fwk {
 DeepseekAttention::DeepseekAttention(
     std::map<std::string, std::variant<bool, int, float, std::string>> config, AttentionW aw, const int inLayerIdx)
