@@ -218,7 +218,7 @@ def test_qwen3_ffn():
     hidden_size = 2048
     per_expert_num = 16
     topk = 8
-    device_id = int(os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0))
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
 
 

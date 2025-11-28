@@ -20,14 +20,14 @@ from numpy.testing import assert_allclose
 
 
 def main():
-    test_expert_offset_table()
+    test_group_list_cumsum()
 
 
 @pypto.jit(
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
-def get_table_main(inputs, outputs):
+def group_list_cumsum(inputs, outputs):
     expert_tokens = inputs[0]
     expert_offset = outputs[0]
 
@@ -60,9 +60,9 @@ def get_token_acc_table(expert_tokens):
     return token_acc_table
 
 
-def test_expert_offset_table():
-    bs = 16
-    per_expert_num = 8
+def test_group_list_cumsum():
+    bs = 3
+    per_expert_num = 20
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
 
@@ -72,14 +72,13 @@ def test_expert_offset_table():
 
     inputs = [expert_tokens]
     outputs = [expert_offset]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
-    get_table_main(pto_inputs, pto_outputs)
+    group_list_cumsum(inputs, outputs)
     pypto.runtime._device_synchronize()
 
     # golden
     token_acc_table_tensor = get_token_acc_table(expert_tokens)
     assert_allclose(np.array(expert_offset.cpu().flatten().tolist()), np.array(token_acc_table_tensor.cpu().flatten().tolist()), rtol=0.005, atol=0.005)
+
 
 if __name__ == "__main__":
     main()
