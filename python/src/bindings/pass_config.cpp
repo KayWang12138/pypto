@@ -101,7 +101,6 @@ void bind_pass_config(py::module &m) {
 void bind_pass_configs(py::module &m) {
     py::class_<PassConfigs>(m, "PassConfigs")
         .def_readonly("printFunction", &PassConfigs::printFunction)
-        .def_readonly("printProgram", &PassConfigs::printProgram)
         .def_readonly("dumpTensorGraph", &PassConfigs::dumpTensorGraph)
         .def_readonly("dumpTileGraph", &PassConfigs::dumpTileGraph)
         .def_readonly("dumpBlockGraph", &PassConfigs::dumpBlockGraph)
@@ -110,10 +109,8 @@ void bind_pass_configs(py::module &m) {
         .def_readonly("dumpPassTimeCost", &PassConfigs::dumpPassTimeCost)
         .def_readonly("preCheck", &PassConfigs::preCheck)
         .def_readonly("postCheck", &PassConfigs::postCheck)
-        .def_readonly("expectedValueCheck", &PassConfigs::expectedValueCheck)
         .def_readonly("disablePass", &PassConfigs::disablePass)
-        .def_readonly("healthCheck", &PassConfigs::healthCheck)
-        .def_readonly("resumePath", &PassConfigs::resumePath);
+        .def_readonly("healthCheck", &PassConfigs::healthCheck);
     m.def("GetPassConfigs",
         [](const std::string &strategy, const std::string &identifier) -> PassConfigs {
             return ConfigManager::Instance().GetPassConfigs(strategy, identifier);

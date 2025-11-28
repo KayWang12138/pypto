@@ -10,26 +10,43 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
-from typing import Union
 from enum import Enum
 from . import pto_impl
 
 
 class PassConfigs:
-    printFunction = pto_impl.PassConfigs.printFunction
-    printProgram = pto_impl.PassConfigs.printProgram
-    dumpTensorGraph = pto_impl.PassConfigs.dumpTensorGraph
-    dumpTileGraph = pto_impl.PassConfigs.dumpTileGraph
-    dumpBlockGraph = pto_impl.PassConfigs.dumpBlockGraph
-    dumpFunctionGraphBeforePass = pto_impl.PassConfigs.dumpFunctionGraphBeforePass
-    dumpFunctionGraphAfterPass = pto_impl.PassConfigs.dumpFunctionGraphAfterPass
-    dumpPassTimeCost = pto_impl.PassConfigs.dumpPassTimeCost
-    preCheck = pto_impl.PassConfigs.preCheck
-    postCheck = pto_impl.PassConfigs.postCheck
-    expectedValueCheck = pto_impl.PassConfigs.expectedValueCheck
-    disablePass = pto_impl.PassConfigs.disablePass
-    healthCheck = pto_impl.PassConfigs.healthCheck
-    resumePath = pto_impl.PassConfigs.resumePath
+    """
+    PassConfigs data structure returned from C++ (read-only)
+        
+    Attributes:
+        printFunction: Whether to print function IR.
+        dumpTensorGraph: Whether to dump tensor graph to files.
+        dumpTileGraph: Whether to dump tile graph to files.
+        dumpBlockGraph: Whether to dump block graph to files.
+        dumpFunctionGraphBeforePass: Whether to dump function graph before pass.
+        dumpFunctionGraphAfterPass: Whether to dump function graph after pass.
+        dumpPassTimeCost: Whether to dump time consumption of pass.
+        preCheck: Whether to perform validation checks before pass.
+        postCheck: Whether to perform verification checks after pass.
+        disablePass: Whether to disable pass.
+        healthCheck: Whether to perform health check and generate report.
+    
+    Note:
+        Instances of this class are entirely created and initialized by the C++ side.
+        Python side is only for data access. All attributes are read-only and cannot
+        be modified from Python.
+    """
+    printFunction: bool
+    dumpTensorGraph: bool
+    dumpTileGraph: bool
+    dumpBlockGraph: bool
+    dumpFunctionGraphBeforePass: bool
+    dumpFunctionGraphAfterPass: bool
+    dumpPassTimeCost: bool
+    preCheck: bool
+    postCheck: bool
+    disablePass: bool
+    healthCheck: bool
 
 
 class PassConfigKey(Enum):
@@ -37,7 +54,7 @@ class PassConfigKey(Enum):
     KEY_DUMP_FUNCTION_GRAPH_AFTER_PASS = pto_impl.KEY_DUMP_FUNCTION_GRAPH_AFTER_PASS
 
 
-def get_pass_default_config(key: PassConfigKey, default_value: Union[int, str, bool]) -> Union[int, str, bool]:
+def get_pass_default_config(key: PassConfigKey, default_value: bool) -> bool:
     """
     Get default pass configuration value by key.
 
@@ -46,12 +63,12 @@ def get_pass_default_config(key: PassConfigKey, default_value: Union[int, str, b
     key: PassConfigKey
         The configuration key to retrieve. Must be one of the valid enum value from `PassConfigKey`.
 
-    default_value: Union[int, str, bool]
+    default_value: bool
         The default value to return if the key is not found.
 
     Returns
     ---------
-    Union[int, str, bool]
+    bool
         The configuration value for the specified key, or `default_value` if the key is not found.
 
     Raises
@@ -86,8 +103,7 @@ def set_pass_default_config(key: PassConfigKey, value: bool):
     pto_impl.SetPassDefaultConfig(key.value, value)
 
 
-def get_pass_config(strategy: str, identifier: str, key: PassConfigKey,
-                    default_value: Union[int, str, bool]) -> Union[int, str, bool]:
+def get_pass_config(strategy: str, identifier: str, key: PassConfigKey, default_value: bool) -> bool:
     """
     Get specific pass configuration value by strategy.identifier.key path.
 
@@ -102,12 +118,12 @@ def get_pass_config(strategy: str, identifier: str, key: PassConfigKey,
     key: PassConfigKey
         The configuration key to retrieve. Must be one of the valid enum values from `PassConfigKey`.
 
-    default_value: Union[int, str, bool]
+    default_value: bool
         The default value to return if the configuration item defined by strategy.identifier.key is not found.
 
     Returns
     ---------
-    Union[int, str, bool]
+    bool
         The configuration value for the specified key, or `default_value` if the key is not found.
 
     Raises

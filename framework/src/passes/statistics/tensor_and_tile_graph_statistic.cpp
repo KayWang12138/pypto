@@ -345,7 +345,7 @@ Status CheckTileShapeAIC(Operation *op, std::vector<int> &res)  {
     return SUCCESS;
 }
 
-Status FindShapeNotdevisibleOp(Function &function, json &report) {
+void FindShapeNotdevisibleOp(Function &function, json &report) {
     std::vector<int> res;
     for (auto op : function.Operations().DuplicatedOpList()) {
         if (op->GetOpcode() == Opcode::OP_VIEW || op->GetOpcode() == Opcode::OP_ASSEMBLE || op->GetOpcode() == Opcode::OP_RESHAPE) {
@@ -354,18 +354,17 @@ Status FindShapeNotdevisibleOp(Function &function, json &report) {
         auto opcfg = OpcodeManager::Inst().GetTileOpCfg(op->GetOpcode());
         if (opcfg.coreType_ == CoreType::AIV) {
             if (CheckTileShapeAIV(op, res) != SUCCESS) {
-                ALOG_ERROR_F("FindShapeNotdevisibleOp faild at function CheckTileShapeAIV!");
-                return FAILED;
+                ALOG_WARN_F("FindShapeNotdevisibleOp faild at function CheckTileShapeAIV!");
+                return;
             }
         } else if (opcfg.coreType_ == CoreType::AIC) {
             if (CheckTileShapeAIC(op, res) != SUCCESS) {
-                ALOG_ERROR_F("FindShapeNotdevisibleOp faild at function CheckTileShapeAIC!");
-                return FAILED;
+                ALOG_WARN_F("FindShapeNotdevisibleOp faild at function CheckTileShapeAIC!");
+                return;
             }
         }
     }
     report["tileShapeNotDevisibleOp"] = res;
-    return SUCCESS;
 }
 
 void HealthCheckTensorGraph(Function &function, const std::string &reportPath, const std::string &fileName) {
@@ -390,9 +389,7 @@ void HealthCheckTensorGraph(Function &function, const std::string &reportPath, c
     CalcGraphMetrics(inMap, outMap, actualMagic, tensorGraphReport);
 
     // 5. 不整除shape统计
-    if (FindShapeNotdevisibleOp(function, tensorGraphReport) != SUCCESS) {
-        ALOG_ERROR_F("HealthCheckTensorGraph failed at function FindShapeNotdevisibleOp!");
-    }
+    FindShapeNotdevisibleOp(function, tensorGraphReport);
 
     // 6. 写出健康报告
     std::string graphName = fileName + "_TensorGraphHealthReport.json";
