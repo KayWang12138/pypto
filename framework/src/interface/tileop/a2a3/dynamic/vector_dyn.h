@@ -3674,7 +3674,7 @@ TILEOP void DynTonehot_(__ubuf__ int64_t *dst, __ubuf__ T *src, unsigned s0, uns
  * GMIndicesShape* ,indices 的 validshape ，用于指导循环，
  * GMIndicesStride* ,步长，用于计算偏移
  */
-template <typename T, typename T2,  unsigned UBOutputS1, unsigned UBOutputS2>
+template <typename T, typename T2, unsigned UBOutputS1, unsigned UBOutputS2>
 TILEOP void GatherInUB(__ubuf__ T *dst, __gm__ T *param, __gm__ T2 *indices, unsigned GMParamShape0,
     unsigned GMParamShape1, unsigned GMParamStride0, unsigned GMParamStride1, unsigned GMParamOffset0,
     unsigned GMParamOffset1, unsigned GMIndicesShape0, unsigned GMIndicesShape1, unsigned GMIndicesStride0,
@@ -3686,20 +3686,68 @@ TILEOP void GatherInUB(__ubuf__ T *dst, __gm__ T *param, __gm__ T2 *indices, uns
         __gm__ T2 *indices0 = indices;
         __gm__ T *param0 = param;
         __ubuf__ T *dst0 = dst;
-        for (int j = 0; j < GMIndicesShape1; ++j) {
-            // 标量流水，拿出来的索引
-            set_flag(PIPE_V, PIPE_S, EVENT_ID7);
-            wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
-            T2 index = indices0[j];
-            set_flag(PIPE_S, PIPE_V, EVENT_ID7);
-            wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
-            param0 = param + index * GMParamStride1;
+        for (int j = 0; j + 1 < GMIndicesShape1; j += 2) { // 遍历偶数
+            /**
+             * 循环展开优化
+             * 一次拿出两个index，计算两者的 stride，将两次mte指令合并成一次
+             *
+             * 限制
+             *
+             * 1. 两个index 之间的步长不能超过uint32的最大值
+             * 2. 拿到的两个 index 需要是有序的，因为 stride 不能是负数。比如 4 2，这种就没有办法
+             */
+            set_flag(PIPE_MTE2, PIPE_S, EVENT_ID7);
+            wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID7);
+            T2 index_1 = indices0[j];
+            T2 index_2 = indices0[j + 1];
+            set_flag(PIPE_S, PIPE_MTE2, EVENT_ID7);
+            wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID7);
+
+            /**
+             * 判断能够合并
+             * 1. index 有序
+             * 2. index 之间的步长不能超过uint32
+             */
+            /**
+             * stride 边界处理
+             * UBCopyInBase 会自动处理的头尾问题 和 类型问题 ，所以传递的参数应该是  (index_2  - index_1) *
+             * GMParamStride1 实际的步长限制是 (index_2  - index_1 -1 ) * GMParamStride1 * sizeof(T) < UINT32_MAX
+             * 如果分开计算判断，整个流程会非常冗长
+             * (index_2  - index_1 -1 ) * GMParamStride1 * sizeof(T) < (index_2  - index_1) * GMParamStride1 * sizeof(T)
+             * < UINT32_MAX 可以直接判断 (index_2  - index_1) * GMParamStride1 * sizeof(T) < UINT32_MAX ，
+             * 这样不会有精度问题，只是在边界情况无法拿到性能收益，但是可以减少大量的判断，减少标量计算
+             */
+            uint32_t tmp = index_2 - index_1;
+            // index_1 < index_2  确保 tmp!=0
+            constexpr uint32_t helperNum = UINT32_MAX / sizeof(T);
+            if (index_1 < index_2 && (tmp < helperNum / GMParamStride1)) { //
+                param0 = param + index_1 * GMParamStride1;                 // 第一个地址
+                uint32_t stride = tmp * GMParamStride1;                    // 尾部和下一个头部的长度
+                UBCopyInBase<T, UBOutputS2>(dst0, param0, 2, GMParamShape1, stride);
+                dst0 += UBOutputS2;
+                dst0 += UBOutputS2;
+            } else {                                       // 不符合条件，退化为两次搬运
+                param0 = param + index_1 * GMParamStride1; // 第一个地址
+                UBCopyInBase<T, UBOutputS2>(dst0, param0, 1, GMParamShape1, GMParamStride1);
+                dst0 += UBOutputS2;
+                param0 = param + index_2 * GMParamStride1; // 第一个地址
+                UBCopyInBase<T, UBOutputS2>(dst0, param0, 1, GMParamShape1, GMParamStride1);
+                dst0 += UBOutputS2;
+            }
+        }
+        if (GMIndicesShape1 % 2 == 1) { // 最后一个
+            set_flag(PIPE_MTE2, PIPE_S, EVENT_ID7);
+            wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID7);
+            T2 index_1 = indices0[GMIndicesShape1 - 1];
+            set_flag(PIPE_S, PIPE_MTE2, EVENT_ID7);
+            wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID7);
+            param0 = param + index_1 * GMParamStride1;
             UBCopyInBase<T, UBOutputS2>(dst0, param0, 1, GMParamShape1, GMParamStride1);
             dst0 += UBOutputS2;
         }
-        indices += GMIndicesStride1; // indices下一行
-        dst += UBOutputS1 * UBOutputS2;
     }
+    indices += GMIndicesStride1; // indices下一行
+    dst += UBOutputS1 * UBOutputS2;
 }
 
 } // namespace TileOp
