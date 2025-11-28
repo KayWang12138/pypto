@@ -22,7 +22,7 @@
 #include "interface/utils/common.h"
 #include "interface/utils/log.h"
 #include "interface/utils/file_utils.h"
-
+#include <unistd.h>
 namespace npu::tile_fwk {
 
 const std::string tilefwkConfigEnvName = "TILEFWK_CONFIG_PATH";
@@ -139,7 +139,7 @@ static std::string CreateLogTopFolder() {
             folderPath = std::move(envStr);
         }
     } else {
-        folderPath = folderPath + "/" + "output_" + timestamp.str();
+        folderPath = folderPath + "/" + "output_" + timestamp.str() + "_" + std::to_string(getpid());
     }
     res = CreateDir(folderPath);
     ASSERT(res) << "Failed to create directory: " << folderPath;
