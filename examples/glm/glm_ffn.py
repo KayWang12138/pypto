@@ -71,6 +71,8 @@ def ffn_dense_quant(hidden_states: torch.Tensor,
     out_tensor = torch.zeros((b_s_topk, hidden_size), dtype=x_dtype, device=f'{hidden_states.device}')
     inputs = [hidden_states, w1, w1_scale, w2]
     outputs = [out_tensor]
-    dense_quant_kernel(inputs, outputs)
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    dense_quant_kernel(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()
     return out_tensor

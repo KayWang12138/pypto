@@ -236,7 +236,9 @@ def test_glm_mlp():
     expand_x_tensor, w13_int8, w13_scale, w2, out_tensor = gen_input(b, s, hidden_size, intermediate_size, x_dtype, device_id)
     inputs = [expand_x_tensor, w13_int8, w13_scale, w2]
     outputs = [out_tensor]
-    moe_main(inputs, outputs)
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    moe_main(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()
 
     # golden

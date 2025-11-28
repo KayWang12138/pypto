@@ -276,7 +276,9 @@ def test_glm4_ffn_router():
 
     inputs = [expand_x_int8, expand_x_scale, group_list, group_list_cumsum, w13_int8, w13_scale, w2_int8, w2_scale]
     outputs = [out_tensor]
-    moe_router_expert_main(inputs, outputs)
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    moe_router_expert_main(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()
 
     # golden

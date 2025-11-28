@@ -72,7 +72,9 @@ def test_group_list_cumsum():
 
     inputs = [expert_tokens]
     outputs = [expert_offset]
-    group_list_cumsum(inputs, outputs)
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    group_list_cumsum(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()
 
     # golden
