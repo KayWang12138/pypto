@@ -1,5 +1,4 @@
 #include "gtest/gtest.h"
-#include <gmock/gmock.h>
 #include <fstream>
 #include <cstdlib>
 #include "machine/device/machine_interface/pypto_aicpu_interface.h"

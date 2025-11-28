@@ -26,7 +26,7 @@ def load_shared_libs():
         ctypes.CDLL(str(c_sec_path), mode=ctypes.RTLD_GLOBAL)
 
     calc_path: Path = Path(lib_dir, "libtile_fwk_calculator.so")
-    if calc_path.exists:
+    if calc_path.exists():
         import torch
         # calculator.so depends on torch, so load it after torch
         ctypes.CDLL(str(calc_path), mode=ctypes.RTLD_LOCAL)

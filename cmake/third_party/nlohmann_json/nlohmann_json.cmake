@@ -26,23 +26,18 @@ if (DEFINED ENV{PYPTO_THIRD_PARTY_PATH})
     get_filename_component(_TargetTarGzFile "${PYPTO_THIRD_PARTY_PATH}/json-${_TargetVersion}.tar.gz" REALPATH)
     get_filename_component(_TargetInstallPrefix "${PYPTO_THIRD_PARTY_PATH}/${CMAKE_BUILD_TYPE}" REALPATH)
     find_package(nlohmann_json ${_TargetVersion} EXACT CONFIG PATHS ${_TargetInstallPrefix} NO_DEFAULT_PATH)
+    if (NOT nlohmann_json_FOUND)
+        # 兼容部分镜像直接存放 json 安装结果的情况
+        get_filename_component(_TargetSourceDir "${PYPTO_THIRD_PARTY_PATH}/json" REALPATH)
+        if (NOT EXISTS ${_TargetSourceDir})
+            get_filename_component(_TargetSourceDir "${PYPTO_THIRD_PARTY_PATH}/json-${_TargetVersion}" REALPATH)
+        endif ()
+        find_package(nlohmann_json ${_TargetVersion} EXACT CONFIG PATHS ${_TargetSourceDir} NO_DEFAULT_PATH)
+    endif ()
 else ()
-    # 兼容蓝区云龙设置
     find_package(nlohmann_json ${_TargetVersion} EXACT CONFIG)
     if (NOT ${nlohmann_json_FOUND})
-        if (DEFINED ENV{ASCEND_3RD_LIB_PATH} AND EXISTS "$ENV{ASCEND_3RD_LIB_PATH}" AND IS_DIRECTORY "$ENV{ASCEND_3RD_LIB_PATH}")
-            get_filename_component(ASCEND_3RD_LIB_PATH "$ENV{ASCEND_3RD_LIB_PATH}" REALPATH)
-            if (EXISTS "${ASCEND_3RD_LIB_PATH}/cmake/modules")
-                list(APPEND CMAKE_MODULE_PATH ${ASCEND_3RD_LIB_PATH}/cmake/modules)
-            endif ()
-            if (EXISTS "${ASCEND_3RD_LIB_PATH}/json/share/cmake/nlohmann_json")
-                list(APPEND CMAKE_PREFIX_PATH ${ASCEND_3RD_LIB_PATH}/json/share/cmake/nlohmann_json)
-            endif ()
-        endif ()
-        find_package(nlohmann_json ${_TargetVersion} EXACT CONFIG)
-    endif ()
-    if (NOT ${nlohmann_json_FOUND})
-        message(FATAL_ERROR "Failed to get nlohmann_json source dir, When CANN is not used, ENV PYPTO_THIRD_PARTY_PATH must be set.")
+        message(FATAL_ERROR "Failed to get nlohmann_json source dir, need to specify its path through the ENV PYPTO_THIRD_PARTY_PATH")
     endif ()
 endif ()
 if (nlohmann_json_FOUND)
@@ -57,7 +52,10 @@ if (nlohmann_json_FOUND)
 endif ()
 
 # 触发编译
-get_filename_component(_TargetSourceDir "${PYPTO_THIRD_PARTY_PATH}/json-${_TargetVersion}" REALPATH)
+get_filename_component(_TargetSourceDir "${PYPTO_THIRD_PARTY_PATH}/json" REALPATH)
+if (NOT EXISTS ${_TargetSourceDir})
+    get_filename_component(_TargetSourceDir "${PYPTO_THIRD_PARTY_PATH}/json-${_TargetVersion}" REALPATH)
+endif ()
 get_filename_component(_TargetBinaryDir "${PYPTO_THIRD_PARTY_PATH}/${CMAKE_BUILD_TYPE}/build/json-${_TargetVersion}" REALPATH)
 PTO_Fwk_CleanEmptyDir(DIR ${_TargetSourceDir})
 
@@ -87,6 +85,7 @@ ExternalProject_Add(ExternalProject_nlohmann_json   ${_ExtArgs}
             -DJSON_BuildTests=OFF
         BUILD_ALWAYS FALSE
         DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+        TLS_VERIFY OFF
         EXCLUDE_FROM_ALL TRUE
         BUILD_BYPRODUCTS
             ${_TargetInstallPrefix}/include/nlohmann/

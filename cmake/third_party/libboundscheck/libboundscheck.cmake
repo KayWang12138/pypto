@@ -55,7 +55,7 @@ if (DEFINED ENV{PYPTO_THIRD_PARTY_PATH})
         return()
     endif ()
 else ()
-    message(FATAL_ERROR "Failed to get c_sec source dir, When CANN is not used, ENV PYPTO_THIRD_PARTY_PATH must be set.")
+    message(FATAL_ERROR "Failed to get c_sec source dir, need to specify its path through the ENV PYPTO_THIRD_PARTY_PATH")
 endif ()
 
 # 触发编译
@@ -89,6 +89,7 @@ ExternalProject_Add(ExternalProject_c_sec   ${_ExtArgs}
         BUILD_ALWAYS FALSE
         EXCLUDE_FROM_ALL TRUE
         DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+        TLS_VERIFY OFF
         BUILD_BYPRODUCTS
             ${_TargetInstallPrefix}/include/securec.h
             ${_TargetInstallPrefix}/include/securectype.h

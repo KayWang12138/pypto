@@ -102,9 +102,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
         get_target_property(cSecSharedFile c_sec_shared IMPORTED_LOCATION)
         install(FILES ${cSecSharedFile}
                 DESTINATION "${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}"
-                PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
-                            GROUP_READ GROUP_EXECUTE
-                            WORLD_READ WORLD_EXECUTE
+                PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
         )
     endif ()
     if (ENABLE_TORCH_VERIFIER)
@@ -187,7 +185,9 @@ else ()
     endif ()
     install(TARGETS tile_fwk_simulation     LIBRARY DESTINATION lib OPTIONAL)
     install(TARGETS tile_fwk_simulation_ca  LIBRARY DESTINATION lib OPTIONAL)
-    install(TARGETS tile_fwk_simulation_pv  LIBRARY DESTINATION lib OPTIONAL)
+    if (BUILD_WITH_CANN)
+        install(TARGETS tile_fwk_simulation_pv  LIBRARY DESTINATION lib OPTIONAL)
+    endif ()
     install(TARGETS tile_fwk_operator       LIBRARY DESTINATION lib OPTIONAL)
 
     # 安装 配置文件

@@ -26,22 +26,9 @@ if (DEFINED ENV{PYPTO_THIRD_PARTY_PATH})
     get_filename_component(_TargetInstallPrefix "${PYPTO_THIRD_PARTY_PATH}/${CMAKE_BUILD_TYPE}" REALPATH)
     find_package(GTest ${_TargetVersion} EXACT CONFIG PATHS ${_TargetInstallPrefix} NO_DEFAULT_PATH)
 else ()
-    # 兼容蓝区云龙设置
-    find_package(GTest CONFIG)
+    find_package(GTest ${_TargetVersion} EXACT CONFIG)
     if (NOT ${GTest_FOUND})
-        if (DEFINED ENV{ASCEND_3RD_LIB_PATH} AND EXISTS "$ENV{ASCEND_3RD_LIB_PATH}" AND IS_DIRECTORY "$ENV{ASCEND_3RD_LIB_PATH}")
-            get_filename_component(ASCEND_3RD_LIB_PATH "$ENV{ASCEND_3RD_LIB_PATH}" REALPATH)
-            if (EXISTS "${ASCEND_3RD_LIB_PATH}/cmake/modules")
-                list(APPEND CMAKE_MODULE_PATH ${ASCEND_3RD_LIB_PATH}/cmake/modules)
-            endif ()
-            if (EXISTS "${ASCEND_3RD_LIB_PATH}/gtest/lib/cmake/GTest")
-                list(APPEND CMAKE_PREFIX_PATH ${ASCEND_3RD_LIB_PATH}/gtest/lib/cmake/GTest)
-            endif ()
-        endif ()
-        find_package(GTest CONFIG)
-    endif ()
-    if (NOT ${GTest_FOUND})
-        message(FATAL_ERROR "Failed to get GTest source dir, When CANN is not used, ENV PYPTO_THIRD_PARTY_PATH must be set.")
+        message(FATAL_ERROR "Failed to find GTest ${_TargetVersion}, need to specify its path through the ENV PYPTO_THIRD_PARTY_PATH")
     endif ()
 endif ()
 if (GTest_FOUND)
@@ -83,6 +70,7 @@ ExternalProject_Add(ExternalProject_GTest   ${_ExtArgs}
             -DCMAKE_POSITION_INDEPENDENT_CODE=ON  # -fPIC
         BUILD_ALWAYS FALSE
         DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+        TLS_VERIFY OFF
         EXCLUDE_FROM_ALL TRUE
         BUILD_BYPRODUCTS
             ${_TargetInstallPrefix}/lib/cmake/GTest/

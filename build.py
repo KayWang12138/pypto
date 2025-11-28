@@ -107,6 +107,9 @@ class FeatureParam(CMakeParam):
     def __init__(self, args):
         self.frontend_type = "python3" if args.frontend is None else args.frontend
         self.backend_type = "npu" if args.backend is None else args.backend
+        if not os.environ.get("ASCEND_HOME_PATH") and self.backend_type in ["npu"]:
+            logging.warning("Environment variable ASCEND_HOME_PATH is unset/empty, falling back to cost_model backend.")
+            self.backend_type = "cost_model"
         self.whl_plat_name = f"{args.plat_name}_{CMakeParam.get_system_processor()}" if args.plat_name else ""
 
     def __str__(self):
@@ -138,7 +141,7 @@ class FeatureParam(CMakeParam):
 
     @staticmethod
     def reg_args(parser, ext: Optional[Any] = None):
-        parser.add_argument("-f", "--frontend", nargs="?", type=str, default="cpp",
+        parser.add_argument("-f", "--frontend", nargs="?", type=str, default="python3",
                             choices=["python3", "cpp"],
                             help="frontend, such as python3/cpp etc.")
         parser.add_argument("--plat_name", nargs="?", type=str, default="",

@@ -55,7 +55,7 @@
    # 1. --clean 表示在构建前清理构建缓存;
    # 2. --third_party_path 指定依赖的开源软件源码包的下载、解压、构建和安装路径, 
    #      若可访问 CANN 开源软件仓库, 构建时将自动下载并安装依赖至该路径.
-   python3 build.py --frontend=python3 --clean --third_party_path=/home/third_party_path
+   python3 build.py --clean --third_party_path=/home/third_party_path
    ```
 
    本项目也支持使用标准的 Python 包安装命令: 
