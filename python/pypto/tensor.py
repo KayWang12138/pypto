@@ -253,15 +253,12 @@ class Tensor:
                 raise ValueError("step must be 1 or None")
             if start is None:
                 start = 0
-            elif isinstance(start, int) and start < 0:
-                start = shape[axis] + start
             if stop is None:
                 stop = shape[axis]
-            elif isinstance(stop, int) and stop <= 0:
-                stop = shape[axis] + stop
             offsets.append(start)
             shapes.append(int(stop - start)) # shape should be concrete
         return offsets, shapes
+
 
     def __getitem__(self, key, *, valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None):
         """
@@ -298,48 +295,28 @@ class Tensor:
         """
         if self._is_empty_slice(key):
             return self
-        if isinstance(key, (int, SymbolicScalar)):
-            return self.__getitem__((key,))
-        elif isinstance(key, slice):
-            # Support for slicing operations and gather_element syntactic sugar
-            if isinstance(key.stop, Tensor):
-                assert isinstance(key.start, int)
-                return pypto.gather(self, key.start, key.stop)
-            else:
-                return self.__getitem__((key,))
-        elif key is Ellipsis:
-            return self
 
-        elif isinstance(key, tuple):
-            assert self.dim >= len(
-                key), f"rank not match, expect {self.dim}, but got {len(key)}"
-            if all([isinstance(k, (int, SymbolicScalar)) for k in key]):
-                return SymbolicScalar.from_base(pto_impl.GetTensorData(self._base, to_syms(key)))
-            elif all([isinstance(k, slice) for k in key]):
-                offsets, shapes = self._get_view_offset_shape(key, self.shape)
-                return pypto.view(self, shapes, offsets, valid_shape=valid_shape)
-            elif all(isinstance(k, (slice, int, SymbolicScalar)) for k in key):
-                new_key, bool_shape = self._get_slice_index(key)
-                offsets, shapes = self._get_view_offset_shape(tuple(new_key), self.shape)
-                res = pypto.view(self, shapes, offsets, valid_shape=valid_shape)
-                res_shape = [res.shape[d] for d in range(res.dim) if bool_shape[d]]
-                return pypto.reshape(res, res_shape)
-            elif any(k is Ellipsis for k in key):
-                ellipsis_count = sum(k is Ellipsis for k in key)
-                if ellipsis_count > 1:
-                    raise ValueError("Only one ... is supported")
-                ellipsis_pos = next(i for i, k in enumerate(key) if k is Ellipsis)
-                other_len = len(key) - 1
-                colon_count = self.dim - other_len
-                if colon_count < 0:
-                    raise IndexError(f"Too many indices for tensor with dimension {self.dim}")
-                colons = (slice(None),) * colon_count
-                return self.__getitem__(key[:ellipsis_pos] + colons + key[ellipsis_pos + 1:])
+        if isinstance(key, slice) and isinstance(key.stop, Tensor):
+            assert isinstance(key.start, int)
+            return pypto.gather(self, key.start, key.stop)
 
-            else:
-                raise ValueError("tuple key must be int or SymbolicScalar")
-        else:
-            raise RuntimeError("Invalid key type")
+        key = self._normalize_key(key)
+
+        if all(isinstance(k, (int, SymbolicScalar)) for k in key):
+            return SymbolicScalar.from_base(pto_impl.GetTensorData(self._base, to_syms(key)))
+
+        if all(isinstance(k, slice) for k in key):
+            offsets, shapes = self._get_view_offset_shape(key, self.shape)
+            return pypto.view(self, shapes, offsets, valid_shape=valid_shape)
+
+        if all(isinstance(k, (slice, int, SymbolicScalar)) for k in key):
+            new_key, bool_shape = self._get_slice_index(key)
+            offsets, shapes = self._get_view_offset_shape(tuple(new_key), self.shape)
+            res = pypto.view(self, shapes, offsets, valid_shape=valid_shape)
+            res_shape = [res.shape[d] for d in range(res.dim) if bool_shape[d]]
+            return pypto.reshape(res, res_shape)
+
+        raise ValueError("tuple key must be int, SymbolicScalar or slice")
 
     @staticmethod
     def _get_slice_index(key):
