@@ -421,6 +421,9 @@ void TensorSlotManager::Restore() {
     ASSERT(checkpointStack.size() != 0);
     TensorSlotCheckpoint &checkpoint = checkpointStack.back();
     for (auto &[slot, value] : checkpoint.slotDict) {
+        if (!liveSlotSet.count(slot)) {
+            continue;
+        }
         auto storage = value.tensor;
         slot.SetSlotValue(storage);
         if (storage && storage->tensor) {

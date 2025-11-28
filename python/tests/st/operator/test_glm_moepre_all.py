@@ -65,138 +65,135 @@ def select_experts_glm(in_tensors, out_tensors, renormalize_flag, topk_group, nu
 
     # 5. 实现kernel逻辑，循环展开BS动态轴
     for bs_idx in pypto.loop(bs_loop, name="LOOP_MOEGATE_L0", idx_name="bs_idx", unroll_List={1}):
-        def bs_loop_func(bs_idx):
-            # 6. 通过view得到tile_logits
-            tile_residual = pypto.view(residual, view_shape,
+        # 6. 通过view得到tile_logits
+        tile_residual = pypto.view(residual, view_shape,
+                                   [bs_idx * view_shape[0], 0],
+                                   valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]), h_num])
+
+        tile_hidden_states = pypto.view(hidden_states, view_shape,
                                         [bs_idx * view_shape[0], 0],
-                                        valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]), h_num])
+                                        valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]),
+                                                     h_num])
 
-            tile_hidden_states = pypto.view(hidden_states, view_shape,
-                                            [bs_idx * view_shape[0], 0],
-                                            valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]),
-                                                            h_num])
+        pypto.set_vec_tile_shapes(tile_shape_rmsnorm[0], tile_shape_rmsnorm[1])
+        mean_coff = 1.0 / tile_hidden_states.shape[-1]
+        # cast to calc_dtype
+        tile_residual_fp32 = pypto.cast(tile_residual, calc_dtype)
+        tile_hidden_states_fp32 = pypto.cast(tile_hidden_states, calc_dtype)
+        weight_2d = pypto.unsqueeze(weight, 0)
+        tile_weight_fp32 = pypto.cast(weight_2d, calc_dtype)
+        x_f32 = pypto.add(tile_residual_fp32, tile_hidden_states_fp32)
+        square = pypto.mul(x_f32, x_f32)
+        square_sum = pypto.sum(square, -1, True)
+        mean_res = pypto.mul(square_sum, mean_coff)
+        reduce_sum = pypto.add(mean_res, eps)
+        reduce_sqrt = pypto.sqrt(reduce_sum)
+        res_div = pypto.div(x_f32, reduce_sqrt)
+        res = pypto.mul(res_div, tile_weight_fp32)
+        bias_fp32 = pypto.cast(bias_input, res.dtype)
+        hidden_states_add = pypto.add(res, bias_fp32)
+        residual_out_16 = pypto.cast(x_f32, input_dtype)
 
-            pypto.set_vec_tile_shapes(tile_shape_rmsnorm[0], tile_shape_rmsnorm[1])
-            mean_coff = 1.0 / tile_hidden_states.shape[-1]
-            # cast to calc_dtype
-            tile_residual_fp32 = pypto.cast(tile_residual, calc_dtype)
-            tile_hidden_states_fp32 = pypto.cast(tile_hidden_states, calc_dtype)
-            weight_2d = pypto.unsqueeze(weight, 0)
-            tile_weight_fp32 = pypto.cast(weight_2d, calc_dtype)
-            x_f32 = pypto.add(tile_residual_fp32, tile_hidden_states_fp32)
-            square = pypto.mul(x_f32, x_f32)
-            square_sum = pypto.sum(square, -1, True)
-            mean_res = pypto.mul(square_sum, mean_coff)
-            reduce_sum = pypto.add(mean_res, eps)
-            reduce_sqrt = pypto.sqrt(reduce_sum)
-            res_div = pypto.div(x_f32, reduce_sqrt)
-            res = pypto.mul(res_div, tile_weight_fp32)
-            bias_fp32 = pypto.cast(bias_input, res.dtype)
-            hidden_states_add = pypto.add(res, bias_fp32)
-            residual_out_16 = pypto.cast(x_f32, input_dtype)
+        pypto.set_cube_tile_shapes([16, 16], [512, 512], [32, 32])
+        res_mm = pypto.matmul(hidden_states_add, mm_weight, hidden_states_add.dtype, b_trans=True)
 
-            pypto.set_cube_tile_shapes([16, 16], [512, 512], [32, 32])
-            res_mm = pypto.matmul(hidden_states_add, mm_weight, hidden_states_add.dtype, b_trans=True)
+        # 7. 按照计算图实现运算逻辑，设置set_vec_tile_shapes时应尽可能用满UB，但不要超过UB的大小。
+        pypto.set_vec_tile_shapes(view_first, ne)
+        # sigmoid
+        topk_weights = pypto.sigmoid(res_mm)  # (bs, ne) fp32
+        original_topk_weights = topk_weights  # (bs, ne) fp32
 
-            # 7. 按照计算图实现运算逻辑，设置set_vec_tile_shapes时应尽可能用满UB，但不要超过UB的大小。
-            pypto.set_vec_tile_shapes(view_first, ne)
-            # sigmoid
-            topk_weights = pypto.sigmoid(res_mm)  # (bs, ne) fp32
-            original_topk_weights = topk_weights  # (bs, ne) fp32
+        # unsqueeze
+        pypto.set_vec_tile_shapes(ne)
+        e_score_bias_2d = pypto.unsqueeze(e_score_bias_input, 0)  # (1, ne) fp32
+        # add
+        pypto.set_vec_tile_shapes(view_first, ne)
+        e_score_bias_2d_cast = pypto.cast(e_score_bias_2d, topk_weights.dtype)
+        topk_weights_add = pypto.add(topk_weights, e_score_bias_2d_cast)  # (bs, ne) fp32
+        # reshape
+        group_unit = ne // num_expert_group
+        r1 = pypto.reshape(topk_weights_add,
+                            [view_shape[0], num_expert_group, group_unit],
+                            valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]), num_expert_group,
+                                        group_unit])
 
-            # unsqueeze
-            pypto.set_vec_tile_shapes(ne)
-            e_score_bias_2d = pypto.unsqueeze(e_score_bias_input, 0)  # (1, ne) fp32
-            # add
-            pypto.set_vec_tile_shapes(view_first, ne)
-            e_score_bias_2d_cast = pypto.cast(e_score_bias_2d, topk_weights.dtype)
-            topk_weights_add = pypto.add(topk_weights, e_score_bias_2d_cast)  # (bs, ne) fp32
-            # reshape
-            group_unit = ne // num_expert_group
-            r1 = pypto.reshape(topk_weights_add,
-                                [view_shape[0], num_expert_group, group_unit],
-                                valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]), num_expert_group,
-                                            group_unit])
+        # amax
+        pypto.set_vec_tile_shapes(view_first, num_expert_group, group_unit)
+        max1 = pypto.amax(r1, -1, False)
+        group_weight = max1
 
-            # amax
-            pypto.set_vec_tile_shapes(view_first, num_expert_group, group_unit)
-            max1 = pypto.amax(r1, -1, False)
-            group_weight = max1
+        # topk
+        pypto.set_vec_tile_shapes(view_first, num_expert_group)
+        _, topk_group_indices = pypto.topk(group_weight, topk_group, -1, True)  # (2, topk_group) int32
 
-            # topk
-            pypto.set_vec_tile_shapes(view_first, num_expert_group)
-            _, topk_group_indices = pypto.topk(group_weight, topk_group, -1, True)  # (2, topk_group) int32
+        # zeros -> full(0)
+        topk_group_mask = pypto.full([view_shape[0], num_expert_group], 0.0, group_weight.dtype,
+                                        valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]),
+                                                    num_expert_group])  # (16, 1)
 
-            # zeros -> full(0)
-            topk_group_mask = pypto.full([view_shape[0], num_expert_group], 0.0, group_weight.dtype,
-                                            valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]),
-                                                        num_expert_group])  # (16, 1)
+        # # scatter
+        pypto.set_vec_tile_shapes(view_first, num_expert_group)  # 尾轴不能切
+        topk_group_mask_scatter_trans = pypto.scatter_(topk_group_mask, 1, topk_group_indices, 1.0)
 
-            # # scatter
-            pypto.set_vec_tile_shapes(view_first, num_expert_group)  # 尾轴不能切
-            topk_group_mask_scatter_trans = pypto.scatter_(topk_group_mask, 1, topk_group_indices, 1.0)
+        # unsqueeze
+        pypto.set_vec_tile_shapes(view_first, num_expert_group)
+        twm_unsqueeze = pypto.unsqueeze(topk_group_mask_scatter_trans, -1)  # (bs, neg, 1) fp32
 
-            # unsqueeze
-            pypto.set_vec_tile_shapes(view_first, num_expert_group)
-            twm_unsqueeze = pypto.unsqueeze(topk_group_mask_scatter_trans, -1)  # (bs, neg, 1) fp32
+        # expand
+        pypto.set_vec_tile_shapes(view_first, num_expert_group, 1)
+        twm_expand = pypto.expand_clone(twm_unsqueeze, [view_shape[0], num_expert_group, group_unit],
+                                        valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]),
+                                                        num_expert_group, group_unit])
 
-            # expand
-            pypto.set_vec_tile_shapes(view_first, num_expert_group, 1)
-            twm_expand = pypto.expand_clone(twm_unsqueeze, [view_shape[0], num_expert_group, group_unit],
-                                            valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]),
-                                                            num_expert_group, group_unit])
+        # reshape
+        pypto.set_vec_tile_shapes(view_first, num_expert_group, group_unit)
+        twm_reshape = pypto.reshape(twm_expand,
+                                    [view_shape[0], ne],
+                                    valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]), ne])
 
-            # reshape
-            pypto.set_vec_tile_shapes(view_first, num_expert_group, group_unit)
-            twm_reshape = pypto.reshape(twm_expand,
-                                        [view_shape[0], ne],
-                                        valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]), ne])
+        # logical_not
+        pypto.set_vec_tile_shapes(view_first, ne)
+        twm_not = pypto.logical_not(twm_reshape)
 
-            # logical_not
-            pypto.set_vec_tile_shapes(view_first, ne)
-            twm_not = pypto.logical_not(twm_reshape)
+        # where
+        pypto.set_vec_tile_shapes(view_first, ne)
+        topk_weights_maskfill = pypto.where(twm_not, 0.0, topk_weights_add)
 
-            # where
-            pypto.set_vec_tile_shapes(view_first, ne)
-            topk_weights_maskfill = pypto.where(twm_not, 0.0, topk_weights_add)
+        # topk2
+        pypto.set_vec_tile_shapes(view_first, ne)
+        _, topk_ids = pypto.topk(topk_weights_maskfill, topk, -1, True)  # (bs, topk) int32
 
-            # topk2
-            pypto.set_vec_tile_shapes(view_first, ne)
-            _, topk_ids = pypto.topk(topk_weights_maskfill, topk, -1, True)  # (bs, topk) int32
+        # tw_gather
+        tw_gather = pypto.gather(original_topk_weights, 1, topk_ids)  # (bs, 8)
 
-            # tw_gather
-            tw_gather = pypto.gather(original_topk_weights, 1, topk_ids)  # (bs, 8)
+        # sum & div
+        pypto.set_vec_tile_shapes(view_first, topk)
+        if pypto.cond(pypto.symbolic_scalar(renormalize_flag)):
+            # sum
+            denominator = pypto.sum(tw_gather, -1, True)  # (bs, 1)
+            # div for shape (b*s, topk) (b*s, 1)
+            topk_weight_out = pypto.div(tw_gather, denominator)  # (bs, topk)
+        else:
+            denominator = tw_gather
+            topk_weight_out = denominator
 
-            # sum & div
-            pypto.set_vec_tile_shapes(view_first, topk)
-            if pypto.cond(pypto.symbolic_scalar(renormalize_flag)):
-                # sum
-                denominator = pypto.sum(tw_gather, -1, True)  # (bs, 1)
-                # div for shape (b*s, topk) (b*s, 1)
-                topk_weight_out = pypto.div(tw_gather, denominator)  # (bs, topk)
-            else:
-                denominator = tw_gather
-                topk_weight_out = denominator
+        # row_idx
+        if pypto.cond(pypto.symbolic_scalar(row_ids_flag)):
+            pypto.set_vec_tile_shapes(topk)
+            row_idx_range = pypto.arange(topk)  # 0~topk-1
+            for i in range(view_shape[0]):
+                offset = bs_idx * view_shape[0] + i
+                full_ids_bs = pypto.full([topk], (bs), row_idx.dtype)  # stride = BS
+                row_idx_range_mul = pypto.mul(row_idx_range, full_ids_bs)  # base
+                full_ids_bs_idx = pypto.full([topk], (offset), row_idx.dtype)  # offset
+                row_idx_tmp = pypto.add(full_ids_bs_idx, row_idx_range_mul)
+                row_idx_res = pypto.reshape(row_idx_tmp, [1, topk])
+                row_idx[offset:, 0:] = row_idx_res
 
-            # row_idx
-            if pypto.cond(pypto.symbolic_scalar(row_ids_flag)):
-                pypto.set_vec_tile_shapes(topk)
-                row_idx_range = pypto.arange(topk)  # 0~topk-1
-                for i in range(view_shape[0]):
-                    offset = bs_idx * view_shape[0] + i
-                    full_ids_bs = pypto.full([topk], (bs), row_idx.dtype)  # stride = BS
-                    row_idx_range_mul = pypto.mul(row_idx_range, full_ids_bs)  # base
-                    full_ids_bs_idx = pypto.full([topk], (offset), row_idx.dtype)  # offset
-                    row_idx_tmp = pypto.add(full_ids_bs_idx, row_idx_range_mul)
-                    row_idx_res = pypto.reshape(row_idx_tmp, [1, topk])
-                    row_idx[offset:, 0:] = row_idx_res
-
-            # 8. 将结果搬运到输出tensor上
-            residual_out[bs_idx * view_shape[0]:, 0:] = residual_out_16
-            weight_k[bs_idx * view_shape[0]:, 0:] = topk_weight_out
-            ids_k[bs_idx * view_shape[0]:, 0:] = topk_ids
-
-        bs_loop_func(bs_idx)
+        # 8. 将结果搬运到输出tensor上
+        residual_out[bs_idx * view_shape[0]:, 0:] = residual_out_16
+        weight_k[bs_idx * view_shape[0]:, 0:] = topk_weight_out
+        ids_k[bs_idx * view_shape[0]:, 0:] = topk_ids
 
 
 def gen_add_rms_norm_golden(hidden_states, residual, gamma, bias_input, eps):
@@ -270,7 +267,7 @@ def gen_select_experts_golden(result_mm, e_score_bias, row_idx, bs,
 def select_experts(residual: torch.Tensor,
                    input_norm_eps: float,
                    input_norm_weight: torch.Tensor,  # layer.input_layernorm.weight.data
-                   hidden_states: torch.Tensor,  # Hidden states of shape (num_tokens, hidden_size). 
+                   hidden_states: torch.Tensor,  # Hidden states of shape (num_tokens, hidden_size).
                    gate_weight: torch.Tensor,  # gate matmul weights
                    top_k: int,  # number of top k experts.
                    renormalize: bool,  # Whether to renormalize the routing weights.
@@ -323,7 +320,7 @@ def test_select_experts():
     weight_tensor = torch.rand((h_num), dtype=torch.bfloat16, device=f'npu:{device_id}')
     bias_input = torch.rand((h_num), dtype=torch.bfloat16, device=f'npu:{device_id}')
 
-    # matmul 
+    # matmul
     mm_weight = torch.rand((ne, h_num), dtype=torch.float32, device=f'npu:{device_id}')
 
     # select_experts

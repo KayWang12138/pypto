@@ -90,353 +90,297 @@ def selected_attention_compute(args: SAInputs):
     output_tensors = [attention_out]
 
     with pypto.function("SA_MAIN", input_tensors, output_tensors):
-
-        def inside_main_function():
-            for b_idx in pypto.loop(
-                0,
-                batch_size_sym,
-                1,
-                name="LOOP_L0_b_SA",
-                idx_name="bIdx",
-                submit_before_loop=True,
+        for b_idx in pypto.loop(
+            0,
+            batch_size_sym,
+            1,
+            name="LOOP_L0_b_SA",
+            idx_name="bIdx",
+            submit_before_loop=True,
+        ):
+            cur_kv_slc_seq = kv_slc_act_seqs[b_idx]
+            for s1_idx in pypto.loop(
+                0, s1_sym, 1, name="LOOP_L1_s1_SA", idx_name="s1Idx"
             ):
-
-                def inside_b_idx_loop(b_idx):
-                    cur_kv_slc_seq = kv_slc_act_seqs[b_idx]
-                    for s1_idx in pypto.loop(
-                        0, s1_sym, 1, name="LOOP_L1_s1_SA", idx_name="s1Idx"
+                cur_seq = (
+                    (cur_kv_slc_seq - s1_sym + 1 + s1_idx)
+                    .max(0)
+                    .min(params.topk)
+                )
+                cur_seq.as_variable()
+                bn_per_batch = (cur_seq + s2_tile - 1) // s2_tile
+                for n2_idx in pypto.loop(
+                    0, n2_sym, 1, name="LOOP_L2_n2_SA", idx_name="n2Idx"
+                ):
+                    for g_idx in pypto.loop(
+                        0,
+                        g_loop_sym,
+                        1,
+                        name="LOOP_L3_g_SA",
+                        idx_name="gIdx",
                     ):
-
-                        def inside_s1_idx_loop(b_idx, s1_idx):
-                            cur_seq = (
-                                (cur_kv_slc_seq - s1_sym + 1 + s1_idx)
-                                .max(0)
-                                .min(params.topk)
+                        cur_g_tile = g_tile
+                        oi_update = pypto.tensor(
+                            [cur_g_tile, d_n],
+                            pypto.DT_FP32,
+                            "oiUpdate",
+                        )
+                        li_update = pypto.tensor(
+                            [cur_g_tile, 1],
+                            pypto.DT_FP32,
+                            "liUpdate",
+                        )
+                        mi_update = pypto.tensor(
+                            [cur_g_tile, 1],
+                            pypto.DT_FP32,
+                            "miUpdate",
+                        )
+                        curr_offset = (
+                            b_idx * s1n2g_sym * s1_idx * params.n_q
+                            + n2_idx * group
+                            + g_idx * cur_g_tile
+                        )
+                        oi_offset = [
+                            b_idx,
+                            s1_idx,
+                            n2_idx * group + g_idx * cur_g_tile,
+                            0,
+                        ]
+                        for s2_idx in pypto.loop(
+                            0,
+                            bn_per_batch,
+                            1,
+                            name="LOOP_L4_s2_SA",
+                            idx_name="s2Idx",
+                        ):
+                            cur_s2_tile = s2_tile
+                            cur_kv_offset = (
+                                b_idx * s1s2_sym
+                                + s1_idx * s2_sym
+                                + s2_idx * cur_s2_tile
                             )
-                            cur_seq.as_variable()
-                            bn_per_batch = (cur_seq + s2_tile - 1) // s2_tile
-                            for n2_idx in pypto.loop(
-                                0, n2_sym, 1, name="LOOP_L2_n2_SA", idx_name="n2Idx"
+                            pypto.set_semantic_label("Sa")
+                            qn = pypto.view(
+                                q_nope,
+                                [cur_g_tile, d_n],
+                                [curr_offset, 0],
+                                valid_shape=[cur_g_tile, d_n],
+                            )
+                            qr = pypto.view(
+                                q_rope,
+                                [cur_g_tile, d_r],
+                                [curr_offset, 0],
+                                valid_shape=[cur_g_tile, d_r],
+                            )
+                            qi = pypto.tensor(
+                                [cur_g_tile, d_n + d_r],
+                                dtype,
+                                "qi",
+                            )
+                            pypto.assemble(qn, [0, 0], qi)
+                            pypto.assemble(qr, [0, d_n], qi)
+                            kj = pypto.view(
+                                k_slc,
+                                [cur_s2_tile, d_n + d_r],
+                                [cur_kv_offset, 0],
+                                valid_shape=[
+                                    (
+                                        cur_seq
+                                        - s2_idx * cur_s2_tile
+                                    ).min(cur_s2_tile),
+                                    d_n + d_r,
+                                ],
+                            )
+                            vj = pypto.view(
+                                v_slc,
+                                [cur_s2_tile, d_n],
+                                [cur_kv_offset, 0],
+                                valid_shape=[
+                                    (
+                                        cur_seq
+                                        - s2_idx * cur_s2_tile
+                                    ).min(cur_s2_tile),
+                                    d_n,
+                                ],
+                            )
+                            pypto.set_cube_tile_shapes(
+                                c1_tile[0],
+                                c1_tile[1],
+                                c1_tile[2],
+                                False,
+                            )
+                            pypto.set_semantic_label("Sa_QkMM")
+                            pypto.set_matrix_size(
+                                [qi.shape[0], 0, kj.shape[0]]
+                            )
+                            sij = pypto.matmul(
+                                qi,
+                                kj,
+                                pypto.DT_FP32,
+                                b_trans=True,
+                            )
+                            pypto.set_semantic_label("Sa_Qkvec1")
+                            pypto.set_vec_tile_shapes(
+                                v1_tile[0], v1_tile[1]
+                            )
+                            sij_scale = (
+                                sij * params.softmax_scale
+                            )
+                            tilda_mij = pypto.amax(sij_scale, -1, True)
+                            tsub = sij_scale - tilda_mij
+                            tilda_pij = pypto.exp(tsub)
+                            tilda_pij_f16 = pypto.cast(
+                                tilda_pij, dtype
+                            )
+                            tilda_lij = pypto.sum(tilda_pij, -1, True)
+                            if pypto.cond(
+                                pypto.is_loop_begin(s2_idx)
                             ):
-
-                                def inside_n2_idx_loop(
-                                    b_idx, s1_idx, n2_idx, bn_per_batch
+                                pypto.set_cube_tile_shapes(
+                                    c2_tile[0],
+                                    c2_tile[1],
+                                    c2_tile[2],
+                                    False,
+                                )
+                                pypto.set_semantic_label(
+                                    "Sa_KvMm"
+                                )
+                                pypto.set_matrix_size(
+                                    [
+                                        tilda_pij_f16.shape[
+                                            0
+                                        ],
+                                        tilda_pij_f16.shape[
+                                            1
+                                        ],
+                                        vj.shape[1],
+                                    ]
+                                )
+                                oi_tmp = pypto.matmul(
+                                    tilda_pij_f16,
+                                    vj,
+                                    pypto.DT_FP32,
+                                )
+                                pypto.set_vec_tile_shapes(
+                                    v2_tile[0], v2_tile[1]
+                                )
+                                if pypto.cond(
+                                    pypto.is_loop_end(s2_idx)
                                 ):
-                                    for g_idx in pypto.loop(
-                                        0,
-                                        g_loop_sym,
+                                    pypto.set_semantic_label(
+                                        "Sa_KvVec2"
+                                    )
+                                    oi_update[:] = (
+                                        oi_tmp / tilda_lij
+                                    )
+                                    pypto.set_vec_tile_shapes(
                                         1,
-                                        name="LOOP_L3_g_SA",
-                                        idx_name="gIdx",
-                                    ):
-
-                                        def inside_g_idx_loop(
-                                            b_idx, s1_idx, n2_idx, g_idx, bn_per_batch
-                                        ):
-                                            cur_g_tile = g_tile
-                                            oi_update = pypto.tensor(
-                                                [cur_g_tile, d_n],
-                                                pypto.DT_FP32,
-                                                "oiUpdate",
-                                            )
-                                            li_update = pypto.tensor(
-                                                [cur_g_tile, 1],
-                                                pypto.DT_FP32,
-                                                "liUpdate",
-                                            )
-                                            mi_update = pypto.tensor(
-                                                [cur_g_tile, 1],
-                                                pypto.DT_FP32,
-                                                "miUpdate",
-                                            )
-                                            curr_offset = (
-                                                b_idx * s1n2g_sym * s1_idx * params.n_q
-                                                + n2_idx * group
-                                                + g_idx * cur_g_tile
-                                            )
-                                            oi_offset = [
-                                                b_idx,
-                                                s1_idx,
-                                                n2_idx * group + g_idx * cur_g_tile,
-                                                0,
-                                            ]
-                                            for s2_idx in pypto.loop(
-                                                0,
-                                                bn_per_batch,
+                                        1,
+                                        v2_tile[0],
+                                        v2_tile[1],
+                                    )
+                                    oi_update_4dim = pypto.cast(
+                                        pypto.reshape(
+                                            oi_update,
+                                            [
                                                 1,
-                                                name="LOOP_L4_s2_SA",
-                                                idx_name="s2Idx",
-                                            ):
-
-                                                def inside_s2_idx_loop(
-                                                    b_idx,
-                                                    s1_idx,
-                                                    s2_idx,
-                                                    bn_per_batch,
-                                                    cur_g_tile,
-                                                    curr_offset,
-                                                    oi_offset,
-                                                ):
-                                                    cur_s2_tile = s2_tile
-                                                    cur_kv_offset = (
-                                                        b_idx * s1s2_sym
-                                                        + s1_idx * s2_sym
-                                                        + s2_idx * cur_s2_tile
-                                                    )
-                                                    pypto.set_semantic_label("Sa")
-                                                    qn = pypto.view(
-                                                        q_nope,
-                                                        [cur_g_tile, d_n],
-                                                        [curr_offset, 0],
-                                                        valid_shape=[cur_g_tile, d_n],
-                                                    )
-                                                    qr = pypto.view(
-                                                        q_rope,
-                                                        [cur_g_tile, d_r],
-                                                        [curr_offset, 0],
-                                                        valid_shape=[cur_g_tile, d_r],
-                                                    )
-                                                    qi = pypto.tensor(
-                                                        [cur_g_tile, d_n + d_r],
-                                                        dtype,
-                                                        "qi",
-                                                    )
-                                                    pypto.assemble(qn, [0, 0], qi)
-                                                    pypto.assemble(qr, [0, d_n], qi)
-                                                    kj = pypto.view(
-                                                        k_slc,
-                                                        [cur_s2_tile, d_n + d_r],
-                                                        [cur_kv_offset, 0],
-                                                        valid_shape=[
-                                                            (
-                                                                cur_seq
-                                                                - s2_idx * cur_s2_tile
-                                                            ).min(cur_s2_tile),
-                                                            d_n + d_r,
-                                                        ],
-                                                    )
-                                                    vj = pypto.view(
-                                                        v_slc,
-                                                        [cur_s2_tile, d_n],
-                                                        [cur_kv_offset, 0],
-                                                        valid_shape=[
-                                                            (
-                                                                cur_seq
-                                                                - s2_idx * cur_s2_tile
-                                                            ).min(cur_s2_tile),
-                                                            d_n,
-                                                        ],
-                                                    )
-                                                    pypto.set_cube_tile_shapes(
-                                                        c1_tile[0],
-                                                        c1_tile[1],
-                                                        c1_tile[2],
-                                                        False,
-                                                    )
-                                                    pypto.set_semantic_label("Sa_QkMM")
-                                                    pypto.set_matrix_size(
-                                                        [qi.shape[0], 0, kj.shape[0]]
-                                                    )
-                                                    sij = pypto.matmul(
-                                                        qi,
-                                                        kj,
-                                                        pypto.DT_FP32,
-                                                        b_trans=True,
-                                                    )
-                                                    pypto.set_semantic_label("Sa_Qkvec1")
-                                                    pypto.set_vec_tile_shapes(
-                                                        v1_tile[0], v1_tile[1]
-                                                    )
-                                                    sij_scale = (
-                                                        sij * params.softmax_scale
-                                                    )
-                                                    tilda_mij = pypto.amax(sij_scale, -1, True)
-                                                    tsub = sij_scale - tilda_mij
-                                                    tilda_pij = pypto.exp(tsub)
-                                                    tilda_pij_f16 = pypto.cast(
-                                                        tilda_pij, dtype
-                                                    )
-                                                    tilda_lij = pypto.sum(tilda_pij, -1, True)
-                                                    if pypto.cond(
-                                                        pypto.is_loop_begin(s2_idx)
-                                                    ):
-
-                                                        def inside_if_loop_begin():
-                                                            nonlocal oi_update, li_update, mi_update
-                                                            pypto.set_cube_tile_shapes(
-                                                                c2_tile[0],
-                                                                c2_tile[1],
-                                                                c2_tile[2],
-                                                                False,
-                                                            )
-                                                            pypto.set_semantic_label(
-                                                                "Sa_KvMm"
-                                                            )
-                                                            pypto.set_matrix_size(
-                                                                [
-                                                                    tilda_pij_f16.shape[
-                                                                        0
-                                                                    ],
-                                                                    tilda_pij_f16.shape[
-                                                                        1
-                                                                    ],
-                                                                    vj.shape[1],
-                                                                ]
-                                                            )
-                                                            oi_tmp = pypto.matmul(
-                                                                tilda_pij_f16,
-                                                                vj,
-                                                                pypto.DT_FP32,
-                                                            )
-                                                            pypto.set_vec_tile_shapes(
-                                                                v2_tile[0], v2_tile[1]
-                                                            )
-                                                            if pypto.cond(
-                                                                pypto.is_loop_end(s2_idx)
-                                                            ):
-                                                                pypto.set_semantic_label(
-                                                                    "Sa_KvVec2"
-                                                                )
-                                                                oi_update[:] = (
-                                                                    oi_tmp / tilda_lij
-                                                                )
-                                                                pypto.set_vec_tile_shapes(
-                                                                    1,
-                                                                    1,
-                                                                    v2_tile[0],
-                                                                    v2_tile[1],
-                                                                )
-                                                                oi_update_4dim = pypto.cast(
-                                                                    pypto.reshape(
-                                                                        oi_update,
-                                                                        [
-                                                                            1,
-                                                                            1,
-                                                                            cur_g_tile,
-                                                                            d_n,
-                                                                        ],
-                                                                    ),
-                                                                    q_nope.dtype,
-                                                                )
-                                                                pypto.assemble(
-                                                                    oi_update_4dim,
-                                                                    oi_offset,
-                                                                    attention_out,
-                                                                )
-                                                            else:
-                                                                oi_update[:] = oi_tmp
-                                                            li_update[:] = tilda_lij
-                                                            mi_update[:] = tilda_mij
-
-                                                        inside_if_loop_begin()
-                                                    else:
-
-                                                        def inside_else_loop_begin():
-                                                            nonlocal oi_update, li_update, mi_update
-                                                            pypto.set_semantic_label(
-                                                                "Sa_UpdateVec2"
-                                                            )
-                                                            oi = oi_update
-                                                            li = li_update
-                                                            mi = mi_update
-                                                            mi_new = pypto.maximum(
-                                                                mi, tilda_mij
-                                                            )
-                                                            t1 = mi - mi_new
-                                                            t2 = pypto.exp(t1)
-                                                            t3 = tilda_mij - mi_new
-                                                            t4 = pypto.exp(t3)
-                                                            t5 = t4 * tilda_lij
-                                                            t6 = t2 * li
-                                                            li_new = t6 + t5
-                                                            q3 = oi * t2
-                                                            pypto.set_cube_tile_shapes(
-                                                                c2_tile[0],
-                                                                c2_tile[1],
-                                                                c2_tile[2],
-                                                                False,
-                                                            )
-                                                            pypto.set_semantic_label(
-                                                                "Sa_UpdateMM2"
-                                                            )
-                                                            pypto.set_matrix_size(
-                                                                [
-                                                                    tilda_pij_f16.shape[
-                                                                        0
-                                                                    ],
-                                                                    tilda_pij_f16.shape[
-                                                                        1
-                                                                    ],
-                                                                    vj.shape[1],
-                                                                ]
-                                                            )
-                                                            q1 = pypto.matmul(
-                                                                tilda_pij_f16,
-                                                                vj,
-                                                                pypto.DT_FP32,
-                                                            )
-                                                            pypto.set_vec_tile_shapes(
-                                                                v2_tile[0], v2_tile[1]
-                                                            )
-                                                            q2 = q1 * t4
-                                                            oi_tmp = q3 + q2
-                                                            if pypto.cond(
-                                                                pypto.is_loop_end(s2_idx)
-                                                            ):
-                                                                oi_update[:] = (
-                                                                    oi_tmp / li_new
-                                                                )
-                                                                pypto.set_vec_tile_shapes(
-                                                                    1,
-                                                                    1,
-                                                                    v2_tile[0],
-                                                                    v2_tile[1],
-                                                                )
-                                                                oi_update_4dim = pypto.cast(
-                                                                    pypto.reshape(
-                                                                        oi_update,
-                                                                        [
-                                                                            1,
-                                                                            1,
-                                                                            cur_g_tile,
-                                                                            d_n,
-                                                                        ],
-                                                                    ),
-                                                                    q_nope.dtype,
-                                                                )
-                                                                pypto.assemble(
-                                                                    oi_update_4dim,
-                                                                    oi_offset,
-                                                                    attention_out,
-                                                                )
-                                                            else:
-                                                                oi_update[:] = oi_tmp
-                                                            li_update[:] = li_new
-                                                            mi_update[:] = mi_new
-
-                                                        inside_else_loop_begin()
-
-                                                inside_s2_idx_loop(
-                                                    b_idx,
-                                                    s1_idx,
-                                                    s2_idx,
-                                                    bn_per_batch,
-                                                    cur_g_tile,
-                                                    curr_offset,
-                                                    oi_offset,
-                                                )
-
-                                        inside_g_idx_loop(
-                                            b_idx, s1_idx, n2_idx, g_idx, bn_per_batch
-                                        )
-
-                                inside_n2_idx_loop(b_idx, s1_idx, n2_idx, bn_per_batch)
-
-                        inside_s1_idx_loop(b_idx, s1_idx)
-
-                inside_b_idx_loop(b_idx)
-
-        inside_main_function()
+                                                1,
+                                                cur_g_tile,
+                                                d_n,
+                                            ],
+                                        ),
+                                        q_nope.dtype,
+                                    )
+                                    pypto.assemble(
+                                        oi_update_4dim,
+                                        oi_offset,
+                                        attention_out,
+                                    )
+                                else:
+                                    oi_update[:] = oi_tmp
+                                li_update[:] = tilda_lij
+                                mi_update[:] = tilda_mij
+                            else:
+                                pypto.set_semantic_label(
+                                    "Sa_UpdateVec2"
+                                )
+                                oi = oi_update
+                                li = li_update
+                                mi = mi_update
+                                mi_new = pypto.maximum(
+                                    mi, tilda_mij
+                                )
+                                t1 = mi - mi_new
+                                t2 = pypto.exp(t1)
+                                t3 = tilda_mij - mi_new
+                                t4 = pypto.exp(t3)
+                                t5 = t4 * tilda_lij
+                                t6 = t2 * li
+                                li_new = t6 + t5
+                                q3 = oi * t2
+                                pypto.set_cube_tile_shapes(
+                                    c2_tile[0],
+                                    c2_tile[1],
+                                    c2_tile[2],
+                                    False,
+                                )
+                                pypto.set_semantic_label(
+                                    "Sa_UpdateMM2"
+                                )
+                                pypto.set_matrix_size(
+                                    [
+                                        tilda_pij_f16.shape[
+                                            0
+                                        ],
+                                        tilda_pij_f16.shape[
+                                            1
+                                        ],
+                                        vj.shape[1],
+                                    ]
+                                )
+                                q1 = pypto.matmul(
+                                    tilda_pij_f16,
+                                    vj,
+                                    pypto.DT_FP32,
+                                )
+                                pypto.set_vec_tile_shapes(
+                                    v2_tile[0], v2_tile[1]
+                                )
+                                q2 = q1 * t4
+                                oi_tmp = q3 + q2
+                                if pypto.cond(
+                                    pypto.is_loop_end(s2_idx)
+                                ):
+                                    oi_update[:] = (
+                                        oi_tmp / li_new
+                                    )
+                                    pypto.set_vec_tile_shapes(
+                                        1,
+                                        1,
+                                        v2_tile[0],
+                                        v2_tile[1],
+                                    )
+                                    oi_update_4dim = pypto.cast(
+                                        pypto.reshape(
+                                            oi_update,
+                                            [
+                                                1,
+                                                1,
+                                                cur_g_tile,
+                                                d_n,
+                                            ],
+                                        ),
+                                        q_nope.dtype,
+                                    )
+                                    pypto.assemble(
+                                        oi_update_4dim,
+                                        oi_offset,
+                                        attention_out,
+                                    )
+                                else:
+                                    oi_update[:] = oi_tmp
+                                li_update[:] = li_new
+                                mi_update[:] = mi_new
 
 
 @dataclass

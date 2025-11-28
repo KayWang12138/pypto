@@ -307,198 +307,194 @@ def lightning_indexer_prolog_impl(args: LightningIndexerPrologArgs):
         idx_name="bsIdx",
         unroll_list=unroll_list,
     ):
+        tile_bs = unroll_length
+        act_bs = tile_bs
 
-        def inner(b_idx, unroll_length):
-            tile_bs = unroll_length
-            act_bs = tile_bs
+        pypto.set_semantic_label("QMatmul")
+        pypto.set_cube_tile_shapes(
+            tile_cfg.c1_tile[0],
+            tile_cfg.c1_tile[1],
+            tile_cfg.c1_tile[2],
+            True,
+        )
 
-            pypto.set_semantic_label("QMatmul")
-            pypto.set_cube_tile_shapes(
-                tile_cfg.c1_tile[0],
-                tile_cfg.c1_tile[1],
-                tile_cfg.c1_tile[2],
-                True,
-            )
+        qr_block = pypto.view(
+            qr_2d,
+            [tile_bs, q_lora_rank],
+            [b_idx, 0],
+            valid_shape=[act_bs, q_lora_rank],
+        )
 
-            qr_block = pypto.view(
-                qr_2d,
-                [tile_bs, q_lora_rank],
-                [b_idx, 0],
-                valid_shape=[act_bs, q_lora_rank],
-            )
+        q_32 = pypto.matmul(qr_block, q_w, pypto.DataType.DT_FP32)
 
-            q_32 = pypto.matmul(qr_block, q_w, pypto.DataType.DT_FP32)
+        pypto.set_semantic_label("QCast")
+        pypto.set_vec_tile_shapes(
+            pypto.symbolic_scalar(tile_bs).min(4),
+            NUM_64,
+            tile_cfg.v1_tile[NUM_1],
+        )
 
-            pypto.set_semantic_label("QCast")
-            pypto.set_vec_tile_shapes(
-                pypto.symbolic_scalar(tile_bs).min(4),
-                NUM_64,
-                tile_cfg.v1_tile[NUM_1],
-            )
+        q = pypto.cast(
+            pypto.reshape(q_32, [tile_bs, head_num, head_dim]),
+            qr_block.dtype,
+        )
 
-            q = pypto.cast(
-                pypto.reshape(q_32, [tile_bs, head_num, head_dim]),
-                qr_block.dtype,
-            )
+        q_rope = pypto.view(
+            q,
+            [tile_bs, head_num, rope_head_dim],
+            [0, 0, 0],
+            valid_shape=[act_bs, head_num, rope_head_dim],
+        )
+        q_nope = pypto.view(
+            q,
+            [tile_bs, head_num, head_dim - rope_head_dim],
+            [0, 0, rope_head_dim],
+            valid_shape=[
+                act_bs,
+                head_num,
+                head_dim - rope_head_dim,
+            ],
+        )
 
-            q_rope = pypto.view(
-                q,
-                [tile_bs, head_num, rope_head_dim],
-                [0, 0, 0],
-                valid_shape=[act_bs, head_num, rope_head_dim],
-            )
-            q_nope = pypto.view(
-                q,
-                [tile_bs, head_num, head_dim - rope_head_dim],
-                [0, 0, rope_head_dim],
-                valid_shape=[
-                    act_bs,
-                    head_num,
-                    head_dim - rope_head_dim,
-                ],
-            )
+        q_nope[:] = pypto.cast(
+            pypto.cast(q_nope, pypto.DataType.DT_FP32), q_nope.dtype
+        )
 
-            q_nope[:] = pypto.cast(
-                pypto.cast(q_nope, pypto.DataType.DT_FP32), q_nope.dtype
-            )
+        pypto.set_semantic_label("KMatmul")
+        pypto.set_cube_tile_shapes(
+            tile_cfg.c2_tile[0],
+            tile_cfg.c2_tile[1],
+            tile_cfg.c2_tile[2],
+            True,
+        )
 
-            pypto.set_semantic_label("KMatmul")
-            pypto.set_cube_tile_shapes(
-                tile_cfg.c2_tile[0],
-                tile_cfg.c2_tile[1],
-                tile_cfg.c2_tile[2],
-                True,
-            )
+        pypto.set_vec_tile_shapes(
+            tile_cfg.v1_tile[NUM_0],
+            tile_cfg.v1_tile[NUM_1],
+            tile_cfg.v1_tile[NUM_1],
+        )
 
-            pypto.set_vec_tile_shapes(
-                tile_cfg.v1_tile[NUM_0],
-                tile_cfg.v1_tile[NUM_1],
-                tile_cfg.v1_tile[NUM_1],
-            )
+        x_block = pypto.view(
+            x_2d,
+            [tile_bs, dim],
+            [b_idx, 0],
+            valid_shape=[act_bs, dim],
+        )
 
-            x_block = pypto.view(
-                x_2d,
-                [tile_bs, dim],
-                [b_idx, 0],
-                valid_shape=[act_bs, dim],
-            )
+        weights = pypto.matmul(x_block, proj_w, x_block.dtype)
+        pypto.assemble(weights, [b_idx, 0], weight)
 
-            weights = pypto.matmul(x_block, proj_w, x_block.dtype)
-            pypto.assemble(weights, [b_idx, 0], weight)
+        k = pypto.matmul(x_block, k_w, pypto.DataType.DT_FP32)
 
-            k = pypto.matmul(x_block, k_w, pypto.DataType.DT_FP32)
+        k[:] = pypto.cast(
+            layer_norm(k, ln_w_2d, ln_b_2d, -1),
+            x_block.dtype,
+        )
 
-            k[:] = pypto.cast(
-                layer_norm(k, ln_w_2d, ln_b_2d, -1),
-                x_block.dtype,
-            )
+        k_rope = pypto.view(
+            k,
+            [tile_bs, rope_head_dim],
+            [0, 0],
+            valid_shape=[act_bs, rope_head_dim],
+        )
+        k_nope = pypto.view(
+            k,
+            [tile_bs, head_dim - rope_head_dim],
+            [0, rope_head_dim],
+            valid_shape=[
+                act_bs,
+                head_dim - rope_head_dim,
+            ],
+        )
 
-            k_rope = pypto.view(
-                k,
-                [tile_bs, rope_head_dim],
-                [0, 0],
-                valid_shape=[act_bs, rope_head_dim],
-            )
-            k_nope = pypto.view(
-                k,
-                [tile_bs, head_dim - rope_head_dim],
-                [0, rope_head_dim],
-                valid_shape=[
-                    act_bs,
-                    head_dim - rope_head_dim,
-                ],
-            )
+        pypto.set_vec_tile_shapes(
+            tile_cfg.v1_tile[NUM_0],
+            tile_cfg.v1_tile[NUM_1],
+            tile_cfg.v1_tile[NUM_2],
+        )
+        cos_2d[:] = pypto.view(
+            cos_2d,
+            [tile_bs, rope_head_dim],
+            [b_idx, 0],
+            valid_shape=[act_bs, rope_head_dim],
+        )
+        sin_2d[:] = pypto.view(
+            sin_2d,
+            [tile_bs, rope_head_dim],
+            [b_idx, 0],
+            valid_shape=[act_bs, rope_head_dim],
+        )
 
-            pypto.set_vec_tile_shapes(
-                tile_cfg.v1_tile[NUM_0],
-                tile_cfg.v1_tile[NUM_1],
-                tile_cfg.v1_tile[NUM_2],
-            )
-            cos_2d[:] = pypto.view(
-                cos_2d,
-                [tile_bs, rope_head_dim],
-                [b_idx, 0],
-                valid_shape=[act_bs, rope_head_dim],
-            )
-            sin_2d[:] = pypto.view(
-                sin_2d,
-                [tile_bs, rope_head_dim],
-                [b_idx, 0],
-                valid_shape=[act_bs, rope_head_dim],
-            )
+        pypto.set_semantic_label("QRope")
+        q_roped = rope_3d(
+            q_rope,
+            cos_2d,
+            sin_2d,
+            tile_cfg,
+        )
 
-            pypto.set_semantic_label("QRope")
-            q_roped = rope_3d(
-                q_rope,
-                cos_2d,
-                sin_2d,
-                tile_cfg,
-            )
+        pypto.set_semantic_label("KRope")
+        pypto.set_vec_tile_shapes(
+            tile_cfg.v1_tile[NUM_0],
+            tile_cfg.v1_tile[NUM_1],
+        )
+        k_roped = rope(
+            k_rope,
+            cos_2d,
+            sin_2d,
+            tile_cfg,
+        )
 
-            pypto.set_semantic_label("KRope")
-            pypto.set_vec_tile_shapes(
-                tile_cfg.v1_tile[NUM_0],
-                tile_cfg.v1_tile[NUM_1],
-            )
-            k_roped = rope(
-                k_rope,
-                cos_2d,
-                sin_2d,
-                tile_cfg,
-            )
+        pypto.set_semantic_label("KAssemble")
+        pypto.set_vec_tile_shapes(
+            tile_bs,
+            NUM_128,
+            NUM_128,
+            NUM_128,
+        )
+        pypto.assemble(
+            q_roped,
+            [b_idx, 0, 0],
+            query,
+        )
+        pypto.assemble(
+            q_nope,
+            [b_idx, 0, rope_head_dim],
+            query,
+        )
 
-            pypto.set_semantic_label("KAssemble")
-            pypto.set_vec_tile_shapes(
-                tile_bs,
-                NUM_128,
-                NUM_128,
-                NUM_128,
-            )
-            pypto.assemble(
-                q_roped,
-                [b_idx, 0, 0],
-                query,
-            )
-            pypto.assemble(
-                q_nope,
-                [b_idx, 0, rope_head_dim],
-                query,
-            )
+        pypto.set_vec_tile_shapes(tile_bs, NUM_128 * NUM_2)
+        k_type = k_nope.dtype
+        k_nope[:] = pypto.cast(
+            pypto.cast(k_nope, pypto.DataType.DT_FP32),
+            k_type,
+        )
 
-            pypto.set_vec_tile_shapes(tile_bs, NUM_128 * NUM_2)
-            k_type = k_nope.dtype
-            k_nope[:] = pypto.cast(
-                pypto.cast(k_nope, pypto.DataType.DT_FP32),
-                k_type,
-            )
+        k_update = pypto.concat([k_roped, k_nope], -1)
+        k_update_4d = pypto.reshape(
+            k_update,
+            [tile_bs, 1, 1, head_dim],
+        )
 
-            k_update = pypto.concat([k_roped, k_nope], -1)
-            k_update_4d = pypto.reshape(
-                k_update,
-                [tile_bs, 1, 1, head_dim],
-            )
+        index = pypto.view(
+            k_cache_index,
+            [tile_bs, 1],
+            [b_idx, 0],
+            valid_shape=[act_bs, 1],
+        )
 
-            index = pypto.view(
-                k_cache_index,
-                [tile_bs, 1],
-                [b_idx, 0],
-                valid_shape=[act_bs, 1],
-            )
-
-            pypto.set_vec_tile_shapes(
-                tile_bs,
-                NUM_128,
-                NUM_128,
-                NUM_128,
-            )
-            k_cache_out[:] = pypto.scatter_update(
-                k_cache,
-                -2,
-                index,
-                k_update_4d,
-            )
-
-        inner(b_idx, unroll_length)
+        pypto.set_vec_tile_shapes(
+            tile_bs,
+            NUM_128,
+            NUM_128,
+            NUM_128,
+        )
+        k_cache_out[:] = pypto.scatter_update(
+            k_cache,
+            -2,
+            index,
+            k_update_4d,
+        )
 
 
 def lightning_indexer_prolog_inner(args: LightningIndexerPrologArgs):
@@ -525,11 +521,7 @@ def lightning_indexer_prolog_inner(args: LightningIndexerPrologArgs):
         output_tensors,
         inplace_tensors,
     ):
-
-        def inside_main():
-            lightning_indexer_prolog_impl(args)
-
-        inside_main()
+        lightning_indexer_prolog_impl(args)
 
 
 def setup_lightning_indexer_prolog_config():

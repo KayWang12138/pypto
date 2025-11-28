@@ -73,22 +73,18 @@ def select_experts_mm(in_tensors, out_tensors):
 
     # 5. 实现kernel逻辑，循环展开BS动态轴
     for bs_idx in pypto.loop(bs_loop, name="LOOP_MOEGATE_MM_L0", idx_name="bs_idx"):
-        def bs_loop_func(bs_idx):
-            # 6. 通过view得到tile_logits
-            tile_hidden_states = pypto.view(hidden_states, view_shape,
-                                            [bs_idx * view_shape[0], 0],
-                                            valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]),
-                                                            h_num])
+        # 6. 通过view得到tile_logits
+        tile_hidden_states = pypto.view(hidden_states, view_shape,
+                                        [bs_idx * view_shape[0], 0],
+                                        valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]),
+                                                        h_num])
 
-            pypto.set_cube_tile_shapes([64, 64], [128, 128], [128, 128])
+        pypto.set_cube_tile_shapes([64, 64], [128, 128], [128, 128])
 
-            res = pypto.matmul(tile_hidden_states, mm_weight, tile_hidden_states.dtype, b_trans=True)
+        res = pypto.matmul(tile_hidden_states, mm_weight, tile_hidden_states.dtype, b_trans=True)
 
-            # 7. 将结果搬运到输出tensor上
-            router_logits_out[bs_idx * view_shape[0]:, 0:] = res
-
-        bs_loop_func(bs_idx)
-
+        # 7. 将结果搬运到输出tensor上
+        router_logits_out[bs_idx * view_shape[0]:, 0:] = res
 
 
 def test_select_experts_mm():

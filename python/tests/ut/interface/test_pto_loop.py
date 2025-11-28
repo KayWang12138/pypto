@@ -224,11 +224,9 @@ def test_loop_manual_unroll():
     with pypto.function("MAIN", [A], [B]):
         pypto.set_vec_tile_shapes(64, 64)
         for b, k in pypto.loop_unroll(A.shape[0] // 64, unroll_list=[1, 2, 4]):
-            def inner(nb, nk):
-                tile_a = A[nb * 64:(nb + nk) * 64, :]
-                tile_a = tile_a + 2
-                B[nb * 64:, :] = tile_a
-            inner(b, k)
+            tile_a = A[b * 64:(b + k) * 64, :]
+            tile_a = tile_a + 2
+            B[b * 64:, :] = tile_a
 
     pypto.runtime._device_fini()
 
@@ -243,9 +241,6 @@ def test_loop_manual_unroll_const():
         pypto.set_vec_tile_shapes(64, 64)
         for _, k in pypto.loop_unroll(1, 8, unroll_list=[1, 2, 4]):
             k_list.append(k)
-
-            def inner():
-                B[:] = A + 1
-            inner()
+            B[:] = A + 1
     assert k_list == [4, 2, 1]
     pypto.runtime._device_fini()

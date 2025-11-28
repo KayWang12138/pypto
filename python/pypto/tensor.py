@@ -57,6 +57,10 @@ class Tensor:
         return self._base.Dim()
 
     @property
+    def id(self) -> int:
+        return self._base.Id()
+
+    @property
     def format(self) -> TileOpFormat:
         return self._base.Format()
 

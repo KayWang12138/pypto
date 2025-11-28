@@ -144,244 +144,228 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
             )
 
     for b_idx in pypto.loop(0, b, 1, name="INDEX_LOOP_BATCH", idx_name="bIdx"):
+        cur_seq = act_seq_key[b_idx]
+        for s1_idx in pypto.loop(0, s1, 1, name="INDEX_LOOP_S1", idx_name="s1Idx"):
+            causal_offset = s1 - s1_idx - 1
+            eff_seq = cur_seq - causal_offset
+            act_block = (eff_seq + block_size - 1) // block_size
+            for n2_idx in pypto.loop(
+                0, n2, 1, name="INDEX_LOOP_N2", idx_name="n2Idx"
+            ):
+                bs1n2_offset = b_idx * s1 * n2 + s1_idx * n2 + n2_idx
+                q_offset = (
+                    b_idx * s1 * index_n1
+                    + s1_idx * index_n1
+                    + n2_idx * group
+                )
 
-        def _inside_b(b_idx):
-            cur_seq = act_seq_key[b_idx]
-            for s1_idx in pypto.loop(0, s1, 1, name="INDEX_LOOP_S1", idx_name="s1Idx"):
+                def unrolling_process(
+                    unroll_length: int,
+                    first_block_idx: pypto.symbolic_scalar,
+                    b_idx,
+                    s1_idx,
+                    n2_idx,
+                    eff_seq,
+                    bs1n2_offset,
+                    q_offset,
+                ):
+                    cur_q = pypto.view(
+                        query_2d, [group, index_d], [q_offset, 0]
+                    )
 
-                def _inside_s1(s1_idx):
-                    causal_offset = s1 - s1_idx - 1
-                    eff_seq = cur_seq - causal_offset
-                    act_block = (eff_seq + block_size - 1) // block_size
-                    for n2_idx in pypto.loop(
-                        0, n2, 1, name="INDEX_LOOP_N2", idx_name="n2Idx"
-                    ):
+                    concat_srcs = []
 
-                        def _inside_n2(n2_idx):
-                            bs1n2_offset = b_idx * s1 * n2 + s1_idx * n2 + n2_idx
-                            q_offset = (
-                                b_idx * s1 * index_n1
-                                + s1_idx * index_n1
-                                + n2_idx * group
-                            )
+                    for sub_block_idx in range(unroll_length):
+                        block_idx = first_block_idx + sub_block_idx
+                        cur_block_idx = block_table[b_idx, block_idx]
 
-                            def unrolling_process(
-                                unroll_length: int,
-                                first_block_idx: pypto.symbolic_scalar,
-                                b_idx,
-                                s1_idx,
-                                n2_idx,
-                                eff_seq,
-                                bs1n2_offset,
-                                q_offset,
-                            ):
-                                cur_q = pypto.view(
-                                    query_2d, [group, index_d], [q_offset, 0]
-                                )
+                        cur_k = pypto.view(
+                            key_2d,
+                            [block_size, index_d],
+                            [cur_block_idx * block_size, n2_idx * index_d],
+                            valid_shape=[
+                                pypto.min(
+                                    block_size,
+                                    eff_seq - (block_idx * block_size),
+                                ),
+                                index_d,
+                            ],
+                        )
 
-                                concat_srcs = []
+                        pypto.set_cube_tile_shapes(
+                            c1_tile[0], c1_tile[1], c1_tile[2], False
+                        )
 
-                                for sub_block_idx in range(unroll_length):
-                                    block_idx = first_block_idx + sub_block_idx
-                                    cur_block_idx = block_table[b_idx, block_idx]
+                        mm_res = pypto.matmul(
+                            cur_q,
+                            cur_k,
+                            pypto.DT_FP32,
+                            a_trans=False,
+                            b_trans=True,
+                        )
+                        concat_srcs.append(mm_res)
 
-                                    cur_k = pypto.view(
-                                        key_2d,
-                                        [block_size, index_d],
-                                        [cur_block_idx * block_size, n2_idx * index_d],
-                                        valid_shape=[
-                                            pypto.min(
-                                                block_size,
-                                                eff_seq - (block_idx * block_size),
-                                            ),
-                                            index_d,
-                                        ],
-                                    )
+                    pypto.set_vec_tile_shapes(*tile_config.weight_tile)
 
-                                    pypto.set_cube_tile_shapes(
-                                        c1_tile[0], c1_tile[1], c1_tile[2], False
-                                    )
+                    cur_w = pypto.view(weight_2d, [group, 1], [q_offset, 0])
+                    w_b32 = pypto.cast(cur_w, pypto.DT_FP32)
 
-                                    mm_res = pypto.matmul(
-                                        cur_q,
-                                        cur_k,
-                                        pypto.DT_FP32,
-                                        a_trans=False,
-                                        b_trans=True,
-                                    )
-                                    concat_srcs.append(mm_res)
+                    mm_res_cat = pypto.concat(concat_srcs, -1)
 
-                                pypto.set_vec_tile_shapes(*tile_config.weight_tile)
+                    pypto.set_vec_tile_shapes(*tile_config.v1_tile)
 
-                                cur_w = pypto.view(weight_2d, [group, 1], [q_offset, 0])
-                                w_b32 = pypto.cast(cur_w, pypto.DT_FP32)
+                    relu_res = pypto.maximum(mm_res_cat, 0.0)
+                    mul_res = relu_res * w_b32
+                    sum_res = pypto.sum(mul_res, 0)
 
-                                mm_res_cat = pypto.concat(concat_srcs, -1)
+                    pypto.assemble(
+                        sum_res,
+                        [bs1n2_offset, first_block_idx * block_size],
+                        local_sum,
+                    )
+                    if tmp_out is not None:
+                        pypto.assemble(
+                            sum_res,
+                            [bs1n2_offset, first_block_idx * block_size],
+                            tmp_out,
+                        )
 
-                                pypto.set_vec_tile_shapes(*tile_config.v1_tile)
+                def unrolling_process_quant(
+                    unroll_length: int,
+                    first_block_idx: pypto.symbolic_scalar,
+                    b_idx,
+                    s1_idx,
+                    n2_idx,
+                    eff_seq,
+                    bs1n2_offset,
+                    q_offset,
+                ):
+                    cur_q = pypto.view(
+                        query_2d, [group, index_d], [q_offset, 0]
+                    )
+                    cur_q_scale = pypto.view(
+                        q_scale_2d, [group, 1], [q_offset, 0]
+                    )
 
-                                relu_res = pypto.maximum(mm_res_cat, 0.0)
-                                mul_res = relu_res * w_b32
-                                sum_res = pypto.sum(mul_res, 0)
+                    mm_res_quant_concat_srcs = []
+                    k_scale_concat_srcs = []
 
-                                pypto.assemble(
-                                    sum_res,
-                                    [bs1n2_offset, first_block_idx * block_size],
-                                    local_sum,
-                                )
-                                if tmp_out is not None:
-                                    pypto.assemble(
-                                        sum_res,
-                                        [bs1n2_offset, first_block_idx * block_size],
-                                        tmp_out,
-                                    )
+                    for sub_block_idx in range(unroll_length):
+                        block_idx = first_block_idx + sub_block_idx
+                        cur_block_idx = block_table[b_idx, block_idx]
 
-                            def unrolling_process_quant(
-                                unroll_length: int,
-                                first_block_idx: pypto.symbolic_scalar,
-                                b_idx,
-                                s1_idx,
-                                n2_idx,
-                                eff_seq,
-                                bs1n2_offset,
-                                q_offset,
-                            ):
-                                cur_q = pypto.view(
-                                    query_2d, [group, index_d], [q_offset, 0]
-                                )
-                                cur_q_scale = pypto.view(
-                                    q_scale_2d, [group, 1], [q_offset, 0]
-                                )
+                        cur_k = pypto.view(
+                            key_2d,
+                            [block_size, index_d],
+                            [cur_block_idx * block_size, n2_idx * index_d],
+                            valid_shape=[
+                                pypto.min(
+                                    block_size,
+                                    eff_seq - (block_idx * block_size),
+                                ),
+                                index_d,
+                            ],
+                        )
 
-                                mm_res_quant_concat_srcs = []
-                                k_scale_concat_srcs = []
+                        pypto.set_cube_tile_shapes(
+                            c1_tile[0], c1_tile[1], c1_tile[2], False
+                        )
 
-                                for sub_block_idx in range(unroll_length):
-                                    block_idx = first_block_idx + sub_block_idx
-                                    cur_block_idx = block_table[b_idx, block_idx]
+                        mm_res = pypto.matmul(
+                            cur_q,
+                            cur_k,
+                            pypto.DataType.DT_INT32,
+                            a_trans=False,
+                            b_trans=True,
+                        )
+                        mm_res_quant_concat_srcs.append(mm_res)
 
-                                    cur_k = pypto.view(
-                                        key_2d,
-                                        [block_size, index_d],
-                                        [cur_block_idx * block_size, n2_idx * index_d],
-                                        valid_shape=[
-                                            pypto.min(
-                                                block_size,
-                                                eff_seq - (block_idx * block_size),
-                                            ),
-                                            index_d,
-                                        ],
-                                    )
-
-                                    pypto.set_cube_tile_shapes(
-                                        c1_tile[0], c1_tile[1], c1_tile[2], False
-                                    )
-
-                                    mm_res = pypto.matmul(
-                                        cur_q,
-                                        cur_k,
-                                        pypto.DataType.DT_INT32,
-                                        a_trans=False,
-                                        b_trans=True,
-                                    )
-                                    mm_res_quant_concat_srcs.append(mm_res)
-
-                                    cur_k_scale = pypto.view(
-                                        k_scale_2d,
-                                        [block_size, 1],
-                                        [cur_block_idx * block_size, n2_idx],
-                                        valid_shape=[
-                                            pypto.min(
-                                                block_size,
-                                                eff_seq - (block_idx * block_size),
-                                            ),
-                                            1,
-                                        ],
-                                    )
-                                    k_scale_concat_srcs.append(cur_k_scale)
-
-                                pypto.set_vec_tile_shapes(*tile_config.weight_tile)
-
-                                cur_w = pypto.view(weight_2d, [group, 1], [q_offset, 0])
-                                w_f16 = pypto.cast(cur_w, pypto.DataType.DT_FP16)
-
-                                pypto.set_vec_tile_shapes(*tile_config.v1_tile)
-
-                                cur_k_scale = pypto.concat(k_scale_concat_srcs, 0)
-                                mm_res_i32 = pypto.concat(mm_res_quant_concat_srcs, -1)
-                                mm_res_fp32 = (
-                                    pypto.cast(mm_res_i32, pypto.DataType.DT_FP32)
-                                    * AVOID_FP32_TO_FP16_OVERFLOW_SCALE
-                                )
-                                mm_res_fp16 = pypto.cast(
-                                    mm_res_fp32, pypto.DataType.DT_FP16
-                                )
-                                mm_res_dequant = (
-                                    mm_res_fp16
-                                    * cur_q_scale
-                                    * pypto.transpose(cur_k_scale, 0, 1)
-                                )
-                                relu_res = pypto.maximum(mm_res_dequant, 0.0)
-                                mul_res = relu_res * w_f16
-
-                                sum_res = pypto.sum(
-                                    pypto.cast(mul_res, pypto.DataType.DT_FP32),
-                                    0,
-                                    True
-                                )
-
-                                pypto.assemble(
-                                    sum_res,
-                                    [bs1n2_offset, first_block_idx * block_size],
-                                    local_sum,
-                                )
-                                if tmp_out is not None:
-                                    pypto.assemble(
-                                        sum_res,
-                                        [bs1n2_offset, first_block_idx * block_size],
-                                        tmp_out,
-                                    )
-
-                            for loop_block_idx, unroll_length in pypto.loop_unroll(
-                                0,
-                                act_block,
+                        cur_k_scale = pypto.view(
+                            k_scale_2d,
+                            [block_size, 1],
+                            [cur_block_idx * block_size, n2_idx],
+                            valid_shape=[
+                                pypto.min(
+                                    block_size,
+                                    eff_seq - (block_idx * block_size),
+                                ),
                                 1,
-                                name="INDEX_LOOP_MATMUL",
-                                idx_name="loopBlockIdx",
-                                unroll_list=unroll_list,
-                            ):
+                            ],
+                        )
+                        k_scale_concat_srcs.append(cur_k_scale)
 
-                                def _inside_block(loop_block_idx, unroll_length):
-                                    if is_quant:
-                                        unrolling_process_quant(
-                                            unroll_length,
-                                            loop_block_idx,
-                                            b_idx,
-                                            s1_idx,
-                                            n2_idx,
-                                            eff_seq,
-                                            bs1n2_offset,
-                                            q_offset,
-                                        )
-                                    else:
-                                        unrolling_process(
-                                            unroll_length,
-                                            loop_block_idx,
-                                            b_idx,
-                                            s1_idx,
-                                            n2_idx,
-                                            eff_seq,
-                                            bs1n2_offset,
-                                            q_offset,
-                                        )
+                    pypto.set_vec_tile_shapes(*tile_config.weight_tile)
 
-                                _inside_block(loop_block_idx, unroll_length)
+                    cur_w = pypto.view(weight_2d, [group, 1], [q_offset, 0])
+                    w_f16 = pypto.cast(cur_w, pypto.DataType.DT_FP16)
 
-                        _inside_n2(n2_idx)
+                    pypto.set_vec_tile_shapes(*tile_config.v1_tile)
 
-                _inside_s1(s1_idx)
+                    cur_k_scale = pypto.concat(k_scale_concat_srcs, 0)
+                    mm_res_i32 = pypto.concat(mm_res_quant_concat_srcs, -1)
+                    mm_res_fp32 = (
+                        pypto.cast(mm_res_i32, pypto.DataType.DT_FP32)
+                        * AVOID_FP32_TO_FP16_OVERFLOW_SCALE
+                    )
+                    mm_res_fp16 = pypto.cast(
+                        mm_res_fp32, pypto.DataType.DT_FP16
+                    )
+                    mm_res_dequant = (
+                        mm_res_fp16
+                        * cur_q_scale
+                        * pypto.transpose(cur_k_scale, 0, 1)
+                    )
+                    relu_res = pypto.maximum(mm_res_dequant, 0.0)
+                    mul_res = relu_res * w_f16
 
-        _inside_b(b_idx)
+                    sum_res = pypto.sum(
+                        pypto.cast(mul_res, pypto.DataType.DT_FP32),
+                        0,
+                        True
+                    )
+
+                    pypto.assemble(
+                        sum_res,
+                        [bs1n2_offset, first_block_idx * block_size],
+                        local_sum,
+                    )
+                    if tmp_out is not None:
+                        pypto.assemble(
+                            sum_res,
+                            [bs1n2_offset, first_block_idx * block_size],
+                            tmp_out,
+                        )
+
+                for loop_block_idx, unroll_length in pypto.loop_unroll(
+                    0,
+                    act_block,
+                    1,
+                    name="INDEX_LOOP_MATMUL",
+                    idx_name="loopBlockIdx",
+                    unroll_list=unroll_list,
+                ):
+                    if is_quant:
+                        unrolling_process_quant(
+                            unroll_length,
+                            loop_block_idx,
+                            b_idx,
+                            s1_idx,
+                            n2_idx,
+                            eff_seq,
+                            bs1n2_offset,
+                            q_offset,
+                        )
+                    else:
+                        unrolling_process(
+                            unroll_length,
+                            loop_block_idx,
+                            b_idx,
+                            s1_idx,
+                            n2_idx,
+                            eff_seq,
+                            bs1n2_offset,
+                            q_offset,
+                        )
 
     assert selected_count == NUM_2048
 

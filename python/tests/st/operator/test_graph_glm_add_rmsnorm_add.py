@@ -63,8 +63,10 @@ def post_attention_layernorm_pto(layer_input_layernorm,
     input_norm_weight = layer_input_layernorm.weight
     bs, h_num = hidden_states.shape
     device_info = hidden_states.device
-    output_hidden_states = torch.zeros((bs, h_num), dtype=hidden_states.dtype, device=device_info)
-    output_residual = torch.zeros((bs, h_num), dtype=hidden_states.dtype, device=device_info)
+    output_hidden_states = torch.zeros(
+        (bs, h_num), dtype=hidden_states.dtype, device=device_info)
+    output_residual = torch.zeros(
+        (bs, h_num), dtype=hidden_states.dtype, device=device_info)
     inputs = [hidden_states, residual, input_norm_weight, input_norm_bias]
     outputs = [output_hidden_states, output_residual]
 
@@ -106,50 +108,47 @@ def add_rms_norm_custom(in_tensor, out_tensor, eps):
     # 实现kernel逻辑， 包在函数中实现变量自动回收
     # 循环展开BS动态轴
     for bs_idx in pypto.loop(bs_loop, name="LOOP_RMS_NORM_L0", idx_name="bs_idx"):
-        def bs_loop_func(bs_idx):
-            # 通过view得到输入
-            tile_residual = pypto.view(residual, view_shape,
+        # 通过view得到输入
+        tile_residual = pypto.view(residual, view_shape,
+                                    [bs_idx * view_shape[0], 0],
+                                    valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]), h_num])
+        tile_hidden_states = pypto.view(hidden_states, view_shape,
                                         [bs_idx * view_shape[0], 0],
-                                        valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]), h_num])
-            tile_hidden_states = pypto.view(hidden_states, view_shape,
-                                            [bs_idx * view_shape[0], 0],
-                                            valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]),
-                                                            h_num])
+                                        valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]),
+                                                        h_num])
 
-            # 设置set_vec_tile_shape时 尽可能用满UB，但不要超过UB的大小
-            pypto.set_vec_tile_shapes(tile_shape_rmsnorm[0], tile_shape_rmsnorm[1])
+        # 设置set_vec_tile_shape时 尽可能用满UB，但不要超过UB的大小
+        pypto.set_vec_tile_shapes(tile_shape_rmsnorm[0], tile_shape_rmsnorm[1])
 
-            mean_coff = 1.0 / tile_hidden_states.shape[-1]
+        mean_coff = 1.0 / tile_hidden_states.shape[-1]
 
-            # 按照计算图实现逻辑
-            # cast to calc_dtype
-            tile_residual_fp32 = pypto.cast(tile_residual, calc_dtype)
-            tile_hidden_states_fp32 = pypto.cast(tile_hidden_states, calc_dtype)
+        # 按照计算图实现逻辑
+        # cast to calc_dtype
+        tile_residual_fp32 = pypto.cast(tile_residual, calc_dtype)
+        tile_hidden_states_fp32 = pypto.cast(tile_hidden_states, calc_dtype)
 
-            weight_shape = [1] * len(tile_hidden_states_fp32.shape)
-            weight_shape[-1] = weight.shape[0]
-            weight_2d = pypto.reshape(weight, weight_shape)
-            tile_weight_fp32 = pypto.cast(weight_2d, calc_dtype)
+        weight_shape = [1] * len(tile_hidden_states_fp32.shape)
+        weight_shape[-1] = weight.shape[0]
+        weight_2d = pypto.reshape(weight, weight_shape)
+        tile_weight_fp32 = pypto.cast(weight_2d, calc_dtype)
 
-            x_f32 = pypto.add(tile_residual_fp32, tile_hidden_states_fp32)
+        x_f32 = pypto.add(tile_residual_fp32, tile_hidden_states_fp32)
 
-            square = pypto.mul(x_f32, x_f32)
-            mean_res = pypto.mul(square, mean_coff)
-            reduce_asum = pypto.sum(mean_res, -1, True)
-            reduce_sum = pypto.add(reduce_asum, eps)
-            reduce_sqrt = pypto.sqrt(reduce_sum)
-            res_div = pypto.div(x_f32, reduce_sqrt)
-            res = pypto.mul(res_div, tile_weight_fp32)
+        square = pypto.mul(x_f32, x_f32)
+        mean_res = pypto.mul(square, mean_coff)
+        reduce_asum = pypto.sum(mean_res, -1, True)
+        reduce_sum = pypto.add(reduce_asum, eps)
+        reduce_sqrt = pypto.sqrt(reduce_sum)
+        res_div = pypto.div(x_f32, reduce_sqrt)
+        res = pypto.mul(res_div, tile_weight_fp32)
 
-            bias_fp32 = pypto.cast(bias_input, res.dtype)
-            hidden_states_add = pypto.add(res, bias_fp32)
-            hidden_states_out_tmp = pypto.cast(hidden_states_add, input_dtype)
+        bias_fp32 = pypto.cast(bias_input, res.dtype)
+        hidden_states_add = pypto.add(res, bias_fp32)
+        hidden_states_out_tmp = pypto.cast(hidden_states_add, input_dtype)
 
-            hidden_states_out[bs_idx * view_shape[0]:, 0:] = hidden_states_out_tmp
-            residual_out_16 = pypto.cast(x_f32, input_dtype)
-            residual_out[bs_idx * view_shape[0]:, 0:] = residual_out_16
-
-        bs_loop_func(bs_idx)
+        hidden_states_out[bs_idx * view_shape[0]:, 0:] = hidden_states_out_tmp
+        residual_out_16 = pypto.cast(x_f32, input_dtype)
+        residual_out[bs_idx * view_shape[0]:, 0:] = residual_out_16
 
     assert isinstance(hidden_states_out, pypto.tensor)
     assert isinstance(residual_out, pypto.tensor)
@@ -168,15 +167,22 @@ def test_rms_norm_main():
             bs = 2
 
         # 准备测试数据
-        residual_tensor = torch.rand((bs, h_num), dtype=torch.bfloat16, device=f'npu:{device_id}')
-        hidden_states_tensor = torch.rand((bs, h_num), dtype=torch.bfloat16, device=f'npu:{device_id}')
-        weight_tensor = torch.rand((h_num), dtype=torch.bfloat16, device=f'npu:{device_id}')
-        bias_input = torch.rand((h_num), dtype=torch.bfloat16, device=f'npu:{device_id}')
+        residual_tensor = torch.rand(
+            (bs, h_num), dtype=torch.bfloat16, device=f'npu:{device_id}')
+        hidden_states_tensor = torch.rand(
+            (bs, h_num), dtype=torch.bfloat16, device=f'npu:{device_id}')
+        weight_tensor = torch.rand(
+            (h_num), dtype=torch.bfloat16, device=f'npu:{device_id}')
+        bias_input = torch.rand(
+            (h_num), dtype=torch.bfloat16, device=f'npu:{device_id}')
 
-        output_hidden_states = torch.zeros((bs, h_num), dtype=torch.bfloat16, device=f'npu:{device_id}')
-        output_residual = torch.zeros((bs, h_num), dtype=torch.bfloat16, device=f'npu:{device_id}')
+        output_hidden_states = torch.zeros(
+            (bs, h_num), dtype=torch.bfloat16, device=f'npu:{device_id}')
+        output_residual = torch.zeros(
+            (bs, h_num), dtype=torch.bfloat16, device=f'npu:{device_id}')
 
-        inputs = [hidden_states_tensor, residual_tensor, weight_tensor, bias_input]
+        inputs = [hidden_states_tensor,
+                  residual_tensor, weight_tensor, bias_input]
         outputs = [output_hidden_states, output_residual]
 
         pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
