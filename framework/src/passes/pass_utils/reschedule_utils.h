@@ -54,9 +54,9 @@ public:
     static unsigned long ComputeOperationHash(const Operation *op);
 
     static void UpdateTensorConsProd(Function *funcPtr);
-    static void ClearInputConsProd(Operation &op, int subGraphID, std::unordered_set<LogicalTensorPtr> incastSet);
-    static void ClearOutputConsProd(Operation &op, int subGraphID, std::unordered_set<LogicalTensorPtr> outcastSet);
-    static void FindOtherGraphOp(Operation *op, int subGraphID, std::unordered_set<Operation*> &otherGraphOp);
+    static void ClearInputConsProd(Operation &op, Function *funcPtr, std::unordered_set<LogicalTensorPtr> incastSet);
+    static void ClearOutputConsProd(Operation &op, Function *funcPtr, std::unordered_set<LogicalTensorPtr> outcastSet);
+    static void FindOtherGraphOp(Operation *op, Function *funcPtr, std::unordered_set<Operation*> &otherGraphOp);
     static void PrintColorNode(Function &func);
 };
 }  // namespace npu::tile_fwk
