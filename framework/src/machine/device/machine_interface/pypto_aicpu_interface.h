@@ -93,7 +93,7 @@ public:
 private:
     void LoadTileFwkKernelFunc(const std::string &kernelName) {
         if (soHandle_ == nullptr) {
-            soHandle_ = dlopen(devicePath.c_str(), RTLD_LAZY);
+            soHandle_ = dlopen(devicePath.c_str(), RTLD_LAZY | RTLD_DEEPBIND);
         }
         if (!soHandle_) {
             DEV_ERROR("Cannot open so %s", devicePath.c_str());
