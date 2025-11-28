@@ -372,5 +372,4 @@ rtError_t rtCpuKernelLaunchWithFlag(const void *soName, const void *kernelName, 
     (void)flags;
     return RT_ERROR_NONE;
 }
-
 }

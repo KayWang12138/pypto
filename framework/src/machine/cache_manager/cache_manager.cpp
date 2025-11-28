@@ -22,11 +22,15 @@
 #include "interface/program/program.h"
 #include "machine/dump/task_dump_utils.h"
 #include "machine/platform/platform_manager.h"
+#include "interface/utils/op_info_manager.h"
 
 namespace npu::tile_fwk {
 namespace {
 const std::string CACHE_FILE_PREFIX = "ast_op_";
+const std::string CACHE_CONTROL_FILE_PREFIX = "pypto_control_";
 const std::string CACHE_BIN_FILE_SUFFIX = ".o";
+const std::string CACHE_CUSTOM_BIN_FILE_SUFFIX = "_control.so";
+const std::string CACHE_CUSTOM_JSON_FILE_SUFFIX = "_control.json";
 const std::string CACHE_KERNEL_FILE_SUFFIX = "_kernel.o";
 const std::string CACHE_LOCK_FILE_SUFFIX = ".lock";
 }
@@ -72,13 +76,20 @@ bool CacheManager::MatchBinCache(const std::string &cacheKey) const {
     }
     std::string cacheBinFile = cacheDirPath_ + "/" + CACHE_FILE_PREFIX + cacheKey + CACHE_BIN_FILE_SUFFIX;
     ALOG_DEBUG_F("Try to check whether bin file[%s] is existed.", cacheBinFile.c_str());
+    std::string customSoPath = cacheDirPath_ + "/lib" + OpInfoManager::GetInstance().GetOpFuncName() +
+                                        CACHE_CUSTOM_BIN_FILE_SUFFIX;
+    std::string customJsonPath = cacheDirPath_ + "/lib" + OpInfoManager::GetInstance().GetOpFuncName() +
+                                        CACHE_CUSTOM_JSON_FILE_SUFFIX;                                    
     std::lock_guard<std::mutex> lock_guard(cacheMutex_);
     // check whether both json and bin file is existed
-    bool ret = !RealPath(cacheBinFile).empty();
+    bool ret = !RealPath(cacheBinFile).empty() && !RealPath(customSoPath).empty() &&
+                !RealPath(customJsonPath).empty();
     if (ret) {
-        ALOG_INFO_F("Cache matched, bin file[%s] is existed.", cacheBinFile.c_str());
+        ALOG_INFO_F("Cache matched, bin file[%s] and [%s] is existed.",
+                     cacheBinFile.c_str(), customSoPath.c_str());
     } else {
-        ALOG_INFO_F("Cache missed, bin file[%s] is not existed.", cacheBinFile.c_str());
+        ALOG_INFO_F("Cache missed, bin file[%s] or [%s] or [%s] is not existed.",
+                     cacheBinFile.c_str(), customSoPath.c_str(), customJsonPath.c_str());
     }
     return ret;
 }
@@ -94,11 +105,15 @@ void CacheManager::SaveTaskFile(const DeviceAgentTask *deviceAgentTask) const {
     std::string basePath = cacheDirPath_ + "/" + CACHE_FILE_PREFIX + deviceAgentTask->compileTask->GetCacheKey();
     std::string binFilePath = basePath + CACHE_BIN_FILE_SUFFIX;
     std::string kernelFilePath = basePath + CACHE_KERNEL_FILE_SUFFIX;
-    ALOG_DEBUG_F("Try to save bin file[%s], function type is [%s].", binFilePath.c_str(),
-                 function->GetFunctionTypeStr().c_str());
+    std::string customSoPath = cacheDirPath_ + "/lib" + OpInfoManager::GetInstance().GetOpFuncName() +
+                                        CACHE_CUSTOM_BIN_FILE_SUFFIX;
+    std::string customJsonPath = cacheDirPath_ + "/lib" + OpInfoManager::GetInstance().GetOpFuncName() +
+                                        CACHE_CUSTOM_JSON_FILE_SUFFIX;
+    ALOG_DEBUG_F("Try to save bin file[%s], function type is [%s], control bin file[%s].", binFilePath.c_str(),
+                 function->GetFunctionTypeStr().c_str(), customSoPath.c_str());
     std::lock_guard<std::mutex> lock_guard(cacheMutex_);
-    if (!RealPath(binFilePath).empty()) {
-        ALOG_INFO_F("Bin file[%s] already exists.", binFilePath.c_str());
+    if (!RealPath(binFilePath).empty() && !RealPath(customSoPath).empty() && !RealPath(customJsonPath).empty()) {
+        ALOG_INFO_F("Bin file[%s] and [%s] already exists.", binFilePath.c_str(), customSoPath.c_str());
         return;
     }
     if (function->IsFunctionType(FunctionType::DYNAMIC) && function->GetDyndevAttribute() != nullptr) {
@@ -112,6 +127,18 @@ void CacheManager::SaveTaskFile(const DeviceAgentTask *deviceAgentTask) const {
         if (RealPath(binFilePath).empty()) {
             SaveFile(binFilePath, function->GetDyndevAttribute()->devProgBinary);
             SaveFile(kernelFilePath, function->GetDyndevAttribute()->kernelBinary);
+        }
+        if (RealPath(customSoPath).empty() || RealPath(customJsonPath).empty()) {
+            std::vector<uint8_t> controlBin;
+            size_t binSize = OpInfoManager::GetInstance().GetControlBuffer().size();
+            controlBin.resize(OpInfoManager::GetInstance().GetControlBuffer().size());
+            if (memcpy_s(controlBin.data(), binSize, OpInfoManager::GetInstance().GetControlBuffer().data(),
+                         binSize) != EOK) {
+                ALOG_INFO_F("Control bin memCpy failed");
+                return;
+            }
+            SaveFile(customSoPath, controlBin);
+            CopyFile(OpInfoManager::GetInstance().GetCustomOpJsonPath(), customJsonPath);
         }
         UnlockAndCloseFile(fp);
     }
@@ -143,6 +170,8 @@ bool CacheManager::RecoverTask(const std::string &cacheKey, DeviceAgentTask *dev
     Function *function = deviceAgentTask->GetFunction();
     std::string cacheBinFile = cacheDirPath_ + "/" + CACHE_FILE_PREFIX + cacheKey + CACHE_BIN_FILE_SUFFIX;
     std::string cacheKernelFile = cacheDirPath_ + "/" + CACHE_FILE_PREFIX + cacheKey + CACHE_KERNEL_FILE_SUFFIX;
+    std::string customJsonPath = cacheDirPath_ + "/lib" + OpInfoManager::GetInstance().GetOpFuncName() +
+                                 CACHE_CUSTOM_JSON_FILE_SUFFIX;
     ALOG_DEBUG_F("Try to recover device task from bin file[%s], function type is [%s].", cacheBinFile.c_str(),
                  function->GetFunctionTypeStr().c_str());
     auto attr = function->GetDyndevAttribute();
@@ -151,6 +180,7 @@ bool CacheManager::RecoverTask(const std::string &cacheKey, DeviceAgentTask *dev
         ALOG_INFO_F("Recover binary from file[%s][%s].", cacheBinFile.c_str(), cacheKernelFile.c_str());
         attr->devProgBinary = LoadFile(cacheBinFile);
         attr->kernelBinary = LoadFile(cacheKernelFile);
+        OpInfoManager::GetInstance().GetCustomOpJsonPath() = customJsonPath;
         return !attr->devProgBinary.empty() && !attr->kernelBinary.empty();
     }
     // recover binary for static graph, exclude static graph in dyn graph

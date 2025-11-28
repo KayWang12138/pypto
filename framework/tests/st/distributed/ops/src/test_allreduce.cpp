@@ -49,7 +49,7 @@ void TestShmemAddAndAllReduce(OpTestParam &testParam)
     });
     int32_t tileNum1 = 4;
     int32_t tileNum2 = 4;
-    FUNCTION("ADD and ALLREDUCE", {in}, {out}) {
+    FUNCTION("ADD_and_ALLREDUCE", {in}, {out}) {
         TileShape::Current().SetDistTile(
             {row / tileNum1 / testParam.rankSize, tileNum1, (row / tileNum1) % tileNum1},
             {col / tileNum2, tileNum2, col % tileNum2},

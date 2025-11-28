@@ -126,7 +126,7 @@ void DynamicDD(uint64_t configKey) {
         }
     }
 }
-REGISTER_OP(ViewAssemble).ImplFunc({{0, DynamicDD}, {1, DynamicDD}, {2, DynamicDD}});
+REGISTER_OP(ViewAssemble).ImplFunc({{0, DynamicDD}});
 
 TEST_F(TestAstOpCompile, test_dynamic_ViewAssemble) {
     bool ret = TileOpCompile("ViewAssemble", 0, "ast_op_dd_0", "dump_path");

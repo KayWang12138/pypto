@@ -21,6 +21,7 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/function/function.h"
 #include "interface/program/program.h"
+#include "interface/utils/op_info_manager.h"
 
 extern "C" {
 using RunPassFunc = int (*)(npu::tile_fwk::Program &, npu::tile_fwk::Function &, const std::string &);
@@ -66,7 +67,7 @@ private:
         matchCache = (MatchCacheFunc)GetSymbol(compilerHandle, "MatchCache");
         simuExecute = (ExecuteFunc)GetSymbol(simuHandle, "ExecuteSimulation");
 
-        auto initFunc = (InitFunc)GetSymbol(compilerHandle, "Init");
+        auto initFunc = (InitFunc)GetSymbol(compilerHandle, "Initialize");
         if (initFunc) {
             initFunc();
         }
@@ -242,6 +243,8 @@ std::string HostMachine::GetCacheKeyFromFunction(Function *function) {
     if (function->BelongTo().GetLastFunction() != nullptr &&
         function->BelongTo().GetLastFunction()->GetFunctionType() == FunctionType::DYNAMIC) {
         cacheKey = function->BelongTo().GetLastFunction()->GetFunctionHash().Data();
+        OpInfoManager::GetInstance().GetOpFuncName() = function->BelongTo().GetLastFunction()->GetMagicName() +
+                                                        cacheKey;
     } else {
         cacheKey = function->GetFunctionHash().Data();
     }

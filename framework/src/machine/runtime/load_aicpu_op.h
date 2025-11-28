@@ -13,46 +13,24 @@
  * \brief
  */
 
- 
+
+#ifndef LOAD_AICPU_OP_H
+#define LOAD_AICPU_OP_H
 #include <string>
 #include <vector>
 #include <memory>
 #include "runtime/mem.h"
 #include "machine/utils/machine_ws_intf.h"
+#ifdef BUILD_WITH_CANN
 #include "rts/rts_kernel.h"
+#endif
 #include <unordered_map>
 
-struct BatchLoadOpFromBufArgs {
-  uint32_t soNum;
-  uint64_t args;
-} __attribute__((packed));
 
-struct CustAicpuSoBuf {
-  uint64_t kernelSoBuf;
-  uint32_t kernelSoBufLen;
-  uint64_t kernelSoName;
-  uint32_t kernelSoNameLen;
-} __attribute__((packed));
-
-struct OpKernelBin
-{
-    std::string name_;
-    std::vector<char> data_;
-    OpKernelBin(const std::string &name, std::vector<char> &data) : name_(name),
-                 data_(data) {}
-    const std::string &GetName() const { return name_; }
-    const uint8_t *GetBinData() const { return reinterpret_cast<const uint8_t*>(data_.data()); }
-    size_t GetBinDataSize() const { return data_.size(); }
-};
-
-using customKernelBinPtr = std::shared_ptr<OpKernelBin>;
 namespace npu::tile_fwk {
 class LoadAicpuOp
 {
 private:
-    void SetAiCpuKernel();  
-    void LoadCustomAicpuSo(const void *args, rtStream_t stream);
-    customKernelBinPtr customKerBin_;
     rtFuncHandle funcHandle_;
     void *customBinHandle_ = nullptr;
     std::string builtInOpJsonPath_;
@@ -72,3 +50,4 @@ public:
 };
 
 } // namespace
+#endif

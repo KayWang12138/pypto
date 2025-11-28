@@ -52,7 +52,26 @@ __attribute__((visibility("default"))) uint32_t StaticPyptoKernelServer(void *ar
 }
 
 __attribute__((visibility("default"))) uint32_t DynPyptoKernelServerNull(void *args) {
-    (void)args;
+  (void)args;
+#if DEBUG_PLOG && defined(__DEVICE__)
+    InitLogSwitch();
+#endif
+    if (args == nullptr) {
+        DEV_ERROR("Server init input args is null");
+        return 1;
+    }
+    auto kargs = (AstKernelArgs *)args;
+    if (kargs == nullptr) {
+        DEV_ERROR("Server init AstKernelArgs is null");
+        return 1;
+    }
+    auto devArgs = reinterpret_cast<DeviceArgs*>(kargs->cfgdata);
+    auto data = reinterpret_cast<char *>(devArgs->aicpuSoBin);
+    if (!g_handleManager.SaveSoFile(data, devArgs->aicpuSoLen)) {
+        DEV_ERROR("create so failed");
+        return 1;
+    }
+    g_handleManager.SetTileFwkKernelMap();
     return 0;
 }
 
@@ -66,29 +85,10 @@ __attribute__((visibility("default"))) uint32_t DynPyptoKernelServer(void *args)
 }
 
 __attribute__((visibility("default"))) uint32_t DynPyptoKernelServerInit(void *args) {
-#if DEBUG_PLOG && defined(__DEVICE__)
-    InitLogSwitch();
-#endif
-    if (args == nullptr) {
-      DEV_ERROR("Server init input args is null");
-      return 1;
-    }
-    auto kargs = (AstKernelArgs *)args;
-    if (kargs == nullptr) {
-      DEV_ERROR("Server init AstKernelArgs is null");
-      return 1;
-    }
-    auto devArgs = reinterpret_cast<DeviceArgs*>(kargs->cfgdata);
-    auto data = reinterpret_cast<char *>(devArgs->aicpuSoBin);
-    if (!g_handleManager.SaveSoFile(data, devArgs->aicpuSoLen)) {
-      DEV_ERROR("create so failed");
-      return 1;
-    }
-    g_handleManager.SetTileFwkKernelMap();
     auto ret = g_handleManager.ExecuteFunc(args, dyInitFuncKey);
     if (ret != 0) {
-      DEV_ERROR("TileFwk kernelFunc [%s] exec not Success", dynServerKernelInitFun.c_str());
-      return 1;
+        DEV_ERROR("TileFwk kernelFunc [%s] exec not Success", dynServerKernelInitFun.c_str());
+        return 1;
     }
     return 0;
 }

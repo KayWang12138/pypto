@@ -31,6 +31,8 @@
 #include "interface/utils/op_info_manager.h"
 #include "tilefwk/comm_group_recorder.h"
 #include "passes/pass_mgr/pass_manager.h"
+#include "compile_control_bin.h"
+#include "tilefwk/op_registry.h"
 
 using namespace npu::tile_fwk::dynamic;
 namespace npu::tile_fwk {
@@ -336,7 +338,7 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
     std::ostringstream &expressionOss,
     int indent, const std::string &expName) {
     auto funcType = func->GetFunctionType();
-    if (funcType == FunctionType::DYNAMIC) {
+        if (funcType == FunctionType::DYNAMIC) {
         controlFlowOss
             << "#define __TILE_FWK_AICPU__ 1\n"
             << "#include <stdint.h>\n"
@@ -634,6 +636,27 @@ static void OverCallOpMaxNum(Function *devRoot, DevAscendFunction *funcBin){
     ASSERT(CallOpSize <= CallOpmaxSize) << " loopFunction: " << funcMagicName << " CallOpSize: " << CallOpSize
     << " CallOpmaxSize: " << CallOpmaxSize;
 }
+
+static void CompileControlFlow(const std::string &aicpuDirPath,
+                               const std::string &funcName, const std::string &constrolFlow, std::string express) {
+    std::string controlFlowCompilepath = aicpuDirPath + "/" + funcName + "/aicpu";
+    ALOG_DEBUG_F("Dumpath is %s, funtionName %s, path is %s",
+                 aicpuDirPath.c_str(), funcName.c_str(), controlFlowCompilepath.c_str());
+    if (!CreateMultiLevelDir(controlFlowCompilepath)) {
+        ALOG_ERROR_F("Creat AicpuCompile dir not success\n");
+        return;
+    }
+    std::string controlFlowFileName = controlFlowCompilepath + "/controlFlow_dev" + funcName + ".h";
+    std::string expressFileName = controlFlowCompilepath + "/expression_0.h";
+    if (!DumpFile(constrolFlow, controlFlowFileName) || !DumpFile(express, expressFileName)) {
+        ALOG_DEBUG_F("Dump controlFlow and express files failed\n");
+        return;
+    }
+    if (std::getenv("ASCEND_HOME_PATH") != nullptr) {
+       ASSERT(TileFwkAiCpuCompile(funcName, aicpuDirPath)) << ": PyPto Control Flow compile failed"; 
+    }
+}
+
 static void CompileDyndevFunction(Function *function, FunctionCache &cache, const std::string &ccePath,
                                   std::string &kernelPath) {
     if (config::GetCodeGenOption<bool>(CODEGEN_EXPRESSION_FUSION)) {
@@ -694,7 +717,8 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, cons
         controlFlowSource, controlFlowHostFilePath,
         "g++", "objcopy", "ast2", IsNeedDumpAicpuKernel(controlFlowHostFilePath), cflags);
     AlignUpTo(attr->hostControlFlowBinary, 0x8, 0);
-
+    std::string funcName = function->GetMagicName() + function->GetFunctionHash().Data();
+    CompileControlFlow(aicpuDirPath, funcName, controlFlowSource, expressionSource);
     std::string arm64TargetToolPath = Arm64TargetTool("g++");
     if (ToolchainExist(arm64TargetToolPath)) {
         std::string controlFlowDevFilePath = aicpuDirPath + "/controlFlow_dev_" + funcHash + ".cpp";

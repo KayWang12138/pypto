@@ -97,6 +97,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
     if (BUILD_WITH_CANN)
         list(APPEND InstallTargets tile_fwk_runtime)
         install(TARGETS tile_fwk_server LIBRARY DESTINATION "${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}")
+        install(TARGETS pypto_ctrl_server ARCHIVE DESTINATION "${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}")
     else ()
         get_target_property(cSecSharedFile c_sec_shared IMPORTED_LOCATION)
         install(FILES ${cSecSharedFile}

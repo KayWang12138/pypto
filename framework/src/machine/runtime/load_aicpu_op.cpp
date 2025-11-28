@@ -13,7 +13,7 @@
  * \brief
  */
 
-
+#include <nlohmann/json.hpp>
 #include <fstream>
 #include <limits.h>
 #include "load_aicpu_op.h"
@@ -22,11 +22,19 @@
 #include "interface/utils/file_utils.h"
 #include "interface/utils/op_info_manager.h"
 #include "runtime.h"
+#include "machine/utils/machine_utils.h"
+using Json = nlohmann::json;
+
 namespace {
     const std::string ControlFlowLaunchKernelName = "batchLoadsoFrombuf";
     const std::string ControlFlowKernelSoName = "libcontrol_flow.so";
-    const std::string BuiltInKernelName = "DynTileFwkBackendKernelServer";
+    const std::string BuiltInKernelInitName = "DynPyptoKernelServerInit";
+    const std::string BuiltInKernelRunName = "DynPyptoKernelServer";
+    const std::string BuiltInKernelNullName = "DynPyptoKernelServerNull";
+
     const std::string BuiltInSoName = "libtilefwk_backend_server.so";
+    const std::string KfcKernerLib = "KFCKernel";
+    const std::string AicpuKernerLib = "AICPUKernel";
     constexpr int BuiltInOpNum = 3;
     std::string BuiltInFunName[BuiltInOpNum] = {"PyptoInit", "PyptoRun", "PyptoNull"};
 }
@@ -34,67 +42,30 @@ namespace {
 namespace npu::tile_fwk {
 
 void LoadAicpuOp::GenBuiltInOpInfo(const std::string &jsonPath) {
-    std::ostringstream builtInInfo;
-    builtInInfo << "{\n"
-                << "  \"PyptoInit\": {\n"
-                << "    \"opInfo\": {\n"
-                << "      \"computeCost\": \"100\",\n"
-                << "      \"engine\": \"DNN_VM_AICPU\",\n"
-                << "      \"flagAsync\": \"False\",\n"
-                << "      \"flagPartial\": \"False\",\n"
-                << "      \"functionName\": \"DynPyptoKernelServerInit\",\n"
-                << "      \"kernelSo\": \"libtilefwk_backend_server.so\",\n"
-                << "      \"opKernelLib\": \"KFCKernel\",\n"
-                << "      \"userDefined\": \"False\"\n"
-                << "    }\n"  // closed opInfo
-                << "  },\n"  // closed funcNameInit
-                << "  \"PyptoRun\": {\n"
-                << "    \"opInfo\": {\n"
-                << "      \"computeCost\": \"100\",\n"
-                << "      \"engine\": \"DNN_VM_AICPU\",\n"
-                << "      \"flagAsync\": \"False\",\n"
-                << "      \"flagPartial\": \"False\",\n"
-                << "      \"functionName\": \"DynPyptoKernelServer\",\n"
-                << "      \"kernelSo\": \"libtilefwk_backend_server.so\",\n"
-                << "      \"opKernelLib\": \"KFCKernel\",\n"
-                << "      \"userDefined\": \"False\"\n"
-                << "    }\n"  // closed opInfo
-                << "  },\n"   // closed funcNameRun
-                << "  \"PyptoNull\": {\n"
-                << "    \"opInfo\": {\n"
-                << "      \"computeCost\": \"100\",\n"
-                << "      \"engine\": \"DNN_VM_AICPU\",\n"
-                << "      \"flagAsync\": \"False\",\n"
-                << "      \"flagPartial\": \"False\",\n"
-                << "      \"functionName\": \"DynPyptoKernelServerNull\",\n"
-                << "      \"kernelSo\": \"libtilefwk_backend_server.so\",\n"
-                << "      \"opKernelLib\": \"AICPUKernel\",\n"
-                << "      \"userDefined\": \"False\"\n"
-                << "    }\n"  // closed opInfo
-                << "  },\n"  // closed funcNamenull
-                << "  \"PyptoStatic\": {\n"
-                << "    \"opInfo\": {\n"
-                << "      \"computeCost\": \"100\",\n"
-                << "      \"engine\": \"DNN_VM_AICPU\",\n"
-                << "      \"flagAsync\": \"False\",\n"
-                << "      \"flagPartial\": \"False\",\n"
-                << "      \"functionName\": \"StaticPyptoKernelServer\",\n"
-                << "      \"kernelSo\": \"libtilefwk_backend_server.so\",\n"
-                << "      \"opKernelLib\": \"AICPUKernel\",\n"
-                << "      \"userDefined\": \"False\"\n"
-                << "    }\n"  // closed opInfo
-                << "  }\n"  // closed funcNamestatic
-                << "}";     // close all
+    Json builtInOp;
+    AicpuOpConfig pyptoInit;
+    pyptoInit.functionName = BuiltInKernelInitName;
+    pyptoInit.kernelSo = BuiltInSoName;
+    pyptoInit.opKernelLib = KfcKernerLib;
+    pyptoInit.opType = BuiltInFunName[0];
+
+    AicpuOpConfig pyptoRun = pyptoInit;
+    pyptoRun.opType = BuiltInFunName[1];
+    pyptoRun.functionName = BuiltInKernelRunName;
+
+    AicpuOpConfig pyptoNull = pyptoInit;
+    pyptoNull.opType = BuiltInFunName[2];
+    pyptoNull.opKernelLib = AicpuKernerLib;
+    pyptoNull.functionName = BuiltInKernelNullName;
+
+    GenAicpuOpInfoJson(builtInOp, {pyptoInit, pyptoRun, pyptoNull});
+    builtInOp.dump(4);
     builtInOpJsonPath_ = jsonPath + "/pypto_op_info.json";
-    if (!DumpFile(builtInInfo.str(), builtInOpJsonPath_)) {
+    if (!DumpFile(builtInOp.dump(4), builtInOpJsonPath_)) {
         ALOG_ERROR_F("Contrust custom op json failed");
         return;
     }
-}
-
-void LoadAicpuOp::SetAiCpuKernel() {
-    std::vector<char> buffer = OpInfoManager::GetInstance().GetControlBuffer();
-    customKerBin_ = std::make_shared<OpKernelBin>("CONTROL_FLOW", buffer);
+    return;
 }
 
 void LoadAicpuOp::CustomAiCpuSoLoad() {
@@ -107,8 +78,8 @@ void LoadAicpuOp::CustomAiCpuSoLoad() {
     optionCfg.numOpt = 1;
     std::string customOpJsonPath = OpInfoManager::GetInstance().GetCustomOpJsonPath();
     if (RealPath(customOpJsonPath).empty()) {
-      ALOG_ERROR_F("Custom op json path is empty");
-      return;
+        ALOG_ERROR_F("Custom op json path is empty");
+        return;
     }
     customBinHandle_ = OpInfoManager::GetInstance().GetControlBinHandle(customOpJsonPath);
     if (customBinHandle_ != nullptr) {
@@ -144,57 +115,57 @@ int LoadAicpuOp::LaunchCustomOp(rtStream_t stream, AstKernelArgs *kArgs, std::st
 }
 
 int LoadAicpuOp::GetBuiltInOpBinHandle() {
-  if (RealPath(builtInOpJsonPath_).empty()) {
-    ALOG_ERROR_F("JsonPath is empty");
-    return -1;
-  }
-  rtLoadBinaryConfig_t optionCfg;
-  auto loadBinOptions = std::make_unique<rtLoadBinaryOption_t>();
-
-  optionCfg.options = loadBinOptions.get();
-  optionCfg.options->optionId = RT_LOAD_BINARY_OPT_CPU_KERNEL_MODE;
-  optionCfg.options->value.cpuKernelMode = 0;
-  optionCfg.numOpt = 1;
-  void *binHandle;
-  auto ret = rtsBinaryLoadFromFile(builtInOpJsonPath_.c_str(), &optionCfg, reinterpret_cast<void**>(&binHandle));
-  if (ret != 0) {
-    ALOG_ERROR_F("Get built in bin handle failed");
-    return -1;
-  }
-
-  for (int i = 0; i < BuiltInOpNum; i++) {
-    rtFuncHandle funcHandle;
-    ret = rtsFuncGetByName(binHandle, BuiltInFunName[i].c_str(), &funcHandle);
-    if (ret != 0) {
-        ALOG_ERROR_F("Get BuiltIn FuncName[%s] funcHandle failed ret[%d]", BuiltInFunName[i].c_str(), ret);
-        return ret;
+    if (RealPath(builtInOpJsonPath_).empty()) {
+        ALOG_ERROR_F("JsonPath is empty");
+        return -1;
     }
-    builtInFuncMap_[BuiltInFunName[i]] = funcHandle;
-  }
-  return 0;
+    rtLoadBinaryConfig_t optionCfg;
+    auto loadBinOptions = std::make_unique<rtLoadBinaryOption_t>();
+
+    optionCfg.options = loadBinOptions.get();
+    optionCfg.options->optionId = RT_LOAD_BINARY_OPT_CPU_KERNEL_MODE;
+    optionCfg.options->value.cpuKernelMode = 0;
+    optionCfg.numOpt = 1;
+    void *binHandle;
+    auto ret = rtsBinaryLoadFromFile(builtInOpJsonPath_.c_str(), &optionCfg, reinterpret_cast<void**>(&binHandle));
+    if (ret != 0) {
+        ALOG_ERROR_F("Get built in bin handle failed");
+        return -1;
+    }
+
+    for (int i = 0; i < BuiltInOpNum; i++) {
+        rtFuncHandle funcHandle;
+        ret = rtsFuncGetByName(binHandle, BuiltInFunName[i].c_str(), &funcHandle);
+        if (ret != 0) {
+            ALOG_ERROR_F("Get BuiltIn FuncName[%s] funcHandle failed ret[%d]", BuiltInFunName[i].c_str(), ret);
+            return ret;
+        }
+        builtInFuncMap_[BuiltInFunName[i]] = funcHandle;
+    }
+    return 0;
 }
 
 int LoadAicpuOp::LaunchBuiltInOp(rtStream_t stream, AstKernelArgs *kArgs, const int &aicpuNum,
                                  const std::string &funcName) {
-  rtFuncHandle funcHandle;
-  auto it = builtInFuncMap_.find(funcName);
-  if (it != builtInFuncMap_.end()) {
-    funcHandle = it->second;
-  } else {
-    ALOG_ERROR_F("The func name[%s] is invalid", funcName.c_str());
-    return -1;
-  }
-  rtAicpuArgsEx_t rtArgs;
-  memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
-  rtArgs.args = kArgs;
-  rtArgs.argsSize = sizeof(AstKernelArgs);
+    rtFuncHandle funcHandle;
+    auto it = builtInFuncMap_.find(funcName);
+    if (it != builtInFuncMap_.end()) {
+        funcHandle = it->second;
+    } else {
+        ALOG_ERROR_F("The func name[%s] is invalid", funcName.c_str());
+        return -1;
+    }
+    rtAicpuArgsEx_t rtArgs;
+    memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
+    rtArgs.args = kArgs;
+    rtArgs.argsSize = sizeof(AstKernelArgs);
 
-  rtCpuKernelArgs_t argInfo;
-  memset_s(&argInfo, sizeof(argInfo), 0, sizeof(argInfo));
-  argInfo.baseArgs = rtArgs;
-  rtKernelLaunchCfg_t kernelLaunchCfg = {nullptr, 0U};
-  auto launchKernelAttr = std::make_unique<rtLaunchKernelAttr_t>();
-  kernelLaunchCfg.attrs = launchKernelAttr.get();
-  return rtsLaunchCpuKernel(funcHandle, aicpuNum, stream, &kernelLaunchCfg, &argInfo);
+    rtCpuKernelArgs_t argInfo;
+    memset_s(&argInfo, sizeof(argInfo), 0, sizeof(argInfo));
+    argInfo.baseArgs = rtArgs;
+    rtKernelLaunchCfg_t kernelLaunchCfg = {nullptr, 0U};
+    auto launchKernelAttr = std::make_unique<rtLaunchKernelAttr_t>();
+    kernelLaunchCfg.attrs = launchKernelAttr.get();
+    return rtsLaunchCpuKernel(funcHandle, aicpuNum, stream, &kernelLaunchCfg, &argInfo);
 }
 }// namespace
