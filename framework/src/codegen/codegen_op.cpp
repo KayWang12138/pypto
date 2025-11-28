@@ -41,9 +41,11 @@ bool IsCopyOpWithShapeOffsetAttr(Opcode opcode) {
 } // namespace
 
 void CodeGenOp::UpdateShape(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx) {
+    ALOG_INFO_F("op code %s, operandIdx: %d, raw shape is %s, originShape is %s, dynamicValidShape is %s",
+        oper.GetOpcodeStr().c_str(), operandIdx, IntVecToStr(logicalTensor.tensor->rawshape).c_str(),
+        IntVecToStr(logicalTensor.oriShape).c_str(), IntVecToStr(logicalTensor.GetDynValidShape()).c_str());
+
     rawShape[operandIdx] = logicalTensor.tensor->rawshape;
-    ALOG_INFO_F("op code %s, operandIdx: %d, raw shape is %s", oper.GetOpcodeStr().c_str(), operandIdx,
-        IntVecToStr(logicalTensor.tensor->rawshape).c_str());
     // need adapt unaligned scene after
     originShape[operandIdx] = logicalTensor.oriShape;
     if (isSupportDynamicUnaligned) {
@@ -66,7 +68,7 @@ void CodeGenOp::UpdateShape(const Operation &oper, const LogicalTensor &logicalT
 
     std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(oper.GetOpAttribute());
     ASSERT(attr != nullptr) << ": missing OpAttr in copy op: \n" << oper.Dump();
-    shape[operandIdx] = attr->GetSpecifiedShape(1);  // used for spilling GM scene
+    shape[operandIdx] = attr->GetSpecifiedShape(1); // used for spilling GM scene
     ALOG_INFO_F("attrShape(from op CopyOpAttribute) = %s", IntVecToStr(shape[operandIdx]).c_str());
 }
 
@@ -149,20 +151,18 @@ void CodeGenOp::CheckScaleValue(const npu::tile_fwk::Operation &ops) {
     }
 }
 
-bool CodeGenOp::Init(const npu::tile_fwk::Operation &ops) {
+void CodeGenOp::Init(const npu::tile_fwk::Operation &ops) {
     ASSERT(ops.iOperand.size() + ops.oOperand.size() <= MAX_OPERANDS)
         << "can not support ops.iOperand.size: " << ops.iOperand.size()
         << ", ops.oOperand.size: " << ops.oOperand.size();
 
-    ALOG_INFO_F("%s: init CodeGenOp from npu::tile_fwk::Operation", __FUNCTION__);
-
     isSupportDynamicUnaligned =
         functionType == FunctionType::DYNAMIC_LOOP_PATH && config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_UNALIGNED);
+    ALOG_INFO_F("%s: init CodeGenOp from npu::tile_fwk::Operation, isSupportDynamicUnaligned is %d", __FUNCTION__,
+        isSupportDynamicUnaligned);
+
     UpdateTileOpInfo(ops);
-    if (tileOpName.empty()) {
-        ALOG_ERROR_F("%s: empty tileOpName for ops:\n%s", __FUNCTION__, ops.Dump().c_str());
-        return false;
-    }
+    ASSERT(!tileOpName.empty()) << "empty tileOpName for ops: " << ops.Dump();
 
     // opcode would be refreshed by UpdateTileOpInfo
     isSupportLayout = ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false) &&
@@ -192,8 +192,6 @@ bool CodeGenOp::Init(const npu::tile_fwk::Operation &ops) {
     syncQueue = ops.syncQueue_;
     CheckScaleValue(ops);
     UpdateOpAttribute(ops);
-
-    return true;
 }
 
 void CodeGenOp::UpdateCodegenOpInfoByTensor(

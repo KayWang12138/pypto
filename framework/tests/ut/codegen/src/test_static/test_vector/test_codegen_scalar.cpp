@@ -13,15 +13,18 @@
  * \brief Unit test for codegen.
  */
 
+#include <vector>
+#include <string>
+
 #include <gtest/gtest.h>
+
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
 #include "codegen/codegen.h"
-#include <vector>
-#include <string>
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "test_codegen_utils.h"
 
 namespace npu::tile_fwk {
 constexpr int DIM2 = 2;
@@ -111,41 +114,42 @@ TEST_F(TestCodegenScalar, TestScalarOp) {
 }
 
 TEST_F(TestCodegenScalar, TestPipeAll) {
-    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestParams", "TestParams", nullptr);
-    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
-    auto currFunctionPtr =
-        std::make_shared<Function>(Program::GetInstance(), "TestAddParams", "TestAddParams", rootFuncPtr.get());
-    EXPECT_TRUE(currFunctionPtr != nullptr);
-    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
-
-    // Prepare the graph
-    std::vector<int64_t> shape = {8, 16};
+    const std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
-    auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    auto incast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    auto ubTensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    TileShape::Current().SetVecTile(shape);
 
-    auto &copy_op1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast1}, {ubTensor1});
-    (void)copy_op1;
-    auto &copy_op2 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast2}, {ubTensor2});
-    (void)copy_op2;
-    auto &add_op = currFunctionPtr->AddOperation(Opcode::OP_ADD, {ubTensor1, ubTensor2}, {ubTensor3});
-    (void)add_op;
-    std::vector<std::shared_ptr<LogicalTensor>> input;
-    std::vector<std::shared_ptr<LogicalTensor>> output;
-    Operation &syncOp = currFunctionPtr->AddOperation(npu::tile_fwk::Opcode::OP_BAR_ALL, {input}, {output});
+    Tensor inputA(DT_FP32, shape, "A");
+    Tensor inputB(DT_FP32, shape, "B");
+    Tensor output(DT_FP32, shape, "C");
+
+    std::string funcName = "ADD";
+    config::SetBuildStatic(true);
+    FUNCTION(funcName, {inputA, inputB, output}) {
+        output = Add(inputA, inputB);
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+
+    std::shared_ptr<RawTensor> ddrRawTensor =
+        std::make_shared<RawTensor>(DataType::DT_FP32, shape, TileOpFormat::TILEOP_ND, "UBSpillOut", SYMBOL_STACK_BASE);
+    const std::vector<int64_t> offset = {0, 0};
+    auto ddrTensor = std::make_shared<LogicalTensor>(*function, ddrRawTensor, offset, shape);
+    ddrTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+    ddrTensor->SetMemoryTypeToBe(MemoryType::MEM_DEVICE_DDR);
+    auto ubTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
+    Operation &syncOp = function->AddOperation(npu::tile_fwk::Opcode::OP_BAR_ALL, {ddrTensor}, {ubTensor});
     syncOp.syncQueue_ = {PipeType::PIPE_ALL, PipeType::PIPE_ALL, CoreType::AIV, CoreType::AIV, -1};
-    auto &copy_out_op = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {ubTensor3}, {outCast});
-    (void)copy_out_op;
-    currFunctionPtr->inCasts_.push_back(incast1);
-    currFunctionPtr->inCasts_.push_back(incast2);
-    currFunctionPtr->outCasts_.push_back(outCast);
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
-    codeGen.GenCode(*rootFuncPtr, {});
-    EXPECT_TRUE(true);
+
+    SymbolManager sm;
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    CodeGenOpCloudNPU cop({sm, *function, *function->rootFunc_->programs_[0], syncOp});
+    function->GetTensorMap().inverseMap_[ubTensor->GetMagic()] = ubTensor;
+
+    std::string res = cop.GenOpCode();
+    std::string expect = R"!!!(pipe_barrier(PIPE_ALL);
+)!!!";
+
+    EXPECT_EQ(res, expect);
 }
 } // namespace npu::tile_fwk

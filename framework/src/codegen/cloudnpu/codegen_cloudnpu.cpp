@@ -136,7 +136,8 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
         return {};
     }
 
-    ALOG_INFO_F("Function to codegen:\n %s\n", topFunc.Dump().c_str());
+    ALOG_INFO_F("TopFunc Type is %s\nFunction to codegen:\n %s\n", topFunc.GetFunctionTypeStr().c_str(),
+        topFunc.Dump().c_str());
 
     SymbolManager symbolMgr;
     std::string allocSourceRegion;
@@ -156,15 +157,9 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
 
         std::string allocSourceCode = GenAllocForLocalBuffer(op, symbolMgr);
 
-        CodeGenOpCloudNPU cop(symbolMgr, topFunc.GetFunctionType(), locToOffsetMap, topFunc.IsUnderDynamicFunction());
-        auto success = cop.Init(op);
-        if (!success) {
-            ALOG_INFO_F(": failed to init CodeGenOpCloudNPU from an operation: %s \n", op.Dump().c_str());
-            break;
-        }
+        CodeGenOpCloudNPU cop({symbolMgr, topFunc, subFunc, op, locToOffsetMap});
         // update hasNan, hasPosInf, hasNegInf
         UpdateSpecialValue(cop, hasNan, hasPosInf, hasNegInf);
-        cop.UpdateTileTensorInfo();
         cop.SetSubBlockId(subBlockId);
         std::string tileOpSourceCode = cop.GenOpCode();
         ASSERT(tileOpSourceCode.find("CG_ERROR") == tileOpSourceCode.npos) << "gen op invalid" << op.Dump();

@@ -31,14 +31,23 @@
 #include "codegen/codegen_op.h"
 
 namespace npu::tile_fwk {
+struct CodeGenOpCloudNPUCtx{
+    SymbolManager &symbolManager;
+    Function &topFunc;
+    Function &subFunc;
+    const Operation &ops;
+    const std::map<int, int> &locToOffset = {};
+};
 class CodeGenOpCloudNPU : public CodeGenOp {
 public:
-    explicit CodeGenOpCloudNPU(SymbolManager &symbolManager, FunctionType funcType,
-        const std::map<int, int> &locToOffset = {}, bool isUnderDynamicFunc = false);
+    CodeGenOpCloudNPU(SymbolManager &symbolManager, FunctionType funcType, const std::map<int, int> &locToOffset = {},
+        bool isUnderDynamicFunc = false);
+
+    explicit CodeGenOpCloudNPU(CodeGenOpCloudNPUCtx ctx);
     ~CodeGenOpCloudNPU() override = default;
 
     std::string GenCVSyncSetOp() const;
-    std::string GenCVSyncWaitOp() const ;
+    std::string GenCVSyncWaitOp() const;
     std::string GenMemL1ToBt() const;
     std::string GenMemL1CopyIn() const;
     std::string GenMemL1CopyOut() const;

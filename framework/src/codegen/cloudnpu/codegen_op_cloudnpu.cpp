@@ -234,7 +234,14 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(
           {Opcode::OP_AICPU_CALL_AIV, [this]() { return GenAicpuCallOp(); }},
       }) {
     InitOpsGenMap();
-};
+}
+
+CodeGenOpCloudNPU::CodeGenOpCloudNPU(CodeGenOpCloudNPUCtx ctx)
+    : CodeGenOpCloudNPU(
+          ctx.symbolManager, ctx.topFunc.GetFunctionType(), ctx.locToOffset, ctx.topFunc.IsUnderDynamicFunction()) {
+    CodeGenOp::Init(ctx.ops);
+    UpdateTileTensorInfo();
+}
 void CodeGenOpCloudNPU::InitOpsGenMap() {
     InitScalaOpsMap();
     InitMTEOpsMap();

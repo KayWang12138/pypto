@@ -92,7 +92,7 @@ std::string SymbolManager::QueryVariableNameTileTensor(const AllocKey &key) {
     }
 
     ALOG_ERROR_F("%s: failed to query by identifier: %s", __FUNCTION__, FormatAllocKey(key).c_str());
-    ASSERT(false) << "QueryVariableNameTileTensor Failed: UNDEFINED_VAR !!! ";
+    ASSERT(false) << "QueryVariableNameTileTensor Failed: UNDEFINED_VAR !!! AllocKey: " << FormatAllocKey(key);
     return "UNDEFINED_VAR";
 }
 
@@ -125,11 +125,10 @@ std::string SymbolManager::AddTileTensorUsing(const TileTensorUsing &tileTensorU
 
 void SymbolManager::AddTileTensor(const TileTensor &tileTensor) {
     auto result = tileTensor_.insert({tileTensor, tileTensor.tensorName});
-    if (result.second) {
-        tileTensorByMagic_.insert({tileTensor.magic, tileTensor.tensorName});
-    } else {
-        tileTensorByMagic_.insert({tileTensor.magic, result.first->second});
-    }
+    std::string tensorName = result.second ? tileTensor.tensorName : result.first->second;
+    tileTensorByMagic_.insert({tileTensor.magic, tensorName});
+    ALOG_INFO_F("Add TileTensor --> tensor magic: %d, tensor name: %s, tile tensor: %s", tileTensor.magic,
+        tensorName.c_str(), tileTensor.ToString().c_str());
 }
 
 std::string SymbolManager::QueryTileTensorByMagic(int magic) {

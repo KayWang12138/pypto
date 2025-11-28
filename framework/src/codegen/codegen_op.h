@@ -53,7 +53,7 @@ const int NULL_OPERAND = 0;
 
 class CodeGenOp {
 public:
-    explicit CodeGenOp(SymbolManager &symbolManager, FunctionType funcType, const std::map<int, int> &locToOffset = {},
+    CodeGenOp(SymbolManager &symbolManager, FunctionType funcType, const std::map<int, int> &locToOffset = {},
         bool isUnderDynamicFunc = false)
         : functionType(funcType), paramLocToParamListOffset(locToOffset), isUnderDynamicFunction(isUnderDynamicFunc) {
         for (size_t i = 0; i < MAX_OPERANDS; i++) {
@@ -64,7 +64,7 @@ public:
     }
     virtual ~CodeGenOp() = default;
 
-    virtual bool Init(const Operation &ops);
+    virtual void Init(const Operation &ops);
 
     virtual std::string GenBarrier() const;
     virtual std::string GenSyncSetOp() const;
@@ -81,13 +81,8 @@ public:
 protected:
     std::string GenOpAttr(bool hasExistingParam = true) const;
 
-    // NEXTNEXT: list of all primitives:
-    // [ NOP, UB_ALLOC, L1_ALLOC, L0A_ALLOC, L0B_ALLOC, L0C_ALLOC,
-    //   UB_ADD, UB_MUL, UB_COPY_IN, UB_COPY_OUT, L1_COPY_IN, UB_TO_L1,
-    //   UB_PAIRMAX, UB_PAIRSUM, UB_ROWEXPMAX, UB_ROWEXPSUM, UB_SUB, UB_DIV,
-    //   UB_EXP SYNC_SRC, SYNC_DST ]
     std::string opCodeStr;
-    Opcode opCode;
+    Opcode opCode{Opcode::OP_UNKNOWN};
     std::string aliasOp; // alias op name
 
     int operand[MAX_OPERANDS] = {}; // buffer id
@@ -126,7 +121,7 @@ protected:
     bool isSupportDynamicUnaligned{false};
     bool isSupportLayout{false};
     const std::map<int, int> &paramLocToParamListOffset{};
-    bool isUnderDynamicFunction;
+    bool isUnderDynamicFunction{false};
     int operandCnt{0};
     int subBlockId{0};
 

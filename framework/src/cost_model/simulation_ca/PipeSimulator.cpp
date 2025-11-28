@@ -47,12 +47,8 @@ namespace CostModel
         cga.GenAllocForLocalBuffer(*(tileOp->operation), memoryAllocator);
         CodeGenOpCloudNPU cop(memoryAllocator, tileOp->funcPtr->parentFunction->GetFunctionType(), locToOffsetMap,
             tileOp->funcPtr->parentFunction->IsUnderDynamicFunction());
-        auto success = cop.Init(*tileOp->operation);
-        if (success) {
-            return cop.GenOpCode();
-        } else {
-            return "";
-        }
+        cop.Init(*tileOp->operation);
+        return cop.GenOpCode();
     }
 
     static bool GenerateCode(const std::string& buffer, std::string fileName)
