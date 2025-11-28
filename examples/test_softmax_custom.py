@@ -47,13 +47,12 @@ def softmax_custom(inputs, outputs):
     # tiling shape setting
     pypto.set_vec_tile_shapes(1, 4, 1, 64)
 
-    with pypto.function("SOFTMAX", [input_tensor], [output_tensor]):
-        for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx"):
-            b_offset = idx * tile_b
-            b_offset_end = (idx + 1) * tile_b
-            input_view = input_tensor[b_offset:b_offset_end, :n1, :n2, :dim]
-            softmax_out = softmax_core(input_view)
-            pypto.assemble(softmax_out, [b_offset, 0, 0, 0], output_tensor)
+    for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx"):
+        b_offset = idx * tile_b
+        b_offset_end = (idx + 1) * tile_b
+        input_view = input_tensor[b_offset:b_offset_end, :n1, :n2, :dim]
+        softmax_out = softmax_core(input_view)
+        pypto.assemble(softmax_out, [b_offset, 0, 0, 0], output_tensor)
 
 
 def test_softmax_custom():
@@ -70,9 +69,11 @@ def test_softmax_custom():
 
     inputs = [input_data]
     outputs = [output_data]
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
 
     # launch the kernel
-    softmax_custom(inputs, outputs)
+    softmax_custom(pto_inputs, pto_outputs)
 
     torch_softmax = torch.softmax(input_data, dim=3)
     npu_data = output_data.cpu()

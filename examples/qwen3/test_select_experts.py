@@ -47,45 +47,41 @@ def select_experts(in_tensors, out_tensors, renormalize_flag):
     view_shape = (1024, ne)
     bs_loop = (bs + view_shape[0] - 1) // view_shape[0]
 
-    # 5. 定义动态函数
-    with pypto.function("MOEGATE", [logits_input], [ids_k, weight_k]):
-        def inside_select_experts():
-            # 6. 实现kernel逻辑，循环展开BS动态轴
-            for bs_idx in pypto.loop(bs_loop, name="LOOP_MOEGATE_L0", idx_name="bs_idx", unroll_List={1}):
-                def bs_loop_func(bs_idx):
-                    # 7. 通过view得到tile_logits
-                    tile_logits = pypto.view(logits_input, view_shape,
-                        [bs_idx * view_shape[0], 0],
-                        valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]), ne])
+    # 5. 实现kernel逻辑，循环展开BS动态轴
+    for bs_idx in pypto.loop(bs_loop, name="LOOP_MOEGATE_L0", idx_name="bs_idx", unroll_List={1}):
+        def bs_loop_func(bs_idx):
+            # 6. 通过view得到tile_logits
+            tile_logits = pypto.view(logits_input, view_shape,
+                [bs_idx * view_shape[0], 0],
+                valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]), ne])
 
-                    # 8. 按照计算图实现运算逻辑，设置set_vec_tile_shapes时应尽可能用满UB，但不要超过UB的大小。
-                    pypto.set_vec_tile_shapes(64, 128)
+            # 7. 按照计算图实现运算逻辑，设置set_vec_tile_shapes时应尽可能用满UB，但不要超过UB的大小。
+            pypto.set_vec_tile_shapes(64, 128)
 
-                    # cast to fp32
-                    tile_logits_fp32 = pypto.cast(tile_logits, pypto.DT_FP32)
-                    # softmax
-                    softmax_out = pypto.softmax(tile_logits_fp32, -1)
-                    # topK
-                    topk_weight_tmp, topk_ids_tmp = pypto.topk(softmax_out, topk, -1, True)
+            # cast to fp32
+            tile_logits_fp32 = pypto.cast(tile_logits, pypto.DT_FP32)
+            # softmax
+            softmax_out = pypto.softmax(tile_logits_fp32, -1)
+            # topK
+            topk_weight_tmp, topk_ids_tmp = pypto.topk(softmax_out, topk, -1, True)
 
-                    pypto.set_vec_tile_shapes(128, 8)
-                    if pypto.cond(pypto.symbolic_scalar(renormalize_flag)):
-                        # sum
-                        denominator = pypto.sum(topk_weight_tmp, -1, True)
-                        # div
-                        # for shape (b*s, k) (b*s, 1)
-                        topk_weight2 = pypto.div(topk_weight_tmp, denominator)
-                    else:
-                        denominator = topk_weight_tmp
-                        topk_weight2 = denominator
-                    # weight cast
-                    topk_weight2_f16 = pypto.cast(topk_weight2, weight_k.dtype)
+            pypto.set_vec_tile_shapes(128, 8)
+            if pypto.cond(pypto.symbolic_scalar(renormalize_flag)):
+                # sum
+                denominator = pypto.sum(topk_weight_tmp, -1, True)
+                # div
+                # for shape (b*s, k) (b*s, 1)
+                topk_weight2 = pypto.div(topk_weight_tmp, denominator)
+            else:
+                denominator = topk_weight_tmp
+                topk_weight2 = denominator
+            # weight cast
+            topk_weight2_f16 = pypto.cast(topk_weight2, weight_k.dtype)
 
-                    # 9. 将结果搬运到输出tensor上
-                    weight_k[bs_idx * pypto.symbolic_scalar(view_shape[0]):, pypto.symbolic_scalar(0):] = topk_weight2_f16
-                    ids_k[bs_idx * pypto.symbolic_scalar(view_shape[0]):, pypto.symbolic_scalar(0):] = topk_ids_tmp
-                bs_loop_func(bs_idx)
-        inside_select_experts()
+            # 8. 将结果搬运到输出tensor上
+            weight_k[bs_idx * pypto.symbolic_scalar(view_shape[0]):, pypto.symbolic_scalar(0):] = topk_weight2_f16
+            ids_k[bs_idx * pypto.symbolic_scalar(view_shape[0]):, pypto.symbolic_scalar(0):] = topk_ids_tmp
+        bs_loop_func(bs_idx)
 
 
 def test_select_experts():
@@ -111,7 +107,9 @@ def test_select_experts():
         # 4. 执行kernel并获取结果
         inputs = [router_logits]
         outputs = [topk_ids, topk_weights]
-        select_experts(inputs, outputs, renormalize)
+        pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+        pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+        select_experts(pto_inputs, pto_outputs, renormalize)
         pypto.runtime._device_synchronize()
 
         # 5. 与PyTorch参考实现对比

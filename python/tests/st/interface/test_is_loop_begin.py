@@ -33,18 +33,17 @@ def dyn_loop_with_loop_begin(in_tensors, out_tensors):
     out_tensor = out_tensors[0]
     pypto.set_vec_tile_shapes(1, 1, 64, 64)
 
-    with pypto.function("MAIN", [in_tensor], [out_tensor]):
-        for b_idx in pypto.loop(b, name="b_loop", idx_name="b_idx"):
-            for s_idx in pypto.loop(s, name="s_loop", idx_name="s_idx"):
-                a0 = pypto.view(in_tensor, [1, 1, n1, d], [b_idx, s_idx, 0, 0])
-                if pypto.cond(pypto.is_loop_begin(b_idx)):
-                    a1 = pypto.add(a0, 1.0)
-                    pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
-                else:
-                    a1 = pypto.mul(a0, 1.0)
-                    pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
-                del a0
-                del a1
+    for b_idx in pypto.loop(b, name="b_loop", idx_name="b_idx"):
+        for s_idx in pypto.loop(s, name="s_loop", idx_name="s_idx"):
+            a0 = pypto.view(in_tensor, [1, 1, n1, d], [b_idx, s_idx, 0, 0])
+            if pypto.cond(pypto.is_loop_begin(b_idx)):
+                a1 = pypto.add(a0, 1.0)
+                pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
+            else:
+                a1 = pypto.mul(a0, 1.0)
+                pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
+            del a0
+            del a1
 
 
 def test_is_loop_begin():
@@ -58,9 +57,11 @@ def test_is_loop_begin():
     # def inputs and outputs
     input_npu = input_cpu.to(device=f'npu:{device_id}')
     output_npu = output_cpu.to(device=f'npu:{device_id}')
+    pto_inputs = [pypto.from_torch(input_npu, "IN")]
+    pto_outputs = [pypto.from_torch(output_npu, "OUT")]
 
     # compute on npu
-    dyn_loop_with_loop_begin([input_npu], [output_npu])
+    dyn_loop_with_loop_begin(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()
 
 
@@ -84,18 +85,17 @@ def dyn_loop_with_loop_end(in_tensors, out_tensors):
     out_tensor = out_tensors[0]
     pypto.set_vec_tile_shapes(1, 1, 64, 64)
 
-    with pypto.function("MAIN", [in_tensor], [out_tensor]):
-        for b_idx in pypto.loop(b, name="b_loop", idx_name="b_idx"):
-            for s_idx in pypto.loop(s, name="s_loop", idx_name="s_idx"):
-                a0 = pypto.view(in_tensor, [1, 1, n1, d], [b_idx, s_idx, 0, 0])
-                if pypto.cond(pypto.is_loop_end(b_idx)):
-                    a1 = pypto.add(a0, 1.0)
-                    pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
-                else:
-                    a1 = pypto.mul(a0, 1.0)
-                    pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
-                del a0
-                del a1
+    for b_idx in pypto.loop(b, name="b_loop", idx_name="b_idx"):
+        for s_idx in pypto.loop(s, name="s_loop", idx_name="s_idx"):
+            a0 = pypto.view(in_tensor, [1, 1, n1, d], [b_idx, s_idx, 0, 0])
+            if pypto.cond(pypto.is_loop_end(b_idx)):
+                a1 = pypto.add(a0, 1.0)
+                pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
+            else:
+                a1 = pypto.mul(a0, 1.0)
+                pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
+            del a0
+            del a1
 
 
 def test_is_loop_end():
@@ -109,9 +109,11 @@ def test_is_loop_end():
     # def inputs and outputs
     input_npu = input_cpu.to(device=f'npu:{device_id}')
     output_npu = output_cpu.to(device=f'npu:{device_id}')
+    pto_inputs = [pypto.from_torch(input_npu, "IN")]
+    pto_outputs = [pypto.from_torch(output_npu, "OUT")]
 
     # compute on npu
-    dyn_loop_with_loop_end([input_npu], [output_npu])
+    dyn_loop_with_loop_end(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()
 
     output_cpu = output_npu.cpu()

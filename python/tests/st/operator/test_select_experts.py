@@ -35,32 +35,29 @@ def op_select_experts(input_tensors, output_tensors, params):
     view_shape = (1024, ne)
     bs_loop = (bs + view_shape[0] - 1) // view_shape[0]
 
-    with pypto.function("MOEGATE", [router_logits], [ids_k, weight_k]):
-        def inside_select_experts():
-            for bs_idx in pypto.loop(bs_loop, name="LOOP_MOEGATE_L0", idx_name="bs_idx", unroll_List={1}):
-                def bs_loop_func(bs_idx):
-                    tile_logits = pypto.view(router_logits, view_shape,
-                        [bs_idx * view_shape[0], 0],
-                        valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]), ne])
-                    pypto.set_vec_tile_shapes(64, 128)
+    for bs_idx in pypto.loop(bs_loop, name="LOOP_MOEGATE_L0", idx_name="bs_idx", unroll_List={1}):
+        def bs_loop_func(bs_idx):
+            tile_logits = pypto.view(router_logits, view_shape,
+                [bs_idx * view_shape[0], 0],
+                valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]), ne])
+            pypto.set_vec_tile_shapes(64, 128)
 
-                    tile_logits_fp32 = pypto.cast(tile_logits, pypto.DT_FP32)
-                    softmax_out = pypto.softmax(tile_logits_fp32, -1)
-                    topk_weight_tmp, topk_ids_tmp = pypto.topk(softmax_out, topk, -1, True)
+            tile_logits_fp32 = pypto.cast(tile_logits, pypto.DT_FP32)
+            softmax_out = pypto.softmax(tile_logits_fp32, -1)
+            topk_weight_tmp, topk_ids_tmp = pypto.topk(softmax_out, topk, -1, True)
 
-                    pypto.set_vec_tile_shapes(128, 8)
-                    if pypto.cond(pypto.symbolic_scalar(renormalize_flag)):
-                        denominator = pypto.sum(topk_weight_tmp, -1, True)
-                        topk_weight2 = pypto.div(topk_weight_tmp, denominator)
-                    else:
-                        denominator = topk_weight_tmp
-                        topk_weight2 = denominator
-                    topk_weight2_f16 = pypto.cast(topk_weight2, weight_k.dtype)
+            pypto.set_vec_tile_shapes(128, 8)
+            if pypto.cond(pypto.symbolic_scalar(renormalize_flag)):
+                denominator = pypto.sum(topk_weight_tmp, -1, True)
+                topk_weight2 = pypto.div(topk_weight_tmp, denominator)
+            else:
+                denominator = topk_weight_tmp
+                topk_weight2 = denominator
+            topk_weight2_f16 = pypto.cast(topk_weight2, weight_k.dtype)
 
-                    ids_k[bs_idx * pypto.symbolic_scalar(view_shape[0]):, pypto.symbolic_scalar(0):] = topk_ids_tmp
-                    weight_k[bs_idx * pypto.symbolic_scalar(view_shape[0]):, pypto.symbolic_scalar(0):] = topk_weight2_f16
-                bs_loop_func(bs_idx)
-        inside_select_experts()
+            ids_k[bs_idx * pypto.symbolic_scalar(view_shape[0]):, pypto.symbolic_scalar(0):] = topk_ids_tmp
+            weight_k[bs_idx * pypto.symbolic_scalar(view_shape[0]):, pypto.symbolic_scalar(0):] = topk_weight2_f16
+        bs_loop_func(bs_idx)
 
 
 def golden_select_experts(params, router_logits, topk_ids_tensor_list, topk_weight_2_tensor_list):

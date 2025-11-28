@@ -357,7 +357,4 @@ def lightning_indexer_prolog_quant_compute(inputs, outputs, attrs, configs):
 
 @pypto.jit
 def lightning_indexer_prolog_quant(input_tensors, output_tensors, attrs, configs):
-    with pypto.function(
-            "LightningIndexerPrologQuant", input_tensors, output_tensors
-    ):
-        lightning_indexer_prolog_quant_compute(input_tensors, output_tensors, attrs, configs)
+    lightning_indexer_prolog_quant_compute(input_tensors, output_tensors, attrs, configs)

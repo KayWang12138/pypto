@@ -25,9 +25,8 @@ def cust_dyn_func(in_tensors, out_tensors, tiling=None):
     b = in_tensors[1]
     c = out_tensors[0]
     pypto.set_vec_tile_shapes(32, 32)
-    with pypto.function("MAIN", [a, b], [c]):
-        for _ in pypto.loop(1, name="s0", idx_name="k"):
-            c.move(pypto.add(a, b))
+    for _ in pypto.loop(1, name="s0", idx_name="k"):
+        c.move(pypto.add(a, b))
 
 
 class Network(torch.nn.Module):
@@ -36,14 +35,18 @@ class Network(torch.nn.Module):
 
         inputs = [add_01, data2]
         outputs = [data2]
-        cust_dyn_func(inputs, outputs, 32)
+        pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+        pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+        cust_dyn_func(pto_inputs, pto_outputs, 32)
 
         data2 = torch.sub(data2, add_01)
         data2 = torch.add(data2, add_01)
 
         inputs = [data2, data1]
         outputs = [data2]
-        cust_dyn_func(inputs, outputs, 32)
+        pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+        pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+        cust_dyn_func(pto_inputs, pto_outputs, 32)
         return data2
 
 

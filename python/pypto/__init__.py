@@ -55,7 +55,7 @@ from .pto_utils import ceil, bytes_of
 from .runtime import jit, verify
 from .symbolic_scalar import SymbolicScalar
 from .tensor import Tensor, mark_dynamic
-
+from .converter import from_torch
 
 tensor = Tensor
 element = Element

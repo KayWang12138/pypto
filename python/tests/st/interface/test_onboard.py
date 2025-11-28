@@ -116,12 +116,11 @@ def cust_dyn_func(in_tensors, out_tensors, tiling = None):
     a = in_tensors[0]
     b = out_tensors[0]
     pypto.set_vec_tile_shapes(tiling, tiling)
-    with pypto.function("MAIN", [a], [b]):
-        for k in pypto.loop(10, name="s0", idx_name="k"):
-            if pypto.cond(k == 0):
-                b.move(pypto.add(a, a))
-            else:
-                b.move(pypto.add(a, b))
+    for k in pypto.loop(10, name="s0", idx_name="k"):
+        if pypto.cond(k == 0):
+            b.move(pypto.add(a, a))
+        else:
+            b.move(pypto.add(a, b))
     assert isinstance(b, pypto.tensor)
 
 
@@ -138,7 +137,9 @@ def test_device_run_data_from_device():
     # def inputs and outputs
     inputs = [a_data]
     outputs = [b_data]
-    cust_dyn_func(inputs, outputs, tiling)
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    cust_dyn_func(pto_inputs, pto_outputs, tiling)
 
     pypto.runtime._device_synchronize()
     # get data and compare result
@@ -152,7 +153,9 @@ def test_device_run_data_from_device():
     c_rawdata = torch.tensor([[k * 1000 + v for v in range(m)] for k in range(n)])
     c_data = a_rawdata.to(dtype=torch.int32, device=f'npu:{device_id}')
     d_data = torch.zeros((n, m), dtype=torch.int32, device=f'npu:{device_id}')
-    cust_dyn_func([c_data], [d_data])
+    pto_inputs = [pypto.from_torch(c_data, f"IN")]
+    pto_outputs = [pypto.from_torch(d_data, f"OUT")]
+    cust_dyn_func(pto_inputs, pto_outputs)
     c_data_list = [c for r in c_data.cpu().tolist() for c in r]
     d_data_list = [c for r in d_data.cpu().tolist() for c in r]
     assert d_data_list == [v * 11 for v in c_data_list]
@@ -167,13 +170,12 @@ def matmul_add(in_tensors, out_tensors, m, k, n, tiling = None):
     d = out_tensors[0]
     pypto.set_vec_tile_shapes(tiling, tiling)
     pypto.set_cube_tile_shapes([tiling, tiling], [tiling, tiling], [tiling, tiling])
-    with pypto.function("MAIN", [a, b, c], [d]):
-        for i in pypto.loop(1, name="s0", idx_name="i"):
-            a0 = pypto.view(a, [n, k], [0, 0])
-            b0 = pypto.view(b, [k, m], [0, 0])
-            d.move(pypto.add(pypto.matmul(a0, b0, pypto.DT_INT32), c))
-            del a0
-            del b0
+    for _ in pypto.loop(1, name="s0", idx_name="i"):
+        a0 = pypto.view(a, [n, k], [0, 0])
+        b0 = pypto.view(b, [k, m], [0, 0])
+        d.move(pypto.add(pypto.matmul(a0, b0, pypto.DT_INT32), c))
+        del a0
+        del b0
 
 
 def test_device_run_data_from_device_mix_nodep():
@@ -205,7 +207,9 @@ def test_device_run_data_from_device_mix_nodep():
         # def inputs and outputs
         inputs = [a_data, b_data, c_data]
         outputs = [d_data]
-        matmul_add(inputs, outputs, m, k, n, tiling=tiling)
+        pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+        pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+        matmul_add(pto_inputs, pto_outputs, m, k, n, tiling=tiling)
 
     pypto.runtime._device_synchronize()
 

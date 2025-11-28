@@ -41,7 +41,9 @@ def gate_pto(gate_weight: torch.Tensor,  # gate matmul weights
     router_logits_out = torch.zeros((bs, ne), dtype=gate_weight.dtype, device=hidden_states.device)
     inputs = [hidden_states, gate_weight]
     outputs = [router_logits_out]
-    graph_select_experts_mm(inputs, outputs)
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    graph_select_experts_mm(pto_inputs, pto_outputs)
     return router_logits_out
 
 
@@ -69,28 +71,24 @@ def select_experts_mm(in_tensors, out_tensors):
 
     bs_loop = (bs + view_shape[0] - 1) // view_shape[0]
 
-    # 5. 定义动态函数
-    with pypto.function("MOEGATE_MM", [hidden_states, mm_weight], [router_logits_out]):
-        def inside_select_experts_mm():
-            # 6. 实现kernel逻辑，循环展开BS动态轴
-            for bs_idx in pypto.loop(bs_loop, name="LOOP_MOEGATE_MM_L0", idx_name="bs_idx"):
-                def bs_loop_func(bs_idx):
-                    # 7. 通过view得到tile_logits
-                    tile_hidden_states = pypto.view(hidden_states, view_shape,
-                                                    [bs_idx * view_shape[0], 0],
-                                                    valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]),
-                                                                 h_num])
+    # 5. 实现kernel逻辑，循环展开BS动态轴
+    for bs_idx in pypto.loop(bs_loop, name="LOOP_MOEGATE_MM_L0", idx_name="bs_idx"):
+        def bs_loop_func(bs_idx):
+            # 6. 通过view得到tile_logits
+            tile_hidden_states = pypto.view(hidden_states, view_shape,
+                                            [bs_idx * view_shape[0], 0],
+                                            valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]),
+                                                            h_num])
 
-                    pypto.set_cube_tile_shapes([64, 64], [128, 128], [128, 128])
+            pypto.set_cube_tile_shapes([64, 64], [128, 128], [128, 128])
 
-                    res = pypto.matmul(tile_hidden_states, mm_weight, tile_hidden_states.dtype, b_trans=True)
+            res = pypto.matmul(tile_hidden_states, mm_weight, tile_hidden_states.dtype, b_trans=True)
 
-                    # # 9. 将结果搬运到输出tensor上
-                    router_logits_out[bs_idx * view_shape[0]:, 0:] = res
+            # 7. 将结果搬运到输出tensor上
+            router_logits_out[bs_idx * view_shape[0]:, 0:] = res
 
-                bs_loop_func(bs_idx)
+        bs_loop_func(bs_idx)
 
-        inside_select_experts_mm()
 
 
 def test_select_experts_mm():
@@ -116,7 +114,9 @@ def test_select_experts_mm():
         # 4. 执行kernel并获取结果
         inputs = [hidden_states, mm_weight]
         outputs = [router_logits_out]
-        select_experts_mm(inputs, outputs)
+        pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+        pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+        select_experts_mm(pto_inputs, pto_outputs)
         pypto.runtime._device_synchronize()
 
         # 5. 与PyTorch参考实现对比

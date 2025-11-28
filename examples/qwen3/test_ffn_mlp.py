@@ -177,39 +177,36 @@ def moe_main(inputs, outputs):
     ffn_out = outputs[0]
     weight_dtype = weight_down_proj.dtype
 
-    with pypto.function("FFN", [expand_x, expert_tokens, token_acc_table, weight_gate_upper, weight_down_proj], [ffn_out]):
-        def inside_main_function():
-            # 获取当前device上专家总数
-            expert_num = expert_tokens.shape[0]
-            w1_2d_shape = (weight_gate_upper.shape[0] * weight_gate_upper.shape[1], weight_gate_upper.shape[2])
-            w2_2d_shape = (weight_down_proj.shape[0] * weight_down_proj.shape[1], weight_down_proj.shape[2])
-            for _ in pypto.loop(0, 1, 1, name="LOOP_RESHAPE", idx_name="reshape_inplace_1"):
-                w1_2d = pypto.reshape(weight_gate_upper, w1_2d_shape, inplace=True)
-                w2_2d = pypto.reshape(weight_down_proj, w2_2d_shape, inplace=True)
-            for exp_idx in pypto.loop(0, expert_num, 1, name="LOOP_FFN_L0", idx_name="exp_idx"):
-                def loop_expert(exp_idx):
-                    # 获取激活专家的token数
-                    token_num = expert_tokens[exp_idx, ]
-                    # 每个专家单次计算16token，不足部分会进行pad
-                    exp_loop_times = (token_num + loop_base - 1) / loop_base
-                    for token_loop_idx in pypto.loop(0, exp_loop_times, 1, name="LOOP_FFN_L1", idx_name="token_loop_idx"):
-                        def loop_token(exp_idx, token_loop_idx):
-                            expert_infer_base(
-                                exp_idx=exp_idx,
-                                token_loop_idx=token_loop_idx,
-                                loop_base=loop_base,
-                                expand_x=expand_x,
-                                expert_tokens=expert_tokens,
-                                token_acc_table=token_acc_table,
-                                weight_gate_upper=w1_2d,
-                                weight_down_proj=w2_2d,
-                                ffn_out=ffn_out,
-                                vec_tile_shape=vec_tile_shape,
-                                cube_tile_shape=cube_tile_shape,
-                                )
-                        loop_token(exp_idx, token_loop_idx)
-                loop_expert(exp_idx)
-        inside_main_function()
+    # 获取当前device上专家总数
+    expert_num = expert_tokens.shape[0]
+    w1_2d_shape = (weight_gate_upper.shape[0] * weight_gate_upper.shape[1], weight_gate_upper.shape[2])
+    w2_2d_shape = (weight_down_proj.shape[0] * weight_down_proj.shape[1], weight_down_proj.shape[2])
+    for _ in pypto.loop(0, 1, 1, name="LOOP_RESHAPE", idx_name="reshape_inplace_1"):
+        w1_2d = pypto.reshape(weight_gate_upper, w1_2d_shape, inplace=True)
+        w2_2d = pypto.reshape(weight_down_proj, w2_2d_shape, inplace=True)
+    for exp_idx in pypto.loop(0, expert_num, 1, name="LOOP_FFN_L0", idx_name="exp_idx"):
+        def loop_expert(exp_idx):
+            # 获取激活专家的token数
+            token_num = expert_tokens[exp_idx, ]
+            # 每个专家单次计算16token，不足部分会进行pad
+            exp_loop_times = (token_num + loop_base - 1) / loop_base
+            for token_loop_idx in pypto.loop(0, exp_loop_times, 1, name="LOOP_FFN_L1", idx_name="token_loop_idx"):
+                def loop_token(exp_idx, token_loop_idx):
+                    expert_infer_base(
+                        exp_idx=exp_idx,
+                        token_loop_idx=token_loop_idx,
+                        loop_base=loop_base,
+                        expand_x=expand_x,
+                        expert_tokens=expert_tokens,
+                        token_acc_table=token_acc_table,
+                        weight_gate_upper=w1_2d,
+                        weight_down_proj=w2_2d,
+                        ffn_out=ffn_out,
+                        vec_tile_shape=vec_tile_shape,
+                        cube_tile_shape=cube_tile_shape,
+                        )
+                loop_token(exp_idx, token_loop_idx)
+        loop_expert(exp_idx)
 
 
 def test_qwen3_ffn():
@@ -228,7 +225,9 @@ def test_qwen3_ffn():
     inputs_list = gen_input(b, s, topk, per_expert_num, hidden_size, intermediate_size, dtype, device_id)
     inputs = [inputs_list[0], inputs_list[1], inputs_list[2], inputs_list[3], inputs_list[4]]
     outputs = [inputs_list[5]]
-    moe_main(inputs, outputs)
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    moe_main(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()
 
     # golden

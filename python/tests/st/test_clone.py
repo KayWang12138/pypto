@@ -33,18 +33,17 @@ def kernel_func(in_tensors, out_tensors):
     out_tensor = out_tensors[0]
     pypto.set_vec_tile_shapes(1, 1, 64, 64)
 
-    with pypto.function("MAIN", [in_tensor], [out_tensor]):
-        for b_idx in pypto.loop(b, name="b_loop", idx_name="b_idx"):
-            for s_idx in pypto.loop(s, name="s_loop", idx_name="s_idx"):
-                a0 = pypto.view(in_tensor, [1, 1, n1, d], [b_idx, s_idx, 0, 0])
-                a1 = pypto.add(a0, 1.0)
-                a2 = pypto.reshape(a1, [1, 1, n1*d])
-                a3 = pypto.clone(a2)
-                pypto.assemble(a3, [b_idx, s_idx, 0], out_tensor)
-                del a0
-                del a1
-                del a2
-                del a3
+    for b_idx in pypto.loop(b, name="b_loop", idx_name="b_idx"):
+        for s_idx in pypto.loop(s, name="s_loop", idx_name="s_idx"):
+            a0 = pypto.view(in_tensor, [1, 1, n1, d], [b_idx, s_idx, 0, 0])
+            a1 = pypto.add(a0, 1.0)
+            a2 = pypto.reshape(a1, [1, 1, n1 * d])
+            a3 = pypto.clone(a2)
+            pypto.assemble(a3, [b_idx, s_idx, 0], out_tensor)
+            del a0
+            del a1
+            del a2
+            del a3
 
 
 def test_clone():
@@ -58,9 +57,10 @@ def test_clone():
     # def inputs and outputs
     input_npu = input_cpu.to(device=f'npu:{device_id}')
     output_npu = output_cpu.to(device=f'npu:{device_id}')
-
+    pto_inputs = [pypto.from_torch(input_npu, "IN")]
+    pto_outputs = [pypto.from_torch(output_npu, "OUT")]
     # compute on npu
-    kernel_func([input_npu], [output_npu])
+    kernel_func(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()
 
     output_cpu = output_npu.cpu()

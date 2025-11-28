@@ -40,8 +40,8 @@ def scatter_update(in_tensors, out_tensors):
     key = in_tensors[0]
     value = in_tensors[1]
     index = in_tensors[2]
-    key_cache = in_tensors[3]
-    value_cache = in_tensors[4]
+    key_cache = out_tensors[0]
+    value_cache = out_tensors[1]
 
     # 3. 设置axis=0为动态shape
     pypto.mark_dynamic(key, 0)
@@ -66,29 +66,25 @@ def scatter_update(in_tensors, out_tensors):
     kv_2d_shape = (b_scalar, n2 * d)
     kv_cache_2d_shape = (block_num_scalar * block_size, n2 * d)
 
-    # 5. 定义动态函数
-    input_tensors = [key, value, index, key_cache, value_cache]
-    output_tensors = [key_cache, value_cache]
-    with pypto.function("SCATTER_UPDATE", input_tensors, output_tensors):
-        for tmp_idx in pypto.loop(1, name="LOOP_RESHAPE_INPLACE", idx_name="tmp_idx"):
-            key_2d = pypto.reshape(key, kv_2d_shape, inplace=True)
-            value_2d = pypto.reshape(value, kv_2d_shape, inplace=True)
-            key_cache_2d = pypto.reshape(key_cache, kv_cache_2d_shape, inplace=True)
-            value_cache_2d = pypto.reshape(value_cache, kv_cache_2d_shape, inplace=True)
-        for b_idx in pypto.loop(b_loop, name="LOOP_SCATTER_UPDATE", idx_name="b_idx"):
-            def b_loop_func(b_idx):
-                pypto.set_vec_tile_shapes(16, 16, 16)
-                b_ofs = b_idx * b_tile
-                b_valid = (b_scalar - b_idx * b_tile).min(b_tile)
-                key_view = pypto.view(key_2d, [b_tile, n2 * d], [b_ofs, 0], valid_shape=[b_valid, n2 * d])
-                value_view = pypto.view(value_2d, [b_tile, n2 * d], [b_ofs, 0], valid_shape=[b_valid, n2 * d])
-                index_view = pypto.view(index, [b_tile], [b_ofs], valid_shape=[b_valid])
-                index_view = pypto.reshape(index_view, [b_tile, 1], valid_shape=[b_valid, 1])
-                pypto.set_vec_tile_shapes(16, 128)
-                key_cache.move(pypto.scatter_update(key_cache_2d, -2, index_view, key_view))
-                value_cache.move(pypto.scatter_update(value_cache_2d, -2, index_view, value_view))
+    for tmp_idx in pypto.loop(1, name="LOOP_RESHAPE_INPLACE", idx_name="tmp_idx"):
+        key_2d = pypto.reshape(key, kv_2d_shape, inplace=True)
+        value_2d = pypto.reshape(value, kv_2d_shape, inplace=True)
+        key_cache_2d = pypto.reshape(key_cache, kv_cache_2d_shape, inplace=True)
+        value_cache_2d = pypto.reshape(value_cache, kv_cache_2d_shape, inplace=True)
+    for b_idx in pypto.loop(b_loop, name="LOOP_SCATTER_UPDATE", idx_name="b_idx"):
+        def b_loop_func(b_idx):
+            pypto.set_vec_tile_shapes(16, 16, 16)
+            b_ofs = b_idx * b_tile
+            b_valid = (b_scalar - b_idx * b_tile).min(b_tile)
+            key_view = pypto.view(key_2d, [b_tile, n2 * d], [b_ofs, 0], valid_shape=[b_valid, n2 * d])
+            value_view = pypto.view(value_2d, [b_tile, n2 * d], [b_ofs, 0], valid_shape=[b_valid, n2 * d])
+            index_view = pypto.view(index, [b_tile], [b_ofs], valid_shape=[b_valid])
+            index_view = pypto.reshape(index_view, [b_tile, 1], valid_shape=[b_valid, 1])
+            pypto.set_vec_tile_shapes(16, 128)
+            key_cache.move(pypto.scatter_update(key_cache_2d, -2, index_view, key_view))
+            value_cache.move(pypto.scatter_update(value_cache_2d, -2, index_view, value_view))
 
-            b_loop_func(b_idx)
+        b_loop_func(b_idx)
 
 
 def test_scatter_update():
@@ -115,8 +111,9 @@ def test_scatter_update():
     # 4. 执行kernel并获取结果
     inputs = [key, value, index, key_cache, value_cache]
     outputs = [key_cache, value_cache]
-
-    scatter_update(inputs, outputs)
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    scatter_update(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()
 
     # 5. 与PyTorch参考实现对比

@@ -15,6 +15,7 @@ from typing import List, overload
 import torch
 import pypto
 from . import pto_impl
+from .converter import _dtype_from, from_torch
 
 __all__ = [
     "_device_init",
@@ -23,29 +24,10 @@ __all__ = [
     "_device_synchronize",
     "jit",
     "verify",
-    "to_pto",
 ]
 
 _device_init = pto_impl.DeviceInit
 _device_fini = pto_impl.DeviceFini
-
-
-_dtype_dict = {
-    torch.float16: pypto.DT_FP16,
-    torch.bfloat16: pypto.DT_BF16,
-    torch.float32: pypto.DT_FP32,
-    torch.float64: pypto.DT_DOUBLE,
-    torch.int8: pypto.DT_INT8,
-    torch.uint8: pypto.DT_UINT8,
-    torch.int16: pypto.DT_INT16,
-    torch.int32: pypto.DT_INT32,
-    torch.int64: pypto.DT_INT64,
-    torch.bool: pypto.DT_BOOL,
-}
-
-
-def dtype_from(dtype: torch.dtype) -> pypto.DataType:
-    return _dtype_dict[dtype]
 
 
 def set_device(device: int):
@@ -56,28 +38,28 @@ def current_device() -> int:
     return torch.npu.current_device()
 
 
-def to_pto(t: torch.Tensor, name: str) -> pypto.Tensor:
-    dtype = dtype_from(t.dtype)
-    format = pypto.TileOpFormat.TILEOP_ND
-    if t.device.type == "npu":
-        import torch_npu
-        if torch_npu.get_npu_format(t) == 29:
-            format = pypto.TileOpFormat.TILEOP_NZ
-    if t.dim() == 0:
-        return pypto.Tensor(tuple([1]), dtype, name, format)
-    return pypto.Tensor(tuple(t.shape), dtype, name, format)
-
-
 def current_stream():
     return torch.npu.current_stream().npu_stream
 
 
-def to_tensor_data(tensors: List[torch.Tensor]):
+def _torch_to_tensor_data(tensors: List[torch.Tensor]):
     datas = []
     for t in tensors:
         data = pto_impl.DeviceTensorData(
-            dtype_from(t.dtype),
+            _dtype_from(t.dtype),
             t.data_ptr(),
+            list(t.shape),
+        )
+        datas.append(data)
+    return datas
+
+
+def _pto_to_tensor_data(tensors: List[pypto.Tensor]) -> List[pto_impl.DeviceTensorData]:
+    datas = []
+    for t in tensors:
+        data = pto_impl.DeviceTensorData(
+            t.dtype,
+            t.data_ptr,
             list(t.shape),
         )
         datas.append(data)
@@ -89,7 +71,7 @@ def _device_run_once_data_from_host(inputs: List[torch.Tensor], outputs: List[to
         if not in_tensor.is_contiguous():
             raise RuntimeError("all input tensor must be contiguous.")
     pto_impl.DeviceRunOnceDataFromHost(
-        to_tensor_data(inputs), to_tensor_data(outputs))
+        _torch_to_tensor_data(inputs), _torch_to_tensor_data(outputs))
 
 
 class JIT:
@@ -107,26 +89,23 @@ class JIT:
         pto_impl.DeviceInit()
         self._set_config_option()
 
-        inputs = [to_pto(t, f"IN_{idx}")
-                  for idx, t in enumerate(inputs)]
-        outputs = [to_pto(t, f"OUT_{idx}")
-                   for idx, t in enumerate(outputs)]
         handler = pto_impl.OperatorBegin([t.base() for t in inputs],
                                          [t.base() for t in outputs])
-        self.dyn_func(inputs, outputs, *args, **kwargs)
+        with pypto.function(self.dyn_func.__name__, inputs, outputs):
+            self.dyn_func(inputs, outputs, *args, **kwargs)
         pto_impl.OperatorEnd(handler)
 
         self._handler = handler
         self._is_compiled = True
 
-    def run(self, inputs, outputs, device_id):
+    def run(self, in_tensor_data, out_tensor_data, device_id):
         assert self._handler is not None
         workspace_size = pto_impl.GetWorkSpaceSize(self._handler)
         workspace_tensor = torch.zeros(workspace_size, dtype=torch.uint8, device=device_id)
         pto_impl.OperatorDeviceRunOnceDataFromDevice(
             self._handler,
-            to_tensor_data(inputs),
-            to_tensor_data(outputs),
+            in_tensor_data,
+            out_tensor_data,
             current_stream(),
             workspace_tensor.data_ptr())
 
@@ -138,12 +117,14 @@ class JIT:
         if (len(inputs + outputs) < 1):
             raise ValueError("inputs or outputs missing")
         for t in inputs + outputs:
-            if not t.is_contiguous():
-                raise RuntimeError("not all tensors are contiguous")
             if device is None:
                 device = t.device
             elif device != t.device:
                 raise RuntimeError("not all tensors are on the same device")
+
+        # Convert tensors to tensor data before compile, as compile turns tensor shapes into symbolic scalars.
+        in_tensor_data = _pto_to_tensor_data(inputs)
+        out_tensor_data = _pto_to_tensor_data(outputs)
 
         if not self._is_compiled:
             self.compile(inputs, outputs, *args[2:], **kwargs)
@@ -151,10 +132,10 @@ class JIT:
         ori_device = current_device()
         if device and device.index != ori_device:
             set_device(device.index)
-            self.run(inputs, outputs, device.index)
+            self.run(in_tensor_data, out_tensor_data, device.index)
             set_device(ori_device)
         else:
-            self.run(inputs, outputs, ori_device)
+            self.run(in_tensor_data, out_tensor_data, ori_device)
 
     @property
     def handler(self):
@@ -258,12 +239,12 @@ def verify(func, inputs, outputs, goldens, *args,
         verify_options = {"verify_tensor_graph": True}
     pypto.set_verify_options(**verify_options)
 
-    pto_impl.SetVerifyData(to_tensor_data(inputs),
-                           to_tensor_data(outputs),
-                           to_tensor_data(goldens))
+    pto_impl.SetVerifyData(_torch_to_tensor_data(inputs),
+                           _torch_to_tensor_data(outputs),
+                           _torch_to_tensor_data(goldens))
 
-    inputs = [to_pto(t, f"IN_{idx}") for idx, t in enumerate(inputs)]
-    outputs = [to_pto(t, f"OUT_{idx}") for idx, t in enumerate(outputs)]
+    inputs = [from_torch(t, f"IN_{idx}") for idx, t in enumerate(inputs)]
+    outputs = [from_torch(t, f"OUT_{idx}") for idx, t in enumerate(outputs)]
     handler = pto_impl.OperatorBegin([t.base() for t in inputs],
                                      [t.base() for t in outputs])
     func(inputs, outputs, *args, **kwargs)

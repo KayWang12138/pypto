@@ -21,9 +21,8 @@ def cust_dyn_func_add(in_tensors, out_tensors, tiling=None):
     b = in_tensors[1]
     c = out_tensors[0]
     pypto.set_vec_tile_shapes(tiling, tiling)
-    with pypto.function("MAIN0", [a, b], [c]):
-        for _ in pypto.loop(1, name="s0", idx_name="k"):
-            c.move(pypto.add(a, b))
+    for _ in pypto.loop(1, name="s0", idx_name="k"):
+        c.move(pypto.add(a, b))
 
 
 @pypto.jit
@@ -32,9 +31,8 @@ def cust_dyn_func_sub(in_tensors, out_tensors, tiling=None):
     b = in_tensors[1]
     c = out_tensors[0]
     pypto.set_vec_tile_shapes(tiling, tiling)
-    with pypto.function("MAIN1", [a, b], [c]):
-        for _ in pypto.loop(1, name="s0", idx_name="k"):
-            c.move(pypto.sub(a, b))
+    for _ in pypto.loop(1, name="s0", idx_name="k"):
+        c.move(pypto.sub(a, b))
 
 
 def device_run(is_run_add):
@@ -55,14 +53,16 @@ def device_run(is_run_add):
     # def inputs and outputs
     inputs = [a_data, b_data]
     outputs = [c_data]
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
     if is_run_add:
-        cust_dyn_func_add(inputs, outputs, tiling)
+        cust_dyn_func_add(pto_inputs, pto_outputs, tiling)
         pypto.runtime._device_synchronize()
 
         golden = torch.ones((n, m)) * 3
         assert torch.allclose(golden.int(), c_data.cpu(), atol=1e-5)
     else:
-        cust_dyn_func_sub(inputs, outputs, tiling)
+        cust_dyn_func_sub(pto_inputs, pto_outputs, tiling)
         pypto.runtime._device_synchronize()
 
         golden = torch.ones((n, m))

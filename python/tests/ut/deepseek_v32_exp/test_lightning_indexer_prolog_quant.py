@@ -143,7 +143,9 @@ def lighting_indexer_prolog_quant_dyn(inputs: IndexerPrologQuantInput, outputs: 
         inputs.k_cache_index,
     ]
     output_tensors = [outputs.q_int8, outputs.q_scale, outputs.k_int8, outputs.k_scale, outputs.weights]
-    lightning_indexer_prolog_quant(input_tensors, output_tensors, attrs, configs)
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(input_tensors)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(output_tensors)]
+    lightning_indexer_prolog_quant(pto_inputs, pto_outputs, attrs, configs)
     pypto.runtime._device_synchronize()
 
 

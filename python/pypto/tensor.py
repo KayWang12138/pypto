@@ -22,7 +22,8 @@ from .symbolic_scalar import SymbolicScalar, SymInt
 class Tensor:
 
     def __init__(self, shape=None, dtype: Union[DataType, None] = None,
-                 name: str = "", format: TileOpFormat = TileOpFormat.TILEOP_ND):
+            name: str = "", format: TileOpFormat = TileOpFormat.TILEOP_ND,
+            data_ptr: Optional[int] = None, device=None):
         if shape is None or dtype is None:
             self._base = pto_impl.Tensor()
         elif all([isinstance(s, int) for s in shape]):
@@ -33,6 +34,8 @@ class Tensor:
             assert isinstance(
                 sym_shape, list), "shape must be a list of int or SymbolicScalar"
             self._base = pto_impl.Tensor(dtype, sym_shape, name, format)
+        self.data_ptr = data_ptr
+        self.device = device
 
     @property
     def dtype(self) -> DataType:
