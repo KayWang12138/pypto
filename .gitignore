@@ -26,7 +26,6 @@ tmp
 
 cmake-build-debug
 dist
-build_whl
 build_out
 kernel_meta
 *.egg-info

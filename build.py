@@ -750,14 +750,11 @@ class BuildCtrl:
         self.whl_prefix: str = MetaHelper.name()
         self.src_root: Path = Path(__file__).parent.resolve()
         self.build_root: Path = Path(Path.cwd(), "build")
-        self.install_root: Path = Path(self.build_root.parent, "output")
+        self.install_root: Path = Path(self.build_root.parent, "build_out")
         self.feature: FeatureParam = FeatureParam(args=args)
         self.build: BuildParam = BuildParam(args=args, feature=self.feature)
         self.tests: TestsParam = TestsParam(args=args)
         self.model: ModelParam = ModelParam(args=args)
-        if self.feature.frontend_type_python3:
-            self.build_root: Path = Path(Path.cwd(), "build_whl")
-            self.install_root: Path = Path(self.build_root.parent, "build_out")
         if args.third_party_path is None:
             self.open_source_path = self.build_root / "third_party_path"
         elif args.third_party_path == "":
@@ -870,12 +867,12 @@ class BuildCtrl:
         # 区分 python3 前端和 cpp 前端
         logging.info("%s", ctrl)
         if ctrl.feature.frontend_type_python3:
-            logging.info("Front-end(python3), start process with scikit-build-core.")
+            logging.info("Front-end(python3), start process with %s", MetaHelper.build_backend())
             ctrl.py_clean()
             ctrl.py_build()
             ctrl.py_tests()
         else:
-            logging.info("Front-end(cpp), start process with CMake.")
+            logging.info("Front-end(cpp), start process with CMake")
             if 'func' in args:
                 args.func(args=args, ctrl=ctrl)
             ctrl.cmake_clean()
@@ -1001,17 +998,19 @@ class BuildCtrl:
 
     def py_build(self):
         # 基本配置
-        build_whl = self.build_root.name
         cmake_args = f"{self.build.get_cfg_cmd()}"
-        cmd: str = f"{sys.executable} setup.py bdist_wheel"
+        cmd: str = f"{sys.executable} setup.py"
+        cmd += f" bdist_wheel"
         cmd += f" --dist-dir={self.install_root}"
         cmd += f" --plat-name={self.feature.whl_plat_name}" if self.feature.whl_plat_name else ""
+        cmd += f" build"
+        cmd += f" --build-base={self.build_root.name}"
+        cmd += f" --parallel={self.build.job_num}" if self.build.job_num else ""
+        cmd += f" build_ext"
+        cmd += f" --clean-first" if self.build.clean else ""
         cmd += f" --cmake-args='{cmake_args}'" if cmake_args else ""
         cmd += f" --backend={self.feature.backend_type}"
-        cmd += f" --clean-first" if self.build.clean else ""
         cmd += f" --disable-install-strip" if self.build.disable_install_strip else ""
-        cmd += f" build --build-base={build_whl}"
-        cmd += f" --parallel={self.build.job_num}" if self.build.job_num else ""
         update_env: Dict[str, str] = self.get_cfg_update_env()
         ts = datetime.now(tz=timezone.utc)
         logging.info("Begin Build whl, Cmd: %s", cmd)

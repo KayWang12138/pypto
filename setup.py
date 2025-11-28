@@ -22,7 +22,6 @@ from typing import Optional, Any, List
 from pathlib import Path
 from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext
-from wheel.bdist_wheel import bdist_wheel
 
 
 class MetaHelper:
@@ -57,6 +56,10 @@ class MetaHelper:
         """从 pyproject.toml 读取项目元数据
         """
         return cls._CONFIG.get(t, {}).get(k, d)
+
+    @classmethod
+    def build_backend(cls) -> str:
+        return cls.get_metadata(k="build-backend", t="build-system")
 
     @classmethod
     def name(cls) -> str:
@@ -139,17 +142,6 @@ class CMakeUserOption:
             self.backend = str(args.backend).lower()
             self.disable_install_strip = args.strip
 
-    def initialize_options_from_distribution(self, distribution):
-        if hasattr(distribution, 'clean_first'):
-            self.clean_first = distribution.clean_first
-        if hasattr(distribution, 'cmake_args'):
-            if distribution.cmake_args is not None:
-                self.cmake_args = distribution.cmake_args
-        if hasattr(distribution, 'backend'):
-            self.backend = str(distribution.backend).lower() if distribution.backend else ""
-        if hasattr(distribution, 'disable_install_strip'):
-            self.disable_install_strip = distribution.disable_install_strip
-
     def finalize_options_normal(self):
         self.clean_first = True if self.clean_first else False
         self.cmake_args = None if not self.cmake_args else self.cmake_args
@@ -169,7 +161,6 @@ class CMakeBuild(build_ext, CMakeUserOption):
         # 从环境变量中解析并初始化
         self.initialize_options_default()
         self.initialize_options_from_env()
-        self.initialize_options_from_distribution(distribution=self.distribution)
 
     def finalize_options(self):
         super().finalize_options()
@@ -211,39 +202,6 @@ class CMakeBuild(build_ext, CMakeUserOption):
         ret.check_returncode()
 
 
-class CustomBdistWheel(bdist_wheel, CMakeUserOption):
-    user_options = bdist_wheel.user_options + CMakeUserOption.USER_OPTION
-
-    def initialize_options(self):
-        """通过控制命令行选项初始化顺序, 实现实际命令行选项优先生效.
-        """
-        super().initialize_options()
-        self.initialize_options_default()
-
-    def finalize_options(self):
-        super().finalize_options()
-        self.finalize_options_normal()
-        # 将参数存储到 distribution 中
-        self.distribution.clean_first = self.clean_first
-        self.distribution.cmake_args = self.cmake_args
-        self.distribution.backend = self.backend
-        self.distribution.disable_install_strip = self.disable_install_strip
-
-    def run(self):
-        # 在运行前确保参数已传递
-        build_ext_cmd = self.distribution.get_command_obj('build_ext')
-        if build_ext_cmd:
-            if self.cmake_args:
-                build_ext_cmd.cmake_args = self.cmake_args
-            if self.cmake_args:
-                build_ext_cmd.cmake_args = self.cmake_args
-            if self.backend:
-                build_ext_cmd.backend = self.backend
-            if self.disable_install_strip:
-                build_ext_cmd.disable_install_strip = self.disable_install_strip
-        super().run()
-
-
 class SetupCtrl:
     """SetupTools 流程控制
     """
@@ -273,7 +231,6 @@ class SetupCtrl:
             ],
             cmdclass={
                 'build_ext': CMakeBuild,
-                'bdist_wheel': CustomBdistWheel,
             },
 
             # 依赖和兼容性配置
