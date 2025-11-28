@@ -1054,7 +1054,8 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, int 
 
     // newX[idxs] = outs  -->index_put: (b*s*numExpertsPerTok, h)[b*s*numExpertsPerTok] =
     // (b*s*numExpertsPerTok, h)
-    newX = IndexPut(newX, {idxs}, outs);
+    auto newIdxs = Reshape(idxs, {1, idxs.GetShape(0)});
+    newX = IndexPut(newX, {newIdxs}, outs);
 
     int newXSize = std::accumulate(
         newX.GetShape().begin(), newX.GetShape().end(), 1, [](const int &a, const int &b) { return a * b; });

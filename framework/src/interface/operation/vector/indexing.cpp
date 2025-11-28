@@ -665,8 +665,10 @@ Tensor ScatterUpdate(
 Tensor IndexPut(const Tensor &src, std::vector<Tensor> indices, const Tensor &values) {
     DECLARE_TRACER();
 
+    CheckScatterUpdateInput(src);
     Tensor result(src.GetStorage()->tensor->datatype, src.GetShape());
     for (auto index : indices) {
+        CheckScatterUpdateIndex(index);
         CALL(ScatterUpdate, *Program::GetInstance().GetCurrentFunction(), result.GetStorage(), src.GetStorage(),
             index.GetStorage(), values.GetStorage(), 0, "PA_PNSD", 1);
     }
