@@ -919,7 +919,7 @@ class BuildCtrl:
     def get_cfg_update_env(self) -> Dict[str, str]:
         env: Dict[str, str] = {}
         if self.open_source_path:
-            env.update({"PYPTO_3RD_SRC_PATH": self.open_source_path})
+            env.update({"PYPTO_THIRD_PARTY_PATH": self.open_source_path})
         return env
 
     def cmake_clean(self):

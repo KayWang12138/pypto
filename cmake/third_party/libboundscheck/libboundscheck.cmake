@@ -45,22 +45,22 @@ endif ()
 set(_TargetVersion "1.1.16")
 
 # 直接查找制品, 若找到则直接退出
-if (DEFINED ENV{PYPTO_3RD_SRC_PATH})
-    get_filename_component(PYPTO_3RD_SRC_PATH "$ENV{PYPTO_3RD_SRC_PATH}" REALPATH)
-    get_filename_component(_TargetTarGzFile "${PYPTO_3RD_SRC_PATH}/libboundscheck-v${_TargetVersion}.tar.gz" REALPATH)
-    get_filename_component(_TargetInstallPrefix "${PYPTO_3RD_SRC_PATH}/${CMAKE_BUILD_TYPE}" REALPATH)
+if (DEFINED ENV{PYPTO_THIRD_PARTY_PATH})
+    get_filename_component(PYPTO_THIRD_PARTY_PATH "$ENV{PYPTO_THIRD_PARTY_PATH}" REALPATH)
+    get_filename_component(_TargetTarGzFile "${PYPTO_THIRD_PARTY_PATH}/libboundscheck-v${_TargetVersion}.tar.gz" REALPATH)
+    get_filename_component(_TargetInstallPrefix "${PYPTO_THIRD_PARTY_PATH}/${CMAKE_BUILD_TYPE}" REALPATH)
     TryAdd_c_sec(PREFIX ${_TargetInstallPrefix})
     if (TARGET c_sec)
         message(STATUS "Use c_sec from binary, c_sec_Install_Prefix=${_TargetInstallPrefix}")
         return()
     endif ()
 else ()
-    message(FATAL_ERROR "Failed to get c_sec source dir, When CANN is not used, ENV PYPTO_3RD_SRC_PATH must be set.")
+    message(FATAL_ERROR "Failed to get c_sec source dir, When CANN is not used, ENV PYPTO_THIRD_PARTY_PATH must be set.")
 endif ()
 
 # 触发编译
-get_filename_component(_TargetSourceDir "${PYPTO_3RD_SRC_PATH}/libboundscheck-v${_TargetVersion}" REALPATH)
-get_filename_component(_TargetBinaryDir "${PYPTO_3RD_SRC_PATH}/${CMAKE_BUILD_TYPE}/build/libboundscheck-v${_TargetVersion}" REALPATH)
+get_filename_component(_TargetSourceDir "${PYPTO_THIRD_PARTY_PATH}/libboundscheck-v${_TargetVersion}" REALPATH)
+get_filename_component(_TargetBinaryDir "${PYPTO_THIRD_PARTY_PATH}/${CMAKE_BUILD_TYPE}/build/libboundscheck-v${_TargetVersion}" REALPATH)
 PTO_Fwk_CleanEmptyDir(DIR ${_TargetSourceDir})
 
 set(_ExtArgs)
@@ -68,7 +68,7 @@ if (NOT EXISTS ${_TargetSourceDir})
     list(APPEND _ExtArgs
             URL "https://gitcode.com/cann-src-third-party/libboundscheck/releases/download/v1.1.16/libboundscheck-v1.1.16.tar.gz"
             URL_HASH SHA256=aee8368ef04a42a499edd5bfebce529e7f32dd138bfed383d316e48af4e45d2c
-            DOWNLOAD_DIR ${PYPTO_3RD_SRC_PATH}
+            DOWNLOAD_DIR ${PYPTO_THIRD_PARTY_PATH}
     )
 endif ()
 ExternalProject_Add(ExternalProject_c_sec   ${_ExtArgs}
