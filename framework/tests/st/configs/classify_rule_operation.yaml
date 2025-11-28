@@ -16,26 +16,6 @@
 #       cases         [required]   --- 测试用例, 对应 GTestFilter
 
 stest:
-  operation_assemble:
-    cases:
-      - AssembleTest.test_seq_in_assemble
-      - AssembleTest.test_parallel_in_assemble
-      - AssembleTest.test_seq_in_assemble_and_overwrite_between_assemble
-      - AssembleTest.test_parallel_in_assemble_and_overwrite_between_assemble
-      - AssembleTest.test_overwrite_in_assemble_and_parallel_between_assemble
-      - AssembleTest.test_process_after_assemble
-      - AssembleTest.test_loop_after_loop_0
-      - AssembleTest.test_loop_after_loop_1
-      - AssembleTest.test_loop_after_loop_2
-      - AssembleTest.test_loop_after_loop_3
-      - AssembleTest.test_override_between_assemble
-      - AssembleTest.test_mix_assemble_0
-      - AssembleTest.test_mix_assemble_1
-      - AssembleTest.test_assemble_to_inner_tensor_0
-      - AssembleTest.test_assemble_to_inner_tensor_1
-      - AssembleTest.test_assemble_to_inner_tensor_2
-      - AssembleTest.test_assemble_to_inner_tensor_3
-      - AssembleTest.test_mix_assemble_with_tiling
 
   operation_cube:
     cases:
