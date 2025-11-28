@@ -142,11 +142,11 @@ inline DeviceLogger &GetLogger(const char *logfile = nullptr, int level = LOG_LE
     return devLogger;
 }
 
-typedef enum {
+enum class LogType {
     LOG_TYPE_SCHEDULER,    // 调度器日志
     LOG_TYPE_CONTROLLER,   // 控制器日志
     LOG_TYPE_PREFETCH      // 预取日志
-} LogType;
+};
 
 // 创建日志文件
 inline void CreateLogFile(LogType type, int threadIdx) {
@@ -155,13 +155,13 @@ inline void CreateLogFile(LogType type, int threadIdx) {
 #if ENABLE_TMP_LOG || !defined(__DEVICE__)
     char logfile[256];
     switch (type) {
-        case LOG_TYPE_SCHEDULER:
+        case LogType::LOG_TYPE_SCHEDULER:
             (void)sprintf_s(logfile, sizeof(logfile), "/tmp/pypto_aicpu_sch%d.txt", threadIdx);
             break;
-        case LOG_TYPE_CONTROLLER:
+        case LogType::LOG_TYPE_CONTROLLER:
             (void)sprintf_s(logfile, sizeof(logfile), "/tmp/pypto_aicpu_ctrl.txt");
             break;
-        case LOG_TYPE_PREFETCH:
+        case LogType::LOG_TYPE_PREFETCH:
             (void)sprintf_s(logfile, sizeof(logfile), "/tmp/pypto_aicpu_prefetch.txt");
             break;
         default:

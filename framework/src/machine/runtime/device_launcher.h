@@ -178,8 +178,8 @@ public:
             devProg->memBudget.debug.dumpTensor);
 
         devProg->l2CacheOffset = machine::GetRA()->GetL2Offset();
-        ASSERT((devProg->commGroupNum == config.hcclContext.size()) &&
-            (devProg->commGroupNum <= (sizeof(devProg->hcclContext) / sizeof(uint64_t))));
+        ASSERT(devProg->commGroupNum == config.hcclContext.size()); 
+        ASSERT(devProg->commGroupNum <= (sizeof(devProg->hcclContext) / sizeof(uint64_t)));
         for (size_t i = 0; i < devProg->commGroupNum; i++) {
             devProg->hcclContext[i] = config.hcclContext[i];
         }

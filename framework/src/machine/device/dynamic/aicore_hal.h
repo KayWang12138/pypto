@@ -311,8 +311,8 @@ public:
     }
 
     Metrics* GetMetrics(int coreIdx) {
-        volatile KernelArgs *arg = (KernelArgs *)(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
-        volatile Metrics*  metric = (Metrics *)(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+        volatile KernelArgs *arg = reinterpret_cast<KernelArgs *>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
+        volatile Metrics*  metric = reinterpret_cast<Metrics *>(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
         DEV_INFO("aicore %d host alloc metric memory :%p.", coreIdx, metric);
         if (metric == nullptr) {
             DEV_ERROR("aicore %d Null metric.", coreIdx);
@@ -384,7 +384,7 @@ public:
     }
 
     void DumpAicoreStatus(int coreIdx) const {
-        volatile KernelArgs *arg = (KernelArgs *)(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
+        volatile KernelArgs *arg = reinterpret_cast<KernelArgs *>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
         DEV_VERBOSE_DEBUG("!!***********************aicore %d last status **************************!!", coreIdx);
         DEV_VERBOSE_DEBUG("hello status %ld.", arg->shakeBuffer[0]);
         DEV_VERBOSE_DEBUG("last_taskId %ld task status [%ld, %ld, %ld, %ld].", arg->shakeBuffer[NUM_ONE],
@@ -398,7 +398,7 @@ public:
     }
 
     uint64_t GetAicoreStatus(int coreIdx) const {
-        volatile KernelArgs *arg = (KernelArgs *)(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
+        volatile KernelArgs *arg = reinterpret_cast<KernelArgs *>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
         return arg->shakeBuffer[0x2];
     }
 

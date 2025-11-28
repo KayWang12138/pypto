@@ -477,7 +477,7 @@ uint64_t DeviceStitchContext::FullCoverDefaultUpdateStitch(DevAscendFunctionDupp
                 DeviceWorkspaceAllocator *workspace,
                 int debugSlotIdx) {
             auto producerOperationIdx = cellMatchTableData[index];
-            if (producerOperationIdx != (uint32_t)-1) {
+            if (producerOperationIdx != static_cast<uint32_t>(-1)) {
                 (*matchCount)++;
                 DEV_TRACE_DEBUG(DEvent(DUid(none()), DActStitchEdge(
                     Producer(LUid(none(), 0, none(), producerOperationIdx, none()), none(), none(), debugSlotIdx, none(), none()),
@@ -851,17 +851,17 @@ void DeviceTaskContext::BuildDynFuncData(DynDeviceTask *dyntask, uint32_t taskId
     header->funcSize = headerSize;
     header->seqNo = taskId;
     header->funcNum = stitchedSize;
-    header->cceBinary = (DynFuncBin *) const_cast<DevCceBinary *>(dyntask->cceBinary);
-    DEV_ASSERT((uint64_t)header->cceBinary % CCE_BINARY_MOD == 0);
+    header->cceBinary = reinterpret_cast<DynFuncBin *> (const_cast<DevCceBinary *>(dyntask->cceBinary));
+    DEV_ASSERT(reinterpret_cast<uint64_t>(header->cceBinary) % CCE_BINARY_MOD == 0);
 
     rootFuncNum += stitchedSize;
     for (size_t funcIndex = 0; funcIndex < stitchedSize; ++funcIndex) {
         auto &funcDup = stitchedList[funcIndex];
-        dyndata->opAttrs = (uint64_t *) const_cast<SymInt *>(funcDup.GetSource()->GetSymoffset(0));
+        dyndata->opAttrs = reinterpret_cast<uint64_t *> (const_cast<SymInt *>(funcDup.GetSource()->GetSymoffset(0)));
         dyndata->opAtrrOffsets = funcDup.GetSource()->GetOpAttrOffsetAddr();
         dyndata->exprNum = funcDup.GetSource()->expressionList.size();
         dyndata->exprTbl = funcDup.GetExpressionAddr();
-        dyndata->rawTensorAddr = (uint64_t *)&funcDup.GetIncastAddress(0);
+        dyndata->rawTensorAddr = reinterpret_cast<uint64_t *>(&funcDup.GetIncastAddress(0));
         dyndata->rawTensorDesc = funcDup.GetSource()->GetRawTensorDesc(0);
         dyndata->startArgs = this->startArgs_;
         dyndata->workspaceAddr = funcDup.RuntimeWorkspace();
@@ -873,10 +873,10 @@ void DeviceTaskContext::BuildDynFuncData(DynDeviceTask *dyntask, uint32_t taskId
         dyndata->commGroupNum = devProg->commGroupNum;
         DEV_ASSERT(sizeof(dyndata->hcclContext) == sizeof(devProg->hcclContext));
         (void)memcpy_s(dyndata->hcclContext, sizeof(dyndata->hcclContext), devProg->hcclContext, sizeof(devProg->hcclContext));
-        DEV_ASSERT((uint64_t)dyndata->opAttrs % OP_ATTRS_PRE_NUM == 0);
-        DEV_ASSERT((uint64_t)dyndata->opAtrrOffsets % OP_ATTRS_OFFSET_PRE_NUM == 0);
-        DEV_ASSERT((uint64_t)dyndata->exprTbl % EXPR_TABLE_PRE_NUM == 0);
-        DEV_ASSERT((uint64_t)dyndata->rawTensorAddr % RAW_TENSOR_ADDR_MASK == 0);
+        DEV_ASSERT(reinterpret_cast<uint64_t>(dyndata->opAttrs) % OP_ATTRS_PRE_NUM == 0);
+        DEV_ASSERT(reinterpret_cast<uint64_t>(dyndata->opAtrrOffsets) % OP_ATTRS_OFFSET_PRE_NUM == 0);
+        DEV_ASSERT(reinterpret_cast<uint64_t>(dyndata->exprTbl) % EXPR_TABLE_PRE_NUM == 0);
+        DEV_ASSERT(reinterpret_cast<uint64_t>(dyndata->rawTensorAddr) % RAW_TENSOR_ADDR_MASK == 0);
 
         leafFuncDataSize += funcDup.GetSource()->GetOpAttrSize() * sizeof(SymInt); // opAttrs
         leafFuncDataSize += funcDup.GetSource()->GetOperationSize() * sizeof(int32_t); // opAttrOffsts;
@@ -1135,23 +1135,23 @@ uint64_t DeviceExecuteContext::GetInputShapeDim(DeviceExecuteContext *ctx, uint6
 
 int64_t DeviceExecuteContext::GetInputDataInt32Dim1(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0) {
     DevTensorData *input = &ctx->args->devTensorList[inputIndex];
-    return ((int32_t *)input->address)[off0];
+    return (reinterpret_cast<int32_t *>(input->address))[off0];
 }
 
 int64_t DeviceExecuteContext::GetInputDataInt32Dim2(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1) {
     DevTensorData *input = &ctx->args->devTensorList[inputIndex];
-    return ((int32_t *)input->address)[off0 * input->shape.dim[1] + off1];
+    return (reinterpret_cast<int32_t *>(input->address))[off0 * input->shape.dim[1] + off1];
 }
 
 int64_t DeviceExecuteContext::GetInputDataInt32Dim3(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1, uint64_t off2) {
     DevTensorData *input = &ctx->args->devTensorList[inputIndex];
-    return ((int32_t *)input->address)[off0 * input->shape.dim[1] * input->shape.dim[2] + off1 * input->shape.dim[2] + off2]; // 2: dim 2
+    return (reinterpret_cast<int32_t *>(input->address))[off0 * input->shape.dim[1] * input->shape.dim[2] + off1 * input->shape.dim[2] + off2]; // 2: dim 2
 }
 
 int64_t DeviceExecuteContext::GetInputDataInt32Dim4(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1,
     uint64_t off2, uint64_t off3) {
     DevTensorData *input = &ctx->args->devTensorList[inputIndex];
-    return ((int32_t *)input->address)[((off0 * input->shape.dim[1] + off1) * input->shape.dim[2] + off2) * input->shape.dim[3] + off3]; // 2: dim 2, 3: dim 3
+    return (reinterpret_cast<int32_t *>(input->address))[((off0 * input->shape.dim[1] + off1) * input->shape.dim[2] + off2) * input->shape.dim[3] + off3]; // 2: dim 2, 3: dim 3
 }
 
 void *DeviceExecuteContext::SymbolHandlerIdToHandler(SymbolHandlerId id) {
@@ -1527,9 +1527,9 @@ void *DeviceExecuteContext::DeviceExecuteRuntimerLog(void *ctx_, uint64_t value)
 
 void *DeviceExecuteContext::DeviceExecuteShmemAlloctor(void *ctx_, uint64_t value) {
     (void)ctx_;
-    uint64_t groupIndex = ((uint64_t*)value)[0];
-    uint64_t memType = ((uint64_t*)value)[1];
-    uint64_t size = ((uint64_t*)value)[2];
+    uint64_t groupIndex = (reinterpret_cast<uint64_t* >(value))[0];
+    uint64_t memType = (reinterpret_cast<uint64_t* >(value))[1];
+    uint64_t size = (reinterpret_cast<uint64_t* >(value))[2];
     static uint64_t offset = 0UL;
     constexpr uint64_t OFFSET_BITS = 58UL;
     constexpr uint64_t GROUP_BITS = 2UL;
@@ -1539,6 +1539,6 @@ void *DeviceExecuteContext::DeviceExecuteShmemAlloctor(void *ctx_, uint64_t valu
     constexpr uint64_t FILL_SHIFT = MEMTYPE_SHIFT + MEMTYPE_BITS;
     uint64_t vaddr = offset | (groupIndex << GROUP_SHIFT) | (memType << MEMTYPE_SHIFT) | (1UL << FILL_SHIFT);
     offset += size;
-    return (void*)vaddr;
+    return reinterpret_cast<void* >(vaddr);
 }
 }

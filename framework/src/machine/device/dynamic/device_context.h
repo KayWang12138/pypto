@@ -95,10 +95,12 @@ struct AOTBinary {
     void InitCodeSize(const void *data, uint64_t size) {
         auto &pool = AOTCodePool::GetCodePool();
         PerfBegin(PERF_EVT_CONTROL_FLOW_MAPEXE_MEMCPY);
-        memcpy_s((void *)pool.base , size, data, size);
-        __builtin___clear_cache((void *)pool.base, (uint8_t*)pool.base + size);
+        memcpy_s(reinterpret_cast<void *>(pool.base) , size, data, size);
+        __builtin___clear_cache(reinterpret_cast<void *>(pool.base), 
+                                reinterpret_cast<uint8_t *>(pool.base) + size
+                                );
         PerfEnd(PERF_EVT_CONTROL_FLOW_MAPEXE_MEMCPY);
-        code_ = (unsigned char *)pool.base;
+        code_ = reinterpret_cast<unsigned char *>(pool.base);
         size_ = size;
     }
     void InitCode(const void *data) {

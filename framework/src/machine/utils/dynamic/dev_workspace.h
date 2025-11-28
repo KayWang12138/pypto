@@ -465,7 +465,7 @@ public:
 
     DynDeviceTask *MakeDynDeviceTask() {
         WsAllocation alloc = ControlFlowAllocateSlab(devProg_, sizeof(DynDeviceTask), SlabAlloc(sizeof(DynDeviceTask), WsAicpuSlabMemType::DEV_DYN_TASK));
-        DynDeviceTask *dynTask = new((void *)alloc.ptr) DynDeviceTask(*this);
+        DynDeviceTask *dynTask = new(reinterpret_cast<void *>(alloc.ptr)) DynDeviceTask(*this);
         dynTask->selfAlloc = alloc;
         return dynTask;
     }

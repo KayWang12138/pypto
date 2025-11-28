@@ -41,7 +41,7 @@ static int EmulationLaunchOnce(AstKernelArgs &kArgs) {
             CPU_ZERO(&cpuset);
             CPU_SET(tidx, &cpuset);
             char name[64];
-            sprintf(name, "aicput%d", tidx);
+            (void)sprintf_s(name, sizeof(name), "aicput%d", tidx);
             std::cout << "start thread: " << name << std::endl;
             pthread_setname_np(pthread_self(), name);
             pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);

@@ -206,7 +206,7 @@ struct DevRelocVector {
     uintdevptr_t End() const { return reinterpret_cast<uintdevptr_t>(data_ + size_); }
 
     static uint64_t ElementSize() { return sizeof(T); }
-    typedef T ElementType;
+    using ElementType = T;
 
 private:
     size_t size_{0};
@@ -3297,7 +3297,7 @@ struct DevAscendProgram {
 
     template<typename Ty>
     typename Ty::ElementType *RelocOffset(intptr_t shift, void *&offset, Ty &list) {
-        typename Ty::ElementType *ptr = (typename Ty::ElementType *)offset;
+        typename Ty::ElementType *ptr = reinterpret_cast<typename Ty::ElementType *>(offset);
         offset = (void *)((uintptr_t)(offset) + list.ElementSize() * list.size());
         list.DeviceRelocData(shift);
         return ptr;

@@ -58,7 +58,7 @@ struct MachineManager {
 
         int threadIdx = allocThreadIdx(args->nrAicpu);
         if (threadIdx != -1) {
-            CreateLogFile(LOG_TYPE_SCHEDULER, threadIdx);
+            CreateLogFile(LogType::LOG_TYPE_SCHEDULER, threadIdx);
             DEV_INFO("ThreadIdx %d aicNum %u aivNum %u aicpuNum %u validAicNum%u \n", threadIdx, args->nrAic,
                 args->nrAiv, args->nrAicpu, args->nrValidAic);
             DEV_INFO("SharedBuffer %lx coreRegAddr %lx corePmuAdr %lx\n",
@@ -67,7 +67,7 @@ struct MachineManager {
             DEV_INFO("threadIdx %d finished, ret %d\n", threadIdx, ret);
             GetLogger().Flush();
         } else {
-            CreateLogFile(LOG_TYPE_PREFETCH, 0);
+            CreateLogFile(LogType::LOG_TYPE_PREFETCH, 0);
             auto devTask = reinterpret_cast<DeviceTask *>(args->taskData);
             SdmaPrefetch(devTask);
             GetLogger().Flush();

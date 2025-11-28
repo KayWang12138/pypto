@@ -94,7 +94,7 @@ struct DynMachineManager {
         int threadIdx = allocThreadIdx(devArgs->nrAicpu);
         uint64_t allocThreadCycle = GetCycles();
         if ((threadIdx != -1) && threadIdx < schAicpuNum_) {
-            CreateLogFile(LOG_TYPE_SCHEDULER, threadIdx);
+            CreateLogFile(LogType::LOG_TYPE_SCHEDULER, threadIdx);
             DEV_INFO("devArgs->taskType %d.", static_cast<int>(devArgs->taskType));
             DEV_INFO("threadIdx %d aicNum %u aivNum %u aicpuNum %u validAicNum %u.", threadIdx, devArgs->nrAic,
                 devArgs->nrAiv, devArgs->nrAicpu, devArgs->nrValidAic);
@@ -106,7 +106,7 @@ struct DynMachineManager {
             threadIdx = ctrlcpuIdx_.fetch_add(1);
             DEV_INFO("devArgs->taskType %d.",  static_cast<int>(devArgs->taskType));
             if (devArgs->enableCtrl == 1 && threadIdx == schAicpuNum_) {
-                CreateLogFile(LOG_TYPE_CONTROLLER, 0);
+                CreateLogFile(LogType::LOG_TYPE_CONTROLLER, 0);
                 DEV_TRACE_DEBUG(schema::CtrlEvent(threadIdx, schema::ThreadStart()));
                 ret = PyptoKernelCtrlServer((void*)args);
             } else {
