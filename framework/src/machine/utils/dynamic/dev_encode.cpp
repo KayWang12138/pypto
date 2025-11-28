@@ -200,7 +200,7 @@ void DevAscendFunction::UpdateRawTensorDesc(const std::shared_ptr<RawTensor> &ra
 }
 
 static void EncodeRawShape(const SymbolicExpressionTable *expressionTable,
-    DevAscendRawTensor *encoded, std::shared_ptr<RawTensor> rawTensor) {
+    DevAscendRawTensor *encoded, std::shared_ptr<RawTensor> rawTensor, bool isIndependentMemory) {
     std::vector<SymInt> shape;
     bool isDyn = false;
     for (auto x : rawTensor->GetDynRawShape()) {
@@ -214,6 +214,11 @@ static void EncodeRawShape(const SymbolicExpressionTable *expressionTable,
     encoded->shape.SetShape(shape);
     encoded->dataType = rawTensor->GetDataType();
     encoded->memoryRequirement = isDyn ? 0 : AlignUp(rawTensor->GetRawDataSize(), TENSOR_ADDR_ALIGNMENT);
+
+    if (!isIndependentMemory) {
+        encoded->maxStaticMemReq = 0;
+        return;
+    }
 
     uint64_t maxPossibleNumel = 0;
     if (std::find(rawTensor->oriRawshape.begin(), rawTensor->oriRawshape.end(), -1) == rawTensor->oriRawshape.end()) {
@@ -266,7 +271,7 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                 continue;
             }
             auto &encoded = *GetRawTensor(i);
-            EncodeRawShape(expressionTable, &encoded, rawTensor);
+            EncodeRawShape(expressionTable, &encoded, rawTensor, !param.devRoot->outIncastLinkMap.count(rawTensor));
             encoded.rawMagic = rawTensor->GetRawMagic();
             if (incastRawList.count(rawTensor)) {
                 // No need to allocate memory for root incasts
@@ -314,7 +319,7 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                 continue;
             }
             auto &encoded = *GetRawTensor(i);
-            EncodeRawShape(expressionTable, &encoded, rawTensor);
+            EncodeRawShape(expressionTable, &encoded, rawTensor, false);
             HandleActualRaw(incastRawList, outcastRawList, rawMagicToRawTensor, rawTensor, encoded);
             UpdateRawTensorDesc(rawTensor, i, incastRawList.size(), encoded);
         }
@@ -360,6 +365,7 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
         for (size_t i = 0; i < rawList.size(); i++) {
             auto &encoded = *GetRawTensor(i);
             if (outIncastLinkMap.find(rawList[i]) != outIncastLinkMap.end()) {
+                ASSERT(outIncastLinkMap[rawList[i]]->actualRawmagic != rawList[i]->rawmagic);
                 encoded.linkedIncastId = incastRawList.GetIndex(outIncastLinkMap[rawList[i]]); //换成incast的下标 ioidx
                 ALOG_DEBUG_F("linkedIncastId is %d", encoded.linkedIncastId);
             } else {

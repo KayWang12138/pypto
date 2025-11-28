@@ -1325,7 +1325,7 @@ Tensor Reshape( const Tensor &operand, const std::vector<SymbolicScalar> &dstSha
     auto slotManager = Program::GetInstance().GetTensorSlotManager();
     auto &operation = Program::GetInstance().GetCurrentFunction()->AddOperation(Opcode::OP_RESHAPE, {operand.GetStorage()}, {dst.GetStorage()});
     operation.SetAttribute(OP_ATTR_PREFIX + "isInplace", true);
-    slotManager->TensorWrite(dst, true);
+    slotManager->TensorWrite(dst);
     Program::GetInstance().GetCurrentFunction()->SetSameMemId(operand.GetStorage(), dst.GetStorage());
     if (slotManager->GetOutputIndex(dst) != -1){
         slotManager->SetSameSlot(operand, dst);
@@ -1379,7 +1379,7 @@ void Reshape(const Tensor &operand, Tensor &dst) {
     auto slotManager = Program::GetInstance().GetTensorSlotManager();
     auto &operation = Program::GetInstance().GetCurrentFunction()->AddOperation(Opcode::OP_RESHAPE, {operand.GetStorage()}, {dst.GetStorage()});
     operation.SetAttribute(OP_ATTR_PREFIX + "isInplace", true);
-    slotManager->TensorWrite(dst, true);
+    slotManager->TensorWrite(dst);
     Program::GetInstance().GetCurrentFunction()->SetSameMemId(operand.GetStorage(), dst.GetStorage());
     if (slotManager->GetOutputIndex(dst) != -1){
         slotManager->SetSameSlot(operand, dst);

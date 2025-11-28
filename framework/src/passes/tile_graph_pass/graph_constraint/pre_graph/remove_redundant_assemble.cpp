@@ -237,6 +237,11 @@ bool RemoveRedundantAssemble::IsCandidateAssembleOp(Function &function, Operatio
 void RemoveRedundantAssemble::HandleForReshapeToOutcast(Function &function) const {
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+            auto dstRT = op.GetOOperands().front()->tensor;
+            auto srcRT = op.GetIOperands().front()->tensor;
+            if (function.outIncastLinkMap.count(dstRT) && function.outIncastLinkMap[dstRT] == srcRT) {
+                continue;
+            }
             if (function.IsFromOutCast(op.GetOOperands()[0])) {
                 // input --> reshape --> OCAST
                 if (op.GetIOperands()[0]->tensor->actualRawmagic != -1) {
@@ -333,7 +338,7 @@ void RemoveRedundantAssemble::DeleteRedundantAssemble(Function &function) const 
                 oriOutputBackUp = producer->oOperand[0]; // producer --> oriOutputBackUp(input) --> op
                 producer->ReplaceOutput(output, oriOutputBackUp);
                 output->isSubGraphBoundary = true;
-                if (!IsCopyOut(producer->GetOpcode())) { 
+                if (!IsCopyOut(producer->GetOpcode())) {
                     continue;
                 }
                 UpdateCopyOutAttr(producer, cons);
