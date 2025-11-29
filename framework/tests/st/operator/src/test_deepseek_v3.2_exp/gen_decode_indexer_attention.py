@@ -35,7 +35,7 @@ golden_parent2 = os.path.join(golden_parent, "cmake/scripts")
 sys.path.insert(0, golden_parent2)
 
 from gen_mla_prolog_golden_v32 import gen_prolog_input_data, mla_prolog_compute, gen_block_table
-from gen_lightning_indexer_topk import indexer_topk_compute
+from gen_lightning_indexer import indexer_topk_compute
 from gen_sparse_flash_attention_dsa import compute_attention
 import gen_lightning_indexer_prolog
 from gen_lightning_indexer_prolog import indexer_prolog

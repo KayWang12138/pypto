@@ -37,7 +37,7 @@ sys.path.insert(0, golden_parent2)
 
 import gen_mla_prolog_quant_golden_v32
 import gen_quant_lightning_indexer_prolog
-import gen_lightning_indexer_topk
+import gen_lightning_indexer
 import gen_gather_selected_attention
 
 torch.manual_seed(42)
@@ -298,7 +298,7 @@ def lightning_index_golden(params, idx_query, idx_k_cache, idx_query_scale, idx_
         "block_table": block_table
     }
     print(f"{idx_query.shape=}")
-    topk_value, topk_res, tmp_out = gen_lightning_indexer_topk.indexer_topk_compute(input_data_map, lightning_indexer_params, is_quant)
+    topk_value, topk_res, tmp_out = gen_lightning_indexer.indexer_topk_compute(input_data_map, lightning_indexer_params, is_quant)
 
     # dump golden for compare res
     dump_file_torch(topk_value, Path(output_dir, "topk_value.bin"))

@@ -24,7 +24,7 @@
 #include "gather_after_prolog.h"
 #include "sparse_flash_attention.h"
 #include "dsia_common.h"
-#include "lightning_indexer_topk.h"
+#include "lightning_indexer.h"
 #include "lightning_indexer_prolog.h"
  
 namespace npu::tile_fwk {

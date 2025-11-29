@@ -185,7 +185,7 @@ stest:
       # - LightningIndexerPrologSTest.b40_s1_4_s2_8k
       - LightningIndexerPrologSTest.b4_s1_1_s2_64k
 
-  operator_Quantized_lightning_indexer_topk:
+  operator_lightning_indexer:
     cases:
       - DynamicIndexerTopk.indexer_topk_quant_4_b_1_s1_64k_s2
 

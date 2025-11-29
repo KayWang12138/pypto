@@ -133,7 +133,7 @@ set(_CaseFilterList
         "DynamicLightningIndexerPrologUtest.utest_lightning_indexer_prolog"
 
         # Quantized lightning indexer topk
-        "TestLightningIndexerTopkQuantUtest.indexer_topk_quant_4_b_1_s1_64k_s2"
+        "TestLightningIndexerUtest.lightning_indexer_b_4_s1_2_s2_64k_quant"
 
         # DecodeIndexerAttention
         "DecodeIndexerAttentionUtest.utest_decode_indexer_attention"

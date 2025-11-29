@@ -20,11 +20,9 @@ import os
 import sys
 import logging
 import torch
-import copy
 
 import numpy as np
 
-from enum import Enum
 from pathlib import Path
 from typing import List
 from common_func import dump_file
@@ -118,7 +116,6 @@ def gen_data_for_compute(out_path: Path, params, is_quant: bool):
     block_num = params.get("block_num")
     max_block_num = params.get("max_block_num")
     selected_count = params.get("selected_count")
-    score_scale = params.get("score_scale")
 
     # define input files
     in_params_path = Path(out_path, "input_params.bin")
@@ -140,8 +137,6 @@ def gen_data_for_compute(out_path: Path, params, is_quant: bool):
 
     # (block_num, block_size, n, d)
     key = gen_cache_tensor(k_bsnd, block_table_list, block_num, block_size, b)
-    # construct output tensor
-    topk_res = torch.zeros([b, s1, n2, selected_count], dtype=torch.int32)
 
     input_data_map = {}
     if is_quant:
@@ -202,8 +197,6 @@ def indexer_topk_compute(input_data_map, params, is_quant: bool):
     n2 = params.get("n2")
     block_num = params.get("block_num")
     max_block_num = params.get("max_block_num")
-    score_scale = params.get("score_scale")
-    dtype = params.get("dtype")
 
     # get input tensors
     query = input_data_map.get("query")
@@ -287,9 +280,90 @@ def indexer_topk_compute(input_data_map, params, is_quant: bool):
     return topk_value, topk_res, tmp_out
 
 
+def lightning_indexer_compute(input_data_map, params):
+    block_size = params.get("block_size")  # 128
+    selected_count = params.get("selected_count")
+    b = params.get("b")
+    s1 = params.get("s1")
+    n1 = params.get("n1")
+    d = params.get("d")
+    block_num = params.get("block_num")
+    max_block_num = params.get("max_block_num")
+
+    # get input tensors
+    query = input_data_map.get("query")
+    key = input_data_map.get("key")
+    q_scale = input_data_map.get("q_scale")
+    k_scale = input_data_map.get("k_scale")
+    weights = input_data_map.get("weights")
+    act_seq = input_data_map.get("act_seq")
+    block_table = input_data_map.get("block_table")
+
+    topk_value = torch.zeros([b * s1, 1, selected_count], dtype=torch.float32)
+    topk_res = torch.zeros([b * s1, 1, selected_count], dtype=torch.int32)
+    first_mm = torch.zeros(b * s1 * n1, max_block_num * block_size, dtype=torch.float16)
+    mm_out = torch.zeros([b * s1 * 1, max_block_num * block_size], dtype=torch.float32)
+    avoid_fp32_to_fp16_overflow_scale = 1.0 / 2048
+
+    # reshape for fast calculation
+    query = query.reshape(b * s1 * n1, d)
+    q_scale = q_scale.reshape(b * s1, 1, n1)
+    key = key.reshape(block_num * block_size, d)
+    k_scale = k_scale.reshape(block_num, block_size)
+    weights = weights.reshape(b * s1, 1, n1)
+
+    for b_idx in range(b):
+        cur_seq = act_seq[b_idx]
+        cur_block = (cur_seq + block_size - 1) // block_size
+        # qs * w
+        cur_qs = q_scale[b_idx * s1 : (b_idx + 1) * s1, :, :] # (s1, 1, n1)
+        cur_w = weights[b_idx * s1 : (b_idx + 1) * s1, :, :] # (s1, 1, n1)
+        w_scale = cur_qs * cur_w # (s1, 1, n1), fp16
+
+        for block_idx in range(cur_block):
+            cur_q = query[b_idx * s1 * n1: (b_idx + 1) * s1 * n1, :] # (s1 * n1, d)
+            cur_block_idx = block_table[b_idx][block_idx]
+            tail_seq = min(block_size, cur_seq - block_size * block_idx)
+            # qk-dot
+            cur_k = key[cur_block_idx * block_size: (cur_block_idx * block_size + tail_seq), :] # (tail_seq, d)
+            # use matmul fixpipe to do this calculation
+            qk_dot = torch.matmul(cur_q.to(torch.int32), cur_k.transpose(1, 0).to(torch.int32)).to(torch.float32).relu() # (s1 * n1, tail_seq)
+            qk_dot = qk_dot * avoid_fp32_to_fp16_overflow_scale
+            qk_dot = qk_dot.to(torch.float16)
+            first_mm[b_idx * s1 * n1 : (b_idx + 1) * s1 * n1, block_idx * block_size : (block_idx * block_size + tail_seq)] = qk_dot
+            qk_dot = qk_dot.reshape(s1, n1, tail_seq)
+
+            cur_ks = k_scale[cur_block_idx : (cur_block_idx + 1), :tail_seq] # (1, tail_seq)
+            cur_ks = cur_ks.to(torch.float32) # (1, tail_seq)
+            w_qk = torch.bmm(w_scale.to(torch.float32), qk_dot.to(torch.float32)) # (s1, 1, tail_seq)
+            w_qk = w_qk.reshape(s1, tail_seq)
+            k_res = w_qk * cur_ks # (s1, tail_seq), fp32
+            mm_out[b_idx * s1 : (b_idx + 1) * s1, block_idx * block_size : (block_idx * block_size + tail_seq)] = k_res
+
+    for b_idx in range(b):
+        cur_seq = act_seq[b_idx]
+        for s_idx in range(s1):
+            eff_seq = cur_seq - (s1 - s_idx - 1)
+            topk_in = mm_out[(b_idx * s1 + s_idx) : (b_idx * s1 + s_idx + 1), : eff_seq] # (1, act_seq)
+            if (eff_seq < selected_count):
+                cur_res, cur_idx = torch.topk(topk_in, k=eff_seq, dim=-1) # (1, eff_seq)
+                pad_res = torch.full((1, selected_count - eff_seq), float("-inf"), dtype=torch.float32)
+                pad_idx = torch.full((1, selected_count - eff_seq), -1, dtype=torch.int32)
+                cur_res = torch.cat([cur_res, pad_res], dim=1)
+                cur_idx = torch.cat([cur_idx, pad_idx], dim=1)
+                topk_value[(b_idx * s1 + s_idx) : (b_idx * s1 + s_idx + 1), : , :] = cur_res.reshape(1, 1, selected_count)
+                topk_res[(b_idx * s1 + s_idx) : (b_idx * s1 + s_idx + 1), : , :] = cur_idx.reshape(1, 1, selected_count)
+            else:
+                cur_res, cur_idx = torch.topk(topk_in, k=selected_count, dim=-1) # (1, selected_count)
+                topk_value[(b_idx * s1 + s_idx) : (b_idx * s1 + s_idx + 1), : , :] = cur_res.reshape(1, 1, selected_count)
+                topk_res[(b_idx * s1 + s_idx) : (b_idx * s1 + s_idx + 1), : , :] = cur_idx.reshape(1, 1, selected_count)
+
+    return first_mm, mm_out, topk_value, topk_res
+
+
 @GoldenRegister.reg_golden_func(
     case_names=[
-        "DynamicIndexerTopk.indexer_topk_quant_4_b_1_s1_64k_s2",
+        "DynamicIndexerTopk.indexer_topk_quant_4_b_1_s1_64k_s2"
     ]
 )
 def indexer_topk_quant(case_name: str, output: Path) -> bool:
@@ -341,18 +415,81 @@ def indexer_topk_quant(case_name: str, output: Path) -> bool:
     return True
 
 
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "LightningIndexerSTest.lightning_indexer_quant_4_b_2_s1_64k_s2"
+    ]
+)
+def lightning_indexer(case_name: str, output: Path) -> bool:
+    n1, d = 64, 128
+    block_size = 128
+    dtype = torch.float16
+    if case_name == "LightningIndexerSTest.lightning_indexer_quant_4_b_2_s1_64k_s2":
+        b, s1 = 4, 2
+        act_seq = [64 * 1024] * b
+    else:
+        logging.error("Fail to gen golden for Case(%s)", case_name)
+        return False
+
+    s2 = max(act_seq) # s2 means max act_seq
+    block_num = sum([(s + block_size - 1) // block_size for s in act_seq])
+    max_block_num = (s2 + block_size - 1) // block_size
+    selected_count = 2048
+
+    params = {}
+    params["b"] = b
+    params["s1"] = s1
+    params["n1"] = n1
+    params["d"] = d
+    params["dtype"] = dtype
+    params["s2"] = s2
+    params["n2"] = 1
+
+    params["act_seq"] = act_seq
+    params["block_size"] = block_size
+    params["block_num"] = block_num
+    params["max_block_num"] = max_block_num
+    params["selected_count"] = selected_count
+
+
+    input_data_map = gen_data_for_compute(output, params, is_quant=True)
+    first_mm, mm_out, topk_value, topk_res = lightning_indexer_compute(input_data_map, params)
+
+    # dump golden for compare res
+    first_mm_path = Path(output, "first_mm.bin")
+    mm_out_path = Path(output, "mm_out.bin")
+    topk_value_path = Path(output, "topk_value.bin")
+    topk_res_path = Path(output, "topk_res.bin")
+    dump_file(first_mm.numpy(), first_mm_path, "fp16")
+    dump_file(mm_out.numpy(), mm_out_path, "fp32")
+    dump_file(topk_res.numpy(), topk_res_path, "int32")
+
+    dump_file(topk_value.numpy(), topk_value_path, "fp32")
+
+    return True
+
+
 def main() -> bool:
     """
     单独调试 入口函数
     """
 
-    quant_case_name_list = [
+    ori_case_name_list = [
         "DynamicIndexerTopk.indexer_topk_quant_4_b_1_s1_64k_s2",
+    ]
+    for cs in ori_case_name_list:
+        output = Path(g_src_root, "build/output/bin/golden", cs).resolve()
+        output.mkdir(parents=True, exist_ok=True)
+        ret &= indexer_topk_quant(case_name=cs, output=output)
+
+    quant_case_name_list = [
+        "LightningIndexerSTest.lightning_indexer_quant_4_b_2_s1_64k_s2",
     ]
     for cs in quant_case_name_list:
         output = Path(g_src_root, "build/output/bin/golden", cs).resolve()
         output.mkdir(parents=True, exist_ok=True)
-        ret &= indexer_topk_quant(case_name=cs, output=output)
+        ret &= lightning_indexer(case_name=cs, output=output)
+
 
     return ret
 
