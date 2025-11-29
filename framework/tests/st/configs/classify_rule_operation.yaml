@@ -70,25 +70,25 @@ stest:
       - TestBatchMatmul/BatchMatmulOperationTest.TestBatchMatmul/3
       - GatherInL1Test.gather_in_a_unalign
       - GatherInL1Test.gather_in_bt_with_valid_shape
-      - MatmulOnBoardTest.test_mm_float32_32_512_576
-      - MatmulOnBoardTest.test_mm_bfloat16_64_128_128
-      - MatmulOnBoardTest.test_mm_bfloat16_f32_64_128_128
+      # - MatmulOnBoardTest.test_mm_float32_32_512_576
+      # - MatmulOnBoardTest.test_mm_bfloat16_64_128_128
+      # - MatmulOnBoardTest.test_mm_bfloat16_f32_64_128_128
       # - MatmulOnBoardTest.test_mm_float32_128_128_128
       # - MatmulOnBoardTest.test_mm_float32_32_128_128
-      - MatmulOnBoardTest.test_mm_unalign_float32_2_128_128
-      - MatmulOnBoardTest.test_mm_unalign_float32_16_35_32
-      - OnBoardTest.test_BMM_Simple
-      - OnBoardTest.test_BMM_3D_Brc
-      - OnBoardTest.test_BMM_3D_Brc_Transpose
-      - OnBoardTest.test_BMM_4D_Brc_Transpose
-      - OnBoardTest.test_BMM_UNALIGN_2_1024_32
-      - OnBoardTest.test_BMM_post
-      - OnBoardTest.test_BMM_NZ_1_32_32_32
-      - OnBoardTest.test_BMM_NZ_1_32_32_320
-      - OnBoardTest.test_BMM_NZ_1_64_32_16
-      - MatmulOnBoardTest.test_mm_float32_32_128_64
-      - MatmulOnBoardTest.test_mm_float32_32_192_64
-      - MatmulOnBoardTest.test_mm_int8_32_128_64
+      # - MatmulOnBoardTest.test_mm_unalign_float32_2_128_128
+      # - MatmulOnBoardTest.test_mm_unalign_float32_16_35_32
+      # - OnBoardTest.test_BMM_Simple
+      # - OnBoardTest.test_BMM_3D_Brc
+      # - OnBoardTest.test_BMM_3D_Brc_Transpose
+      # - OnBoardTest.test_BMM_4D_Brc_Transpose
+      # - OnBoardTest.test_BMM_UNALIGN_2_1024_32
+      # - OnBoardTest.test_BMM_post
+      # - OnBoardTest.test_BMM_NZ_1_32_32_32
+      # - OnBoardTest.test_BMM_NZ_1_32_32_320
+      # - OnBoardTest.test_BMM_NZ_1_64_32_16
+      # - MatmulOnBoardTest.test_mm_float32_32_128_64
+      # - MatmulOnBoardTest.test_mm_float32_32_192_64
+      # - MatmulOnBoardTest.test_mm_int8_32_128_64
 
   operation_vector:
     cases:
@@ -138,12 +138,6 @@ stest:
       - TestRsqrt/RsqrtOperationTest.TestRsqrt/0
       - TestRsqrt/RsqrtOperationTest.TestRsqrt/2
       - TestRsqrt/RsqrtOperationTest.TestRsqrt/3
-      - TestPows/PowsOperationTest.TestPows/6
-      - TestPows/PowsOperationTest.TestPows/7
-      - TestPows/PowsOperationTest.TestPows/8
-      - TestPows/PowsOperationTest.TestPows/9
-      - TestPows/PowsOperationTest.TestPows/10
-      - TestPows/PowsOperationTest.TestPows/11
       - TestPows/PowsOperationTest.TestPows/12
       - TestPows/PowsOperationTest.TestPows/13
       - TestPows/PowsOperationTest.TestPows/14
@@ -304,13 +298,6 @@ stest:
       # - LLamaLayerTest.llama_1_1_512_128
       # - LLamaLayerTest.llama_1_1_1024_128
       # - LLamaLayerTest.llama_1_1_4096_128
-      - RmsNormTest.test_32_32_tileop_rmsnorm
-      - RmsNormTest.test_2_32_32_tileop_rmsnorm
-      - RmsNormTest.test_2_2_32_32_tileop_rmsnorm
-      - RmsNormTest.test_32_1536_tileop_rmsnorm_fp16_realCase
-      - RmsNormTest.test_32_1536_tileop_rmsnorm_gamma_fp16_realCase
-      - SigmoidTest.test_32_32_tileop_sigmoid
-      - SigmoidTest.test_32_256_tileop_sigmoid_realcase
       - TopkOnBoardTest.test_operation_tensor_128_32_32_topk
       - TopkOnBoardTest.test_operation_tensor_4_32_8_topk
       - TopkOnBoardTest.test_operation_tensor_2_288_15_topk

@@ -200,3 +200,15 @@ stest:
       - DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b32_s1_seq511_int8
       - DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seq128k_int8
 
+  operator_rmsnorm:
+    cases:
+      - RmsNormTest.test_32_32_tileop_rmsnorm
+      - RmsNormTest.test_2_32_32_tileop_rmsnorm
+      - RmsNormTest.test_2_2_32_32_tileop_rmsnorm
+      - RmsNormTest.test_32_1536_tileop_rmsnorm_fp16_realCase
+      - RmsNormTest.test_32_1536_tileop_rmsnorm_gamma_fp16_realCase
+
+  operator_sigmoid:
+    cases:
+      - SigmoidTest.test_32_32_tileop_sigmoid
+      - SigmoidTest.test_32_256_tileop_sigmoid_realcase
