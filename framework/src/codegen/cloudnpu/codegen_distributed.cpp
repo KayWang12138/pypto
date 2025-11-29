@@ -26,6 +26,15 @@ namespace npu::tile_fwk {
 using AtomicType = npu::tile_fwk::Distributed::AtomicType;
 constexpr int32_t GM2UB_SHMEMDATA_INDEX = 2;
 
+static const std::unordered_map<Opcode, std::unordered_set<int32_t>> skipIndexMap = {
+    {Opcode::OP_SHMEM_PUT, {0, 4}},
+    {Opcode::OP_SHMEM_GET, {2}},
+    {Opcode::OP_SHMEM_PUT_UB2GM, {0, 3}},
+    {Opcode::OP_SHMEM_GET_GM2UB, {1}},
+    {Opcode::OP_SHMEM_SIGNAL, {0, 2}},
+    {Opcode::OP_SHMEM_REDUCE, {4}},
+};
+
 void CheckInRange(int64_t value)
 {
     if (value < std::numeric_limits<uint32_t>::min() || value > std::numeric_limits<uint32_t>::max()) {
@@ -195,7 +204,12 @@ std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapes() const
 std::string CodeGenOpCloudNPU::GenDistOp() const
 {
     std::ostringstream oss;
-    oss << tileOpName << GenTemplateParams() << "(" << GenParamsStr() << GenOffsetsAndRawShapes()
+    std::unordered_set<int32_t> skipOperands = {};
+    auto it = skipIndexMap.find(opCode);
+    if (it != skipIndexMap.end()) {
+        skipOperands = it->second;
+    }
+    oss << tileOpName << GenTemplateParams() << "(" << GenParamsStr(skipOperands) << GenOffsetsAndRawShapes()
         << ", hcclContext);\n";
     return oss.str();
 }

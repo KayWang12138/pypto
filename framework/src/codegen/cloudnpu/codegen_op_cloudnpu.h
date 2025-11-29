@@ -116,7 +116,7 @@ public:
     std::string GenTopKMergeOp() const;
     std::string GenTopKExtractOp() const;
 
-    std::string GenParamsStr() const;
+    std::string GenParamsStr(const std::unordered_set<int32_t>& skipOperands = {}) const;
 
     std::string GenDistOp() const;
     std::string GetTemplateDType() const;

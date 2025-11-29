@@ -109,7 +109,7 @@ std::string CodeGenOpCloudNPU::GenCubeOpMatmulAcc() const {
     return GenCubeOp(false);
 }
 
-std::string CodeGenOpCloudNPU::GenParamsStr() const {
+std::string CodeGenOpCloudNPU::GenParamsStr(const std::unordered_set<int32_t> &skipOperands) const {
     std::vector<std::string> params;
     for (int i = 0; i < MAX_OPERANDS; i++) {
         if (operand[i] == NULL_OPERAND) {
@@ -118,6 +118,10 @@ std::string CodeGenOpCloudNPU::GenParamsStr() const {
 
         std::string dtypeStr = DataType2CCEStr(operandDtype[i]);
         std::string prefix = GetAddrTypeByOperandType(operandType[i]);
+
+        if (skipOperands.find(i) != skipOperands.end()) {
+            continue;
+        }
 
         if (operandType[i] == BUF_DDR) {
             std::string var = GenGmParamVar(i);

@@ -26,10 +26,7 @@
 #ifdef BUILD_WITH_CANN
 #include "securec.h"
 #ifndef BUILD_WITH_CANN_SUB
-#include "hcom.h"
-#include "kernel_tiling/kernel_tiling.h"
 
-extern "C" HcclResult HcclAllocComResourceByTiling(HcclComm comm, void *stream, void *mc2Tiling, void **commContext);
 #endif
 #endif
 extern "C" __attribute__((weak)) int AdxDataDumpServerInit();
@@ -76,7 +73,6 @@ void MachineAgent::AgentProc(DeviceAgentTask *task) {
     ret = PrepareReadyCoreFunction(task);
     MACHINE_ASSERT(ret == MACHINE_OK); // 先assert 待异常处理
 
-    ret = PrepareHcclContext(task);
     MACHINE_ASSERT(ret == MACHINE_OK); // 先assert 待异常处理
 
     ret = PrepareReadyState(task);
@@ -372,76 +368,8 @@ int MachineAgent::PrepareReadyCoreFunction(DeviceAgentTask *task) {
     return MACHINE_OK;
 }
 
-#ifdef BUILD_WITH_CANN
-#ifndef BUILD_WITH_CANN_SUB
-struct Mc2CommConfig {
-    uint32_t version;
-    uint32_t hcommCnt;
-    struct Mc2ServerCfg serverCfg;
-    struct Mc2HcommCfg hcommCfg;
-};
-
-int MakeMc2TilingStruct(struct Mc2CommConfig &commConfig, std::string &groupName) {
-    constexpr uint32_t version = 2;
-    constexpr uint32_t hcommCnt = 1;
-    constexpr uint32_t opTypeAllToAll = 6; // numeric representation of AlltoAll
-    const char *algConfig = "AllGather=level0:ring";
-    constexpr uint32_t arraySize = 128;
-
-    commConfig.version = version;
-    commConfig.hcommCnt = hcommCnt;
-    commConfig.hcommCfg.skipLocalRankCopy = 0;
-    commConfig.hcommCfg.skipBufferWindowCopy = 0;
-    commConfig.hcommCfg.stepSize = 0;
-    commConfig.hcommCfg.opType = opTypeAllToAll;
-    auto ret = strcpy_s(commConfig.hcommCfg.groupName, arraySize, groupName.c_str());
-    if (ret != 0) {
-        return -1;
-    }
-    ret = strcpy_s(commConfig.hcommCfg.algConfig, arraySize, algConfig);
-    if (ret != 0) {
-        return -1;
-    }
-    return 0;
-}
-#endif
-#endif
-
 int MachineAgent::PrepareHcclContext(DeviceAgentTask *task) {
-#ifdef BUILD_WITH_CANN
-#ifndef BUILD_WITH_CANN_SUB
-    ALOG_INFO_F("Comm groups size:[%zu].", task->compileInfo.commGroups.size());
-    for (uint32_t groupIndex = 0; groupIndex < task->compileInfo.commGroups.size(); ++groupIndex) {
-        auto groupName = task->compileInfo.commGroups[groupIndex];
-        ALOG_INFO_F("Index[%lu] group name[%s].", groupIndex, groupName.c_str());
-        auto hcclContextAddr = &task->deviceInfo.devceTask.coreFuncData.hcclContextAddr[0];
-
-        if (groupIndex >= DIST_COMM_GROUP_NUM) {
-            return MACHINE_ERROR;
-        }
-
-        HcclComm commHandle = nullptr;
-        HcclResult ret = HcomGetCommHandleByGroup(groupName.c_str(), &commHandle);
-        if (ret != HCCL_SUCCESS) {
-            return MACHINE_ERROR;
-        }
-        struct Mc2CommConfig commConfig;
-        (void)memset_s(&commConfig, sizeof(commConfig), 0, sizeof(commConfig));
-        if (MakeMc2TilingStruct(commConfig, groupName) != 0) {
-            return MACHINE_ERROR;
-        }
-        ret = HcclAllocComResourceByTiling(commHandle, machine::GetRA()->GetStream(), &commConfig,
-            reinterpret_cast<void **>(&hcclContextAddr[groupIndex]));
-        if ((ret != HCCL_SUCCESS) || (hcclContextAddr[groupIndex] == 0)) {
-            return MACHINE_ERROR;
-        }
-    }
-
-    task->deviceInfo.devceTask.coreFuncData.commGroupNum = task->compileInfo.commGroups.size();
-#else
     (void)task;
-#endif
-#endif
     return MACHINE_OK;
 }
 

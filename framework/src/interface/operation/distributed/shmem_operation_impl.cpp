@@ -145,12 +145,12 @@ Tensor ShmemClearSignal(const Tensor &in, const Tensor &shmemSignalTile, const i
 Tensor CreateShmemTensor(int32_t rankSize, int32_t hcclGroupIndex, DataType dataType, const Shape &shape)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
-    Shape shmemShape{rankSize, rankSize};
+    Shape shmemShape{rankSize};
     shmemShape.insert(shmemShape.end(), shape.begin(), shape.end());
     auto shmemTensor = std::make_shared<LogicalTensor>(function, dataType, shmemShape);
     auto &op = function.AddOperation("BIND_TENSOR", {}, {shmemTensor});
     op.SetAttribute(OpAttributeKey::bindTensor, BindTensor(hcclGroupIndex, 0,
-        BytesOf(dataType) * rankSize * std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<int64_t>())));
+        BytesOf(dataType) * std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<int64_t>())));
     return shmemTensor;
 }
 
@@ -159,7 +159,7 @@ Tensor Barrier(const Tensor &in, const char *group)
     int hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
     auto [rankSize, tileCount] = GetRankSizeAndTileCount();
 
-    Shape shmSignalShape = {tileCount, 8};
+    Shape shmSignalShape = {rankSize, tileCount, 8};    // shmSignalShape 根据算子的具体情况设置
 
     SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
 
@@ -171,13 +171,12 @@ Tensor Barrier(const Tensor &in, const char *group)
 
         shmemSignal = CreateShmemTensor(rankSize, hcclGroupIndex, DT_INT32, shmSignalShape);
 
-        // 虽然创建出来的 tensor 的 shape 是 {rankSize, rankSize, 1, 8}，但其实只需要用到最前面的 {rankSize, 1, 1, 8}
-        shmemBarrierSignal = CreateShmemTensor(rankSize, hcclGroupIndex, DT_INT32, Shape{1, 8});
+        shmemBarrierSignal = CreateShmemTensor(rankSize, hcclGroupIndex, DT_INT32, Shape{1, 1, 8});
     }
     LOOP("Barrier", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
         auto shmemSignalTile =
-            View(shmemSignal, {1, 1, tileCount, 8}, std::vector<SymbolicScalar>{rankSize, rankSize, 0, 0});
+            View(shmemSignal, {1, rankSize, tileCount, 8}, std::vector<SymbolicScalar>{thisRank, 0, 0, 0});
         auto clearSignalDummy = ShmemClearSignal(in, shmemSignalTile, tileCount);
 
         for (int32_t rank = 0; rank < rankSize; rank++) {
@@ -200,9 +199,11 @@ void ShmemAllGather(const Tensor &in, const Tensor &barrierDummy, const char *gr
     ASSERT(row > 0 && col > 0) << "Invalid shape: row and col must be > 0, but got row=" << row << ", col=" << col;
     auto [rankSize, tileCount] = GetRankSizeAndTileCount();
 
-    Shape shmDataShape = {row, col};
-    Shape shmSignalShape = {tileCount, 8};
+    Shape shmDataShape = {rankSize, row, col};
+    Shape shmSignalShape = {rankSize, tileCount, 8};
     Shape outShape = {row * rankSize, col};
+    ASSERT(out.GetShape() == outShape) << "This shape of out is invalid";
+    ASSERT(in.GetDataType() == out.GetDataType()) << "output tensor type done not match input tensor dtype";
     SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
 
     Tensor shmemData;
@@ -239,11 +240,13 @@ void ShmemReduceScatter(Tensor &in, const char* group, DistReduceType reduceType
     auto [rankSize, tileCount] = GetRankSizeAndTileCount();
     ASSERT((row % rankSize) == 0);
     const int rowOut = row / rankSize;
-
+    Shape outShape = {rowOut, col};
+    ASSERT(out.GetShape() == outShape) << "This shape of out is invalid";
+    ASSERT(in.GetDataType() == out.GetDataType()) << "output tensor type done not match input tensor dtype";
     SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
 
-    Shape shmDataShape = {rowOut, col};
-    Shape shmSignalShape = {tileCount, 8};
+    Shape shmDataShape = {1, rowOut, col};
+    Shape shmSignalShape = {1, tileCount, 8};
     Tensor shmemData;
     Tensor shmemSignal;
     DataType shmemDataType = in.GetDataType();
@@ -283,10 +286,13 @@ void ShmemAddAllReduce(Tensor &in, const char* group, Tensor &out)
     auto [rankSize, tileCount] = GetRankSizeAndTileCount();
     ASSERT((row % rankSize) == 0);
     const int32_t rowPerRank = row / rankSize;
+    Shape outShape = {row, col};
+    ASSERT(out.GetShape() == outShape) << "This shape of out is invalid";
+    ASSERT(in.GetDataType() == out.GetDataType()) << "output tensor type done not match input tensor dtype";
     SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
 
-    Shape shmDataShape = {rowPerRank, col};
-    Shape shmSignalShape = {tileCount, 8};
+    Shape shmDataShape = {rankSize, rowPerRank, col};
+    Shape shmSignalShape = {rankSize, tileCount, 8};
     Tensor shmemData;
     Tensor shmemSignal;
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {

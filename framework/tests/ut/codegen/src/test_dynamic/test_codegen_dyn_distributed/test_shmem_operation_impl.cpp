@@ -50,7 +50,7 @@ TEST_F(TestDistributedShmemImpl, TestShmemAllGather)
     const char *group = "hcom123";
 
     Tensor in(DT_FP16, {16, 32}, "in");
-    Tensor out(DT_FP16, {32, 32}, "out");
+    Tensor out(DT_FP16, {64, 32}, "out");
     Tensor barrierDummy(DT_INT32, {1, 1}, "barrierDummy");
     FUNCTION("ALLGATHER", {in}, {out}) {
         TileShape::Current().SetDistTile(
