@@ -45,11 +45,6 @@ void TiledDistGather(Function &function, const TileShape &tileShape,
 void TiledDistBroadCast(Function &function, const TileShape &tileShape,
     const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
     const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);
-void TiledMoeFFN2Attn(Function &function, const TileShape &tileShape,
-    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand, const Operation &op);
-void TiledMoeAttnCombine(Function &function, const TileShape &tileShape,
-    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
-    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);
 void SendToRoutingExpert(const Tensor &tokenTensor, const Tensor &tokenExpertTable,
     const Tensor &tilingTensor, const Tensor &syncTensor, const char *group);
 void SendToSharedExpert(const Tensor &tokenTensor, const Tensor &tilingTensor, const Tensor &syncTensor,
@@ -103,6 +98,12 @@ void TiledShmemReduce(Function &function, const TileShape &tileShape,
     const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
     const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);
 void TiledShmemBindTensor(Function &function, const TileShape &tileShape,
+    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
+    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);
+void TiledShmemMoeCombineSend(Function &function, const TileShape &tileShape,
+    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
+    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);
+void TiledShmemMoeCombineReceive(Function &function, const TileShape &tileShape,
     const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
     const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);
 

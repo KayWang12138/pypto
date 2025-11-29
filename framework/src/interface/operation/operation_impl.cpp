@@ -1527,14 +1527,6 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
             npu::tile_fwk::Distributed::TiledDistBroadCast(function, tileShape, iOperand, oOperand, op);
             break;
         }
-        case Opcode::OP_MOE_FFN_TO_ATTN: {
-            npu::tile_fwk::Distributed::TiledMoeFFN2Attn(function, tileShape, iOperand, op);
-            break;
-        }
-        case Opcode::OP_MOE_ATTN_COMBINE: {
-            npu::tile_fwk::Distributed::TiledMoeAttnCombine(function, tileShape, iOperand, oOperand, op);
-            break;
-        }
         case Opcode::OP_REDUCE_ACC: {
             TiledReduceAcc(function, tileShape, iOperand, oOperand[0]);
             break;
@@ -1616,6 +1608,14 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
         }
         case Opcode::OP_SHMEM_CLEAR_SIGNAL: {
             npu::tile_fwk::Distributed::TiledShmemClearSignal(function, tileShape, iOperand, oOperand, op);
+            break;
+        }
+        case Opcode::OP_SHMEM_MOE_COMBINE_SEND: {
+            npu::tile_fwk::Distributed::TiledShmemMoeCombineSend(function, tileShape, iOperand, oOperand, op);
+            break;
+        }
+        case Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE: {
+            npu::tile_fwk::Distributed::TiledShmemMoeCombineReceive(function, tileShape, iOperand, oOperand, op);
             break;
         }
         case Opcode::OP_VIEW_TYPE: {

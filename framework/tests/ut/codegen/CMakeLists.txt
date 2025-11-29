@@ -76,8 +76,6 @@ set(_CaseFilterList
         "TestCodegenUnary.ExpandDim2Axis0TileTensor"
 
         # distributed
-        "TestCodegenDispatch.TestMoeDispatchRoutingExpert"
-        "TestCodegenDispatch.TestMoeDispatchSharedExpert"
         "TestCodegenMoeCombine.TestMoeCombine"
         "TestDistributedShmemImpl.TestShmemAllGather"
         "TestDistributedShmemImpl.TestShmemAllReduce"

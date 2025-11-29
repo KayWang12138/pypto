@@ -30,6 +30,7 @@
 #include "codegen_vf.h"
 #include "interface/utils/op_info_manager.h"
 #include "codegen_cloudnpu.h"
+#include "interface/operation/distributed/distributed_common.h"
 
 namespace npu::tile_fwk {
 const std::string ENV_ASCEND_HOME_PATH = "ASCEND_HOME_PATH";
@@ -537,10 +538,12 @@ bool CodeGenCloudNPU::HandleForAICpuSubFunc(Function &subFunc) {
             continue;
         }
         std::map<std::string, npu::tile_fwk::Any> map = op.GetAllAttribute();
-        auto it = map.find("AicpuOpParams");
+        auto it = map.find(OpAttributeKey::distOpAttr);
         std::vector<int64_t> attrs;
         if (it != map.end()) {
-            attrs = npu::tile_fwk::AnyCast<std::vector<int64_t>>(it->second);
+            npu::tile_fwk::Distributed::DistOpAttr distOpAttr =
+                npu::tile_fwk::AnyCast<npu::tile_fwk::Distributed::DistOpAttr>(it->second);
+            attrs = distOpAttr.aicpuOpParams;
         }
         code.push_back(static_cast<int32_t>(op.GetOpcode()));
 

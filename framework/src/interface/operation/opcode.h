@@ -209,8 +209,6 @@ enum class Opcode {
     OP_DIST_GATHER,
     OP_DIST_BROADCAST,
     OP_DEPEND_ON,
-    OP_MOE_FFN_TO_ATTN,
-    OP_MOE_ATTN_COMBINE,
     OP_SEND_TO_ROUTING_EXPERT,
     OP_SEND_TO_SHARED_EXPERT,
     OP_COPY_TO_LOCAL_EXPERT,
@@ -226,6 +224,8 @@ enum class Opcode {
     OP_SHMEM_GET_GM2UB,
     OP_SHMEM_REDUCE,
     OP_BIND_TENSOR,
+    OP_SHMEM_MOE_COMBINE_SEND,
+    OP_SHMEM_MOE_COMBINE_RECEIVE,
     // Begin: add for TOPK and ArgSort
     OP_TOPK,
     OP_TILEDMRGSORT,
@@ -392,7 +392,8 @@ public:
                opCode == Opcode::OP_COPY_TO_LOCAL_EXPERT || opCode == Opcode::OP_SHMEM_PUT ||
                opCode == Opcode::OP_SHMEM_SIGNAL || opCode == Opcode::OP_SHMEM_GET ||
                opCode == Opcode::OP_SHMEM_REDUCE || opCode == Opcode::OP_RESHAPE_COPY_OUT ||
-               opCode == Opcode::OP_SHMEM_PUT_UB2GM || opCode == Opcode::OP_SHMEM_GET_GM2UB;
+               opCode == Opcode::OP_SHMEM_PUT_UB2GM || opCode == Opcode::OP_SHMEM_GET_GM2UB ||
+               opCode == Opcode::OP_SHMEM_MOE_COMBINE_SEND || opCode == Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE;
     }
 
     inline bool IsCopyInOrOut(Opcode opCode) const { return IsCopyIn(opCode) || IsCopyOut(opCode); }
@@ -403,7 +404,8 @@ public:
         return opCode == Opcode::OP_SHMEM_WAIT_UNTIL || opCode == Opcode::OP_SHMEM_PUT ||
                opCode == Opcode::OP_SHMEM_SIGNAL || opCode == Opcode::OP_SHMEM_GET ||
                opCode == Opcode::OP_SHMEM_REDUCE || opCode == Opcode::OP_SHMEM_CLEAR_SIGNAL ||
-               opCode == Opcode::OP_SHMEM_PUT_UB2GM || opCode == Opcode::OP_SHMEM_GET_GM2UB;
+               opCode == Opcode::OP_SHMEM_PUT_UB2GM || opCode == Opcode::OP_SHMEM_GET_GM2UB ||
+               opCode == Opcode::OP_SHMEM_MOE_COMBINE_SEND || opCode == Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE;
     }
 
 private:
@@ -541,19 +543,18 @@ const std::unordered_set<Opcode> LOGICALNOT_OPS{Opcode::OP_LOGICALNOT};
 const std::unordered_set<Opcode> LOGICALAND_OPS{Opcode::OP_LOGICALAND};
 
 const std::unordered_set<Opcode> DISTRIBUTED_OPS{Opcode::OP_REMOTE_GATHER, Opcode::OP_LOCAL_COPY_OUT,
-    Opcode::OP_WRITE_REMOTE, Opcode::OP_REMOTE_REDUCE, Opcode::OP_MOE_FFN_TO_ATTN, Opcode::OP_MOE_ATTN_COMBINE,
-    Opcode::OP_SEND_TO_ROUTING_EXPERT, Opcode::OP_SEND_TO_SHARED_EXPERT, Opcode::OP_COPY_TO_LOCAL_EXPERT,
-    Opcode::OP_DISPATCH_SET_FLAG, Opcode::OP_FFN_SCHED, Opcode::OP_FFN_BATCHING, Opcode::OP_SHMEM_PUT,
-    Opcode::OP_SHMEM_SIGNAL, Opcode::OP_SHMEM_GET, Opcode::OP_SHMEM_REDUCE, Opcode::OP_BIND_TENSOR,
-    Opcode::OP_SHMEM_PUT_UB2GM, Opcode::OP_SHMEM_GET_GM2UB};
+    Opcode::OP_WRITE_REMOTE, Opcode::OP_REMOTE_REDUCE, Opcode::OP_SEND_TO_ROUTING_EXPERT,
+    Opcode::OP_SEND_TO_SHARED_EXPERT, Opcode::OP_COPY_TO_LOCAL_EXPERT, Opcode::OP_DISPATCH_SET_FLAG,
+    Opcode::OP_FFN_SCHED, Opcode::OP_FFN_BATCHING, Opcode::OP_SHMEM_PUT, Opcode::OP_SHMEM_SIGNAL, Opcode::OP_SHMEM_GET,
+    Opcode::OP_SHMEM_REDUCE, Opcode::OP_BIND_TENSOR, Opcode::OP_SHMEM_PUT_UB2GM, Opcode::OP_SHMEM_GET_GM2UB,
+    Opcode::OP_SHMEM_CLEAR_SIGNAL, Opcode::OP_SHMEM_MOE_COMBINE_SEND, Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE};
 
 inline bool IsAllocOpCode(Opcode opCode) {
     return (ALLOC_OPCODE.count(opCode) != 0);
 }
 
 inline bool IsEmptyOut(const Opcode opCode) {
-    return opCode == Opcode::OP_WRITE_REMOTE || opCode == Opcode::OP_MOE_FFN_TO_ATTN ||
-           opCode == Opcode::OP_SHMEM_SIGNAL;
+    return opCode == Opcode::OP_WRITE_REMOTE;
 }
 
 inline bool IsCopyIn(const Opcode opCode) {
@@ -567,7 +568,9 @@ inline bool IsCopyOut(const Opcode &op) {
             op == Opcode::OP_REMOTE_REDUCE || op == Opcode::OP_FFN_SCHED || op == Opcode::OP_FFN_BATCHING ||
             op == Opcode::OP_COPY_TO_LOCAL_EXPERT || op == Opcode::OP_SHMEM_PUT || op == Opcode::OP_SHMEM_SIGNAL ||
             op == Opcode::OP_SHMEM_GET || op == Opcode::OP_SHMEM_REDUCE || op == Opcode::OP_RESHAPE_COPY_OUT ||
-            op == Opcode::OP_SHMEM_PUT_UB2GM || op == Opcode::OP_SHMEM_GET_GM2UB);
+            op == Opcode::OP_SHMEM_PUT_UB2GM || op == Opcode::OP_SHMEM_GET_GM2UB ||
+            op == Opcode::OP_SHMEM_CLEAR_SIGNAL || op == Opcode::OP_SHMEM_MOE_COMBINE_SEND ||
+            op == Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE);
 }
 
 inline bool IsOpCodeSupportMultiProducers(Opcode opCode) {

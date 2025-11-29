@@ -21,45 +21,48 @@
 #include "tilefwk/data_type.h"
 #include "test_dev_func_runner.h"
 
-namespace npu::tile_fwk {
-namespace Distributed {
+namespace npu::tile_fwk::Distributed {
 
-void TestMoeDispatch(OpTestParam &testParam)
+void TestMoeDispatch(OpTestParam& testParam)
 {
-    constexpr size_t paramsSize = 6;
-    auto [batchSize, hiddenSize, shareNum, expertNum, topK, typeNum] =
-        GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+    constexpr size_t paramsSize = 5;
+    auto [batchSize, hiddenSize, shareNum, topK, typeNum] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
 
     DataType dType = GetDataTypeNum(typeNum);
+    int64_t dtypeSize = BytesOf(dType);
 
-    int32_t expandXRow = batchSize * (shareNum + expertNum);
-    int32_t expandXCol = hiddenSize;
-    int32_t expandXSize = expandXRow * expandXCol;
-    int32_t expandXByteSize = BytesOf(dType) * expandXSize;
+    Shape tokenTensorShape{batchSize, hiddenSize};
+    Shape tokenExpertTableShape{batchSize, topK};
+    Shape expandXShape{batchSize * testParam.rankSize, hiddenSize};
+    Shape validCntShape{128};
+
+    int64_t tokenTensorEleNum = tokenTensorShape[0] * tokenTensorShape[1];
+    int64_t tokenExpertTableEleNum = tokenExpertTableShape[0] * tokenExpertTableShape[1];
+    int64_t expandXEleNum = expandXShape[0] * expandXShape[1];
+    int64_t validCntEleNum = validCntShape[0];
+
+    int64_t tokenTensorByteSize = tokenTensorEleNum * dtypeSize;
+    int64_t tokenExpertTableByteSize = tokenExpertTableEleNum * sizeof(int32_t);
+    int64_t expandXByteSize = expandXEleNum * dtypeSize;
+    int64_t validCntByteSize = validCntEleNum * sizeof(int32_t);
+
     uint8_t* expandXPtr = allocDevAddr(expandXByteSize);
-
-    int32_t validCntRow = 128;
-    int32_t validCntCol = 1;
-    int32_t validCntSize = validCntRow * validCntCol;
-    int32_t validCntByteSize = sizeof(int32_t) * validCntSize;
     uint8_t* validCntPtr = allocDevAddr(validCntByteSize);
 
-    ALOG_INFO_F("before moe dispatch [%d, %d, %d, %d, %d], rankSize=%d, validCntPtr=%p, expandXPtr=%p",
-        batchSize, hiddenSize, shareNum, expertNum, topK, testParam.rankSize, validCntPtr, expandXPtr);
-
-    using T = npu::tile_fwk::bfloat16;
-
     PROGRAM("Moe Dispatch") {
-        std::string xPath = GetGoldenDir() + "/x_rank_" + std::to_string(testParam.rankId) + ".bin";
-        void* tokenTensorPtr = readToDev<T>(xPath, batchSize * hiddenSize);
-        std::string expertIdsPath = GetGoldenDir() + "/expert_ids_rank_" + std::to_string(testParam.rankId) + ".bin";
-        void* tokenExpertTablePtr = readToDev<int32_t>(expertIdsPath, batchSize * topK);
+        uint8_t* tokenTensorPtr = static_cast<uint8_t*>(readToDev(
+            GetGoldenDir() + "/x_rank_" + std::to_string(testParam.rankId) + ".bin",
+            tokenTensorByteSize / sizeof(float)
+        ));
+        uint8_t* tokenExpertTablePtr = static_cast<uint8_t*>(readToDev(
+            GetGoldenDir() + "/expert_ids_rank_" + std::to_string(testParam.rankId) + ".bin",
+            tokenExpertTableByteSize
+        ));
 
-        Tensor tokenTensor(dType, {batchSize, hiddenSize}, static_cast<uint8_t*>(tokenTensorPtr), "tokenTensor");
-        Tensor tokenExpertTable(DataType::DT_INT32, {batchSize, topK}, static_cast<uint8_t*>(tokenExpertTablePtr),
-            "tokenExpertTable");
-        Tensor validCnt(DataType::DT_INT32, {validCntRow * validCntCol}, validCntPtr, "validCnt");
-        Tensor expandX(dType, {expandXRow, expandXCol}, expandXPtr, "expandX");
+        Tensor tokenTensor(dType, tokenTensorShape, tokenTensorPtr, "tokenTensor");
+        Tensor tokenExpertTable(DataType::DT_INT32, tokenExpertTableShape, tokenExpertTablePtr, "tokenExpertTable");
+        Tensor expandX(dType, expandXShape, expandXPtr, "expandX");
+        Tensor validCnt(DataType::DT_INT32, validCntShape, validCntPtr, "validCnt");
 
         config::SetBuildStatic(true);
         FUNCTION("MoeDispatch", {tokenTensor, tokenExpertTable, validCnt, expandX}) {
@@ -67,13 +70,13 @@ void TestMoeDispatch(OpTestParam &testParam)
             expandX = MoeDispatch(tokenTensor, tokenExpertTable, validCnt, testParam.group);
         }
     }
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
-    EXPECT_TRUE(CompareWithGolden<uint8_t *>(dType, "/y_rank_", expandXSize, expandXPtr, testParam));
 
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
+    EXPECT_TRUE(CompareWithGolden<uint8_t *>(dType, "/y_rank_", expandXEleNum, expandXPtr, testParam));
     if (testParam.rankId >= shareNum) {
-        EXPECT_TRUE(CompareWithGolden<uint8_t *>(DataType::DT_INT32, "/valid_count_rank_", validCntSize, validCntPtr,
+        EXPECT_TRUE(CompareWithGolden<uint8_t *>(DataType::DT_INT32, "/valid_count_rank_", validCntEleNum, validCntPtr,
             testParam));
     }
 }
-} // namespace Distributed
-} // namespace npu::tile_fwk
+
+} // namespace npu::tile_fwk::Distributed

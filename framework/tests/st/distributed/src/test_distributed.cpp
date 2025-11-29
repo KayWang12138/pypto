@@ -22,8 +22,7 @@
 #include "distributed_op_test_suite.h"
 #include "distributed_test_framework.h"
 
-namespace npu::tile_fwk {
-namespace Distributed {
+namespace npu::tile_fwk::Distributed {
 class DistributedTest : public testing::Test {
 public:
     static void TearDownTestCase() {}
@@ -112,16 +111,10 @@ TEST_F(DistributedTest, aivWaitFlag_multi_test_all_gather_float16_32_32_4)
     Distributed::TestAllGatherEx(testParam);
 }
 
-TEST_F(DistributedTest, aivWaitFlag_single_test_moe_dispatch_bfloat16_rank_size_4)
+TEST_F(DistributedTest, aivWaitFlag_single_test_moe_dispatch_bfloat16_8_7168_1_3_2_4)
 {
     config::SetDistConfig(KEY_AICPU_WAIT_FLAG_ENABLE, false);
     Distributed::TestMoeDispatch(testParam);
-}
-
-TEST_F(DistributedTest, aivWaitFlag_single_test_moe_combine_bfloat16_rank_size_4)
-{
-    config::SetDistConfig(KEY_AICPU_WAIT_FLAG_ENABLE, false);
-    Distributed::TestMoeCombine(testParam);
 }
 
 TEST_F(DistributedTest, shmem_allgather_attn_post_reducescatter_bfloat16_64_1_32_256_128_128_4)
@@ -165,5 +158,28 @@ TEST_F(DistributedTest, shmem_add_all_reduce_int32_64_256_4)
     config::SetHostOption(ONLY_CODEGEN, true);
     Distributed::TestShmemAddAndAllReduce<int32_t>(testParam);
 }
-} // namespace Distributed
-} // namespace npu::tile_fwk
+
+TEST_F(DistributedTest, shmem_moe_combine_bfloat16_8_5120_0_160_8_4)
+{
+    config::SetHostOption(ONLY_CODEGEN, true);
+    Distributed::TestShmemMoeCombine(testParam);
+}
+
+TEST_F(DistributedTest, shmem_moe_combine_bfloat16_256_5120_0_160_8_4)
+{
+    config::SetHostOption(ONLY_CODEGEN, true);
+    Distributed::TestShmemMoeCombine(testParam);
+}
+
+TEST_F(DistributedTest, shmem_moe_combine_bfloat16_8_5120_0_160_8_8)
+{
+    config::SetHostOption(ONLY_CODEGEN, true);
+    Distributed::TestShmemMoeCombine(testParam);
+}
+
+TEST_F(DistributedTest, shmem_moe_combine_bfloat16_256_5120_0_160_8_8)
+{
+    config::SetHostOption(ONLY_CODEGEN, true);
+    Distributed::TestShmemMoeCombine(testParam);
+}
+} // namespace npu::tile_fwk::Distributed

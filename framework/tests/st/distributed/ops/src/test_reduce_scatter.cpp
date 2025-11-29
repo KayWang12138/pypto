@@ -141,7 +141,6 @@ void TestShmemReduceScatter(OpTestParam &testParam)
         RawTensorData::CreateConstantTensor<T>(out, 0),
     });
 
-    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
     auto hcclContext = GetHcclContext({std::string(testParam.group)});
     DeviceLauncherConfig config;
     config.runModel = false;

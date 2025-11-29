@@ -307,8 +307,6 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_DIST_GATHER, OpCoreType::ANY, "DIST_GATHER", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_DEVICE_DDR}, TileOpCfg(), OpCalcType::DISTRIBUTED);
     registerInfo(Opcode::OP_DIST_BROADCAST, OpCoreType::ANY, "DIST_BROADCAST", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_DEVICE_DDR}, TileOpCfg(), OpCalcType::DISTRIBUTED);
     registerInfo(Opcode::OP_DEPEND_ON, OpCoreType::AICPU, "DEPEND_ON", {MemoryType::MEM_UB}, {MemoryType::MEM_DEVICE_DDR}, TileOpCfg(), OpCalcType::DISTRIBUTED);
-    registerInfo(Opcode::OP_MOE_FFN_TO_ATTN, OpCoreType::ANY, "MOE_FFN_TO_ATTN", {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Distributed::FFN2Attn", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
-    registerInfo(Opcode::OP_MOE_ATTN_COMBINE, OpCoreType::ANY, "MOE_ATTN_COMBINE", {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Distributed::AttnCombine", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
     registerInfo(Opcode::OP_SEND_TO_ROUTING_EXPERT, OpCoreType::ANY, "SEND_TO_ROUTING_EXPERT", {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB}, {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Distributed::SendToRoutingExpert", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
     registerInfo(Opcode::OP_SEND_TO_SHARED_EXPERT, OpCoreType::ANY, "SEND_TO_SHARED_EXPERT", {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB}, {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB}, {"TileOp::Distributed::SendToSharedExpert", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
     registerInfo(Opcode::OP_COPY_TO_LOCAL_EXPERT, OpCoreType::ANY, "COPY_TO_LOCAL_EXPERT", {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB}, {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB}, {"TileOp::Distributed::CopyToLocalExpert", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
@@ -395,6 +393,16 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_BIND_TENSOR, OpCoreType::AIV, "BIND_TENSOR",
         {}, {MemoryType::MEM_DEVICE_DDR}, {"TileOp::Distributed::ShmemGet", PIPE_S, PIPE_S, CoreType::AIV},
         OpCalcType::DISTRIBUTED, {OP_ATTR_PREFIX + "BindTensor"});
+    registerInfo(Opcode::OP_SHMEM_MOE_COMBINE_SEND, OpCoreType::ANY, "SHMEM_MOE_COMBINE_SEND",
+        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR},
+        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {"TileOp::Distributed::ShmemMoeCombineSend", PIPE_S, PIPE_S, CoreType::AIV},
+        OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
+    registerInfo(Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE, OpCoreType::ANY, "SHMEM_MOE_COMBINE_RECEIVE",
+        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR},
+        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {"TileOp::Distributed::ShmemMoeCombineReceive", PIPE_S, PIPE_S, CoreType::AIV},
+        OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
 
     registerInfo(Opcode::OP_AICPU_CALL_AIC, OpCoreType::ANY, "AICPU_CALL_AIC", {}, {}, {"TileOp::AicpuCall", PIPE_S, PIPE_S, CoreType::AIC}, OpCalcType::SYS);
     registerInfo(Opcode::OP_AICPU_CALL_AIV, OpCoreType::ANY, "AICPU_CALL_AIV", {}, {}, {"TileOp::AicpuCall", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::SYS);

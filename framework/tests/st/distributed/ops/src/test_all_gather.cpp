@@ -138,15 +138,14 @@ void TestDynAllGather(OpTestParam &testParam)
         RawTensorData::CreateTensorZero(out)
     });
 
-    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
     auto hcclContext = GetHcclContext({std::string(testParam.group)});
     DeviceLauncherConfig config;
     config.runModel = false;
     config.hcclContext = hcclContext;
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
 
-    auto outPut = ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", outSize, outPut->GetDevPtr(), testParam));
+    auto outPtr = ProgramData::GetInstance().GetOutputData(0)->GetDevPtr();
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", outSize, outPtr, testParam));
 }
 template void TestDynAllGather<int32_t>(OpTestParam &testParam);
 template void TestDynAllGather<float>(OpTestParam &testParam);

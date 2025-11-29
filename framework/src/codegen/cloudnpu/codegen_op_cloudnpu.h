@@ -121,7 +121,10 @@ public:
     std::string GenDistOp() const;
     std::string GetTemplateDType() const;
     std::string GenTemplateParams() const;
-    void GenExtraTemplateParamsForPutAndGet(std::ostringstream &oss) const;
+    void GenExtraTemplateParamsForPutAndGet(std::ostringstream& oss) const;
+    void GenExtraTemplateParamsForMoeCombine(std::ostringstream& oss, int32_t operandIndex) const;
+    std::string GenOffsets(int32_t operandIndex, int32_t dim) const;
+    std::string GenRawShapes(int32_t operandIndex, int32_t dim) const;
     std::string GenOffsetsAndRawShapes() const;
     std::string GenOffsetsAndRawShapes(int32_t operandIndex, int32_t dim) const;
 

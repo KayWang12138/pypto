@@ -27,32 +27,34 @@
 #include "interface/utils/log.h"
 
 namespace npu::tile_fwk::Distributed {
-std::pair<int, int> GetRankSizeAndTileCount()
+std::pair<int32_t, int32_t> GetRankSizeAndTileCount()
 {
     const TileShape& tileShape = TileShape::Current();
 
     auto rankShape = tileShape.GetDistTileRank();
-    int rankSize = rankShape[0] * rankShape[1] + rankShape[2];
+    int32_t rankSize = rankShape[0] * rankShape[1] + rankShape[2];
 
     auto tileRow = tileShape.GetDistTileRow();
     auto tileCol = tileShape.GetDistTileCol();
     ASSERT(tileRow[0] > 0 && tileCol[0] > 0) << "Invalid Tiling rules";
-    int rowCount = tileRow[1] + (tileRow[2] != 0 ? 1 : 0);
-    int colCount = tileCol[1] + (tileCol[2] != 0 ? 1 : 0);
-    int tileCount = rowCount * colCount;
+    int32_t rowCount = tileRow[1] + (tileRow[2] != 0 ? 1 : 0);
+    int32_t colCount = tileCol[1] + (tileCol[2] != 0 ? 1 : 0);
+    int32_t tileCount = rowCount * colCount;
 
     return {rankSize, tileCount};
 }
 
-Tensor ShmemPut(const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy, int tileCount,
+Tensor ShmemPut(const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy, int32_t tileCount,
     AtomicType atomicType = AtomicType::SET)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
     Shape shape{tileCount, 1};
     auto dummy = std::make_shared<LogicalTensor>(function, DT_INT32, shape);
-    auto &op = function.AddOperation("SHMEM_PUT",
+    auto &op = function.AddOperation(Opcode::OP_SHMEM_PUT,
         {in.GetStorage(), shmemDataTile.GetStorage(), barrierDummy.GetStorage()}, {dummy});
-    op.SetAttr("AtomicType", atomicType);
+    DistOpAttr distOpAttr;
+    distOpAttr.atomicType = atomicType;
+    op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return dummy;
 }
 
@@ -62,9 +64,11 @@ Tensor ShmemPutUb2Gm(const Tensor &in, const Tensor &shmemDataTile, const Tensor
     auto &function = *Program::GetInstance().GetCurrentFunction();
     Shape shape{tileCount, 1};
     auto dummy = std::make_shared<LogicalTensor>(function, DT_INT32, shape);
-    auto &op = function.AddOperation("SHMEM_PUT_UB2GM",
+    auto &op = function.AddOperation(Opcode::OP_SHMEM_PUT_UB2GM,
         {in.GetStorage(), shmemDataTile.GetStorage(), barrierDummy.GetStorage()}, {dummy});
-    op.SetAttr("AtomicType", atomicType);
+    DistOpAttr distOpAttr;
+    distOpAttr.atomicType = atomicType;
+    op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return dummy;
 }
 
@@ -72,11 +76,12 @@ Tensor ShmemSignal(const Tensor &dummy, const Tensor &shmemSignalTile, AtomicTyp
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
     auto dummyOut = std::make_shared<LogicalTensor>(function, DT_INT32, dummy.GetShape());
-    auto &op = function.AddOperation("SHMEM_SIGNAL", {dummy.GetStorage(), shmemSignalTile.GetStorage()}, {dummyOut});
-    int64_t value = 1;
-    op.SetAttr("Value", value);
-    op.SetAttr("AtomicType", atomicType);
-    op.SetAttr(OpAttributeKey::dontTouch, true);
+    auto &op = function.AddOperation(Opcode::OP_SHMEM_SIGNAL, {dummy.GetStorage(), shmemSignalTile.GetStorage()},
+        {dummyOut});
+    DistOpAttr distOpAttr;
+    distOpAttr.signalValue = 1;
+    distOpAttr.atomicType = atomicType;
+    op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return dummyOut;
 }
 
@@ -89,8 +94,11 @@ Tensor ShmemGet(const Tensor &dummy, const Tensor &shmemDataTile, DataType nonSh
     auto &function = *Program::GetInstance().GetCurrentFunction();
     Shape shape = {shmemDataTile.GetShape()[2], shmemDataTile.GetShape()[3]};
     auto tempOutTile = std::make_shared<LogicalTensor>(function, nonShmemDataType, shape);
-    auto &op = function.AddOperation("SHMEM_GET", {dummy.GetStorage(), shmemDataTile.GetStorage()}, {tempOutTile});
-    op.SetAttr("AtomicType", atomicType);
+    auto &op = function.AddOperation(Opcode::OP_SHMEM_GET, {dummy.GetStorage(), shmemDataTile.GetStorage()},
+        {tempOutTile});
+    DistOpAttr distOpAttr;
+    distOpAttr.atomicType = atomicType;
+    op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return tempOutTile;
 }
 
@@ -103,42 +111,50 @@ Tensor ShmemGetGm2Ub(const Tensor &dummy, const Tensor &shmemDataTile, DataType 
     auto &function = *Program::GetInstance().GetCurrentFunction();
     Shape shape = {shmemDataTile.GetShape()[2], shmemDataTile.GetShape()[3]};
     auto tempOutTile = std::make_shared<LogicalTensor>(function, nonShmemDataType, shape);
-    auto &op = function.AddOperation("SHMEM_GET_GM2UB", {dummy.GetStorage(), shmemDataTile.GetStorage()}, {tempOutTile});
-    op.SetAttr("AtomicType", atomicType);
+    auto &op = function.AddOperation(Opcode::OP_SHMEM_GET_GM2UB, {dummy.GetStorage(), shmemDataTile.GetStorage()},
+        {tempOutTile});
+    DistOpAttr distOpAttr;
+    distOpAttr.atomicType = atomicType;
+    op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return tempOutTile;
 }
 
-Tensor WaitUntil(const Tensor &dummyIn, const Tensor &shmemSignalTile, int tileCount, int hcclGroupIndex,
-    int expectedSum)
+Tensor WaitUntil(const Tensor &dummyIn, const Tensor &shmemSignalTile, int32_t tileCount, int32_t hcclGroupIndex,
+    int32_t expectedSum)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
     Shape shape{tileCount, 1};
     auto dummy = std::make_shared<LogicalTensor>(function, DT_INT32, shape);
-    auto &op = function.AddOperation("SHMEM_WAIT_UNTIL", {dummyIn.GetStorage(), shmemSignalTile.GetStorage()}, {dummy});
+    auto &op = function.AddOperation(Opcode::OP_SHMEM_WAIT_UNTIL, {dummyIn.GetStorage(), shmemSignalTile.GetStorage()},
+        {dummy});
     std::vector<int64_t> param = {static_cast<int64_t>(hcclGroupIndex), static_cast<int64_t>(expectedSum)};
-    op.SetAttr("AicpuOpParams", param);
+    DistOpAttr distOpAttr;
+    distOpAttr.aicpuOpParams = param;
+    op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return dummy;
 }
 
 void ShmemReduce(const Tensor &in, const Tensor &shmData, const Tensor &dummy, const Tensor &out)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
-    auto &op = function.AddOperation("SHMEM_REDUCE", {in.GetStorage(), shmData.GetStorage(), dummy.GetStorage()},
-        {out.GetStorage()});
+    auto &op = function.AddOperation(Opcode::OP_SHMEM_REDUCE,
+        {in.GetStorage(), shmData.GetStorage(), dummy.GetStorage()}, {out.GetStorage()});
+    DistOpAttr distOpAttr;
     // fp16 和 bf16 做reduce计算，默认转化为fp32
     if ((in.GetDataType() == DT_FP16) || (in.GetDataType() == DT_BF16)) {
-        op.SetAttr("FP32Mode", true);
+        distOpAttr.fp32Mode = true;
     } else {
-        op.SetAttr("FP32Mode", false);
+        distOpAttr.fp32Mode = false;
     }
+    op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
 }
 
-Tensor ShmemClearSignal(const Tensor &in, const Tensor &shmemSignalTile, const int tileCount)
+Tensor ShmemClearSignal(const Tensor &in, const Tensor &shmemSignalTile, const int32_t tileCount)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
     Shape shape{tileCount, 1};
     auto dummy = std::make_shared<LogicalTensor>(function, DT_INT32, shape);
-    function.AddOperation("SHMEM_CLEAR_SIGNAL", {in.GetStorage(), shmemSignalTile.GetStorage()}, {dummy});
+    function.AddOperation(Opcode::OP_SHMEM_CLEAR_SIGNAL, {in.GetStorage(), shmemSignalTile.GetStorage()}, {dummy});
     return dummy;
 }
 
@@ -148,7 +164,7 @@ Tensor CreateShmemTensor(int32_t rankSize, int32_t hcclGroupIndex, DataType data
     Shape shmemShape{rankSize};
     shmemShape.insert(shmemShape.end(), shape.begin(), shape.end());
     auto shmemTensor = std::make_shared<LogicalTensor>(function, dataType, shmemShape);
-    auto &op = function.AddOperation("BIND_TENSOR", {}, {shmemTensor});
+    auto &op = function.AddOperation(Opcode::OP_BIND_TENSOR, {}, {shmemTensor});
     op.SetAttribute(OpAttributeKey::bindTensor, BindTensor(hcclGroupIndex, 0,
         BytesOf(dataType) * std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<int64_t>())));
     return shmemTensor;
@@ -156,11 +172,10 @@ Tensor CreateShmemTensor(int32_t rankSize, int32_t hcclGroupIndex, DataType data
 
 Tensor Barrier(const Tensor &in, const char *group)
 {
-    int hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
+    int32_t hcclGroupIndex = static_cast<int32_t>(CommGroupRecorder::GetInstance().Input(std::string(group)));
     auto [rankSize, tileCount] = GetRankSizeAndTileCount();
 
-    Shape shmSignalShape = {rankSize, tileCount, 8};    // shmSignalShape 根据算子的具体情况设置
-
+    Shape shmemSignalShape = {rankSize, tileCount, 8}; // shmemSignalShape 根据算子的具体情况设置
     SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
 
     Tensor shmemSignal;
@@ -169,7 +184,7 @@ Tensor Barrier(const Tensor &in, const char *group)
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
 
-        shmemSignal = CreateShmemTensor(rankSize, hcclGroupIndex, DT_INT32, shmSignalShape);
+        shmemSignal = CreateShmemTensor(rankSize, hcclGroupIndex, DT_INT32, shmemSignalShape);
 
         shmemBarrierSignal = CreateShmemTensor(rankSize, hcclGroupIndex, DT_INT32, Shape{1, 1, 8});
     }
@@ -193,14 +208,14 @@ Tensor Barrier(const Tensor &in, const char *group)
 
 void ShmemAllGather(const Tensor &in, const Tensor &barrierDummy, const char *group, Tensor &out)
 {
-    int hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
-    int row = in.GetShape(0);
-    int col = in.GetShape(1);
+    int32_t hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
+    int32_t row = in.GetShape(0);
+    int32_t col = in.GetShape(1);
     ASSERT(row > 0 && col > 0) << "Invalid shape: row and col must be > 0, but got row=" << row << ", col=" << col;
     auto [rankSize, tileCount] = GetRankSizeAndTileCount();
 
-    Shape shmDataShape = {rankSize, row, col};
-    Shape shmSignalShape = {rankSize, tileCount, 8};
+    Shape shmemDataShape = {rankSize, row, col};
+    Shape shmemSignalShape = {rankSize, tileCount, 8};
     Shape outShape = {row * rankSize, col};
     ASSERT(out.GetShape() == outShape) << "This shape of out is invalid";
     ASSERT(in.GetDataType() == out.GetDataType()) << "output tensor type done not match input tensor dtype";
@@ -210,8 +225,8 @@ void ShmemAllGather(const Tensor &in, const Tensor &barrierDummy, const char *gr
     Tensor shmemSignal;
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
-        shmemData = CreateShmemTensor(rankSize, hcclGroupIndex, in.GetDataType(), shmDataShape);
-        shmemSignal = CreateShmemTensor(rankSize, hcclGroupIndex, DT_INT32, shmSignalShape);
+        shmemData = CreateShmemTensor(rankSize, hcclGroupIndex, in.GetDataType(), shmemDataShape);
+        shmemSignal = CreateShmemTensor(rankSize, hcclGroupIndex, DT_INT32, shmemSignalShape);
     }
     LOOP("L0", FunctionType::DYNAMIC_LOOP, dynRankId, LoopRange(0, rankSize, 1)) {
         auto shmemDataTile = View(shmemData, {1, 1, row, col}, std::vector<SymbolicScalar>{dynRankId, thisRank, 0, 0});
@@ -230,23 +245,24 @@ void ShmemAllGather(const Tensor &in, const Tensor &barrierDummy, const char *gr
     }
 }
 
-void ShmemReduceScatter(Tensor &in, const char* group, DistReduceType reduceType, Tensor &out)
+void ShmemReduceScatter(const Tensor &in, const char* group, DistReduceType reduceType, Tensor &out)
 {
     (void)reduceType;
-    int hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
-    int row = in.GetShape(0);
-    int col = in.GetShape(1);
+    int32_t hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
+    int32_t row = in.GetShape(0);
+    int32_t col = in.GetShape(1);
     ASSERT(row > 0 && col > 0) << "Invalid shape: row and col must be > 0, but got row=" << row << ", col=" << col;
     auto [rankSize, tileCount] = GetRankSizeAndTileCount();
     ASSERT((row % rankSize) == 0);
-    const int rowOut = row / rankSize;
+    const int32_t rowOut = row / rankSize;
     Shape outShape = {rowOut, col};
     ASSERT(out.GetShape() == outShape) << "This shape of out is invalid";
     ASSERT(in.GetDataType() == out.GetDataType()) << "output tensor type done not match input tensor dtype";
+
     SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
 
-    Shape shmDataShape = {1, rowOut, col};
-    Shape shmSignalShape = {1, tileCount, 8};
+    Shape shmemDataShape = {1, rowOut, col};
+    Shape shmemSignalShape = {1, tileCount, 8};
     Tensor shmemData;
     Tensor shmemSignal;
     DataType shmemDataType = in.GetDataType();
@@ -255,8 +271,8 @@ void ShmemReduceScatter(Tensor &in, const char* group, DistReduceType reduceType
     }
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
-        shmemData = CreateShmemTensor(rankSize, hcclGroupIndex, shmemDataType, shmDataShape);
-        shmemSignal = CreateShmemTensor(rankSize, hcclGroupIndex, DT_INT32, shmSignalShape);
+        shmemData = CreateShmemTensor(rankSize, hcclGroupIndex, shmemDataType, shmemDataShape);
+        shmemSignal = CreateShmemTensor(rankSize, hcclGroupIndex, DT_INT32, shmemSignalShape);
     }
     Tensor barrierDummy(DT_INT32, {1, 1}, "barrierDummy");
     LOOP("RS", FunctionType::DYNAMIC_LOOP, dynRankId, LoopRange(0, rankSize, 1)) {
@@ -291,14 +307,14 @@ void ShmemAddAllReduce(Tensor &in, const char* group, Tensor &out)
     ASSERT(in.GetDataType() == out.GetDataType()) << "output tensor type done not match input tensor dtype";
     SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
 
-    Shape shmDataShape = {rankSize, rowPerRank, col};
-    Shape shmSignalShape = {rankSize, tileCount, 8};
+    Shape shmemDataShape = {rankSize, rowPerRank, col};
+    Shape shmemSignalShape = {rankSize, tileCount, 8};
     Tensor shmemData;
     Tensor shmemSignal;
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
-        shmemData = CreateShmemTensor(rankSize, hcclGroupIndex, in.GetDataType(), shmDataShape);
-        shmemSignal = CreateShmemTensor(rankSize, hcclGroupIndex, DT_INT32, shmSignalShape);
+        shmemData = CreateShmemTensor(rankSize, hcclGroupIndex, in.GetDataType(), shmemDataShape);
+        shmemSignal = CreateShmemTensor(rankSize, hcclGroupIndex, DT_INT32, shmemSignalShape);
     }
 
     Tensor dummySingal;
@@ -342,4 +358,95 @@ void ShmemAddAllReduce(Tensor &in, const char* group, Tensor &out)
         }
     }
 }
+
+Tensor MoeCombineSend(const Tensor& in, const Tensor& combineInfo, const Tensor& shmemData, const Tensor& shmemSignal,
+    int32_t topK)
+{
+    auto& function = *Program::GetInstance().GetCurrentFunction();
+    auto dummyOut = std::make_shared<LogicalTensor>(function, DT_INT32, Shape{1});
+    auto& op = function.AddOperation(Opcode::OP_SHMEM_MOE_COMBINE_SEND, {in.GetStorage(), combineInfo.GetStorage(),
+        shmemData.GetStorage(), shmemSignal.GetStorage()}, {dummyOut});
+    DistOpAttr distOpAttr;
+    distOpAttr.topK = topK;
+    op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+    return dummyOut;
+}
+
+Tensor MoeCombineReceive(const Tensor& dummyIn, const Tensor& scale, const Tensor& shmemData, const Tensor& shmemSignal)
+{
+    auto& function = *Program::GetInstance().GetCurrentFunction();
+    int32_t batchSize = shmemData.GetShape(2);
+    int32_t hiddenSize = shmemData.GetShape(3);
+    auto out = std::make_shared<LogicalTensor>(function, shmemData.GetDataType(), Shape{batchSize, hiddenSize});
+    function.AddOperation(Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE,
+        {dummyIn.GetStorage(), scale.GetStorage(), shmemData.GetStorage(), shmemSignal.GetStorage()}, {out});
+    return out;
+}
+
+void ShmemMoeCombine(const Tensor& in, const Tensor& combineInfo, const Tensor& scale, const char* group,
+    int32_t rankSize, int32_t totalExpertNum, Tensor& out)
+{
+    int32_t inRow = in.GetShape(0);
+    int32_t hiddenSize = in.GetShape(1);
+    int32_t combineInfoRow = combineInfo.GetShape(0);
+    int32_t combineInfoCol = combineInfo.GetShape(1);
+    int32_t batchSize = scale.GetShape(0);
+    int32_t topK = scale.GetShape(1);
+
+    ASSERT((batchSize == 8) || (batchSize == 256)) << "batchSize only supports 8 or 256, but got " << batchSize << ".";
+    ASSERT(hiddenSize == 5120) << "hiddenSize only supports 5120, but got " << hiddenSize << ".";
+    ASSERT(totalExpertNum == 160) << "totalExpertNum only supports 160, but got " << totalExpertNum << ".";
+    ASSERT(topK == 8) << "topK only supports 8, but got " << topK << ".";
+    ASSERT((rankSize == 4) || (rankSize == 8)) << "rankSize only supports 4 or 8, but got " << rankSize << ".";
+
+    int32_t expectedRow = std::min(topK * batchSize * rankSize, batchSize * totalExpertNum);
+    ASSERT(inRow == expectedRow) << "The first axis of \"in\" must be the smaller value between topK * batchSize * "
+        << "rankSize and batchSize * totalExpertNum, topK=" << topK << ", batchSize=" << batchSize << ", rankSize="
+        << rankSize << ", totalExpertNum=" << totalExpertNum << ", the expected first axis of \"in\" should be "
+        << expectedRow << " but got " << inRow << ".";
+    ASSERT(combineInfoRow == expectedRow) << "The first axis of \"combineInfo\" must be the smaller value between topK "
+        << "* batchSize * rankSize and batchSize * totalExpertNum, topK=" << topK << ", batchSize=" << batchSize
+        << ", rankSize=" << rankSize << ", totalExpertNum=" << totalExpertNum << ", the expected first axis of "
+        << "\"combineInfo\" should be " << expectedRow << " but got " << combineInfoRow << ".";
+    ASSERT(combineInfoCol == 3) << "The first axis of \"combineInfo\" must be 3, but got " << combineInfoCol << ".";
+
+    ASSERT(in.GetDataType() == DT_BF16) << "\"in\" only supports the DT_BF16 data type, but got "
+        << DataType2String(in.GetDataType()) << ".";
+    ASSERT(combineInfo.GetDataType() == DT_INT32) << "\"combineInfo\" only supports the DT_INT32 data type, but got "
+        << DataType2String(combineInfo.GetDataType()) << ".";
+    ASSERT(scale.GetDataType() == DT_FP32) << "\"scale\" only supports the DT_FP32 data type, but got "
+        << DataType2String(scale.GetDataType()) << ".";
+    ASSERT(out.GetDataType() == in.GetDataType()) << "The data type of \"out\" must be consistent with that of \"in\", "
+        << "but the data type of \"out\" is "<< DataType2String(out.GetDataType()) << " and the data type of \"in\" is "
+        << DataType2String(in.GetDataType()) << ".";
+
+    int32_t hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
+    SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
+
+    int32_t shmemDataRow = topK * batchSize;
+    Shape shmemDataShape = {1, shmemDataRow, hiddenSize};
+    int32_t shmemSignalCol = SAME_ADDR_BYTE_SIZE / BytesOf(DataType::DT_FP32) * batchSize;
+    Shape shmemSignalShape = {shmemSignalCol};
+
+    Tensor shmemData;
+    Tensor shmemSignal;
+    LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+        (void)index;
+        shmemData = CreateShmemTensor(rankSize, hcclGroupIndex, in.GetDataType(), shmemDataShape);
+        shmemSignal = CreateShmemTensor(rankSize, hcclGroupIndex, DT_INT32, shmemSignalShape);
+    }
+    LOOP("MoeCombine", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+        (void)index;
+
+        TileShape::Current().SetDistTile({inRow / AIV_NUM, AIV_NUM, 0}, {hiddenSize, 1, 0}, {0, 0, 0});
+        auto sendDummy = MoeCombineSend(in, combineInfo, shmemData, shmemSignal, topK);
+
+        auto shmemDataThisRank = View(shmemData, {1, 1, shmemDataRow, hiddenSize},
+            std::vector<SymbolicScalar>{thisRank, 0, 0, 0});
+        auto shmemSignalThisRank = View(shmemSignal, {1, shmemSignalCol}, std::vector<SymbolicScalar>{thisRank, 0});
+        TileShape::Current().SetDistTile({batchSize / AIV_NUM, AIV_NUM, 0}, {hiddenSize, 1, 0}, {0, 0, 0});
+        out = MoeCombineReceive(sendDummy, scale, shmemDataThisRank, shmemSignalThisRank);
+    }
+}
+
 }   // namespace npu::tile_fwk::Distributed

@@ -197,8 +197,6 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(
           {Opcode::OP_REMOTE_REDUCE, [this]() { return GenDistOp(); }},
           {Opcode::OP_REMOTE_GATHER, [this]() { return GenDistOp(); }},
           {Opcode::OP_LOCAL_COPY_OUT, [this]() { return GenDistOp(); }},
-          {Opcode::OP_MOE_FFN_TO_ATTN, [this]() { return GenDistOp(); }},
-          {Opcode::OP_MOE_ATTN_COMBINE, [this]() { return GenDistOp(); }},
           {Opcode::OP_FFN_SCHED, [this]() { return GenDistOp(); }},
           {Opcode::OP_FFN_BATCHING, [this]() { return GenDistOp(); }},
           {Opcode::OP_SEND_TO_ROUTING_EXPERT, [this]() { return GenDistOp(); }},
@@ -212,6 +210,8 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(
           {Opcode::OP_SHMEM_GET, [this]() { return GenDistOp(); }},
           {Opcode::OP_SHMEM_GET_GM2UB, [this]() { return GenDistOp(); }},
           {Opcode::OP_SHMEM_REDUCE, [this]() { return GenDistOp(); }},
+          {Opcode::OP_SHMEM_MOE_COMBINE_SEND, [this]() { return GenDistOp(); }},
+          {Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE, [this]() { return GenDistOp(); }},
       }),
       gatherScatterOps_({
           // gather/scatter op

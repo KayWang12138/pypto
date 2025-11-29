@@ -21,63 +21,60 @@
 #include "tilefwk/data_type.h"
 #include "test_dev_func_runner.h"
 
-namespace npu::tile_fwk {
-namespace Distributed {
+namespace npu::tile_fwk::Distributed {
 
-void TestMoeCombine(OpTestParam &testParam)
+void TestShmemMoeCombine(OpTestParam& testParam)
 {
-    constexpr size_t paramsSize = 4;
-    auto [bs, h, topK, dtype_num]
-        = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
-    int32_t procSize = testParam.rankSize;
+    constexpr size_t paramsSize = 5;
+    auto [batchSize, hiddenSize, totalExpertNum, topK, dtype_num] =
+        GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+
     DataType dType = GetDataTypeNum(dtype_num);
-    int dtypeSize = BytesOf(dType);
 
-    std::vector<int64_t> inShape = {bs * procSize, h};
-    std::vector<int64_t> combineInfoShape = {bs * procSize * (procSize - 1)};
-    std::vector<int64_t> scaleShape = {bs, topK}; // 如果scale的shape是[8,4]，UBCopyIn会有问题
-    std::vector<int64_t> outShape = {bs, h};
+    int64_t row = std::min(topK * batchSize * testParam.rankSize, batchSize * totalExpertNum);
+    Shape inShape{row, hiddenSize};
+    Shape combineInfoShape{row, 3};
+    Shape scaleShape{batchSize, topK};
+    Shape outShape{batchSize, hiddenSize};
 
-    int inEleNum = inShape[0] * inShape[1];
-    int combinInfoEleNum = inEleNum;
-    int scaleEleNum = inEleNum;
-    int outEleNum = outShape[0] * outShape[1];
+    Tensor in(dType, inShape, "in");
+    Tensor combineInfo(DataType::DT_INT32, combineInfoShape, "combineInfo");
+    Tensor scale(DataType::DT_FP32, scaleShape, "scale");
+    Tensor out(dType, outShape, "out");
 
-    uint64_t inByteSize = inEleNum * dtypeSize;
-    uint64_t combinInfoByteSize = combinInfoEleNum * sizeof(int32_t);
-    uint64_t scaleByteSize = scaleEleNum * sizeof(float);
-    uint64_t outByteSize = outEleNum * dtypeSize;
+    using T = npu::tile_fwk::bfloat16;
+    std::string dispatchPath = GetGoldenDir() + "/dispatch";
+    std::vector<T> inPtr = ReadToVector<T>(
+        dispatchPath + "/y_rank_" + std::to_string(testParam.rankId) + ".bin", inShape);
+    std::vector<int32_t> combineInfoPtr = ReadToVector<int32_t>(
+        dispatchPath + "/combine_info_rank_" + std::to_string(testParam.rankId) + ".bin", combineInfoShape);
+    std::vector<float> scalePtr = ReadToVector<float>(
+        dispatchPath + "/scale_rank_" + std::to_string(testParam.rankId) + ".bin", scaleShape);
 
-    uint8_t* outPtr = allocDevAddr(outByteSize);
-    std::string dispatchPath =
-        GetGoldenDir() + "/DistributedTest.test_dispatch_rank_size_" + std::to_string(testParam.rankSize);
-    PROGRAM("PROGRAM of Combine") {
-        uint8_t* inPtr = static_cast<uint8_t*>(readToDev(
-            dispatchPath + "/y_rank_" + std::to_string(testParam.rankId) + ".bin",
-            inByteSize / sizeof(float)
-        ));
-        uint8_t* combinInfoPtr = static_cast<uint8_t*>(readToDev(
-            dispatchPath + "/combine_info_rank_" + std::to_string(testParam.rankId) + ".bin",
-            combinInfoByteSize / sizeof(float)
-        ));
-        uint8_t* scalePtr = static_cast<uint8_t*>(readToDev(
-            dispatchPath + "/scale_rank_" + std::to_string(testParam.rankId) + ".bin",
-            scaleByteSize / sizeof(float)
-        ));
-        Tensor in(dType, inShape, inPtr, "in");
-        Tensor combineInfo(DataType::DT_INT32, combineInfoShape, combinInfoPtr, "combineInfo");
-        Tensor scale(DataType::DT_FP32, scaleShape, scalePtr, "scale");
-        Tensor out(dType, outShape, outPtr, "out");
-
-        config::SetBuildStatic(true);
-        FUNCTION("Moe_Combine", {in, combineInfo, scale, out}) {
-            TileShape::Current().SetDistRankId(testParam.rankId);
-            out = Distributed::MoeCombine(in, scale, combineInfo, testParam.group);
-        }
+    FUNCTION("Moe_Combine", {in, combineInfo, scale}, {out}) {
+        ShmemMoeCombine(in, combineInfo, scale, testParam.group, testParam.rankSize, totalExpertNum, out);
     }
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
-    EXPECT_TRUE(CompareWithGolden<uint8_t *>(dType, "/y_rank_", outEleNum, outPtr, testParam));
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<T>(in, inPtr),
+        RawTensorData::CreateTensor<int32_t>(combineInfo, combineInfoPtr),
+        RawTensorData::CreateTensor<float>(scale, scalePtr)
+    });
+    ProgramData::GetInstance().AppendOutputs({RawTensorData::CreateTensorZero(out)});
+
+    auto hcclContext = GetHcclContext({std::string(testParam.group)});
+    DeviceLauncherConfig config;
+    config.runModel = false;
+    config.hcclContext = hcclContext;
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
+
+    int64_t outEleNum = outShape[0] * outShape[1];
+    auto outPtr = ProgramData::GetInstance().GetOutputData(0)->GetDevPtr();
+    if (batchSize == 256) { // bs=256 暂时不支持零误差一致
+        EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/y_rank_", outEleNum, outPtr, testParam));
+    } else {
+        EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/y_rank_", outEleNum, outPtr, testParam, 0));
+    }
 }
 
-} // namespace Distributed
-} // namespace tile_fwk
+} // namespace tile_fwk::Distributed

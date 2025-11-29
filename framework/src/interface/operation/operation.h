@@ -80,6 +80,7 @@ public:
     static const std::string excludeBufferReuse;
     static const std::string bindTensor;
     static const std::string startOffset;
+    static const std::string distOpAttr;
 };
 
 
@@ -331,7 +332,8 @@ public:
             Opcode::OP_TRANSPOSE_MOVEIN, Opcode::OP_TRANSPOSE_MOVEOUT, Opcode::OP_REMOTE_GATHER,
             Opcode::OP_LOCAL_COPY_OUT, Opcode::OP_REMOTE_REDUCE, Opcode::OP_FFN_SCHED, Opcode::OP_FFN_BATCHING,
             Opcode::OP_SHMEM_PUT, Opcode::OP_SHMEM_PUT_UB2GM, Opcode::OP_SHMEM_SIGNAL, Opcode::OP_SHMEM_GET,
-            Opcode::OP_SHMEM_GET_GM2UB, Opcode::OP_SHMEM_REDUCE, Opcode::OP_GATHER_IN_UB,
+            Opcode::OP_SHMEM_GET_GM2UB, Opcode::OP_SHMEM_REDUCE, Opcode::OP_SHMEM_CLEAR_SIGNAL,
+            Opcode::OP_SHMEM_MOE_COMBINE_SEND, Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE, Opcode::OP_GATHER_IN_UB,
             Opcode::OP_COPY_TO_LOCAL_EXPERT};
         if (copyOpAttrOpTypes.count(opcode_) > 0) {
             ASSERT(dynamic_cast<CopyOpAttribute *>(opAttribute_.get()) != nullptr);

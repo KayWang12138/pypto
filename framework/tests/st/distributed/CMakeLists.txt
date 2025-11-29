@@ -42,13 +42,15 @@ endif ()
 # aicpuWaitFlag_single_test_reduce_scatter_int32_32_32_4 "4"
 # aicpuWaitFlag和aiv两方式_单Tensor和多Tensor_算子名称_数据类型_row_col_卡数 卡数
 set(_DistributedGTestCaseFilterConfig
-        "DistributedTest.shmem_allgather_attn_post_reducescatter_bfloat16_64_1_32_256_128_128_4" "4"
         "DistributedTest.shmem_all_gather_int32_128_256_4" "4"
         "DistributedTest.shmem_reduce_scatter_int32_128_256_4" "4"
-        "DistributedTest.shmem_allgather_matmul_reducescatter_int32_128_256_4" "4"
         "DistributedTest.shmem_reduce_scatter_float16_128_256_4" "4"
         "DistributedTest.shmem_reduce_scatter_bfloat16_32_32_4" "4"
         "DistributedTest.shmem_add_all_reduce_int32_64_256_4" "4"
+        "DistributedTest.shmem_moe_combine_bfloat16_8_5120_0_160_8_4" "4"
+        "DistributedTest.shmem_moe_combine_bfloat16_256_5120_0_160_8_4" "4"
+        "DistributedTest.shmem_allgather_attn_post_reducescatter_bfloat16_64_1_32_256_128_128_4" "4"
+        "DistributedTest.shmem_allgather_matmul_reducescatter_int32_128_256_4" "4"
 )
 set(_LdLibrariesExt
         tile_fwk_compiler

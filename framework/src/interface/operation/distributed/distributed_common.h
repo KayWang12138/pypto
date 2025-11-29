@@ -42,6 +42,10 @@ constexpr int32_t DIST_TAIL_SHAPE = 2;
 constexpr int32_t DIST_INDEX_ZERO = 0;
 constexpr int32_t DIST_INDEX_ONE = 1;
 constexpr int32_t DIST_INDEX_TWO = 2;
+constexpr uint16_t COPY_BLOCK_BYTE_SIZE = 32;
+constexpr uint16_t VECTOR_INSTRUCTION_BYTE_SIZE = 256;
+constexpr uint16_t SAME_ADDR_BYTE_SIZE = 512;
+
 enum class TileIndex : size_t {
     HEAD_SHAPE,
     HEAD_NUM,
@@ -64,6 +68,18 @@ inline std::string AtomicTypeToString(AtomicType type)
             return "";
     }
 }
+
+struct DistOpAttr {
+public:
+    AtomicType atomicType = AtomicType::SET;
+    int64_t signalValue;
+    std::vector<int64_t> aicpuOpParams;
+    bool fp32Mode;
+    int64_t topK;
+    Shape copyBufferShape;
+    std::string extraTemplateParam{};
+    int64_t paddedColShape;
+};
 
 inline int GetTotalTileNum(const std::array<int, MAX_DIST_DIM_SIZE> &tile)
 {

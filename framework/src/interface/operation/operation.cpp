@@ -62,6 +62,7 @@ const std::string OpAttributeKey::requiresBoundaryCopy = "requires_boundary_copy
 const std::string OpAttributeKey::excludeBufferReuse = "exclude_buffer_reuse";
 const std::string OpAttributeKey::bindTensor = "BIND_TENSOR";
 const std::string OpAttributeKey::startOffset = "start_offset";
+const std::string OpAttributeKey::distOpAttr = "DIST_OP_ATTR";
 
 const std::string ConvOpAttributeKey::cin = "CIN";
 const std::string ConvOpAttributeKey::cout = "COUT";
