@@ -135,6 +135,36 @@ def view_type_quant_test_entry(output_dir: Path):
     tensor_tofile(result, result_path)
 
 
+def view_type_dequant_test_entry(output_dir: Path):
+    x_path = Path(output_dir, 'x.bin')
+    result_path = Path(output_dir, 'result.bin')
+
+    d_kv, d_r = 512, 64
+    n_kv = 1
+    selected_count = 2048
+
+    cache_combined = torch.randint(-128, 128, (selected_count, n_kv, d_kv + 2 * d_r + 4 * 4), dtype=torch.int8)
+    cache_nope_int8 = cache_combined[:, :, :d_kv]
+    cache_rope_int8 = cache_combined[:, :, d_kv: d_kv + 2 * d_r]
+    cache_scale_int8 = cache_combined[:, :, d_kv + 2 * d_r:]
+
+    cache_nope_fp16 = cache_nope_int8.to(torch.float16)
+    cache_nope_fp32 = cache_nope_fp16.to(torch.float32)
+    cache_rope_bf16 = cache_rope_int8.view(torch.bfloat16)
+    cache_scale_fp32 = cache_scale_int8.view(torch.float32).reshape((selected_count, n_kv, 4, 1))
+
+    cache_nope_fp32 = cache_nope_fp32.reshape((selected_count, n_kv, 4, 128))
+    cache_nope = cache_nope_fp32 * cache_scale_fp32
+    cache_nope_bf16 = cache_nope.to(torch.bfloat16)
+    cache_nope_bf16_res = cache_nope_bf16.reshape((selected_count, n_kv, 512))
+    cache = torch.cat((cache_nope_bf16_res, cache_rope_bf16), dim=-1)
+
+    x = cache_combined
+    result = cache
+    tensor_tofile(x, x_path)
+    tensor_tofile(result, result_path)
+
+
 @GoldenRegister.reg_golden_func(
     case_names=[
         "ViewType.int8_2_float32",
@@ -150,6 +180,7 @@ def view_type_quant_test_entry(output_dir: Path):
         "ViewType.int8_2_bfloat16_cast_fp32",
         "ViewType.int8_2_float16_cast_fp32",
         "ViewType.quant_test_bf16_2_int8",
+        "ViewType.dequant_test_bf16_2_int8",
     ]
 )
 
@@ -158,11 +189,11 @@ def view_type_func(case_name: str, output: Path) -> bool:
     if case_name == "ViewType.int8_2_float32":
         view_type_entry((4, 32, 1024), torch.int8, torch.float32, output)
     elif case_name == "ViewType.int8_2_bfloat16":
-        view_type_entry((2048, 1, 64), torch.int8, torch.bfloat16, output)
+        view_type_entry((4, 32, 1024), torch.int8, torch.bfloat16, output)
     elif case_name == "ViewType.int8_2_float16":
         view_type_entry((4, 32, 1024), torch.int8, torch.float16, output)
     elif case_name == "ViewType.float32_2_int8":
-        view_type_entry((64, 1, 4), torch.float32, torch.int8, output)
+        view_type_entry((4, 32, 1024), torch.float32, torch.int8, output)
     elif case_name == "ViewType.bfloat16_2_int8":
         view_type_entry((4, 32, 1024), torch.bfloat16, torch.int8, output)
     elif case_name == "ViewType.float16_2_int8":
@@ -181,6 +212,8 @@ def view_type_func(case_name: str, output: Path) -> bool:
         view_type_cast_entry((4, 32, 1024), torch.int8, torch.float16, output, torch.float32)
     elif case_name == "ViewType.quant_test_bf16_2_int8":
         view_type_quant_test_entry(output)
+    elif case_name == "ViewType.dequant_test_bf16_2_int8":
+        view_type_dequant_test_entry(output)
     else:
         logging.error("Can't get func to gen golden, Case(%s)", case_name)
         return False
@@ -192,8 +225,7 @@ def main() -> bool:
     单独调试 入口函数
     """
     case_name_list: List[str] = [
-        "ViewType.short2long"
-        "ViewType.long2short",
+
     ]
 
     for cs in case_name_list:

@@ -239,6 +239,20 @@ void AssignMemoryType::AssignOpViewTypeMemtype(Operation &op){
         auto &viewTypeIn = op.iOperand.front();
         auto &viewTypeOut = op.oOperand.front();
         auto inputMemType = inserter.GetMemoryTypeFromTensorTobeMap(*viewTypeIn, op);
+        auto outTobeMem = inserter.GetTobeDefault(*viewTypeOut);
+        auto prod = *(viewTypeIn->GetProducers().begin());
+        if (prod->GetOpcode() == Opcode::OP_VIEW) {
+            viewTypeOut->SetMemoryTypeOriginal(outTobeMem.begin()->second, true);
+            if (inputMemType != viewTypeOut->GetMemoryTypeOriginal()) {
+                if (inputMemType == MemoryType::MEM_DEVICE_DDR) {
+                    inserter.UpdateTensorTobeMap(*viewTypeIn, op, viewTypeOut->GetMemoryTypeOriginal());
+                    if (OpcodeManager::Inst().GetOutputsMemType(prod->GetOpcode()).empty()) {
+                        viewTypeIn->SetMemoryTypeOriginal(viewTypeOut->GetMemoryTypeOriginal(), true);
+                    }
+                }
+            }
+            return;
+        }
         if (inputMemType != viewTypeOut->GetMemoryTypeOriginal()) {
             APASS_LOG_DEBUG_F(Elements::Operation, "OP_RESHAPE[%d] input: %s, output: %s.",
                 op.opmagic, PrintTensorMem(viewTypeIn).c_str(), PrintTensorMem(viewTypeOut).c_str());

@@ -20,42 +20,50 @@ using namespace npu::tile_fwk;
 namespace npu::tile_fwk {
 
 void ViewTypeFunc(const Tensor &x, Tensor &result, DataType dstDtype) {
-    FUNCTION("VIEWTYPE", {x}, {result}) {
+    FUNCTION("ViewTypeFunc", {x}, {result}) {
+        int m = x.GetShape()[0];
+        int k = x.GetShape()[1];
         int n = x.GetShape()[2];
-        int tileN = n;
-        SymbolicScalar nLoop = n / tileN;
+        int tileM = m / 4;
+        SymbolicScalar mLoop = m / tileM;
         
-        LOOP("LOOP_L0_nIdx_view_type", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nLoop, 1)) {
-            SymbolicScalar nOffset = nIdx * tileN;
-            TileShape::Current().SetVecTile({2, 4, n});
-            auto resultView = View(x, dstDtype);
+        LOOP("LOOP_L0_nIdx_view_type", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mLoop, 1)) {
+            SymbolicScalar mOffset = mIdx * tileM;
+            TileShape::Current().SetVecTile({tileM, k, n});
+            auto xView = View(x, {tileM, k, n}, {mOffset, 0, 0});
+            TileShape::Current().SetVecTile({tileM, k, n});
+            auto resultView = View(xView, dstDtype);
             auto resultRes = resultView;
 
             if(dstDtype == DT_FP32) {
                 resultRes = Add(resultView, Element(dstDtype, float(0)));
             }
-            Assemble(resultRes, {0, 0, nOffset}, result);
+            Assemble(resultRes, {mOffset, 0, 0}, result);
         }
     }
 }
 
 void ViewTypeCastFunc(const Tensor &x, Tensor &result, DataType dstDtype, DataType castDtype) {
-    FUNCTION("VIEWTYPE", {x}, {result}) {
+    FUNCTION("ViewTypeCastFunc", {x}, {result}) {
+        int m = x.GetShape()[0];
+        int k = x.GetShape()[1];
         int n = x.GetShape()[2];
-        int tileN = n;
-        SymbolicScalar nLoop = n / tileN;
+        int tileM = m / 4;
+        SymbolicScalar mLoop = m / tileM;
         
-        LOOP("LOOP_L0_nIdx_view_type", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nLoop, 1)) {
-            SymbolicScalar nOffset = nIdx * tileN;
-            TileShape::Current().SetVecTile({2, 4, n});
-            auto resultView = View(x, dstDtype);
+        LOOP("LOOP_L0_nIdx_view_type_cast", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mLoop, 1)) {
+            SymbolicScalar mOffset = mIdx * tileM;
+            TileShape::Current().SetVecTile({tileM, k, n});
+            auto xView = View(x, {tileM, k, n}, {mOffset, 0, 0});
+            TileShape::Current().SetVecTile({tileM, k, n});
+            auto resultView = View(xView, dstDtype);
             auto resultCast = Cast(resultView, castDtype);
             auto resultRes = resultCast;
 
             if(castDtype == DT_FP32) {
                 resultRes = Add(resultCast, Element(castDtype, float(0)));
             }
-            Assemble(resultRes, {0, 0, nOffset}, result);
+            Assemble(resultRes, {mOffset, 0, 0}, result);
         }
     }
 }
@@ -82,13 +90,13 @@ std::tuple<Tensor, Tensor> MyPrologQuant(const Tensor &input) {
 
 void ViewTypeQuantTestFunc(const Tensor &x, Tensor &result) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
-    FUNCTION("VIEWTYPE", {x}, {result}) {
+    FUNCTION("ViewTypeQuantTestFunc", {x}, {result}) {
         int m = x.GetShape()[0];
         int k = x.GetShape()[1];
         int n = x.GetShape()[2];
         int tileM = m / 2;
         SymbolicScalar mLoop = m / tileM;
-        LOOP("LOOP_L0_mIdx_view_type", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mLoop, 1)) {
+        LOOP("LOOP_L0_mIdx_view_type_quant", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mLoop, 1)) {
             SymbolicScalar mOffset = mIdx * tileM;
             TileShape::Current().SetVecTile({tileM, k, n});
             auto xView = View(x, {tileM, k, n}, {mOffset, 0, 0});
@@ -109,6 +117,50 @@ void ViewTypeQuantTestFunc(const Tensor &x, Tensor &result) {
             TileShape::Current().SetVecTile({tileM, k, n});
             auto combinedRes = Cat({outInt8Reshape, scaleQuantViewRes}, -1);
             Assemble(combinedRes, {mOffset, 0, 0}, result);
+        }
+    }
+}
+
+void ViewTypeDequantTestFunc(const Tensor &x, Tensor &result) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+    FUNCTION("ViewTypeDequantTestFunc", {x}, {result}) {
+        int m = x.GetShape()[0];
+        int k = x.GetShape()[1];
+
+        int tileM = m / 8;
+        SymbolicScalar mLoop = m / tileM;
+
+        LOOP("LOOP_L0_nIdx_view_type_dequant", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mLoop, 1)) {
+            SymbolicScalar mOffset = mIdx * tileM;
+            
+            TileShape::Current().SetVecTile({tileM, k, 128});
+            auto ropeView = View(x, {tileM, k, 128}, {mOffset, 0, 512});
+            TileShape::Current().SetVecTile({tileM, k, 64});
+            auto ropeRes = View(ropeView, DT_BF16);
+
+            TileShape::Current().SetVecTile({tileM, k, 32});
+            auto nopeView = View(x, {tileM, k, 512}, {mOffset, 0, 0});
+            auto nopeCast = Cast(nopeView, DT_FP16);
+            auto nopeCastCast = Cast(nopeCast, DT_FP32);
+            auto nopeRehape = Reshape(nopeCastCast, {tileM, k, 4, 128});
+
+            TileShape::Current().SetVecTile({tileM, k, 8});
+            auto scaleView = View(x, {tileM, k, 16}, {mOffset, 0, 640});
+            TileShape::Current().SetVecTile({tileM, k, 16});
+            auto scaleRes = View(scaleView, DT_FP32);
+            TileShape::Current().SetVecTile({tileM, k, 4});
+            auto scaleReshape = Reshape(scaleRes, {tileM, k, 4, 1});
+
+            TileShape::Current().SetVecTile({tileM, k, 4, 16});
+            auto cacheNope = Mul(nopeRehape, scaleReshape);
+            TileShape::Current().SetVecTile({tileM, k, 4, 16});
+            auto cacheNopeBf16 = Cast(cacheNope, DT_BF16);
+            TileShape::Current().SetVecTile({tileM, k, 4, 16});
+            auto cacheNopeReshape = Reshape(cacheNopeBf16, {tileM, k, 512});
+            TileShape::Current().SetVecTile({tileM, k, 64});
+            auto cache = Cat({cacheNopeReshape, ropeRes}, -1);
+
+            Assemble(cache, {mOffset, 0, 0}, result);
         }
     }
 }

@@ -96,3 +96,21 @@ TEST_F(ViewTypeUtest, quant_test) {
 
     ViewTypeQuantTestFunc(x, result);
 }
+
+TEST_F(ViewTypeUtest, dequant_test) {
+    config::SetHostOption(ONLY_CODEGEN, true);
+
+    int64_t m = 2048;
+    int64_t k = 1;
+    int64_t n = 656;
+
+    DataType originDtype = DT_INT8;
+    DataType dstDtype = DT_BF16;
+    std::vector<int64_t> xShape = {m, k, n};
+    std::vector<int64_t> resultShape = {m, k, 512 + 64};
+
+    Tensor x(originDtype, xShape, "x");
+    Tensor result(dstDtype, resultShape, "result");
+
+    ViewTypeDequantTestFunc(x, result);
+}

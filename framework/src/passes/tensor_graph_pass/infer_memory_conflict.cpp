@@ -52,6 +52,9 @@ Status InferMemoryConflict::RunOnFunction(Function &function) {
         if (op.GetOpcode() == Opcode::OP_VIEW_TYPE) {
             auto output = op.GetOOperands()[0];
             auto outOp = *output->GetConsumers().begin();
+            if (outOp == nullptr || outOp->GetOpcode() != Opcode::OP_REGISTER_COPY) {
+                continue;
+            }
             TileShape viewTypeTile;
             auto vecTypeTile = op.GetTileShape().GetVecTile();
             auto viewTypeIn = op.GetIOperands()[0];

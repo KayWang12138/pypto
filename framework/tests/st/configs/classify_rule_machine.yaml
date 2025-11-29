@@ -89,6 +89,7 @@ stest:
       # ViewType功能用例
       #===========================================================================
       - ViewType.quant_test_bf16_2_int8
+      - ViewType.dequant_test_bf16_2_int8
 
   machine_host:
     cases:

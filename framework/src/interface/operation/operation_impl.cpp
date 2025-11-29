@@ -884,8 +884,8 @@ Tensor View(const Tensor &operand, const DataType dstDataType) {
     dstShape[dstShape.size() - 1] = int(dstShape[dstShape.size() - 1] * factor);
 
     auto validShape = operand.GetStorage()->GetDynValidShape();
-    auto changedDim = int(int(validShape[validShape.size() - 1]) * factor);
-    validShape[validShape.size() - 1] = SymbolicScalar(changedDim);
+    auto changedDim = validShape[validShape.size() - 1] * BytesOf(originDType) / BytesOf(dstDataType);
+    validShape[validShape.size() - 1] = changedDim;
 
     Tensor result(dstDataType, dstShape, "ViewType_" + operand.GetStorage()->GetRawTensor()->GetSymbol(), operand.Format());
     result.GetStorage()->UpdateDynValidShape(validShape);
