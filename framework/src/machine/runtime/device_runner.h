@@ -62,7 +62,7 @@ public:
     int DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, int64_t taskId, AstKernelArgs *kernelArgs, int blockdim, int launchAicpuNum);
     int DynamicLaunchSynchronize(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream);
     int DynamicRun(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, int64_t taskId, AstKernelArgs *kernelArgs, int blockdim = 25, int launchAicpuNum = 5);
-    void InitDynamicArgs(DeviceArgs &args, int nrCore = CORE_DEFAULT_NUM);
+    void InitDynamicArgs(DeviceArgs &args);
     int RegisterKernelBin(void **hdl);
     static void SetBinData(const std::vector<uint8_t> &binBuf);
     HostProf& GetHostProfInstance();
@@ -70,6 +70,7 @@ public:
         isCapture_ = isCapture;
         captureMode_ = mode;
     }
+    void ResetPerfTraceDfxMem();
 
 private:
     DeviceRunner() = default;

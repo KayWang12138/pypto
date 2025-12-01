@@ -76,14 +76,14 @@ class DeviceCtrlMachine {
         auto idx = AllocNewTaskCtrl();
         InitTaskCtrl(idx, type, dynTask->GetIndex(), &dynTask->devTask, ctx);
         for (uint32_t i = 0; i < schAicpuNum_; ++i) {
-            taskQueue_->Enqueue(&taskctrl_[idx]);
+            taskQueue_[i].Enqueue(&taskctrl_[idx]);
         }
         return idx;
     }
 
     void StopAicoreManager() {
         for (uint32_t i = 0; i < schAicpuNum_; ++i) {
-            taskQueue_->Enqueue(nullptr);
+            taskQueue_[i].Enqueue(nullptr);
         }
     }
 

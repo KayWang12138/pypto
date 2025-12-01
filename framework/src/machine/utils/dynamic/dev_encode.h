@@ -2291,6 +2291,7 @@ struct DynDeviceTaskBase {
 
     ReadyQueueCache *readyQueueBackup;
     DynFuncDataBackup dynFuncDataBackupList[MAX_CACHED_FUNC_NUM];
+    bool isLastTask{false};
 
     DynFuncHeader *GetDynFuncDataList() const { return dynFuncDataList; }
     DynFuncHeader *GetDynFuncDataList() { return dynFuncDataList; }
@@ -2298,9 +2299,11 @@ struct DynDeviceTaskBase {
     DynFuncDataCache *GetDynFuncDataCacheList() { return dynFuncDataCacheList; }
 
     uint64_t GetIndex() { return GetDynFuncDataList()->GetIndex(); }
+    inline bool IsLastTask() const { return isLastTask;}
+    void SetLastTask(bool b) { isLastTask = b;}
 };
-
 #define DYN_DEVICE_TASK_EXT_SIZE 0x300
+
 
 struct DeviceTaskCache {
     DynDeviceTaskBase *dynTaskBase;

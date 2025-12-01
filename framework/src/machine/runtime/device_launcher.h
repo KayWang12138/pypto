@@ -156,12 +156,13 @@ public:
         devProg->devArgs.nrAic = kDefaultAicNum;
         devProg->devArgs.nrAiv = kDefaultAivNum;
         devProg->devArgs.nrValidAic = config.blockdim;
+        devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(launchConfig.blockdim);
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
-        uint64_t shmAddr = (uint64_t)devMem.AllocZero(DEVICE_SHM_SIZE, CachedOperator::GetMetaDataDevAddrHolder(cachedOperator));
+        size_t shmSize = DEVICE_SHM_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
+        uint64_t shmAddr = (uint64_t)devMem.AllocZero(shmSize, CachedOperator::GetMetaDataDevAddrHolder(cachedOperator));
         devProg->devArgs.startArgsAddr = shmAddr;
         devProg->devArgs.taskCtrl = shmAddr + DEV_ARGS_SIZE;
         devProg->devArgs.taskQueue = shmAddr + DEV_ARGS_SIZE + DEVICE_TASK_CTRL_SIZE;
-        devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(launchConfig.blockdim);
         int minCpuNum = devProg->devArgs.scheCpuNum + 1;
         if (config.aicpuNum < minCpuNum || config.aicpuNum > DEVICE_MAX_AICPU_NUM) {
             launchConfig.aicpuNum = minCpuNum + 1;

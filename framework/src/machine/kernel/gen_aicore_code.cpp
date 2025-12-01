@@ -41,6 +41,7 @@ const std::string kAicoreSrcCode = R"!!!(
 #define KERNEL_ENTRY(x, y) x
 #endif
 
+const uint64_t AICORE_REG_SAY_HELLO = 0xF000000080000000;
 constexpr uint32_t REG_HIGH_DTASKID_SHIFT = 32;
 enum class TASK_POS : size_t { LOW_REG = 0, HIGH_REG = 1, ALL_REG = 2, REG_POS_BUTT = 3 };
 
@@ -68,12 +69,11 @@ enum AicorePerfTrace {
 };
 
 struct Metrics {
-  bool    taskPerfEnable;
+  int64_t isMetricStop;
+  int64_t taskCount; 
   int64_t perfTrace[PERF_TRACE_CORE_MAX][PERF_TRACE_INST_MAX_NUM_EVERY_TYPE];
   uint32_t perfTraceDevTaskId[PERF_TRACE_CORE_MAX][PERF_TRACE_INST_MAX_NUM_EVERY_TYPE];
   uint32_t perfTraceCnt[PERF_TRACE_CORE_MAX];
-  int64_t taskCount;
-  int64_t isMetricStop;
   TaskStat tasks[];
 };
 
@@ -176,7 +176,7 @@ INLINE uint32_t GetNextTask(uint32_t lastTaskIdx) {
         nextLowIdx -= 1;
         ++loop_count;
         if ((loop_count % 1000 == 0) && (get_sys_cnt() - t0 > 500000000)) {
-            break;
+            return AICORE_TASK_STOP;
         }
     } while (nextLowIdx == lastTaskIdx);
 
@@ -203,9 +203,8 @@ INLINE void Barrier()
 }
 
 INLINE void HandshakeClient(volatile __gm__ int64_t *shakeBuf) {
+    set_cond(((int64_t)blockIdx << 48) | ((int64_t)get_coreid() << 32) | AICORE_REG_SAY_HELLO);
     volatile __gm__ int64_t *hello = shakeBuf;
-
-    set_cond(AICORE_TASK_INIT);
     *hello = (int64_t)get_coreid() << 32 | AICORE_SAY_HELLO;
     Barrier();
     dcci(hello, SINGLE_CACHE_LINE, CACHELINE_OUT);
@@ -281,12 +280,12 @@ INLINE void FlushMetricStatistic(__gm__ volatile KernelArgs* args) {
     }
 
     m->isMetricStop = 1;
-    PerfTraceRecord(INVALID_DEV_TASK_ID, (__gm__ Metrics*)m, PERF_TRACE_CORE_WAIT_EXIT_NOTIFY);
     dcci(m, SINGLE_CACHE_LINE, CACHELINE_OUT);
     dcci((__gm__ void *)0, ENTIRE_DATA_CACHE, CACHELINE_OUT);
 }
 
 INLINE void DfxProcWhenCoreExit(ExecuteContext *ctx, __gm__ KernelArgs *args, __gm__ Metrics* metric) {
+    PerfTraceRecord(INVALID_DEV_TASK_ID, metric, PERF_TRACE_CORE_WAIT_EXIT_NOTIFY);
     if (ctx->lastTaskFinishCycle > 0) {
         PerfTraceRecord(INVALID_DEV_TASK_ID, metric,
             PERF_TRACE_CORE_WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH, ctx->lastTaskFinishCycle);
@@ -376,6 +375,7 @@ INLINE void ExecDynCoreFunctionKernel(ExecuteContext *ctx, uint32_t taskId) {
 #endif
 
 INLINE void InitCtx(ExecuteContext *ctx, __gm__ Metrics* metric, uint64_t coreFuncData) {
+    set_cond(AICORE_TASK_INIT);
     __gm__ DynFuncHeader *header = (__gm__ DynFuncHeader *)coreFuncData;
     ctx->seqNo = header->seqNo;
     PerfTraceRecord(ctx->seqNo, metric, PERF_TRACE_CORE_DEV_TASK_RCV_MODEL);
@@ -421,6 +421,7 @@ extern "C" __global__ __aicore__ void KERNEL_ENTRY(__OPTYPE__, __TILINGKEY__)(in
     //get core task data
     uint64_t t0 = get_sys_cnt();
     uint64_t loop_count = 0;
+    bool bIsExit = false;
     PerfTraceRecord(INVALID_DEV_TASK_ID, metric, PERF_TRACE_CORE_INIT);
     while (true) {
         ++loop_count;
@@ -428,6 +429,10 @@ extern "C" __global__ __aicore__ void KERNEL_ENTRY(__OPTYPE__, __TILINGKEY__)(in
             break;
         }
         lastTaskIdx = AICORE_TASK_INIT;
+        if (bIsExit) {
+            DfxProcWhenCoreExit(&ctx, args, metric);
+            return; // no data exit
+        }
         coreFuncData = getCoreFuncionData(args, coreFuncData);
         if (coreFuncData == 0) {
             DfxProcWhenCoreExit(&ctx, args, metric);
@@ -443,7 +448,11 @@ extern "C" __global__ __aicore__ void KERNEL_ENTRY(__OPTYPE__, __TILINGKEY__)(in
                 break;
             }
             curTaskIdx = GetNextTask(lastTaskIdx);
-            if (curTaskIdx == AICORE_TASK_STOP || curTaskIdx == AICORE_FUNC_STOP) {
+            if (curTaskIdx == AICORE_TASK_STOP) {
+                DfxProcWhenDevTaskStop(&ctx, args, metric);
+                bIsExit = true;
+                break;
+            } else if (curTaskIdx == AICORE_FUNC_STOP) {
                 DfxProcWhenDevTaskStop(&ctx, args, metric);
                 SendRegDevTaskStop(ctx.seqNo);
                 break;

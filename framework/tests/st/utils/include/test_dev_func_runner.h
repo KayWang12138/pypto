@@ -167,7 +167,7 @@ private:
         }
         AstKernelArgs kArgs;
         DeviceInitTilingData(MemoryHelper(true), kArgs, function_->GetDyndevAttribute()->devProgBinary, config_, nullptr);
-        for (int i = 0; i < config_.repeatNum; i++) {
+        for (int i = 0; i < (config_.controlFlowCache ? 1 : config_.repeatNum); i++) {
             InitKernelInOuts(kArgs, inputs, outputs, true);
             std::cout << "!!! Run CostModel " << i << "\n";
             RunCostModel(&kArgs);
@@ -265,6 +265,7 @@ private:
                 InitKernelInOuts(kArgs, inputs, outputs, false);
                 rc = DeviceRunner::Get().DynamicRun(aicpuStream, ctrlStream, aicoreStream, 0, &kArgs, config_.blockdim, config_.aicpuNum);
                 EXPECT_EQ(rc, 0);
+                DeviceRunner::Get().ResetPerfTraceDfxMem(); // refresh aicore dfx metric memory cache
             }
             CopyFromDev(MemoryHelper(false), outputs);
             if (HasInplaceArgs(function_)) {

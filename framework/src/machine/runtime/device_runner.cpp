@@ -133,13 +133,24 @@ void DeviceRunner::GetPmuEventType() {
     SetPmuEventType(profPmuType);
 }
 
-void DeviceRunner::InitDynamicArgs(DeviceArgs &args, int nrCore) {
+void DeviceRunner::InitDynamicArgs(DeviceArgs &args) {
     devArgs_ = reinterpret_cast<DeviceArgs *>(DevAlloc(sizeof(DeviceArgs)));
     rtMemcpy(reinterpret_cast<void *>(devArgs_), sizeof(DeviceArgs), &args, sizeof(DeviceArgs),
         RT_MEMCPY_HOST_TO_DEVICE);
 
     for (uint64_t i = 0; i < args.nrAic + args.nrAiv; i++) {
-        perfData_.push_back(DevAlloc(nrCore * MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics)));
+        perfData_.push_back(DevAlloc(MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics)));
+    }
+}
+
+void DeviceRunner::ResetPerfTraceDfxMem() {
+    if (perfData_.size() < args_.nrAic + args_.nrAiv) {
+        return;
+    }
+    for (uint64_t i = 0; i < args_.nrAic + args_.nrAiv; i++) {
+        if (perfData_[i]) {
+            rtMemset((void*)perfData_[i], sizeof(Metrics), 0, sizeof(Metrics));
+        }
     }
 }
 
@@ -182,7 +193,8 @@ int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
     args.corePmuRegAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * sizeof(uint64_t)));
     args.corePmuAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * PMU_BUFFER_SIZE));
     args.taskWastTime = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(DevAlloc(sizeof(uint64_t))));
-    uint64_t shmAddr = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(DevAlloc(dynamic::DEVICE_SHM_SIZE)));
+    size_t shmSize = dynamic::DEVICE_SHM_SIZE + dynamic::DEVICE_TASK_QUEUE_SIZE * aicpuNum_;
+    uint64_t shmAddr = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(DevAlloc(shmSize)));
     args.startArgsAddr = shmAddr;
     args.taskCtrl = shmAddr + dynamic::DEV_ARGS_SIZE;
     args.taskQueue = shmAddr + dynamic::DEV_ARGS_SIZE + dynamic::DEVICE_TASK_CTRL_SIZE;
@@ -200,7 +212,7 @@ int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
     rtMemcpy(reinterpret_cast<void *>(args.pmuEventAddr), size, pmuEvtType_.data(), size, RT_MEMCPY_HOST_TO_DEVICE);
     ALOG_INFO_F("aic %u aiv %u  blockDim_ %d sharedBuffer %lx coreRegAddr %lx corePmuRegAddr %lx\n", args.nrAic,
         args.nrAiv, blockDim_, args.sharedBuffer, args.coreRegAddr, args.corePmuRegAddr);
-    InitDynamicArgs(args, nrCore);
+    InitDynamicArgs(args);
     return 0;
 }
 

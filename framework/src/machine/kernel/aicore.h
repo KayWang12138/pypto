@@ -31,6 +31,7 @@
 #define KERNEL_ENTRY(x, y) x
 #endif
 
+const uint64_t AICORE_REG_SAY_HELLO = 0xF000000080000000;
 constexpr uint32_t REG_HIGH_DTASKID_SHIFT = 32;
 enum class TASK_POS : size_t { LOW_REG = 0, HIGH_REG = 1, ALL_REG = 2, REG_POS_BUTT = 3 };
 
@@ -58,12 +59,11 @@ enum AicorePerfTrace {
 };
 
 struct Metrics {
-  bool    taskPerfEnable;
+  int64_t isMetricStop;
+  int64_t taskCount; 
   int64_t perfTrace[PERF_TRACE_CORE_MAX][PERF_TRACE_INST_MAX_NUM_EVERY_TYPE];
   uint32_t perfTraceDevTaskId[PERF_TRACE_CORE_MAX][PERF_TRACE_INST_MAX_NUM_EVERY_TYPE];
   uint32_t perfTraceCnt[PERF_TRACE_CORE_MAX];
-  int64_t taskCount;
-  int64_t isMetricStop;
   TaskStat tasks[];
 };
 

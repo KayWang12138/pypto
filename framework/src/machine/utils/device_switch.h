@@ -37,6 +37,9 @@ namespace npu::tile_fwk {
 
 #define ENABLE_AICORE_PRINT 0
 
+// whether to support hand shake by reg
+#define ENABLE_AICORE_HAND_SHAKE_BY_REG 0
+
 // whether to use the pending and running async task mode(set macro 1) or just use running sync mode(set macro 0)
 #define SCHEDULE_USE_PENDING_AND_RUNING_SWITCH 1
 

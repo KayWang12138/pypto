@@ -22,6 +22,7 @@
 #include <atomic>
 #include <vector>
 #include <mutex>
+#include <sstream>
 #include <fstream>
 #include <ostream>
 #include "securec.h"
@@ -53,6 +54,7 @@ inline constexpr bool IsDeviceMode() {
 #endif // __DEVICE__
 }
 
+constexpr int32_t DEVICE_MACHINE_TIMEOUT_SYNC_CORE_FINISH = -5;
 constexpr int32_t DEVICE_MACHINE_TIMEOUT_AIV = -4;
 constexpr int32_t DEVICE_MACHINE_TIMEOUT_AIC = -3;
 constexpr int32_t DEVICE_MACHINE_TIMEOUT_CORETASK = -2;

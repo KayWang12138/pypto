@@ -101,7 +101,10 @@ struct DynMachineManager {
             DEV_INFO("devQueueAddr %lx, sharedBuffer %lx coreRegAddr %lx corePmuAdr %lx.", devArgs->devQueueAddr,
                 devArgs->sharedBuffer, devArgs->coreRegAddr, devArgs->corePmuAddr);
             DEV_TRACE_DEBUG(schema::ScheEvent(threadIdx, schema::ThreadStart()));
-            ret = machine_.Run(threadIdx, devArgs);
+            ret = machine_.Run(threadIdx, devArgs, handshakeByGm_);
+            if (ret != DEVICE_MACHINE_OK) {
+                schRunFailed_ = true;
+            }
         } else {
             threadIdx = ctrlcpuIdx_.fetch_add(1);
             DEV_INFO("devArgs->taskType %d.",  static_cast<int>(devArgs->taskType));
@@ -120,6 +123,12 @@ struct DynMachineManager {
         PerfMtTrace(PERF_TRACE_EXIT, threadIdx);
         if (++finished_ == static_cast<std::atomic<int>>(devArgs->nrAicpu)) {
             LastFinishThreadIdx_ = threadIdx;
+#if ENABLE_AICORE_HAND_SHAKE_BY_REG
+            if (!schRunFailed_ && handshakeByGm_) {
+                machine_.CacheValidCore();
+                handshakeByGm_ = false; // hand shake by reg next time
+            }
+#endif
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_FINISHED;
         }
         return ret;
@@ -133,6 +142,7 @@ struct DynMachineManager {
         schAicpuNum_ = args->scheCpuNum;
         ctrlcpuIdx_.store(schAicpuNum_);
         machine_.init(schAicpuNum_);
+        schRunFailed_ = false;
     }
 
     void SignalReset() {
@@ -169,6 +179,8 @@ struct DynMachineManager {
     struct sigaction oriBordAct_;
     std::atomic<bool> reset_{false};
     std::atomic<bool> init_{false};
+    bool handshakeByGm_{true};
+    std::atomic<bool> schRunFailed_{false};
 };
 
 DynMachineManager g_machine_mgr;
@@ -211,8 +223,8 @@ extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelSer
         DEV_INFO("All schedule exited, destroy the machine.\n");
         g_machine_mgr.DeInit();
 #if ENABLE_PERF_TRACE
-        DEV_ERROR("Begin dump machine perf trace:");
         PerfMtTrace(PERF_TRACE_EXIT, g_machine_mgr.LastFinishThreadIdx_);
+        DEV_ERROR("Begin dump machine perf trace:");
         PerfEvtMgr::Instance().DumpPerfTrace("/tmp/tile_fwk_aicpu_perftrace.json");
         DEV_IF_DEVICE {
             g_machine_mgr.machine_.DumpAicorePerfTrace("tmp/tile_fwk_aicore_perftrace.json");

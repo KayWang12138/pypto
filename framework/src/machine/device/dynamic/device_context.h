@@ -492,7 +492,7 @@ struct DeviceExecuteContext {
 
     static void DumpDeviceTask(uint64_t taskId, DynDeviceTask *deviceTask);
 
-    void SubmitToAicoreAndRecycleMemory(bool withoutTail);
+    void SubmitToAicoreAndRecycleMemory(bool withoutTail, bool isLastTask = false);
 
     schema::RUid GetRuid(uint64_t rootKey, bool afterAppend = false);
 

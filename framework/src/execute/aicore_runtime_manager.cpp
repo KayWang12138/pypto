@@ -23,7 +23,7 @@ const uint64_t SHARE_BUFFER_SIZE = 512;
 const uint64_t AICPU_COUNT = 5;
 const uint64_t DEV_ARGS_SIZE = 4096;
 const uint64_t DEVICE_TASK_CTRL_SIZE = 7168;
-const uint64_t DEVICE_QUEUE_SIZE = 2048;
+const uint64_t DEVICE_QUEUE_SIZE = 2048 * 3;
 const uint64_t DEVICE_SHM_SIZE = DEV_ARGS_SIZE + DEVICE_TASK_CTRL_SIZE + DEVICE_QUEUE_SIZE;
 
 bool GetPgmsk(const int32_t deviceId, uint64_t &valid) {

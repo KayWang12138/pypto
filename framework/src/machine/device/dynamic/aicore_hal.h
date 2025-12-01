@@ -30,6 +30,7 @@ constexpr uint32_t NUM_THREE = 3;
 constexpr uint32_t NUM_FOUR = 4;
 constexpr uint32_t NUM_FIVE = 5;
 constexpr uint32_t NUM_THIRTY_TWO = 32;
+constexpr uint32_t SHIFT_NUM_FORTYEIGHT = 48;
 
 const int32_t CORE_QUEUE_MODE_NUM_8 = 8;
 const int32_t CORE_QUEUE_MODE_NUM_7 = 7;
@@ -44,6 +45,7 @@ const uint32_t REG_SPR_DATA_MAIN_BASE = 0xA0; // 0xA0 -> DATA_MAIN_BASE
 const uint32_t REG_SPR_COND = 0x4C8;          // 0x4C8 -> COND SPR
 const uint32_t REG_SPR_MAGIC = 0x78;
 constexpr int32_t AICORE_COREID_MASK = 0x0FFF;
+constexpr int32_t AICORE_BLOCKID_MASK = 0x0FFF;
 
 class AicoreHAL {
 public:
@@ -55,6 +57,13 @@ public:
         finishRegQueues_.fill(nullptr);
         blockIdToPhyCoreId_.fill(-1);
         args_.fill(nullptr);
+    }
+
+    inline void SetMngCoreBlockId(int aicStart, int aicEnd, int aivStart, int aivEnd) {
+        aicStart_ = aicStart;
+        aicEnd_ = aicEnd;
+        aivStart_ = aivStart;
+        aivEnd_ = aivEnd;
     }
 
     inline void SetModel(uint64_t costModel) {
@@ -85,6 +94,10 @@ public:
                 *(reinterpret_cast<volatile uint32_t *>(regAddrs_[i] + offset)) = val;
             }
         }
+    }
+    
+    inline void SetValidCore(std::array<bool, MAX_AICORE_NUM> *validCore) {
+        validCore_ = validCore;
     }
 
     inline bool IsSpecialTask(uint32_t taskId) {
@@ -241,7 +254,7 @@ public:
             while (*finishRegQueues_[GetPhyIdByBlockId(idx)] != val) {
                 if (GetCycles() - startCycle > TIMEOUT_CYCLES) {
                     DEV_ERROR("CoreId: %d cannot get finish Flag", idx);
-                    break;
+                    return;
                 }
             }
         }
@@ -374,7 +387,7 @@ public:
                 }
     
                 oss << "\",\"end\":" << curCycle << "}"
-                    << (type == PERF_TRACE_CORE_MAX - 1 ? "" : ",");
+                    << (((type == PERF_TRACE_CORE_MAX - 1) && (cnt ==  metric->perfTraceCnt[type] - 1)) ? "" : ",");
             }
         }
         oss << "]}";
@@ -403,10 +416,13 @@ public:
     }
 
     inline void InitTaskData(int coreIdx, int64_t funcdata, int64_t buffer) {
+        (void)buffer;
         if constexpr (IsDeviceMode()) {
             volatile KernelArgs *arg = args_[coreIdx];
             arg->shakeBuffer[SHAK_BUF_COREFUNC_DATA_INDEX] = funcdata;
+#if ENABLE_AICORE_PRINT
             arg->shakeBuffer[SHAK_BUF_PRINT_BUFFER_INDEX] = buffer;
+#endif
         } else {
             if (costModel_) {
                 costModel_->InitData(coreIdx, funcdata);
@@ -414,7 +430,7 @@ public:
         }
     }
 
-    int HandShake(int coreIdx, int64_t dotStatus) {
+    int HandShakeByGm(int coreIdx, int64_t dotStatus) {
         auto args =
             reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
         args->taskEntry.reserved[0] = static_cast<uint32_t>(dotStatus);
@@ -431,6 +447,120 @@ public:
         return DEVICE_MACHINE_OK;
     }
 
+    inline int ParseHandValue(int regIdx, bool *handFlag,  bool *ignoreFlag, int64_t dotStatus) {
+        if (ignoreFlag[regIdx]) {
+            return 0;
+        }
+
+        if (validCore_ && (!(*validCore_)[regIdx])) {
+            DEV_DEBUG("core %d is invalid.", regIdx);
+            ignoreFlag[regIdx] = true;
+            return 0;
+        }
+
+        uint64_t value = *finishRegQueues_[regIdx];
+        if ((value & 0xF0000000FFFFFFFF) != AICORE_REG_SAY_HELLO) {
+            /* make sure high and low reg 32 bit value synced from aicore
+               can not set ignoreFlag, maybe bad aicore reg */ 
+            return 0;
+        }
+        ignoreFlag[regIdx] = true; // ignore proc for next iter
+
+        int blockIdx = (value >> SHIFT_NUM_FORTYEIGHT) & AICORE_BLOCKID_MASK;
+        if (((blockIdx >= aicStart_) &&  (blockIdx < aicEnd_)) ||
+            ((blockIdx >= aivStart_) &&  (blockIdx < aivEnd_))) {
+            KernelArgs* args =
+                reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * blockIdx);
+            args->taskEntry.reserved[0] = static_cast<uint32_t>(dotStatus);
+            args_[blockIdx] = args;
+            GetPhyIdByBlockId(blockIdx) = (value >> NUM_THIRTY_TWO) & AICORE_COREID_MASK;
+            handFlag[blockIdx] = true;
+            DEV_VERBOSE_DEBUG("hand shake sucess, regidx:%d -> blockidx %d -> phyCoreid:%d.",
+                regIdx, blockIdx, GetPhyIdByBlockId(blockIdx));
+            return 1;
+        }
+
+        // not managed by this sched aicpu
+        return 0;
+    }
+
+    inline int CheckHandShakeFlag(bool *handFlag, bool *ignoreFlag, int64_t dotStatus) {
+        // unroll iterator
+        int regIdx = 0;
+        int handSuccessNum = 0;
+        for (uint32_t i = 0; i < (MAX_AICORE_NUM & (~CORE_QUEUE_MODE_NUM_7)); i += CORE_QUEUE_MODE_NUM_8) {
+            handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
+            handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
+            handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
+            handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
+            handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
+            handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
+            handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
+            handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
+        }
+        switch (MAX_AICORE_NUM & CORE_QUEUE_MODE_NUM_7) {
+            case CORE_QUEUE_MODE_NUM_7:
+                handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
+                [[fallthrough]];
+            case CORE_QUEUE_MODE_NUM_6:
+                handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
+                [[fallthrough]];
+            case CORE_QUEUE_MODE_NUM_5:
+                handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
+                [[fallthrough]];
+            case CORE_QUEUE_MODE_NUM_4:
+                handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
+                [[fallthrough]];
+            case CORE_QUEUE_MODE_NUM_3:
+                handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
+                [[fallthrough]];
+            case CORE_QUEUE_MODE_NUM_2:
+                handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
+                [[fallthrough]];
+            case CORE_QUEUE_MODE_NUM_1:
+                handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
+                [[fallthrough]];
+            default:
+                break;
+        }
+        if (handSuccessNum > 0) {
+            DEV_VERBOSE_DEBUG("Hand success num : %d.", handSuccessNum);
+        }
+        return handSuccessNum;
+    }
+
+    inline int HandShakeByReg(int64_t dotStatus) {
+        int handShakeNum = 0;
+        int mngAicoreNum = aicEnd_ - aicStart_ + aivEnd_ - aivStart_;
+        bool handFlag[MAX_AICORE_NUM] = {false};
+        bool ignoreFlag[MAX_AICORE_NUM] = {false};
+        int64_t start_cycles = GetCycles();
+        while (handShakeNum < mngAicoreNum) {
+            handShakeNum += CheckHandShakeFlag(handFlag, ignoreFlag, dotStatus);
+            if (GetCycles() - start_cycles > TIMEOUT_CYCLES) {
+                DEV_ERROR("Hand shake by reg timeout.\n");
+                DEV_IF_DEBUG {
+                    for (int i = aicStart_; i < aicEnd_; i++) {
+                        if (handFlag[i]) {
+                            DEV_DEBUG("Aic core %d hand shake success.", i);
+                        } else {
+                            DEV_DEBUG("Aic core %d hand shake timeout.", i);    
+                        }
+                    }
+                    for (int i = aivStart_; i < aivEnd_; i++) {
+                        if (handFlag[i]) {
+                            DEV_DEBUG("Aiv core %d hand shake success.", i);
+                        } else {
+                            DEV_DEBUG("Aiv core %d hand shake timeout.", i);    
+                        }
+                    }
+                }
+                return -1;
+            }
+        }
+        return DEVICE_MACHINE_OK;
+    }
+
     void ResetShakeBuf(int coreIdx) {
         args_[coreIdx]->shakeBuffer[0] = 0;
         args_[coreIdx]->shakeBuffer[SHAK_BUF_COREFUNC_DATA_INDEX] = 0;
@@ -443,8 +573,11 @@ public:
     }
 private:
     int64_t sharedBuffer_;
-
     int64_t* regAddrs_{nullptr};
+    int aicStart_{0};
+    int aicEnd_{0};
+    int aivStart_{0};
+    int aivEnd_{0};
 
     std::array<volatile KernelArgs*, MAX_AICORE_NUM> args_;
 
@@ -457,7 +590,7 @@ private:
     std::array<std::deque<uint64_t>, MAX_AICORE_NUM> taskTimes;
 
     std::array<int, MAX_AICORE_NUM> blockIdToPhyCoreId_;
-
+    std::array<bool, MAX_AICORE_NUM> *validCore_{nullptr};
     AiCoreProf *aicoreProf_{nullptr};
     CostModel::AiCoreModel *costModel_{nullptr};
 };

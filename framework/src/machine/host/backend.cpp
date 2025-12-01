@@ -406,7 +406,7 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         auto attr = func->GetDynloopAttribute();
         ASSERT(attr != nullptr);
         if (attr->submitBeforeLoop) {
-            controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_FINISH); // force submit before LOOP \n";
+            controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_LOOP_BARRIER); // force submit before LOOP \n";
         }
 
         auto currDynFuncAttr = Program::GetInstance().GetCurrentDynamicFunction()->GetDyndevAttribute();

@@ -224,7 +224,6 @@ INLINE void PmuTestEnd(__gm__ KernelArgs *args) {
 }
 
 #define FuncNum(id)      TaskID(id)
-
 INLINE void ExecStaticCoreFunctionKernel(ExecuteContext *ctx, uint32_t taskId) {
 #if PROF_DFX_HOST_PREPARE_MEMORY_MODE != 1
     static int32_t taskDfxPos = REG_LOW_TASK_PING;

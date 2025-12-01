@@ -1341,7 +1341,7 @@ void DeviceExecuteContext::DumpDeviceTask(uint64_t taskId, DynDeviceTask *device
     }
 }
 
-void DeviceExecuteContext::SubmitToAicoreAndRecycleMemory(bool withoutTail) {
+void DeviceExecuteContext::SubmitToAicoreAndRecycleMemory(bool withoutTail, bool isLastTask) {
     DEV_VERBOSE_DEBUG("submit stitch task.");
     DEV_TRACE_DEBUG(DEvent(taskId, DActSubmit(stitchContext.Size())));
     AutoScopedPerf asp(PERF_EVT_SUBMIT_AICORE);
@@ -1372,6 +1372,7 @@ void DeviceExecuteContext::SubmitToAicoreAndRecycleMemory(bool withoutTail) {
 
     PROF_STAGE_BEGIN(PERF_EVT_STAGE_BUILD_TASK, "BuildDeviceTaskData.before\n");
     DynDeviceTask *dynTask = taskContext.BuildDeviceTaskData(stitchContext, taskId, devProg, withoutTail);
+    dynTask->SetLastTask(isLastTask);
     PROF_STAGE_END(PERF_EVT_STAGE_BUILD_TASK, "BuildDeviceTaskData.after\n");
 
     PROF_STAGE_BEGIN(PERF_EVT_DEALLOCATE_WORKSPACE, "RecycleTensorWorkspace.before\n");
@@ -1443,9 +1444,9 @@ void *DeviceExecuteContext::CallRootFunctionStitch(uint64_t rootKey) {
             return RUNTIME_FUNCRET_CACHESTOP_CONTINUE;
         }
     }
-    if (rootKey == RUNTIME_FUNCKEY_FINISH) {
-        DEV_INFO("Finish stitch loop.");
-        SubmitToAicoreAndRecycleMemory(false);
+    if (rootKey == RUNTIME_FUNCKEY_FINISH || rootKey == RUNTIME_FUNCKEY_LOOP_BARRIER) {
+        DEV_INFO("Finish stitch loop %lu.", rootKey);
+        SubmitToAicoreAndRecycleMemory(false, rootKey == RUNTIME_FUNCKEY_FINISH ? true : false);
         return nullptr;
     }
 
