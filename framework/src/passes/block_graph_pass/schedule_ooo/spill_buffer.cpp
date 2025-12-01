@@ -822,28 +822,57 @@ Status OoOScheduler::GenBufferSpill(IssueEntryPtr allocIssue) {
     return SUCCESS;
 }
 
-Status OoOScheduler::GenSpillOp(LocalBufferPtr allocBuffer, size_t &pcIdx) {
-    APASS_LOG_DEBUG_F(Elements::Operation, "---> START: SPILL tensor.");
-    if (allocBuffer->memType != MemoryType::MEM_L1 && allocBuffer->memType != MemoryType::MEM_UB) {
-        if (PrintSpillFailedInfo(issueEntries[pcIdx]) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "PrintSpillFailedInfo failed; Please check the PrintSpillFailedInfo method. %s", GetFormatBacktrace(issueEntries[pcIdx]->tileOp).c_str());
+Status OoOScheduler::GenSpillOp(LocalBufferPtr allocBuffer, size_t &pcIdx) {	
+    APASS_LOG_DEBUG_F(Elements::Operation, "---> START: SPILL tensor.");	
+    if (allocBuffer->memType != MemoryType::MEM_L1 && allocBuffer->memType != MemoryType::MEM_UB) {	
+        if (PrintSpillFailedInfo(issueEntries[pcIdx]) != SUCCESS) {	
+            APASS_LOG_ERROR_F(Elements::Operation, "PrintSpillFailedInfo failed; Please check the PrintSpillFailedInfo method.");	
+            return FAILED;	
+        }	
+        APASS_LOG_ERROR_F(Elements::Operation, "Buffer[L0A/B/C] is Full. Please check tile shape and OOO spill failed info.");	
+        return FAILED;	
+    }	
+    // 选择最晚被使用的spill 单个或多个tensor	
+    std::vector<int> spillGroup;	
+    SelectSpillBuffers(allocBuffer, issueEntries[pcIdx], spillGroup, true);
+    if (spillGroup.empty()) {	
+        MemoryType memType = allocBuffer->memType;	
+        std::vector<int> memIds = bufferManagerMap[memType].GetAddrSortedBufs();	
+        for (auto memId : memIds) {	
+            auto spillIssue = GetBufLastWriteIssue(issueEntries[pcIdx], memId);	
+            if (spillIssue->tileOp.GetOpcode() == Opcode::OP_VIEW || spillIssue->tileOp.GetOpcode() == Opcode::OP_ASSEMBLE) {	
+                continue;
+            }
+            if (spillIssue->tileOp.GetOpcodeStr().find("ALLOC") != std::string::npos) {
+                bufferManagerMap[memType].Free(memId);
+                continue;
+            }
+            SpillInfo spillInfo;
+            if (GetSpillInfo(issueEntries[pcIdx], memId, true, spillInfo) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation, "GetSpillInfo failed; Please check the GetSpillInfo method.");
+                return FAILED;
+            }
+            if (SpillBuffer(spillInfo, issueEntries[pcIdx], pcIdx, allocBuffer, true) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation, "SpillBuffer[%d] failed.", memId);
+                return FAILED;
+            }
+        }
+        if (!HasEnoughBuffer(issueEntries[pcIdx], memType)) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Spill all buffer failed!");
+            if (PrintSpillFailedInfo(issueEntries[pcIdx]) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation, "PrintSpillFailedInfo failed; Please check the PrintSpillFailedInfo method.");
+                return FAILED;
+            }
             return FAILED;
         }
-        APASS_LOG_ERROR_F(Elements::Operation, "Buffer[L0A/B/C] is Full. Please check tile shape and OOO spill failed info. %s", GetFormatBacktrace(issueEntries[pcIdx]->tileOp).c_str());
-        return FAILED;
-    }
-    // 选择最晚被使用的spill 单个或多个tensor
-    std::vector<int> spillGroup;
-    SelectSpillBuffers(allocBuffer, issueEntries[pcIdx], spillGroup, true);
-    if (spillGroup.empty()) {
-        return FAILED;
-    }
-    if (SpillMultiBuffer(issueEntries[pcIdx], spillGroup, pcIdx, allocBuffer, true) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "SpillMultiBuffer failed! %s", GetFormatBacktrace(issueEntries[pcIdx]->tileOp).c_str());
-        return FAILED;
-    }
-    APASS_LOG_DEBUG_F(Elements::Operation, "---> END: SPILL tensor.");
-    return SUCCESS;
+    } else {
+        if (SpillMultiBuffer(issueEntries[pcIdx], spillGroup, pcIdx, allocBuffer, true) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "SpillMultiBuffer failed!");
+            return FAILED;
+        }
+    }	
+    APASS_LOG_DEBUG_F(Elements::Operation, "---> END: SPILL tensor.");	
+    return SUCCESS;	
 }
 
 } // namespace npu::tile_fwk
