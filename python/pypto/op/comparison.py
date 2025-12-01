@@ -9,7 +9,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """PyPTO"""
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 from .. import pto_impl
 
@@ -19,7 +19,7 @@ from ..tensor import Tensor
 
 
 @op_wrapper
-def greater(input: Tensor, other: Tensor) -> Tensor:
+def greater(input: Tensor, other: Union[Tensor, float]) -> Tensor:
     """Performs element-wise comparison between `input` and `other`.
 
     Parameters
@@ -27,7 +27,7 @@ def greater(input: Tensor, other: Tensor) -> Tensor:
     input : Tensor
         The first input tensor.
     other : Tensor
-        The second input tensor for comparison.
+        The second input tensor or a scalar value for comparison.
 
     Returns
     -------
@@ -38,7 +38,7 @@ def greater(input: Tensor, other: Tensor) -> Tensor:
     Raises
     ------
     TypeError
-        If `other` is not a Tensor.
+        If `other` is neither a Tensor nor a scalar number.
 
 
     Examples
@@ -52,6 +52,9 @@ def greater(input: Tensor, other: Tensor) -> Tensor:
     Output out: [False False True]
 
     """
+    if isinstance(other, float):
+        # Tensor vs Scalar comparison
+        return pto_impl.Compare(input, pto_impl.Element(input.dtype, other), OpType.GT, OutType.BOOL)
     return pto_impl.Compare(input, other, OpType.GT, OutType.BOOL)
 
 

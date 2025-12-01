@@ -402,6 +402,18 @@ void bind_operation(py::module &m) {
         },
         py::arg("operand1"), py::arg("operand2"), py::arg("operation"), py::arg("mode"), "Tensor compare.");
     m.def(
+        "Compare",
+        [](const Tensor &self, const Element &other, OpType op, OutType mode) {
+            return npu::tile_fwk::Compare(self, other, op, mode);
+        },
+        py::arg("operand"), py::arg("scalar"), py::arg("operation"), py::arg("mode"), "Tensor compare.");
+    m.def(
+        "Compare",
+        [](const Element &self, const Tensor &other, OpType op, OutType mode) {
+            return npu::tile_fwk::Compare(self, other, op, mode);
+        },
+        py::arg("scalar"), py::arg("operand"), py::arg("operation"), py::arg("mode"), "Tensor compare.");
+    m.def(
         "Assemble",
         [](const std::vector<std::pair<Tensor, std::vector<int64_t>>> &tensor_int_pairs) {
             return npu::tile_fwk::Assemble(tensor_int_pairs);

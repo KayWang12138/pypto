@@ -168,6 +168,8 @@ stest:
       - TestFull/FullOperationTest.TestFull/9
       - TestLogicalNot/LogicalNotOperationTest.TestLogicalNot/1
       - TestLogicalNot/LogicalNotOperationTest.TestLogicalNot/4
+      - TestCompare/CompareOperationTest.TestCompare/1
+      - TestCompare/CompareOperationTest.TestCompare/13
       - TestExpand/ExpandOperationTest.TestExpand/4
       - TestExpand/ExpandOperationTest.TestExpand/20
       - TestMinimum/MinimumOperationTest.TestMinimum/12
