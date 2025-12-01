@@ -10,6 +10,7 @@
 # -----------------------------------------------------------------------------------------------------------
 """Python3环境分析.
 """
+import os
 import sys
 import argparse
 import logging
@@ -24,6 +25,7 @@ class Analysis:
         self.interpreter_version: str = self._get_interpreter_version()
         self.py_mod_pybind11_cmake_dir: str = self._get_py_mod_pybind11_dir()
         self.py_mod_torch_version: str = ""
+        self.py_mod_torch_root_dir: str = ""
         self.py_mod_torch_cmake_dir: str = ""
         self.py_mod_torch_c_use_cxx11_abi: int = 1
         self._init_torch_param()
@@ -35,11 +37,12 @@ class Analysis:
         desc += f"\n  Output  : {self.output}"
         desc += f"\n  Python3 : {sys.executable} ({ver.major}.{ver.minor}.{ver.micro})"
         desc += f"\n    pybind11"
-        desc += f"\n      CMake_Dir                : {self.py_mod_pybind11_cmake_dir}"
+        desc += f"\n      CMake_Dir                 : {self.py_mod_pybind11_cmake_dir}"
         desc += f"\n    torch"
-        desc += f"\n      Version                  : {self.py_mod_torch_version}"
-        desc += f"\n      CMake_Dir                : {self.py_mod_torch_cmake_dir}"
-        desc += f"\n      C._GLIBCXX_USE_CXX11_ABI : {self.py_mod_torch_c_use_cxx11_abi}"
+        desc += f"\n      Version                   : {self.py_mod_torch_version}"
+        desc += f"\n      CMake_Dir                 : {self.py_mod_torch_cmake_dir}"
+        desc += f"\n      Root_Dir                  : {self.py_mod_torch_root_dir}"
+        desc += f"\n      _C._GLIBCXX_USE_CXX11_ABI : {self.py_mod_torch_c_use_cxx11_abi}"
         return desc
 
     @staticmethod
@@ -92,11 +95,10 @@ class Analysis:
                 '\n',
             ]
         if self.py_mod_torch_version:
-            py_mod_torch_root_path: Path = Path(self.py_mod_torch_cmake_dir, "../../")
             lines += [
                 f'\n# Python3 module pybind11',
                 f'\nset(PY3_MOD_TORCH_VERSION "{self.py_mod_torch_version}")',
-                f'\nget_filename_component(PY3_MOD_TORCH_ROOT_PATH "{py_mod_torch_root_path}" REALPATH)',
+                f'\nget_filename_component(PY3_MOD_TORCH_ROOT_PATH "{self.py_mod_torch_root_dir}" REALPATH)',
                 f'\nget_filename_component(PY3_MOD_TORCH_CMAKE_DIR "{self.py_mod_torch_cmake_dir}" REALPATH)',
                 f'\nset(PY3_MOD_TORCH_C_GLIBCXX_USE_CXX11_ABI {self.py_mod_torch_c_use_cxx11_abi})',
                 '\nmessage(STATUS "PY3_MOD_TORCH_VERSION=${PY3_MOD_TORCH_VERSION}")',
@@ -109,13 +111,18 @@ class Analysis:
             f.writelines(lines)
 
     def _init_torch_param(self):
+        os_env = os.environ.copy()
         try:
+            os.environ["TORCH_DEVICE_BACKEND_AUTOLOAD"] = "0"
             import torch
             self.py_mod_torch_version = str(torch.__version__)
+            self.py_mod_torch_root_dir = str(Path(torch.__file__).parent)
             self.py_mod_torch_cmake_dir = str(Path(torch.utils.cmake_prefix_path).resolve())
             self.py_mod_torch_c_use_cxx11_abi = int(torch._C._GLIBCXX_USE_CXX11_ABI)
         except (ModuleNotFoundError or ImportError):
             pass
+        finally:
+            os.environ = os_env
 
 
 if __name__ == "__main__":

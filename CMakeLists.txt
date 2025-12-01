@@ -69,6 +69,7 @@ option(ENABLE_STEST_TOOLS_PROF_MAX_CNT "Specify STest Tools Profiling Max cnt" O
 # 缺省编译配置, 编译函数
 find_package(Threads REQUIRED)
 include(ExternalProject)
+include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 include(cmake/func.cmake)
 include(cmake/config.cmake)
@@ -96,15 +97,15 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
     set(InstallTargets tile_fwk_interface tile_fwk_codegen tile_fwk_compiler tile_fwk_simulation tile_fwk_simulation_ca)
     if (BUILD_WITH_CANN)
         list(APPEND InstallTargets tile_fwk_runtime)
-        install(TARGETS tile_fwk_server LIBRARY DESTINATION "${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}")
-        install(TARGETS pypto_ctrl_server ARCHIVE DESTINATION "${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}")
-    else ()
-        get_target_property(cSecSharedFile c_sec_shared IMPORTED_LOCATION)
-        install(FILES ${cSecSharedFile}
-                DESTINATION "${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}"
-                PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
-        )
+        install(TARGETS tile_fwk_server LIBRARY DESTINATION "${ENABLE_FEATURE_PYTHON_FRONT_END}/lib")
+        install(TARGETS pypto_ctrl_server ARCHIVE DESTINATION "${ENABLE_FEATURE_PYTHON_FRONT_END}/lib")
     endif ()
+    # 不判断 c_sec_shared 存在, 不存在时属异常场景, 应在构建阶段发现
+    get_target_property(cSecSharedFile c_sec_shared IMPORTED_LOCATION)
+    install(FILES ${cSecSharedFile}
+            DESTINATION "${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}"
+            PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
+    )
     if (ENABLE_TORCH_VERIFIER)
         list(APPEND InstallTargets tile_fwk_calculator)
     endif()
@@ -114,7 +115,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
     )
     PTO_Fwk_InstallBinaries(
             TARGETS         pto_impl
-            INSTALL_LIBDIR  ${CMAKE_INSTALL_PREFIX}/${ENABLE_FEATURE_PYTHON_FRONT_END}
+            INSTALL_LIBDIR  ${ENABLE_FEATURE_PYTHON_FRONT_END}
     )
 
     # 安装 配置文件
@@ -122,12 +123,12 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
                 framework/src/interface/configs/tile_fwk_config.json
                 framework/src/interface/configs/tile_fwk_config_schema.json
                 framework/src/passes/pass_config/tile_fwk_platform_info.json
-            DESTINATION ${CMAKE_INSTALL_PREFIX}/${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}/configs
+            DESTINATION ${ENABLE_FEATURE_PYTHON_FRONT_END}/lib/configs
     )
 
     # 安装 头文件
     install(DIRECTORY framework/include/
-            DESTINATION ${CMAKE_INSTALL_PREFIX}/${ENABLE_FEATURE_PYTHON_FRONT_END}/include
+            DESTINATION ${ENABLE_FEATURE_PYTHON_FRONT_END}/include
             PATTERN "*.h"
             PATTERN "*.hpp"
             PATTERN ".svn" EXCLUDE
@@ -135,21 +136,21 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
             PATTERN "gentask_utils.h" EXCLUDE
     )
     install(DIRECTORY framework/src/interface/tileop/
-            DESTINATION ${CMAKE_INSTALL_PREFIX}/${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}/include/tileop
+            DESTINATION ${ENABLE_FEATURE_PYTHON_FRONT_END}/lib/include/tileop
             PATTERN "*.h"
             PATTERN "*.hpp"
             PATTERN ".svn" EXCLUDE
             PATTERN ".git" EXCLUDE
     )
     install(DIRECTORY framework/src/cost_model/simulation_ca/mock/
-            DESTINATION ${CMAKE_INSTALL_PREFIX}/${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}/include/mock
+            DESTINATION ${ENABLE_FEATURE_PYTHON_FRONT_END}/lib/include/mock
             PATTERN "*.h"
             PATTERN "*.hpp"
             PATTERN ".svn" EXCLUDE
             PATTERN ".git" EXCLUDE
     )
     install(DIRECTORY framework/src/interface/machine/device/tilefwk/
-            DESTINATION ${CMAKE_INSTALL_PREFIX}/${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}/include/tilefwk
+            DESTINATION ${ENABLE_FEATURE_PYTHON_FRONT_END}/lib/include/tilefwk
             PATTERN "*.h"
             PATTERN "*.hpp"
             PATTERN ".svn" EXCLUDE
@@ -159,7 +160,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
     # 生成和安装配置文件
     PTO_Fwk_InstallCMakeConfig(
             EXPORT              ${InstallExport}
-            CMAKE_PARENT_DIR    ${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}
+            CMAKE_PARENT_DIR    ${ENABLE_FEATURE_PYTHON_FRONT_END}/lib
             TARGETS             ${InstallTargets}
     )
 

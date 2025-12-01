@@ -83,7 +83,7 @@ ExternalProject_Add(ExternalProject_GTest   ${_ExtArgs}
 file(MAKE_DIRECTORY ${_TargetInstallPrefix}/include)
 add_library(gtest_static STATIC IMPORTED)
 set_target_properties(gtest_static PROPERTIES
-        IMPORTED_LOCATION "${_TargetInstallPrefix}/lib/libgtest.a"
+        IMPORTED_LOCATION "${_TargetInstallPrefix}/${CMAKE_INSTALL_LIBDIR}/libgtest.a"
 )
 add_library(GTest::gtest INTERFACE IMPORTED)
 set_target_properties(GTest::gtest PROPERTIES

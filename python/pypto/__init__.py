@@ -13,31 +13,45 @@
 
 
 def load_shared_libs():
+    import os
     import ctypes
     from pathlib import Path
     from importlib import metadata
+    from typing import List, Any
 
     cur_dir: Path = Path(str(metadata.distribution("pypto").locate_file("pypto"))).resolve()
-    lib_dir: Path = Path(cur_dir, "lib64")
-    lib_dir = lib_dir if lib_dir.exists() else Path(cur_dir, "lib")
+    lib_dir: Path = Path(cur_dir, "lib")
+    use_cann: bool = bool(os.environ.get("ASCEND_HOME_PATH"))
 
-    c_sec_path: Path = Path(lib_dir, "libc_sec.so")
-    if c_sec_path.exists():
-        ctypes.CDLL(str(c_sec_path), mode=ctypes.RTLD_GLOBAL)
+    def _load_shared_lib(_desc: List[Any]):
+        _name: str = _desc[0]
+        _load: bool = _desc[1]
+        if not _load:
+            return
+        _file: Path = Path(lib_dir, _name)
+        if not _file.exists():
+            return
+        ctypes.CDLL(str(_file), mode=ctypes.RTLD_GLOBAL)
 
-    calc_path: Path = Path(lib_dir, "libtile_fwk_calculator.so")
-    if calc_path.exists():
+    _load_shared_lib(_desc=["libc_sec.so", not use_cann, ])
+
+    calc_file: Path = Path(lib_dir, "libtile_fwk_calculator.so")
+    if calc_file.exists():
         import torch
         # calculator.so depends on torch, so load it after torch
-        ctypes.CDLL(str(calc_path), mode=ctypes.RTLD_LOCAL)
+        ctypes.CDLL(str(calc_file), mode=ctypes.RTLD_LOCAL)
 
-    libs = ["libtile_fwk_interface.so", "libtile_fwk_codegen.so",
-            "libtile_fwk_compiler.so", "libtile_fwk_runtime.so",
-            "libtile_fwk_simulation.so", "libtile_fwk_simulation_ca.so"]
-    for name in libs:
-        lib: Path = Path(lib_dir, name)
-        if lib.exists():
-            ctypes.CDLL(str(lib), mode=ctypes.RTLD_GLOBAL)
+    # name, load
+    desc_lst: List[List[Any]] = [
+        ["libtile_fwk_interface.so", True, ],
+        ["libtile_fwk_codegen.so", True, ],
+        ["libtile_fwk_compiler.so", True, ],
+        ["libtile_fwk_runtime.so", use_cann, ],
+        ["libtile_fwk_simulation.so", True, ],
+        ["libtile_fwk_simulation_ca.so", True, ],
+    ]
+    for desc in desc_lst:
+        _load_shared_lib(_desc=desc)
 
 
 load_shared_libs()

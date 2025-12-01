@@ -8,7 +8,36 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-if (NOT BUILD_OPEN_PROJECT OR BUILD_WITH_CANN)
+if (NOT BUILD_OPEN_PROJECT)
+    return()
+endif ()
+
+if (BUILD_WITH_CANN AND DEFINED ENV{LD_LIBRARY_PATH})
+    set(LD_LIBRARY_PATH $ENV{LD_LIBRARY_PATH})
+    string(REPLACE ":" ";" LIBRARY_PATHS "${LD_LIBRARY_PATH}")
+    if (NOT LIBRARY_PATHS)
+        message(FATAL_ERROR "BUILD_WITH_CANN but ENV{LD_LIBRARY_PATH} empty.")
+        return()
+    endif ()
+    find_library(c_sec_LIBRARY
+            NAMES c_sec
+            PATHS ${LIBRARY_PATHS}
+            NO_DEFAULT_PATH
+            NO_CMAKE_ENVIRONMENT_PATH
+            NO_CMAKE_PATH
+            NO_SYSTEM_ENVIRONMENT_PATH
+            NO_CMAKE_SYSTEM_PATH
+    )
+    if (NOT c_sec_LIBRARY)
+        message(WARNING "Can't find c_sec from ENV{LD_LIBRARY_PATH}=$ENV{LD_LIBRARY_PATH}")
+        return()
+    endif ()
+    get_filename_component(c_sec_LIBRARY "${c_sec_LIBRARY}" REALPATH)
+    add_library(c_sec_shared SHARED IMPORTED)
+    set_target_properties(c_sec_shared PROPERTIES
+            IMPORTED_LOCATION ${c_sec_LIBRARY}
+    )
+    message(STATUS "Use c_sec from binary, c_sec_shared: ${c_sec_LIBRARY}")
     return()
 endif ()
 

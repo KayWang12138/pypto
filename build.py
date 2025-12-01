@@ -24,6 +24,8 @@ import subprocess
 import json
 import math
 import dataclasses
+import importlib.util
+
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List, Dict, Tuple, Any
@@ -172,7 +174,6 @@ class BuildParam(CMakeParam):
     ubsan: bool = False  # 使能 UndefinedBehaviorSanitizer
     gcov: bool = False  # 使能 GNU Coverage
     clang_install_path: Optional[Path] = None  # Clang 安装位置
-    open_source_path: Optional[Path] = None # 存储其他开源软件的路径
 
     def __init__(self, args, feature: FeatureParam):
         self.targets = args.targets
@@ -756,11 +757,11 @@ class BuildCtrl:
         self.tests: TestsParam = TestsParam(args=args)
         self.model: ModelParam = ModelParam(args=args)
         if args.third_party_path is None:
-            self.open_source_path = self.build_root / "third_party_path"
+            self.third_party_path = self.build_root / "third_party_path"
         elif args.third_party_path == "":
-            self.open_source_path = None
+            self.third_party_path = None
         else:
-            self.open_source_path = Path(args.third_party_path).resolve()
+            self.third_party_path = Path(args.third_party_path).resolve()
 
     def __str__(self):
         ver = sys.version_info
@@ -771,7 +772,7 @@ class BuildCtrl:
         desc += f"\n    Source  Dir             : {self.src_root}"
         desc += f"\n    Build   Dir             : {self.build_root}"
         desc += f"\n    Install Dir             : {self.install_root}"
-        desc += f"\n    3rd     Dir             : {self.open_source_path}"
+        desc += f"\n    3rd     Dir             : {self.third_party_path}"
         desc += f"{self.feature}"
         desc += f"{self.build}"
         desc += f"{self.tests}"
@@ -866,6 +867,9 @@ class BuildCtrl:
         # 流程处理
         # 区分 python3 前端和 cpp 前端
         logging.info("%s", ctrl)
+        if not ctrl.check_dependencies():
+            logging.error("Dependencies check failed.")
+            return
         if ctrl.feature.frontend_type_python3:
             logging.info("Front-end(python3), start process with %s", MetaHelper.build_backend())
             ctrl.py_clean()
@@ -916,10 +920,29 @@ class BuildCtrl:
         ret.check_returncode()
         logging.info("Success install %s%s", whl, f" to {path}" if path else "")
 
+    def check_dependencies(self) -> bool:
+        """检查构建依赖"""
+        # 公共依赖检查
+        # python 场景依赖检查
+        if self.feature.frontend_type_python3:
+            ori_sys_path: List[Any] = sys.path.copy()
+            try:
+                cur_dir: str = str(Path(__file__).parent.resolve())
+                if cur_dir in sys.path:
+                    sys.path.remove(cur_dir)
+                # 检查 build
+                build_spec = importlib.util.find_spec("build")
+                if not build_spec:
+                    logging.error("Missing dependencies: build, need to install it with pip.")
+                    return False
+            finally:
+                sys.path[:] = ori_sys_path
+        return True
+
     def get_cfg_update_env(self) -> Dict[str, str]:
         env: Dict[str, str] = {}
-        if self.open_source_path:
-            env.update({"PYPTO_THIRD_PARTY_PATH": self.open_source_path})
+        if self.third_party_path:
+            env.update({"PYPTO_THIRD_PARTY_PATH": self.third_party_path})
         return env
 
     def cmake_clean(self):
@@ -999,19 +1022,20 @@ class BuildCtrl:
     def py_build(self):
         # 基本配置
         cmake_args = f"{self.build.get_cfg_cmd()}"
-        cmd: str = f"{sys.executable} setup.py"
-        cmd += f" bdist_wheel"
-        cmd += f" --dist-dir={self.install_root}"
-        cmd += f" --plat-name={self.feature.whl_plat_name}" if self.feature.whl_plat_name else ""
+        update_env: Dict[str, str] = self.get_cfg_update_env()
+
+        cmd: str = f"{sys.executable} -I -m build --no-isolation --outdir={self.install_root} --wheel"
+        cmd += f" --config-setting=--build-option='"
+        cmd += f" bdist_wheel --plat-name={self.feature.whl_plat_name}" if self.feature.whl_plat_name else ""
         cmd += f" build"
         cmd += f" --build-base={self.build_root.name}"
         cmd += f" --parallel={self.build.job_num}" if self.build.job_num else ""
         cmd += f" build_ext"
-        cmd += f" --clean-first" if self.build.clean else ""
-        cmd += f" --cmake-args='{cmake_args}'" if cmake_args else ""
+        cmd += f" --cmake-args=\"{cmake_args}\"" if cmake_args else ""
         cmd += f" --backend={self.feature.backend_type}"
         cmd += f" --disable-install-strip" if self.build.disable_install_strip else ""
-        update_env: Dict[str, str] = self.get_cfg_update_env()
+        cmd += f"'"
+
         ts = datetime.now(tz=timezone.utc)
         logging.info("Begin Build whl, Cmd: %s", cmd)
         ret = self.run_build_cmd(cmd=cmd, update_env=update_env, check=True, timeout=self.build.timeout)

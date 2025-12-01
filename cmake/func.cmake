@@ -174,38 +174,6 @@ function(PTO_Fwk_InstallBinaries)
     cmake_parse_arguments(
             ARG
             ""
-            "EXPORT"
-            "TARGETS"
-            ""
-            ${ARGN}
-    )
-    # 设置 二进制文件 导出属性
-    foreach (Target ${ARG_TARGETS})
-        set_target_properties(${Target}
-                PROPERTIES
-                    IMPORTED_LOCATION   "$<TARGET_FILE:${Target}>"
-                    OUTPUT_NAME         "${Target}"
-        )
-    endforeach ()
-    # 安装 二进制文件
-    set(_InstallBinDir ${CMAKE_INSTALL_BINDIR})
-    set(_InstallLibDir ${CMAKE_INSTALL_LIBDIR})
-    if (ENABLE_FEATURE_PYTHON_FRONT_END)
-        set(_InstallBinDir "${ENABLE_FEATURE_PYTHON_FRONT_END}/${_InstallBinDir}")
-        set(_InstallLibDir "${ENABLE_FEATURE_PYTHON_FRONT_END}/${_InstallLibDir}")
-    endif ()
-    install(TARGETS ${ARG_TARGETS}
-            EXPORT ${ARG_EXPORT}
-            RUNTIME DESTINATION ${_InstallBinDir}
-            LIBRARY DESTINATION ${_InstallLibDir}
-            ARCHIVE DESTINATION ${_InstallLibDir}
-    )
-endfunction()
-
-function(PTO_Fwk_InstallBinaries)
-    cmake_parse_arguments(
-            ARG
-            ""
             "EXPORT;INSTALL_BINDIR;INSTALL_LIBDIR"
             "TARGETS"
             ""
@@ -230,7 +198,7 @@ function(PTO_Fwk_InstallBinaries)
     if (ARG_INSTALL_LIBDIR)
         set(_InstallLibDir ${ARG_INSTALL_LIBDIR})
     elseif (ENABLE_FEATURE_PYTHON_FRONT_END)
-        set(_InstallLibDir "${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}")
+        set(_InstallLibDir "${ENABLE_FEATURE_PYTHON_FRONT_END}/lib")
     else ()
         set(_InstallLibDir ${CMAKE_INSTALL_LIBDIR})
     endif ()

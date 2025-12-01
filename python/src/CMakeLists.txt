@@ -39,3 +39,6 @@ target_link_libraries(pto_impl
             intf_pub_cxx17
             tile_fwk_intf_pub
 )
+if (TARGET c_sec_shared)
+    add_dependencies(pto_impl c_sec_shared)
+endif ()

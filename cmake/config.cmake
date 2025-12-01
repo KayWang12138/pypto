@@ -162,13 +162,9 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PTO_FWK_BIN_OUTPUT_ROOT}/lib)     # 设置�
 # 安装阶段(Install)
 #   安装路径
 #       未显示设置 CMAKE_INSTALL_PREFIX (即 CMAKE_INSTALL_PREFIX 取缺省值)时, 设置与构建树根目录 CMAKE_CURRENT_BINARY_DIR 平级
-include(GNUInstallDirs)
 if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
     get_filename_component(_Install_Path_Prefix "${CMAKE_CURRENT_BINARY_DIR}/../output" REALPATH)
     set(CMAKE_INSTALL_PREFIX    "${_Install_Path_Prefix}"  CACHE STRING "Install path" FORCE)
-endif ()
-if (ENABLE_FEATURE_PYTHON_FRONT_END)
-    set(CMAKE_INSTALL_LIBDIR lib)  # 与 whl 包内二进制查找路径兼容
 endif ()
 message(STATUS "CMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}")
 
@@ -272,7 +268,6 @@ endif ()
 
 # torch optional
 if (ENABLE_TESTS OR ENABLE_FEATURE_PYTHON_FRONT_END)
-    message(STATUS "PY3_MOD_TORCH_VERSION=${PY3_MOD_TORCH_VERSION}")
     if ("${PY3_MOD_TORCH_VERSION}" STRGREATER_EQUAL "2.1.0")
         set(ENABLE_TORCH_VERIFIER ON)
     endif()

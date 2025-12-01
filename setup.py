@@ -17,6 +17,7 @@ import shlex
 import sys
 import subprocess
 import shutil
+import warnings
 
 from typing import Optional, Any, List
 from pathlib import Path
@@ -210,6 +211,8 @@ class SetupCtrl:
     def main(cls):
         """主处理流程
         """
+        # 出于兼容 setuptools 多版本角度考虑, 同时保留 pyproject.toml 和 setup 中对 install_requires 的配置
+        warnings.filterwarnings("ignore", message=".*install_requires.*overwritten.*")
         # Setuptools 配置
         setup(
             # 基本元数据
