@@ -74,8 +74,8 @@ void TiledWhereOperation(Function &function, const TileShape &tileShape, size_t 
             auto &op = function.AddOperation(Opcode::OP_WHERE_SS, {conditionTile},
                                 {resultTile, castConditionTensor, compareConditionTensor,
                                 vcmpBitResultTensor, startAddrUBTensor, inputTempTensor, otherTempTensor});
-            op.SetAttribute(OpAttributeKey::scalar, input);
-            op.SetAttribute(OpAttributeKey::dynScalar, other);
+            std::vector<Element> scalars = {input, other};
+            op.SetAttribute(OpAttributeKey::vectorScalar, scalars);
             op.SetAttribute(OP_ATTR_PREFIX + "whereBitMode", static_cast<int64_t>(whereBitMode));
         }
         return;
@@ -394,8 +394,8 @@ LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &conditio
     }
     auto result = std::make_shared<LogicalTensor>(function, input.GetDataType(), resultShape, resultValidShape);
     auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_WHERE_SS, {conditionT0}, {result}, {resultValidShape});
-    op.SetAttribute(OpAttributeKey::scalar, input);
-    op.SetAttribute(OpAttributeKey::dynScalar, other);
+    std::vector<Element> scalars = {input, other};
+    op.SetAttribute(OpAttributeKey::vectorScalar, scalars);
     return result;
 }
 
@@ -442,8 +442,8 @@ void WhereOperationTileFuncST(Function &function, const TileShape &tileShape,
 void WhereOperationTileFuncSS(Function &function, const TileShape &tileShape,
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
     [[maybe_unused]] const Operation &op) {
-    TiledWhereOperation(function, tileShape, iOperand[0], op.GetElementAttribute(OpAttributeKey::scalar),
-        op.GetElementAttribute(OpAttributeKey::dynScalar), oOperand[0]);
+    TiledWhereOperation(function, tileShape, iOperand[0], op.GetVectorElementAttribute(OpAttributeKey::vectorScalar)[0],
+        op.GetVectorElementAttribute(OpAttributeKey::vectorScalar)[1], oOperand[0]);
 }
 
 REGISTER_OPERATION_TILED_FUNC(OP_WHERE_TT, Opcode::OP_WHERE_TT, WhereOperationTileFuncTT);

@@ -52,6 +52,7 @@ class OpAttributeKey {
 public:
     static const std::string aicpuCall;
     static const std::string scalar;
+    static const std::string vectorScalar;
     static const std::string dynScalar;
     static const std::string isGlobalInput;
     static const std::string seqNo;
@@ -195,6 +196,7 @@ public:
     void SetAttribute(const std::string &key, int value) { SetAttribute(key, static_cast<int64_t>(value)); }
 
     [[nodiscard]] Element GetElementAttribute(const std::string &key) const;
+    std::vector<Element> GetVectorElementAttribute(const std::string &key) const;
     void SetAttribute(const std::string &key, Element value);
 
     template<typename T = int64_t>
@@ -234,6 +236,7 @@ public:
 
     [[nodiscard]] std::vector<SymbolicScalar> GetVectorSymbolicScalarAttribute(const std::string &key) const;
     void SetAttribute(const std::string &key, const std::vector<SymbolicScalar> &value);
+    void SetAttribute(const std::string &key, const std::vector<Element> &value);
 
     [[nodiscard]] bool HasAttribute(const std::string &key) const {
         return HasAttr(key);

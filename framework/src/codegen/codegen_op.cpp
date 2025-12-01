@@ -143,11 +143,10 @@ void CodeGenOp::CheckScaleValue(const npu::tile_fwk::Operation &ops) {
         float value = extOperandVal.Cast<float>();
         checkValue(value);
     }
-    if (opAttrs.count(OpAttributeKey::dynScalar)) {
-        extOperandValSecond = ops.GetElementAttribute(OpAttributeKey::dynScalar);
-        auto scalar = opAttrs.at(OpAttributeKey::dynScalar);
-        if (scalar.Type() == typeid(float)) {
-            float value = extOperandValSecond.Cast<float>();
+    if (ops.HasAttr(OpAttributeKey::vectorScalar)) {
+        extScalarVec = ops.GetVectorElementAttribute(OpAttributeKey::vectorScalar);
+        for (auto &scalar : extScalarVec) {
+            float value = scalar.Cast<float>();
             checkValue(value);
         }
     }

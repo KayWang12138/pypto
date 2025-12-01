@@ -1346,8 +1346,8 @@ std::string CodeGenOpCloudNPU::printWhereOp(const WhereParam &param) const {
 
     std::ostringstream os;
     if (opCode == Opcode::OP_WHERE_SS) {
-        std::string src0Var = FormatFloat(extOperandVal.Cast<float>());
-        std::string src1Var = FormatFloat(extOperandValSecond.Cast<float>());
+        std::string src0Var = FormatFloat(extScalarVec[0].Cast<float>());
+        std::string src1Var = FormatFloat(extScalarVec[1].Cast<float>());
         extList.emplace_back(dataTypeExpr[0] + " (" + src0Var + ")");
         extList.emplace_back(dataTypeExpr[0] + " (" + src1Var + ")");
         auto extParam = JoinString(extList, ", ");

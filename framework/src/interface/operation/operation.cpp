@@ -36,6 +36,7 @@ const std::string OpAttributeKey::aicpuCall = "AICPU_CALL";
 const std::string OpAttributeKey::color = "COLOR";
 const std::string OpAttributeKey::scalar = "SCALAR";
 const std::string OpAttributeKey::dynScalar = "DYN_SCALAR";
+const std::string OpAttributeKey::vectorScalar = "VECTORSCALAR";
 const std::string OpAttributeKey::isGlobalInput = "IS_GLOBAL_INPUT";
 const std::string OpAttributeKey::seqNo = "SEQ_NO";
 const std::string OpAttributeKey::isCube = "IS_CUBE";
@@ -281,6 +282,18 @@ void Operation::SetAttribute(const std::string &key, const std::vector<SymbolicS
     GetAttr(key, attrVal);
     return attrVal;
 }
+
+std::vector<Element> Operation::GetVectorElementAttribute(const std::string &key) const {
+    ASSERT(HasAttr(key)) << "Operation doesn't have attribute " << key;
+    std::vector<Element> attrVal;
+    GetAttr(key, attrVal);
+    return attrVal;
+}
+
+void Operation::SetAttribute(const std::string &key, const std::vector<Element> &value) {
+    SetAttr(key, value);
+}
+
 void Operation::SetAttribute(const std::string &key, Element value) {
     SetAttr(key, value);
 }
