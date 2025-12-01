@@ -2374,6 +2374,57 @@ TILEOP void DynTscatterElementS(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *
     wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
 }
 
+template <typename T>
+INLINE void ScatterReduceOp(__ubuf__ T *dst, int dstOffset, __ubuf__ T *src2, int src2Offset, unsigned reduceOp) {
+    if (reduceOp == 0) {
+        dst[dstOffset] = src2[src2Offset];
+    } else if (reduceOp == 1) {
+        dst[dstOffset] = static_cast<float>(src2[src2Offset]) + static_cast<float>(dst[dstOffset]);
+    } else {
+        dst[dstOffset] = static_cast<float>(src2[src2Offset]) * static_cast<float>(dst[dstOffset]);
+    }
+}
+
+// 2-4dim
+template <typename T, typename T2, unsigned src1RawShape1, unsigned src1RawShape2, unsigned src1RawShape3,
+    unsigned src2RawShape1, unsigned src2RawShape2, unsigned src2RawShape3,
+    unsigned dstRawShape1, unsigned dstRawShape2, unsigned dstRawShape3, unsigned axis, unsigned reduceOp>
+TILEOP void DynTscatter(__ubuf__ T *dst, __ubuf__ T2 *src1, __ubuf__ T *src2, unsigned src1Shape0, unsigned src1Shape1,
+    unsigned src1Shape2, unsigned src1Shape3) {
+    static_assert(reduceOp < REDUCE_OP_MAX, "Unsupport reduceOp");
+    set_flag(PIPE_V, PIPE_S, EVENT_ID7);
+    wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
+    for (int i = 0; i < src1Shape0; ++i) {
+        for (int j = 0; j < src1Shape1; ++j) {
+            for (int k = 0; k < src1Shape2; ++k) {
+                for (int l = 0; l < src1Shape3; ++l) {
+                    T2 index = (T2)(*(src1 + i * src1RawShape1 * src1RawShape2 * src1RawShape3 + 
+                        j *  src1RawShape2 * src1RawShape3 + k * src1RawShape3 + l)); // index[i,j,k,l]
+                    int src2Offset = i * src2RawShape1 * src2RawShape2 * src2RawShape3 + 
+                        j *  src2RawShape2 * src2RawShape3 + k * src2RawShape3 + l;
+                    int dstOffset = 0;
+                    if constexpr (axis == 0) {
+                        dstOffset = index * dstRawShape1 * dstRawShape2 * dstRawShape3 +
+                            j * dstRawShape2 * dstRawShape3 + k * dstRawShape3 + l;
+                    } else if (axis == 1) {
+                        dstOffset = i * dstRawShape1 * dstRawShape2 * dstRawShape3 +
+                            index * dstRawShape2 * dstRawShape3 + k * dstRawShape3 + l;
+                    } else if (axis == 2) {
+                        dstOffset = i * dstRawShape1 * dstRawShape2 * dstRawShape3 +
+                            j * dstRawShape2 * dstRawShape3 + index * dstRawShape3 + l;
+                    } else {
+                        dstOffset = i * dstRawShape1 * dstRawShape2 * dstRawShape3 +
+                            j * dstRawShape2 * dstRawShape3 + k * dstRawShape3 + index;
+                    }
+                    ScatterReduceOp<T>(dst, dstOffset, src2, src2Offset, reduceOp);
+                }
+            }
+        }
+    }
+    set_flag(PIPE_S, PIPE_V, EVENT_ID7);
+    wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
+}
+
 template <typename T, unsigned DS, unsigned SS>
 TILEOP void DynTtranspose_vnchwconv_(
     __ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp, unsigned T0, unsigned T1, unsigned TS) {

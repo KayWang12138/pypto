@@ -149,12 +149,14 @@ enum class ScatterMode {
  *
  * \param self : Tensor to write into.
  * \param indices : the index Tensor of element to be dispersed.
- * \param src : scalar value to be dispersed.
+ * \param src : scalar value or tensor to be dispersed.
  * \param axis : axis to be indexed.
  * \param reduce : scatter reduction mode to be applied. Support NONE, ADD, MULTIPLY. NONE is default.
  * \return Tensor
  */
 Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, int axis,
+    ScatterMode reduce = ScatterMode::NONE);
+Tensor Scatter(const Tensor &self, const Tensor &indices, const Tensor &src, int axis,
     ScatterMode reduce = ScatterMode::NONE);
 /**
  * \brief Write the scalar value of src into self Tensor, with the write position specified by the indices Tensor. It is
@@ -162,12 +164,14 @@ Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, in
  *
  * \param self : Tensor to write into.
  * \param indices : the index Tensor of element to be dispersed.
- * \param src : scalar value to be dispersed.
+ * \param src : scalar value or tensor to be dispersed.
  * \param axis : axis to be indexed.
  * \param reduce : scatter reduction mode to be applied. Support NONE, ADD, MULTIPLY. NONE is default.
  * \return Tensor
  */
 Tensor Scatter_(const Tensor &self, const Tensor &indices, const Element &src, int axis,
+    ScatterMode reduce = ScatterMode::NONE);
+Tensor Scatter_(const Tensor &self, const Tensor &indices, const Tensor &src, int axis,
     ScatterMode reduce = ScatterMode::NONE);
 Tensor IndexPut(const Tensor &src, std::vector<Tensor> indices, const Tensor &values);
 Tensor IndexAdd(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha = Element{DT_FP32, 1.0});

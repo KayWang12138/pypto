@@ -90,6 +90,7 @@ public:
     std::string GenL0CToUBTileTensor() const;
 
     std::string GenScatterElementSOp() const;
+    std::string GenScatterOp() const;
 
     std::string GenIndexAddOp() const;
 
@@ -304,6 +305,7 @@ private:
 
     std::string PrintScatterElementSOpStatic(const PrintScatterElemParam &param) const;
     std::string PrintScatterElementSOpDynamicUnaligned(const PrintScatterElemParam &param) const;
+    std::string PrintScatterOpDynamicUnaligned(const PrintScatterParam &param) const;
 
     std::string PrintIndexAddStatic(const PrintIndexAddParam &param) const;
     std::string PrintIndexAddDynamicUnaligned(const PrintIndexAddParam &param) const;

@@ -932,6 +932,80 @@ std::string CodeGenOpCloudNPU::GenScatterElementSOp() const {
         {axis, scatterMode, dstVar, src0Var, src1Var, dstRawShape, src1RawShape, dataTypeExpr});
 }
 
+std::string CodeGenOpCloudNPU::PrintScatterOpDynamicUnaligned(const PrintScatterParam &param) const {
+    const std::string &dstVar = param.dVar;
+    const std::string &src1Var = param.s1Var;
+    const std::string &src2Var = param.s2Var;
+    std::vector<int64_t> dstRawShape = NormalizeShape(param.dstRawShape, SHAPE_DIM4);
+    std::vector<int64_t> src1RawShape = NormalizeShape(param.src1RawShape, SHAPE_DIM4);
+    std::vector<int64_t> src2RawShape = NormalizeShape(param.src2RawShape, SHAPE_DIM4);
+    const std::string *dataTypeExpr = param.dataTypeExpr;
+
+    auto dynSrc1Shape = dynamicValidShape[ID2];
+    FillIntVecWithDummyInHead<SymbolicScalar>(
+        dynSrc1Shape, SHAPE_DIM4 - dynamicValidShape[ID2].size(), 1);
+
+    std::vector<std::string> templateParams;
+    templateParams.emplace_back(dataTypeExpr[ID0]);
+    templateParams.emplace_back(dataTypeExpr[ID1]);
+    for (size_t i = 1; i < src1RawShape.size(); ++i) {
+        templateParams.emplace_back(std::to_string(src1RawShape[i]));
+    }
+    for (size_t i = 1; i < src2RawShape.size(); ++i) {
+        templateParams.emplace_back(std::to_string(src2RawShape[i]));
+    }
+    for (size_t i = 1; i < dstRawShape.size(); ++i) {
+        templateParams.emplace_back(std::to_string(dstRawShape[i]));
+    }
+    int axis = param.axis + SHAPE_DIM4 - param.src1RawShape.size();
+    templateParams.emplace_back(std::to_string(axis));
+    templateParams.emplace_back(std::to_string(param.scatterMode));
+    std::string templateParamStr = JoinString(templateParams, ", ");
+
+    std::vector<std::string> callParams;
+    callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ID0] + "*)" + dstVar);
+    callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ID1] + "*)" + src1Var);
+    callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ID2] + "*)" + src2Var);
+    for (size_t i = 0; i < SHAPE_DIM4; ++i) {
+        callParams.emplace_back(SymbolicExpressionTable::BuildExpression(dynSrc1Shape[i]));
+    }
+    std::string callParamStr = JoinString(callParams, ", ");
+
+    std::ostringstream oss;
+    oss << tileOpName << "<" << templateParamStr << ">(" << callParamStr << ");\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenScatterOp() const {
+    ASSERT(opAttrs.count(OP_ATTR_PREFIX + "scatter_mode")) << "cannot get scatter mode attr";
+    ASSERT(opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
+    int axis = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "axis"));
+    int scatterMode = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "scatter_mode"));
+    const DataType dstDtype = operandDtype[ID0];
+    const DataType src1Dtype = operandDtype[ID2];
+    const DataType src2Dtype = operandDtype[ID3];
+
+    std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+    std::string src1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
+    std::string src2Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID3]);
+
+    std::vector dstRawShape = this->rawShape[ID0];
+    std::vector src1RawShape = this->rawShape[ID2];
+    std::vector src2RawShape = this->rawShape[ID3];
+
+    std::string dstDtypeStr = DataType2CCEStr(dstDtype);
+    std::string src1DtypeStr = DataType2CCEStr(src1Dtype);
+    std::string src2DtypeStr = DataType2CCEStr(src2Dtype);
+
+    AppendLocalBufferVarOffset(std::vector{&dstVar, &src1Var, &src2Var});
+
+    constexpr int NumOperands = 3;
+    std::string dataTypeExpr[NumOperands] = {dstDtypeStr, src1DtypeStr, src2DtypeStr};
+
+    return PrintScatterOpDynamicUnaligned({axis, scatterMode, dstVar, src1Var, src2Var, 
+        dstRawShape, src1RawShape, src2RawShape, dataTypeExpr});
+}
+
 std::string CodeGenOpCloudNPU::PrintExtractStatic() const {
     SymbolManager::AllocRecord src0, dst;
     std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);

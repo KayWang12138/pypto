@@ -31,6 +31,18 @@ struct PrintScatterElemParam {
     const std::string *dataTypeExpr;
 };
 
+struct PrintScatterParam {
+    int axis;
+    int scatterMode;
+    const std::string &dVar;
+    const std::string &s1Var;
+    const std::string &s2Var;
+    std::vector<int64_t> &dstRawShape;
+    std::vector<int64_t> &src1RawShape;
+    std::vector<int64_t> &src2RawShape;
+    const std::string *dataTypeExpr;
+};
+
 struct PrintIndexAddParam {
     int axis;
     const std::string &dVar;

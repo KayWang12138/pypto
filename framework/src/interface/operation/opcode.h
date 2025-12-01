@@ -83,6 +83,7 @@ enum class Opcode {
     OP_GATHER,
     OP_GATHER_ELEMENT,
     OP_SCATTER_ELEMENT,
+    OP_SCATTER,
     OP_INDEX_PUT,
     OP_INDEX_ADD,
     OP_CONCAT,
@@ -499,6 +500,7 @@ const std::unordered_set<Opcode> WHERE_OPS{
 
 const std::unordered_set<Opcode> GATHER_ELEMENT_OPS{Opcode::OP_GATHER_ELEMENT};
 const std::unordered_set<Opcode> SCATTER_ELEMENT_OPS{Opcode::OP_SCATTER_ELEMENT};
+const std::unordered_set<Opcode> SCATTER_OPS{Opcode::OP_SCATTER};
 const std::unordered_set<Opcode> INDEX_ADD_OPS{Opcode::OP_INDEX_ADD};
 
 const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_RANGE, Opcode::OP_TRANSPOSE_VNCHWCONV,
@@ -517,7 +519,7 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_RANGE,
     Opcode::OP_MRGSORT, Opcode::OP_CMP, Opcode::OP_CMPS, Opcode::OP_EXTRACT, Opcode::OP_TILEDMRGSORT, Opcode::OP_ROWMAXLINE,
     Opcode::OP_PAIRMIN,  Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWMINLINE, Opcode::OP_TOPK_SORT, Opcode::OP_TOPK_MERGE,
     Opcode::OP_TOPK_EXTRACT, Opcode::OP_SCATTER_ELEMENT, Opcode::OP_TRANSPOSE_MOVEIN, Opcode::OP_SORT,
-    Opcode::OP_COMPARE_SWAP, Opcode::OP_MERGE, Opcode::OP_L0C_TO_L1};
+    Opcode::OP_COMPARE_SWAP, Opcode::OP_MERGE, Opcode::OP_L0C_TO_L1, Opcode::OP_SCATTER};
 
 const std::unordered_set<Opcode> UNSUPPORT_BF16_OPS{Opcode::OP_EXP, Opcode::OP_RSQRT, Opcode::OP_SQRT,
     Opcode::OP_RECIPROCAL, Opcode::OP_ABS, Opcode::OP_LN, Opcode::OP_LOGICALNOT, Opcode::OP_INDEX_ADD,

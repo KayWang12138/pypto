@@ -1413,7 +1413,7 @@ def gen_indexadd__op_golden(
     return gen_op_golden("IndexAdd_", indexadd_golden_func, output, case_index)
 
 
-@TestCaseLoader.reg_params_handler(ops=["Scatter", "Scatter_"])
+@TestCaseLoader.reg_params_handler(ops=["Scatter", "Scatter_", "ScatterTensor", "Scatter_Tensor"])
 def params_axis_reduce_func(params: dict):
     params["axis"] = int(params.get("axis"))
     params["reduce"] = "" if params["reduce"] is None else params["reduce"]
@@ -1466,6 +1466,44 @@ def gen_scatter__op_golden(
 ) -> bool:
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Scatter_", scatter_golden_func, output, case_index)
+
+
+def scatter_tensor_golden_func(inputs, config: dict):
+    params = config.get("params")
+    axis = params["axis"]
+    reduceop = params["reduce"]
+    dst = torch.from_numpy(inputs[0])
+    indices = torch.from_numpy(inputs[1])
+    src = torch.from_numpy(inputs[2])
+
+    if len(reduceop) == 0 or reduceop == "None":
+        res = dst.scatter(axis, indices, src).numpy()
+    else:
+        res = dst.scatter(axis, indices, src, reduce=reduceop).numpy()
+
+    return [res]
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestScatterTensor/ScatterTensorOperationTest.TestScatterTensor",
+    ]
+)
+def gen_scatter_tensor_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("ScatterTensor", scatter_tensor_golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestScatter_Tensor/Scatter_TensorOperationTest.TestScatter_Tensor",
+    ]
+)
+def gen_scatter__tensor_op_golden(
+    case_name: str, output: Path, case_index: int = None
+) -> bool:
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Scatter_Tensor", scatter_tensor_golden_func, output, case_index)
 
 
 @GoldenRegister.reg_golden_func(

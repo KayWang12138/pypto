@@ -218,6 +218,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(
           {Opcode::OP_GATHER, [this]() { return GenGatherOp(); }},
           {Opcode::OP_GATHER_ELEMENT, [this]() { return GenGatherElementOp(); }},
           {Opcode::OP_SCATTER_ELEMENT, [this]() { return GenScatterElementSOp(); }},
+          {Opcode::OP_SCATTER, [this]() { return GenScatterOp(); }},
       }),
       normalVecOps_({
           // vector dup
