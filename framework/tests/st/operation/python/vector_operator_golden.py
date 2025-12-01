@@ -1221,7 +1221,9 @@ def gen_numpy_op_golden(case_name: str, output: Path, case_index: int = None) ->
         start = params["start"]
         end = params["end"]
         step = params["step"]
-        return [np.arange(start, end, step)]
+        if isinstance(start, float) or isinstance(end, float) or isinstance(step, float):
+            return [torch.arange(np.float32(start), np.float32(end), np.float32(step), dtype=torch.float32).numpy()]
+        return [torch.arange(start, end, step).numpy()]
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Range", golden_func, output, case_index)
