@@ -424,7 +424,24 @@ int DeviceRunner::launchDynamicAiCore(rtStream_t aicoreStream, AstKernelArgs *ke
 }
 
 int DeviceRunner::launchDynamicAiCpu(rtStream_t aicpuStream, AstKernelArgs *kArgs) {
+#ifdef BUILD_WITH_NEW_CANN
     return LoadAicpuOp::GetInstance().LaunchBuiltInOp(aicpuStream, kArgs, aicpuNum_, "PyptoRun");
+#endif
+    struct Args {
+        AstKernelArgs kArgs;
+        const char kernelName[32] = {"DynTileFwkKernelServer"};
+        const char soName[32] = {"libaicpu_extend_kernels.so"};
+        const char opName[32] = {""};
+    } args;
+    args.kArgs = *kArgs;
+    rtAicpuArgsEx_t rtArgs;
+    memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
+    rtArgs.args = &args;
+    rtArgs.argsSize = sizeof(args);
+    rtArgs.kernelNameAddrOffset = offsetof(struct Args, kernelName);
+    rtArgs.soNameAddrOffset = offsetof(struct Args, soName);
+    return rtAicpuKernelLaunchExWithArgs(
+        rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", aicpuNum_, &rtArgs, nullptr, aicpuStream, 0);
 }
 
 void DeviceRunner::InitAiCpuSoBin() {
@@ -443,7 +460,26 @@ void DeviceRunner::InitAiCpuSoBin() {
 }
 
 int DeviceRunner::launchDynamicAiCpuInit(rtStream_t aicpuStream, AstKernelArgs *kArgs) {
+#ifdef BUILD_WITH_NEW_CANN
     return LoadAicpuOp::GetInstance().LaunchBuiltInOp(aicpuStream, kArgs, 1, "PyptoInit");
+#endif
+    struct Args {
+        AstKernelArgs kArgs;
+        const char kernelName[32] = {"DynTileFwkKernelServerInit"};
+        const char soName[32] = {"libaicpu_extend_kernels.so"};
+        const char opName[32] = {""};
+    } args;
+
+    args.kArgs = *kArgs;
+
+    rtAicpuArgsEx_t rtArgs;
+    memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
+    rtArgs.args = &args;
+    rtArgs.argsSize = sizeof(args);
+    rtArgs.kernelNameAddrOffset = offsetof(struct Args, kernelName);
+    rtArgs.soNameAddrOffset = offsetof(struct Args, soName);
+    return rtAicpuKernelLaunchExWithArgs(
+        rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 1, &rtArgs, nullptr, aicpuStream, 0);
 }
 
 int DeviceRunner::RunPrepare(rtStream_t aicpuStream, rtStream_t aicoreStream) {
@@ -543,6 +579,7 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
         InitAiCpuSoBin();
     }
     g_IsFirstInit = true;
+    #ifdef BUILD_WITH_NEW_CANN
     if (!g_IsNullLaunched) {
         auto ret = LoadAicpuOp::GetInstance().LaunchBuiltInOp(aicpuStream, kernelArgs, 1, "PyptoNull");
         if (ret != 0) {
@@ -551,6 +588,7 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
         }
     }
     g_IsNullLaunched = true;
+    #endif
     auto localArgs = args_;
     auto size = sizeof(localArgs);
 
@@ -617,6 +655,7 @@ int DeviceRunner::RegisterKernelBin(void **hdl) {
     if (*hdl) {
         binHdl_ = *hdl;
         ALOG_DEBUG_F("RegisterKernelBin reuse cache.");
+        return 0;
     }
     void *bin = nullptr;
     size_t binSize = 0;

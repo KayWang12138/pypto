@@ -118,14 +118,14 @@ class DeviceCtrlMachine {
         bool firstInit = false;
         if (devProg->controlFlowBinaryAddr == nullptr) {
             devProg->RelocProgram(0, reinterpret_cast<uint64_t>(devProg), true);
-#ifdef __USE_CUSTOM_CTRLFLOW__
-            devProg->controlFlowBinaryAddr = GetTilingKeyFunc(devProg->configKey);
-#else
-            auto execProg = DeviceExecuteProgram(devProg, nullptr);
-            devProg->controlFlowBinaryAddr = execProg.GetControlFlowEntry();
-#endif
             firstInit = true;
         }
+#ifdef __USE_CUSTOM_CTRLFLOW__
+        devProg->controlFlowBinaryAddr = GetTilingKeyFunc(devProg->configKey);
+#else
+        auto execProg = DeviceExecuteProgram(devProg, nullptr);
+        devProg->controlFlowBinaryAddr = execProg.GetControlFlowEntry();
+#endif
         devArgs->controlFlowEntry = devProg->controlFlowBinaryAddr;
 
         PerfEnd(PERF_EVT_INIT);

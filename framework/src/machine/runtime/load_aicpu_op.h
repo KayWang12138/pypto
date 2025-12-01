@@ -21,7 +21,7 @@
 #include <memory>
 #include "runtime/mem.h"
 #include "machine/utils/machine_ws_intf.h"
-#ifdef BUILD_WITH_CANN
+#ifdef BUILD_WITH_NEW_CANN
 #include "rts/rts_kernel.h"
 #endif
 #include <unordered_map>

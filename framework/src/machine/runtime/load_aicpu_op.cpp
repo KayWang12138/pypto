@@ -69,6 +69,7 @@ void LoadAicpuOp::GenBuiltInOpInfo(const std::string &jsonPath) {
 }
 
 void LoadAicpuOp::CustomAiCpuSoLoad() {
+#ifdef BUILD_WITH_NEW_CANN
     rtLoadBinaryConfig_t optionCfg;
     auto loadBinOptions = std::make_unique<rtLoadBinaryOption_t>();
 
@@ -90,9 +91,11 @@ void LoadAicpuOp::CustomAiCpuSoLoad() {
         ALOG_ERROR_F("Load aicpu json failed ret is %d", ret);
     }
     OpInfoManager::GetInstance().SetControlBinHandle(customBinHandle_);
+#endif
 }
 
-int LoadAicpuOp::LaunchCustomOp(rtStream_t stream, AstKernelArgs *kArgs, std::string &OpType) {
+int LoadAicpuOp::LaunchCustomOp([[maybe_unused]]rtStream_t stream, [[maybe_unused]]AstKernelArgs *kArgs, [[maybe_unused]]std::string &OpType) {
+#ifdef BUILD_WITH_NEW_CANN
     ASSERT(customBinHandle_ != nullptr) << "customBinHandle cannot be null";
     rtFuncHandle custFuncHandle;
     auto ret = rtsFuncGetByName(customBinHandle_, OpType.c_str(), &custFuncHandle);
@@ -112,9 +115,13 @@ int LoadAicpuOp::LaunchCustomOp(rtStream_t stream, AstKernelArgs *kArgs, std::st
     auto launchKernelAttr = std::make_unique<rtLaunchKernelAttr_t>();
     kernelLaunchCfg.attrs = launchKernelAttr.get();
     return rtsLaunchCpuKernel(custFuncHandle, 1, stream, &kernelLaunchCfg, &argInfo);
+#else
+    return 0;
+#endif
 }
 
 int LoadAicpuOp::GetBuiltInOpBinHandle() {
+#ifdef BUILD_WITH_NEW_CANN
     if (RealPath(builtInOpJsonPath_).empty()) {
         ALOG_ERROR_F("JsonPath is empty");
         return -1;
@@ -142,11 +149,13 @@ int LoadAicpuOp::GetBuiltInOpBinHandle() {
         }
         builtInFuncMap_[BuiltInFunName[i]] = funcHandle;
     }
+#endif
     return 0;
 }
 
-int LoadAicpuOp::LaunchBuiltInOp(rtStream_t stream, AstKernelArgs *kArgs, const int &aicpuNum,
-                                 const std::string &funcName) {
+int LoadAicpuOp::LaunchBuiltInOp([[maybe_unused]]rtStream_t stream, [[maybe_unused]]AstKernelArgs *kArgs, [[maybe_unused]]const int &aicpuNum,
+                                 [[maybe_unused]]const std::string &funcName) {
+#ifdef BUILD_WITH_NEW_CANN
     rtFuncHandle funcHandle;
     auto it = builtInFuncMap_.find(funcName);
     if (it != builtInFuncMap_.end()) {
@@ -167,5 +176,8 @@ int LoadAicpuOp::LaunchBuiltInOp(rtStream_t stream, AstKernelArgs *kArgs, const 
     auto launchKernelAttr = std::make_unique<rtLaunchKernelAttr_t>();
     kernelLaunchCfg.attrs = launchKernelAttr.get();
     return rtsLaunchCpuKernel(funcHandle, aicpuNum, stream, &kernelLaunchCfg, &argInfo);
+#else
+    return 0;
+#endif
 }
 }// namespace
