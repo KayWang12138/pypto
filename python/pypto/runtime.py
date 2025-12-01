@@ -249,3 +249,9 @@ def verify(func, inputs, outputs, goldens, *args,
                                      [t.base() for t in outputs])
     func(inputs, outputs, *args, **kwargs)
     pto_impl.OperatorEnd(handler)
+
+
+def set_verify_data(inputs, outputs, goldens):
+    pto_impl.SetVerifyData(to_tensor_data(inputs),
+                           to_tensor_data(outputs),
+                           to_tensor_data(goldens))

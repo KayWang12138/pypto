@@ -52,7 +52,7 @@ from .operation import *  # noqa
 from .operator import *  # noqa
 from .pass_config import * # noqa
 from .pto_utils import ceil, bytes_of
-from .runtime import jit, verify
+from .runtime import jit, verify, set_verify_data
 from .symbolic_scalar import SymbolicScalar
 from .tensor import Tensor, mark_dynamic
 from .converter import from_torch
