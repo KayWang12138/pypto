@@ -207,17 +207,18 @@ def generate_all_reduce_golden(case_name: str, save_dir: pathlib.Path):
     rank_size, dtype = case.rank_size, case.dtype
 
     validate_rank_size(rank_size)
-    if row % rank_size != 0:
+    if row == 0:
         raise ValueError(
-            'The first dimension of the input tensor must be an integer multiple of the rank size, '
+            'The first dimension of the input tensor must not be zero, '
             f'got row={row}, rank_size={rank_size}'
         )
 
     params = (row, col, get_dtype_num(dtype))
     save_params(params, save_dir)
-
     inputs = generate_random_tensor_list_and_save((row, col), dtype, rank_size, save_dir, 'input')
-    outputs = [sum(inputs) for _ in range(rank_size)]
+    stacked_output = torch.stack(inputs, dim=0)
+    reduced_output = torch.sum(stacked_output, dim=0).to(inputs[0].dtype)
+    outputs = [reduced_output for rank in range(rank_size)]
     save_tensor_list(outputs, save_dir, 'output')
 
 
@@ -605,7 +606,8 @@ OPERATOR_DISPATCHERS = [
         'DistributedTest.shmem_allgather_matmul_reducescatter_int32_128_256_4',
         'DistributedTest.shmem_reduce_scatter_float16_128_256_4',
         'DistributedTest.shmem_reduce_scatter_bfloat16_32_32_4',
-        'DistributedTest.shmem_add_all_reduce_int32_64_256_4',
+        'DistributedTest.shmem_all_reduce_int32_64_256_4',
+        'DistributedTest.shmem_all_reduce_bfloat16_50_256_4',
         'DistributedTest.shmem_moe_combine_bfloat16_8_5120_0_160_8_4',
         'DistributedTest.shmem_moe_combine_bfloat16_256_5120_0_160_8_4',
         'DistributedTest.shmem_moe_combine_bfloat16_8_5120_0_160_8_8',

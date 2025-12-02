@@ -153,10 +153,16 @@ TEST_F(DistributedTest, shmem_reduce_scatter_bfloat16_32_32_4)
     Distributed::TestShmemReduceScatter<npu::tile_fwk::bfloat16>(testParam);
 }
 
-TEST_F(DistributedTest, shmem_add_all_reduce_int32_64_256_4)
+TEST_F(DistributedTest, shmem_all_reduce_int32_64_256_4)
 {
     config::SetHostOption(ONLY_CODEGEN, true);
-    Distributed::TestShmemAddAndAllReduce<int32_t>(testParam);
+    Distributed::TestShmemAllReduce<int32_t, true>(testParam);
+}
+
+TEST_F(DistributedTest, shmem_all_reduce_bfloat16_50_256_4)
+{
+    config::SetHostOption(ONLY_CODEGEN, true);
+    Distributed::TestShmemAllReduce<bfloat16, false>(testParam);
 }
 
 TEST_F(DistributedTest, shmem_moe_combine_bfloat16_8_5120_0_160_8_4)

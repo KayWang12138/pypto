@@ -38,8 +38,8 @@ void TestDynAllGather(OpTestParam &testParam);
 template<typename T>
 void TestShmemReduceScatter(OpTestParam &testParam);
 void TestDynAllGatherMatmulReducescatter(OpTestParam &testParam);
-template<typename T>
-void TestShmemAddAndAllReduce(OpTestParam &testParam);
+template<typename T, bool useTwoShot>
+void TestShmemAllReduce(OpTestParam &testParam);
 } // namespace Distributed
 } // namespace npu::tile_fwk
 

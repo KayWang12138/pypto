@@ -405,8 +405,9 @@ Tensor MoeDispatch(const Tensor &tokenTensor, const Tensor &tokenExpertTable, Te
 // SHMEM
 void ShmemAllGather(const Tensor &in, const Tensor &dummy, const char *group, Tensor &out);
 Tensor Barrier(const Tensor &in, const char *group);
-void ShmemReduceScatter(const Tensor &in, const char* group, DistReduceType reduceType, Tensor &out);
-void ShmemAddAllReduce(Tensor &in, const char* group, Tensor &out);
+void ShmemReduceScatter(const Tensor& in, const char* group, DistReduceType reduceType, Tensor& out);
+void OneShotShmemAllReduce(const Tensor& in, const char* group, Tensor& out);
+void TwoShotShmemAllReduce(const Tensor& in, const char* group, Tensor& out);
 void ShmemMoeCombine(const Tensor& in, const Tensor& combineInfo, const Tensor& scale, const char* group,
     int32_t rankSize, int32_t totalExpertNum, Tensor& out);
 } // namespace Distributed

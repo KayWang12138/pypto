@@ -74,7 +74,7 @@ TEST_F(TestDistributedShmemImpl, TestShmemAllReduce)
     FUNCTION("ALLREDUCE", {in}, {out}) {
         TileShape::Current().SetDistTile(
             {64 / ranksize, 1, 0}, {256, 1, 0}, {1, ranksize, 0});
-        ShmemAddAllReduce(in, group, out);
+        TwoShotShmemAllReduce(in, group, out);
     }
 
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "L0" + SUB_FUNC_SUFFIX);
