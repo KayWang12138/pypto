@@ -176,10 +176,9 @@ struct DumpTensorData {
             dumpTensorInfo.stride[i] = info->stride[i];
         }
 
-        uint64_t tensorData = *reinterpret_cast<uint64_t *>(tensorAddr);
         data = malloc(datasize);
         DEV_DEBUG("Start to MemCpy the tensor to host , pragramtype is %d.", info->paramType);
-        TraverseAllAhapeIndexCombinations(info->shape, info->stride, info->dims - 1, tensorData);
+        TraverseAllAhapeIndexCombinations(info->shape, info->stride, info->dims - 1, tensorAddr);
     }
 
     int GetDumpSize() const {

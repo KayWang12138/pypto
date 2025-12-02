@@ -36,7 +36,6 @@
 #include "machine/utils/device_log.h"
 #include "machine/kernel/aicore.h"
 #include "machine/device/distributed/comm_wait_flag.h"
-#include "machine/device/aicore_dump.h"
 #include "machine/device/dynamic/aicore_prof.h"
 #include "machine/device/dynamic/aicore_hal.h"
 #include "machine/device/dynamic/aicpu_task_manager.h"
@@ -1378,7 +1377,6 @@ private:
     SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> *taskQueue_{nullptr};
     AicpuTaskManager &aicpuTaskManager_;
     AiCoreProf aicoreProf_;
-    AicoreDump aicoreDump_;
     int64_t dotStatus_{0};
 
     std::vector<TaskInfo> sendTask_[MAX_AICORE_NUM];

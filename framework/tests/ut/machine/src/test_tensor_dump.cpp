@@ -52,10 +52,10 @@ TEST_F(TestAicoreDump, test_aicore_dump_special) {
     }
     info->dataByte = 4;
     info->dims = 2;
-    info->paramType = 1; 
-    uint64_t tensorAddr = (uint64_t)malloc(sizeof(int64_t) * 1024);
-    uint64_t tmp_addr = (uint64_t)&tensorAddr;
-    uint64_t tmp_tensorAddr = (uint64_t)&tmp_addr;
+    info->paramType = 1;
+
+    std::vector<uint64_t> vec(1024, 1024);
+    uint64_t tmp_tensorAddr = reinterpret_cast<uint64_t>(vec.data());
 
     DumpTensorData aicoreDump(info, tmp_tensorAddr);
     delete info;
@@ -70,10 +70,10 @@ TEST_F(TestAicoreDump, test_aicore_dump_normal) {
     }
     info->dataByte = 4;
     info->dims = 3;
-    info->paramType = 1; 
-    uint64_t tensorAddr = (uint64_t)malloc(sizeof(int64_t) * 1024);
-    uint64_t tmp_addr = (uint64_t)&tensorAddr;
-    uint64_t tmp_tensorAddr = (uint64_t)&tmp_addr;
+    info->paramType = 1;
+
+    std::vector<uint64_t> vec(1024, 1024);
+    uint64_t tmp_tensorAddr = reinterpret_cast<uint64_t>(vec.data());
 
     DumpTensorData aicoreDump(info, tmp_tensorAddr);
     delete info;
