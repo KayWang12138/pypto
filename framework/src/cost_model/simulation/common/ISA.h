@@ -50,6 +50,7 @@ const std::map<std::string, CorePipeType> SCHED_CORE_PIPE_TYPE { // Unary Vector
     {"SUBS", CorePipeType::PIPE_VECTOR_ALU},
     {"MULS", CorePipeType::PIPE_VECTOR_ALU},
     {"DIVS", CorePipeType::PIPE_VECTOR_ALU},
+    {"MAXS", CorePipeType::PIPE_VECTOR_ALU},
     {"S_ADDS", CorePipeType::PIPE_VECTOR_ALU},
     {"S_SUBS", CorePipeType::PIPE_VECTOR_ALU},
     {"S_MULS", CorePipeType::PIPE_VECTOR_ALU},
@@ -69,6 +70,7 @@ const std::map<std::string, CorePipeType> SCHED_CORE_PIPE_TYPE { // Unary Vector
     {"MRGSORT", CorePipeType::PIPE_VECTOR_ALU},
     {"EXTRACT", CorePipeType::PIPE_VECTOR_ALU},
     {"ROWSUMLINE", CorePipeType::PIPE_VECTOR_ALU},
+    {"TILEDMRGSORT", CorePipeType::PIPE_VECTOR_ALU},
     // Binary Vector
     {"ADD", CorePipeType::PIPE_VECTOR_ALU},
     {"SUB", CorePipeType::PIPE_VECTOR_ALU},
@@ -127,6 +129,9 @@ const std::map<std::string, CorePipeType> SCHED_CORE_PIPE_TYPE { // Unary Vector
     {"CONVERT", CorePipeType::PIPE_VECTOR_ALU},
     {"COPY_IN", CorePipeType::PIPE_MTE_IN},
     {"COPY_OUT", CorePipeType::PIPE_MTE_OUT},
+    {"GATHER_IN_UB", CorePipeType::PIPE_MTE_IN},
+    {"GATHER_IN_L1", CorePipeType::PIPE_MTE_IN},
+    {"LOAD", CorePipeType::PIPE_S},
     // Specia
     {"CALL", CorePipeType::PIPE_CALL},
     {"CALL_NOT_EXPAND", CorePipeType::PIPE_VECTOR_ALU},
@@ -159,7 +164,11 @@ const std::map<std::string, CorePipeType> SCHED_CORE_PIPE_TYPE { // Unary Vector
     {"L0C_COPY_UB", CorePipeType::PIPE_MTE_IN},
     {"UB_COPY_L1", CorePipeType::PIPE_MTE_IN},
     // Scala
-    {"NOP", CorePipeType::TOTAL_CORE_PIPE_TYPE}
+    {"NOP", CorePipeType::TOTAL_CORE_PIPE_TYPE},
+    {"SYNC_DST", CorePipeType::PIPE_S},
+    {"SYNC_SRC", CorePipeType::PIPE_S},
+    {"PHASE1", CorePipeType::PIPE_S},
+    {"PHASE2", CorePipeType::PIPE_S}
 };
 
 struct ExecuteInfo {

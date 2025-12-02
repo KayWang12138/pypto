@@ -512,7 +512,7 @@ void AICPUMachine::DispatchTasksForThread(uint64_t threadId, std::vector<uint64_
 {
     uint64_t delayCycle = 0;
     if (top->config.replayEnable && !top->replayPreExecute) {
-        DispatchHUBTask();
+        DispatchHUBTaskInReplay();
         DispatchTasksInReplayMode(threadId, threadSchedulerCycles, currentCycle, delayCycle);
     } else {
         DispatchHUBTask();

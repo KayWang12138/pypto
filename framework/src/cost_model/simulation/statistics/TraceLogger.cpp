@@ -434,40 +434,49 @@ void TraceLogger::AddCounterEvent(CostModel::Pid pid, CostModel::Tid tid, CostMo
 
 void TraceLogger::EraseLogInfo(uint64_t startCycle)
 {
-    for (auto it = mEvents.begin(); it != mEvents.end(); ) {
-        if ((*it).timestamp > startCycle) {
-            it = mEvents.erase(it);
-        } else {
-            it++;
+    auto new_events_end = mEvents.begin();
+    for (auto it = mEvents.begin(); it != mEvents.end(); ++it) {
+        if (it->timestamp <= startCycle) {
+            if (it != new_events_end) {
+                *new_events_end = std::move(*it);
+            }
+            ++new_events_end;
         }
     }
-
+    mEvents.erase(new_events_end, mEvents.end());
+    
     for (auto it = mDurations.begin(); it != mDurations.end(); ) {
-        if ((*it).second.start.timestamp > startCycle) {
-            it = mDurations.erase(it);
+        if (it->second.start.timestamp > startCycle) {
+            it = mDurations.erase(it);  // map的erase是O(1)摊销时间
         } else {
-            it++;
+            ++it;
         }
     }
-
-    for (auto it = mCounters.begin(); it != mCounters.end(); ) {
-        if ((*it).timestamp > startCycle) {
-            it = mCounters.erase(it);
-        } else {
-            it++;
+    
+    auto new_counters_end = mCounters.begin();
+    for (auto it = mCounters.begin(); it != mCounters.end(); ++it) {
+        if (it->timestamp <= startCycle) {
+            if (it != new_counters_end) {
+                *new_counters_end = std::move(*it);
+            }
+            ++new_counters_end;
         }
     }
-
-    for (auto &counts : mCounts) {
-        for (auto it = counts.second.begin(); it != counts.second.end(); ) {
-            if ((*it).timestamp > startCycle) {
-                it = counts.second.erase(it);
-            } else {
-                it++;
+    mCounters.erase(new_counters_end, mCounters.end());
+    
+    for (auto& counts : mCounts) {
+        auto new_counts_end = counts.second.begin();
+        for (auto it = counts.second.begin(); it != counts.second.end(); ++it) {
+            if (it->timestamp <= startCycle) {
+                if (it != new_counts_end) {
+                    *new_counts_end = std::move(*it);
+                }
+                ++new_counts_end;
             }
         }
+        counts.second.erase(new_counts_end, counts.second.end());
     }
-
+    
     mTaskIDToDurationIndex.clear();
 }
 

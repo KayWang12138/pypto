@@ -758,7 +758,7 @@ void ParseInput::ParseReplayInfoJson(const std::string &path,
     file >> j;
     for (const auto &item : j) {
         uint64_t blockIdx = item["blockIdx"];
-        std::string coreTypeStr = item["copyType"];
+        std::string coreTypeStr = item["coreType"];
         MachineType coreType = ToMachineType(coreTypeStr);
         if (!IsCoreMachine(coreType)) {
             continue;
