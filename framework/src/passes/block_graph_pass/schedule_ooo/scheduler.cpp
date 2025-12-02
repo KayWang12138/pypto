@@ -182,11 +182,8 @@ void OoOScheduler::PrintOpList(std::vector<Operation *> operations) {
     APASS_LOG_INFO_F(Elements::Operation, "==================== OP_LIST =====================");
     for (auto &op : operations) {
         if (!op->oOperand.empty()) {
-            bool needAlloc = false;
-            op->oOperand[0]->GetAttr(OpAttributeKey::needAlloc, needAlloc);
-            APASS_LOG_INFO_F(Elements::Operation, "%s[%d], range[%zu, %zu], needAlloc: %d", 
-                op->GetOpcodeStr().c_str(), op->GetOpMagic(), op->oOperand[0]->memoryrange.start,
-                op->oOperand[0]->memoryrange.end, static_cast<int>(needAlloc));
+            APASS_LOG_INFO_F(Elements::Operation, "%s[%d], range[%zu, %zu]", op->GetOpcodeStr().c_str(), 
+                op->GetOpMagic(), op->oOperand[0]->memoryrange.start, op->oOperand[0]->memoryrange.end);
         } else {
             APASS_LOG_INFO_F(Elements::Operation, "%s[%d]", op->GetOpcodeStr().c_str(), op->GetOpMagic()); 
         }
@@ -507,6 +504,7 @@ void OoOScheduler::LaunchReadyIssue() {
 Status OoOScheduler::ScheduleMainLoop() {
     UpdateIssueExecOrder();
     LaunchReadyIssue();
+    numTotalIssues = issueEntries.size();
     uint64_t commitCnt = 0; // 当前已提交的issue数量
     bool isAllRetired = false;
     while (!isAllRetired) {
@@ -746,6 +744,8 @@ void OoOScheduler::AddDependency(IssueEntryPtr preIssue, IssueEntryPtr postIssue
 Status OoOScheduler::InitDependencies() {
     std::map<Operation*, IssueEntryPtr> op2IssueEntryMap;
     for (const auto &issue : issueEntries) {
+        issue->predecessors.clear();
+        issue->successors.clear();
         op2IssueEntryMap[&(issue->tileOp)] = issue;
     }
     std::map<int, IssueEntryPtr> tensor2AllocMap;

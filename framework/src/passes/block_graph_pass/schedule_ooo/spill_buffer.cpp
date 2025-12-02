@@ -243,7 +243,6 @@ Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
         return FAILED;
     }
     localTensor->offset = std::vector<int64_t>(localTensor->GetShape().size(), 0);
-
     // 创建spill搬出数据搬回OP_COPY_IN/OP_ALLOC
     Opcode allocOp = memType == MemoryType::MEM_UB ? Opcode::OP_UB_ALLOC : Opcode::OP_L1_ALLOC;
     auto &spillAllocOp = function_.AddRawOperation(allocOp, {}, {localTensor});
@@ -431,16 +430,45 @@ Status OoOScheduler::FindAssembleWithSpillTensor(SpillInfo &spillInfo, std::vect
     return SUCCESS;
 }
 
+int64_t OoOScheduler::CalcWorkspaceOffset(std::vector<int64_t> shape, std::vector<int64_t> offset) {
+    if (shape.size() != offset.size()) {
+        return -1;
+    }
+    if (shape.size() == 0) {
+        return 0;
+    }
+
+    int64_t result = 0;
+    int64_t stride = 1;
+    // 从最低维到最高维计算
+    for (size_t i = shape.size(); i > 0; --i) {
+        result += offset[i - 1] * stride;
+        if (i > 0) {
+            stride *= shape[i - 1];
+        }
+    }
+    return result;
+}
+
+LogicalTensorPtr OoOScheduler::CreateAssemblePartTensor(LogicalTensorPtr iOperand, LogicalTensorPtr assembleTensor,
+    SpillInfo &spillInfo, std::shared_ptr<AssembleOpAttribute> assembleAttr) {
+    LogicalTensorPtr localTensor = std::make_shared<LogicalTensor>(
+        function_, iOperand->Datatype(), iOperand->shape, iOperand->Format());
+    localTensor->SetMemoryTypeToBe(assembleTensor->GetMemoryTypeToBe());
+    localTensor->SetMemoryTypeOriginal(assembleTensor->GetMemoryTypeOriginal());
+    localTensor->oriShape = iOperand->shape;
+    localTensor->tensor = assembleTensor->tensor;
+    localTensor->memoryrange.memId = assembleTensor->memoryrange.memId;
+    localTensor->UpdateDynValidShape(spillInfo.spillTensor_->GetDynValidShape());
+    localTensor->offset = assembleAttr->GetToOffset();
+    return localTensor;
+}
+
 Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, IssueEntryPtr assemble, 
     LogicalTensorPtr assembleTensor, bool &isFirst) {
     auto iOperand = assemble->tileOp.GetInputOperand(0);
-    LogicalTensorPtr localTensor = std::make_shared<LogicalTensor>(function_, iOperand->Datatype(), iOperand->shape, iOperand->Format());
-    localTensor->SetMemoryTypeToBe(assembleTensor->GetMemoryTypeToBe());
-    localTensor->SetMemoryTypeOriginal(assembleTensor->GetMemoryTypeOriginal());
-    localTensor->oriShape = spillInfo.spillTensor_->oriShape;
-    localTensor->SetMagic(++maxTensorMagic);
-    localTensor->memoryrange.memId = assembleTensor->memoryrange.memId;
-    localTensor->UpdateDynValidShape(spillInfo.spillTensor_->GetDynValidShape());
+    auto assembleAttr = std::static_pointer_cast<AssembleOpAttribute>(assemble->tileOp.GetOpAttribute());
+    LogicalTensorPtr localTensor = CreateAssemblePartTensor(iOperand, assembleTensor, spillInfo, assembleAttr);
     int bufNextUseOrder = GetBufNextUseOrder(allocIssue, spillInfo.spillMemId_);
     if (bufNextUseOrder == -1) {
         APASS_LOG_ERROR_F(Elements::Operation, "Get Tensor[%d] next use order failed.", spillInfo.spillMemId_);
@@ -459,11 +487,16 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr all
         isFirst = false;
     }
     // copyin
-    auto assembleAttr = std::static_pointer_cast<AssembleOpAttribute>(assemble->tileOp.GetOpAttribute());
-    std::vector<int64_t> offset = assembleAttr->GetToOffset();
+    std::vector<int64_t> offset(iOperand->GetShape().size(), 0);
+    int64_t gmRelatOffset = CalcWorkspaceOffset(assembleTensor->GetShape(), assembleAttr->GetToOffset());
+    if (gmRelatOffset == -1) {
+        APASS_LOG_ERROR_F(Elements::Operation, "CalcWorkspaceOffset failed.");
+        return FAILED;
+    }
+    offset.front() = gmRelatOffset + spillInfo.ddrTensor_->GetOffset().front();
     auto &spillCopyInOp = function_.AddRawOperation(Opcode::OP_COPY_IN, {spillInfo.ddrTensor_}, {localTensor});
     spillCopyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(offset),
-                iOperand->GetMemoryTypeOriginal(), OpImmediate::Specified(assembleTensor->GetShape()),
+                iOperand->GetMemoryTypeOriginal(), OpImmediate::Specified(iOperand->GetShape()),
                 OpImmediate::Specified(assembleTensor->tensor->GetDynRawShape())));
     spillCopyInOp.UpdateLatency(DEFAULT_LATENCY);
     IssueEntryPtr spillInInst = std::make_shared<IssueEntry>(spillCopyInOp, issueId);
@@ -522,16 +555,16 @@ Status OoOScheduler::SpillAssembleBuffer(SpillInfo &spillInfo, IssueEntryPtr all
         APASS_LOG_ERROR_F(Elements::Operation, "Create assemble tensor failed!");
         return FAILED;
     }
+    if (UpdateTensorAttr(assembleTensor, allocBuffer->memType, spillInfo.spillTensor_, -1) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "UpdateTensorAttr local tensor failed!");
+        return FAILED;
+    }
     for (auto &succId : spillInfo.spillIssue_->successors) {
         auto succ = issueEntryMap[succId];
         if (!succ->isRetired && 
             (std::count(succ->reqMemIds.begin(), succ->reqMemIds.end(), spillInfo.spillMemId_) > 0)) {
             succ->UpdateTensorInput(spillInfo.spillIssue_, assembleTensor);
         }
-    }
-    if (UpdateTensorAttr(assembleTensor, allocBuffer->memType, spillInfo.spillTensor_, -1) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "UpdateTensorAttr local tensor failed!");
-        return FAILED;
     }
     std::vector<IssueEntryPtr> assembleList;
     FindAssembleWithSpillTensor(spillInfo, assembleList);
