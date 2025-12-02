@@ -12,13 +12,24 @@
 """
 import os
 import pypto
-import pytest
 import torch
-import torch_npu
 import numpy as np
 from numpy.testing import assert_allclose
 from torch._subclasses.fake_tensor import FakeTensor
 from torch._dynamo import allow_in_graph
+
+
+def powers_of_2(n: int) -> set[int]:
+    assert n > 0, "n must be positive"
+    result = set()
+    power = 0
+    while True:
+        current = 1 << power  # 计算2的power次方
+        if current > n:
+            break
+        result.add(current)
+        power += 1
+    return result
 
 
 def main():
@@ -29,7 +40,9 @@ def main():
 def graph_select_experts_mm(inputs, outputs):
     if isinstance(inputs[0], FakeTensor):
         return
-    select_experts_mm(inputs, outputs)
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    select_experts_mm(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()
 
 
@@ -41,9 +54,7 @@ def gate_pto(gate_weight: torch.Tensor,  # gate matmul weights
     router_logits_out = torch.zeros((bs, ne), dtype=gate_weight.dtype, device=hidden_states.device)
     inputs = [hidden_states, gate_weight]
     outputs = [router_logits_out]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
-    graph_select_experts_mm(pto_inputs, pto_outputs)
+    graph_select_experts_mm(inputs, outputs)
     return router_logits_out
 
 
@@ -52,6 +63,10 @@ def select_experts_mm(in_tensors, out_tensors):
     # 1. 添加支持动态的config
     pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_host_options(only_codegen=True)
+    pypto.set_runtime_options(cfgcache_device_task_num=100)
+    pypto.set_runtime_options(cfgcache_root_task_num=100)
+    pypto.set_runtime_options(cfgcache_leaf_task_num=10000)
+    # 泳道图使能  pypto.set_option('profile_enable', True)
 
     # 2. 从入参拿到输入和输出tensor
     hidden_states = in_tensors[0]
@@ -67,19 +82,20 @@ def select_experts_mm(in_tensors, out_tensors):
     ne = mm_weight.shape[0]
     h_num = hidden_states.shape[1]
 
-    view_shape = (128, h_num)
+    view_shape = (16, h_num)
 
     bs_loop = (bs + view_shape[0] - 1) // view_shape[0]
 
     # 5. 实现kernel逻辑，循环展开BS动态轴
-    for bs_idx in pypto.loop(bs_loop, name="LOOP_MOEGATE_MM_L0", idx_name="bs_idx"):
+    for bs_idx in pypto.loop(bs_loop, name="LOOP_MOE_MM_L0", idx_name="bs_idx"):
+
         # 6. 通过view得到tile_logits
         tile_hidden_states = pypto.view(hidden_states, view_shape,
                                         [bs_idx * view_shape[0], 0],
                                         valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]),
                                                         h_num])
 
-        pypto.set_cube_tile_shapes([64, 64], [128, 128], [128, 128])
+        pypto.set_cube_tile_shapes([16, 16], [1024, 1024], [16, 16])
 
         res = pypto.matmul(tile_hidden_states, mm_weight, tile_hidden_states.dtype, b_trans=True)
 
@@ -97,9 +113,12 @@ def test_select_experts_mm():
     torch.npu.set_device(device_id)
 
     # 2. 构造多种shape，测试动态case
-    for i in range(0, 2):
+    for i in range(0, 3):
         if (i == 1):
-            bs = 5
+            bs = 1037
+        if (i == 2):
+            bs = 16
+
         # 3. 准备测试数据
         torch.manual_seed(0)
         np.random.seed(0)

@@ -28,6 +28,9 @@ def select_experts_glm(in_tensors, out_tensors, renormalize_flag, topk_group, nu
     # 添加支持动态的config
     pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_host_options(only_codegen=True)
+    pypto.set_runtime_options(cfgcache_device_task_num=100)
+    pypto.set_runtime_options(cfgcache_root_task_num=100)
+    pypto.set_runtime_options(cfgcache_leaf_task_num=10000)
     pypto.set_option('profile_enable', True)
 
     # 2. 从入参拿到输入和输出tensor
