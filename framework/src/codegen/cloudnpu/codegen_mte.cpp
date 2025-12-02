@@ -958,11 +958,9 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUB(PrintMemCopyWithUBParam &param
     std::string *addrExpr = param.addrExpr;
     // When ub tensor spilling to GM occurred, the spilling unit is entire raw shape of ub tensor.
     // So ub offset is always zero under this scene, do not need to calculate anymore.
-    if (!param.isSpillIntoGM) {
-        AppendLocalBufferVarOffset({
-            {localIdx, &addrExpr[localIdx]}
-        });
-    }
+    AppendLocalBufferVarOffset({
+        {localIdx, &addrExpr[localIdx]}
+    });
     if (isSupportLayout) {
         return PrintMemCopyWithUBTileTensor(param);
     }
