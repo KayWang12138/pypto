@@ -159,18 +159,16 @@ private:
     const std::unordered_map<const Operation *, int> &opPosition_;
 };
 
-enum class AIVCore {
-    AIV0 = 0,
-    AIV1 = 1
-};
-
 struct LeafFuncAttribute {
     std::string kernelName;    // 异构子图kernel函数名
     std::string binPath;       // 异构子图二进制文件路径
     std::string kernelDeclare; // 异构子图代码的kernel声明，用于后续整体调用
     CoreType coreType{CoreType::INVALID};
+    AIVCore aivCore{AIVCore::UNSPECIFIED};  // 0=AIV0, 1=AIV1, -1=未指定
+    int32_t wrapId{-1};
+    int32_t mixId{-1};
+    MixResourceType mixResourceType{MixResourceType::UNKNOWN};
     std::vector<int32_t> aicpuLeafCode;
-    AIVCore aivCore{AIVCore::AIV0};
     std::vector<int> outcastCopyOutResolveCounterList;
     int copyOutResolveSize{0};
 };
@@ -294,6 +292,8 @@ struct CceCodeInfo {
     uint32_t psgId;
     uint64_t funcHash;
     std::vector<int32_t> aicpuLeafCode;
+    int32_t wrapVecId {-1};
+    uint32_t mixResourceType {0};
 };
 
 struct OriArgInfo {

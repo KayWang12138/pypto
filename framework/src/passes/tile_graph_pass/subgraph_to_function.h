@@ -38,6 +38,7 @@ class SubgraphToFunction : public Pass {
 public:
     SubgraphToFunction() : Pass("SubgraphToFunction") {}
     ~SubgraphToFunction() override = default;
+    friend class MixSubgraphSplit;
 
     void SetupStaticProcessor() {
         staticProcessor_.SetNList(nLIST);
