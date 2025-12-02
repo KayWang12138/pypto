@@ -13,7 +13,6 @@
 
 import pypto
 import torch
-import torch_npu
 import os
 from examples.deepseek_v32_exp.lightning_indexer_prolog_quant import IndexerPrologQuantInput, \
     IndexerPrologQuantOutput, IndexerPrologQuantAttr, IndexerPrologQuantConfigs, lightning_indexer_prolog_quant
@@ -146,12 +145,9 @@ def lighting_indexer_prolog_quant_dyn(inputs: IndexerPrologQuantInput, outputs: 
     pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(input_tensors)]
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(output_tensors)]
     lightning_indexer_prolog_quant(pto_inputs, pto_outputs, attrs, configs)
-    pypto.runtime._device_synchronize()
 
 
 def do_test_lighting_indexer_prolog_quant(case_name):
-    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
-    torch.npu.set_device(device_id)
 
     print(f"=== run test case: {case_name} ===")
 
@@ -175,8 +171,6 @@ def do_test_lighting_indexer_prolog_quant(case_name):
     lighting_indexer_prolog_quant_dyn(inputs, outputs, attrs, configs)
 
     print(f"=== {case_name}: PASS ===")
-
-    pypto.runtime._device_fini()
 
 
 if __name__ == "__main__":
