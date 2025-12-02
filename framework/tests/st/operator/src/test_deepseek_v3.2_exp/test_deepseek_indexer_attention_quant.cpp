@@ -334,8 +334,8 @@ void test_common(DSIASimpleParams params) {
     const int sTile = 2048; // for s2Loop split
     saTileConfig.gTile = gTile;
     saTileConfig.sKvTile = sTile;
-    saTileConfig.c1TileShape = {gTile, gTile, 64, 64, 256, 256}; // (n1, dn+dr) @ (s2Tile, dn+dr) -> (n1, s2Tile)
-    saTileConfig.v1TileShape = {16, 256}; // (n1, s2Tile)
+    saTileConfig.c1TileShape = {gTile, gTile, 128, 128, 128, 128}; // (n1, dn+dr) @ (s2Tile, dn+dr) -> (n1, s2Tile)
+    saTileConfig.v1TileShape = {8, 2048}; // (n1, s2Tile)
     saTileConfig.c2TileShape = {gTile, gTile, 128, 128, 128, 128}; // (n1, s2Tile) @ (s2Tile, dn) -> (n1, d)
     saTileConfig.v2TileShape = {64, 128}; // (n1, d)
 

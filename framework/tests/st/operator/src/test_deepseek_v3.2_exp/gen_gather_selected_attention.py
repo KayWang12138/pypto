@@ -315,6 +315,7 @@ def gen_dsa_gather_sa_entry(dtype, bn1n2s1, is_kn_quant, actual_seq, output):
 
 @GoldenRegister.reg_golden_func(
     case_names=[
+        "DynamicGatherSlcFlashAttnDSASTest.SFA_b4_s2_seq64K_int8_perf",
         "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s2_seqTest1_int8",
         "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b32_s1_seq511",
         "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b32_s1_seq511_int8",
@@ -337,7 +338,12 @@ def gen_dsa_gather_sa_entry(dtype, bn1n2s1, is_kn_quant, actual_seq, output):
     timeout=0
 )
 def dsa_sa_func(case_name: str, output: Path) -> bool:
-    if case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s2_seqTest1_int8":
+    if case_name == "DynamicGatherSlcFlashAttnDSASTest.SFA_b4_s2_seq64K_int8_perf":
+        bn1n2s1 = (4, 128, 1, 2)
+        is_kn_quant = 1
+        actual_seq = [65536] * 4
+        gen_dsa_gather_sa_entry(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq, output)
+    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s2_seqTest1_int8":
         bn1n2s1 = (4, 128, 1, 2)
         is_kn_quant = 1
         actual_seq = [666, 532, 768, 900]

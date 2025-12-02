@@ -206,23 +206,6 @@ void DeepSeekIndexerAttentionQuant(
 #endif
 
         //=================== gather selected attention ======================
-        // reset the previous config
-        config::SetPassOption(NBUFFER_MERGE_MODE, 1);
-        config::SetPassOption(VEC_NBUFFER_MAP, std::map<int64_t, int64_t>{});
-        config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{});
-        config::SetPassOption(L1_REUSE_MAP, std::map<int64_t, int64_t>{});
-        config::SetPassOption(SG_PARALLEL_NUM, NUM_20);
-        config::SetPassOption(COPYIN_THRESHOLD, 1 * NUM_1024 * NUM_1024);
-        config::SetPassOption(SG_CYCLE_UPPER_BOUND, NUM_10000);
-        config::SetPassOption(SG_CYCLE_LOWER_BOUND, NUM_512);
-        // set config for attention
-        config::SetPassOption(L1_REUSE, NUM_8);
-        config::SetRuntimeOption<uint8_t>(
-            MACHINE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH) |
-                                static_cast<uint8_t>(MachineScheduleConfig::MULTI_CORE_FAIR_SCH));
-        config::SetRuntimeOption(WORKSPACE_RECYCLE_PERIOD, NUM_128);
-        config::SetRuntimeOption(ESTIMATED_STITCH_TASK_MAX_LOOP_NUM, NUM_128);
-
         Tensor topkRes2D(DT_INT32, {b * s1, n2 * selectedCount}, "topkRes2D");
         LOOP("GATHER_4D_2_2D", FunctionType::DYNAMIC_LOOP, unUsedIdx, LoopRange(1)) {
             (void)unUsedIdx;
@@ -237,6 +220,23 @@ void DeepSeekIndexerAttentionQuant(
             Assemble(offsetResView, {bIdx, 0}, offsetResTmp);
         }
 #endif
+
+        // reset the previous config
+        config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{});
+        config::SetPassOption(L1_REUSE_MAP, std::map<int64_t, int64_t>{});
+        config::SetPassOption(SG_PARALLEL_NUM, NUM_20);
+        config::SetPassOption(COPYIN_THRESHOLD, 1 * NUM_1024 * NUM_1024);
+        config::SetPassOption(SG_CYCLE_UPPER_BOUND, 20000);
+        config::SetPassOption(SG_CYCLE_LOWER_BOUND, NUM_512);
+        config::SetPassOption(L1_REUSE, 0);
+        // set config for attention
+        config::SetPassOption(NBUFFER_MERGE_MODE, 2);
+        config::SetPassOption(VEC_NBUFFER_MAP, std::map<int64_t, int64_t>{{-1, 2}});
+
+        config::SetRuntimeOption<uint8_t>(
+            MACHINE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::DEFAULT_SCH));
+        config::SetRuntimeOption(WORKSPACE_RECYCLE_PERIOD, NUM_128);
+        config::SetRuntimeOption(ESTIMATED_STITCH_TASK_MAX_LOOP_NUM, NUM_128);
 
         Tensor qNope2D(dType, {b * s1 * n1, dn}, "qNope2D");
         Tensor qRope2D(dType, {b * s1 * n1, dr}, "qRope2D");

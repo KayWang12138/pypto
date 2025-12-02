@@ -66,17 +66,16 @@ void SelectedAttentionComputeV2(const Tensor &qNope, const Tensor &qRope, const 
                         Assemble(qr, {0, dN}, qi);
 
                         auto offsetView = View(offsets, {1, curS2Tile}, {1, std::min(curSeq - s2Idx * curS2Tile, curS2Tile)}, {bIdx * s1Sym + s1Idx, s2Idx * curS2Tile});
-                        auto kNope2DView = View(kNope2D, {curS2Tile, dN}, { std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN}, {0, 0});
-                        auto kNopeScalesView = View(kNopeScales, {curS2Tile, 4}, { std::min(curSeq - s2Idx * curS2Tile, curS2Tile), 4}, {0, 0});
 
                         Tensor kn(dtype, {s2Tile, dN}, "kn");
-                        Tensor vj(dtype, {s2Tile, dN}, "vj");
                         if (knDtype == DataType::DT_INT8) {
                             // v0
                             TileShape::Current().SetVecTile(NUM_32, NUM_512);
                             // Gather tokNopeScales
+                            auto kNopeScalesView = View(kNopeScales, {curS2Tile, 4}, { std::min(curSeq - s2Idx * curS2Tile, curS2Tile), 4}, {0, 0});
                             auto knScale = internal::GatherInUB(kNopeScalesView, offsetView, -2);
                             // Gather kNope2D
+                            auto kNope2DView = View(kNope2D, {curS2Tile, dN}, { std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN}, {0, 0});
                             auto knQuant = internal::GatherInUB(kNope2DView, offsetView, -2);
                             auto knQuantF16 = Cast(knQuant, DT_FP16);
                             auto knQuantF32 = Cast(knQuantF16, DT_FP32);
@@ -89,7 +88,6 @@ void SelectedAttentionComputeV2(const Tensor &qNope, const Tensor &qRope, const 
                             TileShape::Current().SetVecTile(NUM_32, NUM_512);
                             auto curKnFp32 = View(knF32Reshape, {curS2Tile, dN}, {std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN}, {0, 0});
                             kn = Cast(curKnFp32, dtype);
-                            vj = Cast(curKnFp32, dtype);
                         } else {
                             TileShape::Current().SetCubeTile({c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, false);
                             kn = internal::GatherInL1<true, true>(kNope2D, offsetView, dN);
@@ -123,11 +121,12 @@ void SelectedAttentionComputeV2(const Tensor &qNope, const Tensor &qRope, const 
                             {tildaPijF16.GetShape()[0], tildaPijF16.GetShape()[1], kn.GetShape()[1]});
 
                         // MQA场景: v=kn
-                        Tensor q1(dtype, {1, dN});
+                        Tensor q1(dtype, {curGTile, dN});
                         if (knDtype == DataType::DT_INT8) {
+                            auto vj = View(kn, {curS2Tile, dN}, {std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN}, {0, 0});
                             q1 = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
                         } else {
-                            vj = internal::GatherInL1<true, false>(kNope2D, offsetView, dN);
+                            auto vj = internal::GatherInL1<true, false>(kNope2D, offsetView, dN);
                             q1 = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
                         }
                         IF (IsLoopBegin(s2Idx, 0)) {
@@ -145,8 +144,8 @@ void SelectedAttentionComputeV2(const Tensor &qNope, const Tensor &qRope, const 
                                 oiUpdate = oiTmp;
                             }
                             TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
-                            liUpdate = Assign(tildaLij);
-                            miUpdate = Assign(tildaMij);
+                            liUpdate = tildaLij;
+                            miUpdate = tildaMij;
                         }
                         ELSE {
                             config::SetSemanticLabel("Sa_UpdateVec2");

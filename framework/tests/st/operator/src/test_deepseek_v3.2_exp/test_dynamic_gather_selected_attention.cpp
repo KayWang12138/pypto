@@ -126,6 +126,42 @@ SaTileShapeConfig GetDefaultSaTileShapeConfig(const int gTile, const int sTile) 
     return tileConfig;
 }
 
+SaTileShapeConfig GetPerfSaTileShapeConfig(const int gTile, const int sTile) {
+    SaTileShapeConfig tileConfig;
+    tileConfig.gTile = gTile; // for gLoop split
+    tileConfig.sKvTile = sTile; // for s2Loop split
+    tileConfig.c1TileShape = {gTile, gTile, 128, 128, 128, 128}; // (n1, dn+dr) @ (s2Tile, dn+dr) -> (n1, s2Tile)
+    tileConfig.v1TileShape = {8, 2048}; // (n1, s2Tile)
+    tileConfig.c2TileShape = {gTile, gTile, 128, 128, 128, 128}; // (n1, s2Tile) @ (s2Tile, dn) -> (n1, d)
+    tileConfig.v2TileShape = {64, 128}; // (n1, d)
+    return tileConfig;
+}
+
+TEST_F(DynamicGatherSlcFlashAttnDSASTest, SFA_b4_s2_seq64K_int8_perf) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+
+    config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{});
+    config::SetPassOption(L1_REUSE_MAP, std::map<int64_t, int64_t>{});
+    config::SetPassOption(COPYIN_THRESHOLD, 1 * 1024 * 1024);
+    config::SetPassOption(SG_CYCLE_UPPER_BOUND, 20000);
+    config::SetPassOption(SG_CYCLE_LOWER_BOUND, 512);
+
+    // config::SetPassOption(L1_REUSE, 8);
+
+    // config::SetRuntimeOption<uint8_t>(
+    //     MACHINE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH) |
+    //                         static_cast<uint8_t>(MachineScheduleConfig::MULTI_CORE_FAIR_SCH));
+    config::SetRuntimeOption(WORKSPACE_RECYCLE_PERIOD, 128);
+    config::SetRuntimeOption(ESTIMATED_STITCH_TASK_MAX_LOOP_NUM, 128);
+
+    config::SetPassOption(SG_PARALLEL_NUM, 20);
+    config::SetPassOption(NBUFFER_MERGE_MODE, 2);
+    config::SetPassOption(VEC_NBUFFER_MAP, std::map<int64_t, int64_t>{{-1, 2}});
+
+    SaTileShapeConfig tileConfig = GetPerfSaTileShapeConfig(128, 2048);
+    TestSa<npu::tile_fwk::bfloat16>(tileConfig);
+}
+
 TEST_F(DynamicGatherSlcFlashAttnDSASTest, dsa_gather_slc_attn_bf16_b4_s2_seqTest1_int8) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     SaTileShapeConfig tileConfig = GetDefaultSaTileShapeConfig(128, 2048);
