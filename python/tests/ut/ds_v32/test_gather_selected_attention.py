@@ -15,13 +15,13 @@ from typing import List
 import math
 import logging
 import pypto
-from pypto import pto_impl
+from pypto import pypto_impl
 from pypto.operation import op_wrapper
 
 
 @op_wrapper
 def gather_in_l1(src, offsets, size, is_b_matrix, is_trans):
-    return pto_impl.gather_in_l1(src, offsets, size, is_b_matrix, is_trans)
+    return pypto_impl.gather_in_l1(src, offsets, size, is_b_matrix, is_trans)
 
 
 @op_wrapper
@@ -32,7 +32,7 @@ def gather_in_ub(
 ):
     """gather_in_ub."""
 
-    return pto_impl.gather_in_ub(param, indices, axis)
+    return pypto_impl.gather_in_ub(param, indices, axis)
 
 
 SHAPE_DIM_0 = 0

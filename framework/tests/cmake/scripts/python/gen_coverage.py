@@ -19,7 +19,6 @@ from typing import Optional, List
 
 
 class GenCoverage:
-
     @dataclasses.dataclass
     class Param:
         source_dir: Optional[Path] = None

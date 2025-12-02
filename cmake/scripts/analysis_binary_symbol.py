@@ -14,9 +14,9 @@ import argparse
 import logging
 import shlex
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
-from datetime import datetime, timezone
 
 
 class Analysis:
@@ -85,8 +85,8 @@ class Analysis:
             if line.startswith("\t"):
                 self.defined_relations.append(f"{line.strip()}")
             elif line.startswith("undefined symbol: "):
-                line = line[18:]                    # 跳过 'undefined symbol: '
-                ori_symbol = line.split("\t")[0]    # 提取符号
+                line = line[18:]  # 跳过 'undefined symbol: '
+                ori_symbol = line.split("\t")[0]  # 提取符号
                 cmd = f"c++filt {ori_symbol}"
                 ret = subprocess.run(shlex.split(cmd), capture_output=True, check=True, text=True, encoding='utf-8')
                 ret.check_returncode()

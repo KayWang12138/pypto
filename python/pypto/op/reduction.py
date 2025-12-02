@@ -11,9 +11,7 @@
 """PyPTO"""
 from typing import Union
 
-from .. import op_wrapper
-from .. import pto_impl
-
+from .. import pypto_impl
 from ..element import Element
 from ..op_wrapper import op_wrapper
 from ..tensor import Tensor
@@ -50,7 +48,7 @@ def amin(input: Tensor, dim: int = -1, keepdim: bool = False) -> Tensor:
               [1]]
 
     """
-    return pto_impl.Amin(input, dim, keepdim)
+    return pypto_impl.Amin(input, dim, keepdim)
 
 
 @op_wrapper
@@ -84,7 +82,7 @@ def amax(input: Tensor, dim: int = -1, keepdim: bool = False) -> Tensor:
               [3]]
 
     """
-    return pto_impl.Amax(input, dim, keepdim)
+    return pypto_impl.Amax(input, dim, keepdim)
 
 
 @op_wrapper
@@ -116,16 +114,16 @@ def maximum(
     Input b:    [3 1 3]
     Output out: [3 2 4]
     """
-    if not isinstance(input, pto_impl.Tensor) and not isinstance(
-        other, pto_impl.Tensor
+    if not isinstance(input, pypto_impl.Tensor) and not isinstance(
+        other, pypto_impl.Tensor
     ):
         raise TypeError("one of `input` and `other` should be `Tensor`")
 
-    if not isinstance(input, pto_impl.Tensor) and isinstance(other, pto_impl.Tensor):
+    if not isinstance(input, pypto_impl.Tensor) and isinstance(other, pypto_impl.Tensor):
         input, other = other, input
     if isinstance(other, (int, float)):
-        other = pto_impl.Element(input.dtype, other)
-    return pto_impl.Maximum(input, other)
+        other = pypto_impl.Element(input.dtype, other)
+    return pypto_impl.Maximum(input, other)
 
 
 @op_wrapper
@@ -157,16 +155,16 @@ def minimum(
     Input b:    [3 1 3]
     Output out: [0 1 3]
     """
-    if not isinstance(input, pto_impl.Tensor) and not isinstance(
-        other, pto_impl.Tensor
+    if not isinstance(input, pypto_impl.Tensor) and not isinstance(
+        other, pypto_impl.Tensor
     ):
         raise TypeError("one of `input` and `other` should be `Tensor`")
 
-    if not isinstance(input, pto_impl.Tensor) and isinstance(other, pto_impl.Tensor):
+    if not isinstance(input, pypto_impl.Tensor) and isinstance(other, pypto_impl.Tensor):
         input, other = other, input
     if isinstance(other, (int, float)):
-        other = pto_impl.Element(input.dtype, other)
-    return pto_impl.Minimum(input, other)
+        other = pypto_impl.Element(input.dtype, other)
+    return pypto_impl.Minimum(input, other)
 
 
 @op_wrapper
@@ -200,4 +198,4 @@ def sum(input: Tensor, dim: int = -1, keepdim: bool = False) -> Tensor:
               [6]]
 
     """
-    return pto_impl.Sum(input, dim, keepdim)
+    return pypto_impl.Sum(input, dim, keepdim)

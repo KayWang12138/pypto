@@ -20,11 +20,10 @@ import signal
 import subprocess
 import sys
 import time
-
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone, timedelta
-from typing import List, Any, Optional, Tuple, Dict, Callable
 from multiprocessing import JoinableQueue, Event, Process, Value
+from typing import List, Any, Optional, Tuple, Dict, Callable
 
 from utils.args_action import ArgsEnvDictAction, ArgsGTestFilterListAction
 from utils.executable import Executable
@@ -434,7 +433,7 @@ class GTestAccelerate(ABC):
         move_grp: List[Process] = []
         desc_list = self._get_move_process_grp_desc_list()
         for name, src_queue, dst_queue in desc_list:
-            process: Process = Process(name=f"MoveProcess({name})", target=self._move, args=(src_queue, dst_queue, ))
+            process: Process = Process(name=f"MoveProcess({name})", target=self._move, args=(src_queue, dst_queue,))
             process.start()
             move_grp.append(process)
         return move_grp
@@ -465,7 +464,7 @@ class GTestAccelerate(ABC):
         process_group: List[Process] = []
         for cntr_id, exec_param in enumerate(self.exe_params, start=1):
             process = Process(name=f"CntrProcess(CntrId[{cntr_id}])",
-                              target=self._cntr, args=(cntr_id, exec_param, delay, ))
+                              target=self._cntr, args=(cntr_id, exec_param, delay,))
             process_group.append(process)
             process.start()
         return process_group

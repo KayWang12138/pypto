@@ -12,7 +12,8 @@ import re
 from typing import Union
 
 import sympy
-from . import pto_impl
+
+from . import pypto_impl
 
 _replacements = {
     "RUNTIME_Min": "min",
@@ -45,78 +46,22 @@ class SymbolicScalar:
             >>> d = SymbolicScalar("x", 10)
         """
         if isinstance(arg0, int):
-            self._base = pto_impl.SymbolicScalar(arg0)
+            self._base = pypto_impl.SymbolicScalar(arg0)
         elif isinstance(arg0, str):
             if isinstance(arg1, int):
-                self._base = pto_impl.SymbolicScalar(arg0, arg1)
+                self._base = pypto_impl.SymbolicScalar(arg0, arg1)
             else:
-                self._base = pto_impl.SymbolicScalar(arg0)
+                self._base = pypto_impl.SymbolicScalar(arg0)
         elif isinstance(arg0, SymbolicScalar):
             self._base = arg0._base
         else:
             raise ValueError(f"Invalid arguments")
 
-    def is_immediate(self) -> bool:
-        return self._base.IsImmediate()
-
-    def is_symbol(self) -> bool:
-        return self._base.IsSymbol()
-
-    def is_expression(self) -> bool:
-        return self._base.IsExpression()
-
-    def is_concrete(self) -> bool:
-        return self._base.ConcreteValid()
-
-    def concrete(self) -> int:
-        if self.is_concrete():
-            return self._base.Concrete()
-        else:
-            raise ValueError("Not concrete value")
-
-    def as_variable(self) -> None:
-        self._base.AsIntermediateVariable()
-
     def __str__(self) -> str:
         return self._base.Dump()
 
-    def base(self) -> pto_impl.SymbolicScalar:
-        return self._base
-
     def __repr__(self) -> str:
         return f"SymbolicScalar({self._base.Dump()})"
-
-    @classmethod
-    def from_base(cls, base: pto_impl.SymbolicScalar) -> 'SymbolicScalar':
-        obj = cls.__new__(cls)
-        obj._base = base
-        return obj
-
-    def _binary_ops(self, other, name: str, bop, sym_bop):
-        if isinstance(other, int):
-            if self.is_concrete():
-                out = SymbolicScalar(bop(self.concrete(), other))
-            else:
-                out = self.from_base(sym_bop(self._base, other))
-        else:
-            if self.is_concrete() and other.is_concrete():
-                out = SymbolicScalar(bop(self.concrete(), other.concrete()))
-            else:
-                out = self.from_base(sym_bop(self._base, other._base))
-
-        if not out.is_concrete():
-            expr = _expr_preprocess(str(out))
-            try:
-                expr = sympy.simplify(expr)
-                if isinstance(expr, sympy.Integer):
-                    out = SymbolicScalar(int(expr))
-                elif expr == sympy.true:
-                    out = SymbolicScalar(1)
-                elif expr == sympy.false:
-                    out = SymbolicScalar(0)
-            except Exception:
-                pass
-        return out
 
     def __eq__(self, other: 'SymbolicScalar | int') -> 'SymbolicScalar':
         return self._binary_ops(other, '__eq__', lambda a, b: a == b, lambda a, b: a.Eq(b))
@@ -172,12 +117,6 @@ class SymbolicScalar:
     def __rfloordiv__(self, other: int) -> 'SymbolicScalar':
         return self._binary_ops(other, '__rfloordiv__', lambda a, b: b // a, lambda a, b: a.RDiv(b))
 
-    def _unary_ops(self, uop, sym_uop):
-        if self.is_concrete():
-            return SymbolicScalar(uop(self.concrete()))
-        else:
-            return self.from_base(sym_uop(self._base))
-
     def __neg__(self) -> 'SymbolicScalar':
         return self._unary_ops(lambda a: -a, lambda a: a.Neg())
 
@@ -193,11 +132,73 @@ class SymbolicScalar:
     def __bool__(self) -> bool:
         return bool(self.concrete())
 
+    @classmethod
+    def from_base(cls, base: pypto_impl.SymbolicScalar) -> 'SymbolicScalar':
+        obj = cls.__new__(cls)
+        obj._base = base
+        return obj
+
+    def is_immediate(self) -> bool:
+        return self._base.IsImmediate()
+
+    def is_symbol(self) -> bool:
+        return self._base.IsSymbol()
+
+    def is_expression(self) -> bool:
+        return self._base.IsExpression()
+
+    def is_concrete(self) -> bool:
+        return self._base.ConcreteValid()
+
+    def concrete(self) -> int:
+        if self.is_concrete():
+            return self._base.Concrete()
+        else:
+            raise ValueError("Not concrete value")
+
+    def as_variable(self) -> None:
+        self._base.AsIntermediateVariable()
+
+    def base(self) -> pypto_impl.SymbolicScalar:
+        return self._base
+
     def min(self, other: 'SymbolicScalar | int') -> 'SymbolicScalar':
         return self._binary_ops(other, '__min__', lambda a, b: min(a, b), lambda a, b: a.Min(b))
 
     def max(self, other: 'SymbolicScalar | int') -> 'SymbolicScalar':
         return self._binary_ops(other, '__max__', lambda a, b: max(a, b), lambda a, b: a.Max(b))
+
+    def _binary_ops(self, other, name: str, bop, sym_bop):
+        if isinstance(other, int):
+            if self.is_concrete():
+                out = SymbolicScalar(bop(self.concrete(), other))
+            else:
+                out = self.from_base(sym_bop(self._base, other))
+        else:
+            if self.is_concrete() and other.is_concrete():
+                out = SymbolicScalar(bop(self.concrete(), other.concrete()))
+            else:
+                out = self.from_base(sym_bop(self._base, other._base))
+
+        if not out.is_concrete():
+            expr = _expr_preprocess(str(out))
+            try:
+                expr = sympy.simplify(expr)
+                if isinstance(expr, sympy.Integer):
+                    out = SymbolicScalar(int(expr))
+                elif expr == sympy.true:
+                    out = SymbolicScalar(1)
+                elif expr == sympy.false:
+                    out = SymbolicScalar(0)
+            except Exception:
+                pass
+        return out
+
+    def _unary_ops(self, uop, sym_uop):
+        if self.is_concrete():
+            return SymbolicScalar(uop(self.concrete()))
+        else:
+            return self.from_base(sym_uop(self._base))
 
 
 SymInt = Union[int, SymbolicScalar]

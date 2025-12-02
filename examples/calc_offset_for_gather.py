@@ -14,7 +14,7 @@ from dataclasses import dataclass
 import math
 import os
 import pypto
-from pypto import pto_impl
+from pypto import pypto_impl
 from pypto.operation import op_wrapper
 import torch
 import numpy as np
@@ -40,7 +40,7 @@ NUM_8192 = 8192
 
 @op_wrapper
 def load(src, dst):
-    return pto_impl.Load(src, dst)
+    return pypto_impl.Load(src, dst)
 
 
 def gen_cache_tensor(k_tensor, block_table, block_num, block_size, b):

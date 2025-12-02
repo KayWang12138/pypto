@@ -12,36 +12,36 @@
 """
 import inspect
 from typing import List, Union, Dict, Optional
-import inspect
 
-from . import pto_impl
+from . import pypto_impl
 
 
 class CachedOptions:
 
     def __init__(self):
-        self._options = pto_impl.GetOptions()
+        self._options = pypto_impl.GetOptions()
 
     def reset(self):
-        self._options = pto_impl.GetOptions()
+        self._options = pypto_impl.GetOptions()
 
     def set_options(self, prefix, options):
         for name, value in options.items():
             key = f"{prefix}.{name}"
             if key in self._options and value is not None:
                 self._options[key] = value
-                pto_impl.SetOption(key, value)
+                pypto_impl.SetOption(key, value)
 
     def __getitem__(self, key):
         return self._options[key]
 
     def __setitem__(self, key, value):
         self._options[key] = value
-        pto_impl.SetOption(key, value)
+        pypto_impl.SetOption(key, value)
 
     def get_options(self, prefix):
         prefix = f"{prefix}."
         return {k[len(prefix):]: v for k, v in self._options.items() if k.startswith(prefix)}
+
 
 _pto_options = CachedOptions()
 
@@ -64,7 +64,7 @@ def set_print_options(edge_items: int, precision: int, threshold: int, linewidth
     linewidth : int
         Max line width.
     """
-    pto_impl.SetPrintOptions(edge_items, precision, threshold, linewidth)
+    pypto_impl.SetPrintOptions(edge_items, precision, threshold, linewidth)
 
 
 def set_pass_options(*,
@@ -244,7 +244,7 @@ def set_runtime_options(*,
     subseq_stitch_task_incr_loop_num : int
         The computation amount of the processing loop for non-initial
         stitch tasks, controlled in the ctrlflow AICPU during machine runtime.
-        
+
     stitch_callop_max_num: int
         The maximum Callop computation amount per loop for stitch tasks,
         controlled in the ctrlflow AICPU during machine runtime.
@@ -319,7 +319,7 @@ def set_semantic_label(label: str) -> None:
         Note: label will be attached to subsequent operations
 
     """
-    pto_impl.SetSemanticLabel(label, inspect.stack()[
+    pypto_impl.SetSemanticLabel(label, inspect.stack()[
                               1].filename, inspect.stack()[1].lineno)
 
 
@@ -360,5 +360,5 @@ def reset_options() -> None:
     """
         Reset all configuration items to their default values.
     """
-    pto_impl.Reset()
+    pypto_impl.Reset()
     _pto_options.reset()

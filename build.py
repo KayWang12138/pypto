@@ -11,24 +11,24 @@
 """构建总入口.
 """
 import abc
-import os
-import sys
-import platform
 import argparse
+import dataclasses
+import importlib.util
+import json
 import logging
+import math
 import multiprocessing
+import os
+import platform
 import shlex
 import shutil
 import signal
 import subprocess
-import json
-import math
-import dataclasses
-import importlib.util
-
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List, Dict, Tuple, Any
+
 from setup import MetaHelper
 
 if str(Path(Path(__file__).parent, "tools")) not in sys.path:
@@ -102,9 +102,9 @@ class CMakeParam(abc.ABC):
 class FeatureParam(CMakeParam):
     """特性控制相关参数
     """
-    frontend_type: Optional[str] = None # 前端类型, 支持 python3, cpp
-    backend_type: Optional[str] = None # 后端类型, 支持 npu, cost_model
-    whl_plat_name: Optional[str] = None # python3 whl 包 plat-name
+    frontend_type: Optional[str] = None  # 前端类型, 支持 python3, cpp
+    backend_type: Optional[str] = None  # 后端类型, 支持 npu, cost_model
+    whl_plat_name: Optional[str] = None  # python3 whl 包 plat-name
 
     def __init__(self, args):
         self.frontend_type = "python3" if args.frontend is None else args.frontend
@@ -166,7 +166,7 @@ class BuildParam(CMakeParam):
     """构建相关参数
     """
     targets: Optional[List[str]] = None  # 编译目标
-    job_num: Optional[int] = None # 编译阶段使用核数
+    job_num: Optional[int] = None  # 编译阶段使用核数
     clean: bool = False  # 强制清理 Build-Tree 及 Install-Tree 标记
     timeout: Optional[int] = None  # 构建超时时长
     type_: Optional[str] = None  # 构建类型
@@ -356,11 +356,11 @@ class TestsFilterParam(CMakeParam):
     def __init__(self, argv: Optional[str], opt: str = ""):
         self.cmake_option = opt
         if argv is None:
-            self.enable, self.filter_str = True, "ON"      # 指定 对应参数, 但未指定内容
+            self.enable, self.filter_str = True, "ON"  # 指定 对应参数, 但未指定内容
         elif argv == "":
-            self.enable, self.filter_str = False, "OFF"   # 未指定 对应参数
+            self.enable, self.filter_str = False, "OFF"  # 未指定 对应参数
         else:
-            self.enable, self.filter_str = True, argv    # 指定 对应参数 且指定内容
+            self.enable, self.filter_str = True, argv  # 指定 对应参数 且指定内容
 
     @staticmethod
     def reg_args(parser, ext: Optional[Any] = None):
@@ -745,7 +745,6 @@ class BuildCtrl:
     本类包含由命令行指定或解析出的控制标记/参数, 以控制构建过程执行.
     """
     _PYTHONPATH: str = "PYTHONPATH"
-
 
     def __init__(self, args):
         self.whl_prefix: str = MetaHelper.name()

@@ -8,15 +8,15 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
-from . import pto_impl
+from . import pypto_impl
 
 
 class Element:
     def __init__(self, dtype, data):
         if isinstance(data, int):
-            self._base = pto_impl.Element(dtype, data)
+            self._base = pypto_impl.Element(dtype, data)
         elif isinstance(data, float):
-            self._base = pto_impl.Element(dtype, data)
+            self._base = pypto_impl.Element(dtype, data)
         else:
             raise ValueError(f"Invalid data type {type(data)} for Element")
 

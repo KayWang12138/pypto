@@ -15,8 +15,8 @@
     2. 承载用例执行功能;
 """
 import csv
-from enum import Enum, unique
 from abc import ABC, abstractmethod
+from enum import Enum, unique
 from pathlib import Path
 from typing import Dict, Any, Optional, Tuple, List
 

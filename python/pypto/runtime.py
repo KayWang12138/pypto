@@ -12,9 +12,10 @@
 """
 from typing import List, overload
 
-import torch
 import pypto
-from . import pto_impl
+import torch
+
+from . import pypto_impl
 from .converter import _dtype_from, from_torch
 
 __all__ = [
@@ -24,10 +25,11 @@ __all__ = [
     "_device_synchronize",
     "jit",
     "verify",
+    "set_verify_data",
 ]
 
-_device_init = pto_impl.DeviceInit
-_device_fini = pto_impl.DeviceFini
+_device_init = pypto_impl.DeviceInit
+_device_fini = pypto_impl.DeviceFini
 
 
 def set_device(device: int):
@@ -45,7 +47,7 @@ def current_stream():
 def _torch_to_tensor_data(tensors: List[torch.Tensor]):
     datas = []
     for t in tensors:
-        data = pto_impl.DeviceTensorData(
+        data = pypto_impl.DeviceTensorData(
             _dtype_from(t.dtype),
             t.data_ptr(),
             list(t.shape),
@@ -54,10 +56,10 @@ def _torch_to_tensor_data(tensors: List[torch.Tensor]):
     return datas
 
 
-def _pto_to_tensor_data(tensors: List[pypto.Tensor]) -> List[pto_impl.DeviceTensorData]:
+def _pto_to_tensor_data(tensors: List[pypto.Tensor]) -> List[pypto_impl.DeviceTensorData]:
     datas = []
     for t in tensors:
-        data = pto_impl.DeviceTensorData(
+        data = pypto_impl.DeviceTensorData(
             t.dtype,
             t.data_ptr,
             list(t.shape),
@@ -70,7 +72,7 @@ def _device_run_once_data_from_host(inputs: List[torch.Tensor], outputs: List[to
     for in_tensor in inputs:
         if not in_tensor.is_contiguous():
             raise RuntimeError("all input tensor must be contiguous.")
-    pto_impl.DeviceRunOnceDataFromHost(
+    pypto_impl.DeviceRunOnceDataFromHost(
         _torch_to_tensor_data(inputs), _torch_to_tensor_data(outputs))
 
 
@@ -86,23 +88,22 @@ class JIT:
         self.runtime_options = runtime_options
 
     def compile(self, inputs, outputs, *args, **kwargs):
-        pto_impl.DeviceInit()
+        pypto_impl.DeviceInit()
         self._set_config_option()
 
-        handler = pto_impl.OperatorBegin([t.base() for t in inputs],
-                                         [t.base() for t in outputs])
+        handler = pypto_impl.OperatorBegin([t.base() for t in inputs], [t.base() for t in outputs])
         with pypto.function(self.dyn_func.__name__, inputs, outputs):
             self.dyn_func(inputs, outputs, *args, **kwargs)
-        pto_impl.OperatorEnd(handler)
+        pypto_impl.OperatorEnd(handler)
 
         self._handler = handler
         self._is_compiled = True
 
     def run(self, in_tensor_data, out_tensor_data, device_id):
         assert self._handler is not None
-        workspace_size = pto_impl.GetWorkSpaceSize(self._handler)
+        workspace_size = pypto_impl.GetWorkSpaceSize(self._handler)
         workspace_tensor = torch.zeros(workspace_size, dtype=torch.uint8, device=device_id)
-        pto_impl.OperatorDeviceRunOnceDataFromDevice(
+        pypto_impl.OperatorDeviceRunOnceDataFromDevice(
             self._handler,
             in_tensor_data,
             out_tensor_data,
@@ -110,11 +111,11 @@ class JIT:
             workspace_tensor.data_ptr())
 
     def __call__(self, *args, **kwargs):
-        if (len(args) < 2):
+        if len(args) < 2:
             raise ValueError("inputs or outputs missing")
         device = None
         inputs, outputs = args[0], args[1]
-        if (len(inputs + outputs) < 1):
+        if len(inputs + outputs) < 1:
             raise ValueError("inputs or outputs missing")
         for t in inputs + outputs:
             if device is None:
@@ -177,7 +178,6 @@ def jit(dyn_func=None,
         host_options=None,
         pass_options=None,
         runtime_options=None):
-
     def decorator(func):
         return JIT(func,
                    codegen_options=codegen_options,
@@ -192,7 +192,7 @@ def jit(dyn_func=None,
 
 
 def _device_synchronize():
-    pto_impl.OperatorDeviceSynchronize(current_stream())
+    pypto_impl.OperatorDeviceSynchronize(current_stream())
 
 
 def verify(func, inputs, outputs, goldens, *args,
@@ -221,7 +221,7 @@ def verify(func, inputs, outputs, goldens, *args,
     Returns:
         None
     """
-    pto_impl.DeviceInit()
+    pypto_impl.DeviceInit()
 
     if codegen_options is None:
         codegen_options = {"support_dynamic_unaligned": True}
@@ -239,19 +239,19 @@ def verify(func, inputs, outputs, goldens, *args,
         verify_options = {"verify_tensor_graph": True}
     pypto.set_verify_options(**verify_options)
 
-    pto_impl.SetVerifyData(_torch_to_tensor_data(inputs),
-                           _torch_to_tensor_data(outputs),
-                           _torch_to_tensor_data(goldens))
+    pypto_impl.SetVerifyData(_torch_to_tensor_data(inputs),
+                             _torch_to_tensor_data(outputs),
+                             _torch_to_tensor_data(goldens))
 
     inputs = [from_torch(t, f"IN_{idx}") for idx, t in enumerate(inputs)]
     outputs = [from_torch(t, f"OUT_{idx}") for idx, t in enumerate(outputs)]
-    handler = pto_impl.OperatorBegin([t.base() for t in inputs],
-                                     [t.base() for t in outputs])
+    handler = pypto_impl.OperatorBegin([t.base() for t in inputs],
+                                       [t.base() for t in outputs])
     func(inputs, outputs, *args, **kwargs)
-    pto_impl.OperatorEnd(handler)
+    pypto_impl.OperatorEnd(handler)
 
 
 def set_verify_data(inputs, outputs, goldens):
-    pto_impl.SetVerifyData(to_tensor_data(inputs),
-                           to_tensor_data(outputs),
-                           to_tensor_data(goldens))
+    pypto_impl.SetVerifyData(to_tensor_data(inputs),
+                             to_tensor_data(outputs),
+                             to_tensor_data(goldens))

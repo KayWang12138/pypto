@@ -12,7 +12,6 @@
 import pypto
 from pypto import Tensor
 
-
 __all__ = ["sin", "cos", "sigmoid", "softmax", "rms_norm"]
 
 

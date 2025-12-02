@@ -11,13 +11,14 @@
 """
 """
 from enum import Enum
-from . import pto_impl
+
+from . import pypto_impl
 
 
 class PassConfigs:
     """
     PassConfigs data structure returned from C++ (read-only)
-        
+
     Attributes:
         printFunction: Whether to print function IR.
         dumpTensorGraph: Whether to dump tensor graph to files.
@@ -30,7 +31,7 @@ class PassConfigs:
         postCheck: Whether to perform verification checks after pass.
         disablePass: Whether to disable pass.
         healthCheck: Whether to perform health check and generate report.
-    
+
     Note:
         Instances of this class are entirely created and initialized by the C++ side.
         Python side is only for data access. All attributes are read-only and cannot
@@ -50,8 +51,8 @@ class PassConfigs:
 
 
 class PassConfigKey(Enum):
-    KEY_DUMP_FUNCTION_GRAPH_BEFORE_PASS = pto_impl.KEY_DUMP_FUNCTION_GRAPH_BEFORE_PASS
-    KEY_DUMP_FUNCTION_GRAPH_AFTER_PASS = pto_impl.KEY_DUMP_FUNCTION_GRAPH_AFTER_PASS
+    KEY_DUMP_FUNCTION_GRAPH_BEFORE_PASS = pypto_impl.KEY_DUMP_FUNCTION_GRAPH_BEFORE_PASS
+    KEY_DUMP_FUNCTION_GRAPH_AFTER_PASS = pypto_impl.KEY_DUMP_FUNCTION_GRAPH_AFTER_PASS
 
 
 def get_pass_default_config(key: PassConfigKey, default_value: bool) -> bool:
@@ -78,7 +79,7 @@ def get_pass_default_config(key: PassConfigKey, default_value: bool) -> bool:
     """
     if not isinstance(key, PassConfigKey):
         raise ValueError(f"key must be a member of PassConfigKey, got {key}. ")
-    return pto_impl.GetPassDefaultConfig(key.value, default_value)
+    return pypto_impl.GetPassDefaultConfig(key.value, default_value)
 
 
 def set_pass_default_config(key: PassConfigKey, value: bool):
@@ -100,7 +101,7 @@ def set_pass_default_config(key: PassConfigKey, value: bool):
     """
     if not isinstance(key, PassConfigKey):
         raise ValueError(f"key must be a member of PassConfigKey, got {key}. ")
-    pto_impl.SetPassDefaultConfig(key.value, value)
+    pypto_impl.SetPassDefaultConfig(key.value, value)
 
 
 def get_pass_config(strategy: str, identifier: str, key: PassConfigKey, default_value: bool) -> bool:
@@ -133,7 +134,7 @@ def get_pass_config(strategy: str, identifier: str, key: PassConfigKey, default_
     """
     if not isinstance(key, PassConfigKey):
         raise ValueError(f"key must be a member of PassConfigKey, got {key}. ")
-    return pto_impl.GetPassConfig(strategy, identifier, key.value, default_value)
+    return pypto_impl.GetPassConfig(strategy, identifier, key.value, default_value)
 
 
 def set_pass_config(strategy: str, identifier: str, key: PassConfigKey, value: bool):
@@ -161,7 +162,7 @@ def set_pass_config(strategy: str, identifier: str, key: PassConfigKey, value: b
     """
     if not isinstance(key, PassConfigKey):
         raise ValueError(f"key must be a member of PassConfigKey, got {key}. ")
-    pto_impl.SetPassConfig(strategy, identifier, key.value, value)
+    pypto_impl.SetPassConfig(strategy, identifier, key.value, value)
 
 
 def get_pass_configs(strategy: str, identifier: str) -> PassConfigs:
@@ -181,4 +182,4 @@ def get_pass_configs(strategy: str, identifier: str) -> PassConfigs:
     PassConfigs
         A complete configuration object containing all parameters for the specified pass under the given strategy.
     """
-    return pto_impl.GetPassConfigs(strategy, identifier)
+    return pypto_impl.GetPassConfigs(strategy, identifier)

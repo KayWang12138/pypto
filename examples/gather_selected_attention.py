@@ -15,7 +15,7 @@ import math
 import os
 import pypto
 import torch
-from pypto import pto_impl
+from pypto import pypto_impl
 from pypto.operation import op_wrapper
 import numpy as np
 from numpy.testing import assert_allclose
@@ -23,7 +23,7 @@ from numpy.testing import assert_allclose
 
 @op_wrapper
 def gather_in_l1(src, offsets, size, is_b_matrix, is_trans):
-    return pto_impl.gather_in_l1(src, offsets, size, is_b_matrix, is_trans)
+    return pypto_impl.gather_in_l1(src, offsets, size, is_b_matrix, is_trans)
 
 
 @op_wrapper
@@ -34,7 +34,7 @@ def gather_in_ub(
 ):
     """gather_in_ub."""
 
-    return pto_impl.gather_in_ub(param, indices, axis)
+    return pypto_impl.gather_in_ub(param, indices, axis)
 
 
 @dataclass

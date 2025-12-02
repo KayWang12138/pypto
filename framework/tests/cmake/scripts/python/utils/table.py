@@ -17,6 +17,7 @@ from typing import List, Any, Optional
 class Table:
     """表格处理, 减少对其他外部库依赖
     """
+
     @staticmethod
     def table(datas: List[List[Any]], headers: Optional[List[Any]] = None, col_width_max: int = 128) -> str:
         """获取格式化的表格字符串

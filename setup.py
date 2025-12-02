@@ -14,19 +14,18 @@ import argparse
 import logging
 import os
 import shlex
-import sys
-import subprocess
 import shutil
+import subprocess
+import sys
 import warnings
-
-from typing import Optional, Any, List
 from pathlib import Path
+from typing import Optional, Any, List
+
 from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext
 
 
 class MetaHelper:
-
     _SRC_ROOT: Path
     _CONFIG: Any
 
@@ -94,7 +93,6 @@ class CMakeExtension(Extension):
 
 
 class CMakeUserOption:
-
     # 额外的命令行配置, 格式: 长选项, 短选项, 描述, 默认值
     USER_OPTION: List[Any] = [
         ('clean-first', None, 'Clean before build', None),

@@ -17,6 +17,7 @@ from typing import Sequence, Optional, Any, List
 class ArgsEnvDictAction(argparse.Action):
     """解析命令行参数传入的环境变量字段(env)
     """
+
     def __call__(self, parser, namespace, values, option_string=None):
         env_dict = getattr(namespace, self.dest, {}) or {}
         for item in values:
@@ -28,6 +29,7 @@ class ArgsEnvDictAction(argparse.Action):
 class ArgsGTestFilterListAction(argparse.Action):
     """解析命令行参数传入的 GTestFilter 字段
     """
+
     def __init__(self, option_strings: Sequence[str], dest: str, nargs: Optional[int] = None, **kwargs: Any) -> None:
         # 确保 nargs 至少为 1
         if nargs is None:

@@ -11,10 +11,9 @@
 """PyPTO"""
 import functools
 
-from . import pto_impl
-
+from . import pypto_impl
 from .element import Element
-from .pto_utils import clear_source_location, set_source_location
+from .pypto_utils import clear_source_location, set_source_location
 from .symbolic_scalar import SymbolicScalar
 from .tensor import Tensor
 
@@ -31,7 +30,7 @@ def _to_base(arg):
 
 
 def _from_base(out):
-    if isinstance(out, pto_impl.Tensor):
+    if isinstance(out, pypto_impl.Tensor):
         return Tensor.from_base(out)
     elif isinstance(out, (list, tuple)):
         return [_from_base(a) for a in out]

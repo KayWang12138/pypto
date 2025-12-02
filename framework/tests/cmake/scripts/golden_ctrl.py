@@ -19,14 +19,14 @@ import json
 import logging
 import math
 import multiprocessing
-import shutil
 import os
+import shutil
 import sys
 import time
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Any, Dict, Tuple
-from datetime import datetime, timezone
-from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from golden_register import GoldenRegister, GoldenRegInfo, GoldenParam
 from python.utils.table import Table

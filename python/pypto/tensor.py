@@ -12,115 +12,29 @@ import typing
 from typing import Union, List, Optional, Tuple
 
 import pypto
-from . import pto_impl
 
-from .enum import * # noqa
-from .pto_utils import to_syms, to_sym
+from .enum import *  # noqa
+from .pypto_utils import to_syms, to_sym
 from .symbolic_scalar import SymbolicScalar, SymInt
 
 
 class Tensor:
 
     def __init__(self, shape=None, dtype: Union[DataType, None] = None,
-            name: str = "", format: TileOpFormat = TileOpFormat.TILEOP_ND,
-            data_ptr: Optional[int] = None, device=None):
+                 name: str = "", format: TileOpFormat = TileOpFormat.TILEOP_ND,
+                 data_ptr: Optional[int] = None, device=None):
         if shape is None or dtype is None:
-            self._base = pto_impl.Tensor()
+            self._base = pypto_impl.Tensor()
         elif all([isinstance(s, int) for s in shape]):
             nshape = typing.cast(List[int], shape)
-            self._base = pto_impl.Tensor(dtype, nshape, name, format)
+            self._base = pypto_impl.Tensor(dtype, nshape, name, format)
         else:
             sym_shape = to_syms(shape)
             assert isinstance(
                 sym_shape, list), "shape must be a list of int or SymbolicScalar"
-            self._base = pto_impl.Tensor(dtype, sym_shape, name, format)
+            self._base = pypto_impl.Tensor(dtype, sym_shape, name, format)
         self.data_ptr = data_ptr
         self.device = device
-
-    @property
-    def dtype(self) -> DataType:
-        return self._base.GetDataType()
-
-    @property
-    def shape(self) -> List[SymInt]:
-        out = []
-        for i, n in enumerate(self._base.GetShape()):
-            if n == -1:
-                out.append(SymbolicScalar.from_base(
-                    pto_impl.GetInputShape(self._base, i)))
-            else:
-                out.append(n)
-        return out
-
-    @property
-    def dim(self) -> int:
-        return self._base.Dim()
-
-    @property
-    def id(self) -> int:
-        return self._base.Id()
-
-    @property
-    def format(self) -> TileOpFormat:
-        return self._base.Format()
-
-    def set_cache_policy(self, policy: CachePolicy, value: bool) -> None:
-        self._base.SetCachePolicy(policy, value)
-
-    def get_cache_policy(self, policy: CachePolicy) -> bool:
-        return self._base.GetCachePolicy(policy)
-
-    @property
-    def name(self) -> str:
-        return self._base.GetName()
-
-    @name.setter
-    def name(self, value: str) -> None:
-        self._base.SetName(value)
-
-    def move(self, other: 'Tensor') -> None:
-        self._base.Move(other._base)
-
-    def _get_assemble_offset(self, key, shape):
-        offsets = []
-        for axis, k in enumerate(key):
-            start, stop, step = k.start, k.stop, k.step
-            if step not in (1, None):
-                raise ValueError("step must be 1 or None")
-            if start is None and stop is None:
-                offsets.append(0)
-            elif isinstance(start, (int, SymbolicScalar)):
-                offsets.append(start)
-            elif isinstance(stop, (int, SymbolicScalar)):
-                offsets.append(stop - shape[axis])
-        return offsets
-
-    def _is_empty_slice(self, key):
-        if isinstance(key, slice):
-            return key.start is None and key.stop is None and key.step is None
-        elif isinstance(key, (int, SymbolicScalar)):
-            return False
-        elif key is Ellipsis:
-            return False
-        return all([self._is_empty_slice(k) for k in key])
-
-
-    @staticmethod
-    def _add_one_dim(key, value_shape):
-        slices_cout = sum(1 for k in key if isinstance(k, slice))
-        assert slices_cout == len(value_shape), (
-            f"The number of slice in key ({slices_cout}) "
-            f"must match the length of input Tensor ({len(value_shape)}). "
-        )
-        new_shape = []
-        idx = 0
-        for k in key:
-            if isinstance(k, slice):
-                new_shape.append(value_shape[idx])
-                idx += 1
-            else:
-                new_shape.append(1)
-        return new_shape
 
     def __setitem__(self, key, value):
         """
@@ -187,7 +101,7 @@ class Tensor:
         key = self._normalize_key(key)
 
         if all(isinstance(k, (int, SymbolicScalar)) for k in key):
-            pto_impl.SetTensorData(to_sym(value), to_syms(key), self._base)
+            pypto_impl.SetTensorData(to_sym(value), to_syms(key), self._base)
             return
 
         if all(isinstance(k, slice) for k in key):
@@ -202,70 +116,6 @@ class Tensor:
             return pypto.assemble(value_reshaped, offsets, self)
 
         raise ValueError("tuple key must be int, SymbolicScalar or slice")
-
-
-    def _normalize_key(self, key):
-        if self._is_empty_slice(key):
-            return key
-
-        if isinstance(key, (int, SymbolicScalar, slice)) or key is Ellipsis:
-            key = (key,)
-
-        if not isinstance(key, tuple):
-            raise RuntimeError("Invalid key type")
-
-        if any(k is Ellipsis for k in key):
-            ellipsis_count = sum(k is Ellipsis for k in key)
-            if ellipsis_count > 1:
-                raise ValueError("Only one ... is supported")
-
-            ellipsis_pos = next(i for i, k in enumerate(key) if k is Ellipsis)
-            other_len = len(key) - 1
-            colon_count = self.dim - other_len
-            if colon_count < 0:
-                raise IndexError(f"Too many indices for tensor with dimension {self.dim}")
-            colons = (slice(None),) * colon_count
-            key = key[:ellipsis_pos] + colons + key[ellipsis_pos + 1:]
-
-        assert self.dim == len(key), f"rank not match, expect {self.dim}, but got {len(key)}"
-        key = self._negative_index_to_positive(key, self.shape)
-        return key
-
-
-    @staticmethod
-    def _negative_index_to_positive(key, shape):
-        normalized = []
-        for axis, k in enumerate(key):
-            size = shape[axis]
-            if isinstance(k, (int, SymbolicScalar)):
-                if isinstance(k, int) and k < 0:
-                    k = size + k
-                normalized.append(k)
-                continue
-            start, stop, step = k.start, k.stop, k.step
-            if isinstance(start, int) and start < 0:
-                start = size + start
-            if isinstance(stop, int) and stop < 0:
-                stop = size + stop
-            normalized.append(slice(start, stop, step))
-        return tuple(normalized)
-
-
-    def _get_view_offset_shape(self, key, shape):
-        offsets = []
-        shapes = []
-        for axis, k in enumerate(key):
-            start, stop, step = k.start, k.stop, k.step
-            if step != 1 and step is not None:
-                raise ValueError("step must be 1 or None")
-            if start is None:
-                start = 0
-            if stop is None:
-                stop = shape[axis]
-            offsets.append(start)
-            shapes.append(int(stop - start)) # shape should be concrete
-        return offsets, shapes
-
 
     def __getitem__(self, key, *, valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None):
         """
@@ -310,7 +160,7 @@ class Tensor:
         key = self._normalize_key(key)
 
         if all(isinstance(k, (int, SymbolicScalar)) for k in key):
-            return SymbolicScalar.from_base(pto_impl.GetTensorData(self._base, to_syms(key)))
+            return SymbolicScalar.from_base(pypto_impl.GetTensorData(self._base, to_syms(key)))
 
         if all(isinstance(k, slice) for k in key):
             offsets, shapes = self._get_view_offset_shape(key, self.shape)
@@ -325,6 +175,130 @@ class Tensor:
 
         raise ValueError("tuple key must be int, SymbolicScalar or slice")
 
+    def __add__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return self.add(other)
+
+    def __radd__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return self.add(other)
+
+    def __iadd__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return self.add(other)
+
+    def __sub__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return self.sub(other)
+
+    def __isub__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return self.sub(other)
+
+    def __mul__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return self.mul(other)
+
+    def __imul__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return self.mul(other)
+
+    def __truediv__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return self.div(other)
+
+    def __itruediv__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return self.div(other)
+
+    def __gt__(self, other: 'Tensor') -> 'Tensor':
+        return self.greater(other)
+
+    def __matmul__(self, other: 'Tensor') -> 'Tensor':
+        if other.dtype in {pypto.DT_FP16, pypto.DT_BF16, pypto.DT_FP32}:
+            out_dtype = other.dtype
+        elif other.dtype == pypto.DT_INT8:
+            out_dtype = pypto.DT_INT32
+        else:
+            raise RuntimeError("unsupported dtype")
+        return pypto.matmul(self, other, out_dtype)
+
+    @property
+    def dtype(self) -> DataType:
+        return self._base.GetDataType()
+
+    @property
+    def shape(self) -> List[SymInt]:
+        out = []
+        for i, n in enumerate(self._base.GetShape()):
+            if n == -1:
+                out.append(SymbolicScalar.from_base(
+                    pypto_impl.GetInputShape(self._base, i)))
+            else:
+                out.append(n)
+        return out
+
+    @property
+    def dim(self) -> int:
+        return self._base.Dim()
+
+    @property
+    def id(self) -> int:
+        return self._base.Id()
+
+    @property
+    def format(self) -> TileOpFormat:
+        return self._base.Format()
+
+    @property
+    def name(self) -> str:
+        return self._base.GetName()
+
+    @name.setter
+    def name(self, value: str) -> None:
+        self._base.SetName(value)
+
+    @staticmethod
+    def _get_assemble_offset(key, shape):
+        offsets = []
+        for axis, k in enumerate(key):
+            start, stop, step = k.start, k.stop, k.step
+            if step not in (1, None):
+                raise ValueError("step must be 1 or None")
+            if start is None and stop is None:
+                offsets.append(0)
+            elif isinstance(start, (int, SymbolicScalar)):
+                offsets.append(start)
+            elif isinstance(stop, (int, SymbolicScalar)):
+                offsets.append(stop - shape[axis])
+        return offsets
+
+    @staticmethod
+    def _add_one_dim(key, value_shape):
+        slices_count = sum(1 for k in key if isinstance(k, slice))
+        assert slices_count == len(value_shape), (
+            f"The number of slice in key ({slices_count}) "
+            f"must match the length of input Tensor ({len(value_shape)}). "
+        )
+        new_shape = []
+        idx = 0
+        for k in key:
+            if isinstance(k, slice):
+                new_shape.append(value_shape[idx])
+                idx += 1
+            else:
+                new_shape.append(1)
+        return new_shape
+
+    @staticmethod
+    def _negative_index_to_positive(key, shape):
+        normalized = []
+        for axis, k in enumerate(key):
+            size = shape[axis]
+            if isinstance(k, (int, SymbolicScalar)):
+                if isinstance(k, int) and k < 0:
+                    k = size + k
+                normalized.append(k)
+                continue
+            start, stop, step = k.start, k.stop, k.step
+            if isinstance(start, int) and start < 0:
+                start = size + start
+            if isinstance(stop, int) and stop < 0:
+                stop = size + stop
+            normalized.append(slice(start, stop, step))
+        return tuple(normalized)
+
     @staticmethod
     def _get_slice_index(key):
         new_key = []
@@ -338,79 +312,65 @@ class Tensor:
                 bool_shape.append(True)
         return new_key, bool_shape
 
-    def base(self) -> pto_impl.Tensor:
-        return self._base
+    @staticmethod
+    def _get_view_offset_shape(key, shape):
+        offsets = []
+        shapes = []
+        for axis, k in enumerate(key):
+            start, stop, step = k.start, k.stop, k.step
+            if step != 1 and step is not None:
+                raise ValueError("step must be 1 or None")
+            if start is None:
+                start = 0
+            if stop is None:
+                stop = shape[axis]
+            offsets.append(start)
+            shapes.append(int(stop - start))  # shape should be concrete
+        return offsets, shapes
 
     @classmethod
-    def from_base(cls, base: pto_impl.Tensor) -> 'Tensor':
+    def from_base(cls, base: pypto_impl.Tensor) -> 'Tensor':
         obj = cls.__new__(cls)
         obj._base = base
         return obj
 
+    def set_cache_policy(self, policy: CachePolicy, value: bool) -> None:
+        self._base.SetCachePolicy(policy, value)
+
+    def get_cache_policy(self, policy: CachePolicy) -> bool:
+        return self._base.GetCachePolicy(policy)
+
+    def move(self, other: 'Tensor') -> None:
+        self._base.Move(other._base)
+
+    def base(self) -> pypto_impl.Tensor:
+        return self._base
+
     def add(self, other: 'Tensor | int | float') -> 'Tensor':
         return pypto.add(self, other)
-
-    def __add__(self, other: 'Tensor | int | float') -> 'Tensor':
-        return self.add(other)
-
-    def __radd__(self, other: 'Tensor | int | float') -> 'Tensor':
-        return self.add(other)
-
-    def __iadd__(self, other: 'Tensor | int | float') -> 'Tensor':
-        return self.add(other)
 
     def sub(self, other: 'Tensor | int | float') -> 'Tensor':
         return pypto.sub(self, other)
 
-    def __sub__(self, other: 'Tensor | int | float') -> 'Tensor':
-        return self.sub(other)
-
-    def __isub__(self, other: 'Tensor | int | float') -> 'Tensor':
-        return self.sub(other)
-
     def mul(self, other: 'Tensor | int | float') -> 'Tensor':
         return pypto.mul(self, other)
-
-    def __mul__(self, other: 'Tensor | int | float') -> 'Tensor':
-        return self.mul(other)
-
-    def __imul__(self, other: 'Tensor | int | float') -> 'Tensor':
-        return self.mul(other)
 
     def div(self, other: 'Tensor | int | float') -> 'Tensor':
 
         return pypto.div(self, other)
 
-    def __truediv__(self, other: 'Tensor | int | float') -> 'Tensor':
-        return self.div(other)
-
-    def __itruediv__(self, other: 'Tensor | int | float') -> 'Tensor':
-        return self.div(other)
-
     def greater(self, other: 'Tensor'):
         return pypto.greater(self, other)
 
-    def __gt__(self, other: 'Tensor') -> 'Tensor':
-        return self.greater(other)
-
-    def __matmul__(self, other: 'Tensor') -> 'Tensor':
-        if other.dtype in {pypto.DT_FP16, pypto.DT_BF16, pypto.DT_FP32}:
-            out_dype = other.dtype
-        elif other.dtype == pypto.DT_INT8:
-            out_dype = pypto.DT_INT32
-        else:
-            raise RuntimeError("unsupport dtype")
-        return pypto.matmul(self, other, out_dype)
-
     def matmul(
-        self,
-        mat2,
-        out_dtype,
-        *,
-        a_trans=False,
-        b_trans=False,
-        c_matrix_nz=False,
-        extend_params=None
+            self,
+            mat2,
+            out_dtype,
+            *,
+            a_trans=False,
+            b_trans=False,
+            c_matrix_nz=False,
+            extend_params=None
     ) -> "Tensor":
         return pypto.matmul(
             self,
@@ -517,6 +477,42 @@ class Tensor:
     def scatter(self, dim: int, index: 'Tensor', src: float) -> 'Tensor':
         return pypto.scatter(self, dim, index, src)
 
+    def _is_empty_slice(self, key):
+        if isinstance(key, slice):
+            return key.start is None and key.stop is None and key.step is None
+        elif isinstance(key, (int, SymbolicScalar)):
+            return False
+        elif key is Ellipsis:
+            return False
+        return all([self._is_empty_slice(k) for k in key])
+
+    def _normalize_key(self, key):
+        if self._is_empty_slice(key):
+            return key
+
+        if isinstance(key, (int, SymbolicScalar, slice)) or key is Ellipsis:
+            key = (key,)
+
+        if not isinstance(key, tuple):
+            raise RuntimeError("Invalid key type")
+
+        if any(k is Ellipsis for k in key):
+            ellipsis_count = sum(k is Ellipsis for k in key)
+            if ellipsis_count > 1:
+                raise ValueError("Only one ... is supported")
+
+            ellipsis_pos = next(i for i, k in enumerate(key) if k is Ellipsis)
+            other_len = len(key) - 1
+            colon_count = self.dim - other_len
+            if colon_count < 0:
+                raise IndexError(f"Too many indices for tensor with dimension {self.dim}")
+            colons = (slice(None),) * colon_count
+            key = key[:ellipsis_pos] + colons + key[ellipsis_pos + 1:]
+
+        assert self.dim == len(key), f"rank not match, expect {self.dim}, but got {len(key)}"
+        key = self._negative_index_to_positive(key, self.shape)
+        return key
+
 
 def mark_dynamic(tensor: 'Tensor', axis: int):
     """
@@ -530,4 +526,4 @@ def mark_dynamic(tensor: 'Tensor', axis: int):
         The shape acquired before `mark_dynamic` will not be updated. It is
         recommended to call `mark_dynamic` before the shaped is used.
     """
-    pto_impl.MarkDynamic(tensor._base, axis)
+    pypto_impl.MarkDynamic(tensor._base, axis)

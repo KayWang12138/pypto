@@ -10,8 +10,8 @@
 # -----------------------------------------------------------------------------------------------------------
 """工具基类定义.
 """
-from pathlib import Path
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import List, Any
 
 

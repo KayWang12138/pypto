@@ -22,8 +22,8 @@ from typing import List, Optional, Dict, Any
 
 from profiling.prof_case import ProfCase
 from profiling.prof_dir import ProfDir
-from utils.tools_run_abc_sp import ToolsRunAbcSp
 from utils.table import Table
+from utils.tools_run_abc_sp import ToolsRunAbcSp
 
 
 class ProfTools(ToolsRunAbcSp):

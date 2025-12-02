@@ -11,8 +11,7 @@
 """PyPTO"""
 from typing import Optional, Tuple, Union
 
-from .. import pto_impl
-
+from .. import pypto_impl
 from ..enum import OpType, OutType
 from ..op_wrapper import op_wrapper
 from ..tensor import Tensor
@@ -54,8 +53,8 @@ def greater(input: Tensor, other: Union[Tensor, float]) -> Tensor:
     """
     if isinstance(other, float):
         # Tensor vs Scalar comparison
-        return pto_impl.Compare(input, pto_impl.Element(input.dtype, other), OpType.GT, OutType.BOOL)
-    return pto_impl.Compare(input, other, OpType.GT, OutType.BOOL)
+        return pypto_impl.Compare(input, pypto_impl.Element(input.dtype, other), OpType.GT, OutType.BOOL)
+    return pypto_impl.Compare(input, other, OpType.GT, OutType.BOOL)
 
 
 @op_wrapper
@@ -100,4 +99,4 @@ def topk(
                   [2 1]]
     """
 
-    return pto_impl.TopK(input, k, (-1 if dim is None else dim), largest)
+    return pypto_impl.TopK(input, k, (-1 if dim is None else dim), largest)

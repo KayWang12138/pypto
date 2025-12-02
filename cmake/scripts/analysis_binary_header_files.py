@@ -13,9 +13,9 @@
 import argparse
 import json
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Dict
-from datetime import datetime, timezone
 
 
 class Analysis:
@@ -101,7 +101,7 @@ class Analysis:
                     if not cur_path.is_absolute():
                         cur_path = Path(self.target_binary_dir, cur_path).resolve(strict=False)
                     h_lst.append(cur_path)
-        h_lst = h_lst[1:]   # 去除 cpp.o 描述
+        h_lst = h_lst[1:]  # 去除 cpp.o 描述
         h_lst.sort()
         # 判断 .h 依赖列表内容合法合理性
         for h in h_lst:

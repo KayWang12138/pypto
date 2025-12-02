@@ -12,15 +12,13 @@
 """
 
 import inspect
-import logging
 import itertools
+import logging
 from contextlib import contextmanager
-from typing import List, Optional, Set, Tuple, Union, Iterator, overload
-
-from . import pto_impl
+from typing import List, Optional, Tuple, Union, Iterator, overload
 
 from .enum import *  # noqa
-from .pto_utils import to_sym, set_source_location, clear_source_location
+from .pypto_utils import to_sym, set_source_location, clear_source_location
 from .symbolic_scalar import SymbolicScalar, SymInt
 from .tensor import Tensor
 
@@ -81,7 +79,7 @@ def set_vec_tile_shapes(*shapes: int):
 
     """
     # implementation
-    pto_impl.SetVecTile(*shapes)
+    pypto_impl.SetVecTile(*shapes)
 
 
 def get_vec_tile_shapes() -> List[int]:
@@ -89,10 +87,6 @@ def get_vec_tile_shapes() -> List[int]:
 
     This operation returns the value of the tile shapes
     in each dimension in vector computation.
-
-    Parameters
-    ----------
-    None
 
     Returns
     -------
@@ -107,7 +101,7 @@ def get_vec_tile_shapes() -> List[int]:
 
     """
     # implementation
-    return pto_impl.GetVecTile()
+    return pypto_impl.GetVecTile()
 
 
 def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], set_l1_tile: bool = False):
@@ -121,15 +115,15 @@ def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], set_l1_tile: 
     ----------
     m: List[int]
         the value of the tile shape in m dimension.
-        The length of the the list must be 2.
+        The length of the list must be 2.
 
     k: List[int]
         the value of the tile shape in k dimension
-        The length of the the list must be 2.
+        The length of the list must be 2.
 
     n: List[int]
         the value of the tile shape in n dimension
-        The length of the the list must be 2.
+        The length of the list must be 2.
 
     set_l1_tile: bool
         whether the tile shape is set for L1 or L0.
@@ -147,7 +141,7 @@ def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], set_l1_tile: 
 
     """
     # implementation
-    pto_impl.SetCubeTile(m, k, n, set_l1_tile)
+    pypto_impl.SetCubeTile(m, k, n, set_l1_tile)
 
 
 def get_cube_tile_shapes() -> Tuple[List[int], List[int], List[int], bool]:
@@ -156,10 +150,6 @@ def get_cube_tile_shapes() -> Tuple[List[int], List[int], List[int], bool]:
     This operation gets the value of the tile shapes
     in each dimension in cube computation of left and right matrix,
     together with the cache level (L1/L0).
-
-    Parameters
-    ----------
-    None
 
     Returns
     -------
@@ -175,37 +165,37 @@ def get_cube_tile_shapes() -> Tuple[List[int], List[int], List[int], bool]:
 
     """
     # implementation
-    return pto_impl.GetCubeTile()
+    return pypto_impl.GetCubeTile()
 
 
 def set_matrix_size(size: List[int]):
-    pto_impl.SetMatrixSize(size)
+    pypto_impl.SetMatrixSize(size)
 
 
 def set_build_static(static: bool):
-    pto_impl.SetBuildStatic(static)
+    pypto_impl.SetBuildStatic(static)
 
 
 def begin_function(
     name: str,
-    graph_type: pto_impl.GraphType,
-    func_type: pto_impl.FunctionType,
+    graph_type: pypto_impl.GraphType,
+    func_type: pypto_impl.FunctionType,
     *args
-) -> pto_impl.RecordFunc:
+) -> pypto_impl.RecordFunc:
     args = [arg.base() for arg in args]
     Controller.reset()
-    return pto_impl.BeginFunction(name, graph_type, func_type, *args)
+    return pypto_impl.BeginFunction(name, graph_type, func_type, *args)
 
 
 def end_function(name: str, generate_call: bool = True):
-    pto_impl.EndFunction(name, generate_call)
+    pypto_impl.EndFunction(name, generate_call)
 
 
 class LoopRange:
     def __init__(self, start, stop=None, step: Union[int, SymbolicScalar] = 1):
         if stop is None:
             start, stop = 0, start
-        self._base = pto_impl.LoopRange(
+        self._base = pypto_impl.LoopRange(
             to_sym(start), to_sym(stop), to_sym(step))
         self._start = self._base.Begin()
         self._stop = self._base.End()
@@ -225,7 +215,7 @@ class LoopRange:
     def __repr__(self) -> str:
         return f"LoopRange({self._base.Dump()})"
 
-    def base(self) -> pto_impl.LoopRange:
+    def base(self) -> pypto_impl.LoopRange:
         return self._base
 
 
@@ -233,7 +223,7 @@ _loop_range = LoopRange
 
 
 def is_loop_begin(scalar: SymInt):
-    ''' Determines if the current iteration is the start of loop
+    """ Determines if the current iteration is the start of loop
     This function returns a boolean value which specifys whether
     the current iteration is the beginning of the loop
 
@@ -251,16 +241,16 @@ def is_loop_begin(scalar: SymInt):
     >>> for s2_idx in pypto.loop(bn_per_batch):
             if pypto.cond(pypto.is_loop_begin(s2_idx)):
                 ...
-    '''
+    """
     if not hasattr(scalar, "_loop_begin"):
         raise ValueError("not loop index")
     # implementation
     return SymbolicScalar.from_base(
-        pto_impl.IsLoopBegin(to_sym(scalar), getattr(scalar, "_loop_begin")))
+        pypto_impl.IsLoopBegin(to_sym(scalar), getattr(scalar, "_loop_begin")))
 
 
 def is_loop_end(scalar: SymInt):
-    ''' Determines if the current iteration is the end of loop
+    """ Determines if the current iteration is the end of loop
     This function returns a boolean value which specifys whether
     the current iteration is the end of the loop
 
@@ -278,12 +268,12 @@ def is_loop_end(scalar: SymInt):
     >>> for s2_idx in pypto.loop(0, bn_per_batch, 1, name="LOOP_L4_s2_SA", idx_name="s2_idx",
             if pypto.cond(pypto.is_loop_end(s2_idx)):
                 ...
-    '''
+    """
     if not hasattr(scalar, "_loop_end"):
         raise ValueError("not loop index")
     # implementation
     return SymbolicScalar.from_base(
-        pto_impl.IsLoopEnd(to_sym(scalar), getattr(scalar, "_loop_end")))
+        pypto_impl.IsLoopEnd(to_sym(scalar), getattr(scalar, "_loop_end")))
 
 
 @overload
@@ -361,8 +351,8 @@ def function(name: str, *args, **kwargs):
         try:
             Controller.reset()
             set_source_location(level=2)
-            yield begin_function(name, pto_impl.GraphType.TENSOR_GRAPH,
-                                 pto_impl.FunctionType.STATIC, *args)
+            yield begin_function(name, pypto_impl.GraphType.TENSOR_GRAPH,
+                                 pypto_impl.FunctionType.STATIC, *args)
             clear_source_location()
         except Exception as e:
             logging.error("Record function %s failed: %s", name, e)
@@ -377,7 +367,7 @@ def function(name: str, *args, **kwargs):
         try:
             Controller.reset()
             set_source_location(level=2)
-            func = pto_impl.RecordFunc(name, inputs, outputs, [])
+            func = pypto_impl.RecordFunc(name, inputs, outputs, [])
             clear_source_location()
             yield func
         except Exception as e:
@@ -388,7 +378,7 @@ def function(name: str, *args, **kwargs):
 
 
 def cond(scalar: SymInt):
-    """ set up a conditional computation. Use as a "if" condition in python.
+    """ set up a conditional computation. Use as "if" condition in python.
 
     Parameters
     ----------
@@ -413,7 +403,7 @@ def cond(scalar: SymInt):
     """
     # implementation
     stack = inspect.stack()[1]
-    return pto_impl.RecordIfBranch(to_sym(scalar), stack.filename, stack.lineno)
+    return pypto_impl.RecordIfBranch(to_sym(scalar), stack.filename, stack.lineno)
 
 
 class _LoopFunction:
@@ -432,7 +422,7 @@ class _LoopFunction:
 
     def __init__(self, name, loop_name, loop_range, submit_before_loop):
         loop_range = loop_range.base()
-        self._base = pto_impl.RecordLoopFunc(name, pto_impl.FunctionType.DYNAMIC_LOOP,
+        self._base = pypto_impl.RecordLoopFunc(name, pypto_impl.FunctionType.DYNAMIC_LOOP,
                                              loop_name, loop_range,
                                              set(), submit_before_loop)
         self._begin = loop_range.Begin()
@@ -620,10 +610,10 @@ def dump() -> str:
     str
         The dumped program.
     """
-    return pto_impl.Dump()
+    return pypto_impl.Dump()
 
 
 def reset():
     """ Reset the current program.
     """
-    pto_impl.Reset()
+    pypto_impl.Reset()

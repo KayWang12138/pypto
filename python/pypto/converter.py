@@ -18,13 +18,13 @@ from .tensor import Tensor
 
 
 def from_torch(tensor, name: str):
-    '''
+    """
     convert the input into a PTO Tensor
 
     Parameters
     ----------
     tensor: object
-        The input tensor to be converted. Currently supports PyTorch tensors.
+        The input tensor to be converted. Currently, supports PyTorch tensors.
     name: str
         The name of the resulting PTO Tensor.
 
@@ -43,7 +43,7 @@ def from_torch(tensor, name: str):
     >>> pto_tensor = pto.from_torch(x, "input_tensor")
     >>> print(pto_tensor.shape)
     [2, 3]
-    '''
+    """
     try:
         if tensor.__class__.__module__ == "torch" and tensor.__class__.__qualname__ == "Tensor":
             if not tensor.is_contiguous():

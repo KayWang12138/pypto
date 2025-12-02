@@ -59,20 +59,20 @@ load_shared_libs()
 
 from .config import *  # noqa
 from .controller import *  # noqa
+from .converter import from_torch
 from .element import Element
 from .enum import *  # noqa
 from .op import *  # noqa
 from .operation import *  # noqa
 from .operator import *  # noqa
-from .pass_config import * # noqa
-from .pto_utils import ceil, bytes_of
+from .pass_config import *  # noqa
+from .pypto_utils import ceil, bytes_of
 from .runtime import jit, verify, set_verify_data
 from .symbolic_scalar import SymbolicScalar
 from .tensor import Tensor, mark_dynamic
-from .converter import from_torch
 
 tensor = Tensor
 element = Element
 symbolic_scalar = SymbolicScalar
 
-verify_enable = pto_impl.IsVerifyEnabled
+verify_enable = pypto_impl.IsVerifyEnabled

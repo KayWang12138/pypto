@@ -10,8 +10,8 @@
 # -----------------------------------------------------------------------------------------------------------
 """ """
 import struct
-from .. import pto_impl
 
+from .. import pypto_impl
 from ..op_wrapper import op_wrapper
 from ..tensor import Tensor
 
@@ -112,18 +112,18 @@ def matmul(
     mat2_dim = mat2.Dim()
     if input_dim == mat2_dim == 2:
         if (extend_params is None) or (not extend_params):
-            return pto_impl.Matmul(
+            return pypto_impl.Matmul(
                 out_dtype, input, mat2, a_trans, b_trans, c_matrix_nz
             )
         else:
-            extend_params = pto_impl.MatmulExtendParam(
+            extend_params = pypto_impl.MatmulExtendParam(
                 **convert_matmul_extend_params(extend_params)
             )
-            return pto_impl.Matmul(
+            return pypto_impl.Matmul(
                 out_dtype, input, mat2, a_trans, b_trans, c_matrix_nz, extend_params
             )
     elif (input_dim == mat2_dim == 3) or (input_dim == mat2_dim == 4):
-        return pto_impl.BatchMatmul(
+        return pypto_impl.BatchMatmul(
             out_dtype, input, mat2, a_trans, b_trans, c_matrix_nz
         )
     else:
@@ -133,9 +133,9 @@ def matmul(
 
 
 def convert_matmul_extend_params(extend_params) -> dict:
-    extend_params.setdefault('bias_tensor', pto_impl.Tensor())
-    extend_params.setdefault('scale_tensor', pto_impl.Tensor())
-    extend_params.setdefault('relu_type', pto_impl.ReLuType.NoReLu)
+    extend_params.setdefault('bias_tensor', pypto_impl.Tensor())
+    extend_params.setdefault('scale_tensor', pypto_impl.Tensor())
+    extend_params.setdefault('relu_type', pypto_impl.ReLuType.NoReLu)
     # scale: float trans to uint64
     if 'scale' not in extend_params:
         extend_params['scale'] = 0

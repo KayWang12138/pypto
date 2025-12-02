@@ -11,24 +11,23 @@
 """PyPTO"""
 from typing import List, Optional, Union, overload
 
-from .. import pto_impl
-
+from .. import pypto_impl
 from ..element import Element
 from ..enum import DataType
 from ..op_wrapper import op_wrapper
-from ..pto_utils import to_syms
+from ..pypto_utils import to_syms
 from ..symbolic_scalar import SymbolicScalar
 from ..tensor import Tensor
 
 
-def convert_to_element(value) -> pto_impl.Element:
+def convert_to_element(value) -> pypto_impl.Element:
     if isinstance(value, (int)):
-        if value >= -(2**31) and value <= 2**31 - 1:
-            return pto_impl.Element(pto_impl.DT_INT32, value)
+        if value >= -(2 ** 31) and value <= 2 ** 31 - 1:
+            return pypto_impl.Element(pypto_impl.DT_INT32, value)
         else:
-            return pto_impl.Element(pto_impl.DT_INT64, value)
+            return pypto_impl.Element(pypto_impl.DT_INT64, value)
     else:
-        return pto_impl.Element(pto_impl.DT_FP32, value)
+        return pypto_impl.Element(pypto_impl.DT_FP32, value)
 
 
 @overload
@@ -87,18 +86,18 @@ def arange(*args: Union[int, float]) -> Tensor:
     """
     if len(args) == 1:
         end = args[0]
-        return pto_impl.Range(
-            pto_impl.Element(pto_impl.DataType.DT_INT32, 0),
+        return pypto_impl.Range(
+            pypto_impl.Element(pypto_impl.DataType.DT_INT32, 0),
             convert_to_element(end),
-            pto_impl.Element(pto_impl.DataType.DT_INT32, 1),
+            pypto_impl.Element(pypto_impl.DataType.DT_INT32, 1),
         )
 
     if len(args) == 2:
         start, end = args
-        return pto_impl.Range(
+        return pypto_impl.Range(
             convert_to_element(start),
             convert_to_element(end),
-            pto_impl.Element(pto_impl.DataType.DT_INT32, 1),
+            pypto_impl.Element(pypto_impl.DataType.DT_INT32, 1),
         )
 
     if len(args) != 3:
@@ -107,7 +106,7 @@ def arange(*args: Union[int, float]) -> Tensor:
         )
 
     start, end, step = args
-    return pto_impl.Range(
+    return pypto_impl.Range(
         convert_to_element(start), convert_to_element(end), convert_to_element(step)
     )
 
@@ -159,11 +158,11 @@ def full(
 
     if valid_shape is None:
         valid_shape = []
-    if isinstance(fill_value, pto_impl.SymbolicScalar):
-        return pto_impl.Full(fill_value, dtype, size, to_syms(valid_shape))
-    elif isinstance(fill_value, pto_impl.Element):
-        return pto_impl.Full(fill_value, dtype, size, to_syms(valid_shape))
+    if isinstance(fill_value, pypto_impl.SymbolicScalar):
+        return pypto_impl.Full(fill_value, dtype, size, to_syms(valid_shape))
+    elif isinstance(fill_value, pypto_impl.Element):
+        return pypto_impl.Full(fill_value, dtype, size, to_syms(valid_shape))
     else:
-        return pto_impl.Full(
-            pto_impl.Element(dtype, fill_value), dtype, size, to_syms(valid_shape)
+        return pypto_impl.Full(
+            pypto_impl.Element(dtype, fill_value), dtype, size, to_syms(valid_shape)
         )

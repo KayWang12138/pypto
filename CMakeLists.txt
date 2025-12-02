@@ -114,7 +114,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
             TARGETS ${InstallTargets}
     )
     PTO_Fwk_InstallBinaries(
-            TARGETS         pto_impl
+            TARGETS         pypto_impl
             INSTALL_LIBDIR  ${ENABLE_FEATURE_PYTHON_FRONT_END}
     )
 

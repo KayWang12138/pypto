@@ -19,8 +19,8 @@ from typing import Dict, Callable, Union, List, Optional, Tuple
 @dataclasses.dataclass
 class GoldenRegInfo:
     func: Optional[Callable]
-    version: int = 0 # Golden 实现版本
-    timeout: Optional[int] = None # Golden 超时时间
+    version: int = 0  # Golden 实现版本
+    timeout: Optional[int] = None  # Golden 超时时间
 
 
 @dataclasses.dataclass
@@ -50,6 +50,7 @@ class GoldenRegister:
         :param version: 实现版本, 由 Golden 脚本控制. 当框架感知 version 大于缓存内的 version, 会触发重新生成 Golden
         :param timeout: 超时时长(单位秒), 当框架感知 Golden 文件已超过指定时长, 会触发重新生成 Golden
         """
+
         def decorator(func: Callable) -> Callable:
             case_name_list = [case_names] if isinstance(case_names, str) else case_names
             for name in case_name_list:
@@ -60,6 +61,7 @@ class GoldenRegister:
                     logging.debug("Case(%s) register func %s to %s", name, func, hex(id(cls._REG_MAP)))
                 cls._REG_MAP[name] = GoldenRegInfo(func=func, version=version, timeout=timeout)
             return func
+
         return decorator
 
     @classmethod

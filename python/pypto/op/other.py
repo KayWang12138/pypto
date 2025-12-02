@@ -11,8 +11,7 @@
 """PyPTO"""
 from typing import Union
 
-from .. import pto_impl
-
+from .. import pypto_impl
 from ..op_wrapper import op_wrapper
 from ..tensor import Tensor
 
@@ -86,16 +85,16 @@ def where(
     Output out3: [[1 0],
                   [0 2]])
     """
-    if isinstance(input, pto_impl.Tensor):
+    if isinstance(input, pypto_impl.Tensor):
         input_base = input
     else:
-        input_base = pto_impl.Element(pto_impl.DT_FP32, input)
+        input_base = pypto_impl.Element(pypto_impl.DT_FP32, input)
 
-    if isinstance(other, pto_impl.Tensor):
+    if isinstance(other, pypto_impl.Tensor):
         other_base = other
     else:
-        other_base = pto_impl.Element(pto_impl.DT_FP32, other)
-    return pto_impl.Where(condition, input_base, other_base)
+        other_base = pypto_impl.Element(pypto_impl.DT_FP32, other)
+    return pypto_impl.Where(condition, input_base, other_base)
 
 
 @op_wrapper
@@ -129,7 +128,7 @@ def one_hot(input: Tensor, num_classes: int) -> Tensor:
                  [0, 0, 0, 0, 1]]
 
     """
-    if not isinstance(input, pto_impl.Tensor):
+    if not isinstance(input, pypto_impl.Tensor):
         raise TypeError("input must be a `Tensor`")
     if not isinstance(num_classes, int):
         raise TypeError("num_classes must be an `int`")
@@ -137,4 +136,4 @@ def one_hot(input: Tensor, num_classes: int) -> Tensor:
         raise RuntimeError("num_classes must be specified")
     if num_classes <= 0:
         raise RuntimeError("num_classes must be a positive integer")
-    return pto_impl.OneHot(input, num_classes)
+    return pypto_impl.OneHot(input, num_classes)

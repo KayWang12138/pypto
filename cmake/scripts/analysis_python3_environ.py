@@ -10,10 +10,10 @@
 # -----------------------------------------------------------------------------------------------------------
 """Python3环境分析.
 """
-import os
-import sys
 import argparse
 import logging
+import os
+import sys
 from pathlib import Path
 from typing import Optional, List
 

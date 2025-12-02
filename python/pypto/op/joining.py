@@ -10,8 +10,8 @@
 # -----------------------------------------------------------------------------------------------------------
 """PyPTO"""
 from typing import List
-from .. import pto_impl
 
+from .. import pypto_impl
 from ..op_wrapper import op_wrapper
 from ..tensor import Tensor
 
@@ -47,4 +47,4 @@ def concat(tensors: List[Tensor], dim: int = 0) -> Tensor:
                 [0 0],
                 [0 0]]
     """
-    return pto_impl.Cat(tensors, dim)
+    return pypto_impl.Cat(tensors, dim)
