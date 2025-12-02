@@ -24,21 +24,21 @@
 namespace npu::tile_fwk {
 Status DuplicateOp::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, 
-    "===> Start DuplicateViewGatherIn for function [%s].", function.GetRawName().c_str());
+    "===> Start DuplicateOp for function [%s].", function.GetRawName().c_str());
     if (Process(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "Process failed.");
         return FAILED;
     }
     APASS_LOG_INFO_F(Elements::Function,
-    "===> End DuplicateViewGatherIn for function [%s].", function.GetRawName().c_str());
+    "===> End DuplicateOp for function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }
 
-Status DuplicateOp::ProcessGatherIn(Function &function, Operation &operation) const{
-     for (auto &oOperand : operation.GetOOperands()) {
+Status DuplicateOp::ProcessGatherIn(Function &function, Operation &operation) const {
+    for (auto &oOperand : operation.GetOOperands()) {
         if (oOperand == nullptr) {
             APASS_LOG_ERROR_F(Elements::Operation,
-            "%s[%d]'s oOperand cannot be nullptr; Please check if the oOperand of %s[%d] is nullptr.%s", 
+            "%s[%d]'s oOperand cannot be nullptr; Please check if the oOperand of %s[%d] is nullptr.%s",
             operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), GetFormatBacktrace(operation).c_str());
             return FAILED;
         }
@@ -58,33 +58,33 @@ Status DuplicateOp::ProcessGatherIn(Function &function, Operation &operation) co
                 return FAILED;
             }
             if (isFirst) {
-                    isFirst = false;
-                    continue;
+                isFirst = false;
+                continue;
             }
             auto dst = oOperand->Clone(function, true);
             if (dst == nullptr) {
-                APASS_LOG_ERROR_F(Elements::Tensor, 
+                APASS_LOG_ERROR_F(Elements::Tensor,
                 "Clone OP_GATHER_IN_L1's oOperand[%d] failed; Please check if dst is nullptr.", oOperand->GetMagic());
                 return FAILED;
-             }
-                consumer->ReplaceInput(dst, oOperand);
-                auto &newOp = function.AddRawOperation(Opcode::OP_GATHER_IN_L1, operation.GetIOperands(), {dst});
-                newOp.SetAttribute(OpAttributeKey::startOffset, operation.GetIntAttribute(OpAttributeKey::startOffset));
             }
+            consumer->ReplaceInput(dst, oOperand);
+            auto &newOp = function.AddRawOperation(Opcode::OP_GATHER_IN_L1, operation.GetIOperands(), {dst});
+            newOp.SetAttribute(OpAttributeKey::startOffset, operation.GetIntAttribute(OpAttributeKey::startOffset));
+        }
     }
     return SUCCESS;
 }
 
-Status DuplicateOp::ProcessView(Function &function, Operation &operation) const{
+Status DuplicateOp::ProcessView(Function &function, Operation &operation) const {
     auto viewAttr = dynamic_cast<ViewOpAttribute *>(operation.GetOpAttribute().get());
-    if (viewAttr->GetTo() == MEM_L1) {
+    if (viewAttr != nullptr && viewAttr->GetTo() == MEM_L1) {
         return SUCCESS;
-    } 
+    }
     auto iOperand = operation.iOperand[0];
     for (auto &oOperand : operation.oOperand) {
         if (oOperand == nullptr) {
             APASS_LOG_ERROR_F(Elements::Operation, "Null output operand detected while iterating over the output operands of the operation [%d].%s",
-            operation.opmagic, GetFormatBacktrace(operation).c_str()); 
+            operation.opmagic, GetFormatBacktrace(operation).c_str());
             return FAILED;
         }
         if (oOperand->GetConsumers().size() == 1) {
@@ -107,11 +107,13 @@ Status DuplicateOp::ProcessView(Function &function, Operation &operation) const{
             consumer->ReplaceInput(dst, oOperand);
             auto &newOp = function.AddRawOperation(Opcode::OP_VIEW, {iOperand}, {dst});
             auto oriViewAttr = dynamic_cast<ViewOpAttribute *>(operation.GetOpAttribute().get());
-            auto newOffset = oriViewAttr->GetFromOffset();
-            auto newDynOffset = oriViewAttr->GetFromDynOffset();
-            auto newDynValidShape = oriViewAttr->GetToDynValidShape();
-            auto newViewAttr = std::make_shared<ViewOpAttribute>(newOffset, newDynOffset, newDynValidShape);
-            newOp.SetOpAttribute(newViewAttr);
+            if (oriViewAttr != nullptr) {
+                auto newOffset = oriViewAttr->GetFromOffset();
+                auto newDynOffset = oriViewAttr->GetFromDynOffset();
+                auto newDynValidShape = oriViewAttr->GetToDynValidShape();
+                auto newViewAttr = std::make_shared<ViewOpAttribute>(newOffset, newDynOffset, newDynValidShape);
+                newOp.SetOpAttribute(newViewAttr);
+            }
         }
     }
     return SUCCESS;
@@ -122,14 +124,14 @@ Status DuplicateOp::ProcessOp(Function &function, Operation &operation) const {
     if (opcode != Opcode::OP_GATHER_IN_L1 && opcode != Opcode::OP_VIEW) {
         return SUCCESS;
     }
-    if (opcode == Opcode::OP_GATHER_IN_L1){
-        if(ProcessGatherIn(function, operation)!= SUCCESS){
+    if (opcode == Opcode::OP_GATHER_IN_L1) {
+        if (ProcessGatherIn(function, operation) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "ProcessGatherIn failed.%s", GetFormatBacktrace(operation).c_str());
             return FAILED;
         }
     }
-    if (opcode == Opcode::OP_VIEW){
-        if(ProcessView(function, operation)!= SUCCESS){
+    if (opcode == Opcode::OP_VIEW) {
+        if (ProcessView(function, operation) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "ProcessView failed.%s", GetFormatBacktrace(operation).c_str());
             return FAILED;
         }
@@ -138,17 +140,16 @@ Status DuplicateOp::ProcessOp(Function &function, Operation &operation) const {
 }
 
 Status DuplicateOp::Process(Function &function) const {
-    std::stack<Operation*> stack;
-    std::unordered_set<Operation*> visited;
+    std::stack<Operation *> stack;
+    std::unordered_set<Operation *> visited;
     for (auto &outcast : function.GetOutcast()) {
-        for(auto op : outcast->GetProducers()){
+        for (auto op : outcast->GetProducers()) {
             stack.push(op);
         }
-
         while (!stack.empty()) {
             Operation *CurrentOp = stack.top();
             stack.pop();
-            if(visited.find(CurrentOp) != visited.end()) {
+            if (visited.find(CurrentOp) != visited.end()) {
                 continue;
             }
             visited.insert(CurrentOp);
@@ -156,13 +157,13 @@ Status DuplicateOp::Process(Function &function) const {
                 APASS_LOG_ERROR_F(Elements::Operation, "ProcessOp failed.");
                 return FAILED;
             }
-            for(auto &iOperand : CurrentOp->iOperand) {
-                for(auto &producer : iOperand->GetProducers()) {
+            for (auto &iOperand : CurrentOp->iOperand) {
+                for (auto &producer : iOperand->GetProducers()) {
                     stack.push(producer);
                 }
             }
         }
-    }    
+    }
     return SUCCESS;
 }
-}
+} // namespace npu::tile_fwk
