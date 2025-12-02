@@ -28,18 +28,22 @@ void TiledCompareOperationImpl(Function &function, const TileShape &tileShape, s
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
 
         const int64_t COUNT_MODE_SIZE = 4096;
-        std::vector<int64_t> vcmpBitResultShape({COUNT_MODE_SIZE / (int64_t)BytesOf(input1.tensor.GetDataType()) / NUM_VALUE_8});
-        auto vcmpBitResultTensor = std::make_shared<LogicalTensor>(function, DT_UINT8, vcmpBitResultShape);
-        std::vector<int64_t> zeroCondShape({COUNT_MODE_SIZE / (int64_t)BytesOf(input1.tensor.GetDataType())});
-        auto zeroCondTensor = std::make_shared<LogicalTensor>(function, input1.tensor.GetDataType(), zeroCondShape);
-        std::vector<int64_t> oneCondition({COUNT_MODE_SIZE / (int64_t)BytesOf(input1.tensor.GetDataType())});
-        auto oneCondTensor = std::make_shared<LogicalTensor>(function, input1.tensor.GetDataType(), oneCondition);
-        std::vector<int64_t> vselResult({COUNT_MODE_SIZE / (int64_t)BytesOf(input1.tensor.GetDataType())});
-        auto vselResultTensor = std::make_shared<LogicalTensor>(function, input1.tensor.GetDataType(), vselResult);
-        std::vector<int64_t> startAddrUBShape({1});
-        auto startAddrUBTensor = std::make_shared<LogicalTensor>(function, DT_UINT64, startAddrUBShape);
-        auto &op = function.AddOperation(Opcode::OP_CMP, {inputTile1, inputTile2},
-            {resultTile, vcmpBitResultTensor, zeroCondTensor, oneCondTensor, vselResultTensor, startAddrUBTensor});
+        size_t element_size = BytesOf(input1.tensor.GetDataType());
+        ASSERT(element_size != 0) << "Element size cannot be zero.";
+        int64_t elements_per_chunk = COUNT_MODE_SIZE / element_size;
+        int64_t vcmp_bits_size = (elements_per_chunk + 7) / 8;
+
+        const size_t ALIGN_SIZE = 32;
+
+        size_t vcmpBitResult_size = ((vcmp_bits_size + ALIGN_SIZE - 1) / ALIGN_SIZE) * ALIGN_SIZE;
+        size_t array_size = elements_per_chunk * element_size;
+        size_t aligned_array_size = ((array_size + ALIGN_SIZE - 1) / ALIGN_SIZE) * ALIGN_SIZE;
+
+        size_t total_bytes = vcmpBitResult_size + 3 * aligned_array_size + ALIGN_SIZE;
+        std::vector<int64_t> tmp_shape({static_cast<int64_t>(total_bytes)});
+        auto tmp_tensor = std::make_shared<LogicalTensor>(function, DT_UINT8, tmp_shape);
+
+        auto &op = function.AddOperation(Opcode::OP_CMP, {inputTile1, inputTile2}, {resultTile, tmp_tensor});
 
         op.SetAttribute(OP_ATTR_PREFIX + "cmp_operation", static_cast<int64_t>(operation));
         op.SetAttribute(OP_ATTR_PREFIX + "cmp_mode", static_cast<int64_t>(mode));
@@ -203,18 +207,22 @@ void TiledCmpsOperationImpl(Function &function, const TileShape &tileShape, size
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
 
         const int64_t COUNT_MODE_SIZE = 4096;
-        std::vector<int64_t> vcmpBitResultShape({COUNT_MODE_SIZE / (int64_t)BytesOf(input.tensor.GetDataType()) / NUM_VALUE_8});
-        auto vcmpBitResultTensor = std::make_shared<LogicalTensor>(function, DT_UINT8, vcmpBitResultShape);
-        std::vector<int64_t> zeroCondShape({COUNT_MODE_SIZE / (int64_t)BytesOf(input.tensor.GetDataType())});
-        auto zeroCondTensor = std::make_shared<LogicalTensor>(function, input.tensor.GetDataType(), zeroCondShape);
-        std::vector<int64_t> oneCondition({COUNT_MODE_SIZE / (int64_t)BytesOf(input.tensor.GetDataType())});
-        auto oneCondTensor = std::make_shared<LogicalTensor>(function, input.tensor.GetDataType(), oneCondition);
-        std::vector<int64_t> vselResult({COUNT_MODE_SIZE / (int64_t)BytesOf(input.tensor.GetDataType())});
-        auto vselResultTensor = std::make_shared<LogicalTensor>(function, input.tensor.GetDataType(), vselResult);
-        std::vector<int64_t> startAddrUBShape({1});
-        auto startAddrUBTensor = std::make_shared<LogicalTensor>(function, DT_UINT64, startAddrUBShape);
-        auto& op = function.AddOperation(Opcode::OP_CMPS, {inputTile},
-            {resultTile, vcmpBitResultTensor, zeroCondTensor, oneCondTensor, vselResultTensor, startAddrUBTensor});
+        size_t element_size = BytesOf(input.tensor.GetDataType());
+        ASSERT(element_size != 0) << "Element size cannot be zero.";
+        int64_t elements_per_chunk = COUNT_MODE_SIZE / element_size;
+        int64_t vcmp_bits_size = (elements_per_chunk + 7) / 8;
+
+        const size_t ALIGN_SIZE = 32;
+
+        size_t vcmpBitResult_size = ((vcmp_bits_size + ALIGN_SIZE - 1) / ALIGN_SIZE) * ALIGN_SIZE;
+        size_t array_size = elements_per_chunk * element_size;
+        size_t aligned_array_size = ((array_size + ALIGN_SIZE - 1) / ALIGN_SIZE) * ALIGN_SIZE;
+
+        size_t total_bytes = vcmpBitResult_size + 3 * aligned_array_size + ALIGN_SIZE;
+        std::vector<int64_t> tmp_shape({static_cast<int64_t>(total_bytes)});
+        auto tmp_tensor = std::make_shared<LogicalTensor>(function, DT_UINT8, tmp_shape);
+
+        auto &op = function.AddOperation(Opcode::OP_CMPS, {inputTile}, {resultTile, tmp_tensor});
 
         op.SetAttribute(OP_ATTR_PREFIX + "cmp_operation", static_cast<int64_t>(operation));
         op.SetAttribute(OP_ATTR_PREFIX + "cmp_mode", static_cast<int64_t>(mode));

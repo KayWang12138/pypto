@@ -1491,14 +1491,10 @@ std::string CodeGenOpCloudNPU::GenLogicalNotOp() const {
 }
 
 std::string CodeGenOpCloudNPU::GenCmpOp() const {
-    enum class TensorIdx : int {dstIdx = 0, tmp1Idx, tmp2Idx, tmp3Idx, tmp4Idx, tmp5Idx, src0Idx, src1Idx};
+    enum class TensorIdx : int {dstIdx = 0, tmpIdx, src0Idx, src1Idx};
 
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(TensorIdx::dstIdx)]);
-    std::string tVar1 = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(TensorIdx::tmp1Idx)]);
-    std::string tVar2 = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(TensorIdx::tmp2Idx)]);
-    std::string tVar3 = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(TensorIdx::tmp3Idx)]);
-    std::string tVar4 = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(TensorIdx::tmp4Idx)]);
-    std::string tVar5 = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(TensorIdx::tmp5Idx)]);
+    std::string tVar1 = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(TensorIdx::tmpIdx)]);
 
     bool isScalarMode = (opCode == Opcode::OP_CMPS);
     std::string s0Var, s1Var;
@@ -1523,9 +1519,9 @@ std::string CodeGenOpCloudNPU::GenCmpOp() const {
     std::string srcDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(TensorIdx::src0Idx)]);
 
     if (isScalarMode) {
-        AppendLocalBufferVarOffset(std::vector{&dVar, &tVar1, &tVar2, &tVar3, &tVar4, &tVar5, &s0Var});
+        AppendLocalBufferVarOffset(std::vector{&dVar, &tVar1, &s0Var});
     } else {
-        AppendLocalBufferVarOffset(std::vector{&dVar, &tVar1, &tVar2, &tVar3, &tVar4, &tVar5, &s0Var, &s1Var});
+        AppendLocalBufferVarOffset(std::vector{&dVar, &tVar1, &s0Var, &s1Var});
     }
 
     auto cmpOp = opAttrs.at(OP_ATTR_PREFIX + "cmp_operation");
@@ -1563,10 +1559,6 @@ std::string CodeGenOpCloudNPU::GenCmpOp() const {
     std::string src0 = "(" + GetAddrTypeByOperandType(BUF_UB) + " " + srcDtypeStr + "*)" + s0Var;
 
     std::string tmp1 = "(" + GetAddrTypeByOperandType(BUF_UB) + " uint8_t*)" + tVar1;
-    std::string tmp2 = "(" + GetAddrTypeByOperandType(BUF_UB) + " " + srcDtypeStr + "*)" + tVar2;
-    std::string tmp3 = "(" + GetAddrTypeByOperandType(BUF_UB) + " " + srcDtypeStr + "*)" + tVar3;
-    std::string tmp4 = "(" + GetAddrTypeByOperandType(BUF_UB) + " " + srcDtypeStr + "*)" + tVar4;
-    std::string tmp5 = "(" + GetAddrTypeByOperandType(BUF_UB) + " uint64_t*)" + tVar5;
 
     paramList.insert(paramList.end(), {dst, src0});
     if (!isScalarMode) {
@@ -1579,10 +1571,6 @@ std::string CodeGenOpCloudNPU::GenCmpOp() const {
     }
 
     paramList.emplace_back(tmp1);
-    paramList.emplace_back(tmp2);
-    paramList.emplace_back(tmp3);
-    paramList.emplace_back(tmp4);
-    paramList.emplace_back(tmp5);
 
     if (isScalarMode) {
         paramList.emplace_back(std::to_string(scalarValue));

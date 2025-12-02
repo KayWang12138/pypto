@@ -1434,8 +1434,29 @@ TILEOP void DynTrowminline_(
 
 template <typename T, int64_t cmpOp, int64_t mode>
 TILEOP void ProcessCompare(__ubuf__ uint8_t* dst, __ubuf__ T* src0, __ubuf__ T* src1,
-                           __ubuf__ uint8_t* vcmpBitResult, __ubuf__ T *zeroCondition, __ubuf__ T *oneCondition,
-                           __ubuf__ T *vselResult, __ubuf__ uint64_t *startAddrUB, uint64_t countNum, uint64_t repeatNum) {
+                           __ubuf__ uint8_t* tmp, uint64_t countNum, uint64_t repeatNum) {
+
+    const uint32_t ALIGNMENT = 32;
+    const uint32_t vcmpBitsSize = (countNum + 7) / 8;
+
+    __ubuf__ uint8_t* vcmpBitResult = tmp;
+
+    uintptr_t zeroCondAddr = reinterpret_cast<uintptr_t>(vcmpBitResult + vcmpBitsSize);
+    zeroCondAddr = (zeroCondAddr + ALIGNMENT - 1) & ~(ALIGNMENT - 1);
+    __ubuf__ T* zeroCondition = reinterpret_cast<__ubuf__ T*>(zeroCondAddr);
+
+    uintptr_t oneCondAddr = reinterpret_cast<uintptr_t>(zeroCondition + countNum);
+    oneCondAddr = (oneCondAddr + ALIGNMENT - 1) & ~(ALIGNMENT - 1);
+    __ubuf__ T* oneCondition = reinterpret_cast<__ubuf__ T*>(oneCondAddr);
+
+    uintptr_t vselAddr = reinterpret_cast<uintptr_t>(oneCondition + countNum);
+    vselAddr = (vselAddr + ALIGNMENT - 1) & ~(ALIGNMENT - 1);
+    __ubuf__ T* vselResult = reinterpret_cast<__ubuf__ T*>(vselAddr);
+
+    uintptr_t startAddrAddr = reinterpret_cast<uintptr_t>(vselResult + countNum);
+    startAddrAddr = (startAddrAddr + ALIGNMENT - 1) & ~(ALIGNMENT - 1);
+    __ubuf__ uint64_t* startAddrUB = reinterpret_cast<__ubuf__ uint64_t*>(startAddrAddr);
+
     set_vector_mask(0x0, (uint64_t)countNum);
     auto dst0 = mode == 0 ? vcmpBitResult : dst;
     switch (cmpOp) {
@@ -1485,8 +1506,7 @@ TILEOP void ProcessCompare(__ubuf__ uint8_t* dst, __ubuf__ T* src0, __ubuf__ T* 
 
 template <typename T, int64_t cmpOp, int64_t mode>
 TILEOP void DynCompare(__ubuf__ uint8_t* dst, __ubuf__ T* src0, __ubuf__ T* src1, unsigned T0,
-                       __ubuf__ uint8_t* vcmpBitResult, __ubuf__ T *zeroCondition, __ubuf__ T *oneCondition,
-                       __ubuf__ T *vselResult, __ubuf__ uint64_t *startAddrUB) {
+                       __ubuf__ uint8_t* tmp) {
     constexpr uint64_t COUNT_MAX = 4096 / sizeof(T);
     unsigned numLoop = T0 / COUNT_MAX;
     unsigned remainAfterLoop = T0 % COUNT_MAX;
@@ -1497,13 +1517,11 @@ TILEOP void DynCompare(__ubuf__ uint8_t* dst, __ubuf__ T* src0, __ubuf__ T* src1
     set_mask_count();
     for (int j = 0; j < numLoop; j++) {
         ProcessCompare<T, cmpOp, mode>(dst + j * COUNT_MAX, src0 + j * COUNT_MAX, src1 + j * COUNT_MAX, 
-                                       vcmpBitResult, zeroCondition, oneCondition, 
-                                       vselResult, startAddrUB, COUNT_MAX, repeatNum);
+                                       tmp, COUNT_MAX, repeatNum);
     }
     if (remainAfterLoop > 0) {
         ProcessCompare<T, cmpOp, mode>(dst + numLoop * COUNT_MAX, src0 + numLoop * COUNT_MAX, src1 + numLoop * COUNT_MAX, 
-                                       vcmpBitResult, zeroCondition, oneCondition, 
-                                       vselResult, startAddrUB, remainAfterLoop, repeatNumRemain);
+                                       tmp, remainAfterLoop, repeatNumRemain);
     }
     set_mask_norm();
     set_vector_mask(-1, -1);
@@ -1513,8 +1531,7 @@ template <typename T, unsigned DS0, unsigned DS1, unsigned DS2, unsigned SS0_0, 
           unsigned SS1_0, unsigned SS1_1, unsigned SS1_2, int64_t cmpOp, int64_t mode>
 TILEOP void DynCompare(__ubuf__ uint8_t* dst, __ubuf__ T* src0, __ubuf__ T* src1, 
                        unsigned T0, unsigned T1, unsigned T2, unsigned T3, 
-                       __ubuf__ uint8_t* vcmpBitResult, __ubuf__ T *zeroCondition, __ubuf__ T *oneCondition,
-                       __ubuf__ T *vselResult, __ubuf__ uint64_t *startAddrUB) {
+                       __ubuf__ uint8_t* tmp) {
     static_assert((DS2 * sizeof(uint8_t)) % BLOCK_SIZE == 0, "DST dimension 2 not aligned");
     static_assert((SS0_2 * sizeof(T)) % BLOCK_SIZE == 0, "SRC0 dimension 2 not aligned");
     static_assert((SS1_2 * sizeof(T)) % BLOCK_SIZE == 0, "SRC1 dimension 2 not aligned");
@@ -1528,8 +1545,7 @@ TILEOP void DynCompare(__ubuf__ uint8_t* dst, __ubuf__ T* src0, __ubuf__ T* src1
             auto src0_2 = src0_1;
             auto src1_2 = src1_1;
             for(int k = 0; k < T2; k++) {
-                DynCompare<T, cmpOp, mode>(dst_2, src0_2, src1_2, T3, 
-                                           vcmpBitResult, zeroCondition, oneCondition, vselResult, startAddrUB);
+                DynCompare<T, cmpOp, mode>(dst_2, src0_2, src1_2, T3, tmp);
                 dst_2 += DS2;
                 src0_2 += SS0_2;
                 src1_2 += SS1_2;
@@ -1546,10 +1562,27 @@ TILEOP void DynCompare(__ubuf__ uint8_t* dst, __ubuf__ T* src0, __ubuf__ T* src1
 }
 
 template <typename T, int64_t cmpOp, int64_t mode>
-TILEOP void ProcessCmps(__ubuf__ uint8_t* dst, __ubuf__ T* src0,
-                        __ubuf__ uint8_t* vcmpBitResult, __ubuf__ T *zeroCondition, 
-                        __ubuf__ T *oneCondition, __ubuf__ T *vselResult, 
-                        __ubuf__ uint64_t *startAddrUB, uint64_t countNum, T scalarVal, uint64_t repeatNum) {
+TILEOP void ProcessCmps(__ubuf__ uint8_t* dst, __ubuf__ T* src0, __ubuf__ uint8_t* tmp, 
+                        uint64_t countNum, T scalarVal, uint64_t repeatNum) {
+    const uint32_t ALIGNMENT = 32;
+    const uint32_t vcmpBitsSize = (countNum + 7) / 8;
+    __ubuf__ uint8_t* vcmpBitResult = tmp;
+    uintptr_t zeroCondAddr = reinterpret_cast<uintptr_t>(vcmpBitResult + vcmpBitsSize);
+    zeroCondAddr = (zeroCondAddr + ALIGNMENT - 1) & ~(ALIGNMENT - 1);
+    __ubuf__ T* zeroCondition = reinterpret_cast<__ubuf__ T*>(zeroCondAddr);
+
+    uintptr_t oneCondAddr = reinterpret_cast<uintptr_t>(zeroCondition + countNum);
+    oneCondAddr = (oneCondAddr + ALIGNMENT - 1) & ~(ALIGNMENT - 1);
+    __ubuf__ T* oneCondition = reinterpret_cast<__ubuf__ T*>(oneCondAddr);
+
+    uintptr_t vselAddr = reinterpret_cast<uintptr_t>(oneCondition + countNum);
+    vselAddr = (vselAddr + ALIGNMENT - 1) & ~(ALIGNMENT - 1);
+    __ubuf__ T* vselResult = reinterpret_cast<__ubuf__ T*>(vselAddr);
+
+    uintptr_t startAddrAddr = reinterpret_cast<uintptr_t>(vselResult + countNum);
+    startAddrAddr = (startAddrAddr + ALIGNMENT - 1) & ~(ALIGNMENT - 1);
+    __ubuf__ uint64_t* startAddrUB = reinterpret_cast<__ubuf__ uint64_t*>(startAddrAddr);
+
     set_vector_mask(0x0, (uint64_t)countNum);
     auto dst0 = mode == 0 ? vcmpBitResult : dst;
 
@@ -1600,9 +1633,7 @@ TILEOP void ProcessCmps(__ubuf__ uint8_t* dst, __ubuf__ T* src0,
 
 template <typename T, int64_t cmpOp, int64_t mode>
 TILEOP void DynCmps(__ubuf__ uint8_t* dst, __ubuf__ T* src0, unsigned T0,
-                    __ubuf__ uint8_t* vcmpBitResult, __ubuf__ T *zeroCondition, 
-                    __ubuf__ T *oneCondition, __ubuf__ T *vselResult, 
-                    __ubuf__ uint64_t *startAddrUB, T scalarVal) {
+                    __ubuf__ uint8_t* tmp, T scalarVal) {
     constexpr uint64_t COUNT_MAX = 4096 / sizeof(T);
     unsigned numLoop = T0 / COUNT_MAX;
     unsigned remainAfterLoop = T0 % COUNT_MAX;
@@ -1613,13 +1644,11 @@ TILEOP void DynCmps(__ubuf__ uint8_t* dst, __ubuf__ T* src0, unsigned T0,
     set_mask_count();
     for (int j = 0; j < numLoop; j++) {
         ProcessCmps<T, cmpOp, mode>(dst + j * COUNT_MAX, src0 + j * COUNT_MAX,
-                                    vcmpBitResult, zeroCondition, oneCondition,
-                                    vselResult, startAddrUB, COUNT_MAX, scalarVal, repeatNum);
+                                    tmp, COUNT_MAX, scalarVal, repeatNum);
     }
     if (remainAfterLoop > 0) {
         ProcessCmps<T, cmpOp, mode>(dst + numLoop * COUNT_MAX, src0 + numLoop * COUNT_MAX,
-                                    vcmpBitResult, zeroCondition, oneCondition,
-                                    vselResult, startAddrUB, remainAfterLoop, scalarVal, repeatNumRemain);
+                                    tmp, remainAfterLoop, scalarVal, repeatNumRemain);
     }
     set_mask_norm();
     set_vector_mask(-1, -1);
@@ -1628,11 +1657,8 @@ TILEOP void DynCmps(__ubuf__ uint8_t* dst, __ubuf__ T* src0, unsigned T0,
 template <typename T, unsigned DS0, unsigned DS1, unsigned DS2, 
           unsigned SS0_0, unsigned SS0_1, unsigned SS0_2, 
           int64_t cmpOp, int64_t mode>
-TILEOP void DynCmps(__ubuf__ uint8_t* dst, __ubuf__ T* src0,
-                    unsigned T0, unsigned T1, unsigned T2, unsigned T3,
-                    __ubuf__ uint8_t* vcmpBitResult, __ubuf__ T *zeroCondition,
-                    __ubuf__ T *oneCondition, __ubuf__ T *vselResult,
-                    __ubuf__ uint64_t *startAddrUB, T scalarVal) {
+TILEOP void DynCmps(__ubuf__ uint8_t* dst, __ubuf__ T* src0, unsigned T0, unsigned T1, 
+                    unsigned T2, unsigned T3, __ubuf__ uint8_t* tmp, T scalarVal) {
     static_assert((DS2 * sizeof(uint8_t)) % BLOCK_SIZE == 0, "DST dimension 2 not aligned");
     static_assert((SS0_2 * sizeof(T)) % BLOCK_SIZE == 0, "SRC0 dimension 2 not aligned");
 
@@ -1643,9 +1669,7 @@ TILEOP void DynCmps(__ubuf__ uint8_t* dst, __ubuf__ T* src0,
             auto dst_2 = dst_1;
             auto src0_2 = src0_1;
             for(int k = 0; k < T2; k++) {
-                DynCmps<T, cmpOp, mode>(dst_2, src0_2, T3,
-                                        vcmpBitResult, zeroCondition, oneCondition,
-                                        vselResult, startAddrUB, scalarVal);
+                DynCmps<T, cmpOp, mode>(dst_2, src0_2, T3, tmp, scalarVal);
                 dst_2 += DS2;
                 src0_2 += SS0_2;
             }
