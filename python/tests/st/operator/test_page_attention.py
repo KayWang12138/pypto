@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # coding: utf-8
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
-# This file is a part of the CANN Open Software.
-# Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
-# ======================================================================================================================
+# -----------------------------------------------------------------------------------------------------------
 """
 """
 import pypto
@@ -17,7 +17,7 @@ from st.pypto_test import TestBuilder
 
 
 def op_page_attention(params, q_nope, k_nope_cache, v_nope_cache, q_rope, k_rope_cache,
-    block_table, act_seqs, attention_out): 
+    block_table, act_seqs, attention_out):
     block_size = params["block_size"]
     tile_config = params["tile_config"]
     max_unroll_times = params["max_unroll_times"]
@@ -49,9 +49,9 @@ def op_page_attention(params, q_nope, k_nope_cache, v_nope_cache, q_rope, k_rope
                         li_update = pypto.tensor([n_tile, 1], pypto.DT_FP32, "li_update")
                         mi_update = pypto.tensor([n_tile, 1], pypto.DT_FP32, "mi_update")
                         cur_offset = b_idx * n_q + n_idx * n_tile
-                        oi_offset = [cur_offset, 0]  
-                        
-                        for bn in pypto.loop(0, bn_per_batch, 1, name="LOOP_L2_bn", 
+                        oi_offset = [cur_offset, 0]
+
+                        for bn in pypto.loop(0, bn_per_batch, 1, name="LOOP_L2_bn",
                                            idx_name="bn", unroll_List={max_unroll_times}):
                             def inside_bn_loop(**kwargs):
                                 b_idx = kwargs.get("b_idx")
@@ -186,7 +186,7 @@ def op_page_attention_golden(params, q_nope, k_nope_cache, v_cache, q_rope, k_ro
     n_tile = params["n_tile"]
     block_size = params["block_size"]
     block_num = params["block_num"]
-    
+
     q_nope = q_nope.reshape(b, n_q, s_q, kv_lora_rank)
     q_rope = q_rope.reshape(b, n_q, s_q, qk_rope_dim)
     k_nope_cache = k_nope_cache.reshape(block_num, block_size, n_kv * kv_lora_rank)
@@ -217,7 +217,7 @@ def op_page_attention_golden(params, q_nope, k_nope_cache, v_cache, q_rope, k_ro
                 vj = v_cache[cur_block_idx, 0:s2_tile_cur, :]
                 kj = kj.reshape(s2_tile_cur, d_k)
                 vj = vj.reshape(s2_tile_cur, d_v)
-                
+
                 sij = torch.matmul(
                     qi.to(matmul_dtype),
                     kj.to(matmul_dtype).mT
@@ -243,7 +243,7 @@ def op_page_attention_golden(params, q_nope, k_nope_cache, v_cache, q_rope, k_ro
                 oi = oi_update
                 li = li_update
                 mi = mi_update
-                
+
                 mi_new = torch.maximum(mi, tilda_mij)
                 t1 = mi - mi_new
                 t2 = torch.exp(t1)
@@ -270,7 +270,7 @@ def op_page_attention_golden(params, q_nope, k_nope_cache, v_cache, q_rope, k_ro
 class PATest(TestBuilder):
     def __init__(self, params: tuple, kernel, kernel_golden, tiling: int):
         super().__init__(params, kernel, kernel_golden, tiling)
-        
+
     def get_input_from_param(self):
         def gen_uniform_data(data_shape, min_value, max_value, dtype):
             if min_value == 0 and max_value == 0:
@@ -278,7 +278,7 @@ class PATest(TestBuilder):
             if dtype == torch.bool:
                 return torch.rand(data_shape) < 0.5
             return (torch.rand(data_shape) * (max_value - min_value) + min_value).to(dtype)
-        
+
         def convert_tensors_contiguous(tensor_list):
             for idx, t in enumerate(tensor_list):
                 if isinstance(t, torch.Tensor):
@@ -294,11 +294,11 @@ class PATest(TestBuilder):
         n_kv = self.params["n_kv"]
         kv_lora_rank = self.params["kv_lora_rank"]
         qk_rope_dim = self.params["qk_rope_dim"]
-        
+
         d_q = kv_lora_rank + qk_rope_dim
         d_k = kv_lora_rank + qk_rope_dim
         d_v = kv_lora_rank
-        actual_seq_len = torch.full((b,), skv, dtype=torch.int32) 
+        actual_seq_len = torch.full((b,), skv, dtype=torch.int32)
         s_max = max(actual_seq_len)
         shape_q = [b * n_q * s_q, d_q]
         shape_k = [b, s_max, n_kv * d_k]
@@ -361,19 +361,19 @@ class PATest(TestBuilder):
 class TileConfig:
     def __init__(self, head_num_q_tile, c1_tile_shape, v1_tile_shape,
     c2_tile_shape, v2_tile_shape):
-        self.head_num_q_tile = head_num_q_tile  
-        self.c1_tile_shape = c1_tile_shape  
-        self.v1_tile_shape = v1_tile_shape 
-        self.c2_tile_shape = c2_tile_shape 
-        self.v2_tile_shape = v2_tile_shape  
+        self.head_num_q_tile = head_num_q_tile
+        self.c1_tile_shape = c1_tile_shape
+        self.v1_tile_shape = v1_tile_shape
+        self.c2_tile_shape = c2_tile_shape
+        self.v2_tile_shape = v2_tile_shape
 
 
 def test():
     # 目标上板函数相关超参数及golden验证函数相关超参数配置
     model_golden_params = {
         "block_size": 128,
-        "tile_config": TileConfig(head_num_q_tile=32, 
-            c1_tile_shape=(32, 32, 64, 64, 128, 128), 
+        "tile_config": TileConfig(head_num_q_tile=32,
+            c1_tile_shape=(32, 32, 64, 64, 128, 128),
             v1_tile_shape=(32, 64),
             c2_tile_shape=(32, 32, 64, 64, 128, 128),
             v2_tile_shape=(32, 64)),
