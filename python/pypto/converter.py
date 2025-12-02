@@ -45,7 +45,7 @@ def from_torch(tensor, name: str):
     [2, 3]
     """
     try:
-        if tensor.__class__.__module__ == "torch" and tensor.__class__.__qualname__ == "Tensor":
+        if isinstance(tensor, torch.Tensor):
             if not tensor.is_contiguous():
                 raise RuntimeError("not all tensors are contiguous")
 
