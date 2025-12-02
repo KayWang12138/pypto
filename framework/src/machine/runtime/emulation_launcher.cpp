@@ -108,8 +108,8 @@ int EmulationLauncher::BuildControlFlowCacheWithEmulationTensorData(
     devProg->controlFlowCache.IncastOutcastAddrReloc(contextWorkspaceAddr, 0, nullptr);
     devProg->controlFlowCache.RuntimeAddrRelocWorkspace(contextWorkspaceAddr, 0, nullptr, nullptr);
     devProg->controlFlowCache.RuntimeAddrRelocProgram(reinterpret_cast<uint64_t>(devProg), 0);
-    devProg->controlFlowCache.RelocWorkspace(contextWorkspaceAddr, 0);
-    devProg->controlFlowCache.RelocProgram(reinterpret_cast<uint64_t>(devProg), 0);
+    devProg->controlFlowCache.TaskAddrRelocWorkspace(contextWorkspaceAddr, 0, nullptr);
+    devProg->controlFlowCache.TaskAddrRelocProgram(reinterpret_cast<uint64_t>(devProg), 0);
     devProg->ResetFromLaunch();
     devProg->controlFlowCache.isActivated = true;
     return rc;

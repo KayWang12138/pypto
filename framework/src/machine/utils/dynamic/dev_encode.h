@@ -418,6 +418,18 @@ struct DevAscendRawTensor {
         oss << schema::off(addrOffset).Dump();
         return oss.str();
     }
+
+    static std::string DumpAttrDesc(const DevRawTensorDesc *desc) {
+        std::ostringstream oss;
+        if (desc->location == RAW_TENSOR_LOCATION_INCAST) {
+            oss << schema::incast(desc->offsetOrIndex).Dump();
+        } else if (desc->location == RAW_TENSOR_LOCATION_OUTCAST) {
+            oss << schema::outcast(desc->offsetOrIndex).Dump();
+        } else {
+            oss << schema::off(desc->offsetOrIndex).Dump();
+        }
+        return oss.str();
+    }
 };
 
 struct DevAscendTensor {
@@ -870,8 +882,10 @@ public:
     std::string DumpRawTensor(int rawIndex, uintdevptr_t addr = 0) const {
         std::ostringstream oss;
         auto rawTensor = GetRawTensor(rawIndex);
+        auto rawTensorDesc = GetRawTensorDesc(rawIndex);
         oss << rawTensor->DumpType() << " @" << rawIndex << " = ";
-        oss << rawTensor->DumpAttr();
+        oss << rawTensor->DumpAttr() << " ";
+        oss << DevAscendRawTensor::DumpAttrDesc(rawTensorDesc);
         if (addr != 0) {
             oss << AddressDescriptor::DumpAddress(addr);
         }
@@ -1761,6 +1775,12 @@ struct DevAscendFunctionDuppedData {
         return schema::Range(base, base + size);
     }
 
+    schema::RActWorkspace SchemaGetWorkspace() const {
+        auto workspaceBegin = GetRuntimeWorkspace();
+        auto workspaceEnd = GetRuntimeWorkspace() + GetSource()->rawTensorWsMemoryRequirement;
+        return schema::RActWorkspace(schema::Range(workspaceBegin, workspaceEnd));
+    }
+
     std::string Dump(int indent = 0) const {
         DEV_ASSERT(GetSource()->GetOperationSize() == GetOperationSize());
         std::string INDENT(indent, ' ');
@@ -1862,12 +1882,6 @@ struct DevAscendFunctionDupped {
             exprTable.push_back(exprAddr[i]);
         }
         return schema::expr(exprTable);
-    }
-
-    schema::RActWorkspace SchemaGetWorkspace() const {
-        auto workspaceBegin = RuntimeWorkspace();
-        auto workspaceEnd = RuntimeWorkspace() + GetSource()->rawTensorWsMemoryRequirement;
-        return schema::RActWorkspace(schema::Range(workspaceBegin, workspaceEnd));
     }
 
     inline uintdevptr_t GetRawTensorAddr(int rawIndex) const {
@@ -2270,9 +2284,18 @@ struct DynFuncDataCache {
     DynFuncDataCache &At(size_t index) { return this[index]; }
 };
 
+struct DynFuncDataWorkspaceAddressBackup {
+    uint64_t runtimeWorkspace;
+    uint64_t runtimeOutcastWorkspace;
+    uint64_t workspaceAddr;
+    uint64_t stackWorkspaceAddr;
+};
+
 struct DynFuncDataBackup {
     predcount_t *predCountBackup;
     uint64_t *rawTensorAddrBackup;
+
+    DynFuncDataWorkspaceAddressBackup workspaceAddressBackup;
 
     const DynFuncDataBackup &At(size_t index) const { return this[index]; }
     DynFuncDataBackup &At(size_t index) { return this[index]; }
@@ -2715,6 +2738,88 @@ struct DevProgramControlFlowCache {
         }
     }
 
+    void TaskAddrBackupWorkspace(DynDeviceTaskBase * base) {
+        DynFuncHeader *dynFuncDataList = base->GetDynFuncDataList();
+        DynFuncDataCache *dynFuncDataCacheList = base->dynFuncDataCacheList;
+        DynFuncDataBackup *dynFuncDataBackupList = base->dynFuncDataBackupList;
+        for (size_t dupIndex = 0; dupIndex < dynFuncDataList->Size(); ++dupIndex) {
+            DynFuncData *dynData = &dynFuncDataList->At(dupIndex);
+            DynFuncDataCache *dynDataCache = &dynFuncDataCacheList->At(dupIndex);
+            DynFuncDataBackup *dynDataBackup = &dynFuncDataBackupList->At(dupIndex);
+            DevAscendFunctionDuppedData *duppedData = dynDataCache->duppedData;
+
+            dynDataBackup->workspaceAddressBackup.runtimeWorkspace = duppedData->runtimeWorkspace_;
+            dynDataBackup->workspaceAddressBackup.runtimeOutcastWorkspace = duppedData->runtimeOutcastWorkspace_;
+            dynDataBackup->workspaceAddressBackup.workspaceAddr = dynData->workspaceAddr;
+            dynDataBackup->workspaceAddressBackup.stackWorkspaceAddr = dynData->stackWorkSpaceAddr;
+        }
+    }
+
+    void TaskAddrRestoreWorkspace(DynDeviceTaskBase *base) {
+        DynFuncHeader *dynFuncDataList = base->GetDynFuncDataList();
+        DynFuncDataCache *dynFuncDataCacheList = base->dynFuncDataCacheList;
+        DynFuncDataBackup *dynFuncDataBackupList = base->dynFuncDataBackupList;
+        for (size_t dupIndex = 0; dupIndex < dynFuncDataList->Size(); ++dupIndex) {
+            DynFuncData *dynData = &dynFuncDataList->At(dupIndex);
+            DynFuncDataCache *dynDataCache = &dynFuncDataCacheList->At(dupIndex);
+            DynFuncDataBackup *dynDataBackup = &dynFuncDataBackupList->At(dupIndex);
+            DevAscendFunctionDuppedData *duppedData = dynDataCache->duppedData;
+
+            duppedData->runtimeWorkspace_ = dynDataBackup->workspaceAddressBackup.runtimeWorkspace;
+            duppedData->runtimeOutcastWorkspace_ = dynDataBackup->workspaceAddressBackup.runtimeOutcastWorkspace;
+            dynData->workspaceAddr = dynDataBackup->workspaceAddressBackup.workspaceAddr;
+            dynData->stackWorkSpaceAddr = dynDataBackup->workspaceAddressBackup.stackWorkspaceAddr;
+        }
+    }
+
+    void TaskAddrRestoreWorkspace() {
+        for (size_t i = 0; i < deviceTaskCount; i++) {
+            DynDeviceTaskBase *dynTaskBase = deviceTaskCacheList[i].dynTaskBase;
+            TaskAddrRestoreWorkspace(dynTaskBase);
+        }
+    }
+
+    void TaskAddrRelocWorkspace(
+            uint64_t srcWorkspace, uint64_t dstWorkspace,
+            DevStartArgsBase *devStartArgs) {
+        RelocRange relocWorkspace(srcWorkspace, dstWorkspace);
+        for (uint64_t deviceIndex = 0; deviceIndex < deviceTaskCount; deviceIndex++) {
+            DynDeviceTaskBase *dynTaskBase = deviceTaskCacheList[deviceIndex].dynTaskBase;
+
+            DynFuncHeader *dynFuncDataList = dynTaskBase->dynFuncDataList;
+            DynFuncDataCache *dynFuncDataCacheList = dynTaskBase->dynFuncDataCacheList;
+            DynFuncDataBackup *dynFuncDataBackupList = dynTaskBase->dynFuncDataBackupList;
+            for (uint32_t dupIndex = 0; dupIndex < dynFuncDataList->funcNum; dupIndex++) {
+                DynFuncData *dynData = &dynFuncDataList->At(dupIndex);
+                DynFuncDataCache *dynDataCache = &dynFuncDataCacheList->At(dupIndex);
+                DevAscendFunctionDuppedData *duppedData = dynDataCache->duppedData;
+                DynFuncDataBackup *dynDataBackup = &dynFuncDataBackupList->At(dupIndex);
+
+                if (devStartArgs == nullptr) {
+                    // Host: addr uses backup
+
+                    // Reloc Dupped
+                    relocWorkspace.RelocNullable(dynDataBackup->workspaceAddressBackup.runtimeWorkspace);
+                    relocWorkspace.RelocNullable(dynDataBackup->workspaceAddressBackup.runtimeOutcastWorkspace);
+
+                    // Reloc DynFuncData
+                    relocWorkspace.Reloc(dynDataBackup->workspaceAddressBackup.workspaceAddr);
+                    relocWorkspace.Reloc(dynDataBackup->workspaceAddressBackup.stackWorkspaceAddr);
+                } else {
+                    // Device: addr uses actual
+
+                    // Reloc Dupped
+                    relocWorkspace.RelocNullable(duppedData->runtimeWorkspace_);
+                    relocWorkspace.RelocNullable(duppedData->runtimeOutcastWorkspace_);
+
+                    // Reloc DynFuncData
+                    relocWorkspace.Reloc(dynData->workspaceAddr);
+                    relocWorkspace.Reloc(dynData->stackWorkSpaceAddr);
+                }
+            }
+        }
+    }
+
     void IncastOutcastAddrReloc(
             uint64_t srcWorkspace, uint64_t dstWorkspace,
             DevStartArgsBase *devStartArgs) {
@@ -2869,7 +2974,7 @@ struct DevProgramControlFlowCache {
     }
 
     /* Host-to-cache: devStartArgs should be nullptr. Cache-to-Device: devStartArgs should be filled */
-    void RelocProgram(uint64_t srcProgram, uint64_t dstProgram) {
+    void TaskAddrRelocProgram(uint64_t srcProgram, uint64_t dstProgram) {
         RelocRange relocProgram(srcProgram, dstProgram);
         for (uint64_t deviceIndex = 0; deviceIndex < deviceTaskCount; deviceIndex++) {
             /* When cached, the pointer is always legal */
@@ -2933,31 +3038,6 @@ struct DevProgramControlFlowCache {
             }
         }
     }
-
-    void RelocWorkspace(uint64_t srcWorkspace, uint64_t dstWorkspace) {
-        RelocRange relocWorkspace(srcWorkspace, dstWorkspace);
-        for (uint64_t deviceIndex = 0; deviceIndex < deviceTaskCount; deviceIndex++) {
-            /* When cached, the pointer is always legal */
-            DynDeviceTaskBase *dynTaskBase = deviceTaskCacheList[deviceIndex].dynTaskBase;
-
-            DynFuncHeader *dynFuncDataList = dynTaskBase->dynFuncDataList;
-            DynFuncDataCache *dynFuncDataCacheList = dynTaskBase->dynFuncDataCacheList;
-
-            for (uint32_t dupIndex = 0; dupIndex < dynFuncDataList->funcNum; dupIndex++) {
-                DynFuncData *dynData = &dynFuncDataList->At(dupIndex);
-                DynFuncDataCache *dynDataCache = &dynFuncDataCacheList->At(dupIndex);
-                DevAscendFunctionDuppedData *duppedData = dynDataCache->duppedData;
-
-                // Reloc Dupped
-                relocWorkspace.RelocNullable(duppedData->runtimeWorkspace_);
-                relocWorkspace.RelocNullable(duppedData->runtimeOutcastWorkspace_);
-
-                // Reloc DynFuncData
-                relocWorkspace.Reloc(dynData->workspaceAddr);
-                relocWorkspace.Reloc(dynData->stackWorkSpaceAddr);
-            }
-        }
-    }
 };
 
 #define ControlFlowAllocateSlab(devProg, size, expr) \
@@ -3010,7 +3090,6 @@ struct DevAscendProgram {
         } tensor;
         uint64_t aicoreSpilled;
         struct {
-            uint64_t prepDeduct;
             uint64_t general;
             uint64_t stitchPool;
 
@@ -3018,10 +3097,10 @@ struct DevAscendProgram {
                 return general + stitchPool;
             }
             uint64_t ContextTotal() const {
-                return Total() - prepDeduct;
+                return Total();
             }
             uint64_t ContextGeneral() const {
-                return general - prepDeduct;
+                return general;
             }
         } metadata;
         struct {
@@ -3297,6 +3376,13 @@ struct DevAscendProgram {
     const DevAicpuLeafBinary *GetAicpuLeafBinary(int index) const { return &aicpuLeafCodeList[index]; }
 
     DevProgramControlFlowCache *GetControlFlowCache() { return &controlFlowCache; }
+
+    uint64_t GetWorkspaceSize() const {
+        return memBudget.metadata.Total() +
+               memBudget.tensor.Total() +
+               memBudget.aicoreSpilled +
+               memBudget.debug.dumpTensor;
+    }
 
     template<typename Ty>
     typename Ty::ElementType *RelocOffset(intptr_t shift, void *&offset, Ty &list) {

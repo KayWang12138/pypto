@@ -154,12 +154,13 @@ class DeviceCtrlMachine {
         if (devProg->controlFlowCache.deviceTaskCount != 0) {
             // Actual run
             if (firstInit) {
-                devProg->controlFlowCache.RelocProgram(0, reinterpret_cast<uint64_t>(devProg));
-                devProg->controlFlowCache.RelocWorkspace(0, devArgs->contextWorkspaceAddr);
+                devProg->controlFlowCache.TaskAddrRelocProgram(0, reinterpret_cast<uint64_t>(devProg));
                 devProg->controlFlowCache.RuntimeAddrRelocProgram(0, reinterpret_cast<uint64_t>(devProg));
             }
             devProg->controlFlowCache.IncastOutcastAddrRestore();
             devProg->controlFlowCache.IncastOutcastAddrReloc(0, devArgs->contextWorkspaceAddr, devArgs);
+            devProg->controlFlowCache.TaskAddrRestoreWorkspace();
+            devProg->controlFlowCache.TaskAddrRelocWorkspace(0, devArgs->contextWorkspaceAddr, devArgs);
             devProg->ResetRerun();
         }
         DEV_INFO("AscendCppDyInitTask done.");

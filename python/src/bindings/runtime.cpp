@@ -142,7 +142,8 @@ std::string OperatorDeviceRunOnceDataFromDevice(py::int_ pythonOperatorPython,
     auto aicoreStream = incomingStream;
     auto aicpuStream = DeviceGetAicpuStream();
     int rc =
-        ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(op, inputs, outputs, aicpuStream, aicoreStream, false, workspaceDataAddr);
+        ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(op, inputs, outputs, aicpuStream, aicoreStream, false,
+            DeviceLauncherConfig::CreateConfigWithWorkspaceAddr(workspaceDataAddr));
     if (rc < 0) {
         return "device run failed";
     }

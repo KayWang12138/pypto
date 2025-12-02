@@ -64,6 +64,7 @@ struct DeviceLauncherConfig {
     std::vector<uint64_t> hcclContext;
     bool controlFlowCache{false};
     bool cpuSeparate{false};
+    uint64_t workspaceAddr{0};
 
     DeviceLauncherConfig() = default;
     DeviceLauncherConfig(bool onboard, int tblockdim, int taicpunum)
@@ -72,6 +73,12 @@ struct DeviceLauncherConfig {
     DeviceLauncherConfig(int64_t tdynWorkspaceSize, int64_t trepeatNum)
         : dynWorkspaceSize(tdynWorkspaceSize), repeatNum(trepeatNum) {}
     DeviceLauncherConfig(const std::vector<std::uint64_t> &addrs) : hcclContext(addrs) {}
+
+    static DeviceLauncherConfig CreateConfigWithWorkspaceAddr(uint64_t workspaceAddr) {
+        DeviceLauncherConfig config;
+        config.workspaceAddr = workspaceAddr;
+        return config;
+    }
 };
 
 class CachedOperator {
@@ -119,9 +126,8 @@ public:
     Function *GetFunction() const { return func_.get(); }
     uint64_t GetWorkSpaceSize() const {
         const std::vector<uint8_t> &devProgData = func_->GetDyndevAttribute()->devProgBinary;
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data())); 
-        return devProg->memBudget.metadata.Total() + devProg->memBudget.tensor.Total() +
-               devProg->memBudget.aicoreSpilled + devProg->memBudget.debug.dumpTensor;
+        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
+        return devProg->GetWorkspaceSize();
     }
 private:
     std::shared_ptr<Function> func_;
@@ -129,7 +135,7 @@ private:
 
 int ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(
         ExportedOperator *op, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
-        DeviceStream aicpuStream, DeviceStream aicoreStream, bool streamSynchronize, uintptr_t workspacePtr,
+        DeviceStream aicpuStream, DeviceStream aicoreStream, bool streamSynchronize,
         const DeviceLauncherConfig &config = DeviceLauncherConfig());
 
 int DeviceSynchronize(DeviceStream aicpuStream, DeviceStream aicoreStream);

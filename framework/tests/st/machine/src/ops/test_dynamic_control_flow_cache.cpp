@@ -152,7 +152,7 @@ TEST_F(DynamicControlFlowCacheTest, CheckShape) {
     EXPECT_NE(devProg->controlFlowCache.deviceTaskCount, 0);
 
     devProg->RelocProgram(0, (intptr_t)devProg);
-    devProg->controlFlowCache.RelocProgram(0, (intptr_t)devProg);
+    devProg->controlFlowCache.TaskAddrRelocProgram(0, (intptr_t)devProg);
 
     {
         // check success
@@ -190,7 +190,7 @@ TEST_F(DynamicControlFlowCacheTest, CheckShape) {
         EXPECT_FALSE(devProg->controlFlowCache.MatchInputOutput(&arg));
     }
 
-    devProg->controlFlowCache.RelocProgram((intptr_t)devProg, 0);
+    devProg->controlFlowCache.TaskAddrRelocProgram((intptr_t)devProg, 0);
     devProg->RelocProgram((intptr_t)devProg, 0);
 
     int n2 = tiling * 2;
@@ -358,14 +358,14 @@ TEST_F(DynamicControlFlowCacheTest, PartialCache) {
     EXPECT_EQ(0x2, devProg->controlFlowCache.deviceTaskSkippedCount);
 
     devProg->RelocProgram(0, (intptr_t)devProg);
-    devProg->controlFlowCache.RelocProgram(0, (intptr_t)devProg);
+    devProg->controlFlowCache.TaskAddrRelocProgram(0, (intptr_t)devProg);
 
     for (int i = 0; i < 0x3; i++) {
         auto dynTaskBase = devProg->controlFlowCache.deviceTaskCacheList[i].dynTaskBase;
         EXPECT_EQ(0x4, dynTaskBase->GetDynFuncDataList()->Size());
     }
 
-    devProg->controlFlowCache.RelocProgram((intptr_t)devProg, 0);
+    devProg->controlFlowCache.TaskAddrRelocProgram((intptr_t)devProg, 0);
     devProg->RelocProgram((intptr_t)devProg, 0);
 
     DeviceLauncher::DeviceRunCacheKernelEnable(Program::GetInstance().GetLastFunction(), true);
@@ -377,6 +377,132 @@ TEST_F(DynamicControlFlowCacheTest, PartialCache) {
         EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction()));
         auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
         EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
+    }
+#endif
+}
+
+TEST_F(DynamicControlFlowCacheTest, PartialCacheChangeWorkspaceAddress) {
+    config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetPassOption(COPYIN_THRESHOLD, 100 * 1024 * 1024);
+    config::SetPassOption(SG_CYCLE_LOWER_BOUND, 1024);
+    config::SetPassOption(SG_CYCLE_UPPER_BOUND, 1024);
+    config::SetPassOption(L1_REUSE, 32);
+    config::SetPassOption(SG_PARALLEL_NUM, 2);
+    config::SetPassOption(NBUFFER_MERGE_MODE, 2);
+    config::SetPassOption<std::map<int64_t, int64_t>>(VEC_NBUFFER_MAP, {{-1, 16}});
+
+    // cache at most 3 task
+    config::SetRuntimeOption<int64_t>(CFGCACHE_DEVICE_TASK_NUM, 0x1);
+    config::SetRuntimeOption<int64_t>(CFGCACHE_ROOT_TASK_NUM, 0x200);
+    config::SetRuntimeOption<int64_t>(CFGCACHE_LEAF_TASK_NUM, 0x200);
+
+    // every task 4 root func
+    config::SetRuntimeOption<int64_t>(FIRST_STITCH_TASK_LOOP_NUM, 0x3);
+    config::SetRuntimeOption<int64_t>(SUBSEQ_STITCH_TASK_INCR_LOOP_NUM, 0);
+
+    static constexpr int v64 = 64;
+    static constexpr int v128 = 128;
+
+    TileShape::Current().SetVecTile(v64, v128);
+    TileShape::Current().SetCubeTile({v64, v64}, {v128, v128}, {v128, v128});
+
+    Tensor inputA(DT_BF16, {v64, v128}, "inputA");
+    Tensor inputB(DT_BF16, {v128, v128 * v64}, "inputB");
+    Tensor inputC(DT_FP32, {v64, v128 * v64}, "inputC");
+    Tensor output(DT_FP32, {v64, v128 * v64}, "output");
+
+    std::vector<bfloat16> inputBData(v128 * v128 * v64, bfloat16(0));
+    for (int i = 0; i < v128 * v128 * v64; i++) {
+        inputBData[i] = bfloat16(1.0 * (i % (v128 * v64) / v128));
+    }
+    std::vector<float> outputGolden(v64 * v128 * v64, 0);
+    for (int i = 0; i < v64 * v128 * v64; i++) {
+        outputGolden[i] = float(2.0 * (v128 * (i % (v128 * v64) / v128)) * 8 + 3.0);
+    }
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<bfloat16>(inputA, 2.0),
+        RawTensorData::CreateTensor<bfloat16>(inputB, inputBData),
+        RawTensorData::CreateConstantTensor<float>(inputC, 3.0),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(output, 0),
+    });
+
+    FUNCTION("main", {inputA, inputB, inputC}, {output}) {
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(8)) {
+            (void)i;
+            std::vector<Tensor> tensorList;
+            for (int j = 0; j < v64; j++) {
+                auto t = View(inputB, {v128, v128}, {0, v128 * j}); // <128 x 128 x FP32>
+                auto mm = Matrix::Matmul<false, true>(DataType::DT_FP32, inputA, t); // <64 x 128 x FP32>
+                tensorList.emplace_back(mm);
+            }
+            auto mmConcat = Cat(tensorList, -1); // <64 x (128 * 64) x FP32>
+            IF (i == 0) {
+                output = Add(inputC, mmConcat);
+            } ELSE {
+                output = Add(output, mmConcat);
+            }
+        }
+    }
+
+    std::vector<DeviceTensorData> inputList = {
+        DeviceTensorData::Create(inputA.GetStorage()),
+        DeviceTensorData::Create(inputB.GetStorage()),
+        DeviceTensorData::Create(inputC.GetStorage()),
+    };
+    std::vector<DeviceTensorData> outputList = {
+        DeviceTensorData::Create(output.GetStorage()),
+    };
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), inputList, outputList));
+
+    DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(
+        const_cast<uint8_t*>(DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction()).data()));
+
+    EXPECT_EQ(0x1, devProg->controlFlowCache.deviceTaskCount);
+    EXPECT_EQ(0x2, devProg->controlFlowCache.deviceTaskSkippedCount);
+
+    devProg->RelocProgram(0, (intptr_t)devProg);
+    devProg->controlFlowCache.TaskAddrRelocProgram(0, (intptr_t)devProg);
+
+    uint64_t workspaceSize = devProg->GetWorkspaceSize();
+
+    devProg->controlFlowCache.TaskAddrRelocProgram((intptr_t)devProg, 0);
+    devProg->RelocProgram((intptr_t)devProg, 0);
+
+#ifdef BUILD_WITH_CANN
+    const int align = 512;
+    uint64_t alignSize = (workspaceSize + align) / align * align;
+    std::vector<void *> devAddrList;
+
+    uint8_t clearValue = 0xcc;
+    std::vector<uint8_t> clearList(alignSize);
+    std::vector<uint8_t> cleartGoldenList(alignSize, clearValue);
+    for (int k = 0; k < 0x4; k++) {
+        void *devAddr = nullptr;
+        rtMalloc((void **)&devAddr, alignSize, TWO_MB_HUGE_PAGE_FLAGS, 0);
+        devAddrList.emplace_back(devAddr);
+        for (int w = 0; w <= k; w++) {
+            rtMemset(devAddrList[w], alignSize, clearValue, alignSize);
+        }
+
+        uint64_t workspaceAddr = (uint64_t)devAddr;
+        DeviceLauncherConfig config = DeviceLauncherConfig::CreateConfigWithWorkspaceAddr(workspaceAddr);
+        auto outputResult = (float *)npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0)->data();
+        auto outputSize = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0)->size();
+        memset_s(outputResult, outputSize, 0, outputSize);
+        EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction(), config));
+        EXPECT_TRUE(resultCmp(outputGolden, outputResult, 0.001f));
+
+        for (int w = 0; w <= k - 1; w++) {
+            rtMemcpy(&clearList[0], alignSize, devAddrList[w], alignSize, RT_MEMCPY_DEVICE_TO_HOST);
+            EXPECT_EQ(clearList, cleartGoldenList) << "Tainted iteration: " << w;
+        }
+    }
+    for (auto &devAddr : devAddrList) {
+        rtFree(devAddr);
     }
 #endif
 }
@@ -441,12 +567,12 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheValueDependData) {
     EXPECT_EQ(0x0, devProg->controlFlowCache.deviceTaskSkippedCount);
 
     devProg->RelocProgram(0, (intptr_t)devProg);
-    devProg->controlFlowCache.RelocProgram(0, (intptr_t)devProg);
+    devProg->controlFlowCache.TaskAddrRelocProgram(0, (intptr_t)devProg);
 
     auto dynTaskBase = devProg->controlFlowCache.deviceTaskCacheList[0].dynTaskBase;
     EXPECT_EQ(0x2, dynTaskBase->GetDynFuncDataList()->Size());
 
-    devProg->controlFlowCache.RelocProgram((intptr_t)devProg, 0);
+    devProg->controlFlowCache.TaskAddrRelocProgram((intptr_t)devProg, 0);
     devProg->RelocProgram((intptr_t)devProg, 0);
 
     DeviceLauncher::DeviceRunCacheKernelEnable(Program::GetInstance().GetLastFunction(), true);
@@ -522,12 +648,12 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheValueDependControl) {
     EXPECT_EQ(0x0, devProg->controlFlowCache.deviceTaskSkippedCount);
 
     devProg->RelocProgram(0, (intptr_t)devProg);
-    devProg->controlFlowCache.RelocProgram(0, (intptr_t)devProg);
+    devProg->controlFlowCache.TaskAddrRelocProgram(0, (intptr_t)devProg);
 
     auto dynTaskBase = devProg->controlFlowCache.deviceTaskCacheList[0].dynTaskBase;
     EXPECT_EQ(0x2, dynTaskBase->GetDynFuncDataList()->Size());
 
-    devProg->controlFlowCache.RelocProgram((intptr_t)devProg, 0);
+    devProg->controlFlowCache.TaskAddrRelocProgram((intptr_t)devProg, 0);
     devProg->RelocProgram((intptr_t)devProg, 0);
 
     DeviceLauncher::DeviceRunCacheKernelEnable(Program::GetInstance().GetLastFunction(), true);

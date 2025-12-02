@@ -142,8 +142,8 @@ private:
             functionDevProg->controlFlowCache.IncastOutcastAddrReloc(contextWorkspaceAddr, 0, nullptr);
             functionDevProg->controlFlowCache.RuntimeAddrRelocWorkspace(contextWorkspaceAddr, 0, nullptr, nullptr);
             functionDevProg->controlFlowCache.RuntimeAddrRelocProgram(reinterpret_cast<uint64_t>(functionDevProg), 0);
-            functionDevProg->controlFlowCache.RelocWorkspace(contextWorkspaceAddr, 0);
-            functionDevProg->controlFlowCache.RelocProgram(reinterpret_cast<uint64_t>(functionDevProg), 0);
+            functionDevProg->controlFlowCache.TaskAddrRelocWorkspace(contextWorkspaceAddr, 0, nullptr);
+            functionDevProg->controlFlowCache.TaskAddrRelocProgram(reinterpret_cast<uint64_t>(functionDevProg), 0);
             functionDevProg->ResetFromLaunch();
             functionDevProg->controlFlowCache.isActivated = true;
         }

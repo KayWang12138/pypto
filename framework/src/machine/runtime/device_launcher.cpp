@@ -112,7 +112,7 @@ int DeviceLauncher::SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuSt
 int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
         rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator,
-        uintptr_t workspacePtr, const DeviceLauncherConfig &config) {
+        const DeviceLauncherConfig &config) {
     std::cout << "!!! Kernel Launch " << "\n";
     if (function != nullptr && function->GetDyndevAttribute() != nullptr) {
         DeviceRunner::SetBinData(function->GetDyndevAttribute()->kernelBinary);
@@ -134,9 +134,6 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         }
         SetDefaultDevice();
         AstKernelArgs kArgs;
-        if (workspacePtr) {
-            kArgs.workspace = (int64_t *)workspacePtr;
-        }
         DeviceInitTilingData(DeviceMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary, config, cachedOperator);
         DeviceRunCacheKernelSet(function, (uint8_t *)kArgs.cfgdata);
         DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList);
@@ -169,7 +166,7 @@ int DeviceLauncher::DeviceRunOnce(Function *function, const DeviceLauncherConfig
     std::vector<DeviceTensorData> inputDeviceDataList;
     std::vector<DeviceTensorData> outputDeviceDataList;
     std::tie(inputDeviceDataList, outputDeviceDataList) = BuildInputOutputFromHost(DeviceMemoryUtils(), inputDataList, outputDataList);
-    int rc = DeviceLaunchOnceWithDeviceTensorData(function, inputDeviceDataList, outputDeviceDataList, aicpuStream, aicoreStream, true, nullptr, reinterpret_cast<uintptr_t>(nullptr), config);
+    int rc = DeviceLaunchOnceWithDeviceTensorData(function, inputDeviceDataList, outputDeviceDataList, aicpuStream, aicoreStream, true, nullptr, config);
     CopyFromDev(DeviceMemoryUtils(), outputDataList);
     if (HasInplaceArgs(function)) {
         CopyFromDev(DeviceMemoryUtils(), inputDataList);
@@ -221,11 +218,11 @@ DeviceStream DeviceGetAicoreStream() {
 
 int ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(
         ExportedOperator *op, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
-        DeviceStream aicpuStream, DeviceStream aicoreStream, bool streamSynchronize, uintptr_t workspacePtr,
+        DeviceStream aicpuStream, DeviceStream aicoreStream, bool streamSynchronize,
         const DeviceLauncherConfig &config) {
     rtStream_t aicpuStreamValue = reinterpret_cast<rtStream_t>(aicpuStream);
     rtStream_t aicoreStreamValue = reinterpret_cast<rtStream_t>(aicoreStream);
-    return DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(op->GetFunction(), inputList, outputList, aicpuStreamValue, aicoreStreamValue, streamSynchronize, op, workspacePtr, config);
+    return DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(op->GetFunction(), inputList, outputList, aicpuStreamValue, aicoreStreamValue, streamSynchronize, op, config);
 }
 
 int DeviceSynchronize(DeviceStream aicpuStream, DeviceStream aicoreStream) {

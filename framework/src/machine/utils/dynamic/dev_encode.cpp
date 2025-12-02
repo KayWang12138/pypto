@@ -2029,7 +2029,6 @@ void EncodeDevAscendProgram(Function *func, uint64_t &offset, DevAscendProgram *
 
         base->memBudget.aicoreSpilled = tensorWsRes.perCoreSpilledMem * DEFAULT_CORE_NUM;
 
-        base->memBudget.metadata.prepDeduct = 0;
         base->memBudget.metadata.general = CalcGeneralMetadataWorkspace(*base);
         base->memBudget.metadata.stitchPool = CalcStitchWorkspace(*base);
 

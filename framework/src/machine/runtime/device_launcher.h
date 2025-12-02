@@ -172,19 +172,17 @@ public:
         devProg->devArgs.enableCtrl = 1; // need set 0 if use custom cpu launch ctrl cpu
         devProg->memBudget.tensor.dassembleDests =
             AlignUp(devProg->memBudget.tensor.dassembleDests + config.dynWorkspaceSize, TENSOR_ADDR_ALIGNMENT);
-        devProg->workspaceSize = (
-            devProg->memBudget.metadata.Total() +
-            devProg->memBudget.tensor.Total() +
-            devProg->memBudget.aicoreSpilled +
-            devProg->memBudget.debug.dumpTensor);
+        devProg->workspaceSize = devProg->GetWorkspaceSize();
 
         devProg->l2CacheOffset = machine::GetRA()->GetL2Offset();
-        ASSERT(devProg->commGroupNum == config.hcclContext.size()); 
+        ASSERT(devProg->commGroupNum == config.hcclContext.size());
         ASSERT(devProg->commGroupNum <= (sizeof(devProg->hcclContext) / sizeof(uint64_t)));
         for (size_t i = 0; i < devProg->commGroupNum; i++) {
             devProg->hcclContext[i] = config.hcclContext[i];
         }
-        if (kArgs.workspace == nullptr) {
+        if (config.workspaceAddr) {
+            kArgs.workspace = (int64_t *)config.workspaceAddr;
+        } else if (kArgs.workspace == nullptr) {
             kArgs.workspace = (int64_t *)devMem.AllocDev(devProg->workspaceSize, CachedOperator::GetWorkspaceDevAddrHolder(cachedOperator));
         }
         if (devProg->controlFlowCache.isRecording && !devMem.IsDevice()) {
@@ -275,7 +273,7 @@ public:
     static int SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuStream);
     static int DeviceLaunchOnceWithDeviceTensorData(
             Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
-            rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator, uintptr_t workspacePtr,
+            rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator,
             const DeviceLauncherConfig &config = DeviceLauncherConfig());
 
     static int DeviceSynchronize(rtStream_t aicpuStream, rtStream_t aicoreStream);

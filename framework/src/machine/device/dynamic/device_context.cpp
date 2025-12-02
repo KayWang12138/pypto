@@ -1333,6 +1333,8 @@ void DeviceExecuteContext::DumpDeviceTask(uint64_t taskId, DynDeviceTask *device
     for (uint64_t dupIdx = 0; dupIdx < deviceTask->dynFuncDataCacheListSize; dupIdx++) {
         DevAscendFunctionDuppedData *dupped = deviceTask->dynFuncDataCacheList[dupIdx].duppedData;
 
+        DEV_TRACE_DEBUG(REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()), dupped->SchemaGetWorkspace()));
+
         size_t incastSize = dupped->GetSource()->GetIncastSize();
         DEV_TRACE_DEBUG(REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()), RActIncastCount(incastSize)));
         for (size_t i = 0; i < incastSize; ++i) {
@@ -1395,6 +1397,7 @@ void DeviceExecuteContext::SubmitToAicoreAndRecycleMemory(bool withoutTail, bool
             devProg->controlFlowCache.PredCountDataBackup(dynTask);
             devProg->controlFlowCache.ReadyQueueDataBackup(dynTask);
             devProg->controlFlowCache.IncastOutcastAddrBackup(dynTask);
+            devProg->controlFlowCache.TaskAddrBackupWorkspace(dynTask);
             devProg->controlFlowCache.RuntimeAddrBackup(slotContext.GetSlotList(), &slotContext.GetSlotRefCntPool().At(0), devProg->slotSize, workspace.GetTensorAllocator());
         }
         devProg->controlFlowCache.AppendDeviceTask(dynTask);
