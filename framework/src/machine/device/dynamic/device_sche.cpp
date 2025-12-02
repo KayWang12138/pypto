@@ -111,7 +111,7 @@ struct DynMachineManager {
             if (devArgs->enableCtrl == 1 && threadIdx == schAicpuNum_) {
                 CreateLogFile(LogType::LOG_TYPE_CONTROLLER, 0);
                 DEV_TRACE_DEBUG(schema::CtrlEvent(threadIdx, schema::ThreadStart()));
-                ret = PyptoKernelCtrlServer((void*)args);
+                ret = PyptoKernelCtrlServer(static_cast<void*>(args));
             } else {
                 SignalReg();
             }

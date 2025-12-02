@@ -2332,7 +2332,7 @@ struct DeviceTaskCache {
     DynDeviceTaskBase *dynTaskBase;
 };
 
-#define INVALID_STITCH_IDX      ((uint32_t)-1)
+#define INVALID_STITCH_IDX      (static_cast<uint32_t>(-1))
 
 struct DeviceExecuteSlot {
     AddressDescriptor desc;
@@ -2844,11 +2844,11 @@ struct DevProgramControlFlowCache {
                 if (devStartArgs == nullptr) {
                     // Host: addr uses backup
                     for (uint64_t i = 0; i < duppedData->GetIncastSize(); i++) {
-                        AddressDescriptor *addr = (AddressDescriptor *)(dynDataBackup->rawTensorAddrBackup + i);
+                        AddressDescriptor *addr = reinterpret_cast<AddressDescriptor *>(dynDataBackup->rawTensorAddrBackup + i);
                         RelocDescToCache(*addr, relocWorkspace, cacheInputOutputDict);
                     }
                     for (uint64_t i = 0; i < duppedData->GetOutcastSize(); i++) {
-                        AddressDescriptor *addr = (AddressDescriptor *)(dynDataBackup->rawTensorAddrBackup + duppedData->GetIncastSize() + i);
+                        AddressDescriptor *addr = reinterpret_cast<AddressDescriptor *>(dynDataBackup->rawTensorAddrBackup + duppedData->GetIncastSize() + i);
                         RelocDescToCache(*addr, relocWorkspace, cacheInputOutputDict);
                     }
                 } else {
@@ -2876,7 +2876,7 @@ struct DevProgramControlFlowCache {
 
         struct Backup {
             static void BackupBlockHeader(WsSlotAllocator::BlockHeader *&ptr, WsSlotAllocator::BlockHeader *base) {
-                ptr = (WsSlotAllocator::BlockHeader *)(uintptr_t)(ptr - base);
+                ptr = reinterpret_cast<WsSlotAllocator::BlockHeader *>(static_cast<uintptr_t>(ptr - base));
             }
         };
         runtimeBackup.workspace.tensorAllocators.dassembleDests = allocator.dassembleDests;
@@ -3393,7 +3393,7 @@ struct DevAscendProgram {
     }
 
     void RelocProgram(uint64_t srcProgram, uint64_t dstProgram, bool relocFunc = false) {
-        intptr_t shift = (int64_t)dstProgram - (int64_t)srcProgram;
+        intptr_t shift = static_cast<int64_t>(dstProgram) - static_cast<int64_t>(srcProgram);
         void *offset = data;
 
         auto symbolTablePtr = RelocOffset(shift, offset, symbolTable);
@@ -3465,7 +3465,7 @@ struct DevAscendProgram {
 
     struct DevRelocRange {
         template<typename T>
-        DevRelocRange(const DevRelocVector<T> &v) : begin((uintptr_t)v.begin()), end((uintptr_t)v.end()) {}
+        DevRelocRange(const DevRelocVector<T> &v) : begin(reinterpret_cast<uintptr_t>(v.begin())), end(reinterpret_cast<uintptr_t>(v.end())) {}
 
         uintptr_t begin;
         uintptr_t end;

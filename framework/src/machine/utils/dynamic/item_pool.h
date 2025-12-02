@@ -44,7 +44,7 @@ public:
             ItemBlock *itemBase = &ItemAt();
             for (size_t i = 0; i < count_; i++) {
                 if (itemBase[i].freeListNextIndex == createdIndex) {
-                    ((T *)(itemBase + i))->~T();
+                    (reinterpret_cast<T *>(itemBase + i))->~T();
                 }
             }
 
@@ -71,7 +71,7 @@ public:
         freeListHeadIndex_ = item->freeListNextIndex;
         item->freeListNextIndex = createdIndex;
 
-        T *newItem = (T *)item->buf;
+        T *newItem = reinterpret_cast<T *>(item->buf);
         new(newItem) T(std::forward<Args>(args)...);
         return newItem;
     }
@@ -79,7 +79,7 @@ public:
     template <typename ...Args>
     int64_t Allocate(Args &&...args) {
         T *item = Create(args...);
-        return (ItemBlock *)item - &ItemAt(0);
+        return reinterpret_cast<ItemBlock *>(item) - &ItemAt(0);
     }
 
     void Destroy(T *item) {
@@ -88,7 +88,7 @@ public:
         AppendFreeList(block);
     }
 
-    T &At(int64_t index) { return *(T *)allocation_.As<ItemBlock>()[index].buf; }
+    T &At(int64_t index) { return *reinterpret_cast<T *>(allocation_.As<ItemBlock>()[index].buf); }
 
     void DestroyAt(int64_t index) {
         Destroy(&At(index));

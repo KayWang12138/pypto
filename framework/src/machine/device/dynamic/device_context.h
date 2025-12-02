@@ -421,7 +421,7 @@ public:
 };
 const uint64_t SLEEP_TIME_US = 10000;
 struct DeviceExecuteContext {
-    typedef std::function<void(DynDeviceTask *, DeviceExecuteContext *)> PushTaskEntry;
+    using PushTaskEntry = std::function<void(DynDeviceTask *, DeviceExecuteContext *)>;
     PushTaskEntry pushTask;
 
     DevStartArgs *args{nullptr};

@@ -86,7 +86,7 @@ struct AicoreLogger {
     }
 
     __aicore__ void Init(__gm__ uint8_t *buf, size_t n) {
-        remote_ = (volatile __gm__ Remote *)buf;
+        remote_ = reinterpret_cast<volatile __gm__ Remote *>(buf);
         remote_->head_ = remote_->tail_ = 0;
         head_ = tail_ = 0;
         size_ = n - sizeof(Remote);
@@ -112,7 +112,7 @@ struct AicoreLogger {
                 if (tmp == nullptr) {
                     tmp = "<null>";
                 }
-                Encode(STRING, (__gm__ const uint8_t *)tmp, Length(tmp), *fmt, idx);
+                Encode(STRING, reinterpret_cast<__gm__ const uint8_t *>(tmp), Length(tmp), *fmt, idx);
                 break;
             }
             case 'd':
@@ -320,7 +320,7 @@ private:
     __aicore__ void Encode(NodeTy ty, const T *val, short valLen, __gm__ const char *fmt, int fmtLen) {
         Encode(ty);
 
-        auto bytes = (uint8_t *)(&valLen);
+        auto bytes = reinterpret_cast<uint8_t *>(&valLen);
         Encode(bytes[0]);
         Encode(bytes[1]);
         for (auto i = 0; i < valLen; i++) {
@@ -328,7 +328,7 @@ private:
         }
 
         fmtLen += 1; // pad '\0'
-        bytes = (uint8_t *)(&fmtLen);
+        bytes = reinterpret_cast<uint8_t *>(&fmtLen);
         Encode(bytes[0]);
         Encode(bytes[1]);
         for (auto i = 0; i < fmtLen - 1; i++) {

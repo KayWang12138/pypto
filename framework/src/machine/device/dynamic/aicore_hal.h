@@ -340,7 +340,7 @@ public:
             }
         }; // wait aicore dcci metric data finish
 
-        return (Metrics *)(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+        return reinterpret_cast<Metrics *>(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
     }
 
     int DumpTaskProf(int coreIdx) {

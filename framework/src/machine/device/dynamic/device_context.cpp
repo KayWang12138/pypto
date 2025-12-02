@@ -423,7 +423,7 @@ uint64_t DeviceStitchContext::PartialUpdateStitch(DevAscendFunctionDupped &nextD
                 DeviceWorkspaceAllocator *workspace,
                 int debugSlotIdx) {
             uint64_t id = cellMatchTableData[index];
-            if (id != AICORE_TASK_INIT && devTaskId == (uint32_t)(id >> TASKID_SHIFT32)) {
+            if (id != AICORE_TASK_INIT && devTaskId == static_cast<uint32_t>(id >> TASKID_SHIFT32)) {
                 auto funcId = FuncID(static_cast<uint32_t>(id));
                 auto producerOperationIdx = TaskID(static_cast<uint32_t>(id));
                 DevAscendFunctionDupped &prevDup = stitchingList[funcId];
@@ -790,11 +790,11 @@ void DeviceTaskContext::BuildReadyQueue(DynDeviceTask *dyntask, DevAscendProgram
         taskid_t *aivQueueElemList = reinterpret_cast<taskid_t *>(aivQueue->elem);
         for (size_t opIndex = 0; opIndex < totalZeroPredAIVBatchEnd; opIndex += DUP_PRED_COUNT_LOOP_MAX) {
             if (likely((*reinterpret_cast<uint64_t *>(&dupPredCountList[opIndex]) | *reinterpret_cast<uint64_t *>(&dupPredCountList[opIndex + DUP_PRED_COUNT_PRE_LOOP_CNT]))) == 0) {
-                uint32v8 taskidv8 = (one * MakeTaskID(funcIndex, 0)) | (base + (uint32_t)opIndex);
+                uint32v8 taskidv8 = (one * MakeTaskID(funcIndex, 0)) | (base + static_cast<uint32_t>(opIndex));
 #ifdef __x86_64__
                 memcpy_s(&aivQueueElemList[aivQueueTail], sizeof(taskidv8), &taskidv8, sizeof(taskidv8));
 #else
-                *(uint32v8 *)&aivQueueElemList[aivQueueTail] = taskidv8;
+                *reinterpret_cast<uint32v8 *>(&aivQueueElemList[aivQueueTail]) = taskidv8;
 #endif
                 aivQueueTail += DUP_PRED_COUNT_LOOP_MAX;
             } else {
@@ -1163,17 +1163,17 @@ int64_t DeviceExecuteContext::GetInputDataInt32Dim4(DeviceExecuteContext *ctx, u
 void *DeviceExecuteContext::SymbolHandlerIdToHandler(SymbolHandlerId id) {
     switch (id) {
         case SymbolHandlerId::GetInputShapeDimSize:
-            return (void *)GetInputShapeDimSize;
+            return reinterpret_cast<void *>(GetInputShapeDimSize);
         case SymbolHandlerId::GetInputShapeDim:
-            return (void *)GetInputShapeDim;
+            return reinterpret_cast<void *>(GetInputShapeDim);
         case SymbolHandlerId::GetInputDataInt32Dim1:
-            return (void *)GetInputDataInt32Dim1;
+            return reinterpret_cast<void *>(GetInputDataInt32Dim1);
         case SymbolHandlerId::GetInputDataInt32Dim2:
-            return (void *)GetInputDataInt32Dim2;
+            return reinterpret_cast<void *>(GetInputDataInt32Dim2);
         case SymbolHandlerId::GetInputDataInt32Dim3:
-            return (void *)GetInputDataInt32Dim3;
+            return reinterpret_cast<void *>(GetInputDataInt32Dim3);
         case SymbolHandlerId::GetInputDataInt32Dim4:
-            return (void *)GetInputDataInt32Dim4;
+            return reinterpret_cast<void *>(GetInputDataInt32Dim4);
         default:
             DEV_ASSERT(0);
             return nullptr;
@@ -1191,7 +1191,7 @@ DeviceExecuteContext::DeviceExecuteContext(DevStartArgs *startArgs) {
     }
 
     PerfBegin(PERF_EVT_CONTROL_FLOW_MAPEXE);
-    execProg = DeviceExecuteProgram(devProg, (AOTBinaryControlFlow::controlFlowEntry)startArgs->controlFlowEntry);
+    execProg = DeviceExecuteProgram(devProg, reinterpret_cast<AOTBinaryControlFlow::controlFlowEntry>(startArgs->controlFlowEntry));
     AOTCodePool::GetCodePool().MapExec();
     PerfEnd(PERF_EVT_CONTROL_FLOW_MAPEXE);
     PerfEnd(PERF_EVT_INIT);
@@ -1259,7 +1259,7 @@ void DeviceExecuteContext::GELaunchRunCached(DevStartArgs *startArgs, PushTaskEn
     PerfMtTrace(PERF_TRACE_INIT, CTRL_CPU_THREAD_IDX);
     PerfBegin(PERF_EVT_CONTROL_FLOW);
     for (size_t i = 0; i < devProg->controlFlowCache.deviceTaskCount; i++) {
-        DynDeviceTask *dynTask = (DynDeviceTask *)devProg->controlFlowCache.deviceTaskCacheList[i].dynTaskBase;
+        DynDeviceTask *dynTask = reinterpret_cast<DynDeviceTask *>(devProg->controlFlowCache.deviceTaskCacheList[i].dynTaskBase);
         devProg->controlFlowCache.PredCountDataRestore(dynTask);
         devProg->controlFlowCache.ReadyQueueDataRestore(dynTask);
         taskContext.UpdateReadyTaskNum(dynTask->readyQueueBackup->readyTaskNum);
@@ -1440,7 +1440,7 @@ void *DeviceExecuteContext::CallRootFunctionAlloc(uint64_t rootKey) {
     PROF_STAGE_BEGIN(PERF_EVT_STAGE_DUP_ROOT, "dup.before\n");
     currDevRootDup = workspace.DuplicateRoot(devRoot);
     PROF_STAGE_END(PERF_EVT_STAGE_DUP_ROOT, "dup.after\n");
-    return (void *)&currDevRootDup.GetExpression(0);
+    return reinterpret_cast<void *>(&currDevRootDup.GetExpression(0));
 }
 
 void *DeviceExecuteContext::CallRootFunctionStitch(uint64_t rootKey) {

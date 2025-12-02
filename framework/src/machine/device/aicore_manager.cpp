@@ -109,8 +109,8 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
 
 void AiCoreManager::DumpTaskProf() {
     ForEachManageAicore([this](int coreIdx) {
-        volatile KernelArgs *arg = (KernelArgs *)(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
-        volatile Metrics *metric = (Metrics *)(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+        volatile KernelArgs *arg = reinterpret_cast<KernelArgs *>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
+        volatile Metrics *metric = reinterpret_cast<Metrics *>(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
         DEV_INFO("aicore %d host alloc metric memory :%p.\n", coreIdx, metric);
         if (metric == nullptr) {
             DEV_INFO("aicore %d Null metric.\n", coreIdx);
@@ -139,7 +139,7 @@ void AiCoreManager::ProfStop() {
 void AiCoreManager::DumpAiCoreStatus() const {
     DEV_IF_VERBOSE_DEBUG {
         ForEachManageAicore([this](int coreIdx) {
-            volatile KernelArgs *arg = (KernelArgs *)(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
+            volatile KernelArgs *arg = reinterpret_cast<KernelArgs *>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
             DEV_INFO("\n!!***********************aicore %d last status **************************!!\n", coreIdx);
             DEV_INFO("hello status %ld\n", arg->shakeBuffer[0]);
             DEV_INFO("last_taskId %ld task status %ld\n", arg->shakeBuffer[NUM_ONE], arg->shakeBuffer[NUM_TWO]);
@@ -280,7 +280,7 @@ uint32_t AiCoreManager::BatchSendTask(CoreType type, uint64_t *newTask, uint32_t
     DEV_DEBUG("Begin Batch send %s task: corerunreadycnt:%u, pendreadyCnt:%u, taskCount:%u \n",
         type == CoreType::AIC ? "AIC": "AIV", coreRunReadyCnt,
         corePendReadyCnt_[static_cast<int>(type)], taskCount);
-    while (sendCnt < (uint64_t)coreRunReadyCnt && sendCnt < taskCount) {
+    while (sendCnt < static_cast<uint64_t>(coreRunReadyCnt) && sendCnt < taskCount) {
         DEV_DEBUG("  ## send task use runready core %u \n",
             runReadyCoreIdx_[static_cast<int>(type)][coreRunReadyCnt_[static_cast<int>(type)] - 1]);
         SendTaskToAiCore(type,
@@ -818,7 +818,7 @@ void AiCoreManager::NormalStop() {
     __sync_synchronize();
     ForEachManageAicore([this](auto coreIdx) {
         WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE);
-        volatile KernelArgs *arg = (KernelArgs *)(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
+        volatile KernelArgs *arg = reinterpret_cast<KernelArgs *>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
         arg->shakeBuffer[0] = 0;
         arg->shakeBuffer[SHAK_BUF_COREFUNC_DATA_INDEX] = 0;
     });

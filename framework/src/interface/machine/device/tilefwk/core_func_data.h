@@ -170,7 +170,7 @@ struct DynFuncHeader {
     }
 
     inline DynFuncData &At(int index) {
-        return ((DynFuncData *)(this + 1))[index];
+        return (reinterpret_cast<DynFuncData *>(this + 1))[index];
     }
     inline uint32_t Size() {
         return funcNum;

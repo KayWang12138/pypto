@@ -68,7 +68,7 @@ struct DeviceTaskCtrl {
         int cnt = runcnt.fetch_sub(1, std::memory_order_acq_rel);
         if (cnt == 1) {
             runFlag.store(false, std::memory_order_release); // set finish
-            auto *dynTask = (DynDeviceTask*)devTask;
+            auto *dynTask = reinterpret_cast<DynDeviceTask*>(devTask);
             dynTask->taskStageAllocMem.canFree.store(true);
         } else {
             // wait finish

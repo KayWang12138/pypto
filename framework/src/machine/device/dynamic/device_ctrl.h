@@ -41,8 +41,8 @@ class DeviceCtrlMachine {
         taskCtrl->taskType = type;
         taskCtrl->devTask = devTask;
         taskCtrl->taskId = taskId;
-        taskCtrl->initAicFuncNum = ((ReadyCoreFunctionQueue *)devTask->readyAicCoreFunctionQue)->Size();
-        taskCtrl->initAivFuncNum = ((ReadyCoreFunctionQueue *)devTask->readyAivCoreFunctionQue)->Size();
+        taskCtrl->initAicFuncNum = reinterpret_cast<ReadyCoreFunctionQueue *>(devTask->readyAicCoreFunctionQue)->Size();
+        taskCtrl->initAivFuncNum = reinterpret_cast<ReadyCoreFunctionQueue *>(devTask->readyAivCoreFunctionQue)->Size();
         taskCtrl->finishedAicFunctionCnt = 0;
         taskCtrl->finishedAivFunctionCnt = 0;
         taskCtrl->finishedAicpuFunctionCnt = 0;
