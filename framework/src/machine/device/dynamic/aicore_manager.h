@@ -394,7 +394,7 @@ private:
         }
     }
 
-    inline bool CheckStopTaskCanBeSent(int coreIdx) {
+    inline bool CheckStopTaskCanBeSent(int coreIdx, bool &needWaitStopRsp) {
         if (pendingIds_[coreIdx] == AICORE_TASK_INIT && runningIds_[coreIdx] == AICORE_TASK_INIT) {
             return true;
         }
@@ -415,21 +415,17 @@ private:
                 }
                 DfxProcAfterFinishTask(coreIdx, regLFinTaskId);
                 DEV_VERBOSE_DEBUG("rcv final pending task finish, pendtask: %u", regLFinTaskId);
-            } else if (runningIds_[coreIdx] == regLFinTaskId) {
+            } else if (runningIds_[coreIdx] == regLFinTaskId && pendingIds_[coreIdx] == AICORE_TASK_INIT) {
                 bMatch = true;
                 runReadyCoreIdx_[type][coreRunReadyCnt_[type]++] = coreIdx;
                 DfxProcAfterFinishTask(coreIdx, regLFinTaskId);
-                if (pendingIds_[coreIdx] != AICORE_TASK_INIT) {
-                    // rcv running task rsp, There's no need to wait pending, pending task must have been executed
-                    DfxProcAfterFinishTask(coreIdx, pendingIds_[coreIdx]);
-                    corePendReadyCnt_[type]++;
-                }
                 DEV_VERBOSE_DEBUG("rcv final running task finish, runningtask: %u", regLFinTaskId);
             }
         } else if (regLFinTaskState == TASK_ACK_STATE && pendingIds_[coreIdx] == regLFinTaskId) {
            // The core stop task can be sent once the last task ACK is received, without waiting for finish rsp.
            // The execution of the final task and the sending of the final core stop task can be parallelized.
             bMatch = true;
+            needWaitStopRsp = true;
             runReadyCoreIdx_[type][coreRunReadyCnt_[type]++] = coreIdx;
             corePendReadyCnt_[type]++;
             DfxProcAfterFinishTask(coreIdx, regLFinTaskId);
@@ -483,27 +479,33 @@ private:
             ((uint64_t)curTaskId_ << REG_HIGH_DTASKID_SHIFT) | (AICORE_FUNC_STOP | AICORE_FIN_MASK);
         DEV_IF_DEVICE {
             if ((curCoreStatus == CORE_SEND_STOP) && (aicoreHal_.GetFinishedTask(coreIdx) == waitAckStopVal)) {
-                /* With the previous DevTask verified as stopped, the next DevTask can be sent early,
-                 bypassing the delay for its control flow response. */
-                SendPreFetchNextDevTaskDataToCore(coreIdx);
-                aicoreHal_.SetReadyQueue(coreIdx, 0);
-                DEV_DEBUG("core %d rsp AICORE_FUNC_STOP ack.", coreIdx);
+                if (!dyntask->IsLastTask()) {
+                    /* With the previous DevTask verified as stopped, the next DevTask can be sent early,
+                    bypassing the delay for its control flow response. */
+                    SendPreFetchNextDevTaskDataToCore(coreIdx);
+                    aicoreHal_.SetReadyQueue(coreIdx, 0);
+                    DEV_DEBUG("core %d rsp AICORE_FUNC_STOP ack.", coreIdx);
+                } else {
+                    DEV_DEBUG("Last devtask ,core %d send AICORE_TASK_STOP.", coreIdx);
+                    NormalStopSingleCore(coreIdx);
+                }
                 return CORE_FINISH_STOP;
             }
         }
 
-        if (CheckStopTaskCanBeSent(coreIdx)) {
+        bool needWaitStopRsp = false;
+        if (CheckStopTaskCanBeSent(coreIdx, needWaitStopRsp)) {
             DEV_IF_DEVICE {
-                if (dyntask->IsLastTask()) {
-                    DEV_DEBUG("Last devtask ,core %d send AICORE_TASK_STOP.", coreIdx);
-                    NormalStopSingleCore(coreIdx);
-                    return CORE_FINISH_STOP;
-                } else {
+                if (needWaitStopRsp || !dyntask->IsLastTask()) {
                     /* Sending pre-fetch next devTask should not be called here,
                        as it may result in the nextDevTask being stopped. */
                     aicoreHal_.SetReadyQueue(coreIdx, AICORE_FUNC_STOP + 1);
                     DEV_DEBUG("core %d send AICORE_FUNC_STOP.", coreIdx);
                     return CORE_SEND_STOP;
+                } else {
+                    DEV_DEBUG("Last devtask ,core %d send AICORE_TASK_STOP.", coreIdx);
+                    NormalStopSingleCore(coreIdx);
+                    return CORE_FINISH_STOP;
                 }
             } else {
                 return CORE_FINISH_STOP;
