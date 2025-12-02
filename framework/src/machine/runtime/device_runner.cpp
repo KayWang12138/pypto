@@ -23,6 +23,7 @@
 #include "securec.h"
 #include "machine/runtime/runtime.h"
 #include "machine/runtime/device_launcher.h"
+#include "machine/runtime/load_aicpu_op.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/kernel/aicore.h"
 #include "machine/device/dynamic/device_common.h"
@@ -482,9 +483,7 @@ int DeviceRunner::launchDynamicAiCpuInit(rtStream_t aicpuStream, AstKernelArgs *
         rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 1, &rtArgs, nullptr, aicpuStream, 0);
 }
 
-int DeviceRunner::RunPrepare(rtStream_t aicpuStream, rtStream_t aicoreStream) {
-    int rc;
-
+int DeviceRunner::RunPrepare() {
     KernelArgs kernelArgs = {};
     for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv; i++) {
         kernelArgs.shakeBuffer[SHAK_BUF_DFX_DATA_INDEX] = reinterpret_cast<uint64_t>(perfData_[i]);
@@ -498,9 +497,12 @@ int DeviceRunner::RunPrepare(rtStream_t aicpuStream, rtStream_t aicoreStream) {
     if (isCapture_) {
         aclmdlRICaptureThreadExchangeMode(&captureMode_);
     }
+    return 0;
+}
 
+int DeviceRunner::RunPreSync(rtStream_t aicpuStream, rtStream_t aicoreStream) {
     aclrtEvent event;
-    rc = aclrtCreateEventExWithFlag(&event, ACL_EVENT_SYNC);
+    int rc = aclrtCreateEventExWithFlag(&event, ACL_EVENT_SYNC);
     if (rc < 0) {
         ALOG_ERROR_F("aclrtCreateEvent failed %d\n", rc);
         return rc;
@@ -517,7 +519,6 @@ int DeviceRunner::RunPrepare(rtStream_t aicpuStream, rtStream_t aicoreStream) {
         ALOG_ERROR_F("aclrtStreamWaitEvent failed %d\n", rc);
         return rc;
     }
-
     return 0;
 }
 
@@ -543,16 +544,21 @@ int DeviceRunner::RunPost(rtStream_t aicpuStream, rtStream_t aicoreStream) {
     return 0;
 }
 
-int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream,
-                                      AstKernelArgs *kernelArgs, int blockdim) {
-    (void)ctrlStream;
+int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream, AstKernelArgs *kernelArgs, int blockdim) {
+    int rc = RunPreSync(aicpuStream, aicoreStream);
+    if (rc < 0) {
+        ALOG_ERROR_F("prepare failed %d\n", rc);
+        return rc;
+    }
+
     uint64_t startTime = MsprofSysCycleTime();
-    int rc = launchDynamicAiCore(aicoreStream, kernelArgs);
+    rc = launchDynamicAiCore(aicoreStream, kernelArgs);
     if (rc < 0) {
         ALOG_ERROR_F("launch aicpu failed %d\n", rc);
         return rc;
     }
     ReportHostProfInfo(startTime, blockdim, MSPROF_GE_TASK_TYPE_MIX_AIC, true);
+
     startTime = MsprofSysCycleTime();
     rc = launchDynamicAiCpuInit(aicpuStream, kernelArgs);
     if (rc < 0) {
@@ -570,6 +576,53 @@ int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t ctrlStr
     ReportHostProfInfo(startTime, aicpuNum_, MSPROF_GE_TASK_TYPE_AI_CPU);
 
     rc = RunPost(aicpuStream, aicoreStream);
+    return rc;
+}
+
+int DeviceRunner::DynamicSeparateLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream,
+    AstKernelArgs *kernelArgs, int blockdim) {
+    LoadAicpuOp::GetInstance().CustomAiCpuSoLoad();
+    std::string initKernel =  OpInfoManager::GetInstance().GetOpFuncName() + "Init";
+    std::string mainKernel =  OpInfoManager::GetInstance().GetOpFuncName() + "Run";
+    uint64_t startTime = MsprofSysCycleTime();
+    int rc = LoadAicpuOp::GetInstance().LaunchCustomOp(ctrlStream, kernelArgs, initKernel);
+    if (rc < 0) {
+        ALOG_ERROR_F("launch aicpu failed %d\n", rc);
+        return rc;
+    }
+    ReportHostProfInfo(startTime, blockdim, MSPROF_GE_TASK_TYPE_AI_CPU, true);
+
+    rc = RunPreSync(ctrlStream, aicoreStream);
+    if (rc < 0) {
+        ALOG_ERROR_F("prepare failed %d\n", rc);
+        return rc;
+    }
+
+    startTime = MsprofSysCycleTime();
+    rc = LoadAicpuOp::GetInstance().LaunchCustomOp(ctrlStream, kernelArgs, mainKernel);
+    if (rc < 0) {
+        ALOG_ERROR_F("launch custom aicpu failed %d\n", rc);
+        return rc;
+    }
+    ReportHostProfInfo(startTime, blockdim, MSPROF_GE_TASK_TYPE_AI_CPU, true);
+
+    startTime = MsprofSysCycleTime();
+    rc = launchDynamicAiCpu(aicpuStream, kernelArgs);
+    if (rc < 0) {
+        ALOG_ERROR_F("launch aicpu failed %d\n", rc);
+        return rc;
+    }
+    ReportHostProfInfo(startTime, aicpuNum_, MSPROF_GE_TASK_TYPE_AI_CPU);
+
+    startTime = MsprofSysCycleTime();
+    rc = launchDynamicAiCore(aicoreStream, kernelArgs);
+    if (rc < 0) {
+        ALOG_ERROR_F("launch aicore failed %d\n", rc);
+        return rc;
+    }
+    ReportHostProfInfo(startTime, blockdim, MSPROF_GE_TASK_TYPE_MIX_AIC, true);
+
+    rc = RunPost(ctrlStream, aicoreStream);
     return rc;
 }
 
@@ -603,19 +656,22 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
     blockDim_ = blockdim;
     aicpuNum_ = launchAicpuNum;
     localArgs.scheCpuNum = dynamic::CalcSchAicpuNumByBlockDim(blockdim);
-    localArgs.enableCtrl = 1; // need set 0 if use custom cpu launch ctrl cpu
+    localArgs.enableCtrl = ctrlStream == nullptr ? 1 : 0; // need set 0 if use custom cpu launch ctrl cpu
     int rc = rtMemcpy(kernelArgs->cfgdata, size, &localArgs, size, RT_MEMCPY_HOST_TO_DEVICE);
     if (rc != 0) {
         ALOG_ERROR_F("rtmemcpy failed %p rc %d\n", kernelArgs->cfgdata, rc);
         return rc;
     }
-
-    rc = RunPrepare(aicpuStream, aicoreStream);
+    rc = RunPrepare();	
     if (rc < 0) {
         ALOG_ERROR_F("prepare failed %d\n", rc);
         return rc;
     }
-    return DynamicKernelLaunch(aicpuStream, ctrlStream, aicoreStream, kernelArgs, blockDim_);
+    if (ctrlStream == nullptr) {
+        return DynamicKernelLaunch(aicpuStream, aicoreStream, kernelArgs, blockDim_);
+    } else {
+        return DynamicSeparateLaunch(aicpuStream, ctrlStream, aicoreStream, kernelArgs, blockDim_);
+    }
 }
 
 void DeviceRunner::ReportHostProfInfo(uint64_t startTime, uint32_t blockDim, uint16_t taskType, bool isCore) {

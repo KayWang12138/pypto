@@ -254,26 +254,28 @@ private:
     void RunOnBoard(const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs) {
         std::cout << "!!! Kernel Launch " << "\n";
         int rc = aclInit(nullptr);
-        if (rc == 0 || rc == ACL_ERROR_REPEAT_INITIALIZE) {
-            SetDefaultDevice();
-            AstKernelArgs kArgs;
-            DeviceInitTilingData(MemoryHelper(false), kArgs, function_->GetDyndevAttribute()->devProgBinary, config_, nullptr);
-            auto aicpuStream = machine::GetRA()->GetScheStream();
-            auto aicoreStream = machine::GetRA()->GetStream();
-            auto ctrlStream = machine::GetRA()->GetCtrlStream();
-            for (int i = 0; i < config_.repeatNum; i++) {
-                InitKernelInOuts(kArgs, inputs, outputs, false);
-                rc = DeviceRunner::Get().DynamicRun(aicpuStream, ctrlStream, aicoreStream, 0, &kArgs, config_.blockdim, config_.aicpuNum);
-                EXPECT_EQ(rc, 0);
-                DeviceRunner::Get().ResetPerfTraceDfxMem(); // refresh aicore dfx metric memory cache
-            }
-            CopyFromDev(MemoryHelper(false), outputs);
-            if (HasInplaceArgs(function_)) {
-                CopyFromDev(MemoryHelper(false), inputs);
-            }
-            if (IsDumpTensorEnable()) {
-                DumpTensorContents(kArgs, inputs, outputs);
-            }
+        if (rc != 0 && rc != ACL_ERROR_REPEAT_INITIALIZE) {
+            ALOG_ERROR_F("Acl init failed!!!");
+            return;
+        }
+        SetDefaultDevice();
+        AstKernelArgs kArgs;
+        DeviceInitTilingData(MemoryHelper(false), kArgs, function_->GetDyndevAttribute()->devProgBinary, config_, nullptr);
+        auto aicpuStream = machine::GetRA()->GetScheStream();
+        auto aicoreStream = machine::GetRA()->GetStream();
+        auto ctrlStream = config_.cpuSeparate ? machine::GetRA()->GetCtrlStream() : nullptr;
+        for (int i = 0; i < config_.repeatNum; i++) {
+            InitKernelInOuts(kArgs, inputs, outputs, false);
+            rc = DeviceRunner::Get().DynamicRun(aicpuStream, ctrlStream, aicoreStream, 0, &kArgs, config_.blockdim, config_.aicpuNum);
+            EXPECT_EQ(rc, 0);
+            DeviceRunner::Get().ResetPerfTraceDfxMem(); // refresh aicore dfx metric memory cache
+        }
+        CopyFromDev(MemoryHelper(false), outputs);
+        if (HasInplaceArgs(function_)) {
+            CopyFromDev(MemoryHelper(false), inputs);
+        }
+        if (IsDumpTensorEnable()) {
+            DumpTensorContents(kArgs, inputs, outputs);
         }
     }
 

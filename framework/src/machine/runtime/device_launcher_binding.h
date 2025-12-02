@@ -57,12 +57,13 @@ private:
 struct DeviceLauncherConfig {
     bool onBoard{true};
     int blockdim{0};
-    int aicpuNum{4};
+    int aicpuNum{5};
     int64_t dynWorkspaceSize{0};
     int64_t repeatNum{1};
     bool runModel{true};
     std::vector<uint64_t> hcclContext;
     bool controlFlowCache{false};
+    bool cpuSeparate{false};
 
     DeviceLauncherConfig() = default;
     DeviceLauncherConfig(bool onboard, int tblockdim, int taicpunum)

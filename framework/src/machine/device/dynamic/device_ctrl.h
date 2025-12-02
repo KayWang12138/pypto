@@ -26,7 +26,7 @@
 #include "machine/utils/device_log.h"
 
 #ifdef __USE_CUSTOM_CTRLFLOW__
-extern "C" __attribute__((weak)) void* GetTilingKeyFunc(const uint64_t tilingKey);    
+extern "C" __attribute__((visibility("default"))) void* GetCtrlFlowFunc();
 #endif
 
 namespace npu::tile_fwk::dynamic {
@@ -121,7 +121,8 @@ class DeviceCtrlMachine {
             firstInit = true;
         }
 #ifdef __USE_CUSTOM_CTRLFLOW__
-        devProg->controlFlowBinaryAddr = GetTilingKeyFunc(devProg->configKey);
+        DEV_INFO("Use built in ctrl flow func.");
+        devProg->controlFlowBinaryAddr = GetCtrlFlowFunc();
 #else
         auto execProg = DeviceExecuteProgram(devProg, nullptr);
         devProg->controlFlowBinaryAddr = execProg.GetControlFlowEntry();

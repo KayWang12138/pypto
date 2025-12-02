@@ -87,13 +87,15 @@ private:
     /**************DynamicFunction**************/
     int launchDynamicAiCore(rtStream_t aicoreStream, AstKernelArgs *kernelArgs);
     int launchDynamicAiCpu(rtStream_t aicpuStream, AstKernelArgs *kArgs);
-    int RunPrepare(rtStream_t aicpuStream, rtStream_t aicoreStream);
+    int RunPrepare();
+    int RunPreSync(rtStream_t aicpuStream, rtStream_t aicoreStream);
     int RunPost(rtStream_t aicpuStream, rtStream_t aicoreStream);
     int launchDynamicAiCpuInit(rtStream_t aicpuStream, AstKernelArgs *kArgs);
     void InitAiCpuSoBin();
     void GetHostProfTypeSwtich();
     void ReportHostProfInfo(uint64_t startTime, uint32_t blockDim, uint16_t taskType, bool isCore = false);
-    int DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, AstKernelArgs *kernelArgs, int blockdim);
+    int DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream, AstKernelArgs *kernelArgs, int blockdim);
+    int DynamicSeparateLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, AstKernelArgs *kernelArgs, int blockdim);
 private:
     int devId_;
     int aicpuNum_{5};

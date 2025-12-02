@@ -1103,6 +1103,12 @@ void DeviceTaskContext::BuildDeviceTaskDataAndReadyQueue(DynDeviceTask *dyntask,
 #endif
     DEV_IF_VERBOSE_DEBUG {
         dyntask->DumpLeafs();
+        int funcIdx = 0;
+        for (auto &func : dyntask->stitchedList) {
+            DEV_DEBUG("func %d %s.", funcIdx, func.DumpDyn(funcIdx, dyntask->cceBinary).c_str());
+            funcIdx++;
+            (void)func;
+        }
     }
     dyntask->stitchedList.clear();
 }

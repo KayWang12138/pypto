@@ -77,8 +77,8 @@ bool GenTilingFunc(const std::string &funcName, const std::string &controlAicpuP
     oss << "namespace " << funcName << "{\n";
     oss << "controlFlowFuncPtr controlFlowptr = ControlFlowEntry;\n";
     oss << "} // end namespace " << funcName << "\n";
-    oss << "extern \"C\" __attribute__((visibility(\"default\"))) unsigned char* GetTilingKeyFunc(const uint64_t &tilingKey) {\n";
-    oss << "return reinterpret_cast<unsigned char*>(" <<  funcName << "::controlFlowptr);\n";
+    oss << "extern \"C\" __attribute__((visibility(\"default\"))) void* GetCtrlFlowFunc() {\n";
+    oss << "return reinterpret_cast<void*>(" <<  funcName << "::controlFlowptr);\n";
     oss << "}\n";
     oss << "}\n";
     std::string fileName = controlAicpuPath + "/control_flow_kernel.cpp";

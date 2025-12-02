@@ -21,6 +21,7 @@ const int32_t MODULE_TYPE_AI_CORE = 4;
 const int32_t INFO_TYPE_OCCUPY = 8;
 const uint64_t SHARE_BUFFER_SIZE = 512;
 const uint64_t AICPU_COUNT = 5;
+const uint64_t SCHE_AICPU_COUNT = 3;
 const uint64_t DEV_ARGS_SIZE = 4096;
 const uint64_t DEVICE_TASK_CTRL_SIZE = 7168;
 const uint64_t DEVICE_QUEUE_SIZE = 2048 * 3;
@@ -165,6 +166,7 @@ bool AicoreRtManager::InitDyBinData(const std::vector<int64_t> &aic, const std::
   host_args->devArgs.taskCtrl = meta_addr + DEV_ARGS_SIZE;
   host_args->devArgs.taskQueue = meta_addr + DEV_ARGS_SIZE + DEVICE_TASK_CTRL_SIZE;
   host_args->devArgs.enableCtrl = 1;
+  host_args->devArgs.scheCpuNum = SCHE_AICPU_COUNT;
   size_t core_reg_size = regs.size() * sizeof(uint64_t);
   if (!AllocDevAddr((void**)&host_args->devArgs.coreRegAddr, core_reg_size, allocated_addrs)) {
     TILE_FWK_LOGE("Failed to alloc core reg addr.");

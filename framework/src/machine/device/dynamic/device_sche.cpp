@@ -145,23 +145,12 @@ struct DynMachineManager {
         schRunFailed_ = false;
     }
 
-    void SignalReset() {
-        sigaction(SIGFPE, &oriFPEAct_, nullptr);
-        sigaction(SIGBUS, &oriBUSAct_, nullptr);
-        sigaction(SIGSEGV, &oriSEGVAct_, nullptr);
-        sigaction(SIGPIPE, &oriPIPEAct_, nullptr);
-        sigaction(SIGILL, &oriILLAct_, nullptr);
-        sigaction(SIGABRT, &oriBordAct_, nullptr);
-        return;
-    }
-
     void DeInit() {
       threadIdx_ = 0;
       finished_ = 0;
       cpumask_ = 0;
       ctrlcpuIdx_ = 0;
       init_.store(false);
-      SignalReset();
     }
 
     int LastFinishThreadIdx_{0};
@@ -185,17 +174,50 @@ struct DynMachineManager {
 
 DynMachineManager g_machine_mgr;
 
+__sighandler_t GetSigHandle(int signum) {
+    __sighandler_t handle = nullptr;
+    if (signum == static_cast<int>(SIGFPE)) {
+        handle = g_machine_mgr.oriFPEAct_.sa_handler;
+    } else if (signum == static_cast<int>(SIGBUS)) {
+        handle = g_machine_mgr.oriBUSAct_.sa_handler;
+    } else if (signum == static_cast<int>(SIGSEGV)) {
+        handle = g_machine_mgr.oriSEGVAct_.sa_handler;
+    } else if (signum == static_cast<int>(SIGPIPE)) {
+        handle = g_machine_mgr.oriPIPEAct_.sa_handler;
+    } else if (signum == static_cast<int>(SIGILL)) {
+        handle = g_machine_mgr.oriILLAct_.sa_handler;
+    } else if (signum == static_cast<int>(SIGABRT)) {
+        handle = g_machine_mgr.oriBordAct_.sa_handler;
+    }
+    return handle;
+}
+
 void SigAct(int signum, siginfo_t* info, void* act) {
     (void)info;
     (void)act;
     DEV_ERROR("Exception Signum[%d] Act.", signum);
     PrintBacktrace("signal " + std::to_string(signum));
     if (g_machine_mgr.reset_.load()) {
-      DEV_ERROR("Exception Already reset.");
-      sleep(SIGNAL_DELAY_SECONDS);
-      return;
+        DEV_ERROR("Exception Already reset.");
+        sleep(SIGNAL_DELAY_SECONDS);
+        return;
     }
     g_machine_mgr.reset_.store(true);
+    if (!g_machine_mgr.init_.load()) {
+        DEV_ERROR("Exception call ori sigact.");
+        __sighandler_t handle = GetSigHandle(signum);
+        if (handle == SIG_DFL) {
+            DEV_ERROR("Ori sigact SIG_DFL.");
+            signal(signum, SIG_DFL);
+            raise(signum);
+        } else if (handle == SIG_IGN) {
+            DEV_ERROR("Ori sigact SIG_IGN.");
+        } else if (handle != nullptr) {
+            DEV_ERROR("Call Ori sigact.");
+            handle(signum);
+        }
+        return;
+    }
     g_machine_mgr.machine_.ResetRegAll();
     sigaction(SIGFPE, &g_machine_mgr.oriFPEAct_, nullptr);
     sigaction(SIGBUS, &g_machine_mgr.oriBUSAct_, nullptr);
