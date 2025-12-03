@@ -1983,8 +1983,35 @@ TILEOP void DynTlogicalNot(__ubuf__ bool *dst, __ubuf__ T *src, __ubuf__ half *c
     }
 }
 template <typename T_0, typename T_1>
-TILEOP void Conv2Float(__ubuf__ bool *dst, __ubuf__ T_0 *src0, __ubuf__ T_1 *src1, __ubuf__ float *castCondition0, __ubuf__ float *castCondition1, __ubuf__ half *tmpCondition,
-                __ubuf__ float *oneCondition, __ubuf__ float *zeroCondition, __ubuf__ uint8_t *vcmpBitResult, __ubuf__ uint64_t *startAddrUB, uint64_t CountNum) {
+TILEOP void Conv2Float(__ubuf__ bool *dst, __ubuf__ T_0 *src0, __ubuf__ T_1 *src1, __ubuf__ uint8_t *tmp, uint64_t CountNum) {
+    constexpr uint32_t ALIGN_SIZE = 32;
+    const uint64_t vcmpBitsSize = (CountNum + 7) / 8;
+    __ubuf__ uint8_t* vcmpBitResult = tmp;
+
+    uintptr_t zeroCondAddr = reinterpret_cast<uintptr_t>(vcmpBitResult + vcmpBitsSize);
+    zeroCondAddr = (zeroCondAddr + ALIGN_SIZE - 1) & ~ (ALIGN_SIZE - 1);
+    __ubuf__ float* zeroCondition = reinterpret_cast<__ubuf__ float*>(zeroCondAddr);
+
+    uintptr_t oneCondAddr = reinterpret_cast<uintptr_t>(zeroCondition + CountNum);
+    oneCondAddr = (oneCondAddr + ALIGN_SIZE - 1) & ~ (ALIGN_SIZE - 1);
+    __ubuf__ float* oneCondition = reinterpret_cast<__ubuf__ float*>(oneCondAddr);
+
+    uintptr_t castCondAddr0 = reinterpret_cast<uintptr_t>(oneCondition + CountNum);
+    castCondAddr0 = (castCondAddr0 + ALIGN_SIZE - 1) & ~ (ALIGN_SIZE - 1);
+    __ubuf__ float* castCondition0 = reinterpret_cast<__ubuf__ float*>(castCondAddr0);
+
+    uintptr_t castCondAddr1 = reinterpret_cast<uintptr_t>(castCondition0 + CountNum);
+    castCondAddr1 = (castCondAddr1 + ALIGN_SIZE - 1) & ~ (ALIGN_SIZE - 1);
+    __ubuf__ float* castCondition1 = reinterpret_cast<__ubuf__ float*>(castCondAddr1);
+
+    uintptr_t tmpCondAddr = reinterpret_cast<uintptr_t>(castCondition1 + CountNum);
+    tmpCondAddr = (tmpCondAddr + ALIGN_SIZE - 1) & ~ (ALIGN_SIZE - 1);
+    __ubuf__ half* tmpCondition = reinterpret_cast<__ubuf__ half*>(tmpCondAddr);
+
+    uintptr_t startAddrAddr = reinterpret_cast<uintptr_t>(tmpCondition + CountNum);
+    startAddrAddr = (startAddrAddr + ALIGN_SIZE - 1) & ~ (ALIGN_SIZE - 1);
+    __ubuf__ uint64_t* startAddrUB = reinterpret_cast<__ubuf__ uint64_t*>(startAddrAddr);
+
     set_vector_mask((uint64_t)-1, (uint64_t)-1);
     set_mask_count();
     pipe_barrier(PIPE_V);
@@ -2028,8 +2055,35 @@ TILEOP void Conv2Float(__ubuf__ bool *dst, __ubuf__ T_0 *src0, __ubuf__ T_1 *src
 }
 
 template <typename T_0, typename T_1>
-TILEOP void ProcessLogicalAnd(__ubuf__ bool *dst, __ubuf__ T_0 *src0, __ubuf__ T_1 *src1, __ubuf__ float *castCondition0, __ubuf__ float *castCondition1, __ubuf__ half *tmpCondition,
-                __ubuf__ float *oneCondition, __ubuf__ float *zeroCondition, __ubuf__ uint8_t *vcmpBitResult, __ubuf__ uint64_t *startAddrUB, uint64_t CountNum) {
+TILEOP void ProcessLogicalAnd(__ubuf__ bool *dst, __ubuf__ T_0 *src0, __ubuf__ T_1 *src1, __ubuf__ uint8_t *tmp, uint64_t CountNum) {
+    constexpr uint32_t ALIGN_SIZE = 32;
+    const uint64_t vcmpBitsSize = (CountNum + 7) / 8;
+    __ubuf__ uint8_t* vcmpBitResult = tmp;
+
+    uintptr_t zeroCondAddr = reinterpret_cast<uintptr_t>(vcmpBitResult + vcmpBitsSize);
+    zeroCondAddr = (zeroCondAddr + ALIGN_SIZE - 1) & ~ (ALIGN_SIZE - 1);
+    __ubuf__ float* zeroCondition = reinterpret_cast<__ubuf__ float*>(zeroCondAddr);
+
+    uintptr_t oneCondAddr = reinterpret_cast<uintptr_t>(zeroCondition + CountNum);
+    oneCondAddr = (oneCondAddr + ALIGN_SIZE - 1) & ~ (ALIGN_SIZE - 1);
+    __ubuf__ float* oneCondition = reinterpret_cast<__ubuf__ float*>(oneCondAddr);
+
+    uintptr_t castCondAddr0 = reinterpret_cast<uintptr_t>(oneCondition + CountNum);
+    castCondAddr0 = (castCondAddr0 + ALIGN_SIZE - 1) & ~ (ALIGN_SIZE - 1);
+    __ubuf__ float* castCondition0 = reinterpret_cast<__ubuf__ float*>(castCondAddr0);
+
+    uintptr_t castCondAddr1 = reinterpret_cast<uintptr_t>(castCondition0 + CountNum);
+    castCondAddr1 = (castCondAddr1 + ALIGN_SIZE - 1) & ~ (ALIGN_SIZE - 1);
+    __ubuf__ float* castCondition1 = reinterpret_cast<__ubuf__ float*>(castCondAddr1);
+
+    uintptr_t tmpCondAddr = reinterpret_cast<uintptr_t>(castCondition1 + CountNum);
+    tmpCondAddr = (tmpCondAddr + ALIGN_SIZE - 1) & ~ (ALIGN_SIZE - 1);
+    __ubuf__ half* tmpCondition = reinterpret_cast<__ubuf__ half*>(tmpCondAddr);
+
+    uintptr_t startAddrAddr = reinterpret_cast<uintptr_t>(tmpCondition + CountNum);
+    startAddrAddr = (startAddrAddr + ALIGN_SIZE - 1) & ~ (ALIGN_SIZE - 1);
+    __ubuf__ uint64_t* startAddrUB = reinterpret_cast<__ubuf__ uint64_t*>(startAddrAddr);
+
     uint64_t startREG[1] = {0};
     set_vector_mask((uint64_t)-1, (uint64_t)-1);
     set_mask_count();
@@ -2102,9 +2156,7 @@ TILEOP void ProcessLogicalAnd(__ubuf__ bool *dst, __ubuf__ T_0 *src0, __ubuf__ T
 
 // dim2 & dim1 (T0 = 1 for dim1)
 template <typename T_0, typename T_1, unsigned DS, unsigned SS0, unsigned SS1>
-TILEOP void DynTlogicalAnd(__ubuf__ bool *dst, __ubuf__ T_0 *src0, __ubuf__ T_1 *src1, __ubuf__ float *castCondition0, __ubuf__ float *castCondition1, __ubuf__ half *tmpCondition,
-                __ubuf__ float *oneCondition, __ubuf__ float *zeroCondition, __ubuf__ uint8_t *vcmpBitResult, __ubuf__ uint64_t *startAddrUB, 
-                    unsigned T0, unsigned T1) {
+TILEOP void DynTlogicalAnd(__ubuf__ bool *dst, __ubuf__ T_0 *src0, __ubuf__ T_1 *src1, __ubuf__ uint8_t *tmp, unsigned T0, unsigned T1) {
     constexpr uint64_t COUNT_MAX = 64;
 
     unsigned numLoop = T1 / COUNT_MAX;
@@ -2112,19 +2164,15 @@ TILEOP void DynTlogicalAnd(__ubuf__ bool *dst, __ubuf__ T_0 *src0, __ubuf__ T_1 
     for (int i = 0; i < T0; i++) {
         for (int j = 0; j < numLoop; j++) {
             Conv2Float<T_0, T_1>(dst + i * DS + j * COUNT_MAX,
-                            src0 + i * SS0 + j * COUNT_MAX, src1 + i * SS1 + j * COUNT_MAX,
-                            castCondition0, castCondition1, tmpCondition, oneCondition, zeroCondition, (__ubuf__ uint8_t *)vcmpBitResult,(__ubuf__ uint64_t *)startAddrUB, COUNT_MAX);
+                            src0 + i * SS0 + j * COUNT_MAX, src1 + i * SS1 + j * COUNT_MAX, tmp, COUNT_MAX);
             ProcessLogicalAnd<T_0, T_1>(dst + i * DS + j * COUNT_MAX,
-                            src0 + i * SS0 + j * COUNT_MAX, src1 + i * SS1 + j * COUNT_MAX,
-                            castCondition0, castCondition1, tmpCondition, oneCondition, zeroCondition, (__ubuf__ uint8_t *)vcmpBitResult,(__ubuf__ uint64_t *)startAddrUB, COUNT_MAX);
+                            src0 + i * SS0 + j * COUNT_MAX, src1 + i * SS1 + j * COUNT_MAX, tmp, COUNT_MAX);
         }
         if (remainAfterLoop > 0) {
             Conv2Float<T_0, T_1>(dst + i * DS + numLoop * COUNT_MAX,
-                            src0 + i * SS0 + numLoop * COUNT_MAX, src1 + i * SS1 + numLoop * COUNT_MAX,
-                            castCondition0, castCondition1, tmpCondition, oneCondition, zeroCondition, (__ubuf__ uint8_t *)vcmpBitResult,(__ubuf__ uint64_t *)startAddrUB, remainAfterLoop);
+                            src0 + i * SS0 + numLoop * COUNT_MAX, src1 + i * SS1 + numLoop * COUNT_MAX, tmp, remainAfterLoop);
             ProcessLogicalAnd<T_0, T_1>(dst + i * DS + numLoop * COUNT_MAX,
-                            src0 + i * SS0 + numLoop * COUNT_MAX, src1 + i * SS1 + numLoop * COUNT_MAX,
-                            castCondition0, castCondition1, tmpCondition, oneCondition, zeroCondition, (__ubuf__ uint8_t *)vcmpBitResult,(__ubuf__ uint64_t *)startAddrUB, remainAfterLoop);
+                            src0 + i * SS0 + numLoop * COUNT_MAX, src1 + i * SS1 + numLoop * COUNT_MAX, tmp, remainAfterLoop);
         }
     }
     set_mask_norm();
@@ -2133,14 +2181,13 @@ TILEOP void DynTlogicalAnd(__ubuf__ bool *dst, __ubuf__ T_0 *src0, __ubuf__ T_1 
 
 // dim3
 template <typename T_0, typename T_1, unsigned DS0, unsigned DS1, unsigned SS00, unsigned SS01, unsigned SS10, unsigned SS11>
-TILEOP void DynTlogicalAnd(__ubuf__ bool *dst, __ubuf__ T_0 *src0, __ubuf__ T_1 *src1, __ubuf__ float *castCondition0, __ubuf__ float *castCondition1, __ubuf__ half *tmpCondition,
-                __ubuf__ float *oneCondition, __ubuf__ float *zeroCondition, __ubuf__ uint8_t *vcmpBitResult, __ubuf__ uint64_t *startAddrUB, 
+TILEOP void DynTlogicalAnd(__ubuf__ bool *dst, __ubuf__ T_0 *src0, __ubuf__ T_1 *src1, __ubuf__ uint8_t *tmp, 
                     unsigned T0, unsigned T1, unsigned T2) {
     static_assert((DS1 * sizeof(bool)) % BLOCK_SIZE == 0);
     static_assert((SS01 * sizeof(T_0)) % BLOCK_SIZE == 0);
     static_assert((SS11 * sizeof(T_1)) % BLOCK_SIZE == 0);
     for (int i = 0; i < T0; i++) {
-        DynTlogicalAnd<T_0, T_1, DS1, SS01, SS11>(dst, src0, src1, castCondition0, castCondition1, tmpCondition, oneCondition, zeroCondition, vcmpBitResult, startAddrUB, T1, T2);
+        DynTlogicalAnd<T_0, T_1, DS1, SS01, SS11>(dst, src0, src1, tmp, T1, T2);
         dst += DS0 * DS1;
         src0 += SS00 * SS01;
         src1 += SS10 * SS11;
@@ -2149,8 +2196,7 @@ TILEOP void DynTlogicalAnd(__ubuf__ bool *dst, __ubuf__ T_0 *src0, __ubuf__ T_1 
 
 // dim4
 template <typename T_0, typename T_1, unsigned DS0, unsigned DS1, unsigned DS2, unsigned SS00, unsigned SS01, unsigned SS02, unsigned SS10, unsigned SS11, unsigned SS12>
-TILEOP void DynTlogicalAnd(__ubuf__ bool *dst, __ubuf__ T_0 *src0, __ubuf__ T_1 *src1, __ubuf__ float *castCondition0, __ubuf__ float *castCondition1, __ubuf__ half *tmpCondition,
-                __ubuf__ float *oneCondition, __ubuf__ float *zeroCondition, __ubuf__ uint8_t *vcmpBitResult, __ubuf__ uint64_t *startAddrUB, 
+TILEOP void DynTlogicalAnd(__ubuf__ bool *dst, __ubuf__ T_0 *src0, __ubuf__ T_1 *src1, __ubuf__ uint8_t *tmp, 
                     unsigned T0, unsigned T1, unsigned T2, unsigned T3) {
     static_assert((DS2 * sizeof(bool)) % BLOCK_SIZE == 0);
     static_assert((SS02 * sizeof(T_0)) % BLOCK_SIZE == 0);
@@ -2160,7 +2206,7 @@ TILEOP void DynTlogicalAnd(__ubuf__ bool *dst, __ubuf__ T_0 *src0, __ubuf__ T_1 
         __ubuf__ T_0 *src0_ = src0;
         __ubuf__ T_1 *src1_ = src1;
         for (int j = 0; j < T1; j++) {
-            DynTlogicalAnd<T_0, T_1, DS2, SS02, SS12>(dst_, src0_, src1_, castCondition0, castCondition1, tmpCondition, oneCondition, zeroCondition, vcmpBitResult, startAddrUB, T2, T3);
+            DynTlogicalAnd<T_0, T_1, DS2, SS02, SS12>(dst_, src0_, src1_, tmp, T2, T3);
             dst_ += DS1 * DS2;
             src0_ += SS01 * SS02;
             src1_ += SS11 * SS12;

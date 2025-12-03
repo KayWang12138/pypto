@@ -177,8 +177,7 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_ROWMINLINE, OpCoreType::AIV, "ROWMINLINE",
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Trowminline", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::REDUCE);
     registerInfo(Opcode::OP_LOGICALAND, OpCoreType::AIV, "LOGICALAND", 
-        {MemoryType::MEM_UB, MemoryType::MEM_UB}, 
-        {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB}, 
+        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB}, 
         {"TileOp::TlogicalAnd", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE);
     // Range
     registerInfo(Opcode::OP_RANGE, OpCoreType::AIV, "RANGE", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Range", PIPE_S, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "START", OP_ATTR_PREFIX + "STEP"});

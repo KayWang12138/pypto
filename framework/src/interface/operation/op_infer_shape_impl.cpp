@@ -175,13 +175,7 @@ void LogicalAndInferFunc(Operation* op,
     ElewiseInferFunc(op, outValidShapes);
     outValidShapes.erase(outValidShapes.begin() + 1, outValidShapes.end());
     const int64_t COUNT_SIZE = 64;
-    outValidShapes.push_back({COUNT_SIZE});
-    outValidShapes.push_back({COUNT_SIZE});
-    outValidShapes.push_back({COUNT_SIZE});
-    outValidShapes.push_back({COUNT_SIZE});
-    outValidShapes.push_back({COUNT_SIZE});
-    outValidShapes.push_back({COUNT_SIZE / 8});
-    outValidShapes.push_back({1});
+    outValidShapes.push_back({COUNT_SIZE * 5 + COUNT_SIZE / 8 + 1});
 }
 REGISTER_INFER_SHAPE_FUNC(OP_LOGICALAND, Opcode::OP_LOGICALAND, LogicalAndInferFunc);
 

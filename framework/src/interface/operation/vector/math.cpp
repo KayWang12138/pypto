@@ -392,21 +392,20 @@ void TiledLogicalAndOperation(Function& function, const TileShape& tileShape, si
         auto tile1 = input1.tensor.GetStorage()->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
 
-        std::vector<int64_t> castConditionShape({64});
-        auto castConditionTensor0 = std::make_shared<LogicalTensor>(function, DT_FP32, castConditionShape);
-        auto castConditionTensor1 = std::make_shared<LogicalTensor>(function, DT_FP32, castConditionShape);
-        auto tempConditionTensor = std::make_shared<LogicalTensor>(function, DT_FP16, castConditionShape);
-        auto oneConditionTensor = std::make_shared<LogicalTensor>(function, DT_FP32, castConditionShape);
-        auto zeroConditionTensor = std::make_shared<LogicalTensor>(function, DT_FP32, castConditionShape);
+        constexpr size_t ALIGN_SIZE = 32;
+        const int64_t element_per_chunk = 64;
+        int64_t vcmp_bits_size = (element_per_chunk + 7) / 8;
+        size_t float_array_size = element_per_chunk * SHAPE_DIM4;
+        size_t half_array_size = element_per_chunk * SHAPE_DIM2;
+        size_t vcmpBitResult_size = ((vcmp_bits_size + ALIGN_SIZE - 1) / ALIGN_SIZE) * ALIGN_SIZE;
+        size_t aligned_float_array_size = ((float_array_size + ALIGN_SIZE - 1) / ALIGN_SIZE) * ALIGN_SIZE;
+        size_t aligned_half_array_size = ((half_array_size + ALIGN_SIZE - 1) / ALIGN_SIZE) * ALIGN_SIZE;
+        size_t total_bytes = vcmpBitResult_size + 4 * aligned_float_array_size + aligned_half_array_size + ALIGN_SIZE;
+        std::vector<int64_t> tmp_shape({static_cast<int64_t>(total_bytes)});
+        auto tmp_tensor = std::make_shared<LogicalTensor>(function, DT_UINT8, tmp_shape);
 
-        std::vector<int64_t> vcmpBitResultShape({64 / 8});
-        auto vcmpBitResultTensor = std::make_shared<LogicalTensor>(function, DT_UINT8, vcmpBitResultShape);
-        std::vector<int64_t> startAddrUBShape({1});
-        auto startAddrUBTensor = std::make_shared<LogicalTensor>(function, DT_UINT64, startAddrUBShape);
-
-        function.AddOperation(Opcode::OP_LOGICALAND, {tile0, tile1},
-                            {resultTile, castConditionTensor0, castConditionTensor1, tempConditionTensor,
-                            oneConditionTensor, zeroConditionTensor, vcmpBitResultTensor, startAddrUBTensor});
+        function.AddOperation(Opcode::OP_LOGICALAND, {tile0, tile1}, 
+                            {resultTile, tmp_tensor});    
         return;
     }
 
