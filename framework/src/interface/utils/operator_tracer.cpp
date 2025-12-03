@@ -22,7 +22,7 @@ namespace npu::tile_fwk {
 void OperatorChecker::PreCheck() {
     auto func = Program::GetInstance().GetCurrentFunction();
     preOpCount = func->Operations().size();
-    preMagic = func->magicSeed_;
+    preMagic = IdGen<IdType::LOGICAL_TENSOR>::Inst().CurId();
     preOp = func->opSeed_;
     preRawMagic = IdGen<IdType::RAW_TENSOR>::Inst().CurId();
 }
@@ -31,7 +31,7 @@ void OperatorChecker::PostCheck() {
     auto func = Program::GetInstance().GetCurrentFunction();
     auto operations = func->Operations();
     int postOpCount = func->Operations().size();
-    int postMagic = func->magicSeed_;
+    int postMagic = IdGen<IdType::LOGICAL_TENSOR>::Inst().CurId();
     int postOp = func->opSeed_;
     int postRawMagic = IdGen<IdType::RAW_TENSOR>::Inst().CurId();
 

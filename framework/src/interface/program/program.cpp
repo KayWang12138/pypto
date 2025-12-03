@@ -87,6 +87,7 @@ void Program::Reset() {
     functionMagicNameStack_.clear();
     currentFunctionMagicName_ = PROGRAM_ENTRY_FUNCTION_NAME;
     config::Reset();
+    IdGen<IdType::LOGICAL_TENSOR>::Inst().Reset();
     aliveTensors_.clear();
     functionCache_.Reset();
     functionSequence_.clear();
@@ -347,10 +348,8 @@ void Program::UpdateAliveTensorsParent(int outcastRawMagic, Function &parent) {
             continue;
         }
         if (tensor->GetStorage()->tensor->rawmagic == outcastRawMagic) {
-            ASSERT(tensor->GetStorage(false)->BelongFunction().magicSeed_ > tensor->GetStorage(false)->magic);
             tensor->GetStorage(false)->UpdateBelongFunction(parent);
-            tensor->GetStorage()->magic = parent.magicSeed_++;
-            ASSERT(tensor->GetStorage(false)->BelongFunction().magicSeed_ == tensor->GetStorage(false)->magic + 1);
+            tensor->GetStorage()->magic = IdGen<IdType::LOGICAL_TENSOR>::Inst().NewId();
         }
     }
 }

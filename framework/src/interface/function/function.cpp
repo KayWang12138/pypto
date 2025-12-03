@@ -251,7 +251,6 @@ Function::Function(const Program &belongTo, const std::string &funcMagicName,
     parent_ = parentFunc;
     functionMagic_ = IdGen<IdType::FUNCTION>::Inst().NewId();
 
-    magicSeed_ = 0;
     opSeed_ = FUNCTION_MAX_INCASTS;
 }
 
@@ -1927,7 +1926,7 @@ Json Function::DumpJson(bool useTable) {
     funcDump["graphtype"] = graphType_;
     funcDump["func_magicname"] = funcMagicName_;
     funcDump["_opseed"] = opSeed_;
-    funcDump["_magicseed"] = magicSeed_;
+    funcDump["_magicseed"] = IdGen<IdType::RAW_TENSOR>::Inst().CurId();
     funcDump["_rawid"] = IdGen<IdType::RAW_TENSOR>::Inst().CurId();
     funcDump["_funcid"] = IdGen<IdType::FUNCTION>::Inst().CurId();
     funcDump["_l1_reuse_num"] = paramConfigs_.l1ReuseNum;
@@ -2247,7 +2246,6 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     std::unordered_map<int, std::shared_ptr<LogicalTensor>> tensorDict;
     LoadTensorJson(func, funcDump, rawTensorDict, tensorDict);
     func->opSeed_ = funcDump["_opseed"].get<int>();
-    func->magicSeed_ = funcDump["_magicseed"].get<int>();
     int rawid = funcDump["_rawid"].get<int>();
     IdGen<IdType::RAW_TENSOR>::Inst().SetId(rawid);
     int funcid = funcDump["_funcid"].get<int>();

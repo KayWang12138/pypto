@@ -19,6 +19,7 @@ namespace npu::tile_fwk {
 enum class IdType {
     RAW_TENSOR,
     FUNCTION,
+    LOGICAL_TENSOR,
     TENSOR_INDEX,
     CG_USING_NAME, // gen using name for codegen
     CG_VAR_NAME, // gen variable for codegen

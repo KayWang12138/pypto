@@ -460,7 +460,6 @@ public:
     std::vector<std::shared_ptr<LogicalTensor>> inCasts_; // Input tensors
     std::vector<std::shared_ptr<LogicalTensor>> outCasts_; // Output tensors
 
-    int magicSeed_{0};
     int opSeed_{FUNCTION_MAX_INCASTS};
     SubfuncTopologyInfoTy topoInfo_; // root function持有，对应1.0的SubgraphTopologyInfoTy
     std::map<uint64_t, Function*> programs_; // root function持有，所有异构的leaf function

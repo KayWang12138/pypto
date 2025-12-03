@@ -35,7 +35,7 @@ LogicalTensor::LogicalTensor(
       offset(Offset(tshape.size(), 0)),
       shape(tshape),
       oriShape(tshape),
-      magic(function.magicSeed_++),
+      magic(IdGen<IdType::LOGICAL_TENSOR>::Inst().NewId()),
       nodetype(tnodetype),
       function_(&function) {}
 
@@ -49,7 +49,7 @@ LogicalTensor::LogicalTensor(Function &function, DataType t, Shape tshape, std::
       oriShape(tshape),
       dynValidShape_(tValidShape),
       storageShape(tshape),
-      magic(function.magicSeed_++),
+      magic(IdGen<IdType::LOGICAL_TENSOR>::Inst().NewId()),
       nodetype(tnodetype),
       function_(&function)
 {
@@ -67,7 +67,7 @@ LogicalTensor::LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawT
       offset(toffset),
       shape(tshape),
       oriShape(tshape),
-      magic(function.magicSeed_++),
+      magic(IdGen<IdType::LOGICAL_TENSOR>::Inst().NewId()),
       nodetype(tnodetype),
       function_(&function) {
     // Initialize other members if necessary
@@ -84,7 +84,7 @@ LogicalTensor::LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawT
       shape(tshape),
       oriShape(tshape),
       dynValidShape_(tValidShape),
-      magic(function.magicSeed_++),
+      magic(IdGen<IdType::LOGICAL_TENSOR>::Inst().NewId()),
       nodetype(tnodetype),
       function_(&function) {
     // Initialize other members if necessary
@@ -123,11 +123,8 @@ std::shared_ptr<LogicalTensor> LogicalTensor::Clone(Function &dstFunc, bool crea
     newTensor->isSubGraphBoundary = isSubGraphBoundary;
     if (!create) {
         newTensor->magic = magic;
-        if (magic >= dstFunc.magicSeed_) {
-            dstFunc.magicSeed_ = (magic + 1);
-        }
     } else {
-        newTensor->magic = dstFunc.magicSeed_++;
+        newTensor->magic = IdGen<IdType::LOGICAL_TENSOR>::Inst().NewId();
     }
 
     newTensor->memoryrange = memoryrange;
