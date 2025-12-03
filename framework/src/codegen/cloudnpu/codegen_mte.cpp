@@ -161,9 +161,10 @@ std::string CodeGenOpCloudNPU::GenL0CToUBTileTensor() const {
         copyInMode = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "is_nz"));
     }
     std::ostringstream oss;
-    int aivId = GetSubBlockId();
+    int64_t aivId = 0;
+    GetAttr(OpAttributeKey::subBlockIdx, aivId);
     oss << tileOpName << "<" << std::to_string(copyInMode) << ">" << "(" << dstTensor << ", " << src0Tensor << ", "
-        << coord << ", " << std::to_string(aivId) << ");\n";
+        << coord << ", " << aivId << ");\n";
     return oss.str();
 }
 

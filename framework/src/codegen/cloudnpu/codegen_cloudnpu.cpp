@@ -144,8 +144,6 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
     std::string allocSourceRegion;
     std::string tileOpSourceRegion;
     auto locToOffsetMap = GenRealizeIdMap(subFunc.GetParameter());
-    auto attr = subFunc.GetLeafFuncAttribute();
-    int subBlockId = attr == nullptr ? 0 : static_cast<int>(attr->aivCore);
     bool hasNan{false}, hasPosInf{false}, hasNegInf{false};
     for (const auto &op : operationList) {
         ALOG_INFO_F(
@@ -161,7 +159,6 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
         CodeGenOpCloudNPU cop({symbolMgr, topFunc, subFunc, op, locToOffsetMap});
         // update hasNan, hasPosInf, hasNegInf
         UpdateSpecialValue(cop, hasNan, hasPosInf, hasNegInf);
-        cop.SetSubBlockId(subBlockId);
         std::string tileOpSourceCode = cop.GenOpCode();
         ASSERT(tileOpSourceCode.find("CG_ERROR") == tileOpSourceCode.npos) << "gen op invalid" << op.Dump();
 

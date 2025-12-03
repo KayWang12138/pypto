@@ -488,11 +488,4 @@ std::string CodeGenOp::GenSyncWaitOp() const {
     return buffer;
 }
 
-void CodeGenOp::SetSubBlockId(int aivCoreId) {
-    this->subBlockId = aivCoreId;
-}
-
-int CodeGenOp::GetSubBlockId() const {
-    return this->subBlockId;
-}
 } // namespace npu::tile_fwk
