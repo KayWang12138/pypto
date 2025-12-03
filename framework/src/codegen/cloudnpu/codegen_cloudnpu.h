@@ -16,6 +16,7 @@
 #ifndef CODEGEN_CLOUDNPU_H
 #define CODEGEN_CLOUDNPU_H
 
+#include <string>
 #include <unordered_set>
 #include <utility>
 
@@ -29,9 +30,13 @@
 namespace npu::tile_fwk {
 class CompileInfo {
 public:
-    CompileInfo(Function &topFunc, std::string cceDir, uint64_t subProgramId, bool isCube, bool isUnderDyn)
-        : userSpecCCEDir_(std::move(cceDir)), isCube_(isCube), isUnderDyn_(isUnderDyn) {
-        Init(topFunc, subProgramId);
+    CompileInfo(Function &topFunc, std::string cceDir, const std::pair<uint64_t, Function *> &subFuncPair, bool isCube,
+        bool isUnderDyn)
+        : userSpecCCEDir_(std::move(cceDir)),
+          isCube_(isCube),
+          isUnderDyn_(isUnderDyn),
+          attr_(subFuncPair.second->GetLeafFuncAttribute()) {
+        Init(topFunc, subFuncPair.first);
     };
     std::string GetVFHeaderAbsPath() const { return vfHeaderAbsPath_; }
     std::string GetCCEAbsPath() const { return cceAbsPath_; }
@@ -54,7 +59,22 @@ private:
     void Init(Function &topFunc, uint64_t subProgramId) {
         std::string coreType = isCube_ ? "aic" : "aiv";
         std::ostringstream ss;
-        ss << topFunc.GetMagicName() << "_" << topFunc.GetFunctionHash() << "_" << subProgramId << "_" << coreType;
+        std::ostringstream tailStr;
+
+        if ((attr_ != nullptr) && (attr_->mixId != -1)) {
+            tailStr << "mix" << attr_->mixId << "_" << coreType;
+            if (!isCube_) {
+                int aivId = static_cast<int>(attr_->aivCore);
+                if (aivId == -1) {
+                    tailStr << "x";
+                } else {
+                    tailStr << aivId;
+                }
+            }
+        } else {
+            tailStr << coreType;
+        }
+        ss << topFunc.GetMagicName() << "_" << topFunc.GetFunctionHash() << "_" << subProgramId << "_" << tailStr.str();
         cceFileName_ = ss.str();
         ss.str("");
         ss << userSpecCCEDir_ << "/" << cceFileName_ << GetSuffix();
@@ -80,6 +100,7 @@ private:
     std::string kernelName_;
     std::string funcDeclare_;
     std::string vfHeaderAbsPath_;
+    std::shared_ptr<LeafFuncAttribute> attr_{nullptr};
 };
 
 class CodeGenCloudNPU : public CodeGenCCE {

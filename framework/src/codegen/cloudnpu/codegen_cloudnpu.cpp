@@ -279,7 +279,7 @@ void CodeGenCloudNPU::GenCode(
             }
             isUnderDynamicFunction_ = subFunc->IsUnderDynamicFunction();
             bool isCube = subFunc->IsCube();
-            CompileInfo compileInfo(topFunc, ctx.cceDir, subFuncPair.first, isCube, isUnderDynamicFunction_);
+            CompileInfo compileInfo(topFunc, ctx.cceDir, subFuncPair, isCube, isUnderDynamicFunction_);
             VFCodeGen vfCodeGen;
             vfCodeGen.GenCode(subFunc, compileInfo.GetVFHeaderAbsPath());
             std::ostringstream leafKernelFunc;
