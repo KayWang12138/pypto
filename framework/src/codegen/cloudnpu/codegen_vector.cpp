@@ -1250,24 +1250,13 @@ std::string CodeGenOpCloudNPU::GenPoolOp() const {
 void CodeGenOpCloudNPU::GetVarAndTypeParam(
     std::vector<std::string> &varExpr, std::vector<std::string> &dataTypeExpr) const {
     std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::resIdx)]);
-    std::string castVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::castIdx)]);
-    std::string cmpVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::cmpIdx)]);
-    std::string vcmpVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::vcmpResIdx)]);
-    std::string startVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::startUBIdx)]);
-    std::string inputVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::inputTempIdx)]);
-    std::string outputVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::outputTmpIdx)]);
+    std::string tempVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::tempIdx)]);
     std::string condVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::condIdx)]);
-    varExpr = {dstVar, castVar, cmpVar, vcmpVar, startVar, inputVar, outputVar, condVar};
+    varExpr = {dstVar, tempVar, condVar};
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::resIdx)]);
-    std::string castDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::castIdx)]);
-    std::string cmpDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::cmpIdx)]);
-    std::string vcmpDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::vcmpResIdx)]);
-    std::string startUBDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::startUBIdx)]);
-    std::string inputTmpDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::inputTempIdx)]);
-    std::string outputTmpDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::outputTmpIdx)]);
+    std::string tempDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::tempIdx)]);
     std::string condDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::condIdx)]);
-    dataTypeExpr = {dstDtypeStr, castDtypeStr, cmpDtypeStr, vcmpDtypeStr, startUBDtypeStr, inputTmpDtypeStr,
-        outputTmpDtypeStr, condDtypeStr};
+    dataTypeExpr = {dstDtypeStr, tempDtypeStr, condDtypeStr};
 }
 
 WhereParam CodeGenOpCloudNPU::PrepareWhereParam() const {
@@ -1296,18 +1285,8 @@ WhereParam CodeGenOpCloudNPU::PrepareWhereParam() const {
     std::vector<std::string> paramList;
     paramList.emplace_back("(__ubuf__ " + dataTypeExpr[static_cast<int>(WhereOpIdx::resIdx)] + "*)" +
                            varExpr[static_cast<int>(WhereOpIdx::resIdx)]);
-    paramList.emplace_back("(__ubuf__ " + dataTypeExpr[static_cast<int>(WhereOpIdx::castIdx)] + "*)" +
-                           varExpr[static_cast<int>(WhereOpIdx::castIdx)]);
-    paramList.emplace_back("(__ubuf__ " + dataTypeExpr[static_cast<int>(WhereOpIdx::cmpIdx)] + "*)" +
-                           varExpr[static_cast<int>(WhereOpIdx::cmpIdx)]);
-    paramList.emplace_back("(__ubuf__ " + dataTypeExpr[static_cast<int>(WhereOpIdx::vcmpResIdx)] + "*)" +
-                           varExpr[static_cast<int>(WhereOpIdx::vcmpResIdx)]);
-    paramList.emplace_back("(__ubuf__ " + dataTypeExpr[static_cast<int>(WhereOpIdx::startUBIdx)] + "*)" +
-                           varExpr[static_cast<int>(WhereOpIdx::startUBIdx)]);
-    paramList.emplace_back("(__ubuf__ " + dataTypeExpr[static_cast<int>(WhereOpIdx::inputTempIdx)] + "*)" +
-                           varExpr[static_cast<int>(WhereOpIdx::inputTempIdx)]);
-    paramList.emplace_back("(__ubuf__ " + dataTypeExpr[static_cast<int>(WhereOpIdx::outputTmpIdx)] + "*)" +
-                           varExpr[static_cast<int>(WhereOpIdx::outputTmpIdx)]);
+    paramList.emplace_back("(__ubuf__ " + dataTypeExpr[static_cast<int>(WhereOpIdx::tempIdx)] + "*)" +
+                           varExpr[static_cast<int>(WhereOpIdx::tempIdx)]);
     paramList.emplace_back("(__ubuf__ " + dataTypeExpr[static_cast<int>(WhereOpIdx::condIdx)] + "*)" +
                            varExpr[static_cast<int>(WhereOpIdx::condIdx)]);
     std::vector<std::string> dynParamList;
@@ -1335,9 +1314,7 @@ std::string CodeGenOpCloudNPU::printWhereOp(const WhereParam &param) const {
     auto varPtr = [&](WhereOpIdx idx) -> const std::string * { return &varExpr[ToUnderlying(idx)]; };
     std::map<unsigned, std::string *> varMap;
 
-    const unsigned idxs[] = {ToUnderlying(WhereOpIdx::resIdx), ToUnderlying(WhereOpIdx::castIdx),
-        ToUnderlying(WhereOpIdx::cmpIdx), ToUnderlying(WhereOpIdx::vcmpResIdx), ToUnderlying(WhereOpIdx::startUBIdx),
-        ToUnderlying(WhereOpIdx::inputTempIdx), ToUnderlying(WhereOpIdx::outputTmpIdx),
+    const unsigned idxs[] = {ToUnderlying(WhereOpIdx::resIdx), ToUnderlying(WhereOpIdx::tempIdx),
         ToUnderlying(WhereOpIdx::condIdx)};
     for (unsigned idx : idxs) {
         WhereOpIdx opIdx = static_cast<WhereOpIdx>(idx);
@@ -1402,21 +1379,13 @@ std::string CodeGenOpCloudNPU::printWhereOp(const WhereParam &param) const {
 
 std::string CodeGenOpCloudNPU::printWhereOpTileTensor() const {
     std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[static_cast<int>(WhereOpIdx::resIdx)]);
-    std::string castTensor = sm->QueryTileTensorByMagic(operandWithMagic[static_cast<int>(WhereOpIdx::castIdx)]);
-    std::string cmpTensor = sm->QueryTileTensorByMagic(operandWithMagic[static_cast<int>(WhereOpIdx::cmpIdx)]);
-    std::string vcmpTensor = sm->QueryTileTensorByMagic(operandWithMagic[static_cast<int>(WhereOpIdx::vcmpResIdx)]);
-    std::string startUBTensor = sm->QueryTileTensorByMagic(operandWithMagic[static_cast<int>(WhereOpIdx::startUBIdx)]);
-    std::string inputTempTensor =
-        sm->QueryTileTensorByMagic(operandWithMagic[static_cast<int>(WhereOpIdx::inputTempIdx)]);
-    std::string outputTempTensor =
-        sm->QueryTileTensorByMagic(operandWithMagic[static_cast<int>(WhereOpIdx::outputTmpIdx)]);
+    std::string tempTensor = sm->QueryTileTensorByMagic(operandWithMagic[static_cast<int>(WhereOpIdx::tempIdx)]);
     std::string condTensor = sm->QueryTileTensorByMagic(operandWithMagic[static_cast<int>(WhereOpIdx::condIdx)]);
     std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[static_cast<int>(WhereOpIdx::src0Idx)]);
     std::string src1Tensor = sm->QueryTileTensorByMagic(operandWithMagic[static_cast<int>(WhereOpIdx::src1Idx)]);
 
     std::ostringstream oss;
-    oss << tileOpName << "(" << dstTensor << ", " << castTensor << ", " << cmpTensor << ", " << vcmpTensor << ", "
-        << startUBTensor << ", " << inputTempTensor << ", " << outputTempTensor << ", " << condTensor << ", "
+    oss << tileOpName << "(" << dstTensor << ", " << tempTensor << ", " << condTensor << ", "
         << src0Tensor << ", " << src1Tensor << ");\n";
     return oss.str();
 }

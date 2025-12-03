@@ -57,16 +57,10 @@ struct PrintIndexAddParam {
 
 enum class WhereOpIdx : int {
     resIdx = 0,
-    castIdx,
-    cmpIdx,
-    vcmpResIdx,
-    startUBIdx,
-    inputTempIdx,
-    outputTmpIdx,
+    tempIdx,
     condIdx,
     src0Idx,
-    src1Idx,
-    count
+    src1Idx
 };
 struct WhereParam {
     std::vector<std::string> templateList;

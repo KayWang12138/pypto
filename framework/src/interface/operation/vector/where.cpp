@@ -30,21 +30,23 @@ void TiledWhereOperation(Function &function, const TileShape &tileShape, size_t 
         } else if constexpr (std::is_same_v<U, const Element>) {
             inputDatatype = input.GetDataType();
         }
-        unsigned COUNT_MAX_BYTE = 4096;
+        const size_t ALIGN_SIZE = 32;
+        int64_t castConditionTensorSize = 1024;
+        int64_t compareConditionTensorSize = 1024;
+        int64_t vcmpBitResultTensorSize = 128;
+        int64_t startAddrUBTensorSize = 1;
+        int64_t inputTempTensorSize = 1024;
+        int64_t otherTempTensorSize = 1024;
+        int64_t tempByteSize = (castConditionTensorSize + compareConditionTensorSize) * BytesOf(DT_FP16) +
+                                vcmpBitResultTensorSize * BytesOf(DT_UINT8) +
+                                ((startAddrUBTensorSize * BytesOf(DT_UINT64) + ALIGN_SIZE - 1) / ALIGN_SIZE) * ALIGN_SIZE +
+                                (inputTempTensorSize + otherTempTensorSize) * BytesOf(inputDatatype);
+
         auto conditionTile = condition.tensor.GetStorage()->View(function, condition.tileInfo.shape, condition.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
-        std::vector<int64_t> castConditionShape({static_cast<int64_t>(COUNT_MAX_BYTE / BytesOf(DT_FP32))});
-        auto castConditionTensor = std::make_shared<LogicalTensor>(function, DT_FP16, castConditionShape);
-        std::vector<int64_t> compareConditionShape({static_cast<int64_t>(COUNT_MAX_BYTE / BytesOf(DT_FP32))});
-        auto compareConditionTensor = std::make_shared<LogicalTensor>(function, DT_FP16, compareConditionShape);
-        std::vector<int64_t> vcmpBitResultShape({static_cast<int64_t>(COUNT_MAX_BYTE / BytesOf(DT_FP32) / 8)});
-        auto vcmpBitResultTensor = std::make_shared<LogicalTensor>(function, DT_INT8, vcmpBitResultShape);
-        std::vector<int64_t> startAddrUBShape({1});
-        auto startAddrUBTensor = std::make_shared<LogicalTensor>(function, DT_UINT64, startAddrUBShape);
-        std::vector<int64_t> inputTempShape({static_cast<int64_t>(COUNT_MAX_BYTE / BytesOf(DT_FP32))});
-        auto inputTempTensor = std::make_shared<LogicalTensor>(function, inputDatatype, inputTempShape);
-        std::vector<int64_t> otherTempShape({static_cast<int64_t>(COUNT_MAX_BYTE / BytesOf(DT_FP32))});
-        auto otherTempTensor = std::make_shared<LogicalTensor>(function, inputDatatype, otherTempShape);
+        std::vector<int64_t> tempShape({static_cast<int64_t>(tempByteSize)});
+        auto tempTensor = std::make_shared<LogicalTensor>(function, DT_UINT8, tempShape);
+
         int64_t whereBitMode = 0;
         if (condition.tensor.GetDataType() == DT_UINT8) {
             whereBitMode = 1;
@@ -53,27 +55,23 @@ void TiledWhereOperation(Function &function, const TileShape &tileShape, size_t 
             auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
             auto otherTile = other.tensor.GetStorage()->View(function, other.tileInfo.shape, other.tileInfo.offset);
             auto &op = function.AddOperation(Opcode::OP_WHERE_TT, {conditionTile, inputTile, otherTile},
-                                {resultTile, castConditionTensor, compareConditionTensor,
-                                vcmpBitResultTensor, startAddrUBTensor, inputTempTensor, otherTempTensor});
+                                {resultTile, tempTensor});
             op.SetAttribute(OP_ATTR_PREFIX + "whereBitMode", static_cast<int64_t>(whereBitMode));
         } else if constexpr (std::is_same_v<U, Input> && std::is_same_v<W, const Element>) {
             auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
             auto &op = function.AddOperation(Opcode::OP_WHERE_TS, {conditionTile, inputTile},
-                                {resultTile, castConditionTensor, compareConditionTensor,
-                                vcmpBitResultTensor, startAddrUBTensor, inputTempTensor, otherTempTensor});
+                                {resultTile, tempTensor});
             op.SetAttribute(OpAttributeKey::scalar, other);
             op.SetAttribute(OP_ATTR_PREFIX + "whereBitMode", static_cast<int64_t>(whereBitMode));
         } else if constexpr (std::is_same_v<U, const Element> && std::is_same_v<W, Input>) {
             auto otherTile = other.tensor.GetStorage()->View(function, other.tileInfo.shape, other.tileInfo.offset);
             auto &op = function.AddOperation(Opcode::OP_WHERE_ST, {conditionTile, otherTile},
-                                {resultTile, castConditionTensor, compareConditionTensor,
-                                vcmpBitResultTensor, startAddrUBTensor, inputTempTensor, otherTempTensor});
+                                {resultTile, tempTensor});
             op.SetAttribute(OpAttributeKey::scalar, input);
             op.SetAttribute(OP_ATTR_PREFIX + "whereBitMode", static_cast<int64_t>(whereBitMode));
         } else if constexpr (std::is_same_v<U, const Element> && std::is_same_v<W, const Element>) {
             auto &op = function.AddOperation(Opcode::OP_WHERE_SS, {conditionTile},
-                                {resultTile, castConditionTensor, compareConditionTensor,
-                                vcmpBitResultTensor, startAddrUBTensor, inputTempTensor, otherTempTensor});
+                                {resultTile, tempTensor});
             std::vector<Element> scalars = {input, other};
             op.SetAttribute(OpAttributeKey::vectorScalar, scalars);
             op.SetAttribute(OP_ATTR_PREFIX + "whereBitMode", static_cast<int64_t>(whereBitMode));

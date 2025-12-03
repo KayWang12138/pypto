@@ -315,14 +315,6 @@ REGISTER_INFER_SHAPE_FUNC(OP_ROWSUM_COMBINE_AXIS_SINGLE, Opcode::OP_ROWSUM_COMBI
 void WhereInferFunc(Operation* op,
                         std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
     ElewiseInferFunc(op, outValidShapes);
-    outValidShapes.erase(outValidShapes.begin() + 1, outValidShapes.end());
-    const int64_t COUNT_SIZE = 2048;
-    outValidShapes.push_back({COUNT_SIZE});
-    outValidShapes.push_back({COUNT_SIZE});
-    outValidShapes.push_back({COUNT_SIZE / 8});
-    outValidShapes.push_back({1});
-    outValidShapes.push_back({COUNT_SIZE});
-    outValidShapes.push_back({COUNT_SIZE});
 }
 REGISTER_INFER_SHAPE_FUNC(OP_WHERE_TT, Opcode::OP_WHERE_TT, WhereInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_WHERE_TS, Opcode::OP_WHERE_TS, WhereInferFunc);
