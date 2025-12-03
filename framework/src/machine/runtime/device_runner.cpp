@@ -421,7 +421,9 @@ int DeviceRunner::launchDynamicAiCore(rtStream_t aicoreStream, AstKernelArgs *ke
     rtArgs.args = kArgs.data();
     rtArgs.argsSize = kArgs.size() * sizeof(int64_t);
     uint64_t tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
-    return rtKernelLaunchWithHandleV2(binHdl_, tilingKey, blockDim_, &rtArgs, nullptr, aicoreStream, nullptr);
+    rtTaskCfgInfo_t cfg = {};
+    cfg.schemMode = RT_SCHEM_MODE_BATCH;
+    return rtKernelLaunchWithHandleV2(binHdl_, tilingKey, blockDim_, &rtArgs, nullptr, aicoreStream, &cfg);
 }
 
 int DeviceRunner::launchDynamicAiCpu(rtStream_t aicpuStream, AstKernelArgs *kArgs) {
