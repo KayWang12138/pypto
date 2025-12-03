@@ -52,7 +52,6 @@ __attribute__((visibility("default"))) uint32_t StaticPyptoKernelServer(void *ar
 }
 
 __attribute__((visibility("default"))) uint32_t DynPyptoKernelServerNull(void *args) {
-  (void)args;
 #if DEBUG_PLOG && defined(__DEVICE__)
     InitLogSwitch();
 #endif
@@ -67,7 +66,7 @@ __attribute__((visibility("default"))) uint32_t DynPyptoKernelServerNull(void *a
     }
     auto devArgs = reinterpret_cast<DeviceArgs*>(kargs->cfgdata);
     auto data = reinterpret_cast<char *>(devArgs->aicpuSoBin);
-    if (!g_handleManager.SaveSoFile(data, devArgs->aicpuSoLen)) {
+    if (!g_handleManager.SaveSoFile(data, devArgs->aicpuSoLen, devArgs->deviceId)) {
         DEV_ERROR("create so failed");
         return 1;
     }

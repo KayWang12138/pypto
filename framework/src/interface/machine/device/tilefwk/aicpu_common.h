@@ -74,6 +74,7 @@ struct DeviceArgs {
     uint64_t taskWastTime{0};
     uint64_t aicpuSoBin{0};    // server so Bin
     uint64_t aicpuSoLen{0};    // server so len
+    uint64_t deviceId{0};      // for device copy fileName
     uint64_t startArgsAddr{0}; // DevStartArgs addr
     uint64_t taskQueue{0};     // task queue between ctrl and sche
     uint64_t taskCtrl{0};      // task ctrl between ctrl and sche

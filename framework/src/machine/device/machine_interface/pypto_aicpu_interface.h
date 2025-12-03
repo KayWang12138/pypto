@@ -31,21 +31,22 @@ namespace npu::tile_fwk {
   const uint64_t staticFuncKey = 1;
   const uint64_t dyInitFuncKey = 2;
   const uint64_t dyExecFuncKey = 3;
-  const std::string devicePath = "/usr/lib64/aicpu_kernels/0/aicpu_kernels_device/libpypto_server.so";
   const uint64_t minSoLen = 1;
 
 class BackendServerHandleManager {
 public:
-    bool SaveSoFile(char *data, const uint64_t &len) {
+    bool SaveSoFile(char *data, const uint64_t &len, uint8_t deviceId = 0) {
         std::lock_guard<std::mutex> lock(funcLock_);
-        if (len < minSoLen || firt_creat_so_) {
+        if (len < minSoLen || firstCreatSo_) {
             DEV_WARN("Aicpu so len less than 1, don't to copy");
             return true;
         }
-        std::ofstream file(devicePath, std::ios::out | std::ios::binary);
+        pyptoServerSoName_ = "/usr/lib64/aicpu_kernels/0/aicpu_kernels_device/libpypto_server" +
+                                           std::to_string(deviceId) + ".so";
+        std::ofstream file(pyptoServerSoName_, std::ios::out | std::ios::binary);
         DEV_DEBUG("Begin to create server.so");
         if (!file) {
-            DEV_ERROR("Coundn't create file [%s]", devicePath.c_str());
+            DEV_ERROR("Coundn't create file [%s]", pyptoServerSoName_.c_str());
             return false;
         }
 
@@ -53,12 +54,12 @@ public:
         file.write(data, len);
 
         if (!file) {
-            DEV_ERROR("Write to file [%s] not success", devicePath.c_str());
+            DEV_ERROR("Write to file [%s] not success", pyptoServerSoName_.c_str());
             return false;
         }
-        DEV_DEBUG("create so success");
+        DEV_DEBUG("Create device[%u] server so [%s] success", deviceId, pyptoServerSoName_.c_str());
         file.close();
-        firt_creat_so_ = true;
+        firstCreatSo_ = true;
         return true;
     }
 
@@ -66,19 +67,19 @@ public:
 
     void SetTileFwkKernelMap() {
         std::lock_guard<std::mutex> lock(funcLock_);
-        if (firt_load_so_) {
+        if (firstLoadSo_) {
             return;
         }
         (void)LoadTileFwkKernelFunc(staticServerKernelkFun);
         (void)LoadTileFwkKernelFunc(dynServerKernelInitFun);
         (void)LoadTileFwkKernelFunc(dynServerKernelFun);
-        firt_load_so_ = true;
+        firstLoadSo_ = true;
     }
 
     inline int32_t ExecuteFunc(void *args, const uint64_t funcKey) {
         auto func = GetTileFwkKernelFunc(funcKey);
         if (func == nullptr) {
-            DEV_ERROR("kernel func[%lu] is invalid, cannot get from so %s", funcKey, devicePath.c_str()); 
+            DEV_ERROR("kernel func[%lu] is invalid, cannot get from so %s", funcKey, pyptoServerSoName_.c_str()); 
             return -1;
         }
         return func(args);
@@ -93,10 +94,10 @@ public:
 private:
     void LoadTileFwkKernelFunc(const std::string &kernelName) {
         if (soHandle_ == nullptr) {
-            soHandle_ = dlopen(devicePath.c_str(), RTLD_LAZY | RTLD_DEEPBIND);
+            soHandle_ = dlopen(pyptoServerSoName_.c_str(), RTLD_LAZY | RTLD_DEEPBIND);
         }
         if (!soHandle_) {
-            DEV_ERROR("Cannot open so %s", devicePath.c_str());
+            DEV_ERROR("Cannot open so %s", pyptoServerSoName_.c_str());
             return;
         }
         uint64_t funcKey = staticFuncKey;
@@ -134,9 +135,10 @@ private:
 
     std::unordered_map<uint64_t, TileFwkKernelServelEnty> kernelKey2FuncHandle_;
     std::mutex funcLock_;
-    void *soHandle_;
-    bool firt_creat_so_ = false;
-    bool firt_load_so_ = false;
+    void *soHandle_ = nullptr;
+    bool firstCreatSo_ = false;
+    bool firstLoadSo_ = false;
+    std::string pyptoServerSoName_;
 };
 
 }// end name space

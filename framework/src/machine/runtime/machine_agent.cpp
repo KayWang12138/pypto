@@ -25,11 +25,12 @@
 
 #ifdef BUILD_WITH_CANN
 #include "securec.h"
+extern "C" __attribute__((weak)) int AdxDataDumpServerInit();
 #ifndef BUILD_WITH_CANN_SUB
 
 #endif
 #endif
-extern "C" __attribute__((weak)) int AdxDataDumpServerInit();
+
 
 namespace npu::tile_fwk {
 void MachineAgent::DumpData(const std::string &fileName,const char *data, size_t len) {
@@ -46,7 +47,6 @@ void MachineAgent::AgentProc(DeviceAgentTask *task) {
 #ifdef BUILD_WITH_CANN
     aclInit(nullptr);
     SetDefaultDevice();
-#endif
     // 使能了dump功能
     if (IsAstDataDumpEnabled()) {
         int sf = AdxDataDumpServerInit();
@@ -54,6 +54,8 @@ void MachineAgent::AgentProc(DeviceAgentTask *task) {
             printf("ERROR AdxDataDumpServerInit failed \n");
         }
     }
+#endif
+    
     if (task->compileInfo.coreFunctionCnt == 0) {
         return;
     }
