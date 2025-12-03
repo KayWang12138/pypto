@@ -147,9 +147,6 @@ bool PreGraphProcessChecker::VerifyAssembleResult (const Operation &op) {
             return false;
         }
     }
-    if (assembleIn->GetRawMagic() != assembleOut->GetRawMagic()) {
-        return false;
-    }
     return true;
 }
 
@@ -173,11 +170,6 @@ Status PreGraphProcessChecker::PostCheckAssemble(Function &function, const Opera
     for (Operation *consumer : assembleIn->GetConsumers()) {
         if (consumer->GetOpMagic() == op.GetOpMagic()) {
             continue;
-        }
-        if (consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Assemble[%d] Unsupported OP connection scenaios: assemble input tensor has other assemble consumer op[%d]. %s",
-                op.GetOpMagic(), consumer->GetOpMagic(), GetFormatBacktrace(op).c_str());
-            return FAILED;
         }
         if (consumer->GetOpcode() == Opcode::OP_RESHAPE && function.IsFromOutCast(consumer->GetOOperands().front())) {
             APASS_LOG_ERROR_F(Elements::Operation, "Assemble[%d] Unsupported OP connection scenaios: assemble input tensor has reshape->outcast consumer op[%d]. %s",

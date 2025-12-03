@@ -1368,5 +1368,203 @@ TEST_F(InplaceProcessTest, TestAssembleOnL1) {
     EXPECT_EQ(mat_a_partial_3->GetOffset(), attrAssemble_3->GetToOffset());
 }
 
+inline void InplaceAssembleAddOp(ComputationalGraphBuilder &G) {
+    G.AddOp(Opcode::OP_COPY_IN, {"mat_a"}, {"mat_a_partial_0"}, "L1copyInA_0");
+    auto L1copyInA_0 = G.GetOp("L1copyInA_0");
+    auto attrCopyInA_0 = std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified({0, 0}), MemoryType::MEM_L1,
+        OpImmediate::Specified(G.GetTensor("mat_a")->GetShape()), OpImmediate::Specified(G.GetTensor("mat_a")->tensor->GetRawShape()));
+    L1copyInA_0->SetOpAttribute(attrCopyInA_0);
+    G.AddOp(Opcode::OP_COPY_IN, {"mat_a"}, {"mat_a_partial_1"}, "L1copyInA_1");
+    auto L1copyInA_1 = G.GetOp("L1copyInA_1");
+    auto attrCopyInA_1 = std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified({0, 0}), MemoryType::MEM_L1,
+        OpImmediate::Specified(G.GetTensor("mat_a")->GetShape()), OpImmediate::Specified(G.GetTensor("mat_a")->tensor->GetRawShape()));
+    L1copyInA_1->SetOpAttribute(attrCopyInA_1);
+    G.AddOp(Opcode::OP_COPY_IN, {"mat_b"}, {"mat_b_partial_0"}, "L1copyInB_0");
+    auto L1copyInB_0 = G.GetOp("L1copyInB_0");
+    auto attrCopyInB_0 = std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified({0, 0}), MemoryType::MEM_L1,
+        OpImmediate::Specified(G.GetTensor("mat_b")->GetShape()), OpImmediate::Specified(G.GetTensor("mat_b")->tensor->GetRawShape()));
+    L1copyInB_0->SetOpAttribute(attrCopyInB_0);
+    G.AddOp(Opcode::OP_COPY_IN, {"mat_b"}, {"mat_b_partial_1"}, "L1copyInB_1");
+    auto L1copyInB_1 = G.GetOp("L1copyInB_1");
+    auto attrCopyInB_1 = std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified({0, 0}), MemoryType::MEM_L1,
+        OpImmediate::Specified(G.GetTensor("mat_b")->GetShape()), OpImmediate::Specified(G.GetTensor("mat_b")->tensor->GetRawShape()));
+    L1copyInB_1->SetOpAttribute(attrCopyInB_1);
+
+    G.AddOp(Opcode::OP_L1_TO_L0A, {"mat_a_partial_0"}, {"mat_a_L0_0"}, "L1_To_L0A_0");
+    G.AddOp(Opcode::OP_L1_TO_L0A, {"mat_a_partial_1"}, {"mat_a_L0_1"}, "L1_To_L0A_1");
+    G.AddOp(Opcode::OP_L1_TO_L0B, {"mat_b_partial_0"}, {"mat_b_L0_0"}, "L1_To_L0B_0");
+    G.AddOp(Opcode::OP_L1_TO_L0B, {"mat_b_partial_1"}, {"mat_b_L0_1"}, "L1_To_L0B_1");
+
+    G.AddOp(Opcode::OP_A_MUL_B, {"mat_a_L0_0", "mat_b_L0_0"}, {"mat_c_L0_0"}, "A_MUL_B");
+    G.AddOp(Opcode::OP_A_MULACC_B, {"mat_a_L0_1", "mat_b_L0_1", "mat_c_L0_0"}, {"mat_c_L0_1"}, "A_MULACC_B");
+
+    G.AddOp(Opcode::OP_ASSEMBLE, {"mat_c_L0_1"}, {"assemble_out_c"}, "assemble_c_1");
+    auto assemble_c_1 = G.GetOp("assemble_c_1");
+    auto attrAssemble_c_1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_L1, std::vector<int64_t>{0, 64});
+    assemble_c_1->SetOpAttribute(attrAssemble_c_1);
+    G.AddOp(Opcode::OP_COPY_OUT, {"assemble_out_c"}, {"out_c"}, "L0C_Copy_out");
+    auto L0C_Copy_out = G.GetOp("L0C_Copy_out");
+    auto attrCopyOut = std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified({0, 0}), MemoryType::MEM_L0C,
+        OpImmediate::Specified(G.GetTensor("out_c")->GetShape()), OpImmediate::Specified(G.GetTensor("out_c")->tensor->GetRawShape()));
+    L0C_Copy_out->SetOpAttribute(attrCopyOut);
+}
+
+TEST_F(InplaceProcessTest, InplaceProcessInplaceAssemble) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    G.AddTensor(DataType::DT_FP16, {64, 64}, MemoryType::MEM_DEVICE_DDR, "mat_a");
+    G.AddTensor(DataType::DT_FP16, {64, 64}, MemoryType::MEM_DEVICE_DDR, "mat_b");
+    G.AddTensor(DataType::DT_FP16, {64, 128}, MemoryType::MEM_DEVICE_DDR, "out_c");
+
+    G.AddTensor(DataType::DT_FP16, {64, 64}, MemoryType::MEM_L1, "mat_a_partial_0");
+    G.AddTensor(DataType::DT_FP16, {64, 64}, MemoryType::MEM_L1, "mat_a_partial_1");
+    G.AddTensor(DataType::DT_FP16, {64, 64}, MemoryType::MEM_L1, "mat_b_partial_0");
+    G.AddTensor(DataType::DT_FP16, {64, 64}, MemoryType::MEM_L1, "mat_b_partial_1");
+
+    G.AddTensor(DataType::DT_FP16, {64, 64}, MemoryType::MEM_L0A, "mat_a_L0_0");
+    G.AddTensor(DataType::DT_FP16, {64, 64}, MemoryType::MEM_L0B, "mat_b_L0_0");
+    G.AddTensor(DataType::DT_FP16, {64, 64}, MemoryType::MEM_L0A, "mat_a_L0_1");
+    G.AddTensor(DataType::DT_FP16, {64, 64}, MemoryType::MEM_L0B, "mat_b_L0_1");
+
+    G.AddTensor(DataType::DT_FP16, {64, 64}, MemoryType::MEM_L0C, "mat_c_L0_0");
+    G.AddTensor(DataType::DT_FP16, {64, 64}, MemoryType::MEM_L0C, "mat_c_L0_1");
+    G.AddTensor(DataType::DT_FP16, {64, 128}, MemoryType::MEM_L0C, "assemble_out_c");
+    // add op
+    InplaceAssembleAddOp(G);
+    // set incast and outcast
+    G.SetInCast({"mat_a", "mat_b"});
+    G.SetOutCast({"out_c"});
+    // check before pass
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    // run pass
+    InplaceProcess passLocal;
+    Status res = passLocal.Run(*function, "", "", 0);
+    passLocal.Run(*function, "", "", 0);
+    // check after pass
+    EXPECT_EQ(res, SUCCESS);
+    auto assemble_c_1 = G.GetOp("assemble_c_1");
+    auto attrAssemble_c_1 = dynamic_cast<AssembleOpAttribute *>(assemble_c_1->GetOpAttribute().get());
+    EXPECT_EQ(G.GetTensor("mat_c_L0_1")->GetRawMagic(), G.GetTensor("assemble_out_c")->GetRawMagic());
+    EXPECT_EQ(G.GetTensor("mat_c_L0_1")->GetOffset(), attrAssemble_c_1->GetToOffset());
+    auto A_MULACC_B = G.GetOp("A_MULACC_B");
+    auto inputIdx = inplaceOpMap.at(A_MULACC_B->GetOpcode())[0].first;
+    auto tensorIn = A_MULACC_B->GetIOperands()[inputIdx];
+    EXPECT_EQ(tensorIn->GetRawMagic(), G.GetTensor("mat_c_L0_1")->GetRawMagic());
+    EXPECT_EQ(tensorIn->GetOffset(), G.GetTensor("mat_c_L0_1")->GetOffset());
+}
+
+inline void AssembleViewAddOp(ComputationalGraphBuilder &G) {
+    G.AddOp(Opcode::OP_COPY_IN, {"vec_in_0"}, {"copy_in_0"}, "copy_0");
+    auto attrCopy_0 = std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified({0, 0}), MemoryType::MEM_DEVICE_DDR,
+        OpImmediate::Specified(G.GetTensor("vec_in_0")->GetShape()), OpImmediate::Specified(G.GetTensor("vec_in_0")->tensor->GetRawShape()));
+    G.GetOp("copy_0")->SetOpAttribute(attrCopy_0);
+    G.AddOp(Opcode::OP_COPY_IN, {"vec_in_1"}, {"copy_in_1"}, "copy_1");
+    auto attrCopy_1 = std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified({0, 0}), MemoryType::MEM_DEVICE_DDR,
+        OpImmediate::Specified(G.GetTensor("vec_in_1")->GetShape()), OpImmediate::Specified(G.GetTensor("vec_in_1")->tensor->GetRawShape()));
+    G.GetOp("copy_1")->SetOpAttribute(attrCopy_1);
+    G.AddOp(Opcode::OP_COPY_IN, {"vec_in_2"}, {"copy_in_2"}, "copy_2");
+    auto attrCopy_2 = std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified({0, 0}), MemoryType::MEM_DEVICE_DDR,
+        OpImmediate::Specified(G.GetTensor("vec_in_2")->GetShape()), OpImmediate::Specified(G.GetTensor("vec_in_2")->tensor->GetRawShape()));
+    G.GetOp("copy_2")->SetOpAttribute(attrCopy_2);
+    G.AddOp(Opcode::OP_COPY_IN, {"vec_in_3"}, {"copy_in_3"}, "copy_3");
+    auto attrCopy_3 = std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified({0, 0}), MemoryType::MEM_DEVICE_DDR,
+        OpImmediate::Specified(G.GetTensor("vec_in_3")->GetShape()), OpImmediate::Specified(G.GetTensor("vec_in_3")->tensor->GetRawShape()));
+    G.GetOp("copy_3")->SetOpAttribute(attrCopy_3);
+    
+    G.AddOp(Opcode::OP_ASSEMBLE, {"copy_in_0"}, {"assemble_out_0"}, "assemble_0");
+    std::vector<int64_t> offestAssemble_0= {0, 0};
+    auto attrAssemble_0 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offestAssemble_0);
+    G.GetOp("assemble_0")->SetOpAttribute(attrAssemble_0);
+    G.AddOp(Opcode::OP_ASSEMBLE, {"copy_in_1"}, {"assemble_out_0"}, "assemble_1");
+    std::vector<int64_t> offestAssemble_1= {128, 0};
+    auto attrAssemble_1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offestAssemble_1);
+    G.GetOp("assemble_1")->SetOpAttribute(attrAssemble_1);
+
+    G.AddOp(Opcode::OP_ASSEMBLE, {"copy_in_2"}, {"assemble_out_0"}, "assemble_2");
+    std::vector<int64_t> offestAssemble_2= {256, 0};
+    auto attrAssemble_2 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offestAssemble_2);
+    G.GetOp("assemble_2")->SetOpAttribute(attrAssemble_2);
+
+    G.AddOp(Opcode::OP_ASSEMBLE, {"copy_in_3"}, {"assemble_out_0"}, "assemble_3");
+    std::vector<int64_t> offestAssemble_3= {384, 0};
+    auto attrAssemble_3 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offestAssemble_3);
+    G.GetOp("assemble_3")->SetOpAttribute(attrAssemble_3);
+
+    G.AddOp(Opcode::OP_VIEW, {"assemble_out_0"}, {"view_0"}, "OP_VIEW_0");
+    std::vector<int64_t> offestOpView0 = {256, 0};
+    auto attrOpView0 = std::make_shared<ViewOpAttribute>(offestOpView0, MemoryType::MEM_DEVICE_DDR);
+    G.GetOp("OP_VIEW_0")->SetOpAttribute(attrOpView0);
+
+    G.AddOp(Opcode::OP_COPY_OUT, {"view_0"}, {"vec_out_0"}, "Copy_Out");
+    std::vector<int64_t> offsetOut = {0, 0};
+    auto attrCopyOut = std::make_shared<CopyOpAttribute>(MemoryType::MEM_DEVICE_DDR,
+            OpImmediate::Specified(offsetOut), OpImmediate::Specified(G.GetTensor("view_0")->GetShape()),
+            OpImmediate::Specified(G.GetTensor("view_0")->tensor->GetRawShape()));
+    G.GetOp("Copy_Out")->SetOpAttribute(attrCopyOut);
+}
+
+TEST_F(InplaceProcessTest, InplaceProcessAssembleView) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    G.AddTensor(DataType::DT_FP16, {128, 128}, MemoryType::MEM_DEVICE_DDR, "vec_in_0");
+    G.AddTensor(DataType::DT_FP16, {128, 128}, MemoryType::MEM_DEVICE_DDR, "vec_in_1");
+    G.AddTensor(DataType::DT_FP16, {128, 128}, MemoryType::MEM_DEVICE_DDR, "vec_in_2");
+    G.AddTensor(DataType::DT_FP16, {128, 128}, MemoryType::MEM_DEVICE_DDR, "vec_in_3");
+    G.AddTensor(DataType::DT_FP16, {256, 128}, MemoryType::MEM_DEVICE_DDR, "vec_out_0");
+
+    G.AddTensor(DataType::DT_FP16, {128, 128}, MemoryType::MEM_DEVICE_DDR, "copy_in_0");
+    G.AddTensor(DataType::DT_FP16, {128, 128}, MemoryType::MEM_DEVICE_DDR, "copy_in_1");
+    G.AddTensor(DataType::DT_FP16, {128, 128}, MemoryType::MEM_DEVICE_DDR, "copy_in_2");
+    G.AddTensor(DataType::DT_FP16, {128, 128}, MemoryType::MEM_DEVICE_DDR, "copy_in_3");
+
+    G.AddTensor(DataType::DT_FP16, {512, 128}, MemoryType::MEM_DEVICE_DDR, "assemble_out_0");
+
+    G.AddTensor(DataType::DT_FP16, {256, 128}, MemoryType::MEM_DEVICE_DDR, "view_0");
+    // add op
+    AssembleViewAddOp(G);
+    // set incast and outcast
+    G.SetInCast({"vec_in_0", "vec_in_1", "vec_in_2", "vec_in_3"});
+    G.SetOutCast({"vec_out_0"});
+    // check before pass
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    // run pass
+    InplaceProcess passLocal;
+    Status res = passLocal.Run(*function, "", "", 0);
+    passLocal.Run(*function, "", "", 0);
+    // check after pass
+    EXPECT_EQ(res, SUCCESS);
+    auto assemble_0 = G.GetOp("assemble_0");
+    auto assemble_1 = G.GetOp("assemble_1");
+    auto assemble_2 = G.GetOp("assemble_2");
+    auto assemble_3 = G.GetOp("assemble_3");
+    auto op_view_0 = G.GetOp("OP_VIEW_0");
+    auto attrAssemble_0 = dynamic_cast<AssembleOpAttribute *>(assemble_0->GetOpAttribute().get());
+    auto attrAssemble_1 = dynamic_cast<AssembleOpAttribute *>(assemble_1->GetOpAttribute().get());
+    auto attrAssemble_2 = dynamic_cast<AssembleOpAttribute *>(assemble_2->GetOpAttribute().get());
+    auto attrAssemble_3 = dynamic_cast<AssembleOpAttribute *>(assemble_3->GetOpAttribute().get());
+    auto attrOpView0 = dynamic_cast<ViewOpAttribute *>(op_view_0->GetOpAttribute().get());
+    EXPECT_EQ(G.GetTensor("copy_in_0")->GetRawMagic(), G.GetTensor("assemble_out_0")->GetRawMagic());
+    EXPECT_EQ(G.GetTensor("copy_in_0")->GetOffset(), attrAssemble_0->GetToOffset());
+    EXPECT_EQ(G.GetTensor("copy_in_1")->GetRawMagic(), G.GetTensor("assemble_out_0")->GetRawMagic());
+    EXPECT_EQ(G.GetTensor("copy_in_1")->GetOffset(), attrAssemble_1->GetToOffset());
+    EXPECT_EQ(G.GetTensor("copy_in_2")->GetRawMagic(), G.GetTensor("assemble_out_0")->GetRawMagic());
+    EXPECT_EQ(G.GetTensor("copy_in_2")->GetOffset(), attrAssemble_2->GetToOffset());
+    EXPECT_EQ(G.GetTensor("copy_in_3")->GetRawMagic(), G.GetTensor("assemble_out_0")->GetRawMagic());
+    EXPECT_EQ(G.GetTensor("copy_in_3")->GetOffset(), attrAssemble_3->GetToOffset());
+    EXPECT_EQ(G.GetTensor("view_0")->GetRawMagic(), G.GetTensor("assemble_out_0")->GetRawMagic());
+    EXPECT_EQ(G.GetTensor("view_0")->GetOffset(), attrOpView0->GetFromOffset());
+}
+
 } // namespace tile_fwk
 } // namespace npu
