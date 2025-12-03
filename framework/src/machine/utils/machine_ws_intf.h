@@ -41,6 +41,26 @@ struct StaticReadyCoreFunctionQueue {
   size_t lock;
 };
 
+#ifdef SUPPORT_WRAP
+struct WrapInfo {
+    uint32_t wrapId;
+    uint32_t aicCoreIdx;
+    uint32_t aivCoreIdxZero;
+    uint32_t aivCoreIdxOne;
+    uint32_t taskCnt {0};
+    uint32_t mixResourceType;
+    ReadyCoreFunctionQueue tasklist;
+};
+
+struct WrapInfoQueue {
+  uint32_t head;
+  uint32_t tail;
+  uint32_t capacity;
+  WrapInfo* elem;
+  size_t lock;
+  uint64_t Size() { return tail - head;}
+};
+#endif
 
 enum class BinDataType {
   READY_STATUS,          // CoreFunction ready_status(no need update)

@@ -712,6 +712,15 @@ private:
     uint32_t ReadyQueSlabMemObjSize() {
         return sizeof(ReadyCoreFunctionQueue) + devProg_-> stitchCallopMaxNum * sizeof(uint32_t);
     }
+#ifdef SUPPORT_WRAP
+    uint32_t WrapQueSlabMemObjSize() {
+        return sizeof(ReadyCoreFunctionQueue) + devProg_-> stitchCallopMaxNum * sizeof(uint32_t);
+    }
+
+    uint32_t WrapTasklistSlabMemObjSize() {
+        return devProg_-> stitchCallopMaxNum * sizeof(uint32_t);
+    }
+#endif
 
     uint32_t (DeviceWorkspaceAllocator::*slabMemObjSizeFunc[ToUnderlying(WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT)])() = {
         &DeviceWorkspaceAllocator::DevFunctionDuppedSlabMemObjSize,
@@ -719,6 +728,10 @@ private:
         &DeviceWorkspaceAllocator::VecStitchListSLabMemObjSize,
         &DeviceWorkspaceAllocator::DynDevTaskSlabMemObjSize,
         &DeviceWorkspaceAllocator::ReadyQueSlabMemObjSize,
+#ifdef SUPPORT_WRAP
+        &DeviceWorkspaceAllocator::WrapQueSlabMemObjSize,
+        &DeviceWorkspaceAllocator::WrapTasklistSlabMemObjSize,
+#endif
         nullptr, // invalid type
         &DeviceWorkspaceAllocator::DuppedStitchSlabMemObjSize,
     };

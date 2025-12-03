@@ -444,6 +444,10 @@ void DevAscendFunction::InitOperation(
     operationAttrList_.HostInitDataSizeOffset(initOffset, staticAttrSize);
     opAttrOffsetList_.HostInitDataSizeOffset(initOffset, callList.size());
     opCalleeList_.HostInitDataSizeOffset(initOffset, callList.size());
+#ifdef SUPPORT_WRAP
+    opWrapList_.HostInitDataSizeOffset(initOffset, callList.size());
+    opWrapTaskNumList_.HostInitDataSizeOffset(initOffset, callList.size());
+#endif
     operationSuccList_.HostInitDataSizeOffset(initOffset, succSize);
     operationCopyOutResolveSuccIndexList_.HostInitDataSizeOffset(initOffset, copyOutResolveSuccIndexSize);
 
@@ -453,6 +457,18 @@ void DevAscendFunction::InitOperation(
         staticAttrSize = 0;
         succSize = 0;
         copyOutResolveSuccIndexSize = 0;
+
+#ifdef SUPPORT_WRAP
+        std::unordered_map<int, int> wrapTaskNumMap;
+        for (size_t i = 0; i < callList.size(); i++) {
+            auto callop = std::static_pointer_cast<CallOpAttribute>(callList[i]->GetOpAttribute());
+            if (callop->wrapId != -1) {
+                wrapTaskNumMap[callop->wrapId]++;
+            }
+            wrapIdNum_ = wrapTaskNumMap.size();
+        }
+#endif
+
         for (size_t i = 0; i < callList.size(); i++) {
             Operation *op = callList[i];
             auto callop = std::static_pointer_cast<CallOpAttribute>(callList[i]->GetOpAttribute());
@@ -504,6 +520,10 @@ void DevAscendFunction::InitOperation(
 
             At(opAttrOffsetList_, i) = staticAttrSize;
             At(opCalleeList_, i) = calleeHashIndexDict.at(callop->GetCalleeHash().GetHash());
+#ifdef SUPPORT_WRAP
+            At(opWrapList_, i) = callop->wrapId;
+            At(opWrapTaskNumList_, i) = wrapTaskNumMap[callop->wrapId];
+#endif
             staticAttrSize += opStaticAttrSize;
 
             // Fill succ
@@ -1563,6 +1583,10 @@ void DevAscendProgram::InitCceCodeList(uintdevptr_t &initOffset, const std::vect
             cceCodeList[i].coreType = cceInfo[i].coreType;
             cceCodeList[i].psgId = cceInfo[i].psgId;
             cceCodeList[i].funcHash = cceInfo[i].funcHash;
+#ifdef SUPPORT_WRAP
+            cceCodeList[i].wrapVecId = cceInfo[i].wrapVecId;
+            cceCodeList[i].mixResourceType = cceInfo[i].mixResourceType;
+#endif
             auto dataLen = cceInfo[i].aicpuLeafCode.size();
             aicpuLeafCodeList[i].aicpuLeafCode.HostAssignRangeOffsetSize(aicpuLeafCodeDataList, dataOffset, dataLen);
             (void)memcpy_s(aicpuLeafCodeList[i].aicpuLeafCode.Data(), sizeof(int32_t) * dataLen,

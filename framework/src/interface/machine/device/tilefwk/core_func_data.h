@@ -111,6 +111,11 @@ struct DeviceTask {
     uint64_t readyAicCoreFunctionQue; // 指针指向ReadyCoreFunctionQueue 结构
     uint64_t readyAivCoreFunctionQue; // 指针指向ReadyCoreFunctionQueue 结构
     uint64_t readyAicpuFunctionQue; // 指针指向ReadyCoreFunctionQueue 结构
+#ifdef SUPPORT_WRAP
+    uint64_t readyWrapCoreFunctionQue; // 指针指向WrapInfoqQueue 结构
+    uint64_t wrapTasklist; // 指针指向tasklist数组
+    uint64_t wrapIdNum; // 包含的有效wrapId个数
+#endif
     CoreFunctionData coreFuncData;
     L2PreInfo l2Info;
     uint64_t costModelData;           // costmodel仿真时长
@@ -157,6 +162,10 @@ struct DynFuncBin {
     uint32_t coreType;
     uint32_t psgId;
     uint64_t funcHash;
+#ifdef SUPPORT_WRAP
+    int32_t wrapVecId {-1};
+    uint32_t mixResourceType {0};
+#endif
 };
 
 struct DynFuncHeader {

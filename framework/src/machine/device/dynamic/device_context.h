@@ -390,10 +390,32 @@ private:
     npu::tile_fwk::DevStartArgsBase *startArgs_{nullptr};
 private:
     void BuildReadyQueue(DynDeviceTask *dyntask, DevAscendProgram *devProg);
+#ifdef SUPPORT_WRAP
+    uint32_t* AllocWrapTasklist(DynDeviceTask *dyntask) {
+        uint32_t size = dyntask->devTask.coreFunctionCnt; // can be optimized by wrapTaskNum
+        WsAllocation qalloc = ControlFlowAllocateSlab(devProg_, size, workspace_->SlabAlloc(size, WsAicpuSlabMemType::WRAP_TASKLIST));
+        uint32_t *wrapTasklistAddr = qalloc.As<uint32_t>();
+        return wrapTasklistAddr;
+    }
+
+    WrapInfoQueue* AllocWrapQueue(DynDeviceTask *dyntask) {
+        uint32_t size = sizeof(WrapInfoQueue) + dyntask->devTask.wrapIdNum * sizeof(WrapInfo);
+        WsAllocation qalloc = ControlFlowAllocateSlab(devProg_, size, workspace_->SlabAlloc(size, WsAicpuSlabMemType::WRAP_QUEUE));
+        WrapInfoQueue *q = qalloc.As<WrapInfoQueue>();
+        q->head = 0;
+        q->tail = 0;
+        q->lock = 0;
+        q->capacity = dyntask->devTask.wrapIdNum;
+        q->elem = reinterpret_cast<WrapInfo *>(q + 1);
+        return q;
+    }
+
+    void ProcessWrapQueue(DynDeviceTask *dyntask, uint32_t wrapId, int funcIndex, size_t opIndex,
+        WrapInfoQueue *wrapQueue, uint32_t *wrapTasklistAddr);
+#endif
 
     void BuildDynFuncData(DynDeviceTask *dyntask, uint32_t taskId, DevAscendProgram *devProg,
         DevAscendFunctionDupped *stitchedList, uint64_t stitchedSize);
-
     inline void doResolve(DynDeviceTask *dyntask, int coreType, size_t funcIdx, size_t succIdx, predcount_t *predList) {
         predList[succIdx] -= 1;
         if (predList[succIdx] != 0)
@@ -402,8 +424,19 @@ private:
         if (coreType == static_cast<int>(CoreType::HUB)) {
             ResolveEarlyDepends(dyntask, funcIdx, succIdx);
         } else {
-            auto q = dyntask->readyQueue[dyntask->GetReadyQueueIndexByCoreType(static_cast<CoreType>(coreType))];
-            q->elem[q->tail++] = MakeTaskID(funcIdx, succIdx);
+#ifdef SUPPORT_WRAP
+            auto opWrapList = dyntask->dynFuncDataCacheList[funcIdx].opWrapList;
+            if (dyntask->devTask.wrapIdNum>  0 && opWrapList[succIdx] != -1) {
+                ProcessWrapQueue(dyntask, MakeWrapID(funcIdx, static_cast<uint32_t>(opWrapList[succIdx])), funcIdx, succIdx,
+                    reinterpret_cast<WrapInfoQueue *>(dyntask->devTask.readyWrapCoreFunctionQue),
+                    reinterpret_cast<uint32_t *>(dyntask->devTask.wrapTasklist));
+            } else {
+#endif
+                auto q = dyntask->readyQueue[dyntask->GetReadyQueueIndexByCoreType(static_cast<CoreType>(coreType))];
+                q->elem[q->tail++] = MakeTaskID(funcIdx, succIdx);
+#ifdef SUPPORT_WRAP
+            }
+#endif
             readyTaskNum++;
         }
     }

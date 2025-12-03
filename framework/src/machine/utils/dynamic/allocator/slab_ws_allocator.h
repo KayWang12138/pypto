@@ -29,6 +29,10 @@ enum class WsAicpuSlabMemType : uint8_t {
     VEC_STITCHED_LIST,
     DEV_DYN_TASK,
     READY_QUE,
+#ifdef SUPPORT_WRAP
+    WRAP_QUEUE,
+    WRAP_TASKLIST,
+#endif
     COHERENT_SLAB_MEM_TYPE_BUTT,
 
     DUPPED_STITCH, // stitch pool memory
