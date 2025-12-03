@@ -51,6 +51,8 @@ private:
     */
     Status PreCheck(Function &function) override;
     Status RunOnFunction(Function &function) override;
+    Status ProcessOp(Function &function);
+    Status InplaceProcessAssemble(Function &function, Operation &op);
     bool HasSameConsecutive(Operation &op);
     void ProcessView(Function &function, Operation &op) const;
     void ProcessAssemble(Function &function, Operation &op);
@@ -63,9 +65,15 @@ private:
     Status AdjustOffsetAndRawShape(LogicalTensorPtr &fromView, LogicalTensorPtr &toView) const;
     void ReplaceRawTensor(Function &function, std::shared_ptr<LogicalTensor> logicalTensor,
         const std::shared_ptr<LogicalTensor> targetTensor, const Operation &op);
+    void ProcessHub(Function &function, Operation &op);
+    void ProcessHubAssembleChain(Function &function, Operation &hubOp, 
+                                           Operation &assembleOp, 
+                                           std::shared_ptr<LogicalTensor> hubInput,
+                                           std::shared_ptr<LogicalTensor> hubOutput);
     Status RefactorViewConnectForInplace(Function &function);
     std::unordered_map<DataType, int> viewTypeTable = {{DT_INT8, 1}, {DT_BF16, 2}, {DT_FP16, 2}, {DT_FP32, 4}};
     std::vector<int> visitedAssembleOp;
+    std::vector<int> hubRelatedAssembleOpMagics;
 };
 } // namespace tile_fwk
 } // namespace npu

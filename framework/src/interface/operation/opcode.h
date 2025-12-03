@@ -61,6 +61,7 @@ enum class Opcode {
     OP_TRANSPOSE_VNCHWCONV,
     OP_ABS,
     OP_LN,
+    OP_HUB,
     // Binary Vector
     OP_ADD,
     OP_SUB,

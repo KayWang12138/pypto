@@ -228,6 +228,9 @@ bool RemoveRedundantAssemble::IsCandidateAssembleOp(Function &function, Operatio
     }
     for (auto &prod : function.FindProducers(op)) {
         if (prod->GetOpcode() != Opcode::OP_VIEW) {
+            if (prod->GetOpcode() == Opcode::OP_HUB) {
+                return false;
+            }
             return true;
         }
     }

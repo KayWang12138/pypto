@@ -61,8 +61,24 @@ Status InplaceProcess::PreCheck(Function &function) {
     return SUCCESS;
 }
 
-Status InplaceProcess::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(Elements::Operation, "===> Start InplaceProcess.");
+Status InplaceProcess::InplaceProcessAssemble(Function &function, Operation &op){
+    if (ValidMeaninglessOp(op) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "Invalid assemble operation; Please check operands size and memory type. %s", GetFormatBacktrace(op).c_str());
+        return FAILED;
+    }
+    auto assembleOut = op.GetOOperands().front();
+    // 校验Assemble输出的汇聚后tensor大小是否超过UB上限
+    const int UB_SIZE = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_UB);
+    if (assembleOut->GetMemoryTypeOriginal() == MemoryType::MEM_UB && (assembleOut->tensor->GetRawDataSize() > UB_SIZE)) {
+        APASS_LOG_ERROR_F(Elements::Tensor, "Local Buffer Assemble Result Oversized, %d, tensor: %d, size: %ld B; Please check the result size.", op.opmagic,
+            assembleOut->magic, assembleOut->tensor->GetRawDataSize());
+        return FAILED;
+    }
+    ProcessAssemble(function, op);
+    return SUCCESS;
+}
+
+Status InplaceProcess::ProcessOp(Function &function){
     auto opList = function.Operations();
     for (auto &op : opList) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
@@ -84,19 +100,16 @@ Status InplaceProcess::RunOnFunction(Function &function) {
             continue;
         }
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
-            if (ValidMeaninglessOp(op) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Invalid assemble operation; Please check operands size and memory type. %s", GetFormatBacktrace(op).c_str());
+            if (std::find(hubRelatedAssembleOpMagics.begin(), hubRelatedAssembleOpMagics.end(), op.GetOpMagic()) != hubRelatedAssembleOpMagics.end()) {
+                APASS_LOG_ERROR_F(Elements::Operation, "skip processing HUB-related ASSEMBLE[%d]", op.GetOpMagic());
+                continue;
+            }
+            if (InplaceProcessAssemble(function, op)!= SUCCESS) {
                 return FAILED;
             }
-            auto assembleOut = op.GetOOperands().front();
-            // 校验Assemble输出的汇聚后tensor大小是否超过UB上限
-            const int UB_SIZE = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_UB);
-            if (assembleOut->GetMemoryTypeOriginal() == MemoryType::MEM_UB && (assembleOut->tensor->GetRawDataSize() > UB_SIZE)) {
-                APASS_LOG_ERROR_F(Elements::Tensor, "Local Buffer Assemble Result Oversized, %d, tensor: %d, size: %ld B; Please check the result size.", op.opmagic,
-                    assembleOut->magic, assembleOut->tensor->GetRawDataSize());
-                return FAILED;
-            }
-            ProcessAssemble(function, op);
+            continue;
+        }
+        if (op.GetOpcode() == Opcode::OP_HUB) {
             continue;
         }
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
@@ -112,14 +125,101 @@ Status InplaceProcess::RunOnFunction(Function &function) {
             return FAILED;
         }
     }
+    return SUCCESS;
+}
 
+Status InplaceProcess::RunOnFunction(Function &function) {
+    APASS_LOG_INFO_F(Elements::Operation, "===> Start InplaceProcess.");
+    auto opList = function.Operations();
+    hubRelatedAssembleOpMagics.clear();
+    if (ProcessOp(function) != SUCCESS) {
+        return FAILED;
+    }
     // 将View提取到由inplace最开始的tensor调用，并在原地留下一个NOP保持依赖关系。
     if (RefactorViewConnectForInplace(function) != SUCCESS) {
         return FAILED;
     }
+    for (auto &op : opList) {
+        if (op.GetOpcode() == Opcode::OP_HUB) {
+            ProcessHub(function, op);
+        }
+    }
 
     APASS_LOG_INFO_F(Elements::Operation, "===> End InplaceProcess.");
     return SUCCESS;
+}
+
+void InplaceProcess::ProcessHub(Function &function, Operation &op) {
+    APASS_LOG_DEBUG_F(Elements::Operation, "Processing HUB node %d.", op.GetOpMagic());
+    
+    // 获取 HUB 的输入和输出 tensor
+    auto hubInput = op.GetIOperands()[0];   // HUB 的输入 tensor
+    auto hubOutput = op.GetOOperands()[0];  // HUB 的输出 tensor
+    
+    // 1. 查找 HUB 输出的所有消费者（应该是 ASSEMBLE 节点）
+    auto consumers = hubOutput->GetConsumers();
+    for (auto consumer : consumers) {
+        if (consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
+            ProcessHubAssembleChain(function, op, *consumer, hubInput, hubOutput);
+        }
+    }
+    auto producers = hubInput->GetProducers();
+    for (auto producer : producers) {
+        if (OpcodeManager::Inst().IsCopyOut(producer->GetOpcode())) {
+            auto copyAttr = dynamic_cast<CopyOpAttribute*>(producer->GetOpAttribute().get());
+            if (copyAttr) {
+                auto attrOffset = copyAttr->GetToOffset(); // OpImm
+                auto tensorOffset = OpImmediate::Specified(hubInput->GetTensorOffset());
+                std::vector<OpImmediate> newOffset;
+                for (size_t i = 0; i < attrOffset.size(); i++) {
+                    newOffset.push_back(attrOffset[i] + tensorOffset[i]);
+                }
+                copyAttr->SetToOffset(newOffset);
+            }
+        }
+    }
+}
+
+void InplaceProcess::ProcessHubAssembleChain(Function &function, Operation &hubOp, 
+                                           Operation &assembleOp, 
+                                           std::shared_ptr<LogicalTensor> hubInput,
+                                           std::shared_ptr<LogicalTensor> hubOutput) {
+    auto assembleInput = assembleOp.GetIOperands()[0];
+    auto assembleOutput = assembleOp.GetOOperands()[0];
+    if (assembleInput.get() != hubOutput.get()) {
+        APASS_LOG_WARN_F(Elements::Tensor, "Assemble input[%d] is not HUB output[%d], chain may be broken",
+                    assembleInput->GetMagic(), hubOutput->GetMagic());
+        return;
+    }
+    bool isExactOutcast = false;
+    auto outcasts = function.GetOutcast();
+    for (auto &outcast : outcasts) {
+        if (outcast.get() == assembleOutput.get()) {
+            isExactOutcast = true;
+            break;
+        }
+    }
+    if (!isExactOutcast) {
+        APASS_LOG_WARN_F(Elements::Operation, "Assemble[%d] output is not exact outcast, skip HUB memory reuse processing.", assembleOp.GetOpMagic());
+        return;    
+    }
+    APASS_LOG_INFO_F(Elements::Operation, "Found exact HUB-ASSEMBLE-OUTCAST chain: HUB[%d] -> ASSEMBLE[%d] -> OUTCAST[%d]",
+                hubOp.GetOpMagic(), assembleOp.GetOpMagic(), assembleOutput->GetMagic());
+    auto hubInputMemType = hubInput->GetMemoryTypeOriginal();
+    auto hubOutputMemType = hubOutput->GetMemoryTypeOriginal();
+    auto assembleOutputMemType = assembleOutput->GetMemoryTypeOriginal();
+    if (hubInputMemType != hubOutputMemType || hubInputMemType != assembleOutputMemType) {
+        APASS_LOG_WARN_F(Elements::Tensor, "Memory type mismatch: HUB input=%d, HUB output=%d, ASSEMBLE output=%d",
+                    hubInputMemType, hubOutputMemType, assembleOutputMemType);
+        return;
+    }
+    hubInput->tensor = assembleOutput->tensor;
+    auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(assembleOp.GetOpAttribute().get());
+    hubInput->UpdateOffset(assembleOpAttribute->GetToTensorOffset());
+    hubOutput->tensor = assembleOutput->tensor;
+    hubOutput->UpdateOffset(assembleOpAttribute->GetToTensorOffset());
+    hubRelatedAssembleOpMagics.push_back(assembleOp.GetOpMagic());
+    APASS_LOG_INFO_F(Elements::Tensor, "Complete memory reuse established: all tensors share HUB input[%d] memory", hubInput->GetMagic());
 }
 
 Status InplaceProcess::ValidMeaninglessOp(const Operation &op) const {

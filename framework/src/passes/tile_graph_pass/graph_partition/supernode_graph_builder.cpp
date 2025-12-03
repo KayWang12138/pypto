@@ -71,6 +71,9 @@ std::vector<int32_t> OperationGraphInfo::GetSameLevelOpIdx(int32_t opIdx, Opcode
 
 bool OperationGraphInfo::CoreTypeMergeable(const std::set<OpCoreType> &coreTypes) const
 {
+    if (coreTypes.size() == 1 && (*coreTypes.begin() == OpCoreType::AICPU || *coreTypes.begin() == OpCoreType::HUB)) {
+        return false;
+    }
     if (useCVMixPartition_ || coreTypes.size() == 1) {
         return true;
     }
@@ -82,6 +85,9 @@ bool OperationGraphInfo::CoreTypeMergeable(const std::set<OpCoreType> &coreTypes
         auto firstType = *coreTypes.begin();
         auto secondType = *(++coreTypes.begin());
         if (firstType == OpCoreType::AICPU || secondType == OpCoreType::AICPU) {
+            return false;
+        }
+        if (firstType == OpCoreType::HUB || secondType == OpCoreType::HUB) {
             return false;
         }
         if (firstType == OpCoreType::ANY || secondType == OpCoreType::ANY) {
@@ -149,11 +155,26 @@ Status NodeGraphInfo::MergeSrcToDstIsland(const std::shared_ptr<OperationGraphIn
     isAICPUandVIEW = isAICPUandVIEW || (operationGraphInfo->opCoreType_[dst] == OpCoreType::AICPU &&
                                         operationGraphInfo->opList_[src]->GetOpcode() == Opcode::OP_VIEW);
     bool isAICPUandAssemble = false;
+    // HUB只能和View/Assemble在一张子图中
+    bool hubWithViewAssemble = false;
+    const size_t maxCoreTypesNum = 2;
+    if (coreTypes.size() == maxCoreTypesNum && coreTypes.count(OpCoreType::HUB) > 0) {
+        auto srcOpCoreType = operationGraphInfo->opCoreType_[src];
+        auto dstOpCoreType = operationGraphInfo->opCoreType_[dst];
+        auto srcOpCode = operationGraphInfo->opList_[src]->GetOpcode();
+        auto dstOpCode = operationGraphInfo->opList_[dst]->GetOpcode();
+        if (srcOpCoreType != OpCoreType::HUB) {
+            hubWithViewAssemble = (srcOpCode == Opcode::OP_VIEW || srcOpCode == Opcode::OP_ASSEMBLE);
+        }
+        if (dstOpCoreType != OpCoreType::HUB) {
+            hubWithViewAssemble = (dstOpCode == Opcode::OP_VIEW || dstOpCode == Opcode::OP_ASSEMBLE);    
+        }
+    }
     isAICPUandAssemble = isAICPUandAssemble || (operationGraphInfo->opCoreType_[src] == OpCoreType::AICPU &&
                                         operationGraphInfo->opList_[dst]->GetOpcode() == Opcode::OP_ASSEMBLE);
     isAICPUandAssemble = isAICPUandAssemble || (operationGraphInfo->opCoreType_[dst] == OpCoreType::AICPU &&
                                         operationGraphInfo->opList_[src]->GetOpcode() == Opcode::OP_ASSEMBLE);
-    if ((!isAICPUandVIEW) && (!isAICPUandAssemble) && (!operationGraphInfo->CoreTypeMergeable(coreTypes))) {
+    if ((!hubWithViewAssemble) && (!isAICPUandVIEW) && (!isAICPUandAssemble) && (!operationGraphInfo->CoreTypeMergeable(coreTypes))) {
         APASS_LOG_ERROR_F(Elements::Operation, "Try to merge operations with different OpCoreType in building SuperNode.");
         std::set<int> mergeIdxs{src, srcParent, dst, dstParent};
         for (int mergeIdx : mergeIdxs) {

@@ -44,7 +44,8 @@ const std::unordered_set<Opcode> USE_LESS_OPS = {
     Opcode::OP_COMM_WAIT_FLAG, 
     Opcode::OP_SHMEM_WAIT_UNTIL,
     Opcode::OP_BIND_TENSOR,
-    Opcode::OP_VIEW_TYPE
+    Opcode::OP_VIEW_TYPE,
+    Opcode::OP_HUB
 };
 
 const std::unordered_set<Opcode> COPY_IN_OPS = {
