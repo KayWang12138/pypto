@@ -58,6 +58,246 @@ def greater(input: Tensor, other: Union[Tensor, float]) -> Tensor:
 
 
 @op_wrapper
+def gt(input: Tensor, other: Union[Tensor, float]) -> Tensor:
+    """Performs element-wise comparison between `input` and `other`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The first input tensor.
+    other : Tensor
+        The second input tensor or a scalar value for comparison.
+
+    Returns
+    -------
+    Tensor
+        A boolean tensor that is True where input is greater than other and False elsewhere.
+        BOOL tensor with same shape as inputs
+
+    Raises
+    ------
+    TypeError
+        If `other` is neither a Tensor nor a scalar number.
+
+
+    Examples
+    --------
+    a = pto.tensor([3], pto.DT_FP32)
+    b = pto.tensor([3], pto.DT_FP32)
+    out = pto.gt(a, b)
+
+    Input a:    [1 2 3]
+    Input b:    [2 2 2]
+    Output out: [False False True]
+
+    """
+    if isinstance(other, float):
+        # Tensor vs Scalar comparison
+        return pypto_impl.Compare(input, pypto_impl.Element(input.dtype, other), OpType.GT, OutType.BOOL)
+    return pypto_impl.Compare(input, other, OpType.GT, OutType.BOOL)
+
+
+@op_wrapper
+def ge(input: Tensor, other: Union[Tensor, float]) -> Tensor:
+    """Performs element-wise comparison between `input` and `other`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The first input tensor.
+    other : Tensor
+        The second input tensor or a scalar value for comparison.
+
+    Returns
+    -------
+    Tensor
+        A boolean tensor that is True where input is greater_equal than other and False elsewhere.
+        BOOL tensor with same shape as inputs
+
+    Raises
+    ------
+    TypeError
+        If `other` is neither a Tensor nor a scalar number.
+
+
+    Examples
+    --------
+    a = pto.tensor([3], pto.DT_FP32)
+    b = pto.tensor([3], pto.DT_FP32)
+    out = pto.ge(a, b)
+
+    Input a:    [1 2 3]
+    Input b:    [2 2 2]
+    Output out: [False True True]
+
+    """
+    if isinstance(other, float):
+        # Tensor vs Scalar comparison
+        return pypto_impl.Compare(input, pypto_impl.Element(input.dtype, other), OpType.GE, OutType.BOOL)
+    return pypto_impl.Compare(input, other, OpType.GE, OutType.BOOL)
+
+
+@op_wrapper
+def eq(input: Tensor, other: Union[Tensor, float]) -> Tensor:
+    """Performs element-wise comparison between `input` and `other`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The first input tensor.
+    other : Tensor
+        The second input tensor or a scalar value for comparison.
+
+    Returns
+    -------
+    Tensor
+        A boolean tensor that is True where input is equal other and False elsewhere.
+        BOOL tensor with same shape as inputs
+
+    Raises
+    ------
+    TypeError
+        If `other` is neither a Tensor nor a scalar number.
+
+
+    Examples
+    --------
+    a = pto.tensor([3], pto.DT_FP32)
+    b = pto.tensor([3], pto.DT_FP32)
+    out = pto.eq(a, b)
+
+    Input a:    [1 2 3]
+    Input b:    [2 2 2]
+    Output out: [False True False]
+
+    """
+    if isinstance(other, float):
+        # Tensor vs Scalar comparison
+        return pypto_impl.Compare(input, pypto_impl.Element(input.dtype, other), OpType.EQ, OutType.BOOL)
+    return pypto_impl.Compare(input, other, OpType.EQ, OutType.BOOL)
+
+
+@op_wrapper
+def ne(input: Tensor, other: Union[Tensor, float]) -> Tensor:
+    """Performs element-wise comparison between `input` and `other`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The first input tensor.
+    other : Tensor
+        The second input tensor or a scalar value for comparison.
+
+    Returns
+    -------
+    Tensor
+        A boolean tensor that is True where input is not equal other and False elsewhere.
+        BOOL tensor with same shape as inputs
+
+    Raises
+    ------
+    TypeError
+        If `other` is neither a Tensor nor a scalar number.
+
+
+    Examples
+    --------
+    a = pto.tensor([3], pto.DT_FP32)
+    b = pto.tensor([3], pto.DT_FP32)
+    out = pto.ne(a, b)
+
+    Input a:    [1 2 3]
+    Input b:    [2 2 2]
+    Output out: [True False True]
+
+    """
+    if isinstance(other, float):
+        # Tensor vs Scalar comparison
+        return pypto_impl.Compare(input, pypto_impl.Element(input.dtype, other), OpType.NE, OutType.BOOL)
+    return pypto_impl.Compare(input, other, OpType.NE, OutType.BOOL)
+
+
+@op_wrapper
+def lt(input: Tensor, other: Union[Tensor, float]) -> Tensor:
+    """Performs element-wise comparison between `input` and `other`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The first input tensor.
+    other : Tensor
+        The second input tensor or a scalar value for comparison.
+
+    Returns
+    -------
+    Tensor
+        A boolean tensor that is True where input is less than other and False elsewhere.
+        BOOL tensor with same shape as inputs
+
+    Raises
+    ------
+    TypeError
+        If `other` is neither a Tensor nor a scalar number.
+
+
+    Examples
+    --------
+    a = pto.tensor([3], pto.DT_FP32)
+    b = pto.tensor([3], pto.DT_FP32)
+    out = pto.lt(a, b)
+
+    Input a:    [1 2 3]
+    Input b:    [2 2 2]
+    Output out: [True False False]
+
+    """
+    if isinstance(other, float):
+        # Tensor vs Scalar comparison
+        return pypto_impl.Compare(input, pypto_impl.Element(input.dtype, other), OpType.LT, OutType.BOOL)
+    return pypto_impl.Compare(input, other, OpType.LT, OutType.BOOL)
+
+
+@op_wrapper
+def le(input: Tensor, other: Union[Tensor, float]) -> Tensor:
+    """Performs element-wise comparison between `input` and `other`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The first input tensor.
+    other : Tensor
+        The second input tensor or a scalar value for comparison.
+
+    Returns
+    -------
+    Tensor
+        A boolean tensor that is True where input is less equal than other and False elsewhere.
+        BOOL tensor with same shape as inputs
+
+    Raises
+    ------
+    TypeError
+        If `other` is neither a Tensor nor a scalar number.
+
+
+    Examples
+    --------
+    a = pto.tensor([3], pto.DT_FP32)
+    b = pto.tensor([3], pto.DT_FP32)
+    out = pto.le(a, b)
+
+    Input a:    [1 2 3]
+    Input b:    [2 2 2]
+    Output out: [True True False]
+
+    """
+    if isinstance(other, float):
+        # Tensor vs Scalar comparison
+        return pypto_impl.Compare(input, pypto_impl.Element(input.dtype, other), OpType.LE, OutType.BOOL)
+    return pypto_impl.Compare(input, other, OpType.LE, OutType.BOOL)
+
+
+@op_wrapper
 def topk(
     input: Tensor, k: int, dim: Optional[int] = None, largest: bool = True
 ) -> Tuple[Tensor, Tensor]:
