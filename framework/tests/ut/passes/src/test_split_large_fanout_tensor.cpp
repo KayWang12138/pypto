@@ -70,30 +70,30 @@ public:
                 std::string localA = "a_" + std::to_string(i * N + j);
                 G.AddTensor(DataType::DT_FP32, tileShape, localA);
                 auto tensorA = G.GetTensor(localA);
-                tensorA->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+                tensorA->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
                 G.AddOp(Opcode::OP_VIEW, {"a"}, {localA}, "View_A_" + std::to_string(i * N + j));
                 auto View_A = G.GetOp("View_A_" + std::to_string(i * N + j));
-                auto attrA = std::make_shared<ViewOpAttribute>(offset, MemoryType::MEM_UB);
+                auto attrA = std::make_shared<ViewOpAttribute>(offset, MemoryType::MEM_UNKNOWN);
                 View_A->SetOpAttribute(attrA);
 
                 std::string localB = "b_" + std::to_string(i * N + j);
                 G.AddTensor(DataType::DT_FP32, tileShape, localB);
                 auto tensorB = G.GetTensor(localB);
-                tensorB->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+                tensorB->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
                 G.AddOp(Opcode::OP_VIEW, {"b"}, {localB}, "View_B_" + std::to_string(i * N + j));
                 auto View_B = G.GetOp("View_B_" + std::to_string(i * N + j));
-                auto attrB = std::make_shared<ViewOpAttribute>(offset, MemoryType::MEM_UB);
+                auto attrB = std::make_shared<ViewOpAttribute>(offset, MemoryType::MEM_UNKNOWN);
                 View_B->SetOpAttribute(attrB);
 
                 std::string localSubOut = "sub_out_" + std::to_string(i * N + j);
                 G.AddTensor(DataType::DT_FP32, tileShape, localSubOut);
                 G.AddOp(Opcode::OP_SUB, {localA, localB}, {localSubOut}, "Sub_" + std::to_string(i * N + j));
                 auto tensorSubOut = G.GetTensor(localSubOut);
-                tensorSubOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+                tensorSubOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
                 tensorSubOut->UpdateDynValidShape(dynShape);
 
                 G.AddOp(Opcode::OP_ASSEMBLE, {localSubOut}, {"sub_out"}, "Assemble_" + std::to_string(i * N + j));
-                auto attrAssemble = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, offset);
+                auto attrAssemble = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, offset);
                 auto assembleOp = G.GetOp("Assemble_" + std::to_string(i * N + j));
                 assembleOp->SetOpAttribute(attrAssemble);
             }
@@ -119,26 +119,26 @@ public:
         G.AddTensor(DataType::DT_FP32, shape1, "a"); // [256, 256]
         auto a = G.GetTensor("a");
         a->UpdateDynValidShape(dynShapeA);
-        a->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+        a->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
         // [256, 256] --> View(64, 0) --> [64, 256]
         G.AddTensor(DataType::DT_FP32, tiledShape1, "tiledA"); // [64, 256]
         auto tiledA = G.GetTensor("tiledA");
         tiledA->UpdateDynValidShape(dynShapeA);
-        tiledA->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+        tiledA->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
         G.AddOp(Opcode::OP_VIEW, {"a"}, {"tiledA"}, "View_A");
         auto View_A =  G.GetOp("View_A");
         std::vector<int64_t> offsetA = {NUM_64, 0};
-        auto attrA = std::make_shared<ViewOpAttribute>(offsetA, MemoryType::MEM_DEVICE_DDR);
+        auto attrA = std::make_shared<ViewOpAttribute>(offsetA, MemoryType::MEM_UNKNOWN);
         View_A->SetOpAttribute(attrA);
         // [256, 256] --> View(192, 0) --> [64, 256]
         G.AddTensor(DataType::DT_FP32, tiledShape1, "tiledB"); // [64, 256]
         auto tiledB = G.GetTensor("tiledB");
         tiledB->UpdateDynValidShape(dynShapeA);
-        tiledB->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+        tiledB->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
         G.AddOp(Opcode::OP_VIEW, {"a"}, {"tiledB"}, "View_B");
         auto View_B =  G.GetOp("View_B");
         std::vector<int64_t> offsetB = {NUM_192, 0};
-        auto attrB = std::make_shared<ViewOpAttribute>(offsetB, MemoryType::MEM_DEVICE_DDR);
+        auto attrB = std::make_shared<ViewOpAttribute>(offsetB, MemoryType::MEM_UNKNOWN);
         View_B->SetOpAttribute(attrB);
 
         // InCast c
@@ -146,36 +146,36 @@ public:
         G.AddTensor(DataType::DT_FP32, shape2, "c"); // [256, 64]
         auto c = G.GetTensor("c");
         c->UpdateDynValidShape(dynShapeC);
-        c->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+        c->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
         // [256, 64] --> View(64, 0) --> [64, 64]
         G.AddTensor(DataType::DT_FP32, tiledShape2, "tiledC"); // [64, 64]
         auto tiledC = G.GetTensor("tiledC");
         tiledC->UpdateDynValidShape(dynShapeC);
-        tiledC->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+        tiledC->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
         G.AddOp(Opcode::OP_VIEW, {"c"}, {"tiledC"}, "View_C");
         auto View_C =  G.GetOp("View_C");
         std::vector<int64_t> offsetC = {NUM_64, 0};
-        auto attrC = std::make_shared<ViewOpAttribute>(offsetC, MemoryType::MEM_DEVICE_DDR);
+        auto attrC = std::make_shared<ViewOpAttribute>(offsetC, MemoryType::MEM_UNKNOWN);
         View_C->SetOpAttribute(attrC);
         // [256, 64] --> View(192, 0) --> [64, 64]
         G.AddTensor(DataType::DT_FP32, tiledShape2, "tiledD"); // [64, 64]
         auto tiledD = G.GetTensor("tiledD");
         tiledD->UpdateDynValidShape(dynShapeC);
-        tiledD->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+        tiledD->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
         G.AddOp(Opcode::OP_VIEW, {"c"}, {"tiledD"}, "View_D");
         auto View_D =  G.GetOp("View_D");
         std::vector<int64_t> offsetD = {NUM_192, 0};
-        auto attrD = std::make_shared<ViewOpAttribute>(offsetD, MemoryType::MEM_DEVICE_DDR);
+        auto attrD = std::make_shared<ViewOpAttribute>(offsetD, MemoryType::MEM_UNKNOWN);
         View_D->SetOpAttribute(attrD);
 
         if (multiConsumer) {
             G.AddTensor(DataType::DT_FP32, tiledShape4, "out3");
             auto out3 = G.GetTensor("out3");
-            out3->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+            out3->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
             G.AddOp(Opcode::OP_VIEW, {"tiledC"}, {"out3"}, "View_C1");
             auto View_C1 =  G.GetOp("View_C1");
             std::vector<int64_t> offsetC1 = {0, 0};
-            auto attrC1 = std::make_shared<ViewOpAttribute>(offsetC1, MemoryType::MEM_DEVICE_DDR);
+            auto attrC1 = std::make_shared<ViewOpAttribute>(offsetC1, MemoryType::MEM_UNKNOWN);
             View_C1->SetOpAttribute(attrC1);
         }
 
@@ -183,21 +183,21 @@ public:
         // [64, 256][64, 64]  Assemble --> [128, 320]
         G.AddTensor(DataType::DT_FP32, largeShape, "largeTensor"); // Assemble --> [128, 320]
         auto largeTensor = G.GetTensor("largeTensor");
-        largeTensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+        largeTensor->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
         G.AddOp(Opcode::OP_ASSEMBLE, {"tiledA"}, {"largeTensor"}, "Assemble_A");
-        auto attrAssembleA = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t> {0, 0});
+        auto attrAssembleA = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
         auto assembleA = G.GetOp("Assemble_A");
         assembleA->SetOpAttribute(attrAssembleA);
         G.AddOp(Opcode::OP_ASSEMBLE, {"tiledB"}, {"largeTensor"}, "Assemble_B");
-        auto attrAssembleB = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t> {NUM_64, 0});
+        auto attrAssembleB = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {NUM_64, 0});
         auto assembleB = G.GetOp("Assemble_B");
         assembleB->SetOpAttribute(attrAssembleB);
         G.AddOp(Opcode::OP_ASSEMBLE, {"tiledC"}, {"largeTensor"}, "Assemble_C");
-        auto attrAssembleC = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t> {0, NUM_256});
+        auto attrAssembleC = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, NUM_256});
         auto assembleC = G.GetOp("Assemble_C");
         assembleC->SetOpAttribute(attrAssembleC);
         G.AddOp(Opcode::OP_ASSEMBLE, {"tiledD"}, {"largeTensor"}, "Assemble_D");
-        auto attrAssembleD = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t> {NUM_64, NUM_256});
+        auto attrAssembleD = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {NUM_64, NUM_256});
         auto assembleD = G.GetOp("Assemble_D");
         assembleD->SetOpAttribute(attrAssembleD);
 
@@ -205,33 +205,33 @@ public:
         // [128, 320] --> View(0, 0) --> [128, 128]
         G.AddTensor(DataType::DT_FP32, tiledShape3, "tiledView_1");
         auto tiledView_1 = G.GetTensor("tiledView_1");
-        tiledView_1->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+        tiledView_1->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
         G.AddOp(Opcode::OP_VIEW, {"largeTensor"}, {"tiledView_1"}, "View_1");
         auto View_1 =  G.GetOp("View_1");
         std::vector<int64_t> offset1 = {0, 0};
-        auto attr1 = std::make_shared<ViewOpAttribute>(offset1, MemoryType::MEM_UB);
+        auto attr1 = std::make_shared<ViewOpAttribute>(offset1, MemoryType::MEM_UNKNOWN);
         View_1->SetOpAttribute(attr1);
-        
+
         // output 2: MtoM
         // [128, 320] --> View(0, 128) --> [128, 128]
         G.AddTensor(DataType::DT_FP32, tiledShape3, "tiledView_2");
         auto tiledView_2 = G.GetTensor("tiledView_2");
-        tiledView_2->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+        tiledView_2->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
         G.AddOp(Opcode::OP_VIEW, {"largeTensor"}, {"tiledView_2"}, "View_2");
         auto View_2 =  G.GetOp("View_2");
         std::vector<int64_t> offset2 = {0, 0};
-        auto attr2 = std::make_shared<ViewOpAttribute>(offset2, MemoryType::MEM_UB);
+        auto attr2 = std::make_shared<ViewOpAttribute>(offset2, MemoryType::MEM_UNKNOWN);
         View_2->SetOpAttribute(attr2);
 
         // output 3: Mto1
         // [128, 320] --> View(0, 256) --> [128, 64]
         G.AddTensor(DataType::DT_FP32, tiledShape4, "tiledView_3");
         auto tiledView_3 = G.GetTensor("tiledView_3");
-        tiledView_3->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+        tiledView_3->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
         G.AddOp(Opcode::OP_VIEW, {"largeTensor"}, {"tiledView_3"}, "View_3");
         auto View_3 =  G.GetOp("View_3");
         std::vector<int64_t> offset3 = {0, 256};
-        auto attr3 = std::make_shared<ViewOpAttribute>(offset3, MemoryType::MEM_UB);
+        auto attr3 = std::make_shared<ViewOpAttribute>(offset3, MemoryType::MEM_UNKNOWN);
         View_3->SetOpAttribute(attr3);
 
         // output 1 + output 2
@@ -239,13 +239,13 @@ public:
         G.AddTensor(DataType::DT_FP32, tiledShape3, "add_out");
         G.AddOp(Opcode::OP_ADD, {"tiledView_1", "tiledView_2"}, {"add_out"}, "Add");
         auto addOut = G.GetTensor("add_out");
-        addOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+        addOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
 
         G.AddTensor(DataType::DT_FP32, tiledShape3, "out1");
         auto out1 = G.GetTensor("out1");
-        out1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+        out1->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
         G.AddOp(Opcode::OP_ASSEMBLE, {"add_out"}, {"out1"}, "Assemble_1");
-        auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, std::vector<int64_t> {0, 0});
+        auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
         auto assemble1 = G.GetOp("Assemble_1");
         assemble1->SetOpAttribute(attrAssemble1);
 
@@ -254,13 +254,13 @@ public:
         G.AddTensor(DataType::DT_FP32, tiledShape4, "exp_out");
         G.AddOp(Opcode::OP_EXP, {"tiledView_3"}, {"exp_out"}, "Exp");
         auto expOut = G.GetTensor("exp_out");
-        expOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
-        
+        expOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+
         G.AddTensor(DataType::DT_FP32, tiledShape4, "out2");
         auto out2 = G.GetTensor("out2");
-        out2->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+        out2->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
         G.AddOp(Opcode::OP_ASSEMBLE, {"exp_out"}, {"out2"}, "Assemble_2");
-        auto attrAssemble2 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, std::vector<int64_t> {0, 0});
+        auto attrAssemble2 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
         auto assemble2 = G.GetOp("Assemble_2");
         assemble2->SetOpAttribute(attrAssemble2);
 
@@ -314,15 +314,15 @@ TEST_F(SplitLargeFanoutTensorTest, BeCovered_Full) {
     G.AddTensor(DataType::DT_FP32, shape1, "a"); // [128, 512]
     auto a = G.GetTensor("a");
     a->UpdateDynValidShape(dynShapeA);
-    a->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    a->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddTensor(DataType::DT_FP32, tiledShape1, "tiledA"); // [32, 512]
     auto tiledA = G.GetTensor("tiledA");
     tiledA->UpdateDynValidShape(dynShapeA);
-    tiledA->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    tiledA->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_VIEW, {"a"}, {"tiledA"}, "View_A");
     auto View_A =  G.GetOp("View_A");
     std::vector<int64_t> offsetA = {NUM_64, 0};
-    auto attrA = std::make_shared<ViewOpAttribute>(offsetA, MemoryType::MEM_DEVICE_DDR);
+    auto attrA = std::make_shared<ViewOpAttribute>(offsetA, MemoryType::MEM_UNKNOWN);
     View_A->SetOpAttribute(attrA);
 
     // [128, 64] --> View(64, 0) --> [32, 64]
@@ -330,27 +330,27 @@ TEST_F(SplitLargeFanoutTensorTest, BeCovered_Full) {
     G.AddTensor(DataType::DT_FP32, shape0, "b"); // [128, 64]
     auto b = G.GetTensor("b");
     b->UpdateDynValidShape(dynShapeB);
-    b->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    b->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddTensor(DataType::DT_FP32, tiledShape0, "tiledB"); // [32, 64]
     auto tiledB = G.GetTensor("tiledB");
     tiledB->UpdateDynValidShape(dynShapeB);
-    tiledB->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    tiledB->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_VIEW, {"b"}, {"tiledB"}, "View_B");
     auto View_B =  G.GetOp("View_B");
     std::vector<int64_t> offsetB = {NUM_64, 0};
-    auto attrB = std::make_shared<ViewOpAttribute>(offsetB, MemoryType::MEM_DEVICE_DDR);
+    auto attrB = std::make_shared<ViewOpAttribute>(offsetB, MemoryType::MEM_UNKNOWN);
     View_B->SetOpAttribute(attrB);
 
     // [32, 512] concat [32, 64] -->  [32, 576]
     G.AddTensor(DataType::DT_FP32, tiledShape2, "tiledConcat"); // [32, 512] + [32, 64] --> [32, 576]
     auto tiledConcat = G.GetTensor("tiledConcat");
-    tiledConcat->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    tiledConcat->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_ASSEMBLE, {"tiledA"}, {"tiledConcat"}, "Assemble_A");
-    auto attrAssembleA = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t> {0, 0});
+    auto attrAssembleA = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
     auto assembleA = G.GetOp("Assemble_A");
     assembleA->SetOpAttribute(attrAssembleA);
     G.AddOp(Opcode::OP_ASSEMBLE, {"tiledB"}, {"tiledConcat"}, "Assemble_B");
-    auto attrAssembleB = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t> {0, NUM_512});
+    auto attrAssembleB = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, NUM_512});
     auto assembleB = G.GetOp("Assemble_B");
     assembleB->SetOpAttribute(attrAssembleB);
 
@@ -358,33 +358,33 @@ TEST_F(SplitLargeFanoutTensorTest, BeCovered_Full) {
     // [32, 576] --> View(0, 0) --> [32, 256]
     G.AddTensor(DataType::DT_FP32, tiledShape3, "tiledView_1");
     auto tiledView_1 = G.GetTensor("tiledView_1");
-    tiledView_1->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    tiledView_1->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_VIEW, {"tiledConcat"}, {"tiledView_1"}, "View_1");
     auto View_1 =  G.GetOp("View_1");
     std::vector<int64_t> offset1 = {0, 0};
-    auto attr1 = std::make_shared<ViewOpAttribute>(offset1, MemoryType::MEM_UB);
+    auto attr1 = std::make_shared<ViewOpAttribute>(offset1, MemoryType::MEM_UNKNOWN);
     View_1->SetOpAttribute(attr1);
 
     // part 2: BeCovered
     // [32, 576] --> View(0, 256) --> [32, 256]
     G.AddTensor(DataType::DT_FP32, tiledShape3, "tiledView_2");
     auto tiledView_2 = G.GetTensor("tiledView_2");
-    tiledView_2->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    tiledView_2->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_VIEW, {"tiledConcat"}, {"tiledView_2"}, "View_2");
     auto View_2 =  G.GetOp("View_2");
     std::vector<int64_t> offset2 = {0, NUM_256};
-    auto attr2 = std::make_shared<ViewOpAttribute>(offset2, MemoryType::MEM_UB);
+    auto attr2 = std::make_shared<ViewOpAttribute>(offset2, MemoryType::MEM_UNKNOWN);
     View_2->SetOpAttribute(attr2);
 
     // part 3: Perfectly Match
     // [32, 576] --> View(0, 512) --> [32, 64]
     G.AddTensor(DataType::DT_FP32, tiledShape0, "tiledView_3");
     auto tiledView_3 = G.GetTensor("tiledView_3");
-    tiledView_3->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    tiledView_3->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_VIEW, {"tiledConcat"}, {"tiledView_3"}, "View_3");
     auto View_3 =  G.GetOp("View_3");
     std::vector<int64_t> offset3 = {0, NUM_512};
-    auto attr3 = std::make_shared<ViewOpAttribute>(offset3, MemoryType::MEM_UB);
+    auto attr3 = std::make_shared<ViewOpAttribute>(offset3, MemoryType::MEM_UNKNOWN);
     View_3->SetOpAttribute(attr3);
 
     // part1 + part2
@@ -392,13 +392,13 @@ TEST_F(SplitLargeFanoutTensorTest, BeCovered_Full) {
     G.AddTensor(DataType::DT_FP32, tiledShape3, "add_out");
     G.AddOp(Opcode::OP_ADD, {"tiledView_1", "tiledView_2"}, {"add_out"}, "Add");
     auto addOut = G.GetTensor("add_out");
-    addOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    addOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
 
     G.AddTensor(DataType::DT_FP32, tiledShape3, "out1");
     auto out1 = G.GetTensor("out1");
-    out1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    out1->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_ASSEMBLE, {"add_out"}, {"out1"}, "Assemble_1");
-    auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, std::vector<int64_t> {0, 0});
+    auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
     auto assemble1 = G.GetOp("Assemble_1");
     assemble1->SetOpAttribute(attrAssemble1);
 
@@ -407,13 +407,13 @@ TEST_F(SplitLargeFanoutTensorTest, BeCovered_Full) {
     G.AddTensor(DataType::DT_FP32, tiledShape0, "exp_out");
     G.AddOp(Opcode::OP_EXP, {"tiledView_3"}, {"exp_out"}, "Exp");
     auto expOut = G.GetTensor("exp_out");
-    expOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    expOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
 
     G.AddTensor(DataType::DT_FP32, tiledShape0, "out2");
     auto out2 = G.GetTensor("out2");
-    out2->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    out2->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_ASSEMBLE, {"exp_out"}, {"out2"}, "Assemble_2");
-    auto attrAssemble2 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, std::vector<int64_t> {0, 0});
+    auto attrAssemble2 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
     auto assemble2 = G.GetOp("Assemble_2");
     assemble2->SetOpAttribute(attrAssemble2);
 
@@ -439,7 +439,7 @@ TEST_F(SplitLargeFanoutTensorTest, BeCovered_Full) {
         }
         auto viewAttr = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
         MemoryType toType = viewAttr->GetTo();
-        if (toType != MemoryType::MEM_UB) {
+        if (toType != MemoryType::MEM_UNKNOWN) {
             continue;
         }
         viewOpToUbBfore.insert({op.GetOpMagic(), viewAttr->GetFromOffset()});
@@ -474,7 +474,7 @@ TEST_F(SplitLargeFanoutTensorTest, BeCovered_Full) {
         }
         auto viewAttr = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
         MemoryType toType = viewAttr->GetTo();
-        if (toType != MemoryType::MEM_UB) {
+        if (toType != MemoryType::MEM_UNKNOWN) {
             continue;
         }
         EXPECT_NE(viewOpToUbBfore.find(op.GetOpMagic()), viewOpToUbBfore.end());
@@ -507,7 +507,7 @@ TEST_F(SplitLargeFanoutTensorTest, MtoM) {
     constexpr int opNumBefore = 15;
     constexpr int viewNumBefore = 7;
     constexpr int assembleNumBefore = 6;
-    
+
     auto countResultBefore = CountViewAssemble(*function);
     int viewNumCount = countResultBefore[0];
     int assembleNumCount = countResultBefore[1];
@@ -565,7 +565,7 @@ TEST_F(SplitLargeFanoutTensorTest, MtoMtoMoreSplit) {
     constexpr int opNumBefore = 15;
     constexpr int viewNumBefore = 7;
     constexpr int assembleNumBefore = 6;
-    
+
     auto countResultBefore = CountViewAssemble(*function);
     int viewNumCount = countResultBefore[0];
     int assembleNumCount = countResultBefore[1];
@@ -635,39 +635,39 @@ TEST_F(SplitLargeFanoutTensorTest, Unmatched) {
     // [16, 16] --> View --> [8, 8] --> Sub --> [8, 8] --> Assemble --> [16, 16]
     TileExpandSub(G, N, T);
     auto subOut = G.GetTensor("sub_out");
-    subOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    subOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
 
     //  [16, 16] --> View --> [4, 16] --> Exp --> [4, 16]  --> [16, 16]
     for (int i = 0; i < T / N; i++) {
         // View
         G.AddTensor(DataType::DT_FP32, shape3, "viewOut_" + std::to_string(i));
         auto viewOut = G.GetTensor("viewOut_" + std::to_string(i));
-        viewOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+        viewOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
         G.AddOp(Opcode::OP_VIEW, {"sub_out"}, {"viewOut_" + std::to_string(i)}, "View_" + std::to_string(i));
         auto viewOp =  G.GetOp("View_" + std::to_string(i));
         std::vector<int64_t> offset = {i * T / N, 0};
-        auto attr = std::make_shared<ViewOpAttribute>(offset, MemoryType::MEM_UB);
+        auto attr = std::make_shared<ViewOpAttribute>(offset, MemoryType::MEM_UNKNOWN);
         viewOp->SetOpAttribute(attr);
 
         // Exp
         G.AddTensor(DataType::DT_FP32, shape3, "expOut_" + std::to_string(i));
         auto expOut = G.GetTensor("expOut_" + std::to_string(i));
-        expOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+        expOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
         G.AddOp(Opcode::OP_EXP, {"viewOut_" + std::to_string(i)}, {"expOut_" + std::to_string(i)}, "Exp_" + std::to_string(i));
 
         // Assemble
         G.AddOp(Opcode::OP_ASSEMBLE, {"expOut_" + std::to_string(i)}, {"out"}, "AssembleFinal_" + std::to_string(i));
-        auto attrAssemble = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, std::vector<int64_t> {i * T / N, 0});
+        auto attrAssemble = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {i * T / N, 0});
         auto assembleOp = G.GetOp("AssembleFinal_" + std::to_string(i));
         assembleOp->SetOpAttribute(attrAssemble);
     }
 
     auto a = G.GetTensor("a");
-    a->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    a->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     auto b = G.GetTensor("b");
-    b->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    b->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     auto out = G.GetTensor("out");
-    out->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    out->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
 
     G.SetInCast({"a", "b"});
     G.SetOutCast({"out"});
@@ -714,26 +714,26 @@ TEST_F(SplitLargeFanoutTensorTest, PerfectlyMatchWithAll_Full) {
     // [16, 16] --> View --> [8, 8] --> Sub --> [8, 8] --> Assemble --> [16, 16]
     TileExpandSub(G, N, T);
     auto subOut = G.GetTensor("sub_out");
-    subOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    subOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
 
     // View 获取 [16, 16] 左半边 [16, 8]
     G.AddTensor(DataType::DT_FP32, shape2, "sub_out_left");
     auto subOutLeft = G.GetTensor("sub_out_left");
-    subOutLeft->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    subOutLeft->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_VIEW, {"sub_out"}, {"sub_out_left"}, "View_Left");
     auto View_Left =  G.GetOp("View_Left");
     std::vector<int64_t> offsetLeft = {0, 0};
-    auto attrLeft = std::make_shared<ViewOpAttribute>(offsetLeft, MemoryType::MEM_UB);
+    auto attrLeft = std::make_shared<ViewOpAttribute>(offsetLeft, MemoryType::MEM_UNKNOWN);
     View_Left->SetOpAttribute(attrLeft);
 
     // View 获取 [16, 16] 右半边 [16, 8]
     G.AddTensor(DataType::DT_FP32, shape2, "sub_out_right");
     auto subOutRight = G.GetTensor("sub_out_right");
-    subOutRight->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    subOutRight->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_VIEW, {"sub_out"}, {"sub_out_right"}, "View_Right");
     auto View_UR =  G.GetOp("View_Right");
     std::vector<int64_t> offsetRight = {0, T};
-    auto attrUR = std::make_shared<ViewOpAttribute>(offsetRight, MemoryType::MEM_UB);
+    auto attrUR = std::make_shared<ViewOpAttribute>(offsetRight, MemoryType::MEM_UNKNOWN);
     View_UR->SetOpAttribute(attrUR);
 
     // 左半边 [16, 8] + 右半边 [16, 8]
@@ -741,18 +741,18 @@ TEST_F(SplitLargeFanoutTensorTest, PerfectlyMatchWithAll_Full) {
     G.AddTensor(DataType::DT_FP32, shape2, "add_out");
     G.AddOp(Opcode::OP_ADD, {"sub_out_right", "sub_out_left"}, {"add_out"}, "Add");
     auto addOut = G.GetTensor("add_out");
-    addOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    addOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     addOut->UpdateDynValidShape(subDynShape);
 
     G.AddOp(Opcode::OP_ASSEMBLE, {"add_out"}, {"out"}, "Assemble_final");
-    auto attrAssembleFinal = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, std::vector<int64_t> {0, 0});
+    auto attrAssembleFinal = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
     auto Op = G.GetOp("Assemble_final");
     Op->SetOpAttribute(attrAssembleFinal);
 
     auto a = G.GetTensor("a");
-    a->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    a->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     auto b = G.GetTensor("b");
-    b->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    b->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     auto out = G.GetTensor("out");
     out->UpdateDynValidShape(subDynShape);
 
@@ -826,45 +826,45 @@ TEST_F(SplitLargeFanoutTensorTest, PerfectlyMatch_Full) {
     // [16, 16] --> View --> [8, 8] --> Sub --> [8, 8] --> Assemble --> [16, 16]
     TileExpandSub(G, N, T);
     auto subOut = G.GetTensor("sub_out");
-    subOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    subOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
 
     // View 获取 [16, 16] 左上角 [8, 8]
     G.AddTensor(DataType::DT_FP32, shape1, "sub_out_upper_right");
     auto subOutUR = G.GetTensor("sub_out_upper_right");
-    subOutUR->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    subOutUR->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_VIEW, {"sub_out"}, {"sub_out_upper_right"}, "View_Upper_Right");
     auto View_UR =  G.GetOp("View_Upper_Right");
     std::vector<int64_t> offsetUR = {0, T};
-    auto attrUR = std::make_shared<ViewOpAttribute>(offsetUR, MemoryType::MEM_UB);
+    auto attrUR = std::make_shared<ViewOpAttribute>(offsetUR, MemoryType::MEM_UNKNOWN);
     View_UR->SetOpAttribute(attrUR);
 
     // View 获取 [16, 16] 右上角 [8, 8]
     G.AddTensor(DataType::DT_FP32, shape1, "sub_out_lower_left");
     auto subOutLL = G.GetTensor("sub_out_lower_left");
-    subOutLL->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    subOutLL->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_VIEW, {"sub_out"}, {"sub_out_lower_left"}, "View_Lower_Left");
     auto View_LL =  G.GetOp("View_Lower_Left");
     std::vector<int64_t> offsetLL = {T, 0};
-    auto attrLL = std::make_shared<ViewOpAttribute>(offsetLL, MemoryType::MEM_UB);
+    auto attrLL = std::make_shared<ViewOpAttribute>(offsetLL, MemoryType::MEM_UNKNOWN);
     View_LL->SetOpAttribute(attrLL);
 
     // 左上角 [8, 8] + 右上角 [8, 8] --> [8, 8]
     G.AddTensor(DataType::DT_FP32, shape1, "add_out");
     G.AddOp(Opcode::OP_ADD, {"sub_out_upper_right", "sub_out_lower_left"}, {"add_out"}, "Add");
     auto addOut = G.GetTensor("add_out");
-    addOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    addOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
 
     G.AddOp(Opcode::OP_ASSEMBLE, {"add_out"}, {"out"}, "Assemble_final");
-    auto attrAssembleFinal = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, std::vector<int64_t> {0, 0});
+    auto attrAssembleFinal = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
     auto Op = G.GetOp("Assemble_final");
     Op->SetOpAttribute(attrAssembleFinal);
 
     auto a = G.GetTensor("a");
-    a->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    a->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     auto b = G.GetTensor("b");
-    b->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    b->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     auto out = G.GetTensor("out");
-    out->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    out->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
 
     G.SetInCast({"a", "b"});
     G.SetOutCast({"out"});
@@ -916,57 +916,57 @@ TEST_F(SplitLargeFanoutTensorTest, PerfectlyMatch_Full_V2) {
     // [16, 16] --> View --> [8, 8] --> Sub --> [8, 8] --> Assemble --> [16, 16]
     TileExpandSub(G, N, T);
     auto subOut = G.GetTensor("sub_out");
-    subOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    subOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
 
     // [16, 16] --> exp --> [16, 16] --> Assemble --> OCAST
     G.AddTensor(DataType::DT_FP32, shape0, "expOut");
     auto expOut = G.GetTensor("expOut");
-    expOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    expOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_EXP, {"sub_out"}, {"expOut"}, "Exp");
     G.AddOp(Opcode::OP_ASSEMBLE, {"expOut"}, {"out2"}, "Assemble_exp");
-    auto attrAssembleExp = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, std::vector<int64_t> {0, 0});
+    auto attrAssembleExp = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
     auto assembleExp = G.GetOp("Assemble_exp");
     assembleExp->SetOpAttribute(attrAssembleExp);
 
     // View 获取 [16, 16] 左上角 [8, 8]
     G.AddTensor(DataType::DT_FP32, shape1, "sub_out_upper_right");
     auto subOutUR = G.GetTensor("sub_out_upper_right");
-    subOutUR->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    subOutUR->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_VIEW, {"sub_out"}, {"sub_out_upper_right"}, "View_Upper_Right");
     auto View_UR =  G.GetOp("View_Upper_Right");
     std::vector<int64_t> offsetUR = {0, T};
-    auto attrUR = std::make_shared<ViewOpAttribute>(offsetUR, MemoryType::MEM_UB);
+    auto attrUR = std::make_shared<ViewOpAttribute>(offsetUR, MemoryType::MEM_UNKNOWN);
     View_UR->SetOpAttribute(attrUR);
 
     // View 获取 [16, 16] 右上角 [8, 8]
     G.AddTensor(DataType::DT_FP32, shape1, "sub_out_lower_left");
     auto subOutLL = G.GetTensor("sub_out_lower_left");
-    subOutLL->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    subOutLL->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_VIEW, {"sub_out"}, {"sub_out_lower_left"}, "View_Lower_Left");
     auto View_LL =  G.GetOp("View_Lower_Left");
     std::vector<int64_t> offsetLL = {T, 0};
-    auto attrLL = std::make_shared<ViewOpAttribute>(offsetLL, MemoryType::MEM_UB);
+    auto attrLL = std::make_shared<ViewOpAttribute>(offsetLL, MemoryType::MEM_UNKNOWN);
     View_LL->SetOpAttribute(attrLL);
 
     // 左上角 [8, 8] + 右上角 [8, 8] --> [8, 8]
     G.AddTensor(DataType::DT_FP32, shape1, "add_out");
     G.AddOp(Opcode::OP_ADD, {"sub_out_upper_right", "sub_out_lower_left"}, {"add_out"}, "Add");
     auto addOut = G.GetTensor("add_out");
-    addOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    addOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
 
     G.AddOp(Opcode::OP_ASSEMBLE, {"add_out"}, {"out"}, "Assemble_final");
-    auto attrAssembleFinal = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, std::vector<int64_t> {0, 0});
+    auto attrAssembleFinal = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
     auto Op = G.GetOp("Assemble_final");
     Op->SetOpAttribute(attrAssembleFinal);
 
     auto a = G.GetTensor("a");
-    a->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    a->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     auto b = G.GetTensor("b");
-    b->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    b->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     auto out = G.GetTensor("out");
-    out->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    out->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     auto out2 = G.GetTensor("out2");
-    out2->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    out2->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
 
     G.SetInCast({"a", "b"});
     G.SetOutCast({"out", "out2"});
@@ -1012,19 +1012,19 @@ TEST_F(SplitLargeFanoutTensorTest, OneViewOneAssemble) {
     ComputationalGraphBuilder G;
     G.AddTensor(DataType::DT_FP32, shape0, "a");
     auto a = G.GetTensor("a");
-    a->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    a->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddTensor(DataType::DT_FP32, shape2, "out");
     auto out = G.GetTensor("out");
-    out->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    out->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
 
     // a[128, 64] --> View(0, 0) --> a_ub[128, 64]
     G.AddTensor(DataType::DT_FP32, shape0, "a_ub");
     auto a_ub = G.GetTensor("a_ub");
-    a_ub->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    a_ub->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_VIEW, {"a"}, {"a_ub"}, "View_To_Ub");
     auto view2ub =  G.GetOp("View_To_Ub");
     std::vector<int64_t> offset2ub = {0, 0};
-    auto attr2ub = std::make_shared<ViewOpAttribute>(offset2ub, MemoryType::MEM_UB);
+    auto attr2ub = std::make_shared<ViewOpAttribute>(offset2ub, MemoryType::MEM_UNKNOWN);
     view2ub->SetOpAttribute(attr2ub);
 
     /*
@@ -1033,40 +1033,40 @@ TEST_F(SplitLargeFanoutTensorTest, OneViewOneAssemble) {
     */
     G.AddTensor(DataType::DT_FP32, shape1, "tensor1");
     auto tensor1 = G.GetTensor("tensor1");
-    tensor1->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    tensor1->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_VIEW, {"a_ub"}, {"tensor1"}, "View_1");
     auto viewOp1 =  G.GetOp("View_1");
     std::vector<int64_t> offset1 = {NUM_32, 0};
-    auto attrView1 = std::make_shared<ViewOpAttribute>(offset1, MemoryType::MEM_UB);
+    auto attrView1 = std::make_shared<ViewOpAttribute>(offset1, MemoryType::MEM_UNKNOWN);
     viewOp1->SetOpAttribute(attrView1);
 
     G.AddTensor(DataType::DT_FP32, shape1, "tensor2");
     auto tensor2 = G.GetTensor("tensor2");
-    tensor2->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    tensor2->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_VIEW, {"a_ub"}, {"tensor2"}, "View_2");
     auto viewOp2 =  G.GetOp("View_2");
     std::vector<int64_t> offset2 = {NUM_96, 0};
-    auto attrView2 = std::make_shared<ViewOpAttribute>(offset2, MemoryType::MEM_UB);
+    auto attrView2 = std::make_shared<ViewOpAttribute>(offset2, MemoryType::MEM_UNKNOWN);
     viewOp2->SetOpAttribute(attrView2);
 
     G.AddTensor(DataType::DT_FP32, shape2, "tensor3");
     auto tensor3 = G.GetTensor("tensor3");
-    tensor3->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    tensor3->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_ASSEMBLE, {"tensor1"}, {"tensor3"}, "Assemble_1");
-    auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, std::vector<int64_t> {0, 0});
+    auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
     auto assembleOp1 = G.GetOp("Assemble_1");
     assembleOp1->SetOpAttribute(attrAssemble1);
     G.AddOp(Opcode::OP_ASSEMBLE, {"tensor2"}, {"tensor3"}, "Assemble_2");
-    auto attrAssemble2 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, std::vector<int64_t> {NUM_32, 0});
+    auto attrAssemble2 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {NUM_32, 0});
     auto assembleOp2 = G.GetOp("Assemble_2");
     assembleOp2->SetOpAttribute(attrAssemble2);
 
     G.AddTensor(DataType::DT_FP32, shape2, "tensor4");
     auto tensor4 = G.GetTensor("tensor4");
-    tensor4->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    tensor4->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_EXP, {"tensor3"}, {"tensor4"}, "Exp");
     G.AddOp(Opcode::OP_ASSEMBLE, {"tensor4"}, {"out"}, "Assemble_Final");
-    auto attrAssembleFinal = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, std::vector<int64_t> {0, 0});
+    auto attrAssembleFinal = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
     auto assembleFinal = G.GetOp("Assemble_Final");
     assembleFinal->SetOpAttribute(attrAssembleFinal);
 
@@ -1116,26 +1116,26 @@ TEST_F(SplitLargeFanoutTensorTest, OneViewMultiAssemble) {
     ComputationalGraphBuilder G;
     G.AddTensor(DataType::DT_FP32, shape1, "a");
     auto a = G.GetTensor("a");
-    a->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    a->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddTensor(DataType::DT_FP32, shape1, "out1");
     auto out1 = G.GetTensor("out1");
-    out1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    out1->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddTensor(DataType::DT_FP32, shape2, "out2");
     auto out2 = G.GetTensor("out2");
-    out2->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    out2->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
 
     // a[64, 64] --> View(0, 0) --> a_ub[64, 64] --> Muls --> a_ub_new[64, 64]
     G.AddTensor(DataType::DT_FP32, shape1, "a_ub");
     auto a_ub = G.GetTensor("a_ub");
-    a_ub->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    a_ub->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_VIEW, {"a"}, {"a_ub"}, "View_To_Ub");
     auto view2ub =  G.GetOp("View_To_Ub");
     std::vector<int64_t> offset2ub = {0, 0};
-    auto attr2ub = std::make_shared<ViewOpAttribute>(offset2ub, MemoryType::MEM_UB);
+    auto attr2ub = std::make_shared<ViewOpAttribute>(offset2ub, MemoryType::MEM_UNKNOWN);
     view2ub->SetOpAttribute(attr2ub);
     G.AddTensor(DataType::DT_FP32, shape1, "a_ub_new");
     auto a_ub_new = G.GetTensor("a_ub_new");
-    a_ub_new->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    a_ub_new->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_MULS, {"a_ub"}, {"a_ub_new"}, "Muls");
 
     /*
@@ -1144,40 +1144,40 @@ TEST_F(SplitLargeFanoutTensorTest, OneViewMultiAssemble) {
     */
     G.AddTensor(DataType::DT_FP32, shape0, "tensor1");
     auto tensor1 = G.GetTensor("tensor1");
-    tensor1->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    tensor1->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_VIEW, {"a_ub_new"}, {"tensor1"}, "View_1");
     auto viewOp1 =  G.GetOp("View_1");
     std::vector<int64_t> offset1 = {0, 0};
-    auto attrView1 = std::make_shared<ViewOpAttribute>(offset1, MemoryType::MEM_UB);
+    auto attrView1 = std::make_shared<ViewOpAttribute>(offset1, MemoryType::MEM_UNKNOWN);
     viewOp1->SetOpAttribute(attrView1);
 
     G.AddTensor(DataType::DT_FP32, shape0, "tensor2");
     auto tensor2 = G.GetTensor("tensor2");
-    tensor2->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    tensor2->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_VIEW, {"a_ub_new"}, {"tensor2"}, "View_2");
     auto viewOp2 =  G.GetOp("View_2");
     std::vector<int64_t> offset2 = {NUM_32, 0};
-    auto attrView2 = std::make_shared<ViewOpAttribute>(offset2, MemoryType::MEM_UB);
+    auto attrView2 = std::make_shared<ViewOpAttribute>(offset2, MemoryType::MEM_UNKNOWN);
     viewOp2->SetOpAttribute(attrView2);
 
     G.AddTensor(DataType::DT_FP32, shape1, "tensor3");
     auto tensor3 = G.GetTensor("tensor3");
-    tensor3->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    tensor3->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_ASSEMBLE, {"tensor1"}, {"tensor3"}, "Assemble_1");
-    auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, std::vector<int64_t> {0, 0});
+    auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
     auto assembleOp1 = G.GetOp("Assemble_1");
     assembleOp1->SetOpAttribute(attrAssemble1);
     G.AddOp(Opcode::OP_ASSEMBLE, {"tensor2"}, {"tensor3"}, "Assemble_2");
-    auto attrAssemble2 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, std::vector<int64_t> {NUM_32, 0});
+    auto attrAssemble2 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {NUM_32, 0});
     auto assembleOp2 = G.GetOp("Assemble_2");
     assembleOp2->SetOpAttribute(attrAssemble2);
 
     G.AddTensor(DataType::DT_FP32, shape1, "tensor4");
     auto tensor4 = G.GetTensor("tensor4");
-    tensor4->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    tensor4->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_EXP, {"tensor3"}, {"tensor4"}, "Exp");
     G.AddOp(Opcode::OP_ASSEMBLE, {"tensor4"}, {"out1"}, "Assemble_Out1");
-    auto attrAssembleOut1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, std::vector<int64_t> {0, 0});
+    auto attrAssembleOut1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
     auto assembleOut1 = G.GetOp("Assemble_Out1");
     assembleOut1->SetOpAttribute(attrAssembleOut1);
 
@@ -1187,22 +1187,22 @@ TEST_F(SplitLargeFanoutTensorTest, OneViewMultiAssemble) {
     */
     G.AddTensor(DataType::DT_FP32, shape2, "tensor5");
     auto tensor5 = G.GetTensor("tensor5");
-    tensor5->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    tensor5->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_ASSEMBLE, {"tensor1"}, {"tensor5"}, "Assemble_3");
-    auto attrAssemble3 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, std::vector<int64_t> {0, 0});
+    auto attrAssemble3 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
     auto assembleOp3 = G.GetOp("Assemble_3");
     assembleOp3->SetOpAttribute(attrAssemble3);
     G.AddOp(Opcode::OP_ASSEMBLE, {"tensor2"}, {"tensor5"}, "Assemble_4");
-    auto attrAssemble4 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, std::vector<int64_t> {0, NUM_64});
+    auto attrAssemble4 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, NUM_64});
     auto assembleOp4 = G.GetOp("Assemble_4");
     assembleOp4->SetOpAttribute(attrAssemble4);
 
     G.AddTensor(DataType::DT_FP32, shape2, "tensor6");
     auto tensor6 = G.GetTensor("tensor6");
-    tensor6->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    tensor6->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_ABS, {"tensor5"}, {"tensor6"}, "Abs");
     G.AddOp(Opcode::OP_ASSEMBLE, {"tensor6"}, {"out2"}, "Assemble_Out2");
-    auto attrAssembleOut2 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, std::vector<int64_t> {0, 0});
+    auto attrAssembleOut2 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
     auto assembleOut2 = G.GetOp("Assemble_Out2");
     assembleOut2->SetOpAttribute(attrAssembleOut2);
 

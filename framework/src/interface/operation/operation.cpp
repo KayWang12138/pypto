@@ -498,6 +498,10 @@ std::shared_ptr<Operation> Operation::LoadJson(
             case Opcode::OP_CALL: opAttribute = DeserializeFrom<CallOpAttribute>(opDump, &cur); break;
             case Opcode::OP_CONVERT: opAttribute = DeserializeFrom<ConvertOpAttribute>(attrJson); break;
             case Opcode::OP_COPY_IN:
+            case Opcode::OP_L1_TO_L0A:
+            case Opcode::OP_L1_TO_L0B:
+            case Opcode::OP_L1_TO_L0_AT:
+            case Opcode::OP_L1_TO_L0_BT:
             case Opcode::OP_COPY_OUT: opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson); break;
             case Opcode::OP_TRANSPOSE_MOVEIN: opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson); break;
             case Opcode::OP_TRANSPOSE_MOVEOUT: opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson); break;

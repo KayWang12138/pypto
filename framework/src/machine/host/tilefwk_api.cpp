@@ -189,6 +189,7 @@ bool TileOpCompile(const std::string &opType, const uint64_t configKey, const st
     config::SetHostConfig(KEY_DUMP_BIN_AND_JSON, true);
     config::SetHostConfig(KEY_DUMP_BIN_AND_JSON_PATH, dumpPath);
     config::SetHostConfig(KEY_DUMP_KERNEL_NAME, kernelName);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetHostOption(ONLY_CODEGEN, true);
 
     OpImplFunc opFunc = OpImplRegistry::GetInstance().GetOpImplFunc(opType, configKey);

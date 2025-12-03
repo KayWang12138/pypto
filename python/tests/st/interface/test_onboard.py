@@ -168,6 +168,8 @@ def matmul_add(in_tensors, out_tensors, m, k, n, tiling = None):
     b = in_tensors[1]
     c = in_tensors[2]
     d = out_tensors[0]
+    pypto.set_codegen_options(support_dynamic_unaligned=True)
+    pypto.set_host_options(only_codegen=True)
     pypto.set_vec_tile_shapes(tiling, tiling)
     pypto.set_cube_tile_shapes([tiling, tiling], [tiling, tiling], [tiling, tiling])
     for _ in pypto.loop(1, name="s0", idx_name="i"):

@@ -23,7 +23,7 @@
 
 namespace npu::tile_fwk {
 Status DuplicateOp::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(Elements::Function, 
+    APASS_LOG_INFO_F(Elements::Function,
     "===> Start DuplicateOp for function [%s].", function.GetRawName().c_str());
     if (Process(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "Process failed.");
@@ -77,7 +77,8 @@ Status DuplicateOp::ProcessGatherIn(Function &function, Operation &operation) co
 
 Status DuplicateOp::ProcessView(Function &function, Operation &operation) const {
     auto viewAttr = dynamic_cast<ViewOpAttribute *>(operation.GetOpAttribute().get());
-    if (viewAttr != nullptr && viewAttr->GetTo() == MEM_L1) {
+    if (viewAttr != nullptr &&
+        (viewAttr->GetTo() == MEM_L1 || viewAttr->GetTo() == MEM_BT || viewAttr->GetTo() == MEM_FIX_QUANT_PRE)) {
         return SUCCESS;
     }
     auto iOperand = operation.iOperand[0];

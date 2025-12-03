@@ -189,6 +189,7 @@ TEST_F(DynamicPATest, dynamic_pa_low_lantency) {
 TEST_F(DynamicPATest, dynamic_pa_low_lantency_imm_scalar) {
     std::vector<std::string> funcName = {"TENSOR_main"};
     config::SetPassConfig("FunctionUnroll", "LoopUnroll", "CONVERT_TO_STATIC", funcName);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     PaTileShapeConfig tileConfig;
     const int nTile = 32;
     const int blockSize = 256;
@@ -251,6 +252,7 @@ TEST_F(DynamicPATest, dynamic_pa_low_lantency_dyn_valid_shape) {
 }
 
 TEST_F(DynamicPATest, dynamic_pa_high_throughput_dview_large) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     PaTileShapeConfig tileConfig;
     const int nTile = 128;
     tileConfig.headNumQTile = nTile;
@@ -264,6 +266,7 @@ TEST_F(DynamicPATest, dynamic_pa_high_throughput_dview_large) {
 }
 
 TEST_F(DynamicPATest, dynamic_pa_high_throughput_only_batch_loop) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     PaTileShapeConfig tileConfig;
     const int nTile = 128;
     tileConfig.headNumQTile = nTile;

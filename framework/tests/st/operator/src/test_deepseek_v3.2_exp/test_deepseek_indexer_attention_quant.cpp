@@ -60,8 +60,8 @@ void TestDeepSeekIndexerAttentionQuantSTest(DSIASimpleParams &params) {
     int topk = params.topk;
     std::string layoutKey = params.cacheMode;
 
-    std::cout << "====input param==== b sq nq nkv dn dr blockNum blockSize topk: " 
-                << b << " " << s1 << " " << n1 << " " << n2 << " " << dn << " " << dr << " " << blockNum << " " << blockSize << " " << topk 
+    std::cout << "====input param==== b sq nq nkv dn dr blockNum blockSize topk: "
+                << b << " " << s1 << " " << n1 << " " << n2 << " " << dn << " " << dr << " " << blockNum << " " << blockSize << " " << topk
                 << std::endl;
 
     std::vector<int32_t> kvCacheActSeqVec(b);
@@ -352,6 +352,7 @@ TEST_F(DeepSeekIndexerAttentionQuantSTest, 4B_mtp) {
 }
 
 TEST_F(DeepSeekIndexerAttentionQuantSTest, 4B_mtp_perf) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     DSIASimpleParams params = DSIASimpleParams::getDecodeParams();
     test_common(params);
 }

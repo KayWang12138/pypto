@@ -30,7 +30,7 @@ public:
     static void SetUpTestCase() {}
 
     void SetUp() override
-    {   
+    {
         Distributed::TestFrameworkInit(testParam, hcomTestParam, physicalDeviceId);
         std::string folderPath = "output/output_" + getTimeStamp() + "_" + std::to_string(getpid());
         setenv("TILE_FWK_OUTPUT_DIR", folderPath.c_str(), 0);
@@ -119,6 +119,7 @@ TEST_F(DistributedTest, aivWaitFlag_single_test_moe_dispatch_bfloat16_8_7168_1_3
 
 TEST_F(DistributedTest, shmem_allgather_attn_post_reducescatter_bfloat16_64_1_32_256_128_128_4)
 {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetHostOption(ONLY_CODEGEN, true);
     Distributed::TestAllGatherAttentionPostReducescatter(testParam);
 }

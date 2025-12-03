@@ -117,7 +117,6 @@ TILEOP void DynL1CopyInNZ2NZ(__cbuf__ L1T *dst, __gm__ GMT *src, unsigned TShape
     }
 }
 
-// Nz2Zz
 template <typename T, unsigned Offset0, unsigned Offset1>
 TILEOP void DynL1ToL0A(__ca__ T *dst, __cbuf__ T *src, unsigned dstM, unsigned dstK, unsigned srcM, unsigned srcK) {
     if (dstM == 0 || dstK == 0 || srcM == 0 || srcK == 0) {
@@ -136,7 +135,8 @@ TILEOP void DynL1ToL0A(__ca__ T *dst, __cbuf__ T *src, unsigned dstM, unsigned d
         dstK = CeilAlign<uint16_t>(dstK, BLOCK_CUBE_M_N);
         // LOAD3DV2 param: dstAddr, srcAddr, stepK, stepM, posK, posM, strideW, strideH, Wk, Hk, dilationW, dilationH,
         // filterW, filterH, transpose, fmatrixCtrl, sizeChannel
-        img2colv2_cbuf_to_ca(dst, src, dstK, dstM, 0, 0, 1, 1, 1, 1, 1, 1, false, false, false, false, srcK);
+        img2colv2_cbuf_to_ca(dst, src, dstK, dstM, Offset1, Offset0, 1, 1, 1, 1, 1, 1, false, false, false, false,
+                             srcK);
         return;
     }
 
@@ -172,11 +172,11 @@ TILEOP void DynL1ToL0At(__ca__ T *dst, __cbuf__ T *src, unsigned dstM, unsigned 
     srcK = CeilAlign<uint16_t>(srcK, BLOCK_CUBE_M_N);
 
     if constexpr (std::is_same<T, float>::value) {
-        uint64_t config = srcK | (1 << 16); // 16含义：featureH对应的寄存器偏移
+        uint64_t config = srcK | (1 << 16);  // 16含义：featureH对应的寄存器偏移
         set_fmatrix(config);
         // LOAD3DV2 param: dstAddr, srcAddr, stepK, stepM, posK, posM, strideW, strideH, Wk, Hk, dilationW, dilationH,
         // filterW, filterH, transpose, fmatrixCtrl, sizeChannel
-        img2colv2_cbuf_to_ca(dst, src, dstM, dstK, 0, 0, 1, 1, 1, 1, 1, 1, false, false, true, false, srcM);
+        img2colv2_cbuf_to_ca(dst, src, dstM, dstK, Offset1, Offset0, 1, 1, 1, 1, 1, 1, false, false, true, false, srcM);
         return;
     }
 
@@ -186,7 +186,7 @@ TILEOP void DynL1ToL0At(__ca__ T *dst, __cbuf__ T *src, unsigned dstM, unsigned 
         uint8_t repeat = dstK / c0Size;
         uint16_t dstFracStride = dstK / c0Size - 1;
         int32_t dstOffset = 0;
-        int32_t srcOffset = 0;
+        int32_t srcOffset = Offset0 * c0Size + Offset1 * srcK;
         int32_t dstOffsetStep = dstK * c0Size;
         int32_t srcOffsetStep = srcK * c0Size;
         for (int32_t mIdx = 0; mIdx < static_cast<int32_t>(dstM / c0Size); ++mIdx) {
@@ -231,7 +231,7 @@ TILEOP void DynL1ToL0B(__cb__ T *dst, __cbuf__ T *src, unsigned dstK, unsigned d
         set_fmatrix_b(config);
         // LOAD3DV2 param: dstAddr, srcAddr, stepK, stepM, posK, posM, strideW, strideH, Wk, Hk, dilationW, dilationH,
         // filterW, filterH, transpose, fmatrixCtrl, sizeChannel
-        img2colv2_cbuf_to_cb(dst, src, dstN, dstK, 0, 0, 1, 1, 1, 1, 1, 1, false, false, false, true, srcN);
+        img2colv2_cbuf_to_cb(dst, src, dstN, dstK, Offset1, Offset0, 1, 1, 1, 1, 1, 1, false, false, false, true, srcN);
         return;
     }
 
@@ -247,7 +247,7 @@ TILEOP void DynL1ToL0B(__cb__ T *dst, __cbuf__ T *src, unsigned dstK, unsigned d
         uint16_t dstStride = dstN / BLOCK_CUBE_M_N - 1;
         constexpr uint16_t dstFracStride = 0;
         int32_t dstOffset = 0;
-        int32_t srcOffset = 0;
+        int32_t srcOffset = Offset0 * BLOCK_ALIGN_BYTE + Offset1 * srcK;
         int32_t dstOffsetStep = BLOCK_ALIGN_BYTE * BLOCK_ALIGN_BYTE;
         int32_t srcOffsetStep = srcK * BLOCK_ALIGN_BYTE;
         for (int32_t nIdx = 0; nIdx < static_cast<int32_t>(dstN / BLOCK_ALIGN_BYTE); ++nIdx) {
@@ -494,6 +494,27 @@ TILEOP void GatherInL1(__cbuf__ T *dst, int64_t dstOriginShape0, int64_t dstOrig
         }
     }
     pipe_barrier(PIPE_ALL);
+}
+
+// Deprecated: Normal dynamic scene
+template <typename T, unsigned dstM, unsigned dstK, unsigned Offset0, unsigned Offset1, unsigned srcM, unsigned srcK>
+TILEOP void DynL1ToL0A(__ca__ T *dst, __cbuf__ T *src) {
+    DynL1ToL0A<T, Offset0, Offset1>(dst, src, dstM, dstK, srcM, srcK);
+}
+
+template <typename T, unsigned dstM, unsigned dstK, unsigned Offset0, unsigned Offset1, unsigned srcK, unsigned srcM>
+TILEOP void DynL1ToL0At(__ca__ T *dst, __cbuf__ T *src) {
+    DynL1ToL0At<T, Offset0, Offset1>(dst, src, dstM, dstK, srcK, srcM);
+}
+
+template <typename T, unsigned dstK, unsigned dstN, unsigned Offset0, unsigned Offset1, unsigned srcK, unsigned srcN>
+TILEOP void DynL1ToL0B(__cb__ T *dst, __cbuf__ T *src) {
+    DynL1ToL0B<T, Offset0, Offset1>(dst, src, dstK, dstN, srcK, srcN);
+}
+
+template <typename T, unsigned dstK, unsigned dstN, unsigned Offset0, unsigned Offset1, unsigned srcN, unsigned srcK>
+TILEOP void DynL1ToL0Bt(__cb__ T *dst, __cbuf__ T *src) {
+    DynL1ToL0Bt<T, Offset0, Offset1>(dst, src, dstK, dstN, srcN, srcK);
 }
 
 // Deprecated: L1 spill out scene

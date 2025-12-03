@@ -44,7 +44,7 @@ static IndexerShapeParams ReadParams(const RopeTileShapeConfig &ropeTileConfigs,
     std::vector<int32_t> input_param(paramsSize);
 
     IndexerShapeParams params;
-    
+
     params.b = NUM_28;
     params.seq = NUM_1;
     params.dim = NUM_7168;
@@ -91,11 +91,12 @@ TEST_F(DynamicLightningIndexerPrologUtest, utest_lightning_indexer_prolog) {
 
     auto params = ReadParams(ropeTileConfigs, indexerConfigs, -1);
     PerformanceConfig();
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetHostOption(ONLY_CODEGEN, true);
 
     // inputs
     DataType dType = DT_BF16;
-    
+
     int b = params.b;
     int seq = params.seq;
     int dim = params.dim;

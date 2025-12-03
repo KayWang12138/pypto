@@ -40,8 +40,9 @@ public:
 
 TEST_F(DynamicGenGatedScoreUtest, utest_gen_gated_score_plus_dyn) {
     std::vector<int64_t> bnsh = {4, 128, 4, 7168};
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetHostOption(ONLY_CODEGEN, true);
-    
+
     int64_t b = bnsh[0];
     int64_t n = bnsh[1];
     int64_t s = bnsh[2];
@@ -50,7 +51,7 @@ TEST_F(DynamicGenGatedScoreUtest, utest_gen_gated_score_plus_dyn) {
     DataType dType = DT_FP16;
 
     std::vector<int64_t> xShape = {b, s, h};
-    std::vector<int64_t> w1Shape = {h, h * 4}; 
+    std::vector<int64_t> w1Shape = {h, h * 4};
     std::vector<int64_t> w2Shape = {h * 4, n * 3};
     std::vector<int64_t> gatingScoreShape = {b, s, 3, n};
 
@@ -58,7 +59,7 @@ TEST_F(DynamicGenGatedScoreUtest, utest_gen_gated_score_plus_dyn) {
     Tensor w1(dType, w1Shape, "w1");
     Tensor w2(dType, w2Shape, "w2");
     Tensor gatingScore(dType, gatingScoreShape, "gatingScore");
-    
+
     FUNCTION("UTGENGATEDSCOREPLUS", {x, w1, w2}, {gatingScore}) {
         GenGatedScoreComputePrefillPlus(x, w1, w2, gatingScore);
     }
@@ -66,8 +67,9 @@ TEST_F(DynamicGenGatedScoreUtest, utest_gen_gated_score_plus_dyn) {
 
 TEST_F(DynamicGenGatedScoreUtest, utest_gen_gated_score_dyn) {
     std::vector<int64_t> bnsh = {4, 128, 4, 7168};
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetHostOption(ONLY_CODEGEN, true);
-    
+
     int64_t b = bnsh[0];
     int64_t n = bnsh[1];
     int64_t s = bnsh[2];
@@ -76,7 +78,7 @@ TEST_F(DynamicGenGatedScoreUtest, utest_gen_gated_score_dyn) {
     DataType dType = DT_FP16;
 
     std::vector<int64_t> xShape = {b, s, h};
-    std::vector<int64_t> w1Shape = {h, h * 4}; 
+    std::vector<int64_t> w1Shape = {h, h * 4};
     std::vector<int64_t> w2Shape = {h * 4, n * 3};
     std::vector<int64_t> gatingScoreShape = {b, s, 3, n};
 
@@ -84,7 +86,7 @@ TEST_F(DynamicGenGatedScoreUtest, utest_gen_gated_score_dyn) {
     Tensor w1(dType, w1Shape, "w1");
     Tensor w2(dType, w2Shape, "w2");
     Tensor gatingScore(dType, gatingScoreShape, "gatingScore");
-    
+
     FUNCTION("UTGENGATEDSCORE", {x, w1, w2}, {gatingScore}) {
         GenGatedScoreComputePrefill(x, w1, w2, gatingScore);
     }

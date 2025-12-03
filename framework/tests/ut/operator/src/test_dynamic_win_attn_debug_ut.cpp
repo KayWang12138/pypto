@@ -52,6 +52,7 @@ constexpr int NUM_1024 = 1024;
 
 template <typename T = npu::tile_fwk::float16>
 void TestWinAttenUt(WinAttenTileShapeConfig& tileConfig) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetHostOption(ONLY_CODEGEN, true);
 
     DataType dType = DT_FP32;

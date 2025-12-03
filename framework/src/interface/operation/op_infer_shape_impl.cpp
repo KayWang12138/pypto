@@ -456,22 +456,12 @@ REGISTER_INFER_SHAPE_FUNC(OP_L0C_TO_L1, Opcode::OP_L0C_TO_L1, LoadL0c2L1InferFun
 
 // MTE infer shape func
 template <bool isTrans = false>
-void LoadL0InferFunc(Operation* op,
-                     std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
-    std::vector<std::vector<SymbolicScalar>> inputValidShapes;
-    for (auto inputTensor : op->GetIOperands()) {
-        inputValidShapes.push_back(inputTensor->GetDynValidShape());
-    }
-    if (inputValidShapes.empty()) {
+void LoadL0InferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes)
+{
+    ASSERT(op != nullptr && !op->GetOOperands().empty() && op->GetOOperands()[0] != nullptr);
+    if (!(op->GetOOperands()[0]->GetDynValidShape().empty())) {
+        outValidShapes.push_back(op->GetOOperands()[0]->GetDynValidShape());
         return;
-    }
-    for (auto output : op->GetOOperands()) {
-        if (isTrans) {
-            auto outValidShape = {inputValidShapes[0][1], inputValidShapes[0][0]};
-            outValidShapes.push_back(outValidShape);
-        } else {
-            outValidShapes.push_back(inputValidShapes[0]);
-        }
     }
 }
 

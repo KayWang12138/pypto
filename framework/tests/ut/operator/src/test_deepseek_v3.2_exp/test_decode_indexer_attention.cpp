@@ -78,7 +78,8 @@ Tensor CreateDynamicTensor(DataType dType, const std::vector<int64_t> &shape, st
 template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool isSmooth = false, bool nz = false>
 void TestDecodeIndexerAttentionSTest(DSIASimpleParams &params) {
     SetPreConfig();
- 
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+
     int b = params.b;
     int s1 = params.s1;
     int n1 = params.n1;
@@ -92,7 +93,7 @@ void TestDecodeIndexerAttentionSTest(DSIASimpleParams &params) {
     int blockSize = params.blockSize;
     int idx_n_heads = params.idx_n_heads;
     int idx_head_dim = params.idx_head_dim;
- 
+
     std::vector<int> kvCacheActSeqVec(b);
     int blockNum = 0;
     for (auto seqItem : kvCacheActSeqVec) {
@@ -102,9 +103,9 @@ void TestDecodeIndexerAttentionSTest(DSIASimpleParams &params) {
     std::cout << "========= blockNum " << blockNum << std::endl;
     int maxSeqAllBatch = *(std::max_element(kvCacheActSeqVec.begin(), kvCacheActSeqVec.end()));
     int maxBlockNumPerBatch = CeilDiv(maxSeqAllBatch, blockSize);
- 
+
     DataType dType = (std::is_same<T, npu::tile_fwk::float16>::value) ? DT_FP16 : DT_BF16;
- 
+
     // 1. 设置shape
     // MlaProlog
     std::vector<int64_t> xShape = {b, s1, h};
@@ -118,29 +119,29 @@ void TestDecodeIndexerAttentionSTest(DSIASimpleParams &params) {
     std::vector<int64_t> kvLenShape = {b, s1};
     std::vector<int64_t> kvCacheShape = {blockNum, blockSize, n2, dn};
     std::vector<int64_t> krCacheShape = {blockNum, blockSize, n2, qkRopeHeadDim};
- 
+
     std::vector<int64_t> qNopeOutShape = {b * s1 , n1, dn};
     std::vector<int64_t> qRopeOutShape = {b * s1 , n1, qkRopeHeadDim};
     std::vector<int64_t> rmsResShape = {b, s1, params.q_lora_rank};
- 
+
     std::vector<int64_t> wQbScaleShape = {1, n1 * qHeadDim};
     std::vector<int64_t> smoothCqShape{1, qLoraRank};
- 
+
     std::vector<int64_t> blockTableShape = {b, maxBlockNumPerBatch};
     std::vector<int64_t> actSeqsShape = {b};
     std::vector<int64_t> tmpTopkInputShape = {b, s1, n2, params.topk};
- 
+
     std::vector<int64_t> saOutShape = {b, s1, n1, dn};
     std::vector<int64_t> gatherResShape = {b * s1 * params.topk, dn + qkRopeHeadDim};
- 
+
     std::vector<int64_t> queryShape = {b, s1, idx_n_heads, idx_head_dim};
     std::vector<int64_t> keyShape = {blockNum, blockSize, n2, idx_head_dim};
     std::vector<int64_t> weightShape = {b, s1, idx_n_heads};
- 
+
     Tensor dynamicX = CreateDynamicTensor(dType, xShape, "dynamicX", {0, 1});
     SymbolicScalar bSymbol = GetInputShape(dynamicX, 0);
     SymbolicScalar s1Symbol = GetInputShape(dynamicX, 1);
- 
+
     Tensor wDq(dType, wDqShape, "wDq");
     Tensor wUqQr(dType, wUqQrShape, "wUqQr");
     const bool usePrefetch = true;
@@ -148,7 +149,7 @@ void TestDecodeIndexerAttentionSTest(DSIASimpleParams &params) {
         wDq.SetCachePolicy(CachePolicy::PREFETCH, true);
         wUqQr.SetCachePolicy(CachePolicy::PREFETCH, true);
     }
- 
+
     Tensor wDkvKr(dType, wDkvKrShape, "wDkvKr");
     Tensor wUk(dType, wUkShape, "wUk");
     Tensor gammaCq(dType, gammaCqShape, "gammaCq");
@@ -162,14 +163,14 @@ void TestDecodeIndexerAttentionSTest(DSIASimpleParams &params) {
     Tensor dynamicBlockTable = CreateDynamicTensor(DT_INT32, blockTableShape, "dynamicBlockTable", {0, 1});
     Tensor dynamicActSeqs = CreateDynamicTensor(DT_INT32, actSeqsShape, "dynamicActSeqs", {0});
     SymbolicScalar maxBlockNumSymbol = GetInputShape(dynamicBlockTable, 1);
- 
+
     auto weightFormat = TileOpFormat::TILEOP_NZ;
     Tensor qW(dType, Shape({qLoraRank, idx_n_heads * idx_head_dim}), "qW", weightFormat);
     Tensor kW(dType, Shape({h, idx_head_dim}), "kW", weightFormat);
     Tensor projW(dType, Shape({h, idx_n_heads}), "projW", weightFormat);
     Tensor lnW(dType, Shape({idx_head_dim}), "lnW");
     Tensor lnBias(dType, Shape({idx_head_dim}), "lnBias");
-    
+
     Tensor dynamicTmpTopkInput = CreateDynamicTensor(DT_INT32, tmpTopkInputShape, "dynamicTmpTopkInput", {0, 1});
 
     // output
@@ -177,14 +178,14 @@ void TestDecodeIndexerAttentionSTest(DSIASimpleParams &params) {
     auto dynamicGatherRes = CreateConstantDynamicOutputTensor<T>(gatherResShape, dType, "gatherRes", 0, {bSymbol * s1Symbol * params.topk, dn + qkRopeHeadDim});
     auto dynamicTmpRowSumOut = CreateConstantDynamicOutputTensor<float>({b * s1 * n2, maxBlockNumPerBatch * blockSize}, DT_FP32, "tmpRowSumOut", 0, {bSymbol * s1Symbol * n2, maxBlockNumSymbol * blockSize});
     auto dynamicTmpIndexerTopkRes = CreateConstantDynamicOutputTensor<int32_t>({b, s1, n2, params.topk}, DT_INT32, "tmpIndexerTopkRes", 0, {bSymbol, s1Symbol, n2, params.topk});
- 
+
     auto rmsResOut = CreateConstantDynamicOutputTensor<T>(rmsResShape, dType, "rmsResOut", 0, {bSymbol, s1Symbol, params.q_lora_rank});
     auto queryOut = CreateConstantDynamicOutputTensor<T>(queryShape, dType, "queryOut", 0, {bSymbol, s1Symbol, idx_n_heads, idx_head_dim});
     auto weightOut = CreateConstantDynamicOutputTensor<T>(weightShape, dType, "weightOut", 0, {bSymbol, s1Symbol, idx_n_heads});
- 
+
     auto qNopeOut = CreateConstantDynamicOutputTensor<T>(qNopeOutShape, dType, "qNopeOut", 0, {bSymbol * s1Symbol , n1, dn});
     auto qRopeOut = CreateConstantDynamicOutputTensor<T>(qRopeOutShape, dType, "qRopeOut", 0, {bSymbol * s1Symbol , n1, qkRopeHeadDim});
- 
+
     MlaQuantInputs quantInputs;
 
     DecodeIndexerAttention(dynamicX, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, dynamicSin, dynamicCos, dynamicCacheIndex, kvCache, krCache, quantInputs,
@@ -203,7 +204,7 @@ TEST_F(DecodeIndexerAttentionUtest, utest_decode_indexer_attention) {
     params.s2 = NUM_1024;
     params.topk = NUM_2048;
     params.cacheMode = "PA_BSND";
- 
+
     RopeTileShapeConfig ropeTileConfigs = {
         {128, 128},
         {32, 128, 128},
@@ -215,7 +216,7 @@ TEST_F(DecodeIndexerAttentionUtest, utest_decode_indexer_attention) {
         {16, 16, 128, 128, 128, 128}, // c2TileShape
         {128, 128, 128, 128}  // v2TileShape
     };
- 
+
     SaTileShapeConfig saTileConfig;
     const int gTile = 128;  // for gLoop split
     const int sTile = 1024; // for s2Loop split
@@ -225,25 +226,25 @@ TEST_F(DecodeIndexerAttentionUtest, utest_decode_indexer_attention) {
     saTileConfig.v1TileShape = {16, 256};                          // (n1, s2Tile)
     saTileConfig.c2TileShape = {gTile, gTile, 128, 128, 128, 128}; // (n1, s2Tile) @ (s2Tile, dn) -> (n1, d)
     saTileConfig.v2TileShape = {64, 128};                          // (n1, d)
- 
+
     auto tileB = params.b;
     if (params.b == 24) {
         tileB = 8;
     }
     MlaTileConfig prologConfig = {tileB, 1};
- 
+
     IndexerTile indexerTile;
     indexerTile.weightTile = {64, 128};
     indexerTile.c1Tile = {64, 64, 128, 128, 128, 128}; // (m, M), (k, K), (n, N)
     indexerTile.v1Tile = {64, 128};
     indexerTile.topkTile = {1, 2048};
     indexerTile.addsTile = {1, 1, 1, 2048};
- 
+
     params.salTileCfg = saTileConfig;
     params.mlaTileCfg = prologConfig;
     params.indexTileCfg = indexerTile;
     params.indexerTileConfigs = indexerConfigs;
     params.ropeTileConfigs = ropeTileConfigs;
- 
+
     TestDecodeIndexerAttentionSTest<npu::tile_fwk::float16, npu::tile_fwk::float16, false, true>(params);
 }

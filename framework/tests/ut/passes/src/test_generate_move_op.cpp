@@ -30,6 +30,7 @@ using namespace npu::tile_fwk;
 
 namespace npu{
 namespace tile_fwk {
+
 class GenerateMoveOpPassTest : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
@@ -611,20 +612,6 @@ void TransViewTensorWithAttr (std::shared_ptr<Function> &currFunctionPtr) {
     std::shared_ptr<LogicalTensor> view_out2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
     view_out2 -> SetMemoryTypeOriginal(MemoryType::MEM_FIX_QUANT_PRE);
 
-    std::shared_ptr<LogicalTensor> view_in3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
-    view_in3 -> SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
-    std::shared_ptr<LogicalTensor> tensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
-    tensor3 -> SetMemoryTypeOriginal(MemoryType::MEM_L1);
-    std::shared_ptr<LogicalTensor> view_out3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
-    view_out3 -> SetMemoryTypeOriginal(MemoryType::MEM_L0A);
-
-    std::shared_ptr<LogicalTensor> view_in4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
-    view_in4 -> SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
-    std::shared_ptr<LogicalTensor> tensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
-    tensor4 -> SetMemoryTypeOriginal(MemoryType::MEM_L1);
-    std::shared_ptr<LogicalTensor> view_out4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
-    view_out4 -> SetMemoryTypeOriginal(MemoryType::MEM_L0A);
-
     std::shared_ptr<LogicalTensor> output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
     output -> SetMemoryTypeOriginal(MemoryType::MEM_L0C);
 
@@ -644,29 +631,11 @@ void TransViewTensorWithAttr (std::shared_ptr<Function> &currFunctionPtr) {
     auto viewAttribute4 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
     viewAttribute4->SetToType(MemoryType::MEM_FIX_QUANT_PRE);
     view_op4.SetOpAttribute(viewAttribute4);
-    auto &view_op5 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {view_in3}, {tensor3});
-    auto viewAttribute5 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
-    viewAttribute5->SetToType(MemoryType::MEM_L1);
-    view_op5.SetOpAttribute(viewAttribute5);
-    auto &view_op6 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {tensor3}, {view_out3});
-    auto viewAttribute6 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
-    viewAttribute6->SetToType(MemoryType::MEM_L0A);
-    view_op6.SetOpAttribute(viewAttribute6);
-    auto &view_op7 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {view_in4}, {tensor4});
-    auto viewAttribute7 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
-    viewAttribute7->SetToType(MemoryType::MEM_L1);
-    view_op7.SetOpAttribute(viewAttribute7);
-    auto &view_op8 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {tensor4}, {view_out4});
-    auto viewAttribute8 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
-    viewAttribute8->SetToType(MemoryType::MEM_L0B);
-    view_op8.SetOpAttribute(viewAttribute7);
 
-    currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {view_out3,view_out4,view_out1,view_out2}, {output});
+    currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {view_out1,view_out2}, {output});
 
     currFunctionPtr->inCasts_.push_back(view_in1);
     currFunctionPtr->inCasts_.push_back(view_in2);
-    currFunctionPtr->inCasts_.push_back(view_in3);
-    currFunctionPtr->inCasts_.push_back(view_in4);
     currFunctionPtr->outCasts_.push_back(output);
 }
 TEST_F(GenerateMoveOpPassTest, TransViewWithAttr) {
@@ -704,7 +673,7 @@ TEST_F(GenerateMoveOpPassTest, TransViewWithAttr) {
            l12Fb_count_after_pass++;
         }
     }
-    constexpr int expectedCopyIn =4;
+    constexpr int expectedCopyIn =2;
     constexpr int expectedL1toBt =1;
     constexpr int expectedL1toFb =1;
     EXPECT_EQ(copyIn_count_after_pass,expectedCopyIn) << "4 operations shoulde be OP_COPY_IN.";

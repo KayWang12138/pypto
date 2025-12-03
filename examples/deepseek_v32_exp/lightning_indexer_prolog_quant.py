@@ -216,6 +216,7 @@ def lightning_indexer_prolog_quant_compute(inputs, outputs, attrs, configs):
     pypto.mark_dynamic(k_cache_scale, 0)
     pypto.mark_dynamic(k_cache_index_in, 0)
 
+    pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_host_options(only_codegen=True)
 
     pypto.set_pass_options(nbuffer_merge_mode=0)

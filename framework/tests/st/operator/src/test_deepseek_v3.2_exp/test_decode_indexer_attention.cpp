@@ -313,6 +313,7 @@ void test_common(DSIASimpleParams params) {
 }
 
 TEST_F(DecodeIndexerAttentionSTest, mini) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     DSIASimpleParams params = DSIASimpleParams::getDecodeParams();
     test_common<npu::tile_fwk::bfloat16>(params);
 }

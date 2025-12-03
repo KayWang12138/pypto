@@ -359,6 +359,7 @@ TEST_F(DyNsa, GateScore_b48_s2_fp) {
 
 // IMPORTANT
 TEST_F(DyNsa, GateScore_b32_s2_bf) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     SimpleParams params = SimpleParams::getHighParams();
     params.s = NUM2;
     TestNsa<bfloat16, float, true>(params);

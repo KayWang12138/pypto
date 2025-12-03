@@ -55,6 +55,7 @@ void TestLoopViewAssemble(const Tensor &t0, const Tensor &t1, const Tensor &bloc
 }
 
 TEST_F(DynamicPATest, TestDD) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(32, 32);
     TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
@@ -76,6 +77,7 @@ TEST_F(DynamicPATest, TestDD) {
 }
 
 TEST_F(DynamicPATest, dynamic_pa_low_lantency_unroll) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetHostOption(ONLY_CODEGEN, true);
     std::vector<uint8_t> devProgBinary;
 
@@ -123,6 +125,7 @@ TEST_F(DynamicPATest, dynamic_pa_low_lantency_unroll) {
 }
 
 TEST_F(DynamicPATest, dynamic_pa_low_lantency_pass_unroll) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetHostOption(ONLY_CODEGEN, true);
     std::vector<uint8_t> devProgBinary;
 
@@ -170,6 +173,7 @@ TEST_F(DynamicPATest, dynamic_pa_low_lantency_pass_unroll) {
 }
 
 TEST_F(DynamicPATest, dynamic_pa_low_lantency_manual_unroll) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetHostOption(ONLY_CODEGEN, true);
     config::SetPlatformConfig("PRINT_TENSOR_GRAPH", true);
     std::vector<uint8_t> devProgBinary;
@@ -248,6 +252,7 @@ TEST_F(DynamicPATest, dynamic_pa_low_lantency_manual_unroll) {
 }
 
 TEST_F(DynamicPATest, dynamic_pa_high_throughput_only_batch_loop) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetHostOption(ONLY_CODEGEN, true);
     std::vector<uint8_t> devProgBinary;
 

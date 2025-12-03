@@ -182,6 +182,7 @@ void CostModelTestLoopViewAssemble(const Tensor &t0, const Tensor &t1, const Ten
 }
 
 TEST_F(CostModelDynTest, TestDD) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetHostOption(ONLY_CODEGEN, true);
     constexpr int tilingX = 32;
     constexpr int tilingY = 32;

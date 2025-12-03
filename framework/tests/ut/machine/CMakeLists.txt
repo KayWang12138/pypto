@@ -20,7 +20,6 @@ set(_CaseFilterList
         "TestDeviceRunner.test_ini_device_runner"
         # AstApi
         "TestAstApi.test_ast"
-        "TestAstOpCompile.test_compile_add_op"
         "TestAstOpCompile.test_dynamic_ViewAssemble"
         "TestAstOpCompile.test_compile_fatbin"
         # Others

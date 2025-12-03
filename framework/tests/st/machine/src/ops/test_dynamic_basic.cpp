@@ -108,7 +108,7 @@ TEST_F(DynamicBasicTest, TestHybridLoopIfWithTernary) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(LOOP_COUNT_INNER)) {
             auto temp = Add(t0, t0);
             SymbolicScalar s_min = std::ternary(i < 2, i, i + 1);
-            
+
             IF(s_min == i){
                 temp = Add(temp, t1);
             }
@@ -153,6 +153,7 @@ void TestLoopViewAssemble(const Tensor &t0, const Tensor &t1, const Tensor &bloc
 
 TEST_F(DynamicBasicTest, TestDD) {
     SetInterpreterConfig();
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     int s = 32;
     int n = 8;
     Tensor t0(DT_FP32, {n * s, s}, "t0");  // [32*8, 32]
@@ -368,6 +369,7 @@ TEST_F(DynamicBasicTest, TestSlotId) {
 
 TEST_F(DynamicBasicTest, DynamicRawShape) {
     SetInterpreterConfig();
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     int s = 32;
     Tensor t0(DT_FP32, {-1, s}, "t0"); // [32*8, 32]
     Tensor t1(DT_FP32, {s, s}, "t1");              // [32, 32]
@@ -618,6 +620,7 @@ TEST_F(DynamicBasicTest, TestInnerLoopOrder) {
 }
 
 TEST_F(DynamicBasicTest, TestDeviceMachineOnModel) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     int s = 32;
     int n = 8;
     Tensor t0(DT_FP32, {n * s, s}, "t0");  // [32*8, 32]
@@ -659,6 +662,7 @@ TEST_F(DynamicBasicTest, TestDeviceMachineOnModel) {
 
 TEST_F(DynamicBasicTest, TestDeviceMachineBlockdimOnBoard) {
     SetInterpreterConfig();
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     int s = 32;
     int n = 8;
     Tensor t0(DT_FP32, {n * s, s}, "t0");  // [32*8, 32]

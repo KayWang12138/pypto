@@ -353,6 +353,9 @@ void TestMatmulMteBody(Opcode opcode, MemoryType inType, MemoryType outType) {
     } else if (opcode == Opcode::OP_L1_TO_FIX_QUANT_PRE) {
         op.SetOpAttribute(
             std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_FIX, shapeImme, shapeImme));
+    } else if (opcode == Opcode::OP_L1_TO_L0A) {
+        op.SetOpAttribute(
+            std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_L0A, shapeImme, shapeImme));
     }
 
     SymbolManager memAlloc;

@@ -55,8 +55,51 @@ bool GenerateMoveOp::HasSpecificConsumer(const Operation &op) const {
     return false;
 }
 
-void GenerateMoveOp::ConvertViewToCopyInWhenInputGm(Operation &op, ViewOpAttribute *viewOpAttribute) const {
-    op.SetOpCode(Opcode::OP_COPY_IN); // 将view转化为copyin
+Status GenerateMoveOp::CreateMoveOpForView(Operation &op) const {
+    auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
+    bool isGmInput = op.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
+    bool isGmOutput = op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
+    if (isGmInput) {
+        //case1: VIEW转copyIn
+        if (isGmOutput && HasSpecificConsumer(op)) {
+            return SUCCESS;
+        }
+        if ((!isGmOutput)) {
+            op.SetOpCode(Opcode::OP_COPY_IN);
+            SetCopyAttr(op,viewOpAttribute);
+        }
+    }else if(op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0A) {
+        //case2: VIEW转L0A/L0AT
+        auto isTrans = (op.HasAttr("op_attr_l1_to_l0_transpose")) ? op.GetBoolAttribute("op_attr_l1_to_l0_transpose") : 0;
+        if(isTrans) {
+            op.SetOpCode(Opcode::OP_L1_TO_L0_AT);
+        }else {
+            op.SetOpCode(Opcode::OP_L1_TO_L0A);
+        }
+        SetCopyAttr(op,viewOpAttribute);
+    }else if(op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0B) {
+        //case3: VIEW转L0B/L0BT
+       auto isTrans = (op.HasAttr("op_attr_l1_to_l0_transpose")) ? op.GetBoolAttribute("op_attr_l1_to_l0_transpose") : 0;
+        if(isTrans) {
+            op.SetOpCode(Opcode::OP_L1_TO_L0_BT);
+        }else {
+            op.SetOpCode(Opcode::OP_L1_TO_L0B);
+        }
+        SetCopyAttr(op,viewOpAttribute);
+    }else {
+        //case4: VIEW转其他搬运op
+        auto from = op.iOperand.front()->GetMemoryTypeOriginal();
+        auto to = op.oOperand.front()->GetMemoryTypeOriginal();
+        if (from == to) {
+            return SUCCESS;
+        }
+        Status status = SetOpcodeByMemPath(op,from,to);
+        if(status != SUCCESS) {return status;}
+        SetCopyAttr(op,viewOpAttribute);
+    }
+    return SUCCESS;
+}
+void GenerateMoveOp::SetCopyAttr(Operation &op,ViewOpAttribute *viewOpAttribute) const {
     auto copyAttr = std::make_shared<CopyOpAttribute>(
         OpImmediate::Specified(viewOpAttribute->GetFromTensorOffset()),
         viewOpAttribute->GetTo(), OpImmediate::Specified(op.oOperand.front()->shape),
@@ -67,41 +110,20 @@ void GenerateMoveOp::ConvertViewToCopyInWhenInputGm(Operation &op, ViewOpAttribu
     op.SetOpAttribute(copyAttr);
 }
 
-void GenerateMoveOp::CreateMoveOpForView(Operation &op) const {
-    auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
-    bool isGmInput = op.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
-    bool isGmOutput = op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
-    if (isGmInput) {
-        if (isGmOutput && HasSpecificConsumer(op)) {
-            return;
-        }
-        if ((!isGmOutput)) {
-            ConvertViewToCopyInWhenInputGm(op, viewOpAttribute);
-            return;
-        }
-    }else if(op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_FIX_QUANT_PRE) {
-        op.SetOpCode(Opcode::OP_L1_TO_FIX_QUANT_PRE); // 将view转化为L1_TO_FB
-        auto copyAttr = std::make_shared<CopyOpAttribute>(
-            OpImmediate::Specified(viewOpAttribute->GetFromTensorOffset()),
-            viewOpAttribute->GetTo(),
-            OpImmediate::Specified(op.oOperand.front()->shape),
-            OpImmediate::Specified(op.iOperand.front()->tensor->GetDynRawShape()),
-            OpImmediate::Specified(viewOpAttribute->GetToDynValidShape())
-        );
-        op.GetOOperands()[0]->UpdateDynValidShape(viewOpAttribute->GetToDynValidShape());
-        op.SetOpAttribute(copyAttr);
-    }else if(op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_BT) {
-        op.SetOpCode(Opcode::OP_L1_TO_BT); // 将view转化为L1_TO_BT
-        auto copyAttr = std::make_shared<CopyOpAttribute>(
-            OpImmediate::Specified(viewOpAttribute->GetFromTensorOffset()),
-            viewOpAttribute->GetTo(),
-            OpImmediate::Specified(op.oOperand.front()->shape),
-            OpImmediate::Specified(op.iOperand.front()->tensor->GetDynRawShape()),
-            OpImmediate::Specified(viewOpAttribute->GetToDynValidShape())
-        );
-        op.GetOOperands()[0]->UpdateDynValidShape(viewOpAttribute->GetToDynValidShape());
-        op.SetOpAttribute(copyAttr);
+Status GenerateMoveOp::SetOpcodeByMemPath(Operation &op,MemoryType from,MemoryType to) const {
+    std::pair<MemoryType,MemoryType> memPathPair = {from,to};
+    auto it = platformPathMap.find(memPathPair);
+    if (it == platformPathMap.end()) {
+        ALOG_ERROR_F("No memory path found from %s to %s for operation %s[%d].",
+            BriefMemoryTypeToString(from).c_str(),
+            BriefMemoryTypeToString(to).c_str(),
+            op.GetOpcodeStr().c_str(),
+            op.GetOpMagic());
+        return FAILED;
     }
+    auto opcodeFindByPath = it->second;
+    op.SetOpCode(opcodeFindByPath);
+    return SUCCESS;
 }
 
 void GenerateMoveOp::CreateMoveOpForAssemble(Operation &op) const {
@@ -127,47 +149,8 @@ void GenerateMoveOp::CreateMoveOpForAssemble(Operation &op) const {
 Status GenerateMoveOp::CreateMoveOpForConvert(Operation &op) const {
     auto convertOpAttribute = dynamic_cast<ConvertOpAttribute *>(op.GetOpAttribute().get());
     auto [from, to] = convertOpAttribute->GetConvertPath();
-    std::pair<MemoryType,MemoryType> convertPathPair = {from,to};
-    if (from == MemoryType::MEM_DEVICE_DDR) {
-        op.SetOpCode(Opcode::OP_COPY_IN); //将convert根据memorytype转化为copyin和copyout
-        std::vector<OpImmediate> newOffset;
-        auto inputOffset = op.GetIOperands().front()->GetOffset();
-        for (size_t i = 0; i < op.oOperand.front()->shape.size(); i++) {
-            newOffset.push_back(OpImmediate::Specified(SymbolicScalar(inputOffset[i])));
-        }
-        op.SetOpAttribute(std::make_shared<CopyOpAttribute>(newOffset, to,
-            OpImmediate::Specified(op.oOperand.front()->shape),
-            OpImmediate::Specified(op.iOperand.front()->tensor->GetDynRawShape()),
-            OpImmediate::Specified(op.iOperand.front()->GetDynValidShape())));
-        auto childOp = *op.oOperand.front()->GetConsumers().begin();
-        op.UpdateSubgraphID(childOp->GetSubgraphID());
-        return SUCCESS;
-    }
-    if (to == MemoryType::MEM_DEVICE_DDR) {
-        op.SetOpCode(Opcode::OP_COPY_OUT);
-        std::vector<OpImmediate> newOffset;
-        auto inputOffset = op.GetOOperands().front()->GetOffset();
-        for (size_t i = 0; i < op.iOperand.front()->shape.size(); i++) {
-            newOffset.push_back(OpImmediate::Specified(SymbolicScalar(inputOffset[i])));
-        }
-        op.SetOpAttribute(std::make_shared<CopyOpAttribute>(from, newOffset,
-            OpImmediate::Specified(op.iOperand.front()->shape),
-            OpImmediate::Specified(op.oOperand.front()->tensor->GetDynRawShape())));
-        auto parentOp = *op.iOperand.front()->GetProducers().begin();
-        op.UpdateSubgraphID(parentOp->GetSubgraphID());
-        return SUCCESS;
-    }
-    auto it = platformPathMap.find(convertPathPair);
-    if (it == platformPathMap.end()) {
-        ALOG_ERROR_F("No memory path found from %s to %s for operation %s[%d].",
-            BriefMemoryTypeToString(from).c_str(),
-            BriefMemoryTypeToString(to).c_str(),
-            op.GetOpcodeStr().c_str(),
-            op.GetOpMagic());
-        return FAILED;
-    }
-    auto opcodeFindByPath = it->second;
-    op.SetOpCode(opcodeFindByPath);
+    Status status = SetOpcodeByMemPath(op,from,to);
+    if(status != SUCCESS) {return status;}
     auto childOp = *op.oOperand.front()->GetConsumers().begin();
     op.UpdateSubgraphID(childOp->GetSubgraphID());
     return SUCCESS;
@@ -182,7 +165,8 @@ Status GenerateMoveOp::CreateMoveOp(Function &function) const {
                 break;
             }
             case Opcode::OP_VIEW: {
-                CreateMoveOpForView(op);
+                Status status = CreateMoveOpForView(op);
+                if(status != SUCCESS) {return status;}
                 break;
             }
             case Opcode::OP_CONVERT: {

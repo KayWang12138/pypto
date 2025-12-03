@@ -221,9 +221,9 @@ Status NodeGraphInfo::AvoidLoop(const std::shared_ptr<OperationGraphInfo> operat
     node2Op.clear();
     for (int32_t i = 0; i < static_cast<int32_t>(opList.size()); i++) {
         int32_t currParent = FindParent(parent, i);
-        if (currParent == -1) { 
+        if (currParent == -1) {
             APASS_LOG_ERROR_F(Elements::Operation, "Find parent in the union set failed.%s", GetFormatBacktrace(*(operationGraphInfo->opList_[i])).c_str());
-            return FAILED; 
+            return FAILED;
         }
         if (currParent == i) {
             parentToNodes[i] = node2Op.size();
@@ -286,7 +286,7 @@ Status NodeGraphInfo::Build(const std::shared_ptr<OperationGraphInfo> operationG
             op2Node_[opIdx] = nodeIdx;
             nodeCycles_[nodeIdx] += operationGraphInfo->opList_[opIdx]->GetLatency();
         }
-    } 
+    }
     BuildInOutGraph(operationGraphInfo, markIsCube);
     return SUCCESS;
 }
@@ -402,7 +402,9 @@ inline bool SuperNodeGraphBuilder::L1CopyInCombine(const std::shared_ptr<Operati
         return false;
     }
     if (opList[i]->GetOOperands().size() > 0 &&
-        opList[i]->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
+        (opList[i]->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1 ||
+         opList[i]->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_BT ||
+         opList[i]->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_FIX_QUANT_PRE)) {
         for (auto outNode : operationInfo->outGraph_[i]) {
             mergePair.emplace_back(outNode, i);
             APASS_LOG_DEBUG_F(Elements::Operation, "Combine %d and %d for L1 CopyIn in building SuperNode.",

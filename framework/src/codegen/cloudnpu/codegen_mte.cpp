@@ -199,10 +199,15 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0() const {
     std::vector<int64_t> l0Shape = this->rawShape[ID0];
     ALOG_INFO_F("GenMemL1ToL0 %s, l0Shape is %s", tileOpName.c_str(), IntVecToStr(l0Shape).c_str());
 
-    std::vector<int64_t> l1Offset = this->offset[ID1];
+    unsigned srcOffset0 = 0;
+    unsigned srcOffset1 = 0;
+    auto dynoffset = offsetGmSymbolic[ID1];
+    if (!dynoffset.empty()) {
+        ASSERT(dynoffset.size() == SHAPE_DIM2) << "GenMemL1ToL0 only support 2-dim!";
+        srcOffset0 = dynoffset[ID0];
+        srcOffset1 = dynoffset[ID1];
+    }
 
-    unsigned srcOffset0 = l1Offset[ID0];
-    unsigned srcOffset1 = l1Offset[ID1];
     unsigned srcShape0 = l1Shape[ID0];
     unsigned srcShape1 = l1Shape[ID1];
     unsigned tileShape0 = l0Shape[ID0];
