@@ -1,0 +1,1 @@
+python examples/validate_python_examples.py --device-id 0 -d ./examples
