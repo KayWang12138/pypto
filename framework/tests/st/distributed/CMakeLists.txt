@@ -20,7 +20,6 @@ set(_PrivateLinkLibraries
         tile_fwk_interface
         tile_fwk_codegen
         tile_fwk_compiler
-        tile_fwk_runtime
         tile_fwk_simulation
         ${PTO_Fwk_STestNamePrefix}_utils
         ${PTO_Fwk_STestNamePrefix}_distributed_ops

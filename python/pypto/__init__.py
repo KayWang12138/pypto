@@ -46,7 +46,6 @@ def load_shared_libs():
         ["libtile_fwk_interface.so", True, ],
         ["libtile_fwk_codegen.so", True, ],
         ["libtile_fwk_compiler.so", True, ],
-        ["libtile_fwk_runtime.so", use_cann, ],
         ["libtile_fwk_simulation.so", True, ],
         ["libtile_fwk_simulation_ca.so", True, ],
     ]

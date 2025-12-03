@@ -17,6 +17,6 @@ list(APPEND _Sources ${_Device_Srcs})
 PTO_Fwk_STest_AddLib(
         TARGET ${_Target}
         SOURCES ${_Sources}
-        LD_LIBRARIES_EXT tile_fwk_compiler tile_fwk_runtime
+        LD_LIBRARIES_EXT tile_fwk_compiler
         GOLDEN_SCRIPT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/ops
 )

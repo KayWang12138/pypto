@@ -30,9 +30,6 @@ if (BUILD_WITH_CANN)
     set(CMAKE_CXX_COMPILER "${ASCEND_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc/bin/aarch64-target-linux-gnu-g++")
 endif ()
 
-message(STATUS "CMAKE_GENERATOR=${CMAKE_GENERATOR}")
-message(STATUS "CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
-
 ########################################################################################################################
 # 编译流程
 ########################################################################################################################

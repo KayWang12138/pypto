@@ -173,12 +173,7 @@ message(STATUS "CMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}")
 # 预处理
 ########################################################################################################################
 if (BUILD_OPEN_PROJECT)
-    set(BISHENG_PROGRAM bisheng)
-    set(BISHENG_LD ld.lld)
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-else()
-    set(BISHENG_PROGRAM ${CCEC_PATH}/bisheng)
-    set(BISHENG_LD ${CCEC_PATH}/ld.lld)
 endif()
 
 if ("${CMAKE_C_COMPILER_ID}" STREQUAL "Clang" AND ENABLE_GCOV)

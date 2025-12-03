@@ -29,6 +29,5 @@ target_link_libraries(${_Target}
             ${PTO_Fwk_STestNamePrefix}_utils
             tile_fwk_interface
             tile_fwk_compiler
-            tile_fwk_runtime
             tile_fwk_simulation
 )

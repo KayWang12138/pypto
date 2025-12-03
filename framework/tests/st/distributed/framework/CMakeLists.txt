@@ -25,5 +25,4 @@ target_link_libraries(${_Target}
         PRIVATE
             ${PTO_Fwk_STestNamePrefix}_intf_pub
             tile_fwk_compiler
-            tile_fwk_runtime
 )
