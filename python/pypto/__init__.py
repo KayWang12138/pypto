@@ -55,6 +55,7 @@ def load_shared_libs():
 
 load_shared_libs()
 
+from . import experimental
 
 from .config import *  # noqa
 from .controller import *  # noqa

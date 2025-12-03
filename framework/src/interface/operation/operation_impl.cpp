@@ -213,7 +213,7 @@ Tensor Compact(const Tensor &operand) {
     return result;
 }
 
-void internal::Print(SymbolicScalar cond, const std::string &format, const std::vector<Tensor> &tensors,
+void experimental::Print(SymbolicScalar cond, const std::string &format, const std::vector<Tensor> &tensors,
     const std::vector<SymbolicScalar> &scalars){
     auto function = Program::GetInstance().GetCurrentFunction();
     std::vector<LogicalTensorPtr> inputs;
@@ -1187,7 +1187,7 @@ void TiledGatherInL1(Function &function, const TileShape &tileShape, const Logic
 }
 
 template <bool isB, bool isTrans>
-Tensor internal::GatherInL1(const Tensor &src, const Tensor &offsets, int size) {
+Tensor experimental::GatherInL1(const Tensor &src, const Tensor &offsets, int size) {
     constexpr int32_t NUM_SIZE = 2;
     ASSERT(src.GetShape().size() == NUM_SIZE);
     ASSERT(offsets.GetShape().size() == NUM_SIZE); // offsets必须是两维是因为不支持1维的Tensor
@@ -1207,10 +1207,10 @@ Tensor internal::GatherInL1(const Tensor &src, const Tensor &offsets, int size) 
     return dst;
 }
 
-template Tensor internal::GatherInL1<false, false>(const Tensor &, const Tensor &, int);
-template Tensor internal::GatherInL1<false, true>(const Tensor &, const Tensor &, int);
-template Tensor internal::GatherInL1<true, false>(const Tensor &, const Tensor &, int);
-template Tensor internal::GatherInL1<true, true>(const Tensor &, const Tensor &, int);
+template Tensor experimental::GatherInL1<false, false>(const Tensor &, const Tensor &, int);
+template Tensor experimental::GatherInL1<false, true>(const Tensor &, const Tensor &, int);
+template Tensor experimental::GatherInL1<true, false>(const Tensor &, const Tensor &, int);
+template Tensor experimental::GatherInL1<true, true>(const Tensor &, const Tensor &, int);
 
 static int64_t CalculateCapacity(const std::vector<int64_t> &shape) {
     int64_t capacity = 1;
@@ -1359,7 +1359,7 @@ void TiledGatherInUB(Function &function, const TileShape &tileShape, const Logic
  * axis = -2
  * result [c,b]
  */
-Tensor internal::GatherInUB(const Tensor &param, const Tensor &indices, int axis) {
+Tensor experimental::GatherInUB(const Tensor &param, const Tensor &indices, int axis) {
     (void)axis;
     Tensor result{
         param.GetStorage()->Datatype(), {indices.GetShape()[1], param.GetShape()[1]}

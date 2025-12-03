@@ -98,7 +98,7 @@ void BasicGatherTest(int64_t SRC0, int64_t SRC1, int64_t DST0, int64_t DST1) {
             std::vector<SymbolicScalar> offsetsValidShape = {offsets.GetShape()[0], offsets.GetShape()[1]};
             Tensor dynOffsets = View(offsets, offsets.GetShape(), offsetsValidShape, {0, 0});
 
-            dst = internal::GatherInUB(dynSrc, dynOffsets, DST1);
+            dst = experimental::GatherInUB(dynSrc, dynOffsets, DST1);
         }
     }
     std::cout << "compile finished" << std::endl;
@@ -204,7 +204,7 @@ TEST_F(GatherInUBTest, gather_in_a_with_valid_shape) {
             TileShape::Current().SetVecTile({32, 64});
 
             Tensor subOffsets = View(offsets, offsets.GetShape(), {1, len}, {0, start});
-            dst = internal::GatherInUB(src, subOffsets, -2);
+            dst = experimental::GatherInUB(src, subOffsets, -2);
         }
     }
     std::cout << "compile finished" << std::endl;

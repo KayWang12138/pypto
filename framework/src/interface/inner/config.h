@@ -99,26 +99,26 @@ FunctionType GetFunctionType();
 std::shared_ptr<SemanticLabel> GetSemanticLabel();
 void SetSemanticLabel(std::shared_ptr<SemanticLabel> label);
 
-namespace internal {
+namespace experimental {
 bool GetOption(const std::string &key, bool &value);
 bool GetOption(const std::string &key, int64_t &value);
 bool GetOption(const std::string &key, std::string &value);
 bool GetOption(const std::string &key, std::vector<int64_t> &value);
 bool GetOption(const std::string &key, std::map<int64_t, int64_t> &value);
-} // namespace internal
+} // namespace experimental
 
 template <typename T>
 T GetOption(const std::string &key) {
     bool exist = false;
     T val = {};
     if constexpr (std::is_same_v<T, bool>) {
-        exist = internal::GetOption(key, val);
+        exist = experimental::GetOption(key, val);
     } else if constexpr (std::is_integral_v<T>) {
         int64_t tmp = 0;
-        exist = internal::GetOption(key, tmp);
+        exist = experimental::GetOption(key, tmp);
         val = static_cast<T>(tmp);
     } else {
-        exist = internal::GetOption(key, val);
+        exist = experimental::GetOption(key, val);
     }
     if (!exist) {
         std::cout << Dump() << std::endl;
@@ -149,7 +149,7 @@ PrintOptions &GetPrintOptions();
 
 template <typename T>
 void SetRunDataOption(const std::string &key, T &&value) {
-    internal::SetOption("rundata." + key, value);
+    experimental::SetOption("rundata." + key, value);
 }
 void CreateRunDataDir();
 

@@ -197,7 +197,7 @@ std::string Dump() {
     return oss.str();
 }
 
-bool internal::IsType(const std::string &key, const std::type_info &type) {
+bool experimental::IsType(const std::string &key, const std::type_info &type) {
     std::shared_lock lock(g_rwlock);
 
     auto iter = g_config.options.find(StringUtils::ToLower(key));
@@ -220,7 +220,7 @@ bool internal::IsType(const std::string &key, const std::type_info &type) {
 }
 
 #define DEFINE_GET_OPTION(Type)                                       \
-    bool internal::GetOption(const std::string &key, Type &value) {   \
+    bool experimental::GetOption(const std::string &key, Type &value) {   \
         std::shared_lock lock(g_rwlock);                              \
         auto iter = g_config.options.find(StringUtils::ToLower(key)); \
         if (iter == g_config.options.end()) {                         \
@@ -289,42 +289,42 @@ static void SetOptionPost(const std::string &key) {
     }
 }
 
-void internal::SetOption(const std::string &key, int64_t value) {
+void experimental::SetOption(const std::string &key, int64_t value) {
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
     g_rwlock.unlock();
     SetOptionPost(key);
 }
 
-void internal::SetOption(const std::string &key, bool value) {
+void experimental::SetOption(const std::string &key, bool value) {
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
     g_rwlock.unlock();
     SetOptionPost(key);
 }
 
-void internal::SetOption(const std::string &key, const char *value) {
+void experimental::SetOption(const std::string &key, const char *value) {
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
     g_rwlock.unlock();
     SetOptionPost(key);
 }
 
-void internal::SetOption(const std::string &key, const std::string &value) {
+void experimental::SetOption(const std::string &key, const std::string &value) {
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
     g_rwlock.unlock();
     SetOptionPost(key);
 }
 
-void internal::SetOption(const std::string &key, const std::vector<int64_t> &value) {
+void experimental::SetOption(const std::string &key, const std::vector<int64_t> &value) {
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
     g_rwlock.unlock();
     SetOptionPost(key);
 }
 
-void internal::SetOption(const std::string &key, const std::map<int64_t, int64_t> &value) {
+void experimental::SetOption(const std::string &key, const std::map<int64_t, int64_t> &value) {
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
     g_rwlock.unlock();

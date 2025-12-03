@@ -504,9 +504,6 @@ def full(elem: Element, shape: List[int],
          valid_shape: Optional[List[SymbolicScalar]] = None) -> Tensor: ...
 
 
-def load(a: Tensor, offsets: Tensor) -> Tensor: ...
-
-
 @overload
 def reshape(a: Tensor, shape: List[int], valid_shape: Optional[List[SymbolicScalar]] = None,
             inplace: bool = False) -> Tensor: ...

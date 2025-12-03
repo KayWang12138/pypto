@@ -304,13 +304,13 @@ void bind_operation(py::module &m) {
         [](const Tensor &src, const Tensor &offsets, int size, bool is_b_matrix, bool is_trans) {
             if (!is_b_matrix && !is_trans) {
                 std::cout << " gather in l1 m def" << std::endl;
-                return internal::GatherInL1<false, false>(src, offsets, size);
+                return experimental::GatherInL1<false, false>(src, offsets, size);
             } else if (!is_b_matrix && is_trans) {
-                return internal::GatherInL1<false, true>(src, offsets, size);
+                return experimental::GatherInL1<false, true>(src, offsets, size);
             } else if (is_b_matrix && !is_trans) {
-                return internal::GatherInL1<true, false>(src, offsets, size);
+                return experimental::GatherInL1<true, false>(src, offsets, size);
             } else {
-                return internal::GatherInL1<true, true>(src, offsets, size);
+                return experimental::GatherInL1<true, true>(src, offsets, size);
             }
         },
         py::arg("src"), py::arg("offsets"), py::arg("size"), py::arg("is_b_matrix"), py::arg("is_trans"),
@@ -318,7 +318,7 @@ void bind_operation(py::module &m) {
     m.def(
         "gather_in_ub",
         [](const Tensor &param, const Tensor &indices, int axis) {
-            return internal::GatherInUB(param, indices, axis);
+            return experimental::GatherInUB(param, indices, axis);
         },
         py::arg("param"), py::arg("indices"), py::arg("axis"), "Tensor gather_in_ub");
     m.def(

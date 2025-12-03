@@ -40,7 +40,7 @@ enum class OutType {
     BIT,
 };
 
-namespace internal {
+namespace experimental {
 struct PrintHelper {
     SymbolicScalar cond;
     std::vector<Tensor> tensors;
@@ -67,20 +67,20 @@ void Print(SymbolicScalar cond, const std::string &format, const std::vector<Ten
 template<bool isB, bool isTrans>
 Tensor GatherInL1(const Tensor &src, const Tensor &offsets, int size);
 Tensor GatherInUB(const Tensor &params, const Tensor &indices, int axis);
-} // namespace internal
+} // namespace experimental
 
 template <typename... Args>
 void Print(Args... args) {
-    internal::PrintHelper helper;
+    experimental::PrintHelper helper;
     (helper.Append(args), ...);
-    internal::Print(1, helper.ss.str(), helper.tensors, helper.scalars);
+    experimental::Print(1, helper.ss.str(), helper.tensors, helper.scalars);
 }
 
 template <typename... Args>
 void PrintIf(SymbolicScalar cond, Args... args) {
-    internal::PrintHelper helper;
+    experimental::PrintHelper helper;
     (helper.Append(args), ...);
-    internal::Print(cond, helper.ss.str(), helper.tensors, helper.scalars);
+    experimental::Print(cond, helper.ss.str(), helper.tensors, helper.scalars);
 }
 
 /**

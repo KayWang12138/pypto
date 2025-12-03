@@ -40,7 +40,7 @@ enum class MachineScheduleConfig {
 };
 
 namespace config {
-namespace internal {
+namespace experimental {
     bool IsType(const std::string &key, const std::type_info &type);
     void SetOption(const std::string &key, bool value);
     void SetOption(const std::string &key, int64_t value);
@@ -69,13 +69,13 @@ template <typename T>
 bool IsType(const std::string &key) {
     using type = std::decay_t<T>;
     if constexpr (std::is_same_v<type, bool>) {
-        return internal::IsType(key, typeid(bool));
+        return experimental::IsType(key, typeid(bool));
     } else if constexpr (std::is_integral_v<type>) {
-        return internal::IsType(key, typeid(int64_t));
+        return experimental::IsType(key, typeid(int64_t));
     } else if constexpr (std::is_same_v<type, char *>) {
-        return internal::IsType(key, typeid(std::string));
+        return experimental::IsType(key, typeid(std::string));
     } else {
-        return internal::IsType(key, typeid(T));
+        return experimental::IsType(key, typeid(T));
     }
     return false;
 }
@@ -97,11 +97,11 @@ void SetOption(const std::string &key, T &&value) {
     }
     using type = std::decay_t<T>;
     if constexpr (std::is_same_v<type, bool>) {
-        internal::SetOption(key, value);
+        experimental::SetOption(key, value);
     } else if constexpr (std::is_integral_v<type>) {
-        internal::SetOption(key, static_cast<int64_t>(value));
+        experimental::SetOption(key, static_cast<int64_t>(value));
     } else {
-        internal::SetOption(key, value);
+        experimental::SetOption(key, value);
     }
 }
 

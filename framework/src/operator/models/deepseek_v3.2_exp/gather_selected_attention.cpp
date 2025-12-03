@@ -73,10 +73,10 @@ void SelectedAttentionComputeV2(const Tensor &qNope, const Tensor &qRope, const 
                             TileShape::Current().SetVecTile(NUM_32, NUM_512);
                             // Gather tokNopeScales
                             auto kNopeScalesView = View(kNopeScales, {curS2Tile, 4}, { std::min(curSeq - s2Idx * curS2Tile, curS2Tile), 4}, {0, 0});
-                            auto knScale = internal::GatherInUB(kNopeScalesView, offsetView, -2);
+                            auto knScale = experimental::GatherInUB(kNopeScalesView, offsetView, -2);
                             // Gather kNope2D
                             auto kNope2DView = View(kNope2D, {curS2Tile, dN}, { std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN}, {0, 0});
-                            auto knQuant = internal::GatherInUB(kNope2DView, offsetView, -2);
+                            auto knQuant = experimental::GatherInUB(kNope2DView, offsetView, -2);
                             auto knQuantF16 = Cast(knQuant, DT_FP16);
                             auto knQuantF32 = Cast(knQuantF16, DT_FP32);
                             // dequant
@@ -90,11 +90,11 @@ void SelectedAttentionComputeV2(const Tensor &qNope, const Tensor &qRope, const 
                             kn = Cast(curKnFp32, dtype);
                         } else {
                             TileShape::Current().SetCubeTile({c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, false);
-                            kn = internal::GatherInL1<true, true>(kNope2D, offsetView, dN);
+                            kn = experimental::GatherInL1<true, true>(kNope2D, offsetView, dN);
                         }
                         // C1
                         TileShape::Current().SetCubeTile({c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, false);
-                        auto kr = internal::GatherInL1<true, true>(kRope2D, offsetView, dR);
+                        auto kr = experimental::GatherInL1<true, true>(kRope2D, offsetView, dR);
                         Tensor kj(dtype, {curS2Tile, dN + dR}, "kj");
                         Assemble(kn, {0, 0}, kj);
                         Assemble(kr, {0, dN}, kj);
@@ -126,7 +126,7 @@ void SelectedAttentionComputeV2(const Tensor &qNope, const Tensor &qRope, const 
                             auto vj = View(kn, {curS2Tile, dN}, {std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN}, {0, 0});
                             q1 = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
                         } else {
-                            auto vj = internal::GatherInL1<true, false>(kNope2D, offsetView, dN);
+                            auto vj = experimental::GatherInL1<true, false>(kNope2D, offsetView, dN);
                             q1 = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
                         }
                         IF (IsLoopBegin(s2Idx, 0)) {
