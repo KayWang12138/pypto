@@ -471,11 +471,11 @@ class Tensor:
     def scatter_update(self, dim: int, index: 'Tensor', src: 'Tensor') -> 'Tensor':
         return pypto.scatter_update(self, dim, index, src)
 
-    def scatter_(self, dim: int, index: 'Tensor', src: float) -> 'Tensor':
-        return pypto.scatter_(self, dim, index, src)
+    def scatter_(self, dim: int, index: 'Tensor', src: Union['Tensor', float], *, reduce: str = None) -> 'Tensor':
+        return pypto.scatter_(self, dim, index, src, reduce=reduce)
 
-    def scatter(self, dim: int, index: 'Tensor', src: float) -> 'Tensor':
-        return pypto.scatter(self, dim, index, src)
+    def scatter(self, dim: int, index: 'Tensor', src: Union['Tensor', float], *, reduce: str = None) -> 'Tensor':
+        return pypto.scatter(self, dim, index, src, reduce=reduce)
 
     def _is_empty_slice(self, key):
         if isinstance(key, slice):

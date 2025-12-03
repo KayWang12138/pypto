@@ -51,15 +51,15 @@ TILEOP void TgatherElement(T0 dst, T1 src0, T2 src1) {
     auto srcAddr = (__ubuf__ typename T1::Type*)((uint64_t)(src0.GetAddr()));
     auto idxAddr = (__ubuf__ typename T2::Type*)((uint64_t)(src1.GetAddr()));
     auto dstAddr = (__ubuf__ typename T0::Type*)((uint64_t)(dst.GetAddr()));
+    auto newIdxValue = 0;
     for (int i = 0; i < n0IdxShape; ++i) {
         for (int j = 0; j < n1IdxShape; ++j) {
             for (int k = 0; k < n2IdxShape; ++k) {
                 for (int l = 0; l < n3IdxShape; ++l) {
                     for (int m = 0; m < n4IdxShape; ++m) {
-                        auto idxOffset = i * n0IdxStride + j * n1IdxStride + k * n2IdxStride + l * n3IdxStride + m;
                         auto dstOffset = i * n0DstStride + j * n1DstStride + k * n2DstStride + l * n3DstStride + m;
-                        auto orgIdxValue = *(idxAddr + idxOffset);
-                        auto newIdxValue = 0;
+                        auto orgIdxValue = 
+                            *(idxAddr + i * n0IdxStride + j * n1IdxStride + k * n2IdxStride + l * n3IdxStride + m);
                         if constexpr (axis == 0) {
                             newIdxValue =
                                 orgIdxValue * n0SrcStride  + j * n1SrcStride + k * n2SrcStride + l * n3SrcStride + m;
@@ -76,9 +76,11 @@ TILEOP void TgatherElement(T0 dst, T1 src0, T2 src1) {
                             newIdxValue =
                                 i * n0SrcStride  + j * n1SrcStride + k * n2SrcStride + l * n3SrcStride + orgIdxValue;
                         }
-                        *(idxAddr + idxOffset) = newIdxValue;
-                        if (scalarFlag) {
+                        if constexpr (scalarFlag) {
                             dstAddr[dstOffset] = srcAddr[newIdxValue];
+                        } else {
+                            *(idxAddr + i * n0IdxStride + j * n1IdxStride + k * n2IdxStride + l * n3IdxStride + m) =
+                                newIdxValue;
                         }
                     }
                 }

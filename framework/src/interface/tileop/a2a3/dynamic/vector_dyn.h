@@ -2400,9 +2400,9 @@ INLINE void ScatterElementSReduceOp(__ubuf__ T *dst, int dstOffset, T src2, unsi
     if (reduceOp == 0) {
         dst[dstOffset] = src2;
     } else if (reduceOp == 1) {
-        dst[dstOffset] = static_cast<float>(src2) + static_cast<float>(dst[dstOffset]);
+        dst[dstOffset] = static_cast<T>(static_cast<float>(src2) + static_cast<float>(dst[dstOffset]));
     } else {
-        dst[dstOffset] = static_cast<float>(src2) * static_cast<float>(dst[dstOffset]);
+        dst[dstOffset] = static_cast<T>(static_cast<float>(src2) * static_cast<float>(dst[dstOffset]));
     }
 }
 
@@ -2449,9 +2449,9 @@ INLINE void ScatterReduceOp(__ubuf__ T *dst, int dstOffset, __ubuf__ T *src2, in
     if (reduceOp == 0) {
         dst[dstOffset] = src2[src2Offset];
     } else if (reduceOp == 1) {
-        dst[dstOffset] = static_cast<float>(src2[src2Offset]) + static_cast<float>(dst[dstOffset]);
+        dst[dstOffset] = static_cast<T>(static_cast<float>(src2[src2Offset]) + static_cast<float>(dst[dstOffset]));
     } else {
-        dst[dstOffset] = static_cast<float>(src2[src2Offset]) * static_cast<float>(dst[dstOffset]);
+        dst[dstOffset] = static_cast<T>(static_cast<float>(src2[src2Offset]) * static_cast<float>(dst[dstOffset]));
     }
 }
 

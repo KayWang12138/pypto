@@ -283,14 +283,15 @@ void InnerTiledScatterElementS(size_t cur, Function &function, const TileShape &
 
     // 按照dstShape进行切分
     auto &vecTile = tileShape.GetVecTile();
-    if (vecTile[axis] < dstTensor->shape[axis]) {
-        ALOG_ERROR_F("the axis:%d is not allowed to be cut. tileshape:%lld dstshape:%lld", axis, vecTile[axis],
-            dstTensor->shape[axis]);
+    if (vecTile[axis] < std::max(dstTensor->shape[axis], idxInput->shape[axis])) {
+        ALOG_ERROR_F("the axis:%d is not allowed to be cut. tileshape:%lld dstshape:%lld idxshape:%lld", 
+            axis, vecTile[axis], dstTensor->shape[axis], idxInput->shape[axis]);
         ASSERT(vecTile[axis] >= dstTensor->shape[axis]);
+        ASSERT(vecTile[axis] >= idxInput->shape[axis]);
     }
     int64_t tmpTile = vecTile[cur];
     if (static_cast<int>(cur) == axis) {
-        tmpTile = dstTensor->shape[cur];
+        tmpTile = std::max(dstTensor->shape[axis], idxInput->shape[axis]);
     }
     for (int i = 0; i < idxInput->shape[cur]; i += tmpTile) {
         if (static_cast<int>(cur) == axis) {
