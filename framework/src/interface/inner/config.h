@@ -151,7 +151,6 @@ template <typename T>
 void SetRunDataOption(const std::string &key, T &&value) {
     experimental::SetOption("rundata." + key, value);
 }
-void CreateRunDataDir();
 
 using ValueType = std::variant<bool, int64_t, std::string, std::vector<int64_t>, std::map<int64_t, int64_t>>;
 std::unordered_map<std::string, ValueType> GetOptions();

@@ -23,6 +23,7 @@
 #include "interface/utils/common.h"
 #include "interface/utils/string_utils.h"
 #include "interface/utils/file_utils.h"
+#include "interface/utils/log.h"
 
 using json = nlohmann::json;
 
@@ -85,6 +86,19 @@ static std::map<std::string, ValueType> g_globalConfig = {
     {PROFILE_ENABLE, false},
 };
 
+struct RunDataDir {
+    std::string path;
+    std::string dName;
+
+    std::string montage() {
+        return path + "/" + dName;
+    }
+
+    bool empty() {
+        return (path.empty() || dName.empty());
+    }
+};
+
 struct ConfigStorage {
     ConfigStorage() { Init(); }
 
@@ -123,7 +137,7 @@ struct ConfigStorage {
 
     FunctionType funcType;
     std::shared_ptr<SemanticLabel> semanticLabel;
-    std::string rundataDir;
+    RunDataDir rundataDir;
     std::unordered_map<std::string, ValueType> options;
     PrintOptions printOption;
 };
@@ -135,10 +149,6 @@ std::shared_mutex g_rwlock;
 
 void SetBuildStatic(bool isStatic) {
     g_config.funcType = isStatic ? FunctionType::STATIC : FunctionType::DYNAMIC;
-}
-
-std::string GetRunDataDir() {
-    return g_config.rundataDir;
 }
 
 FunctionType GetFunctionType() {
@@ -161,6 +171,25 @@ bool HasOption(const std::string &key) {
     return g_config.options.find(StringUtils::ToLower(key)) != g_config.options.end();
 }
 
+inline void OptionToOss(std::ostringstream &oss, const std::string &key, const ValueType &value) {
+    if (std::holds_alternative<bool>(value)) {
+        oss << key << ": " << std::boolalpha << std::get<bool>(value);
+    } else if (std::holds_alternative<int64_t>(value)) {
+        oss << key << ": " << std::get<int64_t>(value);
+    } else if (std::holds_alternative<std::string>(value)) {
+        oss << key << ": " << std::get<std::string>(value);
+    } else if (std::holds_alternative<std::vector<int64_t>>(value)) {
+        oss << key << ": " << std::get<std::vector<int64_t>>(value);
+    } else if (std::holds_alternative<MapType>(value)) {
+        oss << key << ": ";
+        for (auto &[k, v] : std::get<MapType>(value)) {
+            oss << "{" << k << ":" << v << "}";
+        }
+    } else {
+        throw std::runtime_error("Config value type not supported: " + key);
+    }
+}
+
 std::string Dump() {
     std::ostringstream oss;
     auto &printOption = g_config.printOption;
@@ -176,23 +205,8 @@ std::string Dump() {
     oss << "printOption.linewidth: " << printOption.linewidth << std::endl;
 
     for (auto &it : g_config.options) {
-        if (std::holds_alternative<bool>(it.second)) {
-            oss << it.first << ": " << std::get<bool>(it.second) << std::endl;
-        } else if (std::holds_alternative<int64_t>(it.second)) {
-            oss << it.first << ": " << std::get<int64_t>(it.second) << std::endl;
-        } else if (std::holds_alternative<std::string>(it.second)) {
-            oss << it.first << ": " << std::get<std::string>(it.second) << std::endl;
-        } else if (std::holds_alternative<std::vector<int64_t>>(it.second)) {
-            oss << it.first << ": " << std::get<std::vector<int64_t>>(it.second) << std::endl;
-        } else if (std::holds_alternative<MapType>(it.second)) {
-            oss << it.first << ": ";
-            for (auto &[k, v] : std::get<MapType>(it.second)) {
-                oss << "{" << k << ":" << v << "}";
-            }
-            oss << std::endl;
-        } else {
-            throw std::runtime_error("Config value type not supported: " + it.first);
-        }
+        OptionToOss(oss, it.first, it.second);
+        oss << std::endl;
     }
     return oss.str();
 }
@@ -258,24 +272,21 @@ static json toJson(const std::string &prefix) {
     return j;
 }
 
+constexpr int LIMIT_DIR_NUM_BEFORE_CREATE = 127;
+constexpr const char *PREFIX_RUNDATA = "rundata_";
 constexpr const char *ENV_VAR_PYPTO_HOME = "PYPTO_HOME";
 constexpr const char *ENV_VAR_HOME = "HOME";
 void CreateRunDataDir() {
-    if (!g_config.rundataDir.empty()) {
-        return;
-    }
+    std::string envStr = GetEnvVar(ENV_VAR_PYPTO_HOME);
+    std::string dir = envStr.empty() ? (GetEnvVar(ENV_VAR_HOME) + "/.pypto") : envStr;
+    g_config.rundataDir.path = dir + "/run";
+    RemoveOldestDirs(g_config.rundataDir.path, PREFIX_RUNDATA, LIMIT_DIR_NUM_BEFORE_CREATE);
     auto time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
     std::stringstream timestamp;
     timestamp << std::put_time(std::localtime(&time), "%Y%m%d%H%M%S");
-
-    std::string envStr = GetEnvVar(ENV_VAR_PYPTO_HOME);
-    std::string dir = envStr.empty() ? (GetEnvVar(ENV_VAR_HOME) + "/.pypto") : envStr;
-
-    dir = dir + "/run/rundata_" + timestamp.str();
-    bool res = CreateMultiLevelDir(dir);
-    ASSERT(res) << "Failed to create directory: " << dir;
-
-    g_config.rundataDir = dir;
+    g_config.rundataDir.dName = PREFIX_RUNDATA + timestamp.str();
+    bool res = CreateMultiLevelDir(g_config.rundataDir.montage());
+    ASSERT(res) << "Failed to create directory: " << g_config.rundataDir.montage();
 }
 
 static void SetOptionPost(const std::string &key) {
@@ -284,8 +295,12 @@ static void SetOptionPost(const std::string &key) {
             CreateRunDataDir();
         }
         auto value = toJson("rundata.").dump(2);
-        auto dir = GetRunDataDir() + "/rundata.json";
-        SaveFileSafe(dir, reinterpret_cast<uint8_t*>(value.data()), value.size());
+        auto filename = g_config.rundataDir.montage() + "/rundata.json";
+        SaveFileSafe(filename, reinterpret_cast<uint8_t*>(value.data()), value.size());
+    } else {
+        std::ostringstream oss;
+        OptionToOss(oss, key, g_config.options[key]);
+        ALOG_DEBUG_F("Set option %s successfully.", oss.str().c_str());
     }
 }
 

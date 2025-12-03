@@ -270,6 +270,7 @@ std::vector<std::string> GetFiles(const std::string& path, const std::string& ex
     std::sort(files.begin(), files.end());
     return files;
 }
+
 void SaveFile(const std::string &filePath, const std::vector<uint8_t> &data) {
     FILE *file = fopen(filePath.c_str(), "wb");
     fwrite(data.data(), 1, data.size(), file);
@@ -430,4 +431,34 @@ std::string GetCurRunningPath() {
     return cwd;
 }
 
+void RemoveOldestDirs(const std::string &path, const std::string &prefix, int left) {
+    DIR *dir = opendir(path.c_str());
+    if (dir == nullptr) {
+        ALOG_ERROR_F("failed to opendir: ", path.c_str());
+        return;
+    }
+
+    int32_t dirNum{0};
+    struct dirent *entry;
+    std::map<long long, std::string, std::less<>> timeList;
+    while ((entry = readdir(dir)) != nullptr) {
+        if (strncmp(entry->d_name, prefix.c_str(), prefix.size()) != 0) {
+            continue;
+        }
+
+        std::string dirName(entry->d_name);
+        std::string fullPath = path + "/" + dirName;
+        struct stat statBuf;
+        if (stat(fullPath.c_str(), &statBuf) == 0 && S_ISDIR(statBuf.st_mode)) {
+            ++dirNum;
+            long long tmpTime = static_cast<long long>(statBuf.st_mtime);
+            timeList[tmpTime] = fullPath;
+        }
+    }
+    closedir(dir);
+
+    for (auto it = timeList.begin(); dirNum > left && it != timeList.end(); --dirNum, ++it) {
+        DeleteDir(it->second);
+    }
+}
 }  // namespace npu::tile_fwk
