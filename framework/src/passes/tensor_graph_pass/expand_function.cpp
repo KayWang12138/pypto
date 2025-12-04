@@ -13,6 +13,7 @@
  * \brief
  */
 
+#include "passes/tensor_graph_pass/expand_function.h"
 #include <map>
 #include "interface/operation/opcode.h"
 #include "interface/function/function.h"
@@ -24,7 +25,6 @@
 #include "interface/program/program.h"
 #include "interface/operation/operation_impl.h"
 #include "interface/configs/config_manager.h"
-#include "passes/tensor_graph_pass/expand_function.h"
 #include "passes/pass_check/expand_function_checker.h"
 #include "passes/statistics/tensor_and_tile_graph_statistic.h"
 #include "passes/pass_log/pass_log.h"

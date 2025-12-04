@@ -269,6 +269,7 @@ set(_CaseFilterList
         "GeneralizetionTest.TestScatterUpdateToAll"
         "GeneralizetionTest.TestTransposeToAll"
         "PassManagerTest.*"
+        "TestPassDependency.TestCheckStrategyDependency"
         # DumpJson
         "JsonOutputValidationTest.VerifyBasicStructure"
         "JsonOutputValidationTest.VerifyFunctionStructure"

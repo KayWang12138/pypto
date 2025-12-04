@@ -428,7 +428,7 @@ Status NBufferMerge::MergeProcess(const OperationsViewer &opOriList,
 
 std::map<int, size_t> NBufferMerge::SetNumDB(std::map<uint64_t, std::vector<int>> &hashMap) {
     std::map<int, size_t> numDBList;
-    auto it = vecNBufferMap.find(VEC_NBuffer_MAP_DEFAULT_MERGE_NUM_KEY);
+    auto it = vecNBufferMap.find(VEC_NBUFFER_MAP_DEFAULT_MERGE_NUM_KEY);
     if (it != vecNBufferMap.end()) {
         int defaultVal = it->second;
         for (int i = 0; i < static_cast<int>(hashMap.size()); i++) {
@@ -504,12 +504,12 @@ Status NBufferMerge::CheckVecNBufferMapForManualMerge() {
         return FAILED;
     }
     for (const auto& pair : vecNBufferMap) {
-        if (pair.first < VEC_NBuffer_MAP_DEFAULT_MERGE_NUM_KEY || pair.first > static_cast<int64_t>(hashOrder.size()) - 1) {
+        if (pair.first < VEC_NBUFFER_MAP_DEFAULT_MERGE_NUM_KEY || pair.first > static_cast<int64_t>(hashOrder.size()) - 1) {
             APASS_LOG_ERROR_F(Elements::Config, "The VEC_NBUFFER_MAP key %ld is incorrect; Please set keys of VEC_NBUFFER_MAP between -1 and max hashOrder %ld.", pair.first, static_cast<int64_t>(hashOrder.size()) - 1);
             return FAILED;
         }
         if (pair.second <= 0 || pair.second > static_cast<int64_t>(INT_MAX)) {
-            APASS_LOG_ERROR_F(Elements::Config, "The value %ld of the key %ld in VEC_NBUFFER_MAP is incorrect; Please set values of VEC_NBUFFER_MAP more than 0 and not exceeding the INT_MAX.", pair.second, pair.first);
+            APASS_LOG_ERROR_F(Elements::Config, "The value %ld of the key %ld in VEC_NBUFFER_MAP is incorrect; Please set values of VEC_NBUFFER_MAP more than 0 and not exceeding the INT_MAX %d.", pair.second, pair.first, INT_MAX);
             return FAILED;
         }
     }

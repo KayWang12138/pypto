@@ -64,11 +64,9 @@ Status AssignMemoryType::RunOnFunction(Function &function) {
         AssignSpecialOpMemtype(op, infoBufferSize);
     }
     if (infoBufferSize) {
-        const int UB_SIZE_THRESHOLD =
-            static_cast<int>(PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_UB) * 0.5);
-        const int L1_SIZE_THRESHOLD =
-            static_cast<int>(PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L1) * 0.5);
-        APASS_LOG_INFO_F(Elements::Operation, "UB buffer size threshold %d, L1 buffer size threshold %d.",
+        const size_t UB_SIZE_THRESHOLD = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_UB) / 2;
+        const size_t L1_SIZE_THRESHOLD = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L1) / 2;
+        APASS_LOG_INFO_F(Elements::Operation, "UB buffer size threshold %zu, L1 buffer size threshold %zu.",
             UB_SIZE_THRESHOLD, L1_SIZE_THRESHOLD);
     }
 

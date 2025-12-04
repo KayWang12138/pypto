@@ -510,7 +510,7 @@ bool IsoPartitioner::SuitableForMergeCheck(int32_t currColor, int32_t mergeColor
     isSuitableForMerge = coreTypeMergable && isSuitableForMerge && cycleMergable;
     APASS_LOG_DEBUG_F(Elements::Operation, "Try merge current group: %d [%s]\n\t with: %d [%s], is suitable for merge: %d.",
                  currColor, isoSubGroups_[currColor]->GetSubGraph(0)->DumpStr().c_str(),
-                 mergeColor, isoSubGroups_[mergeColor]->GetSubGraph(0)->DumpStr().c_str(), coreTypeMergable);
+                 mergeColor, isoSubGroups_[mergeColor]->GetSubGraph(0)->DumpStr().c_str(), isSuitableForMerge);
     return isSuitableForMerge;
 }
 

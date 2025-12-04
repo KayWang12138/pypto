@@ -199,7 +199,7 @@ void ConfigManager::PassConfigsDebugInfo(
             ALOG_INFO("[ConfigManager] Pass instance ", spaces, "<", identifier, "> configs loaded.");
         } else {
             ALOG_INFO("[ConfigManager] Pass instance ", spaces, "<", identifier, "> configs for pass strategy <",
-            strategy, "> is missing, use default configs. You may add your own custom strategy configs in 'tile_fwk_config.json'.");
+            strategy, "> is missing. You may add your own custom strategy configs in 'tile_fwk_config.json'.");
         }
     }
 }

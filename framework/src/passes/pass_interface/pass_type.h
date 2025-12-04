@@ -13,8 +13,6 @@
  * \brief
  */
 
-#ifndef PASSES_PASS_TYPE_H_
-#define PASSES_PASS_TYPE_H_
 #pragma once
 #include <cstdint>
 #include "tilefwk/error.h"
@@ -107,5 +105,4 @@ inline constexpr const char *PassNameStr(PassName name){
             return "NotDefined";
     }
 }
-}
-#endif  // PASSES_PASS_TYPE_H_
+} // PASSES_PASS_TYPE_H_

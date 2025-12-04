@@ -33,9 +33,11 @@ PassDependency::PassDependency() {
 
     registerDependency(PassNameStr(PassName::SUBGRAPH_TO_FUNCTION), {PassNameStr(PassName::GRAPH_PARTITION),
         PassNameStr(PassName::PRE_GRAPH_PROCESS), PassNameStr(PassName::INPLACE_PROCESS), PassNameStr(PassName::INFER_DYN_SHAPE)});
+    APASS_LOG_DEBUG_F(Elements::Manager, "Strategy dependency checker initialized.");
 }
 
 Status PassDependency::CheckStrategyDependency(const std::string &strategyName, const std::vector<std::string> &passes) {
+    APASS_LOG_DEBUG_F(Elements::Manager, "Start dependency check for strategy %s.", strategyName.c_str());
     bool needWarn = false;
     std::unordered_set<std::string> processedPasses;
     std::string prePass;
@@ -69,6 +71,7 @@ Status PassDependency::CheckStrategyDependency(const std::string &strategyName, 
             strategyName.c_str(), pName.c_str(), CommonUtils::VecToStr<std::string>(it->second).c_str(),
             CommonUtils::VecToStr<std::string>(missingDeps).c_str(), pName.c_str());
     }
+    APASS_LOG_DEBUG_F(Elements::Manager, "Finish dependency check for strategy %s.", strategyName.c_str());
     return needWarn ? WARNING: SUCCESS;
 }
 } //namespace npu::tile_fwk

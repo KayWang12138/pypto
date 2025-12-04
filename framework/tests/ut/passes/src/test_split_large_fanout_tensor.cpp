@@ -606,10 +606,6 @@ TEST_F(SplitLargeFanoutTensorTest, MtoMGetCorrectAssemble) {
     Function *function = G.GetFunction();
 
     std::cout << "Build Graph Done." << std::endl;
-    /*
-    dump graph before Pass
-    function->DumpJsonFile(jsonFilePath);
-    */
     // 单独执行pass
     npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
     splitLargeFanoutTensor.enableMoreSplit = true;
