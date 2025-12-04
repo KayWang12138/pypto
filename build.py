@@ -1044,7 +1044,7 @@ class BuildCtrl:
         logging.info("Success Build whl, Cmd: %s, Duration %s sec", cmd, duration_str)
 
     def py_tests(self):
-        if not self.tests.utest.enable and not self.tests.stest.enable:
+        if not self.tests.utest.enable and not self.tests.stest.enable and not self.tests.example.enable:
             return
         # 重装 whl
         dist: Path = self.install_root
