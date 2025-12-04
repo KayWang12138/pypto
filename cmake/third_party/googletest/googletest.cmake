@@ -28,7 +28,7 @@ if (DEFINED ENV{PYPTO_THIRD_PARTY_PATH})
     if (NOT GTest_FOUND)
         # 兼容部分镜像直接存放 gtest 安装结果的情况
         get_filename_component(_TargetSourceDir "${PYPTO_THIRD_PARTY_PATH}/gtest" REALPATH)
-        find_package(GTest EXACT CONFIG PATHS ${_TargetSourceDir} NO_DEFAULT_PATH)
+        find_package(GTest ${_TargetVersion} EXACT CONFIG PATHS ${_TargetSourceDir} NO_DEFAULT_PATH)
     endif ()
 else ()
     find_package(GTest ${_TargetVersion} EXACT CONFIG)
