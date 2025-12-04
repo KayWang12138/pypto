@@ -15,7 +15,7 @@ import torch
 import torch_npu
 import os
 from pathlib import Path
-from examples.deepseek_v32_exp.lightning_indexer_prolog_quant import (
+from examples.models.deepseek_v32_exp.lightning_indexer_prolog_quant import (
     IndexerPrologQuantInput, IndexerPrologQuantOutput, IndexerPrologQuantAttr, IndexerPrologQuantConfigs,
     lightning_indexer_prolog_quant)
 import pytest

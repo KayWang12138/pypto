@@ -14,7 +14,7 @@
 import pypto
 import torch
 import os
-from examples.deepseek_v32_exp.lightning_indexer_prolog_quant import IndexerPrologQuantInput, \
+from examples.models.deepseek_v32_exp.lightning_indexer_prolog_quant import IndexerPrologQuantInput, \
     IndexerPrologQuantOutput, IndexerPrologQuantAttr, IndexerPrologQuantConfigs, lightning_indexer_prolog_quant
 
 

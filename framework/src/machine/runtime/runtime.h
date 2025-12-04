@@ -29,11 +29,23 @@
 #include "tilefwk/data_type.h"
 
 #ifdef BUILD_WITH_CANN
-#include "driver/ascend_hal_define.h"
 #include "acl/acl.h"
 #include "runtime/rt.h"
 #include "runtime/rt_preload_task.h"
 #endif
+
+constexpr int ADDR_MAP_TYPE_REG_AIC_CTRL = 2;
+constexpr int ADDR_MAP_TYPE_REG_AIC_PMU_CTRL = 3;
+
+struct AddrMapInPara {
+    unsigned int addr_type;
+    unsigned int devid;
+};
+
+struct AddrMapOutPara {
+    unsigned long long ptr;
+    unsigned long long len;
+};
 
 namespace npu::tile_fwk {
 
