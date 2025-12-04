@@ -17,13 +17,12 @@
 
 #include "device_common.h"
 #include "aicore_manager.h"
-#include "device_context.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/utils/device_log.h"
 #include "tilefwk/aicore_print.h"
-namespace npu::tile_fwk::dynamic {
 
+namespace npu::tile_fwk::dynamic {
 struct AicoreLogManager {
     AicoreLogManager() {
         data_ = aligned_alloc(PAGE_SIZE, MAX_AICORE_NUM * PRINT_BUFFER_SIZE);

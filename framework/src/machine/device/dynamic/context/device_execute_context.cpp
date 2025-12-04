@@ -1,0 +1,454 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file device_execute_context.cpp
+ * \brief
+ */
+
+#include "machine/device/dynamic/context/device_execute_context.h"
+
+namespace npu::tile_fwk::dynamic {
+bool DeviceExecuteContext::DuppedRootCached() {
+    if (!controlFlowCacheActivated) {
+        return false;
+    }
+    return duppedRootCount < devProg->controlFlowCache.rootTaskCount;
+}
+
+bool DeviceExecuteContext::DuppedRootUpdateAndCachedAllSubmitted() {
+    if (!controlFlowCacheActivated) {
+        return false;
+    }
+    duppedRootCount++;
+    return duppedRootCount == devProg->controlFlowCache.rootTaskCount;
+}
+
+uint64_t DeviceExecuteContext::GetInputShapeDimSize(DeviceExecuteContext *ctx, uint64_t inputIndex) {
+    DevTensorData *input = &ctx->args->devTensorList[inputIndex];
+    return input->shape.dimSize;
+}
+
+uint64_t DeviceExecuteContext::GetInputShapeDim(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t n) {
+    DevTensorData *input = &ctx->args->devTensorList[inputIndex];
+    return input->shape.dim[n];
+}
+
+int64_t DeviceExecuteContext::GetInputDataInt32Dim1(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0) {
+    DevTensorData *input = &ctx->args->devTensorList[inputIndex];
+    return (reinterpret_cast<int32_t *>(input->address))[off0];
+}
+
+int64_t DeviceExecuteContext::GetInputDataInt32Dim2(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1) {
+    DevTensorData *input = &ctx->args->devTensorList[inputIndex];
+    return (reinterpret_cast<int32_t *>(input->address))[off0 * input->shape.dim[1] + off1];
+}
+
+int64_t DeviceExecuteContext::GetInputDataInt32Dim3(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1, uint64_t off2) {
+    DevTensorData *input = &ctx->args->devTensorList[inputIndex];
+    return (reinterpret_cast<int32_t *>(input->address))[off0 * input->shape.dim[1] * input->shape.dim[2] + off1 * input->shape.dim[2] + off2]; // 2: dim 2
+}
+
+int64_t DeviceExecuteContext::GetInputDataInt32Dim4(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1,
+    uint64_t off2, uint64_t off3) {
+    DevTensorData *input = &ctx->args->devTensorList[inputIndex];
+    return (reinterpret_cast<int32_t *>(input->address))[((off0 * input->shape.dim[1] + off1) * input->shape.dim[2] + off2) * input->shape.dim[3] + off3]; // 2: dim 2, 3: dim 3
+}
+
+void *DeviceExecuteContext::SymbolHandlerIdToHandler(SymbolHandlerId id) {
+    switch (id) {
+        case SymbolHandlerId::GetInputShapeDimSize:
+            return reinterpret_cast<void *>(GetInputShapeDimSize);
+        case SymbolHandlerId::GetInputShapeDim:
+            return reinterpret_cast<void *>(GetInputShapeDim);
+        case SymbolHandlerId::GetInputDataInt32Dim1:
+            return reinterpret_cast<void *>(GetInputDataInt32Dim1);
+        case SymbolHandlerId::GetInputDataInt32Dim2:
+            return reinterpret_cast<void *>(GetInputDataInt32Dim2);
+        case SymbolHandlerId::GetInputDataInt32Dim3:
+            return reinterpret_cast<void *>(GetInputDataInt32Dim3);
+        case SymbolHandlerId::GetInputDataInt32Dim4:
+            return reinterpret_cast<void *>(GetInputDataInt32Dim4);
+        default:
+            DEV_ASSERT(0);
+            return nullptr;
+    }
+    return nullptr;
+}
+
+DeviceExecuteContext::DeviceExecuteContext(DevStartArgs *startArgs) {
+    PerfBegin(PERF_EVT_INIT);
+    this->devProg = startArgs->devProg;
+
+    DEV_IF_VERBOSE_DEBUG {
+        std::string dump = devProg->Dump(0, true);
+        DEV_VERBOSE_DEBUG("[DEVICE] %s.", dump.c_str());
+    }
+
+    PerfBegin(PERF_EVT_CONTROL_FLOW_MAPEXE);
+    execProg = DeviceExecuteProgram(devProg, reinterpret_cast<AOTBinaryControlFlow::controlFlowEntry>(startArgs->controlFlowEntry));
+    AOTCodePool::GetCodePool().MapExec();
+    PerfEnd(PERF_EVT_CONTROL_FLOW_MAPEXE);
+    PerfEnd(PERF_EVT_INIT);
+}
+
+void DeviceExecuteContext::ShowStats() {
+    taskContext.ShowStats();
+    workspace.DumpMemoryUsage("End ExecDyn");
+}
+
+void DeviceExecuteContext::RunInit(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
+    PerfBegin(PERF_EVT_CONTROL_FLOW_INIT);
+    this->pushTask = tPushTask;
+    this->args = startArgs;
+    this->devProg = startArgs->devProg;
+
+    workspace.Init(startArgs);
+    if (devProg->firstStitchTaskLoopNum > 0) {
+        stitchTaskLoopNumThreshold = std::min<uint16_t>(devProg->firstStitchTaskLoopNum, MAX_CACHED_FUNC_NUM);
+        DEV_INFO("first stitch task loop num threshold is %u.", stitchTaskLoopNumThreshold);
+    }
+
+    slotContext.InitAllocator(workspace, devProg->slotSize);
+    slotContext.FillInputOutputSlot(devProg, startArgs);
+
+    stitchContext.Init(devProg, workspace);
+
+    taskContext.InitAllocator(devProg, workspace, startArgs);
+
+    workspace.SetupVector(symbolTable);
+    symbolTable.resize(devProg->symbolTable.size());
+    for (int i = 0; i < startArgs->GetInputSymbolSize(); ++i) {
+        DevInputSymbol &param = startArgs->GetInputSymbol(i);
+        int inputSymbolIndex = this->devProg->startArgsInputSymbolIndexList[i];
+        symbolTable[inputSymbolIndex] = param.value;
+        DEV_INFO("Param %d Symbol Table %d = %lu.", i, inputSymbolIndex, param.value);
+    }
+
+    for (size_t i = 0; i < this->devProg->startArgsSymbolHandlerList.size(); ++i) {
+        SymbolHandler &symbolHandler = this->devProg->startArgsSymbolHandlerList[i];
+        void *handler = SymbolHandlerIdToHandler(symbolHandler.handlerId);
+        DEV_ASSERT_MSG(handler, "handler not found.");
+        symbolTable[symbolHandler.symIndex] = PtrToValue(handler);
+    }
+
+    /* This initialization must only occur after all other AICPU workspace meta memory allocations have completed.
+        The remaining portion of AICPU workspace meta memory must support reclamation. */
+    workspace.InitMetadataSlabAllocator();
+
+    PerfEnd(PERF_EVT_CONTROL_FLOW_INIT);
+    DEV_INFO("Image size = %lu.", devProg->GetSize());
+}
+
+void DeviceExecuteContext::PushTask(DynDeviceTask *dynTask) {
+    pushTask(dynTask, this);
+    taskId++;
+}
+
+void DeviceExecuteContext::GELaunchRunCached(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
+    PerfBegin(PERF_EVT_CONTROL_FLOW_INIT);
+    this->pushTask = tPushTask;
+    this->args = startArgs;
+    this->devProg = startArgs->devProg;
+    PerfEnd(PERF_EVT_CONTROL_FLOW_INIT);
+    PerfMtTrace(PERF_TRACE_INIT, CTRL_CPU_THREAD_IDX);
+    PerfBegin(PERF_EVT_CONTROL_FLOW);
+    for (size_t i = 0; i < devProg->controlFlowCache.deviceTaskCount; i++) {
+        DynDeviceTask *dynTask = reinterpret_cast<DynDeviceTask *>(devProg->controlFlowCache.deviceTaskCacheList[i].dynTaskBase);
+        devProg->controlFlowCache.PredCountDataRestore(dynTask);
+        devProg->controlFlowCache.ReadyQueueDataRestore(dynTask);
+        taskContext.UpdateReadyTaskNum(dynTask->readyQueueBackup->readyTaskNum);
+
+        PROF_STAGE_BEGIN(PERF_EVT_STAGE_PUSH_TASK, "push.before\n");
+        DumpDeviceTask(taskId, dynTask);
+        PushTask(dynTask);
+        PerfMtTrace(PERF_TRACE_DEV_TASK_BUILD, CTRL_CPU_THREAD_IDX);
+        PROF_STAGE_END(PERF_EVT_STAGE_PUSH_TASK, "push.after\n");
+    }
+    PerfEnd(PERF_EVT_CONTROL_FLOW);
+}
+
+void DeviceExecuteContext::RunControlFlow(DevStartArgs *startArgs) {
+    PerfBegin(PERF_EVT_CONTROL_FLOW);
+    CallRootEntryType callRootList[static_cast<uint32_t>(CallRootStage::T_CALLROOT_MAX)] = {
+        DeviceExecuteCallAlloc,
+        DeviceExecuteCallStitch,
+        DeviceExecuteRuntimerLog,
+        DeviceExecuteShmemAlloctor,
+    };
+    execProg.controlFlowBinary.CallControlFlow(this, symbolTable.data(), callRootList, startArgs);
+    PerfEnd(PERF_EVT_CONTROL_FLOW);
+}
+
+void DeviceExecuteContext::GELaunchFullCacheRunControlFlow(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
+    RunInit(startArgs, tPushTask);
+    RunControlFlow(startArgs);
+}
+
+void DeviceExecuteContext::GELaunchFullCache(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
+    if (devProg->controlFlowCache.IsActivatedFullCache(startArgs)) {
+        DEV_TRACE_DEBUG(CtrlEvent(none(), ControlFlowCacheFullRunCache()));
+        GELaunchRunCached(startArgs, tPushTask);
+    } else {
+        DEV_TRACE_DEBUG(CtrlEvent(none(), ControlFlowCacheFullRunControl()));
+        GELaunchFullCacheRunControlFlow(startArgs, tPushTask);
+    }
+}
+
+void DeviceExecuteContext::GELaunchPartialCache(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
+    DEV_TRACE_DEBUG(CtrlEvent(none(), Workspace(Range(startArgs->contextWorkspaceAddr, startArgs->contextWorkspaceAddr + startArgs->contextWorkspaceSize))));
+
+    if (devProg->controlFlowCache.IsActivatedPartialCache(startArgs)) {
+        controlFlowCacheActivated = true;
+        DEV_TRACE_DEBUG(CtrlEvent(none(), ControlFlowCachePartRunCache(devProg->controlFlowCache.deviceTaskCount, devProg->controlFlowCache.rootTaskCount)));
+        GELaunchRunCached(startArgs, tPushTask);
+    }
+
+    DEV_TRACE_DEBUG(CtrlEvent(none(), ControlFlowCacheFullRunControl()));
+    RunInit(startArgs, tPushTask);
+    RunControlFlow(startArgs);
+}
+
+void DeviceExecuteContext::GELaunch(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
+    if (devProg->controlFlowCache.IsRecording()) {
+        devProg->controlFlowCache.InitInputOutput(startArgs);
+    }
+    GELaunchPartialCache(startArgs, tPushTask);
+}
+
+bool DeviceExecuteContext::AiCoreFree() {
+    return false; // extend check point
+}
+
+void DeviceExecuteContext::DumpDeviceTask(uint64_t taskId, DynDeviceTask *deviceTask) {
+    DEV_IF_VERBOSE_DEBUG {
+    } else {
+        return;
+    }
+    for (uint64_t dupIdx = 0; dupIdx < deviceTask->dynFuncDataCacheListSize; dupIdx++) {
+        DevAscendFunctionDuppedData *dupped = deviceTask->dynFuncDataCacheList[dupIdx].duppedData;
+        DEV_TRACE_DEBUG(REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()), dupped->SchemaGetWorkspace()));
+        size_t incastSize = dupped->GetSource()->GetIncastSize();
+        DEV_TRACE_DEBUG(REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()), RActIncastCount(incastSize)));
+        for (size_t i = 0; i < incastSize; ++i) {
+            DEV_TRACE_DEBUG(REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()), RActIncast(i, dupped->SchemaGetIncastRange(i))));
+        }
+
+        size_t outcastSize = dupped->GetSource()->GetOutcastSize();
+        DEV_TRACE_DEBUG(REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()), RActOutcastCount(outcastSize)));
+        for (size_t i = 0; i < outcastSize; ++i) {
+            DEV_TRACE_DEBUG(REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()), RActOutcast(i, dupped->SchemaGetOutcastRange(i))));
+        }
+    }
+}
+
+void DeviceExecuteContext::SubmitToAicoreAndRecycleMemory(bool withoutTail, bool isLastTask) {
+    DEV_VERBOSE_DEBUG("submit stitch task.");
+    DEV_TRACE_DEBUG(DEvent(taskId, DActSubmit(stitchContext.Size())));
+    AutoScopedPerf asp(PERF_EVT_SUBMIT_AICORE);
+    if (stitchContext.Empty()) {
+        DEV_INFO("stitch context is empty.");
+        return;
+    }
+
+    PROF_STAGE_BEGIN(PERF_EVT_DECIDE_SLOT_ADDRESS, "slotaddr.before\n");
+    stitchContext.DecideSlotAddress(
+        slotContext.GetSlotList(), slotContext.GetSlotSize(), slotContext.GetSlotRefCntPool());
+    PROF_STAGE_END(PERF_EVT_DECIDE_SLOT_ADDRESS, "slotaddr.after\n");
+
+    PROF_STAGE_BEGIN(PERF_EVT_DECIDE_INCAST_ADDRESS, "incastaddr.before\n");
+    stitchContext.DecideIncastOutcast(taskId);
+    PROF_STAGE_END(PERF_EVT_DECIDE_INCAST_ADDRESS, "incastaddr.after\n");
+
+    DEV_IF_VERBOSE_DEBUG {
+            stitchContext.DumpStitchInfo();
+#if !DEBUG_INFINITE_LIFETIME
+            stitchContext.VerifyStitchedListMemory(*args);
+#endif
+    }
+
+#if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
+    workspace.MarkAsNewStitchWindow();
+#endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
+
+    PROF_STAGE_BEGIN(PERF_EVT_STAGE_BUILD_TASK, "BuildDeviceTaskData.before\n");
+    DynDeviceTask *dynTask = taskContext.BuildDeviceTaskData(stitchContext, taskId, devProg, withoutTail);
+    dynTask->SetLastTask(isLastTask);
+    PROF_STAGE_END(PERF_EVT_STAGE_BUILD_TASK, "BuildDeviceTaskData.after\n");
+
+    PROF_STAGE_BEGIN(PERF_EVT_DEALLOCATE_WORKSPACE, "RecycleTensorWorkspace.before\n");
+    // Memory recycling
+    stitchContext.RecycleTensorWorkspace();
+
+    // Reset stitch context
+    stitchContext.Reset();
+    slotContext.ClearDirty();
+    PROF_STAGE_END(PERF_EVT_DEALLOCATE_WORKSPACE, "RecycleTensorWorkspace.after\n");
+
+    if (devProg->controlFlowCache.IsRecording()) {
+        if (!devProg->controlFlowCache.IsRecordingStopped()) {
+            devProg->controlFlowCache.PredCountDataBackup(dynTask);
+            devProg->controlFlowCache.ReadyQueueDataBackup(dynTask);
+            devProg->controlFlowCache.IncastOutcastAddrBackup(dynTask);
+            devProg->controlFlowCache.TaskAddrBackupWorkspace(dynTask);
+            devProg->controlFlowCache.RuntimeAddrBackup(slotContext.GetSlotList(), &slotContext.GetSlotRefCntPool().At(0), devProg->slotSize, workspace.GetTensorAllocator());
+        }
+        devProg->controlFlowCache.AppendDeviceTask(dynTask);
+    }
+
+    PROF_STAGE_BEGIN(PERF_EVT_STAGE_PUSH_TASK, "push.before\n");
+    DumpDeviceTask(taskId, dynTask);
+    PushTask(dynTask);
+    PROF_STAGE_END(PERF_EVT_STAGE_PUSH_TASK, "push.after\n");
+    PerfMtTrace(PERF_TRACE_DEV_TASK_BUILD, CTRL_CPU_THREAD_IDX);
+}
+
+schema::RUid DeviceExecuteContext::GetRuid(uint64_t rootKey, bool afterAppend) {
+    int64_t dupIndex = stitchContext.Size();
+    if (afterAppend) {
+        dupIndex -= 1;
+    }
+    schema::RUid ruid(taskId, dupIndex, rootKey);
+    return ruid;
+}
+
+void DeviceExecuteContext::ControlFlowCacheStopCache(uint64_t rootKey) {
+    SubmitToAicoreAndRecycleMemory(false);
+    devProg->controlFlowCache.StopRecording();
+    DEV_INFO("stop recording for %d", (int)rootKey);
+}
+
+void *DeviceExecuteContext::CallRootFunctionAlloc(uint64_t rootKey) {
+    DevAscendFunction *devRoot = devProg->GetFunction(rootKey);
+    DEV_DEBUG("alloc one func %lu %p %s.", rootKey, devRoot, devRoot->GetRawName());
+    if (stitchContext.Size() == stitchTaskLoopNumThreshold ||
+        stitchContext.stitchedCallOpSize() + devRoot->GetOperationSize() > devProg->stitchCallopMaxNum) {
+        SubmitToAicoreAndRecycleMemory(false);
+        stitchTaskLoopNumThreshold =
+            std::min<uint16_t>(stitchTaskLoopNumThreshold + devProg->stitchTaskIncrLoopNum, MAX_CACHED_FUNC_NUM);
+        DEV_INFO("next stitch task loop num threshold is %u.", stitchTaskLoopNumThreshold);
+    }
+    DEV_TRACE_DEBUG(REvent(GetRuid(rootKey), RActDup(devRoot->GetRawName())));
+
+    PROF_STAGE_BEGIN(PERF_EVT_STAGE_DUP_ROOT, "dup.before\n");
+    currDevRootDup = workspace.DuplicateRoot(devRoot);
+    PROF_STAGE_END(PERF_EVT_STAGE_DUP_ROOT, "dup.after\n");
+    return reinterpret_cast<void *>(&currDevRootDup.GetExpression(0));
+}
+
+void *DeviceExecuteContext::CallRootFunctionStitch(uint64_t rootKey) {
+    DEV_DEBUG("root stitch %lu.", rootKey);
+    if (rootKey == RUNTIME_FUNCKEY_CACHESTOP) {
+        if (devProg->controlFlowCache.IsRecording()) {
+            ControlFlowCacheStopCache(rootKey);
+            return RUNTIME_FUNCRET_CACHESTOP_RETURN;
+        } else {
+            return RUNTIME_FUNCRET_CACHESTOP_CONTINUE;
+        }
+    }
+    if (rootKey == RUNTIME_FUNCKEY_FINISH || rootKey == RUNTIME_FUNCKEY_LOOP_BARRIER) {
+        DEV_INFO("Finish stitch loop %lu.", rootKey);
+        SubmitToAicoreAndRecycleMemory(false, rootKey == RUNTIME_FUNCKEY_FINISH ? true : false);
+        return nullptr;
+    }
+
+    DEV_TRACE_DEBUG(REvent(GetRuid(rootKey), currDevRootDup.SchemaGetExpressionTable()));
+    // dyn rawshape size depend expresstable calculated
+    while (!workspace.TryAllocateFunctionMemory(currDevRootDup, slotContext.GetSlotList())) {
+        // Failed to allocate, failed to stitch, submit existing stitched window to aicore and recycle memory
+        // If nothing stitched, wait for aicore to finish tasks and release enough memory
+        SubmitToAicoreAndRecycleMemory(true);
+    }
+
+    if (AiCoreFree()) {
+        SubmitToAicoreAndRecycleMemory(false);
+    }
+
+    DEV_TRACE_DEBUG(DEvent(taskId, DActStitchStart(GetRuid(rootKey))));
+    PROF_STAGE_BEGIN(PERF_EVT_STAGE_STITCH, "stitch.before\n");
+    size_t devNextIdx = stitchContext.Size();
+    stitchContext.Stitch(slotContext, currDevRootDup, taskId, devNextIdx);
+
+    slotContext.UpdateSlots(currDevRootDup, stitchContext.GetStitchedList(), taskId, devNextIdx);
+    PROF_STAGE_END(PERF_EVT_STAGE_STITCH, "stitch.after\n");
+    DEV_TRACE_DEBUG(DEvent(taskId, DActStitchFinish(GetRuid(rootKey, true))));
+    return nullptr;
+}
+
+void *DeviceExecuteContext::DeviceExecuteCallAlloc(void *ctx_, uint64_t rootKey) {
+    DeviceExecuteContext *ctx = (DeviceExecuteContext *)ctx_;
+    if (ctx == nullptr) {
+        DEV_ERROR("invalid ctx.");
+        return nullptr;
+    }
+    PerfBegin(PERF_EVT_ROOT_FUNC);
+    void *result = nullptr;
+    if (ctx->DuppedRootCached()) {
+        result = nullptr;
+    } else if (ctx->devProg->controlFlowCache.IsRecording() && ctx->devProg->controlFlowCache.IsRecordingStopped()) {
+        result = nullptr;
+    } else {
+        result = ctx->CallRootFunctionAlloc(rootKey);
+    }
+    PerfEnd(PERF_EVT_ROOT_FUNC);
+    return result;
+}
+
+void *DeviceExecuteContext::DeviceExecuteCallStitch(void *ctx_, uint64_t rootKey) {
+    DeviceExecuteContext *ctx = (DeviceExecuteContext *)ctx_;
+    if (ctx == nullptr) {
+        DEV_ERROR("invalid ctx.");
+        return nullptr;
+    }
+    PerfBegin(PERF_EVT_ROOT_FUNC);
+    void *result = nullptr;
+    if (ctx->DuppedRootCached()) {
+        result = nullptr;
+    } else if (ctx->devProg->controlFlowCache.IsRecording() && ctx->devProg->controlFlowCache.IsRecordingStopped()) {
+        result = nullptr;
+    } else {
+        result = ctx->CallRootFunctionStitch(rootKey);
+    }
+    PerfEnd(PERF_EVT_ROOT_FUNC);
+    if (ctx->DuppedRootUpdateAndCachedAllSubmitted()) {
+        DEV_TRACE_DEBUG(CtrlEvent(none(), ControlFlowCachePartRunControlContinue()));
+        // forcely break device task
+        ctx->devProg->controlFlowCache.RuntimeAddrRestore(ctx->slotContext.GetSlotList(), &ctx->slotContext.GetSlotRefCntPool().At(0), ctx->devProg->slotSize, ctx->workspace.GetTensorAllocator());
+        ctx->devProg->controlFlowCache.RuntimeAddrRelocWorkspace(0, ctx->args->contextWorkspaceAddr, ctx->args, ctx->slotContext.GetSlotList());
+    }
+    return result;
+}
+
+void *DeviceExecuteContext::DeviceExecuteRuntimerLog(void *ctx_, uint64_t value) {
+    (void)ctx_;
+    DEV_DEBUG("DeviceExecuteRuntimerLog -> Value: %lu", value);
+#if DEBUG_PLOG
+    (void)value;
+#endif
+    return nullptr;
+}
+
+void *DeviceExecuteContext::DeviceExecuteShmemAlloctor(void *ctx_, uint64_t value) {
+    (void)ctx_;
+    uint64_t groupIndex = (reinterpret_cast<uint64_t*>(value))[0];
+    uint64_t memType = (reinterpret_cast<uint64_t*>(value))[1];
+    uint64_t size = (reinterpret_cast<uint64_t*>(value))[2];
+    static uint64_t offset = 0UL;
+    constexpr uint64_t OFFSET_BITS = 58UL;
+    constexpr uint64_t GROUP_BITS = 2UL;
+    constexpr uint64_t MEMTYPE_BITS = 2UL;
+    constexpr uint64_t GROUP_SHIFT = OFFSET_BITS;
+    constexpr uint64_t MEMTYPE_SHIFT = GROUP_SHIFT + GROUP_BITS;
+    constexpr uint64_t FILL_SHIFT = MEMTYPE_SHIFT + MEMTYPE_BITS;
+    uint64_t vaddr = offset | (groupIndex << GROUP_SHIFT) | (memType << MEMTYPE_SHIFT) | (1UL << FILL_SHIFT);
+    offset += size;
+    return reinterpret_cast<void*>(vaddr);
+}
+}

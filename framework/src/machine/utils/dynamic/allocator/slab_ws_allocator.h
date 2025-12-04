@@ -384,4 +384,26 @@ private:
     uint32_t totalMemReq_{0};
     uint32_t totalAllocNum_{0};
 };
+
+struct WsSlabStageAllocMem {
+    std::atomic_bool canFree{false};
+    StageAllocInfo generalMetadataStageMem;
+    StageAllocInfo stitchStageMem;
+
+    WsSlabStageAllocMem() = default;
+    WsSlabStageAllocMem(const WsSlabStageAllocMem& other)
+        : canFree(other.canFree.load(std::memory_order_relaxed)),
+          generalMetadataStageMem(other.generalMetadataStageMem),
+          stitchStageMem(other.stitchStageMem) {}
+
+    WsSlabStageAllocMem& operator=(const WsSlabStageAllocMem& other) {
+        if (this != &other) {
+            canFree.store(other.canFree.load(std::memory_order_relaxed),
+                         std::memory_order_relaxed);
+            generalMetadataStageMem = other.generalMetadataStageMem;
+            stitchStageMem = other.stitchStageMem;
+        }
+        return *this;
+    }
+};
 }

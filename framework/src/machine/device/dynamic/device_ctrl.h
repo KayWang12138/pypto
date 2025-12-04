@@ -20,7 +20,7 @@
 #include <cstdlib>
 #include "device_utils.h"
 #include "device_perf.h"
-#include "device_context.h"
+#include "machine/device/dynamic/context/device_execute_context.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/utils/device_log.h"

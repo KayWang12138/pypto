@@ -17,121 +17,17 @@
 #define DEV_WORKSPACE_H
 
 #include "dev_encode.h"
+#include "device_task.h"
 #include "item_pool.h"
 #include "spsc_queue.h"
 #include "../machine_ws_intf.h"
 #include "allocator/allocators.h"
 #include "machine/device/dynamic/device_perf.h"
 
-#ifndef __DEVICE__
-#include "interface/configs/config_manager.h"
-#endif
-
 namespace npu::tile_fwk::dynamic {
 inline constexpr int64_t TENSOR_ADDR_ALIGNMENT = 512;
-struct WsSlabStageAllocMem {
-    std::atomic_bool canFree{false};
-    StageAllocInfo generalMetadataStageMem;
-    StageAllocInfo stitchStageMem;
+inline constexpr uint32_t SUBMMIT_TASK_QUE_SIZE = 32;
 
-    WsSlabStageAllocMem() = default;
-    WsSlabStageAllocMem(const WsSlabStageAllocMem& other)
-        : canFree(other.canFree.load(std::memory_order_relaxed)),
-          generalMetadataStageMem(other.generalMetadataStageMem),
-          stitchStageMem(other.stitchStageMem) {}
-
-    WsSlabStageAllocMem& operator=(const WsSlabStageAllocMem& other) {
-        if (this != &other) {
-            canFree.store(other.canFree.load(std::memory_order_relaxed),
-                         std::memory_order_relaxed);
-            generalMetadataStageMem = other.generalMetadataStageMem;
-            stitchStageMem = other.stitchStageMem;
-        }
-        return *this;
-    }
-};
-
-class DeviceWorkspaceAllocator;
-struct DynDeviceTask : DynDeviceTaskBase {
-    Vector<DevAscendFunctionDupped, WsMemCategory::VECTOR_STITCHED_LIST, DeviceWorkspaceAllocator> stitchedList;
-    WsAllocation selfAlloc;
-    WsSlabStageAllocMem taskStageAllocMem;
-
-    static uint32_t GetReadyQueueIndexByCoreType(CoreType coreType) {
-        if (coreType == CoreType::AICPU) {
-            return static_cast<uint32_t>(READY_QUEUE_SIZE) - 1;
-        }
-        return static_cast<uint32_t>(coreType);
-    }
-
-    DynDeviceTask(DeviceWorkspaceAllocator &allocator) {
-        memset_s(&devTask, sizeof(devTask), 0, sizeof(devTask));
-        stitchedList.InitAllocator(allocator);
-    }
-
-    predcount_t &GetOperationCurrPredCount(uint32_t id) {
-        return stitchedList[FuncID(id)].GetOperationCurrPredCount(TaskID(id));
-    }
-
-    int GetOperationCoreType(uint32_t id) {
-        auto callee = stitchedList[FuncID(id)].GetSource()->GetOperationAttrCalleeIndex(TaskID(id));
-        return cceBinary[callee].coreType;
-    }
-
-    std::string DumpTaskData(uint32_t id) {
-        auto &funcDup = stitchedList[FuncID(id)];
-        return funcDup.DumpDyn(FuncID(id), TaskID(id), cceBinary);
-    }
-
-    void DumpTopo() {
-        auto header = GetDynFuncDataList();
-#ifdef __DEVICE__
-        std::string path = "./output/dyn_topo.txt";
-#else
-        std::string path = config::LogTopFolder() + "/dyn_topo.txt";
-#endif
-        static std::ofstream of(path);
-        if (of.tellp() == 0) {
-            of << "seqNo,taskId,rootIndex,rootHash,opmagic,leafIndex,leafHash,coreType,psgId,successors\n";
-        }
-        for (size_t funcIdx = 0; funcIdx < stitchedList.size(); funcIdx++) {
-            stitchedList[funcIdx].DumpTopo(of, header->seqNo, funcIdx, cceBinary);
-        }
-        of.flush();
-    }
-
-    void DumpLeafs() {
-        for (size_t funcIdx = 0; funcIdx < stitchedList.size(); funcIdx++) {
-            auto lines = stitchedList[funcIdx].DumpLeafs(GetDynFuncDataList()->seqNo, funcIdx);
-            for (auto &&line : lines) {
-                DEV_ERROR("[DumpLeafs] %s", line.c_str());
-            }
-        }
-    }
-
-#if DEBUG_INFINITE_LIFETIME
-    void DumpTensorAddrInfo(uintdevptr_t dumpTensorWsAddr, uint64_t dumpTensorWsSize) {
-        UNUSED(dumpTensorWsAddr);
-        UNUSED(dumpTensorWsSize);
-        std::stringstream oss;
-        std::vector<std::string> infos;
-        for (uint32_t funcIdx = 0; funcIdx < stitchedList.size(); funcIdx++) {
-            stitchedList[funcIdx].DumpTensorAddrInfo(infos, GetDynFuncDataList()->seqNo, funcIdx);
-        }
-        auto str = std::move(oss).str();
-        DEV_ERROR("[DumpTensor] seqNo,taskId,rawMagic,address,dtype,bytesOfDtype,(shapes,)");
-        DEV_ERROR("[DumpTensor] >>>");
-        for (auto &info : infos) {
-            DEV_ERROR("[DumpTensor] %s", info.c_str());
-        }
-        DEV_ERROR("[DumpTensor] <<<");
-    }
-#endif
-};
-
-static_assert(sizeof(DynDeviceTask) < sizeof(DynDeviceTaskBase) + DYN_DEVICE_TASK_EXT_SIZE, "Invalid dyn device task extension");
-
-constexpr uint32_t SUBMMIT_TASK_QUE_SIZE = 32;
 class DeviceWorkspaceAllocator {
 public:
     DeviceWorkspaceAllocator() = default;

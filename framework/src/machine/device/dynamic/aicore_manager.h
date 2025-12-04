@@ -29,6 +29,7 @@
 #include "interface/operation/opcode.h"
 #include "interface/schema/schema.h"
 #include "machine/utils/dynamic/dev_workspace.h"
+#include "machine/utils/dynamic/device_task.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "machine/utils/dynamic/small_array.h"
 #include "machine/utils/dynamic/spsc_queue.h"
@@ -39,7 +40,6 @@
 #include "machine/device/dynamic/aicore_prof.h"
 #include "machine/device/dynamic/aicore_hal.h"
 #include "machine/device/dynamic/aicpu_task_manager.h"
-#include "machine/device/dynamic/device_context.h"
 #include "machine/device/dynamic/device_utils.h"
 
 namespace npu::tile_fwk::dynamic {

@@ -20,6 +20,7 @@
 
 #include "common.h"
 #include "machine/utils/dynamic/dev_workspace.h"
+#include "machine/utils/dynamic/device_task.h"
 
 namespace npu::tile_fwk::Distributed {
 class SignalTileOp {

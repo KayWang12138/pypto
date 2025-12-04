@@ -20,6 +20,7 @@
 #include "device_utils.h"
 #include "machine/utils/dynamic/spsc_queue.h"
 #include "machine/utils/dynamic/dev_workspace.h"
+#include "machine/utils/dynamic/device_task.h"
 #include "tilefwk/core_func_data.h"
 #include "tilefwk/aicpu_common.h"
 

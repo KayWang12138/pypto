@@ -29,10 +29,10 @@ message(STATUS "CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
 # 编译流程
 ########################################################################################################################
 
-set(CTRL_FILES
+file(GLOB CTRL_FILES RELATIVE ${CMAKE_CURRENT_LIST_DIR}
     device_ctrl.cpp
-    device_context.cpp
     ../device_log.cpp
+    context/*.cpp
 )
 
 add_library(pypto_ctrl_server STATIC)
