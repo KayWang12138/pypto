@@ -77,28 +77,27 @@ def layer_norm(inputs, outputs, eps: float = 1e-6):
     
     pypto.set_vec_tile_shapes(64, 128)
     
-    with pypto.function("LAYER_NORM", [x, gamma, beta], [out]):
-        for _ in pypto.loop(1, name="FORM_LOOP", idx_name="form_idx"):
-            # Compute mean
-            mean = pypto.sum(x, dim=-1, keepdim=True)
-            mean = pypto.div(mean, float(hidden_size))
-            
-            # Center
-            centered = pypto.sub(x, mean)
-            
-            # Compute variance
-            squared = pypto.mul(centered, centered)
-            var = pypto.sum(squared, dim=-1, keepdim=True)
-            var = pypto.div(var, float(hidden_size))
-            
-            # Normalize
-            var_eps = pypto.add(var, eps)
-            std = pypto.sqrt(var_eps)
-            normalized = pypto.div(centered, std)
-            
-            # Scale and shift
-            scaled = pypto.mul(normalized, gamma)
-            out[:] = pypto.add(scaled, beta)
+    for _ in pypto.loop(1, name="dummy_loop", idx_name="dummy_idx"):
+        # Compute mean
+        mean = pypto.sum(x, dim=-1, keepdim=True)
+        mean = pypto.div(mean, float(hidden_size))
+        
+        # Center
+        centered = pypto.sub(x, mean)
+        
+        # Compute variance
+        squared = pypto.mul(centered, centered)
+        var = pypto.sum(squared, dim=-1, keepdim=True)
+        var = pypto.div(var, float(hidden_size))
+        
+        # Normalize
+        var_eps = pypto.add(var, eps)
+        std = pypto.sqrt(var_eps)
+        normalized = pypto.div(centered, std)
+        
+        # Scale and shift
+        scaled = pypto.mul(normalized, gamma)
+        out[:] = pypto.add(scaled, beta)
 
 
 # Function 2: Linear Projection
@@ -111,14 +110,12 @@ def linear_projection(inputs, outputs):
     out = outputs[0]
     
     pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
-    
-    with pypto.function("LINEAR", [x, weight], [out]):
-        for _ in pypto.loop(1, name="FORM_LOOP", idx_name="form_idx"):
-            # Matrix multiplication
-            if bias is not None:
-                out[:] = pypto.add(pypto.matmul(x, weight, out_dtype=x.dtype), bias)
-            else:
-                out[:] = pypto.matmul(x, weight, out_dtype=x.dtype)
+    for _ in pypto.loop(1, name="dummy_loop", idx_name="dummy_idx"):
+        # Matrix multiplication
+        if bias is not None:
+            out[:] = pypto.add(pypto.matmul(x, weight, out_dtype=x.dtype), bias)
+        else:
+            out[:] = pypto.matmul(x, weight, out_dtype=x.dtype)
 
 
 # Function 3: GELU Activation
@@ -129,31 +126,30 @@ def gelu_activation(inputs, outputs, simplify_express=False):
     out = outputs[0]
     
     pypto.set_vec_tile_shapes(64, 128)
+    
     if simplify_express:
-        with pypto.function("GELU", [x], [out]):
-            for _ in pypto.loop(1, name="FORM_LOOP", idx_name="form_idx"):
-                # GELU approximation: x * sigmoid(1.702 * x)
-                coeff = float(1.702)
-                x_scaled = pypto.mul(x, coeff)
-                out[:] = pypto.mul(x, pypto.sigmoid(x_scaled))
+        for _ in pypto.loop(1, name="dummy_loop", idx_name="dummy_idx"):
+            # GELU approximation: x * sigmoid(1.702 * x)
+            coeff = float(1.702)
+            x_scaled = pypto.mul(x, coeff)
+            out[:] = pypto.mul(x, pypto.sigmoid(x_scaled))
     else:
-        with pypto.function("GELU", [x], [out]):
-            for _ in pypto.loop(1, name="FORM_LOOP", idx_name="form_idx"):
-                # GELU approximation: x * sigmoid(1.702 * x)
-                coeff = float(1.702)
-                x_scaled = pypto.mul(x, coeff)
-                
-                dtype = x_scaled.dtype
-                x_scaled = pypto.cast(x_scaled, pypto.DT_FP32)
-                x_scaled_neg = pypto.mul(x_scaled, -1.0)
-                exp_neg = pypto.exp(x_scaled_neg)
-                one = 1.0
-                exp_neg_plus_one = pypto.add(exp_neg, one)
-                ones = pypto.full(exp_neg_plus_one.shape, 1.0, pypto.DT_FP32, valid_shape=exp_neg_plus_one.shape)
-                sigmoid = pypto.div(ones, exp_neg_plus_one)
-                if dtype != pypto.DT_FP32:
-                    sigmoid = pypto.cast(sigmoid, dtype)
-                out[:] = pypto.mul(x, sigmoid)       
+        for _ in pypto.loop(1, name="dummy_loop", idx_name="dummy_idx"):
+            # GELU approximation: x * sigmoid(1.702 * x)
+            coeff = float(1.702)
+            x_scaled = pypto.mul(x, coeff)
+            
+            dtype = x_scaled.dtype
+            x_scaled = pypto.cast(x_scaled, pypto.DT_FP32)
+            x_scaled_neg = pypto.mul(x_scaled, -1.0)
+            exp_neg = pypto.exp(x_scaled_neg)
+            one = 1.0
+            exp_neg_plus_one = pypto.add(exp_neg, one)
+            ones = pypto.full(exp_neg_plus_one.shape, 1.0, pypto.DT_FP32, valid_shape=exp_neg_plus_one.shape)
+            sigmoid = pypto.div(ones, exp_neg_plus_one)
+            if dtype != pypto.DT_FP32:
+                sigmoid = pypto.cast(sigmoid, dtype)
+            out[:] = pypto.mul(x, sigmoid)       
 
 
 # Function 4: Residual Connection
@@ -166,9 +162,8 @@ def residual_add(inputs, outputs):
     
     pypto.set_vec_tile_shapes(64, 128)
     
-    with pypto.function("RESIDUAL_ADD", [x, residual], [out]):
-        for _ in pypto.loop(1, name="FORM_LOOP", idx_name="form_idx"):
-            out[:] = pypto.add(x, residual)
+    for _ in pypto.loop(1, name="dummy_loop", idx_name="dummy_idx"):
+        out[:] = pypto.add(x, residual)
 
 
 # Function 5: Attention (simplified)
@@ -182,19 +177,18 @@ def attention(inputs, outputs, scale: float):
     
     pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
     
-    with pypto.function("ATTENTION", [q, k, v], [out]):
-        # Q @ K^T
-        k_t = pypto.transpose(k, [0, 1, 3, 2])
-        scores = pypto.matmul(q, k_t, out_dtype=q.dtype)
-        
-        # Scale
-        scores_scaled = pypto.mul(scores, scale)
-        
-        # Softmax
-        attn_weights = pypto.softmax(scores_scaled, dim=-1)
-        
-        # Apply to values
-        out[:] = pypto.matmul(attn_weights, v, out_dtype=q.dtype)
+    # Q @ K^T
+    k_t = pypto.transpose(k, [0, 1, 3, 2])
+    scores = pypto.matmul(q, k_t, out_dtype=q.dtype)
+    
+    # Scale
+    scores_scaled = pypto.mul(scores, scale)
+    
+    # Softmax
+    attn_weights = pypto.softmax(scores_scaled, dim=-1)
+    
+    # Apply to values
+    out[:] = pypto.matmul(attn_weights, v, out_dtype=q.dtype)
 
 
 # Reference implementations for verification
@@ -232,11 +226,21 @@ def test_sequential_functions():
     normed = torch.zeros(batch_size, hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
     activated = torch.zeros(batch_size, hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
     
+    inputs = [x, gamma, beta]
+    outputs = [normed]
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
     # Step 1: Layer normalization
-    layer_norm([x, gamma, beta], [normed], eps=1e-6)
+    layer_norm(pto_inputs, pto_outputs, eps=1e-6)
+    pypto.runtime._device_synchronize()
     
     # Step 2: GELU activation
-    gelu_activation([normed], [activated])
+    inputs = [normed]
+    outputs = [activated]
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    gelu_activation(pto_inputs, pto_outputs)
+    pypto.runtime._device_synchronize()
     
     # Verify
     expected_normed = layer_norm_golden(x, gamma, beta, 1e-6)
@@ -270,8 +274,13 @@ def test_residual_connection():
     residual = torch.randn(batch_size, hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
     out = torch.zeros(batch_size, hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
     
+    inputs = [x, residual]
+    outputs = [out]
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
     # Apply residual connection
-    residual_add([x, residual], [out])
+    residual_add(pto_inputs, pto_outputs)
+    pypto.runtime._device_synchronize()
     
     # Verify
     expected = x + residual
@@ -317,25 +326,56 @@ def test_transformer_block():
     ffn_out = torch.zeros(batch_size, hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
     output = torch.zeros(batch_size, hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
     
+    inputs = [x, gamma, beta]
+    outputs = [normed]
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
     # Transformer block computation:
     # 1. Layer normalization
-    layer_norm([x, gamma, beta], [normed], eps=1e-6)
-    
+    layer_norm(pto_inputs, pto_outputs, eps=1e-6)
+    pypto.runtime._device_synchronize()
+
     # 2. FFN: Gate and Up projections
-    linear_projection([normed, gate_weight], [gate])
-    linear_projection([normed, up_weight], [up])
+    inputs = [normed, gate_weight]
+    outputs = [gate]
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    linear_projection(pto_inputs, pto_outputs)
+    pypto.runtime._device_synchronize()
+
+    inputs = [normed, up_weight]
+    outputs = [up]
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    linear_projection(pto_inputs, pto_outputs)
+    pypto.runtime._device_synchronize()
     
     # 3. GELU activation on gate
-    gelu_activation([gate], [activated])
+    inputs = [gate]
+    outputs = [activated]
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    gelu_activation(pto_inputs, pto_outputs)
+    pypto.runtime._device_synchronize()
     
     # 4. Multiply with up (SwiGLU-like)
     activated = activated * up  # PyTorch operation for simplicity
     
     # 5. Down projection
-    linear_projection([activated, down_weight], [ffn_out])
+    inputs = [activated, down_weight]
+    outputs = [ffn_out]
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    linear_projection(pto_inputs, pto_outputs)
+    pypto.runtime._device_synchronize()
     
     # 6. Residual connection
-    residual_add([x, ffn_out], [output])
+    inputs = [x, ffn_out]
+    outputs = [output]
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    residual_add(pto_inputs, pto_outputs)
+    pypto.runtime._device_synchronize()
     
     print(f"Input shape: {x.shape}")
     print(f"Output shape: {output.shape}")
@@ -369,11 +409,27 @@ def test_function_reuse():
     out3 = torch.zeros(batch_size, hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
     
     # Reuse the same function with different inputs
-    layer_norm([x1, gamma, beta], [out1], eps=1e-6)
+    inputs1 = [x1, gamma, beta]
+    inputs2 = [x2, gamma, beta]
+    inputs3 = [x3, gamma, beta]
+    
+    outputs1 = [out1]
+    outputs2 = [out2]
+    outputs3 = [out3]
+    
+    pto_inputs1 = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs1)]
+    pto_inputs2 = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs2)]
+    pto_inputs3 = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs3)]
+    
+    pto_outputs1 = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs1)]
+    pto_outputs2 = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs2)]
+    pto_outputs3 = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs3)]
+
+    layer_norm(pto_inputs1, pto_outputs1, eps=1e-6)
     pypto.runtime._device_synchronize()
-    layer_norm([x2, gamma, beta], [out2], eps=1e-6)
+    layer_norm(pto_inputs2, pto_outputs2, eps=1e-6)
     pypto.runtime._device_synchronize()
-    layer_norm([x3, gamma, beta], [out3], eps=1e-6)
+    layer_norm(pto_inputs3, pto_outputs3, eps=1e-6)
     pypto.runtime._device_synchronize()
     
     # Verify

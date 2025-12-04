@@ -148,81 +148,79 @@ def add_rms_norm(inputs: list, outputs: list, eps: float):
     bs_loop = (m + view_shape[0] - 1) // view_shape[0]
     
     # Define the computation graph
-    with pypto.function("ADD_RMS_NORM", [residual, hidden_states, weight], 
-                      [output_hidden_states, output_residual]):
-        def rms_inside_func():
-            """Inner function to encapsulate kernel logic for automatic variable cleanup."""
-            # Loop over dynamic batch axis
-            for idx_loop in pypto.loop(bs_loop, name="LOOP_RMS_NORM_L0", idx_name="idx_loop"):
-                def bs_loop_func(idx_loop):
-                    """Process one batch tile."""
-                    # Create views for current batch tile
-                    tile_residual = pypto.view(
-                        residual, 
-                        view_shape,
-                        [idx_loop * view_shape[0], 0],
-                        valid_shape=[(m - idx_loop * view_shape[0]).min(view_shape[0]), n]
-                    )
-                    tile_hidden_states = pypto.view(
-                        hidden_states,
-                        view_shape,
-                        [idx_loop * view_shape[0], 0],
-                        valid_shape=[(m - idx_loop * view_shape[0]).min(view_shape[0]), n]
-                    )
-                    
-                    # Configure tiling: use full UB but don't exceed UB size
-                    pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
-                    
-                    mean_coff = 1.0 / tile_hidden_states.shape[-1]
-                    
-                    # Cast to computation dtype (FP32)
-                    tile_residual_fp32 = pypto.cast(tile_residual, calc_dtype)
-                    tile_hidden_states_fp32 = pypto.cast(tile_hidden_states, calc_dtype)
-                    
-                    # Reshape weight to match tensor dimensions
-                    weight_shape = [1] * len(tile_hidden_states_fp32.shape)
-                    weight_shape[-1] = weight.shape[0]
-                    weight_2d = pypto.reshape(weight, weight_shape)
-                    tile_weight_fp32 = pypto.cast(weight_2d, calc_dtype)
-                    
-                    # Add residual connection: x = residual + hidden_states
-                    x_f32 = pypto.add(tile_residual_fp32, tile_hidden_states_fp32)
-                    
-                    # Compute square: square = x^2
-                    square = pypto.mul(x_f32, x_f32)
-                    
-                    # Compute mean: mean_res = square * mean_coff
-                    mean_res = pypto.mul(square, mean_coff)
-                    
-                    # Reduce sum: reduce_asum = sum(mean_res, dim=-1, keepdim=True)
-                    reduce_asum = pypto.sum(mean_res, dim=-1, keepdim=True)
-                    
-                    # Add epsilon: reduce_sum = reduce_asum + eps
-                    reduce_sum = pypto.add(reduce_asum, eps)
-                    
-                    # Square root: reduce_sqrt = sqrt(reduce_sum)
-                    reduce_sqrt = pypto.sqrt(reduce_sum)
-                    
-                    res_div = pypto.div(x_f32, reduce_sqrt)
-                    
-                    res = pypto.mul(res_div, tile_weight_fp32)
-                    
-                    # Cast output back to input dtype
-                    y_output = pypto.cast(res, input_dtype)
-                    output_hidden_states[
-                        idx_loop * pypto.symbolic_scalar(view_shape[0]):,
-                        pypto.symbolic_scalar(0):
-                    ] = y_output
-                    
-                    x_output = pypto.cast(x_f32, input_dtype)
-                    output_residual[
-                        idx_loop * pypto.symbolic_scalar(view_shape[0]):,
-                        pypto.symbolic_scalar(0):
-                    ] = x_output
+    def rms_inside_func():
+        """Inner function to encapsulate kernel logic for automatic variable cleanup."""
+        # Loop over dynamic batch axis
+        for idx_loop in pypto.loop(bs_loop, name="LOOP_RMS_NORM_L0", idx_name="idx_loop"):
+            def bs_loop_func(idx_loop):
+                """Process one batch tile."""
+                # Create views for current batch tile
+                tile_residual = pypto.view(
+                    residual, 
+                    view_shape,
+                    [idx_loop * view_shape[0], 0],
+                    valid_shape=[(m - idx_loop * view_shape[0]).min(view_shape[0]), n]
+                )
+                tile_hidden_states = pypto.view(
+                    hidden_states,
+                    view_shape,
+                    [idx_loop * view_shape[0], 0],
+                    valid_shape=[(m - idx_loop * view_shape[0]).min(view_shape[0]), n]
+                )
                 
-                bs_loop_func(idx_loop)
-        
-        rms_inside_func()
+                # Configure tiling: use full UB but don't exceed UB size
+                pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
+                
+                mean_coff = 1.0 / tile_hidden_states.shape[-1]
+                
+                # Cast to computation dtype (FP32)
+                tile_residual_fp32 = pypto.cast(tile_residual, calc_dtype)
+                tile_hidden_states_fp32 = pypto.cast(tile_hidden_states, calc_dtype)
+                
+                # Reshape weight to match tensor dimensions
+                weight_shape = [1] * len(tile_hidden_states_fp32.shape)
+                weight_shape[-1] = weight.shape[0]
+                weight_2d = pypto.reshape(weight, weight_shape)
+                tile_weight_fp32 = pypto.cast(weight_2d, calc_dtype)
+                
+                # Add residual connection: x = residual + hidden_states
+                x_f32 = pypto.add(tile_residual_fp32, tile_hidden_states_fp32)
+                
+                # Compute square: square = x^2
+                square = pypto.mul(x_f32, x_f32)
+                
+                # Compute mean: mean_res = square * mean_coff
+                mean_res = pypto.mul(square, mean_coff)
+                
+                # Reduce sum: reduce_asum = sum(mean_res, dim=-1, keepdim=True)
+                reduce_asum = pypto.sum(mean_res, dim=-1, keepdim=True)
+                
+                # Add epsilon: reduce_sum = reduce_asum + eps
+                reduce_sum = pypto.add(reduce_asum, eps)
+                
+                # Square root: reduce_sqrt = sqrt(reduce_sum)
+                reduce_sqrt = pypto.sqrt(reduce_sum)
+                
+                res_div = pypto.div(x_f32, reduce_sqrt)
+                
+                res = pypto.mul(res_div, tile_weight_fp32)
+                
+                # Cast output back to input dtype
+                y_output = pypto.cast(res, input_dtype)
+                output_hidden_states[
+                    idx_loop * pypto.symbolic_scalar(view_shape[0]):,
+                    pypto.symbolic_scalar(0):
+                ] = y_output
+                
+                x_output = pypto.cast(x_f32, input_dtype)
+                output_residual[
+                    idx_loop * pypto.symbolic_scalar(view_shape[0]):,
+                    pypto.symbolic_scalar(0):
+                ] = x_output
+            
+            bs_loop_func(idx_loop)
+    
+    rms_inside_func()
     
     # Type assertions for verification
     assert isinstance(output_hidden_states, pypto.tensor)
@@ -283,11 +281,12 @@ def test_add_rms_norm():
             device=f'npu:{device_id}'
         )
         
+        # Execute PyPTO kernel
         inputs = [residual_tensor, hidden_states_tensor, weight_tensor]
         outputs = [output_hidden_states, output_residual]
-        
-        # Execute PyPTO kernel
-        add_rms_norm(inputs, outputs, eps)
+        pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+        pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+        add_rms_norm(pto_inputs, pto_outputs, eps)
         pypto.runtime._device_synchronize()
         
         # Compute reference using PyTorch

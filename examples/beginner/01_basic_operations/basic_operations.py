@@ -87,13 +87,17 @@ def example_element_wise_operations():
         
         pypto.set_vec_tile_shapes(8, 8)
         
-        with pypto.function("ELEMENT_OPS", [a, b], [result]):
-            for _ in pypto.loop(1, name="FORM_LOOP", idx_name="form_idx"):
-                add_result = pypto.add(a, b)
-                mul_result = pypto.mul(add_result, 2.0)
-                result[:] = mul_result
+        for _ in pypto.loop(1, name="dummy_loop", idx_name="dummy_idx"):
+            add_result = pypto.add(a, b)
+            mul_result = pypto.mul(add_result, 2.0)
+            result[:] = mul_result
+    inputs = [a_torch, b_torch]
+    outputs = [c_torch]
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    element_wise_ops(pto_inputs, pto_outputs)
+    pypto.runtime._device_synchronize()
     
-    element_wise_ops([a_torch, b_torch], [c_torch])
     expected = (a_torch + b_torch) * 2.0
     max_diff = (c_torch - expected).abs().max().item()
     print(f"Input A shape: {a_torch.shape}")
@@ -125,11 +129,16 @@ def example_matrix_multiplication():
         
         pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
         
-        with pypto.function("MATMUL", [A, B], [C]):
-            for _ in pypto.loop(1, name="FORM_LOOP", idx_name="form_idx"):
-                C[:] = pypto.matmul(A, B, out_dtype=pypto.DT_BF16)
+        for _ in pypto.loop(1, name="dummy_loop", idx_name="dummy_idx"):
+            C[:] = pypto.matmul(A, B, out_dtype=pypto.DT_BF16)
     
-    matrix_multiply([A_torch, B_torch], [C_torch])
+    inputs = [A_torch, B_torch]
+    outputs = [C_torch]
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    matrix_multiply(pto_inputs, pto_outputs)
+    pypto.runtime._device_synchronize()
+    
     expected = torch.matmul(A_torch, B_torch)
     max_diff = (C_torch - expected).abs().max().item()
     print(f"Matrix A shape: {A_torch.shape}")
@@ -159,11 +168,16 @@ def example_activation_functions():
         
         pypto.set_vec_tile_shapes(32, 64)
         
-        with pypto.function("ACTIVATIONS", [x], [result]):
-            for _ in pypto.loop(1, name="FORM_LOOP", idx_name="form_idx"):
-                result[:] = pypto.sigmoid(x)
+        for _ in pypto.loop(1, name="dummy_loop", idx_name="dummy_idx"):
+            result[:] = pypto.sigmoid(x)
+            
+    inputs = [input_torch]
+    outputs = [output_torch]
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    apply_activations(pto_inputs, pto_outputs)
+    pypto.runtime._device_synchronize()
     
-    apply_activations([input_torch], [output_torch])
     expected = torch.sigmoid(input_torch)
     max_diff = (output_torch - expected).abs().max().item()
     print(f"Input shape: {input_torch.shape}")
@@ -203,28 +217,33 @@ def example_view_operations():
         
         pypto.set_vec_tile_shapes(tile_h, tile_w)
         
-        with pypto.function("TILED_OP", [input_tensor], [output_tensor]):
-            for h_idx in pypto.loop(h_tiles, name="h_loop", idx_name="h_idx"):
-                for w_idx in pypto.loop(w_tiles, name="w_loop", idx_name="w_idx"):
-                    # Calculate offsets
-                    h_offset = h_idx * tile_h
-                    w_offset = w_idx * tile_w
-                    
-                    # Create view for this tile
-                    view = pypto.view(
-                        input_tensor,
-                        [tile_h, tile_w],
-                        [h_offset, w_offset]
-                    )
-                    
-                    # Process tile (simple operation: multiply by 2)
-                    result = pypto.mul(view, 2.0)
-                    
-                    # Assemble result back
-                    pypto.assemble(result, [h_offset, w_offset], output_tensor)
+        for h_idx in pypto.loop(h_tiles, name="h_loop", idx_name="h_idx"):
+            for w_idx in pypto.loop(w_tiles, name="w_loop", idx_name="w_idx"):
+                # Calculate offsets
+                h_offset = h_idx * tile_h
+                w_offset = w_idx * tile_w
+                
+                # Create view for this tile
+                view = pypto.view(
+                    input_tensor,
+                    [tile_h, tile_w],
+                    [h_offset, w_offset]
+                )
+                
+                # Process tile (simple operation: multiply by 2)
+                result = pypto.mul(view, 2.0)
+                
+                # Assemble result back
+                pypto.assemble(result, [h_offset, w_offset], output_tensor)
     
     # Execute
-    tiled_operation([input_torch], [output_torch])
+    inputs = [input_torch]
+    outputs = [output_torch]
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    
+    tiled_operation(pto_inputs, pto_outputs)
+    pypto.runtime._device_synchronize()
     
     # Verify
     expected = input_torch * 2.0
@@ -263,13 +282,18 @@ def example_combined_operations():
         pypto.set_vec_tile_shapes(32, 64)
         pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
         
-        with pypto.function("LINEAR_ACT", [x, W, b], [y]):
-            for _ in pypto.loop(1, name="FORM_LOOP", idx_name="form_idx"):
-                linear = pypto.matmul(x, W, out_dtype=pypto.DT_BF16)
-                biased = pypto.add(linear, b)
-                y[:] = pypto.sigmoid(biased)
+        for _ in pypto.loop(1, name="dummy_loop", idx_name="dummy_idx"):
+            linear = pypto.matmul(x, W, out_dtype=pypto.DT_BF16)
+            biased = pypto.add(linear, b)
+            y[:] = pypto.sigmoid(biased)
     
-    linear_layer_with_activation([x_torch, W_torch, b_torch], [y_torch])
+    inputs = [x_torch, W_torch, b_torch]
+    outputs = [y_torch]
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    linear_layer_with_activation(pto_inputs, pto_outputs)
+    pypto.runtime._device_synchronize()
+    
     expected = torch.sigmoid(torch.matmul(x_torch, W_torch) + b_torch)
     max_diff = (y_torch - expected).abs().max().item()
     print(f"Input x shape: {x_torch.shape}")

@@ -14,11 +14,13 @@ from dataclasses import dataclass
 import math
 import os
 import pypto
-from pypto import pto_impl
+from pypto import pypto_impl
 from pypto.operation import op_wrapper
 import torch
 import numpy as np
 from numpy.testing import assert_allclose
+import logging
+
 
 NUM_0 = 0
 NUM_1 = 1
@@ -40,7 +42,7 @@ NUM_8192 = 8192
 
 @op_wrapper
 def load(src, dst):
-    return pto_impl.Load(src, dst)
+    return pypto_impl.Load(src, dst)
 
 
 def gen_cache_tensor(k_tensor, block_table, block_num, block_size, b):
@@ -279,35 +281,35 @@ def calc_offsets_for_gather(topk_indecies, block_table, kv_act_seqs, offsets, bl
                             estimated_stitch_task_max_loop_num=NUM_128)
     pypto.set_codegen_options(support_dynamic_unaligned=True)
 
-    with pypto.function("main", [topk_indecies, block_table, kv_act_seqs], [offsets]):
-        for idx in pypto.loop(0, b * s1, 1, name="LOOP_L0_idx", idx_name="idx"):
-            def inside_idx_loop(idx):
-                batch_idx = idx // s1
-                slc_idx = idx % s1
-                pypto.set_semantic_label("calc_offset")
-                topk_loop = (kv_act_seqs[batch_idx, ] - s1 + 1 + slc_idx).max(0).min(topk)
-                tile_0 = 1
-                tile_1 = 256
-                pypto.set_vec_tile_shapes(tile_0, tile_1)
-                topk_indcies_reshape = pypto.view(topk_indecies, [1, n_kv * topk],
-                                                            [idx, 0], valid_shape=[1, topk_loop])
+    for idx in pypto.loop(0, b * s1, 1, name="LOOP_L0_idx", idx_name="idx"):
+        
+        def inside_idx_loop(idx):
+            batch_idx = idx // s1
+            slc_idx = idx % s1
+            pypto.set_semantic_label("calc_offset")
+            topk_loop = (kv_act_seqs[batch_idx, ] - s1 + 1 + slc_idx).max(0).min(topk)
+            tile_0 = 1
+            tile_1 = 256
+            pypto.set_vec_tile_shapes(tile_0, tile_1)
+            topk_indcies_reshape = pypto.view(topk_indecies, [1, n_kv * topk],
+                                                        [idx, 0], valid_shape=[1, topk_loop])
 
-                topk_indcies_reshape_fp32 = pypto.cast(topk_indcies_reshape, pypto.DataType.DT_FP32)
-                topk_indcies_reshape_fp32 = pypto.add(topk_indcies_reshape_fp32, 0.5)
-                block_idx_in_batchs_fp32 = pypto.div(topk_indcies_reshape_fp32, float(block_size))
-                block_idx_in_batchs = pypto.cast(block_idx_in_batchs_fp32,
-                    pypto.DataType.DT_INT32, pypto.CastMode.CAST_FLOOR)
+            topk_indcies_reshape_fp32 = pypto.cast(topk_indcies_reshape, pypto.DataType.DT_FP32)
+            topk_indcies_reshape_fp32 = pypto.add(topk_indcies_reshape_fp32, 0.5)
+            block_idx_in_batchs_fp32 = pypto.div(topk_indcies_reshape_fp32, float(block_size))
+            block_idx_in_batchs = pypto.cast(block_idx_in_batchs_fp32,
+                pypto.DataType.DT_INT32, pypto.CastMode.CAST_FLOOR)
 
-                tails = pypto.sub(topk_indcies_reshape, pypto.mul(block_idx_in_batchs, block_size))
+            tails = pypto.sub(topk_indcies_reshape, pypto.mul(block_idx_in_batchs, block_size))
 
-                block_table_raw_offsets = pypto.full([1, n_kv * topk], batch_idx * max_block_num_per_batch,
-                    pypto.DataType.DT_INT32, valid_shape=[1, topk_loop])
-                add_res = pypto.add(block_table_raw_offsets, block_idx_in_batchs)
-                slc_block_idxs = load(block_table, add_res)
-                block_offsets = pypto.mul(slc_block_idxs, block_size)
-                offset = pypto.add(block_offsets, tails)
-                pypto.assemble(offset, [idx, 0], offsets)
-            inside_idx_loop(idx=idx)
+            block_table_raw_offsets = pypto.full([1, n_kv * topk], batch_idx * max_block_num_per_batch,
+                pypto.DataType.DT_INT32, valid_shape=[1, topk_loop])
+            add_res = pypto.add(block_table_raw_offsets, block_idx_in_batchs)
+            slc_block_idxs = load(block_table, add_res)
+            block_offsets = pypto.mul(slc_block_idxs, block_size)
+            offset = pypto.add(block_offsets, tails)
+            pypto.assemble(offset, [idx, 0], offsets)
+        inside_idx_loop(idx=idx)
 
 
 def test_calc_offset_4_gather():
@@ -360,8 +362,9 @@ def test_calc_offset_4_gather():
     offsets = torch.zeros([b * s1, n_kv * selected_count], dtype=torch.int32)
     input_data = [a.npu() for a in [topk_res_calc, input_data_map["block_table"], input_data_map["act_seq"]]]
     output_data = [a.npu() for a in [offsets]]
-    cust_dyn_func(input_data, output_data, block_size, selected_count, b, s1)
-
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(input_data)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(output_data)]
+    cust_dyn_func(pto_inputs, pto_outputs, block_size, selected_count, b, s1)
     pypto.runtime._device_synchronize()
     
     topk_res_golden = topk_res.reshape(b, s1, selected_count)

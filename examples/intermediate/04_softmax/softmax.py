@@ -114,19 +114,18 @@ def softmax(inputs, outputs):
     # Tiling shape setting for efficient execution
     pypto.set_vec_tile_shapes(1, 4, 1, 64)
 
-    with pypto.function("SOFTMAX", [input_tensor], [output_tensor]):
-        for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx"):
-            b_offset = idx * tile_b
-            b_offset_end = (idx + 1) * tile_b
-            
-            # Extract batch slice
-            input_view = input_tensor[b_offset:b_offset_end, :n1, :n2, :dim]
-            
-            # Apply softmax to batch slice
-            softmax_out = softmax_core(input_view)
-            
-            # Assemble result back to output tensor
-            pypto.assemble(softmax_out, [b_offset, 0, 0, 0], output_tensor)
+    for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx"):
+        b_offset = idx * tile_b
+        b_offset_end = (idx + 1) * tile_b
+        
+        # Extract batch slice
+        input_view = input_tensor[b_offset:b_offset_end, :n1, :n2, :dim]
+        
+        # Apply softmax to batch slice
+        softmax_out = softmax_core(input_view)
+        
+        # Assemble result back to output tensor
+        pypto.assemble(softmax_out, [b_offset, 0, 0, 0], output_tensor)
 
 
 def test_softmax():
@@ -148,11 +147,12 @@ def test_softmax():
     input_data = torch.rand(shape, dtype=torch.float32, device=f'npu:{device_id}')
     output_data = torch.zeros(shape, dtype=torch.float32, device=f'npu:{device_id}')
 
+    # Launch the kernel
     inputs = [input_data]
     outputs = [output_data]
-
-    # Launch the kernel
-    softmax(inputs, outputs)
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    softmax(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()
 
     # Verify against PyTorch reference

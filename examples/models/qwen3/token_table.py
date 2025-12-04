@@ -76,52 +76,51 @@ def get_token_acc_table(inputs: list, outputs: list):
     pypto.mark_dynamic(expert_tokens, 0)
     
     # Define the computation graph
-    with pypto.function("GET_TOKEN_TABLE", [expert_tokens], [expert_offset]):
-        def inside_main_function():
-            """Inner function to encapsulate kernel logic for automatic variable cleanup."""
-            expert_num = expert_tokens.shape[0]
-            pypto.set_vec_tile_shapes(32)
-            
-            # Initialize first element to 0
-            for _ in pypto.loop(0, 1, 1, name="LOOP_init", idx_name="idx"):
-                def loop_for_init_offset():
-                    """Initialize offset table."""
-                    pypto.set_vec_tile_shapes(32)
-                    tmp = pypto.full([32], 0, pypto.DT_INT32)
-                    pypto.assemble(tmp, [0], expert_offset)
-                loop_for_init_offset()
-            
-            # Compute cumulative sum for remaining experts
-            for exp_idx in pypto.loop(1, expert_num, 1, 
-                                      name="LOOP_expert", idx_name="exp_idx", submit_before_loop=True):
-                def loop_for_offset(exp_idx):
-                    """Compute offset for expert at index exp_idx."""
-                    pypto.set_vec_tile_shapes(32)
-                    
-                    # Create view of tokens up to current expert
-                    view_shape = [pypto.min(exp_idx, expert_num)]
-                    tmp_view = pypto.view(
-                        expert_tokens,
-                        [16],
-                        [0],
-                        valid_shape=view_shape
-                    )
-                    
-                    # Cast to FP32 for sum computation
-                    tmp_cast = pypto.cast(tmp_view, pypto.DT_FP32)
-                    
-                    # Compute sum: sum of tokens from expert 0 to exp_idx-1
-                    tmp_acc = pypto.sum(tmp_cast, dim=-1, keepdim=True)
-                    
-                    # Cast back to INT32
-                    tmp_int = pypto.cast(tmp_acc, pypto.DT_INT32)
-                    
-                    # Store result at position exp_idx
-                    pypto.assemble(tmp_int, [exp_idx], expert_offset)
-                
-                loop_for_offset(exp_idx)
+    def inside_main_function():
+        """Inner function to encapsulate kernel logic for automatic variable cleanup."""
+        expert_num = expert_tokens.shape[0]
+        pypto.set_vec_tile_shapes(32)
         
-        inside_main_function()
+        # Initialize first element to 0
+        for _ in pypto.loop(0, 1, 1, name="LOOP_init", idx_name="idx"):
+            def loop_for_init_offset():
+                """Initialize offset table."""
+                pypto.set_vec_tile_shapes(32)
+                tmp = pypto.full([32], 0, pypto.DT_INT32)
+                pypto.assemble(tmp, [0], expert_offset)
+            loop_for_init_offset()
+        
+        # Compute cumulative sum for remaining experts
+        for exp_idx in pypto.loop(1, expert_num, 1, 
+                                    name="LOOP_expert", idx_name="exp_idx", submit_before_loop=True):
+            def loop_for_offset(exp_idx):
+                """Compute offset for expert at index exp_idx."""
+                pypto.set_vec_tile_shapes(32)
+                
+                # Create view of tokens up to current expert
+                view_shape = [pypto.min(exp_idx, expert_num)]
+                tmp_view = pypto.view(
+                    expert_tokens,
+                    [16],
+                    [0],
+                    valid_shape=view_shape
+                )
+                
+                # Cast to FP32 for sum computation
+                tmp_cast = pypto.cast(tmp_view, pypto.DT_FP32)
+                
+                # Compute sum: sum of tokens from expert 0 to exp_idx-1
+                tmp_acc = pypto.sum(tmp_cast, dim=-1, keepdim=True)
+                
+                # Cast back to INT32
+                tmp_int = pypto.cast(tmp_acc, pypto.DT_INT32)
+                
+                # Store result at position exp_idx
+                pypto.assemble(tmp_int, [exp_idx], expert_offset)
+            
+            loop_for_offset(exp_idx)
+    
+    inside_main_function()
 
 
 def get_token_acc_table_golden(expert_tokens: torch.Tensor) -> torch.Tensor:
@@ -173,7 +172,9 @@ def test_token_acc_table():
     # Execute PyPTO kernel
     inputs = [expert_tokens]
     outputs = [expert_offset]
-    get_token_acc_table(inputs, outputs)
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    get_token_acc_table(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()
     
     # Compute reference using PyTorch

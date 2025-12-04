@@ -392,57 +392,54 @@ def moe_ffn(inputs: list, outputs: list):
     ffn_out = outputs[0]
     
     # Define the computation graph
-    with pypto.function("FFN", [expand_x, expert_tokens, token_acc_table, 
-                                weight_gate_upper, weight_down_proj], 
-                                [ffn_out]):
-        def inside_main_function():
-            """Inner function to encapsulate kernel logic for automatic variable cleanup."""
-            # Get number of experts
-            expert_num = expert_tokens.shape[0]
-            
-            # Reshape weights to 2D for efficient processing
-            w1_2d_shape = (weight_gate_upper.shape[0] * weight_gate_upper.shape[1], weight_gate_upper.shape[2])
-            w2_2d_shape = (weight_down_proj.shape[0] * weight_down_proj.shape[1], weight_down_proj.shape[2])
-            
-            for _ in pypto.loop(0, 1, 1, name="LOOP_RESHAPE", idx_name="reshape_inplace_1"):
-                w1_2d = pypto.reshape(weight_gate_upper, w1_2d_shape, inplace=True)
-                w2_2d = pypto.reshape(weight_down_proj, w2_2d_shape, inplace=True)
-            
-            # Loop over experts
-            for exp_idx in pypto.loop(0, expert_num, 1, name="LOOP_FFN_L0", idx_name="exp_idx"):
-                def loop_expert(exp_idx):
-                    """Process one expert."""
-                    # Get token count for current expert
-                    token_num = expert_tokens[exp_idx]
-                    
-                    # Calculate number of iterations needed (process LOOP_BASE tokens per iteration)
-                    exp_loop_times = (token_num + LOOP_BASE - 1) / LOOP_BASE
-                    
-                    # Loop over token batches for current expert
-                    for token_loop_idx in pypto.loop(
-                        0, exp_loop_times, 1, name="LOOP_FFN_L1", idx_name="token_loop_idx"):
-                        def loop_token(exp_idx, token_loop_idx):
-                            """Process one token batch for current expert."""
-                            expert_infer_base(
-                                ExpertInferConfig(
-                                    exp_idx=exp_idx,
-                                    token_loop_idx=token_loop_idx,
-                                    loop_base=LOOP_BASE,
-                                    expand_x=expand_x,
-                                    expert_tokens=expert_tokens,
-                                    token_acc_table=token_acc_table,
-                                    weight_gate_upper=w1_2d,
-                                    weight_down_proj=w2_2d,
-                                    ffn_out=ffn_out,
-                                    vec_tile_shape=VEC_TILE_SHAPE,
-                                    cube_tile_shape=CUBE_TILE_SHAPE,
-                                )
-                            )
-                        loop_token(exp_idx, token_loop_idx)
-                
-                loop_expert(exp_idx)
+    def inside_main_function():
+        """Inner function to encapsulate kernel logic for automatic variable cleanup."""
+        # Get number of experts
+        expert_num = expert_tokens.shape[0]
         
-        inside_main_function()
+        # Reshape weights to 2D for efficient processing
+        w1_2d_shape = (weight_gate_upper.shape[0] * weight_gate_upper.shape[1], weight_gate_upper.shape[2])
+        w2_2d_shape = (weight_down_proj.shape[0] * weight_down_proj.shape[1], weight_down_proj.shape[2])
+        
+        for _ in pypto.loop(0, 1, 1, name="LOOP_RESHAPE", idx_name="reshape_inplace_1"):
+            w1_2d = pypto.reshape(weight_gate_upper, w1_2d_shape, inplace=True)
+            w2_2d = pypto.reshape(weight_down_proj, w2_2d_shape, inplace=True)
+        
+        # Loop over experts
+        for exp_idx in pypto.loop(0, expert_num, 1, name="LOOP_FFN_L0", idx_name="exp_idx"):
+            def loop_expert(exp_idx):
+                """Process one expert."""
+                # Get token count for current expert
+                token_num = expert_tokens[exp_idx]
+                
+                # Calculate number of iterations needed (process LOOP_BASE tokens per iteration)
+                exp_loop_times = (token_num + LOOP_BASE - 1) / LOOP_BASE
+                
+                # Loop over token batches for current expert
+                for token_loop_idx in pypto.loop(
+                    0, exp_loop_times, 1, name="LOOP_FFN_L1", idx_name="token_loop_idx"):
+                    def loop_token(exp_idx, token_loop_idx):
+                        """Process one token batch for current expert."""
+                        expert_infer_base(
+                            ExpertInferConfig(
+                                exp_idx=exp_idx,
+                                token_loop_idx=token_loop_idx,
+                                loop_base=LOOP_BASE,
+                                expand_x=expand_x,
+                                expert_tokens=expert_tokens,
+                                token_acc_table=token_acc_table,
+                                weight_gate_upper=w1_2d,
+                                weight_down_proj=w2_2d,
+                                ffn_out=ffn_out,
+                                vec_tile_shape=VEC_TILE_SHAPE,
+                                cube_tile_shape=CUBE_TILE_SHAPE,
+                            )
+                        )
+                    loop_token(exp_idx, token_loop_idx)
+            
+            loop_expert(exp_idx)
+    
+    inside_main_function()
 
 
 def test_qwen3_ffn():
@@ -470,11 +467,12 @@ def test_qwen3_ffn():
         hidden_size, intermediate_size, dtype, device_id
     )
     
+    # Execute PyPTO kernel
     inputs = [inputs_list[0], inputs_list[1], inputs_list[2], inputs_list[3], inputs_list[4]]
     outputs = [inputs_list[5]]
-    
-    # Execute PyPTO kernel
-    moe_ffn(inputs, outputs)
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    moe_ffn(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()
     
     # Compute reference using PyTorch

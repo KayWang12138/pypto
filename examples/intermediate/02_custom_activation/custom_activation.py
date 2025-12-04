@@ -219,9 +219,8 @@ def apply_silu_activation(inputs, outputs):
     tile_list = [n_tile for _ in range(len(x.shape))]
     pypto.set_vec_tile_shapes(*tile_list)
     
-    with pypto.function("ACTIVATION", [x], [out]):
-        for _ in pypto.loop(1, name="FORM_LOOP", idx_name="form_idx"):
-            out[:] = silu_activation(x)
+    for _ in pypto.loop(1, name="dummy_loop", idx_name="dummy_idx"):
+        out[:] = silu_activation(x)
 
 
 @pypto.jit
@@ -233,9 +232,8 @@ def apply_gelu_activation(inputs, outputs):
     tile_list = [n_tile for _ in range(len(x.shape))]
     pypto.set_vec_tile_shapes(*tile_list)
     
-    with pypto.function("ACTIVATION", [x], [out]):
-        for _ in pypto.loop(1, name="FORM_LOOP", idx_name="form_idx"):
-            out[:] = gelu_activation(x)
+    for _ in pypto.loop(1, name="dummy_loop", idx_name="dummy_idx"):
+        out[:] = gelu_activation(x)
 
 
 @pypto.jit
@@ -249,9 +247,8 @@ def apply_swiglu_activation(inputs, outputs):
     tile_list = [n_tile for _ in range(len(gate.shape))]
     pypto.set_vec_tile_shapes(*tile_list)
     
-    with pypto.function("GATED_ACTIVATION", [gate, up], [out]):
-        for _ in pypto.loop(1, name="FORM_LOOP", idx_name="form_idx"):
-            out[:] = swiglu_activation(gate, up)
+    for _ in pypto.loop(1, name="dummy_loop", idx_name="dummy_idx"):
+        out[:] = swiglu_activation(gate, up)
 
 
 @pypto.jit
@@ -265,9 +262,8 @@ def apply_geglu_activation(inputs, outputs):
     tile_list = [n_tile for _ in range(len(gate.shape))]
     pypto.set_vec_tile_shapes(*tile_list)
     
-    with pypto.function("GATED_ACTIVATION", [gate, up], [out]):
-        for _ in pypto.loop(1, name="FORM_LOOP", idx_name="form_idx"):
-            out[:] = geglu_activation(gate, up)
+    for _ in pypto.loop(1, name="dummy_loop", idx_name="dummy_idx"):
+        out[:] = geglu_activation(gate, up)
             
 
 def test_silu():
@@ -284,7 +280,13 @@ def test_silu():
     out_torch = torch.zeros(shape, dtype=torch.bfloat16, device=f'npu:{device_id}')
     
     # Execute
-    apply_silu_activation([x_torch], [out_torch])
+    inputs = [x_torch]
+    outputs = [out_torch]
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    apply_silu_activation(pto_inputs, pto_outputs)
+    pypto.runtime._device_synchronize()
+
     # Verify
     expected = silu_golden(x_torch)
     max_diff = (out_torch - expected).abs().max().item()
@@ -311,7 +313,12 @@ def test_gelu():
     out_torch = torch.zeros(shape, dtype=torch.bfloat16, device=f'npu:{device_id}')
     
     # Execute
-    apply_gelu_activation([x_torch], [out_torch])
+    inputs = [x_torch]
+    outputs = [out_torch]
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    apply_gelu_activation(pto_inputs, pto_outputs)
+    pypto.runtime._device_synchronize()
     
     # Verify
     expected = gelu_golden(x_torch)
@@ -340,7 +347,13 @@ def test_swiglu():
     out_torch = torch.zeros(shape, dtype=torch.bfloat16, device=f'npu:{device_id}')
     
     # Execute
-    apply_swiglu_activation([gate_torch, up_torch], [out_torch])
+    inputs = [gate_torch, up_torch]
+    outputs = [out_torch]
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    apply_swiglu_activation(pto_inputs, pto_outputs)
+    pypto.runtime._device_synchronize()
+
     # Verify
     expected = swiglu_golden(gate_torch, up_torch)
     max_diff = (out_torch - expected).abs().max().item()
@@ -369,7 +382,13 @@ def test_geglu():
     out_torch = torch.zeros(shape, dtype=torch.bfloat16, device=f'npu:{device_id}')
     
     # Execute
-    apply_geglu_activation([gate_torch, up_torch], [out_torch])
+    inputs = [gate_torch, up_torch]
+    outputs = [out_torch]
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    apply_geglu_activation(pto_inputs, pto_outputs)
+    pypto.runtime._device_synchronize()
+
     # Verify
     expected = geglu_golden(gate_torch, up_torch)
     max_diff = (out_torch - expected).abs().max().item()

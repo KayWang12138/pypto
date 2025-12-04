@@ -167,51 +167,50 @@ def ffn_static(
     input_tensors = [hidden_states, gate_proj_weight, up_proj_weight, down_proj_weight]
     output_tensors = [output]
     
-    with pypto.function("FFN_STATIC", input_tensors, output_tensors):
-        def inside_ffn():
-            batch_size = hidden_states.shape[0]
-            hidden_size = hidden_states.shape[1]
-            intermediate_size = config.intermediate_size
-            
-            # Configure tiling for matrix operations
-            pypto.set_cube_tile_shapes(
-                [config.cube_tile_shape[0], config.cube_tile_shape[0]],
-                [config.cube_tile_shape[1], config.cube_tile_shape[1]],
-                [config.cube_tile_shape[2], config.cube_tile_shape[2]]
-            )
-            pypto.set_matrix_size({batch_size, hidden_size, intermediate_size})
-            
-            # Gate projection: [batch_size, hidden_size] @ [hidden_size, intermediate_size]
-            gate = pypto.matmul(hidden_states, gate_proj_weight, config.dtype)
-            
-            if config.activation == "swiglu":
-                # Up projection: [batch_size, hidden_size] @ [hidden_size, intermediate_size]
-                up = pypto.matmul(hidden_states, up_proj_weight, config.dtype)
-                
-                # SwiGLU activation
-                pypto.set_vec_tile_shapes(*config.vec_tile_shape)
-                activated = swiglu_activation(gate, up)
-            elif config.activation == "gelu":
-                # GELU activation
-                pypto.set_vec_tile_shapes(*config.vec_tile_shape)
-                activated = gelu_activation(gate)
-            elif config.activation == "relu":
-                # ReLU activation
-                pypto.set_vec_tile_shapes(*config.vec_tile_shape)
-                activated = relu_activation(gate)
-            else:
-                raise ValueError(f"Unsupported activation: {config.activation}")
-            
-            # Down projection: [batch_size, intermediate_size] @ [intermediate_size, hidden_size]
-            pypto.set_cube_tile_shapes(
-                [config.cube_tile_shape[0], config.cube_tile_shape[0]],
-                [config.cube_tile_shape[1], config.cube_tile_shape[1]],
-                [config.cube_tile_shape[2], config.cube_tile_shape[2]]
-            )
-            pypto.set_matrix_size({batch_size, intermediate_size, hidden_size})
-            output[:] = pypto.matmul(activated, down_proj_weight, config.dtype, b_trans=True)
+    def inside_ffn():
+        batch_size = hidden_states.shape[0]
+        hidden_size = hidden_states.shape[1]
+        intermediate_size = config.intermediate_size
         
-        inside_ffn()
+        # Configure tiling for matrix operations
+        pypto.set_cube_tile_shapes(
+            [config.cube_tile_shape[0], config.cube_tile_shape[0]],
+            [config.cube_tile_shape[1], config.cube_tile_shape[1]],
+            [config.cube_tile_shape[2], config.cube_tile_shape[2]]
+        )
+        pypto.set_matrix_size({batch_size, hidden_size, intermediate_size})
+        
+        # Gate projection: [batch_size, hidden_size] @ [hidden_size, intermediate_size]
+        gate = pypto.matmul(hidden_states, gate_proj_weight, config.dtype)
+        
+        if config.activation == "swiglu":
+            # Up projection: [batch_size, hidden_size] @ [hidden_size, intermediate_size]
+            up = pypto.matmul(hidden_states, up_proj_weight, config.dtype)
+            
+            # SwiGLU activation
+            pypto.set_vec_tile_shapes(*config.vec_tile_shape)
+            activated = swiglu_activation(gate, up)
+        elif config.activation == "gelu":
+            # GELU activation
+            pypto.set_vec_tile_shapes(*config.vec_tile_shape)
+            activated = gelu_activation(gate)
+        elif config.activation == "relu":
+            # ReLU activation
+            pypto.set_vec_tile_shapes(*config.vec_tile_shape)
+            activated = relu_activation(gate)
+        else:
+            raise ValueError(f"Unsupported activation: {config.activation}")
+        
+        # Down projection: [batch_size, intermediate_size] @ [intermediate_size, hidden_size]
+        pypto.set_cube_tile_shapes(
+            [config.cube_tile_shape[0], config.cube_tile_shape[0]],
+            [config.cube_tile_shape[1], config.cube_tile_shape[1]],
+            [config.cube_tile_shape[2], config.cube_tile_shape[2]]
+        )
+        pypto.set_matrix_size({batch_size, intermediate_size, hidden_size})
+        output[:] = pypto.matmul(activated, down_proj_weight, config.dtype, b_trans=True)
+    
+    inside_ffn()
 
 
 @pypto.jit
@@ -253,76 +252,75 @@ def ffn_dynamic(
     input_tensors = [hidden_states, gate_proj_weight, up_proj_weight, down_proj_weight]
     output_tensors = [output]
     
-    with pypto.function("FFN_DYNAMIC", input_tensors, output_tensors):
-        def inside_ffn():
-            hidden_size = hidden_states.shape[1]
-            intermediate_size = config.intermediate_size
-            basic_batch = config.basic_batch
-            
-            if basic_batch == 0:
-                raise ValueError("basic_batch must be greater than 0")
-            
-            # Calculate number of iterations needed
-            batch_size = pypto.get_input_shape(hidden_states, 0)
-            num_iterations = ceil_div(batch_size, basic_batch)
-            
-            # Process in chunks
-            for idx in pypto.loop(0, num_iterations, 1, name="LOOP_FFN_BATCH", idx_name="idx"):
-                def process_batch_chunk(idx):
-                    batch_offset = idx * basic_batch
-                    
-                    # View current batch chunk
-                    hidden_chunk = pypto.view(
-                        hidden_states,
-                        [basic_batch, hidden_size],
-                        [batch_offset, 0],
-                        valid_shape=[(batch_size - batch_offset).min(basic_batch), hidden_size]
-                    )
-                    
-                    # Configure tiling for matrix operations
-                    pypto.set_cube_tile_shapes(
-                        [config.cube_tile_shape[0], config.cube_tile_shape[0]],
-                        [config.cube_tile_shape[1], config.cube_tile_shape[1]],
-                        [config.cube_tile_shape[2], config.cube_tile_shape[2]]
-                    )
-                    pypto.set_matrix_size({basic_batch, hidden_size, intermediate_size})
-                    
-                    # Gate projection
-                    gate = pypto.matmul(hidden_chunk, gate_proj_weight, config.dtype)
-                    
-                    if config.activation == "swiglu":
-                        # Up projection
-                        up = pypto.matmul(hidden_chunk, up_proj_weight, config.dtype)
-                        
-                        # SwiGLU activation
-                        pypto.set_vec_tile_shapes(*config.vec_tile_shape)
-                        activated = swiglu_activation(gate, up)
-                    elif config.activation == "gelu":
-                        # GELU activation
-                        pypto.set_vec_tile_shapes(*config.vec_tile_shape)
-                        activated = gelu_activation(gate)
-                    elif config.activation == "relu":
-                        # ReLU activation
-                        pypto.set_vec_tile_shapes(*config.vec_tile_shape)
-                        activated = relu_activation(gate)
-                    else:
-                        raise ValueError(f"Unsupported activation: {config.activation}")
-                    
-                    # Down projection
-                    pypto.set_cube_tile_shapes(
-                        [config.cube_tile_shape[0], config.cube_tile_shape[0]],
-                        [config.cube_tile_shape[1], config.cube_tile_shape[1]],
-                        [config.cube_tile_shape[2], config.cube_tile_shape[2]]
-                    )
-                    pypto.set_matrix_size({basic_batch, intermediate_size, hidden_size})
-                    output_chunk = pypto.matmul(activated, down_proj_weight, config.dtype, b_trans=True)
-                    
-                    # Assemble result back to output
-                    pypto.assemble(output_chunk, [batch_offset, 0], output)
-                
-                process_batch_chunk(idx)
+    def inside_ffn():
+        hidden_size = hidden_states.shape[1]
+        intermediate_size = config.intermediate_size
+        basic_batch = config.basic_batch
         
-        inside_ffn()
+        if basic_batch == 0:
+            raise ValueError("basic_batch must be greater than 0")
+        
+        # Calculate number of iterations needed
+        batch_size = pypto.get_input_shape(hidden_states, 0)
+        num_iterations = ceil_div(batch_size, basic_batch)
+        
+        # Process in chunks
+        for idx in pypto.loop(0, num_iterations, 1, name="LOOP_FFN_BATCH", idx_name="idx"):
+            def process_batch_chunk(idx):
+                batch_offset = idx * basic_batch
+                
+                # View current batch chunk
+                hidden_chunk = pypto.view(
+                    hidden_states,
+                    [basic_batch, hidden_size],
+                    [batch_offset, 0],
+                    valid_shape=[(batch_size - batch_offset).min(basic_batch), hidden_size]
+                )
+                
+                # Configure tiling for matrix operations
+                pypto.set_cube_tile_shapes(
+                    [config.cube_tile_shape[0], config.cube_tile_shape[0]],
+                    [config.cube_tile_shape[1], config.cube_tile_shape[1]],
+                    [config.cube_tile_shape[2], config.cube_tile_shape[2]]
+                )
+                pypto.set_matrix_size({basic_batch, hidden_size, intermediate_size})
+                
+                # Gate projection
+                gate = pypto.matmul(hidden_chunk, gate_proj_weight, config.dtype)
+                
+                if config.activation == "swiglu":
+                    # Up projection
+                    up = pypto.matmul(hidden_chunk, up_proj_weight, config.dtype)
+                    
+                    # SwiGLU activation
+                    pypto.set_vec_tile_shapes(*config.vec_tile_shape)
+                    activated = swiglu_activation(gate, up)
+                elif config.activation == "gelu":
+                    # GELU activation
+                    pypto.set_vec_tile_shapes(*config.vec_tile_shape)
+                    activated = gelu_activation(gate)
+                elif config.activation == "relu":
+                    # ReLU activation
+                    pypto.set_vec_tile_shapes(*config.vec_tile_shape)
+                    activated = relu_activation(gate)
+                else:
+                    raise ValueError(f"Unsupported activation: {config.activation}")
+                
+                # Down projection
+                pypto.set_cube_tile_shapes(
+                    [config.cube_tile_shape[0], config.cube_tile_shape[0]],
+                    [config.cube_tile_shape[1], config.cube_tile_shape[1]],
+                    [config.cube_tile_shape[2], config.cube_tile_shape[2]]
+                )
+                pypto.set_matrix_size({basic_batch, intermediate_size, hidden_size})
+                output_chunk = pypto.matmul(activated, down_proj_weight, config.dtype, b_trans=True)
+                
+                # Assemble result back to output
+                pypto.assemble(output_chunk, [batch_offset, 0], output)
+            
+            process_batch_chunk(idx)
+    
+    inside_ffn()
 
 
 def create_ffn_module(config: FFNConfig, use_dynamic: Optional[bool] = None):

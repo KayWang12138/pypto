@@ -95,6 +95,13 @@ def scaled_dot_product_attention_golden(
 @pypto.jit
 def scaled_dot_product_attention_dynamic(inputs, outputs, config: AttentionConfig):
     """Scaled dot-product attention with dynamic batch and sequence lengths."""
+    # Enable dynamic unaligned support
+    pypto.set_codegen_options(support_dynamic_unaligned=True)
+    pypto.set_host_options(only_codegen=True)
+    pypto.set_runtime_options(cfgcache_device_task_num=100)
+    pypto.set_runtime_options(cfgcache_root_task_num=100)
+    pypto.set_runtime_options(cfgcache_leaf_task_num=10000)
+    
     q = inputs[0]
     k = inputs[1]
     v = inputs[2]
@@ -111,35 +118,31 @@ def scaled_dot_product_attention_dynamic(inputs, outputs, config: AttentionConfi
     pypto.mark_dynamic(out, 0)
     pypto.mark_dynamic(out, 2)
     
-    # Enable dynamic unaligned support
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
-    
     # Calculate scale
     scale = config.scale if config.scale is not None else (1.0 / (config.head_dim ** 0.5))
-    scale_val = pypto.element(config.dtype, scale)
     
     # Configure tiling
     cube_tiling = 64
     pypto.set_cube_tile_shapes([cube_tiling, cube_tiling], [cube_tiling, cube_tiling], [cube_tiling, cube_tiling])
     view_shape = (batch_size, num_heads, seq_len, head_dim)
     bs_loop = (batch_size + view_shape[0] - 1) // view_shape[0]
-    with pypto.function("ATTENTION_DYNAMIC", [q, k, v], [out]):
-        def inside_scaled_dot_product_attention():
-            for bs_idx in pypto.loop(bs_loop, name="LOOP_L0", idx_name="bs_idx", unroll_List={1}):
-                def bs_loop_func(bs_idx):
-                    offsets = [bs_idx * view_shape[0], 0, 0, 0]
-                    q_view = pypto.view(q, view_shape, offsets)
-                    k_view = pypto.view(k, view_shape, offsets)
-                    v_view = pypto.view(v, view_shape, offsets)
-                    pypto.set_vec_tile_shapes(1, 8, 16, head_dim) 
-                    k_t = pypto.transpose(k_view, 2, 3)
-                    scores = pypto.matmul(q_view, k_t, out_dtype=config.dtype)
-                    scores_scaled = pypto.mul(scores, scale)
-                    attn_weights = pypto.softmax(scores_scaled, dim=-1)
-                    res = pypto.matmul(attn_weights, v_view, out_dtype=config.dtype)
-                    pypto.assemble(res, offsets, out)
-                bs_loop_func(bs_idx)
-        inside_scaled_dot_product_attention()
+    
+    def inside_scaled_dot_product_attention():
+        for bs_idx in pypto.loop(bs_loop, name="LOOP_L0", idx_name="bs_idx", unroll_List={1}):
+            def bs_loop_func(bs_idx):
+                offsets = [bs_idx * view_shape[0], 0, 0, 0]
+                q_view = pypto.view(q, view_shape, offsets)
+                k_view = pypto.view(k, view_shape, offsets)
+                v_view = pypto.view(v, view_shape, offsets)
+                pypto.set_vec_tile_shapes(1, 8, 16, head_dim) 
+                k_t = pypto.transpose(k_view, 2, 3)
+                scores = pypto.matmul(q_view, k_t, out_dtype=config.dtype)
+                scores_scaled = pypto.mul(scores, scale)
+                attn_weights = pypto.softmax(scores_scaled, dim=-1)
+                res = pypto.matmul(attn_weights, v_view, out_dtype=config.dtype)
+                pypto.assemble(res, offsets, out)
+            bs_loop_func(bs_idx)
+    inside_scaled_dot_product_attention()
 
 
 @pypto.jit
@@ -162,48 +165,45 @@ def attention_with_projection(inputs, outputs, config: AttentionConfig):
     cube_tiling = 64
     pypto.set_cube_tile_shapes([cube_tiling, cube_tiling], [cube_tiling, cube_tiling], [cube_tiling, cube_tiling])
     
-    with pypto.function("ATTENTION_WITH_PROJ", 
-                      [hidden_states, q_weight, k_weight, v_weight, out_weight], 
-                      [out]):
-        def inside_attention_with_projection():
-            for bs_idx in pypto.loop(bs_loop, name="LOOP_L0", idx_name="bs_idx", unroll_List={1}):
-                def bs_loop_func(bs_idx):
-                    q_flat = pypto.matmul(hidden_states, q_weight, out_dtype=config.dtype)
-                    k_flat = pypto.matmul(hidden_states, k_weight, out_dtype=config.dtype)
-                    v_flat = pypto.matmul(hidden_states, v_weight, out_dtype=config.dtype)
-                    
-                    # Reshape to multi-head format
-                    q = pypto.reshape(q_flat, [batch_size, seq_len, config.num_heads, config.head_dim])
-                    k = pypto.reshape(k_flat, [batch_size, seq_len, config.num_heads, config.head_dim])
-                    v = pypto.reshape(v_flat, [batch_size, seq_len, config.num_heads, config.head_dim])
-                    pypto.set_vec_tile_shapes(1, 16, 8, config.head_dim)
-                    # Transpose for attention: [batch, num_heads, seq_len, head_dim]
-                    q = pypto.transpose(q, 1, 2)
-                    k = pypto.transpose(k, 1, 2)
-                    v = pypto.transpose(v, 1, 2)
-                    
-                    offsets = [bs_idx * view_shape[0], 0, 0, 0]
-                    offsets_out = [bs_idx * view_shape[0], 0, 0]
-                    q_view = pypto.view(q, view_shape, offsets)
-                    k_view = pypto.view(k, view_shape, offsets)
-                    v_view = pypto.view(v, view_shape, offsets)
-                    
-                    # Step 2: Scaled dot-product attention
-                    scale = config.scale if config.scale is not None else (1.0 / (config.head_dim ** 0.5))
-                    k_t = pypto.transpose(k_view, 2, 3)
-                    scores = pypto.matmul(q_view, k_t, out_dtype=config.dtype)
-                    scores_scaled = pypto.mul(scores, scale)
-                    attn_weights = pypto.softmax(scores_scaled, dim=-1)
-                    attn_output = pypto.matmul(attn_weights, v_view, out_dtype=config.dtype)
-                    # Step 3: Transpose back and reshape
-                    attn_output = pypto.transpose(attn_output, 1, 2)
-                    attn_output_flat = pypto.reshape(attn_output, 
-                                                     [view_shape[0], seq_len, config.num_heads * config.head_dim])
-                    # Step 4: Output projection
-                    res = pypto.matmul(attn_output_flat, out_weight, out_dtype=config.dtype)
-                    pypto.assemble(res, offsets_out, out)
-                bs_loop_func(bs_idx)
-        inside_attention_with_projection()
+    def inside_attention_with_projection():
+        for bs_idx in pypto.loop(bs_loop, name="LOOP_L0", idx_name="bs_idx", unroll_List={1}):
+            def bs_loop_func(bs_idx):
+                q_flat = pypto.matmul(hidden_states, q_weight, out_dtype=config.dtype)
+                k_flat = pypto.matmul(hidden_states, k_weight, out_dtype=config.dtype)
+                v_flat = pypto.matmul(hidden_states, v_weight, out_dtype=config.dtype)
+                
+                # Reshape to multi-head format
+                q = pypto.reshape(q_flat, [batch_size, seq_len, config.num_heads, config.head_dim])
+                k = pypto.reshape(k_flat, [batch_size, seq_len, config.num_heads, config.head_dim])
+                v = pypto.reshape(v_flat, [batch_size, seq_len, config.num_heads, config.head_dim])
+                pypto.set_vec_tile_shapes(1, 16, 8, config.head_dim)
+                # Transpose for attention: [batch, num_heads, seq_len, head_dim]
+                q = pypto.transpose(q, 1, 2)
+                k = pypto.transpose(k, 1, 2)
+                v = pypto.transpose(v, 1, 2)
+                
+                offsets = [bs_idx * view_shape[0], 0, 0, 0]
+                offsets_out = [bs_idx * view_shape[0], 0, 0]
+                q_view = pypto.view(q, view_shape, offsets)
+                k_view = pypto.view(k, view_shape, offsets)
+                v_view = pypto.view(v, view_shape, offsets)
+                
+                # Step 2: Scaled dot-product attention
+                scale = config.scale if config.scale is not None else (1.0 / (config.head_dim ** 0.5))
+                k_t = pypto.transpose(k_view, 2, 3)
+                scores = pypto.matmul(q_view, k_t, out_dtype=config.dtype)
+                scores_scaled = pypto.mul(scores, scale)
+                attn_weights = pypto.softmax(scores_scaled, dim=-1)
+                attn_output = pypto.matmul(attn_weights, v_view, out_dtype=config.dtype)
+                # Step 3: Transpose back and reshape
+                attn_output = pypto.transpose(attn_output, 1, 2)
+                attn_output_flat = pypto.reshape(attn_output, 
+                                                    [view_shape[0], seq_len, config.num_heads * config.head_dim])
+                # Step 4: Output projection
+                res = pypto.matmul(attn_output_flat, out_weight, out_dtype=config.dtype)
+                pypto.assemble(res, offsets_out, out)
+            bs_loop_func(bs_idx)
+    inside_attention_with_projection()
 
 
 def test_attention_dynamic():
@@ -227,12 +227,15 @@ def test_attention_dynamic():
                             dtype=torch.bfloat16, device=f'npu:{device_id}')
     out_torch = torch.zeros(batch_size, num_heads, seq_len_q, head_dim, 
                             dtype=torch.bfloat16, device=f'npu:{device_id}')
-    
     config = AttentionConfig(num_heads=num_heads, head_dim=head_dim, 
                             dtype=pypto.DT_BF16, use_dynamic_shape=True)
-    
+    inputs = [q_torch, k_torch, v_torch]
+    outputs = [out_torch]
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
     # Execute
-    scaled_dot_product_attention_dynamic([q_torch, k_torch, v_torch], [out_torch], config)
+    scaled_dot_product_attention_dynamic(pto_inputs, pto_outputs, config)
+    pypto.runtime._device_synchronize()
     
     # Verify
     scale = 1.0 / (head_dim ** 0.5)
@@ -272,10 +275,13 @@ def test_attention_with_projection():
                            dtype=torch.float32, device=f'npu:{device_id}')
     
     config = AttentionConfig(num_heads=num_heads, head_dim=head_dim, dtype=pypto.DT_FP32)
-    
+    inputs = [hidden_states, q_weight, k_weight, v_weight, out_weight]
+    outputs = [out_torch]
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
     # Execute
-    attention_with_projection([hidden_states, q_weight, k_weight, v_weight, out_weight], 
-                             [out_torch], config)
+    attention_with_projection(pto_inputs, pto_outputs, config)
+    pypto.runtime._device_synchronize()
     
     # Verify (simplified - just check output shape and range)
     print(f"Hidden states shape: {hidden_states.shape}")

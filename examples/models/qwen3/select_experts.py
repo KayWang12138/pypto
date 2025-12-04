@@ -96,59 +96,58 @@ def select_experts(inputs: list, outputs: list, renormalize_flag: bool):
     bs_loop = (bs + view_shape[0] - 1) // view_shape[0]
     
     # Define the computation graph
-    with pypto.function("MOEGATE", [logits_input], [ids_k, weight_k]):
-        def inside_select_experts():
-            """Inner function to encapsulate kernel logic for automatic variable cleanup."""
-            # Loop over dynamic batch axis
-            for bs_idx in pypto.loop(bs_loop, name="LOOP_MOEGATE_L0", idx_name="bs_idx", unroll_list={1}):
-                def bs_loop_func(bs_idx):
-                    """Process one batch tile."""
-                    # Create view for current batch tile
-                    tile_logits = pypto.view(
-                        logits_input,
-                        view_shape,
-                        [bs_idx * view_shape[0], 0],
-                        valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]), ne]
-                    )
-                    
-                    # Configure tiling: use full UB but don't exceed UB size
-                    pypto.set_vec_tile_shapes(64, 128)
-                    
-                    # Step 1: Cast to FP32 for softmax computation
-                    tile_logits_fp32 = pypto.cast(tile_logits, pypto.DT_FP32)
-                    
-                    # Step 2: Apply softmax
-                    softmax_out = pypto.softmax(tile_logits_fp32, dim=-1)
-                    
-                    # Step 3: Select top-K experts
-                    topk_weight_tmp, topk_ids_tmp = pypto.topk(softmax_out, topk, dim=-1, largest=True)
-                    
-                    # Step 4: Optional weight renormalization
-                    pypto.set_vec_tile_shapes(128, 8)
-                    if pypto.cond(pypto.symbolic_scalar(1 if renormalize_flag else 0)):
-                        # Renormalize: divide by sum of top-k weights
-                        denominator = pypto.sum(topk_weight_tmp, dim=-1, keepdim=True)
-                        topk_weight2 = pypto.div(topk_weight_tmp, denominator)
-                    else:
-                        # No renormalization
-                        topk_weight2 = topk_weight_tmp
-                    
-                    # Step 5: Cast weights back to input dtype
-                    topk_weight2_f16 = pypto.cast(topk_weight2, weight_k.dtype)
-                    
-                    # Assemble results back to output tensors
-                    weight_k[
-                        bs_idx * pypto.symbolic_scalar(view_shape[0]):,
-                        pypto.symbolic_scalar(0):
-                    ] = topk_weight2_f16
-                    ids_k[
-                        bs_idx * pypto.symbolic_scalar(view_shape[0]):,
-                        pypto.symbolic_scalar(0):
-                    ] = topk_ids_tmp
+    def inside_select_experts():
+        """Inner function to encapsulate kernel logic for automatic variable cleanup."""
+        # Loop over dynamic batch axis
+        for bs_idx in pypto.loop(bs_loop, name="LOOP_MOEGATE_L0", idx_name="bs_idx", unroll_list={1}):
+            def bs_loop_func(bs_idx):
+                """Process one batch tile."""
+                # Create view for current batch tile
+                tile_logits = pypto.view(
+                    logits_input,
+                    view_shape,
+                    [bs_idx * view_shape[0], 0],
+                    valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]), ne]
+                )
                 
-                bs_loop_func(bs_idx)
-        
-        inside_select_experts()
+                # Configure tiling: use full UB but don't exceed UB size
+                pypto.set_vec_tile_shapes(64, 128)
+                
+                # Step 1: Cast to FP32 for softmax computation
+                tile_logits_fp32 = pypto.cast(tile_logits, pypto.DT_FP32)
+                
+                # Step 2: Apply softmax
+                softmax_out = pypto.softmax(tile_logits_fp32, dim=-1)
+                
+                # Step 3: Select top-K experts
+                topk_weight_tmp, topk_ids_tmp = pypto.topk(softmax_out, topk, dim=-1, largest=True)
+                
+                # Step 4: Optional weight renormalization
+                pypto.set_vec_tile_shapes(128, 8)
+                if pypto.cond(pypto.symbolic_scalar(1 if renormalize_flag else 0)):
+                    # Renormalize: divide by sum of top-k weights
+                    denominator = pypto.sum(topk_weight_tmp, dim=-1, keepdim=True)
+                    topk_weight2 = pypto.div(topk_weight_tmp, denominator)
+                else:
+                    # No renormalization
+                    topk_weight2 = topk_weight_tmp
+                
+                # Step 5: Cast weights back to input dtype
+                topk_weight2_f16 = pypto.cast(topk_weight2, weight_k.dtype)
+                
+                # Assemble results back to output tensors
+                weight_k[
+                    bs_idx * pypto.symbolic_scalar(view_shape[0]):,
+                    pypto.symbolic_scalar(0):
+                ] = topk_weight2_f16
+                ids_k[
+                    bs_idx * pypto.symbolic_scalar(view_shape[0]):,
+                    pypto.symbolic_scalar(0):
+                ] = topk_ids_tmp
+            
+            bs_loop_func(bs_idx)
+    
+    inside_select_experts()
 
 
 def test_select_experts():
@@ -198,7 +197,9 @@ def test_select_experts():
         # Execute PyPTO kernel
         inputs = [router_logits]
         outputs = [topk_ids, topk_weights]
-        select_experts(inputs, outputs, renormalize)
+        pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+        pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+        select_experts(pto_inputs, pto_outputs, renormalize)
         pypto.runtime._device_synchronize()
         
         # Compute reference using PyTorch

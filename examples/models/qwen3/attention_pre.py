@@ -307,68 +307,67 @@ def attention_pre(inputs: list, outputs: list):
     bs_loop = (bs + bs_tile - 1) // bs_tile
     
     # Define the computation graph
-    with pypto.function("ATTENTION_PRE", [x, weight, q_gamma, k_gamma, cos, sin], [q, k, v]):
-        def inside_attention_pre_func():
-            """Inner function to encapsulate kernel logic for automatic variable cleanup."""
-            # Loop over dynamic batch axis
-            for bs_idx in pypto.loop(bs_loop, name="LOOP_ATT_PRE_L0", idx_name="bs_idx"):
-                def bs_loop_func(bs_idx):
-                    """Process one batch element."""
-                    # Create views for current batch element
-                    x_tile = pypto.view(x, [bs_tile, hidden_size], [bs_idx * bs_tile, 0])
-                    cos_tile = pypto.view(cos, [bs_tile, 1, half_head_size], [bs_idx * bs_tile, 0, 0])
-                    sin_tile = pypto.view(sin, [bs_tile, 1, half_head_size], [bs_idx * bs_tile, 0, 0])
-                    
-                    # Step 1: Linear projection to generate Q, K, V
-                    pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
-                    mm_res = pypto.matmul(x_tile, weight, out_dtype=pypto.DT_BF16, a_trans=False, b_trans=True)
-                    
-                    # Reshape to 3D: [batch, num_heads, head_size]
-                    pypto.set_vec_tile_shapes(128, 128, 128)
-                    mm_3d = pypto.reshape(mm_res, [bs_tile, total_hidden_size // head_size, head_size])
-                    
-                    # Split into Q, K, V
-                    q_tile = pypto.view(mm_3d, [bs_tile, q_num_head, head_size], [0, 0, 0])
-                    k_tile = pypto.view(mm_3d, [bs_tile, kv_num_head, head_size], [0, q_num_head, 0])
-                    v_tile = pypto.view(mm_3d, [bs_tile, kv_num_head, head_size], [0, kv_index, 0])
-                    
-                    # Step 2: RMS normalization for Q and K
-                    q_norm = rms_norm(q_tile, q_gamma, eps, [bs_tile, q_num_head, head_size])
-                    k_norm = rms_norm(k_tile, k_gamma, eps, [bs_tile, kv_num_head, head_size])
-                    
-                    # Step 3: Apply Rotary Position Embedding (RoPE)
-                    # Cast to FP32 for RoPE computation
-                    pypto.set_vec_tile_shapes(bs_tile, q_num_head, head_size)
-                    q_fp32 = pypto.cast(q_norm, pypto.DT_FP32)
-                    k_fp32 = pypto.cast(k_norm, pypto.DT_FP32)
-                    
-                    pypto.set_vec_tile_shapes(bs_tile, kv_num_head, half_head_size)
-                    cos_fp32 = pypto.cast(cos_tile, pypto.DT_FP32)
-                    sin_fp32 = pypto.cast(sin_tile, pypto.DT_FP32)
-                    
-                    # Split Q into two halves for RoPE
-                    q1 = pypto.view(q_fp32, [bs_tile, q_num_head, half_head_size], [0, 0, 0])
-                    q2 = pypto.view(q_fp32, [bs_tile, q_num_head, half_head_size], [0, 0, half_head_size])
-                    q_rope = rope_data(q1, q2, cos_fp32, sin_fp32, [bs_tile, q_num_head, half_head_size])
-                    
-                    # Split K into two halves for RoPE
-                    k1 = pypto.view(k_fp32, [bs_tile, kv_num_head, half_head_size], [0, 0, 0])
-                    k2 = pypto.view(k_fp32, [bs_tile, kv_num_head, half_head_size], [0, 0, half_head_size])
-                    k_rope = rope_data(k1, k2, cos_fp32, sin_fp32, [bs_tile, kv_num_head, half_head_size])
-                    
-                    # Step 4: Reshape outputs
-                    q_res = pypto.reshape(q_rope, [bs_tile, q_size])
-                    k_res = pypto.reshape(k_rope, [bs_tile, kv_size])
-                    v_res = pypto.reshape(v_tile, [bs_tile, kv_size])
-                    
-                    # Assemble results back to output tensors
-                    q[bs_idx * pypto.symbolic_scalar(bs_tile):, 0:] = q_res
-                    k[bs_idx * pypto.symbolic_scalar(bs_tile):, 0:] = k_res
-                    v[bs_idx * pypto.symbolic_scalar(bs_tile):, 0:] = v_res
+    def inside_attention_pre_func():
+        """Inner function to encapsulate kernel logic for automatic variable cleanup."""
+        # Loop over dynamic batch axis
+        for bs_idx in pypto.loop(bs_loop, name="LOOP_ATT_PRE_L0", idx_name="bs_idx"):
+            def bs_loop_func(bs_idx):
+                """Process one batch element."""
+                # Create views for current batch element
+                x_tile = pypto.view(x, [bs_tile, hidden_size], [bs_idx * bs_tile, 0])
+                cos_tile = pypto.view(cos, [bs_tile, 1, half_head_size], [bs_idx * bs_tile, 0, 0])
+                sin_tile = pypto.view(sin, [bs_tile, 1, half_head_size], [bs_idx * bs_tile, 0, 0])
                 
-                bs_loop_func(bs_idx)
-        
-        inside_attention_pre_func()
+                # Step 1: Linear projection to generate Q, K, V
+                pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
+                mm_res = pypto.matmul(x_tile, weight, out_dtype=pypto.DT_BF16, a_trans=False, b_trans=True)
+                
+                # Reshape to 3D: [batch, num_heads, head_size]
+                pypto.set_vec_tile_shapes(128, 128, 128)
+                mm_3d = pypto.reshape(mm_res, [bs_tile, total_hidden_size // head_size, head_size])
+                
+                # Split into Q, K, V
+                q_tile = pypto.view(mm_3d, [bs_tile, q_num_head, head_size], [0, 0, 0])
+                k_tile = pypto.view(mm_3d, [bs_tile, kv_num_head, head_size], [0, q_num_head, 0])
+                v_tile = pypto.view(mm_3d, [bs_tile, kv_num_head, head_size], [0, kv_index, 0])
+                
+                # Step 2: RMS normalization for Q and K
+                q_norm = rms_norm(q_tile, q_gamma, eps, [bs_tile, q_num_head, head_size])
+                k_norm = rms_norm(k_tile, k_gamma, eps, [bs_tile, kv_num_head, head_size])
+                
+                # Step 3: Apply Rotary Position Embedding (RoPE)
+                # Cast to FP32 for RoPE computation
+                pypto.set_vec_tile_shapes(bs_tile, q_num_head, head_size)
+                q_fp32 = pypto.cast(q_norm, pypto.DT_FP32)
+                k_fp32 = pypto.cast(k_norm, pypto.DT_FP32)
+                
+                pypto.set_vec_tile_shapes(bs_tile, kv_num_head, half_head_size)
+                cos_fp32 = pypto.cast(cos_tile, pypto.DT_FP32)
+                sin_fp32 = pypto.cast(sin_tile, pypto.DT_FP32)
+                
+                # Split Q into two halves for RoPE
+                q1 = pypto.view(q_fp32, [bs_tile, q_num_head, half_head_size], [0, 0, 0])
+                q2 = pypto.view(q_fp32, [bs_tile, q_num_head, half_head_size], [0, 0, half_head_size])
+                q_rope = rope_data(q1, q2, cos_fp32, sin_fp32, [bs_tile, q_num_head, half_head_size])
+                
+                # Split K into two halves for RoPE
+                k1 = pypto.view(k_fp32, [bs_tile, kv_num_head, half_head_size], [0, 0, 0])
+                k2 = pypto.view(k_fp32, [bs_tile, kv_num_head, half_head_size], [0, 0, half_head_size])
+                k_rope = rope_data(k1, k2, cos_fp32, sin_fp32, [bs_tile, kv_num_head, half_head_size])
+                
+                # Step 4: Reshape outputs
+                q_res = pypto.reshape(q_rope, [bs_tile, q_size])
+                k_res = pypto.reshape(k_rope, [bs_tile, kv_size])
+                v_res = pypto.reshape(v_tile, [bs_tile, kv_size])
+                
+                # Assemble results back to output tensors
+                q[bs_idx * pypto.symbolic_scalar(bs_tile):, 0:] = q_res
+                k[bs_idx * pypto.symbolic_scalar(bs_tile):, 0:] = k_res
+                v[bs_idx * pypto.symbolic_scalar(bs_tile):, 0:] = v_res
+            
+            bs_loop_func(bs_idx)
+    
+    inside_attention_pre_func()
 
 
 def test_attention_pre():
@@ -418,7 +417,9 @@ def test_attention_pre():
         # Execute PyPTO kernel
         inputs = [x, weight, q_gamma, k_gamma, cos, sin]
         outputs = [q, k, v]
-        attention_pre(inputs, outputs)
+        pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+        pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+        attention_pre(pto_inputs, pto_outputs)
         pypto.runtime._device_synchronize()
         
         # Compute reference using PyTorch

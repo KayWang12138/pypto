@@ -15,15 +15,16 @@ import math
 import os
 import pypto
 import torch
-from pypto import pto_impl
+from pypto import pypto_impl
 from pypto.operation import op_wrapper
 import numpy as np
 from numpy.testing import assert_allclose
+import logging
 
 
 @op_wrapper
 def gather_in_l1(src, offsets, size, is_b_matrix, is_trans):
-    return pto_impl.gather_in_l1(src, offsets, size, is_b_matrix, is_trans)
+    return pypto_impl.gather_in_l1(src, offsets, size, is_b_matrix, is_trans)
 
 
 @op_wrapper
@@ -34,7 +35,7 @@ def gather_in_ub(
 ):
     """gather_in_ub."""
 
-    return pto_impl.gather_in_ub(param, indices, axis)
+    return pypto_impl.gather_in_ub(param, indices, axis)
 
 
 @dataclass
@@ -311,7 +312,7 @@ def select_attention_compute_v2(query_nope, query_rope, key_nope_2d, key_rope_2d
                                     oi_update = pypto.tensor([cur_group_tile, dn], pypto.DT_FP32, "oi_update")
                                     li_update = pypto.tensor([1, cur_group_tile], pypto.DT_FP32, "li_update")
                                     mi_update = pypto.tensor([1, cur_group_tile], pypto.DT_FP32, "mi_update")
-                                    cur_offset = batch_idx * s1_n1_gsym
+                                    cur_offset = batch_idx * s1_n1_gsym \
                                         + slc_idx * nq + n_kv_idx * group + group_idx * cur_group_tile
                                     oi_offset = [batch_idx, slc_idx, n_kv_idx * group + group_idx * cur_group_tile, 0]
                                     for s2_idx, unroll_length in pypto.loop_unroll(0, bn_per_batch, 1,
@@ -319,7 +320,7 @@ def select_attention_compute_v2(query_nope, query_rope, key_nope_2d, key_rope_2d
                                         def inside_s2_idx_loop(batch_idx, slc_idx, n_kv_idx,
                                             group_idx, s2_idx, unroll_length):
                                             cur_s2_tile = s2_tile
-                                            cur_kv_offset = batch_idx * s1_s2_sym
+                                            cur_kv_offset = batch_idx * s1_s2_sym \
                                                 + slc_idx * s2_sym + s2_idx * cur_s2_tile
                                             pypto.set_semantic_label("Sa_QkMM")
                                             pypto.set_vec_tile_shapes(32, 512)
@@ -463,25 +464,24 @@ def select_attention_v2(in_tensors, out_tensors, n_q, n_kv, softmax_scale, topk,
     query_nope, query_rope, key_nope_2d, key_rope_2d, k_nope_scales, offsets, kv_act_seqs = in_tensors
     attention_out, = out_tensors
     pypto.set_host_options(only_codegen=True)
-    with pypto.function("main", [query_nope, query_rope, key_nope_2d,
-        key_rope_2d, k_nope_scales, offsets, kv_act_seqs], [attention_out]):
-        def inside_main_function():
-            select_attention_compute_v2(
-                query_nope=query_nope,
-                query_rope=query_rope,
-                key_nope_2d=key_nope_2d,
-                key_rope_2d=key_rope_2d,
-                k_nope_scales=k_nope_scales,
-                offsets=offsets,
-                kv_act_seqs=kv_act_seqs,
-                nq=n_q,
-                n_kv=n_kv,
-                softmax_scale=softmax_scale,
-                topk=topk,
-                attention_out=attention_out,
-                tile_config=tile_config
-            )
-        inside_main_function()
+    
+    def inside_main_function():
+        select_attention_compute_v2(
+            query_nope=query_nope,
+            query_rope=query_rope,
+            key_nope_2d=key_nope_2d,
+            key_rope_2d=key_rope_2d,
+            k_nope_scales=k_nope_scales,
+            offsets=offsets,
+            kv_act_seqs=kv_act_seqs,
+            nq=n_q,
+            n_kv=n_kv,
+            softmax_scale=softmax_scale,
+            topk=topk,
+            attention_out=attention_out,
+            tile_config=tile_config
+        )
+    inside_main_function()
 
 
 def sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant, input_params,
@@ -504,10 +504,10 @@ def sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant, input_params,
     calc_attention_out = torch.zeros([b, s1, n_q, kv_lora_rank], dtype=torch.bfloat16)
     kv_act_seqs = torch.tensor(actual_seq, dtype=torch.int32)
     input_data_npu = [tmp.npu() for tmp in [q_nope, q_rope, kn, kr, kn_scales, offsets, kv_act_seqs]]
-
     output_data_npu = [b.npu() for b in [calc_attention_out]]
-    select_attention_v2(input_data_npu, output_data_npu, n_q, n_kv, softmax_scale, topk, tile_config)
-    
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(input_data_npu)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(output_data_npu)]
+    select_attention_v2(pto_inputs, pto_outputs, n_q, n_kv, softmax_scale, topk, tile_config)
     pypto.runtime._device_synchronize()
     assert_allclose(np.array(output_data_npu[0].cpu().flatten().tolist()), np.array(atten_out.cpu().flatten().tolist()), rtol=0.005, atol=0.005)
 
@@ -517,7 +517,7 @@ def sparse_attention_entry(case_name: str):
         bn1n2s1 = (4, 128, 1, 2)
         is_kn_quant = 1
         actual_seq = [666, 532, 768, 900]
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out
+        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
         sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
             input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
@@ -527,7 +527,7 @@ def sparse_attention_entry(case_name: str):
         # 0为kn非量化情况，1为kn量化情况
         is_kn_quant = 0
         actual_seq = [511, 511, 511, 511]
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out
+        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
         sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
             input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
@@ -535,7 +535,7 @@ def sparse_attention_entry(case_name: str):
         bn1n2s1 = (32, 128, 1, 1)
         is_kn_quant = 1
         actual_seq = [511] * 32
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out
+        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
         sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
             input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
@@ -543,7 +543,7 @@ def sparse_attention_entry(case_name: str):
         bn1n2s1 = (1, 128, 1, 1)
         is_kn_quant = 0
         actual_seq = [2049]
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out
+        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
         sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
             input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
@@ -551,7 +551,7 @@ def sparse_attention_entry(case_name: str):
         bn1n2s1 = (1, 128, 1, 1)
         is_kn_quant = 1
         actual_seq = [2049]
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out
+        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
         sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
             input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
@@ -559,7 +559,7 @@ def sparse_attention_entry(case_name: str):
         bn1n2s1 = (1, 128, 1, 3)
         is_kn_quant = 0
         actual_seq = [2047]
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out
+        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
         sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
             input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
@@ -567,7 +567,7 @@ def sparse_attention_entry(case_name: str):
         bn1n2s1 = (1, 128, 1, 3)
         is_kn_quant = 1
         actual_seq = [2047]
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out
+        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
         sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
             input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
@@ -575,7 +575,7 @@ def sparse_attention_entry(case_name: str):
         bn1n2s1 = (128, 128, 1, 1)
         is_kn_quant = 0
         actual_seq = [8096] * 128
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out
+        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
         sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
             input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
@@ -583,7 +583,7 @@ def sparse_attention_entry(case_name: str):
         bn1n2s1 = (128, 128, 1, 1)
         is_kn_quant = 1
         actual_seq = [8096] * 128
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out
+        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
         sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
             input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
@@ -591,7 +591,7 @@ def sparse_attention_entry(case_name: str):
         bn1n2s1 = (8, 128, 1, 1)
         is_kn_quant = 0
         actual_seq = [131072] * 8  # 128k
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out
+        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
         sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
             input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
@@ -599,7 +599,7 @@ def sparse_attention_entry(case_name: str):
         bn1n2s1 = (8, 128, 1, 1)
         is_kn_quant = 1
         actual_seq = [131072] * 8
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out
+        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
         sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
             input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
@@ -607,7 +607,7 @@ def sparse_attention_entry(case_name: str):
         bn1n2s1 = (4, 128, 1, 1)
         is_kn_quant = 0
         actual_seq = [666, 532, 768, 900]
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out
+        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
         sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
             input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
@@ -615,7 +615,7 @@ def sparse_attention_entry(case_name: str):
         bn1n2s1 = (4, 128, 1, 1)
         is_kn_quant = 1
         actual_seq = [666, 532, 768, 900]
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out
+        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
         sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
             input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
@@ -623,7 +623,7 @@ def sparse_attention_entry(case_name: str):
         bn1n2s1 = (8, 128, 1, 1)
         is_kn_quant = 0
         actual_seq = [666, 532, 768, 900, 5698, 2358, 324, 2048]
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out
+        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
         sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
             input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
@@ -631,7 +631,7 @@ def sparse_attention_entry(case_name: str):
         bn1n2s1 = (8, 128, 1, 1)
         is_kn_quant = 1
         actual_seq = [666, 532, 768, 900, 5698, 2358, 324, 2048]
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out
+        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
         sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
             input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
@@ -639,7 +639,7 @@ def sparse_attention_entry(case_name: str):
         bn1n2s1 = (8, 128, 1, 4)
         is_kn_quant = 0
         actual_seq = [666, 532, 768, 900, 5698, 2358, 324, 2048]
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out
+        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
         sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
             input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
@@ -647,7 +647,7 @@ def sparse_attention_entry(case_name: str):
         bn1n2s1 = (8, 128, 1, 4)
         is_kn_quant = 1
         actual_seq = [666, 532, 768, 900, 5698, 2358, 324, 2048]
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out
+        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
         sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
             input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
@@ -677,4 +677,4 @@ def sparse_attention_entry(case_name: str):
         "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s4_seqTest2_int8",
 """
 def test_sparse_attention(case_names="DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s3_seq2047_int8"):
-    sparse_attention_entry(case_name)
+    sparse_attention_entry(case_names)

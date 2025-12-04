@@ -89,24 +89,23 @@ def layer_norm(inputs, outputs, config: NormConfig):
     
     pypto.set_vec_tile_shapes(64, 128)
     
-    with pypto.function("LAYER_NORM", [x, gamma, beta], [out]):
-        for _ in pypto.loop(1, name="FORM_LOOP", idx_name="form_idx"):
-            # Compute mean
-            mean = pypto.sum(x, dim=-1, keepdim=True)
-            mean = pypto.div(mean, float(hidden_size))
-            
-            centered = pypto.sub(x, mean)
-            
-            squared = pypto.mul(centered, centered)
-            var = pypto.sum(squared, dim=-1, keepdim=True)
-            var = pypto.div(var, float(hidden_size))
-            
-            var_eps = pypto.add(var, eps)
-            std = pypto.sqrt(var_eps)
-            normalized = pypto.div(centered, std)
-            
-            scaled = pypto.mul(normalized, gamma)
-            out[:] = pypto.add(scaled, beta)
+    for _ in pypto.loop(1, name="dummy_loop", idx_name="dummy_idx"):
+        # Compute mean
+        mean = pypto.sum(x, dim=-1, keepdim=True)
+        mean = pypto.div(mean, float(hidden_size))
+        
+        centered = pypto.sub(x, mean)
+        
+        squared = pypto.mul(centered, centered)
+        var = pypto.sum(squared, dim=-1, keepdim=True)
+        var = pypto.div(var, float(hidden_size))
+        
+        var_eps = pypto.add(var, eps)
+        std = pypto.sqrt(var_eps)
+        normalized = pypto.div(centered, std)
+        
+        scaled = pypto.mul(normalized, gamma)
+        out[:] = pypto.add(scaled, beta)
 
 
 @pypto.jit
@@ -121,19 +120,18 @@ def rms_norm(inputs, outputs, config: NormConfig):
     
     pypto.set_vec_tile_shapes(64, 128)
     
-    with pypto.function("RMS_NORM", [x, gamma], [out]):
-        for _ in pypto.loop(1, name="FORM_LOOP", idx_name="form_idx"):
-            # Compute RMS: sqrt(mean(x^2) + eps)
-            squared = pypto.mul(x, x)
-            mean_sq = pypto.sum(squared, dim=-1, keepdim=True)
-            mean_sq = pypto.div(mean_sq, float(hidden_size))
-            rms = pypto.sqrt(pypto.add(mean_sq, eps))
-            
-            # Normalize: x / rms
-            normalized = pypto.div(x, rms)
-            
-            # Scale: gamma * normalized
-            out[:] = pypto.mul(normalized, gamma)
+    for _ in pypto.loop(1, name="dummy_loop", idx_name="dummy_idx"):
+        # Compute RMS: sqrt(mean(x^2) + eps)
+        squared = pypto.mul(x, x)
+        mean_sq = pypto.sum(squared, dim=-1, keepdim=True)
+        mean_sq = pypto.div(mean_sq, float(hidden_size))
+        rms = pypto.sqrt(pypto.add(mean_sq, eps))
+        
+        # Normalize: x / rms
+        normalized = pypto.div(x, rms)
+        
+        # Scale: gamma * normalized
+        out[:] = pypto.mul(normalized, gamma)
 
 
 @pypto.jit
@@ -155,20 +153,19 @@ def layer_norm_dynamic(inputs, outputs, config: NormConfig):
     pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_vec_tile_shapes(64, 128)
     
-    with pypto.function("LAYER_NORM_DYNAMIC", [x, gamma, beta], [out]):
-        for _ in pypto.loop(1, name="FORM_LOOP", idx_name="form_idx"):
-            # Same computation as static version
-            mean = pypto.sum(x, dim=-1, keepdim=True)
-            mean = pypto.div(mean, float(hidden_size))
-            centered = pypto.sub(x, mean)
-            squared = pypto.mul(centered, centered)
-            var = pypto.sum(squared, dim=-1, keepdim=True)
-            var = pypto.div(var, float(hidden_size))
-            var_eps = pypto.add(var, eps)
-            std = pypto.sqrt(var_eps)
-            normalized = pypto.div(centered, std)
-            scaled = pypto.mul(normalized, gamma)
-            out[:] = pypto.add(scaled, beta)
+    for _ in pypto.loop(1, name="dummy_loop", idx_name="dummy_idx"):
+        # Same computation as static version
+        mean = pypto.sum(x, dim=-1, keepdim=True)
+        mean = pypto.div(mean, float(hidden_size))
+        centered = pypto.sub(x, mean)
+        squared = pypto.mul(centered, centered)
+        var = pypto.sum(squared, dim=-1, keepdim=True)
+        var = pypto.div(var, float(hidden_size))
+        var_eps = pypto.add(var, eps)
+        std = pypto.sqrt(var_eps)
+        normalized = pypto.div(centered, std)
+        scaled = pypto.mul(normalized, gamma)
+        out[:] = pypto.add(scaled, beta)
 
 
 def test_layer_norm():
@@ -189,7 +186,14 @@ def test_layer_norm():
     
     config = NormConfig(norm_type="layernorm", dtype=pypto.DT_BF16)
     
-    layer_norm([x_torch, gamma_torch, beta_torch], [out_torch], config)
+    inputs = [x_torch, gamma_torch, beta_torch]
+    outputs = [out_torch]
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+
+    layer_norm(pto_inputs, pto_outputs, config)
+    pypto.runtime._device_synchronize()
+
     expected = layernorm_golden(x_torch, gamma_torch, beta_torch, config.eps)
     max_diff = (out_torch - expected).abs().max().item()
     
@@ -217,8 +221,14 @@ def test_rms_norm():
     out_torch = torch.zeros(shape, dtype=torch.bfloat16, device=f'npu:{device_id}')
     
     config = NormConfig(norm_type="rmsnorm", dtype=pypto.DT_BF16)
-    
-    rms_norm([x_torch, gamma_torch], [out_torch], config)
+
+    inputs = [x_torch, gamma_torch]
+    outputs = [out_torch]
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    rms_norm(pto_inputs, pto_outputs, config)
+    pypto.runtime._device_synchronize()
+
     expected = rmsnorm_golden(x_torch, gamma_torch, config.eps)
     max_diff = (out_torch - expected).abs().max().item()
     
