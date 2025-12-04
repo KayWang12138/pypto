@@ -52,7 +52,7 @@ def transpose(input: Tensor, dim0: int, dim1: int) -> Tensor:
                  [-0.9893 0.7299],
                  [ 0.5809 0.4942]])
     """
-    return pypto_impl.Transpose(input, {dim0, dim1})
+    return pypto_impl.Transpose(input, [dim0, dim1])
 
 
 @op_wrapper
