@@ -1400,25 +1400,33 @@ std::string CodeGenOpCloudNPU::GenWhereOp() const {
 
 std::string CodeGenOpCloudNPU::GenLogicalNotOp() const {
     // Support 2 dim
-    enum class OpIdx : int { resIdx = 0, tmpIdx, srcIdx };
+    enum class OpIdx : int { resIdx = 0, castIdx, cmpIdx, vcmpIdx, startAddrIdx, oneCondIdx, srcIdx };
 
     std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::resIdx)]);
-    std::string tmpVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::tmpIdx)]);
+    std::string castVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::castIdx)]);
+    std::string cmpVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::cmpIdx)]);
+    std::string vcmpVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::vcmpIdx)]);
+    std::string startAddrVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::startAddrIdx)]);
+    std::string oneCondVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::oneCondIdx)]);
     std::string srcVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::srcIdx)]);
 
     std::vector dstShape = this->rawShape[ToUnderlying(OpIdx::resIdx)];
     std::vector srcShape = this->rawShape[ToUnderlying(OpIdx::srcIdx)];
 
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::resIdx)]);
-    std::string tmpDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::tmpIdx)]);
+    std::string castDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::castIdx)]);
+    std::string cmpDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::cmpIdx)]);
+    std::string vcmpDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::vcmpIdx)]);
+    std::string startAddrDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::startAddrIdx)]);
+    std::string oneCondDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::oneCondIdx)]);
     std::string srcDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::srcIdx)]);
 
-    AppendLocalBufferVarOffset(std::vector{&dstVar, &tmpVar, &srcVar});
+    AppendLocalBufferVarOffset(std::vector{&dstVar, &castVar, &cmpVar, &vcmpVar, &startAddrVar, &oneCondVar, &srcVar});
 
     std::ostringstream os;
     std::vector<std::string> paramList;
     paramList.emplace_back(srcDtypeStr);
-    paramList.emplace_back(tmpDtypeStr);
+    paramList.emplace_back(cmpDtypeStr);
     int dim = dstShape.size();
     for (auto i = 1; i < dim; i++) {
         paramList.emplace_back(std::to_string(dstShape[i]));
@@ -1433,7 +1441,11 @@ std::string CodeGenOpCloudNPU::GenLogicalNotOp() const {
 
     paramList.emplace_back("(__ubuf__ " + dstDtypeStr + "*)" + dstVar);
     paramList.emplace_back("(__ubuf__ " + srcDtypeStr + "*)" + srcVar);
-    paramList.emplace_back("(__ubuf__ " + tmpDtypeStr + "*)" + tmpVar);
+    paramList.emplace_back("(__ubuf__ " + castDtypeStr + "*)" + castVar);
+    paramList.emplace_back("(__ubuf__ " + cmpDtypeStr + "*)" + cmpVar);
+    paramList.emplace_back("(__ubuf__ " + vcmpDtypeStr + "*)" + vcmpVar);
+    paramList.emplace_back("(__ubuf__ " + startAddrDtypeStr + "*)" + startAddrVar);
+    paramList.emplace_back("(__ubuf__ " + oneCondDtypeStr + "*)" + oneCondVar);
 
     auto dynSrcShape = dynamicValidShape[ToUnderlying(OpIdx::srcIdx)];
     for (auto dyn : dynSrcShape) {

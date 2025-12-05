@@ -1843,28 +1843,9 @@ TILEOP void DynTtransposeMoveIn4dim_(__ubuf__ T *dst, __gm__ T *src, unsigned TS
 }
 
 template <typename T, typename U>
-TILEOP void ProcessLogicalNot(__ubuf__ bool *dst, __ubuf__ T *src, __ubuf__ U *tmpTensor, uint64_t CountNum, int64_t repeatNum) {
-    constexpr uint32_t ALIGN_SIZE = 32;
-    uint32_t vcmpBitSize = (CountNum + 7) / 8;
-
-    __ubuf__ uint8_t* vcmpBitResult = reinterpret_cast<__ubuf__ uint8_t*>(tmpTensor);
-
-     uintptr_t zeroCondAddr = reinterpret_cast<uintptr_t>(vcmpBitResult + vcmpBitSize);
-    zeroCondAddr = (zeroCondAddr + ALIGN_SIZE - 1) & ~(ALIGN_SIZE - 1);
-    __ubuf__ U* compareCondition = reinterpret_cast<__ubuf__ U*>(zeroCondAddr);
-
-    uintptr_t oneCondAddr = reinterpret_cast<uintptr_t>(compareCondition + CountNum);
-    oneCondAddr = (oneCondAddr + ALIGN_SIZE - 1) & ~(ALIGN_SIZE - 1);
-    __ubuf__ U* oneCondition = reinterpret_cast<__ubuf__ U*>(oneCondAddr);
-
-    uintptr_t castAddr = reinterpret_cast<uintptr_t>(oneCondition + CountNum);
-    castAddr = (castAddr + ALIGN_SIZE - 1) & ~(ALIGN_SIZE - 1);
-    __ubuf__ half* castCondition = reinterpret_cast<__ubuf__ half*>(castAddr);
-
-    uintptr_t startAddrAddr = reinterpret_cast<uintptr_t>(castCondition + CountNum);
-    startAddrAddr = (startAddrAddr + ALIGN_SIZE - 1) & ~(ALIGN_SIZE - 1);
-    __ubuf__ uint64_t* startAddrUB = reinterpret_cast<__ubuf__ uint64_t*>(startAddrAddr);
-
+TILEOP void ProcessLogicalNot(__ubuf__ bool *dst, __ubuf__ T *src, __ubuf__ half *castCondition,
+                __ubuf__ int8_t *vcmpBitResult, __ubuf__ U *compareCondition,__ubuf__ U *oneCondition,
+                __ubuf__ uint64_t * startAddrUB, uint64_t CountNum, int64_t repeatNum) {
     set_vector_mask((uint64_t)-1, (uint64_t)-1);
     set_mask_count();
     pipe_barrier(PIPE_V);
@@ -1935,7 +1916,9 @@ TILEOP void ProcessLogicalNot(__ubuf__ bool *dst, __ubuf__ T *src, __ubuf__ U *t
 
 // dim2 & dim1 (T0 = 1 for dim1)
 template <typename T, typename U, unsigned DS, unsigned SS>
-TILEOP void DynTlogicalNot(__ubuf__ bool *dst, __ubuf__ T *src,__ubuf__ U *tmpTensor,
+TILEOP void DynTlogicalNot(__ubuf__ bool *dst, __ubuf__ T *src,__ubuf__ half *castCondition,
+                    __ubuf__ U *compareCondition, __ubuf__ int8_t *vcmpBitResult,
+                    __ubuf__ uint64_t * startAddrUB, __ubuf__ U *oneCondition,
                     unsigned T0, unsigned T1) {
     constexpr uint64_t COUNT_MAX = 2048;
     constexpr int64_t TYPE_REPEAT = 256 / sizeof(U);
@@ -1948,12 +1931,16 @@ TILEOP void DynTlogicalNot(__ubuf__ bool *dst, __ubuf__ T *src,__ubuf__ U *tmpTe
         for (int j = 0; j < numLoop; j++) {
             ProcessLogicalNot<T, U>(dst + i * DS + j * COUNT_MAX,
                             src + i * SS + j * COUNT_MAX,
-                            tmpTensor,COUNT_MAX, REPEATNUM);
+                            castCondition, (__ubuf__ int8_t *)vcmpBitResult, compareCondition,
+                            oneCondition, (__ubuf__ uint64_t *)startAddrUB,
+                            COUNT_MAX, REPEATNUM);
         }
         if (remainAfterLoop > 0) {
             ProcessLogicalNot<T, U>(dst + i * DS + numLoop * COUNT_MAX,
                             src + i * SS + numLoop * COUNT_MAX,
-                            tmpTensor, remainAfterLoop, repeatNumRemain);
+                            castCondition, (__ubuf__ int8_t *)vcmpBitResult, compareCondition,
+                            oneCondition, (__ubuf__ uint64_t *)startAddrUB,
+                            remainAfterLoop, repeatNumRemain);
         }
     }
     set_mask_norm();
@@ -1962,12 +1949,14 @@ TILEOP void DynTlogicalNot(__ubuf__ bool *dst, __ubuf__ T *src,__ubuf__ U *tmpTe
 
 // dim3
 template <typename T, typename U, unsigned DS0, unsigned DS1, unsigned SS0, unsigned SS1>
-TILEOP void DynTlogicalNot(__ubuf__ bool *dst, __ubuf__ T *src, __ubuf__ U *tmpTensor,
+TILEOP void DynTlogicalNot(__ubuf__ bool *dst, __ubuf__ T *src, __ubuf__ half *castCondition,
+                    __ubuf__ U *compareCondition, __ubuf__ int8_t *vcmpBitResult,
+                    __ubuf__ uint64_t * startAddrUB, __ubuf__ U *oneCondition,
                     unsigned T0, unsigned T1, unsigned T2) {
     static_assert((DS1 * sizeof(T)) % BLOCK_SIZE == 0);
     static_assert((SS1 * sizeof(T)) % BLOCK_SIZE == 0);
     for (int i = 0; i < T0; i++) {
-        DynTlogicalNot<T, U, DS1, SS1>(dst, src, tmpTensor, T1, T2);
+        DynTlogicalNot<T, U, DS1, SS1>(dst, src, castCondition, compareCondition, vcmpBitResult, startAddrUB, oneCondition, T1, T2);
         dst += DS0 * DS1;
         src += SS0 * SS1;
     }
@@ -1975,7 +1964,9 @@ TILEOP void DynTlogicalNot(__ubuf__ bool *dst, __ubuf__ T *src, __ubuf__ U *tmpT
 
 // dim4
 template <typename T, typename U, unsigned DS0, unsigned DS1, unsigned DS2, unsigned SS0, unsigned SS1, unsigned SS2>
-TILEOP void DynTlogicalNot(__ubuf__ bool *dst, __ubuf__ T *src, __ubuf__ U *tmpTensor,
+TILEOP void DynTlogicalNot(__ubuf__ bool *dst, __ubuf__ T *src, __ubuf__ half *castCondition,
+                    __ubuf__ U *compareCondition, __ubuf__ int8_t *vcmpBitResult,
+                    __ubuf__ uint64_t * startAddrUB, __ubuf__ U *oneCondition,
                     unsigned T0, unsigned T1, unsigned T2, unsigned T3) {
     static_assert((DS2 * sizeof(T)) % BLOCK_SIZE == 0);
     static_assert((SS2 * sizeof(T)) % BLOCK_SIZE == 0);
@@ -1983,7 +1974,7 @@ TILEOP void DynTlogicalNot(__ubuf__ bool *dst, __ubuf__ T *src, __ubuf__ U *tmpT
         __ubuf__ bool *dst_ = dst;
         __ubuf__ T *src_ = src;
         for (int j = 0; j < T1; j++) {
-            DynTlogicalNot<T, U, DS2, SS2>(dst_, src_, tmpTensor, T2, T3);
+            DynTlogicalNot<T, U, DS2, SS2>(dst_, src_, castCondition, compareCondition, vcmpBitResult, startAddrUB, oneCondition, T2, T3);
             dst_ += DS1 * DS2;
             src_ += SS1 * SS2;
         }

@@ -161,22 +161,12 @@ void LogicalNotInferFunc(Operation* op,
                         std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
     ElewiseInferFunc(op, outValidShapes);
     outValidShapes.erase(outValidShapes.begin() + 1, outValidShapes.end());
-    auto data_type = op->GetIOperands()[0]->Datatype();
-
-    DataType select_dtype;
-    if (data_type == DT_FP32) {
-        select_dtype = DT_FP32;
-    } else {
-        select_dtype = DT_FP16;
-    }
-    constexpr int64_t COUNT_SIZE = 2048;
-    constexpr int64_t vcmp_bit_size = COUNT_SIZE / 8;
-    constexpr size_t ALIGN_SIZE = 32;
-
-    int64_t total_size = COUNT_SIZE * 2 + COUNT_SIZE * BytesOf(select_dtype) * 2 + vcmp_bit_size + 8;
-    total_size = (total_size + ALIGN_SIZE - 1) / ALIGN_SIZE;
-    int64_t shape = total_size / BytesOf(select_dtype);
-    outValidShapes.push_back({shape});
+    const int64_t COUNT_SIZE = 2048;
+    outValidShapes.push_back({COUNT_SIZE});
+    outValidShapes.push_back({COUNT_SIZE});
+    outValidShapes.push_back({COUNT_SIZE / 8});
+    outValidShapes.push_back({1});
+    outValidShapes.push_back({COUNT_SIZE});
 }
 REGISTER_INFER_SHAPE_FUNC(OP_LOGICALNOT, Opcode::OP_LOGICALNOT, LogicalNotInferFunc);
 
