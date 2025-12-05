@@ -47,6 +47,32 @@ struct AddrMapOutPara {
     unsigned long long len;
 };
 
+typedef enum tagProcType {
+    PROCESS_CP1 = 0,
+    PROCESS_CP2,
+    PROCESS_DEV_ONLY,
+    PROCESS_QS,
+    PROCESS_HCCP,
+    PROCESS_USER,
+    PROCESS_CPTYPE_MAX
+} processType_t;
+
+enum res_map_type {
+    RES_AICORE = 0,
+    RES_HSCB_AICORE,
+    RES_L2BUFF,
+    RES_C2C,
+    RES_MAP_TYPE_MAX
+};
+
+struct res_map_info {
+    processType_t target_proc_type;
+    enum res_map_type res_type;
+    unsigned int res_id;
+    unsigned int flag;
+    unsigned int rsv[1];
+};
+
 namespace npu::tile_fwk {
 
 #ifdef BUILD_WITH_CANN
@@ -158,6 +184,7 @@ public:
     }
 
     int GetAicoreRegInfo(std::vector<int64_t> &aic, std::vector<int64_t> &aiv, const int &addrType) const;
+    void GetAicoreRegInfoForA5(std::vector<int64_t> &regs, std::vector<int64_t> &regsPmu);
 
     // Only used in test case.
     void *MapAiCoreReg();

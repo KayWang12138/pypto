@@ -110,6 +110,7 @@ private:
     rtBinHandle binHdl_;
     FileLock lock_;
     HostProf hostProf_;
+    std::unordered_map<std::string, std::function<void(std::vector<int64_t>&, std::vector<int64_t>&)>> addressMappingTable_;
     bool isCapture_ = false;
     aclmdlRICaptureMode captureMode_ = ACL_MODEL_RI_CAPTURE_MODE_GLOBAL;
 };

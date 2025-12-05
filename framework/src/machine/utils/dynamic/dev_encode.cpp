@@ -868,10 +868,13 @@ struct EncodeDevAscendFunctionInfo {
         cellMatchSize = 1;
         cellMatchStride.dimSize = dim;
         for (int l = (dim - 1); l >= 0; --l) {
-            auto tiles = tensor->shape[l] / cellMatchShape.dim[l];
-            if (tensor->shape[l] % cellMatchShape.dim[l] != 0) {
-                // should not happen
-                tiles += 1;
+            int tiles = 0;
+            if (cellMatchShape.dim[l] != 0) {
+                tiles = tensor->shape[l] / cellMatchShape.dim[l];
+                if (tensor->shape[l] % cellMatchShape.dim[l] != 0) {
+                    // should not happen
+                    tiles += 1;
+                }
             }
             cellMatchSize *= tiles;
             cellMatchStride[l] = cellMatchSize;
@@ -1686,7 +1689,7 @@ static void InitPartialUpdateCellMatch(
 
     std::vector<int> strideShape;
     for (size_t d = 0; d < tensorShape.size(); d++) {
-        strideShape.push_back(tensorShape[d] / cellShape[d]);
+        strideShape.push_back(cellShape[d] != 0 ? tensorShape[d] / cellShape[d] : 0);
     }
     partialUpdateCellMatchTableDesc->SetStrideShape(strideShape);
 }

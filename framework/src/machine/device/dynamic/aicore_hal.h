@@ -20,8 +20,8 @@
 #include "machine/device/dynamic/costmodel_utils.h"
 
 namespace npu::tile_fwk::dynamic {
-constexpr uint32_t MAX_AICORE_NUM = 75;
-constexpr uint32_t NAX_AIV_TOTAL_NUM = 50;
+constexpr uint32_t MAX_AICORE_NUM = 108;
+constexpr uint32_t NAX_AIV_TOTAL_NUM = 72;
 const uint32_t CORE_NUM_PER_AI_CORE = 3;
 
 constexpr uint32_t NUM_ONE = 1;
@@ -41,11 +41,19 @@ const int32_t CORE_QUEUE_MODE_NUM_3 = 3;
 const int32_t CORE_QUEUE_MODE_NUM_2 = 2;
 const int32_t CORE_QUEUE_MODE_NUM_1 = 1;
 
-const uint32_t REG_SPR_DATA_MAIN_BASE = 0xA0; // 0xA0 -> DATA_MAIN_BASE
-const uint32_t REG_SPR_COND = 0x4C8;          // 0x4C8 -> COND SPR
 const uint32_t REG_SPR_MAGIC = 0x78;
 constexpr int32_t AICORE_COREID_MASK = 0x0FFF;
 constexpr int32_t AICORE_BLOCKID_MASK = 0x0FFF;
+
+namespace C220 {
+    const uint32_t REG_SPR_DATA_MAIN_BASE = 0xA0;
+    const uint32_t REG_SPR_COND = 0x4C8;
+}
+
+namespace C310 {
+    const uint32_t REG_SPR_DATA_MAIN_BASE = 0xD0;
+    const uint32_t REG_SPR_COND = 0x5108;
+}
 
 class AicoreHAL {
 public:
@@ -57,6 +65,14 @@ public:
         finishRegQueues_.fill(nullptr);
         blockIdToPhyCoreId_.fill(-1);
         args_.fill(nullptr);
+        if (deviceArgs->socVersion == SocVersion::AIC_310) {
+            regSprDataMainBase_ = C310::REG_SPR_DATA_MAIN_BASE;
+            regSprCond_ = C310::REG_SPR_COND;
+        } 
+    }
+
+    inline uint32_t GetRegSprDataMainBase() {
+        return regSprDataMainBase_;
     }
 
     inline void SetMngCoreBlockId(int aicStart, int aicEnd, int aivStart, int aivEnd) {
@@ -311,10 +327,10 @@ public:
             }
             DEV_VERBOSE_DEBUG("phy core %u Addr is %p.", idx, addr);
             volatile uint64_t *reqQueueReg =
-                reinterpret_cast<volatile uint64_t *>(static_cast<uint8_t *>(addr) + REG_SPR_DATA_MAIN_BASE);
+                reinterpret_cast<volatile uint64_t *>(static_cast<uint8_t *>(addr) + regSprDataMainBase_);
             readyRegQueues_[idx] = reqQueueReg;
             volatile uint64_t *finishQueueReg =
-                reinterpret_cast<volatile uint64_t *>(static_cast<uint8_t *>(addr) + REG_SPR_COND);
+                reinterpret_cast<volatile uint64_t *>(static_cast<uint8_t *>(addr) + regSprCond_);
             finishRegQueues_[idx] = finishQueueReg;
         }
     }
@@ -591,6 +607,10 @@ private:
 
     std::array<int, MAX_AICORE_NUM> blockIdToPhyCoreId_;
     std::array<bool, MAX_AICORE_NUM> *validCore_{nullptr};
+
+    uint32_t regSprDataMainBase_{C220::REG_SPR_DATA_MAIN_BASE};
+    uint32_t regSprCond_{C220::REG_SPR_COND};
+
     AiCoreProf *aicoreProf_{nullptr};
     CostModel::AiCoreModel *costModel_{nullptr};
 };

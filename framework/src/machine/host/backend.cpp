@@ -33,6 +33,8 @@
 #include "passes/pass_mgr/pass_manager.h"
 #include "compile_control_bin.h"
 #include "tilefwk/op_registry.h"
+#include "machine/platform/platform_manager.h"
+#include <dlfcn.h>
 
 using namespace npu::tile_fwk::dynamic;
 namespace npu::tile_fwk {
@@ -51,7 +53,21 @@ extern "C" bool MatchCache(const std::string &cacheKey) {
     return CacheManager::Instance().MatchBinCache(cacheKey);
 }
 
+static void InitSocVersion()
+{
+    static constexpr uint32_t kMaxVersionLengh = 50;
+    char version[kMaxVersionLengh] = {0};
+    auto rtGetSocVersionFunc = (int (*)(char* version, const uint32_t maxlen))dlsym(nullptr, "rtGetSocVersion");
+    auto ret = rtGetSocVersionFunc(version, kMaxVersionLengh);
+    std::string socVersion("Ascend910B1");
+    if (ret == 0) {
+        socVersion = std::string(version);
+    }
+    (void)PlatformManager::Instance().Initialize(socVersion);
+}
+
 extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
+    InitSocVersion();
     if (config::GetPlatformConfig(KEY_ONLY_HOST_COMPILE, false)) {
         ALOG_INFO("draw graph switch enabled, push finish queue.");
         return 0;

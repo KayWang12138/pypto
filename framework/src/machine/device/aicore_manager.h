@@ -32,14 +32,23 @@
 #include "dynamic/device_utils.h"
 #include "aicore_dump.h"
 #include "interface/utils/common.h"
+#include "machine/device/dynamic/device_utils.h"
 
 namespace npu::tile_fwk {
 const uint32_t REG_SPR_FAST_PATH_ENABLE = 0x18;
 const uint64_t REG_SPR_FAST_PATH_OPEN = 0xE;
 const uint64_t REG_SPR_FAST_PATH_CLOSE = 0xF;
 
-const uint32_t REG_SPR_DATA_MAIN_BASE = 0xA0; // 0xA0 -> DATA_MAIN_BASE
-const uint32_t REG_SPR_COND = 0x4C8;          // 0x4C8 -> COND SPR
+namespace C220 {
+    const uint32_t REG_SPR_DATA_MAIN_BASE = 0xA0;
+    const uint32_t REG_SPR_COND = 0x4C8;
+}
+
+namespace C310 {
+    const uint32_t REG_SPR_DATA_MAIN_BASE = 0xD0;
+    const uint32_t REG_SPR_COND = 0x5108;
+}
+
 const uint32_t REG_SPR_MAGIC = 0x78;
 const int INVALID_CORE_IDX = 0xFF;
 
@@ -49,9 +58,9 @@ const uint32_t AIV_NUM_PER_AI_CORE = 2;
 const uint32_t READY_ID_FIX_CACHE_NUM = 800;
 const uint32_t AICORE_TYPE_NUM = 2;
 
-constexpr uint32_t MAX_AICORE_NUM = 75;
-constexpr uint32_t NAX_AIV_TOTAL_NUM = 50;
-constexpr uint32_t MAX_MANAGER_AIV_NUM = (NAX_AIV_TOTAL_NUM / npu::tile_fwk::dynamic::MAX_SCHEDULE_AICPU_NUM) + 1;
+constexpr uint32_t MAX_AICORE_NUM = 108;
+constexpr uint32_t NAX_AIV_TOTAL_NUM = 72;
+constexpr uint32_t MAX_MANAGER_AIV_NUM = NAX_AIV_TOTAL_NUM;
 
 constexpr uint32_t REG_31_BITS = 0x7FFFFFFF;
 constexpr uint32_t REG_32_BITS = 0xFFFFFFFF;
@@ -464,6 +473,10 @@ private:
     std::vector<TaskInfo> sendTask_[MAX_AICORE_NUM];
     std::vector<TaskInfo> recvFinTask_[MAX_AICORE_NUM];
     std::vector<TaskInfo> recvAckTask_[MAX_AICORE_NUM];
+
+    bool isNeedWriteRegForFastPath_{true};
+    uint32_t regSprDataMainBase_{C220::REG_SPR_DATA_MAIN_BASE};
+    uint32_t regSprCond_{C220::REG_SPR_COND};
 
     friend class AiCoreProf;
 };

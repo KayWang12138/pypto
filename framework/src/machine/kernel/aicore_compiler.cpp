@@ -24,6 +24,7 @@
 #include "interface/utils/op_info_manager.h"
 #include "machine/dump/kernel_dump_utils.h"
 #include "machine/kernel/gen_aicore_code.h"
+#include "machine/platform/platform_manager.h"
 
 namespace npu::tile_fwk {
 namespace {
@@ -36,7 +37,13 @@ constexpr const char* BISHENG_LD_CMD = "ld.lld";
 static int CompileCoreMachine(const std::string &objFile, bool isCube, uint64_t tilingKey,
                               const std::string &headFile, const std::string &aicoreSrcFile) {
   ALOG_INFO_F("Compile src file is [%s], kernel type[%d].", aicoreSrcFile.c_str(), isCube);
-  const std::string cc_opt = isCube ? "dav-c220-cube" : "dav-c220-vec";
+  std::string ccecAicVersion("dav-c220-cube");
+  std::string ccecAivVersion("dav-c220-vec");
+  if (PlatformManager::Instance().GetAicVersion() == "AIC-C-310") {
+    ccecAicVersion = "dav-c310-cube";
+    ccecAivVersion = "dav-c310-vec";
+  }
+  const std::string cc_opt = isCube ? ccecAicVersion : ccecAivVersion;
   const std::string coreType = isCube ? "-D__AIC__" : "-D__AIV__";
   const auto &opType = OpInfoManager::GetInstance().GetOpType();
   std::string hasSubFunc = headFile.empty() ? "" : "-D__HAS_SUB_FUNC__";

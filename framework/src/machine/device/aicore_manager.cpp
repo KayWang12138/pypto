@@ -696,6 +696,12 @@ void AiCoreManager::Init(int threadIdx, DeviceArgs *deviceArgs) {
     pendingIds_.fill(AICORE_STATUS_INIT);
     taskDfxStatPos_.fill(REG_LOW_TASK_PING);
 
+    if (deviceArgs->socVersion == SocVersion::AIC_310) {
+        isNeedWriteRegForFastPath_ = false;
+        regSprDataMainBase_ = C310::REG_SPR_DATA_MAIN_BASE;
+        regSprCond_ = C310::REG_SPR_COND;
+    }
+
     blockIdToPhyCoreId_.fill(-1);
     readyRegQueues_.fill(nullptr);
     finishRegQueues_.fill(nullptr);
@@ -751,8 +757,10 @@ int AiCoreManager::HandkShake() {
         return rc;
     }
 
-    ForEachManageAicore(
-        [this](int coreIdx) { WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_OPEN); });
+    if (isNeedWriteRegForFastPath_) {
+        ForEachManageAicore(
+            [this](int coreIdx) { WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_OPEN); });
+    }
     /* write to MAINBASE reg need reg 0x18 open first */
     __sync_synchronize();
     DEV_INFO("Aicpu %d handshake sucess end.\n", aicpuIdx_);
@@ -795,19 +803,21 @@ void AiCoreManager::MapRegistersForAllCores() {
         }
         DEV_DEBUG("phy core %u Addr is %p\n", idx, addr);
         volatile uint64_t *reqQueueReg =
-            reinterpret_cast<volatile uint64_t *>(static_cast<uint8_t *>(addr) + REG_SPR_DATA_MAIN_BASE);
+            reinterpret_cast<volatile uint64_t *>(static_cast<uint8_t *>(addr) + regSprDataMainBase_);
         readyRegQueues_[idx] = reqQueueReg;
         volatile uint64_t *finishQueueReg =
-            reinterpret_cast<volatile uint64_t *>(static_cast<uint8_t *>(addr) + REG_SPR_COND);
+            reinterpret_cast<volatile uint64_t *>(static_cast<uint8_t *>(addr) + regSprCond_);
         finishRegQueues_[idx] = finishQueueReg;
     }
 }
 
 void AiCoreManager::AbnormalStop() {
     DEV_INFO("aicore manager %d try abnormal stop\n", aicpuIdx_);
-    WriteReg32ALl(REG_SPR_DATA_MAIN_BASE, AICORE_TASK_STOP + 1);
+    WriteReg32ALl(regSprDataMainBase_, AICORE_TASK_STOP + 1);
     /* write to MAINBASE reg must be done before close 0x18 */
-    WriteReg32ALl(REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE);
+    if (isNeedWriteRegForFastPath_) {
+        WriteReg32ALl(REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE);
+    }
     DEV_INFO("aicore manager %d abnormal stopped\n", aicpuIdx_);
 }
 
@@ -817,7 +827,9 @@ void AiCoreManager::NormalStop() {
     /* write to MAINBASE reg must be done before close 0x18 */
     __sync_synchronize();
     ForEachManageAicore([this](auto coreIdx) {
-        WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE);
+        if (isNeedWriteRegForFastPath_) {
+            WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE);
+        }
         volatile KernelArgs *arg = reinterpret_cast<KernelArgs *>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
         arg->shakeBuffer[0] = 0;
         arg->shakeBuffer[SHAK_BUF_COREFUNC_DATA_INDEX] = 0;

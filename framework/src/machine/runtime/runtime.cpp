@@ -16,16 +16,17 @@
 #ifdef BUILD_WITH_CANN
 
 #include "machine/runtime/runtime.h"
-
 namespace {
 const int32_t MODULE_TYPE_AI_CORE = 4;
 const int32_t INFO_TYPE_OCCUPY = 8;
 const uint8_t AICORE_MAP_BUFF_LEN = 2;
 } // namespace
 namespace npu::tile_fwk {
+constexpr uint32_t MAX_CORE = 25;
+constexpr uint32_t MAX_CORE_FOR_A5 = 36;
+constexpr uint32_t SUB_CORE_PER_AICORE = 3;
+
 int RuntimeAgentMemory::GetAicoreRegInfo(std::vector<int64_t> &aic, std::vector<int64_t> &aiv, const int &addrType) const {
-    int nrCore = 25;
-    int nrSubCore = 3;
     uint64_t coreStride = 8 * 1024 * 1024; // 8M
     uint64_t subCoreStride = 0x100000ULL;
     auto halFunc = (int (*)(int type, void *paramValue, size_t paramValueSize, void *outValue,
@@ -44,8 +45,8 @@ int RuntimeAgentMemory::GetAicoreRegInfo(std::vector<int64_t> &aic, std::vector<
         ALOG_ERROR_F("CTRL_TYPE_ADDR_MAP fail. (ret=%d).", ret);
         return ret;
     }
-    for (int i = 0; i < nrCore; i++) {
-        for (int j = 0; j < nrSubCore; j++) {
+    for (uint32_t i = 0; i < MAX_CORE; i++) {
+        for (uint32_t j = 0; j < SUB_CORE_PER_AICORE; j++) {
             uint64_t vaddr = outMapPara.ptr + (i * coreStride + j * subCoreStride);
             if (j == 0) {
                 aic.push_back(vaddr);
@@ -54,8 +55,53 @@ int RuntimeAgentMemory::GetAicoreRegInfo(std::vector<int64_t> &aic, std::vector<
             }
         }
     }
-
     return 0;
+}
+
+void RuntimeAgentMemory::GetAicoreRegInfoForA5(std::vector<int64_t> &regs, std::vector<int64_t> &regsPmu) {
+    constexpr uint32_t AICORE_PER_DIE = 18;
+    constexpr uint32_t AIV_BASE_OFFSET = 18;
+    constexpr uint32_t SUB_CORE_PER_DIE = AICORE_PER_DIE * SUB_CORE_PER_AICORE;
+
+    constexpr unsigned long SUB_CORE_STRIDE = 0x100000ULL;
+    constexpr unsigned long AIV_STRIDE = SUB_CORE_STRIDE;
+    constexpr unsigned long AIV_SECOND_STRIDE = 2 * SUB_CORE_STRIDE;
+    constexpr size_t MAX_INDEX = MAX_CORE_FOR_A5 * SUB_CORE_PER_AICORE;
+
+    auto halFunc = (int (*)(unsigned int devId, struct res_map_info *res_info, unsigned long *va,
+        unsigned int *len))dlsym(nullptr, "halResMap");
+    unsigned int devId = GetLogDeviceId();
+
+    struct res_map_info mapInfo;
+    mapInfo.target_proc_type = tagProcType::PROCESS_CP1;
+    mapInfo.res_type = res_map_type::RES_AICORE;
+    mapInfo.flag = 0;
+    mapInfo.rsv[0] = 0;
+
+    regs.resize(MAX_INDEX);
+    regsPmu.resize(MAX_INDEX);
+    for (uint32_t coreIndex = 0; coreIndex < MAX_CORE_FOR_A5; coreIndex++) {
+        mapInfo.res_id = coreIndex;
+        unsigned long mapAddr;
+        unsigned int len = 0x300000;
+        halFunc(devId, &mapInfo, &mapAddr, &len);
+        uint32_t dieIdx = coreIndex / AICORE_PER_DIE;
+        uint32_t localIdx = coreIndex % AICORE_PER_DIE;
+        uint32_t dieBase = dieIdx * SUB_CORE_PER_DIE;
+
+        uint32_t aicoreIndex = dieBase + localIdx;
+        uint32_t aivFirstIndex = dieBase + AIV_BASE_OFFSET + localIdx * 2;
+        uint32_t aivSecondIndex = aivFirstIndex + 1;
+        //aic
+        regs[aicoreIndex] = mapAddr;
+        regsPmu[aicoreIndex] = mapAddr;
+        // first aiv
+        regs[aivFirstIndex] = mapAddr + AIV_STRIDE;
+        regsPmu[aivFirstIndex] = mapAddr + AIV_STRIDE;
+        // second aiv
+        regs[aivSecondIndex] = mapAddr + AIV_SECOND_STRIDE;
+        regsPmu[aivSecondIndex] = mapAddr + AIV_SECOND_STRIDE;
+    }
 }
 
 void *RuntimeAgentMemory::MapAiCoreReg() {

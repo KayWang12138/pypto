@@ -49,6 +49,11 @@ constexpr const int DEV_SHAPE_DIM_NUM_3 = 3;
 constexpr const int DEV_SHAPE_DIM_NUM_4 = 4;
 constexpr const int DEV_SHAPE_DIM_NUM_5 = 5;
 
+enum class SocVersion : uint32_t {
+    AIC_220 = 0,
+    AIC_310,
+};
+
 #define DEVICE_TASK_STOP 0x7FFFFFFE
 
 #define DEVICE_TASK_TYPE_STATIC  0
@@ -81,5 +86,6 @@ struct DeviceArgs {
     uint32_t scheCpuNum{0};    // sche cpu num calc by host
     uint32_t enableCtrl{0};    // if enable builtin ctrl
     uint64_t GetBlockNum() { return nrValidAic * (nrAiv / nrAic + 1); }
+    SocVersion socVersion{SocVersion::AIC_220};
 };
 #endif

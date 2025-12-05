@@ -37,6 +37,7 @@
 #include "toolchain/prof_api.h"
 #include "prof_common.h"
 #include "load_aicpu_op.h"
+#include "machine/platform/platform_manager.h"
 
 extern char _binary_kernel_o_start[];
 extern char _binary_kernel_o_end[];
@@ -57,6 +58,9 @@ bool g_IsFirstInit = false;
 bool g_IsNullLaunched = false;
 constexpr uint32_t MIX_BLOCK_DIM = 2;
 constexpr uint32_t HIGHT_BIT = 16;
+
+constexpr uint32_t SUB_CORE = 3;
+constexpr uint32_t AIV_PER_AICORE = 2;
 
 extern "C" __attribute__((weak)) int AdxDataDumpServerUnInit();
 namespace npu::tile_fwk {
@@ -156,35 +160,53 @@ void DeviceRunner::ResetPerfTraceDfxMem() {
 }
 
 int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
-    std::vector<int64_t> aiv;
-    std::vector<int64_t> aic;
+    addressMappingTable_["AIC-C-220"] = [&args](std::vector<int64_t>& regs, std::vector<int64_t>& regsPmu) {
+        std::vector<int64_t> aiv;
+        std::vector<int64_t> aic;
+        std::vector<int64_t> aivPmu;
+        std::vector<int64_t> aicPmu;
+        if (machine::GetRA()->GetAicoreRegInfo(aic, aiv, ADDR_MAP_TYPE_REG_AIC_CTRL) != 0) {
+            return;
+        }
+        if (machine::GetRA()->GetAicoreRegInfo(aicPmu, aivPmu, ADDR_MAP_TYPE_REG_AIC_PMU_CTRL) != 0) {
+            return;
+        }
+        regs.insert(regs.end(), aic.begin(), aic.end());
+        regs.insert(regs.end(), aiv.begin(), aiv.end());
+        regsPmu.insert(regsPmu.end(), aicPmu.begin(), aicPmu.end());
+        regsPmu.insert(regsPmu.end(), aivPmu.begin(), aivPmu.end());
+        args.socVersion = SocVersion::AIC_220;
+    };
 
-    std::vector<int64_t> aivPmu;
-    std::vector<int64_t> aicPmu;
+    addressMappingTable_["AIC-C-310"] = [&args](std::vector<int64_t>& regs, std::vector<int64_t>& regsPmu) {
+        machine::GetRA()->GetAicoreRegInfoForA5(regs, regsPmu);
+        args.socVersion = SocVersion::AIC_310;
+    };
+    
     hostProf_.RegHostProf();
-    // aicore info
-    if (machine::GetRA()->GetAicoreRegInfo(aic, aiv, ADDR_MAP_TYPE_REG_AIC_CTRL) != 0) {
-        return -1;
-    }
 
-    // pmu info
-    if (machine::GetRA()->GetAicoreRegInfo(aicPmu, aivPmu, ADDR_MAP_TYPE_REG_AIC_PMU_CTRL) != 0) {
-        return -1;
+    std::string aicVersion = PlatformManager::Instance().GetAicVersion();
+    // Due to A5 hardware limitations, initially set aicpuNum seperately
+    if (aicVersion == "AIC-C-310") {
+        aicpuNum_ = PlatformManager::Instance().GetAiCpuCnt() - 1;
     }
 
     GetHostProfTypeSwtich();
 
-    std::vector<int64_t> regs;
-    regs.insert(regs.end(), aic.begin(), aic.end());
-    regs.insert(regs.end(), aiv.begin(), aiv.end());
-
-    std::vector<int64_t> regsPmu;
-    regsPmu.insert(regsPmu.end(), aicPmu.begin(), aicPmu.end());
-    regsPmu.insert(regsPmu.end(), aivPmu.begin(), aivPmu.end());
-
     memset_s(&args, sizeof(args), 0, sizeof(args));
-    args.nrAic = aic.size();
-    args.nrAiv = aiv.size();
+    std::vector<int64_t> regs;
+    std::vector<int64_t> regsPmu;
+
+    auto it = addressMappingTable_.find(aicVersion);
+    if (it != addressMappingTable_.end()){
+        it->second(regs, regsPmu);
+    }
+
+    uint32_t totalCoreCount = regs.size();
+    uint32_t aicCount = totalCoreCount / SUB_CORE;
+    uint32_t aivCount = aicCount * AIV_PER_AICORE;
+    args.nrAic = aicCount;
+    args.nrAiv = aivCount;
     blockDim_ = dynamic::GetCfgBlockdim(false);
     args.nrValidAic = blockDim_;
     args.nrAicpu = aicpuNum_;
@@ -658,7 +680,11 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
     localArgs.nrAicpu = launchAicpuNum;
     blockDim_ = blockdim;
     aicpuNum_ = launchAicpuNum;
-    localArgs.scheCpuNum = dynamic::CalcSchAicpuNumByBlockDim(blockdim);
+    if (PlatformManager::Instance().GetAicVersion() == "AIC-C-310") {
+        localArgs.scheCpuNum = dynamic::CalcSchAicpuNumByBlockDim(blockdim, aicpuNum_, false);
+    } else {
+        localArgs.scheCpuNum = dynamic::CalcSchAicpuNumByBlockDim(blockdim, aicpuNum_);
+    }
     localArgs.enableCtrl = ctrlStream == nullptr ? 1 : 0; // need set 0 if use custom cpu launch ctrl cpu
     int rc = rtMemcpy(kernelArgs->cfgdata, size, &localArgs, size, RT_MEMCPY_HOST_TO_DEVICE);
     if (rc != 0) {
@@ -737,10 +763,23 @@ int DeviceRunner::RegisterKernelBin(void **hdl) {
     return rc;
 }
 
+static void InitSocVersion()
+{
+    static constexpr uint32_t kMaxVersionLengh = 50;
+    char version[kMaxVersionLengh] = {0};
+    auto ret = rtGetSocVersion(version, kMaxVersionLengh);
+    std::string socVersion("Ascend910B1");
+    if (ret == 0) {
+        socVersion = std::string(version);
+    }
+    PlatformManager::Instance().Initialize(socVersion);
+}
+
 int DeviceRunner::Init(void) {
     char path[PATH_LENGTH];
     sprintf_s(path, PATH_LENGTH, "/tmp/aicpu%d.lock", devId_);
     lock_.Init(path);
+    InitSocVersion();
     std::string builtInOpPath = config::LogTopFolder() + "/built_in";
     CreateMultiLevelDir(builtInOpPath);
     LoadAicpuOp::GetInstance().GenBuiltInOpInfo(builtInOpPath);

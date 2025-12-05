@@ -54,7 +54,7 @@ const uint32_t AIV_NUM_PER_AI_CORE = 2;
 const uint32_t READY_ID_FIX_CACHE_NUM = 2048;
 
 
-constexpr uint32_t  MAX_MANAGER_AIV_NUM = (NAX_AIV_TOTAL_NUM / MAX_SCHEDULE_AICPU_NUM) + 1;
+constexpr uint32_t  MAX_MANAGER_AIV_NUM = NAX_AIV_TOTAL_NUM;
 
 constexpr uint32_t REG_31_BITS = 0x7FFFFFFF;
 constexpr uint32_t REG_32_BITS = 0xFFFFFFFF;
@@ -276,10 +276,15 @@ public:
 
     void ResetRegAll() {
       ForEachManageAicore([this](int coreIdx) {
-          if (aicoreHal_.ReadReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE) == REG_SPR_FAST_PATH_OPEN) {
-            aicoreHal_.WriteReg32(coreIdx, REG_SPR_DATA_MAIN_BASE, AICORE_TASK_STOP + 1);
-            aicoreHal_.WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE);
-          }
+        uint32_t regDataMainBase = aicoreHal_.GetRegSprDataMainBase();
+        if (isNeedWriteRegForFastPath_) {
+            if (aicoreHal_.ReadReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE) == REG_SPR_FAST_PATH_OPEN) {
+                aicoreHal_.WriteReg32(coreIdx, regDataMainBase, AICORE_TASK_STOP + 1);
+                aicoreHal_.WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE);
+            }
+        } else {
+            aicoreHal_.WriteReg32(coreIdx, regDataMainBase, AICORE_TASK_STOP + 1);
+        }
       });
     }
 
@@ -1481,6 +1486,10 @@ private:
         runningResolveIndexList_.fill(0);
         pendingResolveIndexList_.fill(0);
         taskDfxStatPos_.fill(REG_LOW_TASK_PING);
+
+        if (deviceArgs->socVersion == SocVersion::AIC_310) {
+            isNeedWriteRegForFastPath_ = false;
+        }
         if (deviceArgs->machineConfig != static_cast<uint8_t>(MachineScheduleConfig::DEFAULT_SCH)) {
             if (aicpuNum_ > 1) {
                 enableFairSch_ = static_cast<uint8_t>(deviceArgs->machineConfig) &
@@ -1534,9 +1543,11 @@ private:
             return rc;
         }
 
-        ForEachManageAicore([this](int coreIdx) {
-            aicoreHal_.WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_OPEN);
-        });
+        if (isNeedWriteRegForFastPath_) {
+            ForEachManageAicore([this](int coreIdx) {
+                aicoreHal_.WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_OPEN);
+            });
+        }
         /* write to MAINBASE reg need reg 0x18 open first */
         __sync_synchronize();
         DEV_INFO("Aicpu %d handshake sucess end.", aicpuIdx_);
@@ -1637,7 +1648,9 @@ private:
         /* write to MAINBASE reg must be done before close 0x18 */
         __sync_synchronize();
         ForEachManageAicore([this](auto coreIdx) {
-            aicoreHal_.WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE);
+            if (isNeedWriteRegForFastPath_) {
+                aicoreHal_.WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE);
+            }
             aicoreHal_.ResetShakeBuf(coreIdx);
         });
         DEV_INFO("aicore manager %d normal stopped.", aicpuIdx_);
@@ -1804,6 +1817,8 @@ private:
     std::vector<TaskInfo> sendTask_[MAX_AICORE_NUM];
     std::vector<TaskInfo> recvFinTask_[MAX_AICORE_NUM];
     std::vector<TaskInfo> recvAckTask_[MAX_AICORE_NUM];
+
+    bool isNeedWriteRegForFastPath_{true};
     AicoreLogger *logger_{nullptr};
     friend class AiCoreProf;
 };
