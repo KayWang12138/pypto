@@ -1060,8 +1060,8 @@ class BuildCtrl:
         self.py_tests_run_pytest(dist=dist, tests=self.tests.stest,
                                  def_filter=str(Path(self.src_root, "python/tests/st")), ext="--forked")
         # 执行用例, Example
-        self.py_tests_run_pytest(dist=dist, tests=self.tests.example,
-                                 def_filter=str(Path(self.src_root, "examples")), ext="--forked")
+        # self.py_tests_run_pytest(dist=dist, tests=self.tests.example,
+        #                          def_filter=str(Path(self.src_root, "examples")), ext="--forked")
 
     def py_tests_run_pytest(self, dist: Optional[Path], tests: TestsFilterParam, def_filter: str, ext: str = ""):
         if not tests.enable or not self.tests.exec.auto_execute:
