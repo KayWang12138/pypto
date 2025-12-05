@@ -494,18 +494,32 @@ public:
 
 class CommonUtils {
 public:
-    template <typename T>
-    static std::string VecToStr(const std::vector<T> &vec, const std::string &delimiter = ", ") {
-        if (vec.empty()) {
-            return "";
+    template <typename Container>
+    static std::string ContainerToStr(const Container &container, const std::string &delimiter = ", ") {
+        if (container.empty()) {
+            return "{}";
         }
         std::ostringstream oss;
-        oss << "{" << vec[0];
-        for (size_t i = 1; i < vec.size(); ++i) {
-            oss << delimiter << vec[i];
-        }
+        oss << "{";
+        auto it = container.begin();
+        oss << *it;
+        std::for_each(std::next(it), container.end(),
+            [&oss, &delimiter](const auto& elem) {
+                oss << delimiter << elem;
+            });
         oss << "}";
         return oss.str();
+    }
+
+    // Number of Elements, 用来计算给定（tensor的）shape的总元素数量
+    static int64_t Numel(const Shape &shape) {
+        if (shape.empty())
+            return 0;
+        int64_t numel = 1;
+        for (int64_t num : shape) {
+            numel *= num;
+        }
+        return numel;
     }
 };
 }

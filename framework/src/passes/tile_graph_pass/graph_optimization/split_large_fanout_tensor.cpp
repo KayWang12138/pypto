@@ -16,7 +16,6 @@
 #include "split_large_fanout_tensor.h"
 #include "passes/pass_utils/graph_utils.h"
 #include "passes/pass_log/pass_log.h"
-#include "passes/pass_utils/pass_utils.h"
 
 #define MODULE_NAME "SplitLargeFanoutTensor"
 
@@ -403,6 +402,7 @@ bool SplitLargeFanoutTensor::HasDuplicateToTile(std::vector<std::pair<LogicalTen
 // 遍历所有的大tensor, 对前后不同的tileShape计算lcmShape, 并尝试拆分
 void SplitLargeFanoutTensor::SplitLargeTensor(Function &function) {
     for (auto &largeTensor : largeTensors) {
+        std::multiset<Shape, ShapeComparator> lcmShapes;
         // 验证Assemble成LargeTensor的tileTensor们需要包含于LargeTensor
         if (!IsBeCovered(function, largeTensor, toInfoMap[largeTensor->tensor->rawmagic])) {
             continue;
@@ -418,15 +418,21 @@ void SplitLargeFanoutTensor::SplitLargeTensor(Function &function) {
                     APASS_LOG_INFO_F(Elements::Tensor, "Calculate LCM shape failed, don't cal LcmShape.");
                     continue;
                 }
-                // 当lcmTile的shape和largeTensor相等时, 仍会聚合到同样大小的Tensor, 因此不做处理
-                if (lcmShape == largeTensor->shape) {
-                    APASS_LOG_INFO_F(Elements::Tensor, "Skip SplitLargeTensor for magic[%d] since shape to assemble (lcmShape) equals the largeTensor's shape.", largeTensor->GetMagic());
+                // 当lcmTile的每个维度都大于等于largeTensor时, 仍会聚合到同样大小的Tensor, 因此不做处理
+                bool unsplit = std::equal(lcmShape.begin(), lcmShape.end(), largeTensor->shape.begin(),
+                    [](int lcmDim, int largeTensorDim) { return lcmDim >= largeTensorDim; });
+                if (unsplit) {
+                    APASS_LOG_INFO_F(Elements::Tensor, "Skip SplitLargeTensor for magic[%d] since shape to assemble (lcmShape) equals "
+                        "or is larger than the largeTensor's shape.", largeTensor->GetMagic());
                     continue;
                 }
                 // 当lcmTile的shape小于largeTensor时, 开始尝试拆分
                 APASS_LOG_INFO_F(Elements::Tensor, "Try to split, large tensor magic is %d.", largeTensor->GetMagic());
-                TryToSplitLargeTensor(function, lcmShape, largeTensor);
+                lcmShapes.insert(lcmShape);
             }
+        }
+        for (auto &lcmShape : lcmShapes) {
+            TryToSplitLargeTensor(function, lcmShape, largeTensor);
         }
     }
 }
@@ -463,7 +469,7 @@ void SplitLargeFanoutTensor::TryToSplitLargeTensor(Function &function, const Sha
         }
         if (overlapTotalArea != multiply(lcmShape)) {
             APASS_LOG_INFO_F(Elements::Tensor, "Split large tensor miss, this lcmTile(shape %s, offset %s) of largeTensor %d is not filled up by all collected overlaps.",
-                CommonUtils::VecToStr<int64_t>(lcmShape).c_str(), CommonUtils::VecToStr<int64_t>(lcmTileOffset).c_str(), largeTensor->GetMagic());
+                CommonUtils::ContainerToStr(lcmShape).c_str(), CommonUtils::ContainerToStr(lcmTileOffset).c_str(), largeTensor->GetMagic());
             continue;
         }
         APASS_LOG_INFO_F(Elements::Tensor, "Split large tensor hit, this lcmTile has [%d] overlaps and [%d] dualOverlaps.",

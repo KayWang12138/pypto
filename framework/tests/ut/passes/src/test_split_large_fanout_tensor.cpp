@@ -1427,5 +1427,158 @@ TEST_F(SplitLargeFanoutTensorTest, OneDimNotSplit) {
         << "OP_ASSEMBLE before pass; " << countResultAfter[1] << " OP_ASSEMBLE after pass, should equal.";
 }
 
+// {1} + {2} + {1} + {1} --assemble--> {5} --view--> {3} + {1}
+void BuildDiffLcmShape(ComputationalGraphBuilder &G){
+    int NUM_1 = 1;
+    int NUM_2 = 2;
+    int NUM_3 = 3;
+    int NUM_5 = 5;
+
+    // 定义所有张量的形状和名称并添加
+    std::map<std::string, std::vector<int64_t>> tensors = {
+        {"a", {NUM_1}}, {"b", {NUM_2}}, {"c", {NUM_1}}, {"d", {NUM_1}},
+        {"out1", {NUM_3}}, {"out2", {NUM_1}},
+        {"largeTensor", {NUM_5}}
+    };
+    for (const auto& [name, shape] : tensors) {
+        G.AddTensor(DataType::DT_FP32, shape, name);
+        auto tensor = G.GetTensor(name);
+        tensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    }
+
+    // 定义所有ASSEMBLE操作并添加
+    std::vector<std::tuple<std::string, std::string, std::vector<int64_t>>> assembleOps = {
+        {"a", "Assemble_A", {0}}, {"b", "Assemble_B", {1}},
+        {"c", "Assemble_C", {3}}, {"d", "Assemble_D", {4}}
+    };
+    for (const auto& [input, opName, offset] : assembleOps) {
+        G.AddOp(Opcode::OP_ASSEMBLE, {input}, {"largeTensor"}, opName);
+        auto assembleOp = G.GetOp(opName);
+        assembleOp->SetOpAttribute(std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offset));
+    }
+
+    // 定义所有VIEW操作并添加
+    std::vector<std::tuple<std::string, std::vector<int64_t>>> viewOps = {
+        {"out1", {0}}, {"out2", {3}}
+    };
+    for (const auto& [output, offset] : viewOps) {
+        std::string opName = "View_" + output.substr(3);
+        G.AddOp(Opcode::OP_VIEW, {"largeTensor"}, {output}, opName);
+        auto viewOp = G.GetOp(opName);
+        viewOp->SetOpAttribute(std::make_shared<ViewOpAttribute>(offset, MemoryType::MEM_DEVICE_DDR));
+    }
+
+    G.SetInCast({"a", "b", "c", "d"});
+    G.SetOutCast({"out1", "out2"});
+}
+
+// {1} + {2} + {1} + {1} --assemble--> {5} --view--> {3} + {1}
+// ==> {1} + {2} --assemble--> {3} --view--> {3}
+//     {1} --view--> {1}
+// 用于验证小的LcmShape被优先尝试拆分，否则第二组拆分结果会得到：
+// {1} + {1} --assemble--> {2} --view--> {1}
+// 存在冗余的assemble，不符合预期
+TEST_F(SplitLargeFanoutTensorTest, SplitSmallTileFirst) {
+    ComputationalGraphBuilder G;
+    BuildDiffLcmShape(G);
+    Function *function = G.GetFunction();
+
+    std::cout << "Build Graph Done." << std::endl;
+    // 单独执行pass
+    npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
+    splitLargeFanoutTensor.enableMoreSplit = false;
+    splitLargeFanoutTensor.PreCheck(*function);
+    splitLargeFanoutTensor.RunOnFunction(*function);
+    splitLargeFanoutTensor.PostCheck(*function);
+    std::cout << "Run Pass Done." << std::endl;
+
+    // 验证：
+    // 依据UT注释展示，共会出现2个view和2个assemble
+    auto countResultAfter = CountViewAssemble(*function);
+    const int viewAssembleNum = 2;
+    EXPECT_EQ(viewAssembleNum, countResultAfter[0]) << countResultAfter[0] << " OP_VIEW after pass, should be 2";
+    EXPECT_EQ(viewAssembleNum, countResultAfter[1]) << countResultAfter[1] << " OP_ASSEMBLE after pass, should be 2";
+}
+
+// {2} + {2} + {3} --assemble--> {7} --view--> {5}
+void BuildCoprimeInputOutput(ComputationalGraphBuilder &G){
+    int NUM_2 = 2;
+    int NUM_3 = 3;
+    int NUM_5 = 5;
+    int NUM_7 = 7;
+
+    // 定义所有张量的形状和名称并添加
+    std::map<std::string, std::vector<int64_t>> tensors = {
+        {"a", {NUM_2}}, {"b", {NUM_2}}, {"c", {NUM_3}},
+        {"out1", {NUM_5}},
+        {"largeTensor", {NUM_7}}
+    };
+    for (const auto& [name, shape] : tensors) {
+        G.AddTensor(DataType::DT_FP32, shape, name);
+        auto tensor = G.GetTensor(name);
+        tensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    }
+
+    // 定义所有ASSEMBLE操作并添加
+    std::vector<std::tuple<std::string, std::string, std::vector<int64_t>>> assembleOps = {
+        {"a", "Assemble_A", {0}}, {"b", "Assemble_B", {2}}, {"c", "Assemble_C", {4}}
+    };
+    for (const auto& [input, opName, offset] : assembleOps) {
+        G.AddOp(Opcode::OP_ASSEMBLE, {input}, {"largeTensor"}, opName);
+        auto assembleOp = G.GetOp(opName);
+        assembleOp->SetOpAttribute(std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offset));
+    }
+
+    // 定义所有VIEW操作并添加
+    std::vector<std::tuple<std::string, std::vector<int64_t>>> viewOps = {
+        {"out1", {0}}
+    };
+    for (const auto& [output, offset] : viewOps) {
+        std::string opName = "View_" + output.substr(3);
+        G.AddOp(Opcode::OP_VIEW, {"largeTensor"}, {output}, opName);
+        auto viewOp = G.GetOp(opName);
+        viewOp->SetOpAttribute(std::make_shared<ViewOpAttribute>(offset, MemoryType::MEM_DEVICE_DDR));
+    }
+
+    G.SetInCast({"a", "b", "c"});
+    G.SetOutCast({"out1"});
+}
+
+// {2} + {2} + {3} --assemble--> {7} --view--> {5}
+// 不进行拆分，不会生成新的lcmTile
+TEST_F(SplitLargeFanoutTensorTest, NoSplitLcmLargerThanLargeTensor) {
+    ComputationalGraphBuilder G;
+    BuildCoprimeInputOutput(G);
+    Function *function = G.GetFunction();
+
+    std::cout << "Build Graph Done." << std::endl;
+    auto countResultBefore = CountViewAssemble(*function);
+    std::vector<int> opMagicBefore;
+    for (auto &op : function->Operations()) {
+        opMagicBefore.emplace_back(op.GetOpMagic());
+    }
+
+    // 单独执行pass
+    npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
+    splitLargeFanoutTensor.enableMoreSplit = false;
+    splitLargeFanoutTensor.PreCheck(*function);
+    splitLargeFanoutTensor.RunOnFunction(*function);
+    splitLargeFanoutTensor.PostCheck(*function);
+    std::cout << "Run Pass Done." << std::endl;
+
+    // 验证：pass不会切分，所以前后一致
+    auto countResultAfter = CountViewAssemble(*function);
+    std::vector<int> opMagicAfter;
+    for (auto &op : function->Operations()) {
+        opMagicAfter.emplace_back(op.GetOpMagic());
+    }
+    EXPECT_EQ(countResultBefore[0], countResultAfter[0]) << countResultBefore[0] 
+        << "OP_VIEW before pass; " << countResultAfter[0] << " OP_VIEW after pass, should equal.";
+    EXPECT_EQ(countResultBefore[1], countResultAfter[1]) << countResultBefore[1] 
+        << "OP_ASSEMBLE before pass; " << countResultAfter[1] << " OP_ASSEMBLE after pass, should equal.";
+    EXPECT_EQ(CommonUtils::ContainerToStr(opMagicBefore), CommonUtils::ContainerToStr(opMagicAfter))
+        << "All op magic before pass: " << CommonUtils::ContainerToStr(opMagicBefore)
+        << "; All op magic after pass: " << CommonUtils::ContainerToStr(opMagicAfter) << "; Op should not change.";
+}
 } // namespace tile_fwk
 } // namespace npu

@@ -27,7 +27,9 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {}
+    void SetUp() override {
+        Program::GetInstance().Reset();
+    }
 
     void TearDown() override {}
 };
@@ -43,6 +45,7 @@ TEST_F(TestPassDependency, TestCheckStrategyDependency) {
     std::vector<std::string> passesConsecutiveDup = {PassNameStr(PassName::GRAPH_PARTITION),
         PassNameStr(PassName::GRAPH_PARTITION), PassNameStr(PassName::PRE_GRAPH_PROCESS),
         PassNameStr(PassName::INPLACE_PROCESS), PassNameStr(PassName::INFER_DYN_SHAPE),
+        PassNameStr(PassName::SUBGRAPH_TO_FUNCTION), PassNameStr(PassName::SUBGRAPH_TO_FUNCTION),
         PassNameStr(PassName::SUBGRAPH_TO_FUNCTION), PassNameStr(PassName::SUBGRAPH_TO_FUNCTION)};
     
     EXPECT_EQ(passDependency.CheckStrategyDependency("normalPasses", normalPasses), SUCCESS);

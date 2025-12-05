@@ -40,13 +40,13 @@ Status PassDependency::CheckStrategyDependency(const std::string &strategyName, 
     APASS_LOG_DEBUG_F(Elements::Manager, "Start dependency check for strategy %s.", strategyName.c_str());
     bool needWarn = false;
     std::unordered_set<std::string> processedPasses;
+    std::unordered_set<std::string> duplicates;
     std::string prePass;
 
     for (auto &pName : passes) {
         if (!prePass.empty() && prePass == pName) {
             needWarn = true;
-            APASS_LOG_WARN_F(Elements::Manager, "Strategy %s has at least two %s in a row; Please make sure all are needed.",
-                strategyName.c_str(), pName.c_str());
+            duplicates.emplace(pName);
             prePass = pName;
             continue;
         }
@@ -68,8 +68,12 @@ Status PassDependency::CheckStrategyDependency(const std::string &strategyName, 
         }
         needWarn = true;
         APASS_LOG_WARN_F(Elements::Manager, "In strategy %s, %s is missing dependencies, %s are required; Please insert %s before %s.",
-            strategyName.c_str(), pName.c_str(), CommonUtils::VecToStr<std::string>(it->second).c_str(),
-            CommonUtils::VecToStr<std::string>(missingDeps).c_str(), pName.c_str());
+            strategyName.c_str(), pName.c_str(), CommonUtils::ContainerToStr(it->second).c_str(),
+            CommonUtils::ContainerToStr(missingDeps).c_str(), pName.c_str());
+    }
+    if (duplicates.size() != 0) {
+        APASS_LOG_WARN_F(Elements::Manager, "In strategy %s, %s are each arranged at least twice in a row; Please make sure all are needed.",
+            strategyName.c_str(), CommonUtils::ContainerToStr(duplicates).c_str());
     }
     APASS_LOG_DEBUG_F(Elements::Manager, "Finish dependency check for strategy %s.", strategyName.c_str());
     return needWarn ? WARNING: SUCCESS;

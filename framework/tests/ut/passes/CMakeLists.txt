@@ -150,6 +150,8 @@ set(_CaseFilterList
         "SplitLargeFanoutTensorTest.ComplexOverlap"
         "SplitLargeFanoutTensorTest.OneDimShouldSplit"
         "SplitLargeFanoutTensorTest.OneDimNotSplit"
+        "SplitLargeFanoutTensorTest.SplitSmallTileFirst"
+        "SplitLargeFanoutTensorTest.NoSplitLcmLargerThanLargeTensor"
         "TestExpandFunction.ExpandFunctionTest"
         "TestExpandFunctionPass.ExpandFunctionUTest1"
         "TestExpandFunctionPass.ExpandFunctionUTest2"

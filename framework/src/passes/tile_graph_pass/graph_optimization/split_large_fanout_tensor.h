@@ -25,6 +25,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "passes/pass_config/pass_config_manager.h"
+#include "passes/pass_utils/pass_utils.h"
 
 namespace npu::tile_fwk {
 /*
@@ -80,6 +81,10 @@ private:
     std::map<LogicalTensorPtr, std::set<Shape>> toShapes;
     std::map<LogicalTensorPtr, std::set<Shape>> fromShapes;
     bool enableMoreSplit = false;
+};
+
+struct ShapeComparator {
+    bool operator()(const Shape &a, const Shape &b) const { return CommonUtils::Numel(a) < CommonUtils::Numel(b); }
 };
 } // namespace npu::tile_fwk
 #endif // PASS_SPLIT_LARGE_FANOUT_TENSOR_H_
