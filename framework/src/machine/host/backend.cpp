@@ -110,6 +110,9 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
 
     if (config::GetHostOption<bool>(ONLY_CODEGEN)) {
         ALOG_INFO("only gen code switch enabled, push finish queue.");
+        // only static use gDeviceAgentTaskPtr; when dynamic, delete deviceMachineTask
+        delete deviceMachineTask;
+        deviceMachineTask = nullptr;
         return 0;
     }
 

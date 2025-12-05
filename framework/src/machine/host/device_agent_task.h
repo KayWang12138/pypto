@@ -93,7 +93,7 @@ private:
 public:
     std::vector<OriArgInfo> opOriginArgs_;
     void* aicpuStream_{nullptr};
-    npu::tile_fwk::MachineTask *compileTask;
+    npu::tile_fwk::MachineTask *compileTask{nullptr};
     MachineCompileInfo compileInfo;
     MachineDeviceAgentInfo deviceInfo;
 private:
