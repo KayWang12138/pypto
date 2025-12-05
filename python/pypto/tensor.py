@@ -22,12 +22,14 @@ class Tensor:
 
     def __init__(self, shape=None, dtype: Union[DataType, None] = None,
                  name: str = "", format: TileOpFormat = TileOpFormat.TILEOP_ND,
-                 data_ptr: Optional[int] = None, device=None):
+                 data_ptr: Optional[int] = None, device=None, ori_shape=None):
+        self.ori_shape = None
         if shape is None or dtype is None:
             self._base = pypto_impl.Tensor()
         elif all([isinstance(s, int) for s in shape]):
             nshape = typing.cast(List[int], shape)
             self._base = pypto_impl.Tensor(dtype, nshape, name, format)
+            self.ori_shape = ori_shape
         else:
             sym_shape = to_syms(shape)
             assert isinstance(
@@ -512,18 +514,3 @@ class Tensor:
         assert self.dim == len(key), f"rank not match, expect {self.dim}, but got {len(key)}"
         key = self._negative_index_to_positive(key, self.shape)
         return key
-
-
-def mark_dynamic(tensor: 'Tensor', axis: int):
-    """
-    Mark a tensor axis as dynamic.
-
-    Args:
-        tensor (Tensor): The tensor to be marked as dynamic.
-        axis (int): The axis to be marked as dynamic.
-
-    Notes:
-        The shape acquired before `mark_dynamic` will not be updated. It is
-        recommended to call `mark_dynamic` before the shaped is used.
-    """
-    pypto_impl.MarkDynamic(tensor._base, axis)

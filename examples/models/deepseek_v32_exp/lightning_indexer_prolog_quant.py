@@ -207,15 +207,6 @@ def lightning_indexer_prolog_quant_compute(inputs, outputs, attrs, configs):
      cos_idx_rope_in, sin_idx_rope_in, hadamard_q_in, hadamard_k_in, k_cache, k_cache_scale, k_cache_index_in) = inputs
     q_int8_out, q_scale_out, k_int8_out, k_scale_out, weights_out = outputs
 
-    pypto.mark_dynamic(x_in, 0)
-    pypto.mark_dynamic(q_norm_in, 0)
-    pypto.mark_dynamic(q_norm_scale_in, 0)
-    pypto.mark_dynamic(cos_idx_rope_in, 0)
-    pypto.mark_dynamic(sin_idx_rope_in, 0)
-    pypto.mark_dynamic(k_cache, 0)
-    pypto.mark_dynamic(k_cache_scale, 0)
-    pypto.mark_dynamic(k_cache_index_in, 0)
-
     pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_host_options(only_codegen=True)
 

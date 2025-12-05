@@ -72,7 +72,7 @@ python3 examples/beginner/01_basic_operations/basic_operations.py --list
 Demonstrates how to create tensors and access their properties:
 
 ```python
-tensor = pto.tensor([4, 4], pto.DT_FP16, "my_tensor")
+tensor = pypto.tensor([4, 4], pypto.DT_FP16, "my_tensor")
 print(f"Shape: {tensor.shape}, Dtype: {tensor.dtype}")
 ```
 
@@ -86,13 +86,12 @@ print(f"Shape: {tensor.shape}, Dtype: {tensor.dtype}")
 Shows basic arithmetic operations:
 
 ```python
-@pto.jit
+@pypto.jit
 def element_wise_ops(inputs, outputs):
     a, b = inputs[0], inputs[1]
     result = outputs[0]
-    pto.set_vec_tile_shapes(8, 8)
-    with pto.function("ELEMENT_OPS", [a, b], [result], static=True):
-        result[:] = pto.mul(pto.add(a, b), 2.0)
+    pypto.set_vec_tile_shapes(8, 8)
+    result[:] = pypto.mul(pypto.add(a, b), 2.0)
 ```
 
 **Key Concepts**:
@@ -105,13 +104,12 @@ def element_wise_ops(inputs, outputs):
 Demonstrates matrix operations:
 
 ```python
-@pto.jit
+@pypto.jit
 def matrix_multiply(inputs, outputs):
     A, B = inputs[0], inputs[1]
     C = outputs[0]
-    pto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-    with pto.function("MATMUL", [A, B], [C], static=True):
-        C[:] = pto.matmul(A, B, out_dtype=pto.DT_BF16)
+    pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
+    C[:] = pypto.matmul(A, B, out_dtype=pypto.DT_BF16)
 ```
 
 **Key Concepts**:
@@ -124,13 +122,12 @@ def matrix_multiply(inputs, outputs):
 Shows how to apply activation functions:
 
 ```python
-@pto.jit
+@pypto.jit
 def apply_activations(inputs, outputs):
     x = inputs[0]
     result = outputs[0]
-    pto.set_vec_tile_shapes(32, 64)
-    with pto.function("ACTIVATIONS", [x], [result], static=True):
-        result[:] = pto.sigmoid(x)
+    pypto.set_vec_tile_shapes(32, 64)
+    result[:] = pypto.sigmoid(x)
 ```
 
 **Key Concepts**:
@@ -142,14 +139,14 @@ def apply_activations(inputs, outputs):
 Demonstrates tiling with views:
 
 ```python
-@pto.jit
+@pypto.jit
 def tiled_operation(inputs, outputs):
     # Create views for tiling
-    view = pto.view(tensor, [tile_h, tile_w], [offset_h, offset_w])
+    view = pypto.view(tensor, [tile_h, tile_w], [offset_h, offset_w])
     # Process tile
     result = process(view)
     # Assemble back
-    pto.assemble(result, [offset_h, offset_w], output)
+    pypto.assemble(result, [offset_h, offset_w], output)
 ```
 
 **Key Concepts**:
@@ -162,12 +159,12 @@ def tiled_operation(inputs, outputs):
 Shows combining multiple operations:
 
 ```python
-@pto.jit
+@pypto.jit
 def linear_layer_with_activation(inputs, outputs):
     # y = sigmoid(x @ W + b)
-    linear = pto.matmul(x, W, out_dtype=pto.DT_BF16)
-    biased = pto.add(linear, b)
-    y[:] = pto.sigmoid(biased)
+    linear = pypto.matmul(x, W, out_dtype=pypto.DT_BF16)
+    biased = pypto.add(linear, b)
+    y[:] = pypto.sigmoid(biased)
 ```
 
 **Key Concepts**:
@@ -268,13 +265,12 @@ basic_operations.py
 ### Pattern 1: Basic JIT Function
 
 ```python
-@pto.jit
+@pypto.jit
 def my_function(inputs, outputs):
     input_tensor = inputs[0]
     output_tensor = outputs[0]
-    pto.set_vec_tile_shapes(32, 32)
-    with pto.function("NAME", [input_tensor], [output_tensor], static=True):
-        output_tensor[:] = pto.operation(input_tensor)
+    pypto.set_vec_tile_shapes(32, 32)
+    output_tensor[:] = pypto.operation(input_tensor)
 ```
 
 ### Pattern 2: PyTorch Integration

@@ -72,9 +72,6 @@ def get_token_acc_table(inputs: list, outputs: list):
     expert_tokens = inputs[0]
     expert_offset = outputs[0]
     
-    # Mark expert dimension as dynamic
-    pypto.mark_dynamic(expert_tokens, 0)
-    
     # Define the computation graph
     def inside_main_function():
         """Inner function to encapsulate kernel logic for automatic variable cleanup."""
@@ -169,11 +166,17 @@ def test_token_acc_table():
     )
     expert_offset = torch.zeros_like(expert_tokens, device=f'npu:{device_id}')
     
+    
+    # Initialize PyPTO inputs and outputs, mark expert dimension as dynamic
+    inputs = {
+        expert_tokens: [0]
+    }
+    outputs = {
+        expert_offset: []
+    }
+    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     # Execute PyPTO kernel
-    inputs = [expert_tokens]
-    outputs = [expert_offset]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
     get_token_acc_table(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()
     

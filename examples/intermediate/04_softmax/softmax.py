@@ -99,11 +99,6 @@ def softmax(inputs, outputs):
     input_tensor = inputs[0]
     output_tensor = outputs[0]
 
-    # Mark dynamic axis: the actual size of the axis can be any integer number during runtime
-    # The dynamic axis of input_tensor/output_tensor will be marked as symbolic_scalar
-    pypto.mark_dynamic(input_tensor, 0)
-    pypto.mark_dynamic(output_tensor, 0)
-
     # After the dynamic axis of tensor is marked, get the tensor shape accordingly
     tensor_shape = input_tensor.shape
     b = tensor_shape[0]  # Dynamic batch size
@@ -147,11 +142,18 @@ def test_softmax():
     input_data = torch.rand(shape, dtype=torch.float32, device=f'npu:{device_id}')
     output_data = torch.zeros(shape, dtype=torch.float32, device=f'npu:{device_id}')
 
+    # Initialize PyPTO inputs and outputs
+    # Mark dynamic axis: the actual size of the axis can be any integer number during runtime
+    inputs = {
+        input_data: [0]
+    }
+    outputs = {
+        output_data: [0]
+    }
+    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
+
     # Launch the kernel
-    inputs = [input_data]
-    outputs = [output_data]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
     softmax(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()
 

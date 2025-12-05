@@ -133,17 +133,8 @@ def attention_pre_pto_inner(in_tensors, out_tensors):
     z = out_tensors[3]
     k_buffer = out_tensors[4]
     v_buffer = out_tensors[5]
-    
-    # 3. 设置axis=0为动态shape
-    pypto.mark_dynamic(x, 0)
-    pypto.mark_dynamic(cos, 0)
-    pypto.mark_dynamic(sin, 0)
-    pypto.mark_dynamic(q, 0)
-    pypto.mark_dynamic(k, 0)
-    pypto.mark_dynamic(v, 0)
-    pypto.mark_dynamic(z, 0)
 
-    # 4. 得到动态tensor的shape
+    # 3. 得到动态tensor的shape
     bs = x.shape[0]
     hidden_size = x.shape[1]
     head_dim = q_gamma.shape[0]
@@ -157,15 +148,15 @@ def attention_pre_pto_inner(in_tensors, out_tensors):
     bs_loop = (bs + bs_tile - 1) // bs_tile
     eps = 1e-6
 
-    # 6. 实现kernel逻辑，循环展开BS动态轴
+    # 4. 实现kernel逻辑，循环展开BS动态轴
     for bs_idx in pypto.loop(bs_loop, name="LOOP_ATT_PRE_L0", idx_name="bs_idx"):
-        # 7. 通过view得到x_tile、cos_tile、sin_tile
+        # 5. 通过view得到x_tile、cos_tile、sin_tile
         pypto.set_vec_tile_shapes(128, 128, 128)
         x_tile = pypto.view(x, [bs_tile, hidden_size], [bs_idx * bs_tile, 0])
         cos_tile = pypto.view(cos, [bs_tile, 1, half_rotary_dim], [bs_idx * bs_tile, 0, 0])
         sin_tile = pypto.view(sin, [bs_tile, 1, half_rotary_dim], [bs_idx * bs_tile, 0, 0])
         
-        # 8. 按照计算图实现运算逻辑
+        # 6. 按照计算图实现运算逻辑
         # matmul
         pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
         mm_res = pypto.matmul(x_tile, weight_qkvz, pypto.DT_BF16, a_trans=False, b_trans=True)  
@@ -231,7 +222,7 @@ def attention_pre_pto_inner(in_tensors, out_tensors):
         k_res = pypto.reshape(k_res1, [bs_tile, kv_size])
         v_res = pypto.reshape(v_3d, [bs_tile, kv_size])
 
-        # 9. 将结果搬运到输出tensor上
+        # 7. 将结果搬运到输出tensor上
         # update output
         q[bs_idx * bs_tile:, 0:] = q_res
         k[bs_idx * bs_tile:, 0:] = k_res
@@ -276,11 +267,26 @@ def attention_pre_pto(**kwargs):
     v = torch.zeros((bs, num_kv_heads * head_dim), dtype=dtype, device=device)
     gate = torch.zeros((bs, num_heads * head_dim), dtype=dtype, device=device)
 
-    inputs = [x, weight_qkvz, q_gamma, k_gamma, cos, sin, loc_int32]
-    outputs = [q, k, v, gate, k_buffer_torch, v_buffer_torch]
+    inputs = {
+        x: [0],
+        weight_qkvz: [],
+        q_gamma: [],
+        k_gamma: [],
+        cos: [0],
+        sin: [0],
+        loc_int32: []
+    }
+    outputs = {
+        q: [0],
+        k: [0],
+        v: [0],
+        gate: [0],
+        k_buffer_torch: [],
+        v_buffer_torch: []
+    }
 
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
 
     attention_pre_pto_inner(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()

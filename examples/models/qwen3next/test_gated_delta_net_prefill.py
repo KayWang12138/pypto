@@ -809,10 +809,6 @@ def pto_rms_norm(inputs, outputs):
     y = outputs[0]
     print(y.shape)
 
-    # hanzi
-    #pypto.mark_dynamic(x, 0)
-    #pypto.mark_dynamic(y, 0)
-
     calc_dtype = pypto.DT_FP32
     input_dtype = x.dtype
 
@@ -909,10 +905,6 @@ def pto_gated_linear(inputs, outputs):
     print(hidden_size)
     print(final_out.shape)
     print("******")
-
-    # hanzi
-    # pypto.mark_dynamic(delta_rule, 0)
-    # pypto.mark_dynamic(gate, 0)
 
     # hanzi
     tile_cfg = get_qwen_common_config()

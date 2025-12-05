@@ -269,21 +269,21 @@ else:
 ### In FFN Modules
 
 ```python
-@pto.jit
+@pypto.jit
 def ffn_with_activation(inputs, outputs):
     hidden_states = inputs[0]
     gate_weight, up_weight = inputs[1], inputs[2]
     out = outputs[0]
     
     # Projections
-    gate = pto.matmul(hidden_states, gate_weight)
-    up = pto.matmul(hidden_states, up_weight)
+    gate = pypto.matmul(hidden_states, gate_weight)
+    up = pypto.matmul(hidden_states, up_weight)
     
     # Apply SwiGLU
     activated = swiglu_activation(gate, up)
     
     # Down projection
-    out[:] = pto.matmul(activated, down_weight)
+    out[:] = pypto.matmul(activated, down_weight)
 ```
 
 ## Expected Output

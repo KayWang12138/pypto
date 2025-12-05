@@ -167,8 +167,6 @@ loop_base = 16
 )
 def moe_main(inputs, outputs):
 
-    pypto.mark_dynamic(inputs[0], 0)
-
     expand_x = inputs[0]
     expert_tokens = inputs[1]
     token_acc_table = inputs[2]
@@ -223,10 +221,19 @@ def test_qwen3_ffn():
 
 
     inputs_list = gen_input(b, s, topk, per_expert_num, hidden_size, intermediate_size, dtype, device_id)
-    inputs = [inputs_list[0], inputs_list[1], inputs_list[2], inputs_list[3], inputs_list[4]]
-    outputs = [inputs_list[5]]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    inputs = {
+        inputs_list[0]: [0],
+        inputs_list[1]: [],
+        inputs_list[2]: [],
+        inputs_list[3]: [],
+        inputs_list[4]: []
+    }
+    outputs = {
+        inputs_list[5]: []
+    }
+
+    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     moe_main(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()
 

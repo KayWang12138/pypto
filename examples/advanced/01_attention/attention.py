@@ -93,7 +93,7 @@ def scaled_dot_product_attention_golden(
 
 
 @pypto.jit
-def scaled_dot_product_attention_dynamic(inputs, outputs, config: AttentionConfig):
+def scaled_dot_product_attention_dynamic(inputs, outputs, params, config: AttentionConfig):
     """Scaled dot-product attention with dynamic batch and sequence lengths."""
     # Enable dynamic unaligned support
     pypto.set_codegen_options(support_dynamic_unaligned=True)
@@ -107,17 +107,8 @@ def scaled_dot_product_attention_dynamic(inputs, outputs, config: AttentionConfi
     v = inputs[2]
     out = outputs[0]
     
-    batch_size, num_heads, seq_len, head_dim = q.shape
-    # Mark dynamic dimensions
-    pypto.mark_dynamic(q, 0)  # batch dimension
-    pypto.mark_dynamic(q, 2)  # sequence length dimension
-    pypto.mark_dynamic(k, 0)
-    pypto.mark_dynamic(k, 2)
-    pypto.mark_dynamic(v, 0)
-    pypto.mark_dynamic(v, 2)
-    pypto.mark_dynamic(out, 0)
-    pypto.mark_dynamic(out, 2)
-    
+    batch_size, num_heads, seq_len, head_dim = params
+
     # Calculate scale
     scale = config.scale if config.scale is not None else (1.0 / (config.head_dim ** 0.5))
     
@@ -229,12 +220,19 @@ def test_attention_dynamic():
                             dtype=torch.bfloat16, device=f'npu:{device_id}')
     config = AttentionConfig(num_heads=num_heads, head_dim=head_dim, 
                             dtype=pypto.DT_BF16, use_dynamic_shape=True)
-    inputs = [q_torch, k_torch, v_torch]
-    outputs = [out_torch]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    params = q_torch.shape
+    inputs = {
+        q_torch: [0, 2],
+        k_torch: [0, 2],
+        v_torch: [0, 2]
+    }
+    outputs = {
+        out_torch: [0, 2]
+    }
+    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     # Execute
-    scaled_dot_product_attention_dynamic(pto_inputs, pto_outputs, config)
+    scaled_dot_product_attention_dynamic(pto_inputs, pto_outputs, params, config)
     pypto.runtime._device_synchronize()
     
     # Verify
@@ -277,8 +275,8 @@ def test_attention_with_projection():
     config = AttentionConfig(num_heads=num_heads, head_dim=head_dim, dtype=pypto.DT_FP32)
     inputs = [hidden_states, q_weight, k_weight, v_weight, out_weight]
     outputs = [out_torch]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    pto_inputs = [pypto.from_torch(tensor) for tensor in inputs]
+    pto_outputs = [pypto.from_torch(tensor) for tensor in outputs]
     # Execute
     attention_with_projection(pto_inputs, pto_outputs, config)
     pypto.runtime._device_synchronize()

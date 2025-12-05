@@ -142,10 +142,6 @@ def layer_norm_dynamic(inputs, outputs, config: NormConfig):
     beta = inputs[2]
     out = outputs[0]
     
-    # Mark batch dimension as dynamic
-    pypto.mark_dynamic(x, 0)
-    pypto.mark_dynamic(out, 0)
-    
     hidden_size = x.shape[-1]  # Static dimension
     batch_size = x.shape[0]    # Dynamic dimension (SymbolicScalar)
     eps = config.eps

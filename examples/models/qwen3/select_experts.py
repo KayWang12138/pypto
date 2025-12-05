@@ -80,11 +80,6 @@ def select_experts(inputs: list, outputs: list, renormalize_flag: bool):
     ids_k = outputs[0]
     weight_k = outputs[1]
     
-    # Mark batch dimension (axis 0) as dynamic
-    pypto.mark_dynamic(logits_input, 0)
-    pypto.mark_dynamic(ids_k, 0)
-    pypto.mark_dynamic(weight_k, 0)
-    
     # Get tensor shapes
     bs = logits_input.shape[0]  # Dynamic batch size
     ne = logits_input.shape[1]  # Static number of experts
@@ -193,12 +188,19 @@ def test_select_experts():
             dtype=torch.int32,
             device=f'npu:{device_id}'
         )
-        
+
+        # Initialize PyPTO inputs and outputs, mark batch dimension (axis 0) as dynamic
+        inputs = {
+            router_logits: [0]
+        }
+        outputs = {
+            topk_ids: [0],
+            topk_weights: [0]
+        }
+        pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+        pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
+
         # Execute PyPTO kernel
-        inputs = [router_logits]
-        outputs = [topk_ids, topk_weights]
-        pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-        pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
         select_experts(pto_inputs, pto_outputs, renormalize)
         pypto.runtime._device_synchronize()
         

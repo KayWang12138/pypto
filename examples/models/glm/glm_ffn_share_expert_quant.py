@@ -214,7 +214,6 @@ def moe_main(inputs, outputs):
     pypto.set_runtime_options(cfgcache_root_task_num=100)
     pypto.set_runtime_options(cfgcache_leaf_task_num=10000)
 
-    pypto.mark_dynamic(inputs[0], 0)
     # expand_x_tensor, w13_int8, w13_scale, w2_int8, w2_scale, out_tensor
     expand_x = inputs[0]
     w13_int8 = inputs[1]
@@ -254,10 +253,18 @@ def test_glm4_ffn_share():
 
     # expand_x_tensor, w13_int8, w13_scale, w2_int8, w2_scale, out_tensor
     expand_x_tensor, w13_int8, w13_scale, w2_int8, w2_scale, out_tensor = gen_input(b, s, hidden_size, intermediate_size, x_dtype, device_id)
-    inputs = [expand_x_tensor, w13_int8, w13_scale, w2_int8, w2_scale]
-    outputs = [out_tensor]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    inputs = {
+        expand_x_tensor: [0],
+        w13_int8: [],
+        w13_scale: [],
+        w2_int8: [],
+        w2_scale: []
+    }
+    outputs = {
+        out_tensor: []
+    }
+    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     moe_main(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()
 

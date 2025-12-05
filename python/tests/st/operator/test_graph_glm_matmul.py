@@ -40,8 +40,8 @@ def main():
 def graph_select_experts_mm(inputs, outputs):
     if isinstance(inputs[0], FakeTensor):
         return
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     select_experts_mm(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()
 
@@ -52,8 +52,13 @@ def gate_pto(gate_weight: torch.Tensor,  # gate matmul weights
     bs = hidden_states.shape[0]
     ne = gate_weight.shape[0]
     router_logits_out = torch.zeros((bs, ne), dtype=gate_weight.dtype, device=hidden_states.device)
-    inputs = [hidden_states, gate_weight]
-    outputs = [router_logits_out]
+    inputs = {
+        hidden_states: [0],
+        gate_weight: []
+    }
+    outputs = {
+        router_logits_out: [0]
+    }
     graph_select_experts_mm(inputs, outputs)
     return router_logits_out
 
@@ -73,11 +78,7 @@ def select_experts_mm(in_tensors, out_tensors):
     mm_weight = in_tensors[1]
     router_logits_out = out_tensors[0]
 
-    # 3. 设置axis = 0为动态shape
-    pypto.mark_dynamic(hidden_states, 0)
-    pypto.mark_dynamic(router_logits_out, 0)
-
-    # 4. 得到动态tensor的shape
+    # 3. 得到动态tensor的shape
     bs = hidden_states.shape[0]
     ne = mm_weight.shape[0]
     h_num = hidden_states.shape[1]
@@ -86,10 +87,10 @@ def select_experts_mm(in_tensors, out_tensors):
 
     bs_loop = (bs + view_shape[0] - 1) // view_shape[0]
 
-    # 5. 实现kernel逻辑，循环展开BS动态轴
+    # 4. 实现kernel逻辑，循环展开BS动态轴
     for bs_idx in pypto.loop(bs_loop, name="LOOP_MOE_MM_L0", idx_name="bs_idx"):
 
-        # 6. 通过view得到tile_logits
+        # 5. 通过view得到tile_logits
         tile_hidden_states = pypto.view(hidden_states, view_shape,
                                         [bs_idx * view_shape[0], 0],
                                         valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]),
@@ -99,7 +100,7 @@ def select_experts_mm(in_tensors, out_tensors):
 
         res = pypto.matmul(tile_hidden_states, mm_weight, tile_hidden_states.dtype, b_trans=True)
 
-        # 7. 将结果搬运到输出tensor上
+        # 6. 将结果搬运到输出tensor上
         router_logits_out[bs_idx * view_shape[0]:, 0:] = res
 
 
@@ -127,10 +128,15 @@ def test_select_experts_mm():
         router_logits_out = torch.zeros((bs, ne), dtype=torch.float32, device=f'npu:{device_id}')
 
         # 4. 执行kernel并获取结果
-        inputs = [hidden_states, mm_weight]
-        outputs = [router_logits_out]
-        pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-        pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+        inputs = {
+            hidden_states: [0],
+            mm_weight: []
+        }
+        outputs = {
+            router_logits_out: [0]
+        }
+        pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+        pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
         select_experts_mm(pto_inputs, pto_outputs)
         pypto.runtime._device_synchronize()
 

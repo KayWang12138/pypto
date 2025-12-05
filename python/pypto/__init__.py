@@ -69,7 +69,7 @@ from .pass_config import *  # noqa
 from .pypto_utils import ceil, bytes_of
 from .runtime import jit, verify, set_verify_data
 from .symbolic_scalar import SymbolicScalar
-from .tensor import Tensor, mark_dynamic
+from .tensor import Tensor
 
 tensor = Tensor
 element = Element

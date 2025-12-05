@@ -40,8 +40,8 @@ def main():
 def graph_select_experts_glm(inputs, outputs, renormalize_flag, topk_group, num_expert_group, row_ids_flag):
     if isinstance(inputs[0], FakeTensor):
         return
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     select_experts_glm(pto_inputs, pto_outputs, renormalize_flag, topk_group, num_expert_group, row_ids_flag)
     pypto.runtime._device_synchronize()
 
@@ -66,8 +66,15 @@ def select_experts_pto(router_logits: torch.Tensor,
     row_idx = torch.zeros((bs, top_k), dtype=torch.int32, device=device_info)
 
     # 4. 执行kernel并获取结果
-    inputs = [router_logits, e_score_correction_bias]
-    outputs = [topk_weights, topk_ids, row_idx]
+    inputs = {
+        router_logits: [0],
+        e_score_correction_bias: []
+    }
+    outputs = {
+        topk_weights: [0],
+        topk_ids: [0],
+        row_idx: []
+    }
     graph_select_experts_glm(inputs, outputs, renormalize,
                              topk_group, num_expert_group, row_ids_flag)
     return topk_weights, topk_ids
@@ -90,12 +97,7 @@ def select_experts_glm(in_tensors, out_tensors, renormalize_flag, topk_group, nu
     ids_k = out_tensors[1]
     row_idx = out_tensors[2]
 
-    # 3. 设置axis = 0为动态shape
-    pypto.mark_dynamic(logits_input, 0)
-    pypto.mark_dynamic(weight_k, 0)
-    pypto.mark_dynamic(ids_k, 0)
-
-    # 4. 得到动态tensor的shape
+    # 3. 得到动态tensor的shape
     bs = logits_input.shape[0]
     ne = logits_input.shape[1]
     idx_k_shape = ids_k.shape
@@ -106,20 +108,20 @@ def select_experts_glm(in_tensors, out_tensors, renormalize_flag, topk_group, nu
 
     pypto.set_runtime_options(estimated_stitch_task_max_loop_num=32)
     pypto.set_runtime_options(workspace_recycle_period=32)
-    # 5. 定义动态函数
+    # 4. 定义动态函数
 
     for _ in pypto.loop(1, name="LOOP_RESHAPE_INPLACE", idx_name="_"):
         pypto.set_vec_tile_shapes(ne)
         e_score_bias_2d = pypto.reshape(e_score_bias_input, [1, ne], inplace=True)  # (160) -> (1,160)
 
-    # 6. 实现kernel逻辑，循环展开BS动态轴
+    # 5. 实现kernel逻辑，循环展开BS动态轴
     for bs_idx in pypto.loop(bs_loop, name="LOOP_MOEGATE_L0", idx_name="bs_idx"):
-        # 7. 通过view得到tile_logits
+        # 6. 通过view得到tile_logits
         tile_logits = pypto.view(logits_input, view_shape,
                                     [bs_idx * view_shape[0], 0],
                                     valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]), ne])
 
-        # 8. 按照计算图实现运算逻辑，设置set_vec_tile_shapes时应尽可能用满UB，但不要超过UB的大小。
+        # 7. 按照计算图实现运算逻辑，设置set_vec_tile_shapes时应尽可能用满UB，但不要超过UB的大小。
         pypto.set_vec_tile_shapes(view_first, ne)
         e_score_bias_2d_cast = pypto.cast(e_score_bias_2d, tile_logits.dtype)
 
@@ -191,7 +193,7 @@ def select_experts_glm(in_tensors, out_tensors, renormalize_flag, topk_group, nu
             denominator = tw_gather
             topk_weight_out = denominator
 
-        # # 9. 将结果搬运到输出tensor上
+        # # 8. 将结果搬运到输出tensor上
         weight_k[bs_idx * view_shape[0]:, 0:] = topk_weight_out
         ids_k[bs_idx * view_shape[0]:, 0:] = topk_ids
 
@@ -239,10 +241,17 @@ def test_select_experts():
             (bs, top_k), dtype=torch.int32, device=f'npu:{device_id}')
 
         # 4. 执行kernel并获取结果
-        inputs = [router_logits, e_score_bias]
-        outputs = [topk_weights, topk_ids, row_idx]
-        pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-        pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+        inputs = {
+            router_logits: [0],
+            e_score_bias: []
+        }
+        outputs = {
+            topk_weights: [0],
+            topk_ids: [0],
+            row_idx: []
+        }
+        pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+        pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
         select_experts_glm(pto_inputs, pto_outputs, renormalize, topk_group, num_expert_group, row_ids_flag)
         pypto.runtime._device_synchronize()
 

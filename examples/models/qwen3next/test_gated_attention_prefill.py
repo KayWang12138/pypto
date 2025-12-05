@@ -68,14 +68,7 @@ def gated_attention_prefill_func(inputs, outputs):
     weight = inputs[5]
     final_out = outputs[0]
 
-    # 3. 设置axis=0为动态shape     
-    pypto.mark_dynamic(q, 0)
-    pypto.mark_dynamic(k, 0)
-    pypto.mark_dynamic(v, 0)
-    pypto.mark_dynamic(act_seqs, 0)
-    pypto.mark_dynamic(gate, 0)
-
-    # 4. 定义动态函数
+    # 3. 定义动态函数
     tile_cfg = get_qwen_common_config()
     nq = q.shape[1]
     dn = q.shape[2]
@@ -96,7 +89,7 @@ def gated_attention_prefill_func(inputs, outputs):
     g_scalar = nq // nkv
     g_loop = g_scalar // g_tile
 
-    # 5. 实现kernel逻辑，循环展开B动态轴
+    # 4. 实现kernel逻辑，循环展开B动态轴
     for b_idx in pypto.loop(b_scalar, name="LOOP_b", idx_name="b_idx", submit_before_loop=True):
         s1_scalar = 0
         b_ofs = 0
@@ -119,9 +112,9 @@ def gated_attention_prefill_func(inputs, outputs):
                         s2_bs_ofs = b_ofs + s2_idx * s2_tile
                         n1g_ofs = n2_idx * g_scalar + g_idx * g_tile
                         actual_s2_tile = (s1_scalar - s2_idx * s2_tile).min(s2_tile)
-                        # 6. 按照计算图实现运算逻辑，设置set_vec_tile_shapes时应尽可能用满UB，但不要超过UB的大小。
+                        # 5. 按照计算图实现运算逻辑，设置set_vec_tile_shapes时应尽可能用满UB，但不要超过UB的大小。
                         pypto.set_vec_tile_shapes(16, v1_tile[0], v1_tile[1])
-                        # 7. 通过view得到tile_q
+                        # 6. 通过view得到tile_q
                         qi = pypto.view(q, [1, g_tile, dn], [bs_ofs, n1g_ofs, 0])
                         qi = pypto.reshape(qi, [g_tile, dn])
                         kj = pypto.view(k, [s2_tile, 1, dn], [s2_bs_ofs, n2_idx, 0],
@@ -132,7 +125,7 @@ def gated_attention_prefill_func(inputs, outputs):
                         vj = pypto.reshape(vj, [s2_tile, dn], valid_shape=[actual_s2_tile, dn])
 
                         # c1
-                        # 8. 下面是flash attention的计算逻辑
+                        # 7. 下面是flash attention的计算逻辑
                         pypto.set_cube_tile_shapes(c1_tile[0], c1_tile[1], c1_tile[2])
                         sij = pypto.matmul(qi, kj, pypto.DT_FP32, a_trans=False, b_trans=True)
                         sij = pypto.reshape(sij, [g_tile, s2_tile], valid_shape=[g_tile, actual_s2_tile])
@@ -152,7 +145,7 @@ def gated_attention_prefill_func(inputs, outputs):
                             pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                             if pypto.cond(pypto.is_loop_end(s2_idx)):
                                 oi_upd[:] = pypto.div(oi_tmp, tilda_lij)
-                                # 9. 将结果搬运到输出tensor上
+                                # 8. 将结果搬运到输出tensor上
                                 pypto.assemble(oi_upd, [n1g_ofs, 0], atten_out)
                             else:
                                 oi_upd[:] = oi_tmp
@@ -221,11 +214,20 @@ def gated_attention_prefill(
     hidden_size = weight_torch.shape[0]
     out_torch = torch.full([bs1, hidden_size], 9, dtype=q_torch.dtype, device=device)
 
-    inputs = [q_torch, k_torch, v_torch, act_seq_torch, gate_torch, weight_torch]
-    outputs = [out_torch]
+    inputs = {
+        q_torch: [0],
+        k_torch: [0],
+        v_torch: [0],
+        act_seq_torch: [0],
+        gate_torch: [0],
+        weight_torch: []
+    }
+    outputs = {
+        out_torch: []
+    }
 
-    pto_inputs = [pypto.from_torch(tensor, f'IN_{idx}') for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f'IN_{idx}') for idx, tensor in enumerate(outputs)]
+    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
 
     gated_attention_prefill_func(pto_inputs, pto_outputs)
 

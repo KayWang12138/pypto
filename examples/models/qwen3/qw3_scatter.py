@@ -43,14 +43,7 @@ def scatter_update(in_tensors, out_tensors):
     key_cache = out_tensors[0]
     value_cache = out_tensors[1]
 
-    # 3. 设置axis=0为动态shape
-    pypto.mark_dynamic(key, 0)
-    pypto.mark_dynamic(value, 0)
-    pypto.mark_dynamic(index, 0)
-    pypto.mark_dynamic(key_cache, 0)
-    pypto.mark_dynamic(value_cache, 0)
-
-    # 4. 得到动态tensor的shape
+    # 3. 得到动态tensor的shape
     dtype = key.dtype
     b_scalar = index.shape[0]
     b_tile = 2
@@ -109,10 +102,19 @@ def test_scatter_update():
     value_cache_clone = value_cache.clone()
 
     # 4. 执行kernel并获取结果
-    inputs = [key, value, index, key_cache, value_cache]
-    outputs = [key_cache, value_cache]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    inputs = {
+        key: [0],
+        value: [0],
+        index: [0],
+        key_cache: [0],
+        value_cache: [0]
+    }
+    outputs = {
+        key_cache: [0],
+        value_cache: [0]
+    }
+    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     scatter_update(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()
 

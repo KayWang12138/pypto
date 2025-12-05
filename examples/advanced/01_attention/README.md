@@ -86,52 +86,41 @@ Where:
 ### Basic Attention
 
 ```python
-@pto.jit
+@pypto.jit
 def scaled_dot_product_attention_static(inputs, outputs, config):
     q, k, v = inputs[0], inputs[1], inputs[2]
     out = outputs[0]
     
     # Calculate scale
     scale = 1.0 / (config.head_dim ** 0.5)
-    scale_val = pto.element(config.dtype, scale)
+    scale_val = pypto.element(config.dtype, scale)
     
-    pto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
+    pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
     
-    with pto.function("ATTENTION", [q, k, v], [out], static=True):
-        # Q @ K^T
-        k_t = pto.transpose(k, [0, 1, 3, 2])
-        scores = pto.matmul(q, k_t, out_dtype=config.dtype)
-        
-        # Scale
-        scores_scaled = pto.mul(scores, scale_val)
-        
-        # Softmax
-        attn_weights = pto.softmax(scores_scaled, dim=-1)
-        
-        # Apply to values
-        out[:] = pto.matmul(attn_weights, v, out_dtype=config.dtype)
+    # Q @ K^T
+    k_t = pypto.transpose(k, [0, 1, 3, 2])
+    scores = pypto.matmul(q, k_t, out_dtype=config.dtype)
+    
+    # Scale
+    scores_scaled = pypto.mul(scores, scale_val)
+    
+    # Softmax
+    attn_weights = pypto.softmax(scores_scaled, dim=-1)
+    
+    # Apply to values
+    out[:] = pypto.matmul(attn_weights, v, out_dtype=config.dtype)
 ```
 
 ### Dynamic Shapes
 
 ```python
-@pto.jit
+@pypto.jit
 def scaled_dot_product_attention_dynamic(inputs, outputs, config):
     q, k, v = inputs[0], inputs[1], inputs[2]
     out = outputs[0]
     
-    # Mark dynamic dimensions
-    pto.mark_dynamic(q, 0)  # batch
-    pto.mark_dynamic(q, 2)   # sequence length
-    pto.mark_dynamic(k, 0)
-    pto.mark_dynamic(k, 2)
-    pto.mark_dynamic(v, 0)
-    pto.mark_dynamic(v, 2)
-    pto.mark_dynamic(out, 0)
-    pto.mark_dynamic(out, 2)
-    
     # Enable dynamic support
-    pto.set_codegen_options(support_dynamic_unaligned=True)
+    pypto.set_codegen_options(support_dynamic_unaligned=True)
     
     # Same computation as static version
     # ...
@@ -140,31 +129,30 @@ def scaled_dot_product_attention_dynamic(inputs, outputs, config):
 ### Complete Attention with Projections
 
 ```python
-@pto.jit
+@pypto.jit
 def attention_with_projection(inputs, outputs, config):
     hidden_states = inputs[0]
     q_weight, k_weight, v_weight = inputs[1], inputs[2], inputs[3]
     out_weight = inputs[4]
     out = outputs[0]
     
-    with pto.function("ATTENTION_WITH_PROJ", ...):
-        # 1. Project to Q, K, V
-        q_flat = pto.matmul(hidden_states, q_weight)
-        k_flat = pto.matmul(hidden_states, k_weight)
-        v_flat = pto.matmul(hidden_states, v_weight)
-        
-        # 2. Reshape to multi-head format
-        q = pto.reshape(q_flat, [batch, seq_len, num_heads, head_dim])
-        # ... same for k, v
-        
-        # 3. Transpose for attention
-        q = pto.transpose(q, [0, 2, 1, 3])  # [batch, num_heads, seq_len, head_dim]
-        
-        # 4. Scaled dot-product attention
-        # ... (as shown above)
-        
-        # 5. Output projection
-        out[:] = pto.matmul(attn_output_flat, out_weight)
+    # 1. Project to Q, K, V
+    q_flat = pypto.matmul(hidden_states, q_weight)
+    k_flat = pypto.matmul(hidden_states, k_weight)
+    v_flat = pypto.matmul(hidden_states, v_weight)
+    
+    # 2. Reshape to multi-head format
+    q = pypto.reshape(q_flat, [batch, seq_len, num_heads, head_dim])
+    # ... same for k, v
+    
+    # 3. Transpose for attention
+    q = pypto.transpose(q, [0, 2, 1, 3])  # [batch, num_heads, seq_len, head_dim]
+    
+    # 4. Scaled dot-product attention
+    # ... (as shown above)
+    
+    # 5. Output projection
+    out[:] = pypto.matmul(attn_output_flat, out_weight)
 ```
 
 ## Usage
@@ -178,15 +166,52 @@ import torch_npu
 
 # Create Q, K, V tensors
 batch_size, num_heads, seq_len, head_dim = 2, 8, 32, 64
-q = torch.randn(batch_size, num_heads, seq_len, head_dim, 
+q_torch = torch.randn(batch_size, num_heads, seq_len, head_dim, 
                dtype=torch.bfloat16, device='npu:0')
-k = torch.randn(batch_size, num_heads, seq_len, head_dim, 
+k_torch = torch.randn(batch_size, num_heads, seq_len, head_dim, 
                dtype=torch.bfloat16, device='npu:0')
-v = torch.randn(batch_size, num_heads, seq_len, head_dim, 
+v_torch = torch.randn(batch_size, num_heads, seq_len, head_dim, 
                dtype=torch.bfloat16, device='npu:0')
-out = torch.zeros(batch_size, num_heads, seq_len, head_dim, 
+out_torch = torch.zeros(batch_size, num_heads, seq_len, head_dim, 
                  dtype=torch.bfloat16, device='npu:0')
 
+# convert to pypto tensors
+q = pypto.from_torch(q_torch)
+k = pypto.from_torch(k_torch)
+v = pypto.from_torch(v_torch)
+out = pypto.from_torch(out_torch)
+
+# Execute
+config = AttentionConfig(num_heads=num_heads, head_dim=head_dim)
+scaled_dot_product_attention_static([q, k, v], [out], config)
+```
+
+### Dynamic
+
+```python
+import pto
+import torch
+import torch_npu
+
+# Create Q, K, V tensors
+batch_size, num_heads, seq_len, head_dim = 2, 8, 32, 64
+q_torch = torch.randn(batch_size, num_heads, seq_len, head_dim, 
+               dtype=torch.bfloat16, device='npu:0')
+k_torch = torch.randn(batch_size, num_heads, seq_len, head_dim, 
+               dtype=torch.bfloat16, device='npu:0')
+v_torch = torch.randn(batch_size, num_heads, seq_len, head_dim, 
+               dtype=torch.bfloat16, device='npu:0')
+out_torch = torch.zeros(batch_size, num_heads, seq_len, head_dim, 
+                 dtype=torch.bfloat16, device='npu:0')
+
+# convert to pypto tensors
+# Mark batch dimension and sequence length dimension as dynamic
+q = pypto.from_torch(q_torch, dynamic_axis=[0, 2])
+k = pypto.from_torch(k_torch, dynamic_axis=[0, 2])
+v = pypto.from_torch(v_torch, dynamic_axis=[0, 2])
+out = pypto.from_torch(out_torch, dynamic_axis=[0, 2])
+inputs = [q, k, v]
+outputs = [out]
 # Execute
 config = AttentionConfig(num_heads=num_heads, head_dim=head_dim)
 scaled_dot_product_attention_static([q, k, v], [out], config)
@@ -202,7 +227,7 @@ class AttentionConfig:
     num_heads: int = 8              # Number of attention heads
     head_dim: int = 64              # Dimension per head
     scale: Optional[float] = None   # Custom scale (default: 1/sqrt(head_dim))
-    dtype: pto.DataType = pto.DT_BF16
+    dtype: pypto.DataType = pypto.DT_BF16
     use_dynamic_shape: bool = False
 ```
 
@@ -226,11 +251,11 @@ where head_i = Attention(Q @ W_Q_i, K @ W_K_i, V @ W_V_i)
 
 ```python
 # For attention operations
-pto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
+pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
 
 # Adjust based on sequence length and head dimension
-# For seq_len=128: pto.set_cube_tile_shapes([128, 128], [64, 64], [128, 64])
-# For head_dim=128: pto.set_cube_tile_shapes([64, 64], [128, 128], [64, 128])
+# For seq_len=128: pypto.set_cube_tile_shapes([128, 128], [64, 64], [128, 64])
+# For head_dim=128: pypto.set_cube_tile_shapes([64, 64], [128, 128], [64, 128])
 ```
 
 ### Memory Optimization
@@ -246,7 +271,7 @@ Attention is typically used in transformer blocks:
 
 ```python
 # Typical transformer attention block
-@pto.jit
+@pypto.jit
 def transformer_attention_block(inputs, outputs):
     x, norm_gamma, norm_beta = inputs[0], inputs[1], inputs[2]
     q_weight, k_weight, v_weight, out_weight = inputs[3], inputs[4], inputs[5], inputs[6]
@@ -259,7 +284,7 @@ def transformer_attention_block(inputs, outputs):
     attn_out = attention_with_projection(normed, q_weight, k_weight, v_weight, out_weight)
     
     # Residual connection
-    out[:] = pto.add(x, attn_out)
+    out[:] = pypto.add(x, attn_out)
 ```
 
 ## Expected Output
@@ -315,14 +340,14 @@ seq_len = 32  # instead of 128
 
 **Solution**: Use BF16 instead of FP16:
 ```python
-config = AttentionConfig(dtype=pto.DT_BF16)
+config = AttentionConfig(dtype=pypto.DT_BF16)
 ```
 
 ### Issue: "Dynamic shape compilation fails"
 
 **Solution**: Enable dynamic unaligned support:
 ```python
-pto.set_codegen_options(support_dynamic_unaligned=True)
+pypto.set_codegen_options(support_dynamic_unaligned=True)
 ```
 
 ## Advanced Topics
@@ -334,7 +359,7 @@ To add attention masks (e.g., for causal attention):
 ```python
 # In the attention function, after computing scores:
 if attn_mask is not None:
-    scores = pto.add(scores, attn_mask)  # Add mask before softmax
+    scores = pypto.add(scores, attn_mask)  # Add mask before softmax
 ```
 
 ### Flash Attention

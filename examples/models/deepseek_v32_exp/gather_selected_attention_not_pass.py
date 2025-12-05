@@ -487,7 +487,7 @@ def select_attention_v2(in_tensors, out_tensors, n_q, n_kv, softmax_scale, topk,
 def sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant, input_params,
     kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name):
     b, n1, n2, s1 = bn1n2s1
-    torch.npu.set_device(5)
+    torch.npu.set_device(4)
 
     tile_config = SaTileShapeConfig(
         g_tile=128,

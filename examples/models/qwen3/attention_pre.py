@@ -281,14 +281,6 @@ def attention_pre(inputs: list, outputs: list):
     k = outputs[1]
     v = outputs[2]
     
-    # Mark batch dimension (axis 0) as dynamic
-    pypto.mark_dynamic(x, 0)
-    pypto.mark_dynamic(cos, 0)
-    pypto.mark_dynamic(sin, 0)
-    pypto.mark_dynamic(q, 0)
-    pypto.mark_dynamic(k, 0)
-    pypto.mark_dynamic(v, 0)
-    
     # Get tensor shapes
     bs = x.shape[0]  # Dynamic batch size
     hidden_size = x.shape[1]  # Static hidden size
@@ -414,11 +406,24 @@ def test_attention_pre():
         k = torch.zeros((batch_size, kv_size), dtype=torch.bfloat16, device=f'npu:{device_id}')
         v = torch.zeros((batch_size, kv_size), dtype=torch.bfloat16, device=f'npu:{device_id}')
         
+        # Initialize PyPTO inputs and outputs, mark batch dimension (axis 0) as dynamic
+        inputs = {
+            x: [0],
+            weight: [],
+            q_gamma: [],
+            k_gamma: [],
+            cos: [0],
+            sin: [0]
+        }
+        outputs = {
+            q: [0],
+            k: [0],
+            v: [0]
+        }
+        pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+        pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
+
         # Execute PyPTO kernel
-        inputs = [x, weight, q_gamma, k_gamma, cos, sin]
-        outputs = [q, k, v]
-        pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-        pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
         attention_pre(pto_inputs, pto_outputs)
         pypto.runtime._device_synchronize()
         

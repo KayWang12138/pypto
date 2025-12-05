@@ -52,12 +52,6 @@ def cust_add_rms_norm(in_tensor, out_tensor):
     y = out_tensor[0]
     x = out_tensor[1]
     
-    # 设置axis=0为动态shape
-    pypto.mark_dynamic(residual, 0)
-    pypto.mark_dynamic(hidden_states, 0)
-    pypto.mark_dynamic(y, 0)
-    pypto.mark_dynamic(x, 0)
-    
     calc_dtype = pypto.DT_FP32
     input_dtype = hidden_states.dtype
     
@@ -124,11 +118,18 @@ def test_rms_norm():
     output_hidden_states = torch.full((m, n), 9, dtype=torch.float16, device=f'npu:{device_id}')    
     output_residual = torch.full((m, n), 7, dtype=torch.float16, device=f'npu:{device_id}')
     
-    inputs = [residual_tensor, hidden_states_tensor, weight_tensor]
-    outputs = [output_hidden_states, output_residual]
-
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    inputs = {
+        residual_tensor: [0],
+        hidden_states_tensor: [0],
+        weight_tensor: []
+    }
+    outputs = {
+        output_hidden_states: [0],
+        output_residual: [0]
+    }
+    
+    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     
     cust_add_rms_norm(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()

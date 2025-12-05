@@ -59,10 +59,12 @@ def _torch_to_tensor_data(tensors: List[torch.Tensor]):
 def _pto_to_tensor_data(tensors: List[pypto.Tensor]) -> List[pypto_impl.DeviceTensorData]:
     datas = []
     for t in tensors:
+        if t.ori_shape is None:
+            raise RuntimeError("The ori_shape of the tensor is not specified.")
         data = pypto_impl.DeviceTensorData(
             t.dtype,
             t.data_ptr,
-            list(t.shape),
+            list(t.ori_shape),
         )
         datas.append(data)
     return datas
@@ -82,6 +84,7 @@ class JIT:
         self.dyn_func = dyn_func
         self._is_compiled: bool = False
         self._handler = None
+        self._cached_shapes = None
         self.codegen_options = codegen_options
         self.host_options = host_options
         self.pass_options = pass_options
@@ -122,13 +125,19 @@ class JIT:
                 device = t.device
             elif device != t.device:
                 raise RuntimeError("not all tensors are on the same device")
+            if not isinstance(t, pypto.Tensor):
+                raise RuntimeError("Expected pypto.tensor input. Use `from_torch` to convert torch.Tensor " + \
+                    "before passing it into a @pypto.jit-decorated kernel function")
 
         # Convert tensors to tensor data before compile, as compile turns tensor shapes into symbolic scalars.
         in_tensor_data = _pto_to_tensor_data(inputs)
         out_tensor_data = _pto_to_tensor_data(outputs)
+        real_shapes = [t.GetShape() for t in in_tensor_data + out_tensor_data]
 
-        if not self._is_compiled:
+        if not self._is_compiled or not self._hit_cache(real_shapes):
             self.compile(inputs, outputs, *args[2:], **kwargs)
+            self._cached_shapes = real_shapes
+            pypto_impl.BuildCache(self._handler, in_tensor_data, out_tensor_data)
 
         ori_device = current_device()
         if device and device.index != ori_device:
@@ -154,6 +163,16 @@ class JIT:
 
         if isinstance(self.runtime_options, dict):
             pypto.set_runtime_options(**self.runtime_options)
+
+    def _hit_cache(self, shapes):
+        if None in [self._handler, self._cached_shapes]:
+            return False
+        if len(shapes) != len(self._cached_shapes):
+            raise RuntimeError("Tensor count mismatch, please check inputs and outputs")
+        for shape1, shape2 in zip(shapes, self._cached_shapes):
+            if shape1 != shape2:
+                return False
+        return True
 
 
 @overload

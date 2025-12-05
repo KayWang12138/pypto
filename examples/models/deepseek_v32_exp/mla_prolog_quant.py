@@ -268,15 +268,6 @@ def mla_prolog_compute_p(input_tensors, output_tensors, epsilon_cq, epsilon_ckv,
     q_norm_out, q_norm_scale_out, query_nope_out, query_rope_out, kv_cache_out, \
             kr_cache_out, k_scale_cache_out = output_tensors
 
-    pypto.mark_dynamic(token_x, 0)
-    pypto.mark_dynamic(cos, 0)
-    pypto.mark_dynamic(sin, 0)
-    pypto.mark_dynamic(cache_index, 0)
-    pypto.mark_dynamic(query_nope_out, 0)
-    pypto.mark_dynamic(query_rope_out, 0)
-    pypto.mark_dynamic(q_norm_out, 0)
-    pypto.mark_dynamic(q_norm_scale_out, 0)
-    
     assert len(token_x.shape) == 2 and len(w_uk.shape) == 3 and len(sin.shape) == 2
     assert len(kv_cache.shape) == 4 and len(kr_cache.shape) == 4
     assert cache_mode in ["PA_BSND", "PA_NZ"]

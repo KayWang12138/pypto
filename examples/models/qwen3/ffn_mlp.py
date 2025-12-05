@@ -380,9 +380,6 @@ def moe_ffn(inputs: list, outputs: list):
     outputs : list
         List containing [ffn_out]
     """
-    # Mark dynamic dimension
-    pypto.mark_dynamic(inputs[0], 0)
-    
     # Extract input tensors
     expand_x = inputs[0]
     expert_tokens = inputs[1]
@@ -466,12 +463,22 @@ def test_qwen3_ffn():
         batch_size, seq_len, topk, per_expert_num,
         hidden_size, intermediate_size, dtype, device_id
     )
-    
+
+    # Initialize PyPTO inputs and outputs, mark batch dimension (axis 0) as dynamic
+    inputs = {
+        inputs_list[0]: [0],
+        inputs_list[1]: [],
+        inputs_list[2]: [],
+        inputs_list[3]: [],
+        inputs_list[4]: []
+    }
+    outputs = {
+        inputs_list[5]: []
+    }
+    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
+
     # Execute PyPTO kernel
-    inputs = [inputs_list[0], inputs_list[1], inputs_list[2], inputs_list[3], inputs_list[4]]
-    outputs = [inputs_list[5]]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
     moe_ffn(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()
     

@@ -23,27 +23,33 @@ import pytest
 
 def lighting_indexer_prolog_quant_dyn(inputs: IndexerPrologQuantInput, outputs: IndexerPrologQuantOutput,
                                       attrs: IndexerPrologQuantAttr, configs: IndexerPrologQuantConfigs):
-    input_tensors = [
-        inputs.x,
-        inputs.q_norm,
-        inputs.q_norm_scale,
-        inputs.w_qb,
-        inputs.w_qb_scale,
-        inputs.wk,
-        inputs.w_proj,
-        inputs.ln_gamma_k,
-        inputs.ln_beta_k,
-        inputs.cos_idx_rope,
-        inputs.sin_idx_rope,
-        inputs.hadamard_q,
-        inputs.hadamard_k,
-        inputs.k_cache,
-        inputs.k_cache_scale,
-        inputs.k_cache_index,
-    ]
-    output_tensors = [outputs.q_int8, outputs.q_scale, outputs.k_int8, outputs.k_scale, outputs.weights]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(input_tensors)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(output_tensors)]
+    input_tensors = {
+        inputs.x: [0],
+        inputs.q_norm: [0],
+        inputs.q_norm_scale: [0],
+        inputs.w_qb: [],
+        inputs.w_qb_scale: [],
+        inputs.wk: [],
+        inputs.w_proj: [],
+        inputs.ln_gamma_k: [],
+        inputs.ln_beta_k: [],
+        inputs.cos_idx_rope: [0],
+        inputs.sin_idx_rope: [0],
+        inputs.hadamard_q: [],
+        inputs.hadamard_k: [],
+        inputs.k_cache: [0],
+        inputs.k_cache_scale: [0],
+        inputs.k_cache_index: [0],
+    }
+    output_tensors = {
+        outputs.q_int8: [],
+        outputs.q_scale: [],
+        outputs.k_int8: [],
+        outputs.k_scale: [],
+        outputs.weights: []
+    }
+    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in input_tensors.items()]
+    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in output_tensors.items()]
     lightning_indexer_prolog_quant(pto_inputs, pto_outputs, attrs, configs)
     pypto.runtime._device_synchronize()
 

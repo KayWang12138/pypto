@@ -1,6 +1,6 @@
 # Multi-Function Module Example
 
-A comprehensive example demonstrating how to use multiple `@pypto.jit` functions together to build complex computation pipelines.
+A comprehensive example demonstrating how to use multiple `@pypypto.jit` functions together to build complex computation pipelines.
 
 ## Overview
 
@@ -140,7 +140,7 @@ layer_norm([x3, gamma, beta], [out3], eps=1e-6)
 ### 1. Layer Normalization
 
 ```python
-@pto.jit
+@pypto.jit
 def layer_norm(inputs, outputs, eps: float = 1e-6):
     x, gamma, beta = inputs[0], inputs[1], inputs[2]
     out = outputs[0]
@@ -155,7 +155,7 @@ layer_norm([x, gamma, beta], [out], eps=1e-6)
 ### 2. Linear Projection
 
 ```python
-@pto.jit
+@pypto.jit
 def linear_projection(inputs, outputs):
     x, weight = inputs[0], inputs[1]
     bias = inputs[2] if len(inputs) > 2 else None
@@ -172,7 +172,7 @@ linear_projection([x, weight, bias], [out])  # With bias
 ### 3. GELU Activation
 
 ```python
-@pto.jit
+@pypto.jit
 def gelu_activation(inputs, outputs):
     x = inputs[0]
     out = outputs[0]
@@ -187,7 +187,7 @@ gelu_activation([x], [out])
 ### 4. Residual Connection
 
 ```python
-@pto.jit
+@pypto.jit
 def residual_add(inputs, outputs):
     x, residual = inputs[0], inputs[1]
     out = outputs[0]
@@ -202,7 +202,7 @@ residual_add([x, residual], [out])
 ### 5. Attention (Simplified)
 
 ```python
-@pto.jit
+@pypto.jit
 def attention(inputs, outputs, scale: float):
     q, k, v = inputs[0], inputs[1], inputs[2]
     out = outputs[0]
@@ -365,7 +365,7 @@ def process_with_activation(x, activation_type):
 
 ```python
 # Function A calls Function B
-@pto.jit
+@pypto.jit
 def function_a(inputs, outputs):
     # ... some processing
     intermediate = ...
@@ -393,7 +393,7 @@ def create_pipeline(functions):
 **Solution**: Ensure functions are defined before use:
 ```python
 # Define functions first
-@pto.jit
+@pypto.jit
 def my_function(...):
     ...
 

@@ -36,6 +36,9 @@ class TestBuilder(abc.ABC):
         self.output_data_list = []
         self.tensor_list = []
 
+        self.input_dyn_axes = []
+        self.output_dyn_axes = []
+
         self.rtol_value = 1e-3
         self.atol_value = 1e-3
 
@@ -48,6 +51,11 @@ class TestBuilder(abc.ABC):
     def set_tol(self, rtol=1e-3, atol=1e-3):
         self.rtol_value = rtol
         self.atol_value = atol
+
+
+    def set_dyn_axes(self, input_dyn_axes, output_dyn_axes):
+        self.input_dyn_axes = input_dyn_axes
+        self.output_dyn_axes = output_dyn_axes
 
     def setup_inputs(self, *args):
         for idx, item in enumerate(args):
@@ -122,8 +130,8 @@ class TestBuilder(abc.ABC):
         output_count = len(inspect.signature(self.kernel_golden).parameters) - 1 - len(self.inputs)
         goldens = self.kernel_golden(self.params, *self.inputs, *[None] * output_count)
         self.init_output_jit(goldens)
-        pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(self.input_pto_list)]
-        pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(self.output_pto_list)]
+        pto_inputs = self._convert_torch_to_pto(self.input_pto_list, self.input_dyn_axes)
+        pto_outputs = self._convert_torch_to_pto(self.output_pto_list, self.output_dyn_axes)
         self.kernel(pto_inputs, pto_outputs, self.params)
         pypto.runtime._device_synchronize()
         result_len = len(goldens)
@@ -131,6 +139,16 @@ class TestBuilder(abc.ABC):
             assert_allclose(np.array(self.output_pto_list[idx].cpu().flatten().tolist()),
                             np.array(goldens[idx].flatten().tolist()),
                             rtol=self.rtol_value, atol=self.atol_value)
+
+    def _convert_torch_to_pto(self, tensors, dynamic_axes):
+        if len(tensors) == len(dynamic_axes):
+            pto_tensors = [pypto.from_torch(
+                tensor, dynamic_axis=axis) for tensor, axis in zip(tensors, dynamic_axes)]
+        elif len(dynamic_axes) == 0:
+            pto_tensors = [pypto.from_torch(tensor) for tensor in tensors]
+        else:
+            raise RuntimeError("The lengths of tensors and dynamic_axes must be identical.")
+        return pto_tensors
 
     def run(self, on_board: bool = True, jit: bool = False):
         if jit:

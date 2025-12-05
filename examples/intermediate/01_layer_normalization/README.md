@@ -1,6 +1,6 @@
 # Layer Normalization Example
 
-A comprehensive example demonstrating Layer Normalization and RMS Normalization implementations using PyPTO.
+A comprehensive example demonstrating Layer Normalization and RMS Normalization implementations using pypto.
 
 ## Overview
 
@@ -94,45 +94,40 @@ output = gamma * (x / rms)
 ### Static LayerNorm
 
 ```python
-@pto.jit
+@pypto.jit
 def layer_norm_static(inputs, outputs, config):
     x, gamma, beta = inputs[0], inputs[1], inputs[2]
     out = outputs[0]
     
     hidden_size = x.shape[-1]
-    eps = pto.element(config.dtype, config.eps)
+    eps = pypto.element(config.dtype, config.eps)
     
-    pto.set_vec_tile_shapes(64, 128)
+    pypto.set_vec_tile_shapes(64, 128)
     
-    with pto.function("LAYER_NORM", [x, gamma, beta], [out], static=True):
-        # Compute mean
-        mean = pto.sum(x, dim=-1, keepdim=True) / hidden_size
-        centered = pto.sub(x, mean)
-        
-        # Compute variance
-        var = pto.sum(pto.mul(centered, centered), dim=-1, keepdim=True) / hidden_size
-        
-        # Normalize
-        normalized = pto.div(centered, pto.sqrt(pto.add(var, eps)))
-        
-        # Scale and shift
-        out[:] = pto.add(pto.mul(normalized, gamma), beta)
+    # Compute mean
+    mean = pypto.sum(x, dim=-1, keepdim=True) / hidden_size
+    centered = pypto.sub(x, mean)
+    
+    # Compute variance
+    var = pypto.sum(pypto.mul(centered, centered), dim=-1, keepdim=True) / hidden_size
+    
+    # Normalize
+    normalized = pypto.div(centered, pypto.sqrt(pypto.add(var, eps)))
+    
+    # Scale and shift
+    out[:] = pypto.add(pypto.mul(normalized, gamma), beta)
 ```
 
 ### Dynamic LayerNorm
 
 ```python
-@pto.jit
+@pypto.jit
 def layer_norm_dynamic(inputs, outputs, config):
     x, gamma, beta = inputs[0], inputs[1], inputs[2]
     out = outputs[0]
     
-    # Mark batch dimension as dynamic
-    pto.mark_dynamic(x, 0)
-    pto.mark_dynamic(out, 0)
-    
     # Enable dynamic unaligned support
-    pto.set_codegen_options(support_dynamic_unaligned=True)
+    pypto.set_codegen_options(support_dynamic_unaligned=True)
     
     # Same computation as static version
     # ...
@@ -149,13 +144,19 @@ import torch_npu
 
 # Create tensors
 batch_size, hidden_size = 32, 128
-x = torch.randn(batch_size, hidden_size, dtype=torch.bfloat16, device='npu:0')
-gamma = torch.ones(hidden_size, dtype=torch.bfloat16, device='npu:0')
-beta = torch.zeros(hidden_size, dtype=torch.bfloat16, device='npu:0')
-out = torch.zeros(batch_size, hidden_size, dtype=torch.bfloat16, device='npu:0')
-
+x_torch = torch.randn(batch_size, hidden_size, dtype=torch.bfloat16, device='npu:0')
+gamma_torch = torch.ones(hidden_size, dtype=torch.bfloat16, device='npu:0')
+beta_torch = torch.zeros(hidden_size, dtype=torch.bfloat16, device='npu:0')
+out_torch = torch.zeros(batch_size, hidden_size, dtype=torch.bfloat16, device='npu:0')
+# convert to pypto tensors
+x = pypto.from_torch(x_torch)
+gamma = pypto.from_torch(gamma_torch)
+beta = pypto.from_torch(beta_torch)
+out = pypto.from_torch(out_torch)
+inputs = [x, gamma, beta]
+outputs = [out]
 # Execute
-config = NormConfig(norm_type="layernorm", dtype=pto.DT_BF16)
+config = NormConfig(norm_type="layernorm", dtype=pypto.DT_BF16)
 layer_norm_static([x, gamma, beta], [out], config)
 ```
 
@@ -164,9 +165,17 @@ layer_norm_static([x, gamma, beta], [out], config)
 ```python
 # Works with any batch size
 for batch_size in [16, 32, 64, 100]:
-    x = torch.randn(batch_size, hidden_size, dtype=torch.bfloat16, device='npu:0')
-    out = torch.zeros(batch_size, hidden_size, dtype=torch.bfloat16, device='npu:0')
-    
+    # Create tensors
+    x_torch = torch.randn(batch_size, hidden_size, dtype=torch.bfloat16, device='npu:0')
+    gamma_torch = torch.ones(hidden_size, dtype=torch.bfloat16, device='npu:0')
+    beta_torch = torch.zeros(hidden_size, dtype=torch.bfloat16, device='npu:0')
+    out_torch = torch.zeros(batch_size, hidden_size, dtype=torch.bfloat16, device='npu:0')
+    # convert to pypto tensors
+    # Mark batch dimension as dynamic
+    x = pypto.from_torch(x_torch, dynamic_axis=[0])
+    gamma = pypto.from_torch(gamma_torch)
+    beta = pypto.from_torch(beta_torch)
+    out = pypto.from_torch(out_torch, dynamic_axis=[0])
     config = NormConfig(norm_type="layernorm", use_dynamic_shape=True)
     layer_norm_dynamic([x, gamma, beta], [out], config)
 ```
@@ -180,7 +189,7 @@ for batch_size in [16, 32, 64, 100]:
 class NormConfig:
     norm_type: Literal["layernorm", "rmsnorm"] = "layernorm"
     eps: float = 1e-6  # Epsilon for numerical stability
-    dtype: pto.DataType = pto.DT_BF16
+    dtype: pypto.DataType = pypto.DT_BF16
     use_dynamic_shape: bool = False
 ```
 
@@ -200,11 +209,11 @@ class NormConfig:
 
 ```python
 # For layer normalization
-pto.set_vec_tile_shapes(64, 128)  # Good for hidden_size=128
+pypto.set_vec_tile_shapes(64, 128)  # Good for hidden_size=128
 
 # Adjust based on hidden size
-# For hidden_size=512: pto.set_vec_tile_shapes(64, 512)
-# For hidden_size=1024: pto.set_vec_tile_shapes(128, 1024)
+# For hidden_size=512: pypto.set_vec_tile_shapes(64, 512)
+# For hidden_size=1024: pypto.set_vec_tile_shapes(128, 1024)
 ```
 
 ### Static vs Dynamic
@@ -222,7 +231,7 @@ Layer normalization is typically used in transformer blocks:
 
 ```python
 # Typical transformer block pattern
-@pto.jit
+@pypto.jit
 def transformer_block(inputs, outputs):
     x, norm_gamma, norm_beta = inputs[0], inputs[1], inputs[2]
     out = outputs[0]
@@ -234,7 +243,7 @@ def transformer_block(inputs, outputs):
     processed = process(normed)
     
     # Residual connection
-    out[:] = pto.add(x, processed)
+    out[:] = pypto.add(x, processed)
 ```
 
 ## Expected Output
@@ -287,7 +296,7 @@ config = NormConfig(eps=1e-5)  # Larger epsilon for FP16
 
 **Solution**: Enable dynamic unaligned support:
 ```python
-pto.set_codegen_options(support_dynamic_unaligned=True)
+pypto.set_codegen_options(support_dynamic_unaligned=True)
 ```
 
 ## See Also

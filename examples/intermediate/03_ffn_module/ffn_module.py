@@ -245,10 +245,6 @@ def ffn_dynamic(
     pypto.set_host_option(KEY_ONLY_CODEGEN, True)
     pypto.set_codegen_option("support_dynamic_unaligned", True)
     
-    # Mark dynamic dimension
-    pypto.mark_dynamic(hidden_states, 0)
-    pypto.mark_dynamic(output, 0)
-    
     input_tensors = [hidden_states, gate_proj_weight, up_proj_weight, down_proj_weight]
     output_tensors = [output]
     

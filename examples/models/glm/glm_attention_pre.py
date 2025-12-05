@@ -150,18 +150,7 @@ def glm_quant_attention_pre(in_tensors, out_tensors, enable_residual=True):
     q, k, v, residual = out_tensors
     bs_tile = x.shape[0]
 
-    # 3. 设置axis=0为动态shape
-    pypto.mark_dynamic(x, 0)
-    if enable_residual:
-        pypto.mark_dynamic(residual_input, 0)
-    pypto.mark_dynamic(cos, 0)
-    pypto.mark_dynamic(sin, 0)
-    pypto.mark_dynamic(q, 0)
-    pypto.mark_dynamic(k, 0)
-    pypto.mark_dynamic(v, 0)
-    pypto.mark_dynamic(residual, 0)
-
-    # 4. 得到动态tensor的shape
+    # 3. 得到动态tensor的shape
     bs = x.shape[0]
     hidden_size = x.shape[1]
     total_head_size = weight.shape[1]
@@ -186,7 +175,7 @@ def glm_quant_attention_pre(in_tensors, out_tensors, enable_residual=True):
     tiling_value = 128
     vec_tile_value = 5120
     q_batch_tile = 4
-    # 5. 定义动态函数
+    # 4. 定义动态函数
 
     for _ in pypto.loop(1, name="LOOP_RESHAPE_INPLACE", idx_name="tmp_idx"):
         pypto.set_vec_tile_shapes(5120)
@@ -197,7 +186,7 @@ def glm_quant_attention_pre(in_tensors, out_tensors, enable_residual=True):
         quant_bias_2d = pypto.reshape(quant_bias, [1, 1792], inplace=True)
         deq_scale_2d = pypto.reshape(deq_scale, [1, 1792], inplace=True)
 
-    # 6. 实现kernel逻辑，循环展开BS动态轴
+    # 5. 实现kernel逻辑，循环展开BS动态轴
     for bs_idx in pypto.loop(bs_loop, name="LOOP_ATT_PRE_L0", idx_name="bs_idx"):
 
         x_tile = pypto.view(x, [bs_tile, hidden_size], [bs_idx * bs_tile, 0])
@@ -314,7 +303,7 @@ def glm_quant_attention_pre(in_tensors, out_tensors, enable_residual=True):
         k_res = pypto.reshape(k_cat, [bs_tile, kv_size])
         v_res = pypto.reshape(v_tile, [bs_tile, kv_size])
 
-        # # 9. 将结果搬运到输出tensor上
+        # # 6. 将结果搬运到输出tensor上
         # # update output
         q[bs_idx * pypto.symbolic_scalar(bs_tile):, 0:] = q_res
         k[bs_idx * pypto.symbolic_scalar(bs_tile):, 0:] = k_res
@@ -375,27 +364,27 @@ def test_glm_attention_pre():
 
         # # 4. 执行kernel并获取结果
         inputs = [
-            pypto.from_torch(x, name="IN"), 
-            pypto.from_torch(residual_input, name="IN"), 
-            pypto.from_torch(x_gamma, name="IN"), 
-            pypto.from_torch(x_bias, name="IN"), 
-            pypto.from_torch(x_scale, name="IN"), 
-            pypto.from_torch(x_offset, name="IN"), 
-            pypto.from_torch(weight, name="IN"), 
-            pypto.from_torch(quant_bias, name="IN"), 
-            pypto.from_torch(deq_scale, name="IN"), 
-            pypto.from_torch(q_gamma, name="IN"), 
-            pypto.from_torch(q_bias, name="IN"), 
-            pypto.from_torch(k_gamma, name="IN"), 
-            pypto.from_torch(k_bias, name="IN"), 
-            pypto.from_torch(cos, name="IN"), 
-            pypto.from_torch(sin, name="IN")
+            pypto.from_torch(x, dynamic_axis=[0]),
+            pypto.from_torch(residual_input, dynamic_axis=[0]) if enable_residual else pypto.from_torch(residual_input),
+            pypto.from_torch(x_gamma),
+            pypto.from_torch(x_bias),
+            pypto.from_torch(x_scale),
+            pypto.from_torch(x_offset),
+            pypto.from_torch(weight),
+            pypto.from_torch(quant_bias),
+            pypto.from_torch(deq_scale),
+            pypto.from_torch(q_gamma),
+            pypto.from_torch(q_bias),
+            pypto.from_torch(k_gamma),
+            pypto.from_torch(k_bias),
+            pypto.from_torch(cos, dynamic_axis=[0]),
+            pypto.from_torch(sin, dynamic_axis=[0])
         ]
         outputs = [
-            pypto.from_torch(q, name="OUT"), 
-            pypto.from_torch(k, name="OUT"), 
-            pypto.from_torch(v, name="OUT"), 
-            pypto.from_torch(residual, name="OUT")
+            pypto.from_torch(q, dynamic_axis=[0]),
+            pypto.from_torch(k, dynamic_axis=[0]),
+            pypto.from_torch(v, dynamic_axis=[0]),
+            pypto.from_torch(residual, dynamic_axis=[0])
         ]
         glm_quant_attention_pre(inputs, outputs, enable_residual)
         pypto.runtime._device_synchronize()

@@ -217,12 +217,6 @@ def ifa_func(inputs, outputs):
     kv_act_seqs = inputs[4]
     atten_out = outputs[0]
 
-    # 3. 设置axis=0为动态shape     
-    pypto.mark_dynamic(q, 0)
-    pypto.mark_dynamic(k, 0)
-    pypto.mark_dynamic(v, 0)
-    pypto.mark_dynamic(kv_act_seqs, 0)
-
     shape_q = q.shape
     shape_k = k.shape
     shape_act_seqs = kv_act_seqs.shape
@@ -249,7 +243,7 @@ def ifa_func(inputs, outputs):
     c2_tile = tile_cfg.c2_tile_shape
     v2_tile = tile_cfg.v2_tile_shape
 
-    # 4. 得到动态tensor的shape
+    # 3. 得到动态tensor的shape
     s1_scalar = bs_scalar // b_scalar
     g = nq // nkv
     g_loop = g // g_tile
@@ -269,7 +263,7 @@ def ifa_func(inputs, outputs):
         v_2d = pypto.reshape(v, k_2d_shape, inplace=True)
         q_2d = pypto.reshape(q, q_2d_shape, inplace=True)
 
-    # 5. 实现kernel逻辑，循环展开B动态轴
+    # 4. 实现kernel逻辑，循环展开B动态轴
     for b_idx in pypto.loop(b_scalar, name="LOOP_b", idx_name="b_idx"):
         def b_fun():
             for s1_idx in pypto.loop(s1_scalar, name="LOOP_s1", idx_name="s1_idx"):
@@ -290,7 +284,7 @@ def ifa_func(inputs, outputs):
                                             n1g_ofs = n2_idx * group + g_idx * g_tile
                                             actual_s2_tile = (cur_seq - s2_idx * s2_tile).min(s2_tile)
                                             oi_ofs = [bs_ofs, n1g_ofs, 0]
-                                            # 6. 按照计算图实现运算逻辑，设置set_vec_tile_shapes时应尽可能用满UB，但不要超过UB的大小。
+                                            # 5. 按照计算图实现运算逻辑，设置set_vec_tile_shapes时应尽可能用满UB，但不要超过UB的大小。
                                             pypto.set_vec_tile_shapes(16, v1_tile[0], v1_tile[1])
                                             qi = pypto.view(q_2d, [g_tile, dn], [bs_ofs * nq + n1g_ofs, 0])
                                             kj = pypto.view(k_2d, [block_size, dn], [block_idx * block_size, 0],
@@ -298,7 +292,7 @@ def ifa_func(inputs, outputs):
                                             vj = pypto.view(v_2d, [block_size, dn], [block_idx * block_size, 0],
                                                             valid_shape=[actual_s2_tile, dn])
                                             # c1
-                                            # 7. 下面是flash attention的计算逻辑
+                                            # 6. 下面是flash attention的计算逻辑
                                             pypto.set_cube_tile_shapes(c1_tile[0], c1_tile[1], c1_tile[2])
                                             sij = pypto.matmul(qi, kj, pypto.DT_FP32, a_trans=False,
                                                                 b_trans=True)
@@ -327,7 +321,7 @@ def ifa_func(inputs, outputs):
                                                     oi_upd_3d = pypto.cast(
                                                         pypto.reshape(oi_upd, [1, g_tile, dn]),
                                                         dtype)
-                                                    # 8. 将结果搬运到输出tensor上
+                                                    # 7. 将结果搬运到输出tensor上
                                                     pypto.assemble(oi_upd_3d, oi_ofs, atten_out)
                                                 else:
                                                     oi_upd[:] = oi_tmp
@@ -361,7 +355,7 @@ def ifa_func(inputs, outputs):
                                                     oi_upd_3d = pypto.cast(
                                                         pypto.reshape(oi_upd, [1, g_tile, dn]),
                                                         dtype)
-                                                    # 9. 将结果搬运到输出tensor上
+                                                    # 8. 将结果搬运到输出tensor上
                                                     pypto.assemble(oi_upd_3d, oi_ofs, atten_out)
                                                 else:
                                                     oi_upd[:] = oi_tmp
@@ -439,10 +433,18 @@ def IFA(atten_cfg):
 
     out_torch = torch.full(q_shape, 9, dtype=torch_dtype, device=device)
 
-    inputs = [q, k, v, block_table_torch, act_seq_torch]
-    outputs = [out_torch]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    inputs = {
+        q: [0],
+        k: [0],
+        v: [0],
+        block_table_torch: [],
+        act_seq_torch: [0]
+    }
+    outputs = {
+        out_torch: []
+    }
+    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     # 5. 执行kernel并获取结果
     ifa_func(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()

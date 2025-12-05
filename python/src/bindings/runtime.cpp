@@ -193,7 +193,7 @@ uintptr_t OperatorBegin(const std::vector<std::reference_wrapper<Tensor>> &input
     for (auto &tensor : outputTensorList) {
         outputList.push_back(tensor.get().GetStorage());
     }
-    op->UpdateInputOutput(inputList, outputList);
+
     auto opAddr = reinterpret_cast<uintptr_t>(op);
     return opAddr;
 }
@@ -202,8 +202,15 @@ std::string OperatorEnd(uintptr_t opAddr) {
     ExportedOperator *op = reinterpret_cast<ExportedOperator *>(opAddr);
     ExportedOperatorEnd(op);
 
+    return "";
+}
+
+std::string BuildCache(uintptr_t opAddr, const std::vector<DeviceTensorData> &inputList,
+        const std::vector<DeviceTensorData> &outputList) {
+    ExportedOperator *op = reinterpret_cast<ExportedOperator *>(opAddr);
+
     if (config::GetRuntimeOption<int64_t>(CFGCACHE_DEVICE_TASK_NUM) != 0 &&
-        EmulationLauncher::BuildControlFlowCache(op->GetFunction(), op->GetInputList(), op->GetOutputList()) != 0) {
+        EmulationLauncher::BuildControlFlowCache(op->GetFunction(), inputList, outputList) != 0) {
         return "control flow cache failed";
     }
 
@@ -220,6 +227,7 @@ void BindRuntime(py::module &m) {
     m.def("OperatorBegin", OperatorBegin);
     m.def("OperatorEnd", OperatorEnd);
     m.def("SetVerifyData", &SetVerifyData);
+    m.def("BuildCache", BuildCache);
 
     py::class_<DeviceTensorData>(m, "DeviceTensorData")
         .def(py::init<DataType, uintptr_t, const std::vector<int64_t> &>(), py::arg("dtype"), py::arg("addr"),

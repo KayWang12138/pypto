@@ -46,14 +46,7 @@ def select_experts_glm(in_tensors, out_tensors, renormalize_flag, topk_group, nu
     row_idx = out_tensors[2]
     residual_out = out_tensors[3]
 
-    # 3. 设置axis=0为动态shape
-    pypto.mark_dynamic(residual, 0)
-    pypto.mark_dynamic(hidden_states, 0)
-    pypto.mark_dynamic(residual_out, 0)
-    pypto.mark_dynamic(weight_k, 0)
-    pypto.mark_dynamic(ids_k, 0)
-
-    # 4. 得到动态tensor的shape
+    # 3. 得到动态tensor的shape
     bs = hidden_states.shape[0]
     h_num = hidden_states.shape[1]
     ne = mm_weight.shape[0]
@@ -66,9 +59,9 @@ def select_experts_glm(in_tensors, out_tensors, renormalize_flag, topk_group, nu
     tile_shape_rmsnorm = [16, 1024]
     bs_loop = (bs + view_shape[0] - 1) // view_shape[0]
 
-    # 5. 实现kernel逻辑，循环展开BS动态轴
+    # 4. 实现kernel逻辑，循环展开BS动态轴
     for bs_idx in pypto.loop(bs_loop, name="LOOP_MOEGATE_L0", idx_name="bs_idx", unroll_List={1}):
-        # 6. 通过view得到tile_logits
+        # 5. 通过view得到tile_logits
         tile_residual = pypto.view(residual, view_shape,
                                    [bs_idx * view_shape[0], 0],
                                    valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]), h_num])
@@ -100,7 +93,7 @@ def select_experts_glm(in_tensors, out_tensors, renormalize_flag, topk_group, nu
         pypto.set_cube_tile_shapes([16, 16], [512, 512], [32, 32])
         res_mm = pypto.matmul(hidden_states_add, mm_weight, hidden_states_add.dtype, b_trans=True)
 
-        # 7. 按照计算图实现运算逻辑，设置set_vec_tile_shapes时应尽可能用满UB，但不要超过UB的大小。
+        # 6. 按照计算图实现运算逻辑，设置set_vec_tile_shapes时应尽可能用满UB，但不要超过UB的大小。
         pypto.set_vec_tile_shapes(view_first, ne)
         # sigmoid
         topk_weights = pypto.sigmoid(res_mm)  # (bs, ne) fp32
@@ -193,7 +186,7 @@ def select_experts_glm(in_tensors, out_tensors, renormalize_flag, topk_group, nu
                 row_idx_res = pypto.reshape(row_idx_tmp, [1, topk])
                 row_idx[offset:, 0:] = row_idx_res
 
-        # 8. 将结果搬运到输出tensor上
+        # 7. 将结果搬运到输出tensor上
         residual_out[bs_idx * view_shape[0]:, 0:] = residual_out_16
         weight_k[bs_idx * view_shape[0]:, 0:] = topk_weight_out
         ids_k[bs_idx * view_shape[0]:, 0:] = topk_ids
@@ -291,10 +284,22 @@ def select_experts(residual: torch.Tensor,
     output_residual = torch.zeros((bs, h_num), dtype=torch.bfloat16, device=f'npu:{device_id}')
 
     # 4. 执行kernel并获取结果
-    inputs = [hidden_states, residual, input_norm_weight, input_norm_bias, gate_weight, e_score_correction_bias]
-    outputs = [topk_weights, topk_ids, row_idx, output_residual]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    inputs = {
+        hidden_states: [0],
+        residual: [0],
+        input_norm_weight: [],
+        input_norm_bias: [],
+        gate_weight: [],
+        e_score_correction_bias: []
+    }
+    outputs = {
+        topk_weights: [0],
+        topk_ids: [0],
+        row_idx: [],
+        output_residual: [0]
+    }
+    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     select_experts_glm(pto_inputs, pto_outputs, renormalize, topk_group, num_expert_group, row_ids_flag, input_norm_eps)
     pypto.runtime._device_synchronize()
     return topk_weights, topk_ids, row_idx, output_residual

@@ -28,10 +28,6 @@ def op_select_experts(input_tensors, output_tensors, params):
     ids_k = output_tensors[0]
     weight_k = output_tensors[1]
 
-    pypto.mark_dynamic(router_logits, 0)
-    pypto.mark_dynamic(ids_k, 0)
-    pypto.mark_dynamic(weight_k, 0)
-
     view_shape = [1024, ne]
     bs_loop = (bs + view_shape[0] - 1) // view_shape[0]
 
@@ -87,7 +83,11 @@ class SelectExpertsTest(TestBuilder):
         bs, ne, top_k, renormalize = self.params
         np.random.seed(0)
         router_logits = torch.rand((bs, ne), dtype=torch.float16, device=f'npu:{self.device_id}')
+        input_dyn_axes = [[0]]
+        output_dyn_axes = [[0], [0]]
+        self.set_dyn_axes(input_dyn_axes, output_dyn_axes)
         self.setup_inputs_jit(router_logits)
+
         return (router_logits, )
 
 
@@ -101,5 +101,6 @@ def test():
         if (i == 1):
             bs = 1
         params = (bs, ne, top_k, renormalize)
-        st = SelectExpertsTest(params, op_select_experts, golden_select_experts, tiling=32)
+
+        st = SelectExpertsTest(params, op_select_experts, golden_select_experts, 32)
         st(jit=True)

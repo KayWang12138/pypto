@@ -130,12 +130,6 @@ def add_rms_norm(inputs: list, outputs: list, eps: float):
     output_hidden_states = outputs[0]
     output_residual = outputs[1]
     
-    # Mark batch dimension (axis 0) as dynamic
-    pypto.mark_dynamic(residual, 0)
-    pypto.mark_dynamic(hidden_states, 0)
-    pypto.mark_dynamic(output_hidden_states, 0)
-    pypto.mark_dynamic(output_residual, 0)
-    
     # Get tensor shapes
     calc_dtype = pypto.DT_FP32
     input_dtype = hidden_states.dtype
@@ -280,12 +274,21 @@ def test_add_rms_norm():
             dtype=torch.float16, 
             device=f'npu:{device_id}'
         )
-        
+
+        # Initialize PyPTO inputs and outputs, mark batch dimension (axis 0) as dynamic
+        inputs = {
+            residual_tensor: [0],
+            hidden_states_tensor: [0],
+            weight_tensor: []
+        }
+        outputs = {
+            output_hidden_states: [0],
+            output_residual: [0]
+        }
+        pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+        pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
+
         # Execute PyPTO kernel
-        inputs = [residual_tensor, hidden_states_tensor, weight_tensor]
-        outputs = [output_hidden_states, output_residual]
-        pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-        pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
         add_rms_norm(pto_inputs, pto_outputs, eps)
         pypto.runtime._device_synchronize()
         

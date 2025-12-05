@@ -31,8 +31,6 @@ def get_table_main(inputs, outputs):
     expert_tokens = inputs[0]
     expert_offset = outputs[0]
 
-    pypto.mark_dynamic(inputs[0], 0)
-
     expert_num = expert_tokens.shape[0]
     pypto.set_vec_tile_shapes(32)
     # 计算每个专家的token的偏移地址
@@ -70,10 +68,10 @@ def test_expert_offset_table():
     expert_tokens = torch.randint(0, bs, (per_expert_num,), dtype = torch.int32, device = f'npu:{device_id}')
     expert_offset = torch.zeros_like(expert_tokens, device = f'npu:{device_id}')
 
-    inputs = [expert_tokens]
-    outputs = [expert_offset]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    inputs = {expert_tokens: [0]}
+    outputs = {expert_offset: []}
+    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     get_table_main(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()
 

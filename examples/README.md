@@ -171,24 +171,38 @@ python3 examples/models/qwen3/add_rms_norm.py
 ### Pattern 1: Basic JIT Function
 
 ```python
-@pto.jit
+x_torch = ...
+y_torch = ...
+# convert to pypto tensors
+x = pypto.from_torch(x_torch)
+y = pypto.from_torch(y_torch)
+inputs = [x]
+outputs = [y]
+@pypto.jit
 def my_function(inputs, outputs):
     x = inputs[0]
-    out = outputs[0]
-    pto.set_vec_tile_shapes(32, 32)
-    with pto.function("NAME", [x], [out], static=True):
-        out[:] = pto.operation(x)
+    y = outputs[0]
+    pypto.set_vec_tile_shapes(32, 32)
+    y[:] = pypto.operation(x)
 ```
 
 ### Pattern 2: Dynamic Shapes
 
 ```python
-@pto.jit
+# create torch tensors
+x_torch = ...
+y_torch = ...
+# convert to pypto tensors
+# Mark batch dimension as dynamic
+x = pypto.from_torch(x_torch, dynamic_axis=[0])
+y = pypto.from_torch(y_torch)
+inputs = [x]
+outputs = [y]
+@pypto.jit
 def my_function(inputs, outputs):
     x = inputs[0]
-    out = outputs[0]
-    pto.mark_dynamic(x, 0)  # Mark batch dimension
-    pto.set_codegen_options(support_dynamic_unaligned=True)
+    y = outputs[0]
+    pypto.set_codegen_options(support_dynamic_unaligned=True)
     # ... rest of function
 ```
 
@@ -196,12 +210,12 @@ def my_function(inputs, outputs):
 
 ```python
 # Function 1
-@pto.jit
+@pypto.jit
 def function1(inputs, outputs):
     # ...
 
 # Function 2
-@pto.jit
+@pypto.jit
 def function2(inputs, outputs):
     # ...
 
