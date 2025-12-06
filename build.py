@@ -129,14 +129,6 @@ class FeatureParam(CMakeParam):
     def frontend_type_python3(self) -> bool:
         return self.frontend_type in ["python", "python3"]
 
-    @property
-    def def_build_job_num(self) -> Optional[int]:
-        def_job_num: int = min(int(math.ceil(float(multiprocessing.cpu_count()) * 0.9)), 48)  # 设置 48 为缺省最大核数
-        if self.frontend_type_python3:
-            return None if MetaHelper.has_ninja() else def_job_num
-        else:
-            return def_job_num
-
     @staticmethod
     def reg_args(parser, ext: Optional[Any] = None):
         parser.add_argument("-f", "--frontend", nargs="?", type=str, default="python3",
@@ -161,54 +153,65 @@ class FeatureParam(CMakeParam):
 class BuildParam(CMakeParam):
     """构建相关参数
     """
-    targets: Optional[List[str]] = None  # 编译目标
-    job_num: Optional[int] = None  # 编译阶段使用核数
     clean: bool = False  # 强制清理 Build-Tree 及 Install-Tree 标记
     timeout: Optional[int] = None  # 构建超时时长
-    type_: Optional[str] = None  # 构建类型
+    # Configure
+    generator: Optional[str] = None  # Generator
+    build_type: Optional[str] = None  # 构建类型
     asan: bool = False  # 使能 AddressSanitizer
     ubsan: bool = False  # 使能 UndefinedBehaviorSanitizer
     gcov: bool = False  # 使能 GNU Coverage
     clang_install_path: Optional[Path] = None  # Clang 安装位置
+    # Build
+    targets: Optional[List[str]] = None  # 编译目标
+    job_num: Optional[int] = None  # 编译阶段使用核数
+    # Install
     disable_install_strip: bool = False
 
     def __init__(self, args, feature: FeatureParam):
         self.targets = args.targets
-        self.job_num = args.job_num if args.job_num > 0 else feature.def_build_job_num
+        self.job_num = self._get_job_num(job_num=args.job_num, generator=args.generator)
         self.clean = args.clean
         self.timeout = None if args.timeout == 0 else args.timeout
-        self.type_ = args.build_type
+        self.generator = args.generator if " " not in args.generator else args.generator.replace(" ", "\ ")
+        self.build_type = args.build_type
         self.asan = args.asan
         self.ubsan = args.ubsan
         self.gcov = args.gcov
         self.clang_install_path = self._get_clang_install_path(opt=args.clang)
         self.disable_install_strip = args.disable_install_strip
-        
+
     def __str__(self):
+        install_strip: bool = not self.disable_install_strip
         desc: str = ""
         desc += f"\nBuild"
-        desc += f"\n    Targets                 : {self.targets}"
-        desc += f"\n    Job Num                 : {self.job_num}"
         desc += f"\n    Clean                   : {self.clean}"
         desc += f"\n    Timeout                 : {self.timeout}"
-        desc += f"\n    BuildType               : {self.type_}"
-        desc += f"\n    ASan                    : {self.asan}"
-        desc += f"\n    UbSan                   : {self.ubsan}"
-        desc += f"\n    GCov                    : {self.gcov}"
-        desc += f"\n    ClangInstallPath        : {self.clang_install_path}"
+        desc += f"\n    CMake"
+        desc += f"\n        Configure"
+        desc += f"\n                  Generator : {self.generator}"
+        desc += f"\n                  BuildType : {self.build_type}"
+        desc += f"\n                       ASan : {self.asan}"
+        desc += f"\n                      UbSan : {self.ubsan}"
+        desc += f"\n                       GCov : {self.gcov}"
+        desc += f"\n           ClangInstallPath : {self.clang_install_path}"
+        desc += f"\n        Build"
+        desc += f"\n                    Targets : {self.targets}"
+        desc += f"\n                    Job Num : {self.job_num}"
+        desc += f"\n        Install"
+        desc += f"\n                      Strip : {install_strip}"
         return desc
 
     @staticmethod
     def reg_args(parser, ext: Optional[Any] = None):
-        parser.add_argument("-t", "--targets", nargs="?", type=str, action="append",
-                            help="targets, specific build targets, "
-                                 "If you specify more than one, all targets within the specified range are built.")
-        parser.add_argument("-j", "--job_num", nargs="?", type=int, default=-1,
-                            help="job num, specific job num of build.")
         parser.add_argument("-c", "--clean", action="store_true", default=False,
                             help="clean, clean Build-Tree and Install-Tree before build.")
         parser.add_argument("--timeout", nargs="?", type=int, default=0,
                             help="build task timeout.")
+        # Configure
+        parser.add_argument("--generator", nargs="?", type=str, default="Unix Makefiles",
+                            choices=["Ninja", "Unix Makefiles"],
+                            help="Specify a build system generator.")
         parser.add_argument("--build_type", "--build-type", nargs="?", type=str, default="Release",
                             choices=["Debug", "Release", "MinSizeRel", "RelWithDebInfo"],
                             help="build type.")
@@ -220,8 +223,15 @@ class BuildParam(CMakeParam):
                             help="Enable GNU Coverage Instrumentation Tool.")
         parser.add_argument("--clang", nargs="?", type=str, default="",
                             help="Specify clang install path, such as /usr/bin/clang")
+        # Build
+        parser.add_argument("-t", "--targets", nargs="?", type=str, action="append",
+                            help="targets, specific build targets, "
+                                 "If you specify more than one, all targets within the specified range are built.")
+        parser.add_argument("-j", "--job_num", nargs="?", type=int, default=-1,
+                            help="job num, specific job num of build.")
+        # Install
         parser.add_argument("--disable_install_strip", action="store_true", default=False,
-                                help="Disable stripping installed files.")
+                            help="Disable stripping installed files.")
 
     @staticmethod
     def _get_clang_install_path(opt: Optional[str]) -> Optional[Path]:
@@ -241,9 +251,16 @@ class BuildParam(CMakeParam):
                 raise ValueError(f"Clang install path not exist, path={clang_install_path}")
         return clang_install_path
 
+    @staticmethod
+    def _get_job_num(job_num: int, generator: str) -> Optional[int]:
+        def_job_num: Optional[int] = min(int(math.ceil(float(multiprocessing.cpu_count()) * 0.9)), 48)  # 48 为缺省最大核数
+        def_job_num = None if generator.lower() in ["ninja", ] else def_job_num  # ninja 由其自身决定缺省核数
+        job_num = job_num if job_num > 0 else def_job_num
+        return job_num
+
     def get_cfg_cmd(self) -> str:
         cmd: str = ""
-        cmd += self._cfg_require(opt="CMAKE_BUILD_TYPE", tv=self.type_)
+        cmd += self._cfg_require(opt="CMAKE_BUILD_TYPE", tv=self.build_type)
         cmd += self._cfg_require(opt="ENABLE_ASAN", ctr=self.asan)
         cmd += self._cfg_require(opt="ENABLE_UBSAN", ctr=self.ubsan)
         cmd += self._cfg_require(opt="ENABLE_GCOV", ctr=self.gcov)
@@ -276,7 +293,7 @@ class BuildParam(CMakeParam):
         return cmd
 
     def get_pep517_cfg_cmd(self) -> str:
-        cmd: str = self._cfg_pep517_require(opt="CMAKE_BUILD_TYPE", tv=f"{self.type_}")
+        cmd: str = self._cfg_pep517_require(opt="CMAKE_BUILD_TYPE", tv=f"{self.build_type}")
         cmd += self._cfg_pep517_require(opt="ENABLE_ASAN", ctr=self.asan)
         cmd += self._cfg_pep517_require(opt="ENABLE_UBSAN", ctr=self.ubsan)
         cmd += self._cfg_pep517_require(opt="ENABLE_GCOV", ctr=self.gcov)
@@ -967,7 +984,8 @@ class BuildCtrl:
         """CMake Configure 阶段流程.
         """
         # 基本配置, 当前 CMake 中有调用 python3 的情况, 传入 python3 解释器, 保证所使用的 python3 版本一致
-        cmd = f"cmake -S {self.src_root} -B {self.build_root} -DPython3_EXECUTABLE={sys.executable}"
+        cmd: str = f"cmake -S {self.src_root} -B {self.build_root} -G {self.build.generator}"
+        cmd += f" -DPython3_EXECUTABLE={sys.executable}"
         cmd += self.feature.get_cfg_cmd()
         cmd += self.build.get_cfg_cmd()
         cmd += self.tests.get_cfg_cmd()
@@ -987,10 +1005,12 @@ class BuildCtrl:
         cmd_list: List[str] = []
         if self.build.targets:
             for t in self.build.targets:
-                cmd = f"cmake --build {self.build_root} --target {t} -- -j {self.build.job_num}"
+                cmd: str = f"cmake --build {self.build_root} --target {t}"
+                cmd += f" -- -j {self.build.job_num}" if self.build.job_num else ""
                 cmd_list.append(cmd)
         else:
-            cmd = f"cmake --build {self.build_root} -- -j {self.build.job_num}"
+            cmd: str = f"cmake --build {self.build_root}"
+            cmd += f" -- -j {self.build.job_num}" if self.build.job_num else ""
             cmd_list.append(cmd)
         for i, c in enumerate(cmd_list):
             ts = datetime.now(tz=timezone.utc)
@@ -1026,6 +1046,7 @@ class BuildCtrl:
         cmd += f" --build-base={self.build_root.name}"
         cmd += f" --parallel={self.build.job_num}" if self.build.job_num else ""
         cmd += f" build_ext"
+        cmd += f" --cmake-generator={self.build.generator}"
         cmd += f" --cmake-args=\"{cmake_args}\"" if cmake_args else ""
         cmd += f" --backend={self.feature.backend_type}"
         cmd += f" --disable-install-strip" if self.build.disable_install_strip else ""

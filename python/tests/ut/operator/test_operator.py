@@ -11,7 +11,7 @@
 """
 """
 import pypto
-from .test_base import BaseTest
+from test_base import BaseTest
 
 dtype = pypto.DT_FP16
 shape = (64, 64)

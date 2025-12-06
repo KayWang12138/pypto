@@ -12,6 +12,7 @@
 """
 import pypto
 
+
 def init_tensors():
     dtype = pypto.DT_FP32
     shape = (128, 128)
@@ -48,17 +49,17 @@ def test_tensor_assmble_slice():
         pypto.set_vec_tile_shapes(16, 16)
 
         for k in pypto.loop(10, name="LOOP", idx_name="k"):
-            b[k*16:, 0:] = pypto.add(a, a)
+            b[k * 16:, 0:] = pypto.add(a, a)
 
             if pypto.cond(k < 2):
-                b[k*16:, 0:] = pypto.add(a, a)
+                b[k * 16:, 0:] = pypto.add(a, a)
             else:
-                b[k*16:, 0:] = pypto.sub(a, a)
+                b[k * 16:, 0:] = pypto.sub(a, a)
 
             if pypto.cond(k < 5):
-                b[0:, :k*16] = pypto.mul(a, a)
+                b[0:, :k * 16] = pypto.mul(a, a)
             else:
-                b[0:, :k*16] = pypto.div(a, a)
+                b[0:, :k * 16] = pypto.div(a, a)
             c[:] = pypto.sub(b, a)
 
     assert isinstance(c, pypto.tensor)

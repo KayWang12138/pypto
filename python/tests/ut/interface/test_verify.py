@@ -10,9 +10,9 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
+import pypto
 import pytest
 import torch
-import pypto
 
 
 def add(inputs, outputs):
@@ -40,13 +40,13 @@ def test_verify_full_options():
     c = torch.zeros((64, 64))
 
     pypto.verify(add, [a, b], [c], [a + b],
-               host_options={"only_codegen": True},
-               codegen_options={"support_dynamic_unaligned": True},
-               verify_options={"verify_tensor_graph": True,
-                               "verify_pass": True,
-                               "check_precision": True,
-                               "dump_tensor": True,
-                               "dump_operation": True,
-                               "profile_enable": True
-                               }
-               )
+                 host_options={"only_codegen": True},
+                 codegen_options={"support_dynamic_unaligned": True},
+                 verify_options={"verify_tensor_graph": True,
+                                 "verify_pass": True,
+                                 "check_precision": True,
+                                 "dump_tensor": True,
+                                 "dump_operation": True,
+                                 "profile_enable": True
+                                 }
+                 )

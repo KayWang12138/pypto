@@ -10,3 +10,22 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
+import logging
+
+import pypto
+
+
+def test_element():
+    a = pypto.element(pypto.DT_FP32, 1.0)
+    assert a.dtype == pypto.DT_FP32
+    assert a.value == 1.0
+
+    b = pypto.element(pypto.DT_INT32, 1)
+    assert b.dtype == pypto.DT_INT32
+    assert b.value == 1
+
+
+if __name__ == "__main__":
+    logging.basicConfig(format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s', level=logging.INFO)
+    test_element()
+    logging.info("Exist")

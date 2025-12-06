@@ -84,7 +84,6 @@ def test_symbolic_scalar_uniop():
 
 
 def test_binary_ops():
-
     c = 10
     x = pypto.symbolic_scalar(10)
     y = pypto.symbolic_scalar('y')

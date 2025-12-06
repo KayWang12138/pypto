@@ -94,8 +94,9 @@ add_subdirectory(python)
 if (ENABLE_FEATURE_PYTHON_FRONT_END)
     # 安装 二进制文件
     set(InstallExport ${PROJECT_NAME}Targets)
-    set(InstallTargets tile_fwk_interface tile_fwk_codegen tile_fwk_compiler tile_fwk_runtime tile_fwk_simulation tile_fwk_simulation_ca)
+    set(InstallTargets tile_fwk_interface tile_fwk_codegen tile_fwk_compiler tile_fwk_simulation tile_fwk_simulation_ca)
     if (BUILD_WITH_CANN)
+        install(TARGETS tile_fwk_runtime LIBRARY DESTINATION "${ENABLE_FEATURE_PYTHON_FRONT_END}/lib")
         install(TARGETS tile_fwk_server LIBRARY DESTINATION "${ENABLE_FEATURE_PYTHON_FRONT_END}/lib")
         install(TARGETS pypto_ctrl_server ARCHIVE DESTINATION "${ENABLE_FEATURE_PYTHON_FRONT_END}/lib")
     endif ()
@@ -170,42 +171,13 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
     set(CPACK_PACKAGE_DESCRIPTION ${PROJECT_NAME})
     include(CPack)
 else ()
-    # 安装 二进制文件
-    install(TARGETS tile_fwk_interface      LIBRARY DESTINATION lib OPTIONAL)
-    if (ENABLE_TORCH_VERIFIER)
-        install(TARGETS tile_fwk_calculator LIBRARY DESTINATION lib OPTIONAL)
-    endif ()
-    install(TARGETS tile_fwk_passes         LIBRARY DESTINATION lib OPTIONAL)
-    install(TARGETS tile_fwk_codegen        LIBRARY DESTINATION lib OPTIONAL)
-    install(TARGETS tile_fwk_compiler       LIBRARY DESTINATION lib OPTIONAL)
-    install(TARGETS tile_fwk_runtime        LIBRARY DESTINATION lib OPTIONAL)
     if (NOT BUILD_OPEN_PROJECT)
-        install(TARGETS tile_fwk_executor   LIBRARY DESTINATION lib OPTIONAL)
-    endif ()
-    install(TARGETS tile_fwk_simulation     LIBRARY DESTINATION lib OPTIONAL)
-    install(TARGETS tile_fwk_simulation_ca  LIBRARY DESTINATION lib OPTIONAL)
-    if (BUILD_WITH_CANN)
-        install(TARGETS tile_fwk_simulation_pv  LIBRARY DESTINATION lib OPTIONAL)
-    endif ()
-    install(TARGETS tile_fwk_operator       LIBRARY DESTINATION lib OPTIONAL)
-
-    macro(PTO_Fwk_AddConfig ConfFile)
-        get_filename_component(DestName "${ConfFile}" NAME)
-        add_custom_command(
-            OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${DestName}
-            COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_LIST_DIR}/${ConfFile} ${CMAKE_CURRENT_BINARY_DIR}
+        # 安装 二进制文件
+        install(TARGETS tile_fwk_executor LIBRARY DESTINATION lib OPTIONAL)
+        # 安装 头文件
+        install(DIRECTORY framework/include/tilefwk/
+                DESTINATION lib/tilefwk/
+                PATTERN "gentask_utils.h"
         )
-        add_custom_target(${DestName} ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${DestName})
-        install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${DestName} DESTINATION lib OPTIONAL)
-    endmacro()
-
-    PTO_Fwk_AddConfig("framework/src/interface/configs/tile_fwk_config.json")
-    PTO_Fwk_AddConfig("framework/src/interface/configs/tile_fwk_types.json")
-    PTO_Fwk_AddConfig("framework/src/interface/configs/tile_fwk_config_schema.json")
-    PTO_Fwk_AddConfig("framework/src/passes/pass_config/tile_fwk_platform_info.json")
-
-    # 安装头文件
-    install(DIRECTORY framework/include/tilefwk/                        DESTINATION lib/tilefwk/    OPTIONAL)
-    install(DIRECTORY framework/src/interface/tileop/                   DESTINATION lib/tileop/     OPTIONAL)
-    install(DIRECTORY framework/src/interface/machine/device/tilefwk/   DESTINATION lib/tilefwk/    OPTIONAL)
+    endif ()
 endif ()

@@ -96,6 +96,7 @@ class CMakeUserOption:
     # 额外的命令行配置, 格式: 长选项, 短选项, 描述, 默认值
     USER_OPTION: List[Any] = [
         ('clean-first', None, 'Clean before build', None),
+        ('cmake-generator=', None, 'CMake Generator', None),
         ('cmake-args=', None, 'Additional CMake parameters', None),
         ('backend=', None, 'Backend type', None),
         ('disable-install-strip', None, 'Disable strip when install', None),
@@ -103,6 +104,7 @@ class CMakeUserOption:
 
     def __init__(self):
         self.clean_first: Optional[bool] = None
+        self.cmake_generator: Optional[str] = None
         self.cmake_args: Optional[str] = None
         self.backend: Optional[str] = None
         self.disable_install_strip: bool = False
@@ -115,14 +117,25 @@ class CMakeUserOption:
         desc += f"\n    Python3               : {sys.executable} ({ver.major}.{ver.minor}.{ver.micro})"
         desc += f"\n{self.__class__.__name__}"
         desc += f"\n    clean-first           : {self.clean_first}"
+        desc += f"\n    cmake_generator       : {self.cmake_generator}"
         desc += f"\n    cmake-args            : {self.cmake_args}"
         desc += f"\n    backend               : {self.backend}"
         desc += f"\n    disable-install-strip : {self.disable_install_strip}"
         desc += f"\n"
         return desc
 
+    @staticmethod
+    def _get_cmake_generator(generator: Optional[str]) -> Optional[str]:
+        if generator:
+            generator = generator.replace(" ", "\ ")
+        else:
+            if MetaHelper.has_ninja():
+                generator = "Ninja"
+        return generator
+
     def initialize_options_default(self):
         self.clean_first = None
+        self.cmake_generator = None
         self.cmake_args = None
         self.backend = None
         self.disable_install_strip = False
@@ -132,17 +145,20 @@ class CMakeUserOption:
         if env_build_ext_args:
             parser = argparse.ArgumentParser(description=f"Setuptools CMakeBuild Ext.", add_help=False)
             parser.add_argument("--clean-first", action="store_true", default=False, dest="clean")
+            parser.add_argument("--cmake-generator", nargs="?", type=str, default="", dest="cmake_generator")
             parser.add_argument("--cmake-args", nargs="?", type=str, default="", dest="cmake_args")
             parser.add_argument("--backend", nargs="?", type=str, default="", dest="backend")
             parser.add_argument("--disable-install-strip", action="store_true", default=False, dest="strip")
             args, _ = parser.parse_known_args(env_build_ext_args.split())
             self.clean_first = args.clean
+            self.cmake_generator = self._get_cmake_generator(generator=args.cmake_generator)
             self.cmake_args = str(args.cmake_args).replace("'", "")
             self.backend = str(args.backend).lower()
             self.disable_install_strip = args.strip
 
     def finalize_options_normal(self):
         self.clean_first = True if self.clean_first else False
+        self.cmake_generator = self._get_cmake_generator(generator=self.cmake_generator)
         self.cmake_args = None if not self.cmake_args else self.cmake_args
         self.backend = str(self.backend).lower() if self.backend else ""
         self.disable_install_strip = True if self.disable_install_strip else False
@@ -177,8 +193,8 @@ class CMakeBuild(build_ext, CMakeUserOption):
         build_dir.mkdir(parents=True, exist_ok=True)
 
         # CMake Configure
-        generator: str = "Ninja" if MetaHelper.has_ninja() else "'Unix Makefiles'"
-        cmd: str = f"cmake -S {MetaHelper.src_root()} -B {build_dir} -G {generator}"
+        cmd: str = f"cmake -S {MetaHelper.src_root()} -B {build_dir}"
+        cmd += f" -G {self.cmake_generator}" if self.cmake_generator else ""
         cmd += f" -DPython3_EXECUTABLE={sys.executable} -DCMAKE_INSTALL_PREFIX={self.build_lib}"
         cmd += f" -DENABLE_FEATURE_PYTHON_FRONT_END={MetaHelper.name()}"
         cmd += f" -DBUILD_WITH_CANN=OFF" if self.backend in ["cost_model", ] else f" -DBUILD_WITH_CANN=ON"

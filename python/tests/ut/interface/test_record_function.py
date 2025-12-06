@@ -11,7 +11,6 @@
 """
 """
 import pypto
-import pytest
 
 
 def test_record_function():

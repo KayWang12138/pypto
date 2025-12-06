@@ -42,6 +42,7 @@ def test_init_tensor_no_name():
     assert tensor.dtype == expected_dtype
     assert tensor.shape == shape
 
+
 def test_tensor_add_plus_op():
     dtype = pypto.DT_FP16
     shape = [8, 8]

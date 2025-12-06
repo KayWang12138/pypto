@@ -23,11 +23,11 @@ def test_pass_config():
     assert pypto.get_pass_default_config(pypto.PassConfigKey.KEY_DUMP_FUNCTION_GRAPH_AFTER_PASS, False) is True
 
     pypto.set_pass_config("PVC2_OOO", "ExpandFunction", pypto.PassConfigKey.KEY_DUMP_FUNCTION_GRAPH_BEFORE_PASS, True)
-    assert pypto.get_pass_config("PVC2_OOO", "ExpandFunction", 
+    assert pypto.get_pass_config("PVC2_OOO", "ExpandFunction",
                                  pypto.PassConfigKey.KEY_DUMP_FUNCTION_GRAPH_BEFORE_PASS, False) is True
 
     pypto.set_pass_config("PVC2_OOO", "ExpandFunction", pypto.PassConfigKey.KEY_DUMP_FUNCTION_GRAPH_AFTER_PASS, True)
-    assert pypto.get_pass_config("PVC2_OOO", "ExpandFunction", 
+    assert pypto.get_pass_config("PVC2_OOO", "ExpandFunction",
                                  pypto.PassConfigKey.KEY_DUMP_FUNCTION_GRAPH_AFTER_PASS, False) is True
 
     configs = pypto.get_pass_configs("PVC2_OOO", "ExpandFunction")

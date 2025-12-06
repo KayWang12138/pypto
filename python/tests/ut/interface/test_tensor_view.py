@@ -12,6 +12,7 @@
 """
 import pypto
 
+
 def init_tensors():
     dtype = pypto.DT_FP32
     shape = (128, 128)
@@ -27,7 +28,7 @@ def test_tensor_view():
         pypto.set_vec_tile_shapes(16, 16)
 
         for k in pypto.loop(10):
-            a_view = a[k*16:(k+1)*16, k*16:(k+1)*16]
+            a_view = a[k * 16:(k + 1) * 16, k * 16:(k + 1) * 16]
             b_view = b[:16, :16]
 
             assert isinstance(a_view, pypto.tensor)

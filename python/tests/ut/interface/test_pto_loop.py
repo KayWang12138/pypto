@@ -166,7 +166,7 @@ def test_pto_loop_unroll_n_submit_before_loop():
         pypto.set_vec_tile_shapes(16, 16)
 
         for k in pypto.loop(
-            1, 10, 2, name="LOOP", submit_before_loop=True
+                1, 10, 2, name="LOOP", submit_before_loop=True
         ):
 
             if pypto.cond(k < 5):
