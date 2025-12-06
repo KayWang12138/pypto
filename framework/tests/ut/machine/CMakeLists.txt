@@ -65,7 +65,7 @@ list(APPEND _Sources ${PTO_FWK_SRC_ROOT}/framework/src/machine/device/distribute
 PTO_Fwk_UTest_AddCaseLib(
         TARGET ${_Target}
         SOURCES ${_Sources}
-        PUBLIC_LINK_LIBRARIES tile_fwk_compiler tile_fwk_interface dl
+        PUBLIC_LINK_LIBRARIES tile_fwk_compiler tile_fwk_runtime tile_fwk_interface dl
         GTEST_FILTER_LIST ${_CaseFilterList}
 )
 target_compile_definitions(${_Target}

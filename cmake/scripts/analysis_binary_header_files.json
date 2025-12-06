@@ -93,6 +93,26 @@
       ]
     }
   },
+  "libtile_fwk_runtime.so": {
+    "Source-Header": {
+      "Self": [
+        "framework/tests/runtime/"
+      ],
+      "Area": [
+        "framework/src/interface/",
+        "framework/src/passes/",
+        "framework/src/machine/",
+        "framework/src/cost_model/simulation"
+      ],
+      "Include": [
+        "framework/include/"
+      ],
+      "WhiteList": [
+      ],
+      "BlackList": [
+      ]
+    }
+  },
   "libtile_fwk_executor.so": {
     "Source-Header": {
       "Self": [

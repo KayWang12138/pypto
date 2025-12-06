@@ -23,5 +23,11 @@ target_link_libraries(tile_fwk_codegen
             tile_fwk_intf_pub
             c_sec
 )
+
+target_compile_definitions(tile_fwk_codegen
+        PRIVATE
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:BUILD_WITH_CANN>>
+)
+
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_codegen)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_codegen)

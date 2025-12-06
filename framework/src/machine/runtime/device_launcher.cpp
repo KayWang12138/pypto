@@ -13,9 +13,8 @@
  * \brief
  */
 
-#ifdef BUILD_WITH_CANN
 #include "machine/runtime/device_launcher.h"
-
+#include "machine/runtime/device_launcher_binding.h"
 #include "machine/host/backend.h"
 #include "machine/runtime/host_prof.h"
 namespace npu::tile_fwk::dynamic {
@@ -23,6 +22,7 @@ namespace {
     constexpr uint32_t kMinDefaultDim = 20;
 }
 int GetCfgBlockdim(bool onBoard) {
+#ifdef BUILD_WITH_CANN
     static constexpr uint32_t kMaxVersionLengh = 50;
     char version[kMaxVersionLengh] = {0};
     auto ret = rtGetSocVersion(version, kMaxVersionLengh);
@@ -38,6 +38,9 @@ int GetCfgBlockdim(bool onBoard) {
     auto blk = PlatformManager::Instance().GetAiCoreCnt();
     ALOG_DEBUG_F("Get blockdim[%d] by soc:%s.", blk, socVersion.c_str());
     return blk;
+#else
+    return kMinDefaultDim;
+#endif
 }
 
 void (*forceLinkLibraryCompiler)() = &npu::tile_fwk::ForceLinkLibraryCompiler;
@@ -47,6 +50,7 @@ DeviceLauncherContext &DeviceLauncherContext::Get() {
     return context;
 }
 
+#ifdef BUILD_WITH_CANN
 static const std::unordered_map<int, std::function<void(bool&)>> captureStatusHandlers = {
     {aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_ACTIVE, [](bool& isCapture) {isCapture = true;}},
     {aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_NONE,
@@ -137,7 +141,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         DeviceInitTilingData(DeviceMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary, config, cachedOperator);
         DeviceRunCacheKernelSet(function, (uint8_t *)kArgs.cfgdata);
         DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList);
-        rc = DeviceRunner::Get().RegisterKernelBin(&(*CachedOperator::GetBinHandleHolder(cachedOperator)));
+        rc = DeviceRunner::Get().RegisterKernelBin(&(*reinterpret_cast<rtBinHandle *>(CachedOperator::GetBinHandleHolder(cachedOperator))));
         if (rc < 0) {
             ALOG_ERROR_F("Register kernel bin failed.");
             return rc;
@@ -157,8 +161,10 @@ int DeviceLauncher::DeviceSynchronize(rtStream_t aicpuStream, rtStream_t aicoreS
     int rc = DeviceRunner::Get().DynamicLaunchSynchronize(aicpuStream, nullptr, aicoreStream);
     return rc;
 }
+#endif
 
 int DeviceLauncher::DeviceRunOnce(Function *function, const DeviceLauncherConfig &config) {
+#ifdef BUILD_WITH_CANN
     auto &inputDataList = ProgramData::GetInstance().GetInputDataList();
     auto &outputDataList = ProgramData::GetInstance().GetOutputDataList();
     auto aicpuStream = machine::GetRA()->GetScheStream();
@@ -172,6 +178,9 @@ int DeviceLauncher::DeviceRunOnce(Function *function, const DeviceLauncherConfig
         CopyFromDev(DeviceMemoryUtils(), inputDataList);
     }
     return rc;
+#else
+    return 0;
+#endif
 }
 
 struct DeviceRunCacheInfo {
@@ -207,28 +216,44 @@ uint8_t *DeviceLauncher::DeviceRunCacheKernelGet(Function *func) {
 }
 
 DeviceStream DeviceGetAicpuStream() {
+#ifdef BUILD_WITH_CANN
     rtStream_t aicpuStreamValue = machine::GetRA()->GetScheStream();
     return reinterpret_cast<DeviceStream>(aicpuStreamValue);
+#else
+    return 0;
+#endif
 }
 
 DeviceStream DeviceGetAicoreStream() {
+#ifdef BUILD_WITH_CANN
     rtStream_t aicoreStreamValue = machine::GetRA()->GetStream();
     return reinterpret_cast<DeviceStream>(aicoreStreamValue);
+#else
+    return 0;
+#endif
 }
 
 int ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(
         ExportedOperator *op, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
         DeviceStream aicpuStream, DeviceStream aicoreStream, bool streamSynchronize,
         const DeviceLauncherConfig &config) {
+#ifdef BUILD_WITH_CANN
     rtStream_t aicpuStreamValue = reinterpret_cast<rtStream_t>(aicpuStream);
     rtStream_t aicoreStreamValue = reinterpret_cast<rtStream_t>(aicoreStream);
     return DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(op->GetFunction(), inputList, outputList, aicpuStreamValue, aicoreStreamValue, streamSynchronize, op, config);
+#else
+    return 0;
+#endif
 }
 
 int DeviceSynchronize(DeviceStream aicpuStream, DeviceStream aicoreStream) {
+#ifdef BUILD_WITH_CANN
     rtStream_t aicpuStreamValue = reinterpret_cast<rtStream_t>(aicpuStream);
     rtStream_t aicoreStreamValue = reinterpret_cast<rtStream_t>(aicoreStream);
     return DeviceLauncher::DeviceSynchronize(aicpuStreamValue, aicoreStreamValue);
+#else
+    return 0;
+#endif
 }
 
 int DeviceRunOnce(Function *function, const DeviceLauncherConfig &config) {
@@ -260,5 +285,3 @@ void ExportedOperatorEnd(ExportedOperator *op) {
 }
 
 }
-
-#endif

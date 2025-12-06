@@ -31,7 +31,6 @@
 constexpr int PMU_EVENT_TYPE_MAX = 8;
 constexpr int CORE_DEFAULT_NUM = 70;
 namespace npu::tile_fwk {
-
 struct FileLock {
     FileLock() : fd(-1){};
 
@@ -114,7 +113,7 @@ private:
     bool isCapture_ = false;
     aclmdlRICaptureMode captureMode_ = ACL_MODEL_RI_CAPTURE_MODE_GLOBAL;
 };
-
+}
 #else
 namespace npu::tile_fwk {
 class DeviceRunner {
@@ -135,8 +134,12 @@ public:
         (void)taskData;
         return 0;
     }
-    HostProf &GetHostProfInstance() {};
+    HostProf &GetHostProfInstance() {
+        return hostProf_;
+    }
+private:
+    HostProf hostProf_;
 };
-#endif
 } // namespace npu::tile_fwk
+#endif
 #endif // SRC_MACHINE_DEVICE_RUNNER_H

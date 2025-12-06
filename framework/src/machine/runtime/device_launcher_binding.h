@@ -22,7 +22,6 @@
 #include "interface/function/function.h"
 #include "interface/program/program.h"
 #include "machine/utils/dynamic/dev_encode.h"
-#include <runtime/rt.h>
 
 namespace npu::tile_fwk::dynamic {
 
@@ -105,7 +104,7 @@ public:
     }
     const std::vector<DeviceTensorData> &GetInputList() { return inputList_; }
     const std::vector<DeviceTensorData> &GetOutputList() { return outputList_; }
-    static rtBinHandle *GetBinHandleHolder(CachedOperator *cachedOperator) {
+    static void *GetBinHandleHolder(CachedOperator *cachedOperator) {
         return cachedOperator == nullptr ? nullptr : &cachedOperator->binHandle_;
     }
 private:
@@ -114,7 +113,7 @@ private:
     uint8_t *metaDataDevAddr_{nullptr};
     std::vector<DeviceTensorData> inputList_;
     std::vector<DeviceTensorData> outputList_;
-    rtBinHandle binHandle_{nullptr};
+    void *binHandle_{nullptr};
 };
 
 class ExportedOperator : public CachedOperator {

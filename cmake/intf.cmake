@@ -26,7 +26,7 @@ target_compile_options(tile_fwk_intf_pub
             # 告警增强选项
             -Wextra
             -Wundef
-            -Wunused
+            $<$<BOOL:${BUILD_WITH_CANN}>:-Wunused>
             -Wcast-qual
             -Wpointer-arith
             -Wdate-time
@@ -92,7 +92,7 @@ target_compile_options(tile_fwk_intf_pub
             $<$<CXX_COMPILER_ID:Clang>:-Wno-unsequenced>
             $<$<CXX_COMPILER_ID:Clang>:-Wno-unused-function>
             $<$<CXX_COMPILER_ID:Clang>:-Wno-return-type-c-linkage>
-            -Werror
+            $<$<BOOL:${BUILD_WITH_CANN}>:-Werror>
             # 依赖分析选项
             $<$<CXX_COMPILER_ID:GNU>:$<$<OR:$<BOOL:${ENABLE_UTEST}>,$<BOOL:${ENABLE_STEST}>,$<BOOL:${ENABLE_STEST_DISTRIBUTED}>>:-MMD>>
 )

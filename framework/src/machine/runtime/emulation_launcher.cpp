@@ -13,7 +13,6 @@
  * \brief
  */
 
-#ifdef BUILD_WITH_CANN
 #include "machine/runtime/emulation_launcher.h"
 
 #include <thread>
@@ -154,9 +153,11 @@ static std::vector<DeviceTensorData> toHostTensorData(const std::vector<DeviceTe
     for (auto &devData : devDataList) {
         auto size = devData.GetDataSize();
         void *ptr = malloc(size);
+#ifdef BUILD_WITH_CANN
         if (isInput) {
             rtMemcpy(ptr, size, (void *)devData.GetDevAddr(), size, RT_MEMCPY_DEVICE_TO_HOST);
         }
+#endif
         hostDataList.emplace_back(devData.GetDataType(), (uintptr_t)ptr, devData.GetShape());
     }
     return hostDataList;
@@ -179,5 +180,3 @@ int EmulationLauncher::EmulationLaunchDeviceTensorData(Function *function,
     return rc;
 }
 }
-
-#endif

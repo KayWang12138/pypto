@@ -19,9 +19,9 @@
 #include <string>
 #include <vector>
 #include <memory>
+#ifdef BUILD_WITH_CANN
 #include "runtime/mem.h"
 #include "machine/utils/machine_ws_intf.h"
-#ifdef BUILD_WITH_NEW_CANN
 #include "rts/rts_kernel.h"
 #endif
 #include <unordered_map>

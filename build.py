@@ -1063,7 +1063,7 @@ class BuildCtrl:
         if not tests.enable or not self.tests.exec.auto_execute:
             return
         # cmd 拼接
-        cmd: str = f"{sys.executable} -m pytest -vv -s --rootdir={self.src_root}"
+        cmd: str = f"{sys.executable} -m pytest -vv -s --rootdir={self.src_root} --capture=no"
         def_filter = def_filter if tests.filter_str in ["ON"] else tests.filter_str
         def_filter = def_filter.replace(',', ' ')
         cmd += f" {def_filter} {ext}"

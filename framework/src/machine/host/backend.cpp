@@ -784,12 +784,14 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, cons
 
     encodeDevAscendFunctionParam.inoutLink = &attr->inoutLink;
 
+#ifdef BUILD_WITH_CANN
     int ret = CompileAICoreKernel(leafDict, encodeDevAscendFunctionParam,
                                   ccePath, function->GetFunctionHash().Data(), kernelPath);
     if (ret != 0) {
       ALOG_ERROR_F("Compile dynamic aicore.o failed.");
       return;
     }
+#endif
     attr->kernelBinary = LoadFile(kernelPath);
     ALOG_DEBUG_F("KernelBinary size %zu.", attr->kernelBinary.size());
 

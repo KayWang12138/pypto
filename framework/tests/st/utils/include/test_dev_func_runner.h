@@ -91,6 +91,10 @@ struct MemoryHelper {
         CopyFromDev(t.data(), t.GetDevPtr(), t.size());
     }
 
+    uint64_t GetL2Offset() {
+        return machine::GetRA()->GetL2Offset();
+    }
+
     bool isTest_{true};
 };
 

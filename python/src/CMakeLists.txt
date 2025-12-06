@@ -34,6 +34,7 @@ target_link_libraries(pypto_impl
             tile_fwk_interface
             tile_fwk_codegen
             tile_fwk_compiler
+            tile_fwk_runtime
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub

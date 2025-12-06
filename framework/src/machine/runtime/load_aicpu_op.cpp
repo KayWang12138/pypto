@@ -16,6 +16,7 @@
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <limits.h>
+#ifdef BUILD_WITH_CANN
 #include "load_aicpu_op.h"
 #include "runtime/mem.h"
 #include "interface/utils/log.h"
@@ -181,3 +182,4 @@ int LoadAicpuOp::LaunchBuiltInOp([[maybe_unused]]rtStream_t stream, [[maybe_unus
 #endif
 }
 }// namespace
+#endif

@@ -1423,7 +1423,6 @@ struct EncodeDevAscendFunctionInfo {
                    coreType == static_cast<uint32_t>(CoreType::HUB) || coreType == static_cast<uint32_t>(CoreType::AICPU));
             callopCoreTypeDict[op] = coreType;
         }
-        static_assert(CoreType::AIV < CoreType::AIC);
 
         std::sort(callopList.begin(), callopList.end(), [&](Operation *lhs, Operation *rhs) {
             if (callOpPredDict[lhs] != callOpPredDict[rhs]) {

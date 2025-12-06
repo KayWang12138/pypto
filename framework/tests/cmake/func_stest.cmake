@@ -304,6 +304,7 @@ function(PTO_Fwk_STest_AddExe_RunExe)
             tile_fwk_interface
             tile_fwk_codegen
             tile_fwk_compiler
+            tile_fwk_runtime
             tile_fwk_simulation
             tile_fwk_simulation_ca
             tile_fwk_operator

@@ -104,7 +104,8 @@ class TestBuilder(abc.ABC):
         pass
 
     def run_pto(self, kernel, tiling, on_board: bool = True):
-        torch.npu.set_device(self.device_id)
+        if on_board:
+            torch.npu.set_device(self.device_id)
 
         logging.info("Function compile ...")
         pypto.set_vec_tile_shapes(tiling, tiling)

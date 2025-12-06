@@ -19,15 +19,11 @@
 #include <cstdint>
 
 #include "machine/runtime/device_launcher_binding.h"
-
 #include "interface/configs/config_manager.h"
 #include "interface/function/function.h"
 #include "machine/utils/dynamic/dev_encode.h"
-#include "machine/runtime/runtime.h"
 #include "machine/device/dynamic/device_common.h"
-#include "runtime/dev.h"
-#include "machine/runtime/device_runner.h"
-#include "machine/platform/platform_manager.h"
+#include "machine/runtime/device_memory_utils.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "tilefwk/data_type.h"
@@ -82,55 +78,6 @@ protected:
 #endif
 };
 
-struct DeviceMemoryUtils {
-    static bool IsDevice() { return true; }
-    uint8_t *AllocDev(size_t size, uint8_t **cachedDevAddrHolder) {
-        uint8_t *devPtr = nullptr;
-        if (cachedDevAddrHolder == nullptr) {
-            machine::GetRA()->AllocDevAddr(&devPtr, size);
-        } else if (*cachedDevAddrHolder == nullptr) {
-            machine::GetRA()->AllocDevAddr(&devPtr, size);
-            *cachedDevAddrHolder = devPtr;
-        } else {
-            devPtr = *cachedDevAddrHolder;
-        }
-        return devPtr;
-    }
-
-    uint8_t *AllocZero(uint64_t size, uint8_t **cachedDevAddrHolder) {
-        uint8_t *devPtr = AllocDev(size, cachedDevAddrHolder);
-        (void)rtMemset(devPtr, size, 0, size);
-        return devPtr;
-    }
-
-    uint8_t *CopyToDev(uint8_t *data, uint64_t size, uint8_t **cachedDevAddrHolder) {
-        uint8_t *devPtr = AllocDev(size, cachedDevAddrHolder);
-        rtMemcpy(devPtr, size, data, size, RT_MEMCPY_HOST_TO_DEVICE);
-        return devPtr;
-    }
-
-    template <typename T>
-    T *CopyToDev(std::vector<T> data, uint8_t **cachedDevAddrHolder) {
-        return (T *)CopyToDev((uint8_t *)data.data(), data.size() * sizeof(T), cachedDevAddrHolder);
-    }
-
-    void CopyFromDev(uint8_t *data, uint8_t *devPtr, uint64_t size) {
-        rtMemcpy(data, size, devPtr, size, RT_MEMCPY_DEVICE_TO_HOST);
-    }
-
-    uint8_t *CopyToDev(RawTensorData &data) {
-        if (data.GetDevPtr() == nullptr) {
-            auto devPtr = CopyToDev((uint8_t *)data.data(), data.size(), nullptr);
-            data.SetDevPtr(devPtr);
-        }
-        return data.GetDevPtr();
-    }
-
-    void CopyFromDev(RawTensorData &t) {
-        CopyFromDev(t.data(), t.GetDevPtr(), t.size());
-    }
-};
-
 class DeviceLauncher {
 public:
     static constexpr uint32_t kDefaultAicNum = 25;
@@ -147,7 +94,11 @@ public:
     template<typename DeviceMemoryTy>
     static void DeviceInitTilingData(DeviceMemoryTy devMem, AstKernelArgs &kArgs, const std::vector<uint8_t> &devProgData,
         const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
+#ifdef BUILD_WITH_CANN
         int maxBlockDim = GetCfgBlockdim(config.onBoard);
+#else
+        int maxBlockDim = 25;
+#endif
         DeviceLauncherConfig &launchConfig = const_cast<DeviceLauncherConfig &>(config);
         if (config.blockdim == 0 || config.blockdim > maxBlockDim) {
             launchConfig.blockdim = maxBlockDim;
@@ -183,7 +134,7 @@ public:
             AlignUp(devProg->memBudget.tensor.dassembleDests + config.dynWorkspaceSize, TENSOR_ADDR_ALIGNMENT);
         devProg->workspaceSize = devProg->GetWorkspaceSize();
 
-        devProg->l2CacheOffset = machine::GetRA()->GetL2Offset();
+        devProg->l2CacheOffset = devMem.GetL2Offset();
         ASSERT(devProg->commGroupNum == config.hcclContext.size());
         ASSERT(devProg->commGroupNum <= (sizeof(devProg->hcclContext) / sizeof(uint64_t)));
         for (size_t i = 0; i < devProg->commGroupNum; i++) {
@@ -277,6 +228,7 @@ public:
         }
     }
 
+#ifdef BUILD_WITH_CANN
     static void ChangeCaptureMode(aclmdlRICaptureMode &mode);
     static int GetStreamCaptureInfo(rtStream_t aicoreStream, aclmdlRI &rtModel, bool &isCapture);
     static int SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuStream);
@@ -286,7 +238,30 @@ public:
             const DeviceLauncherConfig &config = DeviceLauncherConfig());
 
     static int DeviceSynchronize(rtStream_t aicpuStream, rtStream_t aicoreStream);
+#else
+using aclmdlRICaptureMode = uint32_t;
+using rtStream_t = uint64_t;
+using aclmdlRI = void *;
+    static void ChangeCaptureMode(aclmdlRICaptureMode &mode) {
+        return;
+    }
+    static int GetStreamCaptureInfo(rtStream_t aicoreStream, aclmdlRI &rtModel, bool &isCapture) {
+        return 0;
+    }
+    static int SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuStream) {
+        return 0;
+    }
+    static int DeviceLaunchOnceWithDeviceTensorData(
+            Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
+            rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator, uintptr_t workspacePtr,
+            const DeviceLauncherConfig &config = DeviceLauncherConfig()) {
+        return 0;
+    }
 
+    static int DeviceSynchronize(rtStream_t aicpuStream, rtStream_t aicoreStream) {
+        return 0;
+    }
+#endif
     static int DeviceRunOnce(Function *function, const DeviceLauncherConfig &config = DeviceLauncherConfig());
 
     static void DeviceRunCacheKernelEnable(Function *func, bool enabled);
