@@ -17,6 +17,7 @@ from numpy.testing import assert_allclose
 from glm_ffn_quant_common import symmetric_quantization_per_token, dequant_dynamic
 import torch
 import torch_npu
+from torch._dynamo import allow_in_graph
 
 
 def main():
@@ -61,7 +62,6 @@ def ffn_golden_torch(expand_x_tensor, w13_int8, w13_scale, w2):
     # 获取当前专家的权重
     # 矩阵乘法: [token_count, h] @ [h, d*2] = [token_count, d*2]
     x_int8, x_scale = ffn_golden_quan_per_token(expand_x_tensor)
-    # gate_output_int32 = torch.matmul(x_int8.to(torch.float16), w13_int8.to(torch.float16)).to(torch.float32).to(torch.int32)
     gate_output_fp32 = torch.matmul(x_int8, w13_int8).to(torch.int32).to(torch.float32)
 
     # 分割为left和right
@@ -125,7 +125,7 @@ def gen_input(b, s, hidden_size, intermediate_size, dtypes, device_id):
 
 def expert_infer_base(**kwargs):
     # 入参信息获取
-    share_loop_idx = kwargs.get("share_loop_idx")
+    dense_loop_idx = kwargs.get("dense_loop_idx")
     expand_x = kwargs.get("expand_x")
     w13_int8 = kwargs.get("w13_int8")
     w13_scale = kwargs.get("w13_scale")
@@ -141,8 +141,8 @@ def expert_infer_base(**kwargs):
     x_Dtype = expand_x.dtype
 
     # offset
-    expand_x_offset = [share_loop_idx * loop_base, 0]
-    cur_valid_size = pypto.min(token_size - share_loop_idx * loop_base, loop_base)
+    expand_x_offset = [dense_loop_idx * loop_base, 0]
+    cur_valid_size = pypto.min(token_size - dense_loop_idx * loop_base, loop_base)
     expand_x_actual = pypto.view(expand_x, [loop_base, hidden_size], expand_x_offset, valid_shape=[cur_valid_size, hidden_size])
 
 
@@ -152,8 +152,6 @@ def expert_infer_base(**kwargs):
 
     # up_proj的matmul计算
     pypto.set_cube_tile_shapes([mm1_cube_tile_shape[0], mm1_cube_tile_shape[0]], [mm1_cube_tile_shape[1], mm1_cube_tile_shape[1]], [mm1_cube_tile_shape[2], mm1_cube_tile_shape[2]])
-    # weight nz setting
-    pypto.set_matrix_size({loop_base, w13_int8.shape[0], w13_int8.shape[1]})
     gate_int32 = pypto.matmul(expand_int8, w13_int8, pypto.DT_INT32)
 
     # dequant
@@ -169,13 +167,10 @@ def expert_infer_base(**kwargs):
     swiglu_c = pypto.add(swiglu_b, 1.0)
     swiglu_out = pypto.div(gate_left, swiglu_c)
     swiglu = pypto.mul(swiglu_out, gate_right)
-    # dynamic per_token_quant
-    swiglu_half = pypto.cast(swiglu, x_Dtype, pypto.CastMode.CAST_NONE)
+    swiglu_half = pypto.cast(swiglu, x_Dtype)
 
     # down_proj
     pypto.set_cube_tile_shapes([mm2_cube_tile_shape[0], mm2_cube_tile_shape[0]], [mm2_cube_tile_shape[1], mm2_cube_tile_shape[1]], [mm2_cube_tile_shape[2], mm2_cube_tile_shape[2]])
-    # weight nz setting
-    pypto.set_matrix_size({loop_base, w2.shape[1], w2.shape[0]})
     out = pypto.matmul(swiglu_half, w2, x_Dtype, b_trans=True)
     pypto.assemble(out, expand_x_offset, ffn_out)
 
@@ -184,19 +179,17 @@ def expert_infer_base(**kwargs):
 vec_tile_shape = (1, 5120)
 mm1_cube_tile_shape = (16, 256, 128)
 mm2_cube_tile_shape = (64, 64, 256)
-loop_base = 32
+loop_base = 16
 
 
 @pypto.jit
-def moe_main(inputs, outputs):
+def dense_moe_main(inputs, outputs):
     pypto.set_host_options(only_codegen=True)
     pypto.set_codegen_options(support_dynamic_unaligned=True)
-    pypto.set_option('profile_enable', True)
     pypto.set_runtime_options(cfgcache_device_task_num=100)
-    pypto.set_runtime_options(cfgcache_root_task_num=100)
+    pypto.set_runtime_options(cfgcache_root_task_num=1000)
     pypto.set_runtime_options(cfgcache_leaf_task_num=10000)
 
-    # expand_x_tensor, w13_int8, w13_scale, w2, ffn_out
     expand_x = inputs[0]
     w13_int8 = inputs[1]
     w13_scale = inputs[2]
@@ -205,10 +198,10 @@ def moe_main(inputs, outputs):
 
     token_nums = expand_x.shape[0]
     token_loop_times = (token_nums + loop_base - 1) / loop_base
-    for share_loop_idx in pypto.loop(0, token_loop_times, 1, name="share_loop_idx"):
-        def loop_token(share_loop_idx):
+    for dense_loop_idx in pypto.loop(0, token_loop_times, 1, name="dense_loop_idx"):
+        def loop_token(dense_loop_idx):
             expert_infer_base(
-                share_loop_idx=share_loop_idx,
+                dense_loop_idx=dense_loop_idx,
                 expand_x=expand_x,
                 w13_int8=w13_int8,
                 w13_scale=w13_scale,
@@ -219,7 +212,36 @@ def moe_main(inputs, outputs):
                 mm2_cube_tile_shape=mm2_cube_tile_shape,
                 loop_base=loop_base,
                 )
-        loop_token(share_loop_idx)
+        loop_token(dense_loop_idx)
+
+
+def glm_dense_quant(layer, hidden_states):
+    # dense
+    w13_int8 = layer.gate_up_proj.weight
+    w13_scale = layer.gate_up_proj.weight_scale
+    w2 = layer.down_proj.weight
+    out_tensor = torch.zeros_like(hidden_states, device=hidden_states.device)
+
+    inputs = {
+        hidden_states: [0],
+        w13_int8: [],
+        w13_scale: [],
+        w2: []
+    }
+    outputs = {
+        out_tensor: []
+    }
+    dense_moe_main_graph(inputs, outputs)
+    return out_tensor
+
+
+@allow_in_graph
+def dense_moe_main_graph(inputs, outputs):
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    dense_moe_main(pto_inputs, pto_outputs)
+    pypto.runtime._device_synchronize()
+
 
 def test_glm_mlp():
     x_dtype = torch.bfloat16
@@ -231,25 +253,36 @@ def test_glm_mlp():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
 
-    # expand_x_tensor, w13_int8, w13_scale, w2, out_tensor
-    expand_x_tensor, w13_int8, w13_scale, w2, out_tensor = gen_input(b, s, hidden_size, intermediate_size, x_dtype, device_id)
-    inputs = {
-        expand_x_tensor: [0],
-        w13_int8: [],
-        w13_scale: [],
-        w2: []
-    }
-    outputs = {
-        out_tensor: []
-    }
-    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
-    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-    moe_main(pto_inputs, pto_outputs)
-    pypto.runtime._device_synchronize()
+    for i in range(0, 5):
+        if (i == 1):
+            b = 8192
+        if (i == 2):
+            b = 5
+        if (i == 3):
+            b = 8
+        if (i == 4):
+            b = 7
+        if (i == 5):
+            b = 36
+        # expand_x_tensor, w13_int8, w13_scale, w2, out_tensor
+        expand_x_tensor, w13_int8, w13_scale, w2, out_tensor = gen_input(b, s, hidden_size, intermediate_size, x_dtype, device_id)
+        inputs = {
+            expand_x_tensor: [0],
+            w13_int8: [],
+            w13_scale: [],
+            w2: []
+        }
+        outputs = {
+            out_tensor: []
+        }
+        pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+        pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
+        dense_moe_main(pto_inputs, pto_outputs)
+        pypto.runtime._device_synchronize()
 
-    # golden
-    golden = moe_torch_npu(expand_x_tensor, w13_int8, w13_scale, w2)
-    assert_allclose(np.array(out_tensor.cpu().flatten().tolist()), np.array(golden.cpu().flatten().tolist()), rtol=0.0078125, atol=0.0001)
+        # golden
+        golden = moe_torch_npu(expand_x_tensor, w13_int8, w13_scale, w2)
+        assert_allclose(np.array(out_tensor.cpu().flatten().tolist()), np.array(golden.cpu().flatten().tolist()), rtol=0.0078125, atol=0.0001)
 
 
 if __name__ == "__main__":
