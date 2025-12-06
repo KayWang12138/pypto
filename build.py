@@ -137,10 +137,6 @@ class FeatureParam(CMakeParam):
         else:
             return def_job_num
 
-    @property
-    def def_build_type(self) -> str:
-        return "Release" if self.frontend_type_python3 else "Debug"
-
     @staticmethod
     def reg_args(parser, ext: Optional[Any] = None):
         parser.add_argument("-f", "--frontend", nargs="?", type=str, default="python3",
@@ -174,18 +170,20 @@ class BuildParam(CMakeParam):
     ubsan: bool = False  # 使能 UndefinedBehaviorSanitizer
     gcov: bool = False  # 使能 GNU Coverage
     clang_install_path: Optional[Path] = None  # Clang 安装位置
+    disable_install_strip: bool = False
 
     def __init__(self, args, feature: FeatureParam):
         self.targets = args.targets
         self.job_num = args.job_num if args.job_num > 0 else feature.def_build_job_num
         self.clean = args.clean
         self.timeout = None if args.timeout == 0 else args.timeout
-        self.type_ = args.build_type if args.build_type else feature.def_build_type
+        self.type_ = args.build_type
         self.asan = args.asan
         self.ubsan = args.ubsan
         self.gcov = args.gcov
         self.clang_install_path = self._get_clang_install_path(opt=args.clang)
-
+        self.disable_install_strip = args.disable_install_strip
+        
     def __str__(self):
         desc: str = ""
         desc += f"\nBuild"
@@ -200,10 +198,6 @@ class BuildParam(CMakeParam):
         desc += f"\n    ClangInstallPath        : {self.clang_install_path}"
         return desc
 
-    @property
-    def disable_install_strip(self) -> bool:
-        return self.type_ in ["Debug"]
-
     @staticmethod
     def reg_args(parser, ext: Optional[Any] = None):
         parser.add_argument("-t", "--targets", nargs="?", type=str, action="append",
@@ -215,7 +209,7 @@ class BuildParam(CMakeParam):
                             help="clean, clean Build-Tree and Install-Tree before build.")
         parser.add_argument("--timeout", nargs="?", type=int, default=0,
                             help="build task timeout.")
-        parser.add_argument("--build_type", "--build-type", nargs="?", type=str, default=None,
+        parser.add_argument("--build_type", "--build-type", nargs="?", type=str, default="Release",
                             choices=["Debug", "Release", "MinSizeRel", "RelWithDebInfo"],
                             help="build type.")
         parser.add_argument("--asan", action="store_true", default=False,
@@ -226,6 +220,8 @@ class BuildParam(CMakeParam):
                             help="Enable GNU Coverage Instrumentation Tool.")
         parser.add_argument("--clang", nargs="?", type=str, default="",
                             help="Specify clang install path, such as /usr/bin/clang")
+        parser.add_argument("--disable_install_strip", action="store_true", default=False,
+                                help="Disable stripping installed files.")
 
     @staticmethod
     def _get_clang_install_path(opt: Optional[str]) -> Optional[Path]:
