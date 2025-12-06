@@ -1809,6 +1809,7 @@ void DevAscendProgram::InitControlFlowCache(
     controlFlowCache.deviceTaskCount = 0;
     controlFlowCache.deviceTaskSkippedCount = 0;
     controlFlowCache.cacheDataOffset = 0;
+    controlFlowCache.workspaceAddr = 0;
 }
 
 struct EncodeDevAscendProgramInfo {

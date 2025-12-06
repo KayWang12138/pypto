@@ -159,8 +159,11 @@ class DeviceCtrlMachine {
             }
             devProg->controlFlowCache.IncastOutcastAddrRestore();
             devProg->controlFlowCache.IncastOutcastAddrReloc(0, devArgs->contextWorkspaceAddr, devArgs);
-            devProg->controlFlowCache.TaskAddrRestoreWorkspace();
-            devProg->controlFlowCache.TaskAddrRelocWorkspace(0, devArgs->contextWorkspaceAddr, devArgs);
+            if (devProg->controlFlowCache.workspaceAddr != devArgs->contextWorkspaceAddr) {
+                devProg->controlFlowCache.workspaceAddr = devArgs->contextWorkspaceAddr;
+                devProg->controlFlowCache.TaskAddrRestoreWorkspace();
+                devProg->controlFlowCache.TaskAddrRelocWorkspace(0, devArgs->contextWorkspaceAddr, devArgs);
+            }
             devProg->ResetRerun();
         }
         DEV_INFO("AscendCppDyInitTask done.");

@@ -2463,6 +2463,8 @@ struct DevProgramControlFlowCache {
     /* Filled in caching */
     DevRelocVector<uint8_t> cacheData;
 
+    uint64_t workspaceAddr;
+
     bool inline IsRecording() const {
         if (IsDeviceMode()) {
             return false;
