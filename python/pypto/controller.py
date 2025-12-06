@@ -420,11 +420,11 @@ class _LoopFunction:
             setattr(scalar, "_loop_end", self._end)
             return scalar
 
-    def __init__(self, name, loop_name, loop_range, submit_before_loop):
+    def __init__(self, name, loop_name, loop_range, unroll_list, submit_before_loop):
         loop_range = loop_range.base()
         self._base = pypto_impl.RecordLoopFunc(name, pypto_impl.FunctionType.DYNAMIC_LOOP,
                                              loop_name, loop_range,
-                                             set(), submit_before_loop)
+                                             unroll_list, submit_before_loop)
         self._begin = loop_range.Begin()
         self._end = loop_range.End()
 
@@ -437,13 +437,18 @@ def _loop_function(
     name: str,
     loop_name: str,
     loop_range: LoopRange,
+    unroll_list: Optional[List[int]] = None,
     submit_before_loop: bool = False,
 ):
+    if unroll_list is None:
+        unroll_set = set()
+    else:
+        unroll_set = set(unroll_list)
     rlf = None
     try:
         set_source_location(level=3)
         rlf = _LoopFunction(name, loop_name, loop_range,
-                            submit_before_loop)
+                            unroll_set, submit_before_loop)
         clear_source_location()
         yield rlf
     except Exception as e:
@@ -539,6 +544,8 @@ def loop(
             The name of the loop
         idx_name: str
             The name of the loop index
+        unroll_list: List[int], default=[1]
+            The unroll factors to be used.
         submit_before_loop: bool
             Add a barrier before the loop
 
@@ -552,10 +559,11 @@ def loop(
     loop_idx = Controller.next_loop_idx()
     name = kwargs.get("name", f"loop_{loop_idx}")
     idx_name = kwargs.get("idx_name", f"loop_idx_{loop_idx}")
+    unroll_list = kwargs.get("unroll_list", None)
     submit_before_loop = kwargs.get("submit_before_loop", False)
     with _loop_function(
         name, idx_name, _loop_range(
-            start, stop, step), submit_before_loop
+            start, stop, step), unroll_list, submit_before_loop
     ) as rlf:
         for k in rlf:
             yield k
@@ -590,7 +598,7 @@ def loop_unroll(*args, **kwargs):
     """
     start, stop, step = _get_loop_range(*args)
 
-    unroll_list = kwargs.get("unroll_list", [1])
+    unroll_list = kwargs.pop("unroll_list", [1])
     unroll_list = sorted(set(unroll_list), reverse=True)
     if 1 not in unroll_list:
         unroll_list.append(1)

@@ -120,6 +120,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
     # 安装 配置文件
     install(FILES
                 framework/src/interface/configs/tile_fwk_config.json
+                framework/src/interface/configs/tile_fwk_types.json
                 framework/src/interface/configs/tile_fwk_config_schema.json
                 framework/src/passes/pass_config/tile_fwk_platform_info.json
             DESTINATION ${ENABLE_FEATURE_PYTHON_FRONT_END}/lib/configs
@@ -187,28 +188,20 @@ else ()
     endif ()
     install(TARGETS tile_fwk_operator       LIBRARY DESTINATION lib OPTIONAL)
 
-    # 安装 配置文件
-    add_custom_command(
-            OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config.json
-            COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_LIST_DIR}/framework/src/interface/configs/tile_fwk_config.json
-                                             ${CMAKE_CURRENT_BINARY_DIR}
-    )
-    add_custom_command(
-            OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config_schema.json
-            COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_LIST_DIR}/framework/src/interface/configs/tile_fwk_config_schema.json
-                                             ${CMAKE_CURRENT_BINARY_DIR}
-    )
-    add_custom_command(
-            OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_platform_info.json
-            COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_LIST_DIR}/framework/src/passes/pass_config/tile_fwk_platform_info.json
-                                             ${CMAKE_CURRENT_BINARY_DIR}
-    )
-    add_custom_target(tile_fwk_config.json        ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config.json)
-    add_custom_target(tile_fwk_config_schema_json ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config_schema.json)
-    add_custom_target(tile_fwk_platform_info.json ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_platform_info.json)
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config.json          DESTINATION lib OPTIONAL)
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_config_schema.json   DESTINATION lib OPTIONAL)
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tile_fwk_platform_info.json   DESTINATION lib OPTIONAL)
+    macro(PTO_Fwk_AddConfig ConfFile)
+        get_filename_component(DestName "${ConfFile}" NAME)
+        add_custom_command(
+            OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${DestName}
+            COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_LIST_DIR}/${ConfFile} ${CMAKE_CURRENT_BINARY_DIR}
+        )
+        add_custom_target(${DestName} ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${DestName})
+        install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${DestName} DESTINATION lib OPTIONAL)
+    endmacro()
+
+    PTO_Fwk_AddConfig("framework/src/interface/configs/tile_fwk_config.json")
+    PTO_Fwk_AddConfig("framework/src/interface/configs/tile_fwk_types.json")
+    PTO_Fwk_AddConfig("framework/src/interface/configs/tile_fwk_config_schema.json")
+    PTO_Fwk_AddConfig("framework/src/passes/pass_config/tile_fwk_platform_info.json")
 
     # 安装头文件
     install(DIRECTORY framework/include/tilefwk/                        DESTINATION lib/tilefwk/    OPTIONAL)

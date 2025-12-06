@@ -244,3 +244,21 @@ def test_loop_manual_unroll_const():
             B[:] = A + 1
     assert k_list == [4, 2, 1]
     pypto.runtime._device_fini()
+
+
+def test_pto_auto_unroll():
+    A = pypto.tensor((-1, 64), pypto.DT_FP32, "A")
+    B = pypto.tensor((-1, 64), pypto.DT_FP32, "B")
+
+    pypto.runtime._device_init()
+    with pypto.function("MAIN", [A], [B]):
+        pypto.set_vec_tile_shapes(64, 64)
+        for idx in pypto.loop(128, unroll_list=[1, 4]):
+            ATile = A[idx * 64:(idx + 1) * 64, :]
+            if pypto.cond(pypto.is_loop_begin(idx)):
+                ATile = ATile + 1
+                ATile = ATile.sin()
+            elif pypto.cond(pypto.is_loop_end(idx)):
+                ATile = ATile.cos()
+            B[idx * 64:, 0:] = ATile + 1
+    pypto.runtime._device_fini()
