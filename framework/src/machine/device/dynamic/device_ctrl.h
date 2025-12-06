@@ -192,9 +192,9 @@ class DeviceCtrlMachine {
         StopAicoreManager();
         PerfEnd(PERF_EVT_STAGE_STOP_AICORE);
         DEV_INFO("aicore manager stopped");
-
         PerfBegin(PERF_EVT_STAGE_TASK_SYNC);
         ret = SyncTask(&ctx.taskContext);
+        devStartArgs->syncFlag = 0;
         PerfMtTrace(PERF_TRACE_WAIT_ALL_DEV_TASK_FINISH, CTRL_CPU_THREAD_IDX);
         PerfEnd(PERF_EVT_STAGE_TASK_SYNC);
         PerfEnd(PERF_EVT_EXEC_DYN);

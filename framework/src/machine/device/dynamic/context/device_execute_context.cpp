@@ -210,7 +210,15 @@ void DeviceExecuteContext::GELaunchPartialCache(DevStartArgs *startArgs, PushTas
         DEV_TRACE_DEBUG(CtrlEvent(none(), ControlFlowCachePartRunCache(devProg->controlFlowCache.deviceTaskCount, devProg->controlFlowCache.rootTaskCount)));
         GELaunchRunCached(startArgs, tPushTask);
     }
-
+DEV_IF_DEVICE {
+    uint64_t start = GetCycles();
+    while (startArgs->syncFlag != 1) {
+        if (GetCycles() - start > HAND_SHAKE_TIMEOUT) {
+            DEV_ERROR("Wait sync flag timeout.");
+            break;
+        }
+    }
+}
     DEV_TRACE_DEBUG(CtrlEvent(none(), ControlFlowCacheFullRunControl()));
     RunInit(startArgs, tPushTask);
     RunControlFlow(startArgs);

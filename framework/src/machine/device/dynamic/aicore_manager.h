@@ -317,6 +317,8 @@ public:
                 } 
                 return ret;
             }
+            auto devStartArgs = (DevStartArgs *)deviceArgs->startArgsAddr;
+            devStartArgs->syncFlag = 1;
             aicoreProf_.ProfStart();
         }
         DEV_DEBUG("schedule run start succ");
