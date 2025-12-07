@@ -23,60 +23,64 @@
 
 namespace npu::tile_fwk::Distributed {
 
-void TestMoeDispatch(OpTestParam& testParam)
+void TestShmemMoeDispatch(OpTestParam &testParam)
 {
     constexpr size_t paramsSize = 5;
-    auto [batchSize, hiddenSize, shareNum, topK, typeNum] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
-
+    auto [batchSize, hiddenSize, routedNum, topK, typeNum] = 
+        GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
     DataType dType = GetDataTypeNum(typeNum);
-    int64_t dtypeSize = BytesOf(dType);
-
+    int32_t totalExpertNum = routedNum;
+    int32_t expertNumPerRank = totalExpertNum / testParam.rankSize;
     Shape tokenTensorShape{batchSize, hiddenSize};
     Shape tokenExpertTableShape{batchSize, topK};
-    Shape expandXShape{batchSize * testParam.rankSize, hiddenSize};
-    Shape validCntShape{128};
-
-    int64_t tokenTensorEleNum = tokenTensorShape[0] * tokenTensorShape[1];
-    int64_t tokenExpertTableEleNum = tokenExpertTableShape[0] * tokenExpertTableShape[1];
+    int32_t expandXRowShape = std::min(static_cast<int32_t>(batchSize) *
+        static_cast<int32_t>(topK) * testParam.rankSize, static_cast<int32_t>(batchSize) * totalExpertNum);
+    Shape expandXShape{expandXRowShape, hiddenSize};
+    Shape validCntShape{expertNumPerRank};
+    Shape combineInfoShape{expandXRowShape, 3};
+    Tensor tokenTensor(dType, tokenTensorShape, "tokenTensor");
+    Tensor tokenExpertTable(DataType::DT_INT32, tokenExpertTableShape, "tokenExpertTable");
+    Tensor validCnt(DataType::DT_INT32, validCntShape, "validCnt");
+    Tensor expandX(dType, expandXShape, "expandX");
+    Tensor combineInfo(DataType::DT_INT32, combineInfoShape, "combineInfo");
     int64_t expandXEleNum = expandXShape[0] * expandXShape[1];
     int64_t validCntEleNum = validCntShape[0];
+    int64_t combineInfoEleNum = combineInfoShape[0] * combineInfoShape[1];
 
-    int64_t tokenTensorByteSize = tokenTensorEleNum * dtypeSize;
-    int64_t tokenExpertTableByteSize = tokenExpertTableEleNum * sizeof(int32_t);
-    int64_t expandXByteSize = expandXEleNum * dtypeSize;
-    int64_t validCntByteSize = validCntEleNum * sizeof(int32_t);
+    using T = npu::tile_fwk::bfloat16;
 
-    uint8_t* expandXPtr = allocDevAddr(expandXByteSize);
-    uint8_t* validCntPtr = allocDevAddr(validCntByteSize);
+    std::string xPath = GetGoldenDir() + "/x_rank_" + std::to_string(testParam.rankId) + ".bin";
+    std::vector<T> tokenTensorPtr = ReadToVector<T>(xPath, tokenTensorShape);
+    std::string expertIdsPath = GetGoldenDir() + "/expert_ids_rank_" + std::to_string(testParam.rankId) + ".bin";
+    std::vector<int32_t> tokenExpertTablePtr = ReadToVector<int32_t>(expertIdsPath, tokenExpertTableShape);
 
-    PROGRAM("Moe Dispatch") {
-        uint8_t* tokenTensorPtr = static_cast<uint8_t*>(readToDev(
-            GetGoldenDir() + "/x_rank_" + std::to_string(testParam.rankId) + ".bin",
-            tokenTensorByteSize / sizeof(float)
-        ));
-        uint8_t* tokenExpertTablePtr = static_cast<uint8_t*>(readToDev(
-            GetGoldenDir() + "/expert_ids_rank_" + std::to_string(testParam.rankId) + ".bin",
-            tokenExpertTableByteSize
-        ));
-
-        Tensor tokenTensor(dType, tokenTensorShape, tokenTensorPtr, "tokenTensor");
-        Tensor tokenExpertTable(DataType::DT_INT32, tokenExpertTableShape, tokenExpertTablePtr, "tokenExpertTable");
-        Tensor expandX(dType, expandXShape, expandXPtr, "expandX");
-        Tensor validCnt(DataType::DT_INT32, validCntShape, validCntPtr, "validCnt");
-
-        config::SetBuildStatic(true);
-        FUNCTION("MoeDispatch", {tokenTensor, tokenExpertTable, validCnt, expandX}) {
-            TileShape::Current().SetDistRankId(testParam.rankId);
-            expandX = MoeDispatch(tokenTensor, tokenExpertTable, validCnt, testParam.group);
-        }
+    MoeConfig moeConfig{routedNum, expertNumPerRank, testParam.rankSize};
+    FUNCTION("MoeDispatch", {tokenTensor, tokenExpertTable}, {expandX, validCnt, combineInfo}) {
+        Distributed::MoeDispatch(tokenTensor, tokenExpertTable, expandX, validCnt, combineInfo, testParam.group, moeConfig);
     }
 
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
-    EXPECT_TRUE(CompareWithGolden<uint8_t *>(dType, "/y_rank_", expandXEleNum, expandXPtr, testParam));
-    if (testParam.rankId >= shareNum) {
-        EXPECT_TRUE(CompareWithGolden<uint8_t *>(DataType::DT_INT32, "/valid_count_rank_", validCntEleNum, validCntPtr,
-            testParam));
-    }
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<T>(tokenTensor, tokenTensorPtr),
+        RawTensorData::CreateTensor<int32_t>(tokenExpertTable, tokenExpertTablePtr),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateTensorZero(expandX),
+        RawTensorData::CreateTensorZero(validCnt),
+        RawTensorData::CreateTensor(combineInfo, std::vector<int32_t>(combineInfoEleNum, -1))
+    });
+
+    auto hcclContext = GetHcclContext({std::string(testParam.group)});
+    DeviceLauncherConfig config;
+    config.runModel = false;
+    config.hcclContext = hcclContext;
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
+
+    auto expandXOutPut = ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(CompareWithGolden<uint8_t *>(dType, "/y_rank_", expandXEleNum, expandXOutPut->GetDevPtr(), testParam));
+    auto validCntOutPut = ProgramData::GetInstance().GetOutputData(1);
+    EXPECT_TRUE(CompareWithGolden<uint8_t *>(DataType::DT_INT32, "/valid_count_rank_", validCntEleNum, validCntOutPut->GetDevPtr(), testParam));
+    auto combineInfoOutPut = ProgramData::GetInstance().GetOutputData(2);
+    EXPECT_TRUE(CompareWithGolden<uint8_t *>(DataType::DT_INT32, "/combine_info_rank_", combineInfoEleNum, combineInfoOutPut->GetDevPtr(), testParam));
 }
 
 } // namespace npu::tile_fwk::Distributed

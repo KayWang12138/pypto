@@ -25,15 +25,6 @@
 
 namespace npu::tile_fwk {
 namespace Distributed {
-constexpr int32_t SHARED_EXPERT_NUM = 1;
-constexpr int32_t ROUTING_EXPERT_NUM = 3;
-constexpr int32_t TOTAL_EXPERT_NUM = SHARED_EXPERT_NUM + ROUTING_EXPERT_NUM;
-constexpr int32_t AIV_NUM = 4;
-
-inline bool IsRoutingExpert(int rankId)
-{
-    return rankId >= SHARED_EXPERT_NUM;
-}
 void TiledDistReduce(Function &function, const TileShape &tileShape,
     const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
     const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);
@@ -45,13 +36,18 @@ void TiledDistGather(Function &function, const TileShape &tileShape,
 void TiledDistBroadCast(Function &function, const TileShape &tileShape,
     const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
     const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);
-void SendToRoutingExpert(const Tensor &tokenTensor, const Tensor &tokenExpertTable,
-    const Tensor &tilingTensor, const Tensor &syncTensor, const char *group);
-void SendToSharedExpert(const Tensor &tokenTensor, const Tensor &tilingTensor, const Tensor &syncTensor,
-    const char *group);
-void CopyToLocalExpert(const Tensor &tokenTensor, const Tensor &tilingTensor, const Tensor &expandX);
-Tensor DispatchSetFlag(const Tensor &tokenExpertTable, const Tensor &syncTensor, const Tensor &tilingTensor,
-    const char *group);
+void TiledMoeFFN2Attn(Function &function, const TileShape &tileShape,
+    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand, const Operation &op);
+void TiledMoeAttnCombine(Function &function, const TileShape &tileShape,
+    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
+    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);
+Tensor SendToRoutingExpert(const Tensor &shmemData, const Tensor &tokenTensor, const Tensor &tokenExpertTable,
+    const char *group, const MoeConfig &moeConfig);
+void SendToSharedExpert(const Tensor &shmemData, const Tensor &tokenTensor, 
+    const Tensor &syncTensor, const char *group);
+Tensor CopyToLocalExpert(const Tensor &tokenTensor, const Tensor &syncTensor);
+Tensor DispatchSetFlag(Tensor &shmemFlag, const Tensor &tokenExpertTable, 
+    const Tensor &syncTensor, const char *group, const MoeConfig &moeConfig);
 void TiledSendToRoutingExpert(Function &function, const TileShape &tileShape,
     const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
     const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);
@@ -68,6 +64,12 @@ void TiledDispatchFFNSched(Function &function, const TileShape &tileShape,
     const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
     const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);
 void TiledDispatchFFNBatching(Function &function, const TileShape &tileShape,
+    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
+    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);
+void TiledDispatchFFNCombineInfo(Function &function, const TileShape &tileShape,
+    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
+    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);
+void TiledDispatchFFNValidCnt(Function &function, const TileShape &tileShape,
     const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
     const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);
 void TiledShmemPut(Function &function, const TileShape &tileShape,

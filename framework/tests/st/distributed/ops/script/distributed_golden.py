@@ -346,7 +346,7 @@ def collect_and_save(
     for rank_id in range(case.rank_size):
         fixed_shape_y = torch.zeros((row, case.hidden_size), dtype=case.dtype)
         fixed_shape_combine_info = torch.full((row, 3), -1, dtype=torch.int32)
-        valid_count = torch.zeros([128], dtype=torch.int32)
+        valid_count = torch.zeros([routed_expert_capacity], dtype=torch.int32)
         y_offset, combine_info_offset = 0, 0
         for expert_offset in range(routed_expert_capacity):
             if y_list[rank_id][expert_offset]:
@@ -364,7 +364,7 @@ def collect_and_save(
 
 
 def generate_moe_dispatch_case(case: MoeCase, save_dir: pathlib.Path) -> None:
-    params = (case.batch_size, case.hidden_size, case.shared_expert_num, case.top_k, get_dtype_num(case.dtype))
+    params = (case.batch_size, case.hidden_size, case.routed_expert_num, case.top_k, get_dtype_num(case.dtype))
     save_params(params, save_dir)
 
     x_list, routed_expert_ids_list = generate_moe_dispatch_input_data(case, save_dir)
@@ -600,8 +600,6 @@ OPERATOR_DISPATCHERS = [
         'DistributedTest.aivWaitFlag_single_test_reduce_scatter_int32_128_256_4',
         'DistributedTest.aivWaitFlag_multi_test_reduce_scatter_float32_128_256_4',
         'DistributedTest.shmem_reduce_scatter_int32_128_256_4',
-        'DistributedTest.aivWaitFlag_single_test_moe_dispatch_bfloat16_8_7168_1_3_2_4',
-        'DistributedTest.aivWaitFlag_single_test_moe_dispatch_bfloat16_8_7168_0_160_8_4',
         'DistributedTest.shmem_allgather_attn_post_reducescatter_bfloat16_64_1_32_256_128_128_4',
         'DistributedTest.shmem_allgather_matmul_reducescatter_int32_128_256_4',
         'DistributedTest.shmem_reduce_scatter_float16_128_256_4',
@@ -612,6 +610,7 @@ OPERATOR_DISPATCHERS = [
         'DistributedTest.shmem_moe_combine_bfloat16_256_5120_0_160_8_4',
         'DistributedTest.shmem_moe_combine_bfloat16_8_5120_0_160_8_8',
         'DistributedTest.shmem_moe_combine_bfloat16_256_5120_0_160_8_8',
+        'DistributedTest.shmem_moe_dispatch_bfloat16_8_5120_0_160_8_4',
     ]
 )
 def generate_golden_case(case_name: str, output: pathlib.Path) -> bool:

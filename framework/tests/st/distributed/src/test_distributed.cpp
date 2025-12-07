@@ -111,12 +111,6 @@ TEST_F(DistributedTest, aivWaitFlag_multi_test_all_gather_float16_32_32_4)
     Distributed::TestAllGatherEx(testParam);
 }
 
-TEST_F(DistributedTest, aivWaitFlag_single_test_moe_dispatch_bfloat16_8_7168_1_3_2_4)
-{
-    config::SetDistConfig(KEY_AICPU_WAIT_FLAG_ENABLE, false);
-    Distributed::TestMoeDispatch(testParam);
-}
-
 TEST_F(DistributedTest, shmem_allgather_attn_post_reducescatter_bfloat16_64_1_32_256_128_128_4)
 {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);

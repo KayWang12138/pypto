@@ -29,7 +29,6 @@ void TestAllGatherEx(OpTestParam &testParam);
 void TestAllGather(OpTestParam &testParam);
 void TestReduceScatterEx(OpTestParam &testParam);
 void TestReduceScatter(OpTestParam &testParam);
-void TestMoeDispatch(OpTestParam &testParam);
 void TestMoeCombine(OpTestParam &testParam);
 void TestShmemMoeCombine(OpTestParam &testParam);
 void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam);
@@ -40,6 +39,9 @@ void TestShmemReduceScatter(OpTestParam &testParam);
 void TestDynAllGatherMatmulReducescatter(OpTestParam &testParam);
 template<typename T, bool useTwoShot>
 void TestShmemAllReduce(OpTestParam &testParam);
+template<typename T>
+void TestShmemAddAndAllReduce(OpTestParam &testParam);
+void TestShmemMoeDispatch(OpTestParam &testParam);
 } // namespace Distributed
 } // namespace npu::tile_fwk
 

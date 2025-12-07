@@ -123,6 +123,46 @@ INLINE unsigned CalcLinearOffset(
 INLINE unsigned CalcLinearOffset(unsigned GmShape1, unsigned Offset0, unsigned Offset1) {
     return Offset1 + Offset0 * GmShape1;
 }
+
+INLINE uint64_t GetVirtualAddrBist(uint64_t val, uint64_t start, uint64_t end)
+{
+    return (((val) >> (start)) & ((1UL << ((end) - (start) + 1UL)) - 1UL));
+}
+
+INLINE uint64_t GetVirtaulAddrOffset(uint64_t val)
+{
+    constexpr uint64_t offsetStart = 0UL; 
+    constexpr uint64_t offsetEnd = 57UL; 
+    return GetVirtualAddrBist(val, offsetStart, offsetEnd);
+}
+
+INLINE uint64_t GetVirtaulAddrGroupIndex(uint64_t val)
+{
+    constexpr uint64_t groupIndexStart = 58UL; 
+    constexpr uint64_t groupIndexEnd = 59UL; 
+    return GetVirtualAddrBist(val, groupIndexStart, groupIndexEnd);
+}
+
+TILEOP uint64_t GetVirtaulAddrMemType(uint64_t val)
+{
+    constexpr uint64_t memTypeStart = 60UL; 
+    constexpr uint64_t memTypeEnd = 61UL; 
+    return GetVirtualAddrBist(val, memTypeStart, memTypeEnd);
+}
+
+template<typename T>
+INLINE __gm__ T* MapVirtualAddr(__gm__ int64_t *hcclContext, __gm__ T* vAddr, uint32_t dstRankId)
+{
+    auto groupIndex = GetVirtaulAddrGroupIndex((uint64_t)vAddr);
+    auto offset = GetVirtaulAddrOffset((uint64_t)vAddr);
+    auto memType = GetVirtaulAddrMemType((uint64_t)vAddr);
+    if (memType == 0) {
+        return (__gm__ T*)(((__gm__ TileOp::HcclCombinOpParam *)hcclContext[groupIndex])->windowsIn[dstRankId] + offset);
+    } else {
+        return (__gm__ T*)(((__gm__ TileOp::HcclCombinOpParam *)hcclContext[groupIndex])->windowsExp[dstRankId] + offset);
+    }
+}
+
 }
 
 #endif

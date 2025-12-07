@@ -1530,6 +1530,14 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
             npu::tile_fwk::Distributed::TiledDispatchFFNBatching(function, tileShape, iOperand, oOperand, op);
             break;
         }
+        case Opcode::OP_FFN_COMBINEINFO: {
+            npu::tile_fwk::Distributed::TiledDispatchFFNCombineInfo(function, tileShape, iOperand, oOperand, op);
+            break;
+        }
+        case Opcode::OP_FFN_VALIDCNT: {
+            npu::tile_fwk::Distributed::TiledDispatchFFNValidCnt(function, tileShape, iOperand, oOperand, op);
+            break;
+        }
         case Opcode::OP_SHMEM_PUT: {
             npu::tile_fwk::Distributed::TiledShmemPut(function, tileShape, iOperand, oOperand, op);
             break;

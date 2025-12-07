@@ -397,11 +397,18 @@ enum class DistReduceType {
     DIST_REDUCE_MAX,
     DIST_REDUCE_MIN,
 };
+
+struct MoeConfig {
+    int32_t routedExpertNum{0};
+    int32_t expertNumPerRank{0};
+    int32_t rankNum{0};
+};
 void AllGather(const Tensor &in, std::vector<Tensor> &out, const char *group);
 Tensor AllGather(const Tensor &in, const char *group);
 Tensor ReduceScatter(const std::vector<Tensor> &in, const char *group, DistReduceType reduceType);
 Tensor ReduceScatter(const Tensor &in, const char *group, DistReduceType reduceType);
-Tensor MoeDispatch(const Tensor &tokenTensor, const Tensor &tokenExpertTable, Tensor &validCnt, const char *group);
+void MoeDispatch(const Tensor& tokenTensor, const Tensor& tokenExpertTable, Tensor& expandX, Tensor& validCnt, Tensor& combineInfo, const char *group, const MoeConfig& moeConfig);
+Tensor MoeCombine(const Tensor &in, const Tensor &scale, const Tensor &combineInfo, const char *group);
 // SHMEM
 void ShmemAllGather(const Tensor &in, const Tensor &dummy, const char *group, Tensor &out);
 Tensor Barrier(const Tensor &in, const char *group);

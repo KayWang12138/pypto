@@ -199,6 +199,8 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(
           {Opcode::OP_LOCAL_COPY_OUT, [this]() { return GenDistOp(); }},
           {Opcode::OP_FFN_SCHED, [this]() { return GenDistOp(); }},
           {Opcode::OP_FFN_BATCHING, [this]() { return GenDistOp(); }},
+          {Opcode::OP_FFN_COMBINEINFO, [this]() { return GenDistOp(); }},
+          {Opcode::OP_FFN_VALIDCNT, [this]() { return GenDistOp(); }},
           {Opcode::OP_SEND_TO_ROUTING_EXPERT, [this]() { return GenDistOp(); }},
           {Opcode::OP_SEND_TO_SHARED_EXPERT, [this]() { return GenDistOp(); }},
           {Opcode::OP_DISPATCH_SET_FLAG, [this]() { return GenDistOp(); }},

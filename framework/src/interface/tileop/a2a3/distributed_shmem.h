@@ -34,40 +34,6 @@ struct CopyParams {
     uint16_t dstStride;
 };
 
-TILEOP uint64_t GetVirtualAddrBist(uint64_t val, uint64_t start, uint64_t end)
-{
-    return (((val) >> (start)) & ((1UL << ((end) - (start) + 1UL)) - 1UL));
-}
-
-TILEOP uint64_t GetVirtaulAddrOffset(uint64_t val)
-{
-    constexpr uint64_t offsetStart = 0UL;
-    constexpr uint64_t offsetEnd = 57UL;
-    return GetVirtualAddrBist(val, offsetStart, offsetEnd);
-}
-
-TILEOP uint64_t GetVirtaulAddrGroupIndex(uint64_t val)
-{
-    constexpr uint64_t groupIndexStart = 58UL;
-    constexpr uint64_t groupIndexEnd = 59UL;
-    return GetVirtualAddrBist(val, groupIndexStart, groupIndexEnd);
-}
-
-TILEOP uint64_t GetVirtaulAddrMemType(uint64_t val)
-{
-    constexpr uint64_t memTypeStart = 60UL;
-    constexpr uint64_t memTypeEnd = 61UL;
-    return GetVirtualAddrBist(val, memTypeStart, memTypeEnd);
-}
-
-template<typename T>
-TILEOP __gm__ T* MapVirtaulAddr(__gm__ int64_t *hcclContext, __gm__ T* vAddr, uint32_t dstRankId)
-{
-    auto groupIndex = GetVirtaulAddrGroupIndex((uint64_t)vAddr);
-    auto offset = GetVirtaulAddrOffset((uint64_t)vAddr);
-    return (__gm__ T*)(((__gm__ TileOp::HcclCombinOpParam *)hcclContext[groupIndex])->windowsIn[dstRankId] + offset);
-}
-
 template<typename T>
 TILEOP void Conv2FP32(__ubuf__ float* dst, __ubuf__ T* src, uint8_t repeat, uint16_t dstBlockStride,
     uint16_t srcBlocakStride, uint8_t dstRepeatStride, uint8_t srcRepeatStride)
@@ -285,7 +251,7 @@ TILEOP void ShmemClearSignal(__gm__ int32_t* shmemSignalRawBaseAddr, __ubuf__ in
     set_flag(PIPE_V, PIPE_S, EVENT_ID0);
     wait_flag(PIPE_V, PIPE_S, EVENT_ID0);
 
-    __gm__ int32_t* shmemSignalAddr = MapVirtaulAddr<int32_t>(hcclContext, shmemSignalBaseAddr, shmemSignalOffset0) + 
+    __gm__ int32_t* shmemSignalAddr = MapVirtualAddr<int32_t>(hcclContext, shmemSignalBaseAddr, shmemSignalOffset0) + 
             shmemSignalOffset1 * shmemSignalRawShape2 * shmemSignalRawShape3 + shmemSignalOffset2 * shmemSignalRawShape3 + shmemSignalOffset3;
     constexpr uint16_t sid = 0;
     constexpr uint16_t nBurst = 1;
@@ -309,7 +275,7 @@ TILEOP void ShmemPut(__ubuf__ NonShmemType* buffer, __gm__ NonShmemType* nonShme
     (void)nonShmemDataRawShape0;
     (void)shmemDataRawShape0;
     __gm__ NonShmemType* nonShmemDataAddr = nonShmemDataBaseAddr + nonShmemDataOffset0 * nonShmemDataRawShape1 + nonShmemDataOffset1;
-    __gm__ ShmemType* shmemDataAddr = MapVirtaulAddr<ShmemType>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) +
+    __gm__ ShmemType* shmemDataAddr = MapVirtualAddr<ShmemType>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) +
         shmemDataOffset1 * shmemDataRawShape2 * shmemDataRawShape3 + shmemDataOffset2 * shmemDataRawShape3 + shmemDataOffset3;
     CopyGmToGm<ShmemType, NonShmemType, NonShmemType, tileRowShape, tileColShape, bufferRowShape, bufferColShape, srcStride, dstStride, atomicType>(shmemDataAddr, buffer, nonShmemDataAddr);
 }
@@ -324,9 +290,9 @@ TILEOP void ShmemPut(__ubuf__ InShmemType* buffer, __gm__ InShmemType* inShmemDa
 {
     (void)inShmemDataRawShape0;
     (void)shmemDataRawShape0;
-    __gm__ InShmemType* inShmemDataAddr = MapVirtaulAddr<InShmemType>(hcclContext, inShmemDataBaseAddr, inShmemDataOffset0) + inShmemDataOffset1 * inShmemDataRawShape2 * inShmemDataRawShape3 +
+    __gm__ InShmemType* inShmemDataAddr = MapVirtualAddr<InShmemType>(hcclContext, inShmemDataBaseAddr, inShmemDataOffset0) + inShmemDataOffset1 * inShmemDataRawShape2 * inShmemDataRawShape3 +
         inShmemDataOffset2 * inShmemDataRawShape3 + inShmemDataOffset3;
-    __gm__ OutShmemType* shmemDataAddr = MapVirtaulAddr<OutShmemType>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) + shmemDataOffset1 * shmemDataRawShape2 * shmemDataRawShape3 +
+    __gm__ OutShmemType* shmemDataAddr = MapVirtualAddr<OutShmemType>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) + shmemDataOffset1 * shmemDataRawShape2 * shmemDataRawShape3 +
         shmemDataOffset2 * shmemDataRawShape3 + shmemDataOffset3;
     CopyGmToGm<OutShmemType, InShmemType, InShmemType, tileRowShape, tileColShape, bufferRowShape, bufferColShape, srcStride, dstStride, atomicType>(shmemDataAddr, buffer, inShmemDataAddr);
 }
@@ -340,7 +306,7 @@ TILEOP void ShmemPutUb2Gm(__ubuf__ UBType* UBDataBaseAddr, __gm__ ShmemType* shm
     (void)UBDataRawShape0;
     (void)shmemDataRawShape0;
     __ubuf__ UBType* UBDataAddr = UBDataBaseAddr + UBDataOffset0 * UBDataRawShape1 + UBDataOffset1;
-    __gm__ ShmemType* shmemDataAddr = MapVirtaulAddr<ShmemType>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) + shmemDataOffset1 * shmemDataRawShape2 * shmemDataRawShape3 +
+    __gm__ ShmemType* shmemDataAddr = MapVirtualAddr<ShmemType>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) + shmemDataOffset1 * shmemDataRawShape2 * shmemDataRawShape3 +
         shmemDataOffset2 * shmemDataRawShape3 + shmemDataOffset3;
     CopyUbToGm<ShmemType, UBType, tileRowShape, tileColShape, bufferRowShape, bufferColShape, srcStride, dstStride, atomicType>(shmemDataAddr, UBDataAddr);
 }
@@ -351,7 +317,7 @@ TILEOP void ShmemSignal(__ubuf__ int32_t* buffer, __gm__ int32_t* shmemSignalBas
     uint32_t shmemSignalRawShape0, uint32_t shmemSignalRawShape1, uint32_t shmemSignalRawShape2, uint32_t shmemSignalRawShape3, __gm__ int64_t *hcclContext)
 {
     (void)shmemSignalRawShape0;
-    __gm__ int32_t* shmemSignalAddr = MapVirtaulAddr<int32_t>(hcclContext, shmemSignalBaseAddr, shmemSignalOffset0) +
+    __gm__ int32_t* shmemSignalAddr = MapVirtualAddr<int32_t>(hcclContext, shmemSignalBaseAddr, shmemSignalOffset0) +
      shmemSignalOffset1 * shmemSignalRawShape2 * shmemSignalRawShape3 + shmemSignalOffset2 * shmemSignalRawShape3 + shmemSignalOffset3;
     const uint16_t sid = 0;
     const uint16_t nBurst = 1;
@@ -381,7 +347,7 @@ TILEOP void ShmemGet(__gm__ NonShmemType* nonShmemDataBaseAddr, __ubuf__ NonShme
     (void)nonShmemDataRawShape0;
     (void)shmemDataRawShape0;
     __gm__ NonShmemType* nonShmemDataAddr = nonShmemDataBaseAddr + nonShmemDataOffset0 * nonShmemDataRawShape1 + nonShmemDataOffset1;
-    __gm__ ShmemType* shmemDataAddr = MapVirtaulAddr<ShmemType>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) +
+    __gm__ ShmemType* shmemDataAddr = MapVirtualAddr<ShmemType>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) +
         shmemDataOffset1 * shmemDataRawShape2 * shmemDataRawShape3 + shmemDataOffset2 * shmemDataRawShape3 + shmemDataOffset3;
     CopyGmToGm<NonShmemType, NonShmemType, ShmemType, tileRowShape, tileColShape, bufferRowShape, bufferColShape, srcStride, dstStride, atomicType>(nonShmemDataAddr, buffer, shmemDataAddr);
 }
@@ -396,7 +362,7 @@ TILEOP void ShmemGetGm2Ub(__ubuf__ UBType* UBDataBaseAddr, __gm__ ShmemType* shm
     (void)UBDataRawShape0;
     (void)shmemDataRawShape0;
     __ubuf__ UBType* UBDataAddr = UBDataBaseAddr + UBDataOffset0 * UBDataRawShape1 + UBDataOffset1;
-    __gm__ ShmemType* shmemDataAddr = MapVirtaulAddr<ShmemType>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) +
+    __gm__ ShmemType* shmemDataAddr = MapVirtualAddr<ShmemType>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) +
         shmemDataOffset1 * shmemDataRawShape2 * shmemDataRawShape3 + shmemDataOffset2 * shmemDataRawShape3 + shmemDataOffset3;
     CopyGmToUb<UBType, ShmemType, tileRowShape, tileColShape, bufferRowShape, bufferColShape, srcStride, dstStride, atomicType>(UBDataAddr, shmemDataAddr);
 }
@@ -578,9 +544,9 @@ TILEOP void ShmemMoeCombineSend(__gm__ int32_t* dummyOut, __ubuf__ T* dataBuffer
         int32_t tokenId = combineInfoBuffer[1];
         int32_t kOffset = combineInfoBuffer[2];
 
-        __gm__ T* winDataAddr = MapVirtaulAddr<T>(hcclContext, shmemDataBaseAddr, rankId) +
+        __gm__ T* winDataAddr = MapVirtualAddr<T>(hcclContext, shmemDataBaseAddr, rankId) +
             colShape * (topK * tokenId + kOffset);
-        __gm__ int32_t* winSignalAddr = MapVirtaulAddr<int32_t>(hcclContext, shmemSignalBaseAddr, rankId) +
+        __gm__ int32_t* winSignalAddr = MapVirtualAddr<int32_t>(hcclContext, shmemSignalBaseAddr, rankId) +
             MOE_COMBINE_SIGNAL_OFFSET * tokenId;
 
         set_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
@@ -663,7 +629,7 @@ TILEOP void ShmemMoeCombineReceive(__gm__ T* out, __ubuf__ float* mulFp32Buffer,
     uint64_t rowOffset = shmemDataOffset2;
 
     for (uint64_t tokenId = rowOffset; tokenId < rowOffset + rowShape; tokenId++) {
-        __gm__ int32_t* winSignalAddr = MapVirtaulAddr<int32_t>(hcclContext, shmemSignalBaseAddr, thisRankId) +
+        __gm__ int32_t* winSignalAddr = MapVirtualAddr<int32_t>(hcclContext, shmemSignalBaseAddr, thisRankId) +
             MOE_COMBINE_SIGNAL_OFFSET * tokenId;
         __ubuf__ int32_t* signalBuffer = reinterpret_cast<__ubuf__ int32_t*>(outBuffer);
         set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
@@ -672,7 +638,7 @@ TILEOP void ShmemMoeCombineReceive(__gm__ T* out, __ubuf__ float* mulFp32Buffer,
 
         constexpr uint32_t scaleColShape = AlignUp<uint32_t>(sizeof(float) * topK, COPY_BLOCK_BYTE_SIZE) /
             sizeof(float);
-        __gm__ T* winDataAddr = MapVirtaulAddr<T>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) +
+        __gm__ T* winDataAddr = MapVirtualAddr<T>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) +
             colShape * topK * tokenId;
         ShmemMoeCombineCompute<T, topK, colShape, paddedColShape>(outBuffer, mulFp32Buffer,
             sumFp32Buffer, scale + scaleColShape * tokenId, winDataAddr);

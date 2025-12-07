@@ -19,6 +19,9 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
 #include "codegen/codegen.h"
+#include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "test_codegen_common.h"
+#include "interface/operation/distributed/distributed_common.h"
 #include <vector>
 #include <string>
 
@@ -31,48 +34,57 @@ public:
     static void TearDownTestCase() {}
 
     void SetUp() override {
-        oriEnableAihacBackend = config::GetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend);
-        config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetHostOption(ONLY_CODEGEN, true);
+        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
     }
 
-    void TearDown() override {
-        config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend);
-    }
+    void TearDown() override {}
 
 protected:
     bool oriEnableAihacBackend = false;
 };
 
-void TestMoeDispatch(bool isSharedExpert) {
+void TestMoeDispatch() {
     const char *group = "hcom123";
-    DataType dType = DT_FP16;
-    int sharedExpertNum = 1;
-    int routingExpertNum = 3;
-    int topK = 2;
-    int bs = 4;
-    int tokenLen = 256;
-    int rankId = isSharedExpert ? 0 : sharedExpertNum;
+    DataType dType = DT_BF16;
+    int routingExpertNum = 160;
+    int topK = 8;
+    int batchSize = 8;
+    int hiddenSize = 5120;
+    int rankSize = 4;
 
-    Tensor tokenTensor(dType, {bs, tokenLen}, "tokenTensor");
-    Tensor tokenExpertTable(DataType::DT_INT32, {bs, topK}, "tokenExpertTable");
-    Tensor expandX(dType, {bs * (routingExpertNum + sharedExpertNum), tokenLen}, "expandX");
-    Tensor validSize(DataType::DT_INT32, {1, 1}, "validSize");
-    config::SetBuildStatic(true);
-    FUNCTION("DISPATCH_F", {tokenTensor, tokenExpertTable, validSize, expandX}) {
-        TileShape::Current().SetDistRankId(rankId);
-        expandX = Distributed::MoeDispatch(tokenTensor, tokenExpertTable, validSize, group);
+    int32_t expandXRowShape = topK * rankSize < routingExpertNum ?
+        static_cast<int32_t>(batchSize) * static_cast<int32_t>(topK) * rankSize :
+        static_cast<int32_t>(batchSize) * routingExpertNum;
+    
+    Shape tokenTensorShape{batchSize, hiddenSize};
+    Shape tokenExpertTableShape{batchSize, topK};
+    Shape expandXShape{expandXRowShape, hiddenSize};
+    Shape validCntShape{128};
+    Shape combineInfoShape{expandXRowShape, 3};
+
+    Tensor tokenTensor(dType, tokenTensorShape, "tokenTensor");
+    Tensor tokenExpertTable(DataType::DT_INT32, tokenExpertTableShape, "tokenExpertTable");
+    Tensor validCnt(DataType::DT_INT32, validCntShape, "validCnt");
+    Tensor expandX(dType, expandXShape, "expandX");
+    Tensor combineInfo(DataType::DT_INT32, combineInfoShape, "combineInfo");
+
+    MoeConfig moeConfig{routingExpertNum, routingExpertNum / rankSize, rankSize};
+
+    FUNCTION("DISPATCH_F", {tokenTensor, tokenExpertTable}, {expandX, validCnt, combineInfo}) {
+        Distributed::MoeDispatch(tokenTensor, tokenExpertTable, expandX, validCnt, combineInfo, group, moeConfig);
     }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "L0" + SUB_FUNC_SUFFIX);
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenDispatch, TestMoeDispatchRoutingExpert) {
-    TestMoeDispatch(false);
-}
-
-TEST_F(TestCodegenDispatch, TestMoeDispatchSharedExpert) {
-    TestMoeDispatch(true);
+TEST_F(TestCodegenDispatch, TestMoeDispatchMultipyExperts) {
+    TestMoeDispatch();
 }
 } // namespace Distributed
 } // namespace npu::tile_fwk

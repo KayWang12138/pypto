@@ -48,8 +48,13 @@ std::string CodeGenOpCloudNPU::GetTemplateDType() const
     int32_t operandIndex{1};
     switch (opCode) {
         case Opcode::OP_FFN_BATCHING:
-        case Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE: {
+        case Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE:
+        case Opcode::OP_COPY_TO_LOCAL_EXPERT: {
             operandIndex = 0;
+            break;
+        }
+        case Opcode::OP_FFN_COMBINEINFO: {
+            operandIndex = 2; // 从 operand 2 获取 T
             break;
         }
         case Opcode::OP_SHMEM_CLEAR_SIGNAL: {
@@ -235,6 +240,50 @@ std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapes() const
             int32_t shmemDataIndex = 6;
             int32_t shmemDataDim = 4;
             oss << ", " << GenOffsets(shmemDataIndex, shmemDataDim);
+            break;
+        }
+        case Opcode::OP_SEND_TO_ROUTING_EXPERT: {
+            int32_t expertTableIndex = 6;
+            int32_t expertTableDim = 2;
+            int32_t shmemDataIndex = 5;
+            int32_t shmemDataDim = 4;
+            oss << ", " << GenOffsetsAndRawShapes(expertTableIndex, expertTableDim) << ", "
+                << GenOffsetsAndRawShapes(shmemDataIndex, shmemDataDim);
+            break;
+        }
+        case Opcode::OP_SEND_TO_SHARED_EXPERT: {
+            int32_t tokenIndex = 2;
+            int32_t tokenDim = 2;
+            int32_t shmemDataIndex= 3;
+            int32_t shmemDataDim = 4;
+            oss << ", " << GenOffsetsAndRawShapes(tokenIndex, tokenDim) << ", "
+                << GenOffsetsAndRawShapes(shmemDataIndex, shmemDataDim);
+            break;
+        }
+        case Opcode::OP_COPY_TO_LOCAL_EXPERT: {
+            int32_t tokenIndex = 3;
+            int32_t tokenDim = 2;
+            oss << ", " << GenOffsetsAndRawShapes(tokenIndex, tokenDim);
+            break;
+        }
+        case Opcode::OP_DISPATCH_SET_FLAG: {
+            int32_t shmemFlagIndex = 5;
+            int32_t shmemFlagDim = 4;
+            oss << ", " << GenOffsetsAndRawShapes(shmemFlagIndex, shmemFlagDim);
+            break;
+        }
+        case Opcode::OP_FFN_SCHED:
+        case Opcode::OP_FFN_BATCHING:
+        case Opcode::OP_FFN_VALIDCNT: {
+            int32_t shmemIndex = 3;
+            int32_t shmemDim = 4;
+            oss << ", " << GenOffsetsAndRawShapes(shmemIndex, shmemDim);
+            break;
+        }
+        case Opcode::OP_FFN_COMBINEINFO: {
+            int32_t shmemIndex = 2;
+            int32_t shmemDim = 4;
+            oss << ", " << GenOffsetsAndRawShapes(shmemIndex, shmemDim);
             break;
         }
         default: {

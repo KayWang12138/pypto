@@ -217,6 +217,8 @@ enum class Opcode {
     OP_DISPATCH_SET_FLAG,
     OP_FFN_SCHED,
     OP_FFN_BATCHING,
+    OP_FFN_COMBINEINFO,
+    OP_FFN_VALIDCNT,
     OP_SHMEM_CLEAR_SIGNAL,
     OP_SHMEM_PUT,
     OP_SHMEM_PUT_UB2GM,
@@ -393,6 +395,7 @@ public:
                opCode == Opcode::OP_INDEX_OUTCAST || opCode == Opcode::OP_REMOTE_GATHER ||
                opCode == Opcode::OP_LOCAL_COPY_OUT || opCode == Opcode::OP_REMOTE_REDUCE ||
                opCode == Opcode::OP_FFN_SCHED || opCode == Opcode::OP_FFN_BATCHING ||
+               opCode == Opcode::OP_FFN_COMBINEINFO || opCode == Opcode::OP_FFN_VALIDCNT ||
                opCode == Opcode::OP_COPY_TO_LOCAL_EXPERT || opCode == Opcode::OP_SHMEM_PUT ||
                opCode == Opcode::OP_SHMEM_SIGNAL || opCode == Opcode::OP_SHMEM_GET ||
                opCode == Opcode::OP_SHMEM_REDUCE || opCode == Opcode::OP_RESHAPE_COPY_OUT ||
@@ -406,10 +409,14 @@ public:
 
     inline bool IsSharedMemory(Opcode opCode) const {
         return opCode == Opcode::OP_SHMEM_WAIT_UNTIL || opCode == Opcode::OP_SHMEM_PUT ||
-               opCode == Opcode::OP_SHMEM_SIGNAL || opCode == Opcode::OP_SHMEM_GET ||
-               opCode == Opcode::OP_SHMEM_REDUCE || opCode == Opcode::OP_SHMEM_CLEAR_SIGNAL ||
-               opCode == Opcode::OP_SHMEM_PUT_UB2GM || opCode == Opcode::OP_SHMEM_GET_GM2UB ||
-               opCode == Opcode::OP_SHMEM_MOE_COMBINE_SEND || opCode == Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE;
+            opCode == Opcode::OP_SHMEM_SIGNAL || opCode == Opcode::OP_SHMEM_GET ||
+            opCode == Opcode::OP_SHMEM_REDUCE || opCode == Opcode::OP_SHMEM_CLEAR_SIGNAL ||
+            opCode == Opcode::OP_SHMEM_PUT_UB2GM || opCode == Opcode::OP_SHMEM_GET_GM2UB ||
+            opCode == Opcode::OP_SHMEM_MOE_COMBINE_SEND || opCode == Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE ||
+            opCode == Opcode::OP_FFN_BATCHING || opCode == Opcode::OP_SEND_TO_ROUTING_EXPERT ||
+            opCode == Opcode::OP_COPY_TO_LOCAL_EXPERT || opCode == Opcode::OP_DISPATCH_SET_FLAG ||
+            opCode == Opcode::OP_FFN_SCHED || opCode == Opcode::OP_FFN_COMBINEINFO ||
+            opCode == Opcode::OP_FFN_VALIDCNT;
     }
 
 private:
@@ -550,9 +557,10 @@ const std::unordered_set<Opcode> LOGICALAND_OPS{Opcode::OP_LOGICALAND};
 const std::unordered_set<Opcode> DISTRIBUTED_OPS{Opcode::OP_REMOTE_GATHER, Opcode::OP_LOCAL_COPY_OUT,
     Opcode::OP_WRITE_REMOTE, Opcode::OP_REMOTE_REDUCE, Opcode::OP_SEND_TO_ROUTING_EXPERT,
     Opcode::OP_SEND_TO_SHARED_EXPERT, Opcode::OP_COPY_TO_LOCAL_EXPERT, Opcode::OP_DISPATCH_SET_FLAG,
-    Opcode::OP_FFN_SCHED, Opcode::OP_FFN_BATCHING, Opcode::OP_SHMEM_PUT, Opcode::OP_SHMEM_SIGNAL, Opcode::OP_SHMEM_GET,
-    Opcode::OP_SHMEM_REDUCE, Opcode::OP_BIND_TENSOR, Opcode::OP_SHMEM_PUT_UB2GM, Opcode::OP_SHMEM_GET_GM2UB,
-    Opcode::OP_SHMEM_CLEAR_SIGNAL, Opcode::OP_SHMEM_MOE_COMBINE_SEND, Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE};
+    Opcode::OP_FFN_SCHED, Opcode::OP_FFN_BATCHING, Opcode::OP_FFN_COMBINEINFO, Opcode::OP_FFN_VALIDCNT,
+    Opcode::OP_SHMEM_PUT, Opcode::OP_SHMEM_SIGNAL, Opcode::OP_SHMEM_GET, Opcode::OP_SHMEM_REDUCE,
+    Opcode::OP_BIND_TENSOR, Opcode::OP_SHMEM_PUT_UB2GM, Opcode::OP_SHMEM_GET_GM2UB, Opcode::OP_SHMEM_CLEAR_SIGNAL,
+    Opcode::OP_SHMEM_MOE_COMBINE_SEND, Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE};
 
 inline bool IsAllocOpCode(Opcode opCode) {
     return (ALLOC_OPCODE.count(opCode) != 0);
@@ -571,10 +579,10 @@ inline bool IsCopyOut(const Opcode &op) {
     return (op == Opcode::OP_COPY_OUT || op == Opcode::OP_L0C_COPY_OUT || op == Opcode::OP_TRANSPOSE_MOVEOUT ||
             op == Opcode::OP_INDEX_OUTCAST || op == Opcode::OP_REMOTE_GATHER || op == Opcode::OP_LOCAL_COPY_OUT ||
             op == Opcode::OP_REMOTE_REDUCE || op == Opcode::OP_FFN_SCHED || op == Opcode::OP_FFN_BATCHING ||
-            op == Opcode::OP_COPY_TO_LOCAL_EXPERT || op == Opcode::OP_SHMEM_PUT || op == Opcode::OP_SHMEM_SIGNAL ||
-            op == Opcode::OP_SHMEM_GET || op == Opcode::OP_SHMEM_REDUCE || op == Opcode::OP_RESHAPE_COPY_OUT ||
-            op == Opcode::OP_SHMEM_PUT_UB2GM || op == Opcode::OP_SHMEM_GET_GM2UB ||
-            op == Opcode::OP_SHMEM_CLEAR_SIGNAL || op == Opcode::OP_SHMEM_MOE_COMBINE_SEND ||
+            op == Opcode::OP_FFN_COMBINEINFO || op == Opcode::OP_FFN_VALIDCNT || op == Opcode::OP_COPY_TO_LOCAL_EXPERT ||
+            op == Opcode::OP_SHMEM_PUT || op == Opcode::OP_SHMEM_SIGNAL || op == Opcode::OP_SHMEM_GET ||
+            op == Opcode::OP_SHMEM_REDUCE || op == Opcode::OP_RESHAPE_COPY_OUT || op == Opcode::OP_SHMEM_PUT_UB2GM ||
+            op == Opcode::OP_SHMEM_GET_GM2UB || op == Opcode::OP_SHMEM_CLEAR_SIGNAL || op == Opcode::OP_SHMEM_MOE_COMBINE_SEND ||
             op == Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE);
 }
 

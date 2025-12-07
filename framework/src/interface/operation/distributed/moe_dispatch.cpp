@@ -24,433 +24,563 @@
 #include "interface/utils/common.h"
 #include "interface/utils/log.h"
 #include "distributed_common.h"
+#include "tilefwk/symbolic_distributed.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {
-template <typename T>
-struct DispatchTileArgs {
-    Function &function;
-    const std::vector<std::shared_ptr<LogicalTensor>> &in;
-    const std::vector<std::shared_ptr<LogicalTensor>> &out;
-    T tilingInfo{};
-    const CommGroupInfo groupInfo;
-    const DistTensorTilingInfo tensorTileInfo;
-    const std::string tilingSymbol;
-};
-
-template <typename T>
-void ExpandTensorTiles(const std::function<void(T &)> &dealFunc, T &args)
+void AddTileOp(const TileShape& tileShape,
+    const std::function<void(int32_t, int32_t, int32_t, int32_t, int32_t)>& callback)
 {
-    auto &tilingInfo = args.tilingInfo;
-    tilingInfo.groupIndex = args.groupInfo.groupIndex;
-    auto& tileArray = args.tensorTileInfo[0];
-    tilingInfo.totalTileNum = GetTotalTileNum(tileArray);
-    for (tilingInfo.tileIndex = 0; tilingInfo.tileIndex < tilingInfo.totalTileNum; tilingInfo.tileIndex++) {
-        tilingInfo.shape = (tilingInfo.tileIndex < tileArray[DIST_HEAD_COUNT]) ?
-            tileArray[DIST_HEAD_SHAPE] : tileArray[DIST_TAIL_SHAPE];
-        dealFunc(args);
-        tilingInfo.offset += tilingInfo.shape;
+    const auto& tileRow = tileShape.GetDistTileRow();
+    const auto& tileCol = tileShape.GetDistTileCol();
+    int32_t rowCount = tileRow[1] + (tileRow[2] == 0 ? 0 : 1);
+    int32_t colCount = tileCol[1] + (tileCol[2] == 0 ? 0 : 1);
+
+    int32_t tileIndex = 0;
+    for (int32_t rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+        int32_t rowShape = ((tileRow[2] != 0) && (rowIndex == rowCount - 1)) ? tileRow[2] : tileRow[0];
+        for (int32_t colIndex = 0; colIndex < colCount; colIndex++) {
+            int32_t colShape = ((tileCol[2] != 0) && (colIndex == colCount - 1)) ? tileCol[2] : tileCol[0];
+            callback(tileIndex, rowIndex * tileRow[0], colIndex * tileCol[0], rowShape, colShape);
+            tileIndex++;
+        }
     }
 }
 
-void TileProcess(const std::function<void(DispatchTileArgs<TilingInfo>&, const std::vector<int64_t>&)>& dealFunc,
-    DispatchTileArgs<TilingInfo>& args, const std::vector<int64_t>& bufferShape)
+void TiledDispatchFFNSched(Function& function, const TileShape& tileShape,
+    const std::vector<std::shared_ptr<LogicalTensor>>& iOperand,
+    const std::vector<std::shared_ptr<LogicalTensor>>& oOperand, const Operation& op)
 {
-    const auto &rankTileInfo = args.groupInfo.rank.value();
-    const int32_t tileRankShape = rankTileInfo[DIST_HEAD_SHAPE];
-    const int32_t tileRankCnt = rankTileInfo[DIST_HEAD_COUNT];
-    const int32_t tailRankShape = rankTileInfo[DIST_TAIL_SHAPE];
-
-    auto &tilingInfo = args.tilingInfo;
-    tilingInfo.tileIndex = 0; // tileIndex 初始化
-    tilingInfo.rankOffset = 0; // rankOffset 初始化
-    tilingInfo.groupIndex = args.groupInfo.groupIndex;
-    tilingInfo.totalTileNum = GetTotalTileNum(rankTileInfo); // tileOp 个数
-    tilingInfo.shareRankCnt = SHARED_EXPERT_NUM; // 共享专家卡数，moe 卡数可以计算出来
-
-    while (tilingInfo.tileIndex < tilingInfo.totalTileNum) {
-        tilingInfo.rankShape = (tilingInfo.tileIndex < tileRankCnt) ? tileRankShape : tailRankShape;
-        dealFunc(args, bufferShape);
-        tilingInfo.rankOffset += tilingInfo.rankShape;
-        tilingInfo.tileIndex++;
-    }
-}
-
-void FFNSchedOpCallback(DispatchTileArgs<TilingInfo>& args, const std::vector<int64_t>& bufferShape)
-{
-    std::shared_ptr<LogicalTensor> syncTensor = args.in[DIST_INDEX_ZERO];
-    std::shared_ptr<LogicalTensor> tilingTensor = args.in[DIST_INDEX_ONE];
-    std::shared_ptr<LogicalTensor> recvTokenCntOut = args.out[DIST_INDEX_ZERO];
-
-    auto &tilingInfo = args.tilingInfo;
-    tilingInfo.rowShape = args.tensorTileInfo[0][0]; // 没切 x，所以 rowTile colTile 就是 x 的 shape
-    tilingInfo.colShape = args.tensorTileInfo[1][0];
-
-    auto bufferTensor = std::make_shared<LogicalTensor>(args.function, DataType::DT_INT32, bufferShape);
-
-    OpArgs<TilingInfo> opArgs = {"TILE_FFN_SCHED", {syncTensor}, {recvTokenCntOut, bufferTensor},
-        tilingTensor, args.tilingSymbol, std::make_optional(args.tilingInfo), std::nullopt};
-    auto &op = AddOperation(args.function, opArgs);
-    if (!IsRoutingExpert(args.groupInfo.rankId.value())) { // share rank 传入模板参数 true
-        op.SetAttr("extraTemplateParam", std::string("true"));
-    }
-}
-
-void FFNBatchingOpCallback(DispatchTileArgs<TilingInfo> &args, const std::vector<int64_t>& bufferShape)
-{
-    std::shared_ptr<LogicalTensor> recvTokenCntOut = args.in[DIST_INDEX_ZERO];
-    std::shared_ptr<LogicalTensor> tilingTensor = args.in[DIST_INDEX_ONE];
-    std::shared_ptr<LogicalTensor> expandX = args.out[DIST_INDEX_ZERO];
-    std::shared_ptr<LogicalTensor> validCnt = args.out[DIST_INDEX_ONE];
-
-    auto &tilingInfo = args.tilingInfo;
-    tilingInfo.rowShape = args.tensorTileInfo[0][0];
-    tilingInfo.colShape = args.tensorTileInfo[1][0];
-
-    auto bufferTensor = std::make_shared<LogicalTensor>(args.function, DataType::DT_INT32, bufferShape);
-
-    OpArgs<TilingInfo> opArgs = {"TILE_FFN_BATCHING", {recvTokenCntOut}, {expandX, validCnt, bufferTensor},
-        tilingTensor, args.tilingSymbol, std::make_optional(args.tilingInfo), std::nullopt};
-    auto &op = AddOperation(args.function, opArgs);
-    if (!IsRoutingExpert(args.groupInfo.rankId.value())) { // share rank 传入模板参数 true
-        op.SetAttr("extraTemplateParam", std::string("true"));
-    }
-}
-
-void TiledDispatchFFNBatching(Function &function, const TileShape &tileShape,
-    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
-    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op)
-{
-    CommGroupInfo groupInfo;
-    op.GetAttr(OpAttributeKey::commGroupInfo, groupInfo);
-    std::string tilingSymbol;
-    op.GetAttr("tiling_tensor_symbol", tilingSymbol);
-    TilingInfo tilingInfo;
-    constexpr size_t tensorTileDim = 2;
-    DistTensorTilingInfo tensorTileInfo(tileShape, tensorTileDim);
-    DispatchTileArgs<TilingInfo> args = {function, iOperand, oOperand, tilingInfo, groupInfo, tensorTileInfo,
-        tilingSymbol};
-    ALOG_INFO_F("Distributed opinfo: row=[%d %d %d], col=[%d %d %d]", args.tensorTileInfo[0][DIST_HEAD_SHAPE],
-        args.tensorTileInfo[0][DIST_HEAD_COUNT], args.tensorTileInfo[0][DIST_TAIL_SHAPE],
-        args.tensorTileInfo[1][DIST_HEAD_SHAPE], args.tensorTileInfo[1][DIST_HEAD_COUNT],
-        args.tensorTileInfo[1][DIST_TAIL_SHAPE]);
+    auto syncTensor = iOperand[DIST_INDEX_ZERO];
+    auto shmemFlag = iOperand[DIST_INDEX_ONE];
+    auto recvTokenCntOut = oOperand[DIST_INDEX_ZERO];
+    int flagColSize = shmemFlag->GetShape()[3];
+    std::string hcclGroupIndex;
     std::vector<int64_t> bufferShape;
-    op.GetAttr("DISPATCH_FFN_BUFFER_SHAPE", bufferShape);
-    TileProcess(FFNBatchingOpCallback, args, bufferShape);
+    int32_t sharedExpertNum = 0;
+    int64_t expertNumPerRank;
+    op.GetAttr("hcclGroupIndex", hcclGroupIndex);
+    op.GetAttr("dispatchBufferSize", bufferShape);
+    op.GetAttr("expertNumPerRank", expertNumPerRank);
+
+    const auto &tileRank = tileShape.GetDistTileRank();
+    int32_t totalTileNum = GetTotalTileNum(tileRank) * static_cast<int32_t>(expertNumPerRank);
+    const int32_t tileRankShape = tileRank[DIST_HEAD_SHAPE];
+    const int32_t tileRankCnt = tileRank[DIST_HEAD_COUNT] + (tileRank[DIST_TAIL_SHAPE] == 0 ? 0 : 1);
+    const int32_t tailRankShape = tileRank[DIST_TAIL_SHAPE];
+    int32_t tileIndex = 0;
+    for (int expertIndex = 0; expertIndex < expertNumPerRank; ++expertIndex) {
+        for (int rankIndex = 0; rankIndex < tileRankCnt; ++rankIndex) {
+            int32_t rankShape = ((tileRank[2] != 0) && (rankIndex == tileRankCnt - 1) ? tailRankShape :tileRankShape);
+            int32_t rankOffset = rankIndex * tileRankShape;
+            auto bufferTensor = std::make_shared<LogicalTensor>(function, DataType::DT_INT32, bufferShape);
+            auto shmemFlagTile = shmemFlag->View(function, {1, 1, rankShape, flagColSize}, 
+                {0, expertIndex, rankOffset, 0});
+            auto &opr = function.AddOperation(Opcode::OP_FFN_SCHED, {syncTensor, shmemFlagTile}, 
+                {recvTokenCntOut, bufferTensor});
+            std::string extraParam = std::to_string(tileIndex) + ", " + hcclGroupIndex + ", " + 
+                std::to_string(sharedExpertNum) + ", " + std::to_string(totalTileNum) + ", " + 
+                std::to_string(rankShape) + ", " + std::to_string(expertNumPerRank);
+            DistOpAttr distOpAttr;
+            distOpAttr.extraTemplateParam = extraParam;
+            opr.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+            tileIndex++;
+        }
+    }
 }
 
-void TiledDispatchFFNSched(Function &function, const TileShape &tileShape,
-    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
-    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op)
+void TiledDispatchFFNCombineInfo(Function& function, const TileShape& tileShape,
+    const std::vector<std::shared_ptr<LogicalTensor>>& iOperand,
+    const std::vector<std::shared_ptr<LogicalTensor>>& oOperand, const Operation& op)
 {
-    CommGroupInfo groupInfo;
-    op.GetAttr(OpAttributeKey::commGroupInfo, groupInfo);
-    std::string tilingSymbol;
-    op.GetAttr("tiling_tensor_symbol", tilingSymbol);
-    TilingInfo tilingInfo;
-    constexpr size_t tensorTileDim = 2;
-    DistTensorTilingInfo tensorTileInfo(tileShape, tensorTileDim);
-    DispatchTileArgs<TilingInfo> args = {function, iOperand, oOperand, tilingInfo, groupInfo, tensorTileInfo,
-        tilingSymbol};
-    ALOG_INFO_F("Distributed opinfo: row=[%d %d %d], col=[%d %d %d]", args.tensorTileInfo[0][DIST_HEAD_SHAPE],
-        args.tensorTileInfo[0][DIST_HEAD_COUNT], args.tensorTileInfo[0][DIST_TAIL_SHAPE],
-        args.tensorTileInfo[1][DIST_HEAD_SHAPE], args.tensorTileInfo[1][DIST_HEAD_COUNT],
-        args.tensorTileInfo[1][DIST_TAIL_SHAPE]);
+    auto recvTokenCntOut = iOperand[DIST_INDEX_ZERO];
+    auto shmemData = iOperand[DIST_INDEX_ONE];
+    auto shmemFlag = iOperand[DIST_INDEX_TWO];
+    auto combineInfo = oOperand[DIST_INDEX_ZERO];
+
+    int32_t shmemDataLength = shmemData->GetShape()[3];
+    Shape combineInfoBufferShape = {combineInfo->GetShape()[0] + 32};
+    std::string hcclGroupIndex;
     std::vector<int64_t> bufferShape;
-    op.GetAttr("DISPATCH_FFN_BUFFER_SHAPE", bufferShape);
-    TileProcess(FFNSchedOpCallback, args, bufferShape);
+    std::string axisH;
+    std::string batchSize;
+    int32_t sharedExpertNum = 0;
+    int64_t expertNumPerRank;
+    op.GetAttr("expertNumPerRank", expertNumPerRank);
+    op.GetAttr("hcclGroupIndex", hcclGroupIndex);
+    op.GetAttr("dispatchBufferSize", bufferShape);
+    op.GetAttr("hiddenSize", axisH);
+    op.GetAttr("tokenBatchSize", batchSize);
+
+    const auto &tileRank = tileShape.GetDistTileRank();
+    int32_t totalTileNum = GetTotalTileNum(tileRank) * static_cast<int32_t>(expertNumPerRank);
+    const int32_t tileRankShape = tileRank[DIST_HEAD_SHAPE];
+    const int32_t tileRankCnt = tileRank[DIST_HEAD_COUNT] + (tileRank[DIST_TAIL_SHAPE] == 0 ? 0 : 1);
+    const int32_t tailRankShape = tileRank[DIST_TAIL_SHAPE];
+
+    int32_t tileIndex = 0;
+    for (int expertIndex = 0; expertIndex < expertNumPerRank; ++expertIndex) {
+        for (int rankIndex = 0; rankIndex < tileRankCnt; ++rankIndex) {
+            int32_t rankShape = ((tileRank[2] != 0) && (rankIndex == tileRankCnt - 1) ? tailRankShape :tileRankShape);
+            int32_t rankOffset = rankIndex * tileRankShape;
+            auto bufferCombineInfo = std::make_shared<LogicalTensor>(function, DataType::DT_INT32, bufferShape);
+            auto shmemDataTile = shmemData->View(function, {1, rankShape, 1, shmemDataLength}, 
+                {0, rankOffset, expertIndex, 0});
+            auto &opr = function.AddOperation(Opcode::OP_FFN_COMBINEINFO, {shmemDataTile, shmemFlag, recvTokenCntOut}, 
+                {combineInfo, bufferCombineInfo});
+            std::string extraParam = std::to_string(tileIndex) + ", " + hcclGroupIndex + ", " +
+                std::to_string(sharedExpertNum) + ", " + std::to_string(totalTileNum) + ", " +
+                std::to_string(rankShape) + ", " + axisH + ", " + batchSize + ", " +
+                std::to_string(combineInfo->GetShape()[0]);
+            DistOpAttr distOpAttr;
+            distOpAttr.extraTemplateParam = extraParam;
+            opr.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+            tileIndex++;
+        }
+    }
 }
 
-Operation& TensorGraphAddOp(const std::string &opName, const std::vector<std::shared_ptr<LogicalTensor>> &iOperands,
-    const std::vector<std::shared_ptr<LogicalTensor>> &oOperands, const char *group)
+void TiledDispatchFFNBatching(Function& function, const TileShape& tileShape,
+    const std::vector<std::shared_ptr<LogicalTensor>>& iOperand,
+    const std::vector<std::shared_ptr<LogicalTensor>>& oOperand, const Operation& op)
 {
-    auto& function = *Program::GetInstance().GetCurrentFunction();
-    auto& oper = function.AddOperation(opName, iOperands, oOperands);
-    std::shared_ptr<LogicalTensor> tilingTensor = iOperands[1];
+    auto recvTokenCntOut = iOperand[DIST_INDEX_ZERO];
+    auto shmemData = iOperand[DIST_INDEX_ONE];
+    auto shmemFlag = iOperand[DIST_INDEX_TWO];
+    auto expandX = oOperand[DIST_INDEX_ZERO];
+    auto validCnt = oOperand[DIST_INDEX_ONE];
 
-    int32_t groupIndex = static_cast<int32_t>(
-        CommGroupRecorder::GetInstance().Input(std::string(group)));
-    CommGroupInfo groupInfo;
-    const TileShape &tileShape = TileShape::Current();
-    CheckAndGetGroupInfo(groupIndex, tileShape, groupInfo);
-    oper.SetAttr(OpAttributeKey::commGroupInfo, groupInfo);
-    oper.SetAttr("tiling_tensor_symbol", tilingTensor->Symbol());
-    return oper;
+    int32_t shmemDataLength = shmemData->GetShape()[3];
+    std::string groupIndex;
+    std::vector<int64_t> bufferShape;
+    std::string axisH;
+    std::string batchSize;
+    int32_t sharedExpertNum = 0;
+    int64_t expertNumPerRank;
+    op.GetAttr("expertNumPerRank", expertNumPerRank);
+    op.GetAttr("hcclGroupIndex", groupIndex);
+    op.GetAttr("dispatchBufferSize", bufferShape);
+    op.GetAttr("hiddenSize", axisH);
+    op.GetAttr("tokenBatchSize", batchSize);
+
+    const auto &tileRank = tileShape.GetDistTileRank();
+    int32_t totalTileNum = GetTotalTileNum(tileRank) * static_cast<int32_t>(expertNumPerRank);
+    const int32_t tileRankShape = tileRank[DIST_HEAD_SHAPE];
+    const int32_t tileRankCnt = tileRank[DIST_HEAD_COUNT] + (tileRank[DIST_TAIL_SHAPE] == 0 ? 0 : 1);
+    const int32_t tailRankShape = tileRank[DIST_TAIL_SHAPE];
+
+    int32_t tileIndex = 0;
+    for (int expertIndex = 0; expertIndex < expertNumPerRank; ++expertIndex) {
+        for (int rankIndex = 0; rankIndex < tileRankCnt; ++rankIndex) {
+            int32_t rankShape = ((tileRank[2] != 0) && (rankIndex == tileRankCnt - 1) ? tailRankShape :tileRankShape);
+            int32_t rankOffset = rankIndex * tileRankShape;
+            auto bufferTensor = std::make_shared<LogicalTensor>(function, DataType::DT_INT32, bufferShape);
+            auto shmemDataTile = shmemData->View(function, {1, rankShape, 1, shmemDataLength}, 
+                {0, rankOffset, expertIndex, 0});
+            auto &opr = function.AddOperation(Opcode::OP_FFN_BATCHING, {shmemDataTile, shmemFlag, recvTokenCntOut}, 
+                {expandX, validCnt, bufferTensor});
+            std::string extraParam = std::to_string(tileIndex) + ", " + groupIndex + ", " +
+                std::to_string(sharedExpertNum) + ", " + std::to_string(totalTileNum) + ", " +
+                std::to_string(rankShape) + ", " + axisH + ", " + batchSize + ", " +
+                std::to_string(expandX->GetShape()[0]);
+            DistOpAttr distOpAttr;
+            distOpAttr.extraTemplateParam = extraParam;
+            opr.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+            tileIndex++;
+        }
+    }
 }
 
-void DispatchFFNBatching(std::vector<std::shared_ptr<LogicalTensor>> &iOperands,
-    std::vector<std::shared_ptr<LogicalTensor>> &oOperands, const char *group, const Tensor &tokenTensor)
+void TiledDispatchFFNValidCnt(Function& function, const TileShape& tileShape,
+    const std::vector<std::shared_ptr<LogicalTensor>>& iOperand,
+    const std::vector<std::shared_ptr<LogicalTensor>>& oOperand, const Operation& op)
 {
-    auto &oper = TensorGraphAddOp("FFN_BATCHING", iOperands, oOperands, group);
-    int tempSize1 = (AIV_NUM * 32 + 255) / 256 * 256 + 256 + (AIV_NUM * 4 + 31) / 32 * 32;
-    int tempSize2 = tokenTensor.GetShape()[1] * BytesOf(tokenTensor.GetDataType());
-    int tempBufSize = (tempSize1 < tempSize2) ? tempSize2 : tempSize1;
-    const std::vector<int64_t> bufferShape{tempBufSize / 8, 8}; // 肯定能除尽
-    oper.SetAttr("DISPATCH_FFN_BUFFER_SHAPE", bufferShape);
+    (void) op;
+    auto recvTokenCntOut = iOperand[DIST_INDEX_ZERO];
+    auto shmemFlag = iOperand[DIST_INDEX_ONE];
+    auto validCnt = oOperand[DIST_INDEX_ZERO];
+
+    int32_t flagColSize = shmemFlag->GetShape()[3];
+    int32_t rankSize = shmemFlag->GetShape()[0];
+
+    const auto& tileExpert = tileShape.GetDistTileRank();
+    int32_t tileExpertShape = tileExpert[0];
+    int32_t expertCount = tileExpert[1] + (tileExpert[2] == 0 ? 0 : 1);
+    Shape bufferShape {shmemFlag->shape[0] * expertCount};
+
+    for (int32_t expertIndex = 0; expertIndex < expertCount; ++expertIndex) {
+        int32_t expertShape = ((tileExpert[2] != 0) && (expertIndex == expertCount - 1)) ? tileExpert[2] : tileExpert[0];
+        int32_t expertOffset = expertIndex * tileExpertShape;
+        auto validCntBuffer = std::make_shared<LogicalTensor>(function, DataType::DT_INT32, bufferShape);
+        auto shmemFlagTile = shmemFlag->View(function, {1, expertShape, rankSize, flagColSize},
+            {0, expertOffset, 0, 0});
+        auto &tileop = function.AddOperation(Opcode::OP_FFN_VALIDCNT, {recvTokenCntOut, shmemFlagTile},
+            {validCnt, validCntBuffer});
+        std::string extraParam = std::to_string(expertShape);
+        DistOpAttr distOpAttr;
+        distOpAttr.extraTemplateParam = extraParam;
+        tileop.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+    }
 }
 
-void DispatchFFNSched(std::vector<std::shared_ptr<LogicalTensor>> &iOperands,
-    std::vector<std::shared_ptr<LogicalTensor>> &oOperands, const char *group)
+Tensor DispatchFFNValidCnt(const Tensor& recvTokenCntOut, const Tensor& shmemFlag, const MoeConfig& moeConfig)
 {
-    auto &oper = TensorGraphAddOp("FFN_SCHED", iOperands, oOperands, group);
-    int32_t moeOpProcessRankSize = TOTAL_EXPERT_NUM / AIV_NUM;
-    int32_t shareOpProcessRankSize = ROUTING_EXPERT_NUM / SHARED_EXPERT_NUM;
-    int32_t maxProcessRankSize = (moeOpProcessRankSize < shareOpProcessRankSize) ?
-        shareOpProcessRankSize : moeOpProcessRankSize;
+    auto &function = *Program::GetInstance().GetCurrentFunction();
+    Shape validCntShape = {moeConfig.expertNumPerRank, 1};
+    auto validCntPtr = std::make_shared<LogicalTensor>(function, DataType::DT_INT32, validCntShape);
+    auto &oper = function.AddOperation(Opcode::OP_FFN_VALIDCNT, {recvTokenCntOut.GetStorage(), shmemFlag.GetStorage()}, {validCntPtr});
+    (void)oper;
+    return validCntPtr;
+}
+
+Tensor DispatchFFNCombineInfo(const char *group, const Tensor &tokenTensor,
+    const Tensor &recvTokenCntOut, const Tensor &shmemData, const Tensor &shmemFlag,
+    int32_t expandXRow, int32_t ffnTileNum, const MoeConfig &moeConfig)
+{
+    auto &function = *Program::GetInstance().GetCurrentFunction();
+    Shape combineInfoShape = {expandXRow, 3};
+    auto combineInfoPtr = std::make_shared<LogicalTensor>(function, DataType::DT_INT32, combineInfoShape);
+    auto &oper = function.AddOperation(Opcode::OP_FFN_COMBINEINFO, {recvTokenCntOut.GetStorage(), shmemData.GetStorage(),
+        shmemFlag.GetStorage()}, {combineInfoPtr});
+    int tempBufSize = (moeConfig.expertNumPerRank * ffnTileNum * 32 + 255) / 256 * 256 + 256 + (moeConfig.expertNumPerRank * ffnTileNum * 4 + 31) / 32 * 32;
+    std::string hcclGroupIndex = std::to_string(CommGroupRecorder::GetInstance().Input(std::string(group)));
+    const std::vector<int64_t> bufferShape {tempBufSize};
+    oper.SetAttr("hcclGroupIndex", hcclGroupIndex);
+    oper.SetAttr("dispatchBufferSize", bufferShape);
+    oper.SetAttr("hiddenSize", std::to_string(tokenTensor.GetShape()[1]));
+    oper.SetAttr("tokenBatchSize", std::to_string(tokenTensor.GetShape()[0]));
+    oper.SetAttr("expertNumPerRank", static_cast<int64_t>(moeConfig.expertNumPerRank));
+    return combineInfoPtr;
+}
+
+Tensor DispatchFFNBatching(const char *group, const Tensor &tokenTensor, 
+    const Tensor &recvTokenCntOut, const Tensor &shmemData, const Tensor &shmemFlag, 
+    int32_t expandXRow, int32_t ffnTileNum, const MoeConfig &moeConfig)
+{
+    auto &function = *Program::GetInstance().GetCurrentFunction();
+    Shape validCntShape = {moeConfig.expertNumPerRank, 1};
+    auto validCntPtr = std::make_shared<LogicalTensor>(function, DataType::DT_INT32, validCntShape);
+    Shape expandXShape = {expandXRow, tokenTensor.GetShape()[1]};
+    auto expandXPtr = std::make_shared<LogicalTensor>(function, tokenTensor.GetDataType(), expandXShape);
+    auto &oper = function.AddOperation(Opcode::OP_FFN_BATCHING, {recvTokenCntOut.GetStorage(), shmemData.GetStorage(),
+        shmemFlag.GetStorage()}, {expandXPtr, validCntPtr});
+    int cumSumBuffer = (moeConfig.expertNumPerRank * ffnTileNum * 32 + 255) / 256 * 256 + 256 + (moeConfig.expertNumPerRank * ffnTileNum * 4 + 31) / 32 * 32;
+    int tokenCopyBuffer = tokenTensor.GetShape(1) + 512;
+    int tempBufSize = (cumSumBuffer < tokenCopyBuffer) ? tokenCopyBuffer : cumSumBuffer;
+    std::string hcclGroupIndex = std::to_string(CommGroupRecorder::GetInstance().Input(std::string(group)));
+    const std::vector<int64_t> bufferShape {tempBufSize};
+    oper.SetAttr("hcclGroupIndex", hcclGroupIndex);
+    oper.SetAttr("dispatchBufferSize", bufferShape);
+    oper.SetAttr("hiddenSize", std::to_string(tokenTensor.GetShape()[1]));
+    oper.SetAttr("tokenBatchSize", std::to_string(tokenTensor.GetShape()[0]));
+    oper.SetAttr("expertNumPerRank", static_cast<int64_t>(moeConfig.expertNumPerRank));
+    return expandXPtr;
+}
+
+Tensor DispatchFFNSched(const char *group, const Tensor &flagDummy, Tensor &shmemFlag, const MoeConfig &moeConfig, int32_t ffnTileCnt)
+{
+    auto &function = *Program::GetInstance().GetCurrentFunction();
+    Shape shape = {512, 512};
+    auto recvTokenCntOutPtr = std::make_shared<LogicalTensor>(function, DataType::DT_INT32, shape);
+    auto &oper = function.AddOperation(Opcode::OP_FFN_SCHED, {flagDummy.GetStorage(), shmemFlag.GetStorage()},
+        {recvTokenCntOutPtr});
+    int32_t moeOpProcessRankSize = moeConfig.expertNumPerRank * ffnTileCnt;
+    int32_t maxProcessRankSize = moeOpProcessRankSize;
     int tempBufSize = maxProcessRankSize * 32 + 32 + (maxProcessRankSize * 4 + 31) / 32 * 32;
-    const std::vector<int64_t> bufferShape{tempBufSize / 8, 8}; // 肯定能除尽
-    oper.SetAttr("DISPATCH_FFN_BUFFER_SHAPE", bufferShape);
+    std::string hcclGroupIndex = std::to_string(CommGroupRecorder::GetInstance().Input(std::string(group)));
+    oper.SetAttr("hcclGroupIndex", hcclGroupIndex);
+    const std::vector<int64_t> bufferShape {tempBufSize / 8, 8};
+    oper.SetAttr("dispatchBufferSize", bufferShape);
+    oper.SetAttr("expertNumPerRank", static_cast<int64_t>(moeConfig.expertNumPerRank));
+    return recvTokenCntOutPtr;
 }
 
 std::vector<int64_t> GetCommBufferSize(const std::shared_ptr<LogicalTensor> &tokenTensor)
 {
     const int64_t hOutSize = tokenTensor->shape[1] * BytesOf(tokenTensor->Datatype());
-    constexpr int64_t scaleParamPad = 128;
-    const int64_t hCommuSize = hOutSize + scaleParamPad;
+    constexpr int64_t scaleParamPad = 512;
+    const int64_t hCommuSize = AlignUp(hOutSize, 512) + scaleParamPad;
     return {1, static_cast<int64_t>(hCommuSize / BytesOf(tokenTensor->Datatype()))};
 }
 
-void DealSendToRoutingExpertTile(DispatchTileArgs<DispatchTilingInfo> &args)
+void TiledSendToRoutingExpert(Function& function, const TileShape& tileShape,
+    const std::vector<std::shared_ptr<LogicalTensor>>& iOperand,
+    const std::vector<std::shared_ptr<LogicalTensor>>& oOperand, const Operation& op)
 {
-    std::shared_ptr<LogicalTensor> tokenTensor = args.in[DIST_INDEX_ZERO];
-    std::shared_ptr<LogicalTensor> tokenExpertTable = args.in[DIST_INDEX_ONE];
-    std::shared_ptr<LogicalTensor> tilingTensor = args.in[DIST_INDEX_TWO];
-    std::shared_ptr<LogicalTensor> syncTensor = args.out[DIST_INDEX_ZERO];
-    auto &tilingInfo = args.tilingInfo;
-    auto tokenBuffer = std::make_shared<LogicalTensor>(args.function, tokenTensor->Datatype(),
-        GetCommBufferSize(tokenTensor));
-    auto expertBufferUb = std::make_shared<LogicalTensor>(args.function, tokenExpertTable->Datatype(),
-        std::vector<int64_t>{1, tokenExpertTable->shape[0] * tokenExpertTable->shape[1]});
-    auto expertBuffer = std::make_shared<LogicalTensor>(args.function, tokenExpertTable->Datatype(),
-        std::vector<int64_t>{1, tokenExpertTable->shape[0] * tokenExpertTable->shape[1] * 2});
-    OpArgs<DispatchTilingInfo> opArgs = {"TILE_SEND_TO_ROUTING_EXPERT",
-        {tokenTensor, tokenExpertTable}, {syncTensor, tokenBuffer, expertBufferUb, expertBuffer},
-        tilingTensor, args.tilingSymbol, std::make_optional(tilingInfo), std::nullopt};
-    auto& op = AddOperation(args.function, opArgs);
-    std::string extraParam = std::to_string(tokenTensor->shape[0]) + ", " +
-        std::to_string(tokenTensor->shape[1]) + ", " + std::to_string(tokenExpertTable->shape[1]);
-    op.SetAttr("extraTemplateParam", extraParam);
+    auto shmemData = iOperand[DIST_INDEX_ZERO];
+    auto tokenTensor = iOperand[DIST_INDEX_ONE];
+    auto expertTable = iOperand[DIST_INDEX_TWO];
+    auto syncTensor = oOperand[DIST_INDEX_ZERO];
+    std::string hcclGroupIndex;
+    int64_t expertNumPerRank;
+    op.GetAttr("expertNumPerRank", expertNumPerRank);
+    op.GetAttr("hcclGroupIndex", hcclGroupIndex);
+    AddTileOp(tileShape,
+        [&](int32_t tileIndex, int32_t rowOffset, int32_t colOffset, int32_t rowShape, int32_t colShape) {
+            (void) tileIndex;
+            auto expertTableTile = expertTable->View(function, {rowShape, colShape}, {rowOffset, colOffset});
+            auto expertBufferUb = std::make_shared<LogicalTensor>(function, expertTable->Datatype(),
+                std::vector<int64_t>{1, expertTable->shape[0] * expertTable->shape[1]});
+            auto expertBuffer = std::make_shared<LogicalTensor>(function, expertTable->Datatype(),
+                std::vector<int64_t>{1, expertTable->shape[0] * expertTable->shape[1] * 2});
+            auto tokenBuffer = std::make_shared<LogicalTensor>(function, tokenTensor->Datatype(), 
+                GetCommBufferSize(tokenTensor));
+            auto &tileop = function.AddOperation(Opcode::OP_SEND_TO_ROUTING_EXPERT, {tokenTensor, shmemData, 
+                expertTableTile}, {syncTensor, tokenBuffer, expertBufferUb, expertBuffer});
+            std::string extraParam = std::to_string(tokenTensor->shape[1]) + ", " + std::to_string(rowOffset) +
+                ", " + std::to_string(colOffset) + ", " + std::to_string(rowShape) +
+                ", " + std::to_string(colShape) + ", " + hcclGroupIndex;
+            DistOpAttr distOpAttr;
+            distOpAttr.extraTemplateParam = extraParam;
+            tileop.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+        });
 }
 
-void TiledSendToRoutingExpert(Function &function, const TileShape &tileShape,
-    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
-    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op)
+void TiledSendToSharedExpert(Function& function, const TileShape& tileShape,
+    const std::vector<std::shared_ptr<LogicalTensor>>& iOperand,
+    const std::vector<std::shared_ptr<LogicalTensor>>& oOperand, const Operation& op)
 {
-    (void)tileShape;
-    CommGroupInfo groupInfo;
-    op.GetAttr(OpAttributeKey::commGroupInfo, groupInfo);
-    std::string tilingSymbol;
-    op.GetAttr("tiling_tensor_symbol", tilingSymbol);
-    DistTensorTilingInfo tensorTileInfo;
-    op.GetAttr("DistTensorTilingInfo", tensorTileInfo);
-
-    DispatchTileArgs<DispatchTilingInfo> args = {function, iOperand, oOperand, {}, groupInfo, tensorTileInfo,
-        tilingSymbol};
-    ExpandTensorTiles<decltype(args)>(DealSendToRoutingExpertTile, args);
+    auto shmemData = iOperand[DIST_INDEX_ZERO];
+    auto tokenTensor = iOperand[DIST_INDEX_ONE];
+    auto syncTensor = oOperand[DIST_INDEX_ZERO];
+    (void) oOperand;
+    std::string hcclGroupIndex;
+    op.GetAttr("hcclGroupIndex", hcclGroupIndex);
+    AddTileOp(tileShape,
+        [&](int32_t tileIndex, int32_t rowOffset, int32_t colOffset, int32_t rowShape, int32_t colShape) {
+            (void) tileIndex;
+            Shape shape = {rowShape, colShape};
+            auto tokenTensorTile = tokenTensor->View(function, {rowShape, colShape}, {rowOffset, colOffset});
+            auto tokenBuffer = std::make_shared<LogicalTensor>(function, tokenTensor->Datatype(), 
+                GetCommBufferSize(tokenTensor));
+            auto &tileop = function.AddOperation(Opcode::OP_SEND_TO_SHARED_EXPERT, {tokenTensorTile, shmemData},
+                {syncTensor, tokenBuffer});
+            std::string extraParam = std::to_string(tokenTensor->shape[0]) + ", " +
+                std::to_string(tokenTensor->shape[1]) + ", " + std::to_string(rowShape) + ", " + hcclGroupIndex;
+            DistOpAttr distOpAttr;
+            distOpAttr.extraTemplateParam = extraParam;
+            tileop.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+        });
 }
 
-void DealSendToSharedExpertTile(DispatchTileArgs<DispatchTilingInfo> &args)
+void TiledCopyToLocalExpert(Function& function, const TileShape& tileShape,
+    const std::vector<std::shared_ptr<LogicalTensor>>& iOperand,
+    const std::vector<std::shared_ptr<LogicalTensor>>& oOperand, const Operation& op)
 {
-    std::shared_ptr<LogicalTensor> tokenTensor = args.in[0];
-    std::shared_ptr<LogicalTensor> tilingTensor = args.in[1];
-    std::shared_ptr<LogicalTensor> syncTensor = args.out[0];
-    auto &tilingInfo = args.tilingInfo;
-    auto tokenBuffer = std::make_shared<LogicalTensor>(args.function, tokenTensor->Datatype(),
-        GetCommBufferSize(tokenTensor));
-    OpArgs<DispatchTilingInfo> opArgs = {"TILE_SEND_TO_SHARED_EXPERT", {tokenTensor}, {syncTensor, tokenBuffer},
-        tilingTensor, args.tilingSymbol, std::make_optional(tilingInfo), std::nullopt};
-    auto &op = AddOperation(args.function, opArgs);
-    std::string extraParam = std::to_string(tokenTensor->shape[0]) + ", " +
-        std::to_string(tokenTensor->shape[1]);
-    op.SetAttr("extraTemplateParam", extraParam);
+    auto tokenTensor = iOperand[DIST_INDEX_ZERO];
+    auto expandX = oOperand[DIST_INDEX_ZERO];
+    auto syncTensor = oOperand[DIST_INDEX_ONE];
+    (void) op;
+    AddTileOp(tileShape,
+        [&](int32_t tileIndex, int32_t rowOffset, int32_t colOffset, int32_t rowShape, int32_t colShape) {
+            (void) tileIndex;
+            auto tokenTensorTile = tokenTensor->View(function, {rowShape, colShape}, {rowOffset, colOffset});
+            auto tokenBuffer = std::make_shared<LogicalTensor>(function, tokenTensor->Datatype(), 
+                GetCommBufferSize(tokenTensor));
+            auto &tileop = function.AddOperation(Opcode::OP_COPY_TO_LOCAL_EXPERT, {tokenTensorTile},
+                {expandX, syncTensor, tokenBuffer});
+            std::string extraParam = std::to_string(tokenTensor->shape[0]) + ", " +
+                std::to_string(tokenTensor->shape[1]) + ", " + std::to_string(rowShape);
+            DistOpAttr distOpAttr;
+            distOpAttr.extraTemplateParam = extraParam;
+            tileop.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+        });
 }
 
-void DealCopyToLocalExpertTile(DispatchTileArgs<DispatchTilingInfo> &args)
+void TiledDispatchSetFlag(Function& function, const TileShape& tileShape,
+    const std::vector<std::shared_ptr<LogicalTensor>>& iOperand,
+    const std::vector<std::shared_ptr<LogicalTensor>>& oOperand, const Operation& op)
 {
-    std::shared_ptr<LogicalTensor> tokenTensor = args.in[DIST_INDEX_ZERO];
-    std::shared_ptr<LogicalTensor> tilingTensor = args.in[DIST_INDEX_ONE];
-    std::shared_ptr<LogicalTensor> expandX = args.out[DIST_INDEX_ZERO];
-    auto &tilingInfo = args.tilingInfo;
-    auto tokenBuffer = std::make_shared<LogicalTensor>(args.function, tokenTensor->Datatype(),
-        GetCommBufferSize(tokenTensor));
-    OpArgs<DispatchTilingInfo> opArgs = {"TILE_COPY_TO_LOCAL_EXPERT", {tokenTensor}, {expandX, tokenBuffer},
-        tilingTensor, args.tilingSymbol, std::make_optional(tilingInfo), std::nullopt};
-    auto &op = AddOperation(args.function, opArgs);
-    std::string extraParam = std::to_string(tokenTensor->shape[0]) + ", " +
-        std::to_string(tokenTensor->shape[1]);
-    op.SetAttr("extraTemplateParam", extraParam);
+    auto shmemFlag = iOperand[DIST_INDEX_ZERO];
+    auto syncTensor = iOperand[DIST_INDEX_ONE];
+    auto tokenExpertTable = iOperand[DIST_INDEX_TWO];
+    auto syncDummy = oOperand[DIST_INDEX_ZERO];
+    int flagColSize = shmemFlag->GetShape()[3];
+    std::string hcclGroupIndex;
+    op.GetAttr("hcclGroupIndex", hcclGroupIndex);
+    int64_t expertNumPerRank;
+    op.GetAttr("expertNumPerRank", expertNumPerRank);
+
+    const auto &tileExpert = tileShape.GetDistTileRank();
+    const auto &tileRank = tileShape.GetDistTileCol();
+    int32_t tileRankShape = tileRank[0];
+    int32_t tileExpertShape = tileExpert[0];
+    int32_t rankCount = tileRank[1] + (tileRank[2] == 0 ? 0 : 1);
+    int32_t expertCount = tileExpert[1] + (tileExpert[2] == 0 ? 0 : 1);
+
+    for (int32_t rankIndex = 0; rankIndex < rankCount; ++rankIndex) {
+        int32_t rankShape = ((tileRank[2] != 0) && (rankIndex == rankCount - 1)) ? tileRank[2] : tileRank[0];
+        for (int32_t expertIndex = 0; expertIndex < expertCount; ++expertIndex) {
+            int32_t expertShape = ((tileExpert[2] != 0) && (expertIndex == expertCount - 1)) ?
+                tileExpert[2] : tileExpert[0];
+            int32_t rankOffset = rankIndex * tileRankShape;
+            int32_t expertOffset = expertIndex * tileExpertShape;
+            auto statusTensor = std::make_shared<LogicalTensor>(function, tokenExpertTable->Datatype(),
+                std::vector<int64_t>{1, expertNumPerRank * 16 + 32}); // 每个expert预留16B缓存flag跟count,最后一个expert后预留32位
+            auto expertBufferUb = std::make_shared<LogicalTensor>(function, tokenExpertTable->Datatype(),
+                std::vector<int64_t>{1, tokenExpertTable->shape[0] * tokenExpertTable->shape[1]});
+            auto expertBuffer = std::make_shared<LogicalTensor>(function, tokenExpertTable->Datatype(),
+                std::vector<int64_t>{1, tokenExpertTable->shape[0] * tokenExpertTable->shape[1] * 2});
+            auto shmemFlagTile = shmemFlag->View(function, {rankShape, expertShape, 1, flagColSize}, 
+                {rankOffset, expertOffset, 0, 0});
+            auto &tileop = function.AddOperation(Opcode::OP_DISPATCH_SET_FLAG, {tokenExpertTable, shmemFlagTile, 
+                syncTensor}, {syncDummy, statusTensor, expertBufferUb, expertBuffer}); 
+            std::string extraParam = std::to_string(tokenExpertTable->shape[0]) + ", " +
+                std::to_string(tokenExpertTable->shape[1]) + ", " + hcclGroupIndex + ", " +
+                std::to_string(expertShape) + ", " + std::to_string(rankShape);
+            DistOpAttr distOpAttr;
+            distOpAttr.extraTemplateParam = extraParam;
+            tileop.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+        }
+    }
 }
 
-void TiledSendToSharedExpert(Function &function, const TileShape &tileShape,
-    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
-    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op)
+Tensor SendToRoutingExpert(const Tensor &shmemData, const Tensor &tokenTensor,
+    const Tensor &tokenExpertTable, const char *group, const MoeConfig &moeConfig)
 {
-    (void)tileShape;
-    CommGroupInfo groupInfo;
-    op.GetAttr(OpAttributeKey::commGroupInfo, groupInfo);
-    std::string tilingSymbol;
-    op.GetAttr("tiling_tensor_symbol", tilingSymbol);
-    DistTensorTilingInfo tensorTileInfo;
-    op.GetAttr("DistTensorTilingInfo", tensorTileInfo);
-
-    DispatchTileArgs<DispatchTilingInfo> args = {function, iOperand, oOperand, {}, groupInfo, tensorTileInfo,
-        tilingSymbol};
-    ExpandTensorTiles<decltype(args)>(DealSendToSharedExpertTile, args);
+    Shape shape{1, 1};
+    auto &function = *Program::GetInstance().GetCurrentFunction();
+    auto syncTensor = std::make_shared<LogicalTensor>(function, DataType::DT_INT32, shape);
+    auto &oper = function.AddOperation(Opcode::OP_SEND_TO_ROUTING_EXPERT, {shmemData.GetStorage(),
+        tokenTensor.GetStorage(), tokenExpertTable.GetStorage()}, {syncTensor});
+    std::string hcclGroupIndex = std::to_string(CommGroupRecorder::GetInstance().Input(std::string(group)));    
+    oper.SetAttr("hcclGroupIndex", hcclGroupIndex);
+    oper.SetAttr("expertNumPerRank", static_cast<int64_t>(moeConfig.expertNumPerRank));
+    return syncTensor;
 }
 
-void TiledCopyToLocalExpert(Function &function, const TileShape &tileShape,
-    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
-    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op)
-{
-    (void)tileShape;
-    std::string tilingSymbol;
-    op.GetAttr("tiling_tensor_symbol", tilingSymbol);
-    DistTensorTilingInfo tensorTileInfo;
-    op.GetAttr("DistTensorTilingInfo", tensorTileInfo);
-
-    DispatchTileArgs<DispatchTilingInfo> args = {function, iOperand, oOperand, {}, {}, tensorTileInfo, tilingSymbol};
-    ExpandTensorTiles<decltype(args)>(DealCopyToLocalExpertTile, args);
-}
-
-void DealDispatchSetFlagTile(DispatchTileArgs<DispatchTilingInfo> &args)
-{
-    std::shared_ptr<LogicalTensor> syncTensor = args.in[DIST_INDEX_ZERO];
-    std::shared_ptr<LogicalTensor> tokenExpertTable = args.in[DIST_INDEX_ONE];
-    std::shared_ptr<LogicalTensor> tilingTensor = args.in[DIST_INDEX_TWO];
-    std::shared_ptr<LogicalTensor> dummy = args.out[DIST_INDEX_ZERO];
-    auto statusTensor = std::make_shared<LogicalTensor>(args.function, DataType::DT_INT32,
-        std::vector<int64_t>{1, TOTAL_EXPERT_NUM * 8});
-    auto expertBufferUb = std::make_shared<LogicalTensor>(args.function, tokenExpertTable->Datatype(),
-        std::vector<int64_t>{1, tokenExpertTable->shape[0] * tokenExpertTable->shape[1]});
-    auto expertBuffer = std::make_shared<LogicalTensor>(args.function, tokenExpertTable->Datatype(),
-        std::vector<int64_t>{1, tokenExpertTable->shape[0] * tokenExpertTable->shape[1] * 2});
-    OpArgs<DispatchTilingInfo> opArgs = {"TILE_DISPATCH_SET_FLAG",
-        {syncTensor, tokenExpertTable}, {dummy, statusTensor, expertBufferUb, expertBuffer},
-        tilingTensor, args.tilingSymbol, std::make_optional(args.tilingInfo), std::nullopt};
-    auto& op = AddOperation(args.function, opArgs);
-    std::string extraParam = std::to_string(tokenExpertTable->shape[0]) + ", " +
-        std::to_string(tokenExpertTable->shape[1]);
-    op.SetAttr("extraTemplateParam", extraParam);
-}
-
-void TiledDispatchSetFlag(Function &function, const TileShape &tileShape,
-    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
-    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op)
-{
-    (void)tileShape;
-    CommGroupInfo groupInfo;
-    op.GetAttr(OpAttributeKey::commGroupInfo, groupInfo);
-    std::string tilingSymbol;
-    op.GetAttr("tiling_tensor_symbol", tilingSymbol);
-    DistTensorTilingInfo tensorTileInfo;
-    op.GetAttr("DistTensorTilingInfo", tensorTileInfo);
-
-    DispatchTileArgs<DispatchTilingInfo> args = {function, iOperand, oOperand, {}, groupInfo, tensorTileInfo,
-        tilingSymbol};
-    ExpandTensorTiles<decltype(args)>(DealDispatchSetFlagTile, args);
-}
-
-void SendToRoutingExpert(const Tensor &tokenTensor, const Tensor &tokenExpertTable, const Tensor &tilingTensor,
+void SendToSharedExpert(const Tensor &shmemData, const Tensor &tokenTensor, 
     const Tensor &syncTensor, const char *group)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
-    auto &oper = function.AddOperation("SEND_TO_ROUTING_EXPERT", {tokenTensor.GetStorage(),
-        tokenExpertTable.GetStorage(), tilingTensor.GetStorage()}, {syncTensor.GetStorage()});
-    oper.SetAttr("tiling_tensor_symbol", tilingTensor.GetStorage()->Symbol());
-    const TileShape &tileShape = TileShape::Current();
-    CommGroupInfo groupInfo(group, tileShape);
-    DistTensorTilingInfo tileInfo(tileShape, 1);
-    ASSERT(tileInfo.Check({tokenExpertTable.GetShape()[0] * tokenExpertTable.GetShape()[1]}));
-    oper.SetAttr(OpAttributeKey::commGroupInfo, groupInfo);
-    oper.SetAttr("DistTensorTilingInfo", tileInfo);
-}
-
-void SendToSharedExpert(const Tensor &tokenTensor, const Tensor &tilingTensor, const Tensor &syncTensor,
-    const char *group)
-{
-    auto &function = *Program::GetInstance().GetCurrentFunction();
-    auto &oper = function.AddOperation("SEND_TO_SHARED_EXPERT", {tokenTensor.GetStorage(), tilingTensor.GetStorage()},
+    auto &oper = function.AddOperation(Opcode::OP_SEND_TO_SHARED_EXPERT, {shmemData.GetStorage(), 
+        tokenTensor.GetStorage()},
         {syncTensor.GetStorage()});
-    oper.SetAttr("tiling_tensor_symbol", tilingTensor.GetStorage()->Symbol());
-    const TileShape &tileShape = TileShape::Current();
-    CommGroupInfo groupInfo(group, tileShape);
-    DistTensorTilingInfo tileInfo(tileShape, 1);
-    ASSERT(tileInfo.Check({tokenTensor.GetShape()[0]}));
-    oper.SetAttr(OpAttributeKey::commGroupInfo, groupInfo);
-    oper.SetAttr("DistTensorTilingInfo", tileInfo);
+    std::string hcclGroupIndex = std::to_string(CommGroupRecorder::GetInstance().Input(std::string(group)));
+    oper.SetAttr("hcclGroupIndex", hcclGroupIndex);
 }
 
-Tensor DispatchSetFlag(const Tensor &tokenExpertTable, const Tensor &syncTensor, const Tensor &tilingTensor,
-    const char *group)
+Tensor DispatchSetFlag(Tensor &shmemFlag, const Tensor &tokenExpertTable, const Tensor &syncTensor,
+    const char *group, const MoeConfig &moeConfig)
 {
-    Tensor dummyTensor(DataType::DT_INT32, {1, 1}, "dummyTensor");
+    Shape shape = {1, 1};
     auto &function = *Program::GetInstance().GetCurrentFunction();
-    auto &oper = function.AddOperation("DISPATCH_SET_FLAG", {syncTensor.GetStorage(), tokenExpertTable.GetStorage(),
-        tilingTensor.GetStorage()}, {dummyTensor.GetStorage()});
-    oper.SetAttr("tiling_tensor_symbol", tilingTensor.GetStorage()->Symbol());
-    const TileShape &tileShape = TileShape::Current();
-    CommGroupInfo groupInfo(group, tileShape);
-    DistTensorTilingInfo tileInfo(tileShape, 1);
-    ASSERT(tileInfo.Check({TOTAL_EXPERT_NUM}) && groupInfo.CheckAndUpdate(TOTAL_EXPERT_NUM));
-    oper.SetAttr(OpAttributeKey::commGroupInfo, groupInfo);
-    oper.SetAttr("DistTensorTilingInfo", tileInfo);
-    return dummyTensor;
+    auto syncDummy = std::make_shared<LogicalTensor>(function, DataType::DT_INT32, shape);
+    auto &oper = function.AddOperation(Opcode::OP_DISPATCH_SET_FLAG, {shmemFlag.GetStorage(), syncTensor.GetStorage(), 
+        tokenExpertTable.GetStorage()}, {syncDummy});
+    std::string hcclGroupIndex = std::to_string(CommGroupRecorder::GetInstance().Input(std::string(group)));
+    oper.SetAttr("hcclGroupIndex", hcclGroupIndex);
+    oper.SetAttr("expertNumPerRank", static_cast<int64_t>(moeConfig.expertNumPerRank));
+    return syncDummy;
 }
 
-void CopyToLocalExpert(const Tensor &tokenTensor, const Tensor &tilingTensor, const Tensor &expandX)
+Tensor CopyToLocalExpert(const Tensor &tokenTensor, const Tensor &syncTensor, const MoeConfig &moeConfig)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
-    auto &oper = function.AddOperation("COPY_TO_LOCAL_EXPERT", {tokenTensor.GetStorage(), tilingTensor.GetStorage()},
-        {expandX.GetStorage()});
-    oper.SetAttr("tiling_tensor_symbol", tilingTensor.GetStorage()->Symbol());
-    const TileShape &tileShape = TileShape::Current();
-    DistTensorTilingInfo tileInfo(tileShape, 1);
-    ASSERT(tileInfo.Check({tokenTensor.GetShape()[0]}));
-    oper.SetAttr("DistTensorTilingInfo", tileInfo);
+    Shape expandXShape = {tokenTensor.GetShape()[0] * moeConfig.routedExpertNum, tokenTensor.GetShape()[1]};
+    auto expandXPtr = std::make_shared<LogicalTensor>(function, tokenTensor.GetDataType(), expandXShape);
+    auto &oper = function.AddOperation(Opcode::OP_COPY_TO_LOCAL_EXPERT, {tokenTensor.GetStorage()}, 
+        {expandXPtr, syncTensor.GetStorage()});
+    (void) oper;
+    return expandXPtr;
 }
 
-Tensor MoeDispatch(const Tensor &tokenTensor, const Tensor &tokenExpertTable, Tensor &validCnt, const char *group)
+Tensor CreateShmem(int32_t rankSize, int32_t expertNumPerRank, int32_t shmemCol, int32_t hcclGroupIndex, 
+    DataType dataType, uint32_t memType)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
-    std::vector<int64_t> tilingShape = {1, 8192};
-    const std::string tilingSymbol = function.GetDistTilingManager()->CreateTilingStorage("dispatch", tilingShape[1]);
-    Tensor tilingTensor(DataType::DT_INT32, tilingShape, tilingSymbol);
-
-    const int32_t tableSize = tokenExpertTable.GetShape()[0] * tokenExpertTable.GetShape()[1];
-    Tensor expandX(tokenTensor.GetDataType(), {(TOTAL_EXPERT_NUM) * tokenTensor.GetShape()[0],
-        tokenTensor.GetShape()[1]}, "expandX");
-    Tensor syncTensor(DataType::DT_INT32, {1, 1}, "syncTensor");
-    TileShape::Current().SetDistTileRow({1, tableSize, 0});
-    SendToRoutingExpert(tokenTensor, tokenExpertTable, tilingTensor, syncTensor, group);
-
-    // 发送的专家号是固定的，通过本卡的rankId确定；这里对token的M轴进行切分，为了方便在Rank上操作
-    TileShape::Current().SetDistTileRow({1, (int)tokenTensor.GetShape()[0], 0});
-    if (IsRoutingExpert(TileShape::Current().GetDistRankId())) {
-        SendToSharedExpert(tokenTensor, tilingTensor, syncTensor, group);
+    Shape shmemShape;
+    if (memType == 0) {
+        shmemShape = {rankSize, rankSize, expertNumPerRank, shmemCol};
     } else {
-        CopyToLocalExpert(tokenTensor, tilingTensor, expandX);
+        shmemShape = {rankSize, expertNumPerRank, rankSize, shmemCol};
     }
+    auto shmemTensor = std::make_shared<LogicalTensor>(function, dataType, shmemShape);
+    auto &op = function.AddOperation(Opcode::OP_BIND_TENSOR, {}, {shmemTensor});
+    op.SetAttribute(OpAttributeKey::bindTensor, BindTensor(hcclGroupIndex, 0,
+        BytesOf(dataType) * rankSize * expertNumPerRank * shmemCol));
+    return shmemTensor;
+}
 
-    TileShape::Current().SetDistTileRow({1, TOTAL_EXPERT_NUM, 0});
-    auto dummy = DispatchSetFlag(tokenExpertTable, syncTensor, tilingTensor, group);
+std::tuple<int32_t, int32_t, int32_t> GetFFNTileParam(const MoeConfig &moeConfig)
+{
+    int32_t tileRankCnt = moeConfig.rankNum > AIV_MAX_NUM ? AIV_MAX_NUM : moeConfig.rankNum;
+    int32_t tileNum = tileRankCnt == AIV_MAX_NUM ? moeConfig.rankNum / AIV_MAX_NUM : 1;
+    int32_t tailNum = tileNum == 1 ? 0 : (moeConfig.rankNum % AIV_MAX_NUM == 0 ? 0 : 1);
+    return {tileRankCnt, tileNum, tailNum};
+}
 
-    // 48 * 48 * 512B
-    Tensor recvTokenCntOut(DataType::DT_INT32, {AIV_NUM * AIV_NUM, 128},
-        "recvTokenCntOut");
+void MoeDispatch(const Tensor &tokenTensor, const Tensor &tokenExpertTable, Tensor &expandX,
+    Tensor &validCnt, Tensor &combineInfo, const char *group, const MoeConfig &moeConfig)
+{
+    int hcclGroupIndex = static_cast<int32_t>(CommGroupRecorder::GetInstance().Input(std::string(group)));
+    SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
+    int batchSize = tokenTensor.GetShape(0);
+    int hiddenSize = tokenTensor.GetShape(1);
+    int topK = tokenExpertTable.GetShape(1);
+    int shmemDataLength = AlignUp(hiddenSize, 512) + 512;
+    int flagRow = 1;
+    int flagCol = 128;
+    Tensor shmemData;
+    Tensor shmemFlag;
 
-    TileShape::Current().SetDistTile({static_cast<int>(tokenTensor.GetShape()[0]), 1, 0},
-        {static_cast<int>(tokenTensor.GetShape()[1]), 1, 0}, // 不切 x
-        {TOTAL_EXPERT_NUM / AIV_NUM, AIV_NUM, 0});       // 暂不处理不整除的场景
+    ASSERT(batchSize == 8) << "MoeDispatch constraint violated: batchSize must be eight";
+    ASSERT(hiddenSize % 32 == 0) << "MoeDispatch constraint violated: hiddenSize must be divisible by 32";
+    ASSERT(topK == 8) << "MoeDispatch constraint violated: topK must be eight";
+    ASSERT(group != nullptr) << "MoeDispatch constraint violated: group can not be null";
+    ASSERT(tokenTensor.GetDataType() == DataType::DT_BF16)
+        << "MoeDispatch constraint violated: tokenTensor dataType must be float16";
+    ASSERT(tokenExpertTable.GetDataType() == DataType::DT_INT32)
+        << "MoeDispatch constraint violated: tokenExpertTable dataType must be float16";
+    ASSERT(moeConfig.expertNumPerRank * moeConfig.rankNum == moeConfig.routedExpertNum)
+        << "MoeDispatch constraint violated: totalExpertNum invalid";
+    ASSERT(moeConfig.routedExpertNum == ROUTED_EXPET_NUM)
+        << "MoeDispatch constraint violated: routedExpertNum must be 160";
 
-    std::vector<std::shared_ptr<LogicalTensor>> schedInOperands{dummy.GetStorage(), tilingTensor.GetStorage()};
-    std::vector<std::shared_ptr<LogicalTensor>> schedOutOperands{recvTokenCntOut.GetStorage()};
-    DispatchFFNSched(schedInOperands, schedOutOperands, group);
-
-    std::vector<std::shared_ptr<LogicalTensor>> iOperands{recvTokenCntOut.GetStorage(), tilingTensor.GetStorage()};
-    std::vector<std::shared_ptr<LogicalTensor>> oOperands{expandX.GetStorage(), validCnt.GetStorage()};
-    DispatchFFNBatching(iOperands, oOperands, group, tokenTensor);
-
-    return expandX;
+    LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+        (void) index;
+        int32_t shmemDataCol = shmemDataLength * batchSize;
+        shmemData = CreateShmem(moeConfig.rankNum, moeConfig.expertNumPerRank, shmemDataCol, 
+            hcclGroupIndex, tokenTensor.GetDataType(), 0);
+        shmemFlag = CreateShmem(moeConfig.rankNum, moeConfig.expertNumPerRank, flagCol, 
+            hcclGroupIndex, DT_INT32, 1);
+    }
+    LOOP("L0", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+        (void) index;
+        TileShape::Current().SetDistTile(
+            {batchSize, 1, 0},
+            {topK/2, 2, 0},
+            {moeConfig.rankNum, 1, 0});
+        Tensor syncTensor = SendToRoutingExpert(shmemData, tokenTensor, tokenExpertTable, group, moeConfig);
+        TileShape::Current().SetDistTile(
+            {flagRow, 1, 0},
+            {1, moeConfig.rankNum, 0},
+            {moeConfig.expertNumPerRank, 1, 0});
+        auto localShmemFlag = View(shmemFlag, {moeConfig.rankNum, moeConfig.expertNumPerRank, 1, flagCol}, 
+            {0, 0, thisRank, 0});
+        Tensor flagDummy = DispatchSetFlag(localShmemFlag, tokenExpertTable, syncTensor, group, moeConfig);
+        auto [ffnTileCnt, ffnTileNum, ffnTailNum] = GetFFNTileParam(moeConfig);
+        TileShape::Current().SetDistTile(
+            {batchSize, 1, 0},
+            {hiddenSize, 1, 0},
+            {ffnTileCnt, ffnTileNum, ffnTailNum});
+        auto shmemFlagSched = View(shmemFlag, {1, moeConfig.expertNumPerRank, moeConfig.rankNum, flagCol},
+            {thisRank, 0, 0, 0});
+        auto recvTokenCntOut = DispatchFFNSched(group, flagDummy, shmemFlagSched, moeConfig, ffnTileCnt);
+        auto shmemDataBatching = View(shmemData, {1, moeConfig.rankNum, moeConfig.expertNumPerRank, shmemDataLength},
+            {thisRank, 0 ,0 ,0});
+        auto expandXPtr = DispatchFFNBatching(group, tokenTensor, recvTokenCntOut, shmemDataBatching,
+            localShmemFlag, expandX.GetShape(0), ffnTileNum + ffnTailNum, moeConfig);
+        auto combineInfoPtr = DispatchFFNCombineInfo(group, tokenTensor, recvTokenCntOut, shmemDataBatching,
+            localShmemFlag, expandX.GetShape(0), ffnTileNum + ffnTailNum, moeConfig);
+        TileShape::Current().SetDistTileRank({moeConfig.expertNumPerRank / 10, 10, 0});
+        auto shmemFlagValidCnt = View(shmemFlag, {1, moeConfig.expertNumPerRank, moeConfig.rankNum, flagCol},
+            {thisRank, 0, 0, 0});
+        auto validCntPtr = DispatchFFNValidCnt(recvTokenCntOut, shmemFlagValidCnt, moeConfig);
+        expandX = expandXPtr;
+        validCnt = validCntPtr;
+        combineInfo = combineInfoPtr;
+    }
 }
 }
 }
