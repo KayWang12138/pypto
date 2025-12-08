@@ -86,32 +86,22 @@ void CodeGenOp::UpdateOffsetValueForGM(const std::vector<OpImmediate> &offsets, 
     ALOG_INFO_F("UpdateOffsetValueForGM , offsetGmSymbolic is %s", IntVecToStr(dynOffset).c_str());
 }
 
-bool CodeGenOp::IsUpdateOffsetByAttr(const LogicalTensor &logicalTensor, bool useAttrShapeOffset) {
-    if ((!useAttrShapeOffset) || (((opCode != Opcode::OP_L1_TO_BT) && (opCode != Opcode::OP_L1_TO_FIX_QUANT_PRE) &&
-                                   (opCode != Opcode::OP_L1_TO_L0A) && (opCode != Opcode::OP_L1_TO_L0B) &&
-                                   (opCode != Opcode::OP_L1_TO_L0_AT) && (opCode != Opcode::OP_L1_TO_L0_BT)) &&
-                                  (logicalTensor.GetMemoryTypeOriginal() != MEM_DEVICE_DDR))) {
-        return false;
-    }
-    return true;
-}
-
 void CodeGenOp::UpdateOffsetForInput(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx) {
-    bool useAttrShapeOffsetForInputGM = OpcodeManager::Inst().IsCopyIn(opCode);
+    const std::set<Opcode> cubeMDLOpCode = {Opcode::OP_L1_TO_L0A, Opcode::OP_L1_TO_L0B, Opcode::OP_L1_TO_L0_AT,
+        Opcode::OP_L1_TO_L0_BT, Opcode::OP_L1_TO_BT, Opcode::OP_L1_TO_FIX_QUANT_PRE};
     std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(oper.GetOpAttribute());
-    bool cubeNormalCond = (opCode == Opcode::OP_L1_TO_L0A || opCode == Opcode::OP_L1_TO_L0B ||
-                              opCode == Opcode::OP_L1_TO_L0_AT || opCode == Opcode::OP_L1_TO_L0_BT) &&
-                          (attr == nullptr);
-    if (cubeNormalCond || !IsUpdateOffsetByAttr(logicalTensor, useAttrShapeOffsetForInputGM)) {
-        offset[operandIdx] = logicalTensor.offset; // Local Tensor offset just use offset from LogicalTensor
-        ALOG_INFO_F("UpdateOffsetForInput offset is %s", IntVecToStr(offset[operandIdx]).c_str());
+    bool cubeMDLCondition = cubeMDLOpCode.count(opCode) && (attr != nullptr);
+    bool useAttrShapeOffsetForInputGM = OpcodeManager::Inst().IsCopyIn(opCode);
+    if (cubeMDLCondition || (useAttrShapeOffsetForInputGM && logicalTensor.GetMemoryTypeOriginal() == MEM_DEVICE_DDR)) {
+        // only used for 1. L1 Copy; 2. spilling into gm scene(e.g., ooo spilling); 3. matmul Multi-Data Load scene.
+        ALOG_INFO_F("start update offset for GM input");
+        ASSERT(attr != nullptr) << ": missing OpAttr in copy in op: \n" << oper.Dump();
+        UpdateOffsetValueForGM(attr->GetCopyInAttr().first, operandIdx);
         return;
     }
 
-    // only used for 1. L1 Copy; 2. spilling into gm scene(e.g., ooo spilling)
-    ALOG_INFO_F("start update offset for GM input");
-    ASSERT(attr != nullptr) << ": missing OpAttr in copy in op: \n" << oper.Dump();
-    UpdateOffsetValueForGM(attr->GetCopyInAttr().first, operandIdx);
+    offset[operandIdx] = logicalTensor.offset; // Local Tensor offset just use offset from LogicalTensor
+    ALOG_INFO_F("UpdateOffsetForInput offset is %s", IntVecToStr(offset[operandIdx]).c_str());
 }
 
 void CodeGenOp::UpdateOffsetForOutput(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx) {
@@ -437,10 +427,6 @@ void CodeGenOp::GetGmParamIdx(const npu::tile_fwk::Operation &oper) {
     }
 
     if (OpcodeManager::Inst().IsCopyIn(oper.GetOpcode())) {
-        if (oper.GetOpcode() == Opcode::OP_L1_TO_L0A || oper.GetOpcode() == Opcode::OP_L1_TO_L0B ||
-            oper.GetOpcode() == Opcode::OP_L1_TO_L0_AT || oper.GetOpcode() == Opcode::OP_L1_TO_L0_BT) {
-            return;
-        }
         const std::shared_ptr<OpAttribute> &attr = oper.GetOpAttribute();
         ASSERT(attr != nullptr) << "Copy In attr is null";
         std::shared_ptr<CopyOpAttribute> copyAttr = std::static_pointer_cast<CopyOpAttribute>(attr);

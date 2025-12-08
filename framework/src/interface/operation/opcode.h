@@ -384,9 +384,7 @@ public:
     inline bool IsCopyIn(Opcode opCode) const {
         return opCode == Opcode::OP_COPY_IN || opCode == Opcode::OP_UB_COPY_IN || opCode == Opcode::OP_L1_COPY_IN ||
                opCode == Opcode::OP_TRANSPOSE_MOVEIN || opCode == Opcode::OP_RESHAPE_COPY_IN ||
-               opCode == Opcode::OP_L1_TO_FIX_QUANT_PRE || opCode == Opcode::OP_L1_TO_BT ||
-               opCode == Opcode::OP_L1_TO_L0A || opCode == Opcode::OP_L1_TO_L0B || opCode == Opcode::OP_L1_TO_L0_AT ||
-               opCode == Opcode::OP_L1_TO_L0_BT;
+               opCode == Opcode::OP_L1_TO_FIX_QUANT_PRE || opCode == Opcode::OP_L1_TO_BT;
     }
 
     inline bool IsCopyOut(Opcode opCode) const {

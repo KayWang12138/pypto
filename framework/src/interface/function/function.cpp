@@ -476,7 +476,7 @@ void Function::EraseCallOpOpnd(const FunctionHash &calleeHash, size_t index) {
         if (callopAttr->GetCalleeHash() != calleeHash) {
             continue;
         }
-        ASSERT(index < callop->oOperand.size() && callop->oOpAttrOffset.empty() && 
+        ASSERT(index < callop->oOperand.size() && callop->oOpAttrOffset.empty() &&
             callopAttr->GetArgList().empty() && callopAttr->GetOutCastIndexToExpr().empty());
         for (auto &consumer : callop->oOperand[index]->GetConsumers()) {
             if (consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
@@ -2562,11 +2562,7 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(
             op->GetOpcode() == Opcode::OP_GATHER_IN_UB ||
             op->GetOpcode() == Opcode::OP_GATHER_IN_L1 ||
             op->GetOpcode() == Opcode::OP_L1_TO_BT ||
-            op->GetOpcode() == Opcode::OP_L1_TO_FIX_QUANT_PRE ||
-            op->GetOpcode() == Opcode::OP_L1_TO_L0A ||
-            op->GetOpcode() == Opcode::OP_L1_TO_L0B ||
-            op->GetOpcode() == Opcode::OP_L1_TO_L0_AT ||
-            op->GetOpcode() == Opcode::OP_L1_TO_L0_BT) {
+            op->GetOpcode() == Opcode::OP_L1_TO_FIX_QUANT_PRE) {
             extraOutcasts.emplace_back(op.get(), 0);
         }
     }

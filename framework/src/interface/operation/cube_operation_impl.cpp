@@ -403,9 +403,10 @@ inline bool CheckValidShape(const LogicalTensorPtr &tensorPtr)
     return tensorPtr->GetDynValidShape().size() == SHAPE_DIM2;
 }
 
-template <typename T>
+template <typename T1, typename T2 = T1>
 LogicalTensorPtr AddOpView(Function &function, const LogicalTensorPtr &srcTensorPtr,
-                           const MatmulTensorInfo &dstTensorInfo, const std::map<std::string, T> opAttr = {})
+                           const MatmulTensorInfo &dstTensorInfo, const std::map<std::string, T1> opAttr = {},
+                           const std::map<std::string, T2> extraOpAttr = {})
 {
     ASSERT(srcTensorPtr != nullptr);
     auto dstShape = dstTensorInfo.shape;
@@ -429,6 +430,9 @@ LogicalTensorPtr AddOpView(Function &function, const LogicalTensorPtr &srcTensor
     viewAttribute->SetToType(dstTensorInfo.memType);
     viewOp.SetOpAttribute(viewAttribute);
     for (const auto &attrPair : opAttr) {
+        viewOp.SetAttribute(attrPair.first, attrPair.second);
+    }
+    for (const auto &attrPair : extraOpAttr) {
         viewOp.SetAttribute(attrPair.first, attrPair.second);
     }
     return dstTensorPtr;
@@ -850,8 +854,10 @@ LogicalTensorPtr LinkTensorA(Function &function, const MatmulGraphNodes &tensorG
                                    tensorGraphNodes.aTensorPtr->Format(),
                                    MemoryType::MEM_L0A,
                                    attrParam.transA};
-    LogicalTensorPtr aL0TensorPtr =
-        AddOpView<bool>(function, aL1TensorPtr, aL0TensorInfo, {{L1_TO_L0_TRANSPOSE, attrParam.transA}});
+    std::vector<SymbolicScalar> l1ToL0Offset = SymbolicScalar::FromConcrete(aL0Offset);
+    std::vector<SymbolicScalar> l1ToL0Tile = SymbolicScalar::FromConcrete(aL0Shape);
+    LogicalTensorPtr aL0TensorPtr = AddOpView<bool, std::vector<SymbolicScalar>>(function, aL1TensorPtr, aL0TensorInfo,
+        {{L1_TO_L0_TRANSPOSE, attrParam.transA}}, {{L1_TO_L0_OFFSET, l1ToL0Offset}, {L1_TO_L0_TILE, l1ToL0Tile}});
     return aL0TensorPtr;
 }
 
@@ -881,8 +887,10 @@ LogicalTensorPtr LinkTensorB(Function &function, const MatmulGraphNodes &tensorG
                                    tensorGraphNodes.bTensorPtr->Format(),
                                    MemoryType::MEM_L0B,
                                    attrParam.transB};
-    LogicalTensorPtr bL0TensorPtr =
-        AddOpView<bool>(function, bL1TensorPtr, bL0TensorInfo, {{L1_TO_L0_TRANSPOSE, attrParam.transB}});
+    std::vector<SymbolicScalar> l1ToL0Offset = SymbolicScalar::FromConcrete(bL0Offset);
+    std::vector<SymbolicScalar> l1ToL0Tile = SymbolicScalar::FromConcrete(bL0Shape);
+    LogicalTensorPtr bL0TensorPtr = AddOpView<bool, std::vector<SymbolicScalar>>(function, bL1TensorPtr, bL0TensorInfo,
+        {{L1_TO_L0_TRANSPOSE, attrParam.transB}}, {{L1_TO_L0_OFFSET, l1ToL0Offset}, {L1_TO_L0_TILE, l1ToL0Tile}});
     return bL0TensorPtr;
 }
 
@@ -904,8 +912,7 @@ void LinkAMulB(Function &function, const MatmulGraphNodes &tensorGraphNodes, con
             aMulBInputs = {tileGraphNodes.aTensorPtr, tileGraphNodes.bTensorPtr,
                            tileGraphNodes.gmAccumulationTensorPtr};
         } else {
-            aMulBInputs = {tileGraphNodes.aTensorPtr, tileGraphNodes.bTensorPtr, tileGraphNodes.cL0PartialSumPtr,
-                           tileGraphNodes.gmAccumulationTensorPtr};
+            aMulBInputs = {tileGraphNodes.aTensorPtr, tileGraphNodes.bTensorPtr, tileGraphNodes.cL0PartialSumPtr};
         }
     } else {
         // 普通场景

@@ -30,7 +30,7 @@ public:
         npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac::SetUp();
         config::SetHostOption(ONLY_CODEGEN, true);
         TileShape::Current().SetVecTile(32, 32);
-        TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
+        TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32}, true);
         rtSetDevice(GetDeviceIdByEnvVar());
     }
 };
@@ -176,7 +176,7 @@ TEST_F(DynamicUnalignTest, test_mm_unalign) {
 
 TEST_F(DynamicUnalignTest, test_mm2_unalign) {
     SetInterpreterConfig();
-    TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {64, 64});
+    TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {64, 64}, true);
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 1;

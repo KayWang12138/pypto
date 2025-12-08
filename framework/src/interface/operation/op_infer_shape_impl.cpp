@@ -183,11 +183,11 @@ REGISTER_INFER_SHAPE_FUNC(OP_LOGICALAND, Opcode::OP_LOGICALAND, LogicalAndInferF
 void ViewTypeInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
     auto inputOperand = op->GetIOperands()[0];
     auto outputOperand = op->GetOOperands()[0];
- 
+
     auto validShape = inputOperand->GetDynValidShape();
     auto changedDim = validShape[validShape.size() - 1] * BytesOf(inputOperand->Datatype()) / BytesOf(outputOperand->Datatype());
     validShape[validShape.size() - 1] = changedDim;
- 
+
     outValidShapes.push_back(validShape);
 }
 REGISTER_INFER_SHAPE_FUNC(OP_VIEW_TYPE, Opcode::OP_VIEW_TYPE, ViewTypeInferFunc);
@@ -451,10 +451,47 @@ REGISTER_INFER_SHAPE_FUNC(OP_L0C_TO_L1, Opcode::OP_L0C_TO_L1, LoadL0c2L1InferFun
 template <bool isTrans = false>
 void LoadL0InferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes)
 {
-    ASSERT(op != nullptr && !op->GetOOperands().empty() && op->GetOOperands()[0] != nullptr);
-    if (!(op->GetOOperands()[0]->GetDynValidShape().empty())) {
-        outValidShapes.push_back(op->GetOOperands()[0]->GetDynValidShape());
+    ASSERT(op != nullptr);
+    const std::string L1_TO_L0_OFFSET = OP_ATTR_PREFIX + "l1_to_l0_offset";
+    const std::string L1_TO_L0_TILE = OP_ATTR_PREFIX + "l1_to_l0_tile";
+    if (op->HasAttr(L1_TO_L0_OFFSET) && op->HasAttr(L1_TO_L0_TILE)) {
+        // 大包搬运分支，无法直接从srcValidShape推导至输出dstValidShape，需要获取offset、tile信息
+        std::vector<SymbolicScalar> offset;
+        std::vector<SymbolicScalar> tile;
+        op->GetAttr(L1_TO_L0_OFFSET, offset);
+        op->GetAttr(L1_TO_L0_TILE, tile);
+        ASSERT(offset.size() == SHAPE_DIM2);
+        ASSERT(tile.size() == SHAPE_DIM2);
+        ASSERT(!op->GetIOperands().empty() && op->GetIOperands()[0] != nullptr &&
+               op->GetIOperands()[0]->GetDynValidShape().size() == SHAPE_DIM2);
+        std::vector<SymbolicScalar> srcValidShape = op->GetIOperands()[0]->GetDynValidShape();
+        std::vector<SymbolicScalar> dstValidShape = GetViewValidShape(
+            srcValidShape, SymbolicScalar::Concrete(offset, 0), offset, SymbolicScalar::Concrete(tile, 0));
+        ASSERT(dstValidShape.size() == SHAPE_DIM2);
+        if constexpr (isTrans) {
+            // L0A始终保持(M, K)，L0B始终保持(K, N)
+            std::swap(dstValidShape[0], dstValidShape[1]);
+        }
+        for (auto output : op->GetOOperands()) {
+            outValidShapes.push_back(dstValidShape);
+        }
         return;
+    }
+    // 普通分支，srcValidShape与dstValidShape相同
+    std::vector<std::vector<SymbolicScalar>> inputValidShapes;
+    for (auto inputTensor : op->GetIOperands()) {
+        ASSERT(inputTensor != nullptr);
+        inputValidShapes.push_back(inputTensor->GetDynValidShape());
+    }
+    if (inputValidShapes.empty() || inputValidShapes[0].size() != SHAPE_DIM2) {
+        return;
+    }
+    for (auto output : op->GetOOperands()) {
+        if constexpr (isTrans) {
+            outValidShapes.push_back({inputValidShapes[0][1], inputValidShapes[0][0]});
+        } else {
+            outValidShapes.push_back(inputValidShapes[0]);
+        }
     }
 }
 

@@ -121,8 +121,8 @@ stest:
       - DynamicBasicTest.DuplicateName
       - DynamicTest.TestPartial
       - DynamicUnalignTest.test_unary_unalign
-      # - DynamicUnalignTest.test_mm_unalign
-      # - DynamicUnalignTest.test_mm2_unalign
+      - DynamicUnalignTest.test_mm_unalign
+      - DynamicUnalignTest.test_mm2_unalign
       - DynamicUnalignTest.test_rowmaxsingle_unalign
       - DynamicUnalignTest.test_rowsumsingle_unalign
       - DynamicExpandTest.TestDynamicExpandUnalign

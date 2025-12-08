@@ -135,11 +135,11 @@ static void MatmulOperationExeFuncNoSplitWithL0C2L1(
             Tensor tensorTmp = CallMatmulOpWithL0C2L1(tensorA, tensorB, {transA, transB}, args->param_.l0c2l1IsNz,
                 args->param_.outDtype);
             if (l0c2l1AsLeftMatrix) {
-                outputs[0] = CallMatmulOpWithL0C2L1(
-                    tensorL0c2L1, tensorTmp, {l0c2l1IsTrans, transTmp}, args->param_.isCMatrixNz, args->param_.outDtype);
+                outputs[0] = CallMatmulOpWithL0C2L1(tensorL0c2L1, tensorTmp, {l0c2l1IsTrans, transTmp},
+                    args->param_.isCMatrixNz, args->param_.outDtype);
             } else {
-                outputs[0] = CallMatmulOpWithL0C2L1(
-                    tensorTmp, tensorL0c2L1, {transTmp, l0c2l1IsTrans}, args->param_.isCMatrixNz, args->param_.outDtype);
+                outputs[0] = CallMatmulOpWithL0C2L1(tensorTmp, tensorL0c2L1, {transTmp, l0c2l1IsTrans},
+                    args->param_.isCMatrixNz, args->param_.outDtype);
             }
         }
     }
@@ -147,9 +147,6 @@ static void MatmulOperationExeFuncNoSplitWithL0C2L1(
 
 static void MatmulOperationExeFuncNoSplit(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
-    config::SetHostOption(ONLY_CODEGEN, true);
-
     auto args = static_cast<const MatmulOpFuncArgs *>(opArgs);
     bool transA = args->param_.transA;
     bool transB = args->param_.transB;
@@ -234,9 +231,6 @@ static void MatmulOperationExeFuncSplitK(const std::vector<Tensor> &inputs, std:
 
 static void MatmulOperationExeFuncSplitM(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
-    config::SetHostOption(ONLY_CODEGEN, true);
-
     auto args = static_cast<const MatmulOpFuncArgs *>(opArgs);
     const int64_t mView = args->viewShape_[0];
     bool transA = args->param_.transA;
@@ -327,9 +321,6 @@ static void MatmulOperationExeFuncSplitMK(const std::vector<Tensor> &inputs, std
 
 static void MatmulOperationExeFuncSplitN(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
-    config::SetHostOption(ONLY_CODEGEN, true);
-
     auto args = static_cast<const MatmulOpFuncArgs *>(opArgs);
     bool transA = args->param_.transA;
     bool transB = args->param_.transB;
@@ -363,10 +354,12 @@ static void MatmulOperationExeFuncSplitN(
             memcpy_s(&scaleValueTmp, sizeof(scaleValueTmp), &scaleValue, sizeof(scaleValue));
             param.scaleValue = static_cast<uint64_t>(scaleValueTmp);
             if (args->param_.hasBias) {
-                param.biasTensor = View(inputs[biasIndex], {1, nView}, {1, std::min(nDim - nIdx * nView, nView)}, {0, nIdx * nView});
+                param.biasTensor =
+                    View(inputs[biasIndex], {1, nView}, {1, std::min(nDim - nIdx * nView, nView)}, {0, nIdx * nView});
             }
             if (args->param_.hasScale) {
-                param.scaleTensor = View(inputs[scaleIndex], {1, nView}, {1, std::min(nDim - nIdx * nView, nView)}, {0, nIdx * nView});
+                param.scaleTensor =
+                    View(inputs[scaleIndex], {1, nView}, {1, std::min(nDim - nIdx * nView, nView)}, {0, nIdx * nView});
             }
             Tensor tensorC = CallMatmulOp(tensorA, tensorB, args->param_, param);
             Assemble(tensorC, {0, nIdx * nView}, outputs[0]);
@@ -420,9 +413,6 @@ static void MatmulOperationExeFuncSplitKN(const std::vector<Tensor> &inputs, std
 
 static void MatmulOperationExeFuncSplitMN(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
-    config::SetHostOption(ONLY_CODEGEN, true);
-
     auto args = static_cast<const MatmulOpFuncArgs *>(opArgs);
     float scaleValue = args->param_.scaleValue;
     int reluTypeInt = args->param_.reluTypeInt;
@@ -456,10 +446,12 @@ static void MatmulOperationExeFuncSplitMN(
                 }
                 Matrix::MatmulExtendParam param;
                 if (args->param_.hasScale) {
-                    param.scaleTensor = View(inputs[scaleIndex], {1, nView}, {1, std::min(nDim - nIdx * nView, nView)}, {0, nIdx * nView});
+                    param.scaleTensor = View(
+                        inputs[scaleIndex], {1, nView}, {1, std::min(nDim - nIdx * nView, nView)}, {0, nIdx * nView});
                 }
                 if (args->param_.hasBias) {
-                    param.biasTensor = View(inputs[biasIndex], {1, nView}, {1, std::min(nDim - nIdx * nView, nView)}, {0, nIdx * nView});
+                    param.biasTensor = View(
+                        inputs[biasIndex], {1, nView}, {1, std::min(nDim - nIdx * nView, nView)}, {0, nIdx * nView});
                 }
                 param.reluType = reluType;
                 uint32_t scaleValueTmp = 0;
@@ -528,14 +520,15 @@ static void MatmulOperationExeFunc(
 
     auto args = static_cast<const MatmulOpFuncArgs *>(opArgs);
     if (args->param_.hasScale || args->param_.hasBias) {
-        int64_t nTile = (args->tileShape_[2][0] < args->tileShape_[2][1]) ? args->tileShape_[2][0] : args->tileShape_[2][1];
+        int64_t nTile =
+            (args->tileShape_[2][0] < args->tileShape_[2][1]) ? args->tileShape_[2][0] : args->tileShape_[2][1];
         TileShape::Current().SetCubeTile({args->tileShape_[0][0], args->tileShape_[0][1]},
                                          {args->tileShape_[1][0], args->tileShape_[1][1]},
-                                         {nTile, nTile});
+                                         {nTile, nTile}, true);
     } else {
         TileShape::Current().SetCubeTile({args->tileShape_[0][0], args->tileShape_[0][1]},
                                          {args->tileShape_[1][0], args->tileShape_[1][1]},
-                                         {args->tileShape_[2][0], args->tileShape_[2][1]});
+                                         {args->tileShape_[2][0], args->tileShape_[2][1]}, true);
     }
 
     const size_t MM_VIEW_SHAPE_DIM = 2;
@@ -615,7 +608,8 @@ TEST_P(MatmulOperationTest, TestMatmul) {
         }
     }
     testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
-    CheckBTransNZUnaligned(args.param_.transB, args.param_.isCMatrixNz, testCase.inputTensors[1], testCase.outputTensors[0]);
+    CheckBTransNZUnaligned(
+        args.param_.transB, args.param_.isCMatrixNz, testCase.inputTensors[1], testCase.outputTensors[0]);
     if (args.param_.enableKSplit) {
         TestExecutor::setGMNotClear();
     }
@@ -660,7 +654,8 @@ TEST_P(MatmulVerifyOperationTest, TestMatmulVerify) {
         }
     }
     testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
-    CheckBTransNZUnaligned(args.param_.transB, args.param_.isCMatrixNz, testCase.inputTensors[1], testCase.outputTensors[0]);
+    CheckBTransNZUnaligned(
+        args.param_.transB, args.param_.isCMatrixNz, testCase.inputTensors[1], testCase.outputTensors[0]);
     TestFlowVerifier::runTest(testCase);
 }
 } // namespace
