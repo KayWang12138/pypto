@@ -191,6 +191,42 @@ TEST_F(DynamicBasicTest, TestDD) {
 #endif
 }
 
+TEST_F(DynamicBasicTest, TestHUB) {
+    int dim0 = 128;
+    int tileSizeSmall = 32;
+    int tileSizeLarge = 64;
+
+    Tensor t0(DT_FP32, {dim0}, "t0");
+    Tensor t1(DT_FP32, {dim0}, "t1");
+    Tensor t2(DT_FP32, {dim0}, "t2");
+    FUNCTION("main", {t0}, {t2}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, idx0, LoopRange(1)) {
+            (void)idx0;
+            TileShape::Current().SetVecTile(tileSizeSmall);
+            auto tmp = Abs(t0);
+            TileShape::Current().SetVecTile(tileSizeLarge);
+            t1 = Hub(tmp);
+        }
+        LOOP("L1", FunctionType::DYNAMIC_LOOP, idx1, LoopRange(1)) {
+            (void)idx1;
+            TileShape::Current().SetVecTile(tileSizeLarge);
+            t2 = Add(t1, t1); 
+        }
+    }
+
+    ProgramData::GetInstance().AppendInputs({RawTensorData::CreateConstantTensor<float>(t0, -1.0f)});
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(t2, 0.0f),
+    });
+
+#ifdef ENABLE_BUILD_WITH_CANN
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
+    std::vector<float> golden(dim0, 2.0f);
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+#endif
+}
+
 TEST_F(DynamicBasicTest, TestTT) {
     int s = 64;
     int n = 8;

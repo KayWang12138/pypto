@@ -97,6 +97,7 @@ stest:
       # basic cases
       #===========================================================================
       - DynamicBasicTest.TestDD
+      - DynamicBasicTest.TestHUB
       - DynamicBasicTest.TestCheckPointRestore
       - DynamicBasicTest.TestSlotId
       - DynamicBasicTest.DynamicRawShape

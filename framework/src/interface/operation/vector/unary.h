@@ -31,6 +31,7 @@ enum class UnaryOpType {
     DUPLICATE,
     ABS,
     LN,
+    HUB,
 };
 
 template <UnaryOpType T>
@@ -43,6 +44,7 @@ std::string GetUnaryOpName() {
         case UnaryOpType::DUPLICATE: return "DUPLICATE";
         case UnaryOpType::ABS: return "ABS";
         case UnaryOpType::LN: return "LN";
+        case UnaryOpType::HUB: return "HUB";
         default: ASSERT(false && "unknown unary op type"); return "";
     }
 }
@@ -59,6 +61,7 @@ Opcode GetUnaryOpNameCode() {
         CASE(DUPLICATE);
         CASE(ABS);
         CASE(LN);
+        CASE(HUB);
         default: ASSERT(false && "unknown unary op type");
     }
 #undef CASE
