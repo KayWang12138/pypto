@@ -55,7 +55,9 @@ def test_assmble_2d():
     res_data = torch.ones(SHAPE, dtype=torch.float32) * 3
     golden = torch.zeros(SHAPE, dtype=torch.float32)
     golden[:, :32] = 2
-    pypto.runtime._device_run_once_data_from_host([torch_tensor], [res_data])
+    pto_input_tensor = pypto.from_torch(torch_tensor, "pto_input_tensor")
+    pto_output_tensor = pypto.from_torch(res_data, "pto_output_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_input_tensor], [pto_output_tensor])
     assert_allclose(res_data, golden, atol=1e-5, verbose=True)
     pypto.runtime._device_fini()
 
@@ -79,6 +81,8 @@ def test_assmble_1d():
 
     golden = torch.zeros([24], dtype=torch.float32)
     golden[:16] = 2
-    pypto.runtime._device_run_once_data_from_host([torch_tensor], [res_data])
+    pto_input_tensor = pypto.from_torch(torch_tensor, "pto_input_tensor")
+    pto_output_tensor = pypto.from_torch(res_data, "pto_output_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_input_tensor], [pto_output_tensor])
     assert_allclose(res_data, golden, atol=1e-5, verbose=True)
     pypto.runtime._device_fini()

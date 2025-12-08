@@ -63,8 +63,12 @@ def test_vector_operation_greater():
         np.random.uniform(-100, 100, [n, m]).astype(np.float32))
     c_tensor = torch.zeros(n, m, dtype=torch.bool)
 
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pto_c_tensor = pypto.from_torch(c_tensor, "c_tensor")
+
     pypto.runtime._device_run_once_data_from_host(
-        [a_tensor, b_tensor], [c_tensor])
+        [pto_a_tensor, pto_b_tensor], [pto_c_tensor])
     expected = torch.greater(a_tensor, b_tensor)
     assert_allclose(c_tensor.flatten(), expected.flatten(),
                     rtol=1e-3, atol=1e-3)
@@ -113,11 +117,15 @@ def test_greater_scalar():
                 del view_block
     input_data = torch.randn(n, m, dtype=torch.float32) * 100
     output_data = torch.zeros(n, m, dtype=torch.bool)
-    pypto.runtime._device_run_once_data_from_host([input_data], [output_data])
+
+    pto_input_tensor = pypto.from_torch(input_data, "input_data")
+    pto_output_tensor = pypto.from_torch(output_data, "output_data")
+
+    pypto.runtime._device_run_once_data_from_host([pto_input_tensor], [pto_output_tensor])
     expected_result = torch.greater(input_data, scalar_value)
     assert_allclose(output_data.flatten(), expected_result.flatten(),
                     rtol=1e-6, atol=1e-6)
-    
+
     pypto.runtime._device_fini()
 
 
@@ -165,8 +173,12 @@ def test_vector_operation_equal():
         np.random.uniform(-100, 100, [n, m]).astype(np.float32))
     c_tensor = torch.zeros(n, m, dtype=torch.bool)
 
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pto_c_tensor = pypto.from_torch(c_tensor, "c_tensor")
+
     pypto.runtime._device_run_once_data_from_host(
-        [a_tensor, b_tensor], [c_tensor])
+        [pto_a_tensor, pto_b_tensor], [pto_c_tensor])
     expected = torch.eq(a_tensor, b_tensor)
     assert_allclose(c_tensor.flatten(), expected.flatten(),
                     rtol=1e-3, atol=1e-3)
@@ -215,11 +227,15 @@ def test_equal_scalar():
                 del view_block
     input_data = torch.randn(n, m, dtype=torch.float32) * 100
     output_data = torch.zeros(n, m, dtype=torch.bool)
-    pypto.runtime._device_run_once_data_from_host([input_data], [output_data])
+
+    pto_input_tensor = pypto.from_torch(input_data, "input_data")
+    pto_output_tensor = pypto.from_torch(output_data, "output_data")
+
+    pypto.runtime._device_run_once_data_from_host([pto_input_tensor], [pto_output_tensor])
     expected_result = torch.eq(input_data, scalar_value)
     assert_allclose(output_data.flatten(), expected_result.flatten(),
                     rtol=1e-6, atol=1e-6)
-    
+
     pypto.runtime._device_fini()
 
 
@@ -267,8 +283,12 @@ def test_vector_operation_less():
         np.random.uniform(-100, 100, [n, m]).astype(np.float32))
     c_tensor = torch.zeros(n, m, dtype=torch.bool)
 
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pto_c_tensor = pypto.from_torch(c_tensor, "c_tensor")
+
     pypto.runtime._device_run_once_data_from_host(
-        [a_tensor, b_tensor], [c_tensor])
+        [pto_a_tensor, pto_b_tensor], [pto_c_tensor])
     expected = torch.lt(a_tensor, b_tensor)
     assert_allclose(c_tensor.flatten(), expected.flatten(),
                     rtol=1e-3, atol=1e-3)
@@ -317,9 +337,12 @@ def test_less_scalar():
                 del view_block
     input_data = torch.randn(n, m, dtype=torch.float32) * 100
     output_data = torch.zeros(n, m, dtype=torch.bool)
-    pypto.runtime._device_run_once_data_from_host([input_data], [output_data])
+    pto_input_tensor = pypto.from_torch(input_data, "input_data")
+    pto_output_tensor = pypto.from_torch(output_data, "output_data")
+
+    pypto.runtime._device_run_once_data_from_host([pto_input_tensor], [pto_output_tensor])
     expected_result = torch.lt(input_data, scalar_value)
     assert_allclose(output_data.flatten(), expected_result.flatten(),
                     rtol=1e-6, atol=1e-6)
-    
+
     pypto.runtime._device_fini()

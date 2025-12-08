@@ -54,7 +54,9 @@ def test_unsqueeze_content_equal():
     torch_case_tensor = torch.rand(2, 2, dtype=torch.float32)
     res_tensor = torch.zeros((1,) + torch_case_tensor.shape, dtype=torch.float32)
 
-    pypto.runtime._device_run_once_data_from_host([torch_case_tensor], [res_tensor])
+    pto_case_tensor = pypto.from_torch(torch_case_tensor, "torch_case_tensor")
+    pto_res_tensor = pypto.from_torch(res_tensor, "res_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_case_tensor], [pto_res_tensor])
 
     torch_case_res = torch.unsqueeze(torch_case_tensor, dim)
 

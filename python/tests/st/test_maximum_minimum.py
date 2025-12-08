@@ -86,7 +86,9 @@ def test_with_tensor_scalar_minimum(
 
     nx_tensor = torch.randint(*data_range, shape, dtype=pto_dtype_to_torch_dtype(data_type))
     ny_tensor = torch.zeros(shape, dtype=pto_dtype_to_torch_dtype(data_type))
-    pypto.runtime._device_run_once_data_from_host([nx_tensor], [ny_tensor])
+    pto_nx_tensor = pypto.from_torch(nx_tensor, "nx_tensor")
+    pto_ny_tensor = pypto.from_torch(ny_tensor, "ny_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_nx_tensor], [pto_ny_tensor])
 
     golden_data = torch.minimum(
         nx_tensor, torch.tensor(scalar, dtype=pto_dtype_to_torch_dtype(data_type)))
@@ -147,7 +149,9 @@ def test_with_tensor_scalar_maximum(
 
     nx_tensor = torch.randint(*data_range, shape, dtype=pto_dtype_to_torch_dtype(data_type))
     ny_tensor = torch.zeros(shape, dtype=pto_dtype_to_torch_dtype(data_type))
-    pypto.runtime._device_run_once_data_from_host([nx_tensor], [ny_tensor])
+    pto_nx_tensor = pypto.from_torch(nx_tensor, "nx_tensor")
+    pto_ny_tensor = pypto.from_torch(ny_tensor, "ny_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_nx_tensor], [pto_ny_tensor])
 
     golden_data = torch.maximum(
         nx_tensor, torch.tensor(scalar, dtype=pto_dtype_to_torch_dtype(data_type)))
@@ -222,7 +226,12 @@ def test_with_tensor_tensor_minimum(
     nx_tensor = torch.randint(*data_range, shape, dtype=pto_dtype_to_torch_dtype(data_type))
     ny_tensor = torch.randint(*data_range, shape, dtype=pto_dtype_to_torch_dtype(data_type))
     nz_tensor = torch.zeros(shape, dtype=pto_dtype_to_torch_dtype(data_type))
-    pypto.runtime._device_run_once_data_from_host([nx_tensor, ny_tensor], [nz_tensor])
+
+    pto_nx_tensor = pypto.from_torch(nx_tensor, "nx_tensor")
+    pto_ny_tensor = pypto.from_torch(ny_tensor, "ny_tensor")
+    pto_nz_tensor = pypto.from_torch(nz_tensor, "nz_tensor")
+
+    pypto.runtime._device_run_once_data_from_host([pto_nx_tensor, pto_ny_tensor], [pto_nz_tensor])
 
     golden_data = torch.minimum(nx_tensor, ny_tensor)
     assert torch.allclose(nz_tensor, golden_data, rtol=1e-9, atol=1e-10)
@@ -296,7 +305,12 @@ def test_with_tensor_tensor_maximum(
     nx_tensor = torch.randint(*data_range, shape, dtype=pto_dtype_to_torch_dtype(data_type))
     ny_tensor = torch.randint(*data_range, shape, dtype=pto_dtype_to_torch_dtype(data_type))
     nz_tensor = torch.zeros(shape, dtype=pto_dtype_to_torch_dtype(data_type))
-    pypto.runtime._device_run_once_data_from_host([nx_tensor, ny_tensor], [nz_tensor])
+
+    pto_nx_tensor = pypto.from_torch(nx_tensor, "nx_tensor")
+    pto_ny_tensor = pypto.from_torch(ny_tensor, "ny_tensor")
+    pto_nz_tensor = pypto.from_torch(nz_tensor, "nz_tensor")
+
+    pypto.runtime._device_run_once_data_from_host([pto_nx_tensor, pto_ny_tensor], [pto_nz_tensor])
 
     golden_data = torch.maximum(nx_tensor, ny_tensor)
     assert torch.allclose(nz_tensor, golden_data, rtol=1e-9, atol=1e-10)

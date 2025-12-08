@@ -49,7 +49,9 @@ def test_vector_operation_log():
                 del tile_a
     a_tensor = torch.rand(n, m, dtype=torch.float32) * 99.999 + 0.001
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
-    pypto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
     golden_data = torch.log(a_tensor)
     assert torch.allclose(b_tensor, golden_data, rtol=1e-6, atol=1e-7)
     pypto.runtime._device_fini()
@@ -87,7 +89,9 @@ def test_vector_operation_log2():
                 del tile_a
     a_tensor = torch.rand(n, m, dtype=torch.float32) * 99.999 + 0.001
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
-    pypto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
     golden_data = torch.log2(a_tensor)
     assert torch.allclose(b_tensor, golden_data, rtol=1e-6, atol=1e-7)
     pypto.runtime._device_fini()
@@ -123,7 +127,9 @@ def test_vector_operation_log10():
                 del tile_a
     a_tensor = torch.rand(n, m, dtype=torch.float32) * 99.999 + 0.001
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
-    pypto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
     golden_data = torch.log10(a_tensor)
     assert torch.allclose(b_tensor, golden_data, rtol=1e-6, atol=1e-7)
     pypto.runtime._device_fini()

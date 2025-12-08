@@ -99,8 +99,14 @@ def test_scatterupdate_onboard():
     b_tensor = torch.from_numpy(input1_tensor)
     c_tensor = torch.from_numpy(input2_tensor)
     d_tensor = torch.from_numpy(d_data)
+
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pto_c_tensor = pypto.from_torch(c_tensor, "c_tensor")
+    pto_d_tensor = pypto.from_torch(d_tensor, "d_tensor")
+
     pypto.runtime._device_run_once_data_from_host(
-        [a_tensor, b_tensor, c_tensor], [d_tensor])
+        [pto_a_tensor, pto_b_tensor, pto_c_tensor], [pto_d_tensor])
 
     for _b in range(b):
         for _s in range(s):

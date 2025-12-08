@@ -53,7 +53,9 @@ def test_view_content_equal():
 
     torch_tensor = torch.rand(4, 8, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)
-    pypto.runtime._device_run_once_data_from_host([torch_tensor], [res_tensor])
+    pto_input_tensor = pypto.from_torch(torch_tensor, "pto_input_tensor")
+    pto_output_tensor = pypto.from_torch(res_tensor, "pto_output_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_input_tensor], [pto_output_tensor])
 
     expected = torch_tensor[0:4, 4:8]
     assert torch.equal(res_tensor.flatten(), expected.flatten())
@@ -80,7 +82,9 @@ def test_view_content_equal_validshape():
 
     torch_tensor = torch.rand(4, 4, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)
-    pypto.runtime._device_run_once_data_from_host([torch_tensor], [res_tensor])
+    pto_input_tensor = pypto.from_torch(torch_tensor, "pto_input_tensor")
+    pto_output_tensor = pypto.from_torch(res_tensor, "pto_output_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_input_tensor], [pto_output_tensor])
 
     expected = torch_tensor[2:4, 0:4]
     assert torch.equal(res_tensor.flatten()[:2 * 4], expected.flatten())
@@ -107,7 +111,9 @@ def test_tensor_view_content_equal():
 
     torch_tensor = torch.rand(4, 8, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)
-    pypto.runtime._device_run_once_data_from_host([torch_tensor], [res_tensor])
+    pto_input_tensor = pypto.from_torch(torch_tensor, "pto_input_tensor")
+    pto_output_tensor = pypto.from_torch(res_tensor, "pto_output_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_input_tensor], [pto_output_tensor])
 
     expected = torch_tensor[0:4, 4:8]
     assert torch.equal(res_tensor.flatten(), expected.flatten())
@@ -136,7 +142,9 @@ def test_tensor_view_content_validshape_equal():
 
     torch_tensor = torch.rand(4, 4, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)
-    pypto.runtime._device_run_once_data_from_host([torch_tensor], [res_tensor])
+    pto_input_tensor = pypto.from_torch(torch_tensor, "pto_input_tensor")
+    pto_output_tensor = pypto.from_torch(res_tensor, "pto_output_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_input_tensor], [pto_output_tensor])
 
     expected = torch_tensor[2: 4, 0: 4]
     assert torch.equal(res_tensor.flatten()[: 2 * 4], expected.flatten())
@@ -163,7 +171,9 @@ def test_syntactic_sugar_view_content_equal():
 
     torch_tensor = torch.rand(4, 8, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)
-    pypto.runtime._device_run_once_data_from_host([torch_tensor], [res_tensor])
+    pto_input_tensor = pypto.from_torch(torch_tensor, "pto_input_tensor")
+    pto_output_tensor = pypto.from_torch(res_tensor, "pto_output_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_input_tensor], [pto_output_tensor])
 
     expected = torch_tensor[:, 4:8]
     assert torch.equal(res_tensor.flatten(), expected.flatten())

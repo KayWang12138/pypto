@@ -50,7 +50,9 @@ def test_exp_tensor_onboard():
     a_tensor = torch.rand(n, m, dtype=torch.float32) * 100
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
 
-    pypto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
 
     expected = torch.exp(a_tensor)
     assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -133,8 +135,14 @@ def test_scatterupdate_tensor_onboard():
     b_tensor = torch.from_numpy(input1_tensor)
     c_tensor = torch.from_numpy(input2_tensor)
     d_tensor = torch.from_numpy(d_data)
-    pypto.runtime._device_run_once_data_from_host(
-        [a_tensor, b_tensor, c_tensor], [d_tensor])
+
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pto_c_tensor = pypto.from_torch(c_tensor, "c_tensor")
+    pto_d_tensor = pypto.from_torch(d_tensor, "d_tensor")
+
+
+    pypto.runtime._device_run_once_data_from_host([pto_a_tensor, pto_b_tensor, pto_c_tensor], [pto_d_tensor])
 
     for _b in range(b):
         for _s in range(s):
@@ -200,7 +208,10 @@ def scatter_2dim_proc(scatter_para, is_inplace):
     input1_tensor = torch.randint(0, src_shape[scatter_para.axis], indices_shape, dtype=torch.int64)
     c_tensor = torch.zeros_like(input0_tensor)
 
-    pypto.runtime._device_run_once_data_from_host([input0_tensor, input1_tensor], [c_tensor])
+    pto_input0_tensor = pypto.from_torch(input0_tensor, "input0_tensor")
+    pto_input1_tensor = pypto.from_torch(input1_tensor, "input1_tensor")
+    pto_result_tensor = pypto.from_torch(c_tensor, "c_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_input0_tensor, pto_input1_tensor], [pto_result_tensor])
 
     result = input0_tensor.clone()
     for i in range(indices_shape[0]):
@@ -287,7 +298,10 @@ def test_scatter_add_onboard():
     input1_tensor = torch.randint(0, src_shape[axis], indices_shape, dtype=torch.int64)
     c_tensor = torch.zeros_like(input0_tensor)
 
-    pypto.runtime._device_run_once_data_from_host([input0_tensor, input1_tensor], [c_tensor])
+    pto_input0_tensor = pypto.from_torch(input0_tensor, "input0_tensor")
+    pto_input1_tensor = pypto.from_torch(input1_tensor, "input1_tensor")
+    pto_result_tensor = pypto.from_torch(c_tensor, "c_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_input0_tensor, pto_input1_tensor], [pto_result_tensor])
 
     result = input0_tensor.clone()
     for i in range(indices_shape[0]):
@@ -340,10 +354,10 @@ def scatter_tensor_2dim_proc(scatter_para, is_inplace):
                         s_idx * view_shape[1]).min(pypto.symbolic_scalar(view_shape[1]))])
                 pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                 if is_inplace == True:
-                    tmp_dst_tensor.move(view_tensor_self.scatter_(scatter_para.axis, view_tensor_index, 
+                    tmp_dst_tensor.move(view_tensor_self.scatter_(scatter_para.axis, view_tensor_index,
                         view_tensor_src))
                 else:
-                    tmp_dst_tensor.move(view_tensor_self.scatter(scatter_para.axis, view_tensor_index, 
+                    tmp_dst_tensor.move(view_tensor_self.scatter(scatter_para.axis, view_tensor_index,
                         view_tensor_src))
                 pypto.assemble(tmp_dst_tensor, [b_idx * view_shape[0], s_idx * view_shape[1]], dst_tensor)
                 del view_tensor_self, view_tensor_index, view_tensor_src, tmp_dst_tensor
@@ -354,7 +368,13 @@ def scatter_tensor_2dim_proc(scatter_para, is_inplace):
     input2_tensor = torch.rand(indices_shape, dtype=torch.float32)
     c_tensor = torch.zeros_like(input0_tensor)
 
-    pypto.runtime._device_run_once_data_from_host([input0_tensor, input1_tensor, input2_tensor], [c_tensor])
+    pto_input0_tensor = pypto.from_torch(input0_tensor, "input0_tensor")
+    pto_input1_tensor = pypto.from_torch(input1_tensor, "input1_tensor")
+    pto_input2_tensor = pypto.from_torch(input2_tensor, "input2_tensor")
+    pto_result_tensor = pypto.from_torch(c_tensor, "c_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_input0_tensor, pto_input1_tensor, pto_input2_tensor],
+                                                                [pto_result_tensor])
+
 
     result = input0_tensor.clone()
     for i in range(indices_shape[0]):
@@ -448,7 +468,12 @@ def test_scatter_tensor_add_onboard():
     input2_tensor = torch.rand(indices_shape, dtype=torch.float32)
     c_tensor = torch.zeros_like(input0_tensor)
 
-    pypto.runtime._device_run_once_data_from_host([input0_tensor, input1_tensor, input2_tensor], [c_tensor])
+    pto_input0_tensor = pypto.from_torch(input0_tensor, "input0_tensor")
+    pto_input1_tensor = pypto.from_torch(input1_tensor, "input1_tensor")
+    pto_input2_tensor = pypto.from_torch(input2_tensor, "input2_tensor")
+    pto_result_tensor = pypto.from_torch(c_tensor, "c_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_input0_tensor, pto_input1_tensor, pto_input2_tensor],
+                                                                [pto_result_tensor])
 
     result = input0_tensor.clone()
     for i in range(indices_shape[0]):

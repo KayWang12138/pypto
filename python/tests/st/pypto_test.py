@@ -116,7 +116,11 @@ class TestBuilder(abc.ABC):
 
         if on_board:
             logging.info("Kernel Launch ...")
-            pypto.runtime._device_run_once_data_from_host(self.input_data_list, self.output_data_list)
+            pto_input_data = [pypto.from_torch(tensor, f"IN_{idx}")
+                                for idx, tensor in enumerate(self.input_data_list)]
+            pto_output_data = [pypto.from_torch(tensor, f"OUT_{idx}")
+                                for idx, tensor in enumerate(self.output_data_list)]
+            pypto.runtime._device_run_once_data_from_host(pto_input_data, pto_output_data)
             logging.info("Kernel run finish.")
 
             result_len = len(self.golden_output)

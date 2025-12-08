@@ -41,7 +41,9 @@ def test_device_run_data_from_host_numpy():
     a_tensor = torch.rand(n, m, k, dtype=torch.float32) * 2 - 1
     b_tensor = torch.zeros(n, m, k, dtype=torch.float32)
 
-    pypto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
 
     golden = 11 * a_tensor
 
@@ -72,7 +74,9 @@ def test_device_run_data_from_host_torch():
     a_tensor = torch.rand(n, m, dtype=torch.float32)
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
 
-    pypto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
 
     golden = 11 * a_tensor
 
@@ -103,7 +107,9 @@ def test_device_run_data_from_host():
     a_tensor = torch.arange(n * m, dtype=torch.int32).reshape(n, m)
     b_tensor = torch.zeros(n, m, dtype=torch.int32)
 
-    pypto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
     golden = 11 * a_tensor
 
     assert torch.equal(golden, b_tensor)

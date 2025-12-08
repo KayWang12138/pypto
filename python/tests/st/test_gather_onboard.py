@@ -81,8 +81,12 @@ def test_gather_onboard():
         0, src_shape[axis], index_shape, dtype=torch.int32)
     result_tensor = torch.zeros(index_shape, dtype=torch.int32)
 
+    pto_input0_tensor = pypto.from_torch(input0_tensor, "input0_tensor")
+    pto_input1_tensor = pypto.from_torch(input1_tensor, "input1_tensor")
+    pto_result_tensor = pypto.from_torch(result_tensor, "result_tensor")
+
     pypto.runtime._device_run_once_data_from_host(
-        [input0_tensor, input1_tensor], [result_tensor])
+        [pto_input0_tensor, pto_input1_tensor], [pto_result_tensor])
 
     result = torch.zeros(index_shape, dtype=torch.int32)
     for i in range(index_shape[0]):

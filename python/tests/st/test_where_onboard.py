@@ -68,8 +68,13 @@ def test_vector_operation_where():
     other_tensor = torch.zeros(n, m, dtype=torch.float32)
     out_tensor = torch.zeros(n, m, dtype=torch.float32)
 
+    pto_input_tensor = pypto.from_torch(input_tensor, "input_tensor")
+    pto_other_tensor = pypto.from_torch(other_tensor, "other_tensor")
+    pto_cond_tensor = pypto.from_torch(cond_tensor, "cond_tensor")
+    pto_out_tensor = pypto.from_torch(out_tensor, "out_tensor")
+
     pypto.runtime._device_run_once_data_from_host(
-        [cond_tensor, input_tensor, other_tensor], [out_tensor])
+        [pto_cond_tensor, pto_input_tensor, pto_other_tensor], [pto_out_tensor])
 
     expected = torch.where(cond_tensor, input_tensor, other_tensor)
     assert_allclose(out_tensor.flatten(),

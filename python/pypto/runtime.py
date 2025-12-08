@@ -70,12 +70,22 @@ def _pto_to_tensor_data(tensors: List[pypto.Tensor]) -> List[pypto_impl.DeviceTe
     return datas
 
 
-def _device_run_once_data_from_host(inputs: List[torch.Tensor], outputs: List[torch.Tensor]):
-    for in_tensor in inputs:
-        if not in_tensor.is_contiguous():
-            raise RuntimeError("all input tensor must be contiguous.")
+def _device_run_once_data_from_host(inputs: List[pypto.Tensor], outputs: List[pypto.Tensor]):
+    for i, inp in enumerate(inputs):
+        if not isinstance(inp, pypto.Tensor):
+            raise TypeError(
+                f"Expected pypto.Tensor at inputs[{i}], "f"but got {type(inp).__name__}. "
+                "Use from_torch() to convert torch.Tensor to pypto.Tensor."
+            )
+
+    for i, out in enumerate(outputs):
+        if not isinstance(out, pypto.Tensor):
+            raise TypeError(
+                f"Expected pypto.Tensor at outputs[{i}], "f"but got {type(out).__name__}. "
+                "Use from_torch() to convert torch.Tensor to pypto.Tensor."
+            )
     pypto_impl.DeviceRunOnceDataFromHost(
-        _torch_to_tensor_data(inputs), _torch_to_tensor_data(outputs))
+        _pto_to_tensor_data(inputs), _pto_to_tensor_data(outputs))
 
 
 class JIT:

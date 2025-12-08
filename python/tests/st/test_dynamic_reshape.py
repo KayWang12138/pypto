@@ -59,7 +59,10 @@ def test_reshape_equal():
     q_tensor = torch.arange(s * 32, dtype=torch.float32).reshape(s, 32)
     out_tensor = torch.zeros_like(q_tensor)
 
-    pypto.runtime._device_run_once_data_from_host([q_tensor], [out_tensor])
+    pto_q_tensor = pypto.from_torch(q_tensor, "q_tensor")
+    pto_out_tensor = pypto.from_torch(out_tensor, "out_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_q_tensor], [pto_out_tensor])
+
     assert torch.equal(out_tensor.flatten(), q_tensor.flatten())
     pypto.runtime._device_fini()
 
@@ -91,7 +94,10 @@ def test_reshape_equal2():
     tmp_tensor = torch.arange(s * 32, dtype=torch.float32).reshape(s, 32)
     out_tensor = torch.zeros_like(q_tensor)
 
-    pypto.runtime._device_run_once_data_from_host([q_tensor, tmp_tensor], [out_tensor])
+    pto_q_tensor = pypto.from_torch(q_tensor, "q_tensor")
+    pto_tmp_tensor = pypto.from_torch(tmp_tensor, "tmp_tensor")
+    pto_out_tensor = pypto.from_torch(out_tensor, "out_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_q_tensor, pto_tmp_tensor], [pto_out_tensor])
     assert torch.equal(out_tensor.flatten(), torch.add(q_tensor, tmp_tensor).flatten())
     pypto.runtime._device_fini()
 
@@ -120,7 +126,9 @@ def test_reshape_validshape():
     q_tensor = torch.arange(s * 32, dtype=torch.float32)
     out_tensor = torch.zeros_like(q_tensor)
 
-    pypto.runtime._device_run_once_data_from_host([q_tensor], [out_tensor])
+    pto_q_tensor = pypto.from_torch(q_tensor, "q_tensor")
+    pto_out_tensor = pypto.from_torch(out_tensor, "out_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_q_tensor], [pto_out_tensor])
     assert torch.equal(out_tensor[:32], q_tensor[:32])
     pypto.runtime._device_fini()
 
@@ -150,7 +158,9 @@ def test_reshape_validshape2():
     scalar_tensor = torch.ones(16 * 32, dtype=torch.float32).reshape(16, 32)
     out_tensor = torch.zeros(16 * 32, dtype=torch.float32)
 
-    pypto.runtime._device_run_once_data_from_host([q_tensor], [out_tensor])
+    pto_q_tensor = pypto.from_torch(q_tensor, "q_tensor")
+    pto_out_tensor = pypto.from_torch(out_tensor, "out_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_q_tensor], [pto_out_tensor])
 
     expected = (q_tensor + scalar_tensor).flatten()
     assert torch.equal(out_tensor[:64], expected[:64])

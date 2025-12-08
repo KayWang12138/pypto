@@ -48,7 +48,9 @@ def test_vector_operation_range():
             del res
     a_tensor = torch.rand([1, 1, 1], dtype=torch.float32) * 99.999 + 0.001
     res_tensor = torch.zeros(size, dtype=torch.float32)
-    pypto.runtime._device_run_once_data_from_host([a_tensor], [res_tensor])
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_res_tensor = pypto.from_torch(res_tensor, "res_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_res_tensor])
 
     expected = torch.arange(start_data, end_data, step_data)
     assert_allclose(res_tensor.flatten(), expected.flatten(), rtol=1e-6, atol=1e-7)

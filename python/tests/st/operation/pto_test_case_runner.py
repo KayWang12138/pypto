@@ -229,7 +229,11 @@ class PTOTestCaseRunner(TestCaseRunner):
 
     def run_on_device(self, inputs: list) -> list:
         output = self.output_data()
-        pypto.runtime._device_run_once_data_from_host(inputs, output)
+
+        pto_inputs_tensor = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+        pto_output_tensor = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(output)]
+
+        pypto.runtime._device_run_once_data_from_host(pto_inputs_tensor, pto_output_tensor)
         return [
             torch.tensor(
                 output[index],

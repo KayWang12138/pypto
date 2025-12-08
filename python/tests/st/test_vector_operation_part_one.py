@@ -55,7 +55,11 @@ def test_vector_operation_add():
     b_tensor = torch.rand(n, m, dtype=torch.float32) * 100
     c_tensor = torch.zeros(n, m, dtype=torch.float32)
 
-    pypto.runtime._device_run_once_data_from_host([a_tensor, b_tensor], [c_tensor])
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pto_c_tensor = pypto.from_torch(c_tensor, "c_tensor")
+
+    pypto.runtime._device_run_once_data_from_host([pto_a_tensor, pto_b_tensor], [pto_c_tensor])
 
     expected = a_tensor + b_tensor
     assert_allclose(c_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -97,7 +101,11 @@ def test_vector_operation_div():
     b_tensor = torch.rand(n, m, dtype=torch.float32) * 99 + 1
     c_tensor = torch.zeros(n, m, dtype=torch.float32)
 
-    pypto.runtime._device_run_once_data_from_host([a_tensor, b_tensor], [c_tensor])
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pto_c_tensor = pypto.from_torch(c_tensor, "c_tensor")
+
+    pypto.runtime._device_run_once_data_from_host([pto_a_tensor, pto_b_tensor], [pto_c_tensor])
 
     expected = torch.div(a_tensor, b_tensor)
     assert_allclose(c_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -140,7 +148,11 @@ def test_vector_operation_mul():
     b_tensor = (torch.rand(n, m, dtype=torch.float32) - 0.5) * 200
     c_tensor = torch.zeros(n, m, dtype=torch.float32)
 
-    pypto.runtime._device_run_once_data_from_host([a_tensor, b_tensor], [c_tensor])
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pto_c_tensor = pypto.from_torch(c_tensor, "c_tensor")
+
+    pypto.runtime._device_run_once_data_from_host([pto_a_tensor, pto_b_tensor], [pto_c_tensor])
 
     expected = torch.mul(a_tensor, b_tensor)
     assert_allclose(c_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -183,7 +195,11 @@ def test_vector_operation_sub():
     b_tensor = (torch.rand(n, m, dtype=torch.float32) - 0.5) * 200
     c_tensor = torch.zeros(n, m, dtype=torch.float32)
 
-    pypto.runtime._device_run_once_data_from_host([a_tensor, b_tensor], [c_tensor])
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pto_c_tensor = pypto.from_torch(c_tensor, "c_tensor")
+
+    pypto.runtime._device_run_once_data_from_host([pto_a_tensor, pto_b_tensor], [pto_c_tensor])
 
     expected = a_tensor - b_tensor
     assert_allclose(c_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -219,7 +235,9 @@ def test_vector_operation_abs():
     a_tensor = (torch.rand(n, m, dtype=torch.float32) - 0.5) * 200
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
 
-    pypto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
 
     expected = torch.abs(a_tensor)
     assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -255,7 +273,9 @@ def test_vector_operation_sqrt():
     a_tensor = torch.rand(n, m, dtype=torch.float32) * 100
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
 
-    pypto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
 
     expected = torch.sqrt(a_tensor)
     assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -291,7 +311,9 @@ def test_vector_operation_exp():
     a_tensor = torch.rand(n, m, dtype=torch.float32) * 100
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
 
-    pypto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
 
     expected = torch.exp(a_tensor)
     assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -327,7 +349,9 @@ def test_vector_operation_neg():
     a_tensor = (torch.rand(n, m, dtype=torch.float32) - 0.5) * 200
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
 
-    pypto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
 
     expected = -a_tensor
     assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -363,7 +387,8 @@ def test_vector_operation_full():
                 del tile_a
     a_tensor = torch.zeros(n, m, dtype=torch.float32)
 
-    pypto.runtime._device_run_once_data_from_host([], [a_tensor])
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pypto.runtime._device_run_once_data_from_host([], [pto_a_tensor])
 
     expected = torch.full((n, m), 2, dtype=torch.float32)
     assert_allclose(a_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -399,7 +424,9 @@ def test_vector_operation_logical_not():
     a_tensor = (torch.rand(n, m, dtype=torch.float32) - 0.5) * 6 - 1.5  # 生成 [-3, 3] 范围
     b_tensor = torch.ones(n, m, dtype=torch.bool)  # 使用 torch.bool 类型
 
-    pypto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
 
     expected = torch.logical_not(a_tensor)
     assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -442,7 +469,9 @@ def test_vector_operation_expand():
     a_tensor = torch.full((n, 1), -16, dtype=torch.float32)
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
 
-    pypto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
 
     expected = torch.full((n, m), -16, dtype=torch.float32)
     assert_allclose(b_tensor.flatten(), expected.flatten(),
@@ -488,7 +517,11 @@ def test_vector_operation_concat():
     b_tensor = (torch.rand(n, m, dtype=torch.float32) - 0.5) * 200
     c_tensor = torch.zeros(n, 2 * m, dtype=torch.float32)
 
-    pypto.runtime._device_run_once_data_from_host([a_tensor, b_tensor], [c_tensor])
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pto_c_tensor = pypto.from_torch(c_tensor, "c_tensor")
+
+    pypto.runtime._device_run_once_data_from_host([pto_a_tensor, pto_b_tensor], [pto_c_tensor])
 
     expected = torch.cat([a_tensor, b_tensor], dim=-1)
     assert_allclose(c_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -526,7 +559,9 @@ def test_vector_operation_rowmaxsingle():
     a_tensor = torch.rand(shape, dtype=torch.float32) * 100
     b_tensor = torch.zeros(output_shape, dtype=torch.float32)
 
-    pypto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
 
     expected = a_tensor.max(dim=dim, keepdim=True)[0].reshape(output_shape)
     assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -564,7 +599,9 @@ def test_vector_operation_rowsumsingle():
     a_tensor = torch.rand(shape, dtype=torch.float32) * 100
     b_tensor = torch.zeros(output_shape, dtype=torch.float32)
 
-    pypto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
 
     expected = a_tensor.sum(dim=dim, keepdim=True).reshape(output_shape)
     assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -602,7 +639,9 @@ def test_vector_operation_rowminsingle():
     a_tensor = torch.rand(shape, dtype=torch.float32) * 100
     b_tensor = torch.zeros(output_shape, dtype=torch.float32)
 
-    pypto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
 
     expected = a_tensor.min(dim=dim, keepdim=True)[0].reshape(output_shape)
     assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -645,7 +684,9 @@ def test_tensor_operation_expand():
     a_tensor = torch.full((n, 1), -16, dtype=torch.float32)
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
 
-    pypto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
 
     expected = torch.full((n, m), -16, dtype=torch.float32)
     assert_allclose(b_tensor.flatten(), expected.flatten(),

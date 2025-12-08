@@ -85,8 +85,11 @@ def dynamic_batch_matmul_onboard_util(input_config: BatchMatmulShapeConfig):
     # gen golden
     a_data, b_data, c_data, c_device_data = gen_batch_matmul_golden_data(input_config)
 
+    pto_a_tensor = pypto.from_torch(a_data, "a_data")
+    pto_b_tensor = pypto.from_torch(b_data, "b_data")
+    pto_c_device_tensor = pypto.from_torch(c_device_data, "c_device_data")
     # onboard execute
-    pypto.runtime._device_run_once_data_from_host([a_data, b_data], [c_device_data])
+    pypto.runtime._device_run_once_data_from_host([pto_a_tensor, pto_b_tensor], [pto_c_device_tensor])
 
     # compare golden with onboard data
     assert_allclose(c_data, c_device_data, rtol=0.001, atol=0.001)

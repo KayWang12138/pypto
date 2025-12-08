@@ -88,8 +88,12 @@ def test_maximum():
     ny_tensor = torch.randint(-100, 100,
                               [first_dim, second_dim], dtype=torch.int32)
     nout_tensor = torch.zeros([first_dim, second_dim], dtype=torch.int32)
+
+    pto_nx_tensor = pypto.from_torch(nx_tensor, "nx_tensor")
+    pto_ny_tensor = pypto.from_torch(ny_tensor, "ny_tensor")
+    pto_nout_tensor = pypto.from_torch(nout_tensor, "nout_tensor")
     pypto.runtime._device_run_once_data_from_host(
-        [nx_tensor, ny_tensor], [nout_tensor])
+        [pto_nx_tensor, pto_ny_tensor], [pto_nout_tensor])
     golden_data = torch.maximum(nx_tensor, ny_tensor)
     assert torch.allclose(nout_tensor, golden_data, rtol=1e-9, atol=1e-10)
     pypto.runtime._device_fini()

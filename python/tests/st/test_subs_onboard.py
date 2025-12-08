@@ -57,7 +57,9 @@ def test_subs_onboard():
         low=-100, high=100, size=[shape[0], shape[1]], dtype=torch.int32)
     b_tensor = torch.zeros(shape[0], shape[1], dtype=torch.int32)
 
-    pypto.runtime._device_run_once_data_from_host([a_tensor], [b_tensor])
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
 
     golden = torch.sub(a_tensor, input2)
     assert_allclose(b_tensor.flatten(), golden.flatten(), rtol=3e-3, atol=3e-3)

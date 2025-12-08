@@ -53,7 +53,9 @@ def test_sigmoid_FP32():
     x_tensor = torch.rand(4, 4, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)
 
-    pypto.runtime._device_run_once_data_from_host([x_tensor], [res_tensor])
+    pto_x_tensor = pypto.from_torch(x_tensor, "x_tensor")
+    pto_res_tensor = pypto.from_torch(res_tensor, "res_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_x_tensor], [pto_res_tensor])
 
     expected = torch.sigmoid(x_tensor)
     assert_allclose(res_tensor.flatten(), expected.flatten(), atol=1e-3, verbose=True)
@@ -78,7 +80,9 @@ def test_sigmoid_FP16():
 
     x_tensor = torch.rand(4, 4, dtype=torch.float16) * 200 - 100
     res_tensor = torch.zeros(4, 4, dtype=torch.float16)
-    pypto.runtime._device_run_once_data_from_host([x_tensor], [res_tensor])
+    pto_x_tensor = pypto.from_torch(x_tensor, "x_tensor")
+    pto_res_tensor = pypto.from_torch(res_tensor, "res_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_x_tensor], [pto_res_tensor])
 
     expected = torch.sigmoid(x_tensor)
     assert_allclose(res_tensor.flatten(), expected.flatten(), atol=1e-3, verbose=True)
@@ -104,7 +108,9 @@ def test_tensor_sigmoid_FP32():
     x_tensor = torch.rand(4, 4, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)
 
-    pypto.runtime._device_run_once_data_from_host([x_tensor], [res_tensor])
+    pto_x_tensor = pypto.from_torch(x_tensor, "x_tensor")
+    pto_res_tensor = pypto.from_torch(res_tensor, "res_tensor")
+    pypto.runtime._device_run_once_data_from_host([pto_x_tensor], [pto_res_tensor])
 
     expected = torch.sigmoid(x_tensor)
 

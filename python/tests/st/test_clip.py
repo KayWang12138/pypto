@@ -198,7 +198,9 @@ def run_clip(inputs: List[torch.Tensor], outputs: List[torch.Tensor], args: Clip
     input_tensors = [tensor(x.shape, TORCH_TO_PTO_TYPES[x.dtype]) for x in inputs]
     output_tensors = [tensor(x.shape, TORCH_TO_PTO_TYPES[x.dtype]) for x in outputs]
     build_clip_2d(input_tensors, output_tensors, args.view_shape, args.tile_shape, args)
-    pypto.runtime._device_run_once_data_from_host(inputs, outputs)
+    pto_input_tensors = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_output_tensors = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(outputs)]
+    pypto.runtime._device_run_once_data_from_host(pto_input_tensors, pto_output_tensors)
     pypto.runtime._device_fini()
     return outputs
 
