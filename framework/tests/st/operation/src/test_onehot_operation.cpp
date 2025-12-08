@@ -136,19 +136,14 @@ INSTANTIATE_TEST_SUITE_P(TestOneHot, OneHotOperationTest,
         {OneHotOperationExeFunc2Dims, OneHotOperationExeFunc3Dims, OneHotOperationExeFunc4Dims}, "OneHot")));
 
 TEST_P(OneHotOperationTest, TestOneHot) {
-    TestCaseDesc testCase;
     auto test_data = GetParam().test_data_;
-    testCase.inputTensors = GetInputTensors(test_data);
-    testCase.outputTensors = GetOutputTensors(test_data);
     int numClasses = GetValueByName<int>(test_data, "num_classes");
     auto args = OneHotOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data), numClasses);
-    testCase.args = &args;
+    auto testCase = CreateTestCaseDesc<OneHotOpMetaData>(GetParam(), &args);
     std::vector<OpFunc> func{OneHotOperationExeFunc2Dims, OneHotOperationExeFunc3Dims, OneHotOperationExeFunc4Dims};
     int dim = testCase.inputTensors[0].GetShape().size();
     ASSERT(dim >= 1 && dim <= 3) << "unsupport input dim";
     testCase.opFunc = func[dim - 1];
-    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
     TestExecutor::runTest(testCase);
 }
 } // namespace

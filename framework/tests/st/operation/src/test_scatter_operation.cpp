@@ -226,20 +226,14 @@ const std::map<std::string, ScatterMode> &GetScatterModeMap() {
 }
 
 TEST_P(ScatterOperationTest, TestScatter) {
-    TestCaseDesc testCase;
+    auto testCase = CreateTestCaseDesc<ScatterOpMetaData>(GetParam(), nullptr);
     auto test_data = GetParam().test_data_;
-    testCase.inputTensors = GetInputTensors(test_data);
-    testCase.outputTensors = GetOutputTensors(test_data);
     auto axis = GetValueByName<int>(test_data, "axis");
     auto dtype = testCase.outputTensors.at(0).GetDataType();
     Element value(dtype, GetValueByName<float>(test_data, "src"));
     auto reduce = GetMapValByName(GetScatterModeMap(), GetValueByName<std::string>(test_data, "reduce"));
     auto args = ScatterOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data), axis, value, reduce);
     testCase.args = &args;
-    testCase.opFunc = GetParam().opFunc_;
-    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin",
-        GetGoldenDir() + "/" + testCase.inputTensors[1].GetStorage()->Symbol() + ".bin" };
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
     TestExecutor::runTest(testCase);
 }
 } // namespace

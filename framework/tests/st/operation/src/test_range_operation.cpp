@@ -77,20 +77,13 @@ Element GetElementByType(DataType dataType, nlohmann::json test_data, string nam
 }
 
 TEST_P(RangeOperationTest, TestRange) {
-    TestCaseDesc testCase;
+    auto testCase = CreateTestCaseDesc<RangeOpMetaData>(GetParam(), nullptr);
     nlohmann::json test_data = GetParam().test_data_;
-    testCase.inputTensors = GetInputTensors(test_data);
-    testCase.outputTensors = GetOutputTensors(test_data);
     Element start = GetElementByType(testCase.inputTensors[0].GetDataType(), test_data, "start");
     Element end = GetElementByType(testCase.inputTensors[1].GetDataType(), test_data, "end");
     Element step = GetElementByType(testCase.inputTensors[2].GetDataType(), test_data, "step");
     auto args = RangeOpFuncArgs(start, end, step, GetViewShape(test_data), GetTileShape(test_data));
     testCase.args = &args;
-    testCase.opFunc = GetParam().opFunc_;
-    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin",
-        GetGoldenDir() + "/" + testCase.inputTensors[1].GetStorage()->Symbol() + ".bin",
-        GetGoldenDir() + "/" + testCase.inputTensors[2].GetStorage()->Symbol() + ".bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
     TestExecutor::runTest(testCase);
 }
 } // namespace

@@ -33,6 +33,7 @@ class TestCaseLauncher:
         self.report_file = os.path.abspath(config.report)
         self.device = config.device
         self.python = config.python
+        self.model = config.model
         self.json_only = config.json_only
         self.clean = config.clean
         self.save_data = config.save_data
@@ -138,7 +139,7 @@ class TestCaseLauncher:
         self.tear_up()
         json_path = f"{self.work_path}/framework/tests/st/operation/test_case/"
         test_case_info_list = TestCaseLoader(
-            self.input_file, self.op, self.index, json_path
+            self.input_file, self.op, self.index, self.model, json_path
         ).run()
         if self.json_only:
             return

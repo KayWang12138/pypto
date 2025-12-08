@@ -140,15 +140,9 @@ INSTANTIATE_TEST_SUITE_P(TestSqrt, SqrtOperationTest,
         {SqrtOperationExeFunc2Dims, SqrtOperationExeFunc3Dims, SqrtOperationExeFunc4Dims}, "Sqrt")));
 
 TEST_P(SqrtOperationTest, TestSqrt) {
-    TestCaseDesc testCase;
     auto test_data = GetParam().test_data_;
-    testCase.inputTensors = GetInputTensors(test_data);
-    testCase.outputTensors = GetOutputTensors(test_data);
     auto args = SqrtOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data));
-    testCase.args = &args;
-    testCase.opFunc = GetParam().opFunc_;
-    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
+    auto testCase = CreateTestCaseDesc<SqrtOpMetaData>(GetParam(), &args);
     TestExecutor::runTest(testCase);
 }
 } // namespace

@@ -645,13 +645,10 @@ TEST_P(GatherOperationTest, TestGather) {
         {3, {{1, GatherOperationExeFunc3_1Dims}, {2, GatherOperationExeFunc3_2Dims}}},
         {4, {{1, GatherOperationExeFunc4_1Dims}, {2, GatherOperationExeFunc4_2Dims}}},
     };
-    TestCaseDesc testCase;
     auto test_data = GetParam().test_data_;
-    testCase.inputTensors = GetInputTensors(test_data);
-    testCase.outputTensors = GetOutputTensors(test_data);
     auto axis = static_cast<CastMode>(GetValueByName<int>(test_data, "axis"));
     auto args = GatherOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data), axis);
-    testCase.args = &args;
+    auto testCase = CreateTestCaseDesc<GatherOpMetaData>(GetParam(), &args);
     int params_rank = testCase.inputTensors[0].GetShape().size();
     int indices_rank = testCase.inputTensors[1].GetShape().size();
 
@@ -660,10 +657,6 @@ TEST_P(GatherOperationTest, TestGather) {
         ASSERT(false);
     }
     testCase.opFunc = func[params_rank][indices_rank];
-
-    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin",
-        GetGoldenDir() + "/" + testCase.inputTensors[1].GetStorage()->Symbol() + ".bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
     TestExecutor::runTest(testCase);
 }
 } // namespace

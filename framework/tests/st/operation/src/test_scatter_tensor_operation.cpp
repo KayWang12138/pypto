@@ -202,19 +202,11 @@ INSTANTIATE_TEST_SUITE_P(TestScatterTensor, ScatterTensorOperationTest,
         "ScatterTensor")));
 
 TEST_P(ScatterTensorOperationTest, TestScatterTensor) {
-    TestCaseDesc testCase;
     auto test_data = GetParam().test_data_;
-    testCase.inputTensors = GetInputTensors(test_data);
-    testCase.outputTensors = GetOutputTensors(test_data);
     auto axis = GetValueByName<int>(test_data, "axis");
     auto reduce = GetMapValByName(ScatterOperation::GetScatterModeMap(), GetValueByName<std::string>(test_data, "reduce"));
     auto args = ScatterTensorOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data), axis, reduce);
-    testCase.args = &args;
-    testCase.opFunc = GetParam().opFunc_;
-    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin",
-        GetGoldenDir() + "/" + testCase.inputTensors[1].GetStorage()->Symbol() + ".bin",
-        GetGoldenDir() + "/" + testCase.inputTensors[2].GetStorage()->Symbol() + ".bin" };
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
+    auto testCase = CreateTestCaseDesc<ScatterTensorOpMetaData>(GetParam(), &args);
     TestExecutor::runTest(testCase);
 }
 } // namespace

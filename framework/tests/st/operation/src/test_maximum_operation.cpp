@@ -329,12 +329,9 @@ Element GetElementByType(DataType dataType, nlohmann::json test_data, string nam
 }
 
 TEST_P(MaximumOperationTest, TestMaximum) {
-    TestCaseDesc testCase;
     auto test_data = GetParam().test_data_;
-    testCase.inputTensors = GetInputTensors(test_data);
-    testCase.outputTensors = GetOutputTensors(test_data);
 
-    bool isElementMode = testCase.inputTensors.size() <= 1;
+    bool isElementMode = test_data.at("input_tensors").size() <= 1;
     Element value = {};
     if (isElementMode) {
         auto dtype = GetDataType(GetValueByName<std::string>(test_data, "scalar_type"));
@@ -344,7 +341,7 @@ TEST_P(MaximumOperationTest, TestMaximum) {
     Shape tileShape = GetTileShape(test_data);
 
     auto args = MaximumOpFuncArgs(value, viewShape, tileShape);
-    testCase.args = &args;
+    auto testCase = CreateTestCaseDesc<MaximumOpMetaData>(GetParam(), &args);
 
     std::vector<OpFunc> opFuncs = {};
     if (isElementMode) {
@@ -363,14 +360,6 @@ TEST_P(MaximumOperationTest, TestMaximum) {
     }
     testCase.opFunc = opFuncs[viewShape.size() - 2];
 
-    for (size_t i = 0; i < testCase.inputTensors.size(); i++) {
-        std::string symbolPath = GetGoldenDir() + "/" + testCase.inputTensors[i].GetStorage()->Symbol() + ".bin";
-        testCase.inputPaths.push_back(symbolPath);
-    }
-    for (size_t i = 0; i < testCase.outputTensors.size(); i++) {
-        std::string symbolPath = GetGoldenDir() + "/" + testCase.outputTensors[i].GetStorage()->Symbol() + ".bin";
-        testCase.goldenPaths.push_back(symbolPath);
-    }
     TestExecutor::runTest(testCase);
 }
 } // namespace

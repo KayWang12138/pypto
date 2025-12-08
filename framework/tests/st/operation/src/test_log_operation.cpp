@@ -161,10 +161,7 @@ INSTANTIATE_TEST_SUITE_P(TestLog, LogOperationTest,
         {LogOperationExeFunc2Dims, LogOperationExeFunc3Dims, LogOperationExeFunc4Dims, LogOperationExeFunc1Dims}, "Log")));
 
 TEST_P(LogOperationTest, TestLog) {
-    TestCaseDesc testCase;
     auto test_data = GetParam().test_data_;
-    testCase.inputTensors = GetInputTensors(test_data);
-    testCase.outputTensors = GetOutputTensors(test_data);
     std::string baseStr = GetValueByName<std::string>(test_data, "base");
     LogBaseType base;
     if (baseStr == "e") {
@@ -177,10 +174,7 @@ TEST_P(LogOperationTest, TestLog) {
        assert(false && "unsupported base");
     }
     auto args = LogOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data), base);
-    testCase.args = &args;
-    testCase.opFunc = GetParam().opFunc_;
-    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
+    auto testCase = CreateTestCaseDesc<LogOpMetaData>(GetParam(), &args);
     TestExecutor::runTest(testCase);
 }
 } // namespace

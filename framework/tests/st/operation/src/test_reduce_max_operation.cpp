@@ -200,17 +200,11 @@ INSTANTIATE_TEST_SUITE_P(TestAmax, AmaxOperationTest, ::testing::ValuesIn(
         Amax4DOperationExeFunc}, "Amax")));
 
 TEST_P(AmaxOperationTest, TestAmax) {
-    TestCaseDesc testCase;
     auto test_data = GetParam().test_data_;
-    testCase.inputTensors = GetInputTensors(test_data);
-    testCase.outputTensors = GetOutputTensors(test_data);
     auto args = AmaxOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data),
         GetValueByName<std::vector<int64_t>>(test_data, "dims"),
         GetValueByName<bool>(test_data, "keepDim"));
-    testCase.args = &args;
-    testCase.opFunc = GetParam().opFunc_;
-    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
+    auto testCase = CreateTestCaseDesc<AmaxOpMetadata>(GetParam(), &args);
     TestExecutor::runTest(testCase);
 }
 

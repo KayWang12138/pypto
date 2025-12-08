@@ -140,15 +140,9 @@ INSTANTIATE_TEST_SUITE_P(TestExp, ExpOperationTest,
         {ExpOperationExeFunc2Dims, ExpOperationExeFunc3Dims, ExpOperationExeFunc4Dims}, "Exp")));
 
 TEST_P(ExpOperationTest, TestExp) {
-    TestCaseDesc testCase;
     auto test_data = GetParam().test_data_;
-    testCase.inputTensors = GetInputTensors(test_data);
-    testCase.outputTensors = GetOutputTensors(test_data);
     auto args = ExpOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data));
-    testCase.args = &args;
-    testCase.opFunc = GetParam().opFunc_;
-    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
+    auto testCase = CreateTestCaseDesc<ExpOpMetaData>(GetParam(), &args);
     TestExecutor::runTest(testCase);
 }
 } // namespace

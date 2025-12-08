@@ -196,17 +196,11 @@ INSTANTIATE_TEST_SUITE_P(TestTranspose, TransposeOperationTest,
             "Transpose")));
 
 TEST_P(TransposeOperationTest, TestTranspose) {
-    TestCaseDesc testCase;
     auto test_data = GetParam().test_data_;
-    testCase.inputTensors = GetInputTensors(test_data);
-    testCase.outputTensors = GetOutputTensors(test_data);
     int first_dim = GetValueByName<int>(test_data, "first_dim");
     int second_dim = GetValueByName<int>(test_data, "second_dim");
     auto args = TransposeOpFuncArgs(first_dim, second_dim, GetViewShape(test_data), GetTileShape(test_data));
-    testCase.args = &args;
-    testCase.opFunc = GetParam().opFunc_;
-    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
+    auto testCase = CreateTestCaseDesc<TransposeOpMetaData>(GetParam(), &args);
     TestExecutor::runTest(testCase);
 }
 } // namespace

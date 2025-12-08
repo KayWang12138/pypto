@@ -418,10 +418,7 @@ INSTANTIATE_TEST_SUITE_P(TestWhere, WhereOperationTest,
         {WhereOperationExeFuncDoubleCut, WhereOperationExeFuncTripleCut, WhereOperationExeFuncQuadrupleCut}, "Where")));
 
 TEST_P(WhereOperationTest, TestWhere) {
-    TestCaseDesc testCase;
     auto test_data = GetParam().test_data_;
-    testCase.inputTensors = GetInputTensors(test_data);
-    testCase.outputTensors = GetOutputTensors(test_data);
     auto dtypeFlag = GetDataType(GetValueByName<std::string>(test_data, "flag_dtype"));
     Element flagElement(dtypeFlag, GetValueByName<int64_t>(test_data, "flag"));
     int flag = flagElement.GetSignedData();
@@ -429,12 +426,7 @@ TEST_P(WhereOperationTest, TestWhere) {
     Element x_scalar(dtype, GetValueByName<float>(test_data, "x_scalar"));
     Element y_scalar(dtype, GetValueByName<float>(test_data, "y_scalar"));
     auto args = WhereOpFuncArgs(flag, x_scalar, y_scalar, GetViewShape(test_data), GetTileShape(test_data));
-    testCase.args = &args;
-    testCase.opFunc = GetParam().opFunc_;
-    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin",
-        GetGoldenDir() + "/" + testCase.inputTensors[1].GetStorage()->Symbol() + ".bin",
-        GetGoldenDir() + "/" + testCase.inputTensors[2].GetStorage()->Symbol() + ".bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
+    auto testCase = CreateTestCaseDesc<WhereOpMetaData>(GetParam(), &args);
     TestExecutor::runTest(testCase);
 }
 } // namespace

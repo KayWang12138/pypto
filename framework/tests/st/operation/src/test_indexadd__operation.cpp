@@ -212,10 +212,7 @@ INSTANTIATE_TEST_SUITE_P(TestIndexAdd_, IndexAdd_OperationTest,
         "IndexAdd_")));
 
 TEST_P(IndexAdd_OperationTest, TestIndexAdd_) {
-    TestCaseDesc testCase_;
     auto test_data = GetParam().test_data_;
-    testCase_.inputTensors = GetInputTensors(test_data);
-    testCase_.outputTensors = GetOutputTensors(test_data);
     auto axis = static_cast<CastMode>(GetValueByName<int>(test_data, "axis"));
     nlohmann::json data = test_data;
     float value = 1.0;
@@ -236,12 +233,7 @@ TEST_P(IndexAdd_OperationTest, TestIndexAdd_) {
     }
     Element alp(npu::tile_fwk::DT_FP32, value);
     auto args = IndexAdd_OpFuncArgs(GetViewShape(test_data), GetTileShape(test_data), axis, alp);
-    testCase_.args = &args;
-    testCase_.opFunc = GetParam().opFunc_;
-    testCase_.inputPaths = {GetGoldenDir() + "/" + testCase_.inputTensors[0].GetStorage()->Symbol() + ".bin",
-        GetGoldenDir() + "/" + testCase_.inputTensors[1].GetStorage()->Symbol() + ".bin",
-        GetGoldenDir() + "/" + testCase_.inputTensors[2].GetStorage()->Symbol() + ".bin"};
-    testCase_.goldenPaths = {GetGoldenDir() + "/" + testCase_.outputTensors[0].GetStorage()->Symbol() + ".bin"};
-    TestExecutor::runTest(testCase_);
+    auto testCase = CreateTestCaseDesc<IndexAddOp_MetaData>(GetParam(), &args);
+    TestExecutor::runTest(testCase);
 }
 } // namespace

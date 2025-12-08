@@ -284,10 +284,13 @@ class JsonWriter:
 
 
 class TestCaseLoader:
-    def __init__(self, file_name: str, op: str, index_range: list, json_path: str):
+    def __init__(
+        self, file_name: str, op: str, index_range: list, model: bool, json_path: str
+    ):
         self._file = file_name
         self._op = op
         self._index_range = index_range
+        self._model = model
         self._json_path = json_path
 
     # 全局回调函数注册表
@@ -314,5 +317,7 @@ class TestCaseLoader:
         ).run()
         if data_frame is None or len(data_frame) == 0:
             return []
+
+        data_frame["on_board"] = not self._model
 
         return JsonWriter(data_frame, self._json_path).run()

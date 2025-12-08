@@ -19,6 +19,7 @@
 #include <string>
 #include <functional>
 
+#include "test_cost_model.h"
 #include "test_suite_stest_ops.h"
 #include "interface/inner/config.h"
 #include "interface/interpreter/raw_tensor_data.h"
@@ -54,6 +55,7 @@ struct TestCaseDesc {
     std::vector<std::string> goldenPaths;
     const OpFuncArgs* args;
     OpFunc opFunc;
+    bool onBoard{true};
 };
 
 struct MatmulTestCaseParam {
@@ -139,7 +141,11 @@ private:
         std::vector<Tensor> nonConstOutputs = testCase.outputTensors;
         testCase.opFunc(testCase.inputTensors, nonConstOutputs, testCase.args);
 
-        DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
+        if (testCase.onBoard) {
+            DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
+        } else {
+            CostModelDynFuncRunner::Run(Program::GetInstance().GetLastFunction());
+        }
 
         ASSERT_EQ(testCase.goldenPaths.size(), testCase.outputTensors.size());
         readGoldenCmpType(testCase);
@@ -523,6 +529,24 @@ std::vector<T> GetOpMetaData(const std::vector<OpFunc> &opFuncs, const std::stri
         test_case_list.push_back(T(opFuncs[func_id], test_case));
     }
     return test_case_list;
+}
+
+template <typename T>
+TestCaseDesc CreateTestCaseDesc(const T &param, const OpFuncArgs *args) {
+    TestCaseDesc testCase;
+    auto test_data = param.test_data_;
+    testCase.inputTensors = GetInputTensors(test_data);
+    testCase.outputTensors = GetOutputTensors(test_data);
+    testCase.args = args;
+    testCase.opFunc = param.opFunc_;
+    std::transform(testCase.inputTensors.begin(), testCase.inputTensors.end(), std::back_inserter(testCase.inputPaths),
+        [](const auto &tensor) { return GetGoldenDir() + "/" + tensor.GetStorage()->Symbol() + ".bin"; });
+    std::transform(testCase.outputTensors.begin(), testCase.outputTensors.end(),
+        std::back_inserter(testCase.goldenPaths),
+        [](const auto &tensor) { return GetGoldenDir() + "/" + tensor.GetStorage()->Symbol() + ".bin"; });
+    auto params_dict = test_data.at("params");
+    testCase.onBoard = params_dict.find("on_board") == params_dict.end() || GetValueByName<bool>(test_data, "on_board");
+    return testCase;
 }
 } // namespace test_operation
 } // namespace tile_fwk

@@ -205,16 +205,9 @@ INSTANTIATE_TEST_SUITE_P(TestSub, SubOperationTest,
         {SubOperationExeFunc2Dims, SubOperationExeFunc3Dims, SubOperationExeFunc4Dims}, "Sub")));
 
 TEST_P(SubOperationTest, TestSub) {
-    TestCaseDesc testCase;
     auto test_data = GetParam().test_data_;
-    testCase.inputTensors = GetInputTensors(test_data);
-    testCase.outputTensors = GetOutputTensors(test_data);
     auto args = SubOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data));
-    testCase.args = &args;
-    testCase.opFunc = GetParam().opFunc_;
-    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin",
-        GetGoldenDir() + "/" + testCase.inputTensors[1].GetStorage()->Symbol() + ".bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
+    auto testCase = CreateTestCaseDesc<SubOpMetaData>(GetParam(), &args);
     TestExecutor::runTest(testCase);
 }
 } // namespace

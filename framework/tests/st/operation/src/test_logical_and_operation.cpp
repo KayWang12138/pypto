@@ -217,16 +217,9 @@ INSTANTIATE_TEST_SUITE_P(TestLogicalAnd, LogicalAndOperationTest,
         {LogicalAndOperationExeFunc2Dims, LogicalAndOperationExeFunc3Dims, LogicalAndOperationExeFunc4Dims}, "LogicalAnd")));
 
 TEST_P(LogicalAndOperationTest, TestLogicalAnd) {
-    TestCaseDesc testCase;
     auto test_data = GetParam().test_data_;
-    testCase.inputTensors = GetInputTensors(test_data);
-    testCase.outputTensors = GetOutputTensors(test_data);
     auto args = LogicalAndOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data));
-    testCase.args = &args;
-    testCase.opFunc = GetParam().opFunc_;
-    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin",
-        GetGoldenDir() + "/" + testCase.inputTensors[1].GetStorage()->Symbol() + ".bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
+    auto testCase = CreateTestCaseDesc<LogicalAndOpMetaData>(GetParam(), &args);
     TestExecutor::runTest(testCase);
 }
 } // namespace

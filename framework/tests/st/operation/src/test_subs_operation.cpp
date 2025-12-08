@@ -143,17 +143,11 @@ INSTANTIATE_TEST_SUITE_P(TestSubs, SubsOperationTest,
         {SubsOperationExeFuncDoubleCut, SubsOperationExeFuncTripleCut, SubsOperationExeFuncQuadrupleCut}, "Subs")));
 
 TEST_P(SubsOperationTest, TestSubs) {
-    TestCaseDesc testCase;
     auto test_data = GetParam().test_data_;
-    testCase.inputTensors = GetInputTensors(test_data);
-    testCase.outputTensors = GetOutputTensors(test_data);
     auto dtype = GetDataType(GetValueByName<std::string>(test_data, "scalar_type"));
     Element value(dtype, GetValueByName<float>(test_data, "scalar"));
     auto args = SubsOpFuncArgs(value, GetViewShape(test_data), GetTileShape(test_data));
-    testCase.args = &args;
-    testCase.opFunc = GetParam().opFunc_;
-    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
+    auto testCase = CreateTestCaseDesc<SubsOpMetaData>(GetParam(), &args);
     TestExecutor::runTest(testCase);
 }
 } // namespace

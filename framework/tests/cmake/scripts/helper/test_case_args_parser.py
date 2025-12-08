@@ -109,6 +109,9 @@ class TestCaseArgsParser:
             "--python", action="store_true", help="Test python test case."
         )
         self._parser.add_argument(
+            "--model", action="store_true", help="Run test case with model."
+        )
+        self._parser.add_argument(
             "--json_only",
             action="store_true",
             help="Convert csv to json only, not run.",

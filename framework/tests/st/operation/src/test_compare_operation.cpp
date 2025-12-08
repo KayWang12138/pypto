@@ -254,10 +254,7 @@ INSTANTIATE_TEST_SUITE_P(TestCompare, CompareOperationTest,
         {CompareOperationExeFunc2Dims, CompareOperationExeFunc3Dims, CompareOperationExeFunc4Dims}, "Compare")));
  
 TEST_P(CompareOperationTest, TestCompare) {
-    TestCaseDesc testCase;
     auto test_data = GetParam().test_data_;
-    testCase.inputTensors = GetInputTensors(test_data);
-    testCase.outputTensors = GetOutputTensors(test_data);
     std::string opStr = GetValueByName<std::string>(test_data, "compare_op");
     std::string modeStr = GetValueByName<std::string>(test_data, "mode");
     static const std::unordered_map<std::string, OpType> opMap = {
@@ -287,16 +284,7 @@ TEST_P(CompareOperationTest, TestCompare) {
         GetTileShape(test_data),
         cmpOp, cmpMode
     );
-    testCase.args = &args;
-    testCase.opFunc = GetParam().opFunc_;
-    std::vector<std::string> inputPaths;
-    for (size_t i = 0; i < testCase.inputTensors.size(); ++i) {
-        inputPaths.emplace_back(
-            GetGoldenDir() + "/" + testCase.inputTensors[i].GetStorage()->Symbol() + ".bin"
-        );
-    }
-    testCase.inputPaths = inputPaths;
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
+    auto testCase = CreateTestCaseDesc<CompareOpMetaData>(GetParam(), &args);
     TestExecutor::runTest(testCase);
 }
 }

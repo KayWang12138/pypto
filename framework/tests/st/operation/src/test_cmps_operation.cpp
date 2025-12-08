@@ -163,10 +163,7 @@ INSTANTIATE_TEST_SUITE_P(TestCmps, CmpsOperationTest,
         {CmpsOperationExeFunc2Dims, CmpsOperationExeFunc3Dims, CmpsOperationExeFunc4Dims}, "Cmps")));
  
 TEST_P(CmpsOperationTest, TestCmps) {
-    TestCaseDesc testCase;
     auto test_data = GetParam().test_data_;
-    testCase.inputTensors = GetInputTensors(test_data);
-    testCase.outputTensors = GetOutputTensors(test_data);
     std::string opStr = GetValueByName<std::string>(test_data, "compare_op");
     std::string modeStr = GetValueByName<std::string>(test_data, "mode");
 
@@ -204,11 +201,7 @@ TEST_P(CmpsOperationTest, TestCmps) {
         cmpOp, cmpMode,
         scalarVal
     );
-
-    testCase.args = &args;
-    testCase.opFunc = GetParam().opFunc_;
-    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
+    auto testCase = CreateTestCaseDesc<CmpsOpMetaData>(GetParam(), &args);
     TestExecutor::runTest(testCase);
 }
 }

@@ -251,21 +251,10 @@ INSTANTIATE_TEST_SUITE_P(TestConcat, ConcatOperationTest,
         {ConcatOperationExeFuncDoubleCut, ConcatOperationExeFuncTripleCut, ConcatOperationExeFuncQuadraticCut}, "Concat")));
 
 TEST_P(ConcatOperationTest, TestConcat) {
-    TestCaseDesc testCase;
     auto test_data = GetParam().test_data_;
-    testCase.inputTensors = GetInputTensors(test_data);
-    testCase.outputTensors = GetOutputTensors(test_data);
     int axis = GetValueByName<int>(test_data, "axis");
     auto args = ConcatOpFuncArgs(axis, GetViewShape(test_data), GetTileShape(test_data));
-    testCase.args = &args;
-    testCase.opFunc = GetParam().opFunc_;
-    std::vector<std::string> includePaths = {};
-    for (size_t i = 0; i < testCase.inputTensors.size(); i++) {
-        std::string path = GetGoldenDir() + "/" + testCase.inputTensors[i].GetStorage()->Symbol() + ".bin";
-        includePaths.push_back(path);
-    }
-    testCase.inputPaths = includePaths;
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
+    auto testCase = CreateTestCaseDesc<ConcatOpMetaData>(GetParam(), &args);
     TestExecutor::runTest(testCase);
 }
 } // namespace

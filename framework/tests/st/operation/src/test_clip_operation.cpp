@@ -347,10 +347,7 @@ Element GetElementByType(DataType dataType, nlohmann::json test_data, string nam
 }
 
 TEST_P(ClipOperationTest, TestClip) {
-    TestCaseDesc testCase;
     auto test_data = GetParam().test_data_;
-    testCase.inputTensors = GetInputTensors(test_data);
-    testCase.outputTensors = GetOutputTensors(test_data);
     int testType = GetValueByName<int>(test_data, "test_type");
     if (testType == -1) {
         // same as the logic for func_id
@@ -380,17 +377,7 @@ TEST_P(ClipOperationTest, TestClip) {
         }
     }
     args = ClipOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data), testType, min, max, isElement);
-
-    testCase.args = &args;
-    testCase.opFunc = GetParam().opFunc_;
-    for (size_t i = 0; i < testCase.inputTensors.size(); i++) {
-        std::string symbolPath = GetGoldenDir() + "/" + testCase.inputTensors[i].GetStorage()->Symbol() + ".bin";
-        testCase.inputPaths.push_back(symbolPath);
-    }
-    for (size_t i = 0; i < testCase.outputTensors.size(); i++) {
-        std::string symbolPath = GetGoldenDir() + "/" + testCase.outputTensors[i].GetStorage()->Symbol() + ".bin";
-        testCase.goldenPaths.push_back(symbolPath);
-    }
+    auto testCase = CreateTestCaseDesc<ClipOpMetaData>(GetParam(), &args);
     TestExecutor::runTest(testCase);
 }
 } // namespace
