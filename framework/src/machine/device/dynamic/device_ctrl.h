@@ -151,7 +151,8 @@ class DeviceCtrlMachine {
             devProg->controlFlowCache.contextWorkspaceAddr = devArgs->contextWorkspaceAddr;
         }
         DEV_INFO("ControlFlowCache: deviceTask:%d firstInit:%d\n", (int)devProg->controlFlowCache.deviceTaskCount, (int)firstInit);
-        if (devProg->controlFlowCache.deviceTaskCount != 0) {
+        if (devProg->controlFlowCache.deviceTaskCount != 0 &&
+                devProg->controlFlowCache.IsActivatedPartialCache(devArgs)) {
             // Actual run
             if (firstInit) {
                 devProg->controlFlowCache.TaskAddrRelocProgram(0, reinterpret_cast<uint64_t>(devProg));
