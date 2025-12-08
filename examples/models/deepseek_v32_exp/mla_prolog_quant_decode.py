@@ -262,7 +262,7 @@ def pre_compute_2d(token_x, w_dq, w_uq_qr, w_dkv_kr, gamma_cq, epsilon_cq, quant
     return qkv_pre_res
 
 
-def mla_prolog_compute_d(input_tensors, output_tensors, epsilon_cq, epsilon_ckv, cache_mode, tile_config):
+def mla_prolog_quant_d_compute(input_tensors, output_tensors, epsilon_cq, epsilon_ckv, cache_mode, tile_config):
     token_x, w_dq, w_uq_qr, dequant_scale, w_uk, w_dkv_kr, gamma_cq, gamma_ckv, cos,\
             sin, cache_index, kv_cache, kr_cache, k_scale_cache = input_tensors
     q_norm_out, q_norm_scale_out, query_nope_out, query_rope_out, kv_cache_out,\
@@ -315,118 +315,108 @@ def mla_prolog_compute_d(input_tensors, output_tensors, epsilon_cq, epsilon_ckv,
         k_rope_2d = pypto.tensor()
         k_nope_2d = pypto.tensor()
         k_scale_2d = pypto.tensor()
+        for _ in pypto.loop(0, 1, 1, name="MLA_PREPARE_RES", idx_name="unused_idx"):
+            pypto.set_vec_tile_shapes(tile_bs, 128)
+            x_view = pypto.view(x_2d, [tile_bs, h], [bs_offset, 0])
+            qkv = pre_compute_2d(x_view, w_dq, w_uq_qr, w_dkv_kr, gamma_cq, epsilon_cq, quant_inputs)
+            q = qkv[0]
+            kv_tmp = qkv[1]
 
-        def mla_prolog_inner():
-            for _ in pypto.loop(0, 1, 1, name="MLA_PREPARE_RES", idx_name="unused_idx"):
+            ############# q_norm #############
+            pypto.set_semantic_label("Assemble_qNorm")
+            q_norm = qkv[2]
+            pypto.set_vec_tile_shapes(tile_bs, q_lora_rank)
+            pypto.assemble(q_norm, [bs_offset, 0], q_norm_out)
+            q_norm_scale = qkv[3]
+            pypto.set_vec_tile_shapes(tile_bs, 1)
+            pypto.assemble(q_norm_scale, [bs_offset, 0], q_norm_scale_out)
 
-                def prepare_mla():
-                    pypto.set_vec_tile_shapes(tile_bs, 128)
-                    x_view = pypto.view(x_2d, [tile_bs, h], [bs_offset, 0])
-                    qkv = pre_compute_2d(x_view, w_dq, w_uq_qr, w_dkv_kr, gamma_cq, epsilon_cq, quant_inputs)
-                    q = qkv[0]
-                    kv_tmp = qkv[1]
+            ########### q ##############
+            q_tmp = pypto.reshape(q, [tile_bs, n1, q_head_dim])
+            pypto.set_semantic_label("Prepare_qNope")
+            q_nope = pypto.view(q_tmp, [tile_bs, n1, qk_nope_head_dim], [0, 0, 0])
+            tile_shape = [min(32, tile_bs), 32, qk_nope_head_dim]
+            pypto.set_vec_tile_shapes(*tile_shape)
+            q_nope_trans = pypto.transpose(q_nope, 0, 1)
 
-                    ############# q_norm #############
-                    pypto.set_semantic_label("Assemble_qNorm")
-                    q_norm = qkv[2]
-                    pypto.set_vec_tile_shapes(tile_bs, q_lora_rank)
-                    pypto.assemble(q_norm, [bs_offset, 0], q_norm_out)
-                    q_norm_scale = qkv[3]
-                    pypto.set_vec_tile_shapes(tile_bs, 1)
-                    pypto.assemble(q_norm_scale, [bs_offset, 0], q_norm_scale_out)
+            c0 = 16
+            m = (min(32, tile_bs) + c0 - 1) // c0 * c0
+            pypto.set_semantic_label("Matmul_qNope_wUk")
+            pypto.set_cube_tile_shapes([m, m], [128, 128], [128, 128])
+            q_nope_new = pypto.matmul(q_nope_trans, w_uk, dtype)
 
-                    ########### q ##############
-                    q_tmp = pypto.reshape(q, [tile_bs, n1, q_head_dim])
-                    pypto.set_semantic_label("Prepare_qNope")
-                    q_nope = pypto.view(q_tmp, [tile_bs, n1, qk_nope_head_dim], [0, 0, 0])
-                    tile_shape = [min(32, tile_bs), 32, qk_nope_head_dim]
-                    pypto.set_vec_tile_shapes(*tile_shape)
-                    q_nope_trans = pypto.transpose(q_nope, 0, 1)
+            tile_shape = [1, min(32, tile_bs), kv_lora_rank]
+            pypto.set_vec_tile_shapes(*tile_shape)
+            q_nope_new_trans = pypto.transpose(q_nope_new, 0, 1)
 
-                    c0 = 16
-                    m = (min(32, tile_bs) + c0 - 1) // c0 * c0
-                    pypto.set_semantic_label("Matmul_qNope_wUk")
-                    pypto.set_cube_tile_shapes([m, m], [128, 128], [128, 128])
-                    q_nope_new = pypto.matmul(q_nope_trans, w_uk, dtype)
+            pypto.set_semantic_label("Assemble_queryOut")
+            pypto.set_vec_tile_shapes(1, 32, 128)
+            pypto.assemble(q_nope_new_trans, output_offset, query_nope_out)
 
-                    tile_shape = [1, min(32, tile_bs), kv_lora_rank]
-                    pypto.set_vec_tile_shapes(*tile_shape)
-                    q_nope_new_trans = pypto.transpose(q_nope_new, 0, 1)
+            q_pe_view = pypto.view(q_tmp, [tile_bs, n1, qk_rope_head_dim], [0, 0, qk_nope_head_dim])
+            cos_2d_view = pypto.view(cos_2d, [tile_bs, qk_rope_head_dim], [bs_offset, 0])
+            sin_2d_view = pypto.view(sin_2d, [tile_bs, qk_rope_head_dim], [bs_offset, 0])
+            q_rope_view = rope_3d_v2(q_pe_view, cos_2d_view, sin_2d_view, rope_cfg)
+            pypto.set_semantic_label("Assemble_qRope")
+            pypto.set_vec_tile_shapes(1, 32, 64)
+            pypto.assemble(q_rope_view, output_offset, query_rope_out)
 
-                    pypto.set_semantic_label("Assemble_queryOut")
-                    pypto.set_vec_tile_shapes(1, 32, 128)
-                    pypto.assemble(q_nope_new_trans, output_offset, query_nope_out)
+            ########### RoPE #################
+            pypto.set_vec_tile_shapes(2, 512)
+            pypto.set_semantic_label("RotaryPosEmb")
+            k_pe_view = pypto.view(kv_tmp, [tile_bs, qk_rope_head_dim], [0, kv_lora_rank])
+            k_rope_2d[:] = rope_v2(k_pe_view, cos_2d_view, sin_2d_view, rope_cfg)
 
-                    q_pe_view = pypto.view(q_tmp, [tile_bs, n1, qk_rope_head_dim], [0, 0, qk_nope_head_dim])
-                    cos_2d_view = pypto.view(cos_2d, [tile_bs, qk_rope_head_dim], [bs_offset, 0])
-                    sin_2d_view = pypto.view(sin_2d, [tile_bs, qk_rope_head_dim], [bs_offset, 0])
-                    q_rope_view = rope_3d_v2(q_pe_view, cos_2d_view, sin_2d_view, rope_cfg)
-                    pypto.set_semantic_label("Assemble_qRope")
-                    pypto.set_vec_tile_shapes(1, 32, 64)
-                    pypto.assemble(q_rope_view, output_offset, query_rope_out)
+            ############### kNope ##############
+            compressed_kv = pypto.view(kv_tmp, [tile_bs, kv_lora_rank], [0, 0])
+            pypto.set_semantic_label("RmsNorm_compressedkv")
+            pypto.set_vec_tile_shapes(2, 512)
+            k_nope = rms_norm(compressed_kv, gamma_ckv, epsilon_ckv)
 
-                    ########### RoPE #################
-                    pypto.set_vec_tile_shapes(2, 512)
-                    pypto.set_semantic_label("RotaryPosEmb")
-                    k_pe_view = pypto.view(kv_tmp, [tile_bs, qk_rope_head_dim], [0, kv_lora_rank])
-                    k_rope_2d[:] = rope_v2(k_pe_view, cos_2d_view, sin_2d_view, rope_cfg)
+            ########### kNope Quant ############
+            pypto.set_semantic_label("Quant_knope")
+            pypto.set_vec_tile_shapes(32, kv_lora_rank)
+            k_nope_split = pypto.reshape(k_nope, [tile_bs, 4, kv_lora_rank // 4])
+            pypto.set_vec_tile_shapes(32, 4, kv_lora_rank // 4)
+            k_nope_quant_res = k_nope_quant(k_nope_split)
+            k_nope_quant_tensor = k_nope_quant_res[0]
+            k_nope_scale = k_nope_quant_res[1]
 
-                    ############### kNope ##############
-                    compressed_kv = pypto.view(kv_tmp, [tile_bs, kv_lora_rank], [0, 0])
-                    pypto.set_semantic_label("RmsNorm_compressedkv")
-                    pypto.set_vec_tile_shapes(2, 512)
-                    k_nope = rms_norm(compressed_kv, gamma_ckv, epsilon_ckv)
+            pypto.set_vec_tile_shapes(32, 4, kv_lora_rank // 4)
+            k_nope_2d[:] = pypto.reshape(k_nope_quant_tensor, [tile_bs, kv_lora_rank])
+            k_scale_2d[:] = pypto.reshape(k_nope_scale, [tile_bs, 4])
 
-                    ########### kNope Quant ############
-                    pypto.set_semantic_label("Quant_knope")
-                    pypto.set_vec_tile_shapes(32, kv_lora_rank)
-                    k_nope_split = pypto.reshape(k_nope, [tile_bs, 4, kv_lora_rank // 4])
-                    pypto.set_vec_tile_shapes(32, 4, kv_lora_rank // 4)
-                    k_nope_quant_res = k_nope_quant(k_nope_split)
-                    k_nope_quant_tensor = k_nope_quant_res[0]
-                    k_nope_scale = k_nope_quant_res[1]
+        kr_cache_2d = pypto.tensor([block_num * block_size * n2, qk_rope_head_dim], kr_cache.dtype)
+        kv_cache_2d = pypto.tensor([block_num * block_size * n2, kv_lora_rank], kv_cache.dtype)
+        k_scale_cache_2d = pypto.tensor([block_num * block_size * n2, 4], k_scale_cache.dtype)
 
-                    pypto.set_vec_tile_shapes(32, 4, kv_lora_rank // 4)
-                    k_nope_2d[:] = pypto.reshape(k_nope_quant_tensor, [tile_bs, kv_lora_rank])
-                    k_scale_2d[:] = pypto.reshape(k_nope_scale, [tile_bs, 4])
-                prepare_mla()
-
-            kr_cache_2d = pypto.tensor([block_num * block_size * n2, qk_rope_head_dim], kr_cache.dtype)
-            kv_cache_2d = pypto.tensor([block_num * block_size * n2, kv_lora_rank], kv_cache.dtype)
-            k_scale_cache_2d = pypto.tensor([block_num * block_size * n2, 4], k_scale_cache.dtype)
-
-            for _ in pypto.loop(0, 1, 1, name="MLA_CACHE_RESHAPE_4D_2D", idx_name="unused_idx"):
-                kr_cache_2d[:] = pypto.reshape(kr_cache, [block_num * block_size * n2, qk_rope_head_dim], inplace=True)
-                kv_cache_2d[:] = pypto.reshape(kv_cache, [block_num * block_size * n2, kv_lora_rank], inplace=True)
-                k_scale_cache_2d[:] = pypto.reshape(k_scale_cache, [block_num * block_size * n2, 4], inplace=True)
+        for _ in pypto.loop(0, 1, 1, name="MLA_CACHE_RESHAPE_4D_2D", idx_name="unused_idx"):
+            kr_cache_2d[:] = pypto.reshape(kr_cache, [block_num * block_size * n2, qk_rope_head_dim], inplace=True)
+            kv_cache_2d[:] = pypto.reshape(kv_cache, [block_num * block_size * n2, kv_lora_rank], inplace=True)
+            k_scale_cache_2d[:] = pypto.reshape(k_scale_cache, [block_num * block_size * n2, 4], inplace=True)
+        
+        kr_cache_out2d = pypto.tensor()
+        kv_cache_out2d = pypto.tensor()
+        k_scale_cache_out2d = pypto.tensor()
+        for _ in pypto.loop(0, 1, 1, name="MLA_UPDATE_CACHE", idx_name="unused_idx"):
+            index = pypto.view(k_cache_index_2d, [tile_bs, 1], [bs_offset, 0])
+            pypto.set_semantic_label("ScatterUpdate_krCache")
+            pypto.set_vec_tile_shapes(32, qk_rope_head_dim)
+            kr_cache_out2d[:] = pypto.scatter_update(kr_cache_2d, -2, index, k_rope_2d)
+            pypto.set_semantic_label("ScatterUpdate_kvCache")
+            pypto.set_vec_tile_shapes(32, kv_lora_rank)
+            kv_cache_out2d[:] = pypto.scatter_update(kv_cache_2d, -2, index, k_nope_2d)
+            pypto.set_semantic_label("ScatterUpdate_kScaleCache")
+            pypto.set_vec_tile_shapes(32, 4)
+            k_scale_cache_out2d[:] = pypto.scatter_update(k_scale_cache_2d, -2, index, k_scale_2d)
             
-            kr_cache_out2d = pypto.tensor()
-            kv_cache_out2d = pypto.tensor()
-            k_scale_cache_out2d = pypto.tensor()
-            for _ in pypto.loop(0, 1, 1, name="MLA_UPDATE_CACHE", idx_name="unused_idx"):
-
-                def update_cache():
-                    index = pypto.view(k_cache_index_2d, [tile_bs, 1], [bs_offset, 0])
-                    pypto.set_semantic_label("ScatterUpdate_krCache")
-                    pypto.set_vec_tile_shapes(32, qk_rope_head_dim)
-                    kr_cache_out2d[:] = pypto.scatter_update(kr_cache_2d, -2, index, k_rope_2d)
-                    pypto.set_semantic_label("ScatterUpdate_kvCache")
-                    pypto.set_vec_tile_shapes(32, kv_lora_rank)
-                    kv_cache_out2d[:] = pypto.scatter_update(kv_cache_2d, -2, index, k_nope_2d)
-                    pypto.set_semantic_label("ScatterUpdate_kScaleCache")
-                    pypto.set_vec_tile_shapes(32, 4)
-                    k_scale_cache_out2d[:] = pypto.scatter_update(k_scale_cache_2d, -2, index, k_scale_2d)
-                    
-                    kr_cache_out.move(pypto.reshape(kr_cache_out2d, [block_num, block_size, n2, qk_rope_head_dim]))
-                    kv_cache_out.move(pypto.reshape(kv_cache_out2d, [block_num, block_size, n2, kv_lora_rank]))
-                    k_scale_cache_out.move(pypto.reshape(k_scale_cache_out2d, [block_num, block_size, n2, 4]))
-                update_cache()
-
-        mla_prolog_inner()
+            kr_cache_out.move(pypto.reshape(kr_cache_out2d, [block_num, block_size, n2, qk_rope_head_dim]))
+            kv_cache_out.move(pypto.reshape(kv_cache_out2d, [block_num, block_size, n2, kv_lora_rank]))
+            k_scale_cache_out.move(pypto.reshape(k_scale_cache_out2d, [block_num, block_size, n2, 4]))
 
 
 @pypto.jit
-def mla_prolog_d(
+def mla_prolog_quant_d(
     input_tensors, 
     output_tensors, 
     epsilon_cq, 
@@ -441,7 +431,7 @@ def mla_prolog_d(
             copyin_threshold=2 * 1024 * 1024
         )
     pypto.set_host_options(only_codegen=True)
-    mla_prolog_compute_d(
+    mla_prolog_quant_d_compute(
         input_tensors, 
         output_tensors, 
         epsilon_cq, 

@@ -885,8 +885,8 @@ def do_test_prefill(case_name, params, mla_epsilon_cq, mla_epsilon_ckv, mla_cach
     if PRINT_DEBUG:
         dynamic_dict.update({'rms_norm_out': [0], 'rms_norm_scale_out': [0]})
     pto_outputs = convert_torch_tensor(outputs, dynamic_dict, 'OUT_')
-    import examples.models.deepseek_v32_exp.mla_prolog_indexer_prolog_prefill as prefill
-    prefill.mla_prolog_indexer_prolog(pto_inputs, pto_outputs, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode,
+    import examples.models.deepseek_v32_exp.mla_indexer_prolog_prefill as prefill
+    prefill.mla_indexer_prolog_quant_p(pto_inputs, pto_outputs, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode,
                                       mla_tile_config, ip_attrs, ip_configs)
     check(case_name, outputs, goldens)
     pypto.runtime._device_fini()
@@ -1016,4 +1016,8 @@ def test_t_512_tilebs_128():
 
 
 if __name__ == '__main__':
-    test_t_8_tilebs_1()
+    logging.basicConfig(
+        format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s',
+        level=logging.INFO
+    )
+    test_t_2_tilebs_1()

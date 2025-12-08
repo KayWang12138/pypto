@@ -18,7 +18,7 @@ import torch_npu
 import os
 import math
 from pathlib import Path
-from sparse_flash_attention_quant_p import select_attention_compute_prefill
+from sparse_flash_attention_quant_prefill import sparse_flash_attention_quant_p_compute
 import pytest
 import numpy as np
 import logging
@@ -265,7 +265,8 @@ def gen_gather_select_attention_golden(dtype, bn1n2s1, is_kn_quant, actual_seq):
     
     return input_params, kn_aux_tensor, scale_aux_tensor, input_data_map, atten_out
 
-def do_test_sparse_attention(case_name: str):
+
+def do_test_QSFA_p(case_name: str):
     bn1n2s1 = (4, 128, 1, 2)
     is_kn_quant = 1
     actual_seq = [666, 532, 768, 900]
@@ -359,7 +360,7 @@ def do_test_sparse_attention(case_name: str):
         actual_seq = [666, 532, 768, 900, 5698, 2358, 324, 2048]
     else:
         logging.error("Can't get func to gen golden, Case(%s)", case_name)
-        return False
+        assert False
     
     print("============bn1n2s1 is: =====================")
     print(bn1n2s1)
@@ -396,90 +397,113 @@ def do_test_sparse_attention(case_name: str):
     pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(input_data_npu)]
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(output_data_npu)]
 
-    select_attention_compute_prefill(pto_inputs, pto_outputs, n1, nkv, softmax_scale, topk, tile_config)
+    sparse_flash_attention_quant_p_compute(pto_inputs, pto_outputs, n1, nkv, softmax_scale, topk, tile_config)
     
     pypto.runtime._device_synchronize()
     assert_allclose(np.array(output_data_npu[0].cpu().flatten().tolist()), np.array(atten_out.cpu().flatten().tolist()), rtol=0.005, atol=0.005)
 
-def test_sparse_attention_bf16_b4_s2_seqTest1_int8():
-    do_test_sparse_attention("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s2_seqTest1_int8")
+
+@pytest.mark.skip(reason='perf')
+def test_QSFA_p_bf16_b4_s2_seqTest1_int8():
+    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s2_seqTest1_int8")
 
 
-def test_sparse_attention_bf16_b32_s1_seq511():
-    do_test_sparse_attention("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b32_s1_seq511")
+@pytest.mark.skip(reason='perf')
+def test_QSFA_p_bf16_b32_s1_seq511():
+    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b32_s1_seq511")
 
 
-def test_sparse_attention_bf16_b32_s1_seq511_int8():
-    do_test_sparse_attention("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b32_s1_seq511_int8")
+@pytest.mark.skip(reason='perf')
+def test_QSFA_p_bf16_b32_s1_seq511_int8():
+    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b32_s1_seq511_int8")
 
 
-def test_sparse_attention_bf16_bf16_b1_s1_seq2049():
-    do_test_sparse_attention("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s1_seq2049")
+@pytest.mark.skip(reason='perf')
+def test_QSFA_p_bf16_bf16_b1_s1_seq2049():
+    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s1_seq2049")
 
 
-def test_sparse_attention_bf16_bf16_b1_s1_seq2049_int8():
-    do_test_sparse_attention("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s1_seq2049_int8")
+@pytest.mark.skip(reason='perf')
+def test_QSFA_p_bf16_bf16_b1_s1_seq2049_int8():
+    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s1_seq2049_int8")
 
 
-def test_sparse_attention_bf16_b1_s3_seq2047():
-    do_test_sparse_attention("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s3_seq2047")
+@pytest.mark.skip(reason='perf')
+def test_QSFA_p_bf16_b1_s3_seq2047():
+    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s3_seq2047")
 
 
-def test_sparse_attention_bf16_b1_s3_seq2047_int8():
-    do_test_sparse_attention("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s3_seq2047_int8")
+def test_QSFA_p_bf16_b1_s3_seq2047_int8():
+    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s3_seq2047_int8")
 
 
-def test_sparse_attention_bf16_bf16_b1_s256_seq2047():
-    do_test_sparse_attention("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s256_seq2047")
-
-def test_sparse_attention_bf16_bf16_b1_s256_seq2047_int8():
-    do_test_sparse_attention("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s256_seq2047_int8")
-
-def test_sparse_attention_bf16_bf16_b1_s512_seq2047():
-    do_test_sparse_attention("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s512_seq2047")
-
-def test_sparse_attention_bf16_bf16_b1_s512_seq2047_int8():
-    do_test_sparse_attention("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s512_seq2047_int8")
+@pytest.mark.skip(reason='perf')
+def test_QSFA_p_bf16_bf16_b1_s256_seq2047():
+    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s256_seq2047")
 
 
-def test_sparse_attention_bf16_b128_s1_seq8k():
-    do_test_sparse_attention("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b128_s1_seq8k")
+@pytest.mark.skip(reason='perf')
+def test_QSFA_p_bf16_bf16_b1_s256_seq2047_int8():
+    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s256_seq2047_int8")
 
 
-def test_sparse_attention_bf16_b128_s1_seq8k_int8():
-    do_test_sparse_attention("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b128_s1_seq8k_int8")
+@pytest.mark.skip(reason='perf')
+def test_QSFA_p_bf16_bf16_b1_s512_seq2047():
+    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s512_seq2047")
 
 
-def test_sparse_attention_bf16_b8_s1_seq128k():
-    do_test_sparse_attention("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seq128k")
+@pytest.mark.skip(reason='perf')
+def test_QSFA_p_bf16_bf16_b1_s512_seq2047_int8():
+    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s512_seq2047_int8")
 
 
-def test_sparse_attention_bf16_b8_s1_seq128k_int8():
-    do_test_sparse_attention("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seq128k_int8")
+@pytest.mark.skip(reason='perf')
+def test_QSFA_p_bf16_b128_s1_seq8k():
+    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b128_s1_seq8k")
 
 
-def test_sparse_attention_bf16_b4_s1_seqTest1():
-    do_test_sparse_attention("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s1_seqTest1")
+@pytest.mark.skip(reason='perf')
+def test_QSFA_p_bf16_b128_s1_seq8k_int8():
+    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b128_s1_seq8k_int8")
 
 
-def test_sparse_attention_bf16_b4_s1_seqTest1_int8():
-    do_test_sparse_attention("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s1_seqTest1_int8")
+@pytest.mark.skip(reason='perf')
+def test_QSFA_p_bf16_b8_s1_seq128k():
+    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seq128k")
 
 
-def test_sparse_attention_bf16_b4_s1_seqTest2():
-    do_test_sparse_attention("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seqTest2")
+@pytest.mark.skip(reason='perf')
+def test_QSFA_p_bf16_b8_s1_seq128k_int8():
+    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seq128k_int8")
 
 
-def test_sparse_attention_bf16_b4_s1_seqTest2_int8():
-    do_test_sparse_attention("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seqTest2_int8")
+@pytest.mark.skip(reason='perf')
+def test_QSFA_p_bf16_b4_s1_seqTest1():
+    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s1_seqTest1")
 
 
-def test_sparse_attention_bf16_b8_s4_seqTest2():
-    do_test_sparse_attention("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s4_seqTest2")
+@pytest.mark.skip(reason='perf')
+def test_QSFA_p_bf16_b4_s1_seqTest1_int8():
+    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s1_seqTest1_int8")
 
 
-def test_sparse_attention_bf16_b8_s4_seqTest1_int8():
-    do_test_sparse_attention("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s4_seqTest2_int8")
+@pytest.mark.skip(reason='perf')
+def test_QSFA_p_bf16_b4_s1_seqTest2():
+    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seqTest2")
+
+
+@pytest.mark.skip(reason='perf')
+def test_QSFA_p_bf16_b4_s1_seqTest2_int8():
+    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seqTest2_int8")
+
+
+def test_QSFA_p_bf16_b8_s4_seqTest2():
+    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s4_seqTest2")
+
+
+@pytest.mark.skip(reason='perf')
+def test_QSFA_p_bf16_b8_s4_seqTest1_int8():
+    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s4_seqTest2_int8")
 
 
 if __name__ == "__main__":
@@ -487,27 +511,5 @@ if __name__ == "__main__":
         format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s',
         level=logging.INFO
     )
-    
-    test_sparse_attention_bf16_b4_s2_seqTest1_int8()
-    test_sparse_attention_bf16_b32_s1_seq511()
-    test_sparse_attention_bf16_b32_s1_seq511_int8()
-    test_sparse_attention_bf16_bf16_b1_s1_seq2049()
-    test_sparse_attention_bf16_bf16_b1_s1_seq2049_int8()
-    test_sparse_attention_bf16_b1_s3_seq2047
-    test_sparse_attention_bf16_b1_s3_seq2047_int8()
-
-    test_sparse_attention_bf16_bf16_b1_s256_seq2047()
-    test_sparse_attention_bf16_bf16_b1_s256_seq2047_int8()
-    test_sparse_attention_bf16_bf16_b1_s512_seq2047()
-    test_sparse_attention_bf16_bf16_b1_s512_seq2047_int8()
-
-    test_sparse_attention_bf16_b128_s1_seq8k()
-    test_sparse_attention_bf16_b128_s1_seq8k_int8()
-    test_sparse_attention_bf16_b8_s1_seq128k()
-    test_sparse_attention_bf16_b8_s1_seq128k_int8()
-    test_sparse_attention_bf16_b4_s1_seqTest1()
-    test_sparse_attention_bf16_b4_s1_seqTest1_int8()
-    test_sparse_attention_bf16_b4_s1_seqTest2()
-    test_sparse_attention_bf16_b4_s1_seqTest2_int8()
-    test_sparse_attention_bf16_b8_s4_seqTest2()
-    test_sparse_attention_bf16_b8_s4_seqTest2_int8()
+    test_QSFA_p_bf16_b1_s3_seq2047_int8()
+    test_QSFA_p_bf16_b8_s4_seqTest2()

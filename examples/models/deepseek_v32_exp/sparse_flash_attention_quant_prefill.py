@@ -44,7 +44,7 @@ def gather_in_ub(
     return pypto_impl.gather_in_ub(param, indices, axis)
 
 @pypto.jit
-def select_attention_compute_prefill(in_tensors, out_tensors, nq, n_kv, softmax_scale, topk, tile_config):
+def sparse_flash_attention_quant_p_compute(in_tensors, out_tensors, nq, n_kv, softmax_scale, topk, tile_config):
     query_nope, query_rope, key_nope_2d, key_rope_2d, k_nope_scales, offsets, kv_act_seqs = in_tensors
     attention_out, = out_tensors
     pypto.set_host_options(only_codegen=True)
