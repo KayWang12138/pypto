@@ -279,11 +279,11 @@ TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsigned 
 template <typename T, unsigned DS, unsigned SS0>
 TILEOP void T_BIN_VS(__ubuf__ T *dst, __ubuf__ T *src0, T src1, unsigned T0, unsigned T1) {
 #ifdef VS_SUB
-    src1 = src1 * (-1);
+    src1 = static_cast<float>(src1) * (-1);
 #endif
 #ifdef VS_DIV
-    if (src1 != 0) {
-        src1 = (float)1.0 / src1;
+    if (static_cast<float>(src1) != 0) {
+        src1 = (float)1.0 / static_cast<float>(src1);
     } else {
         src1 = FLT_MAX;
     }
