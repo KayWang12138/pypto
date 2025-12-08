@@ -9,9 +9,10 @@
 
 [build-system]
 requires = [
-    "setuptools>=64.0.0", # 稳定支持 PEP 518 及 PEP 621
-    "wheel",
-    "pybind11>=2.0.1",
+    "build>=1.0.3",
+    "setuptools>=70.3.0",
+    "wheel>=0.42.0",
+    "pybind11>=2.13.6",
     'tomli>=2.0.0; python_version >= "3.0" and python_version < "3.11"'
 ]
 build-backend = "setuptools.build_meta"
@@ -22,7 +23,6 @@ version = "0.0.1"
 description = "PyPTO"
 readme = "README.md"
 requires-python = ">=3.9"
-license = { file = "LICENSE" }
 dependencies = [
     "torch>=2.1.0",
     "torch_npu>=2.1.0",
@@ -40,3 +40,13 @@ tests = [
     "pytest-forked",
     "pytest-xdist",
 ]
+
+[tool.setuptools]
+license-files = ["LICENSE"]
+
+# 打包及打包结构配置
+include-package-data = true
+zip-safe = false
+
+packages.find.where = ["python", ]
+packages.find.include = ["pypto", "pypto.op", ]

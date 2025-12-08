@@ -17,79 +17,16 @@ import shlex
 import shutil
 import subprocess
 import sys
-import warnings
 from pathlib import Path
 from typing import Optional, Any, List
 
-from setuptools import setup, Extension, find_packages
+from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
-
-
-class MetaHelper:
-    _SRC_ROOT: Path
-    _CONFIG: Any
-
-    @staticmethod
-    def has_ninja():
-        """检查 Ninja 是否可用
-        """
-        try:
-            subprocess.check_output(['ninja', '--version'], stderr=subprocess.DEVNULL)
-            return True
-        except (OSError, subprocess.CalledProcessError):
-            return False
-
-    @classmethod
-    def init(cls):
-        cls._SRC_ROOT = Path(__file__).parent.resolve()
-        toml: Path = Path(cls._SRC_ROOT, "pyproject.toml")
-        ver = sys.version_info
-        if ver >= (3, 11):
-            import tomllib
-        else:
-            import tomli as tomllib
-        with open(toml, 'rb') as fh:
-            cls._CONFIG = tomllib.load(fh)
-
-    @classmethod
-    def get_metadata(cls, k: str, t: str = "project", d: Optional[str] = "") -> Any:
-        """从 pyproject.toml 读取项目元数据
-        """
-        return cls._CONFIG.get(t, {}).get(k, d)
-
-    @classmethod
-    def build_backend(cls) -> str:
-        return cls.get_metadata(k="build-backend", t="build-system")
-
-    @classmethod
-    def name(cls) -> str:
-        return cls.get_metadata(k="name")
-
-    @classmethod
-    def readme(cls) -> str:
-        return cls._read_file(sub_path=cls.get_metadata(k="readme"))
-
-    @classmethod
-    def license(cls) -> str:
-        return cls._read_file(sub_path=cls.get_metadata(k="license").get("file", ""))
-
-    @classmethod
-    def src_root(cls) -> Path:
-        return cls._SRC_ROOT
-
-    @classmethod
-    def _read_file(cls, sub_path: str) -> str:
-        s: str = ""
-        f: Path = Path(cls.src_root(), sub_path)
-        if f.exists() and f.is_file():
-            with open(f, 'r') as fh:
-                s = fh.read()
-        return s
 
 
 class CMakeExtension(Extension):
     def __init__(self):
-        super().__init__(name=MetaHelper.name(), sources=[])  # 源文件列表为空，因为实际构建由 CMake 处理
+        super().__init__(name="", sources=[])  # 源文件列表为空，因为实际构建由 CMake 处理
 
 
 class CMakeUserOption:
@@ -124,12 +61,22 @@ class CMakeUserOption:
         desc += f"\n"
         return desc
 
-    @staticmethod
-    def _get_cmake_generator(generator: Optional[str]) -> Optional[str]:
+    @classmethod
+    def _has_ninja(cls) -> bool:
+        """检查 Ninja 是否可用
+        """
+        try:
+            subprocess.check_output(['ninja', '--version'], stderr=subprocess.DEVNULL)
+            return True
+        except (OSError, subprocess.CalledProcessError):
+            return False
+
+    @classmethod
+    def _get_cmake_generator(cls, generator: Optional[str]) -> Optional[str]:
         if generator:
             generator = generator.replace(" ", "\ ")
         else:
-            if MetaHelper.has_ninja():
+            if cls._has_ninja():
                 generator = "Ninja"
         return generator
 
@@ -193,10 +140,11 @@ class CMakeBuild(build_ext, CMakeUserOption):
         build_dir.mkdir(parents=True, exist_ok=True)
 
         # CMake Configure
-        cmd: str = f"cmake -S {MetaHelper.src_root()} -B {build_dir}"
+        src: Path = Path(__file__).parent.resolve()
+        cmd: str = f"cmake -S {src} -B {build_dir}"
         cmd += f" -G {self.cmake_generator}" if self.cmake_generator else ""
         cmd += f" -DPython3_EXECUTABLE={sys.executable} -DCMAKE_INSTALL_PREFIX={self.build_lib}"
-        cmd += f" -DENABLE_FEATURE_PYTHON_FRONT_END={MetaHelper.name()}"
+        cmd += f" -DENABLE_FEATURE_PYTHON_FRONT_END=pypto"
         cmd += f" -DBUILD_WITH_CANN=OFF" if self.backend in ["cost_model", ] else f" -DBUILD_WITH_CANN=ON"
         cmd += f" {self.cmake_args}" if self.cmake_args else ""
         logging.info("CMake Configure, Cmd: %s", cmd)
@@ -225,23 +173,8 @@ class SetupCtrl:
     def main(cls):
         """主处理流程
         """
-        # 出于兼容 setuptools 多版本角度考虑, 同时保留 pyproject.toml 和 setup 中对 install_requires 的配置
-        warnings.filterwarnings("ignore", message=".*install_requires.*overwritten.*")
         # Setuptools 配置
         setup(
-            # 基本元数据
-            name=MetaHelper.name(),
-            version=MetaHelper.get_metadata(k="version"),
-            description=MetaHelper.get_metadata(k="description"),
-            long_description=MetaHelper.readme(),
-            long_description_content_type="text/markdown",
-            license=MetaHelper.license(),
-
-            # 包结构配置
-            packages=find_packages(where="python"),
-            package_dir={'': "python"},
-            include_package_data=True,
-
             # 扩展模块配置
             ext_modules=[
                 CMakeExtension(),
@@ -249,15 +182,9 @@ class SetupCtrl:
             cmdclass={
                 'build_ext': CMakeBuild,
             },
-
-            # 依赖和兼容性配置
-            install_requires=MetaHelper.get_metadata(k="dependencies"),
-            python_requires=MetaHelper.get_metadata(k="requires-python"),
-            zip_safe=False,
         )
 
 
 if __name__ == "__main__":
     logging.basicConfig(format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s', level=logging.INFO)
-    MetaHelper.init()
     SetupCtrl.main()

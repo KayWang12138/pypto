@@ -29,7 +29,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List, Dict, Tuple, Any
 
-from setup import MetaHelper
 
 if str(Path(Path(__file__).parent, "tools")) not in sys.path:
     sys.path.append(str(Path(Path(__file__).parent, "tools")))
@@ -102,6 +101,7 @@ class CMakeParam(abc.ABC):
 class FeatureParam(CMakeParam):
     """特性控制相关参数
     """
+    whl_name: str = "pypto"
     frontend_type: Optional[str] = None  # 前端类型, 支持 python3, cpp
     backend_type: Optional[str] = None  # 后端类型, 支持 npu, cost_model
     whl_plat_name: Optional[str] = None  # python3 whl 包 plat-name
@@ -144,7 +144,7 @@ class FeatureParam(CMakeParam):
     def get_cfg_cmd(self) -> str:
         cmd: str = ""
         cmd += self._cfg_require(opt="ENABLE_FEATURE_PYTHON_FRONT_END", ctr=self.frontend_type_python3,
-                                 tv=MetaHelper.name())
+                                 tv=self.whl_name)
         cmd += self._cfg_require(opt="BUILD_WITH_CANN", ctr=self.backend_type in ["npu"])
         return cmd
 
@@ -168,7 +168,7 @@ class BuildParam(CMakeParam):
     # Install
     disable_install_strip: bool = False
 
-    def __init__(self, args, feature: FeatureParam):
+    def __init__(self, args):
         self.targets = args.targets
         self.job_num = self._get_job_num(job_num=args.job_num, generator=args.generator)
         self.clean = args.clean
@@ -760,12 +760,11 @@ class BuildCtrl:
     _PYTHONPATH: str = "PYTHONPATH"
 
     def __init__(self, args):
-        self.whl_prefix: str = MetaHelper.name()
         self.src_root: Path = Path(__file__).parent.resolve()
         self.build_root: Path = Path(Path.cwd(), "build")
         self.install_root: Path = Path(self.build_root.parent, "build_out")
         self.feature: FeatureParam = FeatureParam(args=args)
-        self.build: BuildParam = BuildParam(args=args, feature=self.feature)
+        self.build: BuildParam = BuildParam(args=args)
         self.tests: TestsParam = TestsParam(args=args)
         self.model: ModelParam = ModelParam(args=args)
         if args.third_party_path is None:
@@ -883,7 +882,7 @@ class BuildCtrl:
             logging.error("Dependencies check failed.")
             return
         if ctrl.feature.frontend_type_python3:
-            logging.info("Front-end(python3), start process with %s", MetaHelper.build_backend())
+            logging.info("Front-end(python3), start process")
             ctrl.py_clean()
             ctrl.py_build()
             ctrl.py_tests()
@@ -1065,10 +1064,10 @@ class BuildCtrl:
             return
         # 重装 whl
         dist: Path = self.install_root
-        self.pip_uninstall(name=self.whl_prefix, path=dist)  # 卸载 whl 包
-        whl: Optional[Path] = self.find_match_whl(name=self.whl_prefix, path=dist)  # 查找 whl 包
+        self.pip_uninstall(name=self.feature.whl_name, path=dist)  # 卸载 whl 包
+        whl: Optional[Path] = self.find_match_whl(name=self.feature.whl_name, path=dist)  # 查找 whl 包
         if not whl:
-            raise RuntimeError(f"Can't find {self.whl_prefix} whl file from {dist}")
+            raise RuntimeError(f"Can't find {self.feature.whl_name} whl file from {dist}")
         self.pip_install(whl=whl, path=dist, opt="--no-compile --no-deps")  # 安装 whl 包
         # 执行用例, UTest
         self.py_tests_run_pytest(dist=dist, tests=self.tests.utest,
@@ -1084,10 +1083,10 @@ class BuildCtrl:
         if not tests.enable or not self.tests.exec.auto_execute:
             return
         # cmd 拼接
-        cmd: str = f"{sys.executable} -m pytest -vv -s --rootdir={self.src_root} --capture=no"
+        cmd: str = f"{sys.executable} -m pytest"
         def_filter = def_filter if tests.filter_str in ["ON"] else tests.filter_str
         def_filter = def_filter.replace(',', ' ')
-        cmd += f" {def_filter} {ext}"
+        cmd += f" {def_filter} -v --durations=0 -s --capture=no --rootdir={self.src_root} {ext}"
         # cmd 执行
         origin_env = os.environ.copy()
         update_env: Dict[str, str] = {}
@@ -1112,5 +1111,4 @@ class SubCommandMgr:
 
 if __name__ == "__main__":
     logging.basicConfig(format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s', level=logging.INFO)
-    MetaHelper.init()
     BuildCtrl.main()
