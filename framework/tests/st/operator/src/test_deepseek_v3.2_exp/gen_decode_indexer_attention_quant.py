@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # coding: utf-8
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
-# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+#  This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
@@ -18,7 +18,6 @@
 import math
 import sys
 import logging
-import time
 
 import numpy as np
 import os
@@ -41,7 +40,6 @@ import gen_lightning_indexer
 import gen_gather_selected_attention
 
 torch.manual_seed(42)
-np.random.seed(42)
 
 if __name__ == "__main__":
     """ 单独调试时配置 """
@@ -82,9 +80,9 @@ def dump_file_torch(data, data_path):
     if isinstance(data, torch.Tensor):
         # 处理BFloat16类型：转换为float32后再转NumPy（NumPy不支持BFloat16）
         if data.dtype == torch.bfloat16:
-            data_np = data.cpu().to(torch.float32).numpy()
+            data_np = data.to(torch.float32).numpy()
         else:
-            data_np = data.cpu().numpy()
+            data_np = data.numpy()
     else:
         data_np = np.array(data)
 
@@ -93,9 +91,10 @@ def dump_file_torch(data, data_path):
     data_np.tofile(data_path)
 
 
-def gen_indexer_prolog_inputs(params, output_dir, block_num, block_table, x, q_norm, q_norm_scale, cos, sin, cache_index, actual_seq):
-    dtype=torch.bfloat16
-    quant_dtype=torch.int8
+def gen_indexer_prolog_inputs(params, output_dir, block_num, block_table, x, q_norm, q_norm_scale, cos, sin,
+                              cache_index, actual_seq):
+    dtype = torch.bfloat16
+    quant_dtype = torch.int8
 
     b = params.get("b")
     s1 = params.get("s1")
@@ -110,7 +109,8 @@ def gen_indexer_prolog_inputs(params, output_dir, block_num, block_table, x, q_n
     rope_dim = params.get("rope_dim")
 
     w_idx_qb = torch.randint(low=-128, high=128, size=(q_lora_rank, idx_n_heads * idx_head_dim), dtype=quant_dtype)
-    w_idx_qb_nz = w_idx_qb.reshape(q_lora_rank // 16, 16, idx_n_heads * idx_head_dim // 32, 32).permute(2, 0, 1, 3)  # int8, C0=32
+    w_idx_qb_nz = w_idx_qb.reshape(q_lora_rank // 16, 16, idx_n_heads * idx_head_dim // 32, 32).permute(2, 0, 1,
+                                                                                                        3)  # int8, C0=32
     w_idx_qb_scale = torch.empty((1, idx_n_heads * idx_head_dim), dtype=torch.float32).uniform_(-1, 1)  # TODO  shape
 
     w_idx_k = torch.empty((h, idx_head_dim), dtype=dtype).uniform_(-1, 1)
@@ -126,12 +126,13 @@ def gen_indexer_prolog_inputs(params, output_dir, block_num, block_table, x, q_n
     hadamard_k = torch.empty((idx_head_dim, idx_head_dim), dtype=dtype).uniform_(-1, 1)
 
     k_cache_bsnd = torch.rand((b * s2 * n2, idx_head_dim), dtype=torch.float32) * 2 - 1
-    k_cache_bsnd, k_scale_cache_bsnd = gen_mla_prolog_quant_golden_v32.quant(k_cache_bsnd.numpy())
-    k_cache_bsnd = torch.from_numpy(k_cache_bsnd).reshape(b, s2, n2, idx_head_dim).to(dtype=quant_dtype)
-    k_scale_cache_bsnd = torch.from_numpy(k_scale_cache_bsnd).reshape(b, s2, n2, 1).to(torch.float16)
+    k_cache_bsnd, k_scale_cache_bsnd = gen_mla_prolog_quant_golden_v32.quant(k_cache_bsnd)
+    k_cache_bsnd = k_cache_bsnd.reshape(b, s2, n2, idx_head_dim).to(dtype=quant_dtype)
+    k_scale_cache_bsnd = k_scale_cache_bsnd.reshape(b, s2, n2, 1).to(torch.float16)
 
     k_cache = gen_quant_lightning_indexer_prolog.gen_cache_tensor(k_cache_bsnd, block_table, block_num, block_size)
-    k_scale_cache = gen_quant_lightning_indexer_prolog.gen_cache_tensor(k_scale_cache_bsnd, block_table, block_num, block_size)
+    k_scale_cache = gen_quant_lightning_indexer_prolog.gen_cache_tensor(k_scale_cache_bsnd, block_table, block_num,
+                                                                        block_size)
 
     dump_file_torch(w_idx_qb_nz, Path(output_dir, 'w_idx_qb_nz.bin'))
     dump_file_torch(w_idx_qb_scale, Path(output_dir, 'w_idx_qb_scale.bin'))
@@ -161,7 +162,7 @@ def gen_indexer_prolog_inputs(params, output_dir, block_num, block_table, x, q_n
         "sin_idx_rope": sin,  # input10, bf16
         "hadamard_q": hadamard_q,  # input11, bf16
         "hadamard_k": hadamard_k,  # input12, bf16
-        "idx_k_cache": k_cache,              # input13, int8  # (block_num, block_size, n_kv, d)
+        "idx_k_cache": k_cache,  # input13, int8  # (block_num, block_size, n_kv, d)
         "idx_k_scale_cache": k_scale_cache,  # input14, fp16  # (block_num, block_size, n_kv, 1)
         "idx_k_cache_index": cache_index,  # input15, int64  (b, s)/（t,)
         "idx_block_table": block_table,  # input16, int32  (b, ceil(s2, block_size))
@@ -170,7 +171,7 @@ def gen_indexer_prolog_inputs(params, output_dir, block_num, block_table, x, q_n
     }, {
         "s2": s2,
         "b": b,
-        "t": b*s1,
+        "t": b * s1,
         "h": h,
         "q_lora_rank": q_lora_rank,
         "idx_head_dim": idx_head_dim,
@@ -188,15 +189,17 @@ def mla_prolog_golden(params, actual_seq, output_dir):
     cache_mode = params.get("cache_mode")
 
     # mla_prolog 数据
-    dtype = bfloat16
+    dtype = torch.bfloat16
     dtypes = (dtype, dtype)
     is_nz = True
     is_quant_a, is_quant_b = (False, True)
-    is_quant = (is_quant_a, is_quant_b )
+    is_quant = (is_quant_a, is_quant_b)
     has_smooth = False
     x, w_dq, w_uqqr, smooth_cq, scale_data, w_dkvkr, w_uk, gamma_cq, gamma_ckv, cos, sin, cache_index, kv_cache, \
         kr_cache, kv_quant_scale_cache, block_num, block_table = \
-        gen_mla_prolog_quant_golden_v32.gen_mla_prolog_quant_v32_input_data(params, dtypes, actual_seq, output_dir, is_quant, is_nz, has_smooth, block_size, cache_mode)
+        gen_mla_prolog_quant_golden_v32.gen_mla_prolog_quant_v32_input_data(params, dtypes, actual_seq, output_dir,
+                                                                            is_quant, is_nz, has_smooth, block_size,
+                                                                            cache_mode)
 
     inputs = {"dtype": dtype, "is_quant_a": is_quant_a, "is_quant_b": is_quant_b, "has_smooth": has_smooth}
     inputs["cache_mode"] = cache_mode
@@ -231,28 +234,30 @@ def mla_prolog_golden(params, actual_seq, output_dir):
     kr_golden_path = Path(output_dir, 'kr_cache_golden.bin')
     kv_quant_scale_cache_golden_path = Path(output_dir, 'kv_quant_scale_cache_golden.bin')
 
-    q_out.tofile(q_golden_path)  # [b,s,n,kv_lora_rank]
-    q_embed.tofile(q_rope_golden_path)  # [b,s,n,qk_rope_head_dim]
-    rms_norm.tofile(rms_norm_golden_path)
-    rms_norm_scale.tofile(rms_norm_scale_golden_path)
-    kr_cache_out.tofile(kr_golden_path)
-    kv_cache_out.tofile(kv_golden_path)
-    kv_quant_scale_cache_out.tofile(kv_quant_scale_cache_golden_path)
+    dump_file_torch(q_out, q_golden_path)  # [b,s,n,kv_lora_rank]
+    dump_file_torch(q_embed, q_rope_golden_path)  # [b,s,n,qk_rope_head_dim]
+    dump_file_torch(rms_norm, rms_norm_golden_path)
+    dump_file_torch(rms_norm_scale, rms_norm_scale_golden_path)
+    dump_file_torch(kr_cache_out, kr_golden_path)
+    dump_file_torch(kv_cache_out, kv_golden_path)
+    dump_file_torch(kv_quant_scale_cache_out, kv_quant_scale_cache_golden_path)
 
     return block_num, block_table, q_out, q_embed, rms_norm, rms_norm_scale, kv_cache_out, kr_cache_out, \
         kv_quant_scale_cache_out, x, cos, sin, cache_index
 
 
-def indexer_prolog_golden(params, output_dir, block_num, block_table, x, q_norm, q_norm_scale, cos, sin, cache_index, actual_seq):
+def indexer_prolog_golden(params, output_dir, block_num, block_table, x, q_norm, q_norm_scale, cos, sin, cache_index,
+                          actual_seq):
     indexer_prolog_inputs, indexer_prolog_params = gen_indexer_prolog_inputs(params, output_dir, block_num, \
-        block_table, x, q_norm, q_norm_scale, cos, sin, cache_index, actual_seq)
+                                                                             block_table, x, q_norm, q_norm_scale, cos,
+                                                                             sin, cache_index, actual_seq)
     indexer_outputs = gen_quant_lightning_indexer_prolog.indexer_prolog(indexer_prolog_inputs, indexer_prolog_params)
 
-    query = indexer_outputs["query"] # shape is [b, s1, idx_n_heads]
-    query_scale = indexer_outputs["query_scale"] # shape is [b, s1, idx_n_heads]
-    idx_k_cache = indexer_outputs["idx_k_cache_out"] # shape is [b, s1, idx_n_heads]
-    idx_k_scale_cache = indexer_outputs["idx_k_scale_cache_out"] # shape is [b, s1, idx_n_heads]
-    weights = indexer_outputs["weights"] # shape is [b, s1, idx_n_heads]
+    query = indexer_outputs["query"]  # shape is [b, s1, idx_n_heads]
+    query_scale = indexer_outputs["query_scale"]  # shape is [b, s1, idx_n_heads]
+    idx_k_cache = indexer_outputs["idx_k_cache_out"]  # shape is [b, s1, idx_n_heads]
+    idx_k_scale_cache = indexer_outputs["idx_k_scale_cache_out"]  # shape is [b, s1, idx_n_heads]
+    weights = indexer_outputs["weights"]  # shape is [b, s1, idx_n_heads]
 
     dump_file_torch(query, Path(output_dir, "query_golden.bin"))
     dump_file_torch(query_scale, Path(output_dir, "query_scale_golden.bin"))
@@ -263,7 +268,8 @@ def indexer_prolog_golden(params, output_dir, block_num, block_table, x, q_norm,
     return query, query_scale, idx_k_cache, idx_k_scale_cache, weights
 
 
-def lightning_index_golden(params, idx_query, idx_k_cache, idx_query_scale, idx_k_scale_cache, weights, block_table, output_dir):
+def lightning_index_golden(params, idx_query, idx_k_cache, idx_query_scale, idx_k_scale_cache, weights, block_table,
+                           output_dir):
     kv_cache_actual_seq = params.get("kv_cache_actual_seq")
     block_size = params.get("block_size")
     idx_n_heads = params.get("idx_n_heads")
@@ -271,16 +277,16 @@ def lightning_index_golden(params, idx_query, idx_k_cache, idx_query_scale, idx_
     is_quant = params.get("is_quant")
 
     max_block_num = (max(kv_cache_actual_seq) + block_size - 1) // block_size
-    n1_scale = 1.0 / np.sqrt(idx_n_heads)
-    idx_softmax_scale = 1.0 / np.sqrt(idx_head_dim)
+    n1_scale = 1.0 / math.sqrt(idx_n_heads)
+    idx_softmax_scale = 1.0 / math.sqrt(idx_head_dim)
 
     lightning_indexer_params = {
-        "block_size": block_size, 
-        "b": params.get("b"), 
-        "s1": params.get("s1"), 
+        "block_size": block_size,
+        "b": params.get("b"),
+        "s1": params.get("s1"),
         "n1": idx_n_heads,
         "d": idx_head_dim,
-        "n2": params.get("n2"), 
+        "n2": params.get("n2"),
         "block_num": params.get("block_num"),  # mla_prolog输出后添加的
         "max_block_num": max_block_num,
         "score_scale": n1_scale * idx_softmax_scale,
@@ -289,16 +295,17 @@ def lightning_index_golden(params, idx_query, idx_k_cache, idx_query_scale, idx_
     }
 
     input_data_map = {
-        "query": idx_query, 
-        "key": idx_k_cache, 
-        "q_scale": idx_query_scale, 
-        "k_scale": idx_k_scale_cache, 
-        "weights": weights, 
-        "act_seq": kv_cache_actual_seq, 
+        "query": idx_query,
+        "key": idx_k_cache,
+        "q_scale": idx_query_scale,
+        "k_scale": idx_k_scale_cache,
+        "weights": weights,
+        "act_seq": kv_cache_actual_seq,
         "block_table": block_table
     }
     print(f"{idx_query.shape=}")
-    topk_value, topk_res, tmp_out = gen_lightning_indexer.indexer_topk_compute(input_data_map, lightning_indexer_params, is_quant)
+    topk_value, topk_res, tmp_out = gen_lightning_indexer.indexer_topk_compute(input_data_map, lightning_indexer_params,
+                                                                               is_quant)
 
     # dump golden for compare res
     dump_file_torch(topk_value, Path(output_dir, "topk_value.bin"))
@@ -328,13 +335,14 @@ def calc_offsets_for_gather_golden(params, topk_indcies, block_table, output_dir
                 block_idx_in_batch = topk_index // block_size
                 slc_block_idx = block_table[b_i, block_idx_in_batch]
                 tail = topk_index % block_size
-                offsets[b_i, s_i, idx] = slc_block_idx*block_size + tail
-    offsets = offsets.reshape([b*s1, topk])
+                offsets[b_i, s_i, idx] = slc_block_idx * block_size + tail
+    offsets = offsets.reshape([b * s1, topk])
     dump_file_torch(offsets, Path(output_dir, "offsets.bin"))
     return offsets
 
 
-def gather_slc_attn_golden(params, q_out, q_embed, kv_cache_out, kr_cache_out, kv_quant_scale_cache_out, offsets, output_dir):
+def gather_slc_attn_golden(params, q_out, q_embed, kv_cache_out, kr_cache_out, kv_quant_scale_cache_out, offsets,
+                           output_dir):
     is_quant = params.get("is_quant")
     b = params.get("b")
     s1 = params.get("s1")
@@ -347,15 +355,15 @@ def gather_slc_attn_golden(params, q_out, q_embed, kv_cache_out, kr_cache_out, k
     kv_cache_actual_seq = params.get("kv_cache_actual_seq")
     scalar = q_dim ** -0.5
     atten_out_shape = [b, s1, n_q, d_v]
-    q_out_tensor = torch.from_numpy(np.ascontiguousarray(q_out).astype(np.float32)).to(torch.bfloat16)
-    q_embed_tensor = torch.from_numpy(np.ascontiguousarray(q_embed).astype(np.float32)).to(torch.bfloat16)
+    q_out_tensor = q_out.contiguous().to(torch.bfloat16)
+    q_embed_tensor = q_embed.contiguous().to(torch.bfloat16)
     q = torch.concat([q_out_tensor, q_embed_tensor], dim=-1)
 
-    kv_cache_tensor = torch.from_numpy(np.ascontiguousarray(kv_cache_out))
-    kr_cache_tensor = torch.from_numpy(np.ascontiguousarray(kr_cache_out).astype(np.float32)).to(q.dtype) # bf16
+    kv_cache_tensor = kv_cache_out.contiguous()
+    kr_cache_tensor = kr_cache_out.contiguous().to(q.dtype)  # bf16
     kv_lora_rank = kv_cache_out.shape[-1]
-    kv_quant_scale_cache_tensor = torch.from_numpy(np.ascontiguousarray(kv_quant_scale_cache_out))
-    
+    kv_quant_scale_cache_tensor = kv_quant_scale_cache_out.contiguous()
+
     kn = kv_cache_tensor.reshape([-1, 512])
     kr = kr_cache_tensor.reshape([-1, 64])
     kn_scales = kv_quant_scale_cache_tensor.reshape([-1, 4])
@@ -384,30 +392,32 @@ def gen_deepseek_indexer_attention_golden(params, actual_seq, output_dir: Path):
     # mla-prolog 子图
     print("============ mla prolog ==================")
     block_num, block_table, q_out, q_embed, rms_norm, rms_norm_scale, kv_cache_out, kr_cache_out, \
-        kv_quant_scale_cache_out, x, cos, sin, cache_index = mla_prolog_golden(params, actual_seq.numpy(), output_dir)
+        kv_quant_scale_cache_out, x, cos, sin, cache_index = mla_prolog_golden(params, actual_seq, output_dir)
     params["block_num"] = block_num
-    block_table = torch.from_numpy(block_table)
-    x = torch.from_numpy(x.view(np.int16)).view(torch.bfloat16)
-    rms_norm = torch.from_numpy(rms_norm)
-    rms_norm_scale = torch.from_numpy(rms_norm_scale)
-    cos = torch.from_numpy(cos.view(np.int16)).view(torch.bfloat16)
-    sin = torch.from_numpy(sin.view(np.int16)).view(torch.bfloat16)
-    cache_index = torch.from_numpy(cache_index)
+    x = x.view(torch.int16).view(torch.bfloat16)
+    cos = cos.view(torch.int16).view(torch.bfloat16)
+    sin = sin.view(torch.int16).view(torch.bfloat16)
     dump_file_torch(block_table, Path(output_dir, 'block_table.bin'))
     dump_file_torch(actual_seq, Path(output_dir, 'actual_seq.bin'))
 
     # Lightning Indexer prolog子图
     print("============ Lightning Indexer prolog ==================")
     idx_query, idx_query_scale, idx_k_cache, idx_k_scale_cache, weights = indexer_prolog_golden(params, output_dir, \
-        block_num, block_table, x, rms_norm, rms_norm_scale, cos, sin, cache_index, actual_seq)
+                                                                                                block_num, block_table,
+                                                                                                x, rms_norm,
+                                                                                                rms_norm_scale, cos,
+                                                                                                sin, cache_index,
+                                                                                                actual_seq)
 
     # Lightning Indexer 子图
     print("============ Lightning Indexer==================")
-    topk_indcies = lightning_index_golden(params, idx_query, idx_k_cache, idx_query_scale, idx_k_scale_cache, weights, block_table, output_dir)
+    topk_indcies = lightning_index_golden(params, idx_query, idx_k_cache, idx_query_scale, idx_k_scale_cache, weights,
+                                          block_table, output_dir)
     # gather_slc_attn 子图
     print("============ gather_slc_attn==================")
     offsets = calc_offsets_for_gather_golden(params, topk_indcies, block_table, output_dir)
-    attn_golden = gather_slc_attn_golden(params, q_out, q_embed, kv_cache_out, kr_cache_out, kv_quant_scale_cache_out, offsets, output_dir)
+    attn_golden = gather_slc_attn_golden(params, q_out, q_embed, kv_cache_out, kr_cache_out, kv_quant_scale_cache_out,
+                                         offsets, output_dir)
 
     dump_file_torch(attn_golden, Path(output_dir, "attn_golden.bin"))
     logging.debug(f"gen_deepseek_indexer_attention_golden done")
@@ -415,7 +425,7 @@ def gen_deepseek_indexer_attention_golden(params, actual_seq, output_dir: Path):
     return True
 
 
-def deepseek_indexer_attention_entry( bs1s2h, actual_seq, output_dir: Path):
+def deepseek_indexer_attention_entry(bs1s2h, actual_seq, output_dir: Path):
     b, s1, s2, h = bs1s2h
     kv_lora_rank = 512
     rope_dim = 64
@@ -425,7 +435,7 @@ def deepseek_indexer_attention_entry( bs1s2h, actual_seq, output_dir: Path):
     v_head_dim = 128
     epsilon = 1e-5
     cache_mode = "PA_BSND"
-    actual_seq  = torch.tensor(actual_seq, dtype = torch.int32).unsqueeze(-1)
+    actual_seq = torch.tensor(actual_seq, dtype=torch.int32).unsqueeze(-1)
 
     # index 参数
     idx_n_heads = 64
@@ -465,7 +475,7 @@ def deepseek_indexer_attention_entry( bs1s2h, actual_seq, output_dir: Path):
 
     # 将变化的参数保存到文件中，供测试用例直接读取
     input_params = torch.tensor([params.get("b"), params.get("s"), params.get("s2"), params.get("n1"),
-        params.get("n2"), params.get("block_num"), params.get("topk")], dtype = torch.int32)
+                                 params.get("n2"), params.get("block_num"), params.get("topk")], dtype=torch.int32)
     dump_file_torch(input_params, Path(output_dir, 'input_params.bin'))
 
 

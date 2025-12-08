@@ -37,13 +37,6 @@ struct TestShapeParams {
     int blockSize;
 };
 
-void PerformanceConfig() {
-    config::SetPassOption(NBUFFER_MERGE_MODE, 1);
-    config::SetPassOption(L1_REUSE, 4);
-    config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{{3, 4}});
-    config::SetPassOption(COPYIN_THRESHOLD, 2 * 1024 * 1024);
-}
-
 template <typename T>
 static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::vector<int64_t> shape, std::string fileName) {
     uint64_t capacity = std::accumulate(shape.begin(), shape.end(), uint64_t{1}, std::multiplies<uint64_t>());
@@ -63,8 +56,6 @@ static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileN
 template <typename T = npu::tile_fwk::float16,  typename wDtype = int8_t, bool isQuantA = false, bool isQuantB = true, bool nz = true>
 void TestMlaPrologQuantV32(
     const TestShapeParams &params, const MlaTileConfig &tileConfig, std::string layoutKey = "PA_NZ") {
-    config::SetHostOption(ONLY_CODEGEN, true);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = params.b;
     int s = params.s;
@@ -196,14 +187,11 @@ void TestMlaPrologQuantV32(
     ProgramData::GetInstance().AppendOutputs({outputDataList});
 
     std::vector<RawTensorDataPtr> goldenDataList = {
+        RawTensorData::CreateTensor<kvDtype>(outputQNorm, golden6),
+        RawTensorData::CreateTensor<float>(outputQNormScale, golden7),
         RawTensorData::CreateTensor<T>(outputQNope, golden1),
-        RawTensorData::CreateTensor<T>(outputQRope, golden2),
-        RawTensorData::CreateTensor<kvDtype>(outputKvCache, golden3),
-        RawTensorData::CreateTensor<T>(outputKrCache, golden4)
+        RawTensorData::CreateTensor<T>(outputQRope, golden2)
     };
-    if (isQuantB) {
-        goldenDataList.emplace_back(RawTensorData::CreateTensor<float>(outputKScaleCache, golden5));
-    }
     ProgramData::GetInstance().AppendGoldens({goldenDataList});
 
     MlaPrologQuantV32(dynamicTokenX, wDq, wUqQr, dequantScaleWUqQr, wUk, wDkvKr, rmsnormGammaCq, rmsnormGammaCkv,
@@ -249,7 +237,6 @@ TEST_F(MlaPrologQuantV32STest, b1_s64k2_pa_nd_fp16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 1;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::float16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -260,7 +247,6 @@ TEST_F(MlaPrologQuantV32STest, b4_s64k2_pa_nd_fp16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 4;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::float16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -271,7 +257,6 @@ TEST_F(MlaPrologQuantV32STest, b8_s64k2_pa_nd_fp16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 4;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::float16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -282,7 +267,6 @@ TEST_F(MlaPrologQuantV32STest, b16_s64k2_pa_nd_fp16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 16;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::float16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -293,7 +277,6 @@ TEST_F(MlaPrologQuantV32STest, b32_s64k2_pa_nd_fp16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 16;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::float16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -304,7 +287,6 @@ TEST_F(MlaPrologQuantV32STest, b64_s64k2_pa_nd_fp16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 16;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::float16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -315,7 +297,6 @@ TEST_F(MlaPrologQuantV32STest, b128_s64k2_pa_nd_fp16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 16;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::float16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -327,7 +308,6 @@ TEST_F(MlaPrologQuantV32STest, b32_s64k1_pa_nd_fp16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 16;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::float16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -338,7 +318,6 @@ TEST_F(MlaPrologQuantV32STest, b32_s64k4_pa_nd_fp16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 16;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::float16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -350,7 +329,6 @@ TEST_F(MlaPrologQuantV32STest, b32_s1k4_pa_nd_fp16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 16;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::float16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -361,7 +339,6 @@ TEST_F(MlaPrologQuantV32STest, b32_s4k4_pa_nd_fp16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 16;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::float16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -372,7 +349,6 @@ TEST_F(MlaPrologQuantV32STest, b32_s16k4_pa_nd_fp16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 16;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::float16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -383,7 +359,6 @@ TEST_F(MlaPrologQuantV32STest, b32_s128k4_pa_nd_fp16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 16;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::float16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -395,7 +370,6 @@ TEST_F(MlaPrologQuantV32STest, b1_s11_pa_nd_fp16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 1;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::float16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -406,7 +380,6 @@ TEST_F(MlaPrologQuantV32STest, b1_s129_1_pa_nd_fp16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 1;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::float16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -418,7 +391,6 @@ TEST_F(MlaPrologQuantV32STest, b1_s64k2_pa_nd_bf16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 1;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -429,7 +401,6 @@ TEST_F(MlaPrologQuantV32STest, b4_s64k2_pa_nd_bf16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 4;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -440,7 +411,6 @@ TEST_F(MlaPrologQuantV32STest, b8_s64k2_pa_nd_bf16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 4;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -451,7 +421,6 @@ TEST_F(MlaPrologQuantV32STest, b16_s64k2_pa_nd_bf16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 16;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -462,7 +431,6 @@ TEST_F(MlaPrologQuantV32STest, b32_s64k2_pa_nd_bf16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 16;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -473,7 +441,6 @@ TEST_F(MlaPrologQuantV32STest, b64_s64k2_pa_nd_bf16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 16;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -484,7 +451,6 @@ TEST_F(MlaPrologQuantV32STest, b128_s64k2_pa_nd_bf16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 16;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -496,7 +462,6 @@ TEST_F(MlaPrologQuantV32STest, b32_s64k1_pa_nd_bf16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 16;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -507,7 +472,6 @@ TEST_F(MlaPrologQuantV32STest, b32_s64k4_pa_nd_bf16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 16;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -519,7 +483,6 @@ TEST_F(MlaPrologQuantV32STest, b32_s1k4_pa_nd_bf16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 16;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -530,7 +493,6 @@ TEST_F(MlaPrologQuantV32STest, b32_s4k4_pa_nd_bf16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 16;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -541,7 +503,6 @@ TEST_F(MlaPrologQuantV32STest, b32_s16k4_pa_nd_bf16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 16;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -552,7 +513,6 @@ TEST_F(MlaPrologQuantV32STest, b32_s128k4_pa_nd_bf16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 16;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -564,7 +524,6 @@ TEST_F(MlaPrologQuantV32STest, b1_s11_pa_nd_bf16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 1;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -575,7 +534,6 @@ TEST_F(MlaPrologQuantV32STest, b1_s129_1_pa_nd_bf16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 1;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -587,7 +545,6 @@ TEST_F(MlaPrologQuantV32STest, b104_s8k1_pa_nd_bf16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 13;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
@@ -599,7 +556,6 @@ TEST_F(MlaPrologQuantV32STest, b32_s127104_3_pa_nd_bf16_quantB) {
     MlaTileConfig tileConfig;
     tileConfig.tileBS = 4;
 
-    PerformanceConfig();
     TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 } // namespace

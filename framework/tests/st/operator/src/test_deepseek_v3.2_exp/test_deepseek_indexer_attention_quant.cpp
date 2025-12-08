@@ -318,9 +318,8 @@ void test_common(DSIASimpleParams params) {
     params.topk = 2048;
     params.cacheMode = "PA_BSND";
 
-    auto tileB = 4;
-    auto tileS = 1;
-    MlaTileConfig prologConfig = {tileB, tileS};
+    MlaTileConfig prologConfig;
+    prologConfig.tileBS = 8;
 
     IndexerTile indexerTile;
     indexerTile.weightTile = {64, 128};
