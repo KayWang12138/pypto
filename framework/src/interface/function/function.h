@@ -678,7 +678,8 @@ public:
             // 扩展支持的算子类型：RESHAPE、VIEW、ASSEMBLE
             return opcode == Opcode::OP_RESHAPE ||
                 opcode == Opcode::OP_VIEW ||
-                opcode == Opcode::OP_ASSEMBLE;
+                opcode == Opcode::OP_ASSEMBLE ||
+                opcode == Opcode::OP_BIND_TENSOR;
         });
     }
 

@@ -157,6 +157,23 @@ python3 build.py -s -c            # 命令缩写, -c 可选
 # 通过参数指定执行 STest 用例, 用例名称间以 ':' 分割
 python3 build.py -s=AscendOnBoardTest.test_operation_tensor_dim2_add
 python3 build.py -s=AscendOnBoardTest.test_operation_tensor_dim2_add,AscendOnBoardTest.test_operation_tensor_dim4_add
+
+# 执行通信用例 STest; 除命令缩写-s,其他同--stest
+python3 build.py --stest_distributed
+
+# 执行通信用例需安装第三方依赖 MPIRUN
+# 安装包：
+wget http://www.mpich.org/static/downloads/3.3.2/mpich-3.3.2.tar.gz 
+tar -zxvf mpich-3.3.2.tar.gz #解压下载的压缩包 
+cd mpich-3.3.2 #进入解压后的文件夹内 
+./configure  --prefix=/usr/local/mpich-3.3.2 
+# --prefix这一参数是设置安装的路径，根据需要设置合适的路径即可，但需要记住安装的位置 
+make 
+make install 
+# 导入依赖：
+export MPI_HOME=/usr/local/mpich
+export PATH=$MPI_HOME/bin:$PATH
+export LD_LIBRARY_PATH=$MPI_HOME/lib:${ASCEND_LATEST_PATH}:${LD_LIBRARY_PATH}
 ```
 
 ##### 4.1.5 Python 场景常见使用方法

@@ -20,10 +20,17 @@
 #include <unordered_set>
 
 #include "tilefwk/tensor.h"
-
+#include "interface/utils/common.h"
 #include "interface/tensor/logical_tensor.h"
 
 namespace npu::tile_fwk {
+
+DEFINE_BITMASK_CLASS(SlotProperty, uint32_t,
+    NONE = 0x0,
+    OUTPUT = 0x1,
+    ASSEMBLE_DST = 0x2,
+    SHMEM_TENSOR = 0x4,
+);
 
 struct TensorSlot {
 public:
@@ -161,6 +168,7 @@ struct IncastOutcastLink {
     std::vector<int> inputSlotIndexList;
     std::vector<int> outputSlotIndexList;
     std::vector<int> assembleSlotIndexList;
+    std::vector<int> shmemTensorSlotIndexList;
     std::vector<int> inplaceSlotIndexList;
     std::vector<int> partialUpdateSlotIdexList;
 };
@@ -185,6 +193,7 @@ struct TensorSlotManager {
     std::unordered_map<TensorSlot, int> slotIndexDict;
     std::unordered_set<TensorSlot> liveSlotSet;
     std::unordered_set<TensorSlot> assembleSlotSet;
+    std::unordered_set<TensorSlot> shmemTensorSlotSet;
 
     std::unordered_map<std::string, TensorSlot> symbolNameDict;
     std::unordered_map<TensorSlot, std::string> slotNameDict;
@@ -213,7 +222,7 @@ struct TensorSlotManager {
     void TensorSlotDestruct(const TensorSlot &slot);
 
     void TensorRead(const Tensor &tensor);
-    void TensorWrite(const Tensor &tensor, bool isAssemble = false);
+    void TensorWrite(const Tensor &tensor, SlotProperty property = SlotProperty::NONE);
     void TensorDestruct(const Tensor &tensor);
 
     void TensorSymbol(const Tensor &tensor, const std::string &symbolName);

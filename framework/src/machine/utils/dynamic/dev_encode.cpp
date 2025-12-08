@@ -200,7 +200,7 @@ void DevAscendFunction::UpdateRawTensorDesc(const std::shared_ptr<RawTensor> &ra
 }
 
 static void EncodeRawShape(const SymbolicExpressionTable *expressionTable,
-    DevAscendRawTensor *encoded, std::shared_ptr<RawTensor> rawTensor, bool isIndependentMemory) {
+    DevAscendRawTensor *encoded, std::shared_ptr<RawTensor> rawTensor, bool needIndependentlyAlloc) {
     std::vector<SymInt> shape;
     bool isDyn = false;
     for (auto x : rawTensor->GetDynRawShape()) {
@@ -215,7 +215,7 @@ static void EncodeRawShape(const SymbolicExpressionTable *expressionTable,
     encoded->dataType = rawTensor->GetDataType();
     encoded->memoryRequirement = isDyn ? 0 : AlignUp(rawTensor->GetRawDataSize(), TENSOR_ADDR_ALIGNMENT);
 
-    if (!isIndependentMemory) {
+    if (!needIndependentlyAlloc) {
         encoded->maxStaticMemReq = 0;
         return;
     }
@@ -234,13 +234,39 @@ static void EncodeRawShape(const SymbolicExpressionTable *expressionTable,
         encoded->memoryRequirement);
 }
 
-void DevAscendFunction::FillOutputSlotMark(const IncastOutcastLink *inoutLink, std::vector<bool>& isOutputSlotMarks) {
+static void FillSlotProperties(const IncastOutcastLink *inoutLink, std::vector<SlotProperty>& slotProperties) {
     for (int slotIdx : inoutLink->outputSlotIndexList) {
-        isOutputSlotMarks[slotIdx] = true;
+        slotProperties[slotIdx].Add(SlotProperty::OUTPUT); // 使用 Add 方法
     }
-    for (int slotIdx: inoutLink->assembleSlotIndexList) {
-        isOutputSlotMarks[slotIdx] = true;
+    for (int slotIdx : inoutLink->assembleSlotIndexList) {
+        slotProperties[slotIdx].Add(SlotProperty::ASSEMBLE_DST);
     }
+    for (int slotIdx : inoutLink->shmemTensorSlotIndexList) {
+        slotProperties[slotIdx].Add(SlotProperty::SHMEM_TENSOR);
+    }
+}
+
+static bool ShouldDropBudget(const OrderedSet<std::shared_ptr<RawTensor>>& outcastRawList, const IncastOutcastSlot* slotInfo,
+    const std::vector<SlotProperty>& properties, const std::shared_ptr<RawTensor> rawTensor, const DevAscendRawTensor& encoded) {
+    if (!outcastRawList.count(rawTensor)) {
+        return false;
+    }
+    
+    for (int slotIdx : slotInfo->outcastSlot[encoded.ioIndex]) {
+        if (properties[slotIdx].Contains(SlotProperty::SHMEM_TENSOR)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool HasOutputOrAssembleDst(const std::vector<int>& outcastSlots, const std::vector<SlotProperty>& properties) {
+    for (int slotIdx : outcastSlots) {
+        if (properties[slotIdx].Contains(SlotProperty::OUTPUT | SlotProperty::ASSEMBLE_DST)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void DevAscendFunction::InitRawTensorAndMemoryRequirement(
@@ -259,19 +285,28 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
     rawTensorDescList_.HostInitDataSizeOffset(initOffset, rawList.size());
 
     ONFILLCONTENT {
-        std::vector<bool> isOutputSlotMarks(inoutLink->totalSlot);
-        FillOutputSlotMark(inoutLink, isOutputSlotMarks);
+        std::vector<SlotProperty> slotProperties(inoutLink->totalSlot);
+        FillSlotProperties(inoutLink, slotProperties);
         ALOG_DEBUG_F("incast raw size %zu, outcast raw size %zu, rawlist size %zu", incastRawList.size(), outcastRawList.size(),
             rawList.size());
         rawTensorWsMemoryRequirement = 0;
         outcastWsMemoryRequirement = 0;
         for (size_t i = 0; i < rawList.size(); i++) {
             const auto &rawTensor = rawList[i];
+            auto &encoded = *GetRawTensor(i);
+            // shmem need to drop budget
+            bool dropBudget = ShouldDropBudget(outcastRawList, slot, slotProperties, rawTensor, encoded);
+            // inplace (basically reshape) need to drop budget
+            bool isInplace = param.devRoot->outIncastLinkMap.count(rawTensor);
+            isInplace |= rawTensor->actualRawmagic != -1 && rawTensor->actualRawmagic != rawTensor->rawmagic;
+            EncodeRawShape(expressionTable, &encoded, rawTensor, !dropBudget && !isInplace);
+        }
+        for (size_t i = 0; i < rawList.size(); i++) {
+            const auto &rawTensor = rawList[i];
             if (rawTensor->actualRawmagic != -1 && rawTensor->actualRawmagic != rawTensor->rawmagic) {
                 continue;
             }
             auto &encoded = *GetRawTensor(i);
-            EncodeRawShape(expressionTable, &encoded, rawTensor, !param.devRoot->outIncastLinkMap.count(rawTensor));
             encoded.rawMagic = rawTensor->GetRawMagic();
             if (incastRawList.count(rawTensor)) {
                 // No need to allocate memory for root incasts
@@ -282,14 +317,7 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                 encoded.ioProperty = DevIOProperty::ROOT_OUTCAST;
                 encoded.ioIndex = outcastRawList.GetIndex(rawTensor);
                 rawTensor->addrOffset = 0;
-                bool isOutput = false;
-                for (int slotIdx : slot->outcastSlot[encoded.ioIndex]) {
-                    if (isOutputSlotMarks[slotIdx]) {
-                        isOutput = true;
-                        break;
-                    }
-                }
-                if (!isOutput) {
+                if (!HasOutputOrAssembleDst(slot->outcastSlot[encoded.ioIndex], slotProperties)) {
                     encoded.addrOffset = outcastWsMemoryRequirement;
                     rawTensor->addrOffset = outcastWsMemoryRequirement;
                     outcastWsMemoryRequirement += encoded.maxStaticMemReq;
@@ -319,7 +347,6 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                 continue;
             }
             auto &encoded = *GetRawTensor(i);
-            EncodeRawShape(expressionTable, &encoded, rawTensor, false);
             HandleActualRaw(incastRawList, outcastRawList, rawMagicToRawTensor, rawTensor, encoded);
             UpdateRawTensorDesc(rawTensor, i, incastRawList.size(), encoded);
         }
@@ -1890,7 +1917,7 @@ static int WorkspaceRecyclePeriod() {
 struct SlotInfo {
     bool isOutputSlot{false};
     bool asWriteSlot{false};
-    bool isAssemble{false};
+    SlotProperty property{SlotProperty::NONE};
     uint64_t maxAssembleDstMemReq{0};
 };
 
@@ -1901,7 +1928,7 @@ static std::vector<SlotInfo> MarkOutputAssembleSlots(DevAscendProgram &devProg) 
         slots[outputSlotIdx].isOutputSlot = true;
     }
     for (auto slotIdx : devProg.GetAssembleTensorSlotIndexList()) {
-        slots[slotIdx].isAssemble = true;
+        slots[slotIdx].property = SlotProperty::ASSEMBLE_DST;
     }
     return slots;
 }
@@ -1922,7 +1949,7 @@ static bool IsAssembleSlot(std::vector<SlotInfo> &slots, DevAscendFunction *func
     bool isAssemble = false;
     for (size_t j = 0; j < toSlotList.size(); j++) {
         int slotIdx = func->At(toSlotList, j);
-        if (slots[slotIdx].isAssemble) {
+        if (slots[slotIdx].property.Contains(SlotProperty::ASSEMBLE_DST)) {
             isAssemble = true;
             break;
         }
@@ -1994,7 +2021,7 @@ static TensorWorkspaceResult CalcTensorWorkspace(DevAscendProgram &devProg) {
 
     uint64_t globalTensorMem = std::accumulate(slots.begin(), slots.end(), UINT64_C(0),
         [](uint64_t acc, const SlotInfo &slot) {
-            return acc + (slot.isAssemble ? slot.maxAssembleDstMemReq : 0);
+            return acc + ((slot.property.Contains(SlotProperty::ASSEMBLE_DST)) ? slot.maxAssembleDstMemReq : 0);
         });
 
     TensorWorkspaceResult res;

@@ -1035,7 +1035,7 @@ Tensor Assemble(const std::vector<std::pair<Tensor, std::vector<int64_t>>> &tens
     for (const auto &[tensor, offset] : tensors) {
         InnerAssemble(curFunc, tensor.GetStorage(), result.GetStorage(), offset);
     }
-    Program::GetInstance().GetTensorSlotManager()->TensorWrite(result, true);
+    Program::GetInstance().GetTensorSlotManager()->TensorWrite(result, SlotProperty::ASSEMBLE_DST);
     return result;
 }
 
@@ -1061,7 +1061,7 @@ void Assemble(const Tensor &tensor, const std::vector<SymbolicScalar> &dynOffset
     ASSERT(dest.GetShape().size() == dynOffset.size())<<"Assemble: dynOffset and dest requires same shape";
     DInnerAssemble(*Program::GetInstance().GetCurrentFunction(), tensor.GetStorage(), dest.GetStorage(), dynOffset);
 
-    Program::GetInstance().GetTensorSlotManager()->TensorWrite(dest, true);
+    Program::GetInstance().GetTensorSlotManager()->TensorWrite(dest, SlotProperty::ASSEMBLE_DST);
 }
 
 void TiledInnerAssemble(Function &function, const TileShape &tileShape, size_t cur,

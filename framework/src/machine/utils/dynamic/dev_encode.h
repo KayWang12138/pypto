@@ -1540,7 +1540,6 @@ private:
             const std::vector<std::shared_ptr<LogicalTensor>> &incastTensorList,
             const std::vector<std::shared_ptr<LogicalTensor>> &outcastTensorList,
             const std::unordered_map<Operation *, OrderedSet<Operation *>> &callOpSuccDict,bool fillContent);
-    void FillOutputSlotMark(const IncastOutcastLink *inoutLink, std::vector<bool>& isOutputSlotMarks);
     void InitRawTensorAndMemoryRequirement(
             uintdevptr_t &initOffset,
             const OrderedSet<std::shared_ptr<RawTensor>> &incastRawList,
