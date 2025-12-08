@@ -128,6 +128,7 @@ QuantIndexerPrologOutputGolden PrepareQuantIndexerPrologOutputsGolden(const Quan
 template <typename T = npu::tile_fwk::bfloat16, bool nz = true>
 void TestQuantLightningIndexerProlog(QuantIndexerConfigs &configs) {
     config::SetHostOption(ONLY_CODEGEN, true);
+
     constexpr int64_t nzFirstDim = 16;
     constexpr int64_t b16C0Dim = 16;
     constexpr int64_t b8C0Dim = 32;
@@ -279,6 +280,23 @@ TEST_F(QuantLightningIndexerPrologSTest, b2_s1_4k_s2_64k) {
     configs.qHd = {64, 64, 128, 128, 128, 128};
     configs.kLinear = {16, 16, 512, 512, 64, 64};
     configs.wLinear = {16, 16, 1024, 1024, 32, 32};
+    TestQuantLightningIndexerProlog<npu::tile_fwk::bfloat16, true>(configs);
+}
+
+TEST_F(QuantLightningIndexerPrologSTest, b128_s1_4_s2_8k) {
+    QuantIndexerConfigs configs;
+    configs.qLinear = {128, 128, 256, 256, 256, 256};
+    configs.qHd = {128, 128, 64, 64, 128, 128};
+    configs.kLinear = {64, 64, 256, 256, 128, 128};
+    configs.wLinear = {32, 32, 512, 512, 64, 64};
+    configs.tSubTile = 2;
+    configs.chunkSize = 1;
+    configs.l1ReuseParam = {
+        {1, 4}, {3, 4}
+    };
+
+    config::SetRuntimeOption(WORKSPACE_RECYCLE_PERIOD, 512);
+    config::SetRuntimeOption(ESTIMATED_STITCH_TASK_MAX_LOOP_NUM, 512);
     TestQuantLightningIndexerProlog<npu::tile_fwk::bfloat16, true>(configs);
 }
 } // namespace

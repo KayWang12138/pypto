@@ -355,7 +355,8 @@ def gen_indexer_golden(params, output):
         "QuantLightningIndexerPrologSTest.b4_s1_2_s2_64k",
         "QuantLightningIndexerPrologSTest.b8_s1_2_s2_64k",
         "QuantLightningIndexerPrologSTest.b1_s1_4k_s2_64k",
-        "QuantLightningIndexerPrologSTest.b2_s1_4k_s2_64k"
+        "QuantLightningIndexerPrologSTest.b2_s1_4k_s2_64k",
+        "QuantLightningIndexerPrologSTest.b128_s1_4_s2_8k"
     ]
 )
 def indexer_test(case_name: str, output: Path) -> bool:
@@ -382,6 +383,12 @@ def indexer_test(case_name: str, output: Path) -> bool:
             "b": 2,
             "s1": 1024 * 4,
             "s2": 1024 * 64
+        }
+    elif case_name.startswith("QuantLightningIndexerPrologSTest.b128_s1_4_s2_8k"):
+        params = {
+            "b": 128,
+            "s1": 4,
+            "s2": 1024 * 8
         }
     else:
         logging.error("Can't get func to gen golden, Case(%s)", case_name)

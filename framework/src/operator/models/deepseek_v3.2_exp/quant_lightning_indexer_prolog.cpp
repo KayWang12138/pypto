@@ -84,7 +84,7 @@ Tensor LIPrologRotateHalf(const Tensor &input) {
     return Cat({Mul(x2, Element(x2.GetDataType(), -1.0)), Add(x1, Element(x1.GetDataType(), 0.0))}, -1);
 }
 
-Tensor QuantRope3D(const Tensor &x, const Tensor &cos, const Tensor &sin) {
+Tensor QuantRope3D(const Tensor &x, const Tensor &cos, const Tensor &sin, const QuantIndexerConfigs &configs) {
     constexpr size_t query_rope_dim = 3;
     constexpr size_t head_num_axis = 1;
     constexpr size_t head_dim_axis = 2;
@@ -100,7 +100,7 @@ Tensor QuantRope3D(const Tensor &x, const Tensor &cos, const Tensor &sin) {
     auto castCos = Cast(cos, DT_FP32);
     auto castSin = Cast(sin, DT_FP32);
 
-    TileShape::Current().SetVecTile(1, headNum / CHUNK_SIZE, ropeDim);
+    TileShape::Current().SetVecTile(configs.tSubTile, headNum / configs.chunkSize, ropeDim);
     auto xView = Cast(x, DT_FP32);
     castCos = Reshape(castCos, {tTile, 1, ropeDim});
     castSin = Reshape(castSin, {tTile, 1, ropeDim});
@@ -187,7 +187,7 @@ void QuantLightningIndexerPrologCompute(const QuantIndexerPrologInput &inputs, Q
                 auto qS32 = Matrix::Matmul<false, false>(DT_INT32, qNorm, wQb); // (tTile, headNum * headDim)
 
                 config::SetSemanticLabel("Query-Dequant");
-                TileShape::Current().SetVecTile(1, headNum * headDim / CHUNK_SIZE); // (tTile, headNum * headDim), fp32
+                TileShape::Current().SetVecTile(configs.tSubTile, headNum * headDim / configs.chunkSize);  // (tTile, headNum * headDim), fp32
                 auto qF32 = Cast(qS32, DT_FP32);
                 qF32 = Mul(qF32, qNormScale); // (tTile, headNum * headDim), fp32
                 qF32 = Mul(qF32, wQbScale);   // (tTile, headNum * headDim), fp32
@@ -201,8 +201,8 @@ void QuantLightningIndexerPrologCompute(const QuantIndexerPrologInput &inputs, Q
                 auto ropeCos = View(inputs.cosIdxRope, {tTile, ropeHeadDim}, {tTile, ropeHeadDim}, {tIdx, 0});
                 auto ropeSin = View(inputs.sinIdxRope, {tTile, ropeHeadDim}, {tTile, ropeHeadDim}, {tIdx, 0});
 
-                auto qRoped = QuantRope3D(qRope, ropeCos, ropeSin); // {tTile, headNum, ropeHeadDim}
-                TileShape::Current().SetVecTile(1, headNum / CHUNK_SIZE, headDim);
+                auto qRoped = QuantRope3D(qRope, ropeCos, ropeSin, configs); // {tTile, headNum, ropeHeadDim}
+                TileShape::Current().SetVecTile(configs.tSubTile, headNum / configs.chunkSize, headDim);
                 qNope = Cast(Cast(qNope, DT_FP32), qBF16.GetDataType());
                 auto qCat = Cat({qRoped, qNope}, -1); // {tTile, headNum, headDim}
                 auto hadamardQ = Reshape(inputs.hadamardQ, {1, headDim, headDim}, {1, headDim, headDim});
@@ -216,7 +216,7 @@ void QuantLightningIndexerPrologCompute(const QuantIndexerPrologInput &inputs, Q
                     Matrix::BatchMatmul<false, false, false>(xDtype, qCat, hadamardQ); // (tTile, headNum, headDim)
 
                 config::SetSemanticLabel("Query-Quant");
-                TileShape::Current().SetVecTile(1, headNum / CHUNK_SIZE, headDim);
+                TileShape::Current().SetVecTile(configs.tSubTile, headNum / configs.chunkSize, headDim);
                 std::tuple<Tensor, Tensor> qRes = PrologQuant(qHadamard);
                 auto qScale = Cast(std::get<1>(qRes), DT_FP16);
 
@@ -231,7 +231,11 @@ void QuantLightningIndexerPrologCompute(const QuantIndexerPrologInput &inputs, Q
                 auto x = View(inputs.x, {tTile, h}, {tTile, h}, {tIdx, 0}); // 这里将tTile分档，offset不需要乘tTile
                 auto k = Matrix::Matmul<false, false>(DT_FP32, x, wk);      // (tTile, headDim)
 
-                TileShape::Current().SetVecTile(std::min(tTile, VEC_TILE_4), headDim);
+                if (tTile <= 32) {
+                    TileShape::Current().SetVecTile(std::min(tTile, VEC_TILE_4), headDim);
+                }else {
+                    TileShape::Current().SetVecTile(std::min(tTile, VEC_TILE_32), headDim);
+                }
                 auto kBf16 = Cast(QuantLayerNorm(k, gamma2D, beta2D, -1, attrs.eps), xDtype);
 
                 auto kRope = View(kBf16, {tTile, ropeHeadDim}, {tTile, ropeHeadDim}, {0, 0});

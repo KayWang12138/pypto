@@ -27,7 +27,6 @@ NUM_3 = 3
 NUM_7168 = 7168
 
 TILE_CUBE_DIM = 6
-CHUNK_SIZE = 2
 Q_PARAM_DIM = 2
 NZ_DIM = 4
 COS_SIN_DIM = 2
@@ -47,6 +46,7 @@ VEC_TILE_128 = 128
 VEC_TILE_64 = 64
 VEC_TILE_8 = 8
 VEC_TILE_4 = 4
+VEC_TILE_32 = 32
 
 
 @dataclass
@@ -97,6 +97,8 @@ class IndexerPrologQuantConfigs:
     copy_in_threshold: int
     cycle_upper_bound: int
     block_size: int
+    t_sub_tile: int
+    chunk_size: int
 
 
 def quant_layer_norm(x: pypto.tensor, gamma: pypto.tensor, beta: pypto.tensor, dim: int, epsilon: float):
@@ -178,7 +180,7 @@ def rotate_half(input_tensor: pypto.tensor) -> pypto.tensor:
     return pypto.concat([x2 * (-1.0), x1 + 0.0], -1)
 
 
-def rope_3d(x: pypto.tensor, cos: pypto.tensor, sin: pypto.tensor) -> pypto.tensor:
+def rope_3d(x: pypto.tensor, cos: pypto.tensor, sin: pypto.tensor, configs: IndexerPrologQuantConfigs) -> pypto.tensor:
     head_num_axis = 1
     head_dim_axis = 2
     assert (len(x.shape) == SHAPE_DIM_3 and len(cos.shape) == SHAPE_DIM_2 and len(sin.shape) == SHAPE_DIM_2)
@@ -192,7 +194,7 @@ def rope_3d(x: pypto.tensor, cos: pypto.tensor, sin: pypto.tensor) -> pypto.tens
     cast_cos = pypto.cast(cos, pypto.DT_FP32)
     cast_sin = pypto.cast(sin, pypto.DT_FP32)
 
-    pypto.set_vec_tile_shapes(1, head_num // CHUNK_SIZE, rope_dim)
+    pypto.set_vec_tile_shapes(configs.t_sub_tile, head_num // configs.chunk_size, rope_dim)
     x_view = pypto.cast(x, pypto.DT_FP32)
     cast_cos = pypto.reshape(cast_cos, [t_tile, 1, rope_dim])
     cast_sin = pypto.reshape(cast_sin, [t_tile, 1, rope_dim])
@@ -260,8 +262,9 @@ def lightning_indexer_prolog_quant_compute(inputs, outputs, attrs, configs):
             q_s32 = pypto.matmul(q_norm, w_qb, pypto.DT_INT32)  # (t_tile, head_num * head_dim)
 
             pypto.set_semantic_label("Query-Dequant")
-            pypto.set_vec_tile_shapes(1, head_num * head_dim // CHUNK_SIZE)  # (t_tile, head_num * head_dim), fp32
-            q_f32 = pypto.cast(q_s32, pypto.DT_FP32)
+
+            pypto.set_vec_tile_shapes(configs.t_sub_tile, head_num * head_dim // configs.chunk_size)
+            q_f32 = pypto.cast(q_s32, pypto.DT_FP32) # (t_tile, head_num * head_dim), fp32
             q_f32 = q_f32 * q_norm_scale  # (t_tile, head_num * head_dim), fp32
             q_f32 = q_f32 * w_qb_scale  # (t_tile, head_num * head_dim), fp32
             q_cast = pypto.cast(q_f32, x_dtype)
@@ -277,19 +280,21 @@ def lightning_indexer_prolog_quant_compute(inputs, outputs, attrs, configs):
             rope_sin = pypto.view(sin_idx_rope_in, [t_tile, rope_head_dim], [tIdx, 0],
                                   valid_shape=[t_tile, rope_head_dim])
 
-            q_roped = rope_3d(q_rope, rope_cos, rope_sin)  # [t_tile, head_num, rope_head_dim]
-            pypto.set_vec_tile_shapes(1, head_num // CHUNK_SIZE, head_dim)
+            q_roped = rope_3d(q_rope, rope_cos, rope_sin, configs)  # [t_tile, head_num, rope_head_dim]
+            pypto.set_vec_tile_shapes(configs.t_sub_tile, head_num // configs.chunk_size, head_dim)
             q_nope = pypto.cast(pypto.cast(q_nope, pypto.DT_FP32), q_bf16.dtype)
-            q_concat = pypto.concat([q_roped, q_nope], -1)  # [t_tile, head_num, head_dim]
+            q_cat = pypto.concat([q_roped, q_nope], -1)  # [t_tile, head_num, head_dim]
             hadamard_q = pypto.reshape(hadamard_q_in, [1, head_dim, head_dim], valid_shape=[1, head_dim, head_dim])
 
             pypto.set_semantic_label("Query-Hadamard")
-            pypto.set_cube_tile_shapes([q_hd[L0M_INDEX], q_hd[L1M_INDEX]], [q_hd[L0K_INDEX], q_hd[L1K_INDEX]],
+            cur_max_unroll = 32
+            qHdMTile = cur_max_unroll if t_tile < cur_max_unroll else q_hd[L0M_INDEX]
+            pypto.set_cube_tile_shapes([qHdMTile, qHdMTile], [q_hd[L0K_INDEX], q_hd[L1K_INDEX]],
                                        [q_hd[L0N_INDEX], q_hd[L1N_INDEX]])
-            q_hadamard = pypto.matmul(q_concat, hadamard_q, x_dtype)  # (t_tile, head_num, head_dim)
+            q_hadamard = pypto.matmul(q_cat, hadamard_q, x_dtype)  # (t_tile, head_num, head_dim)
 
             pypto.set_semantic_label("Query-Quant")
-            pypto.set_vec_tile_shapes(1, head_num // CHUNK_SIZE, head_dim)
+            pypto.set_vec_tile_shapes(configs.t_sub_tile, head_num // configs.chunk_size, head_dim)
             q_res = prolog_quant(q_hadamard)
             q_scale = pypto.cast(q_res[1], pypto.DT_FP16)
 
@@ -305,7 +310,10 @@ def lightning_indexer_prolog_quant_compute(inputs, outputs, attrs, configs):
             x = pypto.view(x_in, [t_tile, h], [tIdx, 0], valid_shape=[t_tile, h])  # 这里将t_tile分档，offset不需要乘t_tile
             k = pypto.matmul(x, wk, pypto.DT_FP32)  # (t_tile, head_dim)
 
-            pypto.set_vec_tile_shapes(min(t_tile, VEC_TILE_4), head_dim)
+            if t_tile <= 32:
+                pypto.set_vec_tile_shapes(min(t_tile, VEC_TILE_4), head_dim)
+            else:
+                pypto.set_vec_tile_shapes(min(t_tile, VEC_TILE_32), head_dim)
             k_bf16 = pypto.cast(quant_layer_norm(k, gamma_2d, beta_2d, -1, attrs.eps), x_dtype)
 
             k_rope = pypto.view(k_bf16, [t_tile, rope_head_dim], [0, 0], valid_shape=[t_tile, rope_head_dim])

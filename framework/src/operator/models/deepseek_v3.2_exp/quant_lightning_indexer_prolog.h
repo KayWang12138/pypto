@@ -24,7 +24,6 @@
 namespace npu::tile_fwk {
 
 constexpr const int TILE_CUBE_DIM = 6;
-constexpr const int64_t CHUNK_SIZE = 2;
 constexpr size_t Q_PARAM_DIM = 2;
 constexpr size_t NZ_DIM = 4;
 constexpr size_t COS_SIN_DIM = 2;
@@ -44,6 +43,7 @@ constexpr const int64_t VEC_TILE_128 = 128;
 constexpr const int64_t VEC_TILE_64 = 64;
 constexpr const int VEC_TILE_8 = 8;
 constexpr const int VEC_TILE_4 = 4;
+constexpr const int VEC_TILE_32 = 32;
 
 struct QuantIndexerConfigs {
     // Tile params
@@ -53,14 +53,18 @@ struct QuantIndexerConfigs {
     std::array<int, TILE_CUBE_DIM> wLinear;
 
     // Config params
-    std::set<int> unrollList = {32, 16, 8, 4, 2, 1};
+    std::set<int> unrollList = {128, 64, 32, 16, 8, 4, 2, 1};
     std::map<int64_t, int64_t> l1ReuseParam = {
         {1, 4}
     };
     int copyInThreshold = 2 * 1024 * 1024;
     int cycleUpperBound = 8192;
     int blockSize = 128;
+
+    int64_t chunkSize = 2;
+    int64_t tSubTile = 1;
 };
+
 
 struct QuantIndexerPrologInput {
     const Tensor &x;          // BF16, (t, h)
