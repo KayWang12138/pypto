@@ -278,7 +278,7 @@ def mla_prolog_compute_p(input_tensors, output_tensors, epsilon_cq, epsilon_ckv,
     q_lora_rank = w_dq.shape[1]
     qk_nope_head_dim = w_uk.shape[1]
     kv_lora_rank = w_uk.shape[2]
-    qk_rope_head_dim = sin.shape[2]
+    qk_rope_head_dim = sin.shape[1]
     q_head_dim = qk_nope_head_dim + qk_rope_head_dim
 
     block_num = kv_cache.shape[0]
@@ -420,9 +420,9 @@ def mla_prolog_compute_p(input_tensors, output_tensors, epsilon_cq, epsilon_ckv,
                     kr_cache_out.move(pypto.reshape(kr_cache_out2d, [block_num, block_size, n2, qk_rope_head_dim]))
                     kv_cache_out.move(pypto.reshape(kv_cache_out2d, [block_num, block_size, n2, kv_lora_rank]))
                     k_scale_cache_out.move(pypto.reshape(k_scale_cache_out2d, [block_num, block_size, n2, 4]))
-                update_cache = [kr_cache_out2d, kv_cache_out2d, k_scale_cache_out2d, k_cache_index_2d, \
+                update_params = [kr_cache_out2d, kv_cache_out2d, k_scale_cache_out2d, k_cache_index_2d, \
                                 qk_rope_head_dim, kr_cache_2d, kv_cache_2d, k_scale_cache_2d]
-                update_cache(params)
+                update_cache(update_params)
 
         params = [token_x, w_dq, w_uq_qr, dequant_scale, w_uk, w_dkv_kr, gamma_cq, gamma_ckv, cos, \
                     sin, k_cache_index_2d, kv_cache, kr_cache, k_scale_cache, q_norm_out, q_norm_scale_out, \

@@ -209,13 +209,6 @@ def lightning_indexer_prolog_quant_compute(inputs, outputs, attrs, configs):
      cos_idx_rope_in, sin_idx_rope_in, hadamard_q_in, hadamard_k_in, k_cache, k_cache_scale, k_cache_index_in) = inputs
     q_int8_out, q_scale_out, k_int8_out, k_scale_out, weights_out = outputs
 
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
-    pypto.set_host_options(only_codegen=True)
-
-    pypto.set_pass_options(nbuffer_merge_mode=0)
-    pypto.set_pass_options(l1_reuse_map=configs.l1_reuse_param)
-    pypto.set_pass_options(copyin_threshold=configs.copy_in_threshold)
-    pypto.set_pass_options(cycle_upper_bound=configs.cycle_upper_bound)
 
     x_dtype = x_in.dtype
 
@@ -357,4 +350,13 @@ def lightning_indexer_prolog_quant_compute(inputs, outputs, attrs, configs):
 
 @pypto.jit
 def lightning_indexer_prolog_quant(input_tensors, output_tensors, attrs, configs):
+
+    pypto.set_codegen_options(support_dynamic_unaligned=True)
+    pypto.set_host_options(only_codegen=True)
+
+    pypto.set_pass_options(nbuffer_merge_mode=0)
+    pypto.set_pass_options(l1_reuse_map=configs.l1_reuse_param)
+    pypto.set_pass_options(copyin_threshold=configs.copy_in_threshold)
+    pypto.set_pass_options(cycle_upper_bound=configs.cycle_upper_bound)
+
     lightning_indexer_prolog_quant_compute(input_tensors, output_tensors, attrs, configs)
