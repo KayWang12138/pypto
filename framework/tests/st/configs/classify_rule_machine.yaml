@@ -116,6 +116,7 @@ stest:
       - DynamicBasicTest.TestSetTensorData
       - DynamicBasicTest.TestSetTensorDataExpr
       - DynamicBasicTest.TestGetTensorDataAndDup
+      - DynamicBasicTest.TestGetTensorDataSymbolicValue
       - DynamicBasicTest.TestLoopIfWithRank456
       - DynamicBasicTest.DuplicateName
       - DynamicTest.TestPartial

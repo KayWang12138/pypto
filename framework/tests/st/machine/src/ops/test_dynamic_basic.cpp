@@ -1476,6 +1476,45 @@ TEST_F(DynamicBasicTest, TestSelectAttention) {
 #endif
 }
 
+TEST_F(DynamicBasicTest, TestGetTensorDataSymbolicValue) {
+    int n = 4;
+    int loopCount = 4;
+    int NUM_2 = 2;
+    Tensor loopList(DT_INT32, {1, loopCount}, "loopList");
+    std::vector<int32_t> loopListData(loopCount);
+    for (int k = 0; k < loopCount; k++) {
+        loopListData[k] = k + 1;
+    }
+    Tensor output(DT_INT32, {1, n}, "output");
+    std::vector<int32_t> outputGolden(n, 0);
+    for (int i = 0; i < n; i++) {
+        outputGolden[i] = (i + 1) * NUM_2;
+    }
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<int32_t>(loopList, loopListData),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<int32_t>(output, 0),
+    });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<int32_t>(output, outputGolden),
+    });
+    FUNCTION("main", {loopList}, {output}) {
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(loopCount)) {
+            Tensor doubleLoopList(DT_INT32, {1, loopCount}, "doubleLoopList");
+            doubleLoopList = Add(loopList, loopList);
+            SymbolicScalar idxs = GetTensorData(doubleLoopList, {0, i});
+            auto result2 = Full(idxs, DT_INT32, {1, 1});
+            Assemble(result2, {0 , i}, output);
+        }
+    }
+#ifdef ENABLE_BUILD_WITH_CANN
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
+    auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
+#endif
+}
+
 TEST_F(DynamicBasicTest, DuplicateName) {
     Tensor t0(DT_FP32, {32, 32}, "t0");
     Tensor out(DT_FP32, {64, 64}, "out");

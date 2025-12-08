@@ -335,6 +335,7 @@ INLINE uint64_t RUNTIME_Ne(uint64_t input1, uint64_t input2) {
 }
 
 INLINE uint32_t GetTensorDataInt32(CoreFuncParam *ctx, uint64_t address) {
+    dcci((__gm__ uint32_t *)address, ENTIRE_DATA_CACHE, CACHELINE_OUT); 
     return *(__gm__ uint32_t *)(address);
 }
 #define RUNTIME_GetTensorDataInt32Dim1(index, ioType, ioTypeIndex, address, ...)    GetTensorDataInt32(param, address)
