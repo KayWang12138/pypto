@@ -15,20 +15,17 @@
 
 #include "pybind_common.h"
 
-#ifdef BUILD_WITH_CANN
 #include <utility>
 #include <vector>
 #include "interface/interpreter/raw_tensor_data.h"
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/runtime/emulation_launcher.h"
+#include "machine/runtime/cost_model_launcher.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
-#endif
 
 namespace pypto {
-
-#ifdef BUILD_WITH_CANN
 
 void SetVerifyData(const std::vector<DeviceTensorData> &inputs,
                    const std::vector<DeviceTensorData> &outputs,
@@ -82,6 +79,11 @@ std::string DeviceRunOnceDataFromHost(
         return "emulation run failed";
     }
 
+    if (config::GetOption<bool>(COST_MODEL_ENABLE)) {
+        CostModelLauncher::CostModelRunOnce(func);
+        return "";
+    }
+
     if (DeviceRunOnce(func) != 0) {
         return "device run failed";
     }
@@ -103,6 +105,7 @@ std::string DeviceRunOnceDataFromHost(
 std::string OperatorDeviceRunOnceDataFromDevice(py::int_ pythonOperatorPython,
     const std::vector<DeviceTensorData> &inputs, const std::vector<DeviceTensorData> &outputs,
     py::int_ incomingStreamPython, py::int_ workspaceData) {
+#ifdef BUILD_WITH_CANN
     auto opAddr = static_cast<uintptr_t>(pythonOperatorPython);
     if (opAddr == 0) {
         return "invalid operator";
@@ -147,6 +150,7 @@ std::string OperatorDeviceRunOnceDataFromDevice(py::int_ pythonOperatorPython,
     if (rc < 0) {
         return "device run failed";
     }
+#endif
     return "";
 }
 
@@ -236,20 +240,4 @@ void BindRuntime(py::module &m) {
         .def("GetShape", &DeviceTensorData::GetShape)
         .def("GetDataType", &DeviceTensorData::GetDataType);
 }
-
-#else
-
-void __attribute__((used)) DeviceInit() {
-}
-
-void __attribute__((used)) DeviceFini() {
-}
-
-void __attribute__((used)) BindRuntime(py::module &m) {
-    m.def("DeviceInit", &DeviceInit);
-    m.def("DeviceFini", &DeviceFini);
-}
-
-#endif
-
 } // namespace pypto

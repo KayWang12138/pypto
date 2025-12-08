@@ -117,11 +117,13 @@ void DeviceMachine::SubmitDeviceTask()
 // Device Init
 void DeviceMachine::Build()
 {
+    MLOG_INFO("DeviceMachine start Building-----");
     config.OverrideDefaultConfig(&sim->cfgs);
-    readyQueuePid = GetSim()->RegisterQueuePid("DeviceReadyQ");
-    GetSim()->GetLogger()->SetProcessName("DeviceReadyQ", readyQueuePid, readyQueuePid);
+    std::string queueId = "DeviceReadyQ";
+    readyQueuePid = GetSim()->RegisterQueuePid(queueId);
+    GetSim()->GetLogger()->SetProcessName(queueId, readyQueuePid, readyQueuePid);
     readyQueueTotalTid = queueSeq + coreTid;
-    GetSim()->GetLogger()->SetThreadName("Total_ReadyQ", readyQueuePid, readyQueueTotalTid);
+    GetSim()->GetLogger()->SetThreadName(queueId, readyQueuePid, readyQueueTotalTid);
     queueSeq++;
     for (const auto &machineTypeStr : config.submachineTypes) {
         MachineType mType = ToMachineType(machineTypeStr);

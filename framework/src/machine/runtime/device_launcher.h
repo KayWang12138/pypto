@@ -29,6 +29,7 @@
 #include "tilefwk/data_type.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/configs/config_manager.h"
+#include "machine/platform/platform_manager.h"
 
 namespace npu::tile_fwk::dynamic {
 

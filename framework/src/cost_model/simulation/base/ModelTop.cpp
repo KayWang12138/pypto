@@ -607,7 +607,7 @@ void SimSys::OutputLogForPipeSwimLane(std::string prefix)
     osPipeSwim.close();
 
     MLOG_WARN("Pipe SwimLane Graph Generated (PNG & HTML):", pipeDetailPath);
-    std::string drawScriptPath("./scripts/draw_pipe_swim_lane.py");
+    std::string drawScriptPath("./tools/draw_pipe_swim_lane.py");
     std::string cmd = "python3 " + drawScriptPath + " " + pipeDetailPath;
     system(cmd.c_str());
 }
@@ -635,12 +635,26 @@ void SimSys::OutputLogForSwimLane(std::string prefix)
         return;
     }
     MLOG_WARN("SwimLane Graph Generated (PNG):", outSwimPath);
-    std::string drawScriptPath("./scripts/print_swim_lane.py");
+    std::string drawScriptPath("./tools/print_swim_lane.py");
     std::string cmd = "python3 " + drawScriptPath + " " + outSwimPath + " -t";
     system(cmd.c_str());
 
-    std::string mergeScriptPath("./scripts/draw_swim_lane.py");
-    cmd = "python3 " + mergeScriptPath + " " + outSwimPath + " " + topoOutFile;
+    std::string mergeScriptPath("./tools/draw_swim_lane.py");
+    auto devicePtr = std::dynamic_pointer_cast<DeviceMachine>(machineGroup[int(MachineType::DEVICE)][0]);
+    MLOG_WARN("devicePtr->config.submitTopo: ", devicePtr->config.submitTopo);
+    std::string topo_txt_path = outdir + "/../" + "dyn_topo.txt";
+    MLOG_INFO("topo_txt_path: ", topo_txt_path);
+    std::string program_json_path = outdir + "/../" + "program.json";
+    MLOG_INFO("program_json_path: ", program_json_path);
+    std::string label_type = "--label_type=1 --time_convert_denominator=50";
+    MLOG_INFO("label_type: ", label_type);
+    if (devicePtr->config.submitTopo) {
+        cmd = "python3 " + mergeScriptPath + " " + outSwimPath + " " + topo_txt_path + " " + program_json_path + " " + label_type;
+    } else {
+        MLOG_WARN("devicePtr->config.submitTopo: ", devicePtr->config.submitTopo);
+        cmd = "python3 " + mergeScriptPath + " " + outSwimPath + " " + topoOutFile;
+    }
+    MLOG_INFO("cmd: ", cmd);
     system(cmd.c_str());
 }
 
@@ -653,7 +667,7 @@ void SimSys::OutputLogForCommSwimLane(std::string prefix)
     MLOG_WARN("Log For Draw SwimLane Graph Path (PNG):", outPath);
 
     // Get Draw PND Python Scripts Path
-    std::string drawScriptPath("./scripts/draw_comm_swim_lane_png.py");
+    std::string drawScriptPath("./tools/draw_comm_swim_lane_png.py");
     MLOG_WARN("SwimLane Graph Generated (PNG):", outPath);
     std::string cmd = "python3 " + drawScriptPath + " " + outPath;
     system(cmd.c_str());

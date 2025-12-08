@@ -84,6 +84,7 @@ static std::map<std::string, ValueType> g_verifyConfig = {
 
 static std::map<std::string, ValueType> g_globalConfig = {
     {PROFILE_ENABLE, false},
+    {COST_MODEL_ENABLE, false},
 };
 
 struct RunDataDir {

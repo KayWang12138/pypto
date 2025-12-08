@@ -50,7 +50,7 @@ public:
     uint64_t lastSimulationCycles = INT_MAX;
     std::size_t topMachineViewPid = 1000;
     uint64_t queuePidPtr = 2000;
-    std::unordered_map<std::string, uint64_t> queuePidMap;
+    std::map<std::string, uint64_t> queuePidMap;
     bool terminate = false;
     bool deadlock = false;
 

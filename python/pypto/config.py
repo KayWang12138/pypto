@@ -271,6 +271,7 @@ def set_verify_options(*,
                        dump_tensor: Optional[bool] = None,
                        dump_operation: Optional[bool] = None,
                        profile_enable: Optional[bool] = None,
+                       cost_model_enable: Optional[bool] = None,
                        verify_execute_graph: Optional[bool] = None,
                        ) -> None:
     """

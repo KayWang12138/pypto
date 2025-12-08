@@ -55,6 +55,7 @@ extern "C" bool MatchCache(const std::string &cacheKey) {
 
 static void InitSocVersion()
 {
+    #ifdef BUILD_WITH_CANN
     static constexpr uint32_t kMaxVersionLengh = 50;
     char version[kMaxVersionLengh] = {0};
     auto rtGetSocVersionFunc = (int (*)(char* version, const uint32_t maxlen))dlsym(nullptr, "rtGetSocVersion");
@@ -64,6 +65,7 @@ static void InitSocVersion()
         socVersion = std::string(version);
     }
     (void)PlatformManager::Instance().Initialize(socVersion);
+    #endif
 }
 
 extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
@@ -675,9 +677,11 @@ static void CompileControlFlow(const std::string &aicpuDirPath,
         ALOG_DEBUG_F("Dump controlFlow and express files failed\n");
         return;
     }
+    #ifdef BUILD_WITH_CANN
     if (std::getenv("ASCEND_HOME_PATH") != nullptr) {
        ASSERT(TileFwkAiCpuCompile(funcName, aicpuDirPath)) << ": PyPto Control Flow compile failed"; 
     }
+    #endif
 }
 
 static void CompileDyndevFunction(Function *function, FunctionCache &cache, const std::string &ccePath,
