@@ -51,7 +51,12 @@ void TileReduceNew(Function &function, const TileShape &tileShape, const std::st
     auto source = std::make_shared<LogicalTensor>(
         function, in->tensor, in->offset, in->shape, in->GetDynValidShape(), in->nodetype);
 
-    auto &vecTile = tileShape.GetVecTile();
+    auto vecTile = tileShape.GetVecTile();
+    int64_t blockNum = BLOCK_SIZE / BytesOf(result->Datatype());
+    int lastDim = remainderShape.size() - 1;
+    if (axis < lastDim && vecTile[axis] < blockNum) {
+        vecTile[axis] = blockNum;
+    }
     int64_t width = (source->shape[axis] + vecTile[axis] - 1) / vecTile[axis] * vecTile[axis]; // 向上对齐
     int padSize = width - source->shape[axis];
     int remainder = 0;
@@ -212,7 +217,6 @@ void ReduceSingle(size_t cur, const std::string &op, Input &input, const Logical
     int lastDim = order.size() - 1;
     if (axis < lastDim && vecTile[axis] < blockNum) {
         vecTile[lastDim] = std::max(blockNum, vecTile[lastDim] / (blockNum / vecTile[axis]) / blockNum * blockNum);
-        vecTile[axis] = blockNum;
     }
     for (int i = 0; i < result->shape[order[cur]]; i += vecTile[order[cur]]) {
         resultTileInfo.offset[order[cur]] = i;

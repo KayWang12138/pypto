@@ -1029,7 +1029,7 @@ TILEOP void DynTrowsumline_(
 // dim2
 template <typename T, unsigned srcRawShape1>
 TILEOP void DynTrowmaxline_(__ubuf__ T *dst, __ubuf__ T *src0, unsigned TShape0, unsigned TShape1) {
-    static_assert(sizeof(T) == 4);
+    static_assert(sizeof(T) == 4 || sizeof(T) == 2);
     uint32_t rptElm = REPEAT_BYTE / sizeof(T);
     uint32_t repeatTime = (TShape1 + rptElm - 1) / rptElm;
     uint32_t remainElm = TShape1 % rptElm;
@@ -1076,7 +1076,7 @@ TILEOP void DynTrowmaxline_(__ubuf__ T *dst, __ubuf__ T *src0, unsigned TShape0,
 template <typename T, unsigned srcRawShape1, unsigned srcRawShape2, unsigned dstRawShape1, unsigned dstRawShape2,
     unsigned axis>
 TILEOP void DynTrowmaxline_(__ubuf__ T *dst, __ubuf__ T *src0, unsigned TShape0, unsigned TShape1, unsigned TShape2) {
-    static_assert(sizeof(T) == 4);
+    static_assert(sizeof(T) == 4 || sizeof(T) == 2);
     if (axis == 0) {
         uint32_t rptElm = REPEAT_BYTE / sizeof(T);
         uint32_t repeatTime = (TShape2 + rptElm - 1) / rptElm;
@@ -1144,7 +1144,7 @@ template <typename T, unsigned srcRawShape1, unsigned srcRawShape2, unsigned src
     unsigned dstRawShape2, unsigned dstRawShape3, unsigned axis>
 TILEOP void DynTrowmaxline_(
     __ubuf__ T *dst, __ubuf__ T *src0, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3) {
-    static_assert(sizeof(T) == 4);
+    static_assert(sizeof(T) == 4 || sizeof(T) == 2);
     if (axis == 0) {
         uint32_t rptElm = REPEAT_BYTE / sizeof(T);
         uint32_t repeatTime = (TShape3 + rptElm - 1) / rptElm;
@@ -1232,7 +1232,7 @@ TILEOP void DynTrowmaxline_(
 // dim2
 template <typename T, unsigned srcRawShape1>
 TILEOP void DynTrowminline_(__ubuf__ T *dst, __ubuf__ T *src0, unsigned TShape0, unsigned TShape1) {
-    static_assert(sizeof(T) == 4);
+    static_assert(sizeof(T) == 4 || sizeof(T) == 2);
     uint32_t rptElm = REPEAT_BYTE / sizeof(T);
     uint32_t repeatTime = (TShape1 + rptElm - 1) / rptElm;
     uint32_t remainElm = TShape1 % rptElm;
@@ -1279,7 +1279,7 @@ TILEOP void DynTrowminline_(__ubuf__ T *dst, __ubuf__ T *src0, unsigned TShape0,
 template <typename T, unsigned srcRawShape1, unsigned srcRawShape2, unsigned dstRawShape1, unsigned dstRawShape2,
     unsigned axis>
 TILEOP void DynTrowminline_(__ubuf__ T *dst, __ubuf__ T *src0, unsigned TShape0, unsigned TShape1, unsigned TShape2) {
-    static_assert(sizeof(T) == 4);
+    static_assert(sizeof(T) == 4 || sizeof(T) == 2);
     if (axis == 0) {
         uint32_t rptElm = REPEAT_BYTE / sizeof(T);
         uint32_t repeatTime = (TShape2 + rptElm - 1) / rptElm;
@@ -1347,7 +1347,7 @@ template <typename T, unsigned srcRawShape1, unsigned srcRawShape2, unsigned src
     unsigned dstRawShape2, unsigned dstRawShape3, unsigned axis>
 TILEOP void DynTrowminline_(
     __ubuf__ T *dst, __ubuf__ T *src0, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3) {
-    static_assert(sizeof(T) == 4);
+    static_assert(sizeof(T) == 4 || sizeof(T) == 2);
     if (axis == 0) {
         uint32_t rptElm = REPEAT_BYTE / sizeof(T);
         uint32_t repeatTime = (TShape3 + rptElm - 1) / rptElm;
