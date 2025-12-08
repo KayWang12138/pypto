@@ -15,6 +15,8 @@
 
 #include "machine/device/dynamic/context/device_execute_context.h"
 
+#include <cinttypes>
+
 namespace npu::tile_fwk::dynamic {
 bool DeviceExecuteContext::DuppedRootCached() {
     if (!controlFlowCacheActivated) {
@@ -330,7 +332,7 @@ schema::RUid DeviceExecuteContext::GetRuid(uint64_t rootKey, bool afterAppend) {
 void DeviceExecuteContext::ControlFlowCacheStopCache(uint64_t rootKey) {
     SubmitToAicoreAndRecycleMemory(false);
     devProg->controlFlowCache.StopRecording();
-    DEV_INFO("stop recording for %d", (int)rootKey);
+    DEV_INFO("[Stitch Finish] Stop recording ctrl flow cache. rootKey=%" PRIu64 ".", rootKey);
 }
 
 void *DeviceExecuteContext::CallRootFunctionAlloc(uint64_t rootKey) {
@@ -339,9 +341,12 @@ void *DeviceExecuteContext::CallRootFunctionAlloc(uint64_t rootKey) {
     if (stitchContext.Size() == stitchTaskLoopNumThreshold ||
         stitchContext.stitchedCallOpSize() + devRoot->GetOperationSize() > devProg->stitchCallopMaxNum) {
         SubmitToAicoreAndRecycleMemory(false);
-        stitchTaskLoopNumThreshold =
+        auto nextThreshold =
             std::min<uint16_t>(stitchTaskLoopNumThreshold + devProg->stitchTaskIncrLoopNum, MAX_CACHED_FUNC_NUM);
-        DEV_INFO("next stitch task loop num threshold is %u.", stitchTaskLoopNumThreshold);
+        DEV_INFO("[Stitch Finish] Stitch Limit Exceeded. #task=%zu+1 (limit=%u), #callop=%u+%zu (limit=%u).",
+            stitchContext.Size(), stitchTaskLoopNumThreshold,
+            stitchContext.stitchedCallOpSize(), devRoot->GetOperationSize(), devProg->stitchCallopMaxNum);
+        stitchTaskLoopNumThreshold = nextThreshold;
     }
     DEV_TRACE_DEBUG(REvent(GetRuid(rootKey), RActDup(devRoot->GetRawName())));
 
@@ -362,8 +367,8 @@ void *DeviceExecuteContext::CallRootFunctionStitch(uint64_t rootKey) {
         }
     }
     if (rootKey == RUNTIME_FUNCKEY_FINISH || rootKey == RUNTIME_FUNCKEY_LOOP_BARRIER) {
-        DEV_INFO("Finish stitch loop %lu.", rootKey);
         SubmitToAicoreAndRecycleMemory(false, rootKey == RUNTIME_FUNCKEY_FINISH ? true : false);
+        DEV_INFO("[Stitch Finish] Finish Signal or Barrier. rootKey=%" PRIu64 ".", rootKey);
         return nullptr;
     }
 
@@ -373,10 +378,12 @@ void *DeviceExecuteContext::CallRootFunctionStitch(uint64_t rootKey) {
         // Failed to allocate, failed to stitch, submit existing stitched window to aicore and recycle memory
         // If nothing stitched, wait for aicore to finish tasks and release enough memory
         SubmitToAicoreAndRecycleMemory(true);
+        DEV_INFO("[Stitch Finish] Memory Limit Exceeded.");
     }
 
     if (AiCoreFree()) {
         SubmitToAicoreAndRecycleMemory(false);
+        DEV_INFO("[Stitch Finish] AICore Free.");
     }
 
     DEV_TRACE_DEBUG(DEvent(taskId, DActStitchStart(GetRuid(rootKey))));

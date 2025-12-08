@@ -125,8 +125,8 @@ public:
     Function *GetFunction() const { return func_.get(); }
     uint64_t GetWorkSpaceSize() const {
         const std::vector<uint8_t> &devProgData = func_->GetDyndevAttribute()->devProgBinary;
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
-        return devProg->GetWorkspaceSize();
+        const auto *devProg = reinterpret_cast<const DevAscendProgram *>(devProgData.data());
+        return devProg->memBudget.Total();
     }
 private:
     std::shared_ptr<Function> func_;

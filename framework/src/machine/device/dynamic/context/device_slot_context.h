@@ -41,13 +41,7 @@ struct DeviceSlotContext {
 public:
     void FillInputOutputSlot(DeviceExecuteSlot *slotList, size_t slotSize, DevAscendProgram *devProg,
                              DevStartArgs *args);
-    static void UpdateSlotsForStitch(int slotIdx, DeviceExecuteSlot &slot, DevAscendFunction *devRootSrc,
-                                     DevAscendFunctionOutcast &outcast, uint32_t devTaskId, uint32_t devNextIdx,
-                                     uint32_t outcastIndex, uint64_t *expressionList);
-    template <WsMemCategory category>
-    static void UpdateSlots(DeviceWorkspaceAllocator *workspace, DeviceExecuteSlot *slotList,
-        const StitchedList &stitchedList, int slotSize, ItemPool<uint32_t, category> &slotRefCntPool,
-        DevAscendFunctionDupped &devRootDup, uint32_t devTaskId, uint32_t devNextIdx);
+
 private:
     Vector<DeviceExecuteSlot, WsMemCategory::VECTOR_SLOT_LIST> slotList_;
     ItemPool<uint32_t, WsMemCategory::ITEMPOOL_SLOT_REF_CNT> slotRefCntPool_;

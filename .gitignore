@@ -1,6 +1,7 @@
 cmake-build-*
 .idea
 .vscode
+.codemate
 tags
 build
 build_debug

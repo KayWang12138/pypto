@@ -38,14 +38,15 @@ public:
         DevAscendProgram *devProg = args->devProg;
 
         // Host coherent allocators MUST be initialized EARLIEST since some other allocators might depend on them
-        InitMetadataAllocators(baseAddr, devProg->memBudget.metadata.ContextTotal(), devProg);
-        baseAddr += devProg->memBudget.metadata.ContextTotal();
-
-        InitTensorAllocators(baseAddr, devProg->memBudget.tensor.Total(), devProg);
-        baseAddr += devProg->memBudget.tensor.Total();
+        InitMetadataAllocators(baseAddr, devProg->memBudget.metadata.Total(), devProg);
+        baseAddr += devProg->memBudget.metadata.Total();
 
         InitAICoreSpilledMemory(baseAddr, devProg);
         baseAddr += devProg->memBudget.aicoreSpilled;
+
+        // dassembleDests contains dynamic workspace, put it to the end
+        InitTensorAllocators(baseAddr, devProg->memBudget.tensor.Total(), devProg);
+        baseAddr += devProg->memBudget.tensor.Total();
 
 #if DEBUG_INFINITE_LIFETIME
         dumpTensorWsAllocator_.InitTensorAllocator(baseAddr, devProg->memBudget.debug.dumpTensor);
@@ -501,9 +502,9 @@ private:
         // Initialize aicpu memory
         uint64_t baseAddr = workspaceAddr;
 
-        metadataAllocators_.general.InitMetadataAllocator(baseAddr, devProg->memBudget.metadata.ContextGeneral());
-        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceMetadataGeneral(Range(baseAddr, baseAddr + devProg->memBudget.metadata.ContextGeneral()))));
-        baseAddr += devProg->memBudget.metadata.ContextGeneral();
+        metadataAllocators_.general.InitMetadataAllocator(baseAddr, devProg->memBudget.metadata.general);
+        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceMetadataGeneral(Range(baseAddr, baseAddr + devProg->memBudget.metadata.general))));
+        baseAddr += devProg->memBudget.metadata.general;
 
         InitAicpuStitchSlabAllocator(reinterpret_cast<void*>(baseAddr), devProg->memBudget.metadata.stitchPool);
         DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceMetadataStitch(Range(baseAddr, baseAddr + devProg->memBudget.metadata.stitchPool))));
@@ -533,13 +534,6 @@ private:
         DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceCrossDeviceTaskOutcast(Range(baseAddr, baseAddr + slottedOutcastsBudget))));
         baseAddr += slottedOutcastsBudget;
 
-        // Initialize dassembleDests tensor memory
-        auto dassembleDestsTensorBudget = devProg->memBudget.tensor.dassembleDests;
-        dassembleDestsTensorVerifier_.Init(baseAddr, dassembleDestsTensorBudget);
-        tensorAllocators_.dassembleDests.InitTensorAllocator(baseAddr, dassembleDestsTensorBudget);
-        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspacePartialOutcast(Range(baseAddr, baseAddr + dassembleDestsTensorBudget))));
-        baseAddr += dassembleDestsTensorBudget;
-
         // Initialize root function non-outcast tensor memory
         auto rootInnerBudget = devProg->memBudget.tensor.rootInner;
         rootInnerWsVerifier_.Init(baseAddr, rootInnerBudget);
@@ -548,11 +542,20 @@ private:
         baseAddr += rootInnerBudget;
 
         // Initialize root function sequential outcast tensor memory
-        uint64_t remaining = workspaceAddr + tensorWorkspaceSize - baseAddr;
-        devTaskInnerOutcastsWsVerifier_.Init(baseAddr, remaining);
-        tensorAllocators_.devTaskInnerOutcasts.InitTensorAllocator(baseAddr, remaining); // Remaining all
-        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceInDeviceTaskOutcast(Range(baseAddr, baseAddr + remaining))));
-        baseAddr += remaining;
+        auto devTaskInnerOutcastBudget = devProg->memBudget.tensor.devTaskInnerOutcasts;
+        devTaskInnerOutcastsWsVerifier_.Init(baseAddr, devTaskInnerOutcastBudget);
+        tensorAllocators_.devTaskInnerOutcasts.InitTensorAllocator(baseAddr, devTaskInnerOutcastBudget);
+        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceInDeviceTaskOutcast(Range(baseAddr, baseAddr + devTaskInnerOutcastBudget))));
+        baseAddr += devTaskInnerOutcastBudget;
+
+        // Initialize dassembleDests tensor memory
+        // dassembleDests contains dynamic workspace, put it to the end
+        auto dassembleDestsTensorBudget = workspaceAddr + tensorWorkspaceSize - baseAddr;
+        DEV_ASSERT(devProg->memBudget.tensor.DAssembleDests() <= dassembleDestsTensorBudget);
+        dassembleDestsTensorVerifier_.Init(baseAddr, dassembleDestsTensorBudget);
+        tensorAllocators_.dassembleDests.InitTensorAllocator(baseAddr, dassembleDestsTensorBudget);
+        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspacePartialOutcast(Range(baseAddr, baseAddr + dassembleDestsTensorBudget))));
+        baseAddr += dassembleDestsTensorBudget;
 
         DEV_ASSERT(workspaceAddr <= baseAddr && baseAddr <= workspaceAddr + tensorWorkspaceSize);
     }
@@ -563,6 +566,8 @@ private:
         if (coreNum == 0) {
             return;
         }
+        // Compile time `aicoreSpilled` per single core is required to be aligned by 512.
+        // This formula will never result into a value smaller than compile time one.
         uint64_t perCoreMem = devProg->memBudget.aicoreSpilled / TENSOR_ADDR_ALIGNMENT / coreNum * TENSOR_ADDR_ALIGNMENT;
 
         // Initialize in-core stack memory

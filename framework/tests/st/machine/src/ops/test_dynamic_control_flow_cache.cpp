@@ -467,7 +467,7 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheChangeWorkspaceAddress) {
     devProg->RelocProgram(0, (intptr_t)devProg);
     devProg->controlFlowCache.TaskAddrRelocProgram(0, (intptr_t)devProg);
 
-    uint64_t workspaceSize = devProg->GetWorkspaceSize();
+    uint64_t workspaceSize = devProg->memBudget.Total();
 
     devProg->controlFlowCache.TaskAddrRelocProgram((intptr_t)devProg, 0);
     devProg->RelocProgram((intptr_t)devProg, 0);

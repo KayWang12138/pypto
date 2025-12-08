@@ -130,9 +130,8 @@ public:
         devProg->devArgs.nrAicpu = config.aicpuNum;
         ALOG_DEBUG_F("Set aicore blockdim:%d aicpu blockdim:%d.", config.blockdim, config.aicpuNum);
         devProg->devArgs.enableCtrl = 1; // need set 0 if use custom cpu launch ctrl cpu
-        devProg->memBudget.tensor.dassembleDests =
-            AlignUp(devProg->memBudget.tensor.dassembleDests + config.dynWorkspaceSize, TENSOR_ADDR_ALIGNMENT);
-        devProg->workspaceSize = devProg->GetWorkspaceSize();
+        devProg->memBudget.tensor.dynDAssembleDests = AlignUp(config.dynWorkspaceSize, TENSOR_ADDR_ALIGNMENT);
+        devProg->workspaceSize = devProg->memBudget.Total();
 
         devProg->l2CacheOffset = devMem.GetL2Offset();
         ASSERT(devProg->commGroupNum == config.hcclContext.size());

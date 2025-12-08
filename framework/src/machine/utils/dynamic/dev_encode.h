@@ -3087,6 +3087,7 @@ struct DevProgramControlFlowCache {
 #define PAGE_SIZE       4096
 #endif
 struct DevAscendProgram {
+    // shadow definition in `aicore_runtime_manager.h`, make sure the first 4 members are the same
     DeviceArgs devArgs;
     uint64_t workspaceSize;
     uint64_t l2CacheOffset;
@@ -3099,15 +3100,20 @@ struct DevAscendProgram {
             uint64_t rootInner;
             // root func outcasts & dassemble-dst, automatically upgraded to DeviceTask boundary outcasts
             uint64_t dassembleDests;
+            uint64_t dynDAssembleDests;
             // root func outcasts & non-dassemble-dst & DeviceTask inner tensors
             uint64_t devTaskInnerOutcasts;
             // root func outcasts & non-dassemble-dst & DeviceTask boundary outcasts: singleSlotMem * pooledSlotNum
             uint64_t singleSlotMem;
             uint64_t pooledSlotNum;
 
+            uint64_t DAssembleDests() const {
+                return dassembleDests + dynDAssembleDests;
+            }
+
             uint64_t Total() const {
                 uint64_t total = rootInner +       // root func inner tensors
-                    dassembleDests +               // root func outcasts & dassemble-dst, automatically upgraded to DeviceTask boundary outcasts
+                    DAssembleDests() +             // root func outcasts & dassemble-dst, automatically upgraded to DeviceTask boundary outcasts
                     devTaskInnerOutcasts +         // root func outcasts & non-dassemble-dst & DeviceTask inner tensors
                     singleSlotMem * pooledSlotNum; // root func outcasts & non-dassemble-dst & DeviceTask boundary outcasts
                 static constexpr uint64_t ALIGNMENT_32K = 32 * 1024;
@@ -3122,16 +3128,14 @@ struct DevAscendProgram {
             uint64_t Total() const {
                 return general + stitchPool;
             }
-            uint64_t ContextTotal() const {
-                return Total();
-            }
-            uint64_t ContextGeneral() const {
-                return general;
-            }
         } metadata;
         struct {
             uint64_t dumpTensor;
         } debug;
+
+        uint64_t Total() const {
+            return metadata.Total() + tensor.Total() + aicoreSpilled + debug.dumpTensor;
+        }
     } memBudget;
     const void *controlFlowBinaryAddr{nullptr};
     uint64_t hcclContext[HCCL_GROUP_NUM];
@@ -3218,7 +3222,7 @@ struct DevAscendProgram {
         std::ostringstream oss;
         oss << "DevProgram {\n";
         oss << INDENTINNER << "#tensorMemBudget:" << memBudget.tensor.Total() << "\n";
-        oss << INDENTINNER << "#metadataMemBudget:" << memBudget.metadata.ContextTotal() << "\n";
+        oss << INDENTINNER << "#metadataMemBudget:" << memBudget.metadata.Total() << "\n";
         oss << INDENTINNER << "#machineSchMode:" << devArgs.machineConfig << "\n";
         oss << INDENTINNER << "#firstStitchTaskLoopNum:" << firstStitchTaskLoopNum << "\n";
         oss << INDENTINNER << "#stitchTaskIncrLoopNum:" << stitchTaskIncrLoopNum << "\n";
@@ -3402,13 +3406,6 @@ struct DevAscendProgram {
     const DevAicpuLeafBinary *GetAicpuLeafBinary(int index) const { return &aicpuLeafCodeList[index]; }
 
     DevProgramControlFlowCache *GetControlFlowCache() { return &controlFlowCache; }
-
-    uint64_t GetWorkspaceSize() const {
-        return memBudget.metadata.Total() +
-               memBudget.tensor.Total() +
-               memBudget.aicoreSpilled +
-               memBudget.debug.dumpTensor;
-    }
 
     template<typename Ty>
     typename Ty::ElementType *RelocOffset(intptr_t shift, void *&offset, Ty &list) {
@@ -3740,7 +3737,7 @@ public:
         }
         oss << INDENTINNER << "#workspaceAddr:" << AddressDescriptor::DumpAddress(contextWorkspaceAddr) << "\n";
         oss << INDENTINNER << "#tensorMemBudget:" << devProg->memBudget.tensor.Total() << "\n";
-        oss << INDENTINNER << "#metadataMemBudget:" << devProg->memBudget.metadata.ContextTotal() << "\n";
+        oss << INDENTINNER << "#metadataMemBudget:" << devProg->memBudget.metadata.Total() << "\n";
         oss << INDENTINNER << "#devProg:" << AddressDescriptor::DumpAddress(reinterpret_cast<uintdevptr_t>(devProg)) << "\n";
         oss << "}";
         return oss.str();

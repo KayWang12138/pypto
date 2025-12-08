@@ -1999,7 +1999,7 @@ static TensorWorkspaceResult CalcTensorWorkspace(DevAscendProgram &devProg) {
 
     TensorWorkspaceResult res;
     res.singleSlotMem = maxSlotMemReq;
-    res.globalTensorMem = globalTensorMem;
+    res.globalTensorMem = AlignUp(globalTensorMem, TENSOR_ADDR_ALIGNMENT);
     res.rootInnerMem = maxInnerWorkspace;
     res.devTaskInnerOutcastsMem = maxOutcastWorkspace;
 
@@ -2008,7 +2008,7 @@ static TensorWorkspaceResult CalcTensorWorkspace(DevAscendProgram &devProg) {
     });
     res.pooledSlotNum = slotsNeedAlloc * SLOTS_NEED_ALLOC_SIZE;
 
-    res.perCoreSpilledMem = maxPerCoreSpilledMem;
+    res.perCoreSpilledMem = AlignUp(maxPerCoreSpilledMem, TENSOR_ADDR_ALIGNMENT);
 
     return res;
 }

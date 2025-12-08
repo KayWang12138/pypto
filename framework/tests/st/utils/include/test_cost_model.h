@@ -161,10 +161,7 @@ private:
         devProg->devArgs.nrAicpu = 6;
         devProg->devArgs.nrValidAic = 24;
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
-        devProg->workspaceSize = devProg->memBudget.metadata.Total() +
-                                 devProg->memBudget.tensor.Total() +
-                                 devProg->memBudget.aicoreSpilled +
-                                 devProg->memBudget.debug.dumpTensor;
+        devProg->workspaceSize = devProg->memBudget.Total();
         std::cout << devProg->workspaceSize << std::endl;
         devProg->l2CacheOffset = machine::GetRA()->GetL2Offset();
         devProg->l2CacheOffset = machine::GetRA()->GetL2Offset();
@@ -247,7 +244,7 @@ private:
 
         kArgs.inputs = buildInouts(inputs);
         kArgs.outputs = buildInouts(outputs);
-        kArgs.workspace = (int64_t *)pv_->AllocWorkspaceDev(devProg->memBudget.tensor.Total() + devProg->memBudget.metadata.Total() + devProg->memBudget.debug.dumpTensor);
+        kArgs.workspace = (int64_t *)pv_->AllocWorkspaceDev(devProg->memBudget.Total());
         kArgs.cfgdata = (int64_t *)pv_->CopyToDev(devProg_.data(), devProg_.size());
         kArgs.machineConfig  = devProg->devArgs.machineConfig;
         kArgs.aicoreModel = model_.get();
