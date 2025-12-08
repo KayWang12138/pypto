@@ -831,9 +831,10 @@ TEST_F(PreGraphTest, TestFixPipeReconnectGraph) {
 
     // Test Reconnect Graph
     CubeProcess cubeProcess;
-    auto lastCopyOut = cubeProcess.GetLastMmCopyOut(aMulB).second;
-    EXPECT_EQ(lastCopyOut, &copyout);
-    cubeProcess.ReconnectGraph(aMulB, &copyout);
+    std::vector<Operation *> l0CCopyOuts{};
+    cubeProcess.GetL0CCopyOuts(aMulB, l0CCopyOuts);
+    EXPECT_EQ(l0CCopyOuts[0], &copyout);
+    cubeProcess.ReconnectGraph(aMulB, l0CCopyOuts);
     auto tensor2Consumer = tensor2->GetConsumers().begin();
     EXPECT_EQ(*tensor2Consumer, &copyout);
     auto scaleValue = (copyout.HasAttr(A_MUL_B_SCALE_ATTR)) ? copyout.GetElementAttribute(A_MUL_B_SCALE_ATTR) : Element(DataType::DT_UINT64, 0);

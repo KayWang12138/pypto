@@ -190,52 +190,108 @@ Status CubeProcess::UpdateL0cDtype(Operation &op) {
     }
 }
 
-std::pair<Operation *, Operation *> CubeProcess::GetLastMmCopyOut(Operation &op) {
-    auto outputL0C = op.GetOOperands().front();
-    auto chainEndCopyOut = *(outputL0C->GetConsumers().begin());
-    // recursively find: MatMul -> L0C -> Copy_Out -> Gm
-    while (chainEndCopyOut->GetOpcode() != Opcode::OP_COPY_OUT) {
-        outputL0C = chainEndCopyOut->GetOOperands().front();
-        chainEndCopyOut = *(outputL0C->GetConsumers().begin());
+void CubeProcess::DFSSearch(Operation *op, std::vector<Operation *> &l0CCopyOuts, std::unordered_set<Operation *> &visitedOp) {
+    if (op == nullptr || visitedOp.count(op)) {
+        return;
     }
-    if (chainEndCopyOut == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has nullptr L0C_Copy_Out; Please check chainEndCopyOut. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
-        return {nullptr, nullptr};
+    visitedOp.insert(op);
+    bool isL0CCopyOut{false};
+    if (op->GetOpcode() == Opcode::OP_COPY_OUT && op->GetIOperands().front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) {
+        isL0CCopyOut = true;
     }
-    if (chainEndCopyOut->GetOOperands().size() != 1) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has more than ONE outputs. %s", chainEndCopyOut->GetOpcodeStr().c_str(), chainEndCopyOut->GetOpMagic(), GetFormatBacktrace(op).c_str());
-        return {nullptr, nullptr};
+    if (isL0CCopyOut || op->GetOpcode() == Opcode::OP_L0C_TO_L1) {
+        l0CCopyOuts.emplace_back(op);
     }
-    auto finalOutput = chainEndCopyOut->GetOOperands().front();
-    if (finalOutput->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has invlid output memType: %s, expect: MEM_DEVICE_DDR. %s",
-            chainEndCopyOut->GetOpcodeStr().c_str(), chainEndCopyOut->GetOpMagic(),
-            MemoryTypeToString(finalOutput->GetMemoryTypeOriginal()).c_str(), GetFormatBacktrace(op).c_str());
-        return {nullptr, nullptr};
+    for (auto consumerOp : op->ConsumerOps()) {
+        DFSSearch(consumerOp, l0CCopyOuts, visitedOp);
     }
-    // Copy_Out 的上游Op即为最后一个Matmul
-    auto lastMm = *chainEndCopyOut->ProducerOps().begin();
-    return {lastMm, chainEndCopyOut};
 }
 
-Status CubeProcess::ReconnectGraph(Operation &mulOp, Operation *copyOutOp) {
-    for (auto &input : mulOp.GetIOperands()) {
-        if (input->GetMemoryTypeOriginal() == MemoryType::MEM_FIX_QUANT_PRE) {
-            mulOp.EraseInput(input);
-            copyOutOp->iOperand.emplace_back(input);
-            input->RemoveConsumer(mulOp);
-            input->AddConsumer(copyOutOp);
+Status CubeProcess::GetL0CCopyOuts(Operation &op, std::vector<Operation *> &l0CCopyOuts) {
+    std::unordered_set<Operation *> visitedOp;
+    DFSSearch(&op, l0CCopyOuts, visitedOp);
+    if (l0CCopyOuts.size() == 0) {
+        APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has nullptr L0C_COPY_OUT or L0C_TO_L1, please check chainEndCopyOut. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+        return FAILED;
+    }
+    for (auto chainEndCopyOut : l0CCopyOuts) {
+        if (chainEndCopyOut->GetOOperands().size() != 1) {
+            APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has more than ONE outputs. %s", chainEndCopyOut->GetOpcodeStr().c_str(), chainEndCopyOut->GetOpMagic(), GetFormatBacktrace(op).c_str());
+            return FAILED;
         }
-        TransferAttr(mulOp, copyOutOp);
+        auto finalOutput = chainEndCopyOut->GetOOperands().front();
+        if (finalOutput->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR && finalOutput->GetMemoryTypeOriginal() != MemoryType::MEM_L1) {
+            APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has invlid output memType: %s. %s",
+                chainEndCopyOut->GetOpcodeStr().c_str(), chainEndCopyOut->GetOpMagic(),
+                MemoryTypeToString(finalOutput->GetMemoryTypeOriginal()).c_str(), GetFormatBacktrace(op).c_str());
+            return FAILED;
+        }
     }
     return SUCCESS;
 }
 
-Status CubeProcess::TransferAttr(Operation &mulOp, Operation *copyOutOp) {
+Status CubeProcess::ReconnectGraph(Operation &mulOp, std::vector<Operation *> copyOutOps) {
+    for (auto &input : mulOp.GetIOperands()) {
+        if (input->GetMemoryTypeOriginal() == MemoryType::MEM_FIX_QUANT_PRE) {
+            mulOp.EraseInput(input);
+            input->RemoveConsumer(mulOp);
+            for (auto copyOutOp : copyOutOps) {
+                copyOutOp->iOperand.emplace_back(input);
+                input->AddConsumer(copyOutOp);
+            }
+        }
+        TransferAttr(mulOp, copyOutOps);
+    }
+    return SUCCESS;
+}
+
+Status CubeProcess::TransferAttr(Operation &mulOp, std::vector<Operation *> copyOutOps) {
     auto scaleValue = (mulOp.HasAttr(A_MUL_B_SCALE_ATTR)) ? mulOp.GetElementAttribute(A_MUL_B_SCALE_ATTR) : Element(DataType::DT_UINT64, 0);
     auto reluType = (mulOp.HasAttr(A_MUL_B_RELU_ATTR)) ? mulOp.GetIntAttribute(A_MUL_B_RELU_ATTR) : 0;
-    copyOutOp->SetAttribute(A_MUL_B_SCALE_ATTR, scaleValue);
-    copyOutOp->SetAttribute(A_MUL_B_RELU_ATTR, reluType);
+    for (auto copyOutOp : copyOutOps) {
+        copyOutOp->SetAttribute(A_MUL_B_SCALE_ATTR, scaleValue);
+        copyOutOp->SetAttribute(A_MUL_B_RELU_ATTR, reluType);
+    }
+    return SUCCESS;
+}
+
+Status CubeProcess::AlignGMTensor(Function &function, std::vector<Operation *> &l0CCopyOuts, Operation &mulOp) {
+    Operation *chainEndCopyOut{nullptr};
+    for (auto &copyOut : l0CCopyOuts) {
+        if (copyOut->GetOpcode() == Opcode::OP_COPY_OUT) {
+            if (function.IsFromOutCast(copyOut->GetOOperands().front())) {
+                chainEndCopyOut = copyOut;
+                break;
+            } else {
+                chainEndCopyOut = copyOut;
+            }
+        }
+    }
+    if (chainEndCopyOut == nullptr) {
+        APASS_LOG_ERROR_F(Elements::Operation, "Cannot find chainEndCopyOut, AlignGMTensor failed.");
+        return FAILED;
+    }
+    for (auto &input : mulOp.GetIOperands()) {
+        if (input->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+            continue;
+        }
+        if (function.IsFromInCast(input)) {
+            APASS_LOG_WARN_F(Elements::Operation, "PreGraphProcess:CubeProcess::UpdateCubeOp::AlignGMTensor: OP_A_MUL_B iOperand tensor[%d] is incast.", input->GetMagic());
+            continue;
+        }
+        auto finalOutput = chainEndCopyOut->GetOOperands().front();
+        input->tensor = finalOutput->tensor;
+        for (auto &copyOut : l0CCopyOuts) {
+            if (copyOut->GetOpcode() == Opcode::OP_COPY_OUT) {
+                copyOut->GetOOperands().front()->tensor = finalOutput->tensor;
+            }
+        }
+        /*
+        强制要求当前Matmul链路输出的Gm仅存在一个清零的Op，暂时通过指定清零和ReduceAcc使用的vec tilesize与tileM x tileN相同
+        后续通过前端提供使能切K的API保证
+        */
+        AlignCopyOutAttr(input, chainEndCopyOut);
+    }
     return SUCCESS;
 }
 
@@ -248,30 +304,18 @@ Status CubeProcess::UpdateCubeOp(Function &function) {
             APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] is invalid. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
-        auto lastMmCopyOut = GetLastMmCopyOut(op);
-        auto lastMm = lastMmCopyOut.first;
-        auto chainEndCopyOut = lastMmCopyOut.second;
-        if (lastMm == nullptr || chainEndCopyOut == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Get the last MatMul and L0C_Copy_Out for %s[%d] failed. %s", 
+        // l0CCopyOuts包含L0C_COPY_OUT和L0C_TO_L1
+        std::vector<Operation *> l0CCopyOuts{};
+        if (GetL0CCopyOuts(op, l0CCopyOuts) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Get CopyOuts for %s[%d] failed. %s", 
                 op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
-        for (auto &input : op.GetIOperands()) {
-            if (input->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
-                continue;
-            }
-            // Align copy out GM with the reset GM
-            if (function.IsFromInCast(input)) {
-                APASS_LOG_WARN_F(Elements::Operation, "PreGraphProcess:CubeProcess::UpdateCubeOp: OP_A_MUL_B iOperand tensor[%d] is incast.", input->GetMagic());
-                continue;
-            }
-            auto finalOutput = chainEndCopyOut->GetOOperands().front();
-            input->tensor = finalOutput->tensor;
-            /*
-            强制要求当前Matmul链路输出的Gm仅存在一个清零的Op，暂时通过指定清零和ReduceAcc使用的vec tilesize与tileM x tileN相同
-            后续通过前端提供使能切K的API保证
-            */
-            AlignCopyOutAttr(input, chainEndCopyOut);
+
+        // Align copy out GM with the reset GM
+        if (AlignGMTensor(function, l0CCopyOuts, op) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Tensor, "UpdateCubeOp failed at AlignGMTensor.");
+            return FAILED;
         }
 
         if (UpdateL0cDtype(op) != SUCCESS) {
@@ -285,7 +329,7 @@ Status CubeProcess::UpdateCubeOp(Function &function) {
 
         if (op.GetOpcode() == Opcode::OP_A_MUL_B) {
             // FixPipe支持随路量化图重连 & MUL -> L0C_COPY_OUT属性传递
-            ReconnectGraph(op, chainEndCopyOut);
+            ReconnectGraph(op, l0CCopyOuts);
         }
     }
     return SUCCESS;
