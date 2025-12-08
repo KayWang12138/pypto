@@ -36,12 +36,19 @@ std::pair<int32_t, int32_t> GetRankSizeAndTileCount()
 
     auto tileRow = tileShape.GetDistTileRow();
     auto tileCol = tileShape.GetDistTileCol();
-    ASSERT(tileRow[0] > 0 && tileCol[0] > 0) << "Invalid Tiling rules";
     int32_t rowCount = tileRow[1] + (tileRow[2] != 0 ? 1 : 0);
     int32_t colCount = tileCol[1] + (tileCol[2] != 0 ? 1 : 0);
     int32_t tileCount = rowCount * colCount;
 
     return {rankSize, tileCount};
+}
+
+void ValidateTilingSize(std::array<int32_t, MAX_DIST_DIM_SIZE> tilingStrategy, int32_t totalExpected, std::string desc)
+{
+    ASSERT(tilingStrategy[0] * tilingStrategy[1] + tilingStrategy[2] == totalExpected) << "Invalid tiling strategy of "
+        << "the " << desc << " axis: expect tilingStrategy[0] * tilingStrategy[1] + tilingStrategy[2] == "
+        << totalExpected << ", but got tilingStrategy[0]=" << tilingStrategy[0] << ", tilingStrategy[1]="
+        << tilingStrategy[1] << ", tilingStrategy[2]=" << tilingStrategy[2];
 }
 
 void ValidateParams(const Tensor &in, const Tensor &out, Shape shmemDataShape, Shape shmemSignalShape, DataType shmemDataType,
@@ -248,6 +255,11 @@ void ShmemAllGather(const Tensor &in, const Tensor &barrierDummy, const char *gr
     Shape outShape = {row * rankSize, col};
     ASSERT(out.GetShape() == outShape) << "This shape of out is invalid";
     ASSERT(in.GetDataType() == out.GetDataType()) << "output tensor type done not match input tensor dtype";
+
+    const TileShape& tileShape = TileShape::Current();
+    ValidateTilingSize(tileShape.GetDistTileRow(), row, "row");
+    ValidateTilingSize(tileShape.GetDistTileCol(), col, "col");
+
     SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
 
     Tensor shmemData;
@@ -287,6 +299,10 @@ void ShmemReduceScatter(const Tensor& in, const char* group, DistReduceType redu
     Shape outShape = {rowOut, col};
     ASSERT(out.GetShape() == outShape) << "This shape of out is invalid";
     ASSERT(in.GetDataType() == out.GetDataType()) << "output tensor type done not match input tensor dtype";
+
+    const TileShape& tileShape = TileShape::Current();
+    ValidateTilingSize(tileShape.GetDistTileRow(), rowOut, "row");
+    ValidateTilingSize(tileShape.GetDistTileCol(), col, "col");
 
     SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
 
@@ -338,6 +354,9 @@ void OneShotShmemAllReduce(const Tensor& in, const char* group, Tensor& out) {
         shmemDataType = DT_FP32;
     }
     ValidateParams(in, out, shmemDataShape, shmemSignalShape, shmemDataType, rankSize, true, {DT_INT32, DT_FP32, DT_FP16, DT_BF16});
+    const TileShape& tileShape = TileShape::Current();
+    ValidateTilingSize(tileShape.GetDistTileRow(), rowPerRank, "row");
+    ValidateTilingSize(tileShape.GetDistTileCol(), col, "col");
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
         shmemData = CreateShmemTensor(rankSize, hcclGroupIndex, shmemDataType, shmemDataShape);
@@ -373,6 +392,9 @@ void TwoShotShmemAllReduce(const Tensor& in, const char* group, Tensor& out) {
     }
     ASSERT(row % rankSize == 0) << "Two_Shot_AllReduce mode constraint violated: row must be divisible by rankSize";
     ValidateParams(in, out, shmemDataShape, shmemSignalShape, shmemDataType, rankSize, true, {DT_INT32, DT_FP32, DT_FP16, DT_BF16});
+    const TileShape& tileShape = TileShape::Current();
+    ValidateTilingSize(tileShape.GetDistTileRow(), rowPerRank, "row");
+    ValidateTilingSize(tileShape.GetDistTileCol(), col, "col");
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
         shmemData = CreateShmemTensor(rankSize, hcclGroupIndex, shmemDataType, shmemDataShape);
@@ -470,13 +492,14 @@ void ShmemMoeCombine(const Tensor& in, const Tensor& combineInfo, const Tensor& 
     LOOP("MoeCombine", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
 
-        TileShape::Current().SetDistTile({inRow / AIV_NUM, AIV_NUM, 0}, {hiddenSize, 1, 0}, {0, 0, 0});
+        TileShape::Current().SetDistTile({inRow / AIV_NUM, AIV_NUM, inRow % AIV_NUM}, {hiddenSize, 1, 0}, {0, 0, 0});
         auto sendDummy = MoeCombineSend(in, combineInfo, shmemData, shmemSignal, topK);
 
         auto shmemDataThisRank = View(shmemData, {1, 1, shmemDataRow, hiddenSize},
             std::vector<SymbolicScalar>{thisRank, 0, 0, 0});
         auto shmemSignalThisRank = View(shmemSignal, {1, shmemSignalCol}, std::vector<SymbolicScalar>{thisRank, 0});
-        TileShape::Current().SetDistTile({batchSize / AIV_NUM, AIV_NUM, 0}, {hiddenSize, 1, 0}, {0, 0, 0});
+        TileShape::Current().SetDistTile(
+            {batchSize / AIV_NUM, AIV_NUM, batchSize % AIV_NUM}, {hiddenSize, 1, 0}, {0, 0, 0});
         out = MoeCombineReceive(sendDummy, scale, shmemDataThisRank, shmemSignalThisRank);
     }
 }
