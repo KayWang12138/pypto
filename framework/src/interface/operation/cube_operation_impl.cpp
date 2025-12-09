@@ -597,7 +597,7 @@ void CheckCubeTiling(const Tensor &operand1, const Tensor &operand2)
         << "Current length of kL0: " << (kL0 * BytesOf(operand1.GetDataType()))
         << " bytes, the length must be aligned to 32 bytes" << std::endl;
     ASSERT(nL0 * BytesOf(operand2.GetDataType()) % ALIGN_SIZE_32 == 0)
-        << "Current length of nL0: " << (kL0 * BytesOf(operand1.GetDataType()))
+        << "Current length of nL0: " << (nL0 * BytesOf(operand1.GetDataType()))
         << " bytes, the length must be aligned to 32 bytes" << std::endl;
     if (operand1.Format() == TileOpFormat::TILEOP_ND) {
         if constexpr (isTransA) {  // For ND A transpose, mL0 must be 32B aligned
@@ -1191,6 +1191,11 @@ Tensor ABatchMulB4D(DataType dataType, const Tensor &operand1, const Tensor &ope
 template <bool isTransA, bool isTransB, bool isCMatrixNZ>
 Tensor BatchMatmul(DataType dataType, const Tensor &aMatrix, const Tensor &bMatrix)
 {
+    auto vecTile = TileShape::Current().GetVecTile();
+    if (vecTile.size() < SHAPE_DIM2) {
+        const int32_t vecTileShape = 128;
+        TileShape::Current().SetVecTile({vecTileShape, vecTileShape});
+    }
     DECLARE_TRACER();
     ASSERT(aMatrix.GetShape().size() == bMatrix.GetShape().size());
     Tensor res;
