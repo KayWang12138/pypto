@@ -501,13 +501,13 @@ def clip(
 
     Examples
     --------
-    a = pto.tensor([3], pto.DT_INT32)
-    b = pto.tensor([3], pto.DT_INT32)
-    out = pto.minimum(a, b)
+    x = pto.tensor([3, 2], pto.DT_INT32)
+    min_ = 1
+    max_ = 3
+    out = pto.clip(x, min_, max_)
 
-    Input a:    [0 2 4]
-    Input b:    [3 1 3]
-    Output out: [0 1 3]
+    Input x:    [[0 2 4], [3, 4, 6]]
+    Output out: [[1 2 3], [3, 3, 3]]
     """
     if min_ is None and max_ is None:
         return input

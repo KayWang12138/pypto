@@ -501,8 +501,8 @@ void OneHotOperationTileFunc(Function &function, const TileShape &tileShape,
 Tensor Clip(const Tensor &self, const Element &min, const Element &max) {
     ASSERT(self.GetShape().size() >= SHAPE_DIM2 && self.GetShape().size() <= SHAPE_DIM4);
     std::vector<DataType> CLIP_SUPPORT_DATATYPES = {
-        DataType::DT_FP32, DataType::DT_FP16, DataType::DT_INT32, DataType::DT_INT16};
-    ASSERT(std::find(CLIP_SUPPORT_DATATYPES.begin(), CLIP_SUPPORT_DATATYPES.end(), self.GetDataType()) !=
+        DataType::DT_FP32, DataType::DT_FP16, DataType::DT_INT32, DataType::DT_INT16, DataType::DT_BF16};
+    ASSERT(std::find(CLIP_SUPPORT_DATATYPES.begin(), CLIP_SUPPORT_DATATYPES.end(), self.GetDataType()) != 
         CLIP_SUPPORT_DATATYPES.end());
 
     Element min_ = min, max_ = max;
