@@ -19,7 +19,7 @@
    确保本地 Python3 版本 >= 3.9, 并已正确安装 python3-dev (或 python3-devel) 包. 以conda为例，安装方式如下:
    ```shell
    # conda 创建 Python 3.9 环境 环境名：py39
-   conda create -b py39 python3.9 -y # 可通过修改python3.9 => python=3.9.5 指定版本号
+   conda create -n py39 python=3.9 -y # 可通过修改python=3.9 => python=3.9.5 指定具体版本号
    
    # 激活/切换至Python 3.9 环境
    conda activate py39
