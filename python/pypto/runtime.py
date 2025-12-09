@@ -14,6 +14,7 @@ from typing import List, overload
 
 import pypto
 import torch
+import os
 
 from . import pypto_impl
 from .converter import _dtype_from, from_torch
@@ -123,6 +124,42 @@ class JIT:
             current_stream(),
             workspace_tensor.data_ptr())
 
+    def run_with_npu(self, inputs, outputs, device):
+        if device.type == 'cpu':
+            self.run_with_cpu(inputs, outputs)
+        elif device.type == 'npu':
+            in_tensor_data = _pto_to_tensor_data(inputs)
+            out_tensor_data = _pto_to_tensor_data(outputs)
+            ori_device = current_device()
+            if device and device.index != ori_device:
+                set_device(device.index)
+                self.run(in_tensor_data, out_tensor_data, device.index)
+                set_device(ori_device)
+            else:
+                self.run(in_tensor_data, out_tensor_data, ori_device)
+
+    def run_with_cpu(self, in_tensor_data, out_tensor_data):
+        # call cost_model interface
+        from .cost_model import _cost_model_run_once_data_from_host
+        _cost_model_run_once_data_from_host(in_tensor_data, out_tensor_data)
+        return
+
+    def dispatch_with_run_mode(self, in_tensor_data, out_tensor_data, device):
+        cann_is_configed: bool = bool(os.environ.get("ASCEND_HOME_PATH"))
+        print(pypto.get_runtime_options(), flush=True)
+        run_mode = pypto.get_runtime_options().get('run_mode', None)
+        if run_mode == '':
+            if cann_is_configed:
+                self.run_with_npu(in_tensor_data, out_tensor_data, device)
+            else:
+                self.run_with_cpu(in_tensor_data, out_tensor_data)
+        elif run_mode == 'npu':
+            if cann_is_configed == False:
+                raise RuntimeError("please source cann env, when run with {run_mode}")
+            self.run_with_npu(in_tensor_data, out_tensor_data, device)
+        else:
+            self.run_with_cpu(in_tensor_data, out_tensor_data)
+
     def __call__(self, *args, **kwargs):
         if len(args) < 2:
             raise ValueError("inputs or outputs missing")
@@ -149,13 +186,17 @@ class JIT:
             self._cached_shapes = real_shapes
             pypto_impl.BuildCache(self._handler, in_tensor_data, out_tensor_data)
 
-        ori_device = current_device()
-        if device and device.index != ori_device:
-            set_device(device.index)
-            self.run(in_tensor_data, out_tensor_data, device.index)
-            set_device(ori_device)
-        else:
-            self.run(in_tensor_data, out_tensor_data, ori_device)
+        # dispatch run mode based on ASCEND_HOME_PATH or run_mode
+        '''
+          if run_mode is not config, use ASCEND_HOME_PATH
+          when ASCEND_HONE_PATH is config, run on with npu
+          when ASCEND_HONE_PATH is not config, run on with simulator
+
+          if run_mode is configed, use run_mode
+          if run_mode is npu , check env, than run with differnet tensor type (support cpu or npu)
+          if run_mode is simulator, dont check env, change all tensor to cpu, and run
+        '''
+        self.dispatch_with_run_mode(inputs, outputs, device)
 
     @property
     def handler(self):

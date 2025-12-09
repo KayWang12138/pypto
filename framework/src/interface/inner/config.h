@@ -55,6 +55,8 @@ constexpr const char *STITCH_CALLOP_MAX_NUM = "stitch_callop_max_num";
 constexpr const char *CFGCACHE_DEVICE_TASK_NUM = "cfgcache_device_task_num";
 constexpr const char *CFGCACHE_ROOT_TASK_NUM = "cfgcache_root_task_num";
 constexpr const char *CFGCACHE_LEAF_TASK_NUM = "cfgcache_leaf_task_num";
+constexpr const char *CFG_RUN_MODE = "run_mode";
+constexpr const char *CFG_RUN_MODE_SIM = "simulator";
 
 /* Rundata KEYS */
 constexpr const char *KEY_RUNTYPE = "runtype";

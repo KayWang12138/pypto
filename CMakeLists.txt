@@ -11,7 +11,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(PTO_Framework
-        LANGUAGES C CXX
+LANGUAGES C CXX
         VERSION 1.0.0
 )
 
@@ -94,7 +94,7 @@ add_subdirectory(python)
 if (ENABLE_FEATURE_PYTHON_FRONT_END)
     # 安装 二进制文件
     set(InstallExport ${PROJECT_NAME}Targets)
-    set(InstallTargets tile_fwk_interface tile_fwk_codegen tile_fwk_compiler tile_fwk_runtime tile_fwk_simulation tile_fwk_simulation_ca)
+    set(InstallTargets tile_fwk_interface tile_fwk_codegen tile_fwk_compiler tile_fwk_runtime tile_fwk_runtime_stub tile_fwk_simulation tile_fwk_simulation_ca)
     if (BUILD_WITH_CANN)
         install(TARGETS tile_fwk_server LIBRARY DESTINATION "${ENABLE_FEATURE_PYTHON_FRONT_END}/lib")
         install(TARGETS pypto_ctrl_server ARCHIVE DESTINATION "${ENABLE_FEATURE_PYTHON_FRONT_END}/lib")

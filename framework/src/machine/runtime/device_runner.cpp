@@ -207,7 +207,7 @@ int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
     uint32_t aivCount = aicCount * AIV_PER_AICORE;
     args.nrAic = aicCount;
     args.nrAiv = aivCount;
-    blockDim_ = dynamic::GetCfgBlockdim(false);
+    blockDim_ = dynamic::GetCfgBlockdim();
     args.nrValidAic = blockDim_;
     args.nrAicpu = aicpuNum_;
     int nrCore = regs.size();

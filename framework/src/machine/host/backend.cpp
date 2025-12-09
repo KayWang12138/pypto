@@ -55,7 +55,13 @@ extern "C" bool MatchCache(const std::string &cacheKey) {
 
 static void InitSocVersion()
 {
-    #ifdef BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
+    if (std::getenv("ASCEND_HOME_PATH") == nullptr) {
+        config::SetRuntimeOption(CFG_RUN_MODE, CFG_RUN_MODE_SIM);
+    }
+    if (config::GetRuntimeOption<std::string>(CFG_RUN_MODE) == CFG_RUN_MODE_SIM) {
+        return;
+    }
     static constexpr uint32_t kMaxVersionLengh = 50;
     char version[kMaxVersionLengh] = {0};
     auto rtGetSocVersionFunc = (int (*)(char* version, const uint32_t maxlen))dlsym(nullptr, "rtGetSocVersion");
@@ -65,7 +71,7 @@ static void InitSocVersion()
         socVersion = std::string(version);
     }
     (void)PlatformManager::Instance().Initialize(socVersion);
-    #endif
+#endif
 }
 
 extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
@@ -677,11 +683,13 @@ static void CompileControlFlow(const std::string &aicpuDirPath,
         ALOG_DEBUG_F("Dump controlFlow and express files failed\n");
         return;
     }
-    #ifdef BUILD_WITH_CANN
-    if (std::getenv("ASCEND_HOME_PATH") != nullptr) {
-       ASSERT(TileFwkAiCpuCompile(funcName, aicpuDirPath)) << ": PyPto Control Flow compile failed"; 
+#ifdef BUILD_WITH_CANN
+    if (config::GetRuntimeOption<std::string>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
+        if (std::getenv("ASCEND_HOME_PATH") != nullptr) {
+            ASSERT(TileFwkAiCpuCompile(funcName, aicpuDirPath)) << ": PyPto Control Flow compile failed"; 
+        }
     }
-    #endif
+#endif
 }
 
 static void CompileDyndevFunction(Function *function, FunctionCache &cache, const std::string &ccePath,
@@ -740,8 +748,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, cons
 
     std::string funcHash = function->GetFunctionHash().Data();
     std::string controlFlowHostFilePath = aicpuDirPath + "/controlFlow_host_" + funcHash + ".cpp";
-    attr->hostControlFlowBinary = CompileAndLoadSection(
-        controlFlowSource, controlFlowHostFilePath,
+    attr->hostControlFlowBinary = CompileAndLoadSection(controlFlowSource, controlFlowHostFilePath,
         "g++", "objcopy", "ast2", IsNeedDumpAicpuKernel(controlFlowHostFilePath), cflags);
     AlignUpTo(attr->hostControlFlowBinary, 0x8, 0);
     std::string funcName = function->GetMagicName() + function->GetFunctionHash().Data();
@@ -789,15 +796,18 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, cons
     encodeDevAscendFunctionParam.inoutLink = &attr->inoutLink;
 
 #ifdef BUILD_WITH_CANN
-    int ret = CompileAICoreKernel(leafDict, encodeDevAscendFunctionParam,
-                                  ccePath, function->GetFunctionHash().Data(), kernelPath);
-    if (ret != 0) {
-      ALOG_ERROR_F("Compile dynamic aicore.o failed.");
-      return;
+    if (config::GetRuntimeOption<std::string>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
+        int ret = CompileAICoreKernel(leafDict, encodeDevAscendFunctionParam,
+                                    ccePath, function->GetFunctionHash().Data(), kernelPath);
+        if (ret != 0) {
+            ALOG_ERROR_F("Compile dynamic aicore.o failed.");
+            return;
+        }
     }
 #endif
+
     attr->kernelBinary = LoadFile(kernelPath);
-    ALOG_DEBUG_F("KernelBinary size %zu.", attr->kernelBinary.size());
+    ALOG_DEBUG_F("KernelBinary size[%zu].", attr->kernelBinary.size());
 
     attr->devEncodeList.resize(attr->funcGroup.devRootList.size());
     for (auto &devRoot : attr->funcGroup.devRootList) {

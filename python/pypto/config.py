@@ -12,7 +12,7 @@
 """
 import inspect
 from typing import List, Union, Dict, Optional
-
+from enum import IntEnum
 from . import pypto_impl
 
 
@@ -217,7 +217,8 @@ def set_runtime_options(*,
                         cfgcache_device_task_num: Optional[int] = None,
                         cfgcache_root_task_num: Optional[int] = None,
                         cfgcache_leaf_task_num: Optional[int] = None,
-                        stitch_callop_max_num: int = None
+                        stitch_callop_max_num: int = None,
+                        run_mode: Optional[str] = None
                         ) -> None:
     """
     Set runtime options.

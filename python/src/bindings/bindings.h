@@ -26,5 +26,6 @@ void BindSymbolicScalar(py::module &m);
 void bind_controller(py::module &m);
 void bind_operation(py::module &m);
 void BindRuntime(py::module &m);
+void BindCostModelRuntime(py::module &m);
 void bind_pass(py::module &m);
 } // namespace pypto

@@ -21,7 +21,7 @@ namespace npu::tile_fwk::dynamic {
 namespace {
     constexpr uint32_t kMinDefaultDim = 20;
 }
-int GetCfgBlockdim(bool onBoard) {
+int GetCfgBlockdim() {
 #ifdef BUILD_WITH_CANN
     static constexpr uint32_t kMaxVersionLengh = 50;
     char version[kMaxVersionLengh] = {0};
@@ -29,8 +29,6 @@ int GetCfgBlockdim(bool onBoard) {
     std::string socVersion("Ascend910B1");
     if (ret == 0) {
         socVersion = std::string(version);
-    } else if (onBoard) {
-        ASSERT(false)  << "Get soc version failed!";
     } else {
         return kMinDefaultDim;
     }
@@ -179,6 +177,8 @@ int DeviceLauncher::DeviceRunOnce(Function *function, const DeviceLauncherConfig
     }
     return rc;
 #else
+    (void)function;
+    (void)config;
     return 0;
 #endif
 }
@@ -242,6 +242,13 @@ int ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(
     rtStream_t aicoreStreamValue = reinterpret_cast<rtStream_t>(aicoreStream);
     return DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(op->GetFunction(), inputList, outputList, aicpuStreamValue, aicoreStreamValue, streamSynchronize, op, config);
 #else
+    (void)op;
+    (void)inputList;
+    (void)outputList;
+    (void)aicpuStream;
+    (void)aicoreStream;
+    (void)streamSynchronize;
+    (void)config;
     return 0;
 #endif
 }
@@ -252,6 +259,8 @@ int DeviceSynchronize(DeviceStream aicpuStream, DeviceStream aicoreStream) {
     rtStream_t aicoreStreamValue = reinterpret_cast<rtStream_t>(aicoreStream);
     return DeviceLauncher::DeviceSynchronize(aicpuStreamValue, aicoreStreamValue);
 #else
+    (void)aicpuStream;
+    (void)aicoreStream;
     return 0;
 #endif
 }

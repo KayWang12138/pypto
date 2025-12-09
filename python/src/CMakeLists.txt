@@ -18,11 +18,14 @@ pybind11_add_module(pypto_impl
             bindings/controller.cpp
             bindings/operation.cpp
             bindings/runtime.cpp
+            bindings/cost_model.cpp
             bindings/pass_config.cpp
 )
 target_include_directories(pypto_impl
         PRIVATE
             .
+            $<BUILD_INTERFACE:$<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/runtime>>
+            $<BUILD_INTERFACE:$<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/runtime/runtime>>
 )
 target_compile_definitions(pypto_impl
         PRIVATE
@@ -34,7 +37,6 @@ target_link_libraries(pypto_impl
             tile_fwk_interface
             tile_fwk_codegen
             tile_fwk_compiler
-            tile_fwk_runtime
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub

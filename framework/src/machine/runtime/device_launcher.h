@@ -33,7 +33,7 @@
 
 namespace npu::tile_fwk::dynamic {
 
-int GetCfgBlockdim(bool onBoard);
+int GetCfgBlockdim();
 
 class DeviceLauncherContext {
 public:
@@ -96,7 +96,7 @@ public:
     static void DeviceInitTilingData(DeviceMemoryTy devMem, AstKernelArgs &kArgs, const std::vector<uint8_t> &devProgData,
         const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
 #ifdef BUILD_WITH_CANN
-        int maxBlockDim = GetCfgBlockdim(config.onBoard);
+        int maxBlockDim = GetCfgBlockdim();
 #else
         int maxBlockDim = 25;
 #endif
@@ -243,22 +243,39 @@ using aclmdlRICaptureMode = uint32_t;
 using rtStream_t = uint64_t;
 using aclmdlRI = void *;
     static void ChangeCaptureMode(aclmdlRICaptureMode &mode) {
+        (void)mode;
         return;
     }
     static int GetStreamCaptureInfo(rtStream_t aicoreStream, aclmdlRI &rtModel, bool &isCapture) {
+        (void)aicoreStream;
+        (void)rtModel;
+        (void)isCapture;
         return 0;
     }
     static int SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuStream) {
+        (void)aicoreStream;
+        (void)aicpuStream;
         return 0;
     }
     static int DeviceLaunchOnceWithDeviceTensorData(
             Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
             rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator, uintptr_t workspacePtr,
             const DeviceLauncherConfig &config = DeviceLauncherConfig()) {
+        (void)function;
+        (void)inputList;
+        (void)outputList;
+        (void)aicpuStream;
+        (void)aicoreStream;
+        (void)streamSynchronize;
+        (void)cachedOperator;
+        (void)workspacePtr;
+        (void)config;
         return 0;
     }
 
     static int DeviceSynchronize(rtStream_t aicpuStream, rtStream_t aicoreStream) {
+        (void)aicoreStream;
+        (void)aicpuStream;
         return 0;
     }
 #endif
@@ -269,7 +286,5 @@ using aclmdlRI = void *;
     static void DeviceRunCacheKernelSet(Function *func, uint8_t *devProg);
     static uint8_t *DeviceRunCacheKernelGet(Function *func);
 };
-
 }
-
 #endif//SRC_MACHINE_DEVICE_LAUNCHER_H

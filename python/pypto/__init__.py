@@ -46,7 +46,8 @@ def load_shared_libs():
         ["libtile_fwk_interface.so", True, ],
         ["libtile_fwk_codegen.so", True, ],
         ["libtile_fwk_compiler.so", True, ],
-        ["libtile_fwk_runtime.so", True, ],
+        ["libtile_fwk_runtime.so", use_cann, ],
+        ["libtile_fwk_runtime_stub.so", not use_cann, ],
         ["libtile_fwk_simulation.so", True, ],
         ["libtile_fwk_simulation_ca.so", True, ],
     ]
@@ -67,6 +68,7 @@ from .op import *  # noqa
 from .operation import *  # noqa
 from .operator import *  # noqa
 from .pass_config import *  # noqa
+from .cost_model import *  # noqa
 from .pypto_utils import ceil, bytes_of
 from .runtime import jit, verify, set_verify_data
 from .symbolic_scalar import SymbolicScalar

@@ -28,6 +28,7 @@ PYBIND11_MODULE(pypto_impl, m) {
     bind_controller(m);
     bind_operation(m);
     BindRuntime(m);
+    BindCostModelRuntime(m);
     bind_pass(m);
 };
 } // namespace pypto

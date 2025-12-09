@@ -20,7 +20,6 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/runtime/emulation_launcher.h"
-#include "machine/runtime/cost_model_launcher.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -77,11 +76,6 @@ std::string DeviceRunOnceDataFromHost(
 
     if (config::GetOption<bool>(PROFILE_ENABLE) && EmulationLauncher::EmulationRunOnce(func) != 0) {
         return "emulation run failed";
-    }
-
-    if (config::GetOption<bool>(COST_MODEL_ENABLE)) {
-        CostModelLauncher::CostModelRunOnce(func);
-        return "";
     }
 
     if (DeviceRunOnce(func) != 0) {

@@ -22,10 +22,8 @@
 #ifdef BUILD_WITH_CANN
 #include "runtime/mem.h"
 #include "machine/utils/machine_ws_intf.h"
-#include "rts/rts_kernel.h"
 #endif
 #include <unordered_map>
-
 
 namespace npu::tile_fwk {
 class LoadAicpuOp

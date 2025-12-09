@@ -38,7 +38,7 @@ target_include_directories(tile_fwk_compiler
             ${CMAKE_CURRENT_SOURCE_DIR}
 )
 target_compile_definitions(tile_fwk_compiler
-        PUBLIC
+        PRIVATE
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:BUILD_WITH_CANN>>
             $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_STEST_INTERPRETER_CONFIG}>:ENABLE_STEST_INTERPRETER_CONFIG>>
 )
