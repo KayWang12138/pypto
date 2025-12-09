@@ -74,7 +74,13 @@ def indexadd_2dim_comm_test_body(indexadd_para, test_func):
     src_input = torch.rand(src_shape, dtype=torch.float32) * 200 - 100
     index_input = torch.randint(0, self_shape[axis], index_shape, dtype=torch.int32)
     result_tensor = torch.zeros(self_shape, dtype=torch.float32)
-    pypto.runtime._device_run_once_data_from_host([self_input, src_input, index_input], [result_tensor])
+
+    pto_x1_tensor = pypto.from_torch(self_input, "x1_tensor")
+    pto_x2_tensor = pypto.from_torch(src_input, "x2_tensor")
+    pto_x3_tensor = pypto.from_torch(index_input, "x3_tensor")
+    pto_res_tensor = pypto.from_torch(result_tensor, "res_tensor")
+
+    pypto.runtime._device_run_once_data_from_host([pto_x1_tensor, pto_x2_tensor, pto_x3_tensor], [pto_res_tensor])
 
     expect = self_input.index_add(axis, index_input, src_input, alpha=value)
     assert torch.allclose(result_tensor, expect, rtol=1e-4, atol=1e-5)
