@@ -131,7 +131,7 @@ void bind_controller_set_tile(py::module &m) {
 
 void bind_controller_function(py::module &m) {
     m.def("BeginFunction", [](const std::string &funcName, GraphType graphType, FunctionType funcType, py::args args) {
-        std::vector<std::reference_wrapper<Tensor>> tensors;
+        std::vector<std::reference_wrapper<const Tensor>> tensors;
         tensors.reserve(args.size());
         for (auto &a : args) {
             tensors.push_back(a.cast<Tensor &>());
@@ -145,7 +145,7 @@ void bind_controller_function(py::module &m) {
     });
     py::class_<RecordFunc>(m, "RecordFunc")
         .def(py::init<const std::string &>(), py::arg("name"))
-        .def(py::init<const std::string &, const std::vector<std::reference_wrapper<Tensor>> &>(), py::arg("name"),
+        .def(py::init<const std::string &, const std::vector<std::reference_wrapper<const Tensor>> &>(), py::arg("name"),
             py::arg("explicit_op_args"))
         .def(
             py::init<const std::string &, const ref_tensors &, const ref_tensors &,

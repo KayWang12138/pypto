@@ -132,6 +132,8 @@ void DeviceSlotContext::FillInputOutputSlot(DeviceExecuteSlot *slotList, size_t 
         DevTensorData &param = args->GetInputTensor(i);
         int slotIndex = devProg->startArgsInputTensorSlotIndexList[i];
         slotList[slotIndex].desc = AddressDescriptor(param.address);
+        // input/output flatten
+        slotList[slotIndex].isOutputSlot = true;
         DEV_INFO("Param %d Input Slot %d = %lx.", i, slotIndex, param.address);
         DEV_TRACE_DEBUG(CtrlEvent(none(), InputTensorElement(i, param.address, param.shape.GetSize())));
     }

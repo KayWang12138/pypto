@@ -37,7 +37,7 @@ int32_t TileFwkInit(const std::string &socVersion) {
     return 0;
 }
 
-int32_t TileFwkBeginFunction(const std::string &funcName, const std::vector<std::reference_wrapper<Tensor>> &opArgs) {
+int32_t TileFwkBeginFunction(const std::string &funcName, const std::vector<std::reference_wrapper<const Tensor>> &opArgs) {
     return Program::GetInstance().BeginFunction(funcName, FunctionType::STATIC, GraphType::TENSOR_GRAPH, opArgs);
 }
 

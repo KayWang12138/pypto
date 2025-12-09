@@ -428,7 +428,7 @@ void Function::GetTensorDataRefreshIO(const GetTensorDataIODescDict &iodescDict)
     }
 }
 
-void Function::BeginFunction(const std::vector<std::reference_wrapper<Tensor>> &explicitOpArgs) {
+void Function::BeginFunction(const std::vector<std::reference_wrapper<const Tensor>> &explicitOpArgs) {
     auto slotManager = Program::GetInstance().GetTensorSlotManager();
     for (auto &arg : explicitOpArgs) {
         explicitArgSlots_.push_back(TensorSlot::CreateTensor(arg));
@@ -552,6 +552,13 @@ void Function::CleanRedundantOutCast() {
     std::vector<int> outputSlots;
     for (const auto &slot : slotMngr->outputSlotList) {
         outputSlots.push_back(slotMngr->slotIndexDict[slot]);
+    }
+
+    // support flatten input output
+    if (slotMngr->outputSlotList.size() == 0) {
+        for (const auto &slot : slotMngr->inputSlotList) {
+            outputSlots.push_back(slotMngr->slotIndexDict[slot]);
+        }
     }
     std::map<Function *, std::set<size_t>> removeRecord;
     std::map<Function *, std::set<size_t>> getTensorDataRecord;

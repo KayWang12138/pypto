@@ -355,6 +355,7 @@ TEST_F(DynamicUnalignTest, test_unary_unalign) {
     int b = 4;
     int sq = 128;
     int d = 64;
+    int outIdx = 2;
     std::vector<int64_t> qShape = {b * sq, d};
 
     Tensor q(DT_FP32, qShape, "q");
@@ -370,16 +371,14 @@ TEST_F(DynamicUnalignTest, test_unary_unalign) {
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateConstantTensor<float>(q, 1.0),
         RawTensorData::CreateTensor<int32_t>(actSeqs, actSeqsData),
+        RawTensorData::CreateConstantTensor<float>(out, 0.001f)
     });
 
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<float>(out, 0.001f),
-    });
     ProgramData::GetInstance().AppendGoldens({
         RawTensorData::CreateTensor<float>(out, golden),
     });
 
-    FUNCTION("main", {q, actSeqs}, {out}) {
+    FUNCTION("main", {q, actSeqs, out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (sq))) {
             SymbolicScalar curSeq = GetTensorData(actSeqs, {batchId, 0, 0});
 
@@ -391,6 +390,6 @@ TEST_F(DynamicUnalignTest, test_unary_unalign) {
 
     // excute
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
-    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetInputData(outIdx);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
 }

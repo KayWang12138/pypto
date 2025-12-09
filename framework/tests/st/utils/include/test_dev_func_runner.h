@@ -275,7 +275,7 @@ private:
             DeviceRunner::Get().ResetPerfTraceDfxMem(); // refresh aicore dfx metric memory cache
         }
         CopyFromDev(MemoryHelper(false), outputs);
-        if (HasInplaceArgs(function_)) {
+        if (outputs.size() == 0 || HasInplaceArgs(function_)) {
             CopyFromDev(MemoryHelper(false), inputs);
         }
         if (IsDumpTensorEnable()) {

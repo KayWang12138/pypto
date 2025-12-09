@@ -615,7 +615,7 @@ public:
         return funcRawName + "_leaf_" + std::to_string(subgraphId);
     }
 
-    void BeginFunction(const std::vector<std::reference_wrapper<Tensor>>& explicitOpArgs);
+    void BeginFunction(const std::vector<std::reference_wrapper<const Tensor>>& explicitOpArgs);
     FunctionCallArgs EndFunction(const std::shared_ptr<TensorSlotScope> &scope);
     /* -------------------------常用改图接口------------------------------ */
     Operation* GetOpByOpMagic(const int opMagic) const;

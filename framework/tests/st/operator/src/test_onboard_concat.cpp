@@ -186,7 +186,7 @@ TEST_F(ConcatOnBoardTest, test_concat_100_inputs_float32) {
         }
         TileShape::Current().SetVecTile({2, 2, 4, 16});
         Tensor output(dtype, resShape, out_ptr, "res");
-        std::vector<std::reference_wrapper<Tensor>> paras(inputs.begin(), inputs.end());
+        std::vector<std::reference_wrapper<const Tensor>> paras(inputs.begin(), inputs.end());
         paras.emplace_back(output);
         config::SetBuildStatic(true);
         FUNCTION("CONCAT_T", paras) {
@@ -224,7 +224,7 @@ TEST_F(ConcatOnBoardTest, test_concat_128_inputs_float32) {
         }
         TileShape::Current().SetVecTile({2, 1, 8, 8});
         Tensor output(dtype, resShape, out_ptr, "res");
-        std::vector<std::reference_wrapper<Tensor>> paras(inputs.begin(), inputs.end());
+        std::vector<std::reference_wrapper<const Tensor>> paras(inputs.begin(), inputs.end());
         paras.emplace_back(output);
         config::SetBuildStatic(true);
         FUNCTION("CONCAT_T", paras) {

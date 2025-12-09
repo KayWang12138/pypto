@@ -132,7 +132,7 @@ private:
 class RecordFunc {
 public:
     explicit RecordFunc(const std::string &name);
-    RecordFunc(const std::string &name, const std::vector<std::reference_wrapper<Tensor>> &explicitOpArgs);
+    RecordFunc(const std::string &name, const std::vector<std::reference_wrapper<const Tensor>> &explicitOpArgs);
     RecordFunc(const std::string &name,
         const std::vector<std::reference_wrapper<const Tensor>> &startArgsInputTensorList,
         const std::vector<std::reference_wrapper<const Tensor>> &startArgsOutputTensorList,
@@ -141,6 +141,9 @@ public:
     ~RecordFunc();
 
 private:
+    void RecordDynFuncInner(const std::vector<std::reference_wrapper<const Tensor>> &startArgsInputTensorList,
+        const std::vector<std::reference_wrapper<const Tensor>> &startArgsOutputTensorList,
+        const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>> &inplaceArgs);
     Function *dynFunc_{nullptr};
     std::string funcName;
 };

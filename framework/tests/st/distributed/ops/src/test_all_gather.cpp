@@ -86,7 +86,7 @@ void TestAllGatherEx(OpTestParam &testParam)
             outs.push_back(Tensor(dType, shape, (uint8_t *)outPtr, tensorName));
             outPtrs.emplace_back(outPtr);
         }
-        std::vector<std::reference_wrapper<Tensor>> tensorParams(outs.begin(), outs.end());
+        std::vector<std::reference_wrapper<const Tensor>> tensorParams(outs.begin(), outs.end());
         tensorParams.emplace_back(in);
 
         config::SetBuildStatic(true);

@@ -68,7 +68,7 @@ TEST_F(TestAstApi, test_ast) {
     Tensor M(DataType::DT_FP32, shape_reduce, "M");
     Tensor L(DataType::DT_FP32, shape_reduce, "L");
     Tensor Res(DT_FP32, shape, "Res");
-    std::vector<std::reference_wrapper<Tensor>> opArgs = {Q, K, V, M, L, Res};
+    std::vector<std::reference_wrapper<const Tensor>> opArgs = {Q, K, V, M, L, Res};
     aclrtStream aicpuStream = nullptr;
     rtStreamCreate(&aicpuStream, RT_STREAM_PRIORITY_DEFAULT);
     ASSERT(aicpuStream != nullptr);

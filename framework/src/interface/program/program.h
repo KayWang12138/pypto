@@ -32,7 +32,7 @@ public: // public api for torch
     bool BeginFunction(const std::string &funcName,
         const FunctionType funcType = FunctionType::STATIC,
         const GraphType graphType = GraphType::TENSOR_GRAPH,
-        const std::vector<std::reference_wrapper<Tensor>> &explicitOpArgs = {});
+        const std::vector<std::reference_wrapper<const Tensor>> &explicitOpArgs = {});
     std::tuple<Function *, Operation *, bool> EndFunction(const std::string &funcName, bool generateCall = true);
 
     Operation &ConnectCallerGusket(Function &caller, FunctionCallArgs &args) const;

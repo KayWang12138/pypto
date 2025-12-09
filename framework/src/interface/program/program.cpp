@@ -170,7 +170,7 @@ void Program::UpdateCompileTask() {
 bool Program::BeginFunction(const std::string &funcName,
     const FunctionType funcType,
     const GraphType graphType,
-    const std::vector<std::reference_wrapper<Tensor>>& explicitOpArgs) {
+    const std::vector<std::reference_wrapper<const Tensor>>& explicitOpArgs) {
     if (currentFunctionPtr_->IsFlattening() && (funcType == FunctionType::STATIC && (graphType == GraphType::TENSOR_GRAPH || graphType == GraphType::TILE_GRAPH))) {
         // Static function's subfunction should be ignored
         ASSERT(funcName != currentFunctionPtr_->GetRawName());
@@ -733,15 +733,58 @@ void static MergeAllFuncDupIocast(Function* func) {
     }
 }
 
+void RecordFunc::RecordDynFuncInner(const std::vector<std::reference_wrapper<const Tensor>> &startArgsInputTensorList,
+    const std::vector<std::reference_wrapper<const Tensor>> &startArgsOutputTensorList,
+    const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>> &inplaceArgs) {
+        ASSERT(config::GetFunctionType() == FunctionType::DYNAMIC);
+
+        Program::GetInstance().BeginFunction(funcName, config::GetFunctionType());
+
+        std::shared_ptr<TensorSlotManager> manager = Program::GetInstance().GetTensorSlotManager();
+        for (auto &param : startArgsInputTensorList) {
+            manager->MarkInput(param.get());
+        }
+        for (auto &param : startArgsOutputTensorList) {
+            manager->MarkOutput(param.get());
+        }
+        for (auto &param : inplaceArgs) {
+            manager->MarkInplace(param.first.get(), param.second.get());
+        }
+
+        dynFunc_ = Program::GetInstance().GetCurrentFunction();
+        dynFunc_->SetUnderDynamicFunction(true);
+        dynFunc_->SetSourceLocation(SourceLocation::GetLocation());
+
+        std::shared_ptr<DyndevFunctionAttribute> attr = std::make_shared<DyndevFunctionAttribute>();
+        attr->startArgsInputTensorList = startArgsInputTensorList;
+        attr->startArgsOutputTensorList = startArgsOutputTensorList;
+
+        attr->startArgsInputLogicalTensorList.resize(startArgsInputTensorList.size());
+        attr->startArgsOutputLogicalTensorList.resize(startArgsOutputTensorList.size());
+        for (size_t k = 0; k < startArgsInputTensorList.size(); k++) {
+            attr->startArgsInputLogicalTensorList[k] = startArgsInputTensorList[k].get().GetStorage(false);
+        }
+        for (size_t k = 0; k < startArgsOutputTensorList.size(); k++) {
+            attr->startArgsOutputLogicalTensorList[k] = startArgsOutputTensorList[k].get().GetStorage(false);
+        }
+
+        dynFunc_->SetDyndevAttribute(attr);
+        Program::GetInstance().SetCurrentDynamicFunction(dynFunc_);
+}
+
 RecordFunc::RecordFunc(const std::string &name) : funcName(FUNCTION_PREFIX + name) {
     Program::GetInstance().BeginFunction(funcName, config::GetFunctionType());
 }
 
 RecordFunc::RecordFunc(const std::string &name,
-    const std::vector<std::reference_wrapper<Tensor>> &explicitOpArgs)
+    const std::vector<std::reference_wrapper<const Tensor>> &explicitOpArgs)
     : funcName(FUNCTION_PREFIX + name) {
     // RecordFunc start with TENSOR_GRAPH
-    Program::GetInstance().BeginFunction(funcName, config::GetFunctionType(), GraphType::TENSOR_GRAPH, explicitOpArgs);
+    if (config::GetFunctionType() == FunctionType::DYNAMIC) {
+        RecordDynFuncInner(explicitOpArgs, {}, {});
+    } else {
+        Program::GetInstance().BeginFunction(funcName, config::GetFunctionType(), GraphType::TENSOR_GRAPH, explicitOpArgs);
+    }
 }
 
 RecordFunc::RecordFunc(const std::string &name,
@@ -749,40 +792,7 @@ RecordFunc::RecordFunc(const std::string &name,
     const std::vector<std::reference_wrapper<const Tensor>> &startArgsOutputTensorList,
     const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>> &inplaceArgs)
     : funcName(FUNCTION_PREFIX + name) {
-    ASSERT(config::GetFunctionType() == FunctionType::DYNAMIC);
-
-    Program::GetInstance().BeginFunction(funcName, config::GetFunctionType());
-
-    std::shared_ptr<TensorSlotManager> manager = Program::GetInstance().GetTensorSlotManager();
-    for (auto &param : startArgsInputTensorList) {
-        manager->MarkInput(param.get());
-    }
-    for (auto &param : startArgsOutputTensorList) {
-        manager->MarkOutput(param.get());
-    }
-    for (auto &param : inplaceArgs) {
-        manager->MarkInplace(param.first.get(), param.second.get());
-    }
-
-    dynFunc_ = Program::GetInstance().GetCurrentFunction();
-    dynFunc_->SetUnderDynamicFunction(true);
-    dynFunc_->SetSourceLocation(SourceLocation::GetLocation());
-
-    std::shared_ptr<DyndevFunctionAttribute> attr = std::make_shared<DyndevFunctionAttribute>();
-    attr->startArgsInputTensorList = startArgsInputTensorList;
-    attr->startArgsOutputTensorList = startArgsOutputTensorList;
-
-    attr->startArgsInputLogicalTensorList.resize(startArgsInputTensorList.size());
-    attr->startArgsOutputLogicalTensorList.resize(startArgsOutputTensorList.size());
-    for (size_t k = 0; k < startArgsInputTensorList.size(); k++) {
-        attr->startArgsInputLogicalTensorList[k] = startArgsInputTensorList[k].get().GetStorage(false);
-    }
-    for (size_t k = 0; k < startArgsOutputTensorList.size(); k++) {
-        attr->startArgsOutputLogicalTensorList[k] = startArgsOutputTensorList[k].get().GetStorage(false);
-    }
-
-    dynFunc_->SetDyndevAttribute(attr);
-    Program::GetInstance().SetCurrentDynamicFunction(dynFunc_);
+    RecordDynFuncInner(startArgsInputTensorList, startArgsOutputTensorList, inplaceArgs);
 }
 
 inline bool IsVerifyEnable() {

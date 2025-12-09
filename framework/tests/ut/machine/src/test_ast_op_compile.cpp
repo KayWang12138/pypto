@@ -54,7 +54,7 @@ void TestAddOp(uint64_t configKey) {
     std::vector<Tensor> outputTensors = {output_tensor};
 
     TileShape::Current().SetVecTile({8, 8});
-    std::vector<std::reference_wrapper<Tensor>> opArgs;
+    std::vector<std::reference_wrapper<const Tensor>> opArgs;
     opArgs.insert(opArgs.end(), inputTensors.begin(), inputTensors.end());
     opArgs.insert(opArgs.end(), outputTensors.begin(), outputTensors.end());
 

@@ -41,7 +41,7 @@ int32_t TileFwkInit(const std::string &socVersion = "Ascend910B1");
 * 输出参数: 无
 * 返 回 值: 0表示成功，非零表示失败。
   **********************************************************************************************************/
-int32_t TileFwkBeginFunction(const std::string &funcName, const std::vector<std::reference_wrapper<Tensor>> &opArgs);
+int32_t TileFwkBeginFunction(const std::string &funcName, const std::vector<std::reference_wrapper<const Tensor>> &opArgs);
 
 /*************************************************************************************************************
  * 功能说明: finish capture TileFwk function

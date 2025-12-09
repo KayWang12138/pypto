@@ -450,7 +450,7 @@ TEST_F(OnBoardIFATest, test_concat_32_tensor) {
 
         Tensor output(DataType::DT_FP32, outShape, (uint8_t *)out_ptr, "C");
 
-        std::vector<std::reference_wrapper<Tensor>> iOTensors(inputTensors.begin(), inputTensors.end());
+        std::vector<std::reference_wrapper<const Tensor>> iOTensors(inputTensors.begin(), inputTensors.end());
         iOTensors.push_back(output);
 
         TileShape::Current().SetVecTile({32, 64});

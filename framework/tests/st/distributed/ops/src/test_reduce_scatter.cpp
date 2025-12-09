@@ -92,7 +92,7 @@ void TestReduceScatterEx(OpTestParam &testParam)
             Tensor inTensor(dType, inShape, (uint8_t *)xPtr + inSize * dTypeSize * i, inName);
             inVec.push_back(inTensor);
         }
-        std::vector<std::reference_wrapper<Tensor>> paras(inVec.begin(), inVec.end());
+        std::vector<std::reference_wrapper<const Tensor>> paras(inVec.begin(), inVec.end());
         paras.emplace_back(out);
 
         config::SetBuildStatic(true);
