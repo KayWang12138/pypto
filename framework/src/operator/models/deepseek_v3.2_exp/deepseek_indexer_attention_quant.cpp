@@ -1,12 +1,12 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full text of the License.
- */
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
 /*!
  * \file deepseek_indexer_attention_quant.cpp
@@ -226,11 +226,11 @@ void DeepSeekIndexerAttentionQuant(
         config::SetPassOption(L1_REUSE_MAP, std::map<int64_t, int64_t>{});
         config::SetPassOption(SG_PARALLEL_NUM, NUM_20);
         config::SetPassOption(COPYIN_THRESHOLD, 1 * NUM_1024 * NUM_1024);
-        config::SetPassOption(SG_CYCLE_UPPER_BOUND, 20000);
+        config::SetPassOption(SG_CYCLE_UPPER_BOUND, NUM_20000);
         config::SetPassOption(SG_CYCLE_LOWER_BOUND, NUM_512);
         config::SetPassOption(L1_REUSE, 0);
         // set config for attention
-        config::SetPassOption(NBUFFER_MERGE_MODE, 2);
+        config::SetPassOption(NBUFFER_MERGE_MODE, NUM_2);
         config::SetPassOption(VEC_NBUFFER_MAP, std::map<int64_t, int64_t>{{-1, 2}});
 
         config::SetRuntimeOption<uint8_t>(
