@@ -16,16 +16,16 @@
 
 1. 环境准备: 
 
-   确保本地 Python3 版本 >= 3.9, 并已正确安装 python3-dev (或 python3-devel) 包. 安装方式如下: 
+   确保本地 Python3 版本 >= 3.9, 并已正确安装 python3-dev (或 python3-devel) 包. 以conda为例，安装方式如下:
    ```shell
-   # Ubuntu
-   sudo apt update # 更新软件包列表
-   sudo apt install python3 python3-dev # 安装 python3 和 python3-dev
-   python3 --version # 查看 python3 版本, 应 >= 3.9
+   # conda 创建 Python 3.9 环境 环境名：py39
+   conda create -b py39 python3.9 -y # 可通过修改python3.9 => python=3.9.5 指定版本号
    
-   # EulerOS
-   sudo yum install python3 python3-devel # 在 EulerOS 上 python3-dev 包名称为 python3-devel
-   python3 --version # 查看 python3 版本, 应 >= 3.9
+   # 激活/切换至Python 3.9 环境
+   conda activate py39
+
+   # 查看python版本, 应 >= 3.9
+   python --version
    ```
 
 2. 依赖安装: 
