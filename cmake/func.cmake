@@ -124,6 +124,7 @@ function(PTO_Fwk_AnalysisTargetHeaderFiles)
         # CANN
         if (BUILD_WITH_CANN)
             list(APPEND _Args "-f=${ASCEND_CANN_PACKAGE_PATH}/include")
+            list(APPEND _Args "-f=${ASCEND_CANN_PACKAGE_PATH}/pkg_inc")
         endif ()
         # OpenSource
         get_target_property(json_inc json INTERFACE_INCLUDE_DIRECTORIES)
