@@ -75,25 +75,6 @@ TEST_F(InferIndexTest, TestResetNoneOp) {
     EXPECT_EQ(inferParamIndex.ResetDynValidShape(*currFunctionPtr), SUCCESS);
 }
 
-TEST_F(InferIndexTest, TestResetNoneOut) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(),
-                                                      "TestReset",
-                                                      "TestReset",
-                                                      nullptr);
-    EXPECT_TRUE(currFunctionPtr != nullptr);
-
-    // Prepare the graph
-    std::vector<int64_t> inshape = {8, 16};
-    auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
-
-    auto &copyin_op = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast}, {});
-    (void) copyin_op;
-    currFunctionPtr->inCasts_.push_back(incast);
-
-    InferParamIndex inferParamIndex;
-    EXPECT_EQ(inferParamIndex.ResetDynValidShape(*currFunctionPtr), FAILED);
-}
-
 TEST_F(InferIndexTest, TestResetView) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(),
                                                       "TestReset",

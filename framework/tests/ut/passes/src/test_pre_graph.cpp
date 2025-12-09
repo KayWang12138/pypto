@@ -318,7 +318,7 @@ TEST_F(PreGraphTest, TestVCPartition) {
         auto out_tensor_4_B = Cast(out_tensor_3_B, DT_FP16);
         auto out_tensor_5_A = Reshape(out_tensor_4_A, shape5);
         auto out_tensor_5_B = Reshape(out_tensor_4_A, shape6);
-        TileShape::Current().SetCubeTile({2, 2}, {64, 64}, {2, 2});
+        TileShape::Current().SetCubeTile({2, 2}, {64, 64}, {32, 32});
         out_tensor = npu::tile_fwk::Matrix::Matmul<false, false>(DataType::DT_FP32, out_tensor_5_A, out_tensor_5_B);
         originFunction = Program::GetInstance().GetCurrentFunction();
         ASSERT_NE(originFunction, nullptr) << "当前函数指针为空";

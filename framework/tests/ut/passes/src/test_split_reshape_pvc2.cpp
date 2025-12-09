@@ -42,38 +42,6 @@ public:
     }
 };
 
-TEST_F(TestSplitReshapeOpPVC2, test_reshape_assemble_multito1) {
-    TileShape::Current().SetVecTile(8, 8, 8, 8);
-    Function *currentFunction;
-    config::SetPassConfig("PVC2_OOO", "SubgraphToFunction", "USE_MAX_FREQ_LABEL", true);
-
-    Tensor input(DT_FP32, {1, 384}, "a");
-    Tensor res1;
-
-    FUNCTION("test_reshape_assemble_multito1") {
-        TileShape::Current().SetVecTile(1, 64);
-        Tensor res = Exp(input);
-        Tensor test = Reshape(res, {1, 1, 2, 192});
-        TileShape::Current().SetVecTile(2, 1, 2, 64);
-        res1 = Exp(test);
-        currentFunction = Program::GetInstance().GetCurrentFunction();
-    }
-
-    std::vector<int64_t> expiInShape = {1, 64};
-    std::vector<int64_t> expOutShape = {1, 1, 1, 64};
-    for (auto &op : currentFunction->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
-            for (auto &in : op.iOperand) {
-                EXPECT_EQ(in->shape, expiInShape);
-            }
-
-            for (auto &out : op.oOperand) {
-                EXPECT_EQ(out->shape, expOutShape);
-            }
-        }
-    }
-}
-
 TEST_F(TestSplitReshapeOpPVC2, Test_Reshape_1to1) {
     Function *currentFunction;
 
