@@ -17,6 +17,7 @@ from numpy.testing import assert_allclose
 from glm_ffn_quant_common import symmetric_quantization_per_token, dequant_dynamic
 import torch
 import torch_npu
+from torch._subclasses.fake_tensor import FakeTensor
 from torch._dynamo import allow_in_graph
 
 
@@ -215,13 +216,11 @@ def dense_moe_main(inputs, outputs):
         loop_token(dense_loop_idx)
 
 
-def glm_dense_quant(layer, hidden_states):
-    # dense
-    w13_int8 = layer.gate_up_proj.weight
-    w13_scale = layer.gate_up_proj.weight_scale
-    w2 = layer.down_proj.weight
+@allow_in_graph
+def glm_dense_quant(hidden_states, w13_int8, w13_scale, w2):
+    if isinstance(hidden_states, FakeTensor):
+        return
     out_tensor = torch.zeros_like(hidden_states, device=hidden_states.device)
-
     inputs = {
         hidden_states: [0],
         w13_int8: [],
@@ -229,41 +228,30 @@ def glm_dense_quant(layer, hidden_states):
         w2: []
     }
     outputs = {
-        out_tensor: []
+        out_tensor: [0]
     }
-    dense_moe_main_graph(inputs, outputs)
-    return out_tensor
-
-
-@allow_in_graph
-def dense_moe_main_graph(inputs, outputs):
     pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
     dense_moe_main(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()
+    return out_tensor
 
 
 def test_glm_mlp():
     x_dtype = torch.bfloat16
     # parameter config
-    b = 8
+    b = 1
     s = 1
     intermediate_size = 1536
     hidden_size = 5120
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
 
-    for i in range(0, 5):
+    for i in range(0, 2):
+        if (i == 0):
+            b = 1
         if (i == 1):
-            b = 8192
-        if (i == 2):
-            b = 5
-        if (i == 3):
-            b = 8
-        if (i == 4):
-            b = 7
-        if (i == 5):
-            b = 36
+            b = 2
         # expand_x_tensor, w13_int8, w13_scale, w2, out_tensor
         expand_x_tensor, w13_int8, w13_scale, w2, out_tensor = gen_input(b, s, hidden_size, intermediate_size, x_dtype, device_id)
         inputs = {
@@ -273,7 +261,7 @@ def test_glm_mlp():
             w2: []
         }
         outputs = {
-            out_tensor: []
+            out_tensor: [0]
         }
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]

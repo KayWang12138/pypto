@@ -11,12 +11,9 @@
 """
 """
 import torch
-import torch_npu
-import pypto
-from glm_ffn_group_list_cumsum import moe_group_list_cumsum
-from glm_ffn_router_expert_quant import moe_router_expert_kernel
-from glm_ffn_share_expert_quant import share_expert_moe_main
-from glm_ffn_dense_quant import dense_moe_main
+from glm_ffn_router_expert_quant import glm_router_expert_quant
+from glm_ffn_share_expert_quant import glm_share_expert_quant
+from glm_ffn_dense_quant import glm_dense_quant
 
 
 # ffn_router_expert
@@ -28,71 +25,23 @@ def ffn_router_expert_quant(hidden_states: torch.Tensor,
                             w2: torch.Tensor,
                             w2_scale: torch.Tensor
 )-> torch.Tensor:
-    x_dtype = w2_scale.dtype
-    group_list_int32 = group_list.to(torch.int32)
-    group_list_cumsum = torch.zeros_like(group_list_int32, device=f'{group_list_int32.device}')
-
-    inputs = [group_list_int32]
-    outputs = [group_list_cumsum]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
-    moe_group_list_cumsum(pto_inputs, pto_outputs)
-    pypto.runtime._device_synchronize()
-
-    b_s_topk, hidden_size = hidden_states.shape[0:2]
-    out_tensor = torch.zeros((b_s_topk, hidden_size), dtype=x_dtype, device=f'{hidden_states.device}')
-    inputs = [hidden_states, pertoken_scale, group_list_int32, group_list_cumsum, w13, w13_scale, w2, w2_scale]
-    outputs = [out_tensor]
-    moe_router_expert_kernel(inputs, outputs)
-    pypto.runtime._device_synchronize()
-    return out_tensor
+    return glm_router_expert_quant(hidden_states, pertoken_scale, group_list, w13, w13_scale, w2, w2_scale)
 
 
+# ffn_share_expert
 def ffn_share_expert_quant(hidden_states: torch.Tensor,
                            w13: torch.Tensor,
                            w13_scale: torch.Tensor,
                            w2: torch.Tensor,
                            w2_scale: torch.Tensor
 )-> torch.Tensor:
-    x_dtype = hidden_states.dtype
-    b_s, hidden_size = hidden_states.shape[0:2]
-    out_tensor = torch.zeros((b_s, hidden_size), dtype = x_dtype,device=f'{hidden_states.device}')
-    inputs = {
-        hidden_states: [0],
-        w13: [],
-        w13_scale: [],
-        w2: [],
-        w2_scale: []
-    }
-    outputs = {
-        out_tensor: []
-    }
-    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
-    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-    share_expert_moe_main(pto_inputs, pto_outputs)
-    pypto.runtime._device_synchronize()
-    return out_tensor
+    return glm_share_expert_quant(hidden_states, w13, w13_scale, w2, w2_scale)
 
 
+# ffn_dense
 def ffn_dense_quant(hidden_states: torch.Tensor,
                     w13: torch.Tensor,
                     w13_scale: torch.Tensor,
                     w2: torch.Tensor
 )-> torch.Tensor:
-    x_dtype = hidden_states.dtype
-    b_s, hidden_size = hidden_states.shape[0:2]
-    out_tensor = torch.zeros((b_s, hidden_size), dtype = x_dtype,device=f'{hidden_states.device}')
-    inputs = {
-        hidden_states: [0],
-        w13: [],
-        w13_scale: [],
-        w2: []
-    }
-    outputs = {
-        out_tensor: []
-    }
-    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
-    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-    dense_moe_main(pto_inputs, pto_outputs)
-    pypto.runtime._device_synchronize()
-    return out_tensor
+    return glm_dense_quant(hidden_states, w13, w13_scale, w2)

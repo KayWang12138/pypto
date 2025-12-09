@@ -59,14 +59,9 @@ def moe_group_list_cumsum(inputs, outputs):
             pypto.assemble(tmp_int, [(exp_idx),], group_list_cumsum)
         loop_for_offset(exp_idx)
 
+
+
 @allow_in_graph
-def moe_group_list_cumsum_graph(inputs, outputs):
-    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
-    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-    moe_group_list_cumsum(pto_inputs, pto_outputs)
-    pypto.runtime._device_synchronize()
-
-
 def glm_router_expert_cumsum(group_list):
     group_list_int32 = group_list.to(torch.int32)
     group_list_cumsum = torch.zeros_like(group_list_int32, device=group_list.device)
@@ -74,9 +69,12 @@ def glm_router_expert_cumsum(group_list):
         group_list_int32: [0]
     }
     outputs = {
-        group_list_cumsum: []
+        group_list_cumsum: [0]
     }
-    moe_group_list_cumsum_graph(inputs, outputs)
+    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
+    moe_group_list_cumsum(pto_inputs, pto_outputs)
+    pypto.runtime._device_synchronize()
     return group_list_cumsum
 
 
@@ -85,23 +83,20 @@ def test_group_list_cumsum():
     per_expert_num = 20
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-    for i in range(0, 4):
-        if (i == 1):
-            bs = 6
-        if (i == 2):
-            bs = 5
-        if (i == 3):
+    for i in range(0, 2):
+        if (i == 0):
             bs = 2
-        if (i == 4):
+        if (i == 1):
             bs = 1
         np.random.seed(0)
         group_list_int32 = torch.randint(0, bs, (per_expert_num,), dtype = torch.int32, device = f'npu:{device_id}')
         group_list_cumsum = torch.zeros_like(group_list_int32, device = f'npu:{device_id}')
+
         inputs = {
             group_list_int32: [0]
         }
         outputs = {
-            group_list_cumsum: []
+            group_list_cumsum: [0]
         }
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]

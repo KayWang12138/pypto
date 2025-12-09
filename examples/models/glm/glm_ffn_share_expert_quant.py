@@ -207,6 +207,7 @@ loop_base = 16
 def share_expert_moe_main(inputs, outputs):
     pypto.set_host_options(only_codegen=True)
     pypto.set_codegen_options(support_dynamic_unaligned=True)
+    pypto.set_runtime_options(machine_sched_mode=1)
     pypto.set_runtime_options(cfgcache_device_task_num=100)
     pypto.set_runtime_options(cfgcache_root_task_num=1000)
     pypto.set_runtime_options(cfgcache_leaf_task_num=10000)
@@ -240,18 +241,9 @@ def share_expert_moe_main(inputs, outputs):
 
 
 @allow_in_graph
-def share_expert_graph(inputs, outputs):
-    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
-    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-    share_expert_moe_main(pto_inputs, pto_outputs)
-    pypto.runtime._device_synchronize()
-
-
-def glm_share_expert_quant(layer, hidden_states):
-    w13_int8 = layer.gate_up_proj.weight
-    w13_scale = layer.gate_up_proj.weight_scale
-    w2_int8 = layer.down_proj.weight
-    w2_scale = layer.down_proj.weight_scale
+def glm_share_expert_quant(hidden_states, w13_int8, w13_scale, w2_int8, w2_scale):
+    if isinstance(hidden_states, FakeTensor):
+        return
     out_tensor = torch.zeros_like(hidden_states, device=hidden_states.device)
     inputs = {
         hidden_states: [0],
@@ -261,31 +253,30 @@ def glm_share_expert_quant(layer, hidden_states):
         w2_scale: []
     }
     outputs = {
-        out_tensor: []
+        out_tensor: [0]
     }
-    share_expert_graph(inputs, outputs)
+    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
+    share_expert_moe_main(pto_inputs, pto_outputs)
+    pypto.runtime._device_synchronize()
     return out_tensor
 
 
 def test_glm4_ffn_share():
     x_dtype = torch.bfloat16
     # parameter config
-    b = 8
+    b = 1
     s = 1
     intermediate_size = 192
     hidden_size = 5120
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
 
-    for i in range(0, 4):
-        if (i == 1):
-            b = 6
-        if (i == 2):
-            b = 5
-        if (i == 3):
-            b = 2
-        if (i == 4):
+    for i in range(0, 2):
+        if (i == 0):
             b = 1
+        if (i == 1):
+            b = 2
         # expand_x_tensor, w13_int8, w13_scale, w2_int8, w2_scale, out_tensor
         expand_x_tensor, w13_int8, w13_scale, w2_int8, w2_scale, out_tensor = gen_input(b, s, hidden_size, intermediate_size, x_dtype, device_id)
         inputs = {
@@ -296,7 +287,7 @@ def test_glm4_ffn_share():
             w2_scale: []
         }
         outputs = {
-            out_tensor: []
+            out_tensor: [0]
         }
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]

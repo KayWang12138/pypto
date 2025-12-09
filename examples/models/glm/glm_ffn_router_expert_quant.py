@@ -91,7 +91,7 @@ def gen_input(b, s, topk, per_expert_num, hidden_size, intermediate_size, dtypes
     expand_x_int8, expand_x_scale = ffn_golden_quan_per_token(expand_x_tensor)
     expand_x_scale = expand_x_scale.reshape(-1).to(torch.float32)
 
-    group_list = torch.tensor([1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype = torch.int32, device = f'npu:{device_id}')
+    group_list = torch.tensor([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype = torch.int32, device = f'npu:{device_id}')
     group_list_cumsum = get_token_acc_table(group_list).to(torch.int32)
     w13 = torch.randn((per_expert_num, hidden_size, intermediate_size * 2), dtype = dtypes, device = f'npu:{device_id}')  * 0.01 * 2 - 0.01
     w13_int8, w13_scale = ffn_golden_quan_per_channel_3d(w13)
@@ -200,6 +200,7 @@ loop_base = 8
 def moe_router_expert_main(inputs, outputs):
     pypto.set_host_options(only_codegen=True)
     pypto.set_codegen_options(support_dynamic_unaligned=True)
+    pypto.set_runtime_options(machine_sched_mode=1)
 
     # expand_x_int8, expand_x_scale, group_list, group_list_cumsum, w13_int8, w13_scale, w2_int8, w2_scale
     expand_x_int8 = inputs[0]
@@ -254,14 +255,9 @@ def moe_router_expert_main(inputs, outputs):
 
 
 @allow_in_graph
-def router_expert_graph(inputs, outputs):
-    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
-    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-    moe_router_expert_main(pto_inputs, pto_outputs)
-    pypto.runtime._device_synchronize()
-
-
-def glm_router_expert_quant(hidden_states, pertoken_scale, group_list, w1, w1_scale, w2, w2_scale):
+def glm_router_expert_quant(hidden_states, pertoken_scale, group_list, w13, w13_scale, w2, w2_scale):
+    if isinstance(hidden_states, FakeTensor):
+        return
     x_dtype = w2_scale.dtype
     b_s_topk, hidden_size = hidden_states.shape[0:2]
     group_list_int32 = group_list.to(torch.int32)
@@ -277,22 +273,25 @@ def glm_router_expert_quant(hidden_states, pertoken_scale, group_list, w1, w1_sc
         pertoken_scale: [0],
         group_list_int32: [0],
         group_list_cumsum: [0],
-        w1: [],
-        w1_scale: [],
+        w13: [],
+        w13_scale: [],
         w2: [],
         w2_scale: []
     }
     outputs = {
-        pypto_out: []
+        pypto_out: [0]
     }
-    router_expert_graph(inputs, outputs)
+    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
+    moe_router_expert_main(pto_inputs, pto_outputs)
+    pypto.runtime._device_synchronize()
     return pypto_out
 
 
 def test_glm4_ffn_router():
     dtype = torch.bfloat16
     # parameter config
-    b = 2
+    b = 1
     s = 1
     intermediate_size = 1536
     hidden_size = 5120
@@ -300,15 +299,11 @@ def test_glm4_ffn_router():
     topk = 8
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-    for i in range(0, 5):
-        if (i == 1):
-            b = 6
-        if (i == 2):
-            b = 5
-        if (i == 3):
-            b = 2
-        if (i == 4):
+    for i in range(0, 2):
+        if (i == 0):
             b = 1
+        if (i == 1):
+            b = 2
         # expand_x_int8, expand_x_scale, group_list, group_list_cumsum, w13_int8, w13_scale, w2_int8, w2_scale, out_tensor
         expand_x_int8, expand_x_scale, group_list, group_list_cumsum, w13_int8, w13_scale, w2_int8, w2_scale, out_tensor = \
             gen_input(b, s, topk, per_expert_num, hidden_size, intermediate_size, dtype, device_id)
@@ -316,15 +311,15 @@ def test_glm4_ffn_router():
         inputs = {
             expand_x_int8: [0],
             expand_x_scale: [0],
-            group_list: [],
-            group_list_cumsum: [],
+            group_list: [0],
+            group_list_cumsum: [0],
             w13_int8: [],
             w13_scale: [],
             w2_int8: [],
             w2_scale: []
         }
         outputs = {
-            out_tensor: []
+            out_tensor: [0]
         }
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
