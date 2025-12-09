@@ -144,15 +144,19 @@ void PadLocalBuffer::PadVector(Operation &op, LogicalTensorPtr &in, std::unorder
         return;
     }
     OpCalcType calcType = OpcodeManager::Inst().GetOpCalcType(op.GetOpcode());
+    size_t paddingValue = GetPaddingValue(in);
+    size_t lastIdx = in->shape.size() - 1;
     if (noPadding) {
         in->oriShape = in->shape;
         in->tensor->UpdateRawShape(in->shape);
         in->tensor->oriRawshape = in->tensor->rawshape;
+        if (ConfigManager::Instance().GetOperationConfig("FORCE_COMBINE_AXIS", false) && paddingValue > 0 && in->tensor->rawshape[lastIdx - 1] % paddingValue != 0) {
+            int64_t shapeAfterPad = Pad(in->tensor->rawshape[lastIdx - 1], paddingValue);
+            in->tensor->rawshape[lastIdx - 1] = shapeAfterPad;
+        }
         APASS_LOG_DEBUG_F(Elements::Tensor, "Vector Op %d %s input %d, not handle unalign.", op.opmagic, op.GetOpcodeStr().c_str(), in->magic);
         return;
     }
-    size_t paddingValue = GetPaddingValue(in);
-    size_t lastIdx = in->shape.size() - 1;
     in->oriShape = in->shape;
     int64_t lastDim = static_cast<int64_t>(in->shape[lastIdx]);
     if (calcType == OpCalcType::BROADCAST && broadcastLastAxis_.find(op.opmagic) != broadcastLastAxis_.end()) {
@@ -299,13 +303,13 @@ void PadLocalBuffer::ProcessReduce(Function &function, Operation &op) {
         if (paddingIter != BLOCK_PADDING_DIM.end()) {
             paddingDim = paddingIter->second;
         }
-        if (paddingDim > 0 && op.oOperand[0]->shape[op.GetOOperands()[0]->shape.size() - AXIS_COMBINE_MIN_SHAPE_SIZE] % paddingDim != 0) {
+        if (!ConfigManager::Instance().GetOperationConfig("FORCE_COMBINE_AXIS", false) && paddingDim > 0 && op.oOperand[0]->shape[op.GetOOperands()[0]->shape.size() - AXIS_COMBINE_MIN_SHAPE_SIZE] % paddingDim != 0) {
             return;
         }
         APASS_LOG_DEBUG_F(Elements::Operation, "op %d %s is reduce, next to last dim is aligned\n", op.opmagic, op.GetOpcodeStr().c_str());
-        std::vector<bool> reduceAxesCombined(op.GetOOperands().size(), false);
-        reduceAxesCombined[0] = true;
-        op.SetAttr(OpAttributeKey::outputCombineAxis, reduceAxesCombined);
+        std::vector<bool> reduceAxisCombined(op.GetOOperands().size(), false);
+        reduceAxisCombined[0] = true;
+        op.SetAttr(OpAttributeKey::outputCombineAxis, reduceAxisCombined);
         std::unordered_set<LogicalTensorPtr> visitedTensors;
         // dfs遍历打上input/output不做padding的相关属性
         TraverseAndSetAttr(op.GetOOperands()[0], function, visitedTensors);
@@ -324,6 +328,16 @@ void PadLocalBuffer::ProcessBroadcast(Operation &op, size_t blockPadding) {
     if (!existLessBlock) {
         broadcastLastAxis_[op.opmagic] = maxLastAxis;
     }
+}
+
+void PadLocalBuffer::ProcessCopyIn(Function &function, Operation &op) {
+    // 轴的数量必须大于等于2，并且倒数第二根轴为32B对齐，否则无法命中pattern
+    std::vector<bool> axisCombined(op.GetOOperands().size(), false);
+    axisCombined[0] = true;
+    op.SetAttr(OpAttributeKey::outputCombineAxis, axisCombined);
+    std::unordered_set<LogicalTensorPtr> visitedTensors;
+    // dfs遍历打上input/output不做padding的相关属性
+    TraverseAndSetAttr(op.GetOOperands()[0], function, visitedTensors);
 }
 
 bool PadLocalBuffer::IsMatmul(const LogicalTensorPtr &tensor) const {
@@ -419,6 +433,21 @@ Status PadLocalBuffer::ProcessTranspose(Function &function) {
     return SUCCESS;
 }
 
+inline bool IsCopyIn(Operation& op) {
+    if (op.GetOpcode() != Opcode::OP_COPY_IN) {
+        return false;
+    }
+    auto &outputTensor = op.GetOOperands()[0];
+    if (outputTensor->GetMemoryTypeOriginal() != MemoryType::MEM_UB) {
+        return false;
+    }
+    auto shape = outputTensor->GetShape();
+    if ((shape.size() < AXIS_COMBINE_MIN_SHAPE_SIZE) || shape.back() != 1) {
+        return false;
+    }
+    return true;
+}
+
 Status PadLocalBuffer::RunOnFunction(Function &function) {
     for (auto &op : function.Operations()) {
         auto calcType = OpcodeManager::Inst().GetOpCalcType(op.GetOpcode());
@@ -426,6 +455,11 @@ Status PadLocalBuffer::RunOnFunction(Function &function) {
         if (IsReduceLastDim(op)) {
             ProcessReduce(function, op);
         }
+
+        if (ConfigManager::Instance().GetOperationConfig("FORCE_COMBINE_AXIS", false) && IsCopyIn(op)) {
+            ProcessCopyIn(function, op);
+        }
+
         // Broadcast op设置最后一根轴的padding值
         if (calcType == OpCalcType::BROADCAST) {
             auto bytes = BytesOf(op.iOperand[0]->Datatype());

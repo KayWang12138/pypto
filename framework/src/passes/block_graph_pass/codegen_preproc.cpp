@@ -77,6 +77,11 @@ void CodegenPreproc::CombineTailAxis(std::vector<int64_t> &shape, size_t shapeSi
     shape[shapeSize - NUM2] = 1;
 }
 
+void CodegenPreproc::CombineLastAxis(std::vector<SymbolicScalar> &shape, size_t shapeSize) const {
+    shape[shapeSize - 1] = shape[shapeSize - 1] * shape[shapeSize - NUM2];
+    shape[shapeSize - NUM2] = SymbolicScalar(1);
+}
+
 Status CodegenPreproc::ProcessAxis(Operation &op, std::vector<bool> attr, bool isInput) const {
     LogicalTensors operands = isInput ? op.GetIOperands() : op.GetOOperands();
     if (attr.size() < operands.size()) {
@@ -94,6 +99,9 @@ Status CodegenPreproc::ProcessAxis(Operation &op, std::vector<bool> attr, bool i
             CombineTailAxis(operands[i]->shape, shapeSize);
             CombineTailAxis(operands[i]->oriShape, shapeSize);
             CombineTailAxis(operands[i]->tensor->rawshape, shapeSize);
+            if (ConfigManager::Instance().GetOperationConfig("FORCE_COMBINE_AXIS", false)) {
+                CombineLastAxis(operands[i]->dynValidShape_, shapeSize);
+            } 
         }
     }
     return SUCCESS;

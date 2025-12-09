@@ -50,6 +50,7 @@ private:
     bool IsReduceLastDim(const Operation &op);
     void ProcessReduce(Function &function, Operation &op);
     void ProcessBroadcast(Operation &op, size_t blockPadding);
+    void ProcessCopyIn(Function &function, Operation &op);
     bool IsMatmul(const LogicalTensorPtr &tensor) const;
     bool IsVector(const LogicalTensorPtr &tensor);
     void DoPadding(Function &function);
