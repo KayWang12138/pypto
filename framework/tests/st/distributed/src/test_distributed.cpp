@@ -14,6 +14,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <unistd.h>
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
@@ -31,7 +32,7 @@ public:
     void SetUp() override
     {
         Distributed::TestFrameworkInit(testParam, hcomTestParam, physicalDeviceId);
-        std::string folderPath = "output/output_" + getTimeStamp() + "_" + std::to_string(physicalDeviceId);
+        std::string folderPath = "output/output_" + getTimeStamp() + "_" + std::to_string(getpid());
         setenv("TILE_FWK_OUTPUT_DIR", folderPath.c_str(), 0);
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
         Program::GetInstance().Reset();
@@ -63,7 +64,7 @@ protected:
     Distributed::OpTestParam testParam;
     Distributed::HcomTestParam hcomTestParam;
     int32_t timeout = 10;
-    int physicalDeviceId = 0;
+    int physicalDeviceId;
 };
 
 TEST_F(DistributedTest, aicpuWaitFlag_single_test_reduce_scatter_int32_32_32_4)

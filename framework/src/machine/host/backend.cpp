@@ -256,7 +256,6 @@ static void ReplaceSlotIndex(DyndevFunctionAttribute *attr, std::vector<bool>& s
     replaceSlotIdx(inoutLink.inputSlotIndexList);
     replaceSlotIdx(inoutLink.outputSlotIndexList);
     replaceSlotIdx(inoutLink.assembleSlotIndexList);
-    replaceSlotIdx(inoutLink.shmemTensorSlotIndexList);
     replaceSlotIdx(inoutLink.partialUpdateSlotIdexList);
     for (auto &slot : inoutLink.inplaceSlotIndexList) {
         if (slot != -1)
@@ -264,29 +263,10 @@ static void ReplaceSlotIndex(DyndevFunctionAttribute *attr, std::vector<bool>& s
     }
 }
 
-static void MarkUsedSlotsFromInoutLink(const IncastOutcastLink &inoutLink, std::vector<bool> &slotUsed) {
-    for (int slotIdx : inoutLink.inputSlotIndexList) {
-        slotUsed[slotIdx] = true;
-    }
-    for (int slotIdx : inoutLink.outputSlotIndexList) {
-        slotUsed[slotIdx] = true;
-    }
-    for (int slotIdx : inoutLink.shmemTensorSlotIndexList) {
-        slotUsed[slotIdx] = true;
-    }
-    for (int slotIdx : inoutLink.assembleSlotIndexList) {
-        slotUsed[slotIdx] = true;
-    }
-    for (int slotIdx : inoutLink.partialUpdateSlotIdexList) {
-        slotUsed[slotIdx] = true;
-    }
-}
-
 static void SimplifySlots(DyndevFunctionAttribute *attr) {
     IncastOutcastLink &inoutLink = attr->inoutLink;
     std::vector<bool> slotUsed(inoutLink.totalSlot);
 
-    MarkUsedSlotsFromInoutLink(inoutLink, slotUsed);
     for (Function *devRoot : attr->funcGroup.devRootList) {
         Function *devTile = attr->rootTileDict[devRoot];
 
@@ -296,21 +276,18 @@ static void SimplifySlots(DyndevFunctionAttribute *attr) {
         for (auto &incastSlots : ioslot.incastSlot) {
             if (incastSlots.empty()) {
                 ALOG_WARN("devTile: " + devTile->GetMagicName());
-                continue;
-            }
-            int32_t simplifiedIncastSlot = -1;
-            for (auto &incastSlot : incastSlots) {
-                if (slotUsed[incastSlot]) {
-                    simplifiedIncastSlot = incastSlot;
-                    break;
-                }
-            }
-            if (simplifiedIncastSlot != -1) {
-                incastSlots.front() = simplifiedIncastSlot;
             }
             incastSlots.resize(1); // meaningless to maintain multi incast slots
             slotUsed[incastSlots.front()] = true;
         }
+    }
+
+    for (int slotIdx : inoutLink.inputSlotIndexList) {
+        slotUsed[slotIdx] = true;
+    }
+
+    for (int slotIdx : inoutLink.outputSlotIndexList) {
+        slotUsed[slotIdx] = true;
     }
 
     for (Function *devRoot : attr->funcGroup.devRootList) {

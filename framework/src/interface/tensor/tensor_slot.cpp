@@ -261,16 +261,13 @@ void TensorSlotManager::TensorRead(const Tensor &tensor) {
     LogOperation(slot, "read");
 }
 
-void TensorSlotManager::TensorWrite(const Tensor &tensor, SlotProperty property) {
+void TensorSlotManager::TensorWrite(const Tensor &tensor, bool isAssemble) {
     TensorSlot slot = TensorSlot::CreateTensor(tensor);
     std::shared_ptr<LogicalTensor> storage = tensor.GetStorage(false);
     TensorSlotWrite(slot, storage);
-    if (property.Contains(SlotProperty::ASSEMBLE_DST)) {
+
+    if (isAssemble)
         assembleSlotSet.insert(slot);
-    }
-    if (property.Contains(SlotProperty::SHMEM_TENSOR)) {
-       shmemTensorSlotSet.insert(slot);
-    }
     ASSERT(tensor.GetStorage(false) != nullptr) << "Assigning uninitialized Tensor variable is forbidden";
     LogOperation(slot, "write");
 }
@@ -460,7 +457,6 @@ std::string TensorSlotManager::Dump() const {
     for (size_t i = 0; i < slotList.size(); i++) {
         bool live = liveSlotSet.count(slotList[i]);
         bool assemble = assembleSlotSet.count(slotList[i]);
-        bool shmemTensor = shmemTensorSlotSet.count(slotList[i]);
         bool input = inputSlotDict.count(slotList[i]);
         bool output = outputSlotDict.count(slotList[i]);
         bool named = slotNameDict.count(slotList[i]);
@@ -469,7 +465,6 @@ std::string TensorSlotManager::Dump() const {
             oss << "slot[" << std::setw(width2) << i << "]: ";
             oss << std::setw(width2) << (live ? 'L' : ' ');
             oss << std::setw(width2) << (assemble ? 'A' : ' ');
-            oss << std::setw(width2) << (shmemTensor ? 'S' : ' ');
             oss << std::setw(width2) << (parial ? 'P' : ' ');
             oss << std::setw(width6) << (input ? "in:" + std::to_string(inputSlotDict.find(slotList[i])->second) : std::string(" "));
             oss << std::setw(width7) << (output ? "out:" + std::to_string(outputSlotDict.find(slotList[i])->second) : std::string(" "));
@@ -546,9 +541,6 @@ IncastOutcastLink TensorSlotManager::BuildIncastOutcastLink([[maybe_unused]]cons
     for (auto &[slot, index] : slotIndexDict) {
         if (assembleSlotSet.count(slot)) {
             link.assembleSlotIndexList.push_back(index);
-        }
-        if (shmemTensorSlotSet.count(slot)) {
-            link.shmemTensorSlotIndexList.push_back(index);
         }
     }
     for (auto &slotIndex : partialUpdateSlotIndexSet) {

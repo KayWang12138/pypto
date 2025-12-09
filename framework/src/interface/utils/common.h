@@ -40,39 +40,6 @@ using Status = uint32_t;
 #define FAILED 1
 #define CACHELINE_SIZE_FOR_B64 64
 
-#define DEFINE_BITMASK_CLASS(Name, UnderlyingType, ...)                 \
-struct Name {                                                       \
-    using underlying_type = UnderlyingType;                         \
-    underlying_type value{0};                                       \
-                                                                    \
-    constexpr Name(underlying_type v = 0) : value(v) {}             \
-                                                                    \
-    enum : underlying_type { __VA_ARGS__ };                         \
-                                                                    \
-    constexpr bool Empty() const { return value == 0; }             \
-    constexpr bool Contains(underlying_type mask) const {           \
-        return (value & mask) == mask;                              \
-    }                                                               \
-    constexpr bool Overlaps(underlying_type mask) const {           \
-        return (value & mask) != 0;                                 \
-    }                                                               \
-    constexpr void Add(underlying_type mask) { value |= mask; }     \
-    constexpr void Remove(underlying_type mask) { value &= ~mask; } \
-                                                                    \
-    friend constexpr Name operator|(Name lhs, Name rhs) {           \
-        return Name(lhs.value | rhs.value);                         \
-    }                                                               \
-    friend constexpr Name operator&(Name lhs, Name rhs) {           \
-        return Name(lhs.value & rhs.value);                         \
-    }                                                               \
-    friend constexpr Name operator^(Name lhs, Name rhs) {           \
-        return Name(lhs.value ^ rhs.value);                         \
-    }                                                               \
-    friend constexpr Name operator~(Name lhs) {                     \
-        return Name(~lhs.value);                                    \
-    }                                                               \
-}
-
 inline constexpr uint32_t DIST_COMM_GROUP_NUM = 8;
 
 constexpr const int NUM2 = 2;
