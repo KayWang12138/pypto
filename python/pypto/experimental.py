@@ -25,3 +25,10 @@ def gather_in_ub(param: pypto_impl.Tensor, indices: pypto_impl.Tensor, axis: int
     """gather_in_ub."""
 
     return pypto_impl.gather_in_ub(param, indices, axis)
+
+
+@op_wrapper
+def gather_in_l1(src: pypto_impl.Tensor, offsets: pypto_impl.Tensor, size: int, is_b_matrix: bool, is_trans: bool):
+    """gather_in_l1."""
+
+    return pypto_impl.gather_in_l1(src, offsets, size, is_b_matrix, is_trans)
