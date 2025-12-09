@@ -17,6 +17,92 @@ from ..tensor import Tensor
 
 
 @op_wrapper
+def index_add_(
+    input: Tensor, dim: int, index: Tensor, source: Tensor, *, alpha: Union[int, float] = 1
+    ) -> Tensor:
+    """
+    Accumulate the elements of `alpha` times `source` into `input` tensor by
+    adding to the indices in the order given in `index`.
+
+    For a 3-D tensor this function specified output as:
+    input[index[i], :, :] += alpha * source[i, :, :]  # if dim == 0
+    input[:, index[i], :] += alpha * source[:, i, :]  # if dim == 1
+    input[:, :, index[i]] += alpha * source[:, :, i]  # if dim == 2
+
+    Parameters
+    ----------
+    input : Tensor
+        Source tensor that needs to be added in place.
+    dim : int
+        Dimension along which to index. Negative indexing is supported.
+    index : Tensor
+        Indices of `source` to select from, should have dtype either int64 
+        or int32 and the dimension must be 1.The length of `index` must have
+        the same size as the `dim` th dimension of `source`.
+    source : Tensor
+        The tensor containing values to add. The dimth dimension of
+        `source` must have the same size as the length of `index`, and 
+        all other dimensions must match `self`, or an error will be raised.
+    
+    Keyword Arguments:
+    ----------
+    alpha : Number
+        The scalar multiplier for `source`.
+
+    Returns
+    -------
+    Tensor
+        A new tensor sharing the same storage with the `input` tensor.
+
+    Raises
+    ------
+    RuntimeError
+        If any value in `index` is outside the inclusive range
+        [0, source.shape[dim]-1].
+
+    Examples
+    --------
+    x = pypto.tensor([2, 3], pypto.DT_FP32)        # shape (2, 3)
+    source = pypto.tensor([3, 3], pypto.DT_FP32)        # shape (3, 3)
+    index = pypto.tensor([3], pypto.DT_INT32)   # shape (3,)
+    dim = 0
+
+    # use alpha
+    y = pypto.index_add_(x, dim, index, source, alpha=1)
+
+    # not use alpha
+    y = pypto.index_add_(x, dim, index, source)
+
+    Input x:  [[0 0 0],
+               [0 0 0]]
+        source: [[1 1 1],
+               [1 1 1],
+               [1 1 1]]
+        index: [0 1 0]
+
+    Output y: [[4 4 4],
+               [2 2 2]]               # shape (2, 3)
+    """
+    if alpha == 1 or alpha == 1.0:
+        return pypto_impl.IndexAdd_(input, source, index, dim)
+    else:
+        return pypto_impl.IndexAdd_(input, source, index, dim, pypto_impl.Element(input.dtype, alpha))
+
+
+@op_wrapper
+def index_add(
+    input: Tensor, dim: int, index: Tensor, source: Tensor, *, alpha: Union[int, float] = 1
+    ) -> Tensor:
+    """
+    The out-of-place version of index_add_()
+    """
+    if alpha == 1 or alpha == 1.0:
+        return pypto_impl.IndexAdd(input, source, index, dim)
+    else:
+        return pypto_impl.IndexAdd(input, source, index, dim, pypto_impl.Element(input.dtype, alpha))
+
+
+@op_wrapper
 def gather(input: Tensor, dim: int, index: Tensor) -> Tensor:
     """
     Gather elements from `input` along `dim` according to `index`.

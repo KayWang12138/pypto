@@ -1360,13 +1360,16 @@ def gen_gatherelement_op_golden(
     def golden_func(inputs: list, config: dict):
         params = config.get("params")
         axis = params["axis"]
-        src = torch.from_numpy(inputs[0])
         if inputs[1].dtype == np.int32:
             indices = torch.from_numpy(inputs[1]).long()
         else:
             indices = torch.from_numpy(inputs[1])
-
-        res = src.gather(axis, indices).numpy()
+        if inputs[0].dtype == bfloat16:
+            src = torch.from_numpy(inputs[0].astype(np.float32))
+            res = src.gather(axis, indices).numpy().astype(bfloat16)
+        else:
+            src = torch.from_numpy(inputs[0])
+            res = src.gather(axis, indices).numpy()
 
         return [res]
 

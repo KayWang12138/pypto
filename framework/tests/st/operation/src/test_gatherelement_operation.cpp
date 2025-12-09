@@ -48,8 +48,12 @@ static void GatherElementOperationExeFunc2Dims(
         SymbolicScalar idx_firstDim = inputs[1].GetShape()[0];
         SymbolicScalar idx_secondDim = inputs[1].GetShape()[1];
         auto args = static_cast<const GatherElementOpFuncArgs *>(opArgs);
-        const int firstViewShape = args->viewShape_[0];
-        const int secondViewShape = args->viewShape_[1];
+        int axis = args->axis_;
+        axis = axis >= 0 ? axis : axis + inputs[0].GetShape().size();
+        std::vector<int64_t> viewShape = args->viewShape_;
+        ASSERT(viewShape[axis] == std::max(inputs[0].GetShape()[axis], inputs[1].GetShape()[axis]));
+        const int firstViewShape = viewShape[0];
+        const int secondViewShape = viewShape[1];
 
         /* gather操作src axis轴不能切分 ，其他轴可正常切分，index和最终输出都可正常切分。切分以index为准
          * src axis不能切分，需要保证axis轴的viewshape=srcshape */
@@ -85,9 +89,13 @@ static void GatherElementOperationExeFunc3Dims(
         SymbolicScalar idx_thirdDim = inputs[1].GetShape()[2];
 
         auto args = static_cast<const GatherElementOpFuncArgs *>(opArgs);
-        const int firstViewShape = args->viewShape_[0];
-        const int secondViewShape = args->viewShape_[1];
-        const int thirdViewShape = args->viewShape_[2];
+        int axis = args->axis_;
+        axis = axis >= 0 ? axis : axis + inputs[0].GetShape().size();
+        std::vector<int64_t> viewShape = args->viewShape_;
+        ASSERT(viewShape[axis] == std::max(inputs[0].GetShape()[axis], inputs[1].GetShape()[axis]));
+        const int firstViewShape = viewShape[0];
+        const int secondViewShape = viewShape[1];
+        const int thirdViewShape = viewShape[2];
 
         /* gather操作src axis轴不能切分 ，其他轴可正常切分，index和最终输出都可正常切分。切分以index为准
          * src axis不能切分，需要保证axis轴的viewshape=srcshape */
@@ -128,15 +136,15 @@ static void GatherElementOperationExeFunc4Dims(
         SymbolicScalar idx_secondDim = inputs[1].GetShape()[1];
         SymbolicScalar idx_thirdDim = inputs[1].GetShape()[2];
         SymbolicScalar idx_forthDim = inputs[1].GetShape()[3];
-
         auto args = static_cast<const GatherElementOpFuncArgs *>(opArgs);
-        const int firstViewShape = args->viewShape_[0];
-        const int secondViewShape = args->viewShape_[1];
-        const int thirdViewShape = args->viewShape_[2];
-        const int forthViewShape = args->viewShape_[3];
-
-        /* gather操作src axis轴不能切分 ，其他轴可正常切分，index和最终输出都可正常切分。切分以index为准
-         * src axis不能切分，需要保证axis轴的viewshape=srcshape */
+        int axis = args->axis_;
+        axis = axis >= 0 ? axis : axis + inputs[0].GetShape().size();
+        std::vector<int64_t> viewShape = args->viewShape_;
+        ASSERT(viewShape[axis] == std::max(inputs[0].GetShape()[axis], inputs[1].GetShape()[axis]));
+        const int firstViewShape = viewShape[0];
+        const int secondViewShape = viewShape[1];
+        const int thirdViewShape = viewShape[2];
+        const int forthViewShape = viewShape[3];
         const int loop[] = {CeilDiv(idx_firstDim, firstViewShape), CeilDiv(idx_secondDim, secondViewShape),
             CeilDiv(idx_thirdDim, thirdViewShape), CeilDiv(idx_forthDim, forthViewShape)};
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loop[IDX_DIM0])) {
@@ -159,13 +167,10 @@ static void GatherElementOperationExeFunc4Dims(
                                     std::min(idx_forthDim - qIdx * forthViewShape, forthViewShape)},
                                 {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
                                     qIdx * forthViewShape});
-
                         TileShape::Current().SetVecTile(args->tileShape_);
                         auto res = GatherElements(tileTensor0, tileTensor1, args->axis_);
-                        Assemble(res,
-                            {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
-                                qIdx * forthViewShape},
-                            outputs[0]);
+                        Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape, 
+                                qIdx * forthViewShape}, outputs[0]);
                     }
                 }
             }
@@ -189,11 +194,15 @@ static void GatherElementOperationExeFunc5Dims(
         SymbolicScalar idx_fifthDim = inputs[1].GetShape()[4];
 
         auto args = static_cast<const GatherElementOpFuncArgs *>(opArgs);
-        const int firstViewShape = args->viewShape_[0];
-        const int secondViewShape = args->viewShape_[1];
-        const int thirdViewShape = args->viewShape_[2];
-        const int forthViewShape = args->viewShape_[3];
-        const int fifthViewShape = args->viewShape_[4];
+        int axis = args->axis_;
+        axis = axis >= 0 ? axis : axis + inputs[0].GetShape().size();
+        std::vector<int64_t> viewShape = args->viewShape_;
+        ASSERT(viewShape[axis] == std::max(inputs[0].GetShape()[axis], inputs[1].GetShape()[axis]));
+        const int firstViewShape = viewShape[0];
+        const int secondViewShape = viewShape[1];
+        const int thirdViewShape = viewShape[2];
+        const int forthViewShape = viewShape[3];
+        const int fifthViewShape = viewShape[4];
 
         /* gather操作src axis轴不能切分 ，其他轴可正常切分，index和最终输出都可正常切分。切分以index为准
          * src axis不能切分，需要保证axis轴的viewshape=srcshape */

@@ -239,8 +239,20 @@ LogicalTensorPtr TensorGatherElementOperation(
 
 Tensor GatherElements(const Tensor &params, const Tensor &indices, int axis) {
     DECLARE_TRACER();
+    ASSERT(params.GetShape().size() == indices.GetShape().size());
     ASSERT(axis < static_cast<int>(params.GetShape().size()) && axis >= -static_cast<int>(params.GetShape().size()));
     axis = axis < 0 ? params.GetShape().size() + axis : axis; // 支持负轴
+    for (size_t i = 0; i < params.GetShape().size(); ++i) {
+        if (static_cast<int>(i) == axis) {
+            continue;
+        }
+        ASSERT(indices.GetShape()[i] <= params.GetShape()[i]);
+    }
+    std::vector<DataType> SUPPORT_DATATYPES = {
+        DataType::DT_FP32, DataType::DT_FP16, DataType::DT_INT32, DataType::DT_INT16, DataType::DT_BF16};
+    ASSERT(
+        std::find(SUPPORT_DATATYPES.begin(), SUPPORT_DATATYPES.end(), params.GetDataType()) != SUPPORT_DATATYPES.end());
+
     RETURN_CALL(GatherElementOperation, *Program::GetInstance().GetCurrentFunction(), params.GetStorage(),
         indices.GetStorage(), axis);
 }
