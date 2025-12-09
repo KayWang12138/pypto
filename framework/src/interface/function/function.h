@@ -477,7 +477,7 @@ public:
     bool IsCompiledFunction() const {
         return IsFunctionTypeAndGraphType(FunctionType::STATIC, {GraphType::EXECUTE_GRAPH, GraphType::BLOCK_GRAPH});
     }
-    std::unordered_set<int> LoopCheck();
+    std::unordered_set<int> LoopCheck(bool includeInternalSubgraphID = false);
     FunctionHash ComputeHash();
     OperationsViewer Operations(bool sorted = true);
     OperationsViewer OperationsAfterOOO();
@@ -881,7 +881,7 @@ private:
     friend class FunctionInterpreter;
 
     void RefreshOpPosition();
-    auto AnnotateOperation();
+    auto AnnotateOperation(bool includeInternalSubgraphID = false);
 
     void SetCallOpSlot();
     void UpdateOriIocastSlot(const std::shared_ptr<TensorSlotScope> scope);

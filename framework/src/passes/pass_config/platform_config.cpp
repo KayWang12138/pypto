@@ -87,6 +87,7 @@ inline std::string PlatformIdToString(DPlatform platformId) {
         {DPlatform::ASCEND_910B2, "ASCEND_910B2"},
         {DPlatform::ASCEND_910B3, "ASCEND_910B3"},
         {DPlatform::ASCEND_910B4, "ASCEND_910B4"},
+        {DPlatform::ASCEND_950PR_9579, "ASCEND_950PR_9579"},
     };
     if (mappings.count(platformId)) {
         return mappings[platformId];

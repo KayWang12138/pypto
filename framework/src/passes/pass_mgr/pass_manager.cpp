@@ -57,6 +57,7 @@ void RegPass() {
     REG_PASS(GlobalMemoryReuse);
     REG_PASS(SubgraphToFunction);
     REG_PASS(GraphPartition);
+    REG_PASS(ReduceCopyMerge);
     REG_PASS(InsertSync);
     REG_PASS(OoOSchedule);
     REG_PASS(RemoveUndrivenView);
@@ -112,6 +113,7 @@ void PassManager::RegDefaultStrategy() {
             {        "RemoveRedundantOp",        "RemoveRedundantOp"},
             {                   "SplitK",                   "SplitK"},
             {           "GraphPartition",           "GraphPartition"},
+            {          "ReduceCopyMerge",          "ReduceCopyMerge"},
             {             "NBufferMerge",             "NBufferMerge"},
             {     "IntraSubgraphAdapter",     "IntraSubgraphAdapter"},
             {           "GenerateMoveOp",           "GenerateMoveOp"},

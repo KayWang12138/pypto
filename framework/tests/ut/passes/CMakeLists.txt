@@ -103,6 +103,8 @@ set(_CaseFilterList
         "GraphPartitionTest.TestIsomorphismGraph"
         "GraphPartitionTest.TestNonIsomorphismGraph"
         "GraphPartitionTest.TestAvoidSuperNodeLoop"
+        "ReduceCopyTest.TestCase0"
+        "ReduceCopyTest.TestCase1"
         "AddAllocTest.TestAddAlloc"
         "AddAllocTest.TestAddAllocInplace"
         "AddAllocTest.TestAddAllocAssemble"
