@@ -29,7 +29,7 @@ def select_experts_glm(in_tensors, out_tensors, renormalize_flag, topk_group, nu
     pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_host_options(only_codegen=True)
     pypto.set_runtime_options(cfgcache_device_task_num=100)
-    pypto.set_runtime_options(cfgcache_root_task_num=100)
+    pypto.set_runtime_options(cfgcache_root_task_num=1000)
     pypto.set_runtime_options(cfgcache_leaf_task_num=10000)
     pypto.set_option('profile_enable', True)
 
@@ -122,7 +122,7 @@ def select_experts_glm(in_tensors, out_tensors, renormalize_flag, topk_group, nu
         pypto.set_vec_tile_shapes(view_first, num_expert_group)
         _, topk_group_indices = pypto.topk(group_weight, topk_group, -1, True)  # (2, topk_group) int32
 
-        # zeros -> full(0)
+        # zeros0 -> full(0)
         topk_group_mask = pypto.full([view_shape[0], num_expert_group], 0.0, group_weight.dtype,
                                         valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]),
                                                     num_expert_group])  # (16, 1)
@@ -278,10 +278,10 @@ def select_experts(residual: torch.Tensor,
     torch.npu.set_device(device_id)
     bs = hidden_states.shape[0]
     h_num = hidden_states.shape[1]
-    topk_weights = torch.zeros((bs, top_k), dtype=torch.float32, device=f'npu:{device_id}')
-    topk_ids = torch.zeros((bs, top_k), dtype=torch.int32, device=f'npu:{device_id}')
-    row_idx = torch.zeros((bs, top_k), dtype=torch.int32, device=f'npu:{device_id}')
-    output_residual = torch.zeros((bs, h_num), dtype=torch.bfloat16, device=f'npu:{device_id}')
+    topk_weights = torch.empty((bs, top_k), dtype=torch.float32, device=f'npu:{device_id}')
+    topk_ids = torch.empty((bs, top_k), dtype=torch.int32, device=f'npu:{device_id}')
+    row_idx = torch.empty((bs, top_k), dtype=torch.int32, device=f'npu:{device_id}')
+    output_residual = torch.empty((bs, h_num), dtype=torch.bfloat16, device=f'npu:{device_id}')
 
     # 4. 执行kernel并获取结果
     inputs = {
@@ -300,7 +300,12 @@ def select_experts(residual: torch.Tensor,
     }
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-    select_experts_glm(pto_inputs, pto_outputs, renormalize, topk_group, num_expert_group, row_ids_flag, input_norm_eps)
+
+    g = torch.npu.NPUGraph()
+    with torch.npu.graph(g):
+        select_experts_glm(pto_inputs, pto_outputs, renormalize, topk_group, num_expert_group,
+                           row_ids_flag, input_norm_eps)
+    g.replay()
     pypto.runtime._device_synchronize()
     return topk_weights, topk_ids, row_idx, output_residual
 
@@ -319,75 +324,82 @@ def test_select_experts():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
 
-    # 3. 准备测试数据
-    torch.manual_seed(0)
-    np.random.seed(0)
-    # add rms norm
-    hidden_states_tensor = torch.rand((bs, h_num), dtype=torch.bfloat16, device=f'npu:{device_id}')
-    residual_tensor = torch.rand((bs, h_num), dtype=torch.bfloat16, device=f'npu:{device_id}')
-    weight_tensor = torch.rand((h_num), dtype=torch.bfloat16, device=f'npu:{device_id}')
-    bias_input = torch.rand((h_num), dtype=torch.bfloat16, device=f'npu:{device_id}')
+    # 2. 构造多种shape，测试动态case
+    for i in range(0, 3):
+        if (i == 1):
+            bs = 8192
+        if (i == 2):
+            bs = 16
 
-    # matmul
-    mm_weight = torch.rand((ne, h_num), dtype=torch.float32, device=f'npu:{device_id}')
+        # 3. 准备测试数据
+        torch.manual_seed(0)
+        np.random.seed(0)
+        # add rms norm
+        hidden_states_tensor = torch.rand((bs, h_num), dtype=torch.bfloat16, device=f'npu:{device_id}')
+        residual_tensor = torch.rand((bs, h_num), dtype=torch.bfloat16, device=f'npu:{device_id}')
+        weight_tensor = torch.rand((h_num), dtype=torch.bfloat16, device=f'npu:{device_id}')
+        bias_input = torch.rand((h_num), dtype=torch.bfloat16, device=f'npu:{device_id}')
 
-    # select_experts
-    e_score_bias = torch.rand((ne), dtype=torch.bfloat16, device=f'npu:{device_id}')
+        # matmul
+        mm_weight = torch.rand((ne, h_num), dtype=torch.float32, device=f'npu:{device_id}')
 
-    # 4. 执行kernel并获取结果
-    topk_weights, topk_ids, row_idx, output_residual = select_experts(residual_tensor,
-                                                                      eps,
-                                                                      weight_tensor,
-                                                                      hidden_states_tensor,
-                                                                      mm_weight,
-                                                                      top_k,
-                                                                      renormalize,
-                                                                      row_ids_flag,
-                                                                      topk_group,
-                                                                      num_expert_group,
-                                                                      e_score_bias,
-                                                                      bias_input
-                                                                      )
+        # select_experts
+        e_score_bias = torch.rand((ne), dtype=torch.bfloat16, device=f'npu:{device_id}')
 
-    # 5. 与PyTorch参考实现对比
-    # add rms norm
-    golden_hidden_states, golden_residual = gen_add_rms_norm_golden(hidden_states_tensor,
-                                                                    residual_tensor, weight_tensor,
-                                                                    bias_input, eps)
+        # 4. 执行kernel并获取结果
+        topk_weights, topk_ids, row_idx, output_residual = select_experts(residual_tensor,
+                                                                        eps,
+                                                                        weight_tensor,
+                                                                        hidden_states_tensor,
+                                                                        mm_weight,
+                                                                        top_k,
+                                                                        renormalize,
+                                                                        row_ids_flag,
+                                                                        topk_group,
+                                                                        num_expert_group,
+                                                                        e_score_bias,
+                                                                        bias_input
+                                                                        )
 
-    # mm
-    result_mm = gen_gate_golden(golden_hidden_states, mm_weight)
+        # 5. 与PyTorch参考实现对比
+        # add rms norm
+        golden_hidden_states, golden_residual = gen_add_rms_norm_golden(hidden_states_tensor,
+                                                                        residual_tensor, weight_tensor,
+                                                                        bias_input, eps)
 
-    # select_experts
-    topk_weights_out, topk_ids_int32, golden_row_idx = gen_select_experts_golden(result_mm, e_score_bias, row_idx,
-                                                                                 bs, num_expert_group, ne, top_k,
-                                                                                 topk_group, renormalize,
-                                                                                 row_ids_flag)
+        # mm
+        result_mm = gen_gate_golden(golden_hidden_states, mm_weight)
 
-    topk_weight_2_tensor_list = topk_weights_out.cpu().flatten().tolist()
-    topk_ids_tensor_list = topk_ids_int32.cpu().flatten().tolist()
-    golden_row_idx_list = golden_row_idx.cpu().flatten().tolist()
-    output_residual_list = golden_residual.cpu().flatten().tolist()
+        # select_experts
+        topk_weights_out, topk_ids_int32, golden_row_idx = gen_select_experts_golden(result_mm, e_score_bias, row_idx,
+                                                                                    bs, num_expert_group, ne, top_k,
+                                                                                    topk_group, renormalize,
+                                                                                    row_ids_flag)
 
-    # residual result
-    assert_allclose(np.array(output_residual.cpu().flatten().tolist()),
-                    np.array(output_residual_list),
-                    rtol=1e-5, atol=1e-5)
+        topk_weight_2_tensor_list = topk_weights_out.cpu().flatten().tolist()
+        topk_ids_tensor_list = topk_ids_int32.cpu().flatten().tolist()
+        golden_row_idx_list = golden_row_idx.cpu().flatten().tolist()
+        output_residual_list = golden_residual.cpu().flatten().tolist()
 
-    # weight result
-    assert_allclose(np.array(topk_weights.cpu().flatten().tolist()),
-                    np.array(topk_weight_2_tensor_list),
-                    rtol=1e-5, atol=1e-5)
+        # residual result
+        assert_allclose(np.array(output_residual.cpu().flatten().tolist()),
+                        np.array(output_residual_list),
+                        rtol=1e-5, atol=1e-5)
 
-    # idx result
-    assert_allclose(np.array(topk_ids.cpu().flatten().tolist()),
-                    np.array(topk_ids_tensor_list),
-                    rtol=1e-5, atol=1e-5)
+        # weight result
+        assert_allclose(np.array(topk_weights.cpu().flatten().tolist()),
+                        np.array(topk_weight_2_tensor_list),
+                        rtol=1e-5, atol=1e-5)
 
-    # row_idx result
-    assert_allclose(np.array(row_idx.cpu().flatten().tolist()),
-                    np.array(golden_row_idx_list),
-                    rtol=1e-5, atol=1e-5)
+        # idx result
+        assert_allclose(np.array(topk_ids.cpu().flatten().tolist()),
+                        np.array(topk_ids_tensor_list),
+                        rtol=1e-5, atol=1e-5)
+
+        # row_idx result
+        assert_allclose(np.array(row_idx.cpu().flatten().tolist()),
+                        np.array(golden_row_idx_list),
+                        rtol=1e-5, atol=1e-5)
 
 
 if __name__ == "__main__":

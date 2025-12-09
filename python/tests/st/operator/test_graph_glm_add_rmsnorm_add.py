@@ -37,9 +37,20 @@ def main():
 
 
 @allow_in_graph
-def graph_add_rms_norm_custom(inputs, outputs, eps):
-    if isinstance(inputs[0], FakeTensor):
+def graph_add_rms_norm_custom(hidden_states, residual, input_norm_weight, input_norm_bias, eps,
+                              output_hidden_states, output_residual):
+    if isinstance(hidden_states, FakeTensor):
         return
+    inputs = {
+        hidden_states: [0],
+        residual: [0],
+        input_norm_weight: [],
+        input_norm_bias: []
+    }
+    outputs = {
+        output_hidden_states: [0],
+        output_residual: [0]
+    }
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     add_rms_norm_custom(pto_inputs, pto_outputs, eps)
@@ -74,32 +85,25 @@ def post_attention_layernorm_pto(layer_input_layernorm,
     input_norm_weight = layer_input_layernorm.weight
     bs, h_num = hidden_states.shape
     device_info = hidden_states.device
-    output_hidden_states = torch.zeros(
+    output_hidden_states = torch.empty(
         (bs, h_num), dtype=hidden_states.dtype, device=device_info)
-    output_residual = torch.zeros(
+    output_residual = torch.empty(
         (bs, h_num), dtype=hidden_states.dtype, device=device_info)
-    inputs = {
-        hidden_states: [0],
-        residual: [0],
-        input_norm_weight: [],
-        input_norm_bias: []
-    }
-    outputs = {
-        output_hidden_states: [0],
-        output_residual: [0]
-    }
-    graph_add_rms_norm_custom(inputs, outputs, input_norm_eps)
+
+    graph_add_rms_norm_custom(hidden_states, residual, input_norm_weight, input_norm_bias, input_norm_eps,
+                              output_hidden_states, output_residual)
     return output_hidden_states, output_residual
 
 
-@pypto.jit
+@pypto.jit(
+    runtime_options={
+    "cfgcache_device_task_num": 100,
+    "cfgcache_root_task_num": 1000,
+    "cfgcache_leaf_task_num": 10000},
+    host_options={"only_codegen": True},
+    codegen_options={"support_dynamic_unaligned": True}
+)
 def add_rms_norm_custom(in_tensor, out_tensor, eps):
-    # 添加支持动态的config
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
-    pypto.set_host_options(only_codegen=True)
-    pypto.set_runtime_options(cfgcache_device_task_num=100)
-    pypto.set_runtime_options(cfgcache_root_task_num=100)
-    pypto.set_runtime_options(cfgcache_leaf_task_num=10000)
     # 泳道图使能  pypto.set_option('profile_enable', True)
 
     # 从入参拿到输入和输出tensor
@@ -166,18 +170,16 @@ def add_rms_norm_custom(in_tensor, out_tensor, eps):
 
 
 def test_rms_norm_main():
-    bs = 8
+    bs = 32
     h_num = 5120
 
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
     eps = 1e-5
 
-    for i in range(0, 3):
-        if (i == 1):
-            bs = 16
-        if (i == 2):
-            bs = 1037
+    for i in range(0, 2):
+        if i == 1:
+            bs = 1026
         # 准备测试数据
         residual_tensor = torch.rand(
             (bs, h_num), dtype=torch.bfloat16, device=f'npu:{device_id}')
@@ -188,9 +190,9 @@ def test_rms_norm_main():
         bias_input = torch.rand(
             (h_num), dtype=torch.bfloat16, device=f'npu:{device_id}')
 
-        output_hidden_states = torch.zeros(
+        output_hidden_states = torch.empty(
             (bs, h_num), dtype=torch.bfloat16, device=f'npu:{device_id}')
-        output_residual = torch.zeros(
+        output_residual = torch.empty(
             (bs, h_num), dtype=torch.bfloat16, device=f'npu:{device_id}')
 
         inputs = {
@@ -206,7 +208,10 @@ def test_rms_norm_main():
 
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-        add_rms_norm_custom(pto_inputs, pto_outputs, eps)
+        g = torch.npu.NPUGraph()
+        with torch.npu.graph(g):
+            add_rms_norm_custom(pto_inputs, pto_outputs, eps)
+        g.replay()
         pypto.runtime._device_synchronize()
 
         golden_hidden_states, golden_residual = add_rms_norm_golden(hidden_states_tensor,

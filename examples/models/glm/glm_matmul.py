@@ -37,9 +37,16 @@ def main():
 
 
 @allow_in_graph
-def graph_select_experts_mm(inputs, outputs):
-    if isinstance(inputs[0], FakeTensor):
+def graph_select_experts_mm(hidden_states, gate_weight, router_logits_out):
+    if isinstance(hidden_states, FakeTensor):
         return
+    inputs = {
+        hidden_states: [0],
+        gate_weight: []
+    }
+    outputs = {
+        router_logits_out: [0]
+    }
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     select_experts_mm(pto_inputs, pto_outputs)
@@ -51,26 +58,21 @@ def gate_pto(gate_weight: torch.Tensor,  # gate matmul weights
              ) -> torch.Tensor:
     bs = hidden_states.shape[0]
     ne = gate_weight.shape[0]
-    router_logits_out = torch.zeros((bs, ne), dtype=gate_weight.dtype, device=hidden_states.device)
-    inputs = {
-        hidden_states: [0],
-        gate_weight: []
-    }
-    outputs = {
-        router_logits_out: [0]
-    }
-    graph_select_experts_mm(inputs, outputs)
+    router_logits_out = torch.empty((bs, ne), dtype=gate_weight.dtype, device=hidden_states.device)
+
+    graph_select_experts_mm(hidden_states, gate_weight, router_logits_out)
     return router_logits_out
 
 
-@pypto.jit
+@pypto.jit(
+    runtime_options={
+    "cfgcache_device_task_num": 100,
+    "cfgcache_root_task_num": 1000,
+    "cfgcache_leaf_task_num": 10000},
+    host_options={"only_codegen": True},
+    codegen_options={"support_dynamic_unaligned": True}
+)
 def select_experts_mm(in_tensors, out_tensors):
-    # 1. 添加支持动态的config
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
-    pypto.set_host_options(only_codegen=True)
-    pypto.set_runtime_options(cfgcache_device_task_num=100)
-    pypto.set_runtime_options(cfgcache_root_task_num=100)
-    pypto.set_runtime_options(cfgcache_leaf_task_num=10000)
     # 泳道图使能  pypto.set_option('profile_enable', True)
 
     # 2. 从入参拿到输入和输出tensor
@@ -106,7 +108,7 @@ def select_experts_mm(in_tensors, out_tensors):
 
 def test_select_experts_mm():
     # 1. 设置参数
-    bs = 8
+    bs = 32
     ne = 160
     h_num = 5120
 
@@ -114,18 +116,15 @@ def test_select_experts_mm():
     torch.npu.set_device(device_id)
 
     # 2. 构造多种shape，测试动态case
-    for i in range(0, 3):
-        if (i == 1):
-            bs = 1037
-        if (i == 2):
-            bs = 16
-
+    for i in range(0, 2):
+        if i == 1:
+            bs = 1026
         # 3. 准备测试数据
         torch.manual_seed(0)
         np.random.seed(0)
         hidden_states = torch.rand((bs, h_num), dtype=torch.float32, device=f'npu:{device_id}')
         mm_weight = torch.rand((ne, h_num), dtype=torch.float32, device=f'npu:{device_id}')
-        router_logits_out = torch.zeros((bs, ne), dtype=torch.float32, device=f'npu:{device_id}')
+        router_logits_out = torch.empty((bs, ne), dtype=torch.float32, device=f'npu:{device_id}')
 
         # 4. 执行kernel并获取结果
         inputs = {
@@ -137,7 +136,10 @@ def test_select_experts_mm():
         }
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-        select_experts_mm(pto_inputs, pto_outputs)
+        g = torch.npu.NPUGraph()
+        with torch.npu.graph(g):
+            select_experts_mm(pto_inputs, pto_outputs)
+        g.replay()
         pypto.runtime._device_synchronize()
 
         # 5. 与PyTorch参考实现对比

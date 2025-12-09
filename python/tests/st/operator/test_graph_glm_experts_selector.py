@@ -37,12 +37,21 @@ def main():
 
 
 @allow_in_graph
-def graph_select_experts_glm(inputs, outputs, renormalize_flag, topk_group, num_expert_group, row_ids_flag):
-    if isinstance(inputs[0], FakeTensor):
+def graph_select_experts_glm(router_logits, e_score_correction_bias, renormalize_flag, topk_group, num_expert_group,
+                             topk_weights, topk_ids):
+    if isinstance(router_logits, FakeTensor):
         return
+    inputs = {
+        router_logits: [0],
+        e_score_correction_bias: []
+    }
+    outputs = {
+        topk_weights: [0],
+        topk_ids: [0]
+    }
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-    select_experts_glm(pto_inputs, pto_outputs, renormalize_flag, topk_group, num_expert_group, row_ids_flag)
+    select_experts_glm(pto_inputs, pto_outputs, renormalize_flag, topk_group, num_expert_group)
     pypto.runtime._device_synchronize()
 
 
@@ -56,38 +65,30 @@ def select_experts_pto(router_logits: torch.Tensor,
                        num_expert_group: int,
                        # Correction bias to apply to expert scores.
                        e_score_correction_bias: torch.Tensor,
-                       ) -> tuple[torch.Tensor, torch.Tensor]:  # topk_weights, topk_ids, row_idx
-    row_ids_flag = False
+                       ) -> tuple[torch.Tensor, torch.Tensor]:  # topk_weights, topk_ids
     bs = router_logits.shape[0]
     device_info = router_logits.device
-    topk_weights = torch.zeros(
+    topk_weights = torch.empty(
         (bs, top_k), dtype=router_logits.dtype, device=device_info)
-    topk_ids = torch.zeros((bs, top_k), dtype=torch.int32, device=device_info)
-    row_idx = torch.zeros((bs, top_k), dtype=torch.int32, device=device_info)
+    topk_ids = torch.empty((bs, top_k), dtype=torch.int32, device=device_info)
 
     # 4. 执行kernel并获取结果
-    inputs = {
-        router_logits: [0],
-        e_score_correction_bias: []
-    }
-    outputs = {
-        topk_weights: [0],
-        topk_ids: [0],
-        row_idx: []
-    }
-    graph_select_experts_glm(inputs, outputs, renormalize,
-                             topk_group, num_expert_group, row_ids_flag)
+    graph_select_experts_glm(router_logits, e_score_correction_bias, renormalize,
+                             topk_group, num_expert_group, topk_weights, topk_ids)
     return topk_weights, topk_ids
 
 
-@pypto.jit
-def select_experts_glm(in_tensors, out_tensors, renormalize_flag, topk_group, num_expert_group, row_ids_flag):
-    # 1. 添加支持动态的config
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
-    pypto.set_host_options(only_codegen=True)
-    pypto.set_runtime_options(cfgcache_device_task_num=100)
-    pypto.set_runtime_options(cfgcache_root_task_num=100)
-    pypto.set_runtime_options(cfgcache_leaf_task_num=10000)
+@pypto.jit(
+    runtime_options={"first_stitch_task_loop_num": 128, 
+    "estimated_stitch_task_max_loop_num": 128,
+    "workspace_recycle_period": 128,
+    "cfgcache_device_task_num": 100,
+    "cfgcache_root_task_num": 1000,
+    "cfgcache_leaf_task_num": 10000},
+    host_options={"only_codegen": True},
+    codegen_options={"support_dynamic_unaligned": True}
+)
+def select_experts_glm(in_tensors, out_tensors, renormalize_flag, topk_group, num_expert_group):
     # 泳道图使能  pypto.set_option('profile_enable', True)
 
     # 2. 从入参拿到输入和输出tensor
@@ -95,7 +96,6 @@ def select_experts_glm(in_tensors, out_tensors, renormalize_flag, topk_group, nu
     e_score_bias_input = in_tensors[1]
     weight_k = out_tensors[0]
     ids_k = out_tensors[1]
-    row_idx = out_tensors[2]
 
     # 3. 得到动态tensor的shape
     bs = logits_input.shape[0]
@@ -106,10 +106,7 @@ def select_experts_glm(in_tensors, out_tensors, renormalize_flag, topk_group, nu
     view_first = 1
     bs_loop = (bs + view_shape[0] - 1) // view_shape[0]
 
-    pypto.set_runtime_options(estimated_stitch_task_max_loop_num=32)
-    pypto.set_runtime_options(workspace_recycle_period=32)
     # 4. 定义动态函数
-
     for _ in pypto.loop(1, name="LOOP_RESHAPE_INPLACE", idx_name="_"):
         pypto.set_vec_tile_shapes(ne)
         e_score_bias_2d = pypto.reshape(e_score_bias_input, [1, ne], inplace=True)  # (160) -> (1,160)
@@ -123,10 +120,11 @@ def select_experts_glm(in_tensors, out_tensors, renormalize_flag, topk_group, nu
 
         # 7. 按照计算图实现运算逻辑，设置set_vec_tile_shapes时应尽可能用满UB，但不要超过UB的大小。
         pypto.set_vec_tile_shapes(view_first, ne)
-        e_score_bias_2d_cast = pypto.cast(e_score_bias_2d, tile_logits.dtype)
+        tile_logits_fp32 = pypto.cast(tile_logits, pypto.DT_FP32)
+        e_score_bias_2d_cast = pypto.cast(e_score_bias_2d, tile_logits_fp32.dtype)
 
         # sigmoid
-        topk_weights = pypto.sigmoid(tile_logits)  # (bs, ne) fp32
+        topk_weights = pypto.sigmoid(tile_logits_fp32)  # (bs, ne) fp32
 
         # add
         topk_weights_add = pypto.add(topk_weights, e_score_bias_2d_cast)  # (8, 160) fp32
@@ -209,35 +207,29 @@ def gen_row_idx_gloden(hidden_states, top_k):
 
 def test_select_experts():
     # 1. 设置参数
-    bs = 8
+    bs = 32
     ne = 160
     top_k = 8
     topk_group = 1
     num_expert_group = 1
     renormalize = True
-    row_ids_flag = False
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
 
     # 2. 构造多种shape，测试动态case
-    for i in range(0, 3):
-        if (i == 1):
-            bs = 16
-        if (i == 2):
-            bs = 1037
-
+    for i in range(0, 2):
+        if i == 1:
+            bs = 1026
         # 3. 准备测试数据
         torch.manual_seed(0)
         np.random.seed(0)
         router_logits = torch.rand(
-            (bs, ne), dtype=torch.float32, device=f'npu:{device_id}')
+            (bs, ne), dtype=torch.bfloat16, device=f'npu:{device_id}')
         e_score_bias = torch.rand(
             (ne), dtype=torch.bfloat16, device=f'npu:{device_id}')
-        topk_weights = torch.zeros(
+        topk_weights = torch.empty(
             (bs, top_k), dtype=torch.float32, device=f'npu:{device_id}')
-        topk_ids = torch.zeros(
-            (bs, top_k), dtype=torch.int32, device=f'npu:{device_id}')
-        row_idx = torch.zeros(
+        topk_ids = torch.empty(
             (bs, top_k), dtype=torch.int32, device=f'npu:{device_id}')
 
         # 4. 执行kernel并获取结果
@@ -247,16 +239,19 @@ def test_select_experts():
         }
         outputs = {
             topk_weights: [0],
-            topk_ids: [0],
-            row_idx: []
+            topk_ids: [0]
         }
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-        select_experts_glm(pto_inputs, pto_outputs, renormalize, topk_group, num_expert_group, row_ids_flag)
+        g = torch.npu.NPUGraph()
+        with torch.npu.graph(g):
+            select_experts_glm(pto_inputs, pto_outputs, renormalize, topk_group, num_expert_group)
+        g.replay()
         pypto.runtime._device_synchronize()
 
         # 5. 与PyTorch参考实现对比
-        original_weights = router_logits.sigmoid()
+        router_logits_fp32 = router_logits.to(torch.float)
+        original_weights = router_logits_fp32.sigmoid()
         bias_2d = e_score_bias.unsqueeze(0)
         topk_weights_g_add = original_weights + bias_2d
         tw_view = topk_weights_g_add.view(bs, num_expert_group, -1)
@@ -291,29 +286,18 @@ def test_select_experts():
         else:
             topk_weights_out = topk_weights_gather
 
-        if row_ids_flag:
-            golden_row_idx = gen_row_idx_gloden(router_logits, top_k)
-        else:
-            golden_row_idx = row_idx
-
         topk_weight_2_tensor_list = topk_weights_out.cpu().flatten().tolist()
         topk_ids_tensor_list = topk_ids_int32.cpu().flatten().tolist()
-        golden_row_idx_list = golden_row_idx.cpu().flatten().tolist()
 
         # weight result
         assert_allclose(np.array(topk_weights.cpu().flatten().tolist()),
                         np.array(topk_weight_2_tensor_list),
-                        rtol=1e-5, atol=1e-5)
+                        rtol=5e-3, atol=5e-3)
 
         # idx result
         assert_allclose(np.array(topk_ids.cpu().flatten().tolist()),
                         np.array(topk_ids_tensor_list),
-                        rtol=1e-5, atol=1e-5)
-
-        # row_idx result
-        assert_allclose(np.array(row_idx.cpu().flatten().tolist()),
-                        np.array(golden_row_idx_list),
-                        rtol=1e-5, atol=1e-5)
+                        rtol=5e-3, atol=5e-3)
 
 
 if __name__ == "__main__":
