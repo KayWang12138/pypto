@@ -61,7 +61,6 @@ def test_1d_assemble_to_2d():
         for a_idx in pypto.loop(res_shape[1], name="LOOP_L0", idx_name="a_idx"):
             pypto.set_vec_tile_shapes(4, 4)
             res[0:, a_idx] = x
-            del res
 
     torch_tensor = torch.rand(x_shape, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(res_shape, dtype=torch.float32)
@@ -95,8 +94,6 @@ def test_2d_assemble_to_3d():
                 pypto.set_vec_tile_shapes(4, 4, 4)
                 offset = s_idx * x.shape[1]
                 res[b_idx, offset:, :] = x
-                del offset
-                del res
 
     torch_tensor = torch.rand(x_shape, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(res_shape, dtype=torch.float32)
@@ -129,7 +126,6 @@ def test_slice_int_index():
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
             pypto.set_vec_tile_shapes(4, 4, 4, 4, 4)
             res[-2, -3:8, :, 1:4, 2] = x # reshape x to (1, 3, 8, 3, 1), res[2:, 5:8, 0:8, 1:4, 2:3] = x
-            del res
 
     torch_tensor = torch.rand(x_shape, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(res_shape, dtype=torch.float32)
@@ -169,10 +165,6 @@ def test_slice_ellipsis_index():
             res1[1:2, :, ..., 3:5] = x1
             res2[2, 3, ...] = x2
             res3[...] = x3 + 0.0
-            del res0
-            del res1
-            del res2
-            del res3
 
     x_tensor = [torch.rand(shape, dtype=torch.float32) * 200 - 100 for shape in x_shape]
     res_tensor = [torch.zeros(res_shape, dtype=torch.float32) for _ in range(4)]

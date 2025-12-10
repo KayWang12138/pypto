@@ -56,7 +56,7 @@ def test_vector_operation_greater():
                 tile_a.move(pypto.greater(tile_a, tile_b))
                 pypto.assemble(
                     tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], c)
-                del tile_a, tile_b
+
     a_tensor = torch.from_numpy(
         np.random.uniform(-100, 100, [n, m]).astype(np.float32))
     b_tensor = torch.from_numpy(
@@ -114,7 +114,6 @@ def test_greater_scalar():
                     output_tensor
                 )
 
-                del view_block
     input_data = torch.randn(n, m, dtype=torch.float32) * 100
     output_data = torch.zeros(n, m, dtype=torch.bool)
 
@@ -166,7 +165,6 @@ def test_vector_operation_equal():
                 tile_a.move(pypto.eq(tile_a, tile_b))
                 pypto.assemble(
                     tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], c)
-                del tile_a, tile_b
     a_tensor = torch.from_numpy(
         np.random.uniform(-100, 100, [n, m]).astype(np.float32))
     b_tensor = torch.from_numpy(
@@ -224,7 +222,6 @@ def test_equal_scalar():
                     output_tensor
                 )
 
-                del view_block
     input_data = torch.randn(n, m, dtype=torch.float32) * 100
     output_data = torch.zeros(n, m, dtype=torch.bool)
 
@@ -276,7 +273,6 @@ def test_vector_operation_less():
                 tile_a.move(pypto.lt(tile_a, tile_b))
                 pypto.assemble(
                     tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], c)
-                del tile_a, tile_b
     a_tensor = torch.from_numpy(
         np.random.uniform(-100, 100, [n, m]).astype(np.float32))
     b_tensor = torch.from_numpy(
@@ -334,7 +330,6 @@ def test_less_scalar():
                     output_tensor
                 )
 
-                del view_block
     input_data = torch.randn(n, m, dtype=torch.float32) * 100
     output_data = torch.zeros(n, m, dtype=torch.bool)
     pto_input_tensor = pypto.from_torch(input_data, "input_data")

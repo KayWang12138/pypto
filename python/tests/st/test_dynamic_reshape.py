@@ -53,8 +53,6 @@ def test_reshape_equal():
             pypto.set_vec_tile_shapes(16, 16)
             q0 = q.reshape(dst_shape)
             out.move(q0)
-            del q0
-            del out
 
     q_tensor = torch.arange(s * 32, dtype=torch.float32).reshape(s, 32)
     out_tensor = torch.zeros_like(q_tensor)
@@ -86,9 +84,6 @@ def test_reshape_equal2():
             q0 = pypto.reshape(q, dst_shape, valid_shape=[16, 16])
             t0 = pypto.reshape(t, dst_shape, valid_shape=[16, 16])
             out.move(pypto.add(q0, t0))
-            del q0
-            del t0
-            del out
 
     q_tensor = torch.arange(s * 32, dtype=torch.float32).reshape(s, 32)
     tmp_tensor = torch.arange(s * 32, dtype=torch.float32).reshape(s, 32)
@@ -120,8 +115,6 @@ def test_reshape_validshape():
             q0 = pypto.reshape(q, dst_shape, valid_shape=[8, 32])
             qp = pypto.add(q0, 1.0)
             out.move(q0)
-            del q0
-            del out
 
     q_tensor = torch.arange(s * 32, dtype=torch.float32)
     out_tensor = torch.zeros_like(q_tensor)
@@ -151,8 +144,6 @@ def test_reshape_validshape2():
             q0 = pypto.reshape(q, dst_shape)
             q0 = q0 + 1.0
             out.move(q0)
-            del q0
-            del out
 
     q_tensor = torch.arange(16 * 32, dtype=torch.float32).reshape(16, 32)
     scalar_tensor = torch.ones(16 * 32, dtype=torch.float32).reshape(16, 32)

@@ -46,7 +46,7 @@ def test_vector_operation_log():
                 tile_a.move(pypto.log(tile_a))
                 pypto.assemble(
                     tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
-                del tile_a
+
     a_tensor = torch.rand(n, m, dtype=torch.float32) * 99.999 + 0.001
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
     pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
@@ -86,7 +86,7 @@ def test_vector_operation_log2():
                 tile_a.move(pypto.log(tile_a, pypto.LogBaseType.LOG_2))
                 pypto.assemble(
                     tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
-                del tile_a
+
     a_tensor = torch.rand(n, m, dtype=torch.float32) * 99.999 + 0.001
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
     pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
@@ -124,7 +124,7 @@ def test_vector_operation_log10():
                 tile_a.move(pypto.log(tile_a, pypto.LogBaseType.LOG_10))
                 pypto.assemble(
                     tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
-                del tile_a
+
     a_tensor = torch.rand(n, m, dtype=torch.float32) * 99.999 + 0.001
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
     pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")

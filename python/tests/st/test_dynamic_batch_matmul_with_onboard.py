@@ -116,8 +116,6 @@ def batch_matmul_no_split_util(tensor_a, tensor_b, tensor_c, input_config, idx):
     dyn_b = pypto.view(tensor_b, shape_b, [0, 0, 0], valid_shape=valid_shape_b)
     tensor_c.move(pypto.matmul(dyn_a, dyn_b, dtype, a_trans=input_config.a_trans, b_trans=input_config.b_trans,
                                 c_matrix_nz=input_config.c_format_nz))
-    del dyn_a
-    del dyn_b
 
 
 def split_m_axis(tensor_a, tensor_b, tensor_c, input_config):
@@ -158,9 +156,6 @@ def batch_matmul_split_m_util(tensor_a, tensor_b, tensor_c, input_config, m_idx)
                                             c_matrix_nz=input_config.c_format_nz)
 
     pypto.assemble(res, [0, m_idx * view_shape[1], 0], tensor_c)
-    del dyn_a
-    del dyn_b
-    del res
 
 
 def split_n_axis(tensor_a, tensor_b, tensor_c, input_config):
@@ -202,9 +197,6 @@ def batch_matmul_split_n_utils(tensor_a, tensor_b, tensor_c, input_config, n_idx
                                 c_matrix_nz=input_config.c_format_nz)
 
     pypto.assemble(res, [0, 0, n_idx * view_shape[2]], tensor_c)
-    del dyn_a
-    del dyn_b
-    del res
 
 
 def split_m_n_axis(tensor_a, tensor_b, tensor_c, input_config):
@@ -260,9 +252,6 @@ def batch_matmul_split_m_n_utils(tensor_a, tensor_b, tensor_c, input_config, m_i
                                 c_matrix_nz=input_config.c_format_nz)
 
         pypto.assemble(res, [0, m_idx * view_shape[1], n_idx * view_shape[2]], tensor_c)
-        del dyn_a
-        del dyn_b
-        del res
 
 
 def batch_matmul_convert_dtype(dtype):

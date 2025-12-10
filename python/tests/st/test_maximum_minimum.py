@@ -82,7 +82,6 @@ def test_with_tensor_scalar_minimum(
                     [b_idx * view_shape[0], s_idx * view_shape[1]],
                     y,
                 )
-                del tile_tensor_0, res
 
     nx_tensor = torch.randint(*data_range, shape, dtype=pto_dtype_to_torch_dtype(data_type))
     ny_tensor = torch.zeros(shape, dtype=pto_dtype_to_torch_dtype(data_type))
@@ -145,7 +144,6 @@ def test_with_tensor_scalar_maximum(
                     [b_idx * view_shape[0], s_idx * view_shape[1]],
                     y,
                 )
-                del tile_tensor_0, res
 
     nx_tensor = torch.randint(*data_range, shape, dtype=pto_dtype_to_torch_dtype(data_type))
     ny_tensor = torch.zeros(shape, dtype=pto_dtype_to_torch_dtype(data_type))
@@ -221,7 +219,6 @@ def test_with_tensor_tensor_minimum(
                     [b_idx * view_shape[0], s_idx * view_shape[1]],
                     z,
                 )
-                del tile_tensor_0, res
 
     nx_tensor = torch.randint(*data_range, shape, dtype=pto_dtype_to_torch_dtype(data_type))
     ny_tensor = torch.randint(*data_range, shape, dtype=pto_dtype_to_torch_dtype(data_type))
@@ -300,7 +297,6 @@ def test_with_tensor_tensor_maximum(
                     [b_idx * view_shape[0], s_idx * view_shape[1]],
                     z,
                 )
-                del tile_tensor_0, res
 
     nx_tensor = torch.randint(*data_range, shape, dtype=pto_dtype_to_torch_dtype(data_type))
     ny_tensor = torch.randint(*data_range, shape, dtype=pto_dtype_to_torch_dtype(data_type))

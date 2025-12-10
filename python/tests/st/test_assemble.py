@@ -48,8 +48,6 @@ def test_assmble_2d():
             else:
                 # function call
                 pypto.assemble(add_tensor, [0, offset], out)
-            del add_tensor
-            del tmp
 
     torch_tensor = torch.ones(SHAPE, dtype=torch.float32)
     res_data = torch.ones(SHAPE, dtype=torch.float32) * 3

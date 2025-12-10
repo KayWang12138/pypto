@@ -111,8 +111,11 @@ _dtype_dict = {
     "torch.int8": DataType.DT_INT8,
     "torch.uint8": DataType.DT_UINT8,
     "torch.int16": DataType.DT_INT16,
+    "torch.uint16": DataType.DT_UINT16,
     "torch.int32": DataType.DT_INT32,
+    "torch.uint32": DataType.DT_UINT32,
     "torch.int64": DataType.DT_INT64,
+    "torch.uint64": DataType.DT_UINT64,
     "torch.bool": DataType.DT_BOOL,
 }
 

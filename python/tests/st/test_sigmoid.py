@@ -48,7 +48,6 @@ def test_sigmoid_FP32():
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
             pypto.set_vec_tile_shapes(4, 4)
             res.move(pypto.sigmoid(x))
-            del res
 
     x_tensor = torch.rand(4, 4, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)
@@ -76,7 +75,6 @@ def test_sigmoid_FP16():
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
             pypto.set_vec_tile_shapes(4, 4)
             res.move(pypto.sigmoid(x))
-            del res
 
     x_tensor = torch.rand(4, 4, dtype=torch.float16) * 200 - 100
     res_tensor = torch.zeros(4, 4, dtype=torch.float16)
@@ -103,7 +101,6 @@ def test_tensor_sigmoid_FP32():
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
             pypto.set_vec_tile_shapes(4, 4)
             res.move(x.sigmoid())
-            del res
 
     x_tensor = torch.rand(4, 4, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)

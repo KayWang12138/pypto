@@ -40,10 +40,6 @@ def kernel_func(in_tensors, out_tensors):
             a2 = pypto.reshape(a1, [1, 1, n1 * d])
             a3 = pypto.clone(a2)
             pypto.assemble(a3, [b_idx, s_idx, 0], out_tensor)
-            del a0
-            del a1
-            del a2
-            del a3
 
 
 def test_clone():

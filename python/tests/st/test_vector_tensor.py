@@ -46,7 +46,7 @@ def test_exp_tensor_onboard():
                 pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                 tile_a.move(tile_a.exp())
                 pypto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
-                del tile_a
+
     a_tensor = torch.rand(n, m, dtype=torch.float32) * 100
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
 
@@ -120,7 +120,7 @@ def test_scatterupdate_tensor_onboard():
                 tmp_dst_tensor.move(view_tensor_dst.scatter_update(-2, view_tensor_index, view_tensor_src))
                 pypto.set_vec_tile_shapes(1, 64, n, d)
                 pypto.assemble(tmp_dst_tensor, [0, 0, 0, 0], dst_tensor)
-                del view_tensor_dst, view_tensor_src, view_tensor_index, tmp_dst_tensor
+
     assert isinstance(dst_tensor, pypto.tensor)
 
     input0_tensor = np.random.uniform(2, 3, src_shape).astype(np.int32)
@@ -201,7 +201,7 @@ def scatter_2dim_proc(scatter_para, is_inplace):
                 else:
                     tmp_dst_tensor.move(view_tensor_src.scatter(scatter_para.axis, view_tensor_index, src))
                 pypto.assemble(tmp_dst_tensor, [b_idx * view_shape[0], s_idx * view_shape[1]], dst_tensor)
-                del view_tensor_src, view_tensor_index, tmp_dst_tensor
+
     assert isinstance(dst_tensor, pypto.tensor)
 
     input0_tensor = torch.rand(*src_shape, dtype=torch.float32) * 2 - 1
@@ -291,7 +291,7 @@ def test_scatter_add_onboard():
                 pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                 tmp_dst_tensor.move(view_tensor_self.scatter(axis, view_tensor_index, src, reduce=reduce))
                 pypto.assemble(tmp_dst_tensor, [b_idx * view_shape[0], s_idx * view_shape[1]], dst_tensor)
-                del view_tensor_self, view_tensor_index, tmp_dst_tensor
+
     assert isinstance(dst_tensor, pypto.tensor)
 
     input0_tensor = torch.rand(*src_shape, dtype=torch.float32) * 2 - 1
@@ -360,7 +360,7 @@ def scatter_tensor_2dim_proc(scatter_para, is_inplace):
                     tmp_dst_tensor.move(view_tensor_self.scatter(scatter_para.axis, view_tensor_index,
                         view_tensor_src))
                 pypto.assemble(tmp_dst_tensor, [b_idx * view_shape[0], s_idx * view_shape[1]], dst_tensor)
-                del view_tensor_self, view_tensor_index, view_tensor_src, tmp_dst_tensor
+
     assert isinstance(dst_tensor, pypto.tensor)
 
     input0_tensor = torch.rand(*src_shape, dtype=torch.float32) * 2 - 1
@@ -460,7 +460,7 @@ def test_scatter_tensor_add_onboard():
                 pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                 tmp_dst_tensor.move(view_tensor_self.scatter(axis, view_tensor_index, view_tensor_src, reduce=reduce))
                 pypto.assemble(tmp_dst_tensor, [b_idx * view_shape[0], s_idx * view_shape[1]], dst_tensor)
-                del view_tensor_self, view_tensor_index, view_tensor_src, tmp_dst_tensor
+
     assert isinstance(dst_tensor, pypto.tensor)
 
     input0_tensor = torch.rand(*src_shape, dtype=torch.float32) * 2 - 1

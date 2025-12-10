@@ -28,7 +28,6 @@ def op_rsqrt(params, a, b):
             pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
             tile_a.move(pypto.rsqrt(tile_a))
             pypto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
-            del tile_a
 
 
 def op_rsqrt_golden(param, a, b):

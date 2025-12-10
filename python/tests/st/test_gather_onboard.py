@@ -73,7 +73,7 @@ def test_gather_onboard():
                     view_tensor_src, axis, view_tensor_index))
                 pypto.assemble(tmp_dst_tensor, [
                              b_idx * view_shape[0], 0], dst_tensor)
-                del view_tensor_src, view_tensor_index, tmp_dst_tensor
+
     assert isinstance(dst_tensor, pypto.tensor)
 
     input0_tensor = torch.randint(1, 100, src_shape, dtype=torch.int32)

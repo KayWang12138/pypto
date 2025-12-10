@@ -51,7 +51,7 @@ def test_divs_onboard():
                 view_tensor_a.move(pypto.div(view_tensor_a, input2))
                 pypto.assemble(view_tensor_a, [
                              b_idx * view_shape[0], s_idx * view_shape[1]], output)
-                del view_tensor_a
+
     assert isinstance(output, pypto.tensor)
 
     a_tensor = torch.rand(shape[0], shape[1], dtype=torch.float32)

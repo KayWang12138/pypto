@@ -131,26 +131,64 @@ class Tensor:
             Tensor | Element: tensor data.
 
         example:
-        s = pypto.tensor([4, 4], pypto.DT_FP32)
-        a = s[0, 0] # GetTensorData
-        b = s[:2, :2] # All slice
-        c = s[1, 1:3] # Index and slice
-        d = s[-1, -3:-1] # Negative index
-        e = s[..., 1:3] # Ellipsis index
-
-        Input s:[[1, 2, 3, 4],
+        # All slice
+        a = pypto.tensor((4, 4), pypto.DT_FP32)
+        b = a[:2, :2] # view(a, [2, 2], [0, 0])
+        Input a:[[1, 2, 3, 4],
                  [5, 6, 7, 8],
                  [9, 10, 11, 12],
                  [13, 14, 15, 16]]
-        Output a:1
-               b:[[1, 2],
+        Output b:[[1, 2],
                   [5, 6]]
-               c:[6, 7]
-               d:[14, 15]
-               e:[[2, 3],
+
+        # Index and slice
+        a = pypto.tensor((4, 4), pypto.DT_FP32)
+        b = a[1, 1:3] # view(a, [1, 2], [1, 1]), then reshape to [2]
+
+        Input a:[[1, 2, 3, 4],
+                 [5, 6, 7, 8],
+                 [9, 10, 11, 12],
+                 [13, 14, 15, 16]]
+        Output b:[6, 7]
+
+        # Negative index
+        a = pypto.tensor((4, 4), pypto.DT_FP32)
+        b = a[-1, -3:-1]# equivalent to a[3, 1:3]
+        Input a:[[1, 2, 3, 4],
+                 [5, 6, 7, 8],
+                 [9, 10, 11, 12],
+                 [13, 14, 15, 16]]
+        Output b:[14, 15]
+
+        # Ellipsis index
+        a = pypto.tensor((4, 4), pypto.DT_FP32)
+        b = a[..., 1:3]# equivalent to a[0:4, 1:3]
+        Input a:[[1, 2, 3, 4],
+                 [5, 6, 7, 8],
+                 [9, 10, 11, 12],
+                 [13, 14, 15, 16]]
+        Output b:[[2, 3],
                   [6, 7],
                   [10, 11],
                   [14, 15]]
+
+        # Less dim index
+        a = pypto.tensor((4, 4), pypto.DT_FP32)
+        b = a[1]# equivalent to a[1, :]
+        Input a:[[1, 2, 3, 4],
+                 [5, 6, 7, 8],
+                 [9, 10, 11, 12],
+                 [13, 14, 15, 16]]
+        Output b:[5, 6, 7, 8]
+
+        # single data
+        a = pypto.tensor((4, 4), pypto.DT_INT32)
+        b = a[0, 0] #GetTensorData, supports only DT_INT32 tensors
+        Input a:[[1, 2, 3, 4],
+                 [5, 6, 7, 8],
+                 [9, 10, 11, 12],
+                 [13, 14, 15, 16]]
+        Output b:1
         """
         if self._is_empty_slice(key):
             return self
@@ -518,6 +556,10 @@ class Tensor:
                 raise IndexError(f"Too many indices for tensor with dimension {self.dim}")
             colons = (slice(None),) * colon_count
             key = key[:ellipsis_pos] + colons + key[ellipsis_pos + 1:]
+
+        if len(key) < self.dim:
+            missing_dims = self.dim - len(key)
+            key += (slice(None),) * missing_dims
 
         assert self.dim == len(key), f"rank not match, expect {self.dim}, but got {len(key)}"
         key = self._negative_index_to_positive(key, self.shape)

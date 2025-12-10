@@ -50,7 +50,7 @@ def test_vector_operation_add():
                 pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                 tile_a.move(pypto.add(tile_a, tile_b))
                 pypto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], c)
-                del tile_a, tile_b
+
     a_tensor = torch.rand(n, m, dtype=torch.float32) * 100
     b_tensor = torch.rand(n, m, dtype=torch.float32) * 100
     c_tensor = torch.zeros(n, m, dtype=torch.float32)
@@ -96,7 +96,7 @@ def test_vector_operation_div():
                 pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                 tile_a.move(pypto.div(tile_a, tile_b))
                 pypto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], c)
-                del tile_a, tile_b
+
     a_tensor = (torch.rand(n, m, dtype=torch.float32) - 0.5) * 200
     b_tensor = torch.rand(n, m, dtype=torch.float32) * 99 + 1
     c_tensor = torch.zeros(n, m, dtype=torch.float32)
@@ -143,7 +143,7 @@ def test_vector_operation_mul():
                 pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                 tile_a.move(pypto.mul(tile_a, tile_b))
                 pypto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], c)
-                del tile_a, tile_b
+
     a_tensor = (torch.rand(n, m, dtype=torch.float32) - 0.5) * 200
     b_tensor = (torch.rand(n, m, dtype=torch.float32) - 0.5) * 200
     c_tensor = torch.zeros(n, m, dtype=torch.float32)
@@ -190,7 +190,7 @@ def test_vector_operation_sub():
                 pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                 tile_a.move(pypto.sub(tile_a, tile_b))
                 pypto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], c)
-                del tile_a, tile_b
+
     a_tensor = (torch.rand(n, m, dtype=torch.float32) - 0.5) * 200
     b_tensor = (torch.rand(n, m, dtype=torch.float32) - 0.5) * 200
     c_tensor = torch.zeros(n, m, dtype=torch.float32)
@@ -231,7 +231,7 @@ def test_vector_operation_abs():
                 pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                 tile_a.move(pypto.abs(tile_a))
                 pypto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
-                del tile_a
+
     a_tensor = (torch.rand(n, m, dtype=torch.float32) - 0.5) * 200
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
 
@@ -269,7 +269,7 @@ def test_vector_operation_sqrt():
                 pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                 tile_a.move(pypto.sqrt(tile_a))
                 pypto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
-                del tile_a
+
     a_tensor = torch.rand(n, m, dtype=torch.float32) * 100
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
 
@@ -307,7 +307,7 @@ def test_vector_operation_exp():
                 pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                 tile_a.move(pypto.exp(tile_a))
                 pypto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
-                del tile_a
+
     a_tensor = torch.rand(n, m, dtype=torch.float32) * 100
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
 
@@ -345,7 +345,7 @@ def test_vector_operation_neg():
                 pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                 tile_a.move(pypto.neg(tile_a))
                 pypto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
-                del tile_a
+
     a_tensor = (torch.rand(n, m, dtype=torch.float32) - 0.5) * 200
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
 
@@ -384,7 +384,7 @@ def test_vector_operation_full():
                 s_idx * view_shape[1]).min(pypto.symbolic_scalar(view_shape[1]))]))
                 pypto.assemble(
                     tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], a)
-                del tile_a
+
     a_tensor = torch.zeros(n, m, dtype=torch.float32)
 
     pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
@@ -420,7 +420,7 @@ def test_vector_operation_logical_not():
                 tmp_a = pypto.tensor(view_shape, pypto.DT_BOOL)
                 tmp_a.move(pypto.logical_not(tile_a))
                 pypto.assemble(tmp_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
-                del tile_a, tmp_a
+
     a_tensor = (torch.rand(n, m, dtype=torch.float32) - 0.5) * 6 - 1.5  # 生成 [-3, 3] 范围
     b_tensor = torch.ones(n, m, dtype=torch.bool)  # 使用 torch.bool 类型
 
@@ -465,7 +465,7 @@ def test_vector_operation_expand():
                                                          min(pypto.symbolic_scalar(view_shape[1]))]))
                 pypto.assemble(
                     tmp_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
-                del tmp_a, tile_a
+
     a_tensor = torch.full((n, 1), -16, dtype=torch.float32)
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
 
@@ -511,7 +511,6 @@ def test_vector_operation_concat():
             tmp_c = pypto.tensor([16, 64], dtype)
             tmp_c.move(pypto.concat([tile_a, tile_b], -1))
             pypto.assemble(tmp_c, [b_idx * view_shape[0], 0], c)
-            del tile_a, tile_b, tmp_c
 
     a_tensor = (torch.rand(n, m, dtype=torch.float32) - 0.5) * 200
     b_tensor = (torch.rand(n, m, dtype=torch.float32) - 0.5) * 200
@@ -555,7 +554,7 @@ def test_vector_operation_rowmaxsingle():
             tmp_a = pypto.tensor([1, view_shape[1]], dtype)
             tmp_a.move(pypto.amax(tile_a, dim, True))
             pypto.assemble(tmp_a, [0, s_idx * view_shape[1]], b)
-            del tile_a, tmp_a
+
     a_tensor = torch.rand(shape, dtype=torch.float32) * 100
     b_tensor = torch.zeros(output_shape, dtype=torch.float32)
 
@@ -595,7 +594,7 @@ def test_vector_operation_rowsumsingle():
             tmp_a = pypto.tensor([1, view_shape[1]], dtype)
             tmp_a.move(pypto.sum(tile_a, dim, True))
             pypto.assemble(tmp_a, [0, s_idx * view_shape[1]], b)
-            del tile_a, tmp_a
+
     a_tensor = torch.rand(shape, dtype=torch.float32) * 100
     b_tensor = torch.zeros(output_shape, dtype=torch.float32)
 
@@ -635,7 +634,7 @@ def test_vector_operation_rowminsingle():
             tmp_a = pypto.tensor([1, view_shape[1]], dtype)
             tmp_a.move(pypto.amin(tile_a, dim, True))
             pypto.assemble(tmp_a, [0, s_idx * view_shape[1]], b)
-            del tile_a, tmp_a
+
     a_tensor = torch.rand(shape, dtype=torch.float32) * 100
     b_tensor = torch.zeros(output_shape, dtype=torch.float32)
 
@@ -680,7 +679,7 @@ def test_tensor_operation_expand():
                                                             min(pypto.symbolic_scalar(view_shape[1]))]))
                 pypto.assemble(
                     tmp_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
-                del tmp_a, tile_a
+
     a_tensor = torch.full((n, 1), -16, dtype=torch.float32)
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
 

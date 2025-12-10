@@ -45,7 +45,7 @@ def test_vector_operation_range():
             res = pypto.tensor()
             res.move(pypto.arange(start, end, step))
             pypto.assemble(res, [b_idx * view_shape[0]], b)
-            del res
+
     a_tensor = torch.rand([1, 1, 1], dtype=torch.float32) * 99.999 + 0.001
     res_tensor = torch.zeros(size, dtype=torch.float32)
     pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")

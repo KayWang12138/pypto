@@ -67,7 +67,7 @@ def scatter_2dim_proc(scatter_para, is_inplace):
                 else:
                     tmp_dst_tensor.move(pypto.scatter(view_tensor_src, scatter_para.axis, view_tensor_index, src))
                 pypto.assemble(tmp_dst_tensor, [b_idx * view_shape[0], s_idx * view_shape[1]], dst_tensor)
-                del view_tensor_src, view_tensor_index, tmp_dst_tensor
+
     assert isinstance(dst_tensor, pypto.tensor)
 
     input0_tensor = torch.rand(*src_shape, dtype=torch.float32) * 2 - 1
@@ -158,7 +158,7 @@ def test_scatter_add_onboard():
                 pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                 tmp_dst_tensor.move(pypto.scatter(view_tensor_self, axis, view_tensor_index, src, reduce=reduce))
                 pypto.assemble(tmp_dst_tensor, [b_idx * view_shape[0], s_idx * view_shape[1]], dst_tensor)
-                del view_tensor_self, view_tensor_index, tmp_dst_tensor
+
     assert isinstance(dst_tensor, pypto.tensor)
 
     input0_tensor = torch.rand(*src_shape, dtype=torch.float32) * 2 - 1
@@ -228,7 +228,7 @@ def scatter_tensor_2dim_proc(scatter_para, is_inplace):
                     tmp_dst_tensor.move(pypto.scatter(view_tensor_self, scatter_para.axis, view_tensor_index,
                         view_tensor_src))
                 pypto.assemble(tmp_dst_tensor, [b_idx * view_shape[0], s_idx * view_shape[1]], dst_tensor)
-                del view_tensor_self, view_tensor_index, view_tensor_src, tmp_dst_tensor
+
     assert isinstance(dst_tensor, pypto.tensor)
 
     input0_tensor = torch.rand(*src_shape, dtype=torch.float32) * 2 - 1
@@ -329,7 +329,7 @@ def test_scatter_tensor_add_onboard():
                 tmp_dst_tensor.move(pypto.scatter(view_tensor_self, axis, view_tensor_index,
                     view_tensor_src, reduce=reduce))
                 pypto.assemble(tmp_dst_tensor, [b_idx * view_shape[0], s_idx * view_shape[1]], dst_tensor)
-                del view_tensor_self, view_tensor_index, view_tensor_src, tmp_dst_tensor
+
     assert isinstance(dst_tensor, pypto.tensor)
 
     input0_tensor = torch.rand(*src_shape, dtype=torch.float32) * 2 - 1

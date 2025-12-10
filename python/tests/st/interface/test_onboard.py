@@ -182,8 +182,6 @@ def matmul_add(in_tensors, out_tensors, m, k, n, tiling = None):
         a0 = pypto.view(a, [n, k], [0, 0])
         b0 = pypto.view(b, [k, m], [0, 0])
         d.move(pypto.add(pypto.matmul(a0, b0, pypto.DT_INT32), c))
-        del a0
-        del b0
 
 
 def test_device_run_data_from_device_mix_nodep():

@@ -42,8 +42,6 @@ def dyn_loop_with_loop_begin(in_tensors, out_tensors):
             else:
                 a1 = pypto.mul(a0, 1.0)
                 pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
-            del a0
-            del a1
 
 
 def test_is_loop_begin():
@@ -94,8 +92,6 @@ def dyn_loop_with_loop_end(in_tensors, out_tensors):
             else:
                 a1 = pypto.mul(a0, 1.0)
                 pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
-            del a0
-            del a1
 
 
 def test_is_loop_end():

@@ -84,7 +84,7 @@ def test_scatterupdate_onboard():
                     view_tensor_dst, -2, view_tensor_index, view_tensor_src))
                 pypto.set_vec_tile_shapes(1, 64, n, d)
                 pypto.assemble(tmp_dst_tensor, [0, 0, 0, 0], dst_tensor)
-                del view_tensor_dst, view_tensor_src, view_tensor_index, tmp_dst_tensor
+
     assert isinstance(dst_tensor, pypto.tensor)
 
     input0_tensor = np.random.uniform(2, 3, src_shape).astype(np.int32)

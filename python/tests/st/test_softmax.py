@@ -50,7 +50,6 @@ def test_softmax_FP32():
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
             pypto.set_vec_tile_shapes(32, 32)
             res.move(pypto.softmax(x, dim))
-            del res
 
     x_tensor = torch.rand(4, 4, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)
@@ -76,7 +75,6 @@ def test_tensor_softmax_FP32():
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
             pypto.set_vec_tile_shapes(32, 32)
             res.move(x.softmax(dim))
-            del res
 
     x_tensor = torch.rand(4, 4, dtype=torch.float32) * 200 - 100
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)

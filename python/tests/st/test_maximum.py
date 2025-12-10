@@ -81,7 +81,6 @@ def test_maximum():
                     [b_idx * first_view_shape, s_idx * second_view_shape],
                     out,
                 )
-                del tile_tensor_0, res
 
     nx_tensor = torch.randint(-100, 100,
                               [first_dim, second_dim], dtype=torch.int32)

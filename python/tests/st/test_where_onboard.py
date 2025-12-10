@@ -62,7 +62,7 @@ def test_vector_operation_where():
                 tile_input.move(pypto.where(tile_cond, tile_input, tile_other))
                 pypto.assemble(
                     tile_input, [b_idx * view_shape[0], s_idx * view_shape[1]], out)
-                del tile_cond, tile_input, tile_other
+
     cond_tensor = torch.randint(0, 2, (n, m), dtype=torch.bool)
     input_tensor = torch.rand(n, m, dtype=torch.float32)
     other_tensor = torch.zeros(n, m, dtype=torch.float32)
