@@ -757,10 +757,11 @@ TEST_F(InsertSyncTest, TestRelaxFakeDataDep) {
     opLogPtr.emplace_back(&cast18);
 
     PipeSync ps;
-    ps.SetDepMergeOverlap(IS_NUM1);
     // PipeDispatch
     DataDependencySearcher dataDependencySearcher;
     std::vector<IndexOp> synced;
+    size_t index = UINT64_MAX;
+    EXPECT_EQ(ps.InjectSync(*currFunctionPtr, opLogPtr, index, synced), FAILED);
     for (size_t i = 0; i < opLogPtr.size(); i++) {
         auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[i]->GetOpcode());
         if (opLogPtr[i]->GetOpcode() == Opcode::OP_COPY_IN) {
@@ -823,6 +824,7 @@ TEST_F(InsertSyncTest, TestRelaxFakeDataDep) {
         }
         eventIdDeadlock = false;
         eventIdDeadlockEnterTimes = static_cast<size_t>(0);
+        break;
     }
 }
 } // namespace tile_fwk

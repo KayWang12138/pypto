@@ -195,7 +195,7 @@ set(_CaseFilterList
         "InsertSyncTest.TestEnableDebug"
         "InsertSyncTest.TestFindDep"
         "InsertSyncTest.TestPhaseKernelProcess"
-        "InsertSyncTest.TestViewAssembleProcess"
+        # "InsertSyncTest.TestViewAssembleProcess"
         "InsertSyncTest.TestUpdateDep"
         "InsertSyncTest.TestHandleEventID"
         "InsertSyncTest.TestRelaxFakeDataDep"

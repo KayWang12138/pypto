@@ -16,6 +16,7 @@
 #ifndef PASS_INSERT_SYNC_H
 #define PASS_INSERT_SYNC_H
 
+#include <queue>
 #include "interface/utils/common.h"
 #include "interface/function/function.h"
 #include "interface/operation/operation.h"
@@ -34,6 +35,9 @@ constexpr uint64_t LEFT_OFFSET2 = 16;
 constexpr uint64_t LEFT_OFFSET3 = 8;
 constexpr uint64_t LEFT_OFFSET4 = 24;
 constexpr uint64_t MAX_POP = 8;
+// 两个op之间插入的set_flag/wait_flag数量的最大值为192
+constexpr uint64_t SEQUENCE_IDX = 200;
+constexpr uint64_t HALF_SEQUENCE_IDX = 100;
 struct Interval {
     int start;
     int end;
@@ -85,7 +89,7 @@ private:
     std::unordered_map<int, std::set<int>> writeDdrMemMap;
 };
 
-using IndexOp = std::pair<int, Operation *>;
+using IndexOp = std::pair<uint64_t, Operation *>;
 enum class PipeSeq { AIC_MTE2 = 0, AIC_MTE1, AIC_M, AIC_FIX, AIV_MTE2, AIV_V, AIV_MTE3, AIC_MTE3, AIV_S, AIC_S, PIPE_END };
 
 class PipeSync {
@@ -96,7 +100,6 @@ public:
     Status ProcessViewOrder(Operation *opPtr, std::vector<Operation *> &opLog, std::unordered_map<Operation *, Operation *> &changeMap);
     Status ProcessAssembleOrder(Operation *opPtr, std::vector<Operation *> &opLog, std::unordered_map<Operation *, Operation *> &changeMap);
     Status ProcessViewAssembleOrder(std::vector<Operation *> &opLog, std::vector<Operation *> &opListNew);
-    void SetDepMergeOverlap (int overlap) { minimalMergeOverlap = overlap; }
 
 private:
     struct PipeCoreReal {
@@ -210,12 +213,14 @@ private:
     void InitIssueQueue();
     void EnqueueOp(DepOp &op, const std::vector<Operation *> opLogPtr, std::vector<IndexOp> &syncedOpLog);
     void RemoveOpDep(DepOp &setOp, DepOp &waitOp) const;
-    void SetTileOpCfg(Function &function, std::vector<Operation *> srcLog, std::vector<Operation *> &dstLog, size_t &i, size_t &prerun);
-    void AddPhaseOp(Function &function, std::vector<Operation *> &dstLog, size_t &prerun);
+    void AddPhaseOp1(Function &function, std::vector<Operation *> srcLog, std::vector<Operation *> &dstLog, size_t &i, size_t &prerun);
+    void AddPhaseOp2(Function &function, std::vector<Operation *> &dstLog, size_t &prerun);
     Status AddOpDep(DepOp &setOp, DepOp &waitOp);
-    Status AdjustOpDep(DepOp &op, size_t waitOpIdx, IssueQueue &issueQ);
+    Status AdjustOpDep(DepOp &op, size_t waitOpIdx, IssueQueue &issueQ, bool &failedFlag);
     Status HandleEventID(DepOp &op, IssueQueue &issueQ, IssueNum &issuenum, bool &deadlock, bool &res);
     Status PopFromQueue(IssueQueue &issueQ, std::vector<size_t> &poped, bool &deadlock);
+    Status InjectWaitFlag(Function &function, size_t idx, std::vector<IndexOp> &syncedOpLog);
+    Status InjectSetFlag(Function &function, size_t idx, std::vector<IndexOp> &syncedOpLog);
     Status InjectSync(Function &function, std::vector<Operation *> opLogPtr, size_t idx, std::vector<IndexOp> &syncedOpLog);
     Status IssueOpPipeSeq(Function &function, std::vector<Operation *> opLogPtr, std::vector<IndexOp> &syncedOpLog, bool &eventIdDeadlock, size_t &issued);
     Status IssueSyncOp(Function &function, std::vector<Operation *> opLogPtr, std::vector<IndexOp> &syncedOpLog, size_t &totalIssued, size_t &allIssued);
@@ -262,8 +267,8 @@ private:
     static constexpr int CV_EVENT_NUM = 16;
     static constexpr int EVENT_ID7 = 7;
     int maxOpMagic{0};
-    int minimalMergeOverlap{25};
     std::unordered_map<PipePair, std::vector<int>, PipePairHash> doublePipeOp; // pipepair, opmagic
+    std::queue<size_t> orderedOplist_;
 };
 
 class InsertSync : public Pass {
@@ -276,6 +281,7 @@ private:
     Status RunOnFunction(Function &function) override;
     void InsertPipeAll(Function *subGraphFunc);
     Status GenNewOpList(Function *subGraphFunc, std::vector<Operation *> &opListNew);
+    Status CheckNewOpListSeq(const std::vector<Operation *> &oriOpList, const std::vector<Operation *> &opListNew);
     Status InsertSyncMainLoop(Function *subGraphFunc);
     bool enableDebug_{false};
 };

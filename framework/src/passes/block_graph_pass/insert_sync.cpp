@@ -247,6 +247,10 @@ Status PipeSync::InsertSync(Function &function, std::vector<Operation *> &synced
         return FAILED; 
     }
 
+    std::sort(synced.begin(), synced.end(), [](const IndexOp &a, const IndexOp &b) {
+        return a.first < b.first;
+    });
+
     for (auto &log : synced) {
         syncedOpLog.push_back(log.second);
     }
@@ -472,7 +476,7 @@ void PipeSync::InitIssueQueue() {
 void PipeSync::EnqueueOp(DepOp &op, const std::vector<Operation *> opLogPtr, std::vector<IndexOp> &syncedOpLog) {
    if (opLogPtr[op.idx]->GetOpcode() == Opcode::OP_ASSEMBLE || opLogPtr[op.idx]->GetOpcode() == Opcode::OP_VIEW ||
         opLogPtr[op.idx]->GetOpcode() == Opcode::OP_NOP || opLogPtr[op.idx]->GetOpcode() == Opcode::OP_HUB) {
-        syncedOpLog.emplace_back(std::make_pair(op.idx, opLogPtr[op.idx]));
+        syncedOpLog.emplace_back(std::make_pair(op.idx * SEQUENCE_IDX, opLogPtr[op.idx]));
         return;
     }
     PipeCoreReal opPipeCore(op.selfPipeCore.pipeEnd, op.selfPipeCore.core);
@@ -486,6 +490,7 @@ void PipeSync::EnqueueOp(DepOp &op, const std::vector<Operation *> opLogPtr, std
         int opMagic = opLogPtr[op.idx]->GetOpMagic();
         doublePipeOp[pp].emplace_back(opMagic);
     }
+    orderedOplist_.emplace(op.idx);
 }
 
 void PipeSync::RemoveOpDep(DepOp &setOp, DepOp &waitOp) const {
@@ -540,11 +545,12 @@ Status PipeSync::AddOpDep(DepOp &setOp, DepOp &waitOp) {
     return SUCCESS;
 }
 
-Status PipeSync::AdjustOpDep(DepOp &op, size_t waitOpIdx, IssueQueue &issueQ) {
+Status PipeSync::AdjustOpDep(DepOp &op, size_t waitOpIdx, IssueQueue &issueQ, bool &failedFlag) {
     //op为靠前的， waitOp为靠后的
     auto &waitOp = depOps_[waitOpIdx];
 
     if (issueQ.currOp + 1 == issueQ.ops.size()) {
+        failedFlag = true;
         return SUCCESS;
     }
 
@@ -560,6 +566,7 @@ Status PipeSync::AdjustOpDep(DepOp &op, size_t waitOpIdx, IssueQueue &issueQ) {
 
 Status PipeSync::HandleEventID(DepOp &op, IssueQueue &issueQ, IssueNum &issuenum, bool &deadlock, bool &res) {
     bool eventIdOk = true;
+    bool failedFlag{false};
     for (auto ele : op.setPipe) {
         if (op.selfPipeCore.pipeEnd == depOps_[ele].selfPipeCore.pipeStart) {
             continue;
@@ -576,15 +583,21 @@ Status PipeSync::HandleEventID(DepOp &op, IssueQueue &issueQ, IssueNum &issuenum
                 break;
             }
             // eventID deadlock, adjust op dependency to release eventID.
-            if (AdjustOpDep(op, ele, issueQ) != SUCCESS) {
+            if (AdjustOpDep(op, ele, issueQ, failedFlag) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "HandleEventID failed at function AdjustOpDep.");
                 return FAILED;
             }
+            if (failedFlag) {
+                break;
+            }
         }
     }
-
-    deadlock = false;
-
+    if (failedFlag) {
+        eventIdOk = false;
+        deadlock = true;
+    } else {
+        deadlock = false;
+    }
     if (!eventIdOk) {
         res = false;
         return SUCCESS;
@@ -611,21 +624,27 @@ Status PipeSync::PopFromQueue(IssueQueue &issueQ, std::vector<size_t> &poped, bo
             break;
         }
         auto &op = depOps_[issueQ.ops[issueQ.currOp]];
+        if (op.idx != orderedOplist_.front()) {
+            break;
+        }
         if (op.issued) {
             APASS_LOG_ERROR_F(Elements::Operation, "Try to issue a op which is already issued, PopFromQueue failed.");
             return FAILED;
         }
-        bool ready = CheckIssuedOp(op);
+        if (!CheckIssuedOp(op)) {
+            break;
+        }
         bool res = false;
         if (HandleEventID(op, issueQ, issuenum, deadlock, res) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "PopFromQueue failed at function HandleEventID.");
             return FAILED;
         }
-        if (!ready || !res) {
+        if (!res) {
             break;
         }
         op.issued = true;
         poped.emplace_back(op.idx);
+        orderedOplist_.pop();
         for (auto ele : op.setPipe) {
             PipeCoreReal currPipeCore(op.selfPipeCore.pipeEnd, op.selfPipeCore.core);
             PipeCoreReal elePipeCore(depOps_[ele].selfPipeCore.pipeStart, depOps_[ele].selfPipeCore.core);
@@ -637,10 +656,10 @@ Status PipeSync::PopFromQueue(IssueQueue &issueQ, std::vector<size_t> &poped, bo
     return SUCCESS;
 }
 
-Status PipeSync::InjectSync(Function &function, std::vector<Operation *> opLogPtr, size_t idx, std::vector<IndexOp> &syncedOpLog) {
+Status PipeSync::InjectWaitFlag(Function &function, size_t idx, std::vector<IndexOp> &syncedOpLog) {
     PipeCore currPipe = depOps_[idx].selfPipeCore;
-
     // serch the waitpipe of current op
+    uint64_t waitIdx = idx * SEQUENCE_IDX - HALF_SEQUENCE_IDX;
     for (const auto &ele : depOps_[idx].waitPipe) {
         PipeCore setPipe = depOps_[ele].selfPipeCore;
         PipeCoreReal setPipeReal(setPipe.pipeEnd, setPipe.core);
@@ -657,22 +676,26 @@ Status PipeSync::InjectSync(Function &function, std::vector<Operation *> opLogPt
             continue;
         }
         // insert wait_flag
-        syncedOpLog.emplace_back(std::make_pair(-1, syncOpPtr));
+        syncedOpLog.emplace_back(std::make_pair(++waitIdx, syncOpPtr));
+        APASS_LOG_DEBUG_F(Elements::Operation, "Insert %d %s, setpipe: %s, waitpipe: %s, eventid: %d",
+            syncOpPtr->GetOpMagic(), syncOpPtr->GetOpcodeStr().c_str(), GetPipeTypeDict().Find(syncOpPtr->syncQueue_.pipeId_).c_str(),
+            GetPipeTypeDict().Find(syncOpPtr->syncQueue_.trigPipeId_).c_str(), syncOpPtr->syncQueue_.eventId_);
         GetFreeEventIdQueue({setPipeReal, currPipeReal}).push_back(eventId);
     }
+    return SUCCESS;
+}
 
-    syncedOpLog.emplace_back(std::make_pair(idx, opLogPtr[idx]));
-    depOps_[idx].issued = true;
-
-    // insert set_flag
+Status PipeSync::InjectSetFlag(Function &function, size_t idx, std::vector<IndexOp> &syncedOpLog) {
+    PipeCore currPipe = depOps_[idx].selfPipeCore;
+    uint64_t setIdx = idx * SEQUENCE_IDX;
     for (const auto &ele : depOps_[idx].setPipe) {
         PipeCore waitPipe = depOps_[ele].selfPipeCore;
         PipeCoreReal waitPipeReal(waitPipe.pipeStart, waitPipe.core);
         PipeCoreReal currPipeReal(currPipe.pipeEnd, currPipe.core);
         int eventId{0};
-        if (GetEventId({currPipeReal, waitPipeReal}, eventId) != SUCCESS) { 
-            APASS_LOG_ERROR_F(Elements::Operation, "InjectSync failed at function GetEventId.");
-            return FAILED; 
+        if (GetEventId({currPipeReal, waitPipeReal}, eventId) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "InjectSetFlag failed at function GetEventId.");
+            return FAILED;
         }
         std::vector<std::shared_ptr<LogicalTensor>> input;
         std::vector<std::shared_ptr<LogicalTensor>> output;
@@ -682,12 +705,38 @@ Status PipeSync::InjectSync(Function &function, std::vector<Operation *> opLogPt
         bool res = GenSyncOp(currPipeReal, waitPipeReal, eventId, true, syncOpPtr);
         if (res) {
             // insert set_flag
-            syncedOpLog.emplace_back(std::make_pair(-1, syncOpPtr));
+            syncedOpLog.emplace_back(std::make_pair(++setIdx, syncOpPtr));
+            APASS_LOG_DEBUG_F(Elements::Operation, "Insert %d %s, setpipe: %s, waitpipe: %s, eventid: %d",
+                syncOpPtr->GetOpMagic(), syncOpPtr->GetOpcodeStr().c_str(), GetPipeTypeDict().Find(syncOpPtr->syncQueue_.pipeId_).c_str(),
+                GetPipeTypeDict().Find(syncOpPtr->syncQueue_.trigPipeId_).c_str(), syncOpPtr->syncQueue_.eventId_);
             setWaitPairMap_[{idx, ele}] = eventId;
             continue;
         }
         syncOpPtr->SetAsDeleted();
         setWaitPairMap_[{idx, ele}] = eventId;
+    }
+    return SUCCESS;
+}
+
+Status PipeSync::InjectSync(Function &function, std::vector<Operation *> opLogPtr, size_t idx, std::vector<IndexOp> &syncedOpLog) {
+    // check idx range
+    if (idx > std::numeric_limits<uint64_t>::max() / SEQUENCE_IDX) {
+        APASS_LOG_ERROR_F(Elements::Operation, "Operation index is out of range, InjectSync failed.");
+        return FAILED;
+    }
+
+    // insert wait_flag
+    InjectWaitFlag(function, idx, syncedOpLog);
+    
+    // insert current operation
+    syncedOpLog.emplace_back(std::make_pair(idx * SEQUENCE_IDX, opLogPtr[idx]));
+    depOps_[idx].issued = true;
+    APASS_LOG_DEBUG_F(Elements::Operation, "Insert %d %s", opLogPtr[idx]->GetOpMagic(), opLogPtr[idx]->GetOpcodeStr().c_str());
+
+    // insert set_flag
+    if (InjectSetFlag(function, idx, syncedOpLog) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "InjectSync failed at function InjectSetFlag.");
+        return FAILED;
     }
     return SUCCESS;
 }
@@ -890,7 +939,8 @@ bool PipeSync::ConstructDepInfo(DataDepInfo &depInfo, std::vector<IndexOp> &sync
 int PipeSync::GetSyncSrcLogIdx(std::vector<IndexOp> &syncedOpLog, int i) {
     int j = i - 1;
     for (; j >= 0; j--) {
-        if (syncedOpLog[j].first != -1) {
+        if (syncedOpLog[j].second->GetOpcodeStr().find("SYNC") == std::string::npos &&
+            syncedOpLog[j].second->GetOpcodeStr().find("BAR") == std::string::npos) {
             break;
         }
     }
@@ -901,7 +951,7 @@ bool PipeSync::FindDataDep(DataDepInfo &depInfo, std::vector<IndexOp> &syncedOpL
     if (!ConstructDepInfo(depInfo, syncedOpLog, i)) {
         return false;
     }
-    int syncSrcLogIdx = GetSyncSrcLogIdx(syncedOpLog, i);
+    int syncSrcLogIdx = GetSyncSrcLogIdx(syncedOpLog, i) / SEQUENCE_IDX;
     DepOp &depOpSrc = depOps_[syncSrcLogIdx];
     for (auto syncDstLogIdx : depOpSrc.setPipe) { //setpipe中的op为该op之后的，依赖于该op的op id
         DepOp &depOpDst = depOps_[syncDstLogIdx];
@@ -913,7 +963,7 @@ bool PipeSync::FindDataDep(DataDepInfo &depInfo, std::vector<IndexOp> &syncedOpL
 }
 
 bool PipeSync::FindMaxOverlap(DataDepInfo &depInfo, int &maxOverlapDepIdx) {
-    int maxOverlap = minimalMergeOverlap - 1;
+    int maxOverlap = -1;
     for (int idx = 0; idx < static_cast<int>(depInfo.opDepList.size() - 1); idx++) {
         if (depInfo.opDepList[idx].second < depInfo.opDepList[idx + 1].first) { //相邻的两个依赖之间没有重叠
             continue;
@@ -1239,7 +1289,7 @@ std::deque<int> &PipeSync::GetFreeEventIdQueue(const PipePair &pp) {
     return freeEventId_[pp];
 }
 
-void PipeSync::SetTileOpCfg(Function &function, std::vector<Operation *> srcLog, std::vector<Operation *> &dstLog, size_t &i, size_t &prerun) {
+void PipeSync::AddPhaseOp1(Function &function, std::vector<Operation *> srcLog, std::vector<Operation *> &dstLog, size_t &i, size_t &prerun) {
     constexpr size_t prerunNum = 2;
     for (; i < srcLog.size(); i++) {
         auto opcfg = OpcodeManager::Inst().GetTileOpCfg(srcLog[i]->GetOpcode());
@@ -1249,7 +1299,9 @@ void PipeSync::SetTileOpCfg(Function &function, std::vector<Operation *> srcLog,
         if (srcLog[i]->GetOpcode() == Opcode::OP_COPY_OUT) {
             opcfg.pipeIdStart_ = PipeType::PIPE_MTE3;
         }
-        if ((opcfg.pipeIdStart_ != PIPE_S && opcfg.pipeIdStart_ != PIPE_MTE2 && srcLog[i]->GetOpcode() != Opcode::OP_RESHAPE) || prerun == prerunNum) {
+        if ((opcfg.pipeIdStart_ != PIPE_S && opcfg.pipeIdStart_ != PIPE_MTE2 &&
+            srcLog[i]->GetOpcode() != Opcode::OP_RESHAPE && srcLog[i]->GetOpcode() != Opcode::OP_VEC_DUP) ||
+            prerun == prerunNum) {
             break;
         }
         if (opcfg.pipeIdStart_ == PIPE_MTE2) {
@@ -1267,7 +1319,7 @@ void PipeSync::SetTileOpCfg(Function &function, std::vector<Operation *> srcLog,
     }
 }
 
-void PipeSync::AddPhaseOp(Function &function, std::vector<Operation *> &dstLog, size_t &prerun) {
+void PipeSync::AddPhaseOp2(Function &function, std::vector<Operation *> &dstLog, size_t &prerun) {
     if (prerun > 0) {
         std::vector<std::shared_ptr<LogicalTensor>> input;
         std::vector<std::shared_ptr<LogicalTensor>> output;
@@ -1281,8 +1333,8 @@ void PipeSync::AddPhaseOp(Function &function, std::vector<Operation *> &dstLog, 
 void PipeSync::PhaseKernelProcess(Function &function, std::vector<Operation *> srcLog, std::vector<Operation *> &dstLog) {
     size_t prerun = 0;
     size_t i = 0;
-    SetTileOpCfg(function, srcLog, dstLog, i, prerun);
-    AddPhaseOp(function, dstLog, prerun);
+    AddPhaseOp1(function, srcLog, dstLog, i, prerun);
+    AddPhaseOp2(function, dstLog, prerun);
     for (; i < srcLog.size(); i++) {
         dstLog.emplace_back(srcLog[i]);
     }
@@ -1453,18 +1505,39 @@ void InsertSync::InsertPipeAll(Function *subGraphFunc) {
     subGraphFunc->ScheduleBy(newOpList, true);
 }
 
+Status InsertSync::CheckNewOpListSeq(const std::vector<Operation *> &oriOpList, const std::vector<Operation *> &opListNew) {
+    if (oriOpList.size() <= 1) {
+        return SUCCESS;
+    }
+    size_t i = 0;
+    size_t j = 0;
+    while (i < oriOpList.size() && j < opListNew.size()) {
+        if (oriOpList[i] == opListNew[j]) {
+            ++i;
+            ++j;
+        } else {
+            ++j;
+        }
+    }
+    if (i != oriOpList.size()) {
+        APASS_LOG_ERROR_F(Elements::Operation, "NewOpList sequence is not equal to OriOpList sequence, CheckNewOpListSeq failed.");
+        return FAILED;
+    }
+    return SUCCESS;
+}
+
 Status InsertSync::GenNewOpList(Function *subGraphFunc, std::vector<Operation *> &opListNew) {
     PipeSync ps;
     std::vector<Operation *> syncedOpLogPtr;
-    std::vector<Operation *> operationLogWithSync;
+    std::vector<Operation *> oriOpList(subGraphFunc->Operations(false).DuplicatedOpList());
     if (ps.InsertSync(*subGraphFunc, syncedOpLogPtr) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "InsertSyncMainLoop failed at function InsertSync.");
+        APASS_LOG_ERROR_F(Elements::Operation, "GenNewOpList failed at function InsertSync.");
         return FAILED;
     }
-    ps.PhaseKernelProcess(*subGraphFunc, syncedOpLogPtr, operationLogWithSync);
+    ps.PhaseKernelProcess(*subGraphFunc, syncedOpLogPtr, opListNew);
     subGraphFunc->EraseOperations(true, false);
-    if (ps.ProcessViewAssembleOrder(operationLogWithSync, opListNew) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "InsertSyncMainLoop failed at function ProcessViewAssembleOrder.");
+    if (CheckNewOpListSeq(oriOpList, opListNew) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "GenNewOpList failed at function CheckNewOpListSeq.");
         return FAILED;
     }
     return SUCCESS;
@@ -1477,7 +1550,7 @@ Status InsertSync::InsertSyncMainLoop(Function *subGraphFunc) {
     }
     std::vector<Operation *> opListNew;
     if (GenNewOpList(subGraphFunc, opListNew) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "GenNewOpList failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "InsertSyncMainLoop failed at GenNewOpList.");
         return FAILED;
     }
     subGraphFunc->ScheduleBy(opListNew, true);
@@ -1513,27 +1586,19 @@ Status InsertSync::RunOnFunction(Function &function) {
         hardwareConcurrency
     );
     std::vector<std::thread> workers;
-
-    std::atomic<bool> multiThreadsStatus(true);
+    bool status{true};
     for (unsigned i = 0; i < threadNum; ++i) {
-        workers.emplace_back([&subPrograms, &nextIdx, leafFuncSize, &index, this, &multiThreadsStatus] {
+        workers.emplace_back([&subPrograms, &nextIdx, leafFuncSize, &index, this, &status] {
             for (size_t idx = nextIdx.fetch_add(1, std::memory_order_relaxed); idx < leafFuncSize; idx = nextIdx.fetch_add(1, std::memory_order_relaxed)) {
                 auto program = subPrograms[idx];
                 APASS_LOG_DEBUG_F(Elements::Operation, "====================================Program %d ===========================================", index);
                 if (InsertSyncMainLoop(program.second) != SUCCESS) {
-                    multiThreadsStatus.store(false);
+                    status = false;
+                    break;
                 }
                 index++;
             }
         });
-    }
-    if (!multiThreadsStatus.load()) {
-        if (threadNum == 1) {
-            APASS_LOG_ERROR_F(Elements::Operation, "InsertSync RunOnFunction failed at function InsertSyncMainLoop in Single Thread scenario.");
-            return FAILED;
-        }
-        APASS_LOG_ERROR_F(Elements::Operation, "InsertSync RunOnFunction failed at function InsertSyncMainLoop in Multiple Threads scenario.");
-        return FAILED;
     }
     // Wait for all threads to finish
     for (auto& t : workers) {
@@ -1541,6 +1606,15 @@ Status InsertSync::RunOnFunction(Function &function) {
             t.join();
         }
     }
+    if (!status) {
+        if (threadNum == 1) {
+            APASS_LOG_ERROR_F(Elements::Operation, "InsertSync RunOnFunction failed at function InsertSyncMainLoop in Single Thread scenario.");
+            return FAILED;
+        }
+        APASS_LOG_ERROR_F(Elements::Operation, "InsertSync RunOnFunction failed at function InsertSyncMainLoop in Multiple Threads scenario.");
+        return FAILED;
+    }
+
     APASS_LOG_INFO_F(Elements::Operation, "===============================================================> Finish InsertSync.");
     return SUCCESS;
 }
