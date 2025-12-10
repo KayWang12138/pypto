@@ -30,6 +30,10 @@ using namespace npu::tile_fwk;
 
 namespace npu{
 namespace tile_fwk {
+const int NUM_32 = 32;
+const int NUM_64 = 64;
+const int NUM_128 = 128;
+constexpr float F_3 = 3.0;
 
 class GenerateMoveOpPassTest : public ::testing::Test {
 public:
@@ -218,6 +222,52 @@ TEST_F(GenerateMoveOpPassTest, ConvertToCopy) {
     }
 }
 
+TEST_F(GenerateMoveOpPassTest, TestCubeToVec) {
+    PROGRAM("GenerateMoveOpPassTest") {
+        std::vector<int64_t> shape0 = {256, 128};
+        std::vector<int64_t> shape1 = {128, 64};
+        std::vector<int64_t> shape2 = {256, 256};
+        TileShape::Current().SetVecTile({128, 128});
+        Tensor inputQ(DataType::DT_BF16, shape0, "Q");
+        Tensor inputK(DataType::DT_BF16, shape0, "K");
+        Tensor weight(DataType::DT_BF16, shape1, "weight");
+        Tensor out(DataType::DT_FP32, shape2, "output");
+        PassManager &passManager = PassManager::Instance();
+        passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy", {
+            {           "ExpandFunction",           "ExpandFunction"},
+            {         "AssignMemoryType",         "AssignMemoryType"},
+            {           "GenerateMoveOp",           "GenerateMoveOp"},
+        });
+        ConfigManager::Instance();
+
+        config::SetBuildStatic(true);
+        FUNCTION("TestCubeToVec", {inputQ, inputK, weight, out}) {
+            TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
+            Tensor qUpdate = Matrix::Matmul(out.GetDataType(), inputQ, weight); // (256 * 128) @ (128 * 64) = (256 * 64)
+            TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
+            Tensor kUpdate = Matrix::Matmul(out.GetDataType(), inputK, weight); // (256 * 128) @ (128 * 64) = (256 * 64)
+            TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_64, NUM_64}, {NUM_128, NUM_128});
+            Tensor QKT = Matrix::Matmul<false, true>(out.GetDataType(), qUpdate, kUpdate); // (256 * 64) @ (64 * 256) = (256 * 256)
+            TileShape::Current().SetVecTile(NUM_64, NUM_64);
+            out = Add(QKT, Element(DataType::DT_FP32, F_3));
+        }
+
+        // ================== Verify Pass Effect ==================
+        auto updatedOperations = Program::GetInstance().GetFunctionByRawName("TENSOR_TestCubeToVec")->Operations();
+        int l0c_copy_ub_num = 0;
+        for (const auto &updatedOperation : updatedOperations) {
+            switch (updatedOperation.GetOpcode()){
+                case Opcode::OP_L0C_COPY_UB: {
+                    l0c_copy_ub_num++;
+                    break;
+                }
+                default: break;
+            }
+        }
+        constexpr int expectedL0cCopyUB = 4;
+        EXPECT_EQ(l0c_copy_ub_num, expectedL0cCopyUB) << "4 operations should be OP_L0C_COPY_UB";
+    }
+}
 TEST_F(GenerateMoveOpPassTest, Transpose) {
     PROGRAM("GenerateMoveOpPassTest") {
         std::vector<int64_t> shape{1, 32, 32, 2};
@@ -564,7 +614,7 @@ TEST_F(GenerateMoveOpPassTest, TransViewWithAttr) {
     constexpr int expectedCopyIn =2;
     constexpr int expectedL1toBt =1;
     constexpr int expectedL1toFb =1;
-    EXPECT_EQ(copyIn_count_after_pass,expectedCopyIn) << "4 operations shoulde be OP_COPY_IN.";
+    EXPECT_EQ(copyIn_count_after_pass,expectedCopyIn) << "2 operations shoulde be OP_COPY_IN.";
     EXPECT_EQ(l12Bt_count_after_pass,expectedL1toBt) << "1 operations shoulde be OP_L1_TO_BT.";
     EXPECT_EQ(l12Fb_count_after_pass,expectedL1toFb) << "1 operations shoulde be OP_L1_TO_FIX_QUANT_PRE.";
 }
