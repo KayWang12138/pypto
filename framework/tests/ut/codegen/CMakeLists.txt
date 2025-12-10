@@ -119,7 +119,6 @@ set(_CaseFilterList
         "TestCodegenDynSpillOut.UBSpillOut"
         "TestCodegenDynSpillOut.L1SpillOut"
         # composite
-        # "TestCodegenDynFFN.FFNDynamicTest"
         "TestCodegenDynFFN.FFNQuantDynamicTest"
         "TestCodegenDynPa.PaHighThroughputDviewLargeDynamicValidShape"
         "TestCodegenStaticUnderDyn.TestStaticFuncUnderDyn"

@@ -39,32 +39,6 @@ public:
     void TearDown() override {}
 };
 
-void testffn() {
-    config::SetHostOption(ONLY_CODEGEN, true);
-
-    TileShape::Current().SetVecTile(32, 128);
-    TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
-
-    constexpr int BATCH_SIZE = 64;
-    constexpr int SEQUENCE = 1;
-    constexpr int H = 7168;
-    constexpr int ExpertDim = 2048;
-    constexpr int BS = BATCH_SIZE * SEQUENCE;
-    constexpr int BASIC_BATCH = 32;
-
-    std::vector<int64_t> hiddenStatesShape{BS, H};
-    std::vector<int64_t> weightShape{H, ExpertDim};
-    std::vector<int64_t> OutShape{BS, H};
-
-    Tensor hiddenStates(DT_FP32, hiddenStatesShape, "hiddenStates");
-    Tensor ffnweight1(DT_FP16, weightShape, "weightShape1");
-    Tensor ffnweight2(DT_FP16, weightShape, "weightShape2");
-    Tensor ffnweight3(DT_FP16, weightShape, "weightShape3");
-    Tensor ffnout(DT_FP32, OutShape, "ffnout");
-
-    DynamicFFN(hiddenStates, ffnweight1, ffnweight2, ffnweight3, ffnout, BASIC_BATCH);
-}
-
 void testffnquant() {
     config::SetHostOption(ONLY_CODEGEN, true);
 
@@ -94,10 +68,6 @@ void testffnquant() {
 
     DynamicFFNQuant(hiddenStates, hiddenStatesScale, ffnWeight1, ffnWeight2, ffnWeight3, ffnScale1, ffnScale2,
         ffnScale3, ffnout, BASIC_BATCH);
-}
-
-TEST_F(TestCodegenDynFFN, FFNDynamicTest) {
-    testffn();
 }
 
 TEST_F(TestCodegenDynFFN, FFNQuantDynamicTest) {
