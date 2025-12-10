@@ -38,7 +38,7 @@ def kernel_func(in_tensors, out_tensors):
             a0 = pypto.view(in_tensor, [1, 1, n1, d], [b_idx, s_idx, 0, 0])
             a1 = pypto.add(a0, 1.0)
             a2 = pypto.reshape(a1, [1, 1, n1 * d])
-            a3 = pypto.clone(a2)
+            a3 = a2.clone()
             pypto.assemble(a3, [b_idx, s_idx, 0], out_tensor)
 
 

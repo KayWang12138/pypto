@@ -451,6 +451,9 @@ class Tensor:
              *, valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None) -> 'Tensor':
         return pypto.view(self, shape, offsets, valid_shape=valid_shape)
 
+    def clone(self) -> 'Tensor':
+        return pypto.clone(self)
+
     def sin(self) -> 'Tensor':
         return pypto.sin(self)
 
