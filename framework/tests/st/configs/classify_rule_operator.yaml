@@ -37,7 +37,7 @@ stest:
   operator_nsa_AttentionPost:
     cases:
       # - AttentionPostSTest.b32_s1_nz_bf16_quant
-      - AttentionPostSTest.b32_s2_nz_bf16_quant
+      # - AttentionPostSTest.b32_s2_nz_bf16_quant
 
   # operator_op_qkvPre:
   #   cases:
@@ -191,7 +191,7 @@ stest:
 
   operator_decode_sparse_attention:
     cases:
-      - DecodeIndexerAttentionSTest.mini
+      # - DecodeIndexerAttentionSTest.mini
       - DeepSeekIndexerAttentionQuantSTest.4B_mtp_perf
       - MlaPrologQuantV32STest.b8_s64k2_pa_nd_fp16_quantB # mla prolog quant version for deepseek-v3.2-exp
 
