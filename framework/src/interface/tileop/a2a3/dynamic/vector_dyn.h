@@ -942,6 +942,9 @@ template <typename T, unsigned srcRawShape1, unsigned srcRawShape2, unsigned src
 TILEOP void DynTrowsumline_(
     __ubuf__ T *dst, __ubuf__ T *src0, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3) {
     static_assert(sizeof(T) == 4);
+    if (TShape0 == 0 || TShape1 == 0 || TShape2 == 0 || TShape3 == 0) {
+        return;
+    }
     if (axis == 0) {
         uint32_t rptElm = REPEAT_BYTE / sizeof(T);
         uint32_t repeatTime = (TShape3 + rptElm - 1) / rptElm;
@@ -1145,6 +1148,9 @@ template <typename T, unsigned srcRawShape1, unsigned srcRawShape2, unsigned src
 TILEOP void DynTrowmaxline_(
     __ubuf__ T *dst, __ubuf__ T *src0, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3) {
     static_assert(sizeof(T) == 4 || sizeof(T) == 2);
+    if (TShape0 == 0 || TShape1 == 0 || TShape2 == 0 || TShape3 == 0) {
+        return;
+    }
     if (axis == 0) {
         uint32_t rptElm = REPEAT_BYTE / sizeof(T);
         uint32_t repeatTime = (TShape3 + rptElm - 1) / rptElm;
@@ -1348,6 +1354,9 @@ template <typename T, unsigned srcRawShape1, unsigned srcRawShape2, unsigned src
 TILEOP void DynTrowminline_(
     __ubuf__ T *dst, __ubuf__ T *src0, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3) {
     static_assert(sizeof(T) == 4 || sizeof(T) == 2);
+    if (TShape0 == 0 || TShape1 == 0 || TShape2 == 0 || TShape3 == 0) {
+        return;
+    }
     if (axis == 0) {
         uint32_t rptElm = REPEAT_BYTE / sizeof(T);
         uint32_t repeatTime = (TShape3 + rptElm - 1) / rptElm;
@@ -3428,6 +3437,9 @@ TILEOP void DynWhere_TT(__ubuf__ T *dst, __ubuf__ uint8_t *temp, __ubuf__ U *con
 template <typename T, typename U, unsigned DS, unsigned CS, unsigned SS0>
 TILEOP void DynWhere_TS(__ubuf__ T *dst, __ubuf__ uint8_t *temp,
                         __ubuf__ U *condition, __ubuf__ T *src0, T src1, unsigned T0, unsigned T1) {
+    if (T0 == 0 || T1 == 0) {
+        return;
+    }
     unsigned elementsPerCount = 1024;
     unsigned adressUsed = 4;
     unsigned bitsOfByte = 8;
@@ -3521,6 +3533,9 @@ TILEOP void DynWhere_TS(__ubuf__ T *dst, __ubuf__ uint8_t *temp, __ubuf__ U *con
 template <typename T, typename U, unsigned DS, unsigned CS, unsigned SS0>
 TILEOP void DynWhere_ST(__ubuf__ T *dst, __ubuf__ uint8_t *temp,
                         __ubuf__ U *condition, T src0, __ubuf__ T *src1, unsigned T0, unsigned T1) {
+    if (T0 == 0 || T1 == 0) {
+        return;
+    }
     unsigned elementsPerCount = 1024;
     unsigned adressUsed = 4;
     unsigned bitsOfByte = 8;
@@ -3613,6 +3628,9 @@ TILEOP void DynWhere_ST(__ubuf__ T *dst, __ubuf__ uint8_t *temp, __ubuf__ U *con
 template <typename T, typename U, unsigned DS, unsigned CS, unsigned SS0>
 TILEOP void DynWhere_SS(__ubuf__ T *dst, __ubuf__ uint8_t *temp,
                         __ubuf__ U *condition, T src0, T src1, unsigned T0, unsigned T1) {
+    if (T0 == 0 || T1 == 0) {
+        return;
+    }
     unsigned elementsPerCount = 1024;
     unsigned adressUsed = 4;
     unsigned bitsOfByte = 8;
