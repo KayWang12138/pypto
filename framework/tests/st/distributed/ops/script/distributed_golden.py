@@ -65,6 +65,10 @@ class MoeCase:
     top_k: int
     rank_size: int
 
+    def __post_init__(self):
+        if self.top_k > self.routed_expert_num:
+            raise ValueError(f'top_k ({self.top_k}) cannot exceed routed_expert_num ({self.routed_expert_num})')
+
 
 @dataclasses.dataclass
 class AllGatherAttnPostReducescatterCase:

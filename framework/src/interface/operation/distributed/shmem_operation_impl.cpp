@@ -43,6 +43,14 @@ std::pair<int32_t, int32_t> GetRankSizeAndTileCount()
     return {rankSize, tileCount};
 }
 
+void ValidateGroup(const char* group)
+{
+    ASSERT(group != nullptr) << "\"group\" cannot be nullptr";
+    int32_t groupLen = std::strlen(group);
+    ASSERT((groupLen >= 1) && (groupLen < 128)) << "The length of \"group\" only supports [1, 128), but got "
+        << groupLen;
+}
+
 void ValidateTilingSize(std::array<int32_t, MAX_DIST_DIM_SIZE> tilingStrategy, int32_t totalExpected, std::string desc)
 {
     ASSERT(tilingStrategy[0] * tilingStrategy[1] + tilingStrategy[2] == totalExpected) << "Invalid tiling strategy of "
@@ -440,39 +448,65 @@ Tensor MoeCombineReceive(const Tensor& dummyIn, const Tensor& scale, const Tenso
 void ShmemMoeCombine(const Tensor& in, const Tensor& combineInfo, const Tensor& scale, const char* group,
     int32_t rankSize, int32_t totalExpertNum, Tensor& out)
 {
+    ASSERT(in.GetShape().size() == 2) << "The dim of \"in\" only supports 2, but got " << in.GetShape().size();
+    ASSERT(combineInfo.GetShape().size() == 2) << "The dim of \"combineInfo\" only supports 2, but got "
+        << combineInfo.GetShape().size();
+    ASSERT(scale.GetShape().size() == 2) << "The dim of \"scale\" only supports 2, but got " << scale.GetShape().size();
+    ASSERT(out.GetShape().size() == 2) << "The dim of \"out\" only supports 2, but got " << out.GetShape().size();
+
     int32_t inRow = in.GetShape(0);
-    int32_t hiddenSize = in.GetShape(1);
+    int32_t inCol = in.GetShape(1);
     int32_t combineInfoRow = combineInfo.GetShape(0);
     int32_t combineInfoCol = combineInfo.GetShape(1);
-    int32_t batchSize = scale.GetShape(0);
-    int32_t topK = scale.GetShape(1);
+    int32_t scaleRow = scale.GetShape(0);
+    int32_t scaleCol = scale.GetShape(1);
+    int32_t outRow = out.GetShape(0);
+    int32_t outCol = out.GetShape(1);
 
-    ASSERT((batchSize == 8) || (batchSize == 256)) << "batchSize only supports 8 or 256, but got " << batchSize << ".";
-    ASSERT(hiddenSize == 5120) << "hiddenSize only supports 5120, but got " << hiddenSize << ".";
-    ASSERT(totalExpertNum == 160) << "totalExpertNum only supports 160, but got " << totalExpertNum << ".";
-    ASSERT(topK == 8) << "topK only supports 8, but got " << topK << ".";
-    ASSERT((rankSize == 4) || (rankSize == 8)) << "rankSize only supports 4 or 8, but got " << rankSize << ".";
-
+    int32_t hiddenSize = inCol;
+    int32_t batchSize = scaleRow;
+    int32_t topK = scaleCol;
     int32_t expectedRow = std::min(topK * batchSize * rankSize, batchSize * totalExpertNum);
-    ASSERT(inRow == expectedRow) << "The first axis of \"in\" must be the smaller value between topK * batchSize * "
-        << "rankSize and batchSize * totalExpertNum, topK=" << topK << ", batchSize=" << batchSize << ", rankSize="
-        << rankSize << ", totalExpertNum=" << totalExpertNum << ", the expected first axis of \"in\" should be "
-        << expectedRow << " but got " << inRow << ".";
-    ASSERT(combineInfoRow == expectedRow) << "The first axis of \"combineInfo\" must be the smaller value between topK "
-        << "* batchSize * rankSize and batchSize * totalExpertNum, topK=" << topK << ", batchSize=" << batchSize
-        << ", rankSize=" << rankSize << ", totalExpertNum=" << totalExpertNum << ", the expected first axis of "
-        << "\"combineInfo\" should be " << expectedRow << " but got " << combineInfoRow << ".";
-    ASSERT(combineInfoCol == 3) << "The first axis of \"combineInfo\" must be 3, but got " << combineInfoCol << ".";
 
-    ASSERT(in.GetDataType() == DT_BF16) << "\"in\" only supports the DT_BF16 data type, but got "
-        << DataType2String(in.GetDataType()) << ".";
-    ASSERT(combineInfo.GetDataType() == DT_INT32) << "\"combineInfo\" only supports the DT_INT32 data type, but got "
-        << DataType2String(combineInfo.GetDataType()) << ".";
-    ASSERT(scale.GetDataType() == DT_FP32) << "\"scale\" only supports the DT_FP32 data type, but got "
-        << DataType2String(scale.GetDataType()) << ".";
+    ASSERT(inRow == expectedRow) << "The first axis of \"in\" must be the smaller value between topK (the second axis "
+        << "of \"scale\") * batchSize (the first axis of \"scale\") * rankSize and batchSize * totalExpertNum, topK="
+        << topK << ", batchSize=" << batchSize << ", rankSize=" << rankSize << ", totalExpertNum=" << totalExpertNum
+        << ", the expected first axis of \"in\" should be " << expectedRow << " but got " << inRow;
+    ASSERT(inCol == 5120) << "The second axis of \"in\" only supports 5120, but got " << hiddenSize;
+    ASSERT(in.GetDataType() == DT_BF16) << "The data type of \"in\" only supports DT_BF16, but got "
+        << DataType2String(in.GetDataType());
+    ASSERT(in.Format() == npu::tile_fwk::TileOpFormat::TILEOP_ND) << "The format of \"in\" only supports ND, but got "
+        << "NZ";
+
+    ASSERT(combineInfoRow == inRow) << "The first axis of \"combineInfo\" must be consistent with that of \"in\", but "
+        << "inRow=" << inRow << ", combineInfoRow=" << combineInfoRow;
+    ASSERT(combineInfoCol == 3) << "The second axis of \"combineInfo\" must be 3, but got " << combineInfoCol;
+    ASSERT(combineInfo.GetDataType() == DT_INT32) << "The data type of \"combineInfo\" only supports DT_INT32, but got "
+        << DataType2String(combineInfo.GetDataType());
+    ASSERT(combineInfo.Format() == npu::tile_fwk::TileOpFormat::TILEOP_ND) << "The format of \"combineInfo\" only "
+        << "supports ND, but got NZ";
+
+    ASSERT((scaleRow == 8) || (scaleRow == 256)) << "The first axis of \"scale\" only supports 8 or 256, but got "
+        << scaleRow;
+    ASSERT(scaleCol == 8) << "The second axis of \"scale\" only supports 8, but got " << scaleCol;
+    ASSERT(scale.GetDataType() == DT_FP32) << "The data type of \"scale\" only supports DT_FP32, but got "
+        << DataType2String(scale.GetDataType());
+    ASSERT(scale.Format() == npu::tile_fwk::TileOpFormat::TILEOP_ND) << "The format of \"scale\" only supports ND, but "
+        << "got NZ";
+
+    ASSERT(outRow == scaleRow) << "The first axis of \"out\" must be consistent with that of \"scale\", but scaleRow="
+        << scaleRow << ", outRow=" << outRow;
+    ASSERT(outCol == inCol) << "The second axis of \"out\" must be consistent with that of \"in\", but inCol=" << inCol
+        << ", outCol=" << outCol;
     ASSERT(out.GetDataType() == in.GetDataType()) << "The data type of \"out\" must be consistent with that of \"in\", "
-        << "but the data type of \"out\" is "<< DataType2String(out.GetDataType()) << " and the data type of \"in\" is "
-        << DataType2String(in.GetDataType()) << ".";
+        << "but the data type of \"in\" is "<< DataType2String(in.GetDataType()) << " and the data type of \"out\" is "
+        << DataType2String(out.GetDataType());
+    ASSERT(out.Format() == npu::tile_fwk::TileOpFormat::TILEOP_ND) << "The format of \"out\" only supports ND, but got "
+        << "NZ";
+
+    ValidateGroup(group);
+    ASSERT(totalExpertNum == 160) << "totalExpertNum only supports 160, but got " << totalExpertNum;
+    ASSERT((rankSize == 4) || (rankSize == 8)) << "rankSize only supports 4 or 8, but got " << rankSize;
 
     int32_t hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
     SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
