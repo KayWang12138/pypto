@@ -1408,4 +1408,25 @@ TEST_F(ScheduleOoOTest, TestCheckAllocBufferSize) {
     EXPECT_EQ(res, FAILED);
 }
 
+TEST_F(ScheduleOoOTest, TestHasEnoughBuffer) {
+    ComputationalGraphBuilder subGraph;
+    std::vector<std::string> tensorNames{"t1", "t2"};
+    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_UB, MemoryType::MEM_UB};
+    std::vector<Opcode> opCodes{Opcode::OP_UB_ALLOC};
+    std::vector<std::vector<std::string>> ioperands{{}};
+    std::vector<std::vector<std::string>> ooperands{{"t1", "t2"}};
+    std::vector<std::string> opNames{"Alloc1"};
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {128, 128}, tensorMemTypes, tensorNames, 0), true);
+    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    Function *function = subGraph.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    auto op = subGraph.GetOp("Alloc1");
+    auto issue = std::make_shared<IssueEntry>(*op, 1);
+
+    OoOScheduler ooOScheduler(*function);
+    bool res = ooOScheduler.HasEnoughBuffer(issue, MemoryType::MEM_UB);
+    EXPECT_EQ(res, false);
+}
+
 } // namespace npu::tile_fwk

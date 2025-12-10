@@ -247,6 +247,7 @@ set(_CaseFilterList
         "ScheduleOoOTest.TestCheckOpBufferSize"
         "ScheduleOoOTest.TestCheckAllocBufferSize"
         "ScheduleOoOTest.TestScheduleGenSpillInfiniteLoop"
+        "ScheduleOoOTest.TestHasEnoughBuffer"
         "TestRemoveUnalignedReshapeOp.reshaped_padded_ub"
         "TestRemoveUnalignedReshapeOp.reshaped_unpadded_ub"
         "TestRemoveUnalignedReshapeOp.reshaped_unpadded_ub_gm"

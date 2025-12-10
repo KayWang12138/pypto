@@ -493,7 +493,7 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr all
         APASS_LOG_ERROR_F(Elements::Operation, "CalcWorkspaceOffset failed.");
         return FAILED;
     }
-    offset.front() = gmRelatOffset + spillInfo.ddrTensor_->GetOffset().front();
+    offset.front() = gmRelatOffset + spillInfo.ddrTensor_->GetOffset().front() + spillInfo.ddrTensor_->GetOffset().front();
     auto &spillCopyInOp = function_.AddRawOperation(Opcode::OP_COPY_IN, {spillInfo.ddrTensor_}, {localTensor});
     spillCopyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(offset),
                 iOperand->GetMemoryTypeOriginal(), OpImmediate::Specified(iOperand->GetShape()),
@@ -753,9 +753,16 @@ int OoOScheduler::GetMemidAllocPriority(int memId) {
 bool OoOScheduler::HasEnoughBuffer(IssueEntryPtr allocIssue, MemoryType memType) {
     std::vector<LocalBufferPtr> tensors;
     std::vector<int> memIds;
+    if (allocIssue->tileOp.GetOOperands().size() != 1) {
+        APASS_LOG_ERROR_F(Elements::Operation, "%s must only have one ooperand.", GetFormatBacktrace(allocIssue->tileOp).c_str());
+        return false;
+    }
     for (auto &dstIssueId : allocIssue->successors) {
-        auto dstIssue = issueEntryMap[dstIssueId];
-        for (auto &memId : dstIssue->reqMemIds) {
+        if (&(issueEntryMap[dstIssueId]->tileOp) != 
+            *(allocIssue->tileOp.GetOutputOperand(0)->GetProducers().begin())) {
+            continue;
+        }
+        for (auto &memId : issueEntryMap[dstIssueId]->reqMemIds) {
             if (localBufferMap[memId]->memType != memType) {
                 continue;
             }
