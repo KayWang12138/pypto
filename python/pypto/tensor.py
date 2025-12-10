@@ -443,13 +443,13 @@ class Tensor:
     def logical_not(self) -> 'Tensor':
         return pypto.logical_not(self)
 
-    def amax(self, dim: int = -1, keepdim: bool = False) -> 'Tensor':
+    def amax(self, dim: int, keepdim: bool = False) -> 'Tensor':
         return pypto.amax(self, dim, keepdim)
 
-    def amin(self, dim: int = -1, keepdim: bool = False) -> 'Tensor':
+    def amin(self, dim: int, keepdim: bool = False) -> 'Tensor':
         return pypto.amin(self, dim, keepdim)
 
-    def sum(self, dim: int = -1, keepdim: bool = False) -> 'Tensor':
+    def sum(self, dim: int, keepdim: bool = False) -> 'Tensor':
         return pypto.sum(self, dim, keepdim)
 
     def rsqrt(self) -> 'Tensor':

@@ -163,7 +163,7 @@ def quantize(
 
     if is_symmetry:
         abs_x = pypto.abs(x)
-        max_val = pypto.amax(abs_x)
+        max_val = pypto.amax(abs_x, -1)
         scale_quant = z127 / max_val
         out_fp32 = x / scale_quant
         out_int_32 = pypto.cast(out_fp32, pypto.DT_INT32, pypto.CastMode.CAST_RINT)
@@ -173,8 +173,8 @@ def quantize(
 
         return out_int_8, scale_dequant
     else:
-        max_v = pypto.amax(x)
-        min_v = pypto.amin(x)
+        max_v = pypto.amax(x, -1)
+        min_v = pypto.amin(x, -1)
         scale_dequant = pypto.maximum((max_v - min_v) / z255, eps)
 
         scale_quant = ones / scale_dequant

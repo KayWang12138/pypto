@@ -18,7 +18,7 @@ from ..tensor import Tensor
 
 
 @op_wrapper
-def amin(input: Tensor, dim: int = -1, keepdim: bool = False) -> Tensor:
+def amin(input: Tensor, dim: int, keepdim: bool = False) -> Tensor:
     """Returns the minimum value of each slice of the input tensor in the given dimension dim.
 
     Parameters
@@ -52,7 +52,7 @@ def amin(input: Tensor, dim: int = -1, keepdim: bool = False) -> Tensor:
 
 
 @op_wrapper
-def amax(input: Tensor, dim: int = -1, keepdim: bool = False) -> Tensor:
+def amax(input: Tensor, dim: int, keepdim: bool = False) -> Tensor:
     """Returns the maximum value of each slice of the input tensor in the given dimension dim.
 
     Parameters
@@ -168,7 +168,7 @@ def minimum(
 
 
 @op_wrapper
-def sum(input: Tensor, dim: int = -1, keepdim: bool = False) -> Tensor:
+def sum(input: Tensor, dim: int, keepdim: bool = False) -> Tensor:
     """Returns the sum value of each slice of the input tensor in the given dimension dim.
 
     Parameters
