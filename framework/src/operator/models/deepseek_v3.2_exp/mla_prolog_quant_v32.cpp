@@ -223,9 +223,9 @@ void MlaPrologQuantV32(const Tensor &tokenX, const Tensor &wDq, const Tensor &wU
     config::SetHostOption(ONLY_CODEGEN, true);
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetPassOption(NBUFFER_MERGE_MODE, 1);
-    config::SetPassOption(L1_REUSE, 4);
+    config::SetPassOption(L1_REUSE, NUM_4);
     config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{{3, 4}});
-    config::SetPassOption(COPYIN_THRESHOLD, 2 * 1024 * 1024);
+    config::SetPassOption(COPYIN_THRESHOLD, NUM_2 * NUM_1024 * NUM_1024);
 
     FUNCTION("main",
         {tokenX, wDq, wUqQr, dequantScaleWUqQr, wUk, wDkvKr, rmsnormGammaCq, rmsnormGammaCkv,  ropeCos, ropeSin, cacheIndex, kvCache, krCache, kScaleCache},

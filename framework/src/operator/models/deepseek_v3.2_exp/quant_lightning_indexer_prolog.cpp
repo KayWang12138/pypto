@@ -231,7 +231,7 @@ void QuantLightningIndexerPrologCompute(const QuantIndexerPrologInput &inputs, Q
                 auto x = View(inputs.x, {tTile, h}, {tTile, h}, {tIdx, 0}); // 这里将tTile分档，offset不需要乘tTile
                 auto k = Matrix::Matmul<false, false>(DT_FP32, x, wk);      // (tTile, headDim)
 
-                if (tTile <= 32) {
+                if (tTile <= VEC_TILE_32) {
                     TileShape::Current().SetVecTile(std::min(tTile, VEC_TILE_4), headDim);
                 }else {
                     TileShape::Current().SetVecTile(std::min(tTile, VEC_TILE_32), headDim);
