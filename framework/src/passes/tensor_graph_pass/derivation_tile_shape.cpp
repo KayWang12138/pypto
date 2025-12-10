@@ -569,7 +569,8 @@ Status DerivationTileShape::DerivationReshapeTileShape(Operation *op, const Shap
     if (op->GetOpcode() != Opcode::OP_RESHAPE) {
         return WARNING;
     }
-    if (!ValidShape(inShape) || !ValidShape(outShape) || !ValidShape(inTileShape) || (inShape.size() != inTileShape.size())) {
+    if (!ValidShape(inShape) || !ValidShape(outShape) || !ValidShape(inTileShape) ||
+        (inShape.size() != inTileShape.size()) || (GetShapeSize(inShape) != GetShapeSize(outShape))) {
         APASS_LOG_WARN_F(Elements::Operation, "Op: %d has invalid shape, inShape%s, outShape%s, inTile%s",
             op->GetOpMagic(), GetStr(inShape).c_str(), GetStr(outShape).c_str(), GetStr(inTileShape).c_str());
         return WARNING;

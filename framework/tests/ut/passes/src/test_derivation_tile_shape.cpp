@@ -297,5 +297,15 @@ TEST_F(DerivationTileShapeTest, DerivationDiffSizeFail) {
     BuildShapeAndCheckFail(G.GetFunction(), inShape, outShape, inTileShape);
 }
 
+TEST_F(DerivationTileShapeTest, DerivationDiffSizeFail1) {
+    ComputationalGraphBuilder G;
+    BuildGraphAndCheck(G);
+
+    Shape inShape = {1, 1, 1};
+    Shape outShape = {1, 1, 1, 1, 2};
+    std::vector<int64_t> inTileShape = {1, 1, 2};
+    BuildShapeAndCheckFail(G.GetFunction(), inShape, outShape, inTileShape);
+}
+
 } // namespace tile_fwk
 } // namespace npu
