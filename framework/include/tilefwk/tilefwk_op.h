@@ -365,10 +365,10 @@ enum class ReLuType : int64_t
 struct MatmulExtendParam {
     Tensor biasTensor{Tensor()};
     Tensor scaleTensor{Tensor()};
-    uint64_t scaleValue{0};
+    float scaleValue{0.0f};
     ReLuType reluType{ReLuType::NoReLu};
 
-    MatmulExtendParam(Tensor bias, Tensor scale, uint64_t scaleVal, ReLuType relu)
+    MatmulExtendParam(Tensor bias, Tensor scale, float scaleVal, ReLuType relu)
         : biasTensor(std::move(bias)),
           scaleTensor(std::move(scale)),
           scaleValue(scaleVal),

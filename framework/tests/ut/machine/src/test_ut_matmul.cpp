@@ -24,8 +24,30 @@ namespace {
 
 class DynamicMatmulUTest : public testing::Test {};
 
+template <typename T>
+DataType GetAstDtype() {
+    DataType astDtype = DataType::DT_BOTTOM;
+    if constexpr (std::is_same<T, npu::tile_fwk::float16>::value) {
+        astDtype = DataType::DT_FP16;
+    }
+    if constexpr (std::is_same<T, float>::value) {
+        astDtype = DataType::DT_FP32;
+    }
+    if constexpr (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
+        astDtype = DataType::DT_BF16;
+    }
+    if constexpr (std::is_same<T, int8_t>::value) {
+        astDtype = DT_INT8;
+    }
+    if constexpr (std::is_same<T, int32_t>::value) {
+        astDtype = DT_INT32;
+    }
+    EXPECT_NE(astDtype, DT_BOTTOM);
+    return astDtype;
+}
+
 template <typename InputT, typename OutputT, bool IsBtrans = false, bool IsBNZ = false>
-void TestDynMatmul(int m, int k, int n) {
+void TestDynMatmul(int m, int k, int n, Matrix::MatmulExtendParam param = {}) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
     config::SetHostOption(ONLY_CODEGEN, true);
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
@@ -39,8 +61,8 @@ void TestDynMatmul(int m, int k, int n) {
     std::vector<int64_t> shape_b = {kb, nb};
     std::vector<int64_t> shape_a = {m, ka};
 
-    auto InputUTDtype = (std::is_same<InputT, npu::tile_fwk::bfloat16>::value) ? DT_BF16 : DT_INT8;
-    auto OutputUTDtype = (std::is_same<OutputT, float>::value) ? DT_FP32 : DT_INT32;
+    auto InputUTDtype = GetAstDtype<InputT>();
+    auto OutputUTDtype = GetAstDtype<OutputT>();
 
     Tensor tensor_c(OutputUTDtype, shape_c, "tensor_c");
     Tensor tensor_a(InputUTDtype, shape_a, "tensor_a");
@@ -50,7 +72,7 @@ void TestDynMatmul(int m, int k, int n) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(1)) {
             Tensor dyn_a = View(tensor_a, {m, ka}, {m, ka}, {batchId * m, 0});
             Tensor dyn_b = View(tensor_b, {kb, nb}, {kb, nb}, {0, 0});
-            tensor_c = Matrix::Matmul<false, IsBtrans>(OutputUTDtype, dyn_a, dyn_b);
+            tensor_c = Matrix::Matmul<false, IsBtrans>(OutputUTDtype, dyn_a, dyn_b, param);
         }
     }
 }
@@ -61,5 +83,15 @@ TEST_F(DynamicMatmulUTest, mm_A_B_ND_bf16) {
     int k = 256;
     int n = 512;
     TestDynMatmul<npu::tile_fwk::bfloat16, float, false, false> (m, k, n);
+}
+
+TEST_F(DynamicMatmulUTest, mm_A_B_ND_pertensor) {
+    int m = 128;
+    int n = 512;
+    int k = 256;
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
+    Matrix::MatmulExtendParam param;
+    param.scaleValue = 2.0f;
+    TestDynMatmul<int8_t, npu::tile_fwk::float16, false, false> (m, k, n, param);
 }
 }// namespace

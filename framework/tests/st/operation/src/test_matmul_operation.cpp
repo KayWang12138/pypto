@@ -172,9 +172,7 @@ static void MatmulOperationExeFuncNoSplit(
                 tensorB = View(inputs[1], {kDim, nDim}, {kDim, nDim}, {0, 0});
             }
             Matrix::MatmulExtendParam param;
-            uint32_t scaleValueTmp = 0;
-            memcpy_s(&scaleValueTmp, sizeof(scaleValueTmp), &scaleValue, sizeof(scaleValue));
-            param.scaleValue = static_cast<uint64_t>(scaleValueTmp);
+            param.scaleValue = scaleValue;
             param.reluType = reluType;
             if (args->param_.hasScale) {
                 param.scaleTensor = View(inputs[scaleIndex], {1, nDim}, {1, nDim}, {0, 0});
@@ -265,10 +263,8 @@ static void MatmulOperationExeFuncSplitM(
             if (args->param_.hasScale) {
                 param.scaleTensor = View(inputs[scaleIndex], {1, nDim}, {1, nDim}, {0, 0});
             }
-            uint32_t scaleValueTmp = 0;
-            memcpy_s(&scaleValueTmp, sizeof(scaleValueTmp), &scaleValue, sizeof(scaleValue));
             param.reluType = reluType;
-            param.scaleValue = static_cast<uint64_t>(scaleValueTmp);
+            param.scaleValue = scaleValue;
             Tensor tensorC = CallMatmulOp(tensorA, tensorB, args->param_, param);
             Assemble(tensorC, {mIdx * mView, 0}, outputs[0]);
         }
@@ -350,9 +346,7 @@ static void MatmulOperationExeFuncSplitN(
             }
             Matrix::MatmulExtendParam param;
             param.reluType = reluType;
-            uint32_t scaleValueTmp = 0;
-            memcpy_s(&scaleValueTmp, sizeof(scaleValueTmp), &scaleValue, sizeof(scaleValue));
-            param.scaleValue = static_cast<uint64_t>(scaleValueTmp);
+            param.scaleValue = scaleValue;
             if (args->param_.hasBias) {
                 param.biasTensor =
                     View(inputs[biasIndex], {1, nView}, {1, std::min(nDim - nIdx * nView, nView)}, {0, nIdx * nView});
@@ -454,9 +448,7 @@ static void MatmulOperationExeFuncSplitMN(
                         inputs[biasIndex], {1, nView}, {1, std::min(nDim - nIdx * nView, nView)}, {0, nIdx * nView});
                 }
                 param.reluType = reluType;
-                uint32_t scaleValueTmp = 0;
-                memcpy_s(&scaleValueTmp, sizeof(scaleValueTmp), &scaleValue, sizeof(scaleValue));
-                param.scaleValue = static_cast<uint64_t>(scaleValueTmp);
+                param.scaleValue = scaleValue;
                 Tensor tensorC = CallMatmulOp(tensorA, tensorB, args->param_, param);
                 Assemble(tensorC, {mIdx * mView, nIdx * nView}, outputs[0]);
             }

@@ -52,6 +52,7 @@ set(_CaseFilterList
         "TestSuite_Backend.AihacBackend_Err1"
         "TestSuite_Backend.SimulationBackend_Err1"
         "DynamicMatmulUTest.mm_A_B_ND_bf16"
+        "DynamicMatmulUTest.mm_A_B_ND_pertensor"
 )
 
 set(_Target ${PTO_Fwk_UTestNamePrefix}_machine)

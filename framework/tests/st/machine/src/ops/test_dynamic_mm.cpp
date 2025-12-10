@@ -35,6 +35,7 @@ const int QUANT_PERTENSOR = 1;
 const int QUANT_PERCHANNEL = 2;
 const int NO_RELU = 0;
 const int RELU = 1;
+constexpr double EPSILON = 1e-9;
 
 class DynamicMatmulTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
@@ -146,7 +147,7 @@ static void NonSplitFuncWithBiasAndScale(SplitFuncParam &splitFuncParam) {
 template <typename outputDtype, bool transA, bool transB, bool isCNz>
 static void NonSplitFunc(SplitFuncParam &splitFuncParam) {
     if (splitFuncParam.param.biasTensor.GetStorage() != nullptr ||
-        splitFuncParam.param.scaleTensor.GetStorage() != nullptr || splitFuncParam.param.scaleValue != 0) {
+        splitFuncParam.param.scaleTensor.GetStorage() != nullptr || fabs(splitFuncParam.param.scaleValue - 0) > EPSILON) {
         NonSplitFuncWithBiasAndScale<outputDtype, transA, transB, isCNz>(splitFuncParam);
         return;
     }
@@ -339,11 +340,9 @@ void TestDynMatmul(MatrixOpParams &opParams) {
     int64_t viewN = opParams.viewShape[1];
 
     float scaleValue = (opParams.quant_mode == QUANT_PERTENSOR) ? opParams.scaleValue : 0.0f;
-    uint32_t scaleValueTmp = 0;
-    memcpy_s(&scaleValueTmp, sizeof(scaleValueTmp), &scaleValue, sizeof(scaleValue));
     Matrix::ReLuType reluType = (opParams.relu_type == NO_RELU) ? Matrix::ReLuType::NoReLu : Matrix::ReLuType::ReLu;
     SplitFuncParam funcParam = {
-        Matrix::MatmulExtendParam(tensor_bias, tensor_scale, static_cast<uint64_t>(scaleValueTmp), reluType),
+        Matrix::MatmulExtendParam(tensor_bias, tensor_scale, scaleValue, reluType),
         opParams.viewShape, tensor_a, tensor_b, tensor_c};
 
     if (viewM > 0 && viewN > 0) {

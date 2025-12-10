@@ -29,6 +29,7 @@
 namespace npu {
 namespace tile_fwk {
 namespace Matrix {
+const float EPSILON = 1e-6f;
 namespace Deprecate {
 
 const int32_t GMACC = 3;
@@ -478,9 +479,11 @@ void SetTensorGraphAttr(Operation &op, const MatmulExtendParam &param, bool gmAc
         op.SetAttribute(A_MUL_B_VECTOR_QUANT_FLAG, true);
     }
     // means pertensor
-    if (param.scaleValue != 0) {
+    if (fabs(param.scaleValue - 0) > EPSILON) {
         op.SetAttribute(A_MUL_B_RELU_ATTR, static_cast<int64_t>(param.reluType));
-        op.SetAttribute(A_MUL_B_SCALE_ATTR, Element(DataType::DT_UINT64, param.scaleValue));
+        uint32_t scaleValueTmp = 0;
+        memcpy_s(&scaleValueTmp, sizeof(scaleValueTmp), &param.scaleValue, sizeof(param.scaleValue));
+        op.SetAttribute(A_MUL_B_SCALE_ATTR, Element(DataType::DT_UINT64, static_cast<uint64_t>(scaleValueTmp)));
     }
 
     auto matrixSize = TileShape::Current().GetMatrixSize();
@@ -721,11 +724,11 @@ void CheckFixpipeParam(DataType inDtype, DataType outDtype, const MatmulExtendPa
         ASSERT(outDtype == DataType::DT_FP16 && inDtype == DataType::DT_INT8);
         ASSERT(param.scaleTensor.GetShape()[0] == 1);
     }
-    if (param.scaleValue != 0) {
+    if (fabs(param.scaleValue - 0) > EPSILON) {
         ASSERT(outDtype == DataType::DT_FP16 && inDtype == DataType::DT_INT8);
     }
     if (inDtype == DataType::DT_INT8 && outDtype == DataType::DT_FP16) {
-        ASSERT(param.scaleValue != 0 || param.scaleTensor.GetStorage() != nullptr);
+        ASSERT(fabs(param.scaleValue - 0) > EPSILON || param.scaleTensor.GetStorage() != nullptr);
     }
 }
 

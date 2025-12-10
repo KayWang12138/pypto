@@ -136,14 +136,5 @@ def convert_matmul_extend_params(extend_params) -> dict:
     extend_params.setdefault('bias_tensor', pypto_impl.Tensor())
     extend_params.setdefault('scale_tensor', pypto_impl.Tensor())
     extend_params.setdefault('relu_type', pypto_impl.ReLuType.NoReLu)
-    # scale: float trans to uint64
-    if 'scale' not in extend_params:
-        extend_params['scale'] = 0
-    else:
-        scale_value = extend_params['scale']
-        if not isinstance(scale_value, float):
-            raise RuntimeError("scale must float type")
-        pakced_float: bytes = struct.pack('f', scale_value)
-        scale_trans_val: int = struct.unpack('<I', pakced_float)[0]
-        extend_params['scale'] = scale_trans_val
+    extend_params.setdefault('scale', 0.0)
     return extend_params
