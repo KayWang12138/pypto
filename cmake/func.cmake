@@ -175,7 +175,7 @@ function(PTO_Fwk_InstallBinaries)
     cmake_parse_arguments(
             ARG
             ""
-            "EXPORT;INSTALL_BINDIR;INSTALL_LIBDIR"
+            "EXPORT;WHL_NAME;INSTALL_BINDIR;INSTALL_LIBDIR"
             "TARGETS"
             ""
             ${ARGN}
@@ -192,14 +192,14 @@ function(PTO_Fwk_InstallBinaries)
     if (ARG_INSTALL_BINDIR)
         set(_InstallBinDir ${ARG_INSTALL_BINDIR})
     elseif (ENABLE_FEATURE_PYTHON_FRONT_END)
-        set(_InstallBinDir "${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_BINDIR}")
+        set(_InstallBinDir "${ARG_WHL_NAME}/${CMAKE_INSTALL_BINDIR}")
     else ()
         set(_InstallBinDir ${CMAKE_INSTALL_BINDIR})
     endif ()
     if (ARG_INSTALL_LIBDIR)
         set(_InstallLibDir ${ARG_INSTALL_LIBDIR})
     elseif (ENABLE_FEATURE_PYTHON_FRONT_END)
-        set(_InstallLibDir "${ENABLE_FEATURE_PYTHON_FRONT_END}/lib")
+        set(_InstallLibDir "${ARG_WHL_NAME}/lib")
     else ()
         set(_InstallLibDir ${CMAKE_INSTALL_LIBDIR})
     endif ()
@@ -216,7 +216,7 @@ function(PTO_Fwk_InstallCMakeConfig)
     cmake_parse_arguments(
             ARG
             ""
-            "EXPORT;CMAKE_PARENT_DIR"
+            "EXPORT;WHL_NAME;CMAKE_PARENT_DIR"
             "TARGETS"
             ""
             ${ARGN}
@@ -247,7 +247,7 @@ function(PTO_Fwk_InstallCMakeConfig)
     )
 
     # 配置 Config 配置文件
-    set(WHL_NAME    ${ENABLE_FEATURE_PYTHON_FRONT_END})
+    set(WHL_NAME    ${ARG_WHL_NAME})
     set(TARGETS     ${ARG_TARGETS})
     configure_package_config_file(
             ${CMAKE_CURRENT_SOURCE_DIR}/cmake/config.cmake.in

@@ -9,11 +9,9 @@
 
 [build-system]
 requires = [
-    "build>=1.0.3",
     "setuptools>=70.3.0",
     "wheel>=0.42.0",
     "pybind11>=2.13.6",
-    'tomli>=2.0.0; python_version >= "3.0" and python_version < "3.11"'
 ]
 build-backend = "setuptools.build_meta"
 
@@ -30,10 +28,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "setuptools",
-    "wheel",
-    "pybind11>=2.0.1",
-    'tomli>=2.0.0; python_version >= "3.0" and python_version < "3.11"'
+    "setuptools>=70.3.0",
+    "wheel>=0.42.0",
+    "pybind11>=2.13.6",
 ]
 tests = [
     "pytest",
@@ -42,8 +39,6 @@ tests = [
 ]
 
 [tool.setuptools]
-license-files = ["LICENSE"]
-
 # 打包及打包结构配置
 include-package-data = true
 zip-safe = false

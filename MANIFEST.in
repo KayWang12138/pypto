@@ -8,16 +8,34 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-if (NOT ENABLE_FEATURE_PYTHON_FRONT_END)
-    add_subdirectory(operator)
-endif ()
+# cmake
+recursive-include cmake *.json
+recursive-include cmake *.py
+recursive-include cmake *.cmake
+recursive-include cmake *.cmake.in
 
-add_subdirectory(interface)
-add_subdirectory(passes)
-add_subdirectory(codegen)
-add_subdirectory(machine)
-add_subdirectory(cost_model)
+# framework
+include framework/CMakeLists.txt
+include framework/src/CMakeLists.txt
+recursive-include framework/include *.h
+recursive-include framework/src/codegen *
+recursive-include framework/src/cost_model/simulation *
+recursive-include framework/src/cost_model/simulation_ca *
+include framework/src/cost_model/CMakeLists.txt
+recursive-include framework/src/interface *
+recursive-include framework/src/machine *
+recursive-include framework/src/passes *
 
-if (NOT BUILD_OPEN_PROJECT)
-    add_subdirectory(execute)
-endif()
+# python
+include python/CMakeLists.txt
+recursive-include python/pypto *
+recursive-include python/src *
+
+# others
+include build.py
+include CMakeLists.txt
+include LICENSE
+include MANIFEST.in
+include pyproject.toml
+include README.md
+include setup.py

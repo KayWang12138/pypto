@@ -37,7 +37,7 @@ option(ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
 option(ENABLE_GCOV "Enable GNU Coverage Instrumentation Tool" OFF)
 
 # 公开编译开关(Feature 特性级开关)
-option(ENABLE_FEATURE_PYTHON_FRONT_END "Enable Python Front-end, Specify whl name" OFF)
+option(ENABLE_FEATURE_PYTHON_FRONT_END "Enable Python Front-end, Specify whl name" ON)
 option(ENABLE_TORCH_VERIFIER "Flow verify with libtorch" OFF)
 
 # 公开编译开关(tests)
@@ -91,30 +91,34 @@ add_subdirectory(python)
 # 安装流程
 ########################################################################################################################
 
-if (ENABLE_FEATURE_PYTHON_FRONT_END)
+if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
+    # whl 包名配置
+    set(PyPTO_WhlName "pypto")
+
     # 安装 二进制文件
     set(InstallExport ${PROJECT_NAME}Targets)
     set(InstallTargets tile_fwk_interface tile_fwk_codegen tile_fwk_compiler tile_fwk_runtime tile_fwk_runtime_stub tile_fwk_simulation tile_fwk_simulation_ca)
     if (BUILD_WITH_CANN)
-        install(TARGETS tile_fwk_server LIBRARY DESTINATION "${ENABLE_FEATURE_PYTHON_FRONT_END}/lib")
-        install(TARGETS pypto_ctrl_server ARCHIVE DESTINATION "${ENABLE_FEATURE_PYTHON_FRONT_END}/lib")
+        install(TARGETS tile_fwk_server LIBRARY DESTINATION "${PyPTO_WhlName}/lib")
+        install(TARGETS pypto_ctrl_server ARCHIVE DESTINATION "${PyPTO_WhlName}/lib")
     endif ()
     # 不判断 c_sec_shared 存在, 不存在时属异常场景, 应在构建阶段发现
     get_target_property(cSecSharedFile c_sec_shared IMPORTED_LOCATION)
     install(FILES ${cSecSharedFile}
-            DESTINATION "${ENABLE_FEATURE_PYTHON_FRONT_END}/${CMAKE_INSTALL_LIBDIR}"
+            DESTINATION "${PyPTO_WhlName}/${CMAKE_INSTALL_LIBDIR}"
             PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
     )
     if (ENABLE_TORCH_VERIFIER)
         list(APPEND InstallTargets tile_fwk_calculator)
     endif()
     PTO_Fwk_InstallBinaries(
-            EXPORT  ${InstallExport}
-            TARGETS ${InstallTargets}
+            EXPORT      ${InstallExport}
+            WHL_NAME    ${PyPTO_WhlName}
+            TARGETS     ${InstallTargets}
     )
     PTO_Fwk_InstallBinaries(
             TARGETS         pypto_impl
-            INSTALL_LIBDIR  ${ENABLE_FEATURE_PYTHON_FRONT_END}
+            INSTALL_LIBDIR  ${PyPTO_WhlName}
     )
 
     # 安装 配置文件
@@ -123,34 +127,33 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
                 framework/src/interface/configs/tile_fwk_types.json
                 framework/src/interface/configs/tile_fwk_config_schema.json
                 framework/src/passes/pass_config/tile_fwk_platform_info.json
-            DESTINATION ${ENABLE_FEATURE_PYTHON_FRONT_END}/lib/configs
+            DESTINATION ${PyPTO_WhlName}/lib/configs
     )
 
     # 安装 头文件
     install(DIRECTORY framework/include/
-            DESTINATION ${ENABLE_FEATURE_PYTHON_FRONT_END}/include
+            DESTINATION ${PyPTO_WhlName}/include
             PATTERN "*.h"
             PATTERN "*.hpp"
             PATTERN ".svn" EXCLUDE
             PATTERN ".git" EXCLUDE
-            PATTERN "gentask_utils.h" EXCLUDE
     )
     install(DIRECTORY framework/src/interface/tileop/
-            DESTINATION ${ENABLE_FEATURE_PYTHON_FRONT_END}/lib/include/tileop
+            DESTINATION ${PyPTO_WhlName}/lib/include/tileop
             PATTERN "*.h"
             PATTERN "*.hpp"
             PATTERN ".svn" EXCLUDE
             PATTERN ".git" EXCLUDE
     )
     install(DIRECTORY framework/src/cost_model/simulation_ca/mock/
-            DESTINATION ${ENABLE_FEATURE_PYTHON_FRONT_END}/lib/include/mock
+            DESTINATION ${PyPTO_WhlName}/lib/include/mock
             PATTERN "*.h"
             PATTERN "*.hpp"
             PATTERN ".svn" EXCLUDE
             PATTERN ".git" EXCLUDE
     )
     install(DIRECTORY framework/src/interface/machine/device/tilefwk/
-            DESTINATION ${ENABLE_FEATURE_PYTHON_FRONT_END}/lib/include/tilefwk
+            DESTINATION ${PyPTO_WhlName}/lib/include/tilefwk
             PATTERN "*.h"
             PATTERN "*.hpp"
             PATTERN ".svn" EXCLUDE
@@ -160,23 +163,8 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
     # 生成和安装配置文件
     PTO_Fwk_InstallCMakeConfig(
             EXPORT              ${InstallExport}
-            CMAKE_PARENT_DIR    ${ENABLE_FEATURE_PYTHON_FRONT_END}/lib
+            WHL_NAME            ${PyPTO_WhlName}
+            CMAKE_PARENT_DIR    ${PyPTO_WhlName}/lib
             TARGETS             ${InstallTargets}
     )
-
-    # 设置包信息
-    set(CPACK_PACKAGE_NAME ${PROJECT_NAME})
-    set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
-    set(CPACK_PACKAGE_DESCRIPTION ${PROJECT_NAME})
-    include(CPack)
-else ()
-    if (NOT BUILD_OPEN_PROJECT)
-        # 安装 二进制文件
-        install(TARGETS tile_fwk_executor LIBRARY DESTINATION lib OPTIONAL)
-        # 安装 头文件
-        install(DIRECTORY framework/include/tilefwk/
-                DESTINATION lib/tilefwk/
-                PATTERN "gentask_utils.h"
-        )
-    endif ()
 endif ()

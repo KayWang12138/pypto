@@ -2,9 +2,9 @@ cmake-build-*
 .idea
 .vscode
 .codemate
-tags
-build
-build_debug
+build/
+build_out/
+dist/
 .cache
 *.log
 *.trace
@@ -25,13 +25,6 @@ summary
 log
 tmp
 
-cmake-build-debug
-dist
-build_out
-build_whl
 kernel_meta
 *.egg-info
 
-cann_src_third_party/
-cann_third_party/
-cann_3rd_path/

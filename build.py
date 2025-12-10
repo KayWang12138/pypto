@@ -13,7 +13,6 @@
 import abc
 import argparse
 import dataclasses
-import importlib.util
 import json
 import logging
 import math
@@ -28,6 +27,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List, Dict, Tuple, Any
+from importlib import metadata
+from packaging import requirements
 
 
 if str(Path(Path(__file__).parent, "tools")) not in sys.path:
@@ -80,21 +81,9 @@ class CMakeParam(abc.ABC):
         cmd: str = (f" -D{opt}=" + v) if ctr else ""
         return cmd
 
-    @classmethod
-    def _cfg_pep517_require(cls, opt: str, ctr: bool = True, tv: str = "ON", fv: str = "OFF") -> str:
-        v: str = tv if ctr else fv
-        return f" --config-setting=\"cmake.define.{opt}={v}\""
-
-    @classmethod
-    def _cfg_pep517_optional(cls, opt: str, ctr: bool, v: str) -> str:
-        return f" --config-setting=\"cmake.define.{opt}={v}\"" if ctr else ""
-
     @abc.abstractmethod
     def get_cfg_cmd(self) -> str:
         pass
-
-    def get_pep517_cfg_cmd(self) -> str:
-        return ""
 
 
 @dataclasses.dataclass
@@ -113,15 +102,16 @@ class FeatureParam(CMakeParam):
             logging.warning("Environment variable ASCEND_HOME_PATH is unset/empty, falling back to cost_model backend.")
             self.backend_type = "cost_model"
         self.whl_plat_name = f"{args.plat_name}_{CMakeParam.get_system_processor()}" if args.plat_name else ""
+        self.isolation: bool = args.isolation
 
     def __str__(self):
-        plat_name: str = ""
-        if self.whl_plat_name and self.frontend_type_python3:
-            plat_name = f"\n    PlatName                : {self.whl_plat_name}"
         desc: str = ""
         desc += f"\nFeature"
         desc += f"\n    Frontend                : {self.frontend_type}"
-        desc += plat_name
+        if self.frontend_type_python3:
+            if self.whl_plat_name:
+                desc += f"\n    PlatName                : {self.whl_plat_name}"
+            desc += f"\n    Isolation               : {self.isolation}"
         desc += f"\n    Backend                 : {self.backend_type}"
         return desc
 
@@ -137,14 +127,16 @@ class FeatureParam(CMakeParam):
         parser.add_argument("--plat_name", nargs="?", type=str, default="",
                             choices=["manylinux2014", "manylinux_2_24", "manylinux_2_28"],
                             help="whl plat_name, such as manylinux2014/manylinux_2_24/manylinux_2_28 etc.")
+        parser.add_argument("--no_isolation", action="store_false", default=True, dest="isolation",
+                            help="Disable building the project(whl) in an isolated virtual environment. "
+                                 "Build dependencies must be installed separately when this option is used.")
         parser.add_argument("-b", "--backend", nargs="?", type=str, default="npu",
                             choices=["npu", "cost_model"],
                             help="backend, such as npu/cost_model etc.")
 
     def get_cfg_cmd(self) -> str:
         cmd: str = ""
-        cmd += self._cfg_require(opt="ENABLE_FEATURE_PYTHON_FRONT_END", ctr=self.frontend_type_python3,
-                                 tv=self.whl_name)
+        cmd += self._cfg_require(opt="ENABLE_FEATURE_PYTHON_FRONT_END", ctr=self.frontend_type_python3)
         cmd += self._cfg_require(opt="BUILD_WITH_CANN", ctr=self.backend_type in ["npu"])
         return cmd
 
@@ -165,24 +157,20 @@ class BuildParam(CMakeParam):
     # Build
     targets: Optional[List[str]] = None  # 编译目标
     job_num: Optional[int] = None  # 编译阶段使用核数
-    # Install
-    disable_install_strip: bool = False
 
     def __init__(self, args):
         self.targets = args.targets
         self.job_num = self._get_job_num(job_num=args.job_num, generator=args.generator)
         self.clean = args.clean
         self.timeout = None if args.timeout == 0 else args.timeout
-        self.generator = args.generator if " " not in args.generator else args.generator.replace(" ", "\ ")
+        self.generator = self._get_generator(generator=args.generator)
         self.build_type = args.build_type
         self.asan = args.asan
         self.ubsan = args.ubsan
         self.gcov = args.gcov
         self.clang_install_path = self._get_clang_install_path(opt=args.clang)
-        self.disable_install_strip = args.disable_install_strip
 
     def __str__(self):
-        install_strip: bool = not self.disable_install_strip
         desc: str = ""
         desc += f"\nBuild"
         desc += f"\n    Clean                   : {self.clean}"
@@ -198,8 +186,6 @@ class BuildParam(CMakeParam):
         desc += f"\n        Build"
         desc += f"\n                    Targets : {self.targets}"
         desc += f"\n                    Job Num : {self.job_num}"
-        desc += f"\n        Install"
-        desc += f"\n                      Strip : {install_strip}"
         return desc
 
     @staticmethod
@@ -209,8 +195,7 @@ class BuildParam(CMakeParam):
         parser.add_argument("--timeout", nargs="?", type=int, default=0,
                             help="build task timeout.")
         # Configure
-        parser.add_argument("--generator", nargs="?", type=str, default="Unix Makefiles",
-                            choices=["Ninja", "Unix Makefiles"],
+        parser.add_argument("--generator", nargs="?", type=str, default="",
                             help="Specify a build system generator.")
         parser.add_argument("--build_type", "--build-type", nargs="?", type=str, default="Release",
                             choices=["Debug", "Release", "MinSizeRel", "RelWithDebInfo"],
@@ -229,9 +214,6 @@ class BuildParam(CMakeParam):
                                  "If you specify more than one, all targets within the specified range are built.")
         parser.add_argument("-j", "--job_num", nargs="?", type=int, default=-1,
                             help="job num, specific job num of build.")
-        # Install
-        parser.add_argument("--disable_install_strip", action="store_true", default=False,
-                            help="Disable stripping installed files.")
 
     @staticmethod
     def _get_clang_install_path(opt: Optional[str]) -> Optional[Path]:
@@ -252,11 +234,18 @@ class BuildParam(CMakeParam):
         return clang_install_path
 
     @staticmethod
-    def _get_job_num(job_num: int, generator: str) -> Optional[int]:
+    def _get_job_num(job_num: int, generator: Optional[str]) -> Optional[int]:
         def_job_num: Optional[int] = min(int(math.ceil(float(multiprocessing.cpu_count()) * 0.9)), 48)  # 48 为缺省最大核数
-        def_job_num = None if generator.lower() in ["ninja", ] else def_job_num  # ninja 由其自身决定缺省核数
+        def_job_num = None if generator and generator.lower() in ["ninja", ] else def_job_num  # ninja 由其自身决定缺省核数
         job_num = job_num if job_num > 0 else def_job_num
         return job_num
+
+    @staticmethod
+    def _get_generator(generator: Optional[str]) -> Optional[str]:
+        if generator:
+            return generator if " " not in generator else generator.replace(" ", "\ ")
+        else:
+            return None
 
     def get_cfg_cmd(self) -> str:
         cmd: str = ""
@@ -292,12 +281,18 @@ class BuildParam(CMakeParam):
             cmd += clang_cmd
         return cmd
 
-    def get_pep517_cfg_cmd(self) -> str:
-        cmd: str = self._cfg_pep517_require(opt="CMAKE_BUILD_TYPE", tv=f"{self.build_type}")
-        cmd += self._cfg_pep517_require(opt="ENABLE_ASAN", ctr=self.asan)
-        cmd += self._cfg_pep517_require(opt="ENABLE_UBSAN", ctr=self.ubsan)
-        cmd += self._cfg_pep517_require(opt="ENABLE_GCOV", ctr=self.gcov)
-        return cmd
+    def get_build_cmd_lst(self, binary_path: Path) -> List[str]:
+        cmd_list: List[str] = []
+        if self.targets:
+            for t in self.targets:
+                cmd: str = f"cmake --build {binary_path} --target {t}"
+                cmd += f" -j {self.job_num}" if self.job_num else ""
+                cmd_list.append(cmd)
+        else:
+            cmd: str = f"cmake --build {binary_path}"
+            cmd += f" -j {self.job_num}" if self.job_num else ""
+            cmd_list.append(cmd)
+        return cmd_list
 
 
 @dataclasses.dataclass
@@ -773,17 +768,25 @@ class BuildCtrl:
             self.third_party_path = None
         else:
             self.third_party_path = Path(args.third_party_path).resolve()
+        self.verbose: bool = args.verbose
+        # 表示 pip 版本是否支持传递 --config-setting 这种 pep 标准参数传递方式
+        self.pip_support_config_setting: bool = self.check_pip_dependencies(deps={"pip": ">=22.1"},
+                                                                            raise_err=False, log_err=False)
 
     def __str__(self):
-        ver = sys.version_info
+        py3_ver = sys.version_info
+        pip_ver = metadata.version("pip")
         desc = ""
         desc += f"\nEnviron"
-        desc += f"\n    Python3                 : {sys.executable} ({ver.major}.{ver.minor}.{ver.micro})"
+        desc += f"\n    Python3                 : {sys.executable} ({py3_ver.major}.{py3_ver.minor}.{py3_ver.micro})"
+        desc += f"\n    pip3                    : {pip_ver}"
         desc += f"\nPath"
         desc += f"\n    Source  Dir             : {self.src_root}"
         desc += f"\n    Build   Dir             : {self.build_root}"
         desc += f"\n    Install Dir             : {self.install_root}"
         desc += f"\n    3rd     Dir             : {self.third_party_path}"
+        desc += f"\nFlag"
+        desc += f"\n    Verbose                 : {self.verbose}"
         desc += f"{self.feature}"
         desc += f"{self.build}"
         desc += f"{self.tests}"
@@ -872,15 +875,16 @@ class BuildCtrl:
         parser.add_argument("--cann_3rd_lib_path", "--third_party_path",
                             nargs="?", type=str, default="", dest="third_party_path",
                             help="Specify 3rd Libraries Path")
+        parser.add_argument("--verbose", action="store_true", default=False,
+                            help="verbose, enable verbose output.")
         # 参数处理
         args = parser.parse_args()
         ctrl = BuildCtrl(args=args)
         # 流程处理
+        if ctrl.verbose:
+            logging.getLogger().setLevel(logging.DEBUG)
         # 区分 python3 前端和 cpp 前端
         logging.info("%s", ctrl)
-        if not ctrl.check_dependencies():
-            logging.error("Dependencies check failed.")
-            return
         if ctrl.feature.frontend_type_python3:
             logging.info("Front-end(python3), start process")
             ctrl.py_clean()
@@ -916,39 +920,54 @@ class BuildCtrl:
         logging.info("Success uninstall %s package%s", name, f" from {path}" if path else "")
 
     @classmethod
-    def pip_install(cls, whl: Path, path: Optional[Path] = None, opt: str = ""):
+    def check_pip_dependencies(cls, deps: Dict[str, str], raise_err: bool = False, log_err: bool = True) -> bool:
+        info_lst = []
+        for pkg, ver in deps.items():
+            info: List[str] = cls._check_pip_pkg(pkg=pkg, ver=ver)
+            info_lst.extend(info)
+        if info_lst:
+            if log_err:
+                logging.error("%s", info_lst)
+                install_cmd = " ".join([f'{pkg}{deps[pkg]}' for pkg in deps])
+                logging.error(f"Please install the missing dependencies first [{install_cmd}]")
+            if raise_err:
+                raise RuntimeError("\n".join(info_lst))
+            return False
+        return True
+
+    @classmethod
+    def _check_pip_pkg(cls, pkg: str, ver: str) -> List[str]:
+        info_lst = []
+        requirement_str: str = f"{pkg}{ver}"
+        try:
+            req = requirements.Requirement(requirement_str)
+            try:
+                installed_version = metadata.version(pkg)
+                if ver and not req.specifier.contains(installed_version, prereleases=True):
+                    info_lst.append(f"{pkg}: version {installed_version} not satisfy {ver}")
+            except metadata.PackageNotFoundError:
+                info_lst.append(f"package {pkg} has not been installed")
+        except Exception as e:
+            info_lst.append(f"package {pkg} check fail {e}")
+        return info_lst
+
+    def pip_install(self, whl: Path, dest: Optional[Path] = None, opt: str = "",
+                    update_env: Optional[Dict[str, str]] = None):
         """安装指定 whl 包
 
         :param whl: 包文件
-        :param path: 安装路径(可选), 未指定时会安装在默认路径
+        :param dest: 安装路径(可选), 未指定时会安装在默认路径
         :param opt: 额外安装参数
-        :return: 安装路径
+        :param update_env:
         """
-        cmd: str = f"{sys.executable} -m pip install {opt} {whl}"
-        cmd += f" --target={path}" if path else ""
+        ts = datetime.now(tz=timezone.utc)
+        cmd: str = f"{sys.executable} -m pip install {whl} " + ("-vvv " if self.verbose else "") + f"{opt}"
+        cmd += f" --target={dest}" if dest else ""
         logging.info("Begin install %s, cmd: %s", whl, cmd)
-        ret = cls.run_build_cmd(cmd=cmd, check=True)
+        ret = self.run_build_cmd(cmd=cmd, check=True, update_env=update_env)
         ret.check_returncode()
-        logging.info("Success install %s%s", whl, f" to {path}" if path else "")
-
-    def check_dependencies(self) -> bool:
-        """检查构建依赖"""
-        # 公共依赖检查
-        # python 场景依赖检查
-        if self.feature.frontend_type_python3:
-            ori_sys_path: List[Any] = sys.path.copy()
-            try:
-                cur_dir: str = str(Path(__file__).parent.resolve())
-                if cur_dir in sys.path:
-                    sys.path.remove(cur_dir)
-                # 检查 build
-                build_spec = importlib.util.find_spec("build")
-                if not build_spec:
-                    logging.error("Missing dependencies: build, need to install it with pip.")
-                    return False
-            finally:
-                sys.path[:] = ori_sys_path
-        return True
+        duration: int = int((datetime.now(tz=timezone.utc) - ts).seconds)
+        logging.info("Success install %s%s, Duration %s sec", whl, f" to {dest}" if dest else "", duration)
 
     def get_cfg_update_env(self) -> Dict[str, str]:
         env: Dict[str, str] = {}
@@ -978,12 +997,17 @@ class BuildCtrl:
             if kernel_meta.exists():
                 logging.info("Clean Binary Cache Path(%s)", kernel_meta)
                 shutil.rmtree(kernel_meta)
+            egg_dir: Path = Path(self.src_root, "python/pypto.egg-info")
+            if egg_dir.exists():
+                logging.info("Clean egg Cache Path(%s)", egg_dir)
+                shutil.rmtree(egg_dir)
 
     def cmake_configure(self):
         """CMake Configure 阶段流程.
         """
         # 基本配置, 当前 CMake 中有调用 python3 的情况, 传入 python3 解释器, 保证所使用的 python3 版本一致
-        cmd: str = f"cmake -S {self.src_root} -B {self.build_root} -G {self.build.generator}"
+        cmd: str = f"cmake -S {self.src_root} -B {self.build_root}"
+        cmd += f" -G {self.build.generator}" if self.build.generator else ""
         cmd += f" -DPython3_EXECUTABLE={sys.executable}"
         cmd += self.feature.get_cfg_cmd()
         cmd += self.build.get_cfg_cmd()
@@ -1001,18 +1025,10 @@ class BuildCtrl:
         update_env = {}
         if self.model.prof == 1 or self.model.prof == 2:
             update_env = wf.ini(self.build_root, self.model.prof, self.model.pe)
-        cmd_list: List[str] = []
-        if self.build.targets:
-            for t in self.build.targets:
-                cmd: str = f"cmake --build {self.build_root} --target {t}"
-                cmd += f" -- -j {self.build.job_num}" if self.build.job_num else ""
-                cmd_list.append(cmd)
-        else:
-            cmd: str = f"cmake --build {self.build_root}"
-            cmd += f" -- -j {self.build.job_num}" if self.build.job_num else ""
-            cmd_list.append(cmd)
+        cmd_list: List[str] = self.build.get_build_cmd_lst(binary_path=self.build_root)
         for i, c in enumerate(cmd_list):
             ts = datetime.now(tz=timezone.utc)
+            c += " --verbose" if self.verbose else ""
             logging.info("CMake Build(%s/%s), Cmd: %s", i + 1, len(cmd_list), c)
             try:
                 ret = self.run_build_cmd(cmd=c, update_env=update_env, check=True, timeout=self.build.timeout)
@@ -1033,51 +1049,64 @@ class BuildCtrl:
         if self.model.prof == 1 or self.model.prof == 2:
             wf.work_flow_plot(self.build_root, self.model.prof, self.model.pe)
 
-    def py_build(self):
-        # 基本配置
+    def py_build_get_config_setting(self) -> str:
         cmake_args = f"{self.build.get_cfg_cmd()}"
-        update_env: Dict[str, str] = self.get_cfg_update_env()
-
-        cmd: str = f"{sys.executable} -I -m build --no-isolation --outdir={self.install_root} --wheel"
+        cmd: str = ""
         cmd += f" --config-setting=--build-option='"
         cmd += f" bdist_wheel --plat-name={self.feature.whl_plat_name}" if self.feature.whl_plat_name else ""
         cmd += f" build"
         cmd += f" --build-base={self.build_root.name}"
         cmd += f" --parallel={self.build.job_num}" if self.build.job_num else ""
         cmd += f" build_ext"
-        cmd += f" --cmake-generator={self.build.generator}"
+        cmd += f" --cmake-generator={self.build.generator}" if self.build.generator else ""
         cmd += f" --cmake-args=\"{cmake_args}\"" if cmake_args else ""
-        cmd += f" --backend={self.feature.backend_type}"
-        cmd += f" --disable-install-strip" if self.build.disable_install_strip else ""
+        cmd += f" --cmake-verbose" if self.verbose else ""
         cmd += f"'"
+        return cmd
 
-        ts = datetime.now(tz=timezone.utc)
-        logging.info("Begin Build whl, Cmd: %s", cmd)
-        ret = self.run_build_cmd(cmd=cmd, update_env=update_env, check=True, timeout=self.build.timeout)
-        ret.check_returncode()
-        duration: int = int((datetime.now(tz=timezone.utc) - ts).seconds)
-        duration_str: str = f"{duration}/{self.build.timeout}" if self.build.timeout else f"{duration}"
-        logging.info("Success Build whl, Cmd: %s, Duration %s sec", cmd, duration_str)
+    def py_build(self):
+        update_env: Dict[str, str] = self.get_cfg_update_env()
+        opt: str = self.py_build_get_config_setting()
+        tests_enable: bool = self.tests.utest.enable or self.tests.stest.enable or self.tests.example.enable
+        if tests_enable and self.pip_support_config_setting:
+            # 卸载 whl 包
+            dist: Path = self.install_root
+            self.pip_uninstall(name=self.feature.whl_name, path=dist)
+            # 安装 whl 包
+            cmd: str = f" {opt} --no-compile --no-deps"
+            cmd += " --no-build-isolation" if not self.feature.isolation else ""
+            self.pip_install(whl=self.src_root, dest=dist, opt=cmd, update_env=update_env)
+        else:
+            cmd: str = f"{sys.executable} -I -m build --outdir={self.install_root}"
+            cmd += f" --no-isolation" if not self.feature.isolation else ""
+            cmd += f" {opt}"
+            ts = datetime.now(tz=timezone.utc)
+            logging.info("Begin Build whl, Cmd: %s", cmd)
+            ret = self.run_build_cmd(cmd=cmd, update_env=update_env, check=True, timeout=self.build.timeout)
+            ret.check_returncode()
+            duration: int = int((datetime.now(tz=timezone.utc) - ts).seconds)
+            duration_str: str = f"{duration}/{self.build.timeout}" if self.build.timeout else f"{duration}"
+            logging.info("Success Build whl, Cmd: %s, Duration %s sec", cmd, duration_str)
 
     def py_tests(self):
         if not self.tests.utest.enable and not self.tests.stest.enable and not self.tests.example.enable:
             return
-        # 重装 whl
-        dist: Path = self.install_root
-        self.pip_uninstall(name=self.feature.whl_name, path=dist)  # 卸载 whl 包
-        whl: Optional[Path] = self.find_match_whl(name=self.feature.whl_name, path=dist)  # 查找 whl 包
-        if not whl:
-            raise RuntimeError(f"Can't find {self.feature.whl_name} whl file from {dist}")
-        self.pip_install(whl=whl, path=dist, opt="--no-compile --no-deps")  # 安装 whl 包
+        if not self.pip_support_config_setting:
+            # 此时需查找重装对应 whl 包
+            dist: Path = self.install_root
+            self.pip_uninstall(name=self.feature.whl_name, path=dist)  # 卸载 whl 包
+            whl: Optional[Path] = self.find_match_whl(name=self.feature.whl_name, path=dist)  # 查找 whl 包
+            if not whl:
+                raise RuntimeError(f"Can't find {self.feature.whl_name} whl file from {dist}")
+            self.pip_install(whl=whl, dest=dist, opt="--no-compile --no-deps")  # 安装 whl 包
         # 执行用例, UTest
-        self.py_tests_run_pytest(dist=dist, tests=self.tests.utest,
+        self.py_tests_run_pytest(dist=self.install_root, tests=self.tests.utest,
                                  def_filter=str(Path(self.src_root, "python/tests/ut")), ext="-n auto --forked")
         # 执行用例, STest
-        self.py_tests_run_pytest(dist=dist, tests=self.tests.stest,
+        self.py_tests_run_pytest(dist=self.install_root, tests=self.tests.stest,
                                  def_filter=str(Path(self.src_root, "python/tests/st")), ext="--forked")
         # 执行用例, Example
-        # self.py_tests_run_pytest(dist=dist, tests=self.tests.example,
-        #                          def_filter=str(Path(self.src_root, "examples")), ext="--forked")
+        pass
 
     def py_tests_run_pytest(self, dist: Optional[Path], tests: TestsFilterParam, def_filter: str, ext: str = ""):
         if not tests.enable or not self.tests.exec.auto_execute:

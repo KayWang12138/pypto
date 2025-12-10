@@ -37,6 +37,7 @@ target_include_directories(tile_fwk_executor
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/profiling>>
         PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}
+            include
 )
 target_link_directories(tile_fwk_executor
         PUBLIC
@@ -57,3 +58,14 @@ target_link_libraries(tile_fwk_executor
 
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_executor)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_executor)
+
+# 安装 二进制文件
+install(TARGETS tile_fwk_executor LIBRARY DESTINATION lib OPTIONAL)
+# 安装 头文件
+install(DIRECTORY include/ DESTINATION lib/tilefwk/)
+
+# 设置包信息
+set(CPACK_PACKAGE_NAME "pypto-executor")
+set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+set(CPACK_PACKAGE_DESCRIPTION "pypto-executor")
+include(CPack)

@@ -74,8 +74,7 @@ endif ()
 set(_TargetVersion "1.1.16")
 
 # 直接查找制品, 若找到则直接退出
-if (DEFINED ENV{PYPTO_THIRD_PARTY_PATH})
-    get_filename_component(PYPTO_THIRD_PARTY_PATH "$ENV{PYPTO_THIRD_PARTY_PATH}" REALPATH)
+if (PYPTO_THIRD_PARTY_PATH)
     get_filename_component(_TargetTarGzFile "${PYPTO_THIRD_PARTY_PATH}/libboundscheck-v${_TargetVersion}.tar.gz" REALPATH)
     get_filename_component(_TargetInstallPrefix "${PYPTO_THIRD_PARTY_PATH}/${CMAKE_BUILD_TYPE}" REALPATH)
     TryAdd_c_sec(PREFIX ${_TargetInstallPrefix})
@@ -84,7 +83,7 @@ if (DEFINED ENV{PYPTO_THIRD_PARTY_PATH})
         return()
     endif ()
 else ()
-    message(FATAL_ERROR "Failed to get c_sec source dir, need to specify its path through the ENV PYPTO_THIRD_PARTY_PATH")
+    message(FATAL_ERROR "Failed to get c_sec source dir, need to specify its path through the PYPTO_THIRD_PARTY_PATH")
 endif ()
 
 # 触发编译

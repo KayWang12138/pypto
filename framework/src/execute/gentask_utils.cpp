@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "tilefwk/gentask_utils.h"
+#include "gentask_utils.h"
 #include "graph/ge_error_codes.h"
 #include "graph/debug/ge_attr_define.h"
 #include "graph/arg_desc_info.h"

@@ -67,6 +67,17 @@ message(STATUS "BUILD_WITH_CANN=${BUILD_WITH_CANN}")
 message(STATUS "BUILD_WITH_CANN_SUB=${BUILD_WITH_CANN_SUB}")
 
 
+# 获取 3rd Path
+if (PYPTO_THIRD_PARTY_PATH)
+    get_filename_component(PYPTO_THIRD_PARTY_PATH "${PYPTO_THIRD_PARTY_PATH}" REALPATH)
+elseif (DEFINED ENV{PYPTO_THIRD_PARTY_PATH})
+    get_filename_component(PYPTO_THIRD_PARTY_PATH "$ENV{PYPTO_THIRD_PARTY_PATH}" REALPATH)
+else ()
+    get_filename_component(PYPTO_THIRD_PARTY_PATH "${PTO_FWK_BIN_ROOT}/third_party_path" REALPATH)
+endif ()
+message(STATUS "PYPTO_THIRD_PARTY_PATH=${PYPTO_THIRD_PARTY_PATH}")
+
+
 ########################################################################################################################
 # CMake 选项, 缺省参数设置
 #   按 CMake 构建过程对 CMake 选项, CMake 缺省参数进行配置
