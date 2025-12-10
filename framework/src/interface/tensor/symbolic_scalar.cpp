@@ -109,11 +109,11 @@ std::string SymbolicExpressionTable::BuildExpressionByRaw(const RawSymbolicScala
     std::string result;
     switch (raw->Kind()) {
         case SymbolicScalarKind::T_SCALAR_SYMBOLIC_IMMEDIATE: {
-            RawSymbolicImmediate *immediate = dynamic_cast<RawSymbolicImmediate *>(raw.get());
+            auto immediate = std::dynamic_pointer_cast<RawSymbolicImmediate>(raw);
             result = std::to_string(immediate->Immediate());
         } break;
         case SymbolicScalarKind::T_SCALAR_SYMBOLIC_SYMBOL: {
-            RawSymbolicSymbol *symbol = dynamic_cast<RawSymbolicSymbol *>(raw.get());
+            auto symbol = std::dynamic_pointer_cast<RawSymbolicSymbol>(raw);
             if (CheckRuntimePrefix(symbol->Name())) {
                 result = symbol->Name();
             } else if (CheckArgPrefix(symbol->Name())) {
@@ -126,7 +126,7 @@ std::string SymbolicExpressionTable::BuildExpressionByRaw(const RawSymbolicScala
             }
         } break;
         case SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION: {
-            RawSymbolicExpression *expr = dynamic_cast<RawSymbolicExpression *>(raw.get());
+            RawSymbolicExpPtr expr = std::dynamic_pointer_cast<RawSymbolicExpression>(raw);
             result = BuildExpressionCode(expr, exprDict);
         } break;
         default: ASSERT(false); break;
@@ -134,7 +134,7 @@ std::string SymbolicExpressionTable::BuildExpressionByRaw(const RawSymbolicScala
     return result;
 }
 
-std::string SymbolicExpressionTable::BuildExpressionCode(const RawSymbolicExpression *expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict) {
+std::string SymbolicExpressionTable::BuildExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict) {
     std::ostringstream oss;
     oss << "(";
     if (SymbolicOpcode::T_UOP_BEGIN <= expr->Opcode() && expr->Opcode() < SymbolicOpcode::T_UOP_END) {
@@ -273,17 +273,17 @@ static void DumpSymbolicScalar(const RawSymbolicScalarPtr &raw, Json &jarray) {
     switch (raw->Kind()) {
         case SymbolicScalarKind::T_SCALAR_SYMBOLIC_IMMEDIATE: {
             jarray.emplace_back(IMMEDIATE);
-            RawSymbolicImmediate *immediate = dynamic_cast<RawSymbolicImmediate *>(raw.get());
+            auto immediate = std::dynamic_pointer_cast<RawSymbolicImmediate>(raw);
             jarray.emplace_back(static_cast<uint64_t>(immediate->Immediate()));
         } break;
         case SymbolicScalarKind::T_SCALAR_SYMBOLIC_SYMBOL: {
             jarray.emplace_back(SYMBOL);
-            RawSymbolicSymbol *symbol = dynamic_cast<RawSymbolicSymbol *>(raw.get());
+            auto symbol = std::dynamic_pointer_cast<RawSymbolicSymbol>(raw);
             jarray.emplace_back(symbol->Name());
         } break;
         case SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION: {
             jarray.emplace_back(EXPRESSION);
-            RawSymbolicExpression *expr = dynamic_cast<RawSymbolicExpression *>(raw.get());
+            RawSymbolicExpPtr expr = std::dynamic_pointer_cast<RawSymbolicExpression>(raw);
             jarray.emplace_back(static_cast<int32_t>(expr->Opcode()));
             if (expr->Opcode() == SymbolicOpcode::T_MOP_CALL) {
                 jarray.emplace_back(static_cast<int32_t>(expr->OperandList().size()));
@@ -534,7 +534,7 @@ SymbolicScalar::SymbolicScalar(RawSymbolicScalarPtr raw, int64_t concrete)
 SymbolicScalar::SymbolicScalar(RawSymbolicScalarPtr raw) : raw_(raw) {
     if (raw_->IsImmediate()) {
         concreteValid_ = true;
-        concrete_ = dynamic_cast<RawSymbolicImmediate *>(raw.get())->Immediate();
+        concrete_ = std::dynamic_pointer_cast<RawSymbolicImmediate>(raw)->Immediate();
     }
 }
 

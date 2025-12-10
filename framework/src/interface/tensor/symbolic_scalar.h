@@ -207,7 +207,7 @@ public:
     bool IsLoopBeginCall() const {
         if (opcode_ == SymbolicOpcode::T_MOP_CALL) {
             auto raw = operandList_[0];
-            RawSymbolicSymbol *rawSymbol = dynamic_cast<RawSymbolicSymbol *>(raw.get());
+            auto rawSymbol = std::dynamic_pointer_cast<RawSymbolicSymbol>(raw);
             auto callee = rawSymbol->Name();
             return callee.find(SymbolHandler::GetNameByHandlerId(SymbolHandlerId::IsLoopBegin)) != std::string::npos;
         }
@@ -217,7 +217,7 @@ public:
     bool IsLoopEndCall() const {
         if (opcode_ == SymbolicOpcode::T_MOP_CALL) {
             auto raw = operandList_[0];
-            RawSymbolicSymbol *rawSymbol = dynamic_cast<RawSymbolicSymbol *>(raw.get());
+            auto rawSymbol = std::dynamic_pointer_cast<RawSymbolicSymbol>(raw);
             auto callee = rawSymbol->Name();
             return callee.find(SymbolHandler::GetNameByHandlerId(SymbolHandlerId::IsLoopEnd)) != std::string::npos;
         }
@@ -537,6 +537,8 @@ private:
     std::vector<RawSymbolicScalarPtr> operandList_;
 };
 
+using RawSymbolicExpPtr = std::shared_ptr<RawSymbolicExpression>;
+
 inline std::string AddRuntimePrefix(const std::string &name) {
     return SPECIAL_SYMBOL_NAME_RUNTIME_PREFIX + name;
 }
@@ -581,7 +583,7 @@ public:
     ScalarImmediateType Evaluate(const SymbolicScalar &scalar) const { return Evaluate(scalar.Raw()); }
 
 private:
-    ScalarImmediateType EvaluateExpression(const RawSymbolicExpression *expr) const {
+    ScalarImmediateType EvaluateExpression(const RawSymbolicExpPtr &expr) const {
         std::vector<ScalarImmediateType> dataList;
         for (auto &operand : expr->OperandList()) {
             dataList.emplace_back(Evaluate(operand));
@@ -602,16 +604,16 @@ private:
         ScalarImmediateType result{INVALID_SCALAR_IMMEDIATE};
         switch (raw->Kind()) {
             case SymbolicScalarKind::T_SCALAR_SYMBOLIC_IMMEDIATE: {
-                RawSymbolicImmediate *immediate = dynamic_cast<RawSymbolicImmediate *>(raw.get());
+                auto immediate = std::dynamic_pointer_cast<RawSymbolicImmediate>(raw);
                 result = immediate->Immediate();
             } break;
             case SymbolicScalarKind::T_SCALAR_SYMBOLIC_SYMBOL: {
-                RawSymbolicSymbol *symbol = dynamic_cast<RawSymbolicSymbol *>(raw.get());
+                auto symbol = std::dynamic_pointer_cast<RawSymbolicSymbol>(raw);
                 ASSERT(symbolValueDict->count(symbol->Name()));
                 result = symbolValueDict->find(symbol->Name())->second;
             } break;
             case SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION: {
-                RawSymbolicExpression *expr = dynamic_cast<RawSymbolicExpression *>(raw.get());
+                RawSymbolicExpPtr expr = std::dynamic_pointer_cast<RawSymbolicExpression>(raw);
                 result = EvaluateExpression(expr);
             } break;
             default: ASSERT(false); break;
@@ -737,7 +739,7 @@ private:
                 AddSymbol(raw);
             } break;
             case SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION: {
-                RawSymbolicExpression *expr = dynamic_cast<RawSymbolicExpression *>(raw.get());
+                RawSymbolicExpPtr expr = std::dynamic_pointer_cast<RawSymbolicExpression>(raw);
                 for (auto &operand : expr->OperandList()) {
                     AddAllSymbol(operand);
                 }
@@ -830,7 +832,7 @@ struct SymbolicExpressionTable {
     static std::string BuildExpression(const SymbolicScalar &ss);
     static std::string BuildExpression(const RawSymbolicScalarPtr &ss);
 private:
-    static std::string BuildExpressionCode(const RawSymbolicExpression *expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict);
+    static std::string BuildExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict);
 
     void AddExpression(const RawSymbolicScalarPtr &raw) {
         switch (raw->Kind()) {

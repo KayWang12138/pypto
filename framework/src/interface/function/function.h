@@ -250,7 +250,7 @@ struct DynloopFunctionAttribute {
         auto expr = std::static_pointer_cast<RawSymbolicExpression>(symbol.Raw());
         if (expr->Opcode() == SymbolicOpcode::T_MOP_CALL) {
             auto raw = expr->OperandList()[0];
-            RawSymbolicSymbol *rawSymbol = dynamic_cast<RawSymbolicSymbol *>(raw.get());
+            auto rawSymbol = std::dynamic_pointer_cast<RawSymbolicSymbol>(raw);
             auto callee = rawSymbol->Name();
             return callee == AddRuntimePrefix(SymbolHandler::GetNameByHandlerId(SymbolHandlerId::IsLoopBegin));
         }
@@ -264,7 +264,7 @@ struct DynloopFunctionAttribute {
         auto expr = std::static_pointer_cast<RawSymbolicExpression>(symbol.Raw());
         if (expr->Opcode() == SymbolicOpcode::T_MOP_CALL) {
             auto raw = expr->OperandList()[0];
-            RawSymbolicSymbol *rawSymbol = dynamic_cast<RawSymbolicSymbol *>(raw.get());
+            auto rawSymbol = std::dynamic_pointer_cast<RawSymbolicSymbol>(raw);
             auto callee = rawSymbol->Name();
             return callee == AddRuntimePrefix(SymbolHandler::GetNameByHandlerId(SymbolHandlerId::IsLoopEnd));
         }
