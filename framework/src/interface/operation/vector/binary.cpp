@@ -90,13 +90,19 @@ bool CallBrcBinOp(LogicalTensorPtr operand1, LogicalTensorPtr operand2) {
 template <BinaryOpType T>
 void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t cur, Input &input1, Input &input2,
     const LogicalTensorPtr &result, TileInfo &resultTileInfo, bool withBrc) {
+    constexpr size_t shapeSize = 2;
     if (cur == input1.tensor.GetShape().size()) {
         auto inputTile1 = input1.tensor.GetStorage()->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
         auto inputTile2 = input2.tensor.GetStorage()->View(function, input2.tileInfo.shape, input2.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
         if (withBrc) {
             std::vector<int64_t> tmpShape(input1.tileInfo.shape);
-            tmpShape[input1.tileInfo.shape.size() - 1] = BLOCK_SIZE / BytesOf(input2.tensor.GetDataType());
+            auto alignSize = BLOCK_SIZE / BytesOf(input2.tensor.GetDataType());
+            tmpShape[input1.tileInfo.shape.size() - 1] = alignSize;
+            if (input1.tileInfo.shape.size() == shapeSize) {
+                tmpShape[input1.tileInfo.shape.size() - shapeSize] =
+                    (tmpShape[input1.tileInfo.shape.size() - shapeSize] + alignSize - 1) / alignSize * alignSize;
+            }
             auto tempTensor =
                 std::make_shared<LogicalTensor>(function, input2.tensor.GetStorage()->Datatype(), tmpShape);
             function.AddOperation(

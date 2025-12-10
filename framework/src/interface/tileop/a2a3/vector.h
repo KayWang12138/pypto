@@ -1880,7 +1880,7 @@ TILEOP void Treducesum(__ubuf__ T *dst, __ubuf__ T *src) {
 // T: fp32. support: OS0 <= REPEAT_MAX
 template <typename T, unsigned OS0, unsigned OS1, unsigned DS, unsigned SS, unsigned TBS>
 TILEOP void Trowsumsinglecombine(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
-    static_assert((OS1 == SS) && (OS0 % 8 == 0));
+    static_assert(OS1 == SS);
     if constexpr (SS == 1024) {
         static_assert(OS0 * 16 <= REPEAT_MAX);
         vcgadd(tmp, src, OS0 * 16, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,1024] -> [m,128]
@@ -1889,7 +1889,11 @@ TILEOP void Trowsumsinglecombine(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *t
         pipe_barrier(PIPE_V);
         vcgadd(tmp, tmp, OS0, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)16ULL); // [m,64] -> [m,8]
         pipe_barrier(PIPE_V);
-        vcgadd(dst, tmp, OS0 / 8, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,8] -> [m,1]
+        set_mask_count();
+        set_vector_mask(0, OS0 * 8);
+        vcgadd(dst, tmp, 1, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,8] -> [m,1]
+        set_mask_norm();
+        set_vector_mask(-1, -1);
         pipe_barrier(PIPE_V);
         return;
     } else if constexpr (SS == 512) {
@@ -1898,7 +1902,11 @@ TILEOP void Trowsumsinglecombine(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *t
         pipe_barrier(PIPE_V);
         vcgadd(tmp, tmp, OS0, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,64] -> [m,8]
         pipe_barrier(PIPE_V);
-        vcgadd(dst, tmp, OS0 / 8, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,8] -> [m,1]
+        set_mask_count();
+        set_vector_mask(0, OS0 * 8);
+        vcgadd(dst, tmp, 1, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,8] -> [m,1]
+        set_mask_norm();
+        set_vector_mask(-1, -1);
         pipe_barrier(PIPE_V);
         return;
     } else if constexpr (SS == 256) {
@@ -1912,7 +1920,15 @@ TILEOP void Trowsumsinglecombine(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *t
         vadd(tmp, tmp + 8, tmp, OS0, 1, 1, 1, 4, 4, 4); // [m,16] -> [m,8]
         set_vector_mask(-1, -1);
         pipe_barrier(PIPE_V);
-        vcgadd(dst, tmp, OS0 / 8, (uint16_t)1ULL, (uint16_t)4ULL, (uint16_t)32ULL); // [m,8] -> [m,1]
+        if constexpr (OS0 / 8 != 0) {
+            vcgadd(dst, tmp, OS0 / 8, (uint16_t)1ULL, (uint16_t)4ULL, (uint16_t)32ULL); // [m,8] -> [m,1]
+        }
+        constexpr uint16_t reminder = OS0 % 8;
+        if constexpr (reminder != 0) {
+            SetContinuousMask(reminder * 8);
+            vcgadd(dst + OS0 / 8 * 8, tmp + OS0 / 8 * 8 * 32, 1, (uint16_t)1ULL, (uint16_t)4ULL, (uint16_t)32ULL); // [m,8] -> [m,1]
+            set_vector_mask(-1, -1);
+        }
         pipe_barrier(PIPE_V);
         return;
     } else if constexpr (SS == 128) {
@@ -1921,14 +1937,22 @@ TILEOP void Trowsumsinglecombine(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *t
         pipe_barrier(PIPE_V);
         vcgadd(tmp, tmp, OS0, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,64] -> [m,8]
         pipe_barrier(PIPE_V);
-        vcgadd(dst, tmp, OS0 / 8, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,8] -> [m,1]
+        set_mask_count();
+        set_vector_mask(0, OS0 * 8);
+        vcgadd(dst, tmp, 1, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,8] -> [m,1]
+        set_mask_norm();
+        set_vector_mask(-1, -1);
         pipe_barrier(PIPE_V);
         return;
     } else if constexpr (SS == 64) {
         static_assert(OS0 <= REPEAT_MAX);
         vcgadd(tmp, src, OS0, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,64] -> [m,8]
         pipe_barrier(PIPE_V);
-        vcgadd(dst, tmp, OS0 / 8, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,8] -> [m,1]
+        set_mask_count();
+        set_vector_mask(0, OS0 * 8);
+        vcgadd(dst, tmp, 1, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,8] -> [m,1]
+        set_mask_norm();
+        set_vector_mask(-1, -1);
         pipe_barrier(PIPE_V);
         return;
     } else if constexpr (SS == 32) {
@@ -1940,12 +1964,24 @@ TILEOP void Trowsumsinglecombine(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *t
         vadd(tmp, tmp + 8, tmp, OS0, 1, 1, 1, 2, 2, 2); // [m,16] -> [m,8]
         set_vector_mask(-1, -1);
         pipe_barrier(PIPE_V);
-        vcgadd(dst, tmp, OS0 / 8, (uint16_t)1ULL, (uint16_t)2ULL, (uint16_t)16ULL); // [m,8] -> [m,1]
+        if constexpr (OS0 / 8 != 0) {
+            vcgadd(dst, tmp, OS0 / 8, (uint16_t)1ULL, (uint16_t)2ULL, (uint16_t)16ULL); // [m,8] -> [m,1]
+        }
+        constexpr uint16_t reminder = OS0 % 8;
+        if constexpr (reminder != 0) {
+            SetContinuousMask(reminder * 8);
+            vcgadd(dst + OS0 / 8 * 8, tmp + OS0 / 8 * 8 * 16, 1, (uint16_t)1ULL, (uint16_t)2ULL, (uint16_t)16ULL); // [m,8] -> [m,1]
+            set_vector_mask(-1, -1);
+        }
         pipe_barrier(PIPE_V);
         return;
     } else if constexpr (SS == 8) {
         static_assert(OS0 / 8 <= REPEAT_MAX);
-        vcgadd(dst, src, OS0 / 8, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,8] -> [m,1]
+        set_mask_count();
+        set_vector_mask(0, OS0 * 8);
+        vcgadd(dst, src, 1, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,8] -> [m,1]
+        set_mask_norm();
+        set_vector_mask(-1, -1);
         pipe_barrier(PIPE_V);
         return;
     } else {
@@ -1958,8 +1994,11 @@ TILEOP void Trowsumsinglecombine(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *t
             vadd(tmp, tmp, src + (i + 1) * 8, OS0, 1, 1, 1, 1, 1, OS1 / 8);
             pipe_barrier(PIPE_V);
         }
+        set_mask_count();
+        set_vector_mask(0, OS0 * 8);
+        vcgadd(dst, tmp, 1, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL);
+        set_mask_norm();
         set_vector_mask(-1, -1);
-        vcgadd(dst, tmp, OS0 / 8, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL);
         pipe_barrier(PIPE_V);
         return;
     }
@@ -2074,7 +2113,7 @@ TILEOP void Trowsumsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
 // T: fp32. support: OS0 <= REPEAT_MAX
 template <typename T, unsigned OS0, unsigned OS1, unsigned DS, unsigned SS, unsigned TBS>
 TILEOP void Trowmaxsinglecombine(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
-    static_assert((OS1 == SS) && (OS0 % 8 == 0));
+    static_assert(OS1 == SS);
     if constexpr (SS == 1024) {
         static_assert(OS0 * 16 <= REPEAT_MAX);
         vcgmax(tmp, src, OS0 * 16, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,1024] -> [m,128]
@@ -2083,7 +2122,11 @@ TILEOP void Trowmaxsinglecombine(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *t
         pipe_barrier(PIPE_V);
         vcgmax(tmp, tmp, OS0, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)16ULL); // [m,64] -> [m,8]
         pipe_barrier(PIPE_V);
-        vcgmax(dst, tmp, OS0 / 8, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,8] -> [m,1]
+        set_mask_count();
+        set_vector_mask(0, OS0 * 8);
+        vcgmax(dst, tmp, 1, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,8] -> [m,1]
+        set_mask_norm();
+        set_vector_mask(-1, -1);
         pipe_barrier(PIPE_V);
         return;
     } else if constexpr (SS == 512) {
@@ -2092,7 +2135,11 @@ TILEOP void Trowmaxsinglecombine(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *t
         pipe_barrier(PIPE_V);
         vcgmax(tmp, tmp, OS0, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,64] -> [m,8]
         pipe_barrier(PIPE_V);
-        vcgmax(dst, tmp, OS0 / 8, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,8] -> [m,1]
+        set_mask_count();
+        set_vector_mask(0, OS0 * 8);
+        vcgmax(dst, tmp, 1, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,8] -> [m,1]
+        set_mask_norm();
+        set_vector_mask(-1, -1);
         pipe_barrier(PIPE_V);
         return;
     } else if constexpr (SS == 256) {
@@ -2106,7 +2153,15 @@ TILEOP void Trowmaxsinglecombine(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *t
         vmax(tmp, tmp + 8, tmp, OS0, 1, 1, 1, 4, 4, 4); // [m,16] -> [m,8]
         set_vector_mask(-1, -1);
         pipe_barrier(PIPE_V);
-        vcgmax(dst, tmp, OS0 / 8, (uint16_t)1ULL, (uint16_t)4ULL, (uint16_t)32ULL); // [m,8] -> [m,1]
+        if constexpr (OS0 / 8 != 0) {
+            vcgmax(dst, tmp, OS0 / 8, (uint16_t)1ULL, (uint16_t)4ULL, (uint16_t)32ULL); // [m,8] -> [m,1]
+        }
+        constexpr uint16_t reminder = OS0 % 8;
+        if constexpr (reminder != 0) {
+            SetContinuousMask(reminder * 8);
+            vcgmax(dst + OS0 / 8 * 8, tmp + OS0 / 8 * 8 * 32, 1, (uint16_t)1ULL, (uint16_t)4ULL, (uint16_t)32ULL); // [m,8] -> [m,1]
+            set_vector_mask(-1, -1);
+        }
         pipe_barrier(PIPE_V);
         return;
     } else if constexpr (SS == 128) {
@@ -2115,14 +2170,22 @@ TILEOP void Trowmaxsinglecombine(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *t
         pipe_barrier(PIPE_V);
         vcgmax(tmp, tmp, OS0, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,64] -> [m,8]
         pipe_barrier(PIPE_V);
-        vcgmax(dst, tmp, OS0 / 8, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,8] -> [m,1]
+        set_mask_count();
+        set_vector_mask(0, OS0 * 8);
+        vcgmax(dst, tmp, 1, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,8] -> [m,1]
+        set_mask_norm();
+        set_vector_mask(-1, -1);
         pipe_barrier(PIPE_V);
         return;
     } else if constexpr (SS == 64) {
         static_assert(OS0 <= REPEAT_MAX);
         vcgmax(tmp, src, OS0, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,64] -> [m,8]
         pipe_barrier(PIPE_V);
-        vcgmax(dst, tmp, OS0 / 8, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,8] -> [m,1]
+        set_mask_count();
+        set_vector_mask(0, OS0 * 8);
+        vcgmax(dst, tmp, 1, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,8] -> [m,1]
+        set_mask_norm();
+        set_vector_mask(-1, -1);
         pipe_barrier(PIPE_V);
         return;
     } else if constexpr (SS == 32) {
@@ -2134,12 +2197,24 @@ TILEOP void Trowmaxsinglecombine(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *t
         vmax(tmp, tmp + 8, tmp, OS0, 1, 1, 1, 2, 2, 2); // [m,16] -> [m,8]
         set_vector_mask(-1, -1);
         pipe_barrier(PIPE_V);
-        vcgmax(dst, tmp, OS0 / 8, (uint16_t)1ULL, (uint16_t)2ULL, (uint16_t)16ULL); // [m,8] -> [m,1]
+        if constexpr (OS0 / 8 != 0) {
+            vcgmax(dst, tmp, OS0 / 8, (uint16_t)1ULL, (uint16_t)2ULL, (uint16_t)16ULL); // [m,8] -> [m,1]
+        }
+        constexpr uint16_t reminder = OS0 % 8;
+        if constexpr (reminder != 0) {
+            SetContinuousMask(reminder * 8);
+            vcgmax(dst + OS0 / 8 * 8, tmp + OS0 / 8 * 8 * 16, 1, (uint16_t)1ULL, (uint16_t)2ULL, (uint16_t)16ULL); // [m,8] -> [m,1]
+            set_vector_mask(-1, -1);
+        }
         pipe_barrier(PIPE_V);
         return;
     } else if constexpr (SS == 8) {
         static_assert(OS0 / 8 <= REPEAT_MAX);
-        vcgmax(dst, src, OS0 / 8, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,8] -> [m,1]
+        set_mask_count();
+        set_vector_mask(0, OS0 * 8);
+        vcgmax(dst, src, 1, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,8] -> [m,1]
+        set_mask_norm();
+        set_vector_mask(-1, -1);
         pipe_barrier(PIPE_V);
         return;
     } else {
@@ -2152,8 +2227,11 @@ TILEOP void Trowmaxsinglecombine(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *t
             vmax(tmp, tmp, src + (i + 1) * 8, OS0, 1, 1, 1, 1, 1, OS1 / 8);
             pipe_barrier(PIPE_V);
         }
+        set_mask_count();
+        set_vector_mask(0, OS0 * 8);
+        vcgmax(dst, tmp, 1, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL);
+        set_mask_norm();
         set_vector_mask(-1, -1);
-        vcgmax(dst, tmp, OS0 / 8, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL);
         pipe_barrier(PIPE_V);
         return;
     }
