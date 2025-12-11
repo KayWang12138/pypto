@@ -266,7 +266,7 @@ int MachineAgent::PrepareInvokeEntry(DeviceAgentTask *task) {
 int MachineAgent::PrepareTopo(DeviceAgentTask *task) {
     /* topo 信息从cache里获取 */
     CacheValue cacheValue = task->GetFuncCacheValue().value();
-    CoreFunctionTopoCache *cacheTopo = cacheValue.topoCache;
+    CoreFunctionTopoCache *cacheTopo = cacheValue.topoCache.get();
     uint64_t coreFuncNum = cacheValue.header.coreFunctionNum + cacheValue.header.virtualFunctionNum;
     uint8_t *topoGmAddr = nullptr;
 #ifdef BUILD_WITH_CANN
@@ -294,7 +294,7 @@ int MachineAgent::PrepareCoreFunctionBin(DeviceAgentTask *task) {
     uint64_t coreFuncNum = cacheValue.header.coreFunctionNum;
     uint8_t *binGmAddr = nullptr;
 #ifdef BUILD_WITH_CANN
-    CoreFunctionBinCache *cacheBin = cacheValue.binCache;
+    CoreFunctionBinCache *cacheBin = cacheValue.binCache.get();
     uint64_t allocSize = cacheBin->dataSize + sizeof(uint64_t); // datasize字段头也一起加上
     machine::GetRA()->AllocDevAddr(&binGmAddr, allocSize);
     if (binGmAddr == nullptr) {

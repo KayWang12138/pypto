@@ -79,13 +79,6 @@ stest:
       - DynamicReshapeUnalignImplaceTest.test_reshape_special
       - DynamicReshapeUnalignImplaceTest.test_src_op_dst_op
       #===========================================================================
-      # Scatterupdate功能用例
-      #===========================================================================
-      - ScatterupdateOnBoardTest.test_scatter_update_1_1_16_16
-      - ScatterupdateOnBoardTest.test_scatter_update_1_1_20_20
-      - ScatterupdateOnBoardTest.test_scatter_update_64_7168_64_moe
-      - ScatterupdateOnBoardTest.test_scatter_update_32_1_512_576_graphD_bf16
-      #===========================================================================
       # ViewType功能用例
       #===========================================================================
       - ViewType.quant_test_bf16_2_int8

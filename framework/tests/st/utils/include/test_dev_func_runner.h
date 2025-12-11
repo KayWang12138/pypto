@@ -162,7 +162,6 @@ private:
         MachineAgent::AgentProc(gDeviceAgentTaskPtr.get());
         SetDefaultDevice();
         MachinePipe::PipeProc(gDeviceAgentTaskPtr.get());
-        delete gDeviceAgentTaskPtr->compileTask;
     }
 
     void RunModel(const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs) {

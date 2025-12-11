@@ -44,7 +44,7 @@ struct MachineDeviceAgentInfo {
 
 class DeviceAgentTask {
 public:
-    explicit DeviceAgentTask(npu::tile_fwk::MachineTask *task) : compileTask(task) {}
+    explicit DeviceAgentTask(std::shared_ptr<npu::tile_fwk::MachineTask> task) : compileTask(task) {}
 
     ~DeviceAgentTask() {}
 
@@ -93,7 +93,7 @@ private:
 public:
     std::vector<OriArgInfo> opOriginArgs_;
     void* aicpuStream_{nullptr};
-    npu::tile_fwk::MachineTask *compileTask{nullptr};
+    std::shared_ptr<npu::tile_fwk::MachineTask> compileTask{nullptr};
     MachineCompileInfo compileInfo;
     MachineDeviceAgentInfo deviceInfo;
 private:

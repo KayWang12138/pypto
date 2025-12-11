@@ -81,8 +81,7 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
         return 0;
     }
     config::SetRunDataOption(KEY_RUNTYPE, "npu");
-
-    auto deviceMachineTask = new MachineTask(task->GetTaskId(), task->GetFunction());
+    auto deviceMachineTask = std::make_shared<MachineTask>(task->GetTaskId(), task->GetFunction());
     deviceMachineTask->SetCacheReuseType(task->GetCacheReuseType());
     deviceMachineTask->SetCacheKey(task->GetCacheKey());
     auto deviceAgentTask = std::make_shared<DeviceAgentTask>(deviceMachineTask);
@@ -113,7 +112,7 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
                 return 0;
             }
         }
-        (void)GenCode(deviceAgentTask->compileTask, deviceAgentTask->compileInfo.invokeParaOffset, cache, kernelPath);
+        (void)GenCode(deviceAgentTask->compileTask.get(), deviceAgentTask->compileInfo.invokeParaOffset, cache, kernelPath);
         function = deviceAgentTask->compileTask->GetFunction();
         /* finish compile add function cache */
         cache.Insert(function->GetFunctionHash(), *function);
@@ -135,8 +134,6 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
     if (config::GetHostOption<bool>(ONLY_CODEGEN)) {
         ALOG_INFO("only gen code switch enabled, push finish queue.");
         // only static use gDeviceAgentTaskPtr; when dynamic, delete deviceMachineTask
-        delete deviceMachineTask;
-        deviceMachineTask = nullptr;
         return 0;
     }
 

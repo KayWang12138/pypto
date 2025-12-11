@@ -78,18 +78,18 @@ TEST_F(TestDynamicDeviceRunner, TestDynMachineAgent) {
     }
 
     auto function = Program::GetInstance().GetFunctionByRawName("TENSOR_ADD");
-    MachineTask task_1(0, function);
-    DeviceAgentTask agentTask1(&task_1);
+    auto task_1 = std::make_shared<MachineTask>(0, function);
+    DeviceAgentTask agentTask1(task_1);
     machinePipe.PipeProc(&agentTask1);
 
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP);
-    MachineTask task_2(0, function);
-    DeviceAgentTask agentTask2(&task_2);
+    auto task_2 = std::make_shared<MachineTask>(0, function);
+    DeviceAgentTask agentTask2(task_2);
     machinePipe.PipeProc(&agentTask2);
 
     function->SetFunctionType(FunctionType::INVALID);
-    MachineTask task_3(0, function);
-    DeviceAgentTask agentTask3(&task_3);
+    auto task_3 = std::make_shared<MachineTask>(0, function);
+    DeviceAgentTask agentTask3(task_3);
     machinePipe.PipeProc(&agentTask3);
 }
 

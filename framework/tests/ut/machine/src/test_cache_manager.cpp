@@ -106,9 +106,9 @@ TEST(CacheManagerUnitTest, test_page_attention) {
     config::SetHostConfig(KEY_ENABLE_BINARY_CACHE, true);
     CacheManager cacheManager;
     EXPECT_EQ(cacheManager.Initialize(), true);
-    auto task = std::make_unique<MachineTask>(111, lastFunc);
+    auto task = std::make_shared<MachineTask>(111, lastFunc);
     task->SetCacheKey(lastFunc->GetFunctionHash().Data());
-    auto deviceAgentTask = std::make_unique<DeviceAgentTask>(task.get());
+    auto deviceAgentTask = std::make_unique<DeviceAgentTask>(task);
     cacheManager.SaveTaskFile(deviceAgentTask.get());
     EXPECT_EQ(cacheManager.MatchBinCache(task->GetCacheKey()), true);
     cacheManager.RecoverTask(lastFunc->GetFunctionHash().Data(), deviceAgentTask.get());

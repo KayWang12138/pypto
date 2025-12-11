@@ -129,17 +129,17 @@ TEST_F(NewCacheTest, TestFunctionCacheBinCache) {
     EXPECT_EQ(cache.binCache->coreFunctionBinOffsets[0], 32);
     EXPECT_EQ(cache.binCache->coreFunctionBinOffsets[1], 72);
     EXPECT_EQ(cache.binCache->coreFunctionBinOffsets[2], 144);
-    EXPECT_EQ(*(uint64_t*)((uint8_t*)cache.binCache + 32), 32);
-    EXPECT_EQ(*(uint64_t*)((uint8_t*)cache.binCache + 72), 64);
-    EXPECT_EQ(*(uint64_t*)((uint8_t*)cache.binCache + 144), 96);
+    EXPECT_EQ(*(uint64_t*)((uint8_t*)cache.binCache.get() + 32), 32);
+    EXPECT_EQ(*(uint64_t*)((uint8_t*)cache.binCache.get() + 72), 64);
+    EXPECT_EQ(*(uint64_t*)((uint8_t*)cache.binCache.get() + 144), 96);
     for (uint32_t i = 0; i < binFileLenVec[0] / sizeof(uint32_t); i++) {
-        EXPECT_EQ(*((uint32_t*)((uint8_t*)cache.binCache + 32 + 8) + i), 100);
+        EXPECT_EQ(*((uint32_t*)((uint8_t*)cache.binCache.get() + 32 + 8) + i), 100);
     }
     for (uint32_t i = 0; i < binFileLenVec[1] / sizeof(uint32_t); i++) {
-        EXPECT_EQ(*((uint32_t*)((uint8_t*)cache.binCache + 72 + 8) + i), 101);
+        EXPECT_EQ(*((uint32_t*)((uint8_t*)cache.binCache.get() + 72 + 8) + i), 101);
     }
     for (uint32_t i = 0; i < binFileLenVec[2] / sizeof(uint32_t); i++) {
-        EXPECT_EQ(*((uint32_t*)((uint8_t*)cache.binCache + 144 + 8) + i), 102);
+        EXPECT_EQ(*((uint32_t*)((uint8_t*)cache.binCache.get() + 144 + 8) + i), 102);
     }
 }
 

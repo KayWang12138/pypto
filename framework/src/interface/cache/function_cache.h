@@ -58,10 +58,19 @@ struct CacheHeader {
 struct CacheValue {
     CacheHeader header;
     HashKey tilingFuncKey;
-    CoreFunctionTopoCache*  topoCache = nullptr;
-    CoreFunctionBinCache*   binCache = nullptr;
-    ReadyCoreFunctionCache* readyListCache = nullptr;
+    std::shared_ptr<CoreFunctionTopoCache> topoCache = nullptr;
+    std::shared_ptr<CoreFunctionBinCache> binCache = nullptr;
+    std::shared_ptr<ReadyCoreFunctionCache> readyListCache = nullptr;
     Function* cacheFunction = nullptr;
+ public:
+    template<typename T>
+    static std::shared_ptr<T> CreateCache(size_t size) {
+        T* data = reinterpret_cast<T*>(new uint8_t[size]);
+        auto ptr = std::shared_ptr<T>(data, [](T* p) {
+            delete[] reinterpret_cast<uint8_t*>(p);
+        });
+        return ptr;
+    }
 };
 #pragma pack()
 

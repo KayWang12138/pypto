@@ -178,10 +178,6 @@ private:
     }
 
     static void RunStatic() {
-        if (gDeviceAgentTaskPtr == nullptr) {
-            return;
-        }
-        delete gDeviceAgentTaskPtr->compileTask;
     }
 
     void RunModel(const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs) {

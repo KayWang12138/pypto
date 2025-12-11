@@ -14,7 +14,7 @@ namespace npu::tile_fwk {
 DeviceAgentTaskPtr gDeviceAgentTaskPtr = nullptr;
 
 void DeviceAgentTask::ProcessReadyCoreFunctions(const CacheValue &cacheValue) {
-    ReadyCoreFunctionCache *readyFunction = cacheValue.readyListCache;
+    ReadyCoreFunctionCache *readyFunction = cacheValue.readyListCache.get();
     for (uint64_t i = 0; i < cacheValue.header.readyCoreFunctionNum; i++) {
         if (readyFunction->readyCoreFunction[i].coreType == static_cast<uint64_t>(CoreType::AIC)) {
             this->compileInfo.readyAicIdVec.emplace_back(readyFunction->readyCoreFunction[i].id);
@@ -30,7 +30,7 @@ void DeviceAgentTask::ProcessReadyCoreFunctions(const CacheValue &cacheValue) {
 }
 
 void DeviceAgentTask::UpdateCoreFunction(const CacheValue &cacheValue) {
-    CoreFunctionTopoCache *cacheTopo = cacheValue.topoCache;
+    CoreFunctionTopoCache *cacheTopo = cacheValue.topoCache.get();
     uint64_t coreFuncNum = cacheValue.header.coreFunctionNum;
     uint64_t *topoOffset = cacheTopo->coreFunctionTopoOffsets;
     uint64_t *binOffset = cacheValue.binCache->coreFunctionBinOffsets;

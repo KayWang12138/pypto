@@ -20,7 +20,6 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
-#include "machine/dump/task_dump_utils.h"
 #include "machine/platform/platform_manager.h"
 #include "interface/utils/op_info_manager.h"
 
@@ -142,22 +141,6 @@ void CacheManager::SaveTaskFile(const DeviceAgentTask *deviceAgentTask) const {
         }
         UnlockAndCloseFile(fp);
     }
-    // dump binary for static graph, exclude static graph in dyn graph
-    if ((function->IsFunctionTypeAndGraphType({FunctionType::STATIC}, {GraphType::TENSOR_GRAPH, GraphType::TILE_GRAPH})) &&
-        (function->BelongTo().GetLastFunction() == nullptr ||
-         !function->BelongTo().GetLastFunction()->IsFunctionType(FunctionType::DYNAMIC))) {
-        ALOG_INFO_F("Save deviceAgentTask at bin file[%s].", binFilePath.c_str());
-        std::string lockFilePath =
-            cacheDirPath_ + "/" + CACHE_FILE_PREFIX + deviceAgentTask->compileTask->GetCacheKey() + CACHE_LOCK_FILE_SUFFIX;
-        FILE *fp = LockAndOpenFile(lockFilePath);
-        if (fp == nullptr) {
-            return;
-        }
-        if (RealPath(binFilePath).empty()) {
-            (void)TaskDumpUtils::DumpTaskToBinFile(deviceAgentTask, binFilePath);
-        }
-        UnlockAndCloseFile(fp);
-    }
 }
 
 bool CacheManager::RecoverTask(const std::string &cacheKey, DeviceAgentTask *deviceAgentTask) const {
@@ -182,13 +165,6 @@ bool CacheManager::RecoverTask(const std::string &cacheKey, DeviceAgentTask *dev
         attr->kernelBinary = LoadFile(cacheKernelFile);
         OpInfoManager::GetInstance().GetCustomOpJsonPath() = customJsonPath;
         return !attr->devProgBinary.empty() && !attr->kernelBinary.empty();
-    }
-    // recover binary for static graph, exclude static graph in dyn graph
-    if ((deviceAgentTask->GetFunction()->IsFunctionTypeAndGraphType({FunctionType::STATIC}, {GraphType::TENSOR_GRAPH, GraphType::TILE_GRAPH})) &&
-        (function->BelongTo().GetLastFunction() == nullptr ||
-         !function->BelongTo().GetLastFunction()->IsFunctionType(FunctionType::DYNAMIC))) {
-        ALOG_INFO_F("Recover deviceAgentTask from bin file[%s].", cacheBinFile.c_str());
-        return TaskDumpUtils::RecoverTaskFromBinFile(cacheBinFile, deviceAgentTask);
     }
     return true;
 }

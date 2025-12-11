@@ -18,17 +18,9 @@ set(_CaseFilterList
         "DeviceMachineTest.test_get_task_time"
         "TestDeviceRunner.test_set_pmu_event"
         "TestDeviceRunner.test_ini_device_runner"
-        # AstApi
-        "TestAstApi.test_ast"
-        "TestAstOpCompile.test_dynamic_ViewAssemble"
-        "TestAstOpCompile.test_compile_fatbin"
         # Others
         "RuntimeTest.Runtime01"
         "TestDeviceRunner.test_device_runner_get_task_time"
-        "OnBoardTestAstInGraph.test_fa_all2all_128"
-        "OnBoardTestAstInGraph.test_fa_all2all_128_2"
-        "OnBoardPaCostTest.test_page_attention_low_latency"
-        "OnBoardPaCostTest.test_page_attention_hight_throughput"
         # device UT
         "TestPro.test_ini"
         "TestAicoreDump.test_aicore_dump_special"

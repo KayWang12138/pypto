@@ -168,10 +168,10 @@ TEST_F(HostMachineCompileTest, test_codegen_by_json) {
     }
 
     config::SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_BY_JSON, true);
-
-    MachineTask *task = new MachineTask(0, Program::GetInstance().GetCurrentFunction());
+    auto task = std::make_shared<MachineTask>(0, Program::GetInstance().GetCurrentFunction());
     auto deviceAgentTask = new DeviceAgentTask(task);
     std::string kernelName;
     auto &cache = Program::GetInstance().GetFunctionCache();
-    (void)GenCode(deviceAgentTask->compileTask, deviceAgentTask->compileInfo.invokeParaOffset, cache, kernelName);
+    (void)GenCode(deviceAgentTask->compileTask.get(), deviceAgentTask->compileInfo.invokeParaOffset, cache, kernelName);
+    delete deviceAgentTask;
 }

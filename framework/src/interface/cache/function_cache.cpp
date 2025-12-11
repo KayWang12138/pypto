@@ -43,8 +43,9 @@ void FunctionCache::UpdateTopoCache(const Function &func, CacheValue &value) {
         uint32_t extParamNum = func.topoInfo_.topology_[i].extParamNum;
         totalSize += sizeof(CoreFunctionTopo) + sizeof(uint64_t) * depNum + sizeof(uint64_t) * extParamNum;
     }
-
-    uint8_t* topoCachePtr = new uint8_t[totalSize + sizeof(uint64_t)];
+    size_t topoSize = totalSize + sizeof(uint64_t);
+    value.topoCache = CacheValue::CreateCache<CoreFunctionTopoCache>(topoSize);
+    uint8_t* topoCachePtr = reinterpret_cast<uint8_t*>(value.topoCache.get());
     *reinterpret_cast<uint64_t*>(topoCachePtr) = totalSize;
 
     uint64_t* offsetPtr = reinterpret_cast<uint64_t*>(topoCachePtr + sizeof(uint64_t));
@@ -78,16 +79,12 @@ void FunctionCache::UpdateTopoCache(const Function &func, CacheValue &value) {
         curCoreFuncOffset += tempLength;
         topoPtr += tempLength;
     }
-    value.topoCache = reinterpret_cast<CoreFunctionTopoCache*>(topoCachePtr);
     value.header.coreFunctionNum = topoNum;
     ASSERT(topoNum != 0);
 
-    TopoProcessor processor(reinterpret_cast<CoreFunctionTopoCache*>(topoCachePtr), topoNum);
-    std::tuple<CoreFunctionTopoCache*, uint64_t> newTopo = processor.MergeBatchDepend(10, 1);
-    value.topoCache = reinterpret_cast<CoreFunctionTopoCache*>(std::get<0>(newTopo));
-    if (value.topoCache != reinterpret_cast<CoreFunctionTopoCache*>(topoCachePtr)) {
-        delete[] topoCachePtr;
-    }
+    TopoProcessor processor(value.topoCache, topoNum);
+    std::tuple<std::shared_ptr<CoreFunctionTopoCache>, uint64_t> newTopo = processor.MergeBatchDepend(10, 1);
+    value.topoCache = std::get<0>(newTopo);
     value.header.virtualFunctionNum = std::get<1>(newTopo);
 }
 
@@ -146,8 +143,10 @@ void FunctionCache::UpdateBinCache(const Function &func, CacheValue &value) {
     uint64_t progNum = func.programs_.size();
     totalSize += progNum * sizeof(uint64_t);
 
-    uint8_t *buf = new uint8_t[totalSize + sizeof(uint64_t)];
-    value.binCache = reinterpret_cast<CoreFunctionBinCache *>(buf);
+    size_t binSize = totalSize + sizeof(uint64_t);
+    value.binCache = CacheValue::CreateCache<CoreFunctionBinCache>(binSize);
+    uint8_t* buf = reinterpret_cast<uint8_t*>(value.binCache.get());
+
     value.header.programFuncionNum = progNum;
     value.binCache->dataSize = totalSize;
 
@@ -166,9 +165,9 @@ void FunctionCache::UpdateBinCache(const Function &func, CacheValue &value) {
 void FunctionCache::UpdateReadyFunction(const Function &func, CacheValue &value) {
     uint64_t readyNum = func.GetAllReadySubGraphCount();
     uint64_t totalSize = readyNum * sizeof(ReadyCoreFunction);
-    uint8_t* readyFuncPtr = new uint8_t[totalSize + sizeof(uint64_t)];
-
-    *reinterpret_cast<uint64_t*>(readyFuncPtr) = totalSize;
+    size_t size = totalSize + sizeof(uint64_t);
+    value.readyListCache = CacheValue::CreateCache<ReadyCoreFunctionCache>(size);
+    uint8_t* readyFuncPtr = reinterpret_cast<uint8_t*>(value.readyListCache.get());
     ReadyCoreFunction* listPtr = reinterpret_cast<ReadyCoreFunction*>(reinterpret_cast<uint64_t*>(readyFuncPtr) + 1);
     // ReadyCoreFunctionCache
     size_t index = 0;
@@ -189,8 +188,6 @@ void FunctionCache::UpdateReadyFunction(const Function &func, CacheValue &value)
         listPtr[index].coreType = static_cast<uint64_t>(CoreType::AICPU);
         index++;
     }
-
-    value.readyListCache = reinterpret_cast<ReadyCoreFunctionCache*>(readyFuncPtr);
     value.header.readyCoreFunctionNum = readyNum;
     ASSERT(value.header.readyCoreFunctionNum != 0);
 }
@@ -245,37 +242,13 @@ Function *FunctionCache::GetCacheFunction(const HashKey &key) {
 void FunctionCache::Reset() {
     std::lock_guard<std::mutex> cLockGuard(lock_);
     for (auto& ele : cache_) {
-        if (ele.second.topoCache != nullptr) {
-            delete[] reinterpret_cast<uint8_t*>(ele.second.topoCache);
-            ele.second.topoCache = nullptr;
-        }
-        if (ele.second.binCache != nullptr) {
-            delete[] reinterpret_cast<uint8_t*>(ele.second.binCache);
-            ele.second.binCache = nullptr;
-        }
-        if (ele.second.readyListCache != nullptr) {
-            delete[] reinterpret_cast<uint8_t*>(ele.second.readyListCache);
-            ele.second.readyListCache = nullptr;
-        }
+        ele.second.topoCache = nullptr;
+        ele.second.binCache = nullptr;
+        ele.second.readyListCache = nullptr;
     }
     cache_.clear();
 }
 
-FunctionCache::~FunctionCache() {
-    for (auto& ele : cache_) {
-        if (ele.second.topoCache != nullptr) {
-            delete[] reinterpret_cast<uint8_t*>(ele.second.topoCache);
-            ele.second.topoCache = nullptr;
-        }
-        if (ele.second.binCache != nullptr) {
-            delete[] reinterpret_cast<uint8_t*>(ele.second.binCache);
-            ele.second.binCache = nullptr;
-        }
-        if (ele.second.readyListCache != nullptr) {
-            delete[] reinterpret_cast<uint8_t*>(ele.second.readyListCache);
-            ele.second.readyListCache = nullptr;
-        }
-    }
-}
+FunctionCache::~FunctionCache() {}
 
 } // namespace npu::tile_fwk

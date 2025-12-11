@@ -20,7 +20,6 @@
 #include "interface/utils/file_utils.h"
 #include "interface/program/program.h"
 #include "machine/platform/platform_manager.h"
-#include "machine/dump/machine_dump.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include <nlohmann/json.hpp>
 
@@ -85,12 +84,6 @@ bool KernelDumpUtils::DumpBinFile(const DeviceAgentTask *deviceAgentTask, const 
     bool isDynamic = function->IsFunctionType(FunctionType::DYNAMIC);
     if (isDynamic && function->GetDyndevAttribute() != nullptr) {
         opBinData = function->GetDyndevAttribute()->devProgBinary;
-    }
-
-    if ((function->IsFunctionTypeAndGraphType({FunctionType::STATIC}, {GraphType::TENSOR_GRAPH, GraphType::TILE_GRAPH})) &&
-        (function->BelongTo().GetLastFunction() == nullptr ||
-         !function->BelongTo().GetLastFunction()->IsFunctionType(FunctionType::DYNAMIC))) {
-        MachineDump::GetDumpBinData(deviceAgentTask, opBinData);
     }
 
     if (opBinData.empty()) {
