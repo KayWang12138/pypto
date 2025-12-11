@@ -168,12 +168,12 @@ inline bool IsValidMixGraph(int AIVLatency, int AICLatency, double aivFactorLowe
     }
 }
 
-inline bool IsPairMergeable(DSU &dsu, int uDense, int vDense, int upperBound, double thresLower, double thresUpper) {
-    if (dsu.coreType[uDense] == OpCoreType::AICPU || dsu.coreType[vDense] == OpCoreType::AICPU) {
+inline bool IsPairMergeable(DSU &dsu, int uRoot, int vRoot, int upperBound, double thresLower, double thresUpper) {
+    if (dsu.coreType[uRoot] == OpCoreType::AICPU || dsu.coreType[vRoot] == OpCoreType::AICPU) {
         return false;
     }
-    std::pair<int, int> uWeight = dsu.GetWeight(uDense);
-    std::pair<int, int> vWeight = dsu.GetWeight(vDense);
+    std::pair<int, int> uWeight = dsu.GetWeight(uRoot);
+    std::pair<int, int> vWeight = dsu.GetWeight(vRoot);
     int AIVbefore1 = uWeight.first;
     int AIVbefore2 = vWeight.first;
     int AICbefore1 = uWeight.second;
@@ -413,7 +413,7 @@ Status ReduceCopyRunner::MergeLoop(std::vector<std::tuple<int, int, size_t>> &ca
         if (mergedGraphId.count(uDense) > 0 || mergedGraphId.count(vDense) > 0) {
             continue;
         }
-        if (!IsPairMergeable(dsu, uDense, vDense, upperBound, thres.first, thres.second)) {
+        if (!IsPairMergeable(dsu, uRoot, vRoot, upperBound, thres.first, thres.second)) {
             continue;
         }
         if (!NoLoopDetected(uDense, vDense, superNodeOutGraph)) {
