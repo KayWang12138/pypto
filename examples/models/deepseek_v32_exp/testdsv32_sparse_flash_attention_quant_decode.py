@@ -1,14 +1,26 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
+"""
+"""
 from dataclasses import dataclass
 import math
 import os
 import pypto
 import torch
-from pypto import pypto_impl
-from pypto.operation import op_wrapper
+import logging
 import numpy as np
 from numpy.testing import assert_allclose
-import logging
-from sparse_flash_attention_quant_decode import sparse_flash_attention_quant_d, SaTileShapeConfig
+from pypto import pypto_impl
+from pypto.operation import op_wrapper
+from sparse_flash_attention_quant import sparse_flash_attention_quant_d_compute, SaTileShapeConfig
 
 
 def gen_uniform_data(data_shape, min_value, max_value, dtype):
@@ -50,14 +62,17 @@ def compute_attention(input_data, params):
     计算注意力机制，支持不同批次的序列长度不同
     使用PyTorch实现
     """
-    q, kn, kr, kn_scales, offsets, actual_seq = input_data
-    scalar, topk, d_v, is_kn_quant = params
+    q, kn, kr, kn_scales, topk_indcies, block_table, actual_seq = input_data
+    block_size, scalar, topk, d_v, is_kn_quant = params
+
     # 提取维度信息
     b, s1, n1, dq = q.shape
     _, dk = kn.shape
     _, dv = kr.shape
 
     s2_tile = 2048
+    if topk_indcies.ndim > 2:
+        topk_indcies = topk_indcies.reshape(b * s1, topk)
 
     atten_out_shape = [b, s1, n1, d_v]
     input_dtype = q.dtype
@@ -79,16 +94,29 @@ def compute_attention(input_data, params):
                 s2_tile_cur = min(s2_tile, cur_seq - s2_idx * s2_tile)
                 s2_start = s2_tile * s2_idx
                 s2_end = s2_start + s2_tile_cur
-                offset = offsets[b_idx * s1 + s1_idx, s2_start:s2_end]
+
+                topk_indcies_tmp = topk_indcies[b_idx * s1 + s1_idx, s2_start:s2_end]
+
                 slc_kn = torch.zeros([s2_tile_cur, dk], dtype=kn_dtype)
                 slc_kr = torch.zeros([s2_tile_cur, dv], dtype=input_dtype)
                 slc_kn_scales = torch.zeros([s2_tile_cur, 4], dtype=torch.float32)
-                for idx in range(s2_tile_cur):
-                    s2_idx_tmp = s2_start + idx
-                    slc_idx = offset[s2_idx_tmp]
-                    slc_kn[s2_idx_tmp, :] = kn[slc_idx, :]
-                    slc_kr[s2_idx_tmp, :] = kr[slc_idx, :]
-                    slc_kn_scales[s2_idx_tmp, :] = kn_scales[slc_idx, :]
+
+                # 当前b&s1&s2 topk_index  --->  kvCache的offset
+                offset = torch.zeros([s2_tile_cur], dtype=torch.int32)
+                for cur_s2_idx in range(s2_tile_cur):
+                    s2_idx_tmp = s2_start + cur_s2_idx
+                    topk_index = topk_indcies_tmp[s2_idx_tmp]
+                    block_idx_in_batch = topk_index // block_size
+                    slc_block_idx = block_table[b_idx, block_idx_in_batch]
+                    tail = topk_index % block_size
+                    offset[cur_s2_idx] = slc_block_idx * block_size + tail
+
+                # 索引 kvCache
+                for cur_s2_idx in range(s2_tile_cur):
+                    slc_idx = offset[cur_s2_idx]
+                    slc_kn[cur_s2_idx, :] = kn[slc_idx, :]
+                    slc_kr[cur_s2_idx, :] = kr[slc_idx, :]
+                    slc_kn_scales[cur_s2_idx, :] = kn_scales[slc_idx, :]
                 
                 qn_tmp = qi[..., :dk]
                 qr_tmp = qi[..., dk:]
@@ -153,6 +181,47 @@ def compute_attention(input_data, params):
     return attention_output, tmp_out
 
 
+def gen_block_table(act_seq, block_size, s1, need_indices=False):
+    block_num = 0
+    block_num_each = []
+    b = act_seq.shape[0]
+    max_kv = max(act_seq)
+    for cur_s in act_seq:
+        cur_block_num = math.ceil(cur_s / block_size)
+        block_num_each.append(cur_block_num)
+        block_num += cur_block_num
+    block_table_shape = [b, math.ceil(max_kv / block_size)]
+    block_idx_list = torch.arange(0, block_num, 1)
+    block_idx_list = block_idx_list[torch.randperm(block_idx_list.size(0))].to(torch.int32)
+
+    block_table = -torch.ones(block_table_shape, dtype=torch.int32)
+
+    block_table_bidx = 0
+    block_idx = 0
+    for cur_block in block_num_each:
+        for j in range(cur_block):
+            block_table[block_table_bidx, j] = block_idx_list[block_idx]
+            block_idx += 1
+        block_table_bidx += 1
+
+    if need_indices:
+        cache_index = -torch.ones((b, s1), dtype=torch.int64)
+        for i in range(b):
+            cur_act = act_seq[i]
+            for j in range(s1):
+                pos = cur_act - s1 + j
+                block_idx_in_seq = pos // block_size
+                global_block_id = block_table[i, block_idx_in_seq]
+
+                offset_in_block = pos % block_size
+                global_index = global_block_id * block_size + offset_in_block
+                cache_index[i, j] = global_index
+    else:
+        cache_index = None
+
+    return block_num, block_table, cache_index
+
+
 def gen_gather_select_attention_golden(dtype, bn1n2s1, is_kn_quant, actual_seq):
     block_size = 128
     torch.manual_seed(42)
@@ -191,15 +260,23 @@ def gen_gather_select_attention_golden(dtype, bn1n2s1, is_kn_quant, actual_seq):
     shape_kn = [block_num, block_size, kv_lora_rank]
     shape_kr = [block_num, block_size, qk_rope_dim]
 
+    max_kv_seq = max(actual_seq)
+    block_num, block_table, _ = gen_block_table(torch.tensor(actual_seq), block_size, s_q, need_indices=False)
+    topk_indcies = torch.zeros(b, s_q, topk).to(torch.int32)
     slc_actual_seq = []
     for i in range(b):
         slc_actual_seq.append(min(actual_seq[i], topk))
-    offsets = torch.zeros(b, s_q, topk).to(torch.int32)
+
     for b_i in range(b):
         for s_q_i in range(s_q):
-            perm = torch.randperm(block_num * block_size)
-            offsets[b_i, s_q_i, :slc_actual_seq[b_i]] = perm[:slc_actual_seq[b_i]]
-    offsets = offsets.reshape(b * s_q, n_kv * topk)
+
+            if slc_actual_seq[b_i] < topk:
+                topk_indcies[b_i, s_q_i, :slc_actual_seq[b_i]] = torch.arange(0, slc_actual_seq[b_i])
+            else:
+                perm = torch.randperm(slc_actual_seq[b_i])
+                topk_indcies[b_i, s_q_i, :] = perm[:topk]
+
+    topk_indcies = topk_indcies.reshape(b * s_q, n_kv * topk)
 
     q_bsnd = gen_uniform_data(shape_q, -1, 1, dtype)
     kn_bsnd_tmp = gen_uniform_data(shape_kn, -1, 1, dtype)
@@ -218,8 +295,8 @@ def gen_gather_select_attention_golden(dtype, bn1n2s1, is_kn_quant, actual_seq):
     kr = kr.reshape(block_num * block_size, qk_rope_dim)
 
     # 3. 计算attention
-    params = [scalar, topk, kv_lora_rank, is_kn_quant]
-    input_data = [q_bsnd, kn, kr, kn_scales, offsets, actual_seq]
+    params = [block_size, scalar, topk, kv_lora_rank, is_kn_quant]
+    input_data = [q_bsnd, kn, kr, kn_scales, topk_indcies, block_table, actual_seq]
     atten_out, tmp_out = compute_attention(input_data, params)
 
     # 4.dump 数据
@@ -229,16 +306,14 @@ def gen_gather_select_attention_golden(dtype, bn1n2s1, is_kn_quant, actual_seq):
     q_nope = q_nope.reshape(b * s_q * n_q, kv_lora_rank)
     q_rope = q_rope.reshape(b * s_q * n_q, qk_rope_dim)
     # input params
-    input_params = [b, s_q, n_q, n_kv, kv_lora_rank, qk_rope_dim, block_num, block_size, topk, is_kn_quant, scalar]
-    kn_aux_tensor = torch.eye(512, dtype=torch.float32).to(torch.int8)
-    scale_aux_tensor = torch.eye(4, dtype=torch.float32)
-    input_data_map = [q_nope, q_rope, kn, kr, kn_scales, offsets, actual_seq]
-    
-    return input_params, kn_aux_tensor, scale_aux_tensor, input_data_map, atten_out
+    input_params = [b, s_q, n_q, n_kv, max_kv_seq, kv_lora_rank, qk_rope_dim, block_num, block_size, topk,
+                    is_kn_quant, scalar]
+    input_data_map = [q_nope, q_rope, kn, kr, kn_scales, topk_indcies, block_table, actual_seq]
+
+    return input_params, input_data_map, atten_out
 
 
-def test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant, input_params,
-    kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name):
+def do_test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant, input_params, input_data, atten_out, case_name):
     b, n1, n2, s1 = bn1n2s1
     torch.npu.set_device(4)
 
@@ -251,159 +326,184 @@ def test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant, input_params,
         v2_tile_shape=[16, 128]
     )
     
-    b, s1, n_q, n_kv, kv_lora_rank, qk_rope_dim, block_num, block_size, topk, is_kn_quant, softmax_scale = input_params
-    q_nope, q_rope, kn, kr, kn_scales, offsets, kv_actual_seqs = input_data
+    b, s1, n_q, n_kv, max_kv_seq, kv_lora_rank, qk_rope_dim, block_num, block_size, topk, \
+        is_kn_quant, softmax_scale = input_params
+    q_nope, q_rope, kn, kr, kn_scales, topk_indcies, block_table, kv_actual_seqs = input_data
 
     calc_attention_out = torch.zeros([b, s1, n_q, kv_lora_rank], dtype=torch.bfloat16)
     kv_act_seqs = torch.tensor(actual_seq, dtype=torch.int32)
-    input_data_npu = [tmp.npu() for tmp in [q_nope, q_rope, kn, kr, kn_scales, offsets, kv_act_seqs]]
-    output_data_npu = [b.npu() for b in [calc_attention_out]]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(input_data_npu)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(output_data_npu)]
-    sparse_flash_attention_quant_d(pto_inputs, pto_outputs, n_q, n_kv, softmax_scale, topk, tile_config)
+
+    q_nope_npu = q_nope.npu()
+    q_nope_pto = pypto.from_torch(q_nope_npu, dynamic_axis=[0], name="q_nope")
+    q_rope_npu = q_rope.npu()
+    q_rope_pto = pypto.from_torch(q_rope_npu, dynamic_axis=[0], name="q_rope")
+    kn_npu = kn.npu()
+    kn_pto = pypto.from_torch(kn_npu, name="kn")
+    kr_npu = kr.npu()
+    kr_pto = pypto.from_torch(kr_npu, name="kr")
+    kn_scales_npu = kn_scales.npu()
+    kn_scales_pto = pypto.from_torch(kn_scales_npu, name="kn_scales")
+    topk_indcies_npu = topk_indcies.npu()
+    topk_indcies_pto = pypto.from_torch(topk_indcies_npu, dynamic_axis=[0], name="topk_indcies")
+    block_table_npu = block_table.npu()
+    block_table_pto = pypto.from_torch(block_table_npu, dynamic_axis=[0], name="block_table")
+    kv_act_seqs_npu = kv_act_seqs.npu()
+    kv_act_seqs_pto = pypto.from_torch(kv_act_seqs_npu, dynamic_axis=[0], name="kv_act_seqs")
+
+    calc_attention_out_npu = calc_attention_out.npu()
+    calc_attention_out_pto = pypto.from_torch(calc_attention_out_npu, dynamic_axis=[0], name="calc_attention_out")
+
+    pto_inputs = [q_nope_pto, q_rope_pto, kn_pto, kr_pto, kn_scales_pto, topk_indcies_pto, block_table_pto,
+                  kv_act_seqs_pto]
+    pto_outputs = [calc_attention_out_pto]
+
+    max_blocknum_perbatch = math.ceil(max_kv_seq / block_size)
+    sparse_flash_attention_quant_d_compute(pto_inputs, pto_outputs, n_q, n_kv, softmax_scale, topk,
+                                           block_size, max_blocknum_perbatch, tile_config)
     pypto.runtime._device_synchronize()
-    assert_allclose(np.array(output_data_npu[0].cpu().flatten().tolist()), np.array(atten_out.cpu().flatten().tolist()), rtol=0.005, atol=0.005)
+    assert_allclose(np.array(calc_attention_out_npu.cpu().flatten().tolist()),
+                    np.array(atten_out.cpu().flatten().tolist()), rtol=0.005, atol=0.005)
 
 
-def test_QSFA_d_entry(case_name: str):
+def do_test_QSFA_d_entry(case_name: str):
     if case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s2_seqTest1_int8":
         bn1n2s1 = (4, 128, 1, 2)
         is_kn_quant = 1
         actual_seq = [666, 532, 768, 900]
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
+        input_params, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
-        test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
-            input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
+        do_test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
+            input_params, input_data, atten_out, case_name)
     elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b32_s1_seq511":
         # bn1n2s1数据: b, n_q, n_kv, s_q; n_kv=1
         bn1n2s1 = (32, 128, 1, 1)
         # 0为kn非量化情况，1为kn量化情况
         is_kn_quant = 0
         actual_seq = [511, 511, 511, 511]
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
+        input_params, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
-        test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
-            input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
+        do_test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
+            input_params, input_data, atten_out, case_name)
     elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b32_s1_seq511_int8":
         bn1n2s1 = (32, 128, 1, 1)
         is_kn_quant = 1
         actual_seq = [511] * 32
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
+        input_params, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
-        test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
-            input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
+        do_test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
+            input_params, input_data, atten_out, case_name)
     elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s1_seq2049":
         bn1n2s1 = (1, 128, 1, 1)
         is_kn_quant = 0
         actual_seq = [2049]
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
+        input_params, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
-        test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
-            input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
+        do_test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
+            input_params, input_data, atten_out, case_name)
     elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s1_seq2049_int8":
         bn1n2s1 = (1, 128, 1, 1)
         is_kn_quant = 1
         actual_seq = [2049]
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
+        input_params, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
-        test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
-            input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
+        do_test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
+            input_params, input_data, atten_out, case_name)
     elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s3_seq2047":
         bn1n2s1 = (1, 128, 1, 3)
         is_kn_quant = 0
         actual_seq = [2047]
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
+        input_params, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
-        test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
-            input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
+        do_test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
+            input_params, input_data, atten_out, case_name)
     elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s3_seq2047_int8":
         bn1n2s1 = (1, 128, 1, 3)
         is_kn_quant = 1
         actual_seq = [2047]
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
+        input_params, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
-        test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
-            input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
+        do_test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
+            input_params, input_data, atten_out, case_name)
     elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b128_s1_seq8k":
         bn1n2s1 = (128, 128, 1, 1)
         is_kn_quant = 0
         actual_seq = [8096] * 128
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
+        input_params, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
-        test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
-            input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
+        do_test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
+            input_params, input_data, atten_out, case_name)
     elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b128_s1_seq8k_int8":
         bn1n2s1 = (128, 128, 1, 1)
         is_kn_quant = 1
         actual_seq = [8096] * 128
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
+        input_params, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
-        test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
-            input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
+        do_test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
+            input_params, input_data, atten_out, case_name)
     elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seq128k":
         bn1n2s1 = (8, 128, 1, 1)
         is_kn_quant = 0
         actual_seq = [131072] * 8  # 128k
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
+        input_params, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
-        test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
-            input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
+        do_test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
+            input_params, input_data, atten_out, case_name)
     elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seq128k_int8":
         bn1n2s1 = (8, 128, 1, 1)
         is_kn_quant = 1
         actual_seq = [131072] * 8
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
+        input_params, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
-        test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
-            input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
+        do_test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
+            input_params, input_data, atten_out, case_name)
     elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s1_seqTest1":
         bn1n2s1 = (4, 128, 1, 1)
         is_kn_quant = 0
         actual_seq = [666, 532, 768, 900]
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
+        input_params, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
-        test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
-            input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
+        do_test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
+            input_params, input_data, atten_out, case_name)
     elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s1_seqTest1_int8":
         bn1n2s1 = (4, 128, 1, 1)
         is_kn_quant = 1
         actual_seq = [666, 532, 768, 900]
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
+        input_params, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
-        test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
-            input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
+        do_test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
+            input_params, input_data, atten_out, case_name)
     elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seqTest2":
         bn1n2s1 = (8, 128, 1, 1)
         is_kn_quant = 0
         actual_seq = [666, 532, 768, 900, 5698, 2358, 324, 2048]
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
+        input_params, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
-        test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
-            input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
+        do_test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
+            input_params, input_data, atten_out, case_name)
     elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seqTest2_int8":
         bn1n2s1 = (8, 128, 1, 1)
         is_kn_quant = 1
         actual_seq = [666, 532, 768, 900, 5698, 2358, 324, 2048]
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
+        input_params, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
-        test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
-            input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
+        do_test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
+            input_params, input_data, atten_out, case_name)
     elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s4_seqTest2":
         bn1n2s1 = (8, 128, 1, 4)
         is_kn_quant = 0
         actual_seq = [666, 532, 768, 900, 5698, 2358, 324, 2048]
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
+        input_params, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
-        test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
-            input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
+        do_test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
+            input_params, input_data, atten_out, case_name)
     elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s4_seqTest2_int8":
         bn1n2s1 = (8, 128, 1, 4)
         is_kn_quant = 1
         actual_seq = [666, 532, 768, 900, 5698, 2358, 324, 2048]
-        input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out \
+        input_params, input_data, atten_out \
             = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
-        test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
-            input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out, case_name)
+        do_test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant,
+            input_params, input_data, atten_out, case_name)
     else:
         logging.error("Can't get func to gen golden, Case(%s)", case_name)
         return False
@@ -430,7 +530,7 @@ def test_QSFA_d_entry(case_name: str):
         "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s4_seqTest2_int8",
 """
 def test_QSFA_d_bf16_b1_s3_seq2047_int8():
-    test_QSFA_d_entry("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s3_seq2047_int8")
+    do_test_QSFA_d_entry("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s3_seq2047_int8")
 
 
 if __name__ == "__main__":

@@ -448,14 +448,16 @@ TILEOP void DynL0CToL1(__cbuf__ L1T *dst, __cc__ L0CT *src, unsigned oriTShape0,
 }
 
 // Internal: Reserved for custom scenarios.
-template <typename T, typename T2, int64_t dstRawShape0, int64_t offsetRawShape1, int64_t srcColumnStartOffset>
+template <typename T, typename T2, typename T3, int64_t dstRawShape0, int64_t offsetRawShape1, int64_t srcColumnStartOffset, int64_t blockSize>
 TILEOP void GatherInL1(__cbuf__ T *dst, int64_t dstOriginShape0, int64_t dstOriginShape1, __gm__ T *src,
-    int64_t srcRawShape1, __gm__ T2 *offsets, int64_t offsetsRowStartOffset, int64_t offsetsColumnStartOffset) {
+    int64_t srcRawShape1, __gm__ T2 *offsets, __gm__ T3 *blockTable, int64_t offsetsRowStartOffset, int64_t offsetsColumnStartOffset,
+    int64_t GMBlockTableStride1, int64_t GMBlockTableOffset0, int64_t GMBlockTableOffset1) {
     static_assert(std::is_same_v<T2, int32_t> || std::is_same_v<T2, int64_t>);
     constexpr uint16_t c0Size = BLOCK_SIZE / sizeof(T);
     uint16_t nBurst = dstOriginShape1 / c0Size;
     uint16_t dstStride = CeilAlign<uint16_t>(dstOriginShape0, BLOCK_CUBE_M_N) - 1;
     int64_t offsetsStartOffset = offsetsRowStartOffset * offsetRawShape1 + offsetsColumnStartOffset;
+    blockTable += GMBlockTableOffset0 * GMBlockTableStride1 + GMBlockTableOffset1;
     pipe_barrier(PIPE_ALL);
     if (dstOriginShape1 % c0Size > 0) {
         uint16_t dValue = dstOriginShape1;
@@ -464,22 +466,28 @@ TILEOP void GatherInL1(__cbuf__ T *dst, int64_t dstOriginShape0, int64_t dstOrig
         if constexpr (std::is_same<T, int8_t>::value) {
             dstNzC0Stride = CeilAlign<uint16_t>(dstOriginShape0, c0Size); // int8场景需要按32元素个数对齐
             for (int64_t i = 0; i < dstOriginShape0; i++) {
+                T2 gatherOffset = offsets[i + offsetsStartOffset];
+                gatherOffset = CalaOffset2PageAttention<T2, T3, blockSize>(blockTable, gatherOffset);
                 copy_gm_to_cbuf_multi_nd2nz_b8((__cbuf__ T *)dst + i * c0Size,
-                    (__gm__ T *)src + offsets[i + offsetsStartOffset] * srcRawShape1 + srcColumnStartOffset, 0, 1,
+                    (__gm__ T *)src + gatherOffset * srcRawShape1 + srcColumnStartOffset, 0, 1,
                     1, dValue, 0, srcDValue, dstNzC0Stride, 1, 1);
             }
         }
         if constexpr (std::is_same<T, half>::value || std::is_same<T, bfloat16_t>::value) {
             for (int64_t i = 0; i < dstOriginShape0; i++) {
+                T2 gatherOffset = offsets[i + offsetsStartOffset];
+                gatherOffset = CalaOffset2PageAttention<T2, T3, blockSize>(blockTable, gatherOffset);
                 copy_gm_to_cbuf_multi_nd2nz_b16((__cbuf__ T *)dst + i * c0Size,
-                    (__gm__ T *)src + offsets[i + offsetsStartOffset] * srcRawShape1 + srcColumnStartOffset, 0, 1,
+                    (__gm__ T *)src + gatherOffset * srcRawShape1 + srcColumnStartOffset, 0, 1,
                     1, dValue, 0, srcDValue, dstNzC0Stride, 1, 1);
             }
         }
         if constexpr (std::is_same<T, float>::value) {
             for (int64_t i = 0; i < dstOriginShape0; i++) {
+                T2 gatherOffset = offsets[i + offsetsStartOffset];
+                gatherOffset = CalaOffset2PageAttention<T2, T3, blockSize>(blockTable, gatherOffset);
                 copy_gm_to_cbuf_multi_nd2nz_b32s((__cbuf__ T *)dst + i * c0Size,
-                    (__gm__ T *)src + offsets[i + offsetsStartOffset] * srcRawShape1 + srcColumnStartOffset, 0, 1,
+                    (__gm__ T *)src + gatherOffset * srcRawShape1 + srcColumnStartOffset, 0, 1,
                     1, dValue, 0, srcDValue, dstNzC0Stride, 1, 1);
             }
         }
@@ -488,8 +496,10 @@ TILEOP void GatherInL1(__cbuf__ T *dst, int64_t dstOriginShape0, int64_t dstOrig
             dstStride = CeilAlign<uint16_t>(dstOriginShape0, c0Size) - 1;
         }
         for (int64_t i = 0; i < dstOriginShape0; i++) {
+            T2 gatherOffset = offsets[i + offsetsStartOffset];
+            gatherOffset = CalaOffset2PageAttention<T2, T3, blockSize>(blockTable, gatherOffset);
             copy_gm_to_cbuf(dst + i * c0Size,
-                src + offsets[i + offsetsStartOffset] * srcRawShape1 + srcColumnStartOffset, 0, nBurst, 1, 0,
+                src + gatherOffset * srcRawShape1 + srcColumnStartOffset, 0, nBurst, 1, 0,
                 dstStride, PAD_NONE);
         }
     }

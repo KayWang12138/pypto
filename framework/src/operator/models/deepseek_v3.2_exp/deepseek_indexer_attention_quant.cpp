@@ -34,7 +34,7 @@ void DeepSeekIndexerAttentionQuant(
     // debug
     Tensor &debugQNopeOut, Tensor &debugQRopeOut, Tensor &debugRmsNormOut, Tensor &debugRmsNormScaleOut,
     Tensor &debugQInt8Out, Tensor &debugQScaleOut, Tensor &debugWeightsOut,
-    Tensor &offsetResTmp, Tensor &indexerTopkResTmp, Tensor &topkValueTmp, Tensor &topkTmpOut
+    Tensor &indexerTopkResTmp, Tensor &topkValueTmp, Tensor &topkTmpOut
 ) {
 #if QUANT_DSIA_DEBUG == 0
     (void)debugQNopeOut;
@@ -44,7 +44,6 @@ void DeepSeekIndexerAttentionQuant(
     (void)debugQInt8Out;
     (void)debugQScaleOut;
     (void)debugWeightsOut;
-    (void)offsetResTmp;
     (void)topkValueTmp;
     (void)topkTmpOut;
 #endif
@@ -60,6 +59,7 @@ void DeepSeekIndexerAttentionQuant(
     int idx_head_dim = params.idx_head_dim;
     int h = tokenX.GetShape()[2];
     auto blockNum = GetInputShape(kvCache, 0);
+    int maxBlockNumPerBatch = params.maxBlockNumPerBatch;
 
     Tensor kvCacheOut(DT_INT8, {blockNum, blockSize, n2, dn}, "kvCacheOuTmp");
     Tensor krCacheOut(dType, {blockNum, blockSize, n2, dr}, "krCacheOuTmp");
@@ -80,7 +80,7 @@ void DeepSeekIndexerAttentionQuant(
 #if QUANT_DSIA_DEBUG == 1
             debugQNopeOut, debugQRopeOut, debugRmsNormOut, debugRmsNormScaleOut,
             debugQInt8Out, debugQScaleOut, debugWeightsOut,
-            offsetResTmp, indexerTopkResTmp, topkValueTmp, topkTmpOut
+            indexerTopkResTmp, topkValueTmp, topkTmpOut
 #endif
         },
         { // inplace
@@ -211,15 +211,6 @@ void DeepSeekIndexerAttentionQuant(
             (void)unUsedIdx;
             Reshape(indexerTopkResTmp, topkRes2D);
         }
-        auto offsetRes = CalcOffsetsForGather(topkRes2D, blockTable, actualSeqLengthsKey, params, b, s1);
-
-#if QUANT_DSIA_DEBUG == 1
-        LOOP("GATHER_OFFSETS", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, b * s1, 1), {}, true) {
-            TileShape::Current().SetVecTile({32, 128});
-            auto offsetResView = View(offsetRes, {1, n2 * selectedCount}, {bIdx, 0});
-            Assemble(offsetResView, {bIdx, 0}, offsetResTmp);
-        }
-#endif
 
         // reset the previous config
         config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{});
@@ -253,8 +244,8 @@ void DeepSeekIndexerAttentionQuant(
         }
 
         SelectedAttentionComputeV2(
-            qNope2D, qRope2D, kvCache2D, krCache2D, kScaleCache2D,
-            offsetRes, actualSeqLengthsKey, n1, n2, softmaxScale, selectedCount, attentionOut, params.salTileCfg
+            qNope2D, qRope2D, kvCache2D, krCache2D, kScaleCache2D, topkRes2D, blockTable, actualSeqLengthsKey, n1, n2, 
+            softmaxScale, selectedCount, blockSize, maxBlockNumPerBatch, attentionOut, params.salTileCfg
         );
     }
 }

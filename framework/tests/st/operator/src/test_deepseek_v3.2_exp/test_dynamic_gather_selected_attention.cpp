@@ -38,30 +38,33 @@ void TestSa(SaTileShapeConfig& tileConfig) {
     } else {
         dType = DT_FP32;
     }
-    int paramsSize = 10;
+    int paramsSize = 11;
     std::vector<int> input_param(paramsSize);
     readInput<int>(GetGoldenDir() + "/input_param.bin", input_param);
-    int b = input_param[0];
-    int sq = input_param[1];
-    int nq = input_param[2];
-    int nkv = input_param[3];
-    int dn = input_param[4];
-    int dr = input_param[5];
-    int blockNum = input_param[6];
-    int blockSize = input_param[7];
-    int topk = input_param[8];
-    int is_kn_quant = input_param[9];
-
+    int b = input_param.at(0);
+    int sq = input_param.at(1);
+    int nq = input_param.at(2);
+    int nkv = input_param.at(3);
+    int maxKVSeq = input_param.at(4);
+    int dn = input_param.at(5);
+    int dr = input_param.at(6);
+    int blockNum = input_param.at(7);
+    int blockSize = input_param.at(8);
+    int topk = input_param.at(9);
+    int isKnQuant = input_param.at(10);
+    
+    int maxBlockNumPerBatch = CeilDiv(maxKVSeq, blockSize);
     float softmaxScale = static_cast<float>(1.0 / sqrtf((dn + dr)));
     std::cout << "====input param==== b sq nq nkv dn dr blockNum blockSize topk is_kn_quant: " 
                 << b << " " << sq << " " << nq << " " << nkv << " " << dn << " " << dr << " " << blockNum << " " 
-                << blockSize << " " << topk << " " << is_kn_quant << std::endl;
+                << blockSize << " " << topk << " " << isKnQuant << std::endl;
     std::vector<int64_t> qNopeShape = {b * sq * nq, dn};
     std::vector<int64_t> qRopeShape = {b * sq * nq, dr};
     std::vector<int64_t> knShape = {blockNum * blockSize, dn};
     std::vector<int64_t> krShape = {blockNum * blockSize, dr};
     std::vector<int64_t> knScalesShape = {blockNum * blockSize, 4};
-    std::vector<int64_t> offsetsShape = {b * sq, nkv * topk};
+    std::vector<int64_t> topKIndciesShape = {b * sq, nkv * topk};
+    std::vector<int64_t> blockTableShape = {b, maxBlockNumPerBatch};
     std::vector<int64_t> actSeqsShape = {b};
     std::vector<int64_t> saOutShape = {b, sq, nq, dn};
 
@@ -69,15 +72,19 @@ void TestSa(SaTileShapeConfig& tileConfig) {
     auto qRope = CreateTensorAndData<T>(qRopeShape, dType, "qRope", "/q_rope.bin", {0});
     auto kRope2D = CreateTensorAndData<T>(krShape, dType, "kr", "/k_rope.bin", {0});
     auto knScales = CreateTensorAndData<float>(knScalesShape, DT_FP32, "knScales", "/kn_scales.bin", {0});
-    auto offsets = CreateTensorAndData<int32_t>(offsetsShape, DT_INT32, "offsets", "/offsets.bin", {0});
+    auto topKIndcies = CreateTensorAndData<int32_t>(topKIndciesShape, DT_INT32, "topKIndcies", "/topk_indcies.bin", {0});
+    auto blockTable = CreateTensorAndData<int32_t>(blockTableShape, DT_INT32, "blockTable", "/block_table.bin", {0, 1});
     auto actSeqs = CreateTensorAndData<int32_t>(actSeqsShape, DT_INT32, "actSeqs", "/actual_seq.bin", {0});
 
     Tensor saOut(dType, {b, sq, nq, dn}, "saOut");
     RawTensorDataPtr saOutData = RawTensorData::CreateConstantTensorData<T>(saOutShape, dType, 0);
-    if(is_kn_quant == 0){
+
+    if(isKnQuant == 0){
         auto kNope2D = CreateTensorAndData<T>(knShape, dType, "kn", "/k_nope.bin", {0});
-        SelectedAttentionV2(qNope.tensor, qRope.tensor, kNope2D.tensor, kRope2D.tensor, knScales.tensor,
-                            offsets.tensor, actSeqs.tensor, nq, nkv, softmaxScale, topk, saOut, tileConfig);
+        SelectedAttentionV2(
+            qNope.tensor, qRope.tensor, kNope2D.tensor, kRope2D.tensor, knScales.tensor,
+            topKIndcies.tensor, blockTable.tensor, actSeqs.tensor, nq, nkv, softmaxScale, topk, blockSize, maxBlockNumPerBatch, saOut, tileConfig
+        );
         // 读数据
         int saOutSize = std::accumulate(saOutShape.begin(), saOutShape.end(), 1, std::multiplies<>());
         std::vector<T> golden(saOutSize, 0);
@@ -85,7 +92,7 @@ void TestSa(SaTileShapeConfig& tileConfig) {
 
         ProgramData::GetInstance().AppendInputs({
             qNope.dataPtr, qRope.dataPtr, kNope2D.dataPtr, kRope2D.dataPtr, 
-            knScales.dataPtr, offsets.dataPtr, actSeqs.dataPtr
+            knScales.dataPtr, topKIndcies.dataPtr, blockTable.dataPtr, actSeqs.dataPtr
         });
         ProgramData::GetInstance().AppendOutputs({
             saOutData
@@ -96,15 +103,17 @@ void TestSa(SaTileShapeConfig& tileConfig) {
     } else {
         // kn int8
         auto kNope2D = CreateTensorAndData<int8_t>(knShape, DT_INT8, "kn", "/k_nope.bin", {0});
-        SelectedAttentionV2(qNope.tensor, qRope.tensor, kNope2D.tensor, kRope2D.tensor, knScales.tensor,
-                            offsets.tensor, actSeqs.tensor, nq, nkv, softmaxScale, topk, saOut, tileConfig);
+        SelectedAttentionV2(
+            qNope.tensor, qRope.tensor, kNope2D.tensor, kRope2D.tensor, knScales.tensor,
+            topKIndcies.tensor, blockTable.tensor, actSeqs.tensor, nq, nkv, softmaxScale, topk, blockSize, maxBlockNumPerBatch, saOut, tileConfig
+        );
         int saOutSize = std::accumulate(saOutShape.begin(), saOutShape.end(), 1, std::multiplies<>());
         std::vector<T> golden(saOutSize, 0);
         readInput(GetGoldenDir() + "/atten_out.bin", golden);
 
         ProgramData::GetInstance().AppendInputs({
             qNope.dataPtr, qRope.dataPtr, kNope2D.dataPtr, kRope2D.dataPtr, 
-            knScales.dataPtr, offsets.dataPtr, actSeqs.dataPtr
+            knScales.dataPtr, topKIndcies.dataPtr, blockTable.dataPtr, actSeqs.dataPtr
         });
         ProgramData::GetInstance().AppendOutputs({
             saOutData

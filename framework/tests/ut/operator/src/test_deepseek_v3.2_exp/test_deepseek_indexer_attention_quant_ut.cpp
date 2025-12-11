@@ -70,6 +70,7 @@ void TestDeepSeekIndexerAttentionQuantUTest(DSIASimpleParams &params) {
     std::vector<int32_t> kvCacheActSeqVec(b, 65536);
     int maxSeqAllBatch = *(std::max_element(kvCacheActSeqVec.begin(), kvCacheActSeqVec.end()));
     int maxBlockNumPerBatch = CeilDiv(maxSeqAllBatch, blockSize);
+    params.maxBlockNumPerBatch = maxBlockNumPerBatch;
     std::cout << "========= maxBlockNumPerBatch " << maxBlockNumPerBatch << std::endl;
 
     int blockNum = 0;
@@ -129,7 +130,6 @@ void TestDeepSeekIndexerAttentionQuantUTest(DSIASimpleParams &params) {
     std::vector<int64_t> qScaleShape = {b * s1, idx_n_heads, 1};
     std::vector<int64_t> weightsShape = {b * s1, params.idx_n_heads};
 
-    std::vector<int64_t> offsetsShape = {b * s1, n2 * topk};
     std::vector<int64_t> indexerTopkShape = {b, s1, n2, topk};
     std::vector<int64_t> indexerTopkTmpOutShape = {b * s1 * n2, maxBlockNumPerBatch * blockSize};
 
@@ -177,7 +177,6 @@ void TestDeepSeekIndexerAttentionQuantUTest(DSIASimpleParams &params) {
     Tensor debugQScaleOut(DT_FP16, qScaleShape, "debugQScaleOut");
     Tensor debugWeightsOut(DT_FP16, weightsShape, "debugWeightsOut");
 
-    Tensor offsetOut(DT_INT32, offsetsShape, "offsetOut");
     Tensor indexerTopkOut(DT_INT32, indexerTopkShape, "indexerTopkOut");
     Tensor indexerTopkValueOut(DT_FP32, indexerTopkShape, "indexerTopkValueOut");
     Tensor indexerTopkTmpOut(DT_FP32, indexerTopkTmpOutShape, "indexerTopkTmpOut");
@@ -202,7 +201,7 @@ void TestDeepSeekIndexerAttentionQuantUTest(DSIASimpleParams &params) {
                                   // debug
                                   debugQNopeOut, debugQRopeOut, debugRmsNormOut, debugRmsNormScaleOut,
                                   debugQInt8Out, debugQScaleOut, debugWeightsOut,
-                                  offsetOut, indexerTopkOut, indexerTopkValueOut, indexerTopkTmpOut
+                                  indexerTopkOut, indexerTopkValueOut, indexerTopkTmpOut
                                   );
 }
 

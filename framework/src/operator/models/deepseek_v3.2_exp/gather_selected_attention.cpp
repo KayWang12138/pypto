@@ -18,8 +18,8 @@
 using namespace npu::tile_fwk;
 namespace npu::tile_fwk {
 void SelectedAttentionComputeV2(const Tensor &qNope, const Tensor &qRope, const Tensor &kNope2D, const Tensor &kRope2D,
-    const Tensor &kNopeScales, Tensor &offsets, const Tensor &kvSlcActSeqs, int nQ, int nKv,
-    float softmaxScale, int topk, Tensor &attentionOut, SaTileShapeConfig tileConfig) {
+    const Tensor &kNopeScales, const Tensor &topKIndcies, const Tensor &blockTable, const Tensor &kvSlcActSeqs, const int nQ, const int nKv,
+    const float softmaxScale, const int topk, const int blockSize, const int maxBlockNumPerBatch, Tensor &attentionOut, SaTileShapeConfig tileConfig) {
     auto dtype = qNope.GetStorage()->Datatype();
     auto knDtype = kNope2D.GetStorage()->Datatype();
     int dN = qNope.GetStorage()->shape[SHAPE_DIM1];
@@ -65,18 +65,19 @@ void SelectedAttentionComputeV2(const Tensor &qNope, const Tensor &qRope, const 
                         Assemble(qn, {0, 0}, qi);
                         Assemble(qr, {0, dN}, qi);
 
-                        auto offsetView = View(offsets, {1, curS2Tile}, {1, std::min(curSeq - s2Idx * curS2Tile, curS2Tile)}, {bIdx * s1Sym + s1Idx, s2Idx * curS2Tile});
-
+                        SymbolicScalar bS1Idx = bIdx * s1Sym + s1Idx;
+                        auto curTopKIndcies = View(topKIndcies, {1, curS2Tile}, {1, std::min(curSeq - s2Idx * curS2Tile, curS2Tile)}, {bS1Idx, s2Idx * curS2Tile}); 
+                        auto curBlockTable = View(blockTable, {1, maxBlockNumPerBatch}, {bIdx, 0});
                         Tensor kn(dtype, {s2Tile, dN}, "kn");
                         if (knDtype == DataType::DT_INT8) {
                             // v0
                             TileShape::Current().SetVecTile(NUM_32, NUM_512);
                             // Gather tokNopeScales
                             auto kNopeScalesView = View(kNopeScales, {curS2Tile, 4}, { std::min(curSeq - s2Idx * curS2Tile, curS2Tile), 4}, {0, 0});
-                            auto knScale = experimental::GatherInUB(kNopeScalesView, offsetView, -2);
+                            auto knScale = experimental::GatherInUB(kNopeScalesView, curTopKIndcies, curBlockTable, blockSize, -2);
                             // Gather kNope2D
                             auto kNope2DView = View(kNope2D, {curS2Tile, dN}, { std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN}, {0, 0});
-                            auto knQuant = experimental::GatherInUB(kNope2DView, offsetView, -2);
+                            auto knQuant = experimental::GatherInUB(kNope2DView, curTopKIndcies, curBlockTable, blockSize, -2);
                             auto knQuantF16 = Cast(knQuant, DT_FP16);
                             auto knQuantF32 = Cast(knQuantF16, DT_FP32);
                             // dequant
@@ -90,11 +91,11 @@ void SelectedAttentionComputeV2(const Tensor &qNope, const Tensor &qRope, const 
                             kn = Cast(curKnFp32, dtype);
                         } else {
                             TileShape::Current().SetCubeTile({c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, false);
-                            kn = experimental::GatherInL1<true, true>(kNope2D, offsetView, dN);
+                            kn = experimental::GatherInL1<true, true>(kNope2D, curTopKIndcies, curBlockTable, blockSize, dN);
                         }
                         // C1
                         TileShape::Current().SetCubeTile({c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, false);
-                        auto kr = experimental::GatherInL1<true, true>(kRope2D, offsetView, dR);
+                        auto kr = experimental::GatherInL1<true, true>(kRope2D, curTopKIndcies, curBlockTable, blockSize, dR);
                         Tensor kj(dtype, {curS2Tile, dN + dR}, "kj");
                         Assemble(kn, {0, 0}, kj);
                         Assemble(kr, {0, dN}, kj);
@@ -126,7 +127,7 @@ void SelectedAttentionComputeV2(const Tensor &qNope, const Tensor &qRope, const 
                             auto vj = View(kn, {curS2Tile, dN}, {std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN}, {0, 0});
                             q1 = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
                         } else {
-                            auto vj = experimental::GatherInL1<true, false>(kNope2D, offsetView, dN);
+                            auto vj = experimental::GatherInL1<true, false>(kNope2D, curTopKIndcies, curBlockTable, blockSize, dN);
                             q1 = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
                         }
                         IF (IsLoopBegin(s2Idx, 0)) {
@@ -184,11 +185,11 @@ void SelectedAttentionComputeV2(const Tensor &qNope, const Tensor &qRope, const 
 }
 
 void SelectedAttentionV2(const Tensor &qNope, const Tensor &qRope, const Tensor &kNope2D, const Tensor &kRope2D,
-    const Tensor &kNopeScales, Tensor &offsets, const Tensor &kvSlcActSeqs, int nQ, int nKv,
-    float softmaxScale, int topk, Tensor &attentionOut, SaTileShapeConfig tileConfig) {
-    FUNCTION("R2_SA_MAIN_V2", {qNope, qRope, kNope2D, kRope2D, kNopeScales, offsets, kvSlcActSeqs}, {attentionOut}) {
-        SelectedAttentionComputeV2(qNope, qRope, kNope2D, kRope2D, kNopeScales, offsets, kvSlcActSeqs, 
-                                nQ, nKv, softmaxScale, topk, attentionOut, tileConfig);
+    const Tensor &kNopeScales, const Tensor &topKIndcies, const Tensor &blockTable, const Tensor &kvSlcActSeqs, const int nQ, const int nKv,
+    const float softmaxScale, const int topk, const int blockSize, const int maxBlockNumPerBatch, Tensor &attentionOut, SaTileShapeConfig tileConfig) {
+    FUNCTION("R2_SA_MAIN_V2", {qNope, qRope, kNope2D, kRope2D, kNopeScales, topKIndcies, blockTable, kvSlcActSeqs}, {attentionOut}) {
+        SelectedAttentionComputeV2(qNope, qRope, kNope2D, kRope2D, kNopeScales, topKIndcies, blockTable, kvSlcActSeqs, 
+                                nQ, nKv, softmaxScale, topk, blockSize, maxBlockNumPerBatch, attentionOut, tileConfig);
     }
 }
 } // namespace npu::tile_fwk

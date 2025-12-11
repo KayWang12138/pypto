@@ -314,35 +314,8 @@ def lightning_index_golden(params, idx_query, idx_k_cache, idx_query_scale, idx_
     return topk_res
 
 
-def calc_offsets_for_gather_golden(params, topk_indcies, block_table, output_dir):
-    b = params.get("b")
-    s1 = params.get("s1")
-    topk = params.get("topk")
-    kv_cache_actual_seq = params.get("kv_cache_actual_seq")
-    block_size = params.get("block_size")
-    topk_indcies = topk_indcies.reshape([b, s1, topk])
-
-    # offsets = [b*s1, n2*topk], n2 == 1
-    offsets = torch.zeros(b, s1, topk).to(torch.int32)
-    for b_i in range(b):
-        for s_i in range(s1):
-            kv_seq_len = kv_cache_actual_seq[b_i]
-            act_slc_count = min(max(kv_seq_len - s1 + 1 + s_i, 0), topk)
-            # [b, s1, n2, selected_count]
-            topk_indcies_tmp = topk_indcies[b_i, s_i, :act_slc_count]
-            for idx in range(act_slc_count):
-                topk_index = topk_indcies_tmp[idx]
-                block_idx_in_batch = topk_index // block_size
-                slc_block_idx = block_table[b_i, block_idx_in_batch]
-                tail = topk_index % block_size
-                offsets[b_i, s_i, idx] = slc_block_idx * block_size + tail
-    offsets = offsets.reshape([b * s1, topk])
-    dump_file_torch(offsets, Path(output_dir, "offsets.bin"))
-    return offsets
-
-
-def gather_slc_attn_golden(params, q_out, q_embed, kv_cache_out, kr_cache_out, kv_quant_scale_cache_out, offsets,
-                           output_dir):
+def gather_slc_attn_golden(params, input_data, output_dir):
+    q_out, q_embed, kv_cache_out, kr_cache_out, kv_quant_scale_cache_out, topk_indcies, block_table = input_data
     is_quant = params.get("is_quant")
     b = params.get("b")
     s1 = params.get("s1")
@@ -350,7 +323,7 @@ def gather_slc_attn_golden(params, q_out, q_embed, kv_cache_out, kr_cache_out, k
     n_q = params.get("num_heads")
     q_dim = params.get("q_dim")
     d_v = params.get("v_dim")
-
+    block_size = params.get("block_size")
     topk = params.get("topk")
     kv_cache_actual_seq = params.get("kv_cache_actual_seq")
     scalar = q_dim ** -0.5
@@ -367,11 +340,10 @@ def gather_slc_attn_golden(params, q_out, q_embed, kv_cache_out, kr_cache_out, k
     kn = kv_cache_tensor.reshape([-1, 512])
     kr = kr_cache_tensor.reshape([-1, 64])
     kn_scales = kv_quant_scale_cache_tensor.reshape([-1, 4])
+    params = [block_size, scalar, topk, kv_lora_rank, is_quant]
+    input_tensor = [q, kn, kr, kn_scales, topk_indcies, block_table, kv_cache_actual_seq]
 
-    params = [scalar, topk, kv_lora_rank, is_quant]
-    input_data = [q, kn, kr, kn_scales, offsets, kv_cache_actual_seq]
-
-    attn_golden, _ = gen_gather_selected_attention.compute_attention(input_data, params)
+    attn_golden, _ = gen_gather_selected_attention.compute_attention(input_tensor, params)
 
     input_params = [b, s1, n_q, 1, kv_lora_rank, 64, kv_cache_tensor.shape[0], kv_cache_tensor.shape[1], topk, 1]
     input_params_tensor = torch.tensor(input_params, dtype=torch.int32)
@@ -410,14 +382,12 @@ def gen_deepseek_indexer_attention_golden(params, actual_seq, output_dir: Path):
                                                                                                 actual_seq)
 
     # Lightning Indexer 子图
-    print("============ Lightning Indexer==================")
-    topk_indcies = lightning_index_golden(params, idx_query, idx_k_cache, idx_query_scale, idx_k_scale_cache, weights,
-                                          block_table, output_dir)
-    # gather_slc_attn 子图
-    print("============ gather_slc_attn==================")
-    offsets = calc_offsets_for_gather_golden(params, topk_indcies, block_table, output_dir)
-    attn_golden = gather_slc_attn_golden(params, q_out, q_embed, kv_cache_out, kr_cache_out, kv_quant_scale_cache_out,
-                                         offsets, output_dir)
+    print("============ Lightning Indexer ==================")
+    topk_indcies = lightning_index_golden(params, idx_query, idx_k_cache, idx_query_scale, idx_k_scale_cache, weights, block_table, output_dir)
+    # sfa 子图
+    print("============ sfa ==================")
+    input_data = [q_out, q_embed, kv_cache_out, kr_cache_out, kv_quant_scale_cache_out, topk_indcies, block_table]
+    attn_golden = gather_slc_attn_golden(params, input_data, output_dir)
 
     dump_file_torch(attn_golden, Path(output_dir, "attn_golden.bin"))
     logging.debug(f"gen_deepseek_indexer_attention_golden done")

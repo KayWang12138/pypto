@@ -350,7 +350,7 @@ REGISTER_INFER_SHAPE_FUNC(OP_GATHER, Opcode::OP_GATHER, InferFunc4Gather);
 
 void InferFuncGatherInL1(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
     auto iOperands = op->GetIOperands();
-    assert(iOperands.size() == NUM2);
+    assert(iOperands.size() == 3);
     auto srcValidShape = iOperands[0]->GetDynValidShape();
     auto offsetValidShape = iOperands[1]->GetDynValidShape();
     auto srcStartColumnOffset = op->GetIntAttribute(OpAttributeKey::startOffset);
@@ -370,7 +370,7 @@ REGISTER_INFER_SHAPE_FUNC(OP_GATHER_IN_L1, Opcode::OP_GATHER_IN_L1, InferFuncGat
  */
 void InferFuncGatherInUB(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
     auto iOperands = op->GetIOperands();
-    assert(iOperands.size() == NUM2);
+    assert(iOperands.size() == 3);
     auto srcValidShape = iOperands[0]->GetDynValidShape();
     auto indicesValidShape = iOperands[1]->GetDynValidShape();
     ASSERT(op->GetOOperands().size() == 1);

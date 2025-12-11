@@ -68,8 +68,8 @@ stest:
       - TestBatchMatmul/BatchMatmulOperationTest.TestBatchMatmul/1
       - TestBatchMatmul/BatchMatmulOperationTest.TestBatchMatmul/2
       - TestBatchMatmul/BatchMatmulOperationTest.TestBatchMatmul/3
-      - GatherInL1Test.gather_in_a_unalign
-      - GatherInL1Test.gather_in_bt_with_valid_shape
+      # - GatherInL1Test.gather_in_a_unalign
+      # - GatherInL1Test.gather_in_bt_with_valid_shape
       # - MatmulOnBoardTest.test_mm_float32_32_512_576
       # - MatmulOnBoardTest.test_mm_bfloat16_64_128_128
       # - MatmulOnBoardTest.test_mm_bfloat16_f32_64_128_128
@@ -185,8 +185,8 @@ stest:
       - TestIndexAdd/IndexAddOperationTest.TestIndexAdd/1
       - TestIndexAdd/IndexAddOperationTest.TestIndexAdd/7
       - TestLogicalAnd/LogicalAndOperationTest.TestLogicalAnd/0
-      - GatherInL1Test.gather_in_a_unalign
-      - GatherInL1Test.gather_in_bt_with_valid_shape
+      # - GatherInL1Test.gather_in_a_unalign
+      # - GatherInL1Test.gather_in_bt_with_valid_shape
       - GatherInUBTest.gather_in_a_
       - GatherOnBoardTest.test_gather_float_64_256_1_64
       # - GatherOnBoardTest.test_gather_float_1_64_32_1

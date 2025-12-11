@@ -3793,12 +3793,23 @@ TILEOP void DynTonehot_(__ubuf__ int64_t *dst, __ubuf__ T *src, unsigned s0, uns
     }
 }
 /**
+ * 辅助函数，计算 token id 对应物理偏移
+ */
+template <typename T2, typename T3, unsigned blockSize>
+INLINE T2 CalaOffset2PageAttention(__gm__ T3 *blockTable, T2 index) {
+    T2 blockID = index / blockSize;            // 这个token对应第几个块，逻辑块
+    blockID = blockTable[blockID];             // 页表中存放这个逻辑块到物理块的映射，得到物理块
+    T2 blockOffset = index % blockSize;        // token在块内偏移
+    index = blockID * blockSize + blockOffset; // 物理块*blockSize 得到物理块的偏移，加上token在块中的偏移
+    return index;
+}
+/**
  * 定制版本，只支持 ds v3.2，使用之前请仔细确认
  * param 2维
  * indices 2维
  * axis -2
  * result 2维 {和标准实现不同}
- * [a,b] [1,c] -2  [c,b] 
+ * [a,b] [1,c] -2  [c,b]
  *
  * 模板参数
  * T input 参数类型
@@ -3814,81 +3825,29 @@ TILEOP void DynTonehot_(__ubuf__ int64_t *dst, __ubuf__ T *src, unsigned s0, uns
  * GMParamOffset*,param 的偏移，用于确定分块
  * GMIndicesShape* ,indices 的 validshape ，用于指导循环，
  * GMIndicesStride* ,步长，用于计算偏移
+ * blocktable[e,f] e batch的维度  f ceil(maxtoken/blockSize)
  */
-template <typename T, typename T2, unsigned UBOutputS1, unsigned UBOutputS2>
-TILEOP void GatherInUB(__ubuf__ T *dst, __gm__ T *param, __gm__ T2 *indices, unsigned GMParamShape0,
-    unsigned GMParamShape1, unsigned GMParamStride0, unsigned GMParamStride1, unsigned GMParamOffset0,
-    unsigned GMParamOffset1, unsigned GMIndicesShape0, unsigned GMIndicesShape1, unsigned GMIndicesStride0,
-    unsigned GMIndicesStride1, unsigned GMIndicesOffset0, unsigned GMIndicesOffset1) {
+
+template <typename T, typename T2, typename T3, unsigned UBOutputS1, unsigned UBOutputS2, unsigned blockSize>
+TILEOP void GatherInUB(__ubuf__ T *dst, __gm__ T *param, __gm__ T2 *indices, __gm__ T3 *blockTable,
+    unsigned GMParamShape1, unsigned GMParamStride1, unsigned GMParamOffset0, unsigned GMParamOffset1,
+    unsigned GMIndicesShape1, unsigned GMIndicesStride1, unsigned GMIndicesOffset0, unsigned GMIndicesOffset1,
+    unsigned GMBlockTableStride1, unsigned GMBlockTableOffset0, unsigned GMBlockTableOffset1) {
     // 循环indices，标量流水拿出来索引
     param += GMParamOffset0 * GMParamStride1 + GMParamOffset1;
     indices += GMIndicesOffset0 * GMIndicesStride1 + GMIndicesOffset1;
-    for (int i = 0; i < GMIndicesShape0; ++i) {
-        __gm__ T2 *indices0 = indices;
-        __gm__ T *param0 = param;
-        __ubuf__ T *dst0 = dst;
-        for (int j = 0; j + 1 < GMIndicesShape1; j += 2) { // 遍历偶数
-            /**
-             * 循环展开优化
-             * 一次拿出两个index，计算两者的 stride，将两次mte指令合并成一次
-             *
-             * 限制
-             *
-             * 1. 两个index 之间的步长不能超过uint32的最大值
-             * 2. 拿到的两个 index 需要是有序的，因为 stride 不能是负数。比如 4 2，这种就没有办法
-             */
-            set_flag(PIPE_MTE2, PIPE_S, EVENT_ID7);
-            wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID7);
-            T2 index_1 = indices0[j];
-            T2 index_2 = indices0[j + 1];
-            set_flag(PIPE_S, PIPE_MTE2, EVENT_ID7);
-            wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID7);
+    blockTable += GMBlockTableOffset0 * GMBlockTableStride1 + GMBlockTableOffset1;
 
-            /**
-             * 判断能够合并
-             * 1. index 有序
-             * 2. index 之间的步长不能超过uint32
-             */
-            /**
-             * stride 边界处理
-             * UBCopyInBase 会自动处理的头尾问题 和 类型问题 ，所以传递的参数应该是  (index_2  - index_1) *
-             * GMParamStride1 实际的步长限制是 (index_2  - index_1 -1 ) * GMParamStride1 * sizeof(T) < UINT32_MAX
-             * 如果分开计算判断，整个流程会非常冗长
-             * (index_2  - index_1 -1 ) * GMParamStride1 * sizeof(T) < (index_2  - index_1) * GMParamStride1 * sizeof(T)
-             * < UINT32_MAX 可以直接判断 (index_2  - index_1) * GMParamStride1 * sizeof(T) < UINT32_MAX ，
-             * 这样不会有精度问题，只是在边界情况无法拿到性能收益，但是可以减少大量的判断，减少标量计算
-             */
-            uint32_t tmp = index_2 - index_1;
-            // index_1 < index_2  确保 tmp!=0
-            constexpr uint32_t helperNum = UINT32_MAX / sizeof(T);
-            if (index_1 < index_2 && (tmp < helperNum / GMParamStride1)) { //
-                param0 = param + index_1 * GMParamStride1;                 // 第一个地址
-                uint32_t stride = tmp * GMParamStride1;                    // 尾部和下一个头部的长度
-                UBCopyInBase<T, UBOutputS2>(dst0, param0, 2, GMParamShape1, stride);
-                dst0 += UBOutputS2;
-                dst0 += UBOutputS2;
-            } else {                                       // 不符合条件，退化为两次搬运
-                param0 = param + index_1 * GMParamStride1; // 第一个地址
-                UBCopyInBase<T, UBOutputS2>(dst0, param0, 1, GMParamShape1, GMParamStride1);
-                dst0 += UBOutputS2;
-                param0 = param + index_2 * GMParamStride1; // 第一个地址
-                UBCopyInBase<T, UBOutputS2>(dst0, param0, 1, GMParamShape1, GMParamStride1);
-                dst0 += UBOutputS2;
-            }
-        }
-        if (GMIndicesShape1 % 2 == 1) { // 最后一个
-            set_flag(PIPE_MTE2, PIPE_S, EVENT_ID7);
-            wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID7);
-            T2 index_1 = indices0[GMIndicesShape1 - 1];
-            set_flag(PIPE_S, PIPE_MTE2, EVENT_ID7);
-            wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID7);
-            param0 = param + index_1 * GMParamStride1;
-            UBCopyInBase<T, UBOutputS2>(dst0, param0, 1, GMParamShape1, GMParamStride1);
-            dst0 += UBOutputS2;
-        }
+    __gm__ T2 *indices0 = indices;
+    __gm__ T *param0 = param;
+    __ubuf__ T *dst0 = dst;
+    for (int j = 0; j < GMIndicesShape1; j++) {
+        T2 index_1 = indices0[j];
+        index_1 = CalaOffset2PageAttention<T2, T3, blockSize>(blockTable, index_1);
+        param0 = param + index_1 * GMParamStride1;
+        UBCopyInBase<T, UBOutputS2>(dst0, param0, 1, GMParamShape1, GMParamStride1);
+        dst0 += UBOutputS2;
     }
-    indices += GMIndicesStride1; // indices下一行
-    dst += UBOutputS1 * UBOutputS2;
 }
 
 } // namespace TileOp

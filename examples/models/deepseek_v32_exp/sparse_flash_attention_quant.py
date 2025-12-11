@@ -14,28 +14,10 @@ from dataclasses import dataclass
 import math
 import os
 import pypto
-import torch
+import numpy as np
 from pypto import pypto_impl
 from pypto.operation import op_wrapper
-import numpy as np
-from numpy.testing import assert_allclose
-import logging
-
-
-@op_wrapper
-def gather_in_l1(src, offsets, size, is_b_matrix, is_trans):
-    return pypto_impl.gather_in_l1(src, offsets, size, is_b_matrix, is_trans)
-
-
-@op_wrapper
-def gather_in_ub(
-    param,
-    indices,
-    axis
-):
-    """gather_in_ub."""
-
-    return pypto_impl.gather_in_ub(param, indices, axis)
+from pypto.experimental import gather_in_l1, gather_in_ub
 
 
 @dataclass
@@ -48,8 +30,10 @@ class SaTileShapeConfig:
     v2_tile_shape: list
 
 
-def sparse_flash_attention_quant_d_compute(query_nope, query_rope, key_nope_2d, key_rope_2d, k_nope_scales,
-    offsets, kv_act_seqs, nq, n_kv, softmax_scale, topk, attention_out, tile_config):
+def sparse_flash_attention_quant_compute(in_tensors, out_tensors, nq, n_kv, softmax_scale, topk,
+                                         block_size, max_blocknum_perbatch, tile_config):
+    query_nope, query_rope, key_nope_2d, key_rope_2d, k_nope_scales, topk_indcies, block_table, kv_act_seqs = in_tensors
+    attention_out, = out_tensors
     dtype = query_nope.dtype
     kn_dtype = key_nope_2d.dtype
     dn = query_nope.shape[1]
@@ -62,9 +46,12 @@ def sparse_flash_attention_quant_d_compute(query_nope, query_rope, key_nope_2d, 
     c2_tile = tile_config.c2_tile_shape
     v2_tile = tile_config.v2_tile_shape
     n_kv_sym = n_kv
+
     batch_size_sym = kv_act_seqs.shape[0]
+
     s1_n1_gsym = query_nope.shape[0] // batch_size_sym
     s1_sym = s1_n1_gsym // nq
+
     s1_s2_sym = s1_sym * topk
     g_loop_sym = group // group_tile
     s2_sym = s1_s2_sym // s1_sym
@@ -76,20 +63,19 @@ def sparse_flash_attention_quant_d_compute(query_nope, query_rope, key_nope_2d, 
             cur_seq = (cur_act_seq - s1_sym + 1 + slc_idx).max(0).min(topk)
             cur_seq.as_variable()
             bn_per_batch = (cur_seq + s2_tile - 1) // s2_tile
+
             for n_kv_idx in pypto.loop(0, n_kv_sym, 1, name="LOOP_L2_n_kv_SA", idx_name="n_kvIdx"):
                 for group_idx in pypto.loop(0, g_loop_sym, 1, name="LOOP_L3_g_SA", idx_name="gIdx"):
                     cur_group_tile = group_tile
                     oi_update = pypto.tensor([cur_group_tile, dn], pypto.DT_FP32, "oi_update")
                     li_update = pypto.tensor([1, cur_group_tile], pypto.DT_FP32, "li_update")
                     mi_update = pypto.tensor([1, cur_group_tile], pypto.DT_FP32, "mi_update")
-                    cur_offset = batch_idx * s1_n1_gsym \
-                        + slc_idx * nq + n_kv_idx * group + group_idx * cur_group_tile
+
+                    cur_offset = batch_idx * s1_n1_gsym + slc_idx * nq + n_kv_idx * group + group_idx * cur_group_tile
                     oi_offset = [batch_idx, slc_idx, n_kv_idx * group + group_idx * cur_group_tile, 0]
                     for s2_idx, _ in pypto.loop_unroll(0, bn_per_batch, 1,
                         name="LOOP_L4_s2_SA", idx_name="s2_idx", unroll_list={1}):
                         cur_s2_tile = s2_tile
-                        cur_kv_offset = batch_idx * s1_s2_sym \
-                            + slc_idx * s2_sym + s2_idx * cur_s2_tile
                         pypto.set_semantic_label("Sa_QkMM")
                         pypto.set_vec_tile_shapes(32, 512)
                         qn = pypto.view(query_nope, [cur_group_tile, dn],
@@ -99,9 +85,12 @@ def sparse_flash_attention_quant_d_compute(query_nope, query_rope, key_nope_2d, 
                         qi = pypto.tensor([cur_group_tile, dn + dr], dtype, "qi")
                         pypto.assemble(qn, [0, 0], qi)
                         pypto.assemble(qr, [0, dn], qi)
-                        offset_view = pypto.view(offsets, [1, cur_s2_tile],
-                            [batch_idx * s1_sym + slc_idx, s2_idx * cur_s2_tile],
-                            valid_shape=[1, (cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile)])
+
+                        cur_topk_indcies = pypto.view(topk_indcies, [1, cur_s2_tile],
+                                                [batch_idx * s1_sym + slc_idx, s2_idx * cur_s2_tile],
+                                                valid_shape=[1, (cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile)])
+                        cur_block_table = pypto.view(block_table, [1, max_blocknum_perbatch], [batch_idx, 0])
+
                         k_nope_2d_view = pypto.view(key_nope_2d, [cur_s2_tile, dn],
                             [0, 0], valid_shape=[(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), dn])
                         k_nope_scale_view = pypto.view(k_nope_scales, [cur_s2_tile, 4],
@@ -112,8 +101,9 @@ def sparse_flash_attention_quant_d_compute(query_nope, query_rope, key_nope_2d, 
                         if kn_dtype == pypto.DT_INT8:
                             pypto.set_vec_tile_shapes(32, 512)
                             #gather L1接口补充
-                            kn_scale = gather_in_ub(k_nope_scale_view, offset_view, -2)
-                            kn_quant = gather_in_ub(k_nope_2d_view, offset_view, -2)
+                            kn_scale = gather_in_ub(k_nope_scale_view, cur_topk_indcies,
+                                                    cur_block_table, block_size, -2)
+                            kn_quant = gather_in_ub(k_nope_2d_view, cur_topk_indcies, cur_block_table, block_size, -2)
                             kn_quant_fp16 = pypto.cast(kn_quant, pypto.DT_FP16)
                             kn_quant_fp32 = pypto.cast(kn_quant_fp16, pypto.DT_FP32)
                             kn_quant_fp32_tmp = pypto.reshape(kn_quant_fp32, [s2_tile * 4, 128])
@@ -130,12 +120,12 @@ def sparse_flash_attention_quant_d_compute(query_nope, query_rope, key_nope_2d, 
                             pypto.set_cube_tile_shapes([c1_tile[0], c1_tile[1]],
                                 [c1_tile[2], c1_tile[3]], [c1_tile[4], c1_tile[5]])
                             kn = gather_in_l1(key_nope_2d,
-                                offset_view, dn, is_b_matrix=True, is_trans=True)
-                        
+                                cur_topk_indcies, cur_block_table, block_size, dn, is_b_matrix=True, is_trans=True)
+                    
                         pypto.set_cube_tile_shapes([c1_tile[0],
                             c1_tile[1]], [c1_tile[2], c1_tile[3]], [c1_tile[4], c1_tile[5]])
                         kr = gather_in_l1(key_rope_2d,
-                            offset_view, dr, is_b_matrix=True, is_trans=True)
+                            cur_topk_indcies, cur_block_table, block_size, dr, is_b_matrix=True, is_trans=True)
                         q_k_n = pypto.matmul(qn, kn, pypto.DT_FP32, a_trans=False, b_trans=True)
                         q_k_r = pypto.matmul(qr, kr, pypto.DT_FP32, a_trans=False, b_trans=True)
                         
@@ -161,7 +151,7 @@ def sparse_flash_attention_quant_d_compute(query_nope, query_rope, key_nope_2d, 
                         if kn_dtype == pypto.DT_INT8:
                             q1 = pypto.matmul(tilda_pij_f16, vj, pypto.DT_FP32)
                         else:
-                            vj = gather_in_l1(key_nope_2d, offset_view,
+                            vj = gather_in_l1(key_nope_2d, cur_topk_indcies, cur_block_table, block_size,
                                 dn, is_b_matrix=True, is_trans=False)
                             q1 = pypto.matmul(tilda_pij_f16, vj, pypto.DT_FP32)
                         
@@ -212,9 +202,16 @@ def sparse_flash_attention_quant_d_compute(query_nope, query_rope, key_nope_2d, 
 
 
 @pypto.jit
-def sparse_flash_attention_quant_d(in_tensors, out_tensors, n_q, n_kv, softmax_scale, topk, tile_config):
-    query_nope, query_rope, key_nope_2d, key_rope_2d, k_nope_scales, offsets, kv_act_seqs = in_tensors
-    attention_out, = out_tensors
+def sparse_flash_attention_quant_d_compute(in_tensors, out_tensors, n_q, n_kv, softmax_scale, topk, block_size,
+                                           max_blocknum_perbatch, tile_config):
     pypto.set_host_options(only_codegen=True)
-    sparse_flash_attention_quant_d_compute(query_nope, query_rope, key_nope_2d, key_rope_2d, k_nope_scales, 
-            offsets, kv_act_seqs, n_q, n_kv, softmax_scale, topk, attention_out, tile_config)
+    sparse_flash_attention_quant_compute(in_tensors, out_tensors, n_q, n_kv, softmax_scale, topk,
+                                         block_size, max_blocknum_perbatch, tile_config)
+
+
+@pypto.jit
+def sparse_flash_attention_quant_p_compute(in_tensors, out_tensors, n_q, n_kv, softmax_scale, topk, block_size,
+                                           max_blocknum_perbatch, tile_config):
+    pypto.set_host_options(only_codegen=True)
+    sparse_flash_attention_quant_compute(in_tensors, out_tensors, n_q, n_kv, softmax_scale, topk,
+                                         block_size, max_blocknum_perbatch, tile_config)

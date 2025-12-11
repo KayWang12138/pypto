@@ -74,7 +74,7 @@ set(_CaseFilterList
         "TestCodegenUnary.TestVecDup"
         "TestCodegenUnary.TestVecDupUnaligned"
         "TestCodegenUnary.ExpandDim2Axis0TileTensor"
-
+        "TestCodegenGatherInUB.gather_in_a_"
         # distributed
         "TestCodegenDispatch.TestMoeDispatchMultipyExperts"
         "TestCodegenMoeCombine.TestMoeCombine"

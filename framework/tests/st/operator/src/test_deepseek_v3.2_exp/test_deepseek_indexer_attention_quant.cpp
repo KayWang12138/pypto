@@ -68,6 +68,7 @@ void TestDeepSeekIndexerAttentionQuantSTest(DSIASimpleParams &params) {
     readInput<int32_t>(GetGoldenDir() + "/actual_seq.bin", kvCacheActSeqVec);
     int maxSeqAllBatch = *(std::max_element(kvCacheActSeqVec.begin(), kvCacheActSeqVec.end()));
     int maxBlockNumPerBatch = CeilDiv(maxSeqAllBatch, blockSize);
+    params.maxBlockNumPerBatch = maxBlockNumPerBatch;
     std::cout << "========= maxBlockNumPerBatch " << maxBlockNumPerBatch << std::endl;
 
     DataType dType = DT_BF16;
@@ -119,7 +120,6 @@ void TestDeepSeekIndexerAttentionQuantSTest(DSIASimpleParams &params) {
     std::vector<int64_t> qScaleShape = {b * s1, idx_n_heads, 1};
     std::vector<int64_t> weightsShape = {b * s1, params.idx_n_heads};
 
-    std::vector<int64_t> offsetsShape = {b * s1, n2 * topk};
     std::vector<int64_t> indexerTopkShape = {b, s1, n2, topk};
     std::vector<int64_t> indexerTopkTmpOutShape = {b * s1 * n2, maxBlockNumPerBatch * blockSize};
 
@@ -170,7 +170,6 @@ void TestDeepSeekIndexerAttentionQuantSTest(DSIASimpleParams &params) {
     auto debugQScaleOut = CreateConstantDynamicOutputTensor<npu::tile_fwk::float16>(qScaleShape, DT_FP16, "debugQScaleOut", 0, {bSymbol * s1Symbol, idx_n_heads, 1});
     auto debugWeightsOut = CreateConstantDynamicOutputTensor<npu::tile_fwk::float16>(weightsShape, DT_FP16, "debugWeightsOut", 0, {bSymbol * s1Symbol, params.idx_n_heads});
 
-    auto offsetOut = CreateConstantDynamicOutputTensor<int32_t>(offsetsShape, DT_INT32, "offsetOut", 0, {bSymbol * s1Symbol, n2 * topk});
     auto indexerTopkOut = CreateConstantDynamicOutputTensor<int32_t>(indexerTopkShape, DT_INT32, "indexerTopkOut", 0, {bSymbol, s1Symbol, n2, topk});
     auto indexerTopkValueOut = CreateConstantDynamicOutputTensor<float>(indexerTopkShape, DT_FP32, "indexerTopkValueOut", 0, {bSymbol, s1Symbol, n2, topk});
     auto indexerTopkTmpOut = CreateConstantDynamicOutputTensor<float>(indexerTopkTmpOutShape, DT_FP32, "indexerTopkTmpOut", 0, {bSymbol * s1Symbol * n2, maxBlockNumPerBatch * blockSize});
@@ -193,7 +192,6 @@ void TestDeepSeekIndexerAttentionQuantSTest(DSIASimpleParams &params) {
     auto indexerTopkValueGolden = GetGoldenVec<float>(indexerTopkShape, "/topk_value.bin");
     auto indexerTopkTmpOutGolden = GetGoldenVec<float>(indexerTopkTmpOutShape, "/tmp_out.bin");
 
-    auto offsetResGolden = GetGoldenVec<int32_t>(offsetsShape, "/offsets.bin");
     auto saOutResultGolden = GetGoldenVec<T>(saOutShape, "/attn_golden.bin");
 
     // 5.input/outputDataList
@@ -202,7 +200,7 @@ void TestDeepSeekIndexerAttentionQuantSTest(DSIASimpleParams &params) {
 #if QUANT_DSIA_DEBUG == 1
         debugQNopeOut.dataPtr, debugQRopeOut.dataPtr, debugRmsNormOut.dataPtr, debugRmsNormScaleOut.dataPtr,
         debugQInt8Out.dataPtr, debugQScaleOut.dataPtr, debugWeightsOut.dataPtr,
-        offsetOut.dataPtr, indexerTopkOut.dataPtr, indexerTopkValueOut.dataPtr, indexerTopkTmpOut.dataPtr
+        indexerTopkOut.dataPtr, indexerTopkValueOut.dataPtr, indexerTopkTmpOut.dataPtr
 #endif
     };
     std::vector<RawTensorDataPtr> inputDataList = {
@@ -234,7 +232,7 @@ void TestDeepSeekIndexerAttentionQuantSTest(DSIASimpleParams &params) {
                                   // debug
                                   debugQNopeOut.tensor, debugQRopeOut.tensor, debugRmsNormOut.tensor, debugRmsNormScaleOut.tensor,
                                   debugQInt8Out.tensor, debugQScaleOut.tensor, debugWeightsOut.tensor,
-                                  offsetOut.tensor, indexerTopkOut.tensor, indexerTopkValueOut.tensor, indexerTopkTmpOut.tensor
+                                  indexerTopkOut.tensor, indexerTopkValueOut.tensor, indexerTopkTmpOut.tensor
                                   );
 
     // MlaProlog
@@ -246,11 +244,9 @@ void TestDeepSeekIndexerAttentionQuantSTest(DSIASimpleParams &params) {
     uint64_t qInt8OutBuffer = b * s1 * idx_n_heads * idx_head_dim * BytesOf(DT_INT8);
     uint64_t qScaleOutBuffer = b * s1 * idx_n_heads * BytesOf(DT_FP16);
     uint64_t weightOutBuffer = b * s1 * idx_n_heads * BytesOf(DT_FP16);
-    // SelectAttention
-    uint64_t offsetsBuffer = b * s1 * n2 * topk * BytesOf(DT_INT32);
     auto totalBuffer =
         queryNopeOutBuffer + queryRopeOutBuffer + qNormResBuffer + qNormScaleResBuffer +
-        qInt8OutBuffer + qScaleOutBuffer + weightOutBuffer + offsetsBuffer;
+        qInt8OutBuffer + qScaleOutBuffer + weightOutBuffer;
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList,
                        DeviceLauncherConfig(totalBuffer));
 
@@ -295,10 +291,6 @@ void TestDeepSeekIndexerAttentionQuantSTest(DSIASimpleParams &params) {
     std::cout << "indexerTopkRes result ====== " << std::endl;
     EXPECT_TRUE(resultCmp4TopK(indexerTopkResGolden, (int32_t *)indexerTopkOut.dataPtr->data(), topk, 0.0005f));
     // EXPECT_TRUE(resultCmp(indexerTopkResGolden, (int32_t *)indexerTopkOut.dataPtr->data(), 0.0005f, 0, 1000, true));
-
-    // gather select attention debug output
-    std::cout << "offsetRes result ====== " << std::endl;
-    EXPECT_TRUE(resultCmp4TopK(offsetResGolden, (int32_t *)offsetOut.dataPtr->data(), topk, 0.0005f));
 #endif
     std::cout << "selectAtten result ====== " << std::endl;
     EXPECT_TRUE(resultCmp(saOutResultGolden, (T *)dynamicSaOut.dataPtr->data(), 0.005f, 0, 1000));

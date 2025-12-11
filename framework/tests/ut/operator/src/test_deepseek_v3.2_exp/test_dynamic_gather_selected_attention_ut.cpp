@@ -52,17 +52,19 @@ void TestSaUT(const std::vector<int64_t> &input_param, SaTileShapeConfig& tileCo
     int b = input_param.at(0);
     int sq = input_param.at(1);
     int nq = input_param.at(2);
-    int nkv = input_param.at(3);
-    int dn = input_param.at(4);
-    int dr = input_param.at(5);
-    int blockNum = input_param.at(6);
-    int blockSize = input_param.at(7);
-    int topk = input_param.at(8);
-    int isKnQuant = input_param.at(9);
+    int nKv = input_param.at(3);
+    int maxKVSeq = input_param.at(4);
+    int dn = input_param.at(5);
+    int dr = input_param.at(6);
+    int blockNum = input_param.at(7);
+    int blockSize = input_param.at(8);
+    int topk = input_param.at(9);
+    int isKnQuant = input_param.at(10);
     int nQ = nq;
     DataType dType = DT_BF16;
     DataType knDType = DT_BF16;
     if(isKnQuant) knDType = DT_INT8;
+    int maxBlockNumPerBatch = CeilDiv(maxKVSeq, blockSize);
 
     float softmaxScale = static_cast<float>(1.0 / sqrtf((dn + dr)));
     std::vector<int64_t> qNopeShape = {b * sq * nq, dn};
@@ -70,7 +72,8 @@ void TestSaUT(const std::vector<int64_t> &input_param, SaTileShapeConfig& tileCo
     std::vector<int64_t> knShape = {blockNum * blockSize, dn};
     std::vector<int64_t> krShape = {blockNum * blockSize, dr};
     std::vector<int64_t> knScalesShape = {blockNum * blockSize, 4};
-    std::vector<int64_t> offsetsShape = {b * sq, nkv * topk};
+    std::vector<int64_t> topKIndciesShape = {b * sq, nKv * topk};
+    std::vector<int64_t> blockTableShape = {b, maxBlockNumPerBatch};
     std::vector<int64_t> actSeqsShape = {b};
     std::vector<int64_t> saOutShape = {b, sq, nq, dn};
 
@@ -79,25 +82,24 @@ void TestSaUT(const std::vector<int64_t> &input_param, SaTileShapeConfig& tileCo
     Tensor kNope2D(knDType, knShape, "kNope2D");
     Tensor kRope2D(dType, krShape, "kRope2D");
     Tensor kNopeScales(DT_FP32, knScalesShape, "kNopeScales");
-    Tensor offsets(DT_INT32, offsetsShape, "offsets");
+    Tensor topKIndcies(DT_INT32, topKIndciesShape, "topKIndcies");
+    Tensor blockTable(DT_INT32, blockTableShape, "blockTable");
     Tensor kvSlcActSeqs(DT_INT32, actSeqsShape, "kvSlcActSeqs");
-    
     Tensor attentionOut(dType, saOutShape, "attentionOut");
-
-    FUNCTION("R2_SA_MAIN_V2", {qNope, qRope, kNope2D, kRope2D, kNopeScales, offsets, kvSlcActSeqs}, {attentionOut}) {
-        SelectedAttentionComputeV2(qNope, qRope, kNope2D, kRope2D, kNopeScales, 
-                    offsets, kvSlcActSeqs, nQ, nkv, softmaxScale, topk, attentionOut, tileConfig);
-    }
+    SelectedAttentionV2(
+        qNope, qRope, kNope2D, kRope2D, kNopeScales, topKIndcies, blockTable, kvSlcActSeqs, nQ, nKv, softmaxScale, 
+        topk, blockSize, maxBlockNumPerBatch, attentionOut, tileConfig
+    );
 }
 
 TEST_F(DynamicGatherSlcFlashAttnUtest, dsa_gather_slc_attn_bf16_b32_s4) {
     SaTileShapeConfig tileConfig = GetDefaultSaTileShapeConfig(128, 2048);
-    std::vector<int64_t> input_param = {32, 4, 128, 1, 512, 64, 32, 128, 2048, 0};
+    std::vector<int64_t> input_param = {32, 4, 128, 1, 8192, 512, 64, 32, 128, 2048, 0};
     TestSaUT(input_param, tileConfig);
 }
 
 TEST_F(DynamicGatherSlcFlashAttnUtest, dsa_gather_slc_attn_bf16_b32_s4_int8) {
     SaTileShapeConfig tileConfig = GetDefaultSaTileShapeConfig(128, 2048);
-    std::vector<int64_t> input_param = {32, 4, 128, 1, 512, 64, 32, 128, 2048, 1};
+    std::vector<int64_t> input_param = {32, 4, 128, 1, 8192, 512, 64, 32, 128, 2048, 1};
     TestSaUT(input_param, tileConfig);
 }

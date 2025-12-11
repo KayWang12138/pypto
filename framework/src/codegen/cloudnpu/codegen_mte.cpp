@@ -1242,6 +1242,7 @@ std::string CodeGenOpCloudNPU::GenGatherInL1() const {
 
     std::string srcVar = GenGmParamVar(0);
     std::string offsetsVar = GenGmParamVar(1);
+    std::string blockTableVar = GenGmParamVar(2);
     std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
     auto dstRawShapes = rawShape[ID0];
@@ -1259,20 +1260,26 @@ std::string CodeGenOpCloudNPU::GenGatherInL1() const {
     std::string dstDtypeStr = DataType2CCEStr(dstDtype);
     std::string srcDtypeStr = DataType2CCEStr(srcDtype);
     std::string offsetsDtypeStr = DataType2CCEStr(offsetsDtype);
+    std::string blockTableDtypeStr = DataType2CCEStr(operandDtype[ID3]);
 
     ASSERT(dstDtypeStr == srcDtypeStr);
     ASSERT(offsetsDtypeStr == "int64_t" || offsetsDtypeStr == "int32_t");
+    ASSERT(opAttrs.find("op_attr_blocksize") != opAttrs.end()) << "GenGatherOp: There is nop axis attribute here";
+    const int64_t blockSize = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at("op_attr_blocksize"));
 
     auto startOffset = opAttrs.at(OpAttributeKey::startOffset);
     ASSERT(startOffset.HasValue() && (startOffset.Type() == typeid(int64_t)));
     auto srcColumnStartOffset = npu::tile_fwk::AnyCast<int64_t>(startOffset);
+    auto blockTableGMStride = GenParamIdxExprByIndex(2, 2, PREFIX_STR_RAW_SHAPE);
+    auto blockTableStartOffsets = GenParamIdxExprByIndex(2, 2, PREFIX_STR_OFFSET);
 
     auto ret = sprintf_s(buffer, sizeof(buffer),
-        "%s<%s, %s, %lld, %lld, %lld>((__cbuf__ %s *)%s, %s, %s, (__gm__ %s *)%s, %lld, (__gm__ %s *)%s, %s, %s);\n",
-        tileOpName.c_str(), dstDtypeStr.c_str(), offsetsDtypeStr.c_str(), dstRawShapes[ID0], offsetsRawShapes[ID1],
-        srcColumnStartOffset, dstDtypeStr.c_str(), dstVar.c_str(), dstOriShapes[ID0].Dump().c_str(),
+        "%s<%s, %s, %s, %lld, %lld, %lld, %lld>((__cbuf__ %s *)%s, %s, %s, (__gm__ %s *)%s, %lld, (__gm__ %s *)%s, (__gm__ %s *)%s, %s, %s, %s, %s, %s);\n",
+        tileOpName.c_str(), dstDtypeStr.c_str(), offsetsDtypeStr.c_str(), blockTableDtypeStr.c_str(), dstRawShapes[ID0], offsetsRawShapes[ID1],
+        srcColumnStartOffset, blockSize, dstDtypeStr.c_str(), dstVar.c_str(), dstOriShapes[ID0].Dump().c_str(),
         dstOriShapes[ID1].Dump().c_str(), srcDtypeStr.c_str(), srcVar.c_str(), srcRawShapes[1], offsetsDtypeStr.c_str(),
-        offsetsVar.c_str(), offsetsStartOffsets[ID0].c_str(), offsetsStartOffsets[ID1].c_str());
+        offsetsVar.c_str(), blockTableDtypeStr.c_str(), blockTableVar.c_str(), offsetsStartOffsets[ID0].c_str(), offsetsStartOffsets[ID1].c_str(),
+        blockTableGMStride[ID1].c_str(), blockTableStartOffsets[ID0].c_str(), blockTableStartOffsets[ID1].c_str());
 
     ASSERT(ret >= 0) << "GenGatherInL1 sprintf_s failed ";
     std::cout << buffer << std::endl;
@@ -1287,8 +1294,10 @@ std::string CodeGenOpCloudNPU::GenGatherInUB() const {
     std::string resultDtypeStr = DataType2CCEStr(operandDtype[ID0]);
     std::string paramDtypeStr = DataType2CCEStr(operandDtype[ID1]);
     std::string indicesDtypeStr = DataType2CCEStr(operandDtype[ID2]);
+    std::string blockTableDtypeStr = DataType2CCEStr(operandDtype[ID3]);
     ASSERT(resultDtypeStr == paramDtypeStr);
-
+    ASSERT(opAttrs.find("op_attr_blocksize") != opAttrs.end()) << "GenGatherOp: There is nop axis attribute here";
+    const int64_t blockSize = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at("op_attr_blocksize"));
     auto outputRawShapes = rawShape[ID0];
     auto paramRawShapes = rawShape[ID1];
     auto indicesRawShapes = rawShape[ID2];
@@ -1300,38 +1309,44 @@ std::string CodeGenOpCloudNPU::GenGatherInUB() const {
     std::vector<std::string> paramList;
     paramList.emplace_back(paramDtypeStr);
     paramList.emplace_back(indicesDtypeStr);
+    paramList.emplace_back(blockTableDtypeStr);
     paramList.emplace_back(std::to_string(outputRawShapes[0]));
     paramList.emplace_back(std::to_string(outputRawShapes[1]));
+    paramList.emplace_back(std::to_string(blockSize));
     std::string templateParam = JoinString(paramList, ", ");
     paramList.clear();
 
     std::string paramVar = GenGmParamVar(0);
     std::string indicesVar = GenGmParamVar(1);
+    std::string blockTableVar = GenGmParamVar(2);
     std::string outputVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
     std::string outputParamStr = "(__ubuf__ " + resultDtypeStr + "*)" + outputVar;
     std::string paramParamStr = "(__gm__ " + paramDtypeStr + "*)" + paramVar;
     std::string indicesParamStr = "(__gm__ " + indicesDtypeStr + "*)" + indicesVar;
+    std::string blockTableParamStr = "(__gm__ " + blockTableDtypeStr + "*)" + blockTableVar;
     paramList.emplace_back(outputParamStr);
     paramList.emplace_back(paramParamStr);
     paramList.emplace_back(indicesParamStr);
-    paramList.emplace_back("1");
+    paramList.emplace_back(blockTableParamStr);
     paramList.emplace_back(SymbolicExpressionTable::BuildExpression(outputValidShapes[1]));
 
     auto paramGMStride = GenParamIdxExprByIndex(0, 2, PREFIX_STR_RAW_SHAPE);
     auto paramStartOffsets = GenParamIdxExprByIndex(0, 2, PREFIX_STR_OFFSET);
-    paramList.emplace_back(paramGMStride[0]);
     paramList.emplace_back(paramGMStride[1]);
     paramList.emplace_back(paramStartOffsets[0]);
     paramList.emplace_back(paramStartOffsets[1]);
 
-    paramList.emplace_back("1");
     paramList.emplace_back(SymbolicExpressionTable::BuildExpression(outputValidShapes[0]));
     auto indicesGMStride = GenParamIdxExprByIndex(1, 2, PREFIX_STR_RAW_SHAPE);
     auto indicesStartOffsets = GenParamIdxExprByIndex(1, 2, PREFIX_STR_OFFSET);
-    paramList.emplace_back(indicesGMStride[0]);
     paramList.emplace_back(indicesGMStride[1]);
     paramList.emplace_back(indicesStartOffsets[0]);
     paramList.emplace_back(indicesStartOffsets[1]);
+    auto blockTableGMStride = GenParamIdxExprByIndex(2, 2, PREFIX_STR_RAW_SHAPE);
+    auto blockTableStartOffsets = GenParamIdxExprByIndex(2, 2, PREFIX_STR_OFFSET);
+    paramList.emplace_back(blockTableGMStride[1]);
+    paramList.emplace_back(blockTableStartOffsets[0]);
+    paramList.emplace_back(blockTableStartOffsets[1]);
 
     std::string tiloOpCallParam = JoinString(paramList, ", ");
     paramList.clear();

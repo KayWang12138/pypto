@@ -20,9 +20,12 @@ import sys
 import logging
 from pathlib import Path
 from typing import List
+
 import numpy as np
 import torch
 from ml_dtypes import bfloat16
+
+from gen_mla_prolog_quant_golden_v32 import gen_block_table
 
 if __name__ == "__main__":
     """ 单独调试时配置 """
@@ -106,14 +109,16 @@ def compute_attention(input_data, params):
     计算注意力机制，支持不同批次的序列长度不同
     使用PyTorch实现
     """
-    q, kn, kr, kn_scales, offsets, actual_seq = input_data
-    scalar, topk, d_v, is_kn_quant = params
+    q, kn, kr, kn_scales, topk_indcies, block_table, actual_seq = input_data
+    block_size, scalar, topk, d_v, is_kn_quant = params
     # 提取维度信息
     b, s1, n1, dq = q.shape
     _, dk = kn.shape
     _, dv = kr.shape
 
     s2_tile = 2048
+    if topk_indcies.ndim > 2:
+        topk_indcies = topk_indcies.reshape(b * s1, topk)
 
     atten_out_shape = [b, s1, n1, d_v]
     input_dtype = q.dtype
@@ -135,16 +140,28 @@ def compute_attention(input_data, params):
                 s2_tile_cur = min(s2_tile, cur_seq - s2_idx * s2_tile)
                 s2_start = s2_tile * s2_idx
                 s2_end = s2_start + s2_tile_cur
-                offset = offsets[b_idx * s1 + s1_idx, s2_start:s2_end]
+                cur_bs1_idx = b_idx * s1 + s1_idx
+                topk_indcies_tmp = topk_indcies[cur_bs1_idx, s2_start:s2_end]
                 slc_kn = torch.zeros([s2_tile_cur, dk], dtype=kn_dtype)
                 slc_kr = torch.zeros([s2_tile_cur, dv], dtype=input_dtype)
                 slc_kn_scales = torch.zeros([s2_tile_cur, 4], dtype=torch.float32)
-                for idx in range(s2_tile_cur):
-                    s2_idx_tmp = s2_start + idx
-                    slc_idx = offset[s2_idx_tmp]
-                    slc_kn[s2_idx_tmp, :] = kn[slc_idx, :]
-                    slc_kr[s2_idx_tmp, :] = kr[slc_idx, :]
-                    slc_kn_scales[s2_idx_tmp, :] = kn_scales[slc_idx, :]
+
+                # 当前b&s1&s2 topk_index  --->  kvCache的offset
+                offset = torch.zeros([s2_tile_cur], dtype=torch.int32)
+                for cur_s2_idx in range(s2_tile_cur):
+                    s2_idx_tmp = s2_start + cur_s2_idx
+                    topk_index = topk_indcies_tmp[s2_idx_tmp]
+                    block_idx_in_batch = topk_index // block_size
+                    slc_block_idx = block_table[b_idx, block_idx_in_batch]
+                    tail = topk_index % block_size
+                    offset[cur_s2_idx] = slc_block_idx * block_size + tail
+
+                # 索引 kvCache
+                for cur_s2_idx in range(s2_tile_cur):
+                    slc_idx = offset[cur_s2_idx]
+                    slc_kn[cur_s2_idx, :] = kn[slc_idx, :]
+                    slc_kr[cur_s2_idx, :] = kr[slc_idx, :]
+                    slc_kn_scales[cur_s2_idx, :] = kn_scales[slc_idx, :]
                 
                 qn_tmp = qi[..., :dk]
                 qr_tmp = qi[..., dk:]
@@ -246,15 +263,20 @@ def gen_dsa_gather_sa_entry(dtype, bn1n2s1, is_kn_quant, actual_seq, output):
     shape_kn = [block_num, block_size, kv_lora_rank]
     shape_kr = [block_num, block_size, qk_rope_dim]
 
+    max_kv_seq = max(actual_seq)
+    block_num, block_table = gen_block_table(torch.tensor(actual_seq), block_size, s_q, need_indices=False)
+    topk_indcies = torch.zeros(b, s_q, topk).to(torch.int32)
     slc_actual_seq = []
     for i in range(b):
         slc_actual_seq.append(min(actual_seq[i], topk))
-    offsets = torch.zeros(b, s_q, topk).to(torch.int32)
     for b_i in range(b):
         for s_q_i in range(s_q):
-            perm = torch.randperm(block_num * block_size)
-            offsets[b_i, s_q_i, :slc_actual_seq[b_i]] = perm[:slc_actual_seq[b_i]]
-    offsets = offsets.reshape(b * s_q, n_kv * topk)
+            if slc_actual_seq[b_i] < topk:
+                topk_indcies[b_i, s_q_i, :slc_actual_seq[b_i]] = torch.arange(0, slc_actual_seq[b_i])
+            else:
+                perm = torch.randperm(slc_actual_seq[b_i])
+                topk_indcies[b_i, s_q_i, :] = perm[:topk]
+    topk_indcies = topk_indcies.reshape(b * s_q, n_kv * topk)
 
     q_bsnd = gen_uniform_data(shape_q, -1, 1, dtype)
     kn_bsnd_tmp = gen_uniform_data(shape_kn, -1, 1, dtype)
@@ -273,8 +295,8 @@ def gen_dsa_gather_sa_entry(dtype, bn1n2s1, is_kn_quant, actual_seq, output):
     kr = kr.reshape(block_num * block_size, qk_rope_dim)
 
     # 3. 计算attention
-    params = [scalar, topk, kv_lora_rank, is_kn_quant]
-    input_data = [q_bsnd, kn, kr, kn_scales, offsets, actual_seq]
+    params = [block_size, scalar, topk, kv_lora_rank, is_kn_quant]
+    input_data = [q_bsnd, kn, kr, kn_scales, topk_indcies, block_table, actual_seq]
     atten_out, tmp_out = compute_attention(input_data, params)
 
     # 4.dump 数据
@@ -284,17 +306,14 @@ def gen_dsa_gather_sa_entry(dtype, bn1n2s1, is_kn_quant, actual_seq, output):
     q_nope = q_nope.reshape(b * s_q * n_q, kv_lora_rank)
     q_rope = q_rope.reshape(b * s_q * n_q, qk_rope_dim)
     # input params
-    input_params = [b, s_q, n_q, n_kv, kv_lora_rank, qk_rope_dim, block_num, block_size, topk, is_kn_quant]
-    kn_aux_tensor = torch.eye(512, dtype=torch.float32).to(torch.int8)
-    scale_aux_tensor = torch.eye(4, dtype=torch.float32)
+    input_params = [b, s_q, n_q, n_kv, max_kv_seq, kv_lora_rank, qk_rope_dim, block_num, block_size, topk, is_kn_quant]
     q_nope_path = Path(output, 'q_nope.bin')
     q_rope_path = Path(output, 'q_rope.bin')
     kn_path = Path(output, 'k_nope.bin')
-    kn_aux_tensor_path = Path(output, 'knAuxTensor.bin')
-    scale_aux_tensor_path = Path(output, 'scaleAuxTensor.bin')
     kr_path = Path(output, 'k_rope.bin')
     kn_scales_path = Path(output, 'kn_scales.bin')
-    offsets_path = Path(output, 'offsets.bin')
+    topk_indcies_path = Path(output, 'topk_indcies.bin')
+    block_table_path = Path(output, 'block_table.bin')
     actual_seq_path = Path(output, 'actual_seq.bin')
     atten_out_path = Path(output, 'atten_out.bin')
     input_param_path = Path(output, 'input_param.bin')
@@ -302,11 +321,10 @@ def gen_dsa_gather_sa_entry(dtype, bn1n2s1, is_kn_quant, actual_seq, output):
     dump_file(q_nope, q_nope_path, dtype)
     dump_file(q_rope, q_rope_path, dtype)
     dump_file(kn, kn_path, kn.dtype)
-    dump_file(kn_aux_tensor, kn_aux_tensor_path, torch.int8)
-    dump_file(scale_aux_tensor, scale_aux_tensor_path, torch.float32)
     dump_file(kr, kr_path, dtype)
     dump_file(kn_scales, kn_scales_path, kn_scales.dtype)
-    dump_file(offsets, offsets_path, torch.int32)
+    dump_file(topk_indcies, topk_indcies_path, torch.int32)
+    dump_file(block_table, block_table_path, torch.int32)
     dump_file(actual_seq, actual_seq_path, torch.int32)
     dump_file(atten_out, atten_out_path, dtype)
     dump_file(input_params, input_param_path, torch.int32)

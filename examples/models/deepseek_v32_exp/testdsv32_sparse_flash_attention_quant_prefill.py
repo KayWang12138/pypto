@@ -11,27 +11,16 @@
 """
 """
 from dataclasses import dataclass
-import math
-import pypto
-import torch
-import torch_npu
 import os
 import math
-from pathlib import Path
-from sparse_flash_attention_quant_prefill import sparse_flash_attention_quant_p_compute
+import math
+import pypto
 import pytest
+import torch
 import numpy as np
-import logging
 from numpy.testing import assert_allclose
-
-@dataclass
-class SaTileShapeConfig:
-    g_tile: int
-    s_kv_tile: int
-    c1_tile_shape: list
-    v1_tile_shape: list
-    c2_tile_shape: list
-    v2_tile_shape: list
+import logging
+from sparse_flash_attention_quant import sparse_flash_attention_quant_p_compute, SaTileShapeConfig
 
 
 def gen_uniform_data(data_shape, min_value, max_value, dtype):
@@ -67,119 +56,175 @@ def softmax(x, input_dtype):
     ans = y
     return ans, x_sum, x_max
 
+
 def compute_attention(input_data, params):
     """
     计算注意力机制，支持不同批次的序列长度不同
     使用PyTorch实现
     """
-    q, kn, kr, kn_scales, offsets, actual_seq = input_data
-    scalar, topk, d_v, is_kn_quant = params
+    q, kn, kr, kn_scales, topk_indcies, block_table, actual_seq = input_data
+    block_size, scalar, topk, d_v, is_kn_quant = params
+
     # 提取维度信息
-    t, n1, dq = q.shape
+    b, s1, n1, dq = q.shape
     _, dk = kn.shape
     _, dv = kr.shape
-    b = len(actual_seq)
-    s1 = t // b
+
     s2_tile = 2048
 
-    atten_out_shape = [t, n1, d_v]
+    if topk_indcies.ndim > 2:
+        topk_indcies = topk_indcies.reshape(b * s1, topk)
+
+    atten_out_shape = [b, s1, n1, d_v]
     input_dtype = q.dtype
     kn_dtype = kn.dtype
 
     # 初始化输出张量
     attention_output = torch.zeros(atten_out_shape, dtype=input_dtype)
-    tmp_out = torch.zeros([t, n1], dtype=input_dtype)
+    tmp_out = torch.zeros([b, s1, n1], dtype=input_dtype)
 
-    for t_idx in range(t):
-        b_idx = t_idx // s1
-        s1_idx = t_idx % s1
+    for b_idx in range(b):
         cur_k_seq = actual_seq[b_idx]
-        cur_seq = min(max(cur_k_seq - s1 + 1 + s1_idx, 0), topk)
-        bn_per_batch = math.ceil(cur_seq / s2_tile)
+        for s1_idx in range(s1):
+            cur_seq = min(max(cur_k_seq - s1 + 1 + s1_idx, 0), topk)
+            bn_per_batch = math.ceil(cur_seq / s2_tile)
 
-        qi = q[t_idx, :, :] # (n1, dk)
+            qi = q[b_idx, s1_idx, :, :] # (n1, dk)
 
-        for s2_idx in range(bn_per_batch):
-            s2_tile_cur = min(s2_tile, cur_seq - s2_idx * s2_tile)
-            s2_start = s2_tile * s2_idx
-            s2_end = s2_start + s2_tile_cur
-            offset = offsets[t_idx, s2_start:s2_end]
-            slc_kn = torch.zeros([s2_tile_cur, dk], dtype=kn_dtype)
-            slc_kr = torch.zeros([s2_tile_cur, dv], dtype=input_dtype)
-            slc_kn_scales = torch.zeros([s2_tile_cur, 4], dtype=torch.float32)
-            for idx in range(s2_tile_cur):
-                s2_idx_tmp = s2_start + idx
-                slc_idx = offset[s2_idx_tmp]
-                slc_kn[s2_idx_tmp, :] = kn[slc_idx, :]
-                slc_kr[s2_idx_tmp, :] = kr[slc_idx, :]
-                slc_kn_scales[s2_idx_tmp, :] = kn_scales[slc_idx, :]
+            for s2_idx in range(bn_per_batch):
+                s2_tile_cur = min(s2_tile, cur_seq - s2_idx * s2_tile)
+                s2_start = s2_tile * s2_idx
+                s2_end = s2_start + s2_tile_cur
 
-            qn_tmp = qi[..., :dk]
-            qr_tmp = qi[..., dk:]
-            if is_kn_quant:
-                kn_bs = slc_kn.reshape(-1, 128).to(torch.float)
-                kn_scales_tmp = slc_kn_scales.reshape(-1, 1)
-                kn_tmp = kn_bs * kn_scales_tmp
-                kn_tmp = kn_tmp.reshape(-1, 512).to(input_dtype)
-            else:
-                kn_tmp = slc_kn
-            kr_tmp = slc_kr
-            vj = kn_tmp
+                topk_indcies_tmp = topk_indcies[b_idx * s1 + s1_idx, s2_start:s2_end]
 
-            # C1
-            qkn_bmm = torch.matmul(qn_tmp, kn_tmp.transpose(1, 0)).to(torch.float)
-            qkr_bmm = torch.matmul(qr_tmp, kr_tmp.transpose(1, 0)).to(torch.float)
+                slc_kn = torch.zeros([s2_tile_cur, dk], dtype=kn_dtype)
+                slc_kr = torch.zeros([s2_tile_cur, dv], dtype=input_dtype)
+                slc_kn_scales = torch.zeros([s2_tile_cur, 4], dtype=torch.float32)
 
-            sij = qkn_bmm + qkr_bmm
-            sij_scale = sij * scalar # (n1, s2_tile)
-            tilda_mij = sij_scale.amax(dim=-1, keepdims=True) # (n1, 1)
-            t_sub = sij_scale - tilda_mij # (n1, s2_tile)
-            tilda_pij = torch.exp(t_sub) # (n1, s2_tile)
-            tilda_pij_f16 = tilda_pij.to(input_dtype)
-            q1 = torch.matmul(tilda_pij_f16, vj)
-            tilda_lij = tilda_pij.sum(dim=-1, keepdims=True) # (n1, 1)
+                # 当前b&s1&s2 topk_index  --->  kvCache的offset
+                offset = torch.zeros([s2_tile_cur], dtype=torch.int32)
+                for cur_s2_idx in range(s2_tile_cur):
+                    s2_idx_tmp = s2_start + cur_s2_idx
+                    topk_index = topk_indcies_tmp[s2_idx_tmp]
+                    block_idx_in_batch = topk_index // block_size
+                    slc_block_idx = block_table[b_idx, block_idx_in_batch]
+                    tail = topk_index % block_size
+                    offset[cur_s2_idx] = slc_block_idx * block_size + tail
 
-            if s2_idx == 0:
-                oi_tmp = q1
-                if bn_per_batch == 1:
-                    oi_update = oi_tmp / tilda_lij
+                # 索引 kvCache
+                for cur_s2_idx in range(s2_tile_cur):
+                    slc_idx = offset[cur_s2_idx]
+                    slc_kn[cur_s2_idx, :] = kn[slc_idx, :]
+                    slc_kr[cur_s2_idx, :] = kr[slc_idx, :]
+                    slc_kn_scales[cur_s2_idx, :] = kn_scales[slc_idx, :]
+                qn_tmp = qi[..., :dk]
+                qr_tmp = qi[..., dk:]
+                if is_kn_quant:
+                    kn_bs = slc_kn.reshape(-1, 128).to(torch.float)
+                    kn_scales_tmp = slc_kn_scales.reshape(-1, 1)
+                    kn_tmp = kn_bs * kn_scales_tmp
+                    kn_tmp = kn_tmp.reshape(-1, 512).to(input_dtype)
+                else:
+                    kn_tmp = slc_kn
+                kr_tmp = slc_kr
+                vj = kn_tmp
+
+                # C1
+                qkn_bmm = torch.matmul(qn_tmp, kn_tmp.transpose(1, 0)).to(torch.float)
+                qkr_bmm = torch.matmul(qr_tmp, kr_tmp.transpose(1, 0)).to(torch.float)
+
+                sij = qkn_bmm + qkr_bmm
+                sij_scale = sij * scalar # (n1, s2_tile)
+                tilda_mij = sij_scale.amax(dim=-1, keepdims=True) # (n1, 1)
+                t_sub = sij_scale - tilda_mij # (n1, s2_tile)
+                tilda_pij = torch.exp(t_sub) # (n1, s2_tile)
+                tilda_pij_f16 = tilda_pij.to(input_dtype)
+                q1 = torch.matmul(tilda_pij_f16, vj)
+                tilda_lij = tilda_pij.sum(dim=-1, keepdims=True) # (n1, 1)
+
+                if s2_idx == 0:
+                    oi_tmp = q1
+                    if bn_per_batch == 1:
+                        oi_update = oi_tmp / tilda_lij
+                    else:
+                        oi_update = oi_tmp
+                    li_update = tilda_lij
+                    mi_update = tilda_mij
+                    tmp_out[b_idx, s1_idx, :] = tilda_lij.reshape(n1)
+                    continue
+
+                oi = oi_update
+                li = li_update
+                mi = mi_update
+
+                mi_new = torch.maximum(mi, tilda_mij)
+                t1 = mi - mi_new
+                t2 = torch.exp(t1)
+                t3 = tilda_mij - mi_new
+                t4 = torch.exp(t3)
+                t5 = t4 * tilda_lij
+                t6 = t2 * li
+                li_new = t6 + t5
+                q3 = oi * t2
+                q2 = q1 * t4
+                oi_tmp = q3 + q2
+                if s2_idx == bn_per_batch - 1:
+                    oi_update = oi_tmp / li_new
                 else:
                     oi_update = oi_tmp
-                li_update = tilda_lij
-                mi_update = tilda_mij
-                tmp_out[t_idx, :] = tilda_lij.reshape(n1)
-                continue
+                li_update = li_new
+                mi_update = mi_new
 
-            oi = oi_update
-            li = li_update
-            mi = mi_update
-
-            mi_new = torch.maximum(mi, tilda_mij)
-            t1 = mi - mi_new
-            t2 = torch.exp(t1)
-            t3 = tilda_mij - mi_new
-            t4 = torch.exp(t3)
-            t5 = t4 * tilda_lij
-            t6 = t2 * li
-            li_new = t6 + t5
-            q3 = oi * t2
-            q2 = q1 * t4
-            oi_tmp = q3 + q2
-            if s2_idx == bn_per_batch - 1:
-                oi_update = oi_tmp / li_new
-            else:
-                oi_update = oi_tmp
-            li_update = li_new
-            mi_update = mi_new
-
-        attention_output[t_idx, :, :] = oi_update
+            attention_output[b_idx, s1_idx, :, :] = oi_update
 
     return attention_output, tmp_out
+
+
+def gen_block_table(act_seq, block_size, s1, need_indices=False):
+    b = act_seq.shape[0]
+    block_num_each = []
+    block_num = 0
+    max_kv = max(act_seq)
+    for cur_s in act_seq:
+        cur_block_num = math.ceil(cur_s / block_size)
+        block_num_each.append(cur_block_num)
+        block_num += cur_block_num
+    block_table_shape = [b, math.ceil(max_kv / block_size)]
+    block_idx_list = torch.arange(0, block_num, 1)
+    block_idx_list = block_idx_list[torch.randperm(block_idx_list.size(0))].to(torch.int32)
+    block_table = -torch.ones(block_table_shape, dtype=torch.int32)
+
+    block_idx = 0
+    block_table_bidx = 0
+    for cur_block in block_num_each:
+        for j in range(cur_block):
+            block_table[block_table_bidx, j] = block_idx_list[block_idx]
+            block_idx += 1
+        block_table_bidx += 1
+
+    if need_indices:
+        cache_index = -torch.ones((b, s1), dtype=torch.int64)
+        for b_idx in range(b):
+            cur_act = act_seq[b_idx]
+            for s1_idx in range(s1):
+                pos = cur_act - s1 + s1_idx
+                block_idx_in_seq = pos // block_size
+                global_block_id = block_table[b_idx, block_idx_in_seq]
+
+                offset_in_block = pos % block_size
+                global_index = global_block_id * block_size + offset_in_block
+                cache_index[b_idx, s1_idx] = global_index
+    else:
+        cache_index = None
+
+    return block_num, block_table, cache_index
+
 
 def gen_gather_select_attention_golden(dtype, bn1n2s1, is_kn_quant, actual_seq):
     block_size = 128
     torch.manual_seed(42)
-    b, n1, nkv, s_q = bn1n2s1  # 48, 128, 1, 1
+    b, n_q, n_kv, s_q = bn1n2s1  # 48, 128, 1, 1
     kv_lora_rank = 512
     qk_rope_dim = 64
     topk = 2048
@@ -200,10 +245,9 @@ def gen_gather_select_attention_golden(dtype, bn1n2s1, is_kn_quant, actual_seq):
             raise RuntimeError("unsupported actual_seq list length")
     else:
         raise RuntimeError("unsupported actual_seq data type")
-    # 1. 定义shape
 
-    t = b * s_q
-    shape_q = [t, n1, d_q]
+    # 1. 定义shape
+    shape_q = [b, s_q, n_q, d_q]
 
     block_num_per_batch = []
     block_num_min = 0
@@ -216,18 +260,24 @@ def gen_gather_select_attention_golden(dtype, bn1n2s1, is_kn_quant, actual_seq):
     shape_kn = [block_num, block_size, kv_lora_rank]
     shape_kr = [block_num, block_size, qk_rope_dim]
 
+    max_kv_seq = max(actual_seq)
+    block_num, block_table, _ = gen_block_table(torch.tensor(actual_seq), block_size, s_q, need_indices=False)
+    topk_indcies = torch.zeros(b, s_q, topk).to(torch.int32)
+
     slc_actual_seq = []
     for i in range(b):
         slc_actual_seq.append(min(actual_seq[i], topk))
 
-    offsets = torch.zeros(t, topk).to(torch.int32)
+    for b_i in range(b):
+        for s_q_i in range(s_q):
 
-    for t_i in range(t):
-        b_i = t_i // s_q
-        perm = torch.randperm(block_num * block_size)
-        offsets[t_i, :slc_actual_seq[b_i]] = perm[:slc_actual_seq[b_i]]
+            if slc_actual_seq[b_i] < topk:
+                topk_indcies[b_i, s_q_i, :slc_actual_seq[b_i]] = torch.arange(0, slc_actual_seq[b_i])
+            else:
+                perm = torch.randperm(slc_actual_seq[b_i])
+                topk_indcies[b_i, s_q_i, :] = perm[:topk]
 
-    offsets = offsets.reshape(t, nkv * topk)
+    topk_indcies = topk_indcies.reshape(b * s_q, n_kv * topk)
 
     q_bsnd = gen_uniform_data(shape_q, -1, 1, dtype)
     kn_bsnd_tmp = gen_uniform_data(shape_kn, -1, 1, dtype)
@@ -246,37 +296,33 @@ def gen_gather_select_attention_golden(dtype, bn1n2s1, is_kn_quant, actual_seq):
     kr = kr.reshape(block_num * block_size, qk_rope_dim)
 
     # 3. 计算attention
-    params = [scalar, topk, kv_lora_rank, is_kn_quant]
-    input_data = [q_bsnd, kn, kr, kn_scales, offsets, actual_seq]
+    params = [block_size, scalar, topk, kv_lora_rank, is_kn_quant]
+    input_data = [q_bsnd, kn, kr, kn_scales, topk_indcies, block_table, actual_seq]
     atten_out, tmp_out = compute_attention(input_data, params)
 
     # 4.dump 数据
     # data split to [nope + rope]
-    q_nope = q_bsnd[:, :, :kv_lora_rank]
-    q_rope = q_bsnd[:, :, kv_lora_rank:]
-    q_nope = q_nope.reshape(t * n1, kv_lora_rank)
-    q_rope = q_rope.reshape(t * n1, qk_rope_dim)
+    q_nope = q_bsnd[:, :, :, :kv_lora_rank]
+    q_rope = q_bsnd[:, :, :, kv_lora_rank:]
+    q_nope = q_nope.reshape(b * s_q * n_q, kv_lora_rank)
+    q_rope = q_rope.reshape(b * s_q * n_q, qk_rope_dim)
 
-    # input params
-    input_params = [b, s_q, n1, nkv, kv_lora_rank, qk_rope_dim, block_num, block_size, topk, is_kn_quant, scalar]
-    kn_aux_tensor = torch.eye(512, dtype=torch.float32).to(torch.int8)
-    scale_aux_tensor = torch.eye(4, dtype=torch.float32)
-    input_data_map = [q_nope, q_rope, kn, kr, kn_scales, offsets, actual_seq]
+    input_params = [b, s_q, n_q, n_kv, max_kv_seq, kv_lora_rank, qk_rope_dim, block_num, block_size, topk,
+                    is_kn_quant, scalar]
+    input_data_map = [q_nope, q_rope, kn, kr, kn_scales, topk_indcies, block_table, actual_seq]
     
-    return input_params, kn_aux_tensor, scale_aux_tensor, input_data_map, atten_out
+    return input_params, input_data_map, atten_out
 
 
 def do_test_QSFA_p(case_name: str):
     bn1n2s1 = (4, 128, 1, 2)
     is_kn_quant = 1
     actual_seq = [666, 532, 768, 900]
-    print("============bn1n2s1 is: ===================== 111")
-    if case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s2_seqTest1_int8":
+    if case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s2_seqtest1_int8":
         bn1n2s1 = (4, 128, 1, 2)
         is_kn_quant = 1
         actual_seq = [666, 532, 768, 900]
     elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b32_s1_seq511":
-        print("============bn1n2s1 is: ===================== 222")
         # bn1n2s1数据: b, n_q, n_kv, s_q; n_kv=1
         bn1n2s1 = (32, 128, 1, 1)
         # 0为kn非量化情况，1为kn量化情况
@@ -318,14 +364,6 @@ def do_test_QSFA_p(case_name: str):
         bn1n2s1 = (1, 128, 1, 512)
         is_kn_quant = 1
         actual_seq = [2047]
-    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b128_s1_seq8k":
-        bn1n2s1 = (128, 128, 1, 1)
-        is_kn_quant = 0
-        actual_seq = [8096] * 128
-    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b128_s1_seq8k_int8":
-        bn1n2s1 = (128, 128, 1, 1)
-        is_kn_quant = 1
-        actual_seq = [8096] * 128
     elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seq128k":
         bn1n2s1 = (8, 128, 1, 1)
         is_kn_quant = 0
@@ -334,27 +372,19 @@ def do_test_QSFA_p(case_name: str):
         bn1n2s1 = (8, 128, 1, 1)
         is_kn_quant = 1
         actual_seq = [131072] * 8
-    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s1_seqTest1":
+    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s1_seqtest1":
         bn1n2s1 = (4, 128, 1, 1)
         is_kn_quant = 0
         actual_seq = [666, 532, 768, 900]
-    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s1_seqTest1_int8":
+    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s1_seqtest1_int8":
         bn1n2s1 = (4, 128, 1, 1)
         is_kn_quant = 1
         actual_seq = [666, 532, 768, 900]
-    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seqTest2":
-        bn1n2s1 = (8, 128, 1, 1)
-        is_kn_quant = 0
-        actual_seq = [666, 532, 768, 900, 5698, 2358, 324, 2048]
-    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seqTest2_int8":
-        bn1n2s1 = (8, 128, 1, 1)
-        is_kn_quant = 1
-        actual_seq = [666, 532, 768, 900, 5698, 2358, 324, 2048]
-    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s4_seqTest2":
+    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s4_seqtest2":
         bn1n2s1 = (8, 128, 1, 4)
         is_kn_quant = 0
         actual_seq = [666, 532, 768, 900, 5698, 2358, 324, 2048]
-    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s4_seqTest2_int8":
+    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s4_seqtest2_int8":
         bn1n2s1 = (8, 128, 1, 4)
         is_kn_quant = 1
         actual_seq = [666, 532, 768, 900, 5698, 2358, 324, 2048]
@@ -369,10 +399,11 @@ def do_test_QSFA_p(case_name: str):
     print("============actual_seq is: =====================")
     print(actual_seq)
 
-    input_params, kn_aux_tensor, scale_aux_tensor, input_data, atten_out = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq)
+    input_params, input_data, atten_out = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1,
+                                                                                          is_kn_quant, actual_seq)
    
     b, n1, n2, s1 = bn1n2s1
-    torch.npu.set_device(0)
+    torch.npu.set_device(8)
 
     tile_config = SaTileShapeConfig(
         g_tile=128,
@@ -383,29 +414,50 @@ def do_test_QSFA_p(case_name: str):
         v2_tile_shape=[16, 128]
     )
     
-    # t = b * s1
-    b, s1, n1, nkv, kv_lora_rank, qk_rope_dim, block_num, block_size, topk, is_kn_quant, softmax_scale = input_params
-    q_nope, q_rope, kn, kr, kn_scales, offsets, kv_actual_seqs = input_data
+    b, s1, n_q, n_kv, max_kv_seq, kv_lora_rank, qk_rope_dim, block_num, block_size, \
+        topk, is_kn_quant, softmax_scale = input_params
+    q_nope, q_rope, kn, kr, kn_scales, topk_indcies, block_table, kv_actual_seqs = input_data
 
-    t = b * s1
-    calc_attention_out = torch.zeros([t, n1, kv_lora_rank], dtype=torch.bfloat16)
+    calc_attention_out = torch.zeros([b, s1, n_q, kv_lora_rank], dtype=torch.bfloat16)
 
     kv_act_seqs = torch.tensor(actual_seq, dtype=torch.int32)
-    input_data_npu = [tmp.npu() for tmp in [q_nope, q_rope, kn, kr, kn_scales, offsets, kv_act_seqs]]
-    output_data_npu = [t.npu() for t in [calc_attention_out]]
 
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(input_data_npu)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(output_data_npu)]
+    q_nope_npu = q_nope.npu()
+    q_nope_pto = pypto.from_torch(q_nope_npu, dynamic_axis=[0], name="q_nope")
+    q_rope_npu = q_rope.npu()
+    q_rope_pto = pypto.from_torch(q_rope_npu, dynamic_axis=[0], name="q_rope")
+    kn_npu = kn.npu()
+    kn_pto = pypto.from_torch(kn_npu, name="kn")
+    kr_npu = kr.npu()
+    kr_pto = pypto.from_torch(kr_npu, name="kr")
+    kn_scales_npu = kn_scales.npu()
+    kn_scales_pto = pypto.from_torch(kn_scales_npu, name="kn_scales")
+    topk_indcies_npu = topk_indcies.npu()
+    topk_indcies_pto = pypto.from_torch(topk_indcies_npu, dynamic_axis=[0], name="topk_indcies")
+    block_table_npu = block_table.npu()
+    block_table_pto = pypto.from_torch(block_table_npu, dynamic_axis=[0], name="block_table")
+    kv_act_seqs_npu = kv_act_seqs.npu()
+    kv_act_seqs_pto = pypto.from_torch(kv_act_seqs_npu, dynamic_axis=[0], name="kv_act_seqs")
 
-    sparse_flash_attention_quant_p_compute(pto_inputs, pto_outputs, n1, nkv, softmax_scale, topk, tile_config)
-    
+    calc_attention_out_npu = calc_attention_out.npu()
+    calc_attention_out_pto = pypto.from_torch(calc_attention_out_npu, dynamic_axis=[0], name="calc_attention_out")
+
+    pto_inputs = [q_nope_pto, q_rope_pto, kn_pto, kr_pto, kn_scales_pto, topk_indcies_pto, block_table_pto,
+                  kv_act_seqs_pto]
+    pto_outputs = [calc_attention_out_pto]
+
+    max_blocknum_perbatch = math.ceil(max_kv_seq / block_size)
+    sparse_flash_attention_quant_p_compute(pto_inputs, pto_outputs, n_q, n_kv, softmax_scale, topk, block_size,
+                                           max_blocknum_perbatch, tile_config)
+
     pypto.runtime._device_synchronize()
-    assert_allclose(np.array(output_data_npu[0].cpu().flatten().tolist()), np.array(atten_out.cpu().flatten().tolist()), rtol=0.005, atol=0.005)
+    assert_allclose(np.array(calc_attention_out_npu.cpu().flatten().tolist()),
+                    np.array(atten_out.cpu().flatten().tolist()), rtol=0.005, atol=0.005)
 
 
 @pytest.mark.skip(reason='perf')
-def test_QSFA_p_bf16_b4_s2_seqTest1_int8():
-    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s2_seqTest1_int8")
+def test_QSFA_p_bf16_b4_s2_seqtest1_int8():
+    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s2_seqtest1_int8")
 
 
 @pytest.mark.skip(reason='perf')
@@ -458,16 +510,6 @@ def test_QSFA_p_bf16_bf16_b1_s512_seq2047_int8():
 
 
 @pytest.mark.skip(reason='perf')
-def test_QSFA_p_bf16_b128_s1_seq8k():
-    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b128_s1_seq8k")
-
-
-@pytest.mark.skip(reason='perf')
-def test_QSFA_p_bf16_b128_s1_seq8k_int8():
-    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b128_s1_seq8k_int8")
-
-
-@pytest.mark.skip(reason='perf')
 def test_QSFA_p_bf16_b8_s1_seq128k():
     do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seq128k")
 
@@ -478,32 +520,22 @@ def test_QSFA_p_bf16_b8_s1_seq128k_int8():
 
 
 @pytest.mark.skip(reason='perf')
-def test_QSFA_p_bf16_b4_s1_seqTest1():
-    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s1_seqTest1")
+def test_QSFA_p_bf16_b4_s1_seqtest1():
+    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s1_seqtest1")
 
 
 @pytest.mark.skip(reason='perf')
-def test_QSFA_p_bf16_b4_s1_seqTest1_int8():
-    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s1_seqTest1_int8")
+def test_QSFA_p_bf16_b4_s1_seqtest1_int8():
+    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s1_seqtest1_int8")
+
+
+def test_QSFA_p_bf16_b8_s4_seqtest2():
+    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s4_seqtest2")
 
 
 @pytest.mark.skip(reason='perf')
-def test_QSFA_p_bf16_b4_s1_seqTest2():
-    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seqTest2")
-
-
-@pytest.mark.skip(reason='perf')
-def test_QSFA_p_bf16_b4_s1_seqTest2_int8():
-    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seqTest2_int8")
-
-
-def test_QSFA_p_bf16_b8_s4_seqTest2():
-    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s4_seqTest2")
-
-
-@pytest.mark.skip(reason='perf')
-def test_QSFA_p_bf16_b8_s4_seqTest1_int8():
-    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s4_seqTest2_int8")
+def test_QSFA_p_bf16_b8_s4_seqtest2_int8():
+    do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s4_seqtest2_int8")
 
 
 if __name__ == "__main__":
@@ -512,4 +544,4 @@ if __name__ == "__main__":
         level=logging.INFO
     )
     test_QSFA_p_bf16_b1_s3_seq2047_int8()
-    test_QSFA_p_bf16_b8_s4_seqTest2()
+    test_QSFA_p_bf16_b8_s4_seqtest2()

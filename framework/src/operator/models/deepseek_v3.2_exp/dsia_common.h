@@ -130,6 +130,7 @@ struct DSIASimpleParams {
     int idxHeadDim;
     int idxHeadNum;
     int blockNum;
+    int maxBlockNumPerBatch;
 
     float eps;
     MlaTileConfig mlaTileCfg;

@@ -309,26 +309,29 @@ void bind_operation(py::module &m) {
         py::arg("extend_params"), "Matrix multiply with extend param.");
      m.def(
         "gather_in_l1",
-        [](const Tensor &src, const Tensor &offsets, int size, bool is_b_matrix, bool is_trans) {
+        [](const Tensor &src, const Tensor &indices, const Tensor &blockTable, int blockSize, int size,
+            bool is_b_matrix, bool is_trans) {
             if (!is_b_matrix && !is_trans) {
                 std::cout << " gather in l1 m def" << std::endl;
-                return experimental::GatherInL1<false, false>(src, offsets, size);
+                return experimental::GatherInL1<false, false>(src, indices, blockTable, blockSize, size);
             } else if (!is_b_matrix && is_trans) {
-                return experimental::GatherInL1<false, true>(src, offsets, size);
+                return experimental::GatherInL1<false, true>(src, indices, blockTable, blockSize, size);
             } else if (is_b_matrix && !is_trans) {
-                return experimental::GatherInL1<true, false>(src, offsets, size);
+                return experimental::GatherInL1<true, false>(src, indices, blockTable, blockSize, size);
             } else {
-                return experimental::GatherInL1<true, true>(src, offsets, size);
+                return experimental::GatherInL1<true, true>(src, indices, blockTable, blockSize, size);
             }
         },
-        py::arg("src"), py::arg("offsets"), py::arg("size"), py::arg("is_b_matrix"), py::arg("is_trans"),
+        py::arg("src"), py::arg("indices"), py::arg("blockTable"), py::arg("blockSize"), py::arg("size"),
+        py::arg("is_b_matrix"), py::arg("is_trans"),
         "gather load L1.");
     m.def(
-        "gather_in_ub",
-        [](const Tensor &param, const Tensor &indices, int axis) {
-            return experimental::GatherInUB(param, indices, axis);
-        },
-        py::arg("param"), py::arg("indices"), py::arg("axis"), "Tensor gather_in_ub");
+         "gather_in_ub",
+         [](const Tensor &param, const Tensor &indices, const Tensor &blockTable, int blockSize, int axis) {
+             return experimental::GatherInUB(param, indices, blockTable, blockSize, axis);
+         },
+         py::arg("param"), py::arg("indices"), py::arg("blockTable"), py::arg("blockSize"), py::arg("axis"),
+         "Tensor gather_in_ub");
     m.def(
         "BatchMatmul",
         [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_b, bool a_trans, bool b_trans,
@@ -455,13 +458,9 @@ void bind_operation(py::module &m) {
         "Clip",
         [](const Tensor &self, const Element &min, const Element &max) {
             return npu::tile_fwk::Clip(self, min, max);
-        }
-    );
-    m.def(
-        "OneHot",
-        [](const Tensor &self, int numClasses) {
-            return npu::tile_fwk::OneHot(self, numClasses);
-        },
-        "Tensor one hot.");
+     });
+     m.def(
+         "OneHot", [](const Tensor &self, int numClasses) { return npu::tile_fwk::OneHot(self, numClasses); },
+         "Tensor one hot.");
 }
 } // namespace pypto

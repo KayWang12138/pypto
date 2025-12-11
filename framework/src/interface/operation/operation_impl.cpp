@@ -1165,7 +1165,8 @@ void Assemble(const std::vector<AssembleItem> &items, Tensor &src, bool parallel
 
 template <bool isB, bool isTrans>
 void TiledGatherInL1(Function &function, const TileShape &tileShape, const LogicalTensorPtr &src,
-    const LogicalTensorPtr &offsets, const LogicalTensorPtr &dst) {
+    const LogicalTensorPtr &offsets, const LogicalTensorPtr &blockTable, const LogicalTensorPtr &dst,
+    int blockSize) {
     const auto &cubeTile = tileShape.GetCubeTile();
 
     auto [firstDimTileShape, secondDimTileShape] = !isB ? std::pair<int64_t, int64_t>{cubeTile.m[1], cubeTile.k[1]} :
@@ -1180,14 +1181,17 @@ void TiledGatherInL1(Function &function, const TileShape &tileShape, const Logic
             auto shape1 = std::min(dst->GetShape()[1] - j, secondDimTileShape);
             auto dstTile = dst->View(function, {shape0, shape1}, {i, j});
             auto offsetsTile = offsets->View(function, {1, shape0}, {0, i});
-            auto &op = function.AddOperation(Opcode::OP_GATHER_IN_L1, {src, offsetsTile}, {dstTile});
+            auto blockTableTile =
+                blockTable->View(function, {blockTable->GetShape()[0], blockTable->GetShape()[1]}, {0, 0});
+            auto &op = function.AddOperation(Opcode::OP_GATHER_IN_L1, {src, offsetsTile, blockTableTile}, {dstTile});
             op.SetAttribute(OpAttributeKey::startOffset, j);
+            op.SetAttribute(OP_ATTR_PREFIX + "blocksize", blockSize);
         }
     }
 }
 
 template <bool isB, bool isTrans>
-Tensor experimental::GatherInL1(const Tensor &src, const Tensor &offsets, int size) {
+Tensor experimental::GatherInL1(const Tensor &src, const Tensor &offsets, const Tensor &blockTable, int blockSize, const int size) {
     constexpr int32_t NUM_SIZE = 2;
     ASSERT(src.GetShape().size() == NUM_SIZE);
     ASSERT(offsets.GetShape().size() == NUM_SIZE); // offsets必须是两维是因为不支持1维的Tensor
@@ -1201,16 +1205,17 @@ Tensor experimental::GatherInL1(const Tensor &src, const Tensor &offsets, int si
             {offsets.GetStorage()->GetDynValidShape()[1], src.GetStorage()->GetDynValidShape()[1]});
     }
     auto &op = Program::GetInstance().GetCurrentFunction()->AddOperation(
-        Opcode::OP_GATHER_IN_L1, {src.GetStorage(), offsets.GetStorage()}, {dst.GetStorage()});
+        Opcode::OP_GATHER_IN_L1, {src.GetStorage(), offsets.GetStorage(), blockTable.GetStorage()}, {dst.GetStorage()});
     op.SetAttribute("isB", isB);
     op.SetAttribute("isTrans", isTrans);
+    op.SetAttribute(OP_ATTR_PREFIX + "blocksize", blockSize);
     return dst;
 }
 
-template Tensor experimental::GatherInL1<false, false>(const Tensor &, const Tensor &, int);
-template Tensor experimental::GatherInL1<false, true>(const Tensor &, const Tensor &, int);
-template Tensor experimental::GatherInL1<true, false>(const Tensor &, const Tensor &, int);
-template Tensor experimental::GatherInL1<true, true>(const Tensor &, const Tensor &, int);
+template Tensor experimental::GatherInL1<false, false>(const Tensor &, const Tensor &, const Tensor &, int, int);
+template Tensor experimental::GatherInL1<false, true>(const Tensor &, const Tensor &, const Tensor &, int, int);
+template Tensor experimental::GatherInL1<true, false>(const Tensor &, const Tensor &, const Tensor &, int, int);
+template Tensor experimental::GatherInL1<true, true>(const Tensor &, const Tensor &, const Tensor &, int, int);
 
 static int64_t CalculateCapacity(const std::vector<int64_t> &shape) {
     int64_t capacity = 1;
@@ -1334,7 +1339,8 @@ Tensor Reshape( const Tensor &operand, const std::vector<SymbolicScalar> &dstSha
 }
 
 void TiledGatherInUB(Function &function, const TileShape &tileShape, const LogicalTensorPtr &param,
-    const LogicalTensorPtr &indices, const LogicalTensorPtr &result) {
+    const LogicalTensorPtr &indices, const LogicalTensorPtr &blockTable, const LogicalTensorPtr &result,
+    int blockSize) {
     const auto &vecTile = tileShape.GetVecTile();
     const int64_t firstDimTileShape = vecTile[0];
     const int64_t secondDimTileShape = vecTile[1];
@@ -1344,8 +1350,12 @@ void TiledGatherInUB(Function &function, const TileShape &tileShape, const Logic
             auto shape1 = std::min(result->GetShape()[1] - j, secondDimTileShape);
             auto paramTile = param->View(function, {param->GetShape()[0], shape1}, {0, j});
             auto indicesTile = indices->View(function, {1, shape0}, {0, i});
-            auto resultTile = result->View(function, { shape0, shape1}, { i, j});
-            auto &op = function.AddOperation(Opcode::OP_GATHER_IN_UB, {paramTile, indicesTile}, {resultTile});
+            auto blockTableTile =
+                blockTable->View(function, {blockTable->GetShape()[0], blockTable->GetShape()[1]}, {0, 0});
+            auto resultTile = result->View(function, {shape0, shape1}, {i, j});
+            auto &op =
+                function.AddOperation(Opcode::OP_GATHER_IN_UB, {paramTile, indicesTile, blockTableTile}, {resultTile});
+            op.SetAttribute(OP_ATTR_PREFIX + "blocksize", blockSize);
             (void)op;
         }
     }
@@ -1359,17 +1369,19 @@ void TiledGatherInUB(Function &function, const TileShape &tileShape, const Logic
  * axis = -2
  * result [c,b]
  */
-Tensor experimental::GatherInUB(const Tensor &param, const Tensor &indices, int axis) {
+Tensor experimental::GatherInUB(
+    const Tensor &params, const Tensor &indices, const Tensor &blockTable, int blockSize, int axis) {
     (void)axis;
     Tensor result{
-        param.GetStorage()->Datatype(), {indices.GetShape()[1], param.GetShape()[1]}
+        params.GetStorage()->Datatype(), {indices.GetShape()[1], params.GetShape()[1]}
     };
     if (!indices.GetStorage()->GetDynValidShape().empty()) {
-        result.GetStorage()->UpdateDynValidShape({
-            indices.GetStorage()->GetDynValidShape()[1], param.GetStorage()->GetDynValidShape()[1]});
+        result.GetStorage()->UpdateDynValidShape(
+            {indices.GetStorage()->GetDynValidShape()[1], params.GetStorage()->GetDynValidShape()[1]});
     }
-    auto &op = Program::GetInstance().GetCurrentFunction()->AddOperation(
-        Opcode::OP_GATHER_IN_UB, {param.GetStorage(), indices.GetStorage()}, {result.GetStorage()});
+    auto &op = Program::GetInstance().GetCurrentFunction()->AddOperation(Opcode::OP_GATHER_IN_UB,
+        {params.GetStorage(), indices.GetStorage(), blockTable.GetStorage()}, {result.GetStorage()});
+    op.SetAttribute(OP_ATTR_PREFIX + "blocksize", blockSize);
     (void)op;
     return result;
 }
@@ -1397,24 +1409,26 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
         case Opcode::OP_GATHER_IN_L1: {
             bool isB = op.GetBoolAttribute("isB");
             bool isTrans = op.GetBoolAttribute("isTrans");
+            int blocksize = op.GetIntAttribute(OP_ATTR_PREFIX + "blocksize");
             if (isB) {
                 if (isTrans) {
-                    TiledGatherInL1<true, true>(function, tileShape, iOperand[0], iOperand[1], oOperand[0]);
+                    TiledGatherInL1<true, true>(function, tileShape, iOperand[0], iOperand[1], iOperand[2], oOperand[0], blocksize);
                 } else {
-                    TiledGatherInL1<true, false>(function, tileShape, iOperand[0], iOperand[1], oOperand[0]);
+                    TiledGatherInL1<true, false>(function, tileShape, iOperand[0], iOperand[1], iOperand[2], oOperand[0], blocksize);
                 }
             } else {
                 if (isTrans) {
-                    TiledGatherInL1<false, true>(function, tileShape, iOperand[0], iOperand[1], oOperand[0]);
+                    TiledGatherInL1<false, true>(function, tileShape, iOperand[0], iOperand[1], iOperand[2], oOperand[0], blocksize);
                 } else {
-                    TiledGatherInL1<false, false>(function, tileShape, iOperand[0], iOperand[1], oOperand[0]);
+                    TiledGatherInL1<false, false>(function, tileShape, iOperand[0], iOperand[1], iOperand[2], oOperand[0], blocksize);
                 }
             }
 
             break;
         }
         case Opcode::OP_GATHER_IN_UB: {
-            TiledGatherInUB(function, tileShape, iOperand[0], iOperand[1], oOperand[0]);
+            int blocksize = op.GetIntAttribute(OP_ATTR_PREFIX + "blocksize");
+            TiledGatherInUB(function, tileShape, iOperand[0], iOperand[1], iOperand[2], oOperand[0], blocksize);
             break;
         }
         case Opcode::OP_LOAD: {

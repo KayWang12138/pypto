@@ -49,7 +49,7 @@ void DeepSeekIndexerAttentionQuant(
     Tensor &attentionOut, DiaQuantAttr &attrs, const DSIASimpleParams &params,
     Tensor &debugQNopeOut, Tensor &debugQRopeOut, Tensor &debugRmsNormOut, Tensor &debugRmsNormScaleOut,
     Tensor &debugQInt8Out, Tensor &debugQScaleOut, Tensor &debugWeightsOut,
-    Tensor &offsetResTmp, Tensor &indexerTopkResTmp, Tensor &topkValueTmp, Tensor &topkTmpOut
+    Tensor &indexerTopkResTmp, Tensor &topkValueTmp, Tensor &topkTmpOut
 );
 
 } // namespace npu::tile_fwk
