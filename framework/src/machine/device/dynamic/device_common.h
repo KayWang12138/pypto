@@ -26,8 +26,8 @@
 
 namespace npu::tile_fwk::dynamic {
 
-inline uint32_t CalcSchAicpuNumByBlockDim(uint32_t blockDim, uint32_t aiCpuNum, bool isAic220 = true) {
-    uint32_t maxScheCore = (isAic220 || aiCpuNum - 2 >= dynamic::MAX_SCHEDULE_AICPU_NUM) ?
+inline uint32_t CalcSchAicpuNumByBlockDim(uint32_t blockDim, uint32_t aiCpuNum) {
+    uint32_t maxScheCore = aiCpuNum - 2 >= dynamic::MAX_SCHEDULE_AICPU_NUM ?
         dynamic::MAX_SCHEDULE_AICPU_NUM : aiCpuNum - 2; // 2 : 1 for controlFlow and 1 for singal reg
     if (blockDim > (dynamic::MAX_SCHEDULE_AICPU_NUM - 1) * dynamic::MAX_MNG_AICORE_AVG_NUM) {
         return maxScheCore;

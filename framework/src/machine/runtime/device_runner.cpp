@@ -186,11 +186,7 @@ int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
     hostProf_.RegHostProf();
 
     std::string aicVersion = PlatformManager::Instance().GetAicVersion();
-    // Due to A5 hardware limitations, initially set aicpuNum seperately
-    if (aicVersion == "AIC-C-310") {
-        aicpuNum_ = PlatformManager::Instance().GetAiCpuCnt() - 1;
-    }
-
+    aicpuNum_ = aicpuNum_ < PlatformManager::Instance().GetAiCpuCnt() - 1 ? aicpuNum_ : PlatformManager::Instance().GetAiCpuCnt() - 1;
     GetHostProfTypeSwtich();
 
     memset_s(&args, sizeof(args), 0, sizeof(args));
@@ -674,11 +670,7 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
     localArgs.nrAicpu = launchAicpuNum;
     blockDim_ = blockdim;
     aicpuNum_ = launchAicpuNum;
-    if (PlatformManager::Instance().GetAicVersion() == "AIC-C-310") {
-        localArgs.scheCpuNum = dynamic::CalcSchAicpuNumByBlockDim(blockdim, aicpuNum_, false);
-    } else {
-        localArgs.scheCpuNum = dynamic::CalcSchAicpuNumByBlockDim(blockdim, aicpuNum_);
-    }
+    localArgs.scheCpuNum = dynamic::CalcSchAicpuNumByBlockDim(blockdim, aicpuNum_);
     localArgs.enableCtrl = ctrlStream == nullptr ? 1 : 0; // need set 0 if use custom cpu launch ctrl cpu
     int rc = rtMemcpy(kernelArgs->cfgdata, size, &localArgs, size, RT_MEMCPY_HOST_TO_DEVICE);
     if (rc != 0) {

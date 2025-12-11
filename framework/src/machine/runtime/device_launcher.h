@@ -105,19 +105,13 @@ public:
             launchConfig.blockdim = maxBlockDim;
         }
 
-        int scheCpuNum = 1;
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
-        if (PlatformManager::Instance().GetAicVersion() == "AIC-C-310") {
-            devProg->devArgs.socVersion = SocVersion::AIC_310;
-            launchConfig.aicpuNum = PlatformManager::Instance().GetAiCpuCnt() - 1;
-            scheCpuNum = CalcSchAicpuNumByBlockDim(launchConfig.blockdim, launchConfig.aicpuNum, false);
-        } else {
-            scheCpuNum = CalcSchAicpuNumByBlockDim(launchConfig.blockdim, launchConfig.aicpuNum);
-        }
         devProg->devArgs.nrAic = kDefaultAicNum;
         devProg->devArgs.nrAiv = kDefaultAivNum;
         devProg->devArgs.nrValidAic = config.blockdim;
-        devProg->devArgs.scheCpuNum = scheCpuNum;
+        launchConfig.aicpuNum =  launchConfig.aicpuNum < PlatformManager::Instance().GetAiCpuCnt() - 1 ?
+            launchConfig.aicpuNum : PlatformManager::Instance().GetAiCpuCnt() - 1;
+        devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(launchConfig.blockdim, launchConfig.aicpuNum);
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
         size_t shmSize = DEVICE_SHM_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
         uint64_t shmAddr = (uint64_t)devMem.AllocZero(shmSize, CachedOperator::GetMetaDataDevAddrHolder(cachedOperator));
