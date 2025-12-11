@@ -13,7 +13,6 @@
 
 import os
 import torch
-import torch.nn.functional as F
 import numpy as np
 import pypto
 from numpy.testing import assert_allclose
@@ -144,8 +143,6 @@ base_loop_global = 16
     codegen_options={"support_dynamic_unaligned": True}
 )
 def moe_with_shared_main(inputs, outputs):
-    pypto.mark_dynamic(inputs[0], 0)
-
     expand_x = inputs[0]
     shared_gate_upper_weight = inputs[1]
     shared_down_weight = inputs[2]
@@ -182,10 +179,18 @@ def test_qwen3next_ffn():
     inputs_list = gen_input_with_shared(
         b, s, hidden_size, intermediate_size, dtype, device_id
     )
-    inputs = [inputs_list[0], inputs_list[1], inputs_list[2], inputs_list[3]]
-    outputs = [inputs_list[4]]
-    pypto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pypto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    inputs = {
+        inputs_list[0]: [0],
+        inputs_list[1]: [],
+        inputs_list[2]: [],
+        inputs_list[3]: []
+    }
+    outputs = {
+        inputs_list[4]: []
+    }
+
+    pypto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+    pypto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     moe_with_shared_main(pypto_inputs, pypto_outputs)
     pypto.runtime._device_synchronize()
 
