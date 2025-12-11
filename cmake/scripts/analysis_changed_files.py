@@ -176,7 +176,8 @@ class Analysis:
             trigger, module_cases = module.is_trigger(changed=self.changed)
             if not trigger:
                 continue
-            cases.extend(module_cases)
+            if module_cases is not None:
+                cases.extend(module_cases)
         return cases
 
 
