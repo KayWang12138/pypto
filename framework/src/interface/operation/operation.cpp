@@ -385,7 +385,7 @@ Json Operation::DumpJson(bool dumpTensor) const {
         opDump["static"]["out_param_loc"] = opDump["out_param_loc"];
     }
     if (opcode_ == Opcode::OP_CALL && BelongTo()->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::EXECUTE_GRAPH)) {
-        auto callAttr = dynamic_cast<CallOpAttribute *>(GetOpAttribute().get());
+        auto callAttr = std::dynamic_pointer_cast<CallOpAttribute>(GetOpAttribute());
         auto programId = callAttr->invokeInfo_->GetProgramId();
         auto programIter = function_->programs_.find(programId);
         if (programIter != function_->programs_.end()) {
@@ -394,7 +394,7 @@ Json Operation::DumpJson(bool dumpTensor) const {
         } else {
             opDump["program_funcmagic"] = programFuncMagic_;
         }
-        CallOpAttribute *attr = dynamic_cast<CallOpAttribute *>(GetOpAttribute().get());
+        auto attr = std::dynamic_pointer_cast<CallOpAttribute>(GetOpAttribute());
         opDump["invoke_info"] = attr->DumpInvokeInfoJson();
         opDump["static"]["invoke_info"] = opDump["invoke_info"];
     }
@@ -856,13 +856,13 @@ void Operation::ReplaceOutput(
 }
 
 void Operation::SetSubFuncInvokeInfo(const SubfuncInvokeInfoTy &invokeInfo) {
-    auto callAttr = dynamic_cast<CallOpAttribute *>(opAttribute_.get());
+    auto callAttr = std::dynamic_pointer_cast<CallOpAttribute>(opAttribute_);
     ASSERT(callAttr != nullptr);
     callAttr->invokeInfo_ = std::make_shared<SubfuncInvokeInfoTy>(invokeInfo);
 }
 
 int Operation::GetProgramId() {
-    auto callAttr = dynamic_cast<CallOpAttribute *>(opAttribute_.get());
+    auto callAttr = std::dynamic_pointer_cast<CallOpAttribute>(opAttribute_);
     ASSERT(callAttr != nullptr);
     return callAttr->invokeInfo_->GetProgramId();
 }

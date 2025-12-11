@@ -97,12 +97,12 @@ static void DumpLine(FILE *f, const std::vector<std::string> &textList, const st
 static void DumpDataViewParallel(const std::shared_ptr<LogicalTensorData> &dataView,
     std::vector<ElementDump> &elementDumpList, util::ThreadPool *pool) {
     struct DumpTask {
-        DumpTask(std::vector<ElementDump> *ret_, const LogicalTensorData *view_, int indexBegin_,
+        DumpTask(std::vector<ElementDump> *ret_, const std::shared_ptr<LogicalTensorData> view_, int indexBegin_,
             int indexEnd_)
             : ret(ret_), view(view_), indexBegin(indexBegin_), indexEnd(indexEnd_) {}
 
         std::vector<ElementDump> *ret;
-        const LogicalTensorData *view;
+        const std::shared_ptr<LogicalTensorData> view;
         int indexBegin;
         int indexEnd;
 
@@ -122,7 +122,7 @@ static void DumpDataViewParallel(const std::shared_ptr<LogicalTensorData> &dataV
     int count = (dataView->GetSize() + pool->GetThreadCount() - 1) / pool->GetThreadCount();
     for (int i = 0; i < pool->GetThreadCount(); i++) {
         dumpTaskList.emplace_back(
-            &elementDumpList, dataView.get(), count * i, std::min(count * (i + 1), dataView->GetSize()));
+            &elementDumpList, dataView, count * i, std::min(count * (i + 1), dataView->GetSize()));
     }
     for (size_t i = 0; i < dumpTaskList.size(); i++) {
         pool->SubmitTask(&dumpTaskList[i], DumpTask::Entry);

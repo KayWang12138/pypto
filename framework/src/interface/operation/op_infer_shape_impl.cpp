@@ -502,7 +502,7 @@ REGISTER_INFER_SHAPE_FUNC(OP_L1_TO_L0_BT, Opcode::OP_L1_TO_L0_BT, LoadL0InferFun
 
 void CopyInInferFunc(Operation* op,
                      std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
-    auto copyOpAttribute = dynamic_cast<CopyOpAttribute *>(op->GetOpAttribute().get());
+    auto copyOpAttribute = std::dynamic_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
     if (!(op->GetOOperands()[0]->GetDynValidShape().empty())) {
         outValidShapes.push_back(op->GetOOperands()[0]->GetDynValidShape());
         if (copyOpAttribute != nullptr && (copyOpAttribute->GetToDynValidShape()).empty()) {
@@ -574,7 +574,7 @@ REGISTER_INFER_SHAPE_FUNC(OP_COPY_IN, Opcode::OP_COPY_IN, CopyInInferFunc);
 void CopyOutInferFunc(Operation* op,
                       std::vector<std::vector<SymbolicScalar>>& outValisShapes)
 {
-    auto copyOpAttribute = dynamic_cast<CopyOpAttribute *>(op->GetOpAttribute().get());
+    auto copyOpAttribute = std::dynamic_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
     if (copyOpAttribute != nullptr) {
         copyOpAttribute->SetFromDynValidShape(OpImmediate::Specified(op->GetIOperands()[0]->GetDynValidShape()));
     } else {
@@ -649,13 +649,13 @@ void TransposeInferFunc(Operation* op,
         outValidShapes.push_back(res);
     }
     if (op->GetOpcode() == Opcode::OP_TRANSPOSE_MOVEIN) {
-        auto copyOpAttribute = dynamic_cast<CopyOpAttribute *>(op->GetOpAttribute().get());
+        auto copyOpAttribute = std::dynamic_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
         if (copyOpAttribute != nullptr) {
             copyOpAttribute->SetToDynValidShape(OpImmediate::Specified(outValidShapes[0]));
         }
     }
     if (op->GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT) {
-        auto copyOpAttribute = dynamic_cast<CopyOpAttribute *>(op->GetOpAttribute().get());
+        auto copyOpAttribute = std::dynamic_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
         if (copyOpAttribute != nullptr) {
             copyOpAttribute->SetFromDynValidShape(OpImmediate::Specified(outValidShapes[0]));
         }
@@ -667,7 +667,7 @@ REGISTER_INFER_SHAPE_FUNC(OP_TRANSPOSE_MOVEIN, Opcode::OP_TRANSPOSE_MOVEIN, Tran
 REGISTER_INFER_SHAPE_FUNC(OP_TRANSPOSE_MOVEOUT, Opcode::OP_TRANSPOSE_MOVEOUT, TransposeInferFunc);
 
 void ViewInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
-    auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op->GetOpAttribute().get());
+    auto viewOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(op->GetOpAttribute());
     if (viewOpAttribute == nullptr) {
         ALOG_WARN_F("View [%d] has no view attr.", op->GetOpMagic());
         outValidShapes.push_back(op->GetIOperands()[0]->GetDynValidShape());
@@ -697,7 +697,7 @@ void ViewInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outV
 REGISTER_INFER_SHAPE_FUNC(OP_VIEW, Opcode::OP_VIEW, ViewInferFunc);
 
 void AssembleInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
-    auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(op->GetOpAttribute().get());
+    auto assembleOpAttribute = std::dynamic_pointer_cast<AssembleOpAttribute>(op->GetOpAttribute());
     if (assembleOpAttribute != nullptr) {
         auto fromValidShape = op->GetIOperands()[0]->GetDynValidShape();
         assembleOpAttribute->SetFromDynValidShape(fromValidShape);

@@ -309,7 +309,7 @@ void Function::UpdateBelongToThis() {
 }
 
 const SubfuncInvokeInfoTy &Function::GetSubFuncInvokeInfo(const size_t i) const {
-    auto callAttr = dynamic_cast<CallOpAttribute *>(operations_[i]->GetOpAttribute().get());
+    auto callAttr = std::dynamic_pointer_cast<CallOpAttribute>(operations_[i]->GetOpAttribute());
     ASSERT(callAttr != nullptr);
     return *(callAttr->invokeInfo_);
 }
@@ -1494,13 +1494,13 @@ void Function::SubstituteIn(std::shared_ptr<LogicalTensor> oldTensor, std::share
             if (cur.GetOpAttribute() == nullptr) {
                 continue;
             }
-            if (auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(cur.GetOpAttribute().get())) {
+            if (auto viewOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(cur.GetOpAttribute())) {
                 // VIEW操作的offset要相应被修改。
                 auto &fromOffset = viewOpAttribute->GetFrom();
                 for (size_t j = 0; j < fromOffset.size(); j++) {
                     fromOffset[j] -= oldTensor->offset[j] - newTensor->offset[j];
                 }
-            } else if (auto copyOpAttribute = dynamic_cast<CopyOpAttribute *>(cur.GetOpAttribute().get())) {
+            } else if (auto copyOpAttribute = std::dynamic_pointer_cast<CopyOpAttribute>(cur.GetOpAttribute())) {
                 // CopyIn操作的offset要相应被修改。
                 if (!copyOpAttribute->IsCopyOut()) {
                     auto [fromOffset, memType] = copyOpAttribute->GetCopyInAttr();
@@ -3213,7 +3213,7 @@ void Function::OpValidCheck(Operation &op) const {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             ASSERT(op.GetIOperands().size() == 1);
             ASSERT(op.GetOOperands().size() <= 1);
-            auto opAttr = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
+            auto opAttr = std::dynamic_pointer_cast<ViewOpAttribute>(op.GetOpAttribute());
             ASSERT(opAttr != nullptr);
             ASSERT(op.GetIOperands()[0]->GetOffset().size() == opAttr->GetFromOffset().size());
             if (!op.GetOOperands().empty()) {
@@ -3223,7 +3223,7 @@ void Function::OpValidCheck(Operation &op) const {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
             ASSERT(op.GetIOperands().size() == 1);
             ASSERT(op.GetOOperands().size() <= 1);
-            auto opAttr = dynamic_cast<AssembleOpAttribute *>(op.GetOpAttribute().get());
+            auto opAttr = std::dynamic_pointer_cast<AssembleOpAttribute>(op.GetOpAttribute());
             ASSERT(opAttr != nullptr);
             if (!op.GetIOperands().empty()) {
                 ASSERT(op.GetIOperands()[0]->GetOffset().size() == opAttr->GetToOffset().size());

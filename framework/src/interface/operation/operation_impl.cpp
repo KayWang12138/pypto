@@ -36,7 +36,7 @@ using namespace npu::tile_fwk;
 namespace {
 
 void TiledAssemble(Function &function, const TileShape &tileShape, size_t cur, Input &input,
-    const std::shared_ptr<LogicalTensor> &result, AssembleOpAttribute *attr) {
+    const std::shared_ptr<LogicalTensor> &result, std::shared_ptr<AssembleOpAttribute> attr) {
     if (cur == input.tensor.GetShape().size()) {
         auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto &assemble = function.AddOperation(Opcode::OP_ASSEMBLE, {tile}, {result});
@@ -62,7 +62,7 @@ void TiledAssemble(Function &function, const TileShape &tileShape, size_t cur, I
 
 void TiledAssemble(Function &function, const TileShape &tileShape,
     const std::shared_ptr<LogicalTensor> &operand, const std::shared_ptr<LogicalTensor> &result,
-    AssembleOpAttribute *attr) {
+    std::shared_ptr<AssembleOpAttribute> attr) {
     assert(operand->shape.size() == operand->offset.size());
 
     TileInfo tileInfo(result->shape.size(), result->offset.size());
@@ -1096,7 +1096,7 @@ void TiledInnerAssemble(Function &function, const TileShape &tileShape, const Op
     auto src = op.GetInputOperand(0);
     auto dst = op.GetInputOperand(1);
     auto result = op.GetOutputOperand(0);
-    auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(op.GetOpAttribute().get());
+    auto assembleOpAttribute = std::dynamic_pointer_cast<AssembleOpAttribute>(op.GetOpAttribute());
     ASSERT(assembleOpAttribute != nullptr);
     const auto &initialOffsets = assembleOpAttribute->GetToDynOffset();
     TileInfo tileInfo(src->GetShape().size(), src->GetOffset().size());
@@ -1488,7 +1488,7 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
             break;
         }
         case Opcode::OP_ASSEMBLE: {
-            auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(op.GetOpAttribute().get());
+            auto assembleOpAttribute = std::dynamic_pointer_cast<AssembleOpAttribute>(op.GetOpAttribute());
             TiledAssemble(function, tileShape, iOperand[0], oOperand[0], assembleOpAttribute);
             break;
         }

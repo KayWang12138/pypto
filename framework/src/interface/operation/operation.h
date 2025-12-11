@@ -353,29 +353,29 @@ public:
             Opcode::OP_SHMEM_CLEAR_SIGNAL, Opcode::OP_SHMEM_MOE_COMBINE_SEND, Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE,
             Opcode::OP_GATHER_IN_UB, Opcode::OP_COPY_TO_LOCAL_EXPERT};
         if (copyOpAttrOpTypes.count(opcode_) > 0) {
-            ASSERT(dynamic_cast<CopyOpAttribute *>(opAttribute_.get()) != nullptr);
+            ASSERT(std::dynamic_pointer_cast<CopyOpAttribute>(opAttribute_) != nullptr);
             return;
         }
 
         switch (opcode_) {
             case Opcode::OP_VIEW: {
-                ASSERT(dynamic_cast<ViewOpAttribute *>(opAttribute_.get()) != nullptr);
+                ASSERT(std::dynamic_pointer_cast<ViewOpAttribute>(opAttribute_) != nullptr);
                 break;
             }
             case Opcode::OP_ASSEMBLE: {
-                ASSERT(dynamic_cast<AssembleOpAttribute *>(opAttribute_.get()) != nullptr);
+                ASSERT(std::dynamic_pointer_cast<AssembleOpAttribute>(opAttribute_) != nullptr);
                 break;
             }
             case Opcode::OP_ASSEMBLE_SSA:
-                ASSERT(dynamic_cast<AssembleOpAttribute *>(opAttribute_.get()) != nullptr ||
-                       dynamic_cast<CopyOpAttribute *>(opAttribute_.get()) != nullptr);
+                ASSERT(std::dynamic_pointer_cast<AssembleOpAttribute>(opAttribute_) != nullptr ||
+                       std::dynamic_pointer_cast<CopyOpAttribute>(opAttribute_) != nullptr);
                 break;
             case Opcode::OP_CALL: {
-                ASSERT(dynamic_cast<CallOpAttribute *>(opAttribute_.get()) != nullptr);
+                ASSERT(std::dynamic_pointer_cast<CallOpAttribute>(opAttribute_) != nullptr);
                 break;
             }
             case Opcode::OP_CONVERT: {
-                ASSERT(dynamic_cast<ConvertOpAttribute *>(opAttribute_.get()) != nullptr);
+                ASSERT(std::dynamic_pointer_cast<ConvertOpAttribute>(opAttribute_) != nullptr);
                 break;
             }
             default: ASSERT(opAttribute_ == nullptr);
@@ -402,7 +402,7 @@ public:
 
     const FunctionHash &GetCalleeHash() const {
         ASSERT(IsCall() || opcode_ == Opcode::OP_CALL_NOT_EXPAND);
-        CallOpAttribute *callop = static_cast<CallOpAttribute *>(opAttribute_.get());
+        auto callop = std::dynamic_pointer_cast<CallOpAttribute>(opAttribute_);
         return callop->GetCalleeHash();
     }
 
@@ -446,7 +446,7 @@ public:
     void SetSubFuncInvokeInfo(const SubfuncInvokeInfoTy &invokeInfo);
 
     SubfuncInvokeInfoTy &GetSubFuncInvokeInfo() {
-        auto callAttr = dynamic_cast<CallOpAttribute *>(opAttribute_.get());
+        auto callAttr = std::dynamic_pointer_cast<CallOpAttribute>(opAttribute_);
         ASSERT(callAttr != nullptr);
         return *(callAttr->invokeInfo_);
     }
