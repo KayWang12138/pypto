@@ -386,7 +386,12 @@ Status RemoveRedundantOp::RemoveViewAssemble(Function &function) const {
                 APASS_LOG_DEBUG_F(Elements::Operation, 
                     "CASE1: Process OP_VIEW[%d]'s input and OP_ASSEMBLE[%d]'s output perfectMatch.", op.opmagic, consumer->GetOpMagic());
                 ProcessPerfectMatch(function,startTensor,endTensor);
-            }  
+            }else {
+                //case2：assemble的输出tensor是view输入tensor的一部分
+                //       startTensor(inshape) ---> view1  ---> tempTensor1  --->  assemble1  ---> endTensor(outshape < inshape)
+                //                            ---> view2  ---> tempTensor2  --->  assemble2 
+                GenerateNewView(function,op,startTensor,endTensor);  
+            }   
         }    
     }
     EraseRedundantAssemble(function);
@@ -526,6 +531,8 @@ void RemoveRedundantOp::GenerateNewView(Function &function,Operation &op,Logical
     std::shared_ptr<LogicalTensor> input = startTensor;
     std::shared_ptr<RawTensor> newRawTensor = std::make_shared<RawTensor>(input->Datatype(), input->GetShape(), input->Format());;
     std::shared_ptr<LogicalTensor> newViewTensor = std::make_shared<LogicalTensor>(function, newRawTensor, newoffset, endTensor->shape);
+    MemoryType newTenosrMem = endTensor->GetMemoryTypeOriginal();
+    newViewTensor ->SetMemoryTypeBoth(newTenosrMem );
     //新建一个view op
     auto &newViewOp = function.AddOperation(Opcode::OP_VIEW, {startTensor}, {newViewTensor});
     auto viewAttribute = std::make_shared<ViewOpAttribute>(
