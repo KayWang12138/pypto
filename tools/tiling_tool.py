@@ -9,7 +9,6 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-#WIKI https://wiki.huawei.com/domains/3822/wiki/149846/WIKI202509048147747
 
 import json
 import re
@@ -353,7 +352,7 @@ def save_to_csv(path_to_file, res_params):
 
 
 def save_kernel_meta(build_folder, result_folder, pattern=".*"): 
-    root_dir = build_folder + "/build/tests/st/output"
+    root_dir = build_folder + "/build/output/bin/output"
     src = get_newest_folder(root_dir) + "/kernel_aicore"
     dst = result_folder + "/kernel_aicore"
     shutil.copytree(src, dst)
