@@ -135,12 +135,6 @@ public:
 
 enum class FbBufferSpace { QUANT_PRE = 0, RELU_PRE, RELU_POST, QUANT_POST, ANTIQ_ELT, ANTIQ_MTE2 };
 
-enum class MixResourceType {
-    UNKNOWN = 0,
-    ONE_CUBE_ONE_VECTOR = 1, // 1C1V
-    ONE_CUBE_TWO_VECTOR = 2  // 1C2V
-};
-
 enum class AIVCore {
     UNSPECIFIED = -1, // 未指定或非Vector组件
     AIV0 = 0,         // 在AIVE0核上执行
@@ -151,6 +145,11 @@ class Function;
 // Class to represent an operation (opcode) and its operands
 class Operation : public std::enable_shared_from_this<Operation>, public AttrHolder {
 public:
+    // MixSubgraphSplit相关字段的结构体
+    struct MixSubgraphFields {
+        int internalSubgraphID{NOT_IN_SUBGRAPH};
+        AIVCore aivCore{AIVCore::UNSPECIFIED};
+    };
     friend class Function;
     LogicalTensors iOperand; // Input operands (now actual objects, not shared_ptr)
     LogicalTensors oOperand; // Output operands (now actual objects, not shared_ptr)
@@ -420,9 +419,14 @@ public:
     void UpdateRemainingTime(int remainingTime) { remainingTime_ = remainingTime; }
 
     int GetSubgraphID() const { return subgraphID_; }
-    int GetInternalSubgraphID() const { return internalSubgraphID_; }
+    int GetInternalSubgraphID() const { 
+        return mixSubgraphFields_ ? mixSubgraphFields_->internalSubgraphID : NOT_IN_SUBGRAPH;
+    }
     void UpdateSubgraphID(int subgraphID) { subgraphID_ = subgraphID; }
-    void UpdateInternalSubgraphID(int internalSubgraphID) { internalSubgraphID_ = internalSubgraphID; }
+    void UpdateInternalSubgraphID(int internalSubgraphID) { 
+        ensureMixSubgraphFields();
+        mixSubgraphFields_->internalSubgraphID = internalSubgraphID; 
+    }
 
     auto GroupID() const { return groupID_; }
     void SetGroupID(size_t groupID) const { groupID_ = groupID; }
@@ -438,10 +442,12 @@ public:
     void SetAsNotDeleted() { isDeleted_ = false; }
     [[nodiscard]] bool IsDeleted() const { return isDeleted_; }
 
-    [[nodiscard]] AIVCore GetAIVCore() const { return aivCore_; }
-    void SetAIVCore(AIVCore aivCore) { aivCore_ = aivCore; }
-    [[nodiscard]] MixResourceType GetMixResourceType() const { return mixResourceType_; }
-    void SetMixResourceType(MixResourceType resourceType) { mixResourceType_ = resourceType; }
+    [[nodiscard]] AIVCore GetAIVCore() const { 
+        return mixSubgraphFields_ ? mixSubgraphFields_->aivCore : AIVCore::UNSPECIFIED;
+    }
+    void SetAIVCore(AIVCore aivCore) { 
+        ensureMixSubgraphFields();
+        mixSubgraphFields_->aivCore = aivCore; }
 
     void SetSubFuncInvokeInfo(const SubfuncInvokeInfoTy &invokeInfo);
 
@@ -485,7 +491,6 @@ public:
 private:
     Opcode opcode_{Opcode::OP_UNKNOWN};
     int subgraphID_{NOT_IN_SUBGRAPH};
-    int internalSubgraphID_{NOT_IN_SUBGRAPH};
     bool isTileOp_{false};
     TileShape tileShape_;
     std::shared_ptr<OpAttribute> opAttribute_;
@@ -496,8 +501,6 @@ private:
     std::vector<int> oOpAttrOffset;
     int remainingTime_{INVALID_TIME};
     CoreType coreType_{CoreType::MIX};
-    AIVCore aivCore_{AIVCore::AIV0};
-    MixResourceType mixResourceType_{MixResourceType::UNKNOWN};
     std::unordered_set<Operation *> inputCtrlOps;
     std::unordered_set<Operation *> outputCtrlOps;
     mutable size_t groupID_{NON_GROUP};
@@ -508,6 +511,12 @@ private:
     Function *function_;
 
     std::vector<std::string> commentList_;
+    std::unique_ptr<MixSubgraphFields> mixSubgraphFields_;
+    void ensureMixSubgraphFields() {
+        if (!mixSubgraphFields_) {
+            mixSubgraphFields_ = std::make_unique<MixSubgraphFields>();
+        }
+    }
 };
 using OperationPtr = std::shared_ptr<Operation>;
 

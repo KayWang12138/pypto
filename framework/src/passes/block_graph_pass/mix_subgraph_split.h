@@ -87,10 +87,20 @@ struct MixSubgraphInfo {
 
 struct ExtractInfo {
     std::vector<std::vector<SymbolicScalar>> &extractedArgList;
-    std::vector<int>& iOffset;
-    std::vector<int>& oOffset;
+    std::vector<int>& iOffsets;
+    std::vector<int>& oOffsets;
     int& currentOffset;
     std::set<LogicalTensorPtr>& processedTensors;
+};
+
+struct CallOpCreationInfo {
+    Function* leafFunc;
+    uint64_t newProgramID;
+    size_t componentIndex;
+    Operation* originalCallOp;
+    uint64_t wrapId;
+    std::vector<int> iOffsets;
+    std::vector<int> oOffsets;
 };
 
 class MixSubgraphSplit : public Pass {
@@ -110,7 +120,9 @@ private:
                             const std::vector<uint64_t>& newProgramIDs,
                             SubgraphToFunction& subgraphToFunction,
                             std::vector<Function*>& newFunctions);
-    Status CreateCallOps(Function& rootFunc, const std::vector<Operation*>& originalCallOps, 
+    Status CreateCallOps(Function& rootFunc, 
+                        const std::vector<Operation*>& originalCallOps, 
+                        Function* originalMixFunc,  
                         const std::vector<InternalComponentInfo>& components,
                         const std::vector<uint64_t>& newProgramIDs,
                         SubgraphToFunction& subgraphToFunction,
@@ -179,8 +191,13 @@ private:
                                      uint64_t newProgramID,
                                      uint64_t componentIndex,
                                      Operation* originalCallOp,
+                                     Function* originalMixFunc,  
                                      SubgraphToFunction& subgraphToFunction,
-                                     uint64_t wrapId);
+                                     uint64_t wrapId,
+                                     std::vector<int>& iOffsets,
+                                     std::vector<int>& oOffsets);
+    
+    int FindTensorIndexInList(int tensorMagic, const std::vector<LogicalTensorPtr>& tensorList) const;
 
     // 依赖分析函数
     std::unordered_map<int, std::vector<int>> AnalyzeComponentDependencies(Function& mixFunc) const;
@@ -229,6 +246,7 @@ private:
     bool IsInUnassignedOps(Operation* op, const std::vector<Operation*>& unassignedOps) const;
     Operation* FindPreviousOpInSequence(Operation* op, Function& mixSubgraphFunc) const;
     Operation* FindNextOpInSequence(Operation* op, Function& mixSubgraphFunc) const;
+    void DisplayArg(const std::vector<SymbolicScalar>& originalLinearArgs) const;
     
     bool ExtractArgListFromIncast(const SubfuncInvokeInfoTy& invokeInfo, Function& leafFunc, std::vector<SymbolicScalar> &originalLinearArgs, ExtractInfo& extractInfo) const;
     bool ExtractArgListFromOutcast(const SubfuncInvokeInfoTy& invokeInfo, Function& leafFunc, std::vector<SymbolicScalar> &originalLinearArgs, ExtractInfo& extractInfo) const;
@@ -240,14 +258,15 @@ private:
         Function& leafFunc,
         CallOpAttribute* originalCallAttr,
         const SubfuncInvokeInfoTy& invokeInfo,
-        std::vector<int>& iOffset,
-        std::vector<int>& oOffset) const;
+        std::vector<int>& iOffsets,
+        std::vector<int>& oOffsets) const;
 
     int FindOriginalOffsetInMixFunction(LogicalTensorPtr tensor) const;
 
     int GetOffsetFromIncastParam(const SubfuncInvokeInfoTy::IncastParamPackTy& incastParam, Function& leafFunc) const;
     int GetOffsetFromOutcastParam(const SubfuncInvokeInfoTy::OutcastParamPackTy& outcastParam, Function& leafFunc) const;
     int GetOffsetFromTensorParam(const SubfuncInvokeInfoTy::TensorParamPackTy& tensorParam, Function& leafFunc) const;
+    Status SetOffsetsToLeafFunction(Function& leafFunc, const std::vector<int>& iOffsets, const std::vector<int> &oOffsets, const SubfuncInvokeInfoTy& invokeInfo);
     bool SetOffsetToOpByMagic(int opMagic, int operandIdx, int offset, Function& leafFunc, bool isOutput) const;
     void UpdateCopyOpAttributeExpressions(Operation* op, int newOffset, bool isOutput) const;
     void UpdateOffsetExpressions(std::vector<OpImmediate>& offsets, const RawSymbolicScalarPtr& newOffsetValue) const;

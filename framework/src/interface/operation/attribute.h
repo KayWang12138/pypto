@@ -328,6 +328,7 @@ public:
 
     static std::shared_ptr<CallOpAttribute> DeserializeFrom(const Json& attrJson,
         [[maybe_unused]] Function *function);
+    // coreTask被调度到哪个wrap
     int32_t wrapId {-1};
 
 private:

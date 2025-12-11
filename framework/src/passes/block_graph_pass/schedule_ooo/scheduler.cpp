@@ -181,6 +181,10 @@ Status OoOScheduler::DelBufRefCount(const int memId) {
 void OoOScheduler::PrintOpList(std::vector<Operation *> operations) {
     APASS_LOG_INFO_F(Elements::Operation, "==================== OP_LIST =====================");
     for (auto &op : operations) {
+        bool isCubeComponent = op->HasAttr(OpAttributeKey::isCube) && op->GetAttr<bool>(OpAttributeKey::isCube);
+        if (!isCubeComponent) {
+            op->SetAIVCore(AIVCore::AIV0);
+        }
         if (!op->oOperand.empty()) {
             APASS_LOG_INFO_F(Elements::Operation, "%s[%d], range[%zu, %zu]", op->GetOpcodeStr().c_str(), 
                 op->GetOpMagic(), op->oOperand[0]->memoryrange.start, op->oOperand[0]->memoryrange.end);

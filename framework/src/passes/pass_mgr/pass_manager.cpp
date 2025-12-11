@@ -45,6 +45,7 @@
 #include "passes/block_graph_pass/infer_param_index.h"
 #include "passes/block_graph_pass/copy_out_resolve.h"
 #include "passes/block_graph_pass/dyn_attr_to_static.h"
+#include "passes/block_graph_pass/mix_subgraph_split.h"
 #include "passes/pass_config/pass_config_manager.h"
 
 namespace npu::tile_fwk {
@@ -91,6 +92,7 @@ void RegPass() {
     REG_PASS(LoopUnroll);
     REG_PASS(DynAttrToStatic);
     REG_PASS(InferDiscontinuousInput);
+    REG_PASS(MixSubgraphSplit);
     REG_PASS(DuplicateOp);
 }
 
@@ -133,6 +135,7 @@ void PassManager::RegDefaultStrategy() {
             {              "RemoveAlloc",              "RemoveAlloc"},
             {           "CopyOutResolve",           "CopyOutResolve"},
             {               "InsertSync",               "InsertSync"},
+            {         "MixSubgraphSplit",         "MixSubgraphSplit"},
             {           "CodegenPreproc",           "CodegenPreproc"},
     });
     RegisterStrategy(

@@ -209,6 +209,7 @@ set(_CaseFilterList
         "InsertSyncTest.TestUpdateDep"
         "InsertSyncTest.TestHandleEventID"
         "InsertSyncTest.TestRelaxFakeDataDep"
+        "MixSubgraphSplitTest.TestMixSubgraphSplit"
         "LoopUnrollTest.TestInnerLoopOrder"
         "LoopUnrollTest.test_only_reshape2"
         "LoopUnrollTest.TestLoopIfWithRank"

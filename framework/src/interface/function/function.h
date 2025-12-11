@@ -74,6 +74,12 @@ inline const BiMap<GraphType> &GetGraphTypeNameDict() {
 
 enum class EndFuncReturnParam { INPUT = 0, OUTPUT, ARGS };
 
+enum MixResourceType {
+    UNKNOWN = 0,
+    ONE_CUBE_ONE_VECTOR = 1, // 1C1V
+    ONE_CUBE_TWO_VECTOR = 2  // 1C2V
+};
+
 struct FunctionCallArgs {
     LogicalTensors iOperands;
     LogicalTensors oOperands;
@@ -164,10 +170,9 @@ struct LeafFuncAttribute {
     std::string binPath;       // 异构子图二进制文件路径
     std::string kernelDeclare; // 异构子图代码的kernel声明，用于后续整体调用
     CoreType coreType{CoreType::INVALID};
-    AIVCore aivCore{AIVCore::UNSPECIFIED};  // 0=AIV0, 1=AIV1, -1=未指定
-    int32_t wrapId{-1};
-    int32_t mixId{-1};
-    MixResourceType mixResourceType{MixResourceType::UNKNOWN};
+    AIVCore aivCore{AIVCore::UNSPECIFIED};  // 表示Mix子图切完的vector子图放在AIV0核还是AIV1核，0=AIV0, 1=AIV1, -1=未指定
+    int32_t mixId{-1};  // 表示哪些切完的leafFunction是从一个Mix子图切出来的
+    MixResourceType mixResourceType{MixResourceType::UNKNOWN};  // mix任务资源诉求是1c2v还是1c1v
     std::vector<int32_t> aicpuLeafCode;
     std::vector<int> outcastCopyOutResolveCounterList;
     int copyOutResolveSize{0};
