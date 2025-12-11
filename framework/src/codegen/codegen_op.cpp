@@ -16,6 +16,7 @@
 #include "codegen_op.h"
 
 #include <algorithm>
+#include <string>
 
 #include "codegen/codegen_common.h"
 #include "codegen/utils/codegen_utils.h"
@@ -474,28 +475,48 @@ std::string CodeGenOp::GenBarrier() const {
     return buffer;
 }
 
-std::string CodeGenOp::GenSyncSetOp() const {
-    char buffer[256] = "CG_ERROR";
+std::string CodeGenOp::PrintSyncComm() const {
+    std::ostringstream oss;
     auto pipeId1 = GetPipeId(syncQueue.pipeId_);
     auto pipeId2 = GetPipeId(syncQueue.trigPipeId_);
-    int ret = snprintf_s(buffer, sizeof(buffer), sizeof(buffer) - 1, "set_flag(%s, %s, EVENT_ID%d);\n", pipeId1.c_str(),
-        pipeId2.c_str(), syncQueue.eventId_);
-    if (ret < 0) {
-        ALOG_INFO_F("genSyncSetOp snprintf_s failed %d", ret);
+    std::string eventId = "EVENT_ID" + std::to_string(syncQueue.eventId_);
+    std::vector<std::string> tileOpParamList = {pipeId1, pipeId2, eventId};
+    oss << tileOpName;
+    oss << PrintParams({"(", ")"}, tileOpParamList, ", ");
+    oss << ";\n";
+    return oss.str();
+}
+
+std::string CodeGenOp::PrintSyncSetTileTensor() const {
+    std::ostringstream oss;
+    auto pipeId1 = GetPipeId(syncQueue.pipeId_);
+    auto pipeId2 = GetPipeId(syncQueue.trigPipeId_);
+    std::vector<std::string> tileOpParamList = {pipeId1, pipeId2};
+    oss << "CceEventIdType EVENT_ID";
+    oss << syncQueue.eventId_;
+    oss << " = ";
+    oss << tileOpName;
+    oss << PrintParams({"(", ")"}, tileOpParamList, ", ");
+    oss << ";\n";
+    return oss.str();
+}
+
+std::string CodeGenOp::PrintSyncWaitTileTensor() const {
+    return PrintSyncComm();
+}
+
+std::string CodeGenOp::GenSyncSetOp() const {
+    if(isSupportLayout){
+        return PrintSyncSetTileTensor();
     }
-    return buffer;
+    return PrintSyncComm();
 }
 
 std::string CodeGenOp::GenSyncWaitOp() const {
-    char buffer[256] = "CG_ERROR";
-    auto pipeId1 = GetPipeId(syncQueue.pipeId_);
-    auto pipeId2 = GetPipeId(syncQueue.trigPipeId_);
-    int ret = snprintf_s(buffer, sizeof(buffer), sizeof(buffer) - 1, "wait_flag(%s, %s, EVENT_ID%d);\n",
-        pipeId1.c_str(), pipeId2.c_str(), syncQueue.eventId_);
-    if (ret < 0) {
-        ALOG_INFO_F("genSyncWaitOp snprintf_s failed %d", ret);
+    if (isSupportLayout) {
+        return PrintSyncWaitTileTensor();
     }
-    return buffer;
+    return PrintSyncComm();
 }
 
 } // namespace npu::tile_fwk

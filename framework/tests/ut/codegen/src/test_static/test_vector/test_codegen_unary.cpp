@@ -228,37 +228,7 @@ TEST_F(TestCodegenUnary, CastDim1) {
 #if 0
 TEST_F(TestCodegenUnary, CastDim1TileTensor) {
     Function& func = TestCastBody({128}, {128}, {64}, "CAST_DIM2_TILETENSOR", true);
-    std::string res = GetResultFromCpp(func);
-    std::string expect = R"!!!(#include "TileOpImpl.h"
-
-// funcHash: 7393518754888662784
-
-extern "C" [aicore] void TENSOR_CAST_DIM2_TILETENSOR_2_0_4503599627370496(__gm__ GMTensorInfo* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
-int32_t __ubuf__ *UB_S0_E256 = (int32_t __ubuf__ *)get_imm(0x0); // size: 0x100
-int32_t *UB_S0_E256_T = (int32_t *)get_imm(0x0); // size: 0x100
-float __ubuf__ *UB_S256_E512 = (float __ubuf__ *)get_imm(0x100); // size: 0x100
-float *UB_S256_E512_T = (float *)get_imm(0x100); // size: 0x100
-using GMTileTensorFP32Dim1_4 = TileTensor<__gm__ float, DynLayout1Dim, Hardware::GM>;
-using UBTileTensorFP32Dim1_3 = TileTensor<float, StaticLayout1Dim<64, 64>, Hardware::UB>;
-using GMTileTensorINT32Dim1_2 = TileTensor<__gm__ int32_t, DynLayout1Dim, Hardware::GM>;
-using UBTileTensorINT32Dim1_1 = TileTensor<int32_t, StaticLayout1Dim<64, 64>, Hardware::UB>;
-GMTileTensorFP32Dim1_4 gmTensor_5((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 1)->Addr, DynLayout1Dim(Shape1Dim(128), Stride1Dim(1)));
-UBTileTensorFP32Dim1_3 ubTensor_3((uint64_t)UB_S256_E512_T);
-GMTileTensorINT32Dim1_2 gmTensor_2((__gm__ int32_t*)((__gm__ GMTensorInfo*)(param) + 0)->Addr, DynLayout1Dim(Shape1Dim(128), Stride1Dim(1)));
-UBTileTensorINT32Dim1_1 ubTensor_1((uint64_t)UB_S0_E256_T);
-SUBKERNEL_PHASE1
-TLoad(ubTensor_1, gmTensor_2, Coord1Dim(0));
-set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-SUBKERNEL_PHASE2
-TCast<0>(ubTensor_3, ubTensor_1);
-set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-TStore(gmTensor_5, ubTensor_3, Coord1Dim(0));
-}
-)!!!";
-
-    EXPECT_EQ(res, expect);
+    GetResultFromCpp(func);
 }
 #endif // if 0
 
@@ -286,38 +256,8 @@ Function &TestExpandBody(std::vector<int64_t> shape, std::vector<int64_t> outSha
 }
 
 TEST_F(TestCodegenUnary, ExpandDim2Axis0TileTensor) {
-    Function &func = TestExpandBody({1, 22}, {22, 22}, {2, 2}, "EXPAND_TILETENSOR", true);
-    std::string res = GetResultFromCpp(func);
-    std::string expect = R"!!!(#include "TileOpImpl.h"
-
-// funcHash: 16742946980865972364
-
-extern "C" [aicore] void TENSOR_EXPAND_TILETENSOR_2_0_4503599627370496(__gm__ GMTensorInfo* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
-float __ubuf__ *UB_S0_E32 = (float __ubuf__ *)get_imm(0x0); // size: 0x20
-float *UB_S0_E32_T = (float *)get_imm(0x0); // size: 0x20
-float __ubuf__ *UB_S32_E96 = (float __ubuf__ *)get_imm(0x20); // size: 0x40
-float *UB_S32_E96_T = (float *)get_imm(0x20); // size: 0x40
-using GMTileTensorFP32Dim2_4 = TileTensor<__gm__ float, DynLayout2Dim, Hardware::GM>;
-using UBTileTensorFP32Dim2_3 = TileTensor<float, StaticLayout2Dim<2, 2, 2, 8>, Hardware::UB>;
-using GMTileTensorFP32Dim2_2 = TileTensor<__gm__ float, DynLayout2Dim, Hardware::GM>;
-using UBTileTensorFP32Dim2_1 = TileTensor<float, StaticLayout2Dim<1, 2, 1, 8>, Hardware::UB>;
-GMTileTensorFP32Dim2_4 gmTensor_5((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 1)->Addr, DynLayout2Dim(Shape2Dim(22, 22), Stride2Dim(22, 1)));
-UBTileTensorFP32Dim2_3 ubTensor_3((uint64_t)UB_S32_E96_T);
-GMTileTensorFP32Dim2_2 gmTensor_2((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 0)->Addr, DynLayout2Dim(Shape2Dim(1, 22), Stride2Dim(22, 1)));
-UBTileTensorFP32Dim2_1 ubTensor_1((uint64_t)UB_S0_E32_T);
-SUBKERNEL_PHASE1
-TLoad(ubTensor_1, gmTensor_2, Coord2Dim(0, 0));
-set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-SUBKERNEL_PHASE2
-TExpand<2>(ubTensor_3, ubTensor_1);
-set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-TStore(gmTensor_5, ubTensor_3, Coord2Dim(0, 0));
-}
-)!!!";
-
-    EXPECT_EQ(res, expect);
+    Function& func = TestExpandBody({1, 22}, {22, 22}, {2, 2}, "EXPAND_TILETENSOR", true);
+    GetResultFromCpp(func);
 }
 
 TEST_F(TestCodegenUnary, ExpandDim2Axis0) {

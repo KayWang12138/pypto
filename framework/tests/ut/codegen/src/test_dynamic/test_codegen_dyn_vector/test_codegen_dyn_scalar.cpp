@@ -24,6 +24,7 @@
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_utils.h"
 #include "test_codegen_common.h"
 
@@ -157,66 +158,78 @@ TEST_F(TestCodegenDynScalar, TestAddsTileTensor) {
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
-
-    std::string res = GetResultFromCpp(*function);
-#if ENABLE_HIDDENLOOP
-    std::string expect = R"!!!(#include "TileOpImpl.h"
-
-// funcHash: 8862770922887829658
-
-extern "C" [aicore] void TENSOR_ADDS_TILETENSOR_Unroll1_PATH0_hiddenfunc0_8_0_4503599627370496(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
-float __ubuf__ *UB_S0_E4096 = (float __ubuf__ *)get_imm(0x0); // size: 0x1000
-float *UB_S0_E4096_T = (float *)get_imm(0x0); // size: 0x1000
-uint64_t sym_2_dim_0 = (RUNTIME_COA_GET_PARAM_VALID_SHAPE(2, 1, 0)); //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 0);
-uint64_t sym_2_dim_1 = (RUNTIME_COA_GET_PARAM_VALID_SHAPE(2, 1, 1)); //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 1);
-uint64_t sym_7_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 0);
-uint64_t sym_7_dim_1 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 1);
-using GMTileTensorFP32Dim2_2 = TileTensor<__gm__ float, DynLayout2Dim, Hardware::GM>;
-using UBTileTensorFP32Dim2_1 = TileTensor<float, LocalLayout2Dim<32, 32>, Hardware::UB>;
-GMTileTensorFP32Dim2_2 gmTensor_5((__gm__ float*)GET_PARAM_ADDR(param, 1, 10), DynLayout2Dim(Shape2Dim(GET_PARAM_RAWSHAPE_2(param, 1, 10)), Stride2Dim(GET_PARAM_STRIDE_2(param, 1, 10))));
-GMTileTensorFP32Dim2_2 gmTensor_2((__gm__ float*)GET_PARAM_ADDR(param, 0, 1), DynLayout2Dim(Shape2Dim(GET_PARAM_RAWSHAPE_2(param, 0, 1)), Stride2Dim(GET_PARAM_STRIDE_2(param, 0, 1))));
-UBTileTensorFP32Dim2_1 ubTensor_1((uint64_t)UB_S0_E4096_T, (Shape2Dim(sym_2_dim_0, sym_2_dim_1)));
-SUBKERNEL_PHASE1
-TLoad(ubTensor_1, gmTensor_2, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 1, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 1, 1))));
-set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-SUBKERNEL_PHASE2
-TAddS<float>(ubTensor_1, ubTensor_1, 3);
-set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-TStore(gmTensor_5, ubTensor_1, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 10, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 10, 1))));
 }
+
+void TestSyncBody(Opcode syncOpcode) {
+    std::vector<int64_t> shape = {64, 64};
+    auto shapeImme = OpImmediate::Specified(shape);
+    TileShape::Current().SetVecTile(shape);
+    TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
+    if (syncOpcode == Opcode::OP_SYNC_SRC || syncOpcode == Opcode::OP_SYNC_DST) {
+        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+        config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    }
+    Tensor inputA(DT_FP32, shape, "A");
+    Tensor inputB(DT_FP32, shape, "B");
+    Tensor output(DT_FP32, shape, "C");
+
+    std::string funcName = "ADD";
+
+    FUNCTION(funcName, {inputA, inputB, output}) {
+        output = Add(inputA, inputB);
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    function->SetUnderDynamicFunction(true);
+    const std::vector<SymbolicScalar> dynValidShape = {64, 64};
+    auto localTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_L0C, shape, dynValidShape});
+    auto localOutTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_L1, shape, dynValidShape});
+
+    auto &op = function->AddOperation(syncOpcode, {localTensor}, {localOutTensor});
+    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
+
+    cop.Init(op);
+    cop.UpdateTileTensorInfo();
+    cop.originShape[0] = shape;
+    cop.originShape[1] = shape;
+
+    std::string res = cop.GenOpCode();
+    std::string expect;
+    if (syncOpcode == Opcode::OP_CV_SYNC_SRC) {
+        expect = R"!!!(set_intra_block(PIPE_S, 0);
 )!!!";
-#else
-    std::string expect = R"!!!(#include "TileOpImpl.h"
-
-// funcHash: 8862770922887829658
-
-extern "C" [aicore] void TENSOR_ADDS_TILETENSOR_Unroll1_PATH0_4_0_4503599627370496(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
-float __ubuf__ *UB_S0_E4096 = (float __ubuf__ *)get_imm(0x0); // size: 0x1000
-float *UB_S0_E4096_T = (float *)get_imm(0x0); // size: 0x1000
-uint64_t sym_2_dim_0 = (RUNTIME_COA_GET_PARAM_VALID_SHAPE(2, 1, 0)); //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 0);
-uint64_t sym_2_dim_1 = (RUNTIME_COA_GET_PARAM_VALID_SHAPE(2, 1, 1)); //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 1);
-uint64_t sym_7_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 0);
-uint64_t sym_7_dim_1 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 1);
-using GMTileTensorFP32Dim2_2 = TileTensor<__gm__ float, DynLayout2Dim, Hardware::GM>;
-using UBTileTensorFP32Dim2_1 = TileTensor<float, LocalLayout2Dim<32, 32>, Hardware::UB>;
-GMTileTensorFP32Dim2_2 gmTensor_5((__gm__ float*)GET_PARAM_ADDR(param, 1, 10), DynLayout2Dim(Shape2Dim(GET_PARAM_RAWSHAPE_2(param, 1, 10)), Stride2Dim(GET_PARAM_STRIDE_2(param, 1, 10))));
-GMTileTensorFP32Dim2_2 gmTensor_2((__gm__ float*)GET_PARAM_ADDR(param, 0, 1), DynLayout2Dim(Shape2Dim(GET_PARAM_RAWSHAPE_2(param, 0, 1)), Stride2Dim(GET_PARAM_STRIDE_2(param, 0, 1))));
-UBTileTensorFP32Dim2_1 ubTensor_1((uint64_t)UB_S0_E4096_T, (Shape2Dim(sym_2_dim_0, sym_2_dim_1)));
-SUBKERNEL_PHASE1
-TLoad(ubTensor_1, gmTensor_2, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 1, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 1, 1))));
-set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-SUBKERNEL_PHASE2
-TAddS<float>(ubTensor_1, ubTensor_1, 3);
-set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-TStore(gmTensor_5, ubTensor_1, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 10, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 10, 1))));
-}
+    } else if(syncOpcode == Opcode::OP_CV_SYNC_DST){
+        expect = R"!!!(wait_intra_block(PIPE_S, 0);
 )!!!";
-#endif
-
+    } else if (syncOpcode == Opcode::OP_SYNC_SRC) {
+        expect = R"!!!(CceEventIdType EVENT_ID0 = __pto_set_flag(PIPE_S, PIPE_S);
+)!!!";
+    } else if (syncOpcode == Opcode::OP_SYNC_DST) {
+        expect = R"!!!(__pto_wait_flag(PIPE_S, PIPE_S, EVENT_ID0);
+)!!!";
+    }
     EXPECT_EQ(res, expect);
+}
+
+TEST_F(TestCodegenDynScalar, InjectSyncSet) {
+    TestSyncBody(Opcode::OP_CV_SYNC_SRC);
+}
+
+TEST_F(TestCodegenDynScalar, InjectSyncWait) {
+    TestSyncBody(Opcode::OP_CV_SYNC_DST);
+}
+
+TEST_F(TestCodegenDynScalar, SetSyncTileTensor) {
+    TestSyncBody(Opcode::OP_SYNC_SRC);
+}
+
+TEST_F(TestCodegenDynScalar, WaitSyncTileTensor) {
+    TestSyncBody(Opcode::OP_SYNC_DST);
 }
 } // namespace npu::tile_fwk

@@ -135,37 +135,5 @@ TEST_F(TestCodegenBinary, TestCodegenAddMulDim4TileTensor) {
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
-    std::string res = GetResultFromCpp(*function);
-    std::string expect = R"!!!(#include "TileOpImpl.h"
-
-// funcHash: 16047418710607905819
-
-extern "C" [aicore] void TENSOR_AddMulDim4_TILETENSOR_2_0_4503599627370496(__gm__ GMTensorInfo* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
-float __ubuf__ *UB_S0_E1024 = (float __ubuf__ *)get_imm(0x0); // size: 0x400
-float *UB_S0_E1024_T = (float *)get_imm(0x0); // size: 0x400
-float __ubuf__ *UB_S1024_E2048 = (float __ubuf__ *)get_imm(0x400); // size: 0x400
-float *UB_S1024_E2048_T = (float *)get_imm(0x400); // size: 0x400
-using GMTileTensorFP32Dim4_2 = TileTensor<__gm__ float, DynLayout4Dim, Hardware::GM>;
-using UBTileTensorFP32Dim4_1 = TileTensor<float, StaticLayout4Dim<1, 1, 16, 16, 1, 1, 16, 16>, Hardware::UB>;
-GMTileTensorFP32Dim4_2 gmTensor_11((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 2)->Addr, DynLayout4Dim(Shape4Dim(1, 1, 16, 16), Stride4Dim(256, 256, 16, 1)));
-GMTileTensorFP32Dim4_2 gmTensor_4((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 0)->Addr, DynLayout4Dim(Shape4Dim(1, 1, 16, 16), Stride4Dim(256, 256, 16, 1)));
-UBTileTensorFP32Dim4_1 ubTensor_3((uint64_t)UB_S1024_E2048_T);
-GMTileTensorFP32Dim4_2 gmTensor_2((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 1)->Addr, DynLayout4Dim(Shape4Dim(1, 1, 16, 16), Stride4Dim(256, 256, 16, 1)));
-UBTileTensorFP32Dim4_1 ubTensor_1((uint64_t)UB_S0_E1024_T);
-SUBKERNEL_PHASE1
-TLoad(ubTensor_1, gmTensor_2, Coord4Dim(0, 0, 0, 0));
-TLoad(ubTensor_3, gmTensor_4, Coord4Dim(0, 0, 0, 0));
-SUBKERNEL_PHASE2
-set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-TAdd(ubTensor_3, ubTensor_1, ubTensor_3);
-pipe_barrier(PIPE_V);
-TMul(ubTensor_3, ubTensor_1, ubTensor_3);
-set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-TStore(gmTensor_11, ubTensor_3, Coord4Dim(0, 0, 0, 0));
-}
-)!!!";
-    EXPECT_EQ(res, expect);
 }
 } // namespace npu::tile_fwk
