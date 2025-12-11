@@ -80,6 +80,7 @@ public:
 
 private:
     Status InitColorNode(Function &func, std::vector<std::vector<int>> &colorNode) const;
+    Status CheckOpListValid(Function &func) const;
     Status L1CopyInReuse(Function &func) const;
     Status RunOnFunction(Function &function) override {
         APASS_LOG_INFO_F(Elements::Operation, "===> Start L1CopyInReuseMerge.");
