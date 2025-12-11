@@ -16,6 +16,7 @@ set(_CaseFilterList
         "TestConfigManager.PassGloablConfig"
         "TestConfigManager.PassStrategies2"
         "TestConfigManager.PassStrategies3"
+        "TestConfigManager.Dump"
 
         # Function
         "ExpectedValueTest.TestCheck"

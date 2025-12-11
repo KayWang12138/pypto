@@ -59,6 +59,17 @@ struct CubeTile {
                std::all_of(k.begin(), k.end(), [](int64_t x) { return x > 0; }) &&
                std::all_of(n.begin(), n.end(), [](int64_t x) { return x > 0; });
     }
+
+    std::string ToString() const {
+        std::stringstream ss;
+        ss << "CubeTile: " << '{'
+           << "m: {" << m[0] << ", " << m[1] << '}' << ", "
+           << "k: {" << k[0] << ", " << k[1] << ", " << k[0x2] << '}' << ", "
+           << "n: {" << n[0] << ", " << n[1] << '}' << ", "
+           << "setL1Tile: " << setL1Tile
+           << "}";
+        return ss.str();
+    }
 };
 
 /**
@@ -95,8 +106,8 @@ struct TileShape {
      *
      * \param tile
      */
-    void SetVecTile(const std::vector<int64_t> &tile) { vecTile = {tile}; }
-    void SetVecTile(const VecTile &tile) { vecTile = tile; }
+    void SetVecTile(const std::vector<int64_t> &tile);
+    void SetVecTile(const VecTile &tile);
 
     template <typename... Args, typename = std::enable_if_t<std::conjunction_v<std::is_integral<Args>...>>>
     inline void SetVecTile(Args... args) {
@@ -119,12 +130,7 @@ struct TileShape {
      * \param n
      */
     void SetCubeTile(const std::array<int64_t, MAX_M_DIM_SIZE> &m, const std::array<int64_t, MAX_K_DIM_SIZE> &k,
-        const std::array<int64_t, MAX_N_DIM_SIZE> &n, bool setL1Tile = false) {
-        auto nk = k;
-        if (nk[2] == 0) // k[2] not set, same as k[1]
-            nk[2] = nk[1];
-        cubeTile = {m, nk, n, setL1Tile};
-    }
+        const std::array<int64_t, MAX_N_DIM_SIZE> &n, bool setL1Tile = false) ;
 
     /**
      * \brief Get the Cube Tile
@@ -235,9 +241,7 @@ struct TileShape {
         distTile = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, INT16_MAX};
     }
 
-    void SetMatrixSize(const std::vector<int64_t> &size) {
-        this->matrixSize = size;
-    }
+    void SetMatrixSize(const std::vector<int64_t> &size) ;
 
     const std::vector<int64_t> &GetMatrixSize() const {
         return matrixSize;

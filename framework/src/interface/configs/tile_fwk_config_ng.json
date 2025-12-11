@@ -1,0 +1,51 @@
+{
+    "pass": {
+        "parallel_threshold": 20,
+        "cycle_upper_bound": 10000,
+        "cycle_lower_bound": 512,
+        "l1_reuse": 0,
+        "cube_nbuffer": 1,
+        "copyin_threshold": 1048576,
+        "ooo_preschedule_method": "PriorDFS",
+        "nbuffer_merge_mode": 1,
+        "sg_vec_parallel_num": 48,
+        "sg_cube_parallel_num": 24,
+        "sg_skip_partition": false,
+        "copyout_resolve_coalescing": 0
+    },
+    "runtime": {
+        "machine_sched_mode": 0,
+        "workspace_recycle_period": 10,
+        "estimated_stitch_task_max_loop_num": 50,
+        "first_stitch_task_loop_num": 30,
+        "subseq_stitch_task_incr_loop_num": 30,
+        "cfgcache_device_task_num": 0,
+        "cfgcache_root_task_num": 0,
+        "cfgcache_leaf_task_num": 0,
+        "stitch_callop_max_num": 20000
+    },
+    "host": {
+        "only_codegen": false
+    },
+    "codegen": {
+        "support_dynamic_unaligned": false,
+        "codegen_expression_fusion": false
+    },
+    "verify": {
+        "verify_tensor_graph": false,
+        "verify_pass": false,
+        "verify_execute_graph": false,
+        "verify_check_precision": false,
+        "verify_dump_tensor": false,
+        "verify_dump_operation": false
+    },
+    "debug": {
+        "profile_enable": false,
+        "print": {
+            "edgeitems": 3,
+            "precision": 4,
+            "threshold": 1000,
+            "linewidth": 80
+        }
+    }
+}

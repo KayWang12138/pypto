@@ -103,11 +103,13 @@ class JIT:
 
     def compile(self, inputs, outputs, *args, **kwargs):
         pypto_impl.DeviceInit()
-        self._set_config_option()
+
 
         handler = pypto_impl.OperatorBegin([t.base() for t in inputs], [t.base() for t in outputs])
-        with pypto.function(self.dyn_func.__name__, inputs, outputs):
-            self.dyn_func(inputs, outputs, *args, **kwargs)
+        with pypto.options("jit_scope"):
+            self._set_config_option()
+            with pypto.function(self.dyn_func.__name__, inputs, outputs):
+                self.dyn_func(inputs, outputs, *args, **kwargs)
         pypto_impl.OperatorEnd(handler)
 
         self._handler = handler
@@ -201,6 +203,7 @@ class JIT:
     @property
     def handler(self):
         return self._handler
+
 
     def _set_config_option(self):
         if isinstance(self.codegen_options, dict):

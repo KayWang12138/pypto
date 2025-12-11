@@ -17,6 +17,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
+#include "interface/configs/config_manager_ng.h"
 
 using namespace npu::tile_fwk;
 
@@ -119,4 +120,40 @@ TEST_F(TestConfigManager, PassStrategies3) {
     config::SetPassDefaultConfig(KEY_EXPECTED_VALUE_CHECK, true);
     ret = ConfigManager::Instance().GetPassConfigs("PVC2_OOO", "RemoveRedundantReshape");
     EXPECT_EQ(ret.expectedValueCheck, true);
+}
+
+TEST_F(TestConfigManager, Dump) {
+    auto &cm = ConfigManagerNg::GetInstance();
+
+    cm.BeginScope("scope1", {{"debug.print.edgeitems", 10L}});
+    auto scope1 = cm.CurrentScope();
+    cm.EndScope();
+
+    cm.BeginScope("scope2", {{"debug.print.edgeitems", 20L}});
+    {
+        cm.BeginScope("scope2.1", {{"debug.print.linewidth", 120L}});
+        auto scope2 = cm.CurrentScope();
+        auto linewidth = AnyCast<int64_t>(scope2->GetConfig("debug.print.linewidth"));
+        EXPECT_EQ(linewidth, 120);
+        auto edgeitems = AnyCast<int64_t>(scope2->GetConfig("debug.print.edgeitems"));
+        EXPECT_EQ(edgeitems, 20);
+        cm.EndScope();
+    }
+
+    auto scope = cm.CurrentScope();
+    auto linewidth = AnyCast<int64_t>(scope->GetConfig("debug.print.linewidth"));
+    EXPECT_EQ(linewidth, 80);
+    auto edgeitems = AnyCast<int64_t>(scope->GetConfig("debug.print.edgeitems"));
+    EXPECT_EQ(edgeitems, 20);
+    cm.EndScope();
+
+    cm.BeginScope("scope3", {{"debug.print.edgeitems", 30L}});
+    auto scope3 = cm.CurrentScope();
+    cm.SetScope({{"debug.print.edgeitems", 35L}});
+    auto scope4 = cm.CurrentScope();
+    cm.EndScope();
+
+    std::cout << cm.ToString() << std::endl;
+    std::cout << "-- scope3 -- " << std::endl;
+    std::cout << scope3->ToString() << std::endl;
 }

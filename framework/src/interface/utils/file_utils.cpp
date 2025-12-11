@@ -408,7 +408,11 @@ bool CopyFile(const std::string &srcPath, const std::string &dstPath) {
 }
 
 std::string GetCurrentSharedLibPath() {
-    std::string currentLibPath;
+    static std::string currentLibPath;
+    if (!currentLibPath.empty()) {
+        return currentLibPath;
+    }
+
     Dl_info info;
     if (dladdr(reinterpret_cast<void*>(GetCurrentSharedLibPath), &info)) {
         currentLibPath = std::string(info.dli_fname);

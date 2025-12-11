@@ -16,6 +16,7 @@
 #include "passes/tensor_graph_pass/loop_unroll.h"
 #include "interface/machine/host/host_machine.h"
 #include "passes/pass_log/pass_log.h"
+#include "interface/configs/config_manager_ng.h"
 
 #define MODULE_NAME "LoopUnroll"
 
@@ -339,22 +340,23 @@ Status LoopUnroll::CreateLoopUnrollFunc(Function *function) {
     Program::GetInstance().GetCurrentFunction()->SetUnderDynamicFunction(true);
 
     auto &paramConfigs = Program::GetInstance().GetCurrentFunction()->paramConfigs_;
-    paramConfigs.l1ReuseNum = config::GetPassOption<int>(L1_REUSE);
-    paramConfigs.cubeNBufferNum = config::GetPassOption<int>(CUBE_NBUFFER);
-    paramConfigs.sgCycleUpperBound = config::GetPassOption<int>(SG_CYCLE_UPPER_BOUND);
-    paramConfigs.sgCycleLowerBound = config::GetPassOption<int>(SG_CYCLE_LOWER_BOUND);
-    paramConfigs.sgParallelNum = config::GetPassOption<int>(SG_PARALLEL_NUM);
-    paramConfigs.sgCopyInThreshold = config::GetPassOption<int>(COPYIN_THRESHOLD);
-    paramConfigs.machineConfig_ = config::GetRuntimeOption<uint8_t>(MACHINE_SCHED_MODE);
-    paramConfigs.firstStitchTaskLoopNum_= config::GetRuntimeOption<uint16_t>(FIRST_STITCH_TASK_LOOP_NUM);
-    paramConfigs.stitchTaskIncrLoopNum_ = config::GetRuntimeOption<uint16_t>(SUBSEQ_STITCH_TASK_INCR_LOOP_NUM);
-    paramConfigs.l1ReuseMap = config::GetPassOption<std::map<int64_t, int64_t>>(L1_REUSE_MAP);
-    paramConfigs.cubeNBufferMap = config::GetPassOption<std::map<int64_t, int64_t>>(CUBE_NBUFFER_MAP);
-    paramConfigs.OoOPreScheduleMethod = config::GetPassOption<std::string>(OOO_PRESCHEDULE_METHOD);
-    paramConfigs.vecNBufferMap = config::GetPassOption<std::map<int64_t, int64_t>>(VEC_NBUFFER_MAP);
-    paramConfigs.nBufferMergeMode = config::GetPassOption<int>(NBUFFER_MERGE_MODE);
-    paramConfigs.sgCubeParallelNum = config::GetPassOption<int>(SG_CUBE_PARALLEL_NUM);
-    paramConfigs.sgVecParallelNum = config::GetPassOption<int>(SG_VEC_PARALLEL_NUM);
+    std::shared_ptr<ConfigScope> currentScope = ConfigManagerNg::GetInstance().CurrentScope();
+    paramConfigs.l1ReuseNum = currentScope->GetPassConfig<int>(L1_REUSE);
+    paramConfigs.cubeNBufferNum = currentScope->GetPassConfig<int>(CUBE_NBUFFER);
+    paramConfigs.sgCycleUpperBound = currentScope->GetPassConfig<int>(SG_CYCLE_UPPER_BOUND);
+    paramConfigs.sgCycleLowerBound = currentScope->GetPassConfig<int>(SG_CYCLE_LOWER_BOUND);
+    paramConfigs.sgParallelNum = currentScope->GetPassConfig<int>(SG_PARALLEL_NUM);
+    paramConfigs.sgCopyInThreshold = currentScope->GetPassConfig<int>(COPYIN_THRESHOLD);
+    paramConfigs.machineConfig_ = currentScope->GetRuntimeConfig<uint8_t>(MACHINE_SCHED_MODE);
+    paramConfigs.firstStitchTaskLoopNum_ = currentScope->GetRuntimeConfig<uint16_t>(FIRST_STITCH_TASK_LOOP_NUM);
+    paramConfigs.stitchTaskIncrLoopNum_ = currentScope->GetRuntimeConfig<uint16_t>(SUBSEQ_STITCH_TASK_INCR_LOOP_NUM);
+    paramConfigs.l1ReuseMap = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(L1_REUSE_MAP);
+    paramConfigs.cubeNBufferMap = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(CUBE_NBUFFER_MAP);
+    paramConfigs.OoOPreScheduleMethod = currentScope->GetPassConfig<std::string>(OOO_PRESCHEDULE_METHOD);
+    paramConfigs.vecNBufferMap = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(VEC_NBUFFER_MAP);
+    paramConfigs.nBufferMergeMode = currentScope->GetPassConfig<int>(NBUFFER_MERGE_MODE);
+    paramConfigs.sgCubeParallelNum = currentScope->GetPassConfig<int>(SG_CUBE_PARALLEL_NUM);
+    paramConfigs.sgVecParallelNum = currentScope->GetPassConfig<int>(SG_VEC_PARALLEL_NUM);
     topFunction_ = Program::GetInstance().GetCurrentFunction();
     return SUCCESS;
 }

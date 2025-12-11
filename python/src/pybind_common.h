@@ -40,5 +40,6 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
 #include "interface/interpreter/calc.h"
+#include "interface/configs/config_manager_ng.h"
 
 namespace py = pybind11;

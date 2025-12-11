@@ -34,6 +34,7 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "passes/pass_mgr/pass_manager.h"
+#include "interface/configs/config_manager_ng.h"
 
 namespace npu::tile_fwk {
 const std::string PROGRAM_ENTRY_FUNCTION_NAME = "PROGRAM_ENTRY";
@@ -202,24 +203,25 @@ bool Program::BeginFunction(const std::string &funcName,
         GetTensorSlotManager()->BeginScope(currentFunctionPtr_);
     }
 
-    currentFunctionPtr_->paramConfigs_.l1ReuseNum = config::GetPassOption<int>(L1_REUSE);
-    currentFunctionPtr_->paramConfigs_.cubeNBufferNum = config::GetPassOption<int>(CUBE_NBUFFER);
-    currentFunctionPtr_->paramConfigs_.sgCycleUpperBound = config::GetPassOption<int>(SG_CYCLE_UPPER_BOUND);
-    currentFunctionPtr_->paramConfigs_.sgCycleLowerBound = config::GetPassOption<int>(SG_CYCLE_LOWER_BOUND);
-    currentFunctionPtr_->paramConfigs_.sgParallelNum = config::GetPassOption<int>(SG_PARALLEL_NUM);
-    currentFunctionPtr_->paramConfigs_.sgCopyInThreshold = config::GetPassOption<int>(COPYIN_THRESHOLD);
-    currentFunctionPtr_->paramConfigs_.machineConfig_ = config::GetRuntimeOption<uint8_t>(MACHINE_SCHED_MODE);
-    currentFunctionPtr_->paramConfigs_.firstStitchTaskLoopNum_= config::GetRuntimeOption<uint16_t>(FIRST_STITCH_TASK_LOOP_NUM);
-    currentFunctionPtr_->paramConfigs_.stitchTaskIncrLoopNum_ = config::GetRuntimeOption<uint16_t>(SUBSEQ_STITCH_TASK_INCR_LOOP_NUM);
-    currentFunctionPtr_->paramConfigs_.l1ReuseMap = config::GetPassOption<std::map<int64_t, int64_t>>(L1_REUSE_MAP);
-    currentFunctionPtr_->paramConfigs_.cubeNBufferMap = config::GetPassOption<std::map<int64_t, int64_t>>(CUBE_NBUFFER_MAP);
-    currentFunctionPtr_->paramConfigs_.OoOPreScheduleMethod = config::GetPassOption<std::string>(OOO_PRESCHEDULE_METHOD);
-    currentFunctionPtr_->paramConfigs_.vecNBufferMap = config::GetPassOption<std::map<int64_t, int64_t>>(VEC_NBUFFER_MAP);
-    currentFunctionPtr_->paramConfigs_.nBufferMergeMode = config::GetPassOption<int>(NBUFFER_MERGE_MODE);
-    currentFunctionPtr_->paramConfigs_.sgCubeParallelNum = config::GetPassOption<int>(SG_CUBE_PARALLEL_NUM);
-    currentFunctionPtr_->paramConfigs_.sgVecParallelNum = config::GetPassOption<int>(SG_VEC_PARALLEL_NUM);
-    currentFunctionPtr_->paramConfigs_.sgSkipPartition = config::GetPassOption<bool>(SG_SKIP_PARTITION);
-    currentFunctionPtr_->paramConfigs_.copyOutResolveCoalescing = config::GetPassOption<int>(COPYOUT_RESOLVE_COALESCING);
+    std::shared_ptr<ConfigScope> currentScope = ConfigManagerNg::GetInstance().CurrentScope();
+    currentFunctionPtr_->paramConfigs_.l1ReuseNum = currentScope->GetPassConfig<int>(L1_REUSE);
+    currentFunctionPtr_->paramConfigs_.cubeNBufferNum = currentScope->GetPassConfig<int>(CUBE_NBUFFER);
+    currentFunctionPtr_->paramConfigs_.sgCycleUpperBound = currentScope->GetPassConfig<int>(SG_CYCLE_UPPER_BOUND);
+    currentFunctionPtr_->paramConfigs_.sgCycleLowerBound = currentScope->GetPassConfig<int>(SG_CYCLE_LOWER_BOUND);
+    currentFunctionPtr_->paramConfigs_.sgParallelNum = currentScope->GetPassConfig<int>(SG_PARALLEL_NUM);
+    currentFunctionPtr_->paramConfigs_.sgCopyInThreshold = currentScope->GetPassConfig<int>(COPYIN_THRESHOLD);
+    currentFunctionPtr_->paramConfigs_.machineConfig_ = currentScope->GetRuntimeConfig<uint8_t>(MACHINE_SCHED_MODE);
+    currentFunctionPtr_->paramConfigs_.firstStitchTaskLoopNum_ = currentScope->GetRuntimeConfig<uint16_t>(FIRST_STITCH_TASK_LOOP_NUM);
+    currentFunctionPtr_->paramConfigs_.stitchTaskIncrLoopNum_ = currentScope->GetRuntimeConfig<uint16_t>(SUBSEQ_STITCH_TASK_INCR_LOOP_NUM);
+    currentFunctionPtr_->paramConfigs_.l1ReuseMap = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(L1_REUSE_MAP);
+    currentFunctionPtr_->paramConfigs_.cubeNBufferMap = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(CUBE_NBUFFER_MAP);
+    currentFunctionPtr_->paramConfigs_.OoOPreScheduleMethod = currentScope->GetPassConfig<std::string>(OOO_PRESCHEDULE_METHOD);
+    currentFunctionPtr_->paramConfigs_.vecNBufferMap = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(VEC_NBUFFER_MAP);
+    currentFunctionPtr_->paramConfigs_.nBufferMergeMode = currentScope->GetPassConfig<int>(NBUFFER_MERGE_MODE);
+    currentFunctionPtr_->paramConfigs_.sgCubeParallelNum = currentScope->GetPassConfig<int>(SG_CUBE_PARALLEL_NUM);
+    currentFunctionPtr_->paramConfigs_.sgVecParallelNum = currentScope->GetPassConfig<int>(SG_VEC_PARALLEL_NUM);
+    currentFunctionPtr_->paramConfigs_.sgSkipPartition = currentScope->GetPassConfig<bool>(SG_SKIP_PARTITION);
+    currentFunctionPtr_->paramConfigs_.copyOutResolveCoalescing = currentScope->GetPassConfig<int>(COPYOUT_RESOLVE_COALESCING);
     return true;
 }
 

@@ -30,6 +30,7 @@
 #include "interface/tensor/raw_tensor.h"
 #include "interface/utils/serialization.h"
 #include "passes/pass_utils/pass_utils.h"
+#include "interface/configs/config_manager_ng.h"
 
 namespace npu::tile_fwk {
 const std::string OpAttributeKey::aicpuCall = "AICPU_CALL";

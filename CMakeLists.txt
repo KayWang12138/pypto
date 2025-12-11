@@ -125,6 +125,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
     install(FILES
                 framework/src/interface/configs/tile_fwk_config.json
                 framework/src/interface/configs/tile_fwk_types.json
+                framework/src/interface/configs/tile_fwk_config_ng.json
                 framework/src/interface/configs/tile_fwk_config_schema.json
                 framework/src/passes/pass_config/tile_fwk_platform_info.json
             DESTINATION ${PyPTO_WhlName}/lib/configs

@@ -1,0 +1,348 @@
+/**
+ * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file config_manager_ng.cpp
+ * \brief
+ */
+#include <string>
+#include <map>
+#include <typeinfo>
+#include <fstream>
+#include <sstream>
+#include <list>
+#include <stack>
+
+#include <nlohmann/json.hpp>
+
+#include "interface/inner/any.h"
+#include "interface/utils/common.h"
+#include "interface/utils/log.h"
+#include "interface/utils/file_utils.h"
+#include "interface/utils/string_utils.h"
+
+#include "config_manager_ng.h"
+#include "tilefwk/tile_shape.h"
+
+
+namespace npu::tile_fwk {
+
+struct TypeInfo {
+    TypeInfo() = default;
+
+    void LoadConf(const std::string &path) {
+        std::ifstream infile(path);
+        ASSERT(infile.is_open()) << "Open file " << path << " failed";
+        nlohmann::json jdata;
+        infile >> jdata;
+
+        build_type_infos(jdata, "");
+    }
+
+    void build_type_infos(const nlohmann::json &jdata, const std::string &prefix) {
+        if (jdata.contains("properties")) {
+            auto &properties = jdata["properties"];
+            for (auto &it : properties.items()) {
+                const std::string &key = it.key();
+                const nlohmann::json &value = it.value();
+                if (prefix.empty()) {
+                    build_type_infos(value, key);
+                } else {
+                    build_type_infos(value, prefix + "." + key);
+                }
+            }
+        } else if (jdata.contains("type")) {
+            const std::string &type = jdata["type"];
+            if (type == "string") {
+                typeInfos.insert({prefix, typeid(std::string)});
+            } else if (type == "integer") {
+                typeInfos.insert({prefix, typeid(int64_t)});
+            } else if (type == "boolean") {
+                typeInfos.insert({prefix, typeid(bool)});
+            } else if (type == "array") {
+                auto &jitem_type = jdata["items"]["type"];
+                if (jitem_type == "string") {
+                    typeInfos.insert({prefix, typeid(std::vector<std::string>)});
+                } else if (jitem_type == "integer") {
+                    typeInfos.insert({prefix, typeid(std::vector<int64_t>)});
+                }
+            } else if (type == "object") {
+                const std::string &typeHints = jdata["typeHints"];
+                if (typeHints == "intmap") {
+                    typeInfos.insert({prefix, typeid(std::map<int64_t, int64_t>)});
+                }
+            } else {
+                ALOG_ERROR("invalid type: ", type, " at ", prefix);
+            }
+        } else {
+            ALOG_ERROR("type field missing");
+        }
+    }
+
+    const std::type_info &Type(const std::string &name) const {
+        if (typeInfos.find(name) == typeInfos.end()) {
+            return typeid(void);
+        }
+        return typeInfos.at(name);
+    }
+
+    std::map<std::string, const std::type_info &> typeInfos;
+};
+
+const Any &ConfigScope::GetConfig(const std::string &key) const {
+    if (values_.find(key) == values_.end()) {
+        if (parent_) {
+            return parent_->GetConfig(key);
+        } else {
+            if (Type(key) == typeid(std::map<int64_t, int64_t>)){
+                static const Any emptyMap = std::map<int64_t, int64_t>{};
+                return emptyMap;
+            }
+        }
+        throw std::runtime_error("Config " + key + " not found");
+    }
+    return values_.at(key);
+}
+
+bool ConfigScope::HasConfig(const std::string &key) const {
+    return values_.find(key) != values_.end() || (parent_ && parent_->HasConfig(key));
+}
+
+const std::type_info &ConfigScope::Type(const std::string &key) const {
+    return ConfigManagerNg::GetInstance().Type(key);
+}
+
+ConfigScope::ConfigScope(ConfigScopePtr parent) : parent_(parent) {
+    if (parent_) {
+        parent_->children_.push_back(this);
+    }
+}
+
+TileShape ConfigScope::GenerateTileShape() const {
+    TileShape tileShape;
+    CubeTile cubeTile = GetConfig<CubeTile>("cube_tile_shapes");
+    std::vector<int64_t> vec1 = GetConfig<std::vector<int64_t>>("vec_tile_shapes");
+    std::vector<int64_t> vec2 = GetConfig<std::vector<int64_t>>("matrix_size");
+    tileShape.SetCubeTile(cubeTile.m, cubeTile.k, cubeTile.n, cubeTile.setL1Tile);
+    tileShape.SetVecTile(vec1);
+    tileShape.SetMatrixSize(vec2);
+    return tileShape;
+}
+
+ConfigScope::~ConfigScope() {
+    if (parent_) {
+        parent_->children_.remove(this);
+    }
+}
+
+void DumpValues(std::stringstream &os, const std::map<std::string, Any> &values,
+    const std::string &prefix) {
+    for (auto &[key, val] : values) {
+        os << prefix << key << ": ";
+        if (val.Type() == typeid(int64_t)) {
+            os << (AnyCast<int64_t>(val));
+        } else if (val.Type() == typeid(bool)) {
+            os << AnyCast<bool>(val);
+        } else if (val.Type() == typeid(std::string)) {
+            os << (AnyCast<std::string>(val));
+        } else if (val.Type() == typeid(std::vector<int64_t>)) {
+            os << (AnyCast<std::vector<int64_t>>(val));
+        } else if (val.Type() == typeid(std::vector<std::string>)) {
+            os << (AnyCast<std::vector<std::string>>(val));
+        } else if (val.Type() == typeid(std::map<int64_t, int64_t>)) {
+            os << '{';
+            bool is_first = true;
+            for (auto &[k, v] : AnyCast<std::map<int64_t, int64_t>>(val)) {
+                if (!is_first)
+                    os << ", ";
+                os << "{" << k << ", " << v << "}";
+                is_first = false;
+            }
+            os << '}';
+        } else if (val.Type() == typeid(CubeTile)) {
+            os << (AnyCast<CubeTile>(val).ToString());
+        } else {
+            os << "unknow type: " << val.Type().name();
+        }
+        os << "\n";
+    }
+}
+
+std::string ConfigScope::ToString() const{
+    std::map<std::string, Any> values;
+    auto scope = this;
+    while (scope) {
+        for (auto &[key, val] : scope->values_) {
+            if (!values.count(key)) {
+                values[key] = val;
+            }
+        }
+        scope = scope->parent_.get();
+    }
+    std::stringstream os;
+    DumpValues(os, values, "");
+    return os.str();
+}
+
+struct ConfigManagerImpl {
+    TypeInfo typeInfo;
+    std::stack<ConfigScopePtr> scopes;
+    ConfigScopePtr root;
+
+    ConfigManagerImpl() {
+        typeInfo.LoadConf(GetConfDir() + "tile_fwk_config_schema.json");
+        root = std::make_shared<ConfigScope>(nullptr);
+        root->name_ = "default";
+        LoadConf();
+        InitTileShape();
+        scopes.push(root);
+        auto global = std::make_shared<ConfigScope>(root);
+        global->name_ = "global";
+        scopes.push(global);
+    }
+
+    void BeginScope(const std::string &name, std::map<std::string, Any> &&values, const char *file, int lino) {
+        auto scope = std::make_shared<ConfigScope>(scopes.top());
+        scope->values_ = std::move(values);
+        scope->begin_file_ = file;
+        scope->begin_lino_ = lino;
+        scope->name_ = name;
+        scopes.push(scope);
+    }
+
+    void EndScope(const char *file, int lino) {
+        /* at least default and global two levels */
+        ASSERT(scopes.size() >= 2) << "No scope to pop";
+        auto &scope = scopes.top();
+        scope->end_file_ = file;
+        scope->end_lino_ = lino;
+        scopes.pop();
+    }
+
+    void SetScope(std::map<std::string, Any> &&values, const char *file, int lino) {
+        auto scope = scopes.top();
+        if (scope.use_count() > 1) { // clone if shared
+            auto oldvalues = scopes.top()->values_;
+            auto name = scopes.top()->name_;
+            EndScope(file, lino);
+            BeginScope(name, std::move(oldvalues), file, lino);
+            scope = scopes.top();
+        }
+        for (auto &it : values) {
+            scope->AddValue(it.first, it.second);
+        }
+    }
+
+    void Dump(std::stringstream &os, ConfigScope *node, const std::string &prefix) {
+        if (!node->begin_file_.empty()) {
+            os << prefix << "scope_start: " << node->begin_file_ << ":" << node->begin_lino_ << "\n";
+        }
+        if (!node->end_file_.empty()) {
+            os << prefix << "scope_end: " << node->end_file_ << ":" << node->end_lino_ << "\n";
+        }
+        if (!node->name_.empty()) {
+            os << prefix << "scope: " << node->name_ << "\n";
+        }
+        DumpValues(os, node->values_, prefix);
+        for (auto child : node->children_) {
+            os << prefix << "--------\n";
+            Dump(os, child, prefix + ' ');
+        }
+    }
+
+    std::string ToString() {
+        std::stringstream os;
+        Dump(os, root.get(), "");
+        return os.str();
+    }
+
+private:
+    std::string GetConfDir() { return GetCurrentSharedLibPath() + "/configs/"; }
+
+    void LoadConf(const nlohmann::json &jdata, const std::string &prefix) {
+        if (jdata.is_string()) {
+            root->AddValue(prefix, jdata.get<std::string>());
+        } else if (jdata.is_number()) {
+            root->AddValue(prefix, jdata.get<int64_t>());
+        } else if (jdata.is_boolean()) {
+            root->AddValue(prefix, jdata.get<bool>());
+        } else if (jdata.is_array()) {
+            if (typeInfo.Type(prefix) == typeid(std::vector<int64_t>)) {
+                root->AddValue(prefix, jdata.get<std::vector<int64_t>>());
+            } else {
+                root->AddValue(prefix, jdata.get<std::vector<std::string>>());
+            }
+        } else if (jdata.is_object()) {
+            for (auto &it : jdata.items()) {
+                const std::string &key = it.key();
+                if (prefix.empty()) {
+                    LoadConf(it.value(), key);
+                } else {
+                    LoadConf(it.value(), prefix + "." + key);
+                }
+            }
+        }
+    }
+
+    void LoadConf() {
+        std::string confPath = GetEnvVar("TILEFWK_CONFIG_PATH");
+        if (confPath.empty()) {
+            confPath = GetConfDir() + "tile_fwk_config_ng.json";
+        }
+        std::ifstream ifs(confPath);
+        ASSERT(ifs.is_open()) << "Open file " << confPath << " failed";
+        nlohmann::json jdata;
+        ifs >> jdata;
+        LoadConf(jdata, "");
+    }
+
+    void InitTileShape() {
+        TileShape tileShape;
+        tileShape.Reset();
+        root->AddValue("cube_tile_shapes", tileShape.GetCubeTile());
+        root->AddValue("vec_tile_shapes", tileShape.GetVecTile().tile);
+        root->AddValue("matrix_size", tileShape.GetMatrixSize());
+    }
+};
+
+void ConfigManagerNg::BeginScope(
+    const std::string &name, std::map<std::string, Any> &&values, const char *file, int lino) {
+    impl_->BeginScope(name, std::move(values), file, lino);
+}
+
+void ConfigManagerNg::EndScope(const char *file, int lino) {
+    impl_->EndScope(file, lino);
+}
+
+void ConfigManagerNg::SetScope(std::map<std::string, Any> &&values, const char *file, int lino) {
+    return impl_->SetScope(std::move(values), file, lino);
+}
+
+std::shared_ptr<ConfigScope> ConfigManagerNg::CurrentScope() const {
+    return impl_->scopes.top();
+}
+
+const std::type_info &ConfigManagerNg::Type(const std::string &key) const {
+    return impl_->typeInfo.Type(key);
+}
+
+std::string ConfigManagerNg::ToString() {
+    return impl_->ToString();
+}
+
+ConfigManagerNg::ConfigManagerNg() : impl_(std::make_unique<ConfigManagerImpl>()) {}
+
+ConfigManagerNg &ConfigManagerNg::GetInstance() {
+    static ConfigManagerNg instance;
+    return instance;
+}
+
+ConfigManagerNg::~ConfigManagerNg() = default;
+} // namespace npu::tile_fwk

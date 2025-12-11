@@ -3,141 +3,79 @@
 
     "type": "object",
     "properties": {
-        "global_configs": {
+        "pass": {
             "type": "object",
             "properties": {
-                "platform_configs": {
-                    "type": "object",
-                    "properties": {
-                        "platform": {"type": "string"},
-                        "USE_SSA": {"type": "boolean"},
-                        "ENABLE_COST_MODEL": {"type": "boolean"},
-                        "ENABLE_DYN_COST_MODEL": {"type": "boolean"},
-                        "ENABLE_DYN_FULL_COST_MODEL": {"type": "boolean"},
-                        "ENABLE_AIHAC_BACKEND": {"type": "boolean"},
-                        "ONLY_TENSOR_GRAPH": {"type": "boolean"},
-                        "ONLY_HOST_COMPILE": {"type": "boolean"},
-                        "PRINT_TENSOR_GRAPH": {"type": "boolean"},
-                        "TEST_IS_TIG": {"type": "boolean"},
-                        "ENABLE_SOFT_MEMORY": {"type": "boolean"},
-                        "ENABLE_PV_DATA": {"type": "boolean"},
-                        "DUMP_SOURCE_LOCATION": {"type": "boolean"},
-                        "ENABLE_CHECKER": {"type": "boolean"},
-                        "DEVICE_PLATFORM": {"type": "string"}
-                    }
-                },
-                "host_configs": {
-                    "type": "object",
-                    "properties": {
-                        "STRATEGY": {"type": "string"},
-                        "ENABLE_BINARY_CACHE": {"type": "boolean"},
-                        "workspace_recycle_period": {"type": "integer"},
-                        "estimated_stitching_count": {"type": "integer"},
-                        "ONLY_CODEGEN": {"type": "boolean"},
-                        "DUMP_BIN_AND_JSON": {"type": "boolean"},
-                        "DUMP_BIN_AND_JSON_PATH": {"type": "string"},
-                        "DUMP_KERNEL_NAME": {"type": "string"}
-                    }
-                },
-                "simulator_configs": {
-                    "type": "object",
-                    "properties": {
-                        "DEBUG_SINGLE_FUNC": {"type":"boolean"},
-                        "DEBUG_SINGLE_FUNCNAME": {"type":"string"},
-                        "DRAW_FUNCTION_GRAPH": {"type":"boolean"},
-                        "BUILD_TASK_BASED_TOPO": {"type":"boolean"},
-                        "SIM_MODE": {"type":"integer"},
-                        "ACCURACY_LEVEL": {"type":"integer"},
-                        "PV_LEVEL": {"type":"integer"},
-                        "LOG_LEVEL": {"type":"integer"},
-                        "EXECUTE_CYCLE_THRESHOLD": {"type":"integer"},
-                        "JSON_PATH": {"type":"string"},
-                        "AGENT_JSON_PATH": {"type":"string"},
-                        "args": {
-                            "type":"array",
-                            "items": {"type":"string"}
-                        }
-                    }
-                },
-                "codegen_configs": {
-                    "type": "object",
-                    "properties": {
-                        "PARALLEL_THREAD_NUM" : {"type": "integer"},
-                        "SUPPORT_DYNAMIC_UNALIGNED" : {"type": "boolean"},
-                        "CODEGEN_BY_JSON": {"type": "boolean"},
-                        "CODEGEN_DUMP_TO_OUTPUT": {"type": "boolean"},
-                        "CODEGEN_FORCE_DUMP_CCE_ON_EXIST": {"type": "boolean"},
-                        "CODEGEN_EXPRESSION_FUSION": {"type": "boolean"},
-                        "COMPILE_CCE_BY_MACHINE": {"type": "boolean"},
-                        "CODEGEN_SUPPORT_LAYOUT": {"type": "boolean"},
-                        "CODEGEN_NEED_COMPILE": {"type": "boolean"}
-                    }
-                },
-                "operation_configs": {
-                    "type": "object",
-                    "properties": {
-                        "FORCE_COMBINE_AXIS" : {"type": "boolean"}
-                    }
-                },
-                "distributed_configs": {
-                    "type": "object",
-                    "properties": {
-                        "AICPU_WAIT_FLAG_ENABLE": {"type": "boolean"}
-                    }
-                }
+                "parallel_threshold": {"type": "integer"},
+                "cycle_upper_bound": {"type": "integer"},
+                "cycle_lower_bound": {"type": "integer"},
+                "l1_reuse": {"type": "integer"},
+                "l1_reuse_map": {"type": "object", "typeHints": "intmap"},
+                "cube_nbuffer": {"type": "integer"},
+                "cube_nbuffer_map": {"type": "object", "typeHints": "intmap"},
+                "copyin_threshold": {"type": "integer"},
+                "ooo_preschedule_method": {"type": "string"},
+                "nbuffer_merge_mode": {"type": "integer"},
+                "vec_nbuffer_map": {"type": "object", "typeHints": "intmap"},
+                "sg_vec_parallel_num": {"type": "integer"},
+                "sg_cube_parallel_num": {"type": "integer"},
+                "sg_skip_partition": {"type": "boolean"},
+                "copyout_resolve_coalescing": {"type": "integer"}
             }
         },
-
-        "pass_global_configs": {
-            "type":"object",
-            "properties": {
-                "enable_pass_configs": {"type":"boolean"},
-                "enable_cv_fuse": {"type":"boolean"},
-                "pass_thread_num": {"type": "integer"},
-                "default_pass_configs": {
-                    "type": "object",
-                    "properties": {
-                        "PRINT_FUNCTION": {"type":"boolean"},
-                        "PRINT_PROGRAM": {"type":"boolean"},
-                        "DUMP_TENSOR_GRAPH": {"type":"boolean"},
-                        "DUMP_TILE_GRAPH": {"type":"boolean"},
-                        "DUMP_BLOCK_GRAPH": {"type":"boolean"},
-                        "DUMP_FUNCTION_GRAPH_BEFORE_PASS": {"type":"boolean"},
-                        "DUMP_FUNCTION_GRAPH_AFTER_PASS": {"type":"boolean"},
-                        "DUMP_PASS_TIME_COST": {"type":"boolean"},
-                        "PRE_CHECK": {"type":"boolean"},
-                        "POST_CHECK": {"type":"boolean"},
-                        "EXPECTED_VALUE_CHECK": {"type":"boolean"},
-                        "DISABLE_PASS": {"type":"boolean"},
-                        "HEALTH_CHECK": {"type":"boolean"}
-                    }
-                }
-            }
-        },
-        "strategies": {
+        "runtime": {
             "type": "object",
             "properties": {
-                "PVC2_OOO": {
+                "machine_sched_mode": {"type": "integer"},
+                "workspace_recycle_period": {"type": "integer"},
+                "estimated_stitch_task_max_loop_num": {"type": "integer"},
+                "first_stitch_task_loop_num": {"type": "integer"},
+                "subseq_stitch_task_incr_loop_num": {"type": "integer"},
+                "cfgcache_device_task_num": {"type": "integer"},
+                "cfgcache_root_task_num": {"type": "integer"},
+                "cfgcache_leaf_task_num": {"type": "integer"},
+                "stitch_callop_max_num": {"type": "integer"}
+            }
+        },
+        "host": {
+            "type": "object",
+            "properties": {
+                "only_codegen": {"type": "boolean"}
+            }
+        },
+        "codegen": {
+            "type": "object",
+            "properties": {
+                "support_dynamic_unaligned": {"type": "boolean"},
+                "codegen_expression_fusion": {"type": "boolean"}
+            }
+        },
+        "verify": {
+            "type": "object",
+            "properties": {
+                "verify_tensor_graph": {"type": "boolean"},
+                "verify_pass": {"type": "boolean"},
+                "verify_execute_graph": {"type": "boolean"},
+                "verify_check_precision": {"type": "boolean"},
+                "verify_dump_tensor": {"type": "boolean"},
+                "verify_dump_operation": {"type": "boolean"}
+            }
+        },
+        "debug": {
+            "type": "object",
+            "properties": {
+                "profile_enable": {"type": "boolean"},
+                "print": {
                     "type": "object",
                     "properties": {
-                        "ExpandFunction": {
-                            "type": "object",
-                            "properties": {
-                                "EXPECTED_VALUE_CHECK": {"type":"boolean"}
-                            }
-                        },
-                        "SubgraphToFunction": {
-                            "type": "object",
-                            "properties": {
-                                "PRE_CHECK": {"type":"boolean"},
-                                "POST_CHECK": {"type":"boolean"},
-                                "USE_MAX_FREQ_LABEL": {"type":"boolean"}
-                            }
-                        }
+                        "edgeitems": {"type": "integer"},
+                        "precision": {"type": "integer"},
+                        "threshold": {"type": "integer"},
+                        "linewidth": {"type": "integer"}
                     }
                 }
-
             }
         }
     }
 }
+

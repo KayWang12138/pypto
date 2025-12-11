@@ -24,6 +24,8 @@
 #include "interface/utils/string_utils.h"
 #include "interface/utils/file_utils.h"
 #include "interface/utils/log.h"
+#include "interface/configs/config_manager_ng.h"
+
 
 using json = nlohmann::json;
 
@@ -309,6 +311,7 @@ static void SetOptionPost(const std::string &key) {
 void experimental::SetOption(const std::string &key, int64_t value) {
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
+    ConfigManagerNg::GetInstance().CurrentScope()->AddValue(key, value);
     g_rwlock.unlock();
     SetOptionPost(key);
 }
@@ -316,6 +319,7 @@ void experimental::SetOption(const std::string &key, int64_t value) {
 void experimental::SetOption(const std::string &key, bool value) {
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
+    ConfigManagerNg::GetInstance().CurrentScope()->AddValue(key, value);
     g_rwlock.unlock();
     SetOptionPost(key);
 }
@@ -323,6 +327,7 @@ void experimental::SetOption(const std::string &key, bool value) {
 void experimental::SetOption(const std::string &key, const char *value) {
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
+    ConfigManagerNg::GetInstance().CurrentScope()->AddValue(key, value);
     g_rwlock.unlock();
     SetOptionPost(key);
 }
@@ -330,6 +335,7 @@ void experimental::SetOption(const std::string &key, const char *value) {
 void experimental::SetOption(const std::string &key, const std::string &value) {
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
+    ConfigManagerNg::GetInstance().CurrentScope()->AddValue(key, value);
     g_rwlock.unlock();
     SetOptionPost(key);
 }
@@ -337,6 +343,7 @@ void experimental::SetOption(const std::string &key, const std::string &value) {
 void experimental::SetOption(const std::string &key, const std::vector<int64_t> &value) {
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
+    ConfigManagerNg::GetInstance().CurrentScope()->AddValue(key, value);
     g_rwlock.unlock();
     SetOptionPost(key);
 }
@@ -344,6 +351,7 @@ void experimental::SetOption(const std::string &key, const std::vector<int64_t> 
 void experimental::SetOption(const std::string &key, const std::map<int64_t, int64_t> &value) {
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
+    ConfigManagerNg::GetInstance().CurrentScope()->AddValue(key, value);
     g_rwlock.unlock();
     SetOptionPost(key);
 }

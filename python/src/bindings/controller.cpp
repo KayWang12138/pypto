@@ -199,12 +199,135 @@ void bind_controller_utils(py::module &m) {
     m.def("ClearLocation", &SourceLocation::ClearLocation);
 }
 
+
+std::map<std::string, npu::tile_fwk::Any> ConvertPyDictToCppMap(const py::dict &values) {
+    std::map<std::string, npu::tile_fwk::Any> cpp_values;
+    for (auto item : values) {
+        std::string key = py::str(item.first);
+        py::object value = py::reinterpret_borrow<py::object>(item.second);
+
+        if (py::isinstance<py::bool_>(value)) {
+            cpp_values[key] = value.cast<bool>();
+        } else if (py::isinstance<py::int_>(value)) {
+            cpp_values[key] = value.cast<int64_t>();
+        } else if (py::isinstance<py::float_>(value)) {
+            cpp_values[key] = value.cast<double>();
+        } else if (py::isinstance<py::str>(value)) {
+            cpp_values[key] = value.cast<std::string>();
+        } else if (py::isinstance<CubeTile>(value)) {
+            cpp_values[key] = value.cast<CubeTile>();
+        } else if (py::isinstance<py::list>(value) || py::isinstance<py::tuple>(value)) {
+            py::list lst = py::cast<py::list>(value);
+            if (lst.size() > 0) {
+                if (py::isinstance<py::int_>(lst[0])) {
+                    cpp_values[key] = value.cast<std::vector<int64_t>>();
+                } else if (py::isinstance<py::str>(lst[0])) {
+                    cpp_values[key] = value.cast<std::vector<std::string>>();
+                } else {
+                    throw py::type_error("Unsupported list element type for key: " + key);
+                }
+            } else {
+                cpp_values[key] = std::vector<int64_t>();
+            }
+        } else if (py::isinstance<py::dict>(value)) {
+            cpp_values[key] = value.cast<std::map<int64_t, int64_t>>();
+        } else {
+            throw py::type_error("Unsupported value type for key: " + key);
+        }
+    }
+
+    return cpp_values;
+}
+
+void bind_controller_scope(py::module &m) {
+    m.def("BeginScope",
+        [](const std::string &name, const py::dict &values, const std::string &filename, int lineno) {
+            auto cpp_values = ConvertPyDictToCppMap(values);
+            ConfigManagerNg::GetInstance().BeginScope(name, std::move(cpp_values), filename.c_str(), lineno);
+        },
+        py::arg("name"),py::arg("values"),py::arg("filename"), py::arg("lineno"));
+
+    m.def("EndScope",
+        [](const std::string &filename, int lineno) {
+            ConfigManagerNg::GetInstance().EndScope(filename.c_str(), lineno);
+        },
+        py::arg("filename"), py::arg("lineno"));
+
+    m.def("SetScope",
+        [](const py::dict &values, const std::string &filename, int lineno) {
+            auto cpp_values = ConvertPyDictToCppMap(values);
+            ConfigManagerNg::GetInstance().SetScope(std::move(cpp_values), filename.c_str(), lineno);
+        },
+        py::arg("values"), py::arg("filename"), py::arg("lineno"));
+
+    m.def("CurrentScope",
+        []() { return ConfigManagerNg::GetInstance().CurrentScope(); });
+
+    m.def("ToString",
+        []() { return ConfigManagerNg::GetInstance().ToString(); });
+}
+
+void bind_controller_scope_classes(py::module &m) {
+    py::class_<ConfigScope, std::shared_ptr<ConfigScope>>(m, "ConfigScope")
+        .def("GetConfig",
+            [](const ConfigScope &scope, const std::string &key) -> py::object {
+                const Any &val = scope.GetConfig(key);
+                const std::type_info &type = val.Type();
+
+                if (type == typeid(bool)) {
+                    return py::cast(AnyCast<bool>(val));
+                } else if (type == typeid(int64_t)) {
+                    return py::cast(AnyCast<int64_t>(val));
+                } else if (type == typeid(double)) {
+                    return py::cast(AnyCast<double>(val));
+                } else if (type == typeid(std::string)) {
+                    return py::cast(AnyCast<std::string>(val));
+                } else if (type == typeid(std::vector<int64_t>)) {
+                    return py::cast(AnyCast<std::vector<int64_t>>(val));
+                } else if (type == typeid(std::vector<std::string>)) {
+                    return py::cast(AnyCast<std::vector<std::string>>(val));
+                } else if (type == typeid(std::map<int64_t, int64_t>)) {
+                    return py::cast(AnyCast<std::map<int64_t, int64_t>>(val));
+                } else if (type == typeid(CubeTile)) {
+                    return py::cast(AnyCast<CubeTile>(val));
+                } else {
+                    throw py::type_error("Unsupported config value type");
+                }
+            },
+            py::arg("key"))
+        .def("HasConfig", &ConfigScope::HasConfig, py::arg("key"))
+        .def("Type",
+            [](const ConfigScope &scope, const std::string &key) -> std::string {
+                return scope.Type(key).name();
+            },
+            py::arg("key"))
+        .def("ToString", &ConfigScope::ToString);
+
+    py::class_<CubeTile>(m, "CubeTile")
+    .def(py::init<>())
+    .def(py::init<std::array<int64_t, 2>,
+                  std::array<int64_t, 3>,
+                  std::array<int64_t, 2>,
+                  bool>(),
+         py::arg("m"),
+         py::arg("k"),
+         py::arg("n"),
+         py::arg("setL1Tile") = false)
+    .def_readwrite("m", &CubeTile::m)
+    .def_readwrite("k", &CubeTile::k)
+    .def_readwrite("n", &CubeTile::n)
+    .def_readwrite("setL1Tile", &CubeTile::setL1Tile)
+    .def("valid", &CubeTile::valid);
+}
+
 void bind_controller(py::module &m) {
     bind_controller_config(m);
     bind_controller_set_tile(m);
     bind_controller_function(m);
     bind_controller_loop(m);
     bind_controller_utils(m);
+    bind_controller_scope(m);
+    bind_controller_scope_classes(m);
 
     // disable cpp mode
     SourceLocation::SetCppMode(false);

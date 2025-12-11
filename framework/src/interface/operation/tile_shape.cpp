@@ -14,8 +14,38 @@
  */
 
 #include "tilefwk/tile_shape.h"
+#include "interface/configs/config_manager_ng.h"
+
+using namespace npu::tile_fwk;
 
 TileShape &TileShape::Current() {
     static TileShape instance;
     return instance;
+}
+
+void TileShape::SetVecTile(const std::vector<int64_t> &tile) {
+    vecTile = {tile};
+    ConfigManagerNg::GetInstance().CurrentScope()->AddValue("vec_tile_shapes", tile);
+}
+
+void TileShape::SetVecTile(const VecTile &tile) {
+    vecTile = tile;
+    ConfigManagerNg::GetInstance().CurrentScope()->AddValue("vec_tile_shapes", tile.tile);
+}
+
+void TileShape::SetCubeTile(const std::array<int64_t, MAX_M_DIM_SIZE> &m,
+                            const std::array<int64_t, MAX_K_DIM_SIZE> &k,
+                            const std::array<int64_t, MAX_N_DIM_SIZE> &n,
+                            bool setL1Tile) {
+    auto nk = k;
+    if (nk[2] == 0) {
+        nk[2] = nk[1];
+    }
+    cubeTile = {m, nk, n, setL1Tile};
+    ConfigManagerNg::GetInstance().CurrentScope()->AddValue("cube_tile_shapes", cubeTile);
+}
+
+void TileShape::SetMatrixSize(const std::vector<int64_t> &size) {
+    this->matrixSize = size;
+    ConfigManagerNg::GetInstance().CurrentScope()->AddValue("matrix_size", size);
 }
