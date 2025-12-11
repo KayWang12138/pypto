@@ -114,7 +114,7 @@ bool TieFwkAicpuPreCompile(std::string &preCompileO, std::string &controlAicpuPa
 
 bool SharedAicpuCompile(const std::string &funcName, const std::string &aicpuDirPath, const std::string &preCompileO) {
     std::string cmdGccCompile = "LD_PRELOAD= " + DeviceMahineCompiler +
-                                " -std=gnu++17 -fno-common -shared -fPIC -O2 -o " +
+                                " -std=gnu++17 -fno-common -shared -fPIC -O2 -Wl,--no-warn-rwx-segments -o " +
                                 aicpuDirPath + "/lib" + funcName + "_control.so " + preCompileO +
                                 " -Wl,--whole-archive " +
                                 GetCurrentSharedLibPath() + "/libpypto_ctrl_server.a" +
@@ -124,7 +124,7 @@ bool SharedAicpuCompile(const std::string &funcName, const std::string &aicpuDir
         ALOG_ERROR_F("RUNDeviceMachine compile fail\n");
         return false;
     }
-    ALOG_ERROR_F("CmdGcc: %s\n", cmdGccCompile.c_str());
+    ALOG_INFO_F("CmdGcc: %s\n", cmdGccCompile.c_str());
     std::string srcSoPath = aicpuDirPath + "/lib" + funcName + "_control.so";
     std::string constrolSoName = "lib" + funcName + "_control";
     GenCustomOpInfo(funcName, aicpuDirPath, constrolSoName);
