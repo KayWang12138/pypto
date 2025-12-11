@@ -453,7 +453,6 @@ Status PipeSync::PipeDispatch(const std::vector<Operation *> opLogPtr, std::vect
             APASS_LOG_ERROR_F(Elements::Operation, "%d ALLOC op should not appear in InsertSync, PipeDispatch failed.%s", opLogPtr[i]->GetOpMagic(), GetFormatBacktrace(opLogPtr[i]).c_str());
             return FAILED;
         }
-        maxOpMagic = std::max(maxOpMagic, opLogPtr[i]->GetOpMagic());
         auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[i]->GetOpcode());
         if (AdjustOpCfg(opcfg, opLogPtr[i]) != SUCCESS) { 
             APASS_LOG_ERROR_F(Elements::Operation, "PipeDispatch failed at function AdjustOpCfg.");
@@ -668,7 +667,6 @@ Status PipeSync::InjectWaitFlag(Function &function, size_t idx, std::vector<Inde
         std::vector<std::shared_ptr<LogicalTensor>> input;
         std::vector<std::shared_ptr<LogicalTensor>> output;
         Operation &syncOp = function.AddRawOperation(npu::tile_fwk::Opcode::OP_SYNC_DST, {input}, {output});
-        syncOp.opmagic = ++maxOpMagic;
         Operation *syncOpPtr = &syncOp;
         bool res = GenSyncOp(setPipeReal, currPipeReal, eventId, false, syncOpPtr);
         if (!res) {
@@ -700,7 +698,6 @@ Status PipeSync::InjectSetFlag(Function &function, size_t idx, std::vector<Index
         std::vector<std::shared_ptr<LogicalTensor>> input;
         std::vector<std::shared_ptr<LogicalTensor>> output;
         Operation &syncOp = function.AddRawOperation(npu::tile_fwk::Opcode::OP_SYNC_SRC, {input}, {output});
-        syncOp.opmagic = ++maxOpMagic;
         Operation *syncOpPtr = &syncOp;
         bool res = GenSyncOp(currPipeReal, waitPipeReal, eventId, true, syncOpPtr);
         if (res) {
@@ -1309,7 +1306,6 @@ void PipeSync::AddPhaseOp1(Function &function, std::vector<Operation *> srcLog, 
                 std::vector<std::shared_ptr<LogicalTensor>> input;
                 std::vector<std::shared_ptr<LogicalTensor>> output;
                 Operation &phaseOp = function.AddRawOperation(npu::tile_fwk::Opcode::OP_PHASE1, {input}, {output});
-                phaseOp.opmagic = ++maxOpMagic;
                 Operation *phaseOpPtr = &phaseOp;
                 dstLog.emplace_back(phaseOpPtr);
             }
@@ -1324,7 +1320,6 @@ void PipeSync::AddPhaseOp2(Function &function, std::vector<Operation *> &dstLog,
         std::vector<std::shared_ptr<LogicalTensor>> input;
         std::vector<std::shared_ptr<LogicalTensor>> output;
         Operation &phaseOp = function.AddRawOperation(npu::tile_fwk::Opcode::OP_PHASE2, {input}, {output});
-        phaseOp.opmagic = ++maxOpMagic;
         Operation *phaseOpPtr = &phaseOp;
         dstLog.emplace_back(phaseOpPtr);
     }

@@ -113,20 +113,22 @@ TEST_F(ScheduleOoOTest, TestMainScheduleOoO) {
     auto emptyOpFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "", "", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
     EXPECT_TRUE(emptyOpFunctionPtr != nullptr);
+    currFunctionPtr->SetGraphType(GraphType::BLOCK_GRAPH);
+    emptyOpFunctionPtr->SetGraphType(GraphType::BLOCK_GRAPH);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
     rootFuncPtr->rootFunc_->programs_.emplace(emptyOpFunctionPtr->GetFuncMagic(), emptyOpFunctionPtr.get());
     std::vector<int64_t> shape = {128, 128};
     auto shapeImme = OpImmediate::Specified(shape);
 
-    auto tensor1 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_DEVICE_DDR, 1);
-    auto tensor2 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_DEVICE_DDR, 2);
-    auto tensor3 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_UB, 3);
-    auto tensor4 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_UB, 4);
-    auto tensor5 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_UB, 5);
-    auto tensor6 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_UB, 6);
-    auto tensor7 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_DEVICE_DDR, 7);
-    auto tensor8 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_UB, 8);
-    auto tensor9 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_UB, 9);
+    auto tensor1 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_DEVICE_DDR, 0);
+    auto tensor2 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_DEVICE_DDR, 1);
+    auto tensor3 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_UB, 2);
+    auto tensor4 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_UB, 3);
+    auto tensor5 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_UB, 4);
+    auto tensor6 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_UB, 5);
+    auto tensor7 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_DEVICE_DDR, 6);
+    auto tensor8 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_UB, 7);
+    auto tensor9 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_UB, 8);
     auto &alloc1 = CreateAllocOp(*currFunctionPtr, tensor3, 1);
     auto &alloc2 = CreateAllocOp(*currFunctionPtr, tensor4, 1);
     auto &alloc3 = CreateAllocOp(*currFunctionPtr, tensor5, 1);
@@ -144,6 +146,8 @@ TEST_F(ScheduleOoOTest, TestMainScheduleOoO) {
     for (auto &program : rootFuncPtr->rootFunc_->programs_) {
         ReorderOperations(*(program.second));
     }
+    currFunctionPtr->EndFunction(nullptr);
+    emptyOpFunctionPtr->EndFunction(nullptr);
     OoOSchedule oooSchedule;
     EXPECT_EQ(oooSchedule.PreCheck(*rootFuncPtr), SUCCESS);
     oooSchedule.RunOnFunction(*rootFuncPtr);

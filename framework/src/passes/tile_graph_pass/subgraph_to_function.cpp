@@ -426,10 +426,6 @@ Status SubgraphToFunction::ProcessSubgraph(
     leafFunc->SetLeafFuncAttribute(std::make_shared<LeafFuncAttribute>());
     InsertParameter(i, leafFunc);
 
-    for (auto &op : subgraph) {
-        leafFunc->opSeed_ = std::max(leafFunc->opSeed_, op->GetOpMagic() + 1);
-    }
-
     //In EndFunction to calculate cache hash
     auto result = Program::GetInstance().EndFunction(leafName);
     auto callOp = std::get<1>(result);

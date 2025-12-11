@@ -95,7 +95,6 @@ Status OoOScheduler::UpdateTensorAttr(
     tensor->SetMemoryTypeToBe(memType);
     tensor->SetMemoryTypeOriginal(memType);
     tensor->oriShape = spillTensor->oriShape;
-    tensor->SetMagic(++maxTensorMagic);
     tensor->UpdateDynValidShape(spillTensor->GetDynValidShape());
     if (memType == MEM_DEVICE_DDR) {
         if (localBufferMap.find(spillMemId) == localBufferMap.end()) {
@@ -106,11 +105,12 @@ Status OoOScheduler::UpdateTensorAttr(
             TileRange(workspaceOffset, workspaceOffset + localBufferMap[spillMemId]->size, workspaceMemId++);
         workspaceOffset += localBufferMap[spillMemId]->size;
     } else {
-        tensor->memoryrange.memId = maxTensorMagic;
-        localBufferMap[maxTensorMagic] = std::make_shared<LocalBuffer>(
-            maxTensorMagic, ShapeCeilAlign(tensor->GetShape(), tensor->Datatype()), tensor->GetMemoryTypeOriginal());
-        if (localBufferMap[maxTensorMagic] == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "Init Tensor[%d] localBuffer failed.", maxTensorMagic);
+        int rawMagic = tensor->GetRawTensor()->GetRawMagic();
+        tensor->memoryrange.memId = rawMagic;
+        localBufferMap[rawMagic] = std::make_shared<LocalBuffer>(
+            rawMagic, ShapeCeilAlign(tensor->GetShape(), tensor->Datatype()), tensor->GetMemoryTypeOriginal());
+        if (localBufferMap[rawMagic] == nullptr) {
+            APASS_LOG_ERROR_F(Elements::Tensor, "Init Tensor[%d] localBuffer failed.", rawMagic);
             return FAILED;
         }
     }
@@ -187,11 +187,17 @@ Status OoOScheduler::UpdateReloadIssueDepend(IssueEntryPtr reloadCopyin, IssueEn
 
 Status OoOScheduler::UpdateReloadIssueInfo(IssueEntryPtr reloadAlloc, IssueEntryPtr reloadCopyin,
     IssueEntryPtr spillIssue, int spillMemId, IssueEntryPtr allocIssue) {
-    reloadAlloc->reqMemIds = {maxTensorMagic};
+    int allocOOperandsSize = reloadAlloc->tileOp.GetOOperands().size();
+    int copyInOOperandsSize = reloadCopyin->tileOp.GetOOperands().size();
+    if (allocOOperandsSize != 1 || copyInOOperandsSize != 1 || reloadAlloc->tileOp.GetOutputOperand(0) != reloadCopyin->tileOp.GetOutputOperand(0)) {
+        APASS_LOG_ERROR_F(Elements::Operation, "oOperands expected 1. %s and %s should share the same oOperand[0]. %s", reloadAlloc->GetOpInfo(), reloadCopyin->GetOpInfo(), GetFormatBacktrace(reloadAlloc->tileOp).c_str());
+        return FAILED;
+    }
+    auto outTensor = reloadAlloc->tileOp.GetOutputOperand(0);
+    reloadAlloc->reqMemIds = {outTensor->memoryrange.memId};
     reloadAlloc->successors.insert(reloadCopyin->id);
-    reloadCopyin->reqMemIds = {maxTensorMagic};
+    reloadCopyin->reqMemIds = {outTensor->memoryrange.memId};
     reloadCopyin->predecessors.insert(reloadAlloc->id);
-
     int bufNextUseOrder = GetBufNextUseOrder(allocIssue, spillMemId);
     if (bufNextUseOrder == -1) {
         APASS_LOG_ERROR_F(Elements::Tensor, "Get Tensor[%d] next use order failed.", spillMemId);
@@ -201,7 +207,6 @@ Status OoOScheduler::UpdateReloadIssueInfo(IssueEntryPtr reloadAlloc, IssueEntry
     InsertIssueEntries(reloadAlloc);
     reloadCopyin->execOrder = bufNextUseOrder;
     InsertIssueEntries(reloadCopyin);
-
     if (UpdateReloadIssueDepend(reloadCopyin, spillIssue, spillMemId) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "UpdateReloadIssueDepend failed. %s", GetFormatBacktrace(reloadCopyin->tileOp).c_str());
         return FAILED;

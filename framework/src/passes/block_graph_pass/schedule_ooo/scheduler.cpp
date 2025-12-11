@@ -714,7 +714,6 @@ void OoOScheduler::InitBufRefCount() {
         for (auto &tensor : issue->tileOp.GetOOperands()) {
             UpdateBufRefCount(issue, tensor);
             int memId = tensor->memoryrange.memId;
-            maxTensorMagic = std::max(maxTensorMagic, std::max(tensor->GetMagic(), memId));
             InitLocalBuffer(tensor, memId);
         }
     }

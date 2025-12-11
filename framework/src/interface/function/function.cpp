@@ -638,6 +638,9 @@ FunctionCallArgs Function::EndFunction(const std::shared_ptr<TensorSlotScope> &s
             /* actualRawmagic存在的场景下，前序 LogicalTensor 应该已经创建好，直接获取 */
             CreateLeafInAndOutCast(in, inArgumentList);
         }
+        for (const auto &op : operations_) {
+            opSeed_ = std::max(opSeed_, op->GetOpMagic() + 1);
+        }
     } else {
         ASSERT(false) << "Not support connecting other type of function currently";
     }
@@ -1941,7 +1944,6 @@ Json Function::DumpJson(bool useTable) {
     funcDump["graphtype"] = graphType_;
     funcDump["func_magicname"] = funcMagicName_;
     funcDump["_opseed"] = opSeed_;
-    funcDump["_magicseed"] = IdGen<IdType::RAW_TENSOR>::Inst().CurId();
     funcDump["_rawid"] = IdGen<IdType::RAW_TENSOR>::Inst().CurId();
     funcDump["_funcid"] = IdGen<IdType::FUNCTION>::Inst().CurId();
     funcDump["_l1_reuse_num"] = paramConfigs_.l1ReuseNum;
