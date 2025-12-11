@@ -51,7 +51,7 @@ static void GatherElementOperationExeFunc2Dims(
         int axis = args->axis_;
         axis = axis >= 0 ? axis : axis + inputs[0].GetShape().size();
         std::vector<int64_t> viewShape = args->viewShape_;
-        ASSERT(viewShape[axis] == std::max(inputs[0].GetShape()[axis], inputs[1].GetShape()[axis]));
+        ASSERT(viewShape[axis] >= std::max(inputs[0].GetShape()[axis], inputs[1].GetShape()[axis]));
         const int firstViewShape = viewShape[0];
         const int secondViewShape = viewShape[1];
 
@@ -92,7 +92,7 @@ static void GatherElementOperationExeFunc3Dims(
         int axis = args->axis_;
         axis = axis >= 0 ? axis : axis + inputs[0].GetShape().size();
         std::vector<int64_t> viewShape = args->viewShape_;
-        ASSERT(viewShape[axis] == std::max(inputs[0].GetShape()[axis], inputs[1].GetShape()[axis]));
+        ASSERT(viewShape[axis] >= std::max(inputs[0].GetShape()[axis], inputs[1].GetShape()[axis]));
         const int firstViewShape = viewShape[0];
         const int secondViewShape = viewShape[1];
         const int thirdViewShape = viewShape[2];
@@ -140,7 +140,7 @@ static void GatherElementOperationExeFunc4Dims(
         int axis = args->axis_;
         axis = axis >= 0 ? axis : axis + inputs[0].GetShape().size();
         std::vector<int64_t> viewShape = args->viewShape_;
-        ASSERT(viewShape[axis] == std::max(inputs[0].GetShape()[axis], inputs[1].GetShape()[axis]));
+        ASSERT(viewShape[axis] >= std::max(inputs[0].GetShape()[axis], inputs[1].GetShape()[axis]));
         const int firstViewShape = viewShape[0];
         const int secondViewShape = viewShape[1];
         const int thirdViewShape = viewShape[2];
@@ -197,7 +197,7 @@ static void GatherElementOperationExeFunc5Dims(
         int axis = args->axis_;
         axis = axis >= 0 ? axis : axis + inputs[0].GetShape().size();
         std::vector<int64_t> viewShape = args->viewShape_;
-        ASSERT(viewShape[axis] == std::max(inputs[0].GetShape()[axis], inputs[1].GetShape()[axis]));
+        ASSERT(viewShape[axis] >= std::max(inputs[0].GetShape()[axis], inputs[1].GetShape()[axis]));
         const int firstViewShape = viewShape[0];
         const int secondViewShape = viewShape[1];
         const int thirdViewShape = viewShape[2];
